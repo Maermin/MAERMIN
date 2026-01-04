@@ -237,5 +237,86 @@ if (typeof window !== 'undefined') {
   window.calculateBudgetUtilization = calculateBudgetUtilization;
   window.calculateGoalProgress = calculateGoalProgress;
   
-  console.log('[OK] Calculator loaded v3.0.1');
+  console.log('[OK] Calculator Extended + Legacy Functions loaded v3.0.1');
 }
+
+// ============================================================================
+// LEGACY COMPATIBILITY FUNCTIONS
+// ============================================================================
+
+function calculateNetIncome(incomeArray, taxArray) {
+  if (!incomeArray || !Array.isArray(incomeArray)) return 0;
+  
+  const totalIncome = incomeArray.reduce((sum, inc) => {
+    const monthlyIncome = convertToMonthly(inc.amount || 0, inc.frequency || 'monthly');
+    return sum + monthlyIncome;
+  }, 0);
+  
+  const totalTax = taxArray && Array.isArray(taxArray) ? taxArray.reduce((sum, tax) => {
+    const monthlyTax = convertToMonthly(tax.amount || 0, tax.frequency || 'monthly');
+    return sum + monthlyTax;
+  }, 0) : 0;
+  
+  return totalIncome - totalTax;
+}
+
+function calculateDetailedCashflow(financialData) {
+  const monthlyIncome = (financialData.income || []).reduce((sum, inc) => 
+    sum + convertToMonthly(inc.amount || 0, inc.frequency || 'monthly'), 0);
+  
+  const monthlyFixed = (financialData.fixedCosts || []).reduce((sum, cost) => 
+    sum + convertToMonthly(cost.amount || 0, cost.frequency || 'monthly'), 0);
+  
+  const monthlyVariable = calculateVariableExpenses(financialData.variableExpenses || []);
+  
+  const monthlyDebt = calculateDebtPayments(financialData.debts || []);
+  
+  const monthlyTax = (financialData.taxes || []).reduce((sum, tax) => 
+    sum + convertToMonthly(tax.amount || 0, tax.frequency || 'monthly'), 0);
+  
+  const totalExpenses = monthlyFixed + monthlyVariable + monthlyDebt + monthlyTax;
+  const netCashflow = monthlyIncome - totalExpenses;
+  
+  return {
+    income: monthlyIncome,
+    fixedCosts: monthlyFixed,
+    variableExpenses: monthlyVariable,
+    debtPayments: monthlyDebt,
+    taxes: monthlyTax,
+    totalExpenses: totalExpenses,
+    netCashflow: netCashflow,
+    savingsRate: monthlyIncome > 0 ? (netCashflow / monthlyIncome) * 100 : 0
+  };
+}
+
+function calculateOverallBudgetStatus(budgets) {
+  if (!budgets || !Array.isArray(budgets) || budgets.length === 0) {
+    return {
+      totalBudget: 0,
+      totalSpent: 0,
+      remaining: 0,
+      utilizationRate: 0,
+      budgetsOverLimit: 0,
+      budgetsUnderLimit: 0
+    };
+  }
+  
+  const totalBudget = budgets.reduce((sum, b) => sum + (b.amount || 0), 0);
+  const totalSpent = budgets.reduce((sum, b) => sum + (b.spent || 0), 0);
+  const remaining = totalBudget - totalSpent;
+  const utilizationRate = totalBudget > 0 ? (totalSpent / totalBudget) * 100 : 0;
+  
+  const budgetsOverLimit = budgets.filter(b => (b.spent || 0) > (b.amount || 0)).length;
+  const budgetsUnderLimit = budgets.filter(b => (b.spent || 0) <= (b.amount || 0)).length;
+  
+  return {
+    totalBudget,
+    totalSpent,
+    remaining,
+    utilizationRate,
+    budgetsOverLimit,
+    budgetsUnderLimit
+  };
+}
+
+console.log('[OK] Calculator Extended + Legacy Functions loaded v3.0.1');
