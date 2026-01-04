@@ -1,0 +1,172 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>MAERMIN v4.0 - Portfolio Tracker</title>
+  
+  <!-- React from CDN -->
+  <script crossorigin src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
+  <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
+  
+  <style>
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+    
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', 'Oxygen',
+        'Ubuntu', 'Cantarell', 'Fira Sans', 'Droid Sans', 'Helvetica Neue',
+        sans-serif;
+      -webkit-font-smoothing: antialiased;
+      -moz-osx-font-smoothing: grayscale;
+      overflow: hidden;
+    }
+    
+    #loading {
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      background: linear-gradient(135deg, #1e293b 0%, #7e22ce 50%, #1e293b 100%);
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+      align-items: center;
+      z-index: 9999;
+      color: white;
+      transition: opacity 0.5s ease-out;
+    }
+    
+    #loading.hidden {
+      opacity: 0;
+      pointer-events: none;
+    }
+    
+    #loading h1 {
+      font-size: 4rem;
+      margin-bottom: 0.5rem;
+      animation: pulse 2s ease-in-out infinite;
+      font-weight: 800;
+      letter-spacing: -0.05em;
+      background: linear-gradient(135deg, #3b82f6 0%, #8b5cf6 100%);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      background-clip: text;
+    }
+    
+    #loading .subtitle {
+      font-size: 0.875rem;
+      opacity: 0.7;
+      margin-bottom: 2rem;
+      letter-spacing: 0.15em;
+      text-transform: uppercase;
+    }
+    
+    @keyframes pulse {
+      0%, 100% { opacity: 1; }
+      50% { opacity: 0.5; }
+    }
+    
+    .loader {
+      margin-top: 2rem;
+      width: 50px;
+      height: 50px;
+      border: 5px solid rgba(255,255,255,0.2);
+      border-top-color: #3b82f6;
+      border-radius: 50%;
+      animation: spin 1s linear infinite;
+    }
+    
+    @keyframes spin {
+      to { transform: rotate(360deg); }
+    }
+    
+    #module-status {
+      margin-top: 2rem;
+      font-size: 0.875rem;
+      opacity: 0.6;
+      min-height: 1.5rem;
+      text-align: center;
+    }
+  </style>
+</head>
+<body>
+  
+  <div id="loading">
+    <h1>MAERMIN</h1>
+    <div class="subtitle">Multi-Asset Portfolio Tracker v4.0</div>
+    <div id="module-status">Lade Module...</div>
+    <div class="loader"></div>
+  </div>
+  
+  <div id="root"></div>
+  
+  <script>
+    const updateStatus = (msg) => {
+      const el = document.getElementById('module-status');
+      if (el) el.textContent = msg;
+    };
+  </script>
+  
+  <!-- MAERMIN v4.0 - NUR BENÖTIGTE MODULE -->
+  <script>updateStatus('Lade Erweiterungen...');</script>
+  <script src="translations-complete.js"></script>
+  <script src="validation-comprehensive.js"></script>
+  <script src="calculator-extended.js"></script>
+  <script src="risk-analytics.js"></script>
+  <script src="cs2-advanced.js"></script>
+  <script src="risk-analytics-view.js"></script>
+  <script src="cs2-analytics-view.js"></script>
+  
+  <!-- MAIN APPLICATION -->
+  <script>updateStatus('Lade Hauptanwendung...');</script>
+  <script src="renderer.js"></script>
+  
+  <script>
+    window.addEventListener('load', () => {
+      setTimeout(() => {
+        updateStatus('Bereit!');
+        setTimeout(() => {
+          const loading = document.getElementById('loading');
+          if (loading) {
+            loading.classList.add('hidden');
+            setTimeout(() => loading.remove(), 500);
+          }
+        }, 500);
+      }, 300);
+    });
+    
+    console.log('%c[MAERMIN v4.0] Portfolio Tracker', 'font-size: 20px; font-weight: bold; color: #7e22ce; background: #f3e8ff; padding: 8px;');
+    console.log('[INFO] Standalone Version - Keine alten Dependencies');
+    console.log('[INFO] Tabs: Overview, Portfolio, Statistics, Risk Analytics, CS2 Analytics');
+    console.log('[INFO] Widgets: 3 (NetWorth, Health, Portfolio)');
+    
+    setTimeout(() => {
+      const checks = [
+        { name: 'React', check: () => typeof React !== 'undefined' },
+        { name: 'ReactDOM', check: () => typeof ReactDOM !== 'undefined' },
+        { name: 'Risk Analytics', check: () => typeof calculateValueAtRisk !== 'undefined' },
+        { name: 'CS2 Analytics', check: () => typeof analyzeFloatPerformance !== 'undefined' },
+        { name: 'Translations', check: () => typeof completeTranslations !== 'undefined' }
+      ];
+      
+      console.log('[MODULE CHECK]');
+      checks.forEach(item => {
+        const status = item.check();
+        console.log(`  ${status ? '[OK]' : '[FEHLER]'} ${item.name}`);
+      });
+      
+      if (checks.every(item => item.check())) {
+        console.log('[OK] Alle Module geladen!');
+      } else {
+        console.error('[FEHLER] Einige Module fehlen!');
+      }
+    }, 1000);
+  </script>
+  
+</body>
+</html>

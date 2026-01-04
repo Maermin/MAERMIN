@@ -1,0 +1,28 @@
+{
+  "name": "investment-tracker",
+  "version": "1.0.0",
+  "main": "main.js",
+  "scripts": {
+    "start": "electron .",
+    "build": "electron-builder"
+  },
+  "devDependencies": {
+    "electron": "^39.2.7",
+    "electron-builder": "^24.9.1"
+  },
+  "build": {
+    "appId": "com.investment.tracker",
+    "productName": "Investment Tracker",
+    "win": {
+      "target": "nsis"
+    },
+    "files": [
+      "main.js",
+      "index.html",
+      "renderer.js"
+    ]
+  },
+  "dependencies": {
+    "build": "^0.1.4"
+  }
+}
