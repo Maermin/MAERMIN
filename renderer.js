@@ -260,8 +260,12 @@ function InvestmentTracker() {
   const [newItem, setNewItem] = useState({ 
     symbol: '', 
     amount: '', 
-    purchasePrice: '', 
-    purchaseDate: new Date().toISOString().split('T')[0] 
+    purchasePrice: '',
+    purchaseDate: new Date().toISOString().split('T')[0],
+    // CS2-specific fields
+    floatValue: '',
+    rarity: '',
+    wear: ''
   });
   const [apiKeys, setApiKeys] = useState({ alphaVantage: '', steamApi: '' });
   const [showApiSettings, setShowApiSettings] = useState(false);
@@ -533,16 +537,38 @@ function InvestmentTracker() {
   // Add new investment item
   const addItem = () => {
     if (!newItem.symbol || !newItem.amount || !newItem.purchasePrice) return alert(t.fillRequired);
+    
+    const baseItem = {
+      id: Date.now(), 
+      symbol: newItem.symbol,
+      amount: parseFloat(newItem.amount), 
+      purchasePrice: parseFloat(newItem.purchasePrice),
+      purchaseDate: newItem.purchaseDate
+    };
+    
+    // Add CS2-specific metadata if this is a CS2 item
+    if (activeTab === 'skins') {
+      baseItem.metadata = {
+        float: newItem.floatValue ? parseFloat(newItem.floatValue) : undefined,
+        rarity: newItem.rarity || undefined,
+        wear: newItem.wear || undefined
+      };
+    }
+    
     setPortfolio(p => ({ 
       ...p, 
-      [activeTab]: [...(p[activeTab] || []), { 
-        id: Date.now(), 
-        ...newItem, 
-        amount: parseFloat(newItem.amount), 
-        purchasePrice: parseFloat(newItem.purchasePrice) 
-      }] 
+      [activeTab]: [...(p[activeTab] || []), baseItem] 
     }));
-    setNewItem({ symbol: '', amount: '', purchasePrice: '', purchaseDate: new Date().toISOString().split('T')[0] });
+    
+    setNewItem({ 
+      symbol: '', 
+      amount: '', 
+      purchasePrice: '',
+      purchaseDate: new Date().toISOString().split('T')[0],
+      floatValue: '',
+      rarity: '',
+      wear: ''
+    });
   };
 
   // Remove investment item
@@ -553,19 +579,37 @@ function InvestmentTracker() {
 
   // Start editing an item
   const startEdit = (item) => {
-    setEditingItem({ ...item, purchaseDate: item.purchaseDate || new Date().toISOString().split('T')[0] });
+    setEditingItem({ 
+      ...item, 
+      purchaseDate: item.purchaseDate || new Date().toISOString().split('T')[0],
+      floatValue: item.metadata?.float || '',
+      rarity: item.metadata?.rarity || '',
+      wear: item.metadata?.wear || ''
+    });
   };
 
   // Save edited item
   const saveEdit = () => {
     if (!editingItem) return;
+    
+    const updatedItem = {
+      ...editingItem,
+      amount: parseFloat(editingItem.amount),
+      purchasePrice: parseFloat(editingItem.purchasePrice)
+    };
+    
+    // Handle CS2 metadata
+    if (activeTab === 'skins') {
+      updatedItem.metadata = {
+        float: editingItem.floatValue ? parseFloat(editingItem.floatValue) : editingItem.metadata?.float,
+        rarity: editingItem.rarity || editingItem.metadata?.rarity,
+        wear: editingItem.wear || editingItem.metadata?.wear
+      };
+    }
+    
     setPortfolio(p => ({
       ...p,
-      [activeTab]: (p[activeTab] || []).map(i => i.id === editingItem.id ? {
-        ...editingItem,
-        amount: parseFloat(editingItem.amount),
-        purchasePrice: parseFloat(editingItem.purchasePrice)
-      } : i)
+      [activeTab]: (p[activeTab] || []).map(i => i.id === editingItem.id ? updatedItem : i)
     }));
     setEditingItem(null);
   };
@@ -793,7 +837,7 @@ function InvestmentTracker() {
     const allAssets = [];
     ['crypto', 'stocks', 'skins'].forEach(cat => {
       safe[cat].forEach(item => {
-        const curr = prices[item.symbol.toLowerCase()] || prices[item.symbol] || 0;
+        const curr = item.currentPrice || prices[item.symbol.toLowerCase()] || prices[item.symbol] || item.purchasePrice || 0;
         const val = curr * item.amount;
         const inv = (item.purchasePrice || 0) * item.amount;
         const prof = val - inv;
@@ -1147,6 +1191,39 @@ function InvestmentTracker() {
                   style: { width: '100%', padding: '0.5rem', background: currentTheme.inputBg, border: `1px solid ${currentTheme.inputBorder}`, borderRadius: '0.5rem', color: currentTheme.text } 
                 })
               ),
+              // CS2-specific fields (only shown for skins)
+              activeTab === 'skins' && React.createElement('div', {}, 
+                React.createElement('label', { style: { color: currentTheme.text, fontSize: '0.875rem', display: 'block', marginBottom: '0.25rem' } }, 'Float Value'), 
+                React.createElement('input', { 
+                  type: 'number', 
+                  step: '0.0001',
+                  min: '0',
+                  max: '1',
+                  placeholder: '0.0000 - 1.0000',
+                  value: newItem.floatValue, 
+                  onChange: (e) => setNewItem({...newItem, floatValue: e.target.value}), 
+                  style: { width: '100%', padding: '0.5rem', background: currentTheme.inputBg, border: `1px solid ${currentTheme.inputBorder}`, borderRadius: '0.5rem', color: currentTheme.text } 
+                })
+              ),
+              activeTab === 'skins' && React.createElement('div', {}, 
+                React.createElement('label', { style: { color: currentTheme.text, fontSize: '0.875rem', display: 'block', marginBottom: '0.25rem' } }, 'Rarity'), 
+                React.createElement('select', { 
+                  value: newItem.rarity, 
+                  onChange: (e) => setNewItem({...newItem, rarity: e.target.value}), 
+                  style: { width: '100%', padding: '0.5rem', background: currentTheme.inputBg, border: `1px solid ${currentTheme.inputBorder}`, borderRadius: '0.5rem', color: currentTheme.text } 
+                },
+                  React.createElement('option', { value: '' }, '-- Select --'),
+                  React.createElement('option', { value: 'consumer_grade', style: { color: '#b0c3d9' } }, 'Consumer Grade'),
+                  React.createElement('option', { value: 'industrial_grade', style: { color: '#5e98d9' } }, 'Industrial Grade'),
+                  React.createElement('option', { value: 'mil_spec', style: { color: '#4b69ff' } }, 'Mil-Spec'),
+                  React.createElement('option', { value: 'restricted', style: { color: '#8847ff' } }, 'Restricted'),
+                  React.createElement('option', { value: 'classified', style: { color: '#d32ce6' } }, 'Classified'),
+                  React.createElement('option', { value: 'covert', style: { color: '#eb4b4b' } }, 'Covert'),
+                  React.createElement('option', { value: 'contraband', style: { color: '#e4ae39' } }, 'Contraband'),
+                  React.createElement('option', { value: 'knife', style: { color: '#ffd700' } }, 'Knife'),
+                  React.createElement('option', { value: 'glove', style: { color: '#ffd700' } }, 'Glove')
+                )
+              ),
               React.createElement('button', { 
                 onClick: addItem, 
                 style: { 
@@ -1167,7 +1244,7 @@ function InvestmentTracker() {
             safe[activeTab].length === 0 ? 
               React.createElement('div', { style: { textAlign: 'center', padding: '3rem', color: currentTheme.textSecondary } }, t.noPositions) :
               safe[activeTab].map(item => {
-                const curr = prices[item.symbol.toLowerCase()] || prices[item.symbol] || 0;
+                const curr = item.currentPrice || prices[item.symbol.toLowerCase()] || prices[item.symbol] || item.purchasePrice || 0;
                 const val = curr * item.amount;
                 const inv = (item.purchasePrice || 0) * item.amount;
                 const prof = val - inv;
@@ -1224,6 +1301,37 @@ function InvestmentTracker() {
                           onChange: (e) => setEditingItem({...editingItem, purchaseDate: e.target.value}), 
                           style: { width: '100%', padding: '0.5rem', background: currentTheme.card, border: `1px solid ${currentTheme.inputBorder}`, borderRadius: '0.5rem', color: currentTheme.text } 
                         })
+                      ),
+                      activeTab === 'skins' && React.createElement('div', {}, 
+                        React.createElement('label', { style: { color: currentTheme.text, fontSize: '0.875rem', display: 'block', marginBottom: '0.25rem' } }, 'Float Value'), 
+                        React.createElement('input', { 
+                          type: 'number', 
+                          step: '0.0001',
+                          min: '0',
+                          max: '1',
+                          value: editingItem.floatValue || '', 
+                          onChange: (e) => setEditingItem({...editingItem, floatValue: e.target.value}), 
+                          style: { width: '100%', padding: '0.5rem', background: currentTheme.card, border: `1px solid ${currentTheme.inputBorder}`, borderRadius: '0.5rem', color: currentTheme.text } 
+                        })
+                      ),
+                      activeTab === 'skins' && React.createElement('div', {}, 
+                        React.createElement('label', { style: { color: currentTheme.text, fontSize: '0.875rem', display: 'block', marginBottom: '0.25rem' } }, 'Rarity'), 
+                        React.createElement('select', { 
+                          value: editingItem.rarity || '', 
+                          onChange: (e) => setEditingItem({...editingItem, rarity: e.target.value}), 
+                          style: { width: '100%', padding: '0.5rem', background: currentTheme.card, border: `1px solid ${currentTheme.inputBorder}`, borderRadius: '0.5rem', color: currentTheme.text } 
+                        },
+                          React.createElement('option', { value: '' }, '-- Select --'),
+                          React.createElement('option', { value: 'consumer_grade' }, 'Consumer Grade'),
+                          React.createElement('option', { value: 'industrial_grade' }, 'Industrial Grade'),
+                          React.createElement('option', { value: 'mil_spec' }, 'Mil-Spec'),
+                          React.createElement('option', { value: 'restricted' }, 'Restricted'),
+                          React.createElement('option', { value: 'classified' }, 'Classified'),
+                          React.createElement('option', { value: 'covert' }, 'Covert'),
+                          React.createElement('option', { value: 'contraband' }, 'Contraband'),
+                          React.createElement('option', { value: 'knife' }, 'Knife'),
+                          React.createElement('option', { value: 'glove' }, 'Glove')
+                        )
                       )
                     ),
                     React.createElement('div', { style: { display: 'flex', gap: '0.5rem' } },
@@ -1263,7 +1371,9 @@ function InvestmentTracker() {
                     React.createElement('div', {},
                       React.createElement('div', { style: { color: currentTheme.text, fontWeight: '600', fontSize: '1.125rem' } }, item.symbol.toUpperCase()),
                       React.createElement('div', { style: { color: currentTheme.textSecondary, fontSize: '0.875rem' } }, `${t.amount}: ${item.amount} | ${t.bought}: ${fmtDate(item.purchaseDate)}`),
-                      React.createElement('div', { style: { color: currentTheme.textSecondary, fontSize: '0.875rem' } }, `${t.purchasePrice}: ${getCurrencySymbol()}${formatPrice(item.purchasePrice || 0)} ${t.perUnit}`)
+                      React.createElement('div', { style: { color: currentTheme.textSecondary, fontSize: '0.875rem' } }, `${t.purchasePrice}: ${getCurrencySymbol()}${formatPrice(item.purchasePrice || 0)} ${t.perUnit}`),
+                      activeTab === 'skins' && item.metadata?.float !== undefined && React.createElement('div', { style: { color: '#06b6d4', fontSize: '0.875rem', fontWeight: '600' } }, `Float: ${item.metadata.float.toFixed(4)}`),
+                      activeTab === 'skins' && item.metadata?.rarity && React.createElement('div', { style: { color: '#8b5cf6', fontSize: '0.875rem', fontWeight: '600' } }, `Rarity: ${item.metadata.rarity.replace(/_/g, ' ').toUpperCase()}`)
                     )
                   ),
                   React.createElement('div', { style: { textAlign: 'right', marginRight: '1rem' } },
@@ -1420,7 +1530,7 @@ function InvestmentTracker() {
             safe[activeTab].length === 0 ?
               React.createElement('div', { style: { textAlign: 'center', padding: '3rem', color: currentTheme.textSecondary } }, t.noPositionsCategory) :
               safe[activeTab].map(item => {
-                const curr = prices[item.symbol.toLowerCase()] || prices[item.symbol] || 0;
+                const curr = item.currentPrice || prices[item.symbol.toLowerCase()] || prices[item.symbol] || item.purchasePrice || 0;
                 const val = curr * item.amount;
                 const inv = (item.purchasePrice || 0) * item.amount;
                 const prof = val - inv;
@@ -1477,15 +1587,20 @@ function InvestmentTracker() {
           safe: safe,
           currentTheme: currentTheme,
           getCurrencySymbol: getCurrencySymbol,
-          formatPrice: formatPrice
+          formatPrice: formatPrice,
+          t: t,
+          language: language
         }),
         
         // ========== CS2 ANALYTICS VIEW ==========
         activeView === 'cs2analytics' && window.createCS2AnalyticsView && window.createCS2AnalyticsView({
           safe: safe,
+          prices: prices,
           currentTheme: currentTheme,
           getCurrencySymbol: getCurrencySymbol,
-          formatPrice: formatPrice
+          formatPrice: formatPrice,
+          t: t,
+          language: language
         }),
         
         // ========== NEW: FINANCIAL OVERVIEW VIEW ==========
