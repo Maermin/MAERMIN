@@ -253,7 +253,8 @@ function analyzeRarityPerformance(cs2Items) {
     classified: { name: 'Classified', items: [], avgReturn: 0, color: '#d32ce6' },
     covert: { name: 'Covert', items: [], avgReturn: 0, color: '#eb4b4b' },
     contraband: { name: 'Contraband', items: [], avgReturn: 0, color: '#e4ae39' },
-    knife: { name: 'Knife', items: [], avgReturn: 0, color: '#ffd700' }
+    knife: { name: 'Knife', items: [], avgReturn: 0, color: '#ffd700' },
+    glove: { name: 'Glove', items: [], avgReturn: 0, color: '#ffd700' }
   };
   
   // Categorize items
