@@ -2,51 +2,76 @@
 
 MAERMIN is a modern, web-based **Investment Tracker** designed to give you full control over your money, investments, and financial health — all in one place.
 
-From **crypto, stocks, and CS2 items** to **taxes, and risk analytics**, MAERMIN provides deep insights without sacrificing privacy.  
+From **crypto, stocks, and CS2 items** to **taxes and risk analytics**, MAERMIN provides deep insights without sacrificing privacy.  
 All data is stored locally in your browser — no accounts, no servers, no tracking.
 
 ---
 
 ## 📸 Screenshots
 
-The following screenshots showcase the main sections of MAERMIN and its Financial OS workflow.
+The following screenshots showcase the main sections of MAERMIN and its full workflow.
+
+---
 
 ### 🧭 Overview
 A high-level snapshot of your net worth, financial health, and key metrics.
-![Overview](<img width="1584" height="930" alt="image" src="https://github.com/user-attachments/assets/a59b2ee4-c62b-4175-87c5-516551d76fce" />)
+
+<img src="https://github.com/user-attachments/assets/a59b2ee4-c62b-4175-87c5-516551d76fce" width="100%" />
+
+---
 
 ### 📊 Portfolio
 Track cryptocurrencies, stocks, and CS2 items with real-time prices and performance.
-![Portfolio](<img width="1584" height="930" alt="image" src="https://github.com/user-attachments/assets/33135f44-fb82-43f6-aa5d-231f078b121b" />)
+
+<img src="https://github.com/user-attachments/assets/33135f44-fb82-43f6-aa5d-231f078b121b" width="100%" />
+
+---
 
 ### 📈 Statistics
 Advanced portfolio analytics including ROI, diversification, top performers, and health indicators.
-![Statistics](<img width="1584" height="930" alt="image" src="https://github.com/user-attachments/assets/871e487f-e4c2-47cd-811d-869f9c37dd9a" />)
+
+<img src="https://github.com/user-attachments/assets/871e487f-e4c2-47cd-811d-869f9c37dd9a" width="100%" />
+
+---
 
 ### 🔄 Transactions
 Complete transaction history with buys, sells, fees, and realized gains.
-![Transactions](<img width="1920" height="983" alt="image" src="https://github.com/user-attachments/assets/6a537105-5b26-47de-9ae6-77eca7eb6ea8" />)
+
+<img src="https://github.com/user-attachments/assets/6a537105-5b26-47de-9ae6-77eca7eb6ea8" width="100%" />
+
+---
 
 ### 🧾 Tax Reports
 Annual tax reports, realized gains, effective tax rates, and optimization insights.
-![Tax Reports](<img width="1920" height="983" alt="image" src="https://github.com/user-attachments/assets/fa9038e8-6a15-4f9f-8bb0-76a06a777d00" />)
+
+<img src="https://github.com/user-attachments/assets/fa9038e8-6a15-4f9f-8bb0-76a06a777d00" width="100%" />
+
+---
 
 ### ⚖️ Rebalancing
 Target allocation management with smart rebalancing recommendations.
-![Rebalancing](<img width="1920" height="983" alt="image" src="https://github.com/user-attachments/assets/a32d0df6-3067-43cc-9834-f994336e8fca" />)
-(<img width="1920" height="667" alt="image" src="https://github.com/user-attachments/assets/045f1f13-7805-4c5f-9b35-a391b3e0b0bc" />)
+
+<img src="https://github.com/user-attachments/assets/a32d0df6-3067-43cc-9834-f994336e8fca" width="100%" />
+<br/>
+<img src="https://github.com/user-attachments/assets/045f1f13-7805-4c5f-9b35-a391b3e0b0bc" width="100%" />
+
+---
 
 ### ⚠️ Risk Analytics
 Risk exposure, concentration analysis, diversification score, and portfolio risk level.
-![Risk Analytics](<img width="1920" height="983" alt="image" src="https://github.com/user-attachments/assets/6cc36c48-7792-4210-9fc3-1cc5d3717020" />)
+
+<img src="https://github.com/user-attachments/assets/6cc36c48-7792-4210-9fc3-1cc5d3717020" width="100%" />
+
+---
 
 ### 🎮 CS2 Analytics
 Dedicated analytics for CS2 / Steam items including market prices and performance tracking.
-![CS2 Analytics](<img width="1584" height="930" alt="image" src="https://github.com/user-attachments/assets/c5cb386a-2831-42a4-a4ae-95f38636bd45" />)
-(<img width="1584" height="930" alt="image" src="https://github.com/user-attachments/assets/0936f918-fd8d-4fe8-9326-7d55aead568c" />)
-(<img width="1584" height="930" alt="image" src="https://github.com/user-attachments/assets/d19dde56-4070-48aa-a1b5-96054db5e618" />)
 
-> 📁 All images should be placed inside a `/screenshots` folder at the project root.
+<img src="https://github.com/user-attachments/assets/c5cb386a-2831-42a4-a4ae-95f38636bd45" width="100%" />
+<br/>
+<img src="https://github.com/user-attachments/assets/0936f918-fd8d-4fe8-9326-7d55aead568c" width="100%" />
+<br/>
+<img src="https://github.com/user-attachments/assets/d19dde56-4070-48aa-a1b5-96054db5e618" width="100%" />
 
 ---
 
@@ -59,20 +84,12 @@ Dedicated analytics for CS2 / Steam items including market prices and performanc
 - Purchase price, fees, holding period, ROI
 - Profit & loss in EUR or USD
 
-### 💰 Financial OS
-- Net worth calculation
-- Income & expense tracking
-- Fixed costs and variable expenses
-- Budget management with alert thresholds
-- Monthly cashflow overview
-- Savings rate & cash runway (months)
-
 ### 🧠 Analytics & Insights
 - Portfolio health score
 - Risk level assessment
 - Diversification score
 - Top & worst performers
-- Automatic financial insights & recommendations
+- Automatic financial insights
 
 ### 🔄 Transactions & Taxes
 - Full transaction history (buy / sell)
@@ -82,7 +99,6 @@ Dedicated analytics for CS2 / Steam items including market prices and performanc
 - PDF export / import (planned)
 
 ### ⚙️ Customization
-- Modular dashboard with widgets
 - Light / Dark / Purple themes
 - English & German language support
 - EUR / USD with live exchange rates
@@ -119,7 +135,6 @@ Dedicated analytics for CS2 / Steam items including market prices and performanc
 - 100% client-side
 - All data stays **locally in your browser**
 - No accounts, no cloud, no tracking
-- Full ownership of your financial data
 
 ---
 
