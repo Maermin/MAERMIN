@@ -276,13 +276,13 @@ function InvestmentTracker() {
 
   const [editingItem, setEditingItem] = useState(null);
 
-  // NEW v4.1: Transaction History State
+  // NEW v5.0: Transaction History State
   const [transactions, setTransactions] = useState(() => {
     const saved = localStorage.getItem('transactions');
     return saved ? JSON.parse(saved) : [];
   });
 
-  // NEW v4.1: Rebalancing State
+  // NEW v5.0: Rebalancing State
   const [targetAllocation, setTargetAllocation] = useState(() => {
     const saved = localStorage.getItem('targetAllocation');
     return saved ? JSON.parse(saved) : { crypto: 40, stocks: 50, cs2Items: 10 };
@@ -396,12 +396,12 @@ function InvestmentTracker() {
   useEffect(() => { localStorage.setItem('currency', currency); }, [currency]);
   useEffect(() => { localStorage.setItem('portfolio', JSON.stringify(portfolio)); }, [portfolio]);
 
-  // NEW v4.1: Persist transactions
+  // NEW v5.0: Persist transactions
   useEffect(() => { 
     localStorage.setItem('transactions', JSON.stringify(transactions)); 
   }, [transactions]);
 
-  // NEW v4.1: Persist target allocation
+  // NEW v5.0: Persist target allocation
   useEffect(() => { 
     localStorage.setItem('targetAllocation', JSON.stringify(targetAllocation)); 
   }, [targetAllocation]);
@@ -642,7 +642,7 @@ function InvestmentTracker() {
   const cancelEdit = () => setEditingItem(null);
 
   // Export portfolio data to JSON file
-  // NEW v4.1: Transaction management
+  // NEW v5.0: Transaction management
   const addTransaction = (transaction) => {
     setTransactions(prev => [...prev, transaction]);
   };
@@ -2329,17 +2329,17 @@ function InvestmentTracker() {
           language: language
         }),
         
-        // ========== NEW v4.1: TRANSACTION HISTORY VIEW ==========
+        // ========== NEW v5.0: TRANSACTION HISTORY VIEW ==========
         React.createElement('div', { style: { display: activeView === 'transactions' ? 'block' : 'none' } },
           TransactionHistoryView()
         ),
         
-        // ========== NEW v4.1: TAX REPORT VIEW ==========
+        // ========== NEW v5.0: TAX REPORT VIEW ==========
         React.createElement('div', { style: { display: activeView === 'taxreports' ? 'block' : 'none' } },
           TaxReportView()
         ),
         
-        // ========== NEW v4.1: REBALANCING VIEW ==========
+        // ========== NEW v5.0: REBALANCING VIEW ==========
         React.createElement('div', { style: { display: activeView === 'rebalancing' ? 'block' : 'none' } },
           RebalancingView()
         ),
