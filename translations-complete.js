@@ -1,7 +1,5 @@
 // ============================================================================
-// MAERMIN v4.1 - COMPLETE TRANSLATION SYSTEM - EMOJI FREE
-// ============================================================================
-// All UI text in German and English - NO EMOJIS
+// MAERMIN v5.0 - COMPLETE TRANSLATION SYSTEM
 // ============================================================================
 
 const completeTranslations = {
@@ -849,5 +847,5 @@ const completeTranslations = {
 // Export
 if (typeof window !== 'undefined') {
   window.completeTranslations = completeTranslations;
-  console.log('[OK] Translations loaded v4.1');
+  console.log('[OK] Translations loaded v5.0');
 }
