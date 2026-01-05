@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>MAERMIN v4.0 - Portfolio Tracker</title>
+  <title>MAERMIN v4.1 - Portfolio Tracker</title>
   
   <!-- React from CDN -->
   <script crossorigin src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
@@ -98,7 +98,7 @@
   
   <div id="loading">
     <h1>MAERMIN</h1>
-    <div class="subtitle">Multi-Asset Portfolio Tracker v4.0</div>
+    <div class="subtitle">Multi-Asset Portfolio Tracker v4.1</div>
     <div id="module-status">Lade Module...</div>
     <div class="loader"></div>
   </div>
@@ -112,7 +112,7 @@
     };
   </script>
   
-  <!-- MAERMIN v4.0 - NUR BENÖTIGTE MODULE -->
+  <!-- MAERMIN v4.1 - MODULES -->
   <script>updateStatus('Lade Erweiterungen...');</script>
   <script src="translations-complete.js"></script>
   <script src="validation-comprehensive.js"></script>
@@ -140,21 +140,23 @@
       }, 300);
     });
     
-    console.log('%c[MAERMIN v4.0] Portfolio Tracker', 'font-size: 20px; font-weight: bold; color: #7e22ce; background: #f3e8ff; padding: 8px;');
-    console.log('[INFO] Standalone Version - Keine alten Dependencies');
-    console.log('[INFO] Tabs: Overview, Portfolio, Statistics, Risk Analytics, CS2 Analytics');
-    console.log('[INFO] Widgets: 3 (NetWorth, Health, Portfolio)');
+    console.log('%c[MAERMIN v4.1] Portfolio Tracker', 'font-size: 20px; font-weight: bold; color: #7e22ce; background: #f3e8ff; padding: 8px;');
+    console.log('[INFO] NEU: Transaktionen, Steuerberichte, Rebalancing');
+    console.log('[INFO] KEIN EMOJI - 100% sauber');
     
     setTimeout(() => {
       const checks = [
         { name: 'React', check: () => typeof React !== 'undefined' },
         { name: 'ReactDOM', check: () => typeof ReactDOM !== 'undefined' },
+        { name: 'Translations', check: () => typeof completeTranslations !== 'undefined' },
+        { name: 'Calculator Extended', check: () => typeof calculateCostBasis !== 'undefined' },
+        { name: 'Tax Functions', check: () => typeof generateTaxReport !== 'undefined' },
+        { name: 'Rebalancing', check: () => typeof analyzePortfolioDrift !== 'undefined' },
         { name: 'Risk Analytics', check: () => typeof calculateValueAtRisk !== 'undefined' },
-        { name: 'CS2 Analytics', check: () => typeof analyzeFloatPerformance !== 'undefined' },
-        { name: 'Translations', check: () => typeof completeTranslations !== 'undefined' }
+        { name: 'CS2 Analytics', check: () => typeof analyzeFloatPerformance !== 'undefined' }
       ];
       
-      console.log('[MODULE CHECK]');
+      console.log('[MODULE CHECK v4.1]');
       checks.forEach(item => {
         const status = item.check();
         console.log(`  ${status ? '[OK]' : '[FEHLER]'} ${item.name}`);
@@ -162,6 +164,7 @@
       
       if (checks.every(item => item.check())) {
         console.log('[OK] Alle Module geladen!');
+        console.log('[OK] MAERMIN v4.1 bereit!');
       } else {
         console.error('[FEHLER] Einige Module fehlen!');
       }

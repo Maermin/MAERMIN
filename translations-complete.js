@@ -1,5 +1,5 @@
 // ============================================================================
-// MAERMIN v3.0.1 - COMPLETE TRANSLATION SYSTEM - EMOJI FREE
+// MAERMIN v4.1 - COMPLETE TRANSLATION SYSTEM - EMOJI FREE
 // ============================================================================
 // All UI text in German and English - NO EMOJIS
 // ============================================================================
@@ -42,7 +42,9 @@ const completeTranslations = {
     
     // General
     name: 'Name',
-    amount: 'Betrag',
+    amount: 'Anzahl',
+    fees: 'Gebuehren',
+    feesOptional: 'Gebuehren (optional)',
     type: 'Typ',
     category: 'Kategorie',
     date: 'Datum',
@@ -355,7 +357,72 @@ const completeTranslations = {
     week: 'Woche',
     month: 'Monat',
     year: 'Jahr',
-    allTime: 'Gesamtzeitraum'
+    allTime: 'Gesamtzeitraum',
+  
+    // Transaction History - v4.1 NEU
+    transactions: 'Transaktionen',
+    transactionHistory: 'Transaktionsverlauf',
+    addTransaction: 'Transaktion hinzufuegen',
+    editTransaction: 'Transaktion bearbeiten',
+    transactionType: 'Transaktionstyp',
+    buy: 'Kauf',
+    sell: 'Verkauf',
+    dividend: 'Dividende',
+    fee: 'Gebuehr',
+    transfer: 'Uebertragung',
+    quantity: 'Menge',
+    price: 'Preis',
+    totalCost: 'Gesamtkosten',
+    proceeds: 'Erloes',
+    realizedGain: 'Realisierter Gewinn',
+    unrealizedGain: 'Unrealisierter Gewinn',
+    costBasis: 'Kostenbasis',
+    avgCost: 'Durchschn. Kosten',
+    longTerm: 'Langfristig',
+    shortTerm: 'Kurzfristig',
+    noTransactions: 'Keine Transaktionen vorhanden',
+    
+    // Tax Reports - v4.1 NEU
+    taxReports: 'Steuerberichte',
+    taxReport: 'Steuerbericht',
+    generateReport: 'Bericht erstellen',
+    exportPDF: 'PDF Exportieren',
+    capitalGains: 'Kapitalgewinne',
+    capitalIncome: 'Kapitalertraege',
+    taxableIncome: 'Zu versteuerndes Einkommen',
+    abgeltungssteuer: 'Abgeltungssteuer',
+    solidarityTax: 'Solidaritaetszuschlag',
+    churchTax: 'Kirchensteuer',
+    totalTax: 'Gesamtsteuer',
+    effectiveTaxRate: 'Effektiver Steuersatz',
+    freistellungsauftrag: 'Freistellungsauftrag',
+    taxFree: 'Steuerfrei',
+    crypto1YearRule: 'Krypto 1-Jahr-Regel',
+    taxSavings: 'Steuerersparnis',
+    taxLossHarvesting: 'Tax-Loss Harvesting',
+    washSaleWarning: 'Wash-Sale Warnung',
+    taxOptimization: 'Steueroptimierung',
+    taxBreakdown: 'Steueraufschluesselung',
+    
+    // Rebalancing - v4.1 NEU
+    rebalancing: 'Rebalancing',
+    portfolioRebalancing: 'Portfolio Rebalancing',
+    targetAllocation: 'Zielaufteilung',
+    currentAllocation: 'Aktuelle Aufteilung',
+    drift: 'Abweichung',
+    overweight: 'Uebergewichtet',
+    underweight: 'Untergewichtet',
+    rebalanceNeeded: 'Rebalancing erforderlich',
+    wellBalanced: 'Gut ausbalanciert',
+    maxDrift: 'Max. Abweichung',
+    buyAction: 'KAUFEN',
+    sellAction: 'VERKAUFEN',
+    estimatedCost: 'Geschaetzte Kosten',
+    taxImpact: 'Steuerbelastung',
+    preferredAssets: 'Bevorzugte Assets',
+    rebalanceSuggestions: 'Rebalancing-Vorschlaege',
+    noActionNeeded: 'Keine Massnahmen erforderlich',
+
   },
   
   en: {
@@ -396,6 +463,8 @@ const completeTranslations = {
     // General
     name: 'Name',
     amount: 'Amount',
+    fees: 'Fees',
+    feesOptional: 'Fees (optional)',
     type: 'Type',
     category: 'Category',
     date: 'Date',
@@ -708,12 +777,77 @@ const completeTranslations = {
     week: 'Week',
     month: 'Month',
     year: 'Year',
-    allTime: 'All Time'
+    allTime: 'All Time',
+  
+    // Transaction History - v4.1 NEW
+    transactions: 'Transactions',
+    transactionHistory: 'Transaction History',
+    addTransaction: 'Add Transaction',
+    editTransaction: 'Edit Transaction',
+    transactionType: 'Transaction Type',
+    buy: 'Buy',
+    sell: 'Sell',
+    dividend: 'Dividend',
+    fee: 'Fee',
+    transfer: 'Transfer',
+    quantity: 'Quantity',
+    price: 'Price',
+    totalCost: 'Total Cost',
+    proceeds: 'Proceeds',
+    realizedGain: 'Realized Gain',
+    unrealizedGain: 'Unrealized Gain',
+    costBasis: 'Cost Basis',
+    avgCost: 'Avg Cost',
+    longTerm: 'Long-term',
+    shortTerm: 'Short-term',
+    noTransactions: 'No transactions yet',
+    
+    // Tax Reports - v4.1 NEW
+    taxReports: 'Tax Reports',
+    taxReport: 'Tax Report',
+    generateReport: 'Generate Report',
+    exportPDF: 'Export PDF',
+    capitalGains: 'Capital Gains',
+    capitalIncome: 'Capital Income',
+    taxableIncome: 'Taxable Income',
+    abgeltungssteuer: 'Capital Gains Tax',
+    solidarityTax: 'Solidarity Surcharge',
+    churchTax: 'Church Tax',
+    totalTax: 'Total Tax',
+    effectiveTaxRate: 'Effective Tax Rate',
+    freistellungsauftrag: 'Tax-Free Allowance',
+    taxFree: 'Tax-Free',
+    crypto1YearRule: 'Crypto 1-Year Rule',
+    taxSavings: 'Tax Savings',
+    taxLossHarvesting: 'Tax-Loss Harvesting',
+    washSaleWarning: 'Wash Sale Warning',
+    taxOptimization: 'Tax Optimization',
+    taxBreakdown: 'Tax Breakdown',
+    
+    // Rebalancing - v4.1 NEW
+    rebalancing: 'Rebalancing',
+    portfolioRebalancing: 'Portfolio Rebalancing',
+    targetAllocation: 'Target Allocation',
+    currentAllocation: 'Current Allocation',
+    drift: 'Drift',
+    overweight: 'Overweight',
+    underweight: 'Underweight',
+    rebalanceNeeded: 'Rebalancing Needed',
+    wellBalanced: 'Well Balanced',
+    maxDrift: 'Max Drift',
+    buyAction: 'BUY',
+    sellAction: 'SELL',
+    estimatedCost: 'Estimated Cost',
+    taxImpact: 'Tax Impact',
+    preferredAssets: 'Preferred Assets',
+    rebalanceSuggestions: 'Rebalance Suggestions',
+    noActionNeeded: 'No Action Needed',
+
   }
 };
 
 // Export
 if (typeof window !== 'undefined') {
   window.completeTranslations = completeTranslations;
-  console.log('[OK] Translations loaded v3.0.1');
+  console.log('[OK] Translations loaded v4.1');
 }

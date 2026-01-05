@@ -8,7 +8,8 @@ const translations = typeof completeTranslations !== 'undefined' ? completeTrans
     export: 'Exportieren', import: 'Importieren', refresh: 'Aktualisieren', loading: 'Lädt...',
     totalValue: 'Gesamtwert Portfolio', invested: 'Investiert', profitLoss: 'Gewinn/Verlust',
     position: 'Position', positions: 'Positionen', addNew: 'Neue Position hinzufügen',
-    symbol: 'Symbol', amount: 'Menge', purchasePrice: 'Einkaufspreis', purchaseDate: 'Kaufdatum',
+    symbol: 'Symbol', amount: 'Anzahl', purchasePrice: 'Einkaufspreis', purchaseDate: 'Kaufdatum',
+    fees: 'Gebühren', feesOptional: 'Gebühren (optional)',
     add: 'Hinzufügen', perUnit: '/ Stück', bought: 'Gekauft', current: 'Aktuell',
     ofPortfolio: 'des Portfolios', noPositions: 'Keine Positionen vorhanden. Füge deine erste Position hinzu!',
     noPositionsCategory: 'Keine Positionen in dieser Kategorie', distribution: 'Portfolio-Verteilung',
@@ -76,6 +77,7 @@ const translations = typeof completeTranslations !== 'undefined' ? completeTrans
     totalValue: 'Total Portfolio Value', invested: 'Invested', profitLoss: 'Profit/Loss',
     position: 'Position', positions: 'Positions', addNew: 'Add New Position',
     symbol: 'Symbol', amount: 'Amount', purchasePrice: 'Purchase Price', purchaseDate: 'Purchase Date',
+    fees: 'Fees', feesOptional: 'Fees (optional)',
     add: 'Add', perUnit: '/ Unit', bought: 'Bought', current: 'Current',
     ofPortfolio: 'of Portfolio', noPositions: 'No positions yet. Add your first position!',
     noPositionsCategory: 'No positions in this category', distribution: 'Portfolio Distribution',
@@ -262,6 +264,7 @@ function InvestmentTracker() {
     amount: '', 
     purchasePrice: '',
     purchaseDate: new Date().toISOString().split('T')[0],
+    fees: '', // Fees field
     // CS2-specific fields
     floatValue: '',
     rarity: '',
@@ -272,6 +275,18 @@ function InvestmentTracker() {
   const [showSettings, setShowSettings] = useState(false);
 
   const [editingItem, setEditingItem] = useState(null);
+
+  // NEW v4.1: Transaction History State
+  const [transactions, setTransactions] = useState(() => {
+    const saved = localStorage.getItem('transactions');
+    return saved ? JSON.parse(saved) : [];
+  });
+
+  // NEW v4.1: Rebalancing State
+  const [targetAllocation, setTargetAllocation] = useState(() => {
+    const saved = localStorage.getItem('targetAllocation');
+    return saved ? JSON.parse(saved) : { crypto: 40, stocks: 50, cs2Items: 10 };
+  });
 
   // ========== NEW: Financial OS State ==========
   const [financialData, setFinancialData] = useState(() => {
@@ -380,6 +395,16 @@ function InvestmentTracker() {
   useEffect(() => { localStorage.setItem('language', language); }, [language]);
   useEffect(() => { localStorage.setItem('currency', currency); }, [currency]);
   useEffect(() => { localStorage.setItem('portfolio', JSON.stringify(portfolio)); }, [portfolio]);
+
+  // NEW v4.1: Persist transactions
+  useEffect(() => { 
+    localStorage.setItem('transactions', JSON.stringify(transactions)); 
+  }, [transactions]);
+
+  // NEW v4.1: Persist target allocation
+  useEffect(() => { 
+    localStorage.setItem('targetAllocation', JSON.stringify(targetAllocation)); 
+  }, [targetAllocation]);
   useEffect(() => { localStorage.setItem('priceHistory', JSON.stringify(priceHistory)); }, [priceHistory]);
   useEffect(() => { localStorage.setItem('dashboardWidgets', JSON.stringify(dashboardWidgets)); }, [dashboardWidgets]);
   useEffect(() => { localStorage.setItem('images', JSON.stringify(images)); }, [images]);
@@ -617,7 +642,18 @@ function InvestmentTracker() {
   const cancelEdit = () => setEditingItem(null);
 
   // Export portfolio data to JSON file
-  const exportData = () => {
+  // NEW v4.1: Transaction management
+  const addTransaction = (transaction) => {
+    setTransactions(prev => [...prev, transaction]);
+  };
+
+  const deleteTransaction = (id) => {
+    if (confirm(language === 'de' ? 'Transaktion loeschen?' : 'Delete transaction?')) {
+      setTransactions(prev => prev.filter(tx => tx.id !== id));
+    }
+  };
+
+    const exportData = () => {
     const blob = new Blob([JSON.stringify({ 
       portfolio, 
       priceHistory, 
@@ -671,13 +707,19 @@ function InvestmentTracker() {
     s + ((i.purchasePrice || 0) * i.amount), 0
   );
   
-  // Calculate profit/loss for a category
-  const calcProfit = (cat) => calcTotal(cat) - calcInvest(cat);
+  // Calculate total fees for a category
+  const calcFees = (cat) => (safe[cat] || []).reduce((s, i) => 
+    s + (parseFloat(i.fees) || 0), 0
+  );
+  
+  // Calculate profit/loss for a category (including fees)
+  const calcProfit = (cat) => calcTotal(cat) - calcInvest(cat) - calcFees(cat);
   
   // Portfolio-wide calculations
   const total = calcTotal('crypto') + calcTotal('stocks') + calcTotal('skins');
   const invest = calcInvest('crypto') + calcInvest('stocks') + calcInvest('skins');
-  const profit = total - invest;
+  const totalFees = calcFees('crypto') + calcFees('stocks') + calcFees('skins');
+  const profit = total - invest - totalFees; // Profit minus total fees
   
   // ========== NEW: Financial Metrics ==========
   const metrics = useMemo(() => {
@@ -840,7 +882,8 @@ function InvestmentTracker() {
         const curr = item.currentPrice || prices[item.symbol.toLowerCase()] || prices[item.symbol] || item.purchasePrice || 0;
         const val = curr * item.amount;
         const inv = (item.purchasePrice || 0) * item.amount;
-        const prof = val - inv;
+        const fees = parseFloat(item.fees) || 0;
+        const prof = val - inv - fees; // Profit minus fees
         const profPct = inv > 0 ? (prof / inv) * 100 : 0;
         const daysSince = getDaysSincePurchase(item.purchaseDate);
         
@@ -951,7 +994,648 @@ function InvestmentTracker() {
     return getAllAssets().length;
   };
 
-  // ========== RENDER WITH SIDEBAR ==========
+  function TransactionHistoryView() {
+  const [showModal, setShowModal] = useState(false);
+  
+  const sortedTransactions = [...transactions].sort((a, b) => 
+    new Date(b.timestamp) - new Date(a.timestamp)
+  );
+  
+  return React.createElement('div', { style: { padding: '2rem' } },
+    React.createElement('div', { 
+      style: { display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '2rem' } 
+    },
+      React.createElement('h2', { style: { color: currentTheme.text, fontSize: '2rem', fontWeight: '700' } }, 
+        language === 'de' ? 'Transaktionsverlauf' : 'Transaction History'
+      ),
+      React.createElement('button', {
+        onClick: () => {
+          const newTx = {
+            id: 'tx_' + Date.now() + '_' + Math.random(),
+            timestamp: new Date().toISOString(),
+            type: 'buy',
+            asset: { symbol: 'BTC', category: 'crypto' },
+            quantity: 0.1,
+            price: 40000,
+            totalCost: 4000,
+            fees: 10,
+            currency: currency
+          };
+          addTransaction(newTx);
+        },
+        style: {
+          padding: '0.75rem 1.5rem',
+          background: '#3b82f6',
+          color: 'white',
+          border: 'none',
+          borderRadius: '0.5rem',
+          cursor: 'pointer',
+          fontWeight: '600'
+        }
+      }, language === 'de' ? 'Transaktion hinzufuegen' : 'Add Transaction')
+    ),
+    
+    sortedTransactions.length === 0 ?
+      React.createElement('div', {
+        style: {
+          textAlign: 'center',
+          padding: '4rem 2rem',
+          background: currentTheme.card,
+          borderRadius: '1rem',
+          border: `1px solid ${currentTheme.cardBorder}`
+        }
+      },
+        React.createElement('p', { style: { color: currentTheme.textSecondary, fontSize: '1.125rem' } },
+          language === 'de' ? 'Keine Transaktionen vorhanden' : 'No transactions yet'
+        ),
+        React.createElement('p', { style: { color: currentTheme.textSecondary, fontSize: '0.875rem', marginTop: '0.5rem' } },
+          language === 'de' ? 'Fuege deine erste Transaktion hinzu!' : 'Add your first transaction!'
+        )
+      ) :
+      React.createElement('div', {
+        style: {
+          background: currentTheme.card,
+          borderRadius: '1rem',
+          border: `1px solid ${currentTheme.cardBorder}`,
+          overflow: 'hidden'
+        }
+      },
+        React.createElement('div', { style: { overflowX: 'auto' } },
+          React.createElement('table', { 
+            style: { 
+              width: '100%', 
+              borderCollapse: 'collapse',
+              minWidth: '800px'
+            } 
+          },
+            React.createElement('thead', {},
+              React.createElement('tr', { 
+                style: { 
+                  background: 'rgba(59,130,246,0.1)', 
+                  borderBottom: `2px solid ${currentTheme.cardBorder}` 
+                } 
+              },
+                [
+                  language === 'de' ? 'Datum' : 'Date',
+                  language === 'de' ? 'Typ' : 'Type',
+                  'Asset',
+                  language === 'de' ? 'Menge' : 'Quantity',
+                  language === 'de' ? 'Preis' : 'Price',
+                  'Total',
+                  language === 'de' ? 'Gewinn' : 'Gain',
+                  ''
+                ].map((heading, i) => 
+                  React.createElement('th', {
+                    key: i,
+                    style: {
+                      padding: '1rem',
+                      textAlign: 'left',
+                      color: currentTheme.text,
+                      fontWeight: '600',
+                      fontSize: '0.875rem'
+                    }
+                  }, heading)
+                )
+              )
+            ),
+            React.createElement('tbody', {},
+              sortedTransactions.map((tx) => 
+                React.createElement('tr', {
+                  key: tx.id,
+                  style: {
+                    borderBottom: `1px solid ${currentTheme.cardBorder}`
+                  }
+                },
+                  React.createElement('td', { 
+                    style: { padding: '1rem', color: currentTheme.text, fontSize: '0.875rem' } 
+                  },
+                    new Date(tx.timestamp).toLocaleDateString()
+                  ),
+                  React.createElement('td', { 
+                    style: { padding: '1rem' } 
+                  },
+                    React.createElement('span', {
+                      style: {
+                        padding: '0.25rem 0.75rem',
+                        borderRadius: '0.25rem',
+                        fontSize: '0.75rem',
+                        fontWeight: '600',
+                        background: tx.type === 'buy' ? 'rgba(16,185,129,0.1)' : 
+                                   tx.type === 'sell' ? 'rgba(239,68,68,0.1)' : 'rgba(59,130,246,0.1)',
+                        color: tx.type === 'buy' ? '#10b981' : 
+                               tx.type === 'sell' ? '#ef4444' : '#3b82f6'
+                      }
+                    }, tx.type.toUpperCase())
+                  ),
+                  React.createElement('td', { 
+                    style: { padding: '1rem', color: currentTheme.text, fontWeight: '600' } 
+                  },
+                    tx.asset.symbol
+                  ),
+                  React.createElement('td', { 
+                    style: { padding: '1rem', color: currentTheme.text } 
+                  },
+                    tx.quantity
+                  ),
+                  React.createElement('td', { 
+                    style: { padding: '1rem', color: currentTheme.text } 
+                  },
+                    getCurrencySymbol() + formatPrice(tx.price)
+                  ),
+                  React.createElement('td', { 
+                    style: { padding: '1rem', color: currentTheme.text, fontWeight: '600' } 
+                  },
+                    getCurrencySymbol() + formatPrice(tx.totalCost)
+                  ),
+                  React.createElement('td', { 
+                    style: { padding: '1rem' } 
+                  },
+                    tx.realizedGain ? 
+                      React.createElement('span', {
+                        style: {
+                          color: tx.realizedGain.gain >= 0 ? '#10b981' : '#ef4444',
+                          fontWeight: '600'
+                        }
+                      },
+                        (tx.realizedGain.gain >= 0 ? '+' : '') + getCurrencySymbol() + formatPrice(tx.realizedGain.gain)
+                      ) : 
+                      React.createElement('span', { style: { color: currentTheme.textSecondary } }, '-')
+                  ),
+                  React.createElement('td', { 
+                    style: { padding: '1rem' } 
+                  },
+                    React.createElement('button', {
+                      onClick: () => deleteTransaction(tx.id),
+                      style: {
+                        padding: '0.25rem 0.75rem',
+                        background: 'rgba(239,68,68,0.1)',
+                        color: '#ef4444',
+                        border: 'none',
+                        borderRadius: '0.25rem',
+                        cursor: 'pointer',
+                        fontSize: '0.75rem',
+                        fontWeight: '600'
+                      }
+                    }, language === 'de' ? 'Loeschen' : 'Delete')
+                  )
+                )
+              )
+            )
+          )
+        )
+      )
+  );
+}
+
+// ============================================================================
+// TAX REPORT VIEW
+// ============================================================================
+
+
+// ============================================================================
+// EXPORT NOTE
+// ============================================================================
+
+
+  function TaxReportView() {
+    const [selectedYear, setSelectedYear] = useState(new Date().getFullYear());
+    
+    const taxReport = useMemo(() => {
+      if (typeof generateTaxReport === 'undefined') return null;
+      return generateTaxReport(transactions, portfolio, selectedYear);
+    }, [transactions, portfolio, selectedYear]);
+    
+    if (!taxReport) {
+      return React.createElement('div', { style: { padding: '2rem', color: currentTheme.text } },
+        language === 'de' ? 'Steuerfunktionen werden geladen...' : 'Loading tax functions...'
+      );
+    }
+    
+    return React.createElement('div', { style: { padding: '2rem' } },
+      React.createElement('div', { 
+        style: { display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '2rem' } 
+      },
+        React.createElement('div', {},
+          React.createElement('h2', { style: { color: currentTheme.text, fontSize: '2rem', fontWeight: '700', marginBottom: '0.5rem' } },
+            (language === 'de' ? 'Steuerbericht ' : 'Tax Report ') + selectedYear
+          ),
+          React.createElement('select', {
+            value: selectedYear,
+            onChange: (e) => setSelectedYear(parseInt(e.target.value)),
+            style: {
+              padding: '0.5rem 1rem',
+              background: currentTheme.inputBg,
+              color: currentTheme.text,
+              border: `1px solid ${currentTheme.inputBorder}`,
+              borderRadius: '0.5rem',
+              cursor: 'pointer'
+            }
+          },
+            [2026, 2025, 2024, 2023, 2022].map(year =>
+              React.createElement('option', { key: year, value: year }, year)
+            )
+          )
+        ),
+        React.createElement('button', {
+          onClick: () => alert(language === 'de' ? 'PDF-Export in Entwicklung' : 'PDF export in development'),
+          style: {
+            padding: '0.75rem 1.5rem',
+            background: '#10b981',
+            color: 'white',
+            border: 'none',
+            borderRadius: '0.5rem',
+            cursor: 'pointer',
+            fontWeight: '600'
+          }
+        }, language === 'de' ? 'PDF Exportieren' : 'Export PDF')
+      ),
+      
+      React.createElement('div', { 
+        style: { 
+          display: 'grid', 
+          gridTemplateColumns: 'repeat(auto-fit, minmax(250px, 1fr))', 
+          gap: '1rem', 
+          marginBottom: '2rem' 
+        } 
+      },
+        [
+          {
+            title: language === 'de' ? 'Realisierte Gewinne' : 'Realized Gains',
+            value: getCurrencySymbol() + formatPrice(taxReport.summary.totalRealizedGains),
+            color: '#3b82f6'
+          },
+          {
+            title: language === 'de' ? 'Steuer faellig' : 'Tax Owed',
+            value: getCurrencySymbol() + formatPrice(taxReport.summary.totalTaxOwed),
+            color: '#ef4444'
+          },
+          {
+            title: language === 'de' ? 'Krypto Ersparnis' : 'Crypto Savings',
+            value: getCurrencySymbol() + formatPrice(taxReport.crypto.taxSavingsFrom1YearRule),
+            color: '#10b981'
+          },
+          {
+            title: language === 'de' ? 'Effektiver Steuersatz' : 'Effective Tax Rate',
+            value: taxReport.summary.effectiveTaxRate.toFixed(2) + '%',
+            color: '#f59e0b'
+          }
+        ].map((card, i) =>
+          React.createElement('div', {
+            key: i,
+            style: {
+              background: currentTheme.card,
+              borderRadius: '1rem',
+              padding: '1.5rem',
+              border: `1px solid ${currentTheme.cardBorder}`
+            }
+          },
+            React.createElement('div', { style: { fontSize: '0.875rem', color: currentTheme.textSecondary, marginBottom: '0.5rem' } }, card.title),
+            React.createElement('div', { style: { fontSize: '2rem', fontWeight: '700', color: card.color } }, card.value)
+          )
+        )
+      ),
+      
+      React.createElement('div', {
+        style: {
+          background: currentTheme.card,
+          borderRadius: '1rem',
+          padding: '2rem',
+          border: `1px solid ${currentTheme.cardBorder}`,
+          marginBottom: '2rem'
+        }
+      },
+        React.createElement('h3', { style: { color: currentTheme.text, marginBottom: '1.5rem', fontSize: '1.5rem' } },
+          language === 'de' ? 'Steueraufschluesselung' : 'Tax Breakdown'
+        ),
+        React.createElement('table', { style: { width: '100%', borderCollapse: 'collapse' } },
+          React.createElement('tbody', {},
+            [
+              [language === 'de' ? 'Kapitalertraege (Gesamt)' : 'Capital Income (Total)', taxReport.capitalGains.totalCapitalIncome],
+              [language === 'de' ? '- Realisierte Gewinne' : '- Realized Gains', taxReport.capitalGains.realizedGains],
+              [language === 'de' ? '- Dividenden' : '- Dividends', taxReport.capitalGains.dividendIncome],
+              ['divider', null],
+              [language === 'de' ? 'Freistellungsauftrag' : 'Tax-Free Allowance', -taxReport.capitalGains.freistellungsauftrag, 'green'],
+              [language === 'de' ? 'Zu versteuerndes Einkommen' : 'Taxable Income', taxReport.capitalGains.taxableIncome, 'bold'],
+              ['divider', null],
+              [language === 'de' ? 'Abgeltungssteuer (25%)' : 'Capital Gains Tax (25%)', taxReport.capitalGains.abgeltungssteuer],
+              [language === 'de' ? 'Solidaritaetszuschlag (5.5%)' : 'Solidarity Surcharge (5.5%)', taxReport.capitalGains.solidarityTax],
+              ['divider', null],
+              [language === 'de' ? 'Gesamtsteuer' : 'Total Tax', taxReport.capitalGains.totalTax, 'red-bold']
+            ].map((row, i) => {
+              if (row[0] === 'divider') {
+                return React.createElement('tr', { key: i },
+                  React.createElement('td', { colSpan: 2, style: { borderTop: '2px solid ' + currentTheme.cardBorder, height: '1rem' } })
+                );
+              }
+              
+              const isGreen = row[2] === 'green';
+              const isBold = row[2] === 'bold' || row[2] === 'red-bold';
+              const isRed = row[2] === 'red-bold';
+              
+              return React.createElement('tr', { key: i },
+                React.createElement('td', { 
+                  style: { 
+                    padding: '0.75rem 0', 
+                    color: currentTheme.text,
+                    fontWeight: isBold ? '700' : '400',
+                    fontSize: isBold ? '1.125rem' : '1rem'
+                  } 
+                }, row[0]),
+                React.createElement('td', { 
+                  style: { 
+                    padding: '0.75rem 0', 
+                    textAlign: 'right',
+                    color: isGreen ? '#10b981' : isRed ? '#ef4444' : currentTheme.text,
+                    fontWeight: isBold ? '700' : '400',
+                    fontSize: isBold ? '1.125rem' : '1rem'
+                  } 
+                }, row[1] >= 0 ? getCurrencySymbol() + formatPrice(row[1]) : '-' + getCurrencySymbol() + formatPrice(Math.abs(row[1])))
+              );
+            })
+          )
+        )
+      ),
+      
+      taxReport.recommendations && taxReport.recommendations.length > 0 &&
+        React.createElement('div', {
+          style: {
+            background: currentTheme.card,
+            borderRadius: '1rem',
+            padding: '2rem',
+            border: `1px solid ${currentTheme.cardBorder}`
+          }
+        },
+          React.createElement('h3', { style: { color: currentTheme.text, marginBottom: '1.5rem', fontSize: '1.5rem' } },
+            language === 'de' ? 'Optimierungsvorschlaege' : 'Tax Optimization Suggestions'
+          ),
+          taxReport.recommendations.map((rec, i) =>
+            React.createElement('div', {
+              key: i,
+              style: {
+                background: rec.type === 'wash-sale-warning' ? 'rgba(239,68,68,0.1)' : 'rgba(16,185,129,0.1)',
+                border: '1px solid ' + (rec.type === 'wash-sale-warning' ? '#ef4444' : '#10b981'),
+                padding: '1rem',
+                borderRadius: '0.5rem',
+                marginBottom: '1rem'
+              }
+            },
+              React.createElement('h4', { 
+                style: { color: currentTheme.text, marginBottom: '0.5rem', fontWeight: '600' } 
+              }, rec.symbol),
+              React.createElement('p', { style: { color: currentTheme.text, marginBottom: '0.5rem' } }, rec.message),
+              rec.taxSavings && 
+                React.createElement('p', { style: { color: '#10b981', fontWeight: '600' } },
+                  (language === 'de' ? 'Moegliche Steuerersparnis: ' : 'Potential tax savings: ') +
+                  getCurrencySymbol() + formatPrice(rec.taxSavings)
+                )
+            )
+          )
+        )
+    );
+  }
+
+  function RebalancingView() {
+    const rebalanceSuggestions = useMemo(() => {
+      if (typeof generateRebalancingSuggestions === 'undefined') return null;
+      return generateRebalancingSuggestions(portfolio, targetAllocation, transactions);
+    }, [portfolio, targetAllocation, transactions]);
+    
+    if (!rebalanceSuggestions) {
+      return React.createElement('div', { style: { padding: '2rem', color: currentTheme.text } },
+        language === 'de' ? 'Rebalancing-Funktionen werden geladen...' : 'Loading rebalancing functions...'
+      );
+    }
+    
+    const totalTarget = Object.values(targetAllocation).reduce((a, b) => a + b, 0);
+    
+    return React.createElement('div', { style: { padding: '2rem' } },
+      React.createElement('h2', { 
+        style: { color: currentTheme.text, fontSize: '2rem', fontWeight: '700', marginBottom: '2rem' } 
+      },
+        language === 'de' ? 'Portfolio Rebalancing' : 'Portfolio Rebalancing'
+      ),
+      
+      React.createElement('div', {
+        style: {
+          background: currentTheme.card,
+          borderRadius: '1rem',
+          padding: '2rem',
+          border: `1px solid ${currentTheme.cardBorder}`,
+          marginBottom: '2rem'
+        }
+      },
+        React.createElement('h3', { style: { color: currentTheme.text, marginBottom: '1rem', fontSize: '1.25rem' } },
+          language === 'de' ? 'Zielaufteilung' : 'Target Allocation'
+        ),
+        React.createElement('div', { 
+          style: { display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '1rem' } 
+        },
+          Object.entries(targetAllocation).map(([category, percent]) =>
+            React.createElement('div', { key: category },
+              React.createElement('label', { 
+                style: { display: 'block', color: currentTheme.text, marginBottom: '0.5rem', fontWeight: '600' } 
+              },
+                category.charAt(0).toUpperCase() + category.slice(1)
+              ),
+              React.createElement('div', { style: { display: 'flex', alignItems: 'center', gap: '0.5rem' } },
+                React.createElement('input', {
+                  type: 'number',
+                  value: percent,
+                  onChange: (e) => setTargetAllocation({ ...targetAllocation, [category]: parseInt(e.target.value) || 0 }),
+                  min: 0,
+                  max: 100,
+                  style: {
+                    flex: 1,
+                    padding: '0.75rem',
+                    background: currentTheme.inputBg,
+                    color: currentTheme.text,
+                    border: `1px solid ${currentTheme.inputBorder}`,
+                    borderRadius: '0.5rem'
+                  }
+                }),
+                React.createElement('span', { style: { color: currentTheme.text, fontWeight: '600' } }, '%')
+              )
+            )
+          )
+        ),
+        React.createElement('p', { 
+          style: { 
+            marginTop: '1rem', 
+            color: totalTarget !== 100 ? '#ef4444' : currentTheme.textSecondary,
+            fontSize: '0.875rem'
+          } 
+        },
+          (language === 'de' ? 'Gesamt: ' : 'Total: ') + totalTarget + '%' +
+          (totalTarget !== 100 ? (language === 'de' ? ' (Muss 100% sein!)' : ' (Must equal 100%!)') : '')
+        )
+      ),
+      
+      React.createElement('div', {
+        style: {
+          background: currentTheme.card,
+          borderRadius: '1rem',
+          padding: '2rem',
+          border: `1px solid ${currentTheme.cardBorder}`,
+          marginBottom: '2rem'
+        }
+      },
+        React.createElement('h3', { style: { color: currentTheme.text, marginBottom: '1.5rem', fontSize: '1.25rem' } },
+          language === 'de' ? 'Aktuelle Aufteilung' : 'Current Allocation'
+        ),
+        Object.entries(rebalanceSuggestions.analysis.drift).map(([category, data]) =>
+          React.createElement('div', { key: category, style: { marginBottom: '1.5rem' } },
+            React.createElement('div', { 
+              style: { display: 'flex', justifyContent: 'space-between', marginBottom: '0.5rem' } 
+            },
+              React.createElement('span', { style: { color: currentTheme.text, fontWeight: '600' } },
+                category.charAt(0).toUpperCase() + category.slice(1)
+              ),
+              React.createElement('span', { style: { color: currentTheme.textSecondary } },
+                (language === 'de' ? 'Aktuell: ' : 'Current: ') + data.current.toFixed(1) + '% | ' +
+                (language === 'de' ? 'Ziel: ' : 'Target: ') + data.target + '%' +
+                (data.overweight ? 
+                  ' (+' + data.driftAmount.toFixed(1) + '%)' :
+                  ' (' + data.driftAmount.toFixed(1) + '%)')
+              )
+            ),
+            React.createElement('div', {
+              style: {
+                width: '100%',
+                height: '24px',
+                background: 'rgba(255,255,255,0.1)',
+                borderRadius: '12px',
+                overflow: 'hidden',
+                position: 'relative'
+              }
+            },
+              React.createElement('div', {
+                style: {
+                  width: data.current + '%',
+                  height: '100%',
+                  background: data.overweight ? '#ef4444' : '#10b981',
+                  position: 'absolute'
+                }
+              }),
+              React.createElement('div', {
+                style: {
+                  position: 'absolute',
+                  left: data.target + '%',
+                  height: '100%',
+                  width: '3px',
+                  background: '#ffffff'
+                }
+              })
+            )
+          )
+        )
+      ),
+      
+      rebalanceSuggestions.rebalanceNeeded ?
+        React.createElement('div', {
+          style: {
+            background: currentTheme.card,
+            borderRadius: '1rem',
+            padding: '2rem',
+            border: `1px solid ${currentTheme.cardBorder}`
+          }
+        },
+          React.createElement('div', {
+            style: {
+              background: 'rgba(251,191,36,0.1)',
+              border: '1px solid #fbbf24',
+              padding: '1rem',
+              borderRadius: '0.5rem',
+              marginBottom: '1.5rem'
+            }
+          },
+            React.createElement('p', { style: { color: currentTheme.text, fontWeight: '600', marginBottom: '0.5rem' } },
+              language === 'de' ? 'Portfolio ist nicht ausbalanciert!' : 'Portfolio is out of balance!'
+            ),
+            React.createElement('p', { style: { color: currentTheme.text, fontSize: '0.875rem' } },
+              (language === 'de' ? 'Maximale Abweichung: ' : 'Maximum drift: ') + 
+              rebalanceSuggestions.analysis.maxDrift.toFixed(2) + '%'
+            )
+          ),
+          
+          React.createElement('h3', { style: { color: currentTheme.text, marginBottom: '1rem', fontSize: '1.25rem' } },
+            language === 'de' ? 'Empfohlene Massnahmen' : 'Recommended Actions'
+          ),
+          
+          rebalanceSuggestions.suggestions.map((sug, i) =>
+            React.createElement('div', {
+              key: i,
+              style: {
+                background: sug.action === 'BUY' ? 'rgba(16,185,129,0.1)' : 'rgba(239,68,68,0.1)',
+                border: '1px solid ' + (sug.action === 'BUY' ? '#10b981' : '#ef4444'),
+                padding: '1.5rem',
+                borderRadius: '0.5rem',
+                marginBottom: '1rem'
+              }
+            },
+              React.createElement('div', { 
+                style: { display: 'flex', justifyContent: 'space-between', alignItems: 'start', marginBottom: '0.75rem' } 
+              },
+                React.createElement('div', {},
+                  React.createElement('h4', { 
+                    style: { 
+                      color: currentTheme.text, 
+                      fontWeight: '700',
+                      fontSize: '1.125rem',
+                      marginBottom: '0.25rem'
+                    } 
+                  },
+                    (language === 'de' ? (sug.action === 'BUY' ? 'KAUFEN' : 'VERKAUFEN') : sug.action) + 
+                    ' ' + sug.category
+                  ),
+                  React.createElement('p', { style: { color: currentTheme.textSecondary, fontSize: '0.875rem' } },
+                    sug.reason
+                  )
+                ),
+                React.createElement('span', {
+                  style: {
+                    padding: '0.25rem 0.75rem',
+                    borderRadius: '0.25rem',
+                    fontSize: '0.75rem',
+                    fontWeight: '600',
+                    background: sug.priority === 'high' ? '#ef4444' : '#f59e0b',
+                    color: 'white'
+                  }
+                }, sug.priority.toUpperCase())
+              ),
+              React.createElement('p', { 
+                style: { 
+                  color: currentTheme.text, 
+                  fontSize: '1.25rem', 
+                  fontWeight: '700' 
+                } 
+              },
+                (language === 'de' ? 'Betrag: ' : 'Amount: ') + 
+                getCurrencySymbol() + formatPrice(sug.amount)
+              )
+            )
+          )
+        ) :
+        React.createElement('div', {
+          style: {
+            background: 'rgba(16,185,129,0.1)',
+            border: '1px solid #10b981',
+            padding: '3rem 2rem',
+            borderRadius: '1rem',
+            textAlign: 'center'
+          }
+        },
+          React.createElement('div', { style: { fontSize: '3rem', marginBottom: '1rem' } }, 'OK'),
+          React.createElement('h3', { style: { color: '#10b981', marginBottom: '0.5rem', fontSize: '1.5rem' } },
+            language === 'de' ? 'Portfolio ist gut ausbalanciert!' : 'Portfolio is well-balanced!'
+          ),
+          React.createElement('p', { style: { color: currentTheme.text } },
+            language === 'de' ? 'Derzeit ist kein Rebalancing erforderlich.' : 'No rebalancing needed at this time.'
+          )
+        )
+    );
+  }
+
+    // ========== RENDER WITH SIDEBAR ==========
   return React.createElement('div', { style: { display: 'flex', height: '100vh', overflow: 'hidden' } },
     
     // ========== SIDEBAR ==========
@@ -969,6 +1653,9 @@ function InvestmentTracker() {
           { view: 'overview', label: t.overview },
           { view: 'portfolio', label: t.portfolio },
           { view: 'charts', label: t.statistics },
+          { view: 'transactions', label: language === 'de' ? 'Transaktionen' : 'Transactions' },
+          { view: 'taxreports', label: language === 'de' ? 'Steuerberichte' : 'Tax Reports' },
+          { view: 'rebalancing', label: 'Rebalancing' },
           { view: 'risk', label: 'Risk Analytics' },
           { view: 'cs2analytics', label: 'CS2 Analytics' }
         ].map(item => 
@@ -1029,8 +1716,20 @@ function InvestmentTracker() {
             React.createElement('div', {},
               React.createElement('label', { style: { color: currentTheme.text, display: 'block', marginBottom: '0.5rem', fontWeight: '600' } }, t.language + ':'),
               React.createElement('div', { style: { display: 'flex', gap: '0.5rem' } },
-                React.createElement('button', { onClick: () => setLanguage('de'), style: { padding: '0.5rem 1.5rem', background: language === 'de' ? '#3b82f6' : currentTheme.inputBg, color: language === 'de' ? 'white' : currentTheme.text, border: `1px solid ${currentTheme.inputBorder}`, borderRadius: '0.5rem', cursor: 'pointer', fontWeight: '600' } }, 'DE (Deutsch)'),
-                React.createElement('button', { onClick: () => setLanguage('en'), style: { padding: '0.5rem 1.5rem', background: language === 'en' ? '#3b82f6' : currentTheme.inputBg, color: language === 'en' ? 'white' : currentTheme.text, border: `1px solid ${currentTheme.inputBorder}`, borderRadius: '0.5rem', cursor: 'pointer', fontWeight: '600' } }, 'EN (English)')
+                React.createElement('button', { 
+                  onClick: () => { 
+                    setLanguage('de'); 
+                    localStorage.setItem('language', 'de');
+                  }, 
+                  style: { padding: '0.5rem 1.5rem', background: language === 'de' ? '#3b82f6' : currentTheme.inputBg, color: language === 'de' ? 'white' : currentTheme.text, border: `1px solid ${currentTheme.inputBorder}`, borderRadius: '0.5rem', cursor: 'pointer', fontWeight: '600' } 
+                }, 'DE (Deutsch)'),
+                React.createElement('button', { 
+                  onClick: () => { 
+                    setLanguage('en'); 
+                    localStorage.setItem('language', 'en');
+                  }, 
+                  style: { padding: '0.5rem 1.5rem', background: language === 'en' ? '#3b82f6' : currentTheme.inputBg, color: language === 'en' ? 'white' : currentTheme.text, border: `1px solid ${currentTheme.inputBorder}`, borderRadius: '0.5rem', cursor: 'pointer', fontWeight: '600' } 
+                }, 'EN (English)')
               )
             ),
             React.createElement('div', {},
@@ -1191,6 +1890,18 @@ function InvestmentTracker() {
                   style: { width: '100%', padding: '0.5rem', background: currentTheme.inputBg, border: `1px solid ${currentTheme.inputBorder}`, borderRadius: '0.5rem', color: currentTheme.text } 
                 })
               ),
+              React.createElement('div', {}, 
+                React.createElement('label', { style: { color: currentTheme.text, fontSize: '0.875rem', display: 'block', marginBottom: '0.25rem' } }, t.feesOptional), 
+                React.createElement('input', { 
+                  type: 'number', 
+                  step: '0.01',
+                  min: '0',
+                  placeholder: '0.00',
+                  value: newItem.fees || '', 
+                  onChange: (e) => setNewItem({...newItem, fees: e.target.value}), 
+                  style: { width: '100%', padding: '0.5rem', background: currentTheme.inputBg, border: `1px solid ${currentTheme.inputBorder}`, borderRadius: '0.5rem', color: currentTheme.text } 
+                })
+              ),
               // CS2-specific fields (only shown for skins)
               activeTab === 'skins' && React.createElement('div', {}, 
                 React.createElement('label', { style: { color: currentTheme.text, fontSize: '0.875rem', display: 'block', marginBottom: '0.25rem' } }, 'Float Value'), 
@@ -1247,7 +1958,8 @@ function InvestmentTracker() {
                 const curr = item.currentPrice || prices[item.symbol.toLowerCase()] || prices[item.symbol] || item.purchasePrice || 0;
                 const val = curr * item.amount;
                 const inv = (item.purchasePrice || 0) * item.amount;
-                const prof = val - inv;
+                const fees = parseFloat(item.fees) || 0;
+                const prof = val - inv - fees; // Profit minus fees
                 const profPct = inv > 0 ? (prof / inv) * 100 : 0;
                 const img = images[item.symbol.toLowerCase()] || images[item.symbol];
                 
@@ -1299,6 +2011,18 @@ function InvestmentTracker() {
                           type: 'date', 
                           value: editingItem.purchaseDate, 
                           onChange: (e) => setEditingItem({...editingItem, purchaseDate: e.target.value}), 
+                          style: { width: '100%', padding: '0.5rem', background: currentTheme.card, border: `1px solid ${currentTheme.inputBorder}`, borderRadius: '0.5rem', color: currentTheme.text } 
+                        })
+                      ),
+                      React.createElement('div', {}, 
+                        React.createElement('label', { style: { color: currentTheme.text, fontSize: '0.875rem', display: 'block', marginBottom: '0.25rem' } }, t.feesOptional), 
+                        React.createElement('input', { 
+                          type: 'number', 
+                          step: '0.01',
+                          min: '0',
+                          placeholder: '0.00',
+                          value: editingItem.fees || '', 
+                          onChange: (e) => setEditingItem({...editingItem, fees: e.target.value}), 
                           style: { width: '100%', padding: '0.5rem', background: currentTheme.card, border: `1px solid ${currentTheme.inputBorder}`, borderRadius: '0.5rem', color: currentTheme.text } 
                         })
                       ),
@@ -1533,7 +2257,8 @@ function InvestmentTracker() {
                 const curr = item.currentPrice || prices[item.symbol.toLowerCase()] || prices[item.symbol] || item.purchasePrice || 0;
                 const val = curr * item.amount;
                 const inv = (item.purchasePrice || 0) * item.amount;
-                const prof = val - inv;
+                const fees = parseFloat(item.fees) || 0;
+                const prof = val - inv - fees; // Profit minus fees
                 const profPct = inv > 0 ? (prof / inv) * 100 : 0;
                 const pct = total > 0 ? ((val / total) * 100).toFixed(1) : 0;
                 const img = images[item.symbol.toLowerCase()] || images[item.symbol];
@@ -1560,7 +2285,8 @@ function InvestmentTracker() {
                       React.createElement('div', {},
                         React.createElement('div', { style: { color: currentTheme.text, fontSize: '1.5rem', fontWeight: '600' } }, item.symbol.toUpperCase()),
                         React.createElement('div', { style: { color: currentTheme.textSecondary, marginTop: '0.25rem' } }, `${t.amount}: ${item.amount} | ${t.bought}: ${fmtDate(item.purchaseDate)}`),
-                        React.createElement('div', { style: { color: currentTheme.textSecondary, fontSize: '0.875rem', marginTop: '0.25rem' } }, `${t.purchasePrice}: ${getCurrencySymbol()}${formatPrice(item.purchasePrice || 0)} -> ${t.current}: ${getCurrencySymbol()}${formatPrice(curr)}`),
+                        React.createElement('div', { style: { color: currentTheme.textSecondary, fontSize: '0.875rem', marginTop: '0.25rem' } }, `${t.purchasePrice}: ${getCurrencySymbol()}${formatPrice(item.purchasePrice || 0)} → ${t.current}: ${getCurrencySymbol()}${formatPrice(curr)}`),
+                        item.fees && parseFloat(item.fees) > 0 && React.createElement('div', { style: { color: currentTheme.textSecondary, fontSize: '0.875rem', marginTop: '0.25rem' } }, `${t.fees}: ${getCurrencySymbol()}${formatPrice(parseFloat(item.fees))}`),
                         React.createElement('div', { style: { color: currentTheme.textSecondary, fontSize: '0.875rem', marginTop: '0.25rem' } }, `${t.holdingPeriod}: ${daysSince} ${t.days}`)
                       )
                     ),
@@ -1602,6 +2328,21 @@ function InvestmentTracker() {
           t: t,
           language: language
         }),
+        
+        // ========== NEW v4.1: TRANSACTION HISTORY VIEW ==========
+        React.createElement('div', { style: { display: activeView === 'transactions' ? 'block' : 'none' } },
+          TransactionHistoryView()
+        ),
+        
+        // ========== NEW v4.1: TAX REPORT VIEW ==========
+        React.createElement('div', { style: { display: activeView === 'taxreports' ? 'block' : 'none' } },
+          TaxReportView()
+        ),
+        
+        // ========== NEW v4.1: REBALANCING VIEW ==========
+        React.createElement('div', { style: { display: activeView === 'rebalancing' ? 'block' : 'none' } },
+          RebalancingView()
+        ),
         
         // ========== NEW: FINANCIAL OVERVIEW VIEW ==========
         // ========== CUSTOMIZABLE DASHBOARD VIEW ==========

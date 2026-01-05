@@ -43,7 +43,43 @@ window.createRiskAnalyticsView = function(props) {
       // Messages
       wellDiversified: 'Gut diversifiziert',
       needsDiversification: 'Benötigt Diversifikation',
-      highConcentration: 'Hohe Konzentration'
+      highConcentration: 'Hohe Konzentration',
+
+      // More labels
+      riskFactors: 'Risiko-Faktoren',
+      tailRisk: 'Tail Risk - Worst Case Szenario',
+      diversificationScore: 'Diversifikations-Score',
+      higherScoreBetter: 'Höherer Score = Bessere Diversifikation',
+      riskManagement: 'Risk Management Empfehlungen',
+      highVolatileAssets: 'Hochvolatile Assets',
+      illiquidAssets: 'Illiquide Assets',
+      lowLiquidityWarning: 'Diese Assets haben eine niedrige Liquidität und könnten schwierig zu verkaufen sein.',
+      errorLoading: 'Fehler beim Laden der Risk Analytics',
+      noPositions: 'Keine Positionen vorhanden',
+      comprehensiveAnalysis: 'Umfassende Risikoanalyse deines Portfolios mit',
+      positions: 'Positionen',
+      volatilityMetricsItem: 'Volatilitäts-Metriken',
+      liquidityScoring: 'Liquiditäts-Scoring',
+      largestPosition: 'Größte Position',
+      ofPortfolioInTop3: 'des Portfolios in den größten 3 Positionen',
+      dailyMovement: 'Tägliche Bewegung',
+      concentratedPortfolio: 'Konzentriertes Portfolio',
+      annualizedVolatility: 'Annualisierte Volatilität',
+      categoryConcentration: 'Kategorie Konzentration',
+      ofPortfolio: 'des Portfolios',
+      maxExpectedLoss: 'Max. erwarteter Verlust mit 95% Wahrscheinlichkeit',
+      maxExpectedLoss99: 'Max. erwarteter Verlust mit 99% Wahrscheinlichkeit',
+      avgVolatility: 'Durchschn. Volatilität',
+      highVolatileAssets: 'hochvolatile Assets',
+      avgLiquidity: 'Durchschn. Liquidität',
+      illiquidAssetsCount: 'illiquide Assets',
+      daysToExit: 'Tage bis Exit',
+      avgDaysToExit: 'Ø',
+      recommendedAction: 'Empfohlene Aktion',
+      andMore: 'und',
+      moreHighVolAssets: 'weitere hochvolatile Assets',
+      positionsLabel: 'Positionen',
+      errorOccurred: 'Ein Fehler ist aufgetreten. Bitte prüfe die Browser Console (F12).',
     } : {
       // Main titles
       title: 'Risk Analytics',
@@ -77,7 +113,43 @@ window.createRiskAnalyticsView = function(props) {
       // Messages
       wellDiversified: 'Well diversified',
       needsDiversification: 'Needs diversification',
-      highConcentration: 'High concentration'
+      highConcentration: 'High concentration',
+
+      // More labels
+      riskFactors: 'Risk Factors',
+      tailRisk: 'Tail Risk - Worst Case Scenario',
+      diversificationScore: 'Diversification Score',
+      higherScoreBetter: 'Higher Score = Better Diversification',
+      riskManagement: 'Risk Management Recommendations',
+      highVolatileAssets: 'High Volatile Assets',
+      illiquidAssets: 'Illiquid Assets',
+      lowLiquidityWarning: 'These assets have low liquidity and could be difficult to sell.',
+      errorLoading: 'Error loading Risk Analytics',
+      noPositions: 'No positions available',
+      comprehensiveAnalysis: 'Comprehensive risk analysis of your portfolio with',
+      positions: 'positions',
+      volatilityMetricsItem: 'Volatility Metrics',
+      liquidityScoring: 'Liquidity Scoring',
+      largestPosition: 'Largest Position',
+      ofPortfolioInTop3: 'of portfolio in top 3 positions',
+      dailyMovement: 'Daily Movement',
+      concentratedPortfolio: 'Concentrated Portfolio',
+      annualizedVolatility: 'Annualized Volatility',
+      categoryConcentration: 'Category Concentration',
+      ofPortfolio: 'of portfolio',
+      maxExpectedLoss: 'Max. expected loss with 95% probability',
+      maxExpectedLoss99: 'Max. expected loss with 99% probability',
+      avgVolatility: 'Avg. Volatility',
+      highVolatileAssets: 'high volatile assets',
+      avgLiquidity: 'Avg. Liquidity',
+      illiquidAssetsCount: 'illiquid assets',
+      daysToExit: 'days to exit',
+      avgDaysToExit: 'Avg.',
+      recommendedAction: 'Recommended Action',
+      andMore: 'and',
+      moreHighVolAssets: 'more high volatile assets',
+      positionsLabel: 'Positions',
+      errorOccurred: 'An error occurred. Please check Browser Console (F12).',
     };
     
     // Safety check
@@ -126,7 +198,7 @@ window.createRiskAnalyticsView = function(props) {
           color: currentTheme.text,
           fontWeight: '600'
         } 
-      }, 'Keine Positionen vorhanden'),
+      }, texts.noPositions),
       React.createElement('p', { 
         style: { 
           fontSize: '1.1rem',
@@ -144,19 +216,49 @@ window.createRiskAnalyticsView = function(props) {
         React.createElement('div', { style: { marginBottom: '0.75rem', opacity: 0.8 } }, '• ' + texts.portfolioRiskScore),
         React.createElement('div', { style: { marginBottom: '0.75rem', opacity: 0.8 } }, '• ' + texts.valueAtRisk + ' Berechnungen'),
         React.createElement('div', { style: { marginBottom: '0.75rem', opacity: 0.8 } }, '• Diversifikations-Analyse'),
-        React.createElement('div', { style: { marginBottom: '0.75rem', opacity: 0.8 } }, '• Volatilitäts-Metriken'),
-        React.createElement('div', { style: { marginBottom: '0.75rem', opacity: 0.8 } }, '• Liquiditäts-Scoring'),
+        React.createElement('div', { style: { marginBottom: '0.75rem', opacity: 0.8 } }, '• ' + texts.volatilityMetricsItem),
+        React.createElement('div', { style: { marginBottom: '0.75rem', opacity: 0.8 } }, '• ' + texts.liquidityScoring),
         React.createElement('div', { style: { marginBottom: '0.75rem', opacity: 0.8 } }, '• Konzentrations-Risiko Analyse'),
         React.createElement('div', { style: { marginBottom: '0.75rem', opacity: 0.8 } }, '• Personalisierte Empfehlungen')
       )
     );
   }
   
+  // ========== CACHING SYSTEM TO PREVENT RE-CALCULATION ON LANGUAGE CHANGE ==========
+  // Create cache key from position data (not language)
+  // Use symbol and amount only - not prices which may fluctuate
+  const cacheKey = allPositions.map(p => 
+    `${p.symbol || p.name}-${p.amount}`
+  ).sort().join('|'); // Sort to ensure consistent order
+  
+  // Add position count to cache key to detect additions/removals
+  const fullCacheKey = `${cacheKey}-${allPositions.length}`;
+  
+  // Initialize cache if doesn't exist
+  if (!window.riskAnalyticsCache) {
+    window.riskAnalyticsCache = { key: null };
+  }
+  
   // ========== CALCULATE ALL RISK METRICS ==========
   let concentration, var95, var99, withVolatility, withLiquidity, riskScore;
   
+  // Check if we can use cached values
+  const cacheValid = window.riskAnalyticsCache.key === fullCacheKey;
+  
+  if (cacheValid) {
+    // Load from cache
+    console.log('[Risk Analytics] ✓ Using cached values (no recalculation needed)');
+    concentration = window.riskAnalyticsCache.concentration;
+    var95 = window.riskAnalyticsCache.var95;
+    var99 = window.riskAnalyticsCache.var99;
+    withVolatility = window.riskAnalyticsCache.withVolatility;
+    withLiquidity = window.riskAnalyticsCache.withLiquidity;
+    riskScore = window.riskAnalyticsCache.riskScore;
+  } else {
+    console.log('[Risk Analytics] Calculating new values (cache miss or data changed)');
+    
   try {
-    concentration = analyzeConcentration ? analyzeConcentration(allPositions) : { 
+    concentration = window.analyzeConcentration ? window.analyzeConcentration(allPositions) : { 
       diversificationScore: 0, 
       singlePosition: { max: 0, position: 'N/A' },
       topThree: { total: 0, positions: [], risk: 'low' },
@@ -173,35 +275,35 @@ window.createRiskAnalyticsView = function(props) {
   }
   
   try {
-    var95 = calculateValueAtRisk ? calculateValueAtRisk(allPositions, 0.95, 1) : { var: 0, varPercent: 0 };
+    var95 = window.calculateValueAtRisk ? window.calculateValueAtRisk(allPositions, 0.95, 1) : { var: 0, varPercent: 0 };
   } catch (e) {
     console.error('VaR 95 Error:', e);
     var95 = { var: 0, varPercent: 0 };
   }
   
   try {
-    var99 = calculateValueAtRisk ? calculateValueAtRisk(allPositions, 0.99, 1) : { var: 0, varPercent: 0 };
+    var99 = window.calculateValueAtRisk ? window.calculateValueAtRisk(allPositions, 0.99, 1) : { var: 0, varPercent: 0 };
   } catch (e) {
     console.error('VaR 99 Error:', e);
     var99 = { var: 0, varPercent: 0 };
   }
   
   try {
-    withVolatility = calculateVolatilityMetrics ? calculateVolatilityMetrics(allPositions) : allPositions;
+    withVolatility = window.calculateVolatilityMetrics ? window.calculateVolatilityMetrics(allPositions) : allPositions;
   } catch (e) {
     console.error('Volatility Error:', e);
     withVolatility = allPositions;
   }
   
   try {
-    withLiquidity = calculateLiquidityScores ? calculateLiquidityScores(allPositions) : allPositions;
+    withLiquidity = window.calculateLiquidityScores ? window.calculateLiquidityScores(allPositions) : allPositions;
   } catch (e) {
     console.error('Liquidity Error:', e);
     withLiquidity = allPositions;
   }
   
   try {
-    riskScore = calculatePortfolioRiskScore ? calculatePortfolioRiskScore(concentration, var95, withVolatility, withLiquidity) : {
+    riskScore = window.calculatePortfolioRiskScore ? window.calculatePortfolioRiskScore(concentration, var95, withVolatility, withLiquidity) : {
       overallScore: 50,
       rating: texts.mediumRisk,
       color: '#f59e0b',
@@ -218,6 +320,38 @@ window.createRiskAnalyticsView = function(props) {
       recommendations: []
     };
   }
+  
+    // Save to cache
+    window.riskAnalyticsCache = {
+      key: fullCacheKey,
+      concentration: concentration,
+      var95: var95,
+      var99: var99,
+      withVolatility: withVolatility,
+      withLiquidity: withLiquidity,
+      riskScore: riskScore
+    };
+    console.log('[Risk Analytics] ✓ Values cached successfully for key:', fullCacheKey);
+  } // End of if (!cacheValid)
+  
+  // DEBUG LOGGING
+  console.log('[Risk Analytics Debug]');
+  console.log('Positions:', allPositions.length);
+  console.log('VaR 95:', var95);
+  console.log('  -> var95.var:', var95 ? var95.var : 'undefined');
+  console.log('  -> var95.varPercent:', var95 ? var95.varPercent : 'undefined');
+  console.log('VaR 99:', var99);
+  console.log('  -> var99.var:', var99 ? var99.var : 'undefined');
+  console.log('  -> var99.varPercent:', var99 ? var99.varPercent : 'undefined');
+  console.log('Concentration:', concentration);
+  console.log('  -> diversificationScore:', concentration ? concentration.diversificationScore : 'undefined');
+  console.log('  -> singlePosition:', concentration ? concentration.singlePosition : 'undefined');
+  console.log('  -> topThree:', concentration ? concentration.topThree : 'undefined');
+  console.log('  -> category:', concentration ? concentration.category : 'undefined');
+  console.log('Backend Functions Available:');
+  console.log('  -> window.calculateValueAtRisk:', typeof window.calculateValueAtRisk);
+  console.log('  -> window.analyzeConcentration:', typeof window.analyzeConcentration);
+  console.log('First Position Sample:', allPositions[0]);
   
   // Calculate average volatility across portfolio
   const avgVolatility = withVolatility.reduce((sum, p) => 
@@ -264,7 +398,7 @@ window.createRiskAnalyticsView = function(props) {
           color: currentTheme.textSecondary,
           fontSize: '1rem'
         } 
-      }, 'Umfassende Risikoanalyse deines Portfolios mit ' + allPositions.length + ' Positionen')
+      }, texts.comprehensiveAnalysis + ' ' + allPositions.length + ' ' + texts.positions)
     ),
     
     // ========== MAIN RISK SCORE CARD ==========
@@ -367,7 +501,7 @@ window.createRiskAnalyticsView = function(props) {
               letterSpacing: '0.05em',
               fontWeight: '600'
             } 
-          }, 'Risk Factors'),
+          }, texts.riskFactors),
           React.createElement('div', { 
             style: { 
               display: 'grid', 
@@ -614,7 +748,7 @@ window.createRiskAnalyticsView = function(props) {
             opacity: 0.85,
             position: 'relative'
           } 
-        }, var95.varPercent.toFixed(2) + '% des Portfolios'),
+        }, var95.varPercent.toFixed(2) + '% ' + texts.ofPortfolio),
         React.createElement('div', { 
           style: { 
             marginTop: '1rem',
@@ -624,7 +758,7 @@ window.createRiskAnalyticsView = function(props) {
             opacity: 0.8,
             position: 'relative'
           } 
-        }, 'Max. erwarteter Verlust mit 95% Wahrscheinlichkeit')
+        }, texts.maxExpectedLoss)
       ),
       
       // VaR 99% Card
@@ -672,7 +806,7 @@ window.createRiskAnalyticsView = function(props) {
             opacity: 0.85,
             position: 'relative'
           } 
-        }, var99.varPercent.toFixed(2) + '% des Portfolios'),
+        }, var99.varPercent.toFixed(2) + '% ' + texts.ofPortfolio),
         React.createElement('div', { 
           style: { 
             marginTop: '1rem',
@@ -682,7 +816,7 @@ window.createRiskAnalyticsView = function(props) {
             opacity: 0.8,
             position: 'relative'
           } 
-        }, 'Tail Risk - Worst Case Szenario')
+        }, texts.tailRisk)
       ),
       
       // Diversification Card
@@ -715,7 +849,7 @@ window.createRiskAnalyticsView = function(props) {
             fontWeight: '600',
             position: 'relative'
           } 
-        }, 'Diversification Score'),
+        }, texts.diversificationScore),
         React.createElement('div', { 
           style: { 
             fontSize: '2.25rem', 
@@ -733,7 +867,7 @@ window.createRiskAnalyticsView = function(props) {
         }, 
           concentration.diversificationScore >= 70 ? 'Sehr gut diversifiziert' : 
           concentration.diversificationScore >= 50 ? 'Moderat diversifiziert' : 
-          'Konzentriertes Portfolio'
+          texts.concentratedPortfolio
         ),
         React.createElement('div', { 
           style: { 
@@ -744,7 +878,7 @@ window.createRiskAnalyticsView = function(props) {
             opacity: 0.8,
             position: 'relative'
           } 
-        }, 'Höherer Score = Bessere Diversifikation')
+        }, texts.higherScoreBetter)
       ),
       
       // Largest Position Card
@@ -777,7 +911,7 @@ window.createRiskAnalyticsView = function(props) {
             fontWeight: '600',
             position: 'relative'
           } 
-        }, 'Größte Position'),
+        }, texts.largestPosition),
         React.createElement('div', { 
           style: { 
             fontSize: '2.25rem', 
@@ -838,7 +972,7 @@ window.createRiskAnalyticsView = function(props) {
             fontWeight: '600',
             position: 'relative'
           } 
-        }, 'Durchschn. Volatilität'),
+        }, texts.avgVolatility),
         React.createElement('div', { 
           style: { 
             fontSize: '2.25rem', 
@@ -853,7 +987,7 @@ window.createRiskAnalyticsView = function(props) {
             opacity: 0.85,
             position: 'relative'
           } 
-        }, highVolAssets.length + ' hochvolatile Assets'),
+        }, highVolAssets.length + ' ' + texts.highVolatileAssets),
         React.createElement('div', { 
           style: { 
             marginTop: '1rem',
@@ -863,7 +997,7 @@ window.createRiskAnalyticsView = function(props) {
             opacity: 0.8,
             position: 'relative'
           } 
-        }, 'Annualisierte Volatilität')
+        }, texts.annualizedVolatility)
       ),
       
       // Average Liquidity Card
@@ -896,7 +1030,7 @@ window.createRiskAnalyticsView = function(props) {
             fontWeight: '600',
             position: 'relative'
           } 
-        }, 'Durchschn. Liquidität'),
+        }, texts.avgLiquidity),
         React.createElement('div', { 
           style: { 
             fontSize: '2.25rem', 
@@ -911,7 +1045,7 @@ window.createRiskAnalyticsView = function(props) {
             opacity: 0.85,
             position: 'relative'
           } 
-        }, illiquidAssets.length + ' illiquide Assets'),
+        }, illiquidAssets.length + ' ' + texts.illiquidAssetsCount),
         React.createElement('div', { 
           style: { 
             marginTop: '1rem',
@@ -921,7 +1055,7 @@ window.createRiskAnalyticsView = function(props) {
             opacity: 0.8,
             position: 'relative'
           } 
-        }, 'Ø ' + avgDaysToExit.toFixed(1) + ' Tage bis Exit')
+        }, texts.avgDaysToExit + ' ' + avgDaysToExit.toFixed(1) + ' ' + texts.daysToExit)
       )
     ),
     
@@ -958,7 +1092,7 @@ window.createRiskAnalyticsView = function(props) {
             fontWeight: '600',
             margin: 0
           } 
-        }, 'Risk Management Empfehlungen')
+        }, texts.riskManagement)
       ),
       
       React.createElement('div', { 
@@ -1023,7 +1157,7 @@ window.createRiskAnalyticsView = function(props) {
                 borderLeft: '2px solid ' + currentTheme.cardBorder
               } 
             }, 
-              React.createElement('strong', { style: { color: currentTheme.text } }, 'Empfohlene Aktion: '),
+              React.createElement('strong', { style: { color: currentTheme.text } }, texts.recommendedAction + ': '),
               rec.action
             )
           )
@@ -1064,7 +1198,7 @@ window.createRiskAnalyticsView = function(props) {
             fontWeight: '600',
             margin: 0
           } 
-        }, 'Kategorie Konzentration')
+        }, texts.categoryConcentration)
       ),
       
       React.createElement('div', { 
@@ -1191,7 +1325,7 @@ window.createRiskAnalyticsView = function(props) {
             color: currentTheme.textSecondary
           } 
         }, 
-          'des Portfolios in den größten 3 Positionen',
+          texts.ofPortfolioInTop3,
           concentration.topThree.risk === 'high' ? 
             React.createElement('span', { 
               style: { 
@@ -1276,7 +1410,7 @@ window.createRiskAnalyticsView = function(props) {
             fontWeight: '600',
             margin: 0
           } 
-        }, 'Hochvolatile Assets (' + highVolAssets.length + ')')
+        }, texts.highVolatileAssets + ' (' + highVolAssets.length + ')')
       ),
       
       React.createElement('div', { 
@@ -1344,7 +1478,7 @@ window.createRiskAnalyticsView = function(props) {
                 fontSize: '0.875rem',
                 color: currentTheme.textSecondary
               } 
-            }, 'Tägliche Bewegung: ±' + asset.volatility.dailyExpectedMove + '%')
+            }, texts.dailyMovement + ': ±' + asset.volatility.dailyExpectedMove + '%')
           )
         ),
         highVolAssets.length > 5 && React.createElement('div', { 
@@ -1354,7 +1488,7 @@ window.createRiskAnalyticsView = function(props) {
             color: currentTheme.textSecondary,
             fontSize: '0.875rem'
           } 
-        }, '... und ' + (highVolAssets.length - 5) + ' weitere hochvolatile Assets')
+        }, '... ' + texts.andMore + ' ' + (highVolAssets.length - 5) + ' ' + texts.moreHighVolAssets)
       )
     ),
     
@@ -1390,7 +1524,7 @@ window.createRiskAnalyticsView = function(props) {
             fontWeight: '600',
             margin: 0
           } 
-        }, 'Illiquide Assets (' + illiquidAssets.length + ')')
+        }, texts.illiquidAssets + ' (' + illiquidAssets.length + ')')
       ),
       
       React.createElement('div', { 
@@ -1405,7 +1539,7 @@ window.createRiskAnalyticsView = function(props) {
         } 
       }, 
         React.createElement('strong', { style: { color: currentTheme.text } }, 'Hinweis: '),
-        'Diese Assets haben eine niedrige Liquidität und könnten schwierig zu verkaufen sein. Berücksichtige dies bei deiner Exit-Strategie.'
+        texts.lowLiquidityWarning + ' Berücksichtige dies bei deiner Exit-Strategie.'
       ),
       
       React.createElement('div', { 
@@ -1473,7 +1607,7 @@ window.createRiskAnalyticsView = function(props) {
                 fontSize: '0.875rem',
                 color: currentTheme.textSecondary
               } 
-            }, '~' + asset.liquidity.daysToExit.toFixed(0) + ' Tage bis Exit')
+            }, '~' + asset.liquidity.daysToExit.toFixed(0) + ' ' + texts.daysToExit)
           )
         )
       )
@@ -1494,14 +1628,14 @@ window.createRiskAnalyticsView = function(props) {
           color: '#ef4444',
           marginBottom: '1rem'
         } 
-      }, 'Fehler beim Laden der Risk Analytics'),
+      }, texts.errorLoading),
       React.createElement('p', { 
         style: { 
           fontSize: '1rem',
           marginBottom: '1rem',
           color: '#d1d5db'
         } 
-      }, 'Ein Fehler ist aufgetreten. Bitte prüfe die Browser Console (F12).'),
+      }, texts.errorOccurred),
       React.createElement('code', { 
         style: { 
           display: 'block',

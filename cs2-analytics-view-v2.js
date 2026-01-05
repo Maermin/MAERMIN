@@ -75,7 +75,23 @@ window.createCS2AnalyticsView = function(props) {
       positionsGaining: 'Positionen steigen',
       positionsLosing: 'Positionen fallen',
       highVolatility: 'Hohe Volatilität',
-      stableMarket: 'Stabiler Markt'
+      stableMarket: 'Stabiler Markt',
+
+      // More labels
+      avgReturnShort: 'Ø Return',
+      bestFloatRange: 'Bester Float Bereich',
+      floatRecommendations: 'Float Empfehlungen',
+      stickeredItems: 'Items mit Stickern',
+      totalStickerValue: 'Gesamt Sticker Wert',
+      topWeaponsBySticker: 'Top 5 Weapons nach Sticker Wert',
+      floatValuePerformance: 'Float Wert Performance',
+      averageReturn: 'Durchschn. Return',
+      detailedAnalysis: 'Detaillierte Analyse deines CS2 Portfolios mit',
+      stickerInvestmentAnalysis: 'Sticker Investment Analyse',
+      stickerExposureWarning: 'Sticker Exposure Warnung',
+      bestPerformingRarity: 'Best Performing Rarity',
+      factoryNewPremium: 'Factory New Premium',
+      errorOccurred: 'Ein Fehler ist aufgetreten. Bitte prüfe die Browser Console (F12).',
     } : {
       // Header
       title: 'CS2 Advanced Analytics',
@@ -141,7 +157,23 @@ window.createCS2AnalyticsView = function(props) {
       positionsGaining: 'positions gaining value',
       positionsLosing: 'positions losing value',
       highVolatility: 'High volatility',
-      stableMarket: 'Stable market'
+      stableMarket: 'Stable market',
+
+      // More labels
+      avgReturnShort: 'Avg Return',
+      bestFloatRange: 'Best Float Range',
+      floatRecommendations: 'Float Recommendations',
+      stickeredItems: 'Stickered Items',
+      totalStickerValue: 'Total Sticker Value',
+      topWeaponsBySticker: 'Top 5 Weapons by Sticker Value',
+      floatValuePerformance: 'Float Value Performance',
+      averageReturn: 'Average Return',
+      detailedAnalysis: 'Detailed analysis of your CS2 Portfolio with',
+      stickerInvestmentAnalysis: 'Sticker Investment Analysis',
+      stickerExposureWarning: 'Sticker Exposure Warning',
+      bestPerformingRarity: 'Best Performing Rarity',
+      factoryNewPremium: 'Factory New Premium',
+      errorOccurred: 'An error occurred. Please check Browser Console (F12).',
     };
     
     // Safety check
@@ -203,7 +235,7 @@ window.createCS2AnalyticsView = function(props) {
         } 
       },
         React.createElement('div', { style: { marginBottom: '0.75rem', opacity: 0.8 } }, '• ' + texts.marketSentiment + ' Analyse'),
-        React.createElement('div', { style: { marginBottom: '0.75rem', opacity: 0.8 } }, '• Float Value Performance'),
+        React.createElement('div', { style: { marginBottom: '0.75rem', opacity: 0.8 } }, '• ' + texts.floatValuePerformance),
         React.createElement('div', { style: { marginBottom: '0.75rem', opacity: 0.8 } }, '• Sticker Investment Tracking'),
         React.createElement('div', { style: { marginBottom: '0.75rem', opacity: 0.8 } }, '• ' + texts.rarityDistribution),
         React.createElement('div', { style: { marginBottom: '0.75rem', opacity: 0.8 } }, '• Portfolio Performance Metrics'),
@@ -347,7 +379,7 @@ window.createCS2AnalyticsView = function(props) {
           color: currentTheme.textSecondary,
           fontSize: '1rem'
         } 
-      }, 'Detaillierte Analyse deines CS2 Portfolios mit ' + enrichedSkins.length + ' Items')
+      }, texts.detailedAnalysis + ' ' + enrichedSkins.length + ' Items')
     ),
     
     // ========== MARKET SENTIMENT CARD ==========
@@ -772,7 +804,7 @@ window.createCS2AnalyticsView = function(props) {
             marginTop: '0.5rem',
             position: 'relative'
           } 
-        }, stickerAnalysis.stickerContributionPercent.toFixed(1) + '% des Portfolios')
+        }, stickerAnalysis.stickerContributionPercent.toFixed(1) + '% ' + texts.ofPortfolio)
       ),
       
       // Best Float Range
@@ -805,7 +837,7 @@ window.createCS2AnalyticsView = function(props) {
             fontWeight: '600',
             position: 'relative'
           } 
-        }, 'Best Float Range'),
+        }, texts.bestFloatRange),
         React.createElement('div', { 
           style: { 
             fontSize: '1.5rem', 
@@ -820,7 +852,7 @@ window.createCS2AnalyticsView = function(props) {
             marginTop: '0.5rem',
             position: 'relative'
           } 
-        }, '+' + floatAnalysis.bestPerforming.avgReturn.toFixed(1) + '% Avg Return')
+        }, '+' + floatAnalysis.bestPerforming.avgReturn.toFixed(1) + '% ' + texts.avgReturnShort)
       )
     ),
     
@@ -857,7 +889,7 @@ window.createCS2AnalyticsView = function(props) {
             fontWeight: '600',
             margin: 0
           } 
-        }, 'Float Value Performance')
+        }, texts.floatValuePerformance)
       ),
       
       React.createElement('div', { 
@@ -956,7 +988,7 @@ window.createCS2AnalyticsView = function(props) {
             textTransform: 'uppercase',
             letterSpacing: '0.025em'
           } 
-        }, 'Float Recommendations'),
+        }, texts.floatRecommendations),
         React.createElement('div', { 
           style: { 
             display: 'flex',
@@ -1011,7 +1043,7 @@ window.createCS2AnalyticsView = function(props) {
             fontWeight: '600',
             margin: 0
           } 
-        }, 'Sticker Investment Analysis')
+        }, texts.stickerInvestmentAnalysis)
       ),
       
       // Sticker stats grid
@@ -1038,7 +1070,7 @@ window.createCS2AnalyticsView = function(props) {
               textTransform: 'uppercase',
               letterSpacing: '0.05em'
             } 
-          }, 'Stickered Items'),
+          }, texts.stickeredItems),
           React.createElement('div', { 
             style: { 
               fontSize: '2rem',
@@ -1063,7 +1095,7 @@ window.createCS2AnalyticsView = function(props) {
               textTransform: 'uppercase',
               letterSpacing: '0.05em'
             } 
-          }, 'Total Sticker Value'),
+          }, texts.totalStickerValue),
           React.createElement('div', { 
             style: { 
               fontSize: '1.5rem',
@@ -1114,7 +1146,7 @@ window.createCS2AnalyticsView = function(props) {
             textTransform: 'uppercase',
             letterSpacing: '0.025em'
           } 
-        }, 'Top 5 Weapons by Sticker Value'),
+        }, texts.topWeaponsBySticker),
         React.createElement('div', { 
           style: { 
             display: 'flex',
@@ -1191,7 +1223,7 @@ window.createCS2AnalyticsView = function(props) {
             color: '#92400e',
             marginBottom: '0.75rem'
           } 
-        }, 'Sticker Exposure Warning'),
+        }, texts.stickerExposureWarning),
         React.createElement('div', { 
           style: { 
             display: 'flex',
@@ -1343,7 +1375,7 @@ window.createCS2AnalyticsView = function(props) {
             color: currentTheme.text,
             marginBottom: '0.5rem'
           } 
-        }, 'Best Performing Rarity: ' + rarityAnalysis.bestRarity.name),
+        }, texts.bestPerformingRarity + ': ' + rarityAnalysis.bestRarity.name),
         React.createElement('div', { 
           style: { 
             color: currentTheme.textSecondary,
@@ -1351,7 +1383,7 @@ window.createCS2AnalyticsView = function(props) {
             lineHeight: 1.6
           } 
         }, 
-          'Average Return: ',
+          texts.averageReturn + ': ',
           React.createElement('strong', { 
             style: { 
               color: rarityAnalysis.bestRarity.avgReturn >= 0 ? '#10b981' : '#ef4444'
@@ -1528,7 +1560,7 @@ window.createCS2AnalyticsView = function(props) {
               fontSize: '0.875rem',
               opacity: 0.85
             } 
-          }, 'Factory New Premium')
+          }, texts.factoryNewPremium)
         ),
         
         // Highest Float (if available)
@@ -1597,7 +1629,7 @@ window.createCS2AnalyticsView = function(props) {
           marginBottom: '1rem',
           color: '#d1d5db'
         } 
-      }, 'Ein Fehler ist aufgetreten. Bitte prüfe die Browser Console (F12).'),
+      }, texts.errorOccurred),
       React.createElement('code', { 
         style: { 
           display: 'block',
