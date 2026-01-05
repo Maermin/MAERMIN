@@ -1,94 +1,135 @@
-# Portfolio Tracker
+# MAERMIN – Investment Tracker
 
-A multi-asset portfolio tracker for advanced users, combining traditional financial assets with digital collectibles in a single, extensible system.
+MAERMIN is a modern, web-based **Investment Tracker** designed to give you full control over your money, investments, and financial health — all in one place.
 
-## Table of Contents
+From **crypto, stocks, and CS2 items** to **taxes, and risk analytics**, MAERMIN provides deep insights without sacrificing privacy.  
+All data is stored locally in your browser — no accounts, no servers, no tracking.
 
-- [Overview](#overview)
-- [Supported Asset Types](#supported-asset-types)
-- [Core Features](#core-features)
-- [Internationalization](#internationalization)
-- [Architecture](#architecture)
-- [Intended Audience](#intended-audience)
-- [Extensibility Guidelines](#extensibility-guidelines)
-- [Disclaimer](#disclaimer)
+---
 
-## Overview
+## 📸 Screenshots
 
-This application is designed to track and analyze portfolios across multiple asset classes:
+The following screenshots showcase the main sections of MAERMIN and its Financial OS workflow.
 
-- CS2 (Counter-Strike 2) items
-- Stocks
-- Cryptocurrencies
+### 🧭 Overview
+A high-level snapshot of your net worth, financial health, and key metrics.
+![Overview](<img width="1584" height="930" alt="image" src="https://github.com/user-attachments/assets/a59b2ee4-c62b-4175-87c5-516551d76fce" />)
 
-It focuses on precision, transparency, and long-term extensibility rather than beginner-oriented abstractions.
+### 📊 Portfolio
+Track cryptocurrencies, stocks, and CS2 items with real-time prices and performance.
+![Portfolio](<img width="1584" height="930" alt="image" src="https://github.com/user-attachments/assets/33135f44-fb82-43f6-aa5d-231f078b121b" />)
 
-## Supported Asset Types
+### 📈 Statistics
+Advanced portfolio analytics including ROI, diversification, top performers, and health indicators.
+![Statistics](<img width="1584" height="930" alt="image" src="https://github.com/user-attachments/assets/871e487f-e4c2-47cd-811d-869f9c37dd9a" />)
 
-### CS2 Items
+### 🔄 Transactions
+Complete transaction history with buys, sells, fees, and realized gains.
+![Transactions](<img width="1920" height="983" alt="image" src="https://github.com/user-attachments/assets/6a537105-5b26-47de-9ae6-77eca7eb6ea8" />)
 
-- Individual item tracking
-- Quantity-based holdings
-- Acquisition price tracking
-- Market value representation based on available pricing data
+### 🧾 Tax Reports
+Annual tax reports, realized gains, effective tax rates, and optimization insights.
+![Tax Reports](<img width="1920" height="983" alt="image" src="https://github.com/user-attachments/assets/fa9038e8-6a15-4f9f-8bb0-76a06a777d00" />)
 
-### Stocks
+### ⚖️ Rebalancing
+Target allocation management with smart rebalancing recommendations.
+![Rebalancing](<img width="1920" height="983" alt="image" src="https://github.com/user-attachments/assets/a32d0df6-3067-43cc-9834-f994336e8fca" />)
+(<img width="1920" height="667" alt="image" src="https://github.com/user-attachments/assets/045f1f13-7805-4c5f-9b35-a391b3e0b0bc" />)
 
-- Equity holdings with quantity and cost basis
-- Market price integration
-- Portfolio allocation calculations
+### ⚠️ Risk Analytics
+Risk exposure, concentration analysis, diversification score, and portfolio risk level.
+![Risk Analytics](<img width="1920" height="983" alt="image" src="https://github.com/user-attachments/assets/6cc36c48-7792-4210-9fc3-1cc5d3717020" />)
 
-### Cryptocurrencies
+### 🎮 CS2 Analytics
+Dedicated analytics for CS2 / Steam items including market prices and performance tracking.
+![CS2 Analytics](<img width="1584" height="930" alt="image" src="https://github.com/user-attachments/assets/c5cb386a-2831-42a4-a4ae-95f38636bd45" />)
+(<img width="1584" height="930" alt="image" src="https://github.com/user-attachments/assets/0936f918-fd8d-4fe8-9326-7d55aead568c" />)
+(<img width="1584" height="930" alt="image" src="https://github.com/user-attachments/assets/d19dde56-4070-48aa-a1b5-96054db5e618" />)
 
-- Token-based holdings
-- Market price tracking via external data providers
-- Aggregation across multiple wallets or exchanges (conceptual)
+> 📁 All images should be placed inside a `/screenshots` folder at the project root.
 
-## Core Features
+---
 
-- Unified portfolio overview across all asset types
-- Per-asset and total portfolio valuation
-- Historical portfolio value tracking
-- Asset allocation breakdowns
-- Realized and unrealized profit and loss calculations
+## ✨ Features
 
-## Internationalization
+### 📊 Portfolio Tracking
+- Cryptocurrencies (live prices via CoinGecko)
+- Stocks (Alpha Vantage API or fallback mock data)
+- CS2 / Steam items (Steam Market)
+- Purchase price, fees, holding period, ROI
+- Profit & loss in EUR or USD
 
-- Built-in language settings
-- Supported languages:
-  - English
-  - German
-- All user-facing text is controlled via the existing localization system
+### 💰 Financial OS
+- Net worth calculation
+- Income & expense tracking
+- Fixed costs and variable expenses
+- Budget management with alert thresholds
+- Monthly cashflow overview
+- Savings rate & cash runway (months)
 
-## Architecture
+### 🧠 Analytics & Insights
+- Portfolio health score
+- Risk level assessment
+- Diversification score
+- Top & worst performers
+- Automatic financial insights & recommendations
 
-- Asset-specific logic is isolated per asset type
-- Shared portfolio logic is abstracted and reusable
-- Market data sources are treated as external and replaceable dependencies
-- Designed for incremental feature expansion without breaking existing functionality
+### 🔄 Transactions & Taxes
+- Full transaction history (buy / sell)
+- Realized gains tracking
+- Yearly tax reports
+- Crypto tax optimization (e.g. 1-year holding rule)
+- PDF export / import (planned)
 
-## Intended Audience
+### ⚙️ Customization
+- Modular dashboard with widgets
+- Light / Dark / Purple themes
+- English & German language support
+- EUR / USD with live exchange rates
+- Data export & import (JSON backup)
 
-This project is intended for:
+---
 
-- Experienced investors
-- Advanced traders
-- CS2 item collectors
-- Users managing diversified, multi-asset portfolios
+## 🛠 Technology Stack
 
-Beginner-focused tooling and simplified investment guidance are intentionally out of scope.
+- **React (no build step required)**
+- **JavaScript (ES6+)**
+- **APIs**
+  - CoinGecko
+  - Alpha Vantage
+  - Steam Market
+  - ExchangeRate API
+- **Storage:** Browser `localStorage`
 
-## Extensibility Guidelines
+---
 
-When extending the application:
+## 🚀 Getting Started
 
-- Avoid re-implementing existing features
-- Ensure all new functionality supports both English and German
-- Do not introduce emojis in the UI or documentation
-- Favor scalable, maintainable, and testable designs
+1. Clone the repository or download the files
+2. Open `index.html` in your browser
+3. (Optional) Add an Alpha Vantage API key for real stock prices
+4. Start tracking your finances 🚀
 
-## Disclaimer
+> No backend, no database, no setup required.
 
-This software is provided for informational and portfolio-tracking purposes only.
+---
 
-It does not constitute financial, investment, or trading advice. Market data accuracy depends on third-party data sources and cannot be guaranteed.
+## 🔐 Privacy & Data Ownership
+
+- 100% client-side
+- All data stays **locally in your browser**
+- No accounts, no cloud, no tracking
+- Full ownership of your financial data
+
+---
+
+## 🗺 Roadmap
+
+- Optional cloud sync
+- Mobile optimization
+- Additional asset classes
+- AI-powered financial recommendations
+
+---
+
+**MAERMIN – Control your money. Know your future.**
