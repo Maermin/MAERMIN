@@ -1677,7 +1677,7 @@ function InvestmentTracker() {
       
       // Sidebar Footer
       React.createElement('div', { style: { padding: '1rem 1.5rem', borderTop: '1px solid rgba(255,255,255,0.1)' } },
-        React.createElement('div', { style: { fontSize: '0.75rem', opacity: 0.5, marginBottom: '0.75rem' } }, 'MAERMIN v3.0'),
+        React.createElement('div', { style: { fontSize: '0.75rem', opacity: 0.5, marginBottom: '0.75rem' } }, 'MAERMIN v5.0'),
         React.createElement('button', {
           onClick: () => setTheme(theme === 'dark' ? 'white' : theme === 'white' ? 'purple' : 'dark'),
           style: { width: '100%', padding: '0.625rem', background: 'rgba(255,255,255,0.1)', border: 'none', borderRadius: '0.5rem', color: 'white', cursor: 'pointer', fontSize: '0.875rem', fontWeight: '500', transition: 'all 0.2s' }
