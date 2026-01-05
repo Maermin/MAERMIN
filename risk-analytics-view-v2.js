@@ -1,8 +1,5 @@
 // ============================================================================
-// MAERMIN v4.0 - COMPLETE Risk Analytics View
-// ============================================================================
-// Vollständige UI für Risk Analytics Tab - KEINE KOMPRESSION
-// Alle Features vollständig implementiert
+// MAERMIN v5.0 - COMPLETE Risk Analytics View
 // ============================================================================
 
 window.createRiskAnalyticsView = function(props) {
