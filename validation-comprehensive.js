@@ -1,5 +1,5 @@
 // ============================================================================
-// MAERMIN v3.0.1 - Comprehensive Validation Module
+// MAERMIN v5.0 - Comprehensive Validation Module
 // ============================================================================
 
 function validateRequired(value, fieldName) {
@@ -214,5 +214,5 @@ if (typeof window !== 'undefined') {
   window.validateBudget = validateBudget;
   window.validateGoal = validateGoal;
   
-  console.log('[OK] Validation loaded v3.0.1');
+  console.log('[OK] Validation loaded v5.0');
 }
