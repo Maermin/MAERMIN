@@ -1,8 +1,6 @@
 // ============================================================================
-// MAERMIN v4.0 - COMPLETE CS2 Analytics View
+// MAERMIN v5.0 - COMPLETE CS2 Analytics View
 // ============================================================================
-// Vollständige UI für CS2 Analytics Tab - KEINE KOMPRESSION
-// Alle Features vollständig implementiert
 // ============================================================================
 
 window.createCS2AnalyticsView = function(props) {
