@@ -1,5 +1,6 @@
 // ============================================================================
-// MAERMIN v4.1 - Extended Calculator Module with Advanced Features
+// MAERMIN v5.1 - Extended Calculator Module with Advanced Features
+// NO EMOJIS VERSION
 // ============================================================================
 
 // ============================================================================
@@ -760,5 +761,5 @@ if (typeof window !== 'undefined') {
   window.calculateDetailedCashflow = calculateDetailedCashflow;
   window.calculateOverallBudgetStatus = calculateOverallBudgetStatus;
   
-  console.log('[OK] Calculator Extended v4.1 - All features loaded');
+  console.log('[OK] Calculator Extended v5.1 - All features loaded');
 }

@@ -1,5 +1,5 @@
 // ============================================================================
-// MAERMIN v5.0 - CS2 Advanced Analytics
+// MAERMIN v5.1 - CS2 Advanced Analytics
 // ============================================================================
 // Specialized features for Counter-Strike 2 item tracking
 // ============================================================================
@@ -490,5 +490,5 @@ if (typeof window !== 'undefined') {
   window.calculateCS2MarketSentiment = calculateCS2MarketSentiment;
   window.calculateCaseOpeningEV = calculateCaseOpeningEV;
   
-  console.log('[OK] CS2 Advanced Analytics loaded v5.0');
+  console.log('[OK] CS2 Advanced Analytics loaded v5.1');
 }

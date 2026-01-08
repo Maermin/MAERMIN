@@ -1,5 +1,5 @@
 // ============================================================================
-// MAERMIN v5.0 - Risk Analytics Engine
+// MAERMIN v5.1 - Risk Analytics Engine
 // ============================================================================
 // Advanced risk management calculations for professional traders
 // ============================================================================
@@ -475,5 +475,5 @@ if (typeof window !== 'undefined') {
   window.calculateLiquidityScores = calculateLiquidityScores;
   window.calculatePortfolioRiskScore = calculatePortfolioRiskScore;
   
-  console.log('[OK] Risk Analytics Engine loaded v5.0');
+  console.log('[OK] Risk Analytics Engine loaded v5.1');
 }

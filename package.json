@@ -1,6 +1,6 @@
 {
-  "name": "MAERMIN",
-  "version": "5.0",
+  "name": "investment-tracker",
+  "version": "1.0.0",
   "main": "main.js",
   "scripts": {
     "start": "electron .",

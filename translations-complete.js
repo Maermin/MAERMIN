@@ -1,7 +1,7 @@
 // ============================================================================
-// MAERMIN v5.0 - COMPLETE TRANSLATION SYSTEM
+// MAERMIN v5.1 - COMPLETE TRANSLATION SYSTEM - EMOJI FREE
 // ============================================================================
-// All UI text in German and English
+// All UI text in German and English - NO EMOJIS
 // ============================================================================
 
 const completeTranslations = {
@@ -359,7 +359,7 @@ const completeTranslations = {
     year: 'Jahr',
     allTime: 'Gesamtzeitraum',
   
-    // Transaction History - v4.1 NEU
+    // Transaction History - v5.1 NEU
     transactions: 'Transaktionen',
     transactionHistory: 'Transaktionsverlauf',
     addTransaction: 'Transaktion hinzufuegen',
@@ -382,7 +382,7 @@ const completeTranslations = {
     shortTerm: 'Kurzfristig',
     noTransactions: 'Keine Transaktionen vorhanden',
     
-    // Tax Reports - v4.1 NEU
+    // Tax Reports - v5.1 NEU
     taxReports: 'Steuerberichte',
     taxReport: 'Steuerbericht',
     generateReport: 'Bericht erstellen',
@@ -404,7 +404,7 @@ const completeTranslations = {
     taxOptimization: 'Steueroptimierung',
     taxBreakdown: 'Steueraufschluesselung',
     
-    // Rebalancing - v4.1 NEU
+    // Rebalancing - v5.1 NEU
     rebalancing: 'Rebalancing',
     portfolioRebalancing: 'Portfolio Rebalancing',
     targetAllocation: 'Zielaufteilung',
@@ -779,7 +779,7 @@ const completeTranslations = {
     year: 'Year',
     allTime: 'All Time',
   
-    // Transaction History - v5.0 NEW
+    // Transaction History - v5.1 NEW
     transactions: 'Transactions',
     transactionHistory: 'Transaction History',
     addTransaction: 'Add Transaction',
@@ -802,7 +802,7 @@ const completeTranslations = {
     shortTerm: 'Short-term',
     noTransactions: 'No transactions yet',
     
-    // Tax Reports - v5.0 NEW
+    // Tax Reports - v5.1 NEW
     taxReports: 'Tax Reports',
     taxReport: 'Tax Report',
     generateReport: 'Generate Report',
@@ -824,7 +824,7 @@ const completeTranslations = {
     taxOptimization: 'Tax Optimization',
     taxBreakdown: 'Tax Breakdown',
     
-    // Rebalancing - v5.0 NEW
+    // Rebalancing - v5.1 NEW
     rebalancing: 'Rebalancing',
     portfolioRebalancing: 'Portfolio Rebalancing',
     targetAllocation: 'Target Allocation',
@@ -849,5 +849,5 @@ const completeTranslations = {
 // Export
 if (typeof window !== 'undefined') {
   window.completeTranslations = completeTranslations;
-  console.log('[OK] Translations loaded v5.0');
+  console.log('[OK] Translations loaded v5.1');
 }

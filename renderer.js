@@ -15,6 +15,7 @@ const translations = typeof completeTranslations !== 'undefined' ? completeTrans
     noPositionsCategory: 'Keine Positionen in dieser Kategorie', distribution: 'Portfolio-Verteilung',
     visualDistribution: 'Visuelle Verteilung', total: 'Gesamt', details: 'Details',
     apiSettings: 'API-Schlüssel Einstellungen', alphaVantageKey: 'Alpha Vantage API-Key (für Aktien):',
+    skinportKey: 'Skinport API-Key (für CS2 Skins):',
     getKeyFree: '-> Kostenlosen API-Key erhalten', save: 'Speichern', cancel: 'Abbrechen',
     fillRequired: 'Bitte fülle alle Pflichtfelder aus!', theme: 'Design', language: 'Sprache',
     whiteMode: 'Hell', darkMode: 'Dunkel', purpleMode: 'Lila', performanceChart: 'Portfolio-Performance',
@@ -83,6 +84,7 @@ const translations = typeof completeTranslations !== 'undefined' ? completeTrans
     noPositionsCategory: 'No positions in this category', distribution: 'Portfolio Distribution',
     visualDistribution: 'Visual Distribution', total: 'Total', details: 'Details',
     apiSettings: 'API Key Settings', alphaVantageKey: 'Alpha Vantage API Key (for Stocks):',
+    skinportKey: 'Skinport API Key (for CS2 Skins):',
     getKeyFree: '-> Get Free API Key', save: 'Save', cancel: 'Cancel',
     fillRequired: 'Please fill in all required fields!', theme: 'Theme', language: 'Language',
     whiteMode: 'Light', darkMode: 'Dark', purpleMode: 'Purple', performanceChart: 'Portfolio Performance',
@@ -270,19 +272,45 @@ function InvestmentTracker() {
     rarity: '',
     wear: ''
   });
-  const [apiKeys, setApiKeys] = useState({ alphaVantage: '', steamApi: '' });
+  const [apiKeys, setApiKeys] = useState({ alphaVantage: '', steamApi: '', skinport: '' });
   const [showApiSettings, setShowApiSettings] = useState(false);
   const [showSettings, setShowSettings] = useState(false);
+  
+  // Price update modal state
+  const [priceUpdateModal, setPriceUpdateModal] = useState({ show: false, item: null, currentPrice: 0 });
+  const [newPriceInput, setNewPriceInput] = useState('');
 
   const [editingItem, setEditingItem] = useState(null);
 
-  // NEW v5.0: Transaction History State
+  // NEW v5.1: Transaction History State
   const [transactions, setTransactions] = useState(() => {
     const saved = localStorage.getItem('transactions');
     return saved ? JSON.parse(saved) : [];
   });
 
-  // NEW v5.0: Rebalancing State
+  // NEW v5.1: Transaction Form State
+  const [showTransactionForm, setShowTransactionForm] = useState(false);
+  const [newTransaction, setNewTransaction] = useState({
+    type: 'buy',
+    category: 'crypto',
+    symbol: '',
+    quantity: '',
+    price: '',
+    fees: '',
+    date: new Date().toISOString().split('T')[0], // Today's date in YYYY-MM-DD format
+    currency: 'EUR' // NEW: Transaction currency
+  });
+
+  // Portfolio is ALWAYS calculated from transactions only
+  const portfolioMode = 'transactions';
+
+  // NEW v5.1: Tax jurisdiction (for PDF export)
+  const [taxJurisdiction, setTaxJurisdiction] = useState(() => {
+    const saved = localStorage.getItem('taxJurisdiction');
+    return saved || 'de'; // 'de' for Germany, 'us' for US
+  });
+
+  // NEW v5.1: Rebalancing State
   const [targetAllocation, setTargetAllocation] = useState(() => {
     const saved = localStorage.getItem('targetAllocation');
     return saved ? JSON.parse(saved) : { crypto: 40, stocks: 50, cs2Items: 10 };
@@ -396,15 +424,22 @@ function InvestmentTracker() {
   useEffect(() => { localStorage.setItem('currency', currency); }, [currency]);
   useEffect(() => { localStorage.setItem('portfolio', JSON.stringify(portfolio)); }, [portfolio]);
 
-  // NEW v5.0: Persist transactions
+  // NEW v5.1: Persist transactions
   useEffect(() => { 
     localStorage.setItem('transactions', JSON.stringify(transactions)); 
   }, [transactions]);
 
-  // NEW v5.0: Persist target allocation
+  // NEW v5.1: Persist target allocation
   useEffect(() => { 
     localStorage.setItem('targetAllocation', JSON.stringify(targetAllocation)); 
   }, [targetAllocation]);
+
+  // Portfolio mode is always 'transactions' now - no persistence needed
+
+  // NEW v5.1: Persist tax jurisdiction
+  useEffect(() => { 
+    localStorage.setItem('taxJurisdiction', taxJurisdiction); 
+  }, [taxJurisdiction]);
   useEffect(() => { localStorage.setItem('priceHistory', JSON.stringify(priceHistory)); }, [priceHistory]);
   useEffect(() => { localStorage.setItem('dashboardWidgets', JSON.stringify(dashboardWidgets)); }, [dashboardWidgets]);
   useEffect(() => { localStorage.setItem('images', JSON.stringify(images)); }, [images]);
@@ -514,33 +549,82 @@ function InvestmentTracker() {
         }
       }
       
-      // Fetch CS2 skin prices from Steam Market
-      if (portfolio.skins && portfolio.skins.length > 0) {
-        for (const skin of portfolio.skins) {
-          try {
-            const res = await fetch(`https://steamcommunity.com/market/priceoverview/?appid=730&currency=3&market_hash_name=${encodeURIComponent(skin.symbol)}`);
-            const data = await res.json();
-            if (data.success && data.median_price) {
-              const price = parseFloat(data.median_price.replace('€', '').replace(',', '.'));
-              newPrices[skin.symbol] = price;
-              if (!newHistory[skin.symbol]) newHistory[skin.symbol] = [];
-              
-              const now = new Date();
-              const day = String(now.getDate()).padStart(2, '0');
-              const month = String(now.getMonth() + 1).padStart(2, '0');
-              const hour = String(now.getHours()).padStart(2, '0');
-              const minute = String(now.getMinutes()).padStart(2, '0');
-              const timestamp = language === 'de' ? `${day}/${month} ${hour}:${minute}` : `${month}/${day} ${hour}:${minute}`;
-              
-              newHistory[skin.symbol].push({ 
-                timestamp: timestamp, 
-                price 
-              });
-              if (newHistory[skin.symbol].length > 20) newHistory[skin.symbol] = newHistory[skin.symbol].slice(-20);
+      // Fetch CS2 skin prices from Skinport API
+      // Skinport requires API key for authentication
+      if (portfolio.skins && portfolio.skins.length > 0 && apiKeys.skinport) {
+        console.log('[CS2 PRICES] Fetching from Skinport API with authentication...');
+        
+        try {
+          // Skinport API endpoint with authentication
+          // Documentation: https://docs.skinport.com/
+          const skinportUrl = `https://api.skinport.com/v1/items?app_id=730&currency=EUR&tradable=1`;
+          
+          const skinportRes = await fetch(skinportUrl, {
+            method: 'GET',
+            headers: {
+              'Authorization': `Bearer ${apiKeys.skinport}`,
+              'Accept': 'application/json'
             }
-            await new Promise(r => setTimeout(r, 2000)); // Rate limiting
-          } catch (e) {}
+          });
+          
+          if (skinportRes.ok) {
+            const skinportData = await skinportRes.json();
+            
+            console.log(`[CS2] Received ${skinportData.length || 0} items from Skinport`);
+            
+            // Match user's skins with Skinport data
+            for (const skin of portfolio.skins) {
+              const itemData = skinportData.find(item => 
+                item.market_hash_name && 
+                item.market_hash_name.toUpperCase() === skin.symbol.toUpperCase()
+              );
+              
+              if (itemData && itemData.min_price) {
+                const priceInEur = parseFloat(itemData.min_price);
+                
+                // Store with UPPERCASE key to match portfolio symbols
+                newPrices[skin.symbol.toUpperCase()] = priceInEur;
+                newPrices[skin.symbol] = priceInEur; // Also store with original case
+                newPrices[skin.symbol.toLowerCase()] = priceInEur; // And lowercase for safety
+                
+                if (!newHistory[skin.symbol]) newHistory[skin.symbol] = [];
+                
+                const now = new Date();
+                const day = String(now.getDate()).padStart(2, '0');
+                const month = String(now.getMonth() + 1).padStart(2, '0');
+                const hour = String(now.getHours()).padStart(2, '0');
+                const minute = String(now.getMinutes()).padStart(2, '0');
+                const timestamp = language === 'de' ? `${day}/${month} ${hour}:${minute}` : `${month}/${day} ${hour}:${minute}`;
+                
+                newHistory[skin.symbol].push({ 
+                  timestamp: timestamp, 
+                  price: priceInEur 
+                });
+                if (newHistory[skin.symbol].length > 20) newHistory[skin.symbol] = newHistory[skin.symbol].slice(-20);
+                
+                console.log(`[CS2] ${skin.symbol}: €${priceInEur.toFixed(2)} (Skinport)`);
+              } else {
+                console.log(`[CS2] Item not found on Skinport: ${skin.symbol}`);
+              }
+            }
+          } else if (skinportRes.status === 401) {
+            console.error('[CS2] Skinport API: Invalid API key (401 Unauthorized)');
+            console.log('[CS2] Please check your Skinport API key in Settings → API Keys');
+          } else if (skinportRes.status === 429) {
+            console.error('[CS2] Skinport API: Rate limit exceeded (429)');
+            console.log('[CS2] Please wait before fetching prices again');
+          } else {
+            console.error(`[CS2] Skinport API returned error: ${skinportRes.status}`);
+          }
+        } catch (e) {
+          console.error('[CS2] Error fetching from Skinport API:', e.message);
+          console.log('[CS2] Make sure you have a valid Skinport API key in Settings → API Keys');
         }
+        
+        console.log('[CS2 PRICES] Skinport fetch complete');
+      } else if (portfolio.skins && portfolio.skins.length > 0 && !apiKeys.skinport) {
+        console.log('[CS2 PRICES] Skinport API key not set. Go to Settings → API Keys to add your key.');
+        console.log('[CS2 PRICES] Get your free API key at: https://skinport.com/api');
       }
       
       setPrices(newPrices);
@@ -642,7 +726,7 @@ function InvestmentTracker() {
   const cancelEdit = () => setEditingItem(null);
 
   // Export portfolio data to JSON file
-  // NEW v5.0: Transaction management
+  // NEW v5.1: Transaction management
   const addTransaction = (transaction) => {
     setTransactions(prev => [...prev, transaction]);
   };
@@ -651,6 +735,90 @@ function InvestmentTracker() {
     if (confirm(language === 'de' ? 'Transaktion loeschen?' : 'Delete transaction?')) {
       setTransactions(prev => prev.filter(tx => tx.id !== id));
     }
+  };
+
+  // NEW v5.1: Calculate current portfolio holdings from transactions
+  const calculateHoldingsFromTransactions = () => {
+    const holdings = {};
+    
+    // Process each transaction
+    transactions.forEach(tx => {
+      const key = `${tx.asset.symbol}_${tx.asset.category}`;
+      
+      if (!holdings[key]) {
+        holdings[key] = {
+          symbol: tx.asset.symbol,
+          category: tx.asset.category,
+          totalQuantity: 0,
+          totalCost: 0,
+          totalFees: 0,
+          transactions: []
+        };
+      }
+      
+      const holding = holdings[key];
+      holding.transactions.push(tx);
+      
+      if (tx.type === 'buy') {
+        holding.totalQuantity += tx.quantity;
+        holding.totalCost += tx.totalCost;
+        holding.totalFees += tx.fees || 0;
+      } else if (tx.type === 'sell') {
+        holding.totalQuantity -= tx.quantity;
+        // For sells, subtract the cost (but keep tracking for avg price calculation)
+      }
+    });
+    
+    // Convert to portfolio format (only include assets with quantity > 0)
+    const portfolioFromTransactions = {
+      crypto: [],
+      stocks: [],
+      skins: []
+    };
+    
+    Object.values(holdings).forEach(holding => {
+      if (holding.totalQuantity > 0.0001) { // Only show if we still own it (accounting for floating point)
+        // Calculate weighted average purchase price
+        let totalBuyQuantity = 0;
+        let totalBuyCost = 0;
+        
+        holding.transactions.forEach(tx => {
+          if (tx.type === 'buy') {
+            totalBuyQuantity += tx.quantity;
+            totalBuyCost += tx.totalCost;
+          }
+        });
+        
+        const avgPurchasePrice = totalBuyQuantity > 0 ? totalBuyCost / totalBuyQuantity : 0;
+        
+        // Get the earliest purchase date
+        const purchaseDate = holding.transactions
+          .filter(tx => tx.type === 'buy')
+          .map(tx => tx.transactionDate || tx.timestamp)
+          .sort()[0];
+        
+        const position = {
+          id: holding.symbol + '_' + Date.now(),
+          symbol: holding.symbol,
+          amount: holding.totalQuantity,
+          purchasePrice: avgPurchasePrice,
+          purchaseDate: purchaseDate,
+          fees: holding.totalFees,
+          currentPrice: 0 // Will be filled by price fetching
+        };
+        
+        // Add to appropriate category
+        if (holding.category === 'crypto') {
+          portfolioFromTransactions.crypto.push(position);
+        } else if (holding.category === 'stocks') {
+          portfolioFromTransactions.stocks.push(position);
+        } else if (holding.category === 'cs2') {
+          portfolioFromTransactions.skins.push(position);
+        }
+      }
+    });
+    
+    return portfolioFromTransactions;
   };
 
     const exportData = () => {
@@ -691,10 +859,20 @@ function InvestmentTracker() {
   ];
 
   // Safe portfolio access with fallback to empty arrays
+  // Get portfolio data based on current mode
+  const getActivePortfolio = () => {
+    if (portfolioMode === 'transactions') {
+      return calculateHoldingsFromTransactions();
+    }
+    return portfolio;
+  };
+
+  const activePortfolio = getActivePortfolio();
+
   const safe = { 
-    crypto: portfolio.crypto || [], 
-    stocks: portfolio.stocks || [], 
-    skins: portfolio.skins || [] 
+    crypto: activePortfolio.crypto || [], 
+    stocks: activePortfolio.stocks || [], 
+    skins: activePortfolio.skins || [] 
   };
   
   // Calculate total value for a category
@@ -996,10 +1174,111 @@ function InvestmentTracker() {
 
   function TransactionHistoryView() {
   const [showModal, setShowModal] = useState(false);
+  const [editingTransaction, setEditingTransaction] = useState(null); // NEW: For editing
   
   const sortedTransactions = [...transactions].sort((a, b) => 
     new Date(b.timestamp) - new Date(a.timestamp)
   );
+  
+  const handleAddTransaction = () => {
+    // Validate required fields
+    if (!newTransaction.symbol || !newTransaction.quantity || !newTransaction.price || !newTransaction.date || !newTransaction.currency) {
+      alert(language === 'de' ? 'Bitte fülle alle Pflichtfelder aus!' : 'Please fill in all required fields!');
+      return;
+    }
+
+    const quantity = parseFloat(newTransaction.quantity);
+    const price = parseFloat(newTransaction.price);
+    const fees = parseFloat(newTransaction.fees) || 0;
+
+    if (editingTransaction) {
+      // UPDATE existing transaction
+      const updatedTx = {
+        ...editingTransaction,
+        timestamp: new Date(newTransaction.date).toISOString(),
+        transactionDate: newTransaction.date,
+        type: newTransaction.type,
+        asset: { 
+          symbol: newTransaction.symbol.toUpperCase(), 
+          category: newTransaction.category 
+        },
+        quantity: quantity,
+        price: price,
+        totalCost: quantity * price,
+        fees: fees,
+        currency: newTransaction.currency // Use transaction's currency
+      };
+      
+      setTransactions(prevTransactions => 
+        prevTransactions.map(tx => tx.id === editingTransaction.id ? updatedTx : tx)
+      );
+      
+      setEditingTransaction(null);
+    } else {
+      // ADD new transaction
+      const newTx = {
+        id: 'tx_' + Date.now() + '_' + Math.random(),
+        timestamp: new Date(newTransaction.date).toISOString(),
+        transactionDate: newTransaction.date,
+        type: newTransaction.type,
+        asset: { 
+          symbol: newTransaction.symbol.toUpperCase(), 
+          category: newTransaction.category 
+        },
+        quantity: quantity,
+        price: price,
+        totalCost: quantity * price,
+        fees: fees,
+        currency: newTransaction.currency // Use transaction's currency
+      };
+      
+      addTransaction(newTx);
+    }
+    
+    // Reset form and hide it
+    setNewTransaction({
+      type: 'buy',
+      category: 'crypto',
+      symbol: '',
+      quantity: '',
+      price: '',
+      fees: '',
+      date: new Date().toISOString().split('T')[0],
+      currency: 'EUR' // Reset to EUR
+    });
+    setShowTransactionForm(false);
+  };
+  
+  const handleEditTransaction = (tx) => {
+    // Pre-fill form with transaction data
+    setNewTransaction({
+      type: tx.type,
+      category: tx.asset.category,
+      symbol: tx.asset.symbol,
+      quantity: tx.quantity.toString(),
+      price: tx.price.toString(),
+      fees: (tx.fees || 0).toString(),
+      date: tx.transactionDate || new Date(tx.timestamp).toISOString().split('T')[0],
+      currency: tx.currency || 'EUR' // Default to EUR if not set
+    });
+    setEditingTransaction(tx);
+    setShowTransactionForm(true);
+  };
+  
+  const handleCancelEdit = () => {
+    setEditingTransaction(null);
+    setNewTransaction({
+      type: 'buy',
+      category: 'crypto',
+      symbol: '',
+      quantity: '',
+      price: '',
+      fees: '',
+      date: new Date().toISOString().split('T')[0],
+      currency: 'EUR'
+    });
+    setShowTransactionForm(false);
+  };
   
   return React.createElement('div', { style: { padding: '2rem' } },
     React.createElement('div', { 
@@ -1010,29 +1289,290 @@ function InvestmentTracker() {
       ),
       React.createElement('button', {
         onClick: () => {
-          const newTx = {
-            id: 'tx_' + Date.now() + '_' + Math.random(),
-            timestamp: new Date().toISOString(),
-            type: 'buy',
-            asset: { symbol: 'BTC', category: 'crypto' },
-            quantity: 0.1,
-            price: 40000,
-            totalCost: 4000,
-            fees: 10,
-            currency: currency
-          };
-          addTransaction(newTx);
+          if (showTransactionForm) {
+            // Form is open - close it (and cancel any editing)
+            handleCancelEdit();
+          } else {
+            // Form is closed - open it
+            setShowTransactionForm(true);
+          }
         },
         style: {
           padding: '0.75rem 1.5rem',
-          background: '#3b82f6',
+          background: showTransactionForm ? '#ef4444' : '#3b82f6',
           color: 'white',
           border: 'none',
           borderRadius: '0.5rem',
           cursor: 'pointer',
           fontWeight: '600'
         }
-      }, language === 'de' ? 'Transaktion hinzufuegen' : 'Add Transaction')
+      }, showTransactionForm 
+        ? (language === 'de' ? 'Abbrechen' : 'Cancel')
+        : (language === 'de' ? 'Transaktion hinzufuegen' : 'Add Transaction'))
+    ),
+
+    // Transaction Form
+    showTransactionForm && React.createElement('div', { 
+      style: { 
+        background: currentTheme.inputBg, 
+        borderRadius: '1rem', 
+        padding: '1.5rem', 
+        marginBottom: '1.5rem',
+        border: `2px solid ${editingTransaction ? '#f59e0b' : currentTheme.cardBorder}`
+      } 
+    },
+      React.createElement('h3', { 
+        style: { 
+          color: editingTransaction ? '#f59e0b' : currentTheme.text,
+          fontWeight: '600', 
+          marginBottom: '1rem' 
+        } 
+      }, editingTransaction 
+        ? (language === 'de' ? 'Transaktion bearbeiten' : 'Edit Transaction')
+        : (language === 'de' ? 'Neue Transaktion' : 'New Transaction')
+      ),
+      
+      React.createElement('div', { 
+        style: { 
+          display: 'grid', 
+          gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', 
+          gap: '1rem', 
+          alignItems: 'end' 
+        } 
+      },
+        // Transaction Type
+        React.createElement('div', {}, 
+          React.createElement('label', { 
+            style: { 
+              color: currentTheme.text, 
+              fontSize: '0.875rem', 
+              display: 'block', 
+              marginBottom: '0.25rem' 
+            } 
+          }, (language === 'de' ? 'Typ' : 'Type') + ' *'), 
+          React.createElement('select', { 
+            value: newTransaction.type, 
+            onChange: (e) => setNewTransaction({...newTransaction, type: e.target.value}), 
+            style: { 
+              width: '100%', 
+              padding: '0.5rem', 
+              background: currentTheme.inputBg, 
+              border: `1px solid ${currentTheme.inputBorder}`, 
+              borderRadius: '0.5rem', 
+              color: currentTheme.text 
+            } 
+          },
+            React.createElement('option', { value: 'buy' }, language === 'de' ? 'Kauf' : 'Buy'),
+            React.createElement('option', { value: 'sell' }, language === 'de' ? 'Verkauf' : 'Sell')
+          )
+        ),
+        
+        // Category
+        React.createElement('div', {}, 
+          React.createElement('label', { 
+            style: { 
+              color: currentTheme.text, 
+              fontSize: '0.875rem', 
+              display: 'block', 
+              marginBottom: '0.25rem' 
+            } 
+          }, (language === 'de' ? 'Kategorie' : 'Category') + ' *'), 
+          React.createElement('select', { 
+            value: newTransaction.category, 
+            onChange: (e) => setNewTransaction({...newTransaction, category: e.target.value}), 
+            style: { 
+              width: '100%', 
+              padding: '0.5rem', 
+              background: currentTheme.inputBg, 
+              border: `1px solid ${currentTheme.inputBorder}`, 
+              borderRadius: '0.5rem', 
+              color: currentTheme.text 
+            } 
+          },
+            React.createElement('option', { value: 'crypto' }, language === 'de' ? 'Krypto' : 'Crypto'),
+            React.createElement('option', { value: 'stocks' }, language === 'de' ? 'Aktien' : 'Stocks'),
+            React.createElement('option', { value: 'cs2' }, 'CS2 Items')
+          )
+        ),
+        
+        // Symbol
+        React.createElement('div', {}, 
+          React.createElement('label', { 
+            style: { 
+              color: currentTheme.text, 
+              fontSize: '0.875rem', 
+              display: 'block', 
+              marginBottom: '0.25rem' 
+            } 
+          }, (language === 'de' ? 'Symbol/Name' : 'Symbol/Name') + ' *'), 
+          React.createElement('input', { 
+            type: 'text', 
+            placeholder: 'BTC, AAPL, AWP...', 
+            value: newTransaction.symbol, 
+            onChange: (e) => setNewTransaction({...newTransaction, symbol: e.target.value}), 
+            style: { 
+              width: '100%', 
+              padding: '0.5rem', 
+              background: currentTheme.inputBg, 
+              border: `1px solid ${currentTheme.inputBorder}`, 
+              borderRadius: '0.5rem', 
+              color: currentTheme.text 
+            } 
+          })
+        ),
+        
+        // Quantity
+        React.createElement('div', {}, 
+          React.createElement('label', { 
+            style: { 
+              color: currentTheme.text, 
+              fontSize: '0.875rem', 
+              display: 'block', 
+              marginBottom: '0.25rem' 
+            } 
+          }, (language === 'de' ? 'Menge' : 'Quantity') + ' *'), 
+          React.createElement('input', { 
+            type: 'number', 
+            step: '0.001', 
+            placeholder: '0.1',
+            value: newTransaction.quantity, 
+            onChange: (e) => setNewTransaction({...newTransaction, quantity: e.target.value}), 
+            style: { 
+              width: '100%', 
+              padding: '0.5rem', 
+              background: currentTheme.inputBg, 
+              border: `1px solid ${currentTheme.inputBorder}`, 
+              borderRadius: '0.5rem', 
+              color: currentTheme.text 
+            } 
+          })
+        ),
+        
+        // Price
+        React.createElement('div', {}, 
+          React.createElement('label', { 
+            style: { 
+              color: currentTheme.text, 
+              fontSize: '0.875rem', 
+              display: 'block', 
+              marginBottom: '0.25rem' 
+            } 
+          }, (language === 'de' ? 'Preis' : 'Price') + ' *'), 
+          React.createElement('input', { 
+            type: 'number', 
+            step: '0.01', 
+            placeholder: '46800.00',
+            value: newTransaction.price, 
+            onChange: (e) => setNewTransaction({...newTransaction, price: e.target.value}), 
+            style: { 
+              width: '100%', 
+              padding: '0.5rem', 
+              background: currentTheme.inputBg, 
+              border: `1px solid ${currentTheme.inputBorder}`, 
+              borderRadius: '0.5rem', 
+              color: currentTheme.text 
+            } 
+          })
+        ),
+        
+        // Fees
+        React.createElement('div', {}, 
+          React.createElement('label', { 
+            style: { 
+              color: currentTheme.text, 
+              fontSize: '0.875rem', 
+              display: 'block', 
+              marginBottom: '0.25rem' 
+            } 
+          }, (language === 'de' ? 'Gebühren (optional)' : 'Fees (optional)')), 
+          React.createElement('input', { 
+            type: 'number', 
+            step: '0.01',
+            min: '0',
+            placeholder: '0.00',
+            value: newTransaction.fees || '', 
+            onChange: (e) => setNewTransaction({...newTransaction, fees: e.target.value}), 
+            style: { 
+              width: '100%', 
+              padding: '0.5rem', 
+              background: currentTheme.inputBg, 
+              border: `1px solid ${currentTheme.inputBorder}`, 
+              borderRadius: '0.5rem', 
+              color: currentTheme.text 
+            } 
+          })
+        ),
+        
+        // Date
+        React.createElement('div', {}, 
+          React.createElement('label', { 
+            style: { 
+              color: currentTheme.text, 
+              fontSize: '0.875rem', 
+              display: 'block', 
+              marginBottom: '0.25rem' 
+            } 
+          }, (language === 'de' ? 'Datum' : 'Date') + ' *'), 
+          React.createElement('input', { 
+            type: 'date', 
+            value: newTransaction.date, 
+            onChange: (e) => setNewTransaction({...newTransaction, date: e.target.value}), 
+            style: { 
+              width: '100%', 
+              padding: '0.5rem', 
+              background: currentTheme.inputBg, 
+              border: `1px solid ${currentTheme.inputBorder}`, 
+              borderRadius: '0.5rem', 
+              color: currentTheme.text 
+            } 
+          })
+        ),
+        
+        // Currency Selector (NEW)
+        React.createElement('div', {}, 
+          React.createElement('label', { 
+            style: { 
+              color: currentTheme.text, 
+              fontSize: '0.875rem', 
+              display: 'block', 
+              marginBottom: '0.25rem' 
+            } 
+          }, (language === 'de' ? 'Waehrung' : 'Currency') + ' *'), 
+          React.createElement('select', { 
+            value: newTransaction.currency, 
+            onChange: (e) => setNewTransaction({...newTransaction, currency: e.target.value}), 
+            style: { 
+              width: '100%', 
+              padding: '0.5rem', 
+              background: currentTheme.inputBg, 
+              border: `1px solid ${currentTheme.inputBorder}`, 
+              borderRadius: '0.5rem', 
+              color: currentTheme.text 
+            } 
+          },
+            React.createElement('option', { value: 'EUR' }, 'EUR (€)'),
+            React.createElement('option', { value: 'USD' }, 'USD ($)')
+          )
+        ),
+        
+        // Add/Save Button
+        React.createElement('button', { 
+          onClick: handleAddTransaction, 
+          style: { 
+            padding: '0.5rem 1.5rem', 
+            background: editingTransaction ? '#f59e0b' : '#16a34a',
+            color: 'white', 
+            borderRadius: '0.5rem', 
+            border: 'none', 
+            cursor: 'pointer', 
+            height: '40px',
+            fontWeight: '600'
+          } 
+        }, editingTransaction 
+          ? (language === 'de' ? 'Speichern' : 'Save')
+          : (language === 'de' ? 'Hinzufügen' : 'Add')
+        )
+      )
     ),
     
     sortedTransactions.length === 0 ?
@@ -1083,7 +1623,7 @@ function InvestmentTracker() {
                   language === 'de' ? 'Preis' : 'Price',
                   'Total',
                   language === 'de' ? 'Gewinn' : 'Gain',
-                  ''
+                  language === 'de' ? 'Aktionen' : 'Actions'
                 ].map((heading, i) => 
                   React.createElement('th', {
                     key: i,
@@ -1140,12 +1680,12 @@ function InvestmentTracker() {
                   React.createElement('td', { 
                     style: { padding: '1rem', color: currentTheme.text } 
                   },
-                    getCurrencySymbol() + formatPrice(tx.price)
+                    (tx.currency === 'USD' ? '$' : '€') + formatPrice(tx.price)
                   ),
                   React.createElement('td', { 
                     style: { padding: '1rem', color: currentTheme.text, fontWeight: '600' } 
                   },
-                    getCurrencySymbol() + formatPrice(tx.totalCost)
+                    (tx.currency === 'USD' ? '$' : '€') + formatPrice(tx.totalCost)
                   ),
                   React.createElement('td', { 
                     style: { padding: '1rem' } 
@@ -1162,10 +1702,29 @@ function InvestmentTracker() {
                       React.createElement('span', { style: { color: currentTheme.textSecondary } }, '-')
                   ),
                   React.createElement('td', { 
-                    style: { padding: '1rem' } 
+                    style: { padding: '1rem', display: 'flex', gap: '0.5rem' } 
                   },
                     React.createElement('button', {
-                      onClick: () => deleteTransaction(tx.id),
+                      onClick: () => handleEditTransaction(tx),
+                      style: {
+                        padding: '0.25rem 0.75rem',
+                        background: 'rgba(59,130,246,0.1)',
+                        color: '#3b82f6',
+                        border: 'none',
+                        borderRadius: '0.25rem',
+                        cursor: 'pointer',
+                        fontSize: '0.75rem',
+                        fontWeight: '600'
+                      }
+                    }, language === 'de' ? 'Bearbeiten' : 'Edit'),
+                    React.createElement('button', {
+                      onClick: () => {
+                        if (confirm(language === 'de' 
+                          ? 'Transaktion wirklich löschen?' 
+                          : 'Delete this transaction?')) {
+                          deleteTransaction(tx.id);
+                        }
+                      },
                       style: {
                         padding: '0.25rem 0.75rem',
                         background: 'rgba(239,68,68,0.1)',
@@ -1201,9 +1760,31 @@ function InvestmentTracker() {
     const [selectedYear, setSelectedYear] = useState(new Date().getFullYear());
     
     const taxReport = useMemo(() => {
-      if (typeof generateTaxReport === 'undefined') return null;
-      return generateTaxReport(transactions, portfolio, selectedYear);
-    }, [transactions, portfolio, selectedYear]);
+      if (typeof generateTaxReportAdvanced === 'undefined') {
+        console.error('Advanced tax calculation not loaded');
+        return null;
+      }
+      return generateTaxReportAdvanced(transactions, selectedYear, taxJurisdiction);
+    }, [transactions, selectedYear, taxJurisdiction]);
+    
+    const handlePDFExport = () => {
+      if (!taxReport) {
+        alert(language === 'de' ? 'Kein Steuerbericht verfügbar' : 'No tax report available');
+        return;
+      }
+      
+      if (typeof exportTaxReportPDF === 'undefined') {
+        alert(language === 'de' ? 'PDF Export Modul nicht geladen' : 'PDF export module not loaded');
+        return;
+      }
+      
+      try {
+        exportTaxReportPDF(taxReport, currency, selectedYear, taxJurisdiction);
+      } catch (error) {
+        console.error('PDF export error:', error);
+        alert(language === 'de' ? 'Fehler beim PDF-Export: ' + error.message : 'Error exporting PDF: ' + error.message);
+      }
+    };
     
     if (!taxReport) {
       return React.createElement('div', { style: { padding: '2rem', color: currentTheme.text } },
@@ -1213,7 +1794,7 @@ function InvestmentTracker() {
     
     return React.createElement('div', { style: { padding: '2rem' } },
       React.createElement('div', { 
-        style: { display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '2rem' } 
+        style: { display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '2rem', flexWrap: 'wrap', gap: '1rem' } 
       },
         React.createElement('div', {},
           React.createElement('h2', { style: { color: currentTheme.text, fontSize: '2rem', fontWeight: '700', marginBottom: '0.5rem' } },
@@ -1236,18 +1817,113 @@ function InvestmentTracker() {
             )
           )
         ),
-        React.createElement('button', {
-          onClick: () => alert(language === 'de' ? 'PDF-Export in Entwicklung' : 'PDF export in development'),
+        React.createElement('div', { style: { display: 'flex', gap: '1rem', alignItems: 'center' } },
+          // Jurisdiction Selector
+          React.createElement('div', { style: { display: 'flex', flexDirection: 'column', gap: '0.5rem' } },
+            React.createElement('label', { 
+              style: { 
+                fontSize: '0.75rem', 
+                color: currentTheme.textSecondary,
+                textTransform: 'uppercase',
+                fontWeight: '600'
+              } 
+            }, language === 'de' ? 'Steuerland' : 'Tax Country'),
+            React.createElement('div', { style: { display: 'flex', gap: '0.5rem' } },
+              React.createElement('button', {
+                onClick: () => setTaxJurisdiction('de'),
+                style: {
+                  padding: '0.5rem 1rem',
+                  background: taxJurisdiction === 'de' ? '#3b82f6' : 'transparent',
+                  color: taxJurisdiction === 'de' ? 'white' : currentTheme.text,
+                  border: `2px solid ${taxJurisdiction === 'de' ? '#3b82f6' : currentTheme.inputBorder}`,
+                  borderRadius: '0.5rem',
+                  cursor: 'pointer',
+                  fontWeight: '600',
+                  fontSize: '0.875rem'
+                }
+              }, language === 'de' ? 'Deutschland' : 'Germany'),
+              React.createElement('button', {
+                onClick: () => setTaxJurisdiction('us'),
+                style: {
+                  padding: '0.5rem 1rem',
+                  background: taxJurisdiction === 'us' ? '#10b981' : 'transparent',
+                  color: taxJurisdiction === 'us' ? 'white' : currentTheme.text,
+                  border: `2px solid ${taxJurisdiction === 'us' ? '#10b981' : currentTheme.inputBorder}`,
+                  borderRadius: '0.5rem',
+                  cursor: 'pointer',
+                  fontWeight: '600',
+                  fontSize: '0.875rem'
+                }
+              }, language === 'de' ? 'USA' : 'USA')
+            )
+          ),
+          // Export PDF Button
+          React.createElement('button', {
+            onClick: handlePDFExport,
+            style: {
+              padding: '0.75rem 1.5rem',
+              background: taxJurisdiction === 'de' ? '#3b82f6' : '#10b981',
+              color: 'white',
+              border: 'none',
+              borderRadius: '0.5rem',
+              cursor: 'pointer',
+              fontWeight: '600',
+              fontSize: '0.875rem',
+              display: 'flex',
+              alignItems: 'center',
+              gap: '0.5rem',
+              marginTop: '1.5rem'
+            }
+          }, 
+            language === 'de' ? 'PDF Exportieren' : 'Export PDF'
+          )
+        )
+      ),
+      
+      // Tax Difference Highlight
+      React.createElement('div', {
+        style: {
+          background: taxJurisdiction === 'de' ? 'rgba(59, 130, 246, 0.1)' : 'rgba(16, 185, 129, 0.1)',
+          border: `2px solid ${taxJurisdiction === 'de' ? '#3b82f6' : '#10b981'}`,
+          borderRadius: '1rem',
+          padding: '1.5rem',
+          marginBottom: '2rem'
+        }
+      },
+        React.createElement('h3', {
           style: {
-            padding: '0.75rem 1.5rem',
-            background: '#10b981',
-            color: 'white',
-            border: 'none',
-            borderRadius: '0.5rem',
-            cursor: 'pointer',
-            fontWeight: '600'
+            color: taxJurisdiction === 'de' ? '#3b82f6' : '#10b981',
+            fontWeight: '700',
+            fontSize: '1.125rem',
+            marginBottom: '0.75rem'
           }
-        }, language === 'de' ? 'PDF Exportieren' : 'Export PDF')
+        }, taxJurisdiction === 'de' 
+          ? 'DEUTSCHE BESONDERHEIT' 
+          : 'U.S. TAX TREATMENT'
+        ),
+        taxJurisdiction === 'de' ? 
+          React.createElement('div', {},
+            React.createElement('p', { style: { color: currentTheme.text, marginBottom: '0.5rem', fontSize: '0.95rem' } },
+              'Krypto > 1 Jahr = STEUERFREI! (Paragraph 23 EStG)'
+            ),
+            React.createElement('p', { style: { color: currentTheme.text, marginBottom: '0.5rem', fontSize: '0.95rem' } },
+              'Krypto <= 1 Jahr = 25% Abgeltungssteuer + 5,5% Soli'
+            ),
+            React.createElement('p', { style: { color: currentTheme.text, fontSize: '0.95rem' } },
+              'Aktien = Immer 25% + Soli (keine Haltefrist-Befreiung)'
+            )
+          ) :
+          React.createElement('div', {},
+            React.createElement('p', { style: { color: currentTheme.text, marginBottom: '0.5rem', fontSize: '0.95rem' } },
+              'ALL crypto/stock sales are TAXABLE (no exemptions)'
+            ),
+            React.createElement('p', { style: { color: currentTheme.text, marginBottom: '0.5rem', fontSize: '0.95rem' } },
+              'Short-term (≤ 1 year) = Ordinary income rates (10-37%)'
+            ),
+            React.createElement('p', { style: { color: currentTheme.text, fontSize: '0.95rem' } },
+              'Long-term (> 1 year) = Preferential rates (0%, 15%, 20%)'
+            )
+          )
       ),
       
       React.createElement('div', { 
@@ -1258,28 +1934,49 @@ function InvestmentTracker() {
           marginBottom: '2rem' 
         } 
       },
-        [
+        (taxJurisdiction === 'de' ? [
           {
-            title: language === 'de' ? 'Realisierte Gewinne' : 'Realized Gains',
-            value: getCurrencySymbol() + formatPrice(taxReport.summary.totalRealizedGains),
+            title: language === 'de' ? 'Steuerpflichtige Gewinne' : 'Taxable Gains',
+            value: getCurrencySymbol() + formatPrice(taxReport.totalCapitalIncome || 0),
             color: '#3b82f6'
           },
           {
-            title: language === 'de' ? 'Steuer faellig' : 'Tax Owed',
-            value: getCurrencySymbol() + formatPrice(taxReport.summary.totalTaxOwed),
-            color: '#ef4444'
-          },
-          {
-            title: language === 'de' ? 'Krypto Ersparnis' : 'Crypto Savings',
-            value: getCurrencySymbol() + formatPrice(taxReport.crypto.taxSavingsFrom1YearRule),
+            title: language === 'de' ? 'Steuerfreie Krypto-Gewinne' : 'Tax-Free Crypto Gains',
+            value: getCurrencySymbol() + formatPrice(taxReport.cryptoTaxFreeGains || 0),
             color: '#10b981'
           },
           {
+            title: language === 'de' ? 'Gesamte Steuerschuld' : 'Total Tax Owed',
+            value: getCurrencySymbol() + formatPrice(taxReport.totalTax || 0),
+            color: '#ef4444'
+          },
+          {
+            title: language === 'de' ? 'Steuerersparnis (1-Jahr-Regel)' : 'Tax Savings (1-Year Rule)',
+            value: getCurrencySymbol() + formatPrice(taxReport.cryptoTaxSavings || 0),
+            color: '#10b981'
+          }
+        ] : [
+          {
+            title: language === 'de' ? 'Kurzfristige Gewinne' : 'Short-Term Gains',
+            value: getCurrencySymbol() + formatPrice(taxReport.shortTermGains || 0),
+            color: '#ef4444'
+          },
+          {
+            title: language === 'de' ? 'Langfristige Gewinne' : 'Long-Term Gains',
+            value: getCurrencySymbol() + formatPrice(taxReport.longTermGains || 0),
+            color: '#10b981'
+          },
+          {
+            title: language === 'de' ? 'Geschätzte Steuerschuld' : 'Estimated Tax Owed',
+            value: getCurrencySymbol() + formatPrice(taxReport.totalTax || 0),
+            color: '#ef4444'
+          },
+          {
             title: language === 'de' ? 'Effektiver Steuersatz' : 'Effective Tax Rate',
-            value: taxReport.summary.effectiveTaxRate.toFixed(2) + '%',
+            value: (taxReport.effectiveTaxRate || 0).toFixed(2) + '%',
             color: '#f59e0b'
           }
-        ].map((card, i) =>
+        ]).map((card, i) =>
           React.createElement('div', {
             key: i,
             style: {
@@ -1295,66 +1992,42 @@ function InvestmentTracker() {
         )
       ),
       
-      React.createElement('div', {
-        style: {
-          background: currentTheme.card,
-          borderRadius: '1rem',
-          padding: '2rem',
-          border: `1px solid ${currentTheme.cardBorder}`,
-          marginBottom: '2rem'
-        }
-      },
-        React.createElement('h3', { style: { color: currentTheme.text, marginBottom: '1.5rem', fontSize: '1.5rem' } },
-          language === 'de' ? 'Steueraufschluesselung' : 'Tax Breakdown'
-        ),
-        React.createElement('table', { style: { width: '100%', borderCollapse: 'collapse' } },
-          React.createElement('tbody', {},
-            [
-              [language === 'de' ? 'Kapitalertraege (Gesamt)' : 'Capital Income (Total)', taxReport.capitalGains.totalCapitalIncome],
-              [language === 'de' ? '- Realisierte Gewinne' : '- Realized Gains', taxReport.capitalGains.realizedGains],
-              [language === 'de' ? '- Dividenden' : '- Dividends', taxReport.capitalGains.dividendIncome],
-              ['divider', null],
-              [language === 'de' ? 'Freistellungsauftrag' : 'Tax-Free Allowance', -taxReport.capitalGains.freistellungsauftrag, 'green'],
-              [language === 'de' ? 'Zu versteuerndes Einkommen' : 'Taxable Income', taxReport.capitalGains.taxableIncome, 'bold'],
-              ['divider', null],
-              [language === 'de' ? 'Abgeltungssteuer (25%)' : 'Capital Gains Tax (25%)', taxReport.capitalGains.abgeltungssteuer],
-              [language === 'de' ? 'Solidaritaetszuschlag (5.5%)' : 'Solidarity Surcharge (5.5%)', taxReport.capitalGains.solidarityTax],
-              ['divider', null],
-              [language === 'de' ? 'Gesamtsteuer' : 'Total Tax', taxReport.capitalGains.totalTax, 'red-bold']
-            ].map((row, i) => {
-              if (row[0] === 'divider') {
-                return React.createElement('tr', { key: i },
-                  React.createElement('td', { colSpan: 2, style: { borderTop: '2px solid ' + currentTheme.cardBorder, height: '1rem' } })
-                );
-              }
-              
-              const isGreen = row[2] === 'green';
-              const isBold = row[2] === 'bold' || row[2] === 'red-bold';
-              const isRed = row[2] === 'red-bold';
-              
-              return React.createElement('tr', { key: i },
-                React.createElement('td', { 
-                  style: { 
-                    padding: '0.75rem 0', 
-                    color: currentTheme.text,
-                    fontWeight: isBold ? '700' : '400',
-                    fontSize: isBold ? '1.125rem' : '1rem'
-                  } 
-                }, row[0]),
-                React.createElement('td', { 
-                  style: { 
-                    padding: '0.75rem 0', 
-                    textAlign: 'right',
-                    color: isGreen ? '#10b981' : isRed ? '#ef4444' : currentTheme.text,
-                    fontWeight: isBold ? '700' : '400',
-                    fontSize: isBold ? '1.125rem' : '1rem'
-                  } 
-                }, row[1] >= 0 ? getCurrencySymbol() + formatPrice(row[1]) : '-' + getCurrencySymbol() + formatPrice(Math.abs(row[1])))
-              );
-            })
+      // Transaction list or info message
+      taxReport.transactions && taxReport.transactions.length > 0 ?
+        React.createElement('div', {
+          style: {
+            background: currentTheme.card,
+            borderRadius: '1rem',
+            padding: '2rem',
+            border: `1px solid ${currentTheme.cardBorder}`,
+            marginBottom: '2rem'
+          }
+        },
+          React.createElement('h3', { style: { color: currentTheme.text, marginBottom: '1rem', fontSize: '1.25rem' } },
+            language === 'de' ? `${taxReport.transactions.length} Transaktionen in ${selectedYear}` : `${taxReport.transactions.length} Transactions in ${selectedYear}`
+          ),
+          React.createElement('p', { style: { color: currentTheme.textSecondary, fontSize: '0.875rem' } },
+            language === 'de' 
+              ? 'Exportieren Sie den PDF-Bericht für eine vollständige Transaktionsliste.'
+              : 'Export the PDF report for a complete transaction list.'
           )
-        )
-      ),
+        ) :
+        React.createElement('div', {
+          style: {
+            background: currentTheme.card,
+            borderRadius: '1rem',
+            padding: '2rem',
+            border: `1px solid ${currentTheme.cardBorder}`,
+            marginBottom: '2rem',
+            textAlign: 'center'
+          }
+        },
+          React.createElement('p', { style: { color: currentTheme.textSecondary, fontSize: '1rem' } },
+            language === 'de' 
+              ? 'Keine Transaktionen für dieses Jahr vorhanden.'
+              : 'No transactions for this year.'
+          )
+        ),
       
       taxReport.recommendations && taxReport.recommendations.length > 0 &&
         React.createElement('div', {
@@ -1677,7 +2350,7 @@ function InvestmentTracker() {
       
       // Sidebar Footer
       React.createElement('div', { style: { padding: '1rem 1.5rem', borderTop: '1px solid rgba(255,255,255,0.1)' } },
-        React.createElement('div', { style: { fontSize: '0.75rem', opacity: 0.5, marginBottom: '0.75rem' } }, 'MAERMIN v5.0'),
+        React.createElement('div', { style: { fontSize: '0.75rem', opacity: 0.5, marginBottom: '0.75rem' } }, 'MAERMIN v5.1'),
         React.createElement('button', {
           onClick: () => setTheme(theme === 'dark' ? 'white' : theme === 'white' ? 'purple' : 'dark'),
           style: { width: '100%', padding: '0.625rem', background: 'rgba(255,255,255,0.1)', border: 'none', borderRadius: '0.5rem', color: 'white', cursor: 'pointer', fontSize: '0.875rem', fontWeight: '500', transition: 'all 0.2s' }
@@ -1777,8 +2450,15 @@ function InvestmentTracker() {
         // API Settings panel
         showApiSettings && React.createElement('div', { style: { background: currentTheme.inputBg, borderRadius: '1rem', padding: '1.5rem', marginBottom: '1.5rem', border: `2px solid rgba(234,179,8,0.5)` } },
           React.createElement('h3', { style: { color: currentTheme.text, marginBottom: '1rem' } }, ' ' + t.apiSettings),
+          
           React.createElement('label', { style: { color: currentTheme.text, display: 'block', marginBottom: '0.5rem' } }, t.alphaVantageKey),
-          React.createElement('input', { type: 'text', value: apiKeys.alphaVantage, onChange: (e) => setApiKeys({...apiKeys, alphaVantage: e.target.value}), style: { width: '100%', padding: '0.5rem', background: currentTheme.inputBg, border: `1px solid ${currentTheme.inputBorder}`, borderRadius: '0.5rem', color: currentTheme.text, marginBottom: '1rem' } }),
+          React.createElement('input', { type: 'text', value: apiKeys.alphaVantage, onChange: (e) => setApiKeys({...apiKeys, alphaVantage: e.target.value}), placeholder: 'ABCDEFGHIJKLMNOP', style: { width: '100%', padding: '0.5rem', background: currentTheme.inputBg, border: `1px solid ${currentTheme.inputBorder}`, borderRadius: '0.5rem', color: currentTheme.text, marginBottom: '0.5rem' } }),
+          React.createElement('a', { href: 'https://www.alphavantage.co/support/#api-key', target: '_blank', rel: 'noopener noreferrer', style: { color: '#3b82f6', fontSize: '0.875rem', textDecoration: 'none', display: 'block', marginBottom: '1rem' } }, t.getKeyFree + ' (Alpha Vantage)'),
+          
+          React.createElement('label', { style: { color: currentTheme.text, display: 'block', marginBottom: '0.5rem' } }, t.skinportKey),
+          React.createElement('input', { type: 'text', value: apiKeys.skinport, onChange: (e) => setApiKeys({...apiKeys, skinport: e.target.value}), placeholder: 'your-skinport-api-key', style: { width: '100%', padding: '0.5rem', background: currentTheme.inputBg, border: `1px solid ${currentTheme.inputBorder}`, borderRadius: '0.5rem', color: currentTheme.text, marginBottom: '0.5rem' } }),
+          React.createElement('a', { href: 'https://skinport.com/api', target: '_blank', rel: 'noopener noreferrer', style: { color: '#3b82f6', fontSize: '0.875rem', textDecoration: 'none', display: 'block', marginBottom: '1rem' } }, t.getKeyFree + ' (Skinport)'),
+          
           React.createElement('div', { style: { display: 'flex', gap: '0.75rem' } },
             React.createElement('button', { onClick: saveApiKeys, style: { padding: '0.5rem 1.5rem', background: '#16a34a', color: 'white', borderRadius: '0.5rem', border: 'none', cursor: 'pointer' } }, t.save),
             React.createElement('button', { onClick: () => setShowApiSettings(false), style: { padding: '0.5rem 1.5rem', background: '#4b5563', color: 'white', borderRadius: '0.5rem', border: 'none', cursor: 'pointer' } }, t.cancel)
@@ -1847,106 +2527,27 @@ function InvestmentTracker() {
             }, tab.label))
           ),
 
-          // Add new position form
-          React.createElement('div', { style: { background: currentTheme.inputBg, borderRadius: '1rem', padding: '1.5rem', marginBottom: '1.5rem' } },
-            React.createElement('h3', { style: { color: currentTheme.text, fontWeight: '600', marginBottom: '1rem' } }, t.addNew),
-            React.createElement('div', { style: { display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(150px, 1fr))', gap: '1rem', alignItems: 'end' } },
-              React.createElement('div', {}, 
-                React.createElement('label', { style: { color: currentTheme.text, fontSize: '0.875rem', display: 'block', marginBottom: '0.25rem' } }, t.symbol + ' *'), 
-                React.createElement('input', { 
-                  type: 'text', 
-                  placeholder: tabs.find(t => t.id === activeTab)?.placeholder, 
-                  value: newItem.symbol, 
-                  onChange: (e) => setNewItem({...newItem, symbol: e.target.value}), 
-                  style: { width: '100%', padding: '0.5rem', background: currentTheme.inputBg, border: `1px solid ${currentTheme.inputBorder}`, borderRadius: '0.5rem', color: currentTheme.text } 
-                })
-              ),
-              React.createElement('div', {}, 
-                React.createElement('label', { style: { color: currentTheme.text, fontSize: '0.875rem', display: 'block', marginBottom: '0.25rem' } }, t.amount + ' *'), 
-                React.createElement('input', { 
-                  type: 'number', 
-                  step: '0.001', 
-                  value: newItem.amount, 
-                  onChange: (e) => setNewItem({...newItem, amount: e.target.value}), 
-                  style: { width: '100%', padding: '0.5rem', background: currentTheme.inputBg, border: `1px solid ${currentTheme.inputBorder}`, borderRadius: '0.5rem', color: currentTheme.text } 
-                })
-              ),
-              React.createElement('div', {}, 
-                React.createElement('label', { style: { color: currentTheme.text, fontSize: '0.875rem', display: 'block', marginBottom: '0.25rem' } }, t.purchasePrice + ' *'), 
-                React.createElement('input', { 
-                  type: 'number', 
-                  step: '0.01', 
-                  value: newItem.purchasePrice, 
-                  onChange: (e) => setNewItem({...newItem, purchasePrice: e.target.value}), 
-                  style: { width: '100%', padding: '0.5rem', background: currentTheme.inputBg, border: `1px solid ${currentTheme.inputBorder}`, borderRadius: '0.5rem', color: currentTheme.text } 
-                })
-              ),
-              React.createElement('div', {}, 
-                React.createElement('label', { style: { color: currentTheme.text, fontSize: '0.875rem', display: 'block', marginBottom: '0.25rem' } }, t.purchaseDate), 
-                React.createElement('input', { 
-                  type: 'date', 
-                  value: newItem.purchaseDate, 
-                  onChange: (e) => setNewItem({...newItem, purchaseDate: e.target.value}), 
-                  style: { width: '100%', padding: '0.5rem', background: currentTheme.inputBg, border: `1px solid ${currentTheme.inputBorder}`, borderRadius: '0.5rem', color: currentTheme.text } 
-                })
-              ),
-              React.createElement('div', {}, 
-                React.createElement('label', { style: { color: currentTheme.text, fontSize: '0.875rem', display: 'block', marginBottom: '0.25rem' } }, t.feesOptional), 
-                React.createElement('input', { 
-                  type: 'number', 
-                  step: '0.01',
-                  min: '0',
-                  placeholder: '0.00',
-                  value: newItem.fees || '', 
-                  onChange: (e) => setNewItem({...newItem, fees: e.target.value}), 
-                  style: { width: '100%', padding: '0.5rem', background: currentTheme.inputBg, border: `1px solid ${currentTheme.inputBorder}`, borderRadius: '0.5rem', color: currentTheme.text } 
-                })
-              ),
-              // CS2-specific fields (only shown for skins)
-              activeTab === 'skins' && React.createElement('div', {}, 
-                React.createElement('label', { style: { color: currentTheme.text, fontSize: '0.875rem', display: 'block', marginBottom: '0.25rem' } }, 'Float Value'), 
-                React.createElement('input', { 
-                  type: 'number', 
-                  step: '0.0001',
-                  min: '0',
-                  max: '1',
-                  placeholder: '0.0000 - 1.0000',
-                  value: newItem.floatValue, 
-                  onChange: (e) => setNewItem({...newItem, floatValue: e.target.value}), 
-                  style: { width: '100%', padding: '0.5rem', background: currentTheme.inputBg, border: `1px solid ${currentTheme.inputBorder}`, borderRadius: '0.5rem', color: currentTheme.text } 
-                })
-              ),
-              activeTab === 'skins' && React.createElement('div', {}, 
-                React.createElement('label', { style: { color: currentTheme.text, fontSize: '0.875rem', display: 'block', marginBottom: '0.25rem' } }, 'Rarity'), 
-                React.createElement('select', { 
-                  value: newItem.rarity, 
-                  onChange: (e) => setNewItem({...newItem, rarity: e.target.value}), 
-                  style: { width: '100%', padding: '0.5rem', background: currentTheme.inputBg, border: `1px solid ${currentTheme.inputBorder}`, borderRadius: '0.5rem', color: currentTheme.text } 
-                },
-                  React.createElement('option', { value: '' }, '-- Select --'),
-                  React.createElement('option', { value: 'consumer_grade', style: { color: '#b0c3d9' } }, 'Consumer Grade'),
-                  React.createElement('option', { value: 'industrial_grade', style: { color: '#5e98d9' } }, 'Industrial Grade'),
-                  React.createElement('option', { value: 'mil_spec', style: { color: '#4b69ff' } }, 'Mil-Spec'),
-                  React.createElement('option', { value: 'restricted', style: { color: '#8847ff' } }, 'Restricted'),
-                  React.createElement('option', { value: 'classified', style: { color: '#d32ce6' } }, 'Classified'),
-                  React.createElement('option', { value: 'covert', style: { color: '#eb4b4b' } }, 'Covert'),
-                  React.createElement('option', { value: 'contraband', style: { color: '#e4ae39' } }, 'Contraband'),
-                  React.createElement('option', { value: 'knife', style: { color: '#ffd700' } }, 'Knife'),
-                  React.createElement('option', { value: 'glove', style: { color: '#ffd700' } }, 'Glove')
-                )
-              ),
-              React.createElement('button', { 
-                onClick: addItem, 
-                style: { 
-                  padding: '0.5rem 1.5rem', 
-                  background: '#16a34a', 
-                  color: 'white', 
-                  borderRadius: '0.5rem', 
-                  border: 'none', 
-                  cursor: 'pointer', 
-                  height: '40px' 
-                } 
-              }, ' ' + t.add)
+          // Portfolio always shows transactions - no manual mode
+          React.createElement('div', {
+            style: {
+              background: 'rgba(16,185,129,0.1)',
+              border: '2px solid #10b981',
+              borderRadius: '1rem',
+              padding: '1rem',
+              marginBottom: '1.5rem',
+              textAlign: 'center'
+            }
+          },
+            React.createElement('div', { 
+              style: { 
+                color: '#10b981', 
+                fontWeight: '600',
+                fontSize: '0.95rem'
+              } 
+            }, 
+              language === 'de' 
+                ? 'Portfolio wird automatisch aus Transaktionen berechnet' 
+                : 'Portfolio automatically calculated from Transactions'
             )
           ),
 
@@ -2096,6 +2697,19 @@ function InvestmentTracker() {
                       React.createElement('div', { style: { color: currentTheme.text, fontWeight: '600', fontSize: '1.125rem' } }, item.symbol.toUpperCase()),
                       React.createElement('div', { style: { color: currentTheme.textSecondary, fontSize: '0.875rem' } }, `${t.amount}: ${item.amount} | ${t.bought}: ${fmtDate(item.purchaseDate)}`),
                       React.createElement('div', { style: { color: currentTheme.textSecondary, fontSize: '0.875rem' } }, `${t.purchasePrice}: ${getCurrencySymbol()}${formatPrice(item.purchasePrice || 0)} ${t.perUnit}`),
+                      activeTab === 'skins' && React.createElement('a', {
+                        href: `https://skinport.com/market?search=${encodeURIComponent(item.symbol)}`,
+                        target: '_blank',
+                        rel: 'noopener noreferrer',
+                        style: {
+                          color: '#10b981',
+                          fontSize: '0.75rem',
+                          textDecoration: 'none',
+                          display: 'inline-block',
+                          marginTop: '0.25rem',
+                          fontWeight: '600'
+                        }
+                      }, 'Check Skinport Price →'),
                       activeTab === 'skins' && item.metadata?.float !== undefined && React.createElement('div', { style: { color: '#06b6d4', fontSize: '0.875rem', fontWeight: '600' } }, `Float: ${item.metadata.float.toFixed(4)}`),
                       activeTab === 'skins' && item.metadata?.rarity && React.createElement('div', { style: { color: '#8b5cf6', fontSize: '0.875rem', fontWeight: '600' } }, `Rarity: ${item.metadata.rarity.replace(/_/g, ' ').toUpperCase()}`)
                     )
@@ -2103,20 +2717,134 @@ function InvestmentTracker() {
                   React.createElement('div', { style: { textAlign: 'right', marginRight: '1rem' } },
                     React.createElement('div', { style: { color: currentTheme.text, fontWeight: '600', fontSize: '1.25rem' } }, getCurrencySymbol() + formatPrice(val)),
                     React.createElement('div', { style: { color: currentTheme.textSecondary, fontSize: '0.875rem' } }, getCurrencySymbol() + formatPrice(curr) + ' ' + t.perUnit),
+                    activeTab === 'skins' && React.createElement('div', { 
+                      style: { 
+                        fontSize: '0.75rem', 
+                        color: '#8b5cf6',
+                        marginTop: '0.5rem',
+                        cursor: 'pointer',
+                        fontWeight: '600',
+                        textDecoration: 'underline'
+                      },
+                      onClick: () => {
+                        setPriceUpdateModal({ show: true, item: item, currentPrice: curr });
+                        setNewPriceInput(curr.toString());
+                      }
+                    }, language === 'de' ? 'Preis manuell ändern' : 'Update Price Manually'),
                     React.createElement('div', { style: { fontSize: '0.875rem', fontWeight: '600', color: prof >= 0 ? '#10b981' : '#ef4444', marginTop: '0.25rem' } }, (prof >= 0 ? '+' : '') + getCurrencySymbol() + formatPrice(Math.abs(prof)) + ` (${profPct >= 0 ? '+' : ''}${formatPrice(profPct)}%)`)
-                  ),
-                  React.createElement('div', { style: { display: 'flex', gap: '0.5rem' } },
-                    React.createElement('button', { 
-                      onClick: () => startEdit(item), 
-                      style: { padding: '0.5rem', background: '#3b82f6', color: 'white', borderRadius: '0.5rem', border: 'none', cursor: 'pointer', fontWeight: '600' } 
-                    }, t.edit),
-                    React.createElement('button', { 
-                      onClick: () => removeItem(item.id), 
-                      style: { padding: '0.5rem', background: '#dc2626', color: 'white', borderRadius: '0.5rem', border: 'none', cursor: 'pointer', fontWeight: '600' } 
-                    }, t.delete)
                   )
                 );
               })
+          )
+        ),
+        
+        // Price Update Modal (for CS2 items)
+        priceUpdateModal.show && React.createElement('div', {
+          style: {
+            position: 'fixed',
+            top: 0,
+            left: 0,
+            right: 0,
+            bottom: 0,
+            background: 'rgba(0,0,0,0.7)',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            zIndex: 1000
+          },
+          onClick: () => setPriceUpdateModal({ show: false, item: null, currentPrice: 0 })
+        },
+          React.createElement('div', {
+            style: {
+              background: currentTheme.inputBg,
+              borderRadius: '1rem',
+              padding: '2rem',
+              maxWidth: '500px',
+              width: '90%',
+              border: `2px solid ${currentTheme.inputBorder}`
+            },
+            onClick: (e) => e.stopPropagation()
+          },
+            React.createElement('h3', {
+              style: { color: currentTheme.text, marginBottom: '1rem', fontSize: '1.25rem', fontWeight: '600' }
+            }, language === 'de' ? 'Preis aktualisieren' : 'Update Price'),
+            React.createElement('div', {
+              style: { color: currentTheme.textSecondary, marginBottom: '1rem', fontSize: '0.875rem' }
+            }, priceUpdateModal.item?.symbol),
+            React.createElement('div', {
+              style: { color: currentTheme.textSecondary, marginBottom: '1rem', fontSize: '0.875rem' }
+            }, (language === 'de' ? 'Aktueller Preis: ' : 'Current Price: ') + getCurrencySymbol() + formatPrice(priceUpdateModal.currentPrice)),
+            React.createElement('label', {
+              style: { color: currentTheme.text, display: 'block', marginBottom: '0.5rem', fontSize: '0.875rem' }
+            }, language === 'de' ? 'Neuer Preis:' : 'New Price:'),
+            React.createElement('input', {
+              type: 'number',
+              step: '0.01',
+              value: newPriceInput,
+              onChange: (e) => setNewPriceInput(e.target.value),
+              style: {
+                width: '100%',
+                padding: '0.75rem',
+                background: currentTheme.card,
+                border: `2px solid ${currentTheme.inputBorder}`,
+                borderRadius: '0.5rem',
+                color: currentTheme.text,
+                fontSize: '1.125rem',
+                marginBottom: '1.5rem'
+              },
+              autoFocus: true,
+              onKeyPress: (e) => {
+                if (e.key === 'Enter') {
+                  const newPrice = parseFloat(newPriceInput);
+                  if (!isNaN(newPrice) && newPrice > 0) {
+                    const updatedPrices = {...prices};
+                    updatedPrices[priceUpdateModal.item.symbol] = newPrice;
+                    updatedPrices[priceUpdateModal.item.symbol.toUpperCase()] = newPrice;
+                    updatedPrices[priceUpdateModal.item.symbol.toLowerCase()] = newPrice;
+                    setPrices(updatedPrices);
+                    setPriceUpdateModal({ show: false, item: null, currentPrice: 0 });
+                  }
+                }
+              }
+            }),
+            React.createElement('div', { style: { display: 'flex', gap: '0.75rem' } },
+              React.createElement('button', {
+                onClick: () => {
+                  const newPrice = parseFloat(newPriceInput);
+                  if (!isNaN(newPrice) && newPrice > 0) {
+                    const updatedPrices = {...prices};
+                    updatedPrices[priceUpdateModal.item.symbol] = newPrice;
+                    updatedPrices[priceUpdateModal.item.symbol.toUpperCase()] = newPrice;
+                    updatedPrices[priceUpdateModal.item.symbol.toLowerCase()] = newPrice;
+                    setPrices(updatedPrices);
+                    setPriceUpdateModal({ show: false, item: null, currentPrice: 0 });
+                  }
+                },
+                style: {
+                  flex: 1,
+                  padding: '0.75rem',
+                  background: '#16a34a',
+                  color: 'white',
+                  border: 'none',
+                  borderRadius: '0.5rem',
+                  cursor: 'pointer',
+                  fontWeight: '600'
+                }
+              }, language === 'de' ? 'Speichern' : 'Save'),
+              React.createElement('button', {
+                onClick: () => setPriceUpdateModal({ show: false, item: null, currentPrice: 0 }),
+                style: {
+                  flex: 1,
+                  padding: '0.75rem',
+                  background: '#6b7280',
+                  color: 'white',
+                  border: 'none',
+                  borderRadius: '0.5rem',
+                  cursor: 'pointer',
+                  fontWeight: '600'
+                }
+              }, language === 'de' ? 'Abbrechen' : 'Cancel')
+            )
           )
         ),
 
@@ -2329,17 +3057,17 @@ function InvestmentTracker() {
           language: language
         }),
         
-        // ========== NEW v5.0: TRANSACTION HISTORY VIEW ==========
+        // ========== NEW v5.1: TRANSACTION HISTORY VIEW ==========
         React.createElement('div', { style: { display: activeView === 'transactions' ? 'block' : 'none' } },
           TransactionHistoryView()
         ),
         
-        // ========== NEW v5.0: TAX REPORT VIEW ==========
+        // ========== NEW v5.1: TAX REPORT VIEW ==========
         React.createElement('div', { style: { display: activeView === 'taxreports' ? 'block' : 'none' } },
           TaxReportView()
         ),
         
-        // ========== NEW v5.0: REBALANCING VIEW ==========
+        // ========== NEW v5.1: REBALANCING VIEW ==========
         React.createElement('div', { style: { display: activeView === 'rebalancing' ? 'block' : 'none' } },
           RebalancingView()
         ),

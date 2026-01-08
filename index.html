@@ -3,11 +3,15 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>MAERMIN v5.0 - Portfolio Tracker</title>
+  <title>MAERMIN v5.1 - Portfolio Tracker</title>
   
   <!-- React from CDN -->
   <script crossorigin src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
   <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
+  
+  <!-- PDF Libraries -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.5.31/jspdf.plugin.autotable.min.js"></script>
   
   <style>
     * {
@@ -98,7 +102,7 @@
   
   <div id="loading">
     <h1>MAERMIN</h1>
-    <div class="subtitle">Portfolio Tracker v5.0</div>
+    <div class="subtitle">Multi-Asset Portfolio Tracker v5.1</div>
     <div id="module-status">Lade Module...</div>
     <div class="loader"></div>
   </div>
@@ -112,15 +116,17 @@
     };
   </script>
   
-  <!-- MAERMIN v5.0 - MODULES -->
+  <!-- MAERMIN v5.1 - MODULES -->
   <script>updateStatus('Lade Erweiterungen...');</script>
   <script src="translations-complete.js"></script>
   <script src="validation-comprehensive.js"></script>
   <script src="calculator-extended.js"></script>
+  <script src="tax-calculation-engine.js"></script>
   <script src="risk-analytics.js"></script>
   <script src="cs2-advanced.js"></script>
   <script src="risk-analytics-view-v2.js"></script>
   <script src="cs2-analytics-view-v2.js"></script>
+  <script src="tax-pdf-export.js"></script>
   
   <!-- MAIN APPLICATION -->
   <script>updateStatus('Lade Hauptanwendung...');</script>
@@ -140,9 +146,10 @@
       }, 300);
     });
     
-    console.log('%c[MAERMIN v5.0] Portfolio Tracker', 'font-size: 20px; font-weight: bold; color: #7e22ce; background: #f3e8ff; padding: 8px;');
-    console.log('[INFO] NEU: Transaktionen, Steuerberichte, Rebalancing');
+    console.log('%c[MAERMIN v5.1] Portfolio Tracker', 'font-size: 20px; font-weight: bold; color: #7e22ce; background: #f3e8ff; padding: 8px;');
+    console.log('[INFO] NEU: Transaktionen, Steuerberichte DE/US, Rebalancing, PDF Export');
     console.log('[INFO] KEIN EMOJI - 100% sauber');
+    console.log('[INFO] CS2: Skinport API integration for automatic pricing');
     
     setTimeout(() => {
       const checks = [
@@ -150,13 +157,15 @@
         { name: 'ReactDOM', check: () => typeof ReactDOM !== 'undefined' },
         { name: 'Translations', check: () => typeof completeTranslations !== 'undefined' },
         { name: 'Calculator Extended', check: () => typeof calculateCostBasis !== 'undefined' },
-        { name: 'Tax Functions', check: () => typeof generateTaxReport !== 'undefined' },
+        { name: 'Tax Engine DE/US', check: () => typeof generateTaxReportAdvanced !== 'undefined' },
         { name: 'Rebalancing', check: () => typeof analyzePortfolioDrift !== 'undefined' },
         { name: 'Risk Analytics', check: () => typeof calculateValueAtRisk !== 'undefined' },
-        { name: 'CS2 Analytics', check: () => typeof analyzeFloatPerformance !== 'undefined' }
+        { name: 'CS2 Analytics', check: () => typeof analyzeFloatPerformance !== 'undefined' },
+        { name: 'PDF Export', check: () => typeof exportTaxReportPDF !== 'undefined' },
+        { name: 'jsPDF', check: () => typeof window.jspdf !== 'undefined' }
       ];
       
-      console.log('[MODULE CHECK v5.0]');
+      console.log('[MODULE CHECK v5.1]');
       checks.forEach(item => {
         const status = item.check();
         console.log(`  ${status ? '[OK]' : '[FEHLER]'} ${item.name}`);
@@ -164,7 +173,7 @@
       
       if (checks.every(item => item.check())) {
         console.log('[OK] Alle Module geladen!');
-        console.log('[OK] MAERMIN v5.0 bereit!');
+        console.log('[OK] MAERMIN v5.1 bereit mit DE/US Steuerberechnung!');
       } else {
         console.error('[FEHLER] Einige Module fehlen!');
       }
