@@ -18,10 +18,12 @@ const themes = {
     background: 'linear-gradient(135deg, #f8fafc 0%, #e2e8f0 50%, #f8fafc 100%)',
     card: 'rgba(255,255,255,0.9)',
     cardBorder: 'rgba(0,0,0,0.1)',
+    modalBg: '#ffffff',
+    modalBorder: '#e2e8f0',
     text: '#1e293b',
     textSecondary: '#64748b',
-    inputBg: 'rgba(0,0,0,0.05)',
-    inputBorder: 'rgba(0,0,0,0.1)',
+    inputBg: '#f1f5f9',
+    inputBorder: '#cbd5e1',
     accent: '#7e22ce',
     success: '#22c55e',
     danger: '#ef4444',
@@ -31,10 +33,12 @@ const themes = {
     background: 'linear-gradient(135deg, #0f172a 0%, #1e293b 50%, #0f172a 100%)',
     card: 'rgba(30,41,59,0.9)',
     cardBorder: 'rgba(255,255,255,0.1)',
+    modalBg: '#1e293b',
+    modalBorder: '#334155',
     text: '#f8fafc',
     textSecondary: '#94a3b8',
-    inputBg: 'rgba(255,255,255,0.05)',
-    inputBorder: 'rgba(255,255,255,0.1)',
+    inputBg: '#0f172a',
+    inputBorder: '#334155',
     accent: '#8b5cf6',
     success: '#22c55e',
     danger: '#ef4444',
@@ -44,10 +48,12 @@ const themes = {
     background: 'linear-gradient(135deg, #1e293b 0%, #7e22ce 50%, #1e293b 100%)',
     card: 'rgba(255,255,255,0.1)',
     cardBorder: 'rgba(255,255,255,0.2)',
+    modalBg: '#2d1f47',
+    modalBorder: '#4c3575',
     text: '#ffffff',
-    textSecondary: 'rgba(255,255,255,0.6)',
-    inputBg: 'rgba(255,255,255,0.1)',
-    inputBorder: 'rgba(255,255,255,0.2)',
+    textSecondary: 'rgba(255,255,255,0.7)',
+    inputBg: '#3d2a5c',
+    inputBorder: '#5c4080',
     accent: '#a855f7',
     success: '#22c55e',
     danger: '#ef4444',
@@ -1165,7 +1171,9 @@ function InvestmentTracker() {
           background: currentTheme.card,
           borderRadius: '12px',
           border: `1px solid ${currentTheme.cardBorder}`,
-          overflow: 'hidden'
+          overflow: 'hidden',
+          maxHeight: '400px',
+          overflowY: 'auto'
         }
       },
         (portfolio[activeTab] || []).length === 0
@@ -1510,27 +1518,30 @@ function InvestmentTracker() {
         left: 0,
         right: 0,
         bottom: 0,
-        background: 'rgba(0,0,0,0.5)',
+        background: 'rgba(0,0,0,0.7)',
         display: 'flex',
         justifyContent: 'center',
         alignItems: 'center',
-        zIndex: 10000
+        zIndex: 10000,
+        backdropFilter: 'blur(4px)'
       },
       onClick: (e) => e.target === e.currentTarget && closeModal()
     },
       React.createElement('div', {
         style: {
-          background: currentTheme.card,
+          background: currentTheme.modalBg,
+          border: `2px solid ${currentTheme.modalBorder}`,
           padding: '2rem',
-          borderRadius: '12px',
-          width: '450px',
+          borderRadius: '16px',
+          width: '480px',
           maxWidth: '90vw',
-          maxHeight: '90vh',
-          overflow: 'auto'
+          maxHeight: '85vh',
+          overflow: 'auto',
+          boxShadow: '0 25px 50px -12px rgba(0, 0, 0, 0.5)'
         }
       },
         React.createElement('h2', {
-          style: { color: currentTheme.text, marginBottom: '1.5rem' }
+          style: { color: currentTheme.text, marginBottom: '1.5rem', fontSize: '1.5rem', fontWeight: '700' }
         }, isEditing ? (t.editTransaction || 'Edit Transaction') : (t.addTransaction || 'Add Transaction')),
         
         // Type selector
@@ -1805,27 +1816,30 @@ function InvestmentTracker() {
         left: 0,
         right: 0,
         bottom: 0,
-        background: 'rgba(0,0,0,0.5)',
+        background: 'rgba(0,0,0,0.7)',
         display: 'flex',
         justifyContent: 'center',
         alignItems: 'center',
-        zIndex: 10000
+        zIndex: 10000,
+        backdropFilter: 'blur(4px)'
       },
       onClick: (e) => e.target === e.currentTarget && setShowImportModal(false)
     },
       React.createElement('div', {
         style: {
-          background: currentTheme.card,
+          background: currentTheme.modalBg,
+          border: `2px solid ${currentTheme.modalBorder}`,
           padding: '2rem',
-          borderRadius: '12px',
+          borderRadius: '16px',
           width: '600px',
           maxWidth: '90vw',
-          maxHeight: '90vh',
-          overflow: 'auto'
+          maxHeight: '85vh',
+          overflow: 'auto',
+          boxShadow: '0 25px 50px -12px rgba(0, 0, 0, 0.5)'
         }
       },
         React.createElement('h2', {
-          style: { color: currentTheme.text, marginBottom: '1rem' }
+          style: { color: currentTheme.text, marginBottom: '1rem', fontSize: '1.5rem', fontWeight: '700' }
         }, t.importData || 'Import Data'),
         
         React.createElement('p', {
@@ -1959,27 +1973,30 @@ buy,crypto,bitcoin,0.5,45000,2024-01-15,10`)
         left: 0,
         right: 0,
         bottom: 0,
-        background: 'rgba(0,0,0,0.5)',
+        background: 'rgba(0,0,0,0.7)',
         display: 'flex',
         justifyContent: 'center',
         alignItems: 'center',
-        zIndex: 10000
+        zIndex: 10000,
+        backdropFilter: 'blur(4px)'
       },
       onClick: (e) => e.target === e.currentTarget && setShowApiSettings(false)
     },
       React.createElement('div', {
         style: {
-          background: currentTheme.card,
+          background: currentTheme.modalBg,
+          border: `2px solid ${currentTheme.modalBorder}`,
           padding: '2rem',
-          borderRadius: '12px',
+          borderRadius: '16px',
           width: '500px',
           maxWidth: '90vw',
-          maxHeight: '90vh',
-          overflow: 'auto'
+          maxHeight: '85vh',
+          overflow: 'auto',
+          boxShadow: '0 25px 50px -12px rgba(0, 0, 0, 0.5)'
         }
       },
         React.createElement('h2', {
-          style: { color: currentTheme.text, marginBottom: '1.5rem' }
+          style: { color: currentTheme.text, marginBottom: '1.5rem', fontSize: '1.5rem', fontWeight: '700' }
         }, t.apiSettings || 'API Settings'),
         
         // Info text
