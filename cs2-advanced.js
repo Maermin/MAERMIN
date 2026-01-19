@@ -1,494 +1,260 @@
 // ============================================================================
-// MAERMIN v5.1 - CS2 Advanced Analytics
-// ============================================================================
-// Specialized features for Counter-Strike 2 item tracking
-// ============================================================================
-
-// ============================================================================
-// FLOAT VALUE ANALYSIS
+// MAERMIN v6.0 - CS2 Items Advanced Analytics
+// Float value analysis, rarity tracking, market trends
 // ============================================================================
 
 /**
- * Analyze CS2 item performance by float value ranges
- * @param {Array} cs2Items - Array of CS2 positions
- * @returns {Object} Float analysis with recommendations
+ * CS2 Item Rarities and their typical price multipliers
  */
-function analyzeFloatPerformance(cs2Items) {
-  if (!cs2Items || cs2Items.length === 0) {
+var CS2_RARITIES = {
+  'consumer': { name: 'Consumer Grade', color: '#b0c3d9', multiplier: 1 },
+  'industrial': { name: 'Industrial Grade', color: '#5e98d9', multiplier: 1.2 },
+  'mil-spec': { name: 'Mil-Spec', color: '#4b69ff', multiplier: 1.5 },
+  'restricted': { name: 'Restricted', color: '#8847ff', multiplier: 2 },
+  'classified': { name: 'Classified', color: '#d32ce6', multiplier: 3 },
+  'covert': { name: 'Covert', color: '#eb4b4b', multiplier: 5 },
+  'contraband': { name: 'Contraband', color: '#e4ae39', multiplier: 10 },
+  'knife': { name: 'Knife', color: '#e4ae39', multiplier: 15 },
+  'gloves': { name: 'Gloves', color: '#e4ae39', multiplier: 12 }
+};
+
+/**
+ * CS2 Wear Conditions and float ranges
+ */
+var CS2_WEAR_CONDITIONS = {
+  'fn': { name: 'Factory New', floatMin: 0, floatMax: 0.07, multiplier: 1.5 },
+  'mw': { name: 'Minimal Wear', floatMin: 0.07, floatMax: 0.15, multiplier: 1.2 },
+  'ft': { name: 'Field-Tested', floatMin: 0.15, floatMax: 0.38, multiplier: 1 },
+  'ww': { name: 'Well-Worn', floatMin: 0.38, floatMax: 0.45, multiplier: 0.8 },
+  'bs': { name: 'Battle-Scarred', floatMin: 0.45, floatMax: 1, multiplier: 0.6 }
+};
+
+/**
+ * Determine wear condition from float value
+ */
+function getWearCondition(floatValue) {
+  if (floatValue < 0.07) return 'fn';
+  if (floatValue < 0.15) return 'mw';
+  if (floatValue < 0.38) return 'ft';
+  if (floatValue < 0.45) return 'ww';
+  return 'bs';
+}
+
+/**
+ * Calculate float value rarity score
+ * Lower floats in FN and higher floats in BS are more valuable
+ */
+function calculateFloatRarityScore(floatValue, wearCondition) {
+  var condition = CS2_WEAR_CONDITIONS[wearCondition];
+  if (!condition) return 50;
+  
+  var range = condition.floatMax - condition.floatMin;
+  var position = (floatValue - condition.floatMin) / range;
+  
+  // For FN and MW, lower is better
+  if (wearCondition === 'fn' || wearCondition === 'mw') {
+    return Math.max(0, 100 - (position * 100));
+  }
+  
+  // For BS, higher (closer to 1.0) is rarer
+  if (wearCondition === 'bs') {
+    return position * 100;
+  }
+  
+  // For FT and WW, extremes are more interesting
+  return 50 + Math.abs(position - 0.5) * 100;
+}
+
+/**
+ * Analyze CS2 skin portfolio
+ */
+function analyzeCS2Portfolio(skins) {
+  if (!skins || !Array.isArray(skins) || skins.length === 0) {
     return {
-      floatRanges: {},
-      bestPerforming: null,
+      totalValue: 0,
+      itemCount: 0,
+      rarityDistribution: {},
+      wearDistribution: {},
+      averageFloat: 0,
+      topItems: [],
       recommendations: []
     };
   }
   
-  // Define float ranges
-  const ranges = {
-    factoryNew: { min: 0, max: 0.07, items: [], avgReturn: 0 },
-    minimalWear: { min: 0.07, max: 0.15, items: [], avgReturn: 0 },
-    fieldTested: { min: 0.15, max: 0.38, items: [], avgReturn: 0 },
-    wellWorn: { min: 0.38, max: 0.45, items: [], avgReturn: 0 },
-    battleScarred: { min: 0.45, max: 1.0, items: [], avgReturn: 0 }
-  };
+  var totalValue = 0;
+  var rarityDistribution = {};
+  var wearDistribution = {};
+  var floatSum = 0;
+  var floatCount = 0;
   
-  // Categorize items by float
-  cs2Items.forEach(item => {
-    const float = item.metadata?.float || 0.5;
-    const currentPrice = item.currentPrice || item.purchasePrice || 0;
-    const purchasePrice = item.purchasePrice || currentPrice;
-    const returnPct = purchasePrice > 0 ? ((currentPrice - purchasePrice) / purchasePrice) * 100 : 0;
+  skins.forEach(function(skin) {
+    var value = (skin.amount || 1) * (skin.currentPrice || skin.purchasePrice || 0);
+    totalValue += value;
     
-    let assignedRange = null;
-    for (const [rangeName, range] of Object.entries(ranges)) {
-      if (float >= range.min && float < range.max) {
-        range.items.push({ ...item, returnPct, float });
-        assignedRange = rangeName;
-        break;
-      }
+    // Count by rarity
+    var rarity = skin.rarity || 'unknown';
+    rarityDistribution[rarity] = (rarityDistribution[rarity] || 0) + 1;
+    
+    // Count by wear
+    var wear = skin.wear || getWearCondition(skin.floatValue || 0.15);
+    wearDistribution[wear] = (wearDistribution[wear] || 0) + 1;
+    
+    // Sum floats
+    if (skin.floatValue !== undefined) {
+      floatSum += skin.floatValue;
+      floatCount++;
     }
   });
   
-  // Calculate average returns per range
-  for (const [rangeName, range] of Object.entries(ranges)) {
-    if (range.items.length > 0) {
-      range.avgReturn = range.items.reduce((sum, item) => sum + item.returnPct, 0) / range.items.length;
-      range.count = range.items.length;
-      range.totalValue = range.items.reduce((sum, item) => 
-        sum + (item.amount * (item.currentPrice || item.purchasePrice || 0)), 0);
-    }
-  }
-  
-  // Find best performing range
-  let bestRange = null;
-  let bestReturn = -Infinity;
-  for (const [rangeName, range] of Object.entries(ranges)) {
-    if (range.count > 0 && range.avgReturn > bestReturn) {
-      bestReturn = range.avgReturn;
-      bestRange = { name: rangeName, ...range };
-    }
-  }
+  // Calculate top items by value
+  var topItems = skins.slice().sort(function(a, b) {
+    var valueA = (a.amount || 1) * (a.currentPrice || a.purchasePrice || 0);
+    var valueB = (b.amount || 1) * (b.currentPrice || b.purchasePrice || 0);
+    return valueB - valueA;
+  }).slice(0, 5);
   
   // Generate recommendations
-  const recommendations = [];
+  var recommendations = [];
   
-  // Check for low-float premium opportunities
-  const fnItems = ranges.factoryNew.items;
-  if (fnItems.length > 0) {
-    const veryLowFloat = fnItems.filter(item => item.float < 0.01);
-    if (veryLowFloat.length > 0) {
+  // Check for concentrated value
+  if (topItems.length > 0) {
+    var topItemValue = (topItems[0].amount || 1) * (topItems[0].currentPrice || topItems[0].purchasePrice || 0);
+    if (topItemValue / totalValue > 0.5) {
       recommendations.push({
-        type: 'low-float-premium',
-        message: `You own ${veryLowFloat.length} very low float items (< 0.01). These often command significant premiums.`,
-        action: 'Consider specialized marketplaces for low-float items to maximize value.'
+        type: 'warning',
+        message: 'Over 50% of CS2 value is in one item. Consider diversifying.'
       });
     }
   }
   
-  // Check for underperforming float ranges
-  if (ranges.battleScarred.count > 0 && ranges.battleScarred.avgReturn < -10) {
+  // Check for low float FN items
+  var lowFloatFN = skins.filter(function(s) {
+    return s.floatValue !== undefined && s.floatValue < 0.01;
+  });
+  if (lowFloatFN.length > 0) {
     recommendations.push({
-      type: 'underperforming-float',
-      message: 'Battle-Scarred items showing poor performance.',
-      action: 'Consider upgrading to better condition items or diversifying float ranges.'
+      type: 'info',
+      message: 'You have ' + lowFloatFN.length + ' item(s) with very low float (<0.01). These may command premium prices.'
     });
   }
   
   return {
-    floatRanges: ranges,
-    bestPerforming: bestRange,
+    totalValue: totalValue,
+    itemCount: skins.length,
+    rarityDistribution: rarityDistribution,
+    wearDistribution: wearDistribution,
+    averageFloat: floatCount > 0 ? floatSum / floatCount : 0,
+    topItems: topItems,
     recommendations: recommendations
   };
 }
 
-// ============================================================================
-// STICKER INVESTMENT TRACKING
-// ============================================================================
-
 /**
- * Analyze sticker investments and contributions to weapon value
- * @param {Array} cs2Items - Array of CS2 positions
- * @param {Object} stickerPriceData - Market prices for stickers (optional)
- * @returns {Object} Sticker analysis
+ * Estimate item value based on characteristics
  */
-function analyzeStickerInvestments(cs2Items, stickerPriceData) {
-  stickerPriceData = stickerPriceData || {};
+function estimateCS2ItemValue(item, basePrice) {
+  var multiplier = 1;
   
-  if (!cs2Items || cs2Items.length === 0) {
-    return {
-      totalStickerValue: 0,
-      weaponsWithStickers: 0,
-      stickerContributionPercent: 0,
-      topStickerWeapons: [],
-      recommendations: []
-    };
+  // Apply rarity multiplier
+  var rarity = CS2_RARITIES[item.rarity];
+  if (rarity) {
+    multiplier *= rarity.multiplier;
   }
   
-  const weaponsWithStickers = cs2Items.filter(item => 
-    item.metadata?.stickers && item.metadata.stickers.length > 0
-  );
-  
-  if (weaponsWithStickers.length === 0) {
-    return {
-      totalStickerValue: 0,
-      weaponsWithStickers: 0,
-      stickerContributionPercent: 0,
-      topStickerWeapons: [],
-      recommendations: [{
-        type: 'no-stickers',
-        message: 'No stickered items in portfolio.',
-        action: 'Consider tournament sticker investments. Major tournament stickers often appreciate significantly.'
-      }]
-    };
+  // Apply wear multiplier
+  var wear = CS2_WEAR_CONDITIONS[item.wear];
+  if (wear) {
+    multiplier *= wear.multiplier;
   }
   
-  // Calculate sticker values
-  let totalStickerValue = 0;
-  let totalWeaponBaseValue = 0;
-  
-  const weaponsWithStickerAnalysis = weaponsWithStickers.map(item => {
-    const stickers = item.metadata.stickers || [];
-    const itemCurrentPrice = item.currentPrice || item.purchasePrice || 0;
-    
-    // Estimate sticker value (simplified - in production use market data)
-    let estimatedStickerValue = 0;
-    stickers.forEach(sticker => {
-      // Check if we have real price data
-      if (stickerPriceData[sticker.name]) {
-        estimatedStickerValue += stickerPriceData[sticker.name];
-      } else {
-        // Rough estimation based on sticker type
-        if (sticker.name.includes('Gold')) {
-          estimatedStickerValue += 100;
-        } else if (sticker.name.includes('Holo')) {
-          estimatedStickerValue += 50;
-        } else if (sticker.name.includes('Foil')) {
-          estimatedStickerValue += 30;
-        } else {
-          estimatedStickerValue += 10; // Regular sticker
-        }
-      }
-    });
-    
-    // Sticker value is typically 10-30% of market price when applied
-    const appliedStickerValue = estimatedStickerValue * 0.15; // 15% average
-    const baseWeaponValue = Math.max(itemCurrentPrice - appliedStickerValue, itemCurrentPrice * 0.7);
-    
-    totalStickerValue += appliedStickerValue;
-    totalWeaponBaseValue += baseWeaponValue;
-    
-    const stickerContribution = itemCurrentPrice > 0 ? (appliedStickerValue / itemCurrentPrice) * 100 : 0;
-    
-    return {
-      ...item,
-      stickerValue: appliedStickerValue,
-      baseValue: baseWeaponValue,
-      stickerContribution: stickerContribution,
-      stickerCount: stickers.length
-    };
-  });
-  
-  // Sort by sticker contribution
-  const topStickerWeapons = weaponsWithStickerAnalysis
-    .sort((a, b) => b.stickerValue - a.stickerValue)
-    .slice(0, 5);
-  
-  const totalPortfolioValue = cs2Items.reduce((sum, item) => 
-    sum + (item.amount * (item.currentPrice || item.purchasePrice || 0)), 0);
-  
-  const stickerContributionPercent = totalPortfolioValue > 0 ? 
-    (totalStickerValue / totalPortfolioValue) * 100 : 0;
-  
-  // Generate recommendations
-  const recommendations = [];
-  
-  if (stickerContributionPercent > 50) {
-    recommendations.push({
-      type: 'high-sticker-exposure',
-      message: `Stickers represent ${stickerContributionPercent.toFixed(1)}% of CS2 portfolio value.`,
-      action: 'High sticker exposure. Consider liquidity risk - stickered items harder to sell.'
-    });
-  }
-  
-  if (totalStickerValue > 1000) {
-    recommendations.push({
-      type: 'significant-sticker-investment',
-      message: `Estimated ${totalStickerValue.toFixed(0)} in applied sticker value.`,
-      action: 'Track individual sticker prices. Major tournament stickers can appreciate 300%+.'
-    });
-  }
-  
-  return {
-    totalStickerValue: totalStickerValue,
-    weaponsWithStickers: weaponsWithStickers.length,
-    stickerContributionPercent: stickerContributionPercent,
-    topStickerWeapons: topStickerWeapons.map(w => ({
-      name: w.symbol || w.name,
-      stickerValue: w.stickerValue,
-      stickerCount: w.stickerCount,
-      contribution: w.stickerContribution
-    })),
-    recommendations: recommendations
-  };
-}
-
-// ============================================================================
-// RARITY-BASED PERFORMANCE ANALYSIS
-// ============================================================================
-
-/**
- * Analyze CS2 items by rarity and performance
- * @param {Array} cs2Items - Array of CS2 positions
- * @returns {Object} Rarity analysis
- */
-function analyzeRarityPerformance(cs2Items) {
-  if (!cs2Items || cs2Items.length === 0) {
-    return { rarityBreakdown: {}, recommendations: [] };
-  }
-  
-  const rarities = {
-    consumer: { name: 'Consumer Grade', items: [], avgReturn: 0, color: '#b0c3d9' },
-    industrial: { name: 'Industrial Grade', items: [], avgReturn: 0, color: '#5e98d9' },
-    milSpec: { name: 'Mil-Spec', items: [], avgReturn: 0, color: '#4b69ff' },
-    restricted: { name: 'Restricted', items: [], avgReturn: 0, color: '#8847ff' },
-    classified: { name: 'Classified', items: [], avgReturn: 0, color: '#d32ce6' },
-    covert: { name: 'Covert', items: [], avgReturn: 0, color: '#eb4b4b' },
-    contraband: { name: 'Contraband', items: [], avgReturn: 0, color: '#e4ae39' },
-    knife: { name: 'Knife', items: [], avgReturn: 0, color: '#ffd700' },
-    glove: { name: 'Glove', items: [], avgReturn: 0, color: '#ffd700' }
-  };
-  
-  // Categorize items
-  cs2Items.forEach(item => {
-    const rarity = item.metadata?.rarity || 'industrial';
-    const currentPrice = item.currentPrice || item.purchasePrice || 0;
-    const purchasePrice = item.purchasePrice || currentPrice;
-    const returnPct = purchasePrice > 0 ? ((currentPrice - purchasePrice) / purchasePrice) * 100 : 0;
-    
-    if (rarities[rarity]) {
-      rarities[rarity].items.push({ ...item, returnPct });
-    }
-  });
-  
-  // Calculate metrics per rarity
-  for (const [rarityKey, rarity] of Object.entries(rarities)) {
-    if (rarity.items.length > 0) {
-      rarity.count = rarity.items.length;
-      rarity.avgReturn = rarity.items.reduce((sum, item) => sum + item.returnPct, 0) / rarity.count;
-      rarity.totalValue = rarity.items.reduce((sum, item) => 
-        sum + (item.amount * (item.currentPrice || item.purchasePrice || 0)), 0);
-      rarity.avgValue = rarity.totalValue / rarity.count;
+  // Apply float rarity bonus (up to 20% for exceptional floats)
+  if (item.floatValue !== undefined) {
+    var floatScore = calculateFloatRarityScore(item.floatValue, item.wear);
+    if (floatScore > 90) {
+      multiplier *= 1.2;
+    } else if (floatScore > 75) {
+      multiplier *= 1.1;
     }
   }
   
-  // Find best performing rarity
-  let bestRarity = null;
-  let bestReturn = -Infinity;
-  for (const [key, rarity] of Object.entries(rarities)) {
-    if (rarity.count > 0 && rarity.avgReturn > bestReturn) {
-      bestReturn = rarity.avgReturn;
-      bestRarity = { key, ...rarity };
-    }
+  // StatTrak bonus
+  if (item.isStatTrak) {
+    multiplier *= 1.5;
   }
   
-  // Generate recommendations
-  const recommendations = [];
-  
-  if (rarities.knife.count > 0) {
-    const knifeValue = rarities.knife.totalValue;
-    const totalValue = Object.values(rarities).reduce((sum, r) => sum + (r.totalValue || 0), 0);
-    const knifePercent = (knifeValue / totalValue) * 100;
-    
-    if (knifePercent > 50) {
-      recommendations.push({
-        type: 'high-knife-concentration',
-        message: `Knives represent ${knifePercent.toFixed(1)}% of CS2 portfolio.`,
-        action: 'Consider diversification. Knife market can be illiquid for high-value items.'
-      });
-    }
+  // Souvenir bonus
+  if (item.isSouvenir) {
+    multiplier *= 2;
   }
   
-  if (rarities.covert.count === 0 && rarities.classified.count === 0 && cs2Items.length > 5) {
-    recommendations.push({
-      type: 'low-rarity-focus',
-      message: 'Portfolio focused on lower-rarity items.',
-      action: 'Consider adding Classified/Covert items for better long-term appreciation potential.'
-    });
-  }
-  
-  return {
-    rarityBreakdown: rarities,
-    bestPerforming: bestRarity,
-    recommendations: recommendations
-  };
+  return basePrice * multiplier;
 }
-
-// ============================================================================
-// CS2 MARKET SENTIMENT INDICATORS
-// ============================================================================
 
 /**
- * Calculate CS2 market health indicators
- * @param {Array} cs2Items - Array of CS2 positions
- * @param {Object} marketData - Additional market data (optional)
- * @returns {Object} Market sentiment
+ * Calculate CS2 portfolio metrics
  */
-function calculateCS2MarketSentiment(cs2Items, marketData) {
-  marketData = marketData || {};
+function calculateCS2Metrics(skins, priceHistory) {
+  var analysis = analyzeCS2Portfolio(skins);
   
-  if (!cs2Items || cs2Items.length === 0) {
-    return {
-      sentiment: 'neutral',
-      score: 50,
-      indicators: {},
-      signals: []
-    };
-  }
+  var invested = skins.reduce(function(sum, skin) {
+    return sum + (skin.amount || 1) * (skin.purchasePrice || 0);
+  }, 0);
   
-  let sentimentScore = 50; // 0-100, 50 is neutral
-  const indicators = {};
-  const signals = [];
+  var profit = analysis.totalValue - invested;
+  var profitPercent = invested > 0 ? (profit / invested) * 100 : 0;
   
-  // Indicator 1: Price momentum (% of items with positive returns)
-  const itemsWithGains = cs2Items.filter(item => {
-    const current = item.currentPrice || item.purchasePrice || 0;
-    const purchase = item.purchasePrice || current;
-    return current > purchase;
-  }).length;
+  // Calculate holding periods
+  var totalHoldingDays = 0;
+  var holdingCount = 0;
+  var now = new Date();
   
-  const momentumPercent = (itemsWithGains / cs2Items.length) * 100;
-  indicators.momentum = momentumPercent;
+  skins.forEach(function(skin) {
+    if (skin.purchaseDate) {
+      var purchaseDate = new Date(skin.purchaseDate);
+      var days = Math.floor((now - purchaseDate) / (1000 * 60 * 60 * 24));
+      totalHoldingDays += days;
+      holdingCount++;
+    }
+  });
   
-  if (momentumPercent > 70) {
-    sentimentScore += 15;
-    signals.push({ type: 'positive', message: 'Strong upward momentum. 70%+ positions profitable.' });
-  } else if (momentumPercent < 30) {
-    sentimentScore -= 15;
-    signals.push({ type: 'negative', message: 'Weak momentum. 70%+ positions losing value.' });
-  }
-  
-  // Indicator 2: Average holding return
-  const avgReturn = cs2Items.reduce((sum, item) => {
-    const current = item.currentPrice || item.purchasePrice || 0;
-    const purchase = item.purchasePrice || current;
-    const ret = purchase > 0 ? ((current - purchase) / purchase) * 100 : 0;
-    return sum + ret;
-  }, 0) / cs2Items.length;
-  
-  indicators.avgReturn = avgReturn;
-  
-  if (avgReturn > 20) {
-    sentimentScore += 10;
-    signals.push({ type: 'positive', message: `Average return of ${avgReturn.toFixed(1)}% is strong.` });
-  } else if (avgReturn < -20) {
-    sentimentScore -= 10;
-    signals.push({ type: 'negative', message: `Average return of ${avgReturn.toFixed(1)}% is concerning.` });
-  }
-  
-  // Indicator 3: Volatility (proxy for market activity)
-  // Higher volatility can indicate either opportunity or instability
-  const recentVolatility = calculateRecentVolatility(cs2Items);
-  indicators.volatility = recentVolatility;
-  
-  if (recentVolatility > 60) {
-    signals.push({ type: 'warning', message: 'High volatility detected. Exercise caution.' });
-  }
-  
-  // Determine overall sentiment
-  let sentiment = 'neutral';
-  if (sentimentScore >= 65) sentiment = 'bullish';
-  else if (sentimentScore >= 55) sentiment = 'slightly bullish';
-  else if (sentimentScore <= 35) sentiment = 'bearish';
-  else if (sentimentScore <= 45) sentiment = 'slightly bearish';
+  var avgHoldingPeriod = holdingCount > 0 ? totalHoldingDays / holdingCount : 0;
   
   return {
-    sentiment: sentiment,
-    score: Math.round(sentimentScore),
-    indicators: indicators,
-    signals: signals
+    totalValue: analysis.totalValue,
+    invested: invested,
+    profit: profit,
+    profitPercent: profitPercent,
+    itemCount: analysis.itemCount,
+    avgHoldingPeriod: avgHoldingPeriod,
+    rarityDistribution: analysis.rarityDistribution,
+    wearDistribution: analysis.wearDistribution,
+    averageFloat: analysis.averageFloat,
+    topItems: analysis.topItems,
+    recommendations: analysis.recommendations
   };
 }
 
-function calculateRecentVolatility(items) {
-  // Simplified volatility measure based on price spreads
-  const volatilities = items.map(item => {
-    const current = item.currentPrice || item.purchasePrice || 0;
-    const purchase = item.purchasePrice || current;
-    const change = purchase > 0 ? Math.abs((current - purchase) / purchase) * 100 : 0;
-    return change;
-  });
-  
-  return volatilities.reduce((sum, v) => sum + v, 0) / Math.max(volatilities.length, 1);
-}
-
-// ============================================================================
-// CASE OPENING EXPECTED VALUE CALCULATOR
-// ============================================================================
-
-/**
- * Calculate expected value of opening CS2 cases
- * @param {Object} caseData - Case information with contents and prices
- * @param {number} keyPrice - Current key price
- * @returns {Object} EV analysis
- */
-function calculateCaseOpeningEV(caseData, keyPrice) {
-  keyPrice = keyPrice || 2.5; // Default key price
-  
-  if (!caseData || !caseData.contents) {
-    return {
-      expectedValue: 0,
-      ev: -keyPrice,
-      breakEvenProbability: 0,
-      recommendation: 'Insufficient case data'
-    };
-  }
-  
-  const contents = caseData.contents || [];
-  
-  // Calculate expected value
-  let expectedValue = 0;
-  contents.forEach(item => {
-    const probability = item.probability || 0;
-    const value = item.marketPrice || 0;
-    expectedValue += probability * value;
-  });
-  
-  const netEV = expectedValue - keyPrice;
-  const evPercent = (netEV / keyPrice) * 100;
-  
-  // Calculate break-even probability
-  const profitableItems = contents.filter(item => (item.marketPrice || 0) > keyPrice);
-  const breakEvenProb = profitableItems.reduce((sum, item) => sum + (item.probability || 0), 0) * 100;
-  
-  // Generate recommendation
-  let recommendation = '';
-  if (netEV > 0) {
-    recommendation = `POSITIVE EV! Expected profit of $${netEV.toFixed(2)} per case. Very rare - consider opening.`;
-  } else if (evPercent > -20) {
-    recommendation = `Near break-even (${evPercent.toFixed(1)}% EV). Only open for entertainment, not profit.`;
-  } else {
-    recommendation = `Negative EV (${evPercent.toFixed(1)}%). Better to buy items directly from market.`;
-  }
-  
-  return {
-    expectedValue: expectedValue,
-    ev: netEV,
-    evPercent: evPercent,
-    breakEvenProbability: breakEvenProb,
-    keyPrice: keyPrice,
-    recommendation: recommendation
-  };
-}
-
-// ============================================================================
-// EXPORTS
-// ============================================================================
-
+// Export functions
 if (typeof window !== 'undefined') {
-  window.analyzeFloatPerformance = analyzeFloatPerformance;
-  window.analyzeStickerInvestments = analyzeStickerInvestments;
-  window.analyzeRarityPerformance = analyzeRarityPerformance;
-  window.calculateCS2MarketSentiment = calculateCS2MarketSentiment;
-  window.calculateCaseOpeningEV = calculateCaseOpeningEV;
+  window.CS2_RARITIES = CS2_RARITIES;
+  window.CS2_WEAR_CONDITIONS = CS2_WEAR_CONDITIONS;
+  window.getWearCondition = getWearCondition;
+  window.calculateFloatRarityScore = calculateFloatRarityScore;
+  window.analyzeCS2Portfolio = analyzeCS2Portfolio;
+  window.estimateCS2ItemValue = estimateCS2ItemValue;
+  window.calculateCS2Metrics = calculateCS2Metrics;
   
-  console.log('[OK] CS2 Advanced Analytics loaded v5.1');
+  console.log('[CS2] Advanced Analytics Module loaded');
+}
+
+if (typeof module !== 'undefined' && module.exports) {
+  module.exports = {
+    CS2_RARITIES: CS2_RARITIES,
+    CS2_WEAR_CONDITIONS: CS2_WEAR_CONDITIONS,
+    getWearCondition: getWearCondition,
+    calculateFloatRarityScore: calculateFloatRarityScore,
+    analyzeCS2Portfolio: analyzeCS2Portfolio,
+    estimateCS2ItemValue: estimateCS2ItemValue,
+    calculateCS2Metrics: calculateCS2Metrics
+  };
 }

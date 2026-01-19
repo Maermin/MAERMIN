@@ -1,479 +1,455 @@
 // ============================================================================
-// MAERMIN v5.1 - Risk Analytics Engine
-// ============================================================================
-// Advanced risk management calculations for professional traders
-// ============================================================================
-
-// ============================================================================
-// VALUE AT RISK (VaR) CALCULATIONS
+// MAERMIN v6.0 - Risk Analytics Module
+// VaR, Volatility, Sharpe Ratio, and Risk Metrics
 // ============================================================================
 
 /**
- * Calculate portfolio-level Value at Risk using Historical Simulation
- * @param {Array} positions - Array of portfolio positions with historical returns
- * @param {number} confidenceLevel - Confidence level (0.95 = 95%, 0.99 = 99%)
- * @param {number} timeHorizon - Time horizon in days (1, 7, 30)
- * @returns {Object} VaR metrics
+ * Calculate portfolio volatility (standard deviation of returns)
  */
-function calculateValueAtRisk(positions, confidenceLevel, timeHorizon) {
-  confidenceLevel = confidenceLevel || 0.95;
-  timeHorizon = timeHorizon || 1;
+function calculateVolatility(priceHistory, period) {
+  period = period || 30;
   
-  if (!positions || positions.length === 0) {
+  if (!priceHistory || priceHistory.length < 2) {
+    return 0;
+  }
+  
+  // Calculate daily returns
+  var returns = [];
+  for (var i = 1; i < priceHistory.length; i++) {
+    if (priceHistory[i - 1] !== 0) {
+      returns.push((priceHistory[i] - priceHistory[i - 1]) / priceHistory[i - 1]);
+    }
+  }
+  
+  if (returns.length === 0) return 0;
+  
+  // Use last N periods
+  var recentReturns = returns.slice(-period);
+  
+  // Calculate mean
+  var mean = recentReturns.reduce(function(a, b) { return a + b; }, 0) / recentReturns.length;
+  
+  // Calculate variance
+  var variance = recentReturns.reduce(function(sum, r) {
+    return sum + Math.pow(r - mean, 2);
+  }, 0) / recentReturns.length;
+  
+  // Return annualized volatility
+  return Math.sqrt(variance) * Math.sqrt(252);
+}
+
+/**
+ * Calculate Value at Risk (VaR) using historical simulation
+ */
+function calculateVaR(priceHistory, portfolioValue, confidenceLevel, holdingPeriod) {
+  confidenceLevel = confidenceLevel || 0.95;
+  holdingPeriod = holdingPeriod || 1;
+  
+  if (!priceHistory || priceHistory.length < 10) {
     return {
       var: 0,
-      cvar: 0,
-      portfolioValue: 0,
-      varPercent: 0,
-      cvarPercent: 0
+      percentile: 0,
+      confidenceLevel: confidenceLevel
     };
   }
   
-  // Calculate current portfolio value
-  const portfolioValue = positions.reduce((sum, pos) => {
-    const currentPrice = pos.currentPrice || pos.purchasePrice || 0;
-    return sum + (pos.amount * currentPrice);
-  }, 0);
-  
-  // Simulate daily returns (simplified - in production use historical data)
-  const returns = [];
-  const numSimulations = 100;
-  
-  for (let i = 0; i < numSimulations; i++) {
-    let portfolioReturn = 0;
-    
-    positions.forEach(pos => {
-      const positionValue = (pos.amount * (pos.currentPrice || pos.purchasePrice || 0));
-      const weight = portfolioValue > 0 ? positionValue / portfolioValue : 0;
-      
-      // Estimate volatility based on asset category
-      let dailyVolatility = 0.02; // 2% default
-      if (pos.category === 'crypto') dailyVolatility = 0.05; // 5% for crypto
-      if (pos.category === 'cs2Items') dailyVolatility = 0.03; // 3% for CS2
-      if (pos.category === 'stocks') dailyVolatility = 0.015; // 1.5% for stocks
-      
-      // Generate random return (normal distribution approximation)
-      const randomReturn = (Math.random() - 0.5) * 2 * dailyVolatility * Math.sqrt(timeHorizon);
-      portfolioReturn += weight * randomReturn;
-    });
-    
-    returns.push(portfolioReturn);
+  // Calculate daily returns
+  var returns = [];
+  for (var i = 1; i < priceHistory.length; i++) {
+    if (priceHistory[i - 1] !== 0) {
+      returns.push((priceHistory[i] - priceHistory[i - 1]) / priceHistory[i - 1]);
+    }
   }
   
-  // Sort returns (worst to best)
-  returns.sort((a, b) => a - b);
+  if (returns.length === 0) {
+    return { var: 0, percentile: 0, confidenceLevel: confidenceLevel };
+  }
   
-  // Calculate VaR at confidence level
-  const varIndex = Math.floor((1 - confidenceLevel) * returns.length);
-  const varReturn = returns[varIndex];
-  const varAmount = Math.abs(varReturn * portfolioValue);
+  // Sort returns ascending
+  returns.sort(function(a, b) { return a - b; });
   
-  // Calculate Conditional VaR (CVaR) - average of losses beyond VaR
-  const cvarReturns = returns.slice(0, varIndex + 1);
-  const avgCvarReturn = cvarReturns.reduce((sum, r) => sum + r, 0) / cvarReturns.length;
-  const cvarAmount = Math.abs(avgCvarReturn * portfolioValue);
+  // Find percentile index
+  var percentileIndex = Math.floor((1 - confidenceLevel) * returns.length);
+  var percentileReturn = returns[percentileIndex];
+  
+  // Scale for holding period
+  var scaledReturn = percentileReturn * Math.sqrt(holdingPeriod);
+  
+  // Calculate VaR in currency terms
+  var varValue = Math.abs(portfolioValue * scaledReturn);
   
   return {
-    var: varAmount,
-    cvar: cvarAmount,
-    portfolioValue: portfolioValue,
-    varPercent: (varAmount / portfolioValue) * 100,
-    cvarPercent: (cvarAmount / portfolioValue) * 100,
-    confidenceLevel: confidenceLevel * 100,
-    timeHorizon: timeHorizon
+    var: varValue,
+    percentile: percentileReturn * 100,
+    confidenceLevel: confidenceLevel,
+    holdingPeriod: holdingPeriod
   };
 }
 
-// ============================================================================
-// CONCENTRATION RISK ANALYSIS
-// ============================================================================
-
 /**
- * Analyze portfolio concentration across multiple dimensions
- * @param {Array} positions - Array of portfolio positions
- * @param {Object} thresholds - User-defined concentration thresholds
- * @returns {Object} Concentration analysis
+ * Calculate Conditional VaR (Expected Shortfall)
  */
-function analyzeConcentration(positions, thresholds) {
-  thresholds = thresholds || {
-    singlePosition: 25, // Max % for single position
-    category: 40, // Max % for single category
-    topThree: 60 // Max % for top 3 positions
-  };
+function calculateCVaR(priceHistory, portfolioValue, confidenceLevel) {
+  confidenceLevel = confidenceLevel || 0.95;
   
-  if (!positions || positions.length === 0) {
-    return {
-      singlePosition: { max: 0, positions: [], risk: 'none' },
-      category: { breakdown: {}, risk: 'none' },
-      topThree: { total: 0, positions: [], risk: 'none' },
-      diversificationScore: 100
-    };
+  if (!priceHistory || priceHistory.length < 10) {
+    return { cvar: 0, confidenceLevel: confidenceLevel };
   }
   
-  // Calculate total portfolio value
-  const totalValue = positions.reduce((sum, pos) => {
-    const value = pos.amount * (pos.currentPrice || pos.purchasePrice || 0);
-    return sum + value;
-  }, 0);
-  
-  // Analyze single position concentration
-  const positionsWithPercent = positions.map(pos => {
-    const value = pos.amount * (pos.currentPrice || pos.purchasePrice || 0);
-    const percent = totalValue > 0 ? (value / totalValue) * 100 : 0;
-    return { ...pos, value, percent };
-  }).sort((a, b) => b.percent - a.percent);
-  
-  const maxPosition = positionsWithPercent[0] || { percent: 0 };
-  const singlePositionRisk = maxPosition.percent > thresholds.singlePosition ? 'high' :
-                              maxPosition.percent > thresholds.singlePosition * 0.7 ? 'medium' : 'low';
-  
-  // Analyze category concentration
-  const categoryBreakdown = {};
-  positions.forEach(pos => {
-    const category = pos.category || 'unknown';
-    const value = pos.amount * (pos.currentPrice || pos.purchasePrice || 0);
-    if (!categoryBreakdown[category]) {
-      categoryBreakdown[category] = { value: 0, percent: 0, count: 0 };
+  // Calculate daily returns
+  var returns = [];
+  for (var i = 1; i < priceHistory.length; i++) {
+    if (priceHistory[i - 1] !== 0) {
+      returns.push((priceHistory[i] - priceHistory[i - 1]) / priceHistory[i - 1]);
     }
-    categoryBreakdown[category].value += value;
-    categoryBreakdown[category].count += 1;
-  });
+  }
   
-  Object.keys(categoryBreakdown).forEach(cat => {
-    categoryBreakdown[cat].percent = totalValue > 0 ? 
-      (categoryBreakdown[cat].value / totalValue) * 100 : 0;
-  });
+  // Sort returns ascending
+  returns.sort(function(a, b) { return a - b; });
   
-  const maxCategoryPercent = Math.max(...Object.values(categoryBreakdown).map(c => c.percent));
-  const categoryRisk = maxCategoryPercent > thresholds.category ? 'high' :
-                       maxCategoryPercent > thresholds.category * 0.7 ? 'medium' : 'low';
+  // Find all returns below VaR threshold
+  var percentileIndex = Math.floor((1 - confidenceLevel) * returns.length);
+  var tailReturns = returns.slice(0, percentileIndex + 1);
   
-  // Analyze top 3 concentration
-  const topThree = positionsWithPercent.slice(0, 3);
-  const topThreeTotal = topThree.reduce((sum, pos) => sum + pos.percent, 0);
-  const topThreeRisk = topThreeTotal > thresholds.topThree ? 'high' :
-                       topThreeTotal > thresholds.topThree * 0.7 ? 'medium' : 'low';
+  if (tailReturns.length === 0) {
+    return { cvar: 0, confidenceLevel: confidenceLevel };
+  }
   
-  // Calculate diversification score (0-100, higher is better)
-  const numPositions = positions.length;
-  const categoryCount = Object.keys(categoryBreakdown).length;
-  
-  let diversificationScore = 100;
-  diversificationScore -= (maxPosition.percent / thresholds.singlePosition) * 30;
-  diversificationScore -= (maxCategoryPercent / thresholds.category) * 30;
-  diversificationScore -= (topThreeTotal / thresholds.topThree) * 20;
-  diversificationScore += Math.min(numPositions * 2, 20); // Bonus for many positions
-  diversificationScore = Math.max(0, Math.min(100, diversificationScore));
+  // Calculate average of tail returns
+  var avgTailReturn = tailReturns.reduce(function(a, b) { return a + b; }, 0) / tailReturns.length;
   
   return {
-    singlePosition: {
-      max: maxPosition.percent,
-      position: maxPosition.symbol || maxPosition.name,
-      risk: singlePositionRisk
-    },
-    category: {
-      breakdown: categoryBreakdown,
-      maxPercent: maxCategoryPercent,
-      risk: categoryRisk
-    },
-    topThree: {
-      total: topThreeTotal,
-      positions: topThree.map(p => ({ symbol: p.symbol || p.name, percent: p.percent })),
-      risk: topThreeRisk
-    },
-    diversificationScore: Math.round(diversificationScore)
+    cvar: Math.abs(portfolioValue * avgTailReturn),
+    avgTailReturn: avgTailReturn * 100,
+    confidenceLevel: confidenceLevel
   };
 }
 
-// ============================================================================
-// VOLATILITY ANALYSIS
-// ============================================================================
-
 /**
- * Calculate volatility metrics for each position
- * @param {Array} positions - Array of portfolio positions
- * @param {Object} historicalData - Historical price data (optional)
- * @returns {Array} Positions with volatility metrics
+ * Calculate Sharpe Ratio
  */
-function calculateVolatilityMetrics(positions, historicalData) {
-  if (!positions || positions.length === 0) return [];
+function calculateSharpeRatio(returns, riskFreeRate) {
+  riskFreeRate = riskFreeRate || 0.02; // 2% annual risk-free rate
   
-  return positions.map(pos => {
-    const currentPrice = pos.currentPrice || pos.purchasePrice || 0;
-    const purchasePrice = pos.purchasePrice || currentPrice;
-    
-    // Estimate annualized volatility based on category and price movement
-    let estimatedVolatility = 20; // 20% default
-    
-    if (pos.category === 'crypto') {
-      estimatedVolatility = 80; // 80% for crypto
-    } else if (pos.category === 'cs2Items') {
-      estimatedVolatility = 50; // 50% for CS2
-    } else if (pos.category === 'stocks') {
-      estimatedVolatility = 25; // 25% for stocks
-    }
-    
-    // Adjust based on actual price movement
-    if (purchasePrice > 0) {
-      const priceChange = Math.abs((currentPrice - purchasePrice) / purchasePrice);
-      const holdingDays = pos.purchaseDate ? 
-        (Date.now() - new Date(pos.purchaseDate).getTime()) / (1000 * 60 * 60 * 24) : 30;
-      
-      // Annualize the observed volatility
-      if (holdingDays > 7) {
-        const annualizedMove = priceChange * Math.sqrt(365 / holdingDays) * 100;
-        estimatedVolatility = (estimatedVolatility + annualizedMove) / 2; // Blend estimate with actual
-      }
-    }
-    
-    // Determine volatility regime
-    let regime = 'normal';
-    if (estimatedVolatility > 60) regime = 'high';
-    else if (estimatedVolatility > 40) regime = 'elevated';
-    else if (estimatedVolatility < 15) regime = 'low';
-    
-    return {
-      ...pos,
-      volatility: {
-        annualized: Math.round(estimatedVolatility),
-        regime: regime,
-        dailyExpectedMove: (estimatedVolatility / Math.sqrt(252)).toFixed(2) // 252 trading days
-      }
-    };
-  });
+  if (!returns || returns.length < 2) {
+    return 0;
+  }
+  
+  // Calculate mean return (annualized)
+  var meanReturn = returns.reduce(function(a, b) { return a + b; }, 0) / returns.length;
+  var annualizedReturn = meanReturn * 252;
+  
+  // Calculate volatility (annualized)
+  var variance = returns.reduce(function(sum, r) {
+    return sum + Math.pow(r - meanReturn, 2);
+  }, 0) / returns.length;
+  var volatility = Math.sqrt(variance) * Math.sqrt(252);
+  
+  if (volatility === 0) return 0;
+  
+  return (annualizedReturn - riskFreeRate) / volatility;
 }
 
-// ============================================================================
-// LIQUIDITY SCORING
-// ============================================================================
-
 /**
- * Calculate liquidity score for each position
- * @param {Array} positions - Array of portfolio positions
- * @returns {Array} Positions with liquidity scores
+ * Calculate Sortino Ratio (only considers downside volatility)
  */
-function calculateLiquidityScores(positions) {
-  if (!positions || positions.length === 0) return [];
+function calculateSortinoRatio(returns, riskFreeRate, targetReturn) {
+  riskFreeRate = riskFreeRate || 0.02;
+  targetReturn = targetReturn || 0;
   
-  return positions.map(pos => {
-    let liquidityScore = 50; // 0-100, higher is more liquid
-    let daysToExit = 1;
-    
-    const positionValue = pos.amount * (pos.currentPrice || pos.purchasePrice || 0);
-    
-    // Base liquidity on category
-    if (pos.category === 'stocks') {
-      liquidityScore = 90; // Very liquid
-      daysToExit = 0.1; // Can exit in hours
-      
-      // Adjust for position size (large positions less liquid)
-      if (positionValue > 100000) {
-        liquidityScore -= 10;
-        daysToExit = 1;
-      }
-    } else if (pos.category === 'crypto') {
-      liquidityScore = 80; // Highly liquid for major coins
-      daysToExit = 0.5;
-      
-      // Major coins vs altcoins
-      if (pos.symbol && !['BTC', 'ETH', 'BNB', 'SOL', 'ADA'].includes(pos.symbol.toUpperCase())) {
-        liquidityScore = 60; // Altcoins less liquid
-        daysToExit = 2;
-      }
-      
-      // Very small coins
-      if (positionValue < 1000) {
-        liquidityScore = 40;
-        daysToExit = 7;
-      }
-    } else if (pos.category === 'cs2Items') {
-      // CS2 liquidity varies greatly
-      liquidityScore = 40;
-      daysToExit = 7;
-      
-      // Check for special attributes
-      if (pos.metadata) {
-        // High-value knives are less liquid
-        if (pos.metadata.type === 'knife' && positionValue > 1000) {
-          liquidityScore = 20;
-          daysToExit = 30;
-        }
-        
-        // Low float items less liquid
-        if (pos.metadata.float && pos.metadata.float < 0.01) {
-          liquidityScore -= 10;
-          daysToExit += 7;
-        }
-        
-        // Stickered items less liquid
-        if (pos.metadata.stickers && pos.metadata.stickers.length > 0) {
-          liquidityScore -= 15;
-          daysToExit += 5;
-        }
-        
-        // Common skins more liquid
-        if (pos.metadata.rarity === 'consumer' || pos.metadata.rarity === 'industrial') {
-          liquidityScore = 70;
-          daysToExit = 1;
-        }
-      }
-    }
-    
-    // Categorize liquidity
-    let liquidityRating = 'medium';
-    if (liquidityScore >= 80) liquidityRating = 'high';
-    else if (liquidityScore >= 60) liquidityRating = 'good';
-    else if (liquidityScore <= 30) liquidityRating = 'poor';
-    else if (liquidityScore <= 40) liquidityRating = 'low';
-    
-    return {
-      ...pos,
-      liquidity: {
-        score: liquidityScore,
-        rating: liquidityRating,
-        daysToExit: daysToExit,
-        effectiveValue: positionValue * (liquidityScore / 100) // Discount for illiquidity
-      }
-    };
-  });
+  if (!returns || returns.length < 2) {
+    return 0;
+  }
+  
+  // Calculate mean return (annualized)
+  var meanReturn = returns.reduce(function(a, b) { return a + b; }, 0) / returns.length;
+  var annualizedReturn = meanReturn * 252;
+  
+  // Calculate downside deviation
+  var downsideReturns = returns.filter(function(r) { return r < targetReturn; });
+  
+  if (downsideReturns.length === 0) {
+    return Infinity; // No downside risk
+  }
+  
+  var downsideVariance = downsideReturns.reduce(function(sum, r) {
+    return sum + Math.pow(r - targetReturn, 2);
+  }, 0) / downsideReturns.length;
+  
+  var downsideDeviation = Math.sqrt(downsideVariance) * Math.sqrt(252);
+  
+  if (downsideDeviation === 0) return Infinity;
+  
+  return (annualizedReturn - riskFreeRate) / downsideDeviation;
 }
 
-// ============================================================================
-// RISK SCORE AGGREGATION
-// ============================================================================
-
 /**
- * Calculate comprehensive risk score for the portfolio
- * @param {Object} concentrationAnalysis
- * @param {Object} varAnalysis
- * @param {Array} volatilityMetrics
- * @param {Array} liquidityScores
- * @returns {Object} Overall risk assessment
+ * Calculate Maximum Drawdown
  */
-function calculatePortfolioRiskScore(concentrationAnalysis, varAnalysis, volatilityMetrics, liquidityScores) {
-  let riskScore = 50; // Start at neutral (0-100, higher = more risky)
-  const factors = {};
+function calculateMaxDrawdown(priceHistory) {
+  if (!priceHistory || priceHistory.length < 2) {
+    return { maxDrawdown: 0, maxDrawdownPercent: 0 };
+  }
   
-  // Concentration risk (30% weight)
-  const concentrationRisk = 100 - concentrationAnalysis.diversificationScore;
-  riskScore += (concentrationRisk - 50) * 0.3;
-  factors.concentration = concentrationRisk;
+  var maxDrawdown = 0;
+  var maxDrawdownPercent = 0;
+  var peak = priceHistory[0];
+  var peakIndex = 0;
+  var troughIndex = 0;
   
-  // VaR risk (25% weight)
-  const varRisk = varAnalysis.varPercent > 20 ? 80 : 
-                  varAnalysis.varPercent > 10 ? 60 :
-                  varAnalysis.varPercent > 5 ? 40 : 20;
-  riskScore += (varRisk - 50) * 0.25;
-  factors.var = varRisk;
-  
-  // Volatility risk (25% weight)
-  const avgVolatility = volatilityMetrics.reduce((sum, p) => 
-    sum + (p.volatility ? p.volatility.annualized : 0), 0) / Math.max(volatilityMetrics.length, 1);
-  const volatilityRisk = avgVolatility > 60 ? 80 :
-                         avgVolatility > 40 ? 60 :
-                         avgVolatility > 25 ? 40 : 20;
-  riskScore += (volatilityRisk - 50) * 0.25;
-  factors.volatility = volatilityRisk;
-  
-  // Liquidity risk (20% weight)
-  const avgLiquidity = liquidityScores.reduce((sum, p) => 
-    sum + (p.liquidity ? p.liquidity.score : 50), 0) / Math.max(liquidityScores.length, 1);
-  const liquidityRisk = 100 - avgLiquidity;
-  riskScore += (liquidityRisk - 50) * 0.2;
-  factors.liquidity = liquidityRisk;
-  
-  riskScore = Math.max(0, Math.min(100, riskScore));
-  
-  // Determine rating
-  let rating = 'moderate';
-  let color = '#f59e0b';
-  if (riskScore >= 70) {
-    rating = 'high';
-    color = '#ef4444';
-  } else if (riskScore >= 55) {
-    rating = 'elevated';
-    color = '#f97316';
-  } else if (riskScore <= 35) {
-    rating = 'low';
-    color = '#10b981';
-  } else if (riskScore <= 45) {
-    rating = 'moderate-low';
-    color = '#84cc16';
+  for (var i = 1; i < priceHistory.length; i++) {
+    if (priceHistory[i] > peak) {
+      peak = priceHistory[i];
+      peakIndex = i;
+    }
+    
+    var drawdown = peak - priceHistory[i];
+    var drawdownPercent = peak > 0 ? (drawdown / peak) * 100 : 0;
+    
+    if (drawdownPercent > maxDrawdownPercent) {
+      maxDrawdownPercent = drawdownPercent;
+      maxDrawdown = drawdown;
+      troughIndex = i;
+    }
   }
   
   return {
-    overallScore: Math.round(riskScore),
-    rating: rating,
-    color: color,
-    factors: factors,
-    recommendations: generateRiskRecommendations(riskScore, factors, concentrationAnalysis)
+    maxDrawdown: maxDrawdown,
+    maxDrawdownPercent: maxDrawdownPercent,
+    peakIndex: peakIndex,
+    troughIndex: troughIndex
   };
 }
 
 /**
- * Generate risk management recommendations
+ * Calculate Beta (systematic risk relative to market)
  */
-function generateRiskRecommendations(riskScore, factors, concentrationAnalysis) {
-  const recommendations = [];
+function calculateBeta(assetReturns, marketReturns) {
+  if (!assetReturns || !marketReturns || assetReturns.length < 2) {
+    return 1;
+  }
   
-  if (factors.concentration > 60) {
-    recommendations.push({
-      type: 'concentration',
-      severity: 'high',
-      message: 'Portfolio is highly concentrated. Consider diversifying across more positions.',
-      action: 'Add positions in different categories or reduce largest holdings.'
+  var minLength = Math.min(assetReturns.length, marketReturns.length);
+  var asset = assetReturns.slice(-minLength);
+  var market = marketReturns.slice(-minLength);
+  
+  // Calculate means
+  var assetMean = asset.reduce(function(a, b) { return a + b; }, 0) / asset.length;
+  var marketMean = market.reduce(function(a, b) { return a + b; }, 0) / market.length;
+  
+  // Calculate covariance and market variance
+  var covariance = 0;
+  var marketVariance = 0;
+  
+  for (var i = 0; i < asset.length; i++) {
+    covariance += (asset[i] - assetMean) * (market[i] - marketMean);
+    marketVariance += Math.pow(market[i] - marketMean, 2);
+  }
+  
+  covariance /= asset.length;
+  marketVariance /= market.length;
+  
+  if (marketVariance === 0) return 1;
+  
+  return covariance / marketVariance;
+}
+
+/**
+ * Calculate comprehensive risk metrics for portfolio
+ */
+function calculatePortfolioRiskMetrics(portfolio, priceHistory, portfolioValue) {
+  var combinedHistory = [];
+  var weights = {};
+  var totalValue = portfolioValue || 0;
+  
+  // Calculate weights and combine price histories
+  ['crypto', 'stocks', 'skins'].forEach(function(category) {
+    var positions = portfolio[category] || [];
+    positions.forEach(function(pos) {
+      var symbol = (pos.symbol || pos.name || '').toLowerCase();
+      var currentPrice = pos.currentPrice || pos.purchasePrice || 0;
+      var value = (pos.amount || 1) * currentPrice;
+      
+      if (totalValue > 0) {
+        weights[symbol] = value / totalValue;
+      }
+    });
+  });
+  
+  // If we have price history, calculate weighted returns
+  var portfolioReturns = [];
+  
+  if (priceHistory && Object.keys(priceHistory).length > 0) {
+    var maxLength = 0;
+    Object.values(priceHistory).forEach(function(history) {
+      if (history.length > maxLength) maxLength = history.length;
+    });
+    
+    for (var i = 1; i < maxLength; i++) {
+      var dayReturn = 0;
+      Object.keys(weights).forEach(function(symbol) {
+        var history = priceHistory[symbol];
+        if (history && history[i] && history[i - 1] && history[i - 1] !== 0) {
+          var assetReturn = (history[i] - history[i - 1]) / history[i - 1];
+          dayReturn += assetReturn * weights[symbol];
+        }
+      });
+      portfolioReturns.push(dayReturn);
+    }
+    
+    // Create combined price history for drawdown calculation
+    var startValue = 10000;
+    combinedHistory = [startValue];
+    portfolioReturns.forEach(function(r) {
+      combinedHistory.push(combinedHistory[combinedHistory.length - 1] * (1 + r));
     });
   }
   
-  if (factors.var > 60) {
+  // Calculate all metrics
+  var volatility = portfolioReturns.length > 0 ? 
+    Math.sqrt(portfolioReturns.reduce(function(sum, r) {
+      var mean = portfolioReturns.reduce(function(a, b) { return a + b; }, 0) / portfolioReturns.length;
+      return sum + Math.pow(r - mean, 2);
+    }, 0) / portfolioReturns.length) * Math.sqrt(252) : 0;
+  
+  var varResult = calculateVaR(combinedHistory, totalValue, 0.95, 1);
+  var cvarResult = calculateCVaR(combinedHistory, totalValue, 0.95);
+  var sharpeRatio = calculateSharpeRatio(portfolioReturns, 0.02);
+  var sortinoRatio = calculateSortinoRatio(portfolioReturns, 0.02, 0);
+  var maxDrawdown = calculateMaxDrawdown(combinedHistory);
+  
+  // Calculate risk score (0-100)
+  var riskScore = calculateRiskScore(volatility, varResult.var / totalValue, maxDrawdown.maxDrawdownPercent);
+  
+  return {
+    volatility: volatility * 100,
+    var95: varResult.var,
+    var95Percent: varResult.percentile,
+    cvar95: cvarResult.cvar,
+    sharpeRatio: sharpeRatio,
+    sortinoRatio: sortinoRatio,
+    maxDrawdown: maxDrawdown.maxDrawdown,
+    maxDrawdownPercent: maxDrawdown.maxDrawdownPercent,
+    riskScore: riskScore,
+    riskLevel: getRiskLevel(riskScore),
+    weights: weights,
+    portfolioValue: totalValue
+  };
+}
+
+/**
+ * Calculate overall risk score (0-100)
+ */
+function calculateRiskScore(volatility, varPercent, maxDrawdownPercent) {
+  // Higher values = higher risk
+  var volScore = Math.min(40, volatility * 100); // 0-40 points
+  var varScore = Math.min(30, Math.abs(varPercent) * 300); // 0-30 points
+  var ddScore = Math.min(30, maxDrawdownPercent); // 0-30 points
+  
+  return Math.min(100, volScore + varScore + ddScore);
+}
+
+/**
+ * Get risk level label from score
+ */
+function getRiskLevel(score) {
+  if (score < 25) return 'low';
+  if (score < 50) return 'medium';
+  if (score < 75) return 'high';
+  return 'very-high';
+}
+
+/**
+ * Generate risk recommendations
+ */
+function generateRiskRecommendations(riskMetrics, portfolio) {
+  var recommendations = [];
+  
+  if (riskMetrics.volatility > 30) {
     recommendations.push({
-      type: 'var',
-      severity: 'high',
-      message: 'High Value at Risk detected. Potential for significant losses.',
-      action: 'Consider hedging strategies or reducing position sizes in volatile assets.'
+      type: 'warning',
+      priority: 'high',
+      message: 'Portfolio volatility is high (' + riskMetrics.volatility.toFixed(1) + '%). Consider adding stable assets.',
+      metric: 'volatility'
     });
   }
   
-  if (factors.volatility > 65) {
+  if (riskMetrics.maxDrawdownPercent > 20) {
     recommendations.push({
-      type: 'volatility',
-      severity: 'high',
-      message: 'Portfolio volatility is elevated. Expect large price swings.',
-      action: 'Consider adding stable assets (bonds, stablecoins) to reduce volatility.'
+      type: 'warning',
+      priority: 'high',
+      message: 'Maximum drawdown of ' + riskMetrics.maxDrawdownPercent.toFixed(1) + '% indicates significant downside risk.',
+      metric: 'drawdown'
     });
   }
   
-  if (factors.liquidity > 60) {
+  if (riskMetrics.sharpeRatio < 0.5) {
     recommendations.push({
-      type: 'liquidity',
-      severity: 'medium',
-      message: 'Some positions have low liquidity. Exit may be difficult.',
-      action: 'Maintain cash reserve. Avoid overleveraging illiquid positions.'
+      type: 'info',
+      priority: 'medium',
+      message: 'Sharpe ratio is low (' + riskMetrics.sharpeRatio.toFixed(2) + '). Risk-adjusted returns could be improved.',
+      metric: 'sharpe'
     });
   }
   
-  if (concentrationAnalysis.topThree.risk === 'high') {
+  if (riskMetrics.riskScore > 75) {
     recommendations.push({
-      type: 'top-heavy',
-      severity: 'medium',
-      message: `Top 3 positions represent ${concentrationAnalysis.topThree.total.toFixed(1)}% of portfolio.`,
-      action: 'Trim largest positions or add new positions to reduce concentration.'
+      type: 'warning',
+      priority: 'high',
+      message: 'Overall risk score is very high. Consider rebalancing to reduce exposure.',
+      metric: 'overall'
+    });
+  }
+  
+  // Check concentration
+  var maxWeight = 0;
+  var maxWeightAsset = '';
+  Object.keys(riskMetrics.weights || {}).forEach(function(symbol) {
+    if (riskMetrics.weights[symbol] > maxWeight) {
+      maxWeight = riskMetrics.weights[symbol];
+      maxWeightAsset = symbol;
+    }
+  });
+  
+  if (maxWeight > 0.4) {
+    recommendations.push({
+      type: 'warning',
+      priority: 'medium',
+      message: maxWeightAsset.toUpperCase() + ' represents ' + (maxWeight * 100).toFixed(0) + '% of portfolio. Consider diversifying.',
+      metric: 'concentration'
     });
   }
   
   return recommendations;
 }
 
-// ============================================================================
-// EXPORTS
-// ============================================================================
-
+// Export functions
 if (typeof window !== 'undefined') {
-  window.calculateValueAtRisk = calculateValueAtRisk;
-  window.analyzeConcentration = analyzeConcentration;
-  window.calculateVolatilityMetrics = calculateVolatilityMetrics;
-  window.calculateLiquidityScores = calculateLiquidityScores;
-  window.calculatePortfolioRiskScore = calculatePortfolioRiskScore;
+  window.calculateVolatility = calculateVolatility;
+  window.calculateVaR = calculateVaR;
+  window.calculateCVaR = calculateCVaR;
+  window.calculateSharpeRatio = calculateSharpeRatio;
+  window.calculateSortinoRatio = calculateSortinoRatio;
+  window.calculateMaxDrawdown = calculateMaxDrawdown;
+  window.calculateBeta = calculateBeta;
+  window.calculatePortfolioRiskMetrics = calculatePortfolioRiskMetrics;
+  window.calculateRiskScore = calculateRiskScore;
+  window.getRiskLevel = getRiskLevel;
+  window.generateRiskRecommendations = generateRiskRecommendations;
   
-  console.log('[OK] Risk Analytics Engine loaded v5.1');
+  console.log('[RISK] Risk Analytics Module loaded');
+}
+
+if (typeof module !== 'undefined' && module.exports) {
+  module.exports = {
+    calculateVolatility: calculateVolatility,
+    calculateVaR: calculateVaR,
+    calculateCVaR: calculateCVaR,
+    calculateSharpeRatio: calculateSharpeRatio,
+    calculateSortinoRatio: calculateSortinoRatio,
+    calculateMaxDrawdown: calculateMaxDrawdown,
+    calculateBeta: calculateBeta,
+    calculatePortfolioRiskMetrics: calculatePortfolioRiskMetrics,
+    generateRiskRecommendations: generateRiskRecommendations
+  };
 }

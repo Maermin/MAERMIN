@@ -3,7 +3,8 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>MAERMIN v5.1 - Portfolio Tracker</title>
+  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline' https://unpkg.com https://cdnjs.cloudflare.com; style-src 'self' 'unsafe-inline'; img-src 'self' data: https:; connect-src 'self' https://api.coingecko.com https://api.exchangerate-api.com https://open.er-api.com https://api.skinport.com https://www.alphavantage.co;">
+  <title>MAERMIN v6.0 - Portfolio Tracker</title>
   
   <!-- React from CDN -->
   <script crossorigin src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
@@ -70,6 +71,14 @@
       text-transform: uppercase;
     }
     
+    #loading .version-badge {
+      background: rgba(255,255,255,0.1);
+      padding: 0.5rem 1rem;
+      border-radius: 2rem;
+      font-size: 0.75rem;
+      margin-bottom: 1rem;
+    }
+    
     @keyframes pulse {
       0%, 100% { opacity: 1; }
       50% { opacity: 0.5; }
@@ -96,14 +105,490 @@
       min-height: 1.5rem;
       text-align: center;
     }
+
+    /* Command Palette Styles */
+    .command-palette-overlay {
+      position: fixed;
+      top: 0;
+      left: 0;
+      right: 0;
+      bottom: 0;
+      background: rgba(0,0,0,0.5);
+      display: flex;
+      justify-content: center;
+      padding-top: 15vh;
+      z-index: 10000;
+      backdrop-filter: blur(4px);
+    }
+
+    .command-palette {
+      width: 600px;
+      max-width: 90vw;
+      background: #1e293b;
+      border-radius: 12px;
+      box-shadow: 0 25px 50px -12px rgba(0,0,0,0.5);
+      overflow: hidden;
+      max-height: 60vh;
+      display: flex;
+      flex-direction: column;
+    }
+
+    .command-palette-input {
+      width: 100%;
+      padding: 1rem 1.5rem;
+      font-size: 1.25rem;
+      background: transparent;
+      border: none;
+      color: white;
+      outline: none;
+      border-bottom: 1px solid rgba(255,255,255,0.1);
+    }
+
+    .command-palette-input::placeholder {
+      color: rgba(255,255,255,0.4);
+    }
+
+    .command-palette-results {
+      overflow-y: auto;
+      flex: 1;
+    }
+
+    .command-result {
+      padding: 0.75rem 1.5rem;
+      display: flex;
+      align-items: center;
+      gap: 1rem;
+      cursor: pointer;
+      transition: background 0.1s;
+    }
+
+    .command-result:hover, .command-result.selected {
+      background: rgba(255,255,255,0.1);
+    }
+
+    .command-result-icon {
+      width: 32px;
+      height: 32px;
+      background: rgba(255,255,255,0.1);
+      border-radius: 8px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      color: #8b5cf6;
+    }
+
+    .command-result-content {
+      flex: 1;
+    }
+
+    .command-result-label {
+      color: white;
+      font-weight: 500;
+    }
+
+    .command-result-description {
+      color: rgba(255,255,255,0.5);
+      font-size: 0.875rem;
+    }
+
+    .command-result-shortcut {
+      color: rgba(255,255,255,0.4);
+      font-size: 0.75rem;
+      padding: 0.25rem 0.5rem;
+      background: rgba(255,255,255,0.1);
+      border-radius: 4px;
+      font-family: monospace;
+    }
+
+    .command-palette-footer {
+      padding: 0.75rem 1.5rem;
+      border-top: 1px solid rgba(255,255,255,0.1);
+      display: flex;
+      gap: 1.5rem;
+      font-size: 0.75rem;
+      color: rgba(255,255,255,0.4);
+    }
+
+    .command-palette-footer kbd {
+      background: rgba(255,255,255,0.1);
+      padding: 0.125rem 0.375rem;
+      border-radius: 4px;
+      margin: 0 0.25rem;
+    }
+
+    /* Shortcuts Modal */
+    .shortcuts-modal {
+      position: fixed;
+      top: 50%;
+      left: 50%;
+      transform: translate(-50%, -50%);
+      width: 700px;
+      max-width: 90vw;
+      max-height: 80vh;
+      background: #1e293b;
+      border-radius: 12px;
+      box-shadow: 0 25px 50px -12px rgba(0,0,0,0.5);
+      overflow: hidden;
+      z-index: 10001;
+    }
+
+    .shortcuts-modal-header {
+      padding: 1.5rem;
+      border-bottom: 1px solid rgba(255,255,255,0.1);
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+
+    .shortcuts-modal-header h2 {
+      color: white;
+      font-size: 1.25rem;
+    }
+
+    .shortcuts-modal-close {
+      background: none;
+      border: none;
+      color: rgba(255,255,255,0.6);
+      cursor: pointer;
+      font-size: 1.5rem;
+      padding: 0.5rem;
+    }
+
+    .shortcuts-modal-content {
+      padding: 1.5rem;
+      overflow-y: auto;
+      max-height: 60vh;
+    }
+
+    .shortcuts-category {
+      margin-bottom: 1.5rem;
+    }
+
+    .shortcuts-category h3 {
+      color: #8b5cf6;
+      font-size: 0.875rem;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+      margin-bottom: 0.75rem;
+    }
+
+    .shortcut-item {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 0.5rem 0;
+      color: rgba(255,255,255,0.8);
+    }
+
+    .shortcut-keys {
+      display: flex;
+      gap: 0.25rem;
+    }
+
+    .shortcut-keys kbd {
+      background: rgba(255,255,255,0.1);
+      padding: 0.25rem 0.5rem;
+      border-radius: 4px;
+      font-family: monospace;
+      font-size: 0.875rem;
+    }
+
+    /* Toast Notifications */
+    .toast-container {
+      position: fixed;
+      bottom: 1.5rem;
+      right: 1.5rem;
+      display: flex;
+      flex-direction: column;
+      gap: 0.5rem;
+      z-index: 10002;
+    }
+
+    .toast {
+      padding: 1rem 1.5rem;
+      background: #1e293b;
+      border-radius: 8px;
+      box-shadow: 0 10px 25px -5px rgba(0,0,0,0.3);
+      color: white;
+      display: flex;
+      align-items: center;
+      gap: 0.75rem;
+      animation: slideIn 0.3s ease-out;
+    }
+
+    .toast.success { border-left: 4px solid #22c55e; }
+    .toast.error { border-left: 4px solid #ef4444; }
+    .toast.warning { border-left: 4px solid #f59e0b; }
+    .toast.info { border-left: 4px solid #3b82f6; }
+
+    @keyframes slideIn {
+      from { transform: translateX(100%); opacity: 0; }
+      to { transform: translateX(0); opacity: 1; }
+    }
+
+    /* Correlation Heatmap */
+    .correlation-heatmap {
+      display: grid;
+      gap: 1px;
+      background: rgba(255,255,255,0.1);
+      border-radius: 8px;
+      overflow: hidden;
+    }
+
+    .correlation-cell {
+      width: 60px;
+      height: 60px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 0.75rem;
+      font-weight: 500;
+      cursor: pointer;
+      transition: transform 0.1s;
+    }
+
+    .correlation-cell:hover {
+      transform: scale(1.1);
+      z-index: 1;
+    }
+
+    .correlation-label {
+      background: rgba(30,41,59,0.9);
+      color: white;
+      font-weight: 600;
+    }
+
+    /* Monte Carlo Chart Area */
+    .monte-carlo-chart {
+      position: relative;
+      height: 400px;
+      background: rgba(0,0,0,0.2);
+      border-radius: 8px;
+      overflow: hidden;
+    }
+
+    .probability-cone {
+      position: absolute;
+      bottom: 0;
+      left: 0;
+      right: 0;
+    }
+
+    /* Panel Detach Button */
+    .panel-detach-btn {
+      position: absolute;
+      top: 0.5rem;
+      right: 0.5rem;
+      background: rgba(255,255,255,0.1);
+      border: none;
+      color: rgba(255,255,255,0.6);
+      width: 28px;
+      height: 28px;
+      border-radius: 6px;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      opacity: 0;
+      transition: opacity 0.2s;
+    }
+
+    .panel:hover .panel-detach-btn {
+      opacity: 1;
+    }
+
+    .panel-detach-btn:hover {
+      background: rgba(255,255,255,0.2);
+      color: white;
+    }
+
+    /* Workspace Tabs */
+    .workspace-tabs {
+      display: flex;
+      gap: 0.25rem;
+      padding: 0.5rem;
+      background: rgba(0,0,0,0.2);
+      border-radius: 8px;
+      margin-bottom: 1rem;
+    }
+
+    .workspace-tab {
+      padding: 0.5rem 1rem;
+      background: transparent;
+      border: none;
+      color: rgba(255,255,255,0.6);
+      cursor: pointer;
+      border-radius: 6px;
+      font-size: 0.875rem;
+      transition: all 0.2s;
+    }
+
+    .workspace-tab:hover {
+      background: rgba(255,255,255,0.1);
+      color: white;
+    }
+
+    .workspace-tab.active {
+      background: rgba(139,92,246,0.3);
+      color: white;
+    }
+
+    /* Quick Add Input */
+    .quick-add-container {
+      position: fixed;
+      bottom: 2rem;
+      left: 50%;
+      transform: translateX(-50%);
+      width: 500px;
+      max-width: 90vw;
+      z-index: 9999;
+    }
+
+    .quick-add-input {
+      width: 100%;
+      padding: 1rem 1.5rem;
+      font-size: 1rem;
+      background: #1e293b;
+      border: 2px solid #8b5cf6;
+      border-radius: 12px;
+      color: white;
+      outline: none;
+      box-shadow: 0 20px 40px -10px rgba(0,0,0,0.4);
+    }
+
+    .quick-add-hint {
+      margin-top: 0.5rem;
+      text-align: center;
+      color: rgba(255,255,255,0.4);
+      font-size: 0.75rem;
+    }
+
+    /* Stress Test Scenario Cards */
+    .scenario-card {
+      background: rgba(255,255,255,0.05);
+      border-radius: 12px;
+      padding: 1.25rem;
+      cursor: pointer;
+      transition: all 0.2s;
+      border: 2px solid transparent;
+    }
+
+    .scenario-card:hover {
+      background: rgba(255,255,255,0.1);
+      border-color: rgba(139,92,246,0.3);
+    }
+
+    .scenario-card.selected {
+      border-color: #8b5cf6;
+      background: rgba(139,92,246,0.1);
+    }
+
+    .scenario-impact {
+      display: flex;
+      gap: 0.5rem;
+      margin-top: 0.75rem;
+    }
+
+    .scenario-impact-badge {
+      padding: 0.25rem 0.5rem;
+      border-radius: 4px;
+      font-size: 0.75rem;
+      font-weight: 600;
+    }
+
+    .scenario-impact-badge.negative {
+      background: rgba(239,68,68,0.2);
+      color: #ef4444;
+    }
+
+    .scenario-impact-badge.positive {
+      background: rgba(34,197,94,0.2);
+      color: #22c55e;
+    }
+
+    /* Import Wizard */
+    .import-wizard {
+      padding: 2rem;
+    }
+
+    .import-step {
+      display: none;
+    }
+
+    .import-step.active {
+      display: block;
+    }
+
+    .import-dropzone {
+      border: 2px dashed rgba(255,255,255,0.2);
+      border-radius: 12px;
+      padding: 3rem;
+      text-align: center;
+      cursor: pointer;
+      transition: all 0.2s;
+    }
+
+    .import-dropzone:hover, .import-dropzone.dragover {
+      border-color: #8b5cf6;
+      background: rgba(139,92,246,0.1);
+    }
+
+    .import-preview-table {
+      width: 100%;
+      border-collapse: collapse;
+      margin-top: 1rem;
+    }
+
+    .import-preview-table th,
+    .import-preview-table td {
+      padding: 0.75rem;
+      text-align: left;
+      border-bottom: 1px solid rgba(255,255,255,0.1);
+    }
+
+    .import-preview-table th {
+      color: #8b5cf6;
+      font-weight: 600;
+    }
+
+    /* Backup List */
+    .backup-item {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 1rem;
+      background: rgba(255,255,255,0.05);
+      border-radius: 8px;
+      margin-bottom: 0.5rem;
+    }
+
+    .backup-item-info {
+      flex: 1;
+    }
+
+    .backup-item-name {
+      color: white;
+      font-weight: 500;
+    }
+
+    .backup-item-meta {
+      color: rgba(255,255,255,0.5);
+      font-size: 0.875rem;
+    }
+
+    .backup-item-actions {
+      display: flex;
+      gap: 0.5rem;
+    }
   </style>
 </head>
 <body>
   
   <div id="loading">
     <h1>MAERMIN</h1>
-    <div class="subtitle">Multi-Asset Portfolio Tracker v5.1</div>
-    <div id="module-status">Lade Module...</div>
+    <div class="version-badge">v6.0 - Desktop Power User Edition</div>
+    <div class="subtitle">Multi-Asset Portfolio Tracker & Financial OS</div>
+    <div id="module-status">Initializing...</div>
     <div class="loader"></div>
   </div>
   
@@ -116,8 +601,8 @@
     };
   </script>
   
-  <!-- MAERMIN v5.1 - MODULES -->
-  <script>updateStatus('Lade Erweiterungen...');</script>
+  <!-- MAERMIN v6.0 - CORE MODULES -->
+  <script>updateStatus('Loading v6.0 engines...');</script>
   <script src="translations-complete.js"></script>
   <script src="validation-comprehensive.js"></script>
   <script src="calculator-extended.js"></script>
@@ -128,14 +613,24 @@
   <script src="cs2-analytics-view-v2.js"></script>
   <script src="tax-pdf-export.js"></script>
   
+  <!-- MAERMIN v6.0 - NEW MODULES -->
+  <script>updateStatus('Loading v6.0 advanced features...');</script>
+  <script src="monte-carlo-engine.js"></script>
+  <script src="correlation-engine.js"></script>
+  <script src="stress-test-engine.js"></script>
+  <script src="command-palette.js"></script>
+  <script src="import-export-engine.js"></script>
+  
   <!-- MAIN APPLICATION -->
-  <script>updateStatus('Lade Hauptanwendung...');</script>
+  <script>updateStatus('Loading UI components...');</script>
+  <script src="renderer-components.js"></script>
+  <script>updateStatus('Loading main application...');</script>
   <script src="renderer.js"></script>
   
   <script>
     window.addEventListener('load', () => {
       setTimeout(() => {
-        updateStatus('Bereit!');
+        updateStatus('Ready!');
         setTimeout(() => {
           const loading = document.getElementById('loading');
           if (loading) {
@@ -146,38 +641,37 @@
       }, 300);
     });
     
-    console.log('%c[MAERMIN v5.1] Portfolio Tracker', 'font-size: 20px; font-weight: bold; color: #7e22ce; background: #f3e8ff; padding: 8px;');
-    console.log('[INFO] NEU: Transaktionen, Steuerberichte DE/US, Rebalancing, PDF Export');
-    console.log('[INFO] KEIN EMOJI - 100% sauber');
-    console.log('[INFO] CS2: Skinport API integration for automatic pricing');
+    console.log('%c[MAERMIN v6.0] Desktop Power User Edition', 'font-size: 20px; font-weight: bold; color: #7e22ce; background: #f3e8ff; padding: 8px;');
+    console.log('[INFO] NEW: Multi-Window, Command Palette, Monte Carlo, Correlation Matrix');
+    console.log('[INFO] NEW: Stress Testing, Workspaces, SQLite, Backup System');
+    console.log('[INFO] NEW: Bulk Import, Plugin System, Price Alerts');
+    console.log('[INFO] Press Ctrl+K to open Command Palette');
     
     setTimeout(() => {
       const checks = [
         { name: 'React', check: () => typeof React !== 'undefined' },
         { name: 'ReactDOM', check: () => typeof ReactDOM !== 'undefined' },
-        { name: 'Translations', check: () => typeof completeTranslations !== 'undefined' },
-        { name: 'Calculator Extended', check: () => typeof calculateCostBasis !== 'undefined' },
-        { name: 'Tax Engine DE/US', check: () => typeof generateTaxReportAdvanced !== 'undefined' },
-        { name: 'Rebalancing', check: () => typeof analyzePortfolioDrift !== 'undefined' },
-        { name: 'Risk Analytics', check: () => typeof calculateValueAtRisk !== 'undefined' },
-        { name: 'CS2 Analytics', check: () => typeof analyzeFloatPerformance !== 'undefined' },
-        { name: 'PDF Export', check: () => typeof exportTaxReportPDF !== 'undefined' },
+        { name: 'Monte Carlo Engine', check: () => typeof window.MonteCarloEngine !== 'undefined' },
+        { name: 'Correlation Engine', check: () => typeof window.CorrelationEngine !== 'undefined' },
+        { name: 'Stress Test Engine', check: () => typeof window.StressTestEngine !== 'undefined' },
+        { name: 'Command Palette', check: () => typeof window.CommandRegistry !== 'undefined' },
+        { name: 'Import/Export Engine', check: () => typeof window.ImportExportEngine !== 'undefined' },
         { name: 'jsPDF', check: () => typeof window.jspdf !== 'undefined' }
       ];
       
-      console.log('[MODULE CHECK v5.1]');
+      console.log('[MODULE CHECK v6.0]');
       checks.forEach(item => {
         const status = item.check();
-        console.log(`  ${status ? '[OK]' : '[FEHLER]'} ${item.name}`);
+        console.log(`  ${status ? '[OK]' : '[MISSING]'} ${item.name}`);
       });
       
-      if (checks.every(item => item.check())) {
-        console.log('[OK] Alle Module geladen!');
-        console.log('[OK] MAERMIN v5.1 bereit mit DE/US Steuerberechnung!');
+      const allLoaded = checks.every(item => item.check());
+      if (allLoaded) {
+        console.log('[OK] All v6.0 modules loaded successfully!');
       } else {
-        console.error('[FEHLER] Einige Module fehlen!');
+        console.warn('[WARN] Some modules are missing - features may be limited');
       }
-    }, 1000);
+    }, 1500);
   </script>
   
 </body>

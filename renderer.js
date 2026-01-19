@@ -1,3306 +1,2457 @@
-const { useState, useEffect, useMemo } = React;
+// ============================================================================
+// MAERMIN v6.0 - Main Application
+// Multi-Asset Portfolio Tracker & Financial OS
+// ============================================================================
 
-// Translation object for multi-language support
-const translations = typeof completeTranslations !== 'undefined' ? completeTranslations : {
-  de: {
-    title: 'MAERMIN', portfolio: 'Portfolio', statistics: 'Statistiken',
-    crypto: 'Krypto', stocks: 'Aktien', cs2Items: 'CS2 Items', apiKeys: 'API-Keys',
-    export: 'Exportieren', import: 'Importieren', refresh: 'Aktualisieren', loading: 'Lädt...',
-    totalValue: 'Gesamtwert Portfolio', invested: 'Investiert', profitLoss: 'Gewinn/Verlust',
-    position: 'Position', positions: 'Positionen', addNew: 'Neue Position hinzufügen',
-    symbol: 'Symbol', amount: 'Anzahl', purchasePrice: 'Einkaufspreis', purchaseDate: 'Kaufdatum',
-    fees: 'Gebühren', feesOptional: 'Gebühren (optional)',
-    add: 'Hinzufügen', perUnit: '/ Stück', bought: 'Gekauft', current: 'Aktuell',
-    ofPortfolio: 'des Portfolios', noPositions: 'Keine Positionen vorhanden. Füge deine erste Position hinzu!',
-    noPositionsCategory: 'Keine Positionen in dieser Kategorie', distribution: 'Portfolio-Verteilung',
-    visualDistribution: 'Visuelle Verteilung', total: 'Gesamt', details: 'Details',
-    apiSettings: 'API-Schlüssel Einstellungen', alphaVantageKey: 'Alpha Vantage API-Key (für Aktien):',
-    skinportKey: 'Skinport API-Key (für CS2 Skins):',
-    getKeyFree: '-> Kostenlosen API-Key erhalten', save: 'Speichern', cancel: 'Abbrechen',
-    fillRequired: 'Bitte fülle alle Pflichtfelder aus!', theme: 'Design', language: 'Sprache',
-    whiteMode: 'Hell', darkMode: 'Dunkel', purpleMode: 'Lila', performanceChart: 'Portfolio-Performance',
-    assetPerformance: 'Asset-Performance', currency: 'Währung', exchangeRate: 'Wechselkurs',
-    edit: 'Bearbeiten', delete: 'Löschen', topPerformers: 'Top-Performer', worstPerformers: 'Schlechteste Performer',
-    roi: 'ROI', diversification: 'Diversifikation', averageReturn: 'Durchschn. Rendite',
-    totalAssets: 'Gesamt Assets', portfolioHealth: 'Portfolio-Gesundheit', riskLevel: 'Risikolevel',
-    holdingPeriod: 'Haltedauer', days: 'Tage', insights: 'Einblicke', recommendations: 'Empfehlungen',
-    highRisk: 'Hohes Risiko', mediumRisk: 'Mittleres Risiko', lowRisk: 'Geringes Risiko',
-    excellent: 'Ausgezeichnet', good: 'Gut', fair: 'Durchschnittlich', poor: 'Schlecht',
-    concentration: 'Konzentration', balanced: 'Ausgewogen', diversified: 'Diversifiziert',
-    highlyConcentrated: 'Stark konzentriert',
-    // NEW: Financial OS translations
-    financialOverview: 'Finanzübersicht',
-    netWorth: 'Nettovermögen',
-    savingsRate: 'Sparquote',
-    cashRunway: 'Cash Runway',
-    months: 'Monate',
-    financialHealth: 'Finanzielle Gesundheit',
-    action: 'Aktion',
-    noInsights: 'Keine Einblicke verfügbar',
-    // MAERMIN translations
-    myDashboard: 'Mein Dashboard',
-    editDashboard: 'Dashboard anpassen',
-    done: 'Fertig',
-    dashboardEditInfo: 'Dashboard anpassen: Klicke auf ein Widget um es zu entfernen.',
-    addWidgets: 'Widgets hinzufügen',
-    overview: 'Übersicht',
-    settings: 'Einstellungen',
-    cashflow: 'Cashflow',
-    budgets: 'Budgets',
-    taxes: 'Steuern',
-    addIncome: 'Einkommen hinzufügen',
-    addExpense: 'Ausgabe hinzufügen',
-    addFixedCost: 'Fixkosten hinzufügen',
-    addTax: 'Steuer hinzufügen',
-    addBudget: 'Budget hinzufügen',
-    income: 'Einkommen',
-    expenses: 'Ausgaben',
-    fixedCosts: 'Fixkosten',
-    monthlyCashflow: 'Monatlicher Cashflow',
-    monthlyIncome: 'Monatl. Einkommen',
-    monthlyExpenses: 'Monatl. Ausgaben',
-    activeBudgets: 'Aktive Budgets',
-    taxReserve: 'Steuerreserve',
-    portfolioValue: 'Portfolio Wert',
-    profit: 'Profit',
-    sources: 'Quellen',
-    budget: 'Budget',
-    noTaxes: 'Keine Steuern',
-    noBudgets: 'Keine Budgets',
-    positive: 'Positiv',
-    negative: 'Negativ',
-    rate: 'Rate'
-  },
-  en: {
-    title: 'MAERMIN', portfolio: 'Portfolio', statistics: 'Statistics',
-    crypto: 'Crypto', stocks: 'Stocks', cs2Items: 'CS2 Items', apiKeys: 'API Keys',
-    export: 'Export', import: 'Import', refresh: 'Refresh', loading: 'Loading...',
-    totalValue: 'Total Portfolio Value', invested: 'Invested', profitLoss: 'Profit/Loss',
-    position: 'Position', positions: 'Positions', addNew: 'Add New Position',
-    symbol: 'Symbol', amount: 'Amount', purchasePrice: 'Purchase Price', purchaseDate: 'Purchase Date',
-    fees: 'Fees', feesOptional: 'Fees (optional)',
-    add: 'Add', perUnit: '/ Unit', bought: 'Bought', current: 'Current',
-    ofPortfolio: 'of Portfolio', noPositions: 'No positions yet. Add your first position!',
-    noPositionsCategory: 'No positions in this category', distribution: 'Portfolio Distribution',
-    visualDistribution: 'Visual Distribution', total: 'Total', details: 'Details',
-    apiSettings: 'API Key Settings', alphaVantageKey: 'Alpha Vantage API Key (for Stocks):',
-    skinportKey: 'Skinport API Key (for CS2 Skins):',
-    getKeyFree: '-> Get Free API Key', save: 'Save', cancel: 'Cancel',
-    fillRequired: 'Please fill in all required fields!', theme: 'Theme', language: 'Language',
-    whiteMode: 'Light', darkMode: 'Dark', purpleMode: 'Purple', performanceChart: 'Portfolio Performance',
-    assetPerformance: 'Asset Performance', currency: 'Currency', exchangeRate: 'Exchange Rate',
-    edit: 'Edit', delete: 'Delete', topPerformers: 'Top Performers', worstPerformers: 'Worst Performers',
-    roi: 'ROI', diversification: 'Diversification', averageReturn: 'Avg. Return',
-    totalAssets: 'Total Assets', portfolioHealth: 'Portfolio Health', riskLevel: 'Risk Level',
-    holdingPeriod: 'Holding Period', days: 'days', insights: 'Insights', recommendations: 'Recommendations',
-    highRisk: 'High Risk', mediumRisk: 'Medium Risk', lowRisk: 'Low Risk',
-    excellent: 'Excellent', good: 'Good', fair: 'Fair', poor: 'Poor',
-    concentration: 'Concentration', balanced: 'Balanced', diversified: 'Diversified',
-    highlyConcentrated: 'Highly Concentrated',
-    // NEW: Financial OS translations
-    financialOverview: 'Financial Overview',
-    netWorth: 'Net Worth',
-    savingsRate: 'Savings Rate',
-    cashRunway: 'Cash Runway',
-    months: 'months',
-    financialHealth: 'Financial Health',
-    action: 'Action',
-    noInsights: 'No insights available',
-    // MAERMIN translations
-    myDashboard: 'My Dashboard',
-    editDashboard: 'Customize Dashboard',
-    done: 'Done',
-    dashboardEditInfo: 'Customize Dashboard: Click on a widget to remove it. Use the buttons below to add widgets.',
-    addWidgets: 'Add Widgets',
-    overview: 'Overview',
-    settings: 'Settings',
-    cashflow: 'Cashflow',
-    budgets: 'Budgets',
-    taxes: 'Taxes',
-    addIncome: 'Add Income',
-    addExpense: 'Add Expense',
-    addFixedCost: 'Add Fixed Cost',
-    addTax: 'Add Tax',
-    addBudget: 'Add Budget',
-    income: 'Income',
-    expenses: 'Expenses',
-    fixedCosts: 'Fixed Costs',
-    monthlyCashflow: 'Monthly Cashflow',
-    monthlyIncome: 'Monthly Income',
-    monthlyExpenses: 'Monthly Expenses',
-    activeBudgets: 'Active Budgets',
-    taxReserve: 'Tax Reserve',
-    portfolioValue: 'Portfolio Value',
-    profit: 'Profit',
-    sources: 'Sources',
-    budget: 'Budget',
-    noTaxes: 'No Taxes',
-    noBudgets: 'No Budgets',
-    positive: 'Positive',
-    negative: 'Negative',
-    rate: 'Rate'
-  }
-};
+(function() {
+'use strict';
 
+// Use React hooks
+const { useState, useEffect, useMemo, useCallback, useRef } = React;
 
-// Prompt translations
-const getPrompts = (lang) => ({
-  // Income prompts
-  incomeName: lang === 'de' ? 'Name des Einkommens (z.B. Gehalt, Freelance, Bonus):' : 'Income name (e.g. Salary, Freelance, Bonus):',
-  incomeType: lang === 'de' 
-    ? 'Typ:\n1 = Gehalt\n2 = Freelance\n3 = Mieteinnahmen\n4 = Dividenden\n5 = Bonus\n\nGib Nummer ein (1-5):'
-    : 'Type:\n1 = Salary\n2 = Freelance\n3 = Rental\n4 = Dividends\n5 = Bonus\n\nEnter number (1-5):',
-  incomeAmount: lang === 'de' ? 'Monatlicher Betrag:' : 'Monthly amount:',
-  incomeFrequency: lang === 'de'
-    ? 'Häufigkeit:\n1 = Monatlich\n2 = Quartalsweise\n3 = Jährlich\n\nGib Nummer ein (1-3):'
-    : 'Frequency:\n1 = Monthly\n2 = Quarterly\n3 = Yearly\n\nEnter number (1-3):',
-  
-  // Expense prompts
-  expenseCategory: lang === 'de'
-    ? 'Kategorie auswählen:\n1 = Lebensmittel\n2 = Restaurant\n3 = Transport\n4 = Unterhaltung\n5 = Shopping\n6 = Gesundheit\n7 = Nebenkosten\n8 = Versicherung\n\nGib Nummer ein (1-8):'
-    : 'Choose category:\n1 = Groceries\n2 = Dining\n3 = Transport\n4 = Entertainment\n5 = Shopping\n6 = Healthcare\n7 = Utilities\n8 = Insurance\n\nEnter number (1-8):',
-  expenseAmount: lang === 'de' ? 'Monatlicher Durchschnitt:' : 'Monthly average:',
-  expenseBudget: lang === 'de' ? 'Budget-Limit setzen? (optional, pro Monat, oder leer):' : 'Set budget limit? (optional, per month, or leave empty):',
-  
-  // Fixed costs prompts
-  fixedName: lang === 'de' ? 'Name der Fixkosten (z.B. Miete, Netflix):' : 'Fixed cost name (e.g. Rent, Netflix):',
-  fixedAmount: lang === 'de' ? 'Monatlicher Betrag:' : 'Monthly amount:',
-  
-  // Tax prompts
-  taxName: lang === 'de' ? 'Steuer Name (z.B. Einkommensteuer):' : 'Tax name (e.g. Income Tax):',
-  taxType: lang === 'de'
-    ? 'Steuertyp:\n1 = Pauschale (flat)\n2 = Progressiv\n\nGib Nummer ein (1-2):'
-    : 'Tax type:\n1 = Flat\n2 = Progressive\n\nEnter number (1-2):',
-  taxRate: lang === 'de' ? 'Steuersatz in %:' : 'Tax rate in %:',
-  taxDeductible: lang === 'de' ? 'Freibetrag (optional, oder leer):' : 'Deductible amount (optional, or leave empty):',
-  
-  // Budget prompts
-  budgetName: lang === 'de' ? 'Budget Name:' : 'Budget name:',
-  budgetAmount: lang === 'de' ? 'Budget-Limit (pro Monat):' : 'Budget limit (per month):',
-  budgetCategory: lang === 'de'
-    ? 'Kategorie:\n1 = Lebensmittel\n2 = Restaurant\n3 = Transport\n4 = Unterhaltung\n5 = Shopping\n6 = Gesundheit\n7 = Nebenkosten\n8 = Sonstiges\n\nGib Nummer ein (1-8):'
-    : 'Category:\n1 = Groceries\n2 = Dining\n3 = Transport\n4 = Entertainment\n5 = Shopping\n6 = Healthcare\n7 = Utilities\n8 = Other\n\nEnter number (1-8):',
-  budgetThreshold: lang === 'de' ? 'Warnung bei % (z.B. 80):' : 'Alert at % (e.g. 80):',
-  
-  // Success messages
-  incomeAdded: (name, amount, freq) => lang === 'de' 
-    ? ` Einkommen "${name}" hinzugefügt! (${amount} ${freq})`
-    : ` Income "${name}" added! (${amount} ${freq})`,
-  expenseAdded: (cat, amount) => lang === 'de'
-    ? ` Ausgabe "${cat}" hinzugefügt! (${amount}/Monat)`
-    : ` Expense "${cat}" added! (${amount}/month)`,
-  fixedAdded: (name, amount) => lang === 'de'
-    ? ` Fixkosten "${name}" hinzugefügt! (${amount}/Monat)`
-    : ` Fixed cost "${name}" added! (${amount}/month)`,
-  taxAdded: (name, rate) => lang === 'de'
-    ? ` Steuer "${name}" hinzugefügt! (${rate}%)`
-    : ` Tax "${name}" added! (${rate}%)`,
-  budgetAdded: (name, amount) => lang === 'de'
-    ? ` Budget "${name}" hinzugefügt! (Limit: ${amount})`
-    : ` Budget "${name}" added! (Limit: ${amount})`
-});
+// Get translations
+const translations = typeof window.completeTranslations !== 'undefined' ? window.completeTranslations : { de: {}, en: {} };
 
-
-// Theme configurations for different color schemes
+// Theme configuration
 const themes = {
-  white: { 
-    background: 'linear-gradient(135deg, #f8fafc 0%, #e2e8f0 50%, #f8fafc 100%)', 
-    card: 'rgba(255,255,255,0.9)', 
-    cardBorder: 'rgba(0,0,0,0.1)', 
-    text: '#1e293b', 
-    textSecondary: '#64748b', 
-    inputBg: 'rgba(0,0,0,0.05)', 
-    inputBorder: 'rgba(0,0,0,0.1)' 
+  white: {
+    background: 'linear-gradient(135deg, #f8fafc 0%, #e2e8f0 50%, #f8fafc 100%)',
+    card: 'rgba(255,255,255,0.9)',
+    cardBorder: 'rgba(0,0,0,0.1)',
+    text: '#1e293b',
+    textSecondary: '#64748b',
+    inputBg: 'rgba(0,0,0,0.05)',
+    inputBorder: 'rgba(0,0,0,0.1)',
+    accent: '#7e22ce',
+    success: '#22c55e',
+    danger: '#ef4444',
+    warning: '#f59e0b'
   },
-  dark: { 
-    background: 'linear-gradient(135deg, #0f172a 0%, #1e293b 50%, #0f172a 100%)', 
-    card: 'rgba(30,41,59,0.9)', 
-    cardBorder: 'rgba(255,255,255,0.1)', 
-    text: '#f8fafc', 
-    textSecondary: '#94a3b8', 
-    inputBg: 'rgba(255,255,255,0.05)', 
-    inputBorder: 'rgba(255,255,255,0.1)' 
+  dark: {
+    background: 'linear-gradient(135deg, #0f172a 0%, #1e293b 50%, #0f172a 100%)',
+    card: 'rgba(30,41,59,0.9)',
+    cardBorder: 'rgba(255,255,255,0.1)',
+    text: '#f8fafc',
+    textSecondary: '#94a3b8',
+    inputBg: 'rgba(255,255,255,0.05)',
+    inputBorder: 'rgba(255,255,255,0.1)',
+    accent: '#8b5cf6',
+    success: '#22c55e',
+    danger: '#ef4444',
+    warning: '#f59e0b'
   },
-  purple: { 
-    background: 'linear-gradient(135deg, #1e293b 0%, #7e22ce 50%, #1e293b 100%)', 
-    card: 'rgba(255,255,255,0.1)', 
-    cardBorder: 'rgba(255,255,255,0.2)', 
-    text: '#ffffff', 
-    textSecondary: 'rgba(255,255,255,0.6)', 
-    inputBg: 'rgba(255,255,255,0.1)', 
-    inputBorder: 'rgba(255,255,255,0.2)' 
+  purple: {
+    background: 'linear-gradient(135deg, #1e293b 0%, #7e22ce 50%, #1e293b 100%)',
+    card: 'rgba(255,255,255,0.1)',
+    cardBorder: 'rgba(255,255,255,0.2)',
+    text: '#ffffff',
+    textSecondary: 'rgba(255,255,255,0.6)',
+    inputBg: 'rgba(255,255,255,0.1)',
+    inputBorder: 'rgba(255,255,255,0.2)',
+    accent: '#a855f7',
+    success: '#22c55e',
+    danger: '#ef4444',
+    warning: '#f59e0b'
   }
 };
+
+// ============================================================================
+// MAIN APPLICATION COMPONENT
+// ============================================================================
 
 function InvestmentTracker() {
-  // State management for portfolio data
-  const [portfolio, setPortfolio] = useState({ crypto: [], stocks: [], skins: [] });
-  const [prices, setPrices] = useState({});
-  const [images, setImages] = useState({});
-  const [priceHistory, setPriceHistory] = useState({});
-  const [loading, setLoading] = useState(false);
+  // ========== STATE MANAGEMENT ==========
   
-  // UI state management
-  const [activeTab, setActiveTab] = useState('crypto');
-  const [activeView, setActiveView] = useState('overview');
-  const [dashboardWidgets, setDashboardWidgets] = useState(() => {
-    const saved = localStorage.getItem('dashboardWidgets');
-    const validWidgets = ['networth', 'health', 'portfolio'];
-    const defaultWidgets = ['networth', 'health', 'portfolio'];
-    
-    if (saved) {
-      const parsedWidgets = JSON.parse(saved);
-      return parsedWidgets.filter(w => validWidgets.includes(w));
-    }
-    return defaultWidgets;
-  });
-  const [editingDashboard, setEditingDashboard] = useState(false);
-  const [theme, setTheme] = useState('purple');
-  const [language, setLanguage] = useState('de');
-  const [currency, setCurrency] = useState('EUR');
-  const [exchangeRate, setExchangeRate] = useState(1.1);
-  
-  // Form and settings state
-  const [newItem, setNewItem] = useState({ 
-    symbol: '', 
-    amount: '', 
-    purchasePrice: '',
-    purchaseDate: new Date().toISOString().split('T')[0],
-    fees: '', // Fees field
-    // CS2-specific fields
-    floatValue: '',
-    rarity: '',
-    wear: ''
-  });
-  const [apiKeys, setApiKeys] = useState({ alphaVantage: '', steamApi: '', skinport: '' });
-  const [showApiSettings, setShowApiSettings] = useState(false);
-  const [showSettings, setShowSettings] = useState(false);
-  
-  // Price update modal state
-  const [priceUpdateModal, setPriceUpdateModal] = useState({ show: false, item: null, currentPrice: 0 });
-  const [newPriceInput, setNewPriceInput] = useState('');
-
-  const [editingItem, setEditingItem] = useState(null);
-
-  // NEW v5.1: Transaction History State
+  // Transactions - the source of truth for portfolio
   const [transactions, setTransactions] = useState(() => {
     const saved = localStorage.getItem('transactions');
     return saved ? JSON.parse(saved) : [];
   });
-
-  // NEW v5.1: Transaction Form State
-  const [showTransactionForm, setShowTransactionForm] = useState(false);
+  
+  // Prices
+  const [prices, setPrices] = useState({});
+  const [priceHistory, setPriceHistory] = useState({});
+  const [images, setImages] = useState({});
+  const [loading, setLoading] = useState(false);
+  
+  // Currency and exchange rate - needed for portfolio calculation
+  const [currency, setCurrency] = useState('EUR');
+  // Exchange rate: USD->EUR (how many EUR for 1 USD). EUR is stronger, so ~0.91
+  const [exchangeRate, setExchangeRate] = useState(0.91);
+  
+  // Portfolio derived from transactions
+  const portfolio = useMemo(() => {
+    const result = { crypto: [], stocks: [], skins: [] };
+    const positionMap = {}; // symbol -> aggregated position
+    
+    transactions.forEach(tx => {
+      const category = tx.category || 'crypto';
+      const symbol = (tx.symbol || '').toLowerCase();
+      const key = `${category}-${symbol}`;
+      
+      if (!positionMap[key]) {
+        positionMap[key] = {
+          symbol: tx.symbol,
+          amount: 0,
+          totalCostEUR: 0, // Always store in EUR
+          purchaseDate: tx.date,
+          category: category
+        };
+      }
+      
+      // Get price in EUR - convert if transaction was in USD
+      let priceEUR = parseFloat(tx.price) || 0;
+      if (tx.currency === 'USD' && exchangeRate > 0) {
+        // Convert USD to EUR: price in USD * (EUR per USD)
+        priceEUR = priceEUR * exchangeRate;
+      }
+      
+      if (tx.type === 'buy') {
+        const qty = parseFloat(tx.quantity) || 0;
+        positionMap[key].amount += qty;
+        positionMap[key].totalCostEUR += qty * priceEUR;
+      } else if (tx.type === 'sell') {
+        positionMap[key].amount -= parseFloat(tx.quantity) || 0;
+      }
+    });
+    
+    // Convert map to arrays
+    Object.values(positionMap).forEach(pos => {
+      if (pos.amount > 0.0001) { // Only include positions with meaningful amounts
+        const avgPriceEUR = pos.totalCostEUR / pos.amount;
+        result[pos.category].push({
+          id: `${pos.category}-${pos.symbol}`,
+          symbol: pos.symbol,
+          name: pos.symbol,
+          amount: pos.amount,
+          purchasePrice: avgPriceEUR, // Always in EUR
+          purchaseDate: pos.purchaseDate
+        });
+      }
+    });
+    
+    return result;
+  }, [transactions, exchangeRate]);
+  
+  // UI State
+  const [activeTab, setActiveTab] = useState('crypto');
+  const [activeView, setActiveView] = useState('overview');
+  const [theme, setTheme] = useState('purple');
+  const [language, setLanguage] = useState('de');
+  
+  // v6.0 State
+  const [showCommandPalette, setShowCommandPalette] = useState(false);
+  const [showShortcuts, setShowShortcuts] = useState(false);
+  const [activeWorkspace, setActiveWorkspace] = useState('default');
+  const [toasts, setToasts] = useState([]);
+  const [alerts, setAlerts] = useState([]);
+  
+  // Forms & Modals
   const [newTransaction, setNewTransaction] = useState({
     type: 'buy',
     category: 'crypto',
     symbol: '',
     quantity: '',
     price: '',
+    date: new Date().toISOString().split('T')[0],
     fees: '',
-    date: new Date().toISOString().split('T')[0], // Today's date in YYYY-MM-DD format
-    currency: 'EUR' // NEW: Transaction currency
+    notes: '',
+    currency: 'EUR' // Track which currency the transaction was added in
   });
-
-  // Portfolio is ALWAYS calculated from transactions only
-  const portfolioMode = 'transactions';
-
-  // NEW v5.1: Tax jurisdiction (for PDF export)
+  const [showTransactionModal, setShowTransactionModal] = useState(false);
+  const [editingTransactionId, setEditingTransactionId] = useState(null); // null = adding new, id = editing
+  const [showImportModal, setShowImportModal] = useState(false);
+  const [importData, setImportData] = useState('');
+  const [showAlertModal, setShowAlertModal] = useState(false);
+  const [showBackupModal, setShowBackupModal] = useState(false);
+  const [apiKeys, setApiKeys] = useState({ alphaVantage: '', skinport: '' });
+  const [showApiSettings, setShowApiSettings] = useState(false);
+  const [showSettings, setShowSettings] = useState(false);
+  
+  // Tax
   const [taxJurisdiction, setTaxJurisdiction] = useState(() => {
-    const saved = localStorage.getItem('taxJurisdiction');
-    return saved || 'de'; // 'de' for Germany, 'us' for US
+    return localStorage.getItem('taxJurisdiction') || 'de';
   });
 
-  // NEW v5.1: Rebalancing State
-  const [targetAllocation, setTargetAllocation] = useState(() => {
-    const saved = localStorage.getItem('targetAllocation');
-    return saved ? JSON.parse(saved) : { crypto: 40, stocks: 50, cs2Items: 10 };
-  });
-
-  // ========== NEW: Financial OS State ==========
-  const [financialData, setFinancialData] = useState(() => {
-    // Try to load from localStorage
-    const saved = localStorage.getItem('financialData');
-    if (saved) {
-      try {
-        const data = JSON.parse(saved);
-        // Migrate to MAERMIN if needed
-        if (typeof migrateFinancialData !== 'undefined') {
-          return migrateFinancialData(data);
-        }
-        // Add MAERMIN fields if missing
-        return {
-          ...data,
-          variableExpenses: data.variableExpenses || [],
-          taxes: data.taxes || [],
-          budgets: data.budgets || [],
-          transactions: data.transactions || []
-        };
-      } catch (e) {
-        console.error('Failed to load financial data:', e);
-      }
-    }
-    // Create initial state (MAERMIN or fallback)
-    return typeof createInitialMaerminData !== 'undefined' 
-      ? createInitialMaerminData()
-      : typeof createInitialFinancialData !== 'undefined'
-      ? createInitialFinancialData()
-      : { cashAccounts: [], debts: [], fixedCosts: [], income: [], goals: [], snapshots: [], variableExpenses: [], taxes: [], budgets: [], transactions: [] };
-  });
-
-  const t = translations[language];
+  // ========== COMPUTED VALUES ==========
+  
+  const t = translations[language] || translations.de;
   const currentTheme = themes[theme];
-
-  // Helper function to format prices with proper locale
-  const formatPrice = (price) => {
+  
+  const formatPrice = useCallback((price) => {
     if (price === undefined || price === null || isNaN(price)) return '0.00';
-    const converted = currency === 'USD' ? price * exchangeRate : price;
+    // All prices are stored in EUR
+    // If user wants USD, convert from EUR to USD by dividing by the USD->EUR rate
+    const converted = currency === 'USD' && exchangeRate > 0 ? price / exchangeRate : price;
     return converted.toLocaleString('de-DE', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+  }, [currency, exchangeRate]);
+
+  const getCurrencySymbol = () => currency === 'EUR' ? 'EUR' : 'USD';
+
+  // Category display names - internal names stay the same for data consistency
+  const getCategoryDisplayName = (category) => {
+    const displayNames = {
+      crypto: t.crypto || 'Crypto',
+      stocks: t.stocks || 'Stocks',
+      skins: t.cs2Skins || 'CS2 Skins'
+    };
+    return displayNames[category] || category;
   };
 
-  const getCurrencySymbol = () => currency === 'EUR' ? '€' : '$';
-  const getPositionText = (count) => count === 1 ? t.position : t.positions;
-
-  // Fetch current EUR to USD exchange rate
-  const fetchExchangeRate = async () => {
-    try {
-      console.log(' Fetching live EUR/USD exchange rate...');
-      const res = await fetch('https://api.exchangerate-api.com/v4/latest/EUR');
-      
-      if (!res.ok) throw new Error('API request failed');
-      
-      const data = await res.json();
-      
-      if (data.rates && data.rates.USD) {
-        const rate = data.rates.USD;
-        console.log(' Live rate: 1 EUR = ' + rate.toFixed(4) + ' USD');
-        setExchangeRate(rate);
-        localStorage.setItem('exchangeRate', rate.toString());
-        localStorage.setItem('exchangeRateLastUpdate', new Date().toISOString());
-      }
-    } catch (err) {
-      console.warn(' Could not fetch live rate:', err);
-      const savedRate = localStorage.getItem('exchangeRate');
-      if (savedRate) {
-        console.log(' Using saved rate: ' + parseFloat(savedRate).toFixed(4));
-        setExchangeRate(parseFloat(savedRate));
-      } else {
-        console.log(' Using default rate: 1.10');
-        setExchangeRate(1.1);
-      }
-    }
+  // Workspaces
+  const workspaces = {
+    default: { name: t.defaultWorkspace || 'Default', panels: ['overview'] },
+    'tax-season': { name: t.taxSeasonWorkspace || 'Tax Season', panels: ['taxes'] },
+    'deep-analysis': { name: t.deepAnalysisWorkspace || 'Deep Analysis', panels: ['analytics'] },
+    'daily-check': { name: t.dailyCheckWorkspace || 'Daily Check', panels: ['overview'] }
   };
 
-  // Auto-update exchange rate when switching to USD
+  // Calculate portfolio totals
+  const portfolioStats = useMemo(() => {
+    let totalValue = 0;
+    let totalInvested = 0;
+    let totalPositions = 0;
+
+    ['crypto', 'stocks', 'skins'].forEach(category => {
+      const positions = portfolio[category] || [];
+      positions.forEach(pos => {
+        const symbolOriginal = pos.symbol || pos.name || '';
+        const symbolLower = symbolOriginal.toLowerCase();
+        const symbolUpper = symbolOriginal.toUpperCase();
+        // Try multiple lookups: original case, lowercase, uppercase
+        const currentPrice = prices[symbolOriginal] || prices[symbolLower] || prices[symbolUpper] || pos.purchasePrice || 0;
+        const value = (pos.amount || 1) * currentPrice;
+        const invested = (pos.amount || 1) * (pos.purchasePrice || 0);
+        
+        totalValue += value;
+        totalInvested += invested;
+        totalPositions++;
+      });
+    });
+
+    return {
+      totalValue,
+      totalInvested,
+      totalProfit: totalValue - totalInvested,
+      totalProfitPercent: totalInvested > 0 ? ((totalValue - totalInvested) / totalInvested) * 100 : 0,
+      totalPositions
+    };
+  }, [portfolio, prices]);
+
+  // ========== COMMANDS FOR PALETTE ==========
+  
+  const commands = useMemo(() => [
+    // Navigation
+    { id: 'nav:overview', label: t.goToOverview || 'Go to Overview', category: 'Navigation', shortcut: 'g o' },
+    { id: 'nav:portfolio', label: t.goToPortfolio || 'Go to Portfolio', category: 'Navigation', shortcut: 'g p' },
+    { id: 'nav:analytics', label: t.goToAnalytics || 'Go to Analytics', category: 'Navigation', shortcut: 'g a' },
+    { id: 'nav:transactions', label: t.goToTransactions || 'Go to Transactions', category: 'Navigation', shortcut: 'g t' },
+    { id: 'nav:taxes', label: t.goToTaxReport || 'Go to Tax Report', category: 'Navigation', shortcut: 'g x' },
+    
+    // Actions
+    { id: 'action:add-position', label: t.addNew || 'Add Position', category: 'Actions', shortcut: 'n' },
+    { id: 'action:add-transaction', label: t.addTransaction || 'Add Transaction', category: 'Actions', shortcut: 't' },
+    { id: 'action:refresh', label: t.refresh || 'Refresh Prices', category: 'Actions', shortcut: 'r' },
+    { id: 'action:import', label: t.importData || 'Import Data', category: 'Actions', shortcut: 'i' },
+    { id: 'action:export', label: t.exportData || 'Export Data', category: 'Actions', shortcut: 'e' },
+    
+    // Analytics
+    { id: 'analytics:correlation', label: t.correlationMatrix || 'Correlation Matrix', category: 'Analytics', shortcut: 'a c' },
+    { id: 'analytics:montecarlo', label: t.monteCarloSimulation || 'Monte Carlo Simulation', category: 'Analytics', shortcut: 'a m' },
+    { id: 'analytics:stress', label: t.stressTesting || 'Stress Testing', category: 'Analytics', shortcut: 'a s' },
+    { id: 'analytics:risk', label: t.riskLevel || 'Risk Analytics', category: 'Analytics', shortcut: 'a r' },
+    
+    // Workspaces
+    { id: 'workspace:default', label: t.defaultWorkspace || 'Default Workspace', category: 'Workspaces', shortcut: 'w 1' },
+    { id: 'workspace:tax', label: t.taxSeasonWorkspace || 'Tax Season Workspace', category: 'Workspaces', shortcut: 'w 2' },
+    { id: 'workspace:analysis', label: t.deepAnalysisWorkspace || 'Analysis Workspace', category: 'Workspaces', shortcut: 'w 3' },
+    
+    // Settings
+    { id: 'settings:theme-light', label: t.whiteMode || 'Light Theme', category: 'Settings' },
+    { id: 'settings:theme-dark', label: t.darkMode || 'Dark Theme', category: 'Settings' },
+    { id: 'settings:theme-purple', label: t.purpleMode || 'Purple Theme', category: 'Settings' },
+    { id: 'settings:lang-de', label: 'Deutsch', category: 'Settings' },
+    { id: 'settings:lang-en', label: 'English', category: 'Settings' },
+    { id: 'settings:api', label: t.apiSettings || 'API Settings', category: 'Settings' },
+    
+    // Alerts & Backup
+    { id: 'alerts:create', label: t.createAlert || 'Create Price Alert', category: 'Alerts', shortcut: 'l' },
+    { id: 'backup:create', label: t.createBackup || 'Create Backup', category: 'Backup', shortcut: 'b c' },
+    { id: 'backup:restore', label: t.restoreBackup || 'Restore Backup', category: 'Backup', shortcut: 'b r' },
+    
+    // Help
+    { id: 'help:shortcuts', label: t.keyboardShortcuts || 'Keyboard Shortcuts', category: 'Help', shortcut: '?' }
+  ], [t]);
+
+  // ========== COMMAND EXECUTION (moved below function definitions) ==========
+
+  // ========== KEYBOARD SHORTCUTS ==========
+  
   useEffect(() => {
-    if (currency === 'USD') {
-      const lastUpdate = localStorage.getItem('exchangeRateLastUpdate');
-      const oneHourAgo = Date.now() - 3600000; // 1 hour
+    const handleKeyDown = (e) => {
+      // Ignore if in input
+      if (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA') return;
       
-      if (!lastUpdate || new Date(lastUpdate).getTime() < oneHourAgo) {
-        console.log(' Exchange rate needs update (>1h old)...');
-        fetchExchangeRate();
-      } else {
-        console.log(' Using cached rate (updated ' + Math.round((Date.now() - new Date(lastUpdate).getTime()) / 60000) + ' min ago)');
+      // Command palette: Ctrl+K or Cmd+K
+      if ((e.ctrlKey || e.metaKey) && e.key === 'k') {
+        e.preventDefault();
+        setShowCommandPalette(prev => !prev);
+        return;
       }
-    }
-  }, [currency]);
+      
+      // Escape closes modals
+      if (e.key === 'Escape') {
+        setShowCommandPalette(false);
+        setShowShortcuts(false);
+        setShowTransactionModal(false);
+        setShowImportModal(false);
+        setShowApiSettings(false);
+        return;
+      }
+      
+      // ? shows shortcuts
+      if (e.key === '?' && !e.ctrlKey && !e.metaKey) {
+        setShowShortcuts(true);
+        return;
+      }
+    };
+    
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, []);
 
-  // Load saved data from localStorage on component mount
+  // ========== DATA PERSISTENCE ==========
+  
   useEffect(() => {
     const saved = (key) => localStorage.getItem(key);
     if (saved('theme')) setTheme(saved('theme'));
     if (saved('language')) setLanguage(saved('language'));
     if (saved('currency')) setCurrency(saved('currency'));
     if (saved('apiKeys')) setApiKeys(JSON.parse(saved('apiKeys')));
-    if (saved('portfolio')) setPortfolio(JSON.parse(saved('portfolio')));
     if (saved('priceHistory')) setPriceHistory(JSON.parse(saved('priceHistory')));
     if (saved('images')) setImages(JSON.parse(saved('images')));
-    fetchExchangeRate();
+    if (saved('alerts')) setAlerts(JSON.parse(saved('alerts')));
   }, []);
 
-  // Persist state changes to localStorage
   useEffect(() => { localStorage.setItem('theme', theme); }, [theme]);
   useEffect(() => { localStorage.setItem('language', language); }, [language]);
   useEffect(() => { localStorage.setItem('currency', currency); }, [currency]);
-  useEffect(() => { localStorage.setItem('portfolio', JSON.stringify(portfolio)); }, [portfolio]);
-
-  // NEW v5.1: Persist transactions
-  useEffect(() => { 
-    localStorage.setItem('transactions', JSON.stringify(transactions)); 
-  }, [transactions]);
-
-  // NEW v5.1: Persist target allocation
-  useEffect(() => { 
-    localStorage.setItem('targetAllocation', JSON.stringify(targetAllocation)); 
-  }, [targetAllocation]);
-
-  // Portfolio mode is always 'transactions' now - no persistence needed
-
-  // NEW v5.1: Persist tax jurisdiction
-  useEffect(() => { 
-    localStorage.setItem('taxJurisdiction', taxJurisdiction); 
-  }, [taxJurisdiction]);
+  useEffect(() => { localStorage.setItem('transactions', JSON.stringify(transactions)); }, [transactions]);
   useEffect(() => { localStorage.setItem('priceHistory', JSON.stringify(priceHistory)); }, [priceHistory]);
-  useEffect(() => { localStorage.setItem('dashboardWidgets', JSON.stringify(dashboardWidgets)); }, [dashboardWidgets]);
   useEffect(() => { localStorage.setItem('images', JSON.stringify(images)); }, [images]);
-  useEffect(() => { try { localStorage.setItem('financialData', JSON.stringify(financialData)); } catch(e) {} }, [financialData]);
+  useEffect(() => { localStorage.setItem('taxJurisdiction', taxJurisdiction); }, [taxJurisdiction]);
+  useEffect(() => { localStorage.setItem('alerts', JSON.stringify(alerts)); }, [alerts]);
+  useEffect(() => { localStorage.setItem('apiKeys', JSON.stringify(apiKeys)); }, [apiKeys]);
 
-  // Save API keys to localStorage
-  const saveApiKeys = () => {
-    localStorage.setItem('apiKeys', JSON.stringify(apiKeys));
-    setShowApiSettings(false);
-    alert(language === 'de' ? 'API-Keys gespeichert!' : 'API Keys saved!');
-  };
-
-  // Fetch current prices from various APIs
+  // ========== API FUNCTIONS ==========
+  
   const fetchPrices = async () => {
     setLoading(true);
-    const newPrices = {}, newHistory = {...priceHistory}, newImages = {...images};
+    const newPrices = { ...prices };
+    const newImages = { ...images };
+    const timestamp = new Date().toLocaleString('de-DE', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' });
     
     try {
-      // Fetch cryptocurrency prices from CoinGecko
-      if (portfolio.crypto && portfolio.crypto.length > 0) {
-        const ids = portfolio.crypto.map(c => c.symbol.toLowerCase()).join(',');
-        const res = await fetch(`https://api.coingecko.com/api/v3/simple/price?ids=${ids}&vs_currencies=eur`);
-        const data = await res.json();
-        
-        // Fetch coin images
-        for (const coin of portfolio.crypto) {
-          const id = coin.symbol.toLowerCase();
-          if (!newImages[id]) {
-            try {
-              const info = await fetch(`https://api.coingecko.com/api/v3/coins/${id}?localization=false&tickers=false&market_data=false`);
-              const coinInfo = await info.json();
-              if (coinInfo.image?.small) newImages[id] = coinInfo.image.small;
-            } catch (e) {}
+      // First, fetch USD to EUR exchange rate from ExchangeRate-API (free, no key)
+      // https://www.exchangerate-api.com/docs/free
+      // Exchange rate direction: USD->EUR means how many EUR for 1 USD
+      // EUR is stronger than USD, so rate is ~0.91 (1 USD = 0.91 EUR)
+      let usdToEur = exchangeRate || 0.91; // Default fallback
+      try {
+        // Use the open endpoint which is in the CSP
+        const fxRes = await fetch('https://open.er-api.com/v6/latest/USD');
+        if (fxRes.ok) {
+          const fxData = await fxRes.json();
+          if (fxData.result === 'success' && fxData.rates && fxData.rates.EUR) {
+            usdToEur = fxData.rates.EUR;
+            setExchangeRate(usdToEur);
+            console.log('[PRICES] Exchange rate: 1 USD =', usdToEur.toFixed(4), 'EUR');
           }
         }
-        
-        // Store prices and history
-        Object.keys(data).forEach(id => {
-          newPrices[id] = data[id].eur;
-          if (!newHistory[id]) newHistory[id] = [];
-          const now = new Date();
-          const day = String(now.getDate()).padStart(2, '0');
-          const month = String(now.getMonth() + 1).padStart(2, '0');
-          const hour = String(now.getHours()).padStart(2, '0');
-          const minute = String(now.getMinutes()).padStart(2, '0');
-          const timestamp = language === 'de' ? `${day}/${month} ${hour}:${minute}` : `${month}/${day} ${hour}:${minute}`;
-          
-          newHistory[id].push({ 
-            timestamp: timestamp, 
-            price: data[id].eur 
-          });
-          if (newHistory[id].length > 20) newHistory[id] = newHistory[id].slice(-20);
-        });
+      } catch (e) {
+        console.error('[PRICES] Exchange rate fetch error:', e);
+        console.log('[PRICES] Using fallback exchange rate: 1 USD =', usdToEur, 'EUR');
       }
       
-      // Fetch stock prices from Alpha Vantage
+      // Fetch crypto prices from CoinGecko (free, no API key needed)
+      if (portfolio.crypto && portfolio.crypto.length > 0) {
+        const ids = portfolio.crypto.map(c => (c.symbol || c.name || '').toLowerCase()).join(',');
+        if (ids) {
+          try {
+            const res = await fetch(`https://api.coingecko.com/api/v3/simple/price?ids=${ids}&vs_currencies=eur,usd&include_24hr_change=true`);
+            if (res.ok) {
+              const data = await res.json();
+              Object.keys(data).forEach(id => {
+                // Store EUR price (or convert from USD if EUR not available)
+                const eurPrice = data[id].eur || (data[id].usd * usdToEur);
+                newPrices[id] = eurPrice;
+                newPrices[id.toLowerCase()] = eurPrice;
+              });
+              console.log('[PRICES] Crypto prices fetched:', Object.keys(data).length);
+            }
+          } catch (e) {
+            console.error('[PRICES] CoinGecko error:', e);
+          }
+        }
+      }
+      
+      // Fetch stock prices from Alpha Vantage (requires API key)
+      // Get free API key at: https://www.alphavantage.co/support/#api-key
+      // Alpha Vantage returns prices in USD - we need to convert to EUR
       if (portfolio.stocks && portfolio.stocks.length > 0) {
         if (apiKeys.alphaVantage) {
-          for (const stock of portfolio.stocks) {
+          console.log('[PRICES] Fetching stock prices with Alpha Vantage...');
+          for (const stock of portfolio.stocks.slice(0, 5)) { // Limit to 5 due to rate limits
             try {
-              const res = await fetch(`https://www.alphavantage.co/query?function=GLOBAL_QUOTE&symbol=${stock.symbol}&apikey=${apiKeys.alphaVantage}`);
-              const data = await res.json();
-              if (data['Global Quote']?.['05. price']) {
-                const usd = parseFloat(data['Global Quote']['05. price']);
-                const eur = usd / exchangeRate;
-                newPrices[stock.symbol] = eur;
-                if (!newHistory[stock.symbol]) newHistory[stock.symbol] = [];
-                
-                const now = new Date();
-                const day = String(now.getDate()).padStart(2, '0');
-                const month = String(now.getMonth() + 1).padStart(2, '0');
-                const hour = String(now.getHours()).padStart(2, '0');
-                const minute = String(now.getMinutes()).padStart(2, '0');
-                const timestamp = language === 'de' ? `${day}/${month} ${hour}:${minute}` : `${month}/${day} ${hour}:${minute}`;
-                
-                newHistory[stock.symbol].push({ 
-                  timestamp: timestamp, 
-                  price: eur 
-                });
-                if (newHistory[stock.symbol].length > 20) newHistory[stock.symbol] = newHistory[stock.symbol].slice(-20);
+              const symbol = (stock.symbol || stock.name || '').toUpperCase();
+              const res = await fetch(
+                `https://www.alphavantage.co/query?function=GLOBAL_QUOTE&symbol=${symbol}&apikey=${apiKeys.alphaVantage}`
+              );
+              if (res.ok) {
+                const data = await res.json();
+                if (data['Global Quote'] && data['Global Quote']['05. price']) {
+                  const priceUSD = parseFloat(data['Global Quote']['05. price']);
+                  // Convert USD to EUR using the daily exchange rate
+                  const priceEUR = priceUSD * usdToEur;
+                  
+                  // Store both lowercase and original symbol
+                  newPrices[symbol.toLowerCase()] = priceEUR;
+                  newPrices[symbol] = priceEUR;
+                  
+                  console.log('[PRICES] Stock:', symbol, '| USD:', priceUSD.toFixed(2), '| EUR:', priceEUR.toFixed(2));
+                } else if (data['Note']) {
+                  console.warn('[PRICES] Alpha Vantage rate limit:', data['Note']);
+                  addToast('Alpha Vantage: Rate limit (5/min)', 'warning');
+                  break;
+                } else if (data['Error Message']) {
+                  console.warn('[PRICES] Alpha Vantage error for', symbol, ':', data['Error Message']);
+                }
               }
-              if (!newImages[stock.symbol]) newImages[stock.symbol] = `https://logo.clearbit.com/${stock.symbol.toLowerCase()}.com`;
-              await new Promise(r => setTimeout(r, 12000)); // Rate limiting
-            } catch (e) {}
+              // Alpha Vantage free tier: 5 calls per minute - wait 12 seconds between calls
+              await new Promise(r => setTimeout(r, 12000));
+            } catch (e) {
+              console.error('[PRICES] Alpha Vantage error:', e);
+            }
           }
         } else {
-          // Use mock data if no API key is provided
-          portfolio.stocks.forEach(s => {
-            const last = prices[s.symbol] || Math.random() * 200 + 50;
-            newPrices[s.symbol] = Math.max(10, last + (Math.random() - 0.5) * 10);
-            if (!newHistory[s.symbol]) newHistory[s.symbol] = [];
-            
-            const now = new Date();
-            const day = String(now.getDate()).padStart(2, '0');
-            const month = String(now.getMonth() + 1).padStart(2, '0');
-            const hour = String(now.getHours()).padStart(2, '0');
-            const minute = String(now.getMinutes()).padStart(2, '0');
-            const timestamp = language === 'de' ? `${day}/${month} ${hour}:${minute}` : `${month}/${day} ${hour}:${minute}`;
-            
-            newHistory[s.symbol].push({ 
-              timestamp: timestamp, 
-              price: newPrices[s.symbol] 
-            });
-            if (newHistory[s.symbol].length > 20) newHistory[s.symbol] = newHistory[s.symbol].slice(-20);
-            if (!newImages[s.symbol]) newImages[s.symbol] = `https://logo.clearbit.com/${s.symbol.toLowerCase()}.com`;
-          });
+          console.log('[PRICES] No Alpha Vantage API key - skipping stocks. Get free key at: https://www.alphavantage.co/support/#api-key');
         }
       }
       
-      // Fetch CS2 skin prices from Skinport API
-      // Skinport requires API key for authentication
-      if (portfolio.skins && portfolio.skins.length > 0 && apiKeys.skinport) {
-        console.log('[CS2 PRICES] Fetching from Skinport API with authentication...');
-        
+      // Fetch CS2 skin prices from Skinport (public API, no key needed)
+      // API Docs: https://docs.skinport.com/items
+      // NOTE: Prices are returned in full currency units (NOT cents)
+      if (portfolio.skins && portfolio.skins.length > 0) {
         try {
-          // Skinport API endpoint with authentication
-          // Documentation: https://docs.skinport.com/
-          const skinportUrl = `https://api.skinport.com/v1/items?app_id=730&currency=EUR&tradable=1`;
+          console.log('[PRICES] Fetching CS2 skin prices from Skinport...');
+          const skinCurrency = 'EUR'; // Always fetch in EUR for consistency
           
-          const skinportRes = await fetch(skinportUrl, {
+          // Skinport API - try with Accept-Encoding header
+          const skinportUrl = `https://api.skinport.com/v1/items?app_id=730&currency=${skinCurrency}&tradable=0`;
+          
+          const res = await fetch(skinportUrl, {
             method: 'GET',
             headers: {
-              'Authorization': `Bearer ${apiKeys.skinport}`,
               'Accept': 'application/json'
             }
           });
           
-          if (skinportRes.ok) {
-            const skinportData = await skinportRes.json();
+          if (res.ok) {
+            const skinportData = await res.json();
+            let matchedCount = 0;
+            let unmatchedItems = [];
             
-            console.log(`[CS2] Received ${skinportData.length || 0} items from Skinport`);
+            console.log('[PRICES] Skinport returned', skinportData.length, 'items');
             
-            // Match user's skins with Skinport data
-            for (const skin of portfolio.skins) {
-              const itemData = skinportData.find(item => 
-                item.market_hash_name && 
-                item.market_hash_name.toUpperCase() === skin.symbol.toUpperCase()
-              );
+            portfolio.skins.forEach(skin => {
+              const skinName = (skin.symbol || skin.name || '');
+              const skinNameLower = skinName.toLowerCase().trim();
               
-              if (itemData && itemData.min_price) {
-                const priceInEur = parseFloat(itemData.min_price);
-                
-                // Store with UPPERCASE key to match portfolio symbols
-                newPrices[skin.symbol.toUpperCase()] = priceInEur;
-                newPrices[skin.symbol] = priceInEur; // Also store with original case
-                newPrices[skin.symbol.toLowerCase()] = priceInEur; // And lowercase for safety
-                
-                if (!newHistory[skin.symbol]) newHistory[skin.symbol] = [];
-                
-                const now = new Date();
-                const day = String(now.getDate()).padStart(2, '0');
-                const month = String(now.getMonth() + 1).padStart(2, '0');
-                const hour = String(now.getHours()).padStart(2, '0');
-                const minute = String(now.getMinutes()).padStart(2, '0');
-                const timestamp = language === 'de' ? `${day}/${month} ${hour}:${minute}` : `${month}/${day} ${hour}:${minute}`;
-                
-                newHistory[skin.symbol].push({ 
-                  timestamp: timestamp, 
-                  price: priceInEur 
+              // Try exact match first (case-insensitive)
+              let match = skinportData.find(item => {
+                const itemName = (item.market_hash_name || '').toLowerCase().trim();
+                return itemName === skinNameLower;
+              });
+              
+              // If no exact match, try partial match for cases/collections
+              if (!match) {
+                match = skinportData.find(item => {
+                  const itemName = (item.market_hash_name || '').toLowerCase().trim();
+                  // For cases: "Fever Case" should match "Fever Case"
+                  // For skins: Try to match main parts
+                  const skinBase = skinNameLower.replace(/\s*\([^)]*\)\s*/g, '').trim();
+                  const itemBase = itemName.replace(/\s*\([^)]*\)\s*/g, '').trim();
+                  return itemBase === skinBase ||
+                         (skinNameLower.includes('case') && itemName.includes(skinNameLower.replace(' case', '').trim()));
                 });
-                if (newHistory[skin.symbol].length > 20) newHistory[skin.symbol] = newHistory[skin.symbol].slice(-20);
-                
-                console.log(`[CS2] ${skin.symbol}: €${priceInEur.toFixed(2)} (Skinport)`);
-              } else {
-                console.log(`[CS2] Item not found on Skinport: ${skin.symbol}`);
               }
+              
+              if (match) {
+                // Skinport returns prices in FULL currency units (not cents!)
+                // Use min_price if available (lowest listed price), otherwise suggested_price
+                const price = match.min_price || match.suggested_price || 0;
+                
+                if (price > 0) {
+                  newPrices[skinNameLower] = price;
+                  newPrices[skinName] = price;
+                  matchedCount++;
+                  console.log('[PRICES] Matched:', skinName, '| Price:', price.toFixed(2), 'EUR');
+                }
+              } else {
+                unmatchedItems.push(skinName);
+              }
+            });
+            
+            console.log('[PRICES] CS2 skin prices matched:', matchedCount, '/', portfolio.skins.length);
+            if (unmatchedItems.length > 0) {
+              console.log('[PRICES] Unmatched skins:', unmatchedItems.slice(0, 5).join(', '), unmatchedItems.length > 5 ? '...' : '');
             }
-          } else if (skinportRes.status === 401) {
-            console.error('[CS2] Skinport API: Invalid API key (401 Unauthorized)');
-            console.log('[CS2] Please check your Skinport API key in Settings → API Keys');
-          } else if (skinportRes.status === 429) {
-            console.error('[CS2] Skinport API: Rate limit exceeded (429)');
-            console.log('[CS2] Please wait before fetching prices again');
           } else {
-            console.error(`[CS2] Skinport API returned error: ${skinportRes.status}`);
+            console.error('[PRICES] Skinport API error:', res.status, res.statusText);
           }
         } catch (e) {
-          console.error('[CS2] Error fetching from Skinport API:', e.message);
-          console.log('[CS2] Make sure you have a valid Skinport API key in Settings → API Keys');
+          console.error('[PRICES] Skinport error:', e);
         }
-        
-        console.log('[CS2 PRICES] Skinport fetch complete');
-      } else if (portfolio.skins && portfolio.skins.length > 0 && !apiKeys.skinport) {
-        console.log('[CS2 PRICES] Skinport API key not set. Go to Settings → API Keys to add your key.');
-        console.log('[CS2 PRICES] Get your free API key at: https://skinport.com/api');
       }
       
       setPrices(newPrices);
+      setImages(prev => ({ ...prev, ...newImages }));
+      
+      // Update price history
+      const newHistory = { ...priceHistory };
+      Object.entries(newPrices).forEach(([symbol, price]) => {
+        if (typeof price === 'number' && !isNaN(price)) {
+          if (!newHistory[symbol]) newHistory[symbol] = [];
+          newHistory[symbol].push({ timestamp, price });
+          if (newHistory[symbol].length > 100) {
+            newHistory[symbol] = newHistory[symbol].slice(-100);
+          }
+        }
+      });
       setPriceHistory(newHistory);
-      setImages(newImages);
-    } catch (e) {}
+      
+      const priceCount = Object.keys(newPrices).length;
+      addToast(`${t.pricesUpdated || 'Prices updated'} (${priceCount})`, 'success');
+    } catch (error) {
+      console.error('[PRICES] General error:', error);
+      addToast(t.error || 'Error fetching prices', 'error');
+    }
+    
     setLoading(false);
   };
 
-  // Auto-fetch prices when portfolio changes
-  useEffect(() => {
-    if ((portfolio.crypto && portfolio.crypto.length > 0) || 
-        (portfolio.stocks && portfolio.stocks.length > 0) || 
-        (portfolio.skins && portfolio.skins.length > 0)) {
-      fetchPrices();
-    }
-  }, [portfolio]);
+  // ========== TOAST NOTIFICATIONS ==========
+  
+  const addToast = (message, type = 'info') => {
+    const id = Date.now().toString();
+    setToasts(prev => [...prev, { id, message, type }]);
+    setTimeout(() => {
+      setToasts(prev => prev.filter(t => t.id !== id));
+    }, 3000);
+  };
 
-  // Add new investment item
-  const addItem = () => {
-    if (!newItem.symbol || !newItem.amount || !newItem.purchasePrice) return alert(t.fillRequired);
-    
-    const baseItem = {
-      id: Date.now(), 
-      symbol: newItem.symbol,
-      amount: parseFloat(newItem.amount), 
-      purchasePrice: parseFloat(newItem.purchasePrice),
-      purchaseDate: newItem.purchaseDate
+  // ========== BACKUP FUNCTIONS ==========
+  
+  const createBackup = () => {
+    const backupData = {
+      version: '6.0.0',
+      timestamp: new Date().toISOString(),
+      portfolio,
+      transactions,
+      settings: { theme, language, currency, taxJurisdiction },
+      alerts
     };
     
-    // Add CS2-specific metadata if this is a CS2 item
-    if (activeTab === 'skins') {
-      baseItem.metadata = {
-        float: newItem.floatValue ? parseFloat(newItem.floatValue) : undefined,
-        rarity: newItem.rarity || undefined,
-        wear: newItem.wear || undefined
-      };
-    }
-    
-    setPortfolio(p => ({ 
-      ...p, 
-      [activeTab]: [...(p[activeTab] || []), baseItem] 
-    }));
-    
-    setNewItem({ 
-      symbol: '', 
-      amount: '', 
-      purchasePrice: '',
-      purchaseDate: new Date().toISOString().split('T')[0],
-      floatValue: '',
-      rarity: '',
-      wear: ''
-    });
-  };
-
-  // Remove investment item
-  const removeItem = (id) => setPortfolio(p => ({ 
-    ...p, 
-    [activeTab]: (p[activeTab] || []).filter(i => i.id !== id) 
-  }));
-
-  // Start editing an item
-  const startEdit = (item) => {
-    setEditingItem({ 
-      ...item, 
-      purchaseDate: item.purchaseDate || new Date().toISOString().split('T')[0],
-      floatValue: item.metadata?.float || '',
-      rarity: item.metadata?.rarity || '',
-      wear: item.metadata?.wear || ''
-    });
-  };
-
-  // Save edited item
-  const saveEdit = () => {
-    if (!editingItem) return;
-    
-    const updatedItem = {
-      ...editingItem,
-      amount: parseFloat(editingItem.amount),
-      purchasePrice: parseFloat(editingItem.purchasePrice)
-    };
-    
-    // Handle CS2 metadata
-    if (activeTab === 'skins') {
-      updatedItem.metadata = {
-        float: editingItem.floatValue ? parseFloat(editingItem.floatValue) : editingItem.metadata?.float,
-        rarity: editingItem.rarity || editingItem.metadata?.rarity,
-        wear: editingItem.wear || editingItem.metadata?.wear
-      };
-    }
-    
-    setPortfolio(p => ({
-      ...p,
-      [activeTab]: (p[activeTab] || []).map(i => i.id === editingItem.id ? updatedItem : i)
-    }));
-    setEditingItem(null);
-  };
-
-  const cancelEdit = () => setEditingItem(null);
-
-  // Export portfolio data to JSON file
-  // NEW v5.1: Transaction management
-  const addTransaction = (transaction) => {
-    setTransactions(prev => [...prev, transaction]);
-  };
-
-  const deleteTransaction = (id) => {
-    if (confirm(language === 'de' ? 'Transaktion loeschen?' : 'Delete transaction?')) {
-      setTransactions(prev => prev.filter(tx => tx.id !== id));
-    }
-  };
-
-  // NEW v5.1: Calculate current portfolio holdings from transactions
-  const calculateHoldingsFromTransactions = () => {
-    const holdings = {};
-    
-    // Process each transaction
-    transactions.forEach(tx => {
-      const key = `${tx.asset.symbol}_${tx.asset.category}`;
-      
-      if (!holdings[key]) {
-        holdings[key] = {
-          symbol: tx.asset.symbol,
-          category: tx.asset.category,
-          totalQuantity: 0,
-          totalCost: 0,
-          totalFees: 0,
-          transactions: []
-        };
-      }
-      
-      const holding = holdings[key];
-      holding.transactions.push(tx);
-      
-      if (tx.type === 'buy') {
-        holding.totalQuantity += tx.quantity;
-        holding.totalCost += tx.totalCost;
-        holding.totalFees += tx.fees || 0;
-      } else if (tx.type === 'sell') {
-        holding.totalQuantity -= tx.quantity;
-        // For sells, subtract the cost (but keep tracking for avg price calculation)
-      }
-    });
-    
-    // Convert to portfolio format (only include assets with quantity > 0)
-    const portfolioFromTransactions = {
-      crypto: [],
-      stocks: [],
-      skins: []
-    };
-    
-    Object.values(holdings).forEach(holding => {
-      if (holding.totalQuantity > 0.0001) { // Only show if we still own it (accounting for floating point)
-        // Calculate weighted average purchase price
-        let totalBuyQuantity = 0;
-        let totalBuyCost = 0;
-        
-        holding.transactions.forEach(tx => {
-          if (tx.type === 'buy') {
-            totalBuyQuantity += tx.quantity;
-            totalBuyCost += tx.totalCost;
-          }
-        });
-        
-        const avgPurchasePrice = totalBuyQuantity > 0 ? totalBuyCost / totalBuyQuantity : 0;
-        
-        // Get the earliest purchase date
-        const purchaseDate = holding.transactions
-          .filter(tx => tx.type === 'buy')
-          .map(tx => tx.transactionDate || tx.timestamp)
-          .sort()[0];
-        
-        const position = {
-          id: holding.symbol + '_' + Date.now(),
-          symbol: holding.symbol,
-          amount: holding.totalQuantity,
-          purchasePrice: avgPurchasePrice,
-          purchaseDate: purchaseDate,
-          fees: holding.totalFees,
-          currentPrice: 0 // Will be filled by price fetching
-        };
-        
-        // Add to appropriate category
-        if (holding.category === 'crypto') {
-          portfolioFromTransactions.crypto.push(position);
-        } else if (holding.category === 'stocks') {
-          portfolioFromTransactions.stocks.push(position);
-        } else if (holding.category === 'cs2') {
-          portfolioFromTransactions.skins.push(position);
-        }
-      }
-    });
-    
-    return portfolioFromTransactions;
-  };
-
-    const exportData = () => {
-    const blob = new Blob([JSON.stringify({ 
-      portfolio, 
-      priceHistory, 
-      images, 
-      exportDate: new Date().toISOString() 
-    }, null, 2)], { type: 'application/json' });
+    const blob = new Blob([JSON.stringify(backupData, null, 2)], { type: 'application/json' });
+    const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
-    a.href = URL.createObjectURL(blob);
-    a.download = `portfolio-backup-${new Date().toISOString().split('T')[0]}.json`;
+    a.href = url;
+    a.download = `maermin-backup-${new Date().toISOString().split('T')[0]}.json`;
     a.click();
+    URL.revokeObjectURL(url);
+    
+    addToast(t.backupCreated || 'Backup created', 'success');
   };
 
-  // Import portfolio data from JSON file
-  const importData = (e) => {
-    const file = e.target.files[0];
-    if (!file) return;
-    const reader = new FileReader();
-    reader.onload = (ev) => {
-      try {
-        const data = JSON.parse(ev.target.result);
-        setPortfolio(data.portfolio || { crypto: [], stocks: [], skins: [] });
-        setPriceHistory(data.priceHistory || {});
-        setImages(data.images || {});
-        alert(language === 'de' ? 'Daten erfolgreich importiert!' : 'Data imported successfully!');
-      } catch (e) { alert(language === 'de' ? 'Fehler beim Importieren!' : 'Import error!'); }
-    };
-    reader.readAsText(file);
-  };
-
-  // Tab configuration
-  const tabs = [
-    { id: 'crypto', label: t.crypto, placeholder: language === 'de' ? 'z.B. bitcoin, ethereum' : 'e.g. bitcoin, ethereum' },
-    { id: 'stocks', label: t.stocks, placeholder: language === 'de' ? 'z.B. AAPL, MSFT' : 'e.g. AAPL, MSFT' },
-    { id: 'skins', label: t.cs2Items, placeholder: language === 'de' ? 'z.B. AK-47 | Redline' : 'e.g. AK-47 | Redline' }
-  ];
-
-  // Safe portfolio access with fallback to empty arrays
-  // Get portfolio data based on current mode
-  const getActivePortfolio = () => {
-    if (portfolioMode === 'transactions') {
-      return calculateHoldingsFromTransactions();
+  // ========== EXPORT FUNCTION ==========
+  
+  const exportData = () => {
+    if (window.ImportExportEngine) {
+      const csv = window.ImportExportEngine.exportToCSV(transactions);
+      const blob = new Blob([csv], { type: 'text/csv' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `maermin-export-${new Date().toISOString().split('T')[0]}.csv`;
+      a.click();
+      URL.revokeObjectURL(url);
+      addToast(t.exportSuccess || 'Export successful', 'success');
     }
-    return portfolio;
   };
 
-  const activePortfolio = getActivePortfolio();
-
-  const safe = { 
-    crypto: activePortfolio.crypto || [], 
-    stocks: activePortfolio.stocks || [], 
-    skins: activePortfolio.skins || [] 
-  };
+  // ========== ADD TRANSACTION ==========
   
-  // Calculate total value for a category
-  const calcTotal = (cat) => (safe[cat] || []).reduce((s, i) => 
-    s + ((prices[i.symbol.toLowerCase()] || prices[i.symbol] || 0) * i.amount), 0
-  );
-  
-  // Calculate total invested for a category
-  const calcInvest = (cat) => (safe[cat] || []).reduce((s, i) => 
-    s + ((i.purchasePrice || 0) * i.amount), 0
-  );
-  
-  // Calculate total fees for a category
-  const calcFees = (cat) => (safe[cat] || []).reduce((s, i) => 
-    s + (parseFloat(i.fees) || 0), 0
-  );
-  
-  // Calculate profit/loss for a category (including fees)
-  const calcProfit = (cat) => calcTotal(cat) - calcInvest(cat) - calcFees(cat);
-  
-  // Portfolio-wide calculations
-  const total = calcTotal('crypto') + calcTotal('stocks') + calcTotal('skins');
-  const invest = calcInvest('crypto') + calcInvest('stocks') + calcInvest('skins');
-  const totalFees = calcFees('crypto') + calcFees('stocks') + calcFees('skins');
-  const profit = total - invest - totalFees; // Profit minus total fees
-  
-  // ========== NEW: Financial Metrics ==========
-  const metrics = useMemo(() => {
-    // Check if modules are loaded
-    if (typeof calculateNetWorth === 'undefined') {
-      return {
-        totalCash: 0, totalDebt: 0, monthlyIncome: 0, monthlyExpenses: 0,
-        netWorth: total, savingsRate: 0, cashRunway: 0,
-        debtToIncomeRatio: 0, investmentRatio: 100,
-        costBreakdown: { essential: 0, optional: 0, total: 0 }
-      };
-    }
-    try {
-      const totalCash = calculateTotalCash(financialData.cashAccounts || [], exchangeRate);
-      const totalDebt = calculateTotalDebt(financialData.debts || []);
-      return {
-        totalCash,
-        totalDebt,
-        monthlyIncome: calculateMonthlyIncome(financialData.income || []),
-        monthlyExpenses: calculateMonthlyFixedCosts(financialData.fixedCosts || []),
-        monthlyDebtPayments: calculateMonthlyDebtPayments(financialData.debts || []),
-        netWorth: calculateNetWorth({
-          investmentValue: total,
-          cashAccounts: financialData.cashAccounts || [],
-          debts: financialData.debts || [],
-          exchangeRate
-        }),
-        savingsRate: calculateSavingsRate({
-          income: financialData.income || [],
-          fixedCosts: financialData.fixedCosts || [],
-          debts: financialData.debts || []
-        }),
-        cashRunway: calculateCashRunway({
-          cashAccounts: financialData.cashAccounts || [],
-          fixedCosts: financialData.fixedCosts || [],
-          debts: financialData.debts || [],
-          exchangeRate
-        }),
-        debtToIncomeRatio: calculateDebtToIncomeRatio({
-          debts: financialData.debts || [],
-          income: financialData.income || []
-        }),
-        investmentRatio: calculateInvestmentRatio({
-          investmentValue: total,
-          cashAccounts: financialData.cashAccounts || [],
-          exchangeRate
-        }),
-        costBreakdown: calculateCostBreakdown(financialData.fixedCosts || [])
-      };
-    } catch (error) {
-      console.error('Error calculating metrics:', error);
-      return {
-        totalCash: 0, totalDebt: 0, monthlyIncome: 0, monthlyExpenses: 0,
-        netWorth: total, savingsRate: 0, cashRunway: 0,
-        debtToIncomeRatio: 0, investmentRatio: 100,
-        costBreakdown: { essential: 0, optional: 0, total: 0 }
-      };
-    }
-  }, [financialData, total, exchangeRate]);
-
-  metrics.essentialCosts = metrics.costBreakdown.essential;
-  metrics.optionalCosts = metrics.costBreakdown.optional;
-
-  // Generate insights
-  const insights = useMemo(() => {
-    if (typeof generateInsights === 'undefined') return [];
-    try {
-      return generateInsights(metrics, financialData);
-    } catch (error) {
-      console.error('Error generating insights:', error);
-      return [];
-    }
-  }, [metrics, financialData]);
-
-  // Calculate health score
-  const healthScore = useMemo(() => {
-    if (typeof calculateFinancialHealthScore === 'undefined') {
-      return { score: 0, rating: t.fair, color: '#f59e0b' };
-    }
-    try {
-      return calculateFinancialHealthScore(metrics);
-    } catch (error) {
-      console.error('Error calculating health score:', error);
-      return { score: 0, rating: t.fair, color: '#f59e0b' };
-    }
-  }, [metrics]);
-  
-
-  
-  // ========== MAERMIN: Extended Metrics ==========
-  const maerminMetrics = useMemo(() => {
-    // Check if MAERMIN functions are available
-    if (typeof calculateNetIncome === 'undefined' || 
-        typeof calculateDetailedCashflow === 'undefined' ||
-        typeof calculateOverallBudgetStatus === 'undefined') {
-      console.warn(' MAERMIN calculator functions not loaded');
-      return { netIncome: null, cashflow: null, budgetStatus: null };
-    }
-    
-    try {
-      const netIncome = calculateNetIncome(
-        financialData.income || [],
-        financialData.taxes || []
-      );
-      
-      const cashflow = calculateDetailedCashflow({
-        income: financialData.income || [],
-        fixedCosts: financialData.fixedCosts || [],
-        variableExpenses: financialData.variableExpenses || [],
-        debts: financialData.debts || [],
-        taxes: financialData.taxes || []
-      });
-      
-      const budgetStatus = calculateOverallBudgetStatus(
-        financialData.budgets || []
-      );
-      
-      return { netIncome, cashflow, budgetStatus };
-    } catch (error) {
-      console.error(' MAERMIN metrics calculation error:', error);
-      return { netIncome: null, cashflow: null, budgetStatus: null };
-    }
-  }, [financialData, total, exchangeRate]);
-
-    const profitPct = invest > 0 ? (profit / invest) * 100 : 0;
-  
-  // Calculate percentage of total for a category
-  const getPct = (cat) => total === 0 ? 0 : ((calcTotal(cat) / total) * 100).toFixed(1);
-  
-  // Format date for display based on language
-  const fmtDate = (d) => {
-    const date = new Date(d);
-    const day = String(date.getDate()).padStart(2, '0');
-    const month = String(date.getMonth() + 1).padStart(2, '0');
-    const year = date.getFullYear();
-    
-    // German: DD/MM/YYYY, English: MM/DD/YYYY
-    return language === 'de' ? `${day}/${month}/${year}` : `${month}/${day}/${year}`;
-  };
-  
-
-  // Fetch live exchange rates
-  
-    // Calculate days since purchase
-  const getDaysSincePurchase = (purchaseDate) => {
-    const today = new Date();
-    const purchase = new Date(purchaseDate);
-    const diffTime = Math.abs(today - purchase);
-    const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
-    return diffDays;
-  };
-
-  // ============= ADVANCED STATISTICS CALCULATIONS =============
-  
-  // Get all assets across all categories with their performance metrics
-  const getAllAssets = () => {
-    const allAssets = [];
-    ['crypto', 'stocks', 'skins'].forEach(cat => {
-      safe[cat].forEach(item => {
-        const curr = item.currentPrice || prices[item.symbol.toLowerCase()] || prices[item.symbol] || item.purchasePrice || 0;
-        const val = curr * item.amount;
-        const inv = (item.purchasePrice || 0) * item.amount;
-        const fees = parseFloat(item.fees) || 0;
-        const prof = val - inv - fees; // Profit minus fees
-        const profPct = inv > 0 ? (prof / inv) * 100 : 0;
-        const daysSince = getDaysSincePurchase(item.purchaseDate);
-        
-        allAssets.push({
-          ...item,
-          category: cat,
-          currentPrice: curr,
-          value: val,
-          invested: inv,
-          profit: prof,
-          profitPct: profPct,
-          holdingDays: daysSince,
-          percentOfPortfolio: total > 0 ? (val / total) * 100 : 0
-        });
-      });
-    });
-    return allAssets;
-  };
-
-  // Get top performers sorted by profit percentage
-  const getTopPerformers = (limit = 5) => {
-    return getAllAssets()
-      .filter(a => a.invested > 0)
-      .sort((a, b) => b.profitPct - a.profitPct)
-      .slice(0, limit);
-  };
-
-  // Get worst performers sorted by profit percentage
-  const getWorstPerformers = (limit = 5) => {
-    return getAllAssets()
-      .filter(a => a.invested > 0)
-      .sort((a, b) => a.profitPct - b.profitPct)
-      .slice(0, limit);
-  };
-
-  // Calculate portfolio diversification score (0-100)
-  const getDiversificationScore = () => {
-    const assets = getAllAssets();
-    if (assets.length === 0) return 0;
-    
-    // Calculate Herfindahl-Hirschman Index (HHI)
-    const hhi = assets.reduce((sum, asset) => {
-      const share = asset.percentOfPortfolio;
-      return sum + (share * share);
-    }, 0);
-    
-    // Convert HHI to diversification score (inverted and normalized to 0-100)
-    // HHI ranges from 0 (perfect diversification) to 10000 (complete concentration)
-    const diversificationScore = Math.max(0, 100 - (hhi / 100));
-    return diversificationScore.toFixed(0);
-  };
-
-  // Calculate average return across all assets
-  const getAverageReturn = () => {
-    const assets = getAllAssets().filter(a => a.invested > 0);
-    if (assets.length === 0) return 0;
-    
-    const totalReturn = assets.reduce((sum, a) => sum + a.profitPct, 0);
-    return (totalReturn / assets.length).toFixed(2);
-  };
-
-  // Assess portfolio risk level based on volatility and concentration
-  const getRiskLevel = () => {
-    const divScore = parseFloat(getDiversificationScore());
-    const avgReturn = parseFloat(getAverageReturn());
-    
-    // Simple risk assessment based on diversification and returns
-    if (divScore < 30 || Math.abs(avgReturn) > 50) return t.highRisk;
-    if (divScore < 60 || Math.abs(avgReturn) > 25) return t.mediumRisk;
-    return t.lowRisk;
-  };
-
-  // Get portfolio health rating
-  const getPortfolioHealth = () => {
-    const divScore = parseFloat(getDiversificationScore());
-    const avgReturn = parseFloat(getAverageReturn());
-    const profitableAssets = getAllAssets().filter(a => a.profit > 0).length;
-    const totalAssets = getAllAssets().length;
-    const profitableRatio = totalAssets > 0 ? (profitableAssets / totalAssets) * 100 : 0;
-    
-    // Health score considers diversification, returns, and profitable asset ratio
-    const healthScore = (divScore * 0.3) + ((avgReturn + 50) * 0.4) + (profitableRatio * 0.3);
-    
-    if (healthScore >= 75) return { rating: t.excellent, color: '#10b981' };
-    if (healthScore >= 60) return { rating: t.good, color: '#3b82f6' };
-    if (healthScore >= 40) return { rating: t.fair, color: '#f59e0b' };
-    return { rating: t.poor, color: '#ef4444' };
-  };
-
-  // Get concentration rating
-  const getConcentration = () => {
-    const divScore = parseFloat(getDiversificationScore());
-    
-    if (divScore >= 70) return t.diversified;
-    if (divScore >= 40) return t.balanced;
-    return t.highlyConcentrated;
-  };
-
-  // Get largest position
-  const getLargestPosition = () => {
-    const assets = getAllAssets();
-    if (assets.length === 0) return null;
-    return assets.reduce((max, asset) => asset.value > max.value ? asset : max, assets[0]);
-  };
-
-  // Calculate total asset count
-  const getTotalAssetCount = () => {
-    return getAllAssets().length;
-  };
-
-  function TransactionHistoryView() {
-  const [showModal, setShowModal] = useState(false);
-  const [editingTransaction, setEditingTransaction] = useState(null); // NEW: For editing
-  
-  const sortedTransactions = [...transactions].sort((a, b) => 
-    new Date(b.timestamp) - new Date(a.timestamp)
-  );
-  
-  const handleAddTransaction = () => {
-    // Validate required fields
-    if (!newTransaction.symbol || !newTransaction.quantity || !newTransaction.price || !newTransaction.date || !newTransaction.currency) {
-      alert(language === 'de' ? 'Bitte fülle alle Pflichtfelder aus!' : 'Please fill in all required fields!');
+  const saveTransaction = () => {
+    if (!newTransaction.symbol || !newTransaction.quantity || !newTransaction.price) {
+      addToast(t.fillRequired || 'Please fill required fields', 'error');
       return;
     }
-
-    const quantity = parseFloat(newTransaction.quantity);
-    const price = parseFloat(newTransaction.price);
-    const fees = parseFloat(newTransaction.fees) || 0;
-
-    if (editingTransaction) {
-      // UPDATE existing transaction
-      const updatedTx = {
-        ...editingTransaction,
-        timestamp: new Date(newTransaction.date).toISOString(),
-        transactionDate: newTransaction.date,
-        type: newTransaction.type,
-        asset: { 
-          symbol: newTransaction.symbol.toUpperCase(), 
-          category: newTransaction.category 
-        },
-        quantity: quantity,
-        price: price,
-        totalCost: quantity * price,
-        fees: fees,
-        currency: newTransaction.currency // Use transaction's currency
-      };
-      
-      setTransactions(prevTransactions => 
-        prevTransactions.map(tx => tx.id === editingTransaction.id ? updatedTx : tx)
-      );
-      
-      setEditingTransaction(null);
+    
+    const transactionData = {
+      type: newTransaction.type,
+      category: newTransaction.category,
+      symbol: newTransaction.symbol,
+      quantity: parseFloat(newTransaction.quantity),
+      price: parseFloat(newTransaction.price),
+      fees: parseFloat(newTransaction.fees) || 0,
+      date: newTransaction.date,
+      notes: newTransaction.notes,
+      currency: newTransaction.currency || currency // Use form currency or default to current
+    };
+    
+    if (editingTransactionId) {
+      // Edit existing transaction
+      setTransactions(prev => prev.map(tx => 
+        tx.id === editingTransactionId 
+          ? { ...tx, ...transactionData }
+          : tx
+      ));
+      addToast(t.transactionUpdated || 'Transaction updated', 'success');
     } else {
-      // ADD new transaction
-      const newTx = {
-        id: 'tx_' + Date.now() + '_' + Math.random(),
-        timestamp: new Date(newTransaction.date).toISOString(),
-        transactionDate: newTransaction.date,
-        type: newTransaction.type,
-        asset: { 
-          symbol: newTransaction.symbol.toUpperCase(), 
-          category: newTransaction.category 
-        },
-        quantity: quantity,
-        price: price,
-        totalCost: quantity * price,
-        fees: fees,
-        currency: newTransaction.currency // Use transaction's currency
+      // Add new transaction
+      const transaction = {
+        id: Date.now().toString(),
+        ...transactionData
       };
-      
-      addTransaction(newTx);
+      setTransactions(prev => [...prev, transaction]);
+      addToast(t.transactionAdded || 'Transaction added', 'success');
     }
     
-    // Reset form and hide it
+    // Reset form
     setNewTransaction({
       type: 'buy',
-      category: 'crypto',
+      category: newTransaction.category,
       symbol: '',
       quantity: '',
       price: '',
-      fees: '',
       date: new Date().toISOString().split('T')[0],
-      currency: 'EUR' // Reset to EUR
-    });
-    setShowTransactionForm(false);
-  };
-  
-  const handleEditTransaction = (tx) => {
-    // Pre-fill form with transaction data
-    setNewTransaction({
-      type: tx.type,
-      category: tx.asset.category,
-      symbol: tx.asset.symbol,
-      quantity: tx.quantity.toString(),
-      price: tx.price.toString(),
-      fees: (tx.fees || 0).toString(),
-      date: tx.transactionDate || new Date(tx.timestamp).toISOString().split('T')[0],
-      currency: tx.currency || 'EUR' // Default to EUR if not set
-    });
-    setEditingTransaction(tx);
-    setShowTransactionForm(true);
-  };
-  
-  const handleCancelEdit = () => {
-    setEditingTransaction(null);
-    setNewTransaction({
-      type: 'buy',
-      category: 'crypto',
-      symbol: '',
-      quantity: '',
-      price: '',
       fees: '',
-      date: new Date().toISOString().split('T')[0],
-      currency: 'EUR'
+      notes: '',
+      currency: currency
     });
-    setShowTransactionForm(false);
+    setEditingTransactionId(null);
+    setShowTransactionModal(false);
   };
-  
-  return React.createElement('div', { style: { padding: '2rem' } },
-    React.createElement('div', { 
-      style: { display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '2rem' } 
-    },
-      React.createElement('h2', { style: { color: currentTheme.text, fontSize: '2rem', fontWeight: '700' } }, 
-        language === 'de' ? 'Transaktionsverlauf' : 'Transaction History'
-      ),
-      React.createElement('button', {
-        onClick: () => {
-          if (showTransactionForm) {
-            // Form is open - close it (and cancel any editing)
-            handleCancelEdit();
-          } else {
-            // Form is closed - open it
-            setShowTransactionForm(true);
-          }
-        },
-        style: {
-          padding: '0.75rem 1.5rem',
-          background: showTransactionForm ? '#ef4444' : '#3b82f6',
-          color: 'white',
-          border: 'none',
-          borderRadius: '0.5rem',
-          cursor: 'pointer',
-          fontWeight: '600'
-        }
-      }, showTransactionForm 
-        ? (language === 'de' ? 'Abbrechen' : 'Cancel')
-        : (language === 'de' ? 'Transaktion hinzufuegen' : 'Add Transaction'))
-    ),
 
-    // Transaction Form
-    showTransactionForm && React.createElement('div', { 
-      style: { 
-        background: currentTheme.inputBg, 
-        borderRadius: '1rem', 
-        padding: '1.5rem', 
-        marginBottom: '1.5rem',
-        border: `2px solid ${editingTransaction ? '#f59e0b' : currentTheme.cardBorder}`
-      } 
-    },
-      React.createElement('h3', { 
-        style: { 
-          color: editingTransaction ? '#f59e0b' : currentTheme.text,
-          fontWeight: '600', 
-          marginBottom: '1rem' 
-        } 
-      }, editingTransaction 
-        ? (language === 'de' ? 'Transaktion bearbeiten' : 'Edit Transaction')
-        : (language === 'de' ? 'Neue Transaktion' : 'New Transaction')
-      ),
-      
-      React.createElement('div', { 
-        style: { 
-          display: 'grid', 
-          gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', 
-          gap: '1rem', 
-          alignItems: 'end' 
-        } 
-      },
-        // Transaction Type
-        React.createElement('div', {}, 
-          React.createElement('label', { 
-            style: { 
-              color: currentTheme.text, 
-              fontSize: '0.875rem', 
-              display: 'block', 
-              marginBottom: '0.25rem' 
-            } 
-          }, (language === 'de' ? 'Typ' : 'Type') + ' *'), 
-          React.createElement('select', { 
-            value: newTransaction.type, 
-            onChange: (e) => setNewTransaction({...newTransaction, type: e.target.value}), 
-            style: { 
-              width: '100%', 
-              padding: '0.5rem', 
-              background: currentTheme.inputBg, 
-              border: `1px solid ${currentTheme.inputBorder}`, 
-              borderRadius: '0.5rem', 
-              color: currentTheme.text 
-            } 
-          },
-            React.createElement('option', { value: 'buy' }, language === 'de' ? 'Kauf' : 'Buy'),
-            React.createElement('option', { value: 'sell' }, language === 'de' ? 'Verkauf' : 'Sell')
-          )
-        ),
-        
-        // Category
-        React.createElement('div', {}, 
-          React.createElement('label', { 
-            style: { 
-              color: currentTheme.text, 
-              fontSize: '0.875rem', 
-              display: 'block', 
-              marginBottom: '0.25rem' 
-            } 
-          }, (language === 'de' ? 'Kategorie' : 'Category') + ' *'), 
-          React.createElement('select', { 
-            value: newTransaction.category, 
-            onChange: (e) => setNewTransaction({...newTransaction, category: e.target.value}), 
-            style: { 
-              width: '100%', 
-              padding: '0.5rem', 
-              background: currentTheme.inputBg, 
-              border: `1px solid ${currentTheme.inputBorder}`, 
-              borderRadius: '0.5rem', 
-              color: currentTheme.text 
-            } 
-          },
-            React.createElement('option', { value: 'crypto' }, language === 'de' ? 'Krypto' : 'Crypto'),
-            React.createElement('option', { value: 'stocks' }, language === 'de' ? 'Aktien' : 'Stocks'),
-            React.createElement('option', { value: 'cs2' }, 'CS2 Items')
-          )
-        ),
-        
-        // Symbol
-        React.createElement('div', {}, 
-          React.createElement('label', { 
-            style: { 
-              color: currentTheme.text, 
-              fontSize: '0.875rem', 
-              display: 'block', 
-              marginBottom: '0.25rem' 
-            } 
-          }, (language === 'de' ? 'Symbol/Name' : 'Symbol/Name') + ' *'), 
-          React.createElement('input', { 
-            type: 'text', 
-            placeholder: 'BTC, AAPL, AWP...', 
-            value: newTransaction.symbol, 
-            onChange: (e) => setNewTransaction({...newTransaction, symbol: e.target.value}), 
-            style: { 
-              width: '100%', 
-              padding: '0.5rem', 
-              background: currentTheme.inputBg, 
-              border: `1px solid ${currentTheme.inputBorder}`, 
-              borderRadius: '0.5rem', 
-              color: currentTheme.text 
-            } 
-          })
-        ),
-        
-        // Quantity
-        React.createElement('div', {}, 
-          React.createElement('label', { 
-            style: { 
-              color: currentTheme.text, 
-              fontSize: '0.875rem', 
-              display: 'block', 
-              marginBottom: '0.25rem' 
-            } 
-          }, (language === 'de' ? 'Menge' : 'Quantity') + ' *'), 
-          React.createElement('input', { 
-            type: 'number', 
-            step: '0.001', 
-            placeholder: '0.1',
-            value: newTransaction.quantity, 
-            onChange: (e) => setNewTransaction({...newTransaction, quantity: e.target.value}), 
-            style: { 
-              width: '100%', 
-              padding: '0.5rem', 
-              background: currentTheme.inputBg, 
-              border: `1px solid ${currentTheme.inputBorder}`, 
-              borderRadius: '0.5rem', 
-              color: currentTheme.text 
-            } 
-          })
-        ),
-        
-        // Price
-        React.createElement('div', {}, 
-          React.createElement('label', { 
-            style: { 
-              color: currentTheme.text, 
-              fontSize: '0.875rem', 
-              display: 'block', 
-              marginBottom: '0.25rem' 
-            } 
-          }, (language === 'de' ? 'Preis' : 'Price') + ' *'), 
-          React.createElement('input', { 
-            type: 'number', 
-            step: '0.01', 
-            placeholder: '46800.00',
-            value: newTransaction.price, 
-            onChange: (e) => setNewTransaction({...newTransaction, price: e.target.value}), 
-            style: { 
-              width: '100%', 
-              padding: '0.5rem', 
-              background: currentTheme.inputBg, 
-              border: `1px solid ${currentTheme.inputBorder}`, 
-              borderRadius: '0.5rem', 
-              color: currentTheme.text 
-            } 
-          })
-        ),
-        
-        // Fees
-        React.createElement('div', {}, 
-          React.createElement('label', { 
-            style: { 
-              color: currentTheme.text, 
-              fontSize: '0.875rem', 
-              display: 'block', 
-              marginBottom: '0.25rem' 
-            } 
-          }, (language === 'de' ? 'Gebühren (optional)' : 'Fees (optional)')), 
-          React.createElement('input', { 
-            type: 'number', 
-            step: '0.01',
-            min: '0',
-            placeholder: '0.00',
-            value: newTransaction.fees || '', 
-            onChange: (e) => setNewTransaction({...newTransaction, fees: e.target.value}), 
-            style: { 
-              width: '100%', 
-              padding: '0.5rem', 
-              background: currentTheme.inputBg, 
-              border: `1px solid ${currentTheme.inputBorder}`, 
-              borderRadius: '0.5rem', 
-              color: currentTheme.text 
-            } 
-          })
-        ),
-        
-        // Date
-        React.createElement('div', {}, 
-          React.createElement('label', { 
-            style: { 
-              color: currentTheme.text, 
-              fontSize: '0.875rem', 
-              display: 'block', 
-              marginBottom: '0.25rem' 
-            } 
-          }, (language === 'de' ? 'Datum' : 'Date') + ' *'), 
-          React.createElement('input', { 
-            type: 'date', 
-            value: newTransaction.date, 
-            onChange: (e) => setNewTransaction({...newTransaction, date: e.target.value}), 
-            style: { 
-              width: '100%', 
-              padding: '0.5rem', 
-              background: currentTheme.inputBg, 
-              border: `1px solid ${currentTheme.inputBorder}`, 
-              borderRadius: '0.5rem', 
-              color: currentTheme.text 
-            } 
-          })
-        ),
-        
-        // Currency Selector (NEW)
-        React.createElement('div', {}, 
-          React.createElement('label', { 
-            style: { 
-              color: currentTheme.text, 
-              fontSize: '0.875rem', 
-              display: 'block', 
-              marginBottom: '0.25rem' 
-            } 
-          }, (language === 'de' ? 'Waehrung' : 'Currency') + ' *'), 
-          React.createElement('select', { 
-            value: newTransaction.currency, 
-            onChange: (e) => setNewTransaction({...newTransaction, currency: e.target.value}), 
-            style: { 
-              width: '100%', 
-              padding: '0.5rem', 
-              background: currentTheme.inputBg, 
-              border: `1px solid ${currentTheme.inputBorder}`, 
-              borderRadius: '0.5rem', 
-              color: currentTheme.text 
-            } 
-          },
-            React.createElement('option', { value: 'EUR' }, 'EUR (€)'),
-            React.createElement('option', { value: 'USD' }, 'USD ($)')
-          )
-        ),
-        
-        // Add/Save Button
-        React.createElement('button', { 
-          onClick: handleAddTransaction, 
-          style: { 
-            padding: '0.5rem 1.5rem', 
-            background: editingTransaction ? '#f59e0b' : '#16a34a',
-            color: 'white', 
-            borderRadius: '0.5rem', 
-            border: 'none', 
-            cursor: 'pointer', 
-            height: '40px',
-            fontWeight: '600'
-          } 
-        }, editingTransaction 
-          ? (language === 'de' ? 'Speichern' : 'Save')
-          : (language === 'de' ? 'Hinzufügen' : 'Add')
-        )
-      )
-    ),
+  // Start editing a transaction
+  const editTransaction = (tx) => {
+    setNewTransaction({
+      type: tx.type || 'buy',
+      category: tx.category || 'crypto',
+      symbol: tx.symbol || '',
+      quantity: tx.quantity?.toString() || '',
+      price: tx.price?.toString() || '',
+      date: tx.date || new Date().toISOString().split('T')[0],
+      fees: tx.fees?.toString() || '',
+      notes: tx.notes || '',
+      currency: tx.currency || 'EUR'
+    });
+    setEditingTransactionId(tx.id);
+    setShowTransactionModal(true);
+  };
+
+  // Delete a transaction
+  const deleteTransaction = (txId) => {
+    setTransactions(prev => prev.filter(tx => tx.id !== txId));
+    addToast(t.transactionDeleted || 'Transaction deleted', 'success');
+  };
+
+  // ========== IMPORT DATA ==========
+  
+  const handleImport = () => {
+    if (!importData.trim()) {
+      addToast(t.noDataToImport || 'No data to import', 'error');
+      return;
+    }
     
-    sortedTransactions.length === 0 ?
+    try {
+      // Try JSON first
+      let imported;
+      try {
+        imported = JSON.parse(importData);
+      } catch {
+        // Try CSV
+        if (window.ImportExportEngine) {
+          imported = window.ImportExportEngine.parseCSV(importData);
+        } else {
+          throw new Error('Invalid format');
+        }
+      }
+      
+      if (Array.isArray(imported)) {
+        // Array of transactions
+        const newTransactions = imported.map((item, idx) => ({
+          id: (Date.now() + idx).toString(),
+          type: item.type || 'buy',
+          category: item.category || 'crypto',
+          symbol: item.symbol || item.asset || '',
+          quantity: parseFloat(item.quantity || item.amount) || 0,
+          price: parseFloat(item.price) || 0,
+          fees: parseFloat(item.fees) || 0,
+          date: item.date || new Date().toISOString().split('T')[0],
+          notes: item.notes || '',
+          currency: item.currency || currency
+        }));
+        
+        setTransactions(prev => [...prev, ...newTransactions]);
+        addToast(`${newTransactions.length} ${t.transactionsImported || 'transactions imported'}`, 'success');
+      } else if (imported.transactions) {
+        // Backup format with transactions array
+        setTransactions(prev => [...prev, ...imported.transactions]);
+        addToast(t.importSuccess || 'Import successful', 'success');
+      } else if (imported.portfolio) {
+        // OLD BACKUP FORMAT - Convert portfolio items to transactions
+        const newTransactions = [];
+        let count = 0;
+        
+        ['crypto', 'stocks', 'skins'].forEach(category => {
+          const items = imported.portfolio[category] || [];
+          items.forEach((item, idx) => {
+            newTransactions.push({
+              id: (Date.now() + count + idx).toString(),
+              type: 'buy',
+              category: category,
+              symbol: item.symbol || item.name || '',
+              quantity: parseFloat(item.amount) || 1,
+              price: parseFloat(item.purchasePrice) || 0,
+              fees: parseFloat(item.fees) || 0,
+              date: item.purchaseDate || new Date().toISOString().split('T')[0],
+              notes: item.notes || '',
+              currency: currency,
+              // Preserve CS2 skin metadata
+              metadata: item.metadata || null,
+              floatValue: item.floatValue || null,
+              rarity: item.rarity || null,
+              wear: item.wear || null
+            });
+            count++;
+          });
+        });
+        
+        if (newTransactions.length > 0) {
+          setTransactions(prev => [...prev, ...newTransactions]);
+          
+          // Also restore priceHistory and images if present
+          if (imported.priceHistory) {
+            setPriceHistory(prev => ({ ...prev, ...imported.priceHistory }));
+          }
+          if (imported.images) {
+            setImages(prev => ({ ...prev, ...imported.images }));
+          }
+          
+          addToast(`${newTransactions.length} ${t.positionsImported || 'positions imported from backup'}`, 'success');
+        } else {
+          addToast(t.noDataToImport || 'No data to import', 'warning');
+        }
+      } else {
+        addToast(t.unknownFormat || 'Unknown format', 'error');
+      }
+      
+      setImportData('');
+      setShowImportModal(false);
+    } catch (e) {
+      console.error('Import error:', e);
+      addToast(t.importError || 'Import failed - invalid format', 'error');
+    }
+  };
+
+  // ========== COMMAND EXECUTION ==========
+  
+  const executeCommand = (commandId) => {
+    switch (commandId) {
+      // Navigation
+      case 'nav:overview': setActiveView('overview'); break;
+      case 'nav:portfolio': setActiveView('portfolio'); break;
+      case 'nav:analytics': setActiveView('analytics'); break;
+      case 'nav:transactions': setActiveView('transactions'); break;
+      case 'nav:taxes': setActiveView('taxes'); break;
+      
+      // Actions
+      case 'action:add-position': setShowTransactionModal(true); break;
+      case 'action:add-transaction': setShowTransactionModal(true); break;
+      case 'action:refresh': fetchPrices(); break;
+      case 'action:import': setShowImportModal(true); break;
+      case 'action:export': exportData(); break;
+      
+      // Analytics
+      case 'analytics:correlation': setActiveView('correlation'); break;
+      case 'analytics:montecarlo': setActiveView('montecarlo'); break;
+      case 'analytics:stress': setActiveView('stress'); break;
+      case 'analytics:risk': setActiveView('risk'); break;
+      
+      // Workspaces
+      case 'workspace:default': setActiveWorkspace('default'); setActiveView('overview'); break;
+      case 'workspace:tax': setActiveWorkspace('tax-season'); setActiveView('taxes'); break;
+      case 'workspace:analysis': setActiveWorkspace('deep-analysis'); setActiveView('analytics'); break;
+      
+      // Settings
+      case 'settings:theme-light': setTheme('white'); break;
+      case 'settings:theme-dark': setTheme('dark'); break;
+      case 'settings:theme-purple': setTheme('purple'); break;
+      case 'settings:lang-de': setLanguage('de'); break;
+      case 'settings:lang-en': setLanguage('en'); break;
+      case 'settings:api': setShowApiSettings(true); break;
+      
+      // Alerts & Backup
+      case 'alerts:create': setShowAlertModal(true); break;
+      case 'backup:create': createBackup(); break;
+      case 'backup:restore': setShowBackupModal(true); break;
+      
+      // Help
+      case 'help:shortcuts': setShowShortcuts(true); break;
+      
+      default:
+        console.log('Unknown command:', commandId);
+    }
+  };
+
+  // ========== RENDER VIEWS ==========
+  
+  const renderView = () => {
+    switch (activeView) {
+      case 'correlation':
+        return window.CorrelationMatrixView ? 
+          React.createElement(window.CorrelationMatrixView, {
+            portfolio, priceHistory, t, theme: currentTheme, formatPrice
+          }) : React.createElement('div', null, 'Loading...');
+      
+      case 'montecarlo':
+        return window.MonteCarloView ?
+          React.createElement(window.MonteCarloView, {
+            portfolio, prices, t, theme: currentTheme, currency, formatPrice
+          }) : React.createElement('div', null, 'Loading...');
+      
+      case 'stress':
+        return window.StressTestView ?
+          React.createElement(window.StressTestView, {
+            portfolio, prices, t, theme: currentTheme, currency, formatPrice
+          }) : React.createElement('div', null, 'Loading...');
+      
+      case 'risk':
+        return typeof window.RiskAnalyticsViewV2 !== 'undefined' ?
+          React.createElement(window.RiskAnalyticsViewV2, {
+            portfolio, prices, t, theme: currentTheme, formatPrice
+          }) : renderAnalyticsPlaceholder('Risk Analytics');
+      
+      case 'transactions':
+        return renderTransactionsView();
+      
+      case 'taxes':
+        return renderTaxView();
+      
+      case 'portfolio':
+        return renderPortfolioView();
+      
+      case 'analytics':
+        return renderAnalyticsMenu();
+      
+      default:
+        return renderOverview();
+    }
+  };
+
+  // ========== OVERVIEW VIEW ==========
+  
+  const renderOverview = () => {
+    return React.createElement('div', { style: { padding: '1.5rem' } },
+      // Stats cards
       React.createElement('div', {
         style: {
-          textAlign: 'center',
-          padding: '4rem 2rem',
+          display: 'grid',
+          gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))',
+          gap: '1rem',
+          marginBottom: '2rem'
+        }
+      },
+        // Total Value
+        React.createElement('div', {
+          style: {
+            background: currentTheme.card,
+            padding: '1.5rem',
+            borderRadius: '12px',
+            border: `1px solid ${currentTheme.cardBorder}`
+          }
+        },
+          React.createElement('div', { style: { color: currentTheme.textSecondary, fontSize: '0.875rem', marginBottom: '0.5rem' } },
+            t.totalValue || 'Total Value'
+          ),
+          React.createElement('div', { style: { color: currentTheme.text, fontSize: '2rem', fontWeight: '700' } },
+            `${formatPrice(portfolioStats.totalValue)} ${getCurrencySymbol()}`
+          )
+        ),
+        
+        // Invested
+        React.createElement('div', {
+          style: {
+            background: currentTheme.card,
+            padding: '1.5rem',
+            borderRadius: '12px',
+            border: `1px solid ${currentTheme.cardBorder}`
+          }
+        },
+          React.createElement('div', { style: { color: currentTheme.textSecondary, fontSize: '0.875rem', marginBottom: '0.5rem' } },
+            t.invested || 'Invested'
+          ),
+          React.createElement('div', { style: { color: currentTheme.text, fontSize: '2rem', fontWeight: '700' } },
+            `${formatPrice(portfolioStats.totalInvested)} ${getCurrencySymbol()}`
+          )
+        ),
+        
+        // Profit/Loss
+        React.createElement('div', {
+          style: {
+            background: currentTheme.card,
+            padding: '1.5rem',
+            borderRadius: '12px',
+            border: `1px solid ${currentTheme.cardBorder}`
+          }
+        },
+          React.createElement('div', { style: { color: currentTheme.textSecondary, fontSize: '0.875rem', marginBottom: '0.5rem' } },
+            t.profitLoss || 'Profit/Loss'
+          ),
+          React.createElement('div', {
+            style: {
+              color: portfolioStats.totalProfit >= 0 ? currentTheme.success : currentTheme.danger,
+              fontSize: '2rem',
+              fontWeight: '700'
+            }
+          },
+            `${portfolioStats.totalProfit >= 0 ? '+' : ''}${formatPrice(portfolioStats.totalProfit)} ${getCurrencySymbol()}`
+          ),
+          React.createElement('div', {
+            style: {
+              color: portfolioStats.totalProfit >= 0 ? currentTheme.success : currentTheme.danger,
+              fontSize: '0.875rem'
+            }
+          },
+            `${portfolioStats.totalProfitPercent >= 0 ? '+' : ''}${portfolioStats.totalProfitPercent.toFixed(2)}%`
+          )
+        ),
+        
+        // Positions
+        React.createElement('div', {
+          style: {
+            background: currentTheme.card,
+            padding: '1.5rem',
+            borderRadius: '12px',
+            border: `1px solid ${currentTheme.cardBorder}`
+          }
+        },
+          React.createElement('div', { style: { color: currentTheme.textSecondary, fontSize: '0.875rem', marginBottom: '0.5rem' } },
+            t.positions || 'Positions'
+          ),
+          React.createElement('div', { style: { color: currentTheme.text, fontSize: '2rem', fontWeight: '700' } },
+            portfolioStats.totalPositions
+          )
+        )
+      ),
+      
+      // Quick actions
+      React.createElement('div', {
+        style: {
+          display: 'flex',
+          gap: '1rem',
+          marginBottom: '2rem',
+          flexWrap: 'wrap'
+        }
+      },
+        React.createElement('button', {
+          onClick: () => setShowTransactionModal(true),
+          style: {
+            padding: '0.75rem 1.5rem',
+            background: currentTheme.accent,
+            color: '#fff',
+            border: 'none',
+            borderRadius: '8px',
+            cursor: 'pointer',
+            fontWeight: '600'
+          }
+        }, t.addTransaction || 'Add Transaction'),
+        React.createElement('button', {
+          onClick: () => setShowImportModal(true),
+          style: {
+            padding: '0.75rem 1.5rem',
+            background: currentTheme.inputBg,
+            color: currentTheme.text,
+            border: `1px solid ${currentTheme.cardBorder}`,
+            borderRadius: '8px',
+            cursor: 'pointer',
+            fontWeight: '600'
+          }
+        }, t.importData || 'Import Data'),
+        React.createElement('button', {
+          onClick: fetchPrices,
+          disabled: loading,
+          style: {
+            padding: '0.75rem 1.5rem',
+            background: currentTheme.inputBg,
+            color: currentTheme.text,
+            border: `1px solid ${currentTheme.cardBorder}`,
+            borderRadius: '8px',
+            cursor: loading ? 'not-allowed' : 'pointer',
+            fontWeight: '600'
+          }
+        }, loading ? (t.loading || 'Loading...') : (t.refresh || 'Refresh')),
+        React.createElement('button', {
+          onClick: () => setActiveView('analytics'),
+          style: {
+            padding: '0.75rem 1.5rem',
+            background: currentTheme.inputBg,
+            color: currentTheme.text,
+            border: `1px solid ${currentTheme.cardBorder}`,
+            borderRadius: '8px',
+            cursor: 'pointer',
+            fontWeight: '600'
+          }
+        }, t.analytics || 'Analytics'),
+        React.createElement('button', {
+          onClick: () => setShowApiSettings(true),
+          style: {
+            padding: '0.75rem 1.5rem',
+            background: currentTheme.inputBg,
+            color: currentTheme.text,
+            border: `1px solid ${currentTheme.cardBorder}`,
+            borderRadius: '8px',
+            cursor: 'pointer',
+            fontWeight: '600'
+          }
+        }, t.apiSettings || 'API Settings')
+      ),
+      
+      // Recent positions
+      React.createElement('div', {
+        style: {
           background: currentTheme.card,
-          borderRadius: '1rem',
+          padding: '1.5rem',
+          borderRadius: '12px',
           border: `1px solid ${currentTheme.cardBorder}`
         }
       },
-        React.createElement('p', { style: { color: currentTheme.textSecondary, fontSize: '1.125rem' } },
-          language === 'de' ? 'Keine Transaktionen vorhanden' : 'No transactions yet'
-        ),
-        React.createElement('p', { style: { color: currentTheme.textSecondary, fontSize: '0.875rem', marginTop: '0.5rem' } },
-          language === 'de' ? 'Fuege deine erste Transaktion hinzu!' : 'Add your first transaction!'
+        React.createElement('h3', {
+          style: { color: currentTheme.text, marginBottom: '1rem', fontSize: '1.125rem' }
+        }, t.positions || 'Positions'),
+        
+        ['crypto', 'stocks', 'skins'].flatMap(category =>
+          (portfolio[category] || []).slice(0, 5).map(pos => {
+            const symbolOriginal = pos.symbol || pos.name || '';
+            const symbolLower = symbolOriginal.toLowerCase();
+            const symbolUpper = symbolOriginal.toUpperCase();
+            // Try multiple lookups: original case, lowercase, uppercase
+            const currentPrice = prices[symbolOriginal] || prices[symbolLower] || prices[symbolUpper] || pos.purchasePrice || 0;
+            const value = (pos.amount || 1) * currentPrice;
+            const invested = (pos.amount || 1) * (pos.purchasePrice || 0);
+            const profit = value - invested;
+            const profitPercent = invested > 0 ? (profit / invested) * 100 : 0;
+            
+            return React.createElement('div', {
+              key: pos.id,
+              style: {
+                display: 'flex',
+                justifyContent: 'space-between',
+                alignItems: 'center',
+                padding: '1rem 0',
+                borderBottom: `1px solid ${currentTheme.cardBorder}`
+              }
+            },
+              React.createElement('div', null,
+                React.createElement('div', { style: { color: currentTheme.text, fontWeight: '600' } },
+                  pos.symbol || pos.name
+                ),
+                React.createElement('div', { style: { color: currentTheme.textSecondary, fontSize: '0.875rem' } },
+                  `${pos.amount} @ ${formatPrice(pos.purchasePrice)}`
+                )
+              ),
+              React.createElement('div', { style: { textAlign: 'right' } },
+                React.createElement('div', { style: { color: currentTheme.text, fontWeight: '600' } },
+                  `${formatPrice(value)} ${getCurrencySymbol()}`
+                ),
+                React.createElement('div', {
+                  style: {
+                    color: profit >= 0 ? currentTheme.success : currentTheme.danger,
+                    fontSize: '0.875rem'
+                  }
+                },
+                  `${profit >= 0 ? '+' : ''}${profitPercent.toFixed(2)}%`
+                )
+              )
+            );
+          })
         )
-      ) :
+      )
+    );
+  };
+
+  // ========== ANALYTICS MENU ==========
+  
+  const renderAnalyticsMenu = () => {
+    const analyticsOptions = [
+      { id: 'correlation', label: t.correlationMatrix || 'Correlation Matrix', desc: t.assetCorrelations || 'Asset correlations' },
+      { id: 'montecarlo', label: t.monteCarloSimulation || 'Monte Carlo', desc: t.simulationResults || 'Portfolio projections' },
+      { id: 'stress', label: t.stressTesting || 'Stress Testing', desc: t.historicalScenarios || 'Historical scenarios' },
+      { id: 'risk', label: t.riskLevel || 'Risk Analytics', desc: t.vulnerabilityAnalysis || 'Risk analysis' }
+    ];
+    
+    return React.createElement('div', { style: { padding: '1.5rem' } },
+      React.createElement('h2', {
+        style: { color: currentTheme.text, marginBottom: '1.5rem', fontSize: '1.5rem', fontWeight: '600' }
+      }, t.analytics || 'Analytics'),
+      
+      React.createElement('div', {
+        style: {
+          display: 'grid',
+          gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))',
+          gap: '1rem'
+        }
+      },
+        analyticsOptions.map(opt =>
+          React.createElement('div', {
+            key: opt.id,
+            onClick: () => setActiveView(opt.id),
+            style: {
+              background: currentTheme.card,
+              padding: '1.5rem',
+              borderRadius: '12px',
+              border: `1px solid ${currentTheme.cardBorder}`,
+              cursor: 'pointer',
+              transition: 'all 0.2s'
+            }
+          },
+            React.createElement('h3', { style: { color: currentTheme.text, marginBottom: '0.5rem' } }, opt.label),
+            React.createElement('p', { style: { color: currentTheme.textSecondary, fontSize: '0.875rem' } }, opt.desc)
+          )
+        )
+      )
+    );
+  };
+
+  // ========== PORTFOLIO VIEW ==========
+  
+  const renderPortfolioView = () => {
+    return React.createElement('div', { style: { padding: '1.5rem' } },
+      // Tabs
+      React.createElement('div', {
+        style: { display: 'flex', gap: '0.5rem', marginBottom: '1.5rem' }
+      },
+        ['crypto', 'stocks', 'skins'].map(tab =>
+          React.createElement('button', {
+            key: tab,
+            onClick: () => setActiveTab(tab),
+            style: {
+              padding: '0.75rem 1.5rem',
+              background: activeTab === tab ? currentTheme.accent : currentTheme.inputBg,
+              color: activeTab === tab ? '#fff' : currentTheme.text,
+              border: 'none',
+              borderRadius: '8px',
+              cursor: 'pointer',
+              fontWeight: '600'
+            }
+          }, getCategoryDisplayName(tab))
+        )
+      ),
+      
+      // Positions list
       React.createElement('div', {
         style: {
           background: currentTheme.card,
-          borderRadius: '1rem',
+          borderRadius: '12px',
           border: `1px solid ${currentTheme.cardBorder}`,
           overflow: 'hidden'
         }
       },
-        React.createElement('div', { style: { overflowX: 'auto' } },
-          React.createElement('table', { 
-            style: { 
-              width: '100%', 
-              borderCollapse: 'collapse',
-              minWidth: '800px'
-            } 
-          },
-            React.createElement('thead', {},
-              React.createElement('tr', { 
-                style: { 
-                  background: 'rgba(59,130,246,0.1)', 
-                  borderBottom: `2px solid ${currentTheme.cardBorder}` 
-                } 
+        (portfolio[activeTab] || []).length === 0
+          ? React.createElement('div', {
+              style: { padding: '2rem', textAlign: 'center', color: currentTheme.textSecondary }
+            }, t.noPositionsCategory || 'No positions')
+          : (portfolio[activeTab] || []).map(pos => {
+              const symbolOriginal = pos.symbol || pos.name || '';
+              const symbolLower = symbolOriginal.toLowerCase();
+              const symbolUpper = symbolOriginal.toUpperCase();
+              const currentPrice = prices[symbolOriginal] || prices[symbolLower] || prices[symbolUpper] || pos.purchasePrice || 0;
+              const value = (pos.amount || 1) * currentPrice;
+              const invested = (pos.amount || 1) * (pos.purchasePrice || 0);
+              const profit = value - invested;
+              const profitPercent = invested > 0 ? (profit / invested) * 100 : 0;
+              
+              return React.createElement('div', {
+                key: pos.id,
+                style: {
+                  display: 'flex',
+                  justifyContent: 'space-between',
+                  alignItems: 'center',
+                  padding: '1rem 1.5rem',
+                  borderBottom: `1px solid ${currentTheme.cardBorder}`
+                }
               },
-                [
-                  language === 'de' ? 'Datum' : 'Date',
-                  language === 'de' ? 'Typ' : 'Type',
-                  'Asset',
-                  language === 'de' ? 'Menge' : 'Quantity',
-                  language === 'de' ? 'Preis' : 'Price',
-                  'Total',
-                  language === 'de' ? 'Gewinn' : 'Gain',
-                  language === 'de' ? 'Aktionen' : 'Actions'
-                ].map((heading, i) => 
-                  React.createElement('th', {
-                    key: i,
+                React.createElement('div', null,
+                  React.createElement('div', { style: { color: currentTheme.text, fontWeight: '600', fontSize: '1.125rem' } },
+                    pos.symbol || pos.name
+                  ),
+                  React.createElement('div', { style: { color: currentTheme.textSecondary, fontSize: '0.875rem' } },
+                    `${pos.amount} x ${formatPrice(pos.purchasePrice)} ${getCurrencySymbol()}`
+                  )
+                ),
+                React.createElement('div', { style: { textAlign: 'right' } },
+                  React.createElement('div', { style: { color: currentTheme.text, fontWeight: '600', fontSize: '1.125rem' } },
+                    `${formatPrice(value)} ${getCurrencySymbol()}`
+                  ),
+                  React.createElement('div', {
                     style: {
-                      padding: '1rem',
-                      textAlign: 'left',
-                      color: currentTheme.text,
-                      fontWeight: '600',
+                      color: profit >= 0 ? currentTheme.success : currentTheme.danger,
                       fontSize: '0.875rem'
                     }
-                  }, heading)
+                  },
+                    `${profit >= 0 ? '+' : ''}${formatPrice(profit)} (${profitPercent.toFixed(2)}%)`
+                  )
                 )
-              )
-            ),
-            React.createElement('tbody', {},
-              sortedTransactions.map((tx) => 
-                React.createElement('tr', {
-                  key: tx.id,
-                  style: {
-                    borderBottom: `1px solid ${currentTheme.cardBorder}`
-                  }
-                },
-                  React.createElement('td', { 
-                    style: { padding: '1rem', color: currentTheme.text, fontSize: '0.875rem' } 
-                  },
-                    new Date(tx.timestamp).toLocaleDateString()
-                  ),
-                  React.createElement('td', { 
-                    style: { padding: '1rem' } 
-                  },
-                    React.createElement('span', {
-                      style: {
-                        padding: '0.25rem 0.75rem',
-                        borderRadius: '0.25rem',
-                        fontSize: '0.75rem',
-                        fontWeight: '600',
-                        background: tx.type === 'buy' ? 'rgba(16,185,129,0.1)' : 
-                                   tx.type === 'sell' ? 'rgba(239,68,68,0.1)' : 'rgba(59,130,246,0.1)',
-                        color: tx.type === 'buy' ? '#10b981' : 
-                               tx.type === 'sell' ? '#ef4444' : '#3b82f6'
-                      }
-                    }, tx.type.toUpperCase())
-                  ),
-                  React.createElement('td', { 
-                    style: { padding: '1rem', color: currentTheme.text, fontWeight: '600' } 
-                  },
-                    tx.asset.symbol
-                  ),
-                  React.createElement('td', { 
-                    style: { padding: '1rem', color: currentTheme.text } 
-                  },
-                    tx.quantity
-                  ),
-                  React.createElement('td', { 
-                    style: { padding: '1rem', color: currentTheme.text } 
-                  },
-                    (tx.currency === 'USD' ? '$' : '€') + formatPrice(tx.price)
-                  ),
-                  React.createElement('td', { 
-                    style: { padding: '1rem', color: currentTheme.text, fontWeight: '600' } 
-                  },
-                    (tx.currency === 'USD' ? '$' : '€') + formatPrice(tx.totalCost)
-                  ),
-                  React.createElement('td', { 
-                    style: { padding: '1rem' } 
-                  },
-                    tx.realizedGain ? 
+              );
+            })
+      )
+    );
+  };
+
+  // ========== TRANSACTIONS VIEW ==========
+  
+  const renderTransactionsView = () => {
+    return React.createElement('div', { style: { padding: '1.5rem' } },
+      React.createElement('div', {
+        style: { display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.5rem' }
+      },
+        React.createElement('h2', {
+          style: { color: currentTheme.text, fontSize: '1.5rem', fontWeight: '600' }
+        }, t.transactions || 'Transactions'),
+        React.createElement('button', {
+          onClick: () => setShowTransactionModal(true),
+          style: {
+            padding: '0.75rem 1.5rem',
+            background: currentTheme.accent,
+            color: '#fff',
+            border: 'none',
+            borderRadius: '8px',
+            cursor: 'pointer',
+            fontWeight: '600'
+          }
+        }, t.addTransaction || 'Add Transaction')
+      ),
+      
+      React.createElement('div', {
+        style: {
+          background: currentTheme.card,
+          borderRadius: '12px',
+          border: `1px solid ${currentTheme.cardBorder}`,
+          overflow: 'auto'
+        }
+      },
+        transactions.length === 0
+          ? React.createElement('div', {
+              style: { padding: '2rem', textAlign: 'center', color: currentTheme.textSecondary }
+            }, t.noTransactions || 'No transactions')
+          : React.createElement('table', { style: { width: '100%', borderCollapse: 'collapse', minWidth: '800px' } },
+              React.createElement('thead', null,
+                React.createElement('tr', null,
+                  React.createElement('th', { style: { textAlign: 'left', padding: '1rem', color: currentTheme.textSecondary, borderBottom: `1px solid ${currentTheme.cardBorder}` } }, t.date || 'Date'),
+                  React.createElement('th', { style: { textAlign: 'left', padding: '1rem', color: currentTheme.textSecondary, borderBottom: `1px solid ${currentTheme.cardBorder}` } }, t.transactionType || 'Type'),
+                  React.createElement('th', { style: { textAlign: 'left', padding: '1rem', color: currentTheme.textSecondary, borderBottom: `1px solid ${currentTheme.cardBorder}` } }, t.symbol || 'Symbol'),
+                  React.createElement('th', { style: { textAlign: 'right', padding: '1rem', color: currentTheme.textSecondary, borderBottom: `1px solid ${currentTheme.cardBorder}` } }, t.quantity || 'Qty'),
+                  React.createElement('th', { style: { textAlign: 'right', padding: '1rem', color: currentTheme.textSecondary, borderBottom: `1px solid ${currentTheme.cardBorder}` } }, t.price || 'Price'),
+                  React.createElement('th', { style: { textAlign: 'center', padding: '1rem', color: currentTheme.textSecondary, borderBottom: `1px solid ${currentTheme.cardBorder}` } }, t.currency || 'Cur'),
+                  React.createElement('th', { style: { textAlign: 'right', padding: '1rem', color: currentTheme.textSecondary, borderBottom: `1px solid ${currentTheme.cardBorder}` } }, t.total || 'Total'),
+                  React.createElement('th', { style: { textAlign: 'center', padding: '1rem', color: currentTheme.textSecondary, borderBottom: `1px solid ${currentTheme.cardBorder}` } }, t.actions || 'Actions')
+                )
+              ),
+              React.createElement('tbody', null,
+                transactions.slice().reverse().map(tx =>
+                  React.createElement('tr', { key: tx.id },
+                    React.createElement('td', { style: { padding: '1rem', color: currentTheme.text } }, tx.date),
+                    React.createElement('td', { style: { padding: '1rem' } },
                       React.createElement('span', {
                         style: {
-                          color: tx.realizedGain.gain >= 0 ? '#10b981' : '#ef4444',
-                          fontWeight: '600'
+                          padding: '0.25rem 0.5rem',
+                          borderRadius: '4px',
+                          fontSize: '0.75rem',
+                          fontWeight: '600',
+                          background: tx.type === 'buy' ? 'rgba(34,197,94,0.2)' : 'rgba(239,68,68,0.2)',
+                          color: tx.type === 'buy' ? currentTheme.success : currentTheme.danger
                         }
-                      },
-                        (tx.realizedGain.gain >= 0 ? '+' : '') + getCurrencySymbol() + formatPrice(tx.realizedGain.gain)
-                      ) : 
-                      React.createElement('span', { style: { color: currentTheme.textSecondary } }, '-')
-                  ),
-                  React.createElement('td', { 
-                    style: { padding: '1rem', display: 'flex', gap: '0.5rem' } 
-                  },
-                    React.createElement('button', {
-                      onClick: () => handleEditTransaction(tx),
-                      style: {
-                        padding: '0.25rem 0.75rem',
-                        background: 'rgba(59,130,246,0.1)',
-                        color: '#3b82f6',
-                        border: 'none',
-                        borderRadius: '0.25rem',
-                        cursor: 'pointer',
-                        fontSize: '0.75rem',
-                        fontWeight: '600'
-                      }
-                    }, language === 'de' ? 'Bearbeiten' : 'Edit'),
-                    React.createElement('button', {
-                      onClick: () => {
-                        if (confirm(language === 'de' 
-                          ? 'Transaktion wirklich löschen?' 
-                          : 'Delete this transaction?')) {
-                          deleteTransaction(tx.id);
-                        }
-                      },
-                      style: {
-                        padding: '0.25rem 0.75rem',
-                        background: 'rgba(239,68,68,0.1)',
-                        color: '#ef4444',
-                        border: 'none',
-                        borderRadius: '0.25rem',
-                        cursor: 'pointer',
-                        fontSize: '0.75rem',
-                        fontWeight: '600'
-                      }
-                    }, language === 'de' ? 'Loeschen' : 'Delete')
+                      }, tx.type === 'buy' ? (t.buy || 'Buy') : (t.sell || 'Sell'))
+                    ),
+                    React.createElement('td', { style: { padding: '1rem', color: currentTheme.text, fontWeight: '600' } }, tx.symbol),
+                    React.createElement('td', { style: { padding: '1rem', color: currentTheme.text, textAlign: 'right' } }, tx.quantity),
+                    React.createElement('td', { style: { padding: '1rem', color: currentTheme.text, textAlign: 'right' } }, 
+                      tx.price?.toFixed(2)
+                    ),
+                    React.createElement('td', { style: { padding: '1rem', color: currentTheme.textSecondary, textAlign: 'center', fontSize: '0.8rem' } }, 
+                      tx.currency || 'EUR'
+                    ),
+                    React.createElement('td', { style: { padding: '1rem', color: currentTheme.text, textAlign: 'right', fontWeight: '600' } },
+                      `${(tx.quantity * tx.price).toFixed(2)} ${tx.currency || 'EUR'}`
+                    ),
+                    React.createElement('td', { style: { padding: '0.5rem', textAlign: 'center' } },
+                      React.createElement('div', { style: { display: 'flex', gap: '0.5rem', justifyContent: 'center' } },
+                        React.createElement('button', {
+                          onClick: () => editTransaction(tx),
+                          title: t.edit || 'Edit',
+                          style: {
+                            padding: '0.4rem 0.75rem',
+                            background: currentTheme.accent,
+                            color: '#fff',
+                            border: 'none',
+                            borderRadius: '4px',
+                            cursor: 'pointer',
+                            fontSize: '0.75rem',
+                            fontWeight: '600'
+                          }
+                        }, t.edit || 'Edit'),
+                        React.createElement('button', {
+                          onClick: () => {
+                            if (window.confirm(t.confirmDelete || 'Delete this transaction?')) {
+                              deleteTransaction(tx.id);
+                            }
+                          },
+                          title: t.delete || 'Delete',
+                          style: {
+                            padding: '0.4rem 0.75rem',
+                            background: currentTheme.danger,
+                            color: '#fff',
+                            border: 'none',
+                            borderRadius: '4px',
+                            cursor: 'pointer',
+                            fontSize: '0.75rem',
+                            fontWeight: '600'
+                          }
+                        }, t.delete || 'Delete')
+                      )
+                    )
                   )
                 )
               )
             )
-          )
-        )
       )
-  );
-}
+    );
+  };
 
-// ============================================================================
-// TAX REPORT VIEW
-// ============================================================================
-
-
-// ============================================================================
-// EXPORT NOTE
-// ============================================================================
-
-
-  function TaxReportView() {
-    const [selectedYear, setSelectedYear] = useState(new Date().getFullYear());
+  // ========== TAX VIEW ==========
+  
+  const renderTaxView = () => {
+    const currentYear = new Date().getFullYear();
     
-    const taxReport = useMemo(() => {
-      if (typeof generateTaxReportAdvanced === 'undefined') {
-        console.error('Advanced tax calculation not loaded');
-        return null;
-      }
-      return generateTaxReportAdvanced(transactions, selectedYear, taxJurisdiction);
-    }, [transactions, selectedYear, taxJurisdiction]);
+    // Calculate tax data using tax engine if available
+    let taxData = { realizedGains: 0, shortTerm: 0, longTerm: 0, taxLiability: 0 };
     
-    const handlePDFExport = () => {
-      if (!taxReport) {
-        alert(language === 'de' ? 'Kein Steuerbericht verfügbar' : 'No tax report available');
-        return;
-      }
-      
-      if (typeof exportTaxReportPDF === 'undefined') {
-        alert(language === 'de' ? 'PDF Export Modul nicht geladen' : 'PDF export module not loaded');
-        return;
-      }
-      
-      try {
-        exportTaxReportPDF(taxReport, currency, selectedYear, taxJurisdiction);
-      } catch (error) {
-        console.error('PDF export error:', error);
-        alert(language === 'de' ? 'Fehler beim PDF-Export: ' + error.message : 'Error exporting PDF: ' + error.message);
-      }
-    };
-    
-    if (!taxReport) {
-      return React.createElement('div', { style: { padding: '2rem', color: currentTheme.text } },
-        language === 'de' ? 'Steuerfunktionen werden geladen...' : 'Loading tax functions...'
-      );
+    if (typeof window.TaxCalculationEngine !== 'undefined') {
+      const result = window.TaxCalculationEngine.calculateTaxes(transactions, taxJurisdiction, currentYear);
+      taxData = result;
     }
     
-    return React.createElement('div', { style: { padding: '2rem' } },
-      React.createElement('div', { 
-        style: { display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '2rem', flexWrap: 'wrap', gap: '1rem' } 
+    return React.createElement('div', { style: { padding: '1.5rem' } },
+      React.createElement('div', {
+        style: { display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.5rem' }
       },
-        React.createElement('div', {},
-          React.createElement('h2', { style: { color: currentTheme.text, fontSize: '2rem', fontWeight: '700', marginBottom: '0.5rem' } },
-            (language === 'de' ? 'Steuerbericht ' : 'Tax Report ') + selectedYear
-          ),
+        React.createElement('h2', {
+          style: { color: currentTheme.text, fontSize: '1.5rem', fontWeight: '600' }
+        }, t.taxReport || 'Tax Report'),
+        React.createElement('div', { style: { display: 'flex', gap: '0.5rem' } },
           React.createElement('select', {
-            value: selectedYear,
-            onChange: (e) => setSelectedYear(parseInt(e.target.value)),
+            value: taxJurisdiction,
+            onChange: (e) => setTaxJurisdiction(e.target.value),
             style: {
               padding: '0.5rem 1rem',
               background: currentTheme.inputBg,
-              color: currentTheme.text,
               border: `1px solid ${currentTheme.inputBorder}`,
-              borderRadius: '0.5rem',
-              cursor: 'pointer'
+              borderRadius: '8px',
+              color: currentTheme.text
             }
           },
-            [2026, 2025, 2024, 2023, 2022].map(year =>
-              React.createElement('option', { key: year, value: year }, year)
+            React.createElement('option', { value: 'de' }, t.germany || 'Germany'),
+            React.createElement('option', { value: 'us' }, t.usa || 'USA')
+          ),
+          typeof window.exportTaxPDF !== 'undefined' && React.createElement('button', {
+            onClick: () => window.exportTaxPDF(transactions, taxJurisdiction, currentYear, language),
+            style: {
+              padding: '0.5rem 1rem',
+              background: currentTheme.accent,
+              color: '#fff',
+              border: 'none',
+              borderRadius: '8px',
+              cursor: 'pointer'
+            }
+          }, t.exportPdf || 'Export PDF')
+        )
+      ),
+      
+      // Tax stats
+      React.createElement('div', {
+        style: {
+          display: 'grid',
+          gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))',
+          gap: '1rem',
+          marginBottom: '2rem'
+        }
+      },
+        React.createElement('div', {
+          style: {
+            background: currentTheme.card,
+            padding: '1.25rem',
+            borderRadius: '12px',
+            border: `1px solid ${currentTheme.cardBorder}`
+          }
+        },
+          React.createElement('div', { style: { color: currentTheme.textSecondary, fontSize: '0.875rem' } },
+            t.realizedGains || 'Realized Gains'
+          ),
+          React.createElement('div', {
+            style: {
+              color: taxData.realizedGains >= 0 ? currentTheme.success : currentTheme.danger,
+              fontSize: '1.5rem',
+              fontWeight: '700'
+            }
+          }, `${formatPrice(taxData.realizedGains)} ${getCurrencySymbol()}`)
+        ),
+        
+        React.createElement('div', {
+          style: {
+            background: currentTheme.card,
+            padding: '1.25rem',
+            borderRadius: '12px',
+            border: `1px solid ${currentTheme.cardBorder}`
+          }
+        },
+          React.createElement('div', { style: { color: currentTheme.textSecondary, fontSize: '0.875rem' } },
+            t.shortTermGains || 'Short-term'
+          ),
+          React.createElement('div', { style: { color: currentTheme.text, fontSize: '1.5rem', fontWeight: '700' } },
+            `${formatPrice(taxData.shortTerm || 0)} ${getCurrencySymbol()}`
+          )
+        ),
+        
+        React.createElement('div', {
+          style: {
+            background: currentTheme.card,
+            padding: '1.25rem',
+            borderRadius: '12px',
+            border: `1px solid ${currentTheme.cardBorder}`
+          }
+        },
+          React.createElement('div', { style: { color: currentTheme.textSecondary, fontSize: '0.875rem' } },
+            t.longTermGains || 'Long-term'
+          ),
+          React.createElement('div', { style: { color: currentTheme.text, fontSize: '1.5rem', fontWeight: '700' } },
+            `${formatPrice(taxData.longTerm || 0)} ${getCurrencySymbol()}`
+          )
+        ),
+        
+        React.createElement('div', {
+          style: {
+            background: currentTheme.card,
+            padding: '1.25rem',
+            borderRadius: '12px',
+            border: `1px solid ${currentTheme.cardBorder}`
+          }
+        },
+          React.createElement('div', { style: { color: currentTheme.textSecondary, fontSize: '0.875rem' } },
+            t.taxLiability || 'Est. Tax'
+          ),
+          React.createElement('div', { style: { color: currentTheme.warning, fontSize: '1.5rem', fontWeight: '700' } },
+            `${formatPrice(taxData.taxLiability || 0)} ${getCurrencySymbol()}`
+          )
+        )
+      )
+    );
+  };
+
+  // ========== PLACEHOLDER FOR ANALYTICS ==========
+  
+  const renderAnalyticsPlaceholder = (name) => {
+    return React.createElement('div', {
+      style: {
+        padding: '2rem',
+        textAlign: 'center',
+        color: currentTheme.textSecondary
+      }
+    }, `${name} - ${t.loading || 'Loading...'}`);
+  };
+
+  // ========== TRANSACTION MODAL ==========
+  
+  const renderTransactionModal = () => {
+    if (!showTransactionModal) return null;
+    
+    const isEditing = !!editingTransactionId;
+    
+    const closeModal = () => {
+      setShowTransactionModal(false);
+      setEditingTransactionId(null);
+      setNewTransaction({
+        type: 'buy',
+        category: 'crypto',
+        symbol: '',
+        quantity: '',
+        price: '',
+        date: new Date().toISOString().split('T')[0],
+        fees: '',
+        notes: '',
+        currency: currency
+      });
+    };
+    
+    return React.createElement('div', {
+      style: {
+        position: 'fixed',
+        top: 0,
+        left: 0,
+        right: 0,
+        bottom: 0,
+        background: 'rgba(0,0,0,0.5)',
+        display: 'flex',
+        justifyContent: 'center',
+        alignItems: 'center',
+        zIndex: 10000
+      },
+      onClick: (e) => e.target === e.currentTarget && closeModal()
+    },
+      React.createElement('div', {
+        style: {
+          background: currentTheme.card,
+          padding: '2rem',
+          borderRadius: '12px',
+          width: '450px',
+          maxWidth: '90vw',
+          maxHeight: '90vh',
+          overflow: 'auto'
+        }
+      },
+        React.createElement('h2', {
+          style: { color: currentTheme.text, marginBottom: '1.5rem' }
+        }, isEditing ? (t.editTransaction || 'Edit Transaction') : (t.addTransaction || 'Add Transaction')),
+        
+        // Type selector
+        React.createElement('div', { style: { marginBottom: '1rem' } },
+          React.createElement('label', {
+            style: { display: 'block', color: currentTheme.textSecondary, marginBottom: '0.5rem', fontSize: '0.875rem' }
+          }, t.type || 'Type'),
+          React.createElement('div', { style: { display: 'flex', gap: '0.5rem' } },
+            ['buy', 'sell'].map(type =>
+              React.createElement('button', {
+                key: type,
+                onClick: () => setNewTransaction(prev => ({ ...prev, type })),
+                style: {
+                  flex: 1,
+                  padding: '0.5rem',
+                  background: newTransaction.type === type ? 
+                    (type === 'buy' ? currentTheme.success : currentTheme.danger) : 
+                    currentTheme.inputBg,
+                  color: newTransaction.type === type ? '#fff' : currentTheme.text,
+                  border: 'none',
+                  borderRadius: '6px',
+                  cursor: 'pointer',
+                  fontSize: '0.875rem',
+                  fontWeight: '600'
+                }
+              }, type === 'buy' ? (t.buy || 'Buy') : (t.sell || 'Sell'))
             )
           )
         ),
-        React.createElement('div', { style: { display: 'flex', gap: '1rem', alignItems: 'center' } },
-          // Jurisdiction Selector
-          React.createElement('div', { style: { display: 'flex', flexDirection: 'column', gap: '0.5rem' } },
-            React.createElement('label', { 
+        
+        // Category selector
+        React.createElement('div', { style: { marginBottom: '1rem' } },
+          React.createElement('label', {
+            style: { display: 'block', color: currentTheme.textSecondary, marginBottom: '0.5rem', fontSize: '0.875rem' }
+          }, t.category || 'Category'),
+          React.createElement('div', { style: { display: 'flex', gap: '0.5rem' } },
+            ['crypto', 'stocks', 'skins'].map(cat =>
+              React.createElement('button', {
+                key: cat,
+                onClick: () => setNewTransaction(prev => ({ ...prev, category: cat })),
+                style: {
+                  flex: 1,
+                  padding: '0.5rem',
+                  background: newTransaction.category === cat ? currentTheme.accent : currentTheme.inputBg,
+                  color: newTransaction.category === cat ? '#fff' : currentTheme.text,
+                  border: 'none',
+                  borderRadius: '6px',
+                  cursor: 'pointer',
+                  fontSize: '0.875rem'
+                }
+              }, getCategoryDisplayName(cat))
+            )
+          )
+        ),
+        
+        // Symbol
+        React.createElement('div', { style: { marginBottom: '1rem' } },
+          React.createElement('label', {
+            style: { display: 'block', color: currentTheme.textSecondary, marginBottom: '0.5rem', fontSize: '0.875rem' }
+          }, t.symbol || 'Symbol'),
+          React.createElement('input', {
+            type: 'text',
+            value: newTransaction.symbol,
+            onChange: (e) => setNewTransaction(prev => ({ ...prev, symbol: e.target.value })),
+            placeholder: newTransaction.category === 'crypto' ? 'bitcoin, ethereum...' : 
+                        newTransaction.category === 'stocks' ? 'AAPL, MSFT...' : 'AK-47 | Redline...',
+            style: {
+              width: '100%',
+              padding: '0.75rem',
+              background: currentTheme.inputBg,
+              border: `1px solid ${currentTheme.inputBorder}`,
+              borderRadius: '8px',
+              color: currentTheme.text
+            }
+          })
+        ),
+        
+        // Quantity
+        React.createElement('div', { style: { marginBottom: '1rem' } },
+          React.createElement('label', {
+            style: { display: 'block', color: currentTheme.textSecondary, marginBottom: '0.5rem', fontSize: '0.875rem' }
+          }, t.quantity || 'Quantity'),
+          React.createElement('input', {
+            type: 'number',
+            value: newTransaction.quantity,
+            onChange: (e) => setNewTransaction(prev => ({ ...prev, quantity: e.target.value })),
+            step: '0.0001',
+            placeholder: '0.00',
+            style: {
+              width: '100%',
+              padding: '0.75rem',
+              background: currentTheme.inputBg,
+              border: `1px solid ${currentTheme.inputBorder}`,
+              borderRadius: '8px',
+              color: currentTheme.text
+            }
+          })
+        ),
+        
+        // Price per unit
+        React.createElement('div', { style: { marginBottom: '1rem' } },
+          React.createElement('label', {
+            style: { display: 'block', color: currentTheme.textSecondary, marginBottom: '0.5rem', fontSize: '0.875rem' }
+          }, t.pricePerUnit || 'Price per Unit'),
+          React.createElement('input', {
+            type: 'number',
+            value: newTransaction.price,
+            onChange: (e) => setNewTransaction(prev => ({ ...prev, price: e.target.value })),
+            step: '0.01',
+            placeholder: '0.00',
+            style: {
+              width: '100%',
+              padding: '0.75rem',
+              background: currentTheme.inputBg,
+              border: `1px solid ${currentTheme.inputBorder}`,
+              borderRadius: '8px',
+              color: currentTheme.text
+            }
+          })
+        ),
+        
+        // Date
+        React.createElement('div', { style: { marginBottom: '1rem' } },
+          React.createElement('label', {
+            style: { display: 'block', color: currentTheme.textSecondary, marginBottom: '0.5rem', fontSize: '0.875rem' }
+          }, t.date || 'Date'),
+          React.createElement('input', {
+            type: 'date',
+            value: newTransaction.date,
+            onChange: (e) => setNewTransaction(prev => ({ ...prev, date: e.target.value })),
+            style: {
+              width: '100%',
+              padding: '0.75rem',
+              background: currentTheme.inputBg,
+              border: `1px solid ${currentTheme.inputBorder}`,
+              borderRadius: '8px',
+              color: currentTheme.text
+            }
+          })
+        ),
+        
+        // Fees
+        React.createElement('div', { style: { marginBottom: '1rem' } },
+          React.createElement('label', {
+            style: { display: 'block', color: currentTheme.textSecondary, marginBottom: '0.5rem', fontSize: '0.875rem' }
+          }, t.feesOptional || 'Fees (optional)'),
+          React.createElement('input', {
+            type: 'number',
+            value: newTransaction.fees,
+            onChange: (e) => setNewTransaction(prev => ({ ...prev, fees: e.target.value })),
+            step: '0.01',
+            placeholder: '0.00',
+            style: {
+              width: '100%',
+              padding: '0.75rem',
+              background: currentTheme.inputBg,
+              border: `1px solid ${currentTheme.inputBorder}`,
+              borderRadius: '8px',
+              color: currentTheme.text
+            }
+          })
+        ),
+        
+        // Notes
+        React.createElement('div', { style: { marginBottom: '1.5rem' } },
+          React.createElement('label', {
+            style: { display: 'block', color: currentTheme.textSecondary, marginBottom: '0.5rem', fontSize: '0.875rem' }
+          }, t.notesOptional || 'Notes (optional)'),
+          React.createElement('input', {
+            type: 'text',
+            value: newTransaction.notes,
+            onChange: (e) => setNewTransaction(prev => ({ ...prev, notes: e.target.value })),
+            placeholder: t.notesPlaceholder || 'Optional notes...',
+            style: {
+              width: '100%',
+              padding: '0.75rem',
+              background: currentTheme.inputBg,
+              border: `1px solid ${currentTheme.inputBorder}`,
+              borderRadius: '8px',
+              color: currentTheme.text
+            }
+          })
+        ),
+        
+        // Currency selector
+        React.createElement('div', { style: { marginBottom: '1rem' } },
+          React.createElement('label', {
+            style: { display: 'block', color: currentTheme.textSecondary, marginBottom: '0.5rem', fontSize: '0.875rem' }
+          }, t.currency || 'Currency'),
+          React.createElement('div', { style: { display: 'flex', gap: '0.5rem' } },
+            ['EUR', 'USD'].map(cur =>
+              React.createElement('button', {
+                key: cur,
+                onClick: () => setNewTransaction(prev => ({ ...prev, currency: cur })),
+                style: {
+                  flex: 1,
+                  padding: '0.5rem',
+                  background: newTransaction.currency === cur ? currentTheme.accent : currentTheme.inputBg,
+                  color: newTransaction.currency === cur ? '#fff' : currentTheme.text,
+                  border: 'none',
+                  borderRadius: '6px',
+                  cursor: 'pointer',
+                  fontSize: '0.875rem',
+                  fontWeight: '600'
+                }
+              }, cur)
+            )
+          )
+        ),
+        
+        // Total display
+        newTransaction.quantity && newTransaction.price && React.createElement('div', {
+          style: {
+            padding: '1rem',
+            background: currentTheme.inputBg,
+            borderRadius: '8px',
+            marginBottom: '1.5rem',
+            textAlign: 'center'
+          }
+        },
+          React.createElement('div', { style: { color: currentTheme.textSecondary, fontSize: '0.875rem' } },
+            t.total || 'Total'
+          ),
+          React.createElement('div', { style: { color: currentTheme.text, fontSize: '1.5rem', fontWeight: '700' } },
+            `${parseFloat(newTransaction.quantity) * parseFloat(newTransaction.price)} ${newTransaction.currency || 'EUR'}`
+          )
+        ),
+        
+        // Buttons
+        React.createElement('div', { style: { display: 'flex', gap: '1rem' } },
+          React.createElement('button', {
+            onClick: closeModal,
+            style: {
+              flex: 1,
+              padding: '0.75rem',
+              background: currentTheme.inputBg,
+              color: currentTheme.text,
+              border: `1px solid ${currentTheme.cardBorder}`,
+              borderRadius: '8px',
+              cursor: 'pointer'
+            }
+          }, t.cancel || 'Cancel'),
+          React.createElement('button', {
+            onClick: saveTransaction,
+            style: {
+              flex: 1,
+              padding: '0.75rem',
+              background: newTransaction.type === 'buy' ? currentTheme.success : currentTheme.danger,
+              color: '#fff',
+              border: 'none',
+              borderRadius: '8px',
+              cursor: 'pointer',
+              fontWeight: '600'
+            }
+          }, isEditing 
+            ? (t.saveChanges || 'Save Changes')
+            : (newTransaction.type === 'buy' ? (t.addBuy || 'Add Buy') : (t.addSell || 'Add Sell')))
+        )
+      )
+    );
+  };
+
+  // ========== IMPORT MODAL ==========
+  
+  const renderImportModal = () => {
+    if (!showImportModal) return null;
+    
+    return React.createElement('div', {
+      style: {
+        position: 'fixed',
+        top: 0,
+        left: 0,
+        right: 0,
+        bottom: 0,
+        background: 'rgba(0,0,0,0.5)',
+        display: 'flex',
+        justifyContent: 'center',
+        alignItems: 'center',
+        zIndex: 10000
+      },
+      onClick: (e) => e.target === e.currentTarget && setShowImportModal(false)
+    },
+      React.createElement('div', {
+        style: {
+          background: currentTheme.card,
+          padding: '2rem',
+          borderRadius: '12px',
+          width: '600px',
+          maxWidth: '90vw',
+          maxHeight: '90vh',
+          overflow: 'auto'
+        }
+      },
+        React.createElement('h2', {
+          style: { color: currentTheme.text, marginBottom: '1rem' }
+        }, t.importData || 'Import Data'),
+        
+        React.createElement('p', {
+          style: { color: currentTheme.textSecondary, marginBottom: '1.5rem', fontSize: '0.875rem' }
+        }, t.importInstructions || 'Paste your transaction data in JSON or CSV format. Supported formats: JSON array, CSV with headers (type, category, symbol, quantity, price, date, fees)'),
+        
+        // Format examples
+        React.createElement('div', {
+          style: { marginBottom: '1rem' }
+        },
+          React.createElement('details', {
+            style: { color: currentTheme.textSecondary, fontSize: '0.75rem' }
+          },
+            React.createElement('summary', {
+              style: { cursor: 'pointer', marginBottom: '0.5rem' }
+            }, t.showExamples || 'Show format examples'),
+            React.createElement('pre', {
+              style: {
+                background: currentTheme.inputBg,
+                padding: '0.75rem',
+                borderRadius: '6px',
+                overflow: 'auto',
+                fontSize: '0.7rem'
+              }
+            }, `JSON:
+[{"type":"buy","category":"crypto","symbol":"bitcoin","quantity":0.5,"price":45000,"date":"2024-01-15"}]
+
+CSV:
+type,category,symbol,quantity,price,date,fees
+buy,crypto,bitcoin,0.5,45000,2024-01-15,10`)
+          )
+        ),
+        
+        // Textarea for data
+        React.createElement('textarea', {
+          value: importData,
+          onChange: (e) => setImportData(e.target.value),
+          placeholder: t.pasteDataHere || 'Paste your data here...',
+          style: {
+            width: '100%',
+            height: '200px',
+            padding: '1rem',
+            background: currentTheme.inputBg,
+            border: `1px solid ${currentTheme.inputBorder}`,
+            borderRadius: '8px',
+            color: currentTheme.text,
+            fontFamily: 'monospace',
+            fontSize: '0.875rem',
+            resize: 'vertical',
+            marginBottom: '1.5rem'
+          }
+        }),
+        
+        // File upload hint
+        React.createElement('div', {
+          style: {
+            padding: '1rem',
+            border: `2px dashed ${currentTheme.cardBorder}`,
+            borderRadius: '8px',
+            textAlign: 'center',
+            marginBottom: '1.5rem'
+          }
+        },
+          React.createElement('input', {
+            type: 'file',
+            accept: '.json,.csv',
+            onChange: (e) => {
+              const file = e.target.files[0];
+              if (file) {
+                const reader = new FileReader();
+                reader.onload = (event) => {
+                  setImportData(event.target.result);
+                };
+                reader.readAsText(file);
+              }
+            },
+            style: { display: 'none' },
+            id: 'import-file-input'
+          }),
+          React.createElement('label', {
+            htmlFor: 'import-file-input',
+            style: { color: currentTheme.accent, cursor: 'pointer' }
+          }, t.orUploadFile || 'Or click to upload a file (.json, .csv)')
+        ),
+        
+        // Buttons
+        React.createElement('div', { style: { display: 'flex', gap: '1rem' } },
+          React.createElement('button', {
+            onClick: () => {
+              setImportData('');
+              setShowImportModal(false);
+            },
+            style: {
+              flex: 1,
+              padding: '0.75rem',
+              background: currentTheme.inputBg,
+              color: currentTheme.text,
+              border: `1px solid ${currentTheme.cardBorder}`,
+              borderRadius: '8px',
+              cursor: 'pointer'
+            }
+          }, t.cancel || 'Cancel'),
+          React.createElement('button', {
+            onClick: handleImport,
+            disabled: !importData.trim(),
+            style: {
+              flex: 1,
+              padding: '0.75rem',
+              background: importData.trim() ? currentTheme.accent : currentTheme.inputBg,
+              color: importData.trim() ? '#fff' : currentTheme.textSecondary,
+              border: 'none',
+              borderRadius: '8px',
+              cursor: importData.trim() ? 'pointer' : 'not-allowed',
+              fontWeight: '600'
+            }
+          }, t.import || 'Import')
+        )
+      )
+    );
+  };
+
+  // ========== API SETTINGS MODAL ==========
+  
+  const renderApiSettingsModal = () => {
+    if (!showApiSettings) return null;
+    
+    return React.createElement('div', {
+      style: {
+        position: 'fixed',
+        top: 0,
+        left: 0,
+        right: 0,
+        bottom: 0,
+        background: 'rgba(0,0,0,0.5)',
+        display: 'flex',
+        justifyContent: 'center',
+        alignItems: 'center',
+        zIndex: 10000
+      },
+      onClick: (e) => e.target === e.currentTarget && setShowApiSettings(false)
+    },
+      React.createElement('div', {
+        style: {
+          background: currentTheme.card,
+          padding: '2rem',
+          borderRadius: '12px',
+          width: '500px',
+          maxWidth: '90vw',
+          maxHeight: '90vh',
+          overflow: 'auto'
+        }
+      },
+        React.createElement('h2', {
+          style: { color: currentTheme.text, marginBottom: '1.5rem' }
+        }, t.apiSettings || 'API Settings'),
+        
+        // Info text
+        React.createElement('p', {
+          style: { color: currentTheme.textSecondary, marginBottom: '1.5rem', fontSize: '0.875rem', lineHeight: '1.5' }
+        }, t.apiSettingsInfo || 'Configure API keys for fetching live prices. CS2 Skin prices are fetched from Skinport (no key required). Crypto prices are fetched from CoinGecko (no key required).'),
+        
+        // Alpha Vantage Section
+        React.createElement('div', {
+          style: {
+            background: currentTheme.inputBg,
+            padding: '1.25rem',
+            borderRadius: '8px',
+            marginBottom: '1rem'
+          }
+        },
+          React.createElement('div', {
+            style: { display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.75rem' }
+          },
+            React.createElement('h3', {
+              style: { color: currentTheme.text, fontSize: '1rem', fontWeight: '600' }
+            }, 'Alpha Vantage'),
+            React.createElement('span', {
               style: { 
                 fontSize: '0.75rem', 
-                color: currentTheme.textSecondary,
-                textTransform: 'uppercase',
-                fontWeight: '600'
-              } 
-            }, language === 'de' ? 'Steuerland' : 'Tax Country'),
-            React.createElement('div', { style: { display: 'flex', gap: '0.5rem' } },
-              React.createElement('button', {
-                onClick: () => setTaxJurisdiction('de'),
-                style: {
-                  padding: '0.5rem 1rem',
-                  background: taxJurisdiction === 'de' ? '#3b82f6' : 'transparent',
-                  color: taxJurisdiction === 'de' ? 'white' : currentTheme.text,
-                  border: `2px solid ${taxJurisdiction === 'de' ? '#3b82f6' : currentTheme.inputBorder}`,
-                  borderRadius: '0.5rem',
-                  cursor: 'pointer',
-                  fontWeight: '600',
-                  fontSize: '0.875rem'
-                }
-              }, language === 'de' ? 'Deutschland' : 'Germany'),
-              React.createElement('button', {
-                onClick: () => setTaxJurisdiction('us'),
-                style: {
-                  padding: '0.5rem 1rem',
-                  background: taxJurisdiction === 'us' ? '#10b981' : 'transparent',
-                  color: taxJurisdiction === 'us' ? 'white' : currentTheme.text,
-                  border: `2px solid ${taxJurisdiction === 'us' ? '#10b981' : currentTheme.inputBorder}`,
-                  borderRadius: '0.5rem',
-                  cursor: 'pointer',
-                  fontWeight: '600',
-                  fontSize: '0.875rem'
-                }
-              }, language === 'de' ? 'USA' : 'USA')
-            )
+                padding: '0.25rem 0.5rem',
+                background: apiKeys.alphaVantage ? 'rgba(34,197,94,0.2)' : 'rgba(239,68,68,0.2)',
+                color: apiKeys.alphaVantage ? currentTheme.success : currentTheme.danger,
+                borderRadius: '4px'
+              }
+            }, apiKeys.alphaVantage ? (t.configured || 'Configured') : (t.notConfigured || 'Not configured'))
           ),
-          // Export PDF Button
-          React.createElement('button', {
-            onClick: handlePDFExport,
+          React.createElement('p', {
+            style: { color: currentTheme.textSecondary, fontSize: '0.8rem', marginBottom: '0.75rem' }
+          }, t.alphaVantageInfo || 'Required for stock prices. Free tier: 25 requests/day.'),
+          React.createElement('input', {
+            type: 'password',
+            value: apiKeys.alphaVantage || '',
+            onChange: (e) => setApiKeys(prev => ({ ...prev, alphaVantage: e.target.value })),
+            placeholder: 'Enter Alpha Vantage API Key',
             style: {
-              padding: '0.75rem 1.5rem',
-              background: taxJurisdiction === 'de' ? '#3b82f6' : '#10b981',
-              color: 'white',
-              border: 'none',
-              borderRadius: '0.5rem',
-              cursor: 'pointer',
-              fontWeight: '600',
-              fontSize: '0.875rem',
+              width: '100%',
+              padding: '0.75rem',
+              background: currentTheme.background,
+              border: `1px solid ${currentTheme.inputBorder}`,
+              borderRadius: '6px',
+              color: currentTheme.text,
+              marginBottom: '0.5rem'
+            }
+          }),
+          React.createElement('a', {
+            href: 'https://www.alphavantage.co/support/#api-key',
+            target: '_blank',
+            rel: 'noopener noreferrer',
+            style: { 
+              color: currentTheme.accent, 
+              fontSize: '0.8rem',
+              textDecoration: 'none'
+            }
+          }, t.getApiKey || 'Get free API key from alphavantage.co')
+        ),
+        
+        // Skinport Info Section
+        React.createElement('div', {
+          style: {
+            background: currentTheme.inputBg,
+            padding: '1.25rem',
+            borderRadius: '8px',
+            marginBottom: '1rem'
+          }
+        },
+          React.createElement('div', {
+            style: { display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.75rem' }
+          },
+            React.createElement('h3', {
+              style: { color: currentTheme.text, fontSize: '1rem', fontWeight: '600' }
+            }, 'Skinport'),
+            React.createElement('span', {
+              style: { 
+                fontSize: '0.75rem', 
+                padding: '0.25rem 0.5rem',
+                background: 'rgba(34,197,94,0.2)',
+                color: currentTheme.success,
+                borderRadius: '4px'
+              }
+            }, t.publicApi || 'Public API')
+          ),
+          React.createElement('p', {
+            style: { color: currentTheme.textSecondary, fontSize: '0.8rem' }
+          }, t.skinportInfo || 'CS2 skin prices are fetched from the public Skinport API. No API key required.'),
+          React.createElement('a', {
+            href: 'https://docs.skinport.com/',
+            target: '_blank',
+            rel: 'noopener noreferrer',
+            style: { 
+              color: currentTheme.accent, 
+              fontSize: '0.8rem',
+              textDecoration: 'none',
+              display: 'block',
+              marginTop: '0.5rem'
+            }
+          }, t.viewDocs || 'View API documentation')
+        ),
+        
+        // CoinGecko Info Section
+        React.createElement('div', {
+          style: {
+            background: currentTheme.inputBg,
+            padding: '1.25rem',
+            borderRadius: '8px',
+            marginBottom: '1.5rem'
+          }
+        },
+          React.createElement('div', {
+            style: { display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.75rem' }
+          },
+            React.createElement('h3', {
+              style: { color: currentTheme.text, fontSize: '1rem', fontWeight: '600' }
+            }, 'CoinGecko'),
+            React.createElement('span', {
+              style: { 
+                fontSize: '0.75rem', 
+                padding: '0.25rem 0.5rem',
+                background: 'rgba(34,197,94,0.2)',
+                color: currentTheme.success,
+                borderRadius: '4px'
+              }
+            }, t.publicApi || 'Public API')
+          ),
+          React.createElement('p', {
+            style: { color: currentTheme.textSecondary, fontSize: '0.8rem' }
+          }, t.coingeckoInfo || 'Crypto prices are fetched from the public CoinGecko API. No API key required.')
+        ),
+        
+        // Exchange Rate Section
+        React.createElement('div', {
+          style: {
+            background: currentTheme.inputBg,
+            padding: '1.25rem',
+            borderRadius: '8px',
+            marginBottom: '1.5rem'
+          }
+        },
+          React.createElement('div', {
+            style: { display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.75rem' }
+          },
+            React.createElement('h3', {
+              style: { color: currentTheme.text, fontSize: '1rem', fontWeight: '600' }
+            }, t.exchangeRate || 'Exchange Rate'),
+            React.createElement('span', {
+              style: { 
+                fontSize: '0.75rem', 
+                padding: '0.25rem 0.5rem',
+                background: 'rgba(34,197,94,0.2)',
+                color: currentTheme.success,
+                borderRadius: '4px'
+              }
+            }, 'ExchangeRate-API')
+          ),
+          React.createElement('p', {
+            style: { color: currentTheme.textSecondary, fontSize: '0.8rem', marginBottom: '0.5rem' }
+          }, t.exchangeRateInfo || 'Stock prices from Alpha Vantage are in USD and automatically converted to EUR using daily exchange rates.'),
+          React.createElement('div', {
+            style: { 
               display: 'flex',
               alignItems: 'center',
               gap: '0.5rem',
-              marginTop: '1.5rem'
-            }
-          }, 
-            language === 'de' ? 'PDF Exportieren' : 'Export PDF'
-          )
-        )
-      ),
-      
-      // Tax Difference Highlight
-      React.createElement('div', {
-        style: {
-          background: taxJurisdiction === 'de' ? 'rgba(59, 130, 246, 0.1)' : 'rgba(16, 185, 129, 0.1)',
-          border: `2px solid ${taxJurisdiction === 'de' ? '#3b82f6' : '#10b981'}`,
-          borderRadius: '1rem',
-          padding: '1.5rem',
-          marginBottom: '2rem'
-        }
-      },
-        React.createElement('h3', {
-          style: {
-            color: taxJurisdiction === 'de' ? '#3b82f6' : '#10b981',
-            fontWeight: '700',
-            fontSize: '1.125rem',
-            marginBottom: '0.75rem'
-          }
-        }, taxJurisdiction === 'de' 
-          ? 'DEUTSCHE BESONDERHEIT' 
-          : 'U.S. TAX TREATMENT'
-        ),
-        taxJurisdiction === 'de' ? 
-          React.createElement('div', {},
-            React.createElement('p', { style: { color: currentTheme.text, marginBottom: '0.5rem', fontSize: '0.95rem' } },
-              'Krypto > 1 Jahr = STEUERFREI! (Paragraph 23 EStG)'
-            ),
-            React.createElement('p', { style: { color: currentTheme.text, marginBottom: '0.5rem', fontSize: '0.95rem' } },
-              'Krypto <= 1 Jahr = 25% Abgeltungssteuer + 5,5% Soli'
-            ),
-            React.createElement('p', { style: { color: currentTheme.text, fontSize: '0.95rem' } },
-              'Aktien = Immer 25% + Soli (keine Haltefrist-Befreiung)'
-            )
-          ) :
-          React.createElement('div', {},
-            React.createElement('p', { style: { color: currentTheme.text, marginBottom: '0.5rem', fontSize: '0.95rem' } },
-              'ALL crypto/stock sales are TAXABLE (no exemptions)'
-            ),
-            React.createElement('p', { style: { color: currentTheme.text, marginBottom: '0.5rem', fontSize: '0.95rem' } },
-              'Short-term (≤ 1 year) = Ordinary income rates (10-37%)'
-            ),
-            React.createElement('p', { style: { color: currentTheme.text, fontSize: '0.95rem' } },
-              'Long-term (> 1 year) = Preferential rates (0%, 15%, 20%)'
-            )
-          )
-      ),
-      
-      React.createElement('div', { 
-        style: { 
-          display: 'grid', 
-          gridTemplateColumns: 'repeat(auto-fit, minmax(250px, 1fr))', 
-          gap: '1rem', 
-          marginBottom: '2rem' 
-        } 
-      },
-        (taxJurisdiction === 'de' ? [
-          {
-            title: language === 'de' ? 'Steuerpflichtige Gewinne' : 'Taxable Gains',
-            value: getCurrencySymbol() + formatPrice(taxReport.totalCapitalIncome || 0),
-            color: '#3b82f6'
-          },
-          {
-            title: language === 'de' ? 'Steuerfreie Krypto-Gewinne' : 'Tax-Free Crypto Gains',
-            value: getCurrencySymbol() + formatPrice(taxReport.cryptoTaxFreeGains || 0),
-            color: '#10b981'
-          },
-          {
-            title: language === 'de' ? 'Gesamte Steuerschuld' : 'Total Tax Owed',
-            value: getCurrencySymbol() + formatPrice(taxReport.totalTax || 0),
-            color: '#ef4444'
-          },
-          {
-            title: language === 'de' ? 'Steuerersparnis (1-Jahr-Regel)' : 'Tax Savings (1-Year Rule)',
-            value: getCurrencySymbol() + formatPrice(taxReport.cryptoTaxSavings || 0),
-            color: '#10b981'
-          }
-        ] : [
-          {
-            title: language === 'de' ? 'Kurzfristige Gewinne' : 'Short-Term Gains',
-            value: getCurrencySymbol() + formatPrice(taxReport.shortTermGains || 0),
-            color: '#ef4444'
-          },
-          {
-            title: language === 'de' ? 'Langfristige Gewinne' : 'Long-Term Gains',
-            value: getCurrencySymbol() + formatPrice(taxReport.longTermGains || 0),
-            color: '#10b981'
-          },
-          {
-            title: language === 'de' ? 'Geschätzte Steuerschuld' : 'Estimated Tax Owed',
-            value: getCurrencySymbol() + formatPrice(taxReport.totalTax || 0),
-            color: '#ef4444'
-          },
-          {
-            title: language === 'de' ? 'Effektiver Steuersatz' : 'Effective Tax Rate',
-            value: (taxReport.effectiveTaxRate || 0).toFixed(2) + '%',
-            color: '#f59e0b'
-          }
-        ]).map((card, i) =>
-          React.createElement('div', {
-            key: i,
-            style: {
-              background: currentTheme.card,
-              borderRadius: '1rem',
-              padding: '1.5rem',
-              border: `1px solid ${currentTheme.cardBorder}`
+              padding: '0.75rem',
+              background: currentTheme.background,
+              borderRadius: '6px',
+              marginTop: '0.5rem'
             }
           },
-            React.createElement('div', { style: { fontSize: '0.875rem', color: currentTheme.textSecondary, marginBottom: '0.5rem' } }, card.title),
-            React.createElement('div', { style: { fontSize: '2rem', fontWeight: '700', color: card.color } }, card.value)
-          )
-        )
-      ),
-      
-      // Transaction list or info message
-      taxReport.transactions && taxReport.transactions.length > 0 ?
-        React.createElement('div', {
-          style: {
-            background: currentTheme.card,
-            borderRadius: '1rem',
-            padding: '2rem',
-            border: `1px solid ${currentTheme.cardBorder}`,
-            marginBottom: '2rem'
-          }
-        },
-          React.createElement('h3', { style: { color: currentTheme.text, marginBottom: '1rem', fontSize: '1.25rem' } },
-            language === 'de' ? `${taxReport.transactions.length} Transaktionen in ${selectedYear}` : `${taxReport.transactions.length} Transactions in ${selectedYear}`
-          ),
-          React.createElement('p', { style: { color: currentTheme.textSecondary, fontSize: '0.875rem' } },
-            language === 'de' 
-              ? 'Exportieren Sie den PDF-Bericht für eine vollständige Transaktionsliste.'
-              : 'Export the PDF report for a complete transaction list.'
-          )
-        ) :
-        React.createElement('div', {
-          style: {
-            background: currentTheme.card,
-            borderRadius: '1rem',
-            padding: '2rem',
-            border: `1px solid ${currentTheme.cardBorder}`,
-            marginBottom: '2rem',
-            textAlign: 'center'
-          }
-        },
-          React.createElement('p', { style: { color: currentTheme.textSecondary, fontSize: '1rem' } },
-            language === 'de' 
-              ? 'Keine Transaktionen für dieses Jahr vorhanden.'
-              : 'No transactions for this year.'
+            React.createElement('span', { style: { color: currentTheme.text, fontWeight: '600' } }, '1 USD'),
+            React.createElement('span', { style: { color: currentTheme.textSecondary } }, '='),
+            React.createElement('span', { style: { color: currentTheme.accent, fontWeight: '600' } }, `${exchangeRate.toFixed(4)} EUR`)
           )
         ),
-      
-      taxReport.recommendations && taxReport.recommendations.length > 0 &&
-        React.createElement('div', {
-          style: {
-            background: currentTheme.card,
-            borderRadius: '1rem',
-            padding: '2rem',
-            border: `1px solid ${currentTheme.cardBorder}`
-          }
-        },
-          React.createElement('h3', { style: { color: currentTheme.text, marginBottom: '1.5rem', fontSize: '1.5rem' } },
-            language === 'de' ? 'Optimierungsvorschlaege' : 'Tax Optimization Suggestions'
-          ),
-          taxReport.recommendations.map((rec, i) =>
-            React.createElement('div', {
-              key: i,
-              style: {
-                background: rec.type === 'wash-sale-warning' ? 'rgba(239,68,68,0.1)' : 'rgba(16,185,129,0.1)',
-                border: '1px solid ' + (rec.type === 'wash-sale-warning' ? '#ef4444' : '#10b981'),
-                padding: '1rem',
-                borderRadius: '0.5rem',
-                marginBottom: '1rem'
-              }
-            },
-              React.createElement('h4', { 
-                style: { color: currentTheme.text, marginBottom: '0.5rem', fontWeight: '600' } 
-              }, rec.symbol),
-              React.createElement('p', { style: { color: currentTheme.text, marginBottom: '0.5rem' } }, rec.message),
-              rec.taxSavings && 
-                React.createElement('p', { style: { color: '#10b981', fontWeight: '600' } },
-                  (language === 'de' ? 'Moegliche Steuerersparnis: ' : 'Potential tax savings: ') +
-                  getCurrencySymbol() + formatPrice(rec.taxSavings)
-                )
-            )
-          )
-        )
-    );
-  }
-
-  function RebalancingView() {
-    const rebalanceSuggestions = useMemo(() => {
-      if (typeof generateRebalancingSuggestions === 'undefined') return null;
-      return generateRebalancingSuggestions(portfolio, targetAllocation, transactions);
-    }, [portfolio, targetAllocation, transactions]);
-    
-    if (!rebalanceSuggestions) {
-      return React.createElement('div', { style: { padding: '2rem', color: currentTheme.text } },
-        language === 'de' ? 'Rebalancing-Funktionen werden geladen...' : 'Loading rebalancing functions...'
-      );
-    }
-    
-    const totalTarget = Object.values(targetAllocation).reduce((a, b) => a + b, 0);
-    
-    return React.createElement('div', { style: { padding: '2rem' } },
-      React.createElement('h2', { 
-        style: { color: currentTheme.text, fontSize: '2rem', fontWeight: '700', marginBottom: '2rem' } 
-      },
-        language === 'de' ? 'Portfolio Rebalancing' : 'Portfolio Rebalancing'
-      ),
-      
-      React.createElement('div', {
-        style: {
-          background: currentTheme.card,
-          borderRadius: '1rem',
-          padding: '2rem',
-          border: `1px solid ${currentTheme.cardBorder}`,
-          marginBottom: '2rem'
-        }
-      },
-        React.createElement('h3', { style: { color: currentTheme.text, marginBottom: '1rem', fontSize: '1.25rem' } },
-          language === 'de' ? 'Zielaufteilung' : 'Target Allocation'
-        ),
-        React.createElement('div', { 
-          style: { display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '1rem' } 
-        },
-          Object.entries(targetAllocation).map(([category, percent]) =>
-            React.createElement('div', { key: category },
-              React.createElement('label', { 
-                style: { display: 'block', color: currentTheme.text, marginBottom: '0.5rem', fontWeight: '600' } 
-              },
-                category.charAt(0).toUpperCase() + category.slice(1)
-              ),
-              React.createElement('div', { style: { display: 'flex', alignItems: 'center', gap: '0.5rem' } },
-                React.createElement('input', {
-                  type: 'number',
-                  value: percent,
-                  onChange: (e) => setTargetAllocation({ ...targetAllocation, [category]: parseInt(e.target.value) || 0 }),
-                  min: 0,
-                  max: 100,
-                  style: {
-                    flex: 1,
-                    padding: '0.75rem',
-                    background: currentTheme.inputBg,
-                    color: currentTheme.text,
-                    border: `1px solid ${currentTheme.inputBorder}`,
-                    borderRadius: '0.5rem'
-                  }
-                }),
-                React.createElement('span', { style: { color: currentTheme.text, fontWeight: '600' } }, '%')
-              )
-            )
-          )
-        ),
-        React.createElement('p', { 
-          style: { 
-            marginTop: '1rem', 
-            color: totalTarget !== 100 ? '#ef4444' : currentTheme.textSecondary,
-            fontSize: '0.875rem'
-          } 
-        },
-          (language === 'de' ? 'Gesamt: ' : 'Total: ') + totalTarget + '%' +
-          (totalTarget !== 100 ? (language === 'de' ? ' (Muss 100% sein!)' : ' (Must equal 100%!)') : '')
-        )
-      ),
-      
-      React.createElement('div', {
-        style: {
-          background: currentTheme.card,
-          borderRadius: '1rem',
-          padding: '2rem',
-          border: `1px solid ${currentTheme.cardBorder}`,
-          marginBottom: '2rem'
-        }
-      },
-        React.createElement('h3', { style: { color: currentTheme.text, marginBottom: '1.5rem', fontSize: '1.25rem' } },
-          language === 'de' ? 'Aktuelle Aufteilung' : 'Current Allocation'
-        ),
-        Object.entries(rebalanceSuggestions.analysis.drift).map(([category, data]) =>
-          React.createElement('div', { key: category, style: { marginBottom: '1.5rem' } },
-            React.createElement('div', { 
-              style: { display: 'flex', justifyContent: 'space-between', marginBottom: '0.5rem' } 
-            },
-              React.createElement('span', { style: { color: currentTheme.text, fontWeight: '600' } },
-                category.charAt(0).toUpperCase() + category.slice(1)
-              ),
-              React.createElement('span', { style: { color: currentTheme.textSecondary } },
-                (language === 'de' ? 'Aktuell: ' : 'Current: ') + data.current.toFixed(1) + '% | ' +
-                (language === 'de' ? 'Ziel: ' : 'Target: ') + data.target + '%' +
-                (data.overweight ? 
-                  ' (+' + data.driftAmount.toFixed(1) + '%)' :
-                  ' (' + data.driftAmount.toFixed(1) + '%)')
-              )
-            ),
-            React.createElement('div', {
-              style: {
-                width: '100%',
-                height: '24px',
-                background: 'rgba(255,255,255,0.1)',
-                borderRadius: '12px',
-                overflow: 'hidden',
-                position: 'relative'
-              }
-            },
-              React.createElement('div', {
-                style: {
-                  width: data.current + '%',
-                  height: '100%',
-                  background: data.overweight ? '#ef4444' : '#10b981',
-                  position: 'absolute'
-                }
-              }),
-              React.createElement('div', {
-                style: {
-                  position: 'absolute',
-                  left: data.target + '%',
-                  height: '100%',
-                  width: '3px',
-                  background: '#ffffff'
-                }
-              })
-            )
-          )
-        )
-      ),
-      
-      rebalanceSuggestions.rebalanceNeeded ?
-        React.createElement('div', {
-          style: {
-            background: currentTheme.card,
-            borderRadius: '1rem',
-            padding: '2rem',
-            border: `1px solid ${currentTheme.cardBorder}`
-          }
-        },
-          React.createElement('div', {
-            style: {
-              background: 'rgba(251,191,36,0.1)',
-              border: '1px solid #fbbf24',
-              padding: '1rem',
-              borderRadius: '0.5rem',
-              marginBottom: '1.5rem'
-            }
-          },
-            React.createElement('p', { style: { color: currentTheme.text, fontWeight: '600', marginBottom: '0.5rem' } },
-              language === 'de' ? 'Portfolio ist nicht ausbalanciert!' : 'Portfolio is out of balance!'
-            ),
-            React.createElement('p', { style: { color: currentTheme.text, fontSize: '0.875rem' } },
-              (language === 'de' ? 'Maximale Abweichung: ' : 'Maximum drift: ') + 
-              rebalanceSuggestions.analysis.maxDrift.toFixed(2) + '%'
-            )
-          ),
-          
-          React.createElement('h3', { style: { color: currentTheme.text, marginBottom: '1rem', fontSize: '1.25rem' } },
-            language === 'de' ? 'Empfohlene Massnahmen' : 'Recommended Actions'
-          ),
-          
-          rebalanceSuggestions.suggestions.map((sug, i) =>
-            React.createElement('div', {
-              key: i,
-              style: {
-                background: sug.action === 'BUY' ? 'rgba(16,185,129,0.1)' : 'rgba(239,68,68,0.1)',
-                border: '1px solid ' + (sug.action === 'BUY' ? '#10b981' : '#ef4444'),
-                padding: '1.5rem',
-                borderRadius: '0.5rem',
-                marginBottom: '1rem'
-              }
-            },
-              React.createElement('div', { 
-                style: { display: 'flex', justifyContent: 'space-between', alignItems: 'start', marginBottom: '0.75rem' } 
-              },
-                React.createElement('div', {},
-                  React.createElement('h4', { 
-                    style: { 
-                      color: currentTheme.text, 
-                      fontWeight: '700',
-                      fontSize: '1.125rem',
-                      marginBottom: '0.25rem'
-                    } 
-                  },
-                    (language === 'de' ? (sug.action === 'BUY' ? 'KAUFEN' : 'VERKAUFEN') : sug.action) + 
-                    ' ' + sug.category
-                  ),
-                  React.createElement('p', { style: { color: currentTheme.textSecondary, fontSize: '0.875rem' } },
-                    sug.reason
-                  )
-                ),
-                React.createElement('span', {
-                  style: {
-                    padding: '0.25rem 0.75rem',
-                    borderRadius: '0.25rem',
-                    fontSize: '0.75rem',
-                    fontWeight: '600',
-                    background: sug.priority === 'high' ? '#ef4444' : '#f59e0b',
-                    color: 'white'
-                  }
-                }, sug.priority.toUpperCase())
-              ),
-              React.createElement('p', { 
-                style: { 
-                  color: currentTheme.text, 
-                  fontSize: '1.25rem', 
-                  fontWeight: '700' 
-                } 
-              },
-                (language === 'de' ? 'Betrag: ' : 'Amount: ') + 
-                getCurrencySymbol() + formatPrice(sug.amount)
-              )
-            )
-          )
-        ) :
-        React.createElement('div', {
-          style: {
-            background: 'rgba(16,185,129,0.1)',
-            border: '1px solid #10b981',
-            padding: '3rem 2rem',
-            borderRadius: '1rem',
-            textAlign: 'center'
-          }
-        },
-          React.createElement('div', { style: { fontSize: '3rem', marginBottom: '1rem' } }, 'OK'),
-          React.createElement('h3', { style: { color: '#10b981', marginBottom: '0.5rem', fontSize: '1.5rem' } },
-            language === 'de' ? 'Portfolio ist gut ausbalanciert!' : 'Portfolio is well-balanced!'
-          ),
-          React.createElement('p', { style: { color: currentTheme.text } },
-            language === 'de' ? 'Derzeit ist kein Rebalancing erforderlich.' : 'No rebalancing needed at this time.'
-          )
-        )
-    );
-  }
-
-    // ========== RENDER WITH SIDEBAR ==========
-  return React.createElement('div', { style: { display: 'flex', height: '100vh', overflow: 'hidden' } },
-    
-    // ========== SIDEBAR ==========
-    React.createElement('div', { className: 'sidebar', style: { width: '280px', background: 'linear-gradient(180deg, #1e293b 0%, #0f172a 100%)', color: 'white', display: 'flex', flexDirection: 'column', boxShadow: '4px 0 20px rgba(0,0,0,0.1)', zIndex: 100 } },
-      
-      // Sidebar Header
-      React.createElement('div', { style: { padding: '2rem 1.5rem', borderBottom: '1px solid rgba(255,255,255,0.1)' } },
-        React.createElement('div', { style: { fontSize: '1.75rem', fontWeight: '800', background: 'linear-gradient(135deg, #3b82f6 0%, #8b5cf6 100%)', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent', backgroundClip: 'text', marginBottom: '0.25rem' } }, 'MAERMIN'),
-        React.createElement('div', { style: { fontSize: '0.65rem', opacity: 0.6, letterSpacing: '0.05em', textTransform: 'uppercase' } }, 'Smart Money Management')
-      ),
-      
-      // Sidebar Navigation
-      React.createElement('div', { style: { flex: 1, padding: '1rem 0', overflowY: 'auto' } },
-        [
-          { view: 'overview', label: t.overview },
-          { view: 'portfolio', label: t.portfolio },
-          { view: 'charts', label: t.statistics },
-          { view: 'transactions', label: language === 'de' ? 'Transaktionen' : 'Transactions' },
-          { view: 'taxreports', label: language === 'de' ? 'Steuerberichte' : 'Tax Reports' },
-          { view: 'rebalancing', label: 'Rebalancing' },
-          { view: 'risk', label: 'Risk Analytics' },
-          { view: 'cs2analytics', label: 'CS2 Analytics' }
-        ].map(item => 
-          React.createElement('div', {
-            key: item.view,
-            onClick: () => setActiveView(item.view),
-            style: {
-              display: 'flex', alignItems: 'center', gap: '1rem', padding: '0.875rem 1.5rem',
-              cursor: 'pointer', transition: 'all 0.2s',
-              borderLeft: activeView === item.view ? '3px solid #3b82f6' : '3px solid transparent',
-              background: activeView === item.view ? 'rgba(59,130,246,0.1)' : 'transparent',
-              color: activeView === item.view ? 'white' : 'rgba(255,255,255,0.7)'
-            }
-          },
-            React.createElement('span', { style: { fontWeight: '500', fontSize: '0.9375rem' } }, item.label)
-          )
-        )
-      ),
-      
-      // Sidebar Footer
-      React.createElement('div', { style: { padding: '1rem 1.5rem', borderTop: '1px solid rgba(255,255,255,0.1)' } },
-        React.createElement('div', { style: { fontSize: '0.75rem', opacity: 0.5, marginBottom: '0.75rem' } }, 'MAERMIN v5.1'),
+        
+        // Close button
         React.createElement('button', {
-          onClick: () => setTheme(theme === 'dark' ? 'white' : theme === 'white' ? 'purple' : 'dark'),
-          style: { width: '100%', padding: '0.625rem', background: 'rgba(255,255,255,0.1)', border: 'none', borderRadius: '0.5rem', color: 'white', cursor: 'pointer', fontSize: '0.875rem', fontWeight: '500', transition: 'all 0.2s' }
-        }, theme === 'dark' ? ' Dark' : theme === 'white' ? ' Light' : ' Purple')
+          onClick: () => setShowApiSettings(false),
+          style: {
+            width: '100%',
+            padding: '0.75rem',
+            background: currentTheme.accent,
+            color: '#fff',
+            border: 'none',
+            borderRadius: '8px',
+            cursor: 'pointer',
+            fontWeight: '600'
+          }
+        }, t.close || 'Close')
+      )
+    );
+  };
+
+  // ========== MAIN RENDER ==========
+  
+  return React.createElement('div', {
+    style: {
+      minHeight: '100vh',
+      background: currentTheme.background,
+      color: currentTheme.text
+    }
+  },
+    // Header
+    React.createElement('header', {
+      style: {
+        padding: '1rem 1.5rem',
+        display: 'flex',
+        justifyContent: 'space-between',
+        alignItems: 'center',
+        borderBottom: `1px solid ${currentTheme.cardBorder}`
+      }
+    },
+      React.createElement('div', { style: { display: 'flex', alignItems: 'center', gap: '1rem' } },
+        React.createElement('h1', {
+          style: {
+            fontSize: '1.5rem',
+            fontWeight: '800',
+            background: 'linear-gradient(135deg, #3b82f6 0%, #8b5cf6 100%)',
+            WebkitBackgroundClip: 'text',
+            WebkitTextFillColor: 'transparent',
+            backgroundClip: 'text'
+          }
+        }, 'MAERMIN'),
+        React.createElement('span', {
+          style: {
+            fontSize: '0.75rem',
+            padding: '0.25rem 0.5rem',
+            background: currentTheme.inputBg,
+            borderRadius: '4px',
+            color: currentTheme.textSecondary
+          }
+        }, 'v6.0')
+      ),
+      
+      React.createElement('div', { style: { display: 'flex', gap: '0.5rem', alignItems: 'center' } },
+        // Command palette hint
+        React.createElement('button', {
+          onClick: () => setShowCommandPalette(true),
+          style: {
+            padding: '0.5rem 1rem',
+            background: currentTheme.inputBg,
+            border: `1px solid ${currentTheme.cardBorder}`,
+            borderRadius: '8px',
+            color: currentTheme.textSecondary,
+            cursor: 'pointer',
+            display: 'flex',
+            alignItems: 'center',
+            gap: '0.5rem',
+            fontSize: '0.875rem'
+          }
+        },
+          React.createElement('span', null, t.searchCommands || 'Search...'),
+          React.createElement('kbd', {
+            style: {
+              padding: '0.125rem 0.375rem',
+              background: currentTheme.card,
+              borderRadius: '4px',
+              fontSize: '0.75rem'
+            }
+          }, 'Ctrl+K')
+        ),
+        
+        // Settings
+        React.createElement('button', {
+          onClick: () => setShowSettings(!showSettings),
+          style: {
+            padding: '0.5rem',
+            background: currentTheme.inputBg,
+            border: `1px solid ${currentTheme.cardBorder}`,
+            borderRadius: '8px',
+            color: currentTheme.text,
+            cursor: 'pointer'
+          }
+        }, 'S')
       )
     ),
     
-    // ========== MAIN CONTENT ==========
-    React.createElement('div', { style: { flex: 1, overflowY: 'auto' } },
-      React.createElement('div', { style: { minHeight: '100%', background: currentTheme.background, padding: '2rem' } },
-        React.createElement('div', { style: { maxWidth: '1400px', margin: '0 auto' } },
-          React.createElement('div', { style: { background: currentTheme.card, backdropFilter: 'blur(10px)', borderRadius: '1rem', padding: '2rem', border: `1px solid ${currentTheme.cardBorder}` } },
-        
-        // Header with title and action buttons
-        React.createElement('div', { style: { display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '2rem', flexWrap: 'wrap', gap: '1rem' } },
-          React.createElement('h1', { style: { fontSize: '2.5rem', fontWeight: 'bold', color: currentTheme.text } }, t.title),
-          React.createElement('div', { style: { display: 'flex', gap: '0.75rem', flexWrap: 'wrap' } },
-            React.createElement('button', { onClick: () => setShowSettings(!showSettings), style: { padding: '0.5rem 1rem', background: '#9333ea', color: 'white', borderRadius: '0.5rem', border: 'none', cursor: 'pointer', fontWeight: '600' } }, t.settings),
-            React.createElement('button', { onClick: () => setShowApiSettings(!showApiSettings), style: { padding: '0.5rem 1rem', background: '#ca8a04', color: 'white', borderRadius: '0.5rem', border: 'none', cursor: 'pointer', fontWeight: '600' } }, t.apiKeys),
-            React.createElement('button', { onClick: exportData, style: { padding: '0.5rem 1rem', background: '#16a34a', color: 'white', borderRadius: '0.5rem', border: 'none', cursor: 'pointer', fontWeight: '600' } }, t.export),
-            React.createElement('label', { style: { padding: '0.5rem 1rem', background: '#9333ea', color: 'white', borderRadius: '0.5rem', cursor: 'pointer', fontWeight: '600' } }, t.import, React.createElement('input', { type: 'file', accept: '.json', onChange: importData, style: { display: 'none' } })),
-            React.createElement('button', { onClick: fetchPrices, disabled: loading, style: { padding: '0.5rem 1rem', background: '#2563eb', color: 'white', borderRadius: '0.5rem', border: 'none', cursor: 'pointer', opacity: loading ? 0.5 : 1, fontWeight: '600' } }, loading ? (t.loading) : (t.refresh))
-          )
-        ),
-
-        // Settings panel
-        showSettings && React.createElement('div', { style: { background: currentTheme.inputBg, borderRadius: '1rem', padding: '1.5rem', marginBottom: '1.5rem', border: `2px solid ${currentTheme.inputBorder}` } },
-          React.createElement('h3', { style: { color: currentTheme.text, marginBottom: '1rem' } }, ' ' + (language === 'de' ? 'Einstellungen' : t.settings)),
-          React.createElement('div', { style: { display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '1rem', marginBottom: '1rem' } },
-            React.createElement('div', {},
-              React.createElement('label', { style: { color: currentTheme.text, display: 'block', marginBottom: '0.5rem', fontWeight: '600' } }, t.theme + ':'),
-              React.createElement('div', { style: { display: 'flex', gap: '0.5rem', flexWrap: 'wrap' } },
-                ['white', 'dark', 'purple'].map(th => React.createElement('button', { key: th, onClick: () => setTheme(th), style: { padding: '0.5rem 1.5rem', background: theme === th ? '#3b82f6' : currentTheme.inputBg, color: theme === th ? 'white' : currentTheme.text, border: `1px solid ${currentTheme.inputBorder}`, borderRadius: '0.5rem', cursor: 'pointer', fontWeight: '600' } }, th === 'white' ? (t.whiteMode) : th === 'dark' ? (t.darkMode) : (t.purpleMode)))
-              )
-            ),
-            React.createElement('div', {},
-              React.createElement('label', { style: { color: currentTheme.text, display: 'block', marginBottom: '0.5rem', fontWeight: '600' } }, t.language + ':'),
-              React.createElement('div', { style: { display: 'flex', gap: '0.5rem' } },
-                React.createElement('button', { 
-                  onClick: () => { 
-                    setLanguage('de'); 
-                    localStorage.setItem('language', 'de');
-                  }, 
-                  style: { padding: '0.5rem 1.5rem', background: language === 'de' ? '#3b82f6' : currentTheme.inputBg, color: language === 'de' ? 'white' : currentTheme.text, border: `1px solid ${currentTheme.inputBorder}`, borderRadius: '0.5rem', cursor: 'pointer', fontWeight: '600' } 
-                }, 'DE (Deutsch)'),
-                React.createElement('button', { 
-                  onClick: () => { 
-                    setLanguage('en'); 
-                    localStorage.setItem('language', 'en');
-                  }, 
-                  style: { padding: '0.5rem 1.5rem', background: language === 'en' ? '#3b82f6' : currentTheme.inputBg, color: language === 'en' ? 'white' : currentTheme.text, border: `1px solid ${currentTheme.inputBorder}`, borderRadius: '0.5rem', cursor: 'pointer', fontWeight: '600' } 
-                }, 'EN (English)')
-              )
-            ),
-            React.createElement('div', {},
-              React.createElement('label', { style: { color: currentTheme.text, display: 'block', marginBottom: '0.5rem', fontWeight: '600' } }, t.currency + ':'),
-              React.createElement('div', { style: { display: 'flex', gap: '0.5rem' } },
-                React.createElement('button', { onClick: () => setCurrency('EUR'), style: { padding: '0.5rem 1.5rem', background: currency === 'EUR' ? '#3b82f6' : currentTheme.inputBg, color: currency === 'EUR' ? 'white' : currentTheme.text, border: `1px solid ${currentTheme.inputBorder}`, borderRadius: '0.5rem', cursor: 'pointer', fontWeight: '600' } }, 'EUR (€)'),
-                React.createElement('button', { onClick: () => setCurrency('USD'), style: { padding: '0.5rem 1.5rem', background: currency === 'USD' ? '#3b82f6' : currentTheme.inputBg, color: currency === 'USD' ? 'white' : currentTheme.text, border: `1px solid ${currentTheme.inputBorder}`, borderRadius: '0.5rem', cursor: 'pointer', fontWeight: '600' } }, 'USD ($)')
-              ),
-              currency === 'USD' && React.createElement('div', { style: { marginTop: '0.75rem' } },
-                React.createElement('div', { style: { display: 'flex', gap: '0.5rem', alignItems: 'center', marginBottom: '0.5rem' } },
-                  React.createElement('span', { style: { fontSize: '0.875rem', color: currentTheme.text, fontWeight: '600' } }, 
-                    `1 EUR = ${exchangeRate.toFixed(4)} USD`
-                  ),
-                  React.createElement('button', {
-                    onClick: fetchExchangeRate,
-                    style: {
-                      padding: '0.375rem 0.75rem',
-                      background: '#10b981',
-                      color: 'white',
-                      border: 'none',
-                      borderRadius: '0.375rem',
-                      cursor: 'pointer',
-                      fontSize: '0.75rem',
-                      fontWeight: '600'
-                    }
-                  }, ' ' + (language === 'de' ? 'Live-Kurs' : 'Live Rate'))
-                ),
-                localStorage.getItem('exchangeRateLastUpdate') && React.createElement('div', { 
-                  style: { fontSize: '0.7rem', color: currentTheme.textSecondary } 
-                }, 
-                  ' ' + (language === 'de' ? 'Aktualisiert: ' : 'Updated: ') + 
-                  new Date(localStorage.getItem('exchangeRateLastUpdate')).toLocaleString(language === 'de' ? 'de-DE' : 'en-US', {
-                    day: '2-digit',
-                    month: '2-digit',
-                    hour: '2-digit',
-                    minute: '2-digit'
-                  })
-                )
-              )
-            )
-          ),
-          React.createElement('button', { onClick: () => setShowSettings(false), style: { padding: '0.5rem 1.5rem', background: '#4b5563', color: 'white', borderRadius: '0.5rem', border: 'none', cursor: 'pointer' } }, t.cancel)
-        ),
-
-        // API Settings panel
-        showApiSettings && React.createElement('div', { style: { background: currentTheme.inputBg, borderRadius: '1rem', padding: '1.5rem', marginBottom: '1.5rem', border: `2px solid rgba(234,179,8,0.5)` } },
-          React.createElement('h3', { style: { color: currentTheme.text, marginBottom: '1rem' } }, ' ' + t.apiSettings),
-          
-          React.createElement('label', { style: { color: currentTheme.text, display: 'block', marginBottom: '0.5rem' } }, t.alphaVantageKey),
-          React.createElement('input', { type: 'text', value: apiKeys.alphaVantage, onChange: (e) => setApiKeys({...apiKeys, alphaVantage: e.target.value}), placeholder: 'ABCDEFGHIJKLMNOP', style: { width: '100%', padding: '0.5rem', background: currentTheme.inputBg, border: `1px solid ${currentTheme.inputBorder}`, borderRadius: '0.5rem', color: currentTheme.text, marginBottom: '0.5rem' } }),
-          React.createElement('a', { href: 'https://www.alphavantage.co/support/#api-key', target: '_blank', rel: 'noopener noreferrer', style: { color: '#3b82f6', fontSize: '0.875rem', textDecoration: 'none', display: 'block', marginBottom: '1rem' } }, t.getKeyFree + ' (Alpha Vantage)'),
-          
-          React.createElement('label', { style: { color: currentTheme.text, display: 'block', marginBottom: '0.5rem' } }, t.skinportKey),
-          React.createElement('input', { type: 'text', value: apiKeys.skinport, onChange: (e) => setApiKeys({...apiKeys, skinport: e.target.value}), placeholder: 'your-skinport-api-key', style: { width: '100%', padding: '0.5rem', background: currentTheme.inputBg, border: `1px solid ${currentTheme.inputBorder}`, borderRadius: '0.5rem', color: currentTheme.text, marginBottom: '0.5rem' } }),
-          React.createElement('a', { href: 'https://skinport.com/api', target: '_blank', rel: 'noopener noreferrer', style: { color: '#3b82f6', fontSize: '0.875rem', textDecoration: 'none', display: 'block', marginBottom: '1rem' } }, t.getKeyFree + ' (Skinport)'),
-          
-          React.createElement('div', { style: { display: 'flex', gap: '0.75rem' } },
-            React.createElement('button', { onClick: saveApiKeys, style: { padding: '0.5rem 1.5rem', background: '#16a34a', color: 'white', borderRadius: '0.5rem', border: 'none', cursor: 'pointer' } }, t.save),
-            React.createElement('button', { onClick: () => setShowApiSettings(false), style: { padding: '0.5rem 1.5rem', background: '#4b5563', color: 'white', borderRadius: '0.5rem', border: 'none', cursor: 'pointer' } }, t.cancel)
-          )
-        ),
-
-        // View navigation now in sidebar (left)
-        React.createElement('div', { style: { display: 'none' } }, // Old buttons hidden - using sidebar now
-          React.createElement('div', { style: { display: 'flex', gap: '0.5rem', marginBottom: '1.5rem', flexWrap: 'wrap' } },
-            React.createElement('button', { onClick: () => setActiveView('overview'), style: { padding: '0.75rem 1.5rem', background: activeView === 'overview' ? '#3b82f6' : currentTheme.inputBg, color: 'white', borderRadius: '0.5rem', border: 'none', cursor: 'pointer', fontWeight: '600' } }, ' ' + t.financialOverview),
-            React.createElement('button', { onClick: () => setActiveView('portfolio'), style: { padding: '0.75rem 1.5rem', background: activeView === 'portfolio' ? '#3b82f6' : currentTheme.inputBg, color: 'white', borderRadius: '0.5rem', border: 'none', cursor: 'pointer', fontWeight: '600' } }, ' ' + t.portfolio),
-            React.createElement('button', { onClick: () => setActiveView('charts'), style: { padding: '0.75rem 1.5rem', background: activeView === 'charts' ? '#3b82f6' : currentTheme.inputBg, color: 'white', borderRadius: '0.5rem', border: 'none', cursor: 'pointer', fontWeight: '600' } }, ' ' + t.statistics),
-          )
-        ),
-
-        // ============= PORTFOLIO VIEW =============
-        activeView === 'portfolio' && React.createElement('div', {},
-          // Main portfolio summary card
-          React.createElement('div', { style: { background: 'linear-gradient(90deg, #f97316, #ec4899)', borderRadius: '1rem', padding: '1.5rem', color: 'white', marginBottom: '2rem' } },
-            React.createElement('div', { style: { display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '1.5rem' } },
-              React.createElement('div', {}, 
-                React.createElement('div', { style: { fontSize: '0.875rem', opacity: 0.9 } }, t.totalValue), 
-                React.createElement('div', { style: { fontSize: '2.5rem', fontWeight: 'bold' } }, getCurrencySymbol() + formatPrice(total))
-              ),
-              React.createElement('div', {}, 
-                React.createElement('div', { style: { fontSize: '0.875rem', opacity: 0.9 } }, t.invested), 
-                React.createElement('div', { style: { fontSize: '2rem', fontWeight: 'bold' } }, getCurrencySymbol() + formatPrice(invest))
-              ),
-              React.createElement('div', {}, 
-                React.createElement('div', { style: { fontSize: '0.875rem', opacity: 0.9 } }, t.profitLoss), 
-                React.createElement('div', { style: { fontSize: '2rem', fontWeight: 'bold', color: profit >= 0 ? '#10b981' : '#ef4444' } }, (profit >= 0 ? '+' : '') + getCurrencySymbol() + formatPrice(Math.abs(profit))), 
-                React.createElement('div', { style: { fontSize: '1rem', opacity: 0.9 } }, `(${profitPct >= 0 ? '+' : ''}${formatPrice(profitPct)}%)`)
-              )
-            )
-          ),
-
-          // Category summary cards
-          React.createElement('div', { style: { display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(250px, 1fr))', gap: '1.5rem', marginBottom: '2rem' } },
-            [['crypto', '#3b82f6', '#2563eb'], ['stocks', '#10b981', '#059669'], ['skins', '#8b5cf6', '#7c3aed']].map(([cat, c1, c2]) => {
-              const catProfit = calcProfit(cat);
-              const catInvest = calcInvest(cat);
-              const catProfitPct = catInvest > 0 ? (catProfit / catInvest) * 100 : 0;
-              return React.createElement('div', { key: cat, style: { background: `linear-gradient(135deg, ${c1}, ${c2})`, borderRadius: '1rem', padding: '1.5rem', color: 'white' } },
-                React.createElement('div', { style: { fontSize: '0.875rem', opacity: 0.8 } }, t[cat === 'skins' ? 'cs2Items' : cat]),
-                React.createElement('div', { style: { fontSize: '2rem', fontWeight: 'bold', margin: '0.5rem 0' } }, getCurrencySymbol() + formatPrice(calcTotal(cat))),
-                React.createElement('div', { style: { fontSize: '0.875rem', opacity: 0.8 } }, safe[cat].length + ' ' + getPositionText(safe[cat].length)),
-                React.createElement('div', { style: { fontSize: '0.875rem', marginTop: '0.5rem', fontWeight: '600', color: catProfit >= 0 ? '#86efac' : '#fca5a5' } }, (catProfit >= 0 ? ' +' : ' ') + getCurrencySymbol() + formatPrice(Math.abs(catProfit)) + ` (${catProfitPct >= 0 ? '+' : ''}${formatPrice(catProfitPct)}%)`)
-              );
-            })
-          ),
-
-          // Category tabs
-          React.createElement('div', { style: { display: 'flex', gap: '0.5rem', marginBottom: '1.5rem', flexWrap: 'wrap' } },
-            tabs.map(tab => React.createElement('button', { 
-              key: tab.id, 
-              onClick: () => setActiveTab(tab.id), 
-              style: { 
-                padding: '0.75rem 1.5rem', 
-                background: activeTab === tab.id ? '#3b82f6' : currentTheme.inputBg, 
-                color: 'white', 
-                borderRadius: '0.5rem', 
-                border: 'none', 
-                cursor: 'pointer', 
-                fontWeight: '600' 
-              } 
-            }, tab.label))
-          ),
-
-          // Portfolio always shows transactions - no manual mode
-          React.createElement('div', {
-            style: {
-              background: 'rgba(16,185,129,0.1)',
-              border: '2px solid #10b981',
-              borderRadius: '1rem',
-              padding: '1rem',
-              marginBottom: '1.5rem',
-              textAlign: 'center'
-            }
-          },
-            React.createElement('div', { 
-              style: { 
-                color: '#10b981', 
-                fontWeight: '600',
-                fontSize: '0.95rem'
-              } 
-            }, 
-              language === 'de' 
-                ? 'Portfolio wird automatisch aus Transaktionen berechnet' 
-                : 'Portfolio automatically calculated from Transactions'
-            )
-          ),
-
-          // Position list
-          React.createElement('div', {},
-            safe[activeTab].length === 0 ? 
-              React.createElement('div', { style: { textAlign: 'center', padding: '3rem', color: currentTheme.textSecondary } }, t.noPositions) :
-              safe[activeTab].map(item => {
-                const curr = item.currentPrice || prices[item.symbol.toLowerCase()] || prices[item.symbol] || item.purchasePrice || 0;
-                const val = curr * item.amount;
-                const inv = (item.purchasePrice || 0) * item.amount;
-                const fees = parseFloat(item.fees) || 0;
-                const prof = val - inv - fees; // Profit minus fees
-                const profPct = inv > 0 ? (prof / inv) * 100 : 0;
-                const img = images[item.symbol.toLowerCase()] || images[item.symbol];
-                
-                // Edit mode for this item
-                if (editingItem && editingItem.id === item.id) {
-                  return React.createElement('div', { 
-                    key: item.id, 
-                    style: { 
-                      background: currentTheme.inputBg, 
-                      borderRadius: '0.75rem', 
-                      padding: '1rem', 
-                      marginBottom: '0.75rem', 
-                      border: `2px solid #3b82f6` 
-                    } 
-                  },
-                    React.createElement('div', { style: { display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(150px, 1fr))', gap: '1rem', marginBottom: '1rem' } },
-                      React.createElement('div', {}, 
-                        React.createElement('label', { style: { color: currentTheme.text, fontSize: '0.875rem', display: 'block', marginBottom: '0.25rem' } }, t.symbol), 
-                        React.createElement('input', { 
-                          type: 'text', 
-                          value: editingItem.symbol, 
-                          onChange: (e) => setEditingItem({...editingItem, symbol: e.target.value}), 
-                          style: { width: '100%', padding: '0.5rem', background: currentTheme.card, border: `1px solid ${currentTheme.inputBorder}`, borderRadius: '0.5rem', color: currentTheme.text } 
-                        })
-                      ),
-                      React.createElement('div', {}, 
-                        React.createElement('label', { style: { color: currentTheme.text, fontSize: '0.875rem', display: 'block', marginBottom: '0.25rem' } }, t.amount), 
-                        React.createElement('input', { 
-                          type: 'number', 
-                          step: '0.001', 
-                          value: editingItem.amount, 
-                          onChange: (e) => setEditingItem({...editingItem, amount: e.target.value}), 
-                          style: { width: '100%', padding: '0.5rem', background: currentTheme.card, border: `1px solid ${currentTheme.inputBorder}`, borderRadius: '0.5rem', color: currentTheme.text } 
-                        })
-                      ),
-                      React.createElement('div', {}, 
-                        React.createElement('label', { style: { color: currentTheme.text, fontSize: '0.875rem', display: 'block', marginBottom: '0.25rem' } }, t.purchasePrice), 
-                        React.createElement('input', { 
-                          type: 'number', 
-                          step: '0.01', 
-                          value: editingItem.purchasePrice, 
-                          onChange: (e) => setEditingItem({...editingItem, purchasePrice: e.target.value}), 
-                          style: { width: '100%', padding: '0.5rem', background: currentTheme.card, border: `1px solid ${currentTheme.inputBorder}`, borderRadius: '0.5rem', color: currentTheme.text } 
-                        })
-                      ),
-                      React.createElement('div', {}, 
-                        React.createElement('label', { style: { color: currentTheme.text, fontSize: '0.875rem', display: 'block', marginBottom: '0.25rem' } }, t.purchaseDate), 
-                        React.createElement('input', { 
-                          type: 'date', 
-                          value: editingItem.purchaseDate, 
-                          onChange: (e) => setEditingItem({...editingItem, purchaseDate: e.target.value}), 
-                          style: { width: '100%', padding: '0.5rem', background: currentTheme.card, border: `1px solid ${currentTheme.inputBorder}`, borderRadius: '0.5rem', color: currentTheme.text } 
-                        })
-                      ),
-                      React.createElement('div', {}, 
-                        React.createElement('label', { style: { color: currentTheme.text, fontSize: '0.875rem', display: 'block', marginBottom: '0.25rem' } }, t.feesOptional), 
-                        React.createElement('input', { 
-                          type: 'number', 
-                          step: '0.01',
-                          min: '0',
-                          placeholder: '0.00',
-                          value: editingItem.fees || '', 
-                          onChange: (e) => setEditingItem({...editingItem, fees: e.target.value}), 
-                          style: { width: '100%', padding: '0.5rem', background: currentTheme.card, border: `1px solid ${currentTheme.inputBorder}`, borderRadius: '0.5rem', color: currentTheme.text } 
-                        })
-                      ),
-                      activeTab === 'skins' && React.createElement('div', {}, 
-                        React.createElement('label', { style: { color: currentTheme.text, fontSize: '0.875rem', display: 'block', marginBottom: '0.25rem' } }, 'Float Value'), 
-                        React.createElement('input', { 
-                          type: 'number', 
-                          step: '0.0001',
-                          min: '0',
-                          max: '1',
-                          value: editingItem.floatValue || '', 
-                          onChange: (e) => setEditingItem({...editingItem, floatValue: e.target.value}), 
-                          style: { width: '100%', padding: '0.5rem', background: currentTheme.card, border: `1px solid ${currentTheme.inputBorder}`, borderRadius: '0.5rem', color: currentTheme.text } 
-                        })
-                      ),
-                      activeTab === 'skins' && React.createElement('div', {}, 
-                        React.createElement('label', { style: { color: currentTheme.text, fontSize: '0.875rem', display: 'block', marginBottom: '0.25rem' } }, 'Rarity'), 
-                        React.createElement('select', { 
-                          value: editingItem.rarity || '', 
-                          onChange: (e) => setEditingItem({...editingItem, rarity: e.target.value}), 
-                          style: { width: '100%', padding: '0.5rem', background: currentTheme.card, border: `1px solid ${currentTheme.inputBorder}`, borderRadius: '0.5rem', color: currentTheme.text } 
-                        },
-                          React.createElement('option', { value: '' }, '-- Select --'),
-                          React.createElement('option', { value: 'consumer_grade' }, 'Consumer Grade'),
-                          React.createElement('option', { value: 'industrial_grade' }, 'Industrial Grade'),
-                          React.createElement('option', { value: 'mil_spec' }, 'Mil-Spec'),
-                          React.createElement('option', { value: 'restricted' }, 'Restricted'),
-                          React.createElement('option', { value: 'classified' }, 'Classified'),
-                          React.createElement('option', { value: 'covert' }, 'Covert'),
-                          React.createElement('option', { value: 'contraband' }, 'Contraband'),
-                          React.createElement('option', { value: 'knife' }, 'Knife'),
-                          React.createElement('option', { value: 'glove' }, 'Glove')
-                        )
-                      )
-                    ),
-                    React.createElement('div', { style: { display: 'flex', gap: '0.5rem' } },
-                      React.createElement('button', { 
-                        onClick: saveEdit, 
-                        style: { padding: '0.5rem 1rem', background: '#16a34a', color: 'white', borderRadius: '0.5rem', border: 'none', cursor: 'pointer' } 
-                      }, ' ' + t.save),
-                      React.createElement('button', { 
-                        onClick: cancelEdit, 
-                        style: { padding: '0.5rem 1rem', background: '#4b5563', color: 'white', borderRadius: '0.5rem', border: 'none', cursor: 'pointer' } 
-                      }, ' ' + t.cancel)
-                    )
-                  );
-                }
-                
-                // Normal display mode
-                return React.createElement('div', { 
-                  key: item.id, 
-                  style: { 
-                    background: currentTheme.inputBg, 
-                    borderRadius: '0.75rem', 
-                    padding: '1rem', 
-                    display: 'flex', 
-                    justifyContent: 'space-between', 
-                    alignItems: 'center', 
-                    marginBottom: '0.75rem', 
-                    border: `1px solid ${currentTheme.inputBorder}` 
-                  } 
-                },
-                  React.createElement('div', { style: { display: 'flex', alignItems: 'center', gap: '1rem', flex: 1 } },
-                    img && React.createElement('img', { 
-                      src: img, 
-                      alt: item.symbol, 
-                      style: { width: '48px', height: '48px', borderRadius: '50%', objectFit: 'cover', background: 'white' }, 
-                      onError: (e) => { e.target.style.display = 'none'; } 
-                    }),
-                    React.createElement('div', {},
-                      React.createElement('div', { style: { color: currentTheme.text, fontWeight: '600', fontSize: '1.125rem' } }, item.symbol.toUpperCase()),
-                      React.createElement('div', { style: { color: currentTheme.textSecondary, fontSize: '0.875rem' } }, `${t.amount}: ${item.amount} | ${t.bought}: ${fmtDate(item.purchaseDate)}`),
-                      React.createElement('div', { style: { color: currentTheme.textSecondary, fontSize: '0.875rem' } }, `${t.purchasePrice}: ${getCurrencySymbol()}${formatPrice(item.purchasePrice || 0)} ${t.perUnit}`),
-                      activeTab === 'skins' && React.createElement('a', {
-                        href: `https://skinport.com/market?search=${encodeURIComponent(item.symbol)}`,
-                        target: '_blank',
-                        rel: 'noopener noreferrer',
-                        style: {
-                          color: '#10b981',
-                          fontSize: '0.75rem',
-                          textDecoration: 'none',
-                          display: 'inline-block',
-                          marginTop: '0.25rem',
-                          fontWeight: '600'
-                        }
-                      }, 'Check Skinport Price →'),
-                      activeTab === 'skins' && item.metadata?.float !== undefined && React.createElement('div', { style: { color: '#06b6d4', fontSize: '0.875rem', fontWeight: '600' } }, `Float: ${item.metadata.float.toFixed(4)}`),
-                      activeTab === 'skins' && item.metadata?.rarity && React.createElement('div', { style: { color: '#8b5cf6', fontSize: '0.875rem', fontWeight: '600' } }, `Rarity: ${item.metadata.rarity.replace(/_/g, ' ').toUpperCase()}`)
-                    )
-                  ),
-                  React.createElement('div', { style: { textAlign: 'right', marginRight: '1rem' } },
-                    React.createElement('div', { style: { color: currentTheme.text, fontWeight: '600', fontSize: '1.25rem' } }, getCurrencySymbol() + formatPrice(val)),
-                    React.createElement('div', { style: { color: currentTheme.textSecondary, fontSize: '0.875rem' } }, getCurrencySymbol() + formatPrice(curr) + ' ' + t.perUnit),
-                    activeTab === 'skins' && React.createElement('div', { 
-                      style: { 
-                        fontSize: '0.75rem', 
-                        color: '#8b5cf6',
-                        marginTop: '0.5rem',
-                        cursor: 'pointer',
-                        fontWeight: '600',
-                        textDecoration: 'underline'
-                      },
-                      onClick: () => {
-                        setPriceUpdateModal({ show: true, item: item, currentPrice: curr });
-                        setNewPriceInput(curr.toString());
-                      }
-                    }, language === 'de' ? 'Preis manuell ändern' : 'Update Price Manually'),
-                    React.createElement('div', { style: { fontSize: '0.875rem', fontWeight: '600', color: prof >= 0 ? '#10b981' : '#ef4444', marginTop: '0.25rem' } }, (prof >= 0 ? '+' : '') + getCurrencySymbol() + formatPrice(Math.abs(prof)) + ` (${profPct >= 0 ? '+' : ''}${formatPrice(profPct)}%)`)
-                  )
-                );
-              })
-          )
-        ),
-        
-        // Price Update Modal (for CS2 items)
-        priceUpdateModal.show && React.createElement('div', {
-          style: {
-            position: 'fixed',
-            top: 0,
-            left: 0,
-            right: 0,
-            bottom: 0,
-            background: 'rgba(0,0,0,0.7)',
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            zIndex: 1000
-          },
-          onClick: () => setPriceUpdateModal({ show: false, item: null, currentPrice: 0 })
-        },
-          React.createElement('div', {
-            style: {
-              background: currentTheme.inputBg,
-              borderRadius: '1rem',
-              padding: '2rem',
-              maxWidth: '500px',
-              width: '90%',
-              border: `2px solid ${currentTheme.inputBorder}`
-            },
-            onClick: (e) => e.stopPropagation()
-          },
-            React.createElement('h3', {
-              style: { color: currentTheme.text, marginBottom: '1rem', fontSize: '1.25rem', fontWeight: '600' }
-            }, language === 'de' ? 'Preis aktualisieren' : 'Update Price'),
-            React.createElement('div', {
-              style: { color: currentTheme.textSecondary, marginBottom: '1rem', fontSize: '0.875rem' }
-            }, priceUpdateModal.item?.symbol),
-            React.createElement('div', {
-              style: { color: currentTheme.textSecondary, marginBottom: '1rem', fontSize: '0.875rem' }
-            }, (language === 'de' ? 'Aktueller Preis: ' : 'Current Price: ') + getCurrencySymbol() + formatPrice(priceUpdateModal.currentPrice)),
-            React.createElement('label', {
-              style: { color: currentTheme.text, display: 'block', marginBottom: '0.5rem', fontSize: '0.875rem' }
-            }, language === 'de' ? 'Neuer Preis:' : 'New Price:'),
-            React.createElement('input', {
-              type: 'number',
-              step: '0.01',
-              value: newPriceInput,
-              onChange: (e) => setNewPriceInput(e.target.value),
-              style: {
-                width: '100%',
-                padding: '0.75rem',
-                background: currentTheme.card,
-                border: `2px solid ${currentTheme.inputBorder}`,
-                borderRadius: '0.5rem',
-                color: currentTheme.text,
-                fontSize: '1.125rem',
-                marginBottom: '1.5rem'
-              },
-              autoFocus: true,
-              onKeyPress: (e) => {
-                if (e.key === 'Enter') {
-                  const newPrice = parseFloat(newPriceInput);
-                  if (!isNaN(newPrice) && newPrice > 0) {
-                    const updatedPrices = {...prices};
-                    updatedPrices[priceUpdateModal.item.symbol] = newPrice;
-                    updatedPrices[priceUpdateModal.item.symbol.toUpperCase()] = newPrice;
-                    updatedPrices[priceUpdateModal.item.symbol.toLowerCase()] = newPrice;
-                    setPrices(updatedPrices);
-                    setPriceUpdateModal({ show: false, item: null, currentPrice: 0 });
-                  }
-                }
-              }
-            }),
-            React.createElement('div', { style: { display: 'flex', gap: '0.75rem' } },
-              React.createElement('button', {
-                onClick: () => {
-                  const newPrice = parseFloat(newPriceInput);
-                  if (!isNaN(newPrice) && newPrice > 0) {
-                    const updatedPrices = {...prices};
-                    updatedPrices[priceUpdateModal.item.symbol] = newPrice;
-                    updatedPrices[priceUpdateModal.item.symbol.toUpperCase()] = newPrice;
-                    updatedPrices[priceUpdateModal.item.symbol.toLowerCase()] = newPrice;
-                    setPrices(updatedPrices);
-                    setPriceUpdateModal({ show: false, item: null, currentPrice: 0 });
-                  }
-                },
-                style: {
-                  flex: 1,
-                  padding: '0.75rem',
-                  background: '#16a34a',
-                  color: 'white',
-                  border: 'none',
-                  borderRadius: '0.5rem',
-                  cursor: 'pointer',
-                  fontWeight: '600'
-                }
-              }, language === 'de' ? 'Speichern' : 'Save'),
-              React.createElement('button', {
-                onClick: () => setPriceUpdateModal({ show: false, item: null, currentPrice: 0 }),
-                style: {
-                  flex: 1,
-                  padding: '0.75rem',
-                  background: '#6b7280',
-                  color: 'white',
-                  border: 'none',
-                  borderRadius: '0.5rem',
-                  cursor: 'pointer',
-                  fontWeight: '600'
-                }
-              }, language === 'de' ? 'Abbrechen' : 'Cancel')
-            )
-          )
-        ),
-
-        // ============= STATISTICS VIEW =============
-        activeView === 'charts' && React.createElement('div', {},
-          
-          // Portfolio health metrics
-          React.createElement('div', { style: { background: currentTheme.inputBg, borderRadius: '1rem', padding: '2rem', marginBottom: '2rem', border: `1px solid ${currentTheme.inputBorder}` } },
-            React.createElement('h3', { style: { color: currentTheme.text, fontSize: '1.5rem', fontWeight: '600', marginBottom: '1.5rem' } }, ' ' + t.portfolioHealth),
-            React.createElement('div', { style: { display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: '1rem' } },
-              // Portfolio health rating
-              React.createElement('div', { style: { background: currentTheme.card, borderRadius: '0.75rem', padding: '1.5rem', border: `1px solid ${currentTheme.inputBorder}` } },
-                React.createElement('div', { style: { fontSize: '0.875rem', color: currentTheme.textSecondary, marginBottom: '0.5rem' } }, t.portfolioHealth),
-                React.createElement('div', { style: { fontSize: '1.75rem', fontWeight: 'bold', color: getPortfolioHealth().color } }, getPortfolioHealth().rating)
-              ),
-              // Diversification score
-              React.createElement('div', { style: { background: currentTheme.card, borderRadius: '0.75rem', padding: '1.5rem', border: `1px solid ${currentTheme.inputBorder}` } },
-                React.createElement('div', { style: { fontSize: '0.875rem', color: currentTheme.textSecondary, marginBottom: '0.5rem' } }, t.diversification),
-                React.createElement('div', { style: { fontSize: '1.75rem', fontWeight: 'bold', color: currentTheme.text } }, getDiversificationScore() + '/100'),
-                React.createElement('div', { style: { fontSize: '0.75rem', color: currentTheme.textSecondary, marginTop: '0.25rem' } }, getConcentration())
-              ),
-              // Average return
-              React.createElement('div', { style: { background: currentTheme.card, borderRadius: '0.75rem', padding: '1.5rem', border: `1px solid ${currentTheme.inputBorder}` } },
-                React.createElement('div', { style: { fontSize: '0.875rem', color: currentTheme.textSecondary, marginBottom: '0.5rem' } }, t.averageReturn),
-                React.createElement('div', { style: { fontSize: '1.75rem', fontWeight: 'bold', color: parseFloat(getAverageReturn()) >= 0 ? '#10b981' : '#ef4444' } }, (parseFloat(getAverageReturn()) >= 0 ? '+' : '') + getAverageReturn() + '%')
-              ),
-              // Total assets
-              React.createElement('div', { style: { background: currentTheme.card, borderRadius: '0.75rem', padding: '1.5rem', border: `1px solid ${currentTheme.inputBorder}` } },
-                React.createElement('div', { style: { fontSize: '0.875rem', color: currentTheme.textSecondary, marginBottom: '0.5rem' } }, t.totalAssets),
-                React.createElement('div', { style: { fontSize: '1.75rem', fontWeight: 'bold', color: currentTheme.text } }, getTotalAssetCount())
-              ),
-              // Risk level
-              React.createElement('div', { style: { background: currentTheme.card, borderRadius: '0.75rem', padding: '1.5rem', border: `1px solid ${currentTheme.inputBorder}` } },
-                React.createElement('div', { style: { fontSize: '0.875rem', color: currentTheme.textSecondary, marginBottom: '0.5rem' } }, t.riskLevel),
-                React.createElement('div', { style: { fontSize: '1.25rem', fontWeight: 'bold', color: getRiskLevel() === t.highRisk ? '#ef4444' : getRiskLevel() === t.mediumRisk ? '#f59e0b' : '#10b981' } }, getRiskLevel())
-              )
-            )
-          ),
-
-          // Top and worst performers
-          getTotalAssetCount() > 0 && React.createElement('div', { style: { display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(400px, 1fr))', gap: '1.5rem', marginBottom: '2rem' } },
-            // Top performers
-            React.createElement('div', { style: { background: currentTheme.inputBg, borderRadius: '1rem', padding: '1.5rem', border: `1px solid ${currentTheme.inputBorder}` } },
-              React.createElement('h3', { style: { color: currentTheme.text, fontSize: '1.25rem', fontWeight: '600', marginBottom: '1rem' } }, ' ' + t.topPerformers),
-              getTopPerformers(5).length === 0 ? 
-                React.createElement('div', { style: { textAlign: 'center', padding: '2rem', color: currentTheme.textSecondary } }, t.noPositions) :
-                getTopPerformers(5).map((asset, idx) => 
-                  React.createElement('div', { 
-                    key: asset.id, 
-                    style: { 
-                      background: currentTheme.card, 
-                      borderRadius: '0.5rem', 
-                      padding: '1rem', 
-                      marginBottom: '0.75rem', 
-                      border: `1px solid ${currentTheme.inputBorder}`,
-                      display: 'flex',
-                      justifyContent: 'space-between',
-                      alignItems: 'center'
-                    } 
-                  },
-                    React.createElement('div', { style: { display: 'flex', alignItems: 'center', gap: '0.75rem' } },
-                      React.createElement('div', { style: { fontSize: '1.5rem', fontWeight: 'bold', color: currentTheme.textSecondary } }, '#' + (idx + 1)),
-                      React.createElement('div', {},
-                        React.createElement('div', { style: { color: currentTheme.text, fontWeight: '600' } }, asset.symbol.toUpperCase()),
-                        React.createElement('div', { style: { fontSize: '0.75rem', color: currentTheme.textSecondary } }, t[asset.category === 'skins' ? 'cs2Items' : asset.category])
-                      )
-                    ),
-                    React.createElement('div', { style: { textAlign: 'right' } },
-                      React.createElement('div', { style: { fontSize: '1.25rem', fontWeight: 'bold', color: '#10b981' } }, '+' + formatPrice(asset.profitPct) + '%'),
-                      React.createElement('div', { style: { fontSize: '0.75rem', color: currentTheme.textSecondary } }, getCurrencySymbol() + formatPrice(asset.profit))
-                    )
-                  )
-                )
-            ),
-            
-            // Worst performers
-            React.createElement('div', { style: { background: currentTheme.inputBg, borderRadius: '1rem', padding: '1.5rem', border: `1px solid ${currentTheme.inputBorder}` } },
-              React.createElement('h3', { style: { color: currentTheme.text, fontSize: '1.25rem', fontWeight: '600', marginBottom: '1rem' } }, ' ' + t.worstPerformers),
-              getWorstPerformers(5).length === 0 ? 
-                React.createElement('div', { style: { textAlign: 'center', padding: '2rem', color: currentTheme.textSecondary } }, t.noPositions) :
-                getWorstPerformers(5).map((asset, idx) => 
-                  React.createElement('div', { 
-                    key: asset.id, 
-                    style: { 
-                      background: currentTheme.card, 
-                      borderRadius: '0.5rem', 
-                      padding: '1rem', 
-                      marginBottom: '0.75rem', 
-                      border: `1px solid ${currentTheme.inputBorder}`,
-                      display: 'flex',
-                      justifyContent: 'space-between',
-                      alignItems: 'center'
-                    } 
-                  },
-                    React.createElement('div', { style: { display: 'flex', alignItems: 'center', gap: '0.75rem' } },
-                      React.createElement('div', { style: { fontSize: '1.5rem', fontWeight: 'bold', color: currentTheme.textSecondary } }, '#' + (idx + 1)),
-                      React.createElement('div', {},
-                        React.createElement('div', { style: { color: currentTheme.text, fontWeight: '600' } }, asset.symbol.toUpperCase()),
-                        React.createElement('div', { style: { fontSize: '0.75rem', color: currentTheme.textSecondary } }, t[asset.category === 'skins' ? 'cs2Items' : asset.category])
-                      )
-                    ),
-                    React.createElement('div', { style: { textAlign: 'right' } },
-                      React.createElement('div', { style: { fontSize: '1.25rem', fontWeight: 'bold', color: '#ef4444' } }, formatPrice(asset.profitPct) + '%'),
-                      React.createElement('div', { style: { fontSize: '0.75rem', color: currentTheme.textSecondary } }, getCurrencySymbol() + formatPrice(Math.abs(asset.profit)))
-                    )
-                  )
-                )
-            )
-          ),
-
-          // Portfolio distribution
-          React.createElement('div', { style: { background: currentTheme.inputBg, borderRadius: '1rem', padding: '2rem', marginBottom: '2rem', border: `1px solid ${currentTheme.inputBorder}` } },
-            React.createElement('h3', { style: { color: currentTheme.text, fontSize: '1.5rem', fontWeight: '600', marginBottom: '1.5rem' } }, t.distribution),
-            React.createElement('div', { style: { display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '1rem' } },
-              [['crypto', '#3b82f6'], ['stocks', '#10b981'], ['skins', '#8b5cf6']].map(([cat, color]) => {
-                const catProfit = calcProfit(cat);
-                const catInvest = calcInvest(cat);
-                const catProfitPct = catInvest > 0 ? (catProfit / catInvest) * 100 : 0;
-                return React.createElement('div', { 
-                  key: cat, 
-                  style: { background: `linear-gradient(135deg, ${color}, ${color}dd)`, borderRadius: '0.75rem', padding: '1.5rem', color: 'white' } 
-                },
-                  React.createElement('div', { style: { fontSize: '0.875rem', opacity: 0.8, marginBottom: '0.5rem' } }, t[cat === 'skins' ? 'cs2Items' : cat]),
-                  React.createElement('div', { style: { fontSize: '2rem', fontWeight: 'bold' } }, getPct(cat) + '%'),
-                  React.createElement('div', { style: { fontSize: '1rem', marginTop: '0.5rem' } }, getCurrencySymbol() + formatPrice(calcTotal(cat))),
-                  React.createElement('div', { style: { fontSize: '0.875rem', marginTop: '0.25rem', fontWeight: '600', color: catProfit >= 0 ? '#86efac' : '#fca5a5' } }, (catProfit >= 0 ? ' +' : ' ') + getCurrencySymbol() + formatPrice(Math.abs(catProfit)) + ` (${catProfitPct >= 0 ? '+' : ''}${formatPrice(catProfitPct)}%)`)
-                );
-              })
-            )
-          ),
-
-          // Detailed asset breakdown by category
-          React.createElement('div', { style: { background: currentTheme.inputBg, borderRadius: '1rem', padding: '2rem', border: `1px solid ${currentTheme.inputBorder}` } },
-            React.createElement('h3', { style: { color: currentTheme.text, fontSize: '1.5rem', fontWeight: '600', marginBottom: '1.5rem' } }, tabs.find(t => t.id === activeTab)?.label + ' - ' + t.details),
-            safe[activeTab].length === 0 ?
-              React.createElement('div', { style: { textAlign: 'center', padding: '3rem', color: currentTheme.textSecondary } }, t.noPositionsCategory) :
-              safe[activeTab].map(item => {
-                const curr = item.currentPrice || prices[item.symbol.toLowerCase()] || prices[item.symbol] || item.purchasePrice || 0;
-                const val = curr * item.amount;
-                const inv = (item.purchasePrice || 0) * item.amount;
-                const fees = parseFloat(item.fees) || 0;
-                const prof = val - inv - fees; // Profit minus fees
-                const profPct = inv > 0 ? (prof / inv) * 100 : 0;
-                const pct = total > 0 ? ((val / total) * 100).toFixed(1) : 0;
-                const img = images[item.symbol.toLowerCase()] || images[item.symbol];
-                const daysSince = getDaysSincePurchase(item.purchaseDate);
-                
-                return React.createElement('div', { 
-                  key: item.id, 
-                  style: { 
-                    background: currentTheme.card, 
-                    borderRadius: '0.75rem', 
-                    padding: '1.5rem', 
-                    marginBottom: '1rem', 
-                    border: `1px solid ${currentTheme.inputBorder}` 
-                  } 
-                },
-                  React.createElement('div', { style: { display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '1rem', flexWrap: 'wrap', gap: '1rem' } },
-                    React.createElement('div', { style: { display: 'flex', alignItems: 'center', gap: '1rem' } },
-                      img && React.createElement('img', { 
-                        src: img, 
-                        alt: item.symbol, 
-                        style: { width: '64px', height: '64px', borderRadius: '50%', objectFit: 'cover', background: 'white' }, 
-                        onError: (e) => { e.target.style.display = 'none'; } 
-                      }),
-                      React.createElement('div', {},
-                        React.createElement('div', { style: { color: currentTheme.text, fontSize: '1.5rem', fontWeight: '600' } }, item.symbol.toUpperCase()),
-                        React.createElement('div', { style: { color: currentTheme.textSecondary, marginTop: '0.25rem' } }, `${t.amount}: ${item.amount} | ${t.bought}: ${fmtDate(item.purchaseDate)}`),
-                        React.createElement('div', { style: { color: currentTheme.textSecondary, fontSize: '0.875rem', marginTop: '0.25rem' } }, `${t.purchasePrice}: ${getCurrencySymbol()}${formatPrice(item.purchasePrice || 0)} → ${t.current}: ${getCurrencySymbol()}${formatPrice(curr)}`),
-                        item.fees && parseFloat(item.fees) > 0 && React.createElement('div', { style: { color: currentTheme.textSecondary, fontSize: '0.875rem', marginTop: '0.25rem' } }, `${t.fees}: ${getCurrencySymbol()}${formatPrice(parseFloat(item.fees))}`),
-                        React.createElement('div', { style: { color: currentTheme.textSecondary, fontSize: '0.875rem', marginTop: '0.25rem' } }, `${t.holdingPeriod}: ${daysSince} ${t.days}`)
-                      )
-                    ),
-                    React.createElement('div', { style: { textAlign: 'right' } },
-                      React.createElement('div', { style: { color: currentTheme.text, fontSize: '1.75rem', fontWeight: 'bold' } }, getCurrencySymbol() + formatPrice(val)),
-                      React.createElement('div', { style: { color: currentTheme.textSecondary, marginTop: '0.25rem' } }, pct + '% ' + (t.ofPortfolio || 'des Portfolios')),
-                      React.createElement('div', { style: { fontSize: '1.125rem', fontWeight: '600', color: prof >= 0 ? '#10b981' : '#ef4444', marginTop: '0.5rem' } }, (prof >= 0 ? '+' : '') + getCurrencySymbol() + formatPrice(Math.abs(prof))),
-                      React.createElement('div', { style: { fontSize: '0.875rem', color: prof >= 0 ? '#86efac' : '#fca5a5' } }, `(${profPct >= 0 ? '+' : ''}${formatPrice(profPct)}%)`)
-                    )
-                  ),
-                  // Progress bar showing portfolio percentage
-                  React.createElement('div', { style: { background: currentTheme.inputBg, height: '8px', borderRadius: '4px', overflow: 'hidden' } },
-                    React.createElement('div', { style: { background: prof >= 0 ? '#10b981' : '#ef4444', height: '100%', width: pct + '%', transition: 'width 0.3s' } })
-                  )
-                );
-              })
-          )
-
-
-        ),
-        
-        // ========== RISK ANALYTICS VIEW ==========
-        activeView === 'risk' && window.createRiskAnalyticsView && window.createRiskAnalyticsView({
-          safe: safe,
-          currentTheme: currentTheme,
-          getCurrencySymbol: getCurrencySymbol,
-          formatPrice: formatPrice,
-          t: t,
-          language: language
-        }),
-        
-        // ========== CS2 ANALYTICS VIEW ==========
-        activeView === 'cs2analytics' && window.createCS2AnalyticsView && window.createCS2AnalyticsView({
-          safe: safe,
-          prices: prices,
-          currentTheme: currentTheme,
-          getCurrencySymbol: getCurrencySymbol,
-          formatPrice: formatPrice,
-          t: t,
-          language: language
-        }),
-        
-        // ========== NEW v5.1: TRANSACTION HISTORY VIEW ==========
-        React.createElement('div', { style: { display: activeView === 'transactions' ? 'block' : 'none' } },
-          TransactionHistoryView()
-        ),
-        
-        // ========== NEW v5.1: TAX REPORT VIEW ==========
-        React.createElement('div', { style: { display: activeView === 'taxreports' ? 'block' : 'none' } },
-          TaxReportView()
-        ),
-        
-        // ========== NEW v5.1: REBALANCING VIEW ==========
-        React.createElement('div', { style: { display: activeView === 'rebalancing' ? 'block' : 'none' } },
-          RebalancingView()
-        ),
-        
-        // ========== NEW: FINANCIAL OVERVIEW VIEW ==========
-        // ========== CUSTOMIZABLE DASHBOARD VIEW ==========
-// Replace the activeView === 'overview' section with this
-
-activeView === 'overview' && React.createElement('div', {},
-  // Dashboard Header with Edit Button
-  React.createElement('div', { style: { display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '2rem' } },
-    React.createElement('h2', { style: { color: currentTheme.text, fontSize: '2rem', fontWeight: '700' } }, ' Mein Dashboard'),
-    React.createElement('button', {
-      onClick: () => setEditingDashboard(!editingDashboard),
-      style: { 
-        padding: '0.75rem 1.5rem', 
-        background: editingDashboard ? '#ef4444' : '#3b82f6', 
-        color: 'white', 
-        border: 'none', 
-        borderRadius: '0.5rem', 
-        cursor: 'pointer', 
-        fontWeight: '600',
-        transition: 'all 0.2s'
+    // Settings dropdown
+    showSettings && React.createElement('div', {
+      style: {
+        position: 'absolute',
+        top: '60px',
+        right: '1rem',
+        background: currentTheme.card,
+        padding: '1rem',
+        borderRadius: '12px',
+        border: `1px solid ${currentTheme.cardBorder}`,
+        zIndex: 1000,
+        minWidth: '200px'
       }
-    }, editingDashboard ? ' Fertig' : ' Dashboard anpassen')
-  ),
-  
-  // Edit Mode Info
-  editingDashboard && React.createElement('div', { 
-    style: { 
-      background: '#dbeafe', 
-      border: '1px solid #3b82f6', 
-      borderRadius: '0.5rem', 
-      padding: '1rem', 
-      marginBottom: '2rem',
-      color: '#1e40af'
-    } 
-  },
-    React.createElement('strong', {}, ' Dashboard anpassen:'),
-    ' Klicke auf ein Widget um es zu entfernen. Nutze die Buttons unten um Widgets hinzuzufügen.'
-  ),
-  
-  // Dashboard Widgets Grid
-  React.createElement('div', { 
-    style: { 
-      display: 'grid', 
-      gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', 
-      gap: '1.5rem', 
-      marginBottom: '2rem' 
-    } 
-  },
-    dashboardWidgets.map(widget => {
-      const widgetData = {
-        networth: {
-          title: t.netWorth,
-          value: getCurrencySymbol() + formatPrice(metrics.netWorth || 0),
-          subtitle: getCurrencySymbol() + formatPrice((total || 0) + (metrics.totalCash || 0)) + ' - ' + getCurrencySymbol() + formatPrice(metrics.totalDebt || 0),
-          gradient: 'linear-gradient(135deg, #3b82f6, #2563eb)',
-          icon: ''
-        },
-        savingsrate: {
-          title: t.savingsRate,
-          value: (metrics.savingsRate || 0).toFixed(1) + '%',
-          subtitle: getCurrencySymbol() + formatPrice((metrics.monthlyIncome || 0) - (metrics.monthlyExpenses || 0) - (metrics.monthlyDebtPayments || 0)) + '/mo',
-          gradient: 'linear-gradient(135deg, #10b981, #059669)',
-          icon: ''
-        },
-        cashflow: {
-          title: t.monthlyCashflow,
-          value: getCurrencySymbol() + formatPrice((maerminMetrics.cashflow && maerminMetrics.cashflow.netCashflow) || 0),
-          subtitle: maerminMetrics.cashflow ? (maerminMetrics.cashflow.netCashflow >= 0 ? t.positive : t.negative) : 'N/A',
-          gradient: maerminMetrics.cashflow && maerminMetrics.cashflow.netCashflow >= 0 ? 'linear-gradient(135deg, #10b981, #059669)' : 'linear-gradient(135deg, #ef4444, #dc2626)',
-          icon: ''
-        },
-        cashrunway: {
-          title: t.cashRunway,
-          value: metrics.cashRunway > 999 ? '[INF]' : (metrics.cashRunway || 0).toFixed(1),
-          subtitle: t.months,
-          gradient: 'linear-gradient(135deg, #f59e0b, #d97706)',
-          icon: '[CR]'
-        },
-        health: {
-          title: t.financialHealth,
-          value: healthScore.score + '/100',
-          subtitle: healthScore.rating,
-          gradient: 'linear-gradient(135deg, ' + healthScore.color + ', ' + healthScore.color + 'dd)',
-          icon: ''
-        },
-        portfolio: {
-          title: t.portfolioValue,
-          value: getCurrencySymbol() + formatPrice(total || 0),
-          subtitle: t.profit + ': ' + ((profit || 0) >= 0 ? '+' : '') + getCurrencySymbol() + formatPrice(profit || 0),
-          gradient: profit >= 0 ? 'linear-gradient(135deg, #10b981, #059669)' : 'linear-gradient(135deg, #ef4444, #dc2626)',
-          icon: ''
-        },
-        income: {
-          title: t.monthlyIncome,
-          value: getCurrencySymbol() + formatPrice(metrics.monthlyIncome || 0),
-          subtitle: (financialData.income || []).length + ' ' + t.sources,
-          gradient: 'linear-gradient(135deg, #8b5cf6, #7c3aed)',
-          icon: ''
-        },
-        expenses: {
-          title: t.monthlyExpenses,
-          value: getCurrencySymbol() + formatPrice((metrics.monthlyExpenses || 0) + (metrics.monthlyDebtPayments || 0)),
-          subtitle: 'Fixkosten + Variable',
-          gradient: 'linear-gradient(135deg, #ef4444, #dc2626)',
-          icon: ''
-        },
-        budgets: {
-          title: t.activeBudgets,
-          value: (financialData.budgets || []).filter(b => b.isActive).length,
-          subtitle: maerminMetrics.budgetStatus && maerminMetrics.budgetStatus.totalBudgeted ? maerminMetrics.budgetStatus.totalBudgeted.toFixed(0) + '€ Budget' : t.noBudgets,
-          gradient: 'linear-gradient(135deg, #06b6d4, #0891b2)',
-          icon: ''
-        },
-        taxes: {
-          title: t.taxReserve,
-          value: maerminMetrics.netIncome && maerminMetrics.netIncome.monthlyTax ? getCurrencySymbol() + formatPrice(maerminMetrics.netIncome.monthlyTax) : 'N/A',
-          subtitle: maerminMetrics.netIncome && maerminMetrics.netIncome.effectiveRate ? maerminMetrics.netIncome.effectiveRate.toFixed(1) + '% ' + t.rate : t.noTaxes,
-          gradient: 'linear-gradient(135deg, #f59e0b, #d97706)',
-          icon: '[TX]'
-        }
-      };
-      
-      const data = widgetData[widget];
-      if (!data) return null;
-      
-      return React.createElement('div', {
-        key: widget,
-        onClick: editingDashboard ? () => {
-          if (confirm('Widget "' + data.title + '" vom Dashboard entfernen?')) {
-            setDashboardWidgets(prev => prev.filter(w => w !== widget));
-          }
-        } : null,
+    },
+      React.createElement('div', { style: { marginBottom: '1rem' } },
+        React.createElement('label', { style: { color: currentTheme.textSecondary, fontSize: '0.75rem' } }, t.theme || 'Theme'),
+        React.createElement('div', { style: { display: 'flex', gap: '0.5rem', marginTop: '0.5rem' } },
+          ['white', 'dark', 'purple'].map(th =>
+            React.createElement('button', {
+              key: th,
+              onClick: () => setTheme(th),
+              style: {
+                flex: 1,
+                padding: '0.5rem',
+                background: theme === th ? currentTheme.accent : currentTheme.inputBg,
+                color: theme === th ? '#fff' : currentTheme.text,
+                border: 'none',
+                borderRadius: '6px',
+                cursor: 'pointer',
+                fontSize: '0.75rem'
+              }
+            }, th.charAt(0).toUpperCase() + th.slice(1))
+          )
+        )
+      ),
+      React.createElement('div', { style: { marginBottom: '1rem' } },
+        React.createElement('label', { style: { color: currentTheme.textSecondary, fontSize: '0.75rem' } }, t.language || 'Language'),
+        React.createElement('div', { style: { display: 'flex', gap: '0.5rem', marginTop: '0.5rem' } },
+          ['de', 'en'].map(lang =>
+            React.createElement('button', {
+              key: lang,
+              onClick: () => setLanguage(lang),
+              style: {
+                flex: 1,
+                padding: '0.5rem',
+                background: language === lang ? currentTheme.accent : currentTheme.inputBg,
+                color: language === lang ? '#fff' : currentTheme.text,
+                border: 'none',
+                borderRadius: '6px',
+                cursor: 'pointer',
+                fontSize: '0.75rem'
+              }
+            }, lang.toUpperCase())
+          )
+        )
+      ),
+      React.createElement('div', null,
+        React.createElement('label', { style: { color: currentTheme.textSecondary, fontSize: '0.75rem' } }, t.currency || 'Currency'),
+        React.createElement('div', { style: { display: 'flex', gap: '0.5rem', marginTop: '0.5rem' } },
+          ['EUR', 'USD'].map(curr =>
+            React.createElement('button', {
+              key: curr,
+              onClick: () => setCurrency(curr),
+              style: {
+                flex: 1,
+                padding: '0.5rem',
+                background: currency === curr ? currentTheme.accent : currentTheme.inputBg,
+                color: currency === curr ? '#fff' : currentTheme.text,
+                border: 'none',
+                borderRadius: '6px',
+                cursor: 'pointer',
+                fontSize: '0.75rem'
+              }
+            }, curr)
+          )
+        )
+      )
+    ),
+    
+    // Main layout
+    React.createElement('div', { style: { display: 'flex', minHeight: 'calc(100vh - 61px)' } },
+      // Sidebar
+      React.createElement('nav', {
         style: {
-          background: data.gradient,
-          borderRadius: '1rem',
-          padding: '1.5rem',
-          color: 'white',
-          cursor: editingDashboard ? 'pointer' : 'default',
-          transition: 'all 0.2s',
-          border: editingDashboard ? '3px dashed rgba(255,255,255,0.5)' : 'none',
-          transform: editingDashboard ? 'scale(0.98)' : 'scale(1)',
-          position: 'relative'
+          width: '220px',
+          padding: '1rem',
+          borderRight: `1px solid ${currentTheme.cardBorder}`,
+          flexShrink: 0
         }
       },
-        editingDashboard && React.createElement('div', {
-          style: {
-            position: 'absolute',
-            top: '0.5rem',
-            right: '0.5rem',
-            background: 'rgba(0,0,0,0.5)',
-            borderRadius: '50%',
-            width: '24px',
-            height: '24px',
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            fontSize: '14px'
-          }
-        }, 'X'),
-        React.createElement('div', { style: { fontSize: '1.5rem', marginBottom: '0.5rem' } }, data.icon),
-        React.createElement('div', { style: { fontSize: '0.875rem', opacity: 0.9 } }, data.title),
-        React.createElement('div', { style: { fontSize: '2.5rem', fontWeight: 'bold', margin: '0.5rem 0' } }, data.value),
-        React.createElement('div', { style: { fontSize: '0.875rem', opacity: 0.8 } }, data.subtitle)
-      );
-    })
-  ),
-  
-  // Add Widget Buttons (only in edit mode)
-  editingDashboard && React.createElement('div', { 
-    style: { 
-      background: currentTheme.card, 
-      borderRadius: '1rem', 
-      padding: '1.5rem',
-      border: `1px solid ${currentTheme.cardBorder}`
-    } 
-  },
-    React.createElement('h3', { style: { color: currentTheme.text, marginBottom: '1rem', fontSize: '1.25rem' } }, ' Widgets hinzufügen'),
-    React.createElement('div', { style: { display: 'flex', gap: '0.75rem', flexWrap: 'wrap' } },
-      ['networth', 'savingsrate', 'cashflow', 'cashrunway', 'health', 'portfolio', 'income', 'expenses', 'budgets', 'taxes'].map(widgetId => {
-        const isAdded = dashboardWidgets.includes(widgetId);
-        const labels = {
-          networth: ' ' + t.netWorth,
-          savingsrate: ' ' + t.savingsRate,
-          cashflow: ' ' + t.cashflow,
-          cashrunway: '[CR] ' + t.cashRunway,
-          health: ' ' + t.financialHealth,
-          portfolio: ' ' + t.portfolio,
-          income: ' ' + t.income,
-          expenses: ' ' + t.expenses,
-          budgets: ' ' + t.budgets,
-          taxes: '[TX] ' + t.taxes
-        };
-        
-        return React.createElement('button', {
-          key: widgetId,
-          onClick: () => {
-            if (!isAdded) {
-              setDashboardWidgets(prev => [...prev, widgetId]);
+        [
+          { id: 'overview', label: t.overview || 'Overview' },
+          { id: 'portfolio', label: t.portfolio || 'Portfolio' },
+          { id: 'transactions', label: t.transactions || 'Transactions' },
+          { id: 'analytics', label: t.analytics || 'Analytics' },
+          { id: 'taxes', label: t.taxes || 'Taxes' }
+        ].map(item =>
+          React.createElement('button', {
+            key: item.id,
+            onClick: () => setActiveView(item.id),
+            style: {
+              display: 'block',
+              width: '100%',
+              padding: '0.75rem 1rem',
+              marginBottom: '0.25rem',
+              background: activeView === item.id || 
+                (item.id === 'analytics' && ['correlation', 'montecarlo', 'stress', 'risk'].includes(activeView))
+                ? currentTheme.accent : 'transparent',
+              color: activeView === item.id || 
+                (item.id === 'analytics' && ['correlation', 'montecarlo', 'stress', 'risk'].includes(activeView))
+                ? '#fff' : currentTheme.text,
+              border: 'none',
+              borderRadius: '8px',
+              textAlign: 'left',
+              cursor: 'pointer',
+              fontSize: '0.9375rem'
             }
-          },
-          disabled: isAdded,
+          }, item.label)
+        ),
+        
+        // Separator
+        React.createElement('div', {
+          style: { height: '1px', background: currentTheme.cardBorder, margin: '1rem 0' }
+        }),
+        
+        // Workspace indicator
+        React.createElement('div', {
+          style: { padding: '0.5rem', color: currentTheme.textSecondary, fontSize: '0.75rem' }
+        }, `${t.workspaces || 'Workspace'}: ${workspaces[activeWorkspace]?.name || activeWorkspace}`)
+      ),
+      
+      // Main content
+      React.createElement('main', {
+        style: { flex: 1, overflow: 'auto' }
+      }, renderView())
+    ),
+    
+    // Modals
+    renderTransactionModal(),
+    renderImportModal(),
+    renderApiSettingsModal(),
+    
+    // Command Palette
+    window.CommandPalette && React.createElement(window.CommandPalette, {
+      isOpen: showCommandPalette,
+      onClose: () => setShowCommandPalette(false),
+      onExecute: executeCommand,
+      commands: commands,
+      t: t
+    }),
+    
+    // Shortcuts Modal
+    window.ShortcutsModal && React.createElement(window.ShortcutsModal, {
+      isOpen: showShortcuts,
+      onClose: () => setShowShortcuts(false),
+      t: t,
+      theme: currentTheme
+    }),
+    
+    // Toast notifications
+    React.createElement('div', { className: 'toast-container' },
+      toasts.map(toast =>
+        React.createElement('div', {
+          key: toast.id,
+          className: `toast ${toast.type}`,
           style: {
-            padding: '0.75rem 1.25rem',
-            background: isAdded ? currentTheme.inputBg : '#3b82f6',
-            color: isAdded ? currentTheme.textSecondary : 'white',
-            border: 'none',
-            borderRadius: '0.5rem',
-            cursor: isAdded ? 'not-allowed' : 'pointer',
-            fontWeight: '600',
-            opacity: isAdded ? 0.5 : 1
+            padding: '1rem 1.5rem',
+            background: currentTheme.card,
+            borderRadius: '8px',
+            boxShadow: '0 10px 25px -5px rgba(0,0,0,0.3)',
+            color: currentTheme.text,
+            borderLeft: `4px solid ${
+              toast.type === 'success' ? currentTheme.success :
+              toast.type === 'error' ? currentTheme.danger :
+              toast.type === 'warning' ? currentTheme.warning :
+              currentTheme.accent
+            }`
           }
-        }, labels[widgetId] + (isAdded ? ' ' : ''));
-      })
-    )
-  )
-),
-
-        // ========== NEW: INSIGHTS VIEW ==========
-        
-        // ========== MAERMIN: CASHFLOW VIEW ==========
-        
-        // ========== MAERMIN: TAX VIEW ==========
-        
-        // ========== MAERMIN: BUDGET VIEW ==========
-      )
-        )
+        }, toast.message)
       )
     )
   );
 }
 
-// Render the application
-ReactDOM.render(React.createElement(InvestmentTracker), document.getElementById('root'));
+// ============================================================================
+// RENDER APPLICATION
+// ============================================================================
+
+const root = ReactDOM.createRoot(document.getElementById('root'));
+root.render(React.createElement(InvestmentTracker));
+
+console.log('[MAERMIN v6.0] Application initialized');
+
+})(); // End IIFE

@@ -322,5 +322,24 @@ window.calculateGermanTax = calculateGermanTax;
 window.calculateUSTax = calculateUSTax;
 window.generateTaxReportAdvanced = generateTaxReportAdvanced;
 
+// Create TaxCalculationEngine object for easy access
+window.TaxCalculationEngine = {
+  calculateRealizedGains: calculateRealizedGainsAdvanced,
+  calculateGermanTax: calculateGermanTax,
+  calculateUSTax: calculateUSTax,
+  generateTaxReport: generateTaxReportAdvanced,
+  calculateTaxes: function(transactions, jurisdiction, year) {
+    var result = generateTaxReportAdvanced(transactions, year, jurisdiction);
+    return {
+      realizedGains: result.totalCapitalIncome || 0,
+      shortTerm: result.cryptoShortTermGains || result.shortTermGains || 0,
+      longTerm: result.cryptoLongTermGains || result.longTermGains || 0,
+      taxLiability: result.totalTax || 0,
+      taxFree: result.cryptoTaxFreeGains || 0,
+      transactions: result.transactions || []
+    };
+  }
+};
+
 console.log('[TAX ENGINE] Advanced tax calculation loaded');
 console.log('[TAX ENGINE] Supports: Germany (1-year crypto exemption) | USA (all taxable)');

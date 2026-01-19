@@ -1,218 +1,355 @@
 // ============================================================================
-// MAERMIN v5.1 - Comprehensive Validation Module
+// MAERMIN v6.0 - Comprehensive Validation Module
+// Input validation and data sanitization
 // ============================================================================
 
-function validateRequired(value, fieldName) {
-  if (!value || (typeof value === 'string' && value.trim() === '')) {
-    return { valid: false, errors: [fieldName + ' ist erforderlich / is required'] };
-  }
-  return { valid: true, errors: [] };
-}
-
-function validatePositiveNumber(value, fieldName) {
-  const num = parseFloat(value);
-  if (isNaN(num) || num <= 0) {
-    return { valid: false, errors: [fieldName + ' muss positiv sein / must be positive'] };
-  }
-  return { valid: true, errors: [] };
-}
-
-function validateNonNegativeNumber(value, fieldName) {
-  const num = parseFloat(value);
-  if (isNaN(num) || num < 0) {
-    return { valid: false, errors: [fieldName + ' darf nicht negativ sein / must be non-negative'] };
-  }
-  return { valid: true, errors: [] };
-}
-
-function validatePercentage(value, fieldName) {
-  const num = parseFloat(value);
-  if (isNaN(num) || num < 0 || num > 100) {
-    return { valid: false, errors: [fieldName + ' muss zwischen 0 und 100 sein / must be between 0 and 100'] };
-  }
-  return { valid: true, errors: [] };
-}
-
-function validateDate(value, fieldName) {
-  if (!value) return { valid: true, errors: [] };
-  const date = new Date(value);
-  if (isNaN(date.getTime())) {
-    return { valid: false, errors: [fieldName + ' ist kein gueltiges Datum / is not a valid date'] };
-  }
-  return { valid: true, errors: [] };
-}
-
-function validateIncome(income) {
-  const errors = [];
+/**
+ * Validate position data
+ */
+function validatePosition(position) {
+  var errors = [];
   
-  if (!income.name || income.name.trim().length < 2) {
-    errors.push('Name muss mindestens 2 Zeichen haben / Name must be at least 2 characters');
+  if (!position) {
+    return { valid: false, errors: ['Position data is required'] };
   }
   
-  const amount = parseFloat(income.amount);
-  if (isNaN(amount) || amount <= 0) {
-    errors.push('Betrag muss positiv sein / Amount must be positive');
-  }
-  
-  if (!income.type || !['salary', 'freelance', 'rental', 'dividends', 'bonus', 'other'].includes(income.type)) {
-    errors.push('Ungueltiger Typ / Invalid type');
-  }
-  
-  if (!income.frequency || !['monthly', 'quarterly', 'yearly'].includes(income.frequency)) {
-    errors.push('Ungueltige Haeufigkeit / Invalid frequency');
-  }
-  
-  return { valid: errors.length === 0, errors: errors };
-}
-
-function validateExpense(expense) {
-  const errors = [];
-  
-  const validCategories = ['groceries', 'dining', 'transport', 'entertainment', 'shopping', 
-                          'healthcare', 'utilities', 'insurance', 'personalCare', 'education', 
-                          'gifts', 'charity', 'other'];
-  
-  if (!expense.category || !validCategories.includes(expense.category)) {
-    errors.push('Ungueltige Kategorie / Invalid category');
-  }
-  
-  const amount = parseFloat(expense.monthlyAverage);
-  if (isNaN(amount) || amount < 0) {
-    errors.push('Betrag darf nicht negativ sein / Amount must be non-negative');
-  }
-  
-  return { valid: errors.length === 0, errors: errors };
-}
-
-function validateFixedCost(cost) {
-  const errors = [];
-  
-  if (!cost.name || cost.name.trim().length < 2) {
-    errors.push('Name muss mindestens 2 Zeichen haben / Name must be at least 2 characters');
-  }
-  
-  const amount = parseFloat(cost.amount);
-  if (isNaN(amount) || amount <= 0) {
-    errors.push('Betrag muss positiv sein / Amount must be positive');
-  }
-  
-  const validCategories = ['housing', 'utilities', 'insurance', 'transport', 'subscription', 'other'];
-  if (!cost.category || !validCategories.includes(cost.category)) {
-    errors.push('Ungueltige Kategorie / Invalid category');
-  }
-  
-  if (!cost.frequency || !['monthly', 'quarterly', 'yearly'].includes(cost.frequency)) {
-    errors.push('Ungueltige Haeufigkeit / Invalid frequency');
-  }
-  
-  return { valid: errors.length === 0, errors: errors };
-}
-
-function validateDebt(debt) {
-  const errors = [];
-  
-  if (!debt.name || debt.name.trim().length < 2) {
-    errors.push('Name muss mindestens 2 Zeichen haben / Name must be at least 2 characters');
-  }
-  
-  const principal = parseFloat(debt.principal);
-  if (isNaN(principal) || principal <= 0) {
-    errors.push('Ursprungsbetrag muss positiv sein / Principal must be positive');
-  }
-  
-  const balance = parseFloat(debt.currentBalance);
-  if (isNaN(balance) || balance < 0) {
-    errors.push('Aktueller Stand darf nicht negativ sein / Current balance must be non-negative');
-  }
-  
-  if (balance > principal) {
-    errors.push('Stand kann nicht hoeher als Ursprungsbetrag sein / Balance cannot exceed principal');
-  }
-  
-  return { valid: errors.length === 0, errors: errors };
-}
-
-function validateTax(tax) {
-  const errors = [];
-  
-  if (!tax.name || tax.name.trim().length < 2) {
-    errors.push('Name muss mindestens 2 Zeichen haben / Name must be at least 2 characters');
-  }
-  
-  const validTypes = ['income', 'capital_gains', 'solidarity', 'church', 'trade', 'vat', 'flat'];
-  if (!tax.type || !validTypes.includes(tax.type)) {
-    errors.push('Ungueltiger Steuertyp / Invalid tax type');
-  }
-  
-  if (tax.type === 'flat' && tax.rate !== undefined) {
-    const rate = parseFloat(tax.rate);
-    if (isNaN(rate) || rate < 0 || rate > 100) {
-      errors.push('Steuersatz muss zwischen 0 und 100 sein / Tax rate must be between 0 and 100');
+  // Symbol validation
+  if (!position.symbol && !position.name) {
+    errors.push('Symbol or name is required');
+  } else {
+    var symbol = position.symbol || position.name;
+    if (typeof symbol !== 'string' || symbol.trim().length === 0) {
+      errors.push('Symbol must be a non-empty string');
+    } else if (symbol.length > 50) {
+      errors.push('Symbol is too long (max 50 characters)');
     }
   }
   
-  return { valid: errors.length === 0, errors: errors };
+  // Amount validation
+  if (position.amount === undefined || position.amount === null) {
+    errors.push('Amount is required');
+  } else if (typeof position.amount !== 'number' || isNaN(position.amount)) {
+    errors.push('Amount must be a valid number');
+  } else if (position.amount <= 0) {
+    errors.push('Amount must be greater than 0');
+  }
+  
+  // Purchase price validation
+  if (position.purchasePrice === undefined || position.purchasePrice === null) {
+    errors.push('Purchase price is required');
+  } else if (typeof position.purchasePrice !== 'number' || isNaN(position.purchasePrice)) {
+    errors.push('Purchase price must be a valid number');
+  } else if (position.purchasePrice < 0) {
+    errors.push('Purchase price cannot be negative');
+  }
+  
+  // Purchase date validation (optional but must be valid if provided)
+  if (position.purchaseDate) {
+    var date = new Date(position.purchaseDate);
+    if (isNaN(date.getTime())) {
+      errors.push('Purchase date is invalid');
+    } else if (date > new Date()) {
+      errors.push('Purchase date cannot be in the future');
+    }
+  }
+  
+  // Fees validation (optional)
+  if (position.fees !== undefined && position.fees !== null && position.fees !== '') {
+    if (typeof position.fees !== 'number' || isNaN(position.fees)) {
+      errors.push('Fees must be a valid number');
+    } else if (position.fees < 0) {
+      errors.push('Fees cannot be negative');
+    }
+  }
+  
+  return {
+    valid: errors.length === 0,
+    errors: errors
+  };
 }
 
-function validateBudget(budget) {
-  const errors = [];
+/**
+ * Validate transaction data
+ */
+function validateTransaction(transaction) {
+  var errors = [];
   
-  if (!budget.name || budget.name.trim().length < 2) {
-    errors.push('Name muss mindestens 2 Zeichen haben / Name must be at least 2 characters');
+  if (!transaction) {
+    return { valid: false, errors: ['Transaction data is required'] };
   }
   
-  const amount = parseFloat(budget.amount);
-  if (isNaN(amount) || amount <= 0) {
-    errors.push('Betrag muss positiv sein / Amount must be positive');
+  // Type validation
+  var validTypes = ['buy', 'sell', 'dividend', 'transfer', 'fee', 'interest'];
+  if (!transaction.type) {
+    errors.push('Transaction type is required');
+  } else if (validTypes.indexOf(transaction.type) === -1) {
+    errors.push('Invalid transaction type. Must be one of: ' + validTypes.join(', '));
   }
   
-  const validCategories = ['groceries', 'dining', 'transport', 'entertainment', 'shopping', 
-                          'healthcare', 'utilities', 'other'];
-  if (!budget.category || !validCategories.includes(budget.category)) {
-    errors.push('Ungueltige Kategorie / Invalid category');
+  // Symbol validation
+  if (!transaction.symbol && !transaction.asset) {
+    errors.push('Symbol or asset is required');
   }
   
-  return { valid: errors.length === 0, errors: errors };
+  // Quantity validation
+  if (transaction.type === 'buy' || transaction.type === 'sell') {
+    if (transaction.quantity === undefined || transaction.quantity === null) {
+      errors.push('Quantity is required for buy/sell transactions');
+    } else if (typeof transaction.quantity !== 'number' || isNaN(transaction.quantity)) {
+      errors.push('Quantity must be a valid number');
+    } else if (transaction.quantity <= 0) {
+      errors.push('Quantity must be greater than 0');
+    }
+  }
+  
+  // Price validation
+  if (transaction.type === 'buy' || transaction.type === 'sell') {
+    if (transaction.price === undefined || transaction.price === null) {
+      errors.push('Price is required for buy/sell transactions');
+    } else if (typeof transaction.price !== 'number' || isNaN(transaction.price)) {
+      errors.push('Price must be a valid number');
+    } else if (transaction.price < 0) {
+      errors.push('Price cannot be negative');
+    }
+  }
+  
+  // Date validation
+  if (!transaction.date && !transaction.timestamp && !transaction.transactionDate) {
+    errors.push('Transaction date is required');
+  } else {
+    var dateStr = transaction.date || transaction.timestamp || transaction.transactionDate;
+    var date = new Date(dateStr);
+    if (isNaN(date.getTime())) {
+      errors.push('Transaction date is invalid');
+    }
+  }
+  
+  return {
+    valid: errors.length === 0,
+    errors: errors
+  };
 }
 
-function validateGoal(goal) {
-  const errors = [];
-  
-  if (!goal.name || goal.name.trim().length < 2) {
-    errors.push('Name muss mindestens 2 Zeichen haben / Name must be at least 2 characters');
+/**
+ * Validate API key format
+ */
+function validateApiKey(key, provider) {
+  if (!key || typeof key !== 'string') {
+    return { valid: false, error: 'API key is required' };
   }
   
-  const target = parseFloat(goal.targetAmount);
-  if (isNaN(target) || target <= 0) {
-    errors.push('Zielbetrag muss positiv sein / Target amount must be positive');
+  key = key.trim();
+  
+  if (key.length === 0) {
+    return { valid: false, error: 'API key cannot be empty' };
   }
   
-  const current = parseFloat(goal.currentAmount);
-  if (isNaN(current) || current < 0) {
-    errors.push('Aktueller Betrag darf nicht negativ sein / Current amount must be non-negative');
+  // Provider-specific validation
+  switch (provider) {
+    case 'alphavantage':
+      // Alpha Vantage keys are typically 16 alphanumeric characters
+      if (!/^[A-Z0-9]{12,20}$/i.test(key)) {
+        return { valid: false, error: 'Invalid Alpha Vantage API key format' };
+      }
+      break;
+    case 'skinport':
+      // Skinport API keys are typically UUIDs
+      if (!/^[a-f0-9-]{32,40}$/i.test(key)) {
+        return { valid: false, error: 'Invalid Skinport API key format' };
+      }
+      break;
   }
   
-  if (current > target) {
-    errors.push('Aktueller Betrag uebersteigt Ziel / Current amount exceeds target');
-  }
-  
-  return { valid: errors.length === 0, errors: errors };
+  return { valid: true };
 }
 
-// Export
+/**
+ * Sanitize user input
+ */
+function sanitizeInput(input) {
+  if (typeof input !== 'string') return input;
+  
+  return input
+    .trim()
+    .replace(/[<>]/g, '') // Remove potential HTML
+    .slice(0, 1000); // Limit length
+}
+
+/**
+ * Validate email format
+ */
+function validateEmail(email) {
+  if (!email || typeof email !== 'string') {
+    return { valid: false, error: 'Email is required' };
+  }
+  
+  var emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+  if (!emailRegex.test(email)) {
+    return { valid: false, error: 'Invalid email format' };
+  }
+  
+  return { valid: true };
+}
+
+/**
+ * Validate numeric range
+ */
+function validateNumericRange(value, min, max, fieldName) {
+  fieldName = fieldName || 'Value';
+  
+  if (value === undefined || value === null) {
+    return { valid: false, error: fieldName + ' is required' };
+  }
+  
+  if (typeof value !== 'number' || isNaN(value)) {
+    return { valid: false, error: fieldName + ' must be a valid number' };
+  }
+  
+  if (min !== undefined && value < min) {
+    return { valid: false, error: fieldName + ' must be at least ' + min };
+  }
+  
+  if (max !== undefined && value > max) {
+    return { valid: false, error: fieldName + ' must be at most ' + max };
+  }
+  
+  return { valid: true };
+}
+
+/**
+ * Validate date range
+ */
+function validateDateRange(startDate, endDate) {
+  var start = new Date(startDate);
+  var end = new Date(endDate);
+  
+  if (isNaN(start.getTime())) {
+    return { valid: false, error: 'Start date is invalid' };
+  }
+  
+  if (isNaN(end.getTime())) {
+    return { valid: false, error: 'End date is invalid' };
+  }
+  
+  if (start > end) {
+    return { valid: false, error: 'Start date must be before end date' };
+  }
+  
+  return { valid: true };
+}
+
+/**
+ * Validate backup password
+ */
+function validateBackupPassword(password) {
+  if (!password || typeof password !== 'string') {
+    return { valid: false, error: 'Password is required' };
+  }
+  
+  if (password.length < 8) {
+    return { valid: false, error: 'Password must be at least 8 characters' };
+  }
+  
+  return { valid: true };
+}
+
+/**
+ * Validate import data format
+ */
+function validateImportData(data, format) {
+  format = format || 'json';
+  
+  if (!data) {
+    return { valid: false, error: 'No data provided' };
+  }
+  
+  switch (format) {
+    case 'json':
+      try {
+        if (typeof data === 'string') {
+          JSON.parse(data);
+        }
+        return { valid: true };
+      } catch (e) {
+        return { valid: false, error: 'Invalid JSON format' };
+      }
+    
+    case 'csv':
+      if (typeof data !== 'string') {
+        return { valid: false, error: 'CSV data must be a string' };
+      }
+      if (data.indexOf(',') === -1 && data.indexOf(';') === -1) {
+        return { valid: false, error: 'Invalid CSV format' };
+      }
+      return { valid: true };
+    
+    default:
+      return { valid: false, error: 'Unsupported format: ' + format };
+  }
+}
+
+/**
+ * Validate portfolio structure
+ */
+function validatePortfolio(portfolio) {
+  var errors = [];
+  
+  if (!portfolio || typeof portfolio !== 'object') {
+    return { valid: false, errors: ['Portfolio must be an object'] };
+  }
+  
+  var validCategories = ['crypto', 'stocks', 'skins'];
+  
+  validCategories.forEach(function(category) {
+    if (portfolio[category]) {
+      if (!Array.isArray(portfolio[category])) {
+        errors.push(category + ' must be an array');
+      } else {
+        portfolio[category].forEach(function(position, index) {
+          var posValidation = validatePosition(position);
+          if (!posValidation.valid) {
+            posValidation.errors.forEach(function(err) {
+              errors.push(category + '[' + index + ']: ' + err);
+            });
+          }
+        });
+      }
+    }
+  });
+  
+  return {
+    valid: errors.length === 0,
+    errors: errors
+  };
+}
+
+// Export functions
 if (typeof window !== 'undefined') {
-  window.validateRequired = validateRequired;
-  window.validatePositiveNumber = validatePositiveNumber;
-  window.validateNonNegativeNumber = validateNonNegativeNumber;
-  window.validatePercentage = validatePercentage;
-  window.validateDate = validateDate;
-  window.validateIncome = validateIncome;
-  window.validateExpense = validateExpense;
-  window.validateFixedCost = validateFixedCost;
-  window.validateDebt = validateDebt;
-  window.validateTax = validateTax;
-  window.validateBudget = validateBudget;
-  window.validateGoal = validateGoal;
+  window.validatePosition = validatePosition;
+  window.validateTransaction = validateTransaction;
+  window.validateApiKey = validateApiKey;
+  window.sanitizeInput = sanitizeInput;
+  window.validateEmail = validateEmail;
+  window.validateNumericRange = validateNumericRange;
+  window.validateDateRange = validateDateRange;
+  window.validateBackupPassword = validateBackupPassword;
+  window.validateImportData = validateImportData;
+  window.validatePortfolio = validatePortfolio;
   
-  console.log('[OK] Validation loaded v5.1');
+  console.log('[VALIDATION] Comprehensive validation module loaded');
+}
+
+if (typeof module !== 'undefined' && module.exports) {
+  module.exports = {
+    validatePosition: validatePosition,
+    validateTransaction: validateTransaction,
+    validateApiKey: validateApiKey,
+    sanitizeInput: sanitizeInput,
+    validateEmail: validateEmail,
+    validateNumericRange: validateNumericRange,
+    validateDateRange: validateDateRange,
+    validateBackupPassword: validateBackupPassword,
+    validateImportData: validateImportData,
+    validatePortfolio: validatePortfolio
+  };
 }
