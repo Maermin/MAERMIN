@@ -16,7 +16,7 @@
   //   MaerminAuth.generateHash('YourNewSecret').then(h => console.log(h))
   // Then replace the hash string below and commit.
   // ─────────────────────────────────────────────────────────────────────────
-  const MAERMIN_SECRET_HASH = 'b3fc83b6c8dc51c9b9ddbbe7e90f3ebf4a02c08daef55e9e7617e24f23ffec02';
+  const MAERMIN_SECRET_HASH = 'f62a8064fe60923839fe03b627f747987a2b9fec37888ecccb748157c966f54a';
   // ↑ SHA-256 of "maermin2024"  – change this after first login!
 
   const SESSION_KEY   = 'maermin_auth_session';
