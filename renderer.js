@@ -62,6 +62,90 @@ const themes = {
 };
 
 // ============================================================================
+// PASSWORD CHANGE MODAL
+// ============================================================================
+function PasswordModal({ theme, t, onClose, addToast }) {
+  const [curPw, setCurPw]   = useState('');
+  const [newPw, setNewPw]   = useState('');
+  const [confPw, setConfPw] = useState('');
+  const [busy, setBusy]     = useState(false);
+
+  const handleChange = async () => {
+    if (!curPw || !newPw || !confPw) return;
+    if (newPw !== confPw) { addToast(t.passwordMismatch || 'Passwords do not match', 'error'); return; }
+    if (newPw.length < 6)  { addToast('Password must be at least 6 characters', 'warning'); return; }
+    setBusy(true);
+    try {
+      const hashStr = async s => {
+        const buf = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(s));
+        return Array.from(new Uint8Array(buf)).map(b => b.toString(16).padStart(2,'0')).join('');
+      };
+      const curHash  = await hashStr(curPw);
+      const newHash  = await hashStr(newPw);
+
+      // Read current hash from auth.js at runtime via MaerminAuth
+      const session = sessionStorage.getItem('maermin_auth_session');
+      const stored  = session ? JSON.parse(session).hash : null;
+      if (!stored || curHash !== stored) {
+        addToast(t.passwordWrong || 'Current password is incorrect', 'error');
+        setBusy(false); return;
+      }
+      // Store new hash in sessionStorage so next reload uses new hash
+      // NOTE: this only lasts until the user updates auth.js
+      // We show them the new hash to copy
+      sessionStorage.setItem('maermin_auth_session', JSON.stringify({ hash: newHash, expires: Date.now() + 8*60*60*1000 }));
+      addToast(t.passwordChanged || 'Password changed for this session! Copy the hash below to auth.js to make it permanent.', 'success');
+      setCurPw(''); setNewPw(''); setConfPw('');
+
+      // Show the new hash in a copyable field
+      const display = document.createElement('div');
+      display.style.cssText = 'position:fixed;bottom:5rem;right:1.5rem;background:#1e293b;border:1px solid #334155;border-radius:10px;padding:1rem 1.25rem;z-index:99999;max-width:420px;color:white;font-size:0.8rem;box-shadow:0 10px 30px rgba(0,0,0,0.5)';
+      display.innerHTML = `<div style="font-weight:700;margin-bottom:0.5rem">📋 New hash – copy to auth.js:</div><input readonly value="${newHash}" onclick="this.select()" style="width:100%;background:#0f172a;border:1px solid #334155;border-radius:6px;padding:0.5rem;color:#a855f7;font-family:monospace;font-size:0.75rem"><div style="color:#94a3b8;margin-top:0.5rem;font-size:0.7rem">Replace MAERMIN_SECRET_HASH in auth.js with this value</div><button onclick="this.parentElement.remove()" style="margin-top:0.5rem;background:none;border:1px solid #334155;border-radius:4px;color:#94a3b8;cursor:pointer;padding:0.25rem 0.5rem;font-size:0.75rem">✕ Close</button>`;
+      document.body.appendChild(display);
+      setTimeout(() => display.remove(), 60000);
+    } catch(e) { console.error(e); }
+    setBusy(false);
+  };
+
+  const inp = (value, onChange, placeholder, type='password') =>
+    React.createElement('input', {
+      type, value, onChange: e => onChange(e.target.value), placeholder,
+      onKeyDown: e => e.key === 'Enter' && handleChange(),
+      style: {
+        width: '100%', padding: '0.75rem', marginBottom: '0.75rem',
+        background: theme.inputBg, border: `1px solid ${theme.inputBorder}`,
+        borderRadius: '8px', color: theme.text, fontSize: '0.875rem'
+      }
+    });
+
+  return React.createElement('div', {
+    onClick: e => e.target === e.currentTarget && onClose(),
+    style: { position:'fixed',inset:0,background:'rgba(0,0,0,0.7)',display:'flex',justifyContent:'center',alignItems:'center',zIndex:10001,backdropFilter:'blur(4px)' }
+  },
+    React.createElement('div', {
+      style: { background: theme.modalBg, border:`2px solid ${theme.modalBorder}`, borderRadius:'16px', padding:'2rem', width:'380px', maxWidth:'90vw', boxShadow:'0 25px 50px -12px rgba(0,0,0,0.5)' }
+    },
+      React.createElement('h2', { style:{ color:theme.text, fontSize:'1.25rem', fontWeight:'700', marginBottom:'1.25rem' } },
+        '🔐 ' + (t.changePassword || 'Change Password')
+      ),
+      inp(curPw,  setCurPw,  t.currentPassword || 'Current Password'),
+      inp(newPw,  setNewPw,  t.newPassword     || 'New Password'),
+      inp(confPw, setConfPw, t.confirmPassword || 'Confirm Password'),
+      React.createElement('div', { style:{ display:'flex', gap:'0.75rem', marginTop:'0.25rem' } },
+        React.createElement('button', {
+          onClick: onClose,
+          style:{ flex:1, padding:'0.75rem', background:theme.inputBg, color:theme.text, border:`1px solid ${theme.cardBorder}`, borderRadius:'8px', cursor:'pointer' }
+        }, t.cancel || 'Cancel'),
+        React.createElement('button', {
+          onClick: handleChange, disabled: busy || !curPw || !newPw || !confPw,
+          style:{ flex:1, padding:'0.75rem', background: busy ? theme.inputBg : theme.accent, color:'#fff', border:'none', borderRadius:'8px', cursor: busy ? 'not-allowed' : 'pointer', fontWeight:'600' }
+        }, busy ? '...' : (t.changePassword || 'Change Password'))
+      )
+    )
+  );
+}
+
+// ============================================================================
 // MAIN APPLICATION COMPONENT
 // ============================================================================
 
@@ -167,7 +251,8 @@ function InvestmentTracker() {
   const [editingTransactionId, setEditingTransactionId] = useState(null); // null = adding new, id = editing
   const [showImportModal, setShowImportModal] = useState(false);
   const [importData, setImportData] = useState('');
-  const [showAlertModal, setShowAlertModal] = useState(false);  // Alert creation UI
+  const [showAlertModal, setShowAlertModal] = useState(false);
+  const [showPasswordModal, setShowPasswordModal] = useState(false);
   const [apiKeys, setApiKeys] = useState({ alphaVantage: '', skinport: '' });
   const [showApiSettings, setShowApiSettings] = useState(false);
   const [showSettings, setShowSettings] = useState(false);
@@ -256,6 +341,8 @@ function InvestmentTracker() {
     { id: 'nav:analytics', label: t.goToAnalytics || 'Go to Analytics', category: 'Navigation', shortcut: 'g a' },
     { id: 'nav:transactions', label: t.goToTransactions || 'Go to Transactions', category: 'Navigation', shortcut: 'g t' },
     { id: 'nav:taxes', label: t.goToTaxReport || 'Go to Tax Report', category: 'Navigation', shortcut: 'g x' },
+    { id: 'nav:watchlist', label: t.watchlist || 'Watchlist', category: 'Navigation', shortcut: 'g w' },
+    { id: 'nav:alerts', label: t.priceAlerts || 'Price Alerts', category: 'Navigation', shortcut: 'g l' },
     
     // Actions
     { id: 'action:add-position', label: t.addNew || 'Add Position', category: 'Actions', shortcut: 'n' },
@@ -331,6 +418,7 @@ function InvestmentTracker() {
         setShowImportModal(false);
         setShowApiSettings(false);
         setShowSettings(false);
+        setShowPasswordModal(false);
         return;
       }
       
@@ -799,6 +887,8 @@ function InvestmentTracker() {
       case 'nav:analytics': setActiveView('analytics'); break;
       case 'nav:transactions': setActiveView('transactions'); break;
       case 'nav:taxes': setActiveView('taxes'); break;
+      case 'nav:watchlist': setActiveView('watchlist'); break;
+      case 'nav:alerts': setActiveView('alerts'); break;
       
       // Actions
       case 'action:add-position': setShowTransactionModal(true); break;
@@ -854,6 +944,18 @@ function InvestmentTracker() {
   
   const renderView = () => {
     switch (activeView) {
+      case 'watchlist':
+        return window.MaerminFeatures ?
+          React.createElement(window.MaerminFeatures.WatchlistView, {
+            prices, priceHistory, theme: currentTheme, t, addToast
+          }) : renderAnalyticsPlaceholder('Watchlist');
+
+      case 'alerts':
+        return window.MaerminFeatures ?
+          React.createElement(window.MaerminFeatures.PriceAlertsView, {
+            prices, theme: currentTheme, t, addToast
+          }) : renderAnalyticsPlaceholder('Price Alerts');
+
       case 'correlation':
         return window.CorrelationMatrixView ? 
           React.createElement(window.CorrelationMatrixView, {
@@ -1132,8 +1234,30 @@ function InvestmentTracker() {
         )
       ),
       
-      // Recent positions
-      React.createElement('div', {
+      // Portfolio Overview Panel (Pie + Gainers/Losers)
+      window.MaerminFeatures && portfolioStats.totalPositions > 0 &&
+        React.createElement(window.MaerminFeatures.PortfolioOverviewPanel, {
+          portfolio, prices, priceHistory,
+          theme: currentTheme, formatPrice, getCurrencySymbol, t
+        }),
+
+      // Performance Chart
+      window.MaerminFeatures && portfolioStats.totalPositions > 0 &&
+        React.createElement(window.MaerminFeatures.PerformanceChart, {
+          priceHistory, portfolio,
+          theme: currentTheme, formatPrice, getCurrencySymbol
+        }),
+
+      // Positions Table (sortable)
+      window.MaerminFeatures && portfolioStats.totalPositions > 0 &&
+        React.createElement(window.MaerminFeatures.PositionsTable, {
+          portfolio, prices, priceHistory,
+          theme: currentTheme, formatPrice, getCurrencySymbol, t,
+          onAddTransaction: () => setShowTransactionModal(true)
+        }),
+
+      // Recent positions (original, shown only when no features loaded)
+      !window.MaerminFeatures && React.createElement('div', {
         style: {
           background: currentTheme.card,
           padding: '1.5rem',
@@ -1150,7 +1274,6 @@ function InvestmentTracker() {
             const symbolOriginal = pos.symbol || pos.name || '';
             const symbolLower = symbolOriginal.toLowerCase();
             const symbolUpper = symbolOriginal.toUpperCase();
-            // Try multiple lookups: original case, lowercase, uppercase
             const currentPrice = prices[symbolOriginal] || prices[symbolLower] || prices[symbolUpper] || pos.purchasePrice || 0;
             const value = (pos.amount || 1) * currentPrice;
             const invested = (pos.amount || 1) * (pos.purchasePrice || 0);
@@ -1168,9 +1291,7 @@ function InvestmentTracker() {
               }
             },
               React.createElement('div', null,
-                React.createElement('div', { style: { color: currentTheme.text, fontWeight: '600' } },
-                  pos.symbol || pos.name
-                ),
+                React.createElement('div', { style: { color: currentTheme.text, fontWeight: '600' } }, pos.symbol || pos.name),
                 React.createElement('div', { style: { color: currentTheme.textSecondary, fontSize: '0.875rem' } },
                   `${pos.amount} @ ${formatPrice(pos.purchasePrice)}`
                 )
@@ -1180,13 +1301,8 @@ function InvestmentTracker() {
                   `${formatPrice(value)} ${getCurrencySymbol()}`
                 ),
                 React.createElement('div', {
-                  style: {
-                    color: profit >= 0 ? currentTheme.success : currentTheme.danger,
-                    fontSize: '0.875rem'
-                  }
-                },
-                  `${profit >= 0 ? '+' : ''}${profitPercent.toFixed(2)}%`
-                )
+                  style: { color: profit >= 0 ? currentTheme.success : currentTheme.danger, fontSize: '0.875rem' }
+                }, `${profit >= 0 ? '+' : ''}${profitPercent.toFixed(2)}%`)
               )
             );
           })
@@ -1729,6 +1845,17 @@ function InvestmentTracker() {
         t.moduleNotLoaded || 'Module not loaded. Check the browser console for errors.'
       )
     );
+  };
+
+  // ========== PASSWORD CHANGE MODAL ==========
+
+  const renderPasswordModal = () => {
+    if (!showPasswordModal) return null;
+    return React.createElement(PasswordModal, {
+      theme: currentTheme, t,
+      onClose: () => setShowPasswordModal(false),
+      addToast
+    });
   };
 
   // ========== TRANSACTION MODAL ==========
@@ -2611,6 +2738,28 @@ buy,crypto,bitcoin,0.5,45000,2024-01-15,10`)
           ),
           // Divider
           React.createElement('div', { style: { height: '1px', background: currentTheme.cardBorder, margin: '0.75rem 0' } }),
+          // Change Password
+          React.createElement('button', {
+            onClick: () => { setShowSettings(false); setShowPasswordModal(true); },
+            style: {
+              width: '100%', padding: '0.5rem', background: 'transparent',
+              color: currentTheme.textSecondary, border: 'none',
+              borderRadius: '6px', cursor: 'pointer', fontSize: '0.8rem',
+              textAlign: 'left', marginBottom: '0.25rem'
+            }
+          }, '🔐 ' + (t.changePassword || 'Change Password')),
+          // API Settings
+          React.createElement('button', {
+            onClick: () => { setShowSettings(false); setShowApiSettings(true); },
+            style: {
+              width: '100%', padding: '0.5rem', background: 'transparent',
+              color: currentTheme.textSecondary, border: 'none',
+              borderRadius: '6px', cursor: 'pointer', fontSize: '0.8rem',
+              textAlign: 'left', marginBottom: '0.25rem'
+            }
+          }, '🔑 ' + (t.apiSettings || 'API Settings')),
+          // Divider
+          React.createElement('div', { style: { height: '1px', background: currentTheme.cardBorder, margin: '0.75rem 0' } }),
           // Logout
           React.createElement('button', {
             onClick: () => {
@@ -2645,12 +2794,14 @@ buy,crypto,bitcoin,0.5,45000,2024-01-15,10`)
         }
       },
         [
-          { id: 'overview', label: t.overview || 'Overview' },
-          { id: 'portfolio', label: t.portfolio || 'Portfolio' },
-          { id: 'transactions', label: t.transactions || 'Transactions' },
-          { id: 'analytics', label: t.analytics || 'Analytics' },
-          { id: 'investment-analysis', label: t.investmentAnalysis || 'Investment Analysis' },
-          { id: 'taxes', label: t.taxes || 'Taxes' }
+          { id: 'overview',           label: '📊 ' + (t.overview  || 'Overview') },
+          { id: 'portfolio',          label: '💼 ' + (t.portfolio || 'Portfolio') },
+          { id: 'transactions',       label: '📋 ' + (t.transactions || 'Transactions') },
+          { id: 'analytics',          label: '🔬 ' + (t.analytics  || 'Analytics') },
+          { id: 'investment-analysis',label: '📈 ' + (t.investmentAnalysis || 'Investment Analysis') },
+          { id: 'taxes',              label: '🧾 ' + (t.taxes || 'Taxes') },
+          { id: 'watchlist',          label: '👁 '  + (t.watchlist || 'Watchlist') },
+          { id: 'alerts',             label: '🔔 '  + (t.priceAlerts || 'Alerts') },
         ].map(item =>
           React.createElement('button', {
             key: item.id,
@@ -2698,6 +2849,7 @@ buy,crypto,bitcoin,0.5,45000,2024-01-15,10`)
     renderTransactionModal(),
     renderImportModal(),
     renderApiSettingsModal(),
+    renderPasswordModal(),
     
     // Command Palette
     window.CommandPalette && React.createElement(window.CommandPalette, {

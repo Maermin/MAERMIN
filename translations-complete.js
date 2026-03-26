@@ -391,7 +391,31 @@ const completeTranslations = {
     warning: 'Warnung',
     info: 'Info',
     help: 'Hilfe',
-    about: 'Ueber'
+    about: 'Ueber',
+
+    // v7.1 - New Features
+    watchlist: 'Beobachtungsliste',
+    watchlistEmpty: 'Symbole hinzufuegen um sie hier zu beobachten',
+    topGainers: 'Top Gewinner',
+    topLosers: 'Top Verlierer',
+    allocation: 'Allokation',
+    logout: 'Abmelden',
+    moduleNotLoaded: 'Modul nicht geladen. Konsole auf Fehler pruefen.',
+    welcomeTitle: 'Willkommen bei MAERMIN',
+    welcomeHint: 'Lege deine erste Transaktion an. Verwalte Crypto, Aktien und CS2-Skins an einem Ort.',
+    newestFirst: 'Neueste zuerst',
+    oldestFirst: 'Aelteste zuerst',
+    largestFirst: 'Groesste zuerst',
+    bySymbol: 'Nach Symbol',
+    search: 'Suchen',
+    settings: 'Einstellungen',
+    changePassword: 'Passwort aendern',
+    currentPassword: 'Aktuelles Passwort',
+    newPassword: 'Neues Passwort',
+    confirmPassword: 'Passwort bestaetigen',
+    passwordChanged: 'Passwort erfolgreich geaendert',
+    passwordMismatch: 'Passwoerter stimmen nicht ueberein',
+    passwordWrong: 'Aktuelles Passwort falsch'
   },
   
   en: {
@@ -781,7 +805,31 @@ const completeTranslations = {
     warning: 'Warning',
     info: 'Info',
     help: 'Help',
-    about: 'About'
+    about: 'About',
+
+    // v7.1 - New Features
+    watchlist: 'Watchlist',
+    watchlistEmpty: 'Add symbols to track them here',
+    topGainers: 'Top Gainers',
+    topLosers: 'Top Losers',
+    allocation: 'Allocation',
+    logout: 'Logout',
+    moduleNotLoaded: 'Module not loaded. Check the browser console for errors.',
+    welcomeTitle: 'Welcome to MAERMIN',
+    welcomeHint: 'Start by adding your first transaction. Track Crypto, Stocks, and CS2 Skins – all in one place.',
+    newestFirst: 'Newest first',
+    oldestFirst: 'Oldest first',
+    largestFirst: 'Largest first',
+    bySymbol: 'By symbol',
+    search: 'Search',
+    settings: 'Settings',
+    changePassword: 'Change Password',
+    currentPassword: 'Current Password',
+    newPassword: 'New Password',
+    confirmPassword: 'Confirm Password',
+    passwordChanged: 'Password changed successfully',
+    passwordMismatch: 'Passwords do not match',
+    passwordWrong: 'Current password is incorrect'
   }
 };
 
