@@ -343,6 +343,11 @@ function InvestmentTracker() {
     { id: 'nav:taxes', label: t.goToTaxReport || 'Go to Tax Report', category: 'Navigation', shortcut: 'g x' },
     { id: 'nav:watchlist', label: t.watchlist || 'Watchlist', category: 'Navigation', shortcut: 'g w' },
     { id: 'nav:alerts', label: t.priceAlerts || 'Price Alerts', category: 'Navigation', shortcut: 'g l' },
+    { id: 'nav:returns', label: t.returns || 'Rendite / XIRR', category: 'Navigation', shortcut: 'g r' },
+    { id: 'nav:rebalancing', label: t.rebalancing || 'Rebalancing', category: 'Navigation', shortcut: 'g b' },
+    { id: 'nav:broker-import', label: t.brokerImport || 'Broker-Import', category: 'Navigation', shortcut: 'g m' },
+    { id: 'nav:journal', label: t.tradeJournal || 'Trade-Journal', category: 'Navigation', shortcut: 'g j' },
+    { id: 'nav:dividends', label: t.dividendCalendar || 'Dividenden-Kalender', category: 'Navigation', shortcut: 'g d' },
     
     // Actions
     { id: 'action:add-position', label: t.addNew || 'Add Position', category: 'Actions', shortcut: 'n' },
@@ -889,6 +894,11 @@ function InvestmentTracker() {
       case 'nav:taxes': setActiveView('taxes'); break;
       case 'nav:watchlist': setActiveView('watchlist'); break;
       case 'nav:alerts': setActiveView('alerts'); break;
+      case 'nav:returns': setActiveView('returns'); break;
+      case 'nav:rebalancing': setActiveView('rebalancing'); break;
+      case 'nav:broker-import': setActiveView('broker-import'); break;
+      case 'nav:journal': setActiveView('journal'); break;
+      case 'nav:dividends': setActiveView('dividends'); break;
       
       // Actions
       case 'action:add-position': setShowTransactionModal(true); break;
@@ -944,6 +954,41 @@ function InvestmentTracker() {
   
   const renderView = () => {
     switch (activeView) {
+      case 'returns':
+        return window.MaerminFeatures2 ?
+          React.createElement(window.MaerminFeatures2.ReturnsView, {
+            transactions, portfolio, prices, priceHistory,
+            theme: currentTheme, formatPrice, getCurrencySymbol, t
+          }) : renderAnalyticsPlaceholder('Rendite-Analyse');
+
+      case 'rebalancing':
+        return window.MaerminFeatures2 ?
+          React.createElement(window.MaerminFeatures2.RebalancingView, {
+            portfolio, prices, theme: currentTheme, formatPrice, getCurrencySymbol, t
+          }) : renderAnalyticsPlaceholder('Rebalancing');
+
+      case 'broker-import':
+        return window.MaerminFeatures2 ?
+          React.createElement(window.MaerminFeatures2.BrokerImportWizard, {
+            theme: currentTheme, t, addToast,
+            onImport: (txs) => {
+              const newTxs = txs.map((tx, i) => ({ id: (Date.now()+i).toString(), ...tx }));
+              setTransactions(prev => [...prev, ...newTxs]);
+            }
+          }) : renderAnalyticsPlaceholder('Broker Import');
+
+      case 'journal':
+        return window.MaerminFeatures2 ?
+          React.createElement(window.MaerminFeatures2.PositionNotesView, {
+            portfolio, theme: currentTheme, t
+          }) : renderAnalyticsPlaceholder('Trade Journal');
+
+      case 'dividends':
+        return window.MaerminFeatures2 ?
+          React.createElement(window.MaerminFeatures2.DividendCalendarView, {
+            portfolio, theme: currentTheme, t, addToast
+          }) : renderAnalyticsPlaceholder('Dividenden');
+
       case 'watchlist':
         return window.MaerminFeatures ?
           React.createElement(window.MaerminFeatures.WatchlistView, {
@@ -2786,11 +2831,13 @@ buy,crypto,bitcoin,0.5,45000,2024-01-15,10`)
     React.createElement('div', { style: { display: 'flex', minHeight: 'calc(100vh - 61px)' } },
       // Sidebar
       React.createElement('nav', {
+        className: 'maermin-sidebar',
         style: {
           width: '220px',
           padding: '1rem',
           borderRight: `1px solid ${currentTheme.cardBorder}`,
-          flexShrink: 0
+          flexShrink: 0,
+          overflowY: 'auto'
         }
       },
         [
@@ -2802,6 +2849,11 @@ buy,crypto,bitcoin,0.5,45000,2024-01-15,10`)
           { id: 'taxes',              label: '🧾 ' + (t.taxes || 'Taxes') },
           { id: 'watchlist',          label: '👁 '  + (t.watchlist || 'Watchlist') },
           { id: 'alerts',             label: '🔔 '  + (t.priceAlerts || 'Alerts') },
+          { id: 'returns',            label: '📊 '  + (t.returns || 'Rendite') },
+          { id: 'rebalancing',        label: '⚖️ '  + (t.rebalancing || 'Rebalancing') },
+          { id: 'broker-import',      label: '📥 '  + (t.brokerImport || 'Broker-Import') },
+          { id: 'journal',            label: '📓 '  + (t.tradeJournal || 'Journal') },
+          { id: 'dividends',          label: '💰 '  + (t.dividendCalendar || 'Dividenden') },
         ].map(item =>
           React.createElement('button', {
             key: item.id,
@@ -2841,9 +2893,15 @@ buy,crypto,bitcoin,0.5,45000,2024-01-15,10`)
       
       // Main content
       React.createElement('main', {
+        className: 'maermin-main',
         style: { flex: 1, overflow: 'auto' }
       }, renderView())
     ),
+
+    // Mobile Bottom Navigation
+    window.MaerminFeatures2 && React.createElement(window.MaerminFeatures2.MobileBottomNav, {
+      activeView, setActiveView, theme: currentTheme
+    }),
     
     // Modals
     renderTransactionModal(),
