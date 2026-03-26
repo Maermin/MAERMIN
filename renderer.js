@@ -514,28 +514,28 @@ function InvestmentTracker() {
         }
       }
       
-      // Fetch CS2 skin prices from Skinport (public API, no key needed)
-      // API Docs: https://docs.skinport.com/items
-      // NOTE: Prices are returned in full currency units (NOT cents)
+      // Fetch CS2 skin prices from Skinport via CORS proxy
+      // Skinport blocks direct browser requests from foreign origins (CORS policy)
+      // allorigins.win is a free, reliable CORS proxy that forwards the request
       if (portfolio.skins && portfolio.skins.length > 0) {
         try {
-          console.log('[PRICES] Fetching CS2 skin prices from Skinport...');
-          const skinCurrency = 'EUR'; // Always fetch in EUR for consistency
+          console.log('[PRICES] Fetching CS2 skin prices via CORS proxy...');
           
-          // Skinport API - try with Accept-Encoding header
-          const skinportUrl = `https://api.skinport.com/v1/items?app_id=730&currency=${skinCurrency}&tradable=0`;
+          const skinportTarget = encodeURIComponent('https://api.skinport.com/v1/items?app_id=730&currency=EUR&tradable=0');
+          const proxyUrl = `https://api.allorigins.win/get?url=${skinportTarget}`;
           
-          const res = await fetch(skinportUrl, {
-            method: 'GET',
-            headers: {
-              'Accept': 'application/json'
-            }
-          });
+          const res = await fetch(proxyUrl, { method: 'GET' });
           
           if (res.ok) {
-            const skinportData = await res.json();
+            const wrapper = await res.json();
+            // allorigins wraps the response in { contents: "...", status: {...} }
+            if (!wrapper.contents) throw new Error('Empty proxy response');
+            const skinportData = JSON.parse(wrapper.contents);
+            
+            if (!Array.isArray(skinportData)) throw new Error('Unexpected Skinport response format');
+
             let matchedCount = 0;
-            let unmatchedItems = [];
+            const unmatchedItems = [];
             
             console.log('[PRICES] Skinport returned', skinportData.length, 'items');
             
@@ -543,50 +543,45 @@ function InvestmentTracker() {
               const skinName = (skin.symbol || skin.name || '');
               const skinNameLower = skinName.toLowerCase().trim();
               
-              // Try exact match first (case-insensitive)
-              let match = skinportData.find(item => {
-                const itemName = (item.market_hash_name || '').toLowerCase().trim();
-                return itemName === skinNameLower;
-              });
+              // Exact match first (case-insensitive)
+              let match = skinportData.find(item =>
+                (item.market_hash_name || '').toLowerCase().trim() === skinNameLower
+              );
               
-              // If no exact match, try partial match for cases/collections
+              // Fuzzy match: strip wear condition parentheses
               if (!match) {
+                const skinBase = skinNameLower.replace(/\s*\([^)]*\)\s*/g, '').trim();
                 match = skinportData.find(item => {
-                  const itemName = (item.market_hash_name || '').toLowerCase().trim();
-                  // For cases: "Fever Case" should match "Fever Case"
-                  // For skins: Try to match main parts
-                  const skinBase = skinNameLower.replace(/\s*\([^)]*\)\s*/g, '').trim();
-                  const itemBase = itemName.replace(/\s*\([^)]*\)\s*/g, '').trim();
+                  const itemBase = (item.market_hash_name || '').toLowerCase().trim().replace(/\s*\([^)]*\)\s*/g, '').trim();
                   return itemBase === skinBase ||
-                         (skinNameLower.includes('case') && itemName.includes(skinNameLower.replace(' case', '').trim()));
+                    (skinNameLower.includes('case') && (item.market_hash_name || '').toLowerCase().includes(skinBase));
                 });
               }
               
               if (match) {
-                // Skinport returns prices in FULL currency units (not cents!)
-                // Use min_price if available (lowest listed price), otherwise suggested_price
                 const price = match.min_price || match.suggested_price || 0;
-                
                 if (price > 0) {
                   newPrices[skinNameLower] = price;
                   newPrices[skinName] = price;
                   matchedCount++;
-                  console.log('[PRICES] Matched:', skinName, '| Price:', price.toFixed(2), 'EUR');
+                  console.log('[PRICES] Matched:', skinName, '→', price.toFixed(2), 'EUR');
                 }
               } else {
                 unmatchedItems.push(skinName);
               }
             });
             
-            console.log('[PRICES] CS2 skin prices matched:', matchedCount, '/', portfolio.skins.length);
+            console.log('[PRICES] CS2 matched:', matchedCount, '/', portfolio.skins.length);
             if (unmatchedItems.length > 0) {
-              console.log('[PRICES] Unmatched skins:', unmatchedItems.slice(0, 5).join(', '), unmatchedItems.length > 5 ? '...' : '');
+              console.log('[PRICES] Unmatched:', unmatchedItems.slice(0, 5).join(', '));
             }
           } else {
-            console.error('[PRICES] Skinport API error:', res.status, res.statusText);
+            console.error('[PRICES] Skinport proxy error:', res.status, res.statusText);
+            addToast('CS2 prices unavailable (proxy error)', 'warning');
           }
         } catch (e) {
           console.error('[PRICES] Skinport error:', e);
+          addToast('CS2 prices unavailable: ' + e.message, 'warning');
         }
       }
       
