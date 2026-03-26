@@ -426,6 +426,7 @@ function InvestmentTracker() {
   const fetchPrices = async () => {
     setLoading(true);
     const newPrices = { ...prices };
+    const timestamp = new Date().toLocaleString('de-DE', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' });
     
     try {
       // First, fetch USD to EUR exchange rate from ExchangeRate-API (free, no key)
@@ -515,73 +516,77 @@ function InvestmentTracker() {
       }
       
       // Fetch CS2 skin prices from Skinport via CORS proxy
-      // Skinport blocks direct browser requests from foreign origins (CORS policy)
-      // allorigins.win is a free, reliable CORS proxy that forwards the request
+      // Skinport blocks direct browser requests (no CORS headers on their API).
+      // We try multiple free proxies in sequence — the first one that succeeds wins.
       if (portfolio.skins && portfolio.skins.length > 0) {
-        try {
-          console.log('[PRICES] Fetching CS2 skin prices via CORS proxy...');
-          
-          const skinportTarget = encodeURIComponent('https://api.skinport.com/v1/items?app_id=730&currency=EUR&tradable=0');
-          const proxyUrl = `https://api.allorigins.win/get?url=${skinportTarget}`;
-          
-          const res = await fetch(proxyUrl, { method: 'GET' });
-          
-          if (res.ok) {
-            const wrapper = await res.json();
-            // allorigins wraps the response in { contents: "...", status: {...} }
-            if (!wrapper.contents) throw new Error('Empty proxy response');
-            const skinportData = JSON.parse(wrapper.contents);
-            
-            if (!Array.isArray(skinportData)) throw new Error('Unexpected Skinport response format');
+        const skinportUrl = 'https://api.skinport.com/v1/items?app_id=730&currency=EUR&tradable=0';
 
-            let matchedCount = 0;
-            const unmatchedItems = [];
-            
-            console.log('[PRICES] Skinport returned', skinportData.length, 'items');
-            
-            portfolio.skins.forEach(skin => {
-              const skinName = (skin.symbol || skin.name || '');
-              const skinNameLower = skinName.toLowerCase().trim();
-              
-              // Exact match first (case-insensitive)
-              let match = skinportData.find(item =>
-                (item.market_hash_name || '').toLowerCase().trim() === skinNameLower
-              );
-              
-              // Fuzzy match: strip wear condition parentheses
-              if (!match) {
-                const skinBase = skinNameLower.replace(/\s*\([^)]*\)\s*/g, '').trim();
-                match = skinportData.find(item => {
-                  const itemBase = (item.market_hash_name || '').toLowerCase().trim().replace(/\s*\([^)]*\)\s*/g, '').trim();
-                  return itemBase === skinBase ||
-                    (skinNameLower.includes('case') && (item.market_hash_name || '').toLowerCase().includes(skinBase));
-                });
-              }
-              
-              if (match) {
-                const price = match.min_price || match.suggested_price || 0;
-                if (price > 0) {
-                  newPrices[skinNameLower] = price;
-                  newPrices[skinName] = price;
-                  matchedCount++;
-                  console.log('[PRICES] Matched:', skinName, '→', price.toFixed(2), 'EUR');
-                }
-              } else {
-                unmatchedItems.push(skinName);
-              }
-            });
-            
-            console.log('[PRICES] CS2 matched:', matchedCount, '/', portfolio.skins.length);
-            if (unmatchedItems.length > 0) {
-              console.log('[PRICES] Unmatched:', unmatchedItems.slice(0, 5).join(', '));
-            }
-          } else {
-            console.error('[PRICES] Skinport proxy error:', res.status, res.statusText);
-            addToast('CS2 prices unavailable (proxy error)', 'warning');
+        // Proxy options in order of preference
+        const proxies = [
+          // corsproxy.io — wraps response directly, no JSON envelope
+          { url: `https://corsproxy.io/?${encodeURIComponent(skinportUrl)}`, parse: r => r.json() },
+          // allorigins.win — wraps in { contents: "...", status: {} }
+          { url: `https://api.allorigins.win/get?url=${encodeURIComponent(skinportUrl)}`, parse: async r => { const w = await r.json(); return JSON.parse(w.contents); } },
+          // thingproxy — plain proxy
+          { url: `https://thingproxy.freeboard.io/fetch/${skinportUrl}`, parse: r => r.json() },
+        ];
+
+        let skinportData = null;
+        for (const proxy of proxies) {
+          try {
+            console.log('[PRICES] Trying Skinport proxy:', proxy.url.split('?')[0]);
+            const res = await fetch(proxy.url, { signal: AbortSignal.timeout(8000) });
+            if (!res.ok) { console.warn('[PRICES] Proxy returned', res.status); continue; }
+            const data = await proxy.parse(res);
+            if (Array.isArray(data) && data.length > 0) { skinportData = data; break; }
+          } catch (e) {
+            console.warn('[PRICES] Proxy failed:', e.message);
           }
-        } catch (e) {
-          console.error('[PRICES] Skinport error:', e);
-          addToast('CS2 prices unavailable: ' + e.message, 'warning');
+        }
+
+        if (skinportData) {
+          let matchedCount = 0;
+          const unmatchedItems = [];
+
+          portfolio.skins.forEach(skin => {
+            const skinName = (skin.symbol || skin.name || '');
+            const skinNameLower = skinName.toLowerCase().trim();
+
+            // Exact match (case-insensitive)
+            let match = skinportData.find(item =>
+              (item.market_hash_name || '').toLowerCase().trim() === skinNameLower
+            );
+
+            // Fuzzy match — strip wear condition in parentheses
+            if (!match) {
+              const skinBase = skinNameLower.replace(/\s*\([^)]*\)\s*/g, '').trim();
+              match = skinportData.find(item => {
+                const itemBase = (item.market_hash_name || '').toLowerCase().replace(/\s*\([^)]*\)\s*/g, '').trim();
+                return itemBase === skinBase ||
+                  (skinNameLower.includes('case') && (item.market_hash_name || '').toLowerCase().includes(skinBase));
+              });
+            }
+
+            if (match) {
+              const price = match.min_price || match.suggested_price || 0;
+              if (price > 0) {
+                newPrices[skinNameLower] = price;
+                newPrices[skinName] = price;
+                matchedCount++;
+                console.log('[PRICES] CS2 matched:', skinName, '→', price.toFixed(2), 'EUR');
+              }
+            } else {
+              unmatchedItems.push(skinName);
+            }
+          });
+
+          console.log('[PRICES] CS2 matched:', matchedCount, '/', portfolio.skins.length);
+          if (unmatchedItems.length > 0) {
+            console.log('[PRICES] Unmatched CS2:', unmatchedItems.slice(0, 5).join(', '));
+          }
+        } else {
+          console.warn('[PRICES] All Skinport proxies failed — CS2 prices unavailable');
+          addToast('CS2 prices unavailable — all proxies failed', 'warning');
         }
       }
       
