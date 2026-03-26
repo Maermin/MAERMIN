@@ -226,13 +226,12 @@ function InvestmentTracker() {
   // UI State
   const [activeTab, setActiveTab] = useState('crypto');
   const [activeView, setActiveView] = useState('overview');
-  const [theme, setTheme] = useState('purple');
-  const [language, setLanguage] = useState('de');
+  const [theme, setTheme] = useState(() => localStorage.getItem('theme') || 'dark');
+  const [language, setLanguage] = useState(() => localStorage.getItem('language') || 'de');
   
   // v6.0 State
   const [showCommandPalette, setShowCommandPalette] = useState(false);
   const [showShortcuts, setShowShortcuts] = useState(false);
-  const [activeWorkspace, setActiveWorkspace] = useState('default');
   const [toasts, setToasts] = useState([]);
   
   // Forms & Modals
@@ -282,22 +281,10 @@ function InvestmentTracker() {
 
   const getCurrencySymbol = () => currency === 'EUR' ? 'EUR' : 'USD';
 
-  // Category display names - internal names stay the same for data consistency
+  // Category display names
   const getCategoryDisplayName = (category) => {
-    const displayNames = {
-      crypto: t.crypto || 'Crypto',
-      stocks: t.stocks || 'Stocks',
-      skins: t.cs2Skins || 'CS2 Skins'
-    };
+    const displayNames = { crypto: t.crypto || 'Crypto', stocks: t.stocks || 'Stocks', skins: t.cs2Skins || 'CS2 Skins' };
     return displayNames[category] || category;
-  };
-
-  // Workspaces
-  const workspaces = {
-    default: { name: t.defaultWorkspace || 'Default', panels: ['overview'] },
-    'tax-season': { name: t.taxSeasonWorkspace || 'Tax Season', panels: ['taxes'] },
-    'deep-analysis': { name: t.deepAnalysisWorkspace || 'Deep Analysis', panels: ['analytics'] },
-    'daily-check': { name: t.dailyCheckWorkspace || 'Daily Check', panels: ['overview'] }
   };
 
   // Calculate portfolio totals
@@ -335,65 +322,32 @@ function InvestmentTracker() {
   // ========== COMMANDS FOR PALETTE ==========
   
   const commands = useMemo(() => [
-    // Navigation
-    { id: 'nav:overview', label: t.goToOverview || 'Go to Overview', category: 'Navigation', shortcut: 'g o' },
-    { id: 'nav:portfolio', label: t.goToPortfolio || 'Go to Portfolio', category: 'Navigation', shortcut: 'g p' },
-    { id: 'nav:analytics', label: t.goToAnalytics || 'Go to Analytics', category: 'Navigation', shortcut: 'g a' },
-    { id: 'nav:transactions', label: t.goToTransactions || 'Go to Transactions', category: 'Navigation', shortcut: 'g t' },
-    { id: 'nav:taxes', label: t.goToTaxReport || 'Go to Tax Report', category: 'Navigation', shortcut: 'g x' },
-    { id: 'nav:watchlist', label: t.watchlist || 'Watchlist', category: 'Navigation', shortcut: 'g w' },
-    { id: 'nav:alerts', label: t.priceAlerts || 'Price Alerts', category: 'Navigation', shortcut: 'g l' },
-    { id: 'nav:returns', label: t.returns || 'Rendite / XIRR', category: 'Navigation', shortcut: 'g r' },
-    { id: 'nav:rebalancing', label: t.rebalancing || 'Rebalancing', category: 'Navigation', shortcut: 'g b' },
-    { id: 'nav:broker-import', label: t.brokerImport || 'Broker-Import', category: 'Navigation', shortcut: 'g m' },
-    { id: 'nav:journal', label: t.tradeJournal || 'Trade-Journal', category: 'Navigation', shortcut: 'g j' },
-    { id: 'nav:dividends', label: t.dividendCalendar || 'Dividenden-Kalender', category: 'Navigation', shortcut: 'g d' },
-    
-    // Actions
-    { id: 'action:add-position', label: t.addNew || 'Add Position', category: 'Actions', shortcut: 'n' },
-    { id: 'action:add-transaction', label: t.addTransaction || 'Add Transaction', category: 'Actions', shortcut: 't' },
-    { id: 'action:refresh', label: t.refresh || 'Refresh Prices', category: 'Actions', shortcut: 'r' },
-    { id: 'action:import', label: t.importData || 'Import Data', category: 'Actions', shortcut: 'i' },
-    { id: 'action:export', label: t.exportData || 'Export Data', category: 'Actions', shortcut: 'e' },
-    
-    // Analytics
-    { id: 'analytics:correlation', label: t.correlationMatrix || 'Correlation Matrix', category: 'Analytics', shortcut: 'a c' },
-    { id: 'analytics:montecarlo', label: t.monteCarloSimulation || 'Monte Carlo Simulation', category: 'Analytics', shortcut: 'a m' },
-    { id: 'analytics:stress', label: t.stressTesting || 'Stress Testing', category: 'Analytics', shortcut: 'a s' },
-    { id: 'analytics:risk', label: t.riskLevel || 'Risk Analytics', category: 'Analytics', shortcut: 'a r' },
-    
-    // Investment Analysis (v7.0)
-    { id: 'nav:investment-analysis', label: t.investmentAnalysis || 'Investment Analysis', category: 'Navigation', shortcut: 'g i' },
-    { id: 'investment:dca', label: 'DCA Analyzer', category: 'Investment Analysis', shortcut: 'i d' },
-    { id: 'investment:dividends', label: 'Dividend Tracker', category: 'Investment Analysis', shortcut: 'i v' },
-    { id: 'investment:sectors', label: 'Sector Allocation', category: 'Investment Analysis', shortcut: 'i s' },
-    { id: 'investment:currency', label: 'Currency Exposure', category: 'Investment Analysis', shortcut: 'i c' },
-    { id: 'investment:liquidity', label: 'Liquidity Analysis', category: 'Investment Analysis', shortcut: 'i l' },
-    { id: 'investment:goals', label: 'Goal-Based Investing', category: 'Investment Analysis', shortcut: 'i g' },
-    { id: 'investment:economic', label: 'Economic Indicators', category: 'Investment Analysis', shortcut: 'i e' },
-    { id: 'investment:options', label: 'Options Tracker', category: 'Investment Analysis', shortcut: 'i o' },
-    { id: 'investment:tax', label: 'Tax Planning', category: 'Investment Analysis', shortcut: 'i t' },
-    
-    // Workspaces
-    { id: 'workspace:default', label: t.defaultWorkspace || 'Default Workspace', category: 'Workspaces', shortcut: 'w 1' },
-    { id: 'workspace:tax', label: t.taxSeasonWorkspace || 'Tax Season Workspace', category: 'Workspaces', shortcut: 'w 2' },
-    { id: 'workspace:analysis', label: t.deepAnalysisWorkspace || 'Analysis Workspace', category: 'Workspaces', shortcut: 'w 3' },
-    
-    // Settings
-    { id: 'settings:theme-light', label: t.whiteMode || 'Light Theme', category: 'Settings' },
-    { id: 'settings:theme-dark', label: t.darkMode || 'Dark Theme', category: 'Settings' },
-    { id: 'settings:theme-purple', label: t.purpleMode || 'Purple Theme', category: 'Settings' },
-    { id: 'settings:lang-de', label: 'Deutsch', category: 'Settings' },
-    { id: 'settings:lang-en', label: 'English', category: 'Settings' },
-    { id: 'settings:api', label: t.apiSettings || 'API Settings', category: 'Settings' },
-    
-    // Alerts & Backup
-    { id: 'alerts:create', label: t.createAlert || 'Create Price Alert', category: 'Alerts', shortcut: 'l' },
-    { id: 'backup:create', label: t.createBackup || 'Create Backup', category: 'Backup', shortcut: 'b c' },
-    { id: 'action:import', label: t.importData || 'Import / Restore Backup', category: 'Backup', shortcut: 'b r' },
-    
-    // Help
-    { id: 'help:shortcuts', label: t.keyboardShortcuts || 'Keyboard Shortcuts', category: 'Help', shortcut: '?' }
+    // Portfolio
+    { id: 'nav:overview',      label: t.overview || 'Übersicht',          category: 'Portfolio',  shortcut: 'g o' },
+    { id: 'nav:transactions',  label: t.transactions || 'Transaktionen',   category: 'Portfolio',  shortcut: 'g t' },
+    { id: 'nav:dividends',     label: t.dividendCalendar || 'Dividenden',  category: 'Portfolio',  shortcut: 'g d' },
+    { id: 'nav:journal',       label: t.tradeJournal || 'Journal',         category: 'Portfolio',  shortcut: 'g j' },
+    // Analyse
+    { id: 'nav:returns',       label: t.returns || 'Rendite & XIRR',       category: 'Analyse',    shortcut: 'g r' },
+    { id: 'nav:rebalancing',   label: t.rebalancing || 'Rebalancing',      category: 'Analyse',    shortcut: 'g b' },
+    { id: 'nav:analytics',     label: t.analytics || 'Portfolio-Analyse',  category: 'Analyse',    shortcut: 'g a' },
+    { id: 'nav:taxes',         label: t.taxes || 'Steuern',               category: 'Analyse',    shortcut: 'g x' },
+    // Tools
+    { id: 'nav:watchlist',     label: t.watchlist || 'Watchlist',          category: 'Tools',      shortcut: 'g w' },
+    { id: 'nav:alerts',        label: t.priceAlerts || 'Preisalarme',      category: 'Tools',      shortcut: 'g l' },
+    { id: 'nav:broker-import', label: t.brokerImport || 'Broker-Import',   category: 'Tools',      shortcut: 'g m' },
+    // Aktionen
+    { id: 'action:add',        label: t.addTransaction || 'Transaktion hinzufügen', category: 'Aktionen', shortcut: 'n' },
+    { id: 'action:refresh',    label: t.refresh || 'Preise aktualisieren', category: 'Aktionen',   shortcut: 'r' },
+    { id: 'action:backup',     label: t.createBackup || 'Backup erstellen', category: 'Aktionen',  shortcut: 'b' },
+    { id: 'action:import',     label: t.importData || 'Daten importieren', category: 'Aktionen',   shortcut: 'i' },
+    // Einstellungen
+    { id: 'settings:dark',     label: t.darkMode || 'Dark Mode',           category: 'Design' },
+    { id: 'settings:light',    label: t.whiteMode || 'Light Mode',         category: 'Design' },
+    { id: 'settings:purple',   label: t.purpleMode || 'Purple Mode',       category: 'Design' },
+    { id: 'settings:lang-de',  label: 'Deutsch',                           category: 'Sprache' },
+    { id: 'settings:lang-en',  label: 'English',                           category: 'Sprache' },
+    { id: 'help:shortcuts',    label: t.keyboardShortcuts || 'Tastenkürzel', category: 'Hilfe',    shortcut: '?' },
   ], [t]);
 
   // ========== COMMAND EXECUTION (moved below function definitions) ==========
@@ -886,67 +840,34 @@ function InvestmentTracker() {
   
   const executeCommand = (commandId) => {
     switch (commandId) {
-      // Navigation
-      case 'nav:overview': setActiveView('overview'); break;
-      case 'nav:portfolio': setActiveView('portfolio'); break;
-      case 'nav:analytics': setActiveView('analytics'); break;
-      case 'nav:transactions': setActiveView('transactions'); break;
-      case 'nav:taxes': setActiveView('taxes'); break;
-      case 'nav:watchlist': setActiveView('watchlist'); break;
-      case 'nav:alerts': setActiveView('alerts'); break;
-      case 'nav:returns': setActiveView('returns'); break;
-      case 'nav:rebalancing': setActiveView('rebalancing'); break;
+      // Portfolio Navigation
+      case 'nav:overview':      setActiveView('overview'); break;
+      case 'nav:transactions':  setActiveView('transactions'); break;
+      case 'nav:dividends':     setActiveView('dividends'); break;
+      case 'nav:journal':       setActiveView('journal'); break;
+      // Analyse Navigation
+      case 'nav:returns':       setActiveView('returns'); break;
+      case 'nav:rebalancing':   setActiveView('rebalancing'); break;
+      case 'nav:analytics':     setActiveView('analytics'); break;
+      case 'nav:taxes':         setActiveView('taxes'); break;
+      // Tools Navigation
+      case 'nav:watchlist':     setActiveView('watchlist'); break;
+      case 'nav:alerts':        setActiveView('alerts'); break;
       case 'nav:broker-import': setActiveView('broker-import'); break;
-      case 'nav:journal': setActiveView('journal'); break;
-      case 'nav:dividends': setActiveView('dividends'); break;
-      
-      // Actions
-      case 'action:add-position': setShowTransactionModal(true); break;
-      case 'action:add-transaction': setShowTransactionModal(true); break;
-      case 'action:refresh': fetchPrices(); break;
-      case 'action:import': setShowImportModal(true); break;
-      case 'action:export': exportData(); break;
-      
-      // Analytics
-      case 'analytics:correlation': setActiveView('correlation'); break;
-      case 'analytics:montecarlo': setActiveView('montecarlo'); break;
-      case 'analytics:stress': setActiveView('stress'); break;
-      case 'analytics:risk': setActiveView('risk'); break;
-      
-      // Investment Analysis (v7.0)
-      case 'nav:investment-analysis': setActiveView('investment-analysis'); break;
-      case 'investment:dca': setActiveView('investment-analysis'); break;
-      case 'investment:dividends': setActiveView('investment-analysis'); break;
-      case 'investment:sectors': setActiveView('investment-analysis'); break;
-      case 'investment:currency': setActiveView('investment-analysis'); break;
-      case 'investment:liquidity': setActiveView('investment-analysis'); break;
-      case 'investment:goals': setActiveView('investment-analysis'); break;
-      case 'investment:economic': setActiveView('investment-analysis'); break;
-      case 'investment:options': setActiveView('investment-analysis'); break;
-      case 'investment:tax': setActiveView('investment-analysis'); break;
-      
-      // Workspaces
-      case 'workspace:default': setActiveWorkspace('default'); setActiveView('overview'); break;
-      case 'workspace:tax': setActiveWorkspace('tax-season'); setActiveView('taxes'); break;
-      case 'workspace:analysis': setActiveWorkspace('deep-analysis'); setActiveView('analytics'); break;
-      
-      // Settings
-      case 'settings:theme-light': setTheme('white'); break;
-      case 'settings:theme-dark': setTheme('dark'); break;
-      case 'settings:theme-purple': setTheme('purple'); break;
-      case 'settings:lang-de': setLanguage('de'); break;
-      case 'settings:lang-en': setLanguage('en'); break;
-      case 'settings:api': setShowApiSettings(true); break;
-      
-      // Alerts & Backup
-      case 'alerts:create': setShowAlertModal(true); break;
-      case 'backup:create': createBackup(); break;
-      
-      // Help
-      case 'help:shortcuts': setShowShortcuts(true); break;
-      
-      default:
-        console.log('Unknown command:', commandId);
+      // Aktionen
+      case 'action:add':        setShowTransactionModal(true); break;
+      case 'action:refresh':    fetchPrices(); break;
+      case 'action:backup':     createBackup(); break;
+      case 'action:import':     setShowImportModal(true); break;
+      // Design
+      case 'settings:dark':     setTheme('dark'); break;
+      case 'settings:light':    setTheme('white'); break;
+      case 'settings:purple':   setTheme('purple'); break;
+      case 'settings:lang-de':  setLanguage('de'); break;
+      case 'settings:lang-en':  setLanguage('en'); break;
+      // Hilfe
+      case 'help:shortcuts':    setShowShortcuts(true); break;
+      default: break;
     }
   };
 
@@ -999,40 +920,13 @@ function InvestmentTracker() {
         return window.MaerminFeatures ?
           React.createElement(window.MaerminFeatures.PriceAlertsView, {
             prices, theme: currentTheme, t, addToast
-          }) : renderAnalyticsPlaceholder('Price Alerts');
+          }) : renderAnalyticsPlaceholder('Preisalarme');
 
-      case 'correlation':
-        return window.CorrelationMatrixView ? 
-          React.createElement(window.CorrelationMatrixView, {
-            portfolio, priceHistory, t, theme: currentTheme, formatPrice
-          }) : React.createElement('div', null, 'Loading...');
-      
-      case 'montecarlo':
-        return window.MonteCarloView ?
-          React.createElement(window.MonteCarloView, {
-            portfolio, prices, t, theme: currentTheme, currency, formatPrice
-          }) : React.createElement('div', null, 'Loading...');
-      
-      case 'stress':
-        return window.StressTestView ?
-          React.createElement(window.StressTestView, {
-            portfolio, prices, t, theme: currentTheme, currency, formatPrice
-          }) : React.createElement('div', null, 'Loading...');
-      
-      case 'risk':
-        return typeof window.RiskAnalyticsViewV2 !== 'undefined' ?
-          React.createElement(window.RiskAnalyticsViewV2, {
-            portfolio, prices, priceHistory, t, theme: currentTheme, formatPrice
-          }) : renderAnalyticsPlaceholder('Risk Analytics');
-      
       case 'transactions':
         return renderTransactionsView();
       
       case 'taxes':
         return renderTaxView();
-      
-      case 'portfolio':
-        return renderPortfolioView();
       
       case 'analytics':
         return renderAnalyticsMenu();
@@ -1040,13 +934,9 @@ function InvestmentTracker() {
       case 'investment-analysis':
         return window.InvestmentViews && window.InvestmentViews.InvestmentAnalysisDashboard ?
           React.createElement(window.InvestmentViews.InvestmentAnalysisDashboard, {
-            portfolio: portfolio,
-            prices: prices,
-            priceHistory: priceHistory,
-            theme: currentTheme,
-            t: t,
-            formatPrice: formatPrice
-          }) : renderAnalyticsPlaceholder('Investment Analysis');
+            portfolio, prices, priceHistory,
+            theme: currentTheme, t, formatPrice
+          }) : renderAnalyticsPlaceholder('Strategie-Analyse');
       
       default:
         return renderOverview();
@@ -1358,129 +1248,52 @@ function InvestmentTracker() {
 
   // ========== ANALYTICS MENU ==========
   
-  const renderAnalyticsMenu = () => {
-    const analyticsOptions = [
-      { id: 'correlation', label: t.correlationMatrix || 'Correlation Matrix', desc: t.assetCorrelations || 'Asset correlations' },
-      { id: 'montecarlo', label: t.monteCarloSimulation || 'Monte Carlo', desc: t.simulationResults || 'Portfolio projections' },
-      { id: 'stress', label: t.stressTesting || 'Stress Testing', desc: t.historicalScenarios || 'Historical scenarios' },
-      { id: 'risk', label: t.riskLevel || 'Risk Analytics', desc: t.vulnerabilityAnalysis || 'Risk analysis' }
-    ];
-    
-    return React.createElement('div', { style: { padding: '1.5rem' } },
-      React.createElement('h2', {
-        style: { color: currentTheme.text, marginBottom: '1.5rem', fontSize: '1.5rem', fontWeight: '600' }
-      }, t.analytics || 'Analytics'),
-      
-      React.createElement('div', {
-        style: {
-          display: 'grid',
-          gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))',
-          gap: '1rem'
-        }
-      },
-        analyticsOptions.map(opt =>
-          React.createElement('div', {
-            key: opt.id,
-            onClick: () => setActiveView(opt.id),
-            style: {
-              background: currentTheme.card,
-              padding: '1.5rem',
-              borderRadius: '12px',
-              border: `1px solid ${currentTheme.cardBorder}`,
-              cursor: 'pointer',
-              transition: 'all 0.2s'
-            }
-          },
-            React.createElement('h3', { style: { color: currentTheme.text, marginBottom: '0.5rem' } }, opt.label),
-            React.createElement('p', { style: { color: currentTheme.textSecondary, fontSize: '0.875rem' } }, opt.desc)
-          )
-        )
-      )
-    );
-  };
+  const [analyticsTab, setAnalyticsTab] = useState('correlation');
 
-  // ========== PORTFOLIO VIEW ==========
-  
-  const renderPortfolioView = () => {
-    return React.createElement('div', { style: { padding: '1.5rem' } },
-      // Tabs
+  const renderAnalyticsMenu = () => {
+    const tabs = [
+      { id: 'correlation', label: t.correlationMatrix || 'Korrelation' },
+      { id: 'montecarlo',  label: t.monteCarloSimulation || 'Monte Carlo' },
+      { id: 'stress',      label: t.stressTesting || 'Stress-Test' },
+      { id: 'risk',        label: t.riskLevel || 'Risiko' },
+    ];
+
+    const tabBtn = (id, label) => React.createElement('button', {
+      key: id,
+      onClick: () => setAnalyticsTab(id),
+      style: {
+        padding: '0.5rem 1rem', border: 'none', borderRadius: '8px', cursor: 'pointer',
+        fontWeight: analyticsTab === id ? '600' : '400', fontSize: '0.875rem',
+        background: analyticsTab === id ? currentTheme.accent : currentTheme.inputBg,
+        color: analyticsTab === id ? '#fff' : currentTheme.text, transition: 'all 0.15s'
+      }
+    }, label);
+
+    const renderContent = () => {
+      switch(analyticsTab) {
+        case 'correlation': return window.CorrelationMatrixView ?
+          React.createElement(window.CorrelationMatrixView, { portfolio, priceHistory, t, theme: currentTheme, formatPrice })
+          : renderAnalyticsPlaceholder('Korrelationsmatrix');
+        case 'montecarlo': return window.MonteCarloView ?
+          React.createElement(window.MonteCarloView, { portfolio, prices, t, theme: currentTheme, currency, formatPrice })
+          : renderAnalyticsPlaceholder('Monte Carlo');
+        case 'stress': return window.StressTestView ?
+          React.createElement(window.StressTestView, { portfolio, prices, t, theme: currentTheme, currency, formatPrice })
+          : renderAnalyticsPlaceholder('Stress-Test');
+        case 'risk': return window.RiskAnalyticsViewV2 ?
+          React.createElement(window.RiskAnalyticsViewV2, { portfolio, prices, priceHistory, t, theme: currentTheme, formatPrice })
+          : renderAnalyticsPlaceholder('Risikoanalyse');
+        default: return null;
+      }
+    };
+
+    return React.createElement('div', { style: { display: 'flex', flexDirection: 'column', height: '100%' } },
+      // Tab bar at top
       React.createElement('div', {
-        style: { display: 'flex', gap: '0.5rem', marginBottom: '1.5rem' }
-      },
-        ['crypto', 'stocks', 'skins'].map(tab =>
-          React.createElement('button', {
-            key: tab,
-            onClick: () => setActiveTab(tab),
-            style: {
-              padding: '0.75rem 1.5rem',
-              background: activeTab === tab ? currentTheme.accent : currentTheme.inputBg,
-              color: activeTab === tab ? '#fff' : currentTheme.text,
-              border: 'none',
-              borderRadius: '8px',
-              cursor: 'pointer',
-              fontWeight: '600'
-            }
-          }, getCategoryDisplayName(tab))
-        )
-      ),
-      
-      // Positions list
-      React.createElement('div', {
-        style: {
-          background: currentTheme.card,
-          borderRadius: '12px',
-          border: `1px solid ${currentTheme.cardBorder}`,
-          overflow: 'hidden'
-        }
-      },
-        (portfolio[activeTab] || []).length === 0
-          ? React.createElement('div', {
-              style: { padding: '2rem', textAlign: 'center', color: currentTheme.textSecondary }
-            }, t.noPositionsCategory || 'No positions')
-          : (portfolio[activeTab] || []).map(pos => {
-              const symbolOriginal = pos.symbol || pos.name || '';
-              const symbolLower = symbolOriginal.toLowerCase();
-              const symbolUpper = symbolOriginal.toUpperCase();
-              const currentPrice = prices[symbolOriginal] || prices[symbolLower] || prices[symbolUpper] || pos.purchasePrice || 0;
-              const value = (pos.amount || 1) * currentPrice;
-              const invested = (pos.amount || 1) * (pos.purchasePrice || 0);
-              const profit = value - invested;
-              const profitPercent = invested > 0 ? (profit / invested) * 100 : 0;
-              
-              return React.createElement('div', {
-                key: pos.id,
-                style: {
-                  display: 'flex',
-                  justifyContent: 'space-between',
-                  alignItems: 'center',
-                  padding: '1rem 1.5rem',
-                  borderBottom: `1px solid ${currentTheme.cardBorder}`
-                }
-              },
-                React.createElement('div', null,
-                  React.createElement('div', { style: { color: currentTheme.text, fontWeight: '600', fontSize: '1.125rem' } },
-                    pos.symbol || pos.name
-                  ),
-                  React.createElement('div', { style: { color: currentTheme.textSecondary, fontSize: '0.875rem' } },
-                    `${pos.amount} x ${formatPrice(pos.purchasePrice)} ${getCurrencySymbol()}`
-                  )
-                ),
-                React.createElement('div', { style: { textAlign: 'right' } },
-                  React.createElement('div', { style: { color: currentTheme.text, fontWeight: '600', fontSize: '1.125rem' } },
-                    `${formatPrice(value)} ${getCurrencySymbol()}`
-                  ),
-                  React.createElement('div', {
-                    style: {
-                      color: profit >= 0 ? currentTheme.success : currentTheme.danger,
-                      fontSize: '0.875rem'
-                    }
-                  },
-                    `${profit >= 0 ? '+' : ''}${formatPrice(profit)} (${profitPercent.toFixed(2)}%)`
-                  )
-                )
-              );
-            })
-      )
+        style: { display: 'flex', gap: '0.375rem', padding: '1rem 1.5rem', borderBottom: `1px solid ${currentTheme.cardBorder}`, flexWrap: 'wrap' }
+      }, tabs.map(tab => tabBtn(tab.id, tab.label))),
+      // Content
+      React.createElement('div', { style: { flex: 1, overflow: 'auto' } }, renderContent())
     );
   };
 
@@ -2841,54 +2654,72 @@ buy,crypto,bitcoin,0.5,45000,2024-01-15,10`)
         }
       },
         [
-          { id: 'overview',           label: '📊 ' + (t.overview  || 'Overview') },
-          { id: 'portfolio',          label: '💼 ' + (t.portfolio || 'Portfolio') },
-          { id: 'transactions',       label: '📋 ' + (t.transactions || 'Transactions') },
-          { id: 'analytics',          label: '🔬 ' + (t.analytics  || 'Analytics') },
-          { id: 'investment-analysis',label: '📈 ' + (t.investmentAnalysis || 'Investment Analysis') },
-          { id: 'taxes',              label: '🧾 ' + (t.taxes || 'Taxes') },
-          { id: 'watchlist',          label: '👁 '  + (t.watchlist || 'Watchlist') },
-          { id: 'alerts',             label: '🔔 '  + (t.priceAlerts || 'Alerts') },
-          { id: 'returns',            label: '📊 '  + (t.returns || 'Rendite') },
-          { id: 'rebalancing',        label: '⚖️ '  + (t.rebalancing || 'Rebalancing') },
-          { id: 'broker-import',      label: '📥 '  + (t.brokerImport || 'Broker-Import') },
-          { id: 'journal',            label: '📓 '  + (t.tradeJournal || 'Journal') },
-          { id: 'dividends',          label: '💰 '  + (t.dividendCalendar || 'Dividenden') },
-        ].map(item =>
-          React.createElement('button', {
+          // ── Portfolio ──────────────────────────────
+          { group: t.portfolio || 'Portfolio' },
+          { id: 'overview',      icon: '◈', label: t.overview      || 'Übersicht' },
+          { id: 'transactions',  icon: '↕', label: t.transactions  || 'Transaktionen' },
+          { id: 'dividends',     icon: '◎', label: t.dividendCalendar || 'Dividenden' },
+          { id: 'journal',       icon: '◉', label: t.tradeJournal  || 'Journal' },
+          // ── Analyse ───────────────────────────────
+          { group: t.analytics || 'Analyse' },
+          { id: 'returns',       icon: '◆', label: t.returns       || 'Rendite & XIRR' },
+          { id: 'rebalancing',   icon: '◐', label: t.rebalancing   || 'Rebalancing' },
+          { id: 'analytics',     icon: '◇', label: t.analytics     || 'Portfolio-Analyse' },
+          { id: 'investment-analysis', icon: '◈', label: t.investmentAnalysis || 'Strategie' },
+          { id: 'taxes',         icon: '◻', label: t.taxes         || 'Steuern' },
+          // ── Tools ──────────────────────────────────
+          { group: t.tools || 'Tools' },
+          { id: 'watchlist',     icon: '◯', label: t.watchlist     || 'Watchlist' },
+          { id: 'alerts',        icon: '◎', label: t.priceAlerts   || 'Preisalarme' },
+          { id: 'broker-import', icon: '◁', label: t.brokerImport  || 'Broker-Import' },
+        ].map((item, idx) => {
+          // Section Header
+          if (item.group) {
+            return React.createElement('div', {
+              key: 'group-' + idx,
+              style: {
+                padding: '0.875rem 0.75rem 0.375rem',
+                fontSize: '0.65rem',
+                fontWeight: '700',
+                letterSpacing: '0.1em',
+                textTransform: 'uppercase',
+                color: currentTheme.textSecondary,
+                opacity: 0.7,
+                marginTop: idx === 0 ? 0 : '0.5rem'
+              }
+            }, item.group);
+          }
+          // Nav Item
+          const isActive = activeView === item.id ||
+            (item.id === 'analytics' && ['correlation','montecarlo','stress','risk'].includes(activeView));
+          return React.createElement('button', {
             key: item.id,
             onClick: () => setActiveView(item.id),
             style: {
-              display: 'block',
+              display: 'flex',
+              alignItems: 'center',
+              gap: '0.625rem',
               width: '100%',
-              padding: '0.75rem 1rem',
-              marginBottom: '0.25rem',
-              background: activeView === item.id || 
-                (item.id === 'analytics' && ['correlation', 'montecarlo', 'stress', 'risk'].includes(activeView)) ||
-                (item.id === 'investment-analysis' && ['dca', 'dividends', 'sectors', 'currency-exposure', 'liquidity', 'goals', 'economic', 'options', 'tax-planning'].includes(activeView))
-                ? currentTheme.accent : 'transparent',
-              color: activeView === item.id || 
-                (item.id === 'analytics' && ['correlation', 'montecarlo', 'stress', 'risk'].includes(activeView)) ||
-                (item.id === 'investment-analysis' && ['dca', 'dividends', 'sectors', 'currency-exposure', 'liquidity', 'goals', 'economic', 'options', 'tax-planning'].includes(activeView))
-                ? '#fff' : currentTheme.text,
+              padding: '0.5rem 0.75rem',
+              marginBottom: '0.125rem',
+              background: isActive ? `${currentTheme.accent}22` : 'transparent',
+              color: isActive ? currentTheme.accent : currentTheme.textSecondary,
               border: 'none',
               borderRadius: '8px',
               textAlign: 'left',
               cursor: 'pointer',
-              fontSize: '0.9375rem'
+              fontSize: '0.875rem',
+              fontWeight: isActive ? '600' : '400',
+              transition: 'all 0.15s',
+              borderLeft: isActive ? `2px solid ${currentTheme.accent}` : '2px solid transparent'
             }
-          }, item.label)
-        ),
-        
-        // Separator
-        React.createElement('div', {
-          style: { height: '1px', background: currentTheme.cardBorder, margin: '1rem 0' }
+          },
+            React.createElement('span', {
+              style: { fontSize: '0.75rem', opacity: 0.8, width: '14px', textAlign: 'center', flexShrink: 0 }
+            }, item.icon),
+            item.label
+          );
         }),
-        
-        // Workspace indicator
-        React.createElement('div', {
-          style: { padding: '0.5rem', color: currentTheme.textSecondary, fontSize: '0.75rem' }
-        }, `${t.workspaces || 'Workspace'}: ${workspaces[activeWorkspace]?.name || activeWorkspace}`)
       ),
       
       // Main content

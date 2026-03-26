@@ -1496,8 +1496,9 @@ function InvestmentAnalysisDashboard(props) {
   var portfolio = props.portfolio || { crypto: [], stocks: [], skins: [] };
   var prices = props.prices || {};
   var priceHistory = props.priceHistory || {};
+  var theme = props.theme || {};
   
-  var _activeSection = useState('overview');
+  var _activeSection = useState('dca');
   var activeSection = _activeSection[0];
   var setActiveSection = _activeSection[1];
   
@@ -1506,120 +1507,60 @@ function InvestmentAnalysisDashboard(props) {
     ['crypto', 'stocks', 'skins'].forEach(function(cat) {
       (portfolio[cat] || []).forEach(function(pos) {
         var symbol = (pos.symbol || pos.name || '').toLowerCase();
-        var price = prices[symbol] || prices[pos.symbol] || pos.currentPrice || pos.purchasePrice || 0;
+        var price = prices[symbol] || prices[pos.symbol] || pos.purchasePrice || 0;
         total += (pos.amount || 0) * price;
       });
     });
     return total;
   }, [portfolio, prices]);
   
+  // Only real, data-driven analysis tabs
   var sections = [
-    { id: 'overview', label: 'Overview' },
-    { id: 'dca', label: 'DCA' },
-    { id: 'dividends', label: 'Dividends' },
-    { id: 'sectors', label: 'Sectors' },
-    { id: 'currency', label: 'Currency' },
-    { id: 'liquidity', label: 'Liquidity' },
-    { id: 'goals', label: 'Goals' },
-    { id: 'economic', label: 'Economy' },
-    { id: 'options', label: 'Options' },
-    { id: 'tax', label: 'Tax' }
+    { id: 'dca',      label: 'DCA Strategie',   desc: 'DCA vs. Einmalanlage vergleichen' },
+    { id: 'sectors',  label: 'Sektoren',         desc: 'Sektorale Allokation analysieren' },
+    { id: 'currency', label: 'Währungen',         desc: 'Fremdwährungs-Exposure' },
+    { id: 'liquidity',label: 'Liquidität',        desc: 'Position Liquidity Score' },
+    { id: 'goals',    label: 'Ziele',             desc: 'Sparziele verfolgen' }
   ];
+
+  var tabStyle = function(id) {
+    var active = activeSection === id;
+    return {
+      padding: '0.5rem 1rem',
+      background: active ? (theme.accent || '#8b5cf6') : 'transparent',
+      border: 'none',
+      color: active ? '#fff' : (theme.textSecondary || 'rgba(255,255,255,0.6)'),
+      cursor: 'pointer',
+      borderRadius: '8px',
+      fontSize: '0.875rem',
+      fontWeight: active ? '600' : '400',
+      transition: 'all 0.15s',
+      whiteSpace: 'nowrap'
+    };
+  };
   
   var renderSection = function() {
     switch(activeSection) {
-      case 'dca': return React.createElement(DCAAnalyzerView, { portfolio: portfolio, priceHistory: priceHistory });
-      case 'dividends': 
-        // Use enhanced dividend view if available
-        if (window.EnhancedDividendTrackerView) {
-          return React.createElement(window.EnhancedDividendTrackerView, { portfolio: portfolio, prices: prices });
-        }
-        return React.createElement(DividendTrackerView, { portfolio: portfolio });
-      case 'sectors': return React.createElement(SectorAllocationView, { portfolio: portfolio });
+      case 'dca':      return React.createElement(DCAAnalyzerView, { portfolio: portfolio, priceHistory: priceHistory });
+      case 'sectors':  return React.createElement(SectorAllocationView, { portfolio: portfolio });
       case 'currency': return React.createElement(CurrencyExposureView, { portfolio: portfolio });
-      case 'liquidity': return React.createElement(LiquidityAnalysisView, { portfolio: portfolio });
-      case 'goals': return React.createElement(GoalInvestingView, { portfolioValue: portfolioValue });
-      case 'economic': return React.createElement(EconomicIndicatorView, {});
-      case 'options': return React.createElement(OptionsTrackerView, {});
-      case 'tax': return React.createElement(TaxPlanningView, { portfolio: portfolio });
-      default: return renderOverview();
+      case 'liquidity':return React.createElement(LiquidityAnalysisView, { portfolio: portfolio });
+      case 'goals':    return React.createElement(GoalInvestingView, { portfolioValue: portfolioValue });
+      default:         return React.createElement(DCAAnalyzerView, { portfolio: portfolio, priceHistory: priceHistory });
     }
   };
   
-  var renderOverview = function() {
-    var positionCount = (portfolio.crypto || []).length + (portfolio.stocks || []).length + (portfolio.skins || []).length;
-    
-    return React.createElement('div', { style: { padding: '1rem' } },
-      React.createElement('h2', { style: { color: 'white', marginBottom: '1rem' } }, 'Investment Analysis Dashboard'),
-      React.createElement(MetricGrid, {
-        metrics: [
-          { label: 'Portfolio Value', value: portfolioValue.toFixed(0) + ' EUR', color: '#8b5cf6' },
-          { label: 'Positions', value: positionCount },
-          { label: 'Asset Classes', value: '3' },
-          { label: 'Analysis Tools', value: '9' }
-        ]
-      }),
-      
-      React.createElement('div', { style: { display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '1rem', marginTop: '1.5rem' } },
-        sections.slice(1).map(function(section) {
-          var descriptions = {
-            dca: 'Compare DCA vs lump sum',
-            dividends: 'Track dividend income',
-            sectors: 'Sector allocation',
-            currency: 'FX exposure analysis',
-            liquidity: 'Position liquidity',
-            goals: 'Investment goals',
-            economic: 'Economic indicators',
-            options: 'Options calculator',
-            tax: 'Tax planning'
-          };
-          
-          return React.createElement('div', {
-            key: section.id,
-            onClick: function() { setActiveSection(section.id); },
-            style: {
-              padding: '1.5rem',
-              background: 'rgba(255,255,255,0.05)',
-              border: '1px solid rgba(255,255,255,0.1)',
-              borderRadius: '12px',
-              cursor: 'pointer',
-              transition: 'all 0.2s'
-            }
-          },
-            React.createElement('div', { style: { color: 'white', fontWeight: '600', marginBottom: '0.5rem' } }, section.label),
-            React.createElement('div', { style: { color: 'rgba(255,255,255,0.5)', fontSize: '0.875rem' } }, descriptions[section.id] || '')
-          );
-        })
-      )
-    );
-  };
-  
   return React.createElement('div', null,
+    // Tab bar
     React.createElement('div', { 
-      style: {
-        display: 'flex',
-        gap: '0.5rem',
-        marginBottom: '1.5rem',
-        flexWrap: 'wrap',
-        padding: '0 1rem'
-      }
+      style: { display: 'flex', gap: '0.25rem', padding: '0 1.5rem 1rem', flexWrap: 'wrap', borderBottom: '1px solid rgba(255,255,255,0.08)', marginBottom: '0' }
     },
-      sections.map(function(section) {
-        var isActive = activeSection === section.id;
+      sections.map(function(s) {
         return React.createElement('button', {
-          key: section.id,
-          onClick: function() { setActiveSection(section.id); },
-          style: {
-            padding: '0.625rem 1.25rem',
-            background: isActive ? '#8b5cf6' : 'rgba(255,255,255,0.05)',
-            border: isActive ? '1px solid #8b5cf6' : '1px solid rgba(255,255,255,0.1)',
-            color: isActive ? 'white' : 'rgba(255,255,255,0.7)',
-            cursor: 'pointer',
-            borderRadius: '8px',
-            fontSize: '0.875rem',
-            transition: 'all 0.2s'
-          }
-        }, section.label);
+          key: s.id,
+          onClick: function() { setActiveSection(s.id); },
+          style: tabStyle(s.id)
+        }, s.label);
       })
     ),
     renderSection()
@@ -1629,14 +1570,10 @@ function InvestmentAnalysisDashboard(props) {
 // Export to window
 window.InvestmentViews = {
   DCAAnalyzerView: DCAAnalyzerView,
-  DividendTrackerView: DividendTrackerView,
   SectorAllocationView: SectorAllocationView,
   CurrencyExposureView: CurrencyExposureView,
   LiquidityAnalysisView: LiquidityAnalysisView,
   GoalInvestingView: GoalInvestingView,
-  EconomicIndicatorView: EconomicIndicatorView,
-  OptionsTrackerView: OptionsTrackerView,
-  TaxPlanningView: TaxPlanningView,
   InvestmentAnalysisDashboard: InvestmentAnalysisDashboard,
   AnalysisCard: AnalysisCard,
   MetricGrid: MetricGrid,
@@ -1645,6 +1582,6 @@ window.InvestmentViews = {
   TabBar: TabBar
 };
 
-console.log('[OK] Investment Views v7.0 loaded (fixed)');
+console.log('[OK] Investment Views v7.1 loaded');
 
 })();
