@@ -198,6 +198,10 @@ const completeTranslations = {
     goToTransactions: 'Zu Transaktionen',
     goToTaxReport: 'Zum Steuerbericht',
     
+    // v7.0 - Investment Analysis
+    investmentAnalysis: 'Investitionsanalyse',
+    analytics: 'Analyse',
+    
     // v6.0 - Workspaces
     workspaces: 'Arbeitsbereiche',
     defaultWorkspace: 'Standard',
@@ -583,6 +587,10 @@ const completeTranslations = {
     goToAnalytics: 'Go to Analytics',
     goToTransactions: 'Go to Transactions',
     goToTaxReport: 'Go to Tax Report',
+    
+    // v7.0 - Investment Analysis
+    investmentAnalysis: 'Investment Analysis',
+    analytics: 'Analytics',
     
     // v6.0 - Workspaces
     workspaces: 'Workspaces',

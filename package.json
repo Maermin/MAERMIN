@@ -1,7 +1,7 @@
 {
   "name": "maermin",
-  "version": "6.0.0",
-  "description": "MAERMIN - Multi-Asset Portfolio Tracker & Financial OS for Desktop Power Users",
+  "version": "7.0.0",
+  "description": "MAERMIN v7.0 - Professional Multi-Asset Portfolio Tracker with Advanced Investment Analytics",
   "main": "main.js",
   "author": "MAERMIN Team",
   "license": "MIT",
@@ -25,7 +25,7 @@
   "build": {
     "appId": "com.maermin.portfolio",
     "productName": "MAERMIN",
-    "copyright": "Copyright © 2025 MAERMIN",
+    "copyright": "Copyright 2025 MAERMIN",
     "directories": {
       "output": "dist",
       "buildResources": "assets"
@@ -100,7 +100,12 @@
     "cs2",
     "finance",
     "desktop",
-    "electron"
+    "electron",
+    "dca",
+    "dividends",
+    "options",
+    "tax",
+    "analytics"
   ],
   "engines": {
     "node": ">=18.0.0"

@@ -13,18 +13,18 @@
 const HISTORICAL_SCENARIOS = {
   '2008-financial-crisis': {
     name: '2008 Financial Crisis',
-    description: 'Global financial meltdown triggered by subprime mortgage crisis. Skins impact is estimated (CS:GO launched 2012).',
+    description: 'Global financial meltdown triggered by subprime mortgage crisis.',
     period: '2008-09 to 2009-03',
     impacts: {
       stocks: -0.55,
       crypto: 0,        // Bitcoin launched 2009
-      skins: -0.30,     // Estimated: gaming items would have declined with consumer spending
+      skins: 0,         // CS:GO/CS2 skins did not exist (marketplace launched 2013)
       bonds: 0.05,
       gold: 0.25
     },
     recoveryMonths: 48,
     peakToTrough: -57,
-    note: 'CS:GO skins did not exist in 2008. Impact is estimated for portfolio stress testing.'
+    note: 'CS:GO skins marketplace launched in August 2013. Skins are not affected in this historical scenario.'
   },
   
   '2020-covid-crash': {
@@ -59,18 +59,18 @@ const HISTORICAL_SCENARIOS = {
   
   'dotcom-bubble': {
     name: 'Dot-Com Bubble Burst',
-    description: 'Technology stock collapse after speculative bubble. Skins impact is estimated.',
+    description: 'Technology stock collapse after speculative bubble.',
     period: '2000-03 to 2002-10',
     impacts: {
       stocks: -0.49,
       crypto: 0,        // Did not exist
-      skins: -0.20,     // Estimated: gaming was growing but would have been affected
+      skins: 0,         // CS:GO/CS2 skins did not exist (marketplace launched 2013)
       tech_stocks: -0.78,
       bonds: 0.12
     },
     recoveryMonths: 84,
     peakToTrough: -78,
-    note: 'CS:GO skins did not exist in 2000. Impact is estimated for portfolio stress testing.'
+    note: 'CS:GO skins marketplace launched in August 2013. Skins are not affected in this historical scenario.'
   },
   
   'crypto-winter-2022': {

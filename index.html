@@ -3,12 +3,21 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline' https://unpkg.com https://cdnjs.cloudflare.com; style-src 'self' 'unsafe-inline'; img-src 'self' data: https:; connect-src 'self' https://api.coingecko.com https://api.exchangerate-api.com https://open.er-api.com https://api.skinport.com https://www.alphavantage.co;">
-  <title>MAERMIN v6.0 - Portfolio Tracker</title>
+  <!-- GitHub Pages: CSP ohne 'self'-Beschränkung, alle nötigen APIs erlaubt -->
+  <meta http-equiv="Content-Security-Policy" content="default-src 'self' https:; script-src 'self' 'unsafe-inline' https://unpkg.com https://cdnjs.cloudflare.com; style-src 'self' 'unsafe-inline'; img-src 'self' data: https:; connect-src 'self' https://api.coingecko.com https://api.exchangerate-api.com https://open.er-api.com https://api.skinport.com https://www.alphavantage.co https://financialmodelingprep.com https://query1.finance.yahoo.com https://finnhub.io; worker-src 'none'; object-src 'none';">
+  <title>MAERMIN v7.0 - Professional Portfolio Tracker</title>
+
+  <!-- Open Graph / Social Preview -->
+  <meta property="og:title" content="MAERMIN v7.0 – Professional Portfolio Tracker">
+  <meta property="og:description" content="Multi-Asset Portfolio Tracker: Crypto, Stocks & CS2 Items mit Advanced Analytics">
+  <meta property="og:type" content="website">
   
   <!-- React from CDN -->
   <script crossorigin src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
   <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
+
+  <!-- Auth (lädt sofort, bevor der Rest der App startet) -->
+  <script src="auth.js"></script>
   
   <!-- PDF Libraries -->
   <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
@@ -27,7 +36,8 @@
         sans-serif;
       -webkit-font-smoothing: antialiased;
       -moz-osx-font-smoothing: grayscale;
-      overflow: hidden;
+      overflow: auto;
+      height: 100vh;
     }
     
     #loading {
@@ -217,6 +227,360 @@
       margin: 0 0.25rem;
     }
 
+    /* Toast Notifications */
+    .toast-container {
+      position: fixed;
+      bottom: 1.5rem;
+      right: 1.5rem;
+      display: flex;
+      flex-direction: column;
+      gap: 0.5rem;
+      z-index: 10002;
+    }
+
+    .toast {
+      padding: 1rem 1.5rem;
+      background: #1e293b;
+      border-radius: 8px;
+      box-shadow: 0 10px 25px -5px rgba(0,0,0,0.3);
+      color: white;
+      display: flex;
+      align-items: center;
+      gap: 0.75rem;
+      animation: slideIn 0.3s ease-out;
+    }
+
+    .toast.success { border-left: 4px solid #22c55e; }
+    .toast.error { border-left: 4px solid #ef4444; }
+    .toast.warning { border-left: 4px solid #f59e0b; }
+    .toast.info { border-left: 4px solid #3b82f6; }
+
+    @keyframes slideIn {
+      from { transform: translateX(100%); opacity: 0; }
+      to { transform: translateX(0); opacity: 1; }
+    }
+
+    /* v7.0 Investment Analysis Styles */
+    .analysis-card {
+      background: rgba(255,255,255,0.05);
+      border: 1px solid rgba(255,255,255,0.1);
+      border-radius: 12px;
+      padding: 1.5rem;
+      margin-bottom: 1rem;
+    }
+    
+    .analysis-card-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 1rem;
+      padding-bottom: 0.75rem;
+      border-bottom: 1px solid rgba(255,255,255,0.1);
+    }
+    
+    .analysis-card-title {
+      font-size: 1.125rem;
+      font-weight: 600;
+      color: white;
+    }
+    
+    .analysis-badge {
+      padding: 0.25rem 0.75rem;
+      border-radius: 9999px;
+      font-size: 0.75rem;
+      font-weight: 600;
+    }
+    
+    .analysis-badge.positive { background: rgba(34,197,94,0.2); color: #22c55e; }
+    .analysis-badge.negative { background: rgba(239,68,68,0.2); color: #ef4444; }
+    .analysis-badge.neutral { background: rgba(148,163,184,0.2); color: #94a3b8; }
+    .analysis-badge.warning { background: rgba(245,158,11,0.2); color: #f59e0b; }
+    
+    .metric-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+      gap: 1rem;
+    }
+    
+    .metric-item {
+      text-align: center;
+      padding: 1rem;
+      background: rgba(0,0,0,0.2);
+      border-radius: 8px;
+    }
+    
+    .metric-value {
+      font-size: 1.5rem;
+      font-weight: 700;
+      color: white;
+    }
+    
+    .metric-label {
+      font-size: 0.75rem;
+      color: rgba(255,255,255,0.6);
+      margin-top: 0.25rem;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+    }
+    
+    .tab-bar {
+      display: flex;
+      gap: 0.25rem;
+      padding: 0.25rem;
+      background: rgba(0,0,0,0.2);
+      border-radius: 8px;
+      margin-bottom: 1rem;
+      flex-wrap: wrap;
+    }
+    
+    .tab-btn {
+      padding: 0.5rem 1rem;
+      background: transparent;
+      border: none;
+      color: rgba(255,255,255,0.6);
+      cursor: pointer;
+      border-radius: 6px;
+      font-size: 0.875rem;
+      transition: all 0.2s;
+    }
+    
+    .tab-btn:hover {
+      background: rgba(255,255,255,0.1);
+      color: white;
+    }
+    
+    .tab-btn.active {
+      background: rgba(139,92,246,0.3);
+      color: white;
+    }
+    
+    .data-table {
+      width: 100%;
+      border-collapse: collapse;
+    }
+    
+    .data-table th,
+    .data-table td {
+      padding: 0.75rem;
+      text-align: left;
+      border-bottom: 1px solid rgba(255,255,255,0.1);
+    }
+    
+    .data-table th {
+      color: #8b5cf6;
+      font-weight: 600;
+      font-size: 0.75rem;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+    }
+    
+    .data-table td {
+      color: rgba(255,255,255,0.9);
+    }
+    
+    .progress-bar {
+      height: 8px;
+      background: rgba(255,255,255,0.1);
+      border-radius: 4px;
+      overflow: hidden;
+    }
+    
+    .progress-bar-fill {
+      height: 100%;
+      border-radius: 4px;
+      transition: width 0.3s ease;
+    }
+    
+    .progress-bar-fill.green { background: #22c55e; }
+    .progress-bar-fill.red { background: #ef4444; }
+    .progress-bar-fill.blue { background: #3b82f6; }
+    .progress-bar-fill.purple { background: #8b5cf6; }
+    
+    .section-nav {
+      display: flex;
+      gap: 0.5rem;
+      margin-bottom: 1.5rem;
+      flex-wrap: wrap;
+    }
+    
+    .section-nav-btn {
+      padding: 0.625rem 1.25rem;
+      background: rgba(255,255,255,0.05);
+      border: 1px solid rgba(255,255,255,0.1);
+      color: rgba(255,255,255,0.7);
+      cursor: pointer;
+      border-radius: 8px;
+      font-size: 0.875rem;
+      transition: all 0.2s;
+    }
+    
+    .section-nav-btn:hover {
+      background: rgba(255,255,255,0.1);
+      color: white;
+    }
+    
+    .section-nav-btn.active {
+      background: #8b5cf6;
+      border-color: #8b5cf6;
+      color: white;
+    }
+    
+    .greek-display {
+      display: flex;
+      gap: 1.5rem;
+      flex-wrap: wrap;
+    }
+    
+    .greek-item {
+      text-align: center;
+    }
+    
+    .greek-symbol {
+      font-size: 1.5rem;
+      font-weight: bold;
+      color: #8b5cf6;
+    }
+    
+    .greek-value {
+      font-size: 1.125rem;
+      color: white;
+    }
+    
+    .greek-label {
+      font-size: 0.75rem;
+      color: rgba(255,255,255,0.5);
+    }
+
+    /* Correlation Heatmap */
+    .correlation-heatmap {
+      display: grid;
+      gap: 1px;
+      background: rgba(255,255,255,0.1);
+      border-radius: 8px;
+      overflow: hidden;
+    }
+
+    .correlation-cell {
+      width: 60px;
+      height: 60px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 0.75rem;
+      font-weight: 500;
+      cursor: pointer;
+      transition: transform 0.1s;
+    }
+
+    .correlation-cell:hover {
+      transform: scale(1.1);
+      z-index: 1;
+    }
+
+    .correlation-label {
+      background: rgba(30,41,59,0.9);
+      color: white;
+      font-weight: 600;
+    }
+
+    /* Monte Carlo Chart Area */
+    .monte-carlo-chart {
+      position: relative;
+      height: 400px;
+      background: rgba(0,0,0,0.2);
+      border-radius: 8px;
+      overflow: hidden;
+    }
+
+    /* Scenario Cards */
+    .scenario-card {
+      background: rgba(255,255,255,0.05);
+      border-radius: 12px;
+      padding: 1.25rem;
+      cursor: pointer;
+      transition: all 0.2s;
+      border: 2px solid transparent;
+    }
+
+    .scenario-card:hover {
+      background: rgba(255,255,255,0.1);
+      border-color: rgba(139,92,246,0.3);
+    }
+
+    .scenario-card.selected {
+      border-color: #8b5cf6;
+      background: rgba(139,92,246,0.1);
+    }
+
+    .scenario-impact {
+      display: flex;
+      gap: 0.5rem;
+      margin-top: 0.75rem;
+    }
+
+    .scenario-impact-badge {
+      padding: 0.25rem 0.5rem;
+      border-radius: 4px;
+      font-size: 0.75rem;
+      font-weight: 600;
+    }
+
+    .scenario-impact-badge.negative {
+      background: rgba(239,68,68,0.2);
+      color: #ef4444;
+    }
+
+    .scenario-impact-badge.positive {
+      background: rgba(34,197,94,0.2);
+      color: #22c55e;
+    }
+
+    /* Workspace Tabs */
+    .workspace-tabs {
+      display: flex;
+      gap: 0.25rem;
+      padding: 0.5rem;
+      background: rgba(0,0,0,0.2);
+      border-radius: 8px;
+      margin-bottom: 1rem;
+    }
+
+    .workspace-tab {
+      padding: 0.5rem 1rem;
+      background: transparent;
+      border: none;
+      color: rgba(255,255,255,0.6);
+      cursor: pointer;
+      border-radius: 6px;
+      font-size: 0.875rem;
+      transition: all 0.2s;
+    }
+
+    .workspace-tab:hover {
+      background: rgba(255,255,255,0.1);
+      color: white;
+    }
+
+    .workspace-tab.active {
+      background: rgba(139,92,246,0.3);
+      color: white;
+    }
+
+    /* Import/Export */
+    .import-dropzone {
+      border: 2px dashed rgba(255,255,255,0.2);
+      border-radius: 12px;
+      padding: 3rem;
+      text-align: center;
+      cursor: pointer;
+      transition: all 0.2s;
+    }
+
+    .import-dropzone:hover, .import-dropzone.dragover {
+      border-color: #8b5cf6;
+      background: rgba(139,92,246,0.1);
+    }
+
     /* Shortcuts Modal */
     .shortcuts-modal {
       position: fixed;
@@ -293,302 +657,14 @@
       font-family: monospace;
       font-size: 0.875rem;
     }
-
-    /* Toast Notifications */
-    .toast-container {
-      position: fixed;
-      bottom: 1.5rem;
-      right: 1.5rem;
-      display: flex;
-      flex-direction: column;
-      gap: 0.5rem;
-      z-index: 10002;
-    }
-
-    .toast {
-      padding: 1rem 1.5rem;
-      background: #1e293b;
-      border-radius: 8px;
-      box-shadow: 0 10px 25px -5px rgba(0,0,0,0.3);
-      color: white;
-      display: flex;
-      align-items: center;
-      gap: 0.75rem;
-      animation: slideIn 0.3s ease-out;
-    }
-
-    .toast.success { border-left: 4px solid #22c55e; }
-    .toast.error { border-left: 4px solid #ef4444; }
-    .toast.warning { border-left: 4px solid #f59e0b; }
-    .toast.info { border-left: 4px solid #3b82f6; }
-
-    @keyframes slideIn {
-      from { transform: translateX(100%); opacity: 0; }
-      to { transform: translateX(0); opacity: 1; }
-    }
-
-    /* Correlation Heatmap */
-    .correlation-heatmap {
-      display: grid;
-      gap: 1px;
-      background: rgba(255,255,255,0.1);
-      border-radius: 8px;
-      overflow: hidden;
-    }
-
-    .correlation-cell {
-      width: 60px;
-      height: 60px;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      font-size: 0.75rem;
-      font-weight: 500;
-      cursor: pointer;
-      transition: transform 0.1s;
-    }
-
-    .correlation-cell:hover {
-      transform: scale(1.1);
-      z-index: 1;
-    }
-
-    .correlation-label {
-      background: rgba(30,41,59,0.9);
-      color: white;
-      font-weight: 600;
-    }
-
-    /* Monte Carlo Chart Area */
-    .monte-carlo-chart {
-      position: relative;
-      height: 400px;
-      background: rgba(0,0,0,0.2);
-      border-radius: 8px;
-      overflow: hidden;
-    }
-
-    .probability-cone {
-      position: absolute;
-      bottom: 0;
-      left: 0;
-      right: 0;
-    }
-
-    /* Panel Detach Button */
-    .panel-detach-btn {
-      position: absolute;
-      top: 0.5rem;
-      right: 0.5rem;
-      background: rgba(255,255,255,0.1);
-      border: none;
-      color: rgba(255,255,255,0.6);
-      width: 28px;
-      height: 28px;
-      border-radius: 6px;
-      cursor: pointer;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      opacity: 0;
-      transition: opacity 0.2s;
-    }
-
-    .panel:hover .panel-detach-btn {
-      opacity: 1;
-    }
-
-    .panel-detach-btn:hover {
-      background: rgba(255,255,255,0.2);
-      color: white;
-    }
-
-    /* Workspace Tabs */
-    .workspace-tabs {
-      display: flex;
-      gap: 0.25rem;
-      padding: 0.5rem;
-      background: rgba(0,0,0,0.2);
-      border-radius: 8px;
-      margin-bottom: 1rem;
-    }
-
-    .workspace-tab {
-      padding: 0.5rem 1rem;
-      background: transparent;
-      border: none;
-      color: rgba(255,255,255,0.6);
-      cursor: pointer;
-      border-radius: 6px;
-      font-size: 0.875rem;
-      transition: all 0.2s;
-    }
-
-    .workspace-tab:hover {
-      background: rgba(255,255,255,0.1);
-      color: white;
-    }
-
-    .workspace-tab.active {
-      background: rgba(139,92,246,0.3);
-      color: white;
-    }
-
-    /* Quick Add Input */
-    .quick-add-container {
-      position: fixed;
-      bottom: 2rem;
-      left: 50%;
-      transform: translateX(-50%);
-      width: 500px;
-      max-width: 90vw;
-      z-index: 9999;
-    }
-
-    .quick-add-input {
-      width: 100%;
-      padding: 1rem 1.5rem;
-      font-size: 1rem;
-      background: #1e293b;
-      border: 2px solid #8b5cf6;
-      border-radius: 12px;
-      color: white;
-      outline: none;
-      box-shadow: 0 20px 40px -10px rgba(0,0,0,0.4);
-    }
-
-    .quick-add-hint {
-      margin-top: 0.5rem;
-      text-align: center;
-      color: rgba(255,255,255,0.4);
-      font-size: 0.75rem;
-    }
-
-    /* Stress Test Scenario Cards */
-    .scenario-card {
-      background: rgba(255,255,255,0.05);
-      border-radius: 12px;
-      padding: 1.25rem;
-      cursor: pointer;
-      transition: all 0.2s;
-      border: 2px solid transparent;
-    }
-
-    .scenario-card:hover {
-      background: rgba(255,255,255,0.1);
-      border-color: rgba(139,92,246,0.3);
-    }
-
-    .scenario-card.selected {
-      border-color: #8b5cf6;
-      background: rgba(139,92,246,0.1);
-    }
-
-    .scenario-impact {
-      display: flex;
-      gap: 0.5rem;
-      margin-top: 0.75rem;
-    }
-
-    .scenario-impact-badge {
-      padding: 0.25rem 0.5rem;
-      border-radius: 4px;
-      font-size: 0.75rem;
-      font-weight: 600;
-    }
-
-    .scenario-impact-badge.negative {
-      background: rgba(239,68,68,0.2);
-      color: #ef4444;
-    }
-
-    .scenario-impact-badge.positive {
-      background: rgba(34,197,94,0.2);
-      color: #22c55e;
-    }
-
-    /* Import Wizard */
-    .import-wizard {
-      padding: 2rem;
-    }
-
-    .import-step {
-      display: none;
-    }
-
-    .import-step.active {
-      display: block;
-    }
-
-    .import-dropzone {
-      border: 2px dashed rgba(255,255,255,0.2);
-      border-radius: 12px;
-      padding: 3rem;
-      text-align: center;
-      cursor: pointer;
-      transition: all 0.2s;
-    }
-
-    .import-dropzone:hover, .import-dropzone.dragover {
-      border-color: #8b5cf6;
-      background: rgba(139,92,246,0.1);
-    }
-
-    .import-preview-table {
-      width: 100%;
-      border-collapse: collapse;
-      margin-top: 1rem;
-    }
-
-    .import-preview-table th,
-    .import-preview-table td {
-      padding: 0.75rem;
-      text-align: left;
-      border-bottom: 1px solid rgba(255,255,255,0.1);
-    }
-
-    .import-preview-table th {
-      color: #8b5cf6;
-      font-weight: 600;
-    }
-
-    /* Backup List */
-    .backup-item {
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-      padding: 1rem;
-      background: rgba(255,255,255,0.05);
-      border-radius: 8px;
-      margin-bottom: 0.5rem;
-    }
-
-    .backup-item-info {
-      flex: 1;
-    }
-
-    .backup-item-name {
-      color: white;
-      font-weight: 500;
-    }
-
-    .backup-item-meta {
-      color: rgba(255,255,255,0.5);
-      font-size: 0.875rem;
-    }
-
-    .backup-item-actions {
-      display: flex;
-      gap: 0.5rem;
-    }
   </style>
 </head>
 <body>
   
   <div id="loading">
     <h1>MAERMIN</h1>
-    <div class="version-badge">v6.0 - Desktop Power User Edition</div>
-    <div class="subtitle">Multi-Asset Portfolio Tracker & Financial OS</div>
+    <div class="version-badge">v7.0 - Professional Investment Analytics</div>
+    <div class="subtitle">Multi-Asset Portfolio Tracker with Advanced Analysis</div>
     <div id="module-status">Initializing...</div>
     <div class="loader"></div>
   </div>
@@ -602,29 +678,36 @@
     };
   </script>
   
-  <!-- MAERMIN v6.0 - CORE MODULES -->
-  <script>updateStatus('Loading v6.0 engines...');</script>
+  <!-- MAERMIN v7.0 - CORE MODULES -->
+  <script>updateStatus('Loading core modules...');</script>
   <script src="translations-complete.js"></script>
   <script src="validation-comprehensive.js"></script>
   <script src="calculator-extended.js"></script>
   <script src="tax-calculation-engine.js"></script>
   <script src="risk-analytics.js"></script>
-  <script src="cs2-advanced.js"></script>
   <script src="risk-analytics-view-v2.js"></script>
-  <script src="cs2-analytics-view-v2.js"></script>
   <script src="tax-pdf-export.js"></script>
   
-  <!-- MAERMIN v6.0 - NEW MODULES -->
-  <script>updateStatus('Loading v6.0 advanced features...');</script>
+  <!-- MAERMIN v6.0 - ANALYSIS MODULES -->
+  <script>updateStatus('Loading analysis modules...');</script>
   <script src="monte-carlo-engine.js"></script>
   <script src="correlation-engine.js"></script>
   <script src="stress-test-engine.js"></script>
   <script src="command-palette.js"></script>
   <script src="import-export-engine.js"></script>
   
-  <!-- MAIN APPLICATION -->
+  <!-- MAERMIN v7.0 - INVESTMENT ENGINES (actively used) -->
+  <script>updateStatus('Loading investment engines...');</script>
+  <script src="dca-analyzer-engine.js"></script>
+  
+  <!-- MAERMIN v7.0 - UI COMPONENTS -->
   <script>updateStatus('Loading UI components...');</script>
+  <script src="dividend-data-service.js"></script>
   <script src="renderer-components.js"></script>
+  <script src="investment-views.js"></script>
+  <script src="dividend-tracker-view-enhanced.js"></script>
+  
+  <!-- MAIN APPLICATION -->
   <script>updateStatus('Loading main application...');</script>
   <script src="renderer.js"></script>
   
@@ -642,10 +725,13 @@
       }, 300);
     });
     
-    console.log('%c[MAERMIN v6.0] Desktop Power User Edition', 'font-size: 20px; font-weight: bold; color: #7e22ce; background: #f3e8ff; padding: 8px;');
-    console.log('[INFO] NEW: Multi-Window, Command Palette, Monte Carlo, Correlation Matrix');
-    console.log('[INFO] NEW: Stress Testing, Workspaces, SQLite, Backup System');
-    console.log('[INFO] NEW: Bulk Import, Plugin System, Price Alerts');
+    console.log('%c[MAERMIN v7.0] Professional Investment Analytics', 'font-size: 20px; font-weight: bold; color: #7e22ce; background: #f3e8ff; padding: 8px;');
+    console.log('[INFO] v7.0 NEW: 15 Investment Analysis Engines');
+    console.log('[INFO] DCA Analyzer, Dividend Tracker, Benchmark Comparison');
+    console.log('[INFO] Goal Planning, Portfolio Optimization, Factor Analysis');
+    console.log('[INFO] Sector Allocation, Currency Exposure, Liquidity Analysis');
+    console.log('[INFO] Economic Indicators, Options/Greeks, Attribution');
+    console.log('[INFO] Tax Withdrawal Planning, Margin Tracker, Sentiment Analysis');
     console.log('[INFO] Press Ctrl+K to open Command Palette');
     
     setTimeout(() => {
@@ -655,22 +741,30 @@
         { name: 'Monte Carlo Engine', check: () => typeof window.MonteCarloEngine !== 'undefined' },
         { name: 'Correlation Engine', check: () => typeof window.CorrelationEngine !== 'undefined' },
         { name: 'Stress Test Engine', check: () => typeof window.StressTestEngine !== 'undefined' },
-        { name: 'Command Palette', check: () => typeof window.CommandRegistry !== 'undefined' },
+        { name: 'Risk Analytics View', check: () => typeof window.RiskAnalyticsViewV2 !== 'undefined' },
+        { name: 'DCA Analyzer Engine', check: () => typeof window.DCAAnalyzerEngine !== 'undefined' },
+        { name: 'Tax Calculation Engine', check: () => typeof window.TaxCalculationEngine !== 'undefined' },
         { name: 'Import/Export Engine', check: () => typeof window.ImportExportEngine !== 'undefined' },
+        { name: 'Dividend Data Service', check: () => typeof window.DividendDataService !== 'undefined' },
+        { name: 'Enhanced Dividend View', check: () => typeof window.EnhancedDividendTrackerView !== 'undefined' },
+        { name: 'Investment Views', check: () => typeof window.InvestmentViews !== 'undefined' },
+        { name: 'Command Palette', check: () => typeof window.CommandPalette !== 'undefined' },
         { name: 'jsPDF', check: () => typeof window.jspdf !== 'undefined' }
       ];
       
-      console.log('[MODULE CHECK v6.0]');
+      console.log('[MODULE CHECK MAERMIN v7.0]');
+      let loaded = 0;
       checks.forEach(item => {
         const status = item.check();
-        console.log(`  ${status ? '[OK]' : '[MISSING]'} ${item.name}`);
+        if (status) loaded++;
+        console.log('  ' + (status ? '✅' : '❌') + ' ' + item.name);
       });
       
-      const allLoaded = checks.every(item => item.check());
-      if (allLoaded) {
-        console.log('[OK] All v6.0 modules loaded successfully!');
+      console.log(`[LOADED] ${loaded}/${checks.length} modules`);
+      if (loaded === checks.length) {
+        console.log('%c✅ All modules loaded!', 'color: #22c55e; font-weight: bold');
       } else {
-        console.warn('[WARN] Some modules are missing - features may be limited');
+        console.warn(`⚠️ ${checks.length - loaded} module(s) missing – check errors above`);
       }
     }, 1500);
   </script>

@@ -319,7 +319,27 @@ function CorrelationMatrixView({ portfolio, priceHistory, t, theme, formatPrice 
 
   useEffect(() => {
     if (window.CorrelationEngine && priceHistory && Object.keys(priceHistory).length > 1) {
-      const matrix = window.CorrelationEngine.calculateCorrelationMatrix(priceHistory);
+      // Convert price history from [{timestamp, price}, ...] to [price, ...] format
+      const convertedHistory = {};
+      Object.entries(priceHistory).forEach(([symbol, history]) => {
+        if (Array.isArray(history) && history.length > 0) {
+          // Check if history contains objects or numbers
+          if (typeof history[0] === 'object' && history[0].price !== undefined) {
+            convertedHistory[symbol] = history.map(item => item.price);
+          } else {
+            convertedHistory[symbol] = history;
+          }
+        }
+      });
+      
+      // Need at least 2 assets with sufficient history
+      const validAssets = Object.entries(convertedHistory).filter(([_, h]) => h.length >= 2);
+      if (validAssets.length < 2) {
+        setCorrelationData(null);
+        return;
+      }
+      
+      const matrix = window.CorrelationEngine.calculateCorrelationMatrix(convertedHistory);
       const score = window.CorrelationEngine.calculateDiversificationScore(matrix);
       const extremes = window.CorrelationEngine.findExtremePairs(matrix);
       setCorrelationData({ matrix, score, extremes });
@@ -908,8 +928,11 @@ function StressTestView({ portfolio, prices, t, theme, currency, formatPrice }) 
             style: { color: theme.text, fontSize: '1rem', marginBottom: '0.5rem' }
           }, scenario.name),
           React.createElement('p', {
-            style: { color: theme.textSecondary, fontSize: '0.875rem', marginBottom: '0.75rem' }
+            style: { color: theme.textSecondary, fontSize: '0.875rem', marginBottom: '0.5rem' }
           }, scenario.description),
+          scenario.note && React.createElement('p', {
+            style: { color: theme.warning, fontSize: '0.75rem', marginBottom: '0.75rem', fontStyle: 'italic' }
+          }, scenario.note),
           React.createElement('div', {
             style: { display: 'flex', gap: '0.5rem', flexWrap: 'wrap' }
           },

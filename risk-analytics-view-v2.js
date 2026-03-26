@@ -40,7 +40,22 @@ function RiskAnalyticsViewV2(props) {
   // Calculate risk metrics
   useEffect(function() {
     if (typeof calculatePortfolioRiskMetrics !== 'undefined') {
-      var metrics = calculatePortfolioRiskMetrics(portfolio, priceHistory, portfolioValue);
+      // Convert price history from [{timestamp, price}, ...] to [price, ...] format
+      var convertedHistory = {};
+      if (priceHistory && typeof priceHistory === 'object') {
+        Object.keys(priceHistory).forEach(function(symbol) {
+          var history = priceHistory[symbol];
+          if (Array.isArray(history) && history.length > 0) {
+            if (typeof history[0] === 'object' && history[0].price !== undefined) {
+              convertedHistory[symbol] = history.map(function(item) { return item.price; });
+            } else {
+              convertedHistory[symbol] = history;
+            }
+          }
+        });
+      }
+      
+      var metrics = calculatePortfolioRiskMetrics(portfolio, convertedHistory, portfolioValue);
       setRiskMetrics(metrics);
       
       if (typeof generateRiskRecommendations !== 'undefined') {
