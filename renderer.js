@@ -227,7 +227,7 @@ function InvestmentTracker() {
   const [activeTab, setActiveTab] = useState('crypto');
   const [activeView, setActiveView] = useState('overview');
   const [theme, setTheme] = useState(() => localStorage.getItem('theme') || 'dark');
-  const [language, setLanguage] = useState(() => localStorage.getItem('language') || 'de');
+  const [language, setLanguage] = useState(() => localStorage.getItem('language') || 'en');
   
   // v6.0 State
   const [showCommandPalette, setShowCommandPalette] = useState(false);
