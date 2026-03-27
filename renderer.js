@@ -529,8 +529,9 @@ function InvestmentTracker() {
           // API key is stored as a Worker secret — never sent to the browser.
           // Worker URL format: https://maermin-pricempire-proxy.<your-subdomain>.workers.dev
           try {
-            const workerUrl = apiKeys.pricempire.startsWith('https://')
-              ? apiKeys.pricempire  // User entered the Worker URL directly
+            const rawUrl = (apiKeys.pricempire || '').trim();
+            const workerUrl = rawUrl
+              ? (rawUrl.startsWith('https://') ? rawUrl : 'https://' + rawUrl)
               : null;
 
             if (!workerUrl) {
