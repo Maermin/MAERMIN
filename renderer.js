@@ -252,7 +252,9 @@ function InvestmentTracker() {
   const [importData, setImportData] = useState('');
   const [showAlertModal, setShowAlertModal] = useState(false);
   const [showPasswordModal, setShowPasswordModal] = useState(false);
-  const [apiKeys, setApiKeys] = useState({ alphaVantage: '', skinport: '' });
+  const [apiKeys, setApiKeys] = useState(() => {
+    try { return JSON.parse(localStorage.getItem('apiKeys') || '{}'); } catch { return {}; }
+  });
   const [showApiSettings, setShowApiSettings] = useState(false);
   const [showSettings, setShowSettings] = useState(false);
   
@@ -515,78 +517,131 @@ function InvestmentTracker() {
         }
       }
       
-      // Fetch CS2 skin prices from Skinport via CORS proxy
-      // Skinport blocks direct browser requests (no CORS headers on their API).
-      // We try multiple free proxies in sequence — the first one that succeeds wins.
+      // ── CS2 Skin Prices ────────────────────────────────────────────────────
+      // Priority:
+      //   1. Pricempire API (if key set) → real market prices from DMarket/Skinport
+      //   2. Steam Community Market (fallback, ~15-30% above market value)
       if (portfolio.skins && portfolio.skins.length > 0) {
-        const skinportUrl = 'https://api.skinport.com/v1/items?app_id=730&currency=EUR&tradable=0';
 
-        // Proxy options in order of preference
-        const proxies = [
-          // corsproxy.io — wraps response directly, no JSON envelope
-          { url: `https://corsproxy.io/?${encodeURIComponent(skinportUrl)}`, parse: r => r.json() },
-          // allorigins.win — wraps in { contents: "...", status: {} }
-          { url: `https://api.allorigins.win/get?url=${encodeURIComponent(skinportUrl)}`, parse: async r => { const w = await r.json(); return JSON.parse(w.contents); } },
-          // thingproxy — plain proxy
-          { url: `https://thingproxy.freeboard.io/fetch/${skinportUrl}`, parse: r => r.json() },
-        ];
-
-        let skinportData = null;
-        for (const proxy of proxies) {
+        if (apiKeys.pricempire) {
+          // ── Pricempire: one bulk request, all skins, real market prices ──────
+          // Sources: dmarket (liquid), skinport (EU focus), cs.money (large volume)
+          // Currency: EUR — prices returned in EUR cents (divide by 100)
           try {
-            console.log('[PRICES] Trying Skinport proxy:', proxy.url.split('?')[0]);
-            const res = await fetch(proxy.url, { signal: AbortSignal.timeout(8000) });
-            if (!res.ok) { console.warn('[PRICES] Proxy returned', res.status); continue; }
-            const data = await proxy.parse(res);
-            if (Array.isArray(data) && data.length > 0) { skinportData = data; break; }
-          } catch (e) {
-            console.warn('[PRICES] Proxy failed:', e.message);
-          }
-        }
+            const sources = 'dmarket,skinport,cs.money';
+            const peUrl = `https://api.pricempire.com/v4/paid/items/prices?app_id=730&sources=${sources}&currency=EUR&api_key=${apiKeys.pricempire}`;
+            console.log('[PRICES] Pricempire: fetching bulk CS2 prices...');
 
-        if (skinportData) {
-          let matchedCount = 0;
-          const unmatchedItems = [];
+            const res = await fetch(peUrl, { signal: AbortSignal.timeout(15000) });
 
-          portfolio.skins.forEach(skin => {
-            const skinName = (skin.symbol || skin.name || '');
-            const skinNameLower = skinName.toLowerCase().trim();
+            if (res.ok) {
+              const items = await res.json(); // Array of { market_hash_name, prices: [...] }
 
-            // Exact match (case-insensitive)
-            let match = skinportData.find(item =>
-              (item.market_hash_name || '').toLowerCase().trim() === skinNameLower
-            );
+              if (!Array.isArray(items)) throw new Error('Unexpected Pricempire response');
 
-            // Fuzzy match — strip wear condition in parentheses
-            if (!match) {
-              const skinBase = skinNameLower.replace(/\s*\([^)]*\)\s*/g, '').trim();
-              match = skinportData.find(item => {
-                const itemBase = (item.market_hash_name || '').toLowerCase().replace(/\s*\([^)]*\)\s*/g, '').trim();
-                return itemBase === skinBase ||
-                  (skinNameLower.includes('case') && (item.market_hash_name || '').toLowerCase().includes(skinBase));
+              // Build a fast lookup map: market_hash_name (lower) → best price in EUR
+              const priceMap = {};
+              items.forEach(item => {
+                const name = (item.market_hash_name || '').toLowerCase();
+                if (!name || !Array.isArray(item.prices)) return;
+
+                // Pick best (lowest) available price across sources, in EUR
+                // Pricempire returns prices in EUR *cents* when currency=EUR
+                let bestPriceEUR = null;
+                const PREFERRED = ['dmarket','skinport','cs.money','skinbaron','lis-skins'];
+                for (const srcKey of PREFERRED) {
+                  const entry = item.prices.find(p => p.provider_key === srcKey && p.price > 0 && p.count > 0);
+                  if (entry) {
+                    const priceEUR = entry.price / 100; // EUR cents → EUR
+                    if (bestPriceEUR === null || priceEUR < bestPriceEUR) bestPriceEUR = priceEUR;
+                  }
+                }
+                if (bestPriceEUR !== null && bestPriceEUR > 0) {
+                  priceMap[name] = bestPriceEUR;
+                }
               });
-            }
 
-            if (match) {
-              const price = match.min_price || match.suggested_price || 0;
-              if (price > 0) {
-                newPrices[skinNameLower] = price;
-                newPrices[skinName] = price;
-                matchedCount++;
-                console.log('[PRICES] CS2 matched:', skinName, '→', price.toFixed(2), 'EUR');
+              console.log('[PRICES] Pricempire: price map built for', Object.keys(priceMap).length, 'items');
+
+              // Match user's skins against the price map
+              let matchedCount = 0;
+              portfolio.skins.forEach(skin => {
+                const skinName = (skin.symbol || skin.name || '').trim();
+                const skinLower = skinName.toLowerCase();
+
+                let price = priceMap[skinLower];
+
+                // Fuzzy: strip wear condition in parentheses if no exact match
+                if (!price) {
+                  const base = skinLower.replace(/\s*\([^)]*\)\s*/g, '').trim();
+                  const found = Object.keys(priceMap).find(k => k.replace(/\s*\([^)]*\)\s*/g,'').trim() === base);
+                  if (found) price = priceMap[found];
+                }
+
+                if (price) {
+                  newPrices[skinLower] = price;
+                  newPrices[skinName] = price;
+                  matchedCount++;
+                  console.log('[PRICES] Pricempire matched:', skinName, '→', price.toFixed(2), 'EUR');
+                } else {
+                  console.warn('[PRICES] Pricempire: no price for', skinName);
+                }
+              });
+
+              console.log('[PRICES] Pricempire CS2:', matchedCount, '/', portfolio.skins.length, 'skins matched');
+              if (matchedCount < portfolio.skins.length) {
+                addToast(`CS2: ${matchedCount}/${portfolio.skins.length} skins matched — check skin names match Steam Market exactly`, 'info');
               }
-            } else {
-              unmatchedItems.push(skinName);
-            }
-          });
 
-          console.log('[PRICES] CS2 matched:', matchedCount, '/', portfolio.skins.length);
-          if (unmatchedItems.length > 0) {
-            console.log('[PRICES] Unmatched CS2:', unmatchedItems.slice(0, 5).join(', '));
+            } else if (res.status === 401) {
+              addToast('Pricempire: invalid API key — check ⚙ API Settings', 'error');
+              console.error('[PRICES] Pricempire 401 — invalid key');
+            } else if (res.status === 429) {
+              addToast('Pricempire: rate limit reached — free tier: 30k calls/month', 'warning');
+              console.warn('[PRICES] Pricempire 429 rate limit');
+            } else {
+              console.error('[PRICES] Pricempire HTTP', res.status);
+              addToast('Pricempire error: ' + res.status, 'warning');
+            }
+          } catch (e) {
+            console.error('[PRICES] Pricempire error:', e.message);
+            addToast('Pricempire fetch failed: ' + e.message, 'warning');
           }
+
         } else {
-          console.warn('[PRICES] All Skinport proxies failed — CS2 prices unavailable');
-          addToast('CS2 prices unavailable — all proxies failed', 'warning');
+          // ── Fallback: Steam Community Market (individual requests, free, no key) ──
+          // Note: Steam prices are ~15-30% above real third-party market value.
+          // Set a Pricempire API key in ⚙ API Settings for accurate prices.
+          console.log('[PRICES] No Pricempire key — falling back to Steam Market (prices may be higher than real market)');
+          let matchedCount = 0;
+
+          for (const skin of portfolio.skins) {
+            const skinName = (skin.symbol || skin.name || '').trim();
+            if (!skinName) continue;
+            try {
+              const url = `https://steamcommunity.com/market/priceoverview/?appid=730&currency=3&market_hash_name=${encodeURIComponent(skinName)}`;
+              const res = await fetch(url, { signal: AbortSignal.timeout(6000) });
+              if (!res.ok) continue;
+              const data = await res.json();
+              if (data.success) {
+                const raw = data.lowest_price || data.median_price || '';
+                const price = parseFloat(raw.replace(/[^0-9.,]/g, '').replace(',', '.'));
+                if (!isNaN(price) && price > 0) {
+                  newPrices[skinName.toLowerCase()] = price;
+                  newPrices[skinName] = price;
+                  matchedCount++;
+                }
+              }
+              await new Promise(r => setTimeout(r, 3000)); // Steam rate limit
+            } catch (e) {
+              console.warn('[PRICES] Steam Market failed for', skinName, e.message);
+            }
+          }
+
+          if (matchedCount > 0) {
+            console.log('[PRICES] Steam Market CS2:', matchedCount, '/', portfolio.skins.length);
+            addToast(`CS2 prices from Steam Market (set Pricempire key for real market prices)`, 'info');
+          }
         }
       }
       
@@ -2227,11 +2282,39 @@ buy,crypto,bitcoin,0.5,45000,2024-01-15,10`)
           style: { color: currentTheme.text, marginBottom: '1.5rem', fontSize: '1.5rem', fontWeight: '700' }
         }, t.apiSettings || 'API Settings'),
         
-        // Info text
         React.createElement('p', {
           style: { color: currentTheme.textSecondary, marginBottom: '1.5rem', fontSize: '0.875rem', lineHeight: '1.5' }
-        }, t.apiSettingsInfo || 'Configure API keys for fetching live prices. CS2 Skin prices are fetched from Skinport (no key required). Crypto prices are fetched from CoinGecko (no key required).'),
-        
+        }, 'Configure API keys for live prices. Crypto (CoinGecko) and exchange rates are always free.'),
+
+        // ── Pricempire (CS2 — RECOMMENDED) ──────────────────────────────────
+        React.createElement('div', {
+          style: { background: `linear-gradient(135deg, rgba(139,92,246,0.08), rgba(59,130,246,0.05))`, border: `1px solid rgba(139,92,246,0.25)`, padding: '1.25rem', borderRadius: '10px', marginBottom: '1rem' }
+        },
+          React.createElement('div', { style: { display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.625rem' } },
+            React.createElement('div', null,
+              React.createElement('h3', { style: { color: currentTheme.text, fontSize: '1rem', fontWeight: '700' } }, 'Pricempire'),
+              React.createElement('span', { style: { fontSize: '0.68rem', padding: '0.15rem 0.4rem', borderRadius: '3px', background: 'rgba(34,197,94,0.12)', color: '#22c55e', fontWeight: '700', letterSpacing: '0.04em' } }, 'CS2 — RECOMMENDED')
+            ),
+            React.createElement('span', {
+              style: { fontSize: '0.75rem', padding: '0.25rem 0.5rem', background: apiKeys.pricempire ? 'rgba(34,197,94,0.18)' : 'rgba(245,158,11,0.15)', color: apiKeys.pricempire ? currentTheme.success : currentTheme.warning, borderRadius: '4px', fontWeight: '600' }
+            }, apiKeys.pricempire ? '✓ Configured' : 'Not set')
+          ),
+          React.createElement('p', { style: { color: currentTheme.textSecondary, fontSize: '0.8rem', marginBottom: '0.875rem', lineHeight: '1.6' } },
+            'Aggregates real third-party market prices from DMarket, Skinport, and CS.Money — typically 15–30% lower than Steam Market. Free Trader plan includes 30,000 API calls/month. No credit card required.'
+          ),
+          React.createElement('input', {
+            type: 'password',
+            value: apiKeys.pricempire || '',
+            onChange: e => setApiKeys(prev => ({ ...prev, pricempire: e.target.value })),
+            placeholder: 'Paste your Pricempire API key here...',
+            style: { width: '100%', padding: '0.75rem', background: currentTheme.inputBg, border: `1px solid ${currentTheme.inputBorder}`, borderRadius: '6px', color: currentTheme.text, marginBottom: '0.625rem', fontSize: '0.875rem' }
+          }),
+          React.createElement('div', { style: { display: 'flex', gap: '1.5rem', fontSize: '0.8rem', flexWrap: 'wrap' } },
+            React.createElement('a', { href: 'https://pricempire.com/subscribe', target: '_blank', rel: 'noopener noreferrer', style: { color: currentTheme.accent, textDecoration: 'none', fontWeight: '600' } }, '→ Get free API key at pricempire.com'),
+            React.createElement('span', { style: { color: currentTheme.textSecondary } }, 'Sources used: DMarket · Skinport · CS.Money')
+          )
+        ),
+
         // Alpha Vantage Section
         React.createElement('div', {
           style: {
@@ -2287,46 +2370,26 @@ buy,crypto,bitcoin,0.5,45000,2024-01-15,10`)
           }, t.getApiKey || 'Get free API key from alphavantage.co')
         ),
         
-        // Skinport Info Section
+        // Steam Market Info Section
         React.createElement('div', {
-          style: {
-            background: currentTheme.inputBg,
-            padding: '1.25rem',
-            borderRadius: '8px',
-            marginBottom: '1rem'
-          }
+          style: { background: currentTheme.inputBg, padding: '1.25rem', borderRadius: '8px', marginBottom: '1rem' }
         },
           React.createElement('div', {
             style: { display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.75rem' }
           },
-            React.createElement('h3', {
-              style: { color: currentTheme.text, fontSize: '1rem', fontWeight: '600' }
-            }, 'Skinport'),
+            React.createElement('h3', { style: { color: currentTheme.text, fontSize: '1rem', fontWeight: '600' } }, 'Steam Community Market'),
             React.createElement('span', {
-              style: { 
-                fontSize: '0.75rem', 
-                padding: '0.25rem 0.5rem',
-                background: 'rgba(34,197,94,0.2)',
-                color: currentTheme.success,
-                borderRadius: '4px'
-              }
-            }, t.publicApi || 'Public API')
+              style: { fontSize: '0.75rem', padding: '0.25rem 0.5rem', background: 'rgba(34,197,94,0.2)', color: currentTheme.success, borderRadius: '4px' }
+            }, 'Public API — CORS enabled')
           ),
-          React.createElement('p', {
-            style: { color: currentTheme.textSecondary, fontSize: '0.8rem' }
-          }, t.skinportInfo || 'CS2 skin prices are fetched from the public Skinport API. No API key required.'),
+          React.createElement('p', { style: { color: currentTheme.textSecondary, fontSize: '0.8rem', lineHeight: '1.5' } },
+            'CS2 skin prices are fetched directly from the Steam Community Market — no proxy, no API key needed. Use the exact Steam Market name as the symbol (e.g. "AK-47 | Redline (Field-Tested)"). Rate limit: ~20 items per refresh.'
+          ),
           React.createElement('a', {
-            href: 'https://docs.skinport.com/',
-            target: '_blank',
-            rel: 'noopener noreferrer',
-            style: { 
-              color: currentTheme.accent, 
-              fontSize: '0.8rem',
-              textDecoration: 'none',
-              display: 'block',
-              marginTop: '0.5rem'
-            }
-          }, t.viewDocs || 'View API documentation')
+            href: 'https://steamcommunity.com/market/search?appid=730',
+            target: '_blank', rel: 'noopener noreferrer',
+            style: { color: currentTheme.accent, fontSize: '0.8rem', textDecoration: 'none', display: 'block', marginTop: '0.5rem' }
+          }, 'Browse Steam CS2 Market →')
         ),
         
         // CoinGecko Info Section
