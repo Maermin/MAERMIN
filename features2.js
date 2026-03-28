@@ -494,50 +494,52 @@ function parseByBroker(text, brokerId) {
 // 3. BROKER IMPORT WIZARD
 // ─────────────────────────────────────────────────────────────────────────────
 
-// Logo via Google Favicon Service (sz=64 → 64px, zuverlässig, kostenlos)
-function BrokerLogo({ logo, name, size = 36 }) {
-  const [err, setErr] = useState(false);
-  if (!logo || err) {
-    // Initial-Badge als Fallback
+// Inline SVG/PNG data-URIs der Broker-Logos — keine externe Abhängigkeit
+const BROKER_LOGOS = {
+  cointracking: `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100"><rect width="100" height="100" rx="18" fill="#1a73e8"/><text x="50" y="68" font-size="52" font-weight="900" font-family="Arial,sans-serif" fill="white" text-anchor="middle">CT</text></svg>`,
+  getquin:      `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100"><rect width="100" height="100" rx="18" fill="#00c805"/><text x="50" y="68" font-size="52" font-weight="900" font-family="Arial,sans-serif" fill="white" text-anchor="middle">gq</text></svg>`,
+  degiro:       `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100"><rect width="100" height="100" rx="18" fill="#ff6600"/><text x="50" y="68" font-size="42" font-weight="900" font-family="Arial,sans-serif" fill="white" text-anchor="middle">DE</text></svg>`,
+  tradeRepublic:`<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100"><rect width="100" height="100" rx="18" fill="#111"/><text x="50" y="68" font-size="52" font-weight="900" font-family="Arial,sans-serif" fill="white" text-anchor="middle">TR</text></svg>`,
+  interactiveBrokers:`<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100"><rect width="100" height="100" rx="18" fill="#d40000"/><text x="50" y="68" font-size="52" font-weight="900" font-family="Arial,sans-serif" fill="white" text-anchor="middle">IB</text></svg>`,
+  coinbase:     `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100"><rect width="100" height="100" rx="18" fill="#0052ff"/><circle cx="50" cy="50" r="28" fill="white"/><circle cx="50" cy="50" r="18" fill="#0052ff"/></svg>`,
+  binance:      `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100"><rect width="100" height="100" rx="18" fill="#f0b90b"/><text x="50" y="68" font-size="46" font-weight="900" font-family="Arial,sans-serif" fill="#111" text-anchor="middle">BNB</text></svg>`,
+  kraken:       `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100"><rect width="100" height="100" rx="18" fill="#5741d9"/><text x="50" y="68" font-size="46" font-weight="900" font-family="Arial,sans-serif" fill="white" text-anchor="middle">KRK</text></svg>`,
+  generic:      `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100"><rect width="100" height="100" rx="18" fill="#334155"/><text x="50" y="65" font-size="42" font-family="Arial,sans-serif" fill="#94a3b8" text-anchor="middle">CSV</text></svg>`,
+};
+
+function svgToDataUri(svg) {
+  return 'data:image/svg+xml;charset=utf-8,' + encodeURIComponent(svg);
+}
+
+function BrokerLogo({ brokerId, name, size = 36 }) {
+  const svg = BROKER_LOGOS[brokerId];
+  if (!svg) {
     return React.createElement('div', {
       style: {
         width: size, height: size, borderRadius: '8px', flexShrink: 0,
-        background: 'linear-gradient(135deg, rgba(139,92,246,0.2), rgba(59,130,246,0.15))',
-        border: '1px solid rgba(139,92,246,0.25)',
+        background: 'rgba(139,92,246,0.15)', border: '1px solid rgba(139,92,246,0.2)',
         display: 'flex', alignItems: 'center', justifyContent: 'center',
         fontSize: Math.round(size * 0.42) + 'px', fontWeight: '800', color: '#8b5cf6',
       }
     }, (name || '?')[0].toUpperCase());
   }
-  return React.createElement('div', {
-    style: {
-      width: size, height: size, borderRadius: '8px', flexShrink: 0,
-      background: '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center',
-      overflow: 'hidden', padding: '4px', boxSizing: 'border-box',
-      border: '1px solid rgba(0,0,0,0.08)'
-    }
-  },
-    React.createElement('img', {
-      src: logo, alt: name, onError: () => setErr(true),
-      style: { width: '100%', height: '100%', objectFit: 'contain', display: 'block' }
-    })
-  );
+  return React.createElement('img', {
+    src: svgToDataUri(svg),
+    alt: name,
+    style: { width: size, height: size, borderRadius: '8px', flexShrink: 0, display: 'block' }
+  });
 }
 
 const BROKERS = [
-  // ── Portfolio Tracker ──────────────────────────────────────────────────────
-  { id: 'cointracking',       name: 'CoinTracking',        logo: 'https://www.google.com/s2/favicons?domain=cointracking.info&sz=64',         hint: 'CSV Full Export',              category: 'Portfolio Tracker' },
-  { id: 'getquin',            name: 'getquin',              logo: 'https://www.google.com/s2/favicons?domain=getquin.com&sz=64',               hint: 'Kein CSV-Export möglich',      category: 'Portfolio Tracker', noExport: true },
-  // ── Broker ────────────────────────────────────────────────────────────────
-  { id: 'degiro',             name: 'DEGIRO',               logo: 'https://www.google.com/s2/favicons?domain=degiro.eu&sz=64',                 hint: 'Transaktionen.csv',            category: 'Broker' },
-  { id: 'tradeRepublic',      name: 'Trade Republic',       logo: 'https://www.google.com/s2/favicons?domain=traderepublic.com&sz=64',         hint: 'Transaktionshistorie CSV',     category: 'Broker' },
-  { id: 'interactiveBrokers', name: 'Interactive Brokers',  logo: 'https://www.google.com/s2/favicons?domain=interactivebrokers.com&sz=64',    hint: 'Activity Statement CSV',       category: 'Broker' },
-  // ── Krypto ────────────────────────────────────────────────────────────────
-  { id: 'coinbase',           name: 'Coinbase',             logo: 'https://www.google.com/s2/favicons?domain=coinbase.com&sz=64',              hint: 'Standard CSV-Export',          category: 'Krypto' },
-  { id: 'binance',            name: 'Binance',              logo: 'https://www.google.com/s2/favicons?domain=binance.com&sz=64',               hint: 'Trade History CSV',            category: 'Krypto' },
-  { id: 'kraken',             name: 'Kraken',               logo: 'https://www.google.com/s2/favicons?domain=kraken.com&sz=64',                hint: 'Ledger CSV',                   category: 'Krypto' },
-  // ── Andere ────────────────────────────────────────────────────────────────
-  { id: 'generic',            name: 'Andere / Manuell',     logo: null,                                                                         hint: 'MAERMIN Standard CSV / JSON',  category: 'Andere' },
+  { id: 'cointracking',       name: 'CoinTracking',        hint: 'CSV Full Export',              category: 'Portfolio Tracker' },
+  { id: 'getquin',            name: 'getquin',              hint: 'Kein CSV-Export möglich',      category: 'Portfolio Tracker', noExport: true },
+  { id: 'degiro',             name: 'DEGIRO',               hint: 'Transaktionen.csv',            category: 'Broker' },
+  { id: 'tradeRepublic',      name: 'Trade Republic',       hint: 'Transaktionshistorie CSV',     category: 'Broker' },
+  { id: 'interactiveBrokers', name: 'Interactive Brokers',  hint: 'Activity Statement CSV',       category: 'Broker' },
+  { id: 'coinbase',           name: 'Coinbase',             hint: 'Standard CSV-Export',          category: 'Krypto' },
+  { id: 'binance',            name: 'Binance',              hint: 'Trade History CSV',            category: 'Krypto' },
+  { id: 'kraken',             name: 'Kraken',               hint: 'Ledger CSV',                   category: 'Krypto' },
+  { id: 'generic',            name: 'Andere / Manuell',     hint: 'MAERMIN Standard CSV / JSON',  category: 'Andere' },
 ];
 
 function BrokerImportWizard({ theme, t, addToast, onImport }) {
@@ -641,7 +643,7 @@ function BrokerImportWizard({ theme, t, addToast, onImport }) {
                   opacity: b.noExport ? 0.75 : 1
                 }
               },
-                React.createElement(BrokerLogo, { logo: b.logo, name: b.name, size: 36 }),
+                React.createElement(BrokerLogo, { brokerId: b.id, name: b.name, size: 36 }),
                 React.createElement('div', null,
                   React.createElement('div', { style: { color: theme.text, fontWeight: '600', fontSize: '0.875rem' } }, b.name),
                   React.createElement('div', { style: { color: b.noExport ? theme.warning : theme.textSecondary, fontSize: '0.7rem', marginTop: '0.125rem' } }, b.hint)
