@@ -493,20 +493,40 @@ function parseByBroker(text, brokerId) {
 // ─────────────────────────────────────────────────────────────────────────────
 // 3. BROKER IMPORT WIZARD
 // ─────────────────────────────────────────────────────────────────────────────
+
+// Logo via Clearbit, fällt auf Initial-Badge zurück wenn nicht verfügbar
+function BrokerLogo({ logo, name, size = 32 }) {
+  const [err, setErr] = useState(false);
+  if (!logo || err) {
+    return React.createElement('div', {
+      style: {
+        width: size, height: size, borderRadius: '7px', flexShrink: 0,
+        background: 'rgba(139,92,246,0.15)', border: '1px solid rgba(139,92,246,0.2)',
+        display: 'flex', alignItems: 'center', justifyContent: 'center',
+        fontSize: Math.round(size * 0.44) + 'px', fontWeight: '700', color: '#8b5cf6',
+      }
+    }, (name || '?')[0].toUpperCase());
+  }
+  return React.createElement('img', {
+    src: logo, alt: name, onError: () => setErr(true),
+    style: { width: size, height: size, borderRadius: '7px', objectFit: 'contain', flexShrink: 0, background: '#fff', padding: '3px', boxSizing: 'border-box' }
+  });
+}
+
 const BROKERS = [
   // ── Portfolio Tracker ──────────────────────────────────────────────────────
-  { id: 'cointracking',      name: 'CoinTracking',        icon: '📊', hint: 'CSV Full Export', category: 'Portfolio Tracker' },
-  { id: 'getquin',           name: 'getquin',              icon: '🟢', hint: 'Kein CSV-Export möglich', category: 'Portfolio Tracker', noExport: true },
+  { id: 'cointracking',       name: 'CoinTracking',        logo: 'https://logo.clearbit.com/cointracking.info',         hint: 'CSV Full Export',              category: 'Portfolio Tracker' },
+  { id: 'getquin',            name: 'getquin',              logo: 'https://logo.clearbit.com/getquin.com',               hint: 'Kein CSV-Export möglich',      category: 'Portfolio Tracker', noExport: true },
   // ── Broker ────────────────────────────────────────────────────────────────
-  { id: 'degiro',            name: 'DEGIRO',               icon: '🇩🇪', hint: 'Transaktionen.csv', category: 'Broker' },
-  { id: 'tradeRepublic',     name: 'Trade Republic',       icon: '📱', hint: 'Transaktionshistorie CSV', category: 'Broker' },
-  { id: 'interactiveBrokers',name: 'Interactive Brokers',  icon: '🏦', hint: 'Activity Statement CSV', category: 'Broker' },
+  { id: 'degiro',             name: 'DEGIRO',               logo: 'https://logo.clearbit.com/degiro.eu',                 hint: 'Transaktionen.csv',            category: 'Broker' },
+  { id: 'tradeRepublic',      name: 'Trade Republic',       logo: 'https://logo.clearbit.com/traderepublic.com',         hint: 'Transaktionshistorie CSV',     category: 'Broker' },
+  { id: 'interactiveBrokers', name: 'Interactive Brokers',  logo: 'https://logo.clearbit.com/interactivebrokers.com',    hint: 'Activity Statement CSV',       category: 'Broker' },
   // ── Krypto ────────────────────────────────────────────────────────────────
-  { id: 'coinbase',          name: 'Coinbase',             icon: '🪙', hint: 'Standard CSV-Export', category: 'Krypto' },
-  { id: 'binance',           name: 'Binance',              icon: '🟡', hint: 'Trade History CSV', category: 'Krypto' },
-  { id: 'kraken',            name: 'Kraken',               icon: '🐙', hint: 'Ledger CSV', category: 'Krypto' },
+  { id: 'coinbase',           name: 'Coinbase',             logo: 'https://logo.clearbit.com/coinbase.com',              hint: 'Standard CSV-Export',          category: 'Krypto' },
+  { id: 'binance',            name: 'Binance',              logo: 'https://logo.clearbit.com/binance.com',               hint: 'Trade History CSV',            category: 'Krypto' },
+  { id: 'kraken',             name: 'Kraken',               logo: 'https://logo.clearbit.com/kraken.com',                hint: 'Ledger CSV',                   category: 'Krypto' },
   // ── Andere ────────────────────────────────────────────────────────────────
-  { id: 'generic',           name: 'Andere / Manuell',    icon: '📄', hint: 'MAERMIN Standard CSV / JSON', category: 'Andere' },
+  { id: 'generic',            name: 'Andere / Manuell',     logo: null,                                                  hint: 'MAERMIN Standard CSV / JSON',  category: 'Andere' },
 ];
 
 function BrokerImportWizard({ theme, t, addToast, onImport }) {
@@ -601,19 +621,19 @@ function BrokerImportWizard({ theme, t, addToast, onImport }) {
             BROKERS.filter(b => b.category === cat).map(b =>
               React.createElement('div', {
                 key: b.id,
-                onClick: () => { setBroker(b.id); setStep(b.noExport ? 1 : 1); },
+                onClick: () => { setBroker(b.id); setStep(1); },
                 style: {
                   background: selectedBroker === b.id ? `${theme.accent}22` : theme.card,
                   border: `1px solid ${selectedBroker === b.id ? theme.accent : theme.cardBorder}`,
                   borderRadius: '10px', padding: '0.875rem', cursor: 'pointer',
                   display: 'flex', alignItems: 'center', gap: '0.75rem', transition: 'all 0.15s',
-                  opacity: b.noExport ? 0.7 : 1
+                  opacity: b.noExport ? 0.75 : 1
                 }
               },
-                React.createElement('span', { style: { fontSize: '1.375rem' } }, b.icon),
+                React.createElement(BrokerLogo, { logo: b.logo, name: b.name, size: 36 }),
                 React.createElement('div', null,
                   React.createElement('div', { style: { color: theme.text, fontWeight: '600', fontSize: '0.875rem' } }, b.name),
-                  React.createElement('div', { style: { color: b.noExport ? theme.warning : theme.textSecondary, fontSize: '0.7rem' } }, b.hint)
+                  React.createElement('div', { style: { color: b.noExport ? theme.warning : theme.textSecondary, fontSize: '0.7rem', marginTop: '0.125rem' } }, b.hint)
                 )
               )
             )
