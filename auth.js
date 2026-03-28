@@ -185,10 +185,10 @@
             autocomplete="current-password"
             autofocus
           />
-          <button class="auth-toggle-pw" id="auth-toggle-pw" title="Passwort anzeigen">👁</button>
+          <button class="auth-toggle-pw" id="auth-toggle-pw" title="Passwort anzeigen">&#9673;</button>
         </div>
         <div class="auth-error" id="auth-error">
-          ❌ Falscher Zugangscode. Bitte erneut versuchen.
+          Falscher Zugangscode. Bitte erneut versuchen.
         </div>
         <button class="auth-btn" id="auth-submit">
           <div class="spinner"></div>

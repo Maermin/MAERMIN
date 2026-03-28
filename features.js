@@ -307,7 +307,7 @@ function WatchlistView({ prices, priceHistory, theme, t, addToast }) {
 
   return React.createElement('div', { style: { padding: '1.5rem' } },
     React.createElement('h2', { style: { color: theme.text, fontSize: '1.5rem', fontWeight: '700', marginBottom: '1.25rem' } },
-      '👁 ' + (t.watchlist || 'Watchlist')
+      (t.watchlist || 'Watchlist')
     ),
 
     // Add row
@@ -349,7 +349,7 @@ function WatchlistView({ prices, priceHistory, theme, t, addToast }) {
           style: { padding: '3rem', textAlign: 'center', color: theme.textSecondary,
             background: theme.card, borderRadius: '12px', border: `1px solid ${theme.cardBorder}` }
         },
-          React.createElement('div', { style: { fontSize: '2rem', marginBottom: '0.5rem' } }, '👁'),
+          React.createElement('div', { style: { fontSize: '2rem', marginBottom: '0.5rem', opacity: 0.3 } }, '○'),
           React.createElement('div', null, t.watchlistEmpty || 'Add symbols to track them here')
         )
       : React.createElement('div', {
@@ -385,7 +385,7 @@ function WatchlistView({ prices, priceHistory, theme, t, addToast }) {
                 },
                   React.createElement('td', { style: { padding: '0.875rem 1rem' } },
                     React.createElement('div', { style: { fontWeight: '700', color: theme.text, fontSize: '0.9rem' } }, item.displaySymbol),
-                    atTarget && React.createElement('div', { style: { color: '#22c55e', fontSize: '0.7rem', fontWeight: '600' } }, '🎯 Target reached!')
+                    atTarget && React.createElement('div', { style: { color: '#22c55e', fontSize: '0.7rem', fontWeight: '600' } }, '◎ Target reached!')
                   ),
                   React.createElement('td', { style: { padding: '0.875rem 1rem' } },
                     React.createElement('span', {
@@ -422,7 +422,7 @@ function WatchlistView({ prices, priceHistory, theme, t, addToast }) {
                         background: 'rgba(239,68,68,0.1)', border: '1px solid rgba(239,68,68,0.2)',
                         color: '#ef4444', borderRadius: '4px', cursor: 'pointer', padding: '0.25rem 0.5rem', fontSize: '0.75rem'
                       }
-                    }, '✕')
+                    }, '×')
                   )
                 );
               })
@@ -455,7 +455,7 @@ function PriceAlertsView({ prices, theme, t, addToast }) {
       if (!curr || a.triggered) return a;
       const hit = a.condition === 'above' ? curr >= a.targetPrice : curr <= a.targetPrice;
       if (hit) {
-        addToast && addToast(`🔔 ${a.symbol}: ${a.condition === 'above' ? '≥' : '≤'} ${a.targetPrice.toFixed(2)}`, 'success');
+        addToast && addToast(`${a.symbol}: ${a.condition === 'above' ? '≥' : '≤'} ${a.targetPrice.toFixed(2)}`, 'success');
         return { ...a, triggered: true, triggeredAt: new Date().toISOString(), triggeredPrice: curr };
       }
       return a;
@@ -487,7 +487,7 @@ function PriceAlertsView({ prices, theme, t, addToast }) {
 
   return React.createElement('div', { style: { padding: '1.5rem' } },
     React.createElement('h2', { style: { color: theme.text, fontSize: '1.5rem', fontWeight: '700', marginBottom: '1.25rem' } },
-      '🔔 ' + (t.priceAlerts || 'Price Alerts')
+      (t.priceAlerts || 'Price Alerts')
     ),
 
     // Create alert
@@ -515,7 +515,7 @@ function PriceAlertsView({ prices, theme, t, addToast }) {
       ? React.createElement('div', {
           style: { padding: '3rem', textAlign: 'center', color: theme.textSecondary, background: theme.card, borderRadius: '12px', border: `1px solid ${theme.cardBorder}` }
         },
-          React.createElement('div', { style: { fontSize: '2rem', marginBottom: '0.5rem' } }, '🔔'),
+          React.createElement('div', { style: { fontSize: '2rem', marginBottom: '0.5rem', opacity: 0.3 } }, '◎'),
           'No price alerts set'
         )
       : React.createElement('div', { style: { display: 'flex', flexDirection: 'column', gap: '0.5rem' } },
@@ -557,7 +557,7 @@ function PriceAlertsView({ prices, theme, t, addToast }) {
                 ),
                 React.createElement('div', { style: { color: theme.textSecondary, fontSize: '0.75rem', marginTop: '0.25rem' } },
                   curr > 0 ? `Current: ${curr.toFixed(2)} · ${progress.toFixed(0)}% to target` : 'Waiting for price data',
-                  a.triggered && ` · ✅ Triggered at ${parseFloat(a.triggeredPrice).toFixed(2)}`
+                  a.triggered && ` · Triggered at ${parseFloat(a.triggeredPrice).toFixed(2)}`
                 )
               ),
               React.createElement('div', { style: { display: 'flex', gap: '0.375rem' } },
@@ -568,7 +568,7 @@ function PriceAlertsView({ prices, theme, t, addToast }) {
                 React.createElement('button', {
                   onClick: () => removeAlert(a.id),
                   style: { padding: '0.3rem 0.6rem', background: 'rgba(239,68,68,0.1)', color: '#ef4444', border: '1px solid rgba(239,68,68,0.2)', borderRadius: '4px', cursor: 'pointer', fontSize: '0.75rem' }
-                }, '✕')
+                }, '×')
               )
             );
           })
@@ -609,7 +609,7 @@ function PerformanceChart({ priceHistory, portfolio, theme, formatPrice, getCurr
   if (data.length < 2) return React.createElement('div', {
     style: { padding: '2rem', textAlign: 'center', color: theme.textSecondary, background: theme.card, borderRadius: '12px', border: `1px solid ${theme.cardBorder}` }
   },
-    React.createElement('div', { style: { fontSize: '2rem', marginBottom: '0.5rem' } }, '📈'),
+    React.createElement('div', { style: { fontSize: '2rem', marginBottom: '0.5rem', opacity: 0.3 } }, '↗'),
     'Performance chart will appear after refreshing prices a few times'
   );
 
@@ -643,7 +643,7 @@ function PerformanceChart({ priceHistory, portfolio, theme, formatPrice, getCurr
   },
     // Header
     React.createElement('div', { style: { display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem' } },
-      React.createElement('span', { style: { color: theme.text, fontWeight: '700', fontSize: '0.9rem' } }, '📈 Portfolio Performance'),
+      React.createElement('span', { style: { color: theme.text, fontWeight: '700', fontSize: '0.9rem' } }, 'Portfolio Performance'),
       React.createElement('div', { style: { display: 'flex', gap: '1rem', alignItems: 'center' } },
         React.createElement('span', { style: { color: theme.text, fontWeight: '700', fontSize: '1.1rem' } },
           `${formatPrice(lastVal)} ${getCurrencySymbol()}`

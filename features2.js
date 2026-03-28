@@ -137,7 +137,7 @@ function ReturnsView({ transactions, portfolio, prices, priceHistory, theme, for
   const color  = v => v > 0 ? '#22c55e' : v < 0 ? '#ef4444' : theme.text;
 
   return React.createElement('div', { style: { padding: '1.5rem' } },
-    React.createElement('h2', { style: { color: theme.text, fontSize: '1.5rem', fontWeight: '700', marginBottom: '0.5rem' } }, '📊 ' + (t.returns || 'Return Analysis')),
+    React.createElement('h2', { style: { color: theme.text, fontSize: '1.5rem', fontWeight: '700', marginBottom: '0.5rem' } }, (t.returns || 'Return Analysis')),
     React.createElement('p', { style: { color: theme.textSecondary, fontSize: '0.875rem', marginBottom: '1.5rem', lineHeight: '1.6' } },
       t.returnsHint || 'XIRR (Money-Weighted Return) accounts for the timing and size of your cash flows. TWR shows portfolio performance independent of cash flows.'
     ),
@@ -216,7 +216,7 @@ function RebalancingView({ portfolio, prices, theme, formatPrice, getCurrencySym
   });
 
   return React.createElement('div', { style: { padding: '1.5rem' } },
-    React.createElement('h2', { style: { color: theme.text, fontSize: '1.5rem', fontWeight: '700', marginBottom: '1.5rem' } }, '⚖️ ' + (t.rebalancing || 'Rebalancing')),
+    React.createElement('h2', { style: { color: theme.text, fontSize: '1.5rem', fontWeight: '700', marginBottom: '1.5rem' } }, (t.rebalancing || 'Rebalancing')),
 
     // Target allocation sliders
     React.createElement('div', {
@@ -609,7 +609,7 @@ function BrokerImportWizard({ theme, t, addToast, onImport }) {
 
   return React.createElement('div', { style: { padding: '1.5rem' } },
     React.createElement('h2', { style: { color: theme.text, fontSize: '1.5rem', fontWeight: '700', marginBottom: '1.25rem' } },
-      '📥 ' + (t.brokerImport || 'Import')
+      (t.brokerImport || 'Import')
     ),
 
     // Step indicator
@@ -660,7 +660,7 @@ function BrokerImportWizard({ theme, t, addToast, onImport }) {
       React.createElement('div', {
         style: { background: 'rgba(245,158,11,0.08)', border: '1px solid rgba(245,158,11,0.3)', borderRadius: '12px', padding: '1.5rem', marginBottom: '1.5rem' }
       },
-        React.createElement('div', { style: { fontSize: '1.5rem', marginBottom: '0.5rem' } }, '⚠️'),
+        
         React.createElement('h3', { style: { color: theme.text, fontWeight: '700', marginBottom: '0.75rem' } }, 'getquin hat keinen CSV-Export'),
         React.createElement('p', { style: { color: theme.textSecondary, fontSize: '0.875rem', lineHeight: '1.7', marginBottom: '1rem' } },
           'getquin erlaubt es nicht, deine Transaktionen zu exportieren. Sobald die Daten dort sind, sind sie "eingesperrt" — das ist eine bewusste Design-Entscheidung der App.'
@@ -694,7 +694,7 @@ function BrokerImportWizard({ theme, t, addToast, onImport }) {
         onClick: () => fileRef.current?.click(),
         style: { border: `2px dashed ${theme.cardBorder}`, borderRadius: '12px', padding: '2.5rem', textAlign: 'center', cursor: 'pointer', marginBottom: '1rem' }
       },
-        React.createElement('div', { style: { fontSize: '2.5rem', marginBottom: '0.5rem' } }, '📂'),
+        React.createElement('div', { style: { fontSize: '2rem', marginBottom: '0.5rem', opacity: 0.4 } }, '↑'),
         React.createElement('div', { style: { color: theme.text, fontWeight: '600', marginBottom: '0.25rem' } }, 'CoinTracking CSV hier ablegen'),
         React.createElement('div', { style: { color: theme.textSecondary, fontSize: '0.8rem' } }, 'oder klicken zum Auswählen'),
         React.createElement('input', { type: 'file', accept: '.csv,.txt', ref: fileRef, style: { display: 'none' }, onChange: e => handleFile(e.target.files[0]) })
@@ -711,7 +711,7 @@ function BrokerImportWizard({ theme, t, addToast, onImport }) {
         onClick: () => fileRef.current?.click(),
         style: { border: `2px dashed ${theme.cardBorder}`, borderRadius: '12px', padding: '3rem', textAlign: 'center', cursor: 'pointer', marginBottom: '1rem' }
       },
-        React.createElement('div', { style: { fontSize: '2.5rem', marginBottom: '0.5rem' } }, '📂'),
+        React.createElement('div', { style: { fontSize: '2rem', marginBottom: '0.5rem', opacity: 0.4 } }, '↑'),
         React.createElement('div', { style: { color: theme.text, fontWeight: '600', marginBottom: '0.25rem' } }, 'CSV-Datei hierher ziehen'),
         React.createElement('div', { style: { color: theme.textSecondary, fontSize: '0.875rem' } }, `Oder klicken · ${selectedBrokerObj?.name || ''} · ${selectedBrokerObj?.hint || ''}`),
         React.createElement('input', { type: 'file', accept: '.csv,.txt,.json', ref: fileRef, style: { display: 'none' }, onChange: e => handleFile(e.target.files[0]) })
@@ -725,9 +725,9 @@ function BrokerImportWizard({ theme, t, addToast, onImport }) {
 
     // ── Step 2: Preview ──────────────────────────────────────────────────────
     step === 2 && React.createElement('div', null,
-      fileName && React.createElement('div', { style: { marginBottom: '1rem', color: theme.textSecondary, fontSize: '0.875rem' } }, `📄 ${fileName}`),
+      fileName && React.createElement('div', { style: { marginBottom: '1rem', color: theme.textSecondary, fontSize: '0.875rem' } }, `${fileName}`),
       parsed.length === 0 && React.createElement('div', null,
-        React.createElement('p', { style: { color: theme.warning, marginBottom: '1rem' } }, '⚠️ Keine Transaktionen erkannt. CSV-Inhalt manuell einfügen:'),
+        React.createElement('p', { style: { color: theme.warning, marginBottom: '1rem' } }, 'Keine Transaktionen erkannt. CSV-Inhalt manuell einfügen:'),
         React.createElement('textarea', {
           value: rawData === ' ' ? '' : rawData,
           onChange: e => setRawData(e.target.value),
@@ -772,7 +772,7 @@ function BrokerImportWizard({ theme, t, addToast, onImport }) {
 
     // ── Step 3: Done ─────────────────────────────────────────────────────────
     step === 3 && React.createElement('div', { style: { textAlign: 'center', padding: '3rem' } },
-      React.createElement('div', { style: { fontSize: '3rem', marginBottom: '1rem' } }, '🎉'),
+      React.createElement('div', { style: { fontSize: '2rem', marginBottom: '1rem', color: '#22c55e' } }, '✓'),
       React.createElement('h3', { style: { color: theme.text, fontSize: '1.25rem', fontWeight: '700', marginBottom: '0.5rem' } }, 'Import erfolgreich!'),
       React.createElement('p', { style: { color: theme.textSecondary, marginBottom: '1.5rem' } }, `${parsed.length} Transaktionen wurden hinzugefügt.`),
       btn('Neuen Import starten', reset, true)
@@ -811,7 +811,7 @@ function PositionNotesView({ portfolio, theme, t }) {
   const noteCount = Object.keys(notes).filter(k => notes[k]?.text).length;
 
   return React.createElement('div', { style: { padding: '1.5rem' } },
-    React.createElement('h2', { style: { color: theme.text, fontSize: '1.5rem', fontWeight: '700', marginBottom: '0.5rem' } }, '📓 ' + (t.tradeJournal || 'Trade-Journal')),
+    React.createElement('h2', { style: { color: theme.text, fontSize: '1.5rem', fontWeight: '700', marginBottom: '0.5rem' } }, (t.tradeJournal || 'Trade-Journal')),
     React.createElement('p', { style: { color: theme.textSecondary, fontSize: '0.875rem', marginBottom: '1.5rem' } }, `${noteCount} von ${allPositions.length} Positionen haben Notizen`),
 
     allPositions.length === 0
@@ -915,7 +915,7 @@ function DividendCalendarView({ portfolio, theme, t, addToast }) {
     // Header
     React.createElement('div', { style: { display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.5rem', flexWrap: 'wrap', gap: '0.75rem' } },
       React.createElement('div', null,
-        React.createElement('h2', { style: { color: theme.text, fontSize: '1.5rem', fontWeight: '700' } }, '💰 Dividenden-Kalender'),
+        React.createElement('h2', { style: { color: theme.text, fontSize: '1.5rem', fontWeight: '700' } }, (t.dividendCalendar || 'Dividend Calendar')),
         React.createElement('div', { style: { color: theme.textSecondary, fontSize: '0.85rem', marginTop: '0.25rem' } },
           `${monthNames[month]} ${year}: ${totalThisMonth.toFixed(2)} € · Jahr ${year}: ${totalYear.toFixed(2)} €`
         )
@@ -1034,11 +1034,11 @@ function MobileBottomNav({ activeView, setActiveView, theme }) {
   useEffect(() => { injectMobileCSS(); }, []);
 
   const items = [
-    { id: 'overview',     icon: '📊', label: 'Overview' },
-    { id: 'portfolio',    icon: '💼', label: 'Portfolio' },
-    { id: 'transactions', icon: '📋', label: 'Trades' },
-    { id: 'watchlist',    icon: '👁',  label: 'Watch' },
-    { id: 'analytics',   icon: '🔬', label: 'Analytics' },
+    { id: 'overview',     icon: '◈', label: 'Overview' },
+    { id: 'portfolio',    icon: '◆', label: 'Portfolio' },
+    { id: 'transactions', icon: '↕', label: 'Trades' },
+    { id: 'watchlist',    icon: '○', label: 'Watch' },
+    { id: 'analytics',   icon: '◇', label: 'Analytics' },
   ];
 
   return React.createElement('div', { className: 'maermin-bottom-nav' },

@@ -100,7 +100,7 @@ function PasswordModal({ theme, t, onClose, addToast }) {
       // Show the new hash in a copyable field
       const display = document.createElement('div');
       display.style.cssText = 'position:fixed;bottom:5rem;right:1.5rem;background:#1e293b;border:1px solid #334155;border-radius:10px;padding:1rem 1.25rem;z-index:99999;max-width:420px;color:white;font-size:0.8rem;box-shadow:0 10px 30px rgba(0,0,0,0.5)';
-      display.innerHTML = `<div style="font-weight:700;margin-bottom:0.5rem">📋 New hash – copy to auth.js:</div><input readonly value="${newHash}" onclick="this.select()" style="width:100%;background:#0f172a;border:1px solid #334155;border-radius:6px;padding:0.5rem;color:#a855f7;font-family:monospace;font-size:0.75rem"><div style="color:#94a3b8;margin-top:0.5rem;font-size:0.7rem">Replace MAERMIN_SECRET_HASH in auth.js with this value</div><button onclick="this.parentElement.remove()" style="margin-top:0.5rem;background:none;border:1px solid #334155;border-radius:4px;color:#94a3b8;cursor:pointer;padding:0.25rem 0.5rem;font-size:0.75rem">✕ Close</button>`;
+      display.innerHTML = `<div style="font-weight:700;margin-bottom:0.5rem">New hash — copy to auth.js:</div><input readonly value="${newHash}" onclick="this.select()" style="width:100%;background:#0f172a;border:1px solid #334155;border-radius:6px;padding:0.5rem;color:#a855f7;font-family:monospace;font-size:0.75rem"><div style="color:#94a3b8;margin-top:0.5rem;font-size:0.7rem">Replace MAERMIN_SECRET_HASH in auth.js with this value</div><button onclick="this.parentElement.remove()" style="margin-top:0.5rem;background:none;border:1px solid #334155;border-radius:4px;color:#94a3b8;cursor:pointer;padding:0.25rem 0.5rem;font-size:0.75rem">✕ Close</button>`;
       document.body.appendChild(display);
       setTimeout(() => display.remove(), 60000);
     } catch(e) { console.error(e); }
@@ -126,7 +126,7 @@ function PasswordModal({ theme, t, onClose, addToast }) {
       style: { background: theme.modalBg, border:`2px solid ${theme.modalBorder}`, borderRadius:'16px', padding:'2rem', width:'380px', maxWidth:'90vw', boxShadow:'0 25px 50px -12px rgba(0,0,0,0.5)' }
     },
       React.createElement('h2', { style:{ color:theme.text, fontSize:'1.25rem', fontWeight:'700', marginBottom:'1.25rem' } },
-        '🔐 ' + (t.changePassword || 'Change Password')
+        (t.changePassword || 'Change Password')
       ),
       inp(curPw,  setCurPw,  t.currentPassword || 'Current Password'),
       inp(newPw,  setNewPw,  t.newPassword     || 'New Password'),
@@ -1160,7 +1160,7 @@ function InvestmentTracker() {
             flexWrap: 'wrap'
           }
         },
-          React.createElement('span', { style: { fontSize: '1.25rem' } }, '⚠️'),
+          React.createElement('span', { style: { fontSize: '1.25rem' } }, '!'),
           React.createElement('div', { style: { flex: 1, minWidth: '200px' } },
             React.createElement('div', { style: { color: currentTheme.text, fontWeight: '600', fontSize: '0.875rem' } },
               'CS2 skin prices need a Pricempire API key'
@@ -1196,7 +1196,7 @@ function InvestmentTracker() {
           textAlign: 'center'
         }
       },
-        React.createElement('div', { style: { fontSize: '2.5rem', marginBottom: '0.75rem' } }, '📈'),
+        React.createElement('div', { style: { fontSize: '2rem', marginBottom: '0.75rem', color: 'rgba(139,92,246,0.5)', fontWeight: '300' } }, '↗'),
         React.createElement('h3', {
           style: { color: currentTheme.text, fontSize: '1.125rem', fontWeight: '600', marginBottom: '0.5rem' }
         }, t.welcomeTitle || 'Welcome to MAERMIN'),
@@ -1455,7 +1455,7 @@ function InvestmentTracker() {
             cursor: 'pointer',
             fontSize: '0.8rem'
           }
-        }, '💾 ' + (t.createBackup || 'Backup')),
+        }, '↓ ' + (t.createBackup || 'Backup')),
         React.createElement('button', {
           onClick: () => exportData(),
           style: {
@@ -1467,7 +1467,7 @@ function InvestmentTracker() {
             cursor: 'pointer',
             fontSize: '0.8rem'
           }
-        }, '📤 ' + (t.exportData || 'Export CSV'))
+        }, '↑ ' + (t.exportData || 'Export CSV'))
       ),
       
       // Table
@@ -1559,7 +1559,7 @@ function InvestmentTracker() {
                               fontSize: '0.75rem',
                               fontWeight: '600'
                             }
-                          }, '✏️'),
+                          }, '✎'),
                           React.createElement('button', {
                             onClick: () => setTxDeleteConfirm(tx.id),
                             title: t.delete || 'Delete',
@@ -1572,7 +1572,7 @@ function InvestmentTracker() {
                               cursor: 'pointer',
                               fontSize: '0.75rem'
                             }
-                          }, '🗑️')
+                          }, '×')
                         )
                       )
                     ),
@@ -1762,7 +1762,7 @@ function InvestmentTracker() {
     return React.createElement('div', {
       style: { padding: '3rem', textAlign: 'center', color: currentTheme.textSecondary }
     },
-      React.createElement('div', { style: { fontSize: '2rem', marginBottom: '0.75rem' } }, '⚠️'),
+      React.createElement('div', { style: { fontSize: '2rem', marginBottom: '0.75rem', color: 'rgba(245,158,11,0.7)', fontWeight: '300' } }, '!'),
       React.createElement('div', { style: { fontWeight: '600', marginBottom: '0.5rem', color: currentTheme.text } }, name),
       React.createElement('div', { style: { fontSize: '0.875rem' } },
         t.moduleNotLoaded || 'Module not loaded. Check the browser console for errors.'
@@ -2564,7 +2564,7 @@ buy,crypto,bitcoin,0.5,45000,2024-01-15,10`)
             fontSize: '1rem',
             transition: 'all 0.15s'
           }
-        }, '⚙️'),
+        }, '⚙'),
 
         // Settings dropdown
         showSettings && React.createElement('div', {
@@ -2585,7 +2585,7 @@ buy,crypto,bitcoin,0.5,45000,2024-01-15,10`)
           React.createElement('div', { style: { marginBottom: '1rem' } },
             React.createElement('label', { style: { color: currentTheme.textSecondary, fontSize: '0.7rem', textTransform: 'uppercase', letterSpacing: '0.05em' } }, t.theme || 'Theme'),
             React.createElement('div', { style: { display: 'flex', gap: '0.4rem', marginTop: '0.5rem' } },
-              [['white','☀️'],['dark','🌙'],['purple','💜']].map(([th, ico]) =>
+              [['white','Light'],['dark','Dark'],['purple','Purple']].map(([th, ico]) =>
                 React.createElement('button', {
                   key: th,
                   onClick: () => setTheme(th),
@@ -2626,7 +2626,7 @@ buy,crypto,bitcoin,0.5,45000,2024-01-15,10`)
                     fontSize: '0.8rem',
                     fontWeight: language === lang ? '600' : '400'
                   }
-                }, lang === 'de' ? '🇩🇪 DE' : '🇬🇧 EN')
+                }, lang === 'de' ? 'DE' : 'EN')
               )
             )
           ),
@@ -2664,7 +2664,7 @@ buy,crypto,bitcoin,0.5,45000,2024-01-15,10`)
               borderRadius: '6px', cursor: 'pointer', fontSize: '0.8rem',
               textAlign: 'left', marginBottom: '0.25rem'
             }
-          }, '🔐 ' + (t.changePassword || 'Change Password')),
+          }, (t.changePassword || 'Change Password')),
           // API Settings
           React.createElement('button', {
             onClick: () => { setShowSettings(false); setShowApiSettings(true); },
@@ -2674,7 +2674,7 @@ buy,crypto,bitcoin,0.5,45000,2024-01-15,10`)
               borderRadius: '6px', cursor: 'pointer', fontSize: '0.8rem',
               textAlign: 'left', marginBottom: '0.25rem'
             }
-          }, '🔑 ' + (t.apiSettings || 'API Settings')),
+          }, (t.apiSettings || 'API Settings')),
           // Divider
           React.createElement('div', { style: { height: '1px', background: currentTheme.cardBorder, margin: '0.75rem 0' } }),
           // Logout
@@ -2694,7 +2694,7 @@ buy,crypto,bitcoin,0.5,45000,2024-01-15,10`)
               fontWeight: '500',
               textAlign: 'left'
             }
-          }, '🔒 ' + (t.logout || 'Logout'))
+          }, (t.logout || 'Logout'))
         )
       )
     ),
