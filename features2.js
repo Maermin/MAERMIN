@@ -42,7 +42,7 @@ function calcXIRR(cashflows) {
 // Simple TWR approximation from price history
 function calcTWR(priceHistory, portfolio) {
   const allSymbols = [];
-  ['crypto','stocks','skins'].forEach(cat => {
+  ['crypto','stocks','skins','commodities'].forEach(cat => {
     (portfolio[cat] || []).forEach(pos => {
       allSymbols.push({ sym: (pos.symbol||pos.name||'').toLowerCase(), amount: pos.amount||1 });
     });
@@ -88,7 +88,7 @@ function ReturnsView({ transactions, portfolio, prices, priceHistory, theme, for
     }));
     // Add current portfolio value as final positive cashflow (today)
     let currentValue = 0;
-    ['crypto','stocks','skins'].forEach(cat => {
+    ['crypto','stocks','skins','commodities'].forEach(cat => {
       (portfolio[cat] || []).forEach(pos => {
         const sym = (pos.symbol||pos.name||'').toLowerCase();
         const p = prices[sym] || prices[pos.symbol||''] || pos.purchasePrice || 0;
@@ -110,7 +110,7 @@ function ReturnsView({ transactions, portfolio, prices, priceHistory, theme, for
     const received = transactions.filter(t=>t.type==='sell').reduce((s,t)=>s+t.quantity*t.price-(t.fees||0),0);
     const totalFees = transactions.reduce((s,t)=>s+(t.fees||0),0);
     let currentValue = 0;
-    ['crypto','stocks','skins'].forEach(cat => {
+    ['crypto','stocks','skins','commodities'].forEach(cat => {
       (portfolio[cat] || []).forEach(pos => {
         const sym = (pos.symbol||pos.name||'').toLowerCase();
         const p = prices[sym] || prices[pos.symbol||''] || pos.purchasePrice || 0;
@@ -170,7 +170,7 @@ function ReturnsView({ transactions, portfolio, prices, priceHistory, theme, for
 // ─────────────────────────────────────────────────────────────────────────────
 // 2. REBALANCING TOOL
 // ─────────────────────────────────────────────────────────────────────────────
-const DEFAULT_TARGETS = { crypto: 40, stocks: 50, skins: 10 };
+const DEFAULT_TARGETS = { crypto: 35, stocks: 45, skins: 10, commodities: 10 };
 
 function RebalancingView({ portfolio, prices, theme, formatPrice, getCurrencySymbol, t }) {
   const [targets, setTargets] = useState(() => {
@@ -187,7 +187,7 @@ function RebalancingView({ portfolio, prices, theme, formatPrice, getCurrencySym
 
   const positions = useMemo(() => {
     const result = {};
-    ['crypto','stocks','skins'].forEach(cat => {
+    ['crypto','stocks','skins','commodities'].forEach(cat => {
       let value = 0;
       (portfolio[cat] || []).forEach(pos => {
         const sym = (pos.symbol||pos.name||'').toLowerCase();
@@ -203,10 +203,10 @@ function RebalancingView({ portfolio, prices, theme, formatPrice, getCurrencySym
   const invest = parseFloat(investAmount) || 0;
   const grandTotal = totalValue + invest;
 
-  const catColors = { crypto: '#f59e0b', stocks: '#3b82f6', skins: '#06b6d4' };
-  const catLabels = { crypto: 'Crypto', stocks: 'Stocks', skins: 'CS2 Skins' };
+  const catColors = { crypto: '#f59e0b', stocks: '#3b82f6', skins: '#06b6d4', commodities: '#d97706' };
+  const catLabels = { crypto: 'Crypto', stocks: 'Stocks', skins: 'CS2 Skins', commodities: 'Commodities' };
 
-  const rows = ['crypto','stocks','skins'].map(cat => {
+  const rows = ['crypto','stocks','skins','commodities'].map(cat => {
     const current = positions[cat] || 0;
     const currentPct = totalValue > 0 ? (current / totalValue) * 100 : 0;
     const targetPct = targets[cat] || 0;
@@ -228,7 +228,7 @@ function RebalancingView({ portfolio, prices, theme, formatPrice, getCurrencySym
           style: { fontSize: '0.8rem', color: totalTarget === 100 ? '#22c55e' : '#ef4444', fontWeight: '600' }
         }, `${totalTarget}% ${totalTarget === 100 ? '✓' : '≠ 100%'}`)
       ),
-      ['crypto','stocks','skins'].map(cat =>
+      ['crypto','stocks','skins','commodities'].map(cat =>
         React.createElement('div', { key: cat, style: { marginBottom: '1rem' } },
           React.createElement('div', { style: { display: 'flex', justifyContent: 'space-between', marginBottom: '0.375rem' } },
             React.createElement('span', { style: { color: catColors[cat], fontWeight: '600', fontSize: '0.875rem' } }, catLabels[cat]),
@@ -826,7 +826,7 @@ function PositionNotesView({ portfolio, theme, t }) {
 
   const allPositions = useMemo(() => {
     const result = [];
-    ['crypto','stocks','skins'].forEach(cat => {
+    ['crypto','stocks','skins','commodities'].forEach(cat => {
       (portfolio[cat] || []).forEach(pos => {
         result.push({ key: `${cat}-${pos.symbol||pos.name}`, sym: pos.symbol||pos.name, cat });
       });

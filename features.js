@@ -110,9 +110,10 @@ function Sparkline({ values, width = 80, height = 32, color }) {
 // 3. PORTFOLIO OVERVIEW mit Pie + Gainers/Losers + Sparklines
 // ─────────────────────────────────────────────────────────────────────────────
 const CATEGORY_COLORS = {
-  crypto: ['#f59e0b','#ef4444','#3b82f6','#8b5cf6','#06b6d4','#10b981','#f97316','#ec4899','#84cc16','#14b8a6'],
-  stocks: ['#3b82f6','#8b5cf6','#06b6d4','#10b981','#f59e0b','#ef4444','#f97316','#ec4899','#84cc16','#14b8a6'],
-  skins:  ['#06b6d4','#10b981','#8b5cf6','#f59e0b','#ef4444','#3b82f6','#f97316','#ec4899','#84cc16','#14b8a6'],
+  crypto:      ['#f59e0b','#ef4444','#3b82f6','#8b5cf6','#06b6d4','#10b981','#f97316','#ec4899','#84cc16','#14b8a6'],
+  stocks:      ['#3b82f6','#8b5cf6','#06b6d4','#10b981','#f59e0b','#ef4444','#f97316','#ec4899','#84cc16','#14b8a6'],
+  skins:       ['#06b6d4','#10b981','#8b5cf6','#f59e0b','#ef4444','#3b82f6','#f97316','#ec4899','#84cc16','#14b8a6'],
+  commodities: ['#d97706','#f59e0b','#fbbf24','#92400e','#b45309','#78716c','#a16207','#ca8a04','#d97706','#f97316'],
 };
 
 function PortfolioOverviewPanel({ portfolio, prices, priceHistory, theme, formatPrice, getCurrencySymbol, t }) {
@@ -121,7 +122,7 @@ function PortfolioOverviewPanel({ portfolio, prices, priceHistory, theme, format
   // Build enriched positions
   const allPositions = useMemo(() => {
     const result = [];
-    ['crypto','stocks','skins'].forEach((cat, catIdx) => {
+    ['crypto','stocks','skins','commodities'].forEach((cat, catIdx) => {
       (portfolio[cat] || []).forEach((pos, posIdx) => {
         const sym = (pos.symbol || pos.name || '').toLowerCase();
         const symOrig = pos.symbol || pos.name || '';
@@ -146,9 +147,9 @@ function PortfolioOverviewPanel({ portfolio, prices, priceHistory, theme, format
 
   // Pie slices by category
   const catSlices = useMemo(() => {
-    const map = { crypto: 0, stocks: 0, skins: 0 };
+    const map = { crypto: 0, stocks: 0, skins: 0, commodities: 0 };
     allPositions.forEach(p => { map[p.cat] += p.value; });
-    const colors = { crypto: '#f59e0b', stocks: '#3b82f6', skins: '#06b6d4' };
+    const colors = { crypto: '#f59e0b', stocks: '#3b82f6', skins: '#06b6d4', commodities: '#f59e0b' };
     return Object.entries(map).filter(([,v]) => v > 0).map(([k, v]) => ({
       label: k.charAt(0).toUpperCase() + k.slice(1), value: v, color: colors[k]
     }));
@@ -186,7 +187,7 @@ function PortfolioOverviewPanel({ portfolio, prices, priceHistory, theme, format
       React.createElement('div', { style: { display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem' } },
         React.createElement('span', { style: { color: theme.text, fontWeight: '700', fontSize: '0.9rem' } }, t.allocation || 'Allocation'),
         React.createElement('div', { style: { display: 'flex', gap: '0.25rem' } },
-          ['overview','crypto','stocks','skins'].map(tab =>
+          ['overview','crypto','stocks','skins','commodities'].map(tab =>
             React.createElement('button', { key: tab, style: tabStyle(tab), onClick: () => setActiveTab(tab) },
               tab === 'overview' ? '◉' : tab.charAt(0).toUpperCase() + tab.slice(1)
             )
@@ -595,7 +596,7 @@ function PerformanceChart({ priceHistory, portfolio, theme, formatPrice, getCurr
 
     return timestamps.map(ts => {
       let totalValue = 0;
-      ['crypto','stocks','skins'].forEach(cat => {
+      ['crypto','stocks','skins','commodities'].forEach(cat => {
         (portfolio[cat] || []).forEach(pos => {
           const sym = (pos.symbol || pos.name || '').toLowerCase();
           const price = tsMap[ts][sym] || tsMap[ts][pos.symbol] || 0;
@@ -704,7 +705,7 @@ function PositionsTable({ portfolio, prices, priceHistory, theme, formatPrice, g
 
   const positions = useMemo(() => {
     const result = [];
-    ['crypto','stocks','skins'].forEach((cat, ci) => {
+    ['crypto','stocks','skins','commodities'].forEach((cat, ci) => {
       (portfolio[cat] || []).forEach((pos, pi) => {
         const sym = (pos.symbol || pos.name || '');
         const symL = sym.toLowerCase();
@@ -751,7 +752,7 @@ function PositionsTable({ portfolio, prices, priceHistory, theme, formatPrice, g
     }, label + (active ? (sortDir === 'asc' ? ' ↑' : ' ↓') : ''));
   };
 
-  const catColors = { crypto: '#f59e0b', stocks: '#3b82f6', skins: '#06b6d4' };
+  const catColors = { crypto: '#f59e0b', stocks: '#3b82f6', skins: '#06b6d4', commodities: '#d97706' };
   const filterBtnStyle = (v) => ({
     padding: '0.3rem 0.75rem', border: 'none', borderRadius: '6px', cursor: 'pointer',
     fontSize: '0.8rem', fontWeight: catFilter === v ? '700' : '400',
@@ -770,7 +771,7 @@ function PositionsTable({ portfolio, prices, priceHistory, theme, formatPrice, g
         `${t.positions || 'Positions'} (${sorted.length})`
       ),
       React.createElement('div', { style: { display: 'flex', gap: '0.25rem' } },
-        ['all','crypto','stocks','skins'].map(v =>
+        ['all','crypto','stocks','skins','commodities'].map(v =>
           React.createElement('button', { key: v, style: filterBtnStyle(v), onClick: () => setCatFilter(v) },
             v === 'all' ? 'All' : v.charAt(0).toUpperCase() + v.slice(1)
           )

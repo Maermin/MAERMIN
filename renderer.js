@@ -182,7 +182,7 @@ function InvestmentTracker() {
 
   // Portfolio derived from transactions
   const portfolio = useMemo(() => {
-    const result = { crypto: [], stocks: [], skins: [] };
+    const result = { crypto: [], stocks: [], skins: [], commodities: [] };
     const positionMap = {};
     
     activeTransactions.forEach(tx => {
@@ -296,7 +296,7 @@ function InvestmentTracker() {
 
   // Category display names
   const getCategoryDisplayName = (category) => {
-    const displayNames = { crypto: t.crypto || 'Crypto', stocks: t.stocks || 'Stocks', skins: t.cs2Skins || 'CS2 Skins' };
+    const displayNames = { crypto: t.crypto || 'Crypto', stocks: t.stocks || 'Stocks', skins: t.cs2Skins || 'CS2 Skins', commodities: 'Commodities' };
     return displayNames[category] || category;
   };
 
@@ -306,7 +306,7 @@ function InvestmentTracker() {
     let totalInvested = 0;
     let totalPositions = 0;
 
-    ['crypto', 'stocks', 'skins'].forEach(category => {
+    ['crypto', 'stocks', 'skins', 'commodities'].forEach(category => {
       const positions = portfolio[category] || [];
       positions.forEach(pos => {
         const symbolOriginal = pos.symbol || pos.name || '';
@@ -527,8 +527,90 @@ function InvestmentTracker() {
           console.log('[PRICES] No Alpha Vantage API key - skipping stocks. Get free key at: https://www.alphavantage.co/support/#api-key');
         }
       }
-      
-      // ── CS2 Skin Prices via Steam Market Worker ────────────────────────────
+
+      // ── Commodity Prices via Alpha Vantage ────────────────────────────────
+      // Metals (XAU/XAG/XPT/XPD) via CURRENCY_EXCHANGE_RATE endpoint (USD)
+      // Energy (WTI, BRENT, NATURAL_GAS) + Metals (COPPER) via commodity endpoint
+      if (portfolio.commodities && portfolio.commodities.length > 0) {
+        if (apiKeys.alphaVantage) {
+          console.log('[PRICES] Fetching commodity prices...');
+
+          // Map of symbol → fetch strategy
+          const COMMODITY_API = {
+            // Precious metals → forex endpoint
+            'XAU': { fn: 'CURRENCY_EXCHANGE_RATE', from: 'XAU', label: 'Gold' },
+            'GOLD': { fn: 'CURRENCY_EXCHANGE_RATE', from: 'XAU', label: 'Gold' },
+            'XAG': { fn: 'CURRENCY_EXCHANGE_RATE', from: 'XAG', label: 'Silver' },
+            'SILVER': { fn: 'CURRENCY_EXCHANGE_RATE', from: 'XAG', label: 'Silver' },
+            'XPT': { fn: 'CURRENCY_EXCHANGE_RATE', from: 'XPT', label: 'Platinum' },
+            'PLATINUM': { fn: 'CURRENCY_EXCHANGE_RATE', from: 'XPT', label: 'Platinum' },
+            'XPD': { fn: 'CURRENCY_EXCHANGE_RATE', from: 'XPD', label: 'Palladium' },
+            'PALLADIUM': { fn: 'CURRENCY_EXCHANGE_RATE', from: 'XPD', label: 'Palladium' },
+            // Energy & industrial → commodity endpoint
+            'WTI':   { fn: 'WTI',         label: 'Oil WTI ($/barrel)' },
+            'OIL':   { fn: 'WTI',         label: 'Oil WTI ($/barrel)' },
+            'BRENT': { fn: 'BRENT',       label: 'Oil Brent ($/barrel)' },
+            'GAS':   { fn: 'NATURAL_GAS', label: 'Natural Gas ($/MMBtu)' },
+            'NATURAL_GAS': { fn: 'NATURAL_GAS', label: 'Natural Gas' },
+            'COPPER': { fn: 'COPPER',     label: 'Copper ($/lb)' },
+            'WHEAT':  { fn: 'WHEAT',      label: 'Wheat ($/bushel)' },
+            'CORN':   { fn: 'CORN',       label: 'Corn ($/bushel)' },
+          };
+
+          for (const pos of portfolio.commodities.slice(0, 5)) {
+            const sym = (pos.symbol || pos.name || '').toUpperCase().trim();
+            const api = COMMODITY_API[sym];
+            if (!api) {
+              // Fallback: try as stock ticker via GLOBAL_QUOTE (e.g. GLD, SLV ETFs)
+              try {
+                const res = await fetch(`https://www.alphavantage.co/query?function=GLOBAL_QUOTE&symbol=${sym}&apikey=${apiKeys.alphaVantage}`);
+                const data = await res.json();
+                if (data['Global Quote']?.['05. price']) {
+                  const priceUSD = parseFloat(data['Global Quote']['05. price']);
+                  const priceEUR = priceUSD * usdToEur;
+                  newPrices[sym] = priceEUR;
+                  newPrices[sym.toLowerCase()] = priceEUR;
+                  console.log('[PRICES] Commodity ETF', sym, '→', priceEUR.toFixed(2), 'EUR');
+                }
+              } catch(e) { console.warn('[PRICES] Commodity fallback failed for', sym); }
+              await new Promise(r => setTimeout(r, 12000));
+              continue;
+            }
+
+            try {
+              let priceUSD = null;
+
+              if (api.fn === 'CURRENCY_EXCHANGE_RATE') {
+                // Precious metals via forex
+                const res = await fetch(`https://www.alphavantage.co/query?function=CURRENCY_EXCHANGE_RATE&from_currency=${api.from}&to_currency=USD&apikey=${apiKeys.alphaVantage}`);
+                const data = await res.json();
+                const rate = data['Realtime Currency Exchange Rate'];
+                if (rate?.['5. Exchange Rate']) priceUSD = parseFloat(rate['5. Exchange Rate']);
+              } else {
+                // Energy/industrial commodities
+                const res = await fetch(`https://www.alphavantage.co/query?function=${api.fn}&interval=monthly&apikey=${apiKeys.alphaVantage}`);
+                const data = await res.json();
+                if (data.data?.[0]?.value) priceUSD = parseFloat(data.data[0].value);
+              }
+
+              if (priceUSD && priceUSD > 0) {
+                const priceEUR = priceUSD * usdToEur;
+                newPrices[sym] = priceEUR;
+                newPrices[sym.toLowerCase()] = priceEUR;
+                // Also store under common aliases
+                if (api.from) { newPrices[api.from] = priceEUR; newPrices[api.from.toLowerCase()] = priceEUR; }
+                console.log('[PRICES] Commodity:', api.label, '→', priceEUR.toFixed(2), 'EUR');
+              }
+            } catch(e) { console.warn('[PRICES] Commodity error for', sym, e.message); }
+
+            await new Promise(r => setTimeout(r, 12000)); // Alpha Vantage rate limit
+          }
+        } else {
+          console.log('[PRICES] No Alpha Vantage key — skipping commodity prices');
+        }
+      }
+
+
       // Worker fetches Steam Market price per skin server-side (bypasses CORS).
       // Sends POST with array of skin names → receives {name: price} map.
       if (portfolio.skins && portfolio.skins.length > 0) {
@@ -784,7 +866,7 @@ function InvestmentTracker() {
         const newTransactions = [];
         let count = 0;
         
-        ['crypto', 'stocks', 'skins'].forEach(category => {
+        ['crypto', 'stocks', 'skins', 'commodities'].forEach(category => {
           const items = imported.portfolio[category] || [];
           items.forEach((item, idx) => {
             newTransactions.push({
@@ -1410,7 +1492,7 @@ function InvestmentTracker() {
           style: { color: currentTheme.text, marginBottom: '1rem', fontSize: '1.125rem' }
         }, t.positions || 'Positions'),
         
-        ['crypto', 'stocks', 'skins'].flatMap(category =>
+        ['crypto', 'stocks', 'skins', 'commodities'].flatMap(category =>
           (portfolio[category] || []).slice(0, 5).map(pos => {
             const symbolOriginal = pos.symbol || pos.name || '';
             const symbolLower = symbolOriginal.toLowerCase();
@@ -2012,7 +2094,7 @@ function InvestmentTracker() {
             style: { display: 'block', color: currentTheme.textSecondary, marginBottom: '0.5rem', fontSize: '0.875rem' }
           }, t.category || 'Category'),
           React.createElement('div', { style: { display: 'flex', gap: '0.5rem' } },
-            ['crypto', 'stocks', 'skins'].map(cat =>
+            ['crypto', 'stocks', 'skins', 'commodities'].map(cat =>
               React.createElement('button', {
                 key: cat,
                 onClick: () => setNewTransaction(prev => ({ ...prev, category: cat })),
@@ -2031,61 +2113,83 @@ function InvestmentTracker() {
           )
         ),
         
-        // Symbol / Skin Picker
-        React.createElement('div', { style: { marginBottom: '1rem' } },
-          React.createElement('label', {
-            style: { display: 'block', color: currentTheme.textSecondary, marginBottom: '0.5rem', fontSize: '0.875rem' }
-          }, t.symbol || 'Symbol'),
+          // Symbol / Skin / Commodity Picker
+          React.createElement('div', { style: { marginBottom: '1rem' } },
+            React.createElement('label', {
+              style: { display: 'block', color: currentTheme.textSecondary, marginBottom: '0.5rem', fontSize: '0.875rem' }
+            }, t.symbol || 'Symbol'),
 
-          // CS2 Skin Picker — visual search with images
-          newTransaction.category === 'skins' && window.MaerminFeatures3?.CS2SkinPicker
-            ? React.createElement('div', null,
-                React.createElement(window.MaerminFeatures3.CS2SkinPicker, {
-                  workerUrl: apiKeys.cs2Worker,
-                  theme: currentTheme,
-                  selectedName: newTransaction.symbol,
-                  onSelect: ({ name, price, image }) => {
-                    setNewTransaction(prev => ({
-                      ...prev,
-                      symbol: name,
-                      price: price ? price.toFixed(2) : prev.price,
-                      skinIconUrl: image || prev.skinIconUrl
-                    }));
-                  }
-                }),
-                // Preview of selected skin
-                newTransaction.symbol && React.createElement('div', {
-                  style: { marginTop: '0.5rem', display: 'flex', alignItems: 'center', gap: '0.75rem', padding: '0.5rem', background: 'rgba(6,182,212,0.06)', borderRadius: '8px', border: '1px solid rgba(6,182,212,0.15)' }
-                },
-                  newTransaction.skinIconUrl
-                    ? React.createElement('img', {
-                        src: newTransaction.skinIconUrl, alt: newTransaction.symbol,
-                        style: { width: 80, height: 47, objectFit: 'contain', borderRadius: '6px', background: 'rgba(0,0,0,0.2)' }
-                      })
-                    : React.createElement('div', { style: { width: 80, height: 47, background: 'rgba(6,182,212,0.1)', borderRadius: '6px', display: 'flex', alignItems: 'center', justifyContent: 'center' } },
-                        React.createElement('span', { style: { color: 'rgba(6,182,212,0.5)', fontSize: '0.7rem' } }, 'CS2')
-                      ),
-                  React.createElement('div', null,
-                    React.createElement('div', { style: { color: currentTheme.text, fontWeight: '600', fontSize: '0.8rem' } }, newTransaction.symbol),
-                    newTransaction.price && React.createElement('div', { style: { color: '#22c55e', fontSize: '0.75rem', marginTop: '0.125rem' } }, `€${parseFloat(newTransaction.price).toFixed(2)}`)
+            // CS2 Skin Picker
+            newTransaction.category === 'skins' && window.MaerminFeatures3?.CS2SkinPicker
+              ? React.createElement('div', null,
+                  React.createElement(window.MaerminFeatures3.CS2SkinPicker, {
+                    workerUrl: apiKeys.cs2Worker, theme: currentTheme,
+                    selectedName: newTransaction.symbol,
+                    onSelect: ({ name, price, image }) => {
+                      setNewTransaction(prev => ({ ...prev, symbol: name,
+                        price: price ? price.toFixed(2) : prev.price,
+                        skinIconUrl: image || prev.skinIconUrl }));
+                    }
+                  }),
+                  newTransaction.symbol && React.createElement('div', {
+                    style: { marginTop: '0.5rem', display: 'flex', alignItems: 'center', gap: '0.75rem', padding: '0.5rem', background: 'rgba(6,182,212,0.06)', borderRadius: '8px', border: '1px solid rgba(6,182,212,0.15)' }
+                  },
+                    newTransaction.skinIconUrl
+                      ? React.createElement('img', { src: newTransaction.skinIconUrl, alt: newTransaction.symbol, style: { width: 80, height: 47, objectFit: 'contain', borderRadius: '6px', background: 'rgba(0,0,0,0.2)' } })
+                      : React.createElement('div', { style: { width: 80, height: 47, background: 'rgba(6,182,212,0.1)', borderRadius: '6px', display: 'flex', alignItems: 'center', justifyContent: 'center' } },
+                          React.createElement('span', { style: { color: 'rgba(6,182,212,0.5)', fontSize: '0.7rem' } }, 'CS2')),
+                    React.createElement('div', null,
+                      React.createElement('div', { style: { color: currentTheme.text, fontWeight: '600', fontSize: '0.8rem' } }, newTransaction.symbol),
+                      newTransaction.price && React.createElement('div', { style: { color: '#22c55e', fontSize: '0.75rem', marginTop: '0.125rem' } }, `€${parseFloat(newTransaction.price).toFixed(2)}`)
+                    )
                   )
                 )
-              )
-            // Regular text input for crypto/stocks
+
+            // Commodity quick-select
+            : newTransaction.category === 'commodities'
+              ? React.createElement('div', null,
+                  // Preset buttons
+                  React.createElement('div', { style: { display: 'flex', flexWrap: 'wrap', gap: '0.375rem', marginBottom: '0.625rem' } },
+                    [
+                      { sym: 'GOLD',    label: 'Gold',         icon: '◈', color: '#f59e0b', unit: 'troy oz' },
+                      { sym: 'SILVER',  label: 'Silver',       icon: '◈', color: '#94a3b8', unit: 'troy oz' },
+                      { sym: 'PLATINUM',label: 'Platinum',     icon: '◈', color: '#60a5fa', unit: 'troy oz' },
+                      { sym: 'PALLADIUM',label:'Palladium',    icon: '◈', color: '#a78bfa', unit: 'troy oz' },
+                      { sym: 'OIL',     label: 'Oil (WTI)',    icon: '◉', color: '#78716c', unit: 'barrel' },
+                      { sym: 'BRENT',   label: 'Oil (Brent)',  icon: '◉', color: '#57534e', unit: 'barrel' },
+                      { sym: 'GAS',     label: 'Natural Gas',  icon: '◎', color: '#4ade80', unit: 'MMBtu' },
+                      { sym: 'COPPER',  label: 'Copper',       icon: '◆', color: '#fb923c', unit: 'lb' },
+                      { sym: 'WHEAT',   label: 'Wheat',        icon: '◇', color: '#fcd34d', unit: 'bushel' },
+                      { sym: 'CORN',    label: 'Corn',         icon: '◇', color: '#fde68a', unit: 'bushel' },
+                    ].map(c => React.createElement('button', {
+                      key: c.sym,
+                      onClick: () => setNewTransaction(prev => ({ ...prev, symbol: c.sym, notes: prev.notes || `${c.label} (${c.unit})` })),
+                      style: {
+                        padding: '0.35rem 0.75rem', border: `1px solid ${newTransaction.symbol === c.sym ? c.color : currentTheme.cardBorder}`,
+                        borderRadius: '6px', cursor: 'pointer', fontSize: '0.75rem', fontWeight: '600',
+                        background: newTransaction.symbol === c.sym ? `${c.color}22` : currentTheme.inputBg,
+                        color: newTransaction.symbol === c.sym ? c.color : currentTheme.textSecondary,
+                        display: 'flex', alignItems: 'center', gap: '0.25rem'
+                      }
+                    }, c.label))
+                  ),
+                  // Also allow free-text for ETFs like GLD, SLV
+                  React.createElement('input', {
+                    type: 'text', value: newTransaction.symbol,
+                    onChange: e => setNewTransaction(prev => ({ ...prev, symbol: e.target.value.toUpperCase() })),
+                    placeholder: 'or enter ETF symbol: GLD, SLV, IAU...',
+                    style: { width: '100%', padding: '0.625rem 0.875rem', background: currentTheme.inputBg, border: `1px solid ${currentTheme.inputBorder}`, borderRadius: '8px', color: currentTheme.text, fontSize: '0.875rem', boxSizing: 'border-box' }
+                  })
+                )
+
+            // Default: text input for crypto / stocks
             : React.createElement('input', {
-                type: 'text',
-                value: newTransaction.symbol,
-                onChange: (e) => setNewTransaction(prev => ({ ...prev, symbol: e.target.value })),
-                placeholder: newTransaction.category === 'crypto' ? 'bitcoin, ethereum...' :
-                            newTransaction.category === 'stocks' ? 'AAPL, MSFT...' : 'AK-47 | Redline...',
-                style: {
-                  width: '100%', padding: '0.75rem',
-                  background: currentTheme.inputBg,
-                  border: `1px solid ${currentTheme.inputBorder}`,
-                  borderRadius: '8px', color: currentTheme.text
-                }
+                type: 'text', value: newTransaction.symbol,
+                onChange: e => setNewTransaction(prev => ({ ...prev, symbol: e.target.value })),
+                placeholder: newTransaction.category === 'crypto' ? 'bitcoin, ethereum...' : 'AAPL, MSFT...',
+                style: { width: '100%', padding: '0.75rem', background: currentTheme.inputBg, border: `1px solid ${currentTheme.inputBorder}`, borderRadius: '8px', color: currentTheme.text }
               })
-        ),
+          ),
         
         // Quantity
         React.createElement('div', { style: { marginBottom: '1rem' } },

@@ -49,7 +49,7 @@ function BenchmarkWidget({ portfolio, prices, priceHistory, transactions, theme,
   // Compute portfolio total return %
   const portfolioReturn = useMemo(() => {
     let totalInvested = 0, totalValue = 0;
-    ['crypto','stocks','skins'].forEach(cat => {
+    ['crypto','stocks','skins','commodities'].forEach(cat => {
       (portfolio[cat] || []).forEach(pos => {
         const sym = (pos.symbol || pos.name || '');
         const price = prices[sym] || prices[sym.toLowerCase()] || pos.purchasePrice || 0;
@@ -143,7 +143,7 @@ function DailyPnLCard({ portfolio, priceHistory, theme, formatPrice, getCurrency
   const { todayValue, yesterdayValue, change, changePct } = useMemo(() => {
     // Collect last 2 price snapshots per symbol
     let todayVal = 0, yesterdayVal = 0;
-    ['crypto','stocks','skins'].forEach(cat => {
+    ['crypto','stocks','skins','commodities'].forEach(cat => {
       (portfolio[cat] || []).forEach(pos => {
         const sym   = (pos.symbol || pos.name || '').toLowerCase();
         const hist  = priceHistory[sym] || priceHistory[pos.symbol] || [];
@@ -348,9 +348,10 @@ function EnhancedPositionsTable({ portfolio, prices, priceHistory, transactions,
   const [catFilter, setCatFilter] = useState('all');
 
   const CATEGORY_COLORS = {
-    crypto: ['#f59e0b','#ef4444','#8b5cf6','#06b6d4','#22c55e','#f97316','#3b82f6','#ec4899','#14b8a6','#a78bfa'],
-    stocks: ['#3b82f6','#22c55e','#f59e0b','#ef4444','#8b5cf6','#06b6d4','#f97316','#ec4899','#14b8a6','#a78bfa'],
-    skins:  ['#06b6d4','#22c55e','#f59e0b','#ef4444','#8b5cf6','#3b82f6','#f97316','#ec4899','#14b8a6','#a78bfa'],
+    crypto:      ['#f59e0b','#ef4444','#8b5cf6','#06b6d4','#22c55e','#f97316','#3b82f6','#ec4899','#14b8a6','#a78bfa'],
+    stocks:      ['#3b82f6','#22c55e','#f59e0b','#ef4444','#8b5cf6','#06b6d4','#f97316','#ec4899','#14b8a6','#a78bfa'],
+    skins:       ['#06b6d4','#22c55e','#f59e0b','#ef4444','#8b5cf6','#3b82f6','#f97316','#ec4899','#14b8a6','#a78bfa'],
+    commodities: ['#d97706','#f59e0b','#fbbf24','#92400e','#b45309','#78716c','#a16207','#ca8a04','#d97706','#f97316'],
   };
 
   function Sparkline({ values, width = 60, height = 24 }) {
@@ -382,7 +383,7 @@ function EnhancedPositionsTable({ portfolio, prices, priceHistory, transactions,
     });
 
     const result = [];
-    ['crypto','stocks','skins'].forEach((cat, ci) => {
+    ['crypto','stocks','skins','commodities'].forEach((cat, ci) => {
       (portfolio[cat] || []).forEach((pos, pi) => {
         const sym  = (pos.symbol || pos.name || '');
         const symL = sym.toLowerCase();
@@ -434,7 +435,7 @@ function EnhancedPositionsTable({ portfolio, prices, priceHistory, transactions,
     }, label + (active ? (sortDir === 'asc' ? ' ↑' : ' ↓') : ''));
   };
 
-  const catColors = { crypto: '#f59e0b', stocks: '#3b82f6', skins: '#06b6d4' };
+  const catColors = { crypto: '#f59e0b', stocks: '#3b82f6', skins: '#06b6d4', commodities: '#d97706' };
   const filterBtn = (v) => ({
     padding: '0.3rem 0.75rem', border: 'none', borderRadius: '6px', cursor: 'pointer',
     fontSize: '0.8rem', fontWeight: catFilter === v ? '700' : '400',
@@ -469,7 +470,7 @@ function EnhancedPositionsTable({ portfolio, prices, priceHistory, transactions,
           React.createElement('span', { style: { color: theme.textSecondary, fontSize: '0.72rem' } }, 'Click any row for details')
         ),
         React.createElement('div', { style: { display: 'flex', gap: '0.25rem' } },
-          ['all','crypto','stocks','skins'].map(v =>
+          ['all','crypto','stocks','skins','commodities'].map(v =>
             React.createElement('button', { key: v, style: filterBtn(v), onClick: () => setCatFilter(v) },
               v === 'all' ? 'All' : v.charAt(0).toUpperCase() + v.slice(1)
             )
