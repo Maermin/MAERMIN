@@ -33,20 +33,32 @@ const PERIODS = [
 // Yahoo Finance symbol map for known European stocks
 // Most EU stocks work automatically with .DE / .CO etc — YF auto-detects many
 const YF_SYMBOL_MAP = {
-  // XETRA
+  // XETRA (.DE) — funktioniert direkt
   'SIX2': 'SIX2.DE', 'SIE': 'SIE.DE', 'SAP': 'SAP.DE', 'BMW': 'BMW.DE',
   'VOW3': 'VOW3.DE', 'BAS': 'BAS.DE', 'ALV': 'ALV.DE', 'DTE': 'DTE.DE',
   'DBK': 'DBK.DE', 'ADS': 'ADS.DE', 'RWE': 'RWE.DE', 'MRK': 'MRK.DE',
   'HEN3': 'HEN3.DE', 'MUV2': 'MUV2.DE', 'LIN': 'LIN.DE', 'BAYN': 'BAYN.DE',
-  // Copenhagen
-  'NVO': 'NVO.CO', 'NOVO-B': 'NOVO-B.CO',
-  // Stockholm
-  'FI': 'FI.ST',
-  // London
+  'EOAN': 'EOAN.DE', 'FRE': 'FRE.DE', 'IFX': 'IFX.DE', 'MTX': 'MTX.DE',
+  // Kopenhagen — Yahoo nutzt .CO
+  'NOVO-B': 'NOVO-B.CO', 'ORSTED': 'ORSTED.CO', 'DSV': 'DSV.CO',
+  // NVO = US ADR auf NYSE, kein Suffix nötig
+  'NVO': 'NVO',
+  // Stockholm — Yahoo nutzt .ST
+  'ERIC-B': 'ERIC-B.ST', 'HM-B': 'HM-B.ST', 'VOLV-B': 'VOLV-B.ST',
+  // FI ist mehrdeutig: Fiserv (US) oder Fingerprint Cards (SE)
+  // Als US-Ticker direkt verwenden, Stockholm-Aktien mit .ST eingeben
+  'FI': 'FI',
+  // Amsterdam (.AS)
+  'ASML': 'ASML.AS', 'SHELL': 'SHEL.AS', 'ING': 'INGA.AS', 'PHIA': 'PHIA.AS',
+  // London (.L)
   'SHEL': 'SHEL.L', 'AZN': 'AZN.L', 'BP': 'BP.L', 'HSBC': 'HSBA.L',
-  // Paris
+  'GSK': 'GSK.L', 'ULVR': 'ULVR.L', 'RIO': 'RIO.L',
+  // Paris (.PA)
   'LVMH': 'MC.PA', 'TTE': 'TTE.PA', 'AIR': 'AIR.PA', 'BNP': 'BNP.PA',
-  // Commodities via YF
+  'SAN': 'SAN.PA', 'OR': 'OR.PA', 'RI': 'RI.PA',
+  // Milan (.MI)
+  'ENI': 'ENI.MI', 'ENEL': 'ENEL.MI', 'ISP': 'ISP.MI',
+  // Futures — Rohstoffe
   'GOLD': 'GC=F', 'XAU': 'GC=F',
   'SILVER': 'SI=F', 'XAG': 'SI=F',
   'OIL': 'CL=F', 'WTI': 'CL=F',
@@ -55,24 +67,47 @@ const YF_SYMBOL_MAP = {
   'COPPER': 'HG=F',
   'PLATINUM': 'PL=F', 'XPT': 'PL=F',
   'PALLADIUM': 'PA=F', 'XPD': 'PA=F',
-  'WHEAT': 'ZW=F',
-  'CORN': 'ZC=F',
+  'WHEAT': 'ZW=F', 'CORN': 'ZC=F',
 };
 
 // ─────────────────────────────────────────────────────────────────────────────
 // DATA FETCHING
 // ─────────────────────────────────────────────────────────────────────────────
 
-// Yahoo Finance via Worker: returns [{ts, date, price}] in asset's native currency (USD usually)
+// Yahoo Finance via Worker — with automatic exchange suffix fallback
+// If the mapped symbol returns 404, tries common EU suffixes automatically
 async function fetchYFHistory(symbol, period, workerUrl) {
-  const base    = workerUrl.replace(/\/$/, '');
-  const yfSym   = YF_SYMBOL_MAP[symbol.toUpperCase()] || symbol;
-  const url     = `${base}?action=yf&symbol=${encodeURIComponent(yfSym)}&interval=${period.yfInterval}&range=${period.yfRange}`;
-  const res     = await fetch(url, { signal: AbortSignal.timeout(20000) });
-  if (!res.ok) throw new Error(`Worker YF ${res.status}`);
-  const data    = await res.json();
-  if (data.error) throw new Error(data.error);
-  return { prices: data.prices || [], currency: data.currency || 'USD' };
+  const base   = workerUrl.replace(/\/$/, '');
+  const symU   = symbol.toUpperCase();
+  const mapped = YF_SYMBOL_MAP[symU];
+
+  // Build candidate list: mapped symbol first, then bare, then EU suffixes
+  const candidates = mapped
+    ? [mapped]
+    : symU.includes('.')
+      ? [symU]  // already has suffix — use as-is
+      : [symU, `${symU}.DE`, `${symU}.L`, `${symU}.PA`, `${symU}.AS`, `${symU}.ST`, `${symU}.CO`, `${symU}.MI`];
+
+  let lastError = 'No data';
+
+  for (const sym of candidates) {
+    const url = `${base}?action=yf&symbol=${encodeURIComponent(sym)}&interval=${period.yfInterval}&range=${period.yfRange}`;
+    try {
+      const res = await fetch(url, { signal: AbortSignal.timeout(20000) });
+      if (!res.ok) { lastError = `Worker YF ${res.status} for ${sym}`; continue; }
+      const data = await res.json();
+      if (data.error || !data.prices || data.prices.length === 0) {
+        lastError = data.error || `No prices for ${sym}`;
+        continue;
+      }
+      if (sym !== symU) console.log(`[CHART] YF auto-matched ${symbol} → ${sym}`);
+      return { prices: data.prices, currency: data.currency || 'USD', matchedSym: sym };
+    } catch(e) {
+      lastError = e.message;
+    }
+  }
+
+  throw new Error(lastError);
 }
 
 // CoinGecko: [{ts, date, price_eur}] — direct, no CORS on CoinGecko
@@ -109,7 +144,7 @@ async function fetchAVHistory(symbol, avKey, period) {
 // ─────────────────────────────────────────────────────────────────────────────
 // CHART COMPONENT
 // ─────────────────────────────────────────────────────────────────────────────
-function PortfolioHistoryChart({ portfolio, prices, apiKeys, theme, formatPrice, getCurrencySymbol, exchangeRate }) {
+function PortfolioHistoryChart({ portfolio, prices, transactions, apiKeys, theme, formatPrice, getCurrencySymbol, exchangeRate }) {
   const [period, setPeriod]       = useState('1M');
   const [loading, setLoading]     = useState(false);
   const [error, setError]         = useState(null);
@@ -125,21 +160,39 @@ function PortfolioHistoryChart({ portfolio, prices, apiKeys, theme, formatPrice,
 
   const currentPeriod = PERIODS.find(p => p.id === period) || PERIODS[3];
 
+  // Build positions WITH first-buy timestamp per asset
   const positions = useMemo(() => {
+    // First: find earliest buy date per symbol+category from transactions
+    const firstBuy = {}; // key: `${cat}-${symLower}` → ts
+    (transactions || []).forEach(tx => {
+      if (tx.type !== 'buy') return;
+      const key = `${tx.category || 'crypto'}-${(tx.symbol || '').toLowerCase()}`;
+      const ts  = Math.floor(new Date(tx.date || 0).getTime() / 1000);
+      if (!firstBuy[key] || ts < firstBuy[key]) firstBuy[key] = ts;
+    });
+
     const result = [];
     ['crypto','stocks','skins','commodities'].forEach(cat => {
       (portfolio[cat] || []).forEach(pos => {
-        if ((pos.amount || 0) > 0.000001) {
-          result.push({
-            sym: (pos.symbol || pos.name || '').toLowerCase(),
-            symOrig: pos.symbol || pos.name || '',
-            amount: pos.amount, cat,
-          });
-        }
+        if ((pos.amount || 0) <= 0.000001) return;
+        const symL = (pos.symbol || pos.name || '').toLowerCase();
+        const key  = `${cat}-${symL}`;
+        // Use firstBuy from transactions, fall back to purchaseDate on position, then "now - 1 day"
+        let firstTs = firstBuy[key];
+        if (!firstTs && pos.purchaseDate) firstTs = Math.floor(new Date(pos.purchaseDate).getTime() / 1000);
+        if (!firstTs) firstTs = Math.floor(Date.now() / 1000) - 86400;
+
+        result.push({
+          sym: symL,
+          symOrig: pos.symbol || pos.name || '',
+          amount: pos.amount,
+          cat,
+          firstTs, // ← earliest buy — don't show portfolio value before this date
+        });
       });
     });
     return result;
-  }, [portfolio]);
+  }, [portfolio, transactions]);
 
   const buildChart = useCallback(async () => {
     if (positions.length === 0) return;
@@ -149,7 +202,7 @@ function PortfolioHistoryChart({ portfolio, prices, apiKeys, theme, formatPrice,
     try {
       const historyMap = {}; // symOrig → [{ts, date, price (EUR)}]
 
-      // ── Crypto: CoinGecko (parallel, free, no rate limit) ───────────────
+      // ── Crypto: CoinGecko (parallel, free) ─────────────────────────────
       await Promise.all(
         positions.filter(p => p.cat === 'crypto').map(async pos => {
           const ckey = `${pos.sym}|${period}`;
@@ -161,13 +214,43 @@ function PortfolioHistoryChart({ portfolio, prices, apiKeys, theme, formatPrice,
           } catch(e) {
             console.warn('[CHART] CoinGecko failed for', pos.sym, '—', e.message);
             const p = prices[pos.symOrig] || prices[pos.sym] || 0;
-            if (p > 0) historyMap[pos.symOrig] = flatLine(p);
+            if (p > 0) historyMap[pos.symOrig] = flatLine(p, pos.firstTs);
           }
         })
       );
 
-      // ── Stocks + Commodities: Yahoo Finance via Worker (parallel!) ───────
-      // Worker has no per-symbol rate limit — all parallel
+      // ── CS2 Skins: Steam Market Price History via Worker ────────────────
+      const skinPositions = positions.filter(p => p.cat === 'skins');
+      if (hasWorker && skinPositions.length > 0) {
+        await Promise.all(skinPositions.map(async pos => {
+          const ckey = `${pos.symOrig}|${period}|steam`;
+          if (cacheRef.current[ckey]) { historyMap[pos.symOrig] = cacheRef.current[ckey]; return; }
+          try {
+            const base = workerUrl.replace(/\/$/, '');
+            const url  = `${base}?action=steamhistory&name=${encodeURIComponent(pos.symOrig)}`;
+            const res  = await fetch(url, { signal: AbortSignal.timeout(15000) });
+            if (!res.ok) throw new Error(`Steam history ${res.status}`);
+            const data = await res.json();
+            if (data.error || !data.prices?.length) throw new Error(data.error || 'No data');
+            // Steam returns prices in USD — convert to EUR
+            const hist = data.prices.map(h => ({ ...h, price: h.price * usdToEur }));
+            cacheRef.current[ckey] = hist;
+            historyMap[pos.symOrig] = hist;
+            console.log(`[CHART] Steam history: ${pos.symOrig} → ${hist.length} points`);
+          } catch(e) {
+            console.warn('[CHART] Steam history failed for', pos.symOrig, '—', e.message);
+            const p = prices[pos.symOrig] || prices[pos.sym] || 0;
+            if (p > 0) historyMap[pos.symOrig] = flatLine(p, pos.firstTs);
+          }
+        }));
+      } else {
+        skinPositions.forEach(pos => {
+          const p = prices[pos.symOrig] || prices[pos.sym] || 0;
+          if (p > 0) historyMap[pos.symOrig] = flatLine(p, pos.firstTs);
+        });
+      }
+
+      // ── Stocks + Commodities: Yahoo Finance via Worker (parallel) ────────
       const nonCrypto = positions.filter(p => p.cat !== 'crypto' && p.cat !== 'skins');
 
       if (hasWorker && nonCrypto.length > 0) {
@@ -176,79 +259,95 @@ function PortfolioHistoryChart({ portfolio, prices, apiKeys, theme, formatPrice,
           if (cacheRef.current[ckey]) { historyMap[pos.symOrig] = cacheRef.current[ckey]; return; }
           try {
             const { prices: hist, currency } = await fetchYFHistory(pos.symOrig, currentPeriod, workerUrl);
-            const rate = (currency === 'EUR') ? 1 : usdToEur; // convert non-EUR to EUR
+            const rate    = (currency === 'EUR') ? 1 : usdToEur;
             const histEUR = hist.map(h => ({ ...h, price: h.price * rate }));
             cacheRef.current[ckey] = histEUR;
             historyMap[pos.symOrig] = histEUR;
             console.log(`[CHART] YF: ${pos.symOrig} (${currency}) → ${hist.length} points`);
           } catch(e) {
             console.warn('[CHART] YF failed for', pos.symOrig, '—', e.message);
-            // Try Alpha Vantage fallback for stocks
             if (pos.cat === 'stocks' && avKey) {
               try {
-                const hist = await fetchAVHistory(pos.symOrig.toUpperCase(), avKey, currentPeriod);
+                const hist    = await fetchAVHistory(pos.symOrig.toUpperCase(), avKey, currentPeriod);
                 const histEUR = hist.map(h => ({ ...h, price: h.price * usdToEur }));
                 cacheRef.current[`${pos.symOrig}|${period}|av`] = histEUR;
                 historyMap[pos.symOrig] = histEUR;
                 console.log(`[CHART] AV fallback: ${pos.symOrig} → ${hist.length} points`);
                 return;
               } catch(e2) {
-                console.warn('[CHART] AV fallback also failed for', pos.symOrig, '—', e2.message);
+                console.warn('[CHART] AV fallback failed for', pos.symOrig, '—', e2.message);
               }
             }
             const p = prices[pos.symOrig] || prices[(pos.symOrig||'').toLowerCase()] || 0;
-            if (p > 0) historyMap[pos.symOrig] = flatLine(p);
+            if (p > 0) historyMap[pos.symOrig] = flatLine(p, pos.firstTs);
           }
         }));
 
       } else if (!hasWorker && avKey && nonCrypto.length > 0) {
-        // No worker — use Alpha Vantage sequentially (rate limited)
         let rateLimited = false;
         for (const pos of nonCrypto) {
           const ckey = `${pos.symOrig}|${period}|av`;
           if (cacheRef.current[ckey]) { historyMap[pos.symOrig] = cacheRef.current[ckey]; continue; }
           if (rateLimited) {
             const p = prices[pos.symOrig] || 0;
-            if (p > 0) historyMap[pos.symOrig] = flatLine(p);
+            if (p > 0) historyMap[pos.symOrig] = flatLine(p, pos.firstTs);
             continue;
           }
           try {
-            const hist = await fetchAVHistory(pos.symOrig.toUpperCase(), avKey, currentPeriod);
+            const hist    = await fetchAVHistory(pos.symOrig.toUpperCase(), avKey, currentPeriod);
             const histEUR = hist.map(h => ({ ...h, price: h.price * usdToEur }));
             cacheRef.current[ckey] = histEUR;
             historyMap[pos.symOrig] = histEUR;
           } catch(e) {
             if ((e.message||'').includes('Rate limit')) rateLimited = true;
             const p = prices[pos.symOrig] || 0;
-            if (p > 0) historyMap[pos.symOrig] = flatLine(p);
+            if (p > 0) historyMap[pos.symOrig] = flatLine(p, pos.firstTs);
           }
           if (!rateLimited) await new Promise(r => setTimeout(r, 12500));
         }
-
       } else {
-        // No worker, no AV key — flat lines at current price
         nonCrypto.forEach(pos => {
           const p = prices[pos.symOrig] || prices[(pos.symOrig||'').toLowerCase()] || 0;
-          if (p > 0) historyMap[pos.symOrig] = flatLine(p);
+          if (p > 0) historyMap[pos.symOrig] = flatLine(p, pos.firstTs);
         });
       }
 
       // ── Build portfolio value curve ──────────────────────────────────────
+      // IMPORTANT: each position only contributes from its firstTs (first buy)
+      // So the chart never shows portfolio value before you actually bought anything
+
+      // Global earliest buy = minimum firstTs across all positions
+      const globalFirstTs = Math.min(...positions.map(p => p.firstTs));
+
+      // Collect all timestamps from all histories, clipped to each position's firstTs
       const allTs = new Set();
-      Object.values(historyMap).forEach(hist => hist.forEach(h => allTs.add(h.ts)));
+      positions.forEach(pos => {
+        const hist = historyMap[pos.symOrig];
+        if (!hist) return;
+        hist.forEach(h => {
+          if (h.ts >= pos.firstTs) allTs.add(h.ts); // only from purchase date
+        });
+      });
+
       const sortedTs = [...allTs].sort((a, b) => a - b);
 
-      // Filter to selected period
-      const cutoffDays = typeof currentPeriod.cgDays === 'number' ? currentPeriod.cgDays : 3650;
-      const cutoffTs   = period === 'Max' ? 0 : Math.floor(Date.now()/1000) - cutoffDays * 86400;
+      // Period cutoff: the later of (period start, global first buy)
+      const cutoffDays = typeof currentPeriod.cgDays === 'number' ? currentPeriod.cgDays : 36500;
+      const periodCutoff = period === 'Max'
+        ? globalFirstTs  // Max starts at very first purchase
+        : Math.max(globalFirstTs, Math.floor(Date.now()/1000) - cutoffDays * 86400);
 
       const curve = sortedTs
-        .filter(ts => ts >= cutoffTs)
+        .filter(ts => ts >= periodCutoff)
         .map(ts => {
           let value = 0;
           positions.forEach(pos => {
+            // Skip this position if ts is before its first buy
+            if (ts < pos.firstTs) return;
+
             const hist = historyMap[pos.symOrig];
             if (!hist || hist.length === 0) return;
+
             // Forward-fill: last known price at or before this ts
             let price = null;
             for (let i = hist.length - 1; i >= 0; i--) {
@@ -332,7 +431,13 @@ function PortfolioHistoryChart({ portfolio, prices, apiKeys, theme, formatPrice,
     setHoveredIdx(Math.round(frac * (chartData.length-1)));
   };
 
-  const sourceLabel = hasWorker ? 'Yahoo Finance via Worker' : avKey ? 'Alpha Vantage' : 'CoinGecko only';
+  // Which data sources are active — shown as small tags, not in the main title
+  const dataSources = [
+    positions.some(p => p.cat === 'crypto')     && 'Crypto: CoinGecko',
+    positions.some(p => p.cat === 'stocks')     && (hasWorker ? 'Stocks: Yahoo Finance' : avKey ? 'Stocks: Alpha Vantage' : null),
+    positions.some(p => p.cat === 'commodities')&& (hasWorker ? 'Commodities: Yahoo Finance' : null),
+    positions.some(p => p.cat === 'skins')      && (hasWorker ? 'CS2: Steam Market' : null),
+  ].filter(Boolean);
 
   return React.createElement('div', {
     style: { background: theme.card, border: `1px solid ${theme.cardBorder}`, borderRadius: '16px', overflow: 'hidden', marginBottom: '1.5rem' }
@@ -342,8 +447,13 @@ function PortfolioHistoryChart({ portfolio, prices, apiKeys, theme, formatPrice,
       style: { padding: '1.25rem 1.5rem', display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', flexWrap: 'wrap', gap: '0.75rem' }
     },
       React.createElement('div', null,
-        React.createElement('div', { style: { color: theme.textSecondary, fontSize: '0.7rem', textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: '0.2rem' } },
-          `Portfolio Value · ${sourceLabel}`),
+        // Title row: "Portfolio Value" + small source tags
+        React.createElement('div', { style: { display: 'flex', alignItems: 'center', gap: '0.5rem', marginBottom: '0.25rem', flexWrap: 'wrap' } },
+          React.createElement('span', { style: { color: theme.textSecondary, fontSize: '0.7rem', textTransform: 'uppercase', letterSpacing: '0.08em' } }, 'Portfolio Value'),
+          ...dataSources.map((src, i) =>
+            React.createElement('span', { key: i, style: { fontSize: '0.6rem', padding: '0.1rem 0.35rem', borderRadius: '3px', background: 'rgba(255,255,255,0.06)', color: theme.textSecondary, letterSpacing: '0.03em' } }, src)
+          )
+        ),
         hovered && computed
           ? React.createElement('div', { style: { display: 'flex', alignItems: 'baseline', gap: '0.75rem' } },
               React.createElement('span', { style: { color: theme.text, fontSize: '1.75rem', fontWeight: '800', letterSpacing: '-0.02em' } },
@@ -397,9 +507,9 @@ function PortfolioHistoryChart({ portfolio, prices, apiKeys, theme, formatPrice,
         hasWorker
           ? 'Chart loads automatically — select a period above'
           : React.createElement('span', null,
-              'For stocks & commodities: add your Worker URL in ',
+              'Stocks, CS2 & commodities need a Worker URL in ',
               React.createElement('strong', null, '⚙ API Settings'),
-              ' (same URL as CS2). Crypto works automatically.'
+              '. Crypto loads automatically.'
             )
       ),
 
@@ -457,11 +567,12 @@ function PortfolioHistoryChart({ portfolio, prices, apiKeys, theme, formatPrice,
 // ─────────────────────────────────────────────────────────────────────────────
 // HELPER: flat line at current price (used when history unavailable)
 // ─────────────────────────────────────────────────────────────────────────────
-function flatLine(price) {
-  const now = Math.floor(Date.now()/1000);
+function flatLine(price, firstTs) {
+  const now   = Math.floor(Date.now()/1000);
+  const start = firstTs || (now - 86400 * 5);
   return [
-    { ts: now - 86400*5, date: '', price },
-    { ts: now,           date: new Date().toISOString().split('T')[0], price },
+    { ts: start, date: new Date(start * 1000).toISOString().split('T')[0], price },
+    { ts: now,   date: new Date(now   * 1000).toISOString().split('T')[0], price },
   ];
 }
 

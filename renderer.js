@@ -485,128 +485,180 @@ function InvestmentTracker() {
         }
       }
       
-      // Fetch stock prices from Alpha Vantage (requires API key)
-      // Get free API key at: https://www.alphavantage.co/support/#api-key
-      // Alpha Vantage returns prices in USD - we need to convert to EUR
+      // ── Stock Prices: Yahoo Finance (primary) → Alpha Vantage (fallback) ──
+      // Yahoo Finance via Worker: free, no rate limit, all global exchanges
+      // Alpha Vantage: only used if Worker not configured or Yahoo returns no data
       if (portfolio.stocks && portfolio.stocks.length > 0) {
-        if (apiKeys.alphaVantage) {
-          console.log('[PRICES] Fetching stock prices with Alpha Vantage...');
-          for (const stock of portfolio.stocks.slice(0, 5)) { // Limit to 5 due to rate limits
+        const workerBase = (apiKeys.cs2Worker || '').trim().replace(/\/$/, '');
+        const hasWorker  = workerBase.length > 5;
+
+        for (const stock of portfolio.stocks.slice(0, 10)) {
+          const sym    = (stock.symbol || stock.name || '').toUpperCase();
+          const symL   = sym.toLowerCase();
+          let   priceEUR = null;
+
+          // ── Primary: Yahoo Finance via Worker ────────────────────────────
+          if (hasWorker) {
             try {
-              const symbol = (stock.symbol || stock.name || '').toUpperCase();
-              const res = await fetch(
-                `https://www.alphavantage.co/query?function=GLOBAL_QUOTE&symbol=${symbol}&apikey=${apiKeys.alphaVantage}`
-              );
+              // Map known EU symbols to correct YF suffix
+              const YF_MAP = {
+                'SIX2':'SIX2.DE','SIE':'SIE.DE','SAP':'SAP.DE','BMW':'BMW.DE',
+                'VOW3':'VOW3.DE','BAS':'BAS.DE','ALV':'ALV.DE','DTE':'DTE.DE',
+                'DBK':'DBK.DE','ADS':'ADS.DE','RWE':'RWE.DE','MRK':'MRK.DE',
+                'NVO':'NVO','SHEL':'SHEL.L','AZN':'AZN.L','BP':'BP.L',
+                'LVMH':'MC.PA','TTE':'TTE.PA','AIR':'AIR.PA',
+                'ASML':'ASML.AS','ING':'INGA.AS',
+              };
+              const yfSym = YF_MAP[sym] || sym;
+              const url   = `${workerBase}?action=yf&symbol=${encodeURIComponent(yfSym)}&interval=1d&range=5d`;
+              const res   = await fetch(url, { signal: AbortSignal.timeout(8000) });
               if (res.ok) {
                 const data = await res.json();
-                if (data['Global Quote'] && data['Global Quote']['05. price']) {
-                  const priceUSD = parseFloat(data['Global Quote']['05. price']);
-                  // Convert USD to EUR using the daily exchange rate
-                  const priceEUR = priceUSD * usdToEur;
-                  
-                  // Store both lowercase and original symbol
-                  newPrices[symbol.toLowerCase()] = priceEUR;
-                  newPrices[symbol] = priceEUR;
-                  
-                  console.log('[PRICES] Stock:', symbol, '| USD:', priceUSD.toFixed(2), '| EUR:', priceEUR.toFixed(2));
-                } else if (data['Note']) {
-                  console.warn('[PRICES] Alpha Vantage rate limit:', data['Note']);
-                  addToast('Alpha Vantage: Rate limit (5/min)', 'warning');
-                  break;
-                } else if (data['Error Message']) {
-                  console.warn('[PRICES] Alpha Vantage error for', symbol, ':', data['Error Message']);
+                const last = data.prices?.[data.prices.length - 1];
+                if (last?.price > 0) {
+                  const rate = data.currency === 'EUR' ? 1 : usdToEur;
+                  priceEUR = last.price * rate;
+                  console.log('[PRICES] Stock (YF):', sym, '→', priceEUR.toFixed(2), 'EUR');
                 }
               }
-              // Alpha Vantage free tier: 5 calls per minute - wait 12 seconds between calls
-              await new Promise(r => setTimeout(r, 12000));
-            } catch (e) {
-              console.error('[PRICES] Alpha Vantage error:', e);
+              // If bare symbol failed, try .DE suffix automatically
+              if (!priceEUR && !sym.includes('.') && !YF_MAP[sym]) {
+                for (const suffix of ['.DE','.L','.PA','.AS','.ST','.CO']) {
+                  try {
+                    const url2  = `${workerBase}?action=yf&symbol=${encodeURIComponent(sym+suffix)}&interval=1d&range=5d`;
+                    const res2  = await fetch(url2, { signal: AbortSignal.timeout(6000) });
+                    if (!res2.ok) continue;
+                    const data2 = await res2.json();
+                    const last2 = data2.prices?.[data2.prices.length - 1];
+                    if (last2?.price > 0) {
+                      const rate2 = data2.currency === 'EUR' ? 1 : usdToEur;
+                      priceEUR = last2.price * rate2;
+                      console.log('[PRICES] Stock (YF auto-suffix):', sym, '→', sym+suffix, '→', priceEUR.toFixed(2), 'EUR');
+                      break;
+                    }
+                  } catch { /* try next suffix */ }
+                }
+              }
+            } catch(e) {
+              console.warn('[PRICES] YF stock failed for', sym, '—', e.message);
             }
           }
-        } else {
-          console.log('[PRICES] No Alpha Vantage API key - skipping stocks. Get free key at: https://www.alphavantage.co/support/#api-key');
+
+          // ── Fallback: Alpha Vantage ───────────────────────────────────────
+          if (!priceEUR && apiKeys.alphaVantage) {
+            try {
+              console.log('[PRICES] Stock AV fallback:', sym);
+              const res  = await fetch(`https://www.alphavantage.co/query?function=GLOBAL_QUOTE&symbol=${sym}&apikey=${apiKeys.alphaVantage}`);
+              const data = await res.json();
+              if (data['Global Quote']?.['05. price']) {
+                priceEUR = parseFloat(data['Global Quote']['05. price']) * usdToEur;
+                console.log('[PRICES] Stock (AV fallback):', sym, '→', priceEUR.toFixed(2), 'EUR');
+              } else if (data['Note'] || data['Information']) {
+                console.warn('[PRICES] Alpha Vantage rate limit hit for', sym);
+                addToast('Alpha Vantage: Rate limit reached', 'warning');
+              }
+              await new Promise(r => setTimeout(r, 12000)); // AV rate limit
+            } catch(e) {
+              console.warn('[PRICES] AV stock fallback error for', sym, e.message);
+            }
+          }
+
+          if (priceEUR && priceEUR > 0) {
+            newPrices[symL] = priceEUR;
+            newPrices[sym]  = priceEUR;
+          }
         }
       }
 
-      // ── Commodity Prices via Alpha Vantage ────────────────────────────────
-      // Metals (XAU/XAG/XPT/XPD) via CURRENCY_EXCHANGE_RATE endpoint (USD)
-      // Energy (WTI, BRENT, NATURAL_GAS) + Metals (COPPER) via commodity endpoint
+      // ── Commodity Prices: Yahoo Finance (primary) → Alpha Vantage (fallback) ──
       if (portfolio.commodities && portfolio.commodities.length > 0) {
-        if (apiKeys.alphaVantage) {
-          console.log('[PRICES] Fetching commodity prices...');
+        const workerBase = (apiKeys.cs2Worker || '').trim().replace(/\/$/, '');
+        const hasWorker  = workerBase.length > 5;
 
-          // Map of symbol → fetch strategy
-          const COMMODITY_API = {
-            // Precious metals → forex endpoint
-            'XAU': { fn: 'CURRENCY_EXCHANGE_RATE', from: 'XAU', label: 'Gold' },
-            'GOLD': { fn: 'CURRENCY_EXCHANGE_RATE', from: 'XAU', label: 'Gold' },
-            'XAG': { fn: 'CURRENCY_EXCHANGE_RATE', from: 'XAG', label: 'Silver' },
-            'SILVER': { fn: 'CURRENCY_EXCHANGE_RATE', from: 'XAG', label: 'Silver' },
-            'XPT': { fn: 'CURRENCY_EXCHANGE_RATE', from: 'XPT', label: 'Platinum' },
-            'PLATINUM': { fn: 'CURRENCY_EXCHANGE_RATE', from: 'XPT', label: 'Platinum' },
-            'XPD': { fn: 'CURRENCY_EXCHANGE_RATE', from: 'XPD', label: 'Palladium' },
-            'PALLADIUM': { fn: 'CURRENCY_EXCHANGE_RATE', from: 'XPD', label: 'Palladium' },
-            // Energy & industrial → commodity endpoint
-            'WTI':   { fn: 'WTI',         label: 'Oil WTI ($/barrel)' },
-            'OIL':   { fn: 'WTI',         label: 'Oil WTI ($/barrel)' },
-            'BRENT': { fn: 'BRENT',       label: 'Oil Brent ($/barrel)' },
-            'GAS':   { fn: 'NATURAL_GAS', label: 'Natural Gas ($/MMBtu)' },
-            'NATURAL_GAS': { fn: 'NATURAL_GAS', label: 'Natural Gas' },
-            'COPPER': { fn: 'COPPER',     label: 'Copper ($/lb)' },
-            'WHEAT':  { fn: 'WHEAT',      label: 'Wheat ($/bushel)' },
-            'CORN':   { fn: 'CORN',       label: 'Corn ($/bushel)' },
-          };
+        // Yahoo Finance Futures symbols for commodities
+        const YF_COMMODITY = {
+          'GOLD':'GC=F','XAU':'GC=F','SILVER':'SI=F','XAG':'SI=F',
+          'OIL':'CL=F','WTI':'CL=F','BRENT':'BZ=F',
+          'GAS':'NG=F','NATURAL_GAS':'NG=F',
+          'COPPER':'HG=F','PLATINUM':'PL=F','XPT':'PL=F',
+          'PALLADIUM':'PA=F','XPD':'PA=F','WHEAT':'ZW=F','CORN':'ZC=F',
+        };
 
-          for (const pos of portfolio.commodities.slice(0, 5)) {
-            const sym = (pos.symbol || pos.name || '').toUpperCase().trim();
-            const api = COMMODITY_API[sym];
-            if (!api) {
-              // Fallback: try as stock ticker via GLOBAL_QUOTE (e.g. GLD, SLV ETFs)
-              try {
-                const res = await fetch(`https://www.alphavantage.co/query?function=GLOBAL_QUOTE&symbol=${sym}&apikey=${apiKeys.alphaVantage}`);
+        // Alpha Vantage commodity config (fallback only)
+        const AV_COMMODITY = {
+          'XAU':{ fn:'CURRENCY_EXCHANGE_RATE', from:'XAU' },
+          'GOLD':{ fn:'CURRENCY_EXCHANGE_RATE', from:'XAU' },
+          'XAG':{ fn:'CURRENCY_EXCHANGE_RATE', from:'XAG' },
+          'SILVER':{ fn:'CURRENCY_EXCHANGE_RATE', from:'XAG' },
+          'XPT':{ fn:'CURRENCY_EXCHANGE_RATE', from:'XPT' },
+          'PLATINUM':{ fn:'CURRENCY_EXCHANGE_RATE', from:'XPT' },
+          'XPD':{ fn:'CURRENCY_EXCHANGE_RATE', from:'XPD' },
+          'PALLADIUM':{ fn:'CURRENCY_EXCHANGE_RATE', from:'XPD' },
+          'WTI':{ fn:'WTI' },'OIL':{ fn:'WTI' },
+          'BRENT':{ fn:'BRENT' },'GAS':{ fn:'NATURAL_GAS' },
+          'NATURAL_GAS':{ fn:'NATURAL_GAS' },'COPPER':{ fn:'COPPER' },
+          'WHEAT':{ fn:'WHEAT' },'CORN':{ fn:'CORN' },
+        };
+
+        for (const pos of portfolio.commodities.slice(0, 8)) {
+          const sym  = (pos.symbol || pos.name || '').toUpperCase().trim();
+          const symL = sym.toLowerCase();
+          let   priceEUR = null;
+
+          // ── Primary: Yahoo Finance Futures via Worker ──────────────────
+          if (hasWorker) {
+            const yfSym = YF_COMMODITY[sym] || sym;
+            try {
+              const url  = `${workerBase}?action=yf&symbol=${encodeURIComponent(yfSym)}&interval=1d&range=5d`;
+              const res  = await fetch(url, { signal: AbortSignal.timeout(8000) });
+              if (res.ok) {
                 const data = await res.json();
-                if (data['Global Quote']?.['05. price']) {
-                  const priceUSD = parseFloat(data['Global Quote']['05. price']);
-                  const priceEUR = priceUSD * usdToEur;
-                  newPrices[sym] = priceEUR;
-                  newPrices[sym.toLowerCase()] = priceEUR;
-                  console.log('[PRICES] Commodity ETF', sym, '→', priceEUR.toFixed(2), 'EUR');
+                const last = data.prices?.[data.prices.length - 1];
+                if (last?.price > 0) {
+                  const rate = data.currency === 'EUR' ? 1 : usdToEur;
+                  priceEUR = last.price * rate;
+                  console.log('[PRICES] Commodity (YF):', sym, '→', yfSym, '→', priceEUR.toFixed(2), 'EUR');
                 }
-              } catch(e) { console.warn('[PRICES] Commodity fallback failed for', sym); }
-              await new Promise(r => setTimeout(r, 12000));
-              continue;
+              }
+            } catch(e) {
+              console.warn('[PRICES] YF commodity failed for', sym, '—', e.message);
             }
+          }
 
+          // ── Fallback: Alpha Vantage ──────────────────────────────────────
+          if (!priceEUR && apiKeys.alphaVantage) {
+            const avConf = AV_COMMODITY[sym];
             try {
               let priceUSD = null;
-
-              if (api.fn === 'CURRENCY_EXCHANGE_RATE') {
-                // Precious metals via forex
-                const res = await fetch(`https://www.alphavantage.co/query?function=CURRENCY_EXCHANGE_RATE&from_currency=${api.from}&to_currency=USD&apikey=${apiKeys.alphaVantage}`);
+              if (avConf?.fn === 'CURRENCY_EXCHANGE_RATE') {
+                const res  = await fetch(`https://www.alphavantage.co/query?function=CURRENCY_EXCHANGE_RATE&from_currency=${avConf.from}&to_currency=USD&apikey=${apiKeys.alphaVantage}`);
                 const data = await res.json();
                 const rate = data['Realtime Currency Exchange Rate'];
                 if (rate?.['5. Exchange Rate']) priceUSD = parseFloat(rate['5. Exchange Rate']);
-              } else {
-                // Energy/industrial commodities
-                const res = await fetch(`https://www.alphavantage.co/query?function=${api.fn}&interval=monthly&apikey=${apiKeys.alphaVantage}`);
+              } else if (avConf) {
+                const res  = await fetch(`https://www.alphavantage.co/query?function=${avConf.fn}&interval=monthly&apikey=${apiKeys.alphaVantage}`);
                 const data = await res.json();
                 if (data.data?.[0]?.value) priceUSD = parseFloat(data.data[0].value);
+              } else {
+                // Unknown commodity — try GLOBAL_QUOTE (ETF like GLD, SLV)
+                const res  = await fetch(`https://www.alphavantage.co/query?function=GLOBAL_QUOTE&symbol=${sym}&apikey=${apiKeys.alphaVantage}`);
+                const data = await res.json();
+                if (data['Global Quote']?.['05. price']) priceUSD = parseFloat(data['Global Quote']['05. price']);
               }
-
               if (priceUSD && priceUSD > 0) {
-                const priceEUR = priceUSD * usdToEur;
-                newPrices[sym] = priceEUR;
-                newPrices[sym.toLowerCase()] = priceEUR;
-                // Also store under common aliases
-                if (api.from) { newPrices[api.from] = priceEUR; newPrices[api.from.toLowerCase()] = priceEUR; }
-                console.log('[PRICES] Commodity:', api.label, '→', priceEUR.toFixed(2), 'EUR');
+                priceEUR = priceUSD * usdToEur;
+                console.log('[PRICES] Commodity (AV fallback):', sym, '→', priceEUR.toFixed(2), 'EUR');
               }
-            } catch(e) { console.warn('[PRICES] Commodity error for', sym, e.message); }
-
-            await new Promise(r => setTimeout(r, 12000)); // Alpha Vantage rate limit
+              await new Promise(r => setTimeout(r, 12000));
+            } catch(e) {
+              console.warn('[PRICES] AV commodity fallback error for', sym, e.message);
+            }
           }
-        } else {
-          console.log('[PRICES] No Alpha Vantage key — skipping commodity prices');
+
+          if (priceEUR && priceEUR > 0) {
+            newPrices[sym]  = priceEUR;
+            newPrices[symL] = priceEUR;
+          }
         }
       }
 
@@ -1296,7 +1348,7 @@ function InvestmentTracker() {
       // Fetches true historical data from CoinGecko (crypto, free) and Alpha Vantage (stocks)
       window.MaerminFeatures6 && portfolioStats.totalPositions > 0 &&
         React.createElement(window.MaerminFeatures6.PortfolioHistoryChart, {
-          portfolio, prices, apiKeys, exchangeRate,
+          portfolio, prices, transactions: activeTransactions, apiKeys, exchangeRate,
           theme: currentTheme, formatPrice, getCurrencySymbol
         }),
 
@@ -2609,14 +2661,18 @@ buy,crypto,bitcoin,0.5,45000,2024-01-15,10`)
           style: { color: currentTheme.textSecondary, marginBottom: '1.5rem', fontSize: '0.875rem', lineHeight: '1.5' }
         }, 'Configure API keys for live prices. Crypto (CoinGecko) and exchange rates are always free.'),
 
-        // ── CS2 Skinport via Cloudflare Worker ──────────────────────────────
+        // ── Cloudflare Worker (CS2 + Yahoo Finance Historical Data) ─────────
         React.createElement('div', {
           style: { background: `linear-gradient(135deg, rgba(139,92,246,0.08), rgba(59,130,246,0.05))`, border: `1px solid rgba(139,92,246,0.25)`, padding: '1.25rem', borderRadius: '10px', marginBottom: '1rem' }
         },
           React.createElement('div', { style: { display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.625rem' } },
             React.createElement('div', null,
-              React.createElement('h3', { style: { color: currentTheme.text, fontSize: '1rem', fontWeight: '700' } }, 'CS2 — Skinport via Worker'),
-              React.createElement('span', { style: { fontSize: '0.68rem', padding: '0.15rem 0.4rem', borderRadius: '3px', background: 'rgba(34,197,94,0.12)', color: '#22c55e', fontWeight: '700', letterSpacing: '0.04em' } }, 'Free · No API key needed')
+              React.createElement('h3', { style: { color: currentTheme.text, fontSize: '1rem', fontWeight: '700' } }, 'Cloudflare Worker'),
+              React.createElement('div', { style: { display: 'flex', gap: '0.375rem', marginTop: '0.25rem', flexWrap: 'wrap' } },
+                React.createElement('span', { style: { fontSize: '0.68rem', padding: '0.15rem 0.4rem', borderRadius: '3px', background: 'rgba(34,197,94,0.12)', color: '#22c55e', fontWeight: '700' } }, 'Free · No API key'),
+                React.createElement('span', { style: { fontSize: '0.68rem', padding: '0.15rem 0.4rem', borderRadius: '3px', background: 'rgba(6,182,212,0.12)', color: '#06b6d4', fontWeight: '700' } }, 'CS2 Skin Prices'),
+                React.createElement('span', { style: { fontSize: '0.68rem', padding: '0.15rem 0.4rem', borderRadius: '3px', background: 'rgba(59,130,246,0.12)', color: '#3b82f6', fontWeight: '700' } }, 'Yahoo Finance Chart Data'),
+              )
             ),
             React.createElement('span', {
               style: { fontSize: '0.75rem', padding: '0.25rem 0.5rem', borderRadius: '4px', fontWeight: '600',
@@ -2625,7 +2681,28 @@ buy,crypto,bitcoin,0.5,45000,2024-01-15,10`)
             }, (apiKeys.cs2Worker||'').trim().length > 5 ? '✓ Configured' : 'Not configured')
           ),
           React.createElement('p', { style: { color: currentTheme.textSecondary, fontSize: '0.8rem', marginBottom: '0.875rem', lineHeight: '1.6' } },
-            'Real Skinport market prices — typically lower than Steam. Cloudflare Worker bypasses CORS. No API key required — just deploy the Worker and paste its URL.'
+            'One Worker URL — three features: CS2 skin prices (Steam), historical portfolio chart (Yahoo Finance), and CS2 price history (Steam). No API key needed.'
+          ),
+          // Three-column feature overview
+          React.createElement('div', { style: { display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '0.5rem', marginBottom: '0.875rem' } },
+            React.createElement('div', { style: { background: 'rgba(6,182,212,0.06)', border: '1px solid rgba(6,182,212,0.15)', borderRadius: '6px', padding: '0.625rem 0.75rem', fontSize: '0.72rem', color: currentTheme.textSecondary, lineHeight: '1.6' } },
+              React.createElement('div', { style: { color: '#06b6d4', fontWeight: '700', marginBottom: '0.25rem' } }, 'CS2 Skin Prices'),
+              React.createElement('div', null, '→ Steam Market prices'),
+              React.createElement('div', null, '→ Search with images'),
+              React.createElement('div', null, '→ Real-time via POST')
+            ),
+            React.createElement('div', { style: { background: 'rgba(59,130,246,0.06)', border: '1px solid rgba(59,130,246,0.15)', borderRadius: '6px', padding: '0.625rem 0.75rem', fontSize: '0.72rem', color: currentTheme.textSecondary, lineHeight: '1.6' } },
+              React.createElement('div', { style: { color: '#3b82f6', fontWeight: '700', marginBottom: '0.25rem' } }, 'Portfolio History Chart'),
+              React.createElement('div', null, '→ Yahoo Finance'),
+              React.createElement('div', null, '→ NYSE, XETRA, London…'),
+              React.createElement('div', null, '→ 1H to Max periods')
+            ),
+            React.createElement('div', { style: { background: 'rgba(139,92,246,0.06)', border: '1px solid rgba(139,92,246,0.15)', borderRadius: '6px', padding: '0.625rem 0.75rem', fontSize: '0.72rem', color: currentTheme.textSecondary, lineHeight: '1.6' } },
+              React.createElement('div', { style: { color: '#8b5cf6', fontWeight: '700', marginBottom: '0.25rem' } }, 'CS2 Price History'),
+              React.createElement('div', null, '→ Steam price history'),
+              React.createElement('div', null, '→ Per skin over time'),
+              React.createElement('div', null, '→ Shown in portfolio chart')
+            )
           ),
           React.createElement('div', {
             style: { background: currentTheme.inputBg, borderRadius: '8px', padding: '0.875rem', marginBottom: '0.875rem', fontSize: '0.78rem', color: currentTheme.textSecondary, lineHeight: '1.8' }
@@ -2636,6 +2713,9 @@ buy,crypto,bitcoin,0.5,45000,2024-01-15,10`)
             React.createElement('div', null, '3. Save and Deploy — no secrets needed'),
             React.createElement('div', null, '4. Paste the Worker URL below')
           ),
+          React.createElement('label', { style: { display: 'block', color: currentTheme.textSecondary, fontSize: '0.72rem', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '0.375rem' } },
+            'Worker URL — used for CS2 prices, portfolio history chart & CS2 price history'
+          ),
           React.createElement('input', {
             type: 'text',
             value: apiKeys.cs2Worker || '',
@@ -2645,61 +2725,40 @@ buy,crypto,bitcoin,0.5,45000,2024-01-15,10`)
           })
         ),
 
-        // Alpha Vantage Section
+        // Alpha Vantage Section — Fallback only
         React.createElement('div', {
-          style: {
-            background: currentTheme.inputBg,
-            padding: '1.25rem',
-            borderRadius: '8px',
-            marginBottom: '1rem'
-          }
+          style: { background: currentTheme.inputBg, padding: '1.25rem', borderRadius: '8px', marginBottom: '1rem' }
         },
           React.createElement('div', {
-            style: { display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.75rem' }
+            style: { display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.5rem' }
           },
-            React.createElement('h3', {
-              style: { color: currentTheme.text, fontSize: '1rem', fontWeight: '600' }
-            }, 'Alpha Vantage'),
+            React.createElement('div', null,
+              React.createElement('h3', { style: { color: currentTheme.text, fontSize: '1rem', fontWeight: '600' } }, 'Alpha Vantage'),
+              React.createElement('span', { style: { fontSize: '0.68rem', padding: '0.1rem 0.4rem', borderRadius: '3px', background: 'rgba(245,158,11,0.12)', color: '#f59e0b', fontWeight: '700' } }, 'Fallback only — optional')
+            ),
             React.createElement('span', {
-              style: { 
-                fontSize: '0.75rem', 
-                padding: '0.25rem 0.5rem',
-                background: apiKeys.alphaVantage ? 'rgba(34,197,94,0.2)' : 'rgba(239,68,68,0.2)',
-                color: apiKeys.alphaVantage ? currentTheme.success : currentTheme.danger,
-                borderRadius: '4px'
-              }
-            }, apiKeys.alphaVantage ? (t.configured || 'Configured') : (t.notConfigured || 'Not configured'))
+              style: { fontSize: '0.75rem', padding: '0.25rem 0.5rem', borderRadius: '4px',
+                background: apiKeys.alphaVantage ? 'rgba(34,197,94,0.2)' : 'rgba(255,255,255,0.06)',
+                color: apiKeys.alphaVantage ? currentTheme.success : currentTheme.textSecondary }
+            }, apiKeys.alphaVantage ? 'Configured' : 'Not configured')
           ),
-          React.createElement('p', {
-            style: { color: currentTheme.textSecondary, fontSize: '0.8rem', marginBottom: '0.75rem' }
-          }, t.alphaVantageInfo || 'Required for stock prices. Free tier: 25 requests/day.'),
+          React.createElement('p', { style: { color: currentTheme.textSecondary, fontSize: '0.8rem', marginBottom: '0.75rem', lineHeight: '1.5' } },
+            'Only used when the Cloudflare Worker is not set or Yahoo Finance returns no data for a symbol. Stock & commodity prices are fetched via Yahoo Finance first. Free tier: 25 requests/day.'
+          ),
           React.createElement('input', {
             type: 'password',
             value: apiKeys.alphaVantage || '',
             onChange: (e) => setApiKeys(prev => ({ ...prev, alphaVantage: e.target.value })),
-            placeholder: 'Enter Alpha Vantage API Key',
-            style: {
-              width: '100%',
-              padding: '0.75rem',
-              background: currentTheme.background,
-              border: `1px solid ${currentTheme.inputBorder}`,
-              borderRadius: '6px',
-              color: currentTheme.text,
-              marginBottom: '0.5rem'
-            }
+            placeholder: 'Enter Alpha Vantage API Key (optional)',
+            style: { width: '100%', padding: '0.75rem', background: currentTheme.background, border: `1px solid ${currentTheme.inputBorder}`, borderRadius: '6px', color: currentTheme.text, marginBottom: '0.5rem' }
           }),
           React.createElement('a', {
             href: 'https://www.alphavantage.co/support/#api-key',
-            target: '_blank',
-            rel: 'noopener noreferrer',
-            style: { 
-              color: currentTheme.accent, 
-              fontSize: '0.8rem',
-              textDecoration: 'none'
-            }
-          }, t.getApiKey || 'Get free API key from alphavantage.co')
+            target: '_blank', rel: 'noopener noreferrer',
+            style: { color: currentTheme.accent, fontSize: '0.8rem', textDecoration: 'none' }
+          }, 'Get free API key from alphavantage.co')
         ),
-        
+
         // Steam Market Info Section
         // CoinGecko Info Section
         React.createElement('div', {
