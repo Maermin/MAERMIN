@@ -355,105 +355,137 @@ function parseAmount(str) {
 }
 
 // ── CoinTracking CSV Parser ──────────────────────────────────────────────────
-// Format: "Type","Buy Amount","Buy Currency","Sell Amount","Sell Currency",
-//         "Fee","Fee Currency","Exchange","Trade-Group","Comment","Date"
-// Date formats seen: "DD.MM.YYYY HH:MM" or "YYYY-MM-DD HH:MM:SS"
+// CoinTracking exports use shortened headers ("Buy" not "Buy Amount") and
+// duplicate "Cur." headers — so we parse by COLUMN POSITION, not header name.
+//
+// Fixed column layout (EN + DE export):
+//   0: Type / Typ
+//   1: Buy amount / Kauf
+//   2: Buy currency (first "Cur.")
+//   3: Sell amount / Verkauf
+//   4: Sell currency (second "Cur.")
+//   5: Fee / Gebühr
+//   6: Fee currency (third "Cur.")
+//   7: Exchange / Börse
+//   8: Group / Gruppe
+//   9: Comment / Kommentar
+//  10: Date / Datum
+//
 function parseCoinTracking(text) {
-  const rows = parseCSVToRows(text);
-  if (!rows.length) return [];
+  // Strip BOM and normalize line endings
+  const clean = text.replace(/^\uFEFF/, '').replace(/\r\n/g, '\n').replace(/\r/g, '\n');
+  const lines  = clean.trim().split('\n').filter(l => l.trim());
+  if (lines.length < 2) return [];
 
-  // Detect header aliases (CoinTracking is exported in multiple languages)
-  const firstRow = rows[0];
-  const hasKey = (keys) => keys.some(k => k in firstRow);
-  const isCoinTracking = hasKey(['Type','Typ']) && hasKey(['Buy Amount','Kauf Menge','Buy Menge']);
-  if (!isCoinTracking) return null; // signal: wrong format
+  // Detect delimiter
+  const firstLine = lines[0];
+  const delim = firstLine.split(';').length > firstLine.split(',').length ? ';' : ',';
+
+  // CSV row parser (handles quoted fields)
+  const parseRow = (line) => {
+    const cols = [];
+    let cur = '', inQ = false;
+    for (let i = 0; i < line.length; i++) {
+      const c = line[i];
+      if (c === '"') { inQ = !inQ; continue; }
+      if (c === delim && !inQ) { cols.push(cur.trim()); cur = ''; continue; }
+      cur += c;
+    }
+    cols.push(cur.trim());
+    return cols;
+  };
+
+  const headerCols = parseRow(firstLine);
+  const col0 = (headerCols[0] || '').toLowerCase();
+
+  // Must look like a CoinTracking file — col 0 is "type" or "typ"
+  if (col0 !== 'type' && col0 !== 'typ') return null;
+
+  // Parse date: "DD.MM.YYYY HH:MM:SS" or "YYYY-MM-DD HH:MM:SS"
+  const parseDate = (raw) => {
+    const s = (raw || '').trim();
+    if (/^\d{2}\.\d{2}\.\d{4}/.test(s)) {
+      const [d, m, rest] = s.split('.');
+      const y = rest.split(' ')[0];
+      return `${y}-${m.padStart(2,'0')}-${d.padStart(2,'0')}`;
+    }
+    if (/^\d{4}-\d{2}-\d{2}/.test(s)) return s.split(' ')[0];
+    return new Date().toISOString().split('T')[0];
+  };
+
+  // Type normalization — map DE + EN + extra types to canonical
+  const normalizeType = (raw) => {
+    const t = (raw || '').toLowerCase().trim();
+    if (['trade','handel'].includes(t))                                        return 'trade';
+    if (['deposit','einzahlung','income','einkommen','mining',
+         'reward','gift/tip','geschenk','airdrop','staking'].includes(t))      return 'deposit';
+    if (['withdrawal','auszahlung','spend','ausgabe',
+         'donation','spende','lost','stolen'].includes(t))                     return 'withdrawal';
+    // German Futures/extra types → skip (not portfolio transactions)
+    return 'skip';
+  };
 
   const transactions = [];
 
-  rows.forEach((row, idx) => {
+  for (let i = 1; i < lines.length; i++) {
+    const cols = parseRow(lines[i]);
+    if (cols.length < 5) continue;
+
     try {
-      // Normalise keys (handle DE/EN header variants)
-      const type     = (row['Type'] || row['Typ'] || '').trim();
-      const buyAmt   = parseAmount(row['Buy Amount']   || row['Kauf Menge']   || '0');
-      const buyCur   = (row['Buy Currency']  || row['Kauf Währung']  || '').trim().toUpperCase();
-      const sellAmt  = parseAmount(row['Sell Amount']  || row['Verkauf Menge']  || '0');
-      const sellCur  = (row['Sell Currency'] || row['Verkauf Währung'] || '').trim().toUpperCase();
-      const fee      = parseAmount(row['Fee'] || row['Gebühr'] || '0');
-      const exchange = (row['Exchange'] || row['Börse'] || '').trim();
-      const comment  = (row['Comment'] || row['Kommentar'] || '').trim();
-      const dateRaw  = (row['Date'] || row['Datum'] || '').trim();
+      const type    = normalizeType(cols[0]);
+      const buyAmt  = parseAmount(cols[1] || '');
+      const buyCur  = (cols[2] || '').trim().toUpperCase();
+      const sellAmt = parseAmount(cols[3] || '');
+      const sellCur = (cols[4] || '').trim().toUpperCase();
+      const fee     = parseAmount(cols[5] || '');
+      const exch    = (cols[7] || '').trim();
+      const comment = (cols[9] || '').trim();
+      const date    = parseDate(cols[10] || '');
 
-      // Parse date — two formats: DD.MM.YYYY HH:MM or YYYY-MM-DD HH:MM:SS
-      let date = '';
-      if (dateRaw.match(/^\d{2}\.\d{2}\.\d{4}/)) {
-        const [d, m, rest] = dateRaw.split('.');
-        const y = rest.split(' ')[0];
-        date = `${y}-${m.padStart(2,'0')}-${d.padStart(2,'0')}`;
-      } else if (dateRaw.match(/^\d{4}-\d{2}-\d{2}/)) {
-        date = dateRaw.split(' ')[0];
-      } else {
-        date = new Date().toISOString().split('T')[0];
-      }
-
-      // Map CoinTracking types to MAERMIN types
-      // Trade     → buy buyCur with sellCur (two separate transactions)
-      // Deposit   → buy (incoming without paying = buy at 0 cost basis, or a transfer)
-      // Withdrawal → sell
-      // Income / Mining / Gift/Tip → buy at 0 cost (income)
-      // Spend / Donation → sell
-      const typeLower = type.toLowerCase();
-
-      if (typeLower === 'trade' || typeLower === 'handel') {
-        // Two legs: buy buyCur, sell sellCur
-        // We record the buy side; price = sellAmt / buyAmt
-        if (buyCur && buyAmt > 0) {
-          const category = isCrypto(buyCur) ? 'crypto' : 'stocks';
+      if (type === 'trade') {
+        // Buy leg (what we received)
+        if (buyCur && buyAmt > 0 && !isStablecoin(buyCur)) {
           const price = sellAmt > 0 && buyAmt > 0 ? sellAmt / buyAmt : 0;
           transactions.push({
             type: 'buy', symbol: buyCur, quantity: buyAmt, price,
-            fees: fee, date, category,
-            notes: [exchange, comment].filter(Boolean).join(' · ') || 'CoinTracking Trade'
+            fees: fee, date, category: isCrypto(buyCur) ? 'crypto' : 'stocks',
+            notes: [exch, comment].filter(Boolean).join(' · ') || 'CoinTracking'
           });
         }
-        // Also record the sell side
-        if (sellCur && sellAmt > 0 && !['EUR','USD','USDT','USDC','BUSD','DAI','TUSD','USDP','FDUSD'].includes(sellCur)) {
-          const category = isCrypto(sellCur) ? 'crypto' : 'stocks';
-          const price = sellAmt > 0 && buyAmt > 0 ? sellAmt / buyAmt : 0;
+        // Sell leg (what we paid with — only if it's a real asset, not stablecoin)
+        if (sellCur && sellAmt > 0 && !isStablecoin(sellCur)) {
+          const price = buyAmt > 0 && sellAmt > 0 ? buyAmt / sellAmt : 0;
           transactions.push({
             type: 'sell', symbol: sellCur, quantity: sellAmt, price,
-            fees: 0, date, category,
-            notes: [exchange, comment].filter(Boolean).join(' · ') || 'CoinTracking Trade'
+            fees: 0, date, category: isCrypto(sellCur) ? 'crypto' : 'stocks',
+            notes: [exch, comment].filter(Boolean).join(' · ') || 'CoinTracking'
           });
         }
 
-      } else if (['deposit','einzahlung','income','einkommen','mining','reward','gift/tip','airdrop'].includes(typeLower)) {
+      } else if (type === 'deposit') {
         if (buyCur && buyAmt > 0 && !isStablecoin(buyCur)) {
-          const category = isCrypto(buyCur) ? 'crypto' : 'stocks';
           transactions.push({
-            type: 'buy', symbol: buyCur, quantity: buyAmt,
-            price: 0, // income / airdrop → cost basis 0
-            fees: fee, date, category,
-            notes: type + (comment ? ' · ' + comment : '')
+            type: 'buy', symbol: buyCur, quantity: buyAmt, price: 0,
+            fees: fee, date, category: isCrypto(buyCur) ? 'crypto' : 'stocks',
+            notes: [(cols[0]||'').trim(), comment].filter(Boolean).join(' · ')
           });
         }
 
-      } else if (['withdrawal','auszahlung','spend','ausgabe','donation','spende','lost','stolen'].includes(typeLower)) {
+      } else if (type === 'withdrawal') {
         if (sellCur && sellAmt > 0 && !isStablecoin(sellCur)) {
-          const category = isCrypto(sellCur) ? 'crypto' : 'stocks';
           transactions.push({
-            type: 'sell', symbol: sellCur, quantity: sellAmt,
-            price: 0,
-            fees: fee, date, category,
-            notes: type + (comment ? ' · ' + comment : '')
+            type: 'sell', symbol: sellCur, quantity: sellAmt, price: 0,
+            fees: fee, date, category: isCrypto(sellCur) ? 'crypto' : 'stocks',
+            notes: [(cols[0]||'').trim(), comment].filter(Boolean).join(' · ')
           });
         }
       }
-      // Skip: Transfer (internal move), Staking (no tax event in DE)
+      // type === 'skip' → Futures losses, fees, other non-portfolio rows
 
     } catch(e) {
-      console.warn('[IMPORT] CoinTracking row', idx, 'skipped:', e.message);
+      console.warn('[IMPORT] CoinTracking row', i, 'skipped:', e.message);
     }
-  });
+  }
 
   return transactions;
 }
