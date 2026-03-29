@@ -1015,48 +1015,102 @@ function InvestmentTracker() {
 
     // Auto-fetch dividends from Alpha Vantage for stock positions
     const fetchDividends = async () => {
-      const key = apiKeys.alphaVantage;
-      if (!key) { addToast('Alpha Vantage API key needed for dividend auto-fetch', 'warning'); return; }
+      // Primary: Yahoo Finance via Worker — returns dividend data in quote summary
+      // Fallback: Alpha Vantage OVERVIEW (if worker not configured)
+      const workerBase = (apiKeys?.cs2Worker || '').trim().replace(/\/$/, '');
+      const hasWorker  = workerBase.length > 5;
+      const avKey      = apiKeys?.alphaVantage;
+
+      if (!hasWorker && !avKey) {
+        addToast('Add your Worker URL or Alpha Vantage key in ⚙ Settings to auto-fetch dividends', 'warning');
+        return;
+      }
+
       const stockSymbols = [...new Set(
         transactions.filter(tx => tx.category === 'stocks').map(tx => (tx.symbol || '').toUpperCase()).filter(Boolean)
       )];
       if (!stockSymbols.length) { addToast('No stock positions found', 'info'); return; }
+
       setFetching(true);
       let added = 0;
-      for (const sym of stockSymbols.slice(0, 5)) { // max 5 to respect rate limit
-        try {
-          const url = `https://www.alphavantage.co/query?function=OVERVIEW&symbol=${sym}&apikey=${key}`;
-          const res = await fetch(url);
-          const data = await res.json();
-          // Alpha Vantage OVERVIEW has DividendPerShare + ExDividendDate + DividendYield
-          const exDate = data.ExDividendDate;
-          const divPerShare = parseFloat(data.DividendPerShare) || 0;
-          if (exDate && exDate !== 'None' && divPerShare > 0) {
-            // Check if this dividend is already stored
-            const existing = divEvents.find(e => e.symbol === sym && e.date === exDate);
-            if (!existing) {
-              // Find how many shares we hold
-              let shares = 0;
-              transactions.filter(tx => tx.symbol?.toUpperCase() === sym).forEach(tx => {
-                const qty = parseFloat(tx.quantity) || 0;
-                if (tx.type === 'buy') shares += qty; else shares -= qty;
-              });
-              shares = Math.max(0, shares);
-              const totalDiv = shares > 0 ? divPerShare * shares : divPerShare;
-              setDivEvents(prev => [...prev, {
-                id: `auto-${sym}-${exDate}`,
-                symbol: sym, date: exDate,
-                amount: parseFloat(totalDiv.toFixed(4)),
-                currency: 'USD', notes: `Auto: ${divPerShare}/share · ${shares.toFixed(2)} shares`
-              }]);
-              added++;
+
+      for (const sym of stockSymbols.slice(0, 8)) {
+        let exDate = null, divPerShare = 0, currency = 'USD';
+
+        // ── Primary: Yahoo Finance via Worker ──────────────────────────────
+        // YF quoteSummary returns calendarEvents with dividend info
+        if (hasWorker) {
+          try {
+            // Use YF chart endpoint — meta contains dividend rate
+            const url  = `${workerBase}?action=yf&symbol=${encodeURIComponent(sym)}&interval=1d&range=3mo`;
+            const res  = await fetch(url, { signal: AbortSignal.timeout(8000) });
+            if (res.ok) {
+              const data = await res.json();
+              // Yahoo Finance chart meta contains dividendRate and exDividendDate
+              const meta = data.meta || {};
+              if (meta.dividendRate > 0) {
+                divPerShare = meta.dividendRate / 4; // quarterly approximation
+                // Look for upcoming ex-date from events
+                const events = data.events?.dividends || {};
+                const upcoming = Object.values(events).filter(e => e.date > Date.now()/1000 - 86400).sort((a,b) => a.date - b.date);
+                if (upcoming.length > 0) {
+                  exDate    = new Date(upcoming[0].date * 1000).toISOString().split('T')[0];
+                  divPerShare = upcoming[0].amount || divPerShare;
+                }
+                // Fallback: use next quarter estimate
+                if (!exDate && meta.dividendRate > 0) {
+                  const nextQ = new Date();
+                  nextQ.setMonth(nextQ.getMonth() + 3);
+                  exDate = nextQ.toISOString().split('T')[0];
+                }
+                currency = data.currency || 'USD';
+                console.log(`[DIV] YF ${sym}: €${divPerShare}/share, ex: ${exDate}`);
+              }
             }
+          } catch(e) { console.warn('[DIV] YF failed for', sym, e.message); }
+        }
+
+        // ── Fallback: Alpha Vantage OVERVIEW ──────────────────────────────
+        if ((!exDate || !divPerShare) && avKey) {
+          try {
+            const res  = await fetch(`https://www.alphavantage.co/query?function=OVERVIEW&symbol=${sym}&apikey=${avKey}`);
+            const data = await res.json();
+            const avExDate = data.ExDividendDate;
+            const avDiv    = parseFloat(data.DividendPerShare) || 0;
+            if (avExDate && avExDate !== 'None' && avDiv > 0) {
+              exDate     = avExDate;
+              divPerShare = avDiv;
+              currency   = 'USD';
+              console.log(`[DIV] AV fallback ${sym}: $${divPerShare}/share, ex: ${exDate}`);
+            }
+          } catch(e) { console.warn('[DIV] AV fallback failed for', sym, e.message); }
+          await new Promise(r => setTimeout(r, 500));
+        }
+
+        if (exDate && divPerShare > 0) {
+          const existing = divEvents.find(e => e.symbol === sym && e.date === exDate);
+          if (!existing) {
+            let shares = 0;
+            transactions.filter(tx => tx.symbol?.toUpperCase() === sym).forEach(tx => {
+              const qty = parseFloat(tx.quantity) || 0;
+              if (tx.type === 'buy') shares += qty; else shares -= qty;
+            });
+            shares = Math.max(0, shares);
+            const totalDiv = shares > 0 ? divPerShare * shares : divPerShare;
+            setDivEvents(prev => [...prev, {
+              id: `auto-${sym}-${exDate}`,
+              symbol: sym, date: exDate,
+              amount: parseFloat(totalDiv.toFixed(4)),
+              currency,
+              notes: `Auto: ${divPerShare.toFixed(4)}/share · ${shares.toFixed(2)} shares`
+            }]);
+            added++;
           }
-        } catch(e) { console.warn('Dividend fetch failed for', sym, e.message); }
-        await new Promise(r => setTimeout(r, 500)); // rate limit
+        }
       }
+
       setFetching(false);
-      addToast(added > 0 ? `${added} dividend(s) added automatically` : 'No new dividends found (may need paid plan)', 'info');
+      addToast(added > 0 ? `${added} dividend(s) added` : 'No new dividends found — data may not include upcoming payments', 'info');
     };
 
     const tabs = [
@@ -1084,7 +1138,7 @@ function InvestmentTracker() {
         React.createElement('button', {
           onClick: fetchDividends, disabled: fetching,
           style: { padding: '0.45rem 1rem', background: fetching ? theme.inputBg : 'rgba(34,197,94,0.15)', border: '1px solid rgba(34,197,94,0.3)', borderRadius: '8px', color: fetching ? theme.textSecondary : '#22c55e', cursor: fetching ? 'not-allowed' : 'pointer', fontSize: '0.8rem', fontWeight: '600' }
-        }, fetching ? 'Fetching...' : '↓ Auto-fetch from Alpha Vantage')
+        }, fetching ? 'Fetching...' : '↓ Auto-fetch dividends')
       ),
       // Content
       React.createElement('div', { style: { flex: 1, overflow: 'auto' } },
@@ -1211,13 +1265,6 @@ function InvestmentTracker() {
           taxJurisdiction, setTaxJurisdiction, language
         });
 
-      case 'taxes':
-        return React.createElement(TaxCombinedView, {
-          transactions: activeTransactions, prices,
-          theme: currentTheme, t, formatPrice, getCurrencySymbol,
-          taxJurisdiction, setTaxJurisdiction, language
-        });
-
       case 'watchlist':
         return window.MaerminFeatures ?
           React.createElement(window.MaerminFeatures.WatchlistView, {
@@ -1251,96 +1298,71 @@ function InvestmentTracker() {
   // ========== OVERVIEW VIEW ==========
   
   const renderOverview = () => {
-    return React.createElement('div', { style: { padding: '1.5rem' } },
-      // Stats cards
+    const isUp   = portfolioStats.totalProfit >= 0;
+    const pctStr = `${portfolioStats.totalProfitPercent >= 0 ? '+' : ''}${portfolioStats.totalProfitPercent.toFixed(2)}%`;
+
+    // Compact stat card helper
+    const statCard = (label, value, sub, color, onClick) =>
       React.createElement('div', {
+        onClick,
         style: {
-          display: 'grid',
-          gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))',
-          gap: '1rem',
-          marginBottom: '2rem'
-        }
+          background: currentTheme.card, padding: '1.25rem', borderRadius: '12px',
+          border: `1px solid ${currentTheme.cardBorder}`,
+          cursor: onClick ? 'pointer' : 'default',
+          transition: onClick ? 'border-color 0.15s' : undefined
+        },
+        onMouseEnter: onClick ? e => e.currentTarget.style.borderColor = currentTheme.accent : undefined,
+        onMouseLeave: onClick ? e => e.currentTarget.style.borderColor = currentTheme.cardBorder : undefined
       },
-        // Total Value
-        React.createElement('div', {
-          style: {
-            background: currentTheme.card,
-            padding: '1.5rem',
-            borderRadius: '12px',
-            border: `1px solid ${currentTheme.cardBorder}`
-          }
-        },
-          React.createElement('div', { style: { color: currentTheme.textSecondary, fontSize: '0.875rem', marginBottom: '0.5rem' } },
-            t.totalValue || 'Total Value'
-          ),
-          React.createElement('div', { style: { color: currentTheme.text, fontSize: '2rem', fontWeight: '700' } },
-            `${formatPrice(portfolioStats.totalValue)} ${getCurrencySymbol()}`
+        React.createElement('div', { style: { color: currentTheme.textSecondary, fontSize: '0.72rem', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: '0.375rem' } }, label),
+        React.createElement('div', { style: { color: color || currentTheme.text, fontSize: '1.75rem', fontWeight: '800', letterSpacing: '-0.02em', lineHeight: 1 } }, value),
+        sub && React.createElement('div', { style: { color: currentTheme.textSecondary, fontSize: '0.78rem', marginTop: '0.375rem' } }, sub)
+      );
+
+    return React.createElement('div', { style: { padding: '1.5rem' } },
+
+      // ── Header row: title + action buttons ──────────────────────────────
+      React.createElement('div', {
+        style: { display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.5rem', flexWrap: 'wrap', gap: '0.75rem' }
+      },
+        React.createElement('div', null,
+          React.createElement('h2', { style: { color: currentTheme.text, fontSize: '1.35rem', fontWeight: '800', marginBottom: '0.125rem' } }, 'Overview'),
+          lastRefresh && React.createElement('div', { style: { color: currentTheme.textSecondary, fontSize: '0.72rem' } },
+            `Last refresh: ${lastRefresh.toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' })}`
           )
         ),
-        
-        // Invested
-        React.createElement('div', {
-          style: {
-            background: currentTheme.card,
-            padding: '1.5rem',
-            borderRadius: '12px',
-            border: `1px solid ${currentTheme.cardBorder}`
-          }
-        },
-          React.createElement('div', { style: { color: currentTheme.textSecondary, fontSize: '0.875rem', marginBottom: '0.5rem' } },
-            t.invested || 'Invested'
-          ),
-          React.createElement('div', { style: { color: currentTheme.text, fontSize: '2rem', fontWeight: '700' } },
-            `${formatPrice(portfolioStats.totalInvested)} ${getCurrencySymbol()}`
-          )
+        React.createElement('div', { style: { display: 'flex', gap: '0.5rem', flexWrap: 'wrap' } },
+          React.createElement('button', {
+            onClick: () => setShowTransactionModal(true),
+            style: { padding: '0.5rem 1rem', background: currentTheme.accent, color: '#fff', border: 'none', borderRadius: '8px', cursor: 'pointer', fontWeight: '600', fontSize: '0.85rem' }
+          }, '+ Add'),
+          React.createElement('button', {
+            onClick: () => setShowImportModal(true),
+            style: { padding: '0.5rem 1rem', background: currentTheme.inputBg, color: currentTheme.text, border: `1px solid ${currentTheme.cardBorder}`, borderRadius: '8px', cursor: 'pointer', fontSize: '0.85rem' }
+          }, '↑ Import'),
+          React.createElement('button', {
+            onClick: fetchPrices, disabled: loading,
+            style: { padding: '0.5rem 1rem', background: loading ? currentTheme.inputBg : `${currentTheme.accent}18`, color: loading ? currentTheme.textSecondary : currentTheme.accent, border: `1px solid ${currentTheme.accent}33`, borderRadius: '8px', cursor: loading ? 'not-allowed' : 'pointer', fontSize: '0.85rem', fontWeight: '600', display: 'flex', alignItems: 'center', gap: '0.375rem' }
+          }, loading ? '◎ Refreshing...' : '↻ Refresh prices')
+        )
+      ),
+
+      // ── Stats cards ─────────────────────────────────────────────────────
+      React.createElement('div', {
+        style: { display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '1rem', marginBottom: '1.5rem' }
+      },
+        statCard('Total Value', `${formatPrice(portfolioStats.totalValue)} ${getCurrencySymbol()}`,
+          lastRefresh ? `as of ${lastRefresh.toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' })}` : 'Refresh to update'),
+        statCard('Invested', `${formatPrice(portfolioStats.totalInvested)} ${getCurrencySymbol()}`,
+          `${portfolioStats.totalPositions} position${portfolioStats.totalPositions !== 1 ? 's' : ''}`),
+        statCard('Total Return',
+          `${isUp ? '+' : ''}${formatPrice(portfolioStats.totalProfit)} ${getCurrencySymbol()}`,
+          pctStr,
+          isUp ? '#22c55e' : '#ef4444'
         ),
-        
-        // Profit/Loss
-        React.createElement('div', {
-          style: {
-            background: currentTheme.card,
-            padding: '1.5rem',
-            borderRadius: '12px',
-            border: `1px solid ${currentTheme.cardBorder}`
-          }
-        },
-          React.createElement('div', { style: { color: currentTheme.textSecondary, fontSize: '0.875rem', marginBottom: '0.5rem' } },
-            t.profitLoss || 'Profit/Loss'
-          ),
-          React.createElement('div', {
-            style: {
-              color: portfolioStats.totalProfit >= 0 ? currentTheme.success : currentTheme.danger,
-              fontSize: '2rem',
-              fontWeight: '700'
-            }
-          },
-            `${portfolioStats.totalProfit >= 0 ? '+' : ''}${formatPrice(portfolioStats.totalProfit)} ${getCurrencySymbol()}`
-          ),
-          React.createElement('div', {
-            style: {
-              color: portfolioStats.totalProfit >= 0 ? currentTheme.success : currentTheme.danger,
-              fontSize: '0.875rem'
-            }
-          },
-            `${portfolioStats.totalProfitPercent >= 0 ? '+' : ''}${portfolioStats.totalProfitPercent.toFixed(2)}%`
-          )
-        ),
-        
-        // Positions
-        React.createElement('div', {
-          style: {
-            background: currentTheme.card,
-            padding: '1.5rem',
-            borderRadius: '12px',
-            border: `1px solid ${currentTheme.cardBorder}`
-          }
-        },
-          React.createElement('div', { style: { color: currentTheme.textSecondary, fontSize: '0.875rem', marginBottom: '0.5rem' } },
-            t.positions || 'Positions'
-          ),
-          React.createElement('div', { style: { color: currentTheme.text, fontSize: '2rem', fontWeight: '700' } },
-            portfolioStats.totalPositions
-          )
+        statCard('Positions', portfolioStats.totalPositions,
+          'Click any row for details', undefined,
+          () => document.querySelector('[data-view="transactions"]')?.click()
         )
       ),
 
@@ -1352,91 +1374,7 @@ function InvestmentTracker() {
           theme: currentTheme, formatPrice, getCurrencySymbol
         }),
 
-      // Portfolio Overview Panel (Pie + Gainers/Losers)
-      window.MaerminFeatures && portfolioStats.totalPositions > 0 &&
-        React.createElement(window.MaerminFeatures.PortfolioOverviewPanel, {
-          portfolio, prices, priceHistory,
-          theme: currentTheme, formatPrice, getCurrencySymbol, t
-        }),
-      React.createElement('div', {
-        style: {
-          display: 'flex',
-          gap: '1rem',
-          marginBottom: '2rem',
-          flexWrap: 'wrap',
-          alignItems: 'center'
-        }
-      },
-        React.createElement('button', {
-          onClick: () => setShowTransactionModal(true),
-          style: {
-            padding: '0.75rem 1.5rem',
-            background: currentTheme.accent,
-            color: '#fff',
-            border: 'none',
-            borderRadius: '8px',
-            cursor: 'pointer',
-            fontWeight: '600'
-          }
-        }, t.addTransaction || 'Add Transaction'),
-        React.createElement('button', {
-          onClick: () => setShowImportModal(true),
-          style: {
-            padding: '0.75rem 1.5rem',
-            background: currentTheme.inputBg,
-            color: currentTheme.text,
-            border: `1px solid ${currentTheme.cardBorder}`,
-            borderRadius: '8px',
-            cursor: 'pointer',
-            fontWeight: '600'
-          }
-        }, t.importData || 'Import Data'),
-        React.createElement('button', {
-          onClick: fetchPrices,
-          disabled: loading,
-          style: {
-            padding: '0.75rem 1.5rem',
-            background: currentTheme.inputBg,
-            color: currentTheme.text,
-            border: `1px solid ${currentTheme.cardBorder}`,
-            borderRadius: '8px',
-            cursor: loading ? 'not-allowed' : 'pointer',
-            fontWeight: '600',
-            display: 'flex',
-            alignItems: 'center',
-            gap: '0.5rem'
-          }
-        },
-          loading ? (t.loading || 'Loading...') : (t.refresh || 'Refresh'),
-          lastRefresh && !loading && React.createElement('span', {
-            style: { fontSize: '0.75rem', opacity: 0.6, fontWeight: '400' }
-          }, lastRefresh.toLocaleTimeString('de-DE', { hour: '2-digit', minute: '2-digit' }))
-        ),
-        React.createElement('button', {
-          onClick: () => setActiveView('analytics'),
-          style: {
-            padding: '0.75rem 1.5rem',
-            background: currentTheme.inputBg,
-            color: currentTheme.text,
-            border: `1px solid ${currentTheme.cardBorder}`,
-            borderRadius: '8px',
-            cursor: 'pointer',
-            fontWeight: '600'
-          }
-        }, t.analytics || 'Analytics'),
-        React.createElement('button', {
-          onClick: () => setShowApiSettings(true),
-          style: {
-            padding: '0.75rem 1.5rem',
-            background: currentTheme.inputBg,
-            color: currentTheme.text,
-            border: `1px solid ${currentTheme.cardBorder}`,
-            borderRadius: '8px',
-            cursor: 'pointer',
-            fontWeight: '600'
-          }
-        }, t.apiSettings || 'API Settings')
-      ),
+
       
       // CS2 setup banner — shown when user has CS2 skins but no Worker URL set
       portfolio.skins && portfolio.skins.length > 0 && !(apiKeys.cs2Worker||'').trim() &&
@@ -1563,60 +1501,7 @@ function InvestmentTracker() {
             theme: currentTheme, formatPrice, getCurrencySymbol, t,
             onAddTransaction: () => setShowTransactionModal(true)
           }
-        ),
-
-      // Recent positions (original, shown only when no features loaded)
-      !window.MaerminFeatures && React.createElement('div', {
-        style: {
-          background: currentTheme.card,
-          padding: '1.5rem',
-          borderRadius: '12px',
-          border: `1px solid ${currentTheme.cardBorder}`
-        }
-      },
-        React.createElement('h3', {
-          style: { color: currentTheme.text, marginBottom: '1rem', fontSize: '1.125rem' }
-        }, t.positions || 'Positions'),
-        
-        ['crypto', 'stocks', 'skins', 'commodities'].flatMap(category =>
-          (portfolio[category] || []).slice(0, 5).map(pos => {
-            const symbolOriginal = pos.symbol || pos.name || '';
-            const symbolLower = symbolOriginal.toLowerCase();
-            const symbolUpper = symbolOriginal.toUpperCase();
-            const currentPrice = prices[symbolOriginal] || prices[symbolLower] || prices[symbolUpper] || pos.purchasePrice || 0;
-            const value = (pos.amount || 1) * currentPrice;
-            const invested = (pos.amount || 1) * (pos.purchasePrice || 0);
-            const profit = value - invested;
-            const profitPercent = invested > 0 ? (profit / invested) * 100 : 0;
-            
-            return React.createElement('div', {
-              key: pos.id,
-              style: {
-                display: 'flex',
-                justifyContent: 'space-between',
-                alignItems: 'center',
-                padding: '1rem 0',
-                borderBottom: `1px solid ${currentTheme.cardBorder}`
-              }
-            },
-              React.createElement('div', null,
-                React.createElement('div', { style: { color: currentTheme.text, fontWeight: '600' } }, pos.symbol || pos.name),
-                React.createElement('div', { style: { color: currentTheme.textSecondary, fontSize: '0.875rem' } },
-                  `${pos.amount} @ ${formatPrice(pos.purchasePrice)}`
-                )
-              ),
-              React.createElement('div', { style: { textAlign: 'right' } },
-                React.createElement('div', { style: { color: currentTheme.text, fontWeight: '600' } },
-                  `${formatPrice(value)} ${getCurrencySymbol()}`
-                ),
-                React.createElement('div', {
-                  style: { color: profit >= 0 ? currentTheme.success : currentTheme.danger, fontSize: '0.875rem' }
-                }, `${profit >= 0 ? '+' : ''}${profitPercent.toFixed(2)}%`)
-              )
-            );
-          })
         )
-      )
     );
   };
 
@@ -3091,28 +2976,28 @@ buy,crypto,bitcoin,0.5,45000,2024-01-15,10`)
       },
         [
           // ── Portfolio ──────────────────────────────
-          { group: t.portfolio || 'Portfolio' },
-          { id: 'overview',         icon: '◈', label: t.overview       || 'Overview' },
-          { id: 'transactions',     icon: '↕', label: t.transactions   || 'Transactions' },
+          { group: 'Portfolio' },
+          { id: 'overview',         icon: '◈', label: 'Overview' },
+          { id: 'transactions',     icon: '↕', label: 'Transactions' },
           { id: 'portfolios',       icon: '◆', label: 'Portfolios' },
           { id: 'net-worth',        icon: '◉', label: 'Net Worth' },
           { id: 'dividends',        icon: '◎', label: 'Dividends' },
-          { id: 'journal',          icon: '◇', label: t.tradeJournal   || 'Journal' },
-          // ── Analyse ───────────────────────────────
-          { group: t.analytics || 'Analysis' },
-          { id: 'returns',          icon: '◆', label: t.returns        || 'Returns & XIRR' },
-          { id: 'rebalancing',      icon: '◐', label: t.rebalancing    || 'Rebalancing' },
+          { id: 'journal',          icon: '◇', label: 'Journal' },
+          // ── Analysis ──────────────────────────────
+          { group: 'Analysis' },
+          { id: 'returns',          icon: '◆', label: 'Returns & XIRR' },
+          { id: 'rebalancing',      icon: '◐', label: 'Rebalancing' },
           { id: 'savings-plans',    icon: '◑', label: 'Savings Plans' },
           { id: 'cashflow',         icon: '◒', label: 'Cash Flow' },
           { id: 'fees',             icon: '◓', label: 'Fee Analyzer' },
+          { id: 'analytics',        icon: '◇', label: 'Risk & Correlation' },
+          { id: 'investment-analysis', icon: '◈', label: 'Strategy' },
           { id: 'tax',              icon: '◧', label: 'Tax & FIFO' },
-          { id: 'analytics',        icon: '◇', label: t.analytics      || 'Portfolio Analysis' },
-          { id: 'investment-analysis', icon: '◈', label: t.investmentAnalysis || 'Strategy' },
           // ── Tools ──────────────────────────────────
-          { group: t.tools || 'Tools' },
-          { id: 'watchlist',        icon: '◯', label: t.watchlist      || 'Watchlist' },
-          { id: 'alerts',           icon: '◎', label: t.priceAlerts    || 'Price Alerts' },
-          { id: 'broker-import',    icon: '◁', label: t.brokerImport   || 'Import' },
+          { group: 'Tools' },
+          { id: 'watchlist',        icon: '◯', label: 'Watchlist' },
+          { id: 'alerts',           icon: '◎', label: 'Price Alerts' },
+          { id: 'broker-import',    icon: '◁', label: 'Import' },
         ].map((item, idx) => {
           // Section Header
           if (item.group) {
@@ -3139,21 +3024,24 @@ buy,crypto,bitcoin,0.5,45000,2024-01-15,10`)
             style: {
               display: 'flex',
               alignItems: 'center',
-              gap: '0.625rem',
+              gap: '0.5rem',
               width: '100%',
-              padding: '0.5rem 0.75rem',
-              marginBottom: '0.125rem',
-              background: isActive ? `${currentTheme.accent}22` : 'transparent',
+              padding: '0.45rem 0.75rem',
+              marginBottom: '0.1rem',
+              background: isActive ? `${currentTheme.accent}18` : 'transparent',
               color: isActive ? currentTheme.accent : currentTheme.textSecondary,
               border: 'none',
               borderRadius: '8px',
               textAlign: 'left',
               cursor: 'pointer',
-              fontSize: '0.875rem',
+              fontSize: '0.825rem',
               fontWeight: isActive ? '600' : '400',
-              transition: 'all 0.15s',
-              borderLeft: isActive ? `2px solid ${currentTheme.accent}` : '2px solid transparent'
-            }
+              transition: 'background 0.12s, color 0.12s',
+              borderLeft: isActive ? `3px solid ${currentTheme.accent}` : '3px solid transparent',
+              paddingLeft: isActive ? 'calc(0.75rem - 1px)' : '0.75rem'
+            },
+            onMouseEnter: e => { if (!isActive) e.currentTarget.style.background = `${currentTheme.accent}0a`; e.currentTarget.style.color = currentTheme.text; },
+            onMouseLeave: e => { if (!isActive) e.currentTarget.style.background = 'transparent'; e.currentTarget.style.color = currentTheme.textSecondary; }
           },
             React.createElement('span', {
               style: { fontSize: '0.75rem', opacity: 0.8, width: '14px', textAlign: 'center', flexShrink: 0 }
