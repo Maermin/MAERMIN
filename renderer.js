@@ -152,6 +152,12 @@ function PasswordModal({ theme, t, onClose, addToast }) {
 function InvestmentTracker() {
   // ========== STATE MANAGEMENT ==========
   
+  // Multi-Portfolio
+  const portfolioHook = window.MaerminFeatures4 ? window.MaerminFeatures4.usePortfolios() : null;
+  const portfolios       = portfolioHook?.portfolios       || [{ id: 'default', name: 'Main Portfolio', color: '#8b5cf6' }];
+  const activePortfolioId = portfolioHook?.activePortfolioId || 'default';
+  const setActivePortfolioId = portfolioHook?.setActivePortfolioId || (() => {});
+
   // Transactions - the source of truth for portfolio
   const [transactions, setTransactions] = useState(() => {
     const saved = localStorage.getItem('transactions');
@@ -169,12 +175,17 @@ function InvestmentTracker() {
   // Exchange rate: USD->EUR (how many EUR for 1 USD). EUR is stronger, so ~0.91
   const [exchangeRate, setExchangeRate] = useState(0.91);
   
+  // Transactions filtered to the active portfolio
+  const activeTransactions = useMemo(() =>
+    transactions.filter(tx => (tx.portfolioId || 'default') === activePortfolioId),
+  [transactions, activePortfolioId]);
+
   // Portfolio derived from transactions
   const portfolio = useMemo(() => {
     const result = { crypto: [], stocks: [], skins: [] };
-    const positionMap = {}; // symbol -> aggregated position
+    const positionMap = {};
     
-    transactions.forEach(tx => {
+    activeTransactions.forEach(tx => {
       const category = tx.category || 'crypto';
       const symbol = (tx.symbol || '').toLowerCase();
       const key = `${category}-${symbol}`;
@@ -221,7 +232,7 @@ function InvestmentTracker() {
     });
     
     return result;
-  }, [transactions, exchangeRate]);
+  }, [activeTransactions, exchangeRate]);
   
   // UI State
   const [activeTab, setActiveTab] = useState('crypto');
@@ -664,7 +675,7 @@ function InvestmentTracker() {
       date: newTransaction.date,
       notes: newTransaction.notes,
       currency: newTransaction.currency || currency,
-      // CS2: store skin image URL so it shows in the positions table
+      portfolioId: activePortfolioId,
       ...(newTransaction.skinIconUrl ? { skinIconUrl: newTransaction.skinIconUrl } : {})
     };
     
@@ -860,12 +871,43 @@ function InvestmentTracker() {
   
   const renderView = () => {
     switch (activeView) {
+      case 'portfolios':
+        return window.MaerminFeatures4 ?
+          React.createElement(window.MaerminFeatures4.PortfolioManagerView, {
+            portfolios, activePortfolioId, transactions, prices,
+            theme: currentTheme, formatPrice, getCurrencySymbol,
+            setActivePortfolioId,
+            addPortfolio: portfolioHook?.addPortfolio,
+            removePortfolio: portfolioHook?.removePortfolio,
+            renamePortfolio: portfolioHook?.renamePortfolio
+          }) : renderAnalyticsPlaceholder('Portfolios');
+
+      case 'savings-plans':
+        return window.MaerminFeatures4 ?
+          React.createElement(window.MaerminFeatures4.SavingsPlanView, {
+            transactions: activeTransactions, theme: currentTheme, formatPrice, getCurrencySymbol, t
+          }) : renderAnalyticsPlaceholder('Savings Plans');
+
+      case 'dividend-forecast':
+        return window.MaerminFeatures4 ?
+          React.createElement(window.MaerminFeatures4.DividendForecastView, {
+            transactions: activeTransactions, portfolio, prices,
+            theme: currentTheme, formatPrice, getCurrencySymbol
+          }) : renderAnalyticsPlaceholder('Dividend Forecast');
+
+      case 'fifo':
+        return window.MaerminFeatures4 ?
+          React.createElement(window.MaerminFeatures4.FIFOView, {
+            transactions: activeTransactions, prices,
+            theme: currentTheme, formatPrice, getCurrencySymbol
+          }) : renderAnalyticsPlaceholder('FIFO');
+
       case 'returns':
         return window.MaerminFeatures2 ?
           React.createElement(window.MaerminFeatures2.ReturnsView, {
-            transactions, portfolio, prices, priceHistory,
+            transactions: activeTransactions, portfolio, prices, priceHistory,
             theme: currentTheme, formatPrice, getCurrencySymbol, t
-          }) : renderAnalyticsPlaceholder('Rendite-Analyse');
+          }) : renderAnalyticsPlaceholder('Returns');
 
       case 'rebalancing':
         return window.MaerminFeatures2 ?
@@ -2510,7 +2552,7 @@ buy,crypto,bitcoin,0.5,45000,2024-01-15,10`)
         borderBottom: `1px solid ${currentTheme.cardBorder}`
       }
     },
-      React.createElement('div', { style: { display: 'flex', alignItems: 'center', gap: '1rem' } },
+      React.createElement('div', { style: { display: 'flex', alignItems: 'center', gap: '1rem', flexWrap: 'wrap' } },
         React.createElement('h1', {
           style: {
             fontSize: '1.5rem',
@@ -2529,7 +2571,12 @@ buy,crypto,bitcoin,0.5,45000,2024-01-15,10`)
             borderRadius: '4px',
             color: currentTheme.textSecondary
           }
-        }, 'v8.0')
+        }, 'v8.0'),
+        // Portfolio Switcher — right next to the logo
+        window.MaerminFeatures4 && React.createElement(window.MaerminFeatures4.PortfolioSwitcher, {
+          portfolios, activePortfolioId, setActivePortfolioId, transactions, prices,
+          theme: currentTheme
+        })
       ),
       
       React.createElement('div', { style: { display: 'flex', gap: '0.5rem', alignItems: 'center' }, ref: settingsRef },
@@ -2725,22 +2772,26 @@ buy,crypto,bitcoin,0.5,45000,2024-01-15,10`)
         [
           // ── Portfolio ──────────────────────────────
           { group: t.portfolio || 'Portfolio' },
-          { id: 'overview',      icon: '◈', label: t.overview      || 'Übersicht' },
-          { id: 'transactions',  icon: '↕', label: t.transactions  || 'Transaktionen' },
-          { id: 'dividends',     icon: '◎', label: t.dividendCalendar || 'Dividenden' },
-          { id: 'journal',       icon: '◉', label: t.tradeJournal  || 'Journal' },
+          { id: 'overview',         icon: '◈', label: t.overview          || 'Overview' },
+          { id: 'transactions',     icon: '↕', label: t.transactions      || 'Transactions' },
+          { id: 'portfolios',       icon: '◆', label: 'Portfolios' },
+          { id: 'dividends',        icon: '◎', label: t.dividendCalendar  || 'Dividends' },
+          { id: 'dividend-forecast',icon: '◎', label: 'Dividend Forecast' },
+          { id: 'journal',          icon: '◉', label: t.tradeJournal      || 'Journal' },
           // ── Analyse ───────────────────────────────
-          { group: t.analytics || 'Analyse' },
-          { id: 'returns',       icon: '◆', label: t.returns       || 'Rendite & XIRR' },
-          { id: 'rebalancing',   icon: '◐', label: t.rebalancing   || 'Rebalancing' },
-          { id: 'analytics',     icon: '◇', label: t.analytics     || 'Portfolio-Analyse' },
-          { id: 'investment-analysis', icon: '◈', label: t.investmentAnalysis || 'Strategie' },
-          { id: 'taxes',         icon: '◻', label: t.taxes         || 'Steuern' },
+          { group: t.analytics || 'Analysis' },
+          { id: 'returns',          icon: '◆', label: t.returns           || 'Returns & XIRR' },
+          { id: 'rebalancing',      icon: '◐', label: t.rebalancing       || 'Rebalancing' },
+          { id: 'savings-plans',    icon: '◑', label: 'Savings Plans' },
+          { id: 'fifo',             icon: '◧', label: 'FIFO Cost Basis' },
+          { id: 'analytics',        icon: '◇', label: t.analytics         || 'Portfolio Analysis' },
+          { id: 'investment-analysis', icon: '◈', label: t.investmentAnalysis || 'Strategy' },
+          { id: 'taxes',            icon: '◻', label: t.taxes             || 'Tax' },
           // ── Tools ──────────────────────────────────
           { group: t.tools || 'Tools' },
-          { id: 'watchlist',     icon: '◯', label: t.watchlist     || 'Watchlist' },
-          { id: 'alerts',        icon: '◎', label: t.priceAlerts   || 'Preisalarme' },
-          { id: 'broker-import', icon: '◁', label: t.brokerImport  || 'Broker-Import' },
+          { id: 'watchlist',        icon: '◯', label: t.watchlist         || 'Watchlist' },
+          { id: 'alerts',           icon: '◎', label: t.priceAlerts       || 'Price Alerts' },
+          { id: 'broker-import',    icon: '◁', label: t.brokerImport      || 'Import' },
         ].map((item, idx) => {
           // Section Header
           if (item.group) {

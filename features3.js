@@ -373,6 +373,14 @@ function EnhancedPositionsTable({ portfolio, prices, priceHistory, transactions,
   }
 
   const positions = useMemo(() => {
+    // Build iconUrl lookup from transactions metadata (set when user picks a skin)
+    const iconBySymbol = {};
+    (transactions || []).forEach(tx => {
+      if (tx.category === 'skins' && tx.skinIconUrl && tx.symbol) {
+        iconBySymbol[tx.symbol] = tx.skinIconUrl;
+      }
+    });
+
     const result = [];
     ['crypto','stocks','skins'].forEach((cat, ci) => {
       (portfolio[cat] || []).forEach((pos, pi) => {
@@ -391,12 +399,13 @@ function EnhancedPositionsTable({ portfolio, prices, priceHistory, transactions,
           avgPrice: pos.purchasePrice || 0,
           purchaseDate: pos.purchaseDate,
           sparkVals: history.map(h => h.price),
-          color: CATEGORY_COLORS[cat][pi % 10]
+          color: CATEGORY_COLORS[cat][pi % 10],
+          iconUrl: iconBySymbol[sym] || null,
         });
       });
     });
     return result;
-  }, [portfolio, prices, priceHistory]);
+  }, [portfolio, prices, priceHistory, transactions]);
 
   const filtered = catFilter === 'all' ? positions : positions.filter(p => p.cat === catFilter);
   const sorted = [...filtered].sort((a, b) => {
@@ -502,18 +511,18 @@ function EnhancedPositionsTable({ portfolio, prices, priceHistory, transactions,
                     onMouseEnter: e => e.currentTarget.style.background = `${theme.accent}08`,
                     onMouseLeave: e => e.currentTarget.style.background = 'transparent'
                   },
-                    // Symbol + color dot + category badge + CS2 image
+                    // Symbol + category badge + optional CS2 image (stored from SkinPicker)
                     React.createElement('td', { style: { padding: '0.875rem 0.875rem' } },
                       React.createElement('div', { style: { display: 'flex', alignItems: 'center', gap: '0.5rem' } },
-                        p.cat === 'skins'
-                          // CS2: show skin image thumbnail
+                        p.cat === 'skins' && p.iconUrl
+                          // CS2: show stored skin image from when user picked it
                           ? React.createElement('img', {
-                              src: `https://community.akamai.steamstatic.com/economy/image/class/730/${encodeURIComponent(p.sym)}/200x116`,
+                              src: p.iconUrl,
                               alt: p.sym,
                               onError: e => { e.target.style.display = 'none'; },
                               style: { width: 48, height: 28, objectFit: 'contain', borderRadius: '4px', background: 'rgba(0,0,0,0.2)', flexShrink: 0 }
                             })
-                          // Crypto/Stocks: color dot
+                          // Crypto/Stocks/Skins without image: color dot
                           : React.createElement('div', { style: { width: 8, height: 8, borderRadius: '50%', background: p.color, flexShrink: 0 } }),
                         React.createElement('span', { style: { color: theme.text, fontWeight: '700', fontSize: '0.875rem' } }, p.sym),
                         React.createElement('span', {
@@ -659,7 +668,7 @@ function CS2SkinPicker({ workerUrl, theme, onSelect, selectedName }) {
     setQuery(item.name);
     setResults([]);
     setOpen(false);
-    onSelect({ name: item.name, price: item.price });
+    onSelect({ name: item.name, price: item.price, image: item.image });
   };
 
   const RARITY_ORDER = ['Consumer Grade','Industrial Grade','Mil-Spec Grade','Restricted','Classified','Covert','Contraband','Extraordinary'];
