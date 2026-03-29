@@ -1,4 +1,4 @@
-name = "maermin-pricempire-proxy"
+name = "maermin-skinport-proxy"
 main = "worker.js"
 compatibility_date = "2024-01-01"
 
