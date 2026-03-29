@@ -79,14 +79,11 @@ function usePortfolios() {
 }
 
 function PortfolioSwitcher({ portfolios, activePortfolioId, setActivePortfolioId, transactions, prices, theme }) {
-  const [showManager, setShowManager] = useState(false);
 
-  // Compute total value per portfolio
   const portfolioValues = useMemo(() => {
     const values = {};
     portfolios.forEach(p => {
       const txs = transactions.filter(tx => (tx.portfolioId || 'default') === p.id);
-      // Simple aggregation
       const holdings = {};
       txs.forEach(tx => {
         const key = (tx.symbol || '').toLowerCase();
@@ -96,43 +93,29 @@ function PortfolioSwitcher({ portfolios, activePortfolioId, setActivePortfolioId
       });
       let total = 0;
       Object.values(holdings).forEach(h => {
-        const p = prices[h.sym] || prices[(h.sym || '').toLowerCase()] || 0;
-        total += Math.max(0, h.amount) * p;
+        const pr = prices[h.sym] || prices[(h.sym || '').toLowerCase()] || 0;
+        total += Math.max(0, h.amount) * pr;
       });
       values[p.id] = total;
     });
     return values;
   }, [portfolios, transactions, prices]);
 
-  return React.createElement('div', { style: { position: 'relative' } },
-    // Switcher bar
-    React.createElement('div', {
-      style: { display: 'flex', gap: '0.25rem', padding: '0.25rem', background: theme.inputBg, borderRadius: '10px', marginBottom: '0' }
-    },
-      portfolios.map(p =>
-        React.createElement('button', {
-          key: p.id,
-          onClick: () => setActivePortfolioId(p.id),
-          style: {
-            padding: '0.4rem 0.875rem', border: 'none', borderRadius: '7px', cursor: 'pointer',
-            fontSize: '0.8rem', fontWeight: activePortfolioId === p.id ? '700' : '400',
-            background: activePortfolioId === p.id ? p.color : 'transparent',
-            color: activePortfolioId === p.id ? '#fff' : theme.textSecondary,
-            transition: 'all 0.15s', whiteSpace: 'nowrap'
-          }
-        }, p.name)
-      ),
+  return React.createElement('div', { style: { display: 'flex', gap: '0.25rem', padding: '0.25rem', background: theme.inputBg, borderRadius: '10px' } },
+    portfolios.map(p =>
       React.createElement('button', {
-        onClick: () => setShowManager(!showManager),
-        style: { padding: '0.4rem 0.6rem', border: 'none', borderRadius: '7px', cursor: 'pointer', background: 'transparent', color: theme.textSecondary, fontSize: '0.8rem' }
-      }, '+ Manage')
-    ),
-    // Manager Dropdown
-    showManager && React.createElement(PortfolioManager, {
-      portfolios, activePortfolioId, portfolioValues, theme,
-      onClose: () => setShowManager(false),
-      onAdd: (name, color) => { /* managed via hook up the tree */ },
-    })
+        key: p.id,
+        onClick: () => setActivePortfolioId(p.id),
+        title: portfolioValues[p.id] ? `€${portfolioValues[p.id].toFixed(0)}` : '',
+        style: {
+          padding: '0.35rem 0.75rem', border: 'none', borderRadius: '7px', cursor: 'pointer',
+          fontSize: '0.78rem', fontWeight: activePortfolioId === p.id ? '700' : '400',
+          background: activePortfolioId === p.id ? p.color : 'transparent',
+          color: activePortfolioId === p.id ? '#fff' : theme.textSecondary,
+          transition: 'all 0.15s', whiteSpace: 'nowrap'
+        }
+      }, p.name)
+    )
   );
 }
 
