@@ -1079,7 +1079,28 @@ function InvestmentTracker() {
 
   const renderView = () => {
     switch (activeView) {
-      case 'portfolios':
+      case 'net-worth':
+        return window.MaerminFeatures5 ?
+          React.createElement(window.MaerminFeatures5.NetWorthView, {
+            portfolioStats, theme: currentTheme, formatPrice, getCurrencySymbol
+          }) : renderAnalyticsPlaceholder('Net Worth');
+
+      case 'cashflow':
+        return window.MaerminFeatures5 ?
+          React.createElement('div', { style: { padding: '1.5rem' } },
+            React.createElement('h2', { style: { color: currentTheme.text, fontSize: '1.5rem', fontWeight: '700', marginBottom: '1.5rem' } }, 'Cash Flow'),
+            React.createElement(window.MaerminFeatures5.CashflowChart, {
+              transactions: activeTransactions, priceHistory, portfolio, prices,
+              theme: currentTheme, formatPrice, getCurrencySymbol
+            })
+          ) : renderAnalyticsPlaceholder('Cash Flow');
+
+      case 'fees':
+        return window.MaerminFeatures5 ?
+          React.createElement(window.MaerminFeatures5.FeeAnalyzer, {
+            transactions: activeTransactions, theme: currentTheme, formatPrice, getCurrencySymbol
+          }) : renderAnalyticsPlaceholder('Fee Analyzer');
+
         return window.MaerminFeatures4 ?
           React.createElement(window.MaerminFeatures4.PortfolioManagerView, {
             portfolios, activePortfolioId, transactions, prices,
@@ -1270,7 +1291,14 @@ function InvestmentTracker() {
           )
         )
       ),
-      
+
+      // Performance Period Selector — 1D/1W/1M/YTD/1Y/Max
+      window.MaerminFeatures5 && portfolioStats.totalPositions > 0 &&
+        React.createElement(window.MaerminFeatures5.PerformancePeriods, {
+          portfolio, priceHistory, prices,
+          theme: currentTheme, formatPrice, getCurrencySymbol
+        }),
+
       // Quick actions
       React.createElement('div', {
         style: {
@@ -1457,7 +1485,7 @@ function InvestmentTracker() {
 
       // Benchmark + Daily P&L side by side
       window.MaerminFeatures3 && portfolioStats.totalPositions > 0 &&
-        React.createElement('div', { style: { display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem', marginBottom: '0' } },
+        React.createElement('div', { style: { display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem', marginBottom: '1.5rem' } },
           React.createElement(window.MaerminFeatures3.BenchmarkWidget, {
             portfolio, prices, priceHistory, transactions,
             theme: currentTheme, formatPrice, getCurrencySymbol
@@ -1467,6 +1495,13 @@ function InvestmentTracker() {
             theme: currentTheme, formatPrice, getCurrencySymbol
           })
         ),
+
+      // Cashflow Chart
+      window.MaerminFeatures5 && portfolioStats.totalPositions > 0 &&
+        React.createElement(window.MaerminFeatures5.CashflowChart, {
+          transactions: activeTransactions, priceHistory, portfolio, prices,
+          theme: currentTheme, formatPrice, getCurrencySymbol
+        }),
 
       // Positions Table — enhanced with CAGR, clickable rows, position detail modal
       (window.MaerminFeatures3 ? window.MaerminFeatures3.EnhancedPositionsTable : window.MaerminFeatures?.PositionsTable) && portfolioStats.totalPositions > 0 &&
@@ -3002,13 +3037,16 @@ buy,crypto,bitcoin,0.5,45000,2024-01-15,10`)
           { id: 'overview',         icon: '◈', label: t.overview       || 'Overview' },
           { id: 'transactions',     icon: '↕', label: t.transactions   || 'Transactions' },
           { id: 'portfolios',       icon: '◆', label: 'Portfolios' },
+          { id: 'net-worth',        icon: '◉', label: 'Net Worth' },
           { id: 'dividends',        icon: '◎', label: 'Dividends' },
-          { id: 'journal',          icon: '◉', label: t.tradeJournal   || 'Journal' },
+          { id: 'journal',          icon: '◇', label: t.tradeJournal   || 'Journal' },
           // ── Analyse ───────────────────────────────
           { group: t.analytics || 'Analysis' },
           { id: 'returns',          icon: '◆', label: t.returns        || 'Returns & XIRR' },
           { id: 'rebalancing',      icon: '◐', label: t.rebalancing    || 'Rebalancing' },
           { id: 'savings-plans',    icon: '◑', label: 'Savings Plans' },
+          { id: 'cashflow',         icon: '◒', label: 'Cash Flow' },
+          { id: 'fees',             icon: '◓', label: 'Fee Analyzer' },
           { id: 'tax',              icon: '◧', label: 'Tax & FIFO' },
           { id: 'analytics',        icon: '◇', label: t.analytics      || 'Portfolio Analysis' },
           { id: 'investment-analysis', icon: '◈', label: t.investmentAnalysis || 'Strategy' },
