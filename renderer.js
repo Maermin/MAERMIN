@@ -1891,26 +1891,52 @@ function InvestmentTracker() {
           )
         ),
         
-        // Symbol
+        // Symbol / Skin Picker
         React.createElement('div', { style: { marginBottom: '1rem' } },
           React.createElement('label', {
             style: { display: 'block', color: currentTheme.textSecondary, marginBottom: '0.5rem', fontSize: '0.875rem' }
           }, t.symbol || 'Symbol'),
-          React.createElement('input', {
-            type: 'text',
-            value: newTransaction.symbol,
-            onChange: (e) => setNewTransaction(prev => ({ ...prev, symbol: e.target.value })),
-            placeholder: newTransaction.category === 'crypto' ? 'bitcoin, ethereum...' : 
-                        newTransaction.category === 'stocks' ? 'AAPL, MSFT...' : 'AK-47 | Redline...',
-            style: {
-              width: '100%',
-              padding: '0.75rem',
-              background: currentTheme.inputBg,
-              border: `1px solid ${currentTheme.inputBorder}`,
-              borderRadius: '8px',
-              color: currentTheme.text
-            }
-          })
+
+          // CS2 Skin Picker — visual search with images
+          newTransaction.category === 'skins' && window.MaerminFeatures3?.CS2SkinPicker
+            ? React.createElement('div', null,
+                React.createElement(window.MaerminFeatures3.CS2SkinPicker, {
+                  workerUrl: apiKeys.cs2Worker,
+                  theme: currentTheme,
+                  selectedName: newTransaction.symbol,
+                  onSelect: ({ name, price }) => {
+                    setNewTransaction(prev => ({
+                      ...prev,
+                      symbol: name,
+                      price: price ? price.toFixed(2) : prev.price
+                    }));
+                  }
+                }),
+                // Preview of selected skin
+                newTransaction.symbol && React.createElement('div', {
+                  style: { marginTop: '0.5rem', display: 'flex', alignItems: 'center', gap: '0.75rem', padding: '0.5rem', background: 'rgba(6,182,212,0.06)', borderRadius: '8px', border: '1px solid rgba(6,182,212,0.15)' }
+                },
+                  React.createElement(window.MaerminFeatures3.CS2SkinImage, { name: newTransaction.symbol, size: 80 }),
+                  React.createElement('div', null,
+                    React.createElement('div', { style: { color: currentTheme.text, fontWeight: '600', fontSize: '0.8rem' } }, newTransaction.symbol),
+                    newTransaction.price && React.createElement('div', { style: { color: '#22c55e', fontSize: '0.75rem', marginTop: '0.125rem' } }, `€${parseFloat(newTransaction.price).toFixed(2)}`)
+                  )
+                )
+              )
+            // Regular text input for crypto/stocks
+            : React.createElement('input', {
+                type: 'text',
+                value: newTransaction.symbol,
+                onChange: (e) => setNewTransaction(prev => ({ ...prev, symbol: e.target.value })),
+                placeholder: newTransaction.category === 'crypto' ? 'bitcoin, ethereum...' :
+                            newTransaction.category === 'stocks' ? 'AAPL, MSFT...' : 'AK-47 | Redline...',
+                style: {
+                  width: '100%', padding: '0.75rem',
+                  background: currentTheme.inputBg,
+                  border: `1px solid ${currentTheme.inputBorder}`,
+                  borderRadius: '8px', color: currentTheme.text
+                }
+              })
         ),
         
         // Quantity

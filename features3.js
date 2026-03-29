@@ -8,7 +8,7 @@
 (function () {
 'use strict';
 
-const { useState, useEffect, useMemo, useCallback } = React;
+const { useState, useEffect, useMemo, useCallback, useRef } = React;
 
 // ─────────────────────────────────────────────────────────────────────────────
 // SHARED HELPERS
@@ -502,10 +502,19 @@ function EnhancedPositionsTable({ portfolio, prices, priceHistory, transactions,
                     onMouseEnter: e => e.currentTarget.style.background = `${theme.accent}08`,
                     onMouseLeave: e => e.currentTarget.style.background = 'transparent'
                   },
-                    // Symbol + color dot + category badge
+                    // Symbol + color dot + category badge + CS2 image
                     React.createElement('td', { style: { padding: '0.875rem 0.875rem' } },
                       React.createElement('div', { style: { display: 'flex', alignItems: 'center', gap: '0.5rem' } },
-                        React.createElement('div', { style: { width: 8, height: 8, borderRadius: '50%', background: p.color, flexShrink: 0 } }),
+                        p.cat === 'skins'
+                          // CS2: show skin image thumbnail
+                          ? React.createElement('img', {
+                              src: `https://community.akamai.steamstatic.com/economy/image/class/730/${encodeURIComponent(p.sym)}/200x116`,
+                              alt: p.sym,
+                              onError: e => { e.target.style.display = 'none'; },
+                              style: { width: 48, height: 28, objectFit: 'contain', borderRadius: '4px', background: 'rgba(0,0,0,0.2)', flexShrink: 0 }
+                            })
+                          // Crypto/Stocks: color dot
+                          : React.createElement('div', { style: { width: 8, height: 8, borderRadius: '50%', background: p.color, flexShrink: 0 } }),
                         React.createElement('span', { style: { color: theme.text, fontWeight: '700', fontSize: '0.875rem' } }, p.sym),
                         React.createElement('span', {
                           style: { fontSize: '0.6rem', fontWeight: '700', padding: '0.1rem 0.3rem', borderRadius: '3px',
@@ -575,6 +584,188 @@ function EnhancedPositionsTable({ portfolio, prices, priceHistory, transactions,
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
+// 5. CS2 SKIN IMAGE — zeigt das Steam-CDN-Bild einer Position
+// ─────────────────────────────────────────────────────────────────────────────
+function CS2SkinImage({ name, size = 48, style = {} }) {
+  const [src, setSrc] = useState(null);
+  const [err, setErr] = useState(false);
+
+  useEffect(() => {
+    if (!name) return;
+    // Build Steam Market thumbnail URL directly from the name
+    const hash = encodeURIComponent(name);
+    setSrc(`https://community.akamai.steamstatic.com/economy/image/class/730/${hash}/330x192`);
+  }, [name]);
+
+  if (err || !src) {
+    return React.createElement('div', {
+      style: {
+        width: size, height: Math.round(size * 0.58), borderRadius: '6px',
+        background: 'rgba(6,182,212,0.1)', display: 'flex', alignItems: 'center',
+        justifyContent: 'center', flexShrink: 0, ...style
+      }
+    }, React.createElement('span', { style: { fontSize: '0.6rem', color: 'rgba(6,182,212,0.5)' } }, 'CS2'));
+  }
+
+  return React.createElement('img', {
+    src, alt: name, onError: () => setErr(true),
+    style: { width: size, height: Math.round(size * 0.58), objectFit: 'contain', borderRadius: '6px', flexShrink: 0, ...style }
+  });
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// 6. CS2 SKIN PICKER
+// Ersetzt das Symbol-Textfeld wenn Kategorie = skins
+// Sucht über den Cloudflare Worker → Steam Market Search
+// Zeigt Skin-Bilder, Preise, Rarity-Farben
+// ─────────────────────────────────────────────────────────────────────────────
+function CS2SkinPicker({ workerUrl, theme, onSelect, selectedName }) {
+  const [query, setQuery]       = useState(selectedName || '');
+  const [results, setResults]   = useState([]);
+  const [loading, setLoading]   = useState(false);
+  const [error, setError]       = useState(null);
+  const [open, setOpen]         = useState(false);
+  const debounceRef             = useRef(null);
+
+  // Search when query changes (debounced 400ms)
+  useEffect(() => {
+    if (debounceRef.current) clearTimeout(debounceRef.current);
+    if (!query.trim() || query === selectedName) { setResults([]); return; }
+
+    debounceRef.current = setTimeout(async () => {
+      if (!workerUrl) { setError('No Worker URL set — add it in ⚙ API Settings'); return; }
+      setLoading(true); setError(null);
+      try {
+        const base = workerUrl.trim().replace(/\/$/, '');
+        const url  = `${base}?action=search&q=${encodeURIComponent(query.trim())}`;
+        const res  = await fetch(url, { signal: AbortSignal.timeout(10000) });
+        if (!res.ok) throw new Error('Worker returned ' + res.status);
+        const data = await res.json();
+        if (Array.isArray(data)) {
+          setResults(data);
+          setOpen(true);
+        } else {
+          setError(data.error || 'Search failed');
+        }
+      } catch (e) {
+        setError(e.message);
+      } finally {
+        setLoading(false);
+      }
+    }, 400);
+  }, [query, workerUrl]);
+
+  const select = (item) => {
+    setQuery(item.name);
+    setResults([]);
+    setOpen(false);
+    onSelect({ name: item.name, price: item.price });
+  };
+
+  const RARITY_ORDER = ['Consumer Grade','Industrial Grade','Mil-Spec Grade','Restricted','Classified','Covert','Contraband','Extraordinary'];
+
+  return React.createElement('div', { style: { position: 'relative' } },
+    // Search input
+    React.createElement('div', { style: { position: 'relative' } },
+      React.createElement('input', {
+        type: 'text',
+        value: query,
+        onChange: e => { setQuery(e.target.value); if (!e.target.value) { setResults([]); setOpen(false); } },
+        onFocus: () => results.length > 0 && setOpen(true),
+        placeholder: 'Search CS2 skins — e.g. AK-47 Redline...',
+        style: {
+          width: '100%', padding: '0.75rem 2.5rem 0.75rem 0.75rem',
+          background: theme.inputBg, border: `1px solid ${theme.inputBorder}`,
+          borderRadius: '8px', color: theme.text, fontSize: '0.875rem',
+          boxSizing: 'border-box'
+        }
+      }),
+      loading && React.createElement('div', {
+        style: { position: 'absolute', right: '0.75rem', top: '50%', transform: 'translateY(-50%)', color: theme.textSecondary, fontSize: '0.75rem' }
+      }, '...')
+    ),
+
+    // Error
+    error && React.createElement('div', {
+      style: { fontSize: '0.75rem', color: theme.danger || '#ef4444', marginTop: '0.25rem', padding: '0 0.25rem' }
+    }, error),
+
+    // Results dropdown
+    open && results.length > 0 && React.createElement('div', {
+      style: {
+        position: 'absolute', top: 'calc(100% + 4px)', left: 0, right: 0, zIndex: 9999,
+        background: theme.modalBg || theme.card,
+        border: `1px solid ${theme.modalBorder || theme.cardBorder}`,
+        borderRadius: '10px', overflow: 'hidden',
+        boxShadow: '0 20px 40px rgba(0,0,0,0.5)',
+        maxHeight: '420px', overflowY: 'auto'
+      }
+    },
+      // Header
+      React.createElement('div', {
+        style: { padding: '0.625rem 0.875rem', borderBottom: `1px solid ${theme.cardBorder}`, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }
+      },
+        React.createElement('span', { style: { color: theme.textSecondary, fontSize: '0.72rem' } }, `${results.length} results — click to select`),
+        React.createElement('button', {
+          onClick: () => setOpen(false),
+          style: { background: 'none', border: 'none', color: theme.textSecondary, cursor: 'pointer', fontSize: '1rem', lineHeight: 1, padding: '0 0.25rem' }
+        }, '×')
+      ),
+
+      // Grid of skins
+      React.createElement('div', {
+        style: { display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(160px, 1fr))', gap: '1px', background: theme.cardBorder }
+      },
+        results.map((item, i) =>
+          React.createElement('div', {
+            key: i,
+            onClick: () => select(item),
+            style: {
+              background: theme.card, cursor: 'pointer', padding: '0.75rem',
+              display: 'flex', flexDirection: 'column', gap: '0.375rem',
+              transition: 'background 0.1s'
+            },
+            onMouseEnter: e => e.currentTarget.style.background = `${theme.accent}15`,
+            onMouseLeave: e => e.currentTarget.style.background = theme.card
+          },
+            // Skin image
+            item.image
+              ? React.createElement('img', {
+                  src: item.image, alt: item.name,
+                  style: { width: '100%', aspectRatio: '330/192', objectFit: 'contain', borderRadius: '6px', background: 'rgba(0,0,0,0.3)' },
+                  onError: e => { e.target.style.display = 'none'; }
+                })
+              : React.createElement('div', {
+                  style: { width: '100%', aspectRatio: '330/192', background: 'rgba(6,182,212,0.08)', borderRadius: '6px', display: 'flex', alignItems: 'center', justifyContent: 'center' }
+                }, React.createElement('span', { style: { color: 'rgba(6,182,212,0.4)', fontSize: '0.7rem' } }, 'No image')),
+
+            // Rarity bar
+            item.rarityColor && React.createElement('div', {
+              style: { height: '2px', borderRadius: '1px', background: item.rarityColor, opacity: 0.8 }
+            }),
+
+            // Name
+            React.createElement('div', {
+              style: { color: theme.text, fontSize: '0.72rem', fontWeight: '600', lineHeight: '1.3', wordBreak: 'break-word' }
+            }, item.name),
+
+            // Wear + Price row
+            React.createElement('div', { style: { display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '0.25rem' } },
+              item.wear && React.createElement('span', {
+                style: { fontSize: '0.65rem', color: theme.textSecondary, background: 'rgba(255,255,255,0.05)', padding: '0.1rem 0.3rem', borderRadius: '3px' }
+              }, item.wear),
+              item.price && React.createElement('span', {
+                style: { fontSize: '0.75rem', fontWeight: '700', color: '#22c55e' }
+              }, `€${item.price.toFixed(2)}`)
+            )
+          )
+        )
+      )
+    )
+  );
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
 // EXPORTS
 // ─────────────────────────────────────────────────────────────────────────────
 window.MaerminFeatures3 = {
@@ -582,8 +773,10 @@ window.MaerminFeatures3 = {
   DailyPnLCard,
   PositionDetailModal,
   EnhancedPositionsTable,
+  CS2SkinPicker,
+  CS2SkinImage,
 };
 
-console.log('[OK] MAERMIN Features3 v8.0 loaded — Benchmark, Position Detail, CAGR, Daily P&L');
+console.log('[OK] MAERMIN Features3 v8.0 loaded — Benchmark, Position Detail, CAGR, Daily P&L, CS2 Skin Picker');
 
 })();
