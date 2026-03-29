@@ -1292,14 +1292,20 @@ function InvestmentTracker() {
         )
       ),
 
-      // Performance Period Selector — 1D/1W/1M/YTD/1Y/Max
-      window.MaerminFeatures5 && portfolioStats.totalPositions > 0 &&
-        React.createElement(window.MaerminFeatures5.PerformancePeriods, {
-          portfolio, priceHistory, prices,
+      // Real Historical Portfolio Chart — replaces old PerformanceChart + PerformancePeriods
+      // Fetches true historical data from CoinGecko (crypto, free) and Alpha Vantage (stocks)
+      window.MaerminFeatures6 && portfolioStats.totalPositions > 0 &&
+        React.createElement(window.MaerminFeatures6.PortfolioHistoryChart, {
+          portfolio, prices, apiKeys, exchangeRate,
           theme: currentTheme, formatPrice, getCurrencySymbol
         }),
 
-      // Quick actions
+      // Portfolio Overview Panel (Pie + Gainers/Losers)
+      window.MaerminFeatures && portfolioStats.totalPositions > 0 &&
+        React.createElement(window.MaerminFeatures.PortfolioOverviewPanel, {
+          portfolio, prices, priceHistory,
+          theme: currentTheme, formatPrice, getCurrencySymbol, t
+        }),
       React.createElement('div', {
         style: {
           display: 'flex',
@@ -1474,13 +1480,6 @@ function InvestmentTracker() {
         React.createElement(window.MaerminFeatures.PortfolioOverviewPanel, {
           portfolio, prices, priceHistory,
           theme: currentTheme, formatPrice, getCurrencySymbol, t
-        }),
-
-      // Performance Chart
-      window.MaerminFeatures && portfolioStats.totalPositions > 0 &&
-        React.createElement(window.MaerminFeatures.PerformanceChart, {
-          priceHistory, portfolio,
-          theme: currentTheme, formatPrice, getCurrencySymbol
         }),
 
       // Benchmark + Daily P&L side by side
