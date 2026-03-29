@@ -517,101 +517,86 @@ function InvestmentTracker() {
         }
       }
       
-      // ── CS2 Skin Prices ────────────────────────────────────────────────────
-      // Priority:
-      //   1. Pricempire API (if key set) → real market prices from DMarket/Skinport
-      //   2. Steam Community Market (fallback, ~15-30% above market value)
+      // ── CS2 Skin Prices via Skinport ───────────────────────────────────────
+      // Skinport's API is free and has real third-party market prices.
+      // It blocks CORS from browsers, so we route through a Cloudflare Worker.
+      // The Worker fetches Skinport server-side and adds CORS headers.
+      // No API key needed — just a Worker URL in ⚙ API Settings.
       if (portfolio.skins && portfolio.skins.length > 0) {
+        const rawWorkerUrl = (apiKeys.cs2Worker || '').trim();
+        const workerUrl = rawWorkerUrl
+          ? (rawWorkerUrl.startsWith('https://') ? rawWorkerUrl : 'https://' + rawWorkerUrl)
+          : null;
 
-        if (apiKeys.pricempire) {
-          // ── Pricempire via Cloudflare Worker (CORS proxy) ─────────────────
-          // The Worker forwards the request server-side and adds CORS headers.
-          // API key is stored as a Worker secret — never sent to the browser.
-          // Worker URL format: https://maermin-pricempire-proxy.<your-subdomain>.workers.dev
+        if (!workerUrl) {
+          console.warn('[PRICES] No CS2 Worker URL set — add your Cloudflare Worker URL in ⚙ API Settings');
+          addToast('CS2: add your Worker URL in ⚙ API Settings (no API key needed)', 'warning');
+        } else {
           try {
-            const rawUrl = (apiKeys.pricempire || '').trim();
-            const workerUrl = rawUrl
-              ? (rawUrl.startsWith('https://') ? rawUrl : 'https://' + rawUrl)
-              : null;
+            console.log('[PRICES] Skinport: fetching via Worker...');
+            const res = await fetch(workerUrl.replace(/\/$/, ''), {
+              signal: AbortSignal.timeout(20000)
+            });
 
-            if (!workerUrl) {
-              addToast('CS2: paste your Worker URL in ⚙ API Settings (see setup guide)', 'warning');
-              console.warn('[PRICES] Pricempire: no Worker URL set. Paste the Cloudflare Worker URL into API Settings.');
-            } else {
-              const url = `${workerUrl.replace(/\/$/, '')}?app_id=730&sources=dmarket,skinport,cs.money&currency=EUR`;
-              console.log('[PRICES] Pricempire: fetching via Worker...');
+            if (res.ok) {
+              const skinportData = await res.json();
+              if (!Array.isArray(skinportData)) throw new Error('Expected array from Skinport');
 
-              const res = await fetch(url, { signal: AbortSignal.timeout(15000) });
+              console.log('[PRICES] Skinport: received', skinportData.length, 'items');
 
-              if (res.ok) {
-                const items = await res.json();
-                if (!Array.isArray(items)) throw new Error('Unexpected response format');
+              let matchedCount = 0;
+              const unmatched = [];
 
-                // Build lookup map: name (lower) → best EUR price
-                const priceMap = {};
-                const PREFERRED = ['dmarket','skinport','cs.money','skinbaron','lis-skins'];
-                items.forEach(item => {
-                  const name = (item.market_hash_name || '').toLowerCase();
-                  if (!name || !Array.isArray(item.prices)) return;
-                  let best = null;
-                  for (const src of PREFERRED) {
-                    const entry = item.prices.find(p => p.provider_key === src && p.price > 0 && p.count > 0);
-                    if (entry) {
-                      const eur = entry.price / 100; // EUR cents → EUR
-                      if (best === null || eur < best) best = eur;
-                    }
-                  }
-                  if (best !== null && best > 0) priceMap[name] = best;
-                });
+              portfolio.skins.forEach(skin => {
+                const skinName  = (skin.symbol || skin.name || '').trim();
+                const skinLower = skinName.toLowerCase();
 
-                console.log('[PRICES] Pricempire: price map for', Object.keys(priceMap).length, 'items');
+                // 1. Exact match
+                let match = skinportData.find(item =>
+                  (item.market_hash_name || '').toLowerCase() === skinLower
+                );
 
-                let matchedCount = 0;
-                portfolio.skins.forEach(skin => {
-                  const skinName = (skin.symbol || skin.name || '').trim();
-                  const skinLower = skinName.toLowerCase();
-                  let price = priceMap[skinLower];
-                  if (!price) {
-                    const base = skinLower.replace(/\s*\([^)]*\)\s*/g, '').trim();
-                    const found = Object.keys(priceMap).find(k => k.replace(/\s*\([^)]*\)\s*/g,'').trim() === base);
-                    if (found) price = priceMap[found];
-                  }
-                  if (price) {
-                    newPrices[skinLower] = price;
-                    newPrices[skinName] = price;
-                    matchedCount++;
-                    console.log('[PRICES] CS2:', skinName, '→', price.toFixed(2), 'EUR');
-                  } else {
-                    console.warn('[PRICES] No price for:', skinName);
-                  }
-                });
-
-                console.log('[PRICES] CS2 matched:', matchedCount, '/', portfolio.skins.length);
-                if (matchedCount < portfolio.skins.length) {
-                  addToast(`CS2: ${matchedCount}/${portfolio.skins.length} matched — check names match Steam Market exactly`, 'info');
+                // 2. Fuzzy: strip wear in parentheses
+                if (!match) {
+                  const base = skinLower.replace(/\s*\([^)]*\)\s*/g, '').trim();
+                  match = skinportData.find(item => {
+                    const iBase = (item.market_hash_name || '').toLowerCase().replace(/\s*\([^)]*\)\s*/g, '').trim();
+                    return iBase === base;
+                  });
                 }
 
-              } else if (res.status === 401) {
-                addToast('Pricempire: invalid API key in Worker secret — re-run: wrangler secret put PRICEMPIRE_KEY', 'error');
-              } else if (res.status === 429) {
-                addToast('Pricempire: rate limit — free tier: 30k calls/month', 'warning');
-              } else if (res.status === 403) {
-                addToast('Worker: origin not allowed — add maermin.github.io to ALLOWED_ORIGINS in worker.js', 'error');
-              } else {
-                console.error('[PRICES] Worker HTTP', res.status);
-                addToast('Pricempire Worker error: HTTP ' + res.status, 'warning');
+                if (match) {
+                  // Skinport returns prices in full EUR (not cents)
+                  const price = match.min_price || match.suggested_price || 0;
+                  if (price > 0) {
+                    newPrices[skinLower] = price;
+                    newPrices[skinName]  = price;
+                    matchedCount++;
+                    console.log('[PRICES] Skinport matched:', skinName, '→', price.toFixed(2), 'EUR');
+                  }
+                } else {
+                  unmatched.push(skinName);
+                }
+              });
+
+              console.log('[PRICES] Skinport CS2:', matchedCount, '/', portfolio.skins.length, 'matched');
+              if (unmatched.length > 0) {
+                console.warn('[PRICES] Unmatched CS2 skins:', unmatched.join(', '));
               }
+              if (matchedCount < portfolio.skins.length) {
+                addToast(`CS2: ${matchedCount}/${portfolio.skins.length} matched — use exact Steam Market names`, 'info');
+              }
+
+            } else if (res.status === 403) {
+              addToast('CS2 Worker: origin blocked — check ALLOWED_ORIGINS in worker.js includes maermin.github.io', 'error');
+            } else {
+              console.error('[PRICES] Worker HTTP', res.status);
+              addToast('CS2 Worker error: HTTP ' + res.status, 'warning');
             }
           } catch (e) {
-            console.error('[PRICES] Pricempire Worker error:', e.message);
-            addToast('CS2 Worker fetch failed: ' + e.message, 'warning');
+            console.error('[PRICES] Skinport Worker error:', e.message);
+            addToast('CS2 Worker failed: ' + e.message, 'warning');
           }
-
-        } else {
-          // No Pricempire key — Steam Market also blocks CORS from GitHub Pages
-          // Show a clear setup prompt instead of silent failure
-          console.warn('[PRICES] No Pricempire key set — CS2 prices cannot be fetched from GitHub Pages due to CORS restrictions on all CS2 market APIs. Set a Pricempire key in ⚙ API Settings.');
-          addToast('CS2 prices need a Pricempire API key — tap ⚙ API Settings to set one (free)', 'warning');
         }
       }
       
@@ -1145,8 +1130,8 @@ function InvestmentTracker() {
         }, t.apiSettings || 'API Settings')
       ),
       
-      // CS2 setup banner — shown when user has CS2 skins but no Pricempire key
-      portfolio.skins && portfolio.skins.length > 0 && !apiKeys.pricempire &&
+      // CS2 setup banner — shown when user has CS2 skins but no Worker URL set
+      portfolio.skins && portfolio.skins.length > 0 && !(apiKeys.cs2Worker||'').trim() &&
         React.createElement('div', {
           style: {
             background: 'rgba(245,158,11,0.06)',
@@ -1163,10 +1148,10 @@ function InvestmentTracker() {
           React.createElement('span', { style: { fontSize: '1.25rem' } }, '!'),
           React.createElement('div', { style: { flex: 1, minWidth: '200px' } },
             React.createElement('div', { style: { color: currentTheme.text, fontWeight: '600', fontSize: '0.875rem' } },
-              'CS2 skin prices need a Pricempire API key'
+              'CS2 skin prices need a Cloudflare Worker URL'
             ),
             React.createElement('div', { style: { color: currentTheme.textSecondary, fontSize: '0.8rem', marginTop: '0.125rem' } },
-              'All CS2 market APIs (Steam, Skinport) block browser requests. Pricempire is the only working option — free plan, no credit card.'
+              'Skinport blocks browser requests (CORS). A Cloudflare Worker proxies the request. Free, no API key — just deploy the updated worker.js and paste the URL.'
             )
           ),
           React.createElement('button', {
@@ -1182,7 +1167,7 @@ function InvestmentTracker() {
               fontSize: '0.8rem',
               whiteSpace: 'nowrap'
             }
-          }, 'Set API Key →')
+          }, 'Add Worker URL →')
         ),
 
       // Onboarding hint when portfolio is empty
@@ -2312,38 +2297,38 @@ buy,crypto,bitcoin,0.5,45000,2024-01-15,10`)
           style: { color: currentTheme.textSecondary, marginBottom: '1.5rem', fontSize: '0.875rem', lineHeight: '1.5' }
         }, 'Configure API keys for live prices. Crypto (CoinGecko) and exchange rates are always free.'),
 
-        // ── Pricempire via Cloudflare Worker (CS2 — RECOMMENDED) ────────────
+        // ── CS2 Skinport via Cloudflare Worker ──────────────────────────────
         React.createElement('div', {
           style: { background: `linear-gradient(135deg, rgba(139,92,246,0.08), rgba(59,130,246,0.05))`, border: `1px solid rgba(139,92,246,0.25)`, padding: '1.25rem', borderRadius: '10px', marginBottom: '1rem' }
         },
           React.createElement('div', { style: { display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.625rem' } },
             React.createElement('div', null,
-              React.createElement('h3', { style: { color: currentTheme.text, fontSize: '1rem', fontWeight: '700' } }, 'Pricempire — CS2 Prices'),
-              React.createElement('span', { style: { fontSize: '0.68rem', padding: '0.15rem 0.4rem', borderRadius: '3px', background: 'rgba(34,197,94,0.12)', color: '#22c55e', fontWeight: '700', letterSpacing: '0.04em' } }, 'RECOMMENDED · Free')
+              React.createElement('h3', { style: { color: currentTheme.text, fontSize: '1rem', fontWeight: '700' } }, 'CS2 — Skinport via Worker'),
+              React.createElement('span', { style: { fontSize: '0.68rem', padding: '0.15rem 0.4rem', borderRadius: '3px', background: 'rgba(34,197,94,0.12)', color: '#22c55e', fontWeight: '700', letterSpacing: '0.04em' } }, 'Free · No API key needed')
             ),
             React.createElement('span', {
-              style: { fontSize: '0.75rem', padding: '0.25rem 0.5rem', background: (apiKeys.pricempire||'').startsWith('https://') ? 'rgba(34,197,94,0.18)' : 'rgba(245,158,11,0.15)', color: (apiKeys.pricempire||'').startsWith('https://') ? currentTheme.success : currentTheme.warning, borderRadius: '4px', fontWeight: '600' }
-            }, (apiKeys.pricempire||'').startsWith('https://') ? '✓ Worker URL set' : 'Not configured')
+              style: { fontSize: '0.75rem', padding: '0.25rem 0.5rem', borderRadius: '4px', fontWeight: '600',
+                background: (apiKeys.cs2Worker||'').trim().length > 5 ? 'rgba(34,197,94,0.18)' : 'rgba(245,158,11,0.15)',
+                color: (apiKeys.cs2Worker||'').trim().length > 5 ? currentTheme.success : currentTheme.warning }
+            }, (apiKeys.cs2Worker||'').trim().length > 5 ? '✓ Configured' : 'Not configured')
           ),
           React.createElement('p', { style: { color: currentTheme.textSecondary, fontSize: '0.8rem', marginBottom: '0.875rem', lineHeight: '1.6' } },
-            'Real market prices from DMarket, Skinport & CS.Money — typically 15–30% below Steam. Requires a free Cloudflare Worker as CORS proxy (your API key stays server-side, never in the browser).'
+            'Real Skinport market prices — typically lower than Steam. Cloudflare Worker bypasses CORS. No API key required — just deploy the Worker and paste its URL.'
           ),
-          // Step-by-step
           React.createElement('div', {
             style: { background: currentTheme.inputBg, borderRadius: '8px', padding: '0.875rem', marginBottom: '0.875rem', fontSize: '0.78rem', color: currentTheme.textSecondary, lineHeight: '1.8' }
           },
-            React.createElement('div', { style: { fontWeight: '700', color: currentTheme.text, marginBottom: '0.375rem' } }, 'One-time setup (~5 min):'),
-            React.createElement('div', null, '1. Get free API key at ', React.createElement('a', { href: 'https://pricempire.com/subscribe', target: '_blank', rel: 'noopener noreferrer', style: { color: currentTheme.accent } }, 'pricempire.com/subscribe')),
-            React.createElement('div', null, '2. Create free account at ', React.createElement('a', { href: 'https://workers.cloudflare.com', target: '_blank', rel: 'noopener noreferrer', style: { color: currentTheme.accent } }, 'workers.cloudflare.com')),
-            React.createElement('div', null, '3. In Cloudflare Dashboard → Workers → Create → paste ', React.createElement('code', { style: { background: 'rgba(0,0,0,0.2)', padding: '0 4px', borderRadius: '3px' } }, 'cf-worker/worker.js'), ' from the ZIP'),
-            React.createElement('div', null, '4. Add secret: Settings → Variables → ', React.createElement('code', { style: { background: 'rgba(0,0,0,0.2)', padding: '0 4px', borderRadius: '3px' } }, 'PRICEMPIRE_KEY'), ' = your API key'),
-            React.createElement('div', null, '5. Paste the Worker URL below (looks like: ', React.createElement('code', { style: { background: 'rgba(0,0,0,0.2)', padding: '0 4px', borderRadius: '3px' } }, 'https://maermin-proxy.xxx.workers.dev'), ')')
+            React.createElement('div', { style: { fontWeight: '700', color: currentTheme.text, marginBottom: '0.375rem' } }, 'Update existing Worker (~1 min):'),
+            React.createElement('div', null, '1. ', React.createElement('a', { href: 'https://dash.cloudflare.com', target: '_blank', rel: 'noopener noreferrer', style: { color: currentTheme.accent } }, 'dash.cloudflare.com'), ' → Workers & Pages → your Worker'),
+            React.createElement('div', null, '2. Edit code → paste contents of ', React.createElement('code', { style: { background: 'rgba(0,0,0,0.2)', padding: '0 4px', borderRadius: '3px' } }, 'cf-worker/worker.js'), ' from ZIP'),
+            React.createElement('div', null, '3. Save and Deploy — no secrets needed'),
+            React.createElement('div', null, '4. Paste the Worker URL below')
           ),
           React.createElement('input', {
             type: 'text',
-            value: apiKeys.pricempire || '',
-            onChange: e => setApiKeys(prev => ({ ...prev, pricempire: e.target.value })),
-            placeholder: 'https://maermin-pricempire-proxy.your-subdomain.workers.dev',
+            value: apiKeys.cs2Worker || '',
+            onChange: e => setApiKeys(prev => ({ ...prev, cs2Worker: e.target.value })),
+            placeholder: 'https://maermin-pricempire-proxy.mr-klin2910.workers.dev',
             style: { width: '100%', padding: '0.75rem', background: currentTheme.inputBg, border: `1px solid ${currentTheme.inputBorder}`, borderRadius: '6px', color: currentTheme.text, fontSize: '0.8rem', fontFamily: 'monospace' }
           })
         ),
