@@ -1248,13 +1248,29 @@ function InvestmentTracker() {
           theme: currentTheme, formatPrice, getCurrencySymbol
         }),
 
-      // Positions Table (sortable)
-      window.MaerminFeatures && portfolioStats.totalPositions > 0 &&
-        React.createElement(window.MaerminFeatures.PositionsTable, {
-          portfolio, prices, priceHistory,
-          theme: currentTheme, formatPrice, getCurrencySymbol, t,
-          onAddTransaction: () => setShowTransactionModal(true)
-        }),
+      // Benchmark + Daily P&L side by side
+      window.MaerminFeatures3 && portfolioStats.totalPositions > 0 &&
+        React.createElement('div', { style: { display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem', marginBottom: '0' } },
+          React.createElement(window.MaerminFeatures3.BenchmarkWidget, {
+            portfolio, prices, priceHistory, transactions,
+            theme: currentTheme, formatPrice, getCurrencySymbol
+          }),
+          React.createElement(window.MaerminFeatures3.DailyPnLCard, {
+            portfolio, priceHistory,
+            theme: currentTheme, formatPrice, getCurrencySymbol
+          })
+        ),
+
+      // Positions Table — enhanced with CAGR, clickable rows, position detail modal
+      (window.MaerminFeatures3 ? window.MaerminFeatures3.EnhancedPositionsTable : window.MaerminFeatures?.PositionsTable) && portfolioStats.totalPositions > 0 &&
+        React.createElement(
+          window.MaerminFeatures3 ? window.MaerminFeatures3.EnhancedPositionsTable : window.MaerminFeatures.PositionsTable,
+          {
+            portfolio, prices, priceHistory, transactions,
+            theme: currentTheme, formatPrice, getCurrencySymbol, t,
+            onAddTransaction: () => setShowTransactionModal(true)
+          }
+        ),
 
       // Recent positions (original, shown only when no features loaded)
       !window.MaerminFeatures && React.createElement('div', {
