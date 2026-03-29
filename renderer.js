@@ -2328,7 +2328,7 @@ buy,crypto,bitcoin,0.5,45000,2024-01-15,10`)
             type: 'text',
             value: apiKeys.cs2Worker || '',
             onChange: e => setApiKeys(prev => ({ ...prev, cs2Worker: e.target.value })),
-            placeholder: 'https://maermin-pricempire-proxy.mr-klin2910.workers.dev',
+            placeholder: 'https://your-worker-name.your-subdomain.workers.dev',
             style: { width: '100%', padding: '0.75rem', background: currentTheme.inputBg, border: `1px solid ${currentTheme.inputBorder}`, borderRadius: '6px', color: currentTheme.text, fontSize: '0.8rem', fontFamily: 'monospace' }
           })
         ),

@@ -1,108 +1,198 @@
-# MAERMIN v8.0 — Release Notes
+# Release Notes — MAERMIN v7.2
 
-## What's New in v8.0
-
-### New Features
-
-**Benchmark Comparison** (inspired by Parqet & Delta)
-Portfolio return is now compared side-by-side against Bitcoin and Ethereum using collected price history — no extra API calls. Displayed as a bar chart on the Overview. Updates automatically after every price refresh.
-
-**Position Detail Modal** (inspired by Parqet & Sharesight)
-Click any row in the Positions table to open a full breakdown for that position: all individual transactions, average cost basis, total fees paid, unrealized P&L, total return %, and CAGR. Data comes entirely from your existing transactions — nothing fetched from the network.
-
-**CAGR per Position** (inspired by Sharesight & Ghostfolio)
-A new "CAGR/yr" column in the positions table shows the annualized return for each holding, calculated from purchase date to today. Shows `—` for positions held less than a month.
-
-**Daily P&L Card**
-The Overview now shows today's portfolio change in EUR and % — calculated from the difference between the last two price snapshots.
+**Datum:** März 2026  
+**Typ:** Feature Release + Bereinigung  
+**Kompatibilität:** Bestehende `localStorage`-Daten werden vollständig übernommen
 
 ---
 
-### CS2 Pricing — Complete Rework
+## Highlights
 
-Pricempire's `/v4/paid/` API requires a paid subscription (the free Trader plan only covers website tools, not the API). The entire CS2 pricing stack has been rebuilt around **Skinport** instead.
+MAERMIN ist jetzt eine vollständige **Web-App auf GitHub Pages** — keine Installation, kein Electron, kein Node.js erforderlich. Einfach URL aufrufen, Passwort eingeben, loslegen.
 
-**What changed:**
-- Source switched from Pricempire → Skinport
-- No API key required — Skinport's public API is free
-- The Cloudflare Worker (`cf-worker/worker.js`) has been completely rewritten
-- Worker now fetches Skinport server-side, bypassing CORS
-- Response is cached 10 minutes at Cloudflare edge — fast and bandwidth-efficient
-- In API Settings: field renamed from "Pricempire key" to "CS2 Worker URL"
-
-**Migration:** Update your existing Worker by replacing its code with the new `cf-worker/worker.js` and clicking Save and Deploy. No secrets or API keys needed. The Worker URL stays the same.
+Diese Version konsolidiert alle Features aus v7.0 und v7.1, entfernt irreführende Inhalte (hardcodierte Fake-Daten) und strukturiert die Navigation grundlegend neu.
 
 ---
 
-### Import Wizard — Major Upgrade
+## Neu in v7.2
 
-**CoinTracking import** — full parser built directly in `features2.js`:
-- Supports both date formats: `DD.MM.YYYY HH:MM` and `YYYY-MM-DD HH:MM:SS`
-- Auto-detects German and English CSV headers
-- Maps all transaction types: Trade → Buy+Sell, Deposit, Withdrawal, Income, Mining, Gift/Tip, Spend, Donation
-- Automatically filters out stablecoins (USDT, USDC, EUR etc.)
-- Computes price from Buy/Sell ratio on Trade rows
-- Auto-categorizes `crypto` vs `stocks`
+### Navigation komplett überarbeitet
 
-**Export from CoinTracking:** Reports → All Transactions → Export → **"CSV (Full Export)"**
+Die bisherige flache Liste mit 13 gleichwertigen Punkten wurde durch eine **3-Gruppen-Struktur** ersetzt, die sich an modernen Finance-Tools wie Parqet und Linear orientiert:
 
-**getquin** — honest info screen instead of a broken parser. getquin has no CSV export by design. The wizard now explains this clearly and offers three alternatives: import from original broker CSV, add manually, or use screenshot as reference.
+- **Portfolio** — Übersicht, Transaktionen, Dividenden, Journal
+- **Analyse** — Rendite, Rebalancing, Portfolio-Analyse, Strategie, Steuern
+- **Tools** — Watchlist, Preisalarme, Broker-Import
 
-**Broker logos** — all broker icons now render as proper SVG logos (inline, no external API dependency) instead of emoji. Brokers are grouped by category: Portfolio Trackers / Brokers / Crypto / Other.
+Aktive Elemente werden mit einem Akzent-Balken links markiert statt mit einem Vollfarb-Block — ruhiger, klarer lesbar.
 
----
+### Analytics als Tab-View
 
-### Design & Polish
+Die Portfolio-Analyse (Korrelation, Monte Carlo, Stress-Test, Risiko) öffnet sich nicht mehr auf einer separaten Menü-Seite. Stattdessen wechseln Tabs direkt innerhalb einer View — eine Klick weniger für jeden Analyseschritt.
 
-**All emojis removed** from the UI and replaced with clean Unicode symbols or text:
+### Bereinigungen
 
-| Was | Jetzt |
-|-----|-------|
-| ☀️ 🌙 💜 (theme switcher) | `Light` `Dark` `Purple` |
-| 🇩🇪 🇬🇧 (language toggle) | `DE` `EN` |
-| 🔐 🔑 🔒 (settings) | Plain text |
-| 💾 📤 (backup/export) | `↓` `↑` |
-| ✏️ 🗑️ (edit/delete) | `✎` `×` |
-| 📊 📈 💰 📓 ⚖️ (view headers) | Text only |
-| 📂 🎉 (upload/success) | `↑` `✓` |
-| 👁 🔔 🎯 (empty states) | `○` `◎` |
+Folgende Inhalte wurden **vollständig entfernt**:
 
-**Sidebar navigation** — grouped into three labeled sections (Portfolio / Analysis / Tools) with accent left-border active indicator. Clean letter/symbol icons instead of emoji.
+| Entfernt | Grund |
+|----------|-------|
+| `EconomicIndicatorView` | Zeigte hardcodierte Daten von 2023 (CPI 3.4%, VIX 16.5) — irreführend |
+| `OptionsTrackerView` | Black-Scholes-Rechner ohne Bezug zu echten Portfolio-Positionen |
+| `DividendTrackerView` (alt) | Duplikat des neuen Dividenden-Kalenders |
+| `TaxPlanningView` in Analyse | Duplikat der Haupt-Steuer-View |
+| `renderPortfolioView` | Vollständig redundant — die Übersicht zeigt alles besser |
+| Workspace-System | Rein kosmetisches Label ohne echte Funktion |
+| 19 redundante Command-Palette-Einträge | Von 40 auf 22 sinnvolle Einträge reduziert |
+| 4 separate Analytics-Einzelrouten | Jetzt als Tabs in einer View |
 
 ---
 
-### Version Bump
+## Neu in v7.1
 
-All files updated from v7.x to v8.0:
-- `renderer.js`, `features.js`, `features2.js`, `features3.js`
-- `index.html` (title, meta tags, version badge, comments)
-- `package.json`
-- `auth.js`
+### XIRR / Time-Weighted Return
+
+Die neue Rendite-Ansicht berechnet auf Basis echter Transaktions-Cashflows:
+
+- **XIRR** (Money-Weighted Return, annualisiert) — berücksichtigt Zeitpunkt und Größe jeder Ein-/Auszahlung
+- **TWR** (Time-Weighted Return) — Portfolioentwicklung unabhängig von Cashflows, berechnet aus gespeicherter Preis-History
+- Gesamtrendite in EUR, Haltedauer, Gebührenübersicht
+
+### Rebalancing-Tool
+
+- Ziel-Allokation pro Kategorie per Slider einstellbar (Crypto / Aktien / CS2)
+- Zeigt für jede Kategorie exakt welchen Betrag kaufen oder verkaufen
+- Optionale Simulation: "Was wenn ich X EUR zusätzlich investiere?"
+- Ziel-Allokation wird persistent im Browser gespeichert
+
+### Broker-Import-Wizard
+
+Ein geführter 4-Schritte-Prozess für CSV-Importe:
+
+1. Broker auswählen (DEGIRO, Trade Republic, Interactive Brokers, Coinbase, Binance, Kraken, Generisch)
+2. CSV per Drag & Drop oder Dateiauswahl laden
+3. Vorschau der erkannten Transaktionen (bis zu 20 angezeigt)
+4. Import bestätigen
+
+Nutzt die vorhandene `import-export-engine.js` mit automatischer Broker-Erkennung.
+
+### Trade-Journal
+
+Pro Position lassen sich Notizen speichern:
+
+- Investitionsthese, Zielkurs, Risiken, Strategie
+- Zuletzt bearbeitet Datum wird angezeigt
+- Persistent im `localStorage` unter `maermin_notes`
+
+### Dividenden-Kalender
+
+- Kalenderansicht mit eingetragenen Dividendenzahlungen
+- Monats- und Jahressummen
+- Liste der nächsten anstehenden Zahlungen
+- Persistent im `localStorage` unter `maermin_divevents`
+
+### Mobile-Navigation
+
+Unter 768px Bildschirmbreite:
+
+- Desktop-Sidebar wird automatisch ausgeblendet
+- Bottom-Navigation mit 5 wichtigsten Views erscheint am unteren Bildschirmrand
+- Kein `@media`-CSS in bestehenden Dateien nötig — wird dynamisch injiziert
 
 ---
 
-## Bug Fixes
+## Neu in v7.0
 
-- `timestamp is not defined` error in `fetchPrices` — variable now declared at function top
-- `allorigins.win` proxy 408/500 errors — replaced with direct Skinport via Worker
-- `api.skinport.com` CORS block — fixed via Worker
-- `steamcommunity.com` CORS block on GitHub Pages — Steam fallback removed
-- Settings dropdown: old `pricempire` API key field migrated to `cs2Worker`
+### GitHub Pages Deploy
+
+- Vollständige Konvertierung von Electron-Desktop-App zur Web-App
+- GitHub Actions Workflow für automatischen Deploy bei Push
+- `.nojekyll` verhindert Jekyll-Verarbeitung der JS-Dateien
+
+### Shared-Secret Login
+
+- SHA-256-basiertes Passwort-System, kein Server nötig
+- Session läuft nach 8 Stunden ab
+- Passwort-Ändern direkt in der App möglich (neuen Hash generieren und in `auth.js` eintragen)
+- Standard-Passwort: `maermin2024`
+
+### Donut-Chart & Allocation
+
+- Interaktiver Donut-Chart mit Hover-Highlight
+- Tabs: Gesamtansicht, Crypto, Aktien, CS2
+- Legende mit Prozentanteilen
+
+### Sparklines
+
+- Mini-Trendlinien (letzte 20 Preise) auf jeder Position
+- Grün = aufwärts, Rot = abwärts
+
+### Gainers / Losers
+
+- Top 3 Gewinner und Verlierer direkt auf der Übersicht
+- Mit Sparkline und Prozentangabe
+
+### Performance-Chart
+
+- SVG-Chart der Portfolio-Gesamtwert-Entwicklung über Zeit
+- Nutzt gespeicherte `priceHistory`-Daten
+- Gesamtrendite und Prozentänderung im Header
+
+### Sortierbare Positions-Tabelle
+
+- Klickbare Spaltenköpfe (Wert, P&L, Symbol, Preis, Trend)
+- Kategorie-Filter (Alle, Crypto, Aktien, CS2)
+- P&L-Balken und Portfolio-Anteil-Balken pro Zeile
+
+### Watchlist
+
+- Symbole beobachten ohne Kauf
+- Optional: Target-Price einstellen (wird grün markiert wenn erreicht)
+- Sparkline aus gespeicherter Preis-History
+- Persistent im `localStorage` unter `maermin_watchlist`
+
+### Preisalarme
+
+- Alarm wenn Preis über oder unter einen Schwellenwert fällt
+- Fortschrittsbalken zeigt wie nah die aktuelle Position am Ziel ist
+- Toast-Benachrichtigung wenn Alarm auslöst
+- Alarm kann zurückgesetzt werden
+- Persistent im `localStorage` unter `maermin_alerts`
 
 ---
 
-## How to Update
+## Bug-Fixes (akkumuliert)
 
-1. Download the ZIP and replace all changed files in your repo
-2. **Update the Cloudflare Worker** — open your Worker in the Cloudflare Dashboard, replace the code with the new `cf-worker/worker.js`, and click Save and Deploy
-3. In MAERMIN API Settings: your existing Worker URL stays the same — just make sure the field now shows "CS2 Worker URL" (not "Pricempire key")
-4. Push to GitHub — GitHub Actions deploys automatically
-5. Hard reload in browser: `Ctrl+Shift+R`
+- `body overflow: hidden` entfernt — Scrolling im Browser funktioniert korrekt
+- `Portfolio maxHeight: 400px` hardcodiert — entfernt
+- Total im Transaction-Modal wurde unformatiert angezeigt — `.toFixed(2)` ergänzt
+- SHA-256-Hash für Standard-Passwort war falsch berechnet — korrigiert
+- Settings-Dropdown schloss nicht bei Klick außerhalb — `useRef` + `mousedown`-Listener ergänzt
+- `window.confirm()` für Transaktions-Löschen — durch Inline-Bestätigung ersetzt
+- `images`-, `alerts`-, `showBackupModal`-States existierten aber wurden nie genutzt — entfernt
+- `analytics:correlation`, `analytics:montecarlo`, etc. als separate URL-Routen — in Tab-View konsolidiert
 
 ---
 
-## GitHub Release
+## Breaking Changes
 
-**Tag:** `v8.0`  
-**Title:** `MAERMIN v8.0 — Portfolio Tracker`  
-**Assets:** attach `MAERMIN-complete.zip`
+Keine. Bestehende `localStorage`-Daten (Transaktionen, Einstellungen, Watchlist, Alerts) werden vollständig übernommen.
+
+Das Backup-Format aus v6.x wird beim Import automatisch in das neue Transaktions-Format konvertiert.
+
+---
+
+## Bekannte Einschränkungen
+
+- **XIRR / TWR** benötigen Preis-History-Daten. Diese entstehen erst nach mehrmaligem "Preise aktualisieren" über mehrere Tage.
+- **Alpha Vantage** (Aktien) ist auf 25 Requests/Tag im kostenlosen Tier limitiert. Bei mehr als 5 Aktien-Positionen werden pro Refresh nur 5 Symbole abgefragt.
+- **Skinport** (CS2) gibt nur Preise für genau übereinstimmende Item-Namen zurück. Der vollständige Market-Hash-Name muss beim Eintragen verwendet werden.
+
+---
+
+## Upgrade von v6.x
+
+1. Alle Dateien aus dem neuen Release in den Projektordner kopieren
+2. `git add . && git commit -m "Upgrade to v7.2" && git push`
+3. GitHub Pages → Settings → Pages → Source: **GitHub Actions** aktivieren (einmalig)
+
+Lokale Daten bleiben vollständig erhalten — kein Daten-Export nötig.
