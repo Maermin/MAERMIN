@@ -2116,7 +2116,27 @@ function InvestmentTracker() {
                   )
                 )
 
-            // Commodity quick-select
+            // Stock Symbol Picker
+            : (newTransaction.category === 'stocks' || newTransaction.category === 'crypto') && window.MaerminFeatures3?.SymbolPicker
+              ? React.createElement(window.MaerminFeatures3.SymbolPicker, {
+                  category: newTransaction.category,
+                  workerUrl: apiKeys.cs2Worker,
+                  theme: currentTheme,
+                  selectedSymbol: newTransaction.symbol,
+                  selectedName: newTransaction.symbolName || '',
+                  onSelect: ({ symbol, ticker, name, logoUrl, exchange }) => {
+                    if (!symbol) {
+                      setNewTransaction(prev => ({ ...prev, symbol: '', symbolName: '', symbolLogoUrl: '' }));
+                      return;
+                    }
+                    setNewTransaction(prev => ({
+                      ...prev,
+                      symbol,           // exact API symbol (CoinGecko ID or YF ticker)
+                      symbolName: name, // human-readable name stored for display
+                      symbolLogoUrl: logoUrl || '',
+                    }));
+                  }
+                })
             : newTransaction.category === 'commodities'
               ? React.createElement('div', null,
                   // Preset buttons
@@ -2153,11 +2173,11 @@ function InvestmentTracker() {
                   })
                 )
 
-            // Default: text input for crypto / stocks
+            // Default fallback: plain text (for categories without picker)
             : React.createElement('input', {
                 type: 'text', value: newTransaction.symbol,
-                onChange: e => setNewTransaction(prev => ({ ...prev, symbol: e.target.value })),
-                placeholder: newTransaction.category === 'crypto' ? 'bitcoin, ethereum...' : 'AAPL, MSFT...',
+                onChange: e => setNewTransaction(prev => ({ ...prev, symbol: e.target.value.toUpperCase() })),
+                placeholder: 'Symbol...',
                 style: { width: '100%', padding: '0.75rem', background: currentTheme.inputBg, border: `1px solid ${currentTheme.inputBorder}`, borderRadius: '8px', color: currentTheme.text }
               })
           ),

@@ -45,8 +45,8 @@ const YF_SYMBOL_MAP = {
   'NVO': 'NVO',
   // Stockholm — Yahoo nutzt .ST
   'ERIC-B': 'ERIC-B.ST', 'HM-B': 'HM-B.ST', 'VOLV-B': 'VOLV-B.ST',
-  // FI ist mehrdeutig: Fiserv (US) oder Fingerprint Cards (SE)
-  // Als US-Ticker direkt verwenden, Stockholm-Aktien mit .ST eingeben
+  // FI = Fiserv Inc. (NYSE) — works bare on Yahoo Finance
+  // If user means a Swedish stock they should enter the full symbol e.g. FINGERP.ST
   'FI': 'FI',
   // Amsterdam (.AS)
   'ASML': 'ASML.AS', 'SHELL': 'SHEL.AS', 'ING': 'INGA.AS', 'PHIA': 'PHIA.AS',

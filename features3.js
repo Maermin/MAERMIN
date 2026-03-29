@@ -776,6 +776,255 @@ function CS2SkinPicker({ workerUrl, theme, onSelect, selectedName }) {
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
+// SYMBOL PICKER — Stocks & Crypto
+// Searches Yahoo Finance (stocks/ETFs) and CoinGecko (crypto) with logos
+// Stores the exact YF symbol or CoinGecko ID on the transaction
+// ─────────────────────────────────────────────────────────────────────────────
+
+const EXCHANGE_SHORT = {
+  'NMS': 'NASDAQ', 'NYQ': 'NYSE', 'PCX': 'NYSE ARCA',
+  'GER': 'XETRA', 'FRA': 'Frankfurt', 'LSE': 'London',
+  'PAR': 'Paris', 'AMS': 'Amsterdam', 'STO': 'Stockholm',
+  'CPH': 'Copenhagen', 'MIL': 'Milan', 'MCE': 'Madrid',
+  'TOR': 'Toronto', 'ASX': 'ASX', 'HKG': 'Hong Kong',
+  'TYO': 'Tokyo',
+};
+
+const TYPE_COLOR = {
+  EQUITY: '#3b82f6', ETF: '#06b6d4', MUTUALFUND: '#8b5cf6',
+  CRYPTOCURRENCY: '#f59e0b', COMMODITY: '#d97706',
+};
+
+const TYPE_LABEL = {
+  EQUITY: 'Stock', ETF: 'ETF', MUTUALFUND: 'Fund',
+  CRYPTOCURRENCY: 'Crypto', COMMODITY: 'Commodity',
+};
+
+function SymbolPicker({ category, workerUrl, theme, onSelect, selectedSymbol, selectedName }) {
+  const [query, setQuery]     = useState(selectedName || selectedSymbol || '');
+  const [results, setResults] = useState([]);
+  const [loading, setLoading] = useState(false);
+  const [open, setOpen]       = useState(false);
+  const [error, setError]     = useState(null);
+  const [selected, setSelected] = useState(
+    selectedSymbol ? { symbol: selectedSymbol, name: selectedName || selectedSymbol } : null
+  );
+  const debounceRef = useRef(null);
+  const inputRef    = useRef(null);
+
+  const isCrypto = category === 'crypto';
+
+  // Debounced search
+  useEffect(() => {
+    if (debounceRef.current) clearTimeout(debounceRef.current);
+    const q = query.trim();
+    if (!q || q.length < 2) { setResults([]); setOpen(false); return; }
+    if (selected && q === (selected.name || selected.symbol)) return; // already selected
+
+    debounceRef.current = setTimeout(async () => {
+      setLoading(true); setError(null);
+      try {
+        if (isCrypto) {
+          // CoinGecko search — direct, no worker needed
+          const res  = await fetch(
+            `https://api.coingecko.com/api/v3/search?query=${encodeURIComponent(q)}`,
+            { signal: AbortSignal.timeout(8000) }
+          );
+          const data = await res.json();
+          const coins = (data.coins || []).slice(0, 8).map(c => ({
+            symbol:   c.id,          // CoinGecko ID used for price fetching
+            ticker:   c.symbol?.toUpperCase(),
+            name:     c.name,
+            logoUrl:  c.large || c.thumb,
+            type:     'CRYPTOCURRENCY',
+            exchange: `Rank #${c.market_cap_rank || '—'}`,
+          }));
+          setResults(coins);
+          setOpen(coins.length > 0);
+        } else {
+          // Yahoo Finance search via Worker
+          if (!workerUrl) { setError('Add Worker URL in ⚙ Settings for stock search'); setLoading(false); return; }
+          const base = workerUrl.trim().replace(/\/$/, '');
+          const res  = await fetch(`${base}?action=yfsearch&q=${encodeURIComponent(q)}`, { signal: AbortSignal.timeout(10000) });
+          if (!res.ok) throw new Error(`Search failed: ${res.status}`);
+          const data = await res.json();
+          const items = (Array.isArray(data) ? data : []).map(r => ({
+            symbol:   r.symbol,
+            name:     r.name,
+            exchange: EXCHANGE_SHORT[r.exchange] || r.exchange || '',
+            type:     r.type || 'EQUITY',
+            logoUrl:  `https://logo.clearbit.com/${r.symbol.split('.')[0].toLowerCase()}.com`,
+          }));
+          setResults(items);
+          setOpen(items.length > 0);
+        }
+      } catch(e) {
+        setError(e.message);
+      } finally {
+        setLoading(false);
+      }
+    }, 350);
+  }, [query, isCrypto, workerUrl]);
+
+  const pick = (item) => {
+    setSelected(item);
+    setQuery(item.name);
+    setResults([]);
+    setOpen(false);
+    // Pass both the display name and the exact API symbol
+    onSelect({
+      symbol:  item.symbol,   // CoinGecko ID for crypto, YF symbol for stocks
+      ticker:  item.ticker || item.symbol,
+      name:    item.name,
+      logoUrl: item.logoUrl,
+      type:    item.type,
+      exchange: item.exchange,
+    });
+  };
+
+  const clear = () => {
+    setSelected(null);
+    setQuery('');
+    setResults([]);
+    setOpen(false);
+    onSelect({ symbol: '', name: '', logoUrl: null });
+    setTimeout(() => inputRef.current?.focus(), 50);
+  };
+
+  return React.createElement('div', { style: { position: 'relative' } },
+
+    // ── Search Input ──────────────────────────────────────────────────────
+    React.createElement('div', { style: { position: 'relative', display: 'flex', gap: '0.5rem', alignItems: 'center' } },
+      React.createElement('div', { style: { flex: 1, position: 'relative' } },
+        React.createElement('input', {
+          ref: inputRef,
+          type: 'text',
+          value: query,
+          onChange: e => { setQuery(e.target.value); setSelected(null); },
+          onFocus: () => results.length > 0 && setOpen(true),
+          placeholder: isCrypto ? 'Search: Bitcoin, Ethereum, Solana...' : 'Search: Apple, ASML, Novo Nordisk...',
+          style: {
+            width: '100%', padding: '0.75rem 2.5rem 0.75rem 0.875rem',
+            background: theme.inputBg, border: `1px solid ${selected ? theme.accent : theme.inputBorder}`,
+            borderRadius: '8px', color: theme.text, fontSize: '0.875rem', boxSizing: 'border-box',
+            transition: 'border-color 0.15s'
+          }
+        }),
+        loading && React.createElement('div', {
+          style: { position: 'absolute', right: '0.75rem', top: '50%', transform: 'translateY(-50%)', color: theme.textSecondary, fontSize: '0.8rem' }
+        }, '◎')
+      ),
+      selected && React.createElement('button', {
+        onClick: clear,
+        title: 'Clear selection',
+        style: { padding: '0.5rem', background: 'rgba(239,68,68,0.1)', border: '1px solid rgba(239,68,68,0.2)', borderRadius: '6px', color: '#ef4444', cursor: 'pointer', fontSize: '0.875rem', lineHeight: 1 }
+      }, '×')
+    ),
+
+    // ── Selected Preview ──────────────────────────────────────────────────
+    selected && React.createElement('div', {
+      style: { marginTop: '0.5rem', display: 'flex', alignItems: 'center', gap: '0.625rem', padding: '0.625rem 0.875rem', background: `${theme.accent}0d`, border: `1px solid ${theme.accent}33`, borderRadius: '8px' }
+    },
+      // Logo / icon
+      React.createElement('div', { style: { width: 36, height: 36, borderRadius: '8px', overflow: 'hidden', flexShrink: 0, background: 'rgba(255,255,255,0.06)', display: 'flex', alignItems: 'center', justifyContent: 'center' } },
+        selected.logoUrl
+          ? React.createElement('img', { src: selected.logoUrl, alt: selected.name, style: { width: 36, height: 36, objectFit: 'contain' }, onError: e => { e.target.style.display = 'none'; } })
+          : React.createElement('span', { style: { color: theme.textSecondary, fontSize: '0.7rem' } }, (selected.ticker || selected.symbol || '').slice(0, 4))
+      ),
+      React.createElement('div', { style: { flex: 1, minWidth: 0 } },
+        React.createElement('div', { style: { display: 'flex', alignItems: 'center', gap: '0.375rem', flexWrap: 'wrap' } },
+          React.createElement('span', { style: { color: theme.text, fontWeight: '700', fontSize: '0.875rem' } }, selected.ticker || selected.symbol),
+          React.createElement('span', { style: { fontSize: '0.65rem', padding: '0.1rem 0.35rem', borderRadius: '3px', background: `${TYPE_COLOR[selected.type] || theme.accent}20`, color: TYPE_COLOR[selected.type] || theme.accent, fontWeight: '600' } }, TYPE_LABEL[selected.type] || 'Stock'),
+          selected.exchange && React.createElement('span', { style: { fontSize: '0.65rem', color: theme.textSecondary } }, selected.exchange)
+        ),
+        React.createElement('div', { style: { color: theme.textSecondary, fontSize: '0.75rem', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' } }, selected.name),
+        React.createElement('div', { style: { color: theme.textSecondary, fontSize: '0.65rem', marginTop: '0.125rem', opacity: 0.7 } },
+          isCrypto ? `CoinGecko ID: ${selected.symbol}` : `YF Symbol: ${selected.symbol}`
+        )
+      )
+    ),
+
+    // ── Error ─────────────────────────────────────────────────────────────
+    error && React.createElement('div', {
+      style: { fontSize: '0.75rem', color: '#ef4444', marginTop: '0.25rem', padding: '0 0.25rem' }
+    }, error),
+
+    // ── Results Dropdown ──────────────────────────────────────────────────
+    open && results.length > 0 && React.createElement('div', {
+      style: {
+        position: 'absolute', top: 'calc(100% + 4px)', left: 0, right: 0, zIndex: 9999,
+        background: theme.modalBg || theme.card,
+        border: `1px solid ${theme.modalBorder || theme.cardBorder}`,
+        borderRadius: '10px', overflow: 'hidden',
+        boxShadow: '0 20px 60px rgba(0,0,0,0.6)',
+        maxHeight: '360px', overflowY: 'auto'
+      }
+    },
+      // Header
+      React.createElement('div', {
+        style: { padding: '0.5rem 0.875rem', borderBottom: `1px solid ${theme.cardBorder}`, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }
+      },
+        React.createElement('span', { style: { color: theme.textSecondary, fontSize: '0.7rem' } },
+          `${results.length} result${results.length !== 1 ? 's' : ''} · click to select`
+        ),
+        React.createElement('button', {
+          onClick: () => setOpen(false),
+          style: { background: 'none', border: 'none', color: theme.textSecondary, cursor: 'pointer', fontSize: '1rem', padding: '0 0.25rem', lineHeight: 1 }
+        }, '×')
+      ),
+
+      // Results list
+      React.createElement('div', { style: { display: 'flex', flexDirection: 'column' } },
+        results.map((item, i) =>
+          React.createElement('div', {
+            key: i,
+            onClick: () => pick(item),
+            style: {
+              display: 'flex', alignItems: 'center', gap: '0.75rem',
+              padding: '0.625rem 0.875rem',
+              borderBottom: i < results.length - 1 ? `1px solid ${theme.cardBorder}` : 'none',
+              cursor: 'pointer', transition: 'background 0.1s'
+            },
+            onMouseEnter: e => e.currentTarget.style.background = `${theme.accent}10`,
+            onMouseLeave: e => e.currentTarget.style.background = 'transparent'
+          },
+            // Logo
+            React.createElement('div', {
+              style: { width: 36, height: 36, borderRadius: '8px', flexShrink: 0, overflow: 'hidden', background: 'rgba(255,255,255,0.05)', display: 'flex', alignItems: 'center', justifyContent: 'center' }
+            },
+              item.logoUrl
+                ? React.createElement('img', {
+                    src: item.logoUrl, alt: item.name,
+                    style: { width: 36, height: 36, objectFit: 'contain' },
+                    onError: e => { e.target.parentNode.innerHTML = `<span style="font-size:0.65rem;color:rgba(255,255,255,0.3)">${(item.ticker||item.symbol).slice(0,4)}</span>`; }
+                  })
+                : React.createElement('span', { style: { fontSize: '0.65rem', color: 'rgba(255,255,255,0.3)' } }, (item.ticker || item.symbol).slice(0, 4))
+            ),
+
+            // Info
+            React.createElement('div', { style: { flex: 1, minWidth: 0 } },
+              React.createElement('div', { style: { display: 'flex', alignItems: 'center', gap: '0.375rem', flexWrap: 'wrap' } },
+                React.createElement('span', { style: { color: theme.text, fontWeight: '700', fontSize: '0.875rem' } }, item.ticker || item.symbol),
+                React.createElement('span', {
+                  style: { fontSize: '0.6rem', padding: '0.1rem 0.3rem', borderRadius: '3px', background: `${TYPE_COLOR[item.type] || '#3b82f6'}20`, color: TYPE_COLOR[item.type] || '#3b82f6', fontWeight: '600' }
+                }, TYPE_LABEL[item.type] || 'Stock'),
+                item.exchange && React.createElement('span', { style: { fontSize: '0.65rem', color: theme.textSecondary } }, item.exchange)
+              ),
+              React.createElement('div', {
+                style: { color: theme.textSecondary, fontSize: '0.78rem', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', marginTop: '0.1rem' }
+              }, item.name)
+            ),
+
+            // Arrow
+            React.createElement('span', { style: { color: theme.textSecondary, fontSize: '0.8rem', opacity: 0.5 } }, '→')
+          )
+        )
+      )
+    )
+  );
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
 // EXPORTS
 // ─────────────────────────────────────────────────────────────────────────────
 window.MaerminFeatures3 = {
@@ -785,8 +1034,9 @@ window.MaerminFeatures3 = {
   EnhancedPositionsTable,
   CS2SkinPicker,
   CS2SkinImage,
+  SymbolPicker,
 };
 
-console.log('[OK] MAERMIN Features3 v8.0 loaded — Benchmark, Position Detail, CAGR, Daily P&L, CS2 Skin Picker');
+console.log('[OK] MAERMIN Features3 v8.3 loaded — Benchmark, Position Detail, CAGR, Daily P&L, CS2 Skin Picker, Symbol Picker');
 
 })();
