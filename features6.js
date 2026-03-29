@@ -51,20 +51,65 @@ async function fetchCryptoHistory(coinId, cgDays) {
   }));
 }
 
-// Alpha Vantage: [{date, price_usd}]
+// Alpha Vantage: [{date, ts, price_usd}]
+// Tries multiple exchange suffixes for European/global stocks automatically
 async function fetchStockHistory(symbol, avKey, compact = false) {
-  const outputsize = compact ? 'compact' : 'full'; // compact = last 100 days
-  const url = `https://www.alphavantage.co/query?function=TIME_SERIES_DAILY&symbol=${symbol}&outputsize=${outputsize}&apikey=${avKey}`;
-  const res = await fetch(url, { signal: AbortSignal.timeout(15000) });
-  if (!res.ok) throw new Error(`AV ${res.status}`);
-  const data = await res.json();
-  const series = data['Time Series (Daily)'];
-  if (!series) throw new Error(data['Note'] || data['Error Message'] || 'No data');
-  return Object.entries(series).map(([date, vals]) => ({
-    date,
-    ts: Math.floor(new Date(date).getTime() / 1000),
-    price: parseFloat(vals['4. close'])
-  })).sort((a, b) => a.ts - b.ts);
+  const outputsize = compact ? 'compact' : 'full';
+
+  // Exchange suffix map: if bare symbol fails, try these in order
+  // AV supports: .DE (XETRA), .L (London), .PA (Paris), .CO (Copenhagen), .ST (Stockholm), .AS (Amsterdam), .MI (Milan), .BR (Brussels)
+  const SUFFIXES_BY_HINT = {
+    // Well-known European stocks that fail bare
+    'SIX2': ['SIX2.DE'], 'SIE': ['SIE.DE'], 'SAP': ['SAP.DE'], 'BMW': ['BMW.DE'],
+    'VOW3': ['VOW3.DE'], 'BAS': ['BAS.DE'], 'ALV': ['ALV.DE'], 'MRK': ['MRK.DE'],
+    'ADS': ['ADS.DE'], 'RWE': ['RWE.DE'], 'DTE': ['DTE.DE'], 'DBK': ['DBK.DE'],
+    'NVO': ['NVO.CO', 'NVO'],  // Novo Nordisk: Copenhagen primary, US ADR secondary
+    'FI':  ['FI.ST', 'FI'],   // FI could be Swedish or Fiserv US
+    'SHEL': ['SHEL.L'], 'AZN': ['AZN.L'], 'BP': ['BP.L'],
+    'LVMH': ['MC.PA'], 'TTE': ['TTE.PA'], 'SAN': ['SAN.PA'],
+  };
+
+  // Build list of symbols to try: specific map first, then generic suffixes
+  const symU = symbol.toUpperCase();
+  let candidates = SUFFIXES_BY_HINT[symU] ? [...SUFFIXES_BY_HINT[symU]] : [];
+  // Always try bare symbol (US or already-suffixed)
+  if (!candidates.includes(symU)) candidates = [symU, ...candidates];
+  // If no dot and not in map, also try common EU suffixes
+  if (!symU.includes('.') && !SUFFIXES_BY_HINT[symU]) {
+    candidates = [symU, `${symU}.DE`, `${symU}.L`, `${symU}.PA`];
+  }
+
+  let lastError = 'No data';
+  for (const sym of candidates) {
+    try {
+      const url = `https://www.alphavantage.co/query?function=TIME_SERIES_DAILY&symbol=${encodeURIComponent(sym)}&outputsize=${outputsize}&apikey=${avKey}`;
+      const res = await fetch(url, { signal: AbortSignal.timeout(15000) });
+      if (!res.ok) { lastError = `HTTP ${res.status}`; continue; }
+      const data = await res.json();
+
+      // Rate limit hit
+      if (data['Note']) { lastError = 'Rate limit — try again in 1 minute'; break; }
+      if (data['Information']) { lastError = 'Rate limit (daily)'; break; }
+
+      const series = data['Time Series (Daily)'];
+      if (!series || Object.keys(series).length === 0) {
+        lastError = data['Error Message'] || 'No series data';
+        continue; // try next suffix
+      }
+
+      // Success
+      console.log(`[CHART] AV matched ${symbol} → ${sym}`);
+      return Object.entries(series).map(([date, vals]) => ({
+        date,
+        ts: Math.floor(new Date(date).getTime() / 1000),
+        price: parseFloat(vals['4. close'])
+      })).sort((a, b) => a.ts - b.ts);
+
+    } catch(e) {
+      lastError = e.message;
+    }
+  }
+  throw new Error(lastError);
 }
 
 // Alpha Vantage FX: precious metals
@@ -153,34 +198,58 @@ function PortfolioHistoryChart({ portfolio, prices, apiKeys, theme, formatPrice,
       }));
 
       // Small delay to avoid Alpha Vantage rate limits if crypto took API calls
-      if (cryptoPositions.length > 0) await new Promise(r => setTimeout(r, 200));
+      if (cryptoPositions.length > 0) await new Promise(r => setTimeout(r, 300));
 
       // ── Stocks (Alpha Vantage, sequential due to rate limits) ────────────
       const stockPositions = positions.filter(p => p.cat === 'stocks');
-      for (const pos of stockPositions) {
+      let avRateLimited = false;
+
+      for (let si = 0; si < stockPositions.length; si++) {
+        const pos = stockPositions[si];
         const cacheKey = `${pos.symOrig}_${period}`;
+
         if (cacheRef.current[cacheKey]) {
           historyMap[pos.symOrig] = cacheRef.current[cacheKey];
           continue;
         }
+
+        // Fallback: flat line at current price (used when AV unavailable)
+        const curP = prices[pos.symOrig] || prices[pos.sym] || 0;
+        const flatFallback = curP > 0
+          ? [{ ts: Date.now()/1000 - 86400, date: '', price: curP }, { ts: Date.now()/1000, date: new Date().toISOString().split('T')[0], price: curP }]
+          : null;
+
         if (!avKey) {
-          const curP = prices[pos.symOrig] || prices[pos.sym] || 0;
-          if (curP > 0) historyMap[pos.symOrig] = [{ ts: Date.now()/1000, date: new Date().toISOString().split('T')[0], price: curP }];
+          if (flatFallback) historyMap[pos.symOrig] = flatFallback;
           continue;
         }
+
+        if (avRateLimited) {
+          // Already hit rate limit this run — use current price fallback for remaining stocks
+          if (flatFallback) historyMap[pos.symOrig] = flatFallback;
+          continue;
+        }
+
         try {
           const hist = await fetchStockHistory(pos.symOrig.toUpperCase(), avKey, compact);
-          // Convert USD → EUR
           const histEUR = hist.map(h => ({ ...h, price: h.price * usdToEur }));
           cacheRef.current[cacheKey] = histEUR;
           historyMap[pos.symOrig] = histEUR;
         } catch(e) {
-          console.warn('[CHART] AV failed for', pos.symOrig, e.message);
-          const curP = prices[pos.symOrig] || prices[pos.sym] || 0;
-          if (curP > 0) historyMap[pos.symOrig] = [{ ts: Date.now()/1000, date: new Date().toISOString().split('T')[0], price: curP }];
+          const msg = e.message || '';
+          if (msg.includes('Rate limit') || msg.includes('daily')) {
+            avRateLimited = true;
+            console.warn('[CHART] AV rate limit hit — using current price for remaining stocks');
+          } else {
+            console.warn('[CHART] AV failed for', pos.symOrig, '—', msg, '— using current price');
+          }
+          if (flatFallback) historyMap[pos.symOrig] = flatFallback;
         }
-        if (stockPositions.indexOf(pos) < stockPositions.length - 1) {
-          await new Promise(r => setTimeout(r, 12500)); // AV free tier: 5 req/min
+
+        // Wait between AV calls (free tier: 5 req/min = 12s between calls)
+        // Only wait if not last and not rate limited
+        if (si < stockPositions.length - 1 && !avRateLimited) {
+          await new Promise(r => setTimeout(r, 12500));
         }
       }
 
