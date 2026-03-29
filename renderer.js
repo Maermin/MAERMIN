@@ -517,11 +517,9 @@ function InvestmentTracker() {
         }
       }
       
-      // ── CS2 Skin Prices via Skinport ───────────────────────────────────────
-      // Skinport's API is free and has real third-party market prices.
-      // It blocks CORS from browsers, so we route through a Cloudflare Worker.
-      // The Worker fetches Skinport server-side and adds CORS headers.
-      // No API key needed — just a Worker URL in ⚙ API Settings.
+      // ── CS2 Skin Prices via Steam Market Worker ────────────────────────────
+      // Worker fetches Steam Market price per skin server-side (bypasses CORS).
+      // Sends POST with array of skin names → receives {name: price} map.
       if (portfolio.skins && portfolio.skins.length > 0) {
         const rawWorkerUrl = (apiKeys.cs2Worker || '').trim();
         const workerUrl = rawWorkerUrl
@@ -529,72 +527,47 @@ function InvestmentTracker() {
           : null;
 
         if (!workerUrl) {
-          console.warn('[PRICES] No CS2 Worker URL set — add your Cloudflare Worker URL in ⚙ API Settings');
-          addToast('CS2: add your Worker URL in ⚙ API Settings (no API key needed)', 'warning');
+          console.warn('[PRICES] No CS2 Worker URL — add it in ⚙ API Settings');
+          addToast('CS2: add your Worker URL in ⚙ API Settings', 'warning');
         } else {
           try {
-            console.log('[PRICES] Skinport: fetching via Worker...');
+            const skinNames = portfolio.skins.map(s => (s.symbol || s.name || '').trim()).filter(Boolean);
+            console.log('[PRICES] CS2 Steam: fetching', skinNames.length, 'skins via Worker...');
+
+            // POST array of names — Worker fetches Steam price per skin
             const res = await fetch(workerUrl.replace(/\/$/, ''), {
-              signal: AbortSignal.timeout(20000)
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify(skinNames),
+              signal: AbortSignal.timeout(60000) // Steam needs ~1.5s per skin
             });
 
             if (res.ok) {
-              const skinportData = await res.json();
-              if (!Array.isArray(skinportData)) throw new Error('Expected array from Skinport');
-
-              console.log('[PRICES] Skinport: received', skinportData.length, 'items');
-
+              const priceMap = await res.json(); // { "AK-47 | Redline (FT)": 12.34, ... }
               let matchedCount = 0;
-              const unmatched = [];
 
-              portfolio.skins.forEach(skin => {
-                const skinName  = (skin.symbol || skin.name || '').trim();
-                const skinLower = skinName.toLowerCase();
-
-                // 1. Exact match
-                let match = skinportData.find(item =>
-                  (item.market_hash_name || '').toLowerCase() === skinLower
-                );
-
-                // 2. Fuzzy: strip wear in parentheses
-                if (!match) {
-                  const base = skinLower.replace(/\s*\([^)]*\)\s*/g, '').trim();
-                  match = skinportData.find(item => {
-                    const iBase = (item.market_hash_name || '').toLowerCase().replace(/\s*\([^)]*\)\s*/g, '').trim();
-                    return iBase === base;
-                  });
-                }
-
-                if (match) {
-                  // Skinport returns prices in full EUR (not cents)
-                  const price = match.min_price || match.suggested_price || 0;
-                  if (price > 0) {
-                    newPrices[skinLower] = price;
-                    newPrices[skinName]  = price;
-                    matchedCount++;
-                    console.log('[PRICES] Skinport matched:', skinName, '→', price.toFixed(2), 'EUR');
-                  }
+              skinNames.forEach(skinName => {
+                const price = priceMap[skinName];
+                if (price && price > 0) {
+                  newPrices[skinName.toLowerCase()] = price;
+                  newPrices[skinName] = price;
+                  matchedCount++;
+                  console.log('[PRICES] CS2:', skinName, '→', price.toFixed(2), 'EUR');
                 } else {
-                  unmatched.push(skinName);
+                  console.warn('[PRICES] CS2: no price for', skinName);
                 }
               });
 
-              console.log('[PRICES] Skinport CS2:', matchedCount, '/', portfolio.skins.length, 'matched');
-              if (unmatched.length > 0) {
-                console.warn('[PRICES] Unmatched CS2 skins:', unmatched.join(', '));
+              console.log('[PRICES] CS2 matched:', matchedCount, '/', skinNames.length);
+              if (matchedCount < skinNames.length) {
+                addToast(`CS2: ${matchedCount}/${skinNames.length} prices fetched — check skin names match Steam Market exactly`, 'info');
               }
-              if (matchedCount < portfolio.skins.length) {
-                addToast(`CS2: ${matchedCount}/${portfolio.skins.length} matched — use exact Steam Market names`, 'info');
-              }
-
-            } else if (res.status === 403) {
-              addToast('CS2 Worker: origin blocked — check ALLOWED_ORIGINS in worker.js includes maermin.github.io', 'error');
             } else {
-              console.error('[PRICES] Worker HTTP', res.status);
+              console.error('[PRICES] CS2 Worker HTTP', res.status);
               addToast('CS2 Worker error: HTTP ' + res.status, 'warning');
             }
           } catch (e) {
-            console.error('[PRICES] Skinport Worker error:', e.message);
+            console.error('[PRICES] CS2 Worker error:', e.message);
             addToast('CS2 Worker failed: ' + e.message, 'warning');
           }
         }
@@ -690,7 +663,9 @@ function InvestmentTracker() {
       fees: parseFloat(newTransaction.fees) || 0,
       date: newTransaction.date,
       notes: newTransaction.notes,
-      currency: newTransaction.currency || currency // Use form currency or default to current
+      currency: newTransaction.currency || currency,
+      // CS2: store skin image URL so it shows in the positions table
+      ...(newTransaction.skinIconUrl ? { skinIconUrl: newTransaction.skinIconUrl } : {})
     };
     
     if (editingTransactionId) {
@@ -1904,11 +1879,12 @@ function InvestmentTracker() {
                   workerUrl: apiKeys.cs2Worker,
                   theme: currentTheme,
                   selectedName: newTransaction.symbol,
-                  onSelect: ({ name, price }) => {
+                  onSelect: ({ name, price, image }) => {
                     setNewTransaction(prev => ({
                       ...prev,
                       symbol: name,
-                      price: price ? price.toFixed(2) : prev.price
+                      price: price ? price.toFixed(2) : prev.price,
+                      skinIconUrl: image || prev.skinIconUrl
                     }));
                   }
                 }),
@@ -1916,7 +1892,14 @@ function InvestmentTracker() {
                 newTransaction.symbol && React.createElement('div', {
                   style: { marginTop: '0.5rem', display: 'flex', alignItems: 'center', gap: '0.75rem', padding: '0.5rem', background: 'rgba(6,182,212,0.06)', borderRadius: '8px', border: '1px solid rgba(6,182,212,0.15)' }
                 },
-                  React.createElement(window.MaerminFeatures3.CS2SkinImage, { name: newTransaction.symbol, size: 80 }),
+                  newTransaction.skinIconUrl
+                    ? React.createElement('img', {
+                        src: newTransaction.skinIconUrl, alt: newTransaction.symbol,
+                        style: { width: 80, height: 47, objectFit: 'contain', borderRadius: '6px', background: 'rgba(0,0,0,0.2)' }
+                      })
+                    : React.createElement('div', { style: { width: 80, height: 47, background: 'rgba(6,182,212,0.1)', borderRadius: '6px', display: 'flex', alignItems: 'center', justifyContent: 'center' } },
+                        React.createElement('span', { style: { color: 'rgba(6,182,212,0.5)', fontSize: '0.7rem' } }, 'CS2')
+                      ),
                   React.createElement('div', null,
                     React.createElement('div', { style: { color: currentTheme.text, fontWeight: '600', fontSize: '0.8rem' } }, newTransaction.symbol),
                     newTransaction.price && React.createElement('div', { style: { color: '#22c55e', fontSize: '0.75rem', marginTop: '0.125rem' } }, `€${parseFloat(newTransaction.price).toFixed(2)}`)
