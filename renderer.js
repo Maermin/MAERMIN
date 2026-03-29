@@ -869,6 +869,132 @@ function InvestmentTracker() {
 
   // ========== RENDER VIEWS ==========
   
+  // ── DIVIDENDS COMBINED VIEW (Calendar + Forecast + Auto-Fetch) ──────────────
+  const DividendsCombinedView = ({ portfolio, prices, transactions, apiKeys, theme, t, addToast, formatPrice, getCurrencySymbol }) => {
+    const [tab, setTab] = React.useState('calendar');
+    const [fetching, setFetching] = React.useState(false);
+    const [divEvents, setDivEvents] = React.useState(() => {
+      try { return JSON.parse(localStorage.getItem('maermin_divevents') || '[]'); } catch { return []; }
+    });
+
+    React.useEffect(() => { localStorage.setItem('maermin_divevents', JSON.stringify(divEvents)); }, [divEvents]);
+
+    // Auto-fetch dividends from Alpha Vantage for stock positions
+    const fetchDividends = async () => {
+      const key = apiKeys.alphaVantage;
+      if (!key) { addToast('Alpha Vantage API key needed for dividend auto-fetch', 'warning'); return; }
+      const stockSymbols = [...new Set(
+        transactions.filter(tx => tx.category === 'stocks').map(tx => (tx.symbol || '').toUpperCase()).filter(Boolean)
+      )];
+      if (!stockSymbols.length) { addToast('No stock positions found', 'info'); return; }
+      setFetching(true);
+      let added = 0;
+      for (const sym of stockSymbols.slice(0, 5)) { // max 5 to respect rate limit
+        try {
+          const url = `https://www.alphavantage.co/query?function=OVERVIEW&symbol=${sym}&apikey=${key}`;
+          const res = await fetch(url);
+          const data = await res.json();
+          // Alpha Vantage OVERVIEW has DividendPerShare + ExDividendDate + DividendYield
+          const exDate = data.ExDividendDate;
+          const divPerShare = parseFloat(data.DividendPerShare) || 0;
+          if (exDate && exDate !== 'None' && divPerShare > 0) {
+            // Check if this dividend is already stored
+            const existing = divEvents.find(e => e.symbol === sym && e.date === exDate);
+            if (!existing) {
+              // Find how many shares we hold
+              let shares = 0;
+              transactions.filter(tx => tx.symbol?.toUpperCase() === sym).forEach(tx => {
+                const qty = parseFloat(tx.quantity) || 0;
+                if (tx.type === 'buy') shares += qty; else shares -= qty;
+              });
+              shares = Math.max(0, shares);
+              const totalDiv = shares > 0 ? divPerShare * shares : divPerShare;
+              setDivEvents(prev => [...prev, {
+                id: `auto-${sym}-${exDate}`,
+                symbol: sym, date: exDate,
+                amount: parseFloat(totalDiv.toFixed(4)),
+                currency: 'USD', notes: `Auto: ${divPerShare}/share · ${shares.toFixed(2)} shares`
+              }]);
+              added++;
+            }
+          }
+        } catch(e) { console.warn('Dividend fetch failed for', sym, e.message); }
+        await new Promise(r => setTimeout(r, 500)); // rate limit
+      }
+      setFetching(false);
+      addToast(added > 0 ? `${added} dividend(s) added automatically` : 'No new dividends found (may need paid plan)', 'info');
+    };
+
+    const tabs = [
+      { id: 'calendar', label: 'Calendar' },
+      { id: 'forecast', label: 'Forecast' },
+    ];
+
+    const tabBtn = (id, label) => React.createElement('button', {
+      onClick: () => setTab(id),
+      style: {
+        padding: '0.5rem 1.25rem', border: 'none', borderRadius: '8px', cursor: 'pointer',
+        fontSize: '0.875rem', fontWeight: tab === id ? '600' : '400',
+        background: tab === id ? theme.accent : theme.inputBg,
+        color: tab === id ? '#fff' : theme.text, transition: 'all 0.15s'
+      }
+    }, label);
+
+    return React.createElement('div', { style: { display: 'flex', flexDirection: 'column', height: '100%' } },
+      // Tab bar + auto-fetch button
+      React.createElement('div', {
+        style: { display: 'flex', gap: '0.375rem', padding: '1rem 1.5rem', borderBottom: `1px solid ${theme.cardBorder}`, alignItems: 'center', flexWrap: 'wrap', gap: '0.75rem' }
+      },
+        React.createElement('div', { style: { display: 'flex', gap: '0.375rem' } }, tabs.map(tb => tabBtn(tb.id, tb.label))),
+        React.createElement('div', { style: { flex: 1 } }),
+        React.createElement('button', {
+          onClick: fetchDividends, disabled: fetching,
+          style: { padding: '0.45rem 1rem', background: fetching ? theme.inputBg : 'rgba(34,197,94,0.15)', border: '1px solid rgba(34,197,94,0.3)', borderRadius: '8px', color: fetching ? theme.textSecondary : '#22c55e', cursor: fetching ? 'not-allowed' : 'pointer', fontSize: '0.8rem', fontWeight: '600' }
+        }, fetching ? 'Fetching...' : '↓ Auto-fetch from Alpha Vantage')
+      ),
+      // Content
+      React.createElement('div', { style: { flex: 1, overflow: 'auto' } },
+        tab === 'calendar' && window.MaerminFeatures2 ?
+          React.createElement(window.MaerminFeatures2.DividendCalendarView, {
+            portfolio, theme, t, addToast
+          }) : null,
+        tab === 'forecast' && window.MaerminFeatures4 ?
+          React.createElement(window.MaerminFeatures4.DividendForecastView, {
+            transactions, portfolio, prices, theme, formatPrice, getCurrencySymbol
+          }) : null
+      )
+    );
+  };
+
+  // ── TAX COMBINED VIEW (FIFO + Tax Report) ───────────────────────────────────
+  const TaxCombinedView = ({ transactions, prices, theme, t, formatPrice, getCurrencySymbol, taxJurisdiction, setTaxJurisdiction, language }) => {
+    const [tab, setTab] = React.useState('fifo');
+
+    const tabBtn = (id, label) => React.createElement('button', {
+      onClick: () => setTab(id),
+      style: {
+        padding: '0.5rem 1.25rem', border: 'none', borderRadius: '8px', cursor: 'pointer',
+        fontSize: '0.875rem', fontWeight: tab === id ? '600' : '400',
+        background: tab === id ? theme.accent : theme.inputBg,
+        color: tab === id ? '#fff' : theme.text, transition: 'all 0.15s'
+      }
+    }, label);
+
+    return React.createElement('div', { style: { display: 'flex', flexDirection: 'column', height: '100%' } },
+      React.createElement('div', {
+        style: { display: 'flex', gap: '0.375rem', padding: '1rem 1.5rem', borderBottom: `1px solid ${theme.cardBorder}`, flexWrap: 'wrap' }
+      },
+        tabBtn('fifo',   'FIFO Cost Basis'),
+        tabBtn('report', 'Tax Report')
+      ),
+      React.createElement('div', { style: { flex: 1, overflow: 'auto' } },
+        tab === 'fifo' && window.MaerminFeatures4 ?
+          React.createElement(window.MaerminFeatures4.FIFOView, { transactions, prices, theme, formatPrice, getCurrencySymbol }) : null,
+        tab === 'report' ? renderTaxView() : null
+      )
+    );
+  };
+
   const renderView = () => {
     switch (activeView) {
       case 'portfolios':
@@ -887,20 +1013,6 @@ function InvestmentTracker() {
           React.createElement(window.MaerminFeatures4.SavingsPlanView, {
             transactions: activeTransactions, theme: currentTheme, formatPrice, getCurrencySymbol, t
           }) : renderAnalyticsPlaceholder('Savings Plans');
-
-      case 'dividend-forecast':
-        return window.MaerminFeatures4 ?
-          React.createElement(window.MaerminFeatures4.DividendForecastView, {
-            transactions: activeTransactions, portfolio, prices,
-            theme: currentTheme, formatPrice, getCurrencySymbol
-          }) : renderAnalyticsPlaceholder('Dividend Forecast');
-
-      case 'fifo':
-        return window.MaerminFeatures4 ?
-          React.createElement(window.MaerminFeatures4.FIFOView, {
-            transactions: activeTransactions, prices,
-            theme: currentTheme, formatPrice, getCurrencySymbol
-          }) : renderAnalyticsPlaceholder('FIFO');
 
       case 'returns':
         return window.MaerminFeatures2 ?
@@ -932,10 +1044,24 @@ function InvestmentTracker() {
           }) : renderAnalyticsPlaceholder('Trade Journal');
 
       case 'dividends':
-        return window.MaerminFeatures2 ?
-          React.createElement(window.MaerminFeatures2.DividendCalendarView, {
-            portfolio, theme: currentTheme, t, addToast
-          }) : renderAnalyticsPlaceholder('Dividenden');
+        return React.createElement(DividendsCombinedView, {
+          portfolio, prices, transactions: activeTransactions, apiKeys,
+          theme: currentTheme, t, addToast, formatPrice, getCurrencySymbol
+        });
+
+      case 'tax':
+        return React.createElement(TaxCombinedView, {
+          transactions: activeTransactions, prices,
+          theme: currentTheme, t, formatPrice, getCurrencySymbol,
+          taxJurisdiction, setTaxJurisdiction, language
+        });
+
+      case 'taxes':
+        return React.createElement(TaxCombinedView, {
+          transactions: activeTransactions, prices,
+          theme: currentTheme, t, formatPrice, getCurrencySymbol,
+          taxJurisdiction, setTaxJurisdiction, language
+        });
 
       case 'watchlist':
         return window.MaerminFeatures ?
@@ -951,9 +1077,6 @@ function InvestmentTracker() {
 
       case 'transactions':
         return renderTransactionsView();
-      
-      case 'taxes':
-        return renderTaxView();
       
       case 'analytics':
         return renderAnalyticsMenu();
@@ -2772,26 +2895,24 @@ buy,crypto,bitcoin,0.5,45000,2024-01-15,10`)
         [
           // ── Portfolio ──────────────────────────────
           { group: t.portfolio || 'Portfolio' },
-          { id: 'overview',         icon: '◈', label: t.overview          || 'Overview' },
-          { id: 'transactions',     icon: '↕', label: t.transactions      || 'Transactions' },
+          { id: 'overview',         icon: '◈', label: t.overview       || 'Overview' },
+          { id: 'transactions',     icon: '↕', label: t.transactions   || 'Transactions' },
           { id: 'portfolios',       icon: '◆', label: 'Portfolios' },
-          { id: 'dividends',        icon: '◎', label: t.dividendCalendar  || 'Dividends' },
-          { id: 'dividend-forecast',icon: '◎', label: 'Dividend Forecast' },
-          { id: 'journal',          icon: '◉', label: t.tradeJournal      || 'Journal' },
+          { id: 'dividends',        icon: '◎', label: 'Dividends' },
+          { id: 'journal',          icon: '◉', label: t.tradeJournal   || 'Journal' },
           // ── Analyse ───────────────────────────────
           { group: t.analytics || 'Analysis' },
-          { id: 'returns',          icon: '◆', label: t.returns           || 'Returns & XIRR' },
-          { id: 'rebalancing',      icon: '◐', label: t.rebalancing       || 'Rebalancing' },
+          { id: 'returns',          icon: '◆', label: t.returns        || 'Returns & XIRR' },
+          { id: 'rebalancing',      icon: '◐', label: t.rebalancing    || 'Rebalancing' },
           { id: 'savings-plans',    icon: '◑', label: 'Savings Plans' },
-          { id: 'fifo',             icon: '◧', label: 'FIFO Cost Basis' },
-          { id: 'analytics',        icon: '◇', label: t.analytics         || 'Portfolio Analysis' },
+          { id: 'tax',              icon: '◧', label: 'Tax & FIFO' },
+          { id: 'analytics',        icon: '◇', label: t.analytics      || 'Portfolio Analysis' },
           { id: 'investment-analysis', icon: '◈', label: t.investmentAnalysis || 'Strategy' },
-          { id: 'taxes',            icon: '◻', label: t.taxes             || 'Tax' },
           // ── Tools ──────────────────────────────────
           { group: t.tools || 'Tools' },
-          { id: 'watchlist',        icon: '◯', label: t.watchlist         || 'Watchlist' },
-          { id: 'alerts',           icon: '◎', label: t.priceAlerts       || 'Price Alerts' },
-          { id: 'broker-import',    icon: '◁', label: t.brokerImport      || 'Import' },
+          { id: 'watchlist',        icon: '◯', label: t.watchlist      || 'Watchlist' },
+          { id: 'alerts',           icon: '◎', label: t.priceAlerts    || 'Price Alerts' },
+          { id: 'broker-import',    icon: '◁', label: t.brokerImport   || 'Import' },
         ].map((item, idx) => {
           // Section Header
           if (item.group) {
