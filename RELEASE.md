@@ -1,198 +1,78 @@
-# Release Notes — MAERMIN v7.2
+# Release Notes — MAERMIN v9.0
 
-**Datum:** März 2026  
-**Typ:** Feature Release + Bereinigung  
-**Kompatibilität:** Bestehende `localStorage`-Daten werden vollständig übernommen
+**Date:** March 2026
+**Type:** Major Feature Release
+**Compatibility:** All existing localStorage data is preserved automatically
 
 ---
 
 ## Highlights
 
-MAERMIN ist jetzt eine vollständige **Web-App auf GitHub Pages** — keine Installation, kein Electron, kein Node.js erforderlich. Einfach URL aufrufen, Passwort eingeben, loslegen.
-
-Diese Version konsolidiert alle Features aus v7.0 und v7.1, entfernt irreführende Inhalte (hardcodierte Fake-Daten) und strukturiert die Navigation grundlegend neu.
+v9.0 fixes fundamental calculation bugs, introduces a professional-grade historical chart, and adds a visual Symbol Picker so the correct Yahoo Finance / CoinGecko symbol is always used.
 
 ---
 
-## Neu in v7.2
+## What's New
 
-### Navigation komplett überarbeitet
+### Real Historical Portfolio Chart
+- Time-accurate: `amountAt(ts)` replays transaction history — second buy shows as real value jump
+- All periods: 1H · 1D · 1W · 1M · 1Y · 3Y · 5Y · Max
+- Sources: Yahoo Finance (stocks/ETFs/commodities), CoinGecko (crypto), Steam Market (CS2)
+- Chart last point anchored to live price — stats cards and chart always show same value
 
-Die bisherige flache Liste mit 13 gleichwertigen Punkten wurde durch eine **3-Gruppen-Struktur** ersetzt, die sich an modernen Finance-Tools wie Parqet und Linear orientiert:
+### Symbol Picker
+- Stocks/ETFs: Yahoo Finance search via Worker — shows logo, exchange, exact YF symbol
+- Crypto: CoinGecko search — coin logo, market rank, correct CoinGecko ID
+- Exact API symbol (e.g. `SIX2.DE`, `bitcoin`) saved to transaction — no more mapping errors
+- Tokenized stocks (TSLAX) and stablecoins filtered from crypto search
 
-- **Portfolio** — Übersicht, Transaktionen, Dividenden, Journal
-- **Analyse** — Rendite, Rebalancing, Portfolio-Analyse, Strategie, Steuern
-- **Tools** — Watchlist, Preisalarme, Broker-Import
+### P&L Calculation Fix (Critical)
+**Before:** Selling 50 NVO at a loss while holding 150 would inflate the average buy price from €80 to €160 → showing -50% when the position was actually flat.
+**After:** Sells reduce cost basis proportionally. Correct P&L for all positions.
 
-Aktive Elemente werden mit einem Akzent-Balken links markiert statt mit einem Vollfarb-Block — ruhiger, klarer lesbar.
-
-### Analytics als Tab-View
-
-Die Portfolio-Analyse (Korrelation, Monte Carlo, Stress-Test, Risiko) öffnet sich nicht mehr auf einer separaten Menü-Seite. Stattdessen wechseln Tabs direkt innerhalb einer View — eine Klick weniger für jeden Analyseschritt.
-
-### Bereinigungen
-
-Folgende Inhalte wurden **vollständig entfernt**:
-
-| Entfernt | Grund |
-|----------|-------|
-| `EconomicIndicatorView` | Zeigte hardcodierte Daten von 2023 (CPI 3.4%, VIX 16.5) — irreführend |
-| `OptionsTrackerView` | Black-Scholes-Rechner ohne Bezug zu echten Portfolio-Positionen |
-| `DividendTrackerView` (alt) | Duplikat des neuen Dividenden-Kalenders |
-| `TaxPlanningView` in Analyse | Duplikat der Haupt-Steuer-View |
-| `renderPortfolioView` | Vollständig redundant — die Übersicht zeigt alles besser |
-| Workspace-System | Rein kosmetisches Label ohne echte Funktion |
-| 19 redundante Command-Palette-Einträge | Von 40 auf 22 sinnvolle Einträge reduziert |
-| 4 separate Analytics-Einzelrouten | Jetzt als Tabs in einer View |
+### Overview: All Portfolios Combined
+- Stats cards now show all portfolios summed (`allPortfoliosStats`)
+- Portfolio breakdown bar shows per-portfolio value when multiple portfolios exist
+- Chart and stats cards always match (anchored last point)
 
 ---
 
-## Neu in v7.1
+## Bug Fixes
 
-### XIRR / Time-Weighted Return
-
-Die neue Rendite-Ansicht berechnet auf Basis echter Transaktions-Cashflows:
-
-- **XIRR** (Money-Weighted Return, annualisiert) — berücksichtigt Zeitpunkt und Größe jeder Ein-/Auszahlung
-- **TWR** (Time-Weighted Return) — Portfolioentwicklung unabhängig von Cashflows, berechnet aus gespeicherter Preis-History
-- Gesamtrendite in EUR, Haltedauer, Gebührenübersicht
-
-### Rebalancing-Tool
-
-- Ziel-Allokation pro Kategorie per Slider einstellbar (Crypto / Aktien / CS2)
-- Zeigt für jede Kategorie exakt welchen Betrag kaufen oder verkaufen
-- Optionale Simulation: "Was wenn ich X EUR zusätzlich investiere?"
-- Ziel-Allokation wird persistent im Browser gespeichert
-
-### Broker-Import-Wizard
-
-Ein geführter 4-Schritte-Prozess für CSV-Importe:
-
-1. Broker auswählen (DEGIRO, Trade Republic, Interactive Brokers, Coinbase, Binance, Kraken, Generisch)
-2. CSV per Drag & Drop oder Dateiauswahl laden
-3. Vorschau der erkannten Transaktionen (bis zu 20 angezeigt)
-4. Import bestätigen
-
-Nutzt die vorhandene `import-export-engine.js` mit automatischer Broker-Erkennung.
-
-### Trade-Journal
-
-Pro Position lassen sich Notizen speichern:
-
-- Investitionsthese, Zielkurs, Risiken, Strategie
-- Zuletzt bearbeitet Datum wird angezeigt
-- Persistent im `localStorage` unter `maermin_notes`
-
-### Dividenden-Kalender
-
-- Kalenderansicht mit eingetragenen Dividendenzahlungen
-- Monats- und Jahressummen
-- Liste der nächsten anstehenden Zahlungen
-- Persistent im `localStorage` unter `maermin_divevents`
-
-### Mobile-Navigation
-
-Unter 768px Bildschirmbreite:
-
-- Desktop-Sidebar wird automatisch ausgeblendet
-- Bottom-Navigation mit 5 wichtigsten Views erscheint am unteren Bildschirmrand
-- Kein `@media`-CSS in bestehenden Dateien nötig — wird dynamisch injiziert
+| Bug | Fix |
+|-----|-----|
+| NVO showing -71% P&L | Sell transactions now reduce cost basis proportionally |
+| Chart didn't show second buy as jump | `amountAt(ts)` replays transaction history per timestamp |
+| Stats cards showed different value than chart | Chart last point replaced with live price |
+| `(amount \|\| 1)` — zero-amount positions added phantom value | Changed to `(amount \|\| 0)` |
+| PerformancePeriods wrong period calculation | Fixed: timestamps compared as Unix seconds, not ISO strings |
+| PortfolioOverviewPanel rendered twice | Removed duplicate instance |
+| onError crash in Symbol Picker | Fixed null parentNode check |
+| Steam history always 400 | Falls back to priceoverview (no auth needed) |
+| Parqet logos 404 | Replaced with Yahoo Finance brand CDN |
 
 ---
 
-## Neu in v7.0
+## UX Improvements
 
-### GitHub Pages Deploy
-
-- Vollständige Konvertierung von Electron-Desktop-App zur Web-App
-- GitHub Actions Workflow für automatischen Deploy bei Push
-- `.nojekyll` verhindert Jekyll-Verarbeitung der JS-Dateien
-
-### Shared-Secret Login
-
-- SHA-256-basiertes Passwort-System, kein Server nötig
-- Session läuft nach 8 Stunden ab
-- Passwort-Ändern direkt in der App möglich (neuen Hash generieren und in `auth.js` eintragen)
-- Standard-Passwort: `maermin2024`
-
-### Donut-Chart & Allocation
-
-- Interaktiver Donut-Chart mit Hover-Highlight
-- Tabs: Gesamtansicht, Crypto, Aktien, CS2
-- Legende mit Prozentanteilen
-
-### Sparklines
-
-- Mini-Trendlinien (letzte 20 Preise) auf jeder Position
-- Grün = aufwärts, Rot = abwärts
-
-### Gainers / Losers
-
-- Top 3 Gewinner und Verlierer direkt auf der Übersicht
-- Mit Sparkline und Prozentangabe
-
-### Performance-Chart
-
-- SVG-Chart der Portfolio-Gesamtwert-Entwicklung über Zeit
-- Nutzt gespeicherte `priceHistory`-Daten
-- Gesamtrendite und Prozentänderung im Header
-
-### Sortierbare Positions-Tabelle
-
-- Klickbare Spaltenköpfe (Wert, P&L, Symbol, Preis, Trend)
-- Kategorie-Filter (Alle, Crypto, Aktien, CS2)
-- P&L-Balken und Portfolio-Anteil-Balken pro Zeile
-
-### Watchlist
-
-- Symbole beobachten ohne Kauf
-- Optional: Target-Price einstellen (wird grün markiert wenn erreicht)
-- Sparkline aus gespeicherter Preis-History
-- Persistent im `localStorage` unter `maermin_watchlist`
-
-### Preisalarme
-
-- Alarm wenn Preis über oder unter einen Schwellenwert fällt
-- Fortschrittsbalken zeigt wie nah die aktuelle Position am Ziel ist
-- Toast-Benachrichtigung wenn Alarm auslöst
-- Alarm kann zurückgesetzt werden
-- Persistent im `localStorage` unter `maermin_alerts`
+- Overview header: compact action buttons, "All N portfolios combined" label
+- Sidebar nav: hover state, cleaner active indicator
+- Chart header: shows period performance prominently, not duplicate current value
+- Dead code removed: ~160 lines of fallback/duplicate code deleted
+- Alpha Vantage demoted to fallback — button renamed "Auto-fetch dividends"
 
 ---
 
-## Bug-Fixes (akkumuliert)
+## Cloudflare Worker Updates
 
-- `body overflow: hidden` entfernt — Scrolling im Browser funktioniert korrekt
-- `Portfolio maxHeight: 400px` hardcodiert — entfernt
-- Total im Transaction-Modal wurde unformatiert angezeigt — `.toFixed(2)` ergänzt
-- SHA-256-Hash für Standard-Passwort war falsch berechnet — korrigiert
-- Settings-Dropdown schloss nicht bei Klick außerhalb — `useRef` + `mousedown`-Listener ergänzt
-- `window.confirm()` für Transaktions-Löschen — durch Inline-Bestätigung ersetzt
-- `images`-, `alerts`-, `showBackupModal`-States existierten aber wurden nie genutzt — entfernt
-- `analytics:correlation`, `analytics:montecarlo`, etc. als separate URL-Routen — in Tab-View konsolidiert
+New endpoints (requires Worker redeployment):
+- `?action=yfsearch&q=Apple&type=stock` — Yahoo Finance symbol search
+- `?action=steamhistory` — Steam price history with `priceoverview` fallback
 
 ---
 
-## Breaking Changes
+## Upgrading
 
-Keine. Bestehende `localStorage`-Daten (Transaktionen, Einstellungen, Watchlist, Alerts) werden vollständig übernommen.
-
-Das Backup-Format aus v6.x wird beim Import automatisch in das neue Transaktions-Format konvertiert.
-
----
-
-## Bekannte Einschränkungen
-
-- **XIRR / TWR** benötigen Preis-History-Daten. Diese entstehen erst nach mehrmaligem "Preise aktualisieren" über mehrere Tage.
-- **Alpha Vantage** (Aktien) ist auf 25 Requests/Tag im kostenlosen Tier limitiert. Bei mehr als 5 Aktien-Positionen werden pro Refresh nur 5 Symbole abgefragt.
-- **Skinport** (CS2) gibt nur Preise für genau übereinstimmende Item-Namen zurück. Der vollständige Market-Hash-Name muss beim Eintragen verwendet werden.
-
----
-
-## Upgrade von v6.x
-
-1. Alle Dateien aus dem neuen Release in den Projektordner kopieren
-2. `git add . && git commit -m "Upgrade to v7.2" && git push`
-3. GitHub Pages → Settings → Pages → Source: **GitHub Actions** aktivieren (einmalig)
-
-Lokale Daten bleiben vollständig erhalten — kein Daten-Export nötig.
+1. **Update the Worker** — paste `cf-worker/worker.js` into your Cloudflare Worker and redeploy
+2. **No data migration needed** — all existing transactions work as-is
+3. **Optional:** Re-enter stock symbols using the Symbol Picker for exact YF symbol storage
