@@ -163,17 +163,8 @@ function PortfolioHistoryChart({ portfolio, prices, transactions, apiKeys, theme
 
   const currentPeriod = PERIODS.find(p => p.id === period) || PERIODS[3];
 
-  // Clear stale chart data immediately when period changes so old data doesn't
-  // persist in the return-% chart while new data is loading
-  useEffect(() => {
-    setChartData([]);
-    setHoveredIdx(null);
-  }, [period]);
-
   // Reset hover when switching chart mode
-  useEffect(() => {
-    setHoveredIdx(null);
-  }, [chartMode]);
+  useEffect(() => { setHoveredIdx(null); }, [chartMode]);
 
   // Build positions WITH transaction history for time-accurate amount calculation
   const positions = useMemo(() => {
@@ -222,6 +213,8 @@ function PortfolioHistoryChart({ portfolio, prices, transactions, apiKeys, theme
 
   const buildChart = useCallback(async () => {
     if (positions.length === 0) return;
+    setChartData([]);   // Clear immediately — no stale data shown during load
+    setHoveredIdx(null);
     setLoading(true);
     setError(null);
 
@@ -483,10 +476,13 @@ function PortfolioHistoryChart({ portfolio, prices, transactions, apiKeys, theme
     const retVals = chartData.map(d => ((d.value - firstV) / firstV) * 100);
     const minR    = Math.min(...retVals);
     const maxR    = Math.max(...retVals);
-    // Always include 0 in the range — 0% is the baseline
-    const lo      = Math.min(minR, 0);
-    const hi      = Math.max(maxR, 0);
-    const range   = (hi - lo) || 1;
+    // SYMMETRIC axis: 0% is always in the exact vertical center.
+    // This makes the chart visually distinct from the value chart —
+    // the line oscillates around a fixed middle baseline.
+    const extent  = Math.max(Math.abs(minR), Math.abs(maxR), 1) * 1.15; // 15% padding
+    const lo      = -extent;
+    const hi      =  extent;
+    const range   = hi - lo;
 
     const toX  = i => PAD.l + (i / (chartData.length - 1)) * (W - PAD.l - PAD.r);
     const toY  = v => PAD.t + (1 - (v - lo) / range) * (H - PAD.t - PAD.b);
@@ -508,11 +504,12 @@ function PortfolioHistoryChart({ portfolio, prices, transactions, apiKeys, theme
     const areaAbove = [`${PAD.l},${y0}`, ...abovePoints, `${toX(retVals.length-1)},${y0}`].join(' ');
     const areaBelow = [`${PAD.l},${y0}`, ...belowPoints, `${toX(retVals.length-1)},${y0}`].join(' ');
 
-    // Y labels — show % values at sensible steps
-    const yLabels = [0,1,2,3,4].map(i => {
-      const v = lo + (i/4) * range;
-      return { y: toY(v), label: `${v >= 0 ? '+' : ''}${v.toFixed(1)}%` };
-    });
+    // Y labels — use clean rounded % steps
+    const stepSize = extent > 20 ? 10 : extent > 10 ? 5 : extent > 5 ? 2 : 1;
+    const yLabels = [];
+    for (let v = Math.ceil(lo / stepSize) * stepSize; v <= hi + 0.001; v += stepSize) {
+      yLabels.push({ y: toY(v), label: `${v > 0 ? '+' : ''}${v.toFixed(v % 1 === 0 ? 0 : 1)}%`, isZero: v === 0 });
+    }
 
     const xCount = 6;
     const xStep  = Math.max(1, Math.floor((chartData.length-1)/(xCount-1)));
@@ -727,15 +724,19 @@ function PortfolioHistoryChart({ portfolio, prices, transactions, apiKeys, theme
         ...computedReturn.yLabels.map((yl,i) => React.createElement(React.Fragment, {key:i},
           React.createElement('line', {
             x1:PAD.l, y1:yl.y, x2:W-PAD.r, y2:yl.y,
-            stroke: yl.label === '+0.0%' || yl.label === '0.0%' ? 'rgba(255,255,255,0.2)' : 'rgba(255,255,255,0.05)',
-            strokeWidth: yl.label.includes('0.0%') ? 1.5 : 1,
-            strokeDasharray: yl.label.includes('0.0%') ? '0' : '4,6'
+            stroke: yl.isZero ? 'rgba(255,255,255,0.3)' : 'rgba(255,255,255,0.05)',
+            strokeWidth: yl.isZero ? 1.5 : 1,
+            strokeDasharray: yl.isZero ? '0' : '4,6'
           }),
-          React.createElement('text', { x:PAD.l-8, y:yl.y+4, textAnchor:'end', fill: yl.label.includes('0.0%') ? 'rgba(255,255,255,0.5)' : 'rgba(255,255,255,0.25)', fontSize:10, fontFamily:'monospace' }, yl.label)
+          React.createElement('text', { x:PAD.l-8, y:yl.y+4, textAnchor:'end',
+            fill: yl.isZero ? 'rgba(255,255,255,0.6)' : 'rgba(255,255,255,0.25)',
+            fontSize: yl.isZero ? 11 : 10, fontFamily:'monospace',
+            fontWeight: yl.isZero ? 'bold' : 'normal'
+          }, yl.label)
         )),
-        // 0% baseline — prominent
-        React.createElement('line', { x1:PAD.l, y1:computedReturn.y0, x2:W-PAD.r, y2:computedReturn.y0, stroke:'rgba(255,255,255,0.25)', strokeWidth:1.5 }),
-        React.createElement('text', { x:PAD.l-8, y:computedReturn.y0+4, textAnchor:'end', fill:'rgba(255,255,255,0.5)', fontSize:10, fontFamily:'monospace', fontWeight:'bold' }, '0%'),
+        // Explicit 0% baseline label on right side too
+        React.createElement('text', { x:W-PAD.r+6, y:computedReturn.y0+4, textAnchor:'start',
+          fill:'rgba(255,255,255,0.4)', fontSize:10, fontFamily:'monospace' }, '0%'),
         // X labels
         ...computedReturn.xLabels.map((xl,i) =>
           React.createElement('text', { key:i, x:xl.x, y:H-PAD.b+14, textAnchor:'middle', fill:'rgba(255,255,255,0.25)', fontSize:10 }, xl.label)
