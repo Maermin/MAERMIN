@@ -152,7 +152,8 @@ function PortfolioHistoryChart({ portfolio, prices, transactions, apiKeys, theme
   const [error, setError]         = useState(null);
   const [chartData, setChartData] = useState([]);
   const [hoveredIdx, setHoveredIdx] = useState(null);
-  const svgRef = useRef(null);
+  const svgRef       = useRef(null); // value chart
+  const svgRefReturn = useRef(null); // return % chart
   const cacheRef = useRef({});
 
   const usdToEur = exchangeRate || 0.91;
@@ -161,6 +162,18 @@ function PortfolioHistoryChart({ portfolio, prices, transactions, apiKeys, theme
   const hasWorker = workerUrl.length > 5;
 
   const currentPeriod = PERIODS.find(p => p.id === period) || PERIODS[3];
+
+  // Clear stale chart data immediately when period changes so old data doesn't
+  // persist in the return-% chart while new data is loading
+  useEffect(() => {
+    setChartData([]);
+    setHoveredIdx(null);
+  }, [period]);
+
+  // Reset hover when switching chart mode
+  useEffect(() => {
+    setHoveredIdx(null);
+  }, [chartMode]);
 
   // Build positions WITH transaction history for time-accurate amount calculation
   const positions = useMemo(() => {
@@ -402,16 +415,6 @@ function PortfolioHistoryChart({ portfolio, prices, transactions, apiKeys, theme
         final = curve.filter((_, i) => i % step === 0 || i === curve.length - 1);
       }
 
-      // Anchor the last point to the authoritative current value from stats cards
-      // This ensures chart and stats cards always show the same number
-      if (final.length > 0 && currentValue > 0) {
-        const last = final[final.length - 1];
-        final = [
-          ...final.slice(0, -1),
-          { ...last, value: currentValue }
-        ];
-      }
-
       setChartData(final);
     } catch(e) {
       console.error('[CHART] Fatal:', e);
@@ -471,7 +474,9 @@ function PortfolioHistoryChart({ portfolio, prices, transactions, apiKeys, theme
   // ── Return % chart computation ─────────────────────────────────────────────
   const computedReturn = useMemo(() => {
     if (chartData.length < 2) return null;
-    const firstV = chartData[0].value;
+    // Find the first data point with a positive value as the baseline
+    const basePoint = chartData.find(d => d.value > 0);
+    const firstV = basePoint?.value;
     if (!firstV) return null;
 
     // Convert each point to return % relative to period start
@@ -530,8 +535,9 @@ function PortfolioHistoryChart({ portfolio, prices, transactions, apiKeys, theme
   }, [chartData, period]);
 
   const handleMouseMove = e => {
-    if (!svgRef.current || chartData.length < 2 || !computed) return;
-    const rect = svgRef.current.getBoundingClientRect();
+    const ref = chartMode === 'return' ? svgRefReturn : svgRef;
+    if (!ref.current || chartData.length < 2) return;
+    const rect = ref.current.getBoundingClientRect();
     const mx   = (e.clientX - rect.left) / rect.width * W;
     const frac = Math.max(0, Math.min(1, (mx - PAD.l) / (W - PAD.l - PAD.r)));
     setHoveredIdx(Math.round(frac * (chartData.length-1)));
@@ -703,7 +709,7 @@ function PortfolioHistoryChart({ portfolio, prices, transactions, apiKeys, theme
 
       // ── RETURN % CHART ────────────────────────────────────────────────
       chartMode === 'return' && computedReturn && !error && React.createElement('svg', {
-        ref: svgRef, viewBox: `0 0 ${W} ${H}`, width: '100%',
+        ref: svgRefReturn, viewBox: `0 0 ${W} ${H}`, width: '100%',
         style: { display: 'block', overflow: 'visible', cursor: 'crosshair' },
         onMouseMove: handleMouseMove, onMouseLeave: () => setHoveredIdx(null)
       },
