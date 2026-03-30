@@ -145,7 +145,7 @@ async function fetchAVHistory(symbol, avKey, period) {
 // ─────────────────────────────────────────────────────────────────────────────
 // CHART COMPONENT
 // ─────────────────────────────────────────────────────────────────────────────
-function PortfolioHistoryChart({ portfolio, prices, transactions, apiKeys, theme, formatPrice, getCurrencySymbol, exchangeRate }) {
+function PortfolioHistoryChart({ portfolio, prices, transactions, apiKeys, theme, formatPrice, getCurrencySymbol, exchangeRate, currentValue }) {
   const [period, setPeriod]       = useState('1M');
   const [loading, setLoading]     = useState(false);
   const [error, setError]         = useState(null);
@@ -401,6 +401,16 @@ function PortfolioHistoryChart({ portfolio, prices, transactions, apiKeys, theme
         final = curve.filter((_, i) => i % step === 0 || i === curve.length - 1);
       }
 
+      // Anchor the last point to the authoritative current value from stats cards
+      // This ensures chart and stats cards always show the same number
+      if (final.length > 0 && currentValue > 0) {
+        const last = final[final.length - 1];
+        final = [
+          ...final.slice(0, -1),
+          { ...last, value: currentValue }
+        ];
+      }
+
       setChartData(final);
     } catch(e) {
       console.error('[CHART] Fatal:', e);
@@ -490,19 +500,22 @@ function PortfolioHistoryChart({ portfolio, prices, transactions, apiKeys, theme
         ),
         hovered && computed
           ? React.createElement('div', { style: { display: 'flex', alignItems: 'baseline', gap: '0.75rem' } },
-              React.createElement('span', { style: { color: theme.text, fontSize: '1.75rem', fontWeight: '800', letterSpacing: '-0.02em' } },
+              React.createElement('span', { style: { color: theme.text, fontSize: '1.5rem', fontWeight: '800', letterSpacing: '-0.02em' } },
                 `${formatPrice(hovered.value)} ${getCurrencySymbol()}`),
               React.createElement('span', { style: { fontSize: '0.8rem', color: theme.textSecondary } }, hovered.date)
             )
           : computed
             ? React.createElement('div', { style: { display: 'flex', alignItems: 'baseline', gap: '0.75rem', flexWrap: 'wrap' } },
-                React.createElement('span', { style: { color: theme.text, fontSize: '1.75rem', fontWeight: '800', letterSpacing: '-0.02em' } },
-                  `${formatPrice(computed.lastV)} ${getCurrencySymbol()}`),
+                // Period change — the main insight from the chart
                 React.createElement('span', {
-                  style: { fontSize: '0.9rem', fontWeight: '700', padding: '0.2rem 0.6rem', borderRadius: '6px',
+                  style: { fontSize: '1.1rem', fontWeight: '800', padding: '0.2rem 0.6rem', borderRadius: '6px',
                     background: computed.isUp ? 'rgba(34,197,94,0.15)' : 'rgba(239,68,68,0.15)',
                     color: computed.isUp ? '#22c55e' : '#ef4444' }
-                }, `${computed.isUp?'+':''}${computed.pct.toFixed(2)}%  ${computed.isUp?'+':''}${formatPrice(computed.change)} ${getCurrencySymbol()}`)
+                }, `${computed.isUp?'+':''}${computed.pct.toFixed(2)}%  ${computed.isUp?'+':''}${formatPrice(computed.change)} ${getCurrencySymbol()}`),
+                // Period label
+                React.createElement('span', { style: { fontSize: '0.75rem', color: theme.textSecondary } },
+                  `in the last ${period === 'Max' ? 'period' : period}`
+                )
               )
             : React.createElement('span', { style: { color: theme.textSecondary, fontSize: '0.875rem' } },
                 loading ? '◎ Loading...' : 'Add transactions and refresh prices')

@@ -326,8 +326,8 @@ function InvestmentTracker() {
         const symbolLower = symbolOriginal.toLowerCase();
         const symbolUpper = symbolOriginal.toUpperCase();
         const currentPrice = prices[symbolOriginal] || prices[symbolLower] || prices[symbolUpper] || pos.purchasePrice || 0;
-        const value = (pos.amount || 1) * currentPrice;
-        const invested = (pos.amount || 1) * (pos.purchasePrice || 0);
+        const value    = (pos.amount || 0) * currentPrice;
+        const invested = (pos.amount || 0) * (pos.purchasePrice || 0);
         
         totalValue += value;
         totalInvested += invested;
@@ -1471,6 +1471,8 @@ function InvestmentTracker() {
       window.MaerminFeatures6 && portfolioStats.totalPositions > 0 &&
         React.createElement(window.MaerminFeatures6.PortfolioHistoryChart, {
           portfolio, prices, transactions: activeTransactions, apiKeys, exchangeRate,
+          // Pass authoritative current value so chart header matches stats cards exactly
+          currentValue: allPortfoliosStats.totalValue,
           theme: currentTheme, formatPrice, getCurrencySymbol
         }),
 
