@@ -811,50 +811,79 @@ function SymbolPicker({ category, workerUrl, theme, onSelect, selectedSymbol, se
   );
   const debounceRef = useRef(null);
   const inputRef    = useRef(null);
+  const prevCat     = useRef(category);
 
   const isCrypto = category === 'crypto';
+
+  // ── Vollständiger Reset wenn Kategorie wechselt ─────────────────────────
+  useEffect(() => {
+    if (prevCat.current !== category) {
+      prevCat.current = category;
+      if (debounceRef.current) clearTimeout(debounceRef.current);
+      setQuery('');
+      setResults([]);
+      setOpen(false);
+      setError(null);
+      setSelected(null);
+    }
+  }, [category]);
 
   // Debounced search
   useEffect(() => {
     if (debounceRef.current) clearTimeout(debounceRef.current);
     const q = query.trim();
     if (!q || q.length < 2) { setResults([]); setOpen(false); return; }
-    if (selected && q === (selected.name || selected.symbol)) return; // already selected
+    if (selected && q === (selected.name || selected.symbol)) return;
 
     debounceRef.current = setTimeout(async () => {
       setLoading(true); setError(null);
       try {
         if (isCrypto) {
-          // CoinGecko search — direct, no worker needed
+          // ── Crypto: CoinGecko only — never shows stocks ──────────────────
           const res  = await fetch(
             `https://api.coingecko.com/api/v3/search?query=${encodeURIComponent(q)}`,
             { signal: AbortSignal.timeout(8000) }
           );
           const data = await res.json();
           const coins = (data.coins || []).slice(0, 8).map(c => ({
-            symbol:   c.id,          // CoinGecko ID used for price fetching
+            symbol:   c.id,                           // CoinGecko ID
             ticker:   c.symbol?.toUpperCase(),
             name:     c.name,
-            logoUrl:  c.large || c.thumb,
+            logoUrl:  c.large || c.thumb,             // direct CoinGecko CDN URL
             type:     'CRYPTOCURRENCY',
             exchange: `Rank #${c.market_cap_rank || '—'}`,
           }));
           setResults(coins);
           setOpen(coins.length > 0);
+
         } else {
-          // Yahoo Finance search via Worker
+          // ── Stocks/ETFs: Yahoo Finance via Worker — never shows crypto ────
           if (!workerUrl) { setError('Add Worker URL in ⚙ Settings for stock search'); setLoading(false); return; }
           const base = workerUrl.trim().replace(/\/$/, '');
-          const res  = await fetch(`${base}?action=yfsearch&q=${encodeURIComponent(q)}`, { signal: AbortSignal.timeout(10000) });
+          // Pass type=stock so Worker strictly excludes CRYPTOCURRENCY results
+          const res  = await fetch(
+            `${base}?action=yfsearch&q=${encodeURIComponent(q)}&type=stock`,
+            { signal: AbortSignal.timeout(10000) }
+          );
           if (!res.ok) throw new Error(`Search failed: ${res.status}`);
           const data = await res.json();
-          const items = (Array.isArray(data) ? data : []).map(r => ({
-            symbol:   r.symbol,
-            name:     r.name,
-            exchange: EXCHANGE_SHORT[r.exchange] || r.exchange || '',
-            type:     r.type || 'EQUITY',
-            logoUrl:  `https://logo.clearbit.com/${r.symbol.split('.')[0].toLowerCase()}.com`,
-          }));
+
+          const items = (Array.isArray(data) ? data : [])
+            // Strikt: nur Aktien/ETFs/Fonds — explizit keine Krypto erlaubt
+            .filter(r => r.type === 'EQUITY' || r.type === 'ETF' || r.type === 'MUTUALFUND')
+            .slice(0, 10)
+            .map(r => {
+              const logoUrl = `https://assets.parqet.com/logos/symbol/${encodeURIComponent(r.symbol)}`;
+              return {
+                symbol:   r.symbol,
+                ticker:   r.symbol,
+                name:     r.name,
+                exchange: EXCHANGE_SHORT[r.exchange] || r.exchange || '',
+                type:     r.type || 'EQUITY',
+                logoUrl,
+              };
+            });
+
           setResults(items);
           setOpen(items.length > 0);
         }
@@ -996,9 +1025,19 @@ function SymbolPicker({ category, workerUrl, theme, onSelect, selectedSymbol, se
                 ? React.createElement('img', {
                     src: item.logoUrl, alt: item.name,
                     style: { width: 36, height: 36, objectFit: 'contain' },
-                    onError: e => { e.target.parentNode.innerHTML = `<span style="font-size:0.65rem;color:rgba(255,255,255,0.3)">${(item.ticker||item.symbol).slice(0,4)}</span>`; }
+                    onError: e => {
+                      // Replace broken image with letter avatar
+                      const parent = e.target.parentNode;
+                      const ticker = (item.ticker || item.symbol || '').replace(/\..+$/, '').slice(0, 3);
+                      const colors = ['#3b82f6','#8b5cf6','#06b6d4','#f59e0b','#22c55e','#ef4444'];
+                      const color  = colors[ticker.charCodeAt(0) % colors.length];
+                      parent.style.background = `${color}22`;
+                      parent.innerHTML = `<span style="font-size:0.65rem;font-weight:700;color:${color}">${ticker}</span>`;
+                    }
                   })
-                : React.createElement('span', { style: { fontSize: '0.65rem', color: 'rgba(255,255,255,0.3)' } }, (item.ticker || item.symbol).slice(0, 4))
+                : React.createElement('span', { style: { fontSize: '0.65rem', fontWeight: '700', color: 'rgba(255,255,255,0.4)' } },
+                    (item.ticker || item.symbol || '').replace(/\..+$/, '').slice(0, 3)
+                  )
             ),
 
             // Info
