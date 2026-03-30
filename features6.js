@@ -161,15 +161,22 @@ function PortfolioHistoryChart({ portfolio, prices, transactions, apiKeys, theme
 
   const currentPeriod = PERIODS.find(p => p.id === period) || PERIODS[3];
 
-  // Build positions WITH first-buy timestamp per asset
+  // Build positions WITH transaction history for time-accurate amount calculation
   const positions = useMemo(() => {
-    // First: find earliest buy date per symbol+category from transactions
-    const firstBuy = {}; // key: `${cat}-${symLower}` → ts
+    // Build tx history per symbol+category: [{ts, qty, type}]
+    const txHistory = {}; // key: `${cat}-${symLower}` → [{ts, qty, type}]
+    const firstBuy  = {}; // key → first buy ts
+
     (transactions || []).forEach(tx => {
-      if (tx.type !== 'buy') return;
-      const key = `${tx.category || 'crypto'}-${(tx.symbol || '').toLowerCase()}`;
+      if (tx.type !== 'buy' && tx.type !== 'sell') return;
+      const cat = tx.category || 'crypto';
+      const key = `${cat}-${(tx.symbol || '').toLowerCase()}`;
       const ts  = Math.floor(new Date(tx.date || 0).getTime() / 1000);
-      if (!firstBuy[key] || ts < firstBuy[key]) firstBuy[key] = ts;
+      if (!txHistory[key]) txHistory[key] = [];
+      txHistory[key].push({ ts, qty: parseFloat(tx.quantity) || 0, type: tx.type });
+      if (tx.type === 'buy') {
+        if (!firstBuy[key] || ts < firstBuy[key]) firstBuy[key] = ts;
+      }
     });
 
     const result = [];
@@ -178,17 +185,21 @@ function PortfolioHistoryChart({ portfolio, prices, transactions, apiKeys, theme
         if ((pos.amount || 0) <= 0.000001) return;
         const symL = (pos.symbol || pos.name || '').toLowerCase();
         const key  = `${cat}-${symL}`;
-        // Use firstBuy from transactions, fall back to purchaseDate on position, then "now - 1 day"
+
         let firstTs = firstBuy[key];
         if (!firstTs && pos.purchaseDate) firstTs = Math.floor(new Date(pos.purchaseDate).getTime() / 1000);
         if (!firstTs) firstTs = Math.floor(Date.now() / 1000) - 86400;
 
+        // Sort tx history by time
+        const history = (txHistory[key] || []).sort((a, b) => a.ts - b.ts);
+
         result.push({
-          sym: symL,
+          sym:     symL,
           symOrig: pos.symbol || pos.name || '',
-          amount: pos.amount,
+          amount:  pos.amount, // current total (for reference)
           cat,
-          firstTs, // ← earliest buy — don't show portfolio value before this date
+          firstTs,
+          txHistory: history, // ← full buy/sell history for time-accurate amounts
         });
       });
     });
@@ -314,28 +325,47 @@ function PortfolioHistoryChart({ portfolio, prices, transactions, apiKeys, theme
       }
 
       // ── Build portfolio value curve ──────────────────────────────────────
-      // IMPORTANT: each position only contributes from its firstTs (first buy)
-      // So the chart never shows portfolio value before you actually bought anything
+      // KEY FIX: For each timestamp, calculate how many units were HELD at that
+      // time by replaying transactions up to that point.
+      // This makes buy/sell events visible as actual jumps in the chart.
+
+      // Helper: amount held at a given timestamp
+      const amountAt = (pos, ts) => {
+        let held = 0;
+        for (const tx of pos.txHistory) {
+          if (tx.ts > ts) break; // transaction is in the future
+          if (tx.type === 'buy')  held += tx.qty;
+          if (tx.type === 'sell') held -= tx.qty;
+        }
+        return Math.max(0, held);
+      };
 
       // Global earliest buy = minimum firstTs across all positions
       const globalFirstTs = Math.min(...positions.map(p => p.firstTs));
 
-      // Collect all timestamps from all histories, clipped to each position's firstTs
+      // All price timestamps from all histories that fall after any position's first buy
       const allTs = new Set();
       positions.forEach(pos => {
         const hist = historyMap[pos.symOrig];
         if (!hist) return;
         hist.forEach(h => {
-          if (h.ts >= pos.firstTs) allTs.add(h.ts); // only from purchase date
+          if (h.ts >= pos.firstTs) allTs.add(h.ts);
         });
+      });
+
+      // Also add all transaction timestamps so buy/sell events are always chart points
+      positions.forEach(pos => {
+        pos.txHistory.forEach(tx => allTs.add(tx.ts));
+        // Add a point just AFTER each transaction too (same day end) to show the step
+        pos.txHistory.forEach(tx => allTs.add(tx.ts + 60));
       });
 
       const sortedTs = [...allTs].sort((a, b) => a - b);
 
-      // Period cutoff: the later of (period start, global first buy)
+      // Period cutoff: later of (period start, global first buy)
       const cutoffDays = typeof currentPeriod.cgDays === 'number' ? currentPeriod.cgDays : 36500;
       const periodCutoff = period === 'Max'
-        ? globalFirstTs  // Max starts at very first purchase
+        ? globalFirstTs
         : Math.max(globalFirstTs, Math.floor(Date.now()/1000) - cutoffDays * 86400);
 
       const curve = sortedTs
@@ -343,19 +373,22 @@ function PortfolioHistoryChart({ portfolio, prices, transactions, apiKeys, theme
         .map(ts => {
           let value = 0;
           positions.forEach(pos => {
-            // Skip this position if ts is before its first buy
-            if (ts < pos.firstTs) return;
+            if (ts < pos.firstTs) return; // position not yet bought
 
             const hist = historyMap[pos.symOrig];
             if (!hist || hist.length === 0) return;
 
-            // Forward-fill: last known price at or before this ts
+            // Time-accurate amount: replay transactions up to this point
+            const held = pos.txHistory.length > 0 ? amountAt(pos, ts) : pos.amount;
+            if (held <= 0) return;
+
+            // Forward-fill price: last known price at or before this ts
             let price = null;
             for (let i = hist.length - 1; i >= 0; i--) {
               if (hist[i].ts <= ts + 3600) { price = hist[i].price; break; }
             }
             if (price === null) price = hist[0]?.price ?? 0;
-            value += pos.amount * price;
+            value += held * price;
           });
           return { ts, value, date: new Date(ts * 1000).toISOString().split('T')[0] };
         })
