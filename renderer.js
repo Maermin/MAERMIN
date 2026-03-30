@@ -325,7 +325,6 @@ function InvestmentTracker() {
         const symbolOriginal = pos.symbol || pos.name || '';
         const symbolLower = symbolOriginal.toLowerCase();
         const symbolUpper = symbolOriginal.toUpperCase();
-        // Try multiple lookups: original case, lowercase, uppercase
         const currentPrice = prices[symbolOriginal] || prices[symbolLower] || prices[symbolUpper] || pos.purchasePrice || 0;
         const value = (pos.amount || 1) * currentPrice;
         const invested = (pos.amount || 1) * (pos.purchasePrice || 0);
@@ -344,6 +343,44 @@ function InvestmentTracker() {
       totalPositions
     };
   }, [portfolio, prices]);
+
+  // ALL portfolios combined — used on Overview to show total wealth across portfolios
+  const allPortfoliosStats = useMemo(() => {
+    const posMap = {};
+    transactions.forEach(tx => {
+      const category = tx.category || 'crypto';
+      const key = `${category}-${(tx.symbol || '').toLowerCase()}`;
+      if (!posMap[key]) posMap[key] = { symbol: tx.symbol, category, amount: 0, totalCostEUR: 0 };
+      const qty = parseFloat(tx.quantity) || 0;
+      let priceEUR = parseFloat(tx.price) || 0;
+      if (tx.currency === 'USD' && exchangeRate > 0) priceEUR *= exchangeRate;
+      if (tx.type === 'buy') {
+        posMap[key].amount += qty;
+        posMap[key].totalCostEUR += qty * priceEUR;
+      } else if (tx.type === 'sell') {
+        const frac = posMap[key].amount > 0 ? Math.min(qty, posMap[key].amount) / posMap[key].amount : 0;
+        posMap[key].totalCostEUR *= (1 - frac);
+        posMap[key].amount = Math.max(0, posMap[key].amount - qty);
+      }
+    });
+    let totalValue = 0, totalInvested = 0, totalPositions = 0;
+    Object.values(posMap).forEach(pos => {
+      if (pos.amount <= 0.0001) return;
+      const sym = pos.symbol || '';
+      const pr  = prices[sym] || prices[sym.toLowerCase()] || prices[sym.toUpperCase()] || 0;
+      totalValue    += pos.amount * pr;
+      totalInvested += pos.totalCostEUR;
+      totalPositions++;
+    });
+    return {
+      totalValue,
+      totalInvested,
+      totalProfit: totalValue - totalInvested,
+      totalProfitPercent: totalInvested > 0 ? ((totalValue - totalInvested) / totalInvested) * 100 : 0,
+      totalPositions,
+      portfolioCount: portfolios.length,
+    };
+  }, [transactions, prices, exchangeRate, portfolios]);
 
   // ========== COMMANDS FOR PALETTE ==========
   
@@ -1224,6 +1261,7 @@ function InvestmentTracker() {
             transactions: activeTransactions, theme: currentTheme, formatPrice, getCurrencySymbol
           }) : renderAnalyticsPlaceholder('Fee Analyzer');
 
+      case 'portfolios':
         return window.MaerminFeatures4 ?
           React.createElement(window.MaerminFeatures4.PortfolioManagerView, {
             portfolios, activePortfolioId, transactions, prices,
@@ -1315,10 +1353,12 @@ function InvestmentTracker() {
   // ========== OVERVIEW VIEW ==========
   
   const renderOverview = () => {
-    const isUp   = portfolioStats.totalProfit >= 0;
-    const pctStr = `${portfolioStats.totalProfitPercent >= 0 ? '+' : ''}${portfolioStats.totalProfitPercent.toFixed(2)}%`;
+    // Overview always shows ALL portfolios combined
+    const stats  = allPortfoliosStats;
+    const isUp   = stats.totalProfit >= 0;
+    const pctStr = `${stats.totalProfitPercent >= 0 ? '+' : ''}${stats.totalProfitPercent.toFixed(2)}%`;
+    const hasMultiple = portfolios.length > 1;
 
-    // Compact stat card helper
     const statCard = (label, value, sub, color, onClick) =>
       React.createElement('div', {
         onClick,
@@ -1338,14 +1378,16 @@ function InvestmentTracker() {
 
     return React.createElement('div', { style: { padding: '1.5rem' } },
 
-      // ── Header row: title + action buttons ──────────────────────────────
+      // ── Header ───────────────────────────────────────────────────────────
       React.createElement('div', {
-        style: { display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.5rem', flexWrap: 'wrap', gap: '0.75rem' }
+        style: { display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '1.5rem', flexWrap: 'wrap', gap: '0.75rem' }
       },
         React.createElement('div', null,
           React.createElement('h2', { style: { color: currentTheme.text, fontSize: '1.35rem', fontWeight: '800', marginBottom: '0.125rem' } }, 'Overview'),
-          lastRefresh && React.createElement('div', { style: { color: currentTheme.textSecondary, fontSize: '0.72rem' } },
-            `Last refresh: ${lastRefresh.toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' })}`
+          React.createElement('div', { style: { color: currentTheme.textSecondary, fontSize: '0.72rem' } },
+            hasMultiple
+              ? `All ${portfolios.length} portfolios combined · ${lastRefresh ? 'Last refresh ' + lastRefresh.toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' }) : 'Refresh to update prices'}`
+              : lastRefresh ? `Last refresh: ${lastRefresh.toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' })}` : 'Refresh to update prices'
           )
         ),
         React.createElement('div', { style: { display: 'flex', gap: '0.5rem', flexWrap: 'wrap' } },
@@ -1364,22 +1406,63 @@ function InvestmentTracker() {
         )
       ),
 
-      // ── Stats cards ─────────────────────────────────────────────────────
+      // ── Portfolio breakdown bar (only when multiple portfolios) ──────────
+      hasMultiple && React.createElement('div', {
+        style: { background: currentTheme.card, border: `1px solid ${currentTheme.cardBorder}`, borderRadius: '12px', padding: '1rem 1.25rem', marginBottom: '1.5rem' }
+      },
+        React.createElement('div', { style: { display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.625rem' } },
+          React.createElement('span', { style: { color: currentTheme.textSecondary, fontSize: '0.72rem', textTransform: 'uppercase', letterSpacing: '0.06em' } }, 'Portfolios'),
+          React.createElement('button', {
+            onClick: () => setActiveView('portfolios'),
+            style: { fontSize: '0.72rem', color: currentTheme.accent, background: 'none', border: 'none', cursor: 'pointer', padding: 0 }
+          }, 'Manage →')
+        ),
+        React.createElement('div', { style: { display: 'flex', gap: '0.75rem', flexWrap: 'wrap' } },
+          portfolios.map(p => {
+            const ptxs = transactions.filter(tx => (tx.portfolioId || 'default') === p.id);
+            const pValue = ptxs.reduce((sum, tx) => {
+              if (tx.type !== 'buy' || !tx.quantity) return sum;
+              const sym = tx.symbol || '';
+              const pr  = prices[sym] || prices[sym.toLowerCase()] || 0;
+              return sum + (parseFloat(tx.quantity) || 0) * pr;
+            }, 0);
+            const isActive = p.id === activePortfolioId;
+            return React.createElement('button', {
+              key: p.id,
+              onClick: () => { setActivePortfolioId(p.id); },
+              style: {
+                display: 'flex', alignItems: 'center', gap: '0.5rem', padding: '0.375rem 0.75rem',
+                background: isActive ? `${p.color}18` : currentTheme.inputBg,
+                border: `1px solid ${isActive ? p.color : currentTheme.cardBorder}`,
+                borderRadius: '8px', cursor: 'pointer', transition: 'all 0.1s'
+              }
+            },
+              React.createElement('div', { style: { width: 8, height: 8, borderRadius: '50%', background: p.color, flexShrink: 0 } }),
+              React.createElement('span', { style: { color: currentTheme.text, fontSize: '0.78rem', fontWeight: isActive ? '700' : '400' } }, p.name),
+              pValue > 0 && React.createElement('span', { style: { color: currentTheme.textSecondary, fontSize: '0.72rem' } },
+                `${formatPrice(pValue)} ${getCurrencySymbol()}`
+              )
+            );
+          })
+        )
+      ),
+
+      // ── Stats cards (always all portfolios) ─────────────────────────────
       React.createElement('div', {
         style: { display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '1rem', marginBottom: '1.5rem' }
       },
-        statCard('Total Value', `${formatPrice(portfolioStats.totalValue)} ${getCurrencySymbol()}`,
+        statCard('Total Value', `${formatPrice(stats.totalValue)} ${getCurrencySymbol()}`,
           lastRefresh ? `as of ${lastRefresh.toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' })}` : 'Refresh to update'),
-        statCard('Invested', `${formatPrice(portfolioStats.totalInvested)} ${getCurrencySymbol()}`,
-          `${portfolioStats.totalPositions} position${portfolioStats.totalPositions !== 1 ? 's' : ''}`),
+        statCard('Invested', `${formatPrice(stats.totalInvested)} ${getCurrencySymbol()}`,
+          `${stats.totalPositions} position${stats.totalPositions !== 1 ? 's' : ''}`),
         statCard('Total Return',
-          `${isUp ? '+' : ''}${formatPrice(portfolioStats.totalProfit)} ${getCurrencySymbol()}`,
+          `${isUp ? '+' : ''}${formatPrice(stats.totalProfit)} ${getCurrencySymbol()}`,
           pctStr,
           isUp ? '#22c55e' : '#ef4444'
         ),
-        statCard('Positions', portfolioStats.totalPositions,
-          'Click any row for details', undefined,
-          () => document.querySelector('[data-view="transactions"]')?.click()
+        statCard('Positions', stats.totalPositions,
+          hasMultiple ? `across ${portfolios.length} portfolios` : 'Click any row for details', undefined,
+          () => setActiveView('transactions')
         )
       ),
 
