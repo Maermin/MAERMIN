@@ -216,7 +216,14 @@ function InvestmentTracker() {
         positionMap[key].amount += qty;
         positionMap[key].totalCostEUR += qty * priceEUR;
       } else if (tx.type === 'sell') {
-        positionMap[key].amount -= parseFloat(tx.quantity) || 0;
+        const qty = parseFloat(tx.quantity) || 0;
+        const currentAmount = positionMap[key].amount;
+        if (currentAmount > 0) {
+          // Reduce cost basis proportionally: sell removes (qty/total) fraction of cost
+          const fraction = Math.min(qty, currentAmount) / currentAmount;
+          positionMap[key].totalCostEUR -= positionMap[key].totalCostEUR * fraction;
+        }
+        positionMap[key].amount = Math.max(0, currentAmount - qty);
       }
     });
     
