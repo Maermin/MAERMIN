@@ -45,9 +45,10 @@ const YF_SYMBOL_MAP = {
   'NVO': 'NVO',
   // Stockholm — Yahoo nutzt .ST
   'ERIC-B': 'ERIC-B.ST', 'HM-B': 'HM-B.ST', 'VOLV-B': 'VOLV-B.ST',
-  // FI = Fiserv Inc. (NYSE) — works bare on Yahoo Finance
-  // If user means a Swedish stock they should enter the full symbol e.g. FINGERP.ST
+  // FI = Fiserv Inc. (NYSE) — YF sometimes returns no data for bare "FI"
+  // Try bare first, suffix fallback (.DE/.L etc.) handles the rest automatically
   'FI': 'FI',
+  'FISV': 'FI', // legacy Fiserv ticker alias
   // Amsterdam (.AS)
   'ASML': 'ASML.AS', 'SHELL': 'SHEL.AS', 'ING': 'INGA.AS', 'PHIA': 'PHIA.AS',
   // London (.L)

@@ -192,18 +192,22 @@ function InvestmentTracker() {
       
       if (!positionMap[key]) {
         positionMap[key] = {
-          symbol: tx.symbol,
+          symbol: tx.symbol,           // exact YF symbol or CoinGecko ID from SymbolPicker
+          symbolName: tx.symbolName || '',  // human-readable name e.g. "Apple Inc."
+          symbolLogoUrl: tx.symbolLogoUrl || '', // logo URL
           amount: 0,
-          totalCostEUR: 0, // Always store in EUR
+          totalCostEUR: 0,
           purchaseDate: tx.date,
           category: category
         };
       }
+      // Update name/logo if a later transaction has it (picker was used)
+      if (!positionMap[key].symbolName && tx.symbolName) positionMap[key].symbolName = tx.symbolName;
+      if (!positionMap[key].symbolLogoUrl && tx.symbolLogoUrl) positionMap[key].symbolLogoUrl = tx.symbolLogoUrl;
       
       // Get price in EUR - convert if transaction was in USD
       let priceEUR = parseFloat(tx.price) || 0;
       if (tx.currency === 'USD' && exchangeRate > 0) {
-        // Convert USD to EUR: price in USD * (EUR per USD)
         priceEUR = priceEUR * exchangeRate;
       }
       
@@ -218,14 +222,16 @@ function InvestmentTracker() {
     
     // Convert map to arrays
     Object.values(positionMap).forEach(pos => {
-      if (pos.amount > 0.0001) { // Only include positions with meaningful amounts
+      if (pos.amount > 0.0001) {
         const avgPriceEUR = pos.totalCostEUR / pos.amount;
         result[pos.category].push({
           id: `${pos.category}-${pos.symbol}`,
           symbol: pos.symbol,
-          name: pos.symbol,
+          symbolName: pos.symbolName,
+          symbolLogoUrl: pos.symbolLogoUrl,
+          name: pos.symbolName || pos.symbol,
           amount: pos.amount,
-          purchasePrice: avgPriceEUR, // Always in EUR
+          purchasePrice: avgPriceEUR,
           purchaseDate: pos.purchaseDate
         });
       }
@@ -486,13 +492,13 @@ function InvestmentTracker() {
       }
       
       // ── Stock Prices: Yahoo Finance (primary) → Alpha Vantage (fallback) ──
-      // Yahoo Finance via Worker: free, no rate limit, all global exchanges
-      // Alpha Vantage: only used if Worker not configured or Yahoo returns no data
       if (portfolio.stocks && portfolio.stocks.length > 0) {
         const workerBase = (apiKeys.cs2Worker || '').trim().replace(/\/$/, '');
         const hasWorker  = workerBase.length > 5;
 
         for (const stock of portfolio.stocks.slice(0, 10)) {
+          // Use the exact symbol stored from SymbolPicker — already correct YF format
+          // e.g. "SIX2.DE", "NVO", "AAPL", "SHEL.L"
           const sym    = (stock.symbol || stock.name || '').toUpperCase();
           const symL   = sym.toLowerCase();
           let   priceEUR = null;
@@ -500,8 +506,9 @@ function InvestmentTracker() {
           // ── Primary: Yahoo Finance via Worker ────────────────────────────
           if (hasWorker) {
             try {
-              // Map known EU symbols to correct YF suffix
-              const YF_MAP = {
+              // If symbol already has exchange suffix (.DE, .L etc.) use directly
+              // Otherwise apply known mappings for legacy symbols without suffix
+              const LEGACY_MAP = {
                 'SIX2':'SIX2.DE','SIE':'SIE.DE','SAP':'SAP.DE','BMW':'BMW.DE',
                 'VOW3':'VOW3.DE','BAS':'BAS.DE','ALV':'ALV.DE','DTE':'DTE.DE',
                 'DBK':'DBK.DE','ADS':'ADS.DE','RWE':'RWE.DE','MRK':'MRK.DE',
@@ -509,7 +516,8 @@ function InvestmentTracker() {
                 'LVMH':'MC.PA','TTE':'TTE.PA','AIR':'AIR.PA',
                 'ASML':'ASML.AS','ING':'INGA.AS',
               };
-              const yfSym = YF_MAP[sym] || sym;
+              // If symbol already contains a dot (has exchange suffix) use as-is
+              const yfSym = sym.includes('.') ? sym : (LEGACY_MAP[sym] || sym);
               const url   = `${workerBase}?action=yf&symbol=${encodeURIComponent(yfSym)}&interval=1d&range=5d`;
               const res   = await fetch(url, { signal: AbortSignal.timeout(8000) });
               if (res.ok) {
@@ -518,7 +526,7 @@ function InvestmentTracker() {
                 if (last?.price > 0) {
                   const rate = data.currency === 'EUR' ? 1 : usdToEur;
                   priceEUR = last.price * rate;
-                  console.log('[PRICES] Stock (YF):', sym, '→', priceEUR.toFixed(2), 'EUR');
+                  console.log('[PRICES] Stock (YF):', yfSym, '→', priceEUR.toFixed(2), 'EUR');
                 }
               }
               // If bare symbol failed, try .DE suffix automatically
@@ -802,7 +810,9 @@ function InvestmentTracker() {
     const transactionData = {
       type: newTransaction.type,
       category: newTransaction.category,
-      symbol: newTransaction.symbol,
+      symbol: newTransaction.symbol,           // exact YF symbol (e.g. SIX2.DE) or CoinGecko ID
+      symbolName: newTransaction.symbolName || '',   // human-readable: "Siemens AG"
+      symbolLogoUrl: newTransaction.symbolLogoUrl || '', // logo URL for display
       quantity: parseFloat(newTransaction.quantity),
       price: parseFloat(newTransaction.price),
       fees: parseFloat(newTransaction.fees) || 0,

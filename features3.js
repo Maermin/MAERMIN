@@ -845,7 +845,17 @@ function SymbolPicker({ category, workerUrl, theme, onSelect, selectedSymbol, se
             { signal: AbortSignal.timeout(8000) }
           );
           const data = await res.json();
-          const coins = (data.coins || []).slice(0, 8).map(c => ({
+          const coins = (data.coins || [])
+            .filter(c => {
+              // Filter out tokenized stocks (xStock, rStock, Ondo) and stablecoins
+              const name = (c.name || '').toLowerCase();
+              const sym  = (c.symbol || '').toLowerCase();
+              if (name.includes('xstock') || name.includes('rstock') || name.includes('tokenized'))  return false;
+              if (name.includes('ondo') && name.includes('stock')) return false;
+              if (['usdt','usdc','busd','dai','tusd','usdp','usdd','gusd','frax','lusd'].includes(sym)) return false;
+              return true;
+            })
+            .slice(0, 8).map(c => ({
             symbol:   c.id,                           // CoinGecko ID
             ticker:   c.symbol?.toUpperCase(),
             name:     c.name,
@@ -873,7 +883,9 @@ function SymbolPicker({ category, workerUrl, theme, onSelect, selectedSymbol, se
             .filter(r => r.type === 'EQUITY' || r.type === 'ETF' || r.type === 'MUTUALFUND')
             .slice(0, 10)
             .map(r => {
-              const logoUrl = `https://assets.parqet.com/logos/symbol/${encodeURIComponent(r.symbol)}`;
+              // Logo: Yahoo Finance brand CDN — no external dependency, same source as price data
+              const baseSym = r.symbol.split('.')[0].toUpperCase();
+              const logoUrl = `https://s.yimg.com/lb/brands/150x150/${baseSym}.png`;
               return {
                 symbol:   r.symbol,
                 ticker:   r.symbol,
@@ -881,6 +893,7 @@ function SymbolPicker({ category, workerUrl, theme, onSelect, selectedSymbol, se
                 exchange: EXCHANGE_SHORT[r.exchange] || r.exchange || '',
                 type:     r.type || 'EQUITY',
                 logoUrl,
+                baseSym,
               };
             });
 
@@ -952,23 +965,42 @@ function SymbolPicker({ category, workerUrl, theme, onSelect, selectedSymbol, se
 
     // ── Selected Preview ──────────────────────────────────────────────────
     selected && React.createElement('div', {
-      style: { marginTop: '0.5rem', display: 'flex', alignItems: 'center', gap: '0.625rem', padding: '0.625rem 0.875rem', background: `${theme.accent}0d`, border: `1px solid ${theme.accent}33`, borderRadius: '8px' }
+      style: { marginTop: '0.5rem', display: 'flex', alignItems: 'center', gap: '0.75rem', padding: '0.75rem 0.875rem', background: `${theme.accent}0d`, border: `1px solid ${theme.accent}33`, borderRadius: '8px' }
     },
-      // Logo / icon
-      React.createElement('div', { style: { width: 36, height: 36, borderRadius: '8px', overflow: 'hidden', flexShrink: 0, background: 'rgba(255,255,255,0.06)', display: 'flex', alignItems: 'center', justifyContent: 'center' } },
-        selected.logoUrl
-          ? React.createElement('img', { src: selected.logoUrl, alt: selected.name, style: { width: 36, height: 36, objectFit: 'contain' }, onError: e => { e.target.style.display = 'none'; } })
-          : React.createElement('span', { style: { color: theme.textSecondary, fontSize: '0.7rem' } }, (selected.ticker || selected.symbol || '').slice(0, 4))
+      // Logo
+      React.createElement('div', {
+        style: { width: 40, height: 40, borderRadius: '8px', flexShrink: 0, background: 'rgba(255,255,255,0.06)', display: 'flex', alignItems: 'center', justifyContent: 'center', position: 'relative', overflow: 'hidden' }
+      },
+        React.createElement('span', {
+          style: {
+            fontSize: '0.6rem', fontWeight: '800', position: 'absolute',
+            color: (['#3b82f6','#8b5cf6','#06b6d4','#f59e0b','#22c55e','#ef4444'])[((selected.ticker||selected.symbol||'A').charCodeAt(0)) % 6]
+          }
+        }, (selected.ticker || selected.symbol || '').replace(/\..+$/, '').slice(0, 3)),
+        selected.logoUrl && React.createElement('img', {
+          src: selected.logoUrl, alt: '',
+          style: { width: 40, height: 40, objectFit: 'contain', position: 'absolute', background: 'rgba(15,15,25,0.9)', borderRadius: '8px' },
+          onError: e => { if (e.target) e.target.style.display = 'none'; }
+        })
       ),
       React.createElement('div', { style: { flex: 1, minWidth: 0 } },
-        React.createElement('div', { style: { display: 'flex', alignItems: 'center', gap: '0.375rem', flexWrap: 'wrap' } },
-          React.createElement('span', { style: { color: theme.text, fontWeight: '700', fontSize: '0.875rem' } }, selected.ticker || selected.symbol),
-          React.createElement('span', { style: { fontSize: '0.65rem', padding: '0.1rem 0.35rem', borderRadius: '3px', background: `${TYPE_COLOR[selected.type] || theme.accent}20`, color: TYPE_COLOR[selected.type] || theme.accent, fontWeight: '600' } }, TYPE_LABEL[selected.type] || 'Stock'),
+        // Name + type badge
+        React.createElement('div', { style: { display: 'flex', alignItems: 'center', gap: '0.375rem', flexWrap: 'wrap', marginBottom: '0.25rem' } },
+          React.createElement('span', { style: { color: theme.text, fontWeight: '700', fontSize: '0.875rem' } }, selected.name),
+          React.createElement('span', { style: { fontSize: '0.62rem', padding: '0.1rem 0.35rem', borderRadius: '3px', background: `${TYPE_COLOR[selected.type] || theme.accent}20`, color: TYPE_COLOR[selected.type] || theme.accent, fontWeight: '700' } }, TYPE_LABEL[selected.type] || 'Stock'),
           selected.exchange && React.createElement('span', { style: { fontSize: '0.65rem', color: theme.textSecondary } }, selected.exchange)
         ),
-        React.createElement('div', { style: { color: theme.textSecondary, fontSize: '0.75rem', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' } }, selected.name),
-        React.createElement('div', { style: { color: theme.textSecondary, fontSize: '0.65rem', marginTop: '0.125rem', opacity: 0.7 } },
-          isCrypto ? `CoinGecko ID: ${selected.symbol}` : `YF Symbol: ${selected.symbol}`
+        // The exact symbol that will be saved — most important part
+        React.createElement('div', {
+          style: { display: 'flex', alignItems: 'center', gap: '0.375rem', padding: '0.25rem 0.5rem', background: 'rgba(34,197,94,0.1)', border: '1px solid rgba(34,197,94,0.25)', borderRadius: '5px', width: 'fit-content' }
+        },
+          React.createElement('span', { style: { color: '#22c55e', fontSize: '0.7rem' } }, '✓'),
+          React.createElement('span', { style: { color: '#22c55e', fontWeight: '700', fontSize: '0.8rem', fontFamily: 'monospace', letterSpacing: '0.03em' } },
+            isCrypto ? selected.symbol : selected.symbol  // exact YF symbol or CoinGecko ID
+          ),
+          React.createElement('span', { style: { color: 'rgba(34,197,94,0.6)', fontSize: '0.65rem' } },
+            isCrypto ? '· CoinGecko ID' : '· Yahoo Finance symbol'
+          )
         )
       )
     ),
@@ -1017,27 +1049,23 @@ function SymbolPicker({ category, workerUrl, theme, onSelect, selectedSymbol, se
             onMouseEnter: e => e.currentTarget.style.background = `${theme.accent}10`,
             onMouseLeave: e => e.currentTarget.style.background = 'transparent'
           },
-            // Logo
+            // Logo — letter avatar always rendered underneath; img shown on top if it loads
             React.createElement('div', {
-              style: { width: 36, height: 36, borderRadius: '8px', flexShrink: 0, overflow: 'hidden', background: 'rgba(255,255,255,0.05)', display: 'flex', alignItems: 'center', justifyContent: 'center' }
+              style: { width: 36, height: 36, borderRadius: '8px', flexShrink: 0, background: 'rgba(255,255,255,0.06)', display: 'flex', alignItems: 'center', justifyContent: 'center', position: 'relative', overflow: 'hidden' }
             },
-              item.logoUrl
-                ? React.createElement('img', {
-                    src: item.logoUrl, alt: item.name,
-                    style: { width: 36, height: 36, objectFit: 'contain' },
-                    onError: e => {
-                      // Replace broken image with letter avatar
-                      const parent = e.target.parentNode;
-                      const ticker = (item.ticker || item.symbol || '').replace(/\..+$/, '').slice(0, 3);
-                      const colors = ['#3b82f6','#8b5cf6','#06b6d4','#f59e0b','#22c55e','#ef4444'];
-                      const color  = colors[ticker.charCodeAt(0) % colors.length];
-                      parent.style.background = `${color}22`;
-                      parent.innerHTML = `<span style="font-size:0.65rem;font-weight:700;color:${color}">${ticker}</span>`;
-                    }
-                  })
-                : React.createElement('span', { style: { fontSize: '0.65rem', fontWeight: '700', color: 'rgba(255,255,255,0.4)' } },
-                    (item.ticker || item.symbol || '').replace(/\..+$/, '').slice(0, 3)
-                  )
+              // Letter avatar (always there as base layer)
+              React.createElement('span', {
+                style: {
+                  fontSize: '0.6rem', fontWeight: '800', position: 'absolute',
+                  color: (['#3b82f6','#8b5cf6','#06b6d4','#f59e0b','#22c55e','#ef4444'])[((item.ticker||item.symbol||'A').charCodeAt(0)) % 6]
+                }
+              }, (item.ticker || item.symbol || '').replace(/\..+$/, '').slice(0, 3)),
+              // Logo image on top — hidden on error (reveals letter avatar)
+              item.logoUrl && React.createElement('img', {
+                src: item.logoUrl, alt: '',
+                style: { width: 36, height: 36, objectFit: 'contain', position: 'absolute', background: 'rgba(15,15,25,0.85)', borderRadius: '8px' },
+                onError: e => { if (e.target) e.target.style.display = 'none'; }
+              })
             ),
 
             // Info

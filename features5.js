@@ -99,14 +99,14 @@ function PerformancePeriods({ portfolio, priceHistory, prices, theme, formatPric
     return PERIODS.map(p => {
       let startValue = null;
       if (p.id === 'YTD') {
-        const jan1 = new Date(now.getFullYear(), 0, 1).toISOString();
-        const snap = timeline.find(d => d.ts >= jan1);
+        const jan1Ts = Math.floor(new Date(now.getFullYear(), 0, 1).getTime() / 1000);
+        const snap = timeline.find(d => d.ts >= jan1Ts);
         startValue = snap?.value ?? (timeline[0]?.value ?? null);
       } else if (p.id === 'Max') {
         startValue = timeline[0]?.value ?? null;
       } else {
-        const cutoff = new Date(now - p.days * 86400000).toISOString();
-        const snap = timeline.slice().reverse().find(d => d.ts <= cutoff);
+        const cutoffTs = Math.floor((now - p.days * 86400000) / 1000);
+        const snap = timeline.slice().reverse().find(d => d.ts <= cutoffTs);
         startValue = snap?.value ?? (timeline[0]?.value ?? null);
       }
 
