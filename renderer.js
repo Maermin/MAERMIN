@@ -1471,8 +1471,10 @@ function InvestmentTracker() {
       window.MaerminFeatures6 && portfolioStats.totalPositions > 0 &&
         React.createElement(window.MaerminFeatures6.PortfolioHistoryChart, {
           portfolio, prices, transactions: activeTransactions, apiKeys, exchangeRate,
-          // Pass authoritative current value so chart header matches stats cards exactly
-          currentValue: allPortfoliosStats.totalValue,
+          currentValue:       allPortfoliosStats.totalValue,
+          totalInvested:      allPortfoliosStats.totalInvested,
+          totalProfit:        allPortfoliosStats.totalProfit,
+          totalProfitPercent: allPortfoliosStats.totalProfitPercent,
           theme: currentTheme, formatPrice, getCurrencySymbol
         }),
 

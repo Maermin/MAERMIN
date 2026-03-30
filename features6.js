@@ -145,25 +145,28 @@ async function fetchAVHistory(symbol, avKey, period) {
 // ─────────────────────────────────────────────────────────────────────────────
 // CHART COMPONENT
 // ─────────────────────────────────────────────────────────────────────────────
-function PortfolioHistoryChart({ portfolio, prices, transactions, apiKeys, theme, formatPrice, getCurrencySymbol, exchangeRate, currentValue }) {
-  const [period, setPeriod]       = useState('1M');
-  const [chartMode, setChartMode] = useState('value'); // 'value' | 'return'
-  const [loading, setLoading]     = useState(false);
-  const [error, setError]         = useState(null);
-  const [chartData, setChartData] = useState([]);
+function PortfolioHistoryChart({ portfolio, prices, transactions, apiKeys, theme, formatPrice, getCurrencySymbol, exchangeRate, currentValue, totalInvested, totalProfit, totalProfitPercent }) {
+  const [period, setPeriod]         = useState('1M');
+  const [chartMode, setChartMode]   = useState('value');
+  const [loading, setLoading]       = useState(false);
+  const [error, setError]           = useState(null);
+  const [chartData, setChartData]   = useState([]);
   const [hoveredIdx, setHoveredIdx] = useState(null);
-  const svgRef       = useRef(null); // value chart
-  const svgRefReturn = useRef(null); // return % chart
-  const cacheRef = useRef({});
+  const svgRef       = useRef(null);
+  const svgRefReturn = useRef(null);
+  const cacheRef     = useRef({});
 
-  const usdToEur = exchangeRate || 0.91;
-  const workerUrl = (apiKeys?.cs2Worker || '').trim();
-  const avKey     = apiKeys?.alphaVantage;
-  const hasWorker = workerUrl.length > 5;
-
+  const usdToEur      = exchangeRate || 0.91;
+  const workerUrl     = (apiKeys?.cs2Worker || '').trim();
+  const avKey         = apiKeys?.alphaVantage;
+  const hasWorker     = workerUrl.length > 5;
   const currentPeriod = PERIODS.find(p => p.id === period) || PERIODS[3];
 
-  // Reset hover when switching chart mode
+  // True ROI from transaction cost basis — same as stats cards
+  const trueROI    = (typeof totalProfitPercent === 'number') ? totalProfitPercent : 0;
+  const trueProfit = (typeof totalProfit        === 'number') ? totalProfit        : 0;
+  const isROIup    = trueROI >= 0;
+
   useEffect(() => { setHoveredIdx(null); }, [chartMode]);
 
   // Build positions WITH transaction history for time-accurate amount calculation
@@ -462,7 +465,6 @@ function PortfolioHistoryChart({ portfolio, prices, transactions, apiKeys, theme
   }, [chartData, period, formatPrice]);
 
   const hovered = hoveredIdx !== null ? chartData[hoveredIdx] : null;
-  const lineColor = computed?.isUp ? '#22c55e' : '#ef4444';
 
   // ── Return % chart computation ─────────────────────────────────────────────
   const computedReturn = useMemo(() => {
@@ -537,261 +539,333 @@ function PortfolioHistoryChart({ portfolio, prices, transactions, apiKeys, theme
     const rect = ref.current.getBoundingClientRect();
     const mx   = (e.clientX - rect.left) / rect.width * W;
     const frac = Math.max(0, Math.min(1, (mx - PAD.l) / (W - PAD.l - PAD.r)));
-    setHoveredIdx(Math.round(frac * (chartData.length-1)));
+    setHoveredIdx(Math.round(frac * (chartData.length - 1)));
   };
 
-  // Which data sources are active — shown as small tags, not in the main title
   const dataSources = [
-    positions.some(p => p.cat === 'crypto')     && 'Crypto: CoinGecko',
-    positions.some(p => p.cat === 'stocks')     && (hasWorker ? 'Stocks: Yahoo Finance' : avKey ? 'Stocks: Alpha Vantage' : null),
-    positions.some(p => p.cat === 'commodities')&& (hasWorker ? 'Commodities: Yahoo Finance' : null),
-    positions.some(p => p.cat === 'skins')      && (hasWorker ? 'CS2: Steam Market' : null),
+    positions.some(p => p.cat === 'crypto')      && 'CoinGecko',
+    positions.some(p => p.cat === 'stocks')      && (hasWorker ? 'Yahoo Finance' : avKey ? 'Alpha Vantage' : null),
+    positions.some(p => p.cat === 'commodities') && (hasWorker ? 'Yahoo Finance' : null),
+    positions.some(p => p.cat === 'skins')       && (hasWorker ? 'Steam Market' : null),
   ].filter(Boolean);
 
-  return React.createElement('div', {
-    style: { background: theme.card, border: `1px solid ${theme.cardBorder}`, borderRadius: '16px', overflow: 'hidden', marginBottom: '1.5rem' }
-  },
-    // ── Header ────────────────────────────────────────────────────────────
-    React.createElement('div', {
-      style: { padding: '1.25rem 1.5rem', display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', flexWrap: 'wrap', gap: '0.75rem' }
+  // ── Colour constants ──────────────────────────────────────────────────────
+  const GREEN  = '#22c55e';
+  const RED    = '#ef4444';
+  const GREY   = 'rgba(255,255,255,0.18)';
+  const GREY2  = 'rgba(255,255,255,0.07)';
+  const lineColor = computed?.isUp ? GREEN : RED;
+
+  // ── Shared X-label formatter ──────────────────────────────────────────────
+  const fmtX = d => {
+    if (['1H','1D'].includes(period)) return new Date(d.ts*1000).toLocaleTimeString('en-GB',{hour:'2-digit',minute:'2-digit'});
+    if (['1W','1M'].includes(period)) return new Date(d.date).toLocaleDateString('en-GB',{day:'2-digit',month:'short'});
+    return new Date(d.date).toLocaleDateString('en-GB',{month:'short',year:'2-digit'});
+  };
+
+  // ── Header stat pill (same in both modes = real ROI) ──────────────────────
+  const roiPill = () => {
+    const pct = trueROI;
+    const eur = trueProfit;
+    const up  = isROIup;
+    const sign = up ? '+' : '';
+    return React.createElement('div', {
+      style: { display: 'flex', alignItems: 'center', gap: '0.625rem', flexWrap: 'wrap', marginTop: '0.25rem' }
     },
-      // Left: title + value/return display
+      React.createElement('span', {
+        style: {
+          fontSize: '1.85rem', fontWeight: '800', letterSpacing: '-0.03em', lineHeight: 1,
+          color: up ? GREEN : RED
+        }
+      }, `${sign}${pct.toFixed(2)}%`),
+      React.createElement('div', { style: { display: 'flex', flexDirection: 'column', gap: '0.1rem' } },
+        React.createElement('span', {
+          style: { fontSize: '0.9rem', fontWeight: '700', color: up ? GREEN : RED }
+        }, `${sign}${formatPrice(Math.abs(eur))} ${getCurrencySymbol()}`),
+        React.createElement('span', { style: { fontSize: '0.68rem', color: GREY, letterSpacing: '0.04em', textTransform: 'uppercase' } },
+          'Total Return on Investment'
+        )
+      )
+    );
+  };
+
+  // ── Hover value display ──────────────────────────────────────────────────
+  const hoverDisplay = () => {
+    if (!hovered) return null;
+    if (chartMode === 'value') {
+      return React.createElement('div', { style: { display:'flex', alignItems:'baseline', gap:'0.5rem', marginTop:'0.25rem' } },
+        React.createElement('span', { style: { fontSize:'1.85rem', fontWeight:'800', letterSpacing:'-0.03em', color: theme.text } },
+          `${formatPrice(hovered.value)} ${getCurrencySymbol()}`),
+        React.createElement('span', { style: { fontSize:'0.78rem', color: GREY } }, hovered.date)
+      );
+    }
+    // return mode
+    if (!computedReturn) return null;
+    const r   = computedReturn.retVals[hoveredIdx] ?? 0;
+    const col = r >= 0 ? GREEN : RED;
+    const eur = (r / 100) * (totalInvested || computedReturn.firstV || 0);
+    return React.createElement('div', { style: { display:'flex', alignItems:'baseline', gap:'0.5rem', flexWrap:'wrap', marginTop:'0.25rem' } },
+      React.createElement('span', { style: { fontSize:'1.85rem', fontWeight:'800', letterSpacing:'-0.03em', color: col } },
+        `${r >= 0 ? '+' : ''}${r.toFixed(2)}%`),
+      React.createElement('span', { style: { fontSize:'0.9rem', fontWeight:'700', color: col } },
+        `${r >= 0 ? '+' : ''}${formatPrice(eur)} ${getCurrencySymbol()}`),
+      React.createElement('span', { style: { fontSize:'0.78rem', color: GREY } }, hovered.date)
+    );
+  };
+
+  // ── SVG grid helper ───────────────────────────────────────────────────────
+  const gridLine = (y, dashed = true) =>
+    React.createElement('line', { x1:PAD.l, y1:y, x2:W-PAD.r, y2:y,
+      stroke: GREY2, strokeWidth:1, strokeDasharray: dashed ? '4,6' : '0' });
+
+  // ── Value chart SVG ───────────────────────────────────────────────────────
+  const renderValueChart = () => {
+    if (!computed || error) return null;
+    const xCount = 5;
+    const xStep  = Math.max(1, Math.floor((chartData.length-1) / (xCount-1)));
+    const xLabels = Array.from({length: xCount}, (_,i) => {
+      const idx = Math.min(i*xStep, chartData.length-1);
+      return { idx, x: computed.toX(idx), label: fmtX(chartData[idx]) };
+    });
+    return React.createElement('svg', {
+      ref: svgRef, viewBox: `0 0 ${W} ${H}`, width:'100%',
+      style: { display:'block', overflow:'visible', cursor:'crosshair' },
+      onMouseMove: handleMouseMove, onMouseLeave: () => setHoveredIdx(null)
+    },
+      React.createElement('defs', null,
+        React.createElement('linearGradient', { id:'valGrad', x1:'0', y1:'0', x2:'0', y2:'1' },
+          React.createElement('stop', { offset:'0%',   stopColor: lineColor, stopOpacity: 0.18 }),
+          React.createElement('stop', { offset:'100%', stopColor: lineColor, stopOpacity: 0.01 })
+        )
+      ),
+      // Grid
+      ...computed.yLabels.map((yl,i) => React.createElement(React.Fragment, {key:i},
+        gridLine(yl.y),
+        React.createElement('text', { x:PAD.l-6, y:yl.y+4, textAnchor:'end', fill:GREY, fontSize:9, fontFamily:'monospace' }, yl.label)
+      )),
+      // X labels
+      ...xLabels.map((xl,i) =>
+        React.createElement('text', { key:i, x:xl.x, y:H-PAD.b+13, textAnchor:'middle', fill:GREY, fontSize:9 }, xl.label)
+      ),
+      // Area + line
+      React.createElement('polygon', { points: computed.area, fill:'url(#valGrad)' }),
+      React.createElement('polyline', { points: computed.pts, fill:'none', stroke: lineColor, strokeWidth:1.75, strokeLinejoin:'round', strokeLinecap:'round' }),
+      // Hover crosshair + dot + tooltip
+      hovered && React.createElement(React.Fragment, null,
+        React.createElement('line', { x1:computed.toX(hoveredIdx), y1:PAD.t, x2:computed.toX(hoveredIdx), y2:H-PAD.b, stroke:GREY, strokeWidth:1, strokeDasharray:'3,3' }),
+        React.createElement('circle', { cx:computed.toX(hoveredIdx), cy:computed.toY(hovered.value), r:4, fill:lineColor, stroke:theme.card, strokeWidth:2 }),
+        React.createElement('g', { transform:`translate(${Math.min(computed.toX(hoveredIdx)+10, W-140)},${Math.max(computed.toY(hovered.value)-40, PAD.t)})` },
+          React.createElement('rect', { width:132, height:44, rx:6, fill:theme.card, stroke:lineColor, strokeWidth:1, opacity:0.96 }),
+          React.createElement('text', { x:8, y:15, fill:GREY, fontSize:9 }, hovered.date),
+          React.createElement('text', { x:8, y:32, fill:lineColor, fontSize:12, fontWeight:700, fontFamily:'monospace' },
+            `${formatPrice(hovered.value)} ${getCurrencySymbol()}`)
+        )
+      )
+    );
+  };
+
+  // ── Return % chart SVG ────────────────────────────────────────────────────
+  const renderReturnChart = () => {
+    if (!computedReturn || error) return null;
+    const xCount = 5;
+    const xStep  = Math.max(1, Math.floor((chartData.length-1) / (xCount-1)));
+    const xLabels = Array.from({length: xCount}, (_,i) => {
+      const idx = Math.min(i*xStep, chartData.length-1);
+      return { idx, x: computedReturn.toX(idx), label: fmtX(chartData[idx]) };
+    });
+    return React.createElement('svg', {
+      ref: svgRefReturn, viewBox: `0 0 ${W} ${H}`, width:'100%',
+      style: { display:'block', overflow:'visible', cursor:'crosshair' },
+      onMouseMove: handleMouseMove, onMouseLeave: () => setHoveredIdx(null)
+    },
+      React.createElement('defs', null,
+        React.createElement('linearGradient', { id:'retGreen', x1:'0', y1:'0', x2:'0', y2:'1' },
+          React.createElement('stop', { offset:'0%',   stopColor: GREEN, stopOpacity: 0.2 }),
+          React.createElement('stop', { offset:'100%', stopColor: GREEN, stopOpacity: 0.01 })
+        ),
+        React.createElement('linearGradient', { id:'retRed', x1:'0', y1:'0', x2:'0', y2:'1' },
+          React.createElement('stop', { offset:'0%',   stopColor: RED, stopOpacity: 0.01 }),
+          React.createElement('stop', { offset:'100%', stopColor: RED, stopOpacity: 0.2 })
+        )
+      ),
+      // Grid lines + Y labels
+      ...computedReturn.yLabels.map((yl,i) => React.createElement(React.Fragment, {key:i},
+        React.createElement('line', { x1:PAD.l, y1:yl.y, x2:W-PAD.r, y2:yl.y,
+          stroke: yl.isZero ? 'rgba(255,255,255,0.28)' : GREY2,
+          strokeWidth: yl.isZero ? 1.5 : 1,
+          strokeDasharray: yl.isZero ? '0' : '4,6'
+        }),
+        React.createElement('text', { x:PAD.l-6, y:yl.y+4, textAnchor:'end',
+          fill: yl.isZero ? 'rgba(255,255,255,0.55)' : GREY,
+          fontSize: yl.isZero ? 10 : 9, fontFamily:'monospace', fontWeight: yl.isZero ? 'bold' : 'normal'
+        }, yl.label)
+      )),
+      // X labels
+      ...xLabels.map((xl,i) =>
+        React.createElement('text', { key:i, x:xl.x, y:H-PAD.b+13, textAnchor:'middle', fill:GREY, fontSize:9 }, xl.label)
+      ),
+      // Green fill above 0%
+      React.createElement('polygon', { points: computedReturn.areaAbove, fill:'url(#retGreen)' }),
+      // Red fill below 0%
+      React.createElement('polygon', { points: computedReturn.areaBelow, fill:'url(#retRed)' }),
+      // Line
+      React.createElement('polyline', { points: computedReturn.pts, fill:'none',
+        stroke: computedReturn.lastR >= 0 ? GREEN : RED,
+        strokeWidth:1.75, strokeLinejoin:'round', strokeLinecap:'round'
+      }),
+      // Hover
+      hovered && computedReturn.retVals[hoveredIdx] !== undefined && React.createElement(React.Fragment, null,
+        React.createElement('line', { x1:computedReturn.toX(hoveredIdx), y1:PAD.t, x2:computedReturn.toX(hoveredIdx), y2:H-PAD.b, stroke:GREY, strokeWidth:1, strokeDasharray:'3,3' }),
+        React.createElement('circle', {
+          cx: computedReturn.toX(hoveredIdx), cy: computedReturn.toY(computedReturn.retVals[hoveredIdx]),
+          r:4, fill: computedReturn.retVals[hoveredIdx] >= 0 ? GREEN : RED, stroke:theme.card, strokeWidth:2
+        }),
+        React.createElement('g', {
+          transform:`translate(${Math.min(computedReturn.toX(hoveredIdx)+10, W-148)},${Math.max(computedReturn.toY(computedReturn.retVals[hoveredIdx])-44, PAD.t)})`
+        },
+          React.createElement('rect', { width:140, height:50, rx:6, fill:theme.card,
+            stroke: computedReturn.retVals[hoveredIdx] >= 0 ? GREEN : RED, strokeWidth:1, opacity:0.96 }),
+          React.createElement('text', { x:8, y:15, fill:GREY, fontSize:9 }, hovered.date),
+          React.createElement('text', { x:8, y:31, fill: computedReturn.retVals[hoveredIdx] >= 0 ? GREEN : RED, fontSize:13, fontWeight:700, fontFamily:'monospace' },
+            `${computedReturn.retVals[hoveredIdx] >= 0 ? '+' : ''}${computedReturn.retVals[hoveredIdx].toFixed(2)}%`),
+          React.createElement('text', { x:8, y:44, fill:GREY, fontSize:9, fontFamily:'monospace' },
+            `${formatPrice(hovered.value)} ${getCurrencySymbol()}`)
+        )
+      )
+    );
+  };
+
+  // ── Full component render ─────────────────────────────────────────────────
+  return React.createElement('div', {
+    style: {
+      background: theme.card, border: `1px solid ${theme.cardBorder}`,
+      borderRadius: '16px', overflow: 'hidden', marginBottom: '1.5rem'
+    }
+  },
+
+    // ── TOP HEADER: ROI + mode toggle + period selector ────────────────────
+    React.createElement('div', {
+      style: {
+        padding: '1.25rem 1.5rem 1rem',
+        display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start',
+        flexWrap: 'wrap', gap: '1rem',
+        borderBottom: `1px solid ${theme.cardBorder}`
+      }
+    },
+      // Left: ROI (always real) or hover value
       React.createElement('div', null,
-        // Source tags + mode toggle row
-        React.createElement('div', { style: { display: 'flex', alignItems: 'center', gap: '0.5rem', marginBottom: '0.375rem', flexWrap: 'wrap' } },
-          // Mode toggle
+        // Label row
+        React.createElement('div', {
+          style: { display: 'flex', alignItems: 'center', gap: '0.5rem', marginBottom: '0.1rem' }
+        },
+          // Mode toggle pill
           React.createElement('div', {
-            style: { display: 'flex', background: theme.inputBg, borderRadius: '6px', padding: '0.15rem', gap: '0.1rem' }
+            style: { display:'flex', background: theme.inputBg, borderRadius:'6px', padding:'0.15rem', gap:'0.1rem' }
           },
-            ['value', 'return'].map(mode =>
+            ['value','return'].map(mode =>
               React.createElement('button', {
                 key: mode,
                 onClick: () => { setChartMode(mode); setHoveredIdx(null); },
                 style: {
-                  padding: '0.2rem 0.55rem', border: 'none', borderRadius: '5px', cursor: 'pointer',
-                  fontSize: '0.68rem', fontWeight: chartMode === mode ? '700' : '400',
+                  padding: '0.22rem 0.6rem', border:'none', borderRadius:'5px', cursor:'pointer',
+                  fontSize: '0.67rem', fontWeight: chartMode === mode ? '700' : '400',
                   background: chartMode === mode ? theme.accent : 'transparent',
                   color: chartMode === mode ? '#fff' : theme.textSecondary,
-                  transition: 'all 0.1s'
+                  transition: 'all 0.12s', whiteSpace: 'nowrap'
                 }
-              }, mode === 'value' ? 'Portfolio Value' : 'Total Return %')
+              }, mode === 'value' ? '€ Portfolio Value' : '% Total Return')
             )
           ),
+          // Data source tags
           ...dataSources.map((src, i) =>
-            React.createElement('span', { key: i, style: { fontSize: '0.6rem', padding: '0.1rem 0.35rem', borderRadius: '3px', background: 'rgba(255,255,255,0.06)', color: theme.textSecondary, letterSpacing: '0.03em' } }, src)
+            React.createElement('span', { key:i, style:{
+              fontSize:'0.58rem', padding:'0.12rem 0.35rem', borderRadius:'3px',
+              background:'rgba(255,255,255,0.06)', color: theme.textSecondary, letterSpacing:'0.04em'
+            }}, src)
           )
         ),
-
-        // ── Value mode display ─────────────────────────────────────────
-        chartMode === 'value' && (
-          hovered && computed
-            ? React.createElement('div', { style: { display: 'flex', alignItems: 'baseline', gap: '0.75rem' } },
-                React.createElement('span', { style: { color: theme.text, fontSize: '1.5rem', fontWeight: '800', letterSpacing: '-0.02em' } },
-                  `${formatPrice(hovered.value)} ${getCurrencySymbol()}`),
-                React.createElement('span', { style: { fontSize: '0.8rem', color: theme.textSecondary } }, hovered.date)
-              )
-            : computed
-              ? React.createElement('div', { style: { display: 'flex', alignItems: 'baseline', gap: '0.75rem', flexWrap: 'wrap' } },
-                  React.createElement('span', {
-                    style: { fontSize: '1.1rem', fontWeight: '800', padding: '0.2rem 0.6rem', borderRadius: '6px',
-                      background: computed.isUp ? 'rgba(34,197,94,0.15)' : 'rgba(239,68,68,0.15)',
-                      color: computed.isUp ? '#22c55e' : '#ef4444' }
-                  }, `${computed.isUp?'+':''}${computed.pct.toFixed(2)}%  ${computed.isUp?'+':''}${formatPrice(computed.change)} ${getCurrencySymbol()}`),
-                  React.createElement('span', { style: { fontSize: '0.75rem', color: theme.textSecondary } },
-                    `in the last ${period === 'Max' ? 'period' : period}`)
-                )
-              : React.createElement('span', { style: { color: theme.textSecondary, fontSize: '0.875rem' } },
-                  loading ? '◎ Loading...' : 'Add transactions and refresh prices')
-        ),
-
-        // ── Return mode display ────────────────────────────────────────
-        chartMode === 'return' && (
-          hovered && computedReturn
-            ? React.createElement('div', { style: { display: 'flex', alignItems: 'baseline', gap: '0.75rem' } },
-                React.createElement('span', {
-                  style: { fontSize: '1.5rem', fontWeight: '800', letterSpacing: '-0.02em',
-                    color: computedReturn.retVals[hoveredIdx] >= 0 ? '#22c55e' : '#ef4444' }
-                }, `${computedReturn.retVals[hoveredIdx] >= 0 ? '+' : ''}${computedReturn.retVals[hoveredIdx].toFixed(2)}%`),
-                React.createElement('span', { style: { fontSize: '0.85rem', color: theme.textSecondary } },
-                  `${computedReturn.retVals[hoveredIdx] >= 0 ? '+' : ''}${formatPrice((computedReturn.retVals[hoveredIdx]/100) * computedReturn.firstV)} ${getCurrencySymbol()}`),
-                React.createElement('span', { style: { fontSize: '0.8rem', color: theme.textSecondary } }, hovered.date)
-              )
-            : computedReturn
-              ? React.createElement('div', { style: { display: 'flex', alignItems: 'baseline', gap: '0.75rem', flexWrap: 'wrap' } },
-                  React.createElement('span', {
-                    style: { fontSize: '1.75rem', fontWeight: '800', letterSpacing: '-0.02em',
-                      color: computedReturn.lastR >= 0 ? '#22c55e' : '#ef4444' }
-                  }, `${computedReturn.lastR >= 0 ? '+' : ''}${computedReturn.lastR.toFixed(2)}%`),
-                  React.createElement('span', { style: { fontSize: '0.85rem', color: computedReturn.lastR >= 0 ? '#22c55e' : '#ef4444' } },
-                    `${computedReturn.lastR >= 0 ? '+' : ''}${formatPrice((computedReturn.lastR/100) * computedReturn.firstV)} ${getCurrencySymbol()}`),
-                  React.createElement('span', { style: { fontSize: '0.75rem', color: theme.textSecondary } },
-                    `total return ${period === 'Max' ? '' : 'last ' + period}`)
-                )
-              : React.createElement('span', { style: { color: theme.textSecondary, fontSize: '0.875rem' } },
-                  loading ? '◎ Loading...' : 'No data')
-        )
+        // Value — hovering shows chart value, otherwise real ROI
+        hovered ? hoverDisplay() : roiPill()
       ),
 
-      // Period buttons
-      React.createElement('div', { style: { display: 'flex', gap: '0.2rem', background: theme.inputBg, borderRadius: '10px', padding: '0.25rem' } },
-        PERIODS.map(p => React.createElement('button', {
-          key: p.id,
-          onClick: () => { setPeriod(p.id); setHoveredIdx(null); },
-          disabled: loading,
-          style: {
-            padding: '0.35rem 0.6rem', border: 'none', borderRadius: '7px',
-            cursor: loading ? 'not-allowed' : 'pointer',
-            fontSize: '0.75rem', fontWeight: period === p.id ? '700' : '400',
-            background: period === p.id ? (computed ? lineColor : theme.accent) : 'transparent',
-            color: period === p.id ? '#fff' : theme.textSecondary,
-            transition: 'all 0.1s', opacity: loading ? 0.5 : 1, whiteSpace: 'nowrap'
-          }
-        }, p.label))
+      // Right: period selector
+      React.createElement('div', {
+        style: { display:'flex', gap:'0.15rem', background: theme.inputBg, borderRadius:'10px', padding:'0.2rem', alignSelf:'flex-start' }
+      },
+        PERIODS.map(p => {
+          const active = period === p.id;
+          return React.createElement('button', {
+            key: p.id,
+            onClick: () => { setPeriod(p.id); setHoveredIdx(null); },
+            disabled: loading,
+            style: {
+              padding: '0.3rem 0.55rem', border:'none', borderRadius:'7px',
+              cursor: loading ? 'not-allowed' : 'pointer',
+              fontSize: '0.72rem', fontWeight: active ? '700' : '400',
+              background: active ? (computed ? lineColor : theme.accent) : 'transparent',
+              color: active ? '#fff' : theme.textSecondary,
+              transition: 'all 0.1s', opacity: loading ? 0.5 : 1, whiteSpace: 'nowrap'
+            }
+          }, p.label);
+        })
       )
     ),
 
-    // ── SVG ───────────────────────────────────────────────────────────────
-    React.createElement('div', { style: { position: 'relative' } },
+    // ── CHART AREA ─────────────────────────────────────────────────────────
+    React.createElement('div', { style: { position:'relative' } },
+      // Loading overlay
       loading && React.createElement('div', {
-        style: { position: 'absolute', inset: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'rgba(0,0,0,0.25)', zIndex: 2 }
-      }, React.createElement('div', { style: { color: theme.textSecondary, fontSize: '0.875rem' } }, '◎ Loading historical data...')),
+        style: { position:'absolute', inset:0, display:'flex', alignItems:'center', justifyContent:'center', background:'rgba(0,0,0,0.22)', zIndex:2, borderRadius:'0 0 16px 16px' }
+      }, React.createElement('span', { style: { color: theme.textSecondary, fontSize:'0.875rem' } }, '◎ Loading...')),
 
-      error && !loading && React.createElement('div', { style: { padding: '2rem', textAlign: 'center', color: theme.textSecondary, fontSize: '0.875rem' } },
-        `Error loading chart: ${error}`),
+      // Error
+      error && !loading && React.createElement('div', {
+        style: { padding:'2rem', textAlign:'center', color: theme.textSecondary, fontSize:'0.875rem' }
+      }, `Chart error: ${error}`),
 
+      // Empty state
       !error && !computed && !loading && React.createElement('div', {
-        style: { padding: '3rem', textAlign: 'center', color: theme.textSecondary, fontSize: '0.875rem' }
+        style: { padding:'3rem 2rem', textAlign:'center', color: theme.textSecondary, fontSize:'0.875rem' }
       },
-        React.createElement('div', { style: { fontSize: '2rem', opacity: 0.2, marginBottom: '0.5rem' } }, '↗'),
-        hasWorker
-          ? 'Chart loads automatically — select a period above'
+        React.createElement('div', { style: { fontSize:'2rem', opacity:0.15, marginBottom:'0.5rem' } }, '↗'),
+        hasWorker ? 'Chart loads automatically — select a period above'
           : React.createElement('span', null,
-              'Stocks, CS2 & commodities need a Worker URL in ',
-              React.createElement('strong', null, '⚙ API Settings'),
-              '. Crypto loads automatically.'
+              'Add a ', React.createElement('strong', null, 'Cloudflare Worker URL'),
+              ' in ⚙ Settings for stocks & CS2. Crypto loads automatically.'
             )
       ),
 
-      // ── VALUE CHART ──────────────────────────────────────────────────
-      chartMode === 'value' && computed && !error && React.createElement('svg', {
-        ref: svgRef, viewBox: `0 0 ${W} ${H}`, width: '100%',
-        style: { display: 'block', overflow: 'visible', cursor: 'crosshair' },
-        onMouseMove: handleMouseMove, onMouseLeave: () => setHoveredIdx(null)
-      },
-        React.createElement('defs', null,
-          React.createElement('linearGradient', { id: 'portfolioGrad', x1:'0', y1:'0', x2:'0', y2:'1' },
-            React.createElement('stop', { offset: '0%',   stopColor: lineColor, stopOpacity: 0.2 }),
-            React.createElement('stop', { offset: '100%', stopColor: lineColor, stopOpacity: 0.01 })
-          )
-        ),
-        ...computed.yLabels.map((yl,i) => React.createElement(React.Fragment, {key:i},
-          React.createElement('line', { x1:PAD.l, y1:yl.y, x2:W-PAD.r, y2:yl.y, stroke:'rgba(255,255,255,0.05)', strokeWidth:1, strokeDasharray:'4,6' }),
-          React.createElement('text', { x:PAD.l-8, y:yl.y+4, textAnchor:'end', fill:'rgba(255,255,255,0.25)', fontSize:10, fontFamily:'monospace' }, yl.label)
-        )),
-        ...computed.xLabels.map((xl,i) =>
-          React.createElement('text', { key:i, x:xl.x, y:H-PAD.b+14, textAnchor:'middle', fill:'rgba(255,255,255,0.25)', fontSize:10 }, xl.label)
-        ),
-        React.createElement('polygon', { points: computed.area, fill: 'url(#portfolioGrad)' }),
-        React.createElement('polyline', { points: computed.pts, fill:'none', stroke:lineColor, strokeWidth:2, strokeLinejoin:'round', strokeLinecap:'round' }),
-        hovered && React.createElement(React.Fragment, null,
-          React.createElement('line', { x1:computed.toX(hoveredIdx), y1:PAD.t, x2:computed.toX(hoveredIdx), y2:H-PAD.b, stroke:'rgba(255,255,255,0.12)', strokeWidth:1, strokeDasharray:'4,4' }),
-          React.createElement('circle', { cx:computed.toX(hoveredIdx), cy:computed.toY(hovered.value), r:5, fill:lineColor, stroke:theme.card, strokeWidth:2 }),
-          React.createElement('g', { transform:`translate(${Math.min(computed.toX(hoveredIdx)+10, W-135)},${Math.max(computed.toY(hovered.value)-34, PAD.t)})` },
-            React.createElement('rect', { width:125, height:42, rx:7, fill:theme.card, stroke:lineColor, strokeWidth:1, opacity:0.97 }),
-            React.createElement('text', { x:8, y:15, fill:theme.textSecondary, fontSize:9 }, hovered.date),
-            React.createElement('text', { x:8, y:32, fill:lineColor, fontSize:12, fontWeight:700 }, `${formatPrice(hovered.value)} ${getCurrencySymbol()}`)
-          )
-        )
-      ),
+      // Charts
+      chartMode === 'value'  && renderValueChart(),
+      chartMode === 'return' && renderReturnChart(),
 
-      // ── RETURN % CHART ────────────────────────────────────────────────
-      chartMode === 'return' && computedReturn && !error && React.createElement('svg', {
-        ref: svgRefReturn, viewBox: `0 0 ${W} ${H}`, width: '100%',
-        style: { display: 'block', overflow: 'visible', cursor: 'crosshair' },
-        onMouseMove: handleMouseMove, onMouseLeave: () => setHoveredIdx(null)
+      // Legend bar
+      (computed || computedReturn) && !error && React.createElement('div', {
+        style: {
+          display:'flex', alignItems:'center', justifyContent:'space-between', flexWrap:'wrap',
+          padding:'0.5rem 1.25rem 0.75rem', gap:'0.75rem'
+        }
       },
-        React.createElement('defs', null,
-          React.createElement('linearGradient', { id: 'retGradGreen', x1:'0', y1:'0', x2:'0', y2:'1' },
-            React.createElement('stop', { offset: '0%',   stopColor: '#22c55e', stopOpacity: 0.22 }),
-            React.createElement('stop', { offset: '100%', stopColor: '#22c55e', stopOpacity: 0.01 })
-          ),
-          React.createElement('linearGradient', { id: 'retGradRed', x1:'0', y1:'0', x2:'0', y2:'1' },
-            React.createElement('stop', { offset: '0%',   stopColor: '#ef4444', stopOpacity: 0.01 }),
-            React.createElement('stop', { offset: '100%', stopColor: '#ef4444', stopOpacity: 0.22 })
-          )
-        ),
-        // Y-axis grid + labels
-        ...computedReturn.yLabels.map((yl,i) => React.createElement(React.Fragment, {key:i},
-          React.createElement('line', {
-            x1:PAD.l, y1:yl.y, x2:W-PAD.r, y2:yl.y,
-            stroke: yl.isZero ? 'rgba(255,255,255,0.3)' : 'rgba(255,255,255,0.05)',
-            strokeWidth: yl.isZero ? 1.5 : 1,
-            strokeDasharray: yl.isZero ? '0' : '4,6'
-          }),
-          React.createElement('text', { x:PAD.l-8, y:yl.y+4, textAnchor:'end',
-            fill: yl.isZero ? 'rgba(255,255,255,0.6)' : 'rgba(255,255,255,0.25)',
-            fontSize: yl.isZero ? 11 : 10, fontFamily:'monospace',
-            fontWeight: yl.isZero ? 'bold' : 'normal'
-          }, yl.label)
-        )),
-        // Explicit 0% baseline label on right side too
-        React.createElement('text', { x:W-PAD.r+6, y:computedReturn.y0+4, textAnchor:'start',
-          fill:'rgba(255,255,255,0.4)', fontSize:10, fontFamily:'monospace' }, '0%'),
-        // X labels
-        ...computedReturn.xLabels.map((xl,i) =>
-          React.createElement('text', { key:i, x:xl.x, y:H-PAD.b+14, textAnchor:'middle', fill:'rgba(255,255,255,0.25)', fontSize:10 }, xl.label)
-        ),
-        // Green area above 0%
-        React.createElement('polygon', { points: computedReturn.areaAbove, fill: 'url(#retGradGreen)' }),
-        // Red area below 0%
-        React.createElement('polygon', { points: computedReturn.areaBelow, fill: 'url(#retGradRed)' }),
-        // The line — colored green or red per segment
-        React.createElement('polyline', { points: computedReturn.pts, fill:'none', stroke: computedReturn.lastR >= 0 ? '#22c55e' : '#ef4444', strokeWidth:2, strokeLinejoin:'round', strokeLinecap:'round' }),
-        // Hover
-        hovered && computedReturn.retVals[hoveredIdx] !== undefined && React.createElement(React.Fragment, null,
-          React.createElement('line', { x1:computedReturn.toX(hoveredIdx), y1:PAD.t, x2:computedReturn.toX(hoveredIdx), y2:H-PAD.b, stroke:'rgba(255,255,255,0.12)', strokeWidth:1, strokeDasharray:'4,4' }),
-          // Dot colored by whether positive or negative
-          React.createElement('circle', {
-            cx:computedReturn.toX(hoveredIdx), cy:computedReturn.toY(computedReturn.retVals[hoveredIdx]),
-            r:5, fill: computedReturn.retVals[hoveredIdx] >= 0 ? '#22c55e' : '#ef4444', stroke:theme.card, strokeWidth:2
-          }),
-          // Tooltip
-          React.createElement('g', { transform:`translate(${Math.min(computedReturn.toX(hoveredIdx)+10, W-140)},${Math.max(computedReturn.toY(computedReturn.retVals[hoveredIdx])-38, PAD.t)})` },
-            React.createElement('rect', { width:132, height:48, rx:7, fill:theme.card,
-              stroke: computedReturn.retVals[hoveredIdx] >= 0 ? '#22c55e' : '#ef4444', strokeWidth:1, opacity:0.97 }),
-            React.createElement('text', { x:8, y:15, fill:theme.textSecondary, fontSize:9 }, hovered.date),
-            React.createElement('text', { x:8, y:30, fill: computedReturn.retVals[hoveredIdx] >= 0 ? '#22c55e' : '#ef4444', fontSize:13, fontWeight:700 },
-              `${computedReturn.retVals[hoveredIdx] >= 0 ? '+' : ''}${computedReturn.retVals[hoveredIdx].toFixed(2)}%`),
-            React.createElement('text', { x:8, y:43, fill:theme.textSecondary, fontSize:9 },
-              `${formatPrice(hovered.value)} ${getCurrencySymbol()}`)
-          )
-        )
-      ),
-
-      // Legend
-      computed && !error && React.createElement('div', {
-        style: { display:'flex', gap:'1.5rem', padding:'0.375rem 1.5rem 0.875rem', justifyContent:'flex-end', flexWrap:'wrap', alignItems:'center' }
-      },
+        // Left legend
         chartMode === 'value'
-          ? React.createElement('div', { style:{display:'flex',alignItems:'center',gap:'0.375rem',fontSize:'0.72rem',color:theme.textSecondary} },
-              React.createElement('div', { style:{width:16,height:2,background:lineColor,borderRadius:1} }),
+          ? computed && React.createElement('div', { style:{display:'flex',alignItems:'center',gap:'0.375rem',fontSize:'0.68rem',color:theme.textSecondary} },
+              React.createElement('div', { style:{width:20,height:2,background:lineColor,borderRadius:1} }),
               `Period start: ${formatPrice(computed.firstV)} ${getCurrencySymbol()}`
             )
-          : React.createElement(React.Fragment, null,
-              React.createElement('div', { style:{display:'flex',alignItems:'center',gap:'0.375rem',fontSize:'0.72rem',color:'#22c55e'} },
-                React.createElement('div', { style:{width:12,height:8,borderRadius:'2px',background:'rgba(34,197,94,0.25)',border:'1px solid #22c55e'} }),
-                'Positive return'
+          : React.createElement('div', { style:{display:'flex',gap:'0.875rem',alignItems:'center'} },
+              React.createElement('div', { style:{display:'flex',alignItems:'center',gap:'0.3rem',fontSize:'0.68rem',color:GREEN} },
+                React.createElement('div', { style:{width:10,height:8,borderRadius:'2px',background:'rgba(34,197,94,0.2)',border:`1px solid ${GREEN}`} }),
+                'Positive'
               ),
-              React.createElement('div', { style:{display:'flex',alignItems:'center',gap:'0.375rem',fontSize:'0.72rem',color:'#ef4444'} },
-                React.createElement('div', { style:{width:12,height:8,borderRadius:'2px',background:'rgba(239,68,68,0.25)',border:'1px solid #ef4444'} }),
-                'Negative return'
+              React.createElement('div', { style:{display:'flex',alignItems:'center',gap:'0.3rem',fontSize:'0.68rem',color:RED} },
+                React.createElement('div', { style:{width:10,height:8,borderRadius:'2px',background:'rgba(239,68,68,0.2)',border:`1px solid ${RED}`} }),
+                'Negative'
               ),
-              React.createElement('div', { style:{fontSize:'0.72rem',color:'rgba(255,255,255,0.35)'} },
-                '— 0% baseline'
-              )
+              React.createElement('div', { style:{fontSize:'0.68rem',color:GREY} }, '— 0% baseline')
             ),
-        !hasWorker && chartMode === 'value' && React.createElement('div', { style:{fontSize:'0.72rem',color:theme.accent,cursor:'pointer'} },
-          '→ Add Worker URL for stocks & commodities'
+        // Right: worker hint
+        !hasWorker && React.createElement('div', { style:{fontSize:'0.68rem',color:theme.accent} },
+          '→ Add Worker URL for stocks & CS2 history'
         )
       )
     )
