@@ -1,5 +1,5 @@
 // ============================================================================
-// MAERMIN v8.3 — Real Historical Portfolio Chart
+// MAERMIN v9.0 — Real Historical Portfolio Chart
 //
 // Primary data source: Yahoo Finance via Cloudflare Worker
 //   → ALL global exchanges: XETRA, London, NASDAQ, Copenhagen, etc.
@@ -628,6 +628,6 @@ function flatLine(price, firstTs) {
 // ─────────────────────────────────────────────────────────────────────────────
 window.MaerminFeatures6 = { PortfolioHistoryChart };
 
-console.log('[OK] MAERMIN Features6 v8.3 — Yahoo Finance Historical Chart (1H/1D/1W/1M/1Y/3Y/5Y/Max)');
+console.log('[OK] MAERMIN Features6 v9.0 — Yahoo Finance Historical Chart (1H/1D/1W/1M/1Y/3Y/5Y/Max)');
 
 })();

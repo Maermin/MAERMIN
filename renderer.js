@@ -1,5 +1,5 @@
 // ============================================================================
-// MAERMIN v8.0 - Main Application
+// MAERMIN v9.0 - Main Application
 // Professional Multi-Asset Portfolio Tracker with Advanced Investment Analytics
 // ============================================================================
 
@@ -810,7 +810,7 @@ function InvestmentTracker() {
   
   const createBackup = () => {
     const backupData = {
-      version: '8.0.0',
+      version: '9.0.0',
       timestamp: new Date().toISOString(),
       transactions,
       settings: { theme, language, currency, taxJurisdiction }
@@ -2898,7 +2898,7 @@ buy,crypto,bitcoin,0.5,45000,2024-01-15,10`)
             borderRadius: '4px',
             color: currentTheme.textSecondary
           }
-        }, 'v8.0'),
+        }, 'v9.0'),
         // Portfolio Switcher — right next to the logo
         window.MaerminFeatures4 && React.createElement(window.MaerminFeatures4.PortfolioSwitcher, {
           portfolios, activePortfolioId, setActivePortfolioId, transactions, prices,
@@ -3240,6 +3240,6 @@ buy,crypto,bitcoin,0.5,45000,2024-01-15,10`)
 const root = ReactDOM.createRoot(document.getElementById('root'));
 root.render(React.createElement(InvestmentTracker));
 
-console.log('[MAERMIN v8.0] Application initialized');
+console.log('[MAERMIN v9.0] Application initialized');
 
 })(); // End IIFE

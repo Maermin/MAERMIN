@@ -1,5 +1,5 @@
 // ============================================================================
-// MAERMIN v8.0 – Extended Features
+// MAERMIN v9.0 – Extended Features
 // Implements: Portfolio Pie Chart, Sparklines, Watchlist, Price Alerts,
 //             Performance Timeline, Gainers/Losers, Allocation Table,
 //             Mobile Responsive Sidebar
