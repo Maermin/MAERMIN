@@ -1,5 +1,5 @@
 // ============================================================================
-// MAERMIN v8.0 - Shared Secret Authentication
+// MAERMIN v9.0 - Shared Secret Authentication
 // Client-side only – no server, no user database needed.
 // The secret is hashed with SHA-256; only the HASH is stored here.
 // To change the password: run hashSecret('yourNewPassword') in the console
@@ -196,7 +196,7 @@
         </button>
         <div class="auth-footer">
           Alle Daten bleiben lokal in deinem Browser.<br>
-          <a href="https://github.com/Maermin/MAERMIN" target="_blank" rel="noopener">MAERMIN v8.0 auf GitHub</a>
+          <a href="https://github.com/Maermin/MAERMIN" target="_blank" rel="noopener">MAERMIN v9.0 auf GitHub</a>
         </div>
       </div>
     `;
