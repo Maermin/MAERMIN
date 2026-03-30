@@ -627,41 +627,44 @@ function PortfolioHistoryChart({ portfolio, prices, transactions, apiKeys, theme
       const idx = Math.min(i*xStep, chartData.length-1);
       return { idx, x: computed.toX(idx), label: fmtX(chartData[idx]) };
     });
-    return React.createElement('svg', {
-      ref: svgRef, viewBox: `0 0 ${W} ${H}`, width:'100%',
-      style: { display:'block', overflow:'visible', cursor:'crosshair' },
-      onMouseMove: handleMouseMove, onMouseLeave: () => setHoveredIdx(null)
-    },
-      React.createElement('defs', null,
+
+    // Collect all SVG children into a flat array — avoids spread-into-args stack overflow
+    const children = [
+      React.createElement('defs', {key:'defs'},
         React.createElement('linearGradient', { id:'valGrad', x1:'0', y1:'0', x2:'0', y2:'1' },
           React.createElement('stop', { offset:'0%',   stopColor: lineColor, stopOpacity: 0.18 }),
           React.createElement('stop', { offset:'100%', stopColor: lineColor, stopOpacity: 0.01 })
         )
       ),
-      // Grid
-      ...computed.yLabels.map((yl,i) => React.createElement(React.Fragment, {key:i},
-        gridLine(yl.y),
-        React.createElement('text', { x:PAD.l-6, y:yl.y+4, textAnchor:'end', fill:GREY, fontSize:9, fontFamily:'monospace' }, yl.label)
-      )),
+      // Grid + Y labels
+      ...computed.yLabels.map((yl,i) => [
+        React.createElement('line', { key:`gl${i}`, x1:PAD.l, y1:yl.y, x2:W-PAD.r, y2:yl.y, stroke:GREY2, strokeWidth:1, strokeDasharray:'4,6' }),
+        React.createElement('text', { key:`gt${i}`, x:PAD.l-6, y:yl.y+4, textAnchor:'end', fill:GREY, fontSize:9, fontFamily:'monospace' }, yl.label)
+      ]).flat(),
       // X labels
       ...xLabels.map((xl,i) =>
-        React.createElement('text', { key:i, x:xl.x, y:H-PAD.b+13, textAnchor:'middle', fill:GREY, fontSize:9 }, xl.label)
+        React.createElement('text', { key:`xl${i}`, x:xl.x, y:H-PAD.b+13, textAnchor:'middle', fill:GREY, fontSize:9 }, xl.label)
       ),
-      // Area + line
-      React.createElement('polygon', { points: computed.area, fill:'url(#valGrad)' }),
-      React.createElement('polyline', { points: computed.pts, fill:'none', stroke: lineColor, strokeWidth:1.75, strokeLinejoin:'round', strokeLinecap:'round' }),
-      // Hover crosshair + dot + tooltip
-      hovered && React.createElement(React.Fragment, null,
-        React.createElement('line', { x1:computed.toX(hoveredIdx), y1:PAD.t, x2:computed.toX(hoveredIdx), y2:H-PAD.b, stroke:GREY, strokeWidth:1, strokeDasharray:'3,3' }),
-        React.createElement('circle', { cx:computed.toX(hoveredIdx), cy:computed.toY(hovered.value), r:4, fill:lineColor, stroke:theme.card, strokeWidth:2 }),
-        React.createElement('g', { transform:`translate(${Math.min(computed.toX(hoveredIdx)+10, W-140)},${Math.max(computed.toY(hovered.value)-40, PAD.t)})` },
+      React.createElement('polygon', { key:'area', points: computed.area, fill:'url(#valGrad)' }),
+      React.createElement('polyline', { key:'line', points: computed.pts, fill:'none', stroke: lineColor, strokeWidth:1.75, strokeLinejoin:'round', strokeLinecap:'round' }),
+    ];
+    if (hovered) {
+      children.push(
+        React.createElement('line', { key:'hx', x1:computed.toX(hoveredIdx), y1:PAD.t, x2:computed.toX(hoveredIdx), y2:H-PAD.b, stroke:GREY, strokeWidth:1, strokeDasharray:'3,3' }),
+        React.createElement('circle', { key:'hc', cx:computed.toX(hoveredIdx), cy:computed.toY(hovered.value), r:4, fill:lineColor, stroke:theme.card, strokeWidth:2 }),
+        React.createElement('g', { key:'ht', transform:`translate(${Math.min(computed.toX(hoveredIdx)+10, W-140)},${Math.max(computed.toY(hovered.value)-40, PAD.t)})` },
           React.createElement('rect', { width:132, height:44, rx:6, fill:theme.card, stroke:lineColor, strokeWidth:1, opacity:0.96 }),
           React.createElement('text', { x:8, y:15, fill:GREY, fontSize:9 }, hovered.date),
           React.createElement('text', { x:8, y:32, fill:lineColor, fontSize:12, fontWeight:700, fontFamily:'monospace' },
             `${formatPrice(hovered.value)} ${getCurrencySymbol()}`)
         )
-      )
-    );
+      );
+    }
+    return React.createElement('svg', {
+      ref: svgRef, viewBox: `0 0 ${W} ${H}`, width:'100%',
+      style: { display:'block', overflow:'visible', cursor:'crosshair' },
+      onMouseMove: handleMouseMove, onMouseLeave: () => setHoveredIdx(null)
+    }, children);
   };
 
   // ── Return % chart SVG ────────────────────────────────────────────────────
@@ -673,12 +676,10 @@ function PortfolioHistoryChart({ portfolio, prices, transactions, apiKeys, theme
       const idx = Math.min(i*xStep, chartData.length-1);
       return { idx, x: computedReturn.toX(idx), label: fmtX(chartData[idx]) };
     });
-    return React.createElement('svg', {
-      ref: svgRefReturn, viewBox: `0 0 ${W} ${H}`, width:'100%',
-      style: { display:'block', overflow:'visible', cursor:'crosshair' },
-      onMouseMove: handleMouseMove, onMouseLeave: () => setHoveredIdx(null)
-    },
-      React.createElement('defs', null,
+
+    // Collect all children as flat array — avoids spread-into-args stack overflow
+    const children = [
+      React.createElement('defs', {key:'defs'},
         React.createElement('linearGradient', { id:'retGreen', x1:'0', y1:'0', x2:'0', y2:'1' },
           React.createElement('stop', { offset:'0%',   stopColor: GREEN, stopOpacity: 0.2 }),
           React.createElement('stop', { offset:'100%', stopColor: GREEN, stopOpacity: 0.01 })
@@ -688,51 +689,54 @@ function PortfolioHistoryChart({ portfolio, prices, transactions, apiKeys, theme
           React.createElement('stop', { offset:'100%', stopColor: RED, stopOpacity: 0.2 })
         )
       ),
-      // Grid lines + Y labels
-      ...computedReturn.yLabels.map((yl,i) => React.createElement(React.Fragment, {key:i},
-        React.createElement('line', { x1:PAD.l, y1:yl.y, x2:W-PAD.r, y2:yl.y,
+      // Grid + Y labels as flat pairs
+      ...computedReturn.yLabels.map((yl,i) => [
+        React.createElement('line', { key:`gl${i}`, x1:PAD.l, y1:yl.y, x2:W-PAD.r, y2:yl.y,
           stroke: yl.isZero ? 'rgba(255,255,255,0.28)' : GREY2,
           strokeWidth: yl.isZero ? 1.5 : 1,
           strokeDasharray: yl.isZero ? '0' : '4,6'
         }),
-        React.createElement('text', { x:PAD.l-6, y:yl.y+4, textAnchor:'end',
+        React.createElement('text', { key:`gt${i}`, x:PAD.l-6, y:yl.y+4, textAnchor:'end',
           fill: yl.isZero ? 'rgba(255,255,255,0.55)' : GREY,
           fontSize: yl.isZero ? 10 : 9, fontFamily:'monospace', fontWeight: yl.isZero ? 'bold' : 'normal'
         }, yl.label)
-      )),
+      ]).flat(),
       // X labels
       ...xLabels.map((xl,i) =>
-        React.createElement('text', { key:i, x:xl.x, y:H-PAD.b+13, textAnchor:'middle', fill:GREY, fontSize:9 }, xl.label)
+        React.createElement('text', { key:`xl${i}`, x:xl.x, y:H-PAD.b+13, textAnchor:'middle', fill:GREY, fontSize:9 }, xl.label)
       ),
-      // Green fill above 0%
-      React.createElement('polygon', { points: computedReturn.areaAbove, fill:'url(#retGreen)' }),
-      // Red fill below 0%
-      React.createElement('polygon', { points: computedReturn.areaBelow, fill:'url(#retRed)' }),
-      // Line
-      React.createElement('polyline', { points: computedReturn.pts, fill:'none',
+      React.createElement('polygon', { key:'ag', points: computedReturn.areaAbove, fill:'url(#retGreen)' }),
+      React.createElement('polygon', { key:'ar', points: computedReturn.areaBelow, fill:'url(#retRed)' }),
+      React.createElement('polyline', { key:'line', points: computedReturn.pts, fill:'none',
         stroke: computedReturn.lastR >= 0 ? GREEN : RED,
         strokeWidth:1.75, strokeLinejoin:'round', strokeLinecap:'round'
       }),
-      // Hover
-      hovered && computedReturn.retVals[hoveredIdx] !== undefined && React.createElement(React.Fragment, null,
-        React.createElement('line', { x1:computedReturn.toX(hoveredIdx), y1:PAD.t, x2:computedReturn.toX(hoveredIdx), y2:H-PAD.b, stroke:GREY, strokeWidth:1, strokeDasharray:'3,3' }),
-        React.createElement('circle', {
-          cx: computedReturn.toX(hoveredIdx), cy: computedReturn.toY(computedReturn.retVals[hoveredIdx]),
-          r:4, fill: computedReturn.retVals[hoveredIdx] >= 0 ? GREEN : RED, stroke:theme.card, strokeWidth:2
-        }),
-        React.createElement('g', {
-          transform:`translate(${Math.min(computedReturn.toX(hoveredIdx)+10, W-148)},${Math.max(computedReturn.toY(computedReturn.retVals[hoveredIdx])-44, PAD.t)})`
-        },
-          React.createElement('rect', { width:140, height:50, rx:6, fill:theme.card,
-            stroke: computedReturn.retVals[hoveredIdx] >= 0 ? GREEN : RED, strokeWidth:1, opacity:0.96 }),
+    ];
+
+    if (hovered && computedReturn.retVals[hoveredIdx] !== undefined) {
+      const r   = computedReturn.retVals[hoveredIdx];
+      const col = r >= 0 ? GREEN : RED;
+      const hx  = computedReturn.toX(hoveredIdx);
+      const hy  = computedReturn.toY(r);
+      children.push(
+        React.createElement('line', { key:'hx', x1:hx, y1:PAD.t, x2:hx, y2:H-PAD.b, stroke:GREY, strokeWidth:1, strokeDasharray:'3,3' }),
+        React.createElement('circle', { key:'hc', cx:hx, cy:hy, r:4, fill:col, stroke:theme.card, strokeWidth:2 }),
+        React.createElement('g', { key:'ht', transform:`translate(${Math.min(hx+10, W-148)},${Math.max(hy-44, PAD.t)})` },
+          React.createElement('rect', { width:140, height:50, rx:6, fill:theme.card, stroke:col, strokeWidth:1, opacity:0.96 }),
           React.createElement('text', { x:8, y:15, fill:GREY, fontSize:9 }, hovered.date),
-          React.createElement('text', { x:8, y:31, fill: computedReturn.retVals[hoveredIdx] >= 0 ? GREEN : RED, fontSize:13, fontWeight:700, fontFamily:'monospace' },
-            `${computedReturn.retVals[hoveredIdx] >= 0 ? '+' : ''}${computedReturn.retVals[hoveredIdx].toFixed(2)}%`),
+          React.createElement('text', { x:8, y:31, fill:col, fontSize:13, fontWeight:700, fontFamily:'monospace' },
+            `${r >= 0 ? '+' : ''}${r.toFixed(2)}%`),
           React.createElement('text', { x:8, y:44, fill:GREY, fontSize:9, fontFamily:'monospace' },
             `${formatPrice(hovered.value)} ${getCurrencySymbol()}`)
         )
-      )
-    );
+      );
+    }
+
+    return React.createElement('svg', {
+      ref: svgRefReturn, viewBox: `0 0 ${W} ${H}`, width:'100%',
+      style: { display:'block', overflow:'visible', cursor:'crosshair' },
+      onMouseMove: handleMouseMove, onMouseLeave: () => setHoveredIdx(null)
+    }, children);
   };
 
   // ── Full component render ─────────────────────────────────────────────────
