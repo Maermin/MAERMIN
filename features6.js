@@ -472,19 +472,33 @@ function PortfolioHistoryChart({ portfolio, prices, transactions, apiKeys, theme
   const computedReturn = useMemo(() => {
     if (chartData.length < 2) return null;
 
-    // ── Period-relative return % ───────────────────────────────────────────
-    // For each period we show: how did the portfolio move FROM the period start?
-    // The chart anchors at 0% at the left edge and shows the journey.
-    // Header always shows true total ROI separately (from props).
+    // ── Normalized return % curve ────────────────────────────────────────────
+    // Problem: historical chart values may only include assets with data at that time
+    // (e.g. only a €17 skin exists in 2018, stocks bought in 2024 add no history).
+    // Using any historical base causes exploding % values.
     //
-    // For long periods (1Y+), the chart data may start when the portfolio was
-    // tiny (e.g. one €17 skin from 2018). We skip those leading "noise" points
-    // by finding the first data point where the portfolio was at least 2% of
-    // its current value. This makes "Max" start from when real investing began.
-    const lastV = chartData[chartData.length - 1]?.value || 1;
-    const threshold = lastV * 0.02; // 2% of current value = "meaningful start"
+    // Solution: normalize the ENTIRE curve so the last point = true ROI (from header).
+    // impliedBase = lastValue / (1 + trueROI/100)
+    // retVal_t   = (value_t / impliedBase - 1) × 100
+    //
+    // This guarantees:
+    //   • Last point always equals the header "Total Return" exactly
+    //   • Shape of curve correctly reflects portfolio value movements
+    //   • No exploding values regardless of period or portfolio history
+    //   • 0% line represents "break-even on current invested capital"
+    const lastV = chartData[chartData.length - 1]?.value;
+    if (!lastV) return null;
 
-    // Find the first index where portfolio value is meaningful
+    // impliedBase is what the portfolio would need to have started at
+    // for the current value to represent trueROI
+    const roiFactor = (typeof trueROI === 'number' && trueROI > -100)
+      ? (1 + trueROI / 100)
+      : 1;
+    const impliedBase = lastV / roiFactor;
+
+    // Skip leading points where portfolio was negligible (<2% of implied base)
+    // to avoid showing flat lines from before real investing began
+    const threshold = impliedBase * 0.02;
     let startIdx = 0;
     for (let i = 0; i < chartData.length; i++) {
       if (chartData[i].value >= threshold) { startIdx = i; break; }
@@ -492,11 +506,10 @@ function PortfolioHistoryChart({ portfolio, prices, transactions, apiKeys, theme
     const meaningfulData = chartData.slice(startIdx);
     if (meaningfulData.length < 2) return null;
 
-    const firstV = meaningfulData[0].value;
-    if (!firstV) return null;
+    const firstV = impliedBase; // used only for EUR amount in hover tooltip
 
-    // All retVals computed from meaningful start — anchored at 0% on the left
-    const retVals = meaningfulData.map(d => ((d.value - firstV) / firstV) * 100);
+    // Normalize: each point = (value / impliedBase - 1) × 100
+    const retVals = meaningfulData.map(d => (d.value / impliedBase - 1) * 100);
     const minR    = Math.min(...retVals);
     const maxR    = Math.max(...retVals);
     // SYMMETRIC axis: 0% is always in the exact vertical center.
