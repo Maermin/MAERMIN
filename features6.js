@@ -623,7 +623,7 @@ function PortfolioHistoryChart({ portfolio, prices, transactions, apiKeys, theme
 
     const lastR = retVals[retVals.length - 1];
     return { retVals, meaningfulData, startIdx, lo, hi, range, toX, toY, y0, pts, posPath, negPath, yLabels, xLabels, lastR, firstV };
-  }, [chartData, period]);
+  }, [chartData, period, trueROI]);
 
   const handleMouseMove = e => {
     const ref = chartMode === 'return' ? svgRefReturn : svgRef;
