@@ -268,9 +268,11 @@ function InvestmentTracker() {
     date: new Date().toISOString().split('T')[0],
     fees: '',
     notes: '',
-    currency: 'EUR' // Track which currency the transaction was added in
+    currency: 'EUR', // Track which currency the transaction was added in
+    targetPortfolioId: 'default',
   });
   const [showTransactionModal, setShowTransactionModal] = useState(false);
+  const [overviewMode, setOverviewMode] = useState('all'); // 'all' | activePortfolioId
   const [editingTransactionId, setEditingTransactionId] = useState(null); // null = adding new, id = editing
   const [showImportModal, setShowImportModal] = useState(false);
   const [importData, setImportData] = useState('');
@@ -863,7 +865,7 @@ function InvestmentTracker() {
       date: newTransaction.date,
       notes: newTransaction.notes,
       currency: newTransaction.currency || currency,
-      portfolioId: activePortfolioId,
+      portfolioId: newTransaction.targetPortfolioId || activePortfolioId,
       ...(newTransaction.skinIconUrl ? { skinIconUrl: newTransaction.skinIconUrl } : {})
     };
     
@@ -1053,6 +1055,94 @@ function InvestmentTracker() {
       case 'help:shortcuts':    setShowShortcuts(true); break;
       default: break;
     }
+  };
+
+  // ========== DATA MANAGEMENT VIEW (Import / Export / Backup) ═══════════════
+  const DataManagementView = ({ transactions, setTransactions, createBackup, exportData, theme, t, addToast, formatPrice }) => {
+    const [importText, setImportText] = React.useState('');
+    const [importing, setImporting]   = React.useState(false);
+
+    const handleImport = async () => {
+      if (!importText.trim()) { addToast('Paste JSON or CSV data first', 'error'); return; }
+      setImporting(true);
+      try {
+        let imported = [];
+        const txt = importText.trim();
+        if (txt.startsWith('[') || txt.startsWith('{')) {
+          const parsed = JSON.parse(txt);
+          imported = Array.isArray(parsed) ? parsed : (parsed.transactions || []);
+        } else if (window.ImportExportEngine) {
+          imported = window.ImportExportEngine.parseCSV(txt);
+        }
+        if (!imported.length) throw new Error('No transactions found in data');
+        const newTxs = imported.map((tx, i) => ({ id: (Date.now()+i).toString(), ...tx }));
+        setTransactions(prev => [...prev, ...newTxs]);
+        setImportText('');
+        addToast(`${newTxs.length} transaction(s) imported`, 'success');
+      } catch(e) {
+        addToast('Import failed: ' + e.message, 'error');
+      } finally { setImporting(false); }
+    };
+
+    const btnStyle = (color) => ({
+      padding: '0.625rem 1.25rem', borderRadius: '8px', border: 'none', cursor: 'pointer',
+      fontSize: '0.875rem', fontWeight: '600',
+      background: color || theme.inputBg, color: color ? '#fff' : theme.text,
+      display: 'flex', alignItems: 'center', gap: '0.5rem'
+    });
+
+    return React.createElement('div', { style: { padding: '1.5rem', maxWidth: 720 } },
+      React.createElement('h2', { style: { color: theme.text, fontSize: '1.35rem', fontWeight: '800', marginBottom: '0.25rem' } }, 'Import / Export / Backup'),
+      React.createElement('p', { style: { color: theme.textSecondary, fontSize: '0.85rem', marginBottom: '2rem' } },
+        'Export your data as CSV, create a full JSON backup, or import transactions from JSON/CSV.'
+      ),
+
+      // ── Export / Backup ──────────────────────────────────────────────────
+      React.createElement('div', { style: { background: theme.card, border: `1px solid ${theme.cardBorder}`, borderRadius: '12px', padding: '1.25rem', marginBottom: '1.25rem' } },
+        React.createElement('div', { style: { color: theme.text, fontWeight: '700', marginBottom: '0.25rem' } }, 'Export & Backup'),
+        React.createElement('p', { style: { color: theme.textSecondary, fontSize: '0.8rem', marginBottom: '1rem' } },
+          `${transactions.length} transaction${transactions.length !== 1 ? 's' : ''} in database`
+        ),
+        React.createElement('div', { style: { display: 'flex', gap: '0.75rem', flexWrap: 'wrap' } },
+          React.createElement('button', { onClick: createBackup, style: btnStyle(theme.accent) },
+            '↓ JSON Backup', React.createElement('span', { style: { fontSize: '0.72rem', opacity: 0.8 } }, '(full restore)')
+          ),
+          React.createElement('button', { onClick: exportData, style: btnStyle() },
+            '↑ Export CSV', React.createElement('span', { style: { fontSize: '0.72rem', opacity: 0.6 } }, '(spreadsheet)')
+          )
+        )
+      ),
+
+      // ── Import ───────────────────────────────────────────────────────────
+      React.createElement('div', { style: { background: theme.card, border: `1px solid ${theme.cardBorder}`, borderRadius: '12px', padding: '1.25rem' } },
+        React.createElement('div', { style: { color: theme.text, fontWeight: '700', marginBottom: '0.25rem' } }, 'Import Transactions'),
+        React.createElement('p', { style: { color: theme.textSecondary, fontSize: '0.8rem', marginBottom: '1rem' } },
+          'Paste a JSON backup or CSV export below. New transactions are added without replacing existing ones.'
+        ),
+        React.createElement('textarea', {
+          value: importText,
+          onChange: e => setImportText(e.target.value),
+          placeholder: '[{"type":"buy","category":"crypto","symbol":"bitcoin","quantity":0.5,"price":45000,"date":"2024-01-15"}]',
+          rows: 6,
+          style: {
+            width: '100%', boxSizing: 'border-box', padding: '0.75rem',
+            background: theme.inputBg, border: `1px solid ${theme.inputBorder}`,
+            borderRadius: '8px', color: theme.text, fontSize: '0.8rem',
+            fontFamily: 'monospace', resize: 'vertical', marginBottom: '0.75rem'
+          }
+        }),
+        React.createElement('div', { style: { display: 'flex', gap: '0.75rem', alignItems: 'center' } },
+          React.createElement('button', {
+            onClick: handleImport, disabled: importing || !importText.trim(),
+            style: btnStyle(importing || !importText.trim() ? undefined : theme.accent)
+          }, importing ? '◎ Importing...' : '↑ Import'),
+          React.createElement('button', {
+            onClick: () => setImportText(''),
+            style: { ...btnStyle(), fontSize: '0.8rem', color: theme.textSecondary }
+          }, '✕ Clear')
+        )
+      )
+    );
   };
 
   // ========== RENDER VIEWS ==========
@@ -1291,6 +1381,12 @@ function InvestmentTracker() {
             portfolio, prices, theme: currentTheme, formatPrice, getCurrencySymbol, t
           }) : renderAnalyticsPlaceholder('Rebalancing');
 
+      case 'data':
+        return React.createElement(DataManagementView, {
+          transactions, setTransactions, createBackup, exportData,
+          theme: currentTheme, t, addToast, formatPrice
+        });
+
       case 'broker-import':
         return window.MaerminFeatures2 ?
           React.createElement(window.MaerminFeatures2.BrokerImportWizard, {
@@ -1353,11 +1449,52 @@ function InvestmentTracker() {
   // ========== OVERVIEW VIEW ==========
   
   const renderOverview = () => {
-    // Overview always shows ALL portfolios combined
-    const stats  = allPortfoliosStats;
+    // Compute per-portfolio stats for single-portfolio mode
+    const selectedPortfolio  = portfolios.find(p => p.id === overviewMode) || portfolios[0];
+    const isAllMode          = overviewMode === 'all';
+
+    const singleStats = useMemoInline(() => {
+      if (isAllMode) return null;
+      const posMap = {};
+      transactions.filter(tx => (tx.portfolioId || 'default') === overviewMode).forEach(tx => {
+        const category = tx.category || 'crypto';
+        const key = `${category}-${(tx.symbol || '').toLowerCase()}`;
+        if (!posMap[key]) posMap[key] = { symbol: tx.symbol, category, amount: 0, totalCostEUR: 0 };
+        const qty = parseFloat(tx.quantity) || 0;
+        let priceEUR = parseFloat(tx.price) || 0;
+        if (tx.currency === 'USD' && exchangeRate > 0) priceEUR *= exchangeRate;
+        if (tx.type === 'buy') {
+          posMap[key].amount += qty;
+          posMap[key].totalCostEUR += qty * priceEUR;
+        } else if (tx.type === 'sell') {
+          const frac = posMap[key].amount > 0 ? Math.min(qty, posMap[key].amount) / posMap[key].amount : 0;
+          posMap[key].totalCostEUR *= (1 - frac);
+          posMap[key].amount = Math.max(0, posMap[key].amount - qty);
+        }
+      });
+      let totalValue = 0, totalInvested = 0, totalPositions = 0;
+      Object.values(posMap).forEach(pos => {
+        if (pos.amount <= 0.0001) return;
+        const sym = pos.symbol || '';
+        const pr  = prices[sym] || prices[sym.toLowerCase()] || prices[sym.toUpperCase()] || 0;
+        totalValue    += pos.amount * pr;
+        totalInvested += pos.totalCostEUR;
+        totalPositions++;
+      });
+      return {
+        totalValue, totalInvested, totalPositions,
+        totalProfit: totalValue - totalInvested,
+        totalProfitPercent: totalInvested > 0 ? ((totalValue - totalInvested) / totalInvested) * 100 : 0,
+      };
+    }, [overviewMode, transactions, prices, exchangeRate]);
+
+    const stats  = isAllMode ? allPortfoliosStats : singleStats || allPortfoliosStats;
     const isUp   = stats.totalProfit >= 0;
     const pctStr = `${stats.totalProfitPercent >= 0 ? '+' : ''}${stats.totalProfitPercent.toFixed(2)}%`;
-    const hasMultiple = portfolios.length > 1;
+
+    // Label names depend on mode
+    const labelValue  = isAllMode ? 'Total Value'  : 'Portfolio Value';
+    const labelReturn = isAllMode ? 'Total Return' : 'Portfolio Return';
 
     const statCard = (label, value, sub, color, onClick) =>
       React.createElement('div', {
@@ -1376,238 +1513,188 @@ function InvestmentTracker() {
         sub && React.createElement('div', { style: { color: currentTheme.textSecondary, fontSize: '0.78rem', marginTop: '0.375rem' } }, sub)
       );
 
+    // Transactions and portfolio for chart — filtered by mode
+    const overviewTransactions = isAllMode
+      ? transactions
+      : transactions.filter(tx => (tx.portfolioId || 'default') === overviewMode);
+
+    const overviewPortfolio = isAllMode ? portfolio : (() => {
+      const result = { crypto: [], stocks: [], skins: [], commodities: [] };
+      const posMap = {};
+      overviewTransactions.forEach(tx => {
+        const category = tx.category || 'crypto';
+        const symbol   = (tx.symbol || '').toLowerCase();
+        const key      = `${category}-${symbol}`;
+        if (!posMap[key]) posMap[key] = { symbol: tx.symbol, symbolName: tx.symbolName || '', symbolLogoUrl: tx.symbolLogoUrl || '', amount: 0, totalCostEUR: 0, purchaseDate: tx.date, category };
+        if (!posMap[key].symbolName && tx.symbolName) posMap[key].symbolName = tx.symbolName;
+        let priceEUR = parseFloat(tx.price) || 0;
+        if (tx.currency === 'USD' && exchangeRate > 0) priceEUR *= exchangeRate;
+        if (tx.type === 'buy') { posMap[key].amount += parseFloat(tx.quantity)||0; posMap[key].totalCostEUR += (parseFloat(tx.quantity)||0) * priceEUR; }
+        else if (tx.type === 'sell') {
+          const frac = posMap[key].amount > 0 ? Math.min(parseFloat(tx.quantity)||0, posMap[key].amount) / posMap[key].amount : 0;
+          posMap[key].totalCostEUR *= (1-frac);
+          posMap[key].amount = Math.max(0, posMap[key].amount - (parseFloat(tx.quantity)||0));
+        }
+      });
+      Object.values(posMap).forEach(pos => {
+        if (pos.amount > 0.0001) result[pos.category].push({ ...pos, id: `${pos.category}-${pos.symbol}`, name: pos.symbolName || pos.symbol, purchasePrice: pos.totalCostEUR / pos.amount });
+      });
+      return result;
+    })();
+
     return React.createElement('div', { style: { padding: '1.5rem' } },
 
-      // ── Header ───────────────────────────────────────────────────────────
+      // ── Header ──────────────────────────────────────────────────────────
       React.createElement('div', {
-        style: { display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '1.5rem', flexWrap: 'wrap', gap: '0.75rem' }
+        style: { display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '1.25rem', flexWrap: 'wrap', gap: '0.75rem' }
       },
         React.createElement('div', null,
           React.createElement('h2', { style: { color: currentTheme.text, fontSize: '1.35rem', fontWeight: '800', marginBottom: '0.125rem' } }, 'Overview'),
           React.createElement('div', { style: { color: currentTheme.textSecondary, fontSize: '0.72rem' } },
-            hasMultiple
-              ? `All ${portfolios.length} portfolios combined · ${lastRefresh ? 'Last refresh ' + lastRefresh.toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' }) : 'Refresh to update prices'}`
-              : lastRefresh ? `Last refresh: ${lastRefresh.toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' })}` : 'Refresh to update prices'
+            isAllMode
+              ? `All ${portfolios.length} portfolio${portfolios.length > 1 ? 's' : ''} combined · ${lastRefresh ? 'Last refresh ' + lastRefresh.toLocaleTimeString('en-GB',{hour:'2-digit',minute:'2-digit'}) : 'Refresh to update'}`
+              : `${selectedPortfolio?.name || 'Portfolio'} · ${lastRefresh ? 'Last refresh ' + lastRefresh.toLocaleTimeString('en-GB',{hour:'2-digit',minute:'2-digit'}) : 'Refresh to update'}`
           )
         ),
         React.createElement('div', { style: { display: 'flex', gap: '0.5rem', flexWrap: 'wrap' } },
-          React.createElement('button', {
-            onClick: () => setShowTransactionModal(true),
-            style: { padding: '0.5rem 1rem', background: currentTheme.accent, color: '#fff', border: 'none', borderRadius: '8px', cursor: 'pointer', fontWeight: '600', fontSize: '0.85rem' }
-          }, '+ Add'),
-          React.createElement('button', {
-            onClick: () => setShowImportModal(true),
-            style: { padding: '0.5rem 1rem', background: currentTheme.inputBg, color: currentTheme.text, border: `1px solid ${currentTheme.cardBorder}`, borderRadius: '8px', cursor: 'pointer', fontSize: '0.85rem' }
-          }, '↑ Import'),
-          React.createElement('button', {
-            onClick: fetchPrices, disabled: loading,
-            style: { padding: '0.5rem 1rem', background: loading ? currentTheme.inputBg : `${currentTheme.accent}18`, color: loading ? currentTheme.textSecondary : currentTheme.accent, border: `1px solid ${currentTheme.accent}33`, borderRadius: '8px', cursor: loading ? 'not-allowed' : 'pointer', fontSize: '0.85rem', fontWeight: '600', display: 'flex', alignItems: 'center', gap: '0.375rem' }
-          }, loading ? '◎ Refreshing...' : '↻ Refresh prices')
+          React.createElement('button', { onClick: () => setShowTransactionModal(true), style: { padding: '0.5rem 1rem', background: currentTheme.accent, color: '#fff', border: 'none', borderRadius: '8px', cursor: 'pointer', fontWeight: '600', fontSize: '0.85rem' } }, '+ Add'),
+          React.createElement('button', { onClick: () => setShowImportModal(true), style: { padding: '0.5rem 1rem', background: currentTheme.inputBg, color: currentTheme.text, border: `1px solid ${currentTheme.cardBorder}`, borderRadius: '8px', cursor: 'pointer', fontSize: '0.85rem' } }, '↑ Import'),
+          React.createElement('button', { onClick: fetchPrices, disabled: loading, style: { padding: '0.5rem 1rem', background: loading ? currentTheme.inputBg : `${currentTheme.accent}18`, color: loading ? currentTheme.textSecondary : currentTheme.accent, border: `1px solid ${currentTheme.accent}33`, borderRadius: '8px', cursor: loading ? 'not-allowed' : 'pointer', fontSize: '0.85rem', fontWeight: '600', display: 'flex', alignItems: 'center', gap: '0.375rem' } }, loading ? '◎ Refreshing...' : '↻ Refresh prices')
         )
       ),
 
-      // ── Portfolio breakdown bar (only when multiple portfolios) ──────────
-      hasMultiple && React.createElement('div', {
-        style: { background: currentTheme.card, border: `1px solid ${currentTheme.cardBorder}`, borderRadius: '12px', padding: '1rem 1.25rem', marginBottom: '1.5rem' }
+      // ── Portfolio selector tabs ──────────────────────────────────────────
+      React.createElement('div', {
+        style: { display: 'flex', gap: '0.375rem', marginBottom: '1.5rem', flexWrap: 'wrap', alignItems: 'center' }
       },
-        React.createElement('div', { style: { display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.625rem' } },
-          React.createElement('span', { style: { color: currentTheme.textSecondary, fontSize: '0.72rem', textTransform: 'uppercase', letterSpacing: '0.06em' } }, 'Portfolios'),
-          React.createElement('button', {
-            onClick: () => setActiveView('portfolios'),
-            style: { fontSize: '0.72rem', color: currentTheme.accent, background: 'none', border: 'none', cursor: 'pointer', padding: 0 }
-          }, 'Manage →')
+        // All Portfolios tab
+        React.createElement('button', {
+          onClick: () => setOverviewMode('all'),
+          style: {
+            display: 'flex', alignItems: 'center', gap: '0.4rem',
+            padding: '0.375rem 0.875rem',
+            background: overviewMode === 'all' ? `${currentTheme.accent}20` : currentTheme.inputBg,
+            border: `1px solid ${overviewMode === 'all' ? currentTheme.accent : currentTheme.cardBorder}`,
+            borderRadius: '8px', cursor: 'pointer', transition: 'all 0.1s',
+            fontSize: '0.8rem', fontWeight: overviewMode === 'all' ? '700' : '400',
+            color: overviewMode === 'all' ? currentTheme.accent : currentTheme.text
+          }
+        },
+          React.createElement('span', { style: { fontSize: '0.7rem' } }, '◈'),
+          'All Portfolios'
         ),
-        React.createElement('div', { style: { display: 'flex', gap: '0.75rem', flexWrap: 'wrap' } },
-          portfolios.map(p => {
-            const ptxs = transactions.filter(tx => (tx.portfolioId || 'default') === p.id);
-            const pValue = ptxs.reduce((sum, tx) => {
-              if (tx.type !== 'buy' || !tx.quantity) return sum;
-              const sym = tx.symbol || '';
-              const pr  = prices[sym] || prices[sym.toLowerCase()] || 0;
-              return sum + (parseFloat(tx.quantity) || 0) * pr;
-            }, 0);
-            const isActive = p.id === activePortfolioId;
-            return React.createElement('button', {
-              key: p.id,
-              onClick: () => { setActivePortfolioId(p.id); },
-              style: {
-                display: 'flex', alignItems: 'center', gap: '0.5rem', padding: '0.375rem 0.75rem',
-                background: isActive ? `${p.color}18` : currentTheme.inputBg,
-                border: `1px solid ${isActive ? p.color : currentTheme.cardBorder}`,
-                borderRadius: '8px', cursor: 'pointer', transition: 'all 0.1s'
-              }
-            },
-              React.createElement('div', { style: { width: 8, height: 8, borderRadius: '50%', background: p.color, flexShrink: 0 } }),
-              React.createElement('span', { style: { color: currentTheme.text, fontSize: '0.78rem', fontWeight: isActive ? '700' : '400' } }, p.name),
-              pValue > 0 && React.createElement('span', { style: { color: currentTheme.textSecondary, fontSize: '0.72rem' } },
-                `${formatPrice(pValue)} ${getCurrencySymbol()}`
-              )
-            );
-          })
-        )
+        // Divider
+        React.createElement('div', { style: { width: 1, height: 20, background: currentTheme.cardBorder, margin: '0 0.125rem' } }),
+        // Individual portfolio tabs
+        ...portfolios.map(p =>
+          React.createElement('button', {
+            key: p.id,
+            onClick: () => { setOverviewMode(p.id); setActivePortfolioId(p.id); },
+            style: {
+              display: 'flex', alignItems: 'center', gap: '0.4rem',
+              padding: '0.375rem 0.875rem',
+              background: overviewMode === p.id ? `${p.color}18` : currentTheme.inputBg,
+              border: `1px solid ${overviewMode === p.id ? p.color : currentTheme.cardBorder}`,
+              borderRadius: '8px', cursor: 'pointer', transition: 'all 0.1s',
+              fontSize: '0.8rem', fontWeight: overviewMode === p.id ? '700' : '400',
+              color: currentTheme.text
+            }
+          },
+            React.createElement('div', { style: { width: 7, height: 7, borderRadius: '50%', background: p.color, flexShrink: 0 } }),
+            p.name
+          )
+        ),
+        React.createElement('button', {
+          onClick: () => setActiveView('portfolios'),
+          style: { fontSize: '0.72rem', color: currentTheme.textSecondary, background: 'none', border: 'none', cursor: 'pointer', marginLeft: 'auto', padding: '0 0.25rem' }
+        }, 'Manage portfolios →')
       ),
 
-      // ── Stats cards (always all portfolios) ─────────────────────────────
+      // ── Stats cards ─────────────────────────────────────────────────────
       React.createElement('div', {
         style: { display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '1rem', marginBottom: '1.5rem' }
       },
-        statCard('Total Value', `${formatPrice(stats.totalValue)} ${getCurrencySymbol()}`,
+        statCard(labelValue, `${formatPrice(stats.totalValue)} ${getCurrencySymbol()}`,
           lastRefresh ? `as of ${lastRefresh.toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' })}` : 'Refresh to update'),
         statCard('Invested', `${formatPrice(stats.totalInvested)} ${getCurrencySymbol()}`,
           `${stats.totalPositions} position${stats.totalPositions !== 1 ? 's' : ''}`),
-        statCard('Total Return',
+        statCard(labelReturn,
           `${isUp ? '+' : ''}${formatPrice(stats.totalProfit)} ${getCurrencySymbol()}`,
           pctStr,
           isUp ? '#22c55e' : '#ef4444'
         ),
         statCard('Positions', stats.totalPositions,
-          hasMultiple ? `across ${portfolios.length} portfolios` : 'Click any row for details', undefined,
-          () => setActiveView('transactions')
+          isAllMode ? `across ${portfolios.length} portfolio${portfolios.length > 1 ? 's' : ''}` : selectedPortfolio?.name || 'this portfolio',
+          undefined, () => setActiveView('transactions')
         )
       ),
 
-      // Real Historical Portfolio Chart — replaces old PerformanceChart + PerformancePeriods
-      // Fetches true historical data from CoinGecko (crypto, free) and Alpha Vantage (stocks)
-      window.MaerminFeatures6 && portfolioStats.totalPositions > 0 &&
+      // ── Chart ────────────────────────────────────────────────────────────
+      window.MaerminFeatures6 && stats.totalPositions > 0 &&
         React.createElement(window.MaerminFeatures6.PortfolioHistoryChart, {
-          portfolio, prices, transactions: activeTransactions, apiKeys, exchangeRate,
-          currentValue:       allPortfoliosStats.totalValue,
-          totalInvested:      allPortfoliosStats.totalInvested,
-          totalProfit:        allPortfoliosStats.totalProfit,
-          totalProfitPercent: allPortfoliosStats.totalProfitPercent,
+          portfolio:          overviewPortfolio,
+          prices,
+          transactions:       overviewTransactions,
+          apiKeys,
+          exchangeRate,
+          currentValue:       stats.totalValue,
+          totalInvested:      stats.totalInvested,
+          totalProfit:        stats.totalProfit,
+          totalProfitPercent: stats.totalProfitPercent,
           theme: currentTheme, formatPrice, getCurrencySymbol
         }),
 
-
-      
-      // CS2 setup banner — shown when user has CS2 skins but no Worker URL set
+      // CS2 banner
       portfolio.skins && portfolio.skins.length > 0 && !(apiKeys.cs2Worker||'').trim() &&
-        React.createElement('div', {
-          style: {
-            background: 'rgba(245,158,11,0.06)',
-            border: '1px solid rgba(245,158,11,0.25)',
-            borderRadius: '10px',
-            padding: '0.875rem 1.25rem',
-            marginBottom: '1.25rem',
-            display: 'flex',
-            alignItems: 'center',
-            gap: '1rem',
-            flexWrap: 'wrap'
-          }
-        },
+        React.createElement('div', { style: { background: 'rgba(245,158,11,0.06)', border: '1px solid rgba(245,158,11,0.25)', borderRadius: '10px', padding: '0.875rem 1.25rem', marginBottom: '1.25rem', display: 'flex', alignItems: 'center', gap: '1rem', flexWrap: 'wrap' } },
           React.createElement('span', { style: { fontSize: '1.25rem' } }, '!'),
           React.createElement('div', { style: { flex: 1, minWidth: '200px' } },
-            React.createElement('div', { style: { color: currentTheme.text, fontWeight: '600', fontSize: '0.875rem' } },
-              'CS2 skin prices need a Cloudflare Worker URL'
-            ),
-            React.createElement('div', { style: { color: currentTheme.textSecondary, fontSize: '0.8rem', marginTop: '0.125rem' } },
-              'Skinport blocks browser requests (CORS). A Cloudflare Worker proxies the request. Free, no API key — just deploy the updated worker.js and paste the URL.'
-            )
+            React.createElement('div', { style: { color: currentTheme.text, fontWeight: '600', fontSize: '0.875rem' } }, 'CS2 skin prices need a Cloudflare Worker URL'),
+            React.createElement('div', { style: { color: currentTheme.textSecondary, fontSize: '0.8rem', marginTop: '0.125rem' } }, 'Deploy the worker.js and paste the URL in ⚙ API Settings.')
           ),
-          React.createElement('button', {
-            onClick: () => setShowApiSettings(true),
-            style: {
-              padding: '0.5rem 1rem',
-              background: currentTheme.warning,
-              color: '#1a1a1a',
-              border: 'none',
-              borderRadius: '6px',
-              cursor: 'pointer',
-              fontWeight: '700',
-              fontSize: '0.8rem',
-              whiteSpace: 'nowrap'
-            }
-          }, 'Add Worker URL →')
+          React.createElement('button', { onClick: () => setShowApiSettings(true), style: { padding: '0.5rem 1rem', background: currentTheme.warning, color: '#1a1a1a', border: 'none', borderRadius: '6px', cursor: 'pointer', fontWeight: '700', fontSize: '0.8rem' } }, 'Add Worker URL →')
         ),
 
-      // Onboarding hint when portfolio is empty
-      portfolioStats.totalPositions === 0 && React.createElement('div', {
-        style: {
-          background: `linear-gradient(135deg, rgba(59,130,246,0.1), rgba(139,92,246,0.1))`,
-          border: `1px solid rgba(139,92,246,0.3)`,
-          borderRadius: '12px',
-          padding: '2rem',
-          marginBottom: '2rem',
-          textAlign: 'center'
-        }
-      },
+      // Onboarding
+      stats.totalPositions === 0 && React.createElement('div', { style: { background: 'linear-gradient(135deg,rgba(59,130,246,0.1),rgba(139,92,246,0.1))', border: '1px solid rgba(139,92,246,0.3)', borderRadius: '12px', padding: '2rem', marginBottom: '2rem', textAlign: 'center' } },
         React.createElement('div', { style: { fontSize: '2rem', marginBottom: '0.75rem', color: 'rgba(139,92,246,0.5)', fontWeight: '300' } }, '↗'),
-        React.createElement('h3', {
-          style: { color: currentTheme.text, fontSize: '1.125rem', fontWeight: '600', marginBottom: '0.5rem' }
-        }, t.welcomeTitle || 'Welcome to MAERMIN'),
-        React.createElement('p', {
-          style: { color: currentTheme.textSecondary, fontSize: '0.875rem', marginBottom: '1rem', lineHeight: '1.6' }
-        }, t.welcomeHint || 'Start by adding your first transaction. Track Crypto, Stocks, and CS2 Skins – all in one place.'),
-        React.createElement('div', {
-          style: { display: 'flex', gap: '0.75rem', justifyContent: 'center', flexWrap: 'wrap' }
-        },
-          React.createElement('button', {
-            onClick: () => setShowTransactionModal(true),
-            style: {
-              padding: '0.625rem 1.25rem',
-              background: currentTheme.accent,
-              color: '#fff',
-              border: 'none',
-              borderRadius: '8px',
-              cursor: 'pointer',
-              fontWeight: '600',
-              fontSize: '0.875rem'
-            }
-          }, '+ ' + (t.addTransaction || 'Add Transaction')),
-          React.createElement('button', {
-            onClick: () => setShowImportModal(true),
-            style: {
-              padding: '0.625rem 1.25rem',
-              background: currentTheme.inputBg,
-              color: currentTheme.text,
-              border: `1px solid ${currentTheme.cardBorder}`,
-              borderRadius: '8px',
-              cursor: 'pointer',
-              fontSize: '0.875rem'
-            }
-          }, t.importData || 'Import Data')
+        React.createElement('h3', { style: { color: currentTheme.text, fontSize: '1.125rem', fontWeight: '600', marginBottom: '0.5rem' } }, t.welcomeTitle || 'Welcome to MAERMIN'),
+        React.createElement('p', { style: { color: currentTheme.textSecondary, fontSize: '0.875rem', marginBottom: '1rem', lineHeight: '1.6' } }, t.welcomeHint || 'Start by adding your first transaction.'),
+        React.createElement('div', { style: { display: 'flex', gap: '0.75rem', justifyContent: 'center', flexWrap: 'wrap' } },
+          React.createElement('button', { onClick: () => setShowTransactionModal(true), style: { padding: '0.625rem 1.25rem', background: currentTheme.accent, color: '#fff', border: 'none', borderRadius: '8px', cursor: 'pointer', fontWeight: '600', fontSize: '0.875rem' } }, '+ ' + (t.addTransaction || 'Add Transaction')),
+          React.createElement('button', { onClick: () => setShowImportModal(true), style: { padding: '0.625rem 1.25rem', background: currentTheme.inputBg, color: currentTheme.text, border: `1px solid ${currentTheme.cardBorder}`, borderRadius: '8px', cursor: 'pointer', fontSize: '0.875rem' } }, t.importData || 'Import Data')
         )
       ),
-      
-      // Portfolio Overview Panel (Pie + Gainers/Losers)
-      window.MaerminFeatures && portfolioStats.totalPositions > 0 &&
+
+      // Overview Panel (Pie + Gainers) — uses filtered portfolio
+      window.MaerminFeatures && stats.totalPositions > 0 &&
         React.createElement(window.MaerminFeatures.PortfolioOverviewPanel, {
-          portfolio, prices, priceHistory,
+          portfolio: overviewPortfolio, prices, priceHistory,
           theme: currentTheme, formatPrice, getCurrencySymbol, t
         }),
 
-      // Benchmark + Daily P&L side by side
-      window.MaerminFeatures3 && portfolioStats.totalPositions > 0 &&
+      // Benchmark + Daily P&L
+      window.MaerminFeatures3 && stats.totalPositions > 0 &&
         React.createElement('div', { style: { display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem', marginBottom: '1.5rem' } },
-          React.createElement(window.MaerminFeatures3.BenchmarkWidget, {
-            portfolio, prices, priceHistory, transactions,
-            theme: currentTheme, formatPrice, getCurrencySymbol
-          }),
-          React.createElement(window.MaerminFeatures3.DailyPnLCard, {
-            portfolio, priceHistory,
-            theme: currentTheme, formatPrice, getCurrencySymbol
-          })
+          React.createElement(window.MaerminFeatures3.BenchmarkWidget, { portfolio: overviewPortfolio, prices, priceHistory, transactions: overviewTransactions, theme: currentTheme, formatPrice, getCurrencySymbol }),
+          React.createElement(window.MaerminFeatures3.DailyPnLCard, { portfolio: overviewPortfolio, priceHistory, theme: currentTheme, formatPrice, getCurrencySymbol })
         ),
 
-      // Cashflow Chart
-      window.MaerminFeatures5 && portfolioStats.totalPositions > 0 &&
-        React.createElement(window.MaerminFeatures5.CashflowChart, {
-          transactions: activeTransactions, priceHistory, portfolio, prices,
-          theme: currentTheme, formatPrice, getCurrencySymbol
-        }),
-
-      // Positions Table — enhanced with CAGR, clickable rows, position detail modal
-      (window.MaerminFeatures3 ? window.MaerminFeatures3.EnhancedPositionsTable : window.MaerminFeatures?.PositionsTable) && portfolioStats.totalPositions > 0 &&
+      // Positions Table
+      (window.MaerminFeatures3?.EnhancedPositionsTable || window.MaerminFeatures?.PositionsTable) && stats.totalPositions > 0 &&
         React.createElement(
-          window.MaerminFeatures3 ? window.MaerminFeatures3.EnhancedPositionsTable : window.MaerminFeatures.PositionsTable,
-          {
-            portfolio, prices, priceHistory, transactions,
-            theme: currentTheme, formatPrice, getCurrencySymbol, t,
-            onAddTransaction: () => setShowTransactionModal(true)
-          }
+          window.MaerminFeatures3?.EnhancedPositionsTable || window.MaerminFeatures.PositionsTable,
+          { portfolio: overviewPortfolio, prices, priceHistory, transactions: overviewTransactions, theme: currentTheme, formatPrice, getCurrencySymbol, t, onAddTransaction: () => setShowTransactionModal(true) }
         )
     );
   };
+
+  // useMemoInline helper — inline useMemo replacement for inside render functions
+  function useMemoInline(fn, deps) {
+    // We use useMemo from React context, but since this is inside renderOverview
+    // (called during render) we compute it directly — deps are captured by closure
+    return fn();
+  }
 
   // ========== ANALYTICS MENU ==========
   
@@ -1738,35 +1825,7 @@ function InvestmentTracker() {
         )
       ),
 
-      // Export strip
-      transactions.length > 0 && React.createElement('div', {
-        style: { display: 'flex', gap: '0.5rem', marginBottom: '1rem' }
-      },
-        React.createElement('button', {
-          onClick: () => createBackup(),
-          style: {
-            padding: '0.4rem 0.875rem',
-            background: currentTheme.inputBg,
-            color: currentTheme.text,
-            border: `1px solid ${currentTheme.cardBorder}`,
-            borderRadius: '6px',
-            cursor: 'pointer',
-            fontSize: '0.8rem'
-          }
-        }, '↓ ' + (t.createBackup || 'Backup')),
-        React.createElement('button', {
-          onClick: () => exportData(),
-          style: {
-            padding: '0.4rem 0.875rem',
-            background: currentTheme.inputBg,
-            color: currentTheme.text,
-            border: `1px solid ${currentTheme.cardBorder}`,
-            borderRadius: '6px',
-            cursor: 'pointer',
-            fontSize: '0.8rem'
-          }
-        }, '↑ ' + (t.exportData || 'Export CSV'))
-      ),
+
       
       // Table
       React.createElement('div', {
@@ -2135,6 +2194,30 @@ function InvestmentTracker() {
           style: { color: currentTheme.text, marginBottom: '1.5rem', fontSize: '1.5rem', fontWeight: '700' }
         }, isEditing ? (t.editTransaction || 'Edit Transaction') : (t.addTransaction || 'Add Transaction')),
         
+        // Portfolio selector (only when multiple portfolios exist)
+        portfolios.length > 1 && React.createElement('div', { style: { marginBottom: '1rem' } },
+          React.createElement('label', { style: { display: 'block', color: currentTheme.textSecondary, marginBottom: '0.5rem', fontSize: '0.875rem' } }, 'Portfolio'),
+          React.createElement('div', { style: { display: 'flex', gap: '0.375rem', flexWrap: 'wrap' } },
+            portfolios.map(p =>
+              React.createElement('button', {
+                key: p.id,
+                onClick: () => setNewTransaction(prev => ({ ...prev, targetPortfolioId: p.id })),
+                style: {
+                  display: 'flex', alignItems: 'center', gap: '0.375rem',
+                  padding: '0.375rem 0.75rem',
+                  background: (newTransaction.targetPortfolioId || activePortfolioId) === p.id ? `${p.color}22` : currentTheme.inputBg,
+                  border: `1px solid ${(newTransaction.targetPortfolioId || activePortfolioId) === p.id ? p.color : currentTheme.inputBorder}`,
+                  borderRadius: '6px', cursor: 'pointer', fontSize: '0.8rem',
+                  color: currentTheme.text, fontWeight: (newTransaction.targetPortfolioId || activePortfolioId) === p.id ? '700' : '400'
+                }
+              },
+                React.createElement('div', { style: { width: 6, height: 6, borderRadius: '50%', background: p.color } }),
+                p.name
+              )
+            )
+          )
+        ),
+
         // Type selector
         React.createElement('div', { style: { marginBottom: '1rem' } },
           React.createElement('label', {
@@ -3121,7 +3204,8 @@ buy,crypto,bitcoin,0.5,45000,2024-01-15,10`)
           { group: 'Tools' },
           { id: 'watchlist',        icon: '◯', label: 'Watchlist' },
           { id: 'alerts',           icon: '◎', label: 'Price Alerts' },
-          { id: 'broker-import',    icon: '◁', label: 'Import' },
+          { id: 'data',             icon: '◁', label: 'Import / Export' },
+          { id: 'broker-import',    icon: '◂', label: 'Broker Import' },
         ].map((item, idx) => {
           // Section Header
           if (item.group) {

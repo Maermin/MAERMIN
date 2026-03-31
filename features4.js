@@ -406,12 +406,12 @@ function SavingsPlanView({ transactions, theme, formatPrice, getCurrencySymbol, 
 // Schaut auf historische Dividenden-Einträge und projiziert sie voraus
 // ─────────────────────────────────────────────────────────────────────────────
 function DividendForecastView({ transactions, portfolio, prices, theme, formatPrice, getCurrencySymbol }) {
-  // Extract dividend transactions
+  const [forecastYears, setForecastYears] = React.useState(3);
+
   const dividends = useMemo(() =>
     transactions.filter(tx => tx.type === 'dividend' || (tx.notes || '').toLowerCase().includes('dividend')),
   [transactions]);
 
-  // Per-symbol annual dividend rate estimate
   const forecasts = useMemo(() => {
     const bySymbol = {};
     dividends.forEach(tx => {
@@ -419,7 +419,6 @@ function DividendForecastView({ transactions, portfolio, prices, theme, formatPr
       if (!bySymbol[sym]) bySymbol[sym] = { sym: tx.symbol, payments: [] };
       bySymbol[sym].payments.push({ date: new Date(tx.date), amount: parseFloat(tx.quantity || 0) * parseFloat(tx.price || 0) });
     });
-
     const result = [];
     Object.values(bySymbol).forEach(({ sym, payments }) => {
       if (payments.length < 1) return;
@@ -429,7 +428,6 @@ function DividendForecastView({ transactions, portfolio, prices, theme, formatPr
       const yearsFraction = Math.max(0.08, (last - first) / (365.25 * 86400000)) || 1;
       const annualRate = totalPaid / yearsFraction;
       const avgPerPayment = totalPaid / payments.length;
-      // Detect frequency
       let frequency = 'annual';
       if (payments.length >= 2) {
         const avgGapDays = (last - first) / (payments.length - 1) / 86400000;
@@ -439,37 +437,41 @@ function DividendForecastView({ transactions, portfolio, prices, theme, formatPr
       }
       result.push({ sym, annualRate, avgPerPayment, frequency, lastPayment: last, paymentsCount: payments.length });
     });
-
     return result.sort((a, b) => b.annualRate - a.annualRate);
   }, [dividends]);
 
-  // Build 12-month forward calendar
+  // Build multi-year monthly forecast
   const monthlyForecast = useMemo(() => {
     const months = [];
     const now = new Date();
-    for (let i = 0; i < 12; i++) {
+    const totalMonths = forecastYears * 12;
+    for (let i = 0; i < totalMonths; i++) {
       const d = new Date(now.getFullYear(), now.getMonth() + i, 1);
-      months.push({ date: d, label: d.toLocaleDateString('en-US', { month: 'short', year: '2-digit' }), amount: 0, items: [] });
+      months.push({ date: d, year: d.getFullYear(), label: d.toLocaleDateString('en-US', { month: 'short', year: '2-digit' }), amount: 0, items: [] });
     }
-
     forecasts.forEach(f => {
       const paymentsPerYear = f.frequency === 'monthly' ? 12 : f.frequency === 'quarterly' ? 4 : f.frequency === 'semi-annual' ? 2 : 1;
       const perPayment = f.annualRate / paymentsPerYear;
-      // Distribute across relevant months
       months.forEach((m, i) => {
         const shouldPay = f.frequency === 'monthly' ? true
           : f.frequency === 'quarterly' ? i % 3 === 0
           : f.frequency === 'semi-annual' ? i % 6 === 0
-          : i === 0;
-        if (shouldPay) {
-          m.amount += perPayment;
-          m.items.push({ sym: f.sym, amount: perPayment });
-        }
+          : i % 12 === 0;
+        if (shouldPay) { m.amount += perPayment; m.items.push({ sym: f.sym, amount: perPayment }); }
       });
     });
-
     return months;
-  }, [forecasts]);
+  }, [forecasts, forecastYears]);
+
+  // Group by year for summary
+  const byYear = useMemo(() => {
+    const map = {};
+    monthlyForecast.forEach(m => {
+      if (!map[m.year]) map[m.year] = 0;
+      map[m.year] += m.amount;
+    });
+    return Object.entries(map).map(([year, total]) => ({ year: parseInt(year), total }));
+  }, [monthlyForecast]);
 
   const totalForecast = monthlyForecast.reduce((s, m) => s + m.amount, 0);
   const maxMonth      = Math.max(...monthlyForecast.map(m => m.amount), 1);
@@ -481,54 +483,93 @@ function DividendForecastView({ transactions, portfolio, prices, theme, formatPr
         React.createElement('div', { style: { color: theme.textSecondary, fontSize: '2rem', marginBottom: '0.5rem', opacity: 0.4 } }, '◎'),
         React.createElement('div', { style: { color: theme.text, fontWeight: '600', marginBottom: '0.5rem' } }, 'No dividend history yet'),
         React.createElement('div', { style: { color: theme.textSecondary, fontSize: '0.875rem', maxWidth: 360, margin: '0 auto' } },
-          'Add dividend transactions (type: buy, notes: "dividend") to generate a 12-month forward projection.'
+          'Add dividend transactions or use Auto-fetch dividends in the Dividends tab.'
         )
       )
     );
   }
 
   return React.createElement('div', { style: { padding: '1.5rem' } },
-    React.createElement('h2', { style: { color: theme.text, fontSize: '1.5rem', fontWeight: '700', marginBottom: '0.375rem' } }, 'Dividend Forecast'),
-    React.createElement('p', { style: { color: theme.textSecondary, fontSize: '0.875rem', marginBottom: '1.5rem' } }, 'Projected based on historical dividend frequency and amount'),
-
-    // Summary KPIs
-    React.createElement('div', { style: { display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(160px, 1fr))', gap: '1rem', marginBottom: '1.5rem' } },
-      React.createElement(StatCell, { theme, label: '12-Month Forecast', value: `${formatPrice(totalForecast)} ${getCurrencySymbol()}`, color: '#22c55e' }),
-      React.createElement(StatCell, { theme, label: 'Monthly Average', value: `${formatPrice(totalForecast / 12)} ${getCurrencySymbol()}` }),
-      React.createElement(StatCell, { theme, label: 'Dividend Sources', value: forecasts.length }),
-      React.createElement(StatCell, { theme, label: 'Historical Payments', value: dividends.length })
+    // Header + year selector
+    React.createElement('div', { style: { display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '1.25rem', flexWrap: 'wrap', gap: '0.75rem' } },
+      React.createElement('div', null,
+        React.createElement('h2', { style: { color: theme.text, fontSize: '1.5rem', fontWeight: '700', marginBottom: '0.25rem' } }, 'Dividend Forecast'),
+        React.createElement('p', { style: { color: theme.textSecondary, fontSize: '0.8rem' } }, 'Projected from historical dividend frequency and amount')
+      ),
+      // Year range toggle
+      React.createElement('div', { style: { display: 'flex', background: theme.inputBg, borderRadius: '8px', padding: '0.2rem', gap: '0.15rem' } },
+        [1, 2, 3, 5, 10].map(y =>
+          React.createElement('button', {
+            key: y,
+            onClick: () => setForecastYears(y),
+            style: {
+              padding: '0.3rem 0.6rem', border: 'none', borderRadius: '6px', cursor: 'pointer',
+              fontSize: '0.75rem', fontWeight: forecastYears === y ? '700' : '400',
+              background: forecastYears === y ? theme.accent : 'transparent',
+              color: forecastYears === y ? '#fff' : theme.textSecondary
+            }
+          }, `${y}Y`)
+        )
+      )
     ),
 
-    // Bar chart — 12 months
-    React.createElement(Card, { theme, style: { marginBottom: '1.5rem' } },
-      React.createElement('div', { style: { color: theme.text, fontWeight: '700', fontSize: '0.9rem', marginBottom: '1rem' } }, '12-Month Projection'),
-      React.createElement('div', { style: { display: 'flex', gap: '0.375rem', alignItems: 'flex-end', height: 100 } },
-        monthlyForecast.map((m, i) =>
-          React.createElement('div', { key: i, style: { flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '0.25rem' } },
-            React.createElement('div', {
-              style: {
-                width: '100%', background: theme.accent, borderRadius: '3px 3px 0 0',
-                height: `${Math.round(m.amount / maxMonth * 80)}px`,
-                opacity: i === 0 ? 1 : 0.6,
-                transition: 'height 0.3s',
-                minHeight: m.amount > 0 ? 4 : 0
-              }
-            }),
-            React.createElement('div', { style: { color: theme.textSecondary, fontSize: '0.6rem', textAlign: 'center' } }, m.label)
+    // KPI cards
+    React.createElement('div', { style: { display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(160px, 1fr))', gap: '1rem', marginBottom: '1.5rem' } },
+      React.createElement(StatCell, { theme, label: `${forecastYears}Y Total Forecast`, value: `${formatPrice(totalForecast)} ${getCurrencySymbol()}`, color: '#22c55e' }),
+      React.createElement(StatCell, { theme, label: 'Per Year (avg)', value: `${formatPrice(totalForecast / forecastYears)} ${getCurrencySymbol()}` }),
+      React.createElement(StatCell, { theme, label: 'Monthly Average', value: `${formatPrice(totalForecast / (forecastYears * 12))} ${getCurrencySymbol()}` }),
+      React.createElement(StatCell, { theme, label: 'Dividend Sources', value: forecasts.length })
+    ),
+
+    // Annual summary table
+    forecastYears > 1 && React.createElement(Card, { theme, style: { marginBottom: '1.5rem' } },
+      React.createElement('div', { style: { color: theme.text, fontWeight: '700', fontSize: '0.9rem', marginBottom: '1rem' } }, 'Annual Summary'),
+      React.createElement('div', { style: { display: 'flex', gap: '1rem', flexWrap: 'wrap' } },
+        byYear.map(({ year, total }) =>
+          React.createElement('div', { key: year, style: { flex: '1 1 120px', textAlign: 'center', padding: '0.875rem', background: theme.inputBg, borderRadius: '10px', border: `1px solid ${theme.cardBorder}` } },
+            React.createElement('div', { style: { color: theme.textSecondary, fontSize: '0.72rem', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: '0.375rem' } }, year),
+            React.createElement('div', { style: { color: '#22c55e', fontWeight: '800', fontSize: '1.1rem' } }, `${formatPrice(total)} ${getCurrencySymbol()}`)
           )
         )
       )
     ),
 
+    // Monthly bar chart (show up to 24 months at a time, scrollable)
+    React.createElement(Card, { theme, style: { marginBottom: '1.5rem', overflow: 'auto' } },
+      React.createElement('div', { style: { color: theme.text, fontWeight: '700', fontSize: '0.9rem', marginBottom: '1rem' } },
+        forecastYears <= 2 ? 'Monthly Breakdown' : 'Monthly Breakdown (first 24 months)'
+      ),
+      React.createElement('div', { style: { display: 'flex', gap: '0.25rem', alignItems: 'flex-end', height: 120, minWidth: Math.min(forecastYears * 12, 24) * 36 } },
+        monthlyForecast.slice(0, Math.min(forecastYears * 12, 24)).map((m, i) => {
+          const isNewYear = i > 0 && m.year !== monthlyForecast[i-1].year;
+          return React.createElement('div', { key: i, style: { flex: '0 0 32px', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '0.2rem' } },
+            isNewYear && React.createElement('div', { style: { position: 'absolute', width: 1, height: 100, background: 'rgba(255,255,255,0.1)', marginTop: -4 } }),
+            React.createElement('div', {
+              title: `${m.label}: ${formatPrice(m.amount)} ${getCurrencySymbol()}`,
+              style: {
+                width: '100%', background: `${theme.accent}cc`, borderRadius: '3px 3px 0 0',
+                height: `${Math.max(m.amount > 0 ? 8 : 0, Math.round(m.amount / maxMonth * 90))}px`,
+                transition: 'height 0.3s', cursor: 'default',
+                opacity: m.year === new Date().getFullYear() ? 1 : 0.7
+              }
+            }),
+            React.createElement('div', { style: { color: theme.textSecondary, fontSize: '0.5rem', textAlign: 'center', whiteSpace: 'nowrap', transform: 'rotate(-45deg)', transformOrigin: 'top center', marginTop: '0.25rem' } },
+              m.date.toLocaleDateString('en-US', { month: 'short' })
+            )
+          );
+        })
+      )
+    ),
+
     // Per-symbol breakdown
     React.createElement(Card, { theme },
-      React.createElement('div', { style: { color: theme.text, fontWeight: '700', fontSize: '0.9rem', marginBottom: '0.875rem' } }, 'By Source'),
-      React.createElement('div', { style: { display: 'flex', flexDirection: 'column', gap: '0.625rem' } },
+      React.createElement('div', { style: { color: theme.text, fontWeight: '700', fontSize: '0.9rem', marginBottom: '0.875rem' } }, 'By Source (annual rate)'),
+      React.createElement('div', { style: { display: 'flex', flexDirection: 'column', gap: '0.5rem' } },
         forecasts.map((f, i) =>
-          React.createElement('div', { key: i, style: { display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '0.5rem 0', borderBottom: `1px solid ${theme.cardBorder}` } },
+          React.createElement('div', { key: i, style: { display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '0.5rem 0.75rem', background: theme.inputBg, borderRadius: '8px' } },
             React.createElement('div', null,
               React.createElement('span', { style: { color: theme.text, fontWeight: '700', marginRight: '0.5rem' } }, f.sym),
-              React.createElement('span', { style: { fontSize: '0.7rem', color: theme.textSecondary, padding: '0.1rem 0.3rem', background: theme.inputBg, borderRadius: '3px' } }, f.frequency)
+              React.createElement('span', { style: { fontSize: '0.68rem', color: theme.textSecondary, padding: '0.1rem 0.35rem', background: `${theme.accent}18`, borderRadius: '3px' } }, f.frequency)
             ),
             React.createElement('span', { style: { color: '#22c55e', fontWeight: '700', fontSize: '0.875rem' } }, `${formatPrice(f.annualRate)} ${getCurrencySymbol()}/yr`)
           )
