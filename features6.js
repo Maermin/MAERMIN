@@ -488,7 +488,7 @@ function PortfolioHistoryChart({ portfolio, prices, transactions, apiKeys, theme
       ? lastV / (1 + trueROI / 100)
       : rawFirst;
 
-    const firstV = (isTiny && period === 'Max') ? impliedBase : rawFirst;
+    const firstV = isTiny ? impliedBase : rawFirst;  // apply safeguard for ALL periods
 
     const retVals = chartData.map(d => ((d.value - firstV) / firstV) * 100);
     const minR    = Math.min(...retVals);
