@@ -214,6 +214,36 @@ function PortfolioHistoryChart({ portfolio, prices, transactions, apiKeys, theme
     return result;
   }, [portfolio, transactions]);
 
+  // ── Cumulative invested timeline ──────────────────────────────────────────
+  // For each timestamp we need to know how much had been invested UP TO that point.
+  // This is the correct denominator for the return % chart.
+  // Format: sorted array of {ts, cumInvestedEUR}
+  const investedTimeline = useMemo(() => {
+    const events = [];
+    (transactions || []).forEach(tx => {
+      if (tx.type !== 'buy' && tx.type !== 'sell') return;
+      const ts = Math.floor(new Date(tx.date || 0).getTime() / 1000);
+      let costEUR = (parseFloat(tx.price) || 0) * (parseFloat(tx.quantity) || 0);
+      if ((tx.currency || 'EUR') === 'USD' && exchangeRate > 0) costEUR *= exchangeRate;
+      events.push({ ts, cost: tx.type === 'buy' ? costEUR : -costEUR });
+    });
+    events.sort((a, b) => a.ts - b.ts);
+    let cumul = 0;
+    const timeline = events.map(e => { cumul += e.cost; return { ts: e.ts, cumul: Math.max(0, cumul) }; });
+    return timeline;
+  }, [transactions, exchangeRate]);
+
+  // Helper: cumulative invested at timestamp ts
+  const investedAt = (ts) => {
+    if (!investedTimeline.length) return totalInvested || 1;
+    let val = 0;
+    for (const e of investedTimeline) {
+      if (e.ts > ts) break;
+      val = e.cumul;
+    }
+    return val > 0 ? val : (investedTimeline[0]?.cumul || totalInvested || 1);
+  };
+
   const buildChart = useCallback(async () => {
     if (positions.length === 0) return;
     setChartData([]);   // Clear immediately — no stale data shown during load
@@ -470,30 +500,16 @@ function PortfolioHistoryChart({ portfolio, prices, transactions, apiKeys, theme
   const computedReturn = useMemo(() => {
     if (chartData.length < 2) return null;
 
-    // The chart line shows PERIOD-RELATIVE movement: how the portfolio moved
-    // during the selected time window (same as how Robinhood/Tradingview show %).
-    // Base = first non-zero value in the selected period's chart data.
-    //
-    // The header always shows the TRUE ROI (totalProfitPercent from props) —
-    // that is separate from the chart shape and always matches the stats card.
-    //
-    // Edge case: if firstV is extremely small vs lastV (e.g. €7 → €19k on "Max"),
-    // the % values explode. We detect this and use totalInvested as the base
-    // instead, which gives a sensible axis range.
-    const rawFirst = chartData.find(d => d.value > 0)?.value || 0;
-    if (!rawFirst) return null;
+    // firstV used only for lastR / header context — actual retVals use investedAt(ts) per point
+    const firstV = totalInvested || chartData.find(d => d.value > 0)?.value || 1;
 
-    const lastV = chartData[chartData.length - 1]?.value || rawFirst;
-
-    // If first value is less than 5% of last value, the period-start base would
-    // create absurd % values. Use totalInvested as base in that case.
-    const useInvestedBase = (typeof totalInvested === 'number' && totalInvested > 0)
-      && (rawFirst / lastV < 0.05);
-    const base   = useInvestedBase ? totalInvested : rawFirst;
-    const firstV = base;
-
-    // Convert each point to return % relative to chosen base
-    const retVals = chartData.map(d => ((d.value - base) / base) * 100);
+    // Convert each point to return % using cumulative invested at that timestamp
+    // e.g. in Jun 2022 you had invested €500 → return = (chartValue - €500) / €500
+    // This avoids the -99% artifact from comparing early values to total invested today
+    const retVals = chartData.map(d => {
+      const inv = investedAt(d.ts);
+      return ((d.value - inv) / inv) * 100;
+    });
     const minR    = Math.min(...retVals);
     const maxR    = Math.max(...retVals);
     // SYMMETRIC axis: 0% is always in the exact vertical center.
