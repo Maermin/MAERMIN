@@ -1061,6 +1061,7 @@ function InvestmentTracker() {
   const DataManagementView = ({ transactions, setTransactions, createBackup, exportData, theme, t, addToast, formatPrice }) => {
     const [importText, setImportText] = React.useState('');
     const [importing, setImporting]   = React.useState(false);
+    const [section, setSection]       = React.useState('export'); // 'export' | 'import' | 'broker'
 
     const handleImport = async () => {
       if (!importText.trim()) { addToast('Paste JSON or CSV data first', 'error'); return; }
@@ -1084,63 +1085,92 @@ function InvestmentTracker() {
       } finally { setImporting(false); }
     };
 
-    const btnStyle = (color) => ({
-      padding: '0.625rem 1.25rem', borderRadius: '8px', border: 'none', cursor: 'pointer',
-      fontSize: '0.875rem', fontWeight: '600',
-      background: color || theme.inputBg, color: color ? '#fff' : theme.text,
-      display: 'flex', alignItems: 'center', gap: '0.5rem'
-    });
+    const tabBtn = (id, label, icon) => React.createElement('button', {
+      onClick: () => setSection(id),
+      style: {
+        display: 'flex', alignItems: 'center', gap: '0.375rem',
+        padding: '0.5rem 1rem', border: 'none', borderRadius: '8px', cursor: 'pointer',
+        fontSize: '0.875rem', fontWeight: section === id ? '700' : '400',
+        background: section === id ? theme.accent : theme.inputBg,
+        color: section === id ? '#fff' : theme.text,
+        transition: 'all 0.12s'
+      }
+    }, icon, label);
 
-    return React.createElement('div', { style: { padding: '1.5rem', maxWidth: 720 } },
-      React.createElement('h2', { style: { color: theme.text, fontSize: '1.35rem', fontWeight: '800', marginBottom: '0.25rem' } }, 'Import / Export / Backup'),
-      React.createElement('p', { style: { color: theme.textSecondary, fontSize: '0.85rem', marginBottom: '2rem' } },
-        'Export your data as CSV, create a full JSON backup, or import transactions from JSON/CSV.'
+    return React.createElement('div', { style: { padding: '1.5rem' } },
+      React.createElement('h2', { style: { color: theme.text, fontSize: '1.35rem', fontWeight: '800', marginBottom: '0.25rem' } }, 'Data Management'),
+      React.createElement('p', { style: { color: theme.textSecondary, fontSize: '0.85rem', marginBottom: '1.5rem' } },
+        'Export, import, backup your data or use the Broker Import Wizard to import from supported brokers.'
       ),
 
-      // ── Export / Backup ──────────────────────────────────────────────────
-      React.createElement('div', { style: { background: theme.card, border: `1px solid ${theme.cardBorder}`, borderRadius: '12px', padding: '1.25rem', marginBottom: '1.25rem' } },
-        React.createElement('div', { style: { color: theme.text, fontWeight: '700', marginBottom: '0.25rem' } }, 'Export & Backup'),
-        React.createElement('p', { style: { color: theme.textSecondary, fontSize: '0.8rem', marginBottom: '1rem' } },
-          `${transactions.length} transaction${transactions.length !== 1 ? 's' : ''} in database`
+      // Section tabs
+      React.createElement('div', { style: { display: 'flex', gap: '0.5rem', marginBottom: '1.5rem', flexWrap: 'wrap' } },
+        tabBtn('export', 'Export & Backup', '↓ '),
+        tabBtn('import', 'Manual Import', '↑ '),
+        tabBtn('broker', 'Broker Import', '◁ ')
+      ),
+
+      // ── Export & Backup ──────────────────────────────────────────────────
+      section === 'export' && React.createElement('div', { style: { background: theme.card, border: `1px solid ${theme.cardBorder}`, borderRadius: '12px', padding: '1.5rem' } },
+        React.createElement('div', { style: { color: theme.text, fontWeight: '700', marginBottom: '0.375rem' } }, 'Export & Backup'),
+        React.createElement('p', { style: { color: theme.textSecondary, fontSize: '0.8rem', marginBottom: '1.25rem' } },
+          `${transactions.length} transaction${transactions.length !== 1 ? 's' : ''} in database.`
         ),
         React.createElement('div', { style: { display: 'flex', gap: '0.75rem', flexWrap: 'wrap' } },
-          React.createElement('button', { onClick: createBackup, style: btnStyle(theme.accent) },
-            '↓ JSON Backup', React.createElement('span', { style: { fontSize: '0.72rem', opacity: 0.8 } }, '(full restore)')
+          React.createElement('button', {
+            onClick: createBackup,
+            style: { padding: '0.625rem 1.25rem', background: theme.accent, color: '#fff', border: 'none', borderRadius: '8px', cursor: 'pointer', fontWeight: '600', fontSize: '0.875rem', display: 'flex', alignItems: 'center', gap: '0.5rem' }
+          }, '↓ JSON Backup',
+            React.createElement('span', { style: { fontSize: '0.72rem', opacity: 0.8, fontWeight: '400' } }, '— full restore')
           ),
-          React.createElement('button', { onClick: exportData, style: btnStyle() },
-            '↑ Export CSV', React.createElement('span', { style: { fontSize: '0.72rem', opacity: 0.6 } }, '(spreadsheet)')
+          React.createElement('button', {
+            onClick: exportData,
+            style: { padding: '0.625rem 1.25rem', background: theme.inputBg, color: theme.text, border: `1px solid ${theme.cardBorder}`, borderRadius: '8px', cursor: 'pointer', fontSize: '0.875rem', display: 'flex', alignItems: 'center', gap: '0.5rem' }
+          }, '↑ Export CSV',
+            React.createElement('span', { style: { fontSize: '0.72rem', color: theme.textSecondary, fontWeight: '400' } }, '— spreadsheet')
           )
         )
       ),
 
-      // ── Import ───────────────────────────────────────────────────────────
-      React.createElement('div', { style: { background: theme.card, border: `1px solid ${theme.cardBorder}`, borderRadius: '12px', padding: '1.25rem' } },
-        React.createElement('div', { style: { color: theme.text, fontWeight: '700', marginBottom: '0.25rem' } }, 'Import Transactions'),
+      // ── Manual Import ────────────────────────────────────────────────────
+      section === 'import' && React.createElement('div', { style: { background: theme.card, border: `1px solid ${theme.cardBorder}`, borderRadius: '12px', padding: '1.5rem' } },
+        React.createElement('div', { style: { color: theme.text, fontWeight: '700', marginBottom: '0.375rem' } }, 'Manual Import'),
         React.createElement('p', { style: { color: theme.textSecondary, fontSize: '0.8rem', marginBottom: '1rem' } },
-          'Paste a JSON backup or CSV export below. New transactions are added without replacing existing ones.'
+          'Paste a JSON backup or CSV export. New transactions are added without replacing existing data.'
         ),
         React.createElement('textarea', {
           value: importText,
           onChange: e => setImportText(e.target.value),
           placeholder: '[{"type":"buy","category":"crypto","symbol":"bitcoin","quantity":0.5,"price":45000,"date":"2024-01-15"}]',
-          rows: 6,
-          style: {
-            width: '100%', boxSizing: 'border-box', padding: '0.75rem',
-            background: theme.inputBg, border: `1px solid ${theme.inputBorder}`,
-            borderRadius: '8px', color: theme.text, fontSize: '0.8rem',
-            fontFamily: 'monospace', resize: 'vertical', marginBottom: '0.75rem'
-          }
+          rows: 7,
+          style: { width: '100%', boxSizing: 'border-box', padding: '0.75rem', background: theme.inputBg, border: `1px solid ${theme.inputBorder}`, borderRadius: '8px', color: theme.text, fontSize: '0.8rem', fontFamily: 'monospace', resize: 'vertical', marginBottom: '0.875rem' }
         }),
         React.createElement('div', { style: { display: 'flex', gap: '0.75rem', alignItems: 'center' } },
           React.createElement('button', {
             onClick: handleImport, disabled: importing || !importText.trim(),
-            style: btnStyle(importing || !importText.trim() ? undefined : theme.accent)
+            style: { padding: '0.625rem 1.25rem', background: importing || !importText.trim() ? theme.inputBg : theme.accent, color: importing || !importText.trim() ? theme.textSecondary : '#fff', border: 'none', borderRadius: '8px', cursor: importing || !importText.trim() ? 'not-allowed' : 'pointer', fontWeight: '600', fontSize: '0.875rem' }
           }, importing ? '◎ Importing...' : '↑ Import'),
-          React.createElement('button', {
+          importText.trim() && React.createElement('button', {
             onClick: () => setImportText(''),
-            style: { ...btnStyle(), fontSize: '0.8rem', color: theme.textSecondary }
+            style: { padding: '0.625rem 1rem', background: 'none', color: theme.textSecondary, border: 'none', cursor: 'pointer', fontSize: '0.85rem' }
           }, '✕ Clear')
         )
+      ),
+
+      // ── Broker Import Wizard ─────────────────────────────────────────────
+      section === 'broker' && (
+        window.MaerminFeatures2
+          ? React.createElement(window.MaerminFeatures2.BrokerImportWizard, {
+              theme, t, addToast,
+              onImport: (txs) => {
+                const newTxs = txs.map((tx, i) => ({ id: (Date.now()+i).toString(), ...tx }));
+                setTransactions(prev => [...prev, ...newTxs]);
+                addToast(`${newTxs.length} transaction(s) imported`, 'success');
+              }
+            })
+          : React.createElement('div', { style: { background: theme.card, border: `1px solid ${theme.cardBorder}`, borderRadius: '12px', padding: '3rem', textAlign: 'center', color: theme.textSecondary } },
+              'Broker Import module not loaded'
+            )
       )
     );
   };
@@ -1382,20 +1412,11 @@ function InvestmentTracker() {
           }) : renderAnalyticsPlaceholder('Rebalancing');
 
       case 'data':
+      case 'broker-import':
         return React.createElement(DataManagementView, {
           transactions, setTransactions, createBackup, exportData,
           theme: currentTheme, t, addToast, formatPrice
         });
-
-      case 'broker-import':
-        return window.MaerminFeatures2 ?
-          React.createElement(window.MaerminFeatures2.BrokerImportWizard, {
-            theme: currentTheme, t, addToast,
-            onImport: (txs) => {
-              const newTxs = txs.map((tx, i) => ({ id: (Date.now()+i).toString(), ...tx }));
-              setTransactions(prev => [...prev, ...newTxs]);
-            }
-          }) : renderAnalyticsPlaceholder('Broker Import');
 
       case 'journal':
         return window.MaerminFeatures2 ?
@@ -3205,7 +3226,6 @@ buy,crypto,bitcoin,0.5,45000,2024-01-15,10`)
           { id: 'watchlist',        icon: '◯', label: 'Watchlist' },
           { id: 'alerts',           icon: '◎', label: 'Price Alerts' },
           { id: 'data',             icon: '◁', label: 'Import / Export' },
-          { id: 'broker-import',    icon: '◂', label: 'Broker Import' },
         ].map((item, idx) => {
           // Section Header
           if (item.group) {

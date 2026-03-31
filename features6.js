@@ -490,21 +490,17 @@ function PortfolioHistoryChart({ portfolio, prices, transactions, apiKeys, theme
     const toY  = v => PAD.t + (1 - (v - lo) / range) * (H - PAD.t - PAD.b);
     const y0   = toY(0); // pixel position of the 0% baseline
 
-    // Points for the full line
-    const pts  = retVals.map((r, i) => `${toX(i)},${toY(r)}`).join(' ');
+    // Build SVG path for the full line
+    const pts = retVals.map((r, i) => `${toX(i)},${toY(r)}`).join(' ');
 
-    // Split into above-zero (green) and below-zero (red) filled areas
-    // We draw two filled polygons clipped at the 0% line
-    const abovePoints = [];
-    const belowPoints = [];
-    retVals.forEach((r, i) => {
-      const x = toX(i);
-      const y = toY(r);
-      abovePoints.push(`${x},${Math.min(y, y0)}`);
-      belowPoints.push(`${x},${Math.max(y, y0)}`);
-    });
-    const areaAbove = [`${PAD.l},${y0}`, ...abovePoints, `${toX(retVals.length-1)},${y0}`].join(' ');
-    const areaBelow = [`${PAD.l},${y0}`, ...belowPoints, `${toX(retVals.length-1)},${y0}`].join(' ');
+    // Build a closed area path (line + baseline closing) for clipping approach.
+    // We use ONE area polygon + two clipPath rects to split green/red correctly.
+    // This avoids the zig-zag artifact of clamping individual points.
+    const xFirst = toX(0);
+    const xLast  = toX(retVals.length - 1);
+    const areaPath = `${xFirst},${y0} ` +
+      retVals.map((r, i) => `${toX(i)},${toY(r)}`).join(' ') +
+      ` ${xLast},${y0}`;
 
     // Y labels — use clean rounded % steps
     const stepSize = extent > 20 ? 10 : extent > 10 ? 5 : extent > 5 ? 2 : 1;
@@ -530,7 +526,7 @@ function PortfolioHistoryChart({ portfolio, prices, transactions, apiKeys, theme
     });
 
     const lastR = retVals[retVals.length - 1];
-    return { retVals, lo, hi, range, toX, toY, y0, pts, areaAbove, areaBelow, yLabels, xLabels, lastR, firstV };
+    return { retVals, lo, hi, range, toX, toY, y0, pts, areaPath, yLabels, xLabels, lastR, firstV, xFirst, xLast };
   }, [chartData, period]);
 
   const handleMouseMove = e => {
@@ -677,19 +673,31 @@ function PortfolioHistoryChart({ portfolio, prices, transactions, apiKeys, theme
       return { idx, x: computedReturn.toX(idx), label: fmtX(chartData[idx]) };
     });
 
-    // Collect all children as flat array — avoids spread-into-args stack overflow
+    const { y0, areaPath, pts, lastR, toX, toY, retVals } = computedReturn;
+    const chartAreaH = H - PAD.t - PAD.b;
+    const chartAreaW = W - PAD.l - PAD.r;
+
+    // Key fix: use SVG clipPath to split green/red fill correctly.
+    // One area polygon is drawn twice — once clipped above y0, once below y0.
+    // This avoids the zig-zag artifact of the clamping/split-polygon approach.
     const children = [
       React.createElement('defs', {key:'defs'},
+        React.createElement('clipPath', { id:'retClipAbove' },
+          React.createElement('rect', { x: PAD.l, y: PAD.t, width: chartAreaW, height: Math.max(0, y0 - PAD.t) })
+        ),
+        React.createElement('clipPath', { id:'retClipBelow' },
+          React.createElement('rect', { x: PAD.l, y: y0, width: chartAreaW, height: Math.max(0, H - PAD.b - y0) })
+        ),
         React.createElement('linearGradient', { id:'retGreen', x1:'0', y1:'0', x2:'0', y2:'1' },
-          React.createElement('stop', { offset:'0%',   stopColor: GREEN, stopOpacity: 0.2 }),
-          React.createElement('stop', { offset:'100%', stopColor: GREEN, stopOpacity: 0.01 })
+          React.createElement('stop', { offset:'0%',   stopColor: GREEN, stopOpacity: 0.28 }),
+          React.createElement('stop', { offset:'100%', stopColor: GREEN, stopOpacity: 0.03 })
         ),
         React.createElement('linearGradient', { id:'retRed', x1:'0', y1:'0', x2:'0', y2:'1' },
-          React.createElement('stop', { offset:'0%',   stopColor: RED, stopOpacity: 0.01 }),
-          React.createElement('stop', { offset:'100%', stopColor: RED, stopOpacity: 0.2 })
+          React.createElement('stop', { offset:'0%',   stopColor: RED, stopOpacity: 0.03 }),
+          React.createElement('stop', { offset:'100%', stopColor: RED, stopOpacity: 0.28 })
         )
       ),
-      // Grid + Y labels as flat pairs
+      // Grid + Y labels
       ...computedReturn.yLabels.map((yl,i) => [
         React.createElement('line', { key:`gl${i}`, x1:PAD.l, y1:yl.y, x2:W-PAD.r, y2:yl.y,
           stroke: yl.isZero ? 'rgba(255,255,255,0.28)' : GREY2,
@@ -705,19 +713,22 @@ function PortfolioHistoryChart({ portfolio, prices, transactions, apiKeys, theme
       ...xLabels.map((xl,i) =>
         React.createElement('text', { key:`xl${i}`, x:xl.x, y:H-PAD.b+13, textAnchor:'middle', fill:GREY, fontSize:9 }, xl.label)
       ),
-      React.createElement('polygon', { key:'ag', points: computedReturn.areaAbove, fill:'url(#retGreen)' }),
-      React.createElement('polygon', { key:'ar', points: computedReturn.areaBelow, fill:'url(#retRed)' }),
-      React.createElement('polyline', { key:'line', points: computedReturn.pts, fill:'none',
-        stroke: computedReturn.lastR >= 0 ? GREEN : RED,
-        strokeWidth:1.75, strokeLinejoin:'round', strokeLinecap:'round'
+      // Green fill above baseline — same polygon, clipped to top half
+      React.createElement('polygon', { key:'ag', points: areaPath, fill:'url(#retGreen)', clipPath:'url(#retClipAbove)' }),
+      // Red fill below baseline — same polygon, clipped to bottom half
+      React.createElement('polygon', { key:'ar', points: areaPath, fill:'url(#retRed)', clipPath:'url(#retClipBelow)' }),
+      // The line
+      React.createElement('polyline', { key:'line', points: pts, fill:'none',
+        stroke: lastR >= 0 ? GREEN : RED,
+        strokeWidth: 1.75, strokeLinejoin:'round', strokeLinecap:'round'
       }),
     ];
 
-    if (hovered && computedReturn.retVals[hoveredIdx] !== undefined) {
-      const r   = computedReturn.retVals[hoveredIdx];
+    if (hovered && retVals[hoveredIdx] !== undefined) {
+      const r   = retVals[hoveredIdx];
       const col = r >= 0 ? GREEN : RED;
-      const hx  = computedReturn.toX(hoveredIdx);
-      const hy  = computedReturn.toY(r);
+      const hx  = toX(hoveredIdx);
+      const hy  = toY(r);
       children.push(
         React.createElement('line', { key:'hx', x1:hx, y1:PAD.t, x2:hx, y2:H-PAD.b, stroke:GREY, strokeWidth:1, strokeDasharray:'3,3' }),
         React.createElement('circle', { key:'hc', cx:hx, cy:hy, r:4, fill:col, stroke:theme.card, strokeWidth:2 }),
