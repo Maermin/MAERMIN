@@ -472,25 +472,31 @@ function PortfolioHistoryChart({ portfolio, prices, transactions, apiKeys, theme
   const computedReturn = useMemo(() => {
     if (chartData.length < 2) return null;
 
-    // Base = first chart data point for the selected period.
-    // 1H/1D/1W/1M/1Y/3Y/5Y: movement from period start.
-    // Max: also from first buy — but if that's tiny (e.g. €7 when portfolio is now €19k),
-    //      the % blows up. Safeguard: if firstV < 1% of lastV, use lastV * (1 - trueROI/100)
-    //      which back-calculates what the invested base would need to be for the header to match.
-    const rawFirst = chartData.find(d => d.value > 0)?.value || 1;
-    const lastV    = chartData[chartData.length - 1]?.value || rawFirst;
-    const isTiny   = rawFirst < lastV * 0.01; // first point is less than 1% of current value
+    // ── Period-relative return % ───────────────────────────────────────────
+    // For each period we show: how did the portfolio move FROM the period start?
+    // The chart anchors at 0% at the left edge and shows the journey.
+    // Header always shows true total ROI separately (from props).
+    //
+    // For long periods (1Y+), the chart data may start when the portfolio was
+    // tiny (e.g. one €17 skin from 2018). We skip those leading "noise" points
+    // by finding the first data point where the portfolio was at least 2% of
+    // its current value. This makes "Max" start from when real investing began.
+    const lastV = chartData[chartData.length - 1]?.value || 1;
+    const threshold = lastV * 0.02; // 2% of current value = "meaningful start"
 
-    // For Max with tiny first point: use the implied cost basis from true ROI so the chart
-    // starts near 0% and the last point lands on the header value.
-    // implied base = lastV / (1 + trueROI/100)
-    const impliedBase = (typeof trueROI === 'number' && trueROI !== -100 && lastV > 0)
-      ? lastV / (1 + trueROI / 100)
-      : rawFirst;
+    // Find the first index where portfolio value is meaningful
+    let startIdx = 0;
+    for (let i = 0; i < chartData.length; i++) {
+      if (chartData[i].value >= threshold) { startIdx = i; break; }
+    }
+    const meaningfulData = chartData.slice(startIdx);
+    if (meaningfulData.length < 2) return null;
 
-    const firstV = isTiny ? impliedBase : rawFirst;  // apply safeguard for ALL periods
+    const firstV = meaningfulData[0].value;
+    if (!firstV) return null;
 
-    const retVals = chartData.map(d => ((d.value - firstV) / firstV) * 100);
+    // All retVals computed from meaningful start — anchored at 0% on the left
+    const retVals = meaningfulData.map(d => ((d.value - firstV) / firstV) * 100);
     const minR    = Math.min(...retVals);
     const maxR    = Math.max(...retVals);
     // SYMMETRIC axis: 0% is always in the exact vertical center.
@@ -501,7 +507,7 @@ function PortfolioHistoryChart({ portfolio, prices, transactions, apiKeys, theme
     const hi      =  extent;
     const range   = hi - lo;
 
-    const toX  = i => PAD.l + (i / (chartData.length - 1)) * (W - PAD.l - PAD.r);
+    const toX  = i => PAD.l + (i / (meaningfulData.length - 1)) * (W - PAD.l - PAD.r);
     const toY  = v => PAD.t + (1 - (v - lo) / range) * (H - PAD.t - PAD.b);
     const y0   = toY(0); // pixel position of the 0% baseline
 
@@ -587,10 +593,10 @@ function PortfolioHistoryChart({ portfolio, prices, transactions, apiKeys, theme
     }
 
     const xCount = 6;
-    const xStep  = Math.max(1, Math.floor((chartData.length-1)/(xCount-1)));
+    const xStep  = Math.max(1, Math.floor((meaningfulData.length-1)/(xCount-1)));
     const xLabels = Array.from({length: xCount}, (_,i) => {
-      const idx = Math.min(i*xStep, chartData.length-1);
-      const d   = chartData[idx];
+      const idx = Math.min(i*xStep, meaningfulData.length-1);
+      const d   = meaningfulData[idx];
       let label = d.date;
       if (['1H','1D'].includes(period)) {
         label = new Date(d.ts*1000).toLocaleTimeString('en-GB', {hour:'2-digit',minute:'2-digit'});
@@ -603,7 +609,7 @@ function PortfolioHistoryChart({ portfolio, prices, transactions, apiKeys, theme
     });
 
     const lastR = retVals[retVals.length - 1];
-    return { retVals, lo, hi, range, toX, toY, y0, pts, posPath, negPath, yLabels, xLabels, lastR, firstV };
+    return { retVals, meaningfulData, startIdx, lo, hi, range, toX, toY, y0, pts, posPath, negPath, yLabels, xLabels, lastR, firstV };
   }, [chartData, period]);
 
   const handleMouseMove = e => {
@@ -612,7 +618,14 @@ function PortfolioHistoryChart({ portfolio, prices, transactions, apiKeys, theme
     const rect = ref.current.getBoundingClientRect();
     const mx   = (e.clientX - rect.left) / rect.width * W;
     const frac = Math.max(0, Math.min(1, (mx - PAD.l) / (W - PAD.l - PAD.r)));
-    setHoveredIdx(Math.round(frac * (chartData.length - 1)));
+    if (chartMode === 'return' && computedReturn) {
+      // Return chart only spans meaningfulData — offset back to chartData index
+      const mLen = computedReturn.meaningfulData?.length || chartData.length;
+      const mIdx = Math.round(frac * (mLen - 1));
+      setHoveredIdx((computedReturn.startIdx || 0) + mIdx);
+    } else {
+      setHoveredIdx(Math.round(frac * (chartData.length - 1)));
+    }
   };
 
   const dataSources = [
@@ -674,7 +687,8 @@ function PortfolioHistoryChart({ portfolio, prices, transactions, apiKeys, theme
     }
     // return mode — show % relative to chart base, EUR vs totalInvested
     if (!computedReturn) return null;
-    const r    = computedReturn.retVals[hoveredIdx] ?? 0;
+    const mI   = hoveredIdx - (computedReturn.startIdx || 0);
+    const r    = (mI >= 0 && mI < computedReturn.retVals.length) ? computedReturn.retVals[mI] : 0;
     const col  = r >= 0 ? GREEN : RED;
     const base = (typeof totalInvested === 'number' && totalInvested > 0) ? totalInvested : (computedReturn.firstV || 0);
     const eur  = (r / 100) * base;
@@ -751,7 +765,7 @@ function PortfolioHistoryChart({ portfolio, prices, transactions, apiKeys, theme
       return { idx, x: computedReturn.toX(idx), label: fmtX(chartData[idx]) };
     });
 
-    const { y0, posPath, negPath, pts, lastR, toX, toY, retVals } = computedReturn;
+    const { y0, posPath, negPath, pts, lastR, toX, toY, retVals, meaningfulData: mData, startIdx } = computedReturn;
     // Correct fill approach: separate closed path segments per sign region.
     // One area polygon is drawn twice — once clipped above y0, once below y0.
     // This avoids the zig-zag artifact of the clamping/split-polygon approach.
@@ -793,21 +807,24 @@ function PortfolioHistoryChart({ portfolio, prices, transactions, apiKeys, theme
       }),
     ];
 
-    if (hovered && retVals[hoveredIdx] !== undefined) {
-      const r   = retVals[hoveredIdx];
+    // Map global hoveredIdx to meaningfulData index
+    const mIdx = hoveredIdx - startIdx;
+    const mHovered = (mIdx >= 0 && mIdx < (mData?.length || 0)) ? mData[mIdx] : null;
+    if (mHovered && retVals[mIdx] !== undefined) {
+      const r   = retVals[mIdx];
       const col = r >= 0 ? GREEN : RED;
-      const hx  = toX(hoveredIdx);
+      const hx  = toX(mIdx);
       const hy  = toY(r);
       children.push(
         React.createElement('line', { key:'hx', x1:hx, y1:PAD.t, x2:hx, y2:H-PAD.b, stroke:GREY, strokeWidth:1, strokeDasharray:'3,3' }),
         React.createElement('circle', { key:'hc', cx:hx, cy:hy, r:4, fill:col, stroke:theme.card, strokeWidth:2 }),
         React.createElement('g', { key:'ht', transform:`translate(${Math.min(hx+10, W-148)},${Math.max(hy-44, PAD.t)})` },
           React.createElement('rect', { width:140, height:50, rx:6, fill:theme.card, stroke:col, strokeWidth:1, opacity:0.96 }),
-          React.createElement('text', { x:8, y:15, fill:GREY, fontSize:9 }, hovered.date),
+          React.createElement('text', { x:8, y:15, fill:GREY, fontSize:9 }, mHovered.date),
           React.createElement('text', { x:8, y:31, fill:col, fontSize:13, fontWeight:700, fontFamily:'monospace' },
             `${r >= 0 ? '+' : ''}${r.toFixed(2)}%`),
           React.createElement('text', { x:8, y:44, fill:GREY, fontSize:9, fontFamily:'monospace' },
-            `${formatPrice(hovered.value)} ${getCurrencySymbol()}`)
+            `${formatPrice(mHovered.value)} ${getCurrencySymbol()}`)
         )
       );
     }
