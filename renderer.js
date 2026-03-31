@@ -903,6 +903,24 @@ function InvestmentTracker() {
     setShowTransactionModal(false);
   };
 
+  // Open Add Transaction modal — pre-selects the currently active portfolio
+  const openTransactionModal = () => {
+    setEditingTransactionId(null);
+    setNewTransaction({
+      type: 'buy',
+      category: 'crypto',
+      symbol: '',
+      quantity: '',
+      price: '',
+      date: new Date().toISOString().split('T')[0],
+      fees: '',
+      notes: '',
+      currency: currency,
+      targetPortfolioId: activePortfolioId,
+    });
+    setShowTransactionModal(true);
+  };
+
   // Start editing a transaction
   const editTransaction = (tx) => {
     setNewTransaction({
@@ -914,10 +932,11 @@ function InvestmentTracker() {
       date: tx.date || new Date().toISOString().split('T')[0],
       fees: tx.fees?.toString() || '',
       notes: tx.notes || '',
-      currency: tx.currency || 'EUR'
+      currency: tx.currency || 'EUR',
+      targetPortfolioId: tx.portfolioId || activePortfolioId,
     });
     setEditingTransactionId(tx.id);
-    setShowTransactionModal(true);
+    openTransactionModal();
   };
 
   // Delete a transaction
@@ -1041,7 +1060,7 @@ function InvestmentTracker() {
       case 'nav:alerts':        setActiveView('alerts'); break;
       case 'nav:broker-import': setActiveView('broker-import'); break;
       // Aktionen
-      case 'action:add':        setShowTransactionModal(true); break;
+      case 'action:add':        openTransactionModal(); break;
       case 'action:refresh':    fetchPrices(); break;
       case 'action:backup':     createBackup(); break;
       case 'action:import':     setShowImportModal(true); break;
@@ -1578,7 +1597,7 @@ function InvestmentTracker() {
           )
         ),
         React.createElement('div', { style: { display: 'flex', gap: '0.5rem', flexWrap: 'wrap' } },
-          React.createElement('button', { onClick: () => setShowTransactionModal(true), style: { padding: '0.5rem 1rem', background: currentTheme.accent, color: '#fff', border: 'none', borderRadius: '8px', cursor: 'pointer', fontWeight: '600', fontSize: '0.85rem' } }, '+ Add'),
+          React.createElement('button', { onClick: () => openTransactionModal(), style: { padding: '0.5rem 1rem', background: currentTheme.accent, color: '#fff', border: 'none', borderRadius: '8px', cursor: 'pointer', fontWeight: '600', fontSize: '0.85rem' } }, '+ Add'),
           React.createElement('button', { onClick: () => setShowImportModal(true), style: { padding: '0.5rem 1rem', background: currentTheme.inputBg, color: currentTheme.text, border: `1px solid ${currentTheme.cardBorder}`, borderRadius: '8px', cursor: 'pointer', fontSize: '0.85rem' } }, '↑ Import'),
           React.createElement('button', { onClick: fetchPrices, disabled: loading, style: { padding: '0.5rem 1rem', background: loading ? currentTheme.inputBg : `${currentTheme.accent}18`, color: loading ? currentTheme.textSecondary : currentTheme.accent, border: `1px solid ${currentTheme.accent}33`, borderRadius: '8px', cursor: loading ? 'not-allowed' : 'pointer', fontSize: '0.85rem', fontWeight: '600', display: 'flex', alignItems: 'center', gap: '0.375rem' } }, loading ? '◎ Refreshing...' : '↻ Refresh prices')
         )
@@ -1682,7 +1701,7 @@ function InvestmentTracker() {
         React.createElement('h3', { style: { color: currentTheme.text, fontSize: '1.125rem', fontWeight: '600', marginBottom: '0.5rem' } }, t.welcomeTitle || 'Welcome to MAERMIN'),
         React.createElement('p', { style: { color: currentTheme.textSecondary, fontSize: '0.875rem', marginBottom: '1rem', lineHeight: '1.6' } }, t.welcomeHint || 'Start by adding your first transaction.'),
         React.createElement('div', { style: { display: 'flex', gap: '0.75rem', justifyContent: 'center', flexWrap: 'wrap' } },
-          React.createElement('button', { onClick: () => setShowTransactionModal(true), style: { padding: '0.625rem 1.25rem', background: currentTheme.accent, color: '#fff', border: 'none', borderRadius: '8px', cursor: 'pointer', fontWeight: '600', fontSize: '0.875rem' } }, '+ ' + (t.addTransaction || 'Add Transaction')),
+          React.createElement('button', { onClick: () => openTransactionModal(), style: { padding: '0.625rem 1.25rem', background: currentTheme.accent, color: '#fff', border: 'none', borderRadius: '8px', cursor: 'pointer', fontWeight: '600', fontSize: '0.875rem' } }, '+ ' + (t.addTransaction || 'Add Transaction')),
           React.createElement('button', { onClick: () => setShowImportModal(true), style: { padding: '0.625rem 1.25rem', background: currentTheme.inputBg, color: currentTheme.text, border: `1px solid ${currentTheme.cardBorder}`, borderRadius: '8px', cursor: 'pointer', fontSize: '0.875rem' } }, t.importData || 'Import Data')
         )
       ),
@@ -1705,7 +1724,7 @@ function InvestmentTracker() {
       (window.MaerminFeatures3?.EnhancedPositionsTable || window.MaerminFeatures?.PositionsTable) && stats.totalPositions > 0 &&
         React.createElement(
           window.MaerminFeatures3?.EnhancedPositionsTable || window.MaerminFeatures.PositionsTable,
-          { portfolio: overviewPortfolio, prices, priceHistory, transactions: overviewTransactions, theme: currentTheme, formatPrice, getCurrencySymbol, t, onAddTransaction: () => setShowTransactionModal(true) }
+          { portfolio: overviewPortfolio, prices, priceHistory, transactions: overviewTransactions, theme: currentTheme, formatPrice, getCurrencySymbol, t, onAddTransaction: () => openTransactionModal() }
         )
     );
   };
@@ -1831,7 +1850,7 @@ function InvestmentTracker() {
           ),
           // Add button
           React.createElement('button', {
-            onClick: () => setShowTransactionModal(true),
+            onClick: () => openTransactionModal(),
             style: {
               padding: '0.5rem 1.25rem',
               background: currentTheme.accent,
@@ -2178,7 +2197,8 @@ function InvestmentTracker() {
         date: new Date().toISOString().split('T')[0],
         fees: '',
         notes: '',
-        currency: currency
+        currency: currency,
+        targetPortfolioId: activePortfolioId,
       });
     };
     
