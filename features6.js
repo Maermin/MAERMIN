@@ -214,35 +214,7 @@ function PortfolioHistoryChart({ portfolio, prices, transactions, apiKeys, theme
     return result;
   }, [portfolio, transactions]);
 
-  // ── Cumulative invested timeline ──────────────────────────────────────────
-  // For each timestamp we need to know how much had been invested UP TO that point.
-  // This is the correct denominator for the return % chart.
-  // Format: sorted array of {ts, cumInvestedEUR}
-  const investedTimeline = useMemo(() => {
-    const events = [];
-    (transactions || []).forEach(tx => {
-      if (tx.type !== 'buy' && tx.type !== 'sell') return;
-      const ts = Math.floor(new Date(tx.date || 0).getTime() / 1000);
-      let costEUR = (parseFloat(tx.price) || 0) * (parseFloat(tx.quantity) || 0);
-      if ((tx.currency || 'EUR') === 'USD' && exchangeRate > 0) costEUR *= exchangeRate;
-      events.push({ ts, cost: tx.type === 'buy' ? costEUR : -costEUR });
-    });
-    events.sort((a, b) => a.ts - b.ts);
-    let cumul = 0;
-    const timeline = events.map(e => { cumul += e.cost; return { ts: e.ts, cumul: Math.max(0, cumul) }; });
-    return timeline;
-  }, [transactions, exchangeRate]);
 
-  // Helper: cumulative invested at timestamp ts
-  const investedAt = (ts) => {
-    if (!investedTimeline.length) return totalInvested || 1;
-    let val = 0;
-    for (const e of investedTimeline) {
-      if (e.ts > ts) break;
-      val = e.cumul;
-    }
-    return val > 0 ? val : (investedTimeline[0]?.cumul || totalInvested || 1);
-  };
 
   const buildChart = useCallback(async () => {
     if (positions.length === 0) return;
@@ -500,16 +472,25 @@ function PortfolioHistoryChart({ portfolio, prices, transactions, apiKeys, theme
   const computedReturn = useMemo(() => {
     if (chartData.length < 2) return null;
 
-    // firstV used only for lastR / header context — actual retVals use investedAt(ts) per point
-    const firstV = totalInvested || chartData.find(d => d.value > 0)?.value || 1;
+    // Base = first chart data point for the selected period.
+    // 1H/1D/1W/1M/1Y/3Y/5Y: movement from period start.
+    // Max: also from first buy — but if that's tiny (e.g. €7 when portfolio is now €19k),
+    //      the % blows up. Safeguard: if firstV < 1% of lastV, use lastV * (1 - trueROI/100)
+    //      which back-calculates what the invested base would need to be for the header to match.
+    const rawFirst = chartData.find(d => d.value > 0)?.value || 1;
+    const lastV    = chartData[chartData.length - 1]?.value || rawFirst;
+    const isTiny   = rawFirst < lastV * 0.01; // first point is less than 1% of current value
 
-    // Convert each point to return % using cumulative invested at that timestamp
-    // e.g. in Jun 2022 you had invested €500 → return = (chartValue - €500) / €500
-    // This avoids the -99% artifact from comparing early values to total invested today
-    const retVals = chartData.map(d => {
-      const inv = investedAt(d.ts);
-      return ((d.value - inv) / inv) * 100;
-    });
+    // For Max with tiny first point: use the implied cost basis from true ROI so the chart
+    // starts near 0% and the last point lands on the header value.
+    // implied base = lastV / (1 + trueROI/100)
+    const impliedBase = (typeof trueROI === 'number' && trueROI !== -100 && lastV > 0)
+      ? lastV / (1 + trueROI / 100)
+      : rawFirst;
+
+    const firstV = (isTiny && period === 'Max') ? impliedBase : rawFirst;
+
+    const retVals = chartData.map(d => ((d.value - firstV) / firstV) * 100);
     const minR    = Math.min(...retVals);
     const maxR    = Math.max(...retVals);
     // SYMMETRIC axis: 0% is always in the exact vertical center.
