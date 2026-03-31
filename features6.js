@@ -469,13 +469,20 @@ function PortfolioHistoryChart({ portfolio, prices, transactions, apiKeys, theme
   // ── Return % chart computation ─────────────────────────────────────────────
   const computedReturn = useMemo(() => {
     if (chartData.length < 2) return null;
-    // Find the first data point with a positive value as the baseline
-    const basePoint = chartData.find(d => d.value > 0);
-    const firstV = basePoint?.value;
-    if (!firstV) return null;
 
-    // Convert each point to return % relative to period start
-    const retVals = chartData.map(d => ((d.value - firstV) / firstV) * 100);
+    // Use totalInvested (cost basis) as the denominator — this is the true ROI %.
+    // Using the first chart data point as base gives insane values for long periods
+    // (e.g. portfolio started at €7 in 2022, now €19,000 → "244,876%").
+    // With totalInvested we always show: (value_t - invested) / invested * 100
+    // which matches the stats card "Total Return" and stays in a sane range.
+    const base = (typeof totalInvested === 'number' && totalInvested > 0)
+      ? totalInvested
+      : (chartData.find(d => d.value > 0)?.value || 0);
+    if (!base) return null;
+    const firstV = base;
+
+    // Convert each point to return % relative to cost basis
+    const retVals = chartData.map(d => ((d.value - base) / base) * 100);
     const minR    = Math.min(...retVals);
     const maxR    = Math.max(...retVals);
     // SYMMETRIC axis: 0% is always in the exact vertical center.
