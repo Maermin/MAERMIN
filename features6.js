@@ -490,17 +490,79 @@ function PortfolioHistoryChart({ portfolio, prices, transactions, apiKeys, theme
     const toY  = v => PAD.t + (1 - (v - lo) / range) * (H - PAD.t - PAD.b);
     const y0   = toY(0); // pixel position of the 0% baseline
 
-    // Build SVG path for the full line
+    // Build SVG polyline string for the return curve
     const pts = retVals.map((r, i) => `${toX(i)},${toY(r)}`).join(' ');
 
-    // Build a closed area path (line + baseline closing) for clipping approach.
-    // We use ONE area polygon + two clipPath rects to split green/red correctly.
-    // This avoids the zig-zag artifact of clamping individual points.
-    const xFirst = toX(0);
-    const xLast  = toX(retVals.length - 1);
-    const areaPath = `${xFirst},${y0} ` +
-      retVals.map((r, i) => `${toX(i)},${toY(r)}`).join(' ') +
-      ` ${xLast},${y0}`;
+    // Build proper closed area paths for positive (green) and negative (red) regions.
+    // We walk through the points and interpolate exact crossing X positions where
+    // the line crosses y0. Each closed segment is a valid non-self-intersecting polygon.
+    // This is the ONLY correct way — single polygon + clipPath creates stripe artifacts
+    // when the line oscillates above/below zero.
+    const buildSignedPaths = () => {
+      const posPath = []; // D string segments for above-zero (green)
+      const negPath = []; // D string segments for below-zero (red)
+
+      let segPos = null; // current open positive segment points
+      let segNeg = null; // current open negative segment points
+
+      const closeSegment = (seg, container) => {
+        if (seg && seg.length >= 2) {
+          // Close back to y0 at the last and first x
+          const first = seg[0];
+          const last  = seg[seg.length - 1];
+          container.push(`M ${first.x},${y0} ` +
+            seg.map(p => `L ${p.x},${p.y}`).join(' ') +
+            ` L ${last.x},${y0} Z`);
+        }
+      };
+
+      for (let i = 0; i < retVals.length; i++) {
+        const r = retVals[i];
+        const x = toX(i);
+        const y = toY(r);
+        const above = r >= 0;
+
+        // Check for crossing between previous point and this one
+        if (i > 0) {
+          const prevR = retVals[i-1];
+          const prevX = toX(i-1);
+          const prevAbove = prevR >= 0;
+
+          if (above !== prevAbove) {
+            // Interpolate exact crossing X
+            const crossFrac = Math.abs(prevR) / (Math.abs(prevR) + Math.abs(r));
+            const crossX    = prevX + crossFrac * (x - prevX);
+
+            // Close the outgoing segment at the crossing
+            if (prevAbove) {
+              if (segPos) { segPos.push({ x: crossX, y: y0 }); closeSegment(segPos, posPath); segPos = null; }
+            } else {
+              if (segNeg) { segNeg.push({ x: crossX, y: y0 }); closeSegment(segNeg, negPath); segNeg = null; }
+            }
+            // Start the new segment from the crossing
+            if (above) { segPos = [{ x: crossX, y: y0 }]; }
+            else        { segNeg = [{ x: crossX, y: y0 }]; }
+          }
+        }
+
+        // Add point to active segment
+        if (above) {
+          if (!segPos) segPos = [];
+          segPos.push({ x, y });
+        } else {
+          if (!segNeg) segNeg = [];
+          segNeg.push({ x, y });
+        }
+      }
+
+      // Close any open segments
+      closeSegment(segPos, posPath);
+      closeSegment(segNeg, negPath);
+
+      return { posPath: posPath.join(' '), negPath: negPath.join(' ') };
+    };
+
+    const { posPath, negPath } = buildSignedPaths();
 
     // Y labels — use clean rounded % steps
     const stepSize = extent > 20 ? 10 : extent > 10 ? 5 : extent > 5 ? 2 : 1;
@@ -526,7 +588,7 @@ function PortfolioHistoryChart({ portfolio, prices, transactions, apiKeys, theme
     });
 
     const lastR = retVals[retVals.length - 1];
-    return { retVals, lo, hi, range, toX, toY, y0, pts, areaPath, yLabels, xLabels, lastR, firstV, xFirst, xLast };
+    return { retVals, lo, hi, range, toX, toY, y0, pts, posPath, negPath, yLabels, xLabels, lastR, firstV };
   }, [chartData, period]);
 
   const handleMouseMove = e => {
@@ -673,28 +735,19 @@ function PortfolioHistoryChart({ portfolio, prices, transactions, apiKeys, theme
       return { idx, x: computedReturn.toX(idx), label: fmtX(chartData[idx]) };
     });
 
-    const { y0, areaPath, pts, lastR, toX, toY, retVals } = computedReturn;
-    const chartAreaH = H - PAD.t - PAD.b;
-    const chartAreaW = W - PAD.l - PAD.r;
-
-    // Key fix: use SVG clipPath to split green/red fill correctly.
+    const { y0, posPath, negPath, pts, lastR, toX, toY, retVals } = computedReturn;
+    // Correct fill approach: separate closed path segments per sign region.
     // One area polygon is drawn twice — once clipped above y0, once below y0.
     // This avoids the zig-zag artifact of the clamping/split-polygon approach.
     const children = [
       React.createElement('defs', {key:'defs'},
-        React.createElement('clipPath', { id:'retClipAbove' },
-          React.createElement('rect', { x: PAD.l, y: PAD.t, width: chartAreaW, height: Math.max(0, y0 - PAD.t) })
-        ),
-        React.createElement('clipPath', { id:'retClipBelow' },
-          React.createElement('rect', { x: PAD.l, y: y0, width: chartAreaW, height: Math.max(0, H - PAD.b - y0) })
-        ),
         React.createElement('linearGradient', { id:'retGreen', x1:'0', y1:'0', x2:'0', y2:'1' },
-          React.createElement('stop', { offset:'0%',   stopColor: GREEN, stopOpacity: 0.28 }),
+          React.createElement('stop', { offset:'0%',   stopColor: GREEN, stopOpacity: 0.3 }),
           React.createElement('stop', { offset:'100%', stopColor: GREEN, stopOpacity: 0.03 })
         ),
         React.createElement('linearGradient', { id:'retRed', x1:'0', y1:'0', x2:'0', y2:'1' },
           React.createElement('stop', { offset:'0%',   stopColor: RED, stopOpacity: 0.03 }),
-          React.createElement('stop', { offset:'100%', stopColor: RED, stopOpacity: 0.28 })
+          React.createElement('stop', { offset:'100%', stopColor: RED, stopOpacity: 0.3 })
         )
       ),
       // Grid + Y labels
@@ -713,11 +766,11 @@ function PortfolioHistoryChart({ portfolio, prices, transactions, apiKeys, theme
       ...xLabels.map((xl,i) =>
         React.createElement('text', { key:`xl${i}`, x:xl.x, y:H-PAD.b+13, textAnchor:'middle', fill:GREY, fontSize:9 }, xl.label)
       ),
-      // Green fill above baseline — same polygon, clipped to top half
-      React.createElement('polygon', { key:'ag', points: areaPath, fill:'url(#retGreen)', clipPath:'url(#retClipAbove)' }),
-      // Red fill below baseline — same polygon, clipped to bottom half
-      React.createElement('polygon', { key:'ar', points: areaPath, fill:'url(#retRed)', clipPath:'url(#retClipBelow)' }),
-      // The line
+      // Green fill — each above-zero segment as its own closed path (no self-intersection)
+      posPath && React.createElement('path', { key:'ag', d: posPath, fill:'url(#retGreen)' }),
+      // Red fill — each below-zero segment as its own closed path
+      negPath && React.createElement('path', { key:'ar', d: negPath, fill:'url(#retRed)' }),
+      // The line on top
       React.createElement('polyline', { key:'line', points: pts, fill:'none',
         stroke: lastR >= 0 ? GREEN : RED,
         strokeWidth: 1.75, strokeLinejoin:'round', strokeLinecap:'round'
