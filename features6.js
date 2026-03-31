@@ -470,18 +470,29 @@ function PortfolioHistoryChart({ portfolio, prices, transactions, apiKeys, theme
   const computedReturn = useMemo(() => {
     if (chartData.length < 2) return null;
 
-    // Use totalInvested (cost basis) as the denominator — this is the true ROI %.
-    // Using the first chart data point as base gives insane values for long periods
-    // (e.g. portfolio started at €7 in 2022, now €19,000 → "244,876%").
-    // With totalInvested we always show: (value_t - invested) / invested * 100
-    // which matches the stats card "Total Return" and stays in a sane range.
-    const base = (typeof totalInvested === 'number' && totalInvested > 0)
-      ? totalInvested
-      : (chartData.find(d => d.value > 0)?.value || 0);
-    if (!base) return null;
+    // The chart line shows PERIOD-RELATIVE movement: how the portfolio moved
+    // during the selected time window (same as how Robinhood/Tradingview show %).
+    // Base = first non-zero value in the selected period's chart data.
+    //
+    // The header always shows the TRUE ROI (totalProfitPercent from props) —
+    // that is separate from the chart shape and always matches the stats card.
+    //
+    // Edge case: if firstV is extremely small vs lastV (e.g. €7 → €19k on "Max"),
+    // the % values explode. We detect this and use totalInvested as the base
+    // instead, which gives a sensible axis range.
+    const rawFirst = chartData.find(d => d.value > 0)?.value || 0;
+    if (!rawFirst) return null;
+
+    const lastV = chartData[chartData.length - 1]?.value || rawFirst;
+
+    // If first value is less than 5% of last value, the period-start base would
+    // create absurd % values. Use totalInvested as base in that case.
+    const useInvestedBase = (typeof totalInvested === 'number' && totalInvested > 0)
+      && (rawFirst / lastV < 0.05);
+    const base   = useInvestedBase ? totalInvested : rawFirst;
     const firstV = base;
 
-    // Convert each point to return % relative to cost basis
+    // Convert each point to return % relative to chosen base
     const retVals = chartData.map(d => ((d.value - base) / base) * 100);
     const minR    = Math.min(...retVals);
     const maxR    = Math.max(...retVals);
@@ -664,16 +675,17 @@ function PortfolioHistoryChart({ portfolio, prices, transactions, apiKeys, theme
         React.createElement('span', { style: { fontSize:'0.78rem', color: GREY } }, hovered.date)
       );
     }
-    // return mode
+    // return mode — show % relative to chart base, EUR vs totalInvested
     if (!computedReturn) return null;
-    const r   = computedReturn.retVals[hoveredIdx] ?? 0;
-    const col = r >= 0 ? GREEN : RED;
-    const eur = (r / 100) * (totalInvested || computedReturn.firstV || 0);
+    const r    = computedReturn.retVals[hoveredIdx] ?? 0;
+    const col  = r >= 0 ? GREEN : RED;
+    const base = (typeof totalInvested === 'number' && totalInvested > 0) ? totalInvested : (computedReturn.firstV || 0);
+    const eur  = (r / 100) * base;
     return React.createElement('div', { style: { display:'flex', alignItems:'baseline', gap:'0.5rem', flexWrap:'wrap', marginTop:'0.25rem' } },
       React.createElement('span', { style: { fontSize:'1.85rem', fontWeight:'800', letterSpacing:'-0.03em', color: col } },
         `${r >= 0 ? '+' : ''}${r.toFixed(2)}%`),
       React.createElement('span', { style: { fontSize:'0.9rem', fontWeight:'700', color: col } },
-        `${r >= 0 ? '+' : ''}${formatPrice(eur)} ${getCurrencySymbol()}`),
+        `${eur >= 0 ? '+' : ''}${formatPrice(eur)} ${getCurrencySymbol()}`),
       React.createElement('span', { style: { fontSize:'0.78rem', color: GREY } }, hovered.date)
     );
   };
