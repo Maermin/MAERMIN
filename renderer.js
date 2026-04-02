@@ -1460,6 +1460,27 @@ function InvestmentTracker() {
             portfolio, prices, theme: currentTheme, formatPrice, getCurrencySymbol, t
           }) : renderAnalyticsPlaceholder('Rebalancing');
 
+      case 'attribution':
+        return window.MaerminFeatures7 ?
+          React.createElement(window.MaerminFeatures7.PerformanceAttribution, {
+            portfolio, prices, priceHistory, transactions: activeTransactions,
+            theme: currentTheme, formatPrice, getCurrencySymbol
+          }) : renderAnalyticsPlaceholder('Attribution');
+
+      case 'realized':
+        return window.MaerminFeatures7 ?
+          React.createElement(window.MaerminFeatures7.RealizedUnrealizedView, {
+            transactions: activeTransactions, portfolio, prices,
+            theme: currentTheme, formatPrice, getCurrencySymbol, exchangeRate
+          }) : renderAnalyticsPlaceholder('Realized P&L');
+
+      case 'news':
+        return window.MaerminFeatures7 ?
+          React.createElement(window.MaerminFeatures7.NewsFeedView, {
+            portfolio, transactions: activeTransactions, apiKeys,
+            theme: currentTheme, formatPrice, getCurrencySymbol
+          }) : renderAnalyticsPlaceholder('News Feed');
+
       case 'data':
       case 'broker-import':
         return React.createElement(DataManagementView, {
@@ -1820,15 +1841,19 @@ function InvestmentTracker() {
   // ========== TRANSACTIONS VIEW ==========
   
   const renderTransactionsView = () => {
-    // Filter
+    // Filter by active portfolio first, then by search
     const filtered = transactions.filter(tx => {
+      const portfolioMatch = (tx.portfolioId || 'default') === activePortfolioId;
+      if (!portfolioMatch) return false;
       if (!txSearch.trim()) return true;
       const q = txSearch.toLowerCase();
       return (tx.symbol || '').toLowerCase().includes(q) ||
              (tx.category || '').toLowerCase().includes(q) ||
              (tx.type || '').toLowerCase().includes(q) ||
-             (tx.notes || '').toLowerCase().includes(q);
+             (tx.notes || '').toLowerCase().includes(q) ||
+             (tx.symbolName || '').toLowerCase().includes(q);
     });
+    const totalAll = transactions.filter(tx => (tx.portfolioId || 'default') === activePortfolioId).length;
 
     // Sort
     const sorted = [...filtered].sort((a, b) => {
@@ -1857,7 +1882,7 @@ function InvestmentTracker() {
       },
         React.createElement('h2', {
           style: { color: currentTheme.text, fontSize: '1.5rem', fontWeight: '600' }
-        }, `${t.transactions || 'Transactions'} (${filtered.length}${filtered.length !== transactions.length ? '/' + transactions.length : ''})`),
+        }, `${t.transactions || 'Transactions'} (${filtered.length}${filtered.length !== totalAll ? '/' + totalAll : ''})`),
         React.createElement('div', { style: { display: 'flex', gap: '0.5rem', flexWrap: 'wrap', alignItems: 'center' } },
           // Search
           React.createElement('input', {
@@ -3267,6 +3292,9 @@ buy,crypto,bitcoin,0.5,45000,2024-01-15,10`)
           { group: 'Tools' },
           { id: 'watchlist',        icon: '◯', label: 'Watchlist' },
           { id: 'alerts',           icon: '◎', label: 'Price Alerts' },
+          { id: 'attribution',     icon: '◈', label: 'Attribution' },
+          { id: 'realized',         icon: '◑', label: 'Realized P&L' },
+          { id: 'news',             icon: '◎', label: 'News Feed' },
           { id: 'data',             icon: '◁', label: 'Import / Export' },
         ].map((item, idx) => {
           // Section Header
