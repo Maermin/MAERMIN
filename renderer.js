@@ -346,6 +346,36 @@ function InvestmentTracker() {
     };
   }, [portfolio, prices]);
 
+  // ALL portfolios combined portfolio object — used on Overview in "All" mode
+  const allPortfoliosPortfolio = useMemo(() => {
+    const result = { crypto: [], stocks: [], skins: [], commodities: [] };
+    const posMap = {};
+    transactions.forEach(tx => {
+      const category = tx.category || 'crypto';
+      const key = `${category}-${(tx.symbol || '').toLowerCase()}`;
+      if (!posMap[key]) posMap[key] = { symbol: tx.symbol, symbolName: tx.symbolName || '', symbolLogoUrl: tx.symbolLogoUrl || '', amount: 0, totalCostEUR: 0, purchaseDate: tx.date, category };
+      if (!posMap[key].symbolName && tx.symbolName) posMap[key].symbolName = tx.symbolName;
+      let priceEUR = parseFloat(tx.price) || 0;
+      if (tx.currency === 'USD' && exchangeRate > 0) priceEUR *= exchangeRate;
+      if (tx.type === 'buy') {
+        posMap[key].amount += parseFloat(tx.quantity) || 0;
+        posMap[key].totalCostEUR += (parseFloat(tx.quantity) || 0) * priceEUR;
+      } else if (tx.type === 'sell') {
+        const frac = posMap[key].amount > 0 ? Math.min(parseFloat(tx.quantity) || 0, posMap[key].amount) / posMap[key].amount : 0;
+        posMap[key].totalCostEUR *= (1 - frac);
+        posMap[key].amount = Math.max(0, posMap[key].amount - (parseFloat(tx.quantity) || 0));
+      }
+    });
+    Object.values(posMap).forEach(pos => {
+      if (pos.amount > 0.0001) result[pos.category].push({
+        ...pos, id: `${pos.category}-${pos.symbol}`,
+        name: pos.symbolName || pos.symbol,
+        purchasePrice: pos.amount > 0 ? pos.totalCostEUR / pos.amount : 0
+      });
+    });
+    return result;
+  }, [transactions, exchangeRate]);
+
   // ALL portfolios combined — used on Overview to show total wealth across portfolios
   const allPortfoliosStats = useMemo(() => {
     const posMap = {};
@@ -1558,7 +1588,7 @@ function InvestmentTracker() {
       ? transactions
       : transactions.filter(tx => (tx.portfolioId || 'default') === overviewMode);
 
-    const overviewPortfolio = isAllMode ? portfolio : (() => {
+    const overviewPortfolio = isAllMode ? allPortfoliosPortfolio : (() => {
       const result = { crypto: [], stocks: [], skins: [], commodities: [] };
       const posMap = {};
       overviewTransactions.forEach(tx => {
@@ -2235,26 +2265,22 @@ function InvestmentTracker() {
           style: { color: currentTheme.text, marginBottom: '1.5rem', fontSize: '1.5rem', fontWeight: '700' }
         }, isEditing ? (t.editTransaction || 'Edit Transaction') : (t.addTransaction || 'Add Transaction')),
         
-        // Portfolio selector (only when multiple portfolios exist)
-        portfolios.length > 1 && React.createElement('div', { style: { marginBottom: '1rem' } },
+        // Portfolio selector — always shown as a select dropdown
+        React.createElement('div', { style: { marginBottom: '1rem' } },
           React.createElement('label', { style: { display: 'block', color: currentTheme.textSecondary, marginBottom: '0.5rem', fontSize: '0.875rem' } }, 'Portfolio'),
-          React.createElement('div', { style: { display: 'flex', gap: '0.375rem', flexWrap: 'wrap' } },
+          React.createElement('select', {
+            value: newTransaction.targetPortfolioId || activePortfolioId,
+            onChange: e => setNewTransaction(prev => ({ ...prev, targetPortfolioId: e.target.value })),
+            style: {
+              width: '100%', padding: '0.625rem 0.875rem',
+              background: currentTheme.inputBg,
+              border: `1px solid ${currentTheme.inputBorder}`,
+              borderRadius: '8px', color: currentTheme.text,
+              fontSize: '0.875rem', cursor: 'pointer'
+            }
+          },
             portfolios.map(p =>
-              React.createElement('button', {
-                key: p.id,
-                onClick: () => setNewTransaction(prev => ({ ...prev, targetPortfolioId: p.id })),
-                style: {
-                  display: 'flex', alignItems: 'center', gap: '0.375rem',
-                  padding: '0.375rem 0.75rem',
-                  background: (newTransaction.targetPortfolioId || activePortfolioId) === p.id ? `${p.color}22` : currentTheme.inputBg,
-                  border: `1px solid ${(newTransaction.targetPortfolioId || activePortfolioId) === p.id ? p.color : currentTheme.inputBorder}`,
-                  borderRadius: '6px', cursor: 'pointer', fontSize: '0.8rem',
-                  color: currentTheme.text, fontWeight: (newTransaction.targetPortfolioId || activePortfolioId) === p.id ? '700' : '400'
-                }
-              },
-                React.createElement('div', { style: { width: 6, height: 6, borderRadius: '50%', background: p.color } }),
-                p.name
-              )
+              React.createElement('option', { key: p.id, value: p.id }, p.name)
             )
           )
         ),
@@ -3025,11 +3051,7 @@ buy,crypto,bitcoin,0.5,45000,2024-01-15,10`)
             color: currentTheme.textSecondary
           }
         }, 'v9.0'),
-        // Portfolio Switcher — right next to the logo
-        window.MaerminFeatures4 && React.createElement(window.MaerminFeatures4.PortfolioSwitcher, {
-          portfolios, activePortfolioId, setActivePortfolioId, transactions, prices,
-          theme: currentTheme
-        })
+
       ),
       
       React.createElement('div', { style: { display: 'flex', gap: '0.5rem', alignItems: 'center' }, ref: settingsRef },

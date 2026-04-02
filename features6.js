@@ -147,13 +147,12 @@ async function fetchAVHistory(symbol, avKey, period) {
 // ─────────────────────────────────────────────────────────────────────────────
 function PortfolioHistoryChart({ portfolio, prices, transactions, apiKeys, theme, formatPrice, getCurrencySymbol, exchangeRate, currentValue, totalInvested, totalProfit, totalProfitPercent }) {
   const [period, setPeriod]         = useState('1M');
-  const [chartMode, setChartMode]   = useState('value');
+  const chartMode = 'value'; // return tab removed — always show value chart
   const [loading, setLoading]       = useState(false);
   const [error, setError]           = useState(null);
   const [chartData, setChartData]   = useState([]);
   const [hoveredIdx, setHoveredIdx] = useState(null);
-  const svgRef       = useRef(null);
-  const svgRefReturn = useRef(null);
+  const svgRef = useRef(null);
   const cacheRef     = useRef({});
 
   const usdToEur      = exchangeRate || 0.91;
@@ -167,7 +166,6 @@ function PortfolioHistoryChart({ portfolio, prices, transactions, apiKeys, theme
   const trueProfit = (typeof totalProfit        === 'number') ? totalProfit        : 0;
   const isROIup    = trueROI >= 0;
 
-  useEffect(() => { setHoveredIdx(null); }, [chartMode]);
 
   // Build positions WITH transaction history for time-accurate amount calculation
   const positions = useMemo(() => {
@@ -626,19 +624,11 @@ function PortfolioHistoryChart({ portfolio, prices, transactions, apiKeys, theme
   }, [chartData, period, trueROI]);
 
   const handleMouseMove = e => {
-    const ref = chartMode === 'return' ? svgRefReturn : svgRef;
-    if (!ref.current || chartData.length < 2) return;
-    const rect = ref.current.getBoundingClientRect();
+    if (!svgRef.current || chartData.length < 2) return;
+    const rect = svgRef.current.getBoundingClientRect();
     const mx   = (e.clientX - rect.left) / rect.width * W;
     const frac = Math.max(0, Math.min(1, (mx - PAD.l) / (W - PAD.l - PAD.r)));
-    if (chartMode === 'return' && computedReturn) {
-      // Return chart only spans meaningfulData — offset back to chartData index
-      const mLen = computedReturn.meaningfulData?.length || chartData.length;
-      const mIdx = Math.round(frac * (mLen - 1));
-      setHoveredIdx((computedReturn.startIdx || 0) + mIdx);
-    } else {
-      setHoveredIdx(Math.round(frac * (chartData.length - 1)));
-    }
+    setHoveredIdx(Math.round(frac * (chartData.length - 1)));
   };
 
   const dataSources = [
@@ -866,31 +856,15 @@ function PortfolioHistoryChart({ portfolio, prices, transactions, apiKeys, theme
         borderBottom: `1px solid ${theme.cardBorder}`
       }
     },
-      // Left: ROI (always real) or hover value
+      // Left: title + ROI or hover value
       React.createElement('div', null,
-        // Label row
+        // Source tags row
         React.createElement('div', {
-          style: { display: 'flex', alignItems: 'center', gap: '0.5rem', marginBottom: '0.1rem' }
+          style: { display: 'flex', alignItems: 'center', gap: '0.5rem', marginBottom: '0.1rem', flexWrap: 'wrap' }
         },
-          // Mode toggle pill
-          React.createElement('div', {
-            style: { display:'flex', background: theme.inputBg, borderRadius:'6px', padding:'0.15rem', gap:'0.1rem' }
-          },
-            ['value','return'].map(mode =>
-              React.createElement('button', {
-                key: mode,
-                onClick: () => { setChartMode(mode); setHoveredIdx(null); },
-                style: {
-                  padding: '0.22rem 0.6rem', border:'none', borderRadius:'5px', cursor:'pointer',
-                  fontSize: '0.67rem', fontWeight: chartMode === mode ? '700' : '400',
-                  background: chartMode === mode ? theme.accent : 'transparent',
-                  color: chartMode === mode ? '#fff' : theme.textSecondary,
-                  transition: 'all 0.12s', whiteSpace: 'nowrap'
-                }
-              }, mode === 'value' ? '€ Portfolio Value' : '% Total Return')
-            )
+          React.createElement('span', { style: { fontSize:'0.68rem', fontWeight:'700', color: theme.textSecondary, textTransform:'uppercase', letterSpacing:'0.06em' } },
+            'Portfolio Value'
           ),
-          // Data source tags
           ...dataSources.map((src, i) =>
             React.createElement('span', { key:i, style:{
               fontSize:'0.58rem', padding:'0.12rem 0.35rem', borderRadius:'3px',
@@ -898,7 +872,7 @@ function PortfolioHistoryChart({ portfolio, prices, transactions, apiKeys, theme
             }}, src)
           )
         ),
-        // Value — hovering shows chart value, otherwise real ROI
+        // Hover shows chart value; otherwise show ROI pill
         hovered ? hoverDisplay() : roiPill()
       ),
 
@@ -927,17 +901,14 @@ function PortfolioHistoryChart({ portfolio, prices, transactions, apiKeys, theme
 
     // ── CHART AREA ─────────────────────────────────────────────────────────
     React.createElement('div', { style: { position:'relative' } },
-      // Loading overlay
       loading && React.createElement('div', {
         style: { position:'absolute', inset:0, display:'flex', alignItems:'center', justifyContent:'center', background:'rgba(0,0,0,0.22)', zIndex:2, borderRadius:'0 0 16px 16px' }
       }, React.createElement('span', { style: { color: theme.textSecondary, fontSize:'0.875rem' } }, '◎ Loading...')),
 
-      // Error
       error && !loading && React.createElement('div', {
         style: { padding:'2rem', textAlign:'center', color: theme.textSecondary, fontSize:'0.875rem' }
       }, `Chart error: ${error}`),
 
-      // Empty state
       !error && !computed && !loading && React.createElement('div', {
         style: { padding:'3rem 2rem', textAlign:'center', color: theme.textSecondary, fontSize:'0.875rem' }
       },
@@ -949,35 +920,17 @@ function PortfolioHistoryChart({ portfolio, prices, transactions, apiKeys, theme
             )
       ),
 
-      // Charts
-      chartMode === 'value'  && renderValueChart(),
-      chartMode === 'return' && renderReturnChart(),
+      // Only value chart — return tab removed
+      renderValueChart(),
 
-      // Legend bar
-      (computed || computedReturn) && !error && React.createElement('div', {
-        style: {
-          display:'flex', alignItems:'center', justifyContent:'space-between', flexWrap:'wrap',
-          padding:'0.5rem 1.25rem 0.75rem', gap:'0.75rem'
-        }
+      // Legend
+      computed && !error && React.createElement('div', {
+        style: { display:'flex', alignItems:'center', justifyContent:'space-between', flexWrap:'wrap', padding:'0.5rem 1.25rem 0.75rem', gap:'0.75rem' }
       },
-        // Left legend
-        chartMode === 'value'
-          ? computed && React.createElement('div', { style:{display:'flex',alignItems:'center',gap:'0.375rem',fontSize:'0.68rem',color:theme.textSecondary} },
-              React.createElement('div', { style:{width:20,height:2,background:lineColor,borderRadius:1} }),
-              `Period start: ${formatPrice(computed.firstV)} ${getCurrencySymbol()}`
-            )
-          : React.createElement('div', { style:{display:'flex',gap:'0.875rem',alignItems:'center'} },
-              React.createElement('div', { style:{display:'flex',alignItems:'center',gap:'0.3rem',fontSize:'0.68rem',color:GREEN} },
-                React.createElement('div', { style:{width:10,height:8,borderRadius:'2px',background:'rgba(34,197,94,0.2)',border:`1px solid ${GREEN}`} }),
-                'Positive'
-              ),
-              React.createElement('div', { style:{display:'flex',alignItems:'center',gap:'0.3rem',fontSize:'0.68rem',color:RED} },
-                React.createElement('div', { style:{width:10,height:8,borderRadius:'2px',background:'rgba(239,68,68,0.2)',border:`1px solid ${RED}`} }),
-                'Negative'
-              ),
-              React.createElement('div', { style:{fontSize:'0.68rem',color:GREY} }, '— 0% baseline')
-            ),
-        // Right: worker hint
+        computed && React.createElement('div', { style:{display:'flex',alignItems:'center',gap:'0.375rem',fontSize:'0.68rem',color:theme.textSecondary} },
+          React.createElement('div', { style:{width:20,height:2,background:lineColor,borderRadius:1} }),
+          `Period start: ${formatPrice(computed.firstV)} ${getCurrencySymbol()}`
+        ),
         !hasWorker && React.createElement('div', { style:{fontSize:'0.68rem',color:theme.accent} },
           '→ Add Worker URL for stocks & CS2 history'
         )
