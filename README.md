@@ -120,7 +120,9 @@ Add a free [Alpha Vantage key](https://www.alphavantage.co/support/#api-key) in 
 ```
 MAERMIN/
 ├── index.html                  Entry point — loads all scripts, sets CSP
+├── styles.css                  App styles (extracted from index.html)
 ├── auth.js                     SHA-256 login — edit to change password
+├── utils.js                    Shared formatters (window.MaerminUtils)
 ├── renderer.js                 Main React app — state, routing, transactions (~3,200 lines)
 ├── features.js                 Pie chart, sparklines, gainers/losers, watchlist, alerts
 ├── features2.js                XIRR/TWR, rebalancing, broker import, dividend calendar
@@ -128,8 +130,19 @@ MAERMIN/
 ├── features4.js                Multi-portfolio, savings plans, dividend forecast, FIFO
 ├── features5.js                Performance periods, net worth, cashflow, fee analyzer
 ├── features6.js                Real historical portfolio chart
+├── build.mjs                   Web build — bundles + minifies all scripts into dist/
 └── cf-worker/
     └── worker.js               Cloudflare Worker — Yahoo Finance + Steam proxy
+```
+
+### Production build (optional)
+
+The app runs directly from `index.html` (no build needed). For a minified
+single-bundle deploy:
+
+```bash
+npm install        # once, pulls esbuild
+npm run build:web  # -> dist/index.html + dist/maermin.min.js + dist/styles.css
 ```
 
 ---

@@ -8,6 +8,7 @@
   "scripts": {
     "start": "electron .",
     "dev": "electron . --enable-logging",
+    "build:web": "node build.mjs",
     "build": "electron-builder",
     "build:win": "electron-builder --win",
     "build:mac": "electron-builder --mac",
@@ -20,7 +21,8 @@
   },
   "devDependencies": {
     "electron": "^28.0.0",
-    "electron-builder": "^24.9.1"
+    "electron-builder": "^24.9.1",
+    "esbuild": "^0.28.0"
   },
   "build": {
     "appId": "com.maermin.portfolio",
@@ -34,6 +36,7 @@
       "main.js",
       "preload.js",
       "index.html",
+      "styles.css",
       "renderer.js",
       "*.js",
       "assets/**/*",

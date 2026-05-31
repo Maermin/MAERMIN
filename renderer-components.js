@@ -58,24 +58,17 @@ const themes = {
 // UTILITY FUNCTIONS
 // ============================================================================
 
+// Static formatters live in utils.js (window.MaerminUtils). formatPrice keeps
+// its currency-conversion logic here but delegates final number formatting.
 const formatPrice = (price, currency = 'EUR', exchangeRate = 1) => {
   if (price === undefined || price === null || isNaN(price)) return '0.00';
   const converted = currency === 'USD' ? price * exchangeRate : price;
-  return converted.toLocaleString('de-DE', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+  return window.MaerminUtils.formatNumberDE(converted);
 };
 
-const formatPercent = (value) => {
-  if (value === undefined || value === null || isNaN(value)) return '0.00%';
-  return `${value >= 0 ? '+' : ''}${value.toFixed(2)}%`;
-};
-
-const formatDate = (dateStr, language = 'de') => {
-  if (!dateStr) return '';
-  const date = new Date(dateStr);
-  return date.toLocaleDateString(language === 'de' ? 'de-DE' : 'en-US');
-};
-
-const generateId = () => `${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
+const formatPercent = window.MaerminUtils.formatPercentSigned;
+const formatDate = (dateStr, language = 'de') => window.MaerminUtils.formatDate(dateStr, language);
+const generateId = window.MaerminUtils.generateId;
 
 // ============================================================================
 // COMMAND PALETTE COMPONENT

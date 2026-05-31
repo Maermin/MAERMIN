@@ -1,0 +1,633 @@
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+    
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', 'Oxygen',
+        'Ubuntu', 'Cantarell', 'Fira Sans', 'Droid Sans', 'Helvetica Neue',
+        sans-serif;
+      -webkit-font-smoothing: antialiased;
+      -moz-osx-font-smoothing: grayscale;
+      overflow: auto;
+      height: 100vh;
+    }
+    
+    #loading {
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      background: linear-gradient(135deg, #1e293b 0%, #7e22ce 50%, #1e293b 100%);
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+      align-items: center;
+      z-index: 9999;
+      color: white;
+      transition: opacity 0.5s ease-out;
+    }
+    
+    #loading.hidden {
+      opacity: 0;
+      pointer-events: none;
+    }
+    
+    #loading h1 {
+      font-size: 4rem;
+      margin-bottom: 0.5rem;
+      animation: pulse 2s ease-in-out infinite;
+      font-weight: 800;
+      letter-spacing: -0.05em;
+      background: linear-gradient(135deg, #3b82f6 0%, #8b5cf6 100%);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      background-clip: text;
+    }
+    
+    #loading .subtitle {
+      font-size: 0.875rem;
+      opacity: 0.7;
+      margin-bottom: 2rem;
+      letter-spacing: 0.15em;
+      text-transform: uppercase;
+    }
+    
+    #loading .version-badge {
+      background: rgba(255,255,255,0.1);
+      padding: 0.5rem 1rem;
+      border-radius: 2rem;
+      font-size: 0.75rem;
+      margin-bottom: 1rem;
+    }
+    
+    @keyframes pulse {
+      0%, 100% { opacity: 1; }
+      50% { opacity: 0.5; }
+    }
+    
+    .loader {
+      margin-top: 2rem;
+      width: 50px;
+      height: 50px;
+      border: 5px solid rgba(255,255,255,0.2);
+      border-top-color: #3b82f6;
+      border-radius: 50%;
+      animation: spin 1s linear infinite;
+    }
+    
+    @keyframes spin {
+      to { transform: rotate(360deg); }
+    }
+    
+    #module-status {
+      margin-top: 2rem;
+      font-size: 0.875rem;
+      opacity: 0.6;
+      min-height: 1.5rem;
+      text-align: center;
+    }
+
+    /* Command Palette Styles */
+    .command-palette-overlay {
+      position: fixed;
+      top: 0;
+      left: 0;
+      right: 0;
+      bottom: 0;
+      background: rgba(0,0,0,0.7);
+      display: flex;
+      justify-content: center;
+      padding-top: 15vh;
+      z-index: 10000;
+      backdrop-filter: blur(4px);
+    }
+
+    .command-palette {
+      width: 600px;
+      max-width: 90vw;
+      background: #1a1f2e;
+      border: 2px solid #334155;
+      border-radius: 16px;
+      box-shadow: 0 25px 50px -12px rgba(0,0,0,0.7);
+      overflow: hidden;
+      max-height: 60vh;
+      display: flex;
+      flex-direction: column;
+    }
+
+    .command-palette-input {
+      width: 100%;
+      padding: 1rem 1.5rem;
+      font-size: 1.25rem;
+      background: #0f1219;
+      border: none;
+      color: white;
+      outline: none;
+      border-bottom: 2px solid #334155;
+    }
+
+    .command-palette-input::placeholder {
+      color: rgba(255,255,255,0.4);
+    }
+
+    .command-palette-results {
+      overflow-y: auto;
+      flex: 1;
+    }
+
+    .command-result {
+      padding: 0.75rem 1.5rem;
+      display: flex;
+      align-items: center;
+      gap: 1rem;
+      cursor: pointer;
+      transition: background 0.1s;
+    }
+
+    .command-result:hover, .command-result.selected {
+      background: rgba(255,255,255,0.1);
+    }
+
+    .command-result-icon {
+      width: 32px;
+      height: 32px;
+      background: rgba(255,255,255,0.1);
+      border-radius: 8px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      color: #8b5cf6;
+    }
+
+    .command-result-content {
+      flex: 1;
+    }
+
+    .command-result-label {
+      color: white;
+      font-weight: 500;
+    }
+
+    .command-result-description {
+      color: rgba(255,255,255,0.5);
+      font-size: 0.875rem;
+    }
+
+    .command-result-shortcut {
+      color: rgba(255,255,255,0.4);
+      font-size: 0.75rem;
+      padding: 0.25rem 0.5rem;
+      background: rgba(255,255,255,0.1);
+      border-radius: 4px;
+      font-family: monospace;
+    }
+
+    .command-palette-footer {
+      padding: 0.75rem 1.5rem;
+      border-top: 1px solid rgba(255,255,255,0.1);
+      display: flex;
+      gap: 1.5rem;
+      font-size: 0.75rem;
+      color: rgba(255,255,255,0.4);
+    }
+
+    .command-palette-footer kbd {
+      background: rgba(255,255,255,0.1);
+      padding: 0.125rem 0.375rem;
+      border-radius: 4px;
+      margin: 0 0.25rem;
+    }
+
+    /* Toast Notifications */
+    .toast-container {
+      position: fixed;
+      bottom: 1.5rem;
+      right: 1.5rem;
+      display: flex;
+      flex-direction: column;
+      gap: 0.5rem;
+      z-index: 10002;
+    }
+
+    .toast {
+      padding: 1rem 1.5rem;
+      background: #1e293b;
+      border-radius: 8px;
+      box-shadow: 0 10px 25px -5px rgba(0,0,0,0.3);
+      color: white;
+      display: flex;
+      align-items: center;
+      gap: 0.75rem;
+      animation: slideIn 0.3s ease-out;
+    }
+
+    .toast.success { border-left: 4px solid #22c55e; }
+    .toast.error { border-left: 4px solid #ef4444; }
+    .toast.warning { border-left: 4px solid #f59e0b; }
+    .toast.info { border-left: 4px solid #3b82f6; }
+
+    @keyframes slideIn {
+      from { transform: translateX(100%); opacity: 0; }
+      to { transform: translateX(0); opacity: 1; }
+    }
+
+    /* v9.0 Investment Analysis Styles */
+    .analysis-card {
+      background: rgba(255,255,255,0.05);
+      border: 1px solid rgba(255,255,255,0.1);
+      border-radius: 12px;
+      padding: 1.5rem;
+      margin-bottom: 1rem;
+    }
+    
+    .analysis-card-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 1rem;
+      padding-bottom: 0.75rem;
+      border-bottom: 1px solid rgba(255,255,255,0.1);
+    }
+    
+    .analysis-card-title {
+      font-size: 1.125rem;
+      font-weight: 600;
+      color: white;
+    }
+    
+    .analysis-badge {
+      padding: 0.25rem 0.75rem;
+      border-radius: 9999px;
+      font-size: 0.75rem;
+      font-weight: 600;
+    }
+    
+    .analysis-badge.positive { background: rgba(34,197,94,0.2); color: #22c55e; }
+    .analysis-badge.negative { background: rgba(239,68,68,0.2); color: #ef4444; }
+    .analysis-badge.neutral { background: rgba(148,163,184,0.2); color: #94a3b8; }
+    .analysis-badge.warning { background: rgba(245,158,11,0.2); color: #f59e0b; }
+    
+    .metric-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+      gap: 1rem;
+    }
+    
+    .metric-item {
+      text-align: center;
+      padding: 1rem;
+      background: rgba(0,0,0,0.2);
+      border-radius: 8px;
+    }
+    
+    .metric-value {
+      font-size: 1.5rem;
+      font-weight: 700;
+      color: white;
+    }
+    
+    .metric-label {
+      font-size: 0.75rem;
+      color: rgba(255,255,255,0.6);
+      margin-top: 0.25rem;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+    }
+    
+    .tab-bar {
+      display: flex;
+      gap: 0.25rem;
+      padding: 0.25rem;
+      background: rgba(0,0,0,0.2);
+      border-radius: 8px;
+      margin-bottom: 1rem;
+      flex-wrap: wrap;
+    }
+    
+    .tab-btn {
+      padding: 0.5rem 1rem;
+      background: transparent;
+      border: none;
+      color: rgba(255,255,255,0.6);
+      cursor: pointer;
+      border-radius: 6px;
+      font-size: 0.875rem;
+      transition: all 0.2s;
+    }
+    
+    .tab-btn:hover {
+      background: rgba(255,255,255,0.1);
+      color: white;
+    }
+    
+    .tab-btn.active {
+      background: rgba(139,92,246,0.3);
+      color: white;
+    }
+    
+    .data-table {
+      width: 100%;
+      border-collapse: collapse;
+    }
+    
+    .data-table th,
+    .data-table td {
+      padding: 0.75rem;
+      text-align: left;
+      border-bottom: 1px solid rgba(255,255,255,0.1);
+    }
+    
+    .data-table th {
+      color: #8b5cf6;
+      font-weight: 600;
+      font-size: 0.75rem;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+    }
+    
+    .data-table td {
+      color: rgba(255,255,255,0.9);
+    }
+    
+    .progress-bar {
+      height: 8px;
+      background: rgba(255,255,255,0.1);
+      border-radius: 4px;
+      overflow: hidden;
+    }
+    
+    .progress-bar-fill {
+      height: 100%;
+      border-radius: 4px;
+      transition: width 0.3s ease;
+    }
+    
+    .progress-bar-fill.green { background: #22c55e; }
+    .progress-bar-fill.red { background: #ef4444; }
+    .progress-bar-fill.blue { background: #3b82f6; }
+    .progress-bar-fill.purple { background: #8b5cf6; }
+    
+    .section-nav {
+      display: flex;
+      gap: 0.5rem;
+      margin-bottom: 1.5rem;
+      flex-wrap: wrap;
+    }
+    
+    .section-nav-btn {
+      padding: 0.625rem 1.25rem;
+      background: rgba(255,255,255,0.05);
+      border: 1px solid rgba(255,255,255,0.1);
+      color: rgba(255,255,255,0.7);
+      cursor: pointer;
+      border-radius: 8px;
+      font-size: 0.875rem;
+      transition: all 0.2s;
+    }
+    
+    .section-nav-btn:hover {
+      background: rgba(255,255,255,0.1);
+      color: white;
+    }
+    
+    .section-nav-btn.active {
+      background: #8b5cf6;
+      border-color: #8b5cf6;
+      color: white;
+    }
+    
+    .greek-display {
+      display: flex;
+      gap: 1.5rem;
+      flex-wrap: wrap;
+    }
+    
+    .greek-item {
+      text-align: center;
+    }
+    
+    .greek-symbol {
+      font-size: 1.5rem;
+      font-weight: bold;
+      color: #8b5cf6;
+    }
+    
+    .greek-value {
+      font-size: 1.125rem;
+      color: white;
+    }
+    
+    .greek-label {
+      font-size: 0.75rem;
+      color: rgba(255,255,255,0.5);
+    }
+
+    /* Correlation Heatmap */
+    .correlation-heatmap {
+      display: grid;
+      gap: 1px;
+      background: rgba(255,255,255,0.1);
+      border-radius: 8px;
+      overflow: hidden;
+    }
+
+    .correlation-cell {
+      width: 60px;
+      height: 60px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 0.75rem;
+      font-weight: 500;
+      cursor: pointer;
+      transition: transform 0.1s;
+    }
+
+    .correlation-cell:hover {
+      transform: scale(1.1);
+      z-index: 1;
+    }
+
+    .correlation-label {
+      background: rgba(30,41,59,0.9);
+      color: white;
+      font-weight: 600;
+    }
+
+    /* Monte Carlo Chart Area */
+    .monte-carlo-chart {
+      position: relative;
+      height: 400px;
+      background: rgba(0,0,0,0.2);
+      border-radius: 8px;
+      overflow: hidden;
+    }
+
+    /* Scenario Cards */
+    .scenario-card {
+      background: rgba(255,255,255,0.05);
+      border-radius: 12px;
+      padding: 1.25rem;
+      cursor: pointer;
+      transition: all 0.2s;
+      border: 2px solid transparent;
+    }
+
+    .scenario-card:hover {
+      background: rgba(255,255,255,0.1);
+      border-color: rgba(139,92,246,0.3);
+    }
+
+    .scenario-card.selected {
+      border-color: #8b5cf6;
+      background: rgba(139,92,246,0.1);
+    }
+
+    .scenario-impact {
+      display: flex;
+      gap: 0.5rem;
+      margin-top: 0.75rem;
+    }
+
+    .scenario-impact-badge {
+      padding: 0.25rem 0.5rem;
+      border-radius: 4px;
+      font-size: 0.75rem;
+      font-weight: 600;
+    }
+
+    .scenario-impact-badge.negative {
+      background: rgba(239,68,68,0.2);
+      color: #ef4444;
+    }
+
+    .scenario-impact-badge.positive {
+      background: rgba(34,197,94,0.2);
+      color: #22c55e;
+    }
+
+    /* Workspace Tabs */
+    .workspace-tabs {
+      display: flex;
+      gap: 0.25rem;
+      padding: 0.5rem;
+      background: rgba(0,0,0,0.2);
+      border-radius: 8px;
+      margin-bottom: 1rem;
+    }
+
+    .workspace-tab {
+      padding: 0.5rem 1rem;
+      background: transparent;
+      border: none;
+      color: rgba(255,255,255,0.6);
+      cursor: pointer;
+      border-radius: 6px;
+      font-size: 0.875rem;
+      transition: all 0.2s;
+    }
+
+    .workspace-tab:hover {
+      background: rgba(255,255,255,0.1);
+      color: white;
+    }
+
+    .workspace-tab.active {
+      background: rgba(139,92,246,0.3);
+      color: white;
+    }
+
+    /* Import/Export */
+    .import-dropzone {
+      border: 2px dashed rgba(255,255,255,0.2);
+      border-radius: 12px;
+      padding: 3rem;
+      text-align: center;
+      cursor: pointer;
+      transition: all 0.2s;
+    }
+
+    .import-dropzone:hover, .import-dropzone.dragover {
+      border-color: #8b5cf6;
+      background: rgba(139,92,246,0.1);
+    }
+
+    /* Shortcuts Modal */
+    .shortcuts-modal {
+      position: fixed;
+      top: 50%;
+      left: 50%;
+      transform: translate(-50%, -50%);
+      width: 700px;
+      max-width: 90vw;
+      max-height: 80vh;
+      background: #1e293b;
+      border-radius: 12px;
+      box-shadow: 0 25px 50px -12px rgba(0,0,0,0.5);
+      overflow: hidden;
+      z-index: 10001;
+    }
+
+    .shortcuts-modal-header {
+      padding: 1.5rem;
+      border-bottom: 1px solid rgba(255,255,255,0.1);
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+
+    .shortcuts-modal-header h2 {
+      color: white;
+      font-size: 1.25rem;
+    }
+
+    .shortcuts-modal-close {
+      background: none;
+      border: none;
+      color: rgba(255,255,255,0.6);
+      cursor: pointer;
+      font-size: 1.5rem;
+      padding: 0.5rem;
+    }
+
+    .shortcuts-modal-content {
+      padding: 1.5rem;
+      overflow-y: auto;
+      max-height: 60vh;
+    }
+
+    .shortcuts-category {
+      margin-bottom: 1.5rem;
+    }
+
+    .shortcuts-category h3 {
+      color: #8b5cf6;
+      font-size: 0.875rem;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+      margin-bottom: 0.75rem;
+    }
+
+    .shortcut-item {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 0.5rem 0;
+      color: rgba(255,255,255,0.8);
+    }
+
+    .shortcut-keys {
+      display: flex;
+      gap: 0.25rem;
+    }
+
+    .shortcut-keys kbd {
+      background: rgba(255,255,255,0.1);
+      padding: 0.25rem 0.5rem;
+      border-radius: 4px;
+      font-family: monospace;
+      font-size: 0.875rem;
+    }

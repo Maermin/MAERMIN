@@ -11,16 +11,9 @@ var useState = React.useState;
 var useEffect = React.useEffect;
 var useMemo = React.useMemo;
 
-// Helper functions
-function formatCurrency(value, decimals) {
-  decimals = decimals !== undefined ? decimals : 2;
-  return (value || 0).toLocaleString('de-DE', { minimumFractionDigits: decimals, maximumFractionDigits: decimals }) + ' EUR';
-}
-
-function formatPercent(value, decimals) {
-  decimals = decimals !== undefined ? decimals : 2;
-  return (value || 0).toFixed(decimals) + '%';
-}
+// Helper functions — shared via utils.js (window.MaerminUtils)
+const formatCurrency = window.MaerminUtils.formatCurrencyEUR;
+const formatPercent = window.MaerminUtils.formatPercentPlain;
 
 // ============================================================================
 // ENHANCED DIVIDEND TRACKER VIEW
