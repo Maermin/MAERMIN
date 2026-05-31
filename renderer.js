@@ -294,18 +294,24 @@ function InvestmentTracker() {
     return localStorage.getItem('taxJurisdiction') || 'de';
   });
 
+  // Privacy mode — masks all monetary amounts (for screenshots / public viewing)
+  const [privacyMode, setPrivacyMode] = useState(() => localStorage.getItem('privacyMode') === '1');
+
   // ========== COMPUTED VALUES ==========
   
   const t = translations[language] || translations.de;
   const currentTheme = themes[theme];
   
   const formatPrice = useCallback((price) => {
+    // Privacy mode masks every amount app-wide (formatPrice is the single
+    // formatter every view uses), without touching the underlying data.
+    if (privacyMode) return '••••••';
     if (price === undefined || price === null || isNaN(price)) return '0.00';
     // All prices are stored in EUR
     // If user wants USD, convert from EUR to USD by dividing by the USD->EUR rate
     const converted = currency === 'USD' && exchangeRate > 0 ? price / exchangeRate : price;
     return converted.toLocaleString('de-DE', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
-  }, [currency, exchangeRate]);
+  }, [currency, exchangeRate, privacyMode]);
 
   const getCurrencySymbol = () => currency === 'EUR' ? 'EUR' : 'USD';
 
@@ -436,6 +442,7 @@ function InvestmentTracker() {
     { id: 'action:refresh',    label: t.refresh || 'Preise aktualisieren', category: 'Aktionen',   shortcut: 'r' },
     { id: 'action:backup',     label: t.createBackup || 'Backup erstellen', category: 'Aktionen',  shortcut: 'b' },
     { id: 'action:import',     label: t.importData || 'Daten importieren', category: 'Aktionen',   shortcut: 'i' },
+    { id: 'action:privacy',    label: t.privacyMode || 'Beträge ausblenden (Privacy)', category: 'Aktionen', shortcut: 'p' },
     // Einstellungen
     { id: 'settings:dark',     label: t.darkMode || 'Dark Mode',           category: 'Design' },
     { id: 'settings:light',    label: t.whiteMode || 'Light Mode',         category: 'Design' },
@@ -514,6 +521,7 @@ function InvestmentTracker() {
   useEffect(() => { localStorage.setItem('transactions', JSON.stringify(transactions)); }, [transactions]);
   useEffect(() => { localStorage.setItem('priceHistory', JSON.stringify(priceHistory)); }, [priceHistory]);
   useEffect(() => { localStorage.setItem('taxJurisdiction', taxJurisdiction); }, [taxJurisdiction]);
+  useEffect(() => { localStorage.setItem('privacyMode', privacyMode ? '1' : '0'); }, [privacyMode]);
   useEffect(() => { localStorage.setItem('apiKeys', JSON.stringify(apiKeys)); }, [apiKeys]);
 
   // ========== API FUNCTIONS ==========
@@ -1084,7 +1092,7 @@ function InvestmentTracker() {
       case 'nav:returns':       setActiveView('returns'); break;
       case 'nav:rebalancing':   setActiveView('rebalancing'); break;
       case 'nav:analytics':     setActiveView('analytics'); break;
-      case 'nav:taxes':         setActiveView('taxes'); break;
+      case 'nav:taxes':         setActiveView('tax'); break;
       // Tools Navigation
       case 'nav:watchlist':     setActiveView('watchlist'); break;
       case 'nav:alerts':        setActiveView('alerts'); break;
@@ -1094,6 +1102,7 @@ function InvestmentTracker() {
       case 'action:refresh':    fetchPrices(); break;
       case 'action:backup':     createBackup(); break;
       case 'action:import':     setShowImportModal(true); break;
+      case 'action:privacy':    setPrivacyMode(p => !p); break;
       // Design
       case 'settings:dark':     setTheme('dark'); break;
       case 'settings:light':    setTheme('white'); break;
@@ -1105,6 +1114,44 @@ function InvestmentTracker() {
       default: break;
     }
   };
+
+  // ========== GLOBAL KEYBOARD SHORTCUTS (driven by the commands list) ==========
+  // Wires up the single-key (n/r/b/i/p) and "g"+key navigation shortcuts that
+  // the command palette and shortcuts modal already advertise.
+  const execRef = useRef(null);
+  execRef.current = executeCommand;
+  const gPendingRef = useRef(0);
+  const overlayRef = useRef(false);
+  overlayRef.current = showCommandPalette || showShortcuts || showTransactionModal ||
+    showImportModal || showApiSettings || showPasswordModal || showAlertModal;
+
+  useEffect(() => {
+    const single = {};
+    const gMap = {};
+    commands.forEach(c => {
+      if (!c.shortcut) return;
+      if (c.shortcut.startsWith('g ')) gMap[c.shortcut.slice(2)] = c.id;
+      else if (c.shortcut.length === 1) single[c.shortcut] = c.id;
+    });
+    const onKey = (e) => {
+      const tag = e.target.tagName;
+      if (tag === 'INPUT' || tag === 'TEXTAREA' || e.target.isContentEditable) return;
+      if (e.ctrlKey || e.metaKey || e.altKey) return;
+      if (overlayRef.current) return; // don't hijack keys while a modal/palette is open
+      const key = e.key.toLowerCase();
+      const now = Date.now();
+      // "g" then a key → navigation (e.g. "g o" = Overview)
+      if (gPendingRef.current && now - gPendingRef.current < 1200) {
+        gPendingRef.current = 0;
+        if (gMap[key]) { e.preventDefault(); execRef.current(gMap[key]); return; }
+      }
+      if (key === 'g') { gPendingRef.current = now; return; }
+      // single-key actions (n / r / b / i / p)
+      if (single[key]) { e.preventDefault(); execRef.current(single[key]); }
+    };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, [commands]);
 
   // ========== DATA MANAGEMENT VIEW (Import / Export / Backup) ═══════════════
   const DataManagementView = ({ transactions, setTransactions, createBackup, exportData, theme, t, addToast, formatPrice }) => {
@@ -1147,7 +1194,7 @@ function InvestmentTracker() {
     }, icon, label);
 
     return React.createElement('div', { style: { padding: '1.5rem' } },
-      React.createElement('h2', { style: { color: theme.text, fontSize: '1.35rem', fontWeight: '800', marginBottom: '0.25rem' } }, 'Data Management'),
+      React.createElement('h2', { style: { color: theme.text, fontSize: '1.35rem', fontWeight: '800', marginBottom: '0.25rem' } }, t.dataManagement || 'Data Management'),
       React.createElement('p', { style: { color: theme.textSecondary, fontSize: '0.85rem', marginBottom: '1.5rem' } },
         'Export, import, backup your data or use the Broker Import Wizard to import from supported brokers.'
       ),
@@ -1417,7 +1464,7 @@ function InvestmentTracker() {
       case 'cashflow':
         return window.MaerminFeatures5 ?
           React.createElement('div', { style: { padding: '1.5rem' } },
-            React.createElement('h2', { style: { color: currentTheme.text, fontSize: '1.5rem', fontWeight: '700', marginBottom: '1.5rem' } }, 'Cash Flow'),
+            React.createElement('h2', { style: { color: currentTheme.text, fontSize: '1.5rem', fontWeight: '700', marginBottom: '1.5rem' } }, t.navCashflow || 'Cash Flow'),
             React.createElement(window.MaerminFeatures5.CashflowChart, {
               transactions: activeTransactions, priceHistory, portfolio, prices,
               theme: currentTheme, formatPrice, getCurrencySymbol
@@ -1531,7 +1578,14 @@ function InvestmentTracker() {
             portfolio, prices, priceHistory,
             theme: currentTheme, t, formatPrice
           }) : renderAnalyticsPlaceholder('Strategie-Analyse');
-      
+
+      case 'health':
+        return window.PortfolioHealth ?
+          React.createElement(window.PortfolioHealth.HealthView, {
+            portfolio, prices, transactions: activeTransactions,
+            theme: currentTheme, t, formatPrice, getCurrencySymbol
+          }) : renderAnalyticsPlaceholder('Portfolio Health');
+
       default:
         return renderOverview();
     }
@@ -1640,7 +1694,7 @@ function InvestmentTracker() {
         style: { display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '1.25rem', flexWrap: 'wrap', gap: '0.75rem' }
       },
         React.createElement('div', null,
-          React.createElement('h2', { style: { color: currentTheme.text, fontSize: '1.35rem', fontWeight: '800', marginBottom: '0.125rem' } }, 'Overview'),
+          React.createElement('h2', { style: { color: currentTheme.text, fontSize: '1.35rem', fontWeight: '800', marginBottom: '0.125rem' } }, t.navOverview || 'Overview'),
           React.createElement('div', { style: { color: currentTheme.textSecondary, fontSize: '0.72rem' } },
             isAllMode
               ? `All ${portfolios.length} portfolio${portfolios.length > 1 ? 's' : ''} combined · ${lastRefresh ? 'Last refresh ' + lastRefresh.toLocaleTimeString('en-GB',{hour:'2-digit',minute:'2-digit'}) : 'Refresh to update'}`
@@ -3107,6 +3161,22 @@ buy,crypto,bitcoin,0.5,45000,2024-01-15,10`)
           }, 'Ctrl+K')
         ),
         
+        // Privacy toggle (mask all amounts)
+        React.createElement('button', {
+          onClick: () => setPrivacyMode(p => !p),
+          title: (privacyMode ? (t.showAmounts || 'Show amounts') : (t.hideAmounts || 'Hide amounts')) + ' (p)',
+          style: {
+            padding: '0.5rem 0.75rem',
+            background: privacyMode ? currentTheme.accent : currentTheme.inputBg,
+            border: `1px solid ${privacyMode ? currentTheme.accent : currentTheme.cardBorder}`,
+            borderRadius: '8px',
+            color: privacyMode ? '#fff' : currentTheme.text,
+            cursor: 'pointer',
+            fontSize: '1rem',
+            transition: 'all 0.15s'
+          }
+        }, privacyMode ? '⦸' : '⦿'),
+
         // Settings button
         React.createElement('button', {
           onClick: () => setShowSettings(!showSettings),
@@ -3210,6 +3280,24 @@ buy,crypto,bitcoin,0.5,45000,2024-01-15,10`)
               )
             )
           ),
+          // Privacy
+          React.createElement('div', { style: { marginBottom: '1rem' } },
+            React.createElement('label', { style: { color: currentTheme.textSecondary, fontSize: '0.7rem', textTransform: 'uppercase', letterSpacing: '0.05em' } }, t.privacy || 'Privacy'),
+            React.createElement('button', {
+              onClick: () => setPrivacyMode(p => !p),
+              title: 'Shortcut: p',
+              style: {
+                width: '100%', padding: '0.5rem 0.6rem', marginTop: '0.5rem',
+                background: privacyMode ? currentTheme.accent : currentTheme.inputBg,
+                color: privacyMode ? '#fff' : currentTheme.text, border: 'none',
+                borderRadius: '6px', cursor: 'pointer', fontSize: '0.8rem', fontWeight: '600',
+                display: 'flex', alignItems: 'center', justifyContent: 'space-between'
+              }
+            },
+              React.createElement('span', null, t.hideAmounts || 'Hide amounts'),
+              React.createElement('span', { style: { opacity: 0.85 } }, privacyMode ? 'ON' : 'OFF')
+            )
+          ),
           // Divider
           React.createElement('div', { style: { height: '1px', background: currentTheme.cardBorder, margin: '0.75rem 0' } }),
           // Change Password
@@ -3271,31 +3359,32 @@ buy,crypto,bitcoin,0.5,45000,2024-01-15,10`)
       },
         [
           // ── Portfolio ──────────────────────────────
-          { group: 'Portfolio' },
-          { id: 'overview',         icon: '◈', label: 'Overview' },
-          { id: 'transactions',     icon: '↕', label: 'Transactions' },
-          { id: 'portfolios',       icon: '◆', label: 'Portfolios' },
-          { id: 'net-worth',        icon: '◉', label: 'Net Worth' },
-          { id: 'dividends',        icon: '◎', label: 'Dividends' },
-          { id: 'journal',          icon: '◇', label: 'Journal' },
+          { group: t.navGroupPortfolio || 'Portfolio' },
+          { id: 'overview',         icon: '◈', label: t.navOverview || 'Overview' },
+          { id: 'transactions',     icon: '↕', label: t.navTransactions || 'Transactions' },
+          { id: 'portfolios',       icon: '◆', label: t.navPortfolios || 'Portfolios' },
+          { id: 'net-worth',        icon: '◉', label: t.navNetWorth || 'Net Worth' },
+          { id: 'dividends',        icon: '◎', label: t.navDividends || 'Dividends' },
+          { id: 'journal',          icon: '◇', label: t.navJournal || 'Journal' },
           // ── Analysis ──────────────────────────────
-          { group: 'Analysis' },
-          { id: 'returns',          icon: '◆', label: 'Returns & XIRR' },
-          { id: 'rebalancing',      icon: '◐', label: 'Rebalancing' },
-          { id: 'savings-plans',    icon: '◑', label: 'Savings Plans' },
-          { id: 'cashflow',         icon: '◒', label: 'Cash Flow' },
-          { id: 'fees',             icon: '◓', label: 'Fee Analyzer' },
-          { id: 'analytics',        icon: '◇', label: 'Risk & Correlation' },
-          { id: 'investment-analysis', icon: '◈', label: 'Strategy' },
-          { id: 'tax',              icon: '◧', label: 'Tax & FIFO' },
+          { group: t.navGroupAnalysis || 'Analysis' },
+          { id: 'returns',          icon: '◆', label: t.navReturns || 'Returns & XIRR' },
+          { id: 'rebalancing',      icon: '◐', label: t.navRebalancing || 'Rebalancing' },
+          { id: 'savings-plans',    icon: '◑', label: t.navSavingsPlans || 'Savings Plans' },
+          { id: 'cashflow',         icon: '◒', label: t.navCashflow || 'Cash Flow' },
+          { id: 'fees',             icon: '◓', label: t.navFees || 'Fee Analyzer' },
+          { id: 'analytics',        icon: '◇', label: t.navRiskCorrelation || 'Risk & Correlation' },
+          { id: 'health',           icon: '◍', label: t.navHealthScore || 'Health Score' },
+          { id: 'investment-analysis', icon: '◈', label: t.navStrategy || 'Strategy' },
+          { id: 'tax',              icon: '◧', label: t.navTaxFifo || 'Tax & FIFO' },
           // ── Tools ──────────────────────────────────
-          { group: 'Tools' },
-          { id: 'watchlist',        icon: '◯', label: 'Watchlist' },
-          { id: 'alerts',           icon: '◎', label: 'Price Alerts' },
-          { id: 'attribution',     icon: '◈', label: 'Attribution' },
-          { id: 'realized',         icon: '◑', label: 'Realized P&L' },
-          { id: 'news',             icon: '◎', label: 'News Feed' },
-          { id: 'data',             icon: '◁', label: 'Import / Export' },
+          { group: t.navGroupTools || 'Tools' },
+          { id: 'watchlist',        icon: '◯', label: t.navWatchlist || 'Watchlist' },
+          { id: 'alerts',           icon: '◎', label: t.navPriceAlerts || 'Price Alerts' },
+          { id: 'attribution',     icon: '◈', label: t.navAttribution || 'Attribution' },
+          { id: 'realized',         icon: '◑', label: t.navRealizedPnl || 'Realized P&L' },
+          { id: 'news',             icon: '◎', label: t.navNewsFeed || 'News Feed' },
+          { id: 'data',             icon: '◁', label: t.navImportExport || 'Import / Export' },
         ].map((item, idx) => {
           // Section Header
           if (item.group) {

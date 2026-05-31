@@ -57,6 +57,7 @@ No account  ·  No server  ·  No ads  ·  No telemetry  ·  MIT License
 | **Fee Analyzer** | Total fees, fee rate %, breakdown by year and asset class, top 10 most expensive trades |
 | **Risk & Correlation** | Correlation matrix, Monte Carlo (10,000+ iterations), stress tests (2008 / COVID / Dot-com), VaR, CVaR, Sharpe, Sortino |
 | **Strategy** | DCA vs lump sum, sector allocation, currency exposure, liquidity score, goal planning |
+| **Health Score** | 0–100 structural score (diversification · concentration · asset-class spread · breadth) with a letter grade and concrete, actionable recommendations |
 | **Tax & FIFO** | German tax law (1-year crypto exemption) · US tax law (short/long-term gains) · PDF export |
 
 ### 🔧 Tools
@@ -66,6 +67,8 @@ No account  ·  No server  ·  No ads  ·  No telemetry  ·  MIT License
 | **Price Alerts** | Notify when price crosses threshold — progress bar shows proximity |
 | **Broker Import** | CoinTracking · DEGIRO · Trade Republic · Interactive Brokers · Coinbase · Binance · Kraken |
 | **Command Palette** | `Ctrl+K` — navigate anywhere by keyboard |
+| **Privacy Mode** | Mask every amount app-wide for screenshots / public viewing — toggle in the top bar, in Settings, or with `p` |
+| **Keyboard Shortcuts** | `g`+key to jump views (`g o`, `g t`, …), single keys for actions (`n` new · `r` refresh · `b` backup · `i` import · `p` privacy) · `?` shows the full list |
 
 ---
 
@@ -123,6 +126,7 @@ MAERMIN/
 ├── styles.css                  App styles (extracted from index.html)
 ├── auth.js                     SHA-256 login — edit to change password
 ├── utils.js                    Shared formatters (window.MaerminUtils)
+├── portfolio-health.js         Portfolio Health Score engine + view (window.PortfolioHealth)
 ├── renderer.js                 Main React app — state, routing, transactions (~3,200 lines)
 ├── features.js                 Pie chart, sparklines, gainers/losers, watchlist, alerts
 ├── features2.js                XIRR/TWR, rebalancing, broker import, dividend calendar

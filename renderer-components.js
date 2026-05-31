@@ -196,7 +196,8 @@ function ShortcutsModal({ isOpen, onClose, t, theme }) {
       { keys: ['t'], action: t.addTransaction || 'Add Transaction' },
       { keys: ['r'], action: t.refresh || 'Refresh Prices' },
       { keys: ['i'], action: t.import || 'Import Data' },
-      { keys: ['l'], action: t.createAlert || 'Create Alert' }
+      { keys: ['b'], action: t.createBackup || 'Create Backup' },
+      { keys: ['p'], action: t.hideAmounts || 'Hide amounts (Privacy)' }
     ],
     [t.workspaces || 'Workspaces']: [
       { keys: ['w', '1'], action: t.defaultWorkspace || 'Default' },

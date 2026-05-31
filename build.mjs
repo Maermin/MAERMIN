@@ -50,6 +50,7 @@ const result = await build({
   bundle: false,
   minify: true,
   legalComments: 'none',
+  charset: 'utf8',
   target: 'es2020',
   write: false,
 });
