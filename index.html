@@ -48,7 +48,6 @@
   <script>updateStatus('Loading core modules...');</script>
   <script src="utils.js"></script>
   <script src="translations-complete.js"></script>
-  <script src="validation-comprehensive.js"></script>
   <script src="calculator-extended.js"></script>
   <script src="tax-calculation-engine.js"></script>
   <script src="risk-analytics.js"></script>
@@ -60,7 +59,6 @@
   <script src="monte-carlo-engine.js"></script>
   <script src="correlation-engine.js"></script>
   <script src="stress-test-engine.js"></script>
-  <script src="command-palette.js"></script>
   <script src="import-export-engine.js"></script>
   
   <!-- MAERMIN v9.0 - INVESTMENT ENGINES -->
@@ -72,7 +70,6 @@
   <script src="dividend-data-service.js"></script>
   <script src="renderer-components.js"></script>
   <script src="investment-views.js"></script>
-  <script src="dividend-tracker-view-enhanced.js"></script>
   <script src="portfolio-health.js"></script>
 
   <!-- MAERMIN v9.0 - EXTENDED FEATURES -->
@@ -125,7 +122,6 @@
         { name: 'Tax Calculation Engine', check: () => typeof window.TaxCalculationEngine !== 'undefined' },
         { name: 'Import/Export Engine', check: () => typeof window.ImportExportEngine !== 'undefined' },
         { name: 'Dividend Data Service', check: () => typeof window.DividendDataService !== 'undefined' },
-        { name: 'Enhanced Dividend View', check: () => typeof window.EnhancedDividendTrackerView !== 'undefined' },
         { name: 'Investment Views', check: () => typeof window.InvestmentViews !== 'undefined' },
         { name: 'Command Palette', check: () => typeof window.CommandPalette !== 'undefined' },
         { name: 'jsPDF', check: () => typeof window.jspdf !== 'undefined' }
