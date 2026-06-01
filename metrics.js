@@ -152,10 +152,12 @@
 
   // ---- Health --------------------------------------------------------------
   // Thin pass-through so callers don't have to reach into PortfolioHealth.
-  function healthScore(portfolio, prices, t) {
+  // extras (optional): { priceHistory, transactions, accounts } — enables the
+  // risk / liquidity / tax sub-scores; degrades gracefully when omitted.
+  function healthScore(portfolio, prices, t, extras) {
     var ph = (typeof window !== 'undefined') && window.PortfolioHealth;
     if (!ph || typeof ph.computeHealth !== 'function') return null;
-    try { return ph.computeHealth(portfolio, prices, t); }
+    try { return ph.computeHealth(portfolio, prices, t, extras); }
     catch (e) { return null; }
   }
 

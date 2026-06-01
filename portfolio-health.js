@@ -53,8 +53,101 @@
     return out;
   }
 
-  function computeHealth(portfolio, prices, t) {
+  // Coarse per-asset-class riskiness (0..1, higher = riskier) for the structural
+  // fallback used when there isn't yet enough price history to measure volatility.
+  const CLASS_RISK = { crypto: 0.85, skins: 0.80, commodities: 0.55, stocks: 0.45 };
+  // Liquidity classification of holdings and manual net-worth accounts.
+  const LIQUID_CLASSES = { crypto: true, stocks: true, commodities: true, skins: false };
+  const ACCT_LIQUID = { cash: true, checking: true, crypto_wallet: true };
+  const ACCT_ILLIQUID = { property: true, other_asset: true };
+
+  // Risk sub-score (higher = healthier / lower risk). Reuses the existing
+  // risk-analytics engine exactly as RiskAnalyticsViewV2 does; falls back to a
+  // structural class-mix proxy when price history is too thin to measure
+  // volatility (detected via volatility === 0). No second risk engine.
+  function computeRiskHealth(portfolio, byClass, totalValue, priceHistory) {
+    if (typeof window !== 'undefined' && typeof window.calculatePortfolioRiskMetrics === 'function') {
+      try {
+        const converted = {};
+        if (priceHistory && typeof priceHistory === 'object') {
+          Object.keys(priceHistory).forEach((sym) => {
+            const h = priceHistory[sym];
+            if (Array.isArray(h) && h.length > 0) {
+              converted[sym] = (typeof h[0] === 'object' && h[0].price !== undefined) ? h.map((x) => x.price) : h;
+            }
+          });
+        }
+        const m = window.calculatePortfolioRiskMetrics(portfolio, converted, totalValue);
+        if (m && m.volatility > 0) {
+          return { score: Math.round(clamp(100 - m.riskScore, 0, 100)), available: true, source: 'engine', level: m.riskLevel };
+        }
+      } catch (e) { /* fall through to structural proxy */ }
+    }
+    let riskiness = 0;
+    Object.keys(byClass).forEach((cls) => {
+      riskiness += (CLASS_RISK[cls] != null ? CLASS_RISK[cls] : 0.6) * (byClass[cls] / totalValue);
+    });
+    return { score: Math.round(clamp((1 - riskiness) * 100, 0, 100)), available: true, source: 'structural' };
+  }
+
+  // Liquidity sub-score = liquid share of total assets (holdings + cash accounts).
+  function computeLiquidityHealth(byClass, accounts) {
+    let liquid = 0, illiquid = 0;
+    Object.keys(byClass).forEach((cls) => { if (LIQUID_CLASSES[cls]) liquid += byClass[cls]; else illiquid += byClass[cls]; });
+    if (!accounts && typeof window !== 'undefined' && window.MaerminMetrics) {
+      try { accounts = window.MaerminMetrics.loadAccounts(); } catch (e) { accounts = []; }
+    }
+    (accounts || []).forEach((a) => {
+      const v = parseFloat(a.value || 0) || 0;
+      if (ACCT_LIQUID[a.type]) liquid += v;
+      else if (ACCT_ILLIQUID[a.type]) illiquid += v;
+    });
+    const denom = liquid + illiquid;
+    if (denom <= 0) return { score: 0, available: false };
+    return { score: Math.round((liquid / denom) * 100), available: true, liquid, illiquid };
+  }
+
+  // Tax-efficiency sub-score from holding periods (German private-sale logic:
+  // crypto / skins / commodities held > 1 year are tax-free; equities benefit
+  // only mildly from longer holding). Value-weighted over the positions we can
+  // date from the transaction history. Reuses transactions — no tax engine copy.
+  function computeTaxHealth(portfolio, prices, transactions) {
+    if (!Array.isArray(transactions) || transactions.length === 0) return { score: 0, available: false };
+    const now = Date.now();
+    const posAge = {};
+    transactions.forEach((tx) => {
+      if (tx.type !== 'buy') return;
+      const qty = parseFloat(tx.quantity) || 0;
+      const d = tx.date ? new Date(tx.date).getTime() : NaN;
+      if (!(qty > 0) || isNaN(d)) return;
+      const key = (tx.category || 'crypto') + '-' + (tx.symbol || '').toLowerCase();
+      if (!posAge[key]) posAge[key] = { qty: 0, qtyAge: 0 };
+      posAge[key].qty += qty;
+      posAge[key].qtyAge += qty * ((now - d) / 86400000);
+    });
+    const flat = flatten(portfolio, prices);
+    let totalVal = 0, datedVal = 0, taxVal = 0;
+    flat.forEach((p) => {
+      totalVal += p.value;
+      const a = posAge[p.cls + '-' + (p.symbol || '').toLowerCase()];
+      if (a && a.qty > 0) {
+        datedVal += p.value;
+        const avgAge = a.qtyAge / a.qty;
+        const s = (p.cls === 'stocks')
+          ? clamp(40 + (avgAge / 365) * 20, 0, 80)
+          : (avgAge >= 365 ? 100 : clamp((avgAge / 365) * 100, 0, 100));
+        taxVal += p.value * s;
+      }
+    });
+    if (datedVal <= 0) return { score: 0, available: false };
+    return { score: Math.round(taxVal / datedVal), available: true, coverage: totalVal > 0 ? (datedVal / totalVal) * 100 : 0 };
+  }
+
+  // extras: { priceHistory, transactions, accounts } — all optional; each sub-score
+  // degrades gracefully and the total is re-normalised over what's available.
+  function computeHealth(portfolio, prices, t, extras) {
     t = t || {};
+    extras = extras || {};
     const positions = flatten(portfolio, prices);
     const totalValue = positions.reduce((s, p) => s + p.value, 0);
     const totalCost = positions.reduce((s, p) => s + p.cost, 0);
@@ -76,16 +169,30 @@
     const classHhi = classWeights.reduce((s, w) => s + w * w, 0);
     const effectiveClasses = 1 / classHhi;
 
-    // Sub-scores (0-100), calibrated for retail portfolios.
-    const sDiversification = clamp(((effectiveN - 1) / 9) * 100, 0, 100);     // ~10 effective positions = top
-    const sConcentration = clamp(((0.5 - maxWeight) / 0.4) * 100, 0, 100);    // <=10% largest = 100, >=50% = 0
-    const sAssetClass = clamp(35 + (effectiveClasses - 1) * 32.5, 0, 100);    // 1 class -> 35, 2 -> ~68, 3 -> 100
-    const sBreadth = clamp((positions.length / 10) * 100, 0, 100);            // 10 holdings = top
+    // ── V7 sub-score 1: Diversification — folds in spread, concentration,
+    //    asset-class balance and breadth (still surfaced as metrics below).
+    const fSpread = clamp(((effectiveN - 1) / 9) * 100, 0, 100);
+    const fConcentration = clamp(((0.5 - maxWeight) / 0.4) * 100, 0, 100);
+    const fAssetClass = clamp(35 + (effectiveClasses - 1) * 32.5, 0, 100);
+    const fBreadth = clamp((positions.length / 10) * 100, 0, 100);
+    const diversification = Math.round(0.40 * fSpread + 0.30 * fConcentration + 0.15 * fAssetClass + 0.15 * fBreadth);
 
-    const score = Math.round(
-      0.35 * sDiversification + 0.25 * sConcentration + 0.20 * sAssetClass + 0.20 * sBreadth
-    );
+    // ── V7 sub-scores 2-4: Risk, Liquidity, Tax — reuse existing engines/data.
+    const riskDetail = computeRiskHealth(portfolio, byClass, totalValue, extras.priceHistory);
+    const liquidityDetail = computeLiquidityHealth(byClass, extras.accounts);
+    const taxDetail = computeTaxHealth(portfolio, prices, extras.transactions);
 
+    // Weighted total, re-normalised over the sub-scores we can actually compute.
+    // `view` is the existing analysis view each sub-score drills into (V7: click
+    // opens existing views, no new windows).
+    const subMeta = [
+      { key: 'diversification', value: diversification,       weight: 0.40, available: true,                    view: 'analytics' },
+      { key: 'risk',            value: riskDetail.score,      weight: 0.25, available: riskDetail.available,     view: 'analytics' },
+      { key: 'liquidity',       value: liquidityDetail.score, weight: 0.20, available: liquidityDetail.available, view: 'net-worth' },
+      { key: 'tax',             value: taxDetail.score,       weight: 0.15, available: taxDetail.available,      view: 'tax' },
+    ];
+    const availWeight = subMeta.filter((s) => s.available).reduce((a, s) => a + s.weight, 0) || 1;
+    const score = Math.round(subMeta.filter((s) => s.available).reduce((a, s) => a + s.value * (s.weight / availWeight), 0));
     const grade = score >= 85 ? 'A' : score >= 70 ? 'B' : score >= 55 ? 'C' : score >= 40 ? 'D' : 'F';
 
     // Top holdings by weight (for the bars in the view).
@@ -115,6 +222,18 @@
       recs.push(t.healthRecTwoClass ||
         'Two asset classes covered — a small allocation to a third would broaden your base.');
     }
+    if (riskDetail.score < 45) {
+      recs.push(t.healthRecRisk ||
+        'Risk is elevated — a larger allocation to lower-volatility assets would steady the portfolio.');
+    }
+    if (liquidityDetail.available && liquidityDetail.score < 40) {
+      recs.push(t.healthRecLiquidity ||
+        'A large share sits in illiquid holdings — keep enough liquid assets for flexibility.');
+    }
+    if (taxDetail.available && taxDetail.score < 40) {
+      recs.push(t.healthRecTax ||
+        'Many positions are under the 1-year mark — holding longer can cut the tax due on a sale.');
+    }
     if (positions.length < 5) {
       recs.push(fill(t.healthRecBreadth ||
         'Only {n} holding(s) — a broader set smooths day-to-day volatility.',
@@ -138,11 +257,15 @@
       effectiveClasses,
       classCount: Object.keys(byClass).length,
       subScores: {
-        diversification: Math.round(sDiversification),
-        concentration: Math.round(sConcentration),
-        assetClass: Math.round(sAssetClass),
-        breadth: Math.round(sBreadth),
+        diversification: diversification,
+        risk: riskDetail.score,
+        liquidity: liquidityDetail.score,
+        tax: taxDetail.score,
       },
+      subMeta,
+      riskDetail,
+      liquidityDetail,
+      taxDetail,
       byClass,
       top,
       recommendations: recs,
@@ -165,7 +288,13 @@
     const formatPrice = props.formatPrice || ((v) => (v || 0).toFixed(2));
     const sym = props.getCurrencySymbol ? props.getCurrencySymbol() : '';
     const t = props.t || {};
-    const h = React.useMemo(() => computeHealth(portfolio, prices, t), [portfolio, prices, t]);
+    const priceHistory = props.priceHistory || {};
+    const transactions = props.transactions || [];
+    const setActiveView = props.setActiveView;
+    const h = React.useMemo(
+      () => computeHealth(portfolio, prices, t, { priceHistory, transactions }),
+      [portfolio, prices, t, priceHistory, transactions]
+    );
     const e = React.createElement;
 
     const cardStyle = {
@@ -185,13 +314,32 @@
 
     const col = scoreColor(h.score);
 
-    const bar = (label, value) => e('div', { key: label, style: { marginBottom: '0.85rem' } },
-      e('div', { style: { display: 'flex', justifyContent: 'space-between', marginBottom: '0.3rem', fontSize: '0.8rem', color: theme.textSecondary } },
-        e('span', null, label),
-        e('span', { style: { color: theme.text, fontWeight: 600 } }, value + ' / 100')),
-      e('div', { style: { height: '8px', background: 'rgba(255,255,255,0.08)', borderRadius: '4px', overflow: 'hidden' } },
-        e('div', { style: { height: '100%', width: value + '%', background: scoreColor(value), borderRadius: '4px', transition: 'width 0.4s ease' } }))
-    );
+    const meta = (k) => (h.subMeta || []).find((s) => s.key === k) || {};
+
+    // A sub-score row. Clickable when it maps to an existing analysis view
+    // (V7: drill into existing views, never open a new window).
+    const bar = (label, value, opts) => {
+      opts = opts || {};
+      const available = opts.available !== false;
+      const clickable = !!(opts.view && setActiveView);
+      return e('div', {
+        key: label,
+        onClick: clickable ? () => setActiveView(opts.view) : undefined,
+        title: clickable ? (t.healthOpenView || 'Open analysis') : undefined,
+        style: {
+          marginBottom: '0.35rem', padding: '0.45rem 0.5rem', borderRadius: '8px',
+          cursor: clickable ? 'pointer' : 'default', transition: 'background 0.12s',
+        },
+        onMouseEnter: clickable ? (ev) => { ev.currentTarget.style.background = 'rgba(255,255,255,0.05)'; } : undefined,
+        onMouseLeave: clickable ? (ev) => { ev.currentTarget.style.background = 'transparent'; } : undefined,
+      },
+        e('div', { style: { display: 'flex', justifyContent: 'space-between', marginBottom: '0.3rem', fontSize: '0.8rem', color: theme.textSecondary } },
+          e('span', null, label, clickable ? e('span', { style: { opacity: 0.5, marginLeft: '0.35rem' } }, '›') : null),
+          e('span', { style: { color: available ? theme.text : theme.textSecondary, fontWeight: 600 } }, available ? (value + ' / 100') : (t.healthNotAvailable || 'n/a'))),
+        e('div', { style: { height: '8px', background: 'rgba(255,255,255,0.08)', borderRadius: '4px', overflow: 'hidden' } },
+          e('div', { style: { height: '100%', width: (available ? value : 0) + '%', background: scoreColor(value), borderRadius: '4px', transition: 'width 0.4s ease' } }))
+      );
+    };
 
     const metric = (label, value) => e('div', { key: label, style: { textAlign: 'center', padding: '0.85rem', background: 'rgba(0,0,0,0.18)', borderRadius: '10px' } },
       e('div', { style: { fontSize: '1.25rem', fontWeight: 700, color: theme.text } }, value),
@@ -224,10 +372,10 @@
           e('div', { style: { marginTop: '0.6rem', display: 'inline-block', padding: '0.2rem 0.9rem', borderRadius: '9999px', background: `${col}22`, color: col, fontWeight: 700, fontSize: '0.95rem' } },
             (t.healthGrade || 'Grade') + ' ' + h.grade)),
         e('div', { style: { flex: 1, minWidth: '240px' } },
-          bar(t.healthDiversification || 'Diversification', h.subScores.diversification),
-          bar(t.healthConcentration || 'Concentration', h.subScores.concentration),
-          bar(t.healthAssetBalance || 'Asset-class balance', h.subScores.assetClass),
-          bar(t.healthBreadth || 'Breadth', h.subScores.breadth))
+          bar(t.healthDiversification || 'Diversification', h.subScores.diversification, meta('diversification')),
+          bar(t.healthRiskCat || 'Risk', h.subScores.risk, meta('risk')),
+          bar(t.healthLiquidityCat || 'Liquidity', h.subScores.liquidity, meta('liquidity')),
+          bar(t.healthTaxCat || 'Tax efficiency', h.subScores.tax, meta('tax')))
       ),
 
       // Key metrics

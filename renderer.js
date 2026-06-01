@@ -1582,8 +1582,8 @@ function InvestmentTracker() {
       case 'health':
         return window.PortfolioHealth ?
           React.createElement(window.PortfolioHealth.HealthView, {
-            portfolio, prices, transactions: activeTransactions,
-            theme: currentTheme, t, formatPrice, getCurrencySymbol
+            portfolio, prices, priceHistory, transactions: activeTransactions,
+            theme: currentTheme, t, formatPrice, getCurrencySymbol, setActiveView
           }) : renderAnalyticsPlaceholder('Portfolio Health');
 
       default:
@@ -1597,7 +1597,7 @@ function InvestmentTracker() {
   // into its existing detail view; numbers come from window.MaerminMetrics,
   // which reuses the existing engines (no duplicate logic).
 
-  const DashboardKpiStrip = ({ portfolio, prices, portfolioValue, theme, t, formatPrice, getCurrencySymbol, setActiveView }) => {
+  const DashboardKpiStrip = ({ portfolio, prices, priceHistory, transactions, portfolioValue, theme, t, formatPrice, getCurrencySymbol, setActiveView }) => {
     const M = window.MaerminMetrics;
     const [fire, setFire]         = React.useState(() => (M ? M.loadFireSettings() : { annualExpenses: 0, withdrawalRate: 4 }));
     const [editFire, setEditFire] = React.useState(false);
@@ -1606,7 +1606,7 @@ function InvestmentTracker() {
     const nw      = M ? M.computeNetWorth(portfolioValue) : null;
     const fireM   = (M && nw) ? M.computeFireMetrics(nw.netWorth, fire) : null;
     const divM    = M ? M.computeExpectedAnnualDividends(portfolio, prices) : null;
-    const healthM = M ? M.healthScore(portfolio, prices, t) : null;
+    const healthM = M ? M.healthScore(portfolio, prices, t, { priceHistory, transactions }) : null;
 
     const healthColor = (s) => s >= 85 ? '#22c55e' : s >= 70 ? '#84cc16' : s >= 55 ? '#f59e0b' : s >= 40 ? '#f97316' : '#ef4444';
 
@@ -1928,7 +1928,8 @@ function InvestmentTracker() {
       window.MaerminMetrics && stats.totalPositions > 0 &&
         React.createElement(DashboardKpiStrip, {
           portfolio: overviewPortfolio,
-          prices,
+          prices, priceHistory,
+          transactions: overviewTransactions,
           portfolioValue: stats.totalValue,
           theme: currentTheme, t, formatPrice, getCurrencySymbol, setActiveView
         }),
