@@ -1401,7 +1401,7 @@ function InvestmentTracker() {
     return React.createElement('div', { style: { display: 'flex', flexDirection: 'column', height: '100%' } },
       // Tab bar + auto-fetch button
       React.createElement('div', {
-        style: { display: 'flex', gap: '0.375rem', padding: '1rem 1.5rem', borderBottom: `1px solid ${theme.cardBorder}`, alignItems: 'center', flexWrap: 'wrap', gap: '0.75rem' }
+        style: { display: 'flex', gap: '0.375rem', padding: '1rem 1.5rem', borderBottom: `1px solid ${theme.cardBorder}`, alignItems: 'center', flexWrap: 'wrap' }
       },
         React.createElement('div', { style: { display: 'flex', gap: '0.375rem' } }, tabs.map(tb => tabBtn(tb.id, tb.label))),
         React.createElement('div', { style: { flex: 1 } }),
@@ -1591,8 +1591,158 @@ function InvestmentTracker() {
     }
   };
 
+  // ========== DASHBOARD KPI STRIP ==========
+  // V7: surfaces the cross-cutting summary numbers (Net Worth, FIRE, expected
+  // Dividend income, Health Score) right on the dashboard. Each tile drills
+  // into its existing detail view; numbers come from window.MaerminMetrics,
+  // which reuses the existing engines (no duplicate logic).
+
+  const DashboardKpiStrip = ({ portfolio, prices, portfolioValue, theme, t, formatPrice, getCurrencySymbol, setActiveView }) => {
+    const M = window.MaerminMetrics;
+    const [fire, setFire]         = React.useState(() => (M ? M.loadFireSettings() : { annualExpenses: 0, withdrawalRate: 4 }));
+    const [editFire, setEditFire] = React.useState(false);
+
+    const sym = getCurrencySymbol();
+    const nw      = M ? M.computeNetWorth(portfolioValue) : null;
+    const fireM   = (M && nw) ? M.computeFireMetrics(nw.netWorth, fire) : null;
+    const divM    = M ? M.computeExpectedAnnualDividends(portfolio, prices) : null;
+    const healthM = M ? M.healthScore(portfolio, prices, t) : null;
+
+    const healthColor = (s) => s >= 85 ? '#22c55e' : s >= 70 ? '#84cc16' : s >= 55 ? '#f59e0b' : s >= 40 ? '#f97316' : '#ef4444';
+
+    const tile = (opts) => React.createElement('div', {
+      key: opts.key,
+      onClick: opts.onClick,
+      style: {
+        background: theme.card, padding: '1rem 1.1rem', borderRadius: '12px',
+        border: `1px solid ${theme.cardBorder}`, cursor: opts.onClick ? 'pointer' : 'default',
+        display: 'flex', flexDirection: 'column', gap: '0.35rem', transition: 'border-color 0.15s',
+        minHeight: '92px', justifyContent: 'center'
+      },
+      onMouseEnter: opts.onClick ? e => e.currentTarget.style.borderColor = theme.accent : undefined,
+      onMouseLeave: opts.onClick ? e => e.currentTarget.style.borderColor = theme.cardBorder : undefined
+    },
+      React.createElement('div', { style: { display: 'flex', alignItems: 'center', justifyContent: 'space-between' } },
+        React.createElement('span', { style: { color: theme.textSecondary, fontSize: '0.68rem', textTransform: 'uppercase', letterSpacing: '0.06em' } }, opts.label),
+        opts.badge || (opts.onClick && React.createElement('span', { style: { color: theme.textSecondary, fontSize: '0.8rem', opacity: 0.6 } }, '›'))
+      ),
+      React.createElement('div', { style: { display: 'flex', alignItems: 'center', gap: '0.6rem' } },
+        opts.ring,
+        React.createElement('div', null,
+          React.createElement('div', { style: { color: opts.color || theme.text, fontSize: '1.4rem', fontWeight: '800', letterSpacing: '-0.02em', lineHeight: 1.05 } }, opts.value),
+          opts.sub && React.createElement('div', { style: { color: theme.textSecondary, fontSize: '0.74rem', marginTop: '0.2rem' } }, opts.sub)
+        )
+      )
+    );
+
+    // Net Worth tile
+    const netWorthTile = tile({
+      key: 'nw',
+      label: t.kpiNetWorth || 'Net Worth',
+      value: nw ? `${formatPrice(nw.netWorth)} ${sym}` : '—',
+      sub: nw ? `${(t.kpiLiquidity || 'Liquidity')} ${nw.liquidityRatio.toFixed(0)}%` : null,
+      color: nw && nw.netWorth < 0 ? '#ef4444' : theme.text,
+      onClick: () => setActiveView('net-worth')
+    });
+
+    // FIRE tile (+ inline setup)
+    const fireValue = !fireM ? '—'
+      : !fireM.configured ? (t.kpiSetGoal || 'Set goal')
+      : `${Math.min(100, fireM.progress).toFixed(0)}%`;
+    const fireSub = fireM && fireM.configured
+      ? `${t.kpiFireTarget || 'Target'} ${formatPrice(fireM.fireNumber)} ${sym}`
+      : (t.kpiFireHint || 'Tap to set annual expenses');
+    const fireRing = (fireM && fireM.configured) ? React.createElement('div', {
+      style: {
+        width: '40px', height: '40px', borderRadius: '50%', flexShrink: 0,
+        background: `conic-gradient(${theme.accent} ${Math.min(100, fireM.progress) * 3.6}deg, ${theme.inputBg} 0deg)`,
+        display: 'flex', alignItems: 'center', justifyContent: 'center'
+      }
+    }, React.createElement('div', { style: { width: '30px', height: '30px', borderRadius: '50%', background: theme.card } })) : null;
+    const fireTile = tile({
+      key: 'fire',
+      label: t.kpiFire || 'FIRE Progress',
+      value: fireValue,
+      sub: fireSub,
+      color: fireM && fireM.configured ? theme.accent : theme.textSecondary,
+      ring: fireRing,
+      onClick: () => setEditFire(v => !v)
+    });
+
+    // Dividend income tile
+    const divTile = tile({
+      key: 'div',
+      label: t.kpiDividends || 'Dividend Income',
+      value: (divM && divM.available) ? `${formatPrice(divM.totalAnnual)} ${sym}` : '—',
+      sub: (divM && divM.available)
+        ? `${formatPrice(divM.monthly)} ${sym}/mo · ${divM.yield.toFixed(1)}%`
+        : (t.kpiDividendsNone || 'No dividend payers'),
+      color: (divM && divM.available) ? '#22c55e' : theme.textSecondary,
+      onClick: () => setActiveView('dividends')
+    });
+
+    // Health tile
+    const hScore = healthM && !healthM.empty ? healthM.score : null;
+    const healthTile = tile({
+      key: 'health',
+      label: t.kpiHealth || 'Health Score',
+      value: hScore != null ? String(hScore) : '—',
+      sub: hScore != null ? `${t.healthGrade || 'Grade'} ${healthM.grade}` : null,
+      color: hScore != null ? healthColor(hScore) : theme.textSecondary,
+      ring: hScore != null ? React.createElement('div', {
+        style: {
+          width: '40px', height: '40px', borderRadius: '50%', flexShrink: 0,
+          background: `conic-gradient(${healthColor(hScore)} ${hScore * 3.6}deg, ${theme.inputBg} 0deg)`,
+          display: 'flex', alignItems: 'center', justifyContent: 'center'
+        }
+      }, React.createElement('div', { style: { width: '30px', height: '30px', borderRadius: '50%', background: theme.card } })) : null,
+      onClick: () => setActiveView('health')
+    });
+
+    const labelStyle = { display: 'block', color: theme.textSecondary, fontSize: '0.7rem', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '0.25rem' };
+    const inputStyle = { padding: '0.5rem 0.7rem', background: theme.inputBg, border: `1px solid ${theme.inputBorder}`, borderRadius: '8px', color: theme.text, fontSize: '0.85rem', width: '100%', boxSizing: 'border-box' };
+
+    return React.createElement('div', { style: { marginBottom: '1.5rem' } },
+      React.createElement('div', {
+        style: { display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(190px, 1fr))', gap: '1rem' }
+      }, netWorthTile, fireTile, divTile, healthTile),
+
+      // Inline FIRE setup — no modal, no new view
+      editFire && React.createElement('div', {
+        style: { marginTop: '0.75rem', background: theme.card, border: `1px solid ${theme.accent}44`, borderRadius: '12px', padding: '1rem 1.1rem' }
+      },
+        React.createElement('div', { style: { color: theme.text, fontWeight: '700', fontSize: '0.85rem', marginBottom: '0.75rem' } }, t.fireSetupTitle || 'FIRE planning'),
+        React.createElement('div', { style: { display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(150px, 1fr))', gap: '0.75rem', alignItems: 'end' } },
+          React.createElement('div', null,
+            React.createElement('label', { style: labelStyle }, `${t.fireAnnualExpenses || 'Annual expenses'} (${sym})`),
+            React.createElement('input', {
+              type: 'number', defaultValue: fire.annualExpenses || '', placeholder: '24000',
+              style: inputStyle,
+              onChange: e => setFire(p => ({ ...p, annualExpenses: parseFloat(e.target.value) || 0 }))
+            })
+          ),
+          React.createElement('div', null,
+            React.createElement('label', { style: labelStyle }, `${t.fireWithdrawalRate || 'Withdrawal rate'} (%)`),
+            React.createElement('input', {
+              type: 'number', step: '0.1', defaultValue: fire.withdrawalRate || 4,
+              style: inputStyle,
+              onChange: e => setFire(p => ({ ...p, withdrawalRate: parseFloat(e.target.value) || 4 }))
+            })
+          ),
+          React.createElement('button', {
+            onClick: () => { if (M) M.saveFireSettings(fire); setEditFire(false); },
+            style: { padding: '0.55rem 1.1rem', background: theme.accent, color: '#fff', border: 'none', borderRadius: '8px', cursor: 'pointer', fontWeight: '700', fontSize: '0.85rem' }
+          }, t.save || 'Save')
+        ),
+        fireM && fireM.configured && React.createElement('div', { style: { color: theme.textSecondary, fontSize: '0.78rem', marginTop: '0.75rem' } },
+          `${t.fireMonthlyPassive || 'Passive income at current net worth'}: ${formatPrice(fireM.monthlyPassiveIncome)} ${sym}/mo · ${fireM.coveredExpenseRatio.toFixed(0)}% ${t.fireOfExpenses || 'of expenses'}`
+        )
+      )
+    );
+  };
+
   // ========== OVERVIEW VIEW ==========
-  
+
   const renderOverview = () => {
     // Compute per-portfolio stats for single-portfolio mode
     const selectedPortfolio  = portfolios.find(p => p.id === overviewMode) || portfolios[0];
@@ -1773,6 +1923,15 @@ function InvestmentTracker() {
           undefined, () => setActiveView('transactions')
         )
       ),
+
+      // ── KPI strip: Net Worth · FIRE · Dividend income · Health (V7) ──────
+      window.MaerminMetrics && stats.totalPositions > 0 &&
+        React.createElement(DashboardKpiStrip, {
+          portfolio: overviewPortfolio,
+          prices,
+          portfolioValue: stats.totalValue,
+          theme: currentTheme, t, formatPrice, getCurrencySymbol, setActiveView
+        }),
 
       // ── Chart ────────────────────────────────────────────────────────────
       window.MaerminFeatures6 && stats.totalPositions > 0 &&

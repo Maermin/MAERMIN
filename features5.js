@@ -208,9 +208,17 @@ function NetWorthView({ portfolioStats, theme, formatPrice, getCurrencySymbol })
 
   const LIABILITIES = new Set(['loan','credit','other_liability']);
 
-  const totalAssets      = accounts.filter(a => !LIABILITIES.has(a.type)).reduce((s,a) => s + parseFloat(a.value||0), 0);
-  const totalLiabilities = accounts.filter(a => LIABILITIES.has(a.type)).reduce((s,a) => s + parseFloat(a.value||0), 0);
+  // Net worth comes from the shared metric (single source of truth — see metrics.js),
+  // with an inline fallback if that module hasn't loaded.
   const portfolioValue   = portfolioStats.totalValue;
+  const nw = window.MaerminMetrics
+    ? window.MaerminMetrics.computeNetWorth(portfolioValue, accounts)
+    : {
+        manualAssets: accounts.filter(a => !LIABILITIES.has(a.type)).reduce((s,a) => s + parseFloat(a.value||0), 0),
+        liabilities:  accounts.filter(a =>  LIABILITIES.has(a.type)).reduce((s,a) => s + parseFloat(a.value||0), 0),
+      };
+  const totalAssets      = nw.manualAssets;
+  const totalLiabilities = nw.liabilities;
   const netWorth         = portfolioValue + totalAssets - totalLiabilities;
 
   const addAccount = () => {
