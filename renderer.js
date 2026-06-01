@@ -1637,7 +1637,7 @@ function InvestmentTracker() {
   // into its existing detail view; numbers come from window.MaerminMetrics,
   // which reuses the existing engines (no duplicate logic).
 
-  const DashboardKpiStrip = ({ portfolio, prices, priceHistory, transactions, portfolioValue, theme, t, formatPrice, getCurrencySymbol, setActiveView }) => {
+  const DashboardKpiStrip = ({ portfolio, prices, priceHistory, transactions, portfolioValue, theme, t, formatPrice, getCurrencySymbol, setActiveView, language }) => {
     const M = window.MaerminMetrics;
     const [fire, setFire]         = React.useState(() => (M ? M.loadFireSettings() : { annualExpenses: 0, withdrawalRate: 4 }));
     const [editFire, setEditFire] = React.useState(false);

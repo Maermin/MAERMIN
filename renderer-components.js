@@ -578,11 +578,35 @@ function MonteCarloView({ portfolio, prices, t, theme, currency, formatPrice }) 
 
   const currencySymbol = currency === 'EUR' ? 'EUR' : 'USD';
 
+  // V7: feed the AI copilot the simulation outcome (incl. FIRE probability)
+  // already produced by MonteCarloEngine — no separate forecasting logic.
+  const aiCtx = {
+    title: t.monteCarloSimulation || 'Monte Carlo Simulation',
+    data: results ? {
+      years: config.years,
+      monthlyContribution: config.monthlyContribution,
+      currency: currencySymbol,
+      initialValue: Math.round(results.initialValue),
+      median: Math.round(results.percentiles[50]),
+      pessimistic_p5: Math.round(results.percentiles[5]),
+      optimistic_p95: Math.round(results.percentiles[95]),
+      fire: results.fireTarget ? {
+        probabilityPct: Math.round(results.fireTarget.probability),
+        targetValue: Math.round(results.fireTarget.value),
+        medianReachesYear: results.fireTarget.reachedYear || null,
+      } : null,
+    } : { note: 'No simulation has been run yet — run one first.' },
+  };
+
   return React.createElement('div', { style: { padding: '1.5rem' } },
     // Header
-    React.createElement('h2', {
-      style: { color: theme.text, fontSize: '1.5rem', fontWeight: '600', marginBottom: '1.5rem' }
-    }, t.monteCarloSimulation || 'Monte Carlo Simulation'),
+    React.createElement('div', {
+      style: { display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '1rem', flexWrap: 'wrap', marginBottom: '1.5rem' }
+    },
+      React.createElement('h2', {
+        style: { color: theme.text, fontSize: '1.5rem', fontWeight: '600', margin: 0 }
+      }, t.monteCarloSimulation || 'Monte Carlo Simulation'),
+      window.AICopilot ? React.createElement(window.AICopilot.Button, { theme: theme, t: t, context: aiCtx }) : null),
 
     // Configuration
     React.createElement('div', {

@@ -215,8 +215,26 @@ function RebalancingView({ portfolio, prices, theme, formatPrice, getCurrencySym
     return { cat, current, currentPct, targetPct, targetValue, delta };
   });
 
+  // V7: the AI copilot explains the drift/targets this view already computed.
+  const aiCtx = {
+    title: t.rebalancing || 'Rebalancing',
+    data: {
+      portfolioValue: Math.round(totalValue),
+      plannedInvestment: Math.round(invest),
+      allocations: rows.filter(r => r.targetPct > 0 || r.current > 0).map(r => ({
+        class: r.cat,
+        currentPct: +r.currentPct.toFixed(1),
+        targetPct: r.targetPct,
+        driftPct: +(r.currentPct - r.targetPct).toFixed(1),
+        actionAmount: Math.round(r.delta),
+      })),
+    },
+  };
+
   return React.createElement('div', { style: { padding: '1.5rem' } },
-    React.createElement('h2', { style: { color: theme.text, fontSize: '1.5rem', fontWeight: '700', marginBottom: '1.5rem' } }, (t.rebalancing || 'Rebalancing')),
+    React.createElement('div', { style: { display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '1rem', flexWrap: 'wrap', marginBottom: '1.5rem' } },
+      React.createElement('h2', { style: { color: theme.text, fontSize: '1.5rem', fontWeight: '700', margin: 0 } }, (t.rebalancing || 'Rebalancing')),
+      window.AICopilot ? React.createElement(window.AICopilot.Button, { theme: theme, t: t, context: aiCtx }) : null),
 
     // Target allocation sliders
     React.createElement('div', {

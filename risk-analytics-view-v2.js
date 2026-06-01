@@ -153,10 +153,33 @@ function RiskAnalyticsViewV2(props) {
     );
   }
 
+  // V7: reuse the structural numbers this view already computes as the AI
+  // copilot context — no second risk engine.
+  function riskAiContext() {
+    var M = (typeof window !== 'undefined') && window.MaerminMetrics;
+    var data = {};
+    if (riskMetrics) { data.riskScore = Math.round(riskMetrics.riskScore); data.riskLevel = getRiskLabel(riskMetrics.riskLevel); }
+    if (M) {
+      var conc = M.computeConcentration(portfolio, prices);
+      var drift = M.computeRebalancingDrift(portfolio, prices);
+      var fx = M.computeCurrencyExposure(portfolio, prices, transactions);
+      if (conc.available) data.concentration = { largestPositionPct: Math.round(conc.maxWeight * 100), effectivePositions: +(conc.effectiveN || 0).toFixed(1) };
+      if (drift.available) data.rebalancingDrift = drift.rows.map(function (r) { return { class: r.cls, currentPct: Math.round(r.currentPct), targetPct: Math.round(r.targetPct), driftPct: Math.round(r.drift) }; });
+      if (fx.available) data.currencyExposure = fx.rows.map(function (r) { return { currency: r.currency, pct: Math.round(r.pct) }; });
+    }
+    return { title: t.riskLevel || 'Risk Analytics', data: data };
+  }
+  function riskHeader() {
+    var e = React.createElement;
+    return e('div', { style: { display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '1rem', flexWrap: 'wrap', marginBottom: '1.5rem' } },
+      e('h2', { style: { color: theme.text, fontSize: '1.5rem', fontWeight: '600', margin: 0 } }, t.riskLevel || 'Risk Analytics'),
+      window.AICopilot ? e(window.AICopilot.Button, { theme: theme, t: t, context: riskAiContext() }) : null);
+  }
+
   if (!riskMetrics) {
     // No usable price history yet — still show the structural dimensions.
     return React.createElement('div', { style: { padding: '1.5rem' } },
-      React.createElement('h2', { style: { color: theme.text, fontSize: '1.5rem', fontWeight: '600', marginBottom: '1.5rem' } }, t.riskLevel || 'Risk Analytics'),
+      riskHeader(),
       renderDimensions(),
       React.createElement('div', { style: { background: theme.card, padding: '1.25rem', borderRadius: '12px', border: '1px solid ' + theme.cardBorder, color: theme.textSecondary, fontSize: '0.875rem' } },
         t.riskNeedsHistory || 'Refresh prices a few times to unlock volatility, Value-at-Risk and drawdown — these need a short price history.')
@@ -165,9 +188,7 @@ function RiskAnalyticsViewV2(props) {
 
   return React.createElement('div', { style: { padding: '1.5rem' } },
     // Header
-    React.createElement('h2', {
-      style: { color: theme.text, fontSize: '1.5rem', fontWeight: '600', marginBottom: '1.5rem' }
-    }, t.riskLevel || 'Risk Analytics'),
+    riskHeader(),
 
     // Structural risk dimensions (always shown)
     renderDimensions(),

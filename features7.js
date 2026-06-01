@@ -53,10 +53,33 @@ function PerformanceAttribution({ portfolio, prices, priceHistory, transactions,
 
   if (!attribution.length) return React.createElement('div', { style: { padding: '2rem', textAlign: 'center', color: theme.textSecondary } }, 'No positions to analyze');
 
+  // V7: the AI copilot explains the attribution + return decomposition this
+  // view already computed — it does not recompute any P&L.
+  const aiCtx = {
+    title: t.attributionTitle || 'Performance Attribution',
+    data: {
+      currency: getCurrencySymbol(),
+      totalValue: Math.round(totalVal),
+      bestPerformer: attribution[0] ? { name: attribution[0].name, returnPct: +attribution[0].pct.toFixed(1), pnl: Math.round(attribution[0].pnl) } : null,
+      worstPerformer: { name: attribution[attribution.length - 1].name, returnPct: +attribution[attribution.length - 1].pct.toFixed(1), pnl: Math.round(attribution[attribution.length - 1].pnl) },
+      decomposition: {
+        priceAppreciation: Math.round(totalPnl),
+        dividends: Math.round(dividendsReceived),
+        grossReturn: Math.round(grossReturn),
+        estTaxOnGains: -Math.round(estTaxOnGains),
+        netReturn: Math.round(netReturn),
+      },
+      topPositions: attribution.slice(0, 5).map(p => ({ name: p.name, pnl: Math.round(p.pnl), returnPct: +p.pct.toFixed(1) })),
+    },
+  };
+
   return React.createElement('div', { style: { padding: '1.5rem' } },
-    React.createElement('h2', { style: { color: theme.text, fontSize: '1.35rem', fontWeight: '800', marginBottom: '0.25rem' } }, 'Performance Attribution'),
-    React.createElement('p', { style: { color: theme.textSecondary, fontSize: '0.82rem', marginBottom: '1.5rem' } },
-      'Which positions drove your portfolio gains and losses'),
+    React.createElement('div', { style: { display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: '1rem', flexWrap: 'wrap', marginBottom: '1.5rem' } },
+      React.createElement('div', null,
+        React.createElement('h2', { style: { color: theme.text, fontSize: '1.35rem', fontWeight: '800', marginBottom: '0.25rem' } }, 'Performance Attribution'),
+        React.createElement('p', { style: { color: theme.textSecondary, fontSize: '0.82rem', margin: 0 } },
+          'Which positions drove your portfolio gains and losses')),
+      window.AICopilot ? React.createElement(window.AICopilot.Button, { theme: theme, t: t, context: aiCtx }) : null),
 
     // Summary bar
     React.createElement('div', { style: { display: 'grid', gridTemplateColumns: 'repeat(auto-fit,minmax(160px,1fr))', gap: '1rem', marginBottom: '1.5rem' } },
