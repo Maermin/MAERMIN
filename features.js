@@ -436,7 +436,7 @@ function WatchlistView({ prices, priceHistory, theme, t, addToast }) {
 // ─────────────────────────────────────────────────────────────────────────────
 // 5. PRICE ALERTS VIEW  (persistent, localStorage-based)
 // ─────────────────────────────────────────────────────────────────────────────
-function PriceAlertsView({ prices, theme, t, addToast }) {
+function PriceAlertsView({ prices, theme, t, addToast, portfolio }) {
   const [alerts, setAlerts] = useState(() => {
     try { return JSON.parse(localStorage.getItem('maermin_alerts') || '[]'); } catch { return []; }
   });
@@ -486,10 +486,61 @@ function PriceAlertsView({ prices, theme, t, addToast }) {
     color: theme.text, fontSize: '0.875rem'
   };
 
+  // Smart alerts (V7): portfolio-state alerts derived live from the shared
+  // metrics (concentration, rebalancing drift, FIRE progress) plus upcoming
+  // dividend ex-dates from the existing calendar store. No setup needed.
+  const renderSmartAlerts = () => {
+    const M = window.MaerminMetrics;
+    if (!M || !portfolio) return null;
+    const e = React.createElement;
+    const conc = M.computeConcentration(portfolio, prices);
+    const drift = M.computeRebalancingDrift(portfolio, prices);
+    const pv = drift.available ? drift.total : 0;
+    const fire = M.computeFireMetrics(M.computeNetWorth(pv).netWorth);
+    let divEvents = [];
+    try { divEvents = JSON.parse(localStorage.getItem('maermin_divevents') || '[]'); } catch (e2) {}
+    const today = new Date().toISOString().slice(0, 10);
+    const upcomingDiv = (divEvents || []).filter(d => d.date && d.date >= today).sort((a, b) => a.date.localeCompare(b.date)).slice(0, 3);
+
+    const items = [];
+    if (conc.available && conc.maxWeight > 0.3) {
+      const top = conc.top && conc.top[0];
+      items.push({ sev: 'danger', icon: '◑', title: t.alertConcentration || 'Concentration', msg: (t.alertConcentrationMsg || 'Largest position is {pct}% of the portfolio').replace('{pct}', (conc.maxWeight * 100).toFixed(0)) + (top ? ` (${top.symbol})` : '') });
+    }
+    if (drift.available && drift.maxDrift > 10) {
+      const worst = drift.rows.slice().sort((a, b) => Math.abs(b.drift) - Math.abs(a.drift))[0];
+      items.push({ sev: 'warning', icon: '◐', title: t.alertRebalance || 'Rebalancing', msg: (t.alertRebalanceMsg || 'Allocation has drifted {pct}% from target').replace('{pct}', Math.abs(worst.drift).toFixed(0)) });
+    }
+    if (fire.configured) {
+      items.push({ sev: fire.progress >= 100 ? 'success' : 'info', icon: '◉', title: t.kpiFire || 'FIRE', msg: (t.alertFireMsg || 'FIRE progress: {pct}%').replace('{pct}', Math.min(100, fire.progress).toFixed(0)) });
+    }
+    upcomingDiv.forEach(d => {
+      items.push({ sev: 'info', icon: '◎', title: t.alertDividend || 'Dividend', msg: `${d.symbol || ''} ${t.alertDivEx || 'ex-date'} ${d.date}` });
+    });
+
+    if (!items.length) return null;
+    return e('div', { style: { marginBottom: '1.5rem' } },
+      e('div', { style: { color: theme.textSecondary, fontSize: '0.72rem', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: '0.5rem' } }, t.smartAlerts || 'Smart alerts'),
+      e('div', { style: { display: 'flex', flexDirection: 'column', gap: '0.5rem' } },
+        items.map((it, i) => {
+          const col = it.sev === 'danger' ? (theme.danger || '#ef4444') : it.sev === 'warning' ? (theme.warning || '#f59e0b') : it.sev === 'success' ? (theme.success || '#22c55e') : (theme.accent || '#8b5cf6');
+          return e('div', { key: i, style: { display: 'flex', alignItems: 'center', gap: '0.75rem', padding: '0.75rem 1rem', background: theme.card, border: `1px solid ${theme.cardBorder}`, borderLeft: `4px solid ${col}`, borderRadius: '8px' } },
+            e('span', { style: { color: col, fontSize: '1rem' } }, it.icon),
+            e('div', null,
+              e('div', { style: { color: theme.text, fontWeight: 600, fontSize: '0.85rem' } }, it.title),
+              e('div', { style: { color: theme.textSecondary, fontSize: '0.8rem' } }, it.msg)));
+        })
+      )
+    );
+  };
+
   return React.createElement('div', { style: { padding: '1.5rem' } },
     React.createElement('h2', { style: { color: theme.text, fontSize: '1.5rem', fontWeight: '700', marginBottom: '1.25rem' } },
       (t.priceAlerts || 'Price Alerts')
     ),
+
+    // Smart alerts (computed from portfolio state)
+    renderSmartAlerts(),
 
     // Create alert
     React.createElement('div', { style: { display: 'flex', gap: '0.5rem', marginBottom: '1.5rem', flexWrap: 'wrap' } },

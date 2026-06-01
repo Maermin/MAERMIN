@@ -10,7 +10,7 @@ const { useState, useEffect, useMemo, useCallback, useRef } = React;
 // 1. PERFORMANCE ATTRIBUTION
 // Shows which positions drove portfolio gains/losses (contribution analysis)
 // ─────────────────────────────────────────────────────────────────────────────
-function PerformanceAttribution({ portfolio, prices, priceHistory, transactions, theme, formatPrice, getCurrencySymbol }) {
+function PerformanceAttribution({ portfolio, prices, priceHistory, transactions, theme, formatPrice, getCurrencySymbol, t = {} }) {
   const Green = '#22c55e', Red = '#ef4444';
 
   const attribution = useMemo(() => {
@@ -34,14 +34,52 @@ function PerformanceAttribution({ portfolio, prices, priceHistory, transactions,
   const totalPnl = attribution.reduce((s, p) => s + p.pnl, 0);
   const totalVal = attribution.reduce((s, p) => s + p.value, 0);
 
+  // V7: decompose total return into price appreciation vs dividend income, and
+  // show the tax effect (German flat rate on gains). Dividends come from the
+  // real dividend transactions; price P&L is the attribution total above.
+  const TAX_RATE = 0.26375;
+  const dividendsReceived = (transactions || [])
+    .filter(tx => tx.type === 'dividend' || (tx.notes || '').toLowerCase().includes('dividend'))
+    .reduce((s, tx) => s + (parseFloat(tx.quantity) || 0) * (parseFloat(tx.price) || 0), 0);
+  const grossReturn = totalPnl + dividendsReceived;
+  const estTaxOnGains = totalPnl > 0 ? totalPnl * TAX_RATE : 0;
+  const netReturn = grossReturn - estTaxOnGains;
+  const decompItem = (label, value, color) => React.createElement('div', { key: label },
+    React.createElement('div', { style: { color: theme.textSecondary, fontSize: '0.68rem', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '0.2rem' } }, label),
+    React.createElement('div', { style: { color, fontWeight: 800, fontSize: '1.05rem' } }, `${value >= 0 ? '+' : ''}${formatPrice(value)} ${getCurrencySymbol()}`)
+  );
+
   const catColors = { crypto: '#f59e0b', stocks: '#3b82f6', skins: '#8b5cf6', commodities: '#06b6d4' };
 
   if (!attribution.length) return React.createElement('div', { style: { padding: '2rem', textAlign: 'center', color: theme.textSecondary } }, 'No positions to analyze');
 
+  // V7: the AI copilot explains the attribution + return decomposition this
+  // view already computed — it does not recompute any P&L.
+  const aiCtx = {
+    title: t.attributionTitle || 'Performance Attribution',
+    data: {
+      currency: getCurrencySymbol(),
+      totalValue: Math.round(totalVal),
+      bestPerformer: attribution[0] ? { name: attribution[0].name, returnPct: +attribution[0].pct.toFixed(1), pnl: Math.round(attribution[0].pnl) } : null,
+      worstPerformer: { name: attribution[attribution.length - 1].name, returnPct: +attribution[attribution.length - 1].pct.toFixed(1), pnl: Math.round(attribution[attribution.length - 1].pnl) },
+      decomposition: {
+        priceAppreciation: Math.round(totalPnl),
+        dividends: Math.round(dividendsReceived),
+        grossReturn: Math.round(grossReturn),
+        estTaxOnGains: -Math.round(estTaxOnGains),
+        netReturn: Math.round(netReturn),
+      },
+      topPositions: attribution.slice(0, 5).map(p => ({ name: p.name, pnl: Math.round(p.pnl), returnPct: +p.pct.toFixed(1) })),
+    },
+  };
+
   return React.createElement('div', { style: { padding: '1.5rem' } },
-    React.createElement('h2', { style: { color: theme.text, fontSize: '1.35rem', fontWeight: '800', marginBottom: '0.25rem' } }, 'Performance Attribution'),
-    React.createElement('p', { style: { color: theme.textSecondary, fontSize: '0.82rem', marginBottom: '1.5rem' } },
-      'Which positions drove your portfolio gains and losses'),
+    React.createElement('div', { style: { display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: '1rem', flexWrap: 'wrap', marginBottom: '1.5rem' } },
+      React.createElement('div', null,
+        React.createElement('h2', { style: { color: theme.text, fontSize: '1.35rem', fontWeight: '800', marginBottom: '0.25rem' } }, 'Performance Attribution'),
+        React.createElement('p', { style: { color: theme.textSecondary, fontSize: '0.82rem', margin: 0 } },
+          'Which positions drove your portfolio gains and losses')),
+      window.AICopilot ? React.createElement(window.AICopilot.Button, { theme: theme, t: t, context: aiCtx }) : null),
 
     // Summary bar
     React.createElement('div', { style: { display: 'grid', gridTemplateColumns: 'repeat(auto-fit,minmax(160px,1fr))', gap: '1rem', marginBottom: '1.5rem' } },
@@ -57,6 +95,20 @@ function PerformanceAttribution({ portfolio, prices, priceHistory, transactions,
           )
         )
       )
+    ),
+
+    // Return decomposition (V7): price appreciation vs dividend income, and tax effect
+    React.createElement('div', { style: { background: theme.card, border: `1px solid ${theme.cardBorder}`, borderRadius: '12px', padding: '1.25rem', marginBottom: '1.5rem' } },
+      React.createElement('div', { style: { color: theme.text, fontWeight: 700, fontSize: '0.95rem', marginBottom: '0.875rem' } }, t.attrDecomposition || 'Return decomposition'),
+      React.createElement('div', { style: { display: 'grid', gridTemplateColumns: 'repeat(auto-fit,minmax(130px,1fr))', gap: '1rem' } },
+        decompItem(t.attrPriceReturn || 'Price appreciation', totalPnl, totalPnl >= 0 ? Green : Red),
+        decompItem(t.attrDividends || 'Dividends', dividendsReceived, Green),
+        decompItem(t.attrGross || 'Gross return', grossReturn, grossReturn >= 0 ? Green : Red),
+        decompItem(t.attrTaxEffect || 'Est. tax on gains', -estTaxOnGains, Red),
+        decompItem(t.attrNet || 'Net return', netReturn, netReturn >= 0 ? Green : Red)
+      ),
+      React.createElement('div', { style: { color: theme.textSecondary, fontSize: '0.72rem', marginTop: '0.75rem' } },
+        t.attrTaxNote || 'Tax estimated at the German flat rate on unrealised gains — illustrative, not tax advice.')
     ),
 
     // Attribution waterfall list

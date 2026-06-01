@@ -633,6 +633,92 @@ function SectorAllocationView(props) {
 }
 
 // ============================================================================
+// COUNTRY / REGION ALLOCATION VIEW  (V7 Allocation Intelligence)
+// Extends the existing allocation dashboard with a geographic dimension,
+// using the same AnalysisCard/MetricGrid building blocks as the sector view.
+// ============================================================================
+
+function CountryAllocationView(props) {
+  var portfolio = props.portfolio || {};
+
+  var data = useMemo(function() {
+    // Lightweight static ticker -> country map. Unknown stocks fall back to
+    // "Other"; crypto and CS2 items are borderless, so they get a global bucket.
+    var countryMap = {
+      'AAPL': 'USA', 'MSFT': 'USA', 'GOOGL': 'USA', 'GOOG': 'USA', 'NVDA': 'USA', 'AMZN': 'USA',
+      'TSLA': 'USA', 'META': 'USA', 'JNJ': 'USA', 'PFE': 'USA', 'UNH': 'USA', 'KO': 'USA',
+      'JPM': 'USA', 'BAC': 'USA', 'V': 'USA', 'HD': 'USA', 'XOM': 'USA', 'CVX': 'USA',
+      'DIS': 'USA', 'NFLX': 'USA', 'AMD': 'USA', 'INTC': 'USA', 'PG': 'USA', 'MA': 'USA',
+      'SAP': 'Germany', 'SIE': 'Germany', 'ALV': 'Germany', 'BMW': 'Germany', 'BAS': 'Germany',
+      'VOW3': 'Germany', 'DTE': 'Germany', 'MBG': 'Germany', 'IFX': 'Germany',
+      'ASML': 'Netherlands', 'ADYEN': 'Netherlands',
+      'MC': 'France', 'OR': 'France', 'AIR': 'France', 'TTE': 'France',
+      'NESN': 'Switzerland', 'ROG': 'Switzerland', 'NOVN': 'Switzerland',
+      'AZN': 'UK', 'HSBA': 'UK', 'SHEL': 'UK', 'BP': 'UK', 'ULVR': 'UK',
+      'BABA': 'China', 'TCEHY': 'China', 'NIO': 'China',
+      'TSM': 'Taiwan', 'SONY': 'Japan', 'TM': 'Japan'
+    };
+
+    var buckets = {};
+    var totalValue = 0;
+    function add(country, value) { if (!buckets[country]) buckets[country] = 0; buckets[country] += value; totalValue += value; }
+
+    (portfolio.stocks || []).forEach(function(pos) {
+      var symbol = (pos.symbol || pos.name || '').toUpperCase();
+      var value = (pos.amount || 0) * (pos.currentPrice || pos.purchasePrice || 0);
+      add(countryMap[symbol] || 'Other', value);
+    });
+    (portfolio.crypto || []).forEach(function(pos) {
+      add('Global (Crypto)', (pos.amount || 0) * (pos.currentPrice || pos.purchasePrice || 0));
+    });
+    (portfolio.skins || []).forEach(function(pos) {
+      add('Global (Gaming)', (pos.amount || 0) * (pos.currentPrice || pos.purchasePrice || 0));
+    });
+
+    var rows = Object.keys(buckets).map(function(name) {
+      return { name: name, value: buckets[name], weight: totalValue > 0 ? (buckets[name] / totalValue) * 100 : 0 };
+    }).filter(function(r) { return r.weight > 0; }).sort(function(a, b) { return b.weight - a.weight; });
+
+    return { rows: rows, totalValue: totalValue, count: rows.length };
+  }, [portfolio]);
+
+  var palette = ['#3b82f6', '#22c55e', '#f59e0b', '#ec4899', '#ef4444', '#f97316', '#8b5cf6', '#06b6d4', '#6b7280'];
+  var colorFor = function(i) { return palette[i % palette.length]; };
+
+  return React.createElement('div', { style: { padding: '1rem' } },
+    React.createElement('h2', { style: { color: 'white', marginBottom: '1rem' } }, 'Country / Region Allocation'),
+
+    data.rows.length > 0 ? React.createElement('div', { style: { display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem' } },
+      React.createElement(AnalysisCard, { title: 'Geographic Breakdown', badge: data.count + ' Regions' },
+        data.rows.map(function(row, i) {
+          return React.createElement('div', { key: row.name, style: { marginBottom: '0.75rem' } },
+            React.createElement('div', { style: { display: 'flex', justifyContent: 'space-between', marginBottom: '0.25rem' } },
+              React.createElement('span', { style: { color: 'white', fontSize: '0.875rem' } }, row.name),
+              React.createElement('span', { style: { color: colorFor(i) } }, row.weight.toFixed(1) + '%')),
+            React.createElement('div', { style: { height: '8px', background: 'rgba(255,255,255,0.1)', borderRadius: '4px', overflow: 'hidden' } },
+              React.createElement('div', { style: { height: '100%', width: row.weight + '%', background: colorFor(i), borderRadius: '4px' } })));
+        })
+      ),
+      React.createElement(AnalysisCard, {
+        title: 'Concentration Analysis',
+        badge: data.count < 2 ? 'High Risk' : data.count < 4 ? 'Moderate' : 'Diversified',
+        badgeType: data.count < 2 ? 'warning' : 'positive'
+      },
+        React.createElement(MetricGrid, { metrics: [
+          { label: 'Regions', value: data.count },
+          { label: 'Top Region', value: data.rows[0] ? data.rows[0].name : 'N/A' },
+          { label: 'Top Weight', value: data.rows[0] ? data.rows[0].weight.toFixed(1) + '%' : '0%' },
+          { label: 'Total Value', value: data.totalValue.toFixed(0) + ' EUR' }
+        ] }),
+        data.rows[0] && data.rows[0].weight > 60 && React.createElement('div', { style: { marginTop: '1rem', padding: '0.75rem', background: 'rgba(239,68,68,0.1)', borderRadius: '8px' } },
+          React.createElement('div', { style: { color: '#ef4444', fontWeight: '600', marginBottom: '0.5rem' } }, 'Concentration Warning'),
+          React.createElement('div', { style: { color: 'rgba(255,255,255,0.7)', fontSize: '0.875rem' } }, 'Over 60% in ' + data.rows[0].name + '. Consider geographic diversification.'))
+      )
+    ) : React.createElement('div', { style: { color: 'rgba(255,255,255,0.5)', padding: '2rem', textAlign: 'center' } }, 'Add positions to analyze country allocation')
+  );
+}
+
+// ============================================================================
 // CURRENCY EXPOSURE VIEW
 // ============================================================================
 
@@ -1518,6 +1604,7 @@ function InvestmentAnalysisDashboard(props) {
   var sections = [
     { id: 'dca',      label: 'DCA Strategie',   desc: 'DCA vs. Einmalanlage vergleichen' },
     { id: 'sectors',  label: 'Sektoren',         desc: 'Sektorale Allokation analysieren' },
+    { id: 'countries',label: 'Länder',           desc: 'Geografische Allokation' },
     { id: 'currency', label: 'Währungen',         desc: 'Fremdwährungs-Exposure' },
     { id: 'liquidity',label: 'Liquidität',        desc: 'Position Liquidity Score' },
     { id: 'goals',    label: 'Ziele',             desc: 'Sparziele verfolgen' }
@@ -1543,6 +1630,7 @@ function InvestmentAnalysisDashboard(props) {
     switch(activeSection) {
       case 'dca':      return React.createElement(DCAAnalyzerView, { portfolio: portfolio, priceHistory: priceHistory });
       case 'sectors':  return React.createElement(SectorAllocationView, { portfolio: portfolio });
+      case 'countries':return React.createElement(CountryAllocationView, { portfolio: portfolio });
       case 'currency': return React.createElement(CurrencyExposureView, { portfolio: portfolio });
       case 'liquidity':return React.createElement(LiquidityAnalysisView, { portfolio: portfolio });
       case 'goals':    return React.createElement(GoalInvestingView, { portfolioValue: portfolioValue });
@@ -1571,6 +1659,7 @@ function InvestmentAnalysisDashboard(props) {
 window.InvestmentViews = {
   DCAAnalyzerView: DCAAnalyzerView,
   SectorAllocationView: SectorAllocationView,
+  CountryAllocationView: CountryAllocationView,
   CurrencyExposureView: CurrencyExposureView,
   LiquidityAnalysisView: LiquidityAnalysisView,
   GoalInvestingView: GoalInvestingView,

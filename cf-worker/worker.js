@@ -301,6 +301,35 @@ export default {
     }
 
     // ── Steam Price Lookup (POST) ─────────────────────────────────────────────
+    // ── Broker proxy ─────────────────────────────────────────────────────────
+    // POST /?action=brokerproxy  body: { method, url, headers, body }
+    // Relays a CLIENT-SIGNED request to a whitelisted exchange host so the
+    // browser can bypass the exchange's missing CORS headers. The API secret is
+    // never transmitted — only the signature the client already computed. The
+    // host whitelist keeps this from becoming an open SSRF proxy.
+    if (request.method === 'POST' && action === 'brokerproxy') {
+      const ALLOWED = ['api.binance.com', 'api.kraken.com', 'api.exchange.coinbase.com', 'api.coinbase.com'];
+      let spec;
+      try { spec = await request.json(); } catch { return res(JSON.stringify({ error: 'Invalid JSON body' }), 400, request); }
+      let target;
+      try { target = new URL(spec.url); } catch { return res(JSON.stringify({ error: 'Invalid url' }), 400, request); }
+      if (target.protocol !== 'https:' || !ALLOWED.includes(target.hostname)) {
+        return res(JSON.stringify({ error: 'Host not allowed' }), 403, request);
+      }
+      try {
+        const method = (spec.method || 'GET').toUpperCase();
+        const r = await fetch(target.toString(), {
+          method,
+          headers: spec.headers || {},
+          body: method === 'GET' || method === 'HEAD' ? undefined : (spec.body || ''),
+        });
+        const text = await r.text();
+        return res(JSON.stringify({ status: r.status, ok: r.ok, data: safeJson(text) }), 200, request);
+      } catch (e) {
+        return res(JSON.stringify({ error: 'Upstream fetch failed: ' + (e && e.message) }), 502, request);
+      }
+    }
+
     if (request.method === 'POST') {
       let names;
       try {
@@ -350,6 +379,8 @@ function steamHeaders() {
 }
 
 function sleep(ms) { return new Promise(r => setTimeout(r, ms)); }
+
+function safeJson(text) { try { return JSON.parse(text); } catch { return text; } }
 
 function res(body, status, request) {
   const origin = request.headers.get('Origin') || '*';

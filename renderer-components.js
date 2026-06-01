@@ -558,12 +558,19 @@ function MonteCarloView({ portfolio, prices, t, theme, currency, formatPrice }) 
 
   const runSimulation = () => {
     if (!window.MonteCarloEngine) return;
-    
+
     setIsRunning(true);
-    
+
+    // FIRE target (V7): feed the FIRE number from the shared settings so the
+    // engine also reports the probability of reaching financial independence.
+    const M = window.MaerminMetrics;
+    const fs = M ? M.loadFireSettings() : null;
+    const fireNumber = (fs && fs.annualExpenses > 0) ? fs.annualExpenses * (100 / (fs.withdrawalRate || 4)) : 0;
+    const cfg = fireNumber > 0 ? Object.assign({}, config, { targetValue: fireNumber }) : config;
+
     // Use setTimeout to allow UI to update
     setTimeout(() => {
-      const simResults = window.MonteCarloEngine.runSimulation(portfolio, config);
+      const simResults = window.MonteCarloEngine.runSimulation(portfolio, cfg);
       setResults(simResults);
       setIsRunning(false);
     }, 100);
@@ -571,11 +578,35 @@ function MonteCarloView({ portfolio, prices, t, theme, currency, formatPrice }) 
 
   const currencySymbol = currency === 'EUR' ? 'EUR' : 'USD';
 
+  // V7: feed the AI copilot the simulation outcome (incl. FIRE probability)
+  // already produced by MonteCarloEngine — no separate forecasting logic.
+  const aiCtx = {
+    title: t.monteCarloSimulation || 'Monte Carlo Simulation',
+    data: results ? {
+      years: config.years,
+      monthlyContribution: config.monthlyContribution,
+      currency: currencySymbol,
+      initialValue: Math.round(results.initialValue),
+      median: Math.round(results.percentiles[50]),
+      pessimistic_p5: Math.round(results.percentiles[5]),
+      optimistic_p95: Math.round(results.percentiles[95]),
+      fire: results.fireTarget ? {
+        probabilityPct: Math.round(results.fireTarget.probability),
+        targetValue: Math.round(results.fireTarget.value),
+        medianReachesYear: results.fireTarget.reachedYear || null,
+      } : null,
+    } : { note: 'No simulation has been run yet — run one first.' },
+  };
+
   return React.createElement('div', { style: { padding: '1.5rem' } },
     // Header
-    React.createElement('h2', {
-      style: { color: theme.text, fontSize: '1.5rem', fontWeight: '600', marginBottom: '1.5rem' }
-    }, t.monteCarloSimulation || 'Monte Carlo Simulation'),
+    React.createElement('div', {
+      style: { display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '1rem', flexWrap: 'wrap', marginBottom: '1.5rem' }
+    },
+      React.createElement('h2', {
+        style: { color: theme.text, fontSize: '1.5rem', fontWeight: '600', margin: 0 }
+      }, t.monteCarloSimulation || 'Monte Carlo Simulation'),
+      window.AICopilot ? React.createElement(window.AICopilot.Button, { theme: theme, t: t, context: aiCtx }) : null),
 
     // Configuration
     React.createElement('div', {
@@ -757,6 +788,30 @@ function MonteCarloView({ portfolio, prices, t, theme, currency, formatPrice }) 
           )
         )
       ),
+
+      // FIRE probability (V7) — shown when a FIRE number is configured (dashboard tile)
+      results.fireTarget && React.createElement('div', {
+        style: { background: theme.card, padding: '1.25rem', borderRadius: '12px', border: `1px solid ${theme.cardBorder}`, marginBottom: '1.5rem', display: 'flex', alignItems: 'center', gap: '1.5rem', flexWrap: 'wrap' }
+      },
+        React.createElement('div', { style: { display: 'flex', flexDirection: 'column', alignItems: 'center', minWidth: '120px' } },
+          React.createElement('div', { style: { fontSize: '2.5rem', fontWeight: 800, color: results.fireTarget.probability >= 75 ? theme.success : results.fireTarget.probability >= 40 ? theme.warning : theme.danger } },
+            `${results.fireTarget.probability.toFixed(0)}%`),
+          React.createElement('div', { style: { color: theme.textSecondary, fontSize: '0.8rem' } }, t.fireProbability || 'FIRE probability')
+        ),
+        React.createElement('div', { style: { flex: 1, minWidth: '200px' } },
+          React.createElement('div', { style: { color: theme.text, fontWeight: 600, marginBottom: '0.25rem' } },
+            `${t.kpiFireTarget || 'Target'}: ${formatPrice(results.fireTarget.value)} ${currencySymbol}`),
+          React.createElement('div', { style: { color: theme.textSecondary, fontSize: '0.85rem' } },
+            results.fireTarget.reachedYear
+              ? (t.fireMedianReaches || 'Median path reaches FIRE in year {y}').replace('{y}', results.fireTarget.reachedYear)
+              : (t.fireMedianMisses || 'Median path does not reach FIRE within {n} years').replace('{n}', results.years))
+        )
+      ),
+
+      // FIRE hint when not configured
+      !results.fireTarget && React.createElement('div', {
+        style: { background: theme.inputBg, padding: '0.75rem 1rem', borderRadius: '10px', border: `1px dashed ${theme.cardBorder}`, marginBottom: '1.5rem', color: theme.textSecondary, fontSize: '0.82rem' }
+      }, t.fireConfigureHint || 'Set your annual expenses on the dashboard FIRE tile to see your FIRE probability here.'),
 
       // Goal probabilities
       React.createElement('div', {
