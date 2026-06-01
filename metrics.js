@@ -232,6 +232,51 @@
     return { available: true, rows: rows, total: total, currencyCount: rows.length };
   }
 
+  // Tax-loss harvesting candidates — open positions at an unrealised loss that
+  // could be sold to offset realised gains. Uses the real portfolio (average
+  // cost lives in purchasePrice) + transactions for a 30-day wash-sale flag.
+  // rate defaults to the German flat capital-gains rate (Abgeltungssteuer).
+  function computeTaxLossHarvest(portfolio, prices, transactions, opts) {
+    opts = opts || {};
+    var rate = opts.rate != null ? opts.rate : 0.26375;
+    transactions = transactions || [];
+    var now = Date.now();
+    var recentBuy = {};
+    transactions.forEach(function (tx) {
+      if (tx.type !== 'buy' || !tx.date) return;
+      if ((now - new Date(tx.date).getTime()) / 86400000 <= 30) {
+        recentBuy[(tx.category || '') + '-' + (tx.symbol || '').toLowerCase()] = true;
+      }
+    });
+    var rows = [];
+    ['crypto', 'stocks', 'skins', 'commodities'].forEach(function (cls) {
+      (portfolio[cls] || []).forEach(function (p) {
+        var amount = parseFloat(p.amount) || 0;
+        var price = priceOf(prices, p);
+        var cost = parseFloat(p.purchasePrice) || 0;
+        if (amount <= 0 || price <= 0 || cost <= 0) return;
+        var unrealized = (price - cost) * amount;
+        if (unrealized < 0) {
+          var wash = !!recentBuy[cls + '-' + (p.symbol || p.name || '').toLowerCase()];
+          rows.push({
+            symbol: p.symbol || p.name, cls: cls,
+            unrealizedLoss: unrealized,
+            taxSavings: wash ? 0 : Math.abs(unrealized) * rate,
+            washSale: wash
+          });
+        }
+      });
+    });
+    rows.sort(function (a, b) { return a.unrealizedLoss - b.unrealizedLoss; });
+    return {
+      available: rows.length > 0,
+      rows: rows,
+      totalLoss: rows.reduce(function (s, r) { return s + r.unrealizedLoss; }, 0),
+      totalSavings: rows.reduce(function (s, r) { return s + r.taxSavings; }, 0),
+      rate: rate
+    };
+  }
+
   var api = {
     LIABILITY_TYPES: LIABILITY_TYPES,
     NETWORTH_ACCOUNTS_KEY: NETWORTH_ACCOUNTS_KEY,
@@ -248,7 +293,8 @@
     loadTargets: loadTargets,
     computeConcentration: computeConcentration,
     computeRebalancingDrift: computeRebalancingDrift,
-    computeCurrencyExposure: computeCurrencyExposure
+    computeCurrencyExposure: computeCurrencyExposure,
+    computeTaxLossHarvest: computeTaxLossHarvest
   };
 
   if (typeof window !== 'undefined') window.MaerminMetrics = api;

@@ -1438,17 +1438,57 @@ function InvestmentTracker() {
       }
     }, label);
 
+    // Tax-loss harvesting (V7) — reuses MaerminMetrics; portfolio + exchangeRate
+    // come from the InvestmentTracker closure.
+    const renderHarvest = () => {
+      const M = window.MaerminMetrics;
+      const h = M ? M.computeTaxLossHarvest(portfolio, prices, transactions) : { available: false, rows: [] };
+      const sym = getCurrencySymbol();
+      const sumCard = (label, value, color) => React.createElement('div', { style: { background: theme.card, border: `1px solid ${theme.cardBorder}`, borderRadius: '12px', padding: '1rem 1.25rem' } },
+        React.createElement('div', { style: { color: theme.textSecondary, fontSize: '0.72rem', textTransform: 'uppercase', letterSpacing: '0.05em' } }, label),
+        React.createElement('div', { style: { color, fontSize: '1.4rem', fontWeight: 800 } }, `${formatPrice(value)} ${sym}`));
+      return React.createElement('div', { style: { padding: '1.5rem' } },
+        React.createElement('h2', { style: { color: theme.text, fontSize: '1.5rem', fontWeight: 700, marginBottom: '0.4rem' } }, t.taxHarvestTitle || 'Tax-loss harvesting'),
+        React.createElement('p', { style: { color: theme.textSecondary, fontSize: '0.85rem', marginBottom: '1.25rem' } }, t.taxHarvestSubtitle || 'Positions at an unrealised loss you could realise to offset gains. Estimated at the German flat rate — not tax advice.'),
+        !h.available
+          ? React.createElement('div', { style: { color: theme.textSecondary } }, t.taxHarvestNone || 'No positions are currently at an unrealised loss.')
+          : React.createElement('div', null,
+              React.createElement('div', { style: { display: 'flex', gap: '1rem', marginBottom: '1.25rem', flexWrap: 'wrap' } },
+                sumCard(t.taxHarvestTotalLoss || 'Harvestable loss', h.totalLoss, theme.danger),
+                sumCard(t.taxHarvestTotalSavings || 'Est. tax savings', h.totalSavings, theme.success)
+              ),
+              h.rows.map((r, i) =>
+                React.createElement('div', { key: i, style: { display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '0.75rem 1rem', background: theme.card, border: `1px solid ${theme.cardBorder}`, borderRadius: '10px', marginBottom: '0.5rem' } },
+                  React.createElement('div', null,
+                    React.createElement('span', { style: { color: theme.text, fontWeight: 600 } }, r.symbol),
+                    r.washSale && React.createElement('span', { style: { marginLeft: '0.5rem', fontSize: '0.7rem', padding: '0.1rem 0.5rem', borderRadius: '4px', background: 'rgba(245,158,11,0.2)', color: theme.warning } }, t.taxHarvestWashSale || 'wash-sale risk')
+                  ),
+                  React.createElement('div', { style: { textAlign: 'right' } },
+                    React.createElement('div', { style: { color: theme.danger, fontWeight: 700 } }, `${formatPrice(r.unrealizedLoss)} ${sym}`),
+                    !r.washSale && React.createElement('div', { style: { color: theme.success, fontSize: '0.78rem' } }, `${t.taxHarvestSaves || 'saves'} ~${formatPrice(r.taxSavings)} ${sym}`)
+                  )
+                )
+              )
+            )
+      );
+    };
+
     return React.createElement('div', { style: { display: 'flex', flexDirection: 'column', height: '100%' } },
       React.createElement('div', {
         style: { display: 'flex', gap: '0.375rem', padding: '1rem 1.5rem', borderBottom: `1px solid ${theme.cardBorder}`, flexWrap: 'wrap' }
       },
-        tabBtn('fifo',   'FIFO Cost Basis'),
-        tabBtn('report', 'Tax Report')
+        tabBtn('fifo',   t.taxTabFifo || 'FIFO Cost Basis'),
+        tabBtn('report', t.taxTabReport || 'Tax Report'),
+        tabBtn('realized', t.taxTabRealized || 'Realized vs Unrealized'),
+        tabBtn('harvest', t.taxTabHarvest || 'Tax-loss harvesting')
       ),
       React.createElement('div', { style: { flex: 1, overflow: 'auto' } },
         tab === 'fifo' && window.MaerminFeatures4 ?
           React.createElement(window.MaerminFeatures4.FIFOView, { transactions, prices, theme, formatPrice, getCurrencySymbol }) : null,
-        tab === 'report' ? renderTaxView() : null
+        tab === 'report' ? renderTaxView() : null,
+        tab === 'realized' && window.MaerminFeatures7 ?
+          React.createElement(window.MaerminFeatures7.RealizedUnrealizedView, { transactions, portfolio, prices, theme, formatPrice, getCurrencySymbol, exchangeRate }) : null,
+        tab === 'harvest' ? renderHarvest() : null
       )
     );
   };
