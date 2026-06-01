@@ -1603,7 +1603,7 @@ function InvestmentTracker() {
       case 'alerts':
         return window.MaerminFeatures ?
           React.createElement(window.MaerminFeatures.PriceAlertsView, {
-            prices, theme: currentTheme, t, addToast
+            prices, theme: currentTheme, t, addToast, portfolio
           }) : renderAnalyticsPlaceholder('Preisalarme');
 
       case 'transactions':
