@@ -461,8 +461,26 @@ function PortfolioHistoryChart({ portfolio, prices, transactions, apiKeys, theme
       }
       return { idx, label, x: toX(idx) };
     });
-    return { vals, minV, maxV, range, toX, toY, pts, area, firstV, lastV, change, pct, isUp, yLabels, xLabels };
-  }, [chartData, period, formatPrice]);
+    // V7 timeline markers: place buy / sell / dividend events on the value curve.
+    // Transaction timestamps are already chart points (added when building the
+    // curve), so we just snap each event to its nearest point.
+    const evColor = { buy: '#22c55e', sell: '#ef4444', dividend: '#3b82f6' };
+    const markers = [];
+    (transactions || []).forEach(tx => {
+      const type = tx.type || 'buy';
+      if (!evColor[type] || !tx.date) return;
+      const ts = Math.floor(new Date(tx.date).getTime() / 1000);
+      if (isNaN(ts)) return;
+      let bestI = -1, bestD = Infinity;
+      for (let i = 0; i < chartData.length; i++) {
+        const dd = Math.abs(chartData[i].ts - ts);
+        if (dd < bestD) { bestD = dd; bestI = i; }
+      }
+      if (bestI < 0 || bestD > 4 * 86400) return; // only place near an actual point
+      markers.push({ x: toX(bestI), y: toY(chartData[bestI].value), type, color: evColor[type], symbol: tx.symbol || '', date: tx.date });
+    });
+    return { vals, minV, maxV, range, toX, toY, pts, area, firstV, lastV, change, pct, isUp, yLabels, xLabels, markers };
+  }, [chartData, period, formatPrice, transactions]);
 
   const hovered = hoveredIdx !== null ? chartData[hoveredIdx] : null;
 
@@ -738,6 +756,10 @@ function PortfolioHistoryChart({ portfolio, prices, transactions, apiKeys, theme
       ),
       React.createElement('polygon', { key:'area', points: computed.area, fill:'url(#valGrad)' }),
       React.createElement('polyline', { key:'line', points: computed.pts, fill:'none', stroke: lineColor, strokeWidth:1.75, strokeLinejoin:'round', strokeLinecap:'round' }),
+      // Timeline event markers (buy/sell/dividend) with native tooltips
+      (computed.markers || []).map((m, i) =>
+        React.createElement('circle', { key:'mk'+i, cx:m.x, cy:m.y, r:3.2, fill:m.color, stroke:theme.card, strokeWidth:1.4 },
+          React.createElement('title', null, `${m.type.toUpperCase()}${m.symbol ? ' ' + m.symbol : ''} · ${m.date}`))),
     ];
     if (hovered) {
       children.push(
@@ -927,9 +949,17 @@ function PortfolioHistoryChart({ portfolio, prices, transactions, apiKeys, theme
       computed && !error && React.createElement('div', {
         style: { display:'flex', alignItems:'center', justifyContent:'space-between', flexWrap:'wrap', padding:'0.5rem 1.25rem 0.75rem', gap:'0.75rem' }
       },
-        computed && React.createElement('div', { style:{display:'flex',alignItems:'center',gap:'0.375rem',fontSize:'0.68rem',color:theme.textSecondary} },
-          React.createElement('div', { style:{width:20,height:2,background:lineColor,borderRadius:1} }),
-          `Period start: ${formatPrice(computed.firstV)} ${getCurrencySymbol()}`
+        computed && React.createElement('div', { style:{display:'flex',alignItems:'center',gap:'0.75rem',flexWrap:'wrap',fontSize:'0.68rem',color:theme.textSecondary} },
+          React.createElement('span', { style:{display:'flex',alignItems:'center',gap:'0.375rem'} },
+            React.createElement('div', { style:{width:20,height:2,background:lineColor,borderRadius:1} }),
+            `Period start: ${formatPrice(computed.firstV)} ${getCurrencySymbol()}`
+          ),
+          // Timeline marker legend
+          computed.markers && computed.markers.length > 0 &&
+            [['Buy','#22c55e'],['Sell','#ef4444'],['Dividend','#3b82f6']].map(([label,c]) =>
+              React.createElement('span', { key:label, style:{display:'flex',alignItems:'center',gap:'0.3rem'} },
+                React.createElement('span', { style:{width:8,height:8,borderRadius:'50%',background:c,display:'inline-block'} }),
+                label))
         ),
         !hasWorker && React.createElement('div', { style:{fontSize:'0.68rem',color:theme.accent} },
           '→ Add Worker URL for stocks & CS2 history'
