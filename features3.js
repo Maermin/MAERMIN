@@ -189,7 +189,7 @@ function DailyPnLCard({ portfolio, priceHistory, theme, formatPrice, getCurrency
 // 3. POSITION DETAIL MODAL
 // Click any position → full breakdown: all transactions, avg cost, CAGR, fees
 // ─────────────────────────────────────────────────────────────────────────────
-function PositionDetailModal({ position, transactions, prices, theme, formatPrice, getCurrencySymbol, onClose }) {
+function PositionDetailModal({ position, transactions, prices, theme, formatPrice, getCurrencySymbol, onClose, t = {} }) {
   if (!position) return null;
 
   // Filter transactions for this position
@@ -229,6 +229,28 @@ function PositionDetailModal({ position, transactions, prices, theme, formatPric
 
     return { totalBought, totalSold, totalInvested, totalFees, avgCost, currentPrice, currentValue, unrealizedPL, unrealizedPct, cagr, firstBuyDate };
   }, [posTxs, prices, position]);
+
+  // V7 investment journal — structured per-position notes (thesis, target,
+  // notes, reviews) in maermin_journal. Integrated here instead of a separate
+  // module; the standalone notes view will fold into this.
+  const jKey = `${position.cat}-${(position.sym || '').toLowerCase()}`;
+  const [journalAll, setJournalAll] = useState(() => {
+    try { return JSON.parse(localStorage.getItem('maermin_journal') || '{}'); } catch (e) { return {}; }
+  });
+  const j = journalAll[jKey] || { thesis: '', target: '', notes: '', reviews: [] };
+  const saveJournal = (patch) => {
+    const next = { ...journalAll, [jKey]: { thesis: j.thesis, target: j.target, notes: j.notes, reviews: j.reviews || [], ...patch, updatedAt: new Date().toISOString() } };
+    setJournalAll(next);
+    try { localStorage.setItem('maermin_journal', JSON.stringify(next)); } catch (e) {}
+  };
+  const [reviewDraft, setReviewDraft] = useState('');
+  const addReview = () => {
+    if (!reviewDraft.trim()) return;
+    saveJournal({ reviews: [{ date: new Date().toISOString().slice(0, 10), text: reviewDraft.trim() }, ...(j.reviews || [])] });
+    setReviewDraft('');
+  };
+  const jLabel = { display: 'block', color: theme.textSecondary, fontSize: '0.68rem', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '0.25rem' };
+  const jInput = { width: '100%', boxSizing: 'border-box', padding: '0.5rem 0.7rem', background: theme.inputBg, border: `1px solid ${theme.inputBorder || theme.cardBorder}`, borderRadius: '8px', color: theme.text, fontSize: '0.82rem', fontFamily: 'inherit' };
 
   const row = (label, value, color = theme.text, mono = false) =>
     React.createElement('div', {
@@ -332,6 +354,33 @@ function PositionDetailModal({ position, transactions, prices, theme, formatPric
                 );
               })
             )
+      ),
+
+      // Investment journal (V7): thesis, target, notes, dated reviews
+      React.createElement('div', { style: { padding: '1.25rem 1.5rem', borderTop: `1px solid ${theme.modalBorder}` } },
+        React.createElement('div', { style: { color: theme.text, fontWeight: '700', fontSize: '0.875rem', marginBottom: '0.75rem' } }, t.journalTitle || 'Investment journal'),
+        React.createElement('div', { style: { display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.75rem', marginBottom: '0.75rem' } },
+          React.createElement('div', null,
+            React.createElement('label', { style: jLabel }, t.journalThesis || 'Investment thesis'),
+            React.createElement('textarea', { value: j.thesis, onChange: e => saveJournal({ thesis: e.target.value }), placeholder: t.journalThesisPh || 'Why do you hold this?', style: { ...jInput, minHeight: '52px', resize: 'vertical' } })
+          ),
+          React.createElement('div', null,
+            React.createElement('label', { style: jLabel }, t.journalTarget || 'Target / exit'),
+            React.createElement('textarea', { value: j.target, onChange: e => saveJournal({ target: e.target.value }), placeholder: t.journalTargetPh || 'Price target, exit plan...', style: { ...jInput, minHeight: '52px', resize: 'vertical' } })
+          )
+        ),
+        React.createElement('label', { style: jLabel }, t.journalNotes || 'Notes'),
+        React.createElement('textarea', { value: j.notes, onChange: e => saveJournal({ notes: e.target.value }), placeholder: t.journalNotesPh || 'Free notes...', style: { ...jInput, minHeight: '60px', resize: 'vertical', marginBottom: '0.75rem' } }),
+        React.createElement('label', { style: jLabel }, t.journalReviews || 'Reviews'),
+        React.createElement('div', { style: { display: 'flex', gap: '0.5rem', marginBottom: '0.5rem' } },
+          React.createElement('input', { value: reviewDraft, onChange: e => setReviewDraft(e.target.value), onKeyDown: e => { if (e.key === 'Enter') addReview(); }, placeholder: t.journalAddReview || 'Add a dated review...', style: { ...jInput, flex: 1 } }),
+          React.createElement('button', { onClick: addReview, style: { padding: '0.5rem 0.9rem', background: theme.accent, color: '#fff', border: 'none', borderRadius: '8px', cursor: 'pointer', fontWeight: 600, fontSize: '0.82rem' } }, '+')
+        ),
+        (j.reviews || []).length > 0 && React.createElement('div', { style: { display: 'flex', flexDirection: 'column', gap: '0.4rem' } },
+          j.reviews.map((rv, i) => React.createElement('div', { key: i, style: { fontSize: '0.8rem', borderLeft: `2px solid ${theme.cardBorder}`, paddingLeft: '0.6rem' } },
+            React.createElement('span', { style: { color: theme.textSecondary, fontWeight: 600, marginRight: '0.4rem' } }, rv.date),
+            React.createElement('span', { style: { color: theme.text } }, rv.text)))
+        )
       )
     )
   );
@@ -452,6 +501,7 @@ function EnhancedPositionsTable({ portfolio, prices, priceHistory, transactions,
       theme,
       formatPrice,
       getCurrencySymbol,
+      t,
       onClose: () => setDetailPosition(null)
     }),
 
