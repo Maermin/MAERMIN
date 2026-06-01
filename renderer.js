@@ -1154,10 +1154,10 @@ function InvestmentTracker() {
   }, [commands]);
 
   // ========== DATA MANAGEMENT VIEW (Import / Export / Backup) ═══════════════
-  const DataManagementView = ({ transactions, setTransactions, createBackup, exportData, theme, t, addToast, formatPrice }) => {
+  const DataManagementView = ({ transactions, setTransactions, createBackup, exportData, theme, t, addToast, formatPrice, initialSection }) => {
     const [importText, setImportText] = React.useState('');
     const [importing, setImporting]   = React.useState(false);
-    const [section, setSection]       = React.useState('export'); // 'export' | 'import' | 'broker'
+    const [section, setSection]       = React.useState(initialSection || 'export'); // 'export' | 'import' | 'broker'
 
     const handleImport = async () => {
       if (!importText.trim()) { addToast('Paste JSON or CSV data first', 'error'); return; }
@@ -1572,7 +1572,9 @@ function InvestmentTracker() {
       case 'broker-import':
         return React.createElement(DataManagementView, {
           transactions, setTransactions, createBackup, exportData,
-          theme: currentTheme, t, addToast, formatPrice
+          theme: currentTheme, t, addToast, formatPrice,
+          // Broker-Import nav entry deep-links straight to the wizard tab.
+          initialSection: activeView === 'broker-import' ? 'broker' : 'export'
         });
 
       case 'journal':
