@@ -585,6 +585,7 @@ const BROKERS = [
   { id: 'getquin',            name: 'getquin',              hint: 'Kein CSV-Export möglich',      category: 'Portfolio Tracker', noExport: true },
   { id: 'degiro',             name: 'DEGIRO',               hint: 'Transaktionen.csv',            category: 'Broker' },
   { id: 'tradeRepublic',      name: 'Trade Republic',       hint: 'Transaktionshistorie CSV',     category: 'Broker' },
+  { id: 'scalable',           name: 'Scalable Capital',     hint: 'Transaktionsreport CSV',       category: 'Broker' },
   { id: 'interactiveBrokers', name: 'Interactive Brokers',  hint: 'Activity Statement CSV',       category: 'Broker' },
   { id: 'coinbase',           name: 'Coinbase',             hint: 'Standard CSV-Export',          category: 'Krypto' },
   { id: 'binance',            name: 'Binance',              hint: 'Trade History CSV',            category: 'Krypto' },
@@ -598,9 +599,14 @@ function BrokerImportWizard({ theme, t, addToast, onImport }) {
   const [rawData, setRawData]       = useState('');
   const [parsed, setParsed]         = useState([]);
   const [fileName, setFileName]     = useState('');
+  const [apiCreds, setApiCreds]     = useState({});
+  const [apiProxy, setApiProxy]     = useState(() => (window.BrokerConnectors ? window.BrokerConnectors.getProxy() : ''));
+  const [apiBusy, setApiBusy]       = useState(false);
   const fileRef = useRef();
 
   const selectedBrokerObj = BROKERS.find(b => b.id === selectedBroker);
+  const apiConn = window.BrokerConnectors ? window.BrokerConnectors.get(selectedBroker) : null;
+  const apiSupported = !!(apiConn && apiConn.api);
 
   const handleFile = (file) => {
     if (!file) return;
@@ -638,7 +644,25 @@ function BrokerImportWizard({ theme, t, addToast, onImport }) {
     addToast && addToast(`${parsed.length} Transaktionen importiert`, 'success');
   };
 
-  const reset = () => { setStep(0); setBroker(null); setRawData(''); setParsed([]); setFileName(''); };
+  const reset = () => { setStep(0); setBroker(null); setRawData(''); setParsed([]); setFileName(''); setApiCreds({}); };
+
+  // API sync: pull trades straight from the exchange via window.BrokerConnectors
+  // and feed them into the SAME preview/import flow the CSV path uses.
+  const handleApiSync = async () => {
+    const BC = window.BrokerConnectors;
+    if (!BC) { addToast && addToast('Broker-Connectors nicht geladen', 'error'); return; }
+    BC.setProxy(apiProxy);
+    setApiBusy(true);
+    try {
+      const txs = await BC.fetchTransactions(selectedBroker, apiCreds);
+      if (!txs.length) addToast && addToast('Keine Trades über die API gefunden', 'warning');
+      setParsed(txs);
+      setFileName((selectedBrokerObj ? selectedBrokerObj.name : 'Exchange') + ' API');
+      setStep(2);
+    } catch (e) {
+      addToast && addToast('API-Sync fehlgeschlagen: ' + (e && e.message || e), 'error');
+    } finally { setApiBusy(false); }
+  };
 
   const btn = (label, onClick, primary=false, disabled=false) =>
     React.createElement('button', {
@@ -756,6 +780,40 @@ function BrokerImportWizard({ theme, t, addToast, onImport }) {
 
     // ── Step 1: Generic file upload ──────────────────────────────────────────
     step === 1 && selectedBroker !== 'getquin' && selectedBroker !== 'cointracking' && React.createElement('div', null,
+      // API sync (read-only) for exchanges that expose a signed REST API.
+      apiSupported && React.createElement('div', {
+        style: { background: 'rgba(139,92,246,0.06)', border: '1px solid rgba(139,92,246,0.25)', borderRadius: '12px', padding: '1.25rem', marginBottom: '1.25rem' }
+      },
+        React.createElement('div', { style: { color: theme.text, fontWeight: '700', marginBottom: '0.35rem' } }, '⚡ ' + (selectedBrokerObj ? selectedBrokerObj.name : '') + ' API-Sync'),
+        React.createElement('p', { style: { color: theme.textSecondary, fontSize: '0.78rem', lineHeight: '1.6', marginBottom: '0.9rem' } },
+          'Read-only API-Schlüssel verwenden (keine Trade-/Withdraw-Rechte). Der Secret-Key wird lokal zum Signieren genutzt und niemals übertragen — nur die fertige Signatur geht ggf. über deinen Proxy.'),
+        apiConn.fields.map(f =>
+          React.createElement('div', { key: f.key, style: { marginBottom: '0.6rem' } },
+            React.createElement('label', { style: { display: 'block', color: theme.textSecondary, fontSize: '0.72rem', marginBottom: '0.25rem' } }, f.label),
+            React.createElement('input', {
+              type: f.secret ? 'password' : 'text',
+              value: apiCreds[f.key] || '',
+              placeholder: f.placeholder || '',
+              autoComplete: 'off',
+              onChange: e => { const v = e.target.value; setApiCreds(prev => Object.assign({}, prev, { [f.key]: v })); },
+              style: { width: '100%', boxSizing: 'border-box', padding: '0.55rem 0.7rem', background: theme.inputBg, border: `1px solid ${theme.inputBorder}`, borderRadius: '8px', color: theme.text, fontSize: '0.85rem' }
+            })
+          )
+        ),
+        React.createElement('div', { style: { marginBottom: '0.6rem' } },
+          React.createElement('label', { style: { display: 'block', color: theme.textSecondary, fontSize: '0.72rem', marginBottom: '0.25rem' } }, 'Proxy-URL (optional, gegen CORS im Browser)'),
+          React.createElement('input', {
+            type: 'text', value: apiProxy, placeholder: 'https://your-worker.workers.dev', autoComplete: 'off',
+            onChange: e => setApiProxy(e.target.value),
+            style: { width: '100%', boxSizing: 'border-box', padding: '0.55rem 0.7rem', background: theme.inputBg, border: `1px solid ${theme.inputBorder}`, borderRadius: '8px', color: theme.text, fontSize: '0.85rem' }
+          })
+        ),
+        React.createElement('button', {
+          onClick: handleApiSync, disabled: apiBusy || !apiCreds.key || !apiCreds.secret,
+          style: { padding: '0.6rem 1.2rem', border: 'none', borderRadius: '8px', cursor: (apiBusy || !apiCreds.key || !apiCreds.secret) ? 'not-allowed' : 'pointer', fontWeight: '600', fontSize: '0.85rem', opacity: (apiBusy || !apiCreds.key || !apiCreds.secret) ? 0.5 : 1, background: theme.accent, color: '#fff' }
+        }, apiBusy ? '◎ Synchronisiere…' : '⚡ Über API synchronisieren'),
+        React.createElement('div', { style: { textAlign: 'center', color: theme.textSecondary, fontSize: '0.72rem', margin: '0.9rem 0 0' } }, '— oder CSV importieren —')
+      ),
       React.createElement('div', {
         onDrop: handleDrop, onDragOver: e => e.preventDefault(),
         onClick: () => fileRef.current?.click(),
