@@ -1551,7 +1551,7 @@ function InvestmentTracker() {
         return window.MaerminFeatures7 ?
           React.createElement(window.MaerminFeatures7.PerformanceAttribution, {
             portfolio, prices, priceHistory, transactions: activeTransactions,
-            theme: currentTheme, formatPrice, getCurrencySymbol
+            theme: currentTheme, formatPrice, getCurrencySymbol, t
           }) : renderAnalyticsPlaceholder('Attribution');
 
       case 'realized':
