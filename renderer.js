@@ -2036,7 +2036,7 @@ function InvestmentTracker() {
           React.createElement(window.StressTestView, { portfolio, prices, t, theme: currentTheme, currency, formatPrice })
           : renderAnalyticsPlaceholder('Stress-Test');
         case 'risk': return window.RiskAnalyticsViewV2 ?
-          React.createElement(window.RiskAnalyticsViewV2, { portfolio, prices, priceHistory, t, theme: currentTheme, formatPrice })
+          React.createElement(window.RiskAnalyticsViewV2, { portfolio, prices, priceHistory, transactions: activeTransactions, setActiveView, t, theme: currentTheme, formatPrice })
           : renderAnalyticsPlaceholder('Risikoanalyse');
         default: return null;
       }

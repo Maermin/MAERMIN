@@ -10,7 +10,9 @@ function RiskAnalyticsViewV2(props) {
   var t = props.t || {};
   var theme = props.theme || {};
   var formatPrice = props.formatPrice || function(v) { return v.toFixed(2); };
-  
+  var transactions = props.transactions || [];
+  var setActiveView = props.setActiveView;
+
   var useState = React.useState;
   var useEffect = React.useEffect;
   var useMemo = React.useMemo;
@@ -85,18 +87,91 @@ function RiskAnalyticsViewV2(props) {
     return labels[level] || level;
   };
   
-  if (!riskMetrics) {
-    return React.createElement('div', {
-      style: { padding: '2rem', textAlign: 'center', color: theme.textSecondary }
-    }, t.loading || 'Loading...');
+  // ── Structural risk dimensions (V7) — concentration, rebalancing drift and
+  //    currency exposure. These need no price history, so they render even
+  //    before volatility/VaR can be measured. All numbers come from the shared
+  //    MaerminMetrics service (reuses PortfolioHealth HHI, the RebalancingView
+  //    targets, and real transaction currencies).
+  function renderDimensions() {
+    var M = (typeof window !== 'undefined') && window.MaerminMetrics;
+    if (!M) return null;
+    var e = React.createElement;
+    var conc = M.computeConcentration(portfolio, prices);
+    var drift = M.computeRebalancingDrift(portfolio, prices);
+    var fx = M.computeCurrencyExposure(portfolio, prices, transactions);
+
+    var clsLabel = function (c) { var m = { crypto: t.crypto || 'Crypto', stocks: t.stocks || 'Stocks', skins: t.cs2Skins || 'CS2 Items', commodities: t.commodities || 'Commodities' }; return m[c] || c; };
+    var driftColor = function (d) { var a = Math.abs(d); return a < 5 ? (theme.success || '#22c55e') : a < 12 ? (theme.warning || '#f59e0b') : (theme.danger || '#ef4444'); };
+    var box = function (children) { return e('div', { style: { background: theme.card, padding: '1.25rem', borderRadius: '12px', border: '1px solid ' + theme.cardBorder } }, children); };
+    var head = function (label, view) {
+      var clickable = !!(view && setActiveView);
+      return e('div', {
+        onClick: clickable ? function () { setActiveView(view); } : undefined,
+        style: { display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.75rem', cursor: clickable ? 'pointer' : 'default' }
+      },
+        e('span', { style: { color: theme.text, fontWeight: 600, fontSize: '0.95rem' } }, label),
+        clickable ? e('span', { style: { color: theme.textSecondary, fontSize: '0.82rem' } }, (t.healthOpenView || 'Open') + ' ›') : null);
+    };
+    var noData = e('div', { style: { color: theme.textSecondary, fontSize: '0.85rem' } }, t.noData || 'No data');
+
+    return e('div', { style: { display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(260px, 1fr))', gap: '1rem', marginBottom: '1.5rem' } },
+      box([
+        head(t.riskConcentration || 'Concentration risk', 'health'),
+        conc.available
+          ? e('div', { key: 'c' },
+              e('div', { style: { display: 'flex', alignItems: 'baseline', gap: '0.5rem' } },
+                e('span', { style: { fontSize: '1.6rem', fontWeight: 800, color: conc.maxWeight > 0.3 ? (theme.danger || '#ef4444') : theme.text } }, (conc.maxWeight * 100).toFixed(0) + '%'),
+                e('span', { style: { color: theme.textSecondary, fontSize: '0.8rem' } }, t.riskLargestPosition || 'largest position')),
+              e('div', { style: { color: theme.textSecondary, fontSize: '0.8rem', marginTop: '0.35rem' } }, (conc.effectiveN || 0).toFixed(1) + ' ' + (t.healthEffectivePositions || 'effective positions')))
+          : noData
+      ]),
+      box([
+        head(t.riskDrift || 'Rebalancing drift', 'rebalancing'),
+        drift.available
+          ? e('div', { key: 'd' }, drift.rows.map(function (r) {
+              return e('div', { key: r.cls, style: { display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.4rem', fontSize: '0.8rem' } },
+                e('span', { style: { color: theme.textSecondary } }, clsLabel(r.cls)),
+                e('span', { style: { color: theme.text } },
+                  r.currentPct.toFixed(0) + '% / ' + r.targetPct.toFixed(0) + '% ',
+                  e('span', { style: { color: driftColor(r.drift), fontWeight: 700 } }, (r.drift >= 0 ? '+' : '') + r.drift.toFixed(0) + '%')));
+            }))
+          : noData
+      ]),
+      box([
+        head(t.riskCurrency || 'Currency exposure', null),
+        fx.available
+          ? e('div', { key: 'f' }, fx.rows.map(function (r) {
+              return e('div', { key: r.currency, style: { marginBottom: '0.5rem' } },
+                e('div', { style: { display: 'flex', justifyContent: 'space-between', fontSize: '0.8rem', marginBottom: '0.2rem' } },
+                  e('span', { style: { color: theme.text, fontWeight: 600 } }, r.currency),
+                  e('span', { style: { color: theme.textSecondary } }, r.pct.toFixed(0) + '%')),
+                e('div', { style: { height: '6px', background: theme.inputBg, borderRadius: '3px', overflow: 'hidden' } },
+                  e('div', { style: { height: '100%', width: r.pct + '%', background: theme.accent, borderRadius: '3px' } })));
+            }))
+          : noData
+      ])
+    );
   }
-  
+
+  if (!riskMetrics) {
+    // No usable price history yet — still show the structural dimensions.
+    return React.createElement('div', { style: { padding: '1.5rem' } },
+      React.createElement('h2', { style: { color: theme.text, fontSize: '1.5rem', fontWeight: '600', marginBottom: '1.5rem' } }, t.riskLevel || 'Risk Analytics'),
+      renderDimensions(),
+      React.createElement('div', { style: { background: theme.card, padding: '1.25rem', borderRadius: '12px', border: '1px solid ' + theme.cardBorder, color: theme.textSecondary, fontSize: '0.875rem' } },
+        t.riskNeedsHistory || 'Refresh prices a few times to unlock volatility, Value-at-Risk and drawdown — these need a short price history.')
+    );
+  }
+
   return React.createElement('div', { style: { padding: '1.5rem' } },
     // Header
     React.createElement('h2', {
       style: { color: theme.text, fontSize: '1.5rem', fontWeight: '600', marginBottom: '1.5rem' }
     }, t.riskLevel || 'Risk Analytics'),
-    
+
+    // Structural risk dimensions (always shown)
+    renderDimensions(),
+
     // Risk Score Card
     React.createElement('div', {
       style: {

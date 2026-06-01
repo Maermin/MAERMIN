@@ -161,6 +161,77 @@
     catch (e) { return null; }
   }
 
+  // ---- Allocation / risk dimensions ---------------------------------------
+  function priceOf(prices, pos) {
+    var s = pos.symbol || pos.name || '';
+    return prices[s] || prices[s.toLowerCase()] || prices[s.toUpperCase()] || pos.currentPrice || 0;
+  }
+  function classValue(portfolio, prices, cls) {
+    return (portfolio[cls] || []).reduce(function (sum, p) {
+      return sum + (parseFloat(p.amount) || 0) * priceOf(prices, p);
+    }, 0);
+  }
+
+  // Concentration — reuses PortfolioHealth's HHI math (no second implementation).
+  function computeConcentration(portfolio, prices) {
+    var ph = (typeof window !== 'undefined') && window.PortfolioHealth;
+    if (!ph || typeof ph.computeHealth !== 'function') return { available: false, maxWeight: 0, effectiveN: 0, top: [] };
+    try {
+      var h = ph.computeHealth(portfolio, prices, {});
+      if (!h || h.empty) return { available: false, maxWeight: 0, effectiveN: 0, top: [] };
+      return { available: true, maxWeight: h.maxWeight, effectiveN: h.effectiveN, classCount: h.classCount, top: h.top || [] };
+    } catch (e) { return { available: false, maxWeight: 0, effectiveN: 0, top: [] }; }
+  }
+
+  // Rebalancing drift vs the targets RebalancingView stores (same localStorage key).
+  var REBAL_TARGETS_KEY = 'maermin_targets';
+  var DEFAULT_TARGETS = { crypto: 35, stocks: 45, skins: 10, commodities: 10 };
+  function loadTargets() {
+    try {
+      var saved = JSON.parse(localStorage.getItem(REBAL_TARGETS_KEY) || 'null');
+      return saved && typeof saved === 'object' ? Object.assign({}, DEFAULT_TARGETS, saved) : Object.assign({}, DEFAULT_TARGETS);
+    } catch (e) { return Object.assign({}, DEFAULT_TARGETS); }
+  }
+  function computeRebalancingDrift(portfolio, prices, targets) {
+    targets = targets || loadTargets();
+    var classes = ['crypto', 'stocks', 'skins', 'commodities'];
+    var values = {}, total = 0;
+    classes.forEach(function (c) { values[c] = classValue(portfolio, prices, c); total += values[c]; });
+    if (total <= 0) return { available: false, rows: [], maxDrift: 0 };
+    var rows = classes.map(function (c) {
+      var currentPct = (values[c] / total) * 100;
+      var targetPct = targets[c] || 0;
+      return { cls: c, currentPct: currentPct, targetPct: targetPct, drift: currentPct - targetPct, value: values[c] };
+    }).filter(function (r) { return r.value > 0 || r.targetPct > 0; });
+    var maxDrift = rows.reduce(function (m, r) { return Math.max(m, Math.abs(r.drift)); }, 0);
+    return { available: true, rows: rows, maxDrift: maxDrift, total: total };
+  }
+
+  // Currency exposure — uses each position's transaction currency (real data),
+  // falling back to a per-class default only when a position has no dated tx.
+  function computeCurrencyExposure(portfolio, prices, transactions) {
+    transactions = transactions || [];
+    var curByKey = {};
+    transactions.forEach(function (tx) {
+      var key = (tx.category || 'crypto') + '-' + (tx.symbol || '').toLowerCase();
+      if (tx.currency && !curByKey[key]) curByKey[key] = tx.currency;
+    });
+    var byCur = {}, total = 0;
+    ['crypto', 'stocks', 'skins', 'commodities'].forEach(function (cls) {
+      (portfolio[cls] || []).forEach(function (p) {
+        var val = (parseFloat(p.amount) || 0) * priceOf(prices, p);
+        if (val <= 0) return;
+        var cur = curByKey[cls + '-' + (p.symbol || '').toLowerCase()] || ((cls === 'crypto' || cls === 'skins') ? 'USD' : 'EUR');
+        byCur[cur] = (byCur[cur] || 0) + val;
+        total += val;
+      });
+    });
+    if (total <= 0) return { available: false, rows: [], currencyCount: 0 };
+    var rows = Object.keys(byCur).map(function (c) { return { currency: c, value: byCur[c], pct: (byCur[c] / total) * 100 }; })
+      .sort(function (a, b) { return b.value - a.value; });
+    return { available: true, rows: rows, total: total, currencyCount: rows.length };
+  }
+
   var api = {
     LIABILITY_TYPES: LIABILITY_TYPES,
     NETWORTH_ACCOUNTS_KEY: NETWORTH_ACCOUNTS_KEY,
@@ -172,7 +243,12 @@
     saveFireSettings: saveFireSettings,
     computeFireMetrics: computeFireMetrics,
     computeExpectedAnnualDividends: computeExpectedAnnualDividends,
-    healthScore: healthScore
+    healthScore: healthScore,
+    REBAL_TARGETS_KEY: REBAL_TARGETS_KEY,
+    loadTargets: loadTargets,
+    computeConcentration: computeConcentration,
+    computeRebalancingDrift: computeRebalancingDrift,
+    computeCurrencyExposure: computeCurrencyExposure
   };
 
   if (typeof window !== 'undefined') window.MaerminMetrics = api;
