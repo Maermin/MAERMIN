@@ -96,6 +96,24 @@ function runMonteCarloSimulation(portfolio, config) {
   // Calculate goal probabilities
   const goalProbabilities = calculateGoalProbabilities(finalValues, portfolioValue);
 
+  // FIRE / custom target (V7): when a targetValue is supplied (e.g. the FIRE
+  // number), report the chance of reaching it and the first year the median
+  // path crosses it. Reuses the values/snapshots already computed above.
+  let fireTarget = null;
+  if (config.targetValue && config.targetValue > 0) {
+    const tv = config.targetValue;
+    const reached = finalValues.filter(v => v >= tv).length;
+    let reachedYear = null;
+    Object.keys(yearlyPercentiles)
+      .map(Number).sort((a, b) => a - b)
+      .forEach(y => { if (reachedYear === null && yearlyPercentiles[y][50] >= tv) reachedYear = y; });
+    fireTarget = {
+      value: tv,
+      probability: (reached / finalValues.length) * 100,
+      reachedYear: reachedYear
+    };
+  }
+
   return {
     iterations,
     years,
@@ -107,6 +125,7 @@ function runMonteCarloSimulation(portfolio, config) {
     yearlyPercentiles,
     statistics,
     goalProbabilities,
+    fireTarget,
     distribution: createDistributionBuckets(finalValues, 50),
     samplePaths: results.slice(0, 100).map(r => r.path) // First 100 paths for visualization
   };
