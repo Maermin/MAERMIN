@@ -110,9 +110,9 @@ function Sparkline({ values, width = 80, height = 32, color }) {
 // 3. PORTFOLIO OVERVIEW mit Pie + Gainers/Losers + Sparklines
 // ─────────────────────────────────────────────────────────────────────────────
 const CATEGORY_COLORS = {
-  crypto:      ['#f59e0b','#ef4444','#3b82f6','#8b5cf6','#06b6d4','#10b981','#f97316','#ec4899','#84cc16','#14b8a6'],
-  stocks:      ['#3b82f6','#8b5cf6','#06b6d4','#10b981','#f59e0b','#ef4444','#f97316','#ec4899','#84cc16','#14b8a6'],
-  skins:       ['#06b6d4','#10b981','#8b5cf6','#f59e0b','#ef4444','#3b82f6','#f97316','#ec4899','#84cc16','#14b8a6'],
+  crypto:      ['#f59e0b','#ef4444','#3b82f6','#f5a524','#06b6d4','#10b981','#f97316','#ec4899','#84cc16','#14b8a6'],
+  stocks:      ['#3b82f6','#f5a524','#06b6d4','#10b981','#f59e0b','#ef4444','#f97316','#ec4899','#84cc16','#14b8a6'],
+  skins:       ['#06b6d4','#10b981','#f5a524','#f59e0b','#ef4444','#3b82f6','#f97316','#ec4899','#84cc16','#14b8a6'],
   commodities: ['#d97706','#f59e0b','#fbbf24','#92400e','#b45309','#78716c','#a16207','#ca8a04','#d97706','#f97316'],
 };
 
@@ -169,7 +169,7 @@ function PortfolioOverviewPanel({ portfolio, prices, priceHistory, theme, format
     padding: '0.35rem 0.75rem', border: 'none', borderRadius: '6px', cursor: 'pointer',
     fontSize: '0.8rem', fontWeight: activeTab === id ? '700' : '400',
     background: activeTab === id ? theme.accent : 'transparent',
-    color: activeTab === id ? '#fff' : theme.textSecondary,
+    color: activeTab === id ? '#13110a' : theme.textSecondary,
     transition: 'all 0.15s'
   });
 
@@ -307,7 +307,7 @@ function WatchlistView({ prices, priceHistory, theme, t, addToast }) {
   };
 
   return React.createElement('div', { style: { padding: '1.5rem' } },
-    React.createElement('h2', { style: { color: theme.text, fontSize: '1.5rem', fontWeight: '700', marginBottom: '1.25rem' } },
+    React.createElement('h2', { style: { color: theme.text, fontSize: '1.5rem', fontWeight: '800', letterSpacing: '-0.02em', marginBottom: '1.25rem' } },
       (t.watchlist || 'Watchlist')
     ),
 
@@ -338,7 +338,7 @@ function WatchlistView({ prices, priceHistory, theme, t, addToast }) {
       React.createElement('button', {
         onClick: addItem,
         style: {
-          padding: '0.5rem 1.25rem', background: theme.accent, color: '#fff',
+          padding: '0.5rem 1.25rem', background: theme.accent, color: '#13110a',
           border: 'none', borderRadius: '8px', cursor: 'pointer', fontWeight: '600'
         }
       }, '+ Add')
@@ -348,13 +348,13 @@ function WatchlistView({ prices, priceHistory, theme, t, addToast }) {
     items.length === 0
       ? React.createElement('div', {
           style: { padding: '3rem', textAlign: 'center', color: theme.textSecondary,
-            background: theme.card, borderRadius: '12px', border: `1px solid ${theme.cardBorder}` }
+            background: theme.card, borderRadius: '16px', border: `1px solid ${theme.cardBorder}`, boxShadow: theme.shadow }
         },
           React.createElement('div', { style: { fontSize: '2rem', marginBottom: '0.5rem', opacity: 0.3 } }, '○'),
           React.createElement('div', null, t.watchlistEmpty || 'Add symbols to track them here')
         )
       : React.createElement('div', {
-          style: { background: theme.card, borderRadius: '12px', border: `1px solid ${theme.cardBorder}`, overflow: 'auto' }
+          style: { background: theme.card, borderRadius: '16px', border: `1px solid ${theme.cardBorder}`, boxShadow: theme.shadow, overflow: 'auto' }
         },
           React.createElement('table', { style: { width: '100%', borderCollapse: 'collapse', minWidth: '500px' } },
             React.createElement('thead', null,
@@ -523,7 +523,7 @@ function PriceAlertsView({ prices, theme, t, addToast, portfolio }) {
       e('div', { style: { color: theme.textSecondary, fontSize: '0.72rem', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: '0.5rem' } }, t.smartAlerts || 'Smart alerts'),
       e('div', { style: { display: 'flex', flexDirection: 'column', gap: '0.5rem' } },
         items.map((it, i) => {
-          const col = it.sev === 'danger' ? (theme.danger || '#ef4444') : it.sev === 'warning' ? (theme.warning || '#f59e0b') : it.sev === 'success' ? (theme.success || '#22c55e') : (theme.accent || '#8b5cf6');
+          const col = it.sev === 'danger' ? (theme.danger || '#ef4444') : it.sev === 'warning' ? (theme.warning || '#f59e0b') : it.sev === 'success' ? (theme.success || '#22c55e') : (theme.accent || '#f5a524');
           return e('div', { key: i, style: { display: 'flex', alignItems: 'center', gap: '0.75rem', padding: '0.75rem 1rem', background: theme.card, border: `1px solid ${theme.cardBorder}`, borderLeft: `4px solid ${col}`, borderRadius: '8px' } },
             e('span', { style: { color: col, fontSize: '1rem' } }, it.icon),
             e('div', null,
@@ -535,7 +535,7 @@ function PriceAlertsView({ prices, theme, t, addToast, portfolio }) {
   };
 
   return React.createElement('div', { style: { padding: '1.5rem' } },
-    React.createElement('h2', { style: { color: theme.text, fontSize: '1.5rem', fontWeight: '700', marginBottom: '1.25rem' } },
+    React.createElement('h2', { style: { color: theme.text, fontSize: '1.5rem', fontWeight: '800', letterSpacing: '-0.02em', marginBottom: '1.25rem' } },
       (t.priceAlerts || 'Price Alerts')
     ),
 
@@ -558,14 +558,14 @@ function PriceAlertsView({ prices, theme, t, addToast, portfolio }) {
       }),
       React.createElement('button', {
         onClick: addAlert,
-        style: { padding: '0.5rem 1.25rem', background: theme.accent, color: '#fff', border: 'none', borderRadius: '8px', cursor: 'pointer', fontWeight: '600' }
+        style: { padding: '0.5rem 1.25rem', background: theme.accent, color: '#13110a', border: 'none', borderRadius: '8px', cursor: 'pointer', fontWeight: '600' }
       }, '+ Alert')
     ),
 
     // Alert list
     alerts.length === 0
       ? React.createElement('div', {
-          style: { padding: '3rem', textAlign: 'center', color: theme.textSecondary, background: theme.card, borderRadius: '12px', border: `1px solid ${theme.cardBorder}` }
+          style: { padding: '3rem', textAlign: 'center', color: theme.textSecondary, background: theme.card, borderRadius: '16px', border: `1px solid ${theme.cardBorder}`, boxShadow: theme.shadow }
         },
           React.createElement('div', { style: { fontSize: '2rem', marginBottom: '0.5rem', opacity: 0.3 } }, '◎'),
           'No price alerts set'
@@ -580,9 +580,9 @@ function PriceAlertsView({ prices, theme, t, addToast, portfolio }) {
             return React.createElement('div', {
               key: a.id,
               style: {
-                background: a.triggered ? 'rgba(34,197,94,0.08)' : theme.card,
-                border: `1px solid ${a.triggered ? 'rgba(34,197,94,0.3)' : theme.cardBorder}`,
-                borderRadius: '10px', padding: '1rem 1.25rem',
+                background: a.triggered ? 'rgba(52,211,153,0.08)' : theme.card,
+                border: `1px solid ${a.triggered ? 'rgba(52,211,153,0.3)' : theme.cardBorder}`,
+                borderRadius: '14px', padding: '1rem 1.25rem', boxShadow: theme.shadow,
                 display: 'flex', alignItems: 'center', gap: '1rem', flexWrap: 'wrap'
               }
             },
@@ -659,7 +659,7 @@ function PerformanceChart({ priceHistory, portfolio, theme, formatPrice, getCurr
   }, [priceHistory, portfolio]);
 
   if (data.length < 2) return React.createElement('div', {
-    style: { padding: '2rem', textAlign: 'center', color: theme.textSecondary, background: theme.card, borderRadius: '12px', border: `1px solid ${theme.cardBorder}` }
+    style: { padding: '2rem', textAlign: 'center', color: theme.textSecondary, background: theme.card, borderRadius: '16px', boxShadow: theme.shadow, border: `1px solid ${theme.cardBorder}` }
   },
     React.createElement('div', { style: { fontSize: '2rem', marginBottom: '0.5rem', opacity: 0.3 } }, '↗'),
     'Performance chart will appear after refreshing prices a few times'

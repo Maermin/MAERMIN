@@ -13,51 +13,72 @@ const { useState, useEffect, useMemo, useCallback, useRef } = React;
 const translations = typeof window.completeTranslations !== 'undefined' ? window.completeTranslations : { en: {} };
 
 // Theme configuration
+// ── Design system ───────────────────────────────────────────────────────────
+// Modern dark-fintech look with a consistent warm-gold accent across all themes.
+// Every component reads `currentTheme.*` as inline styles, so these tokens drive
+// the entire UI. Extra tokens (accentText, accentSoft, surface2, shadow, …) are
+// additive — existing call sites keep working, new/redesigned ones use them.
+const GOLD = '#f5a524';        // primary accent (gold) — sits on dark surfaces
+const GOLD_DARK = '#c2790a';   // deeper gold for light backgrounds / hovers
+const INK = '#13110a';         // near-black ink used as text ON gold buttons
+
 const themes = {
-  white: {
-    background: 'linear-gradient(135deg, #f8fafc 0%, #e2e8f0 50%, #f8fafc 100%)',
-    card: 'rgba(255,255,255,0.9)',
-    cardBorder: 'rgba(0,0,0,0.1)',
-    modalBg: '#ffffff',
-    modalBorder: '#e2e8f0',
-    text: '#1e293b',
-    textSecondary: '#64748b',
-    inputBg: '#f1f5f9',
-    inputBorder: '#cbd5e1',
-    accent: '#7e22ce',
-    success: '#22c55e',
-    danger: '#ef4444',
-    warning: '#f59e0b'
-  },
   dark: {
-    background: 'linear-gradient(135deg, #0f172a 0%, #1e293b 50%, #0f172a 100%)',
-    card: 'rgba(30,41,59,0.9)',
-    cardBorder: 'rgba(255,255,255,0.1)',
-    modalBg: '#1e293b',
-    modalBorder: '#334155',
-    text: '#f8fafc',
-    textSecondary: '#94a3b8',
-    inputBg: '#0f172a',
-    inputBorder: '#334155',
-    accent: '#8b5cf6',
-    success: '#22c55e',
-    danger: '#ef4444',
-    warning: '#f59e0b'
+    background: 'radial-gradient(1100px 620px at 50% -12%, #161d2b 0%, #0b1018 52%, #080b11 100%)',
+    card: '#10151f',
+    surface2: '#161c28',
+    cardBorder: 'rgba(255,255,255,0.07)',
+    modalBg: '#141a25',
+    modalBorder: 'rgba(255,255,255,0.10)',
+    text: '#e9edf4',
+    textSecondary: '#8b94a7',
+    inputBg: '#0c1018',
+    inputBorder: 'rgba(255,255,255,0.10)',
+    accent: GOLD,
+    accentText: INK,
+    accentSoft: 'rgba(245,165,36,0.12)',
+    shadow: '0 18px 40px -16px rgba(0,0,0,0.65)',
+    success: '#34d399',
+    danger: '#f87171',
+    warning: '#fb923c'
+  },
+  white: {
+    background: 'radial-gradient(1100px 620px at 50% -12%, #ffffff 0%, #f4f6f9 60%, #eef1f5 100%)',
+    card: '#ffffff',
+    surface2: '#f6f8fb',
+    cardBorder: 'rgba(15,23,42,0.09)',
+    modalBg: '#ffffff',
+    modalBorder: 'rgba(15,23,42,0.10)',
+    text: '#0f172a',
+    textSecondary: '#5b6473',
+    inputBg: '#f1f4f8',
+    inputBorder: 'rgba(15,23,42,0.12)',
+    accent: GOLD_DARK,
+    accentText: '#ffffff',
+    accentSoft: 'rgba(194,121,10,0.12)',
+    shadow: '0 18px 40px -18px rgba(15,23,42,0.22)',
+    success: '#16a34a',
+    danger: '#dc2626',
+    warning: '#d97706'
   },
   purple: {
-    background: 'linear-gradient(135deg, #1e293b 0%, #7e22ce 50%, #1e293b 100%)',
-    card: 'rgba(255,255,255,0.1)',
-    cardBorder: 'rgba(255,255,255,0.2)',
-    modalBg: '#2d1f47',
-    modalBorder: '#4c3575',
-    text: '#ffffff',
-    textSecondary: 'rgba(255,255,255,0.7)',
-    inputBg: '#3d2a5c',
-    inputBorder: '#5c4080',
-    accent: '#a855f7',
-    success: '#22c55e',
-    danger: '#ef4444',
-    warning: '#f59e0b'
+    background: 'radial-gradient(1100px 620px at 50% -12%, #1f1234 0%, #140a23 56%, #0d0717 100%)',
+    card: '#1a1029',
+    surface2: '#211633',
+    cardBorder: 'rgba(255,255,255,0.09)',
+    modalBg: '#1d1330',
+    modalBorder: 'rgba(255,255,255,0.13)',
+    text: '#f3eefb',
+    textSecondary: '#a99cc0',
+    inputBg: '#140b22',
+    inputBorder: 'rgba(255,255,255,0.11)',
+    accent: GOLD,
+    accentText: INK,
+    accentSoft: 'rgba(245,165,36,0.13)',
+    shadow: '0 18px 40px -16px rgba(0,0,0,0.6)',
+    success: '#34d399',
+    danger: '#f87171',
+    warning: '#fb923c'
   }
 };
 
@@ -99,8 +120,8 @@ function PasswordModal({ theme, t, onClose, addToast }) {
 
       // Show the new hash in a copyable field
       const display = document.createElement('div');
-      display.style.cssText = 'position:fixed;bottom:5rem;right:1.5rem;background:#1e293b;border:1px solid #334155;border-radius:10px;padding:1rem 1.25rem;z-index:99999;max-width:420px;color:white;font-size:0.8rem;box-shadow:0 10px 30px rgba(0,0,0,0.5)';
-      display.innerHTML = `<div style="font-weight:700;margin-bottom:0.5rem">New hash — copy to auth.js:</div><input readonly value="${newHash}" onclick="this.select()" style="width:100%;background:#0f172a;border:1px solid #334155;border-radius:6px;padding:0.5rem;color:#a855f7;font-family:monospace;font-size:0.75rem"><div style="color:#94a3b8;margin-top:0.5rem;font-size:0.7rem">Replace MAERMIN_SECRET_HASH in auth.js with this value</div><button onclick="this.parentElement.remove()" style="margin-top:0.5rem;background:none;border:1px solid #334155;border-radius:4px;color:#94a3b8;cursor:pointer;padding:0.25rem 0.5rem;font-size:0.75rem">✕ Close</button>`;
+      display.style.cssText = 'position:fixed;bottom:5rem;right:1.5rem;background:#141a25;border:1px solid rgba(255,255,255,0.10);border-radius:14px;padding:1rem 1.25rem;z-index:99999;max-width:420px;color:#e9edf4;font-size:0.8rem;box-shadow:0 24px 60px -18px rgba(0,0,0,0.75)';
+      display.innerHTML = `<div style="font-weight:700;margin-bottom:0.5rem">New hash — copy to auth.js:</div><input readonly value="${newHash}" onclick="this.select()" style="width:100%;background:#0c1018;border:1px solid rgba(255,255,255,0.10);border-radius:8px;padding:0.5rem;color:#f5a524;font-family:ui-monospace,monospace;font-size:0.75rem"><div style="color:#8b94a7;margin-top:0.5rem;font-size:0.7rem">Replace MAERMIN_SECRET_HASH in auth.js with this value</div><button onclick="this.parentElement.remove()" style="margin-top:0.5rem;background:none;border:1px solid rgba(255,255,255,0.10);border-radius:7px;color:#8b94a7;cursor:pointer;padding:0.25rem 0.6rem;font-size:0.75rem">✕ Close</button>`;
       document.body.appendChild(display);
       setTimeout(() => display.remove(), 60000);
     } catch(e) { console.error(e); }
@@ -120,10 +141,10 @@ function PasswordModal({ theme, t, onClose, addToast }) {
 
   return React.createElement('div', {
     onClick: e => e.target === e.currentTarget && onClose(),
-    style: { position:'fixed',inset:0,background:'rgba(0,0,0,0.7)',display:'flex',justifyContent:'center',alignItems:'center',zIndex:10001,backdropFilter:'blur(4px)' }
+    style: { position:'fixed',inset:0,background:'rgba(4,6,10,0.62)',display:'flex',justifyContent:'center',alignItems:'center',zIndex:10001,backdropFilter:'blur(8px)' }
   },
     React.createElement('div', {
-      style: { background: theme.modalBg, border:`2px solid ${theme.modalBorder}`, borderRadius:'16px', padding:'2rem', width:'380px', maxWidth:'90vw', boxShadow:'0 25px 50px -12px rgba(0,0,0,0.5)' }
+      style: { background: theme.modalBg, border:`1px solid ${theme.modalBorder}`, borderRadius:'16px', padding:'2rem', width:'380px', maxWidth:'90vw', boxShadow:'0 25px 50px -12px rgba(0,0,0,0.5)' }
     },
       React.createElement('h2', { style:{ color:theme.text, fontSize:'1.25rem', fontWeight:'700', marginBottom:'1.25rem' } },
         (t.changePassword || 'Change Password')
@@ -154,7 +175,7 @@ function InvestmentTracker() {
   
   // Multi-Portfolio
   const portfolioHook = window.MaerminFeatures4 ? window.MaerminFeatures4.usePortfolios() : null;
-  const portfolios       = portfolioHook?.portfolios       || [{ id: 'default', name: 'Main Portfolio', color: '#8b5cf6' }];
+  const portfolios       = portfolioHook?.portfolios       || [{ id: 'default', name: 'Main Portfolio', color: '#f5a524' }];
   const activePortfolioId = portfolioHook?.activePortfolioId || 'default';
   const setActivePortfolioId = portfolioHook?.setActivePortfolioId || (() => {});
 
@@ -1209,7 +1230,7 @@ function InvestmentTracker() {
         React.createElement('div', { style: { display: 'flex', gap: '0.75rem', flexWrap: 'wrap' } },
           React.createElement('button', {
             onClick: createBackup,
-            style: { padding: '0.625rem 1.25rem', background: theme.accent, color: '#fff', border: 'none', borderRadius: '8px', cursor: 'pointer', fontWeight: '600', fontSize: '0.875rem', display: 'flex', alignItems: 'center', gap: '0.5rem' }
+            style: { padding: '0.625rem 1.25rem', background: theme.accent, color: '#13110a', border: 'none', borderRadius: '8px', cursor: 'pointer', fontWeight: '600', fontSize: '0.875rem', display: 'flex', alignItems: 'center', gap: '0.5rem' }
           }, '↓ JSON Backup',
             React.createElement('span', { style: { fontSize: '0.72rem', opacity: 0.8, fontWeight: '400' } }, '— full restore')
           ),
@@ -1498,7 +1519,7 @@ function InvestmentTracker() {
       case 'cashflow':
         return window.MaerminFeatures5 ?
           React.createElement('div', { style: { padding: '1.5rem' } },
-            React.createElement('h2', { style: { color: currentTheme.text, fontSize: '1.5rem', fontWeight: '700', marginBottom: '1.5rem' } }, t.navCashflow || 'Cash Flow'),
+            React.createElement('h2', { style: { color: currentTheme.text, fontSize: '1.5rem', fontWeight: '800', letterSpacing: '-0.02em', marginBottom: '1.5rem' } }, t.navCashflow || 'Cash Flow'),
             React.createElement(window.MaerminFeatures5.CashflowChart, {
               transactions: activeTransactions, priceHistory, portfolio, prices,
               theme: currentTheme, formatPrice, getCurrencySymbol
@@ -1600,7 +1621,7 @@ function InvestmentTracker() {
         return window.MaerminFeatures ?
           React.createElement(window.MaerminFeatures.PriceAlertsView, {
             prices, theme: currentTheme, t, addToast, portfolio
-          }) : renderAnalyticsPlaceholder('Preisalarme');
+          }) : renderAnalyticsPlaceholder('Price Alerts');
 
       case 'transactions':
         return renderTransactionsView();
@@ -1613,7 +1634,7 @@ function InvestmentTracker() {
           React.createElement(window.InvestmentViews.InvestmentAnalysisDashboard, {
             portfolio, prices, priceHistory,
             theme: currentTheme, t, formatPrice
-          }) : renderAnalyticsPlaceholder('Strategie-Analyse');
+          }) : renderAnalyticsPlaceholder('Strategy Analysis');
 
       case 'health':
         return window.PortfolioHealth ?
@@ -1650,22 +1671,23 @@ function InvestmentTracker() {
       key: opts.key,
       onClick: opts.onClick,
       style: {
-        background: theme.card, padding: '1rem 1.1rem', borderRadius: '12px',
+        background: theme.card, padding: '1.1rem 1.2rem', borderRadius: '16px',
         border: `1px solid ${theme.cardBorder}`, cursor: opts.onClick ? 'pointer' : 'default',
-        display: 'flex', flexDirection: 'column', gap: '0.35rem', transition: 'border-color 0.15s',
-        minHeight: '92px', justifyContent: 'center'
+        display: 'flex', flexDirection: 'column', gap: '0.4rem',
+        transition: 'border-color 0.16s, transform 0.16s, box-shadow 0.16s',
+        boxShadow: theme.shadow, minHeight: '96px', justifyContent: 'center'
       },
-      onMouseEnter: opts.onClick ? e => e.currentTarget.style.borderColor = theme.accent : undefined,
-      onMouseLeave: opts.onClick ? e => e.currentTarget.style.borderColor = theme.cardBorder : undefined
+      onMouseEnter: opts.onClick ? e => { e.currentTarget.style.borderColor = `${theme.accent}66`; e.currentTarget.style.transform = 'translateY(-2px)'; } : undefined,
+      onMouseLeave: opts.onClick ? e => { e.currentTarget.style.borderColor = theme.cardBorder; e.currentTarget.style.transform = 'translateY(0)'; } : undefined
     },
       React.createElement('div', { style: { display: 'flex', alignItems: 'center', justifyContent: 'space-between' } },
-        React.createElement('span', { style: { color: theme.textSecondary, fontSize: '0.68rem', textTransform: 'uppercase', letterSpacing: '0.06em' } }, opts.label),
-        opts.badge || (opts.onClick && React.createElement('span', { style: { color: theme.textSecondary, fontSize: '0.8rem', opacity: 0.6 } }, '›'))
+        React.createElement('span', { style: { color: theme.textSecondary, fontSize: '0.68rem', fontWeight: '600', textTransform: 'uppercase', letterSpacing: '0.07em' } }, opts.label),
+        opts.badge || (opts.onClick && React.createElement('span', { style: { color: theme.accent, fontSize: '0.85rem', opacity: 0.7 } }, '→'))
       ),
-      React.createElement('div', { style: { display: 'flex', alignItems: 'center', gap: '0.6rem' } },
+      React.createElement('div', { style: { display: 'flex', alignItems: 'center', gap: '0.7rem' } },
         opts.ring,
         React.createElement('div', null,
-          React.createElement('div', { style: { color: opts.color || theme.text, fontSize: '1.4rem', fontWeight: '800', letterSpacing: '-0.02em', lineHeight: 1.05 } }, opts.value),
+          React.createElement('div', { style: { color: opts.color || theme.text, fontSize: '1.5rem', fontWeight: '800', letterSpacing: '-0.025em', lineHeight: 1.05 } }, opts.value),
           opts.sub && React.createElement('div', { style: { color: theme.textSecondary, fontSize: '0.74rem', marginTop: '0.2rem' } }, opts.sub)
         )
       )
@@ -1767,7 +1789,7 @@ function InvestmentTracker() {
           ),
           React.createElement('button', {
             onClick: () => { if (M) M.saveFireSettings(fire); setEditFire(false); },
-            style: { padding: '0.55rem 1.1rem', background: theme.accent, color: '#fff', border: 'none', borderRadius: '8px', cursor: 'pointer', fontWeight: '700', fontSize: '0.85rem' }
+            style: { padding: '0.55rem 1.1rem', background: theme.accent, color: '#13110a', border: 'none', borderRadius: '8px', cursor: 'pointer', fontWeight: '700', fontSize: '0.85rem' }
           }, t.save || 'Save')
         ),
         fireM && fireM.configured && React.createElement('div', { style: { color: theme.textSecondary, fontSize: '0.78rem', marginTop: '0.75rem' } },
@@ -1831,17 +1853,18 @@ function InvestmentTracker() {
       React.createElement('div', {
         onClick,
         style: {
-          background: currentTheme.card, padding: '1.25rem', borderRadius: '12px',
+          background: currentTheme.card, padding: '1.35rem', borderRadius: '16px',
           border: `1px solid ${currentTheme.cardBorder}`,
+          boxShadow: currentTheme.shadow,
           cursor: onClick ? 'pointer' : 'default',
-          transition: onClick ? 'border-color 0.15s' : undefined
+          transition: 'border-color 0.16s, transform 0.16s'
         },
-        onMouseEnter: onClick ? e => e.currentTarget.style.borderColor = currentTheme.accent : undefined,
-        onMouseLeave: onClick ? e => e.currentTarget.style.borderColor = currentTheme.cardBorder : undefined
+        onMouseEnter: onClick ? e => { e.currentTarget.style.borderColor = `${currentTheme.accent}66`; e.currentTarget.style.transform = 'translateY(-2px)'; } : undefined,
+        onMouseLeave: onClick ? e => { e.currentTarget.style.borderColor = currentTheme.cardBorder; e.currentTarget.style.transform = 'translateY(0)'; } : undefined
       },
-        React.createElement('div', { style: { color: currentTheme.textSecondary, fontSize: '0.72rem', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: '0.375rem' } }, label),
-        React.createElement('div', { style: { color: color || currentTheme.text, fontSize: '1.75rem', fontWeight: '800', letterSpacing: '-0.02em', lineHeight: 1 } }, value),
-        sub && React.createElement('div', { style: { color: currentTheme.textSecondary, fontSize: '0.78rem', marginTop: '0.375rem' } }, sub)
+        React.createElement('div', { style: { color: currentTheme.textSecondary, fontSize: '0.72rem', fontWeight: '600', textTransform: 'uppercase', letterSpacing: '0.07em', marginBottom: '0.4rem' } }, label),
+        React.createElement('div', { style: { color: color || currentTheme.text, fontSize: '1.85rem', fontWeight: '800', letterSpacing: '-0.025em', lineHeight: 1 } }, value),
+        sub && React.createElement('div', { style: { color: currentTheme.textSecondary, fontSize: '0.78rem', marginTop: '0.4rem' } }, sub)
       );
 
     // Transactions and portfolio for chart — filtered by mode
@@ -1888,7 +1911,7 @@ function InvestmentTracker() {
           )
         ),
         React.createElement('div', { style: { display: 'flex', gap: '0.5rem', flexWrap: 'wrap' } },
-          React.createElement('button', { onClick: () => openTransactionModal(), style: { padding: '0.5rem 1rem', background: currentTheme.accent, color: '#fff', border: 'none', borderRadius: '8px', cursor: 'pointer', fontWeight: '600', fontSize: '0.85rem' } }, '+ Add'),
+          React.createElement('button', { onClick: () => openTransactionModal(), style: { padding: '0.5rem 1rem', background: currentTheme.accent, color: '#13110a', border: 'none', borderRadius: '8px', cursor: 'pointer', fontWeight: '600', fontSize: '0.85rem' } }, '+ Add'),
           React.createElement('button', { onClick: () => setShowImportModal(true), style: { padding: '0.5rem 1rem', background: currentTheme.inputBg, color: currentTheme.text, border: `1px solid ${currentTheme.cardBorder}`, borderRadius: '8px', cursor: 'pointer', fontSize: '0.85rem' } }, '↑ Import'),
           React.createElement('button', { onClick: fetchPrices, disabled: loading, style: { padding: '0.5rem 1rem', background: loading ? currentTheme.inputBg : `${currentTheme.accent}18`, color: loading ? currentTheme.textSecondary : currentTheme.accent, border: `1px solid ${currentTheme.accent}33`, borderRadius: '8px', cursor: loading ? 'not-allowed' : 'pointer', fontSize: '0.85rem', fontWeight: '600', display: 'flex', alignItems: 'center', gap: '0.375rem' } }, loading ? '◎ Refreshing...' : '↻ Refresh prices')
         )
@@ -1997,12 +2020,12 @@ function InvestmentTracker() {
         ),
 
       // Onboarding
-      stats.totalPositions === 0 && React.createElement('div', { style: { background: 'linear-gradient(135deg,rgba(59,130,246,0.1),rgba(139,92,246,0.1))', border: '1px solid rgba(139,92,246,0.3)', borderRadius: '12px', padding: '2rem', marginBottom: '2rem', textAlign: 'center' } },
-        React.createElement('div', { style: { fontSize: '2rem', marginBottom: '0.75rem', color: 'rgba(139,92,246,0.5)', fontWeight: '300' } }, '↗'),
+      stats.totalPositions === 0 && React.createElement('div', { style: { background: 'linear-gradient(135deg,rgba(59,130,246,0.1),rgba(245,165,36,0.1))', border: '1px solid rgba(245,165,36,0.3)', borderRadius: '12px', padding: '2rem', marginBottom: '2rem', textAlign: 'center' } },
+        React.createElement('div', { style: { fontSize: '2rem', marginBottom: '0.75rem', color: 'rgba(245,165,36,0.5)', fontWeight: '300' } }, '↗'),
         React.createElement('h3', { style: { color: currentTheme.text, fontSize: '1.125rem', fontWeight: '600', marginBottom: '0.5rem' } }, t.welcomeTitle || 'Welcome to MAERMIN'),
         React.createElement('p', { style: { color: currentTheme.textSecondary, fontSize: '0.875rem', marginBottom: '1rem', lineHeight: '1.6' } }, t.welcomeHint || 'Start by adding your first transaction.'),
         React.createElement('div', { style: { display: 'flex', gap: '0.75rem', justifyContent: 'center', flexWrap: 'wrap' } },
-          React.createElement('button', { onClick: () => openTransactionModal(), style: { padding: '0.625rem 1.25rem', background: currentTheme.accent, color: '#fff', border: 'none', borderRadius: '8px', cursor: 'pointer', fontWeight: '600', fontSize: '0.875rem' } }, '+ ' + (t.addTransaction || 'Add Transaction')),
+          React.createElement('button', { onClick: () => openTransactionModal(), style: { padding: '0.625rem 1.25rem', background: currentTheme.accent, color: '#13110a', border: 'none', borderRadius: '8px', cursor: 'pointer', fontWeight: '600', fontSize: '0.875rem' } }, '+ ' + (t.addTransaction || 'Add Transaction')),
           React.createElement('button', { onClick: () => setShowImportModal(true), style: { padding: '0.625rem 1.25rem', background: currentTheme.inputBg, color: currentTheme.text, border: `1px solid ${currentTheme.cardBorder}`, borderRadius: '8px', cursor: 'pointer', fontSize: '0.875rem' } }, t.importData || 'Import Data')
         )
       ),
@@ -2043,20 +2066,20 @@ function InvestmentTracker() {
 
   const renderAnalyticsMenu = () => {
     const tabs = [
-      { id: 'correlation', label: t.correlationMatrix || 'Korrelation' },
+      { id: 'correlation', label: t.correlationMatrix || 'Correlation' },
       { id: 'montecarlo',  label: t.monteCarloSimulation || 'Monte Carlo' },
-      { id: 'stress',      label: t.stressTesting || 'Stress-Test' },
-      { id: 'risk',        label: t.riskLevel || 'Risiko' },
+      { id: 'stress',      label: t.stressTesting || 'Stress Test' },
+      { id: 'risk',        label: t.riskLevel || 'Risk' },
     ];
 
     const tabBtn = (id, label) => React.createElement('button', {
       key: id,
       onClick: () => setAnalyticsTab(id),
       style: {
-        padding: '0.5rem 1rem', border: 'none', borderRadius: '8px', cursor: 'pointer',
-        fontWeight: analyticsTab === id ? '600' : '400', fontSize: '0.875rem',
+        padding: '0.5rem 1.1rem', border: 'none', borderRadius: '10px', cursor: 'pointer',
+        fontWeight: analyticsTab === id ? '650' : '450', fontSize: '0.875rem',
         background: analyticsTab === id ? currentTheme.accent : currentTheme.inputBg,
-        color: analyticsTab === id ? '#fff' : currentTheme.text, transition: 'all 0.15s'
+        color: analyticsTab === id ? currentTheme.accentText : currentTheme.textSecondary, transition: 'all 0.15s'
       }
     }, label);
 
@@ -2064,16 +2087,16 @@ function InvestmentTracker() {
       switch(analyticsTab) {
         case 'correlation': return window.CorrelationMatrixView ?
           React.createElement(window.CorrelationMatrixView, { portfolio, priceHistory, t, theme: currentTheme, formatPrice })
-          : renderAnalyticsPlaceholder('Korrelationsmatrix');
+          : renderAnalyticsPlaceholder('Correlation Matrix');
         case 'montecarlo': return window.MonteCarloView ?
           React.createElement(window.MonteCarloView, { portfolio, prices, t, theme: currentTheme, currency, formatPrice })
           : renderAnalyticsPlaceholder('Monte Carlo');
         case 'stress': return window.StressTestView ?
           React.createElement(window.StressTestView, { portfolio, prices, t, theme: currentTheme, currency, formatPrice })
-          : renderAnalyticsPlaceholder('Stress-Test');
+          : renderAnalyticsPlaceholder('Stress Test');
         case 'risk': return window.RiskAnalyticsViewV2 ?
           React.createElement(window.RiskAnalyticsViewV2, { portfolio, prices, priceHistory, transactions: activeTransactions, setActiveView, t, theme: currentTheme, formatPrice })
-          : renderAnalyticsPlaceholder('Risikoanalyse');
+          : renderAnalyticsPlaceholder('Risk Analysis');
         default: return null;
       }
     };
@@ -2131,7 +2154,7 @@ function InvestmentTracker() {
         style: { display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem', flexWrap: 'wrap', gap: '0.75rem' }
       },
         React.createElement('h2', {
-          style: { color: currentTheme.text, fontSize: '1.5rem', fontWeight: '600' }
+          style: { color: currentTheme.text, fontSize: '1.5rem', fontWeight: '800', letterSpacing: '-0.02em' }
         }, `${t.transactions || 'Transactions'} (${filtered.length}${filtered.length !== totalAll ? '/' + totalAll : ''})`),
         React.createElement('div', { style: { display: 'flex', gap: '0.5rem', flexWrap: 'wrap', alignItems: 'center' } },
           // Search
@@ -2159,12 +2182,13 @@ function InvestmentTracker() {
             style: {
               padding: '0.5rem 1.25rem',
               background: currentTheme.accent,
-              color: '#fff',
+              color: currentTheme.accentText,
               border: 'none',
-              borderRadius: '8px',
+              borderRadius: '10px',
               cursor: 'pointer',
-              fontWeight: '600',
-              fontSize: '0.875rem'
+              fontWeight: '700',
+              fontSize: '0.875rem',
+              boxShadow: '0 6px 16px -6px rgba(245,165,36,0.5)'
             }
           }, '+ ' + (t.addTransaction || 'Add'))
         )
@@ -2176,8 +2200,9 @@ function InvestmentTracker() {
       React.createElement('div', {
         style: {
           background: currentTheme.card,
-          borderRadius: '12px',
+          borderRadius: '16px',
           border: `1px solid ${currentTheme.cardBorder}`,
+          boxShadow: currentTheme.shadow,
           overflow: 'auto'
         }
       },
@@ -2253,10 +2278,10 @@ function InvestmentTracker() {
                             title: t.edit || 'Edit',
                             style: {
                               padding: '0.3rem 0.6rem',
-                              background: 'rgba(139,92,246,0.15)',
+                              background: currentTheme.accentSoft,
                               color: currentTheme.accent,
-                              border: `1px solid rgba(139,92,246,0.3)`,
-                              borderRadius: '4px',
+                              border: `1px solid ${currentTheme.accent}40`,
+                              borderRadius: '7px',
                               cursor: 'pointer',
                               fontSize: '0.75rem',
                               fontWeight: '600'
@@ -2369,7 +2394,7 @@ function InvestmentTracker() {
             style: {
               padding: '0.5rem 1rem',
               background: currentTheme.accent,
-              color: '#fff',
+              color: '#13110a',
               border: 'none',
               borderRadius: '8px',
               cursor: 'pointer'
@@ -2418,7 +2443,7 @@ function InvestmentTracker() {
           React.createElement('div', { style: { color: currentTheme.textSecondary, fontSize: '0.875rem' } },
             t.shortTermGains || 'Short-term'
           ),
-          React.createElement('div', { style: { color: currentTheme.text, fontSize: '1.5rem', fontWeight: '700' } },
+          React.createElement('div', { style: { color: currentTheme.text, fontSize: '1.5rem', fontWeight: '800', letterSpacing: '-0.02em' } },
             `${formatPrice(taxData.shortTerm || 0)} ${getCurrencySymbol()}`
           )
         ),
@@ -2434,7 +2459,7 @@ function InvestmentTracker() {
           React.createElement('div', { style: { color: currentTheme.textSecondary, fontSize: '0.875rem' } },
             t.longTermGains || 'Long-term'
           ),
-          React.createElement('div', { style: { color: currentTheme.text, fontSize: '1.5rem', fontWeight: '700' } },
+          React.createElement('div', { style: { color: currentTheme.text, fontSize: '1.5rem', fontWeight: '800', letterSpacing: '-0.02em' } },
             `${formatPrice(taxData.longTerm || 0)} ${getCurrencySymbol()}`
           )
         ),
@@ -2450,7 +2475,7 @@ function InvestmentTracker() {
           React.createElement('div', { style: { color: currentTheme.textSecondary, fontSize: '0.875rem' } },
             t.taxLiability || 'Est. Tax'
           ),
-          React.createElement('div', { style: { color: currentTheme.warning, fontSize: '1.5rem', fontWeight: '700' } },
+          React.createElement('div', { style: { color: currentTheme.warning, fontSize: '1.5rem', fontWeight: '800', letterSpacing: '-0.02em' } },
             `${formatPrice(taxData.taxLiability || 0)} ${getCurrencySymbol()}`
           )
         )
@@ -2514,30 +2539,30 @@ function InvestmentTracker() {
         left: 0,
         right: 0,
         bottom: 0,
-        background: 'rgba(0,0,0,0.7)',
+        background: 'rgba(4,6,10,0.62)',
         display: 'flex',
         justifyContent: 'center',
         alignItems: 'center',
         zIndex: 10000,
-        backdropFilter: 'blur(4px)'
+        backdropFilter: 'blur(8px)'
       },
       onClick: (e) => e.target === e.currentTarget && closeModal()
     },
       React.createElement('div', {
         style: {
           background: currentTheme.modalBg,
-          border: `2px solid ${currentTheme.modalBorder}`,
+          border: `1px solid ${currentTheme.modalBorder}`,
           padding: '2rem',
           borderRadius: '16px',
           width: '480px',
           maxWidth: '90vw',
           maxHeight: '85vh',
           overflow: 'auto',
-          boxShadow: '0 25px 50px -12px rgba(0, 0, 0, 0.5)'
+          boxShadow: '0 32px 70px -20px rgba(0,0,0,0.75)'
         }
       },
         React.createElement('h2', {
-          style: { color: currentTheme.text, marginBottom: '1.5rem', fontSize: '1.5rem', fontWeight: '700' }
+          style: { color: currentTheme.text, marginBottom: '1.5rem', fontSize: '1.5rem', fontWeight: '800', letterSpacing: '-0.02em' }
         }, isEditing ? (t.editTransaction || 'Edit Transaction') : (t.addTransaction || 'Add Transaction')),
         
         // Portfolio selector — always shown as a select dropdown
@@ -2857,7 +2882,7 @@ function InvestmentTracker() {
           React.createElement('div', { style: { color: currentTheme.textSecondary, fontSize: '0.875rem' } },
             t.total || 'Total'
           ),
-          React.createElement('div', { style: { color: currentTheme.text, fontSize: '1.5rem', fontWeight: '700' } },
+          React.createElement('div', { style: { color: currentTheme.text, fontSize: '1.5rem', fontWeight: '800', letterSpacing: '-0.02em' } },
             `${(parseFloat(newTransaction.quantity) * parseFloat(newTransaction.price)).toFixed(2)} ${newTransaction.currency || 'EUR'}`
           )
         ),
@@ -2908,30 +2933,30 @@ function InvestmentTracker() {
         left: 0,
         right: 0,
         bottom: 0,
-        background: 'rgba(0,0,0,0.7)',
+        background: 'rgba(4,6,10,0.62)',
         display: 'flex',
         justifyContent: 'center',
         alignItems: 'center',
         zIndex: 10000,
-        backdropFilter: 'blur(4px)'
+        backdropFilter: 'blur(8px)'
       },
       onClick: (e) => e.target === e.currentTarget && setShowImportModal(false)
     },
       React.createElement('div', {
         style: {
           background: currentTheme.modalBg,
-          border: `2px solid ${currentTheme.modalBorder}`,
+          border: `1px solid ${currentTheme.modalBorder}`,
           padding: '2rem',
           borderRadius: '16px',
           width: '600px',
           maxWidth: '90vw',
           maxHeight: '85vh',
           overflow: 'auto',
-          boxShadow: '0 25px 50px -12px rgba(0, 0, 0, 0.5)'
+          boxShadow: '0 32px 70px -20px rgba(0,0,0,0.75)'
         }
       },
         React.createElement('h2', {
-          style: { color: currentTheme.text, marginBottom: '1rem', fontSize: '1.5rem', fontWeight: '700' }
+          style: { color: currentTheme.text, marginBottom: '1rem', fontSize: '1.5rem', fontWeight: '800', letterSpacing: '-0.02em' }
         }, t.importData || 'Import Data'),
         
         React.createElement('p', {
@@ -3065,30 +3090,30 @@ buy,crypto,bitcoin,0.5,45000,2024-01-15,10`)
         left: 0,
         right: 0,
         bottom: 0,
-        background: 'rgba(0,0,0,0.7)',
+        background: 'rgba(4,6,10,0.62)',
         display: 'flex',
         justifyContent: 'center',
         alignItems: 'center',
         zIndex: 10000,
-        backdropFilter: 'blur(4px)'
+        backdropFilter: 'blur(8px)'
       },
       onClick: (e) => e.target === e.currentTarget && setShowApiSettings(false)
     },
       React.createElement('div', {
         style: {
           background: currentTheme.modalBg,
-          border: `2px solid ${currentTheme.modalBorder}`,
+          border: `1px solid ${currentTheme.modalBorder}`,
           padding: '2rem',
           borderRadius: '16px',
           width: '500px',
           maxWidth: '90vw',
           maxHeight: '85vh',
           overflow: 'auto',
-          boxShadow: '0 25px 50px -12px rgba(0, 0, 0, 0.5)'
+          boxShadow: '0 32px 70px -20px rgba(0,0,0,0.75)'
         }
       },
         React.createElement('h2', {
-          style: { color: currentTheme.text, marginBottom: '1.5rem', fontSize: '1.5rem', fontWeight: '700' }
+          style: { color: currentTheme.text, marginBottom: '1.5rem', fontSize: '1.5rem', fontWeight: '800', letterSpacing: '-0.02em' }
         }, t.apiSettings || 'API Settings'),
         
         React.createElement('p', {
@@ -3097,7 +3122,7 @@ buy,crypto,bitcoin,0.5,45000,2024-01-15,10`)
 
         // ── Cloudflare Worker (CS2 + Yahoo Finance Historical Data) ─────────
         React.createElement('div', {
-          style: { background: `linear-gradient(135deg, rgba(139,92,246,0.08), rgba(59,130,246,0.05))`, border: `1px solid rgba(139,92,246,0.25)`, padding: '1.25rem', borderRadius: '10px', marginBottom: '1rem' }
+          style: { background: `linear-gradient(135deg, rgba(245,165,36,0.08), rgba(59,130,246,0.05))`, border: `1px solid rgba(245,165,36,0.25)`, padding: '1.25rem', borderRadius: '10px', marginBottom: '1rem' }
         },
           React.createElement('div', { style: { display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.625rem' } },
             React.createElement('div', null,
@@ -3131,8 +3156,8 @@ buy,crypto,bitcoin,0.5,45000,2024-01-15,10`)
               React.createElement('div', null, '→ NYSE, XETRA, London…'),
               React.createElement('div', null, '→ 1H to Max periods')
             ),
-            React.createElement('div', { style: { background: 'rgba(139,92,246,0.06)', border: '1px solid rgba(139,92,246,0.15)', borderRadius: '6px', padding: '0.625rem 0.75rem', fontSize: '0.72rem', color: currentTheme.textSecondary, lineHeight: '1.6' } },
-              React.createElement('div', { style: { color: '#8b5cf6', fontWeight: '700', marginBottom: '0.25rem' } }, 'CS2 Price History'),
+            React.createElement('div', { style: { background: 'rgba(245,165,36,0.06)', border: '1px solid rgba(245,165,36,0.15)', borderRadius: '6px', padding: '0.625rem 0.75rem', fontSize: '0.72rem', color: currentTheme.textSecondary, lineHeight: '1.6' } },
+              React.createElement('div', { style: { color: '#f5a524', fontWeight: '700', marginBottom: '0.25rem' } }, 'CS2 Price History'),
               React.createElement('div', null, '→ Steam price history'),
               React.createElement('div', null, '→ Per skin over time'),
               React.createElement('div', null, '→ Shown in portfolio chart')
@@ -3276,7 +3301,7 @@ buy,crypto,bitcoin,0.5,45000,2024-01-15,10`)
             width: '100%',
             padding: '0.75rem',
             background: currentTheme.accent,
-            color: '#fff',
+            color: '#13110a',
             border: 'none',
             borderRadius: '8px',
             cursor: 'pointer',
@@ -3299,19 +3324,36 @@ buy,crypto,bitcoin,0.5,45000,2024-01-15,10`)
     // Header
     React.createElement('header', {
       style: {
-        padding: '1rem 1.5rem',
+        padding: '0.85rem 1.5rem',
         display: 'flex',
         justifyContent: 'space-between',
         alignItems: 'center',
-        borderBottom: `1px solid ${currentTheme.cardBorder}`
+        borderBottom: `1px solid ${currentTheme.cardBorder}`,
+        position: 'sticky',
+        top: 0,
+        zIndex: 100,
+        background: theme === 'white' ? 'rgba(255,255,255,0.72)' : 'rgba(10,13,19,0.62)',
+        backdropFilter: 'blur(14px)',
+        WebkitBackdropFilter: 'blur(14px)'
       }
     },
-      React.createElement('div', { style: { display: 'flex', alignItems: 'center', gap: '1rem', flexWrap: 'wrap' } },
+      React.createElement('div', { style: { display: 'flex', alignItems: 'center', gap: '0.7rem', flexWrap: 'wrap' } },
+        // Brand mark — gold gemstone
+        React.createElement('div', {
+          style: {
+            width: '30px', height: '30px', borderRadius: '9px', flexShrink: 0,
+            display: 'flex', alignItems: 'center', justifyContent: 'center',
+            background: 'linear-gradient(140deg, #ffd479 0%, #f5a524 55%, #d97706 100%)',
+            color: '#13110a', fontWeight: '900', fontSize: '1rem',
+            boxShadow: '0 4px 14px -4px rgba(245,165,36,0.6)'
+          }
+        }, '◆'),
         React.createElement('h1', {
           style: {
-            fontSize: '1.5rem',
+            fontSize: '1.35rem',
             fontWeight: '800',
-            background: 'linear-gradient(135deg, #3b82f6 0%, #8b5cf6 100%)',
+            letterSpacing: '-0.02em',
+            background: 'linear-gradient(135deg, #ffd479 0%, #f5a524 60%, #d97706 100%)',
             WebkitBackgroundClip: 'text',
             WebkitTextFillColor: 'transparent',
             backgroundClip: 'text'
@@ -3319,54 +3361,64 @@ buy,crypto,bitcoin,0.5,45000,2024-01-15,10`)
         }, 'MAERMIN'),
         React.createElement('span', {
           style: {
-            fontSize: '0.75rem',
-            padding: '0.25rem 0.5rem',
-            background: currentTheme.inputBg,
-            borderRadius: '4px',
-            color: currentTheme.textSecondary
+            fontSize: '0.68rem',
+            fontWeight: '600',
+            padding: '0.2rem 0.5rem',
+            background: currentTheme.accentSoft,
+            border: `1px solid ${currentTheme.accent}40`,
+            borderRadius: '999px',
+            color: currentTheme.accent,
+            letterSpacing: '0.02em'
           }
         }, 'v9.0'),
 
       ),
-      
+
       React.createElement('div', { style: { display: 'flex', gap: '0.5rem', alignItems: 'center' }, ref: settingsRef },
         // Command palette hint
         React.createElement('button', {
           onClick: () => setShowCommandPalette(true),
           style: {
-            padding: '0.5rem 1rem',
+            padding: '0.5rem 0.85rem',
             background: currentTheme.inputBg,
             border: `1px solid ${currentTheme.cardBorder}`,
-            borderRadius: '8px',
+            borderRadius: '10px',
             color: currentTheme.textSecondary,
             cursor: 'pointer',
             display: 'flex',
             alignItems: 'center',
             gap: '0.5rem',
-            fontSize: '0.875rem'
-          }
+            fontSize: '0.85rem',
+            minWidth: '180px'
+          },
+          onMouseEnter: e => { e.currentTarget.style.borderColor = `${currentTheme.accent}55`; },
+          onMouseLeave: e => { e.currentTarget.style.borderColor = currentTheme.cardBorder; }
         },
-          React.createElement('span', null, t.searchCommands || 'Search...'),
+          React.createElement('span', { style: { opacity: 0.7 } }, '⌕'),
+          React.createElement('span', { style: { flex: 1, textAlign: 'left' } }, t.searchCommands || 'Search...'),
           React.createElement('kbd', {
             style: {
-              padding: '0.125rem 0.375rem',
+              padding: '0.1rem 0.4rem',
               background: currentTheme.card,
-              borderRadius: '4px',
-              fontSize: '0.75rem'
+              border: `1px solid ${currentTheme.cardBorder}`,
+              borderRadius: '5px',
+              fontSize: '0.7rem',
+              fontFamily: 'ui-monospace, monospace'
             }
-          }, 'Ctrl+K')
+          }, '⌘K')
         ),
-        
+
         // Privacy toggle (mask all amounts)
         React.createElement('button', {
           onClick: () => setPrivacyMode(p => !p),
           title: (privacyMode ? (t.showAmounts || 'Show amounts') : (t.hideAmounts || 'Hide amounts')) + ' (p)',
           style: {
-            padding: '0.5rem 0.75rem',
+            width: '38px', height: '38px',
+            display: 'flex', alignItems: 'center', justifyContent: 'center',
             background: privacyMode ? currentTheme.accent : currentTheme.inputBg,
             border: `1px solid ${privacyMode ? currentTheme.accent : currentTheme.cardBorder}`,
-            borderRadius: '8px',
-            color: privacyMode ? '#fff' : currentTheme.text,
+            borderRadius: '10px',
+            color: privacyMode ? currentTheme.accentText : currentTheme.text,
             cursor: 'pointer',
             fontSize: '1rem',
             transition: 'all 0.15s'
@@ -3378,11 +3430,12 @@ buy,crypto,bitcoin,0.5,45000,2024-01-15,10`)
           onClick: () => setShowSettings(!showSettings),
           title: t.settings || 'Settings',
           style: {
-            padding: '0.5rem 0.75rem',
+            width: '38px', height: '38px',
+            display: 'flex', alignItems: 'center', justifyContent: 'center',
             background: showSettings ? currentTheme.accent : currentTheme.inputBg,
             border: `1px solid ${showSettings ? currentTheme.accent : currentTheme.cardBorder}`,
-            borderRadius: '8px',
-            color: showSettings ? '#fff' : currentTheme.text,
+            borderRadius: '10px',
+            color: showSettings ? currentTheme.accentText : currentTheme.text,
             cursor: 'pointer',
             fontSize: '1rem',
             transition: 'all 0.15s'
@@ -3518,60 +3571,63 @@ buy,crypto,bitcoin,0.5,45000,2024-01-15,10`)
     ),
     
     // Main layout
-    React.createElement('div', { style: { display: 'flex', minHeight: 'calc(100vh - 61px)' } },
+    React.createElement('div', { style: { display: 'flex', alignItems: 'flex-start' } },
       // Sidebar
       React.createElement('nav', {
         className: 'maermin-sidebar',
         style: {
-          width: '220px',
-          padding: '1rem',
+          width: '236px',
+          padding: '1rem 0.7rem',
           borderRight: `1px solid ${currentTheme.cardBorder}`,
           flexShrink: 0,
+          position: 'sticky',
+          top: '61px',
+          height: 'calc(100vh - 61px)',
           overflowY: 'auto'
         }
       },
         [
           // ── Portfolio ──────────────────────────────
           { group: t.navGroupPortfolio || 'Portfolio' },
-          { id: 'overview',         icon: '◈', label: t.navOverview || 'Overview' },
-          { id: 'transactions',     icon: '↕', label: t.navTransactions || 'Transactions' },
-          { id: 'portfolios',       icon: '◆', label: t.navPortfolios || 'Portfolios' },
-          { id: 'net-worth',        icon: '◉', label: t.navNetWorth || 'Net Worth' },
-          { id: 'dividends',        icon: '◎', label: t.navDividends || 'Dividends' },
-          { id: 'journal',          icon: '◇', label: t.navJournal || 'Journal' },
+          { id: 'overview',         icon: '⊞', label: t.navOverview || 'Overview' },
+          { id: 'transactions',     icon: '⇅', label: t.navTransactions || 'Transactions' },
+          { id: 'portfolios',       icon: '▦', label: t.navPortfolios || 'Portfolios' },
+          { id: 'net-worth',        icon: '∑', label: t.navNetWorth || 'Net Worth' },
+          { id: 'dividends',        icon: '❖', label: t.navDividends || 'Dividends' },
+          { id: 'journal',          icon: '✎', label: t.navJournal || 'Journal' },
           // ── Analysis ──────────────────────────────
           { group: t.navGroupAnalysis || 'Analysis' },
-          { id: 'returns',          icon: '◆', label: t.navReturns || 'Returns & XIRR' },
-          { id: 'rebalancing',      icon: '◐', label: t.navRebalancing || 'Rebalancing' },
-          { id: 'savings-plans',    icon: '◑', label: t.navSavingsPlans || 'Savings Plans' },
-          { id: 'cashflow',         icon: '◒', label: t.navCashflow || 'Cash Flow' },
-          { id: 'fees',             icon: '◓', label: t.navFees || 'Fee Analyzer' },
-          { id: 'analytics',        icon: '◇', label: t.navRiskCorrelation || 'Risk & Correlation' },
-          { id: 'health',           icon: '◍', label: t.navHealthScore || 'Health Score' },
-          { id: 'investment-analysis', icon: '◈', label: t.navStrategy || 'Strategy' },
-          { id: 'tax',              icon: '◧', label: t.navTaxFifo || 'Tax & FIFO' },
+          { id: 'returns',          icon: '↗', label: t.navReturns || 'Returns & XIRR' },
+          { id: 'rebalancing',      icon: '⇌', label: t.navRebalancing || 'Rebalancing' },
+          { id: 'savings-plans',    icon: '⊕', label: t.navSavingsPlans || 'Savings Plans' },
+          { id: 'cashflow',         icon: '∿', label: t.navCashflow || 'Cash Flow' },
+          { id: 'fees',             icon: '%', label: t.navFees || 'Fee Analyzer' },
+          { id: 'analytics',        icon: '◫', label: t.navRiskCorrelation || 'Risk & Correlation' },
+          { id: 'health',           icon: '✚', label: t.navHealthScore || 'Health Score' },
+          { id: 'investment-analysis', icon: '⊛', label: t.navStrategy || 'Strategy' },
+          { id: 'tax',              icon: '§', label: t.navTaxFifo || 'Tax & FIFO' },
           // ── Tools ──────────────────────────────────
           { group: t.navGroupTools || 'Tools' },
-          { id: 'watchlist',        icon: '◯', label: t.navWatchlist || 'Watchlist' },
-          { id: 'alerts',           icon: '◎', label: t.navPriceAlerts || 'Price Alerts' },
-          { id: 'attribution',     icon: '◈', label: t.navAttribution || 'Attribution' },
-          { id: 'realized',         icon: '◑', label: t.navRealizedPnl || 'Realized P&L' },
-          { id: 'news',             icon: '◎', label: t.navNewsFeed || 'News Feed' },
-          { id: 'data',             icon: '◁', label: t.navImportExport || 'Import / Export' },
+          { id: 'watchlist',        icon: '☆', label: t.navWatchlist || 'Watchlist' },
+          { id: 'alerts',           icon: '⚑', label: t.navPriceAlerts || 'Price Alerts' },
+          { id: 'attribution',     icon: '⊿', label: t.navAttribution || 'Attribution' },
+          { id: 'realized',         icon: '✓', label: t.navRealizedPnl || 'Realized P&L' },
+          { id: 'news',             icon: '☰', label: t.navNewsFeed || 'News Feed' },
+          { id: 'data',             icon: '⇆', label: t.navImportExport || 'Import / Export' },
         ].map((item, idx) => {
           // Section Header
           if (item.group) {
             return React.createElement('div', {
               key: 'group-' + idx,
               style: {
-                padding: '0.875rem 0.75rem 0.375rem',
-                fontSize: '0.65rem',
+                padding: '0.9rem 0.75rem 0.45rem',
+                fontSize: '0.64rem',
                 fontWeight: '700',
-                letterSpacing: '0.1em',
+                letterSpacing: '0.12em',
                 textTransform: 'uppercase',
                 color: currentTheme.textSecondary,
-                opacity: 0.7,
-                marginTop: idx === 0 ? 0 : '0.5rem'
+                opacity: 0.65,
+                marginTop: idx === 0 ? 0 : '0.6rem'
               }
             }, item.group);
           }
@@ -3584,37 +3640,40 @@ buy,crypto,bitcoin,0.5,45000,2024-01-15,10`)
             style: {
               display: 'flex',
               alignItems: 'center',
-              gap: '0.5rem',
+              gap: '0.65rem',
               width: '100%',
-              padding: '0.45rem 0.75rem',
-              marginBottom: '0.1rem',
-              background: isActive ? `${currentTheme.accent}18` : 'transparent',
+              padding: '0.55rem 0.7rem',
+              marginBottom: '0.12rem',
+              background: isActive ? currentTheme.accentSoft : 'transparent',
               color: isActive ? currentTheme.accent : currentTheme.textSecondary,
               border: 'none',
-              borderRadius: '8px',
+              borderRadius: '10px',
               textAlign: 'left',
               cursor: 'pointer',
-              fontSize: '0.825rem',
-              fontWeight: isActive ? '600' : '400',
-              transition: 'background 0.12s, color 0.12s',
-              borderLeft: isActive ? `3px solid ${currentTheme.accent}` : '3px solid transparent',
-              paddingLeft: isActive ? 'calc(0.75rem - 1px)' : '0.75rem'
+              fontSize: '0.83rem',
+              fontWeight: isActive ? '650' : '450',
+              position: 'relative',
+              transition: 'background 0.14s, color 0.14s'
             },
-            onMouseEnter: e => { if (!isActive) e.currentTarget.style.background = `${currentTheme.accent}0a`; e.currentTarget.style.color = currentTheme.text; },
-            onMouseLeave: e => { if (!isActive) e.currentTarget.style.background = 'transparent'; e.currentTarget.style.color = currentTheme.textSecondary; }
+            onMouseEnter: e => { if (!isActive) { e.currentTarget.style.background = currentTheme.surface2; e.currentTarget.style.color = currentTheme.text; } },
+            onMouseLeave: e => { if (!isActive) { e.currentTarget.style.background = 'transparent'; e.currentTarget.style.color = currentTheme.textSecondary; } }
           },
+            // Active indicator bar
+            isActive && React.createElement('span', {
+              style: { position: 'absolute', left: '-0.7rem', top: '50%', transform: 'translateY(-50%)', width: '3px', height: '60%', background: currentTheme.accent, borderRadius: '0 3px 3px 0' }
+            }),
             React.createElement('span', {
-              style: { fontSize: '0.75rem', opacity: 0.8, width: '14px', textAlign: 'center', flexShrink: 0 }
+              style: { fontSize: '0.95rem', width: '18px', textAlign: 'center', flexShrink: 0, opacity: isActive ? 1 : 0.85 }
             }, item.icon),
             item.label
           );
         }),
       ),
-      
+
       // Main content
       React.createElement('main', {
         className: 'maermin-main',
-        style: { flex: 1, overflow: 'auto' }
+        style: { flex: 1, minWidth: 0, overflow: 'auto' }
       }, renderView())
     ),
 

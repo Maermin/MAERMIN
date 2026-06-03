@@ -15,16 +15,16 @@ const { useState, useEffect, useMemo, useRef } = React;
 // ─────────────────────────────────────────────────────────────────────────────
 function Card({ theme, children, style = {} }) {
   return React.createElement('div', {
-    style: { background: theme.card, border: `1px solid ${theme.cardBorder}`, borderRadius: '12px', padding: '1.25rem', ...style }
+    style: { background: theme.card, border: `1px solid ${theme.cardBorder}`, borderRadius: '16px', boxShadow: theme.shadow, padding: '1.25rem', ...style }
   }, children);
 }
 
 function KpiCard({ theme, label, value, sub, color, badge }) {
   return React.createElement('div', {
-    style: { background: theme.card, border: `1px solid ${theme.cardBorder}`, borderRadius: '12px', padding: '1.25rem' }
+    style: { background: theme.card, border: `1px solid ${theme.cardBorder}`, borderRadius: '16px', padding: '1.35rem', boxShadow: theme.shadow }
   },
-    React.createElement('div', { style: { display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '0.375rem' } },
-      React.createElement('span', { style: { color: theme.textSecondary, fontSize: '0.75rem', textTransform: 'uppercase', letterSpacing: '0.06em' } }, label),
+    React.createElement('div', { style: { display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '0.4rem' } },
+      React.createElement('span', { style: { color: theme.textSecondary, fontSize: '0.72rem', fontWeight: '600', textTransform: 'uppercase', letterSpacing: '0.07em' } }, label),
       badge && React.createElement('span', {
         style: { fontSize: '0.68rem', fontWeight: '700', padding: '0.1rem 0.4rem', borderRadius: '4px',
           background: badge.pos ? 'rgba(34,197,94,0.15)' : 'rgba(239,68,68,0.15)',
@@ -137,7 +137,7 @@ function PerformancePeriods({ portfolio, priceHistory, prices, theme, formatPric
               padding: '0.3rem 0.6rem', border: 'none', borderRadius: '6px', cursor: 'pointer',
               fontSize: '0.75rem', fontWeight: activePeriod === p.id ? '700' : '400',
               background: activePeriod === p.id ? theme.accent : 'transparent',
-              color: activePeriod === p.id ? '#fff' : p.changePct !== null ? (p.changePct >= 0 ? '#22c55e' : '#ef4444') : theme.textSecondary,
+              color: activePeriod === p.id ? '#13110a' : p.changePct !== null ? (p.changePct >= 0 ? '#22c55e' : '#ef4444') : theme.textSecondary,
               transition: 'all 0.1s'
             }
           }, p.label)
@@ -199,7 +199,7 @@ function NetWorthView({ portfolioStats, theme, formatPrice, getCurrencySymbol })
     cash:      { label: 'Cash / Savings',   color: '#22c55e', icon: '◈' },
     checking:  { label: 'Checking Account', color: '#3b82f6', icon: '◆' },
     property:  { label: 'Real Estate',      color: '#f59e0b', icon: '◉' },
-    crypto_wallet: { label: 'Crypto Wallet', color: '#8b5cf6', icon: '◎' },
+    crypto_wallet: { label: 'Crypto Wallet', color: '#f5a524', icon: '◎' },
     other_asset: { label: 'Other Asset',    color: '#06b6d4', icon: '◇' },
     loan:      { label: 'Loan / Mortgage',  color: '#ef4444', icon: '◐' },
     credit:    { label: 'Credit Card',      color: '#ef4444', icon: '◑' },
@@ -240,12 +240,12 @@ function NetWorthView({ portfolioStats, theme, formatPrice, getCurrencySymbol })
   return React.createElement('div', { style: { padding: '1.5rem' } },
     React.createElement('div', { style: { display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.5rem', flexWrap: 'wrap', gap: '0.75rem' } },
       React.createElement('div', null,
-        React.createElement('h2', { style: { color: theme.text, fontSize: '1.5rem', fontWeight: '700', marginBottom: '0.25rem' } }, 'Net Worth'),
+        React.createElement('h2', { style: { color: theme.text, fontSize: '1.5rem', fontWeight: '800', letterSpacing: '-0.02em', marginBottom: '0.25rem' } }, 'Net Worth'),
         React.createElement('p', { style: { color: theme.textSecondary, fontSize: '0.875rem' } }, 'Total wealth including investments, cash accounts, real estate and liabilities')
       ),
       React.createElement('button', {
         onClick: () => setShowAdd(!showAdd),
-        style: { padding: '0.625rem 1.25rem', background: theme.accent, color: '#fff', border: 'none', borderRadius: '8px', cursor: 'pointer', fontWeight: '700', fontSize: '0.875rem' }
+        style: { padding: '0.625rem 1.25rem', background: theme.accent, color: '#13110a', border: 'none', borderRadius: '8px', cursor: 'pointer', fontWeight: '700', fontSize: '0.875rem' }
       }, '+ Add Account')
     ),
 
@@ -263,7 +263,7 @@ function NetWorthView({ portfolioStats, theme, formatPrice, getCurrencySymbol })
       React.createElement('div', { style: { color: theme.text, fontWeight: '700', fontSize: '0.875rem', marginBottom: '0.75rem' } }, 'Wealth Composition'),
       React.createElement('div', { style: { height: '20px', borderRadius: '10px', overflow: 'hidden', display: 'flex', background: theme.inputBg } },
         [
-          { value: portfolioValue, color: '#8b5cf6', label: 'Portfolio' },
+          { value: portfolioValue, color: '#f5a524', label: 'Portfolio' },
           { value: totalAssets,    color: '#22c55e', label: 'Cash & Assets' },
         ].filter(s => s.value > 0).map((s, i) =>
           React.createElement('div', { key: i, title: `${s.label}: ${formatPrice(s.value)}`,
@@ -271,7 +271,7 @@ function NetWorthView({ portfolioStats, theme, formatPrice, getCurrencySymbol })
         )
       ),
       React.createElement('div', { style: { display: 'flex', gap: '1rem', marginTop: '0.625rem', flexWrap: 'wrap' } },
-        [{ label: 'Portfolio', color: '#8b5cf6', value: portfolioValue },
+        [{ label: 'Portfolio', color: '#f5a524', value: portfolioValue },
          { label: 'Cash & Assets', color: '#22c55e', value: totalAssets },
          { label: 'Liabilities', color: '#ef4444', value: -totalLiabilities }].map((s, i) =>
           React.createElement('div', { key: i, style: { display: 'flex', alignItems: 'center', gap: '0.375rem', fontSize: '0.78rem' } },
@@ -303,7 +303,7 @@ function NetWorthView({ portfolioStats, theme, formatPrice, getCurrencySymbol })
         )
       ),
       React.createElement('div', { style: { display: 'flex', gap: '0.5rem' } },
-        React.createElement('button', { onClick: addAccount, style: { padding: '0.625rem 1.25rem', background: theme.accent, color: '#fff', border: 'none', borderRadius: '8px', cursor: 'pointer', fontWeight: '700', fontSize: '0.875rem' } }, 'Add'),
+        React.createElement('button', { onClick: addAccount, style: { padding: '0.625rem 1.25rem', background: theme.accent, color: '#13110a', border: 'none', borderRadius: '8px', cursor: 'pointer', fontWeight: '700', fontSize: '0.875rem' } }, 'Add'),
         React.createElement('button', { onClick: () => setShowAdd(false), style: { padding: '0.625rem 1.25rem', background: theme.inputBg, color: theme.text, border: 'none', borderRadius: '8px', cursor: 'pointer', fontSize: '0.875rem' } }, 'Cancel')
       )
     ),
@@ -522,7 +522,7 @@ function FeeAnalyzer({ transactions, theme, formatPrice, getCurrencySymbol }) {
   const maxYear = Math.max(...Object.values(stats.byYear).map(y => y.fees), 1);
 
   return React.createElement('div', { style: { padding: '1.5rem' } },
-    React.createElement('h2', { style: { color: theme.text, fontSize: '1.5rem', fontWeight: '700', marginBottom: '0.375rem' } }, 'Fee Analyzer'),
+    React.createElement('h2', { style: { color: theme.text, fontSize: '1.5rem', fontWeight: '800', letterSpacing: '-0.02em', marginBottom: '0.375rem' } }, 'Fee Analyzer'),
     React.createElement('p', { style: { color: theme.textSecondary, fontSize: '0.875rem', marginBottom: '1.5rem' } }, 'Total cost of investing — transaction fees, exchange fees, and more'),
 
     // KPIs
@@ -563,7 +563,7 @@ function FeeAnalyzer({ transactions, theme, formatPrice, getCurrencySymbol }) {
             React.createElement('div', { style: { display: 'flex', flexDirection: 'column', gap: '0.625rem' } },
               Object.entries(stats.byCategory).sort((a,b) => b[1]-a[1]).map(([cat, fees]) => {
                 const pct = stats.totalFees > 0 ? fees / stats.totalFees * 100 : 0;
-                const color = CAT_COLORS[cat] || '#8b5cf6';
+                const color = CAT_COLORS[cat] || '#f5a524';
                 return React.createElement('div', { key: cat },
                   React.createElement('div', { style: { display: 'flex', justifyContent: 'space-between', fontSize: '0.82rem', marginBottom: '0.25rem' } },
                     React.createElement('span', { style: { color: theme.text, fontWeight: '600', textTransform: 'capitalize' } }, cat),

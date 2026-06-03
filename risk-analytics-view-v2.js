@@ -243,7 +243,7 @@ function RiskAnalyticsViewV2(props) {
         React.createElement('div', { style: { color: theme.textSecondary, fontSize: '0.875rem' } },
           t.volatility || 'Volatility (Annual)'
         ),
-        React.createElement('div', { style: { color: theme.text, fontSize: '1.5rem', fontWeight: '700' } },
+        React.createElement('div', { style: { color: theme.text, fontSize: '1.5rem', fontWeight: '800', letterSpacing: '-0.02em' } },
           riskMetrics.volatility.toFixed(1) + '%'
         )
       ),
@@ -260,7 +260,7 @@ function RiskAnalyticsViewV2(props) {
         React.createElement('div', { style: { color: theme.textSecondary, fontSize: '0.875rem' } },
           'VaR (95%, 1-day)'
         ),
-        React.createElement('div', { style: { color: theme.danger || '#ef4444', fontSize: '1.5rem', fontWeight: '700' } },
+        React.createElement('div', { style: { color: theme.danger || '#ef4444', fontSize: '1.5rem', fontWeight: '800', letterSpacing: '-0.02em' } },
           formatPrice(riskMetrics.var95) + ' EUR'
         )
       ),
@@ -277,7 +277,7 @@ function RiskAnalyticsViewV2(props) {
         React.createElement('div', { style: { color: theme.textSecondary, fontSize: '0.875rem' } },
           'CVaR (95%)'
         ),
-        React.createElement('div', { style: { color: theme.danger || '#ef4444', fontSize: '1.5rem', fontWeight: '700' } },
+        React.createElement('div', { style: { color: theme.danger || '#ef4444', fontSize: '1.5rem', fontWeight: '800', letterSpacing: '-0.02em' } },
           formatPrice(riskMetrics.cvar95) + ' EUR'
         )
       ),
@@ -316,7 +316,7 @@ function RiskAnalyticsViewV2(props) {
         React.createElement('div', { style: { color: theme.textSecondary, fontSize: '0.875rem' } },
           'Sortino Ratio'
         ),
-        React.createElement('div', { style: { color: theme.text, fontSize: '1.5rem', fontWeight: '700' } },
+        React.createElement('div', { style: { color: theme.text, fontSize: '1.5rem', fontWeight: '800', letterSpacing: '-0.02em' } },
           isFinite(riskMetrics.sortinoRatio) ? riskMetrics.sortinoRatio.toFixed(2) : 'N/A'
         )
       ),
@@ -333,7 +333,7 @@ function RiskAnalyticsViewV2(props) {
         React.createElement('div', { style: { color: theme.textSecondary, fontSize: '0.875rem' } },
           'Max Drawdown'
         ),
-        React.createElement('div', { style: { color: theme.danger || '#ef4444', fontSize: '1.5rem', fontWeight: '700' } },
+        React.createElement('div', { style: { color: theme.danger || '#ef4444', fontSize: '1.5rem', fontWeight: '800', letterSpacing: '-0.02em' } },
           '-' + riskMetrics.maxDrawdownPercent.toFixed(1) + '%'
         )
       )

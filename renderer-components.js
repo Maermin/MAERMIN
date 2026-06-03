@@ -21,7 +21,7 @@ const themes = {
     textSecondary: '#64748b',
     inputBg: 'rgba(0,0,0,0.05)',
     inputBorder: 'rgba(0,0,0,0.1)',
-    accent: '#7e22ce',
+    accent: '#c2790a',
     success: '#22c55e',
     danger: '#ef4444',
     warning: '#f59e0b'
@@ -34,20 +34,20 @@ const themes = {
     textSecondary: '#94a3b8',
     inputBg: 'rgba(255,255,255,0.05)',
     inputBorder: 'rgba(255,255,255,0.1)',
-    accent: '#8b5cf6',
+    accent: '#f5a524',
     success: '#22c55e',
     danger: '#ef4444',
     warning: '#f59e0b'
   },
   purple: {
-    background: 'linear-gradient(135deg, #1e293b 0%, #7e22ce 50%, #1e293b 100%)',
+    background: 'linear-gradient(135deg, #140a23 0%, #1f1234 50%, #0d0717 100%)',
     card: 'rgba(255,255,255,0.1)',
     cardBorder: 'rgba(255,255,255,0.2)',
     text: '#ffffff',
     textSecondary: 'rgba(255,255,255,0.6)',
     inputBg: 'rgba(255,255,255,0.1)',
     inputBorder: 'rgba(255,255,255,0.2)',
-    accent: '#a855f7',
+    accent: '#f5a524',
     success: '#22c55e',
     danger: '#ef4444',
     warning: '#f59e0b'
@@ -479,7 +479,7 @@ function CorrelationMatrixView({ portfolio, priceHistory, t, theme, formatPrice 
         style: {
           background: theme.card,
           padding: '1.25rem',
-          borderRadius: '12px',
+          borderRadius: '16px',
           border: `1px solid ${theme.cardBorder}`
         }
       },
@@ -511,7 +511,7 @@ function CorrelationMatrixView({ portfolio, priceHistory, t, theme, formatPrice 
         style: {
           background: theme.card,
           padding: '1.25rem',
-          borderRadius: '12px',
+          borderRadius: '16px',
           border: `1px solid ${theme.cardBorder}`
         }
       },
@@ -617,7 +617,7 @@ function MonteCarloView({ portfolio, prices, t, theme, currency, formatPrice }) 
         marginBottom: '1.5rem',
         background: theme.card,
         padding: '1.25rem',
-        borderRadius: '12px',
+        borderRadius: '16px',
         border: `1px solid ${theme.cardBorder}`
       }
     },
@@ -699,7 +699,7 @@ function MonteCarloView({ portfolio, prices, t, theme, currency, formatPrice }) 
             width: '100%',
             padding: '0.75rem 1.5rem',
             background: isRunning ? theme.textSecondary : theme.accent,
-            color: '#fff',
+            color: '#13110a',
             border: 'none',
             borderRadius: '8px',
             cursor: isRunning ? 'not-allowed' : 'pointer',
@@ -725,14 +725,14 @@ function MonteCarloView({ portfolio, prices, t, theme, currency, formatPrice }) 
           style: {
             background: theme.card,
             padding: '1.25rem',
-            borderRadius: '12px',
+            borderRadius: '16px',
             border: `1px solid ${theme.cardBorder}`
           }
         },
           React.createElement('div', { style: { color: theme.textSecondary, fontSize: '0.875rem' } },
             t.portfolioValue || 'Initial Value'
           ),
-          React.createElement('div', { style: { color: theme.text, fontSize: '1.5rem', fontWeight: '700' } },
+          React.createElement('div', { style: { color: theme.text, fontSize: '1.5rem', fontWeight: '800', letterSpacing: '-0.02em' } },
             `${formatPrice(results.initialValue)} ${currencySymbol}`
           )
         ),
@@ -742,14 +742,14 @@ function MonteCarloView({ portfolio, prices, t, theme, currency, formatPrice }) 
           style: {
             background: theme.card,
             padding: '1.25rem',
-            borderRadius: '12px',
+            borderRadius: '16px',
             border: `1px solid ${theme.cardBorder}`
           }
         },
           React.createElement('div', { style: { color: theme.textSecondary, fontSize: '0.875rem' } },
             t.medianOutcome || 'Median (50th)'
           ),
-          React.createElement('div', { style: { color: theme.text, fontSize: '1.5rem', fontWeight: '700' } },
+          React.createElement('div', { style: { color: theme.text, fontSize: '1.5rem', fontWeight: '800', letterSpacing: '-0.02em' } },
             `${formatPrice(results.percentiles[50])} ${currencySymbol}`
           )
         ),
@@ -759,14 +759,14 @@ function MonteCarloView({ portfolio, prices, t, theme, currency, formatPrice }) 
           style: {
             background: theme.card,
             padding: '1.25rem',
-            borderRadius: '12px',
+            borderRadius: '16px',
             border: `1px solid ${theme.cardBorder}`
           }
         },
           React.createElement('div', { style: { color: theme.textSecondary, fontSize: '0.875rem' } },
             `${t.bestCase || 'Best Case'} (95th)`
           ),
-          React.createElement('div', { style: { color: theme.success, fontSize: '1.5rem', fontWeight: '700' } },
+          React.createElement('div', { style: { color: theme.success, fontSize: '1.5rem', fontWeight: '800', letterSpacing: '-0.02em' } },
             `${formatPrice(results.percentiles[95])} ${currencySymbol}`
           )
         ),
@@ -776,14 +776,14 @@ function MonteCarloView({ portfolio, prices, t, theme, currency, formatPrice }) 
           style: {
             background: theme.card,
             padding: '1.25rem',
-            borderRadius: '12px',
+            borderRadius: '16px',
             border: `1px solid ${theme.cardBorder}`
           }
         },
           React.createElement('div', { style: { color: theme.textSecondary, fontSize: '0.875rem' } },
             `${t.worstCase || 'Worst Case'} (5th)`
           ),
-          React.createElement('div', { style: { color: theme.danger, fontSize: '1.5rem', fontWeight: '700' } },
+          React.createElement('div', { style: { color: theme.danger, fontSize: '1.5rem', fontWeight: '800', letterSpacing: '-0.02em' } },
             `${formatPrice(results.percentiles[5])} ${currencySymbol}`
           )
         )
@@ -791,7 +791,7 @@ function MonteCarloView({ portfolio, prices, t, theme, currency, formatPrice }) 
 
       // FIRE probability (V7) — shown when a FIRE number is configured (dashboard tile)
       results.fireTarget && React.createElement('div', {
-        style: { background: theme.card, padding: '1.25rem', borderRadius: '12px', border: `1px solid ${theme.cardBorder}`, marginBottom: '1.5rem', display: 'flex', alignItems: 'center', gap: '1.5rem', flexWrap: 'wrap' }
+        style: { background: theme.card, padding: '1.25rem', borderRadius: '16px', boxShadow: theme.shadow, border: `1px solid ${theme.cardBorder}`, marginBottom: '1.5rem', display: 'flex', alignItems: 'center', gap: '1.5rem', flexWrap: 'wrap' }
       },
         React.createElement('div', { style: { display: 'flex', flexDirection: 'column', alignItems: 'center', minWidth: '120px' } },
           React.createElement('div', { style: { fontSize: '2.5rem', fontWeight: 800, color: results.fireTarget.probability >= 75 ? theme.success : results.fireTarget.probability >= 40 ? theme.warning : theme.danger } },
@@ -818,7 +818,7 @@ function MonteCarloView({ portfolio, prices, t, theme, currency, formatPrice }) 
         style: {
           background: theme.card,
           padding: '1.25rem',
-          borderRadius: '12px',
+          borderRadius: '16px',
           border: `1px solid ${theme.cardBorder}`,
           marginBottom: '1.5rem'
         }
@@ -855,7 +855,7 @@ function MonteCarloView({ portfolio, prices, t, theme, currency, formatPrice }) 
         style: {
           background: theme.card,
           padding: '1.25rem',
-          borderRadius: '12px',
+          borderRadius: '16px',
           border: `1px solid ${theme.cardBorder}`
         }
       },
@@ -941,7 +941,7 @@ function StressTestView({ portfolio, prices, t, theme, currency, formatPrice }) 
         style: {
           padding: '0.75rem 1.5rem',
           background: theme.accent,
-          color: '#fff',
+          color: '#13110a',
           border: 'none',
           borderRadius: '8px',
           cursor: 'pointer',
@@ -965,9 +965,9 @@ function StressTestView({ portfolio, prices, t, theme, currency, formatPrice }) 
           className: `scenario-card ${selectedScenario === id ? 'selected' : ''}`,
           onClick: () => runScenario(id),
           style: {
-            background: selectedScenario === id ? 'rgba(139,92,246,0.1)' : theme.card,
+            background: selectedScenario === id ? 'rgba(245,165,36,0.1)' : theme.card,
             padding: '1.25rem',
-            borderRadius: '12px',
+            borderRadius: '16px',
             border: `2px solid ${selectedScenario === id ? theme.accent : theme.cardBorder}`,
             cursor: 'pointer',
             transition: 'all 0.2s'
@@ -1008,7 +1008,7 @@ function StressTestView({ portfolio, prices, t, theme, currency, formatPrice }) 
       style: {
         background: theme.card,
         padding: '1.5rem',
-        borderRadius: '12px',
+        borderRadius: '16px',
         border: `1px solid ${theme.cardBorder}`
       }
     },
@@ -1107,7 +1107,7 @@ function StressTestView({ portfolio, prices, t, theme, currency, formatPrice }) 
         marginTop: '2rem',
         background: theme.card,
         padding: '1.5rem',
-        borderRadius: '12px',
+        borderRadius: '16px',
         border: `1px solid ${theme.cardBorder}`
       }
     },

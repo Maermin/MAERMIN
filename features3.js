@@ -168,7 +168,7 @@ function DailyPnLCard({ portfolio, priceHistory, theme, formatPrice, getCurrency
     style: {
       background: theme.card,
       border: `1px solid ${isPos ? 'rgba(34,197,94,0.2)' : 'rgba(239,68,68,0.2)'}`,
-      borderRadius: '12px',
+      borderRadius: '16px',
       padding: '1.5rem',
       flex: '1',
       minWidth: '180px'
@@ -262,7 +262,7 @@ function PositionDetailModal({ position, transactions, prices, theme, formatPric
 
   return React.createElement('div', {
     onClick: e => e.target === e.currentTarget && onClose(),
-    style: { position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.7)', backdropFilter: 'blur(4px)', display: 'flex', justifyContent: 'center', alignItems: 'center', zIndex: 9999, padding: '1rem' }
+    style: { position: 'fixed', inset: 0, background: 'rgba(4,6,10,0.62)', backdropFilter: 'blur(8px)', display: 'flex', justifyContent: 'center', alignItems: 'center', zIndex: 9999, padding: '1rem' }
   },
     React.createElement('div', {
       style: { background: theme.modalBg, border: `1px solid ${theme.modalBorder}`, borderRadius: '16px', width: '520px', maxWidth: '100%', maxHeight: '90vh', overflow: 'auto', boxShadow: '0 25px 60px rgba(0,0,0,0.5)' }
@@ -374,7 +374,7 @@ function PositionDetailModal({ position, transactions, prices, theme, formatPric
         React.createElement('label', { style: jLabel }, t.journalReviews || 'Reviews'),
         React.createElement('div', { style: { display: 'flex', gap: '0.5rem', marginBottom: '0.5rem' } },
           React.createElement('input', { value: reviewDraft, onChange: e => setReviewDraft(e.target.value), onKeyDown: e => { if (e.key === 'Enter') addReview(); }, placeholder: t.journalAddReview || 'Add a dated review...', style: { ...jInput, flex: 1 } }),
-          React.createElement('button', { onClick: addReview, style: { padding: '0.5rem 0.9rem', background: theme.accent, color: '#fff', border: 'none', borderRadius: '8px', cursor: 'pointer', fontWeight: 600, fontSize: '0.82rem' } }, '+')
+          React.createElement('button', { onClick: addReview, style: { padding: '0.5rem 0.9rem', background: theme.accent, color: '#13110a', border: 'none', borderRadius: '8px', cursor: 'pointer', fontWeight: 600, fontSize: '0.82rem' } }, '+')
         ),
         (j.reviews || []).length > 0 && React.createElement('div', { style: { display: 'flex', flexDirection: 'column', gap: '0.4rem' } },
           j.reviews.map((rv, i) => React.createElement('div', { key: i, style: { fontSize: '0.8rem', borderLeft: `2px solid ${theme.cardBorder}`, paddingLeft: '0.6rem' } },
@@ -397,9 +397,9 @@ function EnhancedPositionsTable({ portfolio, prices, priceHistory, transactions,
   const [catFilter, setCatFilter] = useState('all');
 
   const CATEGORY_COLORS = {
-    crypto:      ['#f59e0b','#ef4444','#8b5cf6','#06b6d4','#22c55e','#f97316','#3b82f6','#ec4899','#14b8a6','#a78bfa'],
-    stocks:      ['#3b82f6','#22c55e','#f59e0b','#ef4444','#8b5cf6','#06b6d4','#f97316','#ec4899','#14b8a6','#a78bfa'],
-    skins:       ['#06b6d4','#22c55e','#f59e0b','#ef4444','#8b5cf6','#3b82f6','#f97316','#ec4899','#14b8a6','#a78bfa'],
+    crypto:      ['#f59e0b','#ef4444','#f5a524','#06b6d4','#22c55e','#f97316','#3b82f6','#ec4899','#14b8a6','#a78bfa'],
+    stocks:      ['#3b82f6','#22c55e','#f59e0b','#ef4444','#f5a524','#06b6d4','#f97316','#ec4899','#14b8a6','#a78bfa'],
+    skins:       ['#06b6d4','#22c55e','#f59e0b','#ef4444','#f5a524','#3b82f6','#f97316','#ec4899','#14b8a6','#a78bfa'],
     commodities: ['#d97706','#f59e0b','#fbbf24','#92400e','#b45309','#78716c','#a16207','#ca8a04','#d97706','#f97316'],
   };
 
@@ -841,7 +841,7 @@ const EXCHANGE_SHORT = {
 };
 
 const TYPE_COLOR = {
-  EQUITY: '#3b82f6', ETF: '#06b6d4', MUTUALFUND: '#8b5cf6',
+  EQUITY: '#3b82f6', ETF: '#06b6d4', MUTUALFUND: '#f5a524',
   CRYPTOCURRENCY: '#f59e0b', COMMODITY: '#d97706',
 };
 
@@ -1024,7 +1024,7 @@ function SymbolPicker({ category, workerUrl, theme, onSelect, selectedSymbol, se
         React.createElement('span', {
           style: {
             fontSize: '0.6rem', fontWeight: '800', position: 'absolute',
-            color: (['#3b82f6','#8b5cf6','#06b6d4','#f59e0b','#22c55e','#ef4444'])[((selected.ticker||selected.symbol||'A').charCodeAt(0)) % 6]
+            color: (['#3b82f6','#f5a524','#06b6d4','#f59e0b','#22c55e','#ef4444'])[((selected.ticker||selected.symbol||'A').charCodeAt(0)) % 6]
           }
         }, (selected.ticker || selected.symbol || '').replace(/\..+$/, '').slice(0, 3)),
         selected.logoUrl && React.createElement('img', {
@@ -1107,7 +1107,7 @@ function SymbolPicker({ category, workerUrl, theme, onSelect, selectedSymbol, se
               React.createElement('span', {
                 style: {
                   fontSize: '0.6rem', fontWeight: '800', position: 'absolute',
-                  color: (['#3b82f6','#8b5cf6','#06b6d4','#f59e0b','#22c55e','#ef4444'])[((item.ticker||item.symbol||'A').charCodeAt(0)) % 6]
+                  color: (['#3b82f6','#f5a524','#06b6d4','#f59e0b','#22c55e','#ef4444'])[((item.ticker||item.symbol||'A').charCodeAt(0)) % 6]
                 }
               }, (item.ticker || item.symbol || '').replace(/\..+$/, '').slice(0, 3)),
               // Logo image on top — hidden on error (reveals letter avatar)

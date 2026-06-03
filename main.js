@@ -65,7 +65,7 @@ function createMainWindow() {
       contextIsolation: true,
       preload: path.join(__dirname, 'preload.js')
     },
-    backgroundColor: '#1e293b',
+    backgroundColor: '#080b11',
     show: false
   });
 
@@ -103,7 +103,7 @@ ipcMain.handle('detach-panel', async (event, panelId, panelConfig) => {
       contextIsolation: true,
       preload: path.join(__dirname, 'preload.js')
     },
-    backgroundColor: '#1e293b'
+    backgroundColor: '#080b11'
   });
 
   detachedWin.loadFile('index.html', {

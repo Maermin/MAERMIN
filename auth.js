@@ -63,20 +63,22 @@
       <style>
         #maermin-auth {
           position: fixed; inset: 0; z-index: 99999;
-          background: linear-gradient(135deg, #0f172a 0%, #1a0533 50%, #0f172a 100%);
+          background:
+            radial-gradient(800px 500px at 50% -10%, rgba(245,165,36,0.10) 0%, transparent 60%),
+            radial-gradient(1100px 700px at 50% 110%, #11161f 0%, #080b11 70%);
           display: flex; align-items: center; justify-content: center;
-          font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+          font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
         }
         #maermin-auth .auth-card {
-          background: rgba(30,41,59,0.95);
-          border: 1px solid rgba(139,92,246,0.3);
+          background: rgba(20,26,37,0.92);
+          border: 1px solid rgba(255,255,255,0.08);
           border-radius: 20px;
           padding: 3rem;
           width: 100%;
           max-width: 420px;
-          box-shadow: 0 25px 60px rgba(0,0,0,0.6), 0 0 40px rgba(139,92,246,0.1);
+          box-shadow: 0 32px 70px -20px rgba(0,0,0,0.8), 0 0 40px rgba(245,165,36,0.06);
           backdrop-filter: blur(20px);
-          animation: authFadeIn 0.5s ease-out;
+          animation: authFadeIn 0.5s cubic-bezier(0.16,1,0.3,1);
         }
         @keyframes authFadeIn {
           from { opacity: 0; transform: translateY(-20px) scale(0.97); }
@@ -87,7 +89,7 @@
         }
         #maermin-auth .auth-logo h1 {
           font-size: 3rem; font-weight: 800; letter-spacing: -0.05em;
-          background: linear-gradient(135deg, #3b82f6, #8b5cf6);
+          background: linear-gradient(135deg, #ffd479 0%, #f5a524 55%, #d97706 100%);
           -webkit-background-clip: text; -webkit-text-fill-color: transparent;
           background-clip: text;
         }
@@ -110,8 +112,8 @@
           outline: none; transition: border-color 0.2s, box-shadow 0.2s;
         }
         #maermin-auth .auth-field input:focus {
-          border-color: #7c3aed;
-          box-shadow: 0 0 0 3px rgba(124,58,237,0.2);
+          border-color: #f5a524;
+          box-shadow: 0 0 0 3px rgba(245,165,36,0.22);
         }
         #maermin-auth .auth-field input.error {
           border-color: #ef4444;
@@ -139,24 +141,24 @@
         #maermin-auth .auth-error.visible { display: block; }
         #maermin-auth .auth-btn {
           width: 100%; padding: 0.875rem;
-          background: linear-gradient(135deg, #6d28d9, #7c3aed);
+          background: linear-gradient(135deg, #ffd479 0%, #f5a524 55%, #d97706 100%);
           border: none; border-radius: 10px;
-          color: white; font-size: 1rem; font-weight: 600;
+          color: #13110a; font-size: 1rem; font-weight: 700;
           cursor: pointer; transition: all 0.2s;
           display: flex; align-items: center; justify-content: center; gap: 0.5rem;
         }
         #maermin-auth .auth-btn:hover:not(:disabled) {
-          background: linear-gradient(135deg, #7c3aed, #8b5cf6);
+          filter: brightness(1.05);
           transform: translateY(-1px);
-          box-shadow: 0 8px 20px rgba(124,58,237,0.4);
+          box-shadow: 0 10px 24px -6px rgba(245,165,36,0.5);
         }
         #maermin-auth .auth-btn:disabled {
           opacity: 0.7; cursor: not-allowed; transform: none;
         }
         #maermin-auth .auth-btn .spinner {
           width: 18px; height: 18px;
-          border: 2px solid rgba(255,255,255,0.3);
-          border-top-color: white; border-radius: 50%;
+          border: 2px solid rgba(19,17,10,0.3);
+          border-top-color: #13110a; border-radius: 50%;
           animation: spin 0.8s linear infinite; display: none;
         }
         #maermin-auth .auth-btn.loading .spinner { display: block; }
@@ -167,9 +169,9 @@
           color: rgba(255,255,255,0.3); font-size: 0.75rem; line-height: 1.6;
         }
         #maermin-auth .auth-footer a {
-          color: rgba(139,92,246,0.7); text-decoration: none;
+          color: rgba(245,165,36,0.8); text-decoration: none;
         }
-        #maermin-auth .auth-footer a:hover { color: #8b5cf6; }
+        #maermin-auth .auth-footer a:hover { color: #f5a524; }
       </style>
       <div class="auth-card">
         <div class="auth-logo">
@@ -177,25 +179,25 @@
           <p>Professional Portfolio Tracker</p>
         </div>
         <div class="auth-field">
-          <label for="auth-secret">Zugangscode</label>
+          <label for="auth-secret">Access code</label>
           <input
             type="password"
             id="auth-secret"
-            placeholder="Geheimcode eingeben..."
+            placeholder="Enter access code..."
             autocomplete="current-password"
             autofocus
           />
-          <button class="auth-toggle-pw" id="auth-toggle-pw" title="Passwort anzeigen">&#9673;</button>
+          <button class="auth-toggle-pw" id="auth-toggle-pw" title="Show password">&#9673;</button>
         </div>
         <div class="auth-error" id="auth-error">
-          Falscher Zugangscode. Bitte erneut versuchen.
+          Incorrect access code. Please try again.
         </div>
         <button class="auth-btn" id="auth-submit">
           <div class="spinner"></div>
-          <span class="btn-text">Zugang öffnen →</span>
+          <span class="btn-text">Unlock →</span>
         </button>
         <div class="auth-footer">
-          Alle Daten bleiben lokal in deinem Browser.<br>
+          All data stays local in your browser.<br>
           <a href="https://github.com/Maermin/MAERMIN" target="_blank" rel="noopener">MAERMIN v9.0 auf GitHub</a>
         </div>
       </div>
