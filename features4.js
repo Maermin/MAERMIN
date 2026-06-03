@@ -18,8 +18,9 @@ function Card({ theme, children, style = {} }) {
     style: {
       background: theme.card,
       border: `1px solid ${theme.cardBorder}`,
-      borderRadius: '12px',
-      padding: '1.25rem',
+      borderRadius: '16px',
+      padding: '1.35rem',
+      boxShadow: theme.shadow,
       ...style
     }
   }, children);
@@ -27,9 +28,9 @@ function Card({ theme, children, style = {} }) {
 
 function StatCell({ label, value, sub, color, theme }) {
   return React.createElement('div', {
-    style: { background: theme.card, border: `1px solid ${theme.cardBorder}`, borderRadius: '10px', padding: '1rem 1.25rem' }
+    style: { background: theme.card, border: `1px solid ${theme.cardBorder}`, borderRadius: '14px', padding: '1.1rem 1.25rem', boxShadow: theme.shadow }
   },
-    React.createElement('div', { style: { color: theme.textSecondary, fontSize: '0.72rem', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: '0.25rem' } }, label),
+    React.createElement('div', { style: { color: theme.textSecondary, fontSize: '0.72rem', fontWeight: '600', textTransform: 'uppercase', letterSpacing: '0.07em', marginBottom: '0.3rem' } }, label),
     React.createElement('div', { style: { color: color || theme.text, fontSize: '1.5rem', fontWeight: '800', letterSpacing: '-0.02em', lineHeight: 1 } }, value),
     sub && React.createElement('div', { style: { color: theme.textSecondary, fontSize: '0.75rem', marginTop: '0.25rem' } }, sub)
   );
@@ -41,7 +42,7 @@ function StatCell({ label, value, sub, color, theme }) {
 // Kein Datenmigrations-Problem — alle alten Transaktionen gehören zu "default"
 // ─────────────────────────────────────────────────────────────────────────────
 
-const DEFAULT_PORTFOLIO = { id: 'default', name: 'Main Portfolio', color: '#8b5cf6', icon: '◆' };
+const DEFAULT_PORTFOLIO = { id: 'default', name: 'Main Portfolio', color: '#f5a524', icon: '◆' };
 
 function usePortfolios() {
   const [portfolios, setPortfolios] = useState(() => {
@@ -127,7 +128,7 @@ function PortfolioManagerView({ portfolios, activePortfolioId, transactions, pri
   const [editId, setEditId]     = useState(null);
   const [editName, setEditName] = useState('');
 
-  const COLORS = ['#8b5cf6','#3b82f6','#22c55e','#f59e0b','#ef4444','#06b6d4','#f97316','#ec4899'];
+  const COLORS = ['#f5a524','#3b82f6','#22c55e','#f59e0b','#ef4444','#06b6d4','#f97316','#ec4899'];
 
   // Value per portfolio
   const portfolioStats = useMemo(() => {
@@ -153,7 +154,7 @@ function PortfolioManagerView({ portfolios, activePortfolioId, transactions, pri
   }, [portfolios, transactions, prices]);
 
   return React.createElement('div', { style: { padding: '1.5rem' } },
-    React.createElement('h2', { style: { color: theme.text, fontSize: '1.5rem', fontWeight: '700', marginBottom: '1.5rem' } }, 'Portfolio Manager'),
+    React.createElement('h2', { style: { color: theme.text, fontSize: '1.5rem', fontWeight: '800', letterSpacing: '-0.02em', marginBottom: '1.5rem' } }, 'Portfolio Manager'),
 
     // Portfolio Cards
     React.createElement('div', { style: { display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))', gap: '1rem', marginBottom: '1.5rem' } },
@@ -297,12 +298,12 @@ function SavingsPlanView({ transactions, theme, formatPrice, getCurrencySymbol, 
   return React.createElement('div', { style: { padding: '1.5rem' } },
     React.createElement('div', { style: { display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.5rem' } },
       React.createElement('div', null,
-        React.createElement('h2', { style: { color: theme.text, fontSize: '1.5rem', fontWeight: '700', marginBottom: '0.25rem' } }, 'Savings Plans'),
+        React.createElement('h2', { style: { color: theme.text, fontSize: '1.5rem', fontWeight: '800', letterSpacing: '-0.02em', marginBottom: '0.25rem' } }, 'Savings Plans'),
         React.createElement('p', { style: { color: theme.textSecondary, fontSize: '0.875rem' } }, 'Track your recurring investment plans and execution rate')
       ),
       React.createElement('button', {
         onClick: () => setShowAdd(!showAdd),
-        style: { padding: '0.625rem 1.25rem', background: theme.accent, color: '#fff', border: 'none', borderRadius: '8px', cursor: 'pointer', fontWeight: '700', fontSize: '0.875rem' }
+        style: { padding: '0.625rem 1.25rem', background: theme.accent, color: '#13110a', border: 'none', borderRadius: '8px', cursor: 'pointer', fontWeight: '700', fontSize: '0.875rem' }
       }, '+ Add Plan')
     ),
 
@@ -333,7 +334,7 @@ function SavingsPlanView({ transactions, theme, formatPrice, getCurrencySymbol, 
         )
       ),
       React.createElement('div', { style: { display: 'flex', gap: '0.5rem' } },
-        React.createElement('button', { onClick: addPlan, style: { padding: '0.625rem 1.25rem', background: theme.accent, color: '#fff', border: 'none', borderRadius: '8px', cursor: 'pointer', fontWeight: '700', fontSize: '0.875rem' } }, 'Add Plan'),
+        React.createElement('button', { onClick: addPlan, style: { padding: '0.625rem 1.25rem', background: theme.accent, color: '#13110a', border: 'none', borderRadius: '8px', cursor: 'pointer', fontWeight: '700', fontSize: '0.875rem' } }, 'Add Plan'),
         React.createElement('button', { onClick: () => setShowAdd(false), style: { padding: '0.625rem 1.25rem', background: theme.inputBg, color: theme.text, border: 'none', borderRadius: '8px', cursor: 'pointer', fontSize: '0.875rem' } }, 'Cancel')
       )
     ),
@@ -478,7 +479,7 @@ function DividendForecastView({ transactions, portfolio, prices, theme, formatPr
 
   if (dividends.length === 0) {
     return React.createElement('div', { style: { padding: '1.5rem' } },
-      React.createElement('h2', { style: { color: theme.text, fontSize: '1.5rem', fontWeight: '700', marginBottom: '1rem' } }, 'Dividend Forecast'),
+      React.createElement('h2', { style: { color: theme.text, fontSize: '1.5rem', fontWeight: '800', letterSpacing: '-0.02em', marginBottom: '1rem' } }, 'Dividend Forecast'),
       React.createElement(Card, { theme, style: { textAlign: 'center', padding: '3rem' } },
         React.createElement('div', { style: { color: theme.textSecondary, fontSize: '2rem', marginBottom: '0.5rem', opacity: 0.4 } }, '◎'),
         React.createElement('div', { style: { color: theme.text, fontWeight: '600', marginBottom: '0.5rem' } }, 'No dividend history yet'),
@@ -493,7 +494,7 @@ function DividendForecastView({ transactions, portfolio, prices, theme, formatPr
     // Header + year selector
     React.createElement('div', { style: { display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '1.25rem', flexWrap: 'wrap', gap: '0.75rem' } },
       React.createElement('div', null,
-        React.createElement('h2', { style: { color: theme.text, fontSize: '1.5rem', fontWeight: '700', marginBottom: '0.25rem' } }, 'Dividend Forecast'),
+        React.createElement('h2', { style: { color: theme.text, fontSize: '1.5rem', fontWeight: '800', letterSpacing: '-0.02em', marginBottom: '0.25rem' } }, 'Dividend Forecast'),
         React.createElement('p', { style: { color: theme.textSecondary, fontSize: '0.8rem' } }, 'Projected from historical dividend frequency and amount')
       ),
       // Year range toggle
@@ -506,7 +507,7 @@ function DividendForecastView({ transactions, portfolio, prices, theme, formatPr
               padding: '0.3rem 0.6rem', border: 'none', borderRadius: '6px', cursor: 'pointer',
               fontSize: '0.75rem', fontWeight: forecastYears === y ? '700' : '400',
               background: forecastYears === y ? theme.accent : 'transparent',
-              color: forecastYears === y ? '#fff' : theme.textSecondary
+              color: forecastYears === y ? '#13110a' : theme.textSecondary
             }
           }, `${y}Y`)
         )
@@ -632,7 +633,7 @@ function FIFOView({ transactions, prices, theme, formatPrice, getCurrencySymbol 
   const totalRealizedPnL = entries.reduce((s, e) => s + e.totalRealizedPnL, 0);
 
   if (entries.length === 0) return React.createElement('div', { style: { padding: '1.5rem' } },
-    React.createElement('h2', { style: { color: theme.text, fontSize: '1.5rem', fontWeight: '700', marginBottom: '1rem' } }, 'FIFO Cost Basis'),
+    React.createElement('h2', { style: { color: theme.text, fontSize: '1.5rem', fontWeight: '800', letterSpacing: '-0.02em', marginBottom: '1rem' } }, 'FIFO Cost Basis'),
     React.createElement(Card, { theme, style: { textAlign: 'center', padding: '3rem' } },
       React.createElement('div', { style: { color: theme.textSecondary } }, 'Add transactions to see FIFO cost basis analysis')
     )
@@ -643,7 +644,7 @@ function FIFOView({ transactions, prices, theme, formatPrice, getCurrencySymbol 
   return React.createElement('div', { style: { padding: '1.5rem' } },
     React.createElement('div', { style: { display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '1rem', flexWrap: 'wrap', gap: '0.75rem' } },
       React.createElement('div', null,
-        React.createElement('h2', { style: { color: theme.text, fontSize: '1.5rem', fontWeight: '700', marginBottom: '0.25rem' } }, 'FIFO Cost Basis'),
+        React.createElement('h2', { style: { color: theme.text, fontSize: '1.5rem', fontWeight: '800', letterSpacing: '-0.02em', marginBottom: '0.25rem' } }, 'FIFO Cost Basis'),
         React.createElement('p', { style: { color: theme.textSecondary, fontSize: '0.875rem' } }, 'First In, First Out — standard tax method in Germany')
       )
     ),

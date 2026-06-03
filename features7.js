@@ -49,7 +49,7 @@ function PerformanceAttribution({ portfolio, prices, priceHistory, transactions,
     React.createElement('div', { style: { color, fontWeight: 800, fontSize: '1.05rem' } }, `${value >= 0 ? '+' : ''}${formatPrice(value)} ${getCurrencySymbol()}`)
   );
 
-  const catColors = { crypto: '#f59e0b', stocks: '#3b82f6', skins: '#8b5cf6', commodities: '#06b6d4' };
+  const catColors = { crypto: '#f59e0b', stocks: '#3b82f6', skins: '#f5a524', commodities: '#06b6d4' };
 
   if (!attribution.length) return React.createElement('div', { style: { padding: '2rem', textAlign: 'center', color: theme.textSecondary } }, 'No positions to analyze');
 
@@ -87,7 +87,7 @@ function PerformanceAttribution({ portfolio, prices, priceHistory, transactions,
         { label: 'Best Performer', val: attribution[0], isGood: true },
         { label: 'Worst Performer', val: attribution[attribution.length-1], isGood: false },
       ].map(({ label, val, isGood }) =>
-        React.createElement('div', { key: label, style: { background: theme.card, border: `1px solid ${theme.cardBorder}`, borderRadius: '12px', padding: '1rem' } },
+        React.createElement('div', { key: label, style: { background: theme.card, border: `1px solid ${theme.cardBorder}`, borderRadius: '16px', boxShadow: theme.shadow, padding: '1rem' } },
           React.createElement('div', { style: { color: theme.textSecondary, fontSize: '0.7rem', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: '0.25rem' } }, label),
           React.createElement('div', { style: { color: theme.text, fontWeight: '700', fontSize: '0.95rem', marginBottom: '0.125rem' } }, val?.name || '—'),
           React.createElement('div', { style: { color: (val?.pnl || 0) >= 0 ? Green : Red, fontWeight: '700', fontSize: '1.1rem' } },
@@ -98,7 +98,7 @@ function PerformanceAttribution({ portfolio, prices, priceHistory, transactions,
     ),
 
     // Return decomposition (V7): price appreciation vs dividend income, and tax effect
-    React.createElement('div', { style: { background: theme.card, border: `1px solid ${theme.cardBorder}`, borderRadius: '12px', padding: '1.25rem', marginBottom: '1.5rem' } },
+    React.createElement('div', { style: { background: theme.card, border: `1px solid ${theme.cardBorder}`, borderRadius: '16px', boxShadow: theme.shadow, padding: '1.25rem', marginBottom: '1.5rem' } },
       React.createElement('div', { style: { color: theme.text, fontWeight: 700, fontSize: '0.95rem', marginBottom: '0.875rem' } }, t.attrDecomposition || 'Return decomposition'),
       React.createElement('div', { style: { display: 'grid', gridTemplateColumns: 'repeat(auto-fit,minmax(130px,1fr))', gap: '1rem' } },
         decompItem(t.attrPriceReturn || 'Price appreciation', totalPnl, totalPnl >= 0 ? Green : Red),
@@ -112,7 +112,7 @@ function PerformanceAttribution({ portfolio, prices, priceHistory, transactions,
     ),
 
     // Attribution waterfall list
-    React.createElement('div', { style: { background: theme.card, border: `1px solid ${theme.cardBorder}`, borderRadius: '12px', overflow: 'hidden' } },
+    React.createElement('div', { style: { background: theme.card, border: `1px solid ${theme.cardBorder}`, borderRadius: '16px', boxShadow: theme.shadow, overflow: 'hidden' } },
       React.createElement('div', { style: { padding: '0.875rem 1.25rem', borderBottom: `1px solid ${theme.cardBorder}`, display: 'flex', gap: '1rem', fontSize: '0.7rem', color: theme.textSecondary, textTransform: 'uppercase', letterSpacing: '0.05em' } },
         React.createElement('div', { style: { flex: 2 } }, 'Position'),
         React.createElement('div', { style: { flex: 1, textAlign: 'right' } }, 'Value'),
@@ -211,7 +211,7 @@ function RealizedUnrealizedView({ transactions, portfolio, prices, theme, format
   }, [transactions, prices, usdToEur]);
 
   const statCard = (label, value, sub, color) =>
-    React.createElement('div', { style: { background: theme.card, border: `1px solid ${theme.cardBorder}`, borderRadius: '12px', padding: '1.25rem' } },
+    React.createElement('div', { style: { background: theme.card, border: `1px solid ${theme.cardBorder}`, borderRadius: '16px', boxShadow: theme.shadow, padding: '1.25rem' } },
       React.createElement('div', { style: { color: theme.textSecondary, fontSize: '0.7rem', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: '0.375rem' } }, label),
       React.createElement('div', { style: { color: color || theme.text, fontSize: '1.6rem', fontWeight: '800', letterSpacing: '-0.02em', lineHeight: 1 } }, value),
       sub && React.createElement('div', { style: { color: theme.textSecondary, fontSize: '0.75rem', marginTop: '0.375rem' } }, sub)
@@ -231,7 +231,7 @@ function RealizedUnrealizedView({ transactions, portfolio, prices, theme, format
     ),
 
     // Table
-    React.createElement('div', { style: { background: theme.card, border: `1px solid ${theme.cardBorder}`, borderRadius: '12px', overflow: 'auto' } },
+    React.createElement('div', { style: { background: theme.card, border: `1px solid ${theme.cardBorder}`, borderRadius: '16px', boxShadow: theme.shadow, overflow: 'auto' } },
       React.createElement('table', { style: { width: '100%', borderCollapse: 'collapse', fontSize: '0.82rem' } },
         React.createElement('thead', null,
           React.createElement('tr', { style: { borderBottom: `1px solid ${theme.cardBorder}` } },
@@ -393,7 +393,7 @@ function NewsFeedView({ portfolio, transactions, apiKeys, theme, formatPrice }) 
             )
           )
         )
-      : !loading && React.createElement('div', { style: { background: theme.card, border: `1px solid ${theme.cardBorder}`, borderRadius: '12px', padding: '3rem', textAlign: 'center', color: theme.textSecondary } },
+      : !loading && React.createElement('div', { style: { background: theme.card, border: `1px solid ${theme.cardBorder}`, borderRadius: '16px', boxShadow: theme.shadow, padding: '3rem', textAlign: 'center', color: theme.textSecondary } },
           React.createElement('div', { style: { fontSize: '2rem', marginBottom: '0.5rem', opacity: 0.3 } }, '📰'),
           React.createElement('div', null, hasWorker ? 'No news found for your positions' : 'Add Worker URL to load news')
         )

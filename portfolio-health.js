@@ -300,7 +300,8 @@
     const cardStyle = {
       background: theme.card || 'rgba(255,255,255,0.05)',
       border: `1px solid ${theme.cardBorder || 'rgba(255,255,255,0.1)'}`,
-      borderRadius: '14px', padding: '1.5rem', marginBottom: '1rem',
+      borderRadius: '16px', padding: '1.5rem', marginBottom: '1rem',
+      boxShadow: theme.shadow || '0 18px 40px -16px rgba(0,0,0,0.6)',
     };
 
     if (h.empty) {
@@ -341,9 +342,9 @@
       );
     };
 
-    const metric = (label, value) => e('div', { key: label, style: { textAlign: 'center', padding: '0.85rem', background: 'rgba(0,0,0,0.18)', borderRadius: '10px' } },
-      e('div', { style: { fontSize: '1.25rem', fontWeight: 700, color: theme.text } }, value),
-      e('div', { style: { fontSize: '0.68rem', color: theme.textSecondary, marginTop: '0.25rem', textTransform: 'uppercase', letterSpacing: '0.05em' } }, label)
+    const metric = (label, value) => e('div', { key: label, style: { textAlign: 'center', padding: '1rem 0.85rem', background: theme.surface2 || 'rgba(0,0,0,0.18)', border: `1px solid ${theme.cardBorder || 'rgba(255,255,255,0.08)'}`, borderRadius: '12px' } },
+      e('div', { style: { fontSize: '1.35rem', fontWeight: 800, color: theme.text, letterSpacing: '-0.02em' } }, value),
+      e('div', { style: { fontSize: '0.66rem', color: theme.textSecondary, marginTop: '0.3rem', textTransform: 'uppercase', letterSpacing: '0.06em' } }, label)
     );
 
     // V7: hand the already-computed score + sub-scores to the AI copilot — no
@@ -382,7 +383,7 @@
           },
             e('div', {
               style: {
-                width: '104px', height: '104px', borderRadius: '50%', background: theme.bg || '#0f1219',
+                width: '104px', height: '104px', borderRadius: '50%', background: theme.card || '#10151f',
                 display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center',
               }
             },
@@ -426,7 +427,7 @@
                 e('span', { style: { color: theme.textSecondary, fontWeight: 400, marginLeft: '0.4rem', fontSize: '0.72rem' } }, classLabel(p.cls, t))),
               e('span', { style: { color: theme.textSecondary } }, `${formatPrice(p.value)} ${sym} · ${(p.weight * 100).toFixed(1)}%`)),
             e('div', { style: { height: '6px', background: 'rgba(255,255,255,0.08)', borderRadius: '3px', overflow: 'hidden' } },
-              e('div', { style: { height: '100%', width: (p.weight * 100) + '%', background: p.weight > 0.3 ? '#f59e0b' : (theme.accent || '#8b5cf6'), borderRadius: '3px' } }))))
+              e('div', { style: { height: '100%', width: (p.weight * 100) + '%', background: p.weight > 0.3 ? '#f59e0b' : (theme.accent || '#f5a524'), borderRadius: '3px' } }))))
       )
     );
   }

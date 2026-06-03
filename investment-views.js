@@ -20,27 +20,28 @@ function AnalysisCard(props) {
   var badgeType = props.badgeType || 'neutral';
   var children = props.children;
   
-  return React.createElement('div', { 
+  return React.createElement('div', {
     style: {
-      background: 'rgba(255,255,255,0.05)',
-      border: '1px solid rgba(255,255,255,0.1)',
-      borderRadius: '12px',
+      background: 'rgba(255,255,255,0.035)',
+      border: '1px solid rgba(255,255,255,0.08)',
+      borderRadius: '16px',
       padding: '1.5rem',
-      marginBottom: '1rem'
+      marginBottom: '1rem',
+      boxShadow: '0 18px 40px -18px rgba(0,0,0,0.6)'
     }
   },
-    React.createElement('div', { 
-      style: { 
-        display: 'flex', 
-        justifyContent: 'space-between', 
+    React.createElement('div', {
+      style: {
+        display: 'flex',
+        justifyContent: 'space-between',
         alignItems: 'center',
         marginBottom: '1rem',
         paddingBottom: '0.75rem',
-        borderBottom: '1px solid rgba(255,255,255,0.1)'
+        borderBottom: '1px solid rgba(255,255,255,0.08)'
       }
     },
-      React.createElement('span', { 
-        style: { fontSize: '1.125rem', fontWeight: '600', color: 'white' }
+      React.createElement('span', {
+        style: { fontSize: '1.1rem', fontWeight: '650', letterSpacing: '-0.01em', color: 'white' }
       }, title),
       badge && React.createElement('span', { 
         style: {
@@ -72,25 +73,26 @@ function MetricGrid(props) {
     }
   },
     metrics.map(function(m, i) {
-      return React.createElement('div', { 
-        key: i, 
+      return React.createElement('div', {
+        key: i,
         style: {
           textAlign: 'center',
-          padding: '1rem',
-          background: 'rgba(0,0,0,0.2)',
-          borderRadius: '8px'
+          padding: '1.1rem',
+          background: 'rgba(255,255,255,0.04)',
+          border: '1px solid rgba(255,255,255,0.08)',
+          borderRadius: '12px'
         }
       },
-        React.createElement('div', { 
-          style: { fontSize: '1.5rem', fontWeight: '700', color: m.color || 'white' }
+        React.createElement('div', {
+          style: { fontSize: '1.5rem', fontWeight: '800', letterSpacing: '-0.02em', color: m.color || 'white' }
         }, m.value),
-        React.createElement('div', { 
-          style: { 
-            fontSize: '0.75rem', 
-            color: 'rgba(255,255,255,0.6)', 
-            marginTop: '0.25rem',
+        React.createElement('div', {
+          style: {
+            fontSize: '0.72rem',
+            color: 'rgba(255,255,255,0.6)',
+            marginTop: '0.3rem',
             textTransform: 'uppercase',
-            letterSpacing: '0.05em'
+            letterSpacing: '0.06em'
           }
         }, m.label)
       );
@@ -114,7 +116,7 @@ function DataTable(props) {
               padding: '0.75rem',
               textAlign: 'left',
               borderBottom: '1px solid rgba(255,255,255,0.1)',
-              color: '#8b5cf6',
+              color: '#f5a524',
               fontWeight: '600',
               fontSize: '0.75rem',
               textTransform: 'uppercase',
@@ -150,7 +152,7 @@ function ProgressBar(props) {
     green: '#22c55e',
     red: '#ef4444',
     blue: '#3b82f6',
-    purple: '#8b5cf6'
+    purple: '#f5a524'
   };
   
   return React.createElement('div', { 
@@ -196,7 +198,7 @@ function TabBar(props) {
         onClick: function() { onChange(tab.id); },
         style: {
           padding: '0.5rem 1rem',
-          background: isActive ? 'rgba(139,92,246,0.3)' : 'transparent',
+          background: isActive ? 'rgba(245,165,36,0.3)' : 'transparent',
           border: 'none',
           color: isActive ? 'white' : 'rgba(255,255,255,0.6)',
           cursor: 'pointer',
@@ -563,7 +565,7 @@ function SectorAllocationView(props) {
     'Consumer': '#ec4899',
     'Energy': '#ef4444',
     'Crypto': '#f97316',
-    'Gaming': '#8b5cf6',
+    'Gaming': '#f5a524',
     'Other': '#6b7280'
   };
   
@@ -584,7 +586,7 @@ function SectorAllocationView(props) {
               style: { display: 'flex', justifyContent: 'space-between', marginBottom: '0.25rem' }
             },
               React.createElement('span', { style: { color: 'white', fontSize: '0.875rem' } }, sector.name),
-              React.createElement('span', { style: { color: sectorColors[sector.name] || '#8b5cf6' } }, 
+              React.createElement('span', { style: { color: sectorColors[sector.name] || '#f5a524' } }, 
                 sector.weight.toFixed(1) + '%'
               )
             ),
@@ -595,7 +597,7 @@ function SectorAllocationView(props) {
                 style: { 
                   height: '100%',
                   width: sector.weight + '%',
-                  background: sectorColors[sector.name] || '#8b5cf6',
+                  background: sectorColors[sector.name] || '#f5a524',
                   borderRadius: '4px'
                 }
               })
@@ -682,7 +684,7 @@ function CountryAllocationView(props) {
     return { rows: rows, totalValue: totalValue, count: rows.length };
   }, [portfolio]);
 
-  var palette = ['#3b82f6', '#22c55e', '#f59e0b', '#ec4899', '#ef4444', '#f97316', '#8b5cf6', '#06b6d4', '#6b7280'];
+  var palette = ['#3b82f6', '#22c55e', '#f59e0b', '#ec4899', '#ef4444', '#f97316', '#f5a524', '#06b6d4', '#6b7280'];
   var colorFor = function(i) { return palette[i % palette.length]; };
 
   return React.createElement('div', { style: { padding: '1rem' } },
@@ -1098,7 +1100,7 @@ function GoalInvestingView(props) {
       React.createElement('button', {
         onClick: function() { setShowAddGoal(true); },
         style: {
-          background: '#8b5cf6',
+          background: '#f5a524',
           color: 'white',
           border: 'none',
           padding: '0.5rem 1rem',
@@ -1194,7 +1196,7 @@ function GoalInvestingView(props) {
           React.createElement('span', { style: { color: 'rgba(255,255,255,0.6)' } }, 
             goal.currentAmount.toFixed(0) + ' / ' + goal.targetAmount.toFixed(0) + ' EUR'
           ),
-          React.createElement('span', { style: { color: '#8b5cf6', fontWeight: '600' } },
+          React.createElement('span', { style: { color: '#f5a524', fontWeight: '600' } },
             progress.progressPercent.toFixed(1) + '%'
           )
         ),
@@ -1391,7 +1393,7 @@ function OptionsTrackerView(props) {
       React.createElement('h2', { style: { color: 'white' } }, 'Options Calculator'),
       React.createElement('button', {
         onClick: function() { setShowCalculator(!showCalculator); },
-        style: { background: '#8b5cf6', color: 'white', border: 'none', padding: '0.5rem 1rem', borderRadius: '6px', cursor: 'pointer' }
+        style: { background: '#f5a524', color: 'white', border: 'none', padding: '0.5rem 1rem', borderRadius: '6px', cursor: 'pointer' }
       }, showCalculator ? 'Hide' : 'Show Calculator')
     ),
     
@@ -1460,12 +1462,12 @@ function OptionsTrackerView(props) {
       
       React.createElement('div', { style: { marginTop: '1.5rem' } },
         React.createElement('div', { 
-          style: { textAlign: 'center', padding: '1.5rem', background: 'rgba(139,92,246,0.1)', borderRadius: '12px', marginBottom: '1rem' }
+          style: { textAlign: 'center', padding: '1.5rem', background: 'rgba(245,165,36,0.1)', borderRadius: '12px', marginBottom: '1rem' }
         },
           React.createElement('div', { style: { color: 'rgba(255,255,255,0.6)', fontSize: '0.875rem' } }, 
             calcParams.type.toUpperCase() + ' Option Price'
           ),
-          React.createElement('div', { style: { fontSize: '3rem', fontWeight: 'bold', color: '#8b5cf6' } },
+          React.createElement('div', { style: { fontSize: '3rem', fontWeight: 'bold', color: '#f5a524' } },
             calcResult.price.toFixed(2) + ' EUR'
           )
         ),
@@ -1557,7 +1559,7 @@ function TaxPlanningView(props) {
       React.createElement(AnalysisCard, { title: 'German Tax Rules' },
         React.createElement('div', { style: { color: 'rgba(255,255,255,0.7)', fontSize: '0.875rem' } },
           React.createElement('div', { style: { marginBottom: '1rem' } },
-            React.createElement('strong', { style: { color: '#8b5cf6' } }, 'Capital Gains (Abgeltungssteuer)'),
+            React.createElement('strong', { style: { color: '#f5a524' } }, 'Capital Gains (Abgeltungssteuer)'),
             React.createElement('div', null, '25% + 5.5% solidarity = 26.375%')
           ),
           React.createElement('div', { style: { marginBottom: '1rem' } },
@@ -1614,13 +1616,13 @@ function InvestmentAnalysisDashboard(props) {
     var active = activeSection === id;
     return {
       padding: '0.5rem 1rem',
-      background: active ? (theme.accent || '#8b5cf6') : 'transparent',
+      background: active ? (theme.accentSoft || 'rgba(245,165,36,0.12)') : 'transparent',
       border: 'none',
-      color: active ? '#fff' : (theme.textSecondary || 'rgba(255,255,255,0.6)'),
+      color: active ? (theme.accent || '#f5a524') : (theme.textSecondary || 'rgba(255,255,255,0.6)'),
       cursor: 'pointer',
-      borderRadius: '8px',
+      borderRadius: '10px',
       fontSize: '0.875rem',
-      fontWeight: active ? '600' : '400',
+      fontWeight: active ? '650' : '450',
       transition: 'all 0.15s',
       whiteSpace: 'nowrap'
     };

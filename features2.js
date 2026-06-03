@@ -126,7 +126,7 @@ function ReturnsView({ transactions, portfolio, prices, priceHistory, theme, for
 
   const card = (label, value, sub, color) =>
     React.createElement('div', {
-      style: { background: theme.card, borderRadius: '12px', border: `1px solid ${theme.cardBorder}`, padding: '1.25rem' }
+      style: { background: theme.card, borderRadius: '16px', boxShadow: theme.shadow, border: `1px solid ${theme.cardBorder}`, padding: '1.25rem' }
     },
       React.createElement('div', { style: { color: theme.textSecondary, fontSize: '0.8rem', marginBottom: '0.375rem', textTransform: 'uppercase', letterSpacing: '0.05em' } }, label),
       React.createElement('div', { style: { color: color || theme.text, fontSize: '1.75rem', fontWeight: '800', letterSpacing: '-0.02em' } }, value),
@@ -137,7 +137,7 @@ function ReturnsView({ transactions, portfolio, prices, priceHistory, theme, for
   const color  = v => v > 0 ? '#22c55e' : v < 0 ? '#ef4444' : theme.text;
 
   return React.createElement('div', { style: { padding: '1.5rem' } },
-    React.createElement('h2', { style: { color: theme.text, fontSize: '1.5rem', fontWeight: '700', marginBottom: '0.5rem' } }, (t.returns || 'Return Analysis')),
+    React.createElement('h2', { style: { color: theme.text, fontSize: '1.5rem', fontWeight: '800', letterSpacing: '-0.02em', marginBottom: '0.5rem' } }, (t.returns || 'Return Analysis')),
     React.createElement('p', { style: { color: theme.textSecondary, fontSize: '0.875rem', marginBottom: '1.5rem', lineHeight: '1.6' } },
       t.returnsHint || 'XIRR (Money-Weighted Return) accounts for the timing and size of your cash flows. TWR shows portfolio performance independent of cash flows.'
     ),
@@ -203,7 +203,7 @@ function RebalancingView({ portfolio, prices, theme, formatPrice, getCurrencySym
   const invest = parseFloat(investAmount) || 0;
   const grandTotal = totalValue + invest;
 
-  const catColors = { crypto: '#f59e0b', stocks: '#3b82f6', skins: '#06b6d4', commodities: '#d97706' };
+  const catColors = { crypto: '#f5a524', stocks: '#3b82f6', skins: '#06b6d4', commodities: '#fb7185' };
   const catLabels = { crypto: 'Crypto', stocks: 'Stocks', skins: 'CS2 Skins', commodities: 'Commodities' };
 
   const rows = ['crypto','stocks','skins','commodities'].map(cat => {
@@ -233,12 +233,12 @@ function RebalancingView({ portfolio, prices, theme, formatPrice, getCurrencySym
 
   return React.createElement('div', { style: { padding: '1.5rem' } },
     React.createElement('div', { style: { display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '1rem', flexWrap: 'wrap', marginBottom: '1.5rem' } },
-      React.createElement('h2', { style: { color: theme.text, fontSize: '1.5rem', fontWeight: '700', margin: 0 } }, (t.rebalancing || 'Rebalancing')),
+      React.createElement('h2', { style: { color: theme.text, fontSize: '1.5rem', fontWeight: '800', letterSpacing: '-0.02em', margin: 0 } }, (t.rebalancing || 'Rebalancing')),
       window.AICopilot ? React.createElement(window.AICopilot.Button, { theme: theme, t: t, context: aiCtx }) : null),
 
     // Target allocation sliders
     React.createElement('div', {
-      style: { background: theme.card, borderRadius: '12px', border: `1px solid ${theme.cardBorder}`, padding: '1.5rem', marginBottom: '1rem' }
+      style: { background: theme.card, borderRadius: '16px', border: `1px solid ${theme.cardBorder}`, boxShadow: theme.shadow, padding: '1.5rem', marginBottom: '1rem' }
     },
       React.createElement('div', { style: { display: 'flex', justifyContent: 'space-between', marginBottom: '1rem' } },
         React.createElement('span', { style: { color: theme.text, fontWeight: '700' } }, t.targetAllocation || 'Target Allocation'),
@@ -276,10 +276,10 @@ function RebalancingView({ portfolio, prices, theme, formatPrice, getCurrencySym
 
     // Results table
     totalValue > 0 && React.createElement('div', {
-      style: { background: theme.card, borderRadius: '12px', border: `1px solid ${theme.cardBorder}`, overflow: 'hidden' }
+      style: { background: theme.card, borderRadius: '16px', border: `1px solid ${theme.cardBorder}`, boxShadow: theme.shadow, overflow: 'hidden' }
     },
       React.createElement('div', { style: { padding: '1rem 1.25rem', borderBottom: `1px solid ${theme.cardBorder}` } },
-        React.createElement('span', { style: { color: theme.text, fontWeight: '700', fontSize: '0.9rem' } }, t.rebalancingPlan || 'Rebalancing-Plan')
+        React.createElement('span', { style: { color: theme.text, fontWeight: '700', fontSize: '0.9rem' } }, t.rebalancingPlan || 'Rebalancing Plan')
       ),
       React.createElement('table', { style: { width: '100%', borderCollapse: 'collapse' } },
         React.createElement('thead', null,
@@ -567,9 +567,9 @@ function BrokerLogo({ brokerId, name, size = 36 }) {
     return React.createElement('div', {
       style: {
         width: size, height: size, borderRadius: '8px', flexShrink: 0,
-        background: 'rgba(139,92,246,0.15)', border: '1px solid rgba(139,92,246,0.2)',
+        background: 'rgba(245,165,36,0.15)', border: '1px solid rgba(245,165,36,0.2)',
         display: 'flex', alignItems: 'center', justifyContent: 'center',
-        fontSize: Math.round(size * 0.42) + 'px', fontWeight: '800', color: '#8b5cf6',
+        fontSize: Math.round(size * 0.42) + 'px', fontWeight: '800', color: '#f5a524',
       }
     }, (name || '?')[0].toUpperCase());
   }
@@ -682,7 +682,7 @@ function BrokerImportWizard({ theme, t, addToast, onImport }) {
   const categories = [...new Set(BROKERS.map(b => b.category))];
 
   return React.createElement('div', { style: { padding: '1.5rem' } },
-    React.createElement('h2', { style: { color: theme.text, fontSize: '1.5rem', fontWeight: '700', marginBottom: '1.25rem' } },
+    React.createElement('h2', { style: { color: theme.text, fontSize: '1.5rem', fontWeight: '800', letterSpacing: '-0.02em', marginBottom: '1.25rem' } },
       (t.brokerImport || 'Import')
     ),
 
@@ -692,8 +692,8 @@ function BrokerImportWizard({ theme, t, addToast, onImport }) {
         React.createElement('div', { key: i, style: {
           flex: 1, padding: '0.625rem', textAlign: 'center', fontSize: '0.8rem',
           fontWeight: i === step ? '700' : '400',
-          background: i === step ? theme.accent : i < step ? 'rgba(139,92,246,0.15)' : theme.card,
-          color: i === step ? '#fff' : i < step ? theme.accent : theme.textSecondary,
+          background: i === step ? theme.accent : i < step ? 'rgba(245,165,36,0.15)' : theme.card,
+          color: i === step ? '#13110a' : i < step ? theme.accent : theme.textSecondary,
           borderRight: i < steps.length-1 ? `1px solid ${theme.cardBorder}` : 'none'
         } }, `${i < step ? '✓ ' : ''}${s}`)
       )
@@ -732,7 +732,7 @@ function BrokerImportWizard({ theme, t, addToast, onImport }) {
     // ── Step 1: getquin info OR file upload ──────────────────────────────────
     step === 1 && selectedBroker === 'getquin' && React.createElement('div', null,
       React.createElement('div', {
-        style: { background: 'rgba(245,158,11,0.08)', border: '1px solid rgba(245,158,11,0.3)', borderRadius: '12px', padding: '1.5rem', marginBottom: '1.5rem' }
+        style: { background: 'rgba(245,158,11,0.08)', border: '1px solid rgba(245,158,11,0.3)', borderRadius: '16px', padding: '1.5rem', marginBottom: '1.5rem' }
       },
         
         React.createElement('h3', { style: { color: theme.text, fontWeight: '700', marginBottom: '0.75rem' } }, 'getquin has no CSV export'),
@@ -766,7 +766,7 @@ function BrokerImportWizard({ theme, t, addToast, onImport }) {
       React.createElement('div', {
         onDrop: handleDrop, onDragOver: e => e.preventDefault(),
         onClick: () => fileRef.current?.click(),
-        style: { border: `2px dashed ${theme.cardBorder}`, borderRadius: '12px', padding: '2.5rem', textAlign: 'center', cursor: 'pointer', marginBottom: '1rem' }
+        style: { border: `2px dashed ${theme.cardBorder}`, borderRadius: '16px', padding: '2.5rem', textAlign: 'center', cursor: 'pointer', marginBottom: '1rem' }
       },
         React.createElement('div', { style: { fontSize: '2rem', marginBottom: '0.5rem', opacity: 0.4 } }, '↑'),
         React.createElement('div', { style: { color: theme.text, fontWeight: '600', marginBottom: '0.25rem' } }, 'Drop CoinTracking CSV here'),
@@ -782,7 +782,7 @@ function BrokerImportWizard({ theme, t, addToast, onImport }) {
     step === 1 && selectedBroker !== 'getquin' && selectedBroker !== 'cointracking' && React.createElement('div', null,
       // API sync (read-only) for exchanges that expose a signed REST API.
       apiSupported && React.createElement('div', {
-        style: { background: 'rgba(139,92,246,0.06)', border: '1px solid rgba(139,92,246,0.25)', borderRadius: '12px', padding: '1.25rem', marginBottom: '1.25rem' }
+        style: { background: 'rgba(245,165,36,0.06)', border: '1px solid rgba(245,165,36,0.25)', borderRadius: '16px', padding: '1.25rem', marginBottom: '1.25rem' }
       },
         React.createElement('div', { style: { color: theme.text, fontWeight: '700', marginBottom: '0.35rem' } }, '⚡ ' + (selectedBrokerObj ? selectedBrokerObj.name : '') + ' API-Sync'),
         React.createElement('p', { style: { color: theme.textSecondary, fontSize: '0.78rem', lineHeight: '1.6', marginBottom: '0.9rem' } },
@@ -810,14 +810,14 @@ function BrokerImportWizard({ theme, t, addToast, onImport }) {
         ),
         React.createElement('button', {
           onClick: handleApiSync, disabled: apiBusy || !apiCreds.key || !apiCreds.secret,
-          style: { padding: '0.6rem 1.2rem', border: 'none', borderRadius: '8px', cursor: (apiBusy || !apiCreds.key || !apiCreds.secret) ? 'not-allowed' : 'pointer', fontWeight: '600', fontSize: '0.85rem', opacity: (apiBusy || !apiCreds.key || !apiCreds.secret) ? 0.5 : 1, background: theme.accent, color: '#fff' }
+          style: { padding: '0.6rem 1.2rem', border: 'none', borderRadius: '8px', cursor: (apiBusy || !apiCreds.key || !apiCreds.secret) ? 'not-allowed' : 'pointer', fontWeight: '600', fontSize: '0.85rem', opacity: (apiBusy || !apiCreds.key || !apiCreds.secret) ? 0.5 : 1, background: theme.accent, color: '#13110a' }
         }, apiBusy ? '◎ Syncing…' : '⚡ Sync via API'),
         React.createElement('div', { style: { textAlign: 'center', color: theme.textSecondary, fontSize: '0.72rem', margin: '0.9rem 0 0' } }, '— or import CSV —')
       ),
       React.createElement('div', {
         onDrop: handleDrop, onDragOver: e => e.preventDefault(),
         onClick: () => fileRef.current?.click(),
-        style: { border: `2px dashed ${theme.cardBorder}`, borderRadius: '12px', padding: '3rem', textAlign: 'center', cursor: 'pointer', marginBottom: '1rem' }
+        style: { border: `2px dashed ${theme.cardBorder}`, borderRadius: '16px', padding: '3rem', textAlign: 'center', cursor: 'pointer', marginBottom: '1rem' }
       },
         React.createElement('div', { style: { fontSize: '2rem', marginBottom: '0.5rem', opacity: 0.4 } }, '↑'),
         React.createElement('div', { style: { color: theme.text, fontWeight: '600', marginBottom: '0.25rem' } }, 'Drag CSV file here'),
@@ -919,11 +919,11 @@ function PositionNotesView({ portfolio, theme, t }) {
   const noteCount = Object.keys(notes).filter(k => notes[k]?.text).length;
 
   return React.createElement('div', { style: { padding: '1.5rem' } },
-    React.createElement('h2', { style: { color: theme.text, fontSize: '1.5rem', fontWeight: '700', marginBottom: '0.5rem' } }, (t.tradeJournal || 'Trade Journal')),
+    React.createElement('h2', { style: { color: theme.text, fontSize: '1.5rem', fontWeight: '800', letterSpacing: '-0.02em', marginBottom: '0.5rem' } }, (t.tradeJournal || 'Trade Journal')),
     React.createElement('p', { style: { color: theme.textSecondary, fontSize: '0.875rem', marginBottom: '1.5rem' } }, `${noteCount} of ${allPositions.length} positions have notes`),
 
     allPositions.length === 0
-      ? React.createElement('div', { style: { padding: '3rem', textAlign: 'center', color: theme.textSecondary, background: theme.card, borderRadius: '12px', border: `1px solid ${theme.cardBorder}` } },
+      ? React.createElement('div', { style: { padding: '3rem', textAlign: 'center', color: theme.textSecondary, background: theme.card, borderRadius: '16px', boxShadow: theme.shadow, border: `1px solid ${theme.cardBorder}` } },
           'Add positions first'
         )
       : React.createElement('div', { style: { display: 'grid', gridTemplateColumns: 'repeat(auto-fill,minmax(280px,1fr))', gap: '0.75rem' } },
@@ -933,8 +933,8 @@ function PositionNotesView({ portfolio, theme, t }) {
             return React.createElement('div', {
               key: p.key,
               style: {
-                background: theme.card, borderRadius: '12px',
-                border: `1px solid ${isActive ? theme.accent : note?.text ? 'rgba(139,92,246,0.3)' : theme.cardBorder}`,
+                background: theme.card, borderRadius: '16px', boxShadow: theme.shadow,
+                border: `1px solid ${isActive ? theme.accent : note?.text ? 'rgba(245,165,36,0.3)' : theme.cardBorder}`,
                 padding: '1rem', transition: 'all 0.15s'
               }
             },
@@ -956,7 +956,7 @@ function PositionNotesView({ portfolio, theme, t }) {
                       style: { width: '100%', height: '120px', padding: '0.625rem', background: theme.inputBg, border: `1px solid ${theme.inputBorder}`, borderRadius: '6px', color: theme.text, fontSize: '0.8rem', resize: 'vertical', marginBottom: '0.5rem', lineHeight: '1.5' }
                     }),
                     React.createElement('div', { style: { display: 'flex', gap: '0.375rem' } },
-                      React.createElement('button', { onClick: save, style: { padding: '0.375rem 0.875rem', background: theme.accent, color: '#fff', border: 'none', borderRadius: '6px', cursor: 'pointer', fontSize: '0.8rem', fontWeight: '600' } }, 'Save'),
+                      React.createElement('button', { onClick: save, style: { padding: '0.375rem 0.875rem', background: theme.accent, color: '#13110a', border: 'none', borderRadius: '6px', cursor: 'pointer', fontSize: '0.8rem', fontWeight: '600' } }, 'Save'),
                       React.createElement('button', { onClick: () => { setActive(null); setDraft(''); }, style: { padding: '0.375rem 0.875rem', background: theme.inputBg, color: theme.text, border: `1px solid ${theme.cardBorder}`, borderRadius: '6px', cursor: 'pointer', fontSize: '0.8rem' } }, 'Cancel')
                     )
                   )
@@ -1023,7 +1023,7 @@ function DividendCalendarView({ portfolio, theme, t, addToast }) {
     // Header
     React.createElement('div', { style: { display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.5rem', flexWrap: 'wrap', gap: '0.75rem' } },
       React.createElement('div', null,
-        React.createElement('h2', { style: { color: theme.text, fontSize: '1.5rem', fontWeight: '700' } }, (t.dividendCalendar || 'Dividend Calendar')),
+        React.createElement('h2', { style: { color: theme.text, fontSize: '1.5rem', fontWeight: '800', letterSpacing: '-0.02em' } }, (t.dividendCalendar || 'Dividend Calendar')),
         React.createElement('div', { style: { color: theme.textSecondary, fontSize: '0.85rem', marginTop: '0.25rem' } },
           `${monthNames[month]} ${year}: ${totalThisMonth.toFixed(2)} € · Year ${year}: ${totalYear.toFixed(2)} €`
         )
@@ -1032,7 +1032,7 @@ function DividendCalendarView({ portfolio, theme, t, addToast }) {
         React.createElement('button', { onClick: () => setViewMonth(p => { const d = new Date(p.year, p.month - 1); return { year: d.getFullYear(), month: d.getMonth() }; }), style: { padding: '0.5rem 0.875rem', background: theme.inputBg, border: `1px solid ${theme.cardBorder}`, borderRadius: '6px', color: theme.text, cursor: 'pointer' } }, '←'),
         React.createElement('span', { style: { color: theme.text, fontWeight: '700', minWidth: '100px', textAlign: 'center' } }, `${monthNames[month]} ${year}`),
         React.createElement('button', { onClick: () => setViewMonth(p => { const d = new Date(p.year, p.month + 1); return { year: d.getFullYear(), month: d.getMonth() }; }), style: { padding: '0.5rem 0.875rem', background: theme.inputBg, border: `1px solid ${theme.cardBorder}`, borderRadius: '6px', color: theme.text, cursor: 'pointer' } }, '→'),
-        React.createElement('button', { onClick: () => setShowAdd(p=>!p), style: { padding: '0.5rem 0.875rem', background: theme.accent, color: '#fff', border: 'none', borderRadius: '6px', cursor: 'pointer', fontWeight: '600' } }, '+ Dividend')
+        React.createElement('button', { onClick: () => setShowAdd(p=>!p), style: { padding: '0.5rem 0.875rem', background: theme.accent, color: '#13110a', border: 'none', borderRadius: '6px', cursor: 'pointer', fontWeight: '600' } }, '+ Dividend')
       )
     ),
 
@@ -1046,11 +1046,11 @@ function DividendCalendarView({ portfolio, theme, t, addToast }) {
         React.createElement('option', { value: 'USD' }, '$')
       ),
       inp('notes', 'Note (opt.)'),
-      React.createElement('button', { onClick: addEvent, style: { padding: '0.5rem 1rem', background: theme.accent, color: '#fff', border: 'none', borderRadius: '6px', cursor: 'pointer', fontWeight: '600', whiteSpace: 'nowrap' } }, 'Add')
+      React.createElement('button', { onClick: addEvent, style: { padding: '0.5rem 1rem', background: theme.accent, color: '#13110a', border: 'none', borderRadius: '6px', cursor: 'pointer', fontWeight: '600', whiteSpace: 'nowrap' } }, 'Add')
     ),
 
     // Calendar grid
-    React.createElement('div', { style: { background: theme.card, borderRadius: '12px', border: `1px solid ${theme.cardBorder}`, overflow: 'hidden' } },
+    React.createElement('div', { style: { background: theme.card, borderRadius: '16px', boxShadow: theme.shadow, border: `1px solid ${theme.cardBorder}`, overflow: 'hidden' } },
       // Weekdays header
       React.createElement('div', { style: { display: 'grid', gridTemplateColumns: 'repeat(7,1fr)' } },
         ['Mon','Tue','Wed','Thu','Fri','Sat','Sun'].map(d =>
@@ -1067,7 +1067,7 @@ function DividendCalendarView({ portfolio, theme, t, addToast }) {
             style: {
               minHeight: '70px', padding: '0.375rem', borderRight: i%7<6 ? `1px solid ${theme.cardBorder}` : 'none',
               borderBottom: `1px solid ${theme.cardBorder}`,
-              background: isToday ? 'rgba(139,92,246,0.08)' : 'transparent'
+              background: isToday ? 'rgba(245,165,36,0.08)' : 'transparent'
             }
           },
             d && React.createElement('div', { style: { fontSize: '0.75rem', fontWeight: isToday ? '700' : '400', color: isToday ? theme.accent : theme.text, marginBottom: '0.25rem' } }, d),
@@ -1120,7 +1120,7 @@ function injectMobileCSS() {
 }
 .maermin-bottom-nav {
   position: fixed; bottom: 0; left: 0; right: 0; z-index: 500;
-  background: var(--maermin-modal-bg, #1e293b);
+  background: var(--maermin-modal-bg, #141a25);
   border-top: 1px solid rgba(255,255,255,0.1);
   padding: 0.375rem 0 env(safe-area-inset-bottom);
   justify-content: space-around; align-items: center;
@@ -1154,7 +1154,7 @@ function MobileBottomNav({ activeView, setActiveView, theme }) {
       React.createElement('button', {
         key: item.id,
         onClick: () => setActiveView(item.id),
-        style: { color: activeView === item.id ? (theme?.accent || '#8b5cf6') : 'rgba(255,255,255,0.5)' }
+        style: { color: activeView === item.id ? (theme?.accent || '#f5a524') : 'rgba(255,255,255,0.5)' }
       },
         React.createElement('span', { className: 'icon' }, item.icon),
         item.label
