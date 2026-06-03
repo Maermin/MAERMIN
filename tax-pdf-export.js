@@ -6,8 +6,7 @@
 /**
  * Export tax report to PDF
  */
-function exportTaxPDF(transactions, jurisdiction, year, language) {
-  language = language || 'de';
+function exportTaxPDF(transactions, jurisdiction, year) {
   year = year || new Date().getFullYear();
   
   // Check if jsPDF is available
@@ -39,89 +38,52 @@ function exportTaxPDF(transactions, jurisdiction, year, language) {
     };
   }
   
-  // Translations
-  var t = {
-    de: {
-      title: 'Steuerbericht',
-      subtitle: 'MAERMIN Portfolio Tracker',
-      year: 'Steuerjahr',
-      jurisdiction: 'Steuergebiet',
-      germany: 'Deutschland',
-      usa: 'USA',
-      summary: 'Zusammenfassung',
-      totalCapitalIncome: 'Gesamte Kapitaleinkuenfte',
-      freistellungsauftrag: 'Freistellungsauftrag',
-      taxableIncome: 'Zu versteuerndes Einkommen',
-      abgeltungssteuer: 'Abgeltungssteuer (25%)',
-      solidarityTax: 'Solidaritaetszuschlag (5.5%)',
-      totalTax: 'Gesamte Steuerschuld',
-      effectiveRate: 'Effektiver Steuersatz',
-      cryptoGains: 'Krypto-Gewinne',
-      shortTerm: 'Kurzfristig (< 1 Jahr)',
-      longTerm: 'Langfristig (> 1 Jahr)',
-      taxFree: 'Steuerfrei',
-      stockGains: 'Aktien-Gewinne',
-      transactions: 'Transaktionen',
-      date: 'Datum',
-      type: 'Typ',
-      symbol: 'Symbol',
-      quantity: 'Menge',
-      proceeds: 'Erloese',
-      costBasis: 'Anschaffungskosten',
-      gain: 'Gewinn/Verlust',
-      holdingPeriod: 'Haltedauer (Tage)',
-      generated: 'Erstellt am',
-      page: 'Seite',
-      disclaimer: 'Dieser Bericht dient nur zu Informationszwecken. Konsultieren Sie einen Steuerberater.'
-    },
-    en: {
-      title: 'Tax Report',
-      subtitle: 'MAERMIN Portfolio Tracker',
-      year: 'Tax Year',
-      jurisdiction: 'Jurisdiction',
-      germany: 'Germany',
-      usa: 'USA',
-      summary: 'Summary',
-      totalCapitalIncome: 'Total Capital Income',
-      freistellungsauftrag: 'Tax-Free Allowance',
-      taxableIncome: 'Taxable Income',
-      abgeltungssteuer: 'Withholding Tax (25%)',
-      solidarityTax: 'Solidarity Surcharge (5.5%)',
-      totalTax: 'Total Tax Liability',
-      effectiveRate: 'Effective Tax Rate',
-      cryptoGains: 'Crypto Gains',
-      shortTerm: 'Short-term (< 1 year)',
-      longTerm: 'Long-term (> 1 year)',
-      taxFree: 'Tax-free',
-      stockGains: 'Stock Gains',
-      transactions: 'Transactions',
-      date: 'Date',
-      type: 'Type',
-      symbol: 'Symbol',
-      quantity: 'Quantity',
-      proceeds: 'Proceeds',
-      costBasis: 'Cost Basis',
-      gain: 'Gain/Loss',
-      holdingPeriod: 'Holding Period (Days)',
-      generated: 'Generated on',
-      page: 'Page',
-      disclaimer: 'This report is for informational purposes only. Please consult a tax advisor.'
-    }
+  // Labels (English)
+  var labels = {
+    title: 'Tax Report',
+    subtitle: 'MAERMIN Portfolio Tracker',
+    year: 'Tax Year',
+    jurisdiction: 'Jurisdiction',
+    germany: 'Germany',
+    usa: 'USA',
+    summary: 'Summary',
+    totalCapitalIncome: 'Total Capital Income',
+    freistellungsauftrag: 'Tax-Free Allowance',
+    taxableIncome: 'Taxable Income',
+    abgeltungssteuer: 'Withholding Tax (25%)',
+    solidarityTax: 'Solidarity Surcharge (5.5%)',
+    totalTax: 'Total Tax Liability',
+    effectiveRate: 'Effective Tax Rate',
+    cryptoGains: 'Crypto Gains',
+    shortTerm: 'Short-term (< 1 year)',
+    longTerm: 'Long-term (> 1 year)',
+    taxFree: 'Tax-free',
+    stockGains: 'Stock Gains',
+    transactions: 'Transactions',
+    date: 'Date',
+    type: 'Type',
+    symbol: 'Symbol',
+    quantity: 'Quantity',
+    proceeds: 'Proceeds',
+    costBasis: 'Cost Basis',
+    gain: 'Gain/Loss',
+    holdingPeriod: 'Holding Period (Days)',
+    generated: 'Generated on',
+    page: 'Page',
+    disclaimer: 'This report is for informational purposes only. Please consult a tax advisor.'
   };
-  
-  var labels = t[language] || t.de;
-  
+
   // Format currency
   var formatCurrency = function(value) {
     if (value === undefined || value === null || isNaN(value)) return '0.00 EUR';
-    return value.toLocaleString('de-DE', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) + ' EUR';
+    return value.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) + ' EUR';
   };
-  
+
   // Format date
   var formatDate = function(dateStr) {
     if (!dateStr) return '';
     var date = new Date(dateStr);
-    return date.toLocaleDateString(language === 'de' ? 'de-DE' : 'en-US');
+    return date.toLocaleDateString('en-US');
   };
   
   // Colors
@@ -297,7 +259,7 @@ function exportTaxPDF(transactions, jurisdiction, year, language) {
     if (taxReport.transactions.length > maxRows) {
       y += 5;
       doc.setTextColor(colors.textLight[0], colors.textLight[1], colors.textLight[2]);
-      doc.text('... und ' + (taxReport.transactions.length - maxRows) + ' weitere Transaktionen', 20, y);
+      doc.text('... and ' + (taxReport.transactions.length - maxRows) + ' more transactions', 20, y);
     }
   }
   
@@ -306,7 +268,7 @@ function exportTaxPDF(transactions, jurisdiction, year, language) {
   doc.setTextColor(colors.textLight[0], colors.textLight[1], colors.textLight[2]);
   doc.setFontSize(8);
   doc.text(labels.disclaimer, 20, pageHeight - 20);
-  doc.text(labels.generated + ': ' + new Date().toLocaleDateString(language === 'de' ? 'de-DE' : 'en-US'), 20, pageHeight - 12);
+  doc.text(labels.generated + ': ' + new Date().toLocaleDateString('en-US'), 20, pageHeight - 12);
   doc.text(labels.page + ' 1', 180, pageHeight - 12);
   
   // Save PDF

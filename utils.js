@@ -11,19 +11,19 @@
 (function () {
   'use strict';
 
-  // German-locale number with fixed decimals, e.g. 1234.5 -> "1.234,50"
-  function formatNumberDE(value, decimals) {
+  // Number with fixed decimals, e.g. 1234.5 -> "1,234.50"
+  function formatNumber(value, decimals) {
     decimals = decimals !== undefined ? decimals : 2;
     if (value === undefined || value === null || isNaN(value)) {
-      return (0).toLocaleString('de-DE', { minimumFractionDigits: decimals, maximumFractionDigits: decimals });
+      return (0).toLocaleString('en-US', { minimumFractionDigits: decimals, maximumFractionDigits: decimals });
     }
-    return value.toLocaleString('de-DE', { minimumFractionDigits: decimals, maximumFractionDigits: decimals });
+    return value.toLocaleString('en-US', { minimumFractionDigits: decimals, maximumFractionDigits: decimals });
   }
 
-  // EUR currency, e.g. 1234.5 -> "1.234,50 EUR"
+  // EUR currency, e.g. 1234.5 -> "1,234.50 EUR"
   function formatCurrencyEUR(value, decimals) {
     decimals = decimals !== undefined ? decimals : 2;
-    return (value || 0).toLocaleString('de-DE', { minimumFractionDigits: decimals, maximumFractionDigits: decimals }) + ' EUR';
+    return (value || 0).toLocaleString('en-US', { minimumFractionDigits: decimals, maximumFractionDigits: decimals }) + ' EUR';
   }
 
   // Signed percent, e.g. 1.23 -> "+1.23%", -1.23 -> "-1.23%"
@@ -32,11 +32,11 @@
     return `${value >= 0 ? '+' : ''}${value.toFixed(2)}%`;
   }
 
-  // Locale date string, e.g. "2024-03-01" -> "1.3.2024" (de) / "3/1/2024" (en)
-  function formatDate(dateStr, language) {
+  // Locale date string, e.g. "2024-03-01" -> "3/1/2024"
+  function formatDate(dateStr) {
     if (!dateStr) return '';
     const date = new Date(dateStr);
-    return date.toLocaleDateString(language === 'en' ? 'en-US' : 'de-DE');
+    return date.toLocaleDateString('en-US');
   }
 
   // Reasonably-unique id for client-side records
@@ -50,7 +50,7 @@
   }
 
   const MaerminUtils = {
-    formatNumberDE,
+    formatNumber,
     formatCurrencyEUR,
     formatPercentSigned,
     formatDate,

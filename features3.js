@@ -929,7 +929,7 @@ function SymbolPicker({ category, workerUrl, theme, onSelect, selectedSymbol, se
           const data = await res.json();
 
           const items = (Array.isArray(data) ? data : [])
-            // Strikt: nur Aktien/ETFs/Fonds — explizit keine Krypto erlaubt
+            // Strict: only stocks/ETFs/funds — explicitly no crypto allowed
             .filter(r => r.type === 'EQUITY' || r.type === 'ETF' || r.type === 'MUTUALFUND')
             .slice(0, 10)
             .map(r => {

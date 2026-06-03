@@ -63,11 +63,11 @@ const themes = {
 const formatPrice = (price, currency = 'EUR', exchangeRate = 1) => {
   if (price === undefined || price === null || isNaN(price)) return '0.00';
   const converted = currency === 'USD' ? price * exchangeRate : price;
-  return window.MaerminUtils.formatNumberDE(converted);
+  return window.MaerminUtils.formatNumber(converted);
 };
 
 const formatPercent = window.MaerminUtils.formatPercentSigned;
-const formatDate = (dateStr, language = 'de') => window.MaerminUtils.formatDate(dateStr, language);
+const formatDate = (dateStr) => window.MaerminUtils.formatDate(dateStr);
 const generateId = window.MaerminUtils.generateId;
 
 // ============================================================================

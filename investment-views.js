@@ -1602,12 +1602,12 @@ function InvestmentAnalysisDashboard(props) {
   
   // Only real, data-driven analysis tabs
   var sections = [
-    { id: 'dca',      label: 'DCA Strategie',   desc: 'DCA vs. Einmalanlage vergleichen' },
-    { id: 'sectors',  label: 'Sektoren',         desc: 'Sektorale Allokation analysieren' },
-    { id: 'countries',label: 'Länder',           desc: 'Geografische Allokation' },
-    { id: 'currency', label: 'Währungen',         desc: 'Fremdwährungs-Exposure' },
-    { id: 'liquidity',label: 'Liquidität',        desc: 'Position Liquidity Score' },
-    { id: 'goals',    label: 'Ziele',             desc: 'Sparziele verfolgen' }
+    { id: 'dca',      label: 'DCA Strategy',     desc: 'Compare DCA vs. lump sum' },
+    { id: 'sectors',  label: 'Sectors',          desc: 'Analyze sector allocation' },
+    { id: 'countries',label: 'Countries',        desc: 'Geographic allocation' },
+    { id: 'currency', label: 'Currencies',       desc: 'Foreign-currency exposure' },
+    { id: 'liquidity',label: 'Liquidity',        desc: 'Position Liquidity Score' },
+    { id: 'goals',    label: 'Goals',            desc: 'Track savings goals' }
   ];
 
   var tabStyle = function(id) {

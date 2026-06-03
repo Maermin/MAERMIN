@@ -77,12 +77,12 @@ function RiskAnalyticsViewV2(props) {
     }
   };
   
-  var getRiskLabel = function(level, lang) {
+  var getRiskLabel = function(level) {
     var labels = {
-      'low': lang === 'de' ? 'Niedrig' : 'Low',
-      'medium': lang === 'de' ? 'Mittel' : 'Medium',
-      'high': lang === 'de' ? 'Hoch' : 'High',
-      'very-high': lang === 'de' ? 'Sehr Hoch' : 'Very High'
+      'low': 'Low',
+      'medium': 'Medium',
+      'high': 'High',
+      'very-high': 'Very High'
     };
     return labels[level] || level;
   };
