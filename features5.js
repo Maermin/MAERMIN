@@ -3,7 +3,7 @@
 // 1. Performance Period Selector  — 1D / 1W / 1M / YTD / 1Y / Max
 // 2. Net Worth Dashboard          — Vermögen inkl. Cash, Immobilien, Schulden
 // 3. Cashflow Chart               — Investiert vs. Portfoliowert über Zeit
-// 4. Fee Analyzer                 — Gebührenanalyse total, pro Jahr, pro Asset
+// 4. Fee Analyzer                 — fee analysis total, per year, per asset
 // ============================================================================
 (function () {
 'use strict';

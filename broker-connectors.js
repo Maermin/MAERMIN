@@ -234,9 +234,9 @@
       }
     },
     // No usable public API — handled by the existing CSV importers.
-    tradeRepublic: { id: 'tradeRepublic', name: 'Trade Republic', api: false, note: 'Keine offizielle API — bitte CSV-Export verwenden.' },
-    scalable: { id: 'scalable', name: 'Scalable Capital', api: false, note: 'Keine offizielle API — bitte CSV-Export verwenden.' },
-    interactiveBrokers: { id: 'interactiveBrokers', name: 'Interactive Brokers', api: false, note: 'Erfordert lokales Client-Portal-Gateway — bitte Activity-Statement-CSV verwenden.' }
+    tradeRepublic: { id: 'tradeRepublic', name: 'Trade Republic', api: false, note: 'No official API — please use CSV export.' },
+    scalable: { id: 'scalable', name: 'Scalable Capital', api: false, note: 'No official API — please use CSV export.' },
+    interactiveBrokers: { id: 'interactiveBrokers', name: 'Interactive Brokers', api: false, note: 'Requires a local Client Portal Gateway — please use the Activity Statement CSV.' }
   };
 
   function list() { return Object.keys(CONNECTORS).map(function (k) { var c = CONNECTORS[k]; return { id: c.id, name: c.name, api: !!c.api, fields: c.fields || [], note: c.note }; }); }
@@ -261,7 +261,7 @@
 
   function fetchTransactions(id, creds) {
     var c = CONNECTORS[id];
-    if (!c || !c.api) return Promise.reject(new Error('Kein API-Connector für ' + id));
+    if (!c || !c.api) return Promise.reject(new Error('No API connector for ' + id));
     return Promise.resolve(c.buildRequests(creds)).then(function (reqs) {
       var all = [];
       return reqs.reduce(function (chain, rq) {

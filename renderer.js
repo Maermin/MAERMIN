@@ -10,7 +10,7 @@
 const { useState, useEffect, useMemo, useCallback, useRef } = React;
 
 // Get translations
-const translations = typeof window.completeTranslations !== 'undefined' ? window.completeTranslations : { de: {}, en: {} };
+const translations = typeof window.completeTranslations !== 'undefined' ? window.completeTranslations : { en: {} };
 
 // Theme configuration
 const themes = {
@@ -251,7 +251,7 @@ function InvestmentTracker() {
   const [activeTab, setActiveTab] = useState('crypto');
   const [activeView, setActiveView] = useState('overview');
   const [theme, setTheme] = useState(() => localStorage.getItem('theme') || 'dark');
-  const [language, setLanguage] = useState(() => localStorage.getItem('language') || 'en');
+  const language = 'en';
   
   // v6.0 State
   const [showCommandPalette, setShowCommandPalette] = useState(false);
@@ -299,7 +299,7 @@ function InvestmentTracker() {
 
   // ========== COMPUTED VALUES ==========
   
-  const t = translations[language] || translations.de;
+  const t = translations.en || {};
   const currentTheme = themes[theme];
   
   const formatPrice = useCallback((price) => {
@@ -310,7 +310,7 @@ function InvestmentTracker() {
     // All prices are stored in EUR
     // If user wants USD, convert from EUR to USD by dividing by the USD->EUR rate
     const converted = currency === 'USD' && exchangeRate > 0 ? price / exchangeRate : price;
-    return converted.toLocaleString('de-DE', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+    return converted.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
   }, [currency, exchangeRate, privacyMode]);
 
   const getCurrencySymbol = () => currency === 'EUR' ? 'EUR' : 'USD';
@@ -424,32 +424,30 @@ function InvestmentTracker() {
   
   const commands = useMemo(() => [
     // Portfolio
-    { id: 'nav:overview',      label: t.overview || 'Übersicht',          category: 'Portfolio',  shortcut: 'g o' },
-    { id: 'nav:transactions',  label: t.transactions || 'Transaktionen',   category: 'Portfolio',  shortcut: 'g t' },
-    { id: 'nav:dividends',     label: t.dividendCalendar || 'Dividenden',  category: 'Portfolio',  shortcut: 'g d' },
+    { id: 'nav:overview',      label: t.overview || 'Overview',            category: 'Portfolio',  shortcut: 'g o' },
+    { id: 'nav:transactions',  label: t.transactions || 'Transactions',    category: 'Portfolio',  shortcut: 'g t' },
+    { id: 'nav:dividends',     label: t.dividendCalendar || 'Dividends',   category: 'Portfolio',  shortcut: 'g d' },
     { id: 'nav:journal',       label: t.tradeJournal || 'Journal',         category: 'Portfolio',  shortcut: 'g j' },
-    // Analyse
-    { id: 'nav:returns',       label: t.returns || 'Rendite & XIRR',       category: 'Analyse',    shortcut: 'g r' },
-    { id: 'nav:rebalancing',   label: t.rebalancing || 'Rebalancing',      category: 'Analyse',    shortcut: 'g b' },
-    { id: 'nav:analytics',     label: t.analytics || 'Portfolio-Analyse',  category: 'Analyse',    shortcut: 'g a' },
-    { id: 'nav:taxes',         label: t.taxes || 'Steuern',               category: 'Analyse',    shortcut: 'g x' },
+    // Analysis
+    { id: 'nav:returns',       label: t.returns || 'Returns & XIRR',       category: 'Analysis',   shortcut: 'g r' },
+    { id: 'nav:rebalancing',   label: t.rebalancing || 'Rebalancing',      category: 'Analysis',   shortcut: 'g b' },
+    { id: 'nav:analytics',     label: t.analytics || 'Portfolio Analysis', category: 'Analysis',   shortcut: 'g a' },
+    { id: 'nav:taxes',         label: t.taxes || 'Taxes',                  category: 'Analysis',   shortcut: 'g x' },
     // Tools
     { id: 'nav:watchlist',     label: t.watchlist || 'Watchlist',          category: 'Tools',      shortcut: 'g w' },
-    { id: 'nav:alerts',        label: t.priceAlerts || 'Preisalarme',      category: 'Tools',      shortcut: 'g l' },
-    { id: 'nav:broker-import', label: t.brokerImport || 'Broker-Import',   category: 'Tools',      shortcut: 'g m' },
-    // Aktionen
-    { id: 'action:add',        label: t.addTransaction || 'Transaktion hinzufügen', category: 'Aktionen', shortcut: 'n' },
-    { id: 'action:refresh',    label: t.refresh || 'Preise aktualisieren', category: 'Aktionen',   shortcut: 'r' },
-    { id: 'action:backup',     label: t.createBackup || 'Backup erstellen', category: 'Aktionen',  shortcut: 'b' },
-    { id: 'action:import',     label: t.importData || 'Daten importieren', category: 'Aktionen',   shortcut: 'i' },
-    { id: 'action:privacy',    label: t.privacyMode || 'Beträge ausblenden (Privacy)', category: 'Aktionen', shortcut: 'p' },
-    // Einstellungen
+    { id: 'nav:alerts',        label: t.priceAlerts || 'Price Alerts',     category: 'Tools',      shortcut: 'g l' },
+    { id: 'nav:broker-import', label: t.brokerImport || 'Broker Import',   category: 'Tools',      shortcut: 'g m' },
+    // Actions
+    { id: 'action:add',        label: t.addTransaction || 'Add Transaction', category: 'Actions',  shortcut: 'n' },
+    { id: 'action:refresh',    label: t.refresh || 'Refresh prices',       category: 'Actions',    shortcut: 'r' },
+    { id: 'action:backup',     label: t.createBackup || 'Create Backup',   category: 'Actions',    shortcut: 'b' },
+    { id: 'action:import',     label: t.importData || 'Import Data',       category: 'Actions',    shortcut: 'i' },
+    { id: 'action:privacy',    label: t.privacyMode || 'Hide amounts (Privacy)', category: 'Actions', shortcut: 'p' },
+    // Settings
     { id: 'settings:dark',     label: t.darkMode || 'Dark Mode',           category: 'Design' },
     { id: 'settings:light',    label: t.whiteMode || 'Light Mode',         category: 'Design' },
     { id: 'settings:purple',   label: t.purpleMode || 'Purple Mode',       category: 'Design' },
-    { id: 'settings:lang-de',  label: 'Deutsch',                           category: 'Sprache' },
-    { id: 'settings:lang-en',  label: 'English',                           category: 'Sprache' },
-    { id: 'help:shortcuts',    label: t.keyboardShortcuts || 'Tastenkürzel', category: 'Hilfe',    shortcut: '?' },
+    { id: 'help:shortcuts',    label: t.keyboardShortcuts || 'Keyboard Shortcuts', category: 'Help', shortcut: '?' },
   ], [t]);
 
   // ========== COMMAND EXECUTION (moved below function definitions) ==========
@@ -509,14 +507,12 @@ function InvestmentTracker() {
   useEffect(() => {
     const saved = (key) => localStorage.getItem(key);
     if (saved('theme')) setTheme(saved('theme'));
-    if (saved('language')) setLanguage(saved('language'));
     if (saved('currency')) setCurrency(saved('currency'));
     if (saved('apiKeys')) setApiKeys(JSON.parse(saved('apiKeys')));
     if (saved('priceHistory')) setPriceHistory(JSON.parse(saved('priceHistory')));
   }, []);
 
   useEffect(() => { localStorage.setItem('theme', theme); }, [theme]);
-  useEffect(() => { localStorage.setItem('language', language); }, [language]);
   useEffect(() => { localStorage.setItem('currency', currency); }, [currency]);
   useEffect(() => { localStorage.setItem('transactions', JSON.stringify(transactions)); }, [transactions]);
   useEffect(() => { localStorage.setItem('priceHistory', JSON.stringify(priceHistory)); }, [priceHistory]);
@@ -529,7 +525,7 @@ function InvestmentTracker() {
   const fetchPrices = async () => {
     setLoading(true);
     const newPrices = { ...prices };
-    const timestamp = new Date().toLocaleString('de-DE', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' });
+    const timestamp = new Date().toLocaleString('en-US', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' });
     
     try {
       // First, fetch USD to EUR exchange rate from ExchangeRate-API (free, no key)
@@ -1107,9 +1103,7 @@ function InvestmentTracker() {
       case 'settings:dark':     setTheme('dark'); break;
       case 'settings:light':    setTheme('white'); break;
       case 'settings:purple':   setTheme('purple'); break;
-      case 'settings:lang-de':  setLanguage('de'); break;
-      case 'settings:lang-en':  setLanguage('en'); break;
-      // Hilfe
+      // Help
       case 'help:shortcuts':    setShowShortcuts(true); break;
       default: break;
     }
@@ -2371,7 +2365,7 @@ function InvestmentTracker() {
             React.createElement('option', { value: 'us' }, t.usa || 'USA')
           ),
           typeof window.exportTaxPDF !== 'undefined' && React.createElement('button', {
-            onClick: () => window.exportTaxPDF(transactions, taxJurisdiction, currentYear, language),
+            onClick: () => window.exportTaxPDF(transactions, taxJurisdiction, currentYear),
             style: {
               padding: '0.5rem 1rem',
               background: currentTheme.accent,
@@ -3433,29 +3427,6 @@ buy,crypto,bitcoin,0.5,45000,2024-01-15,10`)
                     gap: '2px'
                   }
                 }, ico, React.createElement('span', { style: { fontSize: '0.65rem' } }, th.charAt(0).toUpperCase() + th.slice(1)))
-              )
-            )
-          ),
-          // Language
-          React.createElement('div', { style: { marginBottom: '1rem' } },
-            React.createElement('label', { style: { color: currentTheme.textSecondary, fontSize: '0.7rem', textTransform: 'uppercase', letterSpacing: '0.05em' } }, t.language || 'Language'),
-            React.createElement('div', { style: { display: 'flex', gap: '0.4rem', marginTop: '0.5rem' } },
-              ['de', 'en'].map(lang =>
-                React.createElement('button', {
-                  key: lang,
-                  onClick: () => setLanguage(lang),
-                  style: {
-                    flex: 1,
-                    padding: '0.5rem',
-                    background: language === lang ? currentTheme.accent : currentTheme.inputBg,
-                    color: language === lang ? '#fff' : currentTheme.text,
-                    border: 'none',
-                    borderRadius: '6px',
-                    cursor: 'pointer',
-                    fontSize: '0.8rem',
-                    fontWeight: language === lang ? '600' : '400'
-                  }
-                }, lang === 'de' ? 'DE' : 'EN')
               )
             )
           ),

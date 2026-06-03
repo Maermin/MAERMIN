@@ -32,17 +32,10 @@
   function setEndpoint(url) { try { localStorage.setItem(ENDPOINT_KEY, (url || '').trim()); } catch (e) {} }
   function isConfigured() { return getEndpoint().length > 8; }
 
-  // Language: views don't thread a prop — fall back to the persisted setting.
-  function getLanguage(context) {
-    if (context && context.language) return context.language;
-    try { return localStorage.getItem('language') || 'en'; } catch (e) { return 'en'; }
-  }
-
   function buildPrompt(context) {
-    var lang = getLanguage(context) === 'de' ? 'Deutsch' : 'English';
     var L = [];
     L.push('You are a portfolio-analysis assistant inside MAERMIN, a personal multi-asset portfolio tracker.');
-    L.push('Analyse the following ' + (context.title || 'portfolio') + ' data and give concise, specific, actionable insight. Reply in ' + lang + '. Use the actual numbers. Keep it short (a few bullet points). This is educational, not individual financial advice — at most one short caveat line.');
+    L.push('Analyse the following ' + (context.title || 'portfolio') + ' data and give concise, specific, actionable insight. Reply in English. Use the actual numbers. Keep it short (a few bullet points). This is educational, not individual financial advice — at most one short caveat line.');
     L.push('');
     L.push('DATA:');
     L.push('```json');
