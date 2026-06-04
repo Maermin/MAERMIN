@@ -18,6 +18,29 @@ const dbg = (function () {
   return on ? console.log.bind(console) : function () {};
 })();
 
+// View-level error boundary so a crash in one view shows a recoverable fallback
+// card instead of blanking the whole app. `viewKey` resets it on navigation.
+class ViewErrorBoundary extends React.Component {
+  constructor(props) { super(props); this.state = { error: null }; }
+  static getDerivedStateFromError(error) { return { error }; }
+  componentDidCatch(error, info) { console.error('[MAERMIN] view crashed:', error, info); }
+  componentDidUpdate(prev) { if (prev.viewKey !== this.props.viewKey && this.state.error) this.setState({ error: null }); }
+  render() {
+    if (!this.state.error) return this.props.children;
+    const th = this.props.theme || {};
+    return React.createElement('div', { style: { padding: '2rem' } },
+      React.createElement('div', { style: { maxWidth: 520, margin: '2rem auto', textAlign: 'center', background: th.card || '#141a25', border: `1px solid ${th.cardBorder || 'rgba(255,255,255,0.08)'}`, borderRadius: '14px', padding: '2rem' } },
+        React.createElement('div', { style: { fontSize: '2rem', marginBottom: '0.5rem' } }, '⚠️'),
+        React.createElement('div', { style: { color: th.text || '#e9edf4', fontWeight: 800, fontSize: '1.05rem', marginBottom: '0.5rem' } }, 'This view hit an error'),
+        React.createElement('div', { style: { color: th.textSecondary || '#8b94a7', fontSize: '0.85rem', marginBottom: '1.25rem' } }, 'Your data is safe. Try this view again or switch to another.'),
+        React.createElement('div', { style: { color: th.textSecondary || '#8b94a7', fontSize: '0.72rem', fontFamily: 'ui-monospace,monospace', marginBottom: '1.25rem', wordBreak: 'break-word', opacity: 0.8 } }, String(this.state.error && this.state.error.message || this.state.error)),
+        React.createElement('button', { onClick: () => this.setState({ error: null }),
+          style: { padding: '0.5rem 1.1rem', background: th.accent || '#f5a524', color: '#13110a', border: 'none', borderRadius: '8px', cursor: 'pointer', fontWeight: 700, fontSize: '0.85rem' } }, 'Retry')
+      )
+    );
+  }
+}
+
 // Get translations
 const translations = typeof window.completeTranslations !== 'undefined' ? window.completeTranslations : { en: {} };
 
@@ -265,9 +288,20 @@ function InvestmentTracker() {
   const [taxJurisdiction, setTaxJurisdiction] = useState(() => {
     return localStorage.getItem('taxJurisdiction') || 'de';
   });
+  // Tax report: selected year + taxpayer details (persisted), used by the
+  // filing-grade report builder (MaerminTaxReport).
+  const [taxYear, setTaxYear] = useState(() => new Date().getFullYear());
+  const [taxOwner, setTaxOwner] = useState(() => {
+    try { return JSON.parse(localStorage.getItem('maermin_tax_owner') || '{}'); } catch { return {}; }
+  });
+  useEffect(() => { localStorage.setItem('maermin_tax_owner', JSON.stringify(taxOwner)); }, [taxOwner]);
 
   // Privacy mode — masks all monetary amounts (for screenshots / public viewing)
   const [privacyMode, setPrivacyMode] = useState(() => localStorage.getItem('privacyMode') === '1');
+
+  // Bumped when async equity metadata (sector/country) is backfilled, so the
+  // Strategy tab recomputes even if the user is already on it.
+  const [metaVersion, setMetaVersion] = useState(0);
 
   // ========== COMPUTED VALUES ==========
   
@@ -432,8 +466,16 @@ function InvestmentTracker() {
   // already cached). Lets the Dividend Forecast/Calendar resolve far more than
   // the built-in ticker list. Cache + 24h TTL keep this within free-tier limits.
   useEffect(() => {
-    if (window.DividendDataService && portfolio.stocks && portfolio.stocks.length) {
-      window.DividendDataService.prefetchPortfolio(portfolio).catch(() => {});
+    if (portfolio.stocks && portfolio.stocks.length) {
+      if (window.DividendDataService) window.DividendDataService.prefetchPortfolio(portfolio).catch(() => {});
+      // Backfill sector/country metadata for the Strategy tab (covers existing
+      // holdings, manual additions and sync updates — anything that changes the
+      // derived portfolio). No-op without an FMP key; static map still applies.
+      if (window.MaerminEquityMeta) {
+        window.MaerminEquityMeta.prefetchPortfolio(portfolio)
+          .then((n) => { if (n > 0) setMetaVersion(v => v + 1); }) // refresh Strategy views once metadata lands
+          .catch(() => {});
+      }
     }
   }, [portfolio]);
 
@@ -1440,7 +1482,9 @@ function InvestmentTracker() {
           React.createElement(window.MaerminFeatures4.SavingsPlanView, {
             transactions: activeTransactions, theme: currentTheme, formatPrice, getCurrencySymbol, t,
             // Feed the projection (#6): current investment value + forward dividend yield.
-            startValue: stats.totalValue,
+            // NB: use the component-scoped portfolioStats (stats is only defined in
+            // the overview block, not here — referencing it crashed the page).
+            startValue: portfolioStats.totalValue,
             dividendYield: (window.MaerminMetrics
               ? (window.MaerminMetrics.computeExpectedAnnualDividends(portfolio, prices).yield || 0) / 100
               : 0)
@@ -1529,7 +1573,7 @@ function InvestmentTracker() {
       case 'investment-analysis':
         return window.InvestmentViews && window.InvestmentViews.InvestmentAnalysisDashboard ?
           React.createElement(window.InvestmentViews.InvestmentAnalysisDashboard, {
-            portfolio, prices, priceHistory,
+            portfolio, prices, priceHistory, metaVersion,
             theme: currentTheme, t, formatPrice
           }) : renderAnalyticsPlaceholder('Strategy Analysis');
 
@@ -2254,50 +2298,67 @@ function InvestmentTracker() {
   // ========== TAX VIEW ==========
   
   const renderTaxView = () => {
-    const currentYear = new Date().getFullYear();
-    
+    const currentYear = taxYear;
+
     // Calculate tax data using tax engine if available
     let taxData = { realizedGains: 0, shortTerm: 0, longTerm: 0, taxLiability: 0 };
-    
+
     if (typeof window.TaxCalculationEngine !== 'undefined') {
       const result = window.TaxCalculationEngine.calculateTaxes(transactions, taxJurisdiction, currentYear);
       taxData = result;
     }
-    
+
+    // Years that have any transaction, newest first (plus the current year).
+    const availableYears = (() => {
+      const set = new Set([new Date().getFullYear()]);
+      transactions.forEach(tx => { if (tx.date) set.add(new Date(tx.date).getFullYear()); });
+      return Array.from(set).filter(y => y > 1990 && y < 2100).sort((a, b) => b - a);
+    })();
+
+    // Build the filing-grade report once, reuse for both exporters.
+    const buildReport = () => window.MaerminTaxReport && window.MaerminTaxReport.build(transactions, {
+      year: currentYear, jurisdiction: taxJurisdiction, baseCurrency: 'EUR',
+      exchangeRate, owner: taxOwner, portfolio, prices
+    });
+    const inputStyle = { padding: '0.5rem 0.75rem', background: currentTheme.inputBg, border: `1px solid ${currentTheme.inputBorder}`, borderRadius: '8px', color: currentTheme.text, fontSize: '0.85rem' };
+
     return React.createElement('div', { style: { padding: '1.5rem' } },
       React.createElement('div', {
-        style: { display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.5rem' }
+        style: { display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem', flexWrap: 'wrap', gap: '0.5rem' }
       },
         React.createElement('h2', {
           style: { color: currentTheme.text, fontSize: '1.5rem', fontWeight: '600' }
         }, t.taxReport || 'Tax Report'),
-        React.createElement('div', { style: { display: 'flex', gap: '0.5rem' } },
+        React.createElement('div', { style: { display: 'flex', gap: '0.5rem', flexWrap: 'wrap' } },
+          React.createElement('select', {
+            value: currentYear, onChange: (e) => setTaxYear(parseInt(e.target.value, 10)),
+            style: inputStyle, title: 'Tax year'
+          }, availableYears.map(y => React.createElement('option', { key: y, value: y }, y))),
           React.createElement('select', {
             value: taxJurisdiction,
             onChange: (e) => setTaxJurisdiction(e.target.value),
-            style: {
-              padding: '0.5rem 1rem',
-              background: currentTheme.inputBg,
-              border: `1px solid ${currentTheme.inputBorder}`,
-              borderRadius: '8px',
-              color: currentTheme.text
-            }
+            style: inputStyle
           },
             React.createElement('option', { value: 'de' }, t.germany || 'Germany'),
             React.createElement('option', { value: 'us' }, t.usa || 'USA')
           ),
-          typeof window.exportTaxPDF !== 'undefined' && React.createElement('button', {
-            onClick: () => window.exportTaxPDF(transactions, taxJurisdiction, currentYear),
-            style: {
-              padding: '0.5rem 1rem',
-              background: currentTheme.accent,
-              color: '#13110a',
-              border: 'none',
-              borderRadius: '8px',
-              cursor: 'pointer'
-            }
-          }, t.exportPdf || 'Export PDF')
+          window.MaerminTaxReport && React.createElement('button', {
+            onClick: () => { const r = buildReport(); if (r) window.MaerminTaxReport.exportPDF(r); },
+            style: { padding: '0.5rem 1rem', background: currentTheme.accent, color: '#13110a', border: 'none', borderRadius: '8px', cursor: 'pointer', fontWeight: 600 }
+          }, t.exportPdf || 'Export PDF'),
+          window.MaerminTaxReport && React.createElement('button', {
+            onClick: () => { const r = buildReport(); if (r) window.MaerminTaxReport.exportExcel(r); },
+            style: { padding: '0.5rem 1rem', background: 'rgba(34,197,94,0.15)', color: '#22c55e', border: '1px solid rgba(34,197,94,0.3)', borderRadius: '8px', cursor: 'pointer', fontWeight: 600 }
+          }, t.exportExcel || 'Export Excel')
         )
+      ),
+
+      // Taxpayer details (appear on the exported report).
+      React.createElement('div', { style: { display: 'flex', gap: '0.5rem', marginBottom: '1.5rem', flexWrap: 'wrap' } },
+        React.createElement('input', { placeholder: 'Taxpayer name (optional)', value: taxOwner.name || '',
+          onChange: (e) => setTaxOwner(o => ({ ...o, name: e.target.value })), style: { ...inputStyle, flex: 1, minWidth: 180 } }),
+        React.createElement('input', { placeholder: 'Tax ID (optional)', value: taxOwner.taxId || '',
+          onChange: (e) => setTaxOwner(o => ({ ...o, taxId: e.target.value })), style: { ...inputStyle, flex: 1, minWidth: 140 } })
       ),
       
       // Tax stats
@@ -3626,7 +3687,7 @@ buy,crypto,bitcoin,0.5,45000,2024-01-15,10`)
       React.createElement('main', {
         className: 'maermin-main',
         style: { flex: 1, minWidth: 0, overflow: 'auto' }
-      }, renderView())
+      }, React.createElement(ViewErrorBoundary, { viewKey: activeView, theme: currentTheme }, renderView()))
     ),
 
     // Mobile Bottom Navigation
