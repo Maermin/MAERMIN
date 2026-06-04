@@ -277,7 +277,95 @@
     };
   }
 
+  // ---- Position aggregation (single source of truth) -----------------------
+  // Build the grouped portfolio object {crypto,stocks,skins,commodities} from a
+  // flat transaction list. Cost basis is kept in EUR (USD tx converted with the
+  // live rate), and sells reduce the basis proportionally. This is the ONE
+  // implementation the renderer's `portfolio`, `allPortfoliosPortfolio`,
+  // `portfolioStats` and `allPortfoliosStats` all delegate to, so the four can
+  // never drift apart. Pure + unit-tested (test/positions.test.js).
+  var ASSET_CLASSES = ['crypto', 'stocks', 'skins', 'commodities'];
+
+  function buildPositions(transactions, opts) {
+    opts = opts || {};
+    var rate = parseFloat(opts.exchangeRate) || 0; // USD -> EUR
+    var result = { crypto: [], stocks: [], skins: [], commodities: [] };
+    var map = {};
+    (transactions || []).forEach(function (tx) {
+      var category = tx.category || 'crypto';
+      if (!result[category]) return; // ignore unknown classes
+      var symLower = (tx.symbol || '').toLowerCase();
+      var key = category + '-' + symLower;
+      if (!map[key]) {
+        map[key] = {
+          symbol: tx.symbol, symbolName: tx.symbolName || '', symbolLogoUrl: tx.symbolLogoUrl || '',
+          amount: 0, totalCostEUR: 0, purchaseDate: tx.date, category: category
+        };
+      }
+      if (!map[key].symbolName && tx.symbolName) map[key].symbolName = tx.symbolName;
+      if (!map[key].symbolLogoUrl && tx.symbolLogoUrl) map[key].symbolLogoUrl = tx.symbolLogoUrl;
+
+      var qty = parseFloat(tx.quantity) || 0;
+      var priceEUR = parseFloat(tx.price) || 0;
+      if (tx.currency === 'USD' && rate > 0) priceEUR *= rate;
+
+      if (tx.type === 'buy') {
+        map[key].amount += qty;
+        map[key].totalCostEUR += qty * priceEUR;
+      } else if (tx.type === 'sell') {
+        var cur = map[key].amount;
+        if (cur > 0) {
+          var frac = Math.min(qty, cur) / cur;
+          map[key].totalCostEUR -= map[key].totalCostEUR * frac;
+        }
+        map[key].amount = Math.max(0, cur - qty);
+      }
+    });
+    Object.keys(map).forEach(function (k) {
+      var pos = map[k];
+      if (pos.amount > 0.0001) {
+        result[pos.category].push({
+          id: pos.category + '-' + pos.symbol,
+          symbol: pos.symbol,
+          symbolName: pos.symbolName,
+          symbolLogoUrl: pos.symbolLogoUrl,
+          name: pos.symbolName || pos.symbol,
+          amount: pos.amount,
+          purchasePrice: pos.amount > 0 ? pos.totalCostEUR / pos.amount : 0,
+          purchaseDate: pos.purchaseDate
+        });
+      }
+    });
+    return result;
+  }
+
+  // Totals for a grouped portfolio object using the current EUR price map.
+  function computeStats(portfolio, prices) {
+    portfolio = portfolio || {};
+    prices = prices || {};
+    var totalValue = 0, totalInvested = 0, totalPositions = 0;
+    ASSET_CLASSES.forEach(function (cls) {
+      (portfolio[cls] || []).forEach(function (pos) {
+        var amount = parseFloat(pos.amount) || 0;
+        var price = priceOf(prices, pos) || parseFloat(pos.purchasePrice) || 0;
+        totalValue += amount * price;
+        totalInvested += amount * (parseFloat(pos.purchasePrice) || 0);
+        totalPositions++;
+      });
+    });
+    return {
+      totalValue: totalValue,
+      totalInvested: totalInvested,
+      totalProfit: totalValue - totalInvested,
+      totalProfitPercent: totalInvested > 0 ? ((totalValue - totalInvested) / totalInvested) * 100 : 0,
+      totalPositions: totalPositions
+    };
+  }
+
   var api = {
+    ASSET_CLASSES: ASSET_CLASSES,
+    buildPositions: buildPositions,
+    computeStats: computeStats,
     LIABILITY_TYPES: LIABILITY_TYPES,
     NETWORTH_ACCOUNTS_KEY: NETWORTH_ACCOUNTS_KEY,
     FIRE_SETTINGS_KEY: FIRE_SETTINGS_KEY,

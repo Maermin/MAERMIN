@@ -260,6 +260,43 @@
     } catch (e) { return false; }
   }
 
+  // ---- portable encrypted backup (disaster recovery) -----------------------
+  // The vault has no password recovery by design; if the browser store is wiped
+  // and there is no backup, data is lost. These produce/restore a SELF-CONTAINED
+  // encrypted backup file = { vault meta, AES-256-GCM data blob }. It stays
+  // zero-knowledge: the file is useless without the password, and can be
+  // restored on any device. Pair with the plaintext data export in
+  // import-export-engine.js for a non-encrypted escape hatch.
+  function metaKeyName() { return (Vault && Vault.META_KEY) || 'maermin_vault_meta'; }
+
+  function exportEncryptedBackup() {
+    var ls = window.localStorage;
+    var metaRaw = (nativeGet || Storage.prototype.getItem).call(ls, metaKeyName());
+    if (!metaRaw) return Promise.reject(new Error('no-vault'));
+    var existingBlob = (nativeGet || Storage.prototype.getItem).call(ls, BLOB_KEY);
+    var blobP;
+    if (existingBlob) blobP = Promise.resolve(existingBlob);
+    else if (Vault && Vault.isUnlocked()) blobP = Vault.encryptJSON(snapshotPlaintext());
+    else return Promise.reject(new Error('locked'));
+    return blobP.then(function (blob) {
+      var meta;
+      try { meta = JSON.parse(metaRaw); } catch (e) { meta = null; }
+      return { format: 'maermin-vault-backup', v: 1, exportedAt: Date.now(), meta: meta, blob: blob };
+    });
+  }
+
+  function importEncryptedBackup(obj) {
+    if (!obj || obj.format !== 'maermin-vault-backup' || !obj.meta || typeof obj.blob !== 'string') {
+      return Promise.reject(new Error('bad-backup'));
+    }
+    var ls = window.localStorage;
+    uninstallShim(); mem = null;
+    (nativeSet || Storage.prototype.setItem).call(ls, metaKeyName(), JSON.stringify(obj.meta));
+    (nativeSet || Storage.prototype.setItem).call(ls, BLOB_KEY, obj.blob);
+    (nativeSet || Storage.prototype.setItem).call(ls, ATREST_FLAG, '1');
+    return Promise.resolve(true); // caller reloads → unlock screen → password decrypts
+  }
+
   // Best-effort flush when the tab is hidden/closed.
   if (typeof window !== 'undefined' && window.addEventListener) {
     window.addEventListener('visibilitychange', function () {
@@ -286,6 +323,8 @@
     onLock: onLock,
     snapshotPlaintext: snapshotPlaintext,
     restoreBackup: restoreBackup,
+    exportEncryptedBackup: exportEncryptedBackup,
+    importEncryptedBackup: importEncryptedBackup,
     BLOB_KEY: BLOB_KEY,
     BACKUP_KEY: BACKUP_KEY,
     ATREST_FLAG: ATREST_FLAG,

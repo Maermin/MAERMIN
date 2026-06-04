@@ -423,6 +423,11 @@ function DividendForecastView({ transactions, portfolio, prices, theme, formatPr
     transactions.filter(tx => tx.type === 'dividend' || (tx.notes || '').toLowerCase().includes('dividend')),
   [transactions]);
 
+  // Derive a per-symbol forward rate. Primary source = the user's own recorded
+  // dividend payments (most accurate). When there is no manual history, fall
+  // back to the automatic engine (DividendDataService: cache → API → built-in
+  // DB, all keyed through the ticker-validation layer) so the forecast works
+  // out of the box for recognised holdings. Requirement #4.
   const forecasts = useMemo(() => {
     const bySymbol = {};
     dividends.forEach(tx => {
@@ -446,10 +451,26 @@ function DividendForecastView({ transactions, portfolio, prices, theme, formatPr
         else if (avgGapDays < 100) frequency = 'quarterly';
         else if (avgGapDays < 200) frequency = 'semi-annual';
       }
-      result.push({ sym, annualRate, avgPerPayment, frequency, lastPayment: last, paymentsCount: payments.length });
+      result.push({ sym, annualRate, avgPerPayment, frequency, lastPayment: last, paymentsCount: payments.length, source: 'history' });
     });
+
+    if (result.length === 0 && window.DividendDataService && portfolio && portfolio.stocks) {
+      // No manual history → project from current stock holdings × known dividend.
+      const data = window.DividendDataService.getPortfolioDividendData(portfolio, prices || {});
+      (portfolio.stocks || []).forEach(s => {
+        const sym = (s.symbol || s.name || '').toUpperCase();
+        const shares = parseFloat(s.amount) || 0;
+        const d = data[sym];
+        if (!d || shares <= 0 || !(d.annualDividend > 0)) return;
+        const annualRate = shares * d.annualDividend;
+        const ppy = window.DividendDataService.getPaymentsPerYear(d.frequency);
+        result.push({ sym: s.symbol || s.name, annualRate, avgPerPayment: annualRate / ppy, frequency: d.frequency || 'quarterly', paymentsCount: ppy, source: 'estimated' });
+      });
+    }
     return result.sort((a, b) => b.annualRate - a.annualRate);
-  }, [dividends]);
+  }, [dividends, portfolio, prices]);
+
+  const isEstimated = forecasts.length > 0 && forecasts.every(f => f.source === 'estimated');
 
   // Build multi-year monthly forecast
   const monthlyForecast = useMemo(() => {
@@ -487,14 +508,14 @@ function DividendForecastView({ transactions, portfolio, prices, theme, formatPr
   const totalForecast = monthlyForecast.reduce((s, m) => s + m.amount, 0);
   const maxMonth      = Math.max(...monthlyForecast.map(m => m.amount), 1);
 
-  if (dividends.length === 0) {
+  if (forecasts.length === 0) {
     return React.createElement('div', { style: { padding: '1.5rem' } },
       React.createElement('h2', { style: { color: theme.text, fontSize: '1.5rem', fontWeight: '800', letterSpacing: '-0.02em', marginBottom: '1rem' } }, 'Dividend Forecast'),
       React.createElement(Card, { theme, style: { textAlign: 'center', padding: '3rem' } },
         React.createElement('div', { style: { color: theme.textSecondary, fontSize: '2rem', marginBottom: '0.5rem', opacity: 0.4 } }, '◎'),
-        React.createElement('div', { style: { color: theme.text, fontWeight: '600', marginBottom: '0.5rem' } }, 'No dividend history yet'),
+        React.createElement('div', { style: { color: theme.text, fontWeight: '600', marginBottom: '0.5rem' } }, 'No dividend data yet'),
         React.createElement('div', { style: { color: theme.textSecondary, fontSize: '0.875rem', maxWidth: 360, margin: '0 auto' } },
-          'Add dividend transactions or use Auto-fetch dividends in the Dividends tab.'
+          'Add dividend transactions, or hold recognised dividend stocks (an FMP API key in Settings expands coverage beyond the built-in list).'
         )
       )
     );
@@ -505,7 +526,8 @@ function DividendForecastView({ transactions, portfolio, prices, theme, formatPr
     React.createElement('div', { style: { display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '1.25rem', flexWrap: 'wrap', gap: '0.75rem' } },
       React.createElement('div', null,
         React.createElement('h2', { style: { color: theme.text, fontSize: '1.5rem', fontWeight: '800', letterSpacing: '-0.02em', marginBottom: '0.25rem' } }, 'Dividend Forecast'),
-        React.createElement('p', { style: { color: theme.textSecondary, fontSize: '0.8rem' } }, 'Projected from historical dividend frequency and amount')
+        React.createElement('p', { style: { color: theme.textSecondary, fontSize: '0.8rem' } },
+          isEstimated ? 'Estimated from current holdings × known dividend rates' : 'Projected from your recorded dividend frequency and amount')
       ),
       // Year range toggle
       React.createElement('div', { style: { display: 'flex', background: theme.inputBg, borderRadius: '8px', padding: '0.2rem', gap: '0.15rem' } },

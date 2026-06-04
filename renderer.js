@@ -9,6 +9,15 @@
 // Use React hooks
 const { useState, useEffect, useMemo, useCallback, useRef } = React;
 
+// Gated debug logger — verbose price/dividend tracing only when explicitly
+// enabled (localStorage 'maermin_debug' = '1' or window.__MAERMIN_DEBUG). Keeps
+// the production console clean while preserving the diagnostics for support.
+const dbg = (function () {
+  let on = false;
+  try { on = (typeof localStorage !== 'undefined' && localStorage.getItem('maermin_debug') === '1') || (typeof window !== 'undefined' && window.__MAERMIN_DEBUG === true); } catch (e) {}
+  return on ? console.log.bind(console) : function () {};
+})();
+
 // Get translations
 const translations = typeof window.completeTranslations !== 'undefined' ? window.completeTranslations : { en: {} };
 
@@ -202,71 +211,13 @@ function InvestmentTracker() {
   [transactions, activePortfolioId]);
 
   // Portfolio derived from transactions
-  const portfolio = useMemo(() => {
-    const result = { crypto: [], stocks: [], skins: [], commodities: [] };
-    const positionMap = {};
-    
-    activeTransactions.forEach(tx => {
-      const category = tx.category || 'crypto';
-      const symbol = (tx.symbol || '').toLowerCase();
-      const key = `${category}-${symbol}`;
-      
-      if (!positionMap[key]) {
-        positionMap[key] = {
-          symbol: tx.symbol,           // exact YF symbol or CoinGecko ID from SymbolPicker
-          symbolName: tx.symbolName || '',  // human-readable name e.g. "Apple Inc."
-          symbolLogoUrl: tx.symbolLogoUrl || '', // logo URL
-          amount: 0,
-          totalCostEUR: 0,
-          purchaseDate: tx.date,
-          category: category
-        };
-      }
-      // Update name/logo if a later transaction has it (picker was used)
-      if (!positionMap[key].symbolName && tx.symbolName) positionMap[key].symbolName = tx.symbolName;
-      if (!positionMap[key].symbolLogoUrl && tx.symbolLogoUrl) positionMap[key].symbolLogoUrl = tx.symbolLogoUrl;
-      
-      // Get price in EUR - convert if transaction was in USD
-      let priceEUR = parseFloat(tx.price) || 0;
-      if (tx.currency === 'USD' && exchangeRate > 0) {
-        priceEUR = priceEUR * exchangeRate;
-      }
-      
-      if (tx.type === 'buy') {
-        const qty = parseFloat(tx.quantity) || 0;
-        positionMap[key].amount += qty;
-        positionMap[key].totalCostEUR += qty * priceEUR;
-      } else if (tx.type === 'sell') {
-        const qty = parseFloat(tx.quantity) || 0;
-        const currentAmount = positionMap[key].amount;
-        if (currentAmount > 0) {
-          // Reduce cost basis proportionally: sell removes (qty/total) fraction of cost
-          const fraction = Math.min(qty, currentAmount) / currentAmount;
-          positionMap[key].totalCostEUR -= positionMap[key].totalCostEUR * fraction;
-        }
-        positionMap[key].amount = Math.max(0, currentAmount - qty);
-      }
-    });
-    
-    // Convert map to arrays
-    Object.values(positionMap).forEach(pos => {
-      if (pos.amount > 0.0001) {
-        const avgPriceEUR = pos.totalCostEUR / pos.amount;
-        result[pos.category].push({
-          id: `${pos.category}-${pos.symbol}`,
-          symbol: pos.symbol,
-          symbolName: pos.symbolName,
-          symbolLogoUrl: pos.symbolLogoUrl,
-          name: pos.symbolName || pos.symbol,
-          amount: pos.amount,
-          purchasePrice: avgPriceEUR,
-          purchaseDate: pos.purchaseDate
-        });
-      }
-    });
-    
-    return result;
-  }, [activeTransactions, exchangeRate]);
+  // Single active portfolio, derived from its transactions. Delegates to the
+  // shared MaerminMetrics.buildPositions so this never drifts from the all-mode
+  // build, the dividend/health calcs or the stats below.
+  const portfolio = useMemo(
+    () => window.MaerminMetrics.buildPositions(activeTransactions, { exchangeRate }),
+    [activeTransactions, exchangeRate]
+  );
   
   // UI State
   const [activeTab, setActiveTab] = useState('crypto');
@@ -334,7 +285,7 @@ function InvestmentTracker() {
     return converted.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
   }, [currency, exchangeRate, privacyMode]);
 
-  const getCurrencySymbol = () => currency === 'EUR' ? 'EUR' : 'USD';
+  const getCurrencySymbol = () => currency === 'EUR' ? '€' : '$';
 
   // Category display names
   const getCategoryDisplayName = (category) => {
@@ -342,104 +293,23 @@ function InvestmentTracker() {
     return displayNames[category] || category;
   };
 
-  // Calculate portfolio totals
-  const portfolioStats = useMemo(() => {
-    let totalValue = 0;
-    let totalInvested = 0;
-    let totalPositions = 0;
+  // Calculate portfolio totals (shared stats helper — same math everywhere).
+  const portfolioStats = useMemo(
+    () => window.MaerminMetrics.computeStats(portfolio, prices),
+    [portfolio, prices]
+  );
 
-    ['crypto', 'stocks', 'skins', 'commodities'].forEach(category => {
-      const positions = portfolio[category] || [];
-      positions.forEach(pos => {
-        const symbolOriginal = pos.symbol || pos.name || '';
-        const symbolLower = symbolOriginal.toLowerCase();
-        const symbolUpper = symbolOriginal.toUpperCase();
-        const currentPrice = prices[symbolOriginal] || prices[symbolLower] || prices[symbolUpper] || pos.purchasePrice || 0;
-        const value    = (pos.amount || 0) * currentPrice;
-        const invested = (pos.amount || 0) * (pos.purchasePrice || 0);
-        
-        totalValue += value;
-        totalInvested += invested;
-        totalPositions++;
-      });
-    });
+  // ALL portfolios combined portfolio object — used on Overview in "All" mode.
+  const allPortfoliosPortfolio = useMemo(
+    () => window.MaerminMetrics.buildPositions(transactions, { exchangeRate }),
+    [transactions, exchangeRate]
+  );
 
-    return {
-      totalValue,
-      totalInvested,
-      totalProfit: totalValue - totalInvested,
-      totalProfitPercent: totalInvested > 0 ? ((totalValue - totalInvested) / totalInvested) * 100 : 0,
-      totalPositions
-    };
-  }, [portfolio, prices]);
-
-  // ALL portfolios combined portfolio object — used on Overview in "All" mode
-  const allPortfoliosPortfolio = useMemo(() => {
-    const result = { crypto: [], stocks: [], skins: [], commodities: [] };
-    const posMap = {};
-    transactions.forEach(tx => {
-      const category = tx.category || 'crypto';
-      const key = `${category}-${(tx.symbol || '').toLowerCase()}`;
-      if (!posMap[key]) posMap[key] = { symbol: tx.symbol, symbolName: tx.symbolName || '', symbolLogoUrl: tx.symbolLogoUrl || '', amount: 0, totalCostEUR: 0, purchaseDate: tx.date, category };
-      if (!posMap[key].symbolName && tx.symbolName) posMap[key].symbolName = tx.symbolName;
-      let priceEUR = parseFloat(tx.price) || 0;
-      if (tx.currency === 'USD' && exchangeRate > 0) priceEUR *= exchangeRate;
-      if (tx.type === 'buy') {
-        posMap[key].amount += parseFloat(tx.quantity) || 0;
-        posMap[key].totalCostEUR += (parseFloat(tx.quantity) || 0) * priceEUR;
-      } else if (tx.type === 'sell') {
-        const frac = posMap[key].amount > 0 ? Math.min(parseFloat(tx.quantity) || 0, posMap[key].amount) / posMap[key].amount : 0;
-        posMap[key].totalCostEUR *= (1 - frac);
-        posMap[key].amount = Math.max(0, posMap[key].amount - (parseFloat(tx.quantity) || 0));
-      }
-    });
-    Object.values(posMap).forEach(pos => {
-      if (pos.amount > 0.0001) result[pos.category].push({
-        ...pos, id: `${pos.category}-${pos.symbol}`,
-        name: pos.symbolName || pos.symbol,
-        purchasePrice: pos.amount > 0 ? pos.totalCostEUR / pos.amount : 0
-      });
-    });
-    return result;
-  }, [transactions, exchangeRate]);
-
-  // ALL portfolios combined — used on Overview to show total wealth across portfolios
-  const allPortfoliosStats = useMemo(() => {
-    const posMap = {};
-    transactions.forEach(tx => {
-      const category = tx.category || 'crypto';
-      const key = `${category}-${(tx.symbol || '').toLowerCase()}`;
-      if (!posMap[key]) posMap[key] = { symbol: tx.symbol, category, amount: 0, totalCostEUR: 0 };
-      const qty = parseFloat(tx.quantity) || 0;
-      let priceEUR = parseFloat(tx.price) || 0;
-      if (tx.currency === 'USD' && exchangeRate > 0) priceEUR *= exchangeRate;
-      if (tx.type === 'buy') {
-        posMap[key].amount += qty;
-        posMap[key].totalCostEUR += qty * priceEUR;
-      } else if (tx.type === 'sell') {
-        const frac = posMap[key].amount > 0 ? Math.min(qty, posMap[key].amount) / posMap[key].amount : 0;
-        posMap[key].totalCostEUR *= (1 - frac);
-        posMap[key].amount = Math.max(0, posMap[key].amount - qty);
-      }
-    });
-    let totalValue = 0, totalInvested = 0, totalPositions = 0;
-    Object.values(posMap).forEach(pos => {
-      if (pos.amount <= 0.0001) return;
-      const sym = pos.symbol || '';
-      const pr  = prices[sym] || prices[sym.toLowerCase()] || prices[sym.toUpperCase()] || 0;
-      totalValue    += pos.amount * pr;
-      totalInvested += pos.totalCostEUR;
-      totalPositions++;
-    });
-    return {
-      totalValue,
-      totalInvested,
-      totalProfit: totalValue - totalInvested,
-      totalProfitPercent: totalInvested > 0 ? ((totalValue - totalInvested) / totalInvested) * 100 : 0,
-      totalPositions,
-      portfolioCount: portfolios.length,
-    };
-  }, [transactions, prices, exchangeRate, portfolios]);
+  // ALL portfolios combined totals — used on Overview to show total wealth.
+  const allPortfoliosStats = useMemo(
+    () => Object.assign({}, window.MaerminMetrics.computeStats(allPortfoliosPortfolio, prices), { portfolioCount: portfolios.length }),
+    [allPortfoliosPortfolio, prices, portfolios]
+  );
 
   // ========== COMMANDS FOR PALETTE ==========
   
@@ -536,10 +406,36 @@ function InvestmentTracker() {
   useEffect(() => { localStorage.setItem('theme', theme); }, [theme]);
   useEffect(() => { localStorage.setItem('currency', currency); }, [currency]);
   useEffect(() => { localStorage.setItem('transactions', JSON.stringify(transactions)); }, [transactions]);
-  useEffect(() => { localStorage.setItem('priceHistory', JSON.stringify(priceHistory)); }, [priceHistory]);
+  // Quota-safe priceHistory persistence. Per-symbol points are already capped at
+  // 100; here we also drop the oldest half if localStorage rejects the write
+  // (QuotaExceededError) so the app never crashes on a full store.
+  useEffect(() => {
+    const write = (obj) => localStorage.setItem('priceHistory', JSON.stringify(obj));
+    try { write(priceHistory); }
+    catch (e) {
+      try {
+        const trimmed = {};
+        Object.keys(priceHistory).forEach((sym) => {
+          const arr = priceHistory[sym] || [];
+          trimmed[sym] = arr.slice(-Math.max(10, Math.floor(arr.length / 2)));
+        });
+        write(trimmed);
+        console.warn('[priceHistory] storage near quota — trimmed history in half');
+      } catch (e2) { console.error('[priceHistory] could not persist:', e2); }
+    }
+  }, [priceHistory]);
   useEffect(() => { localStorage.setItem('taxJurisdiction', taxJurisdiction); }, [taxJurisdiction]);
   useEffect(() => { localStorage.setItem('privacyMode', privacyMode ? '1' : '0'); }, [privacyMode]);
   useEffect(() => { localStorage.setItem('apiKeys', JSON.stringify(apiKeys)); }, [apiKeys]);
+
+  // Warm the dividend cache for held stocks (no-op without an FMP key or when
+  // already cached). Lets the Dividend Forecast/Calendar resolve far more than
+  // the built-in ticker list. Cache + 24h TTL keep this within free-tier limits.
+  useEffect(() => {
+    if (window.DividendDataService && portfolio.stocks && portfolio.stocks.length) {
+      window.DividendDataService.prefetchPortfolio(portfolio).catch(() => {});
+    }
+  }, [portfolio]);
 
   // ========== API FUNCTIONS ==========
   
@@ -562,12 +458,12 @@ function InvestmentTracker() {
           if (fxData.result === 'success' && fxData.rates && fxData.rates.EUR) {
             usdToEur = fxData.rates.EUR;
             setExchangeRate(usdToEur);
-            console.log('[PRICES] Exchange rate: 1 USD =', usdToEur.toFixed(4), 'EUR');
+            dbg('[PRICES] Exchange rate: 1 USD =', usdToEur.toFixed(4), 'EUR');
           }
         }
       } catch (e) {
         console.error('[PRICES] Exchange rate fetch error:', e);
-        console.log('[PRICES] Using fallback exchange rate: 1 USD =', usdToEur, 'EUR');
+        dbg('[PRICES] Using fallback exchange rate: 1 USD =', usdToEur, 'EUR');
       }
       
       // Fetch crypto prices from CoinGecko (free, no API key needed)
@@ -584,7 +480,7 @@ function InvestmentTracker() {
                 newPrices[id] = eurPrice;
                 newPrices[id.toLowerCase()] = eurPrice;
               });
-              console.log('[PRICES] Crypto prices fetched:', Object.keys(data).length);
+              dbg('[PRICES] Crypto prices fetched:', Object.keys(data).length);
             }
           } catch (e) {
             console.error('[PRICES] CoinGecko error:', e);
@@ -627,7 +523,7 @@ function InvestmentTracker() {
                 if (last?.price > 0) {
                   const rate = data.currency === 'EUR' ? 1 : usdToEur;
                   priceEUR = last.price * rate;
-                  console.log('[PRICES] Stock (YF):', yfSym, '→', priceEUR.toFixed(2), 'EUR');
+                  dbg('[PRICES] Stock (YF):', yfSym, '→', priceEUR.toFixed(2), 'EUR');
                 }
               }
               // If bare symbol failed, try .DE suffix automatically
@@ -642,7 +538,7 @@ function InvestmentTracker() {
                     if (last2?.price > 0) {
                       const rate2 = data2.currency === 'EUR' ? 1 : usdToEur;
                       priceEUR = last2.price * rate2;
-                      console.log('[PRICES] Stock (YF auto-suffix):', sym, '→', sym+suffix, '→', priceEUR.toFixed(2), 'EUR');
+                      dbg('[PRICES] Stock (YF auto-suffix):', sym, '→', sym+suffix, '→', priceEUR.toFixed(2), 'EUR');
                       break;
                     }
                   } catch { /* try next suffix */ }
@@ -656,12 +552,12 @@ function InvestmentTracker() {
           // ── Fallback: Alpha Vantage ───────────────────────────────────────
           if (!priceEUR && apiKeys.alphaVantage) {
             try {
-              console.log('[PRICES] Stock AV fallback:', sym);
+              dbg('[PRICES] Stock AV fallback:', sym);
               const res  = await fetch(`https://www.alphavantage.co/query?function=GLOBAL_QUOTE&symbol=${sym}&apikey=${apiKeys.alphaVantage}`);
               const data = await res.json();
               if (data['Global Quote']?.['05. price']) {
                 priceEUR = parseFloat(data['Global Quote']['05. price']) * usdToEur;
-                console.log('[PRICES] Stock (AV fallback):', sym, '→', priceEUR.toFixed(2), 'EUR');
+                dbg('[PRICES] Stock (AV fallback):', sym, '→', priceEUR.toFixed(2), 'EUR');
               } else if (data['Note'] || data['Information']) {
                 console.warn('[PRICES] Alpha Vantage rate limit hit for', sym);
                 addToast('Alpha Vantage: Rate limit reached', 'warning');
@@ -726,7 +622,7 @@ function InvestmentTracker() {
                 if (last?.price > 0) {
                   const rate = data.currency === 'EUR' ? 1 : usdToEur;
                   priceEUR = last.price * rate;
-                  console.log('[PRICES] Commodity (YF):', sym, '→', yfSym, '→', priceEUR.toFixed(2), 'EUR');
+                  dbg('[PRICES] Commodity (YF):', sym, '→', yfSym, '→', priceEUR.toFixed(2), 'EUR');
                 }
               }
             } catch(e) {
@@ -756,7 +652,7 @@ function InvestmentTracker() {
               }
               if (priceUSD && priceUSD > 0) {
                 priceEUR = priceUSD * usdToEur;
-                console.log('[PRICES] Commodity (AV fallback):', sym, '→', priceEUR.toFixed(2), 'EUR');
+                dbg('[PRICES] Commodity (AV fallback):', sym, '→', priceEUR.toFixed(2), 'EUR');
               }
               await new Promise(r => setTimeout(r, 12000));
             } catch(e) {
@@ -786,7 +682,7 @@ function InvestmentTracker() {
         } else {
           try {
             const skinNames = portfolio.skins.map(s => (s.symbol || s.name || '').trim()).filter(Boolean);
-            console.log('[PRICES] CS2 Steam: fetching', skinNames.length, 'skins via Worker...');
+            dbg('[PRICES] CS2 Steam: fetching', skinNames.length, 'skins via Worker...');
 
             // POST array of names — Worker fetches Steam price per skin
             const res = await fetch(workerUrl.replace(/\/$/, ''), {
@@ -810,13 +706,13 @@ function InvestmentTracker() {
                   newPrices[skinName.toLowerCase()] = priceEUR;
                   newPrices[skinName] = priceEUR;
                   matchedCount++;
-                  console.log('[PRICES] CS2:', skinName, '→ $' + priceUSD.toFixed(2), '→', priceEUR.toFixed(2), 'EUR');
+                  dbg('[PRICES] CS2:', skinName, '→ $' + priceUSD.toFixed(2), '→', priceEUR.toFixed(2), 'EUR');
                 } else {
                   console.warn('[PRICES] CS2: no price for', skinName);
                 }
               });
 
-              console.log('[PRICES] CS2 matched:', matchedCount, '/', skinNames.length);
+              dbg('[PRICES] CS2 matched:', matchedCount, '/', skinNames.length);
               if (matchedCount < skinNames.length) {
                 addToast(`CS2: ${matchedCount}/${skinNames.length} prices fetched — check skin names match Steam Market exactly`, 'info');
               }
@@ -1345,7 +1241,7 @@ function InvestmentTracker() {
                   exDate = nextQ.toISOString().split('T')[0];
                 }
                 currency = data.currency || 'USD';
-                console.log(`[DIV] YF ${sym}: €${divPerShare}/share, ex: ${exDate}`);
+                dbg(`[DIV] YF ${sym}: €${divPerShare}/share, ex: ${exDate}`);
               }
             }
           } catch(e) { console.warn('[DIV] YF failed for', sym, e.message); }
@@ -1362,7 +1258,7 @@ function InvestmentTracker() {
               exDate     = avExDate;
               divPerShare = avDiv;
               currency   = 'USD';
-              console.log(`[DIV] AV fallback ${sym}: $${divPerShare}/share, ex: ${exDate}`);
+              dbg(`[DIV] AV fallback ${sym}: $${divPerShare}/share, ex: ${exDate}`);
             }
           } catch(e) { console.warn('[DIV] AV fallback failed for', sym, e.message); }
           await new Promise(r => setTimeout(r, 500));
@@ -1509,7 +1405,7 @@ function InvestmentTracker() {
       case 'net-worth':
         return window.MaerminFeatures5 ?
           React.createElement(window.MaerminFeatures5.NetWorthView, {
-            portfolioStats, theme: currentTheme, formatPrice, getCurrencySymbol
+            portfolioStats, portfolio, prices, theme: currentTheme, formatPrice, getCurrencySymbol
           }) : renderAnalyticsPlaceholder('Net Worth');
 
       case 'cashflow':
@@ -3553,6 +3449,57 @@ buy,crypto,bitcoin,0.5,45000,2024-01-15,10`)
           }, (t.apiSettings || 'API Settings')),
           // Divider
           React.createElement('div', { style: { height: '1px', background: currentTheme.cardBorder, margin: '0.75rem 0' } }),
+          // Encrypted vault backup — disaster recovery (the vault has no password
+          // recovery, so an offline backup file is the only safety net).
+          React.createElement('button', {
+            onClick: () => {
+              if (!window.MaerminStorage || !window.MaerminStorage.exportEncryptedBackup) { addToast('Backup unavailable', 'error'); return; }
+              window.MaerminStorage.exportEncryptedBackup().then((backup) => {
+                const blob = new Blob([JSON.stringify(backup)], { type: 'application/json' });
+                const a = document.createElement('a');
+                a.href = URL.createObjectURL(blob);
+                a.download = `maermin-vault-backup-${new Date().toISOString().split('T')[0]}.json`;
+                document.body.appendChild(a); a.click(); a.remove();
+                setTimeout(() => URL.revokeObjectURL(a.href), 1000);
+                addToast('Encrypted backup downloaded — keep it safe', 'success');
+              }).catch((e) => addToast('Backup failed: ' + (e && e.message || 'error'), 'error'));
+            },
+            style: {
+              width: '100%', padding: '0.5rem', background: 'transparent',
+              color: currentTheme.textSecondary, border: 'none',
+              borderRadius: '6px', cursor: 'pointer', fontSize: '0.8rem',
+              textAlign: 'left', marginBottom: '0.25rem'
+            }
+          }, '⬇ ' + (t.backupVault || 'Backup vault (encrypted)')),
+          // Restore from an encrypted backup file → reload → unlock with password.
+          React.createElement('button', {
+            onClick: () => {
+              const input = document.createElement('input');
+              input.type = 'file'; input.accept = 'application/json,.json';
+              input.onchange = () => {
+                const file = input.files && input.files[0];
+                if (!file) return;
+                const reader = new FileReader();
+                reader.onload = () => {
+                  let obj; try { obj = JSON.parse(reader.result); } catch { addToast('Invalid backup file', 'error'); return; }
+                  if (!window.confirm('Restore this encrypted backup? It replaces the current vault. You will need its password to unlock.')) return;
+                  window.MaerminStorage.importEncryptedBackup(obj)
+                    .then(() => { addToast('Backup restored — reloading…', 'success'); setTimeout(() => window.location.reload(), 800); })
+                    .catch((e) => addToast('Restore failed: ' + (e && e.message || 'error'), 'error'));
+                };
+                reader.readAsText(file);
+              };
+              input.click();
+            },
+            style: {
+              width: '100%', padding: '0.5rem', background: 'transparent',
+              color: currentTheme.textSecondary, border: 'none',
+              borderRadius: '6px', cursor: 'pointer', fontSize: '0.8rem',
+              textAlign: 'left', marginBottom: '0.25rem'
+            }
+          }, '⬆ ' + (t.restoreVault || 'Restore vault backup')),
+          // Divider
+          React.createElement('div', { style: { height: '1px', background: currentTheme.cardBorder, margin: '0.75rem 0' } }),
           // Logout
           React.createElement('button', {
             onClick: () => {
@@ -3741,8 +3688,11 @@ buy,crypto,bitcoin,0.5,45000,2024-01-15,10`)
 
 const root = ReactDOM.createRoot(document.getElementById('root'));
 function __maerminMount() {
+  // Bring saved data up to the current schema BEFORE the app reads it (runs
+  // post-unlock, so encrypted data is already hydrated and readable).
+  try { if (window.MaerminMigrations) window.MaerminMigrations.run(); } catch (e) { console.error('[migrations]', e); }
   root.render(React.createElement(InvestmentTracker));
-  console.log('[MAERMIN v9.0] Application initialized');
+  dbg('[MAERMIN v9.0] Application initialized');
 }
 // Wait for the vault to be unlocked before mounting, so the app reads DECRYPTED
 // data (storage.js hydrates the in-memory store during unlock). Falls back to an

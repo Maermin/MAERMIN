@@ -23,12 +23,13 @@ const html = await readFile(join(root, 'index.html'), 'utf8');
 // Collect <script src="..."> in document order; split into CDN (kept as-is)
 // and local files (concatenated into the bundle).
 const scriptRe = /<script\s+[^>]*src="([^"]+)"[^>]*>\s*<\/script>/gi;
-const cdn = [];
-const local = [];
+const cdn = [];      // full original tags (preserves integrity + crossorigin / SRI)
+const local = [];    // local src paths to concatenate into the bundle
 let m;
 while ((m = scriptRe.exec(html)) !== null) {
   const src = m[1];
-  (/^https?:\/\//i.test(src) ? cdn : local).push(src);
+  if (/^https?:\/\//i.test(src)) cdn.push(m[0]);
+  else local.push(src);
 }
 
 if (local.length === 0) {
@@ -68,7 +69,7 @@ for (const asset of ['manifest.webmanifest', 'service-worker.js', 'icon.svg']) {
 }
 
 // Production index.html: keep <head> (CDN deps + styles), single bundle script.
-const cdnTags = cdn.map((s) => `  <script crossorigin src="${s}"></script>`).join('\n');
+const cdnTags = cdn.map((tag) => `  ${tag}`).join('\n');
 const prodHtml = `<!DOCTYPE html>
 <html lang="en">
 <head>
