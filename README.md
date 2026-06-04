@@ -22,13 +22,15 @@ Crypto · Stocks · ETFs · CS2 Skins · Commodities
 
 ## What is MAERMIN?
 
-MAERMIN is a **fully client-side** investment tracker that runs in your browser with no installation. All data is stored in your browser's `localStorage` — it never leaves your device. Access is protected by a shared-secret login (SHA-256 hash in `auth.js`).
+MAERMIN is a **fully client-side** investment tracker that runs in your browser with no installation. All data is stored in your browser's `localStorage` — it never leaves your device. Access is protected by an **encrypted vault**: an access password derives an AES-256-GCM key (PBKDF2-600k, or Argon2id when available) via `crypto-vault.js`; the password is never stored, and sensitive data can be encrypted at rest. Optional passkey unlock (WebAuthn) and an idle auto-lock are built in.
 
-Built with React (via CDN) and vanilla JavaScript. No build step, no bundler, no framework to install. Works offline after the first load.
+Built with React (via CDN) and vanilla JavaScript. No build step required for development, no framework to install. Works offline after the first load (PWA). A local audit log records security events and uncaught errors on-device.
 
 ```
-No account  ·  No server  ·  No ads  ·  No telemetry  ·  MIT License
+No account  ·  No server  ·  No ads  ·  No remote telemetry  ·  MIT License
 ```
+
+> Privacy note: there is **no remote telemetry**. The on-device "Security log" (Settings → Security log) stays in your browser and is never transmitted.
 
 ---
 
@@ -112,9 +114,13 @@ Add a free [Alpha Vantage key](https://www.alphavantage.co/support/#api-key) in 
 |----------|-------------|
 | `GET /?action=yf&symbol=AAPL&interval=1d&range=1y` | Yahoo Finance historical data |
 | `GET /?action=yfsearch&q=Apple&type=stock` | Symbol search (stocks or crypto) |
-| `GET /?action=steamhistory&name=AK-47 \| Redline (FT)` | CS2 price history |
+| `GET /?action=steamhistory&name=AK-47 \| Redline (FT)` | CS2 price history (USD) |
 | `GET /?action=search&q=ak47+redline` | Steam Market skin search with images |
-| `POST /` | Steam skin price lookup (array of names → price map) |
+| `POST /` | Steam skin price lookup (array of names → USD price map) |
+| `POST /?action=sync` | E2E-encrypted cloud sync (KV-backed, zero-knowledge) |
+| `POST /?action=brokerproxy` | Relay client-signed requests to whitelisted exchanges |
+
+All endpoints are rate-limited (per-IP) and use hard fetch timeouts. Full request/response contracts: [docs/WORKER.md](docs/WORKER.md).
 
 ---
 
@@ -122,42 +128,55 @@ Add a free [Alpha Vantage key](https://www.alphavantage.co/support/#api-key) in 
 
 ```
 MAERMIN/
-├── index.html                  Entry point — loads all scripts, sets CSP
-├── styles.css                  App styles (extracted from index.html)
-├── auth.js                     SHA-256 login — edit to change password
-├── utils.js                    Shared formatters (window.MaerminUtils)
-├── portfolio-health.js         Portfolio Health Score engine + view (window.PortfolioHealth)
-├── renderer.js                 Main React app — state, routing, transactions (~3,200 lines)
-├── features.js                 Pie chart, sparklines, gainers/losers, watchlist, alerts
-├── features2.js                XIRR/TWR, rebalancing, broker import, dividend calendar
-├── features3.js                Benchmark, position detail, CS2 Skin Picker, Symbol Picker
-├── features4.js                Multi-portfolio, savings plans, dividend forecast, FIFO
-├── features5.js                Performance periods, net worth, cashflow, fee analyzer
-├── features6.js                Real historical portfolio chart
-├── build.mjs                   Web build — bundles + minifies all scripts into dist/
-└── cf-worker/
-    └── worker.js               Cloudflare Worker — Yahoo Finance + Steam proxy
+├── index.html                  Entry point — loads all scripts in order, sets CSP
+├── styles.css                  App styles
+├── audit-log.js                Security/error audit trail (window.MaerminAuditLog)
+├── crypto-vault.js             AES-256-GCM vault, KDF, passkeys (window.MaerminVault)
+├── storage.js                  Encrypted-at-rest storage shim + backups (window.MaerminStorage)
+├── migrations.js               localStorage schema migrations (window.MaerminMigrations)
+├── auth.js                     Vault unlock/setup gate (window.MaerminAuth)
+├── utils.js                    Shared formatters, upsertTransaction, FX (window.MaerminUtils)
+├── metrics.js                  Shared metrics: positions, net worth, FIRE (window.MaerminMetrics)
+├── ticker-validation.js        Symbol normalisation (window.MaerminTickers)
+├── equity-metadata.js          Sector/country metadata (window.MaerminEquityMeta)
+├── dividend-data-service.js    Dividend data + forecast (window.DividendDataService)
+├── tax-report-builder.js       Filing-grade tax report + PDF/Excel (window.MaerminTaxReport)
+├── allocation.js · projection.js · recurring.js   Allocation / forecast / liabilities engines
+├── renderer.js                 Main React app — state, routing, transactions (~3,800 lines)
+├── features.js … features7.js  Feature views (charts, analysis, dividends, net worth, …)
+├── build.mjs                   Web build — bundles + minifies (reads index.html order)
+├── test/                       Node test harnesses (npm test)
+├── docs/                       ARCHITECTURE.md · WORKER.md
+└── cf-worker/worker.js         Cloudflare Worker — market-data proxy, sync, broker relay
 ```
 
-### Production build (optional)
+> Full module/view map and data flow: **[docs/ARCHITECTURE.md](docs/ARCHITECTURE.md)**.
 
-The app runs directly from `index.html` (no build needed). For a minified
-single-bundle deploy:
+### Development
+
+The app runs directly from `index.html` (no build needed for dev). Common scripts:
 
 ```bash
-npm install        # once, pulls esbuild
+npm install        # once, pulls esbuild (web build) + electron (desktop)
+npm test           # run all Node test harnesses (test/*.test.js)
+npm run check      # syntax-check every JS file (fast pre-commit gate)
 npm run build:web  # -> dist/index.html + dist/maermin.min.js + dist/styles.css
 ```
+
+Contributing guidelines and conventions: **[CONTRIBUTING.md](CONTRIBUTING.md)**.
 
 ---
 
 ## 🔒 Privacy & Security
 
 - All data stored in `localStorage` — never transmitted anywhere
-- No analytics, no telemetry, no third-party tracking
+- **Encrypted vault**: AES-256-GCM with PBKDF2-600k (or Argon2id); password never stored; optional encryption at rest, passkey unlock, idle auto-lock
+- **Encrypted backups**: export a portable, password-protected backup (Settings → Backup vault) — the only recovery path, since there is no password reset
+- **On-device audit log**: security events + uncaught errors (Settings → Security log), never transmitted
+- No analytics, no remote telemetry, no third-party tracking
 - API calls go to: CoinGecko, ExchangeRate-API, your own Cloudflare Worker
-- Your Worker only contacts Yahoo Finance and Steam — no data is stored
-- Change the password by editing the SHA-256 hash in `auth.js`
+- Your Worker only relays to Yahoo Finance / Steam / (optionally) whitelisted exchanges — no data is stored except the opt-in zero-knowledge sync blob
+- Set or change the access password in-app (Settings → Change Password) — no code edits needed
 
 ---
 
