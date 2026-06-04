@@ -152,6 +152,10 @@
   // ─────────────────────────────────────────────────────────────────────────
   // Handlers
   // ─────────────────────────────────────────────────────────────────────────
+  function audit(type, detail) {
+    try { if (window.MaerminAuditLog) window.MaerminAuditLog.record(type, detail); } catch (e) {}
+  }
+
   function finishUnlock() {
     _everUnlocked = true;
     _resolveUnlock(true);
@@ -176,7 +180,7 @@
         try { sessionStorage.removeItem(LEGACY_SESSION_KEY); } catch (e) {}
         if (atRest && Storage) return Storage.enableAtRest();
       })
-      .then(function () { finishUnlock(); })
+      .then(function () { audit('vault.setup', 'vault created' + (atRest ? ' (encrypted at rest)' : '')); finishUnlock(); })
       .catch(function (e) {
         console.error('[MAERMIN Auth] setup failed:', e);
         setError('Could not create the vault. ' + (e && e.message === 'crypto-unsupported' ? 'WebCrypto unavailable in this browser.' : 'Please try again.'));
@@ -192,7 +196,7 @@
 
     Vault.unlock(pw)
       .then(function () { return Storage ? Storage.resume() : null; })
-      .then(function () { finishUnlock(); })
+      .then(function () { audit('vault.unlock', 'unlocked with password'); finishUnlock(); })
       .catch(function (e) {
         input.classList.add('error');
         setError(e && e.message === 'bad-password' ? 'Incorrect password. Please try again.' : 'Unlock failed. Please try again.');
@@ -205,7 +209,7 @@
     setError(''); setLoading(true);
     Vault.unlockWithPasskey()
       .then(function () { return Storage ? Storage.resume() : null; })
-      .then(function () { finishUnlock(); })
+      .then(function () { audit('vault.unlock.passkey', 'unlocked with passkey'); finishUnlock(); })
       .catch(function () { setError('Passkey unlock failed. Use your password.'); setLoading(false); });
   }
 
@@ -273,6 +277,7 @@
     /** Change the access password and re-encrypt the data blob under the new key. */
     changePassword: function (oldPw, newPw) {
       return Vault.changePassword(oldPw, newPw).then(function () {
+        audit('vault.password.change', 'access password changed');
         return Storage && Storage.isEnabled() ? Storage.rekey() : true;
       });
     },
