@@ -273,8 +273,13 @@ var DividendDataService = {
   
   // Get dividend data (cached, API, or database)
   getDividendData: function(symbol, currentPrice) {
-    var upperSymbol = (symbol || '').toUpperCase();
-    
+    // Normalise via the validation layer so Yahoo-style symbols (SAP.DE),
+    // class shares (BRK.B → BRK-B) and casing all resolve to the provider's
+    // canonical ticker. Falls back to plain uppercase if the layer is absent.
+    var upperSymbol = (typeof window !== 'undefined' && window.MaerminTickers)
+      ? (window.MaerminTickers.normalizeForDividends(symbol) || (symbol || '').toUpperCase())
+      : (symbol || '').toUpperCase();
+
     // Check cache first
     var cached = this.getFromCache(upperSymbol);
     if (cached) {

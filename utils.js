@@ -49,6 +49,47 @@
     return Math.min(Math.max(value, min), max);
   }
 
+  // Insert-or-update a transaction. The single source of truth for the
+  // "edit must UPDATE in place, never CREATE a duplicate" invariant that the
+  // transaction modal relies on. When `editingId` is set we ONLY update the
+  // matching record (id preserved); if it isn't found we make NO change rather
+  // than appending a stray duplicate. When `editingId` is empty we append a new
+  // record. Pure — unit-tested in test/transactions.test.js.
+  function upsertTransaction(transactions, data, editingId, newId) {
+    const list = Array.isArray(transactions) ? transactions : [];
+    if (editingId !== null && editingId !== undefined && editingId !== '') {
+      let found = false;
+      const next = list.map((tx) => {
+        if (tx && tx.id === editingId) {
+          found = true;
+          // Spread data first, then force the original id so it can never change.
+          return Object.assign({}, tx, data, { id: tx.id });
+        }
+        return tx;
+      });
+      return { transactions: next, updated: found, created: false, found };
+    }
+    const id = (newId !== null && newId !== undefined && newId !== '') ? newId : generateId();
+    return { transactions: list.concat([Object.assign({ id }, data)]), updated: false, created: true, found: true };
+  }
+
+  // ── Currency conversion ────────────────────────────────────────────────
+  // The app's canonical internal currency is EUR; `usdToEur` is the live rate
+  // (1 USD = usdToEur EUR). These centralise the conversion so every call site
+  // (skins, stocks, commodities, display) agrees and no rounding happens here —
+  // values are kept full-precision and only rounded at DISPLAY time. CS2 skin
+  // prices are delivered in USD and MUST go through toEUR on ingestion.
+  function toEUR(amount, currency, usdToEur) {
+    const a = parseFloat(amount) || 0;
+    if (currency === 'USD' && usdToEur > 0) return a * usdToEur;
+    return a; // already EUR (or unknown → treated as canonical)
+  }
+  function fromEUR(amountEUR, currency, usdToEur) {
+    const a = parseFloat(amountEUR) || 0;
+    if (currency === 'USD' && usdToEur > 0) return a / usdToEur;
+    return a;
+  }
+
   const MaerminUtils = {
     formatNumber,
     formatCurrencyEUR,
@@ -56,6 +97,9 @@
     formatDate,
     generateId,
     clamp,
+    upsertTransaction,
+    toEUR,
+    fromEUR,
   };
 
   if (typeof window !== 'undefined') {

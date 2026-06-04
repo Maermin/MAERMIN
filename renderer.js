@@ -801,12 +801,16 @@ function InvestmentTracker() {
               let matchedCount = 0;
 
               skinNames.forEach(skinName => {
-                const price = priceMap[skinName];
-                if (price && price > 0) {
-                  newPrices[skinName.toLowerCase()] = price;
-                  newPrices[skinName] = price;
+                const priceUSD = priceMap[skinName];
+                if (priceUSD && priceUSD > 0) {
+                  // Skins are delivered in USD → convert to the canonical EUR at
+                  // full precision (display rounds later). All downstream calcs
+                  // (Net Worth, Allocation, Performance, Showcase) read this map.
+                  const priceEUR = window.MaerminUtils.toEUR(priceUSD, 'USD', usdToEur);
+                  newPrices[skinName.toLowerCase()] = priceEUR;
+                  newPrices[skinName] = priceEUR;
                   matchedCount++;
-                  console.log('[PRICES] CS2:', skinName, '→', price.toFixed(2), 'EUR');
+                  console.log('[PRICES] CS2:', skinName, '→ $' + priceUSD.toFixed(2), '→', priceEUR.toFixed(2), 'EUR');
                 } else {
                   console.warn('[PRICES] CS2: no price for', skinName);
                 }
@@ -924,23 +928,12 @@ function InvestmentTracker() {
       ...(newTransaction.skinIconUrl ? { skinIconUrl: newTransaction.skinIconUrl } : {})
     };
     
-    if (editingTransactionId) {
-      // Edit existing transaction
-      setTransactions(prev => prev.map(tx => 
-        tx.id === editingTransactionId 
-          ? { ...tx, ...transactionData }
-          : tx
-      ));
-      addToast(t.transactionUpdated || 'Transaction updated', 'success');
-    } else {
-      // Add new transaction
-      const transaction = {
-        id: Date.now().toString(),
-        ...transactionData
-      };
-      setTransactions(prev => [...prev, transaction]);
-      addToast(t.transactionAdded || 'Transaction added', 'success');
-    }
+    // Single tested code path for both edit (UPDATE in place) and add (CREATE).
+    // Guarantees that editing never spawns a duplicate record. See
+    // MaerminUtils.upsertTransaction + test/transactions.test.js.
+    const newId = Date.now().toString();
+    setTransactions(prev => window.MaerminUtils.upsertTransaction(prev, transactionData, editingTransactionId, newId).transactions);
+    addToast(editingTransactionId ? (t.transactionUpdated || 'Transaction updated') : (t.transactionAdded || 'Transaction added'), 'success');
     
     // Reset form
     setNewTransaction({
@@ -991,7 +984,10 @@ function InvestmentTracker() {
       targetPortfolioId: tx.portfolioId || activePortfolioId,
     });
     setEditingTransactionId(tx.id);
-    openTransactionModal();
+    // NOTE: do NOT call openTransactionModal() here — it resets the form and
+    // clears editingTransactionId, which made edits save as brand-new records.
+    // Just reveal the modal; the form + editingTransactionId are already set.
+    setShowTransactionModal(true);
   };
 
   // Delete a transaction
@@ -1546,7 +1542,12 @@ function InvestmentTracker() {
       case 'savings-plans':
         return window.MaerminFeatures4 ?
           React.createElement(window.MaerminFeatures4.SavingsPlanView, {
-            transactions: activeTransactions, theme: currentTheme, formatPrice, getCurrencySymbol, t
+            transactions: activeTransactions, theme: currentTheme, formatPrice, getCurrencySymbol, t,
+            // Feed the projection (#6): current investment value + forward dividend yield.
+            startValue: stats.totalValue,
+            dividendYield: (window.MaerminMetrics
+              ? (window.MaerminMetrics.computeExpectedAnnualDividends(portfolio, prices).yield || 0) / 100
+              : 0)
           }) : renderAnalyticsPlaceholder('Savings Plans');
 
       case 'returns':
@@ -2651,8 +2652,12 @@ function InvestmentTracker() {
                     workerUrl: apiKeys.cs2Worker, theme: currentTheme,
                     selectedName: newTransaction.symbol,
                     onSelect: ({ name, price, image }) => {
+                      // Skin search prices are USD: store full precision (no
+                      // premature rounding) and mark the tx currency USD so the
+                      // cost basis converts to EUR exactly like fetched prices.
                       setNewTransaction(prev => ({ ...prev, symbol: name,
-                        price: price ? price.toFixed(2) : prev.price,
+                        price: (price != null && price !== '') ? String(price) : prev.price,
+                        currency: 'USD',
                         skinIconUrl: image || prev.skinIconUrl }));
                     }
                   }),
@@ -2665,7 +2670,7 @@ function InvestmentTracker() {
                           React.createElement('span', { style: { color: 'rgba(6,182,212,0.5)', fontSize: '0.7rem' } }, 'CS2')),
                     React.createElement('div', null,
                       React.createElement('div', { style: { color: currentTheme.text, fontWeight: '600', fontSize: '0.8rem' } }, newTransaction.symbol),
-                      newTransaction.price && React.createElement('div', { style: { color: '#22c55e', fontSize: '0.75rem', marginTop: '0.125rem' } }, `€${parseFloat(newTransaction.price).toFixed(2)}`)
+                      newTransaction.price && React.createElement('div', { style: { color: '#22c55e', fontSize: '0.75rem', marginTop: '0.125rem' } }, `$${parseFloat(newTransaction.price).toFixed(2)}`)
                     )
                   )
                 )

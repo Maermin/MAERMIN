@@ -258,7 +258,7 @@ export default {
       if (prices.length === 0) {
         try {
           const ovUrl = `https://steamcommunity.com/market/priceoverview/` +
-            `?appid=730&currency=3&market_hash_name=${encodeURIComponent(name)}`;
+            `?appid=730&currency=1&market_hash_name=${encodeURIComponent(name)}`;
           const r2 = await fetch(ovUrl, { headers: { 'User-Agent': 'Mozilla/5.0' } });
           if (r2.ok) {
             const d2 = await r2.json();
@@ -316,7 +316,7 @@ export default {
 
       const searchUrl = `https://steamcommunity.com/market/search/render/?` +
         `query=${encodeURIComponent(q)}&appid=730&norender=1&count=24` +
-        `&search_descriptions=0&sort_column=popular&sort_dir=desc&currency=3`;
+        `&search_descriptions=0&sort_column=popular&sort_dir=desc&currency=1`;
 
       try {
         const r = await fetch(searchUrl, { headers: steamHeaders() });
@@ -385,11 +385,16 @@ export default {
       names = names.slice(0, 30);
       const results = {};
 
+      // CONTRACT: skin prices are returned in USD (Steam currency=1). The client
+      // converts USD → its canonical EUR via the live FX rate (MaerminUtils.toEUR)
+      // and then displays in the user's selected currency. Keep all skin price
+      // endpoints (priceoverview, search, history) on currency=1 so the source
+      // currency is unambiguous.
       for (const name of names) {
         if (!name || typeof name !== 'string') continue;
         try {
           const priceUrl = `https://steamcommunity.com/market/priceoverview/` +
-            `?appid=730&currency=3&market_hash_name=${encodeURIComponent(name.trim())}`;
+            `?appid=730&currency=1&market_hash_name=${encodeURIComponent(name.trim())}`;
           const r = await fetch(priceUrl, { headers: steamHeaders() });
           if (r.ok) {
             const d = await r.json();
