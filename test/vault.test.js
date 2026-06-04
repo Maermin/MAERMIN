@@ -31,6 +31,13 @@ globalThis.localStorage = localStorage;
 globalThis.window = { localStorage, addEventListener() {} };
 // no globalThis.document → auto-lock event binding is skipped (headless)
 
+// Web Crypto is a global from Node 20+ but not on Node 18 (CI matrix). Polyfill
+// from node:crypto when missing so crypto-vault.js sees `crypto.subtle`.
+if (!globalThis.crypto || !globalThis.crypto.subtle) {
+  try { globalThis.crypto = require('node:crypto').webcrypto; }
+  catch (e) { Object.defineProperty(globalThis, 'crypto', { value: require('node:crypto').webcrypto, configurable: true }); }
+}
+
 const Vault = require('../crypto-vault.js');
 const Storage = require('../storage.js'); // reads window.MaerminVault set above
 
