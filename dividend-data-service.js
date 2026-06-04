@@ -116,7 +116,7 @@ var DividendDataService = {
     var apiKey = this.getApiKey();
     
     if (!apiKey) {
-      console.log('[DividendService] No API key - using fallback database');
+      /* quiet: no API key, DB fallback */
       return Promise.resolve(this.getFromDatabase(symbol));
     }
     
@@ -168,7 +168,7 @@ var DividendDataService = {
           
           // Cache the result
           self.saveToCache(symbol, result);
-          console.log('[DividendService] Fetched from API:', symbol, result.annualDividend);
+
           
           return result;
         }
@@ -213,16 +213,9 @@ var DividendDataService = {
   // Get from local database
   getFromDatabase: function(symbol) {
     var upperSymbol = (symbol || '').toUpperCase();
-    console.log('[DividendService] Looking up symbol:', upperSymbol);
     var data = DIVIDEND_DATABASE[upperSymbol];
-    
-    if (!data) {
-      console.log('[DividendService] Symbol NOT FOUND in database:', upperSymbol);
-      console.log('[DividendService] Available symbols include: AAPL, MSFT, JNJ, KO, PG, O, VYM, SCHD, ALV.DE, SAP.DE...');
-      return null;
-    }
-    console.log('[DividendService] Symbol FOUND:', upperSymbol, 'Annual Dividend:', data.annualDividend);
-    
+    if (!data) return null;
+
     var paymentsPerYear = this.getPaymentsPerYear(data.frequency);
     
     return {
@@ -267,8 +260,49 @@ var DividendDataService = {
   
   // Get payments per year
   getPaymentsPerYear: function(frequency) {
-    var map = { 'monthly': 12, 'quarterly': 4, 'semi-annual': 2, 'annual': 1 };
+    var map = { 'monthly': 12, 'quarterly': 4, 'semi-annual': 2, 'semiannual': 2, 'annual': 1 };
     return map[frequency] || 4;
+  },
+
+  // Return EXACTLY `count` ex-dividend month numbers. Uses the stored months
+  // when they already cover the frequency; otherwise spreads `count` payments
+  // evenly across the year (so a monthly payer gets 12, not the default 4).
+  buildPaymentMonths: function(exMonths, count) {
+    count = count || 4;
+    if (Array.isArray(exMonths) && exMonths.length >= count) return exMonths.slice(0, count);
+    var months = [];
+    var step = 12 / count;
+    for (var i = 0; i < count; i++) {
+      var m = Math.round(step * (i + 1)); // 1 → [12]; 2 → [6,12]; 4 → [3,6,9,12]; 12 → [1..12]
+      if (m < 1) m = 1; if (m > 12) m = 12;
+      months.push(m);
+    }
+    return months;
+  },
+
+  // Warm the cache for a whole portfolio from the FMP API (when a key is set),
+  // so the synchronous getDividendData() resolves far more than the ~31 built-in
+  // tickers. No key → resolves immediately (DB-only). Safe to call on each price
+  // refresh; cache + 24h TTL keep it within the free-tier request budget.
+  prefetchPortfolio: function(portfolio) {
+    var self = this;
+    var stocks = (portfolio && portfolio.stocks) || [];
+    if (!this.getApiKey() || stocks.length === 0) return Promise.resolve(0);
+    var norm = (typeof window !== 'undefined' && window.MaerminTickers)
+      ? function (s) { return window.MaerminTickers.normalizeForDividends(s) || (s || '').toUpperCase(); }
+      : function (s) { return (s || '').toUpperCase(); };
+    var symbols = [];
+    var seen = {};
+    stocks.forEach(function (s) {
+      var sym = norm(s.symbol || s.name);
+      if (sym && !seen[sym] && !self.getFromCache(sym)) { seen[sym] = true; symbols.push(sym); }
+    });
+    if (symbols.length === 0) return Promise.resolve(0);
+    return Promise.all(symbols.map(function (sym) {
+      return self.fetchDividendFromAPI(sym).catch(function () { return null; });
+    })).then(function (rows) {
+      return rows.filter(Boolean).length;
+    });
   },
   
   // Get dividend data (cached, API, or database)
@@ -457,8 +491,12 @@ var DividendDataService = {
       
       var baseAnnualDiv = divData.annualDividend || 0;
       var growthRate = divData.growthRate || 0;
-      var exMonths = divData.exMonths || [3, 6, 9, 12];
       var paymentsPerYear = self.getPaymentsPerYear(divData.frequency);
+      // Build a payment-month schedule of EXACTLY paymentsPerYear entries.
+      // Bug fix: monthly payers (12/yr) used to be capped at the 4 default
+      // ex-months, under-counting income by ~66%. When the stored exMonths
+      // don't cover the frequency, spread payments evenly across the year.
+      var exMonths = self.buildPaymentMonths(divData.exMonths, paymentsPerYear);
       
       for (var y = currentYear; y < currentYear + years; y++) {
         var yearsOut = y - currentYear;
@@ -475,10 +513,10 @@ var DividendDataService = {
         };
         
         var perPayment = yearlyIncome / paymentsPerYear;
-        exMonths.slice(0, paymentsPerYear).forEach(function(month) {
-          var payMonth = month === 12 ? 1 : month + 1;
-          if (payMonth > 12) payMonth = 1;
-          
+        exMonths.forEach(function(month) {
+          // Pay date lands ~1 month after the ex-date month.
+          var payMonth = (month % 12) + 1;
+
           forecasts[y].byMonth[payMonth].total += perPayment;
           forecasts[y].byMonth[payMonth].stocks.push({ symbol: symbol, amount: perPayment });
           
@@ -649,10 +687,10 @@ var DividendDataService = {
     var self = this;
     var stocks = portfolio.stocks || [];
     
-    console.log('[DividendService] ===== ANALYZING PORTFOLIO DIVIDENDS =====');
-    console.log('[DividendService] Total stocks in portfolio:', stocks.length);
+
+
     stocks.forEach(function(s, i) {
-      console.log('[DividendService] Stock ' + i + ':', s.symbol || s.name, 'Shares:', s.amount);
+
     });
     var dividendData = this.getPortfolioDividendData(portfolio, prices);
     

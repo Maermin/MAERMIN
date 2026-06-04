@@ -18,6 +18,15 @@ export default {
 
     if (request.method === 'OPTIONS') return res(null, 204, request);
 
+    // ── Best-effort rate limiting ────────────────────────────────────────────
+    // A sliding per-IP cap protects the worker (and its upstream/billing) from
+    // bursts and casual abuse of the open proxy/sync endpoints. In-memory per
+    // isolate (no external dependency); not a hard global guarantee, but it
+    // blunts floods. Tune RATE_LIMIT below.
+    if (isRateLimited(request)) {
+      return res(JSON.stringify({ error: 'rate limited — slow down' }), 429, request);
+    }
+
     // ── E2E Encrypted Cloud Sync ─────────────────────────────────────────────
     // POST /?action=sync  body { op:'get'|'put', account, baseRev?, blob? }
     // Zero-knowledge: `account` is an opaque client-derived hash, `blob` is
@@ -79,7 +88,7 @@ export default {
           `?q=${encodeURIComponent(q)}&quotesCount=10&newsCount=0&enableFuzzyQuery=false` +
           `&quotesQueryId=tss_match_phrase_query&multiQuoteQueryId=multi_quote_single_token_query`;
 
-        const r = await fetch(yfUrl, {
+        const r = await fetchWithTimeout(yfUrl, {
           headers: {
             'User-Agent':      'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
             'Accept':          'application/json',
@@ -153,7 +162,7 @@ export default {
         `?interval=${interval}&range=${range}&includeTimestamps=true&includePrePost=false`;
 
       try {
-        const r = await fetch(yfUrl, {
+        const r = await fetchWithTimeout(yfUrl, {
           headers: {
             'User-Agent':      'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
             'Accept':          'application/json',
@@ -220,7 +229,7 @@ export default {
       // This is available WITHOUT login — it's what populates the price graph on the page.
       try {
         const listingUrl = `https://steamcommunity.com/market/listings/730/${encodeURIComponent(name)}`;
-        const r = await fetch(listingUrl, {
+        const r = await fetchWithTimeout(listingUrl, {
           headers: {
             'User-Agent':      'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36',
             'Accept':          'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
@@ -259,7 +268,7 @@ export default {
         try {
           const ovUrl = `https://steamcommunity.com/market/priceoverview/` +
             `?appid=730&currency=1&market_hash_name=${encodeURIComponent(name)}`;
-          const r2 = await fetch(ovUrl, { headers: { 'User-Agent': 'Mozilla/5.0' } });
+          const r2 = await fetchWithTimeout(ovUrl, { headers: { 'User-Agent': 'Mozilla/5.0' } });
           if (r2.ok) {
             const d2 = await r2.json();
             if (d2.success) {
@@ -300,7 +309,7 @@ export default {
       if (cached) return res(await cached.text(), 200, request);
       try {
         const rssUrl = `https://feeds.finance.yahoo.com/rss/2.0/headline?s=${encodeURIComponent(symbol)}&region=US&lang=en-US`;
-        const r = await fetch(rssUrl, { headers: { 'User-Agent': 'Mozilla/5.0', 'Accept': 'application/rss+xml,text/xml' } });
+        const r = await fetchWithTimeout(rssUrl, { headers: { 'User-Agent': 'Mozilla/5.0', 'Accept': 'application/rss+xml,text/xml' } });
         if (!r.ok) return res('<?xml version="1.0"?><rss><channel></channel></rss>', 200, request);
         const text = await r.text();
         ctx.waitUntil(cache.put(cacheKey, new Response(text, {
@@ -319,7 +328,7 @@ export default {
         `&search_descriptions=0&sort_column=popular&sort_dir=desc&currency=1`;
 
       try {
-        const r = await fetch(searchUrl, { headers: steamHeaders() });
+        const r = await fetchWithTimeout(searchUrl, { headers: steamHeaders() });
         if (!r.ok) return res(JSON.stringify({ error: 'Steam search failed: ' + r.status }), r.status, request);
 
         const data  = await r.json();
@@ -361,7 +370,7 @@ export default {
       }
       try {
         const method = (spec.method || 'GET').toUpperCase();
-        const r = await fetch(target.toString(), {
+        const r = await fetchWithTimeout(target.toString(), {
           method,
           headers: spec.headers || {},
           body: method === 'GET' || method === 'HEAD' ? undefined : (spec.body || ''),
@@ -390,12 +399,17 @@ export default {
       // and then displays in the user's selected currency. Keep all skin price
       // endpoints (priceoverview, search, history) on currency=1 so the source
       // currency is unambiguous.
-      for (const name of names) {
-        if (!name || typeof name !== 'string') continue;
+      //
+      // Fetch in small concurrent batches instead of one-at-a-time-with-1.5s-sleep
+      // (which took up to 45s for 30 skins). Batching keeps it polite to Steam
+      // while cutting latency to a few seconds.
+      const BATCH = 5, GAP_MS = 400;
+      const fetchOne = async (name) => {
+        if (!name || typeof name !== 'string') return;
         try {
           const priceUrl = `https://steamcommunity.com/market/priceoverview/` +
             `?appid=730&currency=1&market_hash_name=${encodeURIComponent(name.trim())}`;
-          const r = await fetch(priceUrl, { headers: steamHeaders() });
+          const r = await fetchWithTimeout(priceUrl, { headers: steamHeaders() });
           if (r.ok) {
             const d = await r.json();
             if (d.success) {
@@ -405,7 +419,10 @@ export default {
             }
           }
         } catch { /* skip */ }
-        await sleep(1500);
+      };
+      for (let i = 0; i < names.length; i += BATCH) {
+        await Promise.all(names.slice(i, i + BATCH).map(fetchOne));
+        if (i + BATCH < names.length) await sleep(GAP_MS);
       }
 
       return res(JSON.stringify(results), 200, request);
@@ -429,6 +446,37 @@ function steamHeaders() {
 function sleep(ms) { return new Promise(r => setTimeout(r, ms)); }
 
 function safeJson(text) { try { return JSON.parse(text); } catch { return text; } }
+
+// fetch with a hard timeout so a slow/hung upstream can't pin a request open.
+async function fetchWithTimeout(url, opts = {}, ms = 8000) {
+  const ctrl = new AbortController();
+  const timer = setTimeout(() => ctrl.abort(), ms);
+  try {
+    return await fetchWithTimeout(url, { ...opts, signal: ctrl.signal });
+  } finally {
+    clearTimeout(timer);
+  }
+}
+
+// In-memory sliding-window rate limiter (per worker isolate). Keyed by client
+// IP. Best-effort: isolates don't share memory, but this still caps bursts.
+const RATE_LIMIT = { windowMs: 60000, max: 120 };
+const _rlHits = new Map(); // ip -> number[] (timestamps)
+function isRateLimited(request) {
+  const ip = request.headers.get('CF-Connecting-IP') || request.headers.get('X-Forwarded-For') || 'anon';
+  const now = Date.now();
+  const cutoff = now - RATE_LIMIT.windowMs;
+  let arr = _rlHits.get(ip);
+  if (!arr) { arr = []; _rlHits.set(ip, arr); }
+  // drop timestamps outside the window
+  while (arr.length && arr[0] < cutoff) arr.shift();
+  arr.push(now);
+  // opportunistic cleanup so the map can't grow unbounded
+  if (_rlHits.size > 5000) {
+    for (const [k, v] of _rlHits) { if (!v.length || v[v.length - 1] < cutoff) _rlHits.delete(k); }
+  }
+  return arr.length > RATE_LIMIT.max;
+}
 
 function res(body, status, request) {
   const origin = request.headers.get('Origin') || '*';

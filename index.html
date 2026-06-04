@@ -22,19 +22,21 @@
   <meta property="og:description" content="Multi-Asset Portfolio Tracker: Crypto, Stocks & CS2 Items mit Advanced Analytics">
   <meta property="og:type" content="website">
   
-  <!-- React from CDN -->
-  <script crossorigin src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
-  <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
+  <!-- React from CDN — version-pinned + SRI (Subresource Integrity) so a CDN
+       compromise or unexpected file swap cannot inject code. -->
+  <script crossorigin="anonymous" integrity="sha384-DGyLxAyjq0f9SPpVevD6IgztCFlnMF6oW/XQGmfe+IsZ8TqEiDrcHkMLKI6fiB/Z" src="https://unpkg.com/react@18.3.1/umd/react.production.min.js"></script>
+  <script crossorigin="anonymous" integrity="sha384-gTGxhz21lVGYNMcdJOyq01Edg0jhn/c22nsx0kyqP0TxaV5WVdsSH1fSDUf5YJj1" src="https://unpkg.com/react-dom@18.3.1/umd/react-dom.production.min.js"></script>
 
   <!-- Security foundation: vault + encrypted storage load BEFORE auth, which
        drives them. Auth gates the app mount (renderer awaits whenUnlocked()). -->
   <script src="crypto-vault.js"></script>
   <script src="storage.js"></script>
+  <script src="migrations.js"></script>
   <script src="auth.js"></script>
   
-  <!-- PDF Libraries -->
-  <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
-  <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.5.31/jspdf.plugin.autotable.min.js"></script>
+  <!-- PDF Libraries — SRI-pinned. -->
+  <script crossorigin="anonymous" integrity="sha384-JcnsjUPPylna1s1fvi1u12X5qjY5OL56iySh75FdtrwhO/SWXgMjoVqcKyIIWOLk" src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+  <script crossorigin="anonymous" integrity="sha384-vuyrTV5nkscLp1knFvt+FIHfKKzmROBq5reruhMRslauj54mW+l2B8b6szMN6lCL" src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.5.31/jspdf.plugin.autotable.min.js"></script>
   
   <link rel="stylesheet" href="styles.css">
 </head>

@@ -186,7 +186,7 @@ function PerformancePeriods({ portfolio, priceHistory, prices, theme, formatPric
 // 2. NET WORTH DASHBOARD
 // Adds cash accounts, property, and liabilities to the portfolio value
 // ─────────────────────────────────────────────────────────────────────────────
-function NetWorthView({ portfolioStats, theme, formatPrice, getCurrencySymbol }) {
+function NetWorthView({ portfolioStats, portfolio, prices, theme, formatPrice, getCurrencySymbol }) {
   const [accounts, setAccounts] = useState(() => {
     try { return JSON.parse(localStorage.getItem('maermin_networth_accounts') || '[]'); } catch { return []; }
   });
@@ -312,6 +312,21 @@ function NetWorthView({ portfolioStats, theme, formatPrice, getCurrencySymbol })
         )
       )
     ),
+
+    // Whole-wealth projection (#6) — net worth forward under 3 scenarios,
+    // composing savings plans + dividends + recurring liabilities + expenses.
+    // This is the total-wealth home for the projection (the per-portfolio one
+    // lives in Savings Plans). Engine: window.MaerminProjection.
+    netWorth > 0 && window.MaerminProjection && React.createElement(window.MaerminProjection.Panel, {
+      startValue: netWorth,
+      savingsPlans: (() => { try { return JSON.parse(localStorage.getItem('maermin_savings_plans') || '[]'); } catch { return []; } })(),
+      dividendYield: (window.MaerminMetrics && portfolio)
+        ? ((window.MaerminMetrics.computeExpectedAnnualDividends(portfolio, prices || {}).yield || 0) / 100)
+        : 0,
+      liabilities: window.MaerminRecurring ? window.MaerminRecurring.loadFromAccounts() : [],
+      theme, formatPrice, getCurrencySymbol,
+      scopeLabel: 'Net Worth'
+    }),
 
     // Add account form
     showAdd && React.createElement(Card, { theme, style: { marginBottom: '1.5rem', border: `1px solid ${theme.accent}44` } },

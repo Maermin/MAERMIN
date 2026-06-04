@@ -102,6 +102,29 @@ const Storage = require('../storage.js'); // reads window.MaerminVault set above
   await Vault.unlock('new-stronger-pass-9');
   ok('new password works', Vault.isUnlocked());
 
+  // ---- portable encrypted backup (disaster recovery) ----
+  console.log('encrypted backup / restore:');
+  // vault is unlocked under 'new-stronger-pass-9'; put data + encrypt at rest.
+  localStorage.setItem('transactions', JSON.stringify([{ s: 'BACKUP', q: 7 }]));
+  await Storage.enableAtRest();
+  const backup = await Storage.exportEncryptedBackup();
+  ok('backup is the expected format', backup && backup.format === 'maermin-vault-backup' && typeof backup.blob === 'string' && !!backup.meta);
+  ok('backup blob is ciphertext (no plaintext leak)', backup.blob.indexOf('BACKUP') === -1);
+
+  // Simulate a full browser-store wipe + a fresh device with no vault.
+  Vault.lock();
+  localStorage._d.clear();
+  ok('after wipe there is no vault', !Vault.getMeta());
+
+  // Restore the backup, then unlock with the original password.
+  await Storage.importEncryptedBackup(backup);
+  ok('restore recreates the vault meta', !!Vault.getMeta());
+  await Vault.unlock('new-stronger-pass-9');
+  await Storage.resume();
+  ok('restored data decrypts after unlock',
+    localStorage.getItem('transactions') === JSON.stringify([{ s: 'BACKUP', q: 7 }]));
+  await throws('a bad backup object is rejected', Storage.importEncryptedBackup({ nope: true }), 'bad-backup');
+
   console.log('\n' + passed + ' passed, ' + failed + ' failed');
   process.exit(failed ? 1 : 0);
 })().catch(e => { console.error('FATAL', e); process.exit(1); });
