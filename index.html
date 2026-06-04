@@ -2,10 +2,20 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
   <!-- GitHub Pages: CSP ohne 'self'-Beschränkung, alle nötigen APIs erlaubt -->
-  <meta http-equiv="Content-Security-Policy" content="default-src 'self' https:; script-src 'self' 'unsafe-inline' https://unpkg.com https://cdnjs.cloudflare.com; style-src 'self' 'unsafe-inline'; img-src 'self' data: https: https://community.akamai.steamstatic.com; connect-src 'self' https://api.coingecko.com https://api.exchangerate-api.com https://open.er-api.com https://www.alphavantage.co https://*.workers.dev https://cdnjs.cloudflare.com; worker-src 'none'; object-src 'none';">
+  <meta http-equiv="Content-Security-Policy" content="default-src 'self' https:; script-src 'self' 'unsafe-inline' https://unpkg.com https://cdnjs.cloudflare.com; style-src 'self' 'unsafe-inline'; img-src 'self' data: https: https://community.akamai.steamstatic.com; connect-src 'self' https://api.coingecko.com https://api.exchangerate-api.com https://open.er-api.com https://www.alphavantage.co https://*.workers.dev https://cdnjs.cloudflare.com https://www.googleapis.com https://graph.microsoft.com; worker-src 'self'; manifest-src 'self'; object-src 'none';">
   <title>MAERMIN v9.0 - Professional Portfolio Tracker</title>
+
+  <!-- PWA -->
+  <link rel="manifest" href="manifest.webmanifest">
+  <meta name="theme-color" content="#10151f">
+  <link rel="icon" type="image/svg+xml" href="icon.svg">
+  <link rel="apple-touch-icon" href="icon.svg">
+  <meta name="mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-title" content="MAERMIN">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 
   <!-- Open Graph / Social Preview -->
   <meta property="og:title" content="MAERMIN v9.0 – Professional Portfolio Tracker">
@@ -16,7 +26,10 @@
   <script crossorigin src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
   <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
 
-  <!-- Auth (lädt sofort, bevor der Rest der App startet) -->
+  <!-- Security foundation: vault + encrypted storage load BEFORE auth, which
+       drives them. Auth gates the app mount (renderer awaits whenUnlocked()). -->
+  <script src="crypto-vault.js"></script>
+  <script src="storage.js"></script>
   <script src="auth.js"></script>
   
   <!-- PDF Libraries -->
@@ -73,6 +86,10 @@
   <script src="metrics.js"></script>
   <script src="ai-copilot.js"></script>
   <script src="broker-connectors.js"></script>
+  <script src="pwa.js"></script>
+  <script src="sync-engine.js"></script>
+  <script src="advisor.js"></script>
+  <script src="portfolio-analytics.js"></script>
 
   <!-- MAERMIN v9.0 - EXTENDED FEATURES -->
   <script>updateStatus('Loading extended features...');</script>

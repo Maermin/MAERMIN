@@ -18,6 +18,49 @@ export default {
 
     if (request.method === 'OPTIONS') return res(null, 204, request);
 
+    // ── E2E Encrypted Cloud Sync ─────────────────────────────────────────────
+    // POST /?action=sync  body { op:'get'|'put', account, baseRev?, blob? }
+    // Zero-knowledge: `account` is an opaque client-derived hash, `blob` is
+    // AES-256-GCM ciphertext. The server stores/relays bytes only. Optimistic
+    // concurrency: put with a stale baseRev → 409 + the server's current record
+    // so the client can merge. Requires a KV namespace bound as env.SYNC.
+    if (request.method === 'POST' && action === 'sync') {
+      if (!env || !env.SYNC) {
+        return res(JSON.stringify({ error: 'sync storage not configured (bind KV namespace SYNC)' }), 501, request);
+      }
+      let body;
+      try { body = await request.json(); } catch { return res(JSON.stringify({ error: 'bad json' }), 400, request); }
+      const account = typeof body.account === 'string' ? body.account : '';
+      if (!/^[a-f0-9]{8,64}$/.test(account)) {
+        return res(JSON.stringify({ error: 'invalid account' }), 400, request);
+      }
+      const key = 'sync:' + account;
+
+      if (body.op === 'get') {
+        const rec = await env.SYNC.get(key, { type: 'json' });
+        if (!rec) return res(JSON.stringify({ rev: 0, blob: null }), 200, request);
+        return res(JSON.stringify({ rev: rec.rev, blob: rec.blob, updatedAt: rec.updatedAt }), 200, request);
+      }
+
+      if (body.op === 'put') {
+        if (typeof body.blob !== 'string' || body.blob.length > 4_000_000) {
+          return res(JSON.stringify({ error: 'invalid blob' }), 400, request);
+        }
+        const baseRev = Number(body.baseRev) || 0;
+        const current = await env.SYNC.get(key, { type: 'json' });
+        const serverRev = current ? current.rev : 0;
+        if (serverRev !== baseRev) {
+          // Conflict: caller's base is stale — hand back the server record to merge.
+          return res(JSON.stringify({ conflict: true, serverRev, blob: current ? current.blob : null }), 409, request);
+        }
+        const next = { rev: baseRev + 1, blob: body.blob, updatedAt: Date.now() };
+        await env.SYNC.put(key, JSON.stringify(next));
+        return res(JSON.stringify({ ok: true, rev: next.rev }), 200, request);
+      }
+
+      return res(JSON.stringify({ error: 'unknown sync op' }), 400, request);
+    }
+
     // ── Yahoo Finance Symbol Search ──────────────────────────────────────────
     // GET /?action=yfsearch&q=Apple
     // Returns: [{symbol, name, exchange, type, logoUrl}]

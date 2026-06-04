@@ -496,3 +496,30 @@ button:active { transform: translateY(0.5px); }
 /* Subtle entrance used by main views */
 .maermin-main > * { animation: viewIn 0.22s ease-out; }
 @keyframes viewIn { from { opacity: 0; transform: translateY(4px); } to { opacity: 1; transform: translateY(0); } }
+
+/* ============================================================================
+   PWA: installed (standalone) safe-area + mobile-first safety net
+   Full mobile redesign is Epic 10; this keeps the CSS-defined chrome usable on
+   phones and respects notches when launched as an installed app.
+   ========================================================================== */
+@media (display-mode: standalone) {
+  body { padding: env(safe-area-inset-top) env(safe-area-inset-right)
+                  env(safe-area-inset-bottom) env(safe-area-inset-left); }
+}
+
+@media (max-width: 640px) {
+  /* Section tabs scroll horizontally instead of wrapping into tall stacks. */
+  .section-nav {
+    flex-wrap: nowrap;
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+    scrollbar-width: none;
+    margin-bottom: 1rem;
+    padding-bottom: 4px;
+  }
+  .section-nav::-webkit-scrollbar { display: none; }
+  .section-nav-btn { flex: 0 0 auto; white-space: nowrap; }
+
+  /* KPI tiles go single/!double column rather than cramming to 150px. */
+  .metric-grid { grid-template-columns: repeat(auto-fit, minmax(120px, 1fr)); gap: 0.6rem; }
+}
