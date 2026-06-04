@@ -501,62 +501,47 @@ function DividendTrackerView(props) {
 
 function SectorAllocationView(props) {
   var portfolio = props.portfolio || {};
-  
+  var prices = props.prices || {};
+
+  // Live value of a position from the shared price map (falls back to cost).
+  function valueOf(pos) {
+    var s = (pos.symbol || pos.name || '');
+    var price = prices[s] || prices[s.toLowerCase()] || prices[s.toUpperCase()] || pos.currentPrice || pos.purchasePrice || 0;
+    return (pos.amount || 0) * price;
+  }
+  // Sector via the metadata service (cache → expanded static map → 'Other').
+  function sectorOf(pos) {
+    if (window.MaerminEquityMeta) return window.MaerminEquityMeta.getMeta(pos.symbol || pos.name).sector || 'Other';
+    return 'Other';
+  }
+
   var sectorData = useMemo(function() {
     var sectors = {};
     var totalValue = 0;
-    
-    var sectorMap = {
-      'AAPL': 'Technology', 'MSFT': 'Technology', 'GOOGL': 'Technology', 'NVDA': 'Technology',
-      'JNJ': 'Healthcare', 'PFE': 'Healthcare', 'UNH': 'Healthcare',
-      'JPM': 'Financials', 'BAC': 'Financials', 'V': 'Financials',
-      'AMZN': 'Consumer', 'TSLA': 'Consumer', 'HD': 'Consumer',
-      'XOM': 'Energy', 'CVX': 'Energy',
-      'bitcoin': 'Crypto', 'ethereum': 'Crypto', 'solana': 'Crypto'
-    };
-    
-    // Process stocks
+    var unknown = 0;
+    function add(name, value) { if (!sectors[name]) sectors[name] = 0; sectors[name] += value; totalValue += value; }
+
     (portfolio.stocks || []).forEach(function(pos) {
-      var symbol = (pos.symbol || pos.name || '').toUpperCase();
-      var value = (pos.amount || 0) * (pos.currentPrice || pos.purchasePrice || 0);
-      var sector = sectorMap[symbol] || 'Other';
-      if (!sectors[sector]) sectors[sector] = 0;
-      sectors[sector] += value;
-      totalValue += value;
+      var value = valueOf(pos);
+      var sector = sectorOf(pos);
+      if (sector === 'Other') unknown += value;
+      add(sector, value);
     });
-    
-    // Process crypto
-    (portfolio.crypto || []).forEach(function(pos) {
-      var value = (pos.amount || 0) * (pos.currentPrice || pos.purchasePrice || 0);
-      if (!sectors['Crypto']) sectors['Crypto'] = 0;
-      sectors['Crypto'] += value;
-      totalValue += value;
-    });
-    
-    // Process skins
-    (portfolio.skins || []).forEach(function(pos) {
-      var value = (pos.amount || 0) * (pos.currentPrice || pos.purchasePrice || 0);
-      if (!sectors['Gaming']) sectors['Gaming'] = 0;
-      sectors['Gaming'] += value;
-      totalValue += value;
-    });
-    
-    // Convert to array with percentages
+    (portfolio.crypto || []).forEach(function(pos) { add('Crypto', valueOf(pos)); });
+    (portfolio.skins || []).forEach(function(pos) { add('Gaming', valueOf(pos)); });
+
     var sectorArray = Object.keys(sectors).map(function(name) {
-      return {
-        name: name,
-        value: sectors[name],
-        weight: totalValue > 0 ? (sectors[name] / totalValue) * 100 : 0
-      };
+      return { name: name, value: sectors[name], weight: totalValue > 0 ? (sectors[name] / totalValue) * 100 : 0 };
     }).filter(function(s) { return s.weight > 0; })
       .sort(function(a, b) { return b.weight - a.weight; });
-    
+
     return {
       sectors: sectorArray,
       totalValue: totalValue,
-      sectorCount: sectorArray.length
+      sectorCount: sectorArray.length,
+      unknownPct: totalValue > 0 ? (unknown / totalValue) * 100 : 0
     };
-  }, [portfolio]);
+  }, [portfolio, prices, props.metaVersion]);
   
   var sectorColors = {
     'Technology': '#3b82f6',
@@ -571,7 +556,13 @@ function SectorAllocationView(props) {
   
   return React.createElement('div', { style: { padding: '1rem' } },
     React.createElement('h2', { style: { color: 'white', marginBottom: '1rem' } }, 'Sector Allocation'),
-    
+
+    // Coverage hint: if a meaningful share is still unclassified, point the user
+    // to the FMP key that backfills sector/country for every holding.
+    sectorData.unknownPct > 15 && React.createElement('div', {
+      style: { marginBottom: '1rem', padding: '0.625rem 0.875rem', background: 'rgba(245,165,36,0.10)', border: '1px solid rgba(245,165,36,0.25)', borderRadius: '8px', color: 'rgba(255,255,255,0.75)', fontSize: '0.8rem' }
+    }, '~' + sectorData.unknownPct.toFixed(0) + '% of equities are unclassified. Add a free Financial Modeling Prep API key in Settings → API to auto-fetch sector & country for every holding.'),
+
     sectorData.sectors.length > 0 ? React.createElement('div', { style: { display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem' } },
       React.createElement(AnalysisCard, {
         title: 'Sector Breakdown',
@@ -642,47 +633,34 @@ function SectorAllocationView(props) {
 
 function CountryAllocationView(props) {
   var portfolio = props.portfolio || {};
+  var prices = props.prices || {};
+
+  function valueOf(pos) {
+    var s = (pos.symbol || pos.name || '');
+    var price = prices[s] || prices[s.toLowerCase()] || prices[s.toUpperCase()] || pos.currentPrice || pos.purchasePrice || 0;
+    return (pos.amount || 0) * price;
+  }
+  // Country via the metadata service (cache → expanded static map → 'Other').
+  function countryOf(pos) {
+    if (window.MaerminEquityMeta) return window.MaerminEquityMeta.getMeta(pos.symbol || pos.name).country || 'Other';
+    return 'Other';
+  }
 
   var data = useMemo(function() {
-    // Lightweight static ticker -> country map. Unknown stocks fall back to
-    // "Other"; crypto and CS2 items are borderless, so they get a global bucket.
-    var countryMap = {
-      'AAPL': 'USA', 'MSFT': 'USA', 'GOOGL': 'USA', 'GOOG': 'USA', 'NVDA': 'USA', 'AMZN': 'USA',
-      'TSLA': 'USA', 'META': 'USA', 'JNJ': 'USA', 'PFE': 'USA', 'UNH': 'USA', 'KO': 'USA',
-      'JPM': 'USA', 'BAC': 'USA', 'V': 'USA', 'HD': 'USA', 'XOM': 'USA', 'CVX': 'USA',
-      'DIS': 'USA', 'NFLX': 'USA', 'AMD': 'USA', 'INTC': 'USA', 'PG': 'USA', 'MA': 'USA',
-      'SAP': 'Germany', 'SIE': 'Germany', 'ALV': 'Germany', 'BMW': 'Germany', 'BAS': 'Germany',
-      'VOW3': 'Germany', 'DTE': 'Germany', 'MBG': 'Germany', 'IFX': 'Germany',
-      'ASML': 'Netherlands', 'ADYEN': 'Netherlands',
-      'MC': 'France', 'OR': 'France', 'AIR': 'France', 'TTE': 'France',
-      'NESN': 'Switzerland', 'ROG': 'Switzerland', 'NOVN': 'Switzerland',
-      'AZN': 'UK', 'HSBA': 'UK', 'SHEL': 'UK', 'BP': 'UK', 'ULVR': 'UK',
-      'BABA': 'China', 'TCEHY': 'China', 'NIO': 'China',
-      'TSM': 'Taiwan', 'SONY': 'Japan', 'TM': 'Japan'
-    };
-
     var buckets = {};
     var totalValue = 0;
     function add(country, value) { if (!buckets[country]) buckets[country] = 0; buckets[country] += value; totalValue += value; }
 
-    (portfolio.stocks || []).forEach(function(pos) {
-      var symbol = (pos.symbol || pos.name || '').toUpperCase();
-      var value = (pos.amount || 0) * (pos.currentPrice || pos.purchasePrice || 0);
-      add(countryMap[symbol] || 'Other', value);
-    });
-    (portfolio.crypto || []).forEach(function(pos) {
-      add('Global (Crypto)', (pos.amount || 0) * (pos.currentPrice || pos.purchasePrice || 0));
-    });
-    (portfolio.skins || []).forEach(function(pos) {
-      add('Global (Gaming)', (pos.amount || 0) * (pos.currentPrice || pos.purchasePrice || 0));
-    });
+    (portfolio.stocks || []).forEach(function(pos) { add(countryOf(pos), valueOf(pos)); });
+    (portfolio.crypto || []).forEach(function(pos) { add('Global (Crypto)', valueOf(pos)); });
+    (portfolio.skins || []).forEach(function(pos) { add('Global (Gaming)', valueOf(pos)); });
 
     var rows = Object.keys(buckets).map(function(name) {
       return { name: name, value: buckets[name], weight: totalValue > 0 ? (buckets[name] / totalValue) * 100 : 0 };
     }).filter(function(r) { return r.weight > 0; }).sort(function(a, b) { return b.weight - a.weight; });
 
     return { rows: rows, totalValue: totalValue, count: rows.length };
-  }, [portfolio]);
+  }, [portfolio, prices, props.metaVersion]);
 
   var palette = ['#3b82f6', '#22c55e', '#f59e0b', '#ec4899', '#ef4444', '#f97316', '#f5a524', '#06b6d4', '#6b7280'];
   var colorFor = function(i) { return palette[i % palette.length]; };
@@ -1631,8 +1609,8 @@ function InvestmentAnalysisDashboard(props) {
   var renderSection = function() {
     switch(activeSection) {
       case 'dca':      return React.createElement(DCAAnalyzerView, { portfolio: portfolio, priceHistory: priceHistory });
-      case 'sectors':  return React.createElement(SectorAllocationView, { portfolio: portfolio });
-      case 'countries':return React.createElement(CountryAllocationView, { portfolio: portfolio });
+      case 'sectors':  return React.createElement(SectorAllocationView, { portfolio: portfolio, prices: prices, metaVersion: props.metaVersion });
+      case 'countries':return React.createElement(CountryAllocationView, { portfolio: portfolio, prices: prices, metaVersion: props.metaVersion });
       case 'currency': return React.createElement(CurrencyExposureView, { portfolio: portfolio });
       case 'liquidity':return React.createElement(LiquidityAnalysisView, { portfolio: portfolio });
       case 'goals':    return React.createElement(GoalInvestingView, { portfolioValue: portfolioValue });
