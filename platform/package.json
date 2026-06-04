@@ -1,0 +1,12 @@
+{
+  "name": "maermin-platform",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "MAERMIN Platform — autonomous AI software-engineering kernel (M1 seed)",
+  "scripts": {
+    "test": "node test/engine.test.mjs",
+    "demo": "node src/index.mjs"
+  },
+  "license": "MIT"
+}
