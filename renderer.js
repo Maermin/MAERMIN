@@ -3735,8 +3735,17 @@ buy,crypto,bitcoin,0.5,45000,2024-01-15,10`)
 // ============================================================================
 
 const root = ReactDOM.createRoot(document.getElementById('root'));
-root.render(React.createElement(InvestmentTracker));
-
-console.log('[MAERMIN v9.0] Application initialized');
+function __maerminMount() {
+  root.render(React.createElement(InvestmentTracker));
+  console.log('[MAERMIN v9.0] Application initialized');
+}
+// Wait for the vault to be unlocked before mounting, so the app reads DECRYPTED
+// data (storage.js hydrates the in-memory store during unlock). Falls back to an
+// immediate mount if the auth module is absent (backward compatible).
+if (window.MaerminAuth && typeof window.MaerminAuth.whenUnlocked === 'function') {
+  window.MaerminAuth.whenUnlocked().then(__maerminMount);
+} else {
+  __maerminMount();
+}
 
 })(); // End IIFE

@@ -1,0 +1,28 @@
+{
+  "name": "MAERMIN — Professional Portfolio Tracker",
+  "short_name": "MAERMIN",
+  "description": "Multi-asset portfolio tracker: crypto, stocks, commodities & CS2 items with advanced analytics — fully client-side and encrypted.",
+  "id": "/",
+  "start_url": ".",
+  "scope": ".",
+  "display": "standalone",
+  "display_override": ["standalone", "minimal-ui"],
+  "orientation": "any",
+  "background_color": "#080b11",
+  "theme_color": "#10151f",
+  "categories": ["finance", "productivity", "business"],
+  "icons": [
+    {
+      "src": "icon.svg",
+      "type": "image/svg+xml",
+      "sizes": "any",
+      "purpose": "any"
+    },
+    {
+      "src": "icon.svg",
+      "type": "image/svg+xml",
+      "sizes": "any",
+      "purpose": "maskable"
+    }
+  ]
+}

@@ -61,14 +61,28 @@ await mkdir(dist, { recursive: true });
 await writeFile(join(dist, 'maermin.min.js'), bundle);
 await copyFile(join(root, 'styles.css'), join(dist, 'styles.css'));
 
+// PWA assets ship as-is (service-worker.js must stay a standalone file served at
+// scope; pwa.js is already inside the bundle and registers it).
+for (const asset of ['manifest.webmanifest', 'service-worker.js', 'icon.svg']) {
+  await copyFile(join(root, asset), join(dist, asset));
+}
+
 // Production index.html: keep <head> (CDN deps + styles), single bundle script.
 const cdnTags = cdn.map((s) => `  <script crossorigin src="${s}"></script>`).join('\n');
 const prodHtml = `<!DOCTYPE html>
-<html lang="de">
+<html lang="en">
 <head>
   <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
   <title>MAERMIN v9.0 - Professional Portfolio Tracker</title>
+  <link rel="manifest" href="manifest.webmanifest">
+  <meta name="theme-color" content="#10151f">
+  <link rel="icon" type="image/svg+xml" href="icon.svg">
+  <link rel="apple-touch-icon" href="icon.svg">
+  <meta name="mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-title" content="MAERMIN">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
   <link rel="stylesheet" href="styles.css">
 ${cdnTags}
 </head>

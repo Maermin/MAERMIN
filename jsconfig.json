@@ -1,0 +1,24 @@
+{
+  "// note": "Editor-only type checking. No transpile, no build change — the app still ships the same global-IIFE JS. Turn on per-file checking with `// @ts-check` at the top of a module, or flip checkJs to true to check everything.",
+  "compilerOptions": {
+    "target": "ES2020",
+    "module": "ES2020",
+    "moduleResolution": "node",
+    "lib": ["ES2020", "DOM", "DOM.Iterable", "WebWorker"],
+    "checkJs": false,
+    "allowJs": true,
+    "noEmit": true,
+    "strict": false,
+    "noImplicitAny": false,
+    "skipLibCheck": true,
+    "types": []
+  },
+  "include": [
+    "*.js",
+    "types/*.d.ts"
+  ],
+  "exclude": [
+    "node_modules",
+    "dist"
+  ]
+}
