@@ -235,7 +235,7 @@ function PortfolioManagerView({ portfolios, activePortfolioId, transactions, pri
 // 2. SAVINGS PLAN TRACKER (Sparplan)
 // User defines recurring investment plans → MAERMIN tracks execution
 // ─────────────────────────────────────────────────────────────────────────────
-function SavingsPlanView({ transactions, theme, formatPrice, getCurrencySymbol, t }) {
+function SavingsPlanView({ transactions, theme, formatPrice, getCurrencySymbol, t, startValue, dividendYield }) {
   const [plans, setPlans] = useState(() => {
     try { return JSON.parse(localStorage.getItem('maermin_savings_plans') || '[]'); } catch { return []; }
   });
@@ -306,6 +306,16 @@ function SavingsPlanView({ transactions, theme, formatPrice, getCurrencySymbol, 
         style: { padding: '0.625rem 1.25rem', background: theme.accent, color: '#13110a', border: 'none', borderRadius: '8px', cursor: 'pointer', fontWeight: '700', fontSize: '0.875rem' }
       }, '+ Add Plan')
     ),
+
+    // Whole-portfolio projection (#6): composes current value + these savings
+    // plans + dividends + recurring liabilities across 3 scenarios.
+    window.MaerminProjection && React.createElement(window.MaerminProjection.Panel, {
+      startValue: startValue || 0,
+      savingsPlans: plans,
+      dividendYield: dividendYield || 0,
+      theme, formatPrice, getCurrencySymbol, t,
+      scopeLabel: 'Portfolio'
+    }),
 
     // Add Plan Form
     showAdd && React.createElement(Card, { theme, style: { marginBottom: '1.5rem', border: `1px solid ${theme.accent}44` } },

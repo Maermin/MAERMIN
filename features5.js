@@ -191,7 +191,8 @@ function NetWorthView({ portfolioStats, theme, formatPrice, getCurrencySymbol })
     try { return JSON.parse(localStorage.getItem('maermin_networth_accounts') || '[]'); } catch { return []; }
   });
   const [showAdd, setShowAdd]   = useState(false);
-  const [form, setForm]         = useState({ name: '', value: '', type: 'cash', currency: 'EUR' });
+  const [form, setForm]         = useState({ name: '', value: '', type: 'cash', currency: 'EUR',
+    recurring: false, amount: '', interval: 'monthly', startDate: new Date().toISOString().split('T')[0], endDate: '' });
 
   useEffect(() => { localStorage.setItem('maermin_networth_accounts', JSON.stringify(accounts)); }, [accounts]);
 
@@ -221,12 +222,37 @@ function NetWorthView({ portfolioStats, theme, formatPrice, getCurrencySymbol })
   const totalLiabilities = nw.liabilities;
   const netWorth         = portfolioValue + totalAssets - totalLiabilities;
 
+  const isLiabilityType = (tp) => LIABILITIES.has(tp);
+
   const addAccount = () => {
-    if (!form.name || !form.value) return;
-    setAccounts(prev => [...prev, { id: Date.now().toString(), ...form, value: parseFloat(form.value) }]);
-    setForm({ name: '', value: '', type: 'cash', currency: 'EUR' });
+    // A recurring liability may have no upfront balance (value), so require
+    // either a value OR a recurring amount on liability rows.
+    const wantsRecurring = isLiabilityType(form.type) && form.recurring && parseFloat(form.amount) > 0;
+    if (!form.name || (!form.value && !wantsRecurring)) return;
+    const account = {
+      id: Date.now().toString(),
+      name: form.name,
+      type: form.type,
+      currency: form.currency,
+      value: parseFloat(form.value) || 0,
+    };
+    if (wantsRecurring) {
+      account.recurring = true;
+      account.amount = parseFloat(form.amount);
+      account.interval = form.interval;
+      account.startDate = form.startDate;
+      account.endDate = form.endDate || null;
+    }
+    setAccounts(prev => [...prev, account]);
+    setForm({ name: '', value: '', type: 'cash', currency: 'EUR',
+      recurring: false, amount: '', interval: 'monthly', startDate: new Date().toISOString().split('T')[0], endDate: '' });
     setShowAdd(false);
   };
+
+  // Debt-service summary across all recurring liabilities (engine: MaerminRecurring).
+  const recurringSummary = (window.MaerminRecurring && accounts.length)
+    ? window.MaerminRecurring.summary(accounts.filter(a => window.MaerminRecurring.isRecurringLiability(a)))
+    : null;
 
   const inp = (field, props = {}) => React.createElement('input', {
     value: form[field], onChange: e => setForm(p => ({ ...p, [field]: e.target.value })),
@@ -256,6 +282,10 @@ function NetWorthView({ portfolioStats, theme, formatPrice, getCurrencySymbol })
         badge: { pos: true, text: `${(portfolioValue / (netWorth + totalLiabilities) * 100).toFixed(0)}%` } }),
       React.createElement(KpiCard, { theme, label: 'Cash & Other Assets', value: `${formatPrice(totalAssets)} ${getCurrencySymbol()}` }),
       React.createElement(KpiCard, { theme, label: 'Total Liabilities', value: `${formatPrice(totalLiabilities)} ${getCurrencySymbol()}`, color: totalLiabilities > 0 ? '#ef4444' : theme.text }),
+      recurringSummary && recurringSummary.count > 0 && React.createElement(KpiCard, { theme,
+        label: 'Monthly Debt Service',
+        value: `${formatPrice(recurringSummary.monthlyEquivalent)} ${getCurrencySymbol()}`,
+        color: '#f97316' }),
     ),
 
     // Visual net worth bar
@@ -298,8 +328,36 @@ function NetWorthView({ portfolioStats, theme, formatPrice, getCurrencySymbol })
           }, Object.entries(TYPES).map(([v, t]) => React.createElement('option', { key: v, value: v }, t.label)))
         ),
         React.createElement('div', null,
-          React.createElement('label', { style: { display: 'block', color: theme.textSecondary, fontSize: '0.72rem', marginBottom: '0.25rem', textTransform: 'uppercase' } }, `Value (${getCurrencySymbol()})`),
-          inp('value', { type: 'number', placeholder: '10000' })
+          React.createElement('label', { style: { display: 'block', color: theme.textSecondary, fontSize: '0.72rem', marginBottom: '0.25rem', textTransform: 'uppercase' } }, isLiabilityType(form.type) ? `Current balance (${getCurrencySymbol()})` : `Value (${getCurrencySymbol()})`),
+          inp('value', { type: 'number', placeholder: isLiabilityType(form.type) ? 'outstanding (optional)' : '10000' })
+        )
+      ),
+
+      // Recurring liability schedule — only for loan/credit/other_liability types.
+      isLiabilityType(form.type) && React.createElement('div', { style: { marginBottom: '0.875rem', padding: '0.75rem', background: theme.inputBg, borderRadius: '8px' } },
+        React.createElement('label', { style: { display: 'flex', alignItems: 'center', gap: '0.5rem', color: theme.text, fontSize: '0.82rem', cursor: 'pointer', marginBottom: form.recurring ? '0.75rem' : 0 } },
+          React.createElement('input', { type: 'checkbox', checked: form.recurring, onChange: e => setForm(p => ({ ...p, recurring: e.target.checked })), style: { accentColor: theme.accent } }),
+          React.createElement('span', null, 'Recurring payment (loan / mortgage instalment)')
+        ),
+        form.recurring && React.createElement('div', { style: { display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(150px, 1fr))', gap: '0.75rem' } },
+          React.createElement('div', null,
+            React.createElement('label', { style: { display: 'block', color: theme.textSecondary, fontSize: '0.7rem', marginBottom: '0.25rem', textTransform: 'uppercase' } }, `Payment (${getCurrencySymbol()})`),
+            inp('amount', { type: 'number', placeholder: '1200' })
+          ),
+          React.createElement('div', null,
+            React.createElement('label', { style: { display: 'block', color: theme.textSecondary, fontSize: '0.7rem', marginBottom: '0.25rem', textTransform: 'uppercase' } }, 'Interval'),
+            React.createElement('select', { value: form.interval, onChange: e => setForm(p => ({ ...p, interval: e.target.value })),
+              style: { padding: '0.625rem 0.875rem', background: theme.inputBg, border: `1px solid ${theme.inputBorder}`, borderRadius: '8px', color: theme.text, fontSize: '0.85rem', width: '100%' }
+            }, Object.entries((window.MaerminRecurring && window.MaerminRecurring.INTERVALS) || { monthly: { label: 'Monthly' } }).map(([v, spec]) => React.createElement('option', { key: v, value: v }, spec.label)))
+          ),
+          React.createElement('div', null,
+            React.createElement('label', { style: { display: 'block', color: theme.textSecondary, fontSize: '0.7rem', marginBottom: '0.25rem', textTransform: 'uppercase' } }, 'Start date'),
+            inp('startDate', { type: 'date' })
+          ),
+          React.createElement('div', null,
+            React.createElement('label', { style: { display: 'block', color: theme.textSecondary, fontSize: '0.7rem', marginBottom: '0.25rem', textTransform: 'uppercase' } }, 'End date (optional)'),
+            inp('endDate', { type: 'date' })
+          )
         )
       ),
       React.createElement('div', { style: { display: 'flex', gap: '0.5rem' } },

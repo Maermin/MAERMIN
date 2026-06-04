@@ -145,15 +145,20 @@ function PortfolioOverviewPanel({ portfolio, prices, priceHistory, theme, format
 
   const totalValue = allPositions.reduce((s, p) => s + p.value, 0);
 
-  // Pie slices by category
+  // Pie slices by asset class — uses the shared allocation engine (#5) so the
+  // breakdown, ordering and colours match everywhere and carry absolute + %.
   const catSlices = useMemo(() => {
+    if (window.MaerminAllocation) {
+      const a = window.MaerminAllocation.computeAllocation(portfolio, prices);
+      return a.byClass.map(c => ({ key: c.key, label: c.label, value: c.value, color: c.color, pct: c.pct }));
+    }
     const map = { crypto: 0, stocks: 0, skins: 0, commodities: 0 };
     allPositions.forEach(p => { map[p.cat] += p.value; });
     const colors = { crypto: '#f59e0b', stocks: '#3b82f6', skins: '#06b6d4', commodities: '#f59e0b' };
     return Object.entries(map).filter(([,v]) => v > 0).map(([k, v]) => ({
-      label: k.charAt(0).toUpperCase() + k.slice(1), value: v, color: colors[k]
+      key: k, label: k.charAt(0).toUpperCase() + k.slice(1), value: v, color: colors[k]
     }));
-  }, [allPositions]);
+  }, [portfolio, prices, allPositions]);
 
   // Position slices for drill-down
   const posSlices = useMemo(() => {
@@ -202,18 +207,23 @@ function PortfolioOverviewPanel({ portfolio, prices, priceHistory, theme, format
           sublabel: t.totalValue || 'Total'
         }),
         React.createElement('div', { style: { flex: 1 } },
-          (activeTab === 'overview' ? catSlices : posSlices).slice(0,6).map((s, i) =>
-            React.createElement('div', {
+          (activeTab === 'overview' ? catSlices : posSlices).slice(0,8).map((s, i) => {
+            // On the overview tab, clicking an asset class drills into it.
+            const drillable = activeTab === 'overview' && s.key;
+            return React.createElement('div', {
               key: i,
-              style: { display: 'flex', alignItems: 'center', gap: '0.5rem', marginBottom: '0.4rem' }
+              onClick: drillable ? () => setActiveTab(s.key) : undefined,
+              title: drillable ? `Show ${s.label}` : undefined,
+              style: { display: 'flex', alignItems: 'center', gap: '0.5rem', marginBottom: '0.4rem', cursor: drillable ? 'pointer' : 'default' }
             },
               React.createElement('div', { style: { width: 8, height: 8, borderRadius: '50%', background: s.color, flexShrink: 0 } }),
               React.createElement('span', { style: { color: theme.textSecondary, fontSize: '0.75rem', flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' } }, s.label),
-              React.createElement('span', { style: { color: theme.text, fontSize: '0.75rem', fontWeight: '600' } },
-                `${totalValue > 0 ? ((s.value / totalValue) * 100).toFixed(1) : 0}%`
+              // Absolute value + percentage (requirement #5).
+              React.createElement('span', { style: { color: theme.text, fontSize: '0.75rem', fontWeight: '600', whiteSpace: 'nowrap' } },
+                `${formatPrice(s.value)} ${getCurrencySymbol()} · ${totalValue > 0 ? ((s.value / totalValue) * 100).toFixed(1) : 0}%`
               )
-            )
-          )
+            );
+          })
         )
       )
     ),
