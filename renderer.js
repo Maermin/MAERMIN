@@ -303,6 +303,9 @@ function InvestmentTracker() {
   // Strategy tab recomputes even if the user is already on it.
   const [metaVersion, setMetaVersion] = useState(0);
 
+  // Security log viewer modal (reads window.MaerminAuditLog).
+  const [showAuditLog, setShowAuditLog] = useState(false);
+
   // ========== COMPUTED VALUES ==========
   
   const t = translations.en || {};
@@ -822,7 +825,8 @@ function InvestmentTracker() {
     a.download = `maermin-backup-${new Date().toISOString().split('T')[0]}.json`;
     a.click();
     URL.revokeObjectURL(url);
-    
+
+    if (window.MaerminAuditLog) window.MaerminAuditLog.record('data.export', `JSON backup (${transactions.length} transactions)`);
     addToast(t.backupCreated || 'Backup created', 'success');
   };
 
@@ -838,6 +842,7 @@ function InvestmentTracker() {
       a.download = `maermin-export-${new Date().toISOString().split('T')[0]}.csv`;
       a.click();
       URL.revokeObjectURL(url);
+      if (window.MaerminAuditLog) window.MaerminAuditLog.record('data.export', `CSV export (${transactions.length} transactions)`);
       addToast(t.exportSuccess || 'Export successful', 'success');
     }
   };
@@ -1210,6 +1215,7 @@ function InvestmentTracker() {
               onImport: (txs) => {
                 const newTxs = txs.map((tx, i) => ({ id: (Date.now()+i).toString(), ...tx }));
                 setTransactions(prev => [...prev, ...newTxs]);
+                if (window.MaerminAuditLog) window.MaerminAuditLog.record('data.import', `${newTxs.length} transaction(s) imported`);
                 addToast(`${newTxs.length} transaction(s) imported`, 'success');
               }
             })
@@ -2466,6 +2472,44 @@ function InvestmentTracker() {
     });
   };
 
+  // Security log viewer — recent vault/data events + captured errors.
+  const renderAuditLogModal = () => {
+    if (!showAuditLog) return null;
+    const th = currentTheme;
+    const entries = (window.MaerminAuditLog ? window.MaerminAuditLog.getEntries({ limit: 200 }) : []);
+    const levelColor = (lv) => lv === 'error' ? '#ef4444' : lv === 'warn' ? '#f59e0b' : th.textSecondary;
+    return React.createElement('div', {
+      onClick: () => setShowAuditLog(false),
+      style: { position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.6)', zIndex: 1000, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '1rem' }
+    },
+      React.createElement('div', {
+        onClick: (e) => e.stopPropagation(),
+        style: { background: th.card, border: `1px solid ${th.cardBorder}`, borderRadius: '14px', width: '100%', maxWidth: 640, maxHeight: '80vh', display: 'flex', flexDirection: 'column' }
+      },
+        React.createElement('div', { style: { display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '1.1rem 1.25rem', borderBottom: `1px solid ${th.cardBorder}` } },
+          React.createElement('div', { style: { color: th.text, fontWeight: 800, fontSize: '1rem' } }, '🛡 ' + (t.securityLog || 'Security log')),
+          React.createElement('div', { style: { display: 'flex', gap: '0.5rem' } },
+            React.createElement('button', { onClick: () => { if (window.MaerminAuditLog) { window.MaerminAuditLog.clear(); setShowAuditLog(false); setTimeout(() => setShowAuditLog(true), 0); } },
+              style: { padding: '0.35rem 0.7rem', background: 'transparent', border: `1px solid ${th.cardBorder}`, borderRadius: '7px', color: th.textSecondary, cursor: 'pointer', fontSize: '0.75rem' } }, t.clear || 'Clear'),
+            React.createElement('button', { onClick: () => setShowAuditLog(false),
+              style: { padding: '0.35rem 0.7rem', background: 'transparent', border: `1px solid ${th.cardBorder}`, borderRadius: '7px', color: th.textSecondary, cursor: 'pointer', fontSize: '0.75rem' } }, '✕')
+          )
+        ),
+        React.createElement('div', { style: { padding: '0.5rem 0.75rem', overflow: 'auto' } },
+          entries.length === 0
+            ? React.createElement('div', { style: { color: th.textSecondary, padding: '2rem', textAlign: 'center', fontSize: '0.85rem' } }, t.securityLogEmpty || 'No events recorded yet.')
+            : entries.map((e, i) => React.createElement('div', { key: i, style: { display: 'flex', gap: '0.75rem', padding: '0.5rem 0.5rem', borderBottom: `1px solid ${th.cardBorder}33`, fontSize: '0.78rem', alignItems: 'baseline' } },
+                React.createElement('span', { style: { color: th.textSecondary, fontFamily: 'ui-monospace,monospace', whiteSpace: 'nowrap', opacity: 0.8 } }, new Date(e.t).toLocaleString('en-US')),
+                React.createElement('span', { style: { color: levelColor(e.level), fontWeight: 600, whiteSpace: 'nowrap' } }, e.type),
+                React.createElement('span', { style: { color: th.text, flex: 1, wordBreak: 'break-word' } }, e.detail)
+              ))
+        ),
+        React.createElement('div', { style: { padding: '0.6rem 1.25rem', borderTop: `1px solid ${th.cardBorder}`, color: th.textSecondary, fontSize: '0.7rem' } },
+          (t.securityLogNote || 'Stored locally on this device only. Non-sensitive event metadata — no amounts or secrets.'))
+      )
+    );
+  };
+
   // ========== TRANSACTION MODAL ==========
   
   const renderTransactionModal = () => {
@@ -3522,6 +3566,7 @@ buy,crypto,bitcoin,0.5,45000,2024-01-15,10`)
                 a.download = `maermin-vault-backup-${new Date().toISOString().split('T')[0]}.json`;
                 document.body.appendChild(a); a.click(); a.remove();
                 setTimeout(() => URL.revokeObjectURL(a.href), 1000);
+                if (window.MaerminAuditLog) window.MaerminAuditLog.record('vault.backup.export', 'encrypted vault backup downloaded');
                 addToast('Encrypted backup downloaded — keep it safe', 'success');
               }).catch((e) => addToast('Backup failed: ' + (e && e.message || 'error'), 'error'));
             },
@@ -3545,7 +3590,7 @@ buy,crypto,bitcoin,0.5,45000,2024-01-15,10`)
                   let obj; try { obj = JSON.parse(reader.result); } catch { addToast('Invalid backup file', 'error'); return; }
                   if (!window.confirm('Restore this encrypted backup? It replaces the current vault. You will need its password to unlock.')) return;
                   window.MaerminStorage.importEncryptedBackup(obj)
-                    .then(() => { addToast('Backup restored — reloading…', 'success'); setTimeout(() => window.location.reload(), 800); })
+                    .then(() => { if (window.MaerminAuditLog) window.MaerminAuditLog.record('vault.backup.restore', 'encrypted vault backup restored'); addToast('Backup restored — reloading…', 'success'); setTimeout(() => window.location.reload(), 800); })
                     .catch((e) => addToast('Restore failed: ' + (e && e.message || 'error'), 'error'));
                 };
                 reader.readAsText(file);
@@ -3559,6 +3604,16 @@ buy,crypto,bitcoin,0.5,45000,2024-01-15,10`)
               textAlign: 'left', marginBottom: '0.25rem'
             }
           }, '⬆ ' + (t.restoreVault || 'Restore vault backup')),
+          // Security log viewer
+          React.createElement('button', {
+            onClick: () => { setShowSettings(false); setShowAuditLog(true); },
+            style: {
+              width: '100%', padding: '0.5rem', background: 'transparent',
+              color: currentTheme.textSecondary, border: 'none',
+              borderRadius: '6px', cursor: 'pointer', fontSize: '0.8rem',
+              textAlign: 'left', marginBottom: '0.25rem'
+            }
+          }, '🛡 ' + (t.securityLog || 'Security log')),
           // Divider
           React.createElement('div', { style: { height: '1px', background: currentTheme.cardBorder, margin: '0.75rem 0' } }),
           // Logout
@@ -3700,6 +3755,7 @@ buy,crypto,bitcoin,0.5,45000,2024-01-15,10`)
     renderImportModal(),
     renderApiSettingsModal(),
     renderPasswordModal(),
+    renderAuditLogModal(),
     
     // Command Palette
     window.CommandPalette && React.createElement(window.CommandPalette, {
