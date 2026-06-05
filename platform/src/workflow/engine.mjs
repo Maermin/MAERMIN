@@ -22,10 +22,11 @@ export const DEFAULT_WORKFLOW = {
 };
 
 export class WorkflowEngine {
-  constructor({ provider, memory, hooks = {} } = {}) {
+  constructor({ provider, memory, workspace, hooks = {} } = {}) {
     if (!provider) throw new Error('WorkflowEngine requires a provider');
     this.provider = provider;
     this.memory = memory || null;
+    this.workspace = workspace || null; // optional ToolBus: real fs/git/shell/http
     this.hooks = hooks; // { onStageStart, onStageEnd, onBlocked }
   }
 
@@ -48,14 +49,26 @@ export class WorkflowEngine {
       const agent = new Agent(stage.agent, this.provider, { model: stage.model });
       let result;
       try {
-        result = await agent.run({ goal, artifacts, memory: recall });
+        // workspace (the ToolBus) is reachable to agents that need to act on a repo.
+        result = await agent.run({ goal, artifacts, memory: recall, workspace: this.workspace });
       } catch (e) {
         result = { agent: stage.agent, status: 'error', artifacts: '', decisions: [], summary: 'error: ' + e.message };
       }
 
       const rec = { name: stage.name, agent: stage.agent, idx: i, gate: isGate, status: result.status, summary: result.summary, decisions: result.decisions };
+      if (result.toolLog) rec.tools = result.toolLog.length; // # of tool calls this stage ran
       run.stages.push(rec);
       artifacts[stage.name] = result.artifacts;
+
+      // If a sandboxed workspace is present, persist the artifact to a real file
+      // through the audited bus — the concrete step from "text" to "files on disk".
+      if (this.workspace) {
+        try {
+          const path = `runs/${run.startedAt}/${String(i).padStart(2, '0')}-${stage.name}.md`;
+          await this.workspace.fs.write(path, result.artifacts);
+          rec.artifactPath = path;
+        } catch { /* never let artifact persistence break the run */ }
+      }
 
       // Persist artifact + decisions to memory so later runs/stages recall them.
       if (this.memory) {
