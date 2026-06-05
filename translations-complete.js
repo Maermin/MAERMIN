@@ -346,8 +346,7 @@ const completeTranslations = {
     shortcut: 'Shortcut',
     pressToOpen: 'Press to open',
     navigation: 'Navigation',
-    actions: 'Actions',
-    
+
     // v6.0 - Quick Add
     quickAdd: 'Quick Add',
     quickAddHint: 'e.g. "buy 10 BTC @ 50000" or "sell 5 ETH @ 3000 fee 10"',
@@ -373,7 +372,6 @@ const completeTranslations = {
     
     // General
     confirm: 'Confirm',
-    close: 'Close',
     apply: 'Apply',
     reset: 'Reset',
     clear: 'Clear',
@@ -407,12 +405,9 @@ const completeTranslations = {
     oldestFirst: 'Oldest first',
     largestFirst: 'Largest first',
     bySymbol: 'By symbol',
-    search: 'Search',
-    settings: 'Settings',
     changePassword: 'Change Password',
     currentPassword: 'Current Password',
     newPassword: 'New Password',
-    confirmPassword: 'Confirm Password',
     passwordChanged: 'Password changed successfully',
     passwordMismatch: 'Passwords do not match',
     passwordWrong: 'Current password is incorrect',
