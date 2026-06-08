@@ -1617,6 +1617,10 @@ function InvestmentTracker() {
     const tile = (opts) => React.createElement('div', {
       key: opts.key,
       onClick: opts.onClick,
+      role: opts.onClick ? 'button' : undefined,
+      tabIndex: opts.onClick ? 0 : undefined,
+      'aria-label': opts.onClick && typeof opts.label === 'string' ? opts.label : undefined,
+      onKeyDown: opts.onClick ? (e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); opts.onClick(e); } }) : undefined,
       style: {
         background: theme.card, padding: '1.1rem 1.2rem', borderRadius: '16px',
         border: `1px solid ${theme.cardBorder}`, cursor: opts.onClick ? 'pointer' : 'default',

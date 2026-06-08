@@ -173,6 +173,28 @@ const MUST_RENDER = [
   ['InvestmentViews', 'ProgressBar', { value: 40, max: 100, theme }],
   ['InvestmentViews', 'MetricGrid', { metrics: [{ label: 'A', value: '1' }], theme }],
   ['PortfolioHealth', 'HealthView', baseProps],
+  // Wealth-projection chart. baseProps drives the representative curve; the
+  // empty-data variant (startValue 0 → all-zero scenarios) exercises the SVG
+  // axis/area/marker geometry on a flat curve, the path most prone to NaN /
+  // divide-by-zero in the Y-range fitting.
+  ['MaerminProjection', 'Panel', baseProps],
+  // Leaf chart / data / card components. Prop-bag components take baseProps so
+  // they also get the empty-data variant for free; the two with bespoke props
+  // (DataTable, TabBar) follow the AnalysisCard/MetricGrid pattern above.
+  ['MaerminFeatures6', 'PortfolioHistoryChart', baseProps],
+  ['MaerminFeatures3', 'DailyPnLCard', baseProps],
+  ['MaerminFeatures3', 'BenchmarkWidget', baseProps],
+  ['MaerminFeatures3', 'EnhancedPositionsTable', baseProps],
+  ['MaerminFeatures7', 'PerformanceAttribution', baseProps],
+  ['MaerminFeatures7', 'NewsFeedView', baseProps],
+  ['MaerminFeatures4', 'DividendForecastView', baseProps],
+  ['MaerminFeatures2', 'DividendCalendarView', baseProps],
+  ['InvestmentViews', 'SectorAllocationView', baseProps],
+  ['InvestmentViews', 'CountryAllocationView', baseProps],
+  ['InvestmentViews', 'CurrencyExposureView', baseProps],
+  ['InvestmentViews', 'LiquidityAnalysisView', baseProps],
+  ['InvestmentViews', 'DataTable', { headers: ['A', 'B'], rows: [['1', '2']], theme }],
+  ['InvestmentViews', 'TabBar', { tabs: [{ id: 'x', label: 'X' }], active: 'x', onChange: noop, theme }],
 ];
 
 function renderOnce(Comp, props) {

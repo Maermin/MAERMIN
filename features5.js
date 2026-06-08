@@ -163,7 +163,9 @@ function PerformancePeriods({ portfolio, priceHistory, prices, theme, formatPric
       periodData.map(p =>
         React.createElement('div', {
           key: p.id,
-          onClick: () => setActivePeriod(p.id),
+          ...window.MaerminUtils.clickable(() => setActivePeriod(p.id)),
+          'aria-label': 'Show period ' + (p.label || p.id),
+          'aria-pressed': activePeriod === p.id,
           style: {
             textAlign: 'center', padding: '0.5rem 0.25rem', borderRadius: '8px', cursor: 'pointer',
             background: activePeriod === p.id ? `${theme.accent}15` : 'transparent',

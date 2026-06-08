@@ -708,7 +708,8 @@ function BrokerImportWizard({ theme, t, addToast, onImport }) {
             BROKERS.filter(b => b.category === cat).map(b =>
               React.createElement('div', {
                 key: b.id,
-                onClick: () => { setBroker(b.id); setStep(1); },
+                ...window.MaerminUtils.clickable(() => { setBroker(b.id); setStep(1); }),
+                'aria-label': 'Select broker ' + (b.name || b.id),
                 style: {
                   background: selectedBroker === b.id ? `${theme.accent}22` : theme.card,
                   border: `1px solid ${selectedBroker === b.id ? theme.accent : theme.cardBorder}`,
@@ -765,7 +766,8 @@ function BrokerImportWizard({ theme, t, addToast, onImport }) {
       ),
       React.createElement('div', {
         onDrop: handleDrop, onDragOver: e => e.preventDefault(),
-        onClick: () => fileRef.current?.click(),
+        ...window.MaerminUtils.clickable(() => fileRef.current?.click()),
+        'aria-label': 'Choose CSV file to import',
         style: { border: `2px dashed ${theme.cardBorder}`, borderRadius: '16px', padding: '2.5rem', textAlign: 'center', cursor: 'pointer', marginBottom: '1rem' }
       },
         React.createElement('div', { style: { fontSize: '2rem', marginBottom: '0.5rem', opacity: 0.4 } }, '↑'),
@@ -816,7 +818,8 @@ function BrokerImportWizard({ theme, t, addToast, onImport }) {
       ),
       React.createElement('div', {
         onDrop: handleDrop, onDragOver: e => e.preventDefault(),
-        onClick: () => fileRef.current?.click(),
+        ...window.MaerminUtils.clickable(() => fileRef.current?.click()),
+        'aria-label': 'Choose CSV file to import',
         style: { border: `2px dashed ${theme.cardBorder}`, borderRadius: '16px', padding: '3rem', textAlign: 'center', cursor: 'pointer', marginBottom: '1rem' }
       },
         React.createElement('div', { style: { fontSize: '2rem', marginBottom: '0.5rem', opacity: 0.4 } }, '↑'),
@@ -961,7 +964,8 @@ function PositionNotesView({ portfolio, theme, t }) {
                     )
                   )
                 : React.createElement('div', {
-                    onClick: () => { setActive(p.key); setDraft(note?.text || ''); },
+                    ...window.MaerminUtils.clickable(() => { setActive(p.key); setDraft(note?.text || ''); }),
+                    'aria-label': note?.text ? 'Edit note' : 'Add note',
                     style: { cursor: 'pointer', minHeight: '60px', padding: '0.5rem', background: theme.inputBg, borderRadius: '6px', fontSize: '0.8rem', color: note?.text ? theme.text : theme.textSecondary, lineHeight: '1.5', whiteSpace: 'pre-wrap' }
                   }, note?.text || '+ Add note...')
             );
@@ -1075,8 +1079,9 @@ function DividendCalendarView({ portfolio, theme, t, addToast }) {
               React.createElement('div', {
                 key: e.id,
                 title: `${e.symbol}: ${e.amount} ${e.currency}${e.notes ? ' · ' + e.notes : ''}`,
+                'aria-label': `Delete dividend ${e.symbol} ${e.amount} ${e.currency}`,
                 style: { background: 'rgba(34,197,94,0.15)', color: '#22c55e', fontSize: '0.65rem', fontWeight: '600', padding: '0.15rem 0.3rem', borderRadius: '3px', marginBottom: '0.15rem', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', cursor: 'pointer' },
-                onClick: () => { if (window.confirm(`Delete dividend? ${e.symbol} ${e.amount} ${e.currency}`)) setEvents(prev => prev.filter(ev => ev.id !== e.id)); }
+                ...window.MaerminUtils.clickable(() => { if (window.confirm(`Delete dividend? ${e.symbol} ${e.amount} ${e.currency}`)) setEvents(prev => prev.filter(ev => ev.id !== e.id)); })
               }, `${e.symbol} +${e.amount}${e.currency==='EUR'?'€':'$'}`)
             )
           );

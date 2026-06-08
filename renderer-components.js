@@ -256,7 +256,8 @@ function ToastContainer({ toasts, onRemove }) {
       React.createElement('div', {
         key: toast.id,
         className: `toast ${toast.type}`,
-        onClick: () => onRemove(toast.id)
+        ...window.MaerminUtils.clickable(() => onRemove(toast.id)),
+        'aria-label': 'Dismiss notification'
       },
         React.createElement('span', null, toast.message)
       )
@@ -963,7 +964,9 @@ function StressTestView({ portfolio, prices, t, theme, currency, formatPrice }) 
         React.createElement('div', {
           key: id,
           className: `scenario-card ${selectedScenario === id ? 'selected' : ''}`,
-          onClick: () => runScenario(id),
+          ...window.MaerminUtils.clickable(() => runScenario(id)),
+          'aria-label': 'Run scenario ' + ((scenario && scenario.name) || id),
+          'aria-pressed': selectedScenario === id,
           style: {
             background: selectedScenario === id ? 'rgba(245,165,36,0.1)' : theme.card,
             padding: '1.25rem',
