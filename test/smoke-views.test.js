@@ -77,6 +77,7 @@ globalThis.window.navigator = globalThis.navigator || { language: 'en-US', clipb
 const engines = [
   '../utils.js', '../allocation.js', '../metrics.js', '../projection.js',
   '../recurring.js', '../equity-metadata.js', '../portfolio-health.js',
+  '../data-quality.js',
 ];
 console.log('engine preload:');
 for (const e of engines) {
@@ -88,7 +89,7 @@ for (const e of engines) {
 // Tier 1 — every view module loads + exports the documented components.
 // ---------------------------------------------------------------------------
 const VIEW_MODULES = [
-  { file: '../features.js',         ns: 'MaerminFeatures',  comps: ['PieChart', 'Sparkline', 'PortfolioOverviewPanel', 'WatchlistView', 'PriceAlertsView', 'PerformanceChart', 'PositionsTable'] },
+  { file: '../features.js',         ns: 'MaerminFeatures',  comps: ['PieChart', 'Sparkline', 'PriceQualityBadge', 'PortfolioOverviewPanel', 'WatchlistView', 'PriceAlertsView', 'PerformanceChart', 'PositionsTable'] },
   { file: '../features2.js',        ns: 'MaerminFeatures2', comps: ['ReturnsView', 'RebalancingView', 'BrokerImportWizard', 'PositionNotesView', 'DividendCalendarView', 'MobileBottomNav', 'calcXIRR', 'calcTWR'] },
   { file: '../features3.js',        ns: 'MaerminFeatures3', comps: ['BenchmarkWidget', 'DailyPnLCard', 'PositionDetailModal', 'EnhancedPositionsTable', 'CS2SkinPicker', 'CS2SkinImage', 'SymbolPicker'] },
   { file: '../features4.js',        ns: 'MaerminFeatures4', comps: ['usePortfolios', 'PortfolioManagerView', 'PortfolioSwitcher', 'SavingsPlanView', 'DividendForecastView', 'FIFOView', 'calcFIFO'] },
@@ -160,6 +161,8 @@ const emptyProps = {
 const MUST_RENDER = [
   ['MaerminFeatures', 'PieChart', { slices: [{ key: 'stocks', label: 'Stocks', value: 2200, color: '#f5a524', pct: 60 }, { key: 'crypto', label: 'Crypto', value: 50000, color: '#3b82f6', pct: 40 }], size: 150, thickness: 34, label: '52k', sublabel: 'Total' }],
   ['MaerminFeatures', 'Sparkline', { data: [1, 3, 2, 5, 4], color: '#16a34a' }],
+  ['MaerminFeatures', 'PriceQualityBadge', { category: 'stocks', price: 228, fetchedAt: Date.now(), theme }],
+  ['MaerminFeatures', 'PriceQualityBadge', { category: 'crypto', price: 0, theme }], // unavailable → no silent zero
   ['MaerminFeatures', 'PortfolioOverviewPanel', baseProps],
   ['MaerminFeatures', 'PositionsTable', baseProps],
   ['MaerminFeatures', 'PerformanceChart', baseProps],

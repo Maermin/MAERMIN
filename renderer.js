@@ -542,6 +542,7 @@ function InvestmentTracker() {
           if (fxData.result === 'success' && fxData.rates && fxData.rates.EUR) {
             usdToEur = fxData.rates.EUR;
             setExchangeRate(usdToEur);
+            if (window.MaerminDataQuality) window.MaerminDataQuality.recordFetch(['__fx__'], 'open.er-api.com');
             dbg('[PRICES] Exchange rate: 1 USD =', usdToEur.toFixed(4), 'EUR');
           }
         }
@@ -1929,6 +1930,11 @@ function InvestmentTracker() {
       : workerStatus.reachable ? ('Worker reachable but returned an error (' + workerStatus.error + '). Click to review API settings.')
       : 'Worker not reachable — stock/CS2 prices unavailable. Click to check your worker URL.';
 
+    // FX transparency — the converted-value rate, its source and age, on hover.
+    const fxInfo = window.MaerminDataQuality
+      ? window.MaerminDataQuality.fx(exchangeRate, { fetchedAt: (window.MaerminDataQuality.readMeta()['__fx__'] || {}).at, pair: 'USD→EUR' })
+      : null;
+
     return React.createElement('div', { style: { padding: '1.5rem' } },
 
       // ── Demo-mode banner ─────────────────────────────────────────────────
@@ -1959,6 +1965,11 @@ function InvestmentTracker() {
             React.createElement('span', { style: { width: 9, height: 9, borderRadius: '50%', background: wsColor, flexShrink: 0, boxShadow: `0 0 6px ${wsColor}` } }),
             wsLabel
           ),
+          // FX transparency chip — shows the USD→EUR rate, source + age on hover.
+          fxInfo && fxInfo.rate && React.createElement('div', {
+            title: 'FX: ' + fxInfo.label + ' (source: ' + fxInfo.source + ')',
+            style: { display: 'flex', alignItems: 'center', minHeight: '40px', padding: '0.5rem 0.7rem', background: currentTheme.inputBg, border: `1px solid ${currentTheme.cardBorder}`, borderRadius: '8px', fontSize: '0.78rem', color: currentTheme.textSecondary }
+          }, `$→€ ${fxInfo.rate.toFixed(3)}`),
           // Demo toggle — instant value for first-run users.
           demoMode
             ? React.createElement('button', { onClick: exitDemo, style: { minHeight: '40px', padding: '0.5rem 0.9rem', background: currentTheme.inputBg, color: currentTheme.text, border: `1px solid ${currentTheme.cardBorder}`, borderRadius: '8px', cursor: 'pointer', fontSize: '0.85rem' } }, 'Exit demo')
