@@ -36,6 +36,8 @@ export class ToolBus {
     this.timeoutMs = opts.timeoutMs ?? 30_000;
     this.maxBuffer = opts.maxBuffer ?? 8 * 1024 * 1024;
     this.onAudit = typeof opts.onAudit === 'function' ? opts.onAudit : null;
+    // Injectable fetch (tests/non-global runtimes); falls back to global fetch.
+    this._fetch = opts.fetchImpl || (typeof fetch !== 'undefined' ? fetch : null);
     this.audit = [];
 
     // Bind capability namespaces so callers can destructure (`const { fs } = bus`).
@@ -209,11 +211,11 @@ export class ToolBus {
   async _httpFetch(url, init = {}) {
     this._need('http');
     this._assertUrlAllowed(url, 'fetch');
-    if (typeof fetch === 'undefined') throw new Error('no fetch available');
+    if (!this._fetch) throw new Error('no fetch available');
     const ctrl = new AbortController();
     const timer = setTimeout(() => ctrl.abort(), init.timeoutMs ?? this.timeoutMs);
     try {
-      const res = await fetch(String(url), { ...init, signal: ctrl.signal, redirect: 'manual' });
+      const res = await this._fetch(String(url), { ...init, signal: ctrl.signal, redirect: 'manual' });
       this._record('http', 'fetch', url, res.ok);
       return res;
     } catch (e) { this._record('http', 'fetch', url, false, e); throw e; }

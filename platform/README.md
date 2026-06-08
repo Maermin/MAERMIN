@@ -43,12 +43,19 @@ suite, the three load-bearing pieces of the system:
   `caution` (completed but needed auto-fixes), or `blocked` — plus per-stage gate /
   verify / repair status, files written and tool-op counts. `formatReport()` renders
   it for the CLI; it is a pure projection, ready for the API/dashboard.
+- **Pull-request output** (`src/tools/pr.mjs`) — `openPullRequest()`, or
+  `runWorkflow(goal, { commit: true, pr: { remote, repo, token } })`, completes the
+  arc: **push the committed branch and open the PR** (body = the readiness report).
+  The push is real git (works against a local bare repo or a real `origin`); the API
+  call goes through the bus's SSRF allow-list. Graceful: with no `repo`/`token` it is
+  push-only. The previously-deferred "network push" now lives here, fully tested
+  offline against a local bare repo + injected fetch.
 
 ## Run
 
 ```bash
 cd platform
-npm test                 # 5 suites, 98 assertions, all green
+npm test                 # 6 suites, 113 assertions, all green
 npm run demo "Build a billing service with Stripe"   # prints the readiness report
 ```
 
@@ -95,5 +102,8 @@ target monorepo).
 
 The tool bus enforces its guards (sandbox root, SSRF allow-list, audit) in-process;
 the production runner additionally wraps each run in an ephemeral, network-restricted
-**container**. Next concrete step: real **GitHub PR output** (branch → push → open
-PR) — needs a remote + token, so it lands with the runner, not in this offline seed.
+**container**. The **goal → committed → pushed → PR opened** arc is now complete
+(`src/tools/pr.mjs`); a live run just needs a real remote + token supplied to
+`runWorkflow(..., { pr })`. Next concrete steps: an executable plan/task graph (run
+goals task-by-task), a run-observability API + dashboard, and native
+function-calling for the real providers.
