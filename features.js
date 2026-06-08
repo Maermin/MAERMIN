@@ -106,6 +106,43 @@ function Sparkline({ values, width = 80, height = 32, color }) {
   );
 }
 
+// Compact data-trust badge for a position's current price: data source +
+// freshness, and an explicit signal instead of a silent zero. Takes a
+// precomputed `fetchedAt` (the table reads the price-meta map once) so it never
+// touches storage per row. Renders nothing if the data-quality layer is absent.
+function PriceQualityBadge({ category, price, fetchedAt, fetchFailed, theme }) {
+  const Q = (typeof window !== 'undefined') && window.MaerminDataQuality;
+  if (!Q) return null;
+  theme = theme || {};
+  const st = Q.priceState(price, { category, fetchedAt, fetchFailed });
+  const muted = theme.textSecondary || '#888';
+  let dot, text, title;
+  if (!st.available) {
+    dot = '#ef4444';
+    text = st.badge || 'n/a';
+    title = st.source + ' · ' + (st.badge || 'unavailable');
+  } else if (st.freshness.level === 'missing') {
+    dot = muted; // age unknown (e.g. before first refresh / demo) — no false alarm
+    text = st.source;
+    title = 'Source: ' + st.source;
+  } else if (st.freshness.stale) {
+    dot = '#f59e0b';
+    text = '⚠ ' + st.freshness.label;
+    title = st.source + ' · ' + st.freshness.label + ' (stale)';
+  } else {
+    dot = '#22c55e';
+    text = st.freshness.label;
+    title = st.source + ' · ' + st.freshness.label;
+  }
+  return React.createElement('span', {
+    title,
+    style: { display: 'inline-flex', alignItems: 'center', gap: '0.3rem', fontSize: '0.62rem', color: muted, whiteSpace: 'nowrap' }
+  },
+    React.createElement('span', { style: { width: 6, height: 6, borderRadius: '50%', background: dot, flexShrink: 0 } }),
+    text
+  );
+}
+
 // ─────────────────────────────────────────────────────────────────────────────
 // 3. PORTFOLIO OVERVIEW mit Pie + Gainers/Losers + Sparklines
 // ─────────────────────────────────────────────────────────────────────────────
@@ -813,6 +850,12 @@ function PositionsTable({ portfolio, prices, priceHistory, theme, formatPrice, g
   const totalValue = filtered.reduce((s, p) => s + p.value, 0);
   const maxAbsProfit = Math.max(...filtered.map(p => Math.abs(p.profit)), 1);
 
+  // Read the per-symbol price-fetch metadata once (source + last-fetch time) so
+  // each row can show a data-trust badge without touching storage per render.
+  const _pq = window.MaerminDataQuality;
+  const _pqMeta = _pq ? _pq.readMeta() : {};
+  const faFor = (sym) => { if (!_pq || !sym) return null; const e = _pqMeta[sym] || _pqMeta[String(sym).toLowerCase()] || _pqMeta[String(sym).toUpperCase()]; return e ? e.at : null; };
+
   const th = (key, label, align = 'right') => {
     const active = sortKey === key;
     const sort = () => { if (active) setSortDir(d => d === 'asc' ? 'desc' : 'asc'); else { setSortKey(key); setSortDir('desc'); } };
@@ -904,8 +947,12 @@ function PositionsTable({ portfolio, prices, priceHistory, theme, formatPrice, g
                   ),
                   React.createElement('td', { style: { padding: '0.875rem 1rem', color: theme.text, textAlign: 'right', fontSize: '0.875rem' } }, p.amount?.toFixed?.(4)),
                   React.createElement('td', { style: { padding: '0.875rem 1rem', color: theme.textSecondary, textAlign: 'right', fontSize: '0.875rem' } }, formatPrice(p.avgPrice)),
-                  React.createElement('td', { style: { padding: '0.875rem 1rem', color: theme.text, textAlign: 'right', fontWeight: '600', fontSize: '0.875rem' } },
-                    p.price > 0 ? formatPrice(p.price) : React.createElement('span', { style: { color: theme.textSecondary } }, '—')
+                  React.createElement('td', { style: { padding: '0.875rem 1rem', textAlign: 'right' } },
+                    React.createElement('div', { style: { display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: '2px' } },
+                      React.createElement('span', { style: { color: theme.text, fontWeight: '600', fontSize: '0.875rem' } },
+                        p.price > 0 ? formatPrice(p.price) : React.createElement('span', { style: { color: theme.textSecondary } }, '—')),
+                      React.createElement(PriceQualityBadge, { category: p.cat, price: p.price, fetchedAt: faFor(p.sym), theme })
+                    )
                   ),
                   React.createElement('td', { style: { padding: '0.875rem 1rem', color: theme.text, textAlign: 'right', fontWeight: '700', fontSize: '0.875rem' } }, formatPrice(p.value)),
                   // P&L with mini bar
@@ -962,6 +1009,7 @@ if (typeof window !== 'undefined') {
   window.MaerminFeatures = {
     PieChart,
     Sparkline,
+    PriceQualityBadge,
     PortfolioOverviewPanel,
     WatchlistView,
     PriceAlertsView,

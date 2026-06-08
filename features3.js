@@ -469,6 +469,12 @@ function EnhancedPositionsTable({ portfolio, prices, priceHistory, transactions,
   const totalValue  = filtered.reduce((s, p) => s + p.value, 0);
   const maxAbsProfit = Math.max(...filtered.map(p => Math.abs(p.profit)), 1);
 
+  // Data-trust badge plumbing: read the per-symbol price-fetch metadata once.
+  const PriceBadge = window.MaerminFeatures && window.MaerminFeatures.PriceQualityBadge;
+  const _pq = window.MaerminDataQuality;
+  const _pqMeta = _pq ? _pq.readMeta() : {};
+  const faFor = (sym) => { if (!_pq || !sym) return null; const e = _pqMeta[sym] || _pqMeta[String(sym).toLowerCase()] || _pqMeta[String(sym).toUpperCase()]; return e ? e.at : null; };
+
   const th = (key, label, align = 'right') => {
     const active = sortKey === key;
     const sort = () => { if (active) setSortDir(d => d === 'asc' ? 'desc' : 'asc'); else { setSortKey(key); setSortDir('desc'); } };
@@ -593,8 +599,12 @@ function EnhancedPositionsTable({ portfolio, prices, priceHistory, transactions,
                     React.createElement('td', { style: { padding: '0.875rem 0.875rem', color: theme.textSecondary, textAlign: 'right', fontSize: '0.82rem' } },
                       formatPrice(p.avgPrice)
                     ),
-                    React.createElement('td', { style: { padding: '0.875rem 0.875rem', color: theme.text, textAlign: 'right', fontWeight: '600', fontSize: '0.82rem' } },
-                      p.price > 0 ? formatPrice(p.price) : React.createElement('span', { style: { color: theme.textSecondary } }, '—')
+                    React.createElement('td', { style: { padding: '0.875rem 0.875rem', textAlign: 'right' } },
+                      React.createElement('div', { style: { display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: '2px' } },
+                        React.createElement('span', { style: { color: theme.text, fontWeight: '600', fontSize: '0.82rem' } },
+                          p.price > 0 ? formatPrice(p.price) : React.createElement('span', { style: { color: theme.textSecondary } }, '—')),
+                        PriceBadge && React.createElement(PriceBadge, { category: p.cat, price: p.price, fetchedAt: faFor(p.sym), theme })
+                      )
                     ),
                     React.createElement('td', { style: { padding: '0.875rem 0.875rem', color: theme.text, textAlign: 'right', fontWeight: '700', fontSize: '0.875rem' } },
                       formatPrice(p.value)

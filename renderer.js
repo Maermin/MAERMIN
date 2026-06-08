@@ -213,10 +213,18 @@ function InvestmentTracker() {
 
   // Transactions - the source of truth for portfolio
   const [transactions, setTransactions] = useState(() => {
+    // Demo mode seeds offline sample data instead of the user's store — and is
+    // never persisted over it (see the guarded persistence effects below).
+    if (window.MaerminDemo && window.MaerminDemo.isActive()) return window.MaerminDemo.getTransactions();
     const saved = localStorage.getItem('transactions');
     return saved ? JSON.parse(saved) : [];
   });
-  
+  // Demo mode: when on, the app runs entirely on offline sample data; the user's
+  // real transactions/prices are neither read nor written.
+  const [demoMode, setDemoMode] = useState(() => !!(window.MaerminDemo && window.MaerminDemo.isActive()));
+  // Worker reachability for the status indicator (null = not yet probed).
+  const [workerStatus, setWorkerStatus] = useState(null);
+
   // Prices
   const [prices, setPrices] = useState({});
   const [priceHistory, setPriceHistory] = useState({});
@@ -442,11 +450,14 @@ function InvestmentTracker() {
 
   useEffect(() => { localStorage.setItem('theme', theme); }, [theme]);
   useEffect(() => { localStorage.setItem('currency', currency); }, [currency]);
-  useEffect(() => { localStorage.setItem('transactions', JSON.stringify(transactions)); }, [transactions]);
+  // Demo mode is read-only over the user's data: never write sample transactions
+  // back to the real 'transactions' key.
+  useEffect(() => { if (!demoMode) localStorage.setItem('transactions', JSON.stringify(transactions)); }, [transactions, demoMode]);
   // Quota-safe priceHistory persistence. Per-symbol points are already capped at
   // 100; here we also drop the oldest half if localStorage rejects the write
   // (QuotaExceededError) so the app never crashes on a full store.
   useEffect(() => {
+    if (demoMode) return; // don't pollute real history with demo prices
     const write = (obj) => localStorage.setItem('priceHistory', JSON.stringify(obj));
     try { write(priceHistory); }
     catch (e) {
@@ -460,10 +471,31 @@ function InvestmentTracker() {
         console.warn('[priceHistory] storage near quota — trimmed history in half');
       } catch (e2) { console.error('[priceHistory] could not persist:', e2); }
     }
-  }, [priceHistory]);
+  }, [priceHistory, demoMode]);
   useEffect(() => { localStorage.setItem('taxJurisdiction', taxJurisdiction); }, [taxJurisdiction]);
   useEffect(() => { localStorage.setItem('privacyMode', privacyMode ? '1' : '0'); }, [privacyMode]);
   useEffect(() => { localStorage.setItem('apiKeys', JSON.stringify(apiKeys)); }, [apiKeys]);
+
+  // Demo mode drives prices from the offline sample set — no network, instant value.
+  useEffect(() => {
+    if (demoMode && window.MaerminDemo) {
+      setPrices(window.MaerminDemo.getPrices());
+      setExchangeRate(window.MaerminDemo.SETTINGS.exchangeRate);
+    }
+  }, [demoMode]);
+
+  // Probe the Cloudflare Worker so the header shows a live green/red status and a
+  // clear message instead of silent null prices. Skipped in demo mode.
+  useEffect(() => {
+    if (demoMode || !window.MaerminDataQuality) { setWorkerStatus(null); return; }
+    let alive = true;
+    const probe = () => window.MaerminDataQuality
+      .checkWorkerHealth((apiKeys.cs2Worker || '').trim())
+      .then((s) => { if (alive) setWorkerStatus(s); });
+    probe();
+    const iv = setInterval(probe, 60000);
+    return () => { alive = false; clearInterval(iv); };
+  }, [demoMode, apiKeys.cs2Worker]);
 
   // Warm the dividend cache for held stocks (no-op without an FMP key or when
   // already cached). Lets the Dividend Forecast/Calendar resolve far more than
@@ -485,6 +517,13 @@ function InvestmentTracker() {
   // ========== API FUNCTIONS ==========
   
   const fetchPrices = async () => {
+    // Demo mode: re-apply offline sample prices, never hit the network.
+    if (demoMode && window.MaerminDemo) {
+      setPrices(window.MaerminDemo.getPrices());
+      setLastRefresh(new Date());
+      addToast('Demo mode — showing sample prices', 'info');
+      return;
+    }
     setLoading(true);
     const newPrices = { ...prices };
     const timestamp = new Date().toLocaleString('en-US', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' });
@@ -503,6 +542,7 @@ function InvestmentTracker() {
           if (fxData.result === 'success' && fxData.rates && fxData.rates.EUR) {
             usdToEur = fxData.rates.EUR;
             setExchangeRate(usdToEur);
+            if (window.MaerminDataQuality) window.MaerminDataQuality.recordFetch(['__fx__'], 'open.er-api.com');
             dbg('[PRICES] Exchange rate: 1 USD =', usdToEur.toFixed(4), 'EUR');
           }
         }
@@ -773,7 +813,10 @@ function InvestmentTracker() {
       }
       
       setPrices(newPrices);
-      
+      // Stamp when each symbol was fetched so the data-quality layer can flag
+      // stale/failed quotes (feeds the per-position freshness badges).
+      if (window.MaerminDataQuality) window.MaerminDataQuality.recordFetch(Object.keys(newPrices), 'live');
+
       // Update price history
       const newHistory = { ...priceHistory };
       Object.entries(newPrices).forEach(([symbol, price]) => {
@@ -796,6 +839,28 @@ function InvestmentTracker() {
     }
     
     setLoading(false);
+  };
+
+  // ========== DEMO MODE ==========
+  // Let a first-time user experience a fully-populated app immediately, without
+  // deploying a Worker. Toggling never touches the real transaction store.
+  const enterDemo = () => {
+    if (!window.MaerminDemo) return;
+    window.MaerminDemo.enable();
+    setDemoMode(true);
+    setTransactions(window.MaerminDemo.getTransactions());
+    setPrices(window.MaerminDemo.getPrices());
+    setExchangeRate(window.MaerminDemo.SETTINGS.exchangeRate);
+    setLastRefresh(new Date());
+    addToast('Demo mode on — exploring sample data', 'info');
+  };
+  const exitDemo = () => {
+    if (window.MaerminDemo) window.MaerminDemo.disable();
+    setDemoMode(false);
+    const saved = localStorage.getItem('transactions');
+    setTransactions(saved ? JSON.parse(saved) : []);
+    setPrices({});
+    addToast('Demo mode off — your data restored', 'success');
   };
 
   // ========== TOAST NOTIFICATIONS ==========
@@ -1212,6 +1277,7 @@ function InvestmentTracker() {
         window.MaerminFeatures2
           ? React.createElement(window.MaerminFeatures2.BrokerImportWizard, {
               theme, t, addToast,
+              existing: transactions, // for duplicate detection in the mapping preview
               onImport: (txs) => {
                 const newTxs = txs.map((tx, i) => ({ id: (Date.now()+i).toString(), ...tx }));
                 setTransactions(prev => [...prev, ...newTxs]);
@@ -1847,7 +1913,36 @@ function InvestmentTracker() {
       return result;
     })();
 
+    // Worker status → the header's green/red dot + a plain-language explanation
+    // (never a silent failure when prices can't be fetched).
+    const wsColor = demoMode ? '#8a93a3'
+      : !workerStatus ? '#8a93a3'
+      : workerStatus.ok ? '#22c55e'
+      : workerStatus.reachable ? '#f59e0b' : '#ef4444';
+    const wsLabel = demoMode ? 'Demo'
+      : !workerStatus ? 'Worker…'
+      : workerStatus.ok ? 'Live'
+      : workerStatus.error === 'no-worker-url' ? 'No worker' : 'No data';
+    const wsTitle = demoMode ? 'Demo mode — sample prices, no worker needed'
+      : !workerStatus ? 'Checking worker reachability…'
+      : workerStatus.ok ? 'Price worker online — live quotes'
+      : workerStatus.error === 'no-worker-url' ? 'No worker URL set. Stock/CS2 prices need a Cloudflare Worker — click to set it up in API settings.'
+      : workerStatus.reachable ? ('Worker reachable but returned an error (' + workerStatus.error + '). Click to review API settings.')
+      : 'Worker not reachable — stock/CS2 prices unavailable. Click to check your worker URL.';
+
+    // FX transparency — the converted-value rate, its source and age, on hover.
+    const fxInfo = window.MaerminDataQuality
+      ? window.MaerminDataQuality.fx(exchangeRate, { fetchedAt: (window.MaerminDataQuality.readMeta()['__fx__'] || {}).at, pair: 'USD→EUR' })
+      : null;
+
     return React.createElement('div', { style: { padding: '1.5rem' } },
+
+      // ── Demo-mode banner ─────────────────────────────────────────────────
+      demoMode && React.createElement('div', {
+        style: { display: 'flex', alignItems: 'center', gap: '0.6rem', flexWrap: 'wrap', padding: '0.6rem 0.9rem', marginBottom: '1rem', borderRadius: '10px', background: `${currentTheme.accent}14`, border: `1px solid ${currentTheme.accent}55`, color: currentTheme.text, fontSize: '0.82rem' } },
+        React.createElement('span', null, '★ You are exploring MAERMIN with sample data — your real data is untouched.'),
+        React.createElement('button', { onClick: exitDemo, style: { marginLeft: 'auto', minHeight: '40px', padding: '0.45rem 0.9rem', background: currentTheme.accent, color: '#13110a', border: 'none', borderRadius: '8px', cursor: 'pointer', fontWeight: '700', fontSize: '0.8rem' } }, 'Exit demo & use my data')
+      ),
 
       // ── Header ──────────────────────────────────────────────────────────
       React.createElement('div', {
@@ -1861,7 +1956,24 @@ function InvestmentTracker() {
               : `${selectedPortfolio?.name || 'Portfolio'} · ${lastRefresh ? 'Last refresh ' + lastRefresh.toLocaleTimeString('en-GB',{hour:'2-digit',minute:'2-digit'}) : 'Refresh to update'}`
           )
         ),
-        React.createElement('div', { style: { display: 'flex', gap: '0.5rem', flexWrap: 'wrap' } },
+        React.createElement('div', { style: { display: 'flex', gap: '0.5rem', flexWrap: 'wrap', alignItems: 'center' } },
+          // Worker status indicator — click opens API settings.
+          React.createElement('div', {
+            onClick: () => setShowApiSettings(true), title: wsTitle,
+            style: { display: 'flex', alignItems: 'center', gap: '0.4rem', minHeight: '40px', padding: '0.5rem 0.7rem', background: currentTheme.inputBg, border: `1px solid ${currentTheme.cardBorder}`, borderRadius: '8px', cursor: 'pointer', fontSize: '0.78rem', color: currentTheme.textSecondary }
+          },
+            React.createElement('span', { style: { width: 9, height: 9, borderRadius: '50%', background: wsColor, flexShrink: 0, boxShadow: `0 0 6px ${wsColor}` } }),
+            wsLabel
+          ),
+          // FX transparency chip — shows the USD→EUR rate, source + age on hover.
+          fxInfo && fxInfo.rate && React.createElement('div', {
+            title: 'FX: ' + fxInfo.label + ' (source: ' + fxInfo.source + ')',
+            style: { display: 'flex', alignItems: 'center', minHeight: '40px', padding: '0.5rem 0.7rem', background: currentTheme.inputBg, border: `1px solid ${currentTheme.cardBorder}`, borderRadius: '8px', fontSize: '0.78rem', color: currentTheme.textSecondary }
+          }, `$→€ ${fxInfo.rate.toFixed(3)}`),
+          // Demo toggle — instant value for first-run users.
+          demoMode
+            ? React.createElement('button', { onClick: exitDemo, style: { minHeight: '40px', padding: '0.5rem 0.9rem', background: currentTheme.inputBg, color: currentTheme.text, border: `1px solid ${currentTheme.cardBorder}`, borderRadius: '8px', cursor: 'pointer', fontSize: '0.85rem' } }, 'Exit demo')
+            : React.createElement('button', { onClick: enterDemo, title: 'Load sample data to explore the app instantly — no setup', style: { minHeight: '40px', padding: '0.5rem 0.9rem', background: currentTheme.inputBg, color: currentTheme.text, border: `1px solid ${currentTheme.cardBorder}`, borderRadius: '8px', cursor: 'pointer', fontSize: '0.85rem' } }, '★ Try demo'),
           React.createElement('button', { onClick: () => openTransactionModal(), style: { padding: '0.5rem 1rem', background: currentTheme.accent, color: '#13110a', border: 'none', borderRadius: '8px', cursor: 'pointer', fontWeight: '600', fontSize: '0.85rem' } }, '+ Add'),
           React.createElement('button', { onClick: () => setShowImportModal(true), style: { padding: '0.5rem 1rem', background: currentTheme.inputBg, color: currentTheme.text, border: `1px solid ${currentTheme.cardBorder}`, borderRadius: '8px', cursor: 'pointer', fontSize: '0.85rem' } }, '↑ Import'),
           React.createElement('button', { onClick: fetchPrices, disabled: loading, style: { padding: '0.5rem 1rem', background: loading ? currentTheme.inputBg : `${currentTheme.accent}18`, color: loading ? currentTheme.textSecondary : currentTheme.accent, border: `1px solid ${currentTheme.accent}33`, borderRadius: '8px', cursor: loading ? 'not-allowed' : 'pointer', fontSize: '0.85rem', fontWeight: '600', display: 'flex', alignItems: 'center', gap: '0.375rem' } }, loading ? '◎ Refreshing...' : '↻ Refresh prices')
