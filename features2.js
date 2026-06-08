@@ -593,7 +593,7 @@ const BROKERS = [
   { id: 'generic',            name: 'Other / Manual',       hint: 'MAERMIN standard CSV / JSON',  category: 'Other' },
 ];
 
-function BrokerImportWizard({ theme, t, addToast, onImport }) {
+function BrokerImportWizard({ theme, t, addToast, onImport, existing }) {
   const [step, setStep]             = useState(0);
   const [selectedBroker, setBroker] = useState(null);
   const [rawData, setRawData]       = useState('');
@@ -603,6 +603,52 @@ function BrokerImportWizard({ theme, t, addToast, onImport }) {
   const [apiProxy, setApiProxy]     = useState(() => (window.BrokerConnectors ? window.BrokerConnectors.getProxy() : ''));
   const [apiBusy, setApiBusy]       = useState(false);
   const fileRef = useRef();
+
+  // ── Smart mapping preview (window.MaerminImportMapping) ───────────────────
+  // mp = { headers, broker, mapping, transactions(dup-flagged), errors, stats }.
+  // mapping is user-editable; editing re-runs preview() so the table, errors and
+  // duplicate count update live before anything is imported.
+  const [mp, setMp]                 = useState(null);
+  const [mapping, setMapping]       = useState(null);
+  const [includeDupes, setIncludeDupes] = useState(false);
+  const [showErrors, setShowErrors] = useState(false);
+
+  const catHint = /crypto/i.test((BROKERS.find(b => b.id === selectedBroker) || {}).category || '') ? 'crypto' : undefined;
+
+  // Build the preview whenever fresh raw data arrives (auto-detects broker +
+  // column mapping). Editing the mapping goes through updateMapping() instead, so
+  // this effect never fights user edits.
+  useEffect(() => {
+    const IM = window.MaerminImportMapping;
+    if (!IM || !rawData || rawData === ' ') { setMp(null); setMapping(null); return; }
+    try {
+      const prev = IM.preview(rawData, { existing: existing || [], category: catHint });
+      setMapping(prev.mapping);
+      setMp(prev);
+    } catch (e) { console.error('[IMPORT] mapping preview error:', e); setMp(null); }
+  }, [rawData]);
+
+  // Re-run the preview with a user-edited column → field mapping.
+  const updateMapping = (field, header) => {
+    const IM = window.MaerminImportMapping;
+    const next = Object.assign({}, mapping, { [field]: header || null });
+    setMapping(next);
+    if (IM && rawData) {
+      try { setMp(IM.preview(rawData, { existing: existing || [], category: catHint, mapping: next })); }
+      catch (e) { console.error('[IMPORT] remap error:', e); }
+    }
+  };
+
+  // Import the validated, de-duplicated rows from the mapping preview.
+  const doImportMapped = () => {
+    const IM = window.MaerminImportMapping;
+    if (!IM || !mp) return;
+    const out = IM.commit(mp, { includeDuplicates: includeDupes });
+    if (!out.transactions.length) { addToast && addToast('Nothing to import', 'warning'); return; }
+    onImport && onImport(out.transactions);
+    setStep(3);
+    addToast && addToast(`${out.transactions.length} transactions imported${out.skipped ? ` · ${out.skipped} duplicate(s) skipped` : ''}`, 'success');
+  };
 
   const selectedBrokerObj = BROKERS.find(b => b.id === selectedBroker);
   const apiConn = window.BrokerConnectors ? window.BrokerConnectors.get(selectedBroker) : null;
@@ -834,10 +880,12 @@ function BrokerImportWizard({ theme, t, addToast, onImport }) {
       )
     ),
 
-    // ── Step 2: Preview ──────────────────────────────────────────────────────
+    // ── Step 2: Preview & mapping ────────────────────────────────────────────
     step === 2 && React.createElement('div', null,
       fileName && React.createElement('div', { style: { marginBottom: '1rem', color: theme.textSecondary, fontSize: '0.875rem' } }, `${fileName}`),
-      parsed.length === 0 && React.createElement('div', null,
+
+      // Paste fallback when there is no data yet (or the mapping module is absent).
+      (!mp && parsed.length === 0) && React.createElement('div', null,
         React.createElement('p', { style: { color: theme.warning, marginBottom: '1rem' } }, 'No transactions detected. Paste CSV content manually:'),
         React.createElement('textarea', {
           value: rawData === ' ' ? '' : rawData,
@@ -846,38 +894,96 @@ function BrokerImportWizard({ theme, t, addToast, onImport }) {
           style: { width: '100%', height: '150px', padding: '0.75rem', background: theme.inputBg, border: `1px solid ${theme.inputBorder}`, borderRadius: '8px', color: theme.text, fontFamily: 'monospace', fontSize: '0.8rem', resize: 'vertical', marginBottom: '0.75rem' }
         })
       ),
-      parsed.length > 0 && React.createElement('div', null,
-        React.createElement('div', { style: { color: '#22c55e', fontWeight: '600', marginBottom: '0.75rem', fontSize: '0.9rem' } }, `✓ ${parsed.length} transactions detected`),
-        React.createElement('div', { style: { background: theme.card, borderRadius: '10px', border: `1px solid ${theme.cardBorder}`, overflow: 'auto', maxHeight: '300px' } },
-          React.createElement('table', { style: { width: '100%', borderCollapse: 'collapse', minWidth: '500px', fontSize: '0.8rem' } },
-            React.createElement('thead', null,
-              React.createElement('tr', null,
-                ['Date','Type','Symbol','Quantity','Price','Fees'].map((h,i) =>
-                  React.createElement('th', { key: i, style: { padding: '0.625rem 0.875rem', textAlign: i > 2 ? 'right' : 'left', color: theme.textSecondary, borderBottom: `1px solid ${theme.cardBorder}`, fontWeight: '600' } }, h)
+
+      // NEW smart mapping preview (window.MaerminImportMapping).
+      mp && (function () {
+        const importable = mp.stats.ok - (includeDupes ? 0 : (mp.stats.duplicates || 0));
+        const reqMissing = (window.MaerminImportMapping.REQUIRED || []).filter(f => !mapping || !mapping[f]);
+        const selStyle = (field) => ({
+          padding: '0.4rem 0.5rem', minHeight: '40px', background: theme.inputBg,
+          border: `1px solid ${(window.MaerminImportMapping.REQUIRED.indexOf(field) !== -1 && (!mapping || !mapping[field])) ? '#ef4444' : theme.inputBorder}`,
+          borderRadius: '6px', color: theme.text, fontSize: '0.78rem', width: '100%'
+        });
+        return React.createElement('div', null,
+          // Summary chips: broker + counts.
+          React.createElement('div', { style: { display: 'flex', flexWrap: 'wrap', gap: '0.5rem', alignItems: 'center', marginBottom: '0.9rem', fontSize: '0.8rem' } },
+            mp.broker && React.createElement('span', { style: { padding: '0.25rem 0.6rem', borderRadius: '20px', background: `${theme.accent}1e`, color: theme.accent, fontWeight: '700' } }, `Detected: ${mp.broker.name}`),
+            React.createElement('span', { style: { padding: '0.25rem 0.6rem', borderRadius: '20px', background: 'rgba(34,197,94,0.15)', color: '#22c55e', fontWeight: '700' } }, `✓ ${mp.stats.ok} valid`),
+            mp.errors.length > 0 && React.createElement('span', { ...window.MaerminUtils.clickable(() => setShowErrors(v => !v)), 'aria-label': 'Toggle error details', style: { padding: '0.25rem 0.6rem', borderRadius: '20px', background: 'rgba(239,68,68,0.15)', color: '#ef4444', fontWeight: '700', cursor: 'pointer' } }, `✗ ${mp.errors.length} skipped ${showErrors ? '▲' : '▼'}`),
+            (mp.stats.duplicates > 0) && React.createElement('span', { style: { padding: '0.25rem 0.6rem', borderRadius: '20px', background: 'rgba(245,158,11,0.15)', color: '#f59e0b', fontWeight: '700' } }, `⚠ ${mp.stats.duplicates} duplicate(s)`)
+          ),
+
+          // Editable column → field mapping.
+          React.createElement('div', { style: { background: theme.card, border: `1px solid ${theme.cardBorder}`, borderRadius: '10px', padding: '0.9rem', marginBottom: '0.9rem' } },
+            React.createElement('div', { style: { color: theme.textSecondary, fontSize: '0.72rem', fontWeight: '700', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: '0.6rem' } }, 'Column mapping (edit if a column is wrong)'),
+            React.createElement('div', { style: { display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(150px, 1fr))', gap: '0.6rem' } },
+              (window.MaerminImportMapping.FIELDS).map(field =>
+                React.createElement('label', { key: field, style: { display: 'block' } },
+                  React.createElement('span', { style: { display: 'block', color: theme.textSecondary, fontSize: '0.7rem', marginBottom: '0.2rem' } },
+                    field + (window.MaerminImportMapping.REQUIRED.indexOf(field) !== -1 ? ' *' : '')),
+                  React.createElement('select', {
+                    value: (mapping && mapping[field]) || '',
+                    onChange: e => updateMapping(field, e.target.value || null),
+                    style: selStyle(field)
+                  },
+                    React.createElement('option', { value: '' }, '— none —'),
+                    mp.headers.map((h, i) => React.createElement('option', { key: i, value: h }, h))
+                  )
                 )
               )
             ),
-            React.createElement('tbody', null,
-              parsed.slice(0,20).map((tx, i) =>
-                React.createElement('tr', { key: i },
-                  React.createElement('td', { style: { padding: '0.5rem 0.875rem', color: theme.text } }, tx.date || '—'),
-                  React.createElement('td', { style: { padding: '0.5rem 0.875rem' } },
-                    React.createElement('span', { style: { padding: '0.125rem 0.375rem', borderRadius: '3px', fontSize: '0.7rem', fontWeight: '700', background: tx.type==='buy' ? 'rgba(34,197,94,0.15)' : 'rgba(239,68,68,0.15)', color: tx.type==='buy' ? '#22c55e' : '#ef4444' } }, (tx.type||'').toUpperCase())
-                  ),
-                  React.createElement('td', { style: { padding: '0.5rem 0.875rem', color: theme.text, fontWeight: '600' } }, tx.symbol || '—'),
-                  React.createElement('td', { style: { padding: '0.5rem 0.875rem', color: theme.text, textAlign: 'right' } }, tx.quantity?.toFixed?.(4) || '—'),
-                  React.createElement('td', { style: { padding: '0.5rem 0.875rem', color: theme.text, textAlign: 'right' } }, tx.price?.toFixed?.(2) || '—'),
-                  React.createElement('td', { style: { padding: '0.5rem 0.875rem', color: theme.textSecondary, textAlign: 'right' } }, tx.fees?.toFixed?.(2) || '0.00')
+            reqMissing.length > 0 && React.createElement('div', { style: { color: '#ef4444', fontSize: '0.74rem', marginTop: '0.5rem' } }, `Map the required field(s): ${reqMissing.join(', ')}`)
+          ),
+
+          // Row-accurate error report.
+          showErrors && mp.errors.length > 0 && React.createElement('div', { style: { background: 'rgba(239,68,68,0.06)', border: '1px solid rgba(239,68,68,0.25)', borderRadius: '8px', padding: '0.6rem 0.8rem', marginBottom: '0.9rem', maxHeight: '160px', overflow: 'auto', fontSize: '0.76rem' } },
+            mp.errors.slice(0, 50).map((er, i) => React.createElement('div', { key: i, style: { color: theme.textSecondary, lineHeight: '1.7' } },
+              React.createElement('span', { style: { color: '#ef4444', fontWeight: '700' } }, `Row ${er.row}: `), er.reason)),
+            mp.errors.length > 50 && React.createElement('div', { style: { color: theme.textSecondary } }, `… and ${mp.errors.length - 50} more`)
+          ),
+
+          // Duplicate handling toggle.
+          (mp.stats.duplicates > 0) && React.createElement('label', { style: { display: 'flex', alignItems: 'center', gap: '0.5rem', marginBottom: '0.9rem', fontSize: '0.82rem', color: theme.text, cursor: 'pointer' } },
+            React.createElement('input', { type: 'checkbox', checked: includeDupes, onChange: e => setIncludeDupes(e.target.checked) }),
+            `Import the ${mp.stats.duplicates} duplicate(s) too (already in your portfolio)`
+          ),
+
+          // Preview table — duplicates greyed + flagged.
+          React.createElement('div', { style: { background: theme.card, borderRadius: '10px', border: `1px solid ${theme.cardBorder}`, overflow: 'auto', maxHeight: '300px' } },
+            React.createElement('table', { style: { width: '100%', borderCollapse: 'collapse', minWidth: '560px', fontSize: '0.8rem' } },
+              React.createElement('thead', null,
+                React.createElement('tr', null,
+                  ['Date', 'Type', 'Symbol', 'Quantity', 'Price', 'Fees', ''].map((h, i) =>
+                    React.createElement('th', { key: i, style: { padding: '0.6rem 0.875rem', textAlign: (i > 2 && i < 6) ? 'right' : 'left', color: theme.textSecondary, borderBottom: `1px solid ${theme.cardBorder}`, fontWeight: '600' } }, h)
+                  )
+                )
+              ),
+              React.createElement('tbody', null,
+                mp.transactions.slice(0, 20).map((tx, i) =>
+                  React.createElement('tr', { key: i, style: { opacity: tx.duplicate ? 0.45 : 1 } },
+                    React.createElement('td', { style: { padding: '0.5rem 0.875rem', color: theme.text } }, tx.date || '—'),
+                    React.createElement('td', { style: { padding: '0.5rem 0.875rem' } },
+                      React.createElement('span', { style: { padding: '0.125rem 0.375rem', borderRadius: '3px', fontSize: '0.7rem', fontWeight: '700', background: tx.type === 'buy' ? 'rgba(34,197,94,0.15)' : tx.type === 'sell' ? 'rgba(239,68,68,0.15)' : 'rgba(245,165,36,0.15)', color: tx.type === 'buy' ? '#22c55e' : tx.type === 'sell' ? '#ef4444' : theme.accent } }, (tx.type || '').toUpperCase())
+                    ),
+                    React.createElement('td', { style: { padding: '0.5rem 0.875rem', color: theme.text, fontWeight: '600' } }, tx.symbol || '—'),
+                    React.createElement('td', { style: { padding: '0.5rem 0.875rem', color: theme.text, textAlign: 'right' } }, tx.quantity?.toFixed?.(4) || '—'),
+                    React.createElement('td', { style: { padding: '0.5rem 0.875rem', color: theme.text, textAlign: 'right' } }, tx.price?.toFixed?.(2) || '—'),
+                    React.createElement('td', { style: { padding: '0.5rem 0.875rem', color: theme.textSecondary, textAlign: 'right' } }, tx.fees?.toFixed?.(2) || '0.00'),
+                    React.createElement('td', { style: { padding: '0.5rem 0.875rem', textAlign: 'right' } }, tx.duplicate ? React.createElement('span', { style: { color: '#f59e0b', fontSize: '0.68rem', fontWeight: '700' } }, 'DUP') : '')
+                  )
                 )
               )
             )
-          )
-        ),
-        parsed.length > 20 && React.createElement('div', { style: { color: theme.textSecondary, fontSize: '0.8rem', marginTop: '0.5rem' } }, `... and ${parsed.length-20} more`)
-      ),
+          ),
+          mp.transactions.length > 20 && React.createElement('div', { style: { color: theme.textSecondary, fontSize: '0.8rem', marginTop: '0.5rem' } }, `... and ${mp.transactions.length - 20} more`)
+        );
+      })(),
+
       React.createElement('div', { style: { display: 'flex', gap: '0.5rem', marginTop: '1rem' } },
         btn('← Back', () => setStep(1)),
-        btn(`✓ Import ${parsed.length}`, doImport, true, parsed.length === 0)
+        mp
+          ? btn(`✓ Import ${Math.max(0, mp.stats.ok - (includeDupes ? 0 : (mp.stats.duplicates || 0)))}`, doImportMapped, true, (mp.stats.ok - (includeDupes ? 0 : (mp.stats.duplicates || 0))) <= 0)
+          : btn(`✓ Import ${parsed.length}`, doImport, true, parsed.length === 0)
       )
     ),
 
