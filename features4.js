@@ -161,7 +161,9 @@ function PortfolioManagerView({ portfolios, activePortfolioId, transactions, pri
       portfolioStats.map(p =>
         React.createElement('div', {
           key: p.id,
-          onClick: () => setActivePortfolioId(p.id),
+          ...window.MaerminUtils.clickable(() => setActivePortfolioId(p.id)),
+          'aria-label': 'Switch to portfolio ' + (p.name || p.id),
+          'aria-pressed': activePortfolioId === p.id,
           style: {
             background: theme.card, border: `2px solid ${activePortfolioId === p.id ? p.color : theme.cardBorder}`,
             borderRadius: '12px', padding: '1.25rem', cursor: 'pointer', transition: 'all 0.15s'
@@ -707,7 +709,9 @@ function FIFOView({ transactions, prices, theme, formatPrice, getCurrencySymbol 
             const unrealizedPnL = e.unrealizedQty * (currentPrice - e.avgCostFIFO);
             return React.createElement('tr', {
               key,
-              onClick: () => setActiveSymbol(activeSymbol === key ? null : key),
+              ...window.MaerminUtils.clickable(() => setActiveSymbol(activeSymbol === key ? null : key)),
+              'aria-label': 'Toggle lot details for ' + (e.symbol || key),
+              'aria-expanded': activeSymbol === key,
               style: { borderBottom: `1px solid ${theme.cardBorder}`, cursor: 'pointer', transition: 'background 0.1s' },
               onMouseEnter: el => el.currentTarget.style.background = `${theme.accent}08`,
               onMouseLeave: el => el.currentTarget.style.background = 'transparent'

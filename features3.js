@@ -471,9 +471,13 @@ function EnhancedPositionsTable({ portfolio, prices, priceHistory, transactions,
 
   const th = (key, label, align = 'right') => {
     const active = sortKey === key;
+    const sort = () => { if (active) setSortDir(d => d === 'asc' ? 'desc' : 'asc'); else { setSortKey(key); setSortDir('desc'); } };
     return React.createElement('th', {
       key,
-      onClick: () => { if (active) setSortDir(d => d === 'asc' ? 'desc' : 'asc'); else { setSortKey(key); setSortDir('desc'); } },
+      onClick: sort,
+      tabIndex: 0,
+      'aria-sort': active ? (sortDir === 'asc' ? 'ascending' : 'descending') : 'none',
+      onKeyDown: e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); sort(); } },
       style: {
         padding: '0.75rem 0.875rem', textAlign: align, cursor: 'pointer',
         color: active ? theme.accent : theme.textSecondary,
@@ -557,7 +561,8 @@ function EnhancedPositionsTable({ portfolio, prices, priceHistory, transactions,
                   const cagrColor = p.cagr === null ? theme.textSecondary : p.cagr >= 0 ? '#22c55e' : '#ef4444';
                   return React.createElement('tr', {
                     key: p.sym + p.cat,
-                    onClick: () => setDetailPosition(p),
+                    ...window.MaerminUtils.clickable(() => setDetailPosition(p)),
+                    'aria-label': 'View details for ' + p.sym,
                     style: { borderBottom: `1px solid ${theme.cardBorder}`, cursor: 'pointer', transition: 'background 0.1s' },
                     onMouseEnter: e => e.currentTarget.style.background = `${theme.accent}08`,
                     onMouseLeave: e => e.currentTarget.style.background = 'transparent'
@@ -779,7 +784,7 @@ function CS2SkinPicker({ workerUrl, theme, onSelect, selectedName }) {
         results.map((item, i) =>
           React.createElement('div', {
             key: i,
-            onClick: () => select(item),
+            ...window.MaerminUtils.clickable(() => select(item)),
             style: {
               background: theme.card, cursor: 'pointer', padding: '0.75rem',
               display: 'flex', flexDirection: 'column', gap: '0.375rem',
@@ -1089,7 +1094,7 @@ function SymbolPicker({ category, workerUrl, theme, onSelect, selectedSymbol, se
         results.map((item, i) =>
           React.createElement('div', {
             key: i,
-            onClick: () => pick(item),
+            ...window.MaerminUtils.clickable(() => pick(item)),
             style: {
               display: 'flex', alignItems: 'center', gap: '0.75rem',
               padding: '0.625rem 0.875rem',

@@ -143,13 +143,14 @@ function PortfolioOverviewPanel({ portfolio, prices, priceHistory, theme, format
     return result.filter(p => p.value > 0);
   }, [portfolio, prices, priceHistory]);
 
-  const totalValue = allPositions.reduce((s, p) => s + p.value, 0);
-
   // Pie slices by asset class — uses the shared allocation engine (#5) so the
   // breakdown, ordering and colours match everywhere and carry absolute + %.
+  // includeCash folds Net-Worth accounts (cash/checking/property/other) into the
+  // total so the donut reflects the COMPLETE portfolio summed together, not just
+  // the four tradable asset classes.
   const catSlices = useMemo(() => {
     if (window.MaerminAllocation) {
-      const a = window.MaerminAllocation.computeAllocation(portfolio, prices);
+      const a = window.MaerminAllocation.computeAllocation(portfolio, prices, { includeCash: true });
       return a.byClass.map(c => ({ key: c.key, label: c.label, value: c.value, color: c.color, pct: c.pct }));
     }
     const map = { crypto: 0, stocks: 0, skins: 0, commodities: 0 };
@@ -178,7 +179,18 @@ function PortfolioOverviewPanel({ portfolio, prices, priceHistory, theme, format
     transition: 'all 0.15s'
   });
 
-  if (allPositions.length === 0) return null;
+  if (catSlices.length === 0) return null;
+
+  // Whatever is on screen (asset classes on the overview tab, individual
+  // positions when drilled into a class) drives the donut center label and the
+  // legend percentages, so ring + center + percentages always sum consistently.
+  const ASSET_TABS = ['crypto', 'stocks', 'skins', 'commodities'];
+  const displayedSlices = activeTab === 'overview' ? catSlices : posSlices;
+  const displayedTotal  = displayedSlices.reduce((s, x) => s + x.value, 0);
+  const centerLabel     = formatPrice(displayedTotal);
+  const centerSub       = activeTab === 'overview'
+    ? (t.totalValue || 'Total Portfolio Value')
+    : ((catSlices.find(c => c.key === activeTab) || {}).label || activeTab);
 
   return React.createElement('div', {
     style: {
@@ -201,26 +213,29 @@ function PortfolioOverviewPanel({ portfolio, prices, priceHistory, theme, format
       ),
       React.createElement('div', { style: { display: 'flex', gap: '1.5rem', alignItems: 'center' } },
         React.createElement(PieChart, {
-          slices: activeTab === 'overview' ? catSlices : posSlices,
+          slices: displayedSlices,
           size: 150, thickness: 34,
-          label: formatPrice(totalValue),
-          sublabel: t.totalValue || 'Total'
+          label: centerLabel,
+          sublabel: centerSub
         }),
         React.createElement('div', { style: { flex: 1 } },
-          (activeTab === 'overview' ? catSlices : posSlices).slice(0,8).map((s, i) => {
-            // On the overview tab, clicking an asset class drills into it.
-            const drillable = activeTab === 'overview' && s.key;
+          displayedSlices.slice(0,8).map((s, i) => {
+            // On the overview tab, clicking an asset class with position-level
+            // data drills into it (cash/other have no per-position breakdown).
+            const drillable = activeTab === 'overview' && ASSET_TABS.includes(s.key);
             return React.createElement('div', {
               key: i,
-              onClick: drillable ? () => setActiveTab(s.key) : undefined,
+              ...(drillable ? window.MaerminUtils.clickable(() => setActiveTab(s.key)) : {}),
+              'aria-label': drillable ? `Show ${s.label}` : undefined,
               title: drillable ? `Show ${s.label}` : undefined,
               style: { display: 'flex', alignItems: 'center', gap: '0.5rem', marginBottom: '0.4rem', cursor: drillable ? 'pointer' : 'default' }
             },
               React.createElement('div', { style: { width: 8, height: 8, borderRadius: '50%', background: s.color, flexShrink: 0 } }),
               React.createElement('span', { style: { color: theme.textSecondary, fontSize: '0.75rem', flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' } }, s.label),
-              // Absolute value + percentage (requirement #5).
+              // Absolute value + percentage of whatever total is on screen (#5),
+              // so the legend always sums to 100% of the donut.
               React.createElement('span', { style: { color: theme.text, fontSize: '0.75rem', fontWeight: '600', whiteSpace: 'nowrap' } },
-                `${formatPrice(s.value)} ${getCurrencySymbol()} · ${totalValue > 0 ? ((s.value / totalValue) * 100).toFixed(1) : 0}%`
+                `${formatPrice(s.value)} ${getCurrencySymbol()} · ${displayedTotal > 0 ? ((s.value / displayedTotal) * 100).toFixed(1) : 0}%`
               )
             );
           })
@@ -800,9 +815,13 @@ function PositionsTable({ portfolio, prices, priceHistory, theme, formatPrice, g
 
   const th = (key, label, align = 'right') => {
     const active = sortKey === key;
+    const sort = () => { if (active) setSortDir(d => d === 'asc' ? 'desc' : 'asc'); else { setSortKey(key); setSortDir('desc'); } };
     return React.createElement('th', {
       key,
-      onClick: () => { if (active) setSortDir(d => d === 'asc' ? 'desc' : 'asc'); else { setSortKey(key); setSortDir('desc'); } },
+      onClick: sort,
+      tabIndex: 0,
+      'aria-sort': active ? (sortDir === 'asc' ? 'ascending' : 'descending') : 'none',
+      onKeyDown: e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); sort(); } },
       style: {
         padding: '0.75rem 1rem', textAlign: align, cursor: 'pointer',
         color: active ? theme.accent : theme.textSecondary,

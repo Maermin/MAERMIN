@@ -90,6 +90,27 @@
     return a;
   }
 
+  // Accessibility: make a non-<button> element (div/span/tr/th used as a
+  // control) behave like a button for keyboard + assistive-tech users. Returns
+  // the prop bag to spread into React.createElement:
+  //   React.createElement('div', { ...clickable(() => select(x)), style })
+  // It wires onClick AND an Enter/Space onKeyDown to the same handler, and adds
+  // role="button" + tabIndex so the element is focusable and announced.
+  function clickable(handler, opts) {
+    opts = opts || {};
+    return {
+      role: opts.role || 'button',
+      tabIndex: opts.tabIndex === undefined ? 0 : opts.tabIndex,
+      onClick: handler,
+      onKeyDown: function (e) {
+        if (e.key === 'Enter' || e.key === ' ' || e.key === 'Spacebar') {
+          e.preventDefault();
+          handler(e);
+        }
+      },
+    };
+  }
+
   const MaerminUtils = {
     formatNumber,
     formatCurrencyEUR,
@@ -100,6 +121,7 @@
     upsertTransaction,
     toEUR,
     fromEUR,
+    clickable,
   };
 
   if (typeof window !== 'undefined') {

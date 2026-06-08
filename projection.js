@@ -154,17 +154,48 @@
       { key: 'conservative', color: '#ef4444', label: 'Conservative' }
     ];
 
-    // SVG line chart geometry
-    var W = 640, H = 240, PAD = 8;
+    // ---- SVG chart geometry -------------------------------------------------
+    // Padded plot area leaves room for a Y value axis (left) and year axis (bot).
+    var W = 720, H = 300, padL = 60, padR = 16, padT = 16, padB = 30;
+    var plotW = W - padL - padR, plotH = H - padT - padB;
+    var pts = proj.scenarios.realistic.points;
+    var maxYear = pts[pts.length - 1].year || years || 1;
+
     var allVals = [];
     SCN.forEach(function (s) { proj.scenarios[s.key].points.forEach(function (p) { allVals.push(p.value); }); });
-    var maxV = Math.max.apply(null, allVals.concat([1])), minV = Math.min.apply(null, allVals.concat([0]));
-    var pts = proj.scenarios.realistic.points;
-    function x(i) { return PAD + (i / (pts.length - 1 || 1)) * (W - 2 * PAD); }
-    function y(v) { return H - PAD - ((v - minV) / (maxV - minV || 1)) * (H - 2 * PAD); }
+    var rawMax = Math.max.apply(null, allVals.concat([1]));
+    var rawMin = Math.min.apply(null, allVals.concat([0]));
+    // Fit the Y range to the actual curves (with a little headroom) instead of
+    // anchoring at 0, so the spread between scenarios is legible at every
+    // horizon — a 1-year view no longer looks like three flat lines.
+    var span = rawMax - rawMin || rawMax || 1;
+    var maxV = rawMax + span * 0.08;
+    var minV = Math.max(0, rawMin - span * 0.12);
+
+    function x(p) { return padL + (p.year / (maxYear || 1)) * plotW; }
+    function y(v) { return padT + plotH - ((v - minV) / (maxV - minV || 1)) * plotH; }
     function pathFor(key) {
-      return proj.scenarios[key].points.map(function (p, i) { return (i ? 'L' : 'M') + x(i).toFixed(1) + ' ' + y(p.value).toFixed(1); }).join(' ');
+      return proj.scenarios[key].points.map(function (p, i) { return (i ? 'L' : 'M') + x(p).toFixed(1) + ' ' + y(p.value).toFixed(1); }).join(' ');
     }
+    // Closed area under the realistic line for a soft gradient fill.
+    var realPts = proj.scenarios.realistic.points;
+    var areaPath = pathFor('realistic') + ' L' + x(realPts[realPts.length - 1]).toFixed(1) + ' ' + (padT + plotH).toFixed(1) +
+      ' L' + x(realPts[0]).toFixed(1) + ' ' + (padT + plotH).toFixed(1) + ' Z';
+
+    // Compact axis-value formatter (23.9k / 1.2M) to keep the Y axis narrow.
+    function compact(v) {
+      var a = Math.abs(v);
+      if (a >= 1e6) return (v / 1e6).toFixed(a >= 1e7 ? 0 : 1) + 'M';
+      if (a >= 1e3) return (v / 1e3).toFixed(a >= 1e4 ? 0 : 1) + 'k';
+      return String(Math.round(v));
+    }
+    var TICKS = 4;
+    var yTicks = [];
+    for (var ti = 0; ti <= TICKS; ti++) yTicks.push(minV + (maxV - minV) * ti / TICKS);
+    // X labels: subsample year points so they never overlap on long horizons.
+    var xStep = Math.max(1, Math.ceil(pts.length / 6));
+    var axisColor = theme.cardBorder || 'rgba(255,255,255,0.08)';
+    var gridId = 'wealthGrad';
 
     var horizons = [1, 3, 5, 10];
     function hzBtn(yr) {
@@ -187,7 +218,35 @@
       ),
       // chart
       e('svg', { viewBox: '0 0 ' + W + ' ' + H, style: { width: '100%', height: 'auto', display: 'block' } },
-        SCN.map(function (s) { return e('path', { key: s.key, d: pathFor(s.key), fill: 'none', stroke: s.color, strokeWidth: s.key === 'realistic' ? 2.5 : 1.5, opacity: s.key === 'realistic' ? 1 : 0.7 }); })
+        e('defs', null,
+          e('linearGradient', { id: gridId, x1: '0', y1: '0', x2: '0', y2: '1' },
+            e('stop', { offset: '0%', stopColor: theme.accent || '#f5a524', stopOpacity: 0.22 }),
+            e('stop', { offset: '100%', stopColor: theme.accent || '#f5a524', stopOpacity: 0 })
+          )
+        ),
+        // horizontal gridlines + Y value labels
+        yTicks.map(function (v, i) {
+          var yy = y(v);
+          return e('g', { key: 'y' + i },
+            e('line', { x1: padL, y1: yy, x2: W - padR, y2: yy, stroke: axisColor, strokeWidth: 1, opacity: 0.5 }),
+            e('text', { x: padL - 8, y: yy + 3, textAnchor: 'end', fontSize: 10, fill: theme.textSecondary || '#888' }, compact(v))
+          );
+        }),
+        // X year labels
+        pts.map(function (p, i) {
+          if (i % xStep !== 0 && i !== pts.length - 1) return null;
+          return e('text', { key: 'x' + i, x: x(p), y: H - 10, textAnchor: 'middle', fontSize: 10, fill: theme.textSecondary || '#888' },
+            p.year === 0 ? 'Now' : (Math.round(p.year * 10) / 10) + 'y');
+        }),
+        // soft fill under the realistic curve
+        e('path', { d: areaPath, fill: 'url(#' + gridId + ')', stroke: 'none' }),
+        // scenario lines
+        SCN.map(function (s) { return e('path', { key: s.key, d: pathFor(s.key), fill: 'none', stroke: s.color, strokeWidth: s.key === 'realistic' ? 2.75 : 1.75, opacity: s.key === 'realistic' ? 1 : 0.75, strokeLinejoin: 'round', strokeLinecap: 'round' }); }),
+        // end-point markers with the final value beside the realistic curve
+        SCN.map(function (s) {
+          var last = proj.scenarios[s.key].points[proj.scenarios[s.key].points.length - 1];
+          return e('circle', { key: 'd' + s.key, cx: x(last), cy: y(last.value), r: s.key === 'realistic' ? 4 : 3, fill: s.color, stroke: theme.card || '#10151f', strokeWidth: 1.5 });
+        })
       ),
       // legend + end values
       e('div', { style: { display: 'flex', gap: '1rem', flexWrap: 'wrap', marginTop: '0.75rem' } },
