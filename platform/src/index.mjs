@@ -4,16 +4,32 @@
 import { createProvider } from './providers/provider.mjs';
 import { MemoryStore } from './memory/store.mjs';
 import { WorkflowEngine, DEFAULT_WORKFLOW } from './workflow/engine.mjs';
+import { createToolBus } from './tools/bus.mjs';
+import { commitWorkspace } from './tools/commit.mjs';
 
 export { createProvider, MemoryStore, WorkflowEngine, DEFAULT_WORKFLOW };
 export { Agent, ROLES } from './agents/roles.mjs';
+export { ToolBus, createToolBus } from './tools/bus.mjs';
+export { commitWorkspace } from './tools/commit.mjs';
 
 // One-call convenience: run a goal through the default (or custom) pipeline.
+// Pass opts.workspace (a ToolBus) — or opts.workspaceRoot — to give the run a
+// sandboxed execution substrate: stage artifacts are then written to real files
+// through the audited bus instead of living only in memory.
 export async function runWorkflow(goal, opts = {}) {
   const provider = opts.provider || createProvider(opts.providerKind || 'mock', opts.providerOpts || {});
   const memory = opts.memory || new MemoryStore({ file: opts.memoryFile, embed: provider.embed ? provider.embed.bind(provider) : null });
-  const engine = new WorkflowEngine({ provider, memory, hooks: opts.hooks });
-  return engine.run(goal, opts.config || DEFAULT_WORKFLOW);
+  const workspace = opts.workspace || (opts.workspaceRoot ? createToolBus({ root: opts.workspaceRoot }) : null);
+  const engine = new WorkflowEngine({ provider, memory, workspace, hooks: opts.hooks });
+  const result = await engine.run(goal, opts.config || DEFAULT_WORKFLOW);
+
+  // opts.commit (true | a commit message) finalizes a successful run into a single
+  // reviewable git changeset in the workspace.
+  if (opts.commit && workspace && result.run.status === 'completed') {
+    const message = typeof opts.commit === 'string' ? opts.commit : `feat: ${goal}`;
+    result.changeset = await commitWorkspace(workspace, { message, branch: opts.branch });
+  }
+  return result;
 }
 
 // CLI: `node src/index.mjs "build a billing service"`

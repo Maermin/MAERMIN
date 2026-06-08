@@ -5,7 +5,7 @@
   "type": "module",
   "description": "MAERMIN Platform — autonomous AI software-engineering kernel (M1 seed)",
   "scripts": {
-    "test": "node test/engine.test.mjs",
+    "test": "node test/engine.test.mjs && node test/tools.test.mjs && node test/protocol.test.mjs && node test/commit.test.mjs",
     "demo": "node src/index.mjs"
   },
   "license": "MIT"
