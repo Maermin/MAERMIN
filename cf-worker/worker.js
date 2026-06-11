@@ -6,6 +6,8 @@
  *   GET  /?action=yf&symbol=AAPL&interval=1d&range=1y → YF historical data
  *   GET  /?action=screener&scrId=day_gainers   → Discovery: predefined screener / movers
  *   GET  /?action=screener&symbols=KO,PG       → Discovery: batch quote (dividend universe)
+ *   GET  /?action=fundholdings&symbol=VWCE.DE  → ETF/fund look-through: top holdings,
+ *                                                 sector weights, expense ratio (TER)
  *   GET  /?action=steamhistory&name=...        → Steam skin price (fallback to current)
  *   GET  /?action=search&q=...                 → Steam Market skin search
  *   POST /                                      → Steam skin price lookup
@@ -283,6 +285,80 @@ export default {
       }
     }
 
+    // ── Fund holdings (ETF/fund look-through) ────────────────────────────────
+    // GET /?action=fundholdings&symbol=VWCE.DE
+    // Proxies Yahoo Finance quoteSummary (modules topHoldings + fundProfile +
+    // price) and normalises it for the client's look-through engine:
+    //   { symbol, name, type, fund, ter, holdings:[{symbol,name,weight}],
+    //     sectors:[{sector,weight}] }
+    // weight / ter are FRACTIONS (0.045 = 4.5%). `fund:false` means Yahoo has
+    // no holdings data for the symbol (e.g. a plain stock) — a valid answer,
+    // not an error. Holdings change slowly → cached 24h. quoteSummary sometimes
+    // demands Yahoo's cookie+crumb handshake; we retry once with a session.
+    if (request.method === 'GET' && action === 'fundholdings') {
+      const symbol = (url.searchParams.get('symbol') || '').trim();
+      if (!symbol) return res(JSON.stringify({ error: 'symbol required' }), 400, request);
+
+      const cacheKey = new Request(`https://cache.maermin/fundholdings/${encodeURIComponent(symbol)}`);
+      const cache = caches.default;
+      const cached = await cache.match(cacheKey);
+      if (cached) return res(await cached.text(), 200, request);
+
+      try {
+        const data = await fetchQuoteSummary(symbol, 'topHoldings,fundProfile,price');
+        const r0 = data?.quoteSummary?.result?.[0];
+        if (!r0) {
+          return res(JSON.stringify({ error: 'No data from Yahoo Finance', symbol }), 404, request);
+        }
+
+        const top = r0.topHoldings || {};
+        const profile = r0.fundProfile || {};
+        const price = r0.price || {};
+
+        const holdings = (top.holdings || []).map(h => ({
+          symbol: h.symbol || null,
+          name: h.holdingName || h.symbol || '',
+          weight: numOrNull(h.holdingPercent?.raw ?? h.holdingPercent),
+        })).filter(h => h.weight != null && h.weight > 0 && (h.symbol || h.name));
+
+        // sectorWeightings arrive as [{ technology: { raw: 0.31 } }, …] with
+        // Yahoo's snake_case keys — translate to the sector names the app's
+        // equity metadata already uses so both breakdowns aggregate cleanly.
+        const SECTOR_LABELS = {
+          technology: 'Technology', healthcare: 'Healthcare', financial_services: 'Financials',
+          consumer_cyclical: 'Consumer Discretionary', consumer_defensive: 'Consumer Staples',
+          communication_services: 'Communication Services', industrials: 'Industrials',
+          energy: 'Energy', basic_materials: 'Materials', utilities: 'Utilities', realestate: 'Real Estate',
+        };
+        const sectors = (top.sectorWeightings || []).map(o => {
+          const k = Object.keys(o || {})[0];
+          if (!k) return null;
+          const w = numOrNull(o[k]?.raw ?? o[k]);
+          return (w != null && w > 0) ? { sector: SECTOR_LABELS[k] || k, weight: w } : null;
+        }).filter(Boolean);
+
+        const fees = profile.feesExpensesInvestment || {};
+        const ter = numOrNull(fees.annualReportExpenseRatio?.raw ?? fees.annualReportExpenseRatio)
+          ?? numOrNull(fees.netExpRatio?.raw ?? fees.netExpRatio);
+
+        const payload = JSON.stringify({
+          symbol,
+          name: price.shortName || price.longName || symbol,
+          type: price.quoteType || null,
+          fund: holdings.length > 0 || sectors.length > 0,
+          ter,
+          holdings,
+          sectors,
+        });
+        ctx.waitUntil(cache.put(cacheKey, new Response(payload, {
+          headers: { 'Content-Type': 'application/json', 'Cache-Control': 'public, max-age=86400' }
+        })));
+        return res(payload, 200, request);
+      } catch (e) {
+        return res(JSON.stringify({ error: e.message, symbol }), 502, request);
+      }
+    }
+
     // ── Steam Market Price History ────────────────────────────────────────
     // GET /?action=steamhistory&name=AK-47+|+Redline+(Field-Tested)
     // Extracts full price history from the Steam Market LISTING PAGE (no login needed).
@@ -523,6 +599,47 @@ function sleep(ms) { return new Promise(r => setTimeout(r, ms)); }
 function safeJson(text) { try { return JSON.parse(text); } catch { return text; } }
 
 function numOrNull(x) { const n = typeof x === 'number' ? x : parseFloat(x); return Number.isFinite(n) ? n : null; }
+
+// Yahoo quoteSummary fetch. Unlike chart/quote/screener, the quoteSummary API
+// intermittently rejects anonymous calls with 401/403 ("Invalid Crumb"); the
+// documented workaround is a cookie + crumb handshake. We try the plain call
+// first and only do the handshake (cached per isolate) when forced to.
+let _yfSession = null; // { cookie, crumb, fetchedAt }
+async function getYahooSession() {
+  if (_yfSession && Date.now() - _yfSession.fetchedAt < 30 * 60 * 1000) return _yfSession;
+  const headers = { 'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36' };
+  // fc.yahoo.com 404s but still sets the consent cookie we need.
+  const c = await fetchWithTimeout('https://fc.yahoo.com/', { headers });
+  const cookie = (c.headers.get('set-cookie') || '').split(';')[0];
+  if (!cookie) throw new Error('Yahoo session cookie unavailable');
+  const cr = await fetchWithTimeout('https://query1.finance.yahoo.com/v1/test/getcrumb', {
+    headers: { ...headers, 'Cookie': cookie },
+  });
+  const crumb = (await cr.text()).trim();
+  if (!cr.ok || !crumb || crumb.includes('<')) throw new Error('Yahoo crumb unavailable');
+  _yfSession = { cookie, crumb, fetchedAt: Date.now() };
+  return _yfSession;
+}
+
+async function fetchQuoteSummary(symbol, modules) {
+  const base = `https://query1.finance.yahoo.com/v10/finance/quoteSummary/${encodeURIComponent(symbol)}` +
+    `?modules=${encodeURIComponent(modules)}`;
+  const headers = {
+    'User-Agent':      'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
+    'Accept':          'application/json',
+    'Accept-Language': 'en-US,en;q=0.9',
+    'Referer':         'https://finance.yahoo.com/',
+  };
+  let r = await fetchWithTimeout(base, { headers });
+  if (r.status === 401 || r.status === 403) {
+    const session = await getYahooSession();
+    r = await fetchWithTimeout(base + `&crumb=${encodeURIComponent(session.crumb)}`, {
+      headers: { ...headers, 'Cookie': session.cookie },
+    });
+  }
+  if (!r.ok) throw new Error(`Yahoo Finance returned ${r.status}`);
+  return r.json();
+}
 
 // fetch with a hard timeout so a slow/hung upstream can't pin a request open.
 async function fetchWithTimeout(url, opts = {}, ms = 8000) {

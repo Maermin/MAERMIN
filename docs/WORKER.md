@@ -25,6 +25,36 @@ Yahoo Finance historical candles. `interval` ∈ `1m…1mo`, `range` ∈ `1d…m
 Symbol search. `type` = `stock` (EQUITY/ETF/MUTUALFUND) or `crypto`. Returns
 `[{symbol, name, exchange, type, score}]`.
 
+### `GET /?action=screener&scrId=day_gainers&count=25`  /  `GET /?action=screener&symbols=KO,PG`
+Discovery screener, two modes with one normalised output shape: `scrId=` proxies
+a Yahoo predefined screener (top movers / categories), `symbols=` is a batch
+quote (curated dividend universe). Returns `{ scrId, symbols, quotes: [{symbol,
+name, price, currency, changePercent, marketCap, dividendYield, type, exchange,
+volume}] }`. `dividendYield` is a fraction (0.025 = 2.5%). Cached 2 min.
+
+### `GET /?action=fundholdings&symbol=VWCE.DE`
+ETF/fund look-through. Proxies Yahoo Finance `quoteSummary` (modules
+`topHoldings`, `fundProfile`, `price`) and normalises it for the client's
+look-through engine:
+
+```jsonc
+{
+  "symbol": "VWCE.DE",
+  "name": "Vanguard FTSE All-World UCITS ETF",
+  "type": "ETF",
+  "fund": true,                 // false = no holdings data (e.g. a plain stock)
+  "ter": 0.0022,                // expense ratio, fraction; null if unknown
+  "holdings": [{ "symbol": "AAPL", "name": "Apple Inc", "weight": 0.041 }],
+  "sectors":  [{ "sector": "Technology", "weight": 0.25 }]
+}
+```
+
+`weight`/`ter` are fractions. `fund:false` is a valid answer, not an error.
+Holdings change slowly → cached 24 h. quoteSummary occasionally demands Yahoo's
+cookie+crumb handshake; the Worker retries once with a cached session. The
+client degrades to a built-in snapshot of common ETFs when this route is
+missing (older Worker → `400 {"error":"Unknown action"}`).
+
 ### `GET /?action=search&q=ak47+redline`
 Steam Market CS2 skin search (USD, `currency=1`). Returns items with images.
 
