@@ -66,6 +66,7 @@ No account  ·  No server  ·  No ads  ·  No remote telemetry  ·  MIT License
 ### 🔧 Tools
 | Feature | Description |
 |---------|-------------|
+| **Discovery** | Read-only screener for ETFs/stocks/crypto · top movers (gainers/losers/most active) · dividend screener — live via your Worker, prices shown in EUR. Gated & optional; degrades gracefully if the Worker predates the endpoint |
 | **Watchlist** | Track symbols without buying — optional target price and sparkline |
 | **Price Alerts** | Notify when price crosses threshold — progress bar shows proximity |
 | **Broker Import** | CoinTracking · DEGIRO · Trade Republic · Interactive Brokers · Coinbase · Binance · Kraken |
@@ -120,6 +121,7 @@ Add a free [Alpha Vantage key](https://www.alphavantage.co/support/#api-key) in 
 |----------|-------------|
 | `GET /?action=yf&symbol=AAPL&interval=1d&range=1y` | Yahoo Finance historical data |
 | `GET /?action=yfsearch&q=Apple&type=stock` | Symbol search (stocks or crypto) |
+| `GET /?action=screener&scrId=day_gainers` (or `&symbols=KO,PG`) | Discovery: predefined screener / movers, or batch quote |
 | `GET /?action=steamhistory&name=AK-47 \| Redline (FT)` | CS2 price history (USD) |
 | `GET /?action=search&q=ak47+redline` | Steam Market skin search with images |
 | `POST /` | Steam skin price lookup (array of names → USD price map) |

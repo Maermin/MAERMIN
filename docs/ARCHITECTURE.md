@@ -133,6 +133,18 @@ pure and unit-tested (`MaerminAnalyticsData.alignReturns`/`subtract`); the engin
 (encryption-at-rest, KDF, auto-lock, passkey, recovery code) and `MaerminSync`
 (zero-knowledge cloud sync) status + actions.
 
+**Asset Discovery** (`discovery.js` → `MaerminDiscovery`) is the one sanctioned *new*
+surface (Roadmap P5) — a read-only screener for ETFs/stocks/crypto, top movers, and a
+dividend screener, reached from the **Tools** nav. The Worker is the single data source:
+a new `action=screener` endpoint proxies + normalises Yahoo Finance in two modes —
+`scrId=` (predefined screener / movers) and `symbols=` (batch quote, used for the curated
+dividend universe). Everything testable without a browser — `parseResponse`, EUR
+conversion at ingestion (`toEURRow`, reusing `MaerminUtils.toEUR`), `applyFilters`,
+`sortRows`, `dividendScreen`, `buildUrl` — is pure and Node-tested; the React `View` is a
+thin shell over them. It is fully gated: with no Worker URL, or against a Worker that
+predates the endpoint (400/404), it shows a clear upgrade note instead of breaking. No
+data is persisted and nothing sensitive is sent, so it adds no `SENSITIVE_KEYS`.
+
 ---
 
 ## Build & test

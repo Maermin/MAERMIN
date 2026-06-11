@@ -4,6 +4,8 @@
  * Endpoints:
  *   GET  /?action=yfsearch&q=Apple&type=stock  → Yahoo Finance symbol search
  *   GET  /?action=yf&symbol=AAPL&interval=1d&range=1y → YF historical data
+ *   GET  /?action=screener&scrId=day_gainers   → Discovery: predefined screener / movers
+ *   GET  /?action=screener&symbols=KO,PG       → Discovery: batch quote (dividend universe)
  *   GET  /?action=steamhistory&name=...        → Steam skin price (fallback to current)
  *   GET  /?action=search&q=...                 → Steam Market skin search
  *   POST /                                      → Steam skin price lookup
@@ -205,6 +207,79 @@ export default {
 
       } catch (e) {
         return res(JSON.stringify({ error: e.message, symbol }), 502, request);
+      }
+    }
+
+    // ── Discovery Screener (Roadmap P5) ──────────────────────────────────────
+    // Read-only asset discovery. Two modes share one normalised output shape:
+    //   GET /?action=screener&scrId=day_gainers&count=25  → Yahoo predefined screener
+    //                                                        (top movers / categories)
+    //   GET /?action=screener&symbols=KO,PG,JNJ           → Yahoo batch quote
+    //                                                        (curated dividend universe)
+    // Returns: { scrId, symbols, quotes:[{symbol,name,price,currency,changePercent,
+    //            marketCap,dividendYield(fraction),type,exchange,volume}] }
+    // dividendYield is normalised to a FRACTION (0.025 = 2.5%). Cached 2 min.
+    if (request.method === 'GET' && action === 'screener') {
+      const scrId   = (url.searchParams.get('scrId') || '').trim();
+      const symbols = (url.searchParams.get('symbols') || '').trim();
+      const count   = Math.min(50, Math.max(1, parseInt(url.searchParams.get('count'), 10) || 25));
+      if (!scrId && !symbols) {
+        return res(JSON.stringify({ error: 'scrId or symbols required' }), 400, request);
+      }
+
+      const cacheKey = new Request(
+        `https://cache.maermin/screener/${encodeURIComponent(symbols ? 'q:' + symbols : 's:' + scrId)}/${count}`
+      );
+      const cache = caches.default;
+      const cached = await cache.match(cacheKey);
+      if (cached) return res(await cached.text(), 200, request);
+
+      const yfUrl = symbols
+        ? `https://query1.finance.yahoo.com/v7/finance/quote?symbols=${encodeURIComponent(symbols)}`
+        : `https://query1.finance.yahoo.com/v1/finance/screener/predefined/saved?scrIds=${encodeURIComponent(scrId)}&count=${count}&start=0`;
+
+      try {
+        const r = await fetchWithTimeout(yfUrl, {
+          headers: {
+            'User-Agent':      'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
+            'Accept':          'application/json',
+            'Accept-Language': 'en-US,en;q=0.9',
+            'Referer':         'https://finance.yahoo.com/',
+          },
+        });
+        if (!r.ok) {
+          return res(JSON.stringify({ error: `Yahoo Finance returned ${r.status}` }), r.status, request);
+        }
+
+        const data = await r.json();
+        const raw = symbols
+          ? (data?.quoteResponse?.result || [])
+          : (data?.finance?.result?.[0]?.quotes || []);
+
+        const quotes = raw.map(q => ({
+          symbol:        q.symbol,
+          name:          q.shortName || q.longName || q.displayName || q.symbol,
+          price:         numOrNull(q.regularMarketPrice),
+          currency:      q.currency || 'USD',
+          changePercent: numOrNull(q.regularMarketChangePercent),
+          marketCap:     numOrNull(q.marketCap),
+          // Prefer the trailing yield (already a fraction); fall back to the
+          // percent-valued dividendYield and normalise it to a fraction.
+          dividendYield: q.trailingAnnualDividendYield != null
+                           ? numOrNull(q.trailingAnnualDividendYield)
+                           : (numOrNull(q.dividendYield) != null ? numOrNull(q.dividendYield) / 100 : null),
+          type:          q.quoteType || 'EQUITY',
+          exchange:      q.fullExchangeName || q.exchange || '',
+          volume:        numOrNull(q.regularMarketVolume),
+        })).filter(q => q.symbol && q.price != null).slice(0, count);
+
+        const payload = JSON.stringify({ scrId: scrId || null, symbols: symbols || null, quotes });
+        ctx.waitUntil(cache.put(cacheKey, new Response(payload, {
+          headers: { 'Content-Type': 'application/json', 'Cache-Control': 'public, max-age=120' }
+        })));
+        return res(payload, 200, request);
+      } catch (e) {
+        return res(JSON.stringify({ error: e.message }), 502, request);
       }
     }
 
@@ -447,12 +522,14 @@ function sleep(ms) { return new Promise(r => setTimeout(r, ms)); }
 
 function safeJson(text) { try { return JSON.parse(text); } catch { return text; } }
 
+function numOrNull(x) { const n = typeof x === 'number' ? x : parseFloat(x); return Number.isFinite(n) ? n : null; }
+
 // fetch with a hard timeout so a slow/hung upstream can't pin a request open.
 async function fetchWithTimeout(url, opts = {}, ms = 8000) {
   const ctrl = new AbortController();
   const timer = setTimeout(() => ctrl.abort(), ms);
   try {
-    return await fetchWithTimeout(url, { ...opts, signal: ctrl.signal });
+    return await fetch(url, { ...opts, signal: ctrl.signal });
   } finally {
     clearTimeout(timer);
   }

@@ -383,6 +383,7 @@ function InvestmentTracker() {
     { id: 'nav:analytics',     label: t.analytics || 'Portfolio Analysis', category: 'Analysis',   shortcut: 'g a' },
     { id: 'nav:taxes',         label: t.taxes || 'Taxes',                  category: 'Analysis',   shortcut: 'g x' },
     // Tools
+    { id: 'nav:discovery',     label: t.discovery || 'Discovery',          category: 'Tools',      shortcut: 'g e' },
     { id: 'nav:watchlist',     label: t.watchlist || 'Watchlist',          category: 'Tools',      shortcut: 'g w' },
     { id: 'nav:alerts',        label: t.priceAlerts || 'Price Alerts',     category: 'Tools',      shortcut: 'g l' },
     { id: 'nav:broker-import', label: t.brokerImport || 'Broker Import',   category: 'Tools',      shortcut: 'g m' },
@@ -1195,6 +1196,7 @@ function InvestmentTracker() {
       case 'nav:analytics':     setActiveView('analytics'); break;
       case 'nav:taxes':         setActiveView('tax'); break;
       // Tools Navigation
+      case 'nav:discovery':     setActiveView('discovery'); break;
       case 'nav:watchlist':     setActiveView('watchlist'); break;
       case 'nav:alerts':        setActiveView('alerts'); break;
       case 'nav:broker-import': setActiveView('broker-import'); break;
@@ -1596,6 +1598,16 @@ function InvestmentTracker() {
 
   const renderView = () => {
     switch (activeView) {
+      // P5: the one sanctioned new surface — read-only asset discovery. Gated on
+      // a Worker URL; the View itself degrades gracefully if the deployed Worker
+      // predates the screener endpoint. Prices convert to EUR at ingestion.
+      case 'discovery':
+        return window.MaerminDiscovery ?
+          React.createElement(window.MaerminDiscovery.View, {
+            workerUrl: apiKeys.cs2Worker, usdToEur: exchangeRate,
+            theme: currentTheme, t, formatPrice, getCurrencySymbol
+          }) : renderAnalyticsPlaceholder('Discovery');
+
       case 'net-worth':
         return window.MaerminFeatures5 ?
           React.createElement(window.MaerminFeatures5.NetWorthView, {
@@ -4060,6 +4072,7 @@ buy,crypto,bitcoin,0.5,45000,2024-01-15,10`)
           { id: 'tax',              icon: '§', label: t.navTaxFifo || 'Tax & FIFO' },
           // ── Tools ──────────────────────────────────
           { group: t.navGroupTools || 'Tools' },
+          { id: 'discovery',        icon: '🔍', label: t.navDiscovery || 'Discovery' },
           { id: 'watchlist',        icon: '☆', label: t.navWatchlist || 'Watchlist' },
           { id: 'alerts',           icon: '⚑', label: t.navPriceAlerts || 'Price Alerts' },
           { id: 'attribution',     icon: '⊿', label: t.navAttribution || 'Attribution' },

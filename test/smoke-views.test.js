@@ -103,6 +103,7 @@ const VIEW_MODULES = [
   { file: '../simulator-view.js',   ns: 'MaerminSimulatorView',  comps: ['Panel', 'buildResults', 'defaults'] },
   { file: '../advisor.js',          ns: 'MaerminAdvisor',        comps: ['Panel', 'analyzePortfolio', 'analyzeFromMetrics'] },
   { file: '../onboarding.js',       ns: 'MaerminOnboarding',     comps: ['Wizard', 'probeAll', 'classify', 'endpoints'] },
+  { file: '../discovery.js',        ns: 'MaerminDiscovery',      comps: ['View', 'parseResponse', 'buildUrl', 'sortRows', 'dividendScreen', 'toEURRow'] },
 ];
 
 console.log('\nTier 1 — module load + exports:');
@@ -211,6 +212,9 @@ const MUST_RENDER = [
   ['MaerminAnalyticsViews', 'FactorExposurePanel', baseProps],
   ['MaerminSimulatorView', 'Panel', baseProps],
   ['MaerminAdvisor', 'Panel', baseProps],
+  // Discovery surface (P5): no worker URL in baseProps → renders the gated note
+  // path; empty data exercises the same. Hooks stubbed, so no fetch fires.
+  ['MaerminDiscovery', 'View', baseProps],
 ];
 
 function renderOnce(Comp, props) {
