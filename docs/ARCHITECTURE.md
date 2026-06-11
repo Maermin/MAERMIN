@@ -98,6 +98,7 @@ conversion happens only at format time (`formatPrice`).
 | `analytics-data.js` | `MaerminAnalyticsData` | Bridge: builds a portfolio value path + aligned period returns from built positions + per-symbol `priceHistory` (incl. N-series `alignReturns`/`subtract` for factor construction), the inputs `MaerminAnalytics` expects |
 | `etf-lookthrough.js` | `MaerminLookThrough` | ETF/fund X-Ray: pure `analyze()` over position rows + per-fund holdings → effective per-security exposure, sector/country/currency look-through, fund-overlap pairs, hidden concentrations. Holdings come from the Worker `fundholdings` route via the shared, session-cached `loadFundData` loader (injectable fetch), merged with a static snapshot of common ETFs (graceful degradation) |
 | `cost-analysis.js` | `MaerminCostAnalysis` | Ongoing costs (TER): pure `buildFundRows`/`computeOngoingCosts`/`projectCostDrag` → annual EUR cost per fund, total drag p.a., weighted average TER, multi-year cumulative cost-drag projection. TER from the same `loadFundData` plumbing (override > worker > snapshot); manual overrides in `localStorage` (symbols + ratios only, not sensitive) |
+| `dividend-quality.js` | `MaerminDividendQuality` | Dividend quality & safety: pure `scorePosition` (heuristic 0-100 from payout ratio, growth streak, dividend growth, yield sanity; cut-risk flag; weight redistribution when fundamentals are missing), `scorePortfolio` (income-weighted health + income-at-risk share), `cagrFromSeries`. Fundamentals from the Worker `fundamentals` route; degrades to the DividendDataService history heuristic |
 
 ---
 
@@ -150,7 +151,17 @@ annual EUR cost per fund position, total ongoing drag p.a., weighted average TER
 multi-year projection of the cumulative cost drag, plus an inline manual TER override
 per fund. It reuses the X-Ray's `loadFundData` loader (same gating/degradation), so
 there is exactly one fund-data pipeline; only the override map (symbol → expense ratio,
-no amounts) is persisted in `localStorage` and is not sensitive. All consume
+no amounts) is persisted in `localStorage` and is not sensitive.
+
+**Dividend quality & safety** (`dividend-quality.js` → `MaerminDividendQuality.QualityPanel`)
+folds into the **Dividends** view below the calendar/forecast tabs (no new tab): a
+per-payer table (income, payout, streak, growth, coverage, safety score with a
+cut-risk badge), a click-to-open reasoning detail per row, and the aggregated
+portfolio dividend-health KPIs. Payers and history metrics come from the ONE existing
+`DividendDataService`; fundamentals (payout ratio, EPS) come from the Worker
+`fundamentals` route with the usual gating — an older Worker or no Worker URL means
+the score is computed from history alone and the panel says so. The score is labelled
+a heuristic; nothing is persisted. All consume
 `MaerminAnalyticsData` for series construction, so no view recomputes quant. A
 **Security & Sync** settings modal (in `renderer.js`) exposes `MaerminAuth.getStatus()`
 (encryption-at-rest, KDF, auto-lock, passkey, recovery code) and `MaerminSync`
