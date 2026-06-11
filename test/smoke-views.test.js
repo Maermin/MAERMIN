@@ -106,6 +106,7 @@ const VIEW_MODULES = [
   { file: '../discovery.js',        ns: 'MaerminDiscovery',      comps: ['View', 'parseResponse', 'buildUrl', 'sortRows', 'dividendScreen', 'toEURRow'] },
   { file: '../etf-lookthrough.js',  ns: 'MaerminLookThrough',    comps: ['Panel', 'analyze', 'parseHoldingsResponse', 'mergeFundData', 'fallbackHoldings', 'positionRows', 'buildUrl', 'loadFundData'] },
   { file: '../cost-analysis.js',    ns: 'MaerminCostAnalysis',   comps: ['OngoingCostsPanel', 'computeOngoingCosts', 'buildFundRows', 'projectCostDrag', 'loadOverrides', 'saveOverride'] },
+  { file: '../dividend-quality.js', ns: 'MaerminDividendQuality', comps: ['QualityPanel', 'scorePosition', 'scorePortfolio', 'parseFundamentalsResponse', 'cagrFromSeries', 'buildUrl'] },
 ];
 
 console.log('\nTier 1 — module load + exports:');
@@ -223,6 +224,9 @@ const MUST_RENDER = [
   ['MaerminLookThrough', 'Panel', baseProps],
   // Ongoing-costs (TER) panel: same gating; pre-fetch render + no-candidates note.
   ['MaerminCostAnalysis', 'OngoingCostsPanel', baseProps],
+  // Dividend quality panel: renders against the stubbed DividendDataService-less
+  // window (no payers note) and empty data. Hooks stubbed, no fetch fires.
+  ['MaerminDividendQuality', 'QualityPanel', baseProps],
 ];
 
 function renderOnce(Comp, props) {
