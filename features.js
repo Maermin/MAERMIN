@@ -110,29 +110,36 @@ function Sparkline({ values, width = 80, height = 32, color }) {
 // freshness, and an explicit signal instead of a silent zero. Takes a
 // precomputed `fetchedAt` (the table reads the price-meta map once) so it never
 // touches storage per row. Renders nothing if the data-quality layer is absent.
-function PriceQualityBadge({ category, price, fetchedAt, fetchFailed, theme }) {
+function PriceQualityBadge({ category, price, meta, fetchedAt, fetchFailed, theme }) {
   const Q = (typeof window !== 'undefined') && window.MaerminDataQuality;
   if (!Q) return null;
   theme = theme || {};
-  const st = Q.priceState(price, { category, fetchedAt, fetchFailed });
+  const m = meta || {};
+  // Prefer the recorded source/freshness (so a fallback fetch shows its real
+  // source); fall back to the legacy fetchedAt prop + category default.
+  const st = Q.priceState(price, {
+    category, source: m.source, fallback: m.fallback, reason: m.reason,
+    fetchedAt: (m.at != null ? m.at : fetchedAt), fetchFailed
+  });
   const muted = theme.textSecondary || '#888';
+  const fbSuffix = st.fallback ? (' · fallback source' + (st.reason ? ' (' + st.reason + ')' : '')) : '';
   let dot, text, title;
   if (!st.available) {
     dot = '#ef4444';
     text = st.badge || 'n/a';
     title = st.source + ' · ' + (st.badge || 'unavailable');
   } else if (st.freshness.level === 'missing') {
-    dot = muted; // age unknown (e.g. before first refresh / demo) — no false alarm
-    text = st.source;
-    title = 'Source: ' + st.source;
+    dot = st.fallback ? '#3b82f6' : muted; // age unknown — no false alarm unless via fallback
+    text = (st.fallback ? '↩ ' : '') + st.source;
+    title = 'Source: ' + st.source + fbSuffix;
   } else if (st.freshness.stale) {
     dot = '#f59e0b';
     text = '⚠ ' + st.freshness.label;
-    title = st.source + ' · ' + st.freshness.label + ' (stale)';
+    title = st.source + ' · ' + st.freshness.label + ' (stale)' + fbSuffix;
   } else {
-    dot = '#22c55e';
-    text = st.freshness.label;
-    title = st.source + ' · ' + st.freshness.label;
+    dot = st.fallback ? '#3b82f6' : '#22c55e';
+    text = st.fallback ? ('↩ ' + st.source) : st.freshness.label;
+    title = st.source + ' · ' + st.freshness.label + fbSuffix;
   }
   return React.createElement('span', {
     title,
@@ -854,7 +861,7 @@ function PositionsTable({ portfolio, prices, priceHistory, theme, formatPrice, g
   // each row can show a data-trust badge without touching storage per render.
   const _pq = window.MaerminDataQuality;
   const _pqMeta = _pq ? _pq.readMeta() : {};
-  const faFor = (sym) => { if (!_pq || !sym) return null; const e = _pqMeta[sym] || _pqMeta[String(sym).toLowerCase()] || _pqMeta[String(sym).toUpperCase()]; return e ? e.at : null; };
+  const metaFor = (sym) => { if (!_pq || !sym) return null; return _pqMeta[sym] || _pqMeta[String(sym).toLowerCase()] || _pqMeta[String(sym).toUpperCase()] || null; };
 
   const th = (key, label, align = 'right') => {
     const active = sortKey === key;
@@ -951,7 +958,7 @@ function PositionsTable({ portfolio, prices, priceHistory, theme, formatPrice, g
                     React.createElement('div', { style: { display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: '2px' } },
                       React.createElement('span', { style: { color: theme.text, fontWeight: '600', fontSize: '0.875rem' } },
                         p.price > 0 ? formatPrice(p.price) : React.createElement('span', { style: { color: theme.textSecondary } }, '—')),
-                      React.createElement(PriceQualityBadge, { category: p.cat, price: p.price, fetchedAt: faFor(p.sym), theme })
+                      React.createElement(PriceQualityBadge, { category: p.cat, price: p.price, meta: metaFor(p.sym), theme })
                     )
                   ),
                   React.createElement('td', { style: { padding: '0.875rem 1rem', color: theme.text, textAlign: 'right', fontWeight: '700', fontSize: '0.875rem' } }, formatPrice(p.value)),

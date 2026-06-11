@@ -66,16 +66,41 @@
     var source = opts.source || (opts.category ? sourceFor(opts.category) : 'Unknown');
     var fresh = freshness(opts.fetchedAt, opts.now, opts);
     var available = typeof price === 'number' && isFinite(price) && price > 0;
+    var fallback = !!opts.fallback;
     var badge = null;
     if (!available) badge = opts.fetchFailed ? 'fetch failed' : 'not available';
     else if (fresh.stale) badge = 'stale · ' + fresh.label;
+    else if (fallback) badge = 'via ' + source;
     return {
       available: available,
       value: available ? price : null,
       source: source,
+      fallback: fallback,
+      reason: opts.reason || null,
       freshness: fresh,
       badge: badge
     };
+  }
+
+  /**
+   * Aggregate freshness across many positions for the top-bar "data health"
+   * indicator (e.g. "3 prices stale"). items: [{category,price,fetchedAt,
+   * fetchFailed,source}]. → {total,fresh,stale,missing,failed,unknown}
+   */
+  function summarize(items, opts) {
+    opts = opts || {};
+    var now = typeof opts.now === 'number' ? opts.now : Date.now();
+    var out = { total: 0, fresh: 0, stale: 0, missing: 0, failed: 0, unknown: 0 };
+    (items || []).forEach(function (it) {
+      if (!it) return;
+      out.total++;
+      var st = priceState(it.price, { category: it.category, source: it.source, fetchedAt: it.fetchedAt, fetchFailed: it.fetchFailed, now: now, staleHours: opts.staleHours });
+      if (!st.available) { out.missing++; if (it.fetchFailed) out.failed++; }
+      else if (st.freshness.level === 'missing') out.unknown++; // age unknown — don't alarm
+      else if (st.freshness.stale) out.stale++;
+      else out.fresh++;
+    });
+    return out;
   }
 
   /**
@@ -114,7 +139,11 @@
     var meta = readMeta(opts.storage);
     var at = opts.at || Date.now();
     (Array.isArray(symbols) ? symbols : [symbols]).forEach(function (sym) {
-      if (sym) meta[sym] = { at: at, source: source || 'Unknown' };
+      if (!sym) return;
+      var entry = { at: at, source: source || 'Unknown' };
+      if (opts.fallback) entry.fallback = true;       // resolved via a fallback source
+      if (opts.reason) entry.reason = opts.reason;     // why the primary was skipped
+      meta[sym] = entry;
     });
     try { s.setItem(PRICE_META_KEY, JSON.stringify(meta)); } catch (e) { /* quota: ignore */ }
   }
@@ -149,7 +178,7 @@
 
   var api = {
     SOURCES, PRICE_META_KEY,
-    sourceFor, ageLabel, freshness, priceState, fx,
+    sourceFor, ageLabel, freshness, priceState, fx, summarize,
     readMeta, recordFetch, checkWorkerHealth
   };
   if (typeof window !== 'undefined') window.MaerminDataQuality = api;

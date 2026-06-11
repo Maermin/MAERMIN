@@ -136,7 +136,8 @@
     if (!m) return null;
     // Never leak the wrapCheck shape beyond what callers need.
     return { v: m.v, kdf: m.kdf, params: m.params, createdAt: m.createdAt,
-             updatedAt: m.updatedAt, autoLockMs: m.autoLockMs, hasPasskey: !!m.passkey };
+             updatedAt: m.updatedAt, autoLockMs: m.autoLockMs, hasPasskey: !!m.passkey,
+             hasRecovery: !!m.recovery };
   }
 
   // ---- low-level AES-GCM ---------------------------------------------------
@@ -369,6 +370,102 @@
     });
   }
 
+  // ---- recovery kit (alternative unlock) -----------------------------------
+  // A printable recovery code is a SECOND wrapping of the vault key — the same
+  // mechanism as a passkey, but the wrap key is derived (PBKDF2) from a single
+  // high-entropy code the user stores offline. The code is shown exactly ONCE
+  // and is NEVER persisted or transmitted; only the wrapped key + its salt live
+  // in meta. This gives a real recovery path for a forgotten password without
+  // weakening the zero-knowledge model (server/meta never see plaintext key).
+  //
+  // Like passkeys, the recovery wrap is bound to the CURRENT raw key, so a
+  // password change (which re-keys the vault via create()) invalidates it — the
+  // UI re-prompts the user to generate a fresh kit afterwards.
+  var RECOVERY_ALPHABET = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789'; // base32, no 0/1/I/O
+
+  // 15 random bytes (120 bits) → 24 base32 chars, no padding.
+  function base32encode(bytes) {
+    var bits = 0, value = 0, out = '';
+    for (var i = 0; i < bytes.length; i++) {
+      value = (value << 8) | bytes[i];
+      bits += 8;
+      while (bits >= 5) { bits -= 5; out += RECOVERY_ALPHABET[(value >>> bits) & 31]; }
+      value &= (1 << bits) - 1; // drop consumed high bits → no 32-bit overflow
+    }
+    if (bits > 0) out += RECOVERY_ALPHABET[(value << (5 - bits)) & 31];
+    return out;
+  }
+  // Group into 4-char blocks for legibility: XXXX-XXXX-…
+  function formatRecoveryCode(code) {
+    return (code.match(/.{1,4}/g) || [code]).join('-');
+  }
+  // Canonicalise any user input back to the exact KDF string (case + separators).
+  function normalizeRecoveryCode(s) {
+    var up = String(s || '').toUpperCase(), out = '';
+    for (var i = 0; i < up.length; i++) {
+      if (RECOVERY_ALPHABET.indexOf(up[i]) > -1) out += up[i];
+    }
+    return out;
+  }
+
+  function deriveRecoveryWrapKey(code, salt, kdfName, params) {
+    var kdf = KDFS[kdfName] || KDFS.pbkdf2;
+    return kdf.derive(code, salt, params).then(function (raw) { return importAesKey(raw); });
+  }
+
+  // Generate + store a recovery kit for the unlocked vault. Resolves with the
+  // one-time code (formatted for display) — the caller must surface it then drop
+  // it; it is not recoverable afterwards.
+  function enrollRecovery() {
+    if (!isSupported()) return Promise.reject(new Error('crypto-unsupported'));
+    if (!_rawKey) return Promise.reject(new Error('locked'));
+    var meta = readMeta();
+    if (!meta) return Promise.reject(new Error('no-vault'));
+    var code = base32encode(getRandom(new Uint8Array(15)));
+    var salt = getRandom(new Uint8Array(16));
+    var params = KDFS.pbkdf2.defaultParams(); // always-available + portable (Node tests)
+    return deriveRecoveryWrapKey(code, salt, 'pbkdf2', params).then(function (wrapKey) {
+      return encryptWith(wrapKey, b64encode(_rawKey)).then(function (wrapped) {
+        meta.recovery = {
+          kdf: 'pbkdf2', params: params, salt: b64encode(salt),
+          wrappedKey: wrapped, createdAt: Date.now()
+        };
+        meta.updatedAt = Date.now();
+        writeMeta(meta);
+        return { code: formatRecoveryCode(code), createdAt: meta.recovery.createdAt };
+      });
+    });
+  }
+
+  function unlockWithRecovery(inputCode) {
+    if (!isSupported()) return Promise.reject(new Error('crypto-unsupported'));
+    var meta = readMeta();
+    if (!meta || !meta.recovery) return Promise.reject(new Error('no-recovery'));
+    var rec = meta.recovery;
+    var code = normalizeRecoveryCode(inputCode);
+    if (!code) return Promise.reject(new Error('bad-recovery-code'));
+    return deriveRecoveryWrapKey(code, b64decode(rec.salt), rec.kdf, rec.params).then(function (wrapKey) {
+      return decryptWith(wrapKey, rec.wrappedKey)
+        .then(function (rawB64) {
+          var rawKey = b64decode(rawB64);
+          return importAesKey(rawKey).then(function (k) {
+            _key = k; _rawKey = rawKey; _kdfName = meta.kdf;
+            startAutoLock(meta.autoLockMs);
+            return true;
+          });
+        })
+        .catch(function () { throw new Error('bad-recovery-code'); });
+    });
+  }
+
+  function hasRecovery() { var m = readMeta(); return !!(m && m.recovery); }
+  function removeRecovery() {
+    var m = readMeta();
+    if (!m || !m.recovery) return false;
+    delete m.recovery; m.updatedAt = Date.now(); writeMeta(m);
+    return true;
+  }
+
   tryAutoRegisterArgon2();
 
   var api = {
@@ -400,6 +497,11 @@
     passkeySupported: passkeySupported,
     enrollPasskey: enrollPasskey,
     unlockWithPasskey: unlockWithPasskey,
+    // recovery kit (alternative unlock via printable code)
+    enrollRecovery: enrollRecovery,
+    unlockWithRecovery: unlockWithRecovery,
+    hasRecovery: hasRecovery,
+    removeRecovery: removeRecovery,
     // constants (for storage.js / tests)
     META_KEY: META_KEY
   };

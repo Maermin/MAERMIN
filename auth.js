@@ -81,6 +81,11 @@
       font-size:.9rem; cursor:pointer; transition:all .2s; }
     #maermin-auth .auth-alt:hover{ border-color:#f5a524; color:#f5a524; }
     #maermin-auth .auth-footer { margin-top: 1.5rem; text-align:center; color: rgba(255,255,255,0.3); font-size: 0.72rem; line-height: 1.6; }
+    #maermin-auth .rc-code { font-family: ui-monospace,'SF Mono',Menlo,monospace; font-size:1.1rem;
+      letter-spacing:0.05em; color:#ffd479; background:#0f172a; border:1px solid #334155; border-radius:10px;
+      padding:1rem; text-align:center; word-break:break-all; margin-bottom:0.9rem; user-select:all; }
+    #maermin-auth .rc-actions { display:flex; gap:0.5rem; margin-bottom:0.6rem; }
+    #maermin-auth .rc-actions .auth-alt { margin-top:0; flex:1; padding:0.6rem; font-size:0.82rem; }
   `;
 
   function setError(msg) {
@@ -94,6 +99,46 @@
     if (!btn) return;
     btn.classList.toggle('loading', on);
     btn.disabled = on;
+  }
+
+  // ─────────────────────────────────────────────────────────────────────────
+  // Recovery-kit helpers (shared by setup screen + Settings re-enroll)
+  // ─────────────────────────────────────────────────────────────────────────
+  function recoveryFileText(code) {
+    return [
+      'MAERMIN — Vault Recovery Code',
+      '================================',
+      '',
+      'Recovery code:',
+      '    ' + code,
+      '',
+      'Use this on the unlock screen ("Use a recovery code") to open your vault',
+      'if you forget your password. MAERMIN cannot reset it for you.',
+      '',
+      '• Anyone with this code can open your vault — keep it offline and private.',
+      '• It is NEVER uploaded; only a one-way wrapped copy lives on this device.',
+      '• Changing your password invalidates this code — generate a new one after.',
+      '',
+      'Generated: ' + new Date().toISOString()
+    ].join('\n');
+  }
+  function downloadText(filename, text) {
+    try {
+      var url = URL.createObjectURL(new Blob([text], { type: 'text/plain' }));
+      var a = document.createElement('a');
+      a.href = url; a.download = filename;
+      document.body.appendChild(a); a.click();
+      setTimeout(function () { URL.revokeObjectURL(url); a.remove(); }, 0);
+    } catch (e) { console.error('[MAERMIN Auth] download failed:', e); }
+  }
+  function printText(text) {
+    try {
+      var w = window.open('', '_blank');
+      if (!w) return;
+      var esc = text.replace(/[&<>]/g, function (c) { return ({ '&': '&amp;', '<': '&lt;', '>': '&gt;' })[c]; });
+      w.document.write('<title>MAERMIN Recovery Code</title><pre style="font:14px ui-monospace,Menlo,monospace;padding:24px;white-space:pre-wrap">' + esc + '</pre>');
+      w.document.close(); w.focus(); w.print();
+    } catch (e) { console.error('[MAERMIN Auth] print failed:', e); }
   }
 
   // ─────────────────────────────────────────────────────────────────────────
@@ -128,7 +173,7 @@
     `;
   }
 
-  function unlockInner(hasPasskey, locked) {
+  function unlockInner(hasPasskey, hasRecovery, locked) {
     return `
       <div class="auth-logo"><h1>MAERMIN</h1><p>${locked ? 'Locked' : 'Professional Portfolio Tracker'}</p></div>
       ${locked ? '<div class="auth-sub">Session locked due to inactivity.</div>' : ''}
@@ -138,8 +183,43 @@
         <input type="password" id="auth-pw" placeholder="Enter your password…" autocomplete="current-password" autofocus />
       </div>
       <button class="auth-btn" id="auth-submit"><div class="spinner"></div><span class="btn-text">Unlock →</span></button>
-      ${hasPasskey ? '<button class="auth-alt" id="auth-passkey">Use a passkey</button>' : ''}
+      ${hasPasskey ? '<button class="auth-alt" id="auth-passkey" type="button">Use a passkey</button>' : ''}
+      ${hasRecovery ? '<button class="auth-alt" id="auth-recovery" type="button">Use a recovery code</button>' : ''}
       <div class="auth-footer">All data stays local in your browser.</div>
+    `;
+  }
+
+  // One-time recovery-code reveal shown right after vault creation. The vault is
+  // already unlocked at this point; "Continue" just mounts the app.
+  function recoveryKitInner(code) {
+    return `
+      <div class="auth-logo"><h1>MAERMIN</h1><p>Recovery code</p></div>
+      <div class="auth-sub">Save this now — it's the <b>only</b> way into your vault if you forget your password. MAERMIN can't reset it for you.</div>
+      <div class="rc-code" id="rc-code">${code}</div>
+      <div class="rc-actions">
+        <button class="auth-alt" id="rc-copy" type="button">Copy</button>
+        <button class="auth-alt" id="rc-download" type="button">Download</button>
+        <button class="auth-alt" id="rc-print" type="button">Print</button>
+      </div>
+      <label class="auth-check"><input type="checkbox" id="rc-saved" />
+        <span>I've saved my recovery code somewhere safe and private.</span></label>
+      <button class="auth-btn" id="auth-submit" disabled><div class="spinner"></div><span class="btn-text">Continue →</span></button>
+      <div class="auth-footer">Never uploaded — anyone with this code can open your vault.</div>
+    `;
+  }
+
+  function recoveryUnlockInner() {
+    return `
+      <div class="auth-logo"><h1>MAERMIN</h1><p>Recovery</p></div>
+      <div class="auth-sub">Enter your recovery code to unlock without your password.</div>
+      <div class="auth-error" id="auth-error"></div>
+      <div class="auth-field">
+        <label for="auth-rc">Recovery code</label>
+        <input type="text" id="auth-rc" placeholder="XXXX-XXXX-XXXX-XXXX-XXXX-XXXX" autocomplete="off" autocapitalize="characters" spellcheck="false" autofocus />
+      </div>
+      <button class="auth-btn" id="auth-submit"><div class="spinner"></div><span class="btn-text">Unlock →</span></button>
+      <button class="auth-alt" id="auth-back" type="button">Back to password</button>
+      <div class="auth-footer">Changing your password invalidates the recovery code.</div>
     `;
   }
 
@@ -180,11 +260,64 @@
         try { sessionStorage.removeItem(LEGACY_SESSION_KEY); } catch (e) {}
         if (atRest && Storage) return Storage.enableAtRest();
       })
-      .then(function () { audit('vault.setup', 'vault created' + (atRest ? ' (encrypted at rest)' : '')); finishUnlock(); })
+      // Generate a recovery kit so a forgotten password is recoverable. If the
+      // enrollment itself fails we still let the user in (the vault is created).
+      .then(function () {
+        return Vault.enrollRecovery().then(
+          function (kit) {
+            audit('vault.setup', 'vault created' + (atRest ? ' (encrypted at rest)' : '') + ' + recovery kit');
+            setLoading(false);
+            showScreen('recovery-kit', { code: kit.code });
+          },
+          function (e) {
+            console.error('[MAERMIN Auth] recovery enroll failed:', e);
+            audit('vault.setup', 'vault created (recovery kit unavailable)');
+            finishUnlock();
+          }
+        );
+      })
       .catch(function (e) {
         console.error('[MAERMIN Auth] setup failed:', e);
         setError('Could not create the vault. ' + (e && e.message === 'crypto-unsupported' ? 'WebCrypto unavailable in this browser.' : 'Please try again.'));
         setLoading(false);
+      });
+  }
+
+  // Continue from the one-time recovery-code reveal — vault is already unlocked.
+  function handleRecoveryContinue() { finishUnlock(); }
+
+  function wireRecoveryKit(code) {
+    var saved = document.getElementById('rc-saved');
+    var submit = document.getElementById('auth-submit');
+    if (saved && submit) saved.addEventListener('change', function () { submit.disabled = !saved.checked; });
+    var copy = document.getElementById('rc-copy');
+    if (copy) copy.addEventListener('click', function () {
+      try {
+        navigator.clipboard.writeText(code).then(function () {
+          copy.textContent = 'Copied ✓'; setTimeout(function () { copy.textContent = 'Copy'; }, 1500);
+        }, function () {});
+      } catch (e) {}
+    });
+    var dl = document.getElementById('rc-download');
+    if (dl) dl.addEventListener('click', function () { downloadText('maermin-recovery-code.txt', recoveryFileText(code)); });
+    var pr = document.getElementById('rc-print');
+    if (pr) pr.addEventListener('click', function () { printText(recoveryFileText(code)); });
+  }
+
+  function handleRecoveryUnlock() {
+    var input = document.getElementById('auth-rc');
+    var code = (input.value || '');
+    if (!code.trim()) { input.focus(); return; }
+    setError(''); setLoading(true); input.classList.remove('error');
+
+    Vault.unlockWithRecovery(code)
+      .then(function () { return Storage ? Storage.resume() : null; })
+      .then(function () { audit('vault.unlock.recovery', 'unlocked with recovery code'); finishUnlock(); })
+      .catch(function (e) {
+        input.classList.add('error');
+        setError(e && e.message === 'bad-recovery-code' ? 'That recovery code is not valid.' : 'Recovery failed. Please try again.');
+        setLoading(false); input.focus();
+        setTimeout(function () { input.classList.remove('error'); }, 600);
       });
   }
 
@@ -223,18 +356,28 @@
 
     var inner, onSubmit;
     if (mode === 'setup') { inner = setupInner(opts.hasLegacyData); onSubmit = handleSetup; }
-    else { inner = unlockInner(opts.hasPasskey, opts.locked); onSubmit = handleUnlock; }
+    else if (mode === 'recovery-kit') { inner = recoveryKitInner(opts.code); onSubmit = handleRecoveryContinue; }
+    else if (mode === 'recovery-unlock') { inner = recoveryUnlockInner(); onSubmit = handleRecoveryUnlock; }
+    else { inner = unlockInner(opts.hasPasskey, opts.hasRecovery, opts.locked); onSubmit = handleUnlock; }
 
     var overlay = overlayShell(inner);
     document.body.appendChild(overlay);
 
     document.getElementById('auth-submit').addEventListener('click', onSubmit);
-    var fields = overlay.querySelectorAll('input[type="password"]');
+    var fields = overlay.querySelectorAll('input[type="password"], #auth-rc');
     fields.forEach(function (f) {
       f.addEventListener('keydown', function (e) { if (e.key === 'Enter') onSubmit(); });
     });
     var pk = document.getElementById('auth-passkey');
     if (pk) pk.addEventListener('click', handlePasskey);
+    var rc = document.getElementById('auth-recovery');
+    if (rc) rc.addEventListener('click', function () { showScreen('recovery-unlock', {}); });
+    var back = document.getElementById('auth-back');
+    if (back) back.addEventListener('click', function () {
+      var m = Vault.getMeta();
+      showScreen('unlock', { hasPasskey: m && m.hasPasskey, hasRecovery: m && m.hasRecovery });
+    });
+    if (mode === 'recovery-kit') wireRecoveryKit(opts.code);
   }
 
   // ─────────────────────────────────────────────────────────────────────────
@@ -252,14 +395,14 @@
     if (!meta) {
       showScreen('setup', { hasLegacyData: legacyHasData() });
     } else {
-      showScreen('unlock', { hasPasskey: meta.hasPasskey });
+      showScreen('unlock', { hasPasskey: meta.hasPasskey, hasRecovery: meta.hasRecovery });
     }
 
     // Idle auto-lock → re-show the unlock screen (without reload, key already wiped).
     Vault.onLock(function () {
       if (!_everUnlocked) return;
       var m = Vault.getMeta();
-      showScreen('unlock', { hasPasskey: m && m.hasPasskey, locked: true });
+      showScreen('unlock', { hasPasskey: m && m.hasPasskey, hasRecovery: m && m.hasRecovery, locked: true });
     });
   }
 
@@ -283,6 +426,13 @@
     },
     /** Enroll a platform passkey (Touch ID / Hello) for password-less unlock. */
     enrollPasskey: function (label) { return Vault.enrollPasskey(label); },
+    /** Generate (or rotate) the printable recovery kit — resolves with { code }.
+     *  The caller must surface the one-time code; it is never recoverable after. */
+    enrollRecovery: function () { return Vault.enrollRecovery(); },
+    /** Remove the recovery kit (e.g. user opts out). */
+    removeRecovery: function () { return Vault.removeRecovery(); },
+    /** Build the printable/downloadable recovery-code document (for re-enroll UIs). */
+    recoveryFileText: recoveryFileText,
     /** Configure idle auto-lock (ms). */
     setAutoLock: function (ms) { if (Vault) Vault.configureAutoLock(ms); },
     /** Status for a settings UI. */
@@ -291,6 +441,7 @@
       return {
         hasVault: !!m, unlocked: !!(Vault && Vault.isUnlocked()),
         kdf: m && m.kdf, autoLockMs: m && m.autoLockMs, hasPasskey: !!(m && m.hasPasskey),
+        hasRecovery: !!(m && m.hasRecovery),
         encryptedAtRest: !!(Storage && Storage.isEnabled()),
         passkeySupported: !!(Vault && Vault.passkeySupported())
       };
