@@ -263,6 +263,10 @@ function InvestmentTracker() {
   const [showCommandPalette, setShowCommandPalette] = useState(false);
   const [showShortcuts, setShowShortcuts] = useState(false);
   const [toasts, setToasts] = useState([]);
+  // ETF look-through result (MaerminLookThrough.analyze). The Health panel
+  // computes it and hands it up so the advisor's findings can include hidden
+  // fund concentrations on the same render pass.
+  const [lookThroughResult, setLookThroughResult] = useState(null);
   
   // Forms & Modals
   const [newTransaction, setNewTransaction] = useState({
@@ -1768,9 +1772,23 @@ function InvestmentTracker() {
               portfolio, prices, priceHistory, transactions: activeTransactions,
               theme: currentTheme, t, formatPrice, getCurrencySymbol, setActiveView
             }) : renderAnalyticsPlaceholder('Portfolio Health'),
+          // ETF look-through (X-Ray): effective per-security exposure plus
+          // sector/country/currency look-through — folds into Health (no new
+          // tab). Gated on the Worker fundholdings route with a static
+          // fallback; hands its result up for the advisor below.
+          window.MaerminLookThrough && window.MaerminLookThrough.Panel && React.createElement('div', { style: { padding: '0 1.5rem 0' } },
+            React.createElement(window.MaerminLookThrough.Panel, {
+              portfolio, prices, workerUrl: apiKeys.cs2Worker, mode: 'overview',
+              theme: currentTheme, t, formatPrice, getCurrencySymbol,
+              onResult: setLookThroughResult
+            })
+          ),
           // Fold the (already-tested) AI advisor findings into Health — no new tab.
-          window.MaerminAdvisor && window.MaerminAdvisor.Panel && React.createElement('div', { style: { padding: '0 1.5rem 1.5rem' } },
-            React.createElement(window.MaerminAdvisor.Panel, { portfolio, prices, transactions: activeTransactions, theme: currentTheme, t })
+          window.MaerminAdvisor && window.MaerminAdvisor.Panel && React.createElement('div', { style: { padding: '1rem 1.5rem 1.5rem' } },
+            React.createElement(window.MaerminAdvisor.Panel, {
+              portfolio, prices, transactions: activeTransactions, theme: currentTheme, t,
+              extras: lookThroughResult ? { lookThrough: lookThroughResult } : undefined
+            })
           )
         );
 
@@ -2334,7 +2352,13 @@ function InvestmentTracker() {
           // folds the analytics engine into Risk (no new tab).
           window.MaerminAnalyticsViews && React.createElement('div', { style: { padding: '0 1.5rem 1.5rem' } },
             React.createElement(window.MaerminAnalyticsViews.RollingRiskPanel, { portfolio, priceHistory, theme: currentTheme, t }),
-            window.MaerminAnalyticsViews.FactorExposurePanel && React.createElement(window.MaerminAnalyticsViews.FactorExposurePanel, { portfolio, priceHistory, workerUrl: apiKeys.cs2Worker, theme: currentTheme, t })
+            window.MaerminAnalyticsViews.FactorExposurePanel && React.createElement(window.MaerminAnalyticsViews.FactorExposurePanel, { portfolio, priceHistory, workerUrl: apiKeys.cs2Worker, theme: currentTheme, t }),
+            // ETF look-through, risk slice: fund overlap matrix + hidden
+            // concentration findings — folds into Risk (no new tab).
+            window.MaerminLookThrough && window.MaerminLookThrough.Panel && React.createElement(window.MaerminLookThrough.Panel, {
+              portfolio, prices, workerUrl: apiKeys.cs2Worker, mode: 'risk',
+              theme: currentTheme, t, formatPrice, getCurrencySymbol
+            })
           )
         );
         default: return null;

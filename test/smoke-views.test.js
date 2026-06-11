@@ -104,6 +104,7 @@ const VIEW_MODULES = [
   { file: '../advisor.js',          ns: 'MaerminAdvisor',        comps: ['Panel', 'analyzePortfolio', 'analyzeFromMetrics'] },
   { file: '../onboarding.js',       ns: 'MaerminOnboarding',     comps: ['Wizard', 'probeAll', 'classify', 'endpoints'] },
   { file: '../discovery.js',        ns: 'MaerminDiscovery',      comps: ['View', 'parseResponse', 'buildUrl', 'sortRows', 'dividendScreen', 'toEURRow'] },
+  { file: '../etf-lookthrough.js',  ns: 'MaerminLookThrough',    comps: ['Panel', 'analyze', 'parseHoldingsResponse', 'mergeFundData', 'fallbackHoldings', 'positionRows', 'buildUrl'] },
 ];
 
 console.log('\nTier 1 — module load + exports:');
@@ -215,6 +216,10 @@ const MUST_RENDER = [
   // Discovery surface (P5): no worker URL in baseProps → renders the gated note
   // path; empty data exercises the same. Hooks stubbed, so no fetch fires.
   ['MaerminDiscovery', 'View', baseProps],
+  // ETF look-through panel: baseProps holds VWCE (a fund candidate) but no
+  // worker URL and stubbed hooks → exercises the pre-fetch render paths; empty
+  // data exercises the no-candidates note.
+  ['MaerminLookThrough', 'Panel', baseProps],
 ];
 
 function renderOnce(Comp, props) {
