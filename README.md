@@ -52,19 +52,21 @@ No account  ·  No server  ·  No ads  ·  No remote telemetry  ·  MIT License
 ### 📈 Analysis
 | Feature | Description |
 |---------|-------------|
-| **Returns & XIRR** | Money-weighted (XIRR) and time-weighted return from real cash flows |
+| **Returns & XIRR** | Money-weighted (XIRR) and time-weighted return from real cash flows · benchmark overlay (Alpha, Beta, Tracking Error, Information Ratio, R² vs MSCI World / FTSE All-World / S&P 500 / Nasdaq 100) |
 | **Rebalancing** | Set target allocation via sliders — see exactly what to buy/sell |
 | **Savings Plans** | DCA adherence tracking, missed executions, plan performance |
 | **Cash Flow** | Invested vs portfolio value chart — visualises your entire investment journey |
 | **Fee Analyzer** | Total fees, fee rate %, breakdown by year and asset class, top 10 most expensive trades |
-| **Risk & Correlation** | Correlation matrix, Monte Carlo (10,000+ iterations), stress tests (2008 / COVID / Dot-com), VaR, CVaR, Sharpe, Sortino |
+| **Risk & Correlation** | Correlation matrix, Monte Carlo (10,000+ iterations), stress tests (2008 / COVID / Dot-com), VaR, CVaR, Sharpe, Sortino · rolling volatility/return trends · Fama-French factor exposure (market / size / value loadings) |
+| **Planning Simulator** | Future Value · FIRE projection · withdrawal survival · Monte-Carlo success probability — in the Monte-Carlo view |
 | **Strategy** | DCA vs lump sum, sector allocation, currency exposure, liquidity score, goal planning |
-| **Health Score** | 0–100 structural score (diversification · concentration · asset-class spread · breadth) with a letter grade and concrete, actionable recommendations |
+| **Health Score** | 0–100 structural score (diversification · concentration · asset-class spread · breadth) with a letter grade and concrete, actionable recommendations · AI advisor findings folded in |
 | **Tax & FIFO** | German tax law (1-year crypto exemption) · US tax law (short/long-term gains) · PDF export |
 
 ### 🔧 Tools
 | Feature | Description |
 |---------|-------------|
+| **Discovery** | Read-only screener for ETFs/stocks/crypto · top movers (gainers/losers/most active) · dividend screener — live via your Worker, prices shown in EUR. Gated & optional; degrades gracefully if the Worker predates the endpoint |
 | **Watchlist** | Track symbols without buying — optional target price and sparkline |
 | **Price Alerts** | Notify when price crosses threshold — progress bar shows proximity |
 | **Broker Import** | CoinTracking · DEGIRO · Trade Republic · Interactive Brokers · Coinbase · Binance · Kraken |
@@ -80,15 +82,20 @@ No account  ·  No server  ·  No ads  ·  No remote telemetry  ·  MIT License
 ```
 https://maermin.github.io/MAERMIN/
 ```
-Default password: `maermin2024`
+On first run you **set your own access password** (no shipped default) and are handed a
+one-time **recovery code** — download or print it. It's an alternative way to unlock the
+vault if you forget your password, stored only as a wrapped key (never in readable form,
+never transmitted). The first run also opens a **guided setup wizard** (below); you can
+re-open it anytime from **⚙ API Settings → Guided setup**, or pick **Demo mode** to explore
+a sample portfolio before any setup.
 
 ### 2 — Deploy your Cloudflare Worker
-The Worker is **required** for stock prices, historical chart data, CS2 prices, and symbol search. It's free and takes ~2 minutes.
+The Worker is **required** for stock prices, historical chart data, CS2 prices, and symbol search. It's free and takes ~2 minutes. The in-app **guided setup wizard** walks you through this with a one-click *Copy worker.js* and a live **connection test** that pings each data source and shows green/red per endpoint.
 
 1. Go to [dash.cloudflare.com](https://dash.cloudflare.com) → **Workers & Pages** → **Create Worker**
 2. Paste the contents of [`cf-worker/worker.js`](cf-worker/worker.js)
 3. **Save and Deploy** — copy the Worker URL
-4. Paste URL in MAERMIN → **⚙ API Settings** → Cloudflare Worker
+4. Paste URL in MAERMIN → **⚙ API Settings** → Cloudflare Worker (or let the wizard test + save it)
 
 ### 3 — (Optional) Alpha Vantage
 Add a free [Alpha Vantage key](https://www.alphavantage.co/support/#api-key) in ⚙ API Settings as a fallback for stocks when Yahoo Finance returns no data. Free tier: 25 requests/day.
@@ -114,6 +121,7 @@ Add a free [Alpha Vantage key](https://www.alphavantage.co/support/#api-key) in 
 |----------|-------------|
 | `GET /?action=yf&symbol=AAPL&interval=1d&range=1y` | Yahoo Finance historical data |
 | `GET /?action=yfsearch&q=Apple&type=stock` | Symbol search (stocks or crypto) |
+| `GET /?action=screener&scrId=day_gainers` (or `&symbols=KO,PG`) | Discovery: predefined screener / movers, or batch quote |
 | `GET /?action=steamhistory&name=AK-47 \| Redline (FT)` | CS2 price history (USD) |
 | `GET /?action=search&q=ak47+redline` | Steam Market skin search with images |
 | `POST /` | Steam skin price lookup (array of names → USD price map) |
@@ -171,7 +179,8 @@ Contributing guidelines and conventions: **[CONTRIBUTING.md](CONTRIBUTING.md)**.
 
 - All data stored in `localStorage` — never transmitted anywhere
 - **Encrypted vault**: AES-256-GCM with PBKDF2-600k (or Argon2id); password never stored; optional encryption at rest, passkey unlock, idle auto-lock
-- **Encrypted backups**: export a portable, password-protected backup (Settings → Backup vault) — the only recovery path, since there is no password reset
+- **Recovery code**: a one-time code generated at setup is an alternative way to unlock the vault if you forget your password — implemented as a second key-wrapping (like a passkey), never stored in readable form and never transmitted, so the zero-knowledge model is preserved. Changing your password invalidates it; generate a fresh one afterwards.
+- **Encrypted backups**: export a portable, password-protected backup (Settings → Backup vault) — a portable recovery path you can store off-device
 - **On-device audit log**: security events + uncaught errors (Settings → Security log), never transmitted
 - No analytics, no remote telemetry, no third-party tracking
 - API calls go to: CoinGecko, ExchangeRate-API, your own Cloudflare Worker

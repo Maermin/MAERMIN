@@ -286,7 +286,20 @@ function InvestmentTracker() {
   });
   const [showApiSettings, setShowApiSettings] = useState(false);
   const [showSettings, setShowSettings] = useState(false);
-  
+
+  // Onboarding wizard + recovery-kit enrollment (existing users)
+  const [showOnboarding, setShowOnboarding] = useState(false);
+  const [showRecoveryKit, setShowRecoveryKit] = useState(false);
+  const [recoveryCode, setRecoveryCode] = useState('');
+  const [recoveryBusy, setRecoveryBusy] = useState(false);
+  // Security & Sync settings card
+  const [showSecurity, setShowSecurity] = useState(false);
+  const [syncBusy, setSyncBusy] = useState(false);
+  const [securityRev, setSecurityRev] = useState(0); // bump to re-read vault/sync status
+  const [recoveryNudgeDismissed, setRecoveryNudgeDismissed] = useState(() => {
+    try { return localStorage.getItem('maermin_recovery_nudge') === 'dismissed'; } catch (e) { return false; }
+  });
+
   // Transactions filter/search
   const [txSearch, setTxSearch] = useState('');
   const [txSortBy, setTxSortBy] = useState('date-desc'); // date-desc, date-asc, amount-desc, symbol
@@ -370,6 +383,7 @@ function InvestmentTracker() {
     { id: 'nav:analytics',     label: t.analytics || 'Portfolio Analysis', category: 'Analysis',   shortcut: 'g a' },
     { id: 'nav:taxes',         label: t.taxes || 'Taxes',                  category: 'Analysis',   shortcut: 'g x' },
     // Tools
+    { id: 'nav:discovery',     label: t.discovery || 'Discovery',          category: 'Tools',      shortcut: 'g e' },
     { id: 'nav:watchlist',     label: t.watchlist || 'Watchlist',          category: 'Tools',      shortcut: 'g w' },
     { id: 'nav:alerts',        label: t.priceAlerts || 'Price Alerts',     category: 'Tools',      shortcut: 'g l' },
     { id: 'nav:broker-import', label: t.brokerImport || 'Broker Import',   category: 'Tools',      shortcut: 'g m' },
@@ -476,6 +490,37 @@ function InvestmentTracker() {
   useEffect(() => { localStorage.setItem('privacyMode', privacyMode ? '1' : '0'); }, [privacyMode]);
   useEffect(() => { localStorage.setItem('apiKeys', JSON.stringify(apiKeys)); }, [apiKeys]);
 
+  // First run: open the guided setup wizard once when there's no Worker, no data
+  // and we're not in demo mode. A flag keeps it from reappearing every load.
+  useEffect(() => {
+    try {
+      if (demoMode) return;
+      if (localStorage.getItem('maermin_onboarded') === '1') return;
+      const hasWorker = (apiKeys.cs2Worker || '').trim().length > 5;
+      // Read persisted transactions directly — React state may not be hydrated yet
+      // on the first mount, which would otherwise pop the wizard for existing users.
+      let hasTx = false;
+      try { const s = localStorage.getItem('transactions'); hasTx = !!(s && JSON.parse(s).length); } catch (e) {}
+      if (!hasWorker && !hasTx && window.MaerminOnboarding && window.MaerminOnboarding.Wizard) setShowOnboarding(true);
+    } catch (e) {}
+  }, []); // run once on mount
+
+  // Re-arm cloud sync from its saved config on reload (the transport itself is
+  // not persisted). Zero-knowledge: the account id is derived from the vault.
+  useEffect(() => {
+    try {
+      if (!window.MaerminSync || window.MaerminSync.isConfigured()) return;
+      const cfg = window.MaerminSync.getConfig && window.MaerminSync.getConfig();
+      if (cfg && cfg.provider === 'worker') {
+        const endpoint = cfg.endpoint || (apiKeys.cs2Worker || '').trim();
+        if (endpoint) {
+          window.MaerminSync.configure({ provider: 'worker', endpoint });
+          if (window.MaerminSync.enableAutoSync) window.MaerminSync.enableAutoSync();
+        }
+      }
+    } catch (e) {}
+  }, []); // run once on mount
+
   // Demo mode drives prices from the offline sample set — no network, instant value.
   useEffect(() => {
     if (demoMode && window.MaerminDemo) {
@@ -526,6 +571,7 @@ function InvestmentTracker() {
     }
     setLoading(true);
     const newPrices = { ...prices };
+    const avFallbackSyms = new Set(); // symbols resolved via Alpha Vantage (provenance)
     const timestamp = new Date().toLocaleString('en-US', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' });
     
     try {
@@ -642,6 +688,7 @@ function InvestmentTracker() {
               const data = await res.json();
               if (data['Global Quote']?.['05. price']) {
                 priceEUR = parseFloat(data['Global Quote']['05. price']) * usdToEur;
+                avFallbackSyms.add(sym);
                 dbg('[PRICES] Stock (AV fallback):', sym, '→', priceEUR.toFixed(2), 'EUR');
               } else if (data['Note'] || data['Information']) {
                 console.warn('[PRICES] Alpha Vantage rate limit hit for', sym);
@@ -737,6 +784,7 @@ function InvestmentTracker() {
               }
               if (priceUSD && priceUSD > 0) {
                 priceEUR = priceUSD * usdToEur;
+                avFallbackSyms.add(sym);
                 dbg('[PRICES] Commodity (AV fallback):', sym, '→', priceEUR.toFixed(2), 'EUR');
               }
               await new Promise(r => setTimeout(r, 12000));
@@ -815,7 +863,14 @@ function InvestmentTracker() {
       setPrices(newPrices);
       // Stamp when each symbol was fetched so the data-quality layer can flag
       // stale/failed quotes (feeds the per-position freshness badges).
-      if (window.MaerminDataQuality) window.MaerminDataQuality.recordFetch(Object.keys(newPrices), 'live');
+      if (window.MaerminDataQuality) {
+        window.MaerminDataQuality.recordFetch(Object.keys(newPrices), 'live');
+        // Provenance: mark symbols that came from the Alpha Vantage fallback so the
+        // badge can show WHY (primary source returned no data) — not a silent swap.
+        if (avFallbackSyms.size) {
+          window.MaerminDataQuality.recordFetch([...avFallbackSyms], 'Alpha Vantage', { fallback: true, reason: 'Yahoo Finance returned no data' });
+        }
+      }
 
       // Update price history
       const newHistory = { ...priceHistory };
@@ -861,6 +916,32 @@ function InvestmentTracker() {
     setTransactions(saved ? JSON.parse(saved) : []);
     setPrices({});
     addToast('Demo mode off — your data restored', 'success');
+  };
+
+  // ========== ONBOARDING WIZARD ==========
+  const saveWorkerUrl = (u) => setApiKeys(prev => ({ ...prev, cs2Worker: u }));
+  const openOnboarding = () => setShowOnboarding(true);
+  const closeOnboarding = () => {
+    setShowOnboarding(false);
+    try { localStorage.setItem('maermin_onboarded', '1'); } catch (e) {}
+  };
+
+  // ========== RECOVERY KIT (let pre-existing vaults add one) ==========
+  const createRecoveryKit = () => {
+    if (recoveryBusy || !window.MaerminAuth || !window.MaerminAuth.enrollRecovery) return;
+    setRecoveryBusy(true);
+    window.MaerminAuth.enrollRecovery().then((kit) => {
+      setRecoveryCode(kit.code);
+      setShowRecoveryKit(true);
+      setRecoveryBusy(false);
+    }, () => {
+      setRecoveryBusy(false);
+      addToast('Could not create a recovery code. Please try again.', 'error');
+    });
+  };
+  const dismissRecoveryNudge = () => {
+    setRecoveryNudgeDismissed(true);
+    try { localStorage.setItem('maermin_recovery_nudge', 'dismissed'); } catch (e) {}
   };
 
   // ========== TOAST NOTIFICATIONS ==========
@@ -1115,6 +1196,7 @@ function InvestmentTracker() {
       case 'nav:analytics':     setActiveView('analytics'); break;
       case 'nav:taxes':         setActiveView('tax'); break;
       // Tools Navigation
+      case 'nav:discovery':     setActiveView('discovery'); break;
       case 'nav:watchlist':     setActiveView('watchlist'); break;
       case 'nav:alerts':        setActiveView('alerts'); break;
       case 'nav:broker-import': setActiveView('broker-import'); break;
@@ -1516,6 +1598,16 @@ function InvestmentTracker() {
 
   const renderView = () => {
     switch (activeView) {
+      // P5: the one sanctioned new surface — read-only asset discovery. Gated on
+      // a Worker URL; the View itself degrades gracefully if the deployed Worker
+      // predates the screener endpoint. Prices convert to EUR at ingestion.
+      case 'discovery':
+        return window.MaerminDiscovery ?
+          React.createElement(window.MaerminDiscovery.View, {
+            workerUrl: apiKeys.cs2Worker, usdToEur: exchangeRate,
+            theme: currentTheme, t, formatPrice, getCurrencySymbol
+          }) : renderAnalyticsPlaceholder('Discovery');
+
       case 'net-worth':
         return window.MaerminFeatures5 ?
           React.createElement(window.MaerminFeatures5.NetWorthView, {
@@ -1563,11 +1655,18 @@ function InvestmentTracker() {
           }) : renderAnalyticsPlaceholder('Savings Plans');
 
       case 'returns':
-        return window.MaerminFeatures2 ?
+        return window.MaerminFeatures2 ? React.createElement('div', null,
           React.createElement(window.MaerminFeatures2.ReturnsView, {
             transactions: activeTransactions, portfolio, prices, priceHistory,
             theme: currentTheme, formatPrice, getCurrencySymbol, t
-          }) : renderAnalyticsPlaceholder('Returns');
+          }),
+          // Benchmark overlay (α/β/TE/IR/R²) — folds the analytics engine into Returns.
+          window.MaerminAnalyticsViews && React.createElement('div', { style: { padding: '0 1.5rem 1.5rem' } },
+            React.createElement(window.MaerminAnalyticsViews.BenchmarkPanel, {
+              portfolio, priceHistory, workerUrl: apiKeys.cs2Worker, theme: currentTheme, t, formatPrice
+            })
+          )
+        ) : renderAnalyticsPlaceholder('Returns');
 
       case 'rebalancing':
         return window.MaerminFeatures2 ?
@@ -1650,11 +1749,17 @@ function InvestmentTracker() {
           }) : renderAnalyticsPlaceholder('Strategy Analysis');
 
       case 'health':
-        return window.PortfolioHealth ?
-          React.createElement(window.PortfolioHealth.HealthView, {
-            portfolio, prices, priceHistory, transactions: activeTransactions,
-            theme: currentTheme, t, formatPrice, getCurrencySymbol, setActiveView
-          }) : renderAnalyticsPlaceholder('Portfolio Health');
+        return React.createElement(React.Fragment, null,
+          window.PortfolioHealth ?
+            React.createElement(window.PortfolioHealth.HealthView, {
+              portfolio, prices, priceHistory, transactions: activeTransactions,
+              theme: currentTheme, t, formatPrice, getCurrencySymbol, setActiveView
+            }) : renderAnalyticsPlaceholder('Portfolio Health'),
+          // Fold the (already-tested) AI advisor findings into Health — no new tab.
+          window.MaerminAdvisor && window.MaerminAdvisor.Panel && React.createElement('div', { style: { padding: '0 1.5rem 1.5rem' } },
+            React.createElement(window.MaerminAdvisor.Panel, { portfolio, prices, transactions: activeTransactions, theme: currentTheme, t })
+          )
+        );
 
       default:
         return renderOverview();
@@ -1823,6 +1928,10 @@ function InvestmentTracker() {
     const selectedPortfolio  = portfolios.find(p => p.id === overviewMode) || portfolios[0];
     const isAllMode          = overviewMode === 'all';
 
+    // Nudge pre-existing vaults (created before recovery codes shipped) to add one.
+    const _vaultStatus = (window.MaerminAuth && window.MaerminAuth.getStatus) ? window.MaerminAuth.getStatus() : {};
+    const showRecoveryNudge = !demoMode && _vaultStatus.hasVault && !_vaultStatus.hasRecovery && !recoveryNudgeDismissed;
+
     const singleStats = useMemoInline(() => {
       if (isAllMode) return null;
       const posMap = {};
@@ -1935,6 +2044,23 @@ function InvestmentTracker() {
       ? window.MaerminDataQuality.fx(exchangeRate, { fetchedAt: (window.MaerminDataQuality.readMeta()['__fx__'] || {}).at, pair: 'USD→EUR' })
       : null;
 
+    // Data-health summary across ALL holdings → the top-bar "N prices stale" chip.
+    const dqHealth = (function () {
+      const Q = window.MaerminDataQuality;
+      if (!Q || demoMode) return null;
+      const meta = Q.readMeta();
+      const items = [];
+      ['crypto', 'stocks', 'skins', 'commodities'].forEach((cls) => {
+        (allPortfoliosPortfolio[cls] || []).forEach((p) => {
+          const sym = p.symbol;
+          const e = meta[sym] || meta[String(sym).toUpperCase()] || meta[String(sym).toLowerCase()] || {};
+          const px = prices[sym] != null ? prices[sym] : (prices[String(sym).toUpperCase()] != null ? prices[String(sym).toUpperCase()] : p.currentPrice);
+          items.push({ category: cls, price: px, fetchedAt: e.at });
+        });
+      });
+      return Q.summarize(items);
+    })();
+
     return React.createElement('div', { style: { padding: '1.5rem' } },
 
       // ── Demo-mode banner ─────────────────────────────────────────────────
@@ -1964,6 +2090,17 @@ function InvestmentTracker() {
           },
             React.createElement('span', { style: { width: 9, height: 9, borderRadius: '50%', background: wsColor, flexShrink: 0, boxShadow: `0 0 6px ${wsColor}` } }),
             wsLabel
+          ),
+          // Data-health chip — only appears when something is stale/missing.
+          dqHealth && (dqHealth.stale + dqHealth.missing) > 0 && React.createElement('div', {
+            onClick: () => fetchPrices(), title: [
+              dqHealth.stale ? dqHealth.stale + ' price' + (dqHealth.stale > 1 ? 's' : '') + ' stale' : '',
+              dqHealth.missing ? dqHealth.missing + ' price' + (dqHealth.missing > 1 ? 's' : '') + ' missing' : ''
+            ].filter(Boolean).join(' · ') + ' — click to refresh prices',
+            style: { display: 'flex', alignItems: 'center', gap: '0.4rem', minHeight: '40px', padding: '0.5rem 0.7rem', background: `${currentTheme.warning}14`, border: `1px solid ${currentTheme.warning}55`, borderRadius: '8px', cursor: 'pointer', fontSize: '0.78rem', color: currentTheme.warning, fontWeight: '600' }
+          },
+            React.createElement('span', null, '⚠'),
+            (dqHealth.stale + dqHealth.missing) + (dqHealth.stale ? ' stale' : ' missing')
           ),
           // FX transparency chip — shows the USD→EUR rate, source + age on hover.
           fxInfo && fxInfo.rate && React.createElement('div', {
@@ -2082,13 +2219,25 @@ function InvestmentTracker() {
           React.createElement('button', { onClick: () => setShowApiSettings(true), style: { padding: '0.5rem 1rem', background: currentTheme.warning, color: '#1a1a1a', border: 'none', borderRadius: '6px', cursor: 'pointer', fontWeight: '700', fontSize: '0.8rem' } }, 'Add Worker URL →')
         ),
 
+      // Recovery-kit nudge for vaults created before recovery codes existed
+      showRecoveryNudge && React.createElement('div', { style: { background: 'rgba(245,158,11,0.06)', border: '1px solid rgba(245,158,11,0.25)', borderRadius: '10px', padding: '0.875rem 1.25rem', marginBottom: '1.25rem', display: 'flex', alignItems: 'center', gap: '1rem', flexWrap: 'wrap' } },
+        React.createElement('span', { style: { fontSize: '1.25rem' } }, '🔑'),
+        React.createElement('div', { style: { flex: 1, minWidth: '220px' } },
+          React.createElement('div', { style: { color: currentTheme.text, fontWeight: '600', fontSize: '0.875rem' } }, 'Add a recovery code'),
+          React.createElement('div', { style: { color: currentTheme.textSecondary, fontSize: '0.8rem', marginTop: '0.125rem' } }, 'Your vault has no recovery code. Without one, a forgotten password cannot be reset — generate a printable code now.')
+        ),
+        React.createElement('button', { onClick: createRecoveryKit, disabled: recoveryBusy, style: { padding: '0.5rem 1rem', background: currentTheme.accent, color: '#13110a', border: 'none', borderRadius: '6px', cursor: recoveryBusy ? 'wait' : 'pointer', fontWeight: '700', fontSize: '0.8rem' } }, recoveryBusy ? 'Creating…' : 'Create recovery code'),
+        React.createElement('button', { onClick: dismissRecoveryNudge, style: { padding: '0.5rem 0.75rem', background: 'transparent', color: currentTheme.textSecondary, border: `1px solid ${currentTheme.cardBorder}`, borderRadius: '6px', cursor: 'pointer', fontSize: '0.8rem' } }, 'Dismiss')
+      ),
+
       // Onboarding
       stats.totalPositions === 0 && React.createElement('div', { style: { background: 'linear-gradient(135deg,rgba(59,130,246,0.1),rgba(245,165,36,0.1))', border: '1px solid rgba(245,165,36,0.3)', borderRadius: '12px', padding: '2rem', marginBottom: '2rem', textAlign: 'center' } },
         React.createElement('div', { style: { fontSize: '2rem', marginBottom: '0.75rem', color: 'rgba(245,165,36,0.5)', fontWeight: '300' } }, '↗'),
         React.createElement('h3', { style: { color: currentTheme.text, fontSize: '1.125rem', fontWeight: '600', marginBottom: '0.5rem' } }, t.welcomeTitle || 'Welcome to MAERMIN'),
         React.createElement('p', { style: { color: currentTheme.textSecondary, fontSize: '0.875rem', marginBottom: '1rem', lineHeight: '1.6' } }, t.welcomeHint || 'Start by adding your first transaction.'),
         React.createElement('div', { style: { display: 'flex', gap: '0.75rem', justifyContent: 'center', flexWrap: 'wrap' } },
-          React.createElement('button', { onClick: () => openTransactionModal(), style: { padding: '0.625rem 1.25rem', background: currentTheme.accent, color: '#13110a', border: 'none', borderRadius: '8px', cursor: 'pointer', fontWeight: '600', fontSize: '0.875rem' } }, '+ ' + (t.addTransaction || 'Add Transaction')),
+          window.MaerminOnboarding && window.MaerminOnboarding.Wizard && React.createElement('button', { onClick: openOnboarding, style: { padding: '0.625rem 1.25rem', background: currentTheme.accent, color: '#13110a', border: 'none', borderRadius: '8px', cursor: 'pointer', fontWeight: '700', fontSize: '0.875rem' } }, '⚡ Guided setup'),
+          React.createElement('button', { onClick: () => openTransactionModal(), style: { padding: '0.625rem 1.25rem', background: currentTheme.inputBg, color: currentTheme.text, border: `1px solid ${currentTheme.cardBorder}`, borderRadius: '8px', cursor: 'pointer', fontWeight: '600', fontSize: '0.875rem' } }, '+ ' + (t.addTransaction || 'Add Transaction')),
           React.createElement('button', { onClick: () => setShowImportModal(true), style: { padding: '0.625rem 1.25rem', background: currentTheme.inputBg, color: currentTheme.text, border: `1px solid ${currentTheme.cardBorder}`, borderRadius: '8px', cursor: 'pointer', fontSize: '0.875rem' } }, t.importData || 'Import Data')
         )
       ),
@@ -2151,15 +2300,30 @@ function InvestmentTracker() {
         case 'correlation': return window.CorrelationMatrixView ?
           React.createElement(window.CorrelationMatrixView, { portfolio, priceHistory, t, theme: currentTheme, formatPrice })
           : renderAnalyticsPlaceholder('Correlation Matrix');
-        case 'montecarlo': return window.MonteCarloView ?
-          React.createElement(window.MonteCarloView, { portfolio, prices, t, theme: currentTheme, currency, formatPrice })
-          : renderAnalyticsPlaceholder('Monte Carlo');
+        case 'montecarlo': return React.createElement(React.Fragment, null,
+          window.MonteCarloView
+            ? React.createElement(window.MonteCarloView, { portfolio, prices, t, theme: currentTheme, currency, formatPrice })
+            : renderAnalyticsPlaceholder('Monte Carlo'),
+          // Fold in the (already-tested) analytics simulator: Future Value · FIRE
+          // · Withdrawal · Monte-Carlo success probability — no new tab.
+          window.MaerminSimulatorView && React.createElement(window.MaerminSimulatorView.Panel, {
+            startValue: allPortfoliosStats.totalValue, theme: currentTheme, t, formatPrice, currency, getCurrencySymbol
+          })
+        );
         case 'stress': return window.StressTestView ?
           React.createElement(window.StressTestView, { portfolio, prices, t, theme: currentTheme, currency, formatPrice })
           : renderAnalyticsPlaceholder('Stress Test');
-        case 'risk': return window.RiskAnalyticsViewV2 ?
-          React.createElement(window.RiskAnalyticsViewV2, { portfolio, prices, priceHistory, transactions: activeTransactions, setActiveView, t, theme: currentTheme, formatPrice })
-          : renderAnalyticsPlaceholder('Risk Analysis');
+        case 'risk': return React.createElement(React.Fragment, null,
+          window.RiskAnalyticsViewV2
+            ? React.createElement(window.RiskAnalyticsViewV2, { portfolio, prices, priceHistory, transactions: activeTransactions, setActiveView, t, theme: currentTheme, formatPrice })
+            : renderAnalyticsPlaceholder('Risk Analysis'),
+          // Rolling volatility/return trajectory + Fama-French factor exposure —
+          // folds the analytics engine into Risk (no new tab).
+          window.MaerminAnalyticsViews && React.createElement('div', { style: { padding: '0 1.5rem 1.5rem' } },
+            React.createElement(window.MaerminAnalyticsViews.RollingRiskPanel, { portfolio, priceHistory, theme: currentTheme, t }),
+            window.MaerminAnalyticsViews.FactorExposurePanel && React.createElement(window.MaerminAnalyticsViews.FactorExposurePanel, { portfolio, priceHistory, workerUrl: apiKeys.cs2Worker, theme: currentTheme, t })
+          )
+        );
         default: return null;
       }
     };
@@ -3303,7 +3467,11 @@ buy,crypto,bitcoin,0.5,45000,2024-01-15,10`)
             onChange: e => setApiKeys(prev => ({ ...prev, cs2Worker: e.target.value })),
             placeholder: 'https://your-worker-name.your-subdomain.workers.dev',
             style: { width: '100%', padding: '0.75rem', background: currentTheme.inputBg, border: `1px solid ${currentTheme.inputBorder}`, borderRadius: '6px', color: currentTheme.text, fontSize: '0.8rem', fontFamily: 'monospace' }
-          })
+          }),
+          window.MaerminOnboarding && window.MaerminOnboarding.Wizard && React.createElement('button', {
+            onClick: () => { setShowApiSettings(false); openOnboarding(); },
+            style: { marginTop: '0.625rem', padding: '0.5rem 0.9rem', background: 'transparent', color: currentTheme.accent, border: `1px solid ${currentTheme.accent}`, borderRadius: '6px', cursor: 'pointer', fontWeight: '600', fontSize: '0.8rem' }
+          }, '⚡ Guided setup & connection test')
         ),
 
         // Alpha Vantage Section — Fallback only
@@ -3434,8 +3602,110 @@ buy,crypto,bitcoin,0.5,45000,2024-01-15,10`)
     );
   };
 
+  // ========== ONBOARDING + RECOVERY MODALS ==========
+  const renderOnboardingWizard = () => {
+    if (!showOnboarding || !window.MaerminOnboarding || !window.MaerminOnboarding.Wizard) return null;
+    return React.createElement(window.MaerminOnboarding.Wizard, {
+      theme: currentTheme,
+      t,
+      workerUrl: apiKeys.cs2Worker || '',
+      onSaveWorkerUrl: (u) => { saveWorkerUrl(u); addToast('Worker URL saved — refreshing prices', 'success'); },
+      onActivateDemo: () => { closeOnboarding(); enterDemo(); },
+      onClose: closeOnboarding
+    });
+  };
+
+  const renderRecoveryKitModal = () => {
+    if (!showRecoveryKit) return null;
+    const code = recoveryCode;
+    const fileText = (window.MaerminAuth && window.MaerminAuth.recoveryFileText) ? window.MaerminAuth.recoveryFileText(code) : code;
+    const doDownload = () => {
+      try {
+        const url = URL.createObjectURL(new Blob([fileText], { type: 'text/plain' }));
+        const a = document.createElement('a'); a.href = url; a.download = 'maermin-recovery-code.txt';
+        document.body.appendChild(a); a.click();
+        setTimeout(() => { URL.revokeObjectURL(url); a.remove(); }, 0);
+      } catch (e) {}
+    };
+    const doPrint = () => {
+      try {
+        const w = window.open('', '_blank'); if (!w) return;
+        const esc = fileText.replace(/[&<>]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;' }[c]));
+        w.document.write('<title>MAERMIN Recovery Code</title><pre style="font:14px ui-monospace,Menlo,monospace;padding:24px;white-space:pre-wrap">' + esc + '</pre>');
+        w.document.close(); w.focus(); w.print();
+      } catch (e) {}
+    };
+    const doCopy = () => { try { navigator.clipboard.writeText(code); addToast('Recovery code copied', 'success'); } catch (e) {} };
+    const altBtn = (label, onClick) => React.createElement('button', { onClick, style: { flex: 1, padding: '0.6rem', background: 'transparent', color: currentTheme.text, border: `1px solid ${currentTheme.cardBorder}`, borderRadius: '8px', cursor: 'pointer', fontSize: '0.82rem' } }, label);
+    return React.createElement('div', { style: { position: 'fixed', inset: 0, zIndex: 9100, background: 'rgba(3,6,12,0.72)', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '1.5rem' } },
+      React.createElement('div', { style: { background: currentTheme.cardBg || '#141a25', border: `1px solid ${currentTheme.cardBorder}`, borderRadius: '16px', padding: '1.75rem', width: '100%', maxWidth: '460px', boxShadow: '0 30px 70px -20px rgba(0,0,0,0.7)' } },
+        React.createElement('h3', { style: { color: currentTheme.text, fontSize: '1.15rem', fontWeight: '700', margin: '0 0 0.5rem' } }, 'Your recovery code'),
+        React.createElement('p', { style: { color: currentTheme.textSecondary, fontSize: '0.85rem', lineHeight: '1.55', margin: '0 0 1rem' } }, 'Save this now — it can unlock your vault if you forget your password. It is shown once and never stored in readable form. Anyone with it can open your vault.'),
+        React.createElement('div', { style: { fontFamily: 'ui-monospace,Menlo,monospace', fontSize: '1.05rem', letterSpacing: '0.05em', color: currentTheme.accent, background: currentTheme.inputBg, border: `1px solid ${currentTheme.cardBorder}`, borderRadius: '10px', padding: '1rem', textAlign: 'center', wordBreak: 'break-all', userSelect: 'all', marginBottom: '0.9rem' } }, code),
+        React.createElement('div', { style: { display: 'flex', gap: '0.5rem', marginBottom: '1rem' } }, doCopy && altBtn('Copy', doCopy), altBtn('Download', doDownload), altBtn('Print', doPrint)),
+        React.createElement('button', { onClick: () => setShowRecoveryKit(false), style: { width: '100%', padding: '0.7rem', background: currentTheme.accent, color: '#13110a', border: 'none', borderRadius: '8px', cursor: 'pointer', fontWeight: '700', fontSize: '0.9rem' } }, 'Done — I\'ve saved it')
+      )
+    );
+  };
+
+  // ========== SECURITY & SYNC MODAL ==========
+  const renderSecurityModal = () => {
+    if (!showSecurity) return null;
+    const A = window.MaerminAuth, S = window.MaerminSync;
+    const status = (A && A.getStatus) ? A.getStatus() : {};
+    const syncCfg = (S && S.getConfig) ? S.getConfig() : null;
+    const syncState = (S && S.getState) ? S.getState() : null;
+    const workerUrl = (apiKeys.cs2Worker || '').trim();
+    const bump = () => setSecurityRev(r => r + 1);
+    const lockMin = Math.round((status.autoLockMs || 900000) / 60000);
+
+    const fmtAgo = (ts) => {
+      if (!ts) return 'never';
+      const s = Math.floor((Date.now() - ts) / 1000);
+      if (s < 60) return 'just now';
+      if (s < 3600) return Math.floor(s / 60) + ' min ago';
+      if (s < 86400) return Math.floor(s / 3600) + ' h ago';
+      return Math.floor(s / 86400) + ' d ago';
+    };
+    const badge = (txt, good) => React.createElement('span', { style: { fontSize: '0.7rem', padding: '0.15rem 0.5rem', borderRadius: '4px', background: good ? 'rgba(34,197,94,0.18)' : 'rgba(255,255,255,0.06)', color: good ? currentTheme.success : currentTheme.textSecondary, fontWeight: '700' } }, txt);
+    const smallBtn = (label, onClick, disabled) => React.createElement('button', { onClick, disabled, style: { padding: '0.4rem 0.8rem', background: 'transparent', color: currentTheme.accent, border: `1px solid ${currentTheme.accent}`, borderRadius: '6px', cursor: disabled ? 'wait' : 'pointer', fontSize: '0.78rem', fontWeight: '600', opacity: disabled ? 0.6 : 1 } }, label);
+    const row = (label, control) => React.createElement('div', { style: { display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '1rem', padding: '0.55rem 0', borderBottom: `1px solid ${currentTheme.cardBorder}` } }, React.createElement('span', { style: { color: currentTheme.text, fontSize: '0.85rem' } }, label), control);
+    const sectionTitle = (txt) => React.createElement('div', { style: { color: currentTheme.textSecondary, fontSize: '0.7rem', textTransform: 'uppercase', letterSpacing: '0.05em', margin: '1.1rem 0 0.3rem' } }, txt);
+
+    const addPasskey = () => { if (!A || !A.enrollPasskey) return; A.enrollPasskey('MAERMIN').then((res) => { if (res && res.enrolled) { addToast('Passkey enrolled ✓', 'success'); bump(); } else { addToast('This authenticator has no PRF support', 'error'); } }, () => addToast('Passkey enrollment cancelled', 'error')); };
+    const enableAtRest = () => { if (window.MaerminStorage && window.MaerminStorage.enableAtRest) window.MaerminStorage.enableAtRest().then(() => { addToast('Data encrypted at rest ✓', 'success'); bump(); }, () => addToast('Could not enable at-rest encryption', 'error')); };
+    const setLock = (min) => { if (A && A.setAutoLock) { A.setAutoLock(min * 60000); addToast('Auto-lock set to ' + min + ' min', 'success'); bump(); } };
+    const runSync = () => { if (!S || !S.sync) return; setSyncBusy(true); S.sync().then((r) => { setSyncBusy(false); addToast(r && r.unchanged ? 'Already up to date' : 'Synced ✓', 'success'); bump(); }, (e) => { setSyncBusy(false); addToast('Sync failed: ' + ((e && e.message) || 'error'), 'error'); }); };
+    const doEnableSync = () => { if (!workerUrl) { addToast('Add a Worker URL in API Settings first', 'error'); return; } if (!S) return; S.configure({ provider: 'worker', endpoint: workerUrl }); if (S.enableAutoSync) S.enableAutoSync(); runSync(); };
+    const syncOn = !!((S && S.isConfigured && S.isConfigured()) || (syncCfg && syncCfg.provider));
+
+    return React.createElement('div', { style: { position: 'fixed', inset: 0, zIndex: 9050, background: 'rgba(3,6,12,0.72)', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '1.5rem' }, onClick: (e) => e.target === e.currentTarget && setShowSecurity(false) },
+      React.createElement('div', { style: { background: currentTheme.modalBg || currentTheme.cardBg || '#141a25', border: `1px solid ${currentTheme.cardBorder}`, borderRadius: '16px', padding: '1.75rem', width: '100%', maxWidth: '500px', maxHeight: '88vh', overflowY: 'auto', boxShadow: '0 30px 70px -20px rgba(0,0,0,0.7)' } },
+        React.createElement('div', { style: { display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.25rem' } },
+          React.createElement('h3', { style: { color: currentTheme.text, fontSize: '1.15rem', fontWeight: '700', margin: 0 } }, 'Security & sync'),
+          React.createElement('button', { onClick: () => setShowSecurity(false), 'aria-label': 'Close', style: { background: 'none', border: 'none', color: currentTheme.textSecondary, fontSize: '1.4rem', cursor: 'pointer', lineHeight: 1 } }, '×')
+        ),
+        sectionTitle('Vault'),
+        row('Encryption at rest', status.encryptedAtRest ? badge('On', true) : smallBtn('Encrypt now', enableAtRest)),
+        row('Key derivation', badge(status.kdf === 'argon2id' ? 'Argon2id' : 'PBKDF2-600k', true)),
+        row('Auto-lock', React.createElement('div', { style: { display: 'flex', gap: '0.3rem' } }, [1, 5, 15, 30].map((m) => React.createElement('button', { key: m, onClick: () => setLock(m), style: { padding: '0.3rem 0.5rem', background: lockMin === m ? currentTheme.accent : currentTheme.inputBg, color: lockMin === m ? '#13110a' : currentTheme.text, border: 'none', borderRadius: '5px', cursor: 'pointer', fontSize: '0.72rem', fontWeight: lockMin === m ? '700' : '500' } }, m + 'm')))),
+        sectionTitle('Access'),
+        row('Passkey unlock', status.passkeySupported ? (status.hasPasskey ? badge('Enrolled', true) : smallBtn('Add passkey', addPasskey)) : badge('Unsupported', false)),
+        row('Recovery code', status.hasRecovery ? React.createElement('div', { style: { display: 'flex', gap: '0.4rem', alignItems: 'center' } }, badge('Active', true), smallBtn('Rotate', createRecoveryKit, recoveryBusy)) : smallBtn(recoveryBusy ? 'Creating…' : 'Create', createRecoveryKit, recoveryBusy)),
+        sectionTitle('Cloud sync (zero-knowledge)'),
+        React.createElement('p', { style: { color: currentTheme.textSecondary, fontSize: '0.76rem', lineHeight: '1.5', margin: '0 0 0.4rem' } }, 'Your encrypted snapshot syncs via your own Worker. The server only ever sees ciphertext; the account id is derived from your vault.'),
+        row('Status', syncOn ? badge('Enabled · last ' + fmtAgo(syncState && syncState.lastSyncAt), true) : badge('Not enabled', false)),
+        React.createElement('div', { style: { display: 'flex', gap: '0.5rem', marginTop: '0.7rem' } },
+          syncOn ? smallBtn(syncBusy ? 'Syncing…' : 'Sync now', runSync, syncBusy) : null,
+          syncOn ? null : smallBtn(syncBusy ? '…' : 'Enable & sync', doEnableSync, syncBusy || !workerUrl)
+        ),
+        !workerUrl && React.createElement('div', { style: { color: currentTheme.warning, fontSize: '0.74rem', marginTop: '0.4rem' } }, 'Add a Worker URL in API Settings to enable sync.')
+      )
+    );
+  };
+
   // ========== MAIN RENDER ==========
-  
+
   return React.createElement('div', {
     style: {
       minHeight: '100vh',
@@ -3668,6 +3938,16 @@ buy,crypto,bitcoin,0.5,45000,2024-01-15,10`)
               textAlign: 'left', marginBottom: '0.25rem'
             }
           }, (t.apiSettings || 'API Settings')),
+          // Security & Sync
+          React.createElement('button', {
+            onClick: () => { setShowSettings(false); setShowSecurity(true); },
+            style: {
+              width: '100%', padding: '0.5rem', background: 'transparent',
+              color: currentTheme.textSecondary, border: 'none',
+              borderRadius: '6px', cursor: 'pointer', fontSize: '0.8rem',
+              textAlign: 'left', marginBottom: '0.25rem'
+            }
+          }, '🔐 Security & sync'),
           // Divider
           React.createElement('div', { style: { height: '1px', background: currentTheme.cardBorder, margin: '0.75rem 0' } }),
           // Encrypted vault backup — disaster recovery (the vault has no password
@@ -3792,6 +4072,7 @@ buy,crypto,bitcoin,0.5,45000,2024-01-15,10`)
           { id: 'tax',              icon: '§', label: t.navTaxFifo || 'Tax & FIFO' },
           // ── Tools ──────────────────────────────────
           { group: t.navGroupTools || 'Tools' },
+          { id: 'discovery',        icon: '🔍', label: t.navDiscovery || 'Discovery' },
           { id: 'watchlist',        icon: '☆', label: t.navWatchlist || 'Watchlist' },
           { id: 'alerts',           icon: '⚑', label: t.navPriceAlerts || 'Price Alerts' },
           { id: 'attribution',     icon: '⊿', label: t.navAttribution || 'Attribution' },
@@ -3872,7 +4153,10 @@ buy,crypto,bitcoin,0.5,45000,2024-01-15,10`)
     renderApiSettingsModal(),
     renderPasswordModal(),
     renderAuditLogModal(),
-    
+    renderOnboardingWizard(),
+    renderRecoveryKitModal(),
+    renderSecurityModal(),
+
     // Command Palette
     window.CommandPalette && React.createElement(window.CommandPalette, {
       isOpen: showCommandPalette,

@@ -53,9 +53,9 @@ at mount (post-unlock) via `MaerminMigrations.run()`.
 
 | Module | Global | Responsibility |
 |--------|--------|----------------|
-| `crypto-vault.js` | `MaerminVault` | AES-256-GCM; PBKDF2-600k or Argon2id KDF; wrap-check (no password stored); HKDF sub-keys; idle auto-lock; WebAuthn-PRF passkeys |
+| `crypto-vault.js` | `MaerminVault` | AES-256-GCM; PBKDF2-600k or Argon2id KDF; wrap-check (no password stored); HKDF sub-keys; idle auto-lock; WebAuthn-PRF passkeys; **printable recovery-code kit** — a second wrapping of the vault key (`enrollRecovery`/`unlockWithRecovery`), the code is shown once and never stored/transmitted |
 | `storage.js` | `MaerminStorage` | Transparent encryption-at-rest shim over `localStorage` for a fixed set of sensitive keys; reversible plaintext backup; portable **encrypted** backup export/import |
-| `auth.js` | `MaerminAuth` | Setup / unlock / lock UI; mount gate; change-password |
+| `auth.js` | `MaerminAuth` | Setup / unlock / lock UI; mount gate; change-password; one-time recovery-code reveal at setup + recovery-code unlock path |
 | `audit-log.js` | `MaerminAuditLog` | On-device event + error trail (non-sensitive, ring-buffered) |
 | `migrations.js` | `MaerminMigrations` | Versioned, idempotent localStorage migrations |
 
@@ -94,6 +94,8 @@ conversion happens only at format time (`formatPrice`).
 | `allocation.js` | `MaerminAllocation` | Asset-class allocation + drill-down |
 | `projection.js` | `MaerminProjection` | Multi-scenario wealth projection |
 | `recurring.js` | `MaerminRecurring` | Recurring liabilities (loans/mortgages) |
+| `portfolio-analytics.js` | `MaerminAnalytics` | Pure quant fed return series: benchmarks (α/β/Tracking Error/Information Ratio/R²), simulator (future value/FIRE/withdrawal/Monte-Carlo success), risk (max drawdown/rolling vol/Fama-French OLS) |
+| `analytics-data.js` | `MaerminAnalyticsData` | Bridge: builds a portfolio value path + aligned period returns from built positions + per-symbol `priceHistory` (incl. N-series `alignReturns`/`subtract` for factor construction), the inputs `MaerminAnalytics` expects |
 
 ---
 
@@ -105,6 +107,43 @@ crash shows a recoverable fallback instead of a blank app. Feature views live in
 `features.js … features7.js` and `investment-views.js`, rendered by passing
 already-computed numbers down as props (no view computes cross-cutting metrics
 itself — it reuses `MaerminMetrics`).
+
+**First-run onboarding** (`onboarding.js` → `MaerminOnboarding`) is a view-layer
+module with a React `Wizard` plus dual-exported pure logic: `endpoints()` builds a
+cheap probe per data source, `classify()` maps each probe outcome to green/amber/red,
+and `probe()`/`probeAll()` run them with an injectable `fetch` (so the connection test
+is unit-tested under Node). The wizard offers a guided Worker deploy (one-click *Copy
+worker.js*), the live connection test, and a Demo-mode entry; `renderer.js` opens it on
+first run and from API Settings, and surfaces a recovery-code nudge for vaults created
+before recovery codes existed.
+
+**Analytics fold-in** (no new tabs): the `MaerminAnalytics` engine is surfaced through
+thin view modules — `simulator-view.js` (`MaerminSimulatorView`, Future Value/FIRE/
+Withdrawal/Monte-Carlo) folds into the **Monte-Carlo** analytics tab, and
+`analytics-views.js` (`MaerminAnalyticsViews`) adds a **benchmark overlay** (α/β/TE/IR/R²,
+fetching a proxy via the worker `yf` endpoint) to the **Returns** view plus a **rolling
+volatility/return** panel and a **Fama-French factor-exposure** panel (MKT/SMB/HML loadings
++ annualised alpha, regressing the portfolio on ETF-proxy factor returns — VTI; IWM−IWB;
+IWD−IWF — over the same `yf` endpoint) to the **Risk** view. The proxy/diff alignment is
+pure and unit-tested (`MaerminAnalyticsData.alignReturns`/`subtract`); the engine's
+`factorExposure` OLS stays the single source of truth. The AI advisor's findings
+(`advisor.js` → `MaerminAdvisor.Panel`) fold into the **Health** view. All consume
+`MaerminAnalyticsData` for series construction, so no view recomputes quant. A
+**Security & Sync** settings modal (in `renderer.js`) exposes `MaerminAuth.getStatus()`
+(encryption-at-rest, KDF, auto-lock, passkey, recovery code) and `MaerminSync`
+(zero-knowledge cloud sync) status + actions.
+
+**Asset Discovery** (`discovery.js` → `MaerminDiscovery`) is the one sanctioned *new*
+surface (Roadmap P5) — a read-only screener for ETFs/stocks/crypto, top movers, and a
+dividend screener, reached from the **Tools** nav. The Worker is the single data source:
+a new `action=screener` endpoint proxies + normalises Yahoo Finance in two modes —
+`scrId=` (predefined screener / movers) and `symbols=` (batch quote, used for the curated
+dividend universe). Everything testable without a browser — `parseResponse`, EUR
+conversion at ingestion (`toEURRow`, reusing `MaerminUtils.toEUR`), `applyFilters`,
+`sortRows`, `dividendScreen`, `buildUrl` — is pure and Node-tested; the React `View` is a
+thin shell over them. It is fully gated: with no Worker URL, or against a Worker that
+predates the endpoint (400/404), it shows a clear upgrade note instead of breaking. No
+data is persisted and nothing sensitive is sent, so it adds no `SENSITIVE_KEYS`.
 
 ---
 

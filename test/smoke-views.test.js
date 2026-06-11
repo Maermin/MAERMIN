@@ -77,7 +77,7 @@ globalThis.window.navigator = globalThis.navigator || { language: 'en-US', clipb
 const engines = [
   '../utils.js', '../allocation.js', '../metrics.js', '../projection.js',
   '../recurring.js', '../equity-metadata.js', '../portfolio-health.js',
-  '../data-quality.js',
+  '../data-quality.js', '../portfolio-analytics.js', '../analytics-data.js',
 ];
 console.log('engine preload:');
 for (const e of engines) {
@@ -98,6 +98,12 @@ const VIEW_MODULES = [
   { file: '../features7.js',        ns: 'MaerminFeatures7', comps: ['PerformanceAttribution', 'RealizedUnrealizedView', 'NewsFeedView'] },
   { file: '../investment-views.js', ns: 'InvestmentViews',  comps: ['DCAAnalyzerView', 'SectorAllocationView', 'CountryAllocationView', 'CurrencyExposureView', 'LiquidityAnalysisView', 'GoalInvestingView', 'InvestmentAnalysisDashboard', 'AnalysisCard', 'MetricGrid', 'DataTable', 'ProgressBar', 'TabBar'] },
   { file: '../portfolio-health.js', ns: 'PortfolioHealth',  comps: ['HealthView', 'computeHealth'] },
+  // Analytics fold-in panels + first-run onboarding (engine surfaced in existing views).
+  { file: '../analytics-views.js',  ns: 'MaerminAnalyticsViews', comps: ['BenchmarkPanel', 'RollingRiskPanel', 'FactorExposurePanel'] },
+  { file: '../simulator-view.js',   ns: 'MaerminSimulatorView',  comps: ['Panel', 'buildResults', 'defaults'] },
+  { file: '../advisor.js',          ns: 'MaerminAdvisor',        comps: ['Panel', 'analyzePortfolio', 'analyzeFromMetrics'] },
+  { file: '../onboarding.js',       ns: 'MaerminOnboarding',     comps: ['Wizard', 'probeAll', 'classify', 'endpoints'] },
+  { file: '../discovery.js',        ns: 'MaerminDiscovery',      comps: ['View', 'parseResponse', 'buildUrl', 'sortRows', 'dividendScreen', 'toEURRow'] },
 ];
 
 console.log('\nTier 1 — module load + exports:');
@@ -198,6 +204,17 @@ const MUST_RENDER = [
   ['InvestmentViews', 'LiquidityAnalysisView', baseProps],
   ['InvestmentViews', 'DataTable', { headers: ['A', 'B'], rows: [['1', '2']], theme }],
   ['InvestmentViews', 'TabBar', { tabs: [{ id: 'x', label: 'X' }], active: 'x', onChange: noop, theme }],
+  // Analytics fold-in panels: gate the no-worker / short-history note paths and the
+  // engine-backed render. Hooks are stubbed (no fetch fires), so these exercise the
+  // synchronous render body against representative + empty data.
+  ['MaerminAnalyticsViews', 'BenchmarkPanel', baseProps],
+  ['MaerminAnalyticsViews', 'RollingRiskPanel', baseProps],
+  ['MaerminAnalyticsViews', 'FactorExposurePanel', baseProps],
+  ['MaerminSimulatorView', 'Panel', baseProps],
+  ['MaerminAdvisor', 'Panel', baseProps],
+  // Discovery surface (P5): no worker URL in baseProps → renders the gated note
+  // path; empty data exercises the same. Hooks stubbed, so no fetch fires.
+  ['MaerminDiscovery', 'View', baseProps],
 ];
 
 function renderOnce(Comp, props) {
