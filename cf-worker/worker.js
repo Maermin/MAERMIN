@@ -8,6 +8,8 @@
  *   GET  /?action=screener&symbols=KO,PG       → Discovery: batch quote (dividend universe)
  *   GET  /?action=fundholdings&symbol=VWCE.DE  → ETF/fund look-through: top holdings,
  *                                                 sector weights, expense ratio (TER)
+ *   GET  /?action=fundamentals&symbol=KO       → dividend-safety fundamentals: payout
+ *                                                 ratio, EPS, dividend rate/yield
  *   GET  /?action=steamhistory&name=...        → Steam skin price (fallback to current)
  *   GET  /?action=search&q=...                 → Steam Market skin search
  *   POST /                                      → Steam skin price lookup
@@ -352,6 +354,56 @@ export default {
         });
         ctx.waitUntil(cache.put(cacheKey, new Response(payload, {
           headers: { 'Content-Type': 'application/json', 'Cache-Control': 'public, max-age=86400' }
+        })));
+        return res(payload, 200, request);
+      } catch (e) {
+        return res(JSON.stringify({ error: e.message, symbol }), 502, request);
+      }
+    }
+
+    // ── Fundamentals (dividend quality / safety) ─────────────────────────────
+    // GET /?action=fundamentals&symbol=KO
+    // Proxies Yahoo Finance quoteSummary (modules summaryDetail +
+    // defaultKeyStatistics + price) and normalises the handful of numbers the
+    // dividend-safety scoring needs. All ratios are FRACTIONS (payoutRatio
+    // 0.62 = 62%; Yahoo reports fiveYearAvgDividendYield in percent, so it is
+    // divided by 100 here). Nulls mean Yahoo has no value — the client then
+    // falls back to its history-based heuristic. Cached 6h.
+    if (request.method === 'GET' && action === 'fundamentals') {
+      const symbol = (url.searchParams.get('symbol') || '').trim();
+      if (!symbol) return res(JSON.stringify({ error: 'symbol required' }), 400, request);
+
+      const cacheKey = new Request(`https://cache.maermin/fundamentals/${encodeURIComponent(symbol)}`);
+      const cache = caches.default;
+      const cached = await cache.match(cacheKey);
+      if (cached) return res(await cached.text(), 200, request);
+
+      try {
+        const data = await fetchQuoteSummary(symbol, 'summaryDetail,defaultKeyStatistics,price');
+        const r0 = data?.quoteSummary?.result?.[0];
+        if (!r0) {
+          return res(JSON.stringify({ error: 'No data from Yahoo Finance', symbol }), 404, request);
+        }
+        const sd = r0.summaryDetail || {};
+        const ks = r0.defaultKeyStatistics || {};
+        const price = r0.price || {};
+        const raw = (x) => numOrNull(x?.raw ?? x);
+
+        const fiveYear = raw(sd.fiveYearAvgDividendYield);
+        const payload = JSON.stringify({
+          symbol,
+          name: price.shortName || price.longName || symbol,
+          currency: price.currency || sd.currency || 'USD',
+          price: raw(price.regularMarketPrice),
+          dividendRate: raw(sd.dividendRate),            // annual DPS
+          dividendYield: raw(sd.dividendYield),          // fraction
+          fiveYearAvgDividendYield: fiveYear != null ? fiveYear / 100 : null,
+          payoutRatio: raw(sd.payoutRatio),              // fraction
+          trailingEps: raw(ks.trailingEps),
+          forwardEps: raw(ks.forwardEps),
+        });
+        ctx.waitUntil(cache.put(cacheKey, new Response(payload, {
+          headers: { 'Content-Type': 'application/json', 'Cache-Control': 'public, max-age=21600' }
         })));
         return res(payload, 200, request);
       } catch (e) {
