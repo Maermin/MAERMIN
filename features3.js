@@ -708,7 +708,7 @@ function CS2SkinPicker({ workerUrl, theme, onSelect, selectedName }) {
     if (!query.trim() || query === selectedName) { setResults([]); return; }
 
     debounceRef.current = setTimeout(async () => {
-      if (!workerUrl) { setError('No Worker URL set — add it in ⚙ API Settings'); return; }
+      if (!workerUrl) { setError('No Worker URL set — add it in API Settings'); return; }
       setLoading(true); setError(null);
       try {
         const base = workerUrl.trim().replace(/\/$/, '');
@@ -933,7 +933,7 @@ function SymbolPicker({ category, workerUrl, theme, onSelect, selectedSymbol, se
 
         } else {
           // ── Stocks/ETFs: Yahoo Finance via Worker — never shows crypto ────
-          if (!workerUrl) { setError('Add Worker URL in ⚙ Settings for stock search'); setLoading(false); return; }
+          if (!workerUrl) { setError('Add Worker URL in Settings for stock search'); setLoading(false); return; }
           const base = workerUrl.trim().replace(/\/$/, '');
           // Pass type=stock so Worker strictly excludes CRYPTOCURRENCY results
           const res  = await fetch(

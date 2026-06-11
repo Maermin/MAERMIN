@@ -138,7 +138,7 @@
     },
       e('div', { style: { background: theme.modalBg || theme.card, border: '1px solid ' + (theme.modalBorder || theme.cardBorder), borderRadius: '16px', width: '560px', maxWidth: '100%', maxHeight: '85vh', overflow: 'auto', boxShadow: '0 25px 60px rgba(0,0,0,0.5)', padding: '1.5rem' } },
         e('div', { style: { display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem' } },
-          e('div', { style: { color: theme.text, fontWeight: 800, fontSize: '1.1rem' } }, '✨ ' + (context.title || (t.aiAnalyze || 'AI analysis'))),
+          e('div', { style: { color: theme.text, fontWeight: 800, fontSize: '1.1rem' } }, (context.title || (t.aiAnalyze || 'AI analysis'))),
           e('button', { onClick: onClose, style: { background: 'none', border: '1px solid ' + (theme.cardBorder || '#333'), borderRadius: '8px', color: theme.textSecondary, cursor: 'pointer', padding: '0.3rem 0.7rem' } }, '×')),
         bodyChildren,
         e('div', { style: { color: theme.textSecondary, fontSize: '0.68rem', marginTop: '1rem', opacity: 0.7 } },
@@ -163,7 +163,7 @@
           border: '1px solid ' + ((theme.accent || '#f5a524') + '44'), borderRadius: '8px',
           fontWeight: 600, fontSize: compact ? '0.72rem' : '0.8rem', padding: compact ? '0.3rem 0.6rem' : '0.45rem 0.85rem'
         }, props.style || {})
-      }, '✨ ', compact ? (t.aiShort || 'AI') : (t.aiAnalyze || 'Analyse with AI')),
+      }, compact ? (t.aiShort || 'AI') : (t.aiAnalyze || 'Analyse with AI')),
       open && e(Modal, { theme: theme, t: t, context: props.context || {}, onClose: function () { setOpen(false); } })
     );
   }

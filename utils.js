@@ -111,6 +111,44 @@
     };
   }
 
+  // JSON.parse that never throws — a corrupted storage entry must not take the
+  // whole app down at boot; callers get the fallback instead.
+  function safeParse(raw, fallback) {
+    if (raw === null || raw === undefined || raw === '') return fallback;
+    try { return JSON.parse(raw); } catch (e) { return fallback; }
+  }
+
+  // Locale-tolerant decimal parser for user-typed numbers. Accepts both
+  // "1234.56" and German-style "1.234,56" / "1,5"; returns NaN when the input
+  // is not a number (parseFloat would silently truncate "1,5" to 1).
+  function parseDecimal(value) {
+    if (typeof value === 'number') return isFinite(value) ? value : NaN;
+    if (value === null || value === undefined) return NaN;
+    let s = String(value).trim().replace(/\s+/g, '');
+    if (!s) return NaN;
+    const hasComma = s.indexOf(',') !== -1;
+    const hasDot = s.indexOf('.') !== -1;
+    if (hasComma && hasDot) {
+      // The right-most separator is the decimal mark; the other is thousands.
+      if (s.lastIndexOf(',') > s.lastIndexOf('.')) s = s.replace(/\./g, '').replace(',', '.');
+      else s = s.replace(/,/g, '');
+    } else if (hasComma) {
+      // One comma → decimal mark; several → thousands separators.
+      s = s.split(',').length > 2 ? s.replace(/,/g, '') : s.replace(',', '.');
+    }
+    if (!/^[+-]?(\d+(\.\d*)?|\.\d+)([eE][+-]?\d+)?$/.test(s)) return NaN;
+    const n = parseFloat(s);
+    return isFinite(n) ? n : NaN;
+  }
+
+  // Today's date in the user's LOCAL timezone as YYYY-MM-DD. The widespread
+  // `new Date().toISOString().split('T')[0]` returns the UTC date, which is
+  // yesterday for European users between midnight and 1-2 AM.
+  function todayISO(d) {
+    d = d || new Date();
+    return d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0');
+  }
+
   const MaerminUtils = {
     formatNumber,
     formatCurrencyEUR,
@@ -122,6 +160,9 @@
     toEUR,
     fromEUR,
     clickable,
+    safeParse,
+    parseDecimal,
+    todayISO,
   };
 
   if (typeof window !== 'undefined') {

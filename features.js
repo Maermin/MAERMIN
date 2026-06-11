@@ -134,7 +134,7 @@ function PriceQualityBadge({ category, price, meta, fetchedAt, fetchFailed, them
     title = 'Source: ' + st.source + fbSuffix;
   } else if (st.freshness.stale) {
     dot = '#f59e0b';
-    text = '⚠ ' + st.freshness.label;
+    text = '! ' + st.freshness.label;
     title = st.source + ' · ' + st.freshness.label + ' (stale)' + fbSuffix;
   } else {
     dot = st.fallback ? '#3b82f6' : '#22c55e';

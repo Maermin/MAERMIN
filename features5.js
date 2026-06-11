@@ -194,7 +194,7 @@ function NetWorthView({ portfolioStats, portfolio, prices, theme, formatPrice, g
   });
   const [showAdd, setShowAdd]   = useState(false);
   const [form, setForm]         = useState({ name: '', value: '', type: 'cash', currency: 'EUR',
-    recurring: false, amount: '', interval: 'monthly', startDate: new Date().toISOString().split('T')[0], endDate: '' });
+    recurring: false, amount: '', interval: 'monthly', startDate: window.MaerminUtils.todayISO(), endDate: '' });
 
   useEffect(() => { localStorage.setItem('maermin_networth_accounts', JSON.stringify(accounts)); }, [accounts]);
 
@@ -247,7 +247,7 @@ function NetWorthView({ portfolioStats, portfolio, prices, theme, formatPrice, g
     }
     setAccounts(prev => [...prev, account]);
     setForm({ name: '', value: '', type: 'cash', currency: 'EUR',
-      recurring: false, amount: '', interval: 'monthly', startDate: new Date().toISOString().split('T')[0], endDate: '' });
+      recurring: false, amount: '', interval: 'monthly', startDate: window.MaerminUtils.todayISO(), endDate: '' });
     setShowAdd(false);
   };
 

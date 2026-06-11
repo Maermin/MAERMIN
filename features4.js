@@ -242,14 +242,14 @@ function SavingsPlanView({ transactions, theme, formatPrice, getCurrencySymbol, 
     try { return JSON.parse(localStorage.getItem('maermin_savings_plans') || '[]'); } catch { return []; }
   });
   const [showAdd, setShowAdd] = useState(false);
-  const [form, setForm]       = useState({ symbol: '', amount: '', frequency: 'monthly', category: 'crypto', startDate: new Date().toISOString().split('T')[0] });
+  const [form, setForm]       = useState({ symbol: '', amount: '', frequency: 'monthly', category: 'crypto', startDate: window.MaerminUtils.todayISO() });
 
   useEffect(() => { localStorage.setItem('maermin_savings_plans', JSON.stringify(plans)); }, [plans]);
 
   const addPlan = () => {
     if (!form.symbol || !form.amount) return;
     setPlans(prev => [...prev, { id: Date.now().toString(), ...form, amount: parseFloat(form.amount), active: true, createdAt: new Date().toISOString() }]);
-    setForm({ symbol: '', amount: '', frequency: 'monthly', category: 'crypto', startDate: new Date().toISOString().split('T')[0] });
+    setForm({ symbol: '', amount: '', frequency: 'monthly', category: 'crypto', startDate: window.MaerminUtils.todayISO() });
     setShowAdd(false);
   };
 

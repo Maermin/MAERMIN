@@ -5,7 +5,7 @@ access to market data, plus two optional features (encrypted sync, broker relay)
 It stores nothing except the opt-in sync blob (in a KV namespace you bind).
 
 **Base URL:** your deployed Worker (e.g. `https://maermin.<you>.workers.dev`).
-Configure it in the app under **⚙ API Settings → Cloudflare Worker**.
+Configure it in the app under **API Settings → Cloudflare Worker**.
 
 ## Cross-cutting behaviour
 

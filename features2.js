@@ -96,7 +96,7 @@ function ReturnsView({ transactions, portfolio, prices, priceHistory, theme, for
       });
     });
     if (currentValue > 0) {
-      cfs.push({ date: new Date().toISOString().split('T')[0], amount: currentValue });
+      cfs.push({ date: window.MaerminUtils.todayISO(), amount: currentValue });
     }
     return calcXIRR(cfs);
   }, [transactions, portfolio, prices]);
@@ -428,7 +428,7 @@ function parseCoinTracking(text) {
       return `${y}-${m.padStart(2,'0')}-${d.padStart(2,'0')}`;
     }
     if (/^\d{4}-\d{2}-\d{2}/.test(s)) return s.split(' ')[0];
-    return new Date().toISOString().split('T')[0];
+    return window.MaerminUtils.todayISO();
   };
 
   // Type normalization — map DE + EN + extra types to canonical
@@ -832,7 +832,7 @@ function BrokerImportWizard({ theme, t, addToast, onImport, existing }) {
       apiSupported && React.createElement('div', {
         style: { background: 'rgba(245,165,36,0.06)', border: '1px solid rgba(245,165,36,0.25)', borderRadius: '16px', padding: '1.25rem', marginBottom: '1.25rem' }
       },
-        React.createElement('div', { style: { color: theme.text, fontWeight: '700', marginBottom: '0.35rem' } }, '⚡ ' + (selectedBrokerObj ? selectedBrokerObj.name : '') + ' API-Sync'),
+        React.createElement('div', { style: { color: theme.text, fontWeight: '700', marginBottom: '0.35rem' } }, (selectedBrokerObj ? selectedBrokerObj.name : '') + ' API-Sync'),
         React.createElement('p', { style: { color: theme.textSecondary, fontSize: '0.78rem', lineHeight: '1.6', marginBottom: '0.9rem' } },
           'Use a read-only API key (no trade/withdraw permissions). The secret key is used locally to sign requests and is never transmitted — only the finished signature may pass through your proxy.'),
         apiConn.fields.map(f =>
@@ -859,7 +859,7 @@ function BrokerImportWizard({ theme, t, addToast, onImport, existing }) {
         React.createElement('button', {
           onClick: handleApiSync, disabled: apiBusy || !apiCreds.key || !apiCreds.secret,
           style: { padding: '0.6rem 1.2rem', border: 'none', borderRadius: '8px', cursor: (apiBusy || !apiCreds.key || !apiCreds.secret) ? 'not-allowed' : 'pointer', fontWeight: '600', fontSize: '0.85rem', opacity: (apiBusy || !apiCreds.key || !apiCreds.secret) ? 0.5 : 1, background: theme.accent, color: '#13110a' }
-        }, apiBusy ? '◎ Syncing…' : '⚡ Sync via API'),
+        }, apiBusy ? '◎ Syncing…' : 'Sync via API'),
         React.createElement('div', { style: { textAlign: 'center', color: theme.textSecondary, fontSize: '0.72rem', margin: '0.9rem 0 0' } }, '— or import CSV —')
       ),
       React.createElement('div', {
@@ -910,7 +910,7 @@ function BrokerImportWizard({ theme, t, addToast, onImport, existing }) {
             mp.broker && React.createElement('span', { style: { padding: '0.25rem 0.6rem', borderRadius: '20px', background: `${theme.accent}1e`, color: theme.accent, fontWeight: '700' } }, `Detected: ${mp.broker.name}`),
             React.createElement('span', { style: { padding: '0.25rem 0.6rem', borderRadius: '20px', background: 'rgba(34,197,94,0.15)', color: '#22c55e', fontWeight: '700' } }, `✓ ${mp.stats.ok} valid`),
             mp.errors.length > 0 && React.createElement('span', { ...window.MaerminUtils.clickable(() => setShowErrors(v => !v)), 'aria-label': 'Toggle error details', style: { padding: '0.25rem 0.6rem', borderRadius: '20px', background: 'rgba(239,68,68,0.15)', color: '#ef4444', fontWeight: '700', cursor: 'pointer' } }, `✗ ${mp.errors.length} skipped ${showErrors ? '▲' : '▼'}`),
-            (mp.stats.duplicates > 0) && React.createElement('span', { style: { padding: '0.25rem 0.6rem', borderRadius: '20px', background: 'rgba(245,158,11,0.15)', color: '#f59e0b', fontWeight: '700' } }, `⚠ ${mp.stats.duplicates} duplicate(s)`)
+            (mp.stats.duplicates > 0) && React.createElement('span', { style: { padding: '0.25rem 0.6rem', borderRadius: '20px', background: 'rgba(245,158,11,0.15)', color: '#f59e0b', fontWeight: '700' } }, `! ${mp.stats.duplicates} duplicate(s)`)
           ),
 
           // Editable column → field mapping.

@@ -168,14 +168,14 @@
       checks.forEach(item => {
         const status = item.check();
         if (status) loaded++;
-        console.log('  ' + (status ? '✅' : '❌') + ' ' + item.name);
+        console.log('  ' + (status ? '[OK]' : '[MISSING]') + ' ' + item.name);
       });
       
       console.log(`[LOADED] ${loaded}/${checks.length} modules`);
       if (loaded === checks.length) {
-        console.log('%c✅ All modules loaded!', 'color: #22c55e; font-weight: bold');
+        console.log('%cAll modules loaded!', 'color: #22c55e; font-weight: bold');
       } else {
-        console.warn(`⚠️ ${checks.length - loaded} module(s) missing – check errors above`);
+        console.warn(`[WARN] ${checks.length - loaded} module(s) missing – check errors above`);
       }
     }, 1500);
   </script>
