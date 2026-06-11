@@ -198,6 +198,46 @@ const L = require('../etf-lookthrough.js');
   const thresholded = L.analyze(aRows, holdingsMap, { getMeta, concentrationThreshold: 0.5 });
   ok('analyze respects a custom concentration threshold', thresholded.hiddenConcentrations.length === 0);
 
+  // ---- loadFundData (injectable fetch; shared by X-Ray + cost analysis) ----
+  // Each scenario uses unique symbols because the loader keeps a session cache.
+  function jsonResponse(status, body) {
+    return Promise.resolve({ status: status, json: function () { return Promise.resolve(body); } });
+  }
+  const fetchOk = (url) => jsonResponse(200, {
+    symbol: 'LIVEFUND', name: 'Live Fund', fund: true, ter: 0.003,
+    holdings: [{ symbol: 'AAPL', name: 'Apple', weight: 0.05 }], sectors: []
+  });
+  const fetchOld = () => jsonResponse(400, { error: 'Unknown action' });
+  const fetchBoom = () => Promise.reject(new Error('network down'));
+
+  const pLive = L.loadFundData('https://w.example.com', ['LIVEFUND'], { fetchImpl: fetchOk })
+    .then((out) => {
+      ok('loadFundData returns worker data keyed by root', out.holdings.LIVEFUND && out.holdings.LIVEFUND.ter === 0.003);
+      ok('loadFundData live path is not unsupported', out.unsupported === false);
+    });
+  const pOld = L.loadFundData('https://w.example.com', ['VWCE.DE'], { fetchImpl: fetchOld })
+    .then((out) => {
+      ok('loadFundData flags an older Worker', out.unsupported === true);
+      ok('loadFundData falls back to the snapshot', out.holdings.VWCE && out.holdings.VWCE.source === 'fallback');
+    });
+  const pBoom = L.loadFundData('https://w.example.com', ['EUNL.DE', 'NOFALLBACK1'], { fetchImpl: fetchBoom })
+    .then((out) => {
+      ok('loadFundData survives a network failure via fallback', out.holdings.EUNL && out.holdings.EUNL.source === 'fallback');
+      ok('loadFundData omits symbols with no data at all', !out.holdings.NOFALLBACK1);
+    });
+  const pNoBase = L.loadFundData('', ['CSPX.L'], { fetchImpl: () => { throw new Error('must not fetch'); } })
+    .then((out) => {
+      ok('loadFundData without a base never fetches, snapshot answers', out.holdings.CSPX && out.holdings.CSPX.source === 'fallback');
+    });
+  let cacheCalls = 0;
+  const fetchCount = () => { cacheCalls++; return jsonResponse(200, { symbol: 'CACHED1', fund: true, ter: 0.001, holdings: [{ symbol: 'X', name: 'X', weight: 0.1 }], sectors: [] }); };
+  const pCache = L.loadFundData('https://w.example.com', ['CACHED1'], { fetchImpl: fetchCount })
+    .then(() => L.loadFundData('https://w.example.com', ['CACHED1'], { fetchImpl: fetchCount }))
+    .then((out) => {
+      ok('loadFundData caches per session (one fetch for two calls)', cacheCalls === 1);
+      ok('loadFundData cached result is served', out.holdings.CACHED1 && out.holdings.CACHED1.ter === 0.001);
+    });
+
   // ---- advisor integration (bundle.lookThrough findings) --------------------
   const A = require('../advisor.js');
   const withLT = A.analyzeFromMetrics({ lookThrough: r });
@@ -210,6 +250,11 @@ const L = require('../etf-lookthrough.js');
   const calm = A.analyzeFromMetrics({ lookThrough: { available: true, hiddenConcentrations: [] } });
   ok('advisor with clean look-through adds no finding', calm.findings.every((f) => f.category !== 'Look-through'));
 
-  console.log('\n  ' + passed + ' passed, ' + failed + ' failed');
-  process.exit(failed ? 1 : 0);
+  // The loader scenarios resolve asynchronously — settle them before the verdict.
+  Promise.all([pLive, pOld, pBoom, pNoBase, pCache])
+    .catch((err) => { ok('async loader scenarios settle without throwing', false); console.error('  ' + err.message); })
+    .then(() => {
+      console.log('\n  ' + passed + ' passed, ' + failed + ' failed');
+      process.exit(failed ? 1 : 0);
+    });
 })();

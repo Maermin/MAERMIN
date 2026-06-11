@@ -462,11 +462,61 @@
     };
   }
 
-  // ---- React Panel (browser only; folds into Health + Risk) -----------------
+  // ---- fund-data loader (shared by the X-Ray panel and the cost analysis) ---
   // Session-scoped in-memory cache of fetched fund data — holdings change
   // slowly and the Worker caches 24h anyway. Never persisted.
   var _fetchCache = {}; // root symbol → { fund: data|null, unsupported: bool }
   var MAX_FUND_FETCHES = 12;
+
+  // Fetch fund data for a list of symbols via the Worker, merge each result
+  // with the static fallback, and report whether any response indicated an
+  // older Worker (unsupported). fetchImpl is injectable so the flow is
+  // unit-testable under Node; without a Worker base (or fetch) the fallback
+  // snapshot alone answers. Resolves { holdings: {ROOT: fundData}, unsupported }.
+  function loadFundData(workerBase, symbols, opts) {
+    opts = opts || {};
+    var fetchImpl = opts.fetchImpl || ((typeof fetch !== 'undefined') ? fetch : null);
+    var base = String(workerBase || '').trim().replace(/\/+$/, '');
+    var unsupported = false;
+    var results = {};
+    var jobs = (symbols || []).map(function (symbol) {
+      var root = normalizeFundSymbol(symbol);
+      if (!root) return Promise.resolve();
+      if (_fetchCache[root]) {
+        if (_fetchCache[root].unsupported) unsupported = true;
+        if (_fetchCache[root].fund) results[root] = _fetchCache[root].fund;
+        return Promise.resolve();
+      }
+      if (!base || !fetchImpl) return Promise.resolve();
+      return fetchImpl(buildUrl(base, symbol), opts.signal ? { signal: opts.signal } : undefined)
+        .then(function (r) {
+          // An older Worker without the action 400s/404s → unsupported (the
+          // static fallback still applies; the caller just notes the upgrade).
+          if (r.status === 400 || r.status === 404 || r.status === 501) { unsupported = true; _fetchCache[root] = { fund: null, unsupported: true }; return null; }
+          return r.json();
+        })
+        .then(function (j) {
+          if (!j) return;
+          var parsed = parseHoldingsResponse(j);
+          if (!parsed.ok && /unknown|unsupported|action/i.test(parsed.error || '')) { unsupported = true; _fetchCache[root] = { fund: null, unsupported: true }; return; }
+          var data = (parsed.ok && parsed.fund) ? parsed.data : null;
+          _fetchCache[root] = { fund: data, unsupported: false };
+          if (data) results[root] = data;
+        })
+        .catch(function () { /* per-symbol failure → fallback only */ });
+    });
+    return Promise.all(jobs).then(function () {
+      var merged = {};
+      (symbols || []).forEach(function (symbol) {
+        var root = normalizeFundSymbol(symbol);
+        var data = mergeFundData(results[root] || null, fallbackHoldings(symbol));
+        if (data) merged[root] = data;
+      });
+      return { holdings: merged, unsupported: unsupported };
+    });
+  }
+
+  // ---- React Panel (browser only; folds into Health + Risk) -----------------
 
   function Panel(props) {
     var React = (typeof window !== 'undefined') ? window.React : null;
@@ -496,52 +546,15 @@
     React.useEffect(function () {
       if (!candidates.length) { setState({ loading: false, unsupported: false, holdings: {} }); return; }
       var cancelled = false;
-      var unsupported = false;
-
-      function finish(map) {
-        if (cancelled) return;
-        // Fallback snapshot fills in whatever the Worker could not provide.
-        var merged = {};
-        candidates.forEach(function (c) {
-          var root = normalizeFundSymbol(c.symbol);
-          var data = mergeFundData(map[root] || null, fallbackHoldings(c.symbol));
-          if (data && data.holdings && data.holdings.length) merged[root] = data;
-        });
-        setState({ loading: false, unsupported: unsupported, holdings: merged });
-      }
-
-      if (!workerBase) { finish({}); return; }
-
       setState(function (s) { return { loading: true, unsupported: false, holdings: s.holdings }; });
       var ctrl = (typeof AbortController !== 'undefined') ? new AbortController() : null;
       var timer = ctrl ? setTimeout(function () { ctrl.abort(); }, 15000) : null;
-      var results = {};
-      Promise.all(candidates.map(function (c) {
-        var root = normalizeFundSymbol(c.symbol);
-        if (_fetchCache[root]) {
-          if (_fetchCache[root].unsupported) unsupported = true;
-          if (_fetchCache[root].fund) results[root] = _fetchCache[root].fund;
-          return Promise.resolve();
-        }
-        var url = buildUrl(workerBase, c.symbol);
-        return fetch(url, { signal: ctrl ? ctrl.signal : undefined })
-          .then(function (r) {
-            // An older Worker without the action 400s/404s → unsupported (the
-            // static fallback still applies; we just note the upgrade).
-            if (r.status === 400 || r.status === 404 || r.status === 501) { unsupported = true; _fetchCache[root] = { fund: null, unsupported: true }; return null; }
-            return r.json();
-          })
-          .then(function (j) {
-            if (!j) return;
-            var parsed = parseHoldingsResponse(j);
-            if (!parsed.ok && /unknown|unsupported|action/i.test(parsed.error || '')) { unsupported = true; _fetchCache[root] = { fund: null, unsupported: true }; return; }
-            var data = (parsed.ok && parsed.fund) ? parsed.data : null;
-            _fetchCache[root] = { fund: data, unsupported: false };
-            if (data) results[root] = data;
-          })
-          .catch(function () { /* per-symbol failure → fallback only */ });
-      })).then(function () { if (timer) clearTimeout(timer); finish(results); });
-
+      loadFundData(workerBase, candidates.map(function (c) { return c.symbol; }), { signal: ctrl ? ctrl.signal : undefined })
+        .then(function (out) {
+          if (timer) clearTimeout(timer);
+          if (cancelled) return;
+          setState({ loading: false, unsupported: out.unsupported, holdings: out.holdings });
+        });
       return function () { cancelled = true; if (timer) clearTimeout(timer); if (ctrl) ctrl.abort(); };
     }, [candidateKey, workerBase]);
 
@@ -688,6 +701,8 @@
     parseHoldingsResponse: parseHoldingsResponse,
     mergeFundData: mergeFundData,
     positionRows: positionRows,
+    loadFundData: loadFundData,
+    MAX_FUND_FETCHES: MAX_FUND_FETCHES,
     analyze: analyze,
     Panel: Panel
   };
