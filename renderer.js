@@ -30,7 +30,7 @@ class ViewErrorBoundary extends React.Component {
     const th = this.props.theme || {};
     return React.createElement('div', { style: { padding: '2rem' } },
       React.createElement('div', { style: { maxWidth: 520, margin: '2rem auto', textAlign: 'center', background: th.card || '#141a25', border: `1px solid ${th.cardBorder || 'rgba(255,255,255,0.08)'}`, borderRadius: '14px', padding: '2rem' } },
-        React.createElement('div', { style: { fontSize: '2rem', marginBottom: '0.5rem' } }, '⚠️'),
+        React.createElement('div', { style: { fontSize: '2rem', marginBottom: '0.5rem', fontWeight: '700' } }, '!'),
         React.createElement('div', { style: { color: th.text || '#e9edf4', fontWeight: 800, fontSize: '1.05rem', marginBottom: '0.5rem' } }, 'This view hit an error'),
         React.createElement('div', { style: { color: th.textSecondary || '#8b94a7', fontSize: '0.85rem', marginBottom: '1.25rem' } }, 'Your data is safe. Try this view again or switch to another.'),
         React.createElement('div', { style: { color: th.textSecondary || '#8b94a7', fontSize: '0.72rem', fontFamily: 'ui-monospace,monospace', marginBottom: '1.25rem', wordBreak: 'break-word', opacity: 0.8 } }, String(this.state.error && this.state.error.message || this.state.error)),
@@ -138,7 +138,7 @@ function PasswordModal({ theme, t, onClose, addToast }) {
 
       // Read current hash from auth.js at runtime via MaerminAuth
       const session = sessionStorage.getItem('maermin_auth_session');
-      const stored  = session ? JSON.parse(session).hash : null;
+      const stored  = (window.MaerminUtils.safeParse(session, null) || {}).hash || null;
       if (!stored || curHash !== stored) {
         addToast(t.passwordWrong || 'Current password is incorrect', 'error');
         setBusy(false); return;
@@ -217,7 +217,7 @@ function InvestmentTracker() {
     // never persisted over it (see the guarded persistence effects below).
     if (window.MaerminDemo && window.MaerminDemo.isActive()) return window.MaerminDemo.getTransactions();
     const saved = localStorage.getItem('transactions');
-    return saved ? JSON.parse(saved) : [];
+    return window.MaerminUtils.safeParse(saved, []) || [];
   });
   // Demo mode: when on, the app runs entirely on offline sample data; the user's
   // real transactions/prices are neither read nor written.
@@ -252,7 +252,10 @@ function InvestmentTracker() {
   
   // UI State
   const [activeTab, setActiveTab] = useState('crypto');
-  const [activeView, setActiveView] = useState('overview');
+  // Restore the last active view across sessions; renderView's default case
+  // falls back to Overview if a stored id no longer exists.
+  const [activeView, setActiveView] = useState(() => localStorage.getItem('maermin_active_view') || 'overview');
+  useEffect(() => { try { localStorage.setItem('maermin_active_view', activeView); } catch (e) {} }, [activeView]);
   const [theme, setTheme] = useState(() => localStorage.getItem('theme') || 'dark');
   const language = 'en';
   
@@ -268,7 +271,7 @@ function InvestmentTracker() {
     symbol: '',
     quantity: '',
     price: '',
-    date: new Date().toISOString().split('T')[0],
+    date: window.MaerminUtils.todayISO(),
     fees: '',
     notes: '',
     currency: 'EUR', // Track which currency the transaction was added in
@@ -409,17 +412,7 @@ function InvestmentTracker() {
 
   useEffect(() => {
     const handleKeyDown = (e) => {
-      // Ignore if in input
-      if (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA') return;
-      
-      // Command palette: Ctrl+K or Cmd+K
-      if ((e.ctrlKey || e.metaKey) && e.key === 'k') {
-        e.preventDefault();
-        setShowCommandPalette(prev => !prev);
-        return;
-      }
-      
-      // Escape closes modals & dropdowns
+      // Escape closes modals & dropdowns — even while an input inside one is focused
       if (e.key === 'Escape') {
         setShowCommandPalette(false);
         setShowShortcuts(false);
@@ -430,6 +423,16 @@ function InvestmentTracker() {
         setShowPasswordModal(false);
         return;
       }
+
+      // Command palette: Ctrl+K or Cmd+K — works from anywhere, including inputs
+      if ((e.ctrlKey || e.metaKey) && e.key === 'k') {
+        e.preventDefault();
+        setShowCommandPalette(prev => !prev);
+        return;
+      }
+
+      // Ignore if in input
+      if (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA' || e.target.tagName === 'SELECT' || e.target.isContentEditable) return;
       
       // ? shows shortcuts
       if (e.key === '?' && !e.ctrlKey && !e.metaKey) {
@@ -458,8 +461,10 @@ function InvestmentTracker() {
     const saved = (key) => localStorage.getItem(key);
     if (saved('theme')) setTheme(saved('theme'));
     if (saved('currency')) setCurrency(saved('currency'));
-    if (saved('apiKeys')) setApiKeys(JSON.parse(saved('apiKeys')));
-    if (saved('priceHistory')) setPriceHistory(JSON.parse(saved('priceHistory')));
+    const savedKeys = window.MaerminUtils.safeParse(saved('apiKeys'), null);
+    if (savedKeys) setApiKeys(savedKeys);
+    const savedHistory = window.MaerminUtils.safeParse(saved('priceHistory'), null);
+    if (savedHistory) setPriceHistory(savedHistory);
   }, []);
 
   useEffect(() => { localStorage.setItem('theme', theme); }, [theme]);
@@ -810,8 +815,8 @@ function InvestmentTracker() {
           : null;
 
         if (!workerUrl) {
-          console.warn('[PRICES] No CS2 Worker URL — add it in ⚙ API Settings');
-          addToast('CS2: add your Worker URL in ⚙ API Settings', 'warning');
+          console.warn('[PRICES] No CS2 Worker URL — add it in API Settings');
+          addToast('CS2: add your Worker URL in API Settings', 'warning');
         } else {
           try {
             const skinNames = portfolio.skins.map(s => (s.symbol || s.name || '').trim()).filter(Boolean);
@@ -913,7 +918,7 @@ function InvestmentTracker() {
     if (window.MaerminDemo) window.MaerminDemo.disable();
     setDemoMode(false);
     const saved = localStorage.getItem('transactions');
-    setTransactions(saved ? JSON.parse(saved) : []);
+    setTransactions(window.MaerminUtils.safeParse(saved, []) || []);
     setPrices({});
     addToast('Demo mode off — your data restored', 'success');
   };
@@ -1000,16 +1005,24 @@ function InvestmentTracker() {
       addToast(t.fillRequired || 'Please fill required fields', 'error');
       return;
     }
-    
+
+    // Locale-tolerant parsing ("1,5" = 1.5) + hard validation: a NaN quantity or
+    // price would silently corrupt every downstream metric.
+    const qty = window.MaerminUtils.parseDecimal(newTransaction.quantity);
+    const price = window.MaerminUtils.parseDecimal(newTransaction.price);
+    const fees = window.MaerminUtils.parseDecimal(newTransaction.fees);
+    if (!(qty > 0)) { addToast(t.invalidQuantity || 'Quantity must be a number greater than 0', 'error'); return; }
+    if (isNaN(price) || price < 0) { addToast(t.invalidPrice || 'Price must be a valid number', 'error'); return; }
+
     const transactionData = {
       type: newTransaction.type,
       category: newTransaction.category,
       symbol: newTransaction.symbol,           // exact YF symbol (e.g. SIX2.DE) or CoinGecko ID
       symbolName: newTransaction.symbolName || '',   // human-readable: "Siemens AG"
       symbolLogoUrl: newTransaction.symbolLogoUrl || '', // logo URL for display
-      quantity: parseFloat(newTransaction.quantity),
-      price: parseFloat(newTransaction.price),
-      fees: parseFloat(newTransaction.fees) || 0,
+      quantity: qty,
+      price: price,
+      fees: (isNaN(fees) || fees < 0) ? 0 : fees,
       date: newTransaction.date,
       notes: newTransaction.notes,
       currency: newTransaction.currency || currency,
@@ -1031,7 +1044,7 @@ function InvestmentTracker() {
       symbol: '',
       quantity: '',
       price: '',
-      date: new Date().toISOString().split('T')[0],
+      date: window.MaerminUtils.todayISO(),
       fees: '',
       notes: '',
       currency: currency
@@ -1049,7 +1062,7 @@ function InvestmentTracker() {
       symbol: '',
       quantity: '',
       price: '',
-      date: new Date().toISOString().split('T')[0],
+      date: window.MaerminUtils.todayISO(),
       fees: '',
       notes: '',
       currency: currency,
@@ -1066,7 +1079,7 @@ function InvestmentTracker() {
       symbol: tx.symbol || '',
       quantity: tx.quantity?.toString() || '',
       price: tx.price?.toString() || '',
-      date: tx.date || new Date().toISOString().split('T')[0],
+      date: tx.date || window.MaerminUtils.todayISO(),
       fees: tx.fees?.toString() || '',
       notes: tx.notes || '',
       currency: tx.currency || 'EUR',
@@ -1117,7 +1130,7 @@ function InvestmentTracker() {
           quantity: parseFloat(item.quantity || item.amount) || 0,
           price: parseFloat(item.price) || 0,
           fees: parseFloat(item.fees) || 0,
-          date: item.date || new Date().toISOString().split('T')[0],
+          date: item.date || window.MaerminUtils.todayISO(),
           notes: item.notes || '',
           currency: item.currency || currency
         }));
@@ -1144,7 +1157,7 @@ function InvestmentTracker() {
               quantity: parseFloat(item.amount) || 1,
               price: parseFloat(item.purchasePrice) || 0,
               fees: parseFloat(item.fees) || 0,
-              date: item.purchaseDate || new Date().toISOString().split('T')[0],
+              date: item.purchaseDate || window.MaerminUtils.todayISO(),
               notes: item.notes || '',
               currency: currency,
               // Preserve CS2 skin metadata
@@ -1395,7 +1408,7 @@ function InvestmentTracker() {
       const avKey      = apiKeys?.alphaVantage;
 
       if (!hasWorker && !avKey) {
-        addToast('Add your Worker URL or Alpha Vantage key in ⚙ Settings to auto-fetch dividends', 'warning');
+        addToast('Add your Worker URL or Alpha Vantage key in Settings to auto-fetch dividends', 'warning');
         return;
       }
 
@@ -2099,7 +2112,7 @@ function InvestmentTracker() {
             ].filter(Boolean).join(' · ') + ' — click to refresh prices',
             style: { display: 'flex', alignItems: 'center', gap: '0.4rem', minHeight: '40px', padding: '0.5rem 0.7rem', background: `${currentTheme.warning}14`, border: `1px solid ${currentTheme.warning}55`, borderRadius: '8px', cursor: 'pointer', fontSize: '0.78rem', color: currentTheme.warning, fontWeight: '600' }
           },
-            React.createElement('span', null, '⚠'),
+            React.createElement('span', { style: { fontWeight: '800' } }, '!'),
             (dqHealth.stale + dqHealth.missing) + (dqHealth.stale ? ' stale' : ' missing')
           ),
           // FX transparency chip — shows the USD→EUR rate, source + age on hover.
@@ -2214,14 +2227,14 @@ function InvestmentTracker() {
           React.createElement('span', { style: { fontSize: '1.25rem' } }, '!'),
           React.createElement('div', { style: { flex: 1, minWidth: '200px' } },
             React.createElement('div', { style: { color: currentTheme.text, fontWeight: '600', fontSize: '0.875rem' } }, 'CS2 skin prices need a Cloudflare Worker URL'),
-            React.createElement('div', { style: { color: currentTheme.textSecondary, fontSize: '0.8rem', marginTop: '0.125rem' } }, 'Deploy the worker.js and paste the URL in ⚙ API Settings.')
+            React.createElement('div', { style: { color: currentTheme.textSecondary, fontSize: '0.8rem', marginTop: '0.125rem' } }, 'Deploy the worker.js and paste the URL in API Settings.')
           ),
           React.createElement('button', { onClick: () => setShowApiSettings(true), style: { padding: '0.5rem 1rem', background: currentTheme.warning, color: '#1a1a1a', border: 'none', borderRadius: '6px', cursor: 'pointer', fontWeight: '700', fontSize: '0.8rem' } }, 'Add Worker URL →')
         ),
 
       // Recovery-kit nudge for vaults created before recovery codes existed
       showRecoveryNudge && React.createElement('div', { style: { background: 'rgba(245,158,11,0.06)', border: '1px solid rgba(245,158,11,0.25)', borderRadius: '10px', padding: '0.875rem 1.25rem', marginBottom: '1.25rem', display: 'flex', alignItems: 'center', gap: '1rem', flexWrap: 'wrap' } },
-        React.createElement('span', { style: { fontSize: '1.25rem' } }, '🔑'),
+        React.createElement('span', { style: { fontSize: '1.25rem', color: currentTheme.warning, fontWeight: '700' } }, '!'),
         React.createElement('div', { style: { flex: 1, minWidth: '220px' } },
           React.createElement('div', { style: { color: currentTheme.text, fontWeight: '600', fontSize: '0.875rem' } }, 'Add a recovery code'),
           React.createElement('div', { style: { color: currentTheme.textSecondary, fontSize: '0.8rem', marginTop: '0.125rem' } }, 'Your vault has no recovery code. Without one, a forgotten password cannot be reset — generate a printable code now.')
@@ -2236,7 +2249,7 @@ function InvestmentTracker() {
         React.createElement('h3', { style: { color: currentTheme.text, fontSize: '1.125rem', fontWeight: '600', marginBottom: '0.5rem' } }, t.welcomeTitle || 'Welcome to MAERMIN'),
         React.createElement('p', { style: { color: currentTheme.textSecondary, fontSize: '0.875rem', marginBottom: '1rem', lineHeight: '1.6' } }, t.welcomeHint || 'Start by adding your first transaction.'),
         React.createElement('div', { style: { display: 'flex', gap: '0.75rem', justifyContent: 'center', flexWrap: 'wrap' } },
-          window.MaerminOnboarding && window.MaerminOnboarding.Wizard && React.createElement('button', { onClick: openOnboarding, style: { padding: '0.625rem 1.25rem', background: currentTheme.accent, color: '#13110a', border: 'none', borderRadius: '8px', cursor: 'pointer', fontWeight: '700', fontSize: '0.875rem' } }, '⚡ Guided setup'),
+          window.MaerminOnboarding && window.MaerminOnboarding.Wizard && React.createElement('button', { onClick: openOnboarding, style: { padding: '0.625rem 1.25rem', background: currentTheme.accent, color: '#13110a', border: 'none', borderRadius: '8px', cursor: 'pointer', fontWeight: '700', fontSize: '0.875rem' } }, 'Guided setup'),
           React.createElement('button', { onClick: () => openTransactionModal(), style: { padding: '0.625rem 1.25rem', background: currentTheme.inputBg, color: currentTheme.text, border: `1px solid ${currentTheme.cardBorder}`, borderRadius: '8px', cursor: 'pointer', fontWeight: '600', fontSize: '0.875rem' } }, '+ ' + (t.addTransaction || 'Add Transaction')),
           React.createElement('button', { onClick: () => setShowImportModal(true), style: { padding: '0.625rem 1.25rem', background: currentTheme.inputBg, color: currentTheme.text, border: `1px solid ${currentTheme.cardBorder}`, borderRadius: '8px', cursor: 'pointer', fontSize: '0.875rem' } }, t.importData || 'Import Data')
         )
@@ -2767,7 +2780,7 @@ function InvestmentTracker() {
         style: { background: th.card, border: `1px solid ${th.cardBorder}`, borderRadius: '14px', width: '100%', maxWidth: 640, maxHeight: '80vh', display: 'flex', flexDirection: 'column' }
       },
         React.createElement('div', { style: { display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '1.1rem 1.25rem', borderBottom: `1px solid ${th.cardBorder}` } },
-          React.createElement('div', { style: { color: th.text, fontWeight: 800, fontSize: '1rem' } }, '🛡 ' + (t.securityLog || 'Security log')),
+          React.createElement('div', { style: { color: th.text, fontWeight: 800, fontSize: '1rem' } }, (t.securityLog || 'Security log')),
           React.createElement('div', { style: { display: 'flex', gap: '0.5rem' } },
             React.createElement('button', { onClick: () => { if (window.MaerminAuditLog) { window.MaerminAuditLog.clear(); setShowAuditLog(false); setTimeout(() => setShowAuditLog(true), 0); } },
               style: { padding: '0.35rem 0.7rem', background: 'transparent', border: `1px solid ${th.cardBorder}`, borderRadius: '7px', color: th.textSecondary, cursor: 'pointer', fontSize: '0.75rem' } }, t.clear || 'Clear'),
@@ -2806,7 +2819,7 @@ function InvestmentTracker() {
         symbol: '',
         quantity: '',
         price: '',
-        date: new Date().toISOString().split('T')[0],
+        date: window.MaerminUtils.todayISO(),
         fees: '',
         notes: '',
         currency: currency,
@@ -3169,7 +3182,7 @@ function InvestmentTracker() {
             t.total || 'Total'
           ),
           React.createElement('div', { style: { color: currentTheme.text, fontSize: '1.5rem', fontWeight: '800', letterSpacing: '-0.02em' } },
-            `${(parseFloat(newTransaction.quantity) * parseFloat(newTransaction.price)).toFixed(2)} ${newTransaction.currency || 'EUR'}`
+            `${((window.MaerminUtils.parseDecimal(newTransaction.quantity) || 0) * (window.MaerminUtils.parseDecimal(newTransaction.price) || 0)).toFixed(2)} ${newTransaction.currency || 'EUR'}`
           )
         ),
         
@@ -3471,7 +3484,7 @@ buy,crypto,bitcoin,0.5,45000,2024-01-15,10`)
           window.MaerminOnboarding && window.MaerminOnboarding.Wizard && React.createElement('button', {
             onClick: () => { setShowApiSettings(false); openOnboarding(); },
             style: { marginTop: '0.625rem', padding: '0.5rem 0.9rem', background: 'transparent', color: currentTheme.accent, border: `1px solid ${currentTheme.accent}`, borderRadius: '6px', cursor: 'pointer', fontWeight: '600', fontSize: '0.8rem' }
-          }, '⚡ Guided setup & connection test')
+          }, 'Guided setup & connection test')
         ),
 
         // Alpha Vantage Section — Fallback only
@@ -3804,6 +3817,7 @@ buy,crypto,bitcoin,0.5,45000,2024-01-15,10`)
         React.createElement('button', {
           onClick: () => setPrivacyMode(p => !p),
           title: (privacyMode ? (t.showAmounts || 'Show amounts') : (t.hideAmounts || 'Hide amounts')) + ' (p)',
+          'aria-label': privacyMode ? (t.showAmounts || 'Show amounts') : (t.hideAmounts || 'Hide amounts'),
           style: {
             width: '38px', height: '38px',
             display: 'flex', alignItems: 'center', justifyContent: 'center',
@@ -3821,6 +3835,7 @@ buy,crypto,bitcoin,0.5,45000,2024-01-15,10`)
         React.createElement('button', {
           onClick: () => setShowSettings(!showSettings),
           title: t.settings || 'Settings',
+          'aria-label': t.settings || 'Settings',
           style: {
             width: '38px', height: '38px',
             display: 'flex', alignItems: 'center', justifyContent: 'center',
@@ -3832,7 +3847,7 @@ buy,crypto,bitcoin,0.5,45000,2024-01-15,10`)
             fontSize: '1rem',
             transition: 'all 0.15s'
           }
-        }, '⚙'),
+        }, '⛭'),
 
         // Settings dropdown
         showSettings && React.createElement('div', {
@@ -3947,7 +3962,7 @@ buy,crypto,bitcoin,0.5,45000,2024-01-15,10`)
               borderRadius: '6px', cursor: 'pointer', fontSize: '0.8rem',
               textAlign: 'left', marginBottom: '0.25rem'
             }
-          }, '🔐 Security & sync'),
+          }, 'Security & sync'),
           // Divider
           React.createElement('div', { style: { height: '1px', background: currentTheme.cardBorder, margin: '0.75rem 0' } }),
           // Encrypted vault backup — disaster recovery (the vault has no password
@@ -3972,7 +3987,7 @@ buy,crypto,bitcoin,0.5,45000,2024-01-15,10`)
               borderRadius: '6px', cursor: 'pointer', fontSize: '0.8rem',
               textAlign: 'left', marginBottom: '0.25rem'
             }
-          }, '⬇ ' + (t.backupVault || 'Backup vault (encrypted)')),
+          }, '↓ ' + (t.backupVault || 'Backup vault (encrypted)')),
           // Restore from an encrypted backup file → reload → unlock with password.
           React.createElement('button', {
             onClick: () => {
@@ -3999,7 +4014,7 @@ buy,crypto,bitcoin,0.5,45000,2024-01-15,10`)
               borderRadius: '6px', cursor: 'pointer', fontSize: '0.8rem',
               textAlign: 'left', marginBottom: '0.25rem'
             }
-          }, '⬆ ' + (t.restoreVault || 'Restore vault backup')),
+          }, '↑ ' + (t.restoreVault || 'Restore vault backup')),
           // Security log viewer
           React.createElement('button', {
             onClick: () => { setShowSettings(false); setShowAuditLog(true); },
@@ -4009,7 +4024,7 @@ buy,crypto,bitcoin,0.5,45000,2024-01-15,10`)
               borderRadius: '6px', cursor: 'pointer', fontSize: '0.8rem',
               textAlign: 'left', marginBottom: '0.25rem'
             }
-          }, '🛡 ' + (t.securityLog || 'Security log')),
+          }, (t.securityLog || 'Security log')),
           // Divider
           React.createElement('div', { style: { height: '1px', background: currentTheme.cardBorder, margin: '0.75rem 0' } }),
           // Logout
@@ -4072,7 +4087,7 @@ buy,crypto,bitcoin,0.5,45000,2024-01-15,10`)
           { id: 'tax',              icon: '§', label: t.navTaxFifo || 'Tax & FIFO' },
           // ── Tools ──────────────────────────────────
           { group: t.navGroupTools || 'Tools' },
-          { id: 'discovery',        icon: '🔍', label: t.navDiscovery || 'Discovery' },
+          { id: 'discovery',        icon: '◎', label: t.navDiscovery || 'Discovery' },
           { id: 'watchlist',        icon: '☆', label: t.navWatchlist || 'Watchlist' },
           { id: 'alerts',           icon: '⚑', label: t.navPriceAlerts || 'Price Alerts' },
           { id: 'attribution',     icon: '⊿', label: t.navAttribution || 'Attribution' },

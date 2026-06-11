@@ -209,7 +209,7 @@
     return e('div', { style: { background: theme.card || '#10151f', border: '1px solid ' + (theme.cardBorder || 'rgba(255,255,255,0.08)'), borderRadius: '14px', padding: '1.25rem', marginBottom: '1.5rem' } },
       e('div', { style: { display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.75rem', flexWrap: 'wrap', gap: '0.5rem' } },
         e('div', { style: { color: theme.text || '#e9edf4', fontWeight: 800, fontSize: '1rem' } },
-          '📈 ' + (props.scopeLabel ? props.scopeLabel + ' — ' : '') + 'Wealth Projection'),
+          (props.scopeLabel ? props.scopeLabel + ' — ' : '') + 'Wealth Projection'),
         e('div', { style: { display: 'flex', gap: '0.35rem', alignItems: 'center' } },
           horizons.map(hzBtn),
           e('input', { type: 'number', value: custom, placeholder: 'yr', onChange: function (ev) { setCustom(ev.target.value); var v = parseFloat(ev.target.value); if (v > 0) setYears(v); },

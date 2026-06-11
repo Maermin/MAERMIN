@@ -938,7 +938,7 @@ function PortfolioHistoryChart({ portfolio, prices, transactions, apiKeys, theme
         hasWorker ? 'Chart loads automatically — select a period above'
           : React.createElement('span', null,
               'Add a ', React.createElement('strong', null, 'Cloudflare Worker URL'),
-              ' in ⚙ Settings for stocks & CS2. Crypto loads automatically.'
+              ' in Settings for stocks & CS2. Crypto loads automatically.'
             )
       ),
 

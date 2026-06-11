@@ -321,21 +321,21 @@ Postgres, BullMQ runner, Next.js workspace.
 
 | Phase | Deliverable | Priority |
 |------|-------------|----------|
-| **P0 (done)** | Agent kernel: adapter, configurable workflow, memory, tests | 🔴 Must |
-| P1 | NestJS API + Prisma/Postgres + auth + `runs` REST/WS | 🔴 Must |
-| P1 | Next.js workspace shell + Runs timeline (live WS) | 🔴 Must |
-| P2 | BullMQ runner + sandboxed tool bus (fs/git/shell/http) | 🔴 Must |
-| P2 | Repo intelligence (tree-sitter → graph) + React Flow map | 🟠 High |
-| P3 | RAG memory on pgvector (hybrid retrieval) | 🟠 High |
-| P3 | PM agent + roadmap/kanban + risk inbox | 🟠 High |
-| P4 | Deployment center (Docker + Vercel first, then fly/render) | 🟡 Med |
-| P4 | RBAC/teams + secrets + audit UI | 🟡 Med |
-| P5 | Remaining deploy targets, D3 heatmaps, local-model provider | 🟢 Low |
+| **P0 (done)** | Agent kernel: adapter, configurable workflow, memory, tests | Must |
+| P1 | NestJS API + Prisma/Postgres + auth + `runs` REST/WS | Must |
+| P1 | Next.js workspace shell + Runs timeline (live WS) | Must |
+| P2 | BullMQ runner + sandboxed tool bus (fs/git/shell/http) | Must |
+| P2 | Repo intelligence (tree-sitter → graph) + React Flow map | High |
+| P3 | RAG memory on pgvector (hybrid retrieval) | High |
+| P3 | PM agent + roadmap/kanban + risk inbox | High |
+| P4 | Deployment center (Docker + Vercel first, then fly/render) | Med |
+| P4 | RBAC/teams + secrets + audit UI | Med |
+| P5 | Remaining deploy targets, D3 heatmaps, local-model provider | Low |
 
 **Prioritised task list (first 12):**
-1. Provider adapter + Mock/Claude/OpenAI ✅ 2. Workflow engine (stages/gates) ✅
-3. Agent roles + orchestrator ✅ 4. Memory store + retrieval interface ✅
-5. Engine tests ✅ 6. Prisma schema (§7) 7. NestJS `runs` module + WS stream
+1. Provider adapter + Mock/Claude/OpenAI 2. Workflow engine (stages/gates) (done)
+3. Agent roles + orchestrator 4. Memory store + retrieval interface (done)
+5. Engine tests 6. Prisma schema (§7) 7. NestJS `runs` module + WS stream
 8. Next.js Runs view 9. BullMQ runner + tool bus 10. tree-sitter repo graph
 11. React Flow map 12. PM agent + roadmap board.
 

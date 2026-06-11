@@ -14,14 +14,14 @@ Every shipped module is covered by a Node test in `test/`.
 
 | Epic | Module(s) | Status | Tests |
 |---|---|---|---|
-| **4 Security** | `crypto-vault.js`, `storage.js`, `auth.js` | ✅ Argon2id/PBKDF2-600k → AES-256-GCM vault, encrypted-at-rest (reversible), idle auto-lock, passkey-ready, replaces SHA-256 | `test/vault.test.js` (25) |
-| **2 PWA** | `manifest.webmanifest`, `service-worker.js`, `pwa.js`, `icon.svg` | ✅ Installable, offline app-shell, runtime caching, local notifications, push subscription plumbing, background-sync hook | manifest/build validated |
-| **1 Cloud sync** | `sync-engine.js`, `cf-worker/worker.js` (`?action=sync`) | ✅ Zero-knowledge E2E (server sees ciphertext only), rev-based optimistic concurrency, transaction-safe merge, Worker/Drive/OneDrive transports | `test/sync.test.js` (10) |
-| **3 AI advisor** | `advisor.js` | ✅ Deterministic findings from `MaerminMetrics` (concentration/diversification/currency/rebalance/dividend/tax/health) + grounded NL chat via `AICopilot` | `test/advisor.test.js` (15) |
-| **5 Benchmarks** | `portfolio-analytics.js` | ✅ Alpha, Beta, Tracking Error, Information Ratio, R²; presets MSCI World / FTSE All-World / S&P 500 / Nasdaq 100 + custom | `test/analytics.test.js` (27) |
-| **6 Simulator** | `portfolio-analytics.js` | ✅ Future value, FIRE projection, retirement plan, withdrawal simulation, seeded Monte-Carlo success probability | ↑ |
-| **7 Risk** | `portfolio-analytics.js` | ✅ Max drawdown, rolling returns, rolling volatility, correlation matrix (heatmap), Fama-French OLS factor exposure | ↑ |
-| **4 TS foundation** | `jsconfig.json`, `types/maermin-globals.d.ts` | ✅ Editor type-checking + ambient contracts, zero runtime change | — |
+| **4 Security** | `crypto-vault.js`, `storage.js`, `auth.js` | Argon2id/PBKDF2-600k → AES-256-GCM vault, encrypted-at-rest (reversible), idle auto-lock, passkey-ready, replaces SHA-256 | `test/vault.test.js` (25) |
+| **2 PWA** | `manifest.webmanifest`, `service-worker.js`, `pwa.js`, `icon.svg` | Installable, offline app-shell, runtime caching, local notifications, push subscription plumbing, background-sync hook | manifest/build validated |
+| **1 Cloud sync** | `sync-engine.js`, `cf-worker/worker.js` (`?action=sync`) | Zero-knowledge E2E (server sees ciphertext only), rev-based optimistic concurrency, transaction-safe merge, Worker/Drive/OneDrive transports | `test/sync.test.js` (10) |
+| **3 AI advisor** | `advisor.js` | Deterministic findings from `MaerminMetrics` (concentration/diversification/currency/rebalance/dividend/tax/health) + grounded NL chat via `AICopilot` | `test/advisor.test.js` (15) |
+| **5 Benchmarks** | `portfolio-analytics.js` | Alpha, Beta, Tracking Error, Information Ratio, R²; presets MSCI World / FTSE All-World / S&P 500 / Nasdaq 100 + custom | `test/analytics.test.js` (27) |
+| **6 Simulator** | `portfolio-analytics.js` | Future value, FIRE projection, retirement plan, withdrawal simulation, seeded Monte-Carlo success probability | ↑ |
+| **7 Risk** | `portfolio-analytics.js` | Max drawdown, rolling returns, rolling volatility, correlation matrix (heatmap), Fama-French OLS factor exposure | ↑ |
+| **4 TS foundation** | `jsconfig.json`, `types/maermin-globals.d.ts` | Editor type-checking + ambient contracts, zero runtime change | — |
 
 **Engine layer is done and tested.** The remaining work for the shipped epics is
 **UI fold-in** — embedding `MaerminAdvisor.Panel`, the benchmark overlay, the

@@ -267,7 +267,7 @@
 
     var body;
     if (!workerBase) {
-      body = e('div', { style: { color: dim, fontSize: '0.85rem', padding: '1rem 0' } }, 'Add a Worker URL in ⚙ API Settings to use Discovery. It is read-only and never changes your portfolio.');
+      body = e('div', { style: { color: dim, fontSize: '0.85rem', padding: '1rem 0' } }, 'Add a Worker URL in API Settings to use Discovery. It is read-only and never changes your portfolio.');
     } else if (unsupported) {
       body = e('div', { style: { color: dim, fontSize: '0.85rem', padding: '1rem 0', lineHeight: 1.6 } },
         e('div', { style: { color: theme.warning || '#f59e0b', fontWeight: 700, marginBottom: '0.3rem' } }, 'Your Worker doesn\'t support Discovery yet.'),

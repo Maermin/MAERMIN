@@ -4,7 +4,7 @@
 
 > **Major release** · Fully backward compatible · Update your Cloudflare Worker
 
-### 🔥 Highlights
+### Highlights
 
 - **Real historical portfolio chart** — time-accurate value curve, buys/sells show as actual jumps
 - **Symbol Picker** — visual stock and crypto search with logos, eliminates all YF symbol errors
@@ -14,9 +14,9 @@
 
 ---
 
-### 📊 Data & Calculations
+### Data & Calculations
 
-#### 🐛 Bug Fixes
+#### Bug Fixes
 
 - **Critical: P&L inflated after sells** — selling a position reduced `amount` but left `totalCostEUR` unchanged, making the average buy price 2× too high after a 50% sell. Sells now reduce cost basis proportionally (`fraction = qty / currentAmount`).
   - *Example: NVO showing -71% instead of the correct ~+2%*
@@ -25,16 +25,16 @@
 
 ---
 
-### 📈 Historical Portfolio Chart
+### Historical Portfolio Chart
 
-#### ✨ New Features
+#### New Features
 
 - **Time-accurate amounts via `amountAt(ts)`** — for each timestamp in the chart, the function replays all buy/sell transactions up to that point to compute how many units were actually held. Previously the chart used the current total for all historical points, making second buys invisible.
 - **Transaction timestamps as chart points** — buy and sell dates are explicitly added to the timeline, plus a point 60 seconds later. This ensures the step-change is rendered as a sharp jump rather than being interpolated between distant data points.
 - **CS2 price history via Steam** — `?action=steamhistory` endpoint in the Worker. Falls back to current price from `priceoverview` when Steam rejects unauthenticated history requests (400).
 - **Chart anchored to live price** — the last data point is replaced with `allPortfoliosStats.totalValue` (the same number shown in the stats cards). Stats and chart can no longer show different values.
 
-#### 🔧 Improvements
+#### Improvements
 
 - Period selector: all 8 periods (1H · 1D · 1W · 1M · 1Y · 3Y · 5Y · Max) use correct Unix timestamp cutoffs
 - Alpha Vantage demoted to fallback — only queried if Yahoo Finance returns no data for a symbol
@@ -42,16 +42,16 @@
 
 ---
 
-### 🔍 Symbol Picker
+### Symbol Picker
 
-#### ✨ New Features
+#### New Features
 
 - **Stock/ETF search** — `?action=yfsearch&q=...&type=stock` via Worker → Yahoo Finance search API. Results include company logo, exchange (NASDAQ / XETRA / London...), and the exact Yahoo Finance symbol (e.g. `SIX2.DE`).
 - **Crypto search** — direct CoinGecko `/search` API. Results include coin logo from CoinGecko CDN, market cap rank, and the CoinGecko ID used for all price fetching.
 - **Exact symbol saved to transaction** — `symbol`, `symbolName`, and `symbolLogoUrl` are all persisted. Price refreshes use `symbol` directly without any manual mapping table.
 - **Letter avatar fallback** — a coloured initial-based avatar is always rendered as a base layer under the logo image. When the logo fails to load, the avatar shows instead of a broken image icon.
 
-#### 🐛 Bug Fixes
+#### Bug Fixes
 
 - **`onError` null crash** — the `onError` handler for logo images was calling `e.target.parentNode.innerHTML = ...`. When React unmounted the component during loading, `parentNode` was null, causing an uncaught `TypeError`. Fixed to `if (e.target) e.target.style.display = 'none'`.
 - **Parqet logos 404** — `assets.parqet.com` (a competitor) was used as the stock logo CDN. It returned 404 for most non-US symbols. Replaced with Yahoo Finance brand CDN (`s.yimg.com/lb/brands/150x150/`).
@@ -60,29 +60,29 @@
 
 ---
 
-### 📋 Overview & Portfolio
+### Overview & Portfolio
 
-#### ✨ New Features
+#### New Features
 
 - **`allPortfoliosStats`** — a new `useMemo` that computes total value, invested, and P&L across *all* transactions regardless of portfolio ID. The Overview stats cards use this instead of the active-portfolio-only `portfolioStats`.
 - **Portfolio breakdown bar** — when multiple portfolios exist, the Overview shows a row of clickable portfolio tabs with individual value per portfolio and a "Manage →" link to the Portfolios view.
 
-#### 🐛 Bug Fixes
+#### Bug Fixes
 
 - **Overview showed only active portfolio** — `portfolioStats` was derived from `activeTransactions` (filtered by `activePortfolioId`). Overview now uses `allPortfoliosStats` (all transactions).
 - **Sells didn't reduce cost basis** — see P&L section above.
 
 ---
 
-### 🎨 UI & Navigation
+### UI & Navigation
 
-#### 🔧 Improvements
+#### Improvements
 
 - **Compact action buttons** — Overview header now has `+ Add`, `↑ Import`, `↻ Refresh prices` in a single compact row instead of five large equally-weighted buttons
 - **Sidebar hover states** — nav items now show a subtle accent highlight on hover with smooth transition. Previously there was no visual feedback until clicking.
 - **Chart header simplified** — shows period performance (`±%`) prominently; current value is not duplicated since it already appears in the stats cards above
 
-#### 🗑️ Removed / Cleaned Up
+#### Removed / Cleaned Up
 
 - **Duplicate `PortfolioOverviewPanel`** — the donut chart + gainers/losers panel was rendered twice in `renderOverview`. Removed the first (incorrectly positioned) instance.
 - **Dead `!window.MaerminFeatures` fallback** — a 53-line block that rendered a basic position list "in case features.js didn't load" was removed. `features.js` always loads.
@@ -91,18 +91,18 @@
 
 ---
 
-### ⚙️ Cloudflare Worker
+### Cloudflare Worker
 
-#### ✨ New Endpoints
+#### New Endpoints
 
 - **`GET /?action=yfsearch&q=...&type=stock|crypto`** — Yahoo Finance symbol search with strict type filtering. `type=stock` never returns crypto; cache keys are scoped per type.
 - **`GET /?action=steamhistory&name=...`** — Steam Market price history. Tries `pricehistory` first (requires auth); falls back to `priceoverview` (public) and returns a flat line at current price. Returns HTTP 200 with `{ prices: [] }` instead of propagating Steam's 400 — eliminates the console spam.
 
 ---
 
-### 💰 Price Fetching
+### Price Fetching
 
-#### 🔧 Improvements
+#### Improvements
 
 - **Yahoo Finance is now the primary source for stocks** — queried first via Worker (`?action=yf`). If the symbol already contains an exchange suffix (`.DE`, `.L`, `.AS` etc.), it is used as-is. The legacy `YF_MAP` only applies to bare symbols entered before the Symbol Picker was available.
 - **Dividends auto-fetch** — tries Yahoo Finance chart meta (`dividendRate`, `exDividendDate`) first. Falls back to Alpha Vantage `OVERVIEW` endpoint only if YF has no dividend data.
@@ -110,7 +110,7 @@
 
 ---
 
-### 🔄 Upgrading from v8.x
+### Upgrading from v8.x
 
 > All existing `localStorage` data is preserved. No migration script needed.
 

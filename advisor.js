@@ -204,14 +204,14 @@
       critical: theme.danger || '#ef4444', warning: theme.warning || '#f59e0b',
       opportunity: theme.accent || '#f5a524', info: theme.textSecondary || '#8b94a7', good: theme.success || '#22c55e'
     };
-    var iconFor = { critical: '⛔', warning: '⚠️', opportunity: '💡', info: 'ℹ️', good: '✅' };
+    var iconFor = { critical: '✗', warning: '!', opportunity: '◇', info: 'i', good: '✓' };
 
     var rows = findings.map(function (f, i) {
       return e('div', { key: f.id || i, style: {
         display: 'flex', gap: '0.7rem', padding: '0.75rem 0',
         borderBottom: '1px solid ' + (theme.cardBorder || 'rgba(255,255,255,0.06)')
       } },
-        e('div', { style: { fontSize: '1.1rem', lineHeight: 1.2 } }, iconFor[f.severity] || '•'),
+        e('div', { style: { fontSize: '1.1rem', lineHeight: 1.2, fontWeight: 800, color: colorFor[f.severity] || (theme.textSecondary || '#8b94a7') } }, iconFor[f.severity] || '•'),
         e('div', { style: { flex: 1 } },
           e('div', { style: { color: colorFor[f.severity], fontWeight: 700, fontSize: '0.86rem' } }, f.title),
           e('div', { style: { color: theme.textSecondary || '#8b94a7', fontSize: '0.8rem', marginTop: '0.15rem', lineHeight: 1.5 } }, f.detail),
@@ -226,7 +226,7 @@
     } },
       e('div', { style: { display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.5rem' } },
         e('div', { style: { color: theme.text || '#e9edf4', fontWeight: 800, fontSize: '1rem' } },
-          '🧭 ' + (t.advisorTitle || 'AI Portfolio Advisor')),
+          (t.advisorTitle || 'AI Portfolio Advisor')),
         window.AICopilot && window.AICopilot.Button
           ? e(window.AICopilot.Button, { theme: theme, t: t, compact: true, context: chatContext(report) })
           : null

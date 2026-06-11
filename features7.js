@@ -354,7 +354,7 @@ function NewsFeedView({ portfolio, transactions, apiKeys, theme, formatPrice }) 
 
     // No worker warning
     !hasWorker && React.createElement('div', { style: { background: 'rgba(245,158,11,0.08)', border: '1px solid rgba(245,158,11,0.3)', borderRadius: '10px', padding: '0.875rem 1.25rem', marginBottom: '1.25rem', fontSize: '0.82rem', color: theme.text } },
-      '⚠ Add a Cloudflare Worker URL in ⚙ Settings to load news. The Worker fetches Yahoo Finance RSS without CORS issues.'
+      'Add a Cloudflare Worker URL in Settings to load news. The Worker fetches Yahoo Finance RSS without CORS issues.'
     ),
 
     // Symbol filter tabs
@@ -394,7 +394,7 @@ function NewsFeedView({ portfolio, transactions, apiKeys, theme, formatPrice }) 
           )
         )
       : !loading && React.createElement('div', { style: { background: theme.card, border: `1px solid ${theme.cardBorder}`, borderRadius: '16px', boxShadow: theme.shadow, padding: '3rem', textAlign: 'center', color: theme.textSecondary } },
-          React.createElement('div', { style: { fontSize: '2rem', marginBottom: '0.5rem', opacity: 0.3 } }, '📰'),
+          React.createElement('div', { style: { fontSize: '2rem', marginBottom: '0.5rem', opacity: 0.3 } }, '☰'),
           React.createElement('div', null, hasWorker ? 'No news found for your positions' : 'Add Worker URL to load news')
         )
   );

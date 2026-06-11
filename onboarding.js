@@ -167,8 +167,8 @@
         h('p', { style: { color: dim, fontSize: '0.9rem', lineHeight: '1.6', marginBottom: '1.25rem' } },
           'MAERMIN runs entirely in your browser. A free Cloudflare Worker unlocks live stock, ETF and CS2 prices. Set it up now, or explore with demo data first.'),
         h('div', { style: { display: 'grid', gap: '0.75rem' } },
-          choiceCard(h, '⚡', 'Set up the Cloudflare Worker', 'Guided — ~2 minutes. Unlocks all live data.', function () { setStep('deploy'); }, accent, text, dim, border, cardBg, true),
-          choiceCard(h, '🧪', 'Explore Demo mode', 'Load a realistic example portfolio. Reset anytime.', function () { if (props.onActivateDemo) props.onActivateDemo(); onClose(); }, accent, text, dim, border, cardBg, false),
+          choiceCard(h, '◆', 'Set up the Cloudflare Worker', 'Guided — ~2 minutes. Unlocks all live data.', function () { setStep('deploy'); }, accent, text, dim, border, cardBg, true),
+          choiceCard(h, '◇', 'Explore Demo mode', 'Load a realistic example portfolio. Reset anytime.', function () { if (props.onActivateDemo) props.onActivateDemo(); onClose(); }, accent, text, dim, border, cardBg, false),
           choiceCard(h, '→', 'I\'ll do this later', 'Skip for now — add a Worker URL in API Settings anytime.', onClose, accent, text, dim, border, cardBg, false)
         )
       );

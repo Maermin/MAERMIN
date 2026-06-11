@@ -34,9 +34,9 @@ No account  ·  No server  ·  No ads  ·  No remote telemetry  ·  MIT License
 
 ---
 
-## ✨ Features
+## Features
 
-### 📊 Portfolio
+### Portfolio
 | Feature | Description |
 |---------|-------------|
 | **Overview** | Stats cards showing all portfolios combined — total value, invested, return, positions |
@@ -49,7 +49,7 @@ No account  ·  No server  ·  No ads  ·  No remote telemetry  ·  MIT License
 | **Dividends** | Calendar view, 12-month forecast, auto-fetch from Yahoo Finance |
 | **Trade Journal** | Investment thesis and notes per position |
 
-### 📈 Analysis
+### Analysis
 | Feature | Description |
 |---------|-------------|
 | **Returns & XIRR** | Money-weighted (XIRR) and time-weighted return from real cash flows · benchmark overlay (Alpha, Beta, Tracking Error, Information Ratio, R² vs MSCI World / FTSE All-World / S&P 500 / Nasdaq 100) |
@@ -63,7 +63,7 @@ No account  ·  No server  ·  No ads  ·  No remote telemetry  ·  MIT License
 | **Health Score** | 0–100 structural score (diversification · concentration · asset-class spread · breadth) with a letter grade and concrete, actionable recommendations · AI advisor findings folded in |
 | **Tax & FIFO** | German tax law (1-year crypto exemption) · US tax law (short/long-term gains) · PDF export |
 
-### 🔧 Tools
+### Tools
 | Feature | Description |
 |---------|-------------|
 | **Discovery** | Read-only screener for ETFs/stocks/crypto · top movers (gainers/losers/most active) · dividend screener — live via your Worker, prices shown in EUR. Gated & optional; degrades gracefully if the Worker predates the endpoint |
@@ -76,7 +76,7 @@ No account  ·  No server  ·  No ads  ·  No remote telemetry  ·  MIT License
 
 ---
 
-## 🚀 Quick Start
+## Quick Start
 
 ### 1 — Open the app
 ```
@@ -86,7 +86,7 @@ On first run you **set your own access password** (no shipped default) and are h
 one-time **recovery code** — download or print it. It's an alternative way to unlock the
 vault if you forget your password, stored only as a wrapped key (never in readable form,
 never transmitted). The first run also opens a **guided setup wizard** (below); you can
-re-open it anytime from **⚙ API Settings → Guided setup**, or pick **Demo mode** to explore
+re-open it anytime from **API Settings → Guided setup**, or pick **Demo mode** to explore
 a sample portfolio before any setup.
 
 ### 2 — Deploy your Cloudflare Worker
@@ -95,14 +95,14 @@ The Worker is **required** for stock prices, historical chart data, CS2 prices, 
 1. Go to [dash.cloudflare.com](https://dash.cloudflare.com) → **Workers & Pages** → **Create Worker**
 2. Paste the contents of [`cf-worker/worker.js`](cf-worker/worker.js)
 3. **Save and Deploy** — copy the Worker URL
-4. Paste URL in MAERMIN → **⚙ API Settings** → Cloudflare Worker (or let the wizard test + save it)
+4. Paste URL in MAERMIN → **API Settings** → Cloudflare Worker (or let the wizard test + save it)
 
 ### 3 — (Optional) Alpha Vantage
-Add a free [Alpha Vantage key](https://www.alphavantage.co/support/#api-key) in ⚙ API Settings as a fallback for stocks when Yahoo Finance returns no data. Free tier: 25 requests/day.
+Add a free [Alpha Vantage key](https://www.alphavantage.co/support/#api-key) in API Settings as a fallback for stocks when Yahoo Finance returns no data. Free tier: 25 requests/day.
 
 ---
 
-## 🌐 Data Sources
+## Data Sources
 
 | Source | Used For | Key Required |
 |--------|----------|:------------:|
@@ -115,7 +115,7 @@ Add a free [Alpha Vantage key](https://www.alphavantage.co/support/#api-key) in 
 
 ---
 
-## ⚙️ Cloudflare Worker Endpoints
+## Cloudflare Worker Endpoints
 
 | Endpoint | Description |
 |----------|-------------|
@@ -132,7 +132,7 @@ All endpoints are rate-limited (per-IP) and use hard fetch timeouts. Full reques
 
 ---
 
-## 📁 File Structure
+## File Structure
 
 ```
 MAERMIN/
@@ -175,7 +175,7 @@ Contributing guidelines and conventions: **[CONTRIBUTING.md](CONTRIBUTING.md)**.
 
 ---
 
-## 🔒 Privacy & Security
+## Privacy & Security
 
 - All data stored in `localStorage` — never transmitted anywhere
 - **Encrypted vault**: AES-256-GCM with PBKDF2-600k (or Argon2id); password never stored; optional encryption at rest, passkey unlock, idle auto-lock
@@ -189,7 +189,7 @@ Contributing guidelines and conventions: **[CONTRIBUTING.md](CONTRIBUTING.md)**.
 
 ---
 
-## 📋 Changelog
+## Changelog
 
 See [RELEASE.md](RELEASE.md) for full release notes.
 
@@ -203,7 +203,7 @@ See [RELEASE.md](RELEASE.md) for full release notes.
 
 ---
 
-## 📄 License
+## License
 
 MIT — see [LICENSE](LICENSE)
 
@@ -211,6 +211,6 @@ MIT — see [LICENSE](LICENSE)
 
 <div align="center">
 
-Made with ☕ · [Live Demo](https://maermin.github.io/MAERMIN/) · [Report a Bug](https://github.com/maermin/MAERMIN/issues)
+[Live Demo](https://maermin.github.io/MAERMIN/) · [Report a Bug](https://github.com/maermin/MAERMIN/issues)
 
 </div>
