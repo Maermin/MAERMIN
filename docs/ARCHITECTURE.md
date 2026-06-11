@@ -96,6 +96,7 @@ conversion happens only at format time (`formatPrice`).
 | `recurring.js` | `MaerminRecurring` | Recurring liabilities (loans/mortgages) |
 | `portfolio-analytics.js` | `MaerminAnalytics` | Pure quant fed return series: benchmarks (α/β/Tracking Error/Information Ratio/R²), simulator (future value/FIRE/withdrawal/Monte-Carlo success), risk (max drawdown/rolling vol/Fama-French OLS) |
 | `analytics-data.js` | `MaerminAnalyticsData` | Bridge: builds a portfolio value path + aligned period returns from built positions + per-symbol `priceHistory` (incl. N-series `alignReturns`/`subtract` for factor construction), the inputs `MaerminAnalytics` expects |
+| `etf-lookthrough.js` | `MaerminLookThrough` | ETF/fund X-Ray: pure `analyze()` over position rows + per-fund holdings → effective per-security exposure, sector/country/currency look-through, fund-overlap pairs, hidden concentrations. Holdings come from the Worker `fundholdings` route, merged with a static snapshot of common ETFs (graceful degradation) |
 
 ---
 
@@ -127,7 +128,20 @@ volatility/return** panel and a **Fama-French factor-exposure** panel (MKT/SMB/H
 IWD−IWF — over the same `yf` endpoint) to the **Risk** view. The proxy/diff alignment is
 pure and unit-tested (`MaerminAnalyticsData.alignReturns`/`subtract`); the engine's
 `factorExposure` OLS stays the single source of truth. The AI advisor's findings
-(`advisor.js` → `MaerminAdvisor.Panel`) fold into the **Health** view. All consume
+(`advisor.js` → `MaerminAdvisor.Panel`) fold into the **Health** view.
+
+**ETF look-through (X-Ray)** (`etf-lookthrough.js` → `MaerminLookThrough`) folds into
+two existing views (no new tab): the **Health** view gets effective per-security
+exposure (direct + through funds) plus sector/country/currency look-through, and the
+**Risk** view gets fund-overlap pairs + hidden concentration findings (`Panel` with
+`mode: 'overview' | 'risk'`). The whole computation (`analyze`) and the data plumbing
+(`parseHoldingsResponse`, `mergeFundData`, `fallbackHoldings`, `positionRows`) are
+pure and Node-tested; the Panel is a thin fetch shell over the Worker's
+`action=fundholdings` route, gated exactly like Discovery — an older Worker (400/404)
+triggers an upgrade note while a built-in approximate snapshot of common index ETFs
+keeps the feature useful. The Health panel hands its result up so
+`MaerminAdvisor.analyzeFromMetrics` can rank hidden fund concentrations alongside its
+other findings (`bundle.lookThrough`). Nothing is persisted (no new `SENSITIVE_KEYS`). All consume
 `MaerminAnalyticsData` for series construction, so no view recomputes quant. A
 **Security & Sync** settings modal (in `renderer.js`) exposes `MaerminAuth.getStatus()`
 (encryption-at-rest, KDF, auto-lock, passkey, recovery code) and `MaerminSync`

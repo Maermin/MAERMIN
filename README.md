@@ -61,6 +61,7 @@ No account  ·  No server  ·  No ads  ·  No remote telemetry  ·  MIT License
 | **Planning Simulator** | Future Value · FIRE projection · withdrawal survival · Monte-Carlo success probability — in the Monte-Carlo view |
 | **Strategy** | DCA vs lump sum, sector allocation, currency exposure, liquidity score, goal planning |
 | **Health Score** | 0–100 structural score (diversification · concentration · asset-class spread · breadth) with a letter grade and concrete, actionable recommendations · AI advisor findings folded in |
+| **ETF X-Ray** | Look-through of ETF/fund positions: effective per-security exposure across funds + direct holdings, sector/country/currency look-through, fund-overlap detection, hidden concentration risks — in the Health and Risk views (live via Worker, built-in snapshot fallback) |
 | **Tax & FIFO** | German tax law (1-year crypto exemption) · US tax law (short/long-term gains) · PDF export |
 
 ### Tools
@@ -122,6 +123,7 @@ Add a free [Alpha Vantage key](https://www.alphavantage.co/support/#api-key) in 
 | `GET /?action=yf&symbol=AAPL&interval=1d&range=1y` | Yahoo Finance historical data |
 | `GET /?action=yfsearch&q=Apple&type=stock` | Symbol search (stocks or crypto) |
 | `GET /?action=screener&scrId=day_gainers` (or `&symbols=KO,PG`) | Discovery: predefined screener / movers, or batch quote |
+| `GET /?action=fundholdings&symbol=VWCE.DE` | ETF/fund look-through: top holdings, sector weights, expense ratio (TER) |
 | `GET /?action=steamhistory&name=AK-47 \| Redline (FT)` | CS2 price history (USD) |
 | `GET /?action=search&q=ak47+redline` | Steam Market skin search with images |
 | `POST /` | Steam skin price lookup (array of names → USD price map) |
