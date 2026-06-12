@@ -120,7 +120,27 @@
         action: 'Review loss positions before year-end; mind wash-sale rules.', metric: tl.totalSavings });
     }
 
-    // 7) Overall health weakest link
+    // 7) Hidden concentration through funds (ETF look-through, when available).
+    // bundle.lookThrough is MaerminLookThrough.analyze()'s result — weights are
+    // fractions, so convert to percent for display.
+    var lt = bundle.lookThrough;
+    if (lt && lt.available && lt.hiddenConcentrations && lt.hiddenConcentrations.length) {
+      var hc = lt.hiddenConcentrations[0];
+      var effPct = (hc.effectiveWeight || 0) * 100;
+      var directPct = (hc.directWeight || 0) * 100;
+      var fundedPct = (hc.fundedWeight || 0) * 100;
+      F.push({
+        id: 'lookthrough-conc', severity: effPct >= 10 ? 'critical' : 'warning', category: 'Look-through',
+        title: (hc.name || hc.key) + ' is ' + pct(effPct) + ' of your portfolio counting fund holdings',
+        detail: (directPct > 0 ? pct(directPct) + ' held directly plus ' : '') + pct(fundedPct) +
+          ' hidden inside ' + (hc.funds || []).join(', ') + '.' +
+          (lt.hiddenConcentrations.length > 1 ? ' ' + (lt.hiddenConcentrations.length - 1) + ' more security(ies) cross the threshold.' : ''),
+        action: 'Check the ETF look-through panel; overlapping funds multiply single-stock risk.',
+        metric: effPct
+      });
+    }
+
+    // 8) Overall health weakest link
     var h = bundle.health;
     if (h && !h.empty && h.subScores) {
       var weakest = null;
@@ -155,9 +175,11 @@
   }
 
   // ---- gather the bundle from MaerminMetrics (impure convenience) ----------
-  function gatherBundle(portfolio, prices, transactions, t) {
+  // extras (optional): pre-computed inputs a view already has — currently
+  // { lookThrough } from MaerminLookThrough.analyze() — merged into the bundle.
+  function gatherBundle(portfolio, prices, transactions, t, extras) {
     var M = (typeof window !== 'undefined') && window.MaerminMetrics;
-    if (!M) return {};
+    if (!M) return extras ? Object.assign({}, extras) : {};
     var bundle = {};
     try { bundle.concentration = M.computeConcentration(portfolio, prices); } catch (e) {}
     try { bundle.currency = M.computeCurrencyExposure(portfolio, prices, transactions); } catch (e) {}
@@ -165,11 +187,12 @@
     try { bundle.dividends = M.computeExpectedAnnualDividends(portfolio, prices); } catch (e) {}
     try { bundle.taxLoss = M.computeTaxLossHarvest(portfolio, prices, transactions); } catch (e) {}
     try { bundle.health = M.healthScore(portfolio, prices, t, { transactions: transactions }); } catch (e) {}
+    if (extras) Object.assign(bundle, extras);
     return bundle;
   }
 
-  function analyzePortfolio(portfolio, prices, transactions, t) {
-    return analyzeFromMetrics(gatherBundle(portfolio, prices, transactions, t), t);
+  function analyzePortfolio(portfolio, prices, transactions, t, extras) {
+    return analyzeFromMetrics(gatherBundle(portfolio, prices, transactions, t, extras), t);
   }
 
   // Build the AICopilot chat context from the deterministic findings, so the LLM
@@ -197,7 +220,7 @@
     var e = React.createElement;
     var theme = props.theme || {};
     var t = props.t || {};
-    var report = props.report || analyzePortfolio(props.portfolio, props.prices, props.transactions, t);
+    var report = props.report || analyzePortfolio(props.portfolio, props.prices, props.transactions, t, props.extras);
     var findings = report.findings || [];
 
     var colorFor = {
