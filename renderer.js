@@ -277,7 +277,39 @@ function InvestmentTracker() {
     try { window.MaerminRiskMonitor.checkAndNotify(portfolio, prices, priceHistory, lookThroughResult); }
     catch (e) { /* monitoring must never break the app */ }
   }, [prices]);
-  
+
+  // Savings-plan catch-up: when the app opens/unlocks (never in the
+  // background), book every due plan execution as a REAL buy transaction.
+  // Two passes at most: one immediately (history prices cover past due
+  // dates), one once live prices arrive (covers executions due today).
+  // runCatchUp is idempotent - the (planId, dueDate) marker on each booked
+  // transaction guarantees a due date can never book twice - so the second
+  // pass and re-renders are safe.
+  const savingsCatchUp = React.useRef({ ran: false, ranWithPrices: false });
+  useEffect(() => {
+    const EX = window.MaerminSavingsExecutor;
+    if (!EX) return;
+    const havePrices = Object.keys(prices).length > 0;
+    if (savingsCatchUp.current.ranWithPrices) return;
+    if (savingsCatchUp.current.ran && !havePrices) return;
+    savingsCatchUp.current.ran = true;
+    if (havePrices) savingsCatchUp.current.ranWithPrices = true;
+    try {
+      const plans = JSON.parse(localStorage.getItem(EX.PLANS_KEY) || '[]');
+      if (!Array.isArray(plans) || !plans.length) return;
+      const resolvePrice = (plan, dueDate) => EX.priceAtDate(priceHistory, prices, plan.symbol, dueDate);
+      const out = EX.runCatchUp(plans, transactions, resolvePrice);
+      if (out.created.length || out.removedDuplicates) {
+        setTransactions(out.transactions);
+        if (out.created.length) addToast(`${out.created.length} savings-plan execution(s) booked`, 'success');
+        if (out.removedDuplicates) addToast(`${out.removedDuplicates} duplicate auto-execution(s) removed after sync`, 'info');
+      }
+      if (out.pending.length && havePrices) {
+        addToast(`${out.pending.length} savings-plan execution(s) pending - no price for the due date yet`, 'warning');
+      }
+    } catch (e) { console.warn('[SAVINGS] catch-up failed:', e); }
+  }, [prices, transactions]);
+
   // Forms & Modals
   const [newTransaction, setNewTransaction] = useState({
     type: 'buy',

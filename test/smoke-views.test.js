@@ -111,6 +111,7 @@ const VIEW_MODULES = [
   { file: '../risk-monitor.js',     ns: 'MaerminRiskMonitor',     comps: ['Panel', 'evaluate', 'shouldNotify', 'currentDrawdown', 'gatherInputs', 'checkAndNotify', 'loadSettings', 'saveSettings'] },
   { file: '../options-engine.js',   ns: 'MaerminOptions',         comps: ['Panel', 'buildOptionPositions', 'positionMetrics', 'computeStats', 'validateOptionTx', 'contractSymbol', 'hasOptionTransactions'] },
   { file: '../german-tax-view.js',  ns: 'MaerminGermanTaxView',   comps: ['Panel', 'priceAt', 'qtyAt', 'prefillRow'] },
+  { file: '../savings-plan-executor.js', ns: 'MaerminSavingsExecutor', comps: ['occurrences', 'expectedExecutions', 'planStatus', 'pendingExecutions', 'dedupeExecutions', 'buildTransaction', 'priceAtDate', 'runCatchUp'] },
 ];
 
 console.log('\nTier 1 — module load + exports:');

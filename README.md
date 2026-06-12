@@ -55,7 +55,7 @@ No account  ·  No server  ·  No ads  ·  No remote telemetry  ·  MIT License
 |---------|-------------|
 | **Returns & XIRR** | Money-weighted (XIRR) and time-weighted return from real cash flows · benchmark overlay (Alpha, Beta, Tracking Error, Information Ratio, R² vs MSCI World / FTSE All-World / S&P 500 / Nasdaq 100) |
 | **Rebalancing** | Set target allocation via sliders — see exactly what to buy/sell |
-| **Savings Plans** | DCA adherence tracking, missed executions, plan performance |
+| **Savings Plans** | DCA adherence tracking (calendar-exact schedules), missed executions, plan performance · due executions are booked automatically as real, marked buy transactions on app open (idempotent, sync-safe) · optional end date with active/completed status · add/edit in a modal |
 | **Cash Flow** | Invested vs portfolio value chart — visualises your entire investment journey |
 | **Fee Analyzer** | Total fees, fee rate %, breakdown by year and asset class, top 10 most expensive trades · ongoing costs (TER) per fund with annual EUR cost, weighted average TER, multi-year cost-drag projection, and manual TER override |
 | **Risk & Correlation** | Correlation matrix, Monte Carlo (10,000+ iterations), stress tests (2008 / COVID / Dot-com), VaR, CVaR, Sharpe, Sortino · rolling volatility/return trends · Fama-French factor exposure (market / size / value loadings) |
