@@ -63,7 +63,7 @@ No account  ·  No server  ·  No ads  ·  No remote telemetry  ·  MIT License
 | **Strategy** | DCA vs lump sum, sector allocation, currency exposure, liquidity score, goal planning |
 | **Health Score** | 0–100 structural score (diversification · concentration · asset-class spread · breadth) with a letter grade and concrete, actionable recommendations · AI advisor findings folded in |
 | **ETF X-Ray** | Look-through of ETF/fund positions: effective per-security exposure across funds + direct holdings, sector/country/currency look-through, fund-overlap detection, hidden concentration risks — in the Health and Risk views (live via Worker, built-in snapshot fallback) |
-| **Tax & FIFO** | German tax law (1-year crypto exemption) · US tax law (short/long-term gains) · PDF export |
+| **Tax & FIFO** | German tax law: 1-year crypto exemption with Freigrenze, Vorabpauschale per accumulating fund (BMF base rates, month pro-rating, sale credit), Teilfreistellung by fund type, Sparerpauschbetrag, Soli and optional church tax in the statutory order · US tax law (short/long-term gains) · PDF/Excel export |
 
 ### Tools
 | Feature | Description |
