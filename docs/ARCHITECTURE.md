@@ -100,6 +100,7 @@ conversion happens only at format time (`formatPrice`).
 | `cost-analysis.js` | `MaerminCostAnalysis` | Ongoing costs (TER): pure `buildFundRows`/`computeOngoingCosts`/`projectCostDrag` → annual EUR cost per fund, total drag p.a., weighted average TER, multi-year cumulative cost-drag projection. TER from the same `loadFundData` plumbing (override > worker > snapshot); manual overrides in `localStorage` (symbols + ratios only, not sensitive) |
 | `dividend-quality.js` | `MaerminDividendQuality` | Dividend quality & safety: pure `scorePosition` (heuristic 0-100 from payout ratio, growth streak, dividend growth, yield sanity; cut-risk flag; weight redistribution when fundamentals are missing), `scorePortfolio` (income-weighted health + income-at-risk share), `cagrFromSeries`. Fundamentals from the Worker `fundamentals` route; degrades to the DividendDataService history heuristic |
 | `risk-monitor.js` | `MaerminRiskMonitor` | Continuous structural risk alerts: pure `evaluate` (five rules - position concentration, effective look-through concentration, allocation drift, drawdown, volatility - against user thresholds, percent-based) + `shouldNotify` (cooldown dedupe; recovery re-arms a rule). Inputs gathered from MaerminMetrics / MaerminAnalyticsData / MaerminAnalytics / MaerminLookThrough - no new quant. Notifies via MaerminPWA; thresholds + notify state in `localStorage` (ids/percents/timestamps, not sensitive) |
+| `options-engine.js` | `MaerminOptions` | Options/derivatives tracking: pure `buildOptionPositions` (signed-contract book over `category: 'options'` transactions with `underlying`/`optionType`/`strike`/`expiry`/`contractSize`; premiums EUR at ingestion), `positionMetrics` (intrinsic-only valuation, moneyness, days-to-expiry; strike converts at the current rate), `computeStats`, `validateOptionTx`. `buildPositions` ignores the category by design, so the shared positions/stats engine is never bent |
 
 ---
 
@@ -173,7 +174,20 @@ price refresh regardless of the active view, dedupes via the cooldown state (a
 recovered rule re-arms immediately), and raises local PWA notifications only when the
 user opted in. Drawdown/volatility breaches additionally surface as advisor findings in
 **Health** (`bundle.riskMonitor`); concentration/drift/look-through breaches are not
-duplicated there because the advisor already covers those dimensions. All consume
+duplicated there because the advisor already covers those dimensions.
+
+**Options tracking** (`options-engine.js` → `MaerminOptions`) extends the transaction
+model additively: `category: 'options'` rows carry `underlying`, `optionType`
+(call/put), `strike`, `expiry` and `contractSize` next to the usual fields
+(`quantity` = contracts, `price` = premium per share); the transaction modal grows the
+matching inputs and derives `tx.symbol` from the contract (`AAPL 2026-12-18 C 150`).
+Because `buildPositions` ignores unknown categories by design, the shared
+positions/stats/tax engines are untouched — the options book is a separate pure
+reader over the same transaction list (signed contracts: long/short/closed, net
+premium, intrinsic-only valuation against the existing EUR price map). The `Panel`
+folds into the **Overview** below the positions table and renders nothing when no
+option transactions exist. The UI states that valuation is intrinsic-only (no time
+value/Greeks) and that options are excluded from portfolio value and tax figures. All consume
 `MaerminAnalyticsData` for series construction, so no view recomputes quant. A
 **Security & Sync** settings modal (in `renderer.js`) exposes `MaerminAuth.getStatus()`
 (encryption-at-rest, KDF, auto-lock, passkey, recovery code) and `MaerminSync`

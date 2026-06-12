@@ -108,6 +108,7 @@ const VIEW_MODULES = [
   { file: '../cost-analysis.js',    ns: 'MaerminCostAnalysis',   comps: ['OngoingCostsPanel', 'computeOngoingCosts', 'buildFundRows', 'projectCostDrag', 'loadOverrides', 'saveOverride'] },
   { file: '../dividend-quality.js', ns: 'MaerminDividendQuality', comps: ['QualityPanel', 'scorePosition', 'scorePortfolio', 'parseFundamentalsResponse', 'cagrFromSeries', 'buildUrl'] },
   { file: '../risk-monitor.js',     ns: 'MaerminRiskMonitor',     comps: ['Panel', 'evaluate', 'shouldNotify', 'currentDrawdown', 'gatherInputs', 'checkAndNotify', 'loadSettings', 'saveSettings'] },
+  { file: '../options-engine.js',   ns: 'MaerminOptions',         comps: ['Panel', 'buildOptionPositions', 'positionMetrics', 'computeStats', 'validateOptionTx', 'contractSymbol', 'hasOptionTransactions'] },
 ];
 
 console.log('\nTier 1 — module load + exports:');
@@ -231,6 +232,18 @@ const MUST_RENDER = [
   // Risk monitor panel: evaluates the rules synchronously from the stubbed
   // metrics globals; empty data exercises the all-unavailable path.
   ['MaerminRiskMonitor', 'Panel', baseProps],
+  // Options panel: baseProps has no option transactions → must render null
+  // (the gate); the bespoke props exercise the full book table (long open,
+  // short, intrinsic against the prices map).
+  ['MaerminOptions', 'Panel', baseProps],
+  ['MaerminOptions', 'Panel', {
+    ...baseProps,
+    exchangeRate: 0.9,
+    transactions: [
+      { category: 'options', type: 'buy', underlying: 'AAPL', optionType: 'call', strike: 150, expiry: '2099-12-17', quantity: 1, price: 5, currency: 'USD', date: '2026-01-05' },
+      { category: 'options', type: 'sell', underlying: 'VWCE', optionType: 'put', strike: 100, expiry: '2099-06-18', quantity: 2, price: 3, currency: 'EUR', date: '2026-02-10' },
+    ],
+  }],
 ];
 
 function renderOnce(Comp, props) {
