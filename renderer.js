@@ -267,6 +267,16 @@ function InvestmentTracker() {
   // computes it and hands it up so the advisor's findings can include hidden
   // fund concentrations on the same render pass.
   const [lookThroughResult, setLookThroughResult] = useState(null);
+
+  // Continuous risk monitoring: re-evaluate the structural rules on every
+  // price refresh while the app is open, independent of the active view.
+  // checkAndNotify dedupes via its cooldown state, so this is cheap and never
+  // spams; notifications only fire when the user enabled them in the monitor.
+  useEffect(() => {
+    if (!window.MaerminRiskMonitor || !Object.keys(prices).length) return;
+    try { window.MaerminRiskMonitor.checkAndNotify(portfolio, prices, priceHistory, lookThroughResult); }
+    catch (e) { /* monitoring must never break the app */ }
+  }, [prices]);
   
   // Forms & Modals
   const [newTransaction, setNewTransaction] = useState({
@@ -1767,9 +1777,19 @@ function InvestmentTracker() {
 
       case 'alerts':
         return window.MaerminFeatures ?
-          React.createElement(window.MaerminFeatures.PriceAlertsView, {
-            prices, theme: currentTheme, t, addToast, portfolio
-          }) : renderAnalyticsPlaceholder('Price Alerts');
+          React.createElement(React.Fragment, null,
+            React.createElement(window.MaerminFeatures.PriceAlertsView, {
+              prices, theme: currentTheme, t, addToast, portfolio
+            }),
+            // Risk & drift monitor fold-in (no new tab): rule status with
+            // user-configurable thresholds + local-notification toggle. The
+            // continuous evaluation itself runs on every price refresh.
+            window.MaerminRiskMonitor && window.MaerminRiskMonitor.Panel &&
+              React.createElement(window.MaerminRiskMonitor.Panel, {
+                portfolio, prices, priceHistory, lookThrough: lookThroughResult,
+                theme: currentTheme, t
+              })
+          ) : renderAnalyticsPlaceholder('Price Alerts');
 
       case 'transactions':
         return renderTransactionsView();
@@ -1802,11 +1822,23 @@ function InvestmentTracker() {
               onResult: setLookThroughResult
             })
           ),
-          // Fold the (already-tested) AI advisor findings into Health — no new tab.
+          // Fold the (already-tested) AI advisor findings into Health — no new
+          // tab. extras feeds pre-computed inputs the advisor cannot gather
+          // itself: the look-through result and the risk-monitor evaluation
+          // (drawdown/volatility breaches against the user's thresholds).
           window.MaerminAdvisor && window.MaerminAdvisor.Panel && React.createElement('div', { style: { padding: '1rem 1.5rem 1.5rem' } },
             React.createElement(window.MaerminAdvisor.Panel, {
               portfolio, prices, transactions: activeTransactions, theme: currentTheme, t,
-              extras: lookThroughResult ? { lookThrough: lookThroughResult } : undefined
+              extras: (() => {
+                const extras = {};
+                if (lookThroughResult) extras.lookThrough = lookThroughResult;
+                const RM = window.MaerminRiskMonitor;
+                if (RM) {
+                  try { extras.riskMonitor = RM.evaluate(RM.gatherInputs(portfolio, prices, priceHistory, lookThroughResult), RM.loadSettings()); }
+                  catch (e) { /* monitor unavailable — advisor degrades */ }
+                }
+                return Object.keys(extras).length ? extras : undefined;
+              })()
             })
           )
         );

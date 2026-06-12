@@ -70,6 +70,7 @@ No account  ·  No server  ·  No ads  ·  No remote telemetry  ·  MIT License
 | **Discovery** | Read-only screener for ETFs/stocks/crypto · top movers (gainers/losers/most active) · dividend screener — live via your Worker, prices shown in EUR. Gated & optional; degrades gracefully if the Worker predates the endpoint |
 | **Watchlist** | Track symbols without buying — optional target price and sparkline |
 | **Price Alerts** | Notify when price crosses threshold — progress bar shows proximity |
+| **Risk Monitor** | Rule-based structural alerts with configurable thresholds — position concentration (incl. effective look-through limit), allocation drift, drawdown, volatility — evaluated on every price refresh, with optional local notifications and cooldown |
 | **Broker Import** | CoinTracking · DEGIRO · Trade Republic · Interactive Brokers · Coinbase · Binance · Kraken |
 | **Command Palette** | `Ctrl+K` — navigate anywhere by keyboard |
 | **Privacy Mode** | Mask every amount app-wide for screenshots / public viewing — toggle in the top bar, in Settings, or with `p` |

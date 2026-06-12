@@ -107,6 +107,7 @@ const VIEW_MODULES = [
   { file: '../etf-lookthrough.js',  ns: 'MaerminLookThrough',    comps: ['Panel', 'analyze', 'parseHoldingsResponse', 'mergeFundData', 'fallbackHoldings', 'positionRows', 'buildUrl', 'loadFundData'] },
   { file: '../cost-analysis.js',    ns: 'MaerminCostAnalysis',   comps: ['OngoingCostsPanel', 'computeOngoingCosts', 'buildFundRows', 'projectCostDrag', 'loadOverrides', 'saveOverride'] },
   { file: '../dividend-quality.js', ns: 'MaerminDividendQuality', comps: ['QualityPanel', 'scorePosition', 'scorePortfolio', 'parseFundamentalsResponse', 'cagrFromSeries', 'buildUrl'] },
+  { file: '../risk-monitor.js',     ns: 'MaerminRiskMonitor',     comps: ['Panel', 'evaluate', 'shouldNotify', 'currentDrawdown', 'gatherInputs', 'checkAndNotify', 'loadSettings', 'saveSettings'] },
 ];
 
 console.log('\nTier 1 — module load + exports:');
@@ -227,6 +228,9 @@ const MUST_RENDER = [
   // Dividend quality panel: renders against the stubbed DividendDataService-less
   // window (no payers note) and empty data. Hooks stubbed, no fetch fires.
   ['MaerminDividendQuality', 'QualityPanel', baseProps],
+  // Risk monitor panel: evaluates the rules synchronously from the stubbed
+  // metrics globals; empty data exercises the all-unavailable path.
+  ['MaerminRiskMonitor', 'Panel', baseProps],
 ];
 
 function renderOnce(Comp, props) {
