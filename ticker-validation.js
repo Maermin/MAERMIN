@@ -92,11 +92,40 @@
     return { valid: valid, invalid: invalid, total: stocks.length, unresolved: invalid.length };
   }
 
+  // ---- CS2 skin names --------------------------------------------------------
+  // THE single normalising place for Steam market_hash_name lookups. Steam is
+  // exact about the name: the "Souvenir " / "StatTrak™ " prefix with one
+  // space, single spaces around the "|", and the wear in parentheses. The
+  // picker delivers exact names; this guards manual entry and any later
+  // whitespace damage so the price lookup, the history fetch and the picker
+  // all hit the same listing. Applied at LOOKUP time - stored data stays as-is.
+  var WEAR_NAMES = ['Factory New', 'Minimal Wear', 'Field-Tested', 'Well-Worn', 'Battle-Scarred'];
+  function normalizeSkinName(raw) {
+    var s = String(raw == null ? '' : raw).replace(/\s+/g, ' ').trim();
+    if (!s) return '';
+    // Prefix casing (Steam: "Souvenir AWP | ...", "StatTrak™ AK-47 | ...").
+    s = s.replace(/^souvenir\s+/i, 'Souvenir ');
+    s = s.replace(/^stattrak(?:™|\(tm\)|tm)?\s+/i, 'StatTrak™ ');
+    // Exactly one space around the weapon/finish separator.
+    s = s.replace(/\s*\|\s*/, ' | ');
+    // Wear tier: canonical casing + exactly one space before the parenthesis.
+    var wearMatch = s.match(/\(([^)]+)\)\s*$/);
+    if (wearMatch) {
+      var canonical = null;
+      for (var i = 0; i < WEAR_NAMES.length; i++) {
+        if (WEAR_NAMES[i].toLowerCase() === wearMatch[1].trim().toLowerCase()) { canonical = WEAR_NAMES[i]; break; }
+      }
+      if (canonical) s = s.replace(/\s*\([^)]+\)\s*$/, ' (' + canonical + ')');
+    }
+    return s;
+  }
+
   var api = {
     EXCHANGE_SUFFIXES: EXCHANGE_SUFFIXES,
     parseSymbol: parseSymbol,
     normalizeForDividends: normalizeForDividends,
     isDividendEligible: isDividendEligible,
+    normalizeSkinName: normalizeSkinName,
     validate: validate,
     validatePortfolio: validatePortfolio
   };

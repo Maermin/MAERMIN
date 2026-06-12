@@ -413,23 +413,29 @@ export default {
 
     // ── Steam Market Price History ────────────────────────────────────────
     // GET /?action=steamhistory&name=AK-47+|+Redline+(Field-Tested)
-    // Extracts full price history from the Steam Market LISTING PAGE (no login needed).
-    // The listing page embeds the complete price graph data as a JS variable "var line1"
-    // even for anonymous visitors — same data that powers the chart on the Steam website.
+    // Primary: the listing page embeds the price graph as "var line1" for
+    // anonymous visitors. KNOWN GAP (diagnosed 2026-06): Steam REDIRECTS some
+    // items (notably Souvenir skins) to a grouped item page WITHOUT line1, so
+    // the scrape legitimately finds nothing there - that case is detected
+    // explicitly (parseSteamLine1.found) instead of being treated like an
+    // error. Fallback: priceoverview (current price as a 2-point line) with a
+    // small backoff retry because Steam rate-limits it aggressively (429) for
+    // datacenter IPs. CONTRACT: prices are USD (currency=1 everywhere); the
+    // response says so honestly and the client converts (MaerminUtils.toEUR).
     if (request.method === 'GET' && action === 'steamhistory') {
       const name = url.searchParams.get('name') || '';
       if (!name) return res(JSON.stringify({ error: 'name required' }), 400, request);
 
-      const cacheKey = new Request(`https://cache.maermin/steamhist2/${encodeURIComponent(name)}`);
+      const cacheKey = new Request(`https://cache.maermin/steamhist3/${encodeURIComponent(name)}`);
       const cache    = caches.default;
       const cached   = await cache.match(cacheKey);
       if (cached) return res(await cached.text(), 200, request);
 
       let prices = [];
+      let source = null;
+      let note = null;
 
       // ── Primary: scrape the listing page HTML ─────────────────────────────
-      // Steam embeds price history as: var line1=[["Dec 01 2021 01: +0","12.5","3"],...];
-      // This is available WITHOUT login — it's what populates the price graph on the page.
       try {
         const listingUrl = `https://steamcommunity.com/market/listings/730/${encodeURIComponent(name)}`;
         const r = await fetchWithTimeout(listingUrl, {
@@ -439,65 +445,52 @@ export default {
             'Accept-Language': 'en-US,en;q=0.9',
             'Accept-Encoding': 'gzip, deflate, br',
           },
-        });
+        }, 12000);
 
         if (r.ok) {
-          const html = await r.text();
-
-          // Extract: var line1 = [["Jan 01 2023 01: +0","12.50","3"], ...];
-          const match = html.match(/var line1\s*=\s*(\[\[.+?\]\])\s*;/s);
-          if (match) {
-            const raw = JSON.parse(match[1]);
-            prices = raw.map(([dateStr, priceStr]) => {
-              // dateStr format: "Dec 01 2021 01: +0"
-              // Strip the time suffix and parse
-              const clean = dateStr.replace(/\s+\d+:\s+\+0$/, '').trim(); // → "Dec 01 2021"
-              const d = new Date(clean + ' UTC');
-              if (isNaN(d.getTime())) return null;
-              const ts    = Math.floor(d.getTime() / 1000);
-              const price = parseFloat(priceStr) || 0;
-              return price > 0 ? { ts, date: d.toISOString().split('T')[0], price } : null;
-            }).filter(Boolean).sort((a, b) => a.ts - b.ts);
-
-            console.log(`[STEAM] Listing page: ${name} → ${prices.length} price points`);
+          const parsed = parseSteamLine1(await r.text());
+          if (parsed.found && parsed.prices.length) {
+            prices = parsed.prices;
+            source = 'listing';
+          } else if (!parsed.found) {
+            // Grouped/redirected page or layout change - not an error per se.
+            note = 'listing page has no price graph (grouped item page)';
+            console.log(`[STEAM] no line1 for ${name} - falling back to priceoverview`);
+          } else {
+            note = 'price graph present but empty';
           }
         }
       } catch(e) {
         console.warn('[STEAM] Listing page scrape failed:', e.message);
       }
 
-      // ── Fallback: current price from priceoverview (no auth, no history) ──
+      // ── Fallback: current price from priceoverview (no auth, no history). ──
+      // Retried once after a short pause on 429 - Steam throttles this endpoint
+      // hard for datacenter IPs, which is exactly why Souvenir positions ended
+      // up with "No price data" despite a live market.
       if (prices.length === 0) {
-        try {
-          const ovUrl = `https://steamcommunity.com/market/priceoverview/` +
-            `?appid=730&currency=1&market_hash_name=${encodeURIComponent(name)}`;
-          const r2 = await fetchWithTimeout(ovUrl, { headers: { 'User-Agent': 'Mozilla/5.0' } });
-          if (r2.ok) {
-            const d2 = await r2.json();
-            if (d2.success) {
-              const raw   = d2.lowest_price || d2.median_price || '';
-              const price = parseFloat(raw.replace(/[^0-9.,]/g, '').replace(',', '.'));
-              if (price > 0) {
-                const now = Math.floor(Date.now() / 1000);
-                prices = [
-                  { ts: now - 86400 * 90, date: new Date((now - 86400 * 90) * 1000).toISOString().split('T')[0], price },
-                  { ts: now,              date: new Date(now * 1000).toISOString().split('T')[0],                 price },
-                ];
-                console.log(`[STEAM] priceoverview fallback: ${name} → ${price}`);
-              }
-            }
-          }
-        } catch(e2) { /* ignore */ }
+        const price = await fetchSteamOverviewPrice(name);
+        if (price > 0) {
+          const now = Math.floor(Date.now() / 1000);
+          prices = [
+            { ts: now - 86400 * 90, date: new Date((now - 86400 * 90) * 1000).toISOString().split('T')[0], price },
+            { ts: now,              date: new Date(now * 1000).toISOString().split('T')[0],                 price },
+          ];
+          source = 'overview';
+          console.log(`[STEAM] priceoverview fallback: ${name} → ${price}`);
+        }
       }
 
       if (prices.length === 0) {
-        return res(JSON.stringify({ error: 'No price data', prices: [] }), 200, request);
+        return res(JSON.stringify({ error: 'No price data', prices: [], note }), 200, request);
       }
 
-      const payload = JSON.stringify({ prices, currency: 'EUR' });
-      // Cache 4h — Steam price history changes slowly
+      const payload = JSON.stringify({ prices, currency: 'USD', source, note });
+      // Cache: real history 4h; an overview-only 2-point line just 10 min so a
+      // throttled phase does not pin a flat line for hours.
+      const ttl = source === 'listing' ? 14400 : 600;
       ctx.waitUntil(cache.put(cacheKey, new Response(payload, {
-        headers: { 'Content-Type': 'application/json', 'Cache-Control': 'public, max-age=14400' }
+        headers: { 'Content-Type': 'application/json', 'Cache-Control': `public, max-age=${ttl}` }
       })));
       return res(payload, 200, request);
     }
@@ -609,19 +602,10 @@ export default {
       const BATCH = 5, GAP_MS = 400;
       const fetchOne = async (name) => {
         if (!name || typeof name !== 'string') return;
-        try {
-          const priceUrl = `https://steamcommunity.com/market/priceoverview/` +
-            `?appid=730&currency=1&market_hash_name=${encodeURIComponent(name.trim())}`;
-          const r = await fetchWithTimeout(priceUrl, { headers: steamHeaders() });
-          if (r.ok) {
-            const d = await r.json();
-            if (d.success) {
-              const raw   = d.lowest_price || d.median_price || '';
-              const price = parseFloat(raw.replace(/[^0-9.,]/g, '').replace(',', '.'));
-              if (!isNaN(price) && price > 0) results[name] = price;
-            }
-          }
-        } catch { /* skip */ }
+        // Same robust overview path as steamhistory: shared parsing (handles
+        // lowest_price-only Souvenir responses) + one backoff retry on 429.
+        const price = await fetchSteamOverviewPrice(name.trim());
+        if (price > 0) results[name] = price;
       };
       for (let i = 0; i < names.length; i += BATCH) {
         await Promise.all(names.slice(i, i + BATCH).map(fetchOne));
@@ -636,6 +620,66 @@ export default {
 };
 
 // ── Helpers ──────────────────────────────────────────────────────────────────
+
+// Parse the "var line1" price graph embedded in a Steam listing page.
+// PURE and exported for the Node harness (test/steam-history.test.js).
+// Returns { found, prices }:
+//   found:false             - the page has no line1 at all (grouped/redirected
+//                             item page, e.g. Souvenir skins, or layout change)
+//   found:true, prices:[]   - a graph variable exists but holds no usable rows
+//   found:true, prices:[..] - [{ts, date, price(USD)}] sorted ascending
+export function parseSteamLine1(html) {
+  const text = String(html || '');
+  // Tolerate an empty array too: /\[.*?\]/ instead of the old /\[\[.+?\]\]/,
+  // which silently failed to match "var line1=[];" on sparse items.
+  const match = text.match(/var line1\s*=\s*(\[[\s\S]*?\])\s*;/);
+  if (!match) return { found: false, prices: [] };
+  let raw;
+  try { raw = JSON.parse(match[1]); } catch { return { found: true, prices: [] }; }
+  if (!Array.isArray(raw)) return { found: true, prices: [] };
+  const prices = raw.map((row) => {
+    if (!Array.isArray(row) || row.length < 2) return null;
+    // Row: ["Dec 01 2021 01: +0", "12.50", "3"] - strip the hour suffix.
+    const clean = String(row[0]).replace(/\s+\d+:\s+\+0$/, '').trim();
+    const d = new Date(clean + ' UTC');
+    if (isNaN(d.getTime())) return null;
+    const price = parseFloat(row[1]) || 0;
+    return price > 0 ? { ts: Math.floor(d.getTime() / 1000), date: d.toISOString().split('T')[0], price } : null;
+  }).filter(Boolean).sort((a, b) => a.ts - b.ts);
+  return { found: true, prices };
+}
+
+// Parse a priceoverview JSON body into a USD price. PURE and exported.
+// Handles the real-world shapes: lowest_price only (Souvenir items often have
+// no median_price), median_price only, both, or neither.
+export function parseSteamOverview(body) {
+  if (!body || body.success !== true) return 0;
+  const raw = body.lowest_price || body.median_price || '';
+  const price = parseFloat(String(raw).replace(/[^0-9.,]/g, '').replace(',', '.'));
+  return (isFinite(price) && price > 0) ? price : 0;
+}
+
+// priceoverview with a single backoff retry on 429/5xx - Steam throttles this
+// endpoint aggressively for datacenter IPs.
+async function fetchSteamOverviewPrice(name) {
+  const ovUrl = `https://steamcommunity.com/market/priceoverview/` +
+    `?appid=730&currency=1&market_hash_name=${encodeURIComponent(name)}`;
+  for (let attempt = 0; attempt < 2; attempt++) {
+    try {
+      const r = await fetchWithTimeout(ovUrl, { headers: steamHeaders() });
+      if (r.status === 429 || r.status >= 500) {
+        if (attempt === 0) { await sleep(900); continue; }
+        return 0;
+      }
+      if (!r.ok) return 0;
+      return parseSteamOverview(await r.json());
+    } catch {
+      if (attempt === 0) { await sleep(400); continue; }
+      return 0;
+    }
+  }
+  return 0;
+}
 
 function steamHeaders() {
   return {

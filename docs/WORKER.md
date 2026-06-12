@@ -83,7 +83,16 @@ heuristic. Cached 6 h; same cookie+crumb retry and degradation contract as
 Steam Market CS2 skin search (USD, `currency=1`). Returns items with images.
 
 ### `GET /?action=steamhistory&name=<market_hash_name>`
-CS2 price history with current-price fallback (USD).
+CS2 price history. Primary source is the listing page's embedded `var line1`
+graph (parsed by the exported, unit-tested `parseSteamLine1`). Some items -
+notably Souvenir skins - redirect to a grouped page WITHOUT that graph; the
+response then falls back to `priceoverview` (current price as a 2-point line,
+one backoff retry on Steam's aggressive 429s). Returns
+`{ prices: [{ts, date, price}], currency: 'USD', source: 'listing'|'overview',
+note? }` - prices are ALWAYS USD (the client converts to EUR); legacy Workers
+mislabelled the same USD numbers as `EUR` and lack `source`, which clients use
+to keep converting against old deployments. Listing data caches 4 h,
+overview-only lines 10 min.
 
 ### `POST /`  (body: JSON array of skin names, max 30)
 Steam skin price lookup → `{ "<name>": <usdPrice> }`. Fetched in concurrent

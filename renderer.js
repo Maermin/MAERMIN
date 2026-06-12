@@ -833,7 +833,15 @@ function InvestmentTracker() {
           addToast('CS2: add your Worker URL in API Settings', 'warning');
         } else {
           try {
-            const skinNames = portfolio.skins.map(s => (s.symbol || s.name || '').trim()).filter(Boolean);
+            // ONE normalising place for market_hash_name lookups (Souvenir /
+            // StatTrak prefixes, separator spacing) — MaerminTickers. Prices
+            // are stored back under the ORIGINAL stored symbol so positions
+            // keep resolving; the normalised name is only what Steam sees.
+            const normalize = window.MaerminTickers?.normalizeSkinName || (n => n);
+            const skinPairs = portfolio.skins
+              .map(s => { const orig = (s.symbol || s.name || '').trim(); return { orig, norm: normalize(orig) }; })
+              .filter(p => p.orig);
+            const skinNames = skinPairs.map(p => p.norm);
             dbg('[PRICES] CS2 Steam: fetching', skinNames.length, 'skins via Worker...');
 
             // POST array of names — Worker fetches Steam price per skin
@@ -848,8 +856,8 @@ function InvestmentTracker() {
               const priceMap = await res.json(); // { "AK-47 | Redline (FT)": 12.34, ... }
               let matchedCount = 0;
 
-              skinNames.forEach(skinName => {
-                const priceUSD = priceMap[skinName];
+              skinPairs.forEach(({ orig: skinName, norm }) => {
+                const priceUSD = priceMap[norm] != null ? priceMap[norm] : priceMap[skinName];
                 if (priceUSD && priceUSD > 0) {
                   // Skins are delivered in USD → convert to the canonical EUR at
                   // full precision (display rounds later). All downstream calcs
