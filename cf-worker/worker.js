@@ -76,6 +76,59 @@ export default {
       return res(JSON.stringify({ error: 'unknown sync op' }), 400, request);
     }
 
+    // ── Privacy-preserving share snapshots + anonymous benchmark ────────────
+    // POST /?action=share  body { op:'publish', snapshot } | { op:'get', id }
+    //                          | { op:'aggregate' }
+    // Stores ONLY redacted snapshots: percentage weights and scores, validated
+    // against a hard allowlist SERVER-SIDE as well (defense in depth - the
+    // client already redacts). No account, no PII, random id, 90-day TTL.
+    // The aggregate is a running count+sum of asset-class weights so the
+    // anonymous benchmark never exposes individual snapshots. Requires the
+    // same KV namespace as sync (env.SYNC).
+    if (request.method === 'POST' && action === 'share') {
+      if (!env || !env.SYNC) {
+        return res(JSON.stringify({ error: 'share storage not configured (bind KV namespace SYNC)' }), 501, request);
+      }
+      let body;
+      try { body = await request.json(); } catch { return res(JSON.stringify({ error: 'bad json' }), 400, request); }
+
+      if (body.op === 'publish') {
+        const v = validateShareSnapshot(body.snapshot);
+        if (!v.ok) return res(JSON.stringify({ error: 'invalid snapshot: ' + v.error }), 400, request);
+        const id = [...crypto.getRandomValues(new Uint8Array(9))].map(b => b.toString(16).padStart(2, '0')).join('');
+        await env.SYNC.put('share:' + id, JSON.stringify({ snapshot: v.snapshot, at: Date.now() }), { expirationTtl: 90 * 86400 });
+        // Best-effort rolling aggregate (count + per-class weight sums only).
+        try {
+          const agg = (await env.SYNC.get('share:aggregate', { type: 'json' })) || { count: 0, sums: {} };
+          agg.count += 1;
+          for (const [cls, pct] of Object.entries(v.snapshot.assetClasses || {})) {
+            agg.sums[cls] = (agg.sums[cls] || 0) + pct;
+          }
+          await env.SYNC.put('share:aggregate', JSON.stringify(agg));
+        } catch { /* aggregate is best-effort */ }
+        return res(JSON.stringify({ ok: true, id }), 200, request);
+      }
+
+      if (body.op === 'get') {
+        const id = String(body.id || '');
+        if (!/^[a-f0-9]{10,32}$/.test(id)) return res(JSON.stringify({ error: 'invalid id' }), 400, request);
+        const rec = await env.SYNC.get('share:' + id, { type: 'json' });
+        if (!rec) return res(JSON.stringify({ error: 'not found' }), 404, request);
+        return res(JSON.stringify({ snapshot: rec.snapshot, at: rec.at }), 200, request);
+      }
+
+      if (body.op === 'aggregate') {
+        const agg = (await env.SYNC.get('share:aggregate', { type: 'json' })) || { count: 0, sums: {} };
+        const avg = {};
+        if (agg.count > 0) {
+          for (const [cls, sum] of Object.entries(agg.sums)) avg[cls] = Math.round((sum / agg.count) * 10) / 10;
+        }
+        return res(JSON.stringify({ count: agg.count, avgAssetClasses: avg }), 200, request);
+      }
+
+      return res(JSON.stringify({ error: 'unknown share op' }), 400, request);
+    }
+
     // ── Yahoo Finance Symbol Search ──────────────────────────────────────────
     // GET /?action=yfsearch&q=Apple
     // Returns: [{symbol, name, exchange, type, logoUrl}]
@@ -651,6 +704,57 @@ function sleep(ms) { return new Promise(r => setTimeout(r, ms)); }
 function safeJson(text) { try { return JSON.parse(text); } catch { return text; } }
 
 function numOrNull(x) { const n = typeof x === 'number' ? x : parseFloat(x); return Number.isFinite(n) ? n : null; }
+
+// Server-side allowlist validation for share snapshots (defense in depth -
+// the client redacts before sending, but the server never trusts that).
+// Accepts ONLY percentage weights, short labels and bounded scores; rebuilds
+// the object field by field so nothing outside the schema can ever be stored.
+function validateShareSnapshot(s) {
+  const pct = (x) => (typeof x === 'number' && isFinite(x) && x >= 0 && x <= 100) ? Math.round(x * 10) / 10 : null;
+  const label = (x) => (typeof x === 'string' && x.length > 0 && x.length <= 40) ? x : null;
+  if (!s || typeof s !== 'object' || Array.isArray(s)) return { ok: false, error: 'not an object' };
+  if (s.v !== 1) return { ok: false, error: 'unknown version' };
+  const out = { v: 1, assetClasses: {} };
+  const CLASSES = ['crypto', 'stocks', 'skins', 'commodities'];
+  if (!s.assetClasses || typeof s.assetClasses !== 'object') return { ok: false, error: 'assetClasses missing' };
+  let total = 0;
+  for (const cls of CLASSES) {
+    if (s.assetClasses[cls] == null) continue;
+    const p = pct(s.assetClasses[cls]);
+    if (p === null) return { ok: false, error: 'bad weight for ' + cls };
+    out.assetClasses[cls] = p;
+    total += p;
+  }
+  if (Object.keys(out.assetClasses).length === 0 || total > 101) return { ok: false, error: 'weights implausible' };
+  for (const key of ['sectors', 'regions', 'currencies']) {
+    if (s[key] == null) continue;
+    if (!Array.isArray(s[key]) || s[key].length > 8) return { ok: false, error: key + ' too long' };
+    const rows = [];
+    for (const row of s[key]) {
+      const name = label(row && row.name);
+      const p = pct(row && row.pct);
+      if (name === null || p === null) return { ok: false, error: 'bad ' + key + ' row' };
+      rows.push({ name, pct: p });
+    }
+    out[key] = rows;
+  }
+  if (s.metrics != null) {
+    if (typeof s.metrics !== 'object') return { ok: false, error: 'bad metrics' };
+    const m = {};
+    if (s.metrics.healthScore != null) {
+      const h = pct(s.metrics.healthScore);
+      if (h === null) return { ok: false, error: 'bad healthScore' };
+      m.healthScore = Math.round(h);
+    }
+    if (s.metrics.effectiveN != null) {
+      const e2 = numOrNull(s.metrics.effectiveN);
+      if (e2 === null || e2 < 0 || e2 > 1000) return { ok: false, error: 'bad effectiveN' };
+      m.effectiveN = Math.round(e2 * 10) / 10;
+    }
+    if (Object.keys(m).length) out.metrics = m;
+  }
+  return { ok: true, snapshot: out };
+}
 
 // Yahoo quoteSummary fetch. Unlike chart/quote/screener, the quoteSummary API
 // intermittently rejects anonymous calls with 401/403 ("Invalid Crumb"); the
