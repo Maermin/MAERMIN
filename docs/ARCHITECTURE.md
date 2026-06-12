@@ -176,6 +176,18 @@ user opted in. Drawdown/volatility breaches additionally surface as advisor find
 **Health** (`bundle.riskMonitor`); concentration/drift/look-through breaches are not
 duplicated there because the advisor already covers those dimensions.
 
+**Share & Compare** (`share-snapshot.js` -> `MaerminShare`) is the sanctioned new
+surface of round 2 (Roadmap Epic 9, done without breaking zero-knowledge): an opt-in
+view under Tools that shares a REDACTED snapshot - percentage weights by asset class /
+sector / region / currency plus optional scores, never absolute values, quantities or
+symbols. Redaction is enforced three times (pure `buildSnapshot` only computes
+percentages; `validateSnapshot` rebuilds against a hard allowlist before the wire; the
+Worker validates again server-side), and `test/share-snapshot.test.js` contains the
+leak proof that distinctive absolute inputs never appear in the serialised snapshot.
+The Worker `share` route stores snapshots under random ids with a 90-day TTL in the
+sync KV namespace and keeps a count+sum aggregate for the anonymous benchmark.
+Old Workers degrade with the upgrade note.
+
 **Options tracking** (`options-engine.js` → `MaerminOptions`) extends the transaction
 model additively: `category: 'options'` rows carry `underlying`, `optionType`
 (call/put), `strike`, `expiry` and `contractSize` next to the usual fields

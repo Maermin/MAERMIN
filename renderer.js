@@ -401,6 +401,7 @@ function InvestmentTracker() {
     { id: 'nav:taxes',         label: t.taxes || 'Taxes',                  category: 'Analysis',   shortcut: 'g x' },
     // Tools
     { id: 'nav:discovery',     label: t.discovery || 'Discovery',          category: 'Tools',      shortcut: 'g e' },
+    { id: 'nav:share',         label: t.navShare || 'Share & Compare',     category: 'Tools',      shortcut: 'g h' },
     { id: 'nav:watchlist',     label: t.watchlist || 'Watchlist',          category: 'Tools',      shortcut: 'g w' },
     { id: 'nav:alerts',        label: t.priceAlerts || 'Price Alerts',     category: 'Tools',      shortcut: 'g l' },
     { id: 'nav:broker-import', label: t.brokerImport || 'Broker Import',   category: 'Tools',      shortcut: 'g m' },
@@ -1260,6 +1261,7 @@ function InvestmentTracker() {
       case 'nav:taxes':         setActiveView('tax'); break;
       // Tools Navigation
       case 'nav:discovery':     setActiveView('discovery'); break;
+      case 'nav:share':         setActiveView('share'); break;
       case 'nav:watchlist':     setActiveView('watchlist'); break;
       case 'nav:alerts':        setActiveView('alerts'); break;
       case 'nav:broker-import': setActiveView('broker-import'); break;
@@ -1679,6 +1681,16 @@ function InvestmentTracker() {
             workerUrl: apiKeys.cs2Worker, usdToEur: exchangeRate,
             theme: currentTheme, t, formatPrice, getCurrencySymbol
           }) : renderAnalyticsPlaceholder('Discovery');
+
+      // Sanctioned new surface (round 2): privacy-preserving share snapshots
+      // + anonymous benchmarking. Redaction enforced client- AND server-side;
+      // opt-in per click; degrades with an upgrade note on older Workers.
+      case 'share':
+        return window.MaerminShare ?
+          React.createElement(window.MaerminShare.View, {
+            portfolio, prices, transactions: activeTransactions,
+            workerUrl: apiKeys.cs2Worker, theme: currentTheme, t
+          }) : renderAnalyticsPlaceholder('Share & Compare');
 
       case 'net-worth':
         return window.MaerminFeatures5 ?
@@ -4253,6 +4265,7 @@ buy,crypto,bitcoin,0.5,45000,2024-01-15,10`)
           // ── Tools ──────────────────────────────────
           { group: t.navGroupTools || 'Tools' },
           { id: 'discovery',        icon: '◎', label: t.navDiscovery || 'Discovery' },
+          { id: 'share',            icon: '⊶', label: t.navShare || 'Share & Compare' },
           { id: 'watchlist',        icon: '☆', label: t.navWatchlist || 'Watchlist' },
           { id: 'alerts',           icon: '⚑', label: t.navPriceAlerts || 'Price Alerts' },
           { id: 'attribution',     icon: '⊿', label: t.navAttribution || 'Attribution' },
