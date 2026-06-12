@@ -140,7 +140,27 @@
       });
     }
 
-    // 8) Overall health weakest link
+    // 8) Risk-monitor breaches (drawdown / volatility), when a view passes the
+    // evaluation in. Concentration, drift and look-through breaches are NOT
+    // repeated here — the findings above already cover those dimensions; the
+    // monitor's market-risk rules are the genuinely new information.
+    var rm = bundle.riskMonitor;
+    if (rm && rm.alerts && rm.alerts.length) {
+      rm.alerts.forEach(function (a) {
+        if (a.id !== 'drawdown' && a.id !== 'volatility') return;
+        F.push({
+          id: 'riskmon-' + a.id, severity: a.severity, category: 'Risk monitor',
+          title: a.title,
+          detail: (a.id === 'drawdown'
+            ? 'The portfolio sits below your configured drawdown limit relative to its peak.'
+            : 'Recent swings exceed your configured volatility limit.'),
+          action: 'Review the Risk & drift monitor in Alerts; adjust the limit or de-risk.',
+          metric: a.metric
+        });
+      });
+    }
+
+    // 9) Overall health weakest link
     var h = bundle.health;
     if (h && !h.empty && h.subScores) {
       var weakest = null;
@@ -181,7 +201,17 @@
     var M = (typeof window !== 'undefined') && window.MaerminMetrics;
     if (!M) return extras ? Object.assign({}, extras) : {};
     var bundle = {};
-    try { bundle.concentration = M.computeConcentration(portfolio, prices); } catch (e) {}
+    // computeConcentration reports maxWeight as a FRACTION (PortfolioHealth's
+    // HHI math), while analyzeFromMetrics' thresholds are PERCENT. Convert at
+    // this boundary — without it the concentration findings could never fire
+    // against real data (0.42 is never >= 30).
+    try {
+      var conc = M.computeConcentration(portfolio, prices);
+      if (conc && conc.available && conc.maxWeight <= 1) {
+        conc = Object.assign({}, conc, { maxWeight: conc.maxWeight * 100 });
+      }
+      bundle.concentration = conc;
+    } catch (e) {}
     try { bundle.currency = M.computeCurrencyExposure(portfolio, prices, transactions); } catch (e) {}
     try { bundle.drift = M.computeRebalancingDrift(portfolio, prices); } catch (e) {}
     try { bundle.dividends = M.computeExpectedAnnualDividends(portfolio, prices); } catch (e) {}
