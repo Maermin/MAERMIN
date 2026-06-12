@@ -1746,6 +1746,12 @@ function InvestmentTracker() {
           window.MaerminAnalyticsViews && React.createElement('div', { style: { padding: '0 1.5rem 1.5rem' } },
             React.createElement(window.MaerminAnalyticsViews.BenchmarkPanel, {
               portfolio, priceHistory, workerUrl: apiKeys.cs2Worker, theme: currentTheme, t, formatPrice
+            }),
+            // FX attribution: split the EUR return into asset vs exchange-rate
+            // parts (no new tab; the EUR/USD path comes via the existing yf route).
+            window.MaerminFxAttribution && React.createElement(window.MaerminFxAttribution.Panel, {
+              portfolio, prices, priceHistory, transactions: activeTransactions,
+              workerUrl: apiKeys.cs2Worker, theme: currentTheme, t, formatPrice
             })
           )
         ) : renderAnalyticsPlaceholder('Returns');
@@ -1758,10 +1764,19 @@ function InvestmentTracker() {
 
       case 'attribution':
         return window.MaerminFeatures7 ?
-          React.createElement(window.MaerminFeatures7.PerformanceAttribution, {
-            portfolio, prices, priceHistory, transactions: activeTransactions,
-            theme: currentTheme, formatPrice, getCurrencySymbol, t
-          }) : renderAnalyticsPlaceholder('Attribution');
+          React.createElement(React.Fragment, null,
+            React.createElement(window.MaerminFeatures7.PerformanceAttribution, {
+              portfolio, prices, priceHistory, transactions: activeTransactions,
+              theme: currentTheme, formatPrice, getCurrencySymbol, t
+            }),
+            // FX attribution fold-in: the currency dimension of attribution.
+            window.MaerminFxAttribution && React.createElement('div', { style: { padding: '0 1.5rem 1.5rem' } },
+              React.createElement(window.MaerminFxAttribution.Panel, {
+                portfolio, prices, priceHistory, transactions: activeTransactions,
+                workerUrl: apiKeys.cs2Worker, theme: currentTheme, t, formatPrice
+              })
+            )
+          ) : renderAnalyticsPlaceholder('Attribution');
 
       case 'realized':
         return window.MaerminFeatures7 ?
