@@ -662,10 +662,46 @@ function BrokerImportWizard({ theme, t, addToast, onImport, existing }) {
     reader.readAsText(file, 'UTF-8');
   };
 
+  // PDF statements (Trade Republic, Scalable, ING, DKB, Comdirect): extract +
+  // parse fully client-side via MaerminPdfImport, then feed the candidates as
+  // CSV into the SAME mapping preview flow below — one import pipeline, with
+  // the editable preview as the safety net for layout drift. Several PDFs can
+  // be dropped at once; per-file problems surface as toasts, the rest imports.
+  const [pdfBusy, setPdfBusy] = useState(false);
+  const handlePdfFiles = (files) => {
+    const PI = window.MaerminPdfImport;
+    if (!PI) { addToast && addToast('PDF import module not loaded', 'error'); return; }
+    setPdfBusy(true);
+    setFileName(files.length === 1 ? files[0].name : files.length + ' PDF statements');
+    PI.parseFiles(files).then(out => {
+      setPdfBusy(false);
+      out.errors.slice(0, 3).forEach(e => addToast && addToast(e, 'warning'));
+      if (!out.candidates.length) {
+        addToast && addToast('No transactions recognised in the PDF(s) - is it a settlement statement?', 'error');
+        return;
+      }
+      addToast && addToast(`${out.candidates.length} transaction(s) recognised${out.brokers.length ? ' (' + out.brokers.join(', ') + ')' : ''} - review before importing`, 'success');
+      setRawData(out.csv);
+      setStep(2);
+    }).catch(e => {
+      setPdfBusy(false);
+      addToast && addToast('PDF parsing failed: ' + ((e && e.message) || e), 'error');
+    });
+  };
+
+  // Route a dropped/picked selection: PDFs go through the PDF pipeline, the
+  // first non-PDF file keeps the legacy text path.
+  const handleFiles = (fileList) => {
+    const files = Array.from(fileList || []);
+    if (!files.length) return;
+    const pdfs = files.filter(f => /\.pdf$/i.test(f.name) || f.type === 'application/pdf');
+    if (pdfs.length) handlePdfFiles(pdfs);
+    else handleFile(files[0]);
+  };
+
   const handleDrop = (e) => {
     e.preventDefault();
-    const file = e.dataTransfer.files[0];
-    if (file) handleFile(file);
+    handleFiles(e.dataTransfer.files);
   };
 
   useEffect(() => {
@@ -869,9 +905,10 @@ function BrokerImportWizard({ theme, t, addToast, onImport, existing }) {
         style: { border: `2px dashed ${theme.cardBorder}`, borderRadius: '16px', padding: '3rem', textAlign: 'center', cursor: 'pointer', marginBottom: '1rem' }
       },
         React.createElement('div', { style: { fontSize: '2rem', marginBottom: '0.5rem', opacity: 0.4 } }, '↑'),
-        React.createElement('div', { style: { color: theme.text, fontWeight: '600', marginBottom: '0.25rem' } }, 'Drag CSV file here'),
+        React.createElement('div', { style: { color: theme.text, fontWeight: '600', marginBottom: '0.25rem' } }, pdfBusy ? 'Reading PDF statement(s)...' : 'Drag CSV or PDF statement(s) here'),
         React.createElement('div', { style: { color: theme.textSecondary, fontSize: '0.875rem' } }, `Or click · ${selectedBrokerObj?.name || ''} · ${selectedBrokerObj?.hint || ''}`),
-        React.createElement('input', { type: 'file', accept: '.csv,.txt,.json', ref: fileRef, style: { display: 'none' }, onChange: e => handleFile(e.target.files[0]) })
+        React.createElement('div', { style: { color: theme.textSecondary, fontSize: '0.75rem', marginTop: '0.3rem' } }, 'PDF settlement statements: Trade Republic, Scalable, ING, DKB, Comdirect - parsed on this device, the file never leaves it.'),
+        React.createElement('input', { type: 'file', accept: '.csv,.txt,.json,.pdf', multiple: true, ref: fileRef, style: { display: 'none' }, onChange: e => handleFiles(e.target.files) })
       ),
       React.createElement('p', { style: { color: theme.textSecondary, fontSize: '0.8rem', lineHeight: '1.6' } }, 'All data stays local. Nothing is uploaded.'),
       React.createElement('div', { style: { display: 'flex', gap: '0.5rem', marginTop: '1rem' } },
