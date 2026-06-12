@@ -46,6 +46,7 @@ No account  ·  No server  ·  No ads  ·  No remote telemetry  ·  MIT License
 | **Positions Table** | Sortable by value, P&L, return, CAGR — click any row for full position detail modal |
 | **Multi-Portfolio** | Multiple portfolios with colour coding — Overview always shows combined totals |
 | **Net Worth** | Add cash accounts, real estate, loans — see true net wealth beyond investments |
+| **Options** | Track long/short calls and puts (underlying, strike, expiry, premium, contract size) — signed book with net premium, moneyness, intrinsic value and estimated P&L on the Overview; kept separate from the share positions |
 | **Dividends** | Calendar view, 12-month forecast, auto-fetch from Yahoo Finance · quality & safety scoring per payer (payout ratio, growth streak, dividend growth, coverage, cut-risk flag) with an aggregated portfolio dividend-health value |
 | **Trade Journal** | Investment thesis and notes per position |
 
