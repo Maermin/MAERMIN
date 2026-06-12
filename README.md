@@ -46,7 +46,7 @@ No account  ·  No server  ·  No ads  ·  No remote telemetry  ·  MIT License
 | **Positions Table** | Sortable by value, P&L, return, CAGR — click any row for full position detail modal |
 | **Multi-Portfolio** | Multiple portfolios with colour coding — Overview always shows combined totals |
 | **Net Worth** | Add cash accounts, real estate, loans — see true net wealth beyond investments |
-| **Dividends** | Calendar view, 12-month forecast, auto-fetch from Yahoo Finance |
+| **Dividends** | Calendar view, 12-month forecast, auto-fetch from Yahoo Finance · quality & safety scoring per payer (payout ratio, growth streak, dividend growth, coverage, cut-risk flag) with an aggregated portfolio dividend-health value |
 | **Trade Journal** | Investment thesis and notes per position |
 
 ### Analysis
@@ -124,6 +124,7 @@ Add a free [Alpha Vantage key](https://www.alphavantage.co/support/#api-key) in 
 | `GET /?action=yfsearch&q=Apple&type=stock` | Symbol search (stocks or crypto) |
 | `GET /?action=screener&scrId=day_gainers` (or `&symbols=KO,PG`) | Discovery: predefined screener / movers, or batch quote |
 | `GET /?action=fundholdings&symbol=VWCE.DE` | ETF/fund look-through: top holdings, sector weights, expense ratio (TER) |
+| `GET /?action=fundamentals&symbol=KO` | Dividend-safety fundamentals: payout ratio, EPS, dividend rate/yield |
 | `GET /?action=steamhistory&name=AK-47 \| Redline (FT)` | CS2 price history (USD) |
 | `GET /?action=search&q=ak47+redline` | Steam Market skin search with images |
 | `POST /` | Steam skin price lookup (array of names → USD price map) |

@@ -55,6 +55,30 @@ cookie+crumb handshake; the Worker retries once with a cached session. The
 client degrades to a built-in snapshot of common ETFs when this route is
 missing (older Worker → `400 {"error":"Unknown action"}`).
 
+### `GET /?action=fundamentals&symbol=KO`
+Dividend-safety fundamentals. Proxies Yahoo Finance `quoteSummary` (modules
+`summaryDetail`, `defaultKeyStatistics`, `price`) and normalises the numbers
+the dividend quality scoring needs:
+
+```jsonc
+{
+  "symbol": "KO",
+  "name": "The Coca-Cola Company",
+  "currency": "USD",
+  "price": 60.12,
+  "dividendRate": 1.94,                 // annual dividend per share
+  "dividendYield": 0.032,               // fraction
+  "fiveYearAvgDividendYield": 0.031,    // fraction (normalised from Yahoo's percent)
+  "payoutRatio": 0.74,                  // fraction
+  "trailingEps": 2.61,
+  "forwardEps": 2.95
+}
+```
+
+Nulls mean Yahoo has no value — the client falls back to its history-based
+heuristic. Cached 6 h; same cookie+crumb retry and degradation contract as
+`fundholdings`.
+
 ### `GET /?action=search&q=ak47+redline`
 Steam Market CS2 skin search (USD, `currency=1`). Returns items with images.
 

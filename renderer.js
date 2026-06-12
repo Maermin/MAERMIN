@@ -1539,6 +1539,15 @@ function InvestmentTracker() {
         tab === 'forecast' && window.MaerminFeatures4 ?
           React.createElement(window.MaerminFeatures4.DividendForecastView, {
             transactions, portfolio, prices, theme, formatPrice, getCurrencySymbol
+          }) : null,
+        // Dividend quality & safety fold-in (no new tab): per-payer safety
+        // score, payout/streak/growth/coverage columns with a click-to-open
+        // reasoning detail, and the aggregated portfolio dividend health.
+        // Gated on the Worker fundamentals route; degrades to history-only.
+        window.MaerminDividendQuality && window.MaerminDividendQuality.QualityPanel ?
+          React.createElement(window.MaerminDividendQuality.QualityPanel, {
+            portfolio, prices, workerUrl: apiKeys?.cs2Worker,
+            theme, t, formatPrice, getCurrencySymbol
           }) : null
       )
     );
