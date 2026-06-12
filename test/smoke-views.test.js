@@ -109,6 +109,7 @@ const VIEW_MODULES = [
   { file: '../dividend-quality.js', ns: 'MaerminDividendQuality', comps: ['QualityPanel', 'scorePosition', 'scorePortfolio', 'parseFundamentalsResponse', 'cagrFromSeries', 'buildUrl'] },
   { file: '../risk-monitor.js',     ns: 'MaerminRiskMonitor',     comps: ['Panel', 'evaluate', 'shouldNotify', 'currentDrawdown', 'gatherInputs', 'checkAndNotify', 'loadSettings', 'saveSettings'] },
   { file: '../options-engine.js',   ns: 'MaerminOptions',         comps: ['Panel', 'buildOptionPositions', 'positionMetrics', 'computeStats', 'validateOptionTx', 'contractSymbol', 'hasOptionTransactions'] },
+  { file: '../backtester.js',       ns: 'MaerminBacktester',      comps: ['Panel', 'backtest', 'run', 'summarize', 'normalizeWeights', 'alignSeries'] },
 ];
 
 console.log('\nTier 1 — module load + exports:');
@@ -236,6 +237,8 @@ const MUST_RENDER = [
   // (the gate); the bespoke props exercise the full book table (long open,
   // short, intrinsic against the prices map).
   ['MaerminOptions', 'Panel', baseProps],
+  // Backtester panel: pre-run render (form only, hooks stubbed, no fetch).
+  ['MaerminBacktester', 'Panel', baseProps],
   ['MaerminOptions', 'Panel', {
     ...baseProps,
     exchangeRate: 0.9,
