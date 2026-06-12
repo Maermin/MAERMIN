@@ -176,6 +176,18 @@ user opted in. Drawdown/volatility breaches additionally surface as advisor find
 **Health** (`bundle.riskMonitor`); concentration/drift/look-through breaches are not
 duplicated there because the advisor already covers those dimensions.
 
+**Broker PDF import** (`pdf-import.js` → `MaerminPdfImport`) adds settlement-PDF
+parsing to the existing Broker Import wizard (no new tab, no second import engine):
+pdf.js extracts the text fully client-side (both CDN files version-pinned + SRI,
+lazy-loaded on first use; the worker file loads as a plain script so pdf.js runs its
+main-thread fallback — `worker-src` CSP untouched), a pure generic German-settlement
+parser with per-broker configs (Trade Republic, Scalable, ING, DKB, Comdirect) turns
+the text into candidate transactions, and `candidatesToCSV` feeds them into the
+existing `MaerminImportMapping` preview/commit flow — editable mapping, row errors and
+duplicate detection come for free. Number/date parsing is reused from that module.
+Parsers are best-effort against frozen text fixtures (`test/pdf-import.test.js`);
+missing fields are reported per file, never guessed. The PDF never leaves the device.
+
 **Options tracking** (`options-engine.js` → `MaerminOptions`) extends the transaction
 model additively: `category: 'options'` rows carry `underlying`, `optionType`
 (call/put), `strike`, `expiry` and `contractSize` next to the usual fields
