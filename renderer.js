@@ -364,7 +364,7 @@ function InvestmentTracker() {
 
   // Category display names
   const getCategoryDisplayName = (category) => {
-    const displayNames = { crypto: t.crypto || 'Crypto', stocks: t.stocks || 'Stocks', skins: t.cs2Skins || 'CS2 Skins', commodities: 'Commodities' };
+    const displayNames = { crypto: t.crypto || 'Crypto', stocks: t.stocks || 'Stocks', skins: t.cs2Skins || 'CS2 Skins', commodities: 'Commodities', options: 'Options' };
     return displayNames[category] || category;
   };
 
@@ -1015,7 +1015,36 @@ function InvestmentTracker() {
   // ========== ADD TRANSACTION ==========
   
   const saveTransaction = () => {
-    if (!newTransaction.symbol || !newTransaction.quantity || !newTransaction.price) {
+    const isOption = newTransaction.category === 'options';
+
+    // Option contracts: validate via the engine (the contract identity must be
+    // sound or the book grouping corrupts) and derive tx.symbol from it — the
+    // symbol field is not user-entered for options.
+    let optionFields = null;
+    if (isOption) {
+      const O = window.MaerminOptions;
+      if (!O) { addToast('Options module not loaded', 'error'); return; }
+      const candidate = {
+        underlying: (newTransaction.underlying || '').trim().toUpperCase(),
+        optionType: newTransaction.optionType || 'call',
+        strike: window.MaerminUtils.parseDecimal(newTransaction.strike),
+        expiry: newTransaction.expiry || '',
+        contractSize: newTransaction.contractSize === '' || newTransaction.contractSize == null
+          ? null : window.MaerminUtils.parseDecimal(newTransaction.contractSize)
+      };
+      const v = O.validateOptionTx(candidate);
+      if (!v.ok) { addToast(v.errors[0], 'error'); return; }
+      optionFields = {
+        underlying: candidate.underlying,
+        optionType: candidate.optionType,
+        strike: candidate.strike,
+        expiry: candidate.expiry,
+        contractSize: candidate.contractSize || O.DEFAULT_CONTRACT_SIZE
+      };
+    }
+
+    const effectiveSymbol = isOption ? window.MaerminOptions.contractSymbol(optionFields) : newTransaction.symbol;
+    if (!effectiveSymbol || !newTransaction.quantity || !newTransaction.price) {
       addToast(t.fillRequired || 'Please fill required fields', 'error');
       return;
     }
@@ -1031,17 +1060,18 @@ function InvestmentTracker() {
     const transactionData = {
       type: newTransaction.type,
       category: newTransaction.category,
-      symbol: newTransaction.symbol,           // exact YF symbol (e.g. SIX2.DE) or CoinGecko ID
+      symbol: effectiveSymbol,                 // exact YF symbol / CoinGecko ID, or derived option contract
       symbolName: newTransaction.symbolName || '',   // human-readable: "Siemens AG"
       symbolLogoUrl: newTransaction.symbolLogoUrl || '', // logo URL for display
-      quantity: qty,
-      price: price,
+      quantity: qty,                           // options: number of contracts
+      price: price,                            // options: premium per share
       fees: (isNaN(fees) || fees < 0) ? 0 : fees,
       date: newTransaction.date,
       notes: newTransaction.notes,
       currency: newTransaction.currency || currency,
       portfolioId: newTransaction.targetPortfolioId || activePortfolioId,
-      ...(newTransaction.skinIconUrl ? { skinIconUrl: newTransaction.skinIconUrl } : {})
+      ...(newTransaction.skinIconUrl ? { skinIconUrl: newTransaction.skinIconUrl } : {}),
+      ...(optionFields || {})
     };
     
     // Single tested code path for both edit (UPDATE in place) and add (CREATE).
@@ -1098,6 +1128,12 @@ function InvestmentTracker() {
       notes: tx.notes || '',
       currency: tx.currency || 'EUR',
       targetPortfolioId: tx.portfolioId || activePortfolioId,
+      // Option contract fields (only set on category 'options' rows).
+      underlying: tx.underlying || '',
+      optionType: tx.optionType || 'call',
+      strike: tx.strike?.toString() || '',
+      expiry: tx.expiry || '',
+      contractSize: tx.contractSize?.toString() || '',
     });
     setEditingTransactionId(tx.id);
     // NOTE: do NOT call openTransactionModal() here — it resets the form and
@@ -2343,6 +2379,17 @@ function InvestmentTracker() {
         React.createElement(
           window.MaerminFeatures3?.EnhancedPositionsTable || window.MaerminFeatures.PositionsTable,
           { portfolio: overviewPortfolio, prices, priceHistory, transactions: overviewTransactions, theme: currentTheme, formatPrice, getCurrencySymbol, t, onAddTransaction: () => openTransactionModal() }
+        ),
+
+      // Options book (no new tab): tracked separately from the shared positions
+      // engine — buildPositions ignores the 'options' category by design. The
+      // panel renders nothing when no option transactions exist.
+      window.MaerminOptions && window.MaerminOptions.Panel &&
+        React.createElement('div', { style: { marginTop: '1.5rem' } },
+          React.createElement(window.MaerminOptions.Panel, {
+            transactions: overviewTransactions, prices, exchangeRate,
+            theme: currentTheme, t, formatPrice, getCurrencySymbol
+          })
         )
     );
   };
@@ -2988,8 +3035,8 @@ function InvestmentTracker() {
           React.createElement('label', {
             style: { display: 'block', color: currentTheme.textSecondary, marginBottom: '0.5rem', fontSize: '0.875rem' }
           }, t.category || 'Category'),
-          React.createElement('div', { style: { display: 'flex', gap: '0.5rem' } },
-            ['crypto', 'stocks', 'skins', 'commodities'].map(cat =>
+          React.createElement('div', { style: { display: 'flex', gap: '0.5rem', flexWrap: 'wrap' } },
+            ['crypto', 'stocks', 'skins', 'commodities', 'options'].map(cat =>
               React.createElement('button', {
                 key: cat,
                 onClick: () => setNewTransaction(prev => ({ ...prev, category: cat })),
@@ -3065,6 +3112,49 @@ function InvestmentTracker() {
                     }));
                   }
                 })
+            // Option contract fields: underlying + call/put + strike + expiry +
+            // contract size. The contract symbol (tx.symbol) is derived on save
+            // via MaerminOptions.contractSymbol, so no symbol picker is needed.
+            : newTransaction.category === 'options'
+              ? React.createElement('div', null,
+                  React.createElement('input', {
+                    type: 'text', value: newTransaction.underlying || '',
+                    onChange: e => setNewTransaction(prev => ({ ...prev, underlying: e.target.value.toUpperCase() })),
+                    placeholder: 'Underlying symbol: AAPL, SAP.DE...',
+                    style: { width: '100%', padding: '0.625rem 0.875rem', background: currentTheme.inputBg, border: `1px solid ${currentTheme.inputBorder}`, borderRadius: '8px', color: currentTheme.text, fontSize: '0.875rem', boxSizing: 'border-box', marginBottom: '0.625rem' }
+                  }),
+                  React.createElement('div', { style: { display: 'flex', gap: '0.5rem', marginBottom: '0.625rem' } },
+                    ['call', 'put'].map(ot => React.createElement('button', {
+                      key: ot,
+                      onClick: () => setNewTransaction(prev => ({ ...prev, optionType: ot })),
+                      style: {
+                        flex: 1, padding: '0.5rem', border: 'none', borderRadius: '6px', cursor: 'pointer', fontSize: '0.875rem', fontWeight: '600',
+                        background: (newTransaction.optionType || 'call') === ot ? (ot === 'call' ? '#22c55e' : '#ef4444') : currentTheme.inputBg,
+                        color: (newTransaction.optionType || 'call') === ot ? '#fff' : currentTheme.text
+                      }
+                    }, ot === 'call' ? 'Call' : 'Put'))),
+                  React.createElement('div', { style: { display: 'flex', gap: '0.5rem' } },
+                    React.createElement('input', {
+                      type: 'number', value: newTransaction.strike || '', min: 0, step: 'any',
+                      onChange: e => setNewTransaction(prev => ({ ...prev, strike: e.target.value })),
+                      placeholder: 'Strike',
+                      style: { flex: 1, padding: '0.625rem 0.875rem', background: currentTheme.inputBg, border: `1px solid ${currentTheme.inputBorder}`, borderRadius: '8px', color: currentTheme.text, fontSize: '0.875rem', minWidth: 0 }
+                    }),
+                    React.createElement('input', {
+                      type: 'date', value: newTransaction.expiry || '',
+                      onChange: e => setNewTransaction(prev => ({ ...prev, expiry: e.target.value })),
+                      title: 'Expiry date',
+                      style: { flex: 1, padding: '0.625rem 0.875rem', background: currentTheme.inputBg, border: `1px solid ${currentTheme.inputBorder}`, borderRadius: '8px', color: currentTheme.text, fontSize: '0.875rem', minWidth: 0 }
+                    }),
+                    React.createElement('input', {
+                      type: 'number', value: newTransaction.contractSize || '', min: 1,
+                      onChange: e => setNewTransaction(prev => ({ ...prev, contractSize: e.target.value })),
+                      placeholder: 'Size (100)', title: 'Contract size (shares per contract, default 100)',
+                      style: { width: '90px', padding: '0.625rem 0.875rem', background: currentTheme.inputBg, border: `1px solid ${currentTheme.inputBorder}`, borderRadius: '8px', color: currentTheme.text, fontSize: '0.875rem' }
+                    })),
+                  React.createElement('div', { style: { color: currentTheme.textSecondary, fontSize: '0.72rem', marginTop: '0.5rem', lineHeight: 1.5 } },
+                    'Quantity = number of contracts, price = premium per share. Buy = long / close a short, sell = write (short) / close a long.')
+                )
             : newTransaction.category === 'commodities'
               ? React.createElement('div', null,
                   // Preset buttons
