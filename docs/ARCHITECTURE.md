@@ -99,6 +99,7 @@ conversion happens only at format time (`formatPrice`).
 | `etf-lookthrough.js` | `MaerminLookThrough` | ETF/fund X-Ray: pure `analyze()` over position rows + per-fund holdings → effective per-security exposure, sector/country/currency look-through, fund-overlap pairs, hidden concentrations. Holdings come from the Worker `fundholdings` route via the shared, session-cached `loadFundData` loader (injectable fetch), merged with a static snapshot of common ETFs (graceful degradation) |
 | `cost-analysis.js` | `MaerminCostAnalysis` | Ongoing costs (TER): pure `buildFundRows`/`computeOngoingCosts`/`projectCostDrag` → annual EUR cost per fund, total drag p.a., weighted average TER, multi-year cumulative cost-drag projection. TER from the same `loadFundData` plumbing (override > worker > snapshot); manual overrides in `localStorage` (symbols + ratios only, not sensitive) |
 | `dividend-quality.js` | `MaerminDividendQuality` | Dividend quality & safety: pure `scorePosition` (heuristic 0-100 from payout ratio, growth streak, dividend growth, yield sanity; cut-risk flag; weight redistribution when fundamentals are missing), `scorePortfolio` (income-weighted health + income-at-risk share), `cagrFromSeries`. Fundamentals from the Worker `fundamentals` route; degrades to the DividendDataService history heuristic |
+| `risk-monitor.js` | `MaerminRiskMonitor` | Continuous structural risk alerts: pure `evaluate` (five rules - position concentration, effective look-through concentration, allocation drift, drawdown, volatility - against user thresholds, percent-based) + `shouldNotify` (cooldown dedupe; recovery re-arms a rule). Inputs gathered from MaerminMetrics / MaerminAnalyticsData / MaerminAnalytics / MaerminLookThrough - no new quant. Notifies via MaerminPWA; thresholds + notify state in `localStorage` (ids/percents/timestamps, not sensitive) |
 
 ---
 
@@ -161,7 +162,18 @@ portfolio dividend-health KPIs. Payers and history metrics come from the ONE exi
 `DividendDataService`; fundamentals (payout ratio, EPS) come from the Worker
 `fundamentals` route with the usual gating — an older Worker or no Worker URL means
 the score is computed from history alone and the panel says so. The score is labelled
-a heuristic; nothing is persisted. All consume
+a heuristic; nothing is persisted.
+
+**Risk & drift monitor** (`risk-monitor.js` → `MaerminRiskMonitor`) folds into the
+**Alerts** view below the price alerts (no new tab): a rule-status table (current value
+vs limit, breach state) with inline threshold editing, a notification toggle (wired to
+`MaerminPWA.requestNotifications`/`notify`) and a cooldown. The continuous part is one
+renderer `useEffect` on `prices`: `checkAndNotify` re-evaluates the rules on every
+price refresh regardless of the active view, dedupes via the cooldown state (a
+recovered rule re-arms immediately), and raises local PWA notifications only when the
+user opted in. Drawdown/volatility breaches additionally surface as advisor findings in
+**Health** (`bundle.riskMonitor`); concentration/drift/look-through breaches are not
+duplicated there because the advisor already covers those dimensions. All consume
 `MaerminAnalyticsData` for series construction, so no view recomputes quant. A
 **Security & Sync** settings modal (in `renderer.js`) exposes `MaerminAuth.getStatus()`
 (encryption-at-rest, KDF, auto-lock, passkey, recovery code) and `MaerminSync`
