@@ -96,7 +96,8 @@ conversion happens only at format time (`formatPrice`).
 | `recurring.js` | `MaerminRecurring` | Recurring liabilities (loans/mortgages) |
 | `portfolio-analytics.js` | `MaerminAnalytics` | Pure quant fed return series: benchmarks (α/β/Tracking Error/Information Ratio/R²), simulator (future value/FIRE/withdrawal/Monte-Carlo success), risk (max drawdown/rolling vol/Fama-French OLS) |
 | `analytics-data.js` | `MaerminAnalyticsData` | Bridge: builds a portfolio value path + aligned period returns from built positions + per-symbol `priceHistory` (incl. N-series `alignReturns`/`subtract` for factor construction), the inputs `MaerminAnalytics` expects |
-| `etf-lookthrough.js` | `MaerminLookThrough` | ETF/fund X-Ray: pure `analyze()` over position rows + per-fund holdings → effective per-security exposure, sector/country/currency look-through, fund-overlap pairs, hidden concentrations. Holdings come from the Worker `fundholdings` route, merged with a static snapshot of common ETFs (graceful degradation) |
+| `etf-lookthrough.js` | `MaerminLookThrough` | ETF/fund X-Ray: pure `analyze()` over position rows + per-fund holdings → effective per-security exposure, sector/country/currency look-through, fund-overlap pairs, hidden concentrations. Holdings come from the Worker `fundholdings` route via the shared, session-cached `loadFundData` loader (injectable fetch), merged with a static snapshot of common ETFs (graceful degradation) |
+| `cost-analysis.js` | `MaerminCostAnalysis` | Ongoing costs (TER): pure `buildFundRows`/`computeOngoingCosts`/`projectCostDrag` → annual EUR cost per fund, total drag p.a., weighted average TER, multi-year cumulative cost-drag projection. TER from the same `loadFundData` plumbing (override > worker > snapshot); manual overrides in `localStorage` (symbols + ratios only, not sensitive) |
 
 ---
 
@@ -141,7 +142,15 @@ pure and Node-tested; the Panel is a thin fetch shell over the Worker's
 triggers an upgrade note while a built-in approximate snapshot of common index ETFs
 keeps the feature useful. The Health panel hands its result up so
 `MaerminAdvisor.analyzeFromMetrics` can rank hidden fund concentrations alongside its
-other findings (`bundle.lookThrough`). Nothing is persisted (no new `SENSITIVE_KEYS`). All consume
+other findings (`bundle.lookThrough`). Nothing is persisted (no new `SENSITIVE_KEYS`).
+
+**Ongoing costs (TER)** (`cost-analysis.js` → `MaerminCostAnalysis.OngoingCostsPanel`)
+folds into the **Fee Analyzer** view below the transaction-fee breakdown (no new tab):
+annual EUR cost per fund position, total ongoing drag p.a., weighted average TER, and a
+multi-year projection of the cumulative cost drag, plus an inline manual TER override
+per fund. It reuses the X-Ray's `loadFundData` loader (same gating/degradation), so
+there is exactly one fund-data pipeline; only the override map (symbol → expense ratio,
+no amounts) is persisted in `localStorage` and is not sensitive. All consume
 `MaerminAnalyticsData` for series construction, so no view recomputes quant. A
 **Security & Sync** settings modal (in `renderer.js`) exposes `MaerminAuth.getStatus()`
 (encryption-at-rest, KDF, auto-lock, passkey, recovery code) and `MaerminSync`

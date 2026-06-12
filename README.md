@@ -56,7 +56,7 @@ No account  ·  No server  ·  No ads  ·  No remote telemetry  ·  MIT License
 | **Rebalancing** | Set target allocation via sliders — see exactly what to buy/sell |
 | **Savings Plans** | DCA adherence tracking, missed executions, plan performance |
 | **Cash Flow** | Invested vs portfolio value chart — visualises your entire investment journey |
-| **Fee Analyzer** | Total fees, fee rate %, breakdown by year and asset class, top 10 most expensive trades |
+| **Fee Analyzer** | Total fees, fee rate %, breakdown by year and asset class, top 10 most expensive trades · ongoing costs (TER) per fund with annual EUR cost, weighted average TER, multi-year cost-drag projection, and manual TER override |
 | **Risk & Correlation** | Correlation matrix, Monte Carlo (10,000+ iterations), stress tests (2008 / COVID / Dot-com), VaR, CVaR, Sharpe, Sortino · rolling volatility/return trends · Fama-French factor exposure (market / size / value loadings) |
 | **Planning Simulator** | Future Value · FIRE projection · withdrawal survival · Monte-Carlo success probability — in the Monte-Carlo view |
 | **Strategy** | DCA vs lump sum, sector allocation, currency exposure, liquidity score, goal planning |

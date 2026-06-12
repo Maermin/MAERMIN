@@ -1643,9 +1643,19 @@ function InvestmentTracker() {
 
       case 'fees':
         return window.MaerminFeatures5 ?
-          React.createElement(window.MaerminFeatures5.FeeAnalyzer, {
-            transactions: activeTransactions, theme: currentTheme, formatPrice, getCurrencySymbol
-          }) : renderAnalyticsPlaceholder('Fee Analyzer');
+          React.createElement(React.Fragment, null,
+            React.createElement(window.MaerminFeatures5.FeeAnalyzer, {
+              transactions: activeTransactions, theme: currentTheme, formatPrice, getCurrencySymbol
+            }),
+            // Ongoing costs (TER) fold-in: the recurring half of the cost of
+            // investing, complementing the transaction fees above (no new tab).
+            // Reuses the X-Ray fund-data plumbing; gated + degrading like it.
+            window.MaerminCostAnalysis && window.MaerminCostAnalysis.OngoingCostsPanel &&
+              React.createElement(window.MaerminCostAnalysis.OngoingCostsPanel, {
+                portfolio, prices, workerUrl: apiKeys.cs2Worker,
+                theme: currentTheme, t, formatPrice, getCurrencySymbol
+              })
+          ) : renderAnalyticsPlaceholder('Fee Analyzer');
 
       case 'portfolios':
         return window.MaerminFeatures4 ?
