@@ -2858,7 +2858,16 @@ function InvestmentTracker() {
             `${formatPrice(taxData.taxLiability || 0)} ${getCurrencySymbol()}`
           )
         )
-      )
+      ),
+
+      // German fund taxation fold-in (no new tab): Vorabpauschale per
+      // accumulating fund + Teilfreistellung classification + the statutory
+      // ordered computation. Only relevant for the German jurisdiction.
+      taxJurisdiction === 'de' && window.MaerminGermanTaxView && window.MaerminGermanTaxView.Panel &&
+        React.createElement(window.MaerminGermanTaxView.Panel, {
+          transactions, portfolio, prices, priceHistory, year: currentYear, exchangeRate,
+          theme: currentTheme, t, formatPrice, getCurrencySymbol
+        })
     );
   };
 

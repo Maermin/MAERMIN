@@ -90,7 +90,8 @@ conversion happens only at format time (`formatPrice`).
 | `ticker-validation.js` | `MaerminTickers` | Normalise symbols (e.g. `BRK.B`→`BRK-B`, keep `SAP.DE`) |
 | `equity-metadata.js` | `MaerminEquityMeta` | Sector/country per ticker (FMP API + cache + static map) |
 | `dividend-data-service.js` | `DividendDataService` | Dividend data, FIFO forecast, calendar |
-| `tax-report-builder.js` | `MaerminTaxReport` | Per-lot FIFO tax report + PDF/Excel |
+| `tax-report-builder.js` | `MaerminTaxReport` | Per-lot FIFO tax report + PDF/Excel; for jurisdiction `de` integrates the GermanTax detail (`summary.germanDetail`, injectable via `opts.germanTax` for Node tests) |
+| `tax-calculation-engine.js` | `TaxCalculationEngine` (+ `GermanTax`) | Jurisdiction tax estimates; `GermanTax` adds the pure German fund-taxation depth: Vorabpauschale (BMF Basiszins table + overrides, month pro-rating, sale credit), Teilfreistellung per fund type (symmetric on losses), statutory order Teilfreistellung -> Verrechnung -> Sparerpauschbetrag -> Abgeltungsteuer/Soli/Kirchensteuer (sec. 32d formula), crypto Freigrenze. Dual-exported, tested in `test/german-tax.test.js` |
 | `allocation.js` | `MaerminAllocation` | Asset-class allocation + drill-down |
 | `projection.js` | `MaerminProjection` | Multi-scenario wealth projection |
 | `recurring.js` | `MaerminRecurring` | Recurring liabilities (loans/mortgages) |
@@ -175,6 +176,19 @@ recovered rule re-arms immediately), and raises local PWA notifications only whe
 user opted in. Drawdown/volatility breaches additionally surface as advisor findings in
 **Health** (`bundle.riskMonitor`); concentration/drift/look-through breaches are not
 duplicated there because the advisor already covers those dimensions.
+
+**German fund taxation** (`german-tax-view.js` → `MaerminGermanTaxView.Panel`) folds
+into the **Tax** view when the jurisdiction is Germany (no new tab): fund-type
+classification per position (Teilfreistellung), a Vorabpauschale worksheet per
+accumulating fund and tax year (values prefilled from the local price history at the
+year boundaries via the pure `priceAt`/`qtyAt`/`prefillRow` helpers, everything
+editable), Basiszins and church-tax settings, and the integrated ordered computation
+from `MaerminTaxReport.build` (`summary.germanDetail`, also exported to PDF/Excel).
+Saved Vorabpauschalen credit later sales of the same fund. All stored inputs
+(`maermin_fund_types`, `maermin_vap_records`, `maermin_kirchensteuer`) are registered
+in `SENSITIVE_KEYS` (the type map reveals held symbols, records hold EUR amounts, the
+church-tax rate reveals a religious affiliation); the Basiszins overrides are public
+BMF rates and stay plain. Labelled a helper computation, not tax advice.
 
 **Options tracking** (`options-engine.js` → `MaerminOptions`) extends the transaction
 model additively: `category: 'options'` rows carry `underlying`, `optionType`

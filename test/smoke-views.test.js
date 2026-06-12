@@ -78,6 +78,7 @@ const engines = [
   '../utils.js', '../allocation.js', '../metrics.js', '../projection.js',
   '../recurring.js', '../equity-metadata.js', '../portfolio-health.js',
   '../data-quality.js', '../portfolio-analytics.js', '../analytics-data.js',
+  '../tax-calculation-engine.js', '../tax-report-builder.js',
 ];
 console.log('engine preload:');
 for (const e of engines) {
@@ -109,6 +110,7 @@ const VIEW_MODULES = [
   { file: '../dividend-quality.js', ns: 'MaerminDividendQuality', comps: ['QualityPanel', 'scorePosition', 'scorePortfolio', 'parseFundamentalsResponse', 'cagrFromSeries', 'buildUrl'] },
   { file: '../risk-monitor.js',     ns: 'MaerminRiskMonitor',     comps: ['Panel', 'evaluate', 'shouldNotify', 'currentDrawdown', 'gatherInputs', 'checkAndNotify', 'loadSettings', 'saveSettings'] },
   { file: '../options-engine.js',   ns: 'MaerminOptions',         comps: ['Panel', 'buildOptionPositions', 'positionMetrics', 'computeStats', 'validateOptionTx', 'contractSymbol', 'hasOptionTransactions'] },
+  { file: '../german-tax-view.js',  ns: 'MaerminGermanTaxView',   comps: ['Panel', 'priceAt', 'qtyAt', 'prefillRow'] },
 ];
 
 console.log('\nTier 1 — module load + exports:');
@@ -244,6 +246,9 @@ const MUST_RENDER = [
       { category: 'options', type: 'sell', underlying: 'VWCE', optionType: 'put', strike: 100, expiry: '2099-06-18', quantity: 2, price: 3, currency: 'EUR', date: '2026-02-10' },
     ],
   }],
+  // German fund taxation panel: VWCE in baseProps is a fund candidate, so the
+  // classification table renders; empty data exercises the no-funds note.
+  ['MaerminGermanTaxView', 'Panel', { ...baseProps, year: 2025 }],
 ];
 
 function renderOnce(Comp, props) {

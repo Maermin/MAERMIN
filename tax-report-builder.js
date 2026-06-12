@@ -186,6 +186,72 @@
       }
     } catch (e) {}
 
+    // ---- German fund taxation detail (Vorabpauschale + Teilfreistellung) ----
+    // Statutory order via TaxCalculationEngine.GermanTax: Teilfreistellung ->
+    // Verrechnung -> Sparerpauschbetrag -> Abgeltungsteuer/Soli/Kirchensteuer.
+    // GermanTax is injectable (opts.germanTax) so this stays Node-testable
+    // without the browser global. Inputs the view gathers (fund types, recorded
+    // Vorabpauschalen, current-year Vorabpauschalen, church-tax rate) arrive
+    // through opts; browser callers fall back to the locally stored settings.
+    var germanDetail = null;
+    var GT = opts.germanTax || (typeof window !== 'undefined' && window.TaxCalculationEngine && window.TaxCalculationEngine.GermanTax);
+    if (jurisdiction === 'de' && GT && typeof GT.computeGermanTaxDetailed === 'function') {
+      try {
+        var fundTypes = opts.fundTypes || (GT.loadFundTypes ? GT.loadFundTypes() : {});
+        var vapRecords = opts.vapRecords || (GT.loadVapRecords ? GT.loadVapRecords() : {});
+        // Current-year Vorabpauschalen: explicit, or derived from the records
+        // the Tax view saved for the report year (one store, no extra plumbing).
+        var vorabpauschalen = opts.vorabpauschalen;
+        if (!vorabpauschalen) {
+          vorabpauschalen = [];
+          Object.keys(vapRecords).forEach(function (sym) {
+            var amt = vapRecords[sym] && parseFloat(vapRecords[sym][year]);
+            if (isFinite(amt) && amt > 0) vorabpauschalen.push({ symbol: sym, amount: amt });
+          });
+        }
+        var kirchensteuerRate = opts.kirchensteuerRate != null ? opts.kirchensteuerRate
+          : (GT.loadKirchensteuerRate ? GT.loadKirchensteuerRate() : 0);
+        // Capital income block: every non-crypto disposal (crypto follows the
+        // private-sale rules below). Prior-year Vorabpauschalen recorded for a
+        // symbol are credited against its disposals, oldest first.
+        var creditPool = {};
+        var capitalDisposals = disposals.filter(function (d) { return d.category !== 'crypto'; }).map(function (d) {
+          var sym = d.symbol;
+          if (creditPool[sym] == null) creditPool[sym] = GT.vapCreditForSale(vapRecords, sym, year, 1);
+          var credit = Math.min(creditPool[sym], Math.max(0, d.gain));
+          creditPool[sym] -= credit;
+          return { symbol: sym, gain: d.gain, vapCredit: credit };
+        });
+        var capital = GT.computeGermanTaxDetailed({
+          disposals: capitalDisposals,
+          dividends: dividends.map(function (d) { return { symbol: d.symbol, gross: d.gross }; }),
+          interestIncome: interestIncome,
+          vorabpauschalen: vorabpauschalen,
+          fundTypes: fundTypes,
+          sparerpauschbetrag: opts.sparerpauschbetrag,
+          kirchensteuerRate: kirchensteuerRate
+        });
+        // Crypto: private sale rules (sec. 23 EStG) - > 1y exempt; otherwise a
+        // Freigrenze applies (1000 EUR from 2024, 600 before): at or under it
+        // the whole net gain is tax-free, above it the WHOLE amount is taxable.
+        // The personal income-tax rate is unknown here; 25% is the documented
+        // flat estimate, consistent with the legacy engine.
+        var cryptoShort = 0, cryptoExempt = 0;
+        disposals.forEach(function (d) {
+          if (d.category !== 'crypto') return;
+          if (d.longTerm) cryptoExempt += d.gain; else cryptoShort += d.gain;
+        });
+        var freigrenze = year >= 2024 ? 1000 : 600;
+        var cryptoTaxable = cryptoShort > freigrenze ? cryptoShort : 0;
+        var cryptoTax = cryptoTaxable * 0.25;
+        germanDetail = Object.assign({}, capital, {
+          crypto: { netShortTermGains: cryptoShort, exemptLongTermGains: cryptoExempt, freigrenze: freigrenze, taxable: cryptoTaxable, estimatedTax: cryptoTax },
+          totalTax: capital.totalTax + cryptoTax
+        });
+        taxLiability = germanDetail.totalTax;
+      } catch (e) { germanDetail = null; }
+    }
+
     return {
       meta: {
         generatedAt: new Date().toISOString(),
@@ -203,7 +269,8 @@
         foreignTax: foreignTax,
         totalTaxableIncome: totalGains + totalLosses + dividendIncome + interestIncome,
         estimatedTaxLiability: taxLiability,
-        jurisdictionDetail: summaryExtra
+        jurisdictionDetail: summaryExtra,
+        germanDetail: germanDetail
       },
       realizedGains: realizedGains,
       realizedLosses: realizedLosses,
@@ -219,6 +286,28 @@
   // ---- formatting ----------------------------------------------------------
   function money(v, cur) {
     return (num(v)).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) + ' ' + (cur || '');
+  }
+
+  // Shared row set for the German fund-taxation section (PDF + Excel).
+  function germanDetailRows(g, cur) {
+    return [
+      ['Taxable gains after Teilfreistellung', money(g.gainsTaxable, cur)],
+      ['Deductible losses after Teilfreistellung', money(g.lossesTaxable, cur)],
+      ['Taxable fund distributions', money(g.dividendsTaxable, cur)],
+      ['Vorabpauschale (current year, taxable)', money(g.vorabpauschaleTaxable, cur)],
+      ['Credited prior Vorabpauschalen', money(-g.vapCreditTotal, cur)],
+      ['Teilfreistellung exempt total', money(g.teilfreistellungExempt, cur)],
+      ['Net capital income', money(g.nettedIncome, cur)],
+      ['Sparerpauschbetrag used', money(g.sparerpauschbetragUsed, cur)],
+      ['Taxable capital income', money(g.taxableIncome, cur)],
+      ['Abgeltungsteuer', money(g.abgeltungsteuer, cur)],
+      ['Solidaritaetszuschlag', money(g.soli, cur)],
+      ['Kirchensteuer', money(g.kirchensteuer, cur)],
+      ['Crypto net short-term gains (Freigrenze ' + g.crypto.freigrenze + ')', money(g.crypto.netShortTermGains, cur)],
+      ['Crypto tax-exempt long-term gains', money(g.crypto.exemptLongTermGains, cur)],
+      ['Crypto estimated tax (flat-rate estimate)', money(g.crypto.estimatedTax, cur)],
+      ['Total estimated tax', money(g.totalTax, cur)]
+    ];
   }
 
   // ---- PDF export ----------------------------------------------------------
@@ -265,6 +354,14 @@
       ['Total Taxable Income', money(s.totalTaxableIncome, cur)],
       ['Estimated Tax Liability', money(s.estimatedTaxLiability, cur)]
     ], y);
+
+    // German fund taxation detail (when computed for jurisdiction 'de').
+    if (s.germanDetail) {
+      y = table('1a. German Fund Taxation (Vorabpauschale + Teilfreistellung)', ['Item', 'Amount'],
+        germanDetailRows(s.germanDetail, cur), y);
+      doc.setFontSize(8); doc.setTextColor(120, 120, 120);
+      doc.text('Helper computation under InvStG/EStG rules (simplified loss netting; crypto at flat-rate estimate). Not tax advice.', 14, y - 4);
+    }
 
     function lots(rows) {
       return rows.map(function (d) { return [d.symbol, d.category, d.quantity.toFixed(4), d.acquisitionDate, d.disposalDate, d.holdingPeriodDays + 'd' + (d.longTerm ? ' (LT)' : ''), money(d.proceeds, ''), money(d.costBasis, ''), money(d.gain, '')]; });
@@ -315,6 +412,10 @@
       ['Foreign Tax', num(s.foreignTax).toFixed(2)], ['Total Taxable Income', num(s.totalTaxableIncome).toFixed(2)],
       ['Estimated Tax Liability', num(s.estimatedTaxLiability).toFixed(2)]
     ]);
+    if (s.germanDetail) {
+      html += tbl('1a. German Fund Taxation (Vorabpauschale + Teilfreistellung)', ['Item', 'Amount'],
+        germanDetailRows(s.germanDetail, cur));
+    }
     var lotHead = ['Symbol', 'Class', 'Qty', 'Acquired', 'Disposed', 'Holding (days)', 'Long-term', 'Proceeds', 'Cost Basis', 'Gain/Loss'];
     function lotRows(rows) { return rows.map(function (d) { return [d.symbol, d.category, d.quantity.toFixed(4), d.acquisitionDate, d.disposalDate, d.holdingPeriodDays, d.longTerm ? 'Yes' : 'No', d.proceeds.toFixed(2), d.costBasis.toFixed(2), d.gain.toFixed(2)]; }); }
     html += tbl('2. Realized Capital Gains', lotHead, lotRows(report.realizedGains));

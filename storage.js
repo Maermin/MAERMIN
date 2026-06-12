@@ -53,7 +53,13 @@
     'maermin_watchlist',
     'maermin_alerts',
     'maermin_divevents',
-    'maermin_fire_settings'
+    'maermin_fire_settings',
+    // German fund taxation: the fund-type map reveals held symbols, the
+    // Vorabpauschale records hold EUR amounts per year, the church-tax rate
+    // reveals a religious affiliation.
+    'maermin_fund_types',
+    'maermin_vap_records',
+    'maermin_kirchensteuer'
   ];
   var sensitiveSet = {};
   SENSITIVE_KEYS.forEach(function (k) { sensitiveSet[k] = true; });
