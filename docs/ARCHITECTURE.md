@@ -177,6 +177,7 @@ user opted in. Drawdown/volatility breaches additionally surface as advisor find
 **Health** (`bundle.riskMonitor`); concentration/drift/look-through breaches are not
 duplicated there because the advisor already covers those dimensions.
 
+<<<<<<< HEAD
 **German fund taxation** (`german-tax-view.js` → `MaerminGermanTaxView.Panel`) folds
 into the **Tax** view when the jurisdiction is Germany (no new tab): fund-type
 classification per position (Teilfreistellung), a Vorabpauschale worksheet per
@@ -189,6 +190,18 @@ Saved Vorabpauschalen credit later sales of the same fund. All stored inputs
 in `SENSITIVE_KEYS` (the type map reveals held symbols, records hold EUR amounts, the
 church-tax rate reveals a religious affiliation); the Basiszins overrides are public
 BMF rates and stay plain. Labelled a helper computation, not tax advice.
+
+**Broker PDF import** (`pdf-import.js` → `MaerminPdfImport`) adds settlement-PDF
+parsing to the existing Broker Import wizard (no new tab, no second import engine):
+pdf.js extracts the text fully client-side (both CDN files version-pinned + SRI,
+lazy-loaded on first use; the worker file loads as a plain script so pdf.js runs its
+main-thread fallback — `worker-src` CSP untouched), a pure generic German-settlement
+parser with per-broker configs (Trade Republic, Scalable, ING, DKB, Comdirect) turns
+the text into candidate transactions, and `candidatesToCSV` feeds them into the
+existing `MaerminImportMapping` preview/commit flow — editable mapping, row errors and
+duplicate detection come for free. Number/date parsing is reused from that module.
+Parsers are best-effort against frozen text fixtures (`test/pdf-import.test.js`);
+missing fields are reported per file, never guessed. The PDF never leaves the device.
 
 **Options tracking** (`options-engine.js` → `MaerminOptions`) extends the transaction
 model additively: `category: 'options'` rows carry `underlying`, `optionType`

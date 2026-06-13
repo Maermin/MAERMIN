@@ -72,7 +72,7 @@ No account  ·  No server  ·  No ads  ·  No remote telemetry  ·  MIT License
 | **Watchlist** | Track symbols without buying — optional target price and sparkline |
 | **Price Alerts** | Notify when price crosses threshold — progress bar shows proximity |
 | **Risk Monitor** | Rule-based structural alerts with configurable thresholds — position concentration (incl. effective look-through limit), allocation drift, drawdown, volatility — evaluated on every price refresh, with optional local notifications and cooldown |
-| **Broker Import** | CoinTracking · DEGIRO · Trade Republic · Interactive Brokers · Coinbase · Binance · Kraken |
+| **Broker Import** | CoinTracking · DEGIRO · Trade Republic · Interactive Brokers · Coinbase · Binance · Kraken · PDF settlement statements (Trade Republic, Scalable, ING, DKB, Comdirect) parsed fully on-device with editable preview - the PDF never leaves your browser |
 | **Command Palette** | `Ctrl+K` — navigate anywhere by keyboard |
 | **Privacy Mode** | Mask every amount app-wide for screenshots / public viewing — toggle in the top bar, in Settings, or with `p` |
 | **Keyboard Shortcuts** | `g`+key to jump views (`g o`, `g t`, …), single keys for actions (`n` new · `r` refresh · `b` backup · `i` import · `p` privacy) · `?` shows the full list |
