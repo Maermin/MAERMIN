@@ -294,11 +294,77 @@
         'Helper computation under InvStG/EStG rules with simplified loss netting; crypto uses a flat-rate estimate. All inputs stay on this device (encrypted at rest). Not tax advice - verify with your tax advisor.'));
   }
 
+  // ---- Tax settings panel (Task 8) ------------------------------------------
+  // User overrides for the rate/flag layer (MaerminTaxSettings). Rates and
+  // flags are non-sensitive; the per-position taxable override store is
+  // sensitive (encrypted at rest) and edited from the German tax worksheet.
+  function SettingsPanel(props) {
+    var React = (typeof window !== 'undefined') ? window.React : null;
+    var TS = (typeof window !== 'undefined') && window.MaerminTaxSettings;
+    if (!React || !TS) return null;
+    var e = React.createElement;
+    var theme = props.theme || {};
+    var t = props.t || {};
+    var text = theme.text || '#e6edf3', dim = theme.textSecondary || '#9aa4b2';
+    var border = theme.cardBorder || 'rgba(255,255,255,0.1)';
+    var inputBg = theme.inputBg || '#0f172a', card = theme.card || theme.cardBg || '#10151f';
+    var accent = theme.accent || '#f5a524';
+
+    var sS = React.useState(TS.load); var s = sS[0], setS = sS[1];
+    var sOpen = React.useState(false); var open = sOpen[0], setOpen = sOpen[1];
+    function update(patch) { setS(TS.save(patch)); if (props.onChange) props.onChange(); }
+
+    var inputStyle = { background: inputBg, border: '1px solid ' + border, borderRadius: '6px', padding: '0.3rem 0.45rem', color: text, fontSize: '0.78rem', width: '90px', textAlign: 'right' };
+    function row(label, control, hint) {
+      return e('div', { style: { display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '0.8rem', padding: '0.4rem 0', borderTop: '1px solid ' + border } },
+        e('div', null,
+          e('div', { style: { color: text, fontSize: '0.82rem' } }, label),
+          hint ? e('div', { style: { color: dim, fontSize: '0.7rem' } }, hint) : null),
+        control);
+    }
+    function toggle(on, onClick) {
+      return e('button', { onClick: onClick, style: { padding: '0.3rem 0.8rem', borderRadius: '6px', border: 'none', cursor: 'pointer', fontSize: '0.74rem', fontWeight: 700, background: on ? (theme.success || '#22c55e') : inputBg, color: on ? '#08130a' : dim } }, on ? 'On' : 'Off');
+    }
+
+    var TF_TYPES = [['aktienfonds', 'Equity fund', 0.30], ['mischfonds', 'Mixed fund', 0.15], ['immobilienfonds', 'Real-estate fund', 0.60], ['auslandsimmobilienfonds', 'Foreign RE fund', 0.80]];
+
+    return e('div', { style: { background: card, border: '1px solid ' + border, borderRadius: '14px', padding: '1.1rem 1.25rem', marginTop: '1.25rem' } },
+      e('div', { style: { display: 'flex', justifyContent: 'space-between', alignItems: 'center', cursor: 'pointer' }, onClick: function () { setOpen(!open); } },
+        e('h3', { style: { color: text, fontSize: '1rem', fontWeight: 700, margin: 0 } }, t.taxSettingsTitle || 'Tax settings (overrides)'),
+        e('span', { style: { color: accent, fontSize: '0.8rem' } }, open ? 'Hide' : 'Edit')),
+      open ? e('div', { style: { marginTop: '0.6rem' } },
+        row('Abgeltungsteuer rate', e('div', null,
+          e('input', { type: 'number', step: '0.1', value: (s.abgeltungRate * 100).toFixed(2).replace(/\.00$/, ''), onChange: function (ev) { var v = parseFloat(ev.target.value); update({ abgeltungRate: isFinite(v) ? v / 100 : 0.25 }); }, style: inputStyle }),
+          e('span', { style: { color: dim, fontSize: '0.76rem', marginLeft: '0.25rem' } }, '%')), 'Default 25%'),
+        row('Solidaritaetszuschlag', toggle(s.soli, function () { update({ soli: !s.soli }); }), '5.5% of the tax'),
+        row('Kirchensteuer', e('select', { value: String(s.kirchensteuer), onChange: function (ev) { update({ kirchensteuer: parseFloat(ev.target.value) }); }, style: { background: inputBg, border: '1px solid ' + border, borderRadius: '6px', padding: '0.3rem 0.4rem', color: text, fontSize: '0.76rem' } },
+          e('option', { value: '0' }, 'None'), e('option', { value: '0.08' }, '8%'), e('option', { value: '0.09' }, '9%'))),
+        row('Freistellungsauftrag', e('div', null,
+          e('input', { type: 'number', value: s.freistellungsauftrag, onChange: function (ev) { var v = parseFloat(ev.target.value); update({ freistellungsauftrag: isFinite(v) ? v : 1000 }); }, style: inputStyle }),
+          e('span', { style: { color: dim, fontSize: '0.76rem', marginLeft: '0.25rem' } }, 'EUR')), 'Sparerpauschbetrag, default 1000'),
+        row('Crypto 1-year exemption', toggle(s.cryptoExemption, function () { update({ cryptoExemption: !s.cryptoExemption }); }), 'Private-sale rule (sec. 23 EStG)'),
+        e('div', { style: { color: dim, fontSize: '0.72rem', textTransform: 'uppercase', letterSpacing: '0.05em', fontWeight: 700, margin: '0.8rem 0 0.3rem' } }, 'Teilfreistellung overrides'),
+        TF_TYPES.map(function (tf) {
+          var ovVal = (s.teilfreistellung && s.teilfreistellung[tf[0]] != null) ? s.teilfreistellung[tf[0]] : tf[2];
+          return row(tf[1], e('div', null,
+            e('input', { key: tf[0], type: 'number', step: '1', value: (ovVal * 100).toFixed(0), onChange: function (ev) {
+              var v = parseFloat(ev.target.value); var map = Object.assign({}, s.teilfreistellung);
+              if (isFinite(v) && Math.abs(v / 100 - tf[2]) > 1e-9) map[tf[0]] = v / 100; else delete map[tf[0]];
+              update({ teilfreistellung: map });
+            }, style: inputStyle }),
+            e('span', { style: { color: dim, fontSize: '0.76rem', marginLeft: '0.25rem' } }, '%')), 'Default ' + (tf[2] * 100) + '%');
+        }),
+        e('button', { onClick: function () { setS(TS.reset()); if (props.onChange) props.onChange(); }, style: { marginTop: '0.7rem', padding: '0.35rem 0.8rem', borderRadius: '6px', border: '1px solid ' + border, background: inputBg, color: dim, cursor: 'pointer', fontSize: '0.74rem' } }, 'Reset to defaults'),
+        e('div', { style: { color: dim, fontSize: '0.7rem', marginTop: '0.6rem', lineHeight: 1.5 } }, 'Overrides are stored on this device and feed the tax computation and the PDF/Excel export. Defaults apply where unset. Not tax advice.')
+      ) : null);
+  }
+
   var api = {
     priceAt: priceAt,
     qtyAt: qtyAt,
     prefillRow: prefillRow,
-    Panel: Panel
+    Panel: Panel,
+    SettingsPanel: SettingsPanel
   };
   if (typeof window !== 'undefined') window.MaerminGermanTaxView = api;
   if (typeof module !== 'undefined' && module.exports) module.exports = api;

@@ -59,6 +59,25 @@ const TR = require('../tax-report-builder.js');
   const r4 = TR.build([], { year: 2025, portfolio: { stocks: [{ symbol: 'AAPL', amount: 5, purchasePrice: 100 }] }, prices: { AAPL: 150 } });
   ok('open position unrealized = (150-100)*5', r4.openPositions.length === 1 && near(r4.openPositions[0].unrealized, 250));
 
+  console.log('excel workbook (multi-sheet SpreadsheetML):');
+  const rx = TR.build([
+    { category: 'stocks', symbol: 'AAPL', type: 'buy',  quantity: 10, price: 100, currency: 'EUR', date: '2024-01-01' },
+    { category: 'stocks', symbol: 'AAPL', type: 'sell', quantity: 10, price: 150, currency: 'EUR', date: '2025-03-01' },
+    { type: 'dividend', symbol: 'AAPL', quantity: 10, price: 0.5, currency: 'EUR', date: '2025-04-01' }
+  ], { year: 2025, baseCurrency: 'EUR', exchangeRate: 0.9 });
+  const xml = TR.buildExcelWorkbook(rx);
+  ok('workbook is SpreadsheetML with the Excel proc instruction', /mso-application progid="Excel.Sheet"/.test(xml) && /urn:schemas-microsoft-com:office:spreadsheet/.test(xml));
+  ok('has separate Summary, Realized Gains and Dividends worksheets',
+    xml.indexOf('ss:Name="Summary"') > -1 && xml.indexOf('ss:Name="Realized Gains"') > -1 && xml.indexOf('ss:Name="Dividends"') > -1);
+  ok('money cells are real Number cells, not strings', /<Cell ss:StyleID="cur"><Data ss:Type="Number">1500<\/Data>/.test(xml));
+  ok('a styled header row exists', xml.indexOf('ss:StyleID="hdr"') > -1 && xml.indexOf('#7E22CE') > -1);
+  ok('XML special chars are escaped', TR.buildExcelWorkbook(TR.build([], { year: 2025, owner: { name: 'A & B <Co>' } })).indexOf('A &amp; B &lt;Co&gt;') > -1);
+  const rg = TR.build([
+    { category: 'stocks', symbol: 'WORLD', type: 'buy', quantity: 100, price: 100, currency: 'EUR', date: '2023-01-10' },
+    { category: 'stocks', symbol: 'WORLD', type: 'sell', quantity: 50, price: 140, currency: 'EUR', date: '2025-06-01' }
+  ], { year: 2025, jurisdiction: 'de', exchangeRate: 0.9, germanTax: require('../tax-calculation-engine.js').GermanTax, dividendEvents: [], fundTypes: { WORLD: 'aktienfonds' } });
+  ok('German Tax worksheet present when the detail is computed', TR.buildExcelWorkbook(rg).indexOf('ss:Name="German Tax"') > -1);
+
   console.log('\n' + passed + ' passed, ' + failed + ' failed');
   process.exit(failed ? 1 : 0);
 })();
