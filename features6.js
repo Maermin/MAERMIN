@@ -17,6 +17,77 @@
 const { useState, useEffect, useMemo, useCallback, useRef } = React;
 
 // ─────────────────────────────────────────────────────────────────────────────
+// CHART STYLE HELPERS (pure, dual-exported, tested in test/chart-helpers.test.js)
+// ─────────────────────────────────────────────────────────────────────────────
+
+// Relative luminance of a CSS color (#rgb, #rrggbb, rgb()/rgba()). Used to
+// pick a palette that works on BOTH themes — the previous axis/grid colors
+// were hard-coded white-based rgba values, invisible on the light theme.
+function colorLuminance(css) {
+  const s = String(css || '').trim();
+  let r = null, g = null, b = null;
+  let m = /^#([0-9a-f]{3})$/i.exec(s);
+  if (m) { r = parseInt(m[1][0] + m[1][0], 16); g = parseInt(m[1][1] + m[1][1], 16); b = parseInt(m[1][2] + m[1][2], 16); }
+  m = m || /^#([0-9a-f]{6})/i.exec(s);
+  if (r === null && m) { r = parseInt(m[1].slice(0, 2), 16); g = parseInt(m[1].slice(2, 4), 16); b = parseInt(m[1].slice(4, 6), 16); }
+  if (r === null) {
+    m = /^rgba?\(\s*(\d+)\s*,\s*(\d+)\s*,\s*(\d+)/i.exec(s);
+    if (m) { r = +m[1]; g = +m[2]; b = +m[3]; }
+  }
+  if (r === null) return 0; // unknown → treat as dark
+  return (0.2126 * r + 0.7152 * g + 0.0722 * b) / 255;
+}
+function isDarkTheme(theme) {
+  return colorLuminance((theme && (theme.bg || theme.card)) || '#000') < 0.5;
+}
+
+// Harmonised, accessible chart palette derived from the active theme.
+// Dark: lighter emerald/rose for contrast on dark cards; light: deeper tones
+// so the line holds up on white. Grid/axis derive from the text color.
+function chartPalette(theme) {
+  const dark = isDarkTheme(theme);
+  return {
+    up:        dark ? '#34d399' : '#059669',
+    down:      dark ? '#fb7185' : '#dc2626',
+    neutral:   (theme && theme.accent) || '#f5a524',
+    info:      dark ? '#60a5fa' : '#2563eb',
+    grid:      dark ? 'rgba(148,163,184,0.12)' : 'rgba(71,85,105,0.14)',
+    gridStrong: dark ? 'rgba(148,163,184,0.28)' : 'rgba(71,85,105,0.32)',
+    axisText:  (theme && theme.textSecondary) || (dark ? 'rgba(226,232,240,0.55)' : 'rgba(51,65,85,0.7)'),
+    dark
+  };
+}
+
+// Smooth a point list into a cubic-Bezier SVG path (Catmull-Rom derived,
+// tension 1/6 — gentle, never overshoots wildly). points: [{x, y}].
+function smoothPath(points) {
+  const pts = (points || []).filter(p => p && isFinite(p.x) && isFinite(p.y));
+  if (pts.length === 0) return '';
+  if (pts.length === 1) return `M${pts[0].x},${pts[0].y}`;
+  const k = 1 / 6;
+  let d = `M${pts[0].x.toFixed(2)},${pts[0].y.toFixed(2)}`;
+  for (let i = 0; i < pts.length - 1; i++) {
+    const p0 = pts[i - 1] || pts[i];
+    const p1 = pts[i];
+    const p2 = pts[i + 1];
+    const p3 = pts[i + 2] || p2;
+    const c1x = p1.x + (p2.x - p0.x) * k, c1y = p1.y + (p2.y - p0.y) * k;
+    const c2x = p2.x - (p3.x - p1.x) * k, c2y = p2.y - (p3.y - p1.y) * k;
+    d += ` C${c1x.toFixed(2)},${c1y.toFixed(2)} ${c2x.toFixed(2)},${c2y.toFixed(2)} ${p2.x.toFixed(2)},${p2.y.toFixed(2)}`;
+  }
+  return d;
+}
+
+// The matching area fill: the smooth path closed down to a baseline.
+function smoothAreaPath(points, baselineY) {
+  const pts = (points || []).filter(p => p && isFinite(p.x) && isFinite(p.y));
+  if (pts.length < 2) return '';
+  return smoothPath(pts) +
+    ` L${pts[pts.length - 1].x.toFixed(2)},${baselineY.toFixed(2)}` +
+    ` L${pts[0].x.toFixed(2)},${baselineY.toFixed(2)} Z`;
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
 // PERIOD CONFIG
 // ─────────────────────────────────────────────────────────────────────────────
 const PERIODS = [
@@ -665,10 +736,13 @@ function PortfolioHistoryChart({ portfolio, prices, transactions, apiKeys, theme
   ].filter(Boolean);
 
   // ── Colour constants ──────────────────────────────────────────────────────
-  const GREEN  = '#22c55e';
-  const RED    = '#ef4444';
-  const GREY   = 'rgba(255,255,255,0.18)';
-  const GREY2  = 'rgba(255,255,255,0.07)';
+  // Theme-aware palette: the old constants were white-based rgba values that
+  // disappeared on the light theme. PALETTE derives everything from the theme.
+  const PALETTE = chartPalette(theme);
+  const GREEN  = PALETTE.up;
+  const RED    = PALETTE.down;
+  const GREY   = PALETTE.axisText;
+  const GREY2  = PALETTE.grid;
   const lineColor = computed?.isUp ? GREEN : RED;
 
   // ── Shared X-label formatter ──────────────────────────────────────────────
@@ -745,38 +819,50 @@ function PortfolioHistoryChart({ portfolio, prices, transactions, apiKeys, theme
       return { idx, x: computed.toX(idx), label: fmtX(chartData[idx]) };
     });
 
+    // Smooth geometry: the line and its gradient fill share the same
+    // Catmull-Rom path, so they always agree. Visual change only - the data
+    // points and hover/marker positions are untouched.
+    const ptArr = chartData.map((d, i) => ({ x: computed.toX(i), y: computed.toY(d.value) }));
+    const linePath = smoothPath(ptArr);
+    const areaP = smoothAreaPath(ptArr, H - PAD.b);
+    const lastPt = ptArr[ptArr.length - 1];
+
     // Collect all SVG children into a flat array — avoids spread-into-args stack overflow
     const children = [
       React.createElement('defs', {key:'defs'},
         React.createElement('linearGradient', { id:'valGrad', x1:'0', y1:'0', x2:'0', y2:'1' },
-          React.createElement('stop', { offset:'0%',   stopColor: lineColor, stopOpacity: 0.18 }),
-          React.createElement('stop', { offset:'100%', stopColor: lineColor, stopOpacity: 0.01 })
+          React.createElement('stop', { offset:'0%',   stopColor: lineColor, stopOpacity: PALETTE.dark ? 0.26 : 0.18 }),
+          React.createElement('stop', { offset:'55%',  stopColor: lineColor, stopOpacity: 0.07 }),
+          React.createElement('stop', { offset:'100%', stopColor: lineColor, stopOpacity: 0 })
         )
       ),
-      // Grid + Y labels
+      // Grid + Y labels: calm solid hairlines, theme-aware contrast; the
+      // baseline gets a slightly stronger line to anchor the chart.
       ...computed.yLabels.map((yl,i) => [
-        React.createElement('line', { key:`gl${i}`, x1:PAD.l, y1:yl.y, x2:W-PAD.r, y2:yl.y, stroke:GREY2, strokeWidth:1, strokeDasharray:'4,6' }),
-        React.createElement('text', { key:`gt${i}`, x:PAD.l-6, y:yl.y+4, textAnchor:'end', fill:GREY, fontSize:9, fontFamily:'monospace' }, yl.label)
+        React.createElement('line', { key:`gl${i}`, x1:PAD.l, y1:yl.y, x2:W-PAD.r, y2:yl.y, stroke: i === 0 ? PALETTE.gridStrong : GREY2, strokeWidth:1 }),
+        React.createElement('text', { key:`gt${i}`, x:PAD.l-8, y:yl.y+3.5, textAnchor:'end', fill:GREY, fontSize:10, style:{fontVariantNumeric:'tabular-nums'} }, yl.label)
       ]).flat(),
       // X labels
       ...xLabels.map((xl,i) =>
-        React.createElement('text', { key:`xl${i}`, x:xl.x, y:H-PAD.b+13, textAnchor:'middle', fill:GREY, fontSize:9 }, xl.label)
+        React.createElement('text', { key:`xl${i}`, x:xl.x, y:H-PAD.b+14, textAnchor:'middle', fill:GREY, fontSize:10 }, xl.label)
       ),
-      React.createElement('polygon', { key:'area', points: computed.area, fill:'url(#valGrad)' }),
-      React.createElement('polyline', { key:'line', points: computed.pts, fill:'none', stroke: lineColor, strokeWidth:1.75, strokeLinejoin:'round', strokeLinecap:'round' }),
+      React.createElement('path', { key:'area', d: areaP, fill:'url(#valGrad)' }),
+      React.createElement('path', { key:'line', d: linePath, fill:'none', stroke: lineColor, strokeWidth:2.2, strokeLinejoin:'round', strokeLinecap:'round' }),
+      // Endpoint dot anchors the eye on the latest value.
+      lastPt && React.createElement('circle', { key:'end', cx:lastPt.x, cy:lastPt.y, r:3.4, fill:lineColor, stroke:theme.card, strokeWidth:1.6 }),
       // Timeline event markers (buy/sell/dividend) with native tooltips
       (computed.markers || []).map((m, i) =>
-        React.createElement('circle', { key:'mk'+i, cx:m.x, cy:m.y, r:3.2, fill:m.color, stroke:theme.card, strokeWidth:1.4 },
+        React.createElement('circle', { key:'mk'+i, cx:m.x, cy:m.y, r:3.4, fill:m.color, stroke:theme.card, strokeWidth:1.6, opacity:0.95 },
           React.createElement('title', null, `${m.type.toUpperCase()}${m.symbol ? ' ' + m.symbol : ''} · ${m.date}`))),
     ];
     if (hovered) {
       children.push(
-        React.createElement('line', { key:'hx', x1:computed.toX(hoveredIdx), y1:PAD.t, x2:computed.toX(hoveredIdx), y2:H-PAD.b, stroke:GREY, strokeWidth:1, strokeDasharray:'3,3' }),
-        React.createElement('circle', { key:'hc', cx:computed.toX(hoveredIdx), cy:computed.toY(hovered.value), r:4, fill:lineColor, stroke:theme.card, strokeWidth:2 }),
-        React.createElement('g', { key:'ht', transform:`translate(${Math.min(computed.toX(hoveredIdx)+10, W-140)},${Math.max(computed.toY(hovered.value)-40, PAD.t)})` },
-          React.createElement('rect', { width:132, height:44, rx:6, fill:theme.card, stroke:lineColor, strokeWidth:1, opacity:0.96 }),
-          React.createElement('text', { x:8, y:15, fill:GREY, fontSize:9 }, hovered.date),
-          React.createElement('text', { x:8, y:32, fill:lineColor, fontSize:12, fontWeight:700, fontFamily:'monospace' },
+        React.createElement('line', { key:'hx', x1:computed.toX(hoveredIdx), y1:PAD.t, x2:computed.toX(hoveredIdx), y2:H-PAD.b, stroke:PALETTE.gridStrong, strokeWidth:1, strokeDasharray:'3,3' }),
+        React.createElement('circle', { key:'hc', cx:computed.toX(hoveredIdx), cy:computed.toY(hovered.value), r:4.5, fill:lineColor, stroke:theme.card, strokeWidth:2 }),
+        React.createElement('g', { key:'ht', transform:`translate(${Math.min(computed.toX(hoveredIdx)+10, W-150)},${Math.max(computed.toY(hovered.value)-44, PAD.t)})` },
+          React.createElement('rect', { width:140, height:46, rx:8, fill:theme.card, stroke:PALETTE.gridStrong, strokeWidth:1, opacity:0.97 }),
+          React.createElement('text', { x:10, y:17, fill:GREY, fontSize:10 }, hovered.date),
+          React.createElement('text', { x:10, y:34, fill:lineColor, fontSize:13, fontWeight:700, style:{fontVariantNumeric:'tabular-nums'} },
             `${formatPrice(hovered.value)} ${getCurrencySymbol()}`)
         )
       );
@@ -805,38 +891,37 @@ function PortfolioHistoryChart({ portfolio, prices, transactions, apiKeys, theme
     const children = [
       React.createElement('defs', {key:'defs'},
         React.createElement('linearGradient', { id:'retGreen', x1:'0', y1:'0', x2:'0', y2:'1' },
-          React.createElement('stop', { offset:'0%',   stopColor: GREEN, stopOpacity: 0.3 }),
-          React.createElement('stop', { offset:'100%', stopColor: GREEN, stopOpacity: 0.03 })
+          React.createElement('stop', { offset:'0%',   stopColor: GREEN, stopOpacity: PALETTE.dark ? 0.34 : 0.24 }),
+          React.createElement('stop', { offset:'100%', stopColor: GREEN, stopOpacity: 0.02 })
         ),
         React.createElement('linearGradient', { id:'retRed', x1:'0', y1:'0', x2:'0', y2:'1' },
-          React.createElement('stop', { offset:'0%',   stopColor: RED, stopOpacity: 0.03 }),
-          React.createElement('stop', { offset:'100%', stopColor: RED, stopOpacity: 0.3 })
+          React.createElement('stop', { offset:'0%',   stopColor: RED, stopOpacity: 0.02 }),
+          React.createElement('stop', { offset:'100%', stopColor: RED, stopOpacity: PALETTE.dark ? 0.34 : 0.24 })
         )
       ),
-      // Grid + Y labels
+      // Grid + Y labels: the 0% baseline is the strong anchor line.
       ...computedReturn.yLabels.map((yl,i) => [
         React.createElement('line', { key:`gl${i}`, x1:PAD.l, y1:yl.y, x2:W-PAD.r, y2:yl.y,
-          stroke: yl.isZero ? 'rgba(255,255,255,0.28)' : GREY2,
-          strokeWidth: yl.isZero ? 1.5 : 1,
-          strokeDasharray: yl.isZero ? '0' : '4,6'
+          stroke: yl.isZero ? PALETTE.gridStrong : GREY2,
+          strokeWidth: yl.isZero ? 1.5 : 1
         }),
-        React.createElement('text', { key:`gt${i}`, x:PAD.l-6, y:yl.y+4, textAnchor:'end',
-          fill: yl.isZero ? 'rgba(255,255,255,0.55)' : GREY,
-          fontSize: yl.isZero ? 10 : 9, fontFamily:'monospace', fontWeight: yl.isZero ? 'bold' : 'normal'
+        React.createElement('text', { key:`gt${i}`, x:PAD.l-8, y:yl.y+3.5, textAnchor:'end',
+          fill: yl.isZero ? PALETTE.axisText : GREY,
+          fontSize:10, fontWeight: yl.isZero ? 700 : 400, style:{fontVariantNumeric:'tabular-nums'}
         }, yl.label)
       ]).flat(),
       // X labels
       ...xLabels.map((xl,i) =>
-        React.createElement('text', { key:`xl${i}`, x:xl.x, y:H-PAD.b+13, textAnchor:'middle', fill:GREY, fontSize:9 }, xl.label)
+        React.createElement('text', { key:`xl${i}`, x:xl.x, y:H-PAD.b+14, textAnchor:'middle', fill:GREY, fontSize:10 }, xl.label)
       ),
       // Green fill — each above-zero segment as its own closed path (no self-intersection)
       posPath && React.createElement('path', { key:'ag', d: posPath, fill:'url(#retGreen)' }),
       // Red fill — each below-zero segment as its own closed path
       negPath && React.createElement('path', { key:'ar', d: negPath, fill:'url(#retRed)' }),
-      // The line on top
-      React.createElement('polyline', { key:'line', points: pts, fill:'none',
+      // The line on top — smoothed to match the value chart's curve style.
+      React.createElement('path', { key:'line', d: smoothPath(retVals.map((r, i) => ({ x: toX(i), y: toY(r) }))), fill:'none',
         stroke: lastR >= 0 ? GREEN : RED,
-        strokeWidth: 1.75, strokeLinejoin:'round', strokeLinecap:'round'
+        strokeWidth: 2.2, strokeLinejoin:'round', strokeLinecap:'round'
       }),
     ];
 
@@ -849,14 +934,14 @@ function PortfolioHistoryChart({ portfolio, prices, transactions, apiKeys, theme
       const hx  = toX(mIdx);
       const hy  = toY(r);
       children.push(
-        React.createElement('line', { key:'hx', x1:hx, y1:PAD.t, x2:hx, y2:H-PAD.b, stroke:GREY, strokeWidth:1, strokeDasharray:'3,3' }),
-        React.createElement('circle', { key:'hc', cx:hx, cy:hy, r:4, fill:col, stroke:theme.card, strokeWidth:2 }),
-        React.createElement('g', { key:'ht', transform:`translate(${Math.min(hx+10, W-148)},${Math.max(hy-44, PAD.t)})` },
-          React.createElement('rect', { width:140, height:50, rx:6, fill:theme.card, stroke:col, strokeWidth:1, opacity:0.96 }),
-          React.createElement('text', { x:8, y:15, fill:GREY, fontSize:9 }, mHovered.date),
-          React.createElement('text', { x:8, y:31, fill:col, fontSize:13, fontWeight:700, fontFamily:'monospace' },
+        React.createElement('line', { key:'hx', x1:hx, y1:PAD.t, x2:hx, y2:H-PAD.b, stroke:PALETTE.gridStrong, strokeWidth:1, strokeDasharray:'3,3' }),
+        React.createElement('circle', { key:'hc', cx:hx, cy:hy, r:4.5, fill:col, stroke:theme.card, strokeWidth:2 }),
+        React.createElement('g', { key:'ht', transform:`translate(${Math.min(hx+10, W-150)},${Math.max(hy-48, PAD.t)})` },
+          React.createElement('rect', { width:142, height:52, rx:8, fill:theme.card, stroke:col, strokeWidth:1, opacity:0.97 }),
+          React.createElement('text', { x:10, y:16, fill:GREY, fontSize:10 }, mHovered.date),
+          React.createElement('text', { x:10, y:33, fill:col, fontSize:13, fontWeight:700, style:{fontVariantNumeric:'tabular-nums'} },
             `${r >= 0 ? '+' : ''}${r.toFixed(2)}%`),
-          React.createElement('text', { x:8, y:44, fill:GREY, fontSize:9, fontFamily:'monospace' },
+          React.createElement('text', { x:10, y:46, fill:GREY, fontSize:10, style:{fontVariantNumeric:'tabular-nums'} },
             `${formatPrice(mHovered.value)} ${getCurrencySymbol()}`)
         )
       );
@@ -992,8 +1077,13 @@ function flatLine(price, firstTs) {
 // ─────────────────────────────────────────────────────────────────────────────
 // EXPORTS
 // ─────────────────────────────────────────────────────────────────────────────
-window.MaerminFeatures6 = { PortfolioHistoryChart };
+var api = { PortfolioHistoryChart: PortfolioHistoryChart,
+  // Pure chart-style helpers (Node-tested in test/chart-helpers.test.js).
+  colorLuminance: colorLuminance, isDarkTheme: isDarkTheme, chartPalette: chartPalette,
+  smoothPath: smoothPath, smoothAreaPath: smoothAreaPath };
+if (typeof window !== 'undefined') window.MaerminFeatures6 = api;
+if (typeof module !== 'undefined' && module.exports) module.exports = api;
 
-console.log('[OK] MAERMIN Features6 v9.0 — Yahoo Finance Historical Chart (1H/1D/1W/1M/1Y/3Y/5Y/Max)');
+if (typeof console !== 'undefined') console.log('[OK] MAERMIN Features6 v9.0 — Yahoo Finance Historical Chart (1H/1D/1W/1M/1Y/3Y/5Y/Max)');
 
 })();
