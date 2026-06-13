@@ -249,16 +249,24 @@ function PortfolioHistoryChart({ portfolio, prices, transactions, apiKeys, theme
           if (cacheRef.current[ckey]) { historyMap[pos.symOrig] = cacheRef.current[ckey]; return; }
           try {
             const base = workerUrl.replace(/\/$/, '');
-            const url  = `${base}?action=steamhistory&name=${encodeURIComponent(pos.symOrig)}`;
+            // ONE normalising place for market_hash_name (Souvenir/StatTrak
+            // prefixes, separator spacing) — same as the price lookup uses.
+            const hashName = window.MaerminTickers?.normalizeSkinName
+              ? window.MaerminTickers.normalizeSkinName(pos.symOrig) : pos.symOrig;
+            const url  = `${base}?action=steamhistory&name=${encodeURIComponent(hashName)}`;
             const res  = await fetch(url, { signal: AbortSignal.timeout(15000) });
             if (!res.ok) throw new Error(`Steam history ${res.status}`);
             const data = await res.json();
-            if (data.error || !data.prices?.length) throw new Error(data.error || 'No data');
-            // Steam returns prices in USD — convert to EUR
-            const hist = data.prices.map(h => ({ ...h, price: h.price * usdToEur }));
+            if (data.error || !data.prices?.length) throw new Error((data.error || 'No data') + (data.note ? ` (${data.note})` : ''));
+            // Currency: new Workers say currency:'USD' honestly (they always
+            // delivered USD); legacy Workers mislabel the same USD numbers as
+            // 'EUR' and lack the `source` field — convert in both cases. Only
+            // a future Worker that really sends EUR (label + source) skips it.
+            const rate = (data.currency === 'EUR' && data.source) ? 1 : usdToEur;
+            const hist = data.prices.map(h => ({ ...h, price: h.price * rate }));
             cacheRef.current[ckey] = hist;
             historyMap[pos.symOrig] = hist;
-            console.log(`[CHART] Steam history: ${pos.symOrig} → ${hist.length} points`);
+            console.log(`[CHART] Steam history: ${pos.symOrig} → ${hist.length} points (${data.source || 'legacy'})`);
           } catch(e) {
             console.warn('[CHART] Steam history failed for', pos.symOrig, '—', e.message);
             const p = prices[pos.symOrig] || prices[pos.sym] || 0;
