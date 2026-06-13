@@ -109,6 +109,31 @@ AES-256-GCM ciphertext blob.
 // → 409 { "conflict": true, "serverRev": <n>, "blob": "<current>" }  // stale baseRev
 ```
 
+### `POST /?action=share`
+Privacy-preserving share snapshots + anonymous benchmark. Requires the same KV
+namespace as sync (`env.SYNC`). Stores ONLY redacted snapshots - percentage
+weights and bounded scores, validated server-side against a hard allowlist
+(`validateShareSnapshot`) in addition to the client-side redaction. Random id,
+no account, no PII, 90-day TTL.
+
+```jsonc
+// publish
+{ "op": "publish", "snapshot": { "v": 1, "assetClasses": { "stocks": 60.0, "crypto": 40.0 },
+  "sectors": [{ "name": "Technology", "pct": 35.0 }], "metrics": { "healthScore": 82 } } }
+// -> { "ok": true, "id": "<hex>" }   (400 on any field outside the allowlist)
+
+// get
+{ "op": "get", "id": "<hex>" }
+// -> { "snapshot": {...}, "at": <ms> }
+
+// aggregate (anonymous benchmark)
+{ "op": "aggregate" }
+// -> { "count": <n>, "avgAssetClasses": { "stocks": 55.3, ... } }
+```
+
+The aggregate is a running count+sum of asset-class weights only - individual
+snapshots are never exposed through it.
+
 ---
 
 ## Broker relay (optional)

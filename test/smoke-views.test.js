@@ -114,6 +114,7 @@ const VIEW_MODULES = [
   { file: '../pdf-import.js',       ns: 'MaerminPdfImport',       comps: ['parseText', 'parseStatement', 'detectBrokerFromText', 'candidatesToCSV', 'parseFiles', 'ensurePdfJs'] },
   { file: '../fx-attribution.js',   ns: 'MaerminFxAttribution',   comps: ['Panel', 'decompose', 'attribute', 'invertSeries', 'currencyOfPositions', 'rowsFromPortfolio'] },
   { file: '../backtester.js',       ns: 'MaerminBacktester',      comps: ['Panel', 'backtest', 'run', 'summarize', 'normalizeWeights', 'alignSeries'] },
+  { file: '../share-snapshot.js',   ns: 'MaerminShare',           comps: ['View', 'buildSnapshot', 'validateSnapshot', 'compare', 'parseShareId', 'gatherInputs'] },
 ];
 
 console.log('\nTier 1 — module load + exports:');
@@ -246,6 +247,9 @@ const MUST_RENDER = [
   ['MaerminFxAttribution', 'Panel', baseProps],
   // Backtester panel: pre-run render (form only, hooks stubbed, no fetch).
   ['MaerminBacktester', 'Panel', baseProps],
+  // Share view: no worker URL in baseProps -> gated publish; representative
+  // data exercises snapshot building + redaction in the render body.
+  ['MaerminShare', 'View', baseProps],
   ['MaerminOptions', 'Panel', {
     ...baseProps,
     exchangeRate: 0.9,

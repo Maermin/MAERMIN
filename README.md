@@ -75,6 +75,7 @@ No account  ·  No server  ·  No ads  ·  No remote telemetry  ·  MIT License
 | **Broker Import** | CoinTracking · DEGIRO · Trade Republic · Interactive Brokers · Coinbase · Binance · Kraken · PDF settlement statements (Trade Republic, Scalable, ING, DKB, Comdirect) parsed fully on-device with editable preview - the PDF never leaves your browser |
 | **Command Palette** | `Ctrl+K` — navigate anywhere by keyboard |
 | **Privacy Mode** | Mask every amount app-wide for screenshots / public viewing — toggle in the top bar, in Settings, or with `p` |
+| **Share & Compare** | Opt-in redacted snapshot sharing (percentage weights and scores only - never amounts, quantities or symbols; enforced client- and server-side) with 90-day links, plus anonymous benchmarking against the aggregate of all shared snapshots |
 | **Keyboard Shortcuts** | `g`+key to jump views (`g o`, `g t`, …), single keys for actions (`n` new · `r` refresh · `b` backup · `i` import · `p` privacy) · `?` shows the full list |
 
 ---
@@ -131,6 +132,7 @@ Add a free [Alpha Vantage key](https://www.alphavantage.co/support/#api-key) in 
 | `GET /?action=search&q=ak47+redline` | Steam Market skin search with images |
 | `POST /` | Steam skin price lookup (array of names → USD price map) |
 | `POST /?action=sync` | E2E-encrypted cloud sync (KV-backed, zero-knowledge) |
+| `POST /?action=share` | Redacted share snapshots (percent weights/scores only, allowlist-validated server-side) + anonymous benchmark aggregate |
 | `POST /?action=brokerproxy` | Relay client-signed requests to whitelisted exchanges |
 
 All endpoints are rate-limited (per-IP) and use hard fetch timeouts. Full request/response contracts: [docs/WORKER.md](docs/WORKER.md).
