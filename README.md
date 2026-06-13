@@ -53,7 +53,7 @@ No account  ·  No server  ·  No ads  ·  No remote telemetry  ·  MIT License
 ### Analysis
 | Feature | Description |
 |---------|-------------|
-| **Returns & XIRR** | Money-weighted (XIRR) and time-weighted return from real cash flows · benchmark overlay (Alpha, Beta, Tracking Error, Information Ratio, R² vs MSCI World / FTSE All-World / S&P 500 / Nasdaq 100) |
+| **Returns & XIRR** | Money-weighted (XIRR) and time-weighted return from real cash flows · benchmark overlay (Alpha, Beta, Tracking Error, Information Ratio, R² vs MSCI World / FTSE All-World / S&P 500 / Nasdaq 100) · FX attribution splitting each return into asset (local) and exchange-rate parts, aggregated by currency |
 | **Rebalancing** | Set target allocation via sliders — see exactly what to buy/sell |
 | **Savings Plans** | DCA adherence tracking, missed executions, plan performance |
 | **Cash Flow** | Invested vs portfolio value chart — visualises your entire investment journey |
