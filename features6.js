@@ -116,10 +116,11 @@ const YF_SYMBOL_MAP = {
   'NVO': 'NVO',
   // Stockholm — Yahoo nutzt .ST
   'ERIC-B': 'ERIC-B.ST', 'HM-B': 'HM-B.ST', 'VOLV-B': 'VOLV-B.ST',
-  // FI = Fiserv Inc. (NYSE) — YF sometimes returns no data for bare "FI"
-  // Try bare first, suffix fallback (.DE/.L etc.) handles the rest automatically
-  'FI': 'FI',
-  'FISV': 'FI', // legacy Fiserv ticker alias
+  // Fiserv rebranded NYSE:FISV -> NYSE:FI (2025), but Yahoo's chart endpoint
+  // still serves history under the legacy FISV symbol and 404s on bare "FI".
+  // Map BOTH to FISV (verified: FISV -> HTTP 200, FI -> HTTP 404).
+  'FI': 'FISV',
+  'FISV': 'FISV',
   // Amsterdam (.AS)
   'ASML': 'ASML.AS', 'SHELL': 'SHEL.AS', 'ING': 'INGA.AS', 'PHIA': 'PHIA.AS',
   // London (.L)
