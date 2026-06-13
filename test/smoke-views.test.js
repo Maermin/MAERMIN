@@ -78,7 +78,7 @@ const engines = [
   '../utils.js', '../allocation.js', '../metrics.js', '../projection.js',
   '../recurring.js', '../equity-metadata.js', '../portfolio-health.js',
   '../data-quality.js', '../portfolio-analytics.js', '../analytics-data.js',
-  '../tax-calculation-engine.js', '../tax-report-builder.js',
+  '../tax-settings.js', '../tax-calculation-engine.js', '../tax-report-builder.js',
 ];
 console.log('engine preload:');
 for (const e of engines) {
@@ -110,7 +110,7 @@ const VIEW_MODULES = [
   { file: '../dividend-quality.js', ns: 'MaerminDividendQuality', comps: ['QualityPanel', 'scorePosition', 'scorePortfolio', 'parseFundamentalsResponse', 'cagrFromSeries', 'buildUrl'] },
   { file: '../risk-monitor.js',     ns: 'MaerminRiskMonitor',     comps: ['Panel', 'evaluate', 'shouldNotify', 'currentDrawdown', 'gatherInputs', 'checkAndNotify', 'loadSettings', 'saveSettings'] },
   { file: '../options-engine.js',   ns: 'MaerminOptions',         comps: ['Panel', 'buildOptionPositions', 'positionMetrics', 'computeStats', 'validateOptionTx', 'contractSymbol', 'hasOptionTransactions'] },
-  { file: '../german-tax-view.js',  ns: 'MaerminGermanTaxView',   comps: ['Panel', 'priceAt', 'qtyAt', 'prefillRow'] },
+  { file: '../german-tax-view.js',  ns: 'MaerminGermanTaxView',   comps: ['Panel', 'SettingsPanel', 'priceAt', 'qtyAt', 'prefillRow'] },
   { file: '../pdf-import.js',       ns: 'MaerminPdfImport',       comps: ['parseText', 'parseStatement', 'detectBrokerFromText', 'candidatesToCSV', 'parseFiles', 'ensurePdfJs'] },
   { file: '../fx-attribution.js',   ns: 'MaerminFxAttribution',   comps: ['Panel', 'decompose', 'attribute', 'invertSeries', 'currencyOfPositions', 'rowsFromPortfolio'] },
   { file: '../backtester.js',       ns: 'MaerminBacktester',      comps: ['Panel', 'backtest', 'run', 'summarize', 'normalizeWeights', 'alignSeries'] },

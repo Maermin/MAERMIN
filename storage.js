@@ -59,7 +59,11 @@
     // reveals a religious affiliation.
     'maermin_fund_types',
     'maermin_vap_records',
-    'maermin_kirchensteuer'
+    'maermin_kirchensteuer',
+    // Per-position manual taxable overrides reveal held symbols + amounts.
+    // (The global tax settings maermin_tax_settings are rates/flags only and
+    // intentionally NOT sensitive.)
+    'maermin_tax_overrides'
   ];
   var sensitiveSet = {};
   SENSITIVE_KEYS.forEach(function (k) { sensitiveSet[k] = true; });

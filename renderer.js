@@ -361,6 +361,8 @@ function InvestmentTracker() {
   // Tax report: selected year + taxpayer details (persisted), used by the
   // filing-grade report builder (MaerminTaxReport).
   const [taxYear, setTaxYear] = useState(() => new Date().getFullYear());
+  // Bumped when tax settings change, to recompute the summary cards/report.
+  const [taxSettingsRev, setTaxSettingsRev] = useState(0);
   const [taxOwner, setTaxOwner] = useState(() => {
     try { return JSON.parse(localStorage.getItem('maermin_tax_owner') || '{}'); } catch { return {}; }
   });
@@ -2940,6 +2942,12 @@ function InvestmentTracker() {
         React.createElement(window.MaerminGermanTaxView.Panel, {
           transactions, portfolio, prices, priceHistory, year: currentYear, exchangeRate,
           theme: currentTheme, t, formatPrice, getCurrencySymbol
+        }),
+      // Editable tax parameters (Task 8): rate, Soli, church tax, allowance,
+      // crypto exemption, Teilfreistellung overrides. Engine + exports read them.
+      taxJurisdiction === 'de' && window.MaerminGermanTaxView && window.MaerminGermanTaxView.SettingsPanel &&
+        React.createElement(window.MaerminGermanTaxView.SettingsPanel, {
+          theme: currentTheme, t, onChange: () => setTaxSettingsRev(r => r + 1)
         })
     );
   };

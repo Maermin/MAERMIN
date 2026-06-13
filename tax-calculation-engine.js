@@ -183,39 +183,50 @@ function calculateRealizedGainsAdvanced(transactions, year) {
  * - Stocks = Always 25% + Soli (no holding period benefit)
  * - €1,000 Freistellungsauftrag applies to ALL gains
  */
-function calculateGermanTax(transactions, year) {
+function calculateGermanTax(transactions, year, settings) {
   const gains = calculateRealizedGainsAdvanced(transactions, year);
-  
-  // GERMAN RULE: Crypto > 1 year is TAX FREE!
-  const taxableCryptoGains = gains.cryptoShortTermGains; // Only short-term crypto is taxable
-  const taxFreeCryptoGains = gains.cryptoLongTermGains;  // Long-term crypto is TAX FREE
-  
-  // GERMAN RULE: Stocks always taxed at 25%, regardless of holding period
+
+  // User-editable parameters (MaerminTaxSettings) override the statutory
+  // defaults; absent module / values fall back to the German defaults, so
+  // behaviour is unchanged for anyone who never touched the settings.
+  const S = settings
+    || (typeof window !== 'undefined' && window.MaerminTaxSettings && window.MaerminTaxSettings.load())
+    || { abgeltungRate: 0.25, soli: true, kirchensteuer: 0, freistellungsauftrag: 1000, cryptoExemption: true };
+
+  // GERMAN RULE: crypto > 1 year is tax-free when the exemption is enabled;
+  // with it disabled, long-term crypto gains are taxed like everything else.
+  const taxableCryptoGains = S.cryptoExemption ? gains.cryptoShortTermGains : (gains.cryptoShortTermGains + gains.cryptoLongTermGains);
+  const taxFreeCryptoGains = S.cryptoExemption ? gains.cryptoLongTermGains : 0;
+
+  // GERMAN RULE: Stocks always taxed, regardless of holding period
   const taxableStocksGains = gains.stocksShortTermGains + gains.stocksLongTermGains;
-  
+
   // Total taxable capital income
   const totalCapitalIncome = taxableCryptoGains + taxableStocksGains;
-  
-  // Apply Freistellungsauftrag (€1,000 tax-free allowance)
-  const FREISTELLUNGSAUFTRAG = 1000;
+
+  // Apply Freistellungsauftrag (configurable; €1,000 default)
+  const FREISTELLUNGSAUFTRAG = (S.freistellungsauftrag != null) ? S.freistellungsauftrag : 1000;
   const taxableIncome = Math.max(0, totalCapitalIncome - FREISTELLUNGSAUFTRAG);
-  
-  // Calculate Abgeltungssteuer (25%)
-  const ABGELTUNGSSTEUER_RATE = 0.25;
-  const abgeltungssteuer = taxableIncome * ABGELTUNGSSTEUER_RATE;
-  
-  // Calculate Solidaritätszuschlag (5.5% of Abgeltungssteuer)
-  const SOLIDARITY_RATE = 0.055;
-  const solidarityTax = abgeltungssteuer * SOLIDARITY_RATE;
-  
+
+  // Abgeltungssteuer + Soli + optional church tax via the shared settings
+  // resolver (honours custom rate, Soli toggle, Kirchensteuer).
+  const ABGELTUNGSSTEUER_RATE = (S.abgeltungRate != null) ? S.abgeltungRate : 0.25;
+  const SOLIDARITY_RATE = S.soli === false ? 0 : 0.055;
+  const taxParts = (typeof window !== 'undefined' && window.MaerminTaxSettings)
+    ? window.MaerminTaxSettings.computeAbgeltung(taxableIncome, S)
+    : { tax: taxableIncome * ABGELTUNGSSTEUER_RATE, soli: taxableIncome * ABGELTUNGSSTEUER_RATE * SOLIDARITY_RATE, kirchensteuer: 0, total: 0 };
+  const abgeltungssteuer = taxParts.tax;
+  const solidarityTax = taxParts.soli;
+  const kirchensteuer = taxParts.kirchensteuer || 0;
+
   // Total tax owed
-  const totalTax = abgeltungssteuer + solidarityTax;
-  
+  const totalTax = abgeltungssteuer + solidarityTax + kirchensteuer;
+
   // Effective tax rate
   const effectiveTaxRate = totalCapitalIncome > 0 ? (totalTax / totalCapitalIncome) * 100 : 0;
-  
-  // Tax savings from crypto 1-year rule
-  const cryptoTaxSavings = taxFreeCryptoGains * ABGELTUNGSSTEUER_RATE * (1 + SOLIDARITY_RATE);
+
+  // Tax savings from crypto 1-year rule (only meaningful while the exemption is on)
+  const cryptoTaxSavings = taxFreeCryptoGains * ABGELTUNGSSTEUER_RATE * (1 + (SOLIDARITY_RATE));
   
   return {
     jurisdiction: 'de',
@@ -238,9 +249,10 @@ function calculateGermanTax(transactions, year) {
     // Taxes
     abgeltungssteuer: abgeltungssteuer,
     solidarityTax: solidarityTax,
+    kirchensteuer: kirchensteuer,
     totalTax: totalTax,
     effectiveTaxRate: effectiveTaxRate,
-    
+
     // Savings
     cryptoTaxSavings: cryptoTaxSavings,
     
@@ -355,7 +367,12 @@ var GermanTax = (function () {
   };
 
   function teilfreistellungRate(fundType) {
-    return TEILFREISTELLUNG[fundType] != null ? TEILFREISTELLUNG[fundType] : 0;
+    var statutory = TEILFREISTELLUNG[fundType] != null ? TEILFREISTELLUNG[fundType] : 0;
+    // A user override (MaerminTaxSettings) wins over the statutory rate.
+    if (typeof window !== 'undefined' && window.MaerminTaxSettings) {
+      return window.MaerminTaxSettings.teilfreistellungRate(fundType, statutory, window.MaerminTaxSettings.load());
+    }
+    return statutory;
   }
 
   // Split an amount into taxable and exempt parts. Applies symmetrically to
@@ -457,7 +474,11 @@ var GermanTax = (function () {
     input = input || {};
     var fundTypes = input.fundTypes || {};
     var typeOf = function (sym) { return fundTypes[String(sym || '').toUpperCase()] || 'none'; };
-    var spb = input.sparerpauschbetrag != null ? num(input.sparerpauschbetrag) : 1000;
+    // settings (optional, injectable for Node tests): supplies the default
+    // allowance and the Abgeltung/Soli/Kirchensteuer computation.
+    var settings = input.settings || null;
+    var defaultSpb = (settings && settings.freistellungsauftrag != null) ? num(settings.freistellungsauftrag) : 1000;
+    var spb = input.sparerpauschbetrag != null ? num(input.sparerpauschbetrag) : defaultSpb;
 
     var exemptTotal = 0, vapCreditTotal = 0;
     var gainsTaxable = 0, lossesTaxable = 0;
@@ -493,7 +514,16 @@ var GermanTax = (function () {
     var netted = gainsTaxable + lossesTaxable + dividendsTaxable + vapTaxable + interest;
     var afterAllowance = Math.max(0, netted - spb);
     var spbUsed = Math.max(0, Math.min(spb, netted));
-    var taxes = abgeltungsteuer(afterAllowance, input.kirchensteuerRate);
+    // Tax: prefer the central settings resolver (honours a custom Abgeltung
+    // rate + the Soli toggle); fall back to the statutory helper otherwise.
+    var taxes;
+    if (settings && typeof window !== 'undefined' && window.MaerminTaxSettings) {
+      taxes = window.MaerminTaxSettings.computeAbgeltung(afterAllowance, settings);
+    } else if (settings && settings.__computeAbgeltung) {
+      taxes = settings.__computeAbgeltung(afterAllowance, settings); // Node-injected
+    } else {
+      taxes = abgeltungsteuer(afterAllowance, settings ? settings.kirchensteuer : input.kirchensteuerRate);
+    }
 
     return {
       gainsTaxable: gainsTaxable,

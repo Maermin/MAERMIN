@@ -91,6 +91,7 @@ conversion happens only at format time (`formatPrice`).
 | `equity-metadata.js` | `MaerminEquityMeta` | Sector/country per ticker (FMP API + cache + static map) |
 | `dividend-data-service.js` | `DividendDataService` | Dividend data, FIFO forecast, calendar |
 | `tax-report-builder.js` | `MaerminTaxReport` | Per-lot FIFO tax report + PDF/Excel; for jurisdiction `de` integrates the GermanTax detail (`summary.germanDetail`, injectable via `opts.germanTax` for Node tests) |
+| `tax-settings.js` | `MaerminTaxSettings` | User-editable tax parameters (Abgeltung rate, Soli toggle, church tax, Freistellungsauftrag, crypto exemption, Teilfreistellung overrides) + per-position manual taxable overrides (sensitive). Pure `sanitize`/`computeAbgeltung`/`teilfreistellungRate`/`positionOverride`; the engine reads these and falls back to statutory defaults. Tested in `test/tax-settings.test.js` |
 | `tax-calculation-engine.js` | `TaxCalculationEngine` (+ `GermanTax`) | Jurisdiction tax estimates; `GermanTax` adds the pure German fund-taxation depth: Vorabpauschale (BMF Basiszins table + overrides, month pro-rating, sale credit), Teilfreistellung per fund type (symmetric on losses), statutory order Teilfreistellung -> Verrechnung -> Sparerpauschbetrag -> Abgeltungsteuer/Soli/Kirchensteuer (sec. 32d formula), crypto Freigrenze. Dual-exported, tested in `test/german-tax.test.js` |
 | `allocation.js` | `MaerminAllocation` | Asset-class allocation + drill-down |
 | `projection.js` | `MaerminProjection` | Multi-scenario wealth projection |

@@ -209,14 +209,30 @@
             if (isFinite(amt) && amt > 0) vorabpauschalen.push({ symbol: sym, amount: amt });
           });
         }
+        // Central user tax settings (rates/flags/allowance) + per-position
+        // manual taxable overrides. Both fall back to defaults when absent.
+        var TSmod = opts.taxSettingsModule || (typeof window !== 'undefined' && window.MaerminTaxSettings) || null;
+        var TS = opts.taxSettings || (TSmod && TSmod.load && TSmod.load()) || null;
+        // Make the engine's tax step honour custom rate / Soli toggle even in
+        // the window-less Node path by carrying the resolver on the settings.
+        if (TS && TSmod && TSmod.computeAbgeltung && !TS.__computeAbgeltung) {
+          TS.__computeAbgeltung = TSmod.computeAbgeltung;
+        }
+        var posOverrides = opts.taxOverrides || (typeof window !== 'undefined' && window.MaerminTaxSettings && window.MaerminTaxSettings.loadOverrides && window.MaerminTaxSettings.loadOverrides()) || {};
+        var lookupOverride = (typeof window !== 'undefined' && window.MaerminTaxSettings && window.MaerminTaxSettings.positionOverride)
+          ? function (sym) { return window.MaerminTaxSettings.positionOverride(posOverrides, sym, year); }
+          : function (sym) { var v = posOverrides[String(sym || '').toUpperCase() + '|' + year]; return (typeof v === 'number' && isFinite(v)) ? v : null; };
         var kirchensteuerRate = opts.kirchensteuerRate != null ? opts.kirchensteuerRate
-          : (GT.loadKirchensteuerRate ? GT.loadKirchensteuerRate() : 0);
+          : (TS ? TS.kirchensteuer : (GT.loadKirchensteuerRate ? GT.loadKirchensteuerRate() : 0));
         // Capital income block: every non-crypto disposal (crypto follows the
         // private-sale rules below). Prior-year Vorabpauschalen recorded for a
-        // symbol are credited against its disposals, oldest first.
+        // symbol are credited against its disposals, oldest first. A manual
+        // per-position taxable override, when set, REPLACES the computed gain.
         var creditPool = {};
         var capitalDisposals = disposals.filter(function (d) { return d.category !== 'crypto'; }).map(function (d) {
           var sym = d.symbol;
+          var override = lookupOverride(sym);
+          if (override != null) return { symbol: sym, gain: override, vapCredit: 0, overridden: true };
           if (creditPool[sym] == null) creditPool[sym] = GT.vapCreditForSale(vapRecords, sym, year, 1);
           var credit = Math.min(creditPool[sym], Math.max(0, d.gain));
           creditPool[sym] -= credit;
@@ -229,21 +245,26 @@
           vorabpauschalen: vorabpauschalen,
           fundTypes: fundTypes,
           sparerpauschbetrag: opts.sparerpauschbetrag,
-          kirchensteuerRate: kirchensteuerRate
+          kirchensteuerRate: kirchensteuerRate,
+          settings: TS
         });
         // Crypto: private sale rules (sec. 23 EStG) - > 1y exempt; otherwise a
         // Freigrenze applies (1000 EUR from 2024, 600 before): at or under it
         // the whole net gain is tax-free, above it the WHOLE amount is taxable.
         // The personal income-tax rate is unknown here; 25% is the documented
         // flat estimate, consistent with the legacy engine.
+        // The 1-year crypto exemption can be turned off in the settings; then
+        // long-term crypto gains are taxed alongside the short-term ones.
+        var cryptoExemptionOn = TS ? TS.cryptoExemption !== false : true;
         var cryptoShort = 0, cryptoExempt = 0;
         disposals.forEach(function (d) {
           if (d.category !== 'crypto') return;
-          if (d.longTerm) cryptoExempt += d.gain; else cryptoShort += d.gain;
+          if (d.longTerm && cryptoExemptionOn) cryptoExempt += d.gain; else cryptoShort += d.gain;
         });
         var freigrenze = year >= 2024 ? 1000 : 600;
         var cryptoTaxable = cryptoShort > freigrenze ? cryptoShort : 0;
-        var cryptoTax = cryptoTaxable * 0.25;
+        var cryptoRate = TS && TS.abgeltungRate != null ? TS.abgeltungRate : 0.25;
+        var cryptoTax = cryptoTaxable * cryptoRate;
         germanDetail = Object.assign({}, capital, {
           crypto: { netShortTermGains: cryptoShort, exemptLongTermGains: cryptoExempt, freigrenze: freigrenze, taxable: cryptoTaxable, estimatedTax: cryptoTax },
           totalTax: capital.totalTax + cryptoTax
@@ -389,46 +410,114 @@
     doc.save('maermin-tax-report-' + report.meta.year + '.pdf');
   }
 
-  // ---- Excel export (HTML-table .xls; opens natively in Excel) --------------
-  function exportExcel(report) {
+  // ---- Excel export (SpreadsheetML 2003; real multi-sheet workbook) ----------
+  // Was a single HTML table; now a proper workbook with one sheet per section,
+  // a styled header row, real Number cells with a currency format, and column
+  // widths. SpreadsheetML opens natively in Excel/LibreOffice as .xls.
+  function xmlEsc(s) {
+    return String(s == null ? '' : s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+  }
+  // A cell: numbers become Number cells (with the currency style when money),
+  // everything else a String cell.
+  function xlCell(value, opts) {
+    opts = opts || {};
+    // Strict numeric check: a STRING in a money/number column (e.g. a metadata
+    // value like "Germany") must stay a String cell, not coerce to 0.
+    var isRealNumber = (typeof value === 'number' && isFinite(value));
+    if (opts.type === 'Number' && isRealNumber) {
+      var nstyle = opts.style ? ' ss:StyleID="' + opts.style + '"' : '';
+      return '<Cell' + nstyle + '><Data ss:Type="Number">' + value + '</Data></Cell>';
+    }
+    // A money column that received a non-number: drop the currency style too.
+    var style = (opts.style && opts.style !== 'cur') ? ' ss:StyleID="' + opts.style + '"' : '';
+    return '<Cell' + style + '><Data ss:Type="String">' + xmlEsc(value) + '</Data></Cell>';
+  }
+  // sheet = { name, columns:[width], headers:[...], rows:[[...]], money:[colIdx bools] }
+  function xlSheet(sheet) {
+    var cols = (sheet.columns || []).map(function (w) { return '<Column ss:Width="' + w + '"/>'; }).join('');
+    var header = '<Row>' + (sheet.headers || []).map(function (h) { return xlCell(h, { style: 'hdr' }); }).join('') + '</Row>';
+    var body = (sheet.rows || []).map(function (r) {
+      return '<Row>' + r.map(function (c, i) {
+        var isMoney = sheet.money && sheet.money[i];
+        var isNum = isMoney || (sheet.number && sheet.number[i]);
+        return xlCell(c, { type: isNum ? 'Number' : 'String', style: isMoney ? 'cur' : null });
+      }).join('') + '</Row>';
+    }).join('');
+    return '<Worksheet ss:Name="' + xmlEsc(sheet.name.slice(0, 31)) + '"><Table>' + cols + header + body + '</Table>' +
+      '<WorksheetOptions xmlns="urn:schemas-microsoft-com:office:excel"><FreezePanes/><SplitHorizontal>1</SplitHorizontal><TopRowBottomPane>1</TopRowBottomPane></WorksheetOptions></Worksheet>';
+  }
+
+  // Build the full workbook XML (pure; dual-exported + tested).
+  function buildExcelWorkbook(report) {
     var cur = report.meta.baseCurrency;
     var s = report.summary;
-    function tbl(title, head, rows) {
-      var h = '<tr>' + head.map(function (x) { return '<th style="background:#7e22ce;color:#fff">' + x + '</th>'; }).join('') + '</tr>';
-      var b = rows.map(function (r) { return '<tr>' + r.map(function (c) { return '<td>' + (c == null ? '' : String(c)) + '</td>'; }).join('') + '</tr>'; }).join('');
-      return '<h3>' + title + '</h3><table border="1" cellspacing="0" cellpadding="4">' + h + b + '</table><br/>';
-    }
     var owner = report.meta.owner || {};
-    var html = '<html><head><meta charset="utf-8"></head><body>' +
-      '<h1>Tax Report ' + report.meta.year + '</h1>' +
-      '<p>Jurisdiction: ' + (report.meta.jurisdiction === 'de' ? 'Germany' : 'USA') + ' · Method: FIFO · Base: ' + cur +
-      (owner.name ? ' · Taxpayer: ' + owner.name : '') + (owner.taxId ? ' · Tax ID: ' + owner.taxId : '') +
-      '<br/>Generated: ' + new Date(report.meta.generatedAt).toLocaleString('en-US') + '</p>';
+    var sheets = [];
 
-    html += tbl('1. Tax-Year Summary', ['Item', 'Amount (' + cur + ')'], [
-      ['Realized Gains', num(s.realizedGains).toFixed(2)], ['Realized Losses', num(s.realizedLosses).toFixed(2)],
-      ['Net Realized', num(s.netRealized).toFixed(2)], ['Dividend Income', num(s.dividendIncome).toFixed(2)],
-      ['Interest Income', num(s.interestIncome).toFixed(2)], ['Withholding Tax', num(s.withholdingTax).toFixed(2)],
-      ['Foreign Tax', num(s.foreignTax).toFixed(2)], ['Total Taxable Income', num(s.totalTaxableIncome).toFixed(2)],
-      ['Estimated Tax Liability', num(s.estimatedTaxLiability).toFixed(2)]
-    ]);
+    var summaryRows = [
+      ['Tax year', report.meta.year], ['Jurisdiction', report.meta.jurisdiction === 'de' ? 'Germany' : 'USA'],
+      ['Method', report.meta.method || 'FIFO'], ['Base currency', cur]
+    ];
+    if (owner.name) summaryRows.push(['Taxpayer', owner.name]);
+    if (owner.taxId) summaryRows.push(['Tax ID', owner.taxId]);
+    summaryRows.push(['', '']);
+    var sm = [
+      ['Realized Gains', num(s.realizedGains)], ['Realized Losses', num(s.realizedLosses)],
+      ['Net Realized', num(s.netRealized)], ['Dividend Income', num(s.dividendIncome)],
+      ['Interest Income', num(s.interestIncome)], ['Withholding Tax', num(s.withholdingTax)],
+      ['Foreign Tax', num(s.foreignTax)], ['Total Taxable Income', num(s.totalTaxableIncome)],
+      ['Estimated Tax Liability', num(s.estimatedTaxLiability)]
+    ];
+    sheets.push({ name: 'Summary', columns: [200, 120], headers: ['Item', 'Amount (' + cur + ')'],
+      rows: summaryRows.concat(sm), money: [false, true] });
+
     if (s.germanDetail) {
-      html += tbl('1a. German Fund Taxation (Vorabpauschale + Teilfreistellung)', ['Item', 'Amount'],
-        germanDetailRows(s.germanDetail, cur));
+      var g = s.germanDetail;
+      sheets.push({ name: 'German Tax', columns: [320, 120], headers: ['Item', 'Amount (' + cur + ')'],
+        money: [false, true], rows: [
+          ['Taxable gains after Teilfreistellung', num(g.gainsTaxable)],
+          ['Deductible losses after Teilfreistellung', num(g.lossesTaxable)],
+          ['Taxable fund distributions', num(g.dividendsTaxable)],
+          ['Vorabpauschale (current year, taxable)', num(g.vorabpauschaleTaxable)],
+          ['Credited prior Vorabpauschalen', -num(g.vapCreditTotal)],
+          ['Teilfreistellung exempt total', num(g.teilfreistellungExempt)],
+          ['Net capital income', num(g.nettedIncome)],
+          ['Sparerpauschbetrag used', num(g.sparerpauschbetragUsed)],
+          ['Taxable capital income', num(g.taxableIncome)],
+          ['Abgeltungsteuer', num(g.abgeltungsteuer)],
+          ['Solidaritaetszuschlag', num(g.soli)],
+          ['Kirchensteuer', num(g.kirchensteuer)],
+          ['Crypto net short-term gains (Freigrenze ' + g.crypto.freigrenze + ')', num(g.crypto.netShortTermGains)],
+          ['Crypto tax-exempt long-term gains', num(g.crypto.exemptLongTermGains)],
+          ['Crypto estimated tax', num(g.crypto.estimatedTax)],
+          ['Total estimated tax', num(g.totalTax)]
+        ] });
     }
-    var lotHead = ['Symbol', 'Class', 'Qty', 'Acquired', 'Disposed', 'Holding (days)', 'Long-term', 'Proceeds', 'Cost Basis', 'Gain/Loss'];
-    function lotRows(rows) { return rows.map(function (d) { return [d.symbol, d.category, d.quantity.toFixed(4), d.acquisitionDate, d.disposalDate, d.holdingPeriodDays, d.longTerm ? 'Yes' : 'No', d.proceeds.toFixed(2), d.costBasis.toFixed(2), d.gain.toFixed(2)]; }); }
-    html += tbl('2. Realized Capital Gains', lotHead, lotRows(report.realizedGains));
-    html += tbl('3. Realized Capital Losses', lotHead, lotRows(report.realizedLosses));
-    html += tbl('4. Dividend Income', ['Symbol', 'Date', 'Gross', 'Withholding', 'Currency'], report.dividends.map(function (d) { return [d.symbol, d.date, d.gross.toFixed(2), num(d.withholding).toFixed(2), d.currency]; }));
-    html += tbl('5. Interest Income', ['Source', 'Date', 'Amount'], report.interest.map(function (i) { return [i.source, i.date, i.amount.toFixed(2)]; }));
-    html += tbl('8. Currency Conversion Details', ['Date', 'Symbol', 'Currency', 'Original', 'Rate (USD→' + cur + ')', 'Base'], report.currencyConversions.map(function (c) { return [c.date, c.symbol, c.currency, c.originalAmount.toFixed(2), c.rate.toFixed(4), c.baseAmount.toFixed(2)]; }));
-    html += tbl('9. Transaction Summary', ['Type', 'Count'], Object.keys(report.transactionSummary).map(function (k) { return [k, report.transactionSummary[k]]; }));
-    html += tbl('10. Open Positions Overview', ['Symbol', 'Class', 'Qty', 'Cost Basis', 'Market Value', 'Unrealized'], report.openPositions.map(function (p) { return [p.symbol, p.category, p.quantity.toFixed(4), p.costBasis.toFixed(2), p.marketValue.toFixed(2), p.unrealized.toFixed(2)]; }));
-    html += tbl('11. Tax-Relevant Corporate Actions', ['Date', 'Symbol', 'Type', 'Detail'], report.corporateActions.map(function (a) { return [a.date, a.symbol, a.type, a.detail]; }));
-    html += '</body></html>';
 
-    var blob = new Blob([html], { type: 'application/vnd.ms-excel' });
+    var lotHead = ['Symbol', 'Class', 'Qty', 'Acquired', 'Disposed', 'Holding (days)', 'Long-term', 'Proceeds', 'Cost Basis', 'Gain/Loss'];
+    var lotCols = [110, 90, 80, 95, 95, 95, 80, 100, 100, 100];
+    var lotMoney = [false, false, false, false, false, false, false, true, true, true];
+    function lotRows(rows) { return rows.map(function (d) { return [d.symbol, d.category, d.quantity, d.acquisitionDate, d.disposalDate, d.holdingPeriodDays, d.longTerm ? 'Yes' : 'No', d.proceeds, d.costBasis, d.gain]; }); }
+    if (report.realizedGains.length) sheets.push({ name: 'Realized Gains', columns: lotCols, headers: lotHead, rows: lotRows(report.realizedGains), money: lotMoney, number: [false, false, true, false, false, true, false, true, true, true] });
+    if (report.realizedLosses.length) sheets.push({ name: 'Realized Losses', columns: lotCols, headers: lotHead, rows: lotRows(report.realizedLosses), money: lotMoney, number: [false, false, true, false, false, true, false, true, true, true] });
+    if (report.dividends.length) sheets.push({ name: 'Dividends', columns: [110, 95, 100, 100, 80], headers: ['Symbol', 'Date', 'Gross', 'Withholding', 'Currency'], rows: report.dividends.map(function (d) { return [d.symbol, d.date, num(d.gross), num(d.withholding), d.currency]; }), money: [false, false, true, true, false] });
+    if (report.interest.length) sheets.push({ name: 'Interest', columns: [200, 95, 100], headers: ['Source', 'Date', 'Amount'], rows: report.interest.map(function (i) { return [i.source, i.date, num(i.amount)]; }), money: [false, false, true] });
+    if (report.currencyConversions.length) sheets.push({ name: 'FX Conversions', columns: [95, 110, 80, 100, 90, 100], headers: ['Date', 'Symbol', 'Currency', 'Original', 'Rate', 'Base (' + cur + ')'], rows: report.currencyConversions.map(function (c) { return [c.date, c.symbol, c.currency, num(c.originalAmount), num(c.rate), num(c.baseAmount)]; }), money: [false, false, false, true, false, true], number: [false, false, false, true, true, true] });
+    if (report.openPositions.length) sheets.push({ name: 'Open Positions', columns: [110, 90, 80, 100, 100, 100], headers: ['Symbol', 'Class', 'Qty', 'Cost Basis', 'Market Value', 'Unrealized'], rows: report.openPositions.map(function (p) { return [p.symbol, p.category, p.quantity, p.costBasis, p.marketValue, p.unrealized]; }), money: [false, false, false, true, true, true], number: [false, false, true, true, true, true] });
+
+    var styles = '<Styles>' +
+      '<Style ss:ID="Default"><Alignment ss:Vertical="Center"/></Style>' +
+      '<Style ss:ID="hdr"><Font ss:Bold="1" ss:Color="#FFFFFF"/><Interior ss:Color="#7E22CE" ss:Pattern="Solid"/><Alignment ss:Horizontal="Center"/></Style>' +
+      '<Style ss:ID="cur"><NumberFormat ss:Format="#,##0.00"/></Style>' +
+      '</Styles>';
+    return '<?xml version="1.0"?>\n<?mso-application progid="Excel.Sheet"?>\n' +
+      '<Workbook xmlns="urn:schemas-microsoft-com:office:spreadsheet" xmlns:o="urn:schemas-microsoft-com:office:office" xmlns:x="urn:schemas-microsoft-com:office:excel" xmlns:ss="urn:schemas-microsoft-com:office:spreadsheet">' +
+      styles + sheets.map(xlSheet).join('') + '</Workbook>';
+  }
+
+  function exportExcel(report) {
+    var xml = buildExcelWorkbook(report);
+    var blob = new Blob([xml], { type: 'application/vnd.ms-excel' });
     var a = document.createElement('a');
     a.href = URL.createObjectURL(blob);
     a.download = 'maermin-tax-report-' + report.meta.year + '.xls';
@@ -436,7 +525,7 @@
     setTimeout(function () { URL.revokeObjectURL(a.href); }, 1000);
   }
 
-  var api = { build: build, fifo: fifo, exportPDF: exportPDF, exportExcel: exportExcel, _toBase: toBase };
+  var api = { build: build, fifo: fifo, exportPDF: exportPDF, exportExcel: exportExcel, buildExcelWorkbook: buildExcelWorkbook, _toBase: toBase };
   if (typeof window !== 'undefined') window.MaerminTaxReport = api;
   if (typeof module !== 'undefined' && module.exports) module.exports = api;
 })();
