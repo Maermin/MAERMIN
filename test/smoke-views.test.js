@@ -113,6 +113,7 @@ const VIEW_MODULES = [
   { file: '../german-tax-view.js',  ns: 'MaerminGermanTaxView',   comps: ['Panel', 'priceAt', 'qtyAt', 'prefillRow'] },
   { file: '../pdf-import.js',       ns: 'MaerminPdfImport',       comps: ['parseText', 'parseStatement', 'detectBrokerFromText', 'candidatesToCSV', 'parseFiles', 'ensurePdfJs'] },
   { file: '../fx-attribution.js',   ns: 'MaerminFxAttribution',   comps: ['Panel', 'decompose', 'attribute', 'invertSeries', 'currencyOfPositions', 'rowsFromPortfolio'] },
+  { file: '../backtester.js',       ns: 'MaerminBacktester',      comps: ['Panel', 'backtest', 'run', 'summarize', 'normalizeWeights', 'alignSeries'] },
 ];
 
 console.log('\nTier 1 — module load + exports:');
@@ -243,6 +244,8 @@ const MUST_RENDER = [
   // FX attribution panel: no worker URL in baseProps -> gated note path; the
   // representative data exercises the row building from priceHistory.
   ['MaerminFxAttribution', 'Panel', baseProps],
+  // Backtester panel: pre-run render (form only, hooks stubbed, no fetch).
+  ['MaerminBacktester', 'Panel', baseProps],
   ['MaerminOptions', 'Panel', {
     ...baseProps,
     exchangeRate: 0.9,

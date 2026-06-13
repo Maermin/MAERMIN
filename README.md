@@ -59,7 +59,7 @@ No account  ·  No server  ·  No ads  ·  No remote telemetry  ·  MIT License
 | **Cash Flow** | Invested vs portfolio value chart — visualises your entire investment journey |
 | **Fee Analyzer** | Total fees, fee rate %, breakdown by year and asset class, top 10 most expensive trades · ongoing costs (TER) per fund with annual EUR cost, weighted average TER, multi-year cost-drag projection, and manual TER override |
 | **Risk & Correlation** | Correlation matrix, Monte Carlo (10,000+ iterations), stress tests (2008 / COVID / Dot-com), VaR, CVaR, Sharpe, Sortino · rolling volatility/return trends · Fama-French factor exposure (market / size / value loadings) |
-| **Planning Simulator** | Future Value · FIRE projection · withdrawal survival · Monte-Carlo success probability — in the Monte-Carlo view |
+| **Planning Simulator** | Future Value · FIRE projection · withdrawal survival · Monte-Carlo success probability — in the Monte-Carlo view · allocation backtester: what would X EUR in a freely defined allocation have become over real history, with optional periodic rebalancing, vs benchmark presets and your actual portfolio |
 | **Strategy** | DCA vs lump sum, sector allocation, currency exposure, liquidity score, goal planning |
 | **Health Score** | 0–100 structural score (diversification · concentration · asset-class spread · breadth) with a letter grade and concrete, actionable recommendations · AI advisor findings folded in |
 | **ETF X-Ray** | Look-through of ETF/fund positions: effective per-security exposure across funds + direct holdings, sector/country/currency look-through, fund-overlap detection, hidden concentration risks — in the Health and Risk views (live via Worker, built-in snapshot fallback) |

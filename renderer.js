@@ -2452,6 +2452,12 @@ function InvestmentTracker() {
           // · Withdrawal · Monte-Carlo success probability — no new tab.
           window.MaerminSimulatorView && React.createElement(window.MaerminSimulatorView.Panel, {
             startValue: allPortfoliosStats.totalValue, theme: currentTheme, t, formatPrice, currency, getCurrencySymbol
+          }),
+          // Allocation backtester (what-if): backtest a target allocation
+          // against real history vs benchmark presets and the actual portfolio.
+          window.MaerminBacktester && React.createElement(window.MaerminBacktester.Panel, {
+            portfolio, priceHistory, workerUrl: apiKeys.cs2Worker,
+            theme: currentTheme, t, formatPrice, getCurrencySymbol
           })
         );
         case 'stress': return window.StressTestView ?
