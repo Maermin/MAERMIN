@@ -115,6 +115,7 @@ const VIEW_MODULES = [
   { file: '../fx-attribution.js',   ns: 'MaerminFxAttribution',   comps: ['Panel', 'decompose', 'attribute', 'invertSeries', 'currencyOfPositions', 'rowsFromPortfolio'] },
   { file: '../backtester.js',       ns: 'MaerminBacktester',      comps: ['Panel', 'backtest', 'run', 'summarize', 'normalizeWeights', 'alignSeries'] },
   { file: '../share-snapshot.js',   ns: 'MaerminShare',           comps: ['View', 'buildSnapshot', 'validateSnapshot', 'compare', 'parseShareId', 'gatherInputs'] },
+  { file: '../savings-plan-executor.js', ns: 'MaerminSavingsExecutor', comps: ['occurrences', 'expectedExecutions', 'planStatus', 'pendingExecutions', 'dedupeExecutions', 'buildTransaction', 'priceAtDate', 'runCatchUp'] },
 ];
 
 console.log('\nTier 1 — module load + exports:');

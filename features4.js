@@ -237,55 +237,117 @@ function PortfolioManagerView({ portfolios, activePortfolioId, transactions, pri
 // 2. SAVINGS PLAN TRACKER (Sparplan)
 // User defines recurring investment plans → MAERMIN tracks execution
 // ─────────────────────────────────────────────────────────────────────────────
+// Slim reusable modal: backdrop blur, close on button/Escape/backdrop click.
+// Scrolls internally, so content stays reachable regardless of page height -
+// the reason the savings-plan form moved here from an inline card.
+function PlanModal({ theme, title, onClose, children }) {
+  useEffect(() => {
+    const onKey = (e) => { if (e.key === 'Escape') onClose(); };
+    document.addEventListener('keydown', onKey);
+    return () => document.removeEventListener('keydown', onKey);
+  }, [onClose]);
+  return React.createElement('div', {
+    onClick: (e) => { if (e.target === e.currentTarget) onClose(); },
+    style: {
+      position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, zIndex: 10000,
+      background: 'rgba(4,6,10,0.62)', backdropFilter: 'blur(8px)',
+      display: 'flex', alignItems: 'center', justifyContent: 'center'
+    }
+  },
+    React.createElement('div', {
+      style: {
+        background: theme.modalBg || theme.card, border: `1px solid ${theme.modalBorder || theme.cardBorder}`,
+        borderRadius: '16px', padding: '1.5rem', width: '560px', maxWidth: '92vw',
+        maxHeight: '85vh', overflow: 'auto', boxShadow: '0 32px 70px -20px rgba(0,0,0,0.6)'
+      }
+    },
+      React.createElement('div', { style: { display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.1rem' } },
+        React.createElement('div', { style: { color: theme.text, fontWeight: '800', fontSize: '1.1rem' } }, title),
+        React.createElement('button', {
+          onClick: onClose, 'aria-label': 'Close',
+          style: { background: 'none', border: 'none', color: theme.textSecondary, cursor: 'pointer', fontSize: '1.2rem', lineHeight: 1 }
+        }, 'x')
+      ),
+      children
+    )
+  );
+}
+
 function SavingsPlanView({ transactions, theme, formatPrice, getCurrencySymbol, t, startValue, dividendYield }) {
   const [plans, setPlans] = useState(() => {
     try { return JSON.parse(localStorage.getItem('maermin_savings_plans') || '[]'); } catch { return []; }
   });
-  const [showAdd, setShowAdd] = useState(false);
-  const [form, setForm]       = useState({ symbol: '', amount: '', frequency: 'monthly', category: 'crypto', startDate: window.MaerminUtils.todayISO() });
+  // editPlan: null = closed, 'new' = create, otherwise the plan being edited.
+  // The form lives in a MODAL now - the projection graph above made the old
+  // inline card scroll out of view.
+  const [editPlan, setEditPlan] = useState(null);
+  const emptyForm = () => ({ symbol: '', amount: '', frequency: 'monthly', category: 'crypto', startDate: window.MaerminUtils.todayISO(), endDate: '', noEnd: true });
+  const [form, setForm] = useState(emptyForm);
 
   useEffect(() => { localStorage.setItem('maermin_savings_plans', JSON.stringify(plans)); }, [plans]);
 
-  const addPlan = () => {
-    if (!form.symbol || !form.amount) return;
-    setPlans(prev => [...prev, { id: Date.now().toString(), ...form, amount: parseFloat(form.amount), active: true, createdAt: new Date().toISOString() }]);
-    setForm({ symbol: '', amount: '', frequency: 'monthly', category: 'crypto', startDate: window.MaerminUtils.todayISO() });
-    setShowAdd(false);
+  const openAdd = () => { setForm(emptyForm()); setEditPlan('new'); };
+  const openEdit = (plan) => {
+    setForm({
+      symbol: plan.symbol || '', amount: String(plan.amount || ''), frequency: plan.frequency || 'monthly',
+      category: plan.category || 'crypto', startDate: plan.startDate || window.MaerminUtils.todayISO(),
+      endDate: plan.endDate || '', noEnd: !plan.endDate
+    });
+    setEditPlan(plan);
   };
 
-  // For each plan, compute: expected executions, actual executions, adherence rate
+  const savePlan = () => {
+    if (!form.symbol || !form.amount) return;
+    const endDate = form.noEnd ? null : (form.endDate || null);
+    if (endDate && endDate < form.startDate) return; // end before start makes no schedule
+    const fields = {
+      symbol: form.symbol.trim(), amount: parseFloat(form.amount), frequency: form.frequency,
+      category: form.category, startDate: form.startDate, endDate
+    };
+    if (editPlan === 'new') {
+      setPlans(prev => [...prev, { id: Date.now().toString(), ...fields, active: true, createdAt: new Date().toISOString() }]);
+    } else {
+      setPlans(prev => prev.map(p => p.id === editPlan.id ? { ...p, ...fields } : p));
+    }
+    setEditPlan(null);
+  };
+
+  // For each plan: expected executions (CALENDAR-exact via the executor, which
+  // reuses MaerminRecurring - the old 30.44-days-per-month approximation is
+  // gone), actual executions, adherence, status (active/completed/paused).
   const planStats = useMemo(() => {
+    const EX = window.MaerminSavingsExecutor;
     return plans.map(plan => {
       const start = new Date(plan.startDate);
-      const now   = new Date();
       const symL  = (plan.symbol || '').toLowerCase();
+      const occurrences = EX ? EX.occurrences(plan) : [];
+      const expected = occurrences.length;
+      const status = EX ? EX.planStatus(plan) : 'active';
 
-      // Count expected executions
-      const msPerPeriod = plan.frequency === 'weekly' ? 7*86400000
-        : plan.frequency === 'biweekly' ? 14*86400000
-        : plan.frequency === 'monthly' ? 30.44*86400000
-        : 91.31*86400000; // quarterly
-
-      const expected = Math.max(0, Math.floor((now - start) / msPerPeriod));
-
-      // Count actual buy transactions for this symbol since start
+      // Count actual buy transactions for this symbol since start (manual or
+      // auto-booked; the end date caps the window for completed plans).
       const actual = transactions.filter(tx =>
         tx.type === 'buy' &&
         (tx.symbol || '').toLowerCase() === symL &&
-        new Date(tx.date) >= start
+        new Date(tx.date) >= start &&
+        (!plan.endDate || tx.date <= plan.endDate)
       );
+      const autoCount = actual.filter(tx => tx.source === 'savings-plan' && tx.planId === plan.id).length;
 
       const actualCount   = actual.length;
       const totalInvested = actual.reduce((s, tx) => s + (parseFloat(tx.quantity) || 0) * (parseFloat(tx.price) || 0), 0);
       const adherence     = expected > 0 ? Math.min(100, Math.round(actualCount / expected * 100)) : 100;
 
-      // Next expected date
-      const lastExecution = actual.length > 0
-        ? new Date(Math.max(...actual.map(tx => new Date(tx.date))))
-        : start;
-      const nextDate = new Date(lastExecution.getTime() + msPerPeriod);
+      // Next due date from the calendar schedule (null once completed).
+      let nextDate = null;
+      if (status === 'active' && EX) {
+        const horizon = EX.occurrences({ ...plan, endDate: plan.endDate }, new Date(Date.now() + 400 * 86400000).toISOString().split('T')[0]);
+        const todayIso = new Date().toISOString().split('T')[0];
+        const next = horizon.find(o => o.date > todayIso);
+        if (next) nextDate = new Date(next.date);
+      }
 
-      return { ...plan, expected, actualCount, totalInvested, adherence, nextDate, lastExecution };
+      return { ...plan, expected, actualCount, autoCount, totalInvested, adherence, nextDate, status };
     });
   }, [plans, transactions]);
 
@@ -304,7 +366,7 @@ function SavingsPlanView({ transactions, theme, formatPrice, getCurrencySymbol, 
         React.createElement('p', { style: { color: theme.textSecondary, fontSize: '0.875rem' } }, 'Track your recurring investment plans and execution rate')
       ),
       React.createElement('button', {
-        onClick: () => setShowAdd(!showAdd),
+        onClick: openAdd,
         style: { padding: '0.625rem 1.25rem', background: theme.accent, color: '#13110a', border: 'none', borderRadius: '8px', cursor: 'pointer', fontWeight: '700', fontSize: '0.875rem' }
       }, '+ Add Plan')
     ),
@@ -319,9 +381,8 @@ function SavingsPlanView({ transactions, theme, formatPrice, getCurrencySymbol, 
       scopeLabel: 'Portfolio'
     }),
 
-    // Add Plan Form
-    showAdd && React.createElement(Card, { theme, style: { marginBottom: '1.5rem', border: `1px solid ${theme.accent}44` } },
-      React.createElement('div', { style: { color: theme.text, fontWeight: '700', marginBottom: '1rem' } }, 'New Savings Plan'),
+    // Add/Edit Plan MODAL (independent of the projection graph's height).
+    editPlan && React.createElement(PlanModal, { theme, onClose: () => setEditPlan(null), title: editPlan === 'new' ? 'New Savings Plan' : `Edit ${form.symbol || 'Plan'}` },
       React.createElement('div', { style: { display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(160px, 1fr))', gap: '0.75rem', marginBottom: '0.875rem' } },
         React.createElement('div', null,
           React.createElement('label', { style: { display: 'block', color: theme.textSecondary, fontSize: '0.72rem', marginBottom: '0.25rem', textTransform: 'uppercase' } }, 'Symbol'),
@@ -341,13 +402,34 @@ function SavingsPlanView({ transactions, theme, formatPrice, getCurrencySymbol, 
           )
         ),
         React.createElement('div', null,
+          React.createElement('label', { style: { display: 'block', color: theme.textSecondary, fontSize: '0.72rem', marginBottom: '0.25rem', textTransform: 'uppercase' } }, 'Category'),
+          React.createElement('select', {
+            value: form.category, onChange: e => setForm(p => ({ ...p, category: e.target.value })),
+            style: { padding: '0.625rem 0.875rem', background: theme.inputBg, border: `1px solid ${theme.inputBorder}`, borderRadius: '8px', color: theme.text, fontSize: '0.875rem', width: '100%' }
+          },
+            ['crypto', 'stocks', 'commodities'].map(c => React.createElement('option', { key: c, value: c }, c))
+          )
+        ),
+        React.createElement('div', null,
           React.createElement('label', { style: { display: 'block', color: theme.textSecondary, fontSize: '0.72rem', marginBottom: '0.25rem', textTransform: 'uppercase' } }, 'Start Date'),
           inp('startDate', { type: 'date' })
+        ),
+        React.createElement('div', null,
+          React.createElement('label', { style: { display: 'block', color: theme.textSecondary, fontSize: '0.72rem', marginBottom: '0.25rem', textTransform: 'uppercase' } }, 'End Date'),
+          React.createElement('label', { style: { display: 'flex', alignItems: 'center', gap: '0.4rem', color: theme.textSecondary, fontSize: '0.8rem', marginBottom: '0.35rem', cursor: 'pointer' } },
+            React.createElement('input', { type: 'checkbox', checked: form.noEnd, onChange: e => setForm(p => ({ ...p, noEnd: e.target.checked })) }),
+            'No fixed end date'
+          ),
+          !form.noEnd && inp('endDate', { type: 'date', min: form.startDate })
         )
       ),
+      !form.noEnd && form.endDate && form.endDate < form.startDate &&
+        React.createElement('div', { style: { color: '#ef4444', fontSize: '0.78rem', marginBottom: '0.6rem' } }, 'End date must not be before the start date.'),
+      React.createElement('div', { style: { color: theme.textSecondary, fontSize: '0.74rem', marginBottom: '0.875rem', lineHeight: 1.5 } },
+        'Due executions are booked automatically as real buy transactions when the app opens (marked, deletable). If no price is available for a due date, the execution stays pending instead of guessing a quantity.'),
       React.createElement('div', { style: { display: 'flex', gap: '0.5rem' } },
-        React.createElement('button', { onClick: addPlan, style: { padding: '0.625rem 1.25rem', background: theme.accent, color: '#13110a', border: 'none', borderRadius: '8px', cursor: 'pointer', fontWeight: '700', fontSize: '0.875rem' } }, 'Add Plan'),
-        React.createElement('button', { onClick: () => setShowAdd(false), style: { padding: '0.625rem 1.25rem', background: theme.inputBg, color: theme.text, border: 'none', borderRadius: '8px', cursor: 'pointer', fontSize: '0.875rem' } }, 'Cancel')
+        React.createElement('button', { onClick: savePlan, style: { padding: '0.625rem 1.25rem', background: theme.accent, color: '#13110a', border: 'none', borderRadius: '8px', cursor: 'pointer', fontWeight: '700', fontSize: '0.875rem' } }, editPlan === 'new' ? 'Add Plan' : 'Save'),
+        React.createElement('button', { onClick: () => setEditPlan(null), style: { padding: '0.625rem 1.25rem', background: theme.inputBg, color: theme.text, border: 'none', borderRadius: '8px', cursor: 'pointer', fontSize: '0.875rem' } }, 'Cancel')
       )
     ),
 
@@ -364,12 +446,24 @@ function SavingsPlanView({ transactions, theme, formatPrice, getCurrencySymbol, 
               React.createElement('div', { style: { display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', flexWrap: 'wrap', gap: '1rem' } },
                 // Left: symbol + frequency
                 React.createElement('div', null,
-                  React.createElement('div', { style: { display: 'flex', alignItems: 'center', gap: '0.625rem', marginBottom: '0.375rem' } },
+                  React.createElement('div', { style: { display: 'flex', alignItems: 'center', gap: '0.625rem', marginBottom: '0.375rem', flexWrap: 'wrap' } },
                     React.createElement('span', { style: { color: theme.text, fontWeight: '800', fontSize: '1.1rem' } }, plan.symbol),
                     React.createElement('span', { style: { fontSize: '0.7rem', padding: '0.15rem 0.5rem', background: `${theme.accent}22`, color: theme.accent, borderRadius: '4px', fontWeight: '600' } }, FREQ_LABELS[plan.frequency]),
-                    React.createElement('span', { style: { fontSize: '0.7rem', color: theme.textSecondary } }, `€${plan.amount.toFixed(0)}/execution`)
+                    React.createElement('span', { style: { fontSize: '0.7rem', color: theme.textSecondary } }, `€${plan.amount.toFixed(0)}/execution`),
+                    // Status: active / completed (end date passed) / paused.
+                    React.createElement('span', {
+                      style: {
+                        fontSize: '0.66rem', padding: '0.12rem 0.45rem', borderRadius: '4px', fontWeight: '700', textTransform: 'uppercase',
+                        background: plan.status === 'active' ? 'rgba(34,197,94,0.15)' : plan.status === 'completed' ? 'rgba(148,163,184,0.18)' : 'rgba(245,158,11,0.18)',
+                        color: plan.status === 'active' ? '#22c55e' : plan.status === 'completed' ? theme.textSecondary : '#f59e0b'
+                      }
+                    }, plan.status),
+                    plan.autoCount > 0 && React.createElement('span', { style: { fontSize: '0.66rem', color: theme.textSecondary } }, `${plan.autoCount} auto-booked`)
                   ),
-                  React.createElement('div', { style: { color: theme.textSecondary, fontSize: '0.78rem' } }, `Started ${plan.startDate} · Next ~${plan.nextDate.toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' })}`)
+                  React.createElement('div', { style: { color: theme.textSecondary, fontSize: '0.78rem' } },
+                    `Started ${plan.startDate}` +
+                    (plan.endDate ? ` · Ends ${plan.endDate}` : '') +
+                    (plan.nextDate ? ` · Next ${plan.nextDate.toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' })}` : ''))
                 ),
                 // Right: adherence ring
                 React.createElement('div', { style: { textAlign: 'center' } },
@@ -401,12 +495,20 @@ function SavingsPlanView({ transactions, theme, formatPrice, getCurrencySymbol, 
                   )
                 )
               ),
-              // Delete button
-              React.createElement('div', { style: { marginTop: '0.75rem', display: 'flex', justifyContent: 'flex-end' } },
+              // Edit / pause / delete
+              React.createElement('div', { style: { marginTop: '0.75rem', display: 'flex', justifyContent: 'flex-end', gap: '0.9rem' } },
+                React.createElement('button', {
+                  onClick: () => openEdit(plan),
+                  style: { background: 'none', border: 'none', color: theme.accent, cursor: 'pointer', fontSize: '0.78rem', fontWeight: '600' }
+                }, 'Edit'),
+                plan.status !== 'completed' && React.createElement('button', {
+                  onClick: () => setPlans(prev => prev.map(p => p.id === plan.id ? { ...p, active: p.active === false } : p)),
+                  style: { background: 'none', border: 'none', color: theme.textSecondary, cursor: 'pointer', fontSize: '0.78rem' }
+                }, plan.active === false ? 'Resume' : 'Pause'),
                 React.createElement('button', {
                   onClick: () => setPlans(prev => prev.filter(p => p.id !== plan.id)),
                   style: { background: 'none', border: 'none', color: theme.textSecondary, cursor: 'pointer', fontSize: '0.78rem' }
-                }, '× Remove plan')
+                }, 'Remove plan')
               )
             )
           )

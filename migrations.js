@@ -58,6 +58,22 @@
         });
         if (changed) writeJSON('priceHistory', hist);
       }
+    },
+    {
+      v: 3,
+      name: 'savings plans: normalise endDate/active for the auto-execution model',
+      up: function () {
+        var plans = readJSON('maermin_savings_plans', null);
+        if (!Array.isArray(plans) || plans.length === 0) return;
+        var changed = false;
+        plans.forEach(function (p) {
+          if (!p || typeof p !== 'object') return;
+          if (p.endDate === undefined) { p.endDate = null; changed = true; }
+          if (p.active === undefined) { p.active = true; changed = true; }
+          if (typeof p.amount === 'string') { var n = parseFloat(p.amount); if (isFinite(n)) { p.amount = n; changed = true; } }
+        });
+        if (changed) writeJSON('maermin_savings_plans', plans);
+      }
     }
   ];
 
