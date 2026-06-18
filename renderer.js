@@ -2449,26 +2449,147 @@ function InvestmentTracker() {
         )
       ),
 
-      // Overview Panel (Pie + Gainers) — uses filtered portfolio
-      window.MaerminFeatures && stats.totalPositions > 0 &&
-        React.createElement(window.MaerminFeatures.PortfolioOverviewPanel, {
-          portfolio: overviewPortfolio, prices, priceHistory,
-          theme: currentTheme, formatPrice, getCurrencySymbol, t
-        }),
+      // ── Allocation + Top performers + Positions (mockup-exact, real data) ──
+      stats.totalPositions > 0 && (() => {
+        const CLASS = {
+          crypto:      { label: 'Crypto',        color: '#f5a524' },
+          stocks:      { label: 'Stocks & ETFs', color: '#6ea8ff' },
+          commodities: { label: 'Commodities',   color: '#b98cff' },
+          skins:       { label: 'CS2 Skins',     color: '#5fd0c5' },
+        };
+        const green = '#34d399', red = '#f87171', gray = '#8b94a7';
+        const glyph = s => (s || '').replace(/[^A-Za-z0-9]/g, '').slice(0, 4).toUpperCase();
+        const money = v => `${formatPrice(v)} ${getCurrencySymbol()}`;
+        const fmtPct = n => `${n >= 0 ? '+' : ''}${n.toFixed(2)}%`;
+        const pxv = p => {
+          const sym = (p.symbol || p.name || '');
+          return prices[sym] ?? prices[sym.toLowerCase()] ?? prices[sym.toUpperCase()] ?? p.currentPrice ?? 0;
+        };
+        const list = [];
+        ['crypto', 'stocks', 'commodities', 'skins'].forEach(cat =>
+          (overviewPortfolio[cat] || []).forEach(p => {
+            const price = pxv(p), amount = p.amount || 0, value = amount * price;
+            const cost = p.totalCostEUR != null ? p.totalCostEUR : (p.purchasePrice || 0) * amount;
+            const pnl = value - cost, pnlPct = cost > 0 ? pnl / cost * 100 : 0;
+            list.push({ cat, sym: (p.symbol || p.name || ''), name: p.symbolName || p.name || (p.symbol || ''), amount, price, value, cost, pnl, pnlPct, color: CLASS[cat].color });
+          })
+        );
+        const totalVal = list.reduce((s, p) => s + p.value, 0) || stats.totalValue || 0;
 
-      // Benchmark + Daily P&L
-      window.MaerminFeatures3 && stats.totalPositions > 0 &&
-        React.createElement('div', { style: { display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem', marginBottom: '1.5rem' } },
-          React.createElement(window.MaerminFeatures3.BenchmarkWidget, { portfolio: overviewPortfolio, prices, priceHistory, transactions: overviewTransactions, theme: currentTheme, formatPrice, getCurrencySymbol }),
-          React.createElement(window.MaerminFeatures3.DailyPnLCard, { portfolio: overviewPortfolio, priceHistory, theme: currentTheme, formatPrice, getCurrencySymbol })
-        ),
+        // Allocation by asset class → donut + legend
+        const classes = ['crypto', 'stocks', 'commodities', 'skins'].map(c => {
+          const v = list.filter(p => p.cat === c).reduce((s, p) => s + p.value, 0);
+          return { c, label: CLASS[c].label, color: CLASS[c].color, value: v, pct: totalVal > 0 ? v / totalVal * 100 : 0 };
+        }).filter(x => x.value > 0).sort((a, b) => b.value - a.value);
+        const CIRC = 2 * Math.PI * 70; let off = 0;
+        const donutSegs = classes.map(ct => {
+          const dash = ct.pct / 100 * CIRC;
+          const el = React.createElement('circle', { key: ct.c, cx: 90, cy: 90, r: 70, fill: 'none', stroke: ct.color, strokeWidth: 18, strokeDasharray: `${dash.toFixed(2)} ${(CIRC - dash).toFixed(2)}`, strokeDashoffset: (-off).toFixed(2) });
+          off += dash; return el;
+        });
 
-      // Positions Table
-      (window.MaerminFeatures3?.EnhancedPositionsTable || window.MaerminFeatures?.PositionsTable) && stats.totalPositions > 0 &&
-        React.createElement(
-          window.MaerminFeatures3?.EnhancedPositionsTable || window.MaerminFeatures.PositionsTable,
-          { portfolio: overviewPortfolio, prices, priceHistory, transactions: overviewTransactions, theme: currentTheme, formatPrice, getCurrencySymbol, t, onAddTransaction: () => openTransactionModal() }
-        ),
+        const performers = [...list].filter(p => p.cost > 0).sort((a, b) => b.pnlPct - a.pnlPct).slice(0, 4);
+        const positions = [...list].sort((a, b) => b.value - a.value);
+
+        const sectionTitle = txt => React.createElement('div', { style: { fontSize: '0.92rem', fontWeight: '600', marginBottom: '1.1rem', color: currentTheme.text } }, txt);
+
+        const allocCard = React.createElement('div', { style: { background: currentTheme.card, border: `1px solid ${currentTheme.cardBorder}`, borderRadius: '16px', padding: '1.4rem 1.5rem' } },
+          sectionTitle('Allocation by asset class'),
+          React.createElement('div', { style: { display: 'flex', alignItems: 'center', gap: '1.6rem' } },
+            React.createElement('div', { style: { position: 'relative', width: '160px', height: '160px', flexShrink: 0 } },
+              React.createElement('svg', { width: 160, height: 160, viewBox: '0 0 180 180', style: { transform: 'rotate(-90deg)' } },
+                React.createElement('circle', { cx: 90, cy: 90, r: 70, fill: 'none', stroke: currentTheme.inputBg, strokeWidth: 18 }),
+                ...donutSegs
+              ),
+              React.createElement('div', { style: { position: 'absolute', inset: 0, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center' } },
+                React.createElement('div', { style: { fontFamily: "'Space Grotesk', sans-serif", fontSize: '1.5rem', fontWeight: '700', lineHeight: 1, color: currentTheme.text } }, String(stats.totalPositions)),
+                React.createElement('div', { style: { fontSize: '0.62rem', color: gray, textTransform: 'uppercase', letterSpacing: '0.08em', marginTop: '0.15rem' } }, 'positions')
+              )
+            ),
+            React.createElement('div', { style: { flex: 1, display: 'flex', flexDirection: 'column', gap: '0.7rem' } },
+              ...classes.map(ct => React.createElement('div', { key: ct.c, style: { display: 'flex', alignItems: 'center', gap: '0.6rem' } },
+                React.createElement('span', { style: { width: '9px', height: '9px', borderRadius: '3px', background: ct.color, flexShrink: 0 } }),
+                React.createElement('span', { style: { flex: 1, fontSize: '0.82rem', color: currentTheme.text } }, ct.label),
+                React.createElement('span', { style: { fontFamily: "'Space Grotesk', sans-serif", fontSize: '0.84rem', fontWeight: '600', color: currentTheme.text } }, `${ct.pct.toFixed(1)}%`),
+                React.createElement('span', { style: { fontSize: '0.76rem', color: gray, width: '78px', textAlign: 'right' } }, money(ct.value))
+              ))
+            )
+          )
+        );
+
+        const perfCard = React.createElement('div', { style: { background: currentTheme.card, border: `1px solid ${currentTheme.cardBorder}`, borderRadius: '16px', padding: '1.4rem 1.5rem' } },
+          sectionTitle('Top performers'),
+          React.createElement('div', { style: { display: 'flex', flexDirection: 'column', gap: '0.55rem' } },
+            performers.length
+              ? performers.map(p => React.createElement('div', { key: p.cat + p.sym, style: { display: 'flex', alignItems: 'center', gap: '0.8rem', padding: '0.5rem 0.1rem' } },
+                  React.createElement('div', { style: { width: '34px', height: '34px', borderRadius: '9px', background: `${p.color}22`, color: p.color, display: 'flex', alignItems: 'center', justifyContent: 'center', fontFamily: "'Space Grotesk', sans-serif", fontWeight: '700', fontSize: '0.78rem', flexShrink: 0 } }, glyph(p.sym)),
+                  React.createElement('div', { style: { flex: 1, minWidth: 0 } },
+                    React.createElement('div', { style: { fontSize: '0.84rem', fontWeight: '600', color: currentTheme.text, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' } }, p.name),
+                    React.createElement('div', { style: { fontSize: '0.72rem', color: gray, fontFamily: "'JetBrains Mono', monospace" } }, glyph(p.sym))
+                  ),
+                  React.createElement('div', { style: { textAlign: 'right' } },
+                    React.createElement('div', { style: { fontFamily: "'Space Grotesk', sans-serif", fontSize: '0.88rem', fontWeight: '600', color: p.pnlPct >= 0 ? green : red } }, fmtPct(p.pnlPct)),
+                    React.createElement('div', { style: { fontSize: '0.72rem', color: gray } }, money(p.value))
+                  )
+                ))
+              : React.createElement('div', { style: { fontSize: '0.8rem', color: gray } }, 'No priced positions yet — refresh prices to populate.')
+          )
+        );
+
+        const th = (label, align, pad, width) => React.createElement('th', { key: label, style: { textAlign: align, padding: pad, fontSize: '0.66rem', fontWeight: '600', textTransform: 'uppercase', letterSpacing: '0.06em', color: gray, width } }, label);
+
+        const positionsCard = React.createElement('div', { style: { background: currentTheme.card, border: `1px solid ${currentTheme.cardBorder}`, borderRadius: '16px', overflow: 'hidden', marginBottom: '1.5rem' } },
+          React.createElement('div', { style: { display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '1.25rem 1.5rem 0.9rem' } },
+            React.createElement('div', { style: { fontSize: '0.92rem', fontWeight: '600', color: currentTheme.text } }, 'Positions'),
+            React.createElement('div', { onClick: () => setActiveView('transactions'), style: { fontSize: '0.76rem', color: gray, cursor: 'pointer' } }, 'View all →')
+          ),
+          React.createElement('table', { style: { width: '100%', borderCollapse: 'collapse', fontVariantNumeric: 'tabular-nums' } },
+            React.createElement('thead', null,
+              React.createElement('tr', { style: { borderTop: `1px solid ${currentTheme.cardBorder}` } },
+                th('Asset', 'left', '0.7rem 1.5rem'),
+                th('Qty', 'right', '0.7rem 0.75rem'),
+                th('Price', 'right', '0.7rem 0.75rem'),
+                th('Value', 'right', '0.7rem 0.75rem'),
+                th('Weight', 'left', '0.7rem 1rem', '120px'),
+                th('P&L', 'right', '0.7rem 1.5rem')
+              )
+            ),
+            React.createElement('tbody', null,
+              positions.map(p => React.createElement('tr', { key: p.cat + p.sym, style: { borderTop: `1px solid ${currentTheme.cardBorder}` } },
+                React.createElement('td', { style: { padding: '0.85rem 1.5rem' } },
+                  React.createElement('div', { style: { display: 'flex', alignItems: 'center', gap: '0.7rem' } },
+                    React.createElement('div', { style: { width: '32px', height: '32px', borderRadius: '9px', background: `${p.color}22`, color: p.color, display: 'flex', alignItems: 'center', justifyContent: 'center', fontFamily: "'Space Grotesk', sans-serif", fontWeight: '700', fontSize: '0.78rem', flexShrink: 0 } }, glyph(p.sym)),
+                    React.createElement('div', null,
+                      React.createElement('div', { style: { fontSize: '0.85rem', fontWeight: '600', color: currentTheme.text } }, p.name),
+                      React.createElement('div', { style: { fontSize: '0.7rem', color: gray, fontFamily: "'JetBrains Mono', monospace" } }, glyph(p.sym))
+                    )
+                  )
+                ),
+                React.createElement('td', { style: { textAlign: 'right', padding: '0.85rem 0.75rem', fontFamily: "'JetBrains Mono', monospace", fontSize: '0.8rem', color: '#cbd3e1' } }, p.amount.toLocaleString(undefined, { maximumFractionDigits: 4 })),
+                React.createElement('td', { style: { textAlign: 'right', padding: '0.85rem 0.75rem', fontFamily: "'Space Grotesk', sans-serif", fontSize: '0.82rem', color: currentTheme.text } }, p.price > 0 ? money(p.price) : '—'),
+                React.createElement('td', { style: { textAlign: 'right', padding: '0.85rem 0.75rem', fontFamily: "'Space Grotesk', sans-serif", fontSize: '0.85rem', fontWeight: '600', color: currentTheme.text } }, money(p.value)),
+                React.createElement('td', { style: { padding: '0.85rem 1rem' } },
+                  React.createElement('div', { style: { display: 'flex', alignItems: 'center', gap: '0.5rem' } },
+                    React.createElement('div', { style: { flex: 1, height: '5px', background: currentTheme.inputBg, borderRadius: '3px', overflow: 'hidden' } },
+                      React.createElement('div', { style: { width: `${totalVal > 0 ? (p.value / totalVal * 100) : 0}%`, height: '100%', background: p.color, borderRadius: '3px' } })
+                    ),
+                    React.createElement('span', { style: { fontSize: '0.72rem', color: gray, fontFamily: "'Space Grotesk', sans-serif" } }, `${totalVal > 0 ? (p.value / totalVal * 100).toFixed(1) : '0.0'}%`)
+                  )
+                ),
+                React.createElement('td', { style: { textAlign: 'right', padding: '0.85rem 1.5rem' } },
+                  React.createElement('div', { style: { fontFamily: "'Space Grotesk', sans-serif", fontSize: '0.85rem', fontWeight: '600', color: p.pnl >= 0 ? green : red } }, `${p.pnl >= 0 ? '+' : ''}${money(p.pnl)}`),
+                  React.createElement('div', { style: { fontSize: '0.72rem', color: p.pnl >= 0 ? green : red } }, fmtPct(p.pnlPct))
+                )
+              ))
+            )
+          )
+        );
+
+        return React.createElement(React.Fragment, null,
+          React.createElement('div', { style: { display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem', marginBottom: '1.25rem' } }, allocCard, perfCard),
+          positionsCard
+        );
+      })(),
 
       // Options book (no new tab): tracked separately from the shared positions
       // engine — buildPositions ignores the 'options' category by design. The
