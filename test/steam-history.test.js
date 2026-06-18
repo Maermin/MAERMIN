@@ -67,6 +67,11 @@ const PAGE_WITH_BROKEN_LINE1 = '<html><body><script>var line1=[["Dec 01 2021 01:
   // Real Souvenir answer (diagnosed): lowest_price only, no median_price.
   ok('lowest_price-only answer parses', approx(W.parseSteamOverview({ success: true, lowest_price: '$415.45' }), 415.45));
   ok('median_price fallback parses', approx(W.parseSteamOverview({ success: true, median_price: '12,34€' }), 12.34));
+  // Regression: USD thousands separator. "$1,113.00" is 1113, NOT 1.113 - the
+  // old single .replace(',', '.') turned pricey knives into ~1 (off by 1000x).
+  ok('thousands separator -> full price', approx(W.parseSteamOverview({ success: true, lowest_price: '$1,113.00' }), 1113));
+  ok('thousands separator, large', approx(W.parseSteamOverview({ success: true, lowest_price: '$1,234.56' }), 1234.56));
+  ok('thousands comma, no cents', approx(W.parseSteamOverview({ success: true, lowest_price: '$2,000' }), 2000));
   ok('both present -> lowest wins', approx(W.parseSteamOverview({ success: true, lowest_price: '$10.00', median_price: '$11.00' }), 10));
   ok('success without any price -> 0', W.parseSteamOverview({ success: true }) === 0);
   ok('success:false -> 0', W.parseSteamOverview({ success: false, lowest_price: '$5.00' }) === 0);

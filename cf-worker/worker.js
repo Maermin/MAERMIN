@@ -649,20 +649,42 @@ export default {
       // endpoints (priceoverview, search, history) on currency=1 so the source
       // currency is unambiguous.
       //
-      // Fetch in small concurrent batches instead of one-at-a-time-with-1.5s-sleep
-      // (which took up to 45s for 30 skins). Batching keeps it polite to Steam
-      // while cutting latency to a few seconds.
+      // Per-skin edge cache (30 min). Steam 429-throttles priceoverview hard for
+      // datacenter (Cloudflare) IPs, so a freshly resolved price is precious:
+      // cache each one and only hit Steam for the misses. This both fills more
+      // of the map and shrinks the burst that triggers the throttling.
+      const cache = caches.default;
+      const priceKey = (n) => new Request(`https://cache.maermin/steamprice/${encodeURIComponent(n)}`);
+      const STEAM_PRICE_TTL = 1800;
+
+      const toFetch = [];
+      await Promise.all(names.map(async (name) => {
+        if (!name || typeof name !== 'string') return;
+        const hit = await cache.match(priceKey(name.trim()));
+        if (hit) {
+          const p = parseFloat(await hit.text());
+          if (p > 0) { results[name] = p; return; }
+        }
+        toFetch.push(name);
+      }));
+
+      // Fetch the cache misses in small concurrent batches instead of
+      // one-at-a-time-with-1.5s-sleep (which took up to 45s for 30 skins).
       const BATCH = 5, GAP_MS = 400;
       const fetchOne = async (name) => {
-        if (!name || typeof name !== 'string') return;
         // Same robust overview path as steamhistory: shared parsing (handles
         // lowest_price-only Souvenir responses) + one backoff retry on 429.
         const price = await fetchSteamOverviewPrice(name.trim());
-        if (price > 0) results[name] = price;
+        if (price > 0) {
+          results[name] = price;
+          ctx.waitUntil(cache.put(priceKey(name.trim()), new Response(String(price), {
+            headers: { 'Cache-Control': `public, max-age=${STEAM_PRICE_TTL}` },
+          })));
+        }
       };
-      for (let i = 0; i < names.length; i += BATCH) {
-        await Promise.all(names.slice(i, i + BATCH).map(fetchOne));
-        if (i + BATCH < names.length) await sleep(GAP_MS);
+      for (let i = 0; i < toFetch.length; i += BATCH) {
+        await Promise.all(toFetch.slice(i, i + BATCH).map(fetchOne));
+        if (i + BATCH < toFetch.length) await sleep(GAP_MS);
       }
 
       return res(JSON.stringify(results), 200, request);
@@ -708,7 +730,18 @@ export function parseSteamLine1(html) {
 export function parseSteamOverview(body) {
   if (!body || body.success !== true) return 0;
   const raw = body.lowest_price || body.median_price || '';
-  const price = parseFloat(String(raw).replace(/[^0-9.,]/g, '').replace(',', '.'));
+  // Disambiguate the separator. With currency=1 Steam sends USD "$1,113.00"
+  // where the comma is a THOUSANDS separator - the old `.replace(',', '.')`
+  // turned that into 1.113 (off by 1000x, which is why pricey knives broke).
+  // Still tolerate EU-format "12,34" (comma = decimal) for robustness.
+  let s = String(raw).replace(/[^0-9.,]/g, '');
+  if (s.includes(',') && s.includes('.')) {
+    s = s.replace(/,/g, '');                          // both -> comma is thousands
+  } else if (s.includes(',')) {
+    s = /,\d{1,2}$/.test(s) ? s.replace(',', '.')     // trailing ,dd -> decimal
+                            : s.replace(/,/g, '');      // otherwise thousands
+  }
+  const price = parseFloat(s);
   return (isFinite(price) && price > 0) ? price : 0;
 }
 
