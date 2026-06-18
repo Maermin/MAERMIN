@@ -18,7 +18,7 @@
  * ========================================================================== */
 'use strict';
 
-var VERSION = 'maermin-v2';
+var VERSION = 'maermin-v3';
 var SHELL_CACHE = VERSION + '-shell';
 var RUNTIME_CACHE = VERSION + '-runtime';
 
@@ -96,9 +96,10 @@ self.addEventListener('fetch', function (event) {
 
   var sameOrigin = url.origin === self.location.origin;
 
-  // Same-origin static (js/css/icons) → stale-while-revalidate.
+  // Same-origin static (js/css/icons) → network-first so a fresh deploy shows
+  // immediately; falls back to cache when offline.
   if (sameOrigin) {
-    event.respondWith(staleWhileRevalidate(req));
+    event.respondWith(networkFirst(req));
     return;
   }
 
@@ -109,6 +110,15 @@ self.addEventListener('fetch', function (event) {
   }
   // Everything else: default network (no interception).
 });
+
+function networkFirst(req) {
+  return caches.open(RUNTIME_CACHE).then(function (cache) {
+    return fetch(req).then(function (res) {
+      if (res && res.status === 200) cache.put(req, res.clone());
+      return res;
+    }).catch(function () { return cache.match(req); });
+  });
+}
 
 function staleWhileRevalidate(req) {
   return caches.open(RUNTIME_CACHE).then(function (cache) {

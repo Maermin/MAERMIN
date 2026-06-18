@@ -4076,38 +4076,38 @@ buy,crypto,bitcoin,0.5,45000,2024-01-15,10`)
 
       ),
 
-      React.createElement('div', { style: { display: 'flex', gap: '0.5rem', alignItems: 'center' }, ref: settingsRef },
-        // Command palette hint
-        React.createElement('button', {
-          onClick: () => setShowCommandPalette(true),
-          style: {
-            padding: '0.5rem 0.85rem',
-            background: currentTheme.inputBg,
-            border: `1px solid ${currentTheme.cardBorder}`,
-            borderRadius: '10px',
-            color: currentTheme.textSecondary,
-            cursor: 'pointer',
-            display: 'flex',
-            alignItems: 'center',
-            gap: '0.5rem',
-            fontSize: '0.85rem',
-            minWidth: '180px'
-          },
-          onMouseEnter: e => { e.currentTarget.style.borderColor = `${currentTheme.accent}55`; },
-          onMouseLeave: e => { e.currentTarget.style.borderColor = currentTheme.cardBorder; }
+      // Centered command search (mockup: "Search features & jump to…")
+      React.createElement('button', {
+        onClick: () => setShowCommandPalette(true),
+        style: {
+          flex: 1, maxWidth: '440px', margin: '0 1.25rem',
+          padding: '0.55rem 0.95rem',
+          background: currentTheme.inputBg,
+          border: `1px solid ${currentTheme.cardBorder}`,
+          borderRadius: '11px',
+          color: currentTheme.textSecondary,
+          cursor: 'pointer',
+          display: 'flex', alignItems: 'center', gap: '0.5rem',
+          fontSize: '0.85rem'
         },
-          React.createElement('span', { style: { opacity: 0.7 } }, '⌕'),
-          React.createElement('span', { style: { flex: 1, textAlign: 'left' } }, t.searchCommands || 'Search...'),
-          React.createElement('kbd', {
-            style: {
-              padding: '0.1rem 0.4rem',
-              background: currentTheme.card,
-              border: `1px solid ${currentTheme.cardBorder}`,
-              borderRadius: '5px',
-              fontSize: '0.7rem',
-              fontFamily: 'ui-monospace, monospace'
-            }
-          }, '⌘K')
+        onMouseEnter: e => { e.currentTarget.style.borderColor = `${currentTheme.accent}55`; },
+        onMouseLeave: e => { e.currentTarget.style.borderColor = currentTheme.cardBorder; }
+      },
+        React.createElement('span', { style: { opacity: 0.7 } }, '⌕'),
+        React.createElement('span', { style: { flex: 1, textAlign: 'left' } }, t.searchCommands || 'Search features & jump to…'),
+        React.createElement('kbd', {
+          style: { padding: '0.1rem 0.4rem', background: currentTheme.card, border: `1px solid ${currentTheme.cardBorder}`, borderRadius: '5px', fontSize: '0.7rem', fontFamily: "'JetBrains Mono', ui-monospace, monospace" }
+        }, '⌘K')
+      ),
+
+      React.createElement('div', { style: { display: 'flex', gap: '0.5rem', alignItems: 'center', flexShrink: 0 }, ref: settingsRef },
+        // Live status pill
+        React.createElement('div', {
+          title: 'App is live',
+          style: { display: 'flex', alignItems: 'center', gap: '0.4rem', padding: '0.42rem 0.7rem', background: `${currentTheme.success}14`, border: `1px solid ${currentTheme.success}40`, borderRadius: '999px', color: currentTheme.success, fontSize: '0.78rem', fontWeight: '700' }
+        },
+          React.createElement('span', { style: { width: 8, height: 8, borderRadius: '50%', background: currentTheme.success, boxShadow: `0 0 6px ${currentTheme.success}` } }),
+          'Live'
         ),
 
         // Privacy toggle (mask all amounts)
@@ -4342,7 +4342,14 @@ buy,crypto,bitcoin,0.5,45000,2024-01-15,10`)
               textAlign: 'left'
             }
           }, (t.logout || 'Logout'))
-        )
+        ),
+
+        // User avatar — opens the account/settings menu
+        React.createElement('button', {
+          onClick: () => setShowSettings(s => !s),
+          title: t.settings || 'Account', 'aria-label': 'Account',
+          style: { width: '38px', height: '38px', borderRadius: '50%', flexShrink: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', background: `linear-gradient(140deg, ${currentTheme.accent}, ${currentTheme.accent}99)`, color: currentTheme.accentText, border: `1px solid ${currentTheme.accent}66`, cursor: 'pointer', fontWeight: '800', fontSize: '0.78rem', fontFamily: "'Space Grotesk', sans-serif" }
+        }, 'MA')
       )
     ),
     
