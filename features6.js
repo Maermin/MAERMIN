@@ -990,7 +990,7 @@ function PortfolioHistoryChart({ portfolio, prices, transactions, apiKeys, theme
           style: { display: 'flex', alignItems: 'center', gap: '0.5rem', marginBottom: '0.1rem', flexWrap: 'wrap' }
         },
           React.createElement('span', { style: { fontSize:'0.68rem', fontWeight:'700', color: theme.textSecondary, textTransform:'uppercase', letterSpacing:'0.06em' } },
-            'Portfolio Value'
+            'Total Portfolio Value'
           ),
           ...dataSources.map((src, i) =>
             React.createElement('span', { key:i, style:{
