@@ -758,22 +758,34 @@ function PortfolioHistoryChart({ portfolio, prices, transactions, apiKeys, theme
     const eur = trueProfit;
     const up  = isROIup;
     const sign = up ? '+' : '';
-    return React.createElement('div', {
-      style: { display: 'flex', alignItems: 'center', gap: '0.625rem', flexWrap: 'wrap', marginTop: '0.25rem' }
-    },
-      React.createElement('span', {
-        style: {
-          fontSize: '1.85rem', fontWeight: '800', letterSpacing: '-0.03em', lineHeight: 1,
-          color: up ? GREEN : RED
-        }
-      }, `${sign}${pct.toFixed(2)}%`),
-      React.createElement('div', { style: { display: 'flex', flexDirection: 'column', gap: '0.1rem' } },
+    const deltaCol = up ? GREEN : RED;
+    // Mockup hero: lead with the big € portfolio value, return as a chip beside it.
+    const valNum = (typeof currentValue === 'number') ? currentValue : 0;
+    const full   = `${formatPrice(valNum)}`;
+    const dot    = full.lastIndexOf('.');
+    const intPart = dot > -1 ? full.slice(0, dot) : full;
+    const decPart = dot > -1 ? full.slice(dot) : '';
+    return React.createElement('div', { style: { marginTop: '0.15rem' } },
+      // Big portfolio value
+      React.createElement('div', {
+        style: { display: 'flex', alignItems: 'baseline', flexWrap: 'wrap', gap: '0.05rem', fontFamily: "'Space Grotesk', 'Hanken Grotesk', sans-serif", lineHeight: 1 }
+      },
+        React.createElement('span', { style: { fontSize: 'clamp(2rem, 4.2vw, 2.9rem)', fontWeight: '700', letterSpacing: '-0.03em', color: theme.text } }, intPart),
+        decPart && React.createElement('span', { style: { fontSize: 'clamp(1.2rem, 2.6vw, 1.7rem)', fontWeight: '600', letterSpacing: '-0.02em', color: GREY } }, decPart),
+        React.createElement('span', { style: { fontSize: '1.2rem', fontWeight: '600', color: GREY, marginLeft: '0.4rem' } }, getCurrencySymbol())
+      ),
+      // Return chip + pct + "all time"
+      React.createElement('div', {
+        style: { display: 'flex', alignItems: 'center', gap: '0.6rem', flexWrap: 'wrap', marginTop: '0.6rem' }
+      },
         React.createElement('span', {
-          style: { fontSize: '0.9rem', fontWeight: '700', color: up ? GREEN : RED }
-        }, `${sign}${formatPrice(Math.abs(eur))} ${getCurrencySymbol()}`),
-        React.createElement('span', { style: { fontSize: '0.68rem', color: GREY, letterSpacing: '0.04em', textTransform: 'uppercase' } },
-          'Total Return on Investment'
-        )
+          style: { display: 'inline-flex', alignItems: 'center', gap: '0.35rem', padding: '0.28rem 0.6rem', borderRadius: '8px', background: `${deltaCol}22`, color: deltaCol, fontWeight: '700', fontSize: '0.92rem' }
+        },
+          React.createElement('span', { style: { fontSize: '0.65rem' } }, up ? '▲' : '▼'),
+          `${sign}${formatPrice(Math.abs(eur))} ${getCurrencySymbol()}`
+        ),
+        React.createElement('span', { style: { color: deltaCol, fontWeight: '700', fontSize: '0.92rem' } }, `${sign}${pct.toFixed(2)}%`),
+        React.createElement('span', { style: { color: GREY, fontSize: '0.8rem' } }, 'all time')
       )
     );
   };
