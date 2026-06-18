@@ -325,6 +325,8 @@ function InvestmentTracker() {
   });
   const [showTransactionModal, setShowTransactionModal] = useState(false);
   const [overviewMode, setOverviewMode] = useState('all'); // 'all' | activePortfolioId
+  // Which sidebar hub (Analytics / Discover & Tools) is expanded. '' = none.
+  const [openHub, setOpenHub] = useState('');
   const [editingTransactionId, setEditingTransactionId] = useState(null); // null = adding new, id = editing
   const [showImportModal, setShowImportModal] = useState(false);
   const [importData, setImportData] = useState('');
@@ -2368,27 +2370,38 @@ function InvestmentTracker() {
           theme: currentTheme, formatPrice, getCurrencySymbol
         }),
 
-      // ── Stats cards ─────────────────────────────────────────────────────
-      // Total value lives in the hero above — the grid carries the supporting
-      // metrics only (mockup parity: Invested · Return · Positions).
-      React.createElement('div', {
-        style: { display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '1rem', marginBottom: '1.5rem' }
-      },
-        statCard('Invested', `${formatPrice(stats.totalInvested)} ${getCurrencySymbol()}`,
-          `${stats.totalPositions} position${stats.totalPositions !== 1 ? 's' : ''}`),
-        statCard(labelReturn,
-          `${isUp ? '+' : ''}${formatPrice(stats.totalProfit)} ${getCurrencySymbol()}`,
-          pctStr,
-          isUp ? '#22c55e' : '#ef4444'
-        ),
-        statCard('Positions', stats.totalPositions,
-          isAllMode ? `across ${portfolios.length} portfolio${portfolios.length > 1 ? 's' : ''}` : selectedPortfolio?.name || 'this portfolio',
-          undefined, () => setActiveView('transactions')
-        )
-      ),
+      // ── Stats cards (mockup parity: Invested · Total Return · Dividends · Health) ──
+      (() => {
+        const M = window.MaerminMetrics;
+        const divOv = M ? M.computeExpectedAnnualDividends(overviewPortfolio, prices) : null;
+        const healthOv = M ? M.healthScore(overviewPortfolio, prices, t, { priceHistory, transactions: overviewTransactions }) : null;
+        const hColor = (s) => s >= 85 ? '#22c55e' : s >= 70 ? '#84cc16' : s >= 55 ? '#f59e0b' : s >= 40 ? '#f97316' : '#ef4444';
+        const hScore = healthOv && !healthOv.empty ? healthOv.score : null;
+        return React.createElement('div', {
+          style: { display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(190px, 1fr))', gap: '1rem', marginBottom: '1.5rem' }
+        },
+          statCard('Invested', `${formatPrice(stats.totalInvested)} ${getCurrencySymbol()}`,
+            `across ${stats.totalPositions} position${stats.totalPositions !== 1 ? 's' : ''}`),
+          statCard(labelReturn,
+            `${isUp ? '+' : ''}${formatPrice(stats.totalProfit)} ${getCurrencySymbol()}`,
+            `${pctStr} all time`,
+            isUp ? '#22c55e' : '#ef4444'),
+          statCard('Dividends (12m)',
+            (divOv && divOv.available) ? `${formatPrice(divOv.totalAnnual)} ${getCurrencySymbol()}` : '—',
+            (divOv && divOv.available) ? `${formatPrice(divOv.monthly)} ${getCurrencySymbol()}/mo · ${divOv.yield.toFixed(1)}%` : 'No dividend payers',
+            (divOv && divOv.available) ? '#22c55e' : undefined,
+            () => setActiveView('dividends')),
+          statCard('Health Score',
+            hScore != null ? String(hScore) : '—',
+            hScore != null ? `Grade ${healthOv.grade}` : 'Add positions to score',
+            hScore != null ? hColor(hScore) : undefined,
+            () => setActiveView('health'))
+        );
+      })(),
 
-      // ── KPI strip: Net Worth · FIRE · Dividend income · Health (V7) ──────
-      window.MaerminMetrics && stats.totalPositions > 0 &&
+      // ── KPI strip removed: Dividends + Health now live in the stat cards above
+      //    (Net Worth / FIRE remain reachable from their own sidebar views).
+      false &&
         React.createElement(DashboardKpiStrip, {
           portfolio: overviewPortfolio,
           prices, priceHistory,
@@ -4334,90 +4347,105 @@ buy,crypto,bitcoin,0.5,45000,2024-01-15,10`)
           overflowY: 'auto'
         }
       },
-        [
-          // ── Portfolio ──────────────────────────────
-          { group: t.navGroupPortfolio || 'Portfolio' },
-          { id: 'overview',         icon: '⊞', label: t.navOverview || 'Overview' },
-          { id: 'transactions',     icon: '⇅', label: t.navTransactions || 'Transactions' },
-          { id: 'portfolios',       icon: '▦', label: t.navPortfolios || 'Portfolios' },
-          { id: 'net-worth',        icon: '∑', label: t.navNetWorth || 'Net Worth' },
-          { id: 'dividends',        icon: '❖', label: t.navDividends || 'Dividends' },
-          { id: 'journal',          icon: '✎', label: t.navJournal || 'Journal' },
-          // ── Analysis ──────────────────────────────
-          { group: t.navGroupAnalysis || 'Analysis' },
-          { id: 'returns',          icon: '↗', label: t.navReturns || 'Returns & XIRR' },
-          { id: 'rebalancing',      icon: '⇌', label: t.navRebalancing || 'Rebalancing' },
-          { id: 'savings-plans',    icon: '⊕', label: t.navSavingsPlans || 'Savings Plans' },
-          { id: 'cashflow',         icon: '∿', label: t.navCashflow || 'Cash Flow' },
-          { id: 'fees',             icon: '%', label: t.navFees || 'Fee Analyzer' },
-          { id: 'analytics',        icon: '◫', label: t.navRiskCorrelation || 'Risk & Correlation' },
-          { id: 'health',           icon: '✚', label: t.navHealthScore || 'Health Score' },
-          { id: 'investment-analysis', icon: '⊛', label: t.navStrategy || 'Strategy' },
-          { id: 'tax',              icon: '§', label: t.navTaxFifo || 'Tax & FIFO' },
-          // ── Tools ──────────────────────────────────
-          { group: t.navGroupTools || 'Tools' },
-          { id: 'discovery',        icon: '◎', label: t.navDiscovery || 'Discovery' },
-          { id: 'share',            icon: '⊶', label: t.navShare || 'Share & Compare' },
-          { id: 'watchlist',        icon: '☆', label: t.navWatchlist || 'Watchlist' },
-          { id: 'alerts',           icon: '⚑', label: t.navPriceAlerts || 'Price Alerts' },
-          { id: 'attribution',     icon: '⊿', label: t.navAttribution || 'Attribution' },
-          { id: 'realized',         icon: '✓', label: t.navRealizedPnl || 'Realized P&L' },
-          { id: 'news',             icon: '☰', label: t.navNewsFeed || 'News Feed' },
-          { id: 'data',             icon: '⇆', label: t.navImportExport || 'Import / Export' },
-        ].map((item, idx) => {
-          // Section Header
-          if (item.group) {
-            return React.createElement('div', {
-              key: 'group-' + idx,
-              style: {
-                padding: '0.9rem 0.75rem 0.45rem',
-                fontSize: '0.64rem',
-                fontWeight: '700',
-                letterSpacing: '0.12em',
-                textTransform: 'uppercase',
-                color: currentTheme.textSecondary,
-                opacity: 0.65,
-                marginTop: idx === 0 ? 0 : '0.6rem'
-              }
-            }, item.group);
-          }
-          // Nav Item
-          const isActive = activeView === item.id ||
-            (item.id === 'analytics' && ['correlation','montecarlo','stress','risk'].includes(activeView));
-          return React.createElement('button', {
-            key: item.id,
-            onClick: () => setActiveView(item.id),
-            style: {
-              display: 'flex',
-              alignItems: 'center',
-              gap: '0.65rem',
-              width: '100%',
-              padding: '0.55rem 0.7rem',
-              marginBottom: '0.12rem',
-              background: isActive ? currentTheme.accentSoft : 'transparent',
-              color: isActive ? currentTheme.accent : currentTheme.textSecondary,
-              border: 'none',
-              borderRadius: '10px',
-              textAlign: 'left',
-              cursor: 'pointer',
-              fontSize: '0.83rem',
-              fontWeight: isActive ? '650' : '450',
-              position: 'relative',
-              transition: 'background 0.14s, color 0.14s'
+        (() => {
+          const portfolioItems = [
+            { id: 'overview',     icon: '⊞', label: t.navOverview || 'Overview' },
+            { id: 'transactions', icon: '⇅', label: t.navTransactions || 'Transactions' },
+            { id: 'portfolios',   icon: '▦', label: t.navPortfolios || 'Portfolios' },
+            { id: 'net-worth',    icon: '∑', label: t.navNetWorth || 'Net Worth' },
+            { id: 'dividends',    icon: '❖', label: t.navDividends || 'Dividends' },
+            { id: 'journal',      icon: '✎', label: t.navJournal || 'Journal' },
+          ];
+          const hubs = [
+            { id: 'hub-analytics', icon: '◫', label: 'Analytics', children: [
+              { id: 'returns',             icon: '↗', label: t.navReturns || 'Returns & XIRR' },
+              { id: 'rebalancing',         icon: '⇌', label: t.navRebalancing || 'Rebalancing' },
+              { id: 'savings-plans',       icon: '⊕', label: t.navSavingsPlans || 'Savings Plans' },
+              { id: 'cashflow',            icon: '∿', label: t.navCashflow || 'Cash Flow' },
+              { id: 'fees',                icon: '%', label: t.navFees || 'Fee Analyzer' },
+              { id: 'analytics',           icon: '◫', label: t.navRiskCorrelation || 'Risk & Correlation' },
+              { id: 'health',              icon: '✚', label: t.navHealthScore || 'Health Score' },
+              { id: 'investment-analysis', icon: '⊛', label: t.navStrategy || 'Strategy' },
+              { id: 'tax',                 icon: '§', label: t.navTaxFifo || 'Tax & FIFO' },
+            ]},
+            { id: 'hub-tools', icon: '◎', label: 'Discover & Tools', children: [
+              { id: 'discovery',   icon: '◎', label: t.navDiscovery || 'Discovery' },
+              { id: 'share',       icon: '⊶', label: t.navShare || 'Share & Compare' },
+              { id: 'watchlist',   icon: '☆', label: t.navWatchlist || 'Watchlist' },
+              { id: 'alerts',      icon: '⚑', label: t.navPriceAlerts || 'Price Alerts' },
+              { id: 'attribution', icon: '⊿', label: t.navAttribution || 'Attribution' },
+              { id: 'realized',    icon: '✓', label: t.navRealizedPnl || 'Realized P&L' },
+              { id: 'news',        icon: '☰', label: t.navNewsFeed || 'News Feed' },
+              { id: 'data',        icon: '⇆', label: t.navImportExport || 'Import / Export' },
+            ]},
+          ];
+
+          const isLeafActive = (id) => activeView === id ||
+            (id === 'analytics' && ['correlation', 'montecarlo', 'stress', 'risk'].includes(activeView));
+
+          const sectionLabel = (text, mt) => React.createElement('div', {
+            key: 'sec-' + text,
+            style: { padding: '0.9rem 0.75rem 0.45rem', fontSize: '0.62rem', fontWeight: '700', letterSpacing: '0.13em', textTransform: 'uppercase', color: currentTheme.textSecondary, opacity: 0.6, marginTop: mt }
+          }, text);
+
+          const navButton = (item, indent) => {
+            const active = isLeafActive(item.id);
+            return React.createElement('button', {
+              key: item.id,
+              onClick: () => setActiveView(item.id),
+              style: { display: 'flex', alignItems: 'center', gap: '0.65rem', width: '100%', padding: indent ? '0.48rem 0.7rem 0.48rem 2.05rem' : '0.55rem 0.7rem', marginBottom: '0.12rem', background: active ? currentTheme.accentSoft : 'transparent', color: active ? currentTheme.accent : currentTheme.textSecondary, border: 'none', borderRadius: '10px', textAlign: 'left', cursor: 'pointer', fontSize: '0.83rem', fontWeight: active ? '650' : '450', position: 'relative', transition: 'background 0.14s, color 0.14s' },
+              onMouseEnter: e => { if (!active) { e.currentTarget.style.background = currentTheme.surface2; e.currentTarget.style.color = currentTheme.text; } },
+              onMouseLeave: e => { if (!active) { e.currentTarget.style.background = 'transparent'; e.currentTarget.style.color = currentTheme.textSecondary; } }
             },
-            onMouseEnter: e => { if (!isActive) { e.currentTarget.style.background = currentTheme.surface2; e.currentTarget.style.color = currentTheme.text; } },
-            onMouseLeave: e => { if (!isActive) { e.currentTarget.style.background = 'transparent'; e.currentTarget.style.color = currentTheme.textSecondary; } }
+              active && React.createElement('span', { style: { position: 'absolute', left: '-0.7rem', top: '50%', transform: 'translateY(-50%)', width: '3px', height: '60%', background: currentTheme.accent, borderRadius: '0 3px 3px 0' } }),
+              !indent && React.createElement('span', { style: { fontSize: '0.95rem', width: '18px', textAlign: 'center', flexShrink: 0, opacity: active ? 1 : 0.85 } }, item.icon),
+              indent && React.createElement('span', { style: { width: '5px', height: '5px', borderRadius: '50%', flexShrink: 0, background: active ? currentTheme.accent : currentTheme.textSecondary, opacity: active ? 1 : 0.4 } }),
+              item.label
+            );
+          };
+
+          const hubButton = (hub) => {
+            const childActive = hub.children.some(c => isLeafActive(c.id));
+            const expanded = openHub === hub.id || childActive;
+            return React.createElement('div', { key: hub.id },
+              React.createElement('button', {
+                onClick: () => setOpenHub(prev => prev === hub.id ? '' : hub.id),
+                style: { display: 'flex', alignItems: 'center', gap: '0.65rem', width: '100%', padding: '0.55rem 0.7rem', marginBottom: '0.12rem', background: 'transparent', color: childActive ? currentTheme.text : currentTheme.textSecondary, border: 'none', borderRadius: '10px', textAlign: 'left', cursor: 'pointer', fontSize: '0.83rem', fontWeight: childActive ? '650' : '500', transition: 'background 0.14s, color 0.14s' },
+                onMouseEnter: e => { e.currentTarget.style.background = currentTheme.surface2; e.currentTarget.style.color = currentTheme.text; },
+                onMouseLeave: e => { e.currentTarget.style.background = 'transparent'; e.currentTarget.style.color = childActive ? currentTheme.text : currentTheme.textSecondary; }
+              },
+                React.createElement('span', { style: { fontSize: '0.95rem', width: '18px', textAlign: 'center', flexShrink: 0, opacity: 0.85 } }, hub.icon),
+                React.createElement('span', { style: { flex: 1 } }, hub.label),
+                React.createElement('span', { style: { fontSize: '0.6rem', color: currentTheme.textSecondary, background: currentTheme.surface2, borderRadius: '5px', padding: '0.05rem 0.32rem', fontWeight: '600' } }, String(hub.children.length)),
+                React.createElement('span', { style: { fontSize: '0.8rem', color: currentTheme.textSecondary, transform: expanded ? 'rotate(90deg)' : 'none', transition: 'transform 0.15s' } }, '›')
+              ),
+              expanded && React.createElement('div', { style: { marginBottom: '0.3rem' } }, hub.children.map(c => navButton(c, true)))
+            );
+          };
+
+          const quickAccess = React.createElement('div', {
+            key: 'quick-access',
+            style: { marginTop: '1rem', padding: '0.85rem', borderRadius: '12px', background: `linear-gradient(160deg, ${currentTheme.accent}1a, ${currentTheme.accent}05)`, border: `1px solid ${currentTheme.accent}2e` }
           },
-            // Active indicator bar
-            isActive && React.createElement('span', {
-              style: { position: 'absolute', left: '-0.7rem', top: '50%', transform: 'translateY(-50%)', width: '3px', height: '60%', background: currentTheme.accent, borderRadius: '0 3px 3px 0' }
-            }),
-            React.createElement('span', {
-              style: { fontSize: '0.95rem', width: '18px', textAlign: 'center', flexShrink: 0, opacity: isActive ? 1 : 0.85 }
-            }, item.icon),
-            item.label
+            React.createElement('div', { style: { fontSize: '0.74rem', fontWeight: '600', color: currentTheme.accent, marginBottom: '0.3rem' } }, 'Quick access'),
+            React.createElement('div', { style: { fontSize: '0.72rem', color: currentTheme.textSecondary, marginBottom: '0.6rem', lineHeight: 1.4 } }, 'Jump to any module instantly.'),
+            React.createElement('button', {
+              onClick: () => setShowCommandPalette(true),
+              style: { display: 'flex', alignItems: 'center', justifyContent: 'space-between', width: '100%', padding: '0.4rem 0.6rem', background: 'rgba(0,0,0,0.25)', border: `1px solid ${currentTheme.cardBorder}`, borderRadius: '8px', cursor: 'pointer', fontSize: '0.74rem', color: currentTheme.text }
+            },
+              React.createElement('span', null, 'Open palette'),
+              React.createElement('span', { style: { fontFamily: "'JetBrains Mono', monospace", fontSize: '0.64rem', color: currentTheme.textSecondary } }, '⌘K')
+            )
           );
-        }),
+
+          return [
+            sectionLabel(t.navGroupPortfolio || 'Portfolio', 0),
+            ...portfolioItems.map(it => navButton(it, false)),
+            sectionLabel('Insights', '0.6rem'),
+            ...hubs.map(hubButton),
+            quickAccess
+          ];
+        })(),
       ),
 
       // Main content
