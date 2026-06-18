@@ -116,11 +116,10 @@ const YF_SYMBOL_MAP = {
   'NVO': 'NVO',
   // Stockholm — Yahoo nutzt .ST
   'ERIC-B': 'ERIC-B.ST', 'HM-B': 'HM-B.ST', 'VOLV-B': 'VOLV-B.ST',
-  // Fiserv rebranded NYSE:FISV -> NYSE:FI (2025), but Yahoo's chart endpoint
-  // still serves history under the legacy FISV symbol and 404s on bare "FI".
-  // Map BOTH to FISV (verified: FISV -> HTTP 200, FI -> HTTP 404).
-  'FI': 'FISV',
-  'FISV': 'FISV',
+  // FI = Fiserv Inc. (NYSE) — YF sometimes returns no data for bare "FI"
+  // Try bare first, suffix fallback (.DE/.L etc.) handles the rest automatically
+  'FI': 'FI',
+  'FISV': 'FI', // legacy Fiserv ticker alias
   // Amsterdam (.AS)
   'ASML': 'ASML.AS', 'SHELL': 'SHEL.AS', 'ING': 'INGA.AS', 'PHIA': 'PHIA.AS',
   // London (.L)
@@ -973,10 +972,9 @@ function PortfolioHistoryChart({ portfolio, prices, transactions, apiKeys, theme
     // ── TOP HEADER: ROI + mode toggle + period selector ────────────────────
     React.createElement('div', {
       style: {
-        padding: '1.25rem 1.5rem 1rem',
+        padding: '1.25rem 1.5rem 0.5rem',
         display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start',
-        flexWrap: 'wrap', gap: '1rem',
-        borderBottom: `1px solid ${theme.cardBorder}`
+        flexWrap: 'wrap', gap: '1rem'
       }
     },
       // Left: title + ROI or hover value
