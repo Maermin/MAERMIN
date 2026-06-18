@@ -503,7 +503,7 @@ function PortfolioHistoryChart({ portfolio, prices, transactions, apiKeys, theme
 
   // ── Chart math ────────────────────────────────────────────────────────────
   const W = 800, H = 220;
-  const PAD = { t: 24, r: 16, b: 36, l: 72 };
+  const PAD = { t: 16, r: 0, b: 28, l: 0 };
 
   const computed = useMemo(() => {
     if (chartData.length < 2) return null;
@@ -848,15 +848,10 @@ function PortfolioHistoryChart({ portfolio, prices, transactions, apiKeys, theme
           React.createElement('stop', { offset:'100%', stopColor: lineColor, stopOpacity: 0 })
         )
       ),
-      // Grid + Y labels: calm solid hairlines, theme-aware contrast; the
-      // baseline gets a slightly stronger line to anchor the chart.
-      ...computed.yLabels.map((yl,i) => [
-        React.createElement('line', { key:`gl${i}`, x1:PAD.l, y1:yl.y, x2:W-PAD.r, y2:yl.y, stroke: i === 0 ? PALETTE.gridStrong : GREY2, strokeWidth:1 }),
-        React.createElement('text', { key:`gt${i}`, x:PAD.l-8, y:yl.y+3.5, textAnchor:'end', fill:GREY, fontSize:10, style:{fontVariantNumeric:'tabular-nums'} }, yl.label)
-      ]).flat(),
+      // Y-axis labels & grid removed — clean full-bleed hero chart (mockup parity).
       // X labels
       ...xLabels.map((xl,i) =>
-        React.createElement('text', { key:`xl${i}`, x:xl.x, y:H-PAD.b+14, textAnchor:'middle', fill:GREY, fontSize:10 }, xl.label)
+        React.createElement('text', { key:`xl${i}`, x:xl.x, y:H-PAD.b+16, textAnchor: i === 0 ? 'start' : (i === xLabels.length - 1 ? 'end' : 'middle'), fill:GREY, fontSize:10 }, xl.label)
       ),
       React.createElement('path', { key:'area', d: areaP, fill:'url(#valGrad)' }),
       React.createElement('path', { key:'line', d: linePath, fill:'none', stroke: lineColor, strokeWidth:2.2, strokeLinejoin:'round', strokeLinecap:'round' }),
@@ -1048,28 +1043,7 @@ function PortfolioHistoryChart({ portfolio, prices, transactions, apiKeys, theme
       ),
 
       // Only value chart — return tab removed
-      renderValueChart(),
-
-      // Legend
-      computed && !error && React.createElement('div', {
-        style: { display:'flex', alignItems:'center', justifyContent:'space-between', flexWrap:'wrap', padding:'0.5rem 1.25rem 0.75rem', gap:'0.75rem' }
-      },
-        computed && React.createElement('div', { style:{display:'flex',alignItems:'center',gap:'0.75rem',flexWrap:'wrap',fontSize:'0.68rem',color:theme.textSecondary} },
-          React.createElement('span', { style:{display:'flex',alignItems:'center',gap:'0.375rem'} },
-            React.createElement('div', { style:{width:20,height:2,background:lineColor,borderRadius:1} }),
-            `Period start: ${formatPrice(computed.firstV)} ${getCurrencySymbol()}`
-          ),
-          // Timeline marker legend
-          computed.markers && computed.markers.length > 0 &&
-            [['Buy','#22c55e'],['Sell','#ef4444'],['Dividend','#3b82f6']].map(([label,c]) =>
-              React.createElement('span', { key:label, style:{display:'flex',alignItems:'center',gap:'0.3rem'} },
-                React.createElement('span', { style:{width:8,height:8,borderRadius:'50%',background:c,display:'inline-block'} }),
-                label))
-        ),
-        !hasWorker && React.createElement('div', { style:{fontSize:'0.68rem',color:theme.accent} },
-          '→ Add Worker URL for stocks & CS2 history'
-        )
-      )
+      renderValueChart()
     )
   );
 }
