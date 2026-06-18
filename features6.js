@@ -502,7 +502,7 @@ function PortfolioHistoryChart({ portfolio, prices, transactions, apiKeys, theme
   useEffect(() => { buildChart(); }, [buildChart]);
 
   // ── Chart math ────────────────────────────────────────────────────────────
-  const W = 800, H = 220;
+  const W = 800, H = 175;
   const PAD = { t: 16, r: 0, b: 28, l: 0 };
 
   const computed = useMemo(() => {
@@ -743,7 +743,8 @@ function PortfolioHistoryChart({ portfolio, prices, transactions, apiKeys, theme
   const RED    = PALETTE.down;
   const GREY   = PALETTE.axisText;
   const GREY2  = PALETTE.grid;
-  const lineColor = computed?.isUp ? GREEN : RED;
+  // Mockup hero uses the gold accent for the value chart (not up/down green/red).
+  const lineColor = theme.accent || (computed?.isUp ? GREEN : RED);
 
   // ── Shared X-label formatter ──────────────────────────────────────────────
   const fmtX = d => {
