@@ -2352,53 +2352,28 @@ function InvestmentTracker() {
       ),
 
       // ── Hero: total portfolio value ─────────────────────────────────────
-      // Signature value banner — big figure + all-time delta, sits above the
-      // stat grid and the history chart. Uses the same `stats` as everything
-      // else so it never drifts. Decimals are dimmed for a financial look.
-      stats.totalPositions > 0 && (() => {
-        const full = formatPrice(stats.totalValue);
-        const dot  = full.lastIndexOf('.');
-        const intPart = dot > -1 ? full.slice(0, dot) : full;
-        const decPart = dot > -1 ? full.slice(dot) : '';
-        const up = isUp;
-        const deltaColor = up ? currentTheme.success : currentTheme.danger;
-        return React.createElement('div', {
-          style: {
-            position: 'relative', overflow: 'hidden',
-            background: `linear-gradient(160deg, ${currentTheme.surface2} 0%, ${currentTheme.card} 70%)`,
-            border: `1px solid ${currentTheme.cardBorder}`,
-            borderRadius: '18px', padding: '1.6rem 1.75rem', marginBottom: '1.25rem',
-            boxShadow: currentTheme.shadow
-          }
-        },
-          // gold sheen, top-right
-          React.createElement('div', { style: { position: 'absolute', top: '-40%', right: '-8%', width: '320px', height: '320px', background: `radial-gradient(circle, ${currentTheme.accent}22 0%, transparent 65%)`, pointerEvents: 'none' } }),
-          React.createElement('div', { style: { position: 'relative', color: currentTheme.textSecondary, fontSize: '0.7rem', fontWeight: '700', letterSpacing: '0.14em', textTransform: 'uppercase', marginBottom: '0.6rem' } },
-            (labelValue || 'Total Portfolio Value')),
-          React.createElement('div', { style: { position: 'relative', display: 'flex', alignItems: 'baseline', flexWrap: 'wrap', gap: '0.1rem', fontFamily: "'Space Grotesk', 'Hanken Grotesk', sans-serif", lineHeight: 1.05 } },
-            React.createElement('span', { style: { color: currentTheme.text, fontSize: 'clamp(2.2rem, 5vw, 3.1rem)', fontWeight: '700', letterSpacing: '-0.02em' } }, intPart),
-            decPart && React.createElement('span', { style: { color: currentTheme.textSecondary, fontSize: 'clamp(1.4rem, 3vw, 1.9rem)', fontWeight: '600', letterSpacing: '-0.02em' } }, decPart),
-            React.createElement('span', { style: { color: currentTheme.textSecondary, fontSize: '1.4rem', fontWeight: '600', marginLeft: '0.45rem' } }, getCurrencySymbol())
-          ),
-          React.createElement('div', { style: { position: 'relative', display: 'flex', alignItems: 'center', gap: '0.7rem', flexWrap: 'wrap', marginTop: '0.9rem' } },
-            React.createElement('span', {
-              style: { display: 'inline-flex', alignItems: 'center', gap: '0.4rem', padding: '0.4rem 0.7rem', borderRadius: '9px', background: `${deltaColor}1a`, border: `1px solid ${deltaColor}40`, color: deltaColor, fontWeight: '700', fontSize: '0.95rem', fontFamily: "'Space Grotesk', sans-serif" }
-            },
-              React.createElement('span', { style: { fontSize: '0.7rem' } }, up ? '▲' : '▼'),
-              `${up ? '+' : ''}${formatPrice(stats.totalProfit)} ${getCurrencySymbol()}`
-            ),
-            React.createElement('span', { style: { color: deltaColor, fontWeight: '700', fontSize: '0.95rem' } }, pctStr),
-            React.createElement('span', { style: { color: currentTheme.textSecondary, fontSize: '0.8rem' } }, 'all time')
-          )
-        );
-      })(),
+      // The history chart already combines the big value, the all-time return
+      // and the 1H…Max timeframe tabs — so it IS the hero. Rendered first.
+      window.MaerminFeatures6 && stats.totalPositions > 0 &&
+        React.createElement(window.MaerminFeatures6.PortfolioHistoryChart, {
+          portfolio:          overviewPortfolio,
+          prices,
+          transactions:       overviewTransactions,
+          apiKeys,
+          exchangeRate,
+          currentValue:       stats.totalValue,
+          totalInvested:      stats.totalInvested,
+          totalProfit:        stats.totalProfit,
+          totalProfitPercent: stats.totalProfitPercent,
+          theme: currentTheme, formatPrice, getCurrencySymbol
+        }),
 
       // ── Stats cards ─────────────────────────────────────────────────────
+      // Total value lives in the hero above — the grid carries the supporting
+      // metrics only (mockup parity: Invested · Return · Positions).
       React.createElement('div', {
         style: { display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '1rem', marginBottom: '1.5rem' }
       },
-        statCard(labelValue, `${formatPrice(stats.totalValue)} ${getCurrencySymbol()}`,
-          lastRefresh ? `as of ${lastRefresh.toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' })}` : 'Refresh to update'),
         statCard('Invested', `${formatPrice(stats.totalInvested)} ${getCurrencySymbol()}`,
           `${stats.totalPositions} position${stats.totalPositions !== 1 ? 's' : ''}`),
         statCard(labelReturn,
@@ -2423,19 +2398,9 @@ function InvestmentTracker() {
         }),
 
       // ── Chart ────────────────────────────────────────────────────────────
-      window.MaerminFeatures6 && stats.totalPositions > 0 &&
-        React.createElement(window.MaerminFeatures6.PortfolioHistoryChart, {
-          portfolio:          overviewPortfolio,
-          prices,
-          transactions:       overviewTransactions,
-          apiKeys,
-          exchangeRate,
-          currentValue:       stats.totalValue,
-          totalInvested:      stats.totalInvested,
-          totalProfit:        stats.totalProfit,
-          totalProfitPercent: stats.totalProfitPercent,
-          theme: currentTheme, formatPrice, getCurrencySymbol
-        }),
+      // (Portfolio value chart moved up to the Overview hero slot — see above)
+      false &&
+        React.createElement('div', null),
 
       // CS2 banner
       portfolio.skins && portfolio.skins.length > 0 && !(apiKeys.cs2Worker||'').trim() &&
