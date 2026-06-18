@@ -27,11 +27,12 @@ const themes = {
     warning: '#f59e0b'
   },
   dark: {
-    background: 'linear-gradient(135deg, #0f172a 0%, #1e293b 50%, #0f172a 100%)',
-    card: 'rgba(30,41,59,0.9)',
+    background: 'radial-gradient(1200px 720px at 50% -16%, #19212f 0%, #0c111a 54%, #080b11 100%)',
+    card: 'rgba(18,24,38,0.92)',
+    cardBorder: 'rgba(255,255,255,0.08)',
     cardBorder: 'rgba(255,255,255,0.1)',
-    text: '#f8fafc',
-    textSecondary: '#94a3b8',
+    text: '#e9edf4',
+    textSecondary: '#8b94a7',
     inputBg: 'rgba(255,255,255,0.05)',
     inputBorder: 'rgba(255,255,255,0.1)',
     accent: '#f5a524',

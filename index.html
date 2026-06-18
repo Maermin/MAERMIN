@@ -4,8 +4,13 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
   <!-- GitHub Pages: CSP ohne 'self'-Beschränkung, alle nötigen APIs erlaubt -->
-  <meta http-equiv="Content-Security-Policy" content="default-src 'self' https:; script-src 'self' 'unsafe-inline' https://unpkg.com https://cdnjs.cloudflare.com; style-src 'self' 'unsafe-inline'; img-src 'self' data: https: https://community.akamai.steamstatic.com; connect-src 'self' https://api.coingecko.com https://api.exchangerate-api.com https://open.er-api.com https://www.alphavantage.co https://*.workers.dev https://cdnjs.cloudflare.com https://www.googleapis.com https://graph.microsoft.com; worker-src 'self'; manifest-src 'self'; object-src 'none';">
+  <meta http-equiv="Content-Security-Policy" content="default-src 'self' https:; script-src 'self' 'unsafe-inline' https://unpkg.com https://cdnjs.cloudflare.com; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com data:; img-src 'self' data: https: https://community.akamai.steamstatic.com; connect-src 'self' https://api.coingecko.com https://api.exchangerate-api.com https://open.er-api.com https://www.alphavantage.co https://*.workers.dev https://cdnjs.cloudflare.com https://www.googleapis.com https://graph.microsoft.com; worker-src 'self'; manifest-src 'self'; object-src 'none';">
   <title>MAERMIN v9.0 - Professional Portfolio Tracker</title>
+
+  <!-- Redesign typography: Hanken Grotesk (UI), Space Grotesk (headings/figures), JetBrains Mono (mono) -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Hanken+Grotesk:wght@400;500;600;700&family=Space+Grotesk:wght@500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
 
   <!-- PWA -->
   <link rel="manifest" href="manifest.webmanifest">

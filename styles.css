@@ -26,17 +26,28 @@
 html { scroll-behavior: smooth; }
 
 body {
-  font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto',
-    'Helvetica Neue', Arial, sans-serif;
+  font-family: 'Hanken Grotesk', -apple-system, BlinkMacSystemFont, 'Segoe UI',
+    'Roboto', 'Helvetica Neue', Arial, sans-serif;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
   text-rendering: optimizeLegibility;
-  font-feature-settings: 'cv02', 'cv03', 'cv04', 'tnum';
+  font-feature-settings: 'tnum';
   overflow: auto;
   height: 100vh;
-  background: var(--bg);
+  /* Redesign: soft radial wash on near-black instead of a flat fill */
+  background:
+    radial-gradient(1200px 720px at 50% -16%, #19212f 0%, #0c111a 54%, #080b11 100%) fixed,
+    var(--bg);
   color: var(--text);
   letter-spacing: -0.01em;
+}
+
+/* Redesign type system: Space Grotesk for headings & key figures, JetBrains
+   Mono for monospace. Body text inherits Hanken Grotesk from <body>. */
+h1, h2, h3, h4,
+.metric-value, .greek-value, .stat-value, .kpi-value {
+  font-family: 'Space Grotesk', 'Hanken Grotesk', -apple-system, sans-serif;
+  letter-spacing: -0.02em;
 }
 
 /* Tabular numbers everywhere figures appear keeps columns aligned */
@@ -238,7 +249,7 @@ button:active { transform: translateY(0.5px); }
   background: rgba(255, 255, 255, 0.06);
   border: 1px solid var(--border);
   border-radius: 6px;
-  font-family: ui-monospace, 'SF Mono', 'Cascadia Code', Menlo, monospace;
+  font-family: 'JetBrains Mono', ui-monospace, 'SF Mono', 'Cascadia Code', Menlo, monospace;
 }
 
 .command-palette-footer {
