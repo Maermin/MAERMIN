@@ -273,7 +273,7 @@ function PlanModal({ theme, title, onClose, children }) {
   );
 }
 
-function SavingsPlanView({ transactions, theme, formatPrice, getCurrencySymbol, t, startValue, dividendYield }) {
+function SavingsPlanView({ transactions, theme, formatPrice, getCurrencySymbol, t, startValue, dividendYield, portfolios = [{ id: 'default', name: 'Main Portfolio' }], activePortfolioId = 'default' }) {
   const [plans, setPlans] = useState(() => {
     try { return JSON.parse(localStorage.getItem('maermin_savings_plans') || '[]'); } catch { return []; }
   });
@@ -281,7 +281,7 @@ function SavingsPlanView({ transactions, theme, formatPrice, getCurrencySymbol, 
   // The form lives in a MODAL now - the projection graph above made the old
   // inline card scroll out of view.
   const [editPlan, setEditPlan] = useState(null);
-  const emptyForm = () => ({ symbol: '', amount: '', frequency: 'monthly', category: 'crypto', startDate: window.MaerminUtils.todayISO(), endDate: '', noEnd: true });
+  const emptyForm = () => ({ symbol: '', amount: '', frequency: 'monthly', category: 'crypto', startDate: window.MaerminUtils.todayISO(), endDate: '', noEnd: true, portfolioId: activePortfolioId || 'default' });
   const [form, setForm] = useState(emptyForm);
 
   useEffect(() => { localStorage.setItem('maermin_savings_plans', JSON.stringify(plans)); }, [plans]);
@@ -291,7 +291,8 @@ function SavingsPlanView({ transactions, theme, formatPrice, getCurrencySymbol, 
     setForm({
       symbol: plan.symbol || '', amount: String(plan.amount || ''), frequency: plan.frequency || 'monthly',
       category: plan.category || 'crypto', startDate: plan.startDate || window.MaerminUtils.todayISO(),
-      endDate: plan.endDate || '', noEnd: !plan.endDate
+      endDate: plan.endDate || '', noEnd: !plan.endDate,
+      portfolioId: plan.portfolioId || activePortfolioId || 'default'
     });
     setEditPlan(plan);
   };
@@ -302,7 +303,8 @@ function SavingsPlanView({ transactions, theme, formatPrice, getCurrencySymbol, 
     if (endDate && endDate < form.startDate) return; // end before start makes no schedule
     const fields = {
       symbol: form.symbol.trim(), amount: parseFloat(form.amount), frequency: form.frequency,
-      category: form.category, startDate: form.startDate, endDate
+      category: form.category, startDate: form.startDate, endDate,
+      portfolioId: form.portfolioId || 'default'
     };
     if (editPlan === 'new') {
       setPlans(prev => [...prev, { id: Date.now().toString(), ...fields, active: true, createdAt: new Date().toISOString() }]);
@@ -408,6 +410,15 @@ function SavingsPlanView({ transactions, theme, formatPrice, getCurrencySymbol, 
             style: { padding: '0.625rem 0.875rem', background: theme.inputBg, border: `1px solid ${theme.inputBorder}`, borderRadius: '8px', color: theme.text, fontSize: '0.875rem', width: '100%' }
           },
             ['crypto', 'stocks', 'commodities'].map(c => React.createElement('option', { key: c, value: c }, c))
+          )
+        ),
+        React.createElement('div', null,
+          React.createElement('label', { style: { display: 'block', color: theme.textSecondary, fontSize: '0.72rem', marginBottom: '0.25rem', textTransform: 'uppercase' } }, 'Portfolio'),
+          React.createElement('select', {
+            value: form.portfolioId, onChange: e => setForm(p => ({ ...p, portfolioId: e.target.value })),
+            style: { padding: '0.625rem 0.875rem', background: theme.inputBg, border: `1px solid ${theme.inputBorder}`, borderRadius: '8px', color: theme.text, fontSize: '0.875rem', width: '100%' }
+          },
+            portfolios.map(p => React.createElement('option', { key: p.id, value: p.id }, p.name))
           )
         ),
         React.createElement('div', null,

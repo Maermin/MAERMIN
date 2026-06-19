@@ -1783,6 +1783,7 @@ function InvestmentTracker() {
         return window.MaerminFeatures4 ?
           React.createElement(window.MaerminFeatures4.SavingsPlanView, {
             transactions: activeTransactions, theme: currentTheme, formatPrice, getCurrencySymbol, t,
+            portfolios, activePortfolioId,
             // Feed the projection (#6): current investment value + forward dividend yield.
             // NB: use the component-scoped portfolioStats (stats is only defined in
             // the overview block, not here — referencing it crashed the page).
@@ -4655,3 +4656,4 @@ if (window.MaerminAuth && typeof window.MaerminAuth.whenUnlocked === 'function')
 }
 
 })(); // End IIFE
+
