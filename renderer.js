@@ -228,6 +228,9 @@ function InvestmentTracker() {
   // Prices
   const [prices, setPrices] = useState({});
   const [priceHistory, setPriceHistory] = useState({});
+  // Per-symbol historical price series fetched for savings-plan symbols (so each
+  // back-dated buy is priced on its own day). Separate from the live priceHistory.
+  const [savingsHistory, setSavingsHistory] = useState({});
   const [loading, setLoading] = useState(false);
   const [lastRefresh, setLastRefresh] = useState(null);
   
@@ -297,11 +300,28 @@ function InvestmentTracker() {
     try {
       const plans = JSON.parse(localStorage.getItem(EX.PLANS_KEY) || '[]');
       if (!Array.isArray(plans) || !plans.length) return;
+      // Effective history = the app's live priceHistory PLUS the per-symbol
+      // historical series fetched for savings-plan symbols. That yields a real
+      // close at/before each due date, so every buy is priced on its own day.
+      const histEff = Object.assign({}, priceHistory, savingsHistory);
+      const accurate = (sym, due) => EX.priceAtDate(histEff, prices, sym, due);
       const resolvePrice = (plan, dueDate) => EX.priceForBackfill
-        ? EX.priceForBackfill(priceHistory, prices, plan.symbol, dueDate)
-        : EX.priceAtDate(priceHistory, prices, plan.symbol, dueDate);
-      const out = EX.runCatchUp(plans, transactions, resolvePrice, undefined, undefined, exchangeRate);
-      if (out.created.length || out.removedDuplicates) {
+        ? EX.priceForBackfill(histEff, prices, plan.symbol, dueDate)
+        : EX.priceAtDate(histEff, prices, plan.symbol, dueDate);
+
+      let working = transactions;
+      // 1) Re-price earlier ESTIMATED auto-executions now that real history exists.
+      if (EX.repriceEstimated) {
+        const rep = EX.repriceEstimated(working, accurate, exchangeRate);
+        if (rep.repriced) {
+          working = rep.transactions;
+          addToast(`${rep.repriced} estimated savings buy(s) repriced to the historical close`, 'success');
+        }
+      }
+      // 2) Book any outstanding occurrences (real close when available, else a
+      //    flagged estimate from the current price).
+      const out = EX.runCatchUp(plans, working, resolvePrice, undefined, undefined, exchangeRate);
+      if (out.created.length || out.removedDuplicates || working !== transactions) {
         setTransactions(out.transactions);
         if (out.created.length) addToast(`${out.created.length} savings-plan execution(s) booked`, 'success');
         if (out.removedDuplicates) addToast(`${out.removedDuplicates} duplicate auto-execution(s) removed after sync`, 'info');
@@ -311,7 +331,7 @@ function InvestmentTracker() {
         addToast(`${out.pending.length} savings-plan execution(s) pending - no price for the symbol yet`, 'warning');
       }
     } catch (e) { console.warn('[SAVINGS] catch-up failed:', e); }
-  }, [prices, transactions, priceHistory, exchangeRate]);
+  }, [prices, transactions, priceHistory, savingsHistory, exchangeRate]);
 
   // Forms & Modals
   const [newTransaction, setNewTransaction] = useState({
@@ -339,12 +359,13 @@ function InvestmentTracker() {
     try { return JSON.parse(localStorage.getItem('apiKeys') || '{}'); } catch { return {}; }
   });
 
-  // Price assets that ONLY appear in a savings plan (not yet held) so their
-  // back-dated occurrences can be booked. Held assets are already priced by the
-  // main refresh; this fills the plan-only gap with a CURRENT price (crypto via
-  // CoinGecko in EUR; stocks via the YF Worker, USD->EUR at the daily rate).
-  // Attempted once per distinct symbol set.
-  const savingsPriceFetch = React.useRef('');
+  // Fetch a historical price series for each savings-plan symbol (crypto via
+  // CoinGecko market_chart in EUR; stocks via the YF Worker, converted to EUR at
+  // the daily rate) covering the plan's date span. This is what lets every
+  // back-dated buy be priced on ITS OWN day, and lets earlier estimated buys be
+  // repriced to the real close. The latest point also seeds the live price map
+  // so unheld plan assets get a current price. Fetched once per symbol/span set.
+  const savingsHistFetch = React.useRef('');
   useEffect(() => {
     const EX = window.MaerminSavingsExecutor;
     if (!EX) return;
@@ -353,52 +374,63 @@ function InvestmentTracker() {
     if (!Array.isArray(plans) || !plans.length) return;
 
     const CG_IDS = { btc:'bitcoin', eth:'ethereum', sol:'solana', ada:'cardano', xrp:'ripple', doge:'dogecoin', dot:'polkadot', ltc:'litecoin', bch:'bitcoin-cash', link:'chainlink', matic:'matic-network', avax:'avalanche-2', bnb:'binancecoin', trx:'tron', usdt:'tether', usdc:'usd-coin', uni:'uniswap', atom:'cosmos', etc:'ethereum-classic' };
-    const need = plans.filter(p => p && p.active !== false && p.symbol &&
-      (p.category === 'crypto' || p.category === 'stocks') &&
-      prices[p.symbol] == null && prices[(p.symbol || '').toLowerCase()] == null);
-    if (!need.length) return;
-    const sig = need.map(p => p.category + ':' + p.symbol).sort().join('|');
-    if (savingsPriceFetch.current === sig) return;
-    savingsPriceFetch.current = sig;
+    const bySym = {};
+    plans.forEach(p => {
+      if (!p || p.active === false || !p.symbol) return;
+      if (p.category !== 'crypto' && p.category !== 'stocks') return;
+      const start = p.startDate || window.MaerminUtils.todayISO();
+      if (!bySym[p.symbol]) bySym[p.symbol] = { symbol: p.symbol, category: p.category, start };
+      else if (start < bySym[p.symbol].start) bySym[p.symbol].start = start;
+    });
+    const syms = Object.values(bySym);
+    if (!syms.length) return;
+    const sig = syms.map(s => s.category + ':' + s.symbol + ':' + s.start).sort().join('|');
+    if (savingsHistFetch.current === sig) return;
+    savingsHistFetch.current = sig;
 
     (async () => {
-      const add = {};
-      const cryptos = need.filter(p => p.category === 'crypto');
-      if (cryptos.length) {
-        const idToSym = {};
-        cryptos.forEach(p => { const tkr = (p.symbol || '').toLowerCase(); idToSym[CG_IDS[tkr] || tkr] = p.symbol; });
-        const ids = Object.keys(idToSym).join(',');
-        try {
-          const res = await fetch(`https://api.coingecko.com/api/v3/simple/price?ids=${encodeURIComponent(ids)}&vs_currencies=eur`);
-          if (res.ok) {
-            const data = await res.json();
-            Object.keys(data).forEach(id => {
-              const eur = data[id] && data[id].eur;
-              const orig = idToSym[id];
-              if (typeof eur === 'number' && eur > 0 && orig) { add[orig] = eur; add[String(orig).toLowerCase()] = eur; }
-            });
-          }
-        } catch (e) { console.warn('[SAVINGS] crypto price fetch failed:', e); }
-      }
-      const stocks = need.filter(p => p.category === 'stocks');
+      const histAdd = {}, priceAdd = {};
+      const nowSec = Math.floor(Date.now() / 1000);
       const workerBase = (apiKeys.cs2Worker || '').trim().replace(/\/$/, '');
-      if (stocks.length && workerBase.length > 5) {
-        for (const p of stocks) {
-          const sym = (p.symbol || '').toUpperCase();
-          try {
-            const url = `${workerBase}?action=yf&symbol=${encodeURIComponent(sym)}&interval=1d&range=5d`;
-            const res = await fetch(url, { signal: AbortSignal.timeout(8000) });
-            if (!res.ok) continue;
-            const data = await res.json();
-            const last = data.prices?.[data.prices.length - 1];
-            if (last?.price > 0) {
-              const eur = (data.currency === 'EUR' ? 1 : (exchangeRate || 0.92)) * last.price;
-              add[p.symbol] = eur; add[String(p.symbol).toLowerCase()] = eur;
+      for (const s of syms) {
+        try {
+          let series = null;
+          if (s.category === 'crypto') {
+            const tkr = (s.symbol || '').toLowerCase();
+            const id = CG_IDS[tkr] || tkr;
+            const fromSec = Math.floor(new Date(s.start + 'T00:00:00Z').getTime() / 1000) - 86400;
+            const url = `https://api.coingecko.com/api/v3/coins/${encodeURIComponent(id)}/market_chart/range?vs_currency=eur&from=${fromSec}&to=${nowSec}`;
+            const res = await fetch(url);
+            if (res.ok) {
+              const data = await res.json();
+              series = (data.prices || [])
+                .map(pt => ({ timestamp: new Date(pt[0]).toISOString(), price: pt[1] }))
+                .filter(r => typeof r.price === 'number' && r.price > 0);
             }
-          } catch (e) { console.warn('[SAVINGS] stock price fetch failed for', sym, e && e.message); }
-        }
+          } else if (workerBase.length > 5) {
+            const sym = (s.symbol || '').toUpperCase();
+            const months = Math.max(1, Math.ceil((Date.now() - new Date(s.start).getTime()) / (30 * 86400000)));
+            const range = months <= 1 ? '1mo' : months <= 3 ? '3mo' : months <= 6 ? '6mo' : months <= 12 ? '1y' : months <= 24 ? '2y' : months <= 60 ? '5y' : months <= 120 ? '10y' : 'max';
+            const url = `${workerBase}?action=yf&symbol=${encodeURIComponent(sym)}&interval=1d&range=${range}`;
+            const res = await fetch(url, { signal: AbortSignal.timeout(10000) });
+            if (res.ok) {
+              const data = await res.json();
+              const rate = data.currency === 'EUR' ? 1 : (exchangeRate || 0.92);
+              series = (data.prices || [])
+                .filter(r => r && typeof r.price === 'number' && r.price > 0)
+                .map(r => ({ timestamp: r.date || r.timestamp, price: r.price * rate }));
+            }
+          }
+          if (series && series.length) {
+            histAdd[s.symbol] = series;
+            const last = series[series.length - 1].price;
+            priceAdd[s.symbol] = last;
+            priceAdd[(s.symbol || '').toLowerCase()] = last;
+          }
+        } catch (e) { console.warn('[SAVINGS] history fetch failed for', s.symbol, e && e.message); }
       }
-      if (Object.keys(add).length) setPrices(prev => ({ ...prev, ...add }));
+      if (Object.keys(histAdd).length) setSavingsHistory(prev => ({ ...prev, ...histAdd }));
+      if (Object.keys(priceAdd).length) setPrices(prev => ({ ...prev, ...priceAdd }));
     })();
   }, [prices, apiKeys, exchangeRate]);
 

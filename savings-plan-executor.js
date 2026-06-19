@@ -231,6 +231,38 @@
     return { transactions: txs, created: created, pending: pending, removedDuplicates: deduped.removed };
   }
 
+  // Re-price already-booked ESTIMATED executions once an accurate per-date price
+  // becomes available (e.g. after historical prices are fetched). Keeps the
+  // original EUR amount invested for that occurrence and recomputes the quantity
+  // at the true close, then clears the estimated flag. Only touches auto
+  // executions flagged estimatedPrice:true - manual rows are never altered.
+  function repriceEstimated(transactions, resolveAccurate, fxUsdToEur) {
+    var repriced = 0;
+    var out = (transactions || []).map(function (tx) {
+      if (!isExecution(tx) || tx.estimatedPrice !== true) return tx;
+      var price = resolveAccurate ? num(resolveAccurate(tx.symbol, tx.dueDate)) : null;
+      if (!(price > 0)) return tx;
+      var amountEUR;
+      if (num(tx.planAmount) != null) {
+        amountEUR = (tx.planAmountCurrency === 'USD')
+          ? num(tx.planAmount) * (num(fxUsdToEur) && num(fxUsdToEur) > 0 ? num(fxUsdToEur) : DEFAULT_USD_EUR)
+          : num(tx.planAmount);
+      } else {
+        // Older auto rows without planAmount: the EUR invested is quantity*price.
+        amountEUR = num(tx.quantity) * num(tx.price);
+      }
+      if (!(amountEUR > 0)) return tx;
+      repriced++;
+      return Object.assign({}, tx, {
+        price: price,
+        quantity: amountEUR / price,
+        estimatedPrice: false,
+        notes: 'Savings plan auto-execution'
+      });
+    });
+    return { transactions: out, repriced: repriced };
+  }
+
   var api = {
     PLANS_KEY: PLANS_KEY,
     occurrences: occurrences,
@@ -243,6 +275,7 @@
     amountToEUR: amountToEUR,
     priceAtDate: priceAtDate,
     priceForBackfill: priceForBackfill,
+    repriceEstimated: repriceEstimated,
     runCatchUp: runCatchUp
   };
   if (typeof window !== 'undefined') window.MaerminSavingsExecutor = api;
