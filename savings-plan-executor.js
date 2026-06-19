@@ -128,7 +128,7 @@
 
   // Build the real buy transaction for one due occurrence. price = EUR price
   // per unit at the due date; the caller resolves it (null -> stays pending).
-  function buildTransaction(plan, dueDate, priceEUR) {
+  function buildTransaction(plan, dueDate, priceEUR, estimated) {
     var amount = num(plan.amount) || 0;
     var price = num(priceEUR);
     if (!(amount > 0) || !(price > 0)) return null;
@@ -142,12 +142,13 @@
       fees: 0,
       currency: 'EUR',
       date: dueDate,
-      notes: 'Savings plan auto-execution',
+      notes: estimated ? 'Savings plan auto-execution (estimated price)' : 'Savings plan auto-execution',
       portfolioId: plan.portfolioId || 'default',
       source: 'savings-plan',
       planId: plan.id,
       dueDate: dueDate,
-      auto: true
+      auto: true,
+      estimatedPrice: !!estimated
     };
   }
 
@@ -175,6 +176,20 @@
     return null;
   }
 
+  // Like priceAtDate but never leaves a back-dated occurrence unbooked when a
+  // current price exists: if no recorded price covers the due date, fall back
+  // to the live price and flag the result as an ESTIMATE so the booked buy is
+  // transparently marked (note + estimatedPrice) and stays editable. Returns
+  // { price, estimated } or null when not even a live price is available.
+  function priceForBackfill(history, prices, symbol, dueDateISO) {
+    var exact = priceAtDate(history, prices, symbol, dueDateISO);
+    if (exact != null) return { price: exact, estimated: false };
+    var sym = String(symbol || '');
+    var live = num((prices || {})[sym]) || num((prices || {})[sym.toLowerCase()]) || num((prices || {})[sym.toUpperCase()]);
+    if (live != null && live > 0) return { price: live, estimated: true };
+    return null;
+  }
+
   // One catch-up pass (pure): dedupe sync collisions, book every resolvable
   // due occurrence, report the rest as pending with a reason.
   function runCatchUp(plans, transactions, resolvePrice, asOfISO, newId) {
@@ -184,8 +199,10 @@
     var created = [];
     var idGen = newId || function (i) { return Date.now().toString() + '-sp' + i; };
     pendingExecutions(plans, txs, asOfISO).forEach(function (item, i) {
-      var price = resolvePrice ? resolvePrice(item.plan, item.dueDate) : null;
-      var tx = buildTransaction(item.plan, item.dueDate, price);
+      var resolved = resolvePrice ? resolvePrice(item.plan, item.dueDate) : null;
+      var price = resolved, estimated = false;
+      if (resolved != null && typeof resolved === 'object') { price = resolved.price; estimated = !!resolved.estimated; }
+      var tx = buildTransaction(item.plan, item.dueDate, price, estimated);
       if (tx) {
         tx.id = idGen(i);
         created.push(tx);
@@ -207,6 +224,7 @@
     dedupeExecutions: dedupeExecutions,
     buildTransaction: buildTransaction,
     priceAtDate: priceAtDate,
+    priceForBackfill: priceForBackfill,
     runCatchUp: runCatchUp
   };
   if (typeof window !== 'undefined') window.MaerminSavingsExecutor = api;

@@ -297,7 +297,9 @@ function InvestmentTracker() {
     try {
       const plans = JSON.parse(localStorage.getItem(EX.PLANS_KEY) || '[]');
       if (!Array.isArray(plans) || !plans.length) return;
-      const resolvePrice = (plan, dueDate) => EX.priceAtDate(priceHistory, prices, plan.symbol, dueDate);
+      const resolvePrice = (plan, dueDate) => EX.priceForBackfill
+        ? EX.priceForBackfill(priceHistory, prices, plan.symbol, dueDate)
+        : EX.priceAtDate(priceHistory, prices, plan.symbol, dueDate);
       const out = EX.runCatchUp(plans, transactions, resolvePrice);
       if (out.created.length || out.removedDuplicates) {
         setTransactions(out.transactions);
