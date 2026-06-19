@@ -313,6 +313,32 @@ function InvestmentTracker() {
     } catch (e) { console.warn('[SAVINGS] catch-up failed:', e); }
   }, [prices, transactions, priceHistory, exchangeRate]);
 
+  // Forms & Modals
+  const [newTransaction, setNewTransaction] = useState({
+    type: 'buy',
+    category: 'crypto',
+    symbol: '',
+    quantity: '',
+    price: '',
+    date: window.MaerminUtils.todayISO(),
+    fees: '',
+    notes: '',
+    currency: 'EUR', // Track which currency the transaction was added in
+    targetPortfolioId: 'default',
+  });
+  const [showTransactionModal, setShowTransactionModal] = useState(false);
+  const [overviewMode, setOverviewMode] = useState('all'); // 'all' | activePortfolioId
+  // Which sidebar hub (Analytics / Discover & Tools) is expanded. '' = none.
+  const [openHub, setOpenHub] = useState('');
+  const [editingTransactionId, setEditingTransactionId] = useState(null); // null = adding new, id = editing
+  const [showImportModal, setShowImportModal] = useState(false);
+  const [importData, setImportData] = useState('');
+  const [showAlertModal, setShowAlertModal] = useState(false);
+  const [showPasswordModal, setShowPasswordModal] = useState(false);
+  const [apiKeys, setApiKeys] = useState(() => {
+    try { return JSON.parse(localStorage.getItem('apiKeys') || '{}'); } catch { return {}; }
+  });
+
   // Price assets that ONLY appear in a savings plan (not yet held) so their
   // back-dated occurrences can be booked. Held assets are already priced by the
   // main refresh; this fills the plan-only gap with a CURRENT price (crypto via
@@ -376,31 +402,6 @@ function InvestmentTracker() {
     })();
   }, [prices, apiKeys, exchangeRate]);
 
-  // Forms & Modals
-  const [newTransaction, setNewTransaction] = useState({
-    type: 'buy',
-    category: 'crypto',
-    symbol: '',
-    quantity: '',
-    price: '',
-    date: window.MaerminUtils.todayISO(),
-    fees: '',
-    notes: '',
-    currency: 'EUR', // Track which currency the transaction was added in
-    targetPortfolioId: 'default',
-  });
-  const [showTransactionModal, setShowTransactionModal] = useState(false);
-  const [overviewMode, setOverviewMode] = useState('all'); // 'all' | activePortfolioId
-  // Which sidebar hub (Analytics / Discover & Tools) is expanded. '' = none.
-  const [openHub, setOpenHub] = useState('');
-  const [editingTransactionId, setEditingTransactionId] = useState(null); // null = adding new, id = editing
-  const [showImportModal, setShowImportModal] = useState(false);
-  const [importData, setImportData] = useState('');
-  const [showAlertModal, setShowAlertModal] = useState(false);
-  const [showPasswordModal, setShowPasswordModal] = useState(false);
-  const [apiKeys, setApiKeys] = useState(() => {
-    try { return JSON.parse(localStorage.getItem('apiKeys') || '{}'); } catch { return {}; }
-  });
   const [showApiSettings, setShowApiSettings] = useState(false);
   const [showSettings, setShowSettings] = useState(false);
 
