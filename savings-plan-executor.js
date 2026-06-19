@@ -128,16 +128,31 @@
 
   // Build the real buy transaction for one due occurrence. price = EUR price
   // per unit at the due date; the caller resolves it (null -> stays pending).
-  function buildTransaction(plan, dueDate, priceEUR, estimated) {
+  // Plan amounts may be entered in EUR or USD. Prices are stored in EUR, so a
+  // USD amount is converted with the (daily) USD->EUR rate before the quantity
+  // is derived: quantity = amountEUR / priceEUR. The original amount + currency
+  // travel on the transaction for transparency.
+  var DEFAULT_USD_EUR = 0.92;
+  function amountToEUR(plan, fxUsdToEur) {
+    var amount = num(plan && plan.amount) || 0;
+    var cur = (plan && plan.amountCurrency === 'USD') ? 'USD' : 'EUR';
+    if (cur !== 'USD') return amount;
+    var fx = num(fxUsdToEur);
+    return amount * (fx && fx > 0 ? fx : DEFAULT_USD_EUR);
+  }
+
+  function buildTransaction(plan, dueDate, priceEUR, estimated, fxUsdToEur) {
     var amount = num(plan.amount) || 0;
     var price = num(priceEUR);
     if (!(amount > 0) || !(price > 0)) return null;
+    var cur = (plan.amountCurrency === 'USD') ? 'USD' : 'EUR';
+    var amountEUR = amountToEUR(plan, fxUsdToEur);
     return {
       type: 'buy',
       category: plan.category || 'crypto',
       symbol: plan.symbol,
       symbolName: plan.symbolName || '',
-      quantity: amount / price,
+      quantity: amountEUR / price,
       price: price,
       fees: 0,
       currency: 'EUR',
@@ -148,7 +163,9 @@
       planId: plan.id,
       dueDate: dueDate,
       auto: true,
-      estimatedPrice: !!estimated
+      estimatedPrice: !!estimated,
+      planAmount: amount,
+      planAmountCurrency: cur
     };
   }
 
@@ -192,7 +209,7 @@
 
   // One catch-up pass (pure): dedupe sync collisions, book every resolvable
   // due occurrence, report the rest as pending with a reason.
-  function runCatchUp(plans, transactions, resolvePrice, asOfISO, newId) {
+  function runCatchUp(plans, transactions, resolvePrice, asOfISO, newId, fxUsdToEur) {
     var deduped = dedupeExecutions(transactions);
     var txs = deduped.transactions;
     var pending = [];
@@ -202,7 +219,7 @@
       var resolved = resolvePrice ? resolvePrice(item.plan, item.dueDate) : null;
       var price = resolved, estimated = false;
       if (resolved != null && typeof resolved === 'object') { price = resolved.price; estimated = !!resolved.estimated; }
-      var tx = buildTransaction(item.plan, item.dueDate, price, estimated);
+      var tx = buildTransaction(item.plan, item.dueDate, price, estimated, fxUsdToEur);
       if (tx) {
         tx.id = idGen(i);
         created.push(tx);
@@ -223,6 +240,7 @@
     pendingExecutions: pendingExecutions,
     dedupeExecutions: dedupeExecutions,
     buildTransaction: buildTransaction,
+    amountToEUR: amountToEUR,
     priceAtDate: priceAtDate,
     priceForBackfill: priceForBackfill,
     runCatchUp: runCatchUp

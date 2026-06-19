@@ -285,32 +285,96 @@ function InvestmentTracker() {
   // runCatchUp is idempotent - the (planId, dueDate) marker on each booked
   // transaction guarantees a due date can never book twice - so the second
   // pass and re-renders are safe.
-  const savingsCatchUp = React.useRef({ ran: false, ranWithPrices: false });
+  // Savings-plan catch-up is idempotent (per-(planId,dueDate) markers), so it can
+  // safely re-run whenever prices, transactions or the FX rate change - that is
+  // what lets a late-arriving plan-symbol price book the back-dated occurrences.
+  // The (daily) USD->EUR rate is threaded through so USD plan amounts convert.
+  const savingsCatchUp = React.useRef({ pendingToasted: false });
   useEffect(() => {
     const EX = window.MaerminSavingsExecutor;
     if (!EX) return;
     const havePrices = Object.keys(prices).length > 0;
-    if (savingsCatchUp.current.ranWithPrices) return;
-    if (savingsCatchUp.current.ran && !havePrices) return;
-    savingsCatchUp.current.ran = true;
-    if (havePrices) savingsCatchUp.current.ranWithPrices = true;
     try {
       const plans = JSON.parse(localStorage.getItem(EX.PLANS_KEY) || '[]');
       if (!Array.isArray(plans) || !plans.length) return;
       const resolvePrice = (plan, dueDate) => EX.priceForBackfill
         ? EX.priceForBackfill(priceHistory, prices, plan.symbol, dueDate)
         : EX.priceAtDate(priceHistory, prices, plan.symbol, dueDate);
-      const out = EX.runCatchUp(plans, transactions, resolvePrice);
+      const out = EX.runCatchUp(plans, transactions, resolvePrice, undefined, undefined, exchangeRate);
       if (out.created.length || out.removedDuplicates) {
         setTransactions(out.transactions);
         if (out.created.length) addToast(`${out.created.length} savings-plan execution(s) booked`, 'success');
         if (out.removedDuplicates) addToast(`${out.removedDuplicates} duplicate auto-execution(s) removed after sync`, 'info');
       }
-      if (out.pending.length && havePrices) {
-        addToast(`${out.pending.length} savings-plan execution(s) pending - no price for the due date yet`, 'warning');
+      if (out.pending.length && havePrices && !savingsCatchUp.current.pendingToasted) {
+        savingsCatchUp.current.pendingToasted = true;
+        addToast(`${out.pending.length} savings-plan execution(s) pending - no price for the symbol yet`, 'warning');
       }
     } catch (e) { console.warn('[SAVINGS] catch-up failed:', e); }
-  }, [prices, transactions]);
+  }, [prices, transactions, priceHistory, exchangeRate]);
+
+  // Price assets that ONLY appear in a savings plan (not yet held) so their
+  // back-dated occurrences can be booked. Held assets are already priced by the
+  // main refresh; this fills the plan-only gap with a CURRENT price (crypto via
+  // CoinGecko in EUR; stocks via the YF Worker, USD->EUR at the daily rate).
+  // Attempted once per distinct symbol set.
+  const savingsPriceFetch = React.useRef('');
+  useEffect(() => {
+    const EX = window.MaerminSavingsExecutor;
+    if (!EX) return;
+    let plans;
+    try { plans = JSON.parse(localStorage.getItem(EX.PLANS_KEY) || '[]'); } catch (e) { return; }
+    if (!Array.isArray(plans) || !plans.length) return;
+
+    const CG_IDS = { btc:'bitcoin', eth:'ethereum', sol:'solana', ada:'cardano', xrp:'ripple', doge:'dogecoin', dot:'polkadot', ltc:'litecoin', bch:'bitcoin-cash', link:'chainlink', matic:'matic-network', avax:'avalanche-2', bnb:'binancecoin', trx:'tron', usdt:'tether', usdc:'usd-coin', uni:'uniswap', atom:'cosmos', etc:'ethereum-classic' };
+    const need = plans.filter(p => p && p.active !== false && p.symbol &&
+      (p.category === 'crypto' || p.category === 'stocks') &&
+      prices[p.symbol] == null && prices[(p.symbol || '').toLowerCase()] == null);
+    if (!need.length) return;
+    const sig = need.map(p => p.category + ':' + p.symbol).sort().join('|');
+    if (savingsPriceFetch.current === sig) return;
+    savingsPriceFetch.current = sig;
+
+    (async () => {
+      const add = {};
+      const cryptos = need.filter(p => p.category === 'crypto');
+      if (cryptos.length) {
+        const idToSym = {};
+        cryptos.forEach(p => { const tkr = (p.symbol || '').toLowerCase(); idToSym[CG_IDS[tkr] || tkr] = p.symbol; });
+        const ids = Object.keys(idToSym).join(',');
+        try {
+          const res = await fetch(`https://api.coingecko.com/api/v3/simple/price?ids=${encodeURIComponent(ids)}&vs_currencies=eur`);
+          if (res.ok) {
+            const data = await res.json();
+            Object.keys(data).forEach(id => {
+              const eur = data[id] && data[id].eur;
+              const orig = idToSym[id];
+              if (typeof eur === 'number' && eur > 0 && orig) { add[orig] = eur; add[String(orig).toLowerCase()] = eur; }
+            });
+          }
+        } catch (e) { console.warn('[SAVINGS] crypto price fetch failed:', e); }
+      }
+      const stocks = need.filter(p => p.category === 'stocks');
+      const workerBase = (apiKeys.cs2Worker || '').trim().replace(/\/$/, '');
+      if (stocks.length && workerBase.length > 5) {
+        for (const p of stocks) {
+          const sym = (p.symbol || '').toUpperCase();
+          try {
+            const url = `${workerBase}?action=yf&symbol=${encodeURIComponent(sym)}&interval=1d&range=5d`;
+            const res = await fetch(url, { signal: AbortSignal.timeout(8000) });
+            if (!res.ok) continue;
+            const data = await res.json();
+            const last = data.prices?.[data.prices.length - 1];
+            if (last?.price > 0) {
+              const eur = (data.currency === 'EUR' ? 1 : (exchangeRate || 0.92)) * last.price;
+              add[p.symbol] = eur; add[String(p.symbol).toLowerCase()] = eur;
+            }
+          } catch (e) { console.warn('[SAVINGS] stock price fetch failed for', sym, e && e.message); }
+        }
+      }
+      if (Object.keys(add).length) setPrices(prev => ({ ...prev, ...add }));
+    })();
+  }, [prices, apiKeys, exchangeRate]);
 
   // Forms & Modals
   const [newTransaction, setNewTransaction] = useState({

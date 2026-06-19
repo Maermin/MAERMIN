@@ -281,7 +281,7 @@ function SavingsPlanView({ transactions, theme, formatPrice, getCurrencySymbol, 
   // The form lives in a MODAL now - the projection graph above made the old
   // inline card scroll out of view.
   const [editPlan, setEditPlan] = useState(null);
-  const emptyForm = () => ({ symbol: '', amount: '', frequency: 'monthly', category: 'crypto', startDate: window.MaerminUtils.todayISO(), endDate: '', noEnd: true, portfolioId: activePortfolioId || 'default' });
+  const emptyForm = () => ({ symbol: '', amount: '', amountCurrency: 'EUR', frequency: 'monthly', category: 'crypto', startDate: window.MaerminUtils.todayISO(), endDate: '', noEnd: true, portfolioId: activePortfolioId || 'default' });
   const [form, setForm] = useState(emptyForm);
 
   useEffect(() => { localStorage.setItem('maermin_savings_plans', JSON.stringify(plans)); }, [plans]);
@@ -292,7 +292,8 @@ function SavingsPlanView({ transactions, theme, formatPrice, getCurrencySymbol, 
       symbol: plan.symbol || '', amount: String(plan.amount || ''), frequency: plan.frequency || 'monthly',
       category: plan.category || 'crypto', startDate: plan.startDate || window.MaerminUtils.todayISO(),
       endDate: plan.endDate || '', noEnd: !plan.endDate,
-      portfolioId: plan.portfolioId || activePortfolioId || 'default'
+      portfolioId: plan.portfolioId || activePortfolioId || 'default',
+      amountCurrency: plan.amountCurrency || 'EUR'
     });
     setEditPlan(plan);
   };
@@ -304,7 +305,8 @@ function SavingsPlanView({ transactions, theme, formatPrice, getCurrencySymbol, 
     const fields = {
       symbol: form.symbol.trim(), amount: parseFloat(form.amount), frequency: form.frequency,
       category: form.category, startDate: form.startDate, endDate,
-      portfolioId: form.portfolioId || 'default'
+      portfolioId: form.portfolioId || 'default',
+      amountCurrency: form.amountCurrency === 'USD' ? 'USD' : 'EUR'
     };
     if (editPlan === 'new') {
       setPlans(prev => [...prev, { id: Date.now().toString(), ...fields, active: true, createdAt: new Date().toISOString() }]);
@@ -391,8 +393,22 @@ function SavingsPlanView({ transactions, theme, formatPrice, getCurrencySymbol, 
           inp('symbol', { placeholder: 'BTC, ETH, AAPL...' })
         ),
         React.createElement('div', null,
-          React.createElement('label', { style: { display: 'block', color: theme.textSecondary, fontSize: '0.72rem', marginBottom: '0.25rem', textTransform: 'uppercase' } }, 'Amount per execution (€)'),
-          inp('amount', { type: 'number', placeholder: '100' })
+          React.createElement('label', { style: { display: 'block', color: theme.textSecondary, fontSize: '0.72rem', marginBottom: '0.25rem', textTransform: 'uppercase' } }, 'Amount per execution'),
+          React.createElement('div', { style: { display: 'flex', gap: '0.4rem' } },
+            React.createElement('input', {
+              value: form.amount, onChange: e => setForm(p => ({ ...p, amount: e.target.value })),
+              type: 'number', placeholder: '100',
+              style: { flex: 1, minWidth: 0, padding: '0.625rem 0.875rem', background: theme.inputBg, border: `1px solid ${theme.inputBorder}`, borderRadius: '8px', color: theme.text, fontSize: '0.875rem' }
+            }),
+            React.createElement('select', {
+              value: form.amountCurrency, onChange: e => setForm(p => ({ ...p, amountCurrency: e.target.value })),
+              'aria-label': 'Amount currency',
+              style: { padding: '0.625rem 0.4rem', background: theme.inputBg, border: `1px solid ${theme.inputBorder}`, borderRadius: '8px', color: theme.text, fontSize: '0.875rem', cursor: 'pointer' }
+            },
+              React.createElement('option', { value: 'EUR' }, '€ EUR'),
+              React.createElement('option', { value: 'USD' }, '$ USD')
+            )
+          )
         ),
         React.createElement('div', null,
           React.createElement('label', { style: { display: 'block', color: theme.textSecondary, fontSize: '0.72rem', marginBottom: '0.25rem', textTransform: 'uppercase' } }, 'Frequency'),
@@ -460,7 +476,7 @@ function SavingsPlanView({ transactions, theme, formatPrice, getCurrencySymbol, 
                   React.createElement('div', { style: { display: 'flex', alignItems: 'center', gap: '0.625rem', marginBottom: '0.375rem', flexWrap: 'wrap' } },
                     React.createElement('span', { style: { color: theme.text, fontWeight: '800', fontSize: '1.1rem' } }, plan.symbol),
                     React.createElement('span', { style: { fontSize: '0.7rem', padding: '0.15rem 0.5rem', background: `${theme.accent}22`, color: theme.accent, borderRadius: '4px', fontWeight: '600' } }, FREQ_LABELS[plan.frequency]),
-                    React.createElement('span', { style: { fontSize: '0.7rem', color: theme.textSecondary } }, `€${plan.amount.toFixed(0)}/execution`),
+                    React.createElement('span', { style: { fontSize: '0.7rem', color: theme.textSecondary } }, `${plan.amountCurrency === 'USD' ? '$' : '€'}${plan.amount.toFixed(0)}/execution`),
                     // Status: active / completed (end date passed) / paused.
                     React.createElement('span', {
                       style: {
