@@ -708,12 +708,14 @@ function InvestmentTracker() {
       // holdings, manual additions and sync updates — anything that changes the
       // derived portfolio). No-op without an FMP key; static map still applies.
       if (window.MaerminEquityMeta) {
-        window.MaerminEquityMeta.prefetchPortfolio(portfolio)
+        // Resolve sector/country through the Worker (Yahoo assetProfile) — no FMP
+        // key needed; falls back to FMP if a key is set, static map otherwise.
+        window.MaerminEquityMeta.prefetchPortfolio(portfolio, { workerUrl: apiKeys.cs2Worker })
           .then((n) => { if (n > 0) setMetaVersion(v => v + 1); }) // refresh Strategy views once metadata lands
           .catch(() => {});
       }
     }
-  }, [portfolio]);
+  }, [portfolio, apiKeys.cs2Worker]);
 
   // ========== API FUNCTIONS ==========
   

@@ -62,7 +62,22 @@
     'AZN.L': ['Healthcare', 'UK'], 'HSBA.L': ['Financials', 'UK'], 'SHEL.L': ['Energy', 'UK'], 'BP.L': ['Energy', 'UK'], 'ULVR.L': ['Consumer Staples', 'UK'],
     // Asia
     BABA: ['Consumer Discretionary', 'China'], NIO: ['Consumer Discretionary', 'China'], TCEHY: ['Communication Services', 'China'],
-    TSM: ['Technology', 'Taiwan'], SONY: ['Technology', 'Japan'], TM: ['Consumer Discretionary', 'Japan']
+    TSM: ['Technology', 'Taiwan'], SONY: ['Technology', 'Japan'], TM: ['Consumer Discretionary', 'Japan'],
+    // Additional common holdings (immediate coverage before Worker enrichment)
+    CHKP: ['Technology', 'Israel'], FISV: ['Technology', 'USA'], FI: ['Technology', 'USA'],
+    KHC: ['Consumer Staples', 'USA'], NVO: ['Healthcare', 'Denmark'], NVS: ['Healthcare', 'Switzerland'],
+    ASML: ['Technology', 'Netherlands'], AZN: ['Healthcare', 'UK'], SHEL: ['Energy', 'UK'], BP: ['Energy', 'UK'],
+    'SIX2.DE': ['Industrials', 'Germany'], 'RWE.DE': ['Utilities', 'Germany'], 'MRK.DE': ['Healthcare', 'Germany'],
+    'NOVO-B.CO': ['Healthcare', 'Denmark'], 'NESN.SW': ['Consumer Staples', 'Switzerland'],
+    PYPL: ['Financials', 'USA'], SQ: ['Technology', 'USA'], PLTR: ['Technology', 'USA'],
+    CVS: ['Healthcare', 'USA'],
+    GILD: ['Healthcare', 'USA'], AMGN: ['Healthcare', 'USA'], BMY: ['Healthcare', 'USA'],
+    INTU: ['Technology', 'USA'], NOW: ['Technology', 'USA'], UBER: ['Technology', 'USA'],
+    DE: ['Industrials', 'USA'], LMT: ['Industrials', 'USA'], RTX: ['Industrials', 'USA'],
+    // World/ex-US index ETFs (Strategy treats ETFs as their broad exposure)
+    VWCE: ['ETF', 'Global'], 'VWCE.DE': ['ETF', 'Global'], 'VWRL.L': ['ETF', 'Global'],
+    'EUNL.DE': ['ETF', 'Global'], 'IWDA.AS': ['ETF', 'Global'], 'VUSA.L': ['ETF', 'USA'],
+    'SXR8.DE': ['ETF', 'USA'], 'XDWD.DE': ['ETF', 'Global']
   };
 
   function norm(symbol) {
@@ -113,7 +128,7 @@
       .then(function (data) {
         var p = Array.isArray(data) ? data[0] : data;
         if (!p) return null;
-        var meta = { sector: p.sector || 'Other', country: countryName(p.country) || 'Other', industry: p.industry || '' };
+        var meta = { sector: sectorName(p.sector) || 'Other', country: countryName(p.country) || 'Other', industry: p.industry || '' };
         saveToCache(sym, meta);
         return meta;
       })
@@ -123,22 +138,66 @@
   // FMP returns ISO country codes (US, DE, …) on some endpoints; map the common
   // ones to readable names so the chart labels match the static map.
   var ISO = { US: 'USA', DE: 'Germany', GB: 'UK', FR: 'France', NL: 'Netherlands', CH: 'Switzerland',
-    CN: 'China', JP: 'Japan', TW: 'Taiwan', CA: 'Canada', AU: 'Australia', IT: 'Italy', ES: 'Spain', SE: 'Sweden' };
-  function countryName(c) { if (!c) return null; return ISO[c] || c; }
+    CN: 'China', JP: 'Japan', TW: 'Taiwan', CA: 'Canada', AU: 'Australia', IT: 'Italy', ES: 'Spain', SE: 'Sweden',
+    DK: 'Denmark', IL: 'Israel', IE: 'Ireland', FI: 'Finland', NO: 'Norway', BE: 'Belgium', AT: 'Austria' };
+  // Yahoo assetProfile returns FULL country names; normalise the few that differ
+  // from the labels the static map / chart legend use.
+  var NAME = { 'United States': 'USA', 'United Kingdom': 'UK', 'Korea, Republic of': 'South Korea' };
+  function countryName(c) { if (!c) return null; return ISO[c] || NAME[c] || c; }
 
-  // Warm the cache for all stock holdings (missing + uncached only). No key →
-  // resolves immediately. Safe to call on every portfolio change.
-  function prefetchPortfolio(portfolio) {
+  // Yahoo's assetProfile sector taxonomy differs from the GICS-style labels the
+  // static map and the chart colours use; map them so Worker-resolved and
+  // static-resolved holdings land in the SAME bucket (no "Financials" vs
+  // "Financial Services" split). Unmapped sectors pass through unchanged.
+  var SECTOR_NAME = {
+    'Financial Services': 'Financials',
+    'Consumer Cyclical': 'Consumer Discretionary',
+    'Consumer Defensive': 'Consumer Staples',
+    'Basic Materials': 'Materials'
+  };
+  function sectorName(s) { if (!s) return null; return SECTOR_NAME[s] || s; }
+
+  // Resolve sector/country via the user's Worker (Yahoo assetProfile) — the same
+  // source already used for stock prices, so no extra API key is needed. Returns
+  // null on any failure (caller keeps the static/Other fallback). Caches on hit.
+  function fetchFromWorker(symbol, workerUrl) {
+    var sym = norm(symbol);
+    var base = (workerUrl || '').trim().replace(/\/$/, '');
+    if (!sym || base.length < 5) return Promise.resolve(null);
+    var url = base + '?action=profile&symbol=' + encodeURIComponent(sym);
+    return fetch(url)
+      .then(function (r) { if (!r.ok) throw new Error('http ' + r.status); return r.json(); })
+      .then(function (data) {
+        if (!data || data.error || (!data.sector && !data.country)) return null;
+        var meta = { sector: sectorName(data.sector) || 'Other', country: countryName(data.country) || 'Other', industry: data.industry || '' };
+        saveToCache(sym, meta);
+        return meta;
+      })
+      .catch(function () { return null; });
+  }
+
+  // Warm the cache for all stock holdings (missing + uncached only). Resolves
+  // sector/country through the user's Worker (Yahoo assetProfile) when a Worker
+  // URL is supplied — no FMP key required — and falls back to the FMP profile
+  // API when a key is set. With neither, resolves 0 (the static map still
+  // applies). Safe to call on every portfolio change.
+  function prefetchPortfolio(portfolio, opts) {
+    opts = opts || {};
+    var workerUrl = opts.workerUrl;
+    var hasWorker = !!(workerUrl && String(workerUrl).trim().length >= 5);
+    var hasKey = !!getApiKey();
     var stocks = (portfolio && portfolio.stocks) || [];
-    if (!getApiKey() || stocks.length === 0) return Promise.resolve(0);
+    if ((!hasWorker && !hasKey) || stocks.length === 0) return Promise.resolve(0);
     var seen = {}, todo = [];
     stocks.forEach(function (s) {
       var sym = norm(s.symbol || s.name);
       if (sym && !seen[sym] && !getFromCache(sym)) { seen[sym] = true; todo.push(sym); }
     });
     if (todo.length === 0) return Promise.resolve(0);
-    return Promise.all(todo.map(function (sym) { return fetchFromAPI(sym); }))
-      .then(function (rows) { return rows.filter(Boolean).length; });
+    var resolveOne = hasWorker
+      ? function (sym) { return fetchFromWorker(sym, workerUrl); }
+      : function (sym) { return fetchFromAPI(sym); };
+    return Promise.all(todo.map(resolveOne)).then(function (rows) { return rows.filter(Boolean).length; });
   }
 
   var api = {
@@ -147,7 +206,10 @@
     getFromCache: getFromCache,
     saveToCache: saveToCache,
     fetchFromAPI: fetchFromAPI,
+    fetchFromWorker: fetchFromWorker,
     prefetchPortfolio: prefetchPortfolio,
+    countryName: countryName,
+    sectorName: sectorName,
     _norm: norm
   };
   if (typeof window !== 'undefined') window.MaerminEquityMeta = api;
