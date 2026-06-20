@@ -1120,14 +1120,14 @@ function PositionNotesView({ portfolio, theme, t }) {
 // ─────────────────────────────────────────────────────────────────────────────
 // 5. DIVIDEND CALENDAR
 // ─────────────────────────────────────────────────────────────────────────────
-function DividendCalendarView({ portfolio, theme, t, addToast, events: eventsProp, setEvents: setEventsProp }) {
+function DividendCalendarView({ portfolio, prices, metaVersion, theme, t, addToast, events: eventsProp, setEvents: setEventsProp }) {
   // Controlled when the parent passes events/setEvents (so auto-fetched payments
   // appear immediately); otherwise self-manage from localStorage (standalone use).
   const controlled = eventsProp != null && typeof setEventsProp === 'function';
   const [localEvents, setLocalEvents] = useState(() => {
     try { return JSON.parse(localStorage.getItem('maermin_divevents') || '[]'); } catch { return []; }
   });
-  const events = controlled ? eventsProp : localEvents;
+  const manualEvents = controlled ? eventsProp : localEvents;
   const setEvents = controlled ? setEventsProp : setLocalEvents;
   const [showAdd, setShowAdd] = useState(false);
   const [form, setForm] = useState({ symbol: '', date: '', amount: '', currency: 'EUR', notes: '' });
@@ -1135,6 +1135,34 @@ function DividendCalendarView({ portfolio, theme, t, addToast, events: eventsPro
 
   // Persist only when uncontrolled — the parent owns persistence otherwise.
   useEffect(() => { if (!controlled) localStorage.setItem('maermin_divevents', JSON.stringify(localEvents)); }, [localEvents, controlled]);
+
+  // AUTO-DERIVED payments: every individual payout from every dividend-paying
+  // holding for the next 12 months, straight from the dividend service (warmed
+  // via the Worker for all symbols). Read-only; merged with manual entries.
+  // metaVersion is in the deps so it refreshes once the Worker data lands.
+  const derivedEvents = useMemo(() => {
+    const svc = window.DividendDataService;
+    if (!svc || typeof svc.buildPaymentSchedule !== 'function') return [];
+    try {
+      return svc.buildPaymentSchedule(portfolio, {}).map(p => ({
+        id: `derived-${p.symbol}-${p.date}`,
+        symbol: p.symbol, date: p.date, amount: p.amount, currency: p.currency,
+        notes: `≈ ${p.perShare.toFixed(3)}/sh × ${p.shares} · ${p.frequency || 'est.'}`,
+        derived: true
+      }));
+    } catch (e) { return []; }
+  }, [portfolio, prices, metaVersion]);
+
+  // Display set = genuinely manual entries + auto-derived payments. Stale
+  // "auto-" snapshots from the old button flow are superseded by the live
+  // derived schedule, so they are hidden (they remain in storage and can be
+  // cleared via the auto-fetch button). Manual entries always win on a date.
+  const events = useMemo(() => {
+    const manualOnly = manualEvents.filter(e => !String(e.id).startsWith('auto-'));
+    const taken = new Set(manualOnly.map(e => `${(e.symbol || '').toUpperCase()}|${e.date}`));
+    const extra = derivedEvents.filter(e => !taken.has(`${(e.symbol || '').toUpperCase()}|${e.date}`));
+    return manualOnly.concat(extra);
+  }, [manualEvents, derivedEvents]);
 
   const addEvent = () => {
     if (!form.symbol || !form.date || !form.amount) return;
@@ -1225,13 +1253,20 @@ function DividendCalendarView({ portfolio, theme, t, addToast, events: eventsPro
           },
             d && React.createElement('div', { style: { fontSize: '0.75rem', fontWeight: isToday ? '700' : '400', color: isToday ? theme.accent : theme.text, marginBottom: '0.25rem' } }, d),
             evs.map(e =>
-              React.createElement('div', {
+              React.createElement('div', Object.assign({
                 key: e.id,
-                title: `${e.symbol}: ${e.amount} ${e.currency}${e.notes ? ' · ' + e.notes : ''}`,
-                'aria-label': `Delete dividend ${e.symbol} ${e.amount} ${e.currency}`,
-                style: { background: 'rgba(34,197,94,0.15)', color: '#22c55e', fontSize: '0.65rem', fontWeight: '600', padding: '0.15rem 0.3rem', borderRadius: '3px', marginBottom: '0.15rem', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', cursor: 'pointer' },
-                ...window.MaerminUtils.clickable(() => { if (window.confirm(`Delete dividend? ${e.symbol} ${e.amount} ${e.currency}`)) setEvents(prev => prev.filter(ev => ev.id !== e.id)); })
-              }, `${e.symbol} +${e.amount}${e.currency==='EUR'?'€':'$'}`)
+                title: `${e.symbol}: ${e.amount} ${e.currency}${e.notes ? ' · ' + e.notes : ''}${e.derived ? ' · projected' : ''}`,
+                'aria-label': e.derived ? `Projected dividend ${e.symbol} ${e.amount} ${e.currency}` : `Delete dividend ${e.symbol} ${e.amount} ${e.currency}`,
+                style: {
+                  background: e.derived ? 'rgba(59,130,246,0.14)' : 'rgba(34,197,94,0.15)',
+                  color: e.derived ? '#7cb0ff' : '#22c55e',
+                  fontSize: '0.65rem', fontWeight: '600', padding: '0.15rem 0.3rem', borderRadius: '3px', marginBottom: '0.15rem',
+                  overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
+                  cursor: e.derived ? 'default' : 'pointer',
+                  borderLeft: e.derived ? '2px solid rgba(59,130,246,0.6)' : 'none'
+                }
+              }, e.derived ? {} : window.MaerminUtils.clickable(() => { if (window.confirm(`Delete dividend? ${e.symbol} ${e.amount} ${e.currency}`)) setEvents(prev => prev.filter(ev => ev.id !== e.id)); })),
+              `${e.symbol} +${e.amount}${e.currency==='EUR'?'€':'$'}`)
             )
           );
         })

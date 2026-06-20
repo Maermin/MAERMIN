@@ -264,6 +264,56 @@ var DividendDataService = {
     return map[frequency] || 4;
   },
 
+  // Build a dated, per-payment dividend schedule for every dividend-paying
+  // holding across the next `months` (default 12) — the source for the Dividend
+  // Calendar. ONE entry per individual payout (symbol + pay date + amount), so
+  // the user sees who pays when and how much. Pure over the resolved per-symbol
+  // data (cache → DB), so it covers any payer warmed by prefetchPortfolio.
+  // opts: { months, now } (now injectable for tests). Returns sorted rows:
+  //   { symbol, date(ISO), perShare, shares, amount, currency, frequency }
+  buildPaymentSchedule: function(portfolio, opts) {
+    opts = opts || {};
+    var self = this;
+    var months = opts.months || 12;
+    var now = opts.now ? new Date(opts.now) : new Date();
+    var horizon = new Date(now); horizon.setMonth(horizon.getMonth() + months);
+    var stocks = (portfolio && portfolio.stocks) || [];
+    var out = [];
+    stocks.forEach(function (s) {
+      var sym = (s.symbol || s.name || '').toUpperCase();
+      var shares = parseFloat(s.amount) || 0;
+      if (!sym || shares <= 0) return;
+      var d = self.getDividendData(sym);              // cache (Worker/FMP) → built-in DB
+      if (!d || !(d.annualDividend > 0)) return;
+      var ppy = self.getPaymentsPerYear(d.frequency);
+      var monthsPerPay = Math.max(1, Math.round(12 / ppy));
+      var perShare = d.annualDividend / ppy;
+      var amount = perShare * shares;
+      var currency = d.currency || 'USD';
+
+      // Anchor the first pay date: prefer the real ex-date, else the stored
+      // ex-month, else next month; roll to the next upcoming occurrence; pay
+      // ~14 days after ex.
+      var anchor = null;
+      if (d.exDate) { var a = new Date(d.exDate); if (!isNaN(a.getTime())) anchor = a; }
+      if (!anchor && Array.isArray(d.exMonths) && d.exMonths.length) {
+        anchor = new Date(now.getFullYear(), d.exMonths[0] - 1, 15);
+      }
+      if (!anchor) { anchor = new Date(now); anchor.setMonth(anchor.getMonth() + 1); }
+      while (anchor.getTime() < now.getTime()) anchor.setMonth(anchor.getMonth() + monthsPerPay);
+      var pay = new Date(anchor); pay.setDate(pay.getDate() + 14);
+
+      for (var pd = new Date(pay); pd.getTime() <= horizon.getTime(); pd.setMonth(pd.getMonth() + monthsPerPay)) {
+        out.push({
+          symbol: sym, date: pd.toISOString().split('T')[0],
+          perShare: perShare, shares: shares,
+          amount: Math.round(amount * 100) / 100, currency: currency, frequency: d.frequency
+        });
+      }
+    });
+    return out.sort(function (a, b) { return a.date < b.date ? -1 : (a.date > b.date ? 1 : 0); });
+  },
+
   // Return EXACTLY `count` ex-dividend month numbers. Uses the stored months
   // when they already cover the frequency; otherwise spreads `count` payments
   // evenly across the year (so a monthly payer gets 12, not the default 4).

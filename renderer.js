@@ -1788,7 +1788,7 @@ function InvestmentTracker() {
       React.createElement('div', { style: { flex: 1, overflow: 'auto' } },
         tab === 'calendar' && window.MaerminFeatures2 ?
           React.createElement(window.MaerminFeatures2.DividendCalendarView, {
-            portfolio, theme, t, addToast, events: divEvents, setEvents: setDivEvents
+            portfolio, prices, metaVersion, theme, t, addToast, events: divEvents, setEvents: setDivEvents
           }) : null,
         tab === 'forecast' && window.MaerminFeatures4 ?
           React.createElement(window.MaerminFeatures4.DividendForecastView, {
