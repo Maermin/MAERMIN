@@ -1147,8 +1147,8 @@ function DividendCalendarView({ portfolio, prices, metaVersion, theme, t, addToa
       return svc.buildPaymentSchedule(portfolio, {}).map(p => ({
         id: `derived-${p.symbol}-${p.date}`,
         symbol: p.symbol, date: p.date, amount: p.amount, currency: p.currency,
-        notes: `≈ ${p.perShare.toFixed(3)}/sh × ${p.shares} · ${p.frequency || 'est.'}`,
-        derived: true
+        notes: `≈ ${p.perShare.toFixed(3)}/sh × ${p.shares} · ${p.frequency || 'est.'}${p.past ? ' · received' : ''}`,
+        derived: true, past: !!p.past
       }));
     } catch (e) { return []; }
   }, [portfolio, prices, metaVersion]);
@@ -1271,12 +1271,12 @@ function DividendCalendarView({ portfolio, prices, metaVersion, theme, t, addToa
                 title: `${e.symbol}: ${e.amount} ${e.currency}${e.notes ? ' · ' + e.notes : ''}${e.derived ? ' · projected' : ''}`,
                 'aria-label': e.derived ? `Projected dividend ${e.symbol} ${e.amount} ${e.currency}` : `Delete dividend ${e.symbol} ${e.amount} ${e.currency}`,
                 style: {
-                  background: e.derived ? 'rgba(59,130,246,0.14)' : 'rgba(34,197,94,0.15)',
-                  color: e.derived ? '#7cb0ff' : '#22c55e',
+                  background: e.past ? 'rgba(148,163,184,0.12)' : (e.derived ? 'rgba(59,130,246,0.14)' : 'rgba(34,197,94,0.15)'),
+                  color: e.past ? '#94a3b8' : (e.derived ? '#7cb0ff' : '#22c55e'),
                   fontSize: '0.65rem', fontWeight: '600', padding: '0.15rem 0.3rem', borderRadius: '3px', marginBottom: '0.15rem',
                   overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
                   cursor: e.derived ? 'default' : 'pointer',
-                  borderLeft: e.derived ? '2px solid rgba(59,130,246,0.6)' : 'none'
+                  borderLeft: e.past ? '2px solid rgba(148,163,184,0.5)' : (e.derived ? '2px solid rgba(59,130,246,0.6)' : 'none')
                 }
               }, e.derived ? {} : window.MaerminUtils.clickable(() => { if (window.confirm(`Delete dividend? ${e.symbol} ${e.amount} ${e.currency}`)) setEvents(prev => prev.filter(ev => ev.id !== e.id)); })),
               `${e.symbol} +${e.amount}${e.currency==='EUR'?'€':'$'}`)

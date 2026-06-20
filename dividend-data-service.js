@@ -274,8 +274,10 @@ var DividendDataService = {
   buildPaymentSchedule: function(portfolio, opts) {
     opts = opts || {};
     var self = this;
-    var months = opts.months || 12;
+    var months = opts.months || 12;                          // forward window
+    var back = opts.back != null ? opts.back : 12;           // trailing window (already-received payouts)
     var now = opts.now ? new Date(opts.now) : new Date();
+    var start = new Date(now); start.setMonth(start.getMonth() - back);
     var horizon = new Date(now); horizon.setMonth(horizon.getMonth() + months);
     var stocks = (portfolio && portfolio.stocks) || [];
     var out = [];
@@ -306,11 +308,22 @@ var DividendDataService = {
       var pay = new Date(anchor); pay.setDate(pay.getDate() + 14);
       while (pay.getTime() < now.getTime()) pay.setMonth(pay.getMonth() + monthsPerPay);
 
-      for (var pd = new Date(pay); pd.getTime() <= horizon.getTime(); pd.setMonth(pd.getMonth() + monthsPerPay)) {
+      // Walk BACK from the next upcoming pay to the earliest payout still inside
+      // the trailing window, so already-received payments this year are included
+      // (and the yearly total reconciles). Each row is flagged past vs upcoming.
+      var first = new Date(pay);
+      while (true) {
+        var prev = new Date(first); prev.setMonth(prev.getMonth() - monthsPerPay);
+        if (prev.getTime() < start.getTime()) break;
+        first = prev;
+      }
+
+      for (var pd = new Date(first); pd.getTime() <= horizon.getTime(); pd.setMonth(pd.getMonth() + monthsPerPay)) {
         out.push({
           symbol: sym, date: pd.toISOString().split('T')[0],
           perShare: perShare, shares: shares,
-          amount: Math.round(amount * 100) / 100, currency: currency, frequency: d.frequency
+          amount: Math.round(amount * 100) / 100, currency: currency, frequency: d.frequency,
+          past: pd.getTime() < now.getTime()
         });
       }
     });
