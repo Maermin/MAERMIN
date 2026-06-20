@@ -247,6 +247,26 @@ thin shell over them. It is fully gated: with no Worker URL, or against a Worker
 predates the endpoint (400/404), it shows a clear upgrade note instead of breaking. No
 data is persisted and nothing sensitive is sent, so it adds no `SENSITIVE_KEYS`.
 
+**Portfolio Intelligence** (`portfolio-intelligence.js` → `MaerminIntelligence`) is the
+Feature-1 (v10) surface under **Discover & Tools** (one new view, reached from the
+sidebar hub + command palette `g i`). It is an *aggregator*, not a new analytics engine:
+the pure `analyzeFromInputs(inputs, opts)` runs ten structural checks — single-company
+(effective/look-through), hidden concentration, sector overexposure, country risk,
+currency risk, correlation clusters (fund overlap), style drift (sector tilt vs a broad
+market reference), dividend trap, yield trap and liquidity risk — and ranks every finding
+into the spec's three priorities (**critical → important → optimization**) with a concrete
+recommendation per finding. `gatherInputs` feeds it from the existing single sources of
+truth only: `MaerminLookThrough.analyze()` (the renderer reuses its already-fetched
+`lookThroughResult` from Health) for effective/sector/country/currency exposure and fund
+overlap, `MaerminMetrics` for the direct-concentration/currency/liquidity fallback when
+fund data has not loaded yet, and the one `DividendDataService` for the dividend/yield-trap
+signals. Nothing is persisted (no new `SENSITIVE_KEYS`, no migration — findings are derived
+on every render); `toExport()` yields a redaction-safe finding list (advice text +
+percentages, never amounts) for the Professional-Reports feature. The pure layer is
+Node-tested (`test/portfolio-intelligence.test.js`) and the `View` is registered in
+`smoke-views`. Accessibility: the priority chips and finding list use `role="list"`/
+`listitem` with `aria-label`s and `aria-hidden` status glyphs.
+
 ---
 
 ## Build & test
