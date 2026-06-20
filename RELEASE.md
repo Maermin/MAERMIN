@@ -1,5 +1,32 @@
 # Release Notes
 
+## [v10.0.0] — June 2026
+
+> **Major release** · New UI · Fully backward compatible · Backup format unchanged (round-trips v9 backups)
+
+### Highlights
+
+- **New dark-fintech UI** — redesigned typography (Hanken Grotesk · Space Grotesk · JetBrains Mono), a soft radial-wash background, and refreshed chrome across the app.
+- **Portfolio Value Snapshots** *(new)* — an on-device, append-only history of your total value. It is recorded daily from the value you actually saw, so the curve survives price-API outages and offline days. Pure engine `window.MaerminSnapshots` (`portfolio-snapshots.js`).
+- **Smart Tags / Labels** *(new)* — user-defined, cross-cutting labels on symbols ("high-conviction", "dividend", "speculative", …) that are orthogonal to asset class, with per-tag value & weight rollups. Engine `window.MaerminTags` (`tags.js`).
+- **Custom Dashboard Layout** *(new)* — reorder and hide Overview cards; the layout reconciles safely against whatever widgets a build ships. Engine `window.MaerminDashboard` (`dashboard-layout.js`).
+- **Portfolio Intelligence** — structural-problem detection (delivered in the v10 line) surfaced under Discover & Tools.
+
+### Backup & Data
+
+- The full-vault backup now also carries the three new feature stores: `maermin_snapshots`, `maermin_tags`, `maermin_dashboard_layout`. As always, secrets (`apiKeys`) are never written to the plain-text backup, and a restore only writes whitelisted keys.
+- Backup `version` stamped `10.0.0`; older backups still restore (keys absent from a backup are left untouched).
+- New on-device data only — no schema migration required.
+
+### Engineering
+
+- Three new pure dual-export IIFE modules with headless Node tests (`test/portfolio-snapshots.test.js`, `test/tags.test.js`, `test/dashboard-layout.test.js`) — same "integrate, don't accrete" pattern as the rest of the codebase.
+- Snapshot recording is a single best-effort top-level effect in `renderer.js` (never throws into a render); it reuses the Overview's value aggregation.
+- Service-worker cache bumped to `maermin-v4` so existing installs pull the new UI and modules.
+- All version strings moved to **v10.0** (package.json, index.html, build, features modules, Electron main, README).
+
+---
+
 ## [v9.0.0] — March 2026
 
 > **Major release** · Fully backward compatible · Update your Cloudflare Worker

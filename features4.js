@@ -1,5 +1,5 @@
 // ============================================================================
-// MAERMIN v9.0 — Portfolio Management Features
+// MAERMIN v10.0 — Portfolio Management Features
 // 1. Multi-Portfolio Manager   — mehrere Depots / Portfolios
 // 2. Savings Plan Tracker      — Sparplan-Tracking mit Statistiken
 // 3. Dividend Forecast         — 12-Monats-Prognose basierend auf Vergangenheit
@@ -904,6 +904,6 @@ window.MaerminFeatures4 = {
   calcFIFO,
 };
 
-console.log('[OK] MAERMIN Features4 v9.0 — Multi-Portfolio, Sparplan, Dividenden-Prognose, FIFO');
+console.log('[OK] MAERMIN Features4 v10.0 — Multi-Portfolio, Sparplan, Dividenden-Prognose, FIFO');
 
 })();

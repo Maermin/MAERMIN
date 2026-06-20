@@ -1,5 +1,5 @@
 // ============================================================================
-// MAERMIN v9.0 — Advanced Portfolio Features
+// MAERMIN v10.0 — Advanced Portfolio Features
 // 1. Benchmark Comparison     — portfolio vs BTC / S&P500 proxy / Gold
 // 2. Position Detail Modal    — click any position for full breakdown
 // 3. CAGR per Position        — annualized return column in positions table
@@ -1169,6 +1169,6 @@ window.MaerminFeatures3 = {
   SymbolPicker,
 };
 
-console.log('[OK] MAERMIN Features3 v9.0 loaded — Benchmark, Position Detail, CAGR, Daily P&L, CS2 Skin Picker, Symbol Picker');
+console.log('[OK] MAERMIN Features3 v10.0 loaded — Benchmark, Position Detail, CAGR, Daily P&L, CS2 Skin Picker, Symbol Picker');
 
 })();

@@ -1,5 +1,5 @@
 // ============================================================================
-// MAERMIN v9.0 - Main Application
+// MAERMIN v10.0 - Main Application
 // Professional Multi-Asset Portfolio Tracker with Advanced Investment Analytics
 // ============================================================================
 
@@ -645,6 +645,43 @@ function InvestmentTracker() {
   useEffect(() => { localStorage.setItem('taxJurisdiction', taxJurisdiction); }, [taxJurisdiction]);
   useEffect(() => { localStorage.setItem('privacyMode', privacyMode ? '1' : '0'); }, [privacyMode]);
   useEffect(() => { localStorage.setItem('apiKeys', JSON.stringify(apiKeys)); }, [apiKeys]);
+
+  // v10: record a daily Portfolio Value Snapshot (window.MaerminSnapshots). This
+  // is the on-device, ground-truth value history that survives price-API outages
+  // and is carried in the full-vault backup. One point per day per portfolio;
+  // a same-day change overwrites that day, so this can never bloat storage. Never
+  // records in demo mode (would pollute the real series with sample prices).
+  useEffect(() => {
+    try {
+      if (demoMode || !window.MaerminSnapshots) return;
+      const byPid = {}; // portfolioId -> combined total
+      let combined = 0;
+      const posMap = {};
+      transactions.forEach((tx) => {
+        const pid = tx.portfolioId || 'default';
+        const category = tx.category || 'crypto';
+        const key = pid + '|' + category + '-' + (tx.symbol || '').toLowerCase();
+        if (!posMap[key]) posMap[key] = { pid, symbol: tx.symbol, amount: 0 };
+        const qty = parseFloat(tx.quantity) || 0;
+        if (tx.type === 'buy') posMap[key].amount += qty;
+        else if (tx.type === 'sell') posMap[key].amount = Math.max(0, posMap[key].amount - qty);
+      });
+      Object.values(posMap).forEach((pos) => {
+        if (pos.amount <= 0.0001) return;
+        const sym = pos.symbol || '';
+        const pr = prices[sym] || prices[sym.toLowerCase()] || prices[sym.toUpperCase()] || 0;
+        const val = pos.amount * pr;
+        combined += val;
+        byPid[pos.pid] = (byPid[pos.pid] || 0) + val;
+      });
+      if (combined > 0) {
+        window.MaerminSnapshots.record(combined); // combined 'all' series
+        Object.keys(byPid).forEach((pid) => {
+          if (byPid[pid] > 0) window.MaerminSnapshots.record(byPid[pid], pid);
+        });
+      }
+    } catch (e) { /* snapshots are best-effort; never break a render */ }
+  }, [transactions, prices, demoMode]);
 
   // First run: open the guided setup wizard once when there's no Worker, no data
   // and we're not in demo mode. A flag keeps it from reappearing every load.
@@ -4381,7 +4418,7 @@ buy,crypto,bitcoin,0.5,45000,2024-01-15,10`)
             color: currentTheme.accent,
             letterSpacing: '0.02em'
           }
-        }, 'v9.0'),
+        }, 'v10.0'),
 
       ),
 
@@ -4854,7 +4891,7 @@ function __maerminMount() {
   // post-unlock, so encrypted data is already hydrated and readable).
   try { if (window.MaerminMigrations) window.MaerminMigrations.run(); } catch (e) { console.error('[migrations]', e); }
   root.render(React.createElement(InvestmentTracker));
-  dbg('[MAERMIN v9.0] Application initialized');
+  dbg('[MAERMIN v10.0] Application initialized');
 }
 // Wait for the vault to be unlocked before mounting, so the app reads DECRYPTED
 // data (storage.js hydrates the in-memory store during unlock). Falls back to an

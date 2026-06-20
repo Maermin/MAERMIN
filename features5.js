@@ -1,5 +1,5 @@
 // ============================================================================
-// MAERMIN v9.0 — Professional Analytics Features
+// MAERMIN v10.0 — Professional Analytics Features
 // 1. Performance Period Selector  — 1D / 1W / 1M / YTD / 1Y / Max
 // 2. Net Worth Dashboard          — Vermögen inkl. Cash, Immobilien, Schulden
 // 3. Cashflow Chart               — Investiert vs. Portfoliowert über Zeit
@@ -705,6 +705,6 @@ window.MaerminFeatures5 = {
   FeeAnalyzer,
 };
 
-console.log('[OK] MAERMIN Features5 v9.0 — Performance Periods, Net Worth, Cashflow, Fee Analyzer');
+console.log('[OK] MAERMIN Features5 v10.0 — Performance Periods, Net Worth, Cashflow, Fee Analyzer');
 
 })();

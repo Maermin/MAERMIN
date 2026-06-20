@@ -75,7 +75,7 @@ const prodHtml = `<!DOCTYPE html>
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
-  <title>MAERMIN v9.0 - Professional Portfolio Tracker</title>
+  <title>MAERMIN v10.0 - Professional Portfolio Tracker</title>
   <link rel="manifest" href="manifest.webmanifest">
   <meta name="theme-color" content="#10151f">
   <link rel="icon" type="image/svg+xml" href="icon.svg">
@@ -90,7 +90,7 @@ ${cdnTags}
 <body>
   <div id="loading">
     <h1>MAERMIN</h1>
-    <div class="version-badge">v9.0</div>
+    <div class="version-badge">v10.0</div>
     <div class="subtitle">Multi-Asset Portfolio Tracker with Advanced Analysis</div>
     <div class="loader"></div>
   </div>

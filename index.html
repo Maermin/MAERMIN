@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
   <!-- GitHub Pages: CSP ohne 'self'-Beschränkung, alle nötigen APIs erlaubt -->
   <meta http-equiv="Content-Security-Policy" content="default-src 'self' https:; script-src 'self' 'unsafe-inline' https://unpkg.com https://cdnjs.cloudflare.com; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com data:; img-src 'self' data: https: https://community.akamai.steamstatic.com; connect-src 'self' https://api.coingecko.com https://api.exchangerate-api.com https://open.er-api.com https://www.alphavantage.co https://*.workers.dev https://cdnjs.cloudflare.com https://www.googleapis.com https://graph.microsoft.com; worker-src 'self'; manifest-src 'self'; object-src 'none';">
-  <title>MAERMIN v9.0 - Professional Portfolio Tracker</title>
+  <title>MAERMIN v10.0 - Professional Portfolio Tracker</title>
 
   <!-- Redesign typography: Hanken Grotesk (UI), Space Grotesk (headings/figures), JetBrains Mono (mono) -->
   <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -23,7 +23,7 @@
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 
   <!-- Open Graph / Social Preview -->
-  <meta property="og:title" content="MAERMIN v9.0 – Professional Portfolio Tracker">
+  <meta property="og:title" content="MAERMIN v10.0 – Professional Portfolio Tracker">
   <meta property="og:description" content="Multi-Asset Portfolio Tracker: Crypto, Stocks & CS2 Items mit Advanced Analytics">
   <meta property="og:type" content="website">
   
@@ -50,7 +50,7 @@
   
   <div id="loading">
     <h1>MAERMIN</h1>
-    <div class="version-badge">v9.0</div>
+    <div class="version-badge">v10.0</div>
     <div class="subtitle">Multi-Asset Portfolio Tracker with Advanced Analysis</div>
     <div id="module-status">Initializing...</div>
     <div class="loader"></div>
@@ -65,7 +65,7 @@
     };
   </script>
   
-  <!-- MAERMIN v9.0 - CORE MODULES -->
+  <!-- MAERMIN v10.0 - CORE MODULES -->
   <script>updateStatus('Loading core modules...');</script>
   <script src="utils.js"></script>
   <script src="data-quality.js"></script>
@@ -89,12 +89,12 @@
   <script src="import-mapping.js"></script>
   <script src="pdf-import.js"></script>
   
-  <!-- MAERMIN v9.0 - INVESTMENT ENGINES -->
+  <!-- MAERMIN v10.0 - INVESTMENT ENGINES -->
   <script>updateStatus('Loading investment engines...');</script>
   <script src="dca-analyzer-engine.js"></script>
   <script src="backtester.js"></script>
   
-  <!-- MAERMIN v9.0 - UI COMPONENTS -->
+  <!-- MAERMIN v10.0 - UI COMPONENTS -->
   <script>updateStatus('Loading UI components...');</script>
   <script src="ticker-validation.js"></script>
   <script src="equity-metadata.js"></script>
@@ -120,13 +120,16 @@
   <script src="dividend-quality.js"></script>
   <script src="risk-monitor.js"></script>
   <script src="portfolio-intelligence.js"></script>
+  <script src="portfolio-snapshots.js"></script>
+  <script src="tags.js"></script>
+  <script src="dashboard-layout.js"></script>
   <script src="options-engine.js"></script>
   <script src="recurring.js"></script>
   <script src="savings-plan-executor.js"></script>
   <script src="allocation.js"></script>
   <script src="projection.js"></script>
 
-  <!-- MAERMIN v9.0 - EXTENDED FEATURES -->
+  <!-- MAERMIN v10.0 - EXTENDED FEATURES -->
   <script>updateStatus('Loading extended features...');</script>
   <script src="features.js"></script>
   <script src="features2.js"></script>
@@ -156,8 +159,8 @@
       }, 300);
     });
     
-    console.log('%c[MAERMIN v9.0] Professional Portfolio Tracker', 'font-size: 20px; font-weight: bold; color: #7e22ce; background: #f3e8ff; padding: 8px;');
-    console.log('[INFO] v9.0: Benchmark, Position Detail, CAGR, Daily P&L, CS2 pricing');
+    console.log('%c[MAERMIN v10.0] Professional Portfolio Tracker', 'font-size: 20px; font-weight: bold; color: #7e22ce; background: #f3e8ff; padding: 8px;');
+    console.log('[INFO] v10.0: New UI · Portfolio Value Snapshots · Smart Tags · Custom Dashboard Layout');
     console.log('[INFO] DCA Analyzer, Dividend Tracker, Benchmark Comparison');
     console.log('[INFO] Goal Planning, Portfolio Optimization, Factor Analysis');
     console.log('[INFO] Sector Allocation, Currency Exposure, Liquidity Analysis');
@@ -179,10 +182,13 @@
         { name: 'Dividend Data Service', check: () => typeof window.DividendDataService !== 'undefined' },
         { name: 'Investment Views', check: () => typeof window.InvestmentViews !== 'undefined' },
         { name: 'Command Palette', check: () => typeof window.CommandPalette !== 'undefined' },
+        { name: 'Portfolio Snapshots', check: () => typeof window.MaerminSnapshots !== 'undefined' },
+        { name: 'Smart Tags', check: () => typeof window.MaerminTags !== 'undefined' },
+        { name: 'Dashboard Layout', check: () => typeof window.MaerminDashboard !== 'undefined' },
         { name: 'jsPDF', check: () => typeof window.jspdf !== 'undefined' }
       ];
       
-      console.log('[MODULE CHECK MAERMIN v9.0]');
+      console.log('[MODULE CHECK MAERMIN v10.0]');
       let loaded = 0;
       checks.forEach(item => {
         const status = item.check();

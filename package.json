@@ -1,7 +1,7 @@
 {
   "name": "maermin",
-  "version": "9.0.0",
-  "description": "MAERMIN v9.0 - Professional Multi-Asset Portfolio Tracker",
+  "version": "10.0.0",
+  "description": "MAERMIN v10.0 - Professional Multi-Asset Portfolio Tracker",
   "main": "main.js",
   "author": "MAERMIN Team",
   "license": "MIT",

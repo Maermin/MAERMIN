@@ -1,12 +1,13 @@
 // ============================================================================
 // MAERMIN v6.0 - Advanced Desktop Portfolio Tracker
-// Main Process with Multi-Window Support, SQLite, Backup & Plugin System
+// Main Process with Multi-Window Support, SQLite & Plugin System
+// NOTE: Backups are handled entirely in the renderer (renderer.js createBackup),
+// which exports the real localStorage-backed data to a JSON file.
 // ============================================================================
 
 const { app, BrowserWindow, ipcMain, dialog, Notification, Menu, globalShortcut } = require('electron');
 const path = require('path');
 const fs = require('fs');
-const crypto = require('crypto');
 
 // ============================================================================
 // CONFIGURATION
@@ -14,15 +15,14 @@ const crypto = require('crypto');
 
 const APP_CONFIG = {
   name: 'MAERMIN',
-  version: '6.0.0',
+  version: '10.0.0',
   dataDir: path.join(app.getPath('userData'), 'maermin-data'),
-  backupDir: path.join(app.getPath('userData'), 'maermin-backups'),
   pluginDir: path.join(app.getPath('userData'), 'maermin-plugins'),
   importWatchDir: path.join(app.getPath('documents'), 'MAERMIN-Import')
 };
 
 // Ensure directories exist
-[APP_CONFIG.dataDir, APP_CONFIG.backupDir, APP_CONFIG.pluginDir, APP_CONFIG.importWatchDir].forEach(dir => {
+[APP_CONFIG.dataDir, APP_CONFIG.pluginDir, APP_CONFIG.importWatchDir].forEach(dir => {
   if (!fs.existsSync(dir)) {
     fs.mkdirSync(dir, { recursive: true });
   }
@@ -404,167 +404,6 @@ ipcMain.handle('db-get-saved-queries', () => {
 });
 
 // ============================================================================
-// BACKUP SYSTEM
-// ============================================================================
-
-ipcMain.handle('create-backup', async (event, options = {}) => {
-  const { encrypt, password } = options;
-  const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
-  const backupName = `maermin-backup-${timestamp}.json`;
-  const backupPath = path.join(APP_CONFIG.backupDir, backupName);
-  
-  const backupData = {
-    version: APP_CONFIG.version,
-    timestamp: new Date().toISOString(),
-    database: db,
-    workspaces: workspaces
-  };
-  
-  let dataToWrite = JSON.stringify(backupData, null, 2);
-  
-  if (encrypt && password) {
-    dataToWrite = encryptData(dataToWrite, password);
-  }
-  
-  fs.writeFileSync(backupPath, dataToWrite);
-  
-  return { 
-    success: true, 
-    path: backupPath,
-    size: fs.statSync(backupPath).size,
-    encrypted: !!encrypt
-  };
-});
-
-ipcMain.handle('restore-backup', async (event, backupPath, password) => {
-  if (!fs.existsSync(backupPath)) {
-    return { success: false, error: 'Backup file not found' };
-  }
-  
-  try {
-    let data = fs.readFileSync(backupPath, 'utf8');
-    
-    // Check if encrypted
-    if (data.startsWith('{"encrypted":true')) {
-      if (!password) {
-        return { success: false, error: 'Password required for encrypted backup' };
-      }
-      const parsed = JSON.parse(data);
-      data = decryptData(parsed.data, password, parsed.iv, parsed.authTag);
-    }
-    
-    const backupData = JSON.parse(data);
-    
-    // Restore data
-    db = backupData.database;
-    workspaces = backupData.workspaces;
-    
-    saveDatabase();
-    saveWorkspaces();
-    
-    return { success: true, version: backupData.version, timestamp: backupData.timestamp };
-  } catch (e) {
-    return { success: false, error: e.message };
-  }
-});
-
-ipcMain.handle('list-backups', () => {
-  const backups = fs.readdirSync(APP_CONFIG.backupDir)
-    .filter(f => f.startsWith('maermin-backup-') && f.endsWith('.json'))
-    .map(f => {
-      const stats = fs.statSync(path.join(APP_CONFIG.backupDir, f));
-      return {
-        name: f,
-        path: path.join(APP_CONFIG.backupDir, f),
-        size: stats.size,
-        created: stats.birthtime
-      };
-    })
-    .sort((a, b) => b.created - a.created);
-  
-  return { success: true, backups };
-});
-
-ipcMain.handle('delete-backup', (event, backupPath) => {
-  if (fs.existsSync(backupPath)) {
-    fs.unlinkSync(backupPath);
-    return { success: true };
-  }
-  return { success: false, error: 'Backup not found' };
-});
-
-// Schedule automatic backups
-function scheduleAutoBackup() {
-  const settingsFile = path.join(APP_CONFIG.dataDir, 'settings.json');
-  let settings = { autoBackup: true, backupInterval: 'daily' };
-  
-  if (fs.existsSync(settingsFile)) {
-    try {
-      settings = JSON.parse(fs.readFileSync(settingsFile, 'utf8'));
-    } catch (e) {}
-  }
-  
-  if (settings.autoBackup) {
-    // Check last backup time
-    const lastBackupFile = path.join(APP_CONFIG.dataDir, 'last-backup.txt');
-    let shouldBackup = false;
-    
-    if (!fs.existsSync(lastBackupFile)) {
-      shouldBackup = true;
-    } else {
-      const lastBackup = new Date(fs.readFileSync(lastBackupFile, 'utf8'));
-      const now = new Date();
-      const hoursSinceBackup = (now - lastBackup) / (1000 * 60 * 60);
-      
-      if (settings.backupInterval === 'daily' && hoursSinceBackup >= 24) {
-        shouldBackup = true;
-      } else if (settings.backupInterval === 'weekly' && hoursSinceBackup >= 168) {
-        shouldBackup = true;
-      }
-    }
-    
-    if (shouldBackup) {
-      ipcMain.emit('create-backup', {}, {});
-      fs.writeFileSync(lastBackupFile, new Date().toISOString());
-    }
-  }
-}
-
-// ============================================================================
-// ENCRYPTION UTILITIES
-// ============================================================================
-
-function encryptData(data, password) {
-  const iv = crypto.randomBytes(16);
-  const key = crypto.scryptSync(password, 'maermin-salt', 32);
-  const cipher = crypto.createCipheriv('aes-256-gcm', key, iv);
-  
-  let encrypted = cipher.update(data, 'utf8', 'hex');
-  encrypted += cipher.final('hex');
-  
-  return JSON.stringify({
-    encrypted: true,
-    iv: iv.toString('hex'),
-    authTag: cipher.getAuthTag().toString('hex'),
-    data: encrypted
-  });
-}
-
-function decryptData(data, password, ivHex, authTagHex) {
-  const iv = Buffer.from(ivHex, 'hex');
-  const authTag = Buffer.from(authTagHex, 'hex');
-  const key = crypto.scryptSync(password, 'maermin-salt', 32);
-  const decipher = crypto.createDecipheriv('aes-256-gcm', key, iv);
-  
-  decipher.setAuthTag(authTag);
-  
-  let decrypted = decipher.update(data, 'hex', 'utf8');
-  decrypted += decipher.final('utf8');
-  
-  return decrypted;
-}
-
-// ============================================================================
 // PRICE ALERTS
 // ============================================================================
 
@@ -922,15 +761,6 @@ function createApplicationMenu() {
           click: () => mainWindow?.webContents.send('menu-export')
         },
         { type: 'separator' },
-        {
-          label: 'Create Backup',
-          click: () => mainWindow?.webContents.send('menu-backup')
-        },
-        {
-          label: 'Restore Backup...',
-          click: () => mainWindow?.webContents.send('menu-restore')
-        },
-        { type: 'separator' },
         isMac ? { role: 'close' } : { role: 'quit' }
       ]
     },
@@ -1101,8 +931,7 @@ app.whenReady().then(() => {
   createMainWindow();
   registerGlobalShortcuts();
   startFileWatcher();
-  scheduleAutoBackup();
-  
+
   app.on('activate', () => {
     if (BrowserWindow.getAllWindows().length === 0) {
       createMainWindow();
@@ -1132,7 +961,6 @@ ipcMain.handle('get-app-info', () => {
   return {
     version: APP_CONFIG.version,
     dataDir: APP_CONFIG.dataDir,
-    backupDir: APP_CONFIG.backupDir,
     pluginDir: APP_CONFIG.pluginDir,
     importWatchDir: APP_CONFIG.importWatchDir
   };

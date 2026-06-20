@@ -41,6 +41,10 @@
     'maermin_fire_settings',
     'maermin_tax_owner',
     'taxJurisdiction',
+    // v10 feature stores (see portfolio-snapshots.js / tags.js / dashboard-layout.js)
+    'maermin_snapshots',
+    'maermin_tags',
+    'maermin_dashboard_layout',
     'theme',
     'currency',
     'privacyMode'
