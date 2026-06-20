@@ -79,6 +79,27 @@ Nulls mean Yahoo has no value — the client falls back to its history-based
 heuristic. Cached 6 h; same cookie+crumb retry and degradation contract as
 `fundholdings`.
 
+### `GET /?action=profile&symbol=AAPL`
+Equity sector / industry / country for a holding — powers the Strategy tab's
+Sector & Country allocation **without a user FMP key** (Yahoo is already the
+stock-price source). Proxies Yahoo Finance `quoteSummary` (`assetProfile`,
+`price`):
+
+```jsonc
+{
+  "symbol": "AAPL",
+  "name": "Apple Inc.",
+  "currency": "USD",
+  "sector": "Technology",                // Yahoo taxonomy; client normalises to GICS labels
+  "industry": "Consumer Electronics",
+  "country": "United States"             // client maps to "USA" etc.
+}
+```
+
+Metadata is near-static → cached 30 days. Nulls mean Yahoo has no value; the
+client keeps the static-map / "Other" fallback. `MaerminEquityMeta` normalises
+Yahoo's "Financial Services"→"Financials", "United States"→"USA", etc.
+
 ### `GET /?action=search&q=ak47+redline`
 Steam Market CS2 skin search (USD, `currency=1`). Returns items with images.
 

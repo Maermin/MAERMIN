@@ -88,7 +88,7 @@ conversion happens only at format time (`formatPrice`).
 | Module | Global | Purpose |
 |--------|--------|---------|
 | `ticker-validation.js` | `MaerminTickers` | Normalise symbols (e.g. `BRK.B`→`BRK-B`, keep `SAP.DE`) |
-| `equity-metadata.js` | `MaerminEquityMeta` | Sector/country per ticker (FMP API + cache + static map) |
+| `equity-metadata.js` | `MaerminEquityMeta` | Sector/country per ticker — resolves via the Worker's `action=profile` (Yahoo `assetProfile`, no FMP key needed; falls back to the FMP profile API if a key is set) + 30-day cache + an expanded static map. Yahoo's sector/country labels are normalised to the app's GICS-style buckets. Powers the Strategy tab's Sector & Country allocation |
 | `dividend-data-service.js` | `DividendDataService` | Dividend data, FIFO forecast, calendar |
 | `tax-report-builder.js` | `MaerminTaxReport` | Per-lot FIFO tax report + PDF/Excel; for jurisdiction `de` integrates the GermanTax detail (`summary.germanDetail`, injectable via `opts.germanTax` for Node tests) |
 | `tax-settings.js` | `MaerminTaxSettings` | User-editable tax parameters (Abgeltung rate, Soli toggle, church tax, Freistellungsauftrag, crypto exemption, Teilfreistellung overrides) + per-position manual taxable overrides (sensitive). Pure `sanitize`/`computeAbgeltung`/`teilfreistellungRate`/`positionOverride`; the engine reads these and falls back to statutory defaults. Tested in `test/tax-settings.test.js` |
