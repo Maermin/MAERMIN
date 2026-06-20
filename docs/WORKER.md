@@ -71,13 +71,18 @@ the dividend quality scoring needs:
   "fiveYearAvgDividendYield": 0.031,    // fraction (normalised from Yahoo's percent)
   "payoutRatio": 0.74,                  // fraction
   "trailingEps": 2.61,
-  "forwardEps": 2.95
+  "forwardEps": 2.95,
+  "exDividendDate": "2026-09-15",       // ISO; next/last ex-date
+  "dividendDate": "2026-10-01",         // ISO; pay date
+  "lastDividendValue": 0.485            // last single payment → infer frequency
 }
 ```
 
 Nulls mean Yahoo has no value — the client falls back to its history-based
 heuristic. Cached 6 h; same cookie+crumb retry and degradation contract as
-`fundholdings`.
+`fundholdings`. The dividend date/value fields feed the **Dividend Calendar &
+Forecast** (`DividendDataService.fetchDividendFromWorker`) so any payer resolves
+without an FMP key; frequency is inferred from `dividendRate / lastDividendValue`.
 
 ### `GET /?action=profile&symbol=AAPL`
 Equity sector / industry / country for a holding — powers the Strategy tab's
