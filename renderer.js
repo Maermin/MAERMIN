@@ -703,7 +703,11 @@ function InvestmentTracker() {
   // the built-in ticker list. Cache + 24h TTL keep this within free-tier limits.
   useEffect(() => {
     if (portfolio.stocks && portfolio.stocks.length) {
-      if (window.DividendDataService) window.DividendDataService.prefetchPortfolio(portfolio).catch(() => {});
+      if (window.DividendDataService) {
+        window.DividendDataService.prefetchPortfolio(portfolio, { workerUrl: apiKeys.cs2Worker })
+          .then((n) => { if (n > 0) setMetaVersion(v => v + 1); }) // refresh Dividend Forecast once data lands
+          .catch(() => {});
+      }
       // Backfill sector/country metadata for the Strategy tab (covers existing
       // holdings, manual additions and sync updates — anything that changes the
       // derived portfolio). No-op without an FMP key; static map still applies.
@@ -1646,46 +1650,48 @@ function InvestmentTracker() {
       setFetching(true);
       let added = 0;
 
-      for (const sym of stockSymbols.slice(0, 8)) {
+      for (const sym of stockSymbols.slice(0, 20)) {
         let exDate = null, divPerShare = 0, currency = 'USD';
+        // Query Yahoo under the normalised/renamed ticker (e.g. FISV→FI, BRK.B→
+        // BRK-B) so renamed symbols resolve; keep `sym` for share-matching/labels.
+        const qsym = (window.MaerminTickers && window.MaerminTickers.normalizeForDividends(sym)) || sym;
 
-        // ── Primary: Yahoo Finance via Worker ──────────────────────────────
-        // YF quoteSummary returns calendarEvents with dividend info
+        // ── Primary: Yahoo Finance fundamentals via Worker ─────────────────
+        // The chart endpoint (action=yf) strips meta+events, so dividends come
+        // from action=fundamentals (Yahoo quoteSummary): real dividendRate,
+        // per-payment value (lastDividendValue) and the ex-date. Frequency is
+        // inferred from rate / last-payment so monthly/annual payers schedule
+        // correctly instead of being assumed quarterly.
         if (hasWorker) {
           try {
-            // Use YF chart endpoint — meta contains dividend rate
-            const url  = `${workerBase}?action=yf&symbol=${encodeURIComponent(sym)}&interval=1d&range=3mo`;
+            const url  = `${workerBase}?action=fundamentals&symbol=${encodeURIComponent(qsym)}`;
             const res  = await fetch(url, { signal: AbortSignal.timeout(8000) });
             if (res.ok) {
               const data = await res.json();
-              // Yahoo Finance chart meta contains dividendRate and exDividendDate
-              const meta = data.meta || {};
-              if (meta.dividendRate > 0) {
-                divPerShare = meta.dividendRate / 4; // quarterly approximation
-                // Look for upcoming ex-date from events
-                const events = data.events?.dividends || {};
-                const upcoming = Object.values(events).filter(e => e.date > Date.now()/1000 - 86400).sort((a,b) => a.date - b.date);
-                if (upcoming.length > 0) {
-                  exDate    = new Date(upcoming[0].date * 1000).toISOString().split('T')[0];
-                  divPerShare = upcoming[0].amount || divPerShare;
+              if (!data.error && data.dividendRate > 0) {
+                const ppy = (data.lastDividendValue > 0)
+                  ? Math.max(1, Math.round(data.dividendRate / data.lastDividendValue)) : 4;
+                divPerShare = data.lastDividendValue > 0 ? data.lastDividendValue : data.dividendRate / ppy;
+                exDate = data.exDividendDate || null;
+                // Roll a past ex-date forward by whole periods to the next estimate.
+                if (exDate) {
+                  const ex = new Date(exDate);
+                  const monthsPerPay = Math.max(1, Math.round(12 / ppy));
+                  while (ex.getTime() < Date.now() - 86400000) ex.setMonth(ex.getMonth() + monthsPerPay);
+                  exDate = ex.toISOString().split('T')[0];
                 }
-                // Fallback: use next quarter estimate
-                if (!exDate && meta.dividendRate > 0) {
-                  const nextQ = new Date();
-                  nextQ.setMonth(nextQ.getMonth() + 3);
-                  exDate = nextQ.toISOString().split('T')[0];
-                }
+                if (!exDate) { const nq = new Date(); nq.setMonth(nq.getMonth() + 3); exDate = nq.toISOString().split('T')[0]; }
                 currency = data.currency || 'USD';
-                dbg(`[DIV] YF ${sym}: €${divPerShare}/share, ex: ${exDate}`);
+                dbg(`[DIV] Fundamentals ${sym}: ${divPerShare}/share, ex: ${exDate}, ppy: ${ppy}`);
               }
             }
-          } catch(e) { console.warn('[DIV] YF failed for', sym, e.message); }
+          } catch(e) { console.warn('[DIV] fundamentals failed for', sym, e.message); }
         }
 
         // ── Fallback: Alpha Vantage OVERVIEW ──────────────────────────────
         if ((!exDate || !divPerShare) && avKey) {
           try {
-            const res  = await fetch(`https://www.alphavantage.co/query?function=OVERVIEW&symbol=${sym}&apikey=${avKey}`);
+            const res  = await fetch(`https://www.alphavantage.co/query?function=OVERVIEW&symbol=${qsym}&apikey=${avKey}`);
             const data = await res.json();
             const avExDate = data.ExDividendDate;
             const avDiv    = parseFloat(data.DividendPerShare) || 0;
@@ -1760,7 +1766,7 @@ function InvestmentTracker() {
           }) : null,
         tab === 'forecast' && window.MaerminFeatures4 ?
           React.createElement(window.MaerminFeatures4.DividendForecastView, {
-            transactions, portfolio, prices, theme, formatPrice, getCurrencySymbol
+            transactions, portfolio, prices, metaVersion, theme, formatPrice, getCurrencySymbol
           }) : null,
         // Dividend quality & safety fold-in (no new tab): per-payer safety
         // score, payout/streak/growth/coverage columns with a click-to-open

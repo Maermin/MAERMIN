@@ -280,14 +280,20 @@ var DividendDataService = {
     return months;
   },
 
-  // Warm the cache for a whole portfolio from the FMP API (when a key is set),
-  // so the synchronous getDividendData() resolves far more than the ~31 built-in
-  // tickers. No key → resolves immediately (DB-only). Safe to call on each price
-  // refresh; cache + 24h TTL keep it within the free-tier request budget.
-  prefetchPortfolio: function(portfolio) {
+  // Warm the cache for a whole portfolio so the synchronous getDividendData()
+  // resolves far more than the ~31 built-in tickers. Resolves via the user's
+  // Worker (Yahoo fundamentals) when a Worker URL is supplied — NO FMP key
+  // needed — and falls back to the FMP API when a key is set. With neither,
+  // resolves immediately (DB-only). Safe to call on each price refresh; the
+  // 24h client cache + the Worker's 6h server cache keep requests cheap.
+  prefetchPortfolio: function(portfolio, opts) {
+    opts = opts || {};
     var self = this;
+    var workerUrl = opts.workerUrl;
+    var hasWorker = !!(workerUrl && String(workerUrl).trim().length >= 5);
+    var hasKey = !!this.getApiKey();
     var stocks = (portfolio && portfolio.stocks) || [];
-    if (!this.getApiKey() || stocks.length === 0) return Promise.resolve(0);
+    if ((!hasWorker && !hasKey) || stocks.length === 0) return Promise.resolve(0);
     var norm = (typeof window !== 'undefined' && window.MaerminTickers)
       ? function (s) { return window.MaerminTickers.normalizeForDividends(s) || (s || '').toUpperCase(); }
       : function (s) { return (s || '').toUpperCase(); };
@@ -298,11 +304,65 @@ var DividendDataService = {
       if (sym && !seen[sym] && !self.getFromCache(sym)) { seen[sym] = true; symbols.push(sym); }
     });
     if (symbols.length === 0) return Promise.resolve(0);
-    return Promise.all(symbols.map(function (sym) {
-      return self.fetchDividendFromAPI(sym).catch(function () { return null; });
-    })).then(function (rows) {
+    var resolveOne = hasWorker
+      ? function (sym) { return self.fetchDividendFromWorker(sym, workerUrl); }
+      : function (sym) { return self.fetchDividendFromAPI(sym).catch(function () { return null; }); };
+    return Promise.all(symbols.map(resolveOne)).then(function (rows) {
       return rows.filter(Boolean).length;
     });
+  },
+
+  // Infer payment frequency from the annual rate and the last single payment
+  // (Yahoo's lastDividendValue). dividendRate / lastDividendValue ≈ payments/yr.
+  // No hint → European listings (suffixes) usually pay annually, US quarterly.
+  inferFrequency: function(annualRate, lastValue, symbol) {
+    var a = parseFloat(annualRate) || 0, l = parseFloat(lastValue) || 0;
+    if (a > 0 && l > 0) {
+      var ppy = Math.round(a / l);
+      if (ppy >= 10) return 'monthly';
+      if (ppy >= 3) return 'quarterly';
+      if (ppy === 2) return 'semi-annual';
+      if (ppy <= 1) return 'annual';
+    }
+    return /\.(DE|L|PA|AS|SW|CO|MI|VI|ST|HE|MC|F|BE|HM|DU|MU|SG)$/i.test(symbol || '') ? 'annual' : 'quarterly';
+  },
+
+  // Resolve dividend data through the user's Worker (Yahoo `fundamentals`) — the
+  // same source used for stock prices, so no FMP key is required. Returns null
+  // for non-payers / on any failure (caller keeps the DB / "no data" fallback).
+  fetchDividendFromWorker: function(symbol, workerUrl) {
+    var self = this;
+    var base = (workerUrl || '').trim().replace(/\/$/, '');
+    var norm = (typeof window !== 'undefined' && window.MaerminTickers)
+      ? function (s) { return window.MaerminTickers.normalizeForDividends(s) || (s || '').toUpperCase(); }
+      : function (s) { return (s || '').toUpperCase(); };
+    var sym = norm(symbol);
+    if (!sym || base.length < 5) return Promise.resolve(null);
+    var url = base + '?action=fundamentals&symbol=' + encodeURIComponent(sym);
+    return fetch(url)
+      .then(function (r) { if (!r.ok) throw new Error('http ' + r.status); return r.json(); })
+      .then(function (d) {
+        if (!d || d.error || !(d.dividendRate > 0)) return null;
+        var freq = self.inferFrequency(d.dividendRate, d.lastDividendValue, sym);
+        var exMonth = null;
+        if (d.exDividendDate) { var mo = new Date(d.exDividendDate).getUTCMonth(); if (!isNaN(mo)) exMonth = mo + 1; }
+        var record = {
+          symbol: sym,
+          annualDividend: d.dividendRate,
+          dividendPerShare: d.lastDividendValue > 0 ? d.lastDividendValue : d.dividendRate / self.getPaymentsPerYear(freq),
+          frequency: freq,
+          exMonths: exMonth ? [exMonth] : undefined,
+          exDate: d.exDividendDate || undefined,
+          payDate: d.dividendDate || undefined,
+          growthRate: 0,
+          yearsOfGrowth: 0,
+          currency: d.currency || 'USD',
+          fromWorker: true
+        };
+        self.saveToCache(sym, record);
+        return record;
+      })
+      .catch(function () { return null; });
   },
   
   // Get dividend data (cached, API, or database)

@@ -25,6 +25,22 @@
 
   function isExchangeSuffix(s) { return Object.prototype.hasOwnProperty.call(EXCHANGE_SUFFIXES, s); }
 
+  // Renamed/re-tickered companies — the "second converter". A stored symbol may
+  // be the OLD ticker while the data provider (Yahoo) only knows the new one, so
+  // a lookup under the stored symbol 404s (this is why FISV charts/dividends
+  // failed). Mapped to the current ticker before resolution. Keep conservative:
+  // only unambiguous, well-known one-to-one renames.
+  var RENAMES = {
+    FISV: 'FI',     // Fiserv → FI (2025)
+    FB:   'META',   // Facebook → Meta
+    RTN:  'RTX',    // Raytheon → RTX
+    ANTM: 'ELV',    // Anthem → Elevance Health
+    WLTW: 'WTW',    // Willis Towers Watson
+    SQ:   'XYZ',    // Block → XYZ (2025)
+    GOOGL: 'GOOGL'  // explicit no-op (kept for clarity; GOOG/GOOGL both valid)
+  };
+  function applyRename(sym) { return Object.prototype.hasOwnProperty.call(RENAMES, sym) ? RENAMES[sym] : sym; }
+
   // Break a raw symbol into parts. Recognises exchange suffix vs share class.
   function parseSymbol(raw) {
     var s = String(raw || '').trim().toUpperCase();
@@ -56,9 +72,9 @@
   function normalizeForDividends(raw) {
     var p = parseSymbol(raw);
     if (!p.clean) return '';
-    if (p.shareClass) return p.base + '-' + p.shareClass;
-    if (p.exchangeSuffix) return p.base + '.' + p.exchangeSuffix;
-    return p.base;
+    if (p.shareClass) return applyRename(p.base) + '-' + p.shareClass;
+    if (p.exchangeSuffix) return applyRename(p.base) + '.' + p.exchangeSuffix;
+    return applyRename(p.base);
   }
 
   // Only equities/ETFs pay dividends in this app's data model.
@@ -122,6 +138,7 @@
 
   var api = {
     EXCHANGE_SUFFIXES: EXCHANGE_SUFFIXES,
+    RENAMES: RENAMES,
     parseSymbol: parseSymbol,
     normalizeForDividends: normalizeForDividends,
     isDividendEligible: isDividendEligible,

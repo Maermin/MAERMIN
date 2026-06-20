@@ -547,7 +547,7 @@ function SavingsPlanView({ transactions, theme, formatPrice, getCurrencySymbol, 
 // 3. DIVIDEND FORECAST — 12-Monats-Prognose
 // Schaut auf historische Dividenden-Einträge und projiziert sie voraus
 // ─────────────────────────────────────────────────────────────────────────────
-function DividendForecastView({ transactions, portfolio, prices, theme, formatPrice, getCurrencySymbol }) {
+function DividendForecastView({ transactions, portfolio, prices, metaVersion, theme, formatPrice, getCurrencySymbol }) {
   const [forecastYears, setForecastYears] = React.useState(3);
 
   const dividends = useMemo(() =>
@@ -599,7 +599,7 @@ function DividendForecastView({ transactions, portfolio, prices, theme, formatPr
       });
     }
     return result.sort((a, b) => b.annualRate - a.annualRate);
-  }, [dividends, portfolio, prices]);
+  }, [dividends, portfolio, prices, metaVersion]);
 
   const isEstimated = forecasts.length > 0 && forecasts.every(f => f.source === 'estimated');
 
