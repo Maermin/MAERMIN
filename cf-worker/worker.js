@@ -445,6 +445,10 @@ export default {
         const raw = (x) => numOrNull(x?.raw ?? x);
 
         const fiveYear = raw(sd.fiveYearAvgDividendYield);
+        // Yahoo gives dividend dates as epoch SECONDS in {raw}; surface them as
+        // ISO dates so the Dividend Calendar & Forecast can schedule real ex/pay
+        // dates and infer the payment frequency (dividendRate / lastDividendValue).
+        const isoDate = (x) => { const s = raw(x); return s != null ? new Date(s * 1000).toISOString().split('T')[0] : null; };
         const payload = JSON.stringify({
           symbol,
           name: price.shortName || price.longName || symbol,
@@ -456,6 +460,9 @@ export default {
           payoutRatio: raw(sd.payoutRatio),              // fraction
           trailingEps: raw(ks.trailingEps),
           forwardEps: raw(ks.forwardEps),
+          exDividendDate: isoDate(sd.exDividendDate),    // next/last ex-date (ISO)
+          dividendDate: isoDate(sd.dividendDate),        // pay date (ISO)
+          lastDividendValue: raw(ks.lastDividendValue),  // last single payment → frequency
         });
         ctx.waitUntil(cache.put(cacheKey, new Response(payload, {
           headers: { 'Content-Type': 'application/json', 'Cache-Control': 'public, max-age=21600' }
