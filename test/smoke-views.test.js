@@ -105,6 +105,7 @@ const VIEW_MODULES = [
   { file: '../advisor.js',          ns: 'MaerminAdvisor',        comps: ['Panel', 'analyzePortfolio', 'analyzeFromMetrics'] },
   { file: '../onboarding.js',       ns: 'MaerminOnboarding',     comps: ['Wizard', 'probeAll', 'classify', 'endpoints'] },
   { file: '../discovery.js',        ns: 'MaerminDiscovery',      comps: ['View', 'parseResponse', 'buildUrl', 'sortRows', 'dividendScreen', 'toEURRow'] },
+  { file: '../portfolio-intelligence.js', ns: 'MaerminIntelligence', comps: ['View', 'analyze', 'analyzeFromInputs', 'gatherInputs', 'toExport'] },
   { file: '../etf-lookthrough.js',  ns: 'MaerminLookThrough',    comps: ['Panel', 'analyze', 'parseHoldingsResponse', 'mergeFundData', 'fallbackHoldings', 'positionRows', 'buildUrl', 'loadFundData'] },
   { file: '../cost-analysis.js',    ns: 'MaerminCostAnalysis',   comps: ['OngoingCostsPanel', 'computeOngoingCosts', 'buildFundRows', 'projectCostDrag', 'loadOverrides', 'saveOverride'] },
   { file: '../dividend-quality.js', ns: 'MaerminDividendQuality', comps: ['QualityPanel', 'scorePosition', 'scorePortfolio', 'parseFundamentalsResponse', 'cagrFromSeries', 'buildUrl'] },
@@ -227,6 +228,10 @@ const MUST_RENDER = [
   // Discovery surface (P5): no worker URL in baseProps → renders the gated note
   // path; empty data exercises the same. Hooks stubbed, so no fetch fires.
   ['MaerminDiscovery', 'View', baseProps],
+  // Portfolio Intelligence (Feature 1): no lookThrough prop in baseProps → the
+  // View gathers direct concentration / currency / liquidity from the stubbed
+  // metrics globals (degraded path); empty data exercises the no-findings note.
+  ['MaerminIntelligence', 'View', baseProps],
   // ETF look-through panel: baseProps holds VWCE (a fund candidate) but no
   // worker URL and stubbed hooks → exercises the pre-fetch render paths; empty
   // data exercises the no-candidates note.
