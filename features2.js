@@ -1172,6 +1172,19 @@ function DividendCalendarView({ portfolio, prices, metaVersion, theme, t, addToa
     addToast && addToast('Dividend added', 'success');
   };
 
+  // First payments can be months out, so the current month's grid may be empty.
+  // Jump ONCE to the month of the next upcoming payment so the calendar isn't
+  // blank; a ref guards against overriding the user's own navigation afterwards.
+  const jumpedRef = useRef(false);
+  useEffect(() => {
+    if (jumpedRef.current || !events.length) return;
+    const now = new Date();
+    const hasThisMonth = events.some(e => { const d = new Date(e.date); return d.getFullYear() === now.getFullYear() && d.getMonth() === now.getMonth(); });
+    if (hasThisMonth) { jumpedRef.current = true; return; }
+    const next = events.map(e => new Date(e.date)).filter(d => !isNaN(d) && d >= now).sort((a, b) => a - b)[0];
+    if (next) { setViewMonth({ year: next.getFullYear(), month: next.getMonth() }); jumpedRef.current = true; }
+  }, [events]);
+
   const { year, month } = viewMonth;
   const firstDay = new Date(year, month, 1);
   const lastDay  = new Date(year, month + 1, 0);
@@ -1277,11 +1290,11 @@ function DividendCalendarView({ portfolio, prices, metaVersion, theme, t, addToa
     events.filter(e => new Date(e.date) >= today).sort((a,b)=>new Date(a.date)-new Date(b.date)).slice(0,5).length > 0 &&
     React.createElement('div', { style: { marginTop: '1rem' } },
       React.createElement('div', { style: { color: theme.text, fontWeight: '700', fontSize: '0.9rem', marginBottom: '0.5rem' } }, 'Upcoming dividends'),
-      events.filter(e => new Date(e.date) >= today).sort((a,b)=>new Date(a.date)-new Date(b.date)).slice(0,12).map(e =>
-        React.createElement('div', { key: e.id, style: { display: 'flex', justifyContent: 'space-between', padding: '0.625rem 0.75rem', background: theme.card, borderRadius: '6px', marginBottom: '0.375rem', border: `1px solid ${theme.cardBorder}` } },
-          React.createElement('span', { style: { color: theme.text, fontWeight: '600', fontSize: '0.875rem' } }, e.symbol),
+      events.filter(e => new Date(e.date) >= today).sort((a,b)=>new Date(a.date)-new Date(b.date)).slice(0,60).map(e =>
+        React.createElement('div', { key: e.id, style: { display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '0.625rem 0.75rem', background: theme.card, borderRadius: '6px', marginBottom: '0.375rem', border: `1px solid ${theme.cardBorder}` } },
+          React.createElement('span', { style: { color: theme.text, fontWeight: '600', fontSize: '0.875rem', minWidth: '64px' } }, e.symbol),
           React.createElement('span', { style: { color: theme.textSecondary, fontSize: '0.875rem' } }, new Date(e.date).toLocaleDateString('en-US')),
-          React.createElement('span', { style: { color: '#22c55e', fontWeight: '700', fontSize: '0.875rem' } }, `+${e.amount} ${e.currency==='EUR'?'€':'$'}`)
+          React.createElement('span', { style: { color: e.derived ? '#7cb0ff' : '#22c55e', fontWeight: '700', fontSize: '0.875rem' } }, `+${e.amount} ${e.currency==='EUR'?'€':'$'}`)
         )
       )
     )

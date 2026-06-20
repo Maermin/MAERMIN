@@ -300,8 +300,11 @@ var DividendDataService = {
         anchor = new Date(now.getFullYear(), d.exMonths[0] - 1, 15);
       }
       if (!anchor) { anchor = new Date(now); anchor.setMonth(anchor.getMonth() + 1); }
-      while (anchor.getTime() < now.getTime()) anchor.setMonth(anchor.getMonth() + monthsPerPay);
+      // Pay lands ~14 days after the ex-date. Roll forward on the PAY date (not
+      // the ex-date) so a payout whose ex just passed but whose pay date is still
+      // upcoming is NOT skipped to the next period.
       var pay = new Date(anchor); pay.setDate(pay.getDate() + 14);
+      while (pay.getTime() < now.getTime()) pay.setMonth(pay.getMonth() + monthsPerPay);
 
       for (var pd = new Date(pay); pd.getTime() <= horizon.getTime(); pd.setMonth(pd.getMonth() + monthsPerPay)) {
         out.push({
