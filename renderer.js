@@ -814,7 +814,7 @@ function InvestmentTracker() {
                 }
               }
               // If bare symbol failed, try .DE suffix automatically
-              if (!priceEUR && !sym.includes('.') && !YF_MAP[sym]) {
+              if (!priceEUR && !sym.includes('.') && !LEGACY_MAP[sym]) {
                 for (const suffix of ['.DE','.L','.PA','.AS','.ST','.CO']) {
                   try {
                     const url2  = `${workerBase}?action=yf&symbol=${encodeURIComponent(sym+suffix)}&interval=1d&range=5d`;
@@ -1024,11 +1024,38 @@ function InvestmentTracker() {
         }
       }
       
+      // ── Resilience: carry forward last-known CS2 skin prices ────────────────
+      // Steam 429-throttles bulk skin fetches, so some skins return no price this
+      // round. Dropping them to "no price" silently collapses the CS2 portfolio
+      // value. Instead reuse the last-known price from the current map and let the
+      // data-quality layer badge it "stale · <age>". We deliberately do NOT
+      // re-stamp these as live below, so their per-symbol freshness timestamp
+      // stays old and the badge stays honest. Last-known persists across multiple
+      // throttled refreshes because `prices` already holds the carried value.
+      const carriedKeys = new Set();
+      if (portfolio.skins && portfolio.skins.length) {
+        portfolio.skins.forEach((s) => {
+          const orig = (s.symbol || s.name || '').trim();
+          if (!orig) return;
+          const keyL = orig.toLowerCase();
+          const have = (newPrices[orig] > 0) || (newPrices[keyL] > 0);
+          if (have) return;
+          const prev = (prices[orig] > 0) ? prices[orig] : (prices[keyL] > 0 ? prices[keyL] : null);
+          if (prev != null && prev > 0) {
+            newPrices[orig] = prev;
+            newPrices[keyL] = prev;
+            carriedKeys.add(orig); carriedKeys.add(keyL);
+            dbg('[PRICES] CS2: carried last-known price for', orig, '→', prev.toFixed(2), 'EUR (stale)');
+          }
+        });
+      }
+
       setPrices(newPrices);
       // Stamp when each symbol was fetched so the data-quality layer can flag
-      // stale/failed quotes (feeds the per-position freshness badges).
+      // stale/failed quotes (feeds the per-position freshness badges). Carried
+      // skins are excluded so they keep their previous timestamp and badge stale.
       if (window.MaerminDataQuality) {
-        window.MaerminDataQuality.recordFetch(Object.keys(newPrices), 'live');
+        window.MaerminDataQuality.recordFetch(Object.keys(newPrices).filter((k) => !carriedKeys.has(k)), 'live');
         // Provenance: mark symbols that came from the Alpha Vantage fallback so the
         // badge can show WHY (primary source returned no data) — not a silent swap.
         if (avFallbackSyms.size) {
@@ -2344,8 +2371,9 @@ function InvestmentTracker() {
       : 'Worker not reachable — stock/CS2 prices unavailable. Click to check your worker URL.';
 
     // FX transparency — the converted-value rate, its source and age, on hover.
+    const _fxMeta = window.MaerminDataQuality ? (window.MaerminDataQuality.readMeta()['__fx__'] || {}) : {};
     const fxInfo = window.MaerminDataQuality
-      ? window.MaerminDataQuality.fx(exchangeRate, { fetchedAt: (window.MaerminDataQuality.readMeta()['__fx__'] || {}).at, pair: 'USD→EUR' })
+      ? window.MaerminDataQuality.fx(exchangeRate, { fetchedAt: _fxMeta.at, source: _fxMeta.source || 'open.er-api.com', pair: 'USD→EUR' })
       : null;
 
     // Data-health summary across ALL holdings → the top-bar "N prices stale" chip.
