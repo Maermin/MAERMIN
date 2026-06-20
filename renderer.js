@@ -1154,13 +1154,23 @@ function InvestmentTracker() {
   // ========== BACKUP FUNCTIONS ==========
   
   const createBackup = () => {
-    const backupData = {
-      version: '9.0.0',
-      timestamp: new Date().toISOString(),
-      transactions,
-      settings: { theme, language, currency, taxJurisdiction }
-    };
-    
+    if (!window.MaerminBackup) { addToast('Backup engine not loaded', 'error'); return; }
+    // Build the full snapshot via the shared engine (the single source of truth
+    // for which keys are data). It stores each key's raw localStorage string,
+    // so the backup round-trips EXACTLY what was entered — including positions
+    // with no price/fees/optional fields. Live React state can be one tick ahead
+    // of localStorage, so overlay the current transactions/priceHistory.
+    const backupData = window.MaerminBackup.snapshot({
+      overlay: {
+        transactions: JSON.stringify(transactions),
+        priceHistory: JSON.stringify(priceHistory)
+      }
+    });
+    // Kept for backwards compatibility with older/partial importers that look
+    // for a top-level transactions array and settings object.
+    backupData.transactions = transactions;
+    backupData.settings = { theme, language, currency, taxJurisdiction };
+
     const blob = new Blob([JSON.stringify(backupData, null, 2)], { type: 'application/json' });
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
@@ -1169,7 +1179,7 @@ function InvestmentTracker() {
     a.click();
     URL.revokeObjectURL(url);
 
-    if (window.MaerminAuditLog) window.MaerminAuditLog.record('data.export', `JSON backup (${transactions.length} transactions)`);
+    if (window.MaerminAuditLog) window.MaerminAuditLog.record('data.export', `Full backup (${transactions.length} transactions, ${Object.keys(backupData.store).length} data keys)`);
     addToast(t.backupCreated || 'Backup created', 'success');
   };
 
@@ -1348,7 +1358,19 @@ function InvestmentTracker() {
         }
       }
       
-      if (Array.isArray(imported)) {
+      if (window.MaerminBackup && window.MaerminBackup.isFullBackup(imported)) {
+        // Full backup (format: 'maermin-full'): the engine writes every saved
+        // key back to localStorage, then we reload so the feature modules
+        // (watchlist, alerts, journal, savings plans, net-worth, …) that read
+        // localStorage directly re-hydrate from the restored store.
+        const restored = window.MaerminBackup.restore(imported);
+        if (window.MaerminAuditLog) window.MaerminAuditLog.record('data.import', `Full backup restored (${restored} data keys)`);
+        addToast(t.importSuccess || 'Backup restored', 'success');
+        setImportData('');
+        setShowImportModal(false);
+        setTimeout(() => window.location.reload(), 600);
+        return;
+      } else if (Array.isArray(imported)) {
         // Array of transactions
         const newTransactions = imported.map((item, idx) => ({
           id: (Date.now() + idx).toString(),
@@ -1511,6 +1533,17 @@ function InvestmentTracker() {
         const txt = importText.trim();
         if (txt.startsWith('[') || txt.startsWith('{')) {
           const parsed = JSON.parse(txt);
+          // A full backup restores ALL data (watchlist, alerts, dividends,
+          // journal, savings plans, net-worth, goals, settings, …) via the
+          // engine and reloads — not just the transactions list.
+          if (window.MaerminBackup && window.MaerminBackup.isFullBackup(parsed)) {
+            const restored = window.MaerminBackup.restore(parsed);
+            if (window.MaerminAuditLog) window.MaerminAuditLog.record('data.import', `Full backup restored (${restored} data keys)`);
+            addToast('Backup restored — reloading…', 'success');
+            setImportText('');
+            setTimeout(() => window.location.reload(), 600);
+            return;
+          }
           imported = Array.isArray(parsed) ? parsed : (parsed.transactions || []);
         } else if (window.ImportExportEngine) {
           imported = window.ImportExportEngine.parseCSV(txt);
@@ -1576,7 +1609,7 @@ function InvestmentTracker() {
       section === 'import' && React.createElement('div', { style: { background: theme.card, border: `1px solid ${theme.cardBorder}`, borderRadius: '12px', padding: '1.5rem' } },
         React.createElement('div', { style: { color: theme.text, fontWeight: '700', marginBottom: '0.375rem' } }, 'Manual Import'),
         React.createElement('p', { style: { color: theme.textSecondary, fontSize: '0.8rem', marginBottom: '1rem' } },
-          'Paste a JSON backup or CSV export. New transactions are added without replacing existing data.'
+          'Paste a JSON backup or CSV export. A full JSON backup restores all your data and reloads; a CSV/transaction list is added without replacing existing data.'
         ),
         React.createElement('textarea', {
           value: importText,
