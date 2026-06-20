@@ -1648,20 +1648,30 @@ function InvestmentTracker() {
       if (!stockSymbols.length) { addToast('No stock positions found', 'info'); return; }
 
       setFetching(true);
-      let added = 0;
+
+      // Net shares held for a symbol right now (buys − sells).
+      const sharesOf = (sym) => {
+        let s = 0;
+        transactions.filter(tx => (tx.symbol || '').toUpperCase() === sym).forEach(tx => {
+          const qty = parseFloat(tx.quantity) || 0;
+          if (tx.type === 'buy') s += qty; else if (tx.type === 'sell') s -= qty;
+        });
+        return Math.max(0, s);
+      };
+
+      // Collect EVERY individual payment (one calendar entry per payout) instead
+      // of a single lump — so the user sees who pays when and how much.
+      const generated = [];
 
       for (const sym of stockSymbols.slice(0, 20)) {
-        let exDate = null, divPerShare = 0, currency = 'USD';
+        let exDate = null, annualPerShare = 0, currency = 'USD', ppy = 4;
         // Query Yahoo under the normalised/renamed ticker (e.g. FISV→FI, BRK.B→
         // BRK-B) so renamed symbols resolve; keep `sym` for share-matching/labels.
         const qsym = (window.MaerminTickers && window.MaerminTickers.normalizeForDividends(sym)) || sym;
 
         // ── Primary: Yahoo Finance fundamentals via Worker ─────────────────
-        // The chart endpoint (action=yf) strips meta+events, so dividends come
-        // from action=fundamentals (Yahoo quoteSummary): real dividendRate,
-        // per-payment value (lastDividendValue) and the ex-date. Frequency is
-        // inferred from rate / last-payment so monthly/annual payers schedule
-        // correctly instead of being assumed quarterly.
+        // action=fundamentals (Yahoo quoteSummary) gives the annual dividendRate,
+        // the last single payment (→ frequency) and the ex-date.
         if (hasWorker) {
           try {
             const url  = `${workerBase}?action=fundamentals&symbol=${encodeURIComponent(qsym)}`;
@@ -1669,66 +1679,82 @@ function InvestmentTracker() {
             if (res.ok) {
               const data = await res.json();
               if (!data.error && data.dividendRate > 0) {
-                const ppy = (data.lastDividendValue > 0)
-                  ? Math.max(1, Math.round(data.dividendRate / data.lastDividendValue)) : 4;
-                divPerShare = data.lastDividendValue > 0 ? data.lastDividendValue : data.dividendRate / ppy;
+                annualPerShare = data.dividendRate;
+                ppy = (data.lastDividendValue > 0)
+                  ? Math.max(1, Math.min(12, Math.round(data.dividendRate / data.lastDividendValue))) : 4;
                 exDate = data.exDividendDate || null;
-                // Roll a past ex-date forward by whole periods to the next estimate.
-                if (exDate) {
-                  const ex = new Date(exDate);
-                  const monthsPerPay = Math.max(1, Math.round(12 / ppy));
-                  while (ex.getTime() < Date.now() - 86400000) ex.setMonth(ex.getMonth() + monthsPerPay);
-                  exDate = ex.toISOString().split('T')[0];
-                }
-                if (!exDate) { const nq = new Date(); nq.setMonth(nq.getMonth() + 3); exDate = nq.toISOString().split('T')[0]; }
                 currency = data.currency || 'USD';
-                dbg(`[DIV] Fundamentals ${sym}: ${divPerShare}/share, ex: ${exDate}, ppy: ${ppy}`);
+                dbg(`[DIV] Fundamentals ${sym}: ${annualPerShare}/yr, ppy: ${ppy}, ex: ${exDate}`);
               }
             }
           } catch(e) { console.warn('[DIV] fundamentals failed for', sym, e.message); }
         }
 
-        // ── Fallback: Alpha Vantage OVERVIEW ──────────────────────────────
-        if ((!exDate || !divPerShare) && avKey) {
+        // ── Fallback: Alpha Vantage OVERVIEW (annual DPS + ex-date) ────────
+        if ((!annualPerShare || !exDate) && avKey) {
           try {
             const res  = await fetch(`https://www.alphavantage.co/query?function=OVERVIEW&symbol=${qsym}&apikey=${avKey}`);
             const data = await res.json();
-            const avExDate = data.ExDividendDate;
-            const avDiv    = parseFloat(data.DividendPerShare) || 0;
-            if (avExDate && avExDate !== 'None' && avDiv > 0) {
-              exDate     = avExDate;
-              divPerShare = avDiv;
-              currency   = 'USD';
-              dbg(`[DIV] AV fallback ${sym}: $${divPerShare}/share, ex: ${exDate}`);
+            const avDiv = parseFloat(data.DividendPerShare) || 0; // AV reports the ANNUAL per-share
+            if (avDiv > 0) {
+              if (!annualPerShare) annualPerShare = avDiv;
+              if (!exDate && data.ExDividendDate && data.ExDividendDate !== 'None') exDate = data.ExDividendDate;
+              currency = 'USD';
+              dbg(`[DIV] AV fallback ${sym}: $${avDiv}/yr, ex: ${exDate}`);
             }
           } catch(e) { console.warn('[DIV] AV fallback failed for', sym, e.message); }
           await new Promise(r => setTimeout(r, 500));
         }
 
-        if (exDate && divPerShare > 0) {
-          const existing = divEvents.find(e => e.symbol === sym && e.date === exDate);
-          if (!existing) {
-            let shares = 0;
-            transactions.filter(tx => tx.symbol?.toUpperCase() === sym).forEach(tx => {
-              const qty = parseFloat(tx.quantity) || 0;
-              if (tx.type === 'buy') shares += qty; else shares -= qty;
-            });
-            shares = Math.max(0, shares);
-            const totalDiv = shares > 0 ? divPerShare * shares : divPerShare;
-            setDivEvents(prev => [...prev, {
-              id: `auto-${sym}-${exDate}`,
-              symbol: sym, date: exDate,
-              amount: parseFloat(totalDiv.toFixed(4)),
-              currency,
-              notes: `Auto: ${divPerShare.toFixed(4)}/share · ${shares.toFixed(2)} shares`
-            }]);
-            added++;
+        if (!(annualPerShare > 0)) continue;
+        const shares = sharesOf(sym);
+        if (shares <= 0) continue;
+
+        const monthsPerPay   = Math.max(1, Math.round(12 / ppy));
+        const perPayPerShare = annualPerShare / ppy;
+        const perPayAmount   = perPayPerShare * shares;
+
+        // Anchor the FIRST upcoming pay date: roll the ex-date forward to the next
+        // occurrence, then pay ~14 days after ex. Without an ex-date, start next month.
+        let anchor;
+        if (exDate) {
+          anchor = new Date(exDate);
+          if (isNaN(anchor.getTime())) { anchor = new Date(); anchor.setMonth(anchor.getMonth() + 1); }
+          else {
+            while (anchor.getTime() < Date.now()) anchor.setMonth(anchor.getMonth() + monthsPerPay);
+            anchor.setDate(anchor.getDate() + 14); // ex → pay
           }
+        } else {
+          anchor = new Date(); anchor.setMonth(anchor.getMonth() + 1);
+        }
+
+        // One event per individual payment across the next 12 months.
+        const horizon = new Date(); horizon.setFullYear(horizon.getFullYear() + 1);
+        for (let pd = new Date(anchor); pd <= horizon; pd.setMonth(pd.getMonth() + monthsPerPay)) {
+          const dateStr = pd.toISOString().split('T')[0];
+          generated.push({
+            id: `auto-${sym}-${dateStr}`,
+            symbol: sym, date: dateStr,
+            amount: parseFloat(perPayAmount.toFixed(4)),
+            currency,
+            notes: `Auto: ${perPayPerShare.toFixed(4)}/share × ${shares.toFixed(2)} sh · ${ppy}×/yr`
+          });
         }
       }
 
+      // Dedupe the generated schedule by id, then REPLACE all prior auto entries
+      // with this fresh schedule (keeping every manual entry). One state write.
+      const seen = {};
+      const freshSchedule = generated.filter(e => !seen[e.id] && (seen[e.id] = true));
+      setDivEvents(prev => {
+        const manual = prev.filter(e => !String(e.id).startsWith('auto-'));
+        return [...manual, ...freshSchedule];
+      });
+
       setFetching(false);
-      addToast(added > 0 ? `${added} dividend(s) added` : 'No new dividends found — data may not include upcoming payments', 'info');
+      addToast(freshSchedule.length > 0
+        ? `${freshSchedule.length} dividend payment(s) scheduled across the next 12 months`
+        : 'No dividend payments found for your holdings', 'info');
     };
 
     const tabs = [
@@ -1762,7 +1788,7 @@ function InvestmentTracker() {
       React.createElement('div', { style: { flex: 1, overflow: 'auto' } },
         tab === 'calendar' && window.MaerminFeatures2 ?
           React.createElement(window.MaerminFeatures2.DividendCalendarView, {
-            portfolio, theme, t, addToast
+            portfolio, theme, t, addToast, events: divEvents, setEvents: setDivEvents
           }) : null,
         tab === 'forecast' && window.MaerminFeatures4 ?
           React.createElement(window.MaerminFeatures4.DividendForecastView, {

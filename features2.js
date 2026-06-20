@@ -1120,15 +1120,21 @@ function PositionNotesView({ portfolio, theme, t }) {
 // ─────────────────────────────────────────────────────────────────────────────
 // 5. DIVIDEND CALENDAR
 // ─────────────────────────────────────────────────────────────────────────────
-function DividendCalendarView({ portfolio, theme, t, addToast }) {
-  const [events, setEvents] = useState(() => {
+function DividendCalendarView({ portfolio, theme, t, addToast, events: eventsProp, setEvents: setEventsProp }) {
+  // Controlled when the parent passes events/setEvents (so auto-fetched payments
+  // appear immediately); otherwise self-manage from localStorage (standalone use).
+  const controlled = eventsProp != null && typeof setEventsProp === 'function';
+  const [localEvents, setLocalEvents] = useState(() => {
     try { return JSON.parse(localStorage.getItem('maermin_divevents') || '[]'); } catch { return []; }
   });
+  const events = controlled ? eventsProp : localEvents;
+  const setEvents = controlled ? setEventsProp : setLocalEvents;
   const [showAdd, setShowAdd] = useState(false);
   const [form, setForm] = useState({ symbol: '', date: '', amount: '', currency: 'EUR', notes: '' });
   const [viewMonth, setViewMonth] = useState(() => { const d = new Date(); return { year: d.getFullYear(), month: d.getMonth() }; });
 
-  useEffect(() => { localStorage.setItem('maermin_divevents', JSON.stringify(events)); }, [events]);
+  // Persist only when uncontrolled — the parent owns persistence otherwise.
+  useEffect(() => { if (!controlled) localStorage.setItem('maermin_divevents', JSON.stringify(localEvents)); }, [localEvents, controlled]);
 
   const addEvent = () => {
     if (!form.symbol || !form.date || !form.amount) return;
@@ -1236,7 +1242,7 @@ function DividendCalendarView({ portfolio, theme, t, addToast }) {
     events.filter(e => new Date(e.date) >= today).sort((a,b)=>new Date(a.date)-new Date(b.date)).slice(0,5).length > 0 &&
     React.createElement('div', { style: { marginTop: '1rem' } },
       React.createElement('div', { style: { color: theme.text, fontWeight: '700', fontSize: '0.9rem', marginBottom: '0.5rem' } }, 'Upcoming dividends'),
-      events.filter(e => new Date(e.date) >= today).sort((a,b)=>new Date(a.date)-new Date(b.date)).slice(0,5).map(e =>
+      events.filter(e => new Date(e.date) >= today).sort((a,b)=>new Date(a.date)-new Date(b.date)).slice(0,12).map(e =>
         React.createElement('div', { key: e.id, style: { display: 'flex', justifyContent: 'space-between', padding: '0.625rem 0.75rem', background: theme.card, borderRadius: '6px', marginBottom: '0.375rem', border: `1px solid ${theme.cardBorder}` } },
           React.createElement('span', { style: { color: theme.text, fontWeight: '600', fontSize: '0.875rem' } }, e.symbol),
           React.createElement('span', { style: { color: theme.textSecondary, fontSize: '0.875rem' } }, new Date(e.date).toLocaleDateString('en-US')),
