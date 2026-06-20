@@ -539,7 +539,17 @@ const completeTranslations = {
     healthRecOneClass: 'Almost everything sits in {cls}. Spreading across asset classes lowers single-market risk.',
     healthRecTwoClass: 'Two asset classes covered — a small allocation to a third would broaden your base.',
     healthRecBreadth: 'Only {n} holding(s) — a broader set smooths day-to-day volatility.',
-    healthRecWellStructured: 'Well structured — keep an eye on your largest position as it grows.'
+    healthRecWellStructured: 'Well structured — keep an eye on your largest position as it grows.',
+    // Portfolio Intelligence (Feature 1, v10)
+    intelTitle: 'Portfolio Intelligence',
+    intelSubtitle: 'Automatic detection of structural risks across ten dimensions, with concrete, data-grounded recommendations ranked by priority.',
+    intelCritical: 'Critical',
+    intelImportant: 'Important',
+    intelOptimize: 'Optimization',
+    intelPriorities: 'Findings by priority',
+    intelFindings: 'Portfolio findings',
+    intelClean: 'No structural problems detected across the ten checks. Nice work.',
+    intelNoData: 'Add holdings — and open the Health view once to load ETF look-through — to surface effective exposures.'
   }
 };
 

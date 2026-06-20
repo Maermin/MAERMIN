@@ -535,6 +535,7 @@ function InvestmentTracker() {
     { id: 'nav:analytics',     label: t.analytics || 'Portfolio Analysis', category: 'Analysis',   shortcut: 'g a' },
     { id: 'nav:taxes',         label: t.taxes || 'Taxes',                  category: 'Analysis',   shortcut: 'g x' },
     // Tools
+    { id: 'nav:intelligence',  label: t.intelTitle || 'Portfolio Intelligence', category: 'Tools', shortcut: 'g i' },
     { id: 'nav:discovery',     label: t.discovery || 'Discovery',          category: 'Tools',      shortcut: 'g e' },
     { id: 'nav:share',         label: t.navShare || 'Share & Compare',     category: 'Tools',      shortcut: 'g h' },
     { id: 'nav:watchlist',     label: t.watchlist || 'Watchlist',          category: 'Tools',      shortcut: 'g w' },
@@ -1403,6 +1404,7 @@ function InvestmentTracker() {
       case 'nav:analytics':     setActiveView('analytics'); break;
       case 'nav:taxes':         setActiveView('tax'); break;
       // Tools Navigation
+      case 'nav:intelligence':  setActiveView('intelligence'); break;
       case 'nav:discovery':     setActiveView('discovery'); break;
       case 'nav:share':         setActiveView('share'); break;
       case 'nav:watchlist':     setActiveView('watchlist'); break;
@@ -1818,6 +1820,19 @@ function InvestmentTracker() {
       // P5: the one sanctioned new surface — read-only asset discovery. Gated on
       // a Worker URL; the View itself degrades gracefully if the deployed Worker
       // predates the screener endpoint. Prices convert to EUR at ingestion.
+      // Feature 1 (v10): Portfolio Intelligence — automatic, ranked detection of
+      // structural problems (hidden concentration, style drift, dividend/yield
+      // traps, currency/country/sector/liquidity risk, correlation clusters). It
+      // reuses MaerminLookThrough's already-fetched result (lookThroughResult,
+      // kept from the Health view) for effective exposures and degrades to the
+      // direct-concentration fallback when fund data has not been loaded yet.
+      case 'intelligence':
+        return window.MaerminIntelligence ?
+          React.createElement(window.MaerminIntelligence.View, {
+            portfolio, prices, transactions: activeTransactions,
+            lookThrough: lookThroughResult, theme: currentTheme, t
+          }) : renderAnalyticsPlaceholder('Portfolio Intelligence');
+
       case 'discovery':
         return window.MaerminDiscovery ?
           React.createElement(window.MaerminDiscovery.View, {
@@ -4590,6 +4605,7 @@ buy,crypto,bitcoin,0.5,45000,2024-01-15,10`)
               { id: 'tax',                 icon: '§', label: t.navTaxFifo || 'Tax & FIFO' },
             ]},
             { id: 'hub-tools', icon: '◎', label: 'Discover & Tools', children: [
+              { id: 'intelligence', icon: '◈', label: t.intelTitle || 'Portfolio Intelligence' },
               { id: 'discovery',   icon: '◎', label: t.navDiscovery || 'Discovery' },
               { id: 'share',       icon: '⊶', label: t.navShare || 'Share & Compare' },
               { id: 'watchlist',   icon: '☆', label: t.navWatchlist || 'Watchlist' },

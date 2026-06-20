@@ -68,6 +68,7 @@ No account  ·  No server  ·  No ads  ·  No remote telemetry  ·  MIT License
 ### Tools
 | Feature | Description |
 |---------|-------------|
+| **Portfolio Intelligence** | Automatic detection of structural problems across ten dimensions — hidden concentration, single-company & sector overexposure, country & currency risk, correlation clusters (fund overlap), style drift, dividend & yield traps, liquidity risk — each with a concrete recommendation, ranked **Critical / Important / Optimization**. Reuses the ETF look-through, metrics and dividend engines; computed fully on-device (`g i`) |
 | **Discovery** | Read-only screener for ETFs/stocks/crypto · top movers (gainers/losers/most active) · dividend screener — live via your Worker, prices shown in EUR. Gated & optional; degrades gracefully if the Worker predates the endpoint |
 | **Watchlist** | Track symbols without buying — optional target price and sparkline |
 | **Price Alerts** | Notify when price crosses threshold — progress bar shows proximity |
@@ -152,6 +153,7 @@ MAERMIN/
 ├── auth.js                     Vault unlock/setup gate (window.MaerminAuth)
 ├── utils.js                    Shared formatters, upsertTransaction, FX (window.MaerminUtils)
 ├── metrics.js                  Shared metrics: positions, net worth, FIRE (window.MaerminMetrics)
+├── portfolio-intelligence.js   Ten-check structural problem detection, ranked (window.MaerminIntelligence)
 ├── ticker-validation.js        Symbol normalisation (window.MaerminTickers)
 ├── equity-metadata.js          Sector/country metadata (window.MaerminEquityMeta)
 ├── dividend-data-service.js    Dividend data + forecast (window.DividendDataService)
