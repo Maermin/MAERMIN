@@ -655,7 +655,10 @@ export default {
       // of the map and shrinks the burst that triggers the throttling.
       const cache = caches.default;
       const priceKey = (n) => new Request(`https://cache.maermin/steamprice/${encodeURIComponent(n)}`);
-      const STEAM_PRICE_TTL = 1800;
+      // Skin prices move slowly; a resolved price is precious because Steam
+      // 429-throttles the Worker's Cloudflare IP. Cache for 6h so a daily user's
+      // map stays filled and we only hit Steam for genuinely new/expired skins.
+      const STEAM_PRICE_TTL = 21600;
 
       const toFetch = [];
       await Promise.all(names.map(async (name) => {
@@ -670,7 +673,9 @@ export default {
 
       // Fetch the cache misses in small concurrent batches instead of
       // one-at-a-time-with-1.5s-sleep (which took up to 45s for 30 skins).
-      const BATCH = 5, GAP_MS = 400;
+      // Smaller batches + a longer gap keep us under Steam's burst limit, which
+      // 429s a wide concurrent fan-out and returns an empty map ("no price").
+      const BATCH = 3, GAP_MS = 700;
       const fetchOne = async (name) => {
         // Same robust overview path as steamhistory: shared parsing (handles
         // lowest_price-only Souvenir responses) + one backoff retry on 429.
@@ -750,17 +755,22 @@ export function parseSteamOverview(body) {
 async function fetchSteamOverviewPrice(name) {
   const ovUrl = `https://steamcommunity.com/market/priceoverview/` +
     `?appid=730&currency=1&market_hash_name=${encodeURIComponent(name)}`;
-  for (let attempt = 0; attempt < 2; attempt++) {
+  // Three attempts with escalating backoff — Steam throttles datacenter IPs
+  // aggressively, so giving a 429 a couple more chances meaningfully raises the
+  // resolve rate on a cold-cache burst (the difference between a filled map and
+  // "no price" for the whole portfolio).
+  const BACKOFF = [900, 2000];
+  for (let attempt = 0; attempt < 3; attempt++) {
     try {
       const r = await fetchWithTimeout(ovUrl, { headers: steamHeaders() });
       if (r.status === 429 || r.status >= 500) {
-        if (attempt === 0) { await sleep(900); continue; }
+        if (attempt < BACKOFF.length) { await sleep(BACKOFF[attempt]); continue; }
         return 0;
       }
       if (!r.ok) return 0;
       return parseSteamOverview(await r.json());
     } catch {
-      if (attempt === 0) { await sleep(400); continue; }
+      if (attempt < BACKOFF.length) { await sleep(400 * (attempt + 1)); continue; }
       return 0;
     }
   }
