@@ -8,6 +8,8 @@
  *   GET  /?action=screener&symbols=KO,PG       → Discovery: batch quote (dividend universe)
  *   GET  /?action=fundholdings&symbol=VWCE.DE  → ETF/fund look-through: top holdings,
  *                                                 sector weights, expense ratio (TER)
+ *   GET  /?action=profile&symbol=AAPL          → equity sector / industry / country
+ *                                                 (Strategy tab Sector & Country allocation)
  *   GET  /?action=fundamentals&symbol=KO       → dividend-safety fundamentals: payout
  *                                                 ratio, EPS, dividend rate/yield
  *   GET  /?action=steamhistory&name=...        → Steam skin price (fallback to current)
@@ -457,6 +459,44 @@ export default {
         });
         ctx.waitUntil(cache.put(cacheKey, new Response(payload, {
           headers: { 'Content-Type': 'application/json', 'Cache-Control': 'public, max-age=21600' }
+        })));
+        return res(payload, 200, request);
+      } catch (e) {
+        return res(JSON.stringify({ error: e.message, symbol }), 502, request);
+      }
+    }
+
+    // GET /?action=profile&symbol=AAPL
+    // Proxies Yahoo Finance quoteSummary (assetProfile + price) and returns the
+    // sector / industry / country a holding belongs to — powers the Strategy
+    // tab's Sector & Country allocation WITHOUT requiring a user FMP key (Yahoo
+    // is the same source already used for stock prices). Metadata is near-static,
+    // so it is cached 30 days. Nulls mean Yahoo has no value for that field.
+    if (request.method === 'GET' && action === 'profile') {
+      const symbol = (url.searchParams.get('symbol') || '').trim();
+      if (!symbol) return res(JSON.stringify({ error: 'symbol required' }), 400, request);
+
+      const cacheKey = new Request(`https://cache.maermin/profile/${encodeURIComponent(symbol)}`);
+      const cache = caches.default;
+      const cached = await cache.match(cacheKey);
+      if (cached) return res(await cached.text(), 200, request);
+
+      try {
+        const data = await fetchQuoteSummary(symbol, 'assetProfile,price');
+        const r0 = data?.quoteSummary?.result?.[0];
+        if (!r0) return res(JSON.stringify({ error: 'No data from Yahoo Finance', symbol }), 404, request);
+        const ap = r0.assetProfile || {};
+        const price = r0.price || {};
+        const payload = JSON.stringify({
+          symbol,
+          name: price.shortName || price.longName || symbol,
+          currency: price.currency || null,
+          sector: ap.sector || null,        // e.g. "Technology"
+          industry: ap.industry || null,    // e.g. "Software—Infrastructure"
+          country: ap.country || null,      // e.g. "United States"
+        });
+        ctx.waitUntil(cache.put(cacheKey, new Response(payload, {
+          headers: { 'Content-Type': 'application/json', 'Cache-Control': 'public, max-age=2592000' }
         })));
         return res(payload, 200, request);
       } catch (e) {
