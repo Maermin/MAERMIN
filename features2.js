@@ -172,7 +172,7 @@ function ReturnsView({ transactions, portfolio, prices, priceHistory, theme, for
 // ─────────────────────────────────────────────────────────────────────────────
 const DEFAULT_TARGETS = { crypto: 35, stocks: 45, skins: 10, commodities: 10 };
 
-function RebalancingView({ portfolio, prices, theme, formatPrice, getCurrencySymbol, t }) {
+function RebalancingView({ portfolio, prices, theme, formatPrice, getCurrencySymbol, t, setActiveView }) {
   const [targets, setTargets] = useState(() => {
     try { return JSON.parse(localStorage.getItem('maermin_targets') || JSON.stringify(DEFAULT_TARGETS)); }
     catch { return DEFAULT_TARGETS; }
@@ -235,6 +235,14 @@ function RebalancingView({ portfolio, prices, theme, formatPrice, getCurrencySym
     React.createElement('div', { style: { display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '1rem', flexWrap: 'wrap', marginBottom: '1.5rem' } },
       React.createElement('h2', { style: { color: theme.text, fontSize: '1.5rem', fontWeight: '800', letterSpacing: '-0.02em', margin: 0 } }, (t.rebalancing || 'Rebalancing')),
       window.AICopilot ? React.createElement(window.AICopilot.Button, { theme: theme, t: t, context: aiCtx }) : null),
+
+    // v10.x: this view rebalances by ASSET CLASS. Tag-based target weights (e.g.
+    // "Income", "High-conviction") live in the Tags view — surface a link so the
+    // two rebalancing surfaces are discoverable from one another.
+    (setActiveView && window.MaerminTags) ? React.createElement('button', {
+      onClick: () => setActiveView('tags'),
+      style: { display: 'inline-flex', alignItems: 'center', gap: '0.4rem', marginBottom: '1.25rem', padding: '0.5rem 0.85rem', background: 'transparent', color: theme.accent, border: `1px solid ${theme.accent}55`, borderRadius: '8px', cursor: 'pointer', fontSize: '0.8rem', fontWeight: '600' }
+    }, '⛯ ', (t.rebalanceByTagHint || 'Rebalance by tag instead → Tags view')) : null,
 
     // Target allocation sliders
     React.createElement('div', {

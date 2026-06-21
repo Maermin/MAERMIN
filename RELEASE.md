@@ -2,7 +2,25 @@
 
 ## [Unreleased] — v10.x
 
-> UI fold-in of the v10 engines + accessibility themes. No data migration; backup format unchanged.
+> UI fold-in of the v10 engines + accessibility themes + a code-review hardening pass. No data migration; backup format unchanged.
+
+### Review pass — fixes, optimisations & features
+
+**Fixes**
+- Removed two duplicate object keys the compiler flagged (a dead `cardBorder` in a stale theme map, a repeated `NESN.SW` entry). The build is now warning-clean.
+- Deleted the unused, out-of-sync second theme map in `renderer-components.js` (one source of theme truth).
+
+**Optimisations**
+- Snapshot recording is now throttled: it skips the localStorage write when today's (rounded) value is unchanged, instead of writing on every price poll.
+- Consolidated the position price-lookup into one shared `MaerminTags.pricedPositions` helper (was re-implemented inline in three places).
+- Accessibility: tag chips are real `<button>`s now (keyboard-focusable, `aria-label`).
+
+**New**
+- **Automation Rules → live notifications**: a triggered rule now fires a toast + desktop notification (via the existing PWA plumbing), deduped per rule and re-armed when it relaxes — not just shown in the Rules view.
+- **Tag performance over time**: a per-tag value series is recorded, and each tag now shows its ~30-day change in the Tags view.
+- **Custom categories in by-class analytics**: rebalancing-drift, currency-exposure and tax-loss harvest now include custom categories (not just the four base classes).
+- **German UI (`de` locale) + language switcher**: English base with German overrides (missing keys fall back to English); selectable in Settings, persisted (`maermin_language`, in backup). Coverage is the high-traffic strings; more Germanises as hardcoded literals migrate to `t.*`.
+- Rebalancing view links across to the Tags view for tag-based targets.
 
 - **Performance view** *(new)* — snapshot-powered 1D/1W/1M/3M/6M/YTD/1Y/Max return cards + best/worst day, derived entirely from the on-device value history (no API). Analytics hub · `g f`.
 - **Tags view** *(new)* — create/assign/remove Smart Tags, see per-tag value & weight, and set **tag-basis target weights** with live buy/sell drift (powered by `MaerminRebalance`). Discover & Tools hub · `g s`.

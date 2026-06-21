@@ -172,6 +172,16 @@
     }, 0);
   }
 
+  // v10.x: the asset classes to scan = the four built-ins plus any custom
+  // categories (custom-categories.js). Pure in Node (no window → just the four),
+  // so existing tests are unaffected.
+  function allClasses() {
+    var base = ['crypto', 'stocks', 'skins', 'commodities'];
+    var extra = (typeof window !== 'undefined' && window.MaerminCategories && window.MaerminCategories.ids) ? window.MaerminCategories.ids() : [];
+    (extra || []).forEach(function (c) { if (c && base.indexOf(c) === -1) base.push(c); });
+    return base;
+  }
+
   // Concentration — reuses PortfolioHealth's HHI math (no second implementation).
   function computeConcentration(portfolio, prices) {
     var ph = (typeof window !== 'undefined') && window.PortfolioHealth;
@@ -194,7 +204,7 @@
   }
   function computeRebalancingDrift(portfolio, prices, targets) {
     targets = targets || loadTargets();
-    var classes = ['crypto', 'stocks', 'skins', 'commodities'];
+    var classes = allClasses();
     var values = {}, total = 0;
     classes.forEach(function (c) { values[c] = classValue(portfolio, prices, c); total += values[c]; });
     if (total <= 0) return { available: false, rows: [], maxDrift: 0 };
@@ -217,7 +227,7 @@
       if (tx.currency && !curByKey[key]) curByKey[key] = tx.currency;
     });
     var byCur = {}, total = 0;
-    ['crypto', 'stocks', 'skins', 'commodities'].forEach(function (cls) {
+    allClasses().forEach(function (cls) {
       (portfolio[cls] || []).forEach(function (p) {
         var val = (parseFloat(p.amount) || 0) * priceOf(prices, p);
         if (val <= 0) return;
@@ -249,7 +259,7 @@
       }
     });
     var rows = [];
-    ['crypto', 'stocks', 'skins', 'commodities'].forEach(function (cls) {
+    allClasses().forEach(function (cls) {
       (portfolio[cls] || []).forEach(function (p) {
         var amount = parseFloat(p.amount) || 0;
         var price = priceOf(prices, p);

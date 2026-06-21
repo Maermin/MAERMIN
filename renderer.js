@@ -303,7 +303,8 @@ function InvestmentTracker() {
   const [activeView, setActiveView] = useState(() => localStorage.getItem('maermin_active_view') || 'overview');
   useEffect(() => { try { localStorage.setItem('maermin_active_view', activeView); } catch (e) {} }, [activeView]);
   const [theme, setTheme] = useState(() => localStorage.getItem('theme') || 'dark');
-  const language = 'en';
+  const [language, setLanguage] = useState(() => { try { return localStorage.getItem('maermin_language') || 'en'; } catch (e) { return 'en'; } });
+  useEffect(() => { try { localStorage.setItem('maermin_language', language); } catch (e) {} }, [language]);
   
   // v6.0 State
   const [showCommandPalette, setShowCommandPalette] = useState(false);
@@ -524,7 +525,9 @@ function InvestmentTracker() {
 
   // ========== COMPUTED VALUES ==========
   
-  const t = translations.en || {};
+  // Merge: English is the base, the selected language overrides it — so any key
+  // missing from a non-English locale gracefully falls back to English.
+  const t = Object.assign({}, translations.en || {}, translations[language] || {});
   const currentTheme = themes[theme];
   
   const formatPrice = useCallback((price) => {
@@ -704,6 +707,9 @@ function InvestmentTracker() {
   // and is carried in the full-vault backup. One point per day per portfolio;
   // a same-day change overwrites that day, so this can never bloat storage. Never
   // records in demo mode (would pollute the real series with sample prices).
+  // Throttle: prices update on every poll, so we skip the localStorage write when
+  // the (rounded) value is unchanged since the last write this session.
+  const lastSnapRef = useRef({});
   useEffect(() => {
     try {
       if (demoMode || !window.MaerminSnapshots) return;
@@ -727,11 +733,28 @@ function InvestmentTracker() {
         combined += val;
         byPid[pos.pid] = (byPid[pos.pid] || 0) + val;
       });
+      const round = (v) => Math.round(v * 100) / 100;
+      const recordIfChanged = (val, pid) => {
+        const key = pid || 'all';
+        const r = round(val);
+        if (lastSnapRef.current[key] === r) return; // unchanged → skip the write
+        window.MaerminSnapshots.record(val, pid);
+        lastSnapRef.current[key] = r;
+      };
       if (combined > 0) {
-        window.MaerminSnapshots.record(combined); // combined 'all' series
+        recordIfChanged(combined); // combined 'all' series
         Object.keys(byPid).forEach((pid) => {
-          if (byPid[pid] > 0) window.MaerminSnapshots.record(byPid[pid], pid);
+          if (byPid[pid] > 0) recordIfChanged(byPid[pid], pid);
         });
+        // C3: per-tag value series ('tag:<name>') so each tag's performance over
+        // time can be derived later (Tags view). Reuses the same throttle.
+        if (window.MaerminTags) {
+          try {
+            const tpos = window.MaerminTags.positionsFromInputs(transactions, prices);
+            const agg = window.MaerminTags.aggregate(window.MaerminTags.load(), tpos);
+            agg.rows.forEach((row) => { if (row.value > 0) recordIfChanged(row.value, 'tag:' + row.name); });
+          } catch (e) { /* tag series is best-effort */ }
+        }
       }
     } catch (e) { /* snapshots are best-effort; never break a render */ }
   }, [transactions, prices, demoMode]);
@@ -1240,6 +1263,43 @@ function InvestmentTracker() {
       setToasts(prev => prev.filter(t => t.id !== id));
     }, 3000);
   };
+
+  // C1: Automation Rules → live notifications. Evaluate the user's rules on every
+  // price/transaction change and fire a toast (+ desktop notification via the
+  // existing PWA plumbing) when a rule NEWLY triggers. Deduped per rule id and
+  // re-armed when the rule relaxes, so it notifies on the transition, not every
+  // poll. Reuses the one context-builder the Rules view uses.
+  const notifiedRulesRef = useRef({});
+  useEffect(() => {
+    try {
+      if (demoMode || !window.MaerminRules) return;
+      const rulesState = window.MaerminRules.load();
+      if (!rulesState.rules.length) return;
+      const positions = window.MaerminTags ? window.MaerminTags.pricedPositions(transactions, prices) : [];
+      const byTag = {};
+      if (window.MaerminTags) {
+        const agg = window.MaerminTags.aggregate(window.MaerminTags.load(), positions.map(p => ({ symbol: p.symbol, valueEUR: p.valueEUR })));
+        agg.rows.forEach(r => { byTag[r.name] = r.value; });
+      }
+      let drop = 0;
+      if (window.MaerminSnapshots) {
+        const ser = window.MaerminSnapshots.seriesFor(window.MaerminSnapshots.load(), 'all');
+        if (ser.length) { let peak = 0; ser.forEach(p => { if (p.v > peak) peak = p.v; }); drop = peak > 0 ? ((peak - ser[ser.length - 1].v) / peak) * 100 : 0; }
+      }
+      const ctx = window.MaerminRules.buildContext(positions, { byTag, dropFromPeakPct: drop });
+      const seen = notifiedRulesRef.current;
+      window.MaerminRules.evaluate(rulesState, ctx).forEach(res => {
+        if (res.triggered && !seen[res.rule.id]) {
+          seen[res.rule.id] = true;
+          const desc = window.MaerminRules.describe(res.rule);
+          addToast((t.rulesAlert || 'Rule triggered') + ': ' + desc, 'warning');
+          try { if (window.MaerminPWA && window.MaerminPWA.notify) window.MaerminPWA.notify('MAERMIN — ' + (t.rulesAlert || 'Rule triggered'), { body: desc, tag: 'maermin-rule-' + res.rule.id }); } catch (e) {}
+        } else if (!res.triggered && seen[res.rule.id]) {
+          delete seen[res.rule.id]; // re-arm for the next time it triggers
+        }
+      });
+    } catch (e) { /* notifications are best-effort */ }
+  }, [transactions, prices, demoMode]);
 
   // ========== BACKUP FUNCTIONS ==========
   
@@ -2063,24 +2123,9 @@ function InvestmentTracker() {
       // live inputs the rest of the app uses (positions, tag values, snapshot peak).
       case 'rules': {
         if (!window.MaerminRules) return renderAnalyticsPlaceholder('Alerts & Rules');
-        const rPosMap = {};
-        activeTransactions.forEach(tx => {
-          const symU = (tx.symbol || '').toUpperCase();
-          if (!symU) return;
-          const cat = tx.category || 'crypto';
-          const key = cat + '-' + symU;
-          if (!rPosMap[key]) rPosMap[key] = { symbol: symU, category: cat, amount: 0 };
-          const qty = parseFloat(tx.quantity) || 0;
-          if (tx.type === 'buy') rPosMap[key].amount += qty;
-          else if (tx.type === 'sell') rPosMap[key].amount = Math.max(0, rPosMap[key].amount - qty);
-        });
-        const rPositions = [];
-        Object.values(rPosMap).forEach(p => {
-          if (p.amount <= 0.0001) return;
-          const s = p.symbol;
-          const pr = prices[s] || prices[s.toLowerCase()] || prices[s.toUpperCase()] || 0;
-          rPositions.push({ symbol: s, category: p.category, valueEUR: p.amount * pr });
-        });
+        // Reuse the one shared price-lookup (MaerminTags.pricedPositions) instead
+        // of a parallel inline loop.
+        const rPositions = window.MaerminTags ? window.MaerminTags.pricedPositions(activeTransactions, prices) : [];
         const rTagsState = window.MaerminTags ? window.MaerminTags.load() : null;
         const rByTag = {};
         let rTagNames = [];
@@ -2204,7 +2249,7 @@ function InvestmentTracker() {
       case 'rebalancing':
         return window.MaerminFeatures2 ?
           React.createElement(window.MaerminFeatures2.RebalancingView, {
-            portfolio, prices, theme: currentTheme, formatPrice, getCurrencySymbol, t
+            portfolio, prices, theme: currentTheme, formatPrice, getCurrencySymbol, t, setActiveView
           }) : renderAnalyticsPlaceholder('Rebalancing');
 
       case 'attribution':
@@ -4687,6 +4732,25 @@ buy,crypto,bitcoin,0.5,45000,2024-01-15,10`)
                     gap: '2px'
                   }
                 }, ico, React.createElement('span', { style: { fontSize: '0.65rem' } }, th.charAt(0).toUpperCase() + th.slice(1)))
+              )
+            )
+          ),
+          // Language (v10.x) — English base + German overrides; missing keys fall back to English.
+          React.createElement('div', { style: { marginBottom: '1rem' } },
+            React.createElement('label', { style: { color: currentTheme.textSecondary, fontSize: '0.7rem', textTransform: 'uppercase', letterSpacing: '0.05em' } }, t.language || 'Language'),
+            React.createElement('div', { style: { display: 'flex', gap: '0.4rem', marginTop: '0.5rem' } },
+              [['en', 'English'], ['de', 'Deutsch']].map(([lng, lbl]) =>
+                React.createElement('button', {
+                  key: lng,
+                  onClick: () => setLanguage(lng),
+                  style: {
+                    flex: 1, padding: '0.5rem',
+                    background: language === lng ? currentTheme.accent : currentTheme.inputBg,
+                    color: language === lng ? '#fff' : currentTheme.text,
+                    border: 'none', borderRadius: '6px', cursor: 'pointer',
+                    fontSize: '0.8rem', fontWeight: language === lng ? '600' : '400'
+                  }
+                }, lbl)
               )
             )
           ),

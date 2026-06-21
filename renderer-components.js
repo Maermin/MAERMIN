@@ -8,52 +8,6 @@
 
 const { useState, useEffect, useMemo, useCallback, useRef } = React;
 
-// ============================================================================
-// THEME CONFIGURATION
-// ============================================================================
-
-const themes = {
-  white: {
-    background: 'linear-gradient(135deg, #f8fafc 0%, #e2e8f0 50%, #f8fafc 100%)',
-    card: 'rgba(255,255,255,0.9)',
-    cardBorder: 'rgba(0,0,0,0.1)',
-    text: '#1e293b',
-    textSecondary: '#64748b',
-    inputBg: 'rgba(0,0,0,0.05)',
-    inputBorder: 'rgba(0,0,0,0.1)',
-    accent: '#c2790a',
-    success: '#22c55e',
-    danger: '#ef4444',
-    warning: '#f59e0b'
-  },
-  dark: {
-    background: 'radial-gradient(1200px 720px at 50% -16%, #19212f 0%, #0c111a 54%, #080b11 100%)',
-    card: 'rgba(18,24,38,0.92)',
-    cardBorder: 'rgba(255,255,255,0.08)',
-    cardBorder: 'rgba(255,255,255,0.1)',
-    text: '#e9edf4',
-    textSecondary: '#8b94a7',
-    inputBg: 'rgba(255,255,255,0.05)',
-    inputBorder: 'rgba(255,255,255,0.1)',
-    accent: '#f5a524',
-    success: '#22c55e',
-    danger: '#ef4444',
-    warning: '#f59e0b'
-  },
-  purple: {
-    background: 'linear-gradient(135deg, #140a23 0%, #1f1234 50%, #0d0717 100%)',
-    card: 'rgba(255,255,255,0.1)',
-    cardBorder: 'rgba(255,255,255,0.2)',
-    text: '#ffffff',
-    textSecondary: 'rgba(255,255,255,0.6)',
-    inputBg: 'rgba(255,255,255,0.1)',
-    inputBorder: 'rgba(255,255,255,0.2)',
-    accent: '#f5a524',
-    success: '#22c55e',
-    danger: '#ef4444',
-    warning: '#f59e0b'
-  }
-};
 
 // ============================================================================
 // UTILITY FUNCTIONS
