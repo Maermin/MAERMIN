@@ -51,7 +51,8 @@
     'maermin_custom_categories',
     'theme',
     'currency',
-    'privacyMode'
+    'privacyMode',
+    'maermin_language'
   ];
 
   function defaultStore() {

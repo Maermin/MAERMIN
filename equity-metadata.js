@@ -68,7 +68,7 @@
     KHC: ['Consumer Staples', 'USA'], NVO: ['Healthcare', 'Denmark'], NVS: ['Healthcare', 'Switzerland'],
     ASML: ['Technology', 'Netherlands'], AZN: ['Healthcare', 'UK'], SHEL: ['Energy', 'UK'], BP: ['Energy', 'UK'],
     'SIX2.DE': ['Industrials', 'Germany'], 'RWE.DE': ['Utilities', 'Germany'], 'MRK.DE': ['Healthcare', 'Germany'],
-    'NOVO-B.CO': ['Healthcare', 'Denmark'], 'NESN.SW': ['Consumer Staples', 'Switzerland'],
+    'NOVO-B.CO': ['Healthcare', 'Denmark'],
     PYPL: ['Financials', 'USA'], SQ: ['Technology', 'USA'], PLTR: ['Technology', 'USA'],
     CVS: ['Healthcare', 'USA'],
     GILD: ['Healthcare', 'USA'], AMGN: ['Healthcare', 'USA'], BMY: ['Healthcare', 'USA'],

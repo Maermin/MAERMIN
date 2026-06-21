@@ -187,26 +187,39 @@
     catch (e) { return false; }
   }
 
-  // ---- positions helper: priced [{symbol, valueEUR}] from transactions ------
-  function positionsFromInputs(transactions, prices) {
+  // ---- positions helpers ----------------------------------------------------
+  // The single price-lookup the tag/rules views share: priced positions per
+  // (category, symbol) → [{ symbol, category, valueEUR }] from a flat tx list.
+  function pricedPositions(transactions, prices) {
     var posMap = {};
     (Array.isArray(transactions) ? transactions : []).forEach(function (tx) {
       var symU = normSym(tx && tx.symbol);
       if (!symU) return;
-      var key = (tx.category || 'crypto') + '-' + symU;
-      if (!posMap[key]) posMap[key] = { symbol: symU, amount: 0 };
+      var cat = tx.category || 'crypto';
+      var key = cat + '-' + symU;
+      if (!posMap[key]) posMap[key] = { symbol: symU, category: cat, amount: 0 };
       var qty = parseFloat(tx.quantity) || 0;
       if (tx.type === 'buy') posMap[key].amount += qty;
       else if (tx.type === 'sell') posMap[key].amount = Math.max(0, posMap[key].amount - qty);
     });
     prices = prices || {};
-    var bySym = {};
+    var out = [];
     Object.keys(posMap).forEach(function (k) {
       var p = posMap[k];
       if (p.amount <= 0.0001) return;
       var s = p.symbol;
       var pr = prices[s] || prices[s.toLowerCase()] || prices[s.toUpperCase()] || 0;
-      bySym[s] = (bySym[s] || 0) + p.amount * pr;
+      out.push({ symbol: s, category: p.category, valueEUR: p.amount * pr });
+    });
+    return out;
+  }
+
+  // Symbol-aggregated [{symbol, valueEUR}] (a symbol can span categories) — the
+  // shape tag aggregation weights by.
+  function positionsFromInputs(transactions, prices) {
+    var bySym = {};
+    pricedPositions(transactions, prices).forEach(function (p) {
+      bySym[p.symbol] = (bySym[p.symbol] || 0) + p.valueEUR;
     });
     return Object.keys(bySym).map(function (s) { return { symbol: s, valueEUR: bySym[s] }; });
   }
@@ -249,6 +262,20 @@
     var aggByName = {};
     agg.rows.forEach(function (r) { aggByName[r.name] = r; });
 
+    // C3: per-tag performance over time, derived from the 'tag:<name>' snapshot
+    // series (recorded by the renderer). Loaded once here, not per tag.
+    var Snap = (typeof window !== 'undefined') ? window.MaerminSnapshots : null;
+    var Perf = (typeof window !== 'undefined') ? window.MaerminPerformance : null;
+    var snapState = Snap ? Snap.load() : null;
+    function tagPerf(name) {
+      if (!Snap || !Perf || !snapState) return null;
+      try {
+        var ser = Snap.seriesFor(snapState, 'tag:' + name);
+        if (ser.length < 2) return null;
+        return Perf.computePeriod(ser.map(function (p) { return { d: p.d, v: p.v }; }), '1M');
+      } catch (e) { return null; }
+    }
+
     function dot(color) { return e('span', { 'aria-hidden': 'true', style: { display: 'inline-block', width: '0.7rem', height: '0.7rem', borderRadius: '50%', background: color, flexShrink: 0 } }); }
     function btn(label, onClick, kind) {
       var solid = kind === 'solid';
@@ -270,11 +297,13 @@
       var deltaVal = (targetPct - row.weightPct) / 100 * agg.total;
 
       var chips = tag.symbols.map(function (s) {
-        return e('span', {
+        return e('button', {
           key: s,
+          type: 'button',
           title: t.tagsUnassign || 'Click to remove',
+          'aria-label': (t.tagsRemoveSymbol || 'Remove') + ' ' + s,
           onClick: function () { mutate(unassign(st, tag.name, s)); },
-          style: { cursor: 'pointer', display: 'inline-flex', alignItems: 'center', gap: '0.3rem', padding: '0.2rem 0.55rem', borderRadius: '999px', border: '1px solid ' + border, background: 'rgba(255,255,255,0.03)', color: text, fontSize: '0.78rem' }
+          style: { font: 'inherit', cursor: 'pointer', display: 'inline-flex', alignItems: 'center', gap: '0.3rem', padding: '0.2rem 0.55rem', borderRadius: '999px', border: '1px solid ' + border, background: 'rgba(255,255,255,0.03)', color: text, fontSize: '0.78rem' }
         }, s, e('span', { 'aria-hidden': 'true', style: { color: dim } }, '×'));
       });
 
@@ -294,6 +323,13 @@
           dot(tag.color),
           e('span', { style: { color: text, fontWeight: 800, fontSize: '0.95rem' } }, tag.name),
           e('span', { style: { color: dim, fontSize: '0.78rem' } }, fmt(row.value) + ' ' + sym + ' · ' + row.weightPct.toFixed(1) + '%'),
+          (function () {
+            var perf = tagPerf(tag.name);
+            return (perf && perf.pct != null)
+              ? e('span', { title: (perf.partial ? (t.tagsSinceStart || 'since first record') : '30d'), style: { color: perf.pct >= 0 ? up : down, fontSize: '0.74rem', fontWeight: 700 } },
+                  (perf.pct >= 0 ? '+' : '') + perf.pct.toFixed(1) + '% · ' + (perf.partial ? '∗' : '30d'))
+              : null;
+          })(),
           e('span', { style: { flex: 1 } }),
           Reb ? e('label', { style: { color: dim, fontSize: '0.72rem', display: 'inline-flex', alignItems: 'center', gap: '0.3rem' } },
             (t.tagsTarget || 'Target'),
@@ -339,6 +375,7 @@
     STORAGE_KEY: STORAGE_KEY,
     SCHEMA: SCHEMA,
     PALETTE: PALETTE,
+    pricedPositions: pricedPositions,
     positionsFromInputs: positionsFromInputs,
     View: View,
     pickColor: pickColor,

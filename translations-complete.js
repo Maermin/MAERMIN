@@ -466,9 +466,11 @@ const completeTranslations = {
     rulesTriggered: 'rule(s) currently triggered',
     rulesAllClear: 'All rules within limits',
     rulesEmpty: 'No rules yet. Add one above — e.g. a symbol weight above 30% to catch concentration.',
+    rulesAlert: 'Rule triggered',
     watchlistNote: 'Note / thesis (opt.)',
     watchlistToGo: 'to go',
     watchlistAbove: 'above',
+    rebalanceByTagHint: 'Rebalance by tag instead → Tags view',
     navCategories: 'Categories',
     catSubtitle: 'Define your own asset categories beyond the four built-ins. Custom categories are priced and counted in your totals; they appear when adding a transaction. Carried in your backup.',
     catAdd: 'Add category',
@@ -495,6 +497,8 @@ const completeTranslations = {
     tagsDelete: 'Delete',
     tagsTarget: 'Target',
     tagsUnassign: 'Click to remove',
+    tagsRemoveSymbol: 'Remove',
+    tagsSinceStart: 'since first record',
     tagsNoSymbols: 'No symbols yet',
     tagsEmpty: 'No tags yet. Create one above, then assign holdings to it.',
     tagsOnTarget: 'On target',
@@ -604,6 +608,85 @@ const completeTranslations = {
     intelFindings: 'Portfolio findings',
     intelClean: 'No structural problems detected across the ten checks. Nice work.',
     intelNoData: 'Add holdings — and open the Health view once to load ETF look-through — to surface effective exposures.'
+  },
+
+  // German locale (v10.x). Curated high-traffic strings; any missing key falls
+  // back to English via the merge in renderer.js. Some UI text is still hardcoded
+  // English in the components and will Germanise as those literals migrate to t.*.
+  de: {
+    // Common actions
+    add: 'Hinzufügen', addNew: 'Neu hinzufügen', addTransaction: 'Transaktion hinzufügen',
+    save: 'Speichern', saveChanges: 'Änderungen speichern', cancel: 'Abbrechen', close: 'Schließen',
+    delete: 'Löschen', edit: 'Bearbeiten', confirm: 'Bestätigen', confirmDelete: 'Wirklich löschen?',
+    search: 'Suchen', filter: 'Filter', sort: 'Sortieren', export: 'Exportieren', import: 'Importieren',
+    importData: 'Daten importieren', exportData: 'Daten exportieren', refresh: 'Aktualisieren',
+    reset: 'Zurücksetzen', apply: 'Anwenden', done: 'Fertig', yes: 'Ja', no: 'Nein', clear: 'Leeren',
+    loading: 'Lädt …', details: 'Details', settings: 'Einstellungen', help: 'Hilfe', logout: 'Abmelden',
+    // Core nouns
+    buy: 'Kauf', sell: 'Verkauf', amount: 'Menge', quantity: 'Anzahl', price: 'Preis', date: 'Datum',
+    symbol: 'Symbol', fees: 'Gebühren', profit: 'Gewinn', profitLoss: 'Gewinn/Verlust', invested: 'Investiert',
+    total: 'Gesamt', totalValue: 'Gesamtwert', portfolioValue: 'Portfoliowert', positions: 'Positionen',
+    position: 'Position', current: 'Aktuell', netWorth: 'Nettovermögen', portfolio: 'Portfolio',
+    // Categories
+    crypto: 'Krypto', stocks: 'Aktien', skins: 'CS2-Skins', cs2Skins: 'CS2-Skins', commodities: 'Rohstoffe',
+    // Theme / currency / language
+    theme: 'Design', currency: 'Währung', language: 'Sprache', darkMode: 'Dunkel', whiteMode: 'Hell',
+    purpleMode: 'Lila', contrastMode: 'Hoher Kontrast', cbMode: 'Farbenblind-sicher',
+    // Navigation
+    overview: 'Übersicht', navOverview: 'Übersicht', transactions: 'Transaktionen', navTransactions: 'Transaktionen',
+    navPortfolios: 'Portfolios', navNetWorth: 'Nettovermögen', navDividends: 'Dividenden', navJournal: 'Journal',
+    navReturns: 'Rendite & XIRR', returns: 'Rendite & XIRR', navPerformance: 'Performance', navRebalancing: 'Rebalancing',
+    rebalancing: 'Rebalancing', navSavingsPlans: 'Sparpläne', navCashflow: 'Cashflow', navFees: 'Gebühren-Analyse',
+    navRiskCorrelation: 'Risiko & Korrelation', analytics: 'Portfolio-Analyse', navHealthScore: 'Gesundheits-Score',
+    navStrategy: 'Strategie', navTaxFifo: 'Steuer & FIFO', taxes: 'Steuern', navTags: 'Tags', navCategories: 'Kategorien',
+    navCustomize: 'Übersicht anpassen', navWatchlist: 'Watchlist', watchlist: 'Watchlist', navPriceAlerts: 'Preis-Alarme',
+    priceAlerts: 'Preis-Alarme', navAttribution: 'Attribution', navRealizedPnl: 'Realisierter G/V', navNewsFeed: 'News-Feed',
+    navImportExport: 'Import / Export', navRules: 'Alarme & Regeln', navGroupAnalysis: 'Analyse',
+    navGroupPortfolio: 'Portfolio', navGroupTools: 'Entdecken & Tools',
+    // Status / quality
+    excellent: 'Hervorragend', good: 'Gut', fair: 'Mittel', poor: 'Schwach', diversified: 'Diversifiziert',
+    balanced: 'Ausgewogen', highRisk: 'Hohes Risiko', lowRisk: 'Niedriges Risiko', mediumRisk: 'Mittleres Risiko',
+    // Toasts
+    transactionAdded: 'Transaktion hinzugefügt', transactionDeleted: 'Transaktion gelöscht',
+    transactionUpdated: 'Transaktion aktualisiert', backupCreated: 'Backup erstellt',
+    backupRestored: 'Backup wiederhergestellt', pricesUpdated: 'Preise aktualisiert', passwordChanged: 'Passwort geändert',
+    // Misc UI
+    keyboardShortcuts: 'Tastenkürzel', privacyMode: 'Beträge verbergen', hideAmounts: 'Beträge verbergen',
+    showAmounts: 'Beträge anzeigen', createBackup: 'Backup erstellen', restoreBackup: 'Backup wiederherstellen',
+    backup: 'Backup', apiSettings: 'API-Einstellungen', exchangeRate: 'Wechselkurs',
+    welcomeTitle: 'Willkommen bei MAERMIN', welcomeHint: 'Beginne mit deiner ersten Transaktion.',
+    // Performance view
+    perfSubtitle: 'Echte Perioden-Renditen rein aus deiner lokalen Wert-Historie — ganz ohne externe API. Während der Nutzung wird täglich automatisch ein Punkt aufgezeichnet.',
+    perfEmpty: 'Noch keine Wert-Historie. Snapshots werden einmal pro Tag aufgezeichnet — schau morgen wieder vorbei für deine erste Perioden-Rendite.',
+    perfBestDay: 'Bester Tag', perfWorstDay: 'Schlechtester Tag',
+    perfPartial: 'Seit Beginn (Historie kürzer als dieser Zeitraum)',
+    perfFootnote: 'Mit ≈ markierte Zeiträume werden ab deinem ersten Snapshot gemessen, weil der volle Rückblick noch nicht abgedeckt ist.',
+    // Tags view
+    tagsSubtitle: 'Querschnittliche Labels auf deinen Positionen — gruppiere nach eigener These (High-Conviction, Income, Spekulativ …), sieh Wert & Gewicht pro Tag und setze optional Zielgewichte.',
+    tagsAdd: 'Tag hinzufügen', tagsNewPlaceholder: 'Neuer Tag-Name …', tagsAddSymbol: '+ Symbol', tagsDelete: 'Löschen',
+    tagsTarget: 'Ziel', tagsUnassign: 'Zum Entfernen klicken', tagsRemoveSymbol: 'Entfernen', tagsNoSymbols: 'Noch keine Symbole',
+    tagsEmpty: 'Noch keine Tags. Erstelle oben einen und weise ihm Positionen zu.', tagsOnTarget: 'Im Ziel',
+    tagsOverweight: 'Übergewichtet', tagsUnderweight: 'Untergewichtet', tagsBuy: 'kaufen', tagsSell: 'verkaufen',
+    tagsSinceStart: 'seit erster Aufzeichnung',
+    tagsFootnote: 'Gewichte sind Anteil am gesamten Positionswert (ungetaggter Wert ist in der Basis enthalten). Tags wandern ins Backup.',
+    // Rules view
+    rulesSubtitle: 'Lokale „Warne mich, wenn …"-Regeln zu Konzentration, Allokation und Drawdown — sofort gegen dein Live-Portfolio ausgewertet. Regeln wandern ins Backup.',
+    rulesAdd: 'Regel hinzufügen', rulesDelete: 'Löschen', rulesOn: 'An', rulesOff: 'Aus', rulesNow: 'jetzt',
+    rulesTarget: 'Ziel', rulesPickTarget: 'Ziel …', rulesTriggered: 'Regel(n) aktuell ausgelöst',
+    rulesAllClear: 'Alle Regeln im Rahmen', rulesAlert: 'Regel ausgelöst',
+    rulesEmpty: 'Noch keine Regeln. Füge oben eine hinzu — z. B. ein Symbol-Gewicht über 30 %, um Klumpenrisiken zu erkennen.',
+    // Categories view
+    catSubtitle: 'Definiere eigene Anlagekategorien jenseits der vier Standardklassen. Custom-Kategorien werden bepreist und in deinen Summen gezählt; sie erscheinen beim Hinzufügen einer Transaktion. Im Backup enthalten.',
+    catAdd: 'Kategorie hinzufügen', catDelete: 'Löschen', catColor: 'Farbe', catNewPlaceholder: 'Neue Kategorie, z. B. Immobilien …',
+    catEmpty: 'Noch keine eigenen Kategorien. Füge oben eine hinzu — sie erscheint im Kategorie-Auswahlfeld beim Hinzufügen einer Transaktion.',
+    catFootnote: 'Hinweis: Aufschlüsselungen nach Anlageklasse (Rebalancing/Währung) decken die vier Basisklassen ab; Custom-Kategorie-Wert ist in den Summen sowie hier und in Tags enthalten.',
+    // Customize Overview
+    dashSubtitle: 'Blende die Haupt-Sektionen der Übersicht ein oder aus. Änderungen werden sofort gespeichert und wandern ins Backup; öffne die Übersicht neu, um sie zu sehen.',
+    dashShow: 'Anzeigen', dashHide: 'Verbergen', dashReset: 'Auf Standard zurücksetzen',
+    // Watchlist
+    watchlistNote: 'Notiz / These (optional)', watchlistToGo: 'bis Ziel', watchlistAbove: 'über Ziel',
+    watchlistEmpty: 'Füge Symbole hinzu, um sie hier zu verfolgen',
+    rebalanceByTagHint: 'Stattdessen nach Tag rebalancen → Tags-Ansicht'
   }
 };
 
