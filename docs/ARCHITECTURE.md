@@ -89,7 +89,7 @@ conversion happens only at format time (`formatPrice`).
 |--------|--------|---------|
 | `ticker-validation.js` | `MaerminTickers` | Normalise symbols (e.g. `BRK.B`→`BRK-B`, keep `SAP.DE`) |
 | `equity-metadata.js` | `MaerminEquityMeta` | Sector/country per ticker — resolves via the Worker's `action=profile` (Yahoo `assetProfile`, no FMP key needed; falls back to the FMP profile API if a key is set) + 30-day cache + an expanded static map. Yahoo's sector/country labels are normalised to the app's GICS-style buckets. Powers the Strategy tab's Sector & Country allocation |
-| `dividend-data-service.js` | `DividendDataService` | Dividend data, FIFO forecast, calendar. Resolves per-symbol dividends via the Worker's `action=fundamentals` (Yahoo — `fetchDividendFromWorker`, no FMP key needed; frequency inferred from `dividendRate / lastDividendValue`), falling back to the FMP API (key) then the ~31-ticker built-in DB. Symbols are normalised through `MaerminTickers.normalizeForDividends`, which also applies renamed-ticker aliases (FISV→FI, FB→META, …) |
+| `dividend-data-service.js` | `DividendDataService` | Dividend data, FIFO forecast, calendar. Resolves per-symbol dividends via the Worker's `action=fundamentals` (Yahoo — `fetchDividendFromWorker`, no FMP key needed; frequency inferred from `dividendRate / lastDividendValue`), falling back to the FMP API (key) then the ~31-ticker built-in DB. Symbols are normalised through `MaerminTickers.normalizeForDividends`, which also applies renamed-ticker aliases (FISV→FI, FB→META, …). `buildPaymentSchedule(portfolio, {months, back})` expands resolved holdings into one dated entry **per individual payout** across a trailing `back` window (already-received, flagged `past`) plus the next `months` — the Dividend Calendar auto-derives these (read-only; upcoming blue, received grey) and merges them with the user's manual entries, so every payer shows who/when/how-much and the yearly total reconciles received + upcoming |
 | `tax-report-builder.js` | `MaerminTaxReport` | Per-lot FIFO tax report + PDF/Excel; for jurisdiction `de` integrates the GermanTax detail (`summary.germanDetail`, injectable via `opts.germanTax` for Node tests) |
 | `tax-settings.js` | `MaerminTaxSettings` | User-editable tax parameters (Abgeltung rate, Soli toggle, church tax, Freistellungsauftrag, crypto exemption, Teilfreistellung overrides) + per-position manual taxable overrides (sensitive). Pure `sanitize`/`computeAbgeltung`/`teilfreistellungRate`/`positionOverride`; the engine reads these and falls back to statutory defaults. Tested in `test/tax-settings.test.js` |
 | `tax-calculation-engine.js` | `TaxCalculationEngine` (+ `GermanTax`) | Jurisdiction tax estimates; `GermanTax` adds the pure German fund-taxation depth: Vorabpauschale (BMF Basiszins table + overrides, month pro-rating, sale credit), Teilfreistellung per fund type (symmetric on losses), statutory order Teilfreistellung -> Verrechnung -> Sparerpauschbetrag -> Abgeltungsteuer/Soli/Kirchensteuer (sec. 32d formula), crypto Freigrenze. Dual-exported, tested in `test/german-tax.test.js` |
@@ -266,6 +266,46 @@ percentages, never amounts) for the Professional-Reports feature. The pure layer
 Node-tested (`test/portfolio-intelligence.test.js`) and the `View` is registered in
 `smoke-views`. Accessibility: the priority chips and finding list use `role="list"`/
 `listitem` with `aria-label`s and `aria-hidden` status glyphs.
+
+**v10 feature stores.** Three new pure modules add *persisted* user data and are
+therefore wired into the full-vault backup (`backup-engine.js` `KEYS`):
+
+- **Portfolio Value Snapshots** (`portfolio-snapshots.js` → `MaerminSnapshots`, key
+  `maermin_snapshots`). An append-only daily series of total value, one point per
+  `(day, portfolioId)` (a same-day re-record overwrites that day, capped per portfolio so
+  it can't bloat). Pure `addPoint`/`changeBetween`/`valueAsOf`/`prune`; the renderer records
+  it from a single best-effort top-level effect that reuses the Overview's value
+  aggregation (never throws into a render, never records in demo mode). This is the
+  ground-truth value history when no external (Yahoo) history is reachable.
+- **Smart Tags** (`tags.js` → `MaerminTags`, key `maermin_tags`). Case-insensitively-unique
+  labels referencing UPPERCASEd symbols, orthogonal to asset category. `aggregate(state,
+  positions)` is pure and takes the caller's already-priced positions, so it never needs the
+  metrics engine. Weights are share of the supplied total so untagged value stays visible.
+- **Custom Dashboard Layout** (`dashboard-layout.js` → `MaerminDashboard`, key
+  `maermin_dashboard_layout`). An ordered list of `{id, visible}`; `normalize(raw, available)`
+  reconciles a saved layout against the widgets a build actually ships — new ids append
+  visible, removed ids drop, the rest keep their order/visibility — so a new card never
+  corrupts an old saved layout.
+
+All three are dual-export IIFEs with headless Node tests (`test/portfolio-snapshots.test.js`,
+`test/tags.test.js`, `test/dashboard-layout.test.js`). They store non-secret data only, so
+they add no `SENSITIVE_KEYS` and need no migration.
+
+**v10.x roadmap modules** build *on top of* the v10 stores:
+
+- **Snapshot-Powered Performance** (`performance-cards.js` → `MaerminPerformance`) is a pure
+  *consumer* of the snapshot series — no new persistence. `computeAll(series, asOf)` derives
+  the 1D/1W/1M/3M/6M/YTD/1Y/Max cards with carry-forward (`valueAsOf`) and a `partial` flag
+  when the look-back predates inception, so a young portfolio still shows a real number. The
+  core takes a plain `[{d,v}]` array (Node-tested, `test/performance-cards.test.js`);
+  `cards(portfolioId)` bridges to `MaerminSnapshots` in the app.
+- **Rebalancing Planner** (`rebalancing-planner.js` → `MaerminRebalance`, key
+  `maermin_rebalance_targets`, in the backup) persists target weights by category **or** tag
+  basis. The pure `plan(state, actual, {band})` is basis-agnostic — the caller passes the
+  current allocation as `[{key,value}]` (use `groupBy` for the category basis, or
+  `MaerminTags.aggregate(...).rows` for the tag basis) — and returns per-bucket drift (in
+  percentage points) plus the concrete buy(+)/sell(−) delta to reach target within a tolerance
+  band, with a turnover/`balanced` summary. Node-tested in `test/rebalancing-planner.test.js`.
 
 ---
 
