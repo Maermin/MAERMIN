@@ -187,10 +187,160 @@
     catch (e) { return false; }
   }
 
+  // ---- positions helper: priced [{symbol, valueEUR}] from transactions ------
+  function positionsFromInputs(transactions, prices) {
+    var posMap = {};
+    (Array.isArray(transactions) ? transactions : []).forEach(function (tx) {
+      var symU = normSym(tx && tx.symbol);
+      if (!symU) return;
+      var key = (tx.category || 'crypto') + '-' + symU;
+      if (!posMap[key]) posMap[key] = { symbol: symU, amount: 0 };
+      var qty = parseFloat(tx.quantity) || 0;
+      if (tx.type === 'buy') posMap[key].amount += qty;
+      else if (tx.type === 'sell') posMap[key].amount = Math.max(0, posMap[key].amount - qty);
+    });
+    prices = prices || {};
+    var bySym = {};
+    Object.keys(posMap).forEach(function (k) {
+      var p = posMap[k];
+      if (p.amount <= 0.0001) return;
+      var s = p.symbol;
+      var pr = prices[s] || prices[s.toLowerCase()] || prices[s.toUpperCase()] || 0;
+      bySym[s] = (bySym[s] || 0) + p.amount * pr;
+    });
+    return Object.keys(bySym).map(function (s) { return { symbol: s, valueEUR: bySym[s] }; });
+  }
+
+  // ---- React view (rendered via React.createElement from renderer.js) -------
+  function View(props) {
+    var React = (typeof window !== 'undefined') ? window.React : null;
+    if (!React) return null;
+    var e = React.createElement;
+    var useState = React.useState;
+    var theme = props.theme || {};
+    var t = props.t || {};
+    var text = theme.text || '#e9edf4', dim = theme.textSecondary || '#8b94a7';
+    var border = theme.cardBorder || 'rgba(255,255,255,0.08)';
+    var card = theme.card || '#10151f';
+    var inputBg = theme.inputBg || '#0c1018', inputBorder = theme.inputBorder || border;
+    var accent = theme.accent || '#f5a524', accentText = theme.accentText || '#13110a';
+    var up = theme.success || '#22c55e', down = theme.danger || '#ef4444';
+    var fmt = props.formatPrice || function (n) { return (Math.round(n * 100) / 100).toLocaleString(); };
+    var sym = props.getCurrencySymbol ? props.getCurrencySymbol() : '€';
+
+    var st0 = useState(function () { return load(); });
+    var st = st0[0], setSt = st0[1];
+    var nn = useState(''); var newName = nn[0], setNewName = nn[1];
+
+    var Reb = (typeof window !== 'undefined') ? window.MaerminRebalance : null;
+    var tg0 = useState(function () { return Reb ? Reb.setBasis(Reb.load(), 'tag') : null; });
+    var tgt = tg0[0], setTgt = tg0[1];
+
+    function mutate(next) { save(next); setSt(normalize(next)); }
+    function setTarget(name, pct) {
+      if (!Reb) return;
+      var next = Reb.setBasis(Reb.setTarget(tgt, name, pct), 'tag');
+      Reb.save(next); setTgt(next);
+    }
+
+    var positions = positionsFromInputs(props.transactions, props.prices);
+    var holdingSymbols = positions.map(function (p) { return p.symbol; }).sort();
+    var agg = aggregate(st, positions);
+    var aggByName = {};
+    agg.rows.forEach(function (r) { aggByName[r.name] = r; });
+
+    function dot(color) { return e('span', { 'aria-hidden': 'true', style: { display: 'inline-block', width: '0.7rem', height: '0.7rem', borderRadius: '50%', background: color, flexShrink: 0 } }); }
+    function btn(label, onClick, kind) {
+      var solid = kind === 'solid';
+      return e('button', {
+        onClick: onClick,
+        style: {
+          padding: '0.35rem 0.7rem', fontSize: '0.78rem', fontWeight: 700, cursor: 'pointer',
+          borderRadius: '8px', border: '1px solid ' + (solid ? accent : inputBorder),
+          background: solid ? accent : 'transparent', color: solid ? accentText : text
+        }
+      }, label);
+    }
+
+    var tagCards = listTags(st).map(function (tag) {
+      var row = aggByName[tag.name] || { value: 0, weightPct: 0, matched: 0 };
+      var untagged = holdingSymbols.filter(function (s) { return tag.symbols.indexOf(s) === -1; });
+      var targetPct = (Reb && tgt && tgt.targets[tag.name]) || 0;
+      var driftPp = row.weightPct - targetPct;
+      var deltaVal = (targetPct - row.weightPct) / 100 * agg.total;
+
+      var chips = tag.symbols.map(function (s) {
+        return e('span', {
+          key: s,
+          title: t.tagsUnassign || 'Click to remove',
+          onClick: function () { mutate(unassign(st, tag.name, s)); },
+          style: { cursor: 'pointer', display: 'inline-flex', alignItems: 'center', gap: '0.3rem', padding: '0.2rem 0.55rem', borderRadius: '999px', border: '1px solid ' + border, background: 'rgba(255,255,255,0.03)', color: text, fontSize: '0.78rem' }
+        }, s, e('span', { 'aria-hidden': 'true', style: { color: dim } }, '×'));
+      });
+
+      var addSelect = untagged.length ? e('select', {
+        value: '',
+        onChange: function (ev) { if (ev.target.value) mutate(assign(st, tag.name, ev.target.value)); },
+        style: { padding: '0.2rem 0.4rem', borderRadius: '8px', border: '1px solid ' + inputBorder, background: inputBg, color: text, fontSize: '0.78rem' }
+      },
+        [e('option', { key: '_', value: '' }, t.tagsAddSymbol || '+ symbol')].concat(
+          untagged.map(function (s) { return e('option', { key: s, value: s }, s); }))) : null;
+
+      return e('div', {
+        key: tag.name,
+        style: { background: card, border: '1px solid ' + border, borderRadius: '14px', padding: '1rem', marginBottom: '0.75rem' }
+      },
+        e('div', { style: { display: 'flex', alignItems: 'center', gap: '0.6rem', marginBottom: '0.6rem', flexWrap: 'wrap' } },
+          dot(tag.color),
+          e('span', { style: { color: text, fontWeight: 800, fontSize: '0.95rem' } }, tag.name),
+          e('span', { style: { color: dim, fontSize: '0.78rem' } }, fmt(row.value) + ' ' + sym + ' · ' + row.weightPct.toFixed(1) + '%'),
+          e('span', { style: { flex: 1 } }),
+          Reb ? e('label', { style: { color: dim, fontSize: '0.72rem', display: 'inline-flex', alignItems: 'center', gap: '0.3rem' } },
+            (t.tagsTarget || 'Target'),
+            e('input', {
+              type: 'number', min: 0, max: 100, value: targetPct || '',
+              onChange: function (ev) { setTarget(tag.name, ev.target.value); },
+              placeholder: '0', style: { width: '56px', padding: '0.2rem 0.35rem', borderRadius: '6px', border: '1px solid ' + inputBorder, background: inputBg, color: text, fontSize: '0.78rem' }
+            }), '%') : null,
+          btn(t.tagsDelete || 'Delete', function () { mutate(removeTag(st, tag.name)); })),
+        e('div', { style: { display: 'flex', alignItems: 'center', gap: '0.4rem', flexWrap: 'wrap' } },
+          chips.length ? chips : e('span', { style: { color: dim, fontSize: '0.78rem' } }, t.tagsNoSymbols || 'No symbols yet'),
+          addSelect),
+        (Reb && targetPct > 0) ? e('div', { style: { marginTop: '0.6rem', fontSize: '0.78rem', color: Math.abs(driftPp) < 0.05 ? dim : (driftPp > 0 ? down : up) } },
+          (Math.abs(driftPp) < 0.05
+            ? (t.tagsOnTarget || 'On target')
+            : (driftPp > 0
+              ? (t.tagsOverweight || 'Overweight') + ' ' + driftPp.toFixed(1) + 'pp → ' + (t.tagsSell || 'sell') + ' ' + fmt(Math.abs(deltaVal)) + ' ' + sym
+              : (t.tagsUnderweight || 'Underweight') + ' ' + Math.abs(driftPp).toFixed(1) + 'pp → ' + (t.tagsBuy || 'buy') + ' ' + fmt(Math.abs(deltaVal)) + ' ' + sym))) : null);
+    });
+
+    return e('div', { style: { padding: '1.5rem' } },
+      e('h2', { style: { color: text, fontSize: '1.5rem', fontWeight: 800, letterSpacing: '-0.02em', margin: '0 0 0.35rem' } }, t.navTags || 'Tags'),
+      e('p', { style: { color: dim, fontSize: '0.88rem', margin: '0 0 1.25rem', lineHeight: 1.5, maxWidth: '60ch' } },
+        t.tagsSubtitle || 'Cross-cutting labels on your holdings — group by your own thesis (high-conviction, income, speculative…), see value & weight per tag, and optionally set target weights.'),
+
+      e('div', { style: { display: 'flex', gap: '0.5rem', marginBottom: '1.25rem', flexWrap: 'wrap' } },
+        e('input', {
+          value: newName, onChange: function (ev) { setNewName(ev.target.value); },
+          onKeyDown: function (ev) { if (ev.key === 'Enter' && newName.trim()) { mutate(addTag(st, newName)); setNewName(''); } },
+          placeholder: t.tagsNewPlaceholder || 'New tag name…',
+          style: { flex: 1, minWidth: '180px', maxWidth: '320px', padding: '0.5rem 0.75rem', borderRadius: '8px', border: '1px solid ' + inputBorder, background: inputBg, color: text, fontSize: '0.85rem' }
+        }),
+        btn(t.tagsAdd || 'Add tag', function () { if (newName.trim()) { mutate(addTag(st, newName)); setNewName(''); } }, 'solid')),
+
+      tagCards.length ? tagCards : e('div', { style: { background: card, border: '1px solid ' + border, borderRadius: '14px', padding: '2rem', textAlign: 'center', color: dim, fontSize: '0.9rem' } },
+        t.tagsEmpty || 'No tags yet. Create one above, then assign holdings to it.'),
+
+      agg.total > 0 ? e('div', { style: { color: dim, fontSize: '0.72rem', marginTop: '1rem', lineHeight: 1.5 } },
+        (t.tagsFootnote || 'Weights are share of total holdings value (untagged value is included in the base). Tags carry into your backup.')) : null);
+  }
+
   var api = {
     STORAGE_KEY: STORAGE_KEY,
     SCHEMA: SCHEMA,
     PALETTE: PALETTE,
+    positionsFromInputs: positionsFromInputs,
+    View: View,
     pickColor: pickColor,
     normalize: normalize,
     listTags: listTags,

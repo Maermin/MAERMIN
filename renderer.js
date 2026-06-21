@@ -111,6 +111,49 @@ const themes = {
     success: '#34d399',
     danger: '#f87171',
     warning: '#fb923c'
+  },
+  // v10.x #7 — High-contrast theme (WCAG AAA-leaning): pure-black canvas, white
+  // text, heavy borders. For low-vision users and bright environments.
+  contrast: {
+    background: '#000000',
+    card: '#0a0a0a',
+    surface2: '#161616',
+    cardBorder: 'rgba(255,255,255,0.35)',
+    modalBg: '#000000',
+    modalBorder: 'rgba(255,255,255,0.5)',
+    text: '#ffffff',
+    textSecondary: '#d6d6d6',
+    inputBg: '#000000',
+    inputBorder: 'rgba(255,255,255,0.5)',
+    accent: '#ffd400',
+    accentText: '#000000',
+    accentSoft: 'rgba(255,212,0,0.18)',
+    shadow: '0 0 0 1px rgba(255,255,255,0.25)',
+    success: '#00e676',
+    danger: '#ff5252',
+    warning: '#ffb300'
+  },
+  // v10.x #7 — Colour-blind-safe (Okabe–Ito): positive = sky-blue, negative =
+  // orange, never red/green. P&L colours flow from theme.success/danger so this
+  // remaps the whole app's gains/losses to a deuteranopia/protanopia-safe pair.
+  cb: {
+    background: 'radial-gradient(1100px 620px at 50% -12%, #15202b 0%, #0b1018 52%, #080b11 100%)',
+    card: '#10151f',
+    surface2: '#161c28',
+    cardBorder: 'rgba(255,255,255,0.08)',
+    modalBg: '#141a25',
+    modalBorder: 'rgba(255,255,255,0.10)',
+    text: '#e9edf4',
+    textSecondary: '#9aa3b2',
+    inputBg: '#0c1018',
+    inputBorder: 'rgba(255,255,255,0.10)',
+    accent: '#56B4E9',
+    accentText: '#06121c',
+    accentSoft: 'rgba(86,180,233,0.14)',
+    shadow: '0 18px 40px -16px rgba(0,0,0,0.65)',
+    success: '#56B4E9',
+    danger: '#E69F00',
+    warning: '#F0E442'
   }
 };
 
@@ -500,7 +543,10 @@ function InvestmentTracker() {
   // Category display names
   const getCategoryDisplayName = (category) => {
     const displayNames = { crypto: t.crypto || 'Crypto', stocks: t.stocks || 'Stocks', skins: t.cs2Skins || 'CS2 Skins', commodities: 'Commodities', options: 'Options' };
-    return displayNames[category] || category;
+    if (displayNames[category]) return displayNames[category];
+    // v10.x: resolve user-defined custom categories (custom-categories.js).
+    if (window.MaerminCategories) { try { return window.MaerminCategories.label(category); } catch (e) {} }
+    return category;
   };
 
   // Calculate portfolio totals (shared stats helper — same math everywhere).
@@ -531,15 +577,20 @@ function InvestmentTracker() {
     { id: 'nav:journal',       label: t.tradeJournal || 'Journal',         category: 'Portfolio',  shortcut: 'g j' },
     // Analysis
     { id: 'nav:returns',       label: t.returns || 'Returns & XIRR',       category: 'Analysis',   shortcut: 'g r' },
+    { id: 'nav:performance',   label: t.navPerformance || 'Performance',   category: 'Analysis',   shortcut: 'g f' },
     { id: 'nav:rebalancing',   label: t.rebalancing || 'Rebalancing',      category: 'Analysis',   shortcut: 'g b' },
     { id: 'nav:analytics',     label: t.analytics || 'Portfolio Analysis', category: 'Analysis',   shortcut: 'g a' },
     { id: 'nav:taxes',         label: t.taxes || 'Taxes',                  category: 'Analysis',   shortcut: 'g x' },
     // Tools
     { id: 'nav:intelligence',  label: t.intelTitle || 'Portfolio Intelligence', category: 'Tools', shortcut: 'g i' },
+    { id: 'nav:tags',          label: t.navTags || 'Tags',                 category: 'Tools',      shortcut: 'g s' },
     { id: 'nav:discovery',     label: t.discovery || 'Discovery',          category: 'Tools',      shortcut: 'g e' },
     { id: 'nav:share',         label: t.navShare || 'Share & Compare',     category: 'Tools',      shortcut: 'g h' },
     { id: 'nav:watchlist',     label: t.watchlist || 'Watchlist',          category: 'Tools',      shortcut: 'g w' },
     { id: 'nav:alerts',        label: t.priceAlerts || 'Price Alerts',     category: 'Tools',      shortcut: 'g l' },
+    { id: 'nav:rules',         label: t.navRules || 'Alerts & Rules',      category: 'Tools',      shortcut: 'g u' },
+    { id: 'nav:categories',    label: t.navCategories || 'Categories',     category: 'Tools',      shortcut: 'g c' },
+    { id: 'nav:customize',     label: t.navCustomize || 'Customize Overview', category: 'Tools',   shortcut: 'g y' },
     { id: 'nav:broker-import', label: t.brokerImport || 'Broker Import',   category: 'Tools',      shortcut: 'g m' },
     // Actions
     { id: 'action:add',        label: t.addTransaction || 'Add Transaction', category: 'Actions',  shortcut: 'n' },
@@ -551,6 +602,8 @@ function InvestmentTracker() {
     { id: 'settings:dark',     label: t.darkMode || 'Dark Mode',           category: 'Design' },
     { id: 'settings:light',    label: t.whiteMode || 'Light Mode',         category: 'Design' },
     { id: 'settings:purple',   label: t.purpleMode || 'Purple Mode',       category: 'Design' },
+    { id: 'settings:contrast', label: t.contrastMode || 'High Contrast',   category: 'Design' },
+    { id: 'settings:cb',       label: t.cbMode || 'Colour-Blind Safe',     category: 'Design' },
     { id: 'help:shortcuts',    label: t.keyboardShortcuts || 'Keyboard Shortcuts', category: 'Help', shortcut: '?' },
   ], [t]);
 
@@ -1492,15 +1545,20 @@ function InvestmentTracker() {
       case 'nav:journal':       setActiveView('journal'); break;
       // Analyse Navigation
       case 'nav:returns':       setActiveView('returns'); break;
+      case 'nav:performance':   setActiveView('performance'); break;
       case 'nav:rebalancing':   setActiveView('rebalancing'); break;
       case 'nav:analytics':     setActiveView('analytics'); break;
       case 'nav:taxes':         setActiveView('tax'); break;
       // Tools Navigation
       case 'nav:intelligence':  setActiveView('intelligence'); break;
+      case 'nav:tags':          setActiveView('tags'); break;
       case 'nav:discovery':     setActiveView('discovery'); break;
       case 'nav:share':         setActiveView('share'); break;
       case 'nav:watchlist':     setActiveView('watchlist'); break;
       case 'nav:alerts':        setActiveView('alerts'); break;
+      case 'nav:rules':         setActiveView('rules'); break;
+      case 'nav:categories':    setActiveView('categories'); break;
+      case 'nav:customize':     setActiveView('customize'); break;
       case 'nav:broker-import': setActiveView('broker-import'); break;
       // Aktionen
       case 'action:add':        openTransactionModal(); break;
@@ -1512,6 +1570,8 @@ function InvestmentTracker() {
       case 'settings:dark':     setTheme('dark'); break;
       case 'settings:light':    setTheme('white'); break;
       case 'settings:purple':   setTheme('purple'); break;
+      case 'settings:contrast': setTheme('contrast'); break;
+      case 'settings:cb':       setTheme('cb'); break;
       // Help
       case 'help:shortcuts':    setShowShortcuts(true); break;
       default: break;
@@ -1964,6 +2024,89 @@ function InvestmentTracker() {
             lookThrough: lookThroughResult, theme: currentTheme, t
           }) : renderAnalyticsPlaceholder('Portfolio Intelligence');
 
+      // v10.x: snapshot-powered performance cards (1D…Max), derived 100% from the
+      // on-device value history — no API. Defaults to the combined 'all' series.
+      case 'performance':
+        return window.MaerminPerformance ?
+          React.createElement(window.MaerminPerformance.View, {
+            theme: currentTheme, t, formatPrice, getCurrencySymbol
+          }) : renderAnalyticsPlaceholder('Performance');
+
+      // v10.x: Customize Overview — show/hide/reorder the main Overview sections
+      // (MaerminDashboard). renderOverview reads visibleSet() each render.
+      case 'customize':
+        return window.MaerminDashboard ?
+          React.createElement(window.MaerminDashboard.View, {
+            theme: currentTheme, t
+          }) : renderAnalyticsPlaceholder('Customize Overview');
+
+      // v10.x: Custom asset categories — define/manage categories beyond the four
+      // built-ins. Positions in custom categories are priced & totalled (metrics.js
+      // is category-aware); the picker in Add-Transaction lists them.
+      case 'categories':
+        return window.MaerminCategories ?
+          React.createElement(window.MaerminCategories.View, {
+            theme: currentTheme, t
+          }) : renderAnalyticsPlaceholder('Categories');
+
+      // v10.x: Smart Tags — cross-cutting labels + per-tag value/weight and
+      // optional tag-basis target weights (persisted, in backup).
+      case 'tags':
+        return window.MaerminTags ?
+          React.createElement(window.MaerminTags.View, {
+            transactions: activeTransactions, prices,
+            theme: currentTheme, t, formatPrice, getCurrencySymbol
+          }) : renderAnalyticsPlaceholder('Tags');
+
+      // v10.x: Automation Rules — local "warn me when…" rules on concentration,
+      // allocation and drawdown. We assemble the eval context here from the same
+      // live inputs the rest of the app uses (positions, tag values, snapshot peak).
+      case 'rules': {
+        if (!window.MaerminRules) return renderAnalyticsPlaceholder('Alerts & Rules');
+        const rPosMap = {};
+        activeTransactions.forEach(tx => {
+          const symU = (tx.symbol || '').toUpperCase();
+          if (!symU) return;
+          const cat = tx.category || 'crypto';
+          const key = cat + '-' + symU;
+          if (!rPosMap[key]) rPosMap[key] = { symbol: symU, category: cat, amount: 0 };
+          const qty = parseFloat(tx.quantity) || 0;
+          if (tx.type === 'buy') rPosMap[key].amount += qty;
+          else if (tx.type === 'sell') rPosMap[key].amount = Math.max(0, rPosMap[key].amount - qty);
+        });
+        const rPositions = [];
+        Object.values(rPosMap).forEach(p => {
+          if (p.amount <= 0.0001) return;
+          const s = p.symbol;
+          const pr = prices[s] || prices[s.toLowerCase()] || prices[s.toUpperCase()] || 0;
+          rPositions.push({ symbol: s, category: p.category, valueEUR: p.amount * pr });
+        });
+        const rTagsState = window.MaerminTags ? window.MaerminTags.load() : null;
+        const rByTag = {};
+        let rTagNames = [];
+        if (window.MaerminTags && rTagsState) {
+          const agg = window.MaerminTags.aggregate(rTagsState, rPositions.map(p => ({ symbol: p.symbol, valueEUR: p.valueEUR })));
+          agg.rows.forEach(row => { rByTag[row.name] = row.value; });
+          rTagNames = window.MaerminTags.listTags(rTagsState).map(tg => tg.name);
+        }
+        let rDrop = 0;
+        if (window.MaerminSnapshots) {
+          const ser = window.MaerminSnapshots.seriesFor(window.MaerminSnapshots.load(), 'all');
+          if (ser.length) {
+            let peak = 0; ser.forEach(p => { if (p.v > peak) peak = p.v; });
+            const latest = ser[ser.length - 1].v;
+            rDrop = peak > 0 ? ((peak - latest) / peak) * 100 : 0;
+          }
+        }
+        const rSymbols = rPositions.map(p => p.symbol).sort();
+        const rCategories = Array.from(new Set(rPositions.map(p => p.category))).sort();
+        return React.createElement(window.MaerminRules.View, {
+          positions: rPositions, byTag: rByTag, dropFromPeakPct: rDrop,
+          symbols: rSymbols, categories: rCategories, tags: rTagNames,
+          theme: currentTheme, t, formatPrice
+        });
+      }
+
       case 'discovery':
         return window.MaerminDiscovery ?
           React.createElement(window.MaerminDiscovery.View, {
@@ -2363,6 +2506,12 @@ function InvestmentTracker() {
     const selectedPortfolio  = portfolios.find(p => p.id === overviewMode) || portfolios[0];
     const isAllMode          = overviewMode === 'all';
 
+    // v10.x: Overview section visibility (MaerminDashboard / "Customize Overview").
+    // Read once per render; an unknown/absent id defaults to visible so a section
+    // is never hidden by accident.
+    const dashVisSet = window.MaerminDashboard ? window.MaerminDashboard.visibleSet() : null;
+    const dashVis = (id) => !dashVisSet || dashVisSet[id] !== false;
+
     // Nudge pre-existing vaults (created before recovery codes shipped) to add one.
     const _vaultStatus = (window.MaerminAuth && window.MaerminAuth.getStatus) ? window.MaerminAuth.getStatus() : {};
     const showRecoveryNudge = !demoMode && _vaultStatus.hasVault && !_vaultStatus.hasRecovery && !recoveryNudgeDismissed;
@@ -2603,7 +2752,7 @@ function InvestmentTracker() {
       // ── Hero: total portfolio value ─────────────────────────────────────
       // The history chart already combines the big value, the all-time return
       // and the 1H…Max timeframe tabs — so it IS the hero. Rendered first.
-      window.MaerminFeatures6 && stats.totalPositions > 0 &&
+      dashVis('valueChart') && window.MaerminFeatures6 && stats.totalPositions > 0 &&
         React.createElement(window.MaerminFeatures6.PortfolioHistoryChart, {
           portfolio:          overviewPortfolio,
           prices,
@@ -2618,7 +2767,7 @@ function InvestmentTracker() {
         }),
 
       // ── Stats cards (mockup parity: Invested · Total Return · Dividends · Health) ──
-      (() => {
+      dashVis('statCards') && (() => {
         const M = window.MaerminMetrics;
         const divOv = M ? M.computeExpectedAnnualDividends(overviewPortfolio, prices) : null;
         const healthOv = M ? M.healthScore(overviewPortfolio, prices, t, { priceHistory, transactions: overviewTransactions }) : null;
@@ -2697,13 +2846,20 @@ function InvestmentTracker() {
       ),
 
       // ── Allocation + Top performers + Positions (mockup-exact, real data) ──
-      stats.totalPositions > 0 && (() => {
+      dashVis('allocation') && stats.totalPositions > 0 && (() => {
         const CLASS = {
           crypto:      { label: 'Crypto',        color: '#f5a524' },
           stocks:      { label: 'Stocks & ETFs', color: '#6ea8ff' },
           commodities: { label: 'Commodities',   color: '#b98cff' },
           skins:       { label: 'CS2 Skins',     color: '#5fd0c5' },
         };
+        // v10.x: include user-defined custom categories (custom-categories.js) so
+        // they show in the Overview donut + legend. catMeta resolves label/colour.
+        const customCatIds = window.MaerminCategories ? window.MaerminCategories.ids() : [];
+        const catList = ['crypto', 'stocks', 'commodities', 'skins'].concat(customCatIds);
+        const catMeta = (cat) => CLASS[cat] || (window.MaerminCategories
+          ? { label: window.MaerminCategories.label(cat), color: window.MaerminCategories.color(cat) }
+          : { label: cat, color: '#8b94a7' });
         const green = '#34d399', red = '#f87171', gray = '#8b94a7';
         const glyph = s => (s || '').replace(/[^A-Za-z0-9]/g, '').slice(0, 4).toUpperCase();
         const money = v => `${formatPrice(v)} ${getCurrencySymbol()}`;
@@ -2713,20 +2869,20 @@ function InvestmentTracker() {
           return prices[sym] ?? prices[sym.toLowerCase()] ?? prices[sym.toUpperCase()] ?? p.currentPrice ?? 0;
         };
         const list = [];
-        ['crypto', 'stocks', 'commodities', 'skins'].forEach(cat =>
+        catList.forEach(cat =>
           (overviewPortfolio[cat] || []).forEach(p => {
             const price = pxv(p), amount = p.amount || 0, value = amount * price;
             const cost = p.totalCostEUR != null ? p.totalCostEUR : (p.purchasePrice || 0) * amount;
             const pnl = value - cost, pnlPct = cost > 0 ? pnl / cost * 100 : 0;
-            list.push({ cat, sym: (p.symbol || p.name || ''), name: p.symbolName || p.name || (p.symbol || ''), amount, price, value, cost, pnl, pnlPct, color: CLASS[cat].color });
+            list.push({ cat, sym: (p.symbol || p.name || ''), name: p.symbolName || p.name || (p.symbol || ''), amount, price, value, cost, pnl, pnlPct, color: catMeta(cat).color });
           })
         );
         const totalVal = list.reduce((s, p) => s + p.value, 0) || stats.totalValue || 0;
 
         // Allocation by asset class → donut + legend
-        const classes = ['crypto', 'stocks', 'commodities', 'skins'].map(c => {
+        const classes = catList.map(c => {
           const v = list.filter(p => p.cat === c).reduce((s, p) => s + p.value, 0);
-          return { c, label: CLASS[c].label, color: CLASS[c].color, value: v, pct: totalVal > 0 ? v / totalVal * 100 : 0 };
+          return { c, label: catMeta(c).label, color: catMeta(c).color, value: v, pct: totalVal > 0 ? v / totalVal * 100 : 0 };
         }).filter(x => x.value > 0).sort((a, b) => b.value - a.value);
         const CIRC = 2 * Math.PI * 70; let off = 0;
         const donutSegs = classes.map(ct => {
@@ -3514,7 +3670,8 @@ function InvestmentTracker() {
             style: { display: 'block', color: currentTheme.textSecondary, marginBottom: '0.5rem', fontSize: '0.875rem' }
           }, t.category || 'Category'),
           React.createElement('div', { style: { display: 'flex', gap: '0.5rem', flexWrap: 'wrap' } },
-            ['crypto', 'stocks', 'skins', 'commodities', 'options'].map(cat =>
+            ['crypto', 'stocks', 'skins', 'commodities', 'options']
+              .concat(window.MaerminCategories ? window.MaerminCategories.ids() : []).map(cat =>
               React.createElement('button', {
                 key: cat,
                 onClick: () => setNewTransaction(prev => ({ ...prev, category: cat })),
@@ -4511,7 +4668,7 @@ buy,crypto,bitcoin,0.5,45000,2024-01-15,10`)
           React.createElement('div', { style: { marginBottom: '1rem' } },
             React.createElement('label', { style: { color: currentTheme.textSecondary, fontSize: '0.7rem', textTransform: 'uppercase', letterSpacing: '0.05em' } }, t.theme || 'Theme'),
             React.createElement('div', { style: { display: 'flex', gap: '0.4rem', marginTop: '0.5rem' } },
-              [['white','Light'],['dark','Dark'],['purple','Purple']].map(([th, ico]) =>
+              [['white','Light'],['dark','Dark'],['purple','Purple'],['contrast','Contrast'],['cb','CB-Safe']].map(([th, ico]) =>
                 React.createElement('button', {
                   key: th,
                   onClick: () => setTheme(th),
@@ -4727,6 +4884,7 @@ buy,crypto,bitcoin,0.5,45000,2024-01-15,10`)
           const hubs = [
             { id: 'hub-analytics', icon: '◫', label: 'Analytics', children: [
               { id: 'returns',             icon: '↗', label: t.navReturns || 'Returns & XIRR' },
+              { id: 'performance',         icon: '⌁', label: t.navPerformance || 'Performance' },
               { id: 'rebalancing',         icon: '⇌', label: t.navRebalancing || 'Rebalancing' },
               { id: 'savings-plans',       icon: '⊕', label: t.navSavingsPlans || 'Savings Plans' },
               { id: 'cashflow',            icon: '∿', label: t.navCashflow || 'Cash Flow' },
@@ -4738,10 +4896,14 @@ buy,crypto,bitcoin,0.5,45000,2024-01-15,10`)
             ]},
             { id: 'hub-tools', icon: '◎', label: 'Discover & Tools', children: [
               { id: 'intelligence', icon: '◈', label: t.intelTitle || 'Portfolio Intelligence' },
+              { id: 'tags',        icon: '⛯', label: t.navTags || 'Tags' },
+              { id: 'categories',  icon: '▤', label: t.navCategories || 'Categories' },
+              { id: 'customize',   icon: '▥', label: t.navCustomize || 'Customize Overview' },
               { id: 'discovery',   icon: '◎', label: t.navDiscovery || 'Discovery' },
               { id: 'share',       icon: '⊶', label: t.navShare || 'Share & Compare' },
               { id: 'watchlist',   icon: '☆', label: t.navWatchlist || 'Watchlist' },
               { id: 'alerts',      icon: '⚑', label: t.navPriceAlerts || 'Price Alerts' },
+              { id: 'rules',       icon: '◷', label: t.navRules || 'Alerts & Rules' },
               { id: 'attribution', icon: '⊿', label: t.navAttribution || 'Attribution' },
               { id: 'realized',    icon: '✓', label: t.navRealizedPnl || 'Realized P&L' },
               { id: 'news',        icon: '☰', label: t.navNewsFeed || 'News Feed' },

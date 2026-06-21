@@ -22,19 +22,14 @@
   var STORAGE_KEY = 'maermin_dashboard_layout';
   var SCHEMA = 1;
 
-  // The widgets this build knows how to render, in their default order. The
-  // renderer passes its own list to normalize(); this is the fallback/default.
+  // The Overview sections this build can show/hide, in display order. These ids
+  // are the ones renderer.js gates in renderOverview (see `dashVis`). Kept small
+  // and 1:1 with real sections so every toggle in the Customize view does
+  // something. The renderer may pass its own list to normalize().
   var DEFAULT_WIDGETS = [
-    { id: 'totalValue',   label: 'Total Value' },
-    { id: 'dayChange',    label: 'Day Change' },
-    { id: 'totalPnl',     label: 'Total P&L' },
-    { id: 'allocation',   label: 'Asset Allocation' },
-    { id: 'valueChart',   label: 'Value History' },
-    { id: 'topMovers',    label: 'Top Movers' },
-    { id: 'dividends',    label: 'Upcoming Dividends' },
-    { id: 'netWorth',     label: 'Net Worth' },
-    { id: 'intelligence', label: 'Portfolio Intelligence' },
-    { id: 'tags',         label: 'Tags Breakdown' }
+    { id: 'valueChart', label: 'Value History Chart' },
+    { id: 'statCards',  label: 'Stat Cards (Invested · Return · Dividends · Health)' },
+    { id: 'allocation', label: 'Allocation · Top Performers · Positions' }
   ];
 
   function defaultIds() { return DEFAULT_WIDGETS.map(function (w) { return w.id; }); }
@@ -74,6 +69,15 @@
     return normalize(state, available).widgets
       .filter(function (w) { return w.visible; })
       .map(function (w) { return w.id; });
+  }
+
+  // Map { id -> visible } straight from storage — what the renderer reads each
+  // render to gate Overview sections. Unknown ids (not in the layout) default
+  // visible, so a section is never hidden by accident.
+  function visibleSet(available) {
+    var out = {};
+    load(available).widgets.forEach(function (w) { out[w.id] = w.visible; });
+    return out;
   }
 
   function toggle(state, id, available) {
@@ -149,6 +153,7 @@
     defaultIds: defaultIds,
     normalize: normalize,
     visibleWidgets: visibleWidgets,
+    visibleSet: visibleSet,
     toggle: toggle,
     setVisible: setVisible,
     move: move,
@@ -157,7 +162,55 @@
     load: load,
     save: save
   };
+  api.View = makeView(api);
 
   if (typeof window !== 'undefined') window.MaerminDashboard = api;
   if (typeof module !== 'undefined' && module.exports) module.exports = api;
+
+  // --------------------------------------------------------------------------
+  // "Customize Overview" view: toggle visibility + reorder the gated Overview
+  // sections. Persists immediately; the Overview reads visibleSet() each render,
+  // so changes show the next time the Overview renders (e.g. on navigation).
+  function makeView(API) {
+    return function View(props) {
+      var React = (typeof window !== 'undefined') ? window.React : null;
+      if (!React) return null;
+      var e = React.createElement;
+      var useState = React.useState;
+      try {
+        var theme = props.theme || {};
+        var t = props.t || {};
+        var text = theme.text || '#e9edf4', dim = theme.textSecondary || '#8b94a7';
+        var border = theme.cardBorder || 'rgba(255,255,255,0.08)';
+        var card = theme.card || '#10151f';
+        var accent = theme.accent || '#f5a524', accentText = theme.accentText || '#13110a';
+
+        var s0 = useState(function () { return API.load(); });
+        var st = s0[0], setSt = s0[1];
+        function commit(next) { API.save(next); setSt(API.normalize(next)); }
+
+        var byId = {}; API.DEFAULT_WIDGETS.forEach(function (w) { byId[w.id] = w.label; });
+
+        var rows = API.normalize(st).widgets.map(function (w) {
+          return e('div', { key: w.id, style: { display: 'flex', alignItems: 'center', gap: '0.75rem', padding: '0.8rem 1rem', background: card, border: '1px solid ' + border, borderRadius: '12px', marginBottom: '0.6rem' } },
+            e('button', {
+              onClick: function () { commit(API.toggle(st, w.id)); },
+              title: w.visible ? (t.dashHide || 'Hide') : (t.dashShow || 'Show'),
+              style: { width: '44px', flexShrink: 0, padding: '0.3rem 0', fontSize: '0.74rem', fontWeight: 800, cursor: 'pointer', borderRadius: '999px', border: '1px solid ' + (w.visible ? accent : border), background: w.visible ? accent : 'transparent', color: w.visible ? accentText : dim } },
+              w.visible ? 'On' : 'Off'),
+            e('div', { style: { flex: 1, minWidth: 0, color: w.visible ? text : dim, fontSize: '0.88rem', fontWeight: 600 } }, byId[w.id] || w.id));
+        });
+
+        return e('div', { style: { padding: '1.5rem' } },
+          e('h2', { style: { color: text, fontSize: '1.5rem', fontWeight: 800, letterSpacing: '-0.02em', margin: '0 0 0.35rem' } }, t.navCustomize || 'Customize Overview'),
+          e('p', { style: { color: dim, fontSize: '0.88rem', margin: '0 0 1.25rem', lineHeight: 1.5, maxWidth: '60ch' } },
+            t.dashSubtitle || 'Show or hide the main Overview sections. Changes are saved instantly and carried in your backup; reopen the Overview to see them.'),
+          rows,
+          e('button', { onClick: function () { commit(API.reset()); }, style: { marginTop: '0.5rem', padding: '0.45rem 0.9rem', fontSize: '0.82rem', fontWeight: 700, cursor: 'pointer', borderRadius: '8px', border: '1px solid ' + border, background: 'transparent', color: text } },
+            t.dashReset || 'Reset to default'));
+      } catch (err) {
+        return e('div', { style: { padding: '1.5rem', color: (props.theme && props.theme.danger) || '#ef4444' } }, 'Customize view error: ' + (err && err.message));
+      }
+    };
+  }
 })();

@@ -27,6 +27,28 @@
     return prices[s] || prices[s.toLowerCase()] || prices[s.toUpperCase()] || pos.currentPrice || pos.purchasePrice || 0;
   }
 
+  // Label + colour for a class key. Built-ins use the maps above; custom
+  // categories (custom-categories.js) resolve to their user label/colour; an
+  // unknown key falls back to the raw key + grey.
+  function classMeta(key) {
+    if (CLASS_LABELS[key]) return { label: CLASS_LABELS[key], color: CLASS_COLORS[key] || '#888' };
+    if (typeof window !== 'undefined' && window.MaerminCategories) {
+      try { return { label: window.MaerminCategories.label(key), color: window.MaerminCategories.color(key) }; }
+      catch (e) { /* fall through */ }
+    }
+    return { label: key, color: '#888' };
+  }
+
+  // The asset classes to scan: the four built-ins plus any custom categories
+  // (explicit opts.categories wins, else the registry). Pure in Node (no window).
+  function scanClasses(opts) {
+    var classes = ['crypto', 'stocks', 'skins', 'commodities'];
+    var extra = opts.categories ||
+      ((typeof window !== 'undefined' && window.MaerminCategories && window.MaerminCategories.ids) ? window.MaerminCategories.ids() : []);
+    (extra || []).forEach(function (c) { if (c && classes.indexOf(c) === -1) classes.push(c); });
+    return classes;
+  }
+
   function loadAccounts() {
     try { return JSON.parse(localStorage.getItem('maermin_networth_accounts') || '[]'); }
     catch (e) { return []; }
@@ -45,7 +67,7 @@
     var buckets = {}; // key -> { value, positions: [] }
     function bucket(key) { return (buckets[key] || (buckets[key] = { value: 0, positions: [] })); }
 
-    ['crypto', 'stocks', 'skins', 'commodities'].forEach(function (cls) {
+    scanClasses(opts).forEach(function (cls) {
       (portfolio[cls] || []).forEach(function (pos) {
         var amount = parseFloat(pos.amount) || 0;
         var value = amount * priceOf(prices, pos);
@@ -75,8 +97,9 @@
       var positions = b.positions
         .sort(function (x, y) { return y.value - x.value; })
         .map(function (p) { return { symbol: p.symbol, value: p.value, pct: total > 0 ? (p.value / total) * 100 : 0 }; });
+      var meta = classMeta(key);
       return {
-        key: key, label: CLASS_LABELS[key] || key, color: CLASS_COLORS[key] || '#888',
+        key: key, label: meta.label, color: meta.color,
         value: b.value, pct: total > 0 ? (b.value / total) * 100 : 0,
         count: positions.length, positions: positions
       };

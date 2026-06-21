@@ -53,18 +53,32 @@ Each is a pure IIFE in the existing pattern; the ones that persist user data get
 reserved `localStorage` key that must be added to `backup-engine.js` `KEYS` **when
 shipped** (so they round-trip in the full-vault backup, same as the v10 stores).
 
-| # | Feature | Why it makes us better | Persists → backup key |
-|---|---|---|---|
-| 1 | **Rebalancing Planner** | Target weights per tag/category + drift detection + concrete buy/sell deltas to get back to target. Reuses `MaerminMetrics` + `MaerminTags`. | `maermin_rebalance_targets` |
-| 2 | **Automation Rules** | "If BTC weight > 30% → alert", "on the 1st → remind to DCA". A small, evaluated rules store layered on existing alerts. | `maermin_rules` |
-| 3 | **Custom Asset Categories** | Let users define categories beyond crypto/stocks/skins (e.g. real-estate, P2P, collectibles) with their own colour & icon. | `maermin_custom_categories` |
-| 4 | **Watchlist Price Targets & Notes** | Per-watchlist-symbol buy/sell target + thesis note + distance-to-target, surfaced on the watchlist. | (extends `maermin_watchlist`) |
-| 5 | **Snapshot-Powered Performance Cards** | Use `MaerminSnapshots` to show real 1D/1W/1M/1Y change without any API — pure consumer of the new series. | (none — derived) |
-| 6 | **Tag-Based Allocation Targets & Reports** | Feed `MaerminTags.aggregate` into the Professional-Reports export and into the Rebalancing Planner. | (none — derived) |
-| 7 | **Multi-Theme Engine** | Light / high-contrast / colour-blind-safe themes on top of the v10 token system. | `maermin_theme_prefs` |
+| # | Feature | Why it makes us better | Persists → backup key | Status |
+|---|---|---|---|---|
+| 5 | **Snapshot-Powered Performance Cards** | Use `MaerminSnapshots` to show real 1D/1W/1M/3M/6M/YTD/1Y/Max change without any API — pure consumer of the new series. | (none — derived) | ✅ **shipped + view** — `performance-cards.js` (`MaerminPerformance.View`), wired as the **Performance** view (Analytics hub, `g f`), `test/performance-cards.test.js` |
+| 1 | **Rebalancing Planner** | Target weights per tag/category + drift detection + concrete buy/sell deltas to get back to target, within a tolerance band. | `maermin_rebalance_targets` | ✅ engine `rebalancing-planner.js` (`MaerminRebalance`), in backup, `test/rebalancing-planner.test.js`. **Tag-basis targets surfaced in the Tags view**; the existing category `RebalancingView` (features2) is left as-is (no duplicate) |
+| 6 | **Tag-Based Allocation** | Per-tag value/weight + optional target weights & drift. | (targets → `maermin_rebalance_targets`) | ✅ **shipped in the Tags view** (`MaerminTags.View`) |
+| 7 | **Multi-Theme Engine** | Light / high-contrast / colour-blind-safe themes on top of the v10 token system. | `theme` (existing key) | ✅ **shipped** — added `contrast` (high-contrast) + `cb` (Okabe–Ito colour-blind-safe) themes; palette + switcher wired. P&L colours flow from `theme.success/danger` so they remap app-wide |
+| 2 | **Automation Rules** | "Warn me when BTC weight > 30%", "Crypto > 50%", "tag:Speculative > 15%", "down >10% from peak", "total < 5000". Evaluated instantly against the live portfolio. | `maermin_rules` | ✅ **shipped + view** — `rules-engine.js` (`MaerminRules.View`), wired as **Alerts & Rules** (Tools, `g u`), in backup, `test/rules-engine.test.js` |
+| 3 | **Custom Asset Categories** | Let users define categories beyond crypto/stocks/skins (e.g. real-estate, P2P, collectibles) with their own colour. | `maermin_custom_categories` | ✅ **shipped + view** — `custom-categories.js` (`MaerminCategories.View`, **Categories** view, Tools, `g c`); `metrics.js` `buildPositions`/`computeStats` made category-aware so custom positions are priced & totalled; Add-Transaction picker lists them; in backup; `test/custom-categories.test.js`. *Limitation:* by-asset-class breakdowns still cover the 4 base classes |
+| 4 | **Watchlist Price Targets & Notes** | Per-watchlist-symbol target + thesis note + signed distance-to-target, surfaced on the watchlist. | (extends `maermin_watchlist`) | ✅ **shipped** — additive enhancement to `MaerminFeatures.WatchlistView` (note field + `±% to go/above`); backed up via the existing watchlist key (no new key, backward-compatible) |
 
-Build order favours the *derived* features first (5, 6) — they ship value on top of
-v10 with zero new persistence — then the planner (1) and rules (2).
+**Shipped this round** — Smart **Tags** view (`g s`, Discover & Tools hub): create/assign/
+remove tags, per-tag value & weight, and tag-basis target weights with buy/sell drift.
+**Performance** view. **Multi-theme** (contrast + colour-blind-safe).
+
+**All 7 "Designed — next" features are now shipped — plus both polish items:**
+
+- ✅ **Dashboard Layout → Overview consumption** — `MaerminDashboard` now has `visibleSet()` + a
+  **Customize Overview** view (`MaerminDashboard.View`, Tools · `g y`) that shows/hides the three
+  main Overview sections (Value chart · Stat cards · Allocation/Performers/Positions).
+  `renderOverview` gates each section with `dashVis(id)` (reads `visibleSet()` per render; unknown
+  ids default visible). Show/hide only — not drag-reorder (the Overview renders in fixed order).
+  Persisted in `maermin_dashboard_layout` (already in backup).
+- ✅ **By-asset-class allocation is custom-category-aware** — `allocation.js` (`computeAllocation`)
+  and the Overview's own donut/legend/positions now include custom categories with their label &
+  colour (resolved via `MaerminCategories`). *Still 4-base-class:* rebalancing-by-class drift and
+  currency-by-class exposure (a deeper, lower-visibility follow-up).
 
 ---
 
@@ -101,6 +115,8 @@ node test/backup.test.js     # full-vault backup round-trip + v10 keys
 node test/portfolio-snapshots.test.js  # v10 value-history engine
 node test/tags.test.js                 # v10 smart-tags engine
 node test/dashboard-layout.test.js     # v10 dashboard-layout engine
+node test/performance-cards.test.js    # v10.x snapshot performance cards
+node test/rebalancing-planner.test.js  # v10.x rebalancing planner
 npm test                     # runs every test/*.test.js
 npm run build:web            # production bundle + PWA assets → dist/
 ```

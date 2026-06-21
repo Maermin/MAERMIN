@@ -1,5 +1,21 @@
 # Release Notes
 
+## [Unreleased] — v10.x
+
+> UI fold-in of the v10 engines + accessibility themes. No data migration; backup format unchanged.
+
+- **Performance view** *(new)* — snapshot-powered 1D/1W/1M/3M/6M/YTD/1Y/Max return cards + best/worst day, derived entirely from the on-device value history (no API). Analytics hub · `g f`.
+- **Tags view** *(new)* — create/assign/remove Smart Tags, see per-tag value & weight, and set **tag-basis target weights** with live buy/sell drift (powered by `MaerminRebalance`). Discover & Tools hub · `g s`.
+- **Alerts & Rules view** *(new)* — local "warn me when…" rules on concentration (symbol/category/tag weight), drawdown (drop from peak) and total value, evaluated instantly against the live portfolio with a triggered/OK indicator. Persisted (`maermin_rules`, in backup). Tools hub · `g u`.
+- **Watchlist notes & distance-to-target** — each watch item gains an optional thesis note and a signed `±% to go / above` readout next to its target price. Backward-compatible (carried in the existing watchlist backup key).
+- **Custom Asset Categories** *(new)* — define your own categories (Real Estate, P2P, Collectibles…) with a colour; they appear in the Add-Transaction picker and are **priced & counted in your totals** (the shared `metrics.js` aggregation is now category-aware instead of dropping unknown categories). Managed in the **Categories** view (Tools · `g c`), persisted (`maermin_custom_categories`, in backup). Custom categories now also show in the **allocation donut + legend**.
+- **Customize Overview** *(new)* — a **Customize Overview** view (Tools · `g y`) lets you show/hide the three main Overview sections (Value chart · Stat cards · Allocation/Performers/Positions); persisted in your backup. Powered by `MaerminDashboard`.
+- **Accessibility themes** *(new)* — **High Contrast** (pure-black, heavy borders) and **Colour-Blind Safe** (Okabe–Ito: gains = blue, losses = orange, never red/green). Selectable in the theme switcher and command palette; gain/loss colours remap app-wide because they flow from the theme tokens.
+- Both new views are isolated `View` components inside their engine modules, wired into `renderer.js` via the standard 4 touchpoints (palette item, dispatch, `renderView`, sidebar) — a view error degrades to a notice instead of crashing the app.
+- The existing category `RebalancingView` is unchanged (no duplicate); the Dashboard-Layout Overview consumption is deferred (tightly-coupled Overview).
+
+---
+
 ## [v10.0.0] — June 2026
 
 > **Major release** · New UI · Fully backward compatible · Backup format unchanged (round-trips v9 backups)

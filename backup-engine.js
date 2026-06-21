@@ -45,6 +45,10 @@
     'maermin_snapshots',
     'maermin_tags',
     'maermin_dashboard_layout',
+    // v10.x roadmap stores (see rebalancing-planner.js / rules-engine.js / custom-categories.js)
+    'maermin_rebalance_targets',
+    'maermin_rules',
+    'maermin_custom_categories',
     'theme',
     'currency',
     'privacyMode'

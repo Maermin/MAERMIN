@@ -290,6 +290,11 @@
     opts = opts || {};
     var rate = parseFloat(opts.exchangeRate) || 0; // USD -> EUR
     var result = { crypto: [], stocks: [], skins: [], commodities: [] };
+    // v10.x: register custom-category buckets (custom-categories.js) so their
+    // positions are kept and valued instead of being dropped as "unknown".
+    var extraCats = opts.categories ||
+      ((typeof window !== 'undefined' && window.MaerminCategories && window.MaerminCategories.ids) ? window.MaerminCategories.ids() : []);
+    (extraCats || []).forEach(function (c) { if (c && !result[c]) result[c] = []; });
     var map = {};
     (transactions || []).forEach(function (tx) {
       var category = tx.category || 'crypto';
@@ -344,8 +349,11 @@
     portfolio = portfolio || {};
     prices = prices || {};
     var totalValue = 0, totalInvested = 0, totalPositions = 0;
-    ASSET_CLASSES.forEach(function (cls) {
-      (portfolio[cls] || []).forEach(function (pos) {
+    // v10.x: iterate ALL portfolio classes (built-in + custom) so custom-category
+    // value is included in the headline totals. Robust against non-array values.
+    Object.keys(portfolio).forEach(function (cls) {
+      var list = Array.isArray(portfolio[cls]) ? portfolio[cls] : [];
+      list.forEach(function (pos) {
         var amount = parseFloat(pos.amount) || 0;
         var price = priceOf(prices, pos) || parseFloat(pos.purchasePrice) || 0;
         totalValue += amount * price;

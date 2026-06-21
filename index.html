@@ -120,9 +120,13 @@
   <script src="dividend-quality.js"></script>
   <script src="risk-monitor.js"></script>
   <script src="portfolio-intelligence.js"></script>
+  <script src="custom-categories.js"></script>
   <script src="portfolio-snapshots.js"></script>
   <script src="tags.js"></script>
   <script src="dashboard-layout.js"></script>
+  <script src="performance-cards.js"></script>
+  <script src="rebalancing-planner.js"></script>
+  <script src="rules-engine.js"></script>
   <script src="options-engine.js"></script>
   <script src="recurring.js"></script>
   <script src="savings-plan-executor.js"></script>
@@ -185,6 +189,10 @@
         { name: 'Portfolio Snapshots', check: () => typeof window.MaerminSnapshots !== 'undefined' },
         { name: 'Smart Tags', check: () => typeof window.MaerminTags !== 'undefined' },
         { name: 'Dashboard Layout', check: () => typeof window.MaerminDashboard !== 'undefined' },
+        { name: 'Performance Cards', check: () => typeof window.MaerminPerformance !== 'undefined' },
+        { name: 'Rebalancing Planner', check: () => typeof window.MaerminRebalance !== 'undefined' },
+        { name: 'Automation Rules', check: () => typeof window.MaerminRules !== 'undefined' },
+        { name: 'Custom Categories', check: () => typeof window.MaerminCategories !== 'undefined' },
         { name: 'jsPDF', check: () => typeof window.jspdf !== 'undefined' }
       ];
       

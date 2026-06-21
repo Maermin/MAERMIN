@@ -341,6 +341,7 @@ function WatchlistView({ prices, priceHistory, theme, t, addToast }) {
   const [newSymbol, setNewSymbol] = useState('');
   const [newCat, setNewCat] = useState('crypto');
   const [newTarget, setNewTarget] = useState('');
+  const [newNote, setNewNote] = useState(''); // v10.x: thesis note per watch item
 
   useEffect(() => {
     localStorage.setItem('maermin_watchlist', JSON.stringify(items));
@@ -359,9 +360,10 @@ function WatchlistView({ prices, priceHistory, theme, t, addToast }) {
       displaySymbol: newSymbol.trim(),
       category: newCat,
       targetPrice: parseFloat(newTarget) || null,
+      note: newNote.trim() || null,
       addedAt: new Date().toISOString()
     }]);
-    setNewSymbol(''); setNewTarget('');
+    setNewSymbol(''); setNewTarget(''); setNewNote('');
   };
 
   const removeItem = (id) => setItems(prev => prev.filter(i => i.id !== id));
@@ -403,6 +405,13 @@ function WatchlistView({ prices, priceHistory, theme, t, addToast }) {
         onChange: e => setNewTarget(e.target.value),
         placeholder: 'Target price (opt.)',
         style: { ...inputStyle, width: '150px' }
+      }),
+      React.createElement('input', {
+        type: 'text', value: newNote,
+        onChange: e => setNewNote(e.target.value),
+        onKeyDown: e => e.key === 'Enter' && addItem(),
+        placeholder: t.watchlistNote || 'Note / thesis (opt.)',
+        style: { ...inputStyle, width: '200px' }
       }),
       React.createElement('button', {
         onClick: addItem,
@@ -448,6 +457,8 @@ function WatchlistView({ prices, priceHistory, theme, t, addToast }) {
                 const prevPrice = sparkVals.length > 1 ? sparkVals[sparkVals.length - 2] : price;
                 const changePct = prevPrice > 0 ? ((price - prevPrice) / prevPrice) * 100 : 0;
                 const atTarget = item.targetPrice && price >= item.targetPrice;
+                // v10.x: signed distance from current price to the target (+ = upside left).
+                const distPct = (item.targetPrice && price > 0) ? ((item.targetPrice - price) / price) * 100 : null;
 
                 return React.createElement('tr', {
                   key: item.id,
@@ -455,7 +466,8 @@ function WatchlistView({ prices, priceHistory, theme, t, addToast }) {
                 },
                   React.createElement('td', { style: { padding: '0.875rem 1rem' } },
                     React.createElement('div', { style: { fontWeight: '700', color: theme.text, fontSize: '0.9rem' } }, item.displaySymbol),
-                    atTarget && React.createElement('div', { style: { color: '#22c55e', fontSize: '0.7rem', fontWeight: '600' } }, '◎ Target reached!')
+                    atTarget && React.createElement('div', { style: { color: '#22c55e', fontSize: '0.7rem', fontWeight: '600' } }, '◎ Target reached!'),
+                    item.note && React.createElement('div', { style: { color: theme.textSecondary, fontSize: '0.72rem', marginTop: '0.15rem', maxWidth: '220px', whiteSpace: 'normal', lineHeight: 1.35 } }, item.note)
                   ),
                   React.createElement('td', { style: { padding: '0.875rem 1rem' } },
                     React.createElement('span', {
@@ -478,7 +490,10 @@ function WatchlistView({ prices, priceHistory, theme, t, addToast }) {
                       : React.createElement('span', { style: { color: theme.textSecondary } }, '—')
                   ),
                   React.createElement('td', { style: { padding: '0.875rem 1rem', textAlign: 'right', color: theme.textSecondary, fontSize: '0.875rem' } },
-                    item.targetPrice ? item.targetPrice.toFixed(2) : '—'
+                    item.targetPrice ? item.targetPrice.toFixed(2) : '—',
+                    (distPct !== null && !atTarget) && React.createElement('div', {
+                      style: { color: theme.textSecondary, fontSize: '0.7rem', marginTop: '0.1rem', opacity: 0.85 }
+                    }, `${distPct >= 0 ? '+' : ''}${distPct.toFixed(1)}% ${distPct >= 0 ? (t.watchlistToGo || 'to go') : (t.watchlistAbove || 'above')}`)
                   ),
                   React.createElement('td', { style: { padding: '0.875rem 1rem', textAlign: 'right' } },
                     sparkVals.length > 1
