@@ -585,6 +585,17 @@ export default {
         return res(JSON.stringify({ error: 'No price data', prices: [], note }), 200, request);
       }
 
+      // v10.x: seed the bulk price-lookup cache (POST /) with the current price
+      // (the latest point). The chart resolves a skin's price here first; sharing
+      // it means the price POST fills its map from cache instead of re-hitting
+      // Steam's priceoverview, which 429-throttles the whole batch ("no price").
+      try {
+        const cur = prices[prices.length - 1] && prices[prices.length - 1].price;
+        if (cur > 0) ctx.waitUntil(cache.put(
+          new Request(`https://cache.maermin/steamprice/${encodeURIComponent(name)}`),
+          new Response(String(cur), { headers: { 'Cache-Control': 'public, max-age=21600' } })));
+      } catch (e) { /* cache seed is best-effort */ }
+
       const payload = JSON.stringify({ prices, currency: 'USD', source, note });
       // Cache: real history 4h; an overview-only 2-point line just 10 min so a
       // throttled phase does not pin a flat line for hours.
@@ -710,11 +721,29 @@ export default {
       const toFetch = [];
       await Promise.all(names.map(async (name) => {
         if (!name || typeof name !== 'string') return;
-        const hit = await cache.match(priceKey(name.trim()));
+        const trimmed = name.trim();
+        const hit = await cache.match(priceKey(trimmed));
         if (hit) {
           const p = parseFloat(await hit.text());
           if (p > 0) { results[name] = p; return; }
         }
+        // v10.x: before re-hitting Steam, reuse the chart's history cache
+        // (steamhist3) — it resolves a skin's current price first and shares the
+        // same normalised name, so this fills the map without a second Steam
+        // burst (which is what 429s the batch into an empty "no price" result).
+        try {
+          const histHit = await cache.match(new Request(`https://cache.maermin/steamhist3/${encodeURIComponent(trimmed)}`));
+          if (histHit) {
+            const j = JSON.parse(await histHit.text());
+            const pts = j && j.prices;
+            const last = (pts && pts.length) ? pts[pts.length - 1].price : 0;
+            if (last > 0) {
+              results[name] = last;
+              ctx.waitUntil(cache.put(priceKey(trimmed), new Response(String(last), { headers: { 'Cache-Control': `public, max-age=${STEAM_PRICE_TTL}` } })));
+              return;
+            }
+          }
+        } catch (e) { /* fall through to a fresh fetch */ }
         toFetch.push(name);
       }));
 
