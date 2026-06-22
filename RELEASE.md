@@ -15,6 +15,11 @@
 - Consolidated the position price-lookup into one shared `MaerminTags.pricedPositions` helper (was re-implemented inline in three places).
 - Accessibility: tag chips are real `<button>`s now (keyboard-focusable, `aria-label`).
 
+**New — snapshot analytics (Performance view)**
+- **Benchmark comparison**: portfolio vs an index (MSCI World / S&P 500 / …) per period (1M/3M/6M/1Y) with relative out/underperformance in pp. Reuses the existing Worker proxy; shows a note when no Worker URL is set.
+- **Drawdown / underwater chart**: max drawdown, current drawdown, recovery status and an underwater area, all derived from the snapshot series.
+- **Goal projection**: each goal in `investmentGoals` gets a progress bar + ETA date, projected from your **realised snapshot CAGR** plus the goal's monthly contribution.
+
 **New**
 - **Automation Rules → live notifications**: a triggered rule now fires a toast + desktop notification (via the existing PWA plumbing), deduped per rule and re-armed when it relaxes — not just shown in the Rules view.
 - **Tag performance over time**: a per-tag value series is recorded, and each tag now shows its ~30-day change in the Tags view.

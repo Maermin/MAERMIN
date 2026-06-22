@@ -82,6 +82,42 @@ const P = require('../performance-cards.js');
   ]);
   ok('cleanSeries keeps valid, sorts', cleaned.length === 2 && cleaned[0].d === '2026-01-05');
 
+  // ---- #2 drawdown ----
+  const ddSer = [
+    { d: '2026-01-01', v: 100 }, { d: '2026-01-02', v: 120 }, { d: '2026-01-03', v: 90 },
+    { d: '2026-01-04', v: 110 }, { d: '2026-01-05', v: 130 }
+  ];
+  const dd = P.drawdownSeries(ddSer);
+  ok('drawdownSeries length', dd.length === 5);
+  ok('drawdown at trough is -25%', near(dd[2].dd, -25));
+  ok('drawdown 0 at a new peak', near(dd[4].dd, 0));
+  const dstat = P.drawdownStats(ddSer);
+  ok('max drawdown is -25%', near(dstat.maxDd, -25));
+  ok('trough date is the dip', dstat.troughDate === '2026-01-03');
+  ok('recovered after the dip', dstat.recovered === true && dstat.recoveryDate === '2026-01-05');
+  ok('current drawdown is 0 (at peak)', near(dstat.currentDd, 0));
+  ok('too-short series -> null stats', P.drawdownStats([{ d: '2026-01-01', v: 1 }]) === null);
+
+  // ---- #3 CAGR + goal ETA ----
+  const cagr = P.cagrFromSeries([{ d: '2025-01-01', v: 100 }, { d: '2026-01-01', v: 110 }]);
+  ok('CAGR ~10% over a year', Math.abs(cagr - 10) < 0.2);
+  ok('CAGR null for too-short', P.cagrFromSeries([{ d: '2026-01-01', v: 100 }]) === null);
+  ok('goal already reached', P.goalEta({ current: 2000, target: 1000 }).alreadyReached === true);
+  ok('goal via contributions (no return)', P.goalEta({ current: 1000, target: 2000, monthly: 100, annualReturnPct: 0 }).months === 10);
+  ok('goal via return only (~doubling at 1%/mo)', P.goalEta({ current: 1000, target: 2000, monthly: 0, annualReturnPct: 12 }).months === 70);
+  ok('goal unreachable -> reachable false', P.goalEta({ current: 100, target: 1000, monthly: 0, annualReturnPct: 0 }).reachable === false);
+  ok('goal ETA has a future date', /^\d{4}-\d{2}-\d{2}$/.test(P.goalEta({ current: 1000, target: 1100, monthly: 50, annualReturnPct: 5 }).etaISO));
+
+  // ---- #1 benchmark compare ----
+  const bench = [{ date: '2026-01-01', price: 200 }, { date: '2026-01-31', price: 210 }];
+  ok('priceAsOf carries forward', P.priceAsOf(bench, '2026-01-15').price === 200);
+  ok('priceAsOf before first is null', P.priceAsOf(bench, '2025-12-31') === null);
+  const cmp = P.compareBenchmark([{ d: '2026-01-01', v: 1000 }, { d: '2026-01-31', v: 1100 }], bench, '1M', '2026-01-31');
+  ok('compare: portfolio +10%', near(cmp.port, 10));
+  ok('compare: benchmark +5%', near(cmp.bench, 5));
+  ok('compare: relative +5pp', near(cmp.rel, 5));
+  ok('compare null without benchmark data', P.compareBenchmark([{ d: '2026-01-01', v: 1000 }], [], '1M') === null);
+
   console.log('\n' + passed + ' passed, ' + failed + ' failed');
   process.exit(failed ? 1 : 0);
 })();

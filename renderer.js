@@ -2089,7 +2089,7 @@ function InvestmentTracker() {
       case 'performance':
         return window.MaerminPerformance ?
           React.createElement(window.MaerminPerformance.View, {
-            theme: currentTheme, t, formatPrice, getCurrencySymbol
+            theme: currentTheme, t, formatPrice, getCurrencySymbol, workerUrl: apiKeys.cs2Worker
           }) : renderAnalyticsPlaceholder('Performance');
 
       // v10.x: Customize Overview — show/hide/reorder the main Overview sections
