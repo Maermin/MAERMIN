@@ -127,6 +127,7 @@
   <script src="performance-cards.js"></script>
   <script src="rebalancing-planner.js"></script>
   <script src="rules-engine.js"></script>
+  <script src="dividend-executor.js"></script>
   <script src="options-engine.js"></script>
   <script src="recurring.js"></script>
   <script src="savings-plan-executor.js"></script>
@@ -193,6 +194,7 @@
         { name: 'Rebalancing Planner', check: () => typeof window.MaerminRebalance !== 'undefined' },
         { name: 'Automation Rules', check: () => typeof window.MaerminRules !== 'undefined' },
         { name: 'Custom Categories', check: () => typeof window.MaerminCategories !== 'undefined' },
+        { name: 'Dividend Auto-book', check: () => typeof window.MaerminDividendExecutor !== 'undefined' },
         { name: 'jsPDF', check: () => typeof window.jspdf !== 'undefined' }
       ];
       
