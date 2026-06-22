@@ -826,15 +826,28 @@ export function parseSteamOverview(body) {
   return (isFinite(price) && price > 0) ? price : 0;
 }
 
-// priceoverview with a single backoff retry on 429/5xx - Steam throttles this
+// Lowest current ASK (USD) from the Steam listings *render* endpoint. PURE and
+// exported. This is the fallback for ILLIQUID items (expensive knives, Doppler
+// phases) where priceoverview returns nothing because there were no recent
+// SALES — but there are active LISTINGS, whose asks live in `listinginfo`
+// (converted_price + converted_fee, in integer cents at currency=1).
+export function parseSteamListingRender(body) {
+  if (!body || body.success !== true || !body.listinginfo || typeof body.listinginfo !== 'object') return 0;
+  let lowest = 0;
+  for (const id of Object.keys(body.listinginfo)) {
+    const li = body.listinginfo[id];
+    if (!li) continue;
+    const cents = (parseInt(li.converted_price, 10) || 0) + (parseInt(li.converted_fee, 10) || 0);
+    if (cents > 0) { const usd = cents / 100; if (lowest === 0 || usd < lowest) lowest = usd; }
+  }
+  return lowest;
+}
+
+// priceoverview with escalating backoff on 429/5xx - Steam throttles this
 // endpoint aggressively for datacenter IPs.
-async function fetchSteamOverviewPrice(name) {
+async function fetchPriceOverviewOnly(name) {
   const ovUrl = `https://steamcommunity.com/market/priceoverview/` +
     `?appid=730&currency=1&market_hash_name=${encodeURIComponent(name)}`;
-  // Three attempts with escalating backoff — Steam throttles datacenter IPs
-  // aggressively, so giving a 429 a couple more chances meaningfully raises the
-  // resolve rate on a cold-cache burst (the difference between a filled map and
-  // "no price" for the whole portfolio).
   const BACKOFF = [900, 2000];
   for (let attempt = 0; attempt < 3; attempt++) {
     try {
@@ -851,6 +864,33 @@ async function fetchSteamOverviewPrice(name) {
     }
   }
   return 0;
+}
+
+// Lowest current ask from the listings render endpoint (one backoff retry).
+async function fetchSteamListingPrice(name) {
+  const url = `https://steamcommunity.com/market/listings/730/${encodeURIComponent(name)}/render/` +
+    `?start=0&count=10&currency=1&language=english&format=json`;
+  for (let attempt = 0; attempt < 2; attempt++) {
+    try {
+      const r = await fetchWithTimeout(url, { headers: steamHeaders() }, 12000);
+      if (r.status === 429 || r.status >= 500) { if (attempt < 1) { await sleep(1200); continue; } return 0; }
+      if (!r.ok) return 0;
+      return parseSteamListingRender(await r.json());
+    } catch {
+      if (attempt < 1) { await sleep(500); continue; }
+      return 0;
+    }
+  }
+  return 0;
+}
+
+// Best current USD price for a skin: priceoverview (recent sales) first, then
+// the listings render endpoint (current lowest ask) for illiquid items that
+// have no recent sales. Both callers (steamhistory fallback + POST) use this.
+async function fetchSteamOverviewPrice(name) {
+  const ov = await fetchPriceOverviewOnly(name);
+  if (ov > 0) return ov;
+  return await fetchSteamListingPrice(name);
 }
 
 function steamHeaders() {

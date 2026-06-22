@@ -77,6 +77,19 @@ const PAGE_WITH_BROKEN_LINE1 = '<html><body><script>var line1=[["Dec 01 2021 01:
   ok('success:false -> 0', W.parseSteamOverview({ success: false, lowest_price: '$5.00' }) === 0);
   ok('junk body -> 0', W.parseSteamOverview(null) === 0 && W.parseSteamOverview({ success: true, lowest_price: 'n/a' }) === 0);
 
+  // ---- parseSteamListingRender (illiquid-item fallback: lowest ASK) ----------------
+  ok('lowest ask = converted_price + fee (cents -> USD)',
+    approx(W.parseSteamListingRender({ success: true, listinginfo: { a: { converted_price: 10000, converted_fee: 1500 } } }), 115));
+  ok('picks the lowest of several listings',
+    approx(W.parseSteamListingRender({ success: true, listinginfo: {
+      a: { converted_price: 30000, converted_fee: 4500 },
+      b: { converted_price: 25000, converted_fee: 3750 },
+      c: { converted_price: 40000, converted_fee: 6000 }
+    } }), 287.5));
+  ok('ignores zero/empty listings', approx(W.parseSteamListingRender({ success: true, listinginfo: { a: { converted_price: 0, converted_fee: 0 }, b: { converted_price: 5000, converted_fee: 750 } } }), 57.5));
+  ok('success:false -> 0', W.parseSteamListingRender({ success: false, listinginfo: { a: { converted_price: 100, converted_fee: 10 } } }) === 0);
+  ok('no listinginfo -> 0', W.parseSteamListingRender({ success: true }) === 0 && W.parseSteamListingRender(null) === 0);
+
   // ---- normalizeSkinName (the ONE normalising place) -------------------------------
   const N = T.normalizeSkinName;
   ok('exact names pass through unchanged', N('Souvenir Desert Eagle | Fennec Fox (Minimal Wear)') === 'Souvenir Desert Eagle | Fennec Fox (Minimal Wear)');
