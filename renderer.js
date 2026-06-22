@@ -377,6 +377,42 @@ function InvestmentTracker() {
     } catch (e) { console.warn('[SAVINGS] catch-up failed:', e); }
   }, [prices, transactions, priceHistory, savingsHistory, exchangeRate]);
 
+  // v10.x: dividend auto-booking (opt-in, maermin_div_autobook). When enabled,
+  // every dividend whose PAY date has passed is booked as a `type:'dividend'`
+  // transaction in the PAYOUT currency (USD stays USD). Idempotent per
+  // (symbol|payDate|portfolio) so re-runs never double-book. Amounts are an
+  // ESTIMATE (current shares × DividendDataService per-share), hence opt-in.
+  const [divAutoBook, setDivAutoBook] = useState(() => {
+    try { return !!(window.MaerminDividendExecutor && window.MaerminDividendExecutor.isEnabled()); } catch (e) { return false; }
+  });
+  const bookDividends = useCallback((announce) => {
+    const EX = window.MaerminDividendExecutor, DS = window.DividendDataService;
+    if (!EX || !DS) { if (announce) addToast('Dividend engine not loaded', 'warning'); return; }
+    try {
+      const sched = DS.buildPaymentSchedule(portfolio, { back: 12, months: 0 });
+      const out = EX.runCatchUp(sched, transactions, activePortfolioId);
+      if (out.created.length) { setTransactions(out.transactions); addToast(`${out.created.length} ${t.divBookedToast || 'dividend(s) booked (estimated)'}`, 'success'); }
+      else if (announce) { addToast(t.divNoneToBook || 'No new dividends to book', 'info'); }
+    } catch (e) { console.warn('[DIV] booking failed:', e); }
+  }, [portfolio, transactions, activePortfolioId]);
+  const toggleDivAutoBook = useCallback(() => {
+    setDivAutoBook(prev => {
+      const next = !prev;
+      try { window.MaerminDividendExecutor && window.MaerminDividendExecutor.setEnabled(next); } catch (e) {}
+      return next;
+    });
+  }, []);
+  useEffect(() => {
+    if (demoMode || !divAutoBook) return;
+    const EX = window.MaerminDividendExecutor, DS = window.DividendDataService;
+    if (!EX || !DS) return;
+    try {
+      const sched = DS.buildPaymentSchedule(portfolio, { back: 12, months: 0 });
+      const out = EX.runCatchUp(sched, transactions, activePortfolioId);
+      if (out.created.length) { setTransactions(out.transactions); addToast(`${out.created.length} ${t.divAutoBookedToast || 'dividend(s) auto-booked (estimated)'}`, 'success'); }
+    } catch (e) { /* best-effort */ }
+  }, [divAutoBook, transactions, portfolio, activePortfolioId, demoMode]);
+
   // Forms & Modals
   const [newTransaction, setNewTransaction] = useState({
     type: 'buy',
@@ -1810,7 +1846,7 @@ function InvestmentTracker() {
   // ========== RENDER VIEWS ==========
   
   // ── DIVIDENDS COMBINED VIEW (Calendar + Forecast + Auto-Fetch) ──────────────
-  const DividendsCombinedView = ({ portfolio, prices, transactions, apiKeys, theme, t, addToast, formatPrice, getCurrencySymbol }) => {
+  const DividendsCombinedView = ({ portfolio, prices, transactions, apiKeys, theme, t, addToast, formatPrice, getCurrencySymbol, divAutoBook, toggleDivAutoBook, onBookDividends }) => {
     const [tab, setTab] = React.useState('calendar');
     const [fetching, setFetching] = React.useState(false);
     const [divEvents, setDivEvents] = React.useState(() => {
@@ -1972,7 +2008,19 @@ function InvestmentTracker() {
         React.createElement('button', {
           onClick: fetchDividends, disabled: fetching,
           style: { padding: '0.45rem 1rem', background: fetching ? theme.inputBg : 'rgba(34,197,94,0.15)', border: '1px solid rgba(34,197,94,0.3)', borderRadius: '8px', color: fetching ? theme.textSecondary : '#22c55e', cursor: fetching ? 'not-allowed' : 'pointer', fontSize: '0.8rem', fontWeight: '600' }
-        }, fetching ? 'Fetching...' : '↓ Auto-fetch dividends')
+        }, fetching ? 'Fetching...' : '↓ Auto-fetch dividends'),
+        // v10.x: book received dividends as transactions (in the payout currency)
+        onBookDividends ? React.createElement('button', {
+          onClick: () => onBookDividends(),
+          title: t.divBookHint || 'Create a transaction for each dividend whose pay date has passed (estimated, in its payout currency)',
+          style: { padding: '0.45rem 1rem', background: theme.inputBg, border: `1px solid ${theme.cardBorder}`, borderRadius: '8px', color: theme.text, cursor: 'pointer', fontSize: '0.8rem', fontWeight: '600' }
+        }, t.divBookNow || '＋ Book received dividends') : null,
+        toggleDivAutoBook ? React.createElement('label', {
+          title: t.divAutoHint || 'Automatically book each dividend as a transaction (in its payout currency) once its pay date passes',
+          style: { display: 'inline-flex', alignItems: 'center', gap: '0.4rem', fontSize: '0.78rem', color: theme.textSecondary, cursor: 'pointer', userSelect: 'none' }
+        },
+          React.createElement('input', { type: 'checkbox', checked: !!divAutoBook, onChange: () => toggleDivAutoBook(), style: { accentColor: theme.accent, cursor: 'pointer' } }),
+          (t.divAutoLabel || 'Auto-book')) : null
       ),
       // Content
       React.createElement('div', { style: { flex: 1, overflow: 'auto' } },
@@ -2300,7 +2348,8 @@ function InvestmentTracker() {
       case 'dividends':
         return React.createElement(DividendsCombinedView, {
           portfolio, prices, transactions: activeTransactions, apiKeys,
-          theme: currentTheme, t, addToast, formatPrice, getCurrencySymbol
+          theme: currentTheme, t, addToast, formatPrice, getCurrencySymbol,
+          divAutoBook, toggleDivAutoBook, onBookDividends: () => bookDividends(true)
         });
 
       case 'tax':

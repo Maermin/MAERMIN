@@ -49,6 +49,7 @@
     'maermin_rebalance_targets',
     'maermin_rules',
     'maermin_custom_categories',
+    'maermin_div_autobook',
     'theme',
     'currency',
     'privacyMode',
