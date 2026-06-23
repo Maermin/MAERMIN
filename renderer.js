@@ -297,11 +297,14 @@ function InvestmentTracker() {
   const [activeTab, setActiveTab] = useState('crypto');
   // Restore the last active view across sessions; renderView's default case
   // falls back to Overview if a stored id no longer exists.
-  const [activeView, setActiveView] = useState(() => localStorage.getItem('maermin_active_view') || 'overview');
-  useEffect(() => { try { localStorage.setItem('maermin_active_view', activeView); } catch (e) {} }, [activeView]);
-  const [theme, setTheme] = useState(() => localStorage.getItem('theme') || 'dark');
-  const [language, setLanguage] = useState(() => { try { return localStorage.getItem('maermin_language') || 'en'; } catch (e) { return 'en'; } });
-  useEffect(() => { try { localStorage.setItem('maermin_language', language); } catch (e) {} }, [language]);
+  // v12: persisted UI prefs now flow through MaerminPrefs (the first slice on the
+  // MaerminStore SSOT). Same localStorage keys/defaults as before — useState still
+  // drives React; MaerminPrefs centralises persistence + lets others subscribe.
+  const [activeView, setActiveView] = useState(() => window.MaerminPrefs.get('activeView'));
+  useEffect(() => { window.MaerminPrefs.set('activeView', activeView); }, [activeView]);
+  const [theme, setTheme] = useState(() => window.MaerminPrefs.get('theme'));
+  const [language, setLanguage] = useState(() => window.MaerminPrefs.get('language'));
+  useEffect(() => { window.MaerminPrefs.set('language', language); }, [language]);
   
   // v6.0 State
   const [showCommandPalette, setShowCommandPalette] = useState(false);
@@ -707,8 +710,8 @@ function InvestmentTracker() {
     if (savedHistory) setPriceHistory(savedHistory);
   }, []);
 
-  useEffect(() => { localStorage.setItem('theme', theme); }, [theme]);
-  useEffect(() => { localStorage.setItem('currency', currency); }, [currency]);
+  useEffect(() => { window.MaerminPrefs.set('theme', theme); }, [theme]);
+  useEffect(() => { window.MaerminPrefs.set('currency', currency); }, [currency]);
   // Demo mode is read-only over the user's data: never write sample transactions
   // back to the real 'transactions' key.
   useEffect(() => { if (!demoMode) localStorage.setItem('transactions', JSON.stringify(transactions)); }, [transactions, demoMode]);
