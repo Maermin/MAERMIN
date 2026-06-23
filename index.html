@@ -71,6 +71,7 @@
   <script src="utils.js"></script>
   <script src="store.js"></script>
   <script src="prefs-store.js"></script>
+  <script src="ui-store.js"></script>
   <script src="fx-history.js"></script>
   <script src="data-quality.js"></script>
   <script src="demo-data.js"></script>
@@ -205,6 +206,7 @@
         { name: 'IndexedDB Store', check: () => typeof window.MaerminIDB !== 'undefined' },
         { name: 'State Store', check: () => typeof window.MaerminStore !== 'undefined' },
         { name: 'Prefs Store', check: () => typeof window.MaerminPrefs !== 'undefined' },
+        { name: 'UI Store', check: () => typeof window.MaerminUI !== 'undefined' },
         { name: 'jsPDF', check: () => typeof window.jspdf !== 'undefined' }
       ];
       

@@ -309,7 +309,9 @@ function InvestmentTracker() {
   // v6.0 State
   const [showCommandPalette, setShowCommandPalette] = useState(false);
   const [showShortcuts, setShowShortcuts] = useState(false);
-  const [toasts, setToasts] = useState([]);
+  // v12: toasts moved onto MaerminUI (MaerminStore). addToast delegates to it and
+  // <MaerminUI.ToastContainer> subscribes to just that slice, so a toast no longer
+  // re-renders the whole app. No App-level toast state needed any more.
   // ETF look-through result (MaerminLookThrough.analyze). The Health panel
   // computes it and hands it up so the advisor's findings can include hidden
   // fund concentrations on the same render pass.
@@ -1329,12 +1331,10 @@ function InvestmentTracker() {
 
   // ========== TOAST NOTIFICATIONS ==========
   
+  // Delegates to the MaerminUI store (handles id, cap, auto-dismiss). Kept as a
+  // function so the dozens of existing addToast(...) call sites are unchanged.
   const addToast = (message, type = 'info') => {
-    const id = Date.now().toString();
-    setToasts(prev => [...prev, { id, message, type }]);
-    setTimeout(() => {
-      setToasts(prev => prev.filter(t => t.id !== id));
-    }, 3000);
+    if (window.MaerminUI) return window.MaerminUI.add(message, type);
   };
 
   // C1: Automation Rules → live notifications. Evaluate the user's rules on every
@@ -5125,28 +5125,9 @@ buy,crypto,bitcoin,0.5,45000,2024-01-15,10`)
       theme: currentTheme
     }),
     
-    // Toast notifications
-    React.createElement('div', { className: 'toast-container' },
-      toasts.map(toast =>
-        React.createElement('div', {
-          key: toast.id,
-          className: `toast ${toast.type}`,
-          style: {
-            padding: '1rem 1.5rem',
-            background: currentTheme.card,
-            borderRadius: '8px',
-            boxShadow: '0 10px 25px -5px rgba(0,0,0,0.3)',
-            color: currentTheme.text,
-            borderLeft: `4px solid ${
-              toast.type === 'success' ? currentTheme.success :
-              toast.type === 'error' ? currentTheme.danger :
-              toast.type === 'warning' ? currentTheme.warning :
-              currentTheme.accent
-            }`
-          }
-        }, toast.message)
-      )
-    )
+    // Toast notifications — own slice of MaerminStore; re-renders independently
+    // of the app on add/expire (see ui-store.js).
+    window.MaerminUI && React.createElement(window.MaerminUI.ToastContainer, { theme: currentTheme })
   );
 }
 
