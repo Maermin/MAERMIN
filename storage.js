@@ -81,6 +81,17 @@
   var installed = false;
   var nativeGet, nativeSet, nativeRemove;
 
+  // v12 per-key (IndexedDB only): dirty-key tracking so persist re-encrypts and
+  // writes ONLY the keys that changed instead of the whole blob, and a name→
+  // random-recordId map (the "manifest") so at rest there is one small encrypted
+  // record per sensitive key. Key NAMES never appear in plaintext (the manifest
+  // itself is AES-GCM encrypted and record ids are random) — preserving the
+  // zero-knowledge property that even key names like maermin_kirchensteuer leak
+  // nothing at rest. All of this is inert without IndexedDB (Node → blob path).
+  var dirty = {};             // { sensitiveKey: true } since the last persist
+  var _manifest = null;       // { name: recordId } | null = not loaded
+  var _migrateBlobPending = false; // true → an old monolithic blob to delete after first per-key write
+
   function isEnabled() {
     try { return localStorage.getItem(ATREST_FLAG) === '1'; } catch (e) { return false; }
   }
@@ -102,6 +113,7 @@
     Storage.prototype.setItem = function (key, value) {
       if (this === ls && mem && isSensitive(key)) {
         mem[key] = String(value);
+        dirty[key] = true;
         schedulePersist();
         return;
       }
@@ -110,6 +122,7 @@
     Storage.prototype.removeItem = function (key) {
       if (this === ls && mem && isSensitive(key)) {
         delete mem[key];
+        dirty[key] = true;
         schedulePersist();
         return;
       }
@@ -138,8 +151,11 @@
     if (!mem || !Vault || !Vault.isUnlocked()) return Promise.resolve(false);
     if (persisting) { schedulePersist(); return Promise.resolve(false); }
     persisting = true;
-    return Vault.encryptJSON(mem)
-      .then(function (env) { return blobSet(env); })
+    var IDB = idbBackend();
+    var p = IDB
+      ? persistPerKey(IDB)                                   // v12: per-key records
+      : Vault.encryptJSON(mem).then(function (env) { return blobSet(env); }); // blob (LS)
+    return p
       .then(function () { persisting = false; return true; })
       .catch(function () { persisting = false; return false; });
   }
@@ -150,14 +166,30 @@
   // Fail-safe: any error leaves storage in native mode untouched.
   function hydrate() {
     if (!Vault || !Vault.isUnlocked()) return Promise.resolve(false);
+    var IDB = idbBackend();
+    if (IDB) {
+      // v12: prefer per-key records; fall back to a Phase-1 blob and migrate it.
+      return hydratePerKey(IDB).then(function (perKey) {
+        if (perKey) { mem = perKey; dirty = {}; installShim(); return true; }
+        return blobGet().catch(function () { return null; }).then(function (env) {
+          if (!env) { mem = {}; _manifest = {}; dirty = {}; installShim(); return true; }
+          return Vault.decryptJSON(env).then(function (obj) {
+            mem = obj && typeof obj === 'object' ? obj : {};
+            _manifest = {}; dirty = {};
+            Object.keys(mem).forEach(function (k) { dirty[k] = true; });
+            _migrateBlobPending = true;   // first per-key write drops the old blob
+            installShim();
+            schedulePersist();
+            return true;
+          }, function () { mem = null; return false; });
+        });
+      }).catch(function () { mem = null; return false; });
+    }
+    // No IndexedDB → the localStorage blob path (Phase 1, byte-identical).
     return blobGet().catch(function () { return null; }).then(function (env) {
       if (!env) { mem = {}; installShim(); return true; } // empty vault
       return Vault.decryptJSON(env)
-        .then(function (obj) {
-          mem = obj && typeof obj === 'object' ? obj : {};
-          installShim();
-          return true;
-        })
+        .then(function (obj) { mem = obj && typeof obj === 'object' ? obj : {}; installShim(); return true; })
         .catch(function () { mem = null; return false; }); // fail-safe: stay native
     });
   }
@@ -207,6 +239,72 @@
     return IDB.del(BLOB_KEY).then(function () { return true; }, function () { return true; });
   }
 
+  // ---- per-key encrypted records (IndexedDB only) --------------------------
+  // One small AES-GCM record per sensitive key instead of one growing blob, so a
+  // single edit re-encrypts/writes only that key. The name→id map (manifest) is
+  // itself encrypted and record ids are random, so NO key name is exposed at
+  // rest. Inert without IndexedDB (Node uses the blob path above).
+  var MANIFEST_KEY = 'maermin_vault_manifest'; // IDB key of the encrypted name→id map
+  function recId() {
+    if (typeof crypto !== 'undefined' && crypto.getRandomValues) {
+      var a = crypto.getRandomValues(new Uint8Array(8)), s = '';
+      for (var i = 0; i < a.length; i++) s += ('0' + a[i].toString(16)).slice(-2);
+      return s;
+    }
+    return 'r' + Math.random().toString(16).slice(2, 18);
+  }
+  function recKey(id) { return 'r:' + id; }
+  function writeManifest(IDB) {
+    return Vault.encryptJSON({ v: 1, map: _manifest || {} }).then(function (env) { return IDB.set(MANIFEST_KEY, env); });
+  }
+  // Persist only the dirty keys as individual encrypted records + the manifest.
+  function persistPerKey(IDB) {
+    if (!_manifest) _manifest = {};
+    var names = Object.keys(dirty);
+    dirty = {}; // capture this batch; writes during the await re-dirty + re-persist
+    var ops = names.map(function (name) {
+      if (Object.prototype.hasOwnProperty.call(mem, name)) {
+        if (!_manifest[name]) _manifest[name] = recId();
+        return Vault.encrypt(mem[name]).then(function (env) { return IDB.set(recKey(_manifest[name]), env); });
+      }
+      var id = _manifest[name];           // removed key → drop its record + entry
+      delete _manifest[name];
+      return id ? IDB.del(recKey(id)) : Promise.resolve();
+    });
+    return Promise.all(ops)
+      .then(function () { return writeManifest(IDB); })
+      .then(function () { if (_migrateBlobPending) { _migrateBlobPending = false; return blobDel(); } });
+  }
+  // Read mem from the per-key records; resolves null when there is no manifest
+  // yet (caller then tries the Phase-1 blob).
+  function hydratePerKey(IDB) {
+    return IDB.get(MANIFEST_KEY).then(function (menv) {
+      if (!menv) return null;
+      return Vault.decryptJSON(menv).then(function (obj) {
+        var map = (obj && obj.map) || {};
+        return Promise.all(Object.keys(map).map(function (name) {
+          return IDB.get(recKey(map[name])).then(function (env) {
+            if (!env) return null;
+            return Vault.decrypt(env).then(function (plain) { return { name: name, value: plain }; }, function () { return null; });
+          });
+        })).then(function (rows) {
+          var out = {};
+          rows.forEach(function (r) { if (r) out[r.name] = r.value; });
+          _manifest = map;
+          return out;
+        });
+      }, function () { return null; }); // manifest decrypt failed → fall back to blob
+    });
+  }
+  // Remove every per-key record + the manifest (disable / restore).
+  function perKeyClear(IDB) {
+    if (!_manifest) return Promise.resolve();
+    var ops = Object.keys(_manifest).map(function (n) { return IDB.del(recKey(_manifest[n])); });
+    ops.push(IDB.del(MANIFEST_KEY));
+    _manifest = {};
+    return Promise.all(ops).then(function () {});
+  }
+
   // ---- enable / migrate ----------------------------------------------------
   // First-time turn-on: snapshot plaintext → backup, load into memory, write the
   // encrypted blob, then remove the individual plaintext keys. Reversible.
@@ -229,16 +327,24 @@
     mem = {};
     Object.keys(snapshot).forEach(function (k) { mem[k] = snapshot[k]; });
 
-    // 2) write encrypted blob, then 3) remove plaintext originals, 4) install shim.
-    return Vault.encryptJSON(mem).then(function (env) {
-      return blobSet(env).then(function () {
-        SENSITIVE_KEYS.forEach(function (k) {
-          (nativeRemove || Storage.prototype.removeItem).call(ls, k);
-        });
-        (nativeSet || Storage.prototype.setItem).call(ls, ATREST_FLAG, '1');
-        installShim();
-        return true;
+    // 2) write encrypted data (per-key records when IndexedDB is available, else
+    //    one blob), then 3) remove plaintext originals, 4) install shim.
+    var IDB = idbBackend();
+    var writeP;
+    if (IDB) {
+      _manifest = {}; dirty = {};
+      Object.keys(mem).forEach(function (k) { dirty[k] = true; });
+      writeP = persistPerKey(IDB).then(function () { return blobDel(); }); // no stale blob
+    } else {
+      writeP = Vault.encryptJSON(mem).then(function (env) { return blobSet(env); });
+    }
+    return writeP.then(function () {
+      SENSITIVE_KEYS.forEach(function (k) {
+        (nativeRemove || Storage.prototype.removeItem).call(ls, k);
       });
+      (nativeSet || Storage.prototype.setItem).call(ls, ATREST_FLAG, '1');
+      installShim();
+      return true;
     });
   }
 
@@ -253,7 +359,9 @@
     }
     Storage.prototype.removeItem.call(ls, ATREST_FLAG);
     mem = null;
-    return blobDel().then(function () { return true; });
+    var IDB = idbBackend();
+    var clearP = IDB ? perKeyClear(IDB) : Promise.resolve();
+    return Promise.all([clearP, blobDel()]).then(function () { dirty = {}; return true; });
   }
 
   // Called by auth.js right after a successful unlock. If at-rest was previously
@@ -271,9 +379,15 @@
     return p;
   }
 
-  // Re-encrypt the blob under a new key after changePassword (mem already holds
-  // plaintext; just persist with the now-current vault key).
-  function rekey() { return persist(); }
+  // Re-encrypt under a new key after changePassword (mem already holds plaintext).
+  // The blob path re-encrypts everything anyway; the per-key path must mark ALL
+  // keys dirty so every record is rewritten under the new key (not just the ones
+  // edited this session) — otherwise old-key records would fail to decrypt next
+  // unlock.
+  function rekey() {
+    if (idbBackend() && mem) { Object.keys(mem).forEach(function (k) { dirty[k] = true; }); }
+    return persist();
+  }
 
   // Export the current decrypted snapshot (for sync-engine.js to wrap+upload).
   function snapshotPlaintext() {
@@ -302,8 +416,11 @@
       Object.keys(b.data || {}).forEach(function (k) {
         Storage.prototype.setItem.call(ls, k, b.data[k]);
       });
-      blobDel(); // remove the blob from whichever backend holds it (best-effort)
+      var IDB = idbBackend();
+      if (IDB) perKeyClear(IDB);   // drop per-key records + manifest (best-effort)
+      blobDel();                   // and the blob from whichever backend holds it
       Storage.prototype.removeItem.call(ls, ATREST_FLAG);
+      dirty = {};
       return true;
     } catch (e) { return false; }
   }
@@ -342,7 +459,13 @@
     uninstallShim(); mem = null;
     (nativeSet || Storage.prototype.setItem).call(ls, metaKeyName(), JSON.stringify(obj.meta));
     (nativeSet || Storage.prototype.setItem).call(ls, ATREST_FLAG, '1');
-    return blobSet(obj.blob).then(function () { return true; }); // caller reloads → unlock → decrypts
+    // Drop any stale per-key manifest so the next unlock hydrates from THIS
+    // imported blob (which then re-migrates to fresh per-key records). Orphaned
+    // old record blobs are harmless (random ids, encrypted, unreferenced).
+    var IDB = idbBackend();
+    _manifest = null; dirty = {};
+    var pre = IDB ? IDB.del(MANIFEST_KEY).then(function () {}, function () {}) : Promise.resolve();
+    return pre.then(function () { return blobSet(obj.blob); }).then(function () { return true; });
   }
 
   // Best-effort flush when the tab is hidden/closed.
