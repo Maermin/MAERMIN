@@ -169,37 +169,24 @@ function PasswordModal({ theme, t, onClose, addToast }) {
   const handleChange = async () => {
     if (!curPw || !newPw || !confPw) return;
     if (newPw !== confPw) { addToast(t.passwordMismatch || 'Passwords do not match', 'error'); return; }
-    if (newPw.length < 6)  { addToast('Password must be at least 6 characters', 'warning'); return; }
+    if (newPw.length < 8)  { addToast('Password must be at least 8 characters', 'warning'); return; }
+    // v11: real vault re-key (replaces the obsolete SHA-256 "copy hash to
+    // auth.js" flow). MaerminAuth.changePassword re-derives the AES key and
+    // re-encrypts the data blob under the new password — fully zero-knowledge.
+    if (!window.MaerminAuth || typeof window.MaerminAuth.changePassword !== 'function') {
+      addToast('Password change is unavailable in this build', 'error'); return;
+    }
     setBusy(true);
     try {
-      const hashStr = async s => {
-        const buf = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(s));
-        return Array.from(new Uint8Array(buf)).map(b => b.toString(16).padStart(2,'0')).join('');
-      };
-      const curHash  = await hashStr(curPw);
-      const newHash  = await hashStr(newPw);
-
-      // Read current hash from auth.js at runtime via MaerminAuth
-      const session = sessionStorage.getItem('maermin_auth_session');
-      const stored  = (window.MaerminUtils.safeParse(session, null) || {}).hash || null;
-      if (!stored || curHash !== stored) {
-        addToast(t.passwordWrong || 'Current password is incorrect', 'error');
-        setBusy(false); return;
-      }
-      // Store new hash in sessionStorage so next reload uses new hash
-      // NOTE: this only lasts until the user updates auth.js
-      // We show them the new hash to copy
-      sessionStorage.setItem('maermin_auth_session', JSON.stringify({ hash: newHash, expires: Date.now() + 8*60*60*1000 }));
-      addToast(t.passwordChanged || 'Password changed for this session! Copy the hash below to auth.js to make it permanent.', 'success');
+      await window.MaerminAuth.changePassword(curPw, newPw);
+      addToast(t.passwordChanged || 'Password changed. Re-generate your recovery code in Security settings.', 'success');
       setCurPw(''); setNewPw(''); setConfPw('');
-
-      // Show the new hash in a copyable field
-      const display = document.createElement('div');
-      display.style.cssText = 'position:fixed;bottom:5rem;right:1.5rem;background:#141a25;border:1px solid rgba(255,255,255,0.10);border-radius:14px;padding:1rem 1.25rem;z-index:99999;max-width:420px;color:#e9edf4;font-size:0.8rem;box-shadow:0 24px 60px -18px rgba(0,0,0,0.75)';
-      display.innerHTML = `<div style="font-weight:700;margin-bottom:0.5rem">New hash — copy to auth.js:</div><input readonly value="${newHash}" onclick="this.select()" style="width:100%;background:#0c1018;border:1px solid rgba(255,255,255,0.10);border-radius:8px;padding:0.5rem;color:#f5a524;font-family:ui-monospace,monospace;font-size:0.75rem"><div style="color:#8b94a7;margin-top:0.5rem;font-size:0.7rem">Replace MAERMIN_SECRET_HASH in auth.js with this value</div><button onclick="this.parentElement.remove()" style="margin-top:0.5rem;background:none;border:1px solid rgba(255,255,255,0.10);border-radius:7px;color:#8b94a7;cursor:pointer;padding:0.25rem 0.6rem;font-size:0.75rem">✕ Close</button>`;
-      document.body.appendChild(display);
-      setTimeout(() => display.remove(), 60000);
-    } catch(e) { console.error(e); }
+      onClose();
+    } catch (e) {
+      const wrong = e && e.message === 'bad-password';
+      addToast(wrong ? (t.passwordWrong || 'Current password is incorrect')
+                     : 'Could not change the password. Please try again.', 'error');
+    }
     setBusy(false);
   };
 
@@ -281,7 +268,17 @@ function InvestmentTracker() {
   const [currency, setCurrency] = useState('EUR');
   // Exchange rate: USD->EUR (how many EUR for 1 USD). EUR is stronger, so ~0.91
   const [exchangeRate, setExchangeRate] = useState(0.91);
-  
+  // v11: per-date USD→EUR resolver. fetchPrices backfills a daily rate cache
+  // (MaerminFxHistory); bumping fxHistVersion rebuilds the resolver so cost
+  // basis re-prices each lot on its own day. Falls back to the live rate when
+  // the history cache is empty, so behaviour is unchanged until data arrives.
+  const fxSeriesFetched = React.useRef(false);
+  const [fxHistVersion, setFxHistVersion] = useState(0);
+  const fxAt = useMemo(
+    () => (window.MaerminFxHistory ? window.MaerminFxHistory.fxResolver(exchangeRate) : null),
+    [exchangeRate, fxHistVersion]
+  );
+
   // Transactions filtered to the active portfolio
   const activeTransactions = useMemo(() =>
     transactions.filter(tx => (tx.portfolioId || 'default') === activePortfolioId),
@@ -292,8 +289,8 @@ function InvestmentTracker() {
   // shared MaerminMetrics.buildPositions so this never drifts from the all-mode
   // build, the dividend/health calcs or the stats below.
   const portfolio = useMemo(
-    () => window.MaerminMetrics.buildPositions(activeTransactions, { exchangeRate }),
-    [activeTransactions, exchangeRate]
+    () => window.MaerminMetrics.buildPositions(activeTransactions, { exchangeRate, fxAt }),
+    [activeTransactions, exchangeRate, fxAt]
   );
   
   // UI State
@@ -596,8 +593,8 @@ function InvestmentTracker() {
 
   // ALL portfolios combined portfolio object — used on Overview in "All" mode.
   const allPortfoliosPortfolio = useMemo(
-    () => window.MaerminMetrics.buildPositions(transactions, { exchangeRate }),
-    [transactions, exchangeRate]
+    () => window.MaerminMetrics.buildPositions(transactions, { exchangeRate, fxAt }),
+    [transactions, exchangeRate, fxAt]
   );
 
   // ALL portfolios combined totals — used on Overview to show total wealth.
@@ -907,7 +904,30 @@ function InvestmentTracker() {
         console.error('[PRICES] Exchange rate fetch error:', e);
         dbg('[PRICES] Using fallback exchange rate: 1 USD =', usdToEur, 'EUR');
       }
-      
+
+      // v11: historical USD→EUR so each transaction is priced on its OWN day
+      // (cost basis + German tax need the rate of the date, not one static live
+      // rate). Always record today's live rate; once per session, best-effort
+      // backfill the daily series via the Worker (Yahoo EURUSD=X). Resolver
+      // falls back to the live rate for any uncovered date, so this only ever
+      // makes conversions MORE accurate.
+      try {
+        const FXH = window.MaerminFxHistory;
+        if (FXH) {
+          FXH.merge({ [window.MaerminUtils.todayISO()]: usdToEur });
+          const wBase = (apiKeys.cs2Worker || '').trim().replace(/\/$/, '');
+          if (wBase.length > 5 && !fxSeriesFetched.current) {
+            fxSeriesFetched.current = true;
+            const r = await fetch(`${wBase}?action=yf&symbol=${encodeURIComponent('EURUSD=X')}&interval=1d&range=max`, { signal: AbortSignal.timeout(8000) });
+            if (r.ok) {
+              const series = FXH.ingestYahooSeries(await r.json());
+              if (Object.keys(series).length) { FXH.merge(series); dbg('[PRICES] FX history backfilled:', Object.keys(series).length, 'days'); }
+            }
+          }
+          setFxHistVersion(v => v + 1); // rebuild the resolver with the latest cache
+        }
+      } catch (e) { /* historical FX is best-effort — resolver falls back to live rate */ }
+
       // Fetch crypto prices from CoinGecko (free, no API key needed)
       if (portfolio.crypto && portfolio.crypto.length > 0) {
         const ids = portfolio.crypto.map(c => (c.symbol || c.name || '').toLowerCase()).join(',');
@@ -931,89 +951,103 @@ function InvestmentTracker() {
       }
       
       // ── Stock Prices: Yahoo Finance (primary) → Alpha Vantage (fallback) ──
+      // v11: no more 10-symbol cap (portfolios above 10 stocks silently lost
+      // their prices). The Worker (Yahoo) phase now runs CONCURRENTLY in small
+      // chunks for ALL stocks, and resolved exchange suffixes are cached in
+      // localStorage so we never brute-force ".DE/.L/.PA…" for the same symbol
+      // twice. The Alpha Vantage fallback stays SEQUENTIAL (AV rate-limits hard)
+      // and only runs for the genuine misses.
       if (portfolio.stocks && portfolio.stocks.length > 0) {
         const workerBase = (apiKeys.cs2Worker || '').trim().replace(/\/$/, '');
         const hasWorker  = workerBase.length > 5;
+        // Known legacy symbols without an exchange suffix.
+        const LEGACY_MAP = {
+          'SIX2':'SIX2.DE','SIE':'SIE.DE','SAP':'SAP.DE','BMW':'BMW.DE',
+          'VOW3':'VOW3.DE','BAS':'BAS.DE','ALV':'ALV.DE','DTE':'DTE.DE',
+          'DBK':'DBK.DE','ADS':'ADS.DE','RWE':'RWE.DE','MRK':'MRK.DE',
+          'NVO':'NVO','SHEL':'SHEL.L','AZN':'AZN.L','BP':'BP.L',
+          'LVMH':'MC.PA','TTE':'TTE.PA','AIR':'AIR.PA',
+          'ASML':'ASML.AS','ING':'INGA.AS',
+        };
+        // Persistent cache of resolved YF symbols (bare → exchange-suffixed).
+        let suffixCache = {};
+        try { suffixCache = JSON.parse(localStorage.getItem('maermin_symbol_suffix') || '{}') || {}; } catch (e) {}
+        let suffixDirty = false;
 
-        for (const stock of portfolio.stocks.slice(0, 10)) {
-          // Use the exact symbol stored from SymbolPicker — already correct YF format
-          // e.g. "SIX2.DE", "NVO", "AAPL", "SHEL.L"
-          const sym    = (stock.symbol || stock.name || '').toUpperCase();
-          const symL   = sym.toLowerCase();
-          let   priceEUR = null;
+        const fetchYfPrice = async (yfSym, ms) => {
+          try {
+            const res = await fetch(`${workerBase}?action=yf&symbol=${encodeURIComponent(yfSym)}&interval=1d&range=5d`, { signal: AbortSignal.timeout(ms) });
+            if (!res.ok) return null;
+            const data = await res.json();
+            const last = data.prices?.[data.prices.length - 1];
+            if (last?.price > 0) return last.price * (data.currency === 'EUR' ? 1 : usdToEur);
+          } catch (e) { /* caller decides */ }
+          return null;
+        };
 
-          // ── Primary: Yahoo Finance via Worker ────────────────────────────
-          if (hasWorker) {
-            try {
-              // If symbol already has exchange suffix (.DE, .L etc.) use directly
-              // Otherwise apply known mappings for legacy symbols without suffix
-              const LEGACY_MAP = {
-                'SIX2':'SIX2.DE','SIE':'SIE.DE','SAP':'SAP.DE','BMW':'BMW.DE',
-                'VOW3':'VOW3.DE','BAS':'BAS.DE','ALV':'ALV.DE','DTE':'DTE.DE',
-                'DBK':'DBK.DE','ADS':'ADS.DE','RWE':'RWE.DE','MRK':'MRK.DE',
-                'NVO':'NVO','SHEL':'SHEL.L','AZN':'AZN.L','BP':'BP.L',
-                'LVMH':'MC.PA','TTE':'TTE.PA','AIR':'AIR.PA',
-                'ASML':'ASML.AS','ING':'INGA.AS',
-              };
-              // If symbol already contains a dot (has exchange suffix) use as-is
-              const yfSym = sym.includes('.') ? sym : (LEGACY_MAP[sym] || sym);
-              const url   = `${workerBase}?action=yf&symbol=${encodeURIComponent(yfSym)}&interval=1d&range=5d`;
-              const res   = await fetch(url, { signal: AbortSignal.timeout(8000) });
-              if (res.ok) {
-                const data = await res.json();
-                const last = data.prices?.[data.prices.length - 1];
-                if (last?.price > 0) {
-                  const rate = data.currency === 'EUR' ? 1 : usdToEur;
-                  priceEUR = last.price * rate;
-                  dbg('[PRICES] Stock (YF):', yfSym, '→', priceEUR.toFixed(2), 'EUR');
+        // Resolve one stock via the Worker. Returns { sym, symL, priceEUR }.
+        const resolveStockYF = async (stock) => {
+          const sym  = (stock.symbol || stock.name || '').toUpperCase();
+          const symL = sym.toLowerCase();
+          if (!hasWorker) return { sym, symL, priceEUR: null };
+          const cached = !sym.includes('.') && (suffixCache[sym] || LEGACY_MAP[sym]);
+          const primary = sym.includes('.') ? sym : (cached || sym);
+          let priceEUR = null;
+          try {
+            priceEUR = await fetchYfPrice(primary, 8000);
+            if (priceEUR) dbg('[PRICES] Stock (YF):', primary, '→', priceEUR.toFixed(2), 'EUR');
+            // Only brute-force suffixes when nothing is known AND the bare symbol failed.
+            if (!priceEUR && !sym.includes('.') && !cached) {
+              for (const suffix of ['.DE','.L','.PA','.AS','.ST','.CO']) {
+                const p = await fetchYfPrice(sym + suffix, 6000);
+                if (p) {
+                  priceEUR = p; suffixCache[sym] = sym + suffix; suffixDirty = true;
+                  dbg('[PRICES] Stock (YF auto-suffix):', sym, '→', sym + suffix, '→', p.toFixed(2), 'EUR');
+                  break;
                 }
               }
-              // If bare symbol failed, try .DE suffix automatically
-              if (!priceEUR && !sym.includes('.') && !LEGACY_MAP[sym]) {
-                for (const suffix of ['.DE','.L','.PA','.AS','.ST','.CO']) {
-                  try {
-                    const url2  = `${workerBase}?action=yf&symbol=${encodeURIComponent(sym+suffix)}&interval=1d&range=5d`;
-                    const res2  = await fetch(url2, { signal: AbortSignal.timeout(6000) });
-                    if (!res2.ok) continue;
-                    const data2 = await res2.json();
-                    const last2 = data2.prices?.[data2.prices.length - 1];
-                    if (last2?.price > 0) {
-                      const rate2 = data2.currency === 'EUR' ? 1 : usdToEur;
-                      priceEUR = last2.price * rate2;
-                      dbg('[PRICES] Stock (YF auto-suffix):', sym, '→', sym+suffix, '→', priceEUR.toFixed(2), 'EUR');
-                      break;
-                    }
-                  } catch { /* try next suffix */ }
-                }
-              }
-            } catch(e) {
-              console.warn('[PRICES] YF stock failed for', sym, '—', e.message);
             }
+          } catch (e) {
+            console.warn('[PRICES] YF stock failed for', sym, '—', e.message);
           }
+          return { sym, symL, priceEUR };
+        };
 
-          // ── Fallback: Alpha Vantage ───────────────────────────────────────
-          if (!priceEUR && apiKeys.alphaVantage) {
+        // Phase 1 — Worker/Yahoo, concurrent in chunks for ALL stocks.
+        const misses = [];
+        const CHUNK = 6;
+        for (let i = 0; i < portfolio.stocks.length; i += CHUNK) {
+          const settled = await Promise.all(portfolio.stocks.slice(i, i + CHUNK).map(resolveStockYF));
+          settled.forEach(r => {
+            if (r.priceEUR && r.priceEUR > 0) { newPrices[r.symL] = r.priceEUR; newPrices[r.sym] = r.priceEUR; }
+            else misses.push(r);
+          });
+        }
+        if (suffixDirty) { try { localStorage.setItem('maermin_symbol_suffix', JSON.stringify(suffixCache)); } catch (e) {} }
+
+        // Phase 2 — Alpha Vantage fallback, sequential, misses only.
+        if (apiKeys.alphaVantage && misses.length) {
+          for (const r of misses) {
             try {
-              dbg('[PRICES] Stock AV fallback:', sym);
-              const res  = await fetch(`https://www.alphavantage.co/query?function=GLOBAL_QUOTE&symbol=${sym}&apikey=${apiKeys.alphaVantage}`);
+              dbg('[PRICES] Stock AV fallback:', r.sym);
+              const res  = await fetch(`https://www.alphavantage.co/query?function=GLOBAL_QUOTE&symbol=${r.sym}&apikey=${apiKeys.alphaVantage}`);
               const data = await res.json();
               if (data['Global Quote']?.['05. price']) {
-                priceEUR = parseFloat(data['Global Quote']['05. price']) * usdToEur;
-                avFallbackSyms.add(sym);
-                dbg('[PRICES] Stock (AV fallback):', sym, '→', priceEUR.toFixed(2), 'EUR');
+                const priceEUR = parseFloat(data['Global Quote']['05. price']) * usdToEur;
+                if (priceEUR > 0) {
+                  newPrices[r.symL] = priceEUR; newPrices[r.sym] = priceEUR;
+                  avFallbackSyms.add(r.sym);
+                  dbg('[PRICES] Stock (AV fallback):', r.sym, '→', priceEUR.toFixed(2), 'EUR');
+                }
               } else if (data['Note'] || data['Information']) {
-                console.warn('[PRICES] Alpha Vantage rate limit hit for', sym);
+                console.warn('[PRICES] Alpha Vantage rate limit hit for', r.sym);
                 addToast('Alpha Vantage: Rate limit reached', 'warning');
+                break; // stop hammering AV once rate-limited
               }
-              await new Promise(r => setTimeout(r, 12000)); // AV rate limit
+              await new Promise(rr => setTimeout(rr, 12000)); // AV rate limit
             } catch(e) {
-              console.warn('[PRICES] AV stock fallback error for', sym, e.message);
+              console.warn('[PRICES] AV stock fallback error for', r.sym, e.message);
             }
-          }
-
-          if (priceEUR && priceEUR > 0) {
-            newPrices[symL] = priceEUR;
-            newPrices[sym]  = priceEUR;
           }
         }
       }
@@ -2612,38 +2646,13 @@ function InvestmentTracker() {
 
     const singleStats = useMemoInline(() => {
       if (isAllMode) return null;
-      const posMap = {};
-      transactions.filter(tx => (tx.portfolioId || 'default') === overviewMode).forEach(tx => {
-        const category = tx.category || 'crypto';
-        const key = `${category}-${(tx.symbol || '').toLowerCase()}`;
-        if (!posMap[key]) posMap[key] = { symbol: tx.symbol, category, amount: 0, totalCostEUR: 0 };
-        const qty = parseFloat(tx.quantity) || 0;
-        let priceEUR = parseFloat(tx.price) || 0;
-        if (tx.currency === 'USD' && exchangeRate > 0) priceEUR *= exchangeRate;
-        if (tx.type === 'buy') {
-          posMap[key].amount += qty;
-          posMap[key].totalCostEUR += qty * priceEUR;
-        } else if (tx.type === 'sell') {
-          const frac = posMap[key].amount > 0 ? Math.min(qty, posMap[key].amount) / posMap[key].amount : 0;
-          posMap[key].totalCostEUR *= (1 - frac);
-          posMap[key].amount = Math.max(0, posMap[key].amount - qty);
-        }
-      });
-      let totalValue = 0, totalInvested = 0, totalPositions = 0;
-      Object.values(posMap).forEach(pos => {
-        if (pos.amount <= 0.0001) return;
-        const sym = pos.symbol || '';
-        const pr  = prices[sym] || prices[sym.toLowerCase()] || prices[sym.toUpperCase()] || 0;
-        totalValue    += pos.amount * pr;
-        totalInvested += pos.totalCostEUR;
-        totalPositions++;
-      });
-      return {
-        totalValue, totalInvested, totalPositions,
-        totalProfit: totalValue - totalInvested,
-        totalProfitPercent: totalInvested > 0 ? ((totalValue - totalInvested) / totalInvested) * 100 : 0,
-      };
-    }, [overviewMode, transactions, prices, exchangeRate]);
+      // Delegate to the shared SSOT so single-portfolio mode uses the SAME
+      // FIFO cost basis as "All" mode (was a separate average-cost reducer that
+      // diverged from buildPositions after partial sells).
+      const filtered = transactions.filter(tx => (tx.portfolioId || 'default') === overviewMode);
+      const pf = window.MaerminMetrics.buildPositions(filtered, { exchangeRate, fxAt });
+      return window.MaerminMetrics.computeStats(pf, prices);
+    }, [overviewMode, transactions, prices, exchangeRate, fxAt]);
 
     const stats  = isAllMode ? allPortfoliosStats : singleStats || allPortfoliosStats;
     const isUp   = stats.totalProfit >= 0;
@@ -2676,29 +2685,11 @@ function InvestmentTracker() {
       ? transactions
       : transactions.filter(tx => (tx.portfolioId || 'default') === overviewMode);
 
-    const overviewPortfolio = isAllMode ? allPortfoliosPortfolio : (() => {
-      const result = { crypto: [], stocks: [], skins: [], commodities: [] };
-      const posMap = {};
-      overviewTransactions.forEach(tx => {
-        const category = tx.category || 'crypto';
-        const symbol   = (tx.symbol || '').toLowerCase();
-        const key      = `${category}-${symbol}`;
-        if (!posMap[key]) posMap[key] = { symbol: tx.symbol, symbolName: tx.symbolName || '', symbolLogoUrl: tx.symbolLogoUrl || '', amount: 0, totalCostEUR: 0, purchaseDate: tx.date, category };
-        if (!posMap[key].symbolName && tx.symbolName) posMap[key].symbolName = tx.symbolName;
-        let priceEUR = parseFloat(tx.price) || 0;
-        if (tx.currency === 'USD' && exchangeRate > 0) priceEUR *= exchangeRate;
-        if (tx.type === 'buy') { posMap[key].amount += parseFloat(tx.quantity)||0; posMap[key].totalCostEUR += (parseFloat(tx.quantity)||0) * priceEUR; }
-        else if (tx.type === 'sell') {
-          const frac = posMap[key].amount > 0 ? Math.min(parseFloat(tx.quantity)||0, posMap[key].amount) / posMap[key].amount : 0;
-          posMap[key].totalCostEUR *= (1-frac);
-          posMap[key].amount = Math.max(0, posMap[key].amount - (parseFloat(tx.quantity)||0));
-        }
-      });
-      Object.values(posMap).forEach(pos => {
-        if (pos.amount > 0.0001) result[pos.category].push({ ...pos, id: `${pos.category}-${pos.symbol}`, name: pos.symbolName || pos.symbol, purchasePrice: pos.totalCostEUR / pos.amount });
-      });
-      return result;
-    })();
+    // Single-portfolio mode delegates to the shared SSOT (FIFO cost basis) too,
+    // so the Overview chart/allocation match "All" mode and the stat cards.
+    const overviewPortfolio = isAllMode
+      ? allPortfoliosPortfolio
+      : window.MaerminMetrics.buildPositions(overviewTransactions, { exchangeRate, fxAt });
 
     // Worker status → the header's green/red dot + a plain-language explanation
     // (never a silent failure when prices can't be fetched).
@@ -3452,7 +3443,7 @@ function InvestmentTracker() {
     // Build the filing-grade report once, reuse for both exporters.
     const buildReport = () => window.MaerminTaxReport && window.MaerminTaxReport.build(transactions, {
       year: currentYear, jurisdiction: taxJurisdiction, baseCurrency: 'EUR',
-      exchangeRate, owner: taxOwner, portfolio, prices
+      exchangeRate, fxAt, owner: taxOwner, portfolio, prices
     });
     const inputStyle = { padding: '0.5rem 0.75rem', background: currentTheme.inputBg, border: `1px solid ${currentTheme.inputBorder}`, borderRadius: '8px', color: currentTheme.text, fontSize: '0.85rem' };
 

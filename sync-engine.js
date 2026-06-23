@@ -74,6 +74,44 @@
     });
   }
 
+  // ---- write authorization (HMAC proof of vault possession) ----------------
+  // The sync blob is zero-knowledge ciphertext, but the WorkerTransport's writes
+  // are authenticated so a third party who learns the opaque account id cannot
+  // overwrite/wipe a vault. authKey = HKDF(vaultKey,'sync-auth') — independent of
+  // the data key, deterministic across a user's devices. Everything here is
+  // best-effort: if the vault/WebCrypto is unavailable it resolves to null and
+  // the client simply sends no auth (legacy/open behaviour), so it never breaks
+  // sync or the in-memory test transport.
+  function hexToBytes(hex) {
+    var s = String(hex || ''); var out = new Uint8Array(s.length >> 1);
+    for (var i = 0; i < out.length; i++) out[i] = parseInt(s.substr(i * 2, 2), 16);
+    return out;
+  }
+  function authKeyHex() {
+    if (!Vault || !Vault.isUnlocked() || typeof Vault.deriveSubKey !== 'function') return Promise.resolve(null);
+    return Vault.deriveSubKey('sync-auth').then(function (bits) { return bytesToHex(bits); }, function () { return null; });
+  }
+  function syncMac(keyHex, account, baseRev, blob) {
+    if (!keyHex || typeof crypto === 'undefined' || !crypto.subtle) return Promise.resolve(null);
+    return crypto.subtle.importKey('raw', hexToBytes(keyHex), { name: 'HMAC', hash: 'SHA-256' }, false, ['sign'])
+      .then(function (k) { return crypto.subtle.sign('HMAC', k, new TextEncoder().encode(account + '.' + baseRev + '.' + blob)); })
+      .then(function (sig) { return bytesToHex(sig); }, function () { return null; });
+  }
+  // Build the { mac, key? } auth object. `key` (for TOFU registration) is only
+  // included when `register` is set (account creation), so the raw key is sent
+  // at most once.
+  function buildAuth(account, baseRev, blob, register) {
+    return authKeyHex().then(function (ak) {
+      if (!ak) return null;
+      return syncMac(ak, account, baseRev, blob).then(function (mac) {
+        var auth = {};
+        if (mac) auth.mac = mac;
+        if (register) auth.key = ak;
+        return (auth.mac || auth.key) ? auth : null;
+      });
+    }, function () { return null; });
+  }
+
   // ---- snapshot / blob -----------------------------------------------------
   // The plaintext snapshot we sync = the sensitive data keys. We wrap it with a
   // payload envelope carrying updatedAt + deviceId so merges can reason about it.
@@ -180,9 +218,12 @@
           return null;
         });
       },
-      put: function (account, baseRev, blob) {
-        return call({ op: 'put', account: account, baseRev: baseRev, blob: blob }).then(function (r) {
+      put: function (account, baseRev, blob, auth) {
+        var body = { op: 'put', account: account, baseRev: baseRev, blob: blob };
+        if (auth) body.auth = auth;
+        return call(body).then(function (r) {
           if (r.status === 409) return { conflict: true, serverRev: r.json.serverRev, blob: r.json.blob };
+          if (r.status === 403) return { unauthorized: true };
           return { ok: true, rev: r.json.rev };
         });
       }
@@ -304,8 +345,9 @@
       return _transport.get(account).then(function (remote) {
         var pipeline;
         if (!remote) {
-          // First push — nothing remote yet.
-          pipeline = pushSnapshot(account, state.rev, localSnap, []);
+          // First push — nothing remote yet. Register the write-auth key (TOFU)
+          // so this account is protected from creation onward.
+          pipeline = pushSnapshot(account, state.rev, localSnap, [], true);
         } else {
           return decryptBlob(remote.blob).then(function (remoteSnap) {
             var localHash = snapshotHash(localSnap);
@@ -332,28 +374,36 @@
     });
   }
 
-  function pushSnapshot(account, baseRev, snapshot, conflicts) {
+  function pushSnapshot(account, baseRev, snapshot, conflicts, register) {
     return encryptSnapshot(snapshot).then(function (blob) {
-      return _transport.put(account, baseRev, blob).then(function (r) {
-        if (r && r.conflict) {
-          // Another device wrote between our get and put — merge again and retry once.
-          return decryptBlob(r.blob).then(function (serverSnap) {
-            var m = mergeSnapshots(snapshot, serverSnap);
-            applySnapshot(m.merged);
-            return encryptSnapshot(m.merged).then(function (blob2) {
-              return _transport.put(account, r.serverRev, blob2).then(function (r2) {
-                var st = loadState();
-                st.rev = r2.rev; st.lastHash = snapshotHash(m.merged); st.lastSyncAt = Date.now();
-                saveState(st);
-                return { ok: true, rev: r2.rev, conflicts: conflicts.concat(m.conflicts), retried: true };
+      return buildAuth(account, baseRev, blob, !!register).then(function (auth) {
+        return _transport.put(account, baseRev, blob, auth).then(function (r) {
+          if (r && r.conflict) {
+            // Another device wrote between our get and put — merge again and retry once.
+            return decryptBlob(r.blob).then(function (serverSnap) {
+              var m = mergeSnapshots(snapshot, serverSnap);
+              applySnapshot(m.merged);
+              return encryptSnapshot(m.merged).then(function (blob2) {
+                // Retry against the server's rev — the account already exists, so
+                // prove possession with a MAC (no key registration this time).
+                return buildAuth(account, r.serverRev, blob2, false).then(function (auth2) {
+                  return _transport.put(account, r.serverRev, blob2, auth2).then(function (r2) {
+                    if (r2 && r2.unauthorized) throw new Error('sync-unauthorized');
+                    var st = loadState();
+                    st.rev = r2.rev; st.lastHash = snapshotHash(m.merged); st.lastSyncAt = Date.now();
+                    saveState(st);
+                    return { ok: true, rev: r2.rev, conflicts: conflicts.concat(m.conflicts), retried: true };
+                  });
+                });
               });
             });
-          });
-        }
-        var state = loadState();
-        state.rev = r.rev; state.lastHash = snapshotHash(snapshot); state.lastSyncAt = Date.now();
-        saveState(state);
-        return { ok: true, rev: r.rev, conflicts: conflicts };
+          }
+          if (r && r.unauthorized) throw new Error('sync-unauthorized');
+          var state = loadState();
+          state.rev = r.rev; state.lastHash = snapshotHash(snapshot); state.lastSyncAt = Date.now();
+          saveState(state);
+          return { ok: true, rev: r.rev, conflicts: conflicts };
+        });
       });
     });
   }

@@ -50,8 +50,16 @@
     dividendYieldHigh: 5, dividendGrowthLow: 2,
     yieldTrapYield: 6,
     styleTiltPp: 15,
-    liquidityImportant: 15, liquidityOptimize: 8
+    liquidityImportant: 15, liquidityOptimize: 8,
+    // v11: themed concentration in the mega-cap US tech "Magnificent 7" — a
+    // hidden cluster that dominates broad index ETFs, so investors are far more
+    // exposed than their position list suggests.
+    mag7Important: 30, mag7Optimize: 22
   };
+
+  // The "Magnificent 7". Matched against effective-exposure KEYS (uppercased
+  // symbols from the look-through). GOOG/GOOGL both map to Alphabet.
+  var MAG7 = { AAPL: 1, MSFT: 1, NVDA: 1, GOOGL: 1, GOOG: 1, AMZN: 1, META: 1, TSLA: 1 };
 
   // Broad global-equity sector weights (≈ MSCI ACWI order of magnitude). Used
   // ONLY as the neutral reference for the style-drift gap — never as a target.
@@ -150,6 +158,30 @@
         (directPct > 0 ? fmtPct(directPct) + ' is held directly; ' : '') + fmtPct(fundedPct) + ' sits inside ' + ((h0.funds || []).join(', ') || 'your ETFs') + '.' +
           (hidden.length > 1 ? ' ' + (hidden.length - 1) + ' more security(ies) are similarly concentrated.' : ''),
         'Overlapping funds multiply single-stock risk — check the look-through before adding more of the same funds.', effH);
+    }
+
+    // 2b) Magnificent-7 cluster (effective, look-through) ----------------------
+    // Sum the effective weight of the mega-cap US tech names. They co-move
+    // strongly, so a high combined weight is a single concentrated bet even when
+    // no individual name trips the single-company check.
+    if (eff.length) {
+      var mag7Pct = 0, mag7Names = [];
+      eff.forEach(function (x) {
+        var k = String(x.key || '').toUpperCase();
+        if (MAG7[k]) { var p = asPct(x.effectiveWeight); if (p != null) { mag7Pct += p; mag7Names.push(x.name || k); } }
+      });
+      mag7Pct = Math.round(mag7Pct * 10) / 10;
+      if (mag7Pct >= T.mag7Important) {
+        push('mag7', 'important', 'mag7-important',
+          fmtPct(mag7Pct) + ' of your portfolio is in the "Magnificent 7" mega-caps',
+          'These few names (' + mag7Names.slice(0, 7).join(', ') + ') move together and dominate broad index ETFs — your effective tech-megacap bet is larger than the position list shows.',
+          'Check how much of this is unintended ETF overlap; diversify beyond mega-cap US tech if it is.', mag7Pct);
+      } else if (mag7Pct >= T.mag7Optimize) {
+        push('mag7', 'optimization', 'mag7-optimize',
+          'Combined "Magnificent 7" exposure is ' + fmtPct(mag7Pct),
+          'Common for global index investors, but worth knowing it is a correlated cluster.',
+          'Keep an eye on it so the mega-cap tilt does not grow unchecked.', mag7Pct);
+      }
     }
 
     // 3) Sector overexposure ---------------------------------------------------

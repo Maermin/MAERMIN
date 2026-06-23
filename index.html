@@ -36,6 +36,7 @@
        drives them. Auth gates the app mount (renderer awaits whenUnlocked()). -->
   <script src="audit-log.js"></script>
   <script src="crypto-vault.js"></script>
+  <script src="idb-store.js"></script>
   <script src="storage.js"></script>
   <script src="migrations.js"></script>
   <script src="auth.js"></script>
@@ -68,6 +69,7 @@
   <!-- MAERMIN v10.0 - CORE MODULES -->
   <script>updateStatus('Loading core modules...');</script>
   <script src="utils.js"></script>
+  <script src="fx-history.js"></script>
   <script src="data-quality.js"></script>
   <script src="demo-data.js"></script>
   <script src="onboarding.js"></script>
@@ -84,6 +86,7 @@
   <script>updateStatus('Loading analysis modules...');</script>
   <script src="monte-carlo-engine.js"></script>
   <script src="correlation-engine.js"></script>
+  <script src="compute-client.js"></script>
   <script src="stress-test-engine.js"></script>
   <script src="import-export-engine.js"></script>
   <script src="import-mapping.js"></script>
@@ -195,6 +198,9 @@
         { name: 'Automation Rules', check: () => typeof window.MaerminRules !== 'undefined' },
         { name: 'Custom Categories', check: () => typeof window.MaerminCategories !== 'undefined' },
         { name: 'Dividend Auto-book', check: () => typeof window.MaerminDividendExecutor !== 'undefined' },
+        { name: 'FX History', check: () => typeof window.MaerminFxHistory !== 'undefined' },
+        { name: 'Compute Client', check: () => typeof window.MaerminCompute !== 'undefined' },
+        { name: 'IndexedDB Store', check: () => typeof window.MaerminIDB !== 'undefined' },
         { name: 'jsPDF', check: () => typeof window.jspdf !== 'undefined' }
       ];
       

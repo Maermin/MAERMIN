@@ -296,58 +296,98 @@
   // never drift apart. Pure + unit-tested (test/positions.test.js).
   var ASSET_CLASSES = ['crypto', 'stocks', 'skins', 'commodities'];
 
+  // Convert a transaction's per-unit price to EUR. USD is converted with the
+  // rate AT THE TRANSACTION DATE when an `fxAt(dateISO)` resolver is supplied
+  // (historical, correct for cost basis + German tax), else with the single
+  // static `rate` (backward-compatible). Other currencies are treated as EUR.
+  function txPriceEUR(tx, rate, fxAt) {
+    var p = parseFloat(tx.price) || 0;
+    if (tx.currency === 'USD') {
+      var r = fxAt ? (fxAt(tx.date) || rate) : rate;
+      if (r > 0) p *= r;
+    }
+    return p;
+  }
+
+  // FIFO lot matching for ONE symbol's buy/sell transactions. Transactions are
+  // sorted chronologically and sells consume the OLDEST open lots first — the
+  // statutory German method and the SAME method tax-report-builder.js uses for
+  // realized disposals. Switching the displayed cost basis to this (it was a
+  // proportional AVERAGE-cost reduction) means the position list and the tax
+  // report can no longer disagree on cost basis after a partial sell. Pure +
+  // exported for tests. Returns the OPEN lots' { amount, totalCostEUR, firstDate }
+  // (amount/totalCostEUR are 0 when the position is fully sold).
+  function matchFifoLots(txs, rate, fxAt) {
+    var sorted = (txs || []).slice().sort(function (a, b) {
+      var da = a && a.date ? new Date(a.date).getTime() : 0;
+      var db = b && b.date ? new Date(b.date).getTime() : 0;
+      if (isNaN(da)) da = 0;
+      if (isNaN(db)) db = 0;
+      return da - db;
+    });
+    var lots = []; // open buy lots, oldest first: { qty, priceEUR, date }
+    sorted.forEach(function (tx) {
+      var qty = parseFloat(tx.quantity) || 0;
+      if (qty <= 0) return;
+      if (tx.type === 'buy') {
+        lots.push({ qty: qty, priceEUR: txPriceEUR(tx, rate, fxAt), date: tx.date });
+      } else if (tx.type === 'sell') {
+        var remaining = qty;
+        while (remaining > 1e-9 && lots.length) {
+          var lot = lots[0];
+          var used = Math.min(remaining, lot.qty);
+          lot.qty -= used;
+          remaining -= used;
+          if (lot.qty <= 1e-9) lots.shift();
+        }
+      }
+    });
+    var amount = 0, totalCostEUR = 0, firstDate = null;
+    lots.forEach(function (l) {
+      amount += l.qty;
+      totalCostEUR += l.qty * l.priceEUR;
+      if (firstDate == null) firstDate = l.date;
+    });
+    return { amount: amount, totalCostEUR: totalCostEUR, firstDate: firstDate };
+  }
+
   function buildPositions(transactions, opts) {
     opts = opts || {};
-    var rate = parseFloat(opts.exchangeRate) || 0; // USD -> EUR
+    var rate = parseFloat(opts.exchangeRate) || 0; // USD -> EUR (static fallback)
+    var fxAt = (typeof opts.fxAt === 'function') ? opts.fxAt : null; // per-date USD→EUR
     var result = { crypto: [], stocks: [], skins: [], commodities: [] };
     // v10.x: register custom-category buckets (custom-categories.js) so their
     // positions are kept and valued instead of being dropped as "unknown".
     var extraCats = opts.categories ||
       ((typeof window !== 'undefined' && window.MaerminCategories && window.MaerminCategories.ids) ? window.MaerminCategories.ids() : []);
     (extraCats || []).forEach(function (c) { if (c && !result[c]) result[c] = []; });
-    var map = {};
+    // Group every transaction by category+symbol, then FIFO-match each group so
+    // the remaining position carries a real lot-based cost basis.
+    var groups = {};
     (transactions || []).forEach(function (tx) {
       var category = tx.category || 'crypto';
       if (!result[category]) return; // ignore unknown classes
-      var symLower = (tx.symbol || '').toLowerCase();
-      var key = category + '-' + symLower;
-      if (!map[key]) {
-        map[key] = {
-          symbol: tx.symbol, symbolName: tx.symbolName || '', symbolLogoUrl: tx.symbolLogoUrl || '',
-          amount: 0, totalCostEUR: 0, purchaseDate: tx.date, category: category
-        };
+      var key = category + '-' + (tx.symbol || '').toLowerCase();
+      if (!groups[key]) {
+        groups[key] = { category: category, symbol: tx.symbol, symbolName: tx.symbolName || '', symbolLogoUrl: tx.symbolLogoUrl || '', txs: [] };
       }
-      if (!map[key].symbolName && tx.symbolName) map[key].symbolName = tx.symbolName;
-      if (!map[key].symbolLogoUrl && tx.symbolLogoUrl) map[key].symbolLogoUrl = tx.symbolLogoUrl;
-
-      var qty = parseFloat(tx.quantity) || 0;
-      var priceEUR = parseFloat(tx.price) || 0;
-      if (tx.currency === 'USD' && rate > 0) priceEUR *= rate;
-
-      if (tx.type === 'buy') {
-        map[key].amount += qty;
-        map[key].totalCostEUR += qty * priceEUR;
-      } else if (tx.type === 'sell') {
-        var cur = map[key].amount;
-        if (cur > 0) {
-          var frac = Math.min(qty, cur) / cur;
-          map[key].totalCostEUR -= map[key].totalCostEUR * frac;
-        }
-        map[key].amount = Math.max(0, cur - qty);
-      }
+      if (!groups[key].symbolName && tx.symbolName) groups[key].symbolName = tx.symbolName;
+      if (!groups[key].symbolLogoUrl && tx.symbolLogoUrl) groups[key].symbolLogoUrl = tx.symbolLogoUrl;
+      groups[key].txs.push(tx);
     });
-    Object.keys(map).forEach(function (k) {
-      var pos = map[k];
-      if (pos.amount > 0.0001) {
-        result[pos.category].push({
-          id: pos.category + '-' + pos.symbol,
-          symbol: pos.symbol,
-          symbolName: pos.symbolName,
-          symbolLogoUrl: pos.symbolLogoUrl,
-          name: pos.symbolName || pos.symbol,
-          amount: pos.amount,
-          purchasePrice: pos.amount > 0 ? pos.totalCostEUR / pos.amount : 0,
-          purchaseDate: pos.purchaseDate
+    Object.keys(groups).forEach(function (k) {
+      var g = groups[k];
+      var open = matchFifoLots(g.txs, rate, fxAt);
+      if (open.amount > 0.0001) {
+        result[g.category].push({
+          id: g.category + '-' + g.symbol,
+          symbol: g.symbol,
+          symbolName: g.symbolName,
+          symbolLogoUrl: g.symbolLogoUrl,
+          name: g.symbolName || g.symbol,
+          amount: open.amount,
+          purchasePrice: open.amount > 0 ? open.totalCostEUR / open.amount : 0,
+          purchaseDate: open.firstDate
         });
       }
     });
@@ -383,6 +423,7 @@
   var api = {
     ASSET_CLASSES: ASSET_CLASSES,
     buildPositions: buildPositions,
+    matchFifoLots: matchFifoLots,
     computeStats: computeStats,
     LIABILITY_TYPES: LIABILITY_TYPES,
     NETWORTH_ACCOUNTS_KEY: NETWORTH_ACCOUNTS_KEY,

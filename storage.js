@@ -139,11 +139,8 @@
     if (persisting) { schedulePersist(); return Promise.resolve(false); }
     persisting = true;
     return Vault.encryptJSON(mem)
-      .then(function (env) {
-        nativeSet.call(window.localStorage, BLOB_KEY, env);
-        persisting = false;
-        return true;
-      })
+      .then(function (env) { return blobSet(env); })
+      .then(function () { persisting = false; return true; })
       .catch(function () { persisting = false; return false; });
   }
   function flush() { return persist(); }
@@ -153,20 +150,61 @@
   // Fail-safe: any error leaves storage in native mode untouched.
   function hydrate() {
     if (!Vault || !Vault.isUnlocked()) return Promise.resolve(false);
-    var env;
-    try { env = nativeRead(BLOB_KEY); } catch (e) { env = null; }
-    if (!env) { mem = {}; installShim(); return Promise.resolve(true); } // empty vault
-    return Vault.decryptJSON(env)
-      .then(function (obj) {
-        mem = obj && typeof obj === 'object' ? obj : {};
-        installShim();
-        return true;
-      })
-      .catch(function () { mem = null; return false; }); // fail-safe: stay native
+    return blobGet().catch(function () { return null; }).then(function (env) {
+      if (!env) { mem = {}; installShim(); return true; } // empty vault
+      return Vault.decryptJSON(env)
+        .then(function (obj) {
+          mem = obj && typeof obj === 'object' ? obj : {};
+          installShim();
+          return true;
+        })
+        .catch(function () { mem = null; return false; }); // fail-safe: stay native
+    });
   }
 
   function nativeRead(key) {
     return (nativeGet || Storage.prototype.getItem).call(window.localStorage, key);
+  }
+
+  // ---- blob backend (IndexedDB for large vaults, localStorage fallback) ------
+  // The encrypted data blob is the ONE record that grows with the user's data;
+  // localStorage's ~5 MB cap is the real scaling ceiling for 10k+ transactions.
+  // When IndexedDB (MaerminIDB) is available the blob lives there (no practical
+  // size limit) and an existing localStorage blob is migrated on first read.
+  // Node / no-IDB → the localStorage path, byte-identical to before, so the
+  // at-rest tests are unaffected. All blob I/O goes through blobGet/Set/Del.
+  function idbBackend() {
+    var IDB = (typeof window !== 'undefined') && window.MaerminIDB;
+    return (IDB && typeof IDB.isSupported === 'function' && IDB.isSupported()) ? IDB : null;
+  }
+  function lsBlobRead() { return (nativeGet || Storage.prototype.getItem).call(window.localStorage, BLOB_KEY); }
+  function lsBlobWrite(env) { (nativeSet || Storage.prototype.setItem).call(window.localStorage, BLOB_KEY, env); }
+  function lsBlobRemove() { (nativeRemove || Storage.prototype.removeItem).call(window.localStorage, BLOB_KEY); }
+
+  function blobGet() {
+    var IDB = idbBackend();
+    if (!IDB) return Promise.resolve(lsBlobRead());
+    return IDB.get(BLOB_KEY).then(function (v) {
+      if (v != null) return v;
+      // Transparent migration: an existing localStorage blob moves into IDB once.
+      var ls = lsBlobRead();
+      if (ls != null) return IDB.set(BLOB_KEY, ls).then(function () { try { lsBlobRemove(); } catch (e) {} return ls; });
+      return null;
+    }).catch(function () { return lsBlobRead(); }); // IDB read failed → fall back to LS
+  }
+  function blobSet(env) {
+    var IDB = idbBackend();
+    if (!IDB) { lsBlobWrite(env); return Promise.resolve(true); }
+    return IDB.set(BLOB_KEY, env).then(function () {
+      try { lsBlobRemove(); } catch (e) {} // keep a single source of truth
+      return true;
+    }).catch(function () { try { lsBlobWrite(env); } catch (e) {} return true; }); // IDB write failed → LS
+  }
+  function blobDel() {
+    var IDB = idbBackend();
+    try { lsBlobRemove(); } catch (e) {}
+    if (!IDB) return Promise.resolve(true);
+    return IDB.del(BLOB_KEY).then(function () { return true; }, function () { return true; });
   }
 
   // ---- enable / migrate ----------------------------------------------------
@@ -193,13 +231,14 @@
 
     // 2) write encrypted blob, then 3) remove plaintext originals, 4) install shim.
     return Vault.encryptJSON(mem).then(function (env) {
-      (nativeSet || Storage.prototype.setItem).call(ls, BLOB_KEY, env);
-      SENSITIVE_KEYS.forEach(function (k) {
-        (nativeRemove || Storage.prototype.removeItem).call(ls, k);
+      return blobSet(env).then(function () {
+        SENSITIVE_KEYS.forEach(function (k) {
+          (nativeRemove || Storage.prototype.removeItem).call(ls, k);
+        });
+        (nativeSet || Storage.prototype.setItem).call(ls, ATREST_FLAG, '1');
+        installShim();
+        return true;
       });
-      (nativeSet || Storage.prototype.setItem).call(ls, ATREST_FLAG, '1');
-      installShim();
-      return true;
     });
   }
 
@@ -212,10 +251,9 @@
         if (isSensitive(k)) Storage.prototype.setItem.call(ls, k, mem[k]);
       });
     }
-    Storage.prototype.removeItem.call(ls, BLOB_KEY);
     Storage.prototype.removeItem.call(ls, ATREST_FLAG);
     mem = null;
-    return Promise.resolve(true);
+    return blobDel().then(function () { return true; });
   }
 
   // Called by auth.js right after a successful unlock. If at-rest was previously
@@ -264,7 +302,7 @@
       Object.keys(b.data || {}).forEach(function (k) {
         Storage.prototype.setItem.call(ls, k, b.data[k]);
       });
-      Storage.prototype.removeItem.call(ls, BLOB_KEY);
+      blobDel(); // remove the blob from whichever backend holds it (best-effort)
       Storage.prototype.removeItem.call(ls, ATREST_FLAG);
       return true;
     } catch (e) { return false; }
@@ -283,15 +321,16 @@
     var ls = window.localStorage;
     var metaRaw = (nativeGet || Storage.prototype.getItem).call(ls, metaKeyName());
     if (!metaRaw) return Promise.reject(new Error('no-vault'));
-    var existingBlob = (nativeGet || Storage.prototype.getItem).call(ls, BLOB_KEY);
-    var blobP;
-    if (existingBlob) blobP = Promise.resolve(existingBlob);
-    else if (Vault && Vault.isUnlocked()) blobP = Vault.encryptJSON(snapshotPlaintext());
-    else return Promise.reject(new Error('locked'));
-    return blobP.then(function (blob) {
-      var meta;
-      try { meta = JSON.parse(metaRaw); } catch (e) { meta = null; }
-      return { format: 'maermin-vault-backup', v: 1, exportedAt: Date.now(), meta: meta, blob: blob };
+    return blobGet().then(function (existingBlob) {
+      var blobP;
+      if (existingBlob) blobP = Promise.resolve(existingBlob);
+      else if (Vault && Vault.isUnlocked()) blobP = Vault.encryptJSON(snapshotPlaintext());
+      else return Promise.reject(new Error('locked'));
+      return blobP.then(function (blob) {
+        var meta;
+        try { meta = JSON.parse(metaRaw); } catch (e) { meta = null; }
+        return { format: 'maermin-vault-backup', v: 1, exportedAt: Date.now(), meta: meta, blob: blob };
+      });
     });
   }
 
@@ -302,9 +341,8 @@
     var ls = window.localStorage;
     uninstallShim(); mem = null;
     (nativeSet || Storage.prototype.setItem).call(ls, metaKeyName(), JSON.stringify(obj.meta));
-    (nativeSet || Storage.prototype.setItem).call(ls, BLOB_KEY, obj.blob);
     (nativeSet || Storage.prototype.setItem).call(ls, ATREST_FLAG, '1');
-    return Promise.resolve(true); // caller reloads → unlock screen → password decrypts
+    return blobSet(obj.blob).then(function () { return true; }); // caller reloads → unlock → decrypts
   }
 
   // Best-effort flush when the tab is hidden/closed.

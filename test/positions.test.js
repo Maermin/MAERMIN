@@ -23,13 +23,46 @@ const M = require('../metrics.js');
 
   const aapl = p.stocks.find(x => x.symbol === 'AAPL');
   ok('AAPL aggregated across buys', aapl && near(aapl.amount, 15));
-  // avg cost = (10*100 + 10*120) = 2200 over 20 → 110/share; sell removes 5/20 of basis
-  // remaining basis 2200*(1-0.25)=1650 over 15 → 110/share (avg cost unchanged by sell)
-  ok('avg cost basis preserved after sell', aapl && near(aapl.purchasePrice, 110));
+  // FIFO: the sell of 5 consumes the OLDEST lot (10@100) first, leaving
+  // 5@100 + 10@120 = 1700 over 15 → 113.33/share (lot-based, matches the FIFO
+  // tax report — no longer the old average-cost 110).
+  ok('FIFO cost basis after sell (oldest lots first)', aapl && near(aapl.purchasePrice, 1700 / 15));
   ok('human name carried from picker tx', aapl && aapl.name === 'Apple');
 
   const btc = p.crypto.find(x => x.symbol === 'BTC');
   ok('USD tx converted to EUR cost basis (1000*0.9=900)', btc && near(btc.purchasePrice, 900));
+
+  // FIFO lot engine directly: a richer interleaved case the tax report agrees with.
+  const lots = M.matchFifoLots([
+    { type: 'buy',  quantity: 10, price: 100, currency: 'EUR', date: '2024-01-01' },
+    { type: 'buy',  quantity: 10, price: 120, currency: 'EUR', date: '2024-02-01' },
+    { type: 'sell', quantity: 12, price: 130, currency: 'EUR', date: '2024-03-01' },
+  ], 0.9);
+  // 12 sold consumes 10@100 + 2@120 → remaining 8@120 = 960 over 8 → 120/share.
+  ok('matchFifoLots leaves the newest lots', near(lots.amount, 8) && near(lots.totalCostEUR, 960));
+  ok('matchFifoLots remaining cost/share', near(lots.totalCostEUR / lots.amount, 120));
+  ok('matchFifoLots firstDate is oldest remaining lot', lots.firstDate === '2024-02-01');
+  // Out-of-order input must not change FIFO (sorted by date internally).
+  const unordered = M.matchFifoLots([
+    { type: 'sell', quantity: 5, price: 130, currency: 'EUR', date: '2024-03-01' },
+    { type: 'buy',  quantity: 10, price: 120, currency: 'EUR', date: '2024-02-01' },
+    { type: 'buy',  quantity: 10, price: 100, currency: 'EUR', date: '2024-01-01' },
+  ], 0.9);
+  ok('matchFifoLots is order-independent (date-sorted)', near(unordered.totalCostEUR / unordered.amount, 1700 / 15));
+
+  console.log('buildPositions — per-date FX (fxAt resolver):');
+  const fxAt = (d) => (d <= '2024-01-31' ? 0.80 : 0.90); // USD→EUR by date
+  const usdTx = [
+    { category: 'crypto', symbol: 'SOL', type: 'buy', quantity: 1, price: 100, currency: 'USD', date: '2024-01-15' }, // 100*0.80=80
+    { category: 'crypto', symbol: 'SOL', type: 'buy', quantity: 1, price: 100, currency: 'USD', date: '2024-03-15' }, // 100*0.90=90
+  ];
+  const sol = M.buildPositions(usdTx, { exchangeRate: 0.99, fxAt }).crypto.find(x => x.symbol === 'SOL');
+  ok('fxAt prices each USD lot on its own date', sol && near(sol.purchasePrice, (80 + 90) / 2));
+  const solStatic = M.buildPositions(usdTx, { exchangeRate: 0.99 }).crypto.find(x => x.symbol === 'SOL');
+  ok('without fxAt → static rate for every lot (backward compatible)', near(solStatic.purchasePrice, 99));
+  // a resolver returning 0 for an unknown date must fall back to the static rate
+  const sol0 = M.buildPositions(usdTx, { exchangeRate: 0.99, fxAt: () => 0 }).crypto.find(x => x.symbol === 'SOL');
+  ok('fxAt → 0 falls back to static rate', near(sol0.purchasePrice, 99));
 
   console.log('buildPositions — fully-sold position drops out:');
   const sold = M.buildPositions([
@@ -42,9 +75,9 @@ const M = require('../metrics.js');
   const stats = M.computeStats(p, { AAPL: 130, BTC: 1100 });
   // AAPL 15*130=1950 ; BTC 1*1100=1100 → value 3050
   ok('total value uses live prices', near(stats.totalValue, 3050));
-  // invested: AAPL 15*110=1650 + BTC 1*900=900 = 2550
-  ok('total invested = EUR cost basis', near(stats.totalInvested, 2550));
-  ok('profit = value - invested', near(stats.totalProfit, 500));
+  // invested: AAPL FIFO remaining basis 1700 + BTC 1*900=900 = 2600
+  ok('total invested = FIFO EUR cost basis', near(stats.totalInvested, 2600));
+  ok('profit = value - invested', near(stats.totalProfit, 450));
   ok('position count', stats.totalPositions === 2);
 
   console.log('computeStats — missing price falls back to cost (no zeroing):');

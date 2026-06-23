@@ -48,6 +48,25 @@ function byAnalysis(report, a) { return report.findings.filter((f) => f.analysis
   ok('small hidden share (8% < 10%) → no finding', byAnalysis(
     I.analyzeFromInputs({ hiddenConcentrations: [{ name: 'X', effectiveWeight: 0.08, fundedWeight: 0.08 }] }), 'hidden').length === 0);
 
+  // ---- 2b) Magnificent-7 cluster --------------------------------------------
+  const m7 = I.analyzeFromInputs({ effectiveExposure: [
+    { key: 'AAPL', name: 'Apple',     effectiveWeight: 0.09 },
+    { key: 'MSFT', name: 'Microsoft', effectiveWeight: 0.08 },
+    { key: 'NVDA', name: 'Nvidia',    effectiveWeight: 0.07 },
+    { key: 'GOOGL', name: 'Alphabet', effectiveWeight: 0.05 },
+    { key: 'AMZN', name: 'Amazon',    effectiveWeight: 0.05 },
+  ] });
+  ok('combined Mag-7 (34%) → important mag7 finding', byId(m7, 'mag7-important') && byId(m7, 'mag7-important').priority === 'important');
+  ok('mag7 finding names the cluster members', /Apple/.test(byId(m7, 'mag7-important').detail) && /Nvidia/.test(byId(m7, 'mag7-important').detail));
+  ok('mag7 metric is the summed weight', Math.abs(byId(m7, 'mag7-important').metric - 34) < 0.5);
+  ok('moderate Mag-7 (24%) → optimization', byId(
+    I.analyzeFromInputs({ effectiveExposure: [{ key: 'AAPL', name: 'Apple', effectiveWeight: 0.14 }, { key: 'MSFT', name: 'Microsoft', effectiveWeight: 0.10 }] }),
+    'mag7-optimize').priority === 'optimization');
+  ok('low Mag-7 (12%) → no mag7 finding', byAnalysis(
+    I.analyzeFromInputs({ effectiveExposure: [{ key: 'AAPL', name: 'Apple', effectiveWeight: 0.12 }] }), 'mag7').length === 0);
+  ok('non-Mag-7 names do not count', byAnalysis(
+    I.analyzeFromInputs({ effectiveExposure: [{ key: 'KO', name: 'Coca-Cola', effectiveWeight: 0.40 }] }), 'mag7').length === 0);
+
   // ---- 3) sector overexposure -----------------------------------------------
   ok('45% sector → critical', byId(I.analyzeFromInputs({ sectorExposure: [{ sector: 'Technology', weight: 0.45 }] }), 'sector-critical').priority === 'critical');
   ok('32% sector → important', byId(I.analyzeFromInputs({ sectorExposure: [{ sector: 'Energy', weight: 0.32 }] }), 'sector-important').priority === 'important');
