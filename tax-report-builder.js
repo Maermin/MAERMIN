@@ -25,16 +25,23 @@
   function ymd(d) { try { return new Date(d).toISOString().split('T')[0]; } catch (e) { return ''; } }
   function days(a, b) { return Math.floor((new Date(b) - new Date(a)) / 86400000); }
 
-  // Convert a per-unit price (or amount) in `cur` into the base currency.
-  function toBase(amount, cur, rate) {
+  // Convert a per-unit price (or amount) in `cur` into the base currency. When
+  // an `fxAt(dateISO)` resolver and a date are supplied, USD uses the rate AT
+  // THAT DATE (ECB-style, correct for German tax); otherwise the single static
+  // `rate` (backward-compatible).
+  function toBase(amount, cur, rate, dateISO, fxAt) {
     var a = num(amount);
-    if (cur === 'USD' && rate > 0) return a * rate; // rate = USD→base (EUR)
+    if (cur === 'USD') {
+      var r = (fxAt && dateISO) ? (fxAt(dateISO) || rate) : rate; // rate = USD→base (EUR)
+      if (r > 0) return a * r;
+    }
     return a; // already base, or unknown → treated as base
   }
 
   // Currency-correct FIFO. Returns realized disposals (one row per sell lot
   // match aggregated per sell) with acquisition/disposal dates + holding period.
-  function fifo(transactions, year, rate) {
+  // `fxAt` (optional) prices each leg on its own transaction date.
+  function fifo(transactions, year, rate, fxAt) {
     var bySymbol = {};
     (transactions || []).forEach(function (tx) {
       if (tx.type !== 'buy' && tx.type !== 'sell') return;
@@ -50,7 +57,7 @@
       var lots = []; // open buy lots: { qty, priceBase, date }
       bySymbol[key].slice().sort(function (a, b) { return new Date(a.date) - new Date(b.date); }).forEach(function (tx) {
         var qty = num(tx.quantity);
-        var priceBase = toBase(tx.price, tx.currency, rate);
+        var priceBase = toBase(tx.price, tx.currency, rate, tx.date, fxAt);
         if (tx.type === 'buy') {
           lots.push({ qty: qty, priceBase: priceBase, date: tx.date });
           return;
@@ -58,8 +65,8 @@
         // sell — match against open lots FIFO. Emit ONE disposal per matched
         // lot (tax authorities classify each lot's holding period separately).
         var sellDate = tx.date;
-        var sellPriceBase = toBase(tx.price, tx.currency, rate);
-        var totalFeeBase = toBase(tx.fees, tx.currency, rate);
+        var sellPriceBase = toBase(tx.price, tx.currency, rate, tx.date, fxAt);
+        var totalFeeBase = toBase(tx.fees, tx.currency, rate, tx.date, fxAt);
         var remaining = qty;
         var matches = [];
         while (remaining > 1e-9 && lots.length) {
@@ -96,13 +103,14 @@
   function build(transactions, opts) {
     opts = opts || {};
     var year = opts.year || new Date().getFullYear();
-    var rate = num(opts.exchangeRate) || 0; // USD→base
+    var rate = num(opts.exchangeRate) || 0; // USD→base (static fallback)
+    var fxAt = (typeof opts.fxAt === 'function') ? opts.fxAt : null; // per-date USD→base
     var base = opts.baseCurrency || 'EUR';
     var jurisdiction = opts.jurisdiction || 'de';
     var txs = transactions || [];
     var inYear = function (d) { return new Date(d).getFullYear() === year; };
 
-    var disposals = fifo(txs, year, rate);
+    var disposals = fifo(txs, year, rate, fxAt);
     var realizedGains = disposals.filter(function (d) { return d.gain >= 0; });
     var realizedLosses = disposals.filter(function (d) { return d.gain < 0; });
     var totalGains = realizedGains.reduce(function (s, d) { return s + d.gain; }, 0);
@@ -113,16 +121,16 @@
     txs.forEach(function (tx) {
       var isDiv = tx.type === 'dividend' || (tx.notes || '').toLowerCase().indexOf('dividend') > -1;
       if (isDiv && inYear(tx.date)) {
-        var gross = toBase(num(tx.quantity) * num(tx.price) || num(tx.amount), tx.currency, rate);
+        var gross = toBase(num(tx.quantity) * num(tx.price) || num(tx.amount), tx.currency, rate, tx.date, fxAt);
         dividends.push({ symbol: (tx.symbol || '').toUpperCase(), date: ymd(tx.date), gross: gross,
-          withholding: toBase(tx.withholdingTax, tx.currency, rate), currency: tx.currency || base });
+          withholding: toBase(tx.withholdingTax, tx.currency, rate, tx.date, fxAt), currency: tx.currency || base });
       }
     });
     try {
       var events = (opts.dividendEvents) || JSON.parse((typeof localStorage !== 'undefined' && localStorage.getItem('maermin_divevents')) || '[]');
       (events || []).forEach(function (e) {
         if (inYear(e.date)) dividends.push({ symbol: (e.symbol || '').toUpperCase(), date: ymd(e.date),
-          gross: toBase(e.amount, e.currency, rate), withholding: toBase(e.withholding, e.currency, rate), currency: e.currency || base });
+          gross: toBase(e.amount, e.currency, rate, e.date, fxAt), withholding: toBase(e.withholding, e.currency, rate, e.date, fxAt), currency: e.currency || base });
       });
     } catch (e) {}
     var dividendIncome = dividends.reduce(function (s, d) { return s + d.gross; }, 0);
@@ -133,7 +141,7 @@
     txs.forEach(function (tx) {
       if ((tx.type === 'interest' || (tx.notes || '').toLowerCase().indexOf('interest') > -1) && inYear(tx.date)) {
         interest.push({ source: tx.symbol || tx.notes || 'Interest', date: ymd(tx.date),
-          amount: toBase(num(tx.amount) || num(tx.quantity) * num(tx.price), tx.currency, rate) });
+          amount: toBase(num(tx.amount) || num(tx.quantity) * num(tx.price), tx.currency, rate, tx.date, fxAt) });
       }
     });
     var interestIncome = interest.reduce(function (s, i) { return s + i.amount; }, 0);
@@ -147,8 +155,9 @@
     var currencyConversions = txs.filter(function (tx) { return tx.currency && tx.currency !== base && inYear(tx.date); })
       .map(function (tx) {
         var orig = num(tx.quantity) * num(tx.price);
+        var txRate = (fxAt && tx.date) ? (fxAt(tx.date) || rate) : rate;
         return { date: ymd(tx.date), symbol: (tx.symbol || '').toUpperCase(), currency: tx.currency,
-          originalAmount: orig, rate: rate, baseAmount: toBase(orig, tx.currency, rate) };
+          originalAmount: orig, rate: txRate, baseAmount: toBase(orig, tx.currency, rate, tx.date, fxAt) };
       });
 
     // Transaction summary — counts by type in the year.

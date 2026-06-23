@@ -268,32 +268,37 @@ function CorrelationMatrixView({ portfolio, priceHistory, t, theme, formatPrice 
   const [selectedPair, setSelectedPair] = useState(null);
 
   useEffect(() => {
-    if (window.CorrelationEngine && priceHistory && Object.keys(priceHistory).length > 1) {
-      // Convert price history from [{timestamp, price}, ...] to [price, ...] format
-      const convertedHistory = {};
-      Object.entries(priceHistory).forEach(([symbol, history]) => {
-        if (Array.isArray(history) && history.length > 0) {
-          // Check if history contains objects or numbers
-          if (typeof history[0] === 'object' && history[0].price !== undefined) {
-            convertedHistory[symbol] = history.map(item => item.price);
-          } else {
-            convertedHistory[symbol] = history;
-          }
-        }
-      });
-      
-      // Need at least 2 assets with sufficient history
-      const validAssets = Object.entries(convertedHistory).filter(([_, h]) => h.length >= 2);
-      if (validAssets.length < 2) {
-        setCorrelationData(null);
-        return;
+    if (!window.CorrelationEngine || !priceHistory || Object.keys(priceHistory).length <= 1) return;
+    // Convert price history from [{timestamp, price}, ...] to [price, ...] format
+    const convertedHistory = {};
+    Object.entries(priceHistory).forEach(([symbol, history]) => {
+      if (Array.isArray(history) && history.length > 0) {
+        convertedHistory[symbol] = (typeof history[0] === 'object' && history[0].price !== undefined)
+          ? history.map(item => item.price)
+          : history;
       }
-      
+    });
+
+    // Need at least 2 assets with sufficient history
+    const validAssets = Object.entries(convertedHistory).filter(([_, h]) => h.length >= 2);
+    if (validAssets.length < 2) { setCorrelationData(null); return; }
+
+    // v11: compute the O(n²) matrix OFF the main thread (MaerminCompute → Web
+    // Worker), with a guaranteed synchronous fallback. The cancelled guard drops
+    // a late async result if priceHistory changed again before it returned.
+    let cancelled = false;
+    const apply = (data) => { if (!cancelled && data) setCorrelationData(data); };
+    if (window.MaerminCompute) {
+      window.MaerminCompute.correlation(convertedHistory).then(apply);
+    } else {
       const matrix = window.CorrelationEngine.calculateCorrelationMatrix(convertedHistory);
-      const score = window.CorrelationEngine.calculateDiversificationScore(matrix);
-      const extremes = window.CorrelationEngine.findExtremePairs(matrix);
-      setCorrelationData({ matrix, score, extremes });
+      apply({
+        matrix,
+        score: window.CorrelationEngine.calculateDiversificationScore(matrix),
+        extremes: window.CorrelationEngine.findExtremePairs(matrix)
+      });
     }
+    return () => { cancelled = true; };
   }, [priceHistory]);
 
   const getCorrelationColor = (value) => {
@@ -524,12 +529,17 @@ function MonteCarloView({ portfolio, prices, t, theme, currency, formatPrice }) 
     const fireNumber = (fs && fs.annualExpenses > 0) ? fs.annualExpenses * (100 / (fs.withdrawalRate || 4)) : 0;
     const cfg = fireNumber > 0 ? Object.assign({}, config, { targetValue: fireNumber }) : config;
 
-    // Use setTimeout to allow UI to update
-    setTimeout(() => {
-      const simResults = window.MonteCarloEngine.runSimulation(portfolio, cfg);
-      setResults(simResults);
-      setIsRunning(false);
-    }, 100);
+    const finish = (simResults) => { setResults(simResults); setIsRunning(false); };
+    // v11: run the 10k-iteration simulation OFF the main thread when possible
+    // (MaerminCompute → Web Worker). MaerminCompute.montecarlo always resolves —
+    // it falls back to a synchronous on-thread run if the worker is unavailable —
+    // so this never blocks and never breaks. The setTimeout path is the last-
+    // ditch fallback if the compute client itself failed to load.
+    if (window.MaerminCompute) {
+      window.MaerminCompute.montecarlo(portfolio, cfg).then(finish);
+    } else {
+      setTimeout(() => finish(window.MonteCarloEngine.runSimulation(portfolio, cfg)), 50);
+    }
   };
 
   const currencySymbol = currency === 'EUR' ? 'EUR' : 'USD';

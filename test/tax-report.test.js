@@ -42,6 +42,15 @@ const TR = require('../tax-report-builder.js');
   ok('USD proceeds converted to EUR (100*0.9)', d2 && near(d2.proceeds, 90));
   ok('currency conversion section lists the USD txs', r2.currencyConversions.length === 1);
 
+  // Per-date FX (fxAt): each leg priced on its OWN date's rate, not one static.
+  const fxByDate = (d) => (String(d).slice(0, 4) === '2024' ? 0.80 : 0.95);
+  const r2b = TR.build(usd, { year: 2025, exchangeRate: 0.9, baseCurrency: 'EUR', fxAt: fxByDate });
+  const d2b = (r2b.realizedGains[0] || r2b.realizedLosses[0]);
+  ok('fxAt prices the buy on its date (100*0.80)', d2b && near(d2b.costBasis, 80));
+  ok('fxAt prices the sell on its date (100*0.95)', d2b && near(d2b.proceeds, 95));
+  ok('per-date FX yields an FX-driven gain (95-80)', d2b && near(d2b.gain, 15));
+  ok('currencyConversions carry the date-specific rate', r2b.currencyConversions[0] && near(r2b.currencyConversions[0].rate, 0.95));
+
   console.log('losses, dividends, sections:');
   const mix = [
     { category: 'crypto', symbol: 'BTC', type: 'buy',  quantity: 1, price: 1000, currency: 'EUR', date: '2024-01-01' },

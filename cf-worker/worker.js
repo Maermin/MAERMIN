@@ -65,12 +65,23 @@ export default {
         }
         const baseRev = Number(body.baseRev) || 0;
         const current = await env.SYNC.get(key, { type: 'json' });
+
+        // Write authorization (HMAC proof of vault possession). The blob is
+        // already zero-knowledge ciphertext, but writes used to be open: anyone
+        // who learned the opaque account id could overwrite/wipe a vault. The
+        // first writer registers an authKey (HKDF(vaultKey,'sync-auth'),
+        // independent of the data key) and every later write must carry a valid
+        // HMAC over `account.baseRev.blob`. Legacy accounts (no key) stay open.
+        const authz = await authorizeSyncPut(current, account, baseRev, body.blob, body.auth);
+        if (!authz.ok) return res(JSON.stringify({ error: authz.error }), authz.status, request);
+
         const serverRev = current ? current.rev : 0;
         if (serverRev !== baseRev) {
           // Conflict: caller's base is stale — hand back the server record to merge.
           return res(JSON.stringify({ conflict: true, serverRev, blob: current ? current.blob : null }), 409, request);
         }
         const next = { rev: baseRev + 1, blob: body.blob, updatedAt: Date.now() };
+        if (authz.authKey) next.authKey = authz.authKey;
         await env.SYNC.put(key, JSON.stringify(next));
         return res(JSON.stringify({ ok: true, rev: next.rev }), 200, request);
       }
@@ -908,6 +919,53 @@ function safeJson(text) { try { return JSON.parse(text); } catch { return text; 
 
 function numOrNull(x) { const n = typeof x === 'number' ? x : parseFloat(x); return Number.isFinite(n) ? n : null; }
 
+// ── Sync write-authorization (HMAC) ─────────────────────────────────────────
+// PURE + exported for the Node harness (test/sync-auth.test.js). See the put
+// handler above for the threat model. authKey is hex(HKDF(vaultKey,'sync-auth')).
+export function hexToBytes(hex) {
+  const s = String(hex || '');
+  const out = new Uint8Array(s.length >> 1);
+  for (let i = 0; i < out.length; i++) out[i] = parseInt(s.substr(i * 2, 2), 16);
+  return out;
+}
+export function bytesToHex(bytes) {
+  let s = '';
+  for (const b of bytes) s += b.toString(16).padStart(2, '0');
+  return s;
+}
+// Constant-time hex compare so a forged MAC can't be tuned byte-by-byte.
+export function timingSafeEqualHex(a, b) {
+  if (typeof a !== 'string' || typeof b !== 'string' || a.length !== b.length || a.length === 0) return false;
+  let r = 0;
+  for (let i = 0; i < a.length; i++) r |= a.charCodeAt(i) ^ b.charCodeAt(i);
+  return r === 0;
+}
+export async function syncMac(keyHex, message) {
+  const key = await crypto.subtle.importKey('raw', hexToBytes(keyHex), { name: 'HMAC', hash: 'SHA-256' }, false, ['sign']);
+  const sig = await crypto.subtle.sign('HMAC', key, new TextEncoder().encode(message));
+  return bytesToHex(new Uint8Array(sig));
+}
+// Decide a put's authorization + the authKey to persist. PURE (no I/O):
+//   current = existing KV record (or null); auth = { key?, mac? }
+// Returns { ok:true, authKey } | { ok:false, status, error }.
+export async function authorizeSyncPut(current, account, baseRev, blob, auth) {
+  auth = auth || {};
+  const registered = current && current.authKey;
+  if (registered) {
+    const expected = await syncMac(registered, account + '.' + baseRev + '.' + blob);
+    if (typeof auth.mac !== 'string' || !timingSafeEqualHex(auth.mac, expected)) {
+      return { ok: false, status: 403, error: 'unauthorized' };
+    }
+    return { ok: true, authKey: registered };
+  }
+  // No registered key. Register one ONLY at account creation (no current record)
+  // — never "upgrade" an existing open record, which an account-id knower could
+  // hijack. Legacy/open accounts stay open (backward compatible).
+  let authKey = null;
+  if (!current && typeof auth.key === 'string' && /^[a-f0-9]{64}$/.test(auth.key)) authKey = auth.key;
+  return { ok: true, authKey };
+}
+
 // Server-side allowlist validation for share snapshots (defense in depth -
 // the client redacts before sending, but the server never trusts that).
 // Accepts ONLY percentage weights, short labels and bounded scores; rebuilds
@@ -1031,12 +1089,30 @@ function isRateLimited(request) {
   return arr.length > RATE_LIMIT.max;
 }
 
+// Origin allowlist — stops arbitrary third-party websites from using this open
+// proxy / sync endpoint (abuse drives up Worker cost and gets the Worker's
+// Cloudflare IP rate-limited/banned by Yahoo & Steam, which then breaks the app
+// for everyone). Matches the deploy targets MAERMIN actually uses; add your
+// custom domain here. A request with NO Origin header (curl / same-origin) is
+// allowed; a browser request from a non-listed Origin gets 'null' (blocked).
+const ORIGIN_PATTERNS = [
+  /^https:\/\/[a-z0-9-]+\.github\.io$/i,
+  /^https:\/\/([a-z0-9-]+\.)*pages\.dev$/i,
+  /^https:\/\/([a-z0-9-]+\.)*workers\.dev$/i,
+  /^http:\/\/localhost(:\d+)?$/i,
+  /^http:\/\/127\.0\.0\.1(:\d+)?$/i,
+];
+function allowOrigin(request) {
+  const o = request.headers.get('Origin');
+  if (!o) return '*';
+  return ORIGIN_PATTERNS.some((re) => re.test(o)) ? o : 'null';
+}
+
 function res(body, status, request) {
-  const origin = request.headers.get('Origin') || '*';
   return new Response(body, {
     status,
     headers: {
-      'Access-Control-Allow-Origin':  origin,
+      'Access-Control-Allow-Origin':  allowOrigin(request),
       'Access-Control-Allow-Methods': 'GET, POST, OPTIONS',
       'Access-Control-Allow-Headers': 'Content-Type',
       'Vary':         'Origin',

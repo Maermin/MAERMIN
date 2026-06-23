@@ -115,6 +115,45 @@ function MemTransport() {
   ok('remote blob now holds the merged transactions',
     JSON.parse(pulled.data.transactions).length === 3);
 
+  console.log('sync — write authorization (HMAC) end-to-end:');
+  // An "enforcing" transport that gates writes with the REAL worker logic, so
+  // the client's derived authKey/MAC is verified exactly as the Cloudflare
+  // worker would. Proves the client+server interplay, not just the units.
+  const W = await import('../cf-worker/worker.js');
+  function EnforcingTransport() {
+    let store = null;
+    return {
+      _peek: () => store,
+      get: (account) => Promise.resolve(store ? { rev: store.rev, blob: store.blob } : null),
+      put: async (account, baseRev, blob, auth) => {
+        const authz = await W.authorizeSyncPut(store, account, baseRev, blob, auth);
+        if (!authz.ok) return { unauthorized: true };
+        const serverRev = store ? store.rev : 0;
+        if (serverRev !== baseRev) return { conflict: true, serverRev, blob: store.blob };
+        store = { rev: baseRev + 1, blob, updatedAt: Date.now() };
+        if (authz.authKey) store.authKey = authz.authKey;
+        return { ok: true, rev: store.rev };
+      }
+    };
+  }
+  const et = EnforcingTransport();
+  Sync.configure({ transport: et });
+  localStorage.removeItem(Sync.STATE_KEY); // fresh "first push" → creates + registers
+  const er = await Sync.sync();
+  ok('authorized first sync registers a key and writes', er.ok && et._peek().rev === 1 && /^[a-f0-9]{64}$/.test(et._peek().authKey || ''));
+
+  const acct = await Sync.accountId();
+  const foreignNoAuth = await et.put(acct, et._peek().rev, 'forged-blob', null);
+  ok('unauthenticated foreign write is rejected (403)', foreignNoAuth.unauthorized === true);
+  const wrongMac = await W.syncMac('00'.repeat(32), acct + '.' + et._peek().rev + '.forged');
+  const foreignWrongKey = await et.put(acct, et._peek().rev, 'forged', { mac: wrongMac });
+  ok('foreign write with a wrong key/MAC is rejected', foreignWrongKey.unauthorized === true);
+
+  // the legitimate client can still sync again (valid MAC over the new rev)
+  localStorage.setItem('transactions', JSON.stringify([{ id: 1, symbol: 'BTC', quantity: 1 }, { id: 7, symbol: 'DOT', quantity: 2 }]));
+  const er2 = await Sync.sync();
+  ok('legitimate client keeps writing after registration', er2.ok && et._peek().rev >= 2);
+
   console.log('\n' + passed + ' passed, ' + failed + ' failed');
   process.exit(failed ? 1 : 0);
 })().catch(e => { console.error('FATAL', e); process.exit(1); });
