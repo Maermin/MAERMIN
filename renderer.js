@@ -838,6 +838,35 @@ function InvestmentTracker() {
     } catch (e) {}
   }, []); // run once on mount
 
+  // Backup reminder — data is browser-only, so a cleared profile = total loss
+  // without an export. Once per mount, after a short delay, nudge the user (toast)
+  // if the backup engine says one is due (never in demo mode, never on an empty
+  // app). Snoozed for a week so it can't nag; cleared whenever a backup is made.
+  useEffect(() => {
+    if (demoMode || !window.MaerminBackupReminder) return;
+    let txCount = 0;
+    try { const s = localStorage.getItem('transactions'); txCount = s ? (JSON.parse(s) || []).length : 0; } catch (e) {}
+    if (!window.MaerminBackupReminder.isDue(txCount)) return;
+    const id = setTimeout(() => {
+      try {
+        if (window.MaerminUI) window.MaerminUI.add('Tip: export an encrypted backup (press b) — your data lives only in this browser', 'warning');
+        window.MaerminBackupReminder.recordSnooze(7);
+      } catch (e) {}
+    }, 4000);
+    return () => clearTimeout(id);
+  }, []); // run once on mount
+
+  // Event-bus consumer (demonstrates the decoupling): record a lightweight audit
+  // breadcrumb whenever prices refresh, without coupling fetchPrices to the audit
+  // log. Subscribes once; auto-unsubscribes on unmount.
+  useEffect(() => {
+    if (!window.MaerminBus) return;
+    const off = window.MaerminBus.on('prices:refreshed', (p) => {
+      try { if (window.MaerminAuditLog) window.MaerminAuditLog.record('prices.refresh', `${(p && p.count) || 0} quotes`); } catch (e) {}
+    });
+    return off;
+  }, []); // run once on mount
+
   // Re-arm cloud sync from its saved config on reload (the transport itself is
   // not persisted). Zero-knowledge: the account id is derived from the vault.
   useEffect(() => {
@@ -897,6 +926,30 @@ function InvestmentTracker() {
       }
     }
   }, [portfolio, apiKeys.cs2Worker]);
+
+  // Dividend reminders — heads-up before an upcoming pay date lands. Derived from
+  // the ONE DividendDataService schedule; deduped per symbol@date so it never
+  // nags twice. Only raises a desktop notification when the user already granted
+  // permission (never prompts here); always surfaces a quiet toast. No-op in demo
+  // mode and when nothing is due within the window.
+  useEffect(() => {
+    try {
+      if (demoMode || !window.MaerminDividendReminder || !window.DividendDataService) return;
+      const schedule = window.DividendDataService.buildPaymentSchedule(portfolio, { months: 1, back: 0 });
+      const state = window.MaerminDividendReminder.prune(window.MaerminDividendReminder.load());
+      const due = window.MaerminDividendReminder.pending(schedule, state, { withinDays: 7 });
+      if (!due.length) { window.MaerminDividendReminder.save(state); return; }
+      const msg = window.MaerminDividendReminder.summarize(due, { formatPrice });
+      addToast('Dividend due soon — ' + msg, 'info');
+      try {
+        const canNotify = typeof Notification !== 'undefined' && Notification.permission === 'granted';
+        if (canNotify && window.MaerminPWA && window.MaerminPWA.notify) {
+          window.MaerminPWA.notify('Upcoming dividend', { body: msg });
+        }
+      } catch (e) {}
+      window.MaerminDividendReminder.save(window.MaerminDividendReminder.markNotified(state, due));
+    } catch (e) {}
+  }, [portfolio, metaVersion, demoMode]);
 
   // ========== API FUNCTIONS ==========
   
@@ -1298,6 +1351,9 @@ function InvestmentTracker() {
       
       const priceCount = Object.keys(newPrices).length;
       setLastRefresh(new Date());
+      // Decoupled signal: any module can react to a refresh without the renderer
+      // wiring it a bespoke effect (event-bus foundation, Phase-5 decoupling).
+      try { if (window.MaerminBus) window.MaerminBus.emit('prices:refreshed', { count: priceCount, at: Date.now() }); } catch (e) {}
       addToast(`${t.pricesUpdated || 'Prices updated'} (${priceCount})`, 'success');
     } catch (error) {
       console.error('[PRICES] General error:', error);
@@ -1306,6 +1362,44 @@ function InvestmentTracker() {
     
     setLoading(false);
   };
+
+  // ========== AUTO PRICE REFRESH ==========
+  // Live-quote freshness without a manual click: re-fetch when the user returns
+  // to the tab (visibilitychange/focus), when the network comes back (online),
+  // and on a slow background interval while the tab is visible. Throttled so a
+  // burst of focus/visibility events can't hammer the data sources, and a no-op
+  // in demo mode (offline sample prices). fetchPrices is a per-render closure, so
+  // it's reached through a ref that always points at the latest one.
+  const fetchPricesRef = useRef(fetchPrices);
+  fetchPricesRef.current = fetchPrices;
+  const lastAutoRefreshRef = useRef(0);
+  useEffect(() => {
+    if (demoMode) return;
+    const MIN_GAP_MS = 2 * 60 * 1000;   // never auto-refresh more than once / 2 min
+    const POLL_MS = 5 * 60 * 1000;      // background interval while visible
+    const maybeRefresh = (force) => {
+      try {
+        if (typeof document !== 'undefined' && document.hidden) return;
+        const now = Date.now();
+        if (!force && now - lastAutoRefreshRef.current < MIN_GAP_MS) return;
+        lastAutoRefreshRef.current = now;
+        const fn = fetchPricesRef.current;
+        if (typeof fn === 'function') fn();
+      } catch (e) {}
+    };
+    const onVisible = () => { if (!document.hidden) maybeRefresh(false); };
+    const onOnline = () => maybeRefresh(true);
+    document.addEventListener('visibilitychange', onVisible);
+    window.addEventListener('focus', onVisible);
+    window.addEventListener('online', onOnline);
+    const iv = setInterval(() => maybeRefresh(false), POLL_MS);
+    return () => {
+      document.removeEventListener('visibilitychange', onVisible);
+      window.removeEventListener('focus', onVisible);
+      window.removeEventListener('online', onOnline);
+      clearInterval(iv);
+    };
+  }, [demoMode]);
 
   // ========== DEMO MODE ==========
   // Let a first-time user experience a fully-populated app immediately, without
@@ -1429,6 +1523,8 @@ function InvestmentTracker() {
     URL.revokeObjectURL(url);
 
     if (window.MaerminAuditLog) window.MaerminAuditLog.record('data.export', `Full backup (${transactions.length} transactions, ${Object.keys(backupData.store).length} data keys)`);
+    // Record the backup so the reminder engine stops nudging until it goes stale.
+    try { if (window.MaerminBackupReminder) window.MaerminBackupReminder.recordBackup(transactions.length); } catch (e) {}
     addToast(t.backupCreated || 'Backup created', 'success');
   };
 
@@ -2409,11 +2505,20 @@ function InvestmentTracker() {
           }) : renderAnalyticsPlaceholder('Trade Journal');
 
       case 'dividends':
-        return React.createElement(DividendsCombinedView, {
-          portfolio, prices, transactions: activeTransactions, apiKeys,
-          theme: currentTheme, t, addToast, formatPrice, getCurrencySymbol,
-          divAutoBook, toggleDivAutoBook, onBookDividends: () => bookDividends(true)
-        });
+        return React.createElement(React.Fragment, null,
+          React.createElement(DividendsCombinedView, {
+            portfolio, prices, transactions: activeTransactions, apiKeys,
+            theme: currentTheme, t, addToast, formatPrice, getCurrencySymbol,
+            divAutoBook, toggleDivAutoBook, onBookDividends: () => bookDividends(true)
+          }),
+          // Earnings calendar for held stocks (read-only, gated like Discovery).
+          window.MaerminEarnings && window.MaerminEarnings.Panel &&
+            React.createElement(window.MaerminEarnings.Panel, {
+              theme: currentTheme,
+              workerUrl: apiKeys.cs2Worker,
+              symbols: [...new Set(activeTransactions.filter(tx => tx.category === 'stocks').map(tx => (tx.symbol || '').toUpperCase()).filter(Boolean))]
+            })
+        );
 
       case 'tax':
         return React.createElement(TaxCombinedView, {
@@ -2511,6 +2616,9 @@ function InvestmentTracker() {
     const M = window.MaerminMetrics;
     const [fire, setFire]         = React.useState(() => (M ? M.loadFireSettings() : { annualExpenses: 0, withdrawalRate: 4 }));
     const [editFire, setEditFire] = React.useState(false);
+    // Coast-FIRE planning inputs (ephemeral — pure what-if sliders, not persisted).
+    const [retireYears, setRetireYears] = React.useState(20);
+    const [realReturn, setRealReturn]   = React.useState(5);
 
     const sym = getCurrencySymbol();
     const nw      = M ? M.computeNetWorth(portfolioValue) : null;
@@ -2651,6 +2759,43 @@ function InvestmentTracker() {
         ),
         fireM && fireM.configured && React.createElement('div', { style: { color: theme.textSecondary, fontSize: '0.78rem', marginTop: '0.75rem' } },
           `${t.fireMonthlyPassive || 'Passive income at current net worth'}: ${formatPrice(fireM.monthlyPassiveIncome)} ${sym}/mo · ${fireM.coveredExpenseRatio.toFixed(0)}% ${t.fireOfExpenses || 'of expenses'}`
+        ),
+
+        // Coast-FIRE — the amount needed today so growth alone reaches FIRE by the
+        // target year. Pure what-if; reuses the FIRE number already computed above.
+        fireM && fireM.configured && window.MaerminFireExtras && React.createElement('div', { style: { marginTop: '0.9rem', borderTop: `1px solid ${theme.cardBorder}`, paddingTop: '0.85rem' } },
+          React.createElement('div', { style: { color: theme.text, fontWeight: '700', fontSize: '0.82rem', marginBottom: '0.6rem' } }, t.coastFireTitle || 'Coast-FIRE'),
+          React.createElement('div', { style: { display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(150px, 1fr))', gap: '0.75rem', marginBottom: '0.7rem' } },
+            React.createElement('div', null,
+              React.createElement('label', { style: labelStyle }, t.coastYears || 'Years to retirement'),
+              React.createElement('input', { type: 'number', min: '1', defaultValue: retireYears, style: inputStyle,
+                onChange: e => setRetireYears(Math.max(0, parseFloat(e.target.value) || 0)) })
+            ),
+            React.createElement('div', null,
+              React.createElement('label', { style: labelStyle }, t.coastReturn || 'Real return (%)'),
+              React.createElement('input', { type: 'number', step: '0.1', defaultValue: realReturn, style: inputStyle,
+                onChange: e => setRealReturn(parseFloat(e.target.value) || 0) })
+            )
+          ),
+          (() => {
+            const coast = window.MaerminFireExtras.coastFire({ fireNumber: fireM.fireNumber, currentNetWorth: nw.netWorth, realReturn, yearsToRetirement: retireYears });
+            const reached = coast.coastReached;
+            return React.createElement('div', { style: { fontSize: '0.78rem', color: theme.textSecondary } },
+              React.createElement('div', null,
+                `${t.coastNumber || 'Coast number (needed today)'}: `,
+                React.createElement('span', { style: { color: theme.text, fontWeight: '700' } }, `${formatPrice(coast.coastNumber)} ${sym}`),
+                ` · ${Math.min(999, coast.coastProgress).toFixed(0)}%`
+              ),
+              React.createElement('div', { style: { marginTop: '0.35rem', color: reached ? (theme.success || '#22c55e') : theme.textSecondary } },
+                reached
+                  ? (t.coastReachedMsg || 'Coast reached — growth alone gets you to FIRE; new contributions are optional.')
+                  : (t.coastNotYetMsg || 'Keep contributing — you have not hit your coast number yet.')
+              ),
+              React.createElement('div', { style: { marginTop: '0.35rem' } },
+                `${t.coastProjected || 'Projected at retirement'}: ${formatPrice(coast.projectedAtRetirement)} ${sym} (${coast.projectedSurplus >= 0 ? '+' : ''}${formatPrice(coast.projectedSurplus)} ${sym} ${t.coastVsTarget || 'vs target'})`
+              )
+            );
+          })()
         )
       )
     );
@@ -3102,9 +3247,19 @@ function InvestmentTracker() {
           )
         );
 
+        // Return attribution: which holdings drove the total return (reuses the
+        // already-computed `list` with per-position value + cost — no recompute).
+        const attributionPanel = window.MaerminAttribution && window.MaerminAttribution.Panel
+          ? React.createElement(window.MaerminAttribution.Panel, {
+              positions: list.map(p => ({ symbol: p.sym, name: p.name, value: p.value, invested: p.cost })),
+              theme: currentTheme, formatPrice
+            })
+          : null;
+
         return React.createElement(React.Fragment, null,
           React.createElement('div', { style: { display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem', marginBottom: '1.25rem' } }, allocCard, perfCard),
-          positionsCard
+          positionsCard,
+          attributionPanel
         );
       })(),
 

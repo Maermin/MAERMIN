@@ -484,6 +484,54 @@ export default {
       }
     }
 
+    // GET /?action=earnings&symbol=AAPL
+    // Proxies Yahoo Finance quoteSummary (calendarEvents + price) and returns the
+    // next earnings date(s) plus the consensus EPS / revenue estimates — powers
+    // the Earnings Calendar. Cached 6h (estimates move slowly intraday). Nulls
+    // mean Yahoo has no value for that field; an older Worker simply lacks this
+    // route, so the client gates on a 404/400 with an upgrade note.
+    if (request.method === 'GET' && action === 'earnings') {
+      const symbol = (url.searchParams.get('symbol') || '').trim();
+      if (!symbol) return res(JSON.stringify({ error: 'symbol required' }), 400, request);
+
+      const cacheKey = new Request(`https://cache.maermin/earnings/${encodeURIComponent(symbol)}`);
+      const cache = caches.default;
+      const cached = await cache.match(cacheKey);
+      if (cached) return res(await cached.text(), 200, request);
+
+      try {
+        const data = await fetchQuoteSummary(symbol, 'calendarEvents,price');
+        const r0 = data?.quoteSummary?.result?.[0];
+        if (!r0) return res(JSON.stringify({ error: 'No data from Yahoo Finance', symbol }), 404, request);
+        const ce = r0.calendarEvents || {};
+        const earn = ce.earnings || {};
+        const price = r0.price || {};
+        const raw = (x) => numOrNull(x?.raw ?? x);
+        const isoDate = (x) => { const s = numOrNull(x?.raw ?? x); return s != null ? new Date(s * 1000).toISOString().split('T')[0] : null; };
+        // earningsDate is an array of epoch-second {raw}; the first is the next
+        // (or estimated) report date. A range means an unconfirmed estimate.
+        const dates = Array.isArray(earn.earningsDate) ? earn.earningsDate.map(isoDate).filter(Boolean) : [];
+        const payload = JSON.stringify({
+          symbol,
+          name: price.shortName || price.longName || symbol,
+          currency: price.currency || 'USD',
+          earningsDate: dates[0] || null,
+          earningsDateEnd: dates.length > 1 ? dates[dates.length - 1] : null,
+          isEstimate: dates.length > 1,
+          epsEstimate: raw(earn.earningsAverage),
+          epsLow: raw(earn.earningsLow),
+          epsHigh: raw(earn.earningsHigh),
+          revenueEstimate: raw(earn.revenueAverage),
+        });
+        ctx.waitUntil(cache.put(cacheKey, new Response(payload, {
+          headers: { 'Content-Type': 'application/json', 'Cache-Control': 'public, max-age=21600' }
+        })));
+        return res(payload, 200, request);
+      } catch (e) {
+        return res(JSON.stringify({ error: e.message, symbol }), 502, request);
+      }
+    }
+
     // GET /?action=profile&symbol=AAPL
     // Proxies Yahoo Finance quoteSummary (assetProfile + price) and returns the
     // sector / industry / country a holding belongs to — powers the Strategy

@@ -72,7 +72,12 @@
     acVolatileImportant: 50, acVolatileOptimize: 35,
     // v13: over-reliance on ONE dividend payer — a single name funding most of
     // your income means one cut or suspension hits the whole stream at once.
-    incomeConcImportant: 40, incomeConcOptimize: 25
+    incomeConcImportant: 40, incomeConcOptimize: 25,
+    // v13: diworsification — you hold MANY names but a few dominate, so the
+    // EFFECTIVE number of holdings (1/HHI on look-through weights) is far below
+    // the nominal count. Only evaluated once you hold enough names that real
+    // diversification is plausible (else the top-holdings check already covers it).
+    divMinHoldings: 10, divEffectiveImportant: 8, divEffectiveOptimize: 15
   };
 
   // Asset classes that swing far harder than a diversified equity book; only
@@ -299,6 +304,33 @@
           'Your ' + nTop + ' largest holdings are ' + fmtPct(topN) + ' of the portfolio',
           'Moderately top-heavy — common, but worth knowing how much rides on the few biggest positions.',
           'Steer new contributions to the rest of the book if you want to dilute the top.', topN);
+      }
+    }
+
+    // 2f) Diversification quality (effective number of holdings, 1/HHI) --------
+    // You may hold dozens of names yet, because a few dominate, behave like far
+    // fewer. The effective holding count (inverse Herfindahl–Hirschman index on
+    // the look-through weights) exposes that "diworsification". Weights are
+    // normalised over the covered names so 1/HHI reads as an equal-weight count.
+    if (eff.length >= T.divMinHoldings) {
+      var wsum = 0, fr = [];
+      eff.forEach(function (x) { var p = asPct(x.effectiveWeight); if (p != null && p > 0) { fr.push(p / 100); wsum += p / 100; } });
+      if (wsum > 0 && fr.length) {
+        var hhiAcc = 0;
+        fr.forEach(function (f) { var n = f / wsum; hhiAcc += n * n; });
+        var effN = hhiAcc > 0 ? 1 / hhiAcc : fr.length;
+        effN = Math.round(effN * 10) / 10;
+        if (effN < T.divEffectiveImportant) {
+          push('diversification', 'important', 'diversification-important',
+            'Your ' + eff.length + ' holdings behave like only ~' + effN + ' equally-weighted positions',
+            'The effective holding count (inverse Herfindahl on look-through weights) is far below your nominal count — a few names carry most of the risk, so you are less diversified than the position list suggests.',
+            'Rebalance toward the smaller positions or trim the dominant ones to raise effective diversification.', effN);
+        } else if (effN < T.divEffectiveOptimize) {
+          push('diversification', 'optimization', 'diversification-optimize',
+            'Your portfolio diversifies like ~' + effN + ' equal positions across ' + eff.length + ' holdings',
+            'Reasonable, but the largest holdings still dominate the effective risk more than the raw count implies.',
+            'Tilt new contributions toward the smaller positions to lift effective diversification.', effN);
+        }
       }
     }
 

@@ -35,6 +35,7 @@
   <!-- Security foundation: vault + encrypted storage load BEFORE auth, which
        drives them. Auth gates the app mount (renderer awaits whenUnlocked()). -->
   <script src="audit-log.js"></script>
+  <script src="event-bus.js"></script>
   <script src="crypto-vault.js"></script>
   <script src="idb-store.js"></script>
   <script src="storage.js"></script>
@@ -110,6 +111,7 @@
   <script src="investment-views.js"></script>
   <script src="portfolio-health.js"></script>
   <script src="metrics.js"></script>
+  <script src="fire-extras.js"></script>
   <script src="ai-copilot.js"></script>
   <script src="broker-connectors.js"></script>
   <script src="pwa.js"></script>
@@ -121,6 +123,7 @@
   <script src="analytics-views.js"></script>
   <script src="fx-attribution.js"></script>
   <script src="discovery.js"></script>
+  <script src="earnings-calendar.js"></script>
   <script src="share-snapshot.js"></script>
   <script src="etf-lookthrough.js"></script>
   <script src="cost-analysis.js"></script>
@@ -143,6 +146,7 @@
 
   <!-- MAERMIN v10.0 - EXTENDED FEATURES -->
   <script>updateStatus('Loading extended features...');</script>
+  <script src="returns-engine.js"></script>
   <script src="features.js"></script>
   <script src="features2.js"></script>
   <script src="features3.js"></script>
@@ -155,6 +159,9 @@
   <!-- MAIN APPLICATION -->
   <script>updateStatus('Loading main application...');</script>
   <script src="backup-engine.js"></script>
+  <script src="backup-reminder.js"></script>
+  <script src="dividend-reminder.js"></script>
+  <script src="attribution.js"></script>
   <script src="renderer.js"></script>
   
   <script>

@@ -124,6 +124,24 @@ function byAnalysis(report, a) { return report.findings.filter((f) => f.analysis
   ok('fewer than 5 holdings → no top-holdings finding', byAnalysis(
     I.analyzeFromInputs({ effectiveExposure: [{ key: 'A', name: 'A', effectiveWeight: 0.4 }, { key: 'B', name: 'B', effectiveWeight: 0.3 }] }), 'concentration').length === 0);
 
+  // ---- 2f) diversification quality (effective holdings, 1/HHI) ---------------
+  function eq(name, w, n) { const a = []; for (let i = 0; i < n; i++) a.push({ key: name + i, name: name + i, effectiveWeight: w }); return a; }
+  // 20 holdings, equal-weight → effective N ≈ 20 → no finding.
+  ok('20 equal-weight holdings → no diversification finding', byAnalysis(
+    I.analyzeFromInputs({ effectiveExposure: eq('S', 0.05, 20) }), 'diversification').length === 0);
+  // 20 holdings but 5 dominate (5×16% + 15×1.33%) → effective N ≈ 7.6 → important.
+  const div = I.analyzeFromInputs({ effectiveExposure:
+    eq('Big', 0.16, 5).concat(eq('Sm', 0.20 / 15, 15)) });
+  ok('20 holdings, few dominate → important diversification finding', byId(div, 'diversification-important') && byId(div, 'diversification-important').priority === 'important');
+  ok('diversification finding states effective count + nominal count', /~7\.\d/.test(byId(div, 'diversification-important').title) && /20 holdings/.test(byId(div, 'diversification-important').title));
+  // 14 holdings, mildly top-heavy → effective N in the 8–15 band → optimization.
+  const divO = I.analyzeFromInputs({ effectiveExposure:
+    eq('M', 0.09, 6).concat(eq('T', 0.46 / 8, 8)) });
+  ok('mildly top-heavy → optimization diversification finding', byId(divO, 'diversification-optimize') && byId(divO, 'diversification-optimize').priority === 'optimization');
+  // Fewer than divMinHoldings (10) names → not evaluated (top-holdings covers it).
+  ok('fewer than 10 holdings → no diversification finding', byAnalysis(
+    I.analyzeFromInputs({ effectiveExposure: eq('F', 0.2, 5) }), 'diversification').length === 0);
+
   // ---- 3) sector overexposure -----------------------------------------------
   ok('45% sector → critical', byId(I.analyzeFromInputs({ sectorExposure: [{ sector: 'Technology', weight: 0.45 }] }), 'sector-critical').priority === 'critical');
   ok('32% sector → important', byId(I.analyzeFromInputs({ sectorExposure: [{ sector: 'Energy', weight: 0.32 }] }), 'sector-important').priority === 'important');
