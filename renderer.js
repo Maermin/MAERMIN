@@ -297,16 +297,24 @@ function InvestmentTracker() {
   const [activeTab, setActiveTab] = useState('crypto');
   // Restore the last active view across sessions; renderView's default case
   // falls back to Overview if a stored id no longer exists.
-  const [activeView, setActiveView] = useState(() => localStorage.getItem('maermin_active_view') || 'overview');
-  useEffect(() => { try { localStorage.setItem('maermin_active_view', activeView); } catch (e) {} }, [activeView]);
-  const [theme, setTheme] = useState(() => localStorage.getItem('theme') || 'dark');
-  const [language, setLanguage] = useState(() => { try { return localStorage.getItem('maermin_language') || 'en'; } catch (e) { return 'en'; } });
-  useEffect(() => { try { localStorage.setItem('maermin_language', language); } catch (e) {} }, [language]);
+  // v12: persisted UI prefs now flow through MaerminPrefs (the first slice on the
+  // MaerminStore SSOT). Same localStorage keys/defaults as before — useState still
+  // drives React; MaerminPrefs centralises persistence + lets others subscribe.
+  const [activeView, setActiveView] = useState(() => window.MaerminPrefs.get('activeView'));
+  useEffect(() => { window.MaerminPrefs.set('activeView', activeView); }, [activeView]);
+  const [theme, setTheme] = useState(() => window.MaerminPrefs.get('theme'));
+  const [language, setLanguage] = useState(() => window.MaerminPrefs.get('language'));
+  useEffect(() => { window.MaerminPrefs.set('language', language); }, [language]);
   
   // v6.0 State
-  const [showCommandPalette, setShowCommandPalette] = useState(false);
-  const [showShortcuts, setShowShortcuts] = useState(false);
-  const [toasts, setToasts] = useState([]);
+  // v12: command-palette + shortcuts open-states live in MaerminUI.overlays
+  // (MaerminStore). Read the slice via useStore; setters below call open/close/
+  // toggleOverlay. Behaviour-preserving — the app still re-renders on open/close.
+  const showCommandPalette = window.MaerminStore.useStore(window.MaerminUI.overlays, s => !!s.commandPalette);
+  const showShortcuts = window.MaerminStore.useStore(window.MaerminUI.overlays, s => !!s.shortcuts);
+  // v12: toasts moved onto MaerminUI (MaerminStore). addToast delegates to it and
+  // <MaerminUI.ToastContainer> subscribes to just that slice, so a toast no longer
+  // re-renders the whole app. No App-level toast state needed any more.
   // ETF look-through result (MaerminLookThrough.analyze). The Health panel
   // computes it and hands it up so the advisor's findings can include hidden
   // fund concentrations on the same render pass.
@@ -423,15 +431,21 @@ function InvestmentTracker() {
     currency: 'EUR', // Track which currency the transaction was added in
     targetPortfolioId: 'default',
   });
-  const [showTransactionModal, setShowTransactionModal] = useState(false);
+  // v12: modal open-states live in MaerminUI.overlays. Read the slice via
+  // useStore; keep the setShowX name as a thin shim that delegates to the store,
+  // so every existing call site (incl. the Escape handler + toggles) is unchanged.
+  const showTransactionModal = window.MaerminStore.useStore(window.MaerminUI.overlays, s => !!s.transactionModal);
+  const setShowTransactionModal = (v) => { const n = typeof v === 'function' ? v(showTransactionModal) : v; n ? window.MaerminUI.openOverlay('transactionModal') : window.MaerminUI.closeOverlay('transactionModal'); };
   const [overviewMode, setOverviewMode] = useState('all'); // 'all' | activePortfolioId
   // Which sidebar hub (Analytics / Discover & Tools) is expanded. '' = none.
   const [openHub, setOpenHub] = useState('');
   const [editingTransactionId, setEditingTransactionId] = useState(null); // null = adding new, id = editing
-  const [showImportModal, setShowImportModal] = useState(false);
+  const showImportModal = window.MaerminStore.useStore(window.MaerminUI.overlays, s => !!s.importModal);
+  const setShowImportModal = (v) => { const n = typeof v === 'function' ? v(showImportModal) : v; n ? window.MaerminUI.openOverlay('importModal') : window.MaerminUI.closeOverlay('importModal'); };
   const [importData, setImportData] = useState('');
   const [showAlertModal, setShowAlertModal] = useState(false);
-  const [showPasswordModal, setShowPasswordModal] = useState(false);
+  const showPasswordModal = window.MaerminStore.useStore(window.MaerminUI.overlays, s => !!s.passwordModal);
+  const setShowPasswordModal = (v) => { const n = typeof v === 'function' ? v(showPasswordModal) : v; n ? window.MaerminUI.openOverlay('passwordModal') : window.MaerminUI.closeOverlay('passwordModal'); };
   const [apiKeys, setApiKeys] = useState(() => {
     try { return JSON.parse(localStorage.getItem('apiKeys') || '{}'); } catch { return {}; }
   });
@@ -511,8 +525,10 @@ function InvestmentTracker() {
     })();
   }, [prices, apiKeys, exchangeRate]);
 
-  const [showApiSettings, setShowApiSettings] = useState(false);
-  const [showSettings, setShowSettings] = useState(false);
+  const showApiSettings = window.MaerminStore.useStore(window.MaerminUI.overlays, s => !!s.apiSettings);
+  const setShowApiSettings = (v) => { const n = typeof v === 'function' ? v(showApiSettings) : v; n ? window.MaerminUI.openOverlay('apiSettings') : window.MaerminUI.closeOverlay('apiSettings'); };
+  const showSettings = window.MaerminStore.useStore(window.MaerminUI.overlays, s => !!s.settings);
+  const setShowSettings = (v) => { const n = typeof v === 'function' ? v(showSettings) : v; n ? window.MaerminUI.openOverlay('settings') : window.MaerminUI.closeOverlay('settings'); };
 
   // Onboarding wizard + recovery-kit enrollment (existing users)
   const [showOnboarding, setShowOnboarding] = useState(false);
@@ -654,8 +670,8 @@ function InvestmentTracker() {
     const handleKeyDown = (e) => {
       // Escape closes modals & dropdowns — even while an input inside one is focused
       if (e.key === 'Escape') {
-        setShowCommandPalette(false);
-        setShowShortcuts(false);
+        window.MaerminUI.closeOverlay('commandPalette');
+        window.MaerminUI.closeOverlay('shortcuts');
         setShowTransactionModal(false);
         setShowImportModal(false);
         setShowApiSettings(false);
@@ -667,7 +683,7 @@ function InvestmentTracker() {
       // Command palette: Ctrl+K or Cmd+K — works from anywhere, including inputs
       if ((e.ctrlKey || e.metaKey) && e.key === 'k') {
         e.preventDefault();
-        setShowCommandPalette(prev => !prev);
+        window.MaerminUI.toggleOverlay('commandPalette');
         return;
       }
 
@@ -676,7 +692,7 @@ function InvestmentTracker() {
       
       // ? shows shortcuts
       if (e.key === '?' && !e.ctrlKey && !e.metaKey) {
-        setShowShortcuts(true);
+        window.MaerminUI.openOverlay('shortcuts');
         return;
       }
     };
@@ -707,8 +723,8 @@ function InvestmentTracker() {
     if (savedHistory) setPriceHistory(savedHistory);
   }, []);
 
-  useEffect(() => { localStorage.setItem('theme', theme); }, [theme]);
-  useEffect(() => { localStorage.setItem('currency', currency); }, [currency]);
+  useEffect(() => { window.MaerminPrefs.set('theme', theme); }, [theme]);
+  useEffect(() => { window.MaerminPrefs.set('currency', currency); }, [currency]);
   // Demo mode is read-only over the user's data: never write sample transactions
   // back to the real 'transactions' key.
   useEffect(() => { if (!demoMode) localStorage.setItem('transactions', JSON.stringify(transactions)); }, [transactions, demoMode]);
@@ -1326,12 +1342,10 @@ function InvestmentTracker() {
 
   // ========== TOAST NOTIFICATIONS ==========
   
+  // Delegates to the MaerminUI store (handles id, cap, auto-dismiss). Kept as a
+  // function so the dozens of existing addToast(...) call sites are unchanged.
   const addToast = (message, type = 'info') => {
-    const id = Date.now().toString();
-    setToasts(prev => [...prev, { id, message, type }]);
-    setTimeout(() => {
-      setToasts(prev => prev.filter(t => t.id !== id));
-    }, 3000);
+    if (window.MaerminUI) return window.MaerminUI.add(message, type);
   };
 
   // C1: Automation Rules → live notifications. Evaluate the user's rules on every
@@ -1703,7 +1717,7 @@ function InvestmentTracker() {
       case 'settings:contrast': setTheme('contrast'); break;
       case 'settings:cb':       setTheme('cb'); break;
       // Help
-      case 'help:shortcuts':    setShowShortcuts(true); break;
+      case 'help:shortcuts':    window.MaerminUI.openOverlay('shortcuts'); break;
       default: break;
     }
   };
@@ -4666,7 +4680,7 @@ buy,crypto,bitcoin,0.5,45000,2024-01-15,10`)
 
       // Centered command search (mockup: "Search features & jump to…")
       React.createElement('button', {
-        onClick: () => setShowCommandPalette(true),
+        onClick: () => window.MaerminUI.openOverlay('commandPalette'),
         style: {
           flex: 1, maxWidth: '440px', margin: '0 1.25rem',
           padding: '0.55rem 0.95rem',
@@ -5065,7 +5079,7 @@ buy,crypto,bitcoin,0.5,45000,2024-01-15,10`)
             React.createElement('div', { style: { fontSize: '0.74rem', fontWeight: '600', color: currentTheme.accent, marginBottom: '0.3rem' } }, 'Quick access'),
             React.createElement('div', { style: { fontSize: '0.72rem', color: currentTheme.textSecondary, marginBottom: '0.6rem', lineHeight: 1.4 } }, 'Jump to any module instantly.'),
             React.createElement('button', {
-              onClick: () => setShowCommandPalette(true),
+              onClick: () => window.MaerminUI.openOverlay('commandPalette'),
               style: { display: 'flex', alignItems: 'center', justifyContent: 'space-between', width: '100%', padding: '0.4rem 0.6rem', background: 'rgba(0,0,0,0.25)', border: `1px solid ${currentTheme.cardBorder}`, borderRadius: '8px', cursor: 'pointer', fontSize: '0.74rem', color: currentTheme.text }
             },
               React.createElement('span', null, 'Open palette'),
@@ -5108,7 +5122,7 @@ buy,crypto,bitcoin,0.5,45000,2024-01-15,10`)
     // Command Palette
     window.CommandPalette && React.createElement(window.CommandPalette, {
       isOpen: showCommandPalette,
-      onClose: () => setShowCommandPalette(false),
+      onClose: () => window.MaerminUI.closeOverlay('commandPalette'),
       onExecute: executeCommand,
       commands: commands,
       t: t
@@ -5117,33 +5131,14 @@ buy,crypto,bitcoin,0.5,45000,2024-01-15,10`)
     // Shortcuts Modal
     window.ShortcutsModal && React.createElement(window.ShortcutsModal, {
       isOpen: showShortcuts,
-      onClose: () => setShowShortcuts(false),
+      onClose: () => window.MaerminUI.closeOverlay('shortcuts'),
       t: t,
       theme: currentTheme
     }),
     
-    // Toast notifications
-    React.createElement('div', { className: 'toast-container' },
-      toasts.map(toast =>
-        React.createElement('div', {
-          key: toast.id,
-          className: `toast ${toast.type}`,
-          style: {
-            padding: '1rem 1.5rem',
-            background: currentTheme.card,
-            borderRadius: '8px',
-            boxShadow: '0 10px 25px -5px rgba(0,0,0,0.3)',
-            color: currentTheme.text,
-            borderLeft: `4px solid ${
-              toast.type === 'success' ? currentTheme.success :
-              toast.type === 'error' ? currentTheme.danger :
-              toast.type === 'warning' ? currentTheme.warning :
-              currentTheme.accent
-            }`
-          }
-        }, toast.message)
-      )
-    )
+    // Toast notifications — own slice of MaerminStore; re-renders independently
+    // of the app on add/expire (see ui-store.js).
+    window.MaerminUI && React.createElement(window.MaerminUI.ToastContainer, { theme: currentTheme })
   );
 }
 
