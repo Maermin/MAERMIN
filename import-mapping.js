@@ -50,7 +50,19 @@
     { id: 'kraken', name: 'Kraken', category: 'crypto',
       must: ['pair', 'vol'], nice: ['ordertxid', 'cost', 'fee', 'ordertype'] },
     { id: 'cointracking', name: 'CoinTracking', category: 'crypto',
-      must: ['cur.'], nice: ['buy', 'sell', 'exchange', 'trade-group'] }
+      must: ['cur.'], nice: ['buy', 'sell', 'exchange', 'trade-group'] },
+    // DACH-popular brokers, recognised by tokens characteristic enough not to
+    // collide with the ISIN-based German brokers above.
+    { id: 'trading212', name: 'Trading 212', category: 'stocks',
+      must: ['no. of shares'], nice: ['ticker', 'action', 'price / share', 'isin', 'total'] },
+    { id: 'revolut', name: 'Revolut', category: 'stocks',
+      must: ['ticker', 'price per share'], nice: ['type', 'quantity', 'total amount'] },
+    { id: 'flatex', name: 'flatex', category: 'stocks',
+      must: ['isin', 'buchtag'], nice: ['stück', 'kurs', 'depot', 'nominal'] },
+    { id: 'consorsbank', name: 'Consorsbank', category: 'stocks',
+      must: ['isin', 'wertpapierbezeichnung'], nice: ['nominal', 'kurswert', 'ausführungskurs', 'buchungstag'] },
+    { id: 'bitpanda', name: 'Bitpanda', category: 'crypto',
+      must: ['asset', 'fee asset'], nice: ['fiat', 'transaction type', 'amount asset', 'amount fiat'] }
   ];
 
   /** Suggested column → field map per broker (header substrings, first match wins). */
@@ -62,7 +74,12 @@
     coinbase:      { date: ['timestamp', 'date'], type: ['transaction type'], symbol: ['asset'], quantity: ['quantity transacted', 'quantity'], price: ['spot price at transaction', 'spot price'], fee: ['fees', 'fee'], currency: ['spot price currency', 'currency'] },
     binance:       { date: ['date(utc)', 'date', 'utc_time'], type: ['side', 'operation'], symbol: ['pair', 'coin', 'market'], quantity: ['executed', 'amount', 'change'], price: ['price'], fee: ['fee'], currency: ['quote', 'currency'] },
     kraken:        { date: ['time'], type: ['type'], symbol: ['pair'], quantity: ['vol'], price: ['price'], fee: ['fee'], currency: ['currency'] },
-    cointracking:  { date: ['date'], type: ['type'], symbol: ['buy', 'sell', 'cur.'], quantity: ['buy', 'sell'], price: ['price'], fee: ['fee'], currency: ['cur.'] }
+    cointracking:  { date: ['date'], type: ['type'], symbol: ['buy', 'sell', 'cur.'], quantity: ['buy', 'sell'], price: ['price'], fee: ['fee'], currency: ['cur.'] },
+    trading212:    { date: ['time', 'date'], type: ['action', 'type'], symbol: ['ticker', 'isin'], quantity: ['no. of shares', 'quantity'], price: ['price / share', 'price'], fee: ['fee', 'charge amount'], currency: ['currency (price / share)', 'currency'] },
+    revolut:       { date: ['date', 'completed date'], type: ['type'], symbol: ['ticker'], quantity: ['quantity'], price: ['price per share'], fee: ['fee', 'commission'], currency: ['currency'] },
+    flatex:        { date: ['buchtag', 'valuta', 'date'], type: ['transaktion', 'type', 'art'], symbol: ['isin'], quantity: ['stück', 'nominal', 'menge'], price: ['kurs', 'ausführungskurs'], fee: ['provision', 'entgelt', 'gebühr'], currency: ['währung', 'currency'] },
+    consorsbank:   { date: ['buchungstag', 'datum', 'date'], type: ['transaktionstyp', 'art', 'type'], symbol: ['isin'], quantity: ['nominal', 'stück', 'menge'], price: ['ausführungskurs', 'kurs'], fee: ['provision', 'entgelt'], currency: ['währung', 'currency'] },
+    bitpanda:      { date: ['timestamp', 'date'], type: ['transaction type', 'in/out'], symbol: ['asset'], quantity: ['amount asset', 'amount'], price: ['asset market price', 'price'], fee: ['fee'], currency: ['fiat', 'currency'] }
   };
 
   // Normalisation tables for transaction "type".
