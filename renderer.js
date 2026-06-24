@@ -431,15 +431,21 @@ function InvestmentTracker() {
     currency: 'EUR', // Track which currency the transaction was added in
     targetPortfolioId: 'default',
   });
-  const [showTransactionModal, setShowTransactionModal] = useState(false);
+  // v12: modal open-states live in MaerminUI.overlays. Read the slice via
+  // useStore; keep the setShowX name as a thin shim that delegates to the store,
+  // so every existing call site (incl. the Escape handler + toggles) is unchanged.
+  const showTransactionModal = window.MaerminStore.useStore(window.MaerminUI.overlays, s => !!s.transactionModal);
+  const setShowTransactionModal = (v) => { const n = typeof v === 'function' ? v(showTransactionModal) : v; n ? window.MaerminUI.openOverlay('transactionModal') : window.MaerminUI.closeOverlay('transactionModal'); };
   const [overviewMode, setOverviewMode] = useState('all'); // 'all' | activePortfolioId
   // Which sidebar hub (Analytics / Discover & Tools) is expanded. '' = none.
   const [openHub, setOpenHub] = useState('');
   const [editingTransactionId, setEditingTransactionId] = useState(null); // null = adding new, id = editing
-  const [showImportModal, setShowImportModal] = useState(false);
+  const showImportModal = window.MaerminStore.useStore(window.MaerminUI.overlays, s => !!s.importModal);
+  const setShowImportModal = (v) => { const n = typeof v === 'function' ? v(showImportModal) : v; n ? window.MaerminUI.openOverlay('importModal') : window.MaerminUI.closeOverlay('importModal'); };
   const [importData, setImportData] = useState('');
   const [showAlertModal, setShowAlertModal] = useState(false);
-  const [showPasswordModal, setShowPasswordModal] = useState(false);
+  const showPasswordModal = window.MaerminStore.useStore(window.MaerminUI.overlays, s => !!s.passwordModal);
+  const setShowPasswordModal = (v) => { const n = typeof v === 'function' ? v(showPasswordModal) : v; n ? window.MaerminUI.openOverlay('passwordModal') : window.MaerminUI.closeOverlay('passwordModal'); };
   const [apiKeys, setApiKeys] = useState(() => {
     try { return JSON.parse(localStorage.getItem('apiKeys') || '{}'); } catch { return {}; }
   });
@@ -519,8 +525,10 @@ function InvestmentTracker() {
     })();
   }, [prices, apiKeys, exchangeRate]);
 
-  const [showApiSettings, setShowApiSettings] = useState(false);
-  const [showSettings, setShowSettings] = useState(false);
+  const showApiSettings = window.MaerminStore.useStore(window.MaerminUI.overlays, s => !!s.apiSettings);
+  const setShowApiSettings = (v) => { const n = typeof v === 'function' ? v(showApiSettings) : v; n ? window.MaerminUI.openOverlay('apiSettings') : window.MaerminUI.closeOverlay('apiSettings'); };
+  const showSettings = window.MaerminStore.useStore(window.MaerminUI.overlays, s => !!s.settings);
+  const setShowSettings = (v) => { const n = typeof v === 'function' ? v(showSettings) : v; n ? window.MaerminUI.openOverlay('settings') : window.MaerminUI.closeOverlay('settings'); };
 
   // Onboarding wizard + recovery-kit enrollment (existing users)
   const [showOnboarding, setShowOnboarding] = useState(false);
