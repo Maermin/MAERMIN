@@ -54,12 +54,41 @@
     // v11: themed concentration in the mega-cap US tech "Magnificent 7" — a
     // hidden cluster that dominates broad index ETFs, so investors are far more
     // exposed than their position list suggests.
-    mag7Important: 30, mag7Optimize: 22
+    mag7Important: 30, mag7Optimize: 22,
+    // v12: semiconductors are a single, highly cyclical industry that hides
+    // inside broad and tech ETFs. Lower bands than Mag-7 (more volatile/cyclical).
+    semiImportant: 25, semiOptimize: 16,
+    // v12: any meaningful weight in a leveraged/inverse ETP is worth flagging —
+    // daily-reset products decay in choppy markets and are rarely a buy-and-hold.
+    leverageImportant: 10, leverageOptimize: 3
   };
 
   // The "Magnificent 7". Matched against effective-exposure KEYS (uppercased
   // symbols from the look-through). GOOG/GOOGL both map to Alphabet.
   var MAG7 = { AAPL: 1, MSFT: 1, NVDA: 1, GOOGL: 1, GOOG: 1, AMZN: 1, META: 1, TSLA: 1 };
+
+  // Semiconductor universe (curated). Matched against effective-exposure keys
+  // exactly like MAG7 — a deliberate, transparent symbol list (no opaque model).
+  var SEMIS = {
+    NVDA: 1, AVGO: 1, TSM: 1, AMD: 1, INTC: 1, QCOM: 1, TXN: 1, MU: 1, AMAT: 1,
+    ASML: 1, LRCX: 1, KLAC: 1, ADI: 1, MRVL: 1, NXPI: 1, MCHP: 1, ON: 1, STM: 1,
+    SWKS: 1, MPWR: 1, TER: 1, ENTG: 1, QRVO: 1, GFS: 1, ARM: 1, SMCI: 1
+  };
+
+  // Leveraged / inverse exchange-traded products → daily-reset leverage factor
+  // (negative = inverse). A curated, transparent list of the common US tickers;
+  // unknown symbols are simply not flagged (no false positives from guessing).
+  var LEVERAGED = {
+    TQQQ: 3, SQQQ: -3, UPRO: 3, SPXU: -3, SPXL: 3, SPXS: -3, SDS: -2, SSO: 2, QLD: 2,
+    UDOW: 3, SDOW: -3, TNA: 3, TZA: -3, SOXL: 3, SOXS: -3, TECL: 3, TECS: -3,
+    FAS: 3, FAZ: -3, LABU: 3, LABD: -3, FNGU: 3, FNGD: -3, BULZ: 3, NAIL: 3,
+    YINN: 3, YANG: -3, TMF: 3, TMV: -3, BOIL: 2, KOLD: -2, NUGT: 2, DUST: -2,
+    UVXY: 1.5, SVXY: -0.5, TQQA: 3
+  };
+  function leverageOf(symbol) {
+    var k = String(symbol || '').toUpperCase();
+    return Object.prototype.hasOwnProperty.call(LEVERAGED, k) ? LEVERAGED[k] : null;
+  }
 
   // Broad global-equity sector weights (≈ MSCI ACWI order of magnitude). Used
   // ONLY as the neutral reference for the style-drift gap — never as a target.
@@ -181,6 +210,54 @@
           'Combined "Magnificent 7" exposure is ' + fmtPct(mag7Pct),
           'Common for global index investors, but worth knowing it is a correlated cluster.',
           'Keep an eye on it so the mega-cap tilt does not grow unchecked.', mag7Pct);
+      }
+    }
+
+    // 2c) Semiconductor concentration (effective, look-through) ----------------
+    // Chips are one cyclical industry that hides inside broad/tech ETFs. Summed
+    // effective weight, same transparent symbol-list approach as the Mag-7 check.
+    if (eff.length) {
+      var semiPct = 0, semiNames = [];
+      eff.forEach(function (x) {
+        var k = String(x.key || '').toUpperCase();
+        if (SEMIS[k]) { var p = asPct(x.effectiveWeight); if (p != null) { semiPct += p; semiNames.push(x.name || k); } }
+      });
+      semiPct = Math.round(semiPct * 10) / 10;
+      if (semiPct >= T.semiImportant) {
+        push('semiconductor', 'important', 'semi-important',
+          fmtPct(semiPct) + ' of your portfolio is in semiconductors',
+          'Chips (' + semiNames.slice(0, 6).join(', ') + ') are one deeply cyclical industry; this much effective weight — counting ETF holdings — is a concentrated cycle bet.',
+          'Confirm the chip tilt is intentional; trim or broaden across industries if not.', semiPct);
+      } else if (semiPct >= T.semiOptimize) {
+        push('semiconductor', 'optimization', 'semi-optimize',
+          'Semiconductor exposure is ' + fmtPct(semiPct),
+          'Moderate, but semis swing hard with the cycle — worth tracking so it does not creep up.',
+          'Steer new contributions toward other industries if you want to cap it.', semiPct);
+      }
+    }
+
+    // 2d) Hidden leverage (leveraged / inverse ETPs) ---------------------------
+    // Daily-reset leveraged/inverse products decay in choppy markets and are not
+    // buy-and-hold instruments; many holders don't realise they own one.
+    var lv = inputs.leverage;
+    if (lv && lv.available && (lv.positions || []).length) {
+      var levWeighted = num(lv.leveredWeightPct) || 0;            // Σ weight·|factor|
+      var rawWeight = num(lv.rawWeightPct) || 0;                  // Σ weight (plain)
+      var hasInverse = (lv.positions || []).some(function (p) { return num(p.factor) < 0; });
+      var names = (lv.positions || []).map(function (p) {
+        return p.symbol + ' (' + (num(p.factor) > 0 ? '+' : '') + num(p.factor) + 'x)';
+      }).slice(0, 5);
+      var levMetric = Math.round(rawWeight * 10) / 10;
+      if (rawWeight >= T.leverageImportant || hasInverse || levWeighted >= 20) {
+        push('leverage', 'important', 'leverage-important',
+          'You hold leveraged/inverse ETPs (' + fmtPct(rawWeight) + ' of the portfolio, ' + fmtPct(Math.round(levWeighted * 10) / 10) + ' gross exposure)',
+          'Daily-reset products (' + names.join(', ') + ') decay in volatile, sideways markets and can diverge sharply from the index over weeks — they are trading tools, not buy-and-hold.',
+          'Hold these only as deliberate short-term positions; size them to what you can actively manage.', levMetric);
+      } else if (rawWeight >= T.leverageOptimize) {
+        push('leverage', 'optimization', 'leverage-optimize',
+          'A small leveraged/inverse position (' + fmtPct(rawWeight) + ': ' + names.join(', ') + ')',
+          'Manageable, but daily-reset leverage is path-dependent and erodes in choppy markets.',
+          'Keep it small and intentional; avoid treating it as a long-term core holding.', levMetric);
       }
     }
 
@@ -411,6 +488,33 @@
       }
     } catch (e) {}
 
+    // Leveraged / inverse ETP detection: scan direct positions for known tickers
+    // and weight them against the whole portfolio. Pure lookup (no network).
+    try {
+      var priceOfPos = function (p) {
+        return prices[(p.symbol || p.name || '').toUpperCase()] || prices[(p.symbol || p.name || '').toLowerCase()] || p.currentPrice || p.purchasePrice || 0;
+      };
+      var levClasses = (M && M.ASSET_CLASSES) || ['crypto', 'stocks', 'skins', 'commodities'];
+      var totalVal = 0, levHits = [];
+      levClasses.forEach(function (cls) {
+        (portfolio && portfolio[cls] || []).forEach(function (p) {
+          var val = (parseFloat(p.amount) || 0) * priceOfPos(p);
+          totalVal += val;
+          var f = leverageOf(p.symbol || p.name);
+          if (f != null && val > 0) levHits.push({ symbol: (p.symbol || p.name || '').toUpperCase(), factor: f, val: val });
+        });
+      });
+      if (totalVal > 0 && levHits.length) {
+        var rawW = 0, leveredW = 0;
+        var positions = levHits.map(function (lp) {
+          var wPct = (lp.val / totalVal) * 100;
+          rawW += wPct; leveredW += wPct * Math.abs(lp.factor);
+          return { symbol: lp.symbol, factor: lp.factor, weightPct: wPct };
+        });
+        inputs.leverage = { available: true, positions: positions, rawWeightPct: rawW, leveredWeightPct: leveredW };
+      }
+    } catch (e) {}
+
     // Dividend trap inputs from the ONE dividend service (best-effort).
     try {
       var svc = w.DividendDataService;
@@ -587,6 +691,10 @@
     PRIORITY_RANK: PRIORITY_RANK,
     DEFAULTS: DEFAULTS,
     STYLE_REFERENCE: STYLE_REFERENCE,
+    MAG7: MAG7,
+    SEMIS: SEMIS,
+    LEVERAGED: LEVERAGED,
+    leverageOf: leverageOf,
     analyzeFromInputs: analyzeFromInputs,
     gatherInputs: gatherInputs,
     analyze: analyze,

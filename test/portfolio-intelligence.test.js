@@ -67,6 +67,37 @@ function byAnalysis(report, a) { return report.findings.filter((f) => f.analysis
   ok('non-Mag-7 names do not count', byAnalysis(
     I.analyzeFromInputs({ effectiveExposure: [{ key: 'KO', name: 'Coca-Cola', effectiveWeight: 0.40 }] }), 'mag7').length === 0);
 
+  // ---- 2c) semiconductor concentration --------------------------------------
+  const semi = I.analyzeFromInputs({ effectiveExposure: [
+    { key: 'NVDA', name: 'Nvidia',  effectiveWeight: 0.10 },
+    { key: 'AVGO', name: 'Broadcom', effectiveWeight: 0.08 },
+    { key: 'TSM',  name: 'TSMC',     effectiveWeight: 0.09 },
+  ] });
+  ok('combined semis (27%) → important', byId(semi, 'semi-important') && byId(semi, 'semi-important').priority === 'important');
+  ok('semi finding names the chips', /Nvidia/.test(byId(semi, 'semi-important').detail) && /Broadcom/.test(byId(semi, 'semi-important').detail));
+  ok('moderate semis (18%) → optimization', byId(
+    I.analyzeFromInputs({ effectiveExposure: [{ key: 'NVDA', name: 'Nvidia', effectiveWeight: 0.18 }] }), 'semi-optimize').priority === 'optimization');
+  ok('low semis (10%) → no finding', byAnalysis(
+    I.analyzeFromInputs({ effectiveExposure: [{ key: 'NVDA', name: 'Nvidia', effectiveWeight: 0.10 }] }), 'semiconductor').length === 0);
+  ok('non-semi names do not count', byAnalysis(
+    I.analyzeFromInputs({ effectiveExposure: [{ key: 'KO', name: 'Coca-Cola', effectiveWeight: 0.40 }] }), 'semiconductor').length === 0);
+
+  // ---- 2d) hidden leverage (leveraged / inverse ETPs) -----------------------
+  const lev = I.analyzeFromInputs({ leverage: { available: true,
+    positions: [{ symbol: 'TQQQ', factor: 3, weightPct: 12 }], rawWeightPct: 12, leveredWeightPct: 36 } });
+  ok('12% leveraged ETP → important', byId(lev, 'leverage-important') && byId(lev, 'leverage-important').priority === 'important');
+  ok('leverage finding names the ticker + factor', /TQQQ \(\+3x\)/.test(byId(lev, 'leverage-important').detail));
+  const inv = I.analyzeFromInputs({ leverage: { available: true,
+    positions: [{ symbol: 'SQQQ', factor: -3, weightPct: 2 }], rawWeightPct: 2, leveredWeightPct: 6 } });
+  ok('any inverse ETP → important even when small', byId(inv, 'leverage-important') && byId(inv, 'leverage-important').priority === 'important');
+  const lo = I.analyzeFromInputs({ leverage: { available: true,
+    positions: [{ symbol: 'SSO', factor: 2, weightPct: 4 }], rawWeightPct: 4, leveredWeightPct: 8 } });
+  ok('small long-leverage (4%) → optimization', byId(lo, 'leverage-optimize') && byId(lo, 'leverage-optimize').priority === 'optimization');
+  ok('2% long-leverage → no finding', byAnalysis(
+    I.analyzeFromInputs({ leverage: { available: true, positions: [{ symbol: 'SSO', factor: 2, weightPct: 2 }], rawWeightPct: 2, leveredWeightPct: 4 } }), 'leverage').length === 0);
+  ok('leverageOf maps known tickers (case-insensitive) + null for the rest',
+    I.leverageOf('tqqq') === 3 && I.leverageOf('SQQQ') === -3 && I.leverageOf('AAPL') === null);
+
   // ---- 3) sector overexposure -----------------------------------------------
   ok('45% sector → critical', byId(I.analyzeFromInputs({ sectorExposure: [{ sector: 'Technology', weight: 0.45 }] }), 'sector-critical').priority === 'critical');
   ok('32% sector → important', byId(I.analyzeFromInputs({ sectorExposure: [{ sector: 'Energy', weight: 0.32 }] }), 'sector-important').priority === 'important');
