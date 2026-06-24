@@ -169,6 +169,30 @@ function byAnalysis(report, a) { return report.findings.filter((f) => f.analysis
   ok('18% illiquid → important', byId(I.analyzeFromInputs({ liquidity: { available: true, illiquidPct: 18, classes: [{ cls: 'skins', pct: 18 }] } }), 'liq-important').priority === 'important');
   ok('10% illiquid → optimization', byId(I.analyzeFromInputs({ liquidity: { available: true, illiquidPct: 10, classes: [{ cls: 'skins', pct: 10 }] } }), 'liq-optimize').priority === 'optimization');
 
+  // ---- 9b) dividend income concentration (one payer funds most income) ------
+  const inc = I.analyzeFromInputs({ dividend: { available: true, yield: 3, weightedGrowth: 5, incomeAtRiskPct: 0, traps: [], topPayer: { symbol: 'O', incomeSharePct: 48 } } });
+  ok('one payer = 48% of income → important income-concentration', byId(inc, 'income-conc-important') && byId(inc, 'income-conc-important').priority === 'important');
+  ok('income-concentration names the payer + share', /\bO\b/.test(byId(inc, 'income-conc-important').title) && /48/.test(byId(inc, 'income-conc-important').title));
+  ok('income concentration fires independent of yield (healthy book)', byAnalysis(inc, 'dividendTrap').length === 0 && byAnalysis(inc, 'yieldTrap').length === 0);
+  ok('one payer = 30% of income → optimization', byId(
+    I.analyzeFromInputs({ dividend: { available: true, yield: 3, weightedGrowth: 5, incomeAtRiskPct: 0, traps: [], topPayer: { symbol: 'KO', incomeSharePct: 30 } } }),
+    'income-conc-optimize').priority === 'optimization');
+  ok('one payer = 20% of income → no finding', byAnalysis(
+    I.analyzeFromInputs({ dividend: { available: true, yield: 3, weightedGrowth: 5, incomeAtRiskPct: 0, traps: [], topPayer: { symbol: 'KO', incomeSharePct: 20 } } }), 'incomeConcentration').length === 0);
+  ok('no topPayer → no income-concentration finding', byAnalysis(
+    I.analyzeFromInputs({ dividend: { available: true, yield: 3, weightedGrowth: 5, incomeAtRiskPct: 0, traps: [] } }), 'incomeConcentration').length === 0);
+
+  // ---- 11) single asset-class concentration (volatile bucket) ----------------
+  const acC = I.analyzeFromInputs({ assetClass: { available: true, top: { cls: 'crypto', pct: 62 }, classes: [{ cls: 'crypto', pct: 62 }, { cls: 'stocks', pct: 38 }] } });
+  ok('62% crypto → important asset-class finding', byId(acC, 'assetclass-important') && byId(acC, 'assetclass-important').priority === 'important');
+  ok('asset-class finding names the class + pct', /crypto/.test(byId(acC, 'assetclass-important').title) && /62/.test(byId(acC, 'assetclass-important').title));
+  ok('40% skins → optimization', byId(
+    I.analyzeFromInputs({ assetClass: { available: true, top: { cls: 'skins', pct: 40 }, classes: [{ cls: 'skins', pct: 40 }] } }), 'assetclass-optimize').priority === 'optimization');
+  ok('100% stocks → no asset-class finding (equity book is normal)', byAnalysis(
+    I.analyzeFromInputs({ assetClass: { available: true, top: { cls: 'stocks', pct: 100 }, classes: [{ cls: 'stocks', pct: 100 }] } }), 'assetClass').length === 0);
+  ok('30% crypto (< 35) → no asset-class finding', byAnalysis(
+    I.analyzeFromInputs({ assetClass: { available: true, top: { cls: 'crypto', pct: 30 }, classes: [{ cls: 'crypto', pct: 30 }] } }), 'assetClass').length === 0);
+
   // ---- direct-concentration fallback (no look-through) -----------------------
   const fb = I.analyzeFromInputs({ directConcentration: { available: true, maxWeight: 0.41, topLabel: 'BTC' } });
   ok('fallback fires when no effective exposure', byId(fb, 'sc-direct') && byId(fb, 'sc-direct').priority === 'critical');
