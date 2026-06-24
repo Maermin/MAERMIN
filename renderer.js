@@ -252,17 +252,27 @@ function InvestmentTracker() {
   // Demo mode: when on, the app runs entirely on offline sample data; the user's
   // real transactions/prices are neither read nor written.
   const [demoMode, setDemoMode] = useState(() => !!(window.MaerminDemo && window.MaerminDemo.isActive()));
+  // v12: market data (prices, priceHistory, worker status, loading, lastRefresh)
+  // lives in MaerminMarket (MaerminStore). Read each slice via useStore; the
+  // setX shims delegate to the store and — crucially for the hot async fetch
+  // path — read the CURRENT value from the store for functional updates, so
+  // setPrices(prev => …) from fetchPrices is never stale. All call sites unchanged.
   // Worker reachability for the status indicator (null = not yet probed).
-  const [workerStatus, setWorkerStatus] = useState(null);
+  const workerStatus = window.MaerminStore.useStore(window.MaerminMarket.store, s => s.workerStatus);
+  const setWorkerStatus = (v) => window.MaerminMarket.set('workerStatus', typeof v === 'function' ? v(window.MaerminMarket.get('workerStatus')) : v);
 
   // Prices
-  const [prices, setPrices] = useState({});
-  const [priceHistory, setPriceHistory] = useState({});
+  const prices = window.MaerminStore.useStore(window.MaerminMarket.store, s => s.prices);
+  const setPrices = (v) => window.MaerminMarket.set('prices', typeof v === 'function' ? v(window.MaerminMarket.get('prices')) : v);
+  const priceHistory = window.MaerminStore.useStore(window.MaerminMarket.store, s => s.priceHistory);
+  const setPriceHistory = (v) => window.MaerminMarket.set('priceHistory', typeof v === 'function' ? v(window.MaerminMarket.get('priceHistory')) : v);
   // Per-symbol historical price series fetched for savings-plan symbols (so each
   // back-dated buy is priced on its own day). Separate from the live priceHistory.
   const [savingsHistory, setSavingsHistory] = useState({});
-  const [loading, setLoading] = useState(false);
-  const [lastRefresh, setLastRefresh] = useState(null);
+  const loading = window.MaerminStore.useStore(window.MaerminMarket.store, s => s.loading);
+  const setLoading = (v) => window.MaerminMarket.set('loading', typeof v === 'function' ? v(window.MaerminMarket.get('loading')) : v);
+  const lastRefresh = window.MaerminStore.useStore(window.MaerminMarket.store, s => s.lastRefresh);
+  const setLastRefresh = (v) => window.MaerminMarket.set('lastRefresh', typeof v === 'function' ? v(window.MaerminMarket.get('lastRefresh')) : v);
   
   // Currency and exchange rate - needed for portfolio calculation
   const [currency, setCurrency] = useState('EUR');
