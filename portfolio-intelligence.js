@@ -60,7 +60,12 @@
     semiImportant: 25, semiOptimize: 16,
     // v12: any meaningful weight in a leveraged/inverse ETP is worth flagging —
     // daily-reset products decay in choppy markets and are rarely a buy-and-hold.
-    leverageImportant: 10, leverageOptimize: 3
+    leverageImportant: 10, leverageOptimize: 3,
+    // v12: cumulative weight of the largest few EFFECTIVE holdings (look-through).
+    // Catches concentration the single-name check misses — several 12–18% names
+    // are individually "fine" but together drive most of the risk. Broad-ETF
+    // holders are unaffected (their look-through spreads across thousands).
+    topHoldingsCount: 5, top5Important: 65, top5Optimize: 50
   };
 
   // The "Magnificent 7". Matched against effective-exposure KEYS (uppercased
@@ -258,6 +263,31 @@
           'A small leveraged/inverse position (' + fmtPct(rawWeight) + ': ' + names.join(', ') + ')',
           'Manageable, but daily-reset leverage is path-dependent and erodes in choppy markets.',
           'Keep it small and intentional; avoid treating it as a long-term core holding.', levMetric);
+      }
+    }
+
+    // 2e) Top-holdings concentration (cumulative effective weight) --------------
+    // The single-company check looks at the LARGEST name; this looks at the few
+    // largest TOGETHER — a cluster of 12–18% names is individually fine yet
+    // collectively drives most of the risk. eff is already sorted desc.
+    var nTop = Math.max(2, Math.round(T.topHoldingsCount) || 5);
+    if (eff.length >= nTop) {
+      var topN = 0, topNames = [];
+      for (var ti = 0; ti < nTop && ti < eff.length; ti++) {
+        var tw = asPct(eff[ti].effectiveWeight);
+        if (tw != null) { topN += tw; topNames.push(eff[ti].name || eff[ti].key); }
+      }
+      topN = Math.round(topN * 10) / 10;
+      if (topN >= T.top5Important) {
+        push('concentration', 'important', 'topholdings-important',
+          'Your ' + nTop + ' largest holdings are ' + fmtPct(topN) + ' of the portfolio',
+          'A handful of names (' + topNames.slice(0, nTop).join(', ') + ') — counting what your ETFs hold — drive most of your outcome; a setback in them dominates your return.',
+          'Confirm this concentration is intended; broaden the base if a few positions have grown to dominate.', topN);
+      } else if (topN >= T.top5Optimize) {
+        push('concentration', 'optimization', 'topholdings-optimize',
+          'Your ' + nTop + ' largest holdings are ' + fmtPct(topN) + ' of the portfolio',
+          'Moderately top-heavy — common, but worth knowing how much rides on the few biggest positions.',
+          'Steer new contributions to the rest of the book if you want to dilute the top.', topN);
       }
     }
 

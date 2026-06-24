@@ -252,17 +252,27 @@ function InvestmentTracker() {
   // Demo mode: when on, the app runs entirely on offline sample data; the user's
   // real transactions/prices are neither read nor written.
   const [demoMode, setDemoMode] = useState(() => !!(window.MaerminDemo && window.MaerminDemo.isActive()));
+  // v12: market data (prices, priceHistory, worker status, loading, lastRefresh)
+  // lives in MaerminMarket (MaerminStore). Read each slice via useStore; the
+  // setX shims delegate to the store and — crucially for the hot async fetch
+  // path — read the CURRENT value from the store for functional updates, so
+  // setPrices(prev => …) from fetchPrices is never stale. All call sites unchanged.
   // Worker reachability for the status indicator (null = not yet probed).
-  const [workerStatus, setWorkerStatus] = useState(null);
+  const workerStatus = window.MaerminStore.useStore(window.MaerminMarket.store, s => s.workerStatus);
+  const setWorkerStatus = (v) => window.MaerminMarket.set('workerStatus', typeof v === 'function' ? v(window.MaerminMarket.get('workerStatus')) : v);
 
   // Prices
-  const [prices, setPrices] = useState({});
-  const [priceHistory, setPriceHistory] = useState({});
+  const prices = window.MaerminStore.useStore(window.MaerminMarket.store, s => s.prices);
+  const setPrices = (v) => window.MaerminMarket.set('prices', typeof v === 'function' ? v(window.MaerminMarket.get('prices')) : v);
+  const priceHistory = window.MaerminStore.useStore(window.MaerminMarket.store, s => s.priceHistory);
+  const setPriceHistory = (v) => window.MaerminMarket.set('priceHistory', typeof v === 'function' ? v(window.MaerminMarket.get('priceHistory')) : v);
   // Per-symbol historical price series fetched for savings-plan symbols (so each
   // back-dated buy is priced on its own day). Separate from the live priceHistory.
   const [savingsHistory, setSavingsHistory] = useState({});
-  const [loading, setLoading] = useState(false);
-  const [lastRefresh, setLastRefresh] = useState(null);
+  const loading = window.MaerminStore.useStore(window.MaerminMarket.store, s => s.loading);
+  const setLoading = (v) => window.MaerminMarket.set('loading', typeof v === 'function' ? v(window.MaerminMarket.get('loading')) : v);
+  const lastRefresh = window.MaerminStore.useStore(window.MaerminMarket.store, s => s.lastRefresh);
+  const setLastRefresh = (v) => window.MaerminMarket.set('lastRefresh', typeof v === 'function' ? v(window.MaerminMarket.get('lastRefresh')) : v);
   
   // Currency and exchange rate - needed for portfolio calculation
   const [currency, setCurrency] = useState('EUR');
@@ -443,7 +453,8 @@ function InvestmentTracker() {
   const showImportModal = window.MaerminStore.useStore(window.MaerminUI.overlays, s => !!s.importModal);
   const setShowImportModal = (v) => { const n = typeof v === 'function' ? v(showImportModal) : v; n ? window.MaerminUI.openOverlay('importModal') : window.MaerminUI.closeOverlay('importModal'); };
   const [importData, setImportData] = useState('');
-  const [showAlertModal, setShowAlertModal] = useState(false);
+  const showAlertModal = window.MaerminStore.useStore(window.MaerminUI.overlays, s => !!s.alertModal);
+  const setShowAlertModal = (v) => { const n = typeof v === 'function' ? v(showAlertModal) : v; n ? window.MaerminUI.openOverlay('alertModal') : window.MaerminUI.closeOverlay('alertModal'); };
   const showPasswordModal = window.MaerminStore.useStore(window.MaerminUI.overlays, s => !!s.passwordModal);
   const setShowPasswordModal = (v) => { const n = typeof v === 'function' ? v(showPasswordModal) : v; n ? window.MaerminUI.openOverlay('passwordModal') : window.MaerminUI.closeOverlay('passwordModal'); };
   const [apiKeys, setApiKeys] = useState(() => {
@@ -531,12 +542,15 @@ function InvestmentTracker() {
   const setShowSettings = (v) => { const n = typeof v === 'function' ? v(showSettings) : v; n ? window.MaerminUI.openOverlay('settings') : window.MaerminUI.closeOverlay('settings'); };
 
   // Onboarding wizard + recovery-kit enrollment (existing users)
-  const [showOnboarding, setShowOnboarding] = useState(false);
-  const [showRecoveryKit, setShowRecoveryKit] = useState(false);
+  const showOnboarding = window.MaerminStore.useStore(window.MaerminUI.overlays, s => !!s.onboarding);
+  const setShowOnboarding = (v) => { const n = typeof v === 'function' ? v(showOnboarding) : v; n ? window.MaerminUI.openOverlay('onboarding') : window.MaerminUI.closeOverlay('onboarding'); };
+  const showRecoveryKit = window.MaerminStore.useStore(window.MaerminUI.overlays, s => !!s.recoveryKit);
+  const setShowRecoveryKit = (v) => { const n = typeof v === 'function' ? v(showRecoveryKit) : v; n ? window.MaerminUI.openOverlay('recoveryKit') : window.MaerminUI.closeOverlay('recoveryKit'); };
   const [recoveryCode, setRecoveryCode] = useState('');
   const [recoveryBusy, setRecoveryBusy] = useState(false);
   // Security & Sync settings card
-  const [showSecurity, setShowSecurity] = useState(false);
+  const showSecurity = window.MaerminStore.useStore(window.MaerminUI.overlays, s => !!s.security);
+  const setShowSecurity = (v) => { const n = typeof v === 'function' ? v(showSecurity) : v; n ? window.MaerminUI.openOverlay('security') : window.MaerminUI.closeOverlay('security'); };
   const [syncBusy, setSyncBusy] = useState(false);
   const [securityRev, setSecurityRev] = useState(0); // bump to re-read vault/sync status
   const [recoveryNudgeDismissed, setRecoveryNudgeDismissed] = useState(() => {
@@ -570,7 +584,8 @@ function InvestmentTracker() {
   const [metaVersion, setMetaVersion] = useState(0);
 
   // Security log viewer modal (reads window.MaerminAuditLog).
-  const [showAuditLog, setShowAuditLog] = useState(false);
+  const showAuditLog = window.MaerminStore.useStore(window.MaerminUI.overlays, s => !!s.auditLog);
+  const setShowAuditLog = (v) => { const n = typeof v === 'function' ? v(showAuditLog) : v; n ? window.MaerminUI.openOverlay('auditLog') : window.MaerminUI.closeOverlay('auditLog'); };
 
   // ========== COMPUTED VALUES ==========
   
