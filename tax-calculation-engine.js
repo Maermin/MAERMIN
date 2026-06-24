@@ -423,7 +423,13 @@ var GermanTax = (function () {
     }
     var basisertrag = valueStart * basiszins * 0.7 * monthsFactor;
     var wertzuwachs = Math.max(0, valueEnd - valueStart);
-    var vorabpauschale = Math.max(0, Math.min(basisertrag, wertzuwachs) - distributions);
+    // §18 InvStG order: subtract the year's distributions from the Basisertrag
+    // FIRST, THEN cap at the actual value increase. The previous order
+    // (cap-then-subtract) understated the Vorabpauschale whenever the Basisertrag
+    // exceeded the value increase AND there were distributions (cap and subtract
+    // do not commute). For accumulating funds (distributions = 0) both orders are
+    // identical, so this is a no-op for the documented use.
+    var vorabpauschale = Math.min(Math.max(0, basisertrag - distributions), wertzuwachs);
     return { basisertrag: basisertrag, wertzuwachs: wertzuwachs, vorabpauschale: vorabpauschale };
   }
 

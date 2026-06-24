@@ -63,6 +63,11 @@ const REPORT = require('../tax-report-builder.js');
   ok('distributions reduce the Vorabpauschale', approx(vapDist.vorabpauschale, 128.5));
   const vapDistAll = GT.computeVorabpauschale({ valueStart: 10000, valueEnd: 11000, distributions: 500, basiszins: 0.0255 });
   ok('floored at zero when distributions exceed it', vapDistAll.vorabpauschale === 0);
+  // §18 InvStG order regression: small value increase (100) below Basisertrag
+  // (178.5) WITH distributions (50). Correct = min(max(0,178.5-50),100)=100.
+  // The old cap-then-subtract order gave min(178.5,100)-50 = 50 (understated).
+  const vapOrder = GT.computeVorabpauschale({ valueStart: 10000, valueEnd: 10100, distributions: 50, basiszins: 0.0255 });
+  ok('subtract distributions before capping at value increase (§18 order)', approx(vapOrder.vorabpauschale, 100));
   ok('loss year -> zero', GT.computeVorabpauschale({ valueStart: 10000, valueEnd: 9000, basiszins: 0.0255 }).vorabpauschale === 0);
   ok('negative Basiszins (2022) -> zero across the board', GT.computeVorabpauschale({ valueStart: 10000, valueEnd: 11000, basiszins: -0.0005 }).vorabpauschale === 0);
   const vapPro = GT.computeVorabpauschale({ valueStart: 10000, valueEnd: 11000, basiszins: 0.0255, monthsFactor: 10 / 12 });
