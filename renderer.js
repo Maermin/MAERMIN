@@ -1323,7 +1323,13 @@ function InvestmentTracker() {
         });
       }
 
-      setPrices(newPrices);
+      // Functional merge (not a bare set): fetchPrices snapshotted `prices` at the
+      // top (newPrices = {...prices}) and then awaited the network. A concurrent
+      // update during that window — the lazy symbol-price loader, or a second
+      // refresh triggered by the auto-refresh focus/interval — would otherwise be
+      // clobbered by this stale snapshot. Overlaying onto `prev` keeps any keys
+      // added meanwhile while this fetch's fresh quotes still win.
+      setPrices(prev => ({ ...prev, ...newPrices }));
       // Stamp when each symbol was fetched so the data-quality layer can flag
       // stale/failed quotes (feeds the per-position freshness badges). Carried
       // skins are excluded so they keep their previous timestamp and badge stale.
