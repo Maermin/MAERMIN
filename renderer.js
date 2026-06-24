@@ -307,8 +307,11 @@ function InvestmentTracker() {
   useEffect(() => { window.MaerminPrefs.set('language', language); }, [language]);
   
   // v6.0 State
-  const [showCommandPalette, setShowCommandPalette] = useState(false);
-  const [showShortcuts, setShowShortcuts] = useState(false);
+  // v12: command-palette + shortcuts open-states live in MaerminUI.overlays
+  // (MaerminStore). Read the slice via useStore; setters below call open/close/
+  // toggleOverlay. Behaviour-preserving — the app still re-renders on open/close.
+  const showCommandPalette = window.MaerminStore.useStore(window.MaerminUI.overlays, s => !!s.commandPalette);
+  const showShortcuts = window.MaerminStore.useStore(window.MaerminUI.overlays, s => !!s.shortcuts);
   // v12: toasts moved onto MaerminUI (MaerminStore). addToast delegates to it and
   // <MaerminUI.ToastContainer> subscribes to just that slice, so a toast no longer
   // re-renders the whole app. No App-level toast state needed any more.
@@ -659,8 +662,8 @@ function InvestmentTracker() {
     const handleKeyDown = (e) => {
       // Escape closes modals & dropdowns — even while an input inside one is focused
       if (e.key === 'Escape') {
-        setShowCommandPalette(false);
-        setShowShortcuts(false);
+        window.MaerminUI.closeOverlay('commandPalette');
+        window.MaerminUI.closeOverlay('shortcuts');
         setShowTransactionModal(false);
         setShowImportModal(false);
         setShowApiSettings(false);
@@ -672,7 +675,7 @@ function InvestmentTracker() {
       // Command palette: Ctrl+K or Cmd+K — works from anywhere, including inputs
       if ((e.ctrlKey || e.metaKey) && e.key === 'k') {
         e.preventDefault();
-        setShowCommandPalette(prev => !prev);
+        window.MaerminUI.toggleOverlay('commandPalette');
         return;
       }
 
@@ -681,7 +684,7 @@ function InvestmentTracker() {
       
       // ? shows shortcuts
       if (e.key === '?' && !e.ctrlKey && !e.metaKey) {
-        setShowShortcuts(true);
+        window.MaerminUI.openOverlay('shortcuts');
         return;
       }
     };
@@ -1706,7 +1709,7 @@ function InvestmentTracker() {
       case 'settings:contrast': setTheme('contrast'); break;
       case 'settings:cb':       setTheme('cb'); break;
       // Help
-      case 'help:shortcuts':    setShowShortcuts(true); break;
+      case 'help:shortcuts':    window.MaerminUI.openOverlay('shortcuts'); break;
       default: break;
     }
   };
@@ -4669,7 +4672,7 @@ buy,crypto,bitcoin,0.5,45000,2024-01-15,10`)
 
       // Centered command search (mockup: "Search features & jump to…")
       React.createElement('button', {
-        onClick: () => setShowCommandPalette(true),
+        onClick: () => window.MaerminUI.openOverlay('commandPalette'),
         style: {
           flex: 1, maxWidth: '440px', margin: '0 1.25rem',
           padding: '0.55rem 0.95rem',
@@ -5068,7 +5071,7 @@ buy,crypto,bitcoin,0.5,45000,2024-01-15,10`)
             React.createElement('div', { style: { fontSize: '0.74rem', fontWeight: '600', color: currentTheme.accent, marginBottom: '0.3rem' } }, 'Quick access'),
             React.createElement('div', { style: { fontSize: '0.72rem', color: currentTheme.textSecondary, marginBottom: '0.6rem', lineHeight: 1.4 } }, 'Jump to any module instantly.'),
             React.createElement('button', {
-              onClick: () => setShowCommandPalette(true),
+              onClick: () => window.MaerminUI.openOverlay('commandPalette'),
               style: { display: 'flex', alignItems: 'center', justifyContent: 'space-between', width: '100%', padding: '0.4rem 0.6rem', background: 'rgba(0,0,0,0.25)', border: `1px solid ${currentTheme.cardBorder}`, borderRadius: '8px', cursor: 'pointer', fontSize: '0.74rem', color: currentTheme.text }
             },
               React.createElement('span', null, 'Open palette'),
@@ -5111,7 +5114,7 @@ buy,crypto,bitcoin,0.5,45000,2024-01-15,10`)
     // Command Palette
     window.CommandPalette && React.createElement(window.CommandPalette, {
       isOpen: showCommandPalette,
-      onClose: () => setShowCommandPalette(false),
+      onClose: () => window.MaerminUI.closeOverlay('commandPalette'),
       onExecute: executeCommand,
       commands: commands,
       t: t
@@ -5120,7 +5123,7 @@ buy,crypto,bitcoin,0.5,45000,2024-01-15,10`)
     // Shortcuts Modal
     window.ShortcutsModal && React.createElement(window.ShortcutsModal, {
       isOpen: showShortcuts,
-      onClose: () => setShowShortcuts(false),
+      onClose: () => window.MaerminUI.closeOverlay('shortcuts'),
       t: t,
       theme: currentTheme
     }),

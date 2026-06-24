@@ -46,6 +46,29 @@ const UI = require('../ui-store.js');
   ok('ids are unique', a !== b);
   UI.clear();
 
+  // ---- overlays -------------------------------------------------------------
+  console.log('ui-store overlays:');
+  ok('nothing open initially', !UI.isOverlayOpen('commandPalette') && !UI.anyOverlayOpen());
+  UI.openOverlay('commandPalette');
+  ok('open sets the overlay', UI.isOverlayOpen('commandPalette') && UI.anyOverlayOpen());
+  ok('other overlays stay closed', !UI.isOverlayOpen('shortcuts'));
+  UI.toggleOverlay('commandPalette');
+  ok('toggle closes an open overlay', !UI.isOverlayOpen('commandPalette'));
+  UI.toggleOverlay('shortcuts');
+  ok('toggle opens a closed overlay', UI.isOverlayOpen('shortcuts'));
+  UI.openOverlay('commandPalette');
+  let n = 0;
+  const uo = UI.overlays.subscribe(() => { n++; });
+  UI.closeOverlay('commandPalette');
+  ok('close notifies + clears one overlay', n === 1 && !UI.isOverlayOpen('commandPalette') && UI.isOverlayOpen('shortcuts'));
+  UI.closeAllOverlays();
+  ok('closeAll clears everything', !UI.anyOverlayOpen() && !UI.isOverlayOpen('shortcuts'));
+  // setting the same value is a no-op (store does not notify)
+  n = 0;
+  UI.closeOverlay('shortcuts'); // already false
+  ok('no notification when overlay state is unchanged', n === 0);
+  uo();
+
   console.log('\n' + passed + ' passed, ' + failed + ' failed');
   process.exit(failed ? 1 : 0);
 })();
