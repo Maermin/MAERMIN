@@ -443,7 +443,8 @@ function InvestmentTracker() {
   const showImportModal = window.MaerminStore.useStore(window.MaerminUI.overlays, s => !!s.importModal);
   const setShowImportModal = (v) => { const n = typeof v === 'function' ? v(showImportModal) : v; n ? window.MaerminUI.openOverlay('importModal') : window.MaerminUI.closeOverlay('importModal'); };
   const [importData, setImportData] = useState('');
-  const [showAlertModal, setShowAlertModal] = useState(false);
+  const showAlertModal = window.MaerminStore.useStore(window.MaerminUI.overlays, s => !!s.alertModal);
+  const setShowAlertModal = (v) => { const n = typeof v === 'function' ? v(showAlertModal) : v; n ? window.MaerminUI.openOverlay('alertModal') : window.MaerminUI.closeOverlay('alertModal'); };
   const showPasswordModal = window.MaerminStore.useStore(window.MaerminUI.overlays, s => !!s.passwordModal);
   const setShowPasswordModal = (v) => { const n = typeof v === 'function' ? v(showPasswordModal) : v; n ? window.MaerminUI.openOverlay('passwordModal') : window.MaerminUI.closeOverlay('passwordModal'); };
   const [apiKeys, setApiKeys] = useState(() => {
@@ -531,12 +532,15 @@ function InvestmentTracker() {
   const setShowSettings = (v) => { const n = typeof v === 'function' ? v(showSettings) : v; n ? window.MaerminUI.openOverlay('settings') : window.MaerminUI.closeOverlay('settings'); };
 
   // Onboarding wizard + recovery-kit enrollment (existing users)
-  const [showOnboarding, setShowOnboarding] = useState(false);
-  const [showRecoveryKit, setShowRecoveryKit] = useState(false);
+  const showOnboarding = window.MaerminStore.useStore(window.MaerminUI.overlays, s => !!s.onboarding);
+  const setShowOnboarding = (v) => { const n = typeof v === 'function' ? v(showOnboarding) : v; n ? window.MaerminUI.openOverlay('onboarding') : window.MaerminUI.closeOverlay('onboarding'); };
+  const showRecoveryKit = window.MaerminStore.useStore(window.MaerminUI.overlays, s => !!s.recoveryKit);
+  const setShowRecoveryKit = (v) => { const n = typeof v === 'function' ? v(showRecoveryKit) : v; n ? window.MaerminUI.openOverlay('recoveryKit') : window.MaerminUI.closeOverlay('recoveryKit'); };
   const [recoveryCode, setRecoveryCode] = useState('');
   const [recoveryBusy, setRecoveryBusy] = useState(false);
   // Security & Sync settings card
-  const [showSecurity, setShowSecurity] = useState(false);
+  const showSecurity = window.MaerminStore.useStore(window.MaerminUI.overlays, s => !!s.security);
+  const setShowSecurity = (v) => { const n = typeof v === 'function' ? v(showSecurity) : v; n ? window.MaerminUI.openOverlay('security') : window.MaerminUI.closeOverlay('security'); };
   const [syncBusy, setSyncBusy] = useState(false);
   const [securityRev, setSecurityRev] = useState(0); // bump to re-read vault/sync status
   const [recoveryNudgeDismissed, setRecoveryNudgeDismissed] = useState(() => {
@@ -570,7 +574,8 @@ function InvestmentTracker() {
   const [metaVersion, setMetaVersion] = useState(0);
 
   // Security log viewer modal (reads window.MaerminAuditLog).
-  const [showAuditLog, setShowAuditLog] = useState(false);
+  const showAuditLog = window.MaerminStore.useStore(window.MaerminUI.overlays, s => !!s.auditLog);
+  const setShowAuditLog = (v) => { const n = typeof v === 'function' ? v(showAuditLog) : v; n ? window.MaerminUI.openOverlay('auditLog') : window.MaerminUI.closeOverlay('auditLog'); };
 
   // ========== COMPUTED VALUES ==========
   
