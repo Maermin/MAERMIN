@@ -838,6 +838,24 @@ function InvestmentTracker() {
     } catch (e) {}
   }, []); // run once on mount
 
+  // Backup reminder — data is browser-only, so a cleared profile = total loss
+  // without an export. Once per mount, after a short delay, nudge the user (toast)
+  // if the backup engine says one is due (never in demo mode, never on an empty
+  // app). Snoozed for a week so it can't nag; cleared whenever a backup is made.
+  useEffect(() => {
+    if (demoMode || !window.MaerminBackupReminder) return;
+    let txCount = 0;
+    try { const s = localStorage.getItem('transactions'); txCount = s ? (JSON.parse(s) || []).length : 0; } catch (e) {}
+    if (!window.MaerminBackupReminder.isDue(txCount)) return;
+    const id = setTimeout(() => {
+      try {
+        if (window.MaerminUI) window.MaerminUI.add('Tip: export an encrypted backup (press b) — your data lives only in this browser', 'warning');
+        window.MaerminBackupReminder.recordSnooze(7);
+      } catch (e) {}
+    }, 4000);
+    return () => clearTimeout(id);
+  }, []); // run once on mount
+
   // Re-arm cloud sync from its saved config on reload (the transport itself is
   // not persisted). Zero-knowledge: the account id is derived from the vault.
   useEffect(() => {
@@ -1307,6 +1325,44 @@ function InvestmentTracker() {
     setLoading(false);
   };
 
+  // ========== AUTO PRICE REFRESH ==========
+  // Live-quote freshness without a manual click: re-fetch when the user returns
+  // to the tab (visibilitychange/focus), when the network comes back (online),
+  // and on a slow background interval while the tab is visible. Throttled so a
+  // burst of focus/visibility events can't hammer the data sources, and a no-op
+  // in demo mode (offline sample prices). fetchPrices is a per-render closure, so
+  // it's reached through a ref that always points at the latest one.
+  const fetchPricesRef = useRef(fetchPrices);
+  fetchPricesRef.current = fetchPrices;
+  const lastAutoRefreshRef = useRef(0);
+  useEffect(() => {
+    if (demoMode) return;
+    const MIN_GAP_MS = 2 * 60 * 1000;   // never auto-refresh more than once / 2 min
+    const POLL_MS = 5 * 60 * 1000;      // background interval while visible
+    const maybeRefresh = (force) => {
+      try {
+        if (typeof document !== 'undefined' && document.hidden) return;
+        const now = Date.now();
+        if (!force && now - lastAutoRefreshRef.current < MIN_GAP_MS) return;
+        lastAutoRefreshRef.current = now;
+        const fn = fetchPricesRef.current;
+        if (typeof fn === 'function') fn();
+      } catch (e) {}
+    };
+    const onVisible = () => { if (!document.hidden) maybeRefresh(false); };
+    const onOnline = () => maybeRefresh(true);
+    document.addEventListener('visibilitychange', onVisible);
+    window.addEventListener('focus', onVisible);
+    window.addEventListener('online', onOnline);
+    const iv = setInterval(() => maybeRefresh(false), POLL_MS);
+    return () => {
+      document.removeEventListener('visibilitychange', onVisible);
+      window.removeEventListener('focus', onVisible);
+      window.removeEventListener('online', onOnline);
+      clearInterval(iv);
+    };
+  }, [demoMode]);
+
   // ========== DEMO MODE ==========
   // Let a first-time user experience a fully-populated app immediately, without
   // deploying a Worker. Toggling never touches the real transaction store.
@@ -1429,6 +1485,8 @@ function InvestmentTracker() {
     URL.revokeObjectURL(url);
 
     if (window.MaerminAuditLog) window.MaerminAuditLog.record('data.export', `Full backup (${transactions.length} transactions, ${Object.keys(backupData.store).length} data keys)`);
+    // Record the backup so the reminder engine stops nudging until it goes stale.
+    try { if (window.MaerminBackupReminder) window.MaerminBackupReminder.recordBackup(transactions.length); } catch (e) {}
     addToast(t.backupCreated || 'Backup created', 'success');
   };
 
