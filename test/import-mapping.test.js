@@ -34,6 +34,18 @@ const M = require('../import-mapping.js');
   ok('Coinbase by asset', (M.detectBroker(['Timestamp', 'Transaction Type', 'Asset', 'Quantity Transacted', 'Spot Price at Transaction', 'Fees']) || {}).id === 'coinbase');
   ok('unknown headers → null', M.detectBroker(['foo', 'bar', 'baz']) === null);
 
+  console.log('broker auto-detection — added DACH brokers:');
+  ok('Trading 212 by no. of shares', (M.detectBroker(['Action', 'Time', 'ISIN', 'Ticker', 'Name', 'No. of shares', 'Price / share', 'Currency (Price / share)']) || {}).id === 'trading212');
+  ok('Revolut by ticker+price per share', (M.detectBroker(['Date', 'Ticker', 'Type', 'Quantity', 'Price per share', 'Currency', 'Fee']) || {}).id === 'revolut');
+  ok('flatex by isin+buchtag', (M.detectBroker(['Buchtag', 'Valuta', 'Stück', 'ISIN', 'Kurs', 'Provision', 'Währung']) || {}).id === 'flatex');
+  ok('Consorsbank by isin+wertpapierbezeichnung', (M.detectBroker(['Buchungstag', 'Wertpapierbezeichnung', 'ISIN', 'Nominal', 'Ausführungskurs', 'Provision']) || {}).id === 'consorsbank');
+  ok('Bitpanda by asset+fee asset', (M.detectBroker(['Transaction ID', 'Timestamp', 'Transaction Type', 'Asset', 'Amount Asset', 'Fiat', 'Fee', 'Fee asset']) || {}).id === 'bitpanda');
+  // regression: the new ISIN-based brokers must NOT steal a plain Trade Republic file
+  ok('Trade Republic still wins its own file', (M.detectBroker(['Date', 'Type', 'ISIN', 'Shares', 'Price', 'Fee', 'Currency']) || {}).id === 'traderepublic');
+  // a Trading 212 mapping resolves its quirky columns
+  const t212map = M.suggestMapping(['Action', 'Time', 'ISIN', 'Ticker', 'No. of shares', 'Price / share', 'Currency (Price / share)'], 'trading212');
+  ok('Trading 212 maps No. of shares → quantity', t212map.quantity === 'No. of shares' && t212map.price === 'Price / share');
+
   console.log('mapping suggestion + apply with row errors:');
   const headers = ['Date', 'Type', 'Symbol', 'Quantity', 'Price', 'Fee', 'Currency'];
   const mapping = M.suggestMapping(headers);
