@@ -16,61 +16,20 @@ const { useState, useEffect, useRef, useMemo, useCallback } = React;
 // UTILS
 // ─────────────────────────────────────────────────────────────────────────────
 
-// Newton-Raphson XIRR (Money-Weighted Return)
+// Money-Weighted Return (XIRR). Delegates to the pure, Node-tested
+// MaerminReturns engine (returns-engine.js), which requires a sign change and
+// verifies convergence — fixing the old inline version that returned a bogus
+// clamped rate for degenerate (all-outflow / non-converging) inputs.
 function calcXIRR(cashflows) {
-  // cashflows: [{date: 'YYYY-MM-DD', amount: number}]
-  // amount < 0 = investment (outflow), amount > 0 = return (inflow)
-  if (!cashflows || cashflows.length < 2) return null;
-  const dates = cashflows.map(c => new Date(c.date));
-  const t0 = dates[0];
-  const years = dates.map(d => (d - t0) / (365.25 * 24 * 3600 * 1000));
-
-  const npv = (rate) => cashflows.reduce((s, c, i) => s + c.amount / Math.pow(1 + rate, years[i]), 0);
-  const dnpv = (rate) => cashflows.reduce((s, c, i) => s - years[i] * c.amount / Math.pow(1 + rate, years[i] + 1), 0);
-
-  let rate = 0.1;
-  for (let i = 0; i < 100; i++) {
-    const f = npv(rate), df = dnpv(rate);
-    if (Math.abs(f) < 1e-7) break;
-    if (Math.abs(df) < 1e-10) break;
-    rate -= f / df;
-    if (rate < -0.9999) rate = -0.9999;
-  }
-  return isFinite(rate) ? rate : null;
+  if (typeof window !== 'undefined' && window.MaerminReturns) return window.MaerminReturns.xirr(cashflows);
+  return null; // engine always present in the app load order; null is the safe miss
 }
 
-// Simple TWR approximation from price history
+// Time-Weighted Return from price history. Delegates to the pure MaerminReturns
+// engine (returns-engine.js) — same logic, now Node-tested.
 function calcTWR(priceHistory, portfolio) {
-  const allSymbols = [];
-  ['crypto','stocks','skins','commodities'].forEach(cat => {
-    (portfolio[cat] || []).forEach(pos => {
-      allSymbols.push({ sym: (pos.symbol||pos.name||'').toLowerCase(), amount: pos.amount||1 });
-    });
-  });
-  if (!allSymbols.length) return null;
-
-  // Build timeline of combined portfolio value changes
-  const tsMap = {};
-  allSymbols.forEach(({ sym }) => {
-    const hist = priceHistory[sym] || [];
-    hist.forEach(({ timestamp, price }) => {
-      if (!tsMap[timestamp]) tsMap[timestamp] = {};
-      tsMap[timestamp][sym] = price;
-    });
-  });
-
-  const ts = Object.keys(tsMap).sort();
-  if (ts.length < 2) return null;
-
-  const vals = ts.map(t => {
-    return allSymbols.reduce((s, { sym, amount }) => {
-      const p = tsMap[t][sym] || 0;
-      return s + amount * p;
-    }, 0);
-  }).filter(v => v > 0);
-
-  if (vals.length < 2) return null;
-  return (vals[vals.length-1] / vals[0]) - 1;
+  if (typeof window !== 'undefined' && window.MaerminReturns) return window.MaerminReturns.twr(priceHistory, portfolio);
+  return null;
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
