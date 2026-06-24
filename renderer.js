@@ -856,6 +856,17 @@ function InvestmentTracker() {
     return () => clearTimeout(id);
   }, []); // run once on mount
 
+  // Event-bus consumer (demonstrates the decoupling): record a lightweight audit
+  // breadcrumb whenever prices refresh, without coupling fetchPrices to the audit
+  // log. Subscribes once; auto-unsubscribes on unmount.
+  useEffect(() => {
+    if (!window.MaerminBus) return;
+    const off = window.MaerminBus.on('prices:refreshed', (p) => {
+      try { if (window.MaerminAuditLog) window.MaerminAuditLog.record('prices.refresh', `${(p && p.count) || 0} quotes`); } catch (e) {}
+    });
+    return off;
+  }, []); // run once on mount
+
   // Re-arm cloud sync from its saved config on reload (the transport itself is
   // not persisted). Zero-knowledge: the account id is derived from the vault.
   useEffect(() => {
@@ -1340,6 +1351,9 @@ function InvestmentTracker() {
       
       const priceCount = Object.keys(newPrices).length;
       setLastRefresh(new Date());
+      // Decoupled signal: any module can react to a refresh without the renderer
+      // wiring it a bespoke effect (event-bus foundation, Phase-5 decoupling).
+      try { if (window.MaerminBus) window.MaerminBus.emit('prices:refreshed', { count: priceCount, at: Date.now() }); } catch (e) {}
       addToast(`${t.pricesUpdated || 'Prices updated'} (${priceCount})`, 'success');
     } catch (error) {
       console.error('[PRICES] General error:', error);
