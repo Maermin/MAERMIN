@@ -2491,11 +2491,20 @@ function InvestmentTracker() {
           }) : renderAnalyticsPlaceholder('Trade Journal');
 
       case 'dividends':
-        return React.createElement(DividendsCombinedView, {
-          portfolio, prices, transactions: activeTransactions, apiKeys,
-          theme: currentTheme, t, addToast, formatPrice, getCurrencySymbol,
-          divAutoBook, toggleDivAutoBook, onBookDividends: () => bookDividends(true)
-        });
+        return React.createElement(React.Fragment, null,
+          React.createElement(DividendsCombinedView, {
+            portfolio, prices, transactions: activeTransactions, apiKeys,
+            theme: currentTheme, t, addToast, formatPrice, getCurrencySymbol,
+            divAutoBook, toggleDivAutoBook, onBookDividends: () => bookDividends(true)
+          }),
+          // Earnings calendar for held stocks (read-only, gated like Discovery).
+          window.MaerminEarnings && window.MaerminEarnings.Panel &&
+            React.createElement(window.MaerminEarnings.Panel, {
+              theme: currentTheme,
+              workerUrl: apiKeys.cs2Worker,
+              symbols: [...new Set(activeTransactions.filter(tx => tx.category === 'stocks').map(tx => (tx.symbol || '').toUpperCase()).filter(Boolean))]
+            })
+        );
 
       case 'tax':
         return React.createElement(TaxCombinedView, {
