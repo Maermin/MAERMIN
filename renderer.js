@@ -916,6 +916,30 @@ function InvestmentTracker() {
     }
   }, [portfolio, apiKeys.cs2Worker]);
 
+  // Dividend reminders — heads-up before an upcoming pay date lands. Derived from
+  // the ONE DividendDataService schedule; deduped per symbol@date so it never
+  // nags twice. Only raises a desktop notification when the user already granted
+  // permission (never prompts here); always surfaces a quiet toast. No-op in demo
+  // mode and when nothing is due within the window.
+  useEffect(() => {
+    try {
+      if (demoMode || !window.MaerminDividendReminder || !window.DividendDataService) return;
+      const schedule = window.DividendDataService.buildPaymentSchedule(portfolio, { months: 1, back: 0 });
+      const state = window.MaerminDividendReminder.prune(window.MaerminDividendReminder.load());
+      const due = window.MaerminDividendReminder.pending(schedule, state, { withinDays: 7 });
+      if (!due.length) { window.MaerminDividendReminder.save(state); return; }
+      const msg = window.MaerminDividendReminder.summarize(due, { formatPrice });
+      addToast('Dividend due soon — ' + msg, 'info');
+      try {
+        const canNotify = typeof Notification !== 'undefined' && Notification.permission === 'granted';
+        if (canNotify && window.MaerminPWA && window.MaerminPWA.notify) {
+          window.MaerminPWA.notify('Upcoming dividend', { body: msg });
+        }
+      } catch (e) {}
+      window.MaerminDividendReminder.save(window.MaerminDividendReminder.markNotified(state, due));
+    } catch (e) {}
+  }, [portfolio, metaVersion, demoMode]);
+
   // ========== API FUNCTIONS ==========
   
   const fetchPrices = async () => {
@@ -3160,9 +3184,19 @@ function InvestmentTracker() {
           )
         );
 
+        // Return attribution: which holdings drove the total return (reuses the
+        // already-computed `list` with per-position value + cost — no recompute).
+        const attributionPanel = window.MaerminAttribution && window.MaerminAttribution.Panel
+          ? React.createElement(window.MaerminAttribution.Panel, {
+              positions: list.map(p => ({ symbol: p.sym, name: p.name, value: p.value, invested: p.cost })),
+              theme: currentTheme, formatPrice
+            })
+          : null;
+
         return React.createElement(React.Fragment, null,
           React.createElement('div', { style: { display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem', marginBottom: '1.25rem' } }, allocCard, perfCard),
-          positionsCard
+          positionsCard,
+          attributionPanel
         );
       })(),
 
