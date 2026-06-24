@@ -98,6 +98,32 @@ function byAnalysis(report, a) { return report.findings.filter((f) => f.analysis
   ok('leverageOf maps known tickers (case-insensitive) + null for the rest',
     I.leverageOf('tqqq') === 3 && I.leverageOf('SQQQ') === -3 && I.leverageOf('AAPL') === null);
 
+  // ---- 2e) top-holdings concentration (cumulative, look-through) -------------
+  // Five names each under the 20% single-company bar, but 70% together.
+  const conc = I.analyzeFromInputs({ effectiveExposure: [
+    { key: 'A', name: 'Alpha',   effectiveWeight: 0.18 },
+    { key: 'B', name: 'Bravo',   effectiveWeight: 0.16 },
+    { key: 'C', name: 'Charlie', effectiveWeight: 0.14 },
+    { key: 'D', name: 'Delta',   effectiveWeight: 0.12 },
+    { key: 'E', name: 'Echo',    effectiveWeight: 0.10 },
+    { key: 'F', name: 'Foxtrot', effectiveWeight: 0.05 },
+  ] });
+  ok('top-5 = 70% → important concentration', byId(conc, 'topholdings-important') && byId(conc, 'topholdings-important').priority === 'important');
+  ok('top-holdings names members + summed pct', /Alpha/.test(byId(conc, 'topholdings-important').detail) && /70/.test(byId(conc, 'topholdings-important').title));
+  ok('no individual name trips single-company (each < 20%)', byAnalysis(conc, 'singleCompany').length === 0);
+  ok('top-5 = 55% → optimization', byId(I.analyzeFromInputs({ effectiveExposure: [
+    { key: 'A', name: 'A', effectiveWeight: 0.13 }, { key: 'B', name: 'B', effectiveWeight: 0.12 },
+    { key: 'C', name: 'C', effectiveWeight: 0.11 }, { key: 'D', name: 'D', effectiveWeight: 0.10 },
+    { key: 'E', name: 'E', effectiveWeight: 0.09 }, { key: 'F', name: 'F', effectiveWeight: 0.05 },
+  ] }), 'topholdings-optimize').priority === 'optimization');
+  ok('top-5 = 40% → no concentration finding', byAnalysis(I.analyzeFromInputs({ effectiveExposure: [
+    { key: 'A', name: 'A', effectiveWeight: 0.10 }, { key: 'B', name: 'B', effectiveWeight: 0.09 },
+    { key: 'C', name: 'C', effectiveWeight: 0.08 }, { key: 'D', name: 'D', effectiveWeight: 0.07 },
+    { key: 'E', name: 'E', effectiveWeight: 0.06 }, { key: 'F', name: 'F', effectiveWeight: 0.05 },
+  ] }), 'concentration').length === 0);
+  ok('fewer than 5 holdings → no top-holdings finding', byAnalysis(
+    I.analyzeFromInputs({ effectiveExposure: [{ key: 'A', name: 'A', effectiveWeight: 0.4 }, { key: 'B', name: 'B', effectiveWeight: 0.3 }] }), 'concentration').length === 0);
+
   // ---- 3) sector overexposure -----------------------------------------------
   ok('45% sector → critical', byId(I.analyzeFromInputs({ sectorExposure: [{ sector: 'Technology', weight: 0.45 }] }), 'sector-critical').priority === 'critical');
   ok('32% sector → important', byId(I.analyzeFromInputs({ sectorExposure: [{ sector: 'Energy', weight: 0.32 }] }), 'sector-important').priority === 'important');
