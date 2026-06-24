@@ -2602,6 +2602,9 @@ function InvestmentTracker() {
     const M = window.MaerminMetrics;
     const [fire, setFire]         = React.useState(() => (M ? M.loadFireSettings() : { annualExpenses: 0, withdrawalRate: 4 }));
     const [editFire, setEditFire] = React.useState(false);
+    // Coast-FIRE planning inputs (ephemeral — pure what-if sliders, not persisted).
+    const [retireYears, setRetireYears] = React.useState(20);
+    const [realReturn, setRealReturn]   = React.useState(5);
 
     const sym = getCurrencySymbol();
     const nw      = M ? M.computeNetWorth(portfolioValue) : null;
@@ -2742,6 +2745,43 @@ function InvestmentTracker() {
         ),
         fireM && fireM.configured && React.createElement('div', { style: { color: theme.textSecondary, fontSize: '0.78rem', marginTop: '0.75rem' } },
           `${t.fireMonthlyPassive || 'Passive income at current net worth'}: ${formatPrice(fireM.monthlyPassiveIncome)} ${sym}/mo · ${fireM.coveredExpenseRatio.toFixed(0)}% ${t.fireOfExpenses || 'of expenses'}`
+        ),
+
+        // Coast-FIRE — the amount needed today so growth alone reaches FIRE by the
+        // target year. Pure what-if; reuses the FIRE number already computed above.
+        fireM && fireM.configured && window.MaerminFireExtras && React.createElement('div', { style: { marginTop: '0.9rem', borderTop: `1px solid ${theme.cardBorder}`, paddingTop: '0.85rem' } },
+          React.createElement('div', { style: { color: theme.text, fontWeight: '700', fontSize: '0.82rem', marginBottom: '0.6rem' } }, t.coastFireTitle || 'Coast-FIRE'),
+          React.createElement('div', { style: { display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(150px, 1fr))', gap: '0.75rem', marginBottom: '0.7rem' } },
+            React.createElement('div', null,
+              React.createElement('label', { style: labelStyle }, t.coastYears || 'Years to retirement'),
+              React.createElement('input', { type: 'number', min: '1', defaultValue: retireYears, style: inputStyle,
+                onChange: e => setRetireYears(Math.max(0, parseFloat(e.target.value) || 0)) })
+            ),
+            React.createElement('div', null,
+              React.createElement('label', { style: labelStyle }, t.coastReturn || 'Real return (%)'),
+              React.createElement('input', { type: 'number', step: '0.1', defaultValue: realReturn, style: inputStyle,
+                onChange: e => setRealReturn(parseFloat(e.target.value) || 0) })
+            )
+          ),
+          (() => {
+            const coast = window.MaerminFireExtras.coastFire({ fireNumber: fireM.fireNumber, currentNetWorth: nw.netWorth, realReturn, yearsToRetirement: retireYears });
+            const reached = coast.coastReached;
+            return React.createElement('div', { style: { fontSize: '0.78rem', color: theme.textSecondary } },
+              React.createElement('div', null,
+                `${t.coastNumber || 'Coast number (needed today)'}: `,
+                React.createElement('span', { style: { color: theme.text, fontWeight: '700' } }, `${formatPrice(coast.coastNumber)} ${sym}`),
+                ` · ${Math.min(999, coast.coastProgress).toFixed(0)}%`
+              ),
+              React.createElement('div', { style: { marginTop: '0.35rem', color: reached ? (theme.success || '#22c55e') : theme.textSecondary } },
+                reached
+                  ? (t.coastReachedMsg || 'Coast reached — growth alone gets you to FIRE; new contributions are optional.')
+                  : (t.coastNotYetMsg || 'Keep contributing — you have not hit your coast number yet.')
+              ),
+              React.createElement('div', { style: { marginTop: '0.35rem' } },
+                `${t.coastProjected || 'Projected at retirement'}: ${formatPrice(coast.projectedAtRetirement)} ${sym} (${coast.projectedSurplus >= 0 ? '+' : ''}${formatPrice(coast.projectedSurplus)} ${sym} ${t.coastVsTarget || 'vs target'})`
+              )
+            );
+          })()
         )
       )
     );
