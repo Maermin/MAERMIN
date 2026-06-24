@@ -65,8 +65,19 @@
     // Catches concentration the single-name check misses — several 12–18% names
     // are individually "fine" but together drive most of the risk. Broad-ETF
     // holders are unaffected (their look-through spreads across thousands).
-    topHoldingsCount: 5, top5Important: 65, top5Optimize: 50
+    topHoldingsCount: 5, top5Important: 65, top5Optimize: 50,
+    // v13: one VOLATILE asset class (crypto, skins) dominating the whole book.
+    // Tighter bands than equity sectors because these markets swing far harder;
+    // an all-stocks investor is normal and is never flagged.
+    acVolatileImportant: 50, acVolatileOptimize: 35,
+    // v13: over-reliance on ONE dividend payer — a single name funding most of
+    // your income means one cut or suspension hits the whole stream at once.
+    incomeConcImportant: 40, incomeConcOptimize: 25
   };
+
+  // Asset classes that swing far harder than a diversified equity book; only
+  // these get flagged when one dominates (a fully-invested equity book is fine).
+  var VOLATILE_CLASSES = { crypto: 1, skins: 1 };
 
   // The "Magnificent 7". Matched against effective-exposure KEYS (uppercased
   // symbols from the look-through). GOOG/GOOGL both map to Alphabet.
@@ -400,6 +411,25 @@
           'High yields paired with weak coverage or recent cuts frequently precede a dividend reduction' + (trapNames.length ? ' (' + trapNames.slice(0, 3).join(', ') + ').' : '.'),
           'Stress-test the payout; do not buy the dip on yield alone.', y);
       }
+
+      // 9b) Income concentration (one payer funds most dividends) -------------
+      // Independent of yield: even a healthy book is fragile if a single name
+      // pays most of the income, since one cut takes out the whole stream.
+      var tp = dv.topPayer;
+      if (tp && tp.symbol && num(tp.incomeSharePct) != null) {
+        var share = num(tp.incomeSharePct);
+        if (share >= T.incomeConcImportant) {
+          push('incomeConcentration', 'important', 'income-conc-important',
+            tp.symbol + ' pays ' + fmtPct(share) + ' of your dividend income',
+            'Relying on one payer for most of your income means a single dividend cut or suspension hits the whole stream at once.',
+            'Spread income across more payers and sectors so no single cut breaks your cash flow.', share);
+        } else if (share >= T.incomeConcOptimize) {
+          push('incomeConcentration', 'optimization', 'income-conc-optimize',
+            tp.symbol + ' pays ' + fmtPct(share) + ' of your dividend income',
+            'A sizeable share of income comes from one payer — manageable, but worth diversifying over time.',
+            'Add income from other payers on future contributions to balance the stream.', share);
+        }
+      }
     }
 
     // 10) Liquidity risk -------------------------------------------------------
@@ -418,6 +448,27 @@
           fmtPct(ill) + ' of your portfolio is in less-liquid assets',
           'Manageable, but worth tracking' + (clsTxt.length ? ' (' + clsTxt.join(', ') + ').' : '.'),
           'Avoid letting illiquid positions grow past your comfort for forced sales.', ill);
+      }
+    }
+
+    // 11) Single asset-class concentration (volatile bucket) ------------------
+    // One high-volatility class (crypto, skins) dominating the whole book is a
+    // concentrated bet on that single market. Equity/commodity-heavy books are
+    // not flagged — being fully invested in stocks is normal.
+    var ac = inputs.assetClass;
+    if (ac && ac.available && ac.top && VOLATILE_CLASSES[String(ac.top.cls || '').toLowerCase()]) {
+      var acPct = asPct(ac.top.pct);
+      var acCls = ac.top.cls;
+      if (acPct != null && acPct >= T.acVolatileImportant) {
+        push('assetClass', 'important', 'assetclass-important',
+          fmtPct(acPct) + ' of your portfolio is in ' + acCls,
+          acCls + ' is a single, highly volatile market; this much in one class means a drawdown there dominates your whole portfolio.',
+          'Confirm the concentration is intentional; trim toward other classes or hold a larger stable buffer.', acPct);
+      } else if (acPct != null && acPct >= T.acVolatileOptimize) {
+        push('assetClass', 'optimization', 'assetclass-optimize',
+          acCls + ' is ' + fmtPct(acPct) + ' of your portfolio',
+          'A meaningful slice in one volatile class — fine if deliberate, but worth tracking so it does not creep up.',
+          'Steer new contributions toward other classes if you want to cap the swing.', acPct);
       }
     }
 
@@ -518,6 +569,27 @@
       }
     } catch (e) {}
 
+    // Single asset-class concentration: weight of each class vs the whole book.
+    try {
+      if (M && M.ASSET_CLASSES) {
+        var acByClass = {}, acTotal = 0;
+        M.ASSET_CLASSES.forEach(function (cls) {
+          var v = (portfolio && portfolio[cls] || []).reduce(function (s, p) {
+            var amt = parseFloat(p.amount) || 0;
+            var px = prices[(p.symbol || p.name || '').toUpperCase()] || prices[(p.symbol || p.name || '').toLowerCase()] || p.currentPrice || p.purchasePrice || 0;
+            return s + amt * px;
+          }, 0);
+          acByClass[cls] = v; acTotal += v;
+        });
+        if (acTotal > 0) {
+          var acClasses = Object.keys(acByClass)
+            .map(function (c) { return { cls: c, pct: (acByClass[c] / acTotal) * 100 }; })
+            .sort(function (a, b) { return b.pct - a.pct; });
+          inputs.assetClass = { available: true, classes: acClasses, top: acClasses[0] };
+        }
+      }
+    } catch (e) {}
+
     // Leveraged / inverse ETP detection: scan direct positions for known tickers
     // and weight them against the whole portfolio. Pure lookup (no network).
     try {
@@ -553,6 +625,7 @@
         var stocks = (portfolio && portfolio.stocks) || [];
         var annual = 0, value = 0, gW = 0, gWsum = 0;
         var traps = [];
+        var payerIncome = {};
         stocks.forEach(function (s) {
           var sym = (s.symbol || s.name || '').toUpperCase();
           var shares = parseFloat(s.amount || 0) || 0;
@@ -564,6 +637,7 @@
           if (d && d.annualDividend > 0) {
             var inc = shares * d.annualDividend;
             annual += inc;
+            payerIncome[sym] = (payerIncome[sym] || 0) + inc;
             var posYield = px > 0 ? (d.annualDividend / px) * 100 : 0;
             var growth = num(d.growthRate);
             if (growth != null) { gW += (growth * 100) * inc; gWsum += inc; }
@@ -586,12 +660,18 @@
             var gr = num(d2.growthRate);
             if (gr != null && gr < 0) riskIncome += inc2;
           });
+          // Top dividend payer's share of total income (over-reliance signal).
+          var topSym = null, topInc = 0;
+          Object.keys(payerIncome).forEach(function (s) {
+            if (payerIncome[s] > topInc) { topInc = payerIncome[s]; topSym = s; }
+          });
           inputs.dividend = {
             available: true,
             yield: value > 0 ? (annual / value) * 100 : 0,
             weightedGrowth: gWsum > 0 ? gW / gWsum : null,
             incomeAtRiskPct: totalIncome > 0 ? (riskIncome / totalIncome) * 100 : 0,
-            traps: traps
+            traps: traps,
+            topPayer: topSym ? { symbol: topSym, incomeSharePct: (topInc / annual) * 100 } : null
           };
         }
       }
@@ -721,6 +801,7 @@
     PRIORITY_RANK: PRIORITY_RANK,
     DEFAULTS: DEFAULTS,
     STYLE_REFERENCE: STYLE_REFERENCE,
+    VOLATILE_CLASSES: VOLATILE_CLASSES,
     MAG7: MAG7,
     SEMIS: SEMIS,
     LEVERAGED: LEVERAGED,
