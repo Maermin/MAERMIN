@@ -3779,6 +3779,14 @@ function InvestmentTracker() {
         )
       ),
 
+      // Tax advisor (WI-3): forward-looking crypto Freigrenze countdown +
+      // Sparerpauschbetrag headroom + loss-harvesting findings. Estimate only.
+      taxJurisdiction === 'de' && window.MaerminTaxAdvisor && window.MaerminTaxAdvisor.Panel &&
+        React.createElement(window.MaerminTaxAdvisor.Panel, {
+          transactions, prices, exchangeRate, taxOwner,
+          theme: currentTheme, t, formatPrice, getCurrencySymbol
+        }),
+
       // German fund taxation fold-in (no new tab): Vorabpauschale per
       // accumulating fund + Teilfreistellung classification + the statutory
       // ordered computation. Only relevant for the German jurisdiction.
