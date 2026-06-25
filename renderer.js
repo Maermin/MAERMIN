@@ -783,7 +783,14 @@ function InvestmentTracker() {
       const byPid = {}; // portfolioId -> combined total
       let combined = 0;
       const posMap = {};
-      transactions.forEach((tx) => {
+      // Apply recorded stock splits so the snapshot value matches the displayed
+      // value (which goes through MaerminMetrics). Without this a post-split
+      // snapshot would use pre-split quantities against the post-split live
+      // price and read low by the split factor. Identity when no split exists.
+      const snapTxs = window.MaerminCorporateActions
+        ? window.MaerminCorporateActions.adjust(transactions)
+        : transactions;
+      snapTxs.forEach((tx) => {
         const pid = tx.portfolioId || 'default';
         const category = tx.category || 'crypto';
         const key = pid + '|' + category + '-' + (tx.symbol || '').toLowerCase();
