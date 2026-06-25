@@ -2317,7 +2317,9 @@ function InvestmentTracker() {
       case 'performance':
         return window.MaerminPerformance ?
           React.createElement(window.MaerminPerformance.View, {
-            theme: currentTheme, t, formatPrice, getCurrencySymbol, workerUrl: apiKeys.cs2Worker
+            theme: currentTheme, t, formatPrice, getCurrencySymbol, workerUrl: apiKeys.cs2Worker,
+            // Show the active portfolio's snapshot series; 'all' -> combined.
+            portfolioId: activePortfolioId === 'all' ? undefined : activePortfolioId
           }) : renderAnalyticsPlaceholder('Performance');
 
       // v10.x: Customize Overview — show/hide/reorder the main Overview sections
