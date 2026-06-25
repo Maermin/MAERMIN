@@ -20,6 +20,11 @@ Configure it in the app under **API Settings → Cloudflare Worker**.
 
 ### `GET /?action=yf&symbol=AAPL&interval=1d&range=1y`
 Yahoo Finance historical candles. `interval` ∈ `1m…1mo`, `range` ∈ `1d…max`.
+Returns `{ symbol, currency, exchangeTz, prices: [{ts, date, price}], splits:
+[{date, numerator, denominator}] }`. `splits` is the symbol's stock-split events
+over the range (empty when none) — consumed by the corporate-action engine
+(`corporate-actions.js`). The `prices` shape is unchanged; an older deployed
+Worker simply omits `splits` and the client falls back to manual split entry.
 
 ### `GET /?action=yfsearch&q=Apple&type=stock`
 Symbol search. `type` = `stock` (EQUITY/ETF/MUTUALFUND) or `crypto`. Returns

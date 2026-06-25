@@ -79,6 +79,16 @@ Everything else is **derived** from transactions (single source of truth in
 - `MaerminMetrics.computeStats(portfolio, prices)` → value / invested / P&L.
 - Net worth, FIRE, concentration, drift, currency exposure, tax-loss harvest.
 
+`buildPositions` routes its raw transactions through
+`window.MaerminCorporateActions.adjust(...)` first (`corporate-actions.js`), so
+recorded stock/reverse splits are applied as a single centralised overlay before
+FIFO — every consumer is correct with no per-view wiring. `adjust` is the
+identity until a split is recorded (no behaviour change for existing data) and
+holds `quantity × price` constant, so cost basis and XIRR/TWR cashflows stay
+invariant across a split. The tax FIFO (`tax-report-builder.js` `build`) applies
+the same overlay. Splits live in their own store (`maermin_corporate_actions`),
+NOT as `type:'split'` transactions, so there is no double-apply.
+
 The canonical internal currency is **EUR**; USD inputs (CS2 skins, some stocks)
 are converted via the live `USD→EUR` rate (`MaerminUtils.toEUR`). Display
 conversion happens only at format time (`formatPrice`).
