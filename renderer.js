@@ -415,13 +415,18 @@ function InvestmentTracker() {
   const bookDividends = useCallback((announce) => {
     const EX = window.MaerminDividendExecutor, DS = window.DividendDataService;
     if (!EX || !DS) { if (announce) addToast('Dividend engine not loaded', 'warning'); return; }
+    // In the 'all' scope `portfolio` is the COMBINED book, so booking it would
+    // tag every payout to one portfolio (mis-attribution) and could re-book a
+    // payout already booked under another portfolio. Booking is per-portfolio:
+    // switch to a specific one to book.
+    if (activePortfolioId === 'all') { if (announce) addToast(t.divPickPortfolio || 'Switch to a specific portfolio to book dividends', 'info'); return; }
     try {
       const sched = DS.buildPaymentSchedule(portfolio, { back: 12, months: 0 });
       const out = EX.runCatchUp(sched, transactions, defaultTargetPid);
       if (out.created.length) { setTransactions(out.transactions); addToast(`${out.created.length} ${t.divBookedToast || 'dividend(s) booked (estimated)'}`, 'success'); }
       else if (announce) { addToast(t.divNoneToBook || 'No new dividends to book', 'info'); }
     } catch (e) { console.warn('[DIV] booking failed:', e); }
-  }, [portfolio, transactions, defaultTargetPid]);
+  }, [portfolio, transactions, defaultTargetPid, activePortfolioId]);
   const toggleDivAutoBook = useCallback(() => {
     setDivAutoBook(prev => {
       const next = !prev;
@@ -431,6 +436,9 @@ function InvestmentTracker() {
   }, []);
   useEffect(() => {
     if (demoMode || !divAutoBook) return;
+    // Skip in the combined 'all' scope (see bookDividends): booking is
+    // per-portfolio; the combined book would mis-attribute / double-book.
+    if (activePortfolioId === 'all') return;
     const EX = window.MaerminDividendExecutor, DS = window.DividendDataService;
     if (!EX || !DS) return;
     try {
@@ -438,7 +446,7 @@ function InvestmentTracker() {
       const out = EX.runCatchUp(sched, transactions, defaultTargetPid);
       if (out.created.length) { setTransactions(out.transactions); addToast(`${out.created.length} ${t.divAutoBookedToast || 'dividend(s) auto-booked (estimated)'}`, 'success'); }
     } catch (e) { /* best-effort */ }
-  }, [divAutoBook, transactions, portfolio, defaultTargetPid, demoMode]);
+  }, [divAutoBook, transactions, portfolio, defaultTargetPid, demoMode, activePortfolioId]);
 
   // Forms & Modals
   const [newTransaction, setNewTransaction] = useState({

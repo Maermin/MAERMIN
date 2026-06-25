@@ -514,6 +514,7 @@ const completeTranslations = {
     divBookedToast: 'dividend(s) booked (estimated)',
     divAutoBookedToast: 'dividend(s) auto-booked (estimated)',
     divNoneToBook: 'No new dividends to book',
+    divPickPortfolio: 'Switch to a specific portfolio to book dividends',
     tagsSubtitle: 'Cross-cutting labels on your holdings — group by your own thesis (high-conviction, income, speculative…), see value & weight per tag, and optionally set target weights.',
     tagsAdd: 'Add tag',
     tagsNewPlaceholder: 'New tag name…',
@@ -724,6 +725,7 @@ const completeTranslations = {
     divBookedToast: 'Dividende(n) gebucht (geschätzt)',
     divAutoBookedToast: 'Dividende(n) automatisch gebucht (geschätzt)',
     divNoneToBook: 'Keine neuen Dividenden zu buchen',
+    divPickPortfolio: 'Wechsle zu einem einzelnen Portfolio, um Dividenden zu buchen',
     // Tags view
     tagsSubtitle: 'Querschnittliche Labels auf deinen Positionen — gruppiere nach eigener These (High-Conviction, Income, Spekulativ …), sieh Wert & Gewicht pro Tag und setze optional Zielgewichte.',
     tagsAdd: 'Tag hinzufügen', tagsNewPlaceholder: 'Neuer Tag-Name …', tagsAddSymbol: '+ Symbol', tagsDelete: 'Löschen',
