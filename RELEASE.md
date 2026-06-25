@@ -20,6 +20,12 @@
 - **Drawdown / underwater chart**: max drawdown, current drawdown, recovery status and an underwater area, all derived from the snapshot series.
 - **Goal projection**: each goal in `investmentGoals` gets a progress bar + ETA date, projected from your **realised snapshot CAGR** plus the goal's monthly contribution.
 
+**New — corporate actions (stock & reverse splits)**
+- **Splits now adjust holdings** — a recorded N:M split scales every buy/sell lot before its effective date (`quantity → quantity × N/M`, `price → price × M/N`), keeping the cash amount and cost basis constant, so position value, P&L, CAGR, the value chart and FIFO all stay correct across a split. Engine: `corporate-actions.js` (`MaerminCorporateActions`), pure math unit-tested in `test/corporate-actions.test.js`.
+- **Centralised overlay, zero per-view wiring** — applied once at the top of `MaerminMetrics.buildPositions` and the tax FIFO (`tax-report-builder.js`). `adjust()` is the identity until a user records a split, so there is no behaviour change for existing data.
+- **Manual entry + best-effort auto-detect** — add a split per holding (ratio New:Old) in the position detail modal, or "Scan for splits" via the Worker (`?action=yf` now surfaces a `splits` array; degrades gracefully against an older Worker — falls back to manual). A global list lives in Settings.
+- New store `maermin_corporate_actions`, carried in the full-vault backup. Out of scope for v1 (data model leaves room): spin-offs, mergers, symbol/ISIN changes.
+
 **New**
 - **Automation Rules → live notifications**: a triggered rule now fires a toast + desktop notification (via the existing PWA plumbing), deduped per rule and re-armed when it relaxes — not just shown in the Rules view.
 - **Tag performance over time**: a per-tag value series is recorded, and each tag now shows its ~30-day change in the Tags view.

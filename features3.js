@@ -189,7 +189,141 @@ function DailyPnLCard({ portfolio, priceHistory, theme, formatPrice, getCurrency
 // 3. POSITION DETAIL MODAL
 // Click any position → full breakdown: all transactions, avg cost, CAGR, fees
 // ─────────────────────────────────────────────────────────────────────────────
-function PositionDetailModal({ position, transactions, prices, theme, formatPrice, getCurrencySymbol, onClose, t = {} }) {
+// ─────────────────────────────────────────────────────────────────────────────
+// CORPORATE ACTIONS PANEL — per-symbol stock-split manager (folds into the
+// position detail modal + the Settings list). List / add / scan / remove the
+// splits recorded for one holding. The engine (window.MaerminCorporateActions)
+// keeps the math; this is just the surface. Reuses theme tokens + the clickable
+// helper, never adds a new tab.
+// ─────────────────────────────────────────────────────────────────────────────
+function CorporateActionsPanel({ category, symbol, theme, t = {}, workerUrl }) {
+  const CA = window.MaerminCorporateActions;
+  const clickable = (window.MaerminUtils && window.MaerminUtils.clickable) || ((h) => ({ onClick: h, role: 'button', tabIndex: 0 }));
+  const [rev, setRev] = useState(0);            // bump to re-read the store
+  const [form, setForm] = useState({ date: '', num: '', den: '1', note: '' });
+  const [scan, setScan] = useState({ busy: false, msg: '', preview: null });
+
+  const cat = category || 'stocks';
+  const actions = useMemo(() => (CA && symbol) ? CA.listFor(cat, symbol) : [], [cat, symbol, rev]);
+  if (!CA || !symbol) return null;
+
+  // Resolve the worker base: the passed prop, else the saved API key.
+  const workerBase = (function () {
+    if (workerUrl) return String(workerUrl).trim().replace(/\/+$/, '');
+    try { return String((JSON.parse(localStorage.getItem('apiKeys') || '{}').cs2Worker) || '').trim().replace(/\/+$/, ''); }
+    catch (e) { return ''; }
+  })();
+
+  const label = { display: 'block', color: theme.textSecondary, fontSize: '0.68rem', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '0.25rem' };
+  const input = { width: '100%', boxSizing: 'border-box', padding: '0.45rem 0.6rem', background: theme.inputBg, border: `1px solid ${theme.inputBorder || theme.cardBorder}`, borderRadius: '8px', color: theme.text, fontSize: '0.82rem', fontFamily: 'inherit' };
+  const btn = (bg, color) => ({ padding: '0.45rem 0.8rem', background: bg, color: color, border: 'none', borderRadius: '8px', cursor: 'pointer', fontWeight: 600, fontSize: '0.8rem' });
+
+  const ratioText = (a) => `${a.num}:${a.den}` + (a.num >= a.den ? '' : ` (${t.caReverse || 'reverse'})`);
+
+  const addManual = () => {
+    const num = parseInt(form.num, 10);
+    const den = parseInt(form.den, 10);
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(form.date)) { setScan({ busy: false, msg: t.caBadDate || 'Enter a valid date (YYYY-MM-DD).', preview: null }); return; }
+    if (!(num > 0) || !(den > 0)) { setScan({ busy: false, msg: t.caBadRatio || 'Ratio must be two positive whole numbers.', preview: null }); return; }
+    CA.record({ category: cat, symbol, date: form.date, num, den, source: 'manual', note: form.note });
+    setForm({ date: '', num: '', den: '1', note: '' });
+    setScan({ busy: false, msg: '', preview: null });
+    setRev((n) => n + 1);
+  };
+
+  const removeAction = (a) => {
+    if (typeof window !== 'undefined' && typeof window.confirm === 'function' &&
+      !window.confirm((t.caRemoveConfirm || 'Remove this split? It can be re-added or re-scanned.'))) return;
+    CA.remove(a.id);
+    setRev((n) => n + 1);
+  };
+
+  const runScan = () => {
+    if (!workerBase) { setScan({ busy: false, msg: t.caNoWorker || 'Add a Worker URL in API Settings to scan, or enter splits manually.', preview: null }); return; }
+    setScan({ busy: true, msg: '', preview: null });
+    CA.detectForSymbol(symbol, cat, null, (u) => fetch(u).then((r) => r.json()), { workerBase })
+      .then((found) => {
+        const existing = {};
+        actions.forEach((a) => { existing[a.date] = true; });
+        const fresh = (found || []).filter((f) => !existing[f.date]);
+        if (!fresh.length) { setScan({ busy: false, msg: t.caNoneFound || 'No new splits found (or the Worker has no split data).', preview: null }); return; }
+        setScan({ busy: false, msg: '', preview: fresh.map((f) => ({ ...f, skip: false })) });
+      })
+      .catch(() => setScan({ busy: false, msg: t.caScanFail || 'Scan failed — enter splits manually.', preview: null }));
+  };
+
+  const confirmPreview = () => {
+    (scan.preview || []).forEach((p) => {
+      if (p.skip) return;
+      const num = parseInt(p.num, 10), den = parseInt(p.den, 10);
+      if (num > 0 && den > 0 && /^\d{4}-\d{2}-\d{2}$/.test(p.date)) {
+        CA.record({ category: cat, symbol, date: p.date, num, den, source: 'auto', note: p.note || '' });
+      }
+    });
+    setScan({ busy: false, msg: '', preview: null });
+    setRev((n) => n + 1);
+  };
+  const patchPreview = (i, patch) => setScan((s) => ({ ...s, preview: s.preview.map((p, j) => j === i ? { ...p, ...patch } : p) }));
+
+  return React.createElement('div', { style: { padding: '1.25rem 1.5rem', borderTop: `1px solid ${theme.modalBorder}` } },
+    React.createElement('div', { style: { display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.75rem' } },
+      React.createElement('div', { style: { color: theme.text, fontWeight: '700', fontSize: '0.875rem' } }, t.caTitle || 'Corporate actions (splits)'),
+      React.createElement('button', { onClick: runScan, disabled: scan.busy, style: { ...btn(theme.inputBg, theme.text), opacity: scan.busy ? 0.6 : 1 } },
+        scan.busy ? (t.caScanning || 'Scanning…') : (t.caScan || 'Scan for splits'))
+    ),
+
+    // Existing actions
+    actions.length === 0
+      ? React.createElement('div', { style: { color: theme.textSecondary, fontSize: '0.8rem', marginBottom: '0.75rem' } }, t.caNone || 'No splits recorded for this holding.')
+      : React.createElement('div', { style: { display: 'flex', flexDirection: 'column', gap: '1px', marginBottom: '0.75rem' } },
+          actions.map((a) => React.createElement('div', {
+            key: a.id,
+            style: { display: 'grid', gridTemplateColumns: '1fr 1fr auto', gap: '0.5rem', alignItems: 'center', padding: '0.5rem 0', borderBottom: `1px solid ${theme.cardBorder}`, fontSize: '0.82rem' }
+          },
+            React.createElement('span', { style: { color: theme.textSecondary } }, a.date),
+            React.createElement('span', { style: { color: theme.text, fontWeight: 600 } }, ratioText(a) + (a.source === 'auto' ? ' · ' + (t.caAuto || 'auto') : '')),
+            React.createElement('span', Object.assign({}, clickable(() => removeAction(a)), {
+              style: { color: theme.danger || '#ef4444', cursor: 'pointer', fontSize: '0.78rem', justifySelf: 'end' },
+              'aria-label': (t.caRemove || 'Remove') + ' ' + a.date
+            }), t.caRemove || 'Remove')
+          ))
+        ),
+
+    // Scan preview (editable, write only on confirm)
+    scan.preview && React.createElement('div', { style: { background: theme.inputBg, borderRadius: '10px', padding: '0.75rem', marginBottom: '0.75rem' } },
+      React.createElement('div', { style: { color: theme.text, fontWeight: 600, fontSize: '0.8rem', marginBottom: '0.5rem' } }, t.caPreview || 'Detected splits — review, edit or skip, then confirm:'),
+      scan.preview.map((p, i) => React.createElement('div', { key: i, style: { display: 'grid', gridTemplateColumns: '1.3fr 0.6fr 0.6fr auto', gap: '0.4rem', alignItems: 'center', marginBottom: '0.4rem', opacity: p.skip ? 0.45 : 1 } },
+        React.createElement('input', { type: 'date', value: p.date, onChange: (e) => patchPreview(i, { date: e.target.value }), style: input }),
+        React.createElement('input', { type: 'number', min: '1', value: p.num, onChange: (e) => patchPreview(i, { num: e.target.value }), style: input, 'aria-label': 'numerator' }),
+        React.createElement('input', { type: 'number', min: '1', value: p.den, onChange: (e) => patchPreview(i, { den: e.target.value }), style: input, 'aria-label': 'denominator' }),
+        React.createElement('span', Object.assign({}, clickable(() => patchPreview(i, { skip: !p.skip })), { style: { color: theme.textSecondary, cursor: 'pointer', fontSize: '0.76rem' } }), p.skip ? (t.caKeep || 'Keep') : (t.caSkip || 'Skip'))
+      )),
+      React.createElement('div', { style: { display: 'flex', gap: '0.5rem', marginTop: '0.5rem' } },
+        React.createElement('button', { onClick: confirmPreview, style: btn(theme.success || '#22c55e', '#08130b') }, t.caConfirm || 'Add selected'),
+        React.createElement('button', { onClick: () => setScan({ busy: false, msg: '', preview: null }), style: btn(theme.inputBg, theme.text) }, t.caCancel || 'Cancel')
+      )
+    ),
+
+    // Manual add
+    React.createElement('div', { style: { display: 'grid', gridTemplateColumns: '1.3fr 0.6fr 0.6fr', gap: '0.5rem', alignItems: 'end' } },
+      React.createElement('div', null, React.createElement('label', { style: label }, t.caDate || 'Date'),
+        React.createElement('input', { type: 'date', value: form.date, onChange: (e) => setForm({ ...form, date: e.target.value }), style: input })),
+      React.createElement('div', null, React.createElement('label', { style: label }, t.caNum || 'New'),
+        React.createElement('input', { type: 'number', min: '1', placeholder: '10', value: form.num, onChange: (e) => setForm({ ...form, num: e.target.value }), style: input })),
+      React.createElement('div', null, React.createElement('label', { style: label }, t.caDen || 'Old'),
+        React.createElement('input', { type: 'number', min: '1', placeholder: '1', value: form.den, onChange: (e) => setForm({ ...form, den: e.target.value }), style: input }))
+    ),
+    React.createElement('div', { style: { display: 'flex', gap: '0.5rem', marginTop: '0.5rem' } },
+      React.createElement('input', { placeholder: t.caNotePh || 'Note (optional)', value: form.note, onChange: (e) => setForm({ ...form, note: e.target.value }), style: { ...input, flex: 1 } }),
+      React.createElement('button', { onClick: addManual, style: btn(theme.accent, '#13110a') }, t.caAdd || 'Add split')
+    ),
+    scan.msg && React.createElement('div', { style: { color: theme.warning || '#f59e0b', fontSize: '0.76rem', marginTop: '0.5rem' } }, scan.msg),
+    React.createElement('div', { style: { color: theme.textSecondary, fontSize: '0.72rem', marginTop: '0.5rem' } },
+      t.caHint || 'Ratio New:Old — e.g. 10:1 forward, 1:10 reverse. Splits apply to lots before the date.')
+  );
+}
+
+function PositionDetailModal({ position, transactions, prices, theme, formatPrice, getCurrencySymbol, onClose, t = {}, workerUrl }) {
   if (!position) return null;
 
   // Filter transactions for this position
@@ -381,7 +515,10 @@ function PositionDetailModal({ position, transactions, prices, theme, formatPric
             React.createElement('span', { style: { color: theme.textSecondary, fontWeight: 600, marginRight: '0.4rem' } }, rv.date),
             React.createElement('span', { style: { color: theme.text } }, rv.text)))
         )
-      )
+      ),
+
+      // Corporate actions (stock splits) for this holding
+      React.createElement(CorporateActionsPanel, { category: position.cat, symbol: position.sym, theme, t, workerUrl })
     )
   );
 }
@@ -390,7 +527,7 @@ function PositionDetailModal({ position, transactions, prices, theme, formatPric
 // 4. ENHANCED POSITIONS TABLE (with CAGR + clickable rows)
 // Wraps PositionsTable and adds CAGR column + click handler
 // ─────────────────────────────────────────────────────────────────────────────
-function EnhancedPositionsTable({ portfolio, prices, priceHistory, transactions, theme, formatPrice, getCurrencySymbol, t, onAddTransaction }) {
+function EnhancedPositionsTable({ portfolio, prices, priceHistory, transactions, theme, formatPrice, getCurrencySymbol, t, onAddTransaction, workerUrl }) {
   const [detailPosition, setDetailPosition] = useState(null);
   const [sortKey, setSortKey]   = useState('value');
   const [sortDir, setSortDir]   = useState('desc');
@@ -512,6 +649,7 @@ function EnhancedPositionsTable({ portfolio, prices, priceHistory, transactions,
       formatPrice,
       getCurrencySymbol,
       t,
+      workerUrl,
       onClose: () => setDetailPosition(null)
     }),
 
@@ -1164,6 +1302,7 @@ window.MaerminFeatures3 = {
   DailyPnLCard,
   PositionDetailModal,
   EnhancedPositionsTable,
+  CorporateActionsPanel,
   CS2SkinPicker,
   CS2SkinImage,
   SymbolPicker,
