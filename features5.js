@@ -188,18 +188,24 @@ function PerformancePeriods({ portfolio, priceHistory, prices, theme, formatPric
 // 2. NET WORTH DASHBOARD
 // Adds cash accounts, property, and liabilities to the portfolio value
 // ─────────────────────────────────────────────────────────────────────────────
-function NetWorthView({ portfolioStats, portfolio, prices, theme, formatPrice, getCurrencySymbol }) {
+function NetWorthView({ portfolioStats, portfolio, prices, theme, formatPrice, getCurrencySymbol, t, usdToEur }) {
+  t = t || {};
+  const rate = usdToEur || (prices && prices.usdToEur) || 1;
   const [accounts, setAccounts] = useState(() => {
     try { return JSON.parse(localStorage.getItem('maermin_networth_accounts') || '[]'); } catch { return []; }
   });
+  // Bumped when the Real Assets panel mutates its store, so net worth recomputes.
+  const [raVersion, setRaVersion] = useState(0);
   const [showAdd, setShowAdd]   = useState(false);
   const [form, setForm]         = useState({ name: '', value: '', type: 'cash', currency: 'EUR',
-    recurring: false, amount: '', interval: 'monthly', startDate: window.MaerminUtils.todayISO(), endDate: '' });
+    recurring: false, amount: '', interval: 'monthly', startDate: window.MaerminUtils.todayISO(), endDate: '',
+    interestRate: '', compounding: 'daily', interestStart: window.MaerminUtils.todayISO(), maturityDate: '' });
 
   useEffect(() => { localStorage.setItem('maermin_networth_accounts', JSON.stringify(accounts)); }, [accounts]);
 
   const TYPES = {
     cash:      { label: 'Cash / Savings',   color: '#22c55e', icon: '◈' },
+    time_deposit: { label: 'Time Deposit (Festgeld)', color: '#14b8a6', icon: '◷' },
     checking:  { label: 'Checking Account', color: '#3b82f6', icon: '◆' },
     property:  { label: 'Real Estate',      color: '#f59e0b', icon: '◉' },
     crypto_wallet: { label: 'Crypto Wallet', color: '#f5a524', icon: '◎' },
@@ -214,10 +220,17 @@ function NetWorthView({ portfolioStats, portfolio, prices, theme, formatPrice, g
   // Net worth comes from the shared metric (single source of truth — see metrics.js),
   // with an inline fallback if that module hasn't loaded.
   const portfolioValue   = portfolioStats.totalValue;
+  // Gross EUR value of tracked real assets (WI-1) — financing stays a liability
+  // account, so only the gross value flows in (no double-count). raVersion forces
+  // a recompute when the panel edits the store.
+  const realAssetsValue = (window.MaerminRealAssets)
+    ? window.MaerminRealAssets.aggregate(window.MaerminRealAssets.load(), accounts, rate).grossValue
+    : 0;
+  void raVersion;
   const nw = window.MaerminMetrics
-    ? window.MaerminMetrics.computeNetWorth(portfolioValue, accounts)
+    ? window.MaerminMetrics.computeNetWorth(portfolioValue, accounts, realAssetsValue)
     : {
-        manualAssets: accounts.filter(a => !LIABILITIES.has(a.type)).reduce((s,a) => s + parseFloat(a.value||0), 0),
+        manualAssets: accounts.filter(a => !LIABILITIES.has(a.type)).reduce((s,a) => s + parseFloat(a.value||0), 0) + realAssetsValue,
         liabilities:  accounts.filter(a =>  LIABILITIES.has(a.type)).reduce((s,a) => s + parseFloat(a.value||0), 0),
       };
   const totalAssets      = nw.manualAssets;
@@ -238,6 +251,16 @@ function NetWorthView({ portfolioStats, portfolio, prices, theme, formatPrice, g
       currency: form.currency,
       value: parseFloat(form.value) || 0,
     };
+    // Interest-bearing cash / time deposit (WI-2): persist rate + accrual anchors
+    // so MaerminInterest.runCatchUp grows the balance and reports capital income.
+    const INTEREST_TYPES = new Set(['cash', 'checking', 'time_deposit']);
+    if (INTEREST_TYPES.has(form.type) && parseFloat(form.interestRate) > 0) {
+      account.interestRate = parseFloat(form.interestRate);
+      account.compounding = form.compounding || 'daily';
+      account.startDate = form.interestStart || window.MaerminUtils.todayISO();
+      account.lastAccrualDate = account.startDate;
+      if (form.type === 'time_deposit' && form.maturityDate) account.maturityDate = form.maturityDate;
+    }
     if (wantsRecurring) {
       account.recurring = true;
       account.amount = parseFloat(form.amount);
@@ -247,7 +270,8 @@ function NetWorthView({ portfolioStats, portfolio, prices, theme, formatPrice, g
     }
     setAccounts(prev => [...prev, account]);
     setForm({ name: '', value: '', type: 'cash', currency: 'EUR',
-      recurring: false, amount: '', interval: 'monthly', startDate: window.MaerminUtils.todayISO(), endDate: '' });
+      recurring: false, amount: '', interval: 'monthly', startDate: window.MaerminUtils.todayISO(), endDate: '',
+      interestRate: '', compounding: 'daily', interestStart: window.MaerminUtils.todayISO(), maturityDate: '' });
     setShowAdd(false);
   };
 
@@ -315,6 +339,13 @@ function NetWorthView({ portfolioStats, portfolio, prices, theme, formatPrice, g
       )
     ),
 
+    // Real Assets & Property (WI-1) — property/valuables with valuation history,
+    // financing link and rental cashflows. Folds in as a Net-Worth section.
+    window.MaerminRealAssets && React.createElement(window.MaerminRealAssets.Panel, {
+      theme, t, accounts, prices, usdToEur: rate, formatPrice, getCurrencySymbol,
+      onChange: () => setRaVersion(v => v + 1)
+    }),
+
     // Whole-wealth projection (#6) — net worth forward under 3 scenarios,
     // composing savings plans + dividends + recurring liabilities + expenses.
     // This is the total-wealth home for the projection (the per-portfolio one
@@ -347,6 +378,31 @@ function NetWorthView({ portfolioStats, portfolio, prices, theme, formatPrice, g
         React.createElement('div', null,
           React.createElement('label', { style: { display: 'block', color: theme.textSecondary, fontSize: '0.72rem', marginBottom: '0.25rem', textTransform: 'uppercase' } }, isLiabilityType(form.type) ? `Current balance (${getCurrencySymbol()})` : `Value (${getCurrencySymbol()})`),
           inp('value', { type: 'number', placeholder: isLiabilityType(form.type) ? 'outstanding (optional)' : '10000' })
+        )
+      ),
+
+      // Interest schedule (WI-2) — for cash / checking / time deposits.
+      ['cash','checking','time_deposit'].includes(form.type) && React.createElement('div', { style: { marginBottom: '0.875rem', padding: '0.75rem', background: theme.inputBg, borderRadius: '8px' } },
+        React.createElement('div', { style: { color: theme.text, fontSize: '0.82rem', marginBottom: '0.6rem', fontWeight: 600 } }, t.interestSection || 'Interest (optional)'),
+        React.createElement('div', { style: { display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(150px, 1fr))', gap: '0.75rem' } },
+          React.createElement('div', null,
+            React.createElement('label', { style: { display: 'block', color: theme.textSecondary, fontSize: '0.7rem', marginBottom: '0.25rem', textTransform: 'uppercase' } }, t.interestRate || 'Rate (% p.a.)'),
+            inp('interestRate', { type: 'number', placeholder: '2.5' })
+          ),
+          React.createElement('div', null,
+            React.createElement('label', { style: { display: 'block', color: theme.textSecondary, fontSize: '0.7rem', marginBottom: '0.25rem', textTransform: 'uppercase' } }, t.interestCompounding || 'Compounding'),
+            React.createElement('select', { value: form.compounding, onChange: e => setForm(p => ({ ...p, compounding: e.target.value })),
+              style: { padding: '0.625rem 0.875rem', background: theme.inputBg, border: `1px solid ${theme.inputBorder}`, borderRadius: '8px', color: theme.text, fontSize: '0.85rem', width: '100%' }
+            }, [['daily', t.compDaily || 'Daily'], ['monthly', t.compMonthly || 'Monthly'], ['annual', t.compAnnual || 'Annual']].map(([v, l]) => React.createElement('option', { key: v, value: v }, l)))
+          ),
+          React.createElement('div', null,
+            React.createElement('label', { style: { display: 'block', color: theme.textSecondary, fontSize: '0.7rem', marginBottom: '0.25rem', textTransform: 'uppercase' } }, t.interestStartDate || 'Interest start'),
+            inp('interestStart', { type: 'date' })
+          ),
+          form.type === 'time_deposit' && React.createElement('div', null,
+            React.createElement('label', { style: { display: 'block', color: theme.textSecondary, fontSize: '0.7rem', marginBottom: '0.25rem', textTransform: 'uppercase' } }, t.interestMaturity || 'Maturity date'),
+            inp('maturityDate', { type: 'date' })
+          )
         )
       ),
 
@@ -397,7 +453,10 @@ function NetWorthView({ portfolioStats, portfolio, prices, theme, formatPrice, g
               React.createElement('span', { style: { color: typeInfo.color, fontSize: '0.9rem' } }, typeInfo.icon),
               React.createElement('div', null,
                 React.createElement('div', { style: { color: theme.text, fontWeight: '600', fontSize: '0.875rem' } }, acc.name),
-                React.createElement('div', { style: { color: theme.textSecondary, fontSize: '0.72rem' } }, typeInfo.label)
+                React.createElement('div', { style: { color: theme.textSecondary, fontSize: '0.72rem' } },
+                  typeInfo.label
+                  + (acc.interestRate > 0 ? `  ·  ${acc.interestRate}% ${t.interestPa || 'p.a.'}` : '')
+                  + (acc.maturityDate ? `  ·  ${t.interestMatures || 'matures'} ${acc.maturityDate}` : ''))
               )
             ),
             React.createElement('div', { style: { display: 'flex', alignItems: 'center', gap: '0.75rem' } },

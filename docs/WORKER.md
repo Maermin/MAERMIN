@@ -66,6 +66,7 @@ the dividend quality scoring needs:
   "name": "The Coca-Cola Company",
   "currency": "USD",
   "price": 60.12,
+  "marketCap": 258000000000,            // in `currency`; client EUR-normalises (WI-5 size buckets)
   "dividendRate": 1.94,                 // annual dividend per share
   "dividendYield": 0.032,               // fraction
   "fiveYearAvgDividendYield": 0.031,    // fraction (normalised from Yahoo's percent)
@@ -79,7 +80,10 @@ the dividend quality scoring needs:
 ```
 
 Nulls mean Yahoo has no value — the client falls back to its history-based
-heuristic. Cached 6 h; same cookie+crumb retry and degradation contract as
+heuristic. `marketCap` (in the security's own `currency`) additionally powers the
+Strategy tab's **Company-size buckets** (`MaerminMarketCap`): the client
+EUR-normalises it and bins Large (>= 10 bn) / Mid (2-10 bn) / Small (< 2 bn) /
+Unknown. Cached 6 h; same cookie+crumb retry and degradation contract as
 `fundholdings`. The dividend date/value fields feed the **Dividend Calendar &
 Forecast** (`DividendDataService.fetchDividendFromWorker`) so any payer resolves
 without an FMP key; frequency is inferred from `dividendRate / lastDividendValue`.
@@ -169,6 +173,26 @@ no account, no PII, 90-day TTL.
 The aggregate is a running count+sum of asset-class weights only - individual
 snapshots are never exposed through it.
 
+### `GET /?action=mcp&id=<shareId>`
+MCP-compatible **read-only** view over the exact same redacted share snapshot
+(WI-9). Same opt-in, time-limited link as `action=share`: an expired/unknown id
+is dead (`404`). The stored snapshot is **re-validated through the same allowlist
+on the way out** (`mcpResource` → `validateShareSnapshot`), so the response can
+only ever contain percentage weights by asset class / sector / region / currency
+plus optional bounded scores - **never amounts, quantities or symbols**.
+
+```jsonc
+// -> { "protocol": "mcp", "type": "resource", "readOnly": true,
+//      "resource": { "uri": "maermin://portfolio/<id>", "name": "...", "mimeType": "application/json" },
+//      "data": { "v": 1, "assetClasses": {...}, "sectors": [...], "regions": [...],
+//                "currencies": [...], "metrics": { "healthScore": 82 } },
+//      "publishedAt": <ms> }
+```
+
+An AI client points at this URL to read the redacted allocation/scores only;
+nothing outside the allowlist is ever reachable. Tested in
+`test/mcp-endpoint.test.js` (allowlist-only output, leak proof, dead expired id).
+
 ---
 
 ## Broker relay (optional)
@@ -184,7 +208,14 @@ only the signature the client already computed is sent.
 ```
 
 Host whitelist: `api.binance.com`, `api.kraken.com`, `api.exchange.coinbase.com`,
-`api.coinbase.com`. Anything else → `403`. HTTPS only.
+`api.coinbase.com`, `api.bitpanda.com`. Anything else → `403`. HTTPS only.
+
+Used by the **read-only exchange sync** (`MaerminExchangeSync`, WI-7): the client
+signs a read-only trades request (Binance HMAC, Bitpanda Bearer key) and relays
+it here; the secret stays in the encrypted vault and never reaches the Worker.
+Imported trades are deduped idempotently (`source:'exchange-sync'` + externalId),
+so a repeat sync never double-books. Read-only keys only — write/trade/withdraw
+scopes are rejected client-side before any request is signed.
 
 ---
 

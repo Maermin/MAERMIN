@@ -351,11 +351,118 @@
     return { transactions: clean, skipped: (prev.transactions || []).length - clean.length, errors: prev.errors || [] };
   }
 
+  // --- reusable import presets (WI-8) ----------------------------------------
+  // Named, saved column mappings so a returning user re-imports a file from the
+  // same (unknown) broker without re-mapping. Persisted under
+  // 'maermin_import_presets' (in the full-vault backup). A preset is:
+  //   { id, name, delimiter, columnMap, dateFormat, signRules, category, currency }
+  // columnMap is the same {field: header|null} shape suggestMapping produces.
+  const PRESETS_KEY = 'maermin_import_presets';
+  const PRESETS_SCHEMA = 1;
+
+  function presetId() { return 'imp' + Date.now().toString(36) + Math.random().toString(36).slice(2, 7); }
+
+  function normalizeColumnMap(raw) {
+    const out = {};
+    const src = (raw && typeof raw === 'object') ? raw : {};
+    for (const f of FIELDS) {
+      const v = src[f];
+      out[f] = (typeof v === 'string' && v.trim()) ? v : null;
+    }
+    return out;
+  }
+
+  function normalizePreset(p) {
+    if (!p || typeof p !== 'object') return null;
+    const name = String(p.name == null ? '' : p.name).trim();
+    if (!name) return null;
+    return {
+      id: p.id ? String(p.id) : presetId(),
+      name,
+      delimiter: (typeof p.delimiter === 'string' && p.delimiter) ? p.delimiter : null,
+      columnMap: normalizeColumnMap(p.columnMap || p.mapping),
+      dateFormat: (typeof p.dateFormat === 'string' && p.dateFormat) ? p.dateFormat : null,
+      signRules: (p.signRules && typeof p.signRules === 'object') ? p.signRules : {},
+      category: (typeof p.category === 'string' && p.category) ? p.category : 'stocks',
+      currency: (typeof p.currency === 'string' && p.currency) ? p.currency.toUpperCase().slice(0, 3) : null
+    };
+  }
+
+  function normalizePresets(raw) {
+    let obj = raw;
+    if (typeof raw === 'string') { try { obj = JSON.parse(raw); } catch (e) { obj = null; } }
+    if (!obj || typeof obj !== 'object') obj = {};
+    const list = Array.isArray(obj.presets) ? obj.presets : (Array.isArray(obj) ? obj : []);
+    const presets = [];
+    list.forEach((p) => { const n = normalizePreset(p); if (n) presets.push(n); });
+    return { version: PRESETS_SCHEMA, presets };
+  }
+
+  // Build a preset from a live preview/mapping (e.g. the wizard's current state).
+  function buildPreset(input) {
+    input = input || {};
+    return normalizePreset({
+      name: input.name,
+      delimiter: input.delimiter,
+      columnMap: input.columnMap || input.mapping,
+      dateFormat: input.dateFormat || input.locale,
+      signRules: input.signRules,
+      category: input.category,
+      currency: input.currency
+    });
+  }
+
+  function upsertPreset(state, preset) {
+    const st = normalizePresets(state);
+    const n = normalizePreset(preset);
+    if (!n) return st;
+    const idx = st.presets.findIndex((p) => p.id === n.id || p.name.toLowerCase() === n.name.toLowerCase());
+    if (idx >= 0) st.presets[idx] = Object.assign({}, n, { id: st.presets[idx].id });
+    else st.presets.push(n);
+    return st;
+  }
+  function removePreset(state, id) {
+    const st = normalizePresets(state);
+    st.presets = st.presets.filter((p) => p.id !== id);
+    return st;
+  }
+  function getPreset(state, id) {
+    return normalizePresets(state).presets.find((p) => p.id === id) || null;
+  }
+
+  // Apply a preset's columnMap to a concrete header list. A header that is no
+  // longer present degrades to null (and is reported) — nothing throws.
+  // → { mapping:{field:header|null}, missing:[field], category, currency }
+  function applyPreset(preset, headers) {
+    const p = normalizePreset(preset) || { columnMap: {}, category: 'stocks', currency: null };
+    const hs = Array.isArray(headers) ? headers : [];
+    const mapping = {}, missing = [];
+    for (const f of FIELDS) {
+      const want = p.columnMap[f];
+      if (want && hs.indexOf(want) !== -1) mapping[f] = want;
+      else { mapping[f] = null; if (want) missing.push(f); }
+    }
+    return { mapping, missing, category: p.category, currency: p.currency };
+  }
+
+  function loadPresets() {
+    if (typeof localStorage === 'undefined') return { version: PRESETS_SCHEMA, presets: [] };
+    try { return normalizePresets(localStorage.getItem(PRESETS_KEY)); } catch (e) { return { version: PRESETS_SCHEMA, presets: [] }; }
+  }
+  function savePresets(state) {
+    if (typeof localStorage === 'undefined') return false;
+    try { localStorage.setItem(PRESETS_KEY, JSON.stringify(normalizePresets(state))); return true; } catch (e) { return false; }
+  }
+
   const api = {
     FIELDS, REQUIRED, BROKERS,
     detectBroker, suggestMapping, applyMapping, findDuplicates,
     parseNumber, parseDate, normalizeType, normalizeSymbol, parseCSV,
-    preview, commit
+    preview, commit,
+    // presets (WI-8)
+    PRESETS_KEY, PRESETS_SCHEMA,
+    normalizePresets, buildPreset, upsertPreset, removePreset, getPreset, applyPreset,
+    loadPresets, savePresets
   };
 
   if (typeof window !== 'undefined') window.MaerminImportMapping = api;

@@ -392,6 +392,28 @@ function InvestmentTracker() {
     } catch (e) { console.warn('[SAVINGS] catch-up failed:', e); }
   }, [prices, transactions, priceHistory, savingsHistory, exchangeRate]);
 
+  // WI-2: interest accrual catch-up for cash / time-deposit Net-Worth accounts.
+  // On app open, grow each interest-bearing account's balance (act/365) and book
+  // a type:'interest' transaction so the tax report counts it as capital income.
+  // Idempotent: each accrual advances lastAccrualDate and each tx carries an
+  // (accountId, periodEnd) marker, so re-runs never double-book.
+  useEffect(() => {
+    const IN = window.MaerminInterest;
+    if (!IN || demoMode) return;
+    try {
+      const accounts = JSON.parse(localStorage.getItem('maermin_networth_accounts') || '[]');
+      if (!Array.isArray(accounts) || !accounts.some(a => IN.isInterestBearing(a))) return;
+      const ledger = IN.loadLedger();
+      const out = IN.runCatchUp({ accounts, transactions, ledger, asOf: window.MaerminUtils.todayISO(), portfolioId: activePortfolioId });
+      if (out.created.length) {
+        localStorage.setItem('maermin_networth_accounts', JSON.stringify(out.accounts));
+        IN.saveLedger(out.ledger);
+        setTransactions(out.transactions);
+        addToast(`${out.created.length} ${t.interestBookedToast || 'interest accrual(s) booked'}`, 'success');
+      }
+    } catch (e) { console.warn('[INTEREST] catch-up failed:', e); }
+  }, [transactions, activePortfolioId, demoMode]);
+
   // v10.x: dividend auto-booking (opt-in, maermin_div_autobook). When enabled,
   // every dividend whose PAY date has passed is booked as a `type:'dividend'`
   // transaction in the PAYOUT currency (USD stays USD). Idempotent per
@@ -2007,7 +2029,19 @@ function InvestmentTracker() {
           : React.createElement('div', { style: { background: theme.card, border: `1px solid ${theme.cardBorder}`, borderRadius: '12px', padding: '3rem', textAlign: 'center', color: theme.textSecondary } },
               'Broker Import module not loaded'
             )
-      )
+      ),
+
+      // Exchange read-only sync (WI-7): import crypto trades from Binance/Kraken/
+      // Coinbase/Bitpanda. Keys are encrypted in the vault; sync is manual.
+      section === 'broker' && window.MaerminExchangeSync && window.MaerminExchangeSync.Panel &&
+        React.createElement(window.MaerminExchangeSync.Panel, {
+          theme, t, workerUrl: apiKeys.cs2Worker, existing: transactions, portfolioId: activePortfolioId,
+          onImport: (txs) => {
+            setTransactions(prev => [...prev, ...txs]);
+            if (window.MaerminAuditLog) window.MaerminAuditLog.record('data.import', `${txs.length} exchange trade(s) imported`);
+            addToast(`${txs.length} exchange trade(s) imported`, 'success');
+          }
+        })
     );
   };
 
@@ -2304,9 +2338,17 @@ function InvestmentTracker() {
       // on-device value history — no API. Defaults to the combined 'all' series.
       case 'performance':
         return window.MaerminPerformance ?
-          React.createElement(window.MaerminPerformance.View, {
-            theme: currentTheme, t, formatPrice, getCurrencySymbol, workerUrl: apiKeys.cs2Worker
-          }) : renderAnalyticsPlaceholder('Performance');
+          React.createElement('div', null,
+            // Performance Map treemap (WI-4): area = weight, colour = performance.
+            window.MaerminPerformanceMap && React.createElement('div', { style: { padding: '1.5rem 1.5rem 0' } },
+              React.createElement(window.MaerminPerformanceMap.Panel, {
+                theme: currentTheme, t, positions: portfolio, prices, exchangeRate,
+                privacyMode, formatPrice, getCurrencySymbol
+              })),
+            React.createElement(window.MaerminPerformance.View, {
+              theme: currentTheme, t, formatPrice, getCurrencySymbol, workerUrl: apiKeys.cs2Worker
+            })
+          ) : renderAnalyticsPlaceholder('Performance');
 
       // v10.x: Customize Overview — show/hide/reorder the main Overview sections
       // (MaerminDashboard). renderOverview reads visibleSet() each render.
@@ -2388,7 +2430,7 @@ function InvestmentTracker() {
       case 'net-worth':
         return window.MaerminFeatures5 ?
           React.createElement(window.MaerminFeatures5.NetWorthView, {
-            portfolioStats, portfolio, prices, theme: currentTheme, formatPrice, getCurrencySymbol
+            portfolioStats, portfolio, prices, theme: currentTheme, formatPrice, getCurrencySymbol, t, usdToEur: exchangeRate
           }) : renderAnalyticsPlaceholder('Net Worth');
 
       case 'cashflow':
@@ -2520,6 +2562,13 @@ function InvestmentTracker() {
             theme: currentTheme, t, addToast, formatPrice, getCurrencySymbol,
             divAutoBook, toggleDivAutoBook, onBookDividends: () => bookDividends(true)
           }),
+          // Yield-on-cost + DRIP (WI-6): per-payer YoC over FIFO cost basis.
+          window.MaerminDividendYoc && window.MaerminDividendYoc.Panel &&
+            React.createElement('div', { style: { padding: '0 1.5rem' } },
+              React.createElement(window.MaerminDividendYoc.Panel, {
+                portfolio, prices, transactions: activeTransactions, exchangeRate,
+                theme: currentTheme, t, formatPrice, getCurrencySymbol
+              })),
           // Earnings calendar for held stocks (read-only, gated like Discovery).
           window.MaerminEarnings && window.MaerminEarnings.Panel &&
             React.createElement(window.MaerminEarnings.Panel, {
@@ -2568,7 +2617,7 @@ function InvestmentTracker() {
         return window.InvestmentViews && window.InvestmentViews.InvestmentAnalysisDashboard ?
           React.createElement(window.InvestmentViews.InvestmentAnalysisDashboard, {
             portfolio, prices, priceHistory, metaVersion,
-            theme: currentTheme, t, formatPrice
+            theme: currentTheme, t, formatPrice, workerUrl: apiKeys.cs2Worker, exchangeRate
           }) : renderAnalyticsPlaceholder('Strategy Analysis');
 
       case 'health':
@@ -3756,6 +3805,14 @@ function InvestmentTracker() {
           )
         )
       ),
+
+      // Tax advisor (WI-3): forward-looking crypto Freigrenze countdown +
+      // Sparerpauschbetrag headroom + loss-harvesting findings. Estimate only.
+      taxJurisdiction === 'de' && window.MaerminTaxAdvisor && window.MaerminTaxAdvisor.Panel &&
+        React.createElement(window.MaerminTaxAdvisor.Panel, {
+          transactions, prices, exchangeRate, taxOwner,
+          theme: currentTheme, t, formatPrice, getCurrencySymbol
+        }),
 
       // German fund taxation fold-in (no new tab): Vorabpauschale per
       // accumulating fund + Teilfreistellung classification + the statutory

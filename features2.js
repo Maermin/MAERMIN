@@ -579,6 +579,12 @@ function BrokerImportWizard({ theme, t, addToast, onImport, existing }) {
   const [mapping, setMapping]       = useState(null);
   const [includeDupes, setIncludeDupes] = useState(false);
   const [showErrors, setShowErrors] = useState(false);
+  // Reusable CSV import presets (WI-8): saved column mappings for unknown brokers.
+  const [presets, setPresets]       = useState(() => {
+    try { return (window.MaerminImportMapping && window.MaerminImportMapping.loadPresets) ? window.MaerminImportMapping.loadPresets().presets : []; }
+    catch (e) { return []; }
+  });
+  const [selectedPreset, setSelectedPreset] = useState('');
 
   const catHint = /crypto/i.test((BROKERS.find(b => b.id === selectedBroker) || {}).category || '') ? 'crypto' : undefined;
 
@@ -615,6 +621,44 @@ function BrokerImportWizard({ theme, t, addToast, onImport, existing }) {
     onImport && onImport(out.transactions);
     setStep(3);
     addToast && addToast(`${out.transactions.length} transactions imported${out.skipped ? ` · ${out.skipped} duplicate(s) skipped` : ''}`, 'success');
+  };
+
+  // --- import presets (WI-8): save / load / delete the current column mapping ---
+  const refreshPresets = () => {
+    const IM = window.MaerminImportMapping;
+    try { setPresets(IM && IM.loadPresets ? IM.loadPresets().presets : []); } catch (e) { /* ignore */ }
+  };
+  const applyPresetById = (id) => {
+    const IM = window.MaerminImportMapping;
+    setSelectedPreset(id);
+    if (!IM || !id || !mp) return;
+    const preset = IM.getPreset(IM.loadPresets(), id);
+    if (!preset) return;
+    const res = IM.applyPreset(preset, mp.headers);
+    setMapping(res.mapping);
+    try { setMp(IM.preview(rawData, { existing: existing || [], category: res.category || catHint, mapping: res.mapping })); }
+    catch (e) { console.error('[IMPORT] preset apply error:', e); }
+    if (res.missing.length) addToast && addToast(`Preset applied · ${res.missing.length} column(s) not found in this file`, 'warning');
+    else addToast && addToast('Preset applied', 'success');
+  };
+  const saveCurrentPreset = () => {
+    const IM = window.MaerminImportMapping;
+    if (!IM || !mapping) return;
+    const name = (typeof prompt === 'function') ? prompt('Preset name (e.g. your broker):') : null;
+    if (!name) return;
+    const preset = IM.buildPreset({ name, mapping, category: (mp && mp.category) || catHint || 'stocks' });
+    const next = IM.upsertPreset(IM.loadPresets(), preset);
+    IM.savePresets(next);
+    refreshPresets();
+    addToast && addToast('Mapping preset saved', 'success');
+  };
+  const deleteSelectedPreset = () => {
+    const IM = window.MaerminImportMapping;
+    if (!IM || !selectedPreset) return;
+    IM.savePresets(IM.removePreset(IM.loadPresets(), selectedPreset));
+    setSelectedPreset('');
+    refreshPresets();
+    addToast && addToast('Preset deleted', 'info');
   };
 
   const selectedBrokerObj = BROKERS.find(b => b.id === selectedBroker);
@@ -936,7 +980,24 @@ function BrokerImportWizard({ theme, t, addToast, onImport, existing }) {
                 )
               )
             ),
-            reqMissing.length > 0 && React.createElement('div', { style: { color: '#ef4444', fontSize: '0.74rem', marginTop: '0.5rem' } }, `Map the required field(s): ${reqMissing.join(', ')}`)
+            reqMissing.length > 0 && React.createElement('div', { style: { color: '#ef4444', fontSize: '0.74rem', marginTop: '0.5rem' } }, `Map the required field(s): ${reqMissing.join(', ')}`),
+
+            // Reusable mapping presets (WI-8): load a saved mapping for this
+            // broker, save the current one, or delete a preset.
+            React.createElement('div', { style: { display: 'flex', flexWrap: 'wrap', gap: '0.5rem', alignItems: 'center', marginTop: '0.7rem', paddingTop: '0.7rem', borderTop: `1px solid ${theme.cardBorder}` } },
+              React.createElement('span', { style: { color: theme.textSecondary, fontSize: '0.72rem', fontWeight: '700' } }, t.presetLabel || 'Mapping preset'),
+              React.createElement('select', {
+                value: selectedPreset, onChange: e => applyPresetById(e.target.value),
+                style: { padding: '0.35rem 0.5rem', background: theme.inputBg, border: `1px solid ${theme.inputBorder}`, borderRadius: '6px', color: theme.text, fontSize: '0.78rem' }
+              },
+                React.createElement('option', { value: '' }, t.presetLoad || 'Load preset…'),
+                presets.map(p => React.createElement('option', { key: p.id, value: p.id }, p.name))
+              ),
+              React.createElement('button', { onClick: saveCurrentPreset,
+                style: { padding: '0.35rem 0.7rem', background: theme.accent, color: '#13110a', border: 'none', borderRadius: '6px', cursor: 'pointer', fontSize: '0.76rem', fontWeight: '700' } }, t.presetSave || 'Save preset'),
+              selectedPreset && React.createElement('button', { onClick: deleteSelectedPreset,
+                style: { padding: '0.35rem 0.7rem', background: 'none', color: theme.textSecondary, border: `1px solid ${theme.inputBorder}`, borderRadius: '6px', cursor: 'pointer', fontSize: '0.76rem' } }, t.presetDelete || 'Delete')
+            )
           ),
 
           // Row-accurate error report.

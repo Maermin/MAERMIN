@@ -241,7 +241,10 @@
       post({ op: 'publish', snapshot: v.snapshot }).then(function (j) {
         if (!j.ok || !j.id) throw new Error(j.error || 'publish failed');
         var base = (typeof location !== 'undefined') ? (location.origin + location.pathname) : '';
-        setState({ busy: false, link: base + '#share=' + j.id, error: null, unsupported: false });
+        // WI-9: same opt-in, time-limited id also backs a read-only MCP endpoint
+        // (redacted allocation/scores only) an AI client can query.
+        var mcp = workerBase.replace(/\?.*$/, '') + '?action=mcp&id=' + j.id;
+        setState({ busy: false, link: base + '#share=' + j.id, mcp: mcp, error: null, unsupported: false });
       }).catch(function (ex) {
         setState({ busy: false, link: null, error: ex._unsupported ? null : ((ex && ex.message) || 'failed'), unsupported: !!ex._unsupported });
       });
@@ -315,6 +318,9 @@
               e('div', { style: { display: 'flex', gap: '0.5rem', alignItems: 'center', flexWrap: 'wrap', marginTop: '0.6rem' } },
                 e('button', { onClick: publish, disabled: state.busy || !workerBase, style: { padding: '0.45rem 1rem', borderRadius: '8px', border: 'none', cursor: workerBase ? 'pointer' : 'default', fontWeight: 700, fontSize: '0.8rem', background: accent, color: '#13110a', opacity: (state.busy || !workerBase) ? 0.6 : 1 } }, state.busy ? 'Publishing...' : 'Publish snapshot'),
                 state.link ? e('code', { style: { color: good, fontSize: '0.74rem', wordBreak: 'break-all' } }, state.link) : null,
+                state.mcp ? e('div', { style: { width: '100%', marginTop: '0.3rem' } },
+                  e('span', { style: { color: dim, fontSize: '0.72rem' } }, 'MCP (AI read-only): '),
+                  e('code', { style: { color: dim, fontSize: '0.72rem', wordBreak: 'break-all' } }, state.mcp)) : null,
                 state.error ? e('span', { style: { color: bad, fontSize: '0.76rem' } }, state.error) : null,
                 !workerBase ? e('span', { style: { color: dim, fontSize: '0.76rem' } }, 'Add a Worker URL in API Settings to publish.') : null))
           : e('div', { style: { color: dim, fontSize: '0.82rem' } }, 'Add holdings first - the snapshot needs at least one position.'),
