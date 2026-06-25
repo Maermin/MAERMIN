@@ -66,6 +66,7 @@ the dividend quality scoring needs:
   "name": "The Coca-Cola Company",
   "currency": "USD",
   "price": 60.12,
+  "marketCap": 258000000000,            // in `currency`; client EUR-normalises (WI-5 size buckets)
   "dividendRate": 1.94,                 // annual dividend per share
   "dividendYield": 0.032,               // fraction
   "fiveYearAvgDividendYield": 0.031,    // fraction (normalised from Yahoo's percent)
@@ -79,7 +80,10 @@ the dividend quality scoring needs:
 ```
 
 Nulls mean Yahoo has no value — the client falls back to its history-based
-heuristic. Cached 6 h; same cookie+crumb retry and degradation contract as
+heuristic. `marketCap` (in the security's own `currency`) additionally powers the
+Strategy tab's **Company-size buckets** (`MaerminMarketCap`): the client
+EUR-normalises it and bins Large (>= 10 bn) / Mid (2-10 bn) / Small (< 2 bn) /
+Unknown. Cached 6 h; same cookie+crumb retry and degradation contract as
 `fundholdings`. The dividend date/value fields feed the **Dividend Calendar &
 Forecast** (`DividendDataService.fetchDividendFromWorker`) so any payer resolves
 without an FMP key; frequency is inferred from `dividendRate / lastDividendValue`.

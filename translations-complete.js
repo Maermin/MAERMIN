@@ -482,6 +482,8 @@ const completeTranslations = {
     taCryptoFreigrenze: 'Crypto Freigrenze (1.000 EUR)', taLeft: 'left', taSparer: 'Sparerpauschbetrag',
     taCryptoLots: 'Crypto lots near tax-free', taNone: 'No tax actions flagged right now.',
     pmTitle: 'Performance Map', pmSubtitle: 'Area = weight, colour = performance', pmEmpty: 'No priced positions to map yet.',
+    mcTitle: 'Company size', mcSubtitle: 'Equity allocation by market-cap size (EUR-normalised)',
+    mcLarge: 'Large cap', mcMid: 'Mid cap', mcSmall: 'Small cap', mcUnknown: 'Unknown', mcEmpty: 'No equity positions to size yet.',
     watchlistNote: 'Note / thesis (opt.)',
     watchlistToGo: 'to go',
     watchlistAbove: 'above',
@@ -768,6 +770,8 @@ const completeTranslations = {
     taCryptoFreigrenze: 'Krypto-Freigrenze (1.000 EUR)', taLeft: 'übrig', taSparer: 'Sparerpauschbetrag',
     taCryptoLots: 'Krypto-Lots kurz vor steuerfrei', taNone: 'Aktuell keine Steuer-Aktionen markiert.',
     pmTitle: 'Performance-Karte', pmSubtitle: 'Fläche = Gewicht, Farbe = Performance', pmEmpty: 'Noch keine bepreisten Positionen für die Karte.',
+    mcTitle: 'Unternehmensgröße', mcSubtitle: 'Aktien-Allokation nach Marktkapitalisierung (EUR-normiert)',
+    mcLarge: 'Large Cap', mcMid: 'Mid Cap', mcSmall: 'Small Cap', mcUnknown: 'Unbekannt', mcEmpty: 'Noch keine Aktienpositionen zum Einordnen.',
     // Categories view
     catSubtitle: 'Definiere eigene Anlagekategorien jenseits der vier Standardklassen. Custom-Kategorien werden bepreist und in deinen Summen gezählt; sie erscheinen beim Hinzufügen einer Transaktion. Im Backup enthalten.',
     catAdd: 'Kategorie hinzufügen', catDelete: 'Löschen', catColor: 'Farbe', catNewPlaceholder: 'Neue Kategorie, z. B. Immobilien …',

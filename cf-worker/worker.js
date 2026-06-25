@@ -478,6 +478,7 @@ export default {
           name: price.shortName || price.longName || symbol,
           currency: price.currency || sd.currency || 'USD',
           price: raw(price.regularMarketPrice),
+          marketCap: raw(sd.marketCap),                  // in `currency`; client EUR-normalises (WI-5)
           dividendRate: raw(sd.dividendRate),            // annual DPS
           dividendYield: raw(sd.dividendYield),          // fraction
           fiveYearAvgDividendYield: fiveYear != null ? fiveYear / 100 : null,

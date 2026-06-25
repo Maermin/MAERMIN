@@ -2598,7 +2598,7 @@ function InvestmentTracker() {
         return window.InvestmentViews && window.InvestmentViews.InvestmentAnalysisDashboard ?
           React.createElement(window.InvestmentViews.InvestmentAnalysisDashboard, {
             portfolio, prices, priceHistory, metaVersion,
-            theme: currentTheme, t, formatPrice
+            theme: currentTheme, t, formatPrice, workerUrl: apiKeys.cs2Worker, exchangeRate
           }) : renderAnalyticsPlaceholder('Strategy Analysis');
 
       case 'health':

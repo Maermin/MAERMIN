@@ -1586,6 +1586,7 @@ function InvestmentAnalysisDashboard(props) {
     { id: 'sectors',  label: 'Sectors',          desc: 'Analyze sector allocation' },
     { id: 'countries',label: 'Countries',        desc: 'Geographic allocation' },
     { id: 'currency', label: 'Currencies',       desc: 'Foreign-currency exposure' },
+    { id: 'size',     label: 'Company Size',      desc: 'Market-cap size buckets' },
     { id: 'liquidity',label: 'Liquidity',        desc: 'Position Liquidity Score' },
     { id: 'goals',    label: 'Goals',            desc: 'Track savings goals' }
   ];
@@ -1612,6 +1613,9 @@ function InvestmentAnalysisDashboard(props) {
       case 'sectors':  return React.createElement(SectorAllocationView, { portfolio: portfolio, prices: prices, metaVersion: props.metaVersion });
       case 'countries':return React.createElement(CountryAllocationView, { portfolio: portfolio, prices: prices, metaVersion: props.metaVersion });
       case 'currency': return React.createElement(CurrencyExposureView, { portfolio: portfolio });
+      case 'size':     return window.MaerminMarketCap
+        ? React.createElement(window.MaerminMarketCap.Panel, { portfolio: portfolio, prices: prices, theme: theme, t: props.t, formatPrice: props.formatPrice, workerUrl: props.workerUrl, exchangeRate: props.exchangeRate })
+        : React.createElement('div', { style: { padding: '1.5rem', color: theme.textSecondary } }, 'Market-cap module unavailable');
       case 'liquidity':return React.createElement(LiquidityAnalysisView, { portfolio: portfolio });
       case 'goals':    return React.createElement(GoalInvestingView, { portfolioValue: portfolioValue });
       default:         return React.createElement(DCAAnalyzerView, { portfolio: portfolio, priceHistory: priceHistory });
