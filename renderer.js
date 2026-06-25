@@ -965,6 +965,12 @@ function InvestmentTracker() {
       return;
     }
     setLoading(true);
+    // Price the COMBINED book (all portfolios), not just the active one — the
+    // refresh button must refresh every portfolio at once, and the `prices` map
+    // is global (keyed by symbol, shared across portfolios) so pricing the union
+    // is always correct. Falls back to the active portfolio if the combined
+    // build is unavailable.
+    const pricePortfolio = allPortfoliosPortfolio || portfolio;
     const newPrices = { ...prices };
     const avFallbackSyms = new Set(); // symbols resolved via Alpha Vantage (provenance)
     const timestamp = new Date().toLocaleString('en-US', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' });
@@ -1016,8 +1022,8 @@ function InvestmentTracker() {
       } catch (e) { /* historical FX is best-effort — resolver falls back to live rate */ }
 
       // Fetch crypto prices from CoinGecko (free, no API key needed)
-      if (portfolio.crypto && portfolio.crypto.length > 0) {
-        const ids = portfolio.crypto.map(c => (c.symbol || c.name || '').toLowerCase()).join(',');
+      if (pricePortfolio.crypto && pricePortfolio.crypto.length > 0) {
+        const ids = pricePortfolio.crypto.map(c => (c.symbol || c.name || '').toLowerCase()).join(',');
         if (ids) {
           try {
             const res = await fetch(`https://api.coingecko.com/api/v3/simple/price?ids=${ids}&vs_currencies=eur,usd&include_24hr_change=true`);
@@ -1044,7 +1050,7 @@ function InvestmentTracker() {
       // localStorage so we never brute-force ".DE/.L/.PA…" for the same symbol
       // twice. The Alpha Vantage fallback stays SEQUENTIAL (AV rate-limits hard)
       // and only runs for the genuine misses.
-      if (portfolio.stocks && portfolio.stocks.length > 0) {
+      if (pricePortfolio.stocks && pricePortfolio.stocks.length > 0) {
         const workerBase = (apiKeys.cs2Worker || '').trim().replace(/\/$/, '');
         const hasWorker  = workerBase.length > 5;
         // Known legacy symbols without an exchange suffix.
@@ -1103,8 +1109,8 @@ function InvestmentTracker() {
         // Phase 1 — Worker/Yahoo, concurrent in chunks for ALL stocks.
         const misses = [];
         const CHUNK = 6;
-        for (let i = 0; i < portfolio.stocks.length; i += CHUNK) {
-          const settled = await Promise.all(portfolio.stocks.slice(i, i + CHUNK).map(resolveStockYF));
+        for (let i = 0; i < pricePortfolio.stocks.length; i += CHUNK) {
+          const settled = await Promise.all(pricePortfolio.stocks.slice(i, i + CHUNK).map(resolveStockYF));
           settled.forEach(r => {
             if (r.priceEUR && r.priceEUR > 0) { newPrices[r.symL] = r.priceEUR; newPrices[r.sym] = r.priceEUR; }
             else misses.push(r);
@@ -1140,7 +1146,7 @@ function InvestmentTracker() {
       }
 
       // ── Commodity Prices: Yahoo Finance (primary) → Alpha Vantage (fallback) ──
-      if (portfolio.commodities && portfolio.commodities.length > 0) {
+      if (pricePortfolio.commodities && pricePortfolio.commodities.length > 0) {
         const workerBase = (apiKeys.cs2Worker || '').trim().replace(/\/$/, '');
         const hasWorker  = workerBase.length > 5;
 
@@ -1169,7 +1175,7 @@ function InvestmentTracker() {
           'WHEAT':{ fn:'WHEAT' },'CORN':{ fn:'CORN' },
         };
 
-        for (const pos of portfolio.commodities.slice(0, 8)) {
+        for (const pos of pricePortfolio.commodities.slice(0, 8)) {
           const sym  = (pos.symbol || pos.name || '').toUpperCase().trim();
           const symL = sym.toLowerCase();
           let   priceEUR = null;
@@ -1235,7 +1241,7 @@ function InvestmentTracker() {
 
       // Worker fetches Steam Market price per skin server-side (bypasses CORS).
       // Sends POST with array of skin names → receives {name: price} map.
-      if (portfolio.skins && portfolio.skins.length > 0) {
+      if (pricePortfolio.skins && pricePortfolio.skins.length > 0) {
         const rawWorkerUrl = (apiKeys.cs2Worker || '').trim();
         const workerUrl = rawWorkerUrl
           ? (rawWorkerUrl.startsWith('https://') ? rawWorkerUrl : 'https://' + rawWorkerUrl)
@@ -1251,7 +1257,7 @@ function InvestmentTracker() {
             // are stored back under the ORIGINAL stored symbol so positions
             // keep resolving; the normalised name is only what Steam sees.
             const normalize = window.MaerminTickers?.normalizeSkinName || (n => n);
-            const skinPairs = portfolio.skins
+            const skinPairs = pricePortfolio.skins
               .map(s => { const orig = (s.symbol || s.name || '').trim(); return { orig, norm: normalize(orig) }; })
               .filter(p => p.orig);
             const skinNames = skinPairs.map(p => p.norm);
@@ -1309,8 +1315,8 @@ function InvestmentTracker() {
       // stays old and the badge stays honest. Last-known persists across multiple
       // throttled refreshes because `prices` already holds the carried value.
       const carriedKeys = new Set();
-      if (portfolio.skins && portfolio.skins.length) {
-        portfolio.skins.forEach((s) => {
+      if (pricePortfolio.skins && pricePortfolio.skins.length) {
+        pricePortfolio.skins.forEach((s) => {
           const orig = (s.symbol || s.name || '').trim();
           if (!orig) return;
           const keyL = orig.toLowerCase();
