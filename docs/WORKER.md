@@ -188,7 +188,14 @@ only the signature the client already computed is sent.
 ```
 
 Host whitelist: `api.binance.com`, `api.kraken.com`, `api.exchange.coinbase.com`,
-`api.coinbase.com`. Anything else → `403`. HTTPS only.
+`api.coinbase.com`, `api.bitpanda.com`. Anything else → `403`. HTTPS only.
+
+Used by the **read-only exchange sync** (`MaerminExchangeSync`, WI-7): the client
+signs a read-only trades request (Binance HMAC, Bitpanda Bearer key) and relays
+it here; the secret stays in the encrypted vault and never reaches the Worker.
+Imported trades are deduped idempotently (`source:'exchange-sync'` + externalId),
+so a repeat sync never double-books. Read-only keys only — write/trade/withdraw
+scopes are rejected client-side before any request is signed.
 
 ---
 

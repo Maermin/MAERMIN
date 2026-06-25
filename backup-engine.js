@@ -56,6 +56,9 @@
     // interest-engine.js — per-year accrued-interest ledger for cash/time deposits)
     'maermin_real_assets',
     'maermin_interest_ledger',
+    // exchange read-only sync (see exchange-sync.js) — connection METADATA only;
+    // the API keys live encrypted in the vault and are never written to a backup
+    'maermin_exchange_sync',
     'theme',
     'currency',
     'privacyMode',

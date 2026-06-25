@@ -740,7 +740,7 @@ export default {
     // never transmitted — only the signature the client already computed. The
     // host whitelist keeps this from becoming an open SSRF proxy.
     if (request.method === 'POST' && action === 'brokerproxy') {
-      const ALLOWED = ['api.binance.com', 'api.kraken.com', 'api.exchange.coinbase.com', 'api.coinbase.com'];
+      const ALLOWED = ['api.binance.com', 'api.kraken.com', 'api.exchange.coinbase.com', 'api.coinbase.com', 'api.bitpanda.com'];
       let spec;
       try { spec = await request.json(); } catch { return res(JSON.stringify({ error: 'Invalid JSON body' }), 400, request); }
       let target;

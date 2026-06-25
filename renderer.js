@@ -2029,7 +2029,19 @@ function InvestmentTracker() {
           : React.createElement('div', { style: { background: theme.card, border: `1px solid ${theme.cardBorder}`, borderRadius: '12px', padding: '3rem', textAlign: 'center', color: theme.textSecondary } },
               'Broker Import module not loaded'
             )
-      )
+      ),
+
+      // Exchange read-only sync (WI-7): import crypto trades from Binance/Kraken/
+      // Coinbase/Bitpanda. Keys are encrypted in the vault; sync is manual.
+      section === 'broker' && window.MaerminExchangeSync && window.MaerminExchangeSync.Panel &&
+        React.createElement(window.MaerminExchangeSync.Panel, {
+          theme, t, workerUrl: apiKeys.cs2Worker, existing: transactions, portfolioId: activePortfolioId,
+          onImport: (txs) => {
+            setTransactions(prev => [...prev, ...txs]);
+            if (window.MaerminAuditLog) window.MaerminAuditLog.record('data.import', `${txs.length} exchange trade(s) imported`);
+            addToast(`${txs.length} exchange trade(s) imported`, 'success');
+          }
+        })
     );
   };
 
