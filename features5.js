@@ -188,10 +188,14 @@ function PerformancePeriods({ portfolio, priceHistory, prices, theme, formatPric
 // 2. NET WORTH DASHBOARD
 // Adds cash accounts, property, and liabilities to the portfolio value
 // ─────────────────────────────────────────────────────────────────────────────
-function NetWorthView({ portfolioStats, portfolio, prices, theme, formatPrice, getCurrencySymbol }) {
+function NetWorthView({ portfolioStats, portfolio, prices, theme, formatPrice, getCurrencySymbol, t, usdToEur }) {
+  t = t || {};
+  const rate = usdToEur || (prices && prices.usdToEur) || 1;
   const [accounts, setAccounts] = useState(() => {
     try { return JSON.parse(localStorage.getItem('maermin_networth_accounts') || '[]'); } catch { return []; }
   });
+  // Bumped when the Real Assets panel mutates its store, so net worth recomputes.
+  const [raVersion, setRaVersion] = useState(0);
   const [showAdd, setShowAdd]   = useState(false);
   const [form, setForm]         = useState({ name: '', value: '', type: 'cash', currency: 'EUR',
     recurring: false, amount: '', interval: 'monthly', startDate: window.MaerminUtils.todayISO(), endDate: '' });
@@ -214,10 +218,17 @@ function NetWorthView({ portfolioStats, portfolio, prices, theme, formatPrice, g
   // Net worth comes from the shared metric (single source of truth — see metrics.js),
   // with an inline fallback if that module hasn't loaded.
   const portfolioValue   = portfolioStats.totalValue;
+  // Gross EUR value of tracked real assets (WI-1) — financing stays a liability
+  // account, so only the gross value flows in (no double-count). raVersion forces
+  // a recompute when the panel edits the store.
+  const realAssetsValue = (window.MaerminRealAssets)
+    ? window.MaerminRealAssets.aggregate(window.MaerminRealAssets.load(), accounts, rate).grossValue
+    : 0;
+  void raVersion;
   const nw = window.MaerminMetrics
-    ? window.MaerminMetrics.computeNetWorth(portfolioValue, accounts)
+    ? window.MaerminMetrics.computeNetWorth(portfolioValue, accounts, realAssetsValue)
     : {
-        manualAssets: accounts.filter(a => !LIABILITIES.has(a.type)).reduce((s,a) => s + parseFloat(a.value||0), 0),
+        manualAssets: accounts.filter(a => !LIABILITIES.has(a.type)).reduce((s,a) => s + parseFloat(a.value||0), 0) + realAssetsValue,
         liabilities:  accounts.filter(a =>  LIABILITIES.has(a.type)).reduce((s,a) => s + parseFloat(a.value||0), 0),
       };
   const totalAssets      = nw.manualAssets;
@@ -314,6 +325,13 @@ function NetWorthView({ portfolioStats, portfolio, prices, theme, formatPrice, g
         )
       )
     ),
+
+    // Real Assets & Property (WI-1) — property/valuables with valuation history,
+    // financing link and rental cashflows. Folds in as a Net-Worth section.
+    window.MaerminRealAssets && React.createElement(window.MaerminRealAssets.Panel, {
+      theme, t, accounts, prices, usdToEur: rate, formatPrice, getCurrencySymbol,
+      onChange: () => setRaVersion(v => v + 1)
+    }),
 
     // Whole-wealth projection (#6) — net worth forward under 3 scenarios,
     // composing savings plans + dividends + recurring liabilities + expenses.

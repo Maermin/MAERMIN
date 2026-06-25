@@ -34,16 +34,34 @@
     catch (e) { return []; }
   }
 
+  // Gross EUR value of all tracked real assets (property/valuables, WI-1). Their
+  // financing is already a liability account, so only the GROSS value is added
+  // here — netValue() handles per-asset display without double-counting debt.
+  function loadRealAssetsValue(usdToEur) {
+    if (typeof window === 'undefined' || !window.MaerminRealAssets) return 0;
+    try {
+      var st = window.MaerminRealAssets.load();
+      var sum = 0;
+      (st.assets || []).forEach(function (a) { sum += window.MaerminRealAssets.currentValue(a, usdToEur); });
+      return sum;
+    } catch (e) { return 0; }
+  }
+
   // ---- Net Worth -----------------------------------------------------------
-  // netWorth = portfolio value + non-liability accounts - liability accounts.
+  // netWorth = portfolio value + non-liability accounts + real assets (gross)
+  //            - liability accounts.
   // Same definition as NetWorthView, centralised so both read one truth.
-  function computeNetWorth(portfolioValue, accounts) {
+  // `realAssetsValue` is the gross EUR value of property/valuables (WI-1); when
+  // omitted it is read from the store. Pass 0 to exclude them.
+  function computeNetWorth(portfolioValue, accounts, realAssetsValue) {
     accounts = accounts || loadAccounts();
-    var assets = 0, liabilities = 0;
+    var realValue = (realAssetsValue == null) ? loadRealAssetsValue() : (parseFloat(realAssetsValue) || 0);
+    var accountAssets = 0, liabilities = 0;
     accounts.forEach(function (a) {
       var v = parseFloat(a.value || 0) || 0;
-      if (isLiability(a.type)) liabilities += v; else assets += v;
+      if (isLiability(a.type)) liabilities += v; else accountAssets += v;
     });
+    var assets = accountAssets + realValue;
     var pv = parseFloat(portfolioValue || 0) || 0;
     var total = pv + assets;
     // Liquidity ratio = share of net worth held in cash/checking accounts.
@@ -55,6 +73,8 @@
     return {
       portfolioValue: pv,
       manualAssets: assets,
+      accountAssets: accountAssets,
+      realAssets: realValue,
       liabilities: liabilities,
       assets: total,
       netWorth: net,

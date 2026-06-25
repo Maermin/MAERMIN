@@ -2388,7 +2388,7 @@ function InvestmentTracker() {
       case 'net-worth':
         return window.MaerminFeatures5 ?
           React.createElement(window.MaerminFeatures5.NetWorthView, {
-            portfolioStats, portfolio, prices, theme: currentTheme, formatPrice, getCurrencySymbol
+            portfolioStats, portfolio, prices, theme: currentTheme, formatPrice, getCurrencySymbol, t, usdToEur: exchangeRate
           }) : renderAnalyticsPlaceholder('Net Worth');
 
       case 'cashflow':

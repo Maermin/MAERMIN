@@ -52,6 +52,8 @@
     'maermin_div_autobook',
     // corporate-action store (see corporate-actions.js — stock/reverse splits)
     'maermin_corporate_actions',
+    // competitive-gap stores (see real-assets.js — property/valuables with cashflows)
+    'maermin_real_assets',
     'theme',
     'currency',
     'privacyMode',
