@@ -491,6 +491,7 @@ const completeTranslations = {
     exLastSync: 'last sync', exNeverSynced: 'never synced', exRemove: 'Remove', exLabel: 'Label (optional)',
     exApiKey: 'API key (read-only)', exApiSecret: 'API secret', exAdd: 'Add connection', exSyncNow: 'Sync now',
     exSyncing: 'Syncing', exImported: 'trade(s) imported', exSkipped: 'duplicate(s) skipped',
+    presetLabel: 'Mapping preset', presetLoad: 'Load preset…', presetSave: 'Save preset', presetDelete: 'Delete',
     watchlistNote: 'Note / thesis (opt.)',
     watchlistToGo: 'to go',
     watchlistAbove: 'above',
@@ -786,6 +787,7 @@ const completeTranslations = {
     exLastSync: 'letzter Sync', exNeverSynced: 'nie synchronisiert', exRemove: 'Entfernen', exLabel: 'Bezeichnung (optional)',
     exApiKey: 'API-Key (read-only)', exApiSecret: 'API-Secret', exAdd: 'Verbindung hinzufügen', exSyncNow: 'Jetzt syncen',
     exSyncing: 'Synchronisiere', exImported: 'Trade(s) importiert', exSkipped: 'Duplikat(e) übersprungen',
+    presetLabel: 'Mapping-Preset', presetLoad: 'Preset laden…', presetSave: 'Preset speichern', presetDelete: 'Löschen',
     // Categories view
     catSubtitle: 'Definiere eigene Anlagekategorien jenseits der vier Standardklassen. Custom-Kategorien werden bepreist und in deinen Summen gezählt; sie erscheinen beim Hinzufügen einer Transaktion. Im Backup enthalten.',
     catAdd: 'Kategorie hinzufügen', catDelete: 'Löschen', catColor: 'Farbe', catNewPlaceholder: 'Neue Kategorie, z. B. Immobilien …',

@@ -59,6 +59,8 @@
     // exchange read-only sync (see exchange-sync.js) — connection METADATA only;
     // the API keys live encrypted in the vault and are never written to a backup
     'maermin_exchange_sync',
+    // reusable CSV import presets (see import-mapping.js — saved column mappings)
+    'maermin_import_presets',
     'theme',
     'currency',
     'privacyMode',
