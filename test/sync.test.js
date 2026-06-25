@@ -61,6 +61,21 @@ function MemTransport() {
   const merged = JSON.parse(u.str);
   ok('union dedupes by id and keeps all unique', merged.length === 3 && u.added === 1);
 
+  // regression: an EDIT (same id, different content) must sync — the newer blob
+  // wins. Previously local always won, so edits made on another device were lost.
+  const edR = Sync.unionTransactions(
+    JSON.stringify([{ id: 1, symbol: 'BTC', quantity: 1 }]),
+    JSON.stringify([{ id: 1, symbol: 'BTC', quantity: 5 }]),
+    true  // remoteNewer
+  );
+  ok('edit collision: remote-newer wins', JSON.parse(edR.str)[0].quantity === 5 && JSON.parse(edR.str).length === 1);
+  const edL = Sync.unionTransactions(
+    JSON.stringify([{ id: 1, symbol: 'BTC', quantity: 1 }]),
+    JSON.stringify([{ id: 1, symbol: 'BTC', quantity: 5 }]),
+    false // localNewer
+  );
+  ok('edit collision: local-newer wins', JSON.parse(edL.str)[0].quantity === 1);
+
   // mergeSnapshots: transactions unioned, other keys last-write-wins
   const local = { v: 1, updatedAt: 100, device: 'A', data: {
     transactions: JSON.stringify([{ id: 1, symbol: 'BTC' }]),

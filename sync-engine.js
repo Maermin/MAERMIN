@@ -144,15 +144,28 @@
   function parseArray(jsonStr) {
     try { var a = JSON.parse(jsonStr); return Array.isArray(a) ? a : null; } catch (e) { return null; }
   }
-  function unionTransactions(localStr, remoteStr) {
+  // Union by identity so nothing is dropped. When the SAME id appears on both
+  // sides with DIFFERENT content (i.e. the transaction was EDITED on one device),
+  // the previous code always kept the local copy, so edits never synced — only
+  // brand-new transactions did. Now an id-collision with differing content is
+  // resolved last-write-wins by blob recency (`remoteNewer`), consistent with how
+  // every other key is merged. Identity order is preserved (local first).
+  function unionTransactions(localStr, remoteStr, remoteNewer) {
     var local = parseArray(localStr) || [];
     var remote = parseArray(remoteStr) || [];
-    var seen = {}, out = [];
-    local.concat(remote).forEach(function (tx) {
+    var byKey = {}, order = [], localCount = 0;
+    function ingest(tx, fromRemote) {
       var key = txIdentity(tx);
-      if (!seen[key]) { seen[key] = true; out.push(tx); }
-    });
-    return { str: JSON.stringify(out), added: out.length - local.length };
+      if (!(key in byKey)) { byKey[key] = tx; order.push(key); }
+      else if (JSON.stringify(byKey[key]) !== JSON.stringify(tx)) {
+        // same identity, different content → the newer blob's version wins
+        if (fromRemote ? remoteNewer : !remoteNewer) byKey[key] = tx;
+      }
+    }
+    local.forEach(function (tx) { localCount++; ingest(tx, false); });
+    remote.forEach(function (tx) { ingest(tx, true); });
+    var out = order.map(function (k) { return byKey[k]; });
+    return { str: JSON.stringify(out), added: out.length - localCount };
   }
 
   function mergeSnapshots(localSnap, remoteSnap) {
@@ -173,7 +186,7 @@
       if (lv === rv) { mergedData[k] = lv; return; }
 
       if (k === 'transactions') {
-        var u = unionTransactions(lv, rv);
+        var u = unionTransactions(lv, rv, remoteNewer);
         mergedData[k] = u.str;
         conflicts.push({ key: k, resolution: 'union', addedFromRemote: u.added });
       } else {
