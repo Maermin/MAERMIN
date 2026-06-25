@@ -481,6 +481,7 @@ const completeTranslations = {
     taPriCritical: 'Critical', taPriImportant: 'Important', taPriOptimize: 'Optimization',
     taCryptoFreigrenze: 'Crypto Freigrenze (1.000 EUR)', taLeft: 'left', taSparer: 'Sparerpauschbetrag',
     taCryptoLots: 'Crypto lots near tax-free', taNone: 'No tax actions flagged right now.',
+    pmTitle: 'Performance Map', pmSubtitle: 'Area = weight, colour = performance', pmEmpty: 'No priced positions to map yet.',
     watchlistNote: 'Note / thesis (opt.)',
     watchlistToGo: 'to go',
     watchlistAbove: 'above',
@@ -766,6 +767,7 @@ const completeTranslations = {
     taPriCritical: 'Kritisch', taPriImportant: 'Wichtig', taPriOptimize: 'Optimierung',
     taCryptoFreigrenze: 'Krypto-Freigrenze (1.000 EUR)', taLeft: 'übrig', taSparer: 'Sparerpauschbetrag',
     taCryptoLots: 'Krypto-Lots kurz vor steuerfrei', taNone: 'Aktuell keine Steuer-Aktionen markiert.',
+    pmTitle: 'Performance-Karte', pmSubtitle: 'Fläche = Gewicht, Farbe = Performance', pmEmpty: 'Noch keine bepreisten Positionen für die Karte.',
     // Categories view
     catSubtitle: 'Definiere eigene Anlagekategorien jenseits der vier Standardklassen. Custom-Kategorien werden bepreist und in deinen Summen gezählt; sie erscheinen beim Hinzufügen einer Transaktion. Im Backup enthalten.',
     catAdd: 'Kategorie hinzufügen', catDelete: 'Löschen', catColor: 'Farbe', catNewPlaceholder: 'Neue Kategorie, z. B. Immobilien …',

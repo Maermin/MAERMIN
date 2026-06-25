@@ -2326,9 +2326,17 @@ function InvestmentTracker() {
       // on-device value history — no API. Defaults to the combined 'all' series.
       case 'performance':
         return window.MaerminPerformance ?
-          React.createElement(window.MaerminPerformance.View, {
-            theme: currentTheme, t, formatPrice, getCurrencySymbol, workerUrl: apiKeys.cs2Worker
-          }) : renderAnalyticsPlaceholder('Performance');
+          React.createElement('div', null,
+            // Performance Map treemap (WI-4): area = weight, colour = performance.
+            window.MaerminPerformanceMap && React.createElement('div', { style: { padding: '1.5rem 1.5rem 0' } },
+              React.createElement(window.MaerminPerformanceMap.Panel, {
+                theme: currentTheme, t, positions: portfolio, prices, exchangeRate,
+                privacyMode, formatPrice, getCurrencySymbol
+              })),
+            React.createElement(window.MaerminPerformance.View, {
+              theme: currentTheme, t, formatPrice, getCurrencySymbol, workerUrl: apiKeys.cs2Worker
+            })
+          ) : renderAnalyticsPlaceholder('Performance');
 
       // v10.x: Customize Overview — show/hide/reorder the main Overview sections
       // (MaerminDashboard). renderOverview reads visibleSet() each render.
