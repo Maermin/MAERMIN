@@ -289,10 +289,22 @@ function InvestmentTracker() {
     [exchangeRate, fxHistVersion]
   );
 
-  // Transactions filtered to the active portfolio
+  // Transactions filtered to the active portfolio. activePortfolioId === 'all'
+  // is the cross-portfolio scope: every analysis view (Returns, Tax, Health,
+  // Analytics, Intelligence, …) derives from activeTransactions, so 'all' makes
+  // them all show the combined book instead of one portfolio.
   const activeTransactions = useMemo(() =>
-    transactions.filter(tx => (tx.portfolioId || 'default') === activePortfolioId),
+    activePortfolioId === 'all'
+      ? transactions
+      : transactions.filter(tx => (tx.portfolioId || 'default') === activePortfolioId),
   [transactions, activePortfolioId]);
+
+  // A concrete portfolio id to TAG newly created records with. Never 'all' (a tx
+  // tagged 'all' would belong to no real portfolio), so the 'all' scope resolves
+  // to the first real portfolio.
+  const defaultTargetPid = activePortfolioId === 'all'
+    ? ((portfolios && portfolios[0] && portfolios[0].id) || 'default')
+    : activePortfolioId;
 
   // Portfolio derived from transactions
   // Single active portfolio, derived from its transactions. Delegates to the
@@ -405,11 +417,11 @@ function InvestmentTracker() {
     if (!EX || !DS) { if (announce) addToast('Dividend engine not loaded', 'warning'); return; }
     try {
       const sched = DS.buildPaymentSchedule(portfolio, { back: 12, months: 0 });
-      const out = EX.runCatchUp(sched, transactions, activePortfolioId);
+      const out = EX.runCatchUp(sched, transactions, defaultTargetPid);
       if (out.created.length) { setTransactions(out.transactions); addToast(`${out.created.length} ${t.divBookedToast || 'dividend(s) booked (estimated)'}`, 'success'); }
       else if (announce) { addToast(t.divNoneToBook || 'No new dividends to book', 'info'); }
     } catch (e) { console.warn('[DIV] booking failed:', e); }
-  }, [portfolio, transactions, activePortfolioId]);
+  }, [portfolio, transactions, defaultTargetPid]);
   const toggleDivAutoBook = useCallback(() => {
     setDivAutoBook(prev => {
       const next = !prev;
@@ -423,10 +435,10 @@ function InvestmentTracker() {
     if (!EX || !DS) return;
     try {
       const sched = DS.buildPaymentSchedule(portfolio, { back: 12, months: 0 });
-      const out = EX.runCatchUp(sched, transactions, activePortfolioId);
+      const out = EX.runCatchUp(sched, transactions, defaultTargetPid);
       if (out.created.length) { setTransactions(out.transactions); addToast(`${out.created.length} ${t.divAutoBookedToast || 'dividend(s) auto-booked (estimated)'}`, 'success'); }
     } catch (e) { /* best-effort */ }
-  }, [divAutoBook, transactions, portfolio, activePortfolioId, demoMode]);
+  }, [divAutoBook, transactions, portfolio, defaultTargetPid, demoMode]);
 
   // Forms & Modals
   const [newTransaction, setNewTransaction] = useState({
@@ -1611,7 +1623,7 @@ function InvestmentTracker() {
       date: newTransaction.date,
       notes: newTransaction.notes,
       currency: newTransaction.currency || currency,
-      portfolioId: newTransaction.targetPortfolioId || activePortfolioId,
+      portfolioId: newTransaction.targetPortfolioId || defaultTargetPid,
       ...(newTransaction.skinIconUrl ? { skinIconUrl: newTransaction.skinIconUrl } : {}),
       ...(optionFields || {})
     };
@@ -1652,7 +1664,7 @@ function InvestmentTracker() {
       fees: '',
       notes: '',
       currency: currency,
-      targetPortfolioId: activePortfolioId,
+      targetPortfolioId: defaultTargetPid,
     });
     setShowTransactionModal(true);
   };
@@ -1669,7 +1681,7 @@ function InvestmentTracker() {
       fees: tx.fees?.toString() || '',
       notes: tx.notes || '',
       currency: tx.currency || 'EUR',
-      targetPortfolioId: tx.portfolioId || activePortfolioId,
+      targetPortfolioId: tx.portfolioId || defaultTargetPid,
       // Option contract fields (only set on category 'options' rows).
       underlying: tx.underlying || '',
       optionType: tx.optionType || 'call',
@@ -2432,7 +2444,7 @@ function InvestmentTracker() {
         return window.MaerminFeatures4 ?
           React.createElement(window.MaerminFeatures4.SavingsPlanView, {
             transactions: activeTransactions, theme: currentTheme, formatPrice, getCurrencySymbol, t,
-            portfolios, activePortfolioId,
+            portfolios, activePortfolioId: defaultTargetPid,
             // Feed the projection (#6): current investment value + forward dividend yield.
             // NB: use the component-scoped portfolioStats (stats is only defined in
             // the overview block, not here — referencing it crashed the page).
@@ -2974,9 +2986,10 @@ function InvestmentTracker() {
       React.createElement('div', {
         style: { display: 'flex', gap: '0.375rem', marginBottom: '1.5rem', flexWrap: 'wrap', alignItems: 'center' }
       },
-        // All Portfolios tab
+        // All Portfolios tab — also sets the active scope to 'all' so every
+        // analysis view (not just the Overview) shows the combined book.
         React.createElement('button', {
-          onClick: () => setOverviewMode('all'),
+          onClick: () => { setOverviewMode('all'); setActivePortfolioId('all'); },
           style: {
             display: 'flex', alignItems: 'center', gap: '0.4rem',
             padding: '0.375rem 0.875rem',
@@ -3373,9 +3386,9 @@ function InvestmentTracker() {
   // ========== TRANSACTIONS VIEW ==========
   
   const renderTransactionsView = () => {
-    // Filter by active portfolio first, then by search
+    // Filter by active portfolio first, then by search ('all' = every portfolio).
     const filtered = transactions.filter(tx => {
-      const portfolioMatch = (tx.portfolioId || 'default') === activePortfolioId;
+      const portfolioMatch = activePortfolioId === 'all' || (tx.portfolioId || 'default') === activePortfolioId;
       if (!portfolioMatch) return false;
       if (!txSearch.trim()) return true;
       const q = txSearch.toLowerCase();
@@ -3385,7 +3398,9 @@ function InvestmentTracker() {
              (tx.notes || '').toLowerCase().includes(q) ||
              (tx.symbolName || '').toLowerCase().includes(q);
     });
-    const totalAll = transactions.filter(tx => (tx.portfolioId || 'default') === activePortfolioId).length;
+    const totalAll = activePortfolioId === 'all'
+      ? transactions.length
+      : transactions.filter(tx => (tx.portfolioId || 'default') === activePortfolioId).length;
 
     // Sort
     const sorted = [...filtered].sort((a, b) => {
@@ -3857,7 +3872,7 @@ function InvestmentTracker() {
         fees: '',
         notes: '',
         currency: currency,
-        targetPortfolioId: activePortfolioId,
+        targetPortfolioId: defaultTargetPid,
       });
     };
     
@@ -3898,7 +3913,7 @@ function InvestmentTracker() {
         React.createElement('div', { style: { marginBottom: '1rem' } },
           React.createElement('label', { style: { display: 'block', color: currentTheme.textSecondary, marginBottom: '0.5rem', fontSize: '0.875rem' } }, 'Portfolio'),
           React.createElement('select', {
-            value: newTransaction.targetPortfolioId || activePortfolioId,
+            value: newTransaction.targetPortfolioId || defaultTargetPid,
             onChange: e => setNewTransaction(prev => ({ ...prev, targetPortfolioId: e.target.value })),
             style: {
               width: '100%', padding: '0.625rem 0.875rem',

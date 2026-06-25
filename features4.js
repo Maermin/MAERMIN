@@ -102,7 +102,22 @@ function PortfolioSwitcher({ portfolios, activePortfolioId, setActivePortfolioId
     return values;
   }, [portfolios, transactions, prices]);
 
+  const allValue = useMemo(() => Object.values(portfolioValues).reduce((s, v) => s + (v || 0), 0), [portfolioValues]);
+
   return React.createElement('div', { style: { display: 'flex', gap: '0.25rem', padding: '0.25rem', background: theme.inputBg, borderRadius: '10px' } },
+    // 'All' scope — every analysis view shows the combined book, not one portfolio.
+    React.createElement('button', {
+      key: 'all',
+      onClick: () => setActivePortfolioId('all'),
+      title: allValue ? `€${allValue.toFixed(0)}` : '',
+      style: {
+        padding: '0.35rem 0.75rem', border: 'none', borderRadius: '7px', cursor: 'pointer',
+        fontSize: '0.78rem', fontWeight: activePortfolioId === 'all' ? '700' : '400',
+        background: activePortfolioId === 'all' ? theme.accent : 'transparent',
+        color: activePortfolioId === 'all' ? '#fff' : theme.textSecondary,
+        transition: 'all 0.15s', whiteSpace: 'nowrap'
+      }
+    }, 'All'),
     portfolios.map(p =>
       React.createElement('button', {
         key: p.id,
