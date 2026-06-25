@@ -49,6 +49,14 @@ const M = require('../metrics.js');
     { type: 'buy',  quantity: 10, price: 100, currency: 'EUR', date: '2024-01-01' },
   ], 0.9);
   ok('matchFifoLots is order-independent (date-sorted)', near(unordered.totalCostEUR / unordered.amount, 1700 / 15));
+  // Same-date SELL listed BEFORE its BUY (common in broker CSVs) must still
+  // consume the lot — the sell tie-breaks AFTER the buy on an equal date.
+  const sameDay = M.matchFifoLots([
+    { type: 'sell', quantity: 5,  price: 130, currency: 'EUR', date: '2024-03-01' },
+    { type: 'buy',  quantity: 10, price: 100, currency: 'EUR', date: '2024-03-01' },
+  ], 0.9);
+  ok('same-date sell-before-buy consumes the lot (10 buy − 5 sell = 5)', near(sameDay.amount, 5));
+  ok('same-date remaining cost basis is the buy price', near(sameDay.totalCostEUR, 500));
 
   console.log('buildPositions — per-date FX (fxAt resolver):');
   const fxAt = (d) => (d <= '2024-01-31' ? 0.80 : 0.90); // USD→EUR by date
