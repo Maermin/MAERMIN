@@ -63,6 +63,7 @@ No account  ·  No server  ·  No ads  ·  No remote telemetry  ·  MIT License
 | **Strategy** | DCA vs lump sum, sector allocation, currency exposure, liquidity score, goal planning |
 | **Health Score** | 0–100 structural score (diversification · concentration · asset-class spread · breadth) with a letter grade and concrete, actionable recommendations · AI advisor findings folded in |
 | **ETF X-Ray** | Look-through of ETF/fund positions: effective per-security exposure across funds + direct holdings, sector/country/currency look-through, fund-overlap detection, hidden concentration risks — in the Health and Risk views (live via Worker, built-in snapshot fallback) |
+| **Corporate Actions** | Stock splits and reverse splits applied to historical lots so quantities, prices, position value, P&L, CAGR, the value chart and FIFO cost basis stay correct across a split · add manually (ratio New:Old) per holding or auto-detect via the Worker · managed in the position detail modal, with a global list in Settings · carried in the full-vault backup |
 | **Tax & FIFO** | German tax law: 1-year crypto exemption with Freigrenze, Vorabpauschale per accumulating fund (BMF base rates, month pro-rating, sale credit), Teilfreistellung by fund type, Sparerpauschbetrag, Soli and optional church tax in the statutory order · US tax law (short/long-term gains) · editable tax settings (rate, Soli, church tax, allowance, crypto exemption, Teilfreistellung) · multi-sheet Excel + PDF export |
 
 ### Tools

@@ -50,6 +50,8 @@
     'maermin_rules',
     'maermin_custom_categories',
     'maermin_div_autobook',
+    // corporate-action store (see corporate-actions.js — stock/reverse splits)
+    'maermin_corporate_actions',
     'theme',
     'currency',
     'privacyMode',

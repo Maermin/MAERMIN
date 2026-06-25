@@ -351,7 +351,18 @@
     return { amount: amount, totalCostEUR: totalCostEUR, firstDate: firstDate };
   }
 
+  // Single, centralised corporate-action overlay. Every raw-transaction
+  // consumer routes through here so stock splits land uniformly (the engine
+  // loads after metrics.js, so guard for its absence). `adjust` is the identity
+  // when no split is recorded, so this is a no-op for every existing user.
+  function withCorporateActions(transactions) {
+    return (typeof window !== 'undefined' && window.MaerminCorporateActions)
+      ? window.MaerminCorporateActions.adjust(transactions)
+      : transactions;
+  }
+
   function buildPositions(transactions, opts) {
+    transactions = withCorporateActions(transactions);
     opts = opts || {};
     var rate = parseFloat(opts.exchangeRate) || 0; // USD -> EUR (static fallback)
     var fxAt = (typeof opts.fxAt === 'function') ? opts.fxAt : null; // per-date USD→EUR

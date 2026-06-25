@@ -27,6 +27,7 @@ Every shipped module is covered by a Node test in `test/`.
 | **v10 Snapshots** | `portfolio-snapshots.js` | On-device daily total-value history (per portfolio), survives API outages, in backup | `test/portfolio-snapshots.test.js` |
 | **v10 Tags** | `tags.js` | Cross-cutting labels on symbols + per-tag value/weight rollup, in backup | `test/tags.test.js` |
 | **v10 Dashboard** | `dashboard-layout.js` | Reorder/hide Overview cards, build-safe layout reconciliation, in backup | `test/dashboard-layout.test.js` |
+| **Corporate actions** | `corporate-actions.js`, `metrics.js`, `tax-report-builder.js`, `cf-worker/worker.js` (`?action=yf` splits) | Stock/reverse splits applied as a centralised overlay in `MaerminMetrics.buildPositions` + the tax FIFO (identity until a split is recorded, cash-amount-invariant) · manual entry + best-effort Worker auto-detect · managed in the position detail modal + a global Settings list · key `maermin_corporate_actions`, in backup | `test/corporate-actions.test.js` |
 
 **Engine layer is done and tested.** The remaining work for the shipped epics is
 **UI fold-in** — embedding `MaerminAdvisor.Panel`, the benchmark overlay, the

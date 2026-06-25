@@ -231,7 +231,7 @@ export default {
       }
 
       const yfUrl = `https://query1.finance.yahoo.com/v8/finance/chart/${encodeURIComponent(symbol)}` +
-        `?interval=${interval}&range=${range}&includeTimestamps=true&includePrePost=false`;
+        `?interval=${interval}&range=${range}&includeTimestamps=true&includePrePost=false&events=div,split`;
 
       try {
         const r = await fetchWithTimeout(yfUrl, {
@@ -266,7 +266,20 @@ export default {
           price: closes[i] ?? null,
         })).filter(p => p.price !== null && !isNaN(p.price));
 
-        const payload = JSON.stringify({ symbol, currency, exchangeTz: exchTz, prices });
+        // Corporate actions: surface Yahoo's split events (added via events=split
+        // above) as a flat, normalised array. result.events.splits is an object
+        // keyed by epoch second: { "<ts>": { date, numerator, denominator } }.
+        // Empty array when Yahoo reports none. The `prices` shape is unchanged so
+        // existing clients ignore this new field; a client that wants splits reads
+        // it, and one running against an older Worker simply finds it absent.
+        const splits = Object.values(result.events?.splits || {}).map(s => ({
+          date: s.date != null ? new Date(s.date * 1000).toISOString().split('T')[0] : null,
+          numerator: numOrNull(s.numerator),
+          denominator: numOrNull(s.denominator),
+        })).filter(s => s.date && s.numerator > 0 && s.denominator > 0)
+          .sort((a, b) => (a.date < b.date ? -1 : 1));
+
+        const payload = JSON.stringify({ symbol, currency, exchangeTz: exchTz, prices, splits });
 
         // Cache
         ctx.waitUntil(cache.put(cacheKey, new Response(payload, {

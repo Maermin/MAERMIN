@@ -571,6 +571,9 @@ function InvestmentTracker() {
   const [taxYear, setTaxYear] = useState(() => new Date().getFullYear());
   // Bumped when tax settings change, to recompute the summary cards/report.
   const [taxSettingsRev, setTaxSettingsRev] = useState(0);
+  // Bumped when a corporate action (split) is removed from the global Settings
+  // list, so the list re-reads the store.
+  const [corpActionsRev, setCorpActionsRev] = useState(0);
   const [taxOwner, setTaxOwner] = useState(() => {
     try { return JSON.parse(localStorage.getItem('maermin_tax_owner') || '{}'); } catch { return {}; }
   });
@@ -5019,6 +5022,30 @@ buy,crypto,bitcoin,0.5,45000,2024-01-15,10`)
               React.createElement('span', { style: { opacity: 0.85 } }, privacyMode ? 'ON' : 'OFF')
             )
           ),
+          // Corporate actions (stock splits) — global list. Per-symbol add/scan
+          // lives in the position detail modal; this is the cross-holding view.
+          (function () {
+            var CA = window.MaerminCorporateActions;
+            if (!CA) return null;
+            var all = CA.listFor();
+            if (!all.length) return null;
+            var removeOne = function (a) {
+              if (typeof window.confirm === 'function' && !window.confirm(t.caRemoveConfirm || 'Remove this split? It can be re-added or re-scanned.')) return;
+              CA.remove(a.id); setCorpActionsRev(function (n) { return n + 1; });
+            };
+            return React.createElement('div', { key: 'corp-' + corpActionsRev, style: { marginBottom: '1rem' } },
+              React.createElement('label', { style: { color: currentTheme.textSecondary, fontSize: '0.7rem', textTransform: 'uppercase', letterSpacing: '0.05em' } }, t.caTitle || 'Corporate actions (splits)'),
+              React.createElement('div', { style: { display: 'flex', flexDirection: 'column', gap: '1px', marginTop: '0.5rem', maxHeight: '140px', overflow: 'auto' } },
+                all.map(function (a) {
+                  return React.createElement('div', { key: a.id, style: { display: 'grid', gridTemplateColumns: '1fr auto auto', gap: '0.4rem', alignItems: 'center', padding: '0.3rem 0', borderBottom: '1px solid ' + currentTheme.cardBorder, fontSize: '0.76rem' } },
+                    React.createElement('span', { style: { color: currentTheme.text, fontWeight: 600, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' } }, a.symbol + ' ' + a.num + ':' + a.den),
+                    React.createElement('span', { style: { color: currentTheme.textSecondary } }, a.date),
+                    React.createElement('span', Object.assign({}, ((window.MaerminUtils && window.MaerminUtils.clickable) ? window.MaerminUtils.clickable(function () { removeOne(a); }) : { onClick: function () { removeOne(a); } }), { style: { color: currentTheme.danger || '#ef4444', cursor: 'pointer' }, 'aria-label': (t.caRemove || 'Remove') + ' ' + a.symbol }), '×')
+                  );
+                })
+              )
+            );
+          })(),
           // Divider
           React.createElement('div', { style: { height: '1px', background: currentTheme.cardBorder, margin: '0.75rem 0' } }),
           // Change Password

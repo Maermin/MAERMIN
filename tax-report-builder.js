@@ -107,7 +107,12 @@
     var fxAt = (typeof opts.fxAt === 'function') ? opts.fxAt : null; // per-date USD→base
     var base = opts.baseCurrency || 'EUR';
     var jurisdiction = opts.jurisdiction || 'de';
-    var txs = transactions || [];
+    // Apply recorded stock splits before FIFO so realized gains/losses and open
+    // positions use split-adjusted lots. Identity when no split is recorded, and
+    // guarded for the engine being absent (e.g. headless Node tests).
+    var txs = (typeof window !== 'undefined' && window.MaerminCorporateActions)
+      ? window.MaerminCorporateActions.adjust(transactions || [])
+      : (transactions || []);
     var inYear = function (d) { return new Date(d).getFullYear() === year; };
 
     var disposals = fifo(txs, year, rate, fxAt);
