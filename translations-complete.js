@@ -484,6 +484,8 @@ const completeTranslations = {
     pmTitle: 'Performance Map', pmSubtitle: 'Area = weight, colour = performance', pmEmpty: 'No priced positions to map yet.',
     mcTitle: 'Company size', mcSubtitle: 'Equity allocation by market-cap size (EUR-normalised)',
     mcLarge: 'Large cap', mcMid: 'Mid cap', mcSmall: 'Small cap', mcUnknown: 'Unknown', mcEmpty: 'No equity positions to size yet.',
+    yocTitle: 'Yield on cost & DRIP', yocSubtitle: 'Annual dividend over your FIFO cost basis. DRIP figures are a simulation — no real transactions are booked.',
+    yocSymbol: 'Symbol', yocCost: 'Cost basis', yocIncome: 'Annual income', yocYoc: 'YoC', yocEmpty: 'No dividend-paying stock positions to analyse yet.',
     watchlistNote: 'Note / thesis (opt.)',
     watchlistToGo: 'to go',
     watchlistAbove: 'above',
@@ -772,6 +774,8 @@ const completeTranslations = {
     pmTitle: 'Performance-Karte', pmSubtitle: 'Fläche = Gewicht, Farbe = Performance', pmEmpty: 'Noch keine bepreisten Positionen für die Karte.',
     mcTitle: 'Unternehmensgröße', mcSubtitle: 'Aktien-Allokation nach Marktkapitalisierung (EUR-normiert)',
     mcLarge: 'Large Cap', mcMid: 'Mid Cap', mcSmall: 'Small Cap', mcUnknown: 'Unbekannt', mcEmpty: 'Noch keine Aktienpositionen zum Einordnen.',
+    yocTitle: 'Yield on Cost & DRIP', yocSubtitle: 'Jahresdividende auf deine FIFO-Einstandsbasis. DRIP-Werte sind eine Simulation — es werden keine echten Transaktionen gebucht.',
+    yocSymbol: 'Symbol', yocCost: 'Einstandsbasis', yocIncome: 'Jahresertrag', yocYoc: 'YoC', yocEmpty: 'Noch keine dividendenzahlenden Aktienpositionen.',
     // Categories view
     catSubtitle: 'Definiere eigene Anlagekategorien jenseits der vier Standardklassen. Custom-Kategorien werden bepreist und in deinen Summen gezählt; sie erscheinen beim Hinzufügen einer Transaktion. Im Backup enthalten.',
     catAdd: 'Kategorie hinzufügen', catDelete: 'Löschen', catColor: 'Farbe', catNewPlaceholder: 'Neue Kategorie, z. B. Immobilien …',

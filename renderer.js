@@ -2550,6 +2550,13 @@ function InvestmentTracker() {
             theme: currentTheme, t, addToast, formatPrice, getCurrencySymbol,
             divAutoBook, toggleDivAutoBook, onBookDividends: () => bookDividends(true)
           }),
+          // Yield-on-cost + DRIP (WI-6): per-payer YoC over FIFO cost basis.
+          window.MaerminDividendYoc && window.MaerminDividendYoc.Panel &&
+            React.createElement('div', { style: { padding: '0 1.5rem' } },
+              React.createElement(window.MaerminDividendYoc.Panel, {
+                portfolio, prices, transactions: activeTransactions, exchangeRate,
+                theme: currentTheme, t, formatPrice, getCurrencySymbol
+              })),
           // Earnings calendar for held stocks (read-only, gated like Discovery).
           window.MaerminEarnings && window.MaerminEarnings.Panel &&
             React.createElement(window.MaerminEarnings.Panel, {
