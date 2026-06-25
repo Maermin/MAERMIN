@@ -323,7 +323,13 @@
       var db = b && b.date ? new Date(b.date).getTime() : 0;
       if (isNaN(da)) da = 0;
       if (isNaN(db)) db = 0;
-      return da - db;
+      if (da !== db) return da - db;
+      // Same date: a BUY must be processed before a SELL so a same-day sale can
+      // consume the lot it sold. Input order (e.g. a broker CSV listing the sell
+      // first) must not leave the buy un-consumable and overstate the position.
+      var ra = a && a.type === 'sell' ? 1 : 0;
+      var rb = b && b.type === 'sell' ? 1 : 0;
+      return ra - rb;
     });
     var lots = []; // open buy lots, oldest first: { qty, priceEUR, date }
     sorted.forEach(function (tx) {
