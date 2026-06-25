@@ -142,6 +142,27 @@ export default {
       return res(JSON.stringify({ error: 'unknown share op' }), 400, request);
     }
 
+    // ── MCP read-only portfolio endpoint (WI-9) ──────────────────────────────
+    // GET /?action=mcp&id=<shareId>  — an MCP-compatible, READ-ONLY view over the
+    // exact same redacted share snapshot. It serves ONLY allowlist fields
+    // (percentage weights by asset class / sector / region / currency + optional
+    // scores) — never amounts, quantities or symbols. Same opt-in, time-limited
+    // links as Share & Compare: an expired/unknown id is dead (404). The snapshot
+    // is re-validated on the way out so nothing outside the allowlist can leak,
+    // even if a record were ever tampered with.
+    if (request.method === 'GET' && action === 'mcp') {
+      if (!env || !env.SYNC) {
+        return res(JSON.stringify({ error: 'mcp storage not configured (bind KV namespace SYNC)' }), 501, request);
+      }
+      const id = String(url.searchParams.get('id') || '');
+      if (!/^[a-f0-9]{10,32}$/.test(id)) return res(JSON.stringify({ error: 'invalid id' }), 400, request);
+      const rec = await env.SYNC.get('share:' + id, { type: 'json' });
+      if (!rec || !rec.snapshot) return res(JSON.stringify({ error: 'link expired or not found' }), 404, request);
+      const resource = mcpResource(rec.snapshot, { id, at: rec.at });
+      if (!resource) return res(JSON.stringify({ error: 'snapshot not serveable' }), 404, request);
+      return res(JSON.stringify(resource), 200, request);
+    }
+
     // ── Yahoo Finance Symbol Search ──────────────────────────────────────────
     // GET /?action=yfsearch&q=Apple
     // Returns: [{symbol, name, exchange, type, logoUrl}]
@@ -1077,6 +1098,39 @@ function validateShareSnapshot(s) {
     if (Object.keys(m).length) out.metrics = m;
   }
   return { ok: true, snapshot: out };
+}
+
+// MCP read-only resource (WI-9). Re-runs the SAME allowlist validation as the
+// share route, so the response can only ever contain percentage weights + scores
+// — never amounts, quantities or symbols. Returns null for an invalid/empty
+// snapshot (so an expired/garbage record serves nothing). Pure + exported for
+// the Node worker test.
+export function mcpResource(snapshot, meta) {
+  const v = validateShareSnapshot(snapshot);
+  if (!v.ok) return null;
+  meta = meta || {};
+  const s = v.snapshot; // already redacted to the allowlist
+  return {
+    // Minimal MCP-style resource descriptor over the redacted snapshot.
+    protocol: 'mcp',
+    type: 'resource',
+    resource: {
+      uri: 'maermin://portfolio/' + (meta.id || 'shared'),
+      name: 'Portfolio allocation (redacted)',
+      mimeType: 'application/json',
+      description: 'Read-only, redacted portfolio allocation: percentage weights and optional scores only. No amounts, quantities or symbols.'
+    },
+    data: {
+      v: 1,
+      assetClasses: s.assetClasses || {},
+      sectors: s.sectors || [],
+      regions: s.regions || [],
+      currencies: s.currencies || [],
+      metrics: s.metrics || {}
+    },
+    publishedAt: meta.at || null,
+    readOnly: true
+  };
 }
 
 // Yahoo quoteSummary fetch. Unlike chart/quote/screener, the quoteSummary API

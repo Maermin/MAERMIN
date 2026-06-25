@@ -173,6 +173,26 @@ no account, no PII, 90-day TTL.
 The aggregate is a running count+sum of asset-class weights only - individual
 snapshots are never exposed through it.
 
+### `GET /?action=mcp&id=<shareId>`
+MCP-compatible **read-only** view over the exact same redacted share snapshot
+(WI-9). Same opt-in, time-limited link as `action=share`: an expired/unknown id
+is dead (`404`). The stored snapshot is **re-validated through the same allowlist
+on the way out** (`mcpResource` → `validateShareSnapshot`), so the response can
+only ever contain percentage weights by asset class / sector / region / currency
+plus optional bounded scores - **never amounts, quantities or symbols**.
+
+```jsonc
+// -> { "protocol": "mcp", "type": "resource", "readOnly": true,
+//      "resource": { "uri": "maermin://portfolio/<id>", "name": "...", "mimeType": "application/json" },
+//      "data": { "v": 1, "assetClasses": {...}, "sectors": [...], "regions": [...],
+//                "currencies": [...], "metrics": { "healthScore": 82 } },
+//      "publishedAt": <ms> }
+```
+
+An AI client points at this URL to read the redacted allocation/scores only;
+nothing outside the allowlist is ever reachable. Tested in
+`test/mcp-endpoint.test.js` (allowlist-only output, leak proof, dead expired id).
+
 ---
 
 ## Broker relay (optional)
