@@ -198,12 +198,14 @@ function NetWorthView({ portfolioStats, portfolio, prices, theme, formatPrice, g
   const [raVersion, setRaVersion] = useState(0);
   const [showAdd, setShowAdd]   = useState(false);
   const [form, setForm]         = useState({ name: '', value: '', type: 'cash', currency: 'EUR',
-    recurring: false, amount: '', interval: 'monthly', startDate: window.MaerminUtils.todayISO(), endDate: '' });
+    recurring: false, amount: '', interval: 'monthly', startDate: window.MaerminUtils.todayISO(), endDate: '',
+    interestRate: '', compounding: 'daily', interestStart: window.MaerminUtils.todayISO(), maturityDate: '' });
 
   useEffect(() => { localStorage.setItem('maermin_networth_accounts', JSON.stringify(accounts)); }, [accounts]);
 
   const TYPES = {
     cash:      { label: 'Cash / Savings',   color: '#22c55e', icon: '◈' },
+    time_deposit: { label: 'Time Deposit (Festgeld)', color: '#14b8a6', icon: '◷' },
     checking:  { label: 'Checking Account', color: '#3b82f6', icon: '◆' },
     property:  { label: 'Real Estate',      color: '#f59e0b', icon: '◉' },
     crypto_wallet: { label: 'Crypto Wallet', color: '#f5a524', icon: '◎' },
@@ -249,6 +251,16 @@ function NetWorthView({ portfolioStats, portfolio, prices, theme, formatPrice, g
       currency: form.currency,
       value: parseFloat(form.value) || 0,
     };
+    // Interest-bearing cash / time deposit (WI-2): persist rate + accrual anchors
+    // so MaerminInterest.runCatchUp grows the balance and reports capital income.
+    const INTEREST_TYPES = new Set(['cash', 'checking', 'time_deposit']);
+    if (INTEREST_TYPES.has(form.type) && parseFloat(form.interestRate) > 0) {
+      account.interestRate = parseFloat(form.interestRate);
+      account.compounding = form.compounding || 'daily';
+      account.startDate = form.interestStart || window.MaerminUtils.todayISO();
+      account.lastAccrualDate = account.startDate;
+      if (form.type === 'time_deposit' && form.maturityDate) account.maturityDate = form.maturityDate;
+    }
     if (wantsRecurring) {
       account.recurring = true;
       account.amount = parseFloat(form.amount);
@@ -258,7 +270,8 @@ function NetWorthView({ portfolioStats, portfolio, prices, theme, formatPrice, g
     }
     setAccounts(prev => [...prev, account]);
     setForm({ name: '', value: '', type: 'cash', currency: 'EUR',
-      recurring: false, amount: '', interval: 'monthly', startDate: window.MaerminUtils.todayISO(), endDate: '' });
+      recurring: false, amount: '', interval: 'monthly', startDate: window.MaerminUtils.todayISO(), endDate: '',
+      interestRate: '', compounding: 'daily', interestStart: window.MaerminUtils.todayISO(), maturityDate: '' });
     setShowAdd(false);
   };
 
@@ -368,6 +381,31 @@ function NetWorthView({ portfolioStats, portfolio, prices, theme, formatPrice, g
         )
       ),
 
+      // Interest schedule (WI-2) — for cash / checking / time deposits.
+      ['cash','checking','time_deposit'].includes(form.type) && React.createElement('div', { style: { marginBottom: '0.875rem', padding: '0.75rem', background: theme.inputBg, borderRadius: '8px' } },
+        React.createElement('div', { style: { color: theme.text, fontSize: '0.82rem', marginBottom: '0.6rem', fontWeight: 600 } }, t.interestSection || 'Interest (optional)'),
+        React.createElement('div', { style: { display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(150px, 1fr))', gap: '0.75rem' } },
+          React.createElement('div', null,
+            React.createElement('label', { style: { display: 'block', color: theme.textSecondary, fontSize: '0.7rem', marginBottom: '0.25rem', textTransform: 'uppercase' } }, t.interestRate || 'Rate (% p.a.)'),
+            inp('interestRate', { type: 'number', placeholder: '2.5' })
+          ),
+          React.createElement('div', null,
+            React.createElement('label', { style: { display: 'block', color: theme.textSecondary, fontSize: '0.7rem', marginBottom: '0.25rem', textTransform: 'uppercase' } }, t.interestCompounding || 'Compounding'),
+            React.createElement('select', { value: form.compounding, onChange: e => setForm(p => ({ ...p, compounding: e.target.value })),
+              style: { padding: '0.625rem 0.875rem', background: theme.inputBg, border: `1px solid ${theme.inputBorder}`, borderRadius: '8px', color: theme.text, fontSize: '0.85rem', width: '100%' }
+            }, [['daily', t.compDaily || 'Daily'], ['monthly', t.compMonthly || 'Monthly'], ['annual', t.compAnnual || 'Annual']].map(([v, l]) => React.createElement('option', { key: v, value: v }, l)))
+          ),
+          React.createElement('div', null,
+            React.createElement('label', { style: { display: 'block', color: theme.textSecondary, fontSize: '0.7rem', marginBottom: '0.25rem', textTransform: 'uppercase' } }, t.interestStartDate || 'Interest start'),
+            inp('interestStart', { type: 'date' })
+          ),
+          form.type === 'time_deposit' && React.createElement('div', null,
+            React.createElement('label', { style: { display: 'block', color: theme.textSecondary, fontSize: '0.7rem', marginBottom: '0.25rem', textTransform: 'uppercase' } }, t.interestMaturity || 'Maturity date'),
+            inp('maturityDate', { type: 'date' })
+          )
+        )
+      ),
+
       // Recurring liability schedule — only for loan/credit/other_liability types.
       isLiabilityType(form.type) && React.createElement('div', { style: { marginBottom: '0.875rem', padding: '0.75rem', background: theme.inputBg, borderRadius: '8px' } },
         React.createElement('label', { style: { display: 'flex', alignItems: 'center', gap: '0.5rem', color: theme.text, fontSize: '0.82rem', cursor: 'pointer', marginBottom: form.recurring ? '0.75rem' : 0 } },
@@ -415,7 +453,10 @@ function NetWorthView({ portfolioStats, portfolio, prices, theme, formatPrice, g
               React.createElement('span', { style: { color: typeInfo.color, fontSize: '0.9rem' } }, typeInfo.icon),
               React.createElement('div', null,
                 React.createElement('div', { style: { color: theme.text, fontWeight: '600', fontSize: '0.875rem' } }, acc.name),
-                React.createElement('div', { style: { color: theme.textSecondary, fontSize: '0.72rem' } }, typeInfo.label)
+                React.createElement('div', { style: { color: theme.textSecondary, fontSize: '0.72rem' } },
+                  typeInfo.label
+                  + (acc.interestRate > 0 ? `  ·  ${acc.interestRate}% ${t.interestPa || 'p.a.'}` : '')
+                  + (acc.maturityDate ? `  ·  ${t.interestMatures || 'matures'} ${acc.maturityDate}` : ''))
               )
             ),
             React.createElement('div', { style: { display: 'flex', alignItems: 'center', gap: '0.75rem' } },

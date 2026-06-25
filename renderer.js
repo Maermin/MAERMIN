@@ -392,6 +392,28 @@ function InvestmentTracker() {
     } catch (e) { console.warn('[SAVINGS] catch-up failed:', e); }
   }, [prices, transactions, priceHistory, savingsHistory, exchangeRate]);
 
+  // WI-2: interest accrual catch-up for cash / time-deposit Net-Worth accounts.
+  // On app open, grow each interest-bearing account's balance (act/365) and book
+  // a type:'interest' transaction so the tax report counts it as capital income.
+  // Idempotent: each accrual advances lastAccrualDate and each tx carries an
+  // (accountId, periodEnd) marker, so re-runs never double-book.
+  useEffect(() => {
+    const IN = window.MaerminInterest;
+    if (!IN || demoMode) return;
+    try {
+      const accounts = JSON.parse(localStorage.getItem('maermin_networth_accounts') || '[]');
+      if (!Array.isArray(accounts) || !accounts.some(a => IN.isInterestBearing(a))) return;
+      const ledger = IN.loadLedger();
+      const out = IN.runCatchUp({ accounts, transactions, ledger, asOf: window.MaerminUtils.todayISO(), portfolioId: activePortfolioId });
+      if (out.created.length) {
+        localStorage.setItem('maermin_networth_accounts', JSON.stringify(out.accounts));
+        IN.saveLedger(out.ledger);
+        setTransactions(out.transactions);
+        addToast(`${out.created.length} ${t.interestBookedToast || 'interest accrual(s) booked'}`, 'success');
+      }
+    } catch (e) { console.warn('[INTEREST] catch-up failed:', e); }
+  }, [transactions, activePortfolioId, demoMode]);
+
   // v10.x: dividend auto-booking (opt-in, maermin_div_autobook). When enabled,
   // every dividend whose PAY date has passed is booked as a `type:'dividend'`
   // transaction in the PAYOUT currency (USD stays USD). Idempotent per

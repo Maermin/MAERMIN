@@ -52,8 +52,10 @@
     'maermin_div_autobook',
     // corporate-action store (see corporate-actions.js — stock/reverse splits)
     'maermin_corporate_actions',
-    // competitive-gap stores (see real-assets.js — property/valuables with cashflows)
+    // competitive-gap stores (see real-assets.js — property/valuables with cashflows;
+    // interest-engine.js — per-year accrued-interest ledger for cash/time deposits)
     'maermin_real_assets',
+    'maermin_interest_ledger',
     'theme',
     'currency',
     'privacyMode',
