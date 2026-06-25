@@ -79,6 +79,7 @@ const engines = [
   '../recurring.js', '../equity-metadata.js', '../portfolio-health.js',
   '../data-quality.js', '../portfolio-analytics.js', '../analytics-data.js',
   '../tax-settings.js', '../tax-calculation-engine.js', '../tax-report-builder.js',
+  '../corporate-actions.js',
 ];
 console.log('engine preload:');
 for (const e of engines) {
@@ -92,7 +93,7 @@ for (const e of engines) {
 const VIEW_MODULES = [
   { file: '../features.js',         ns: 'MaerminFeatures',  comps: ['PieChart', 'Sparkline', 'PriceQualityBadge', 'PortfolioOverviewPanel', 'WatchlistView', 'PriceAlertsView', 'PerformanceChart', 'PositionsTable'] },
   { file: '../features2.js',        ns: 'MaerminFeatures2', comps: ['ReturnsView', 'RebalancingView', 'BrokerImportWizard', 'PositionNotesView', 'DividendCalendarView', 'MobileBottomNav', 'calcXIRR', 'calcTWR'] },
-  { file: '../features3.js',        ns: 'MaerminFeatures3', comps: ['BenchmarkWidget', 'DailyPnLCard', 'PositionDetailModal', 'EnhancedPositionsTable', 'CS2SkinPicker', 'CS2SkinImage', 'SymbolPicker'] },
+  { file: '../features3.js',        ns: 'MaerminFeatures3', comps: ['BenchmarkWidget', 'DailyPnLCard', 'PositionDetailModal', 'EnhancedPositionsTable', 'CorporateActionsPanel', 'CS2SkinPicker', 'CS2SkinImage', 'SymbolPicker'] },
   { file: '../features4.js',        ns: 'MaerminFeatures4', comps: ['usePortfolios', 'PortfolioManagerView', 'PortfolioSwitcher', 'SavingsPlanView', 'DividendForecastView', 'FIFOView', 'calcFIFO'] },
   { file: '../features5.js',        ns: 'MaerminFeatures5', comps: ['PerformancePeriods', 'NetWorthView', 'CashflowChart', 'FeeAnalyzer'] },
   { file: '../features6.js',        ns: 'MaerminFeatures6', comps: ['PortfolioHistoryChart'] },
@@ -215,6 +216,10 @@ const MUST_RENDER = [
   ['MaerminFeatures3', 'DailyPnLCard', baseProps],
   ['MaerminFeatures3', 'BenchmarkWidget', baseProps],
   ['MaerminFeatures3', 'EnhancedPositionsTable', baseProps],
+  // Corporate-actions panel: bespoke props (per-symbol). No worker URL / empty
+  // store under the stubbed localStorage → renders the no-splits + manual-add
+  // path. Exercises the useState/useMemo hook order and the list render body.
+  ['MaerminFeatures3', 'CorporateActionsPanel', { category: 'stocks', symbol: 'AAPL', theme, t: {} }],
   ['MaerminFeatures7', 'PerformanceAttribution', baseProps],
   ['MaerminFeatures7', 'NewsFeedView', baseProps],
   ['MaerminFeatures4', 'DividendForecastView', baseProps],

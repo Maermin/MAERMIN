@@ -109,6 +109,40 @@ const M = require('../metrics.js');
   ok('ratioFromYahoo parses a splitRatio string', r2 && r2.num === 1 && r2.den === 10);
   ok('ratioFromYahoo rejects junk', CA.ratioFromYahoo({ numerator: 0, denominator: 1 }) === null);
 
+  // ---- INTEGRATION: the metrics overlay actually fires end-to-end ----
+  // metrics.js routes raw transactions through window.MaerminCorporateActions
+  // when present. Stub the browser globals, persist a split, and confirm
+  // buildPositions reflects the split-adjusted lot (proves the wiring, not just
+  // adjust() in isolation).
+  (function () {
+    var mem = {};
+    globalThis.localStorage = {
+      getItem: function (k) { return Object.prototype.hasOwnProperty.call(mem, k) ? mem[k] : null; },
+      setItem: function (k, v) { mem[k] = String(v); },
+      removeItem: function (k) { delete mem[k]; }
+    };
+    globalThis.window = globalThis.window || {};
+    globalThis.window.MaerminCorporateActions = CA;
+    CA.save({ version: 1, actions: [{ category: 'stocks', symbol: 'NVDA', date: '2024-06-10', num: 10, den: 1 }] });
+
+    const pf = M.buildPositions([
+      { type: 'buy', category: 'stocks', symbol: 'NVDA', date: '2024-01-02', quantity: 5, price: 500 }
+    ], { exchangeRate: 1 });
+    const pos = (pf.stocks || []).find(function (p) { return p.symbol === 'NVDA'; });
+    ok('buildPositions applies the recorded split via the overlay', !!pos && near(pos.amount, 50));
+    ok('overlay leaves per-share cost basis split-adjusted', !!pos && near(pos.purchasePrice, 50));
+
+    // No-op safety: clearing the store makes buildPositions identical to raw.
+    CA.save({ version: 1, actions: [] });
+    const pf2 = M.buildPositions([
+      { type: 'buy', category: 'stocks', symbol: 'NVDA', date: '2024-01-02', quantity: 5, price: 500 }
+    ], { exchangeRate: 1 });
+    const pos2 = (pf2.stocks || []).find(function (p) { return p.symbol === 'NVDA'; });
+    ok('overlay is a no-op once the store is empty', !!pos2 && near(pos2.amount, 5));
+
+    delete globalThis.window.MaerminCorporateActions;
+  })();
+
   // ---- detectForSymbol degrades gracefully against an old worker ----
   (async function () {
     const oldWorker = () => Promise.resolve({ symbol: 'NVDA', prices: [] }); // no splits field
