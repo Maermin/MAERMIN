@@ -358,30 +358,35 @@ function PortfolioHistoryChart({ portfolio, prices, transactions, apiKeys, theme
         await Promise.all(nonCrypto.map(async pos => {
           const ckey = `${pos.symOrig}|${period}|yf`;
           if (cacheRef.current[ckey]) { historyMap[pos.symOrig] = cacheRef.current[ckey]; return; }
+          // Resolve to ONE history (YF → AV fallback → flat line), then cache it
+          // under `ckey` no matter which path won. A renamed/delisted symbol
+          // (e.g. FISV → 404) otherwise missed this cache every time buildChart
+          // re-ran (deps: prices/positions), re-hammering the dead 404 + AV on
+          // each render. Caching the resolved/flat result negative-caches the
+          // miss so the symbol is fetched at most once per period per session.
+          let resolved = null;
           try {
             const { prices: hist, currency } = await fetchYFHistory(pos.symOrig, currentPeriod, workerUrl);
             const rate    = (currency === 'EUR') ? 1 : usdToEur;
-            const histEUR = hist.map(h => ({ ...h, price: h.price * rate }));
-            cacheRef.current[ckey] = histEUR;
-            historyMap[pos.symOrig] = histEUR;
+            resolved = hist.map(h => ({ ...h, price: h.price * rate }));
             console.log(`[CHART] YF: ${pos.symOrig} (${currency}) → ${hist.length} points`);
           } catch(e) {
             console.warn('[CHART] YF failed for', pos.symOrig, '—', e.message);
             if (pos.cat === 'stocks' && avKey) {
               try {
-                const hist    = await fetchAVHistory(pos.symOrig.toUpperCase(), avKey, currentPeriod);
-                const histEUR = hist.map(h => ({ ...h, price: h.price * usdToEur }));
-                cacheRef.current[`${pos.symOrig}|${period}|av`] = histEUR;
-                historyMap[pos.symOrig] = histEUR;
+                const hist = await fetchAVHistory(pos.symOrig.toUpperCase(), avKey, currentPeriod);
+                resolved = hist.map(h => ({ ...h, price: h.price * usdToEur }));
                 console.log(`[CHART] AV fallback: ${pos.symOrig} → ${hist.length} points`);
-                return;
               } catch(e2) {
                 console.warn('[CHART] AV fallback failed for', pos.symOrig, '—', e2.message);
               }
             }
-            const p = prices[pos.symOrig] || prices[(pos.symOrig||'').toLowerCase()] || 0;
-            if (p > 0) historyMap[pos.symOrig] = flatLine(p, pos.firstTs);
+            if (!resolved) {
+              const p = prices[pos.symOrig] || prices[(pos.symOrig||'').toLowerCase()] || 0;
+              if (p > 0) resolved = flatLine(p, pos.firstTs);
+            }
           }
+          if (resolved) { cacheRef.current[ckey] = resolved; historyMap[pos.symOrig] = resolved; }
         }));
 
       } else if (!hasWorker && avKey && nonCrypto.length > 0) {
