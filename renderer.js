@@ -35,7 +35,7 @@ class ViewErrorBoundary extends React.Component {
         React.createElement('div', { style: { color: th.textSecondary || '#8b94a7', fontSize: '0.85rem', marginBottom: '1.25rem' } }, 'Your data is safe. Try this view again or switch to another.'),
         React.createElement('div', { style: { color: th.textSecondary || '#8b94a7', fontSize: '0.72rem', fontFamily: 'ui-monospace,monospace', marginBottom: '1.25rem', wordBreak: 'break-word', opacity: 0.8 } }, String(this.state.error && this.state.error.message || this.state.error)),
         React.createElement('button', { onClick: () => this.setState({ error: null }),
-          style: { padding: '0.5rem 1.1rem', background: th.accent || '#f5a524', color: '#13110a', border: 'none', borderRadius: '8px', cursor: 'pointer', fontWeight: 700, fontSize: '0.85rem' } }, 'Retry')
+          style: { padding: '0.5rem 1.1rem', background: th.accent || '#8b7cff', color: '#ffffff', border: 'none', borderRadius: '8px', cursor: 'pointer', fontWeight: 700, fontSize: '0.85rem' } }, 'Retry')
       )
     );
   }
@@ -45,76 +45,89 @@ class ViewErrorBoundary extends React.Component {
 const translations = typeof window.completeTranslations !== 'undefined' ? window.completeTranslations : { en: {} };
 
 // Theme configuration
-// ── Design system ───────────────────────────────────────────────────────────
-// Modern dark-fintech look with a consistent warm-gold accent across all themes.
-// Every component reads `currentTheme.*` as inline styles, so these tokens drive
-// the entire UI. Extra tokens (accentText, accentSoft, surface2, shadow, …) are
-// additive — existing call sites keep working, new/redesigned ones use them.
-const GOLD = '#f5a524';        // primary accent (gold) — sits on dark surfaces
-const GOLD_DARK = '#c2790a';   // deeper gold for light backgrounds / hovers
-const INK = '#13110a';         // near-black ink used as text ON gold buttons
+// ── Design system: "Aurora" ─────────────────────────────────────────────────
+// Deep ink canvas lit by soft violet/cyan aurora glows, crisp elevated
+// surfaces, Geist typography and a single electric-violet accent. Every
+// component reads `currentTheme.*` as inline styles, so these tokens drive the
+// entire UI. `name` / `mode` are consumed by the shell and styles.css (the
+// root element gets data-theme / data-mode) — all other tokens are unchanged
+// in shape so existing call sites keep working.
+const ACCENT = '#8b7cff';       // electric violet — primary accent on dark
+const ACCENT_DEEP = '#6d5dfc';  // deeper violet for light surfaces / hovers
+const ON_ACCENT = '#ffffff';    // text on accent fills
 
 const themes = {
   dark: {
-    background: 'radial-gradient(1100px 620px at 50% -12%, #161d2b 0%, #0b1018 52%, #080b11 100%)',
-    card: '#10151f',
-    surface2: '#161c28',
+    name: 'dark', mode: 'dark',
+    background: 'radial-gradient(900px 520px at 12% -8%, rgba(124,92,255,0.20) 0%, transparent 62%), radial-gradient(760px 480px at 92% -6%, rgba(56,189,248,0.10) 0%, transparent 60%), radial-gradient(1200px 800px at 50% 120%, rgba(124,92,255,0.07) 0%, transparent 60%), #07080d',
+    card: '#0f1018',
+    surface2: '#171824',
     cardBorder: 'rgba(255,255,255,0.07)',
-    modalBg: '#141a25',
+    modalBg: '#12131d',
     modalBorder: 'rgba(255,255,255,0.10)',
-    text: '#e9edf4',
-    textSecondary: '#8b94a7',
-    inputBg: '#0c1018',
-    inputBorder: 'rgba(255,255,255,0.10)',
-    accent: GOLD,
-    accentText: INK,
-    accentSoft: 'rgba(245,165,36,0.12)',
-    shadow: '0 18px 40px -16px rgba(0,0,0,0.65)',
-    success: '#34d399',
-    danger: '#f87171',
-    warning: '#fb923c'
+    text: '#f1f2f8',
+    textSecondary: '#8d91a7',
+    inputBg: '#0b0c13',
+    inputBorder: 'rgba(255,255,255,0.09)',
+    accent: ACCENT,
+    accentText: ON_ACCENT,
+    accentSoft: 'rgba(139,124,255,0.14)',
+    accentGradient: 'linear-gradient(135deg, #a597ff 0%, #7c6cff 50%, #5b8cff 100%)',
+    glass: 'rgba(12,13,20,0.66)',
+    shadow: '0 1px 0 rgba(255,255,255,0.04) inset, 0 24px 48px -24px rgba(0,0,0,0.7)',
+    success: '#3ddc97',
+    danger: '#ff6b81',
+    warning: '#ffb454'
   },
   white: {
-    background: 'radial-gradient(1100px 620px at 50% -12%, #ffffff 0%, #f4f6f9 60%, #eef1f5 100%)',
+    name: 'white', mode: 'light',
+    background: 'radial-gradient(900px 520px at 10% -10%, rgba(124,92,255,0.12) 0%, transparent 60%), radial-gradient(760px 480px at 95% -8%, rgba(56,189,248,0.10) 0%, transparent 60%), #f6f7fb',
     card: '#ffffff',
-    surface2: '#f6f8fb',
-    cardBorder: 'rgba(15,23,42,0.09)',
+    surface2: '#f2f3f9',
+    cardBorder: 'rgba(17,19,40,0.08)',
     modalBg: '#ffffff',
-    modalBorder: 'rgba(15,23,42,0.10)',
-    text: '#0f172a',
-    textSecondary: '#5b6473',
-    inputBg: '#f1f4f8',
-    inputBorder: 'rgba(15,23,42,0.12)',
-    accent: GOLD_DARK,
-    accentText: '#ffffff',
-    accentSoft: 'rgba(194,121,10,0.12)',
-    shadow: '0 18px 40px -18px rgba(15,23,42,0.22)',
-    success: '#16a34a',
-    danger: '#dc2626',
+    modalBorder: 'rgba(17,19,40,0.10)',
+    text: '#0d0f1c',
+    textSecondary: '#5d6278',
+    inputBg: '#f3f4f9',
+    inputBorder: 'rgba(17,19,40,0.12)',
+    accent: ACCENT_DEEP,
+    accentText: ON_ACCENT,
+    accentSoft: 'rgba(109,93,252,0.10)',
+    accentGradient: 'linear-gradient(135deg, #8b7cff 0%, #6d5dfc 50%, #3f6fff 100%)',
+    glass: 'rgba(255,255,255,0.72)',
+    shadow: '0 1px 2px rgba(17,19,40,0.04), 0 18px 40px -22px rgba(17,19,40,0.18)',
+    success: '#0f9f68',
+    danger: '#e5484d',
     warning: '#d97706'
   },
+  // "Nebula" — the purple theme, re-imagined as a deep violet night sky.
   purple: {
-    background: 'radial-gradient(1100px 620px at 50% -12%, #1f1234 0%, #140a23 56%, #0d0717 100%)',
-    card: '#1a1029',
-    surface2: '#211633',
-    cardBorder: 'rgba(255,255,255,0.09)',
-    modalBg: '#1d1330',
-    modalBorder: 'rgba(255,255,255,0.13)',
-    text: '#f3eefb',
-    textSecondary: '#a99cc0',
-    inputBg: '#140b22',
-    inputBorder: 'rgba(255,255,255,0.11)',
-    accent: GOLD,
-    accentText: INK,
-    accentSoft: 'rgba(245,165,36,0.13)',
-    shadow: '0 18px 40px -16px rgba(0,0,0,0.6)',
-    success: '#34d399',
-    danger: '#f87171',
-    warning: '#fb923c'
+    name: 'purple', mode: 'dark',
+    background: 'radial-gradient(900px 560px at 15% -10%, rgba(168,85,247,0.26) 0%, transparent 62%), radial-gradient(800px 520px at 90% 0%, rgba(236,72,153,0.12) 0%, transparent 60%), #0b0716',
+    card: '#140e24',
+    surface2: '#1c1530',
+    cardBorder: 'rgba(255,255,255,0.08)',
+    modalBg: '#181029',
+    modalBorder: 'rgba(255,255,255,0.12)',
+    text: '#f5f0ff',
+    textSecondary: '#a597c2',
+    inputBg: '#100a1d',
+    inputBorder: 'rgba(255,255,255,0.10)',
+    accent: '#b26bff',
+    accentText: ON_ACCENT,
+    accentSoft: 'rgba(178,107,255,0.16)',
+    accentGradient: 'linear-gradient(135deg, #d59bff 0%, #a855f7 50%, #ec4899 100%)',
+    glass: 'rgba(14,9,26,0.66)',
+    shadow: '0 1px 0 rgba(255,255,255,0.05) inset, 0 24px 48px -24px rgba(0,0,0,0.7)',
+    success: '#3ddc97',
+    danger: '#ff6b81',
+    warning: '#ffb454'
   },
-  // v10.x #7 — High-contrast theme (WCAG AAA-leaning): pure-black canvas, white
-  // text, heavy borders. For low-vision users and bright environments.
+  // High-contrast theme (WCAG AAA-leaning): pure-black canvas, white text,
+  // heavy borders. Accent chosen to clear 4.5:1 against both black and white.
   contrast: {
+    name: 'contrast', mode: 'dark',
     background: '#000000',
     card: '#0a0a0a',
     surface2: '#161616',
@@ -125,32 +138,36 @@ const themes = {
     textSecondary: '#d6d6d6',
     inputBg: '#000000',
     inputBorder: 'rgba(255,255,255,0.5)',
-    accent: '#ffd400',
-    accentText: '#000000',
-    accentSoft: 'rgba(255,212,0,0.18)',
+    accent: '#4d7cff',
+    accentText: ON_ACCENT,
+    accentSoft: 'rgba(77,124,255,0.22)',
+    accentGradient: '#4d7cff',
+    glass: 'rgba(0,0,0,0.9)',
     shadow: '0 0 0 1px rgba(255,255,255,0.25)',
     success: '#00e676',
     danger: '#ff5252',
     warning: '#ffb300'
   },
-  // v10.x #7 — Colour-blind-safe (Okabe–Ito): positive = sky-blue, negative =
-  // orange, never red/green. P&L colours flow from theme.success/danger so this
-  // remaps the whole app's gains/losses to a deuteranopia/protanopia-safe pair.
+  // Colour-blind-safe (Okabe–Ito): positive = sky-blue, negative = orange,
+  // never red/green. P&L colours flow from theme.success/danger.
   cb: {
-    background: 'radial-gradient(1100px 620px at 50% -12%, #15202b 0%, #0b1018 52%, #080b11 100%)',
-    card: '#10151f',
-    surface2: '#161c28',
+    name: 'cb', mode: 'dark',
+    background: 'radial-gradient(900px 520px at 12% -8%, rgba(0,114,178,0.22) 0%, transparent 62%), #07090d',
+    card: '#0f1118',
+    surface2: '#171a24',
     cardBorder: 'rgba(255,255,255,0.08)',
-    modalBg: '#141a25',
+    modalBg: '#12141d',
     modalBorder: 'rgba(255,255,255,0.10)',
-    text: '#e9edf4',
-    textSecondary: '#9aa3b2',
-    inputBg: '#0c1018',
+    text: '#f1f2f8',
+    textSecondary: '#9aa1b4',
+    inputBg: '#0b0d13',
     inputBorder: 'rgba(255,255,255,0.10)',
-    accent: '#56B4E9',
-    accentText: '#06121c',
-    accentSoft: 'rgba(86,180,233,0.14)',
-    shadow: '0 18px 40px -16px rgba(0,0,0,0.65)',
+    accent: '#1f8ad1',
+    accentText: ON_ACCENT,
+    accentSoft: 'rgba(86,180,233,0.16)',
+    accentGradient: 'linear-gradient(135deg, #56B4E9 0%, #0072B2 100%)',
+    glass: 'rgba(12,13,20,0.66)',
+    shadow: '0 1px 0 rgba(255,255,255,0.04) inset, 0 24px 48px -24px rgba(0,0,0,0.7)',
     success: '#56B4E9',
     danger: '#E69F00',
     warning: '#F0E442'
@@ -237,7 +254,7 @@ function InvestmentTracker() {
   
   // Multi-Portfolio
   const portfolioHook = window.MaerminFeatures4 ? window.MaerminFeatures4.usePortfolios() : null;
-  const portfolios       = portfolioHook?.portfolios       || [{ id: 'default', name: 'Main Portfolio', color: '#f5a524' }];
+  const portfolios       = portfolioHook?.portfolios       || [{ id: 'default', name: 'Main Portfolio', color: '#8b7cff' }];
   const activePortfolioId = portfolioHook?.activePortfolioId || 'default';
   const setActivePortfolioId = portfolioHook?.setActivePortfolioId || (() => {});
 
@@ -617,7 +634,17 @@ function InvestmentTracker() {
   // Merge: English is the base, the selected language overrides it — so any key
   // missing from a non-English locale gracefully falls back to English.
   const t = Object.assign({}, translations.en || {}, translations[language] || {});
-  const currentTheme = themes[theme];
+  const currentTheme = themes[theme] || themes.dark;
+
+  // Mirror the active theme onto <html> so CSS-only chrome (palette, toasts,
+  // scrollbars, popovers, bottom dock) follows it via CSS variables.
+  useEffect(() => {
+    const root = document.documentElement;
+    root.setAttribute('data-theme', currentTheme.name || 'dark');
+    root.setAttribute('data-mode', currentTheme.mode || 'dark');
+    const meta = document.querySelector('meta[name="theme-color"]');
+    if (meta) meta.setAttribute('content', currentTheme.mode === 'light' ? '#f6f7fb' : (currentTheme.name === 'contrast' ? '#000000' : '#07080d'));
+  }, [currentTheme]);
   
   const formatPrice = useCallback((price) => {
     // Privacy mode masks every amount app-wide (formatPrice is the single
@@ -1975,7 +2002,7 @@ function InvestmentTracker() {
         React.createElement('div', { style: { display: 'flex', gap: '0.75rem', flexWrap: 'wrap' } },
           React.createElement('button', {
             onClick: createBackup,
-            style: { padding: '0.625rem 1.25rem', background: theme.accent, color: '#13110a', border: 'none', borderRadius: '8px', cursor: 'pointer', fontWeight: '600', fontSize: '0.875rem', display: 'flex', alignItems: 'center', gap: '0.5rem' }
+            style: { padding: '0.625rem 1.25rem', background: theme.accent, color: '#ffffff', border: 'none', borderRadius: '8px', cursor: 'pointer', fontWeight: '600', fontSize: '0.875rem', display: 'flex', alignItems: 'center', gap: '0.5rem' }
           }, '↓ JSON Backup',
             React.createElement('span', { style: { fontSize: '0.72rem', opacity: 0.8, fontWeight: '400' } }, '— full restore')
           ),
@@ -2812,7 +2839,7 @@ function InvestmentTracker() {
           ),
           React.createElement('button', {
             onClick: () => { if (M) M.saveFireSettings(fire); setEditFire(false); },
-            style: { padding: '0.55rem 1.1rem', background: theme.accent, color: '#13110a', border: 'none', borderRadius: '8px', cursor: 'pointer', fontWeight: '700', fontSize: '0.85rem' }
+            style: { padding: '0.55rem 1.1rem', background: theme.accent, color: '#ffffff', border: 'none', borderRadius: '8px', cursor: 'pointer', fontWeight: '700', fontSize: '0.85rem' }
           }, t.save || 'Save')
         ),
         fireM && fireM.configured && React.createElement('div', { style: { color: theme.textSecondary, fontSize: '0.78rem', marginTop: '0.75rem' } },
@@ -2969,7 +2996,7 @@ function InvestmentTracker() {
       demoMode && React.createElement('div', {
         style: { display: 'flex', alignItems: 'center', gap: '0.6rem', flexWrap: 'wrap', padding: '0.6rem 0.9rem', marginBottom: '1rem', borderRadius: '10px', background: `${currentTheme.accent}14`, border: `1px solid ${currentTheme.accent}55`, color: currentTheme.text, fontSize: '0.82rem' } },
         React.createElement('span', null, '★ You are exploring MAERMIN with sample data — your real data is untouched.'),
-        React.createElement('button', { onClick: exitDemo, style: { marginLeft: 'auto', minHeight: '40px', padding: '0.45rem 0.9rem', background: currentTheme.accent, color: '#13110a', border: 'none', borderRadius: '8px', cursor: 'pointer', fontWeight: '700', fontSize: '0.8rem' } }, 'Exit demo & use my data')
+        React.createElement('button', { onClick: exitDemo, style: { marginLeft: 'auto', minHeight: '40px', padding: '0.45rem 0.9rem', background: currentTheme.accent, color: '#ffffff', border: 'none', borderRadius: '8px', cursor: 'pointer', fontWeight: '700', fontSize: '0.8rem' } }, 'Exit demo & use my data')
       ),
 
       // ── Header ──────────────────────────────────────────────────────────
@@ -3013,7 +3040,7 @@ function InvestmentTracker() {
           demoMode
             ? React.createElement('button', { onClick: exitDemo, style: { minHeight: '40px', padding: '0.5rem 0.9rem', background: currentTheme.inputBg, color: currentTheme.text, border: `1px solid ${currentTheme.cardBorder}`, borderRadius: '8px', cursor: 'pointer', fontSize: '0.85rem' } }, 'Exit demo')
             : React.createElement('button', { onClick: enterDemo, title: 'Load sample data to explore the app instantly — no setup', style: { minHeight: '40px', padding: '0.5rem 0.9rem', background: currentTheme.inputBg, color: currentTheme.text, border: `1px solid ${currentTheme.cardBorder}`, borderRadius: '8px', cursor: 'pointer', fontSize: '0.85rem' } }, '★ Try demo'),
-          React.createElement('button', { onClick: () => openTransactionModal(), style: { padding: '0.5rem 1rem', background: currentTheme.accent, color: '#13110a', border: 'none', borderRadius: '8px', cursor: 'pointer', fontWeight: '600', fontSize: '0.85rem' } }, '+ Add'),
+          React.createElement('button', { onClick: () => openTransactionModal(), style: { padding: '0.5rem 1rem', background: currentTheme.accent, color: '#ffffff', border: 'none', borderRadius: '8px', cursor: 'pointer', fontWeight: '600', fontSize: '0.85rem' } }, '+ Add'),
           React.createElement('button', { onClick: () => setShowImportModal(true), style: { padding: '0.5rem 1rem', background: currentTheme.inputBg, color: currentTheme.text, border: `1px solid ${currentTheme.cardBorder}`, borderRadius: '8px', cursor: 'pointer', fontSize: '0.85rem' } }, '↑ Import'),
           React.createElement('button', { onClick: fetchPrices, disabled: loading, style: { padding: '0.5rem 1rem', background: loading ? currentTheme.inputBg : `${currentTheme.accent}18`, color: loading ? currentTheme.textSecondary : currentTheme.accent, border: `1px solid ${currentTheme.accent}33`, borderRadius: '8px', cursor: loading ? 'not-allowed' : 'pointer', fontSize: '0.85rem', fontWeight: '600', display: 'flex', alignItems: 'center', gap: '0.375rem' } }, loading ? '◎ Refreshing...' : '↻ Refresh prices')
         )
@@ -3146,17 +3173,17 @@ function InvestmentTracker() {
           React.createElement('div', { style: { color: currentTheme.text, fontWeight: '600', fontSize: '0.875rem' } }, 'Add a recovery code'),
           React.createElement('div', { style: { color: currentTheme.textSecondary, fontSize: '0.8rem', marginTop: '0.125rem' } }, 'Your vault has no recovery code. Without one, a forgotten password cannot be reset — generate a printable code now.')
         ),
-        React.createElement('button', { onClick: createRecoveryKit, disabled: recoveryBusy, style: { padding: '0.5rem 1rem', background: currentTheme.accent, color: '#13110a', border: 'none', borderRadius: '6px', cursor: recoveryBusy ? 'wait' : 'pointer', fontWeight: '700', fontSize: '0.8rem' } }, recoveryBusy ? 'Creating…' : 'Create recovery code'),
+        React.createElement('button', { onClick: createRecoveryKit, disabled: recoveryBusy, style: { padding: '0.5rem 1rem', background: currentTheme.accent, color: '#ffffff', border: 'none', borderRadius: '6px', cursor: recoveryBusy ? 'wait' : 'pointer', fontWeight: '700', fontSize: '0.8rem' } }, recoveryBusy ? 'Creating…' : 'Create recovery code'),
         React.createElement('button', { onClick: dismissRecoveryNudge, style: { padding: '0.5rem 0.75rem', background: 'transparent', color: currentTheme.textSecondary, border: `1px solid ${currentTheme.cardBorder}`, borderRadius: '6px', cursor: 'pointer', fontSize: '0.8rem' } }, 'Dismiss')
       ),
 
       // Onboarding
-      stats.totalPositions === 0 && React.createElement('div', { style: { background: 'linear-gradient(135deg,rgba(59,130,246,0.1),rgba(245,165,36,0.1))', border: '1px solid rgba(245,165,36,0.3)', borderRadius: '12px', padding: '2rem', marginBottom: '2rem', textAlign: 'center' } },
-        React.createElement('div', { style: { fontSize: '2rem', marginBottom: '0.75rem', color: 'rgba(245,165,36,0.5)', fontWeight: '300' } }, '↗'),
+      stats.totalPositions === 0 && React.createElement('div', { style: { background: 'linear-gradient(135deg,rgba(59,130,246,0.1),rgba(139,124,255,0.1))', border: '1px solid rgba(139,124,255,0.3)', borderRadius: '12px', padding: '2rem', marginBottom: '2rem', textAlign: 'center' } },
+        React.createElement('div', { style: { fontSize: '2rem', marginBottom: '0.75rem', color: 'rgba(139,124,255,0.5)', fontWeight: '300' } }, '↗'),
         React.createElement('h3', { style: { color: currentTheme.text, fontSize: '1.125rem', fontWeight: '600', marginBottom: '0.5rem' } }, t.welcomeTitle || 'Welcome to MAERMIN'),
         React.createElement('p', { style: { color: currentTheme.textSecondary, fontSize: '0.875rem', marginBottom: '1rem', lineHeight: '1.6' } }, t.welcomeHint || 'Start by adding your first transaction.'),
         React.createElement('div', { style: { display: 'flex', gap: '0.75rem', justifyContent: 'center', flexWrap: 'wrap' } },
-          window.MaerminOnboarding && window.MaerminOnboarding.Wizard && React.createElement('button', { onClick: openOnboarding, style: { padding: '0.625rem 1.25rem', background: currentTheme.accent, color: '#13110a', border: 'none', borderRadius: '8px', cursor: 'pointer', fontWeight: '700', fontSize: '0.875rem' } }, 'Guided setup'),
+          window.MaerminOnboarding && window.MaerminOnboarding.Wizard && React.createElement('button', { onClick: openOnboarding, style: { padding: '0.625rem 1.25rem', background: currentTheme.accent, color: '#ffffff', border: 'none', borderRadius: '8px', cursor: 'pointer', fontWeight: '700', fontSize: '0.875rem' } }, 'Guided setup'),
           React.createElement('button', { onClick: () => openTransactionModal(), style: { padding: '0.625rem 1.25rem', background: currentTheme.inputBg, color: currentTheme.text, border: `1px solid ${currentTheme.cardBorder}`, borderRadius: '8px', cursor: 'pointer', fontWeight: '600', fontSize: '0.875rem' } }, '+ ' + (t.addTransaction || 'Add Transaction')),
           React.createElement('button', { onClick: () => setShowImportModal(true), style: { padding: '0.625rem 1.25rem', background: currentTheme.inputBg, color: currentTheme.text, border: `1px solid ${currentTheme.cardBorder}`, borderRadius: '8px', cursor: 'pointer', fontSize: '0.875rem' } }, t.importData || 'Import Data')
         )
@@ -3165,7 +3192,7 @@ function InvestmentTracker() {
       // ── Allocation + Top performers + Positions (mockup-exact, real data) ──
       dashVis('allocation') && stats.totalPositions > 0 && (() => {
         const CLASS = {
-          crypto:      { label: 'Crypto',        color: '#f5a524' },
+          crypto:      { label: 'Crypto',        color: '#8b7cff' },
           stocks:      { label: 'Stocks & ETFs', color: '#6ea8ff' },
           commodities: { label: 'Commodities',   color: '#b98cff' },
           skins:       { label: 'CS2 Skins',     color: '#5fd0c5' },
@@ -3222,7 +3249,7 @@ function InvestmentTracker() {
                 ...donutSegs
               ),
               React.createElement('div', { style: { position: 'absolute', inset: 0, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center' } },
-                React.createElement('div', { style: { fontFamily: "'Space Grotesk', sans-serif", fontSize: '1.5rem', fontWeight: '700', lineHeight: 1, color: currentTheme.text } }, String(stats.totalPositions)),
+                React.createElement('div', { style: { fontFamily: "'Geist', sans-serif", fontSize: '1.5rem', fontWeight: '700', lineHeight: 1, color: currentTheme.text } }, String(stats.totalPositions)),
                 React.createElement('div', { style: { fontSize: '0.62rem', color: gray, textTransform: 'uppercase', letterSpacing: '0.08em', marginTop: '0.15rem' } }, 'positions')
               )
             ),
@@ -3230,7 +3257,7 @@ function InvestmentTracker() {
               ...classes.map(ct => React.createElement('div', { key: ct.c, style: { display: 'flex', alignItems: 'center', gap: '0.6rem' } },
                 React.createElement('span', { style: { width: '9px', height: '9px', borderRadius: '3px', background: ct.color, flexShrink: 0 } }),
                 React.createElement('span', { style: { flex: 1, fontSize: '0.82rem', color: currentTheme.text } }, ct.label),
-                React.createElement('span', { style: { fontFamily: "'Space Grotesk', sans-serif", fontSize: '0.84rem', fontWeight: '600', color: currentTheme.text } }, `${ct.pct.toFixed(1)}%`),
+                React.createElement('span', { style: { fontFamily: "'Geist', sans-serif", fontSize: '0.84rem', fontWeight: '600', color: currentTheme.text } }, `${ct.pct.toFixed(1)}%`),
                 React.createElement('span', { style: { fontSize: '0.76rem', color: gray, width: '78px', textAlign: 'right' } }, money(ct.value))
               ))
             )
@@ -3242,13 +3269,13 @@ function InvestmentTracker() {
           React.createElement('div', { style: { display: 'flex', flexDirection: 'column', gap: '0.55rem' } },
             performers.length
               ? performers.map(p => React.createElement('div', { key: p.cat + p.sym, style: { display: 'flex', alignItems: 'center', gap: '0.8rem', padding: '0.5rem 0.1rem' } },
-                  React.createElement('div', { style: { width: '34px', height: '34px', borderRadius: '9px', background: `${p.color}22`, color: p.color, display: 'flex', alignItems: 'center', justifyContent: 'center', fontFamily: "'Space Grotesk', sans-serif", fontWeight: '700', fontSize: '0.78rem', flexShrink: 0 } }, glyph(p.sym)),
+                  React.createElement('div', { style: { width: '34px', height: '34px', borderRadius: '9px', background: `${p.color}22`, color: p.color, display: 'flex', alignItems: 'center', justifyContent: 'center', fontFamily: "'Geist', sans-serif", fontWeight: '700', fontSize: '0.78rem', flexShrink: 0 } }, glyph(p.sym)),
                   React.createElement('div', { style: { flex: 1, minWidth: 0 } },
                     React.createElement('div', { style: { fontSize: '0.84rem', fontWeight: '600', color: currentTheme.text, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' } }, p.name),
-                    React.createElement('div', { style: { fontSize: '0.72rem', color: gray, fontFamily: "'JetBrains Mono', monospace" } }, glyph(p.sym))
+                    React.createElement('div', { style: { fontSize: '0.72rem', color: gray, fontFamily: "'Geist Mono', monospace" } }, glyph(p.sym))
                   ),
                   React.createElement('div', { style: { textAlign: 'right' } },
-                    React.createElement('div', { style: { fontFamily: "'Space Grotesk', sans-serif", fontSize: '0.88rem', fontWeight: '600', color: p.pnlPct >= 0 ? green : red } }, fmtPct(p.pnlPct)),
+                    React.createElement('div', { style: { fontFamily: "'Geist', sans-serif", fontSize: '0.88rem', fontWeight: '600', color: p.pnlPct >= 0 ? green : red } }, fmtPct(p.pnlPct)),
                     React.createElement('div', { style: { fontSize: '0.72rem', color: gray } }, money(p.value))
                   )
                 ))
@@ -3278,26 +3305,26 @@ function InvestmentTracker() {
               positions.map(p => React.createElement('tr', { key: p.cat + p.sym, style: { borderTop: `1px solid ${currentTheme.cardBorder}` } },
                 React.createElement('td', { style: { padding: '0.85rem 1.5rem' } },
                   React.createElement('div', { style: { display: 'flex', alignItems: 'center', gap: '0.7rem' } },
-                    React.createElement('div', { style: { width: '32px', height: '32px', borderRadius: '9px', background: `${p.color}22`, color: p.color, display: 'flex', alignItems: 'center', justifyContent: 'center', fontFamily: "'Space Grotesk', sans-serif", fontWeight: '700', fontSize: '0.78rem', flexShrink: 0 } }, glyph(p.sym)),
+                    React.createElement('div', { style: { width: '32px', height: '32px', borderRadius: '9px', background: `${p.color}22`, color: p.color, display: 'flex', alignItems: 'center', justifyContent: 'center', fontFamily: "'Geist', sans-serif", fontWeight: '700', fontSize: '0.78rem', flexShrink: 0 } }, glyph(p.sym)),
                     React.createElement('div', null,
                       React.createElement('div', { style: { fontSize: '0.85rem', fontWeight: '600', color: currentTheme.text } }, p.name),
-                      React.createElement('div', { style: { fontSize: '0.7rem', color: gray, fontFamily: "'JetBrains Mono', monospace" } }, glyph(p.sym))
+                      React.createElement('div', { style: { fontSize: '0.7rem', color: gray, fontFamily: "'Geist Mono', monospace" } }, glyph(p.sym))
                     )
                   )
                 ),
-                React.createElement('td', { style: { textAlign: 'right', padding: '0.85rem 0.75rem', fontFamily: "'JetBrains Mono', monospace", fontSize: '0.8rem', color: '#cbd3e1' } }, p.amount.toLocaleString(undefined, { maximumFractionDigits: 4 })),
-                React.createElement('td', { style: { textAlign: 'right', padding: '0.85rem 0.75rem', fontFamily: "'Space Grotesk', sans-serif", fontSize: '0.82rem', color: currentTheme.text } }, p.price > 0 ? money(p.price) : '—'),
-                React.createElement('td', { style: { textAlign: 'right', padding: '0.85rem 0.75rem', fontFamily: "'Space Grotesk', sans-serif", fontSize: '0.85rem', fontWeight: '600', color: currentTheme.text } }, money(p.value)),
+                React.createElement('td', { style: { textAlign: 'right', padding: '0.85rem 0.75rem', fontFamily: "'Geist Mono', monospace", fontSize: '0.8rem', color: '#cbd3e1' } }, p.amount.toLocaleString(undefined, { maximumFractionDigits: 4 })),
+                React.createElement('td', { style: { textAlign: 'right', padding: '0.85rem 0.75rem', fontFamily: "'Geist', sans-serif", fontSize: '0.82rem', color: currentTheme.text } }, p.price > 0 ? money(p.price) : '—'),
+                React.createElement('td', { style: { textAlign: 'right', padding: '0.85rem 0.75rem', fontFamily: "'Geist', sans-serif", fontSize: '0.85rem', fontWeight: '600', color: currentTheme.text } }, money(p.value)),
                 React.createElement('td', { style: { padding: '0.85rem 1rem' } },
                   React.createElement('div', { style: { display: 'flex', alignItems: 'center', gap: '0.5rem' } },
                     React.createElement('div', { style: { flex: 1, height: '5px', background: currentTheme.inputBg, borderRadius: '3px', overflow: 'hidden' } },
                       React.createElement('div', { style: { width: `${totalVal > 0 ? (p.value / totalVal * 100) : 0}%`, height: '100%', background: p.color, borderRadius: '3px' } })
                     ),
-                    React.createElement('span', { style: { fontSize: '0.72rem', color: gray, fontFamily: "'Space Grotesk', sans-serif" } }, `${totalVal > 0 ? (p.value / totalVal * 100).toFixed(1) : '0.0'}%`)
+                    React.createElement('span', { style: { fontSize: '0.72rem', color: gray, fontFamily: "'Geist', sans-serif" } }, `${totalVal > 0 ? (p.value / totalVal * 100).toFixed(1) : '0.0'}%`)
                   )
                 ),
                 React.createElement('td', { style: { textAlign: 'right', padding: '0.85rem 1.5rem' } },
-                  React.createElement('div', { style: { fontFamily: "'Space Grotesk', sans-serif", fontSize: '0.85rem', fontWeight: '600', color: p.pnl >= 0 ? green : red } }, `${p.pnl >= 0 ? '+' : ''}${money(p.pnl)}`),
+                  React.createElement('div', { style: { fontFamily: "'Geist', sans-serif", fontSize: '0.85rem', fontWeight: '600', color: p.pnl >= 0 ? green : red } }, `${p.pnl >= 0 ? '+' : ''}${money(p.pnl)}`),
                   React.createElement('div', { style: { fontSize: '0.72rem', color: p.pnl >= 0 ? green : red } }, fmtPct(p.pnlPct))
                 )
               ))
@@ -3496,7 +3523,7 @@ function InvestmentTracker() {
               cursor: 'pointer',
               fontWeight: '700',
               fontSize: '0.875rem',
-              boxShadow: '0 6px 16px -6px rgba(245,165,36,0.5)'
+              boxShadow: '0 6px 16px -6px rgba(139,124,255,0.5)'
             }
           }, '+ ' + (t.addTransaction || 'Add'))
         )
@@ -3711,7 +3738,7 @@ function InvestmentTracker() {
           ),
           window.MaerminTaxReport && React.createElement('button', {
             onClick: () => { const r = buildReport(); if (r) window.MaerminTaxReport.exportPDF(r); },
-            style: { padding: '0.5rem 1rem', background: currentTheme.accent, color: '#13110a', border: 'none', borderRadius: '8px', cursor: 'pointer', fontWeight: 600 }
+            style: { padding: '0.5rem 1rem', background: currentTheme.accent, color: '#ffffff', border: 'none', borderRadius: '8px', cursor: 'pointer', fontWeight: 600 }
           }, t.exportPdf || 'Export PDF'),
           window.MaerminTaxReport && React.createElement('button', {
             onClick: () => { const r = buildReport(); if (r) window.MaerminTaxReport.exportExcel(r); },
@@ -4556,7 +4583,7 @@ buy,crypto,bitcoin,0.5,45000,2024-01-15,10`)
 
         // ── Cloudflare Worker (CS2 + Yahoo Finance Historical Data) ─────────
         React.createElement('div', {
-          style: { background: `linear-gradient(135deg, rgba(245,165,36,0.08), rgba(59,130,246,0.05))`, border: `1px solid rgba(245,165,36,0.25)`, padding: '1.25rem', borderRadius: '10px', marginBottom: '1rem' }
+          style: { background: `linear-gradient(135deg, rgba(139,124,255,0.08), rgba(59,130,246,0.05))`, border: `1px solid rgba(139,124,255,0.25)`, padding: '1.25rem', borderRadius: '10px', marginBottom: '1rem' }
         },
           React.createElement('div', { style: { display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.625rem' } },
             React.createElement('div', null,
@@ -4590,8 +4617,8 @@ buy,crypto,bitcoin,0.5,45000,2024-01-15,10`)
               React.createElement('div', null, '→ NYSE, XETRA, London…'),
               React.createElement('div', null, '→ 1H to Max periods')
             ),
-            React.createElement('div', { style: { background: 'rgba(245,165,36,0.06)', border: '1px solid rgba(245,165,36,0.15)', borderRadius: '6px', padding: '0.625rem 0.75rem', fontSize: '0.72rem', color: currentTheme.textSecondary, lineHeight: '1.6' } },
-              React.createElement('div', { style: { color: '#f5a524', fontWeight: '700', marginBottom: '0.25rem' } }, 'CS2 Price History'),
+            React.createElement('div', { style: { background: 'rgba(139,124,255,0.06)', border: '1px solid rgba(139,124,255,0.15)', borderRadius: '6px', padding: '0.625rem 0.75rem', fontSize: '0.72rem', color: currentTheme.textSecondary, lineHeight: '1.6' } },
+              React.createElement('div', { style: { color: '#8b7cff', fontWeight: '700', marginBottom: '0.25rem' } }, 'CS2 Price History'),
               React.createElement('div', null, '→ Steam price history'),
               React.createElement('div', null, '→ Per skin over time'),
               React.createElement('div', null, '→ Shown in portfolio chart')
@@ -4739,7 +4766,7 @@ buy,crypto,bitcoin,0.5,45000,2024-01-15,10`)
             width: '100%',
             padding: '0.75rem',
             background: currentTheme.accent,
-            color: '#13110a',
+            color: '#ffffff',
             border: 'none',
             borderRadius: '8px',
             cursor: 'pointer',
@@ -4791,7 +4818,7 @@ buy,crypto,bitcoin,0.5,45000,2024-01-15,10`)
         React.createElement('p', { style: { color: currentTheme.textSecondary, fontSize: '0.85rem', lineHeight: '1.55', margin: '0 0 1rem' } }, 'Save this now — it can unlock your vault if you forget your password. It is shown once and never stored in readable form. Anyone with it can open your vault.'),
         React.createElement('div', { style: { fontFamily: 'ui-monospace,Menlo,monospace', fontSize: '1.05rem', letterSpacing: '0.05em', color: currentTheme.accent, background: currentTheme.inputBg, border: `1px solid ${currentTheme.cardBorder}`, borderRadius: '10px', padding: '1rem', textAlign: 'center', wordBreak: 'break-all', userSelect: 'all', marginBottom: '0.9rem' } }, code),
         React.createElement('div', { style: { display: 'flex', gap: '0.5rem', marginBottom: '1rem' } }, doCopy && altBtn('Copy', doCopy), altBtn('Download', doDownload), altBtn('Print', doPrint)),
-        React.createElement('button', { onClick: () => setShowRecoveryKit(false), style: { width: '100%', padding: '0.7rem', background: currentTheme.accent, color: '#13110a', border: 'none', borderRadius: '8px', cursor: 'pointer', fontWeight: '700', fontSize: '0.9rem' } }, 'Done — I\'ve saved it')
+        React.createElement('button', { onClick: () => setShowRecoveryKit(false), style: { width: '100%', padding: '0.7rem', background: currentTheme.accent, color: '#ffffff', border: 'none', borderRadius: '8px', cursor: 'pointer', fontWeight: '700', fontSize: '0.9rem' } }, 'Done — I\'ve saved it')
       )
     );
   };
@@ -4836,7 +4863,7 @@ buy,crypto,bitcoin,0.5,45000,2024-01-15,10`)
         sectionTitle('Vault'),
         row('Encryption at rest', status.encryptedAtRest ? badge('On', true) : smallBtn('Encrypt now', enableAtRest)),
         row('Key derivation', badge(status.kdf === 'argon2id' ? 'Argon2id' : 'PBKDF2-600k', true)),
-        row('Auto-lock', React.createElement('div', { style: { display: 'flex', gap: '0.3rem' } }, [1, 5, 15, 30].map((m) => React.createElement('button', { key: m, onClick: () => setLock(m), style: { padding: '0.3rem 0.5rem', background: lockMin === m ? currentTheme.accent : currentTheme.inputBg, color: lockMin === m ? '#13110a' : currentTheme.text, border: 'none', borderRadius: '5px', cursor: 'pointer', fontSize: '0.72rem', fontWeight: lockMin === m ? '700' : '500' } }, m + 'm')))),
+        row('Auto-lock', React.createElement('div', { style: { display: 'flex', gap: '0.3rem' } }, [1, 5, 15, 30].map((m) => React.createElement('button', { key: m, onClick: () => setLock(m), style: { padding: '0.3rem 0.5rem', background: lockMin === m ? currentTheme.accent : currentTheme.inputBg, color: lockMin === m ? '#ffffff' : currentTheme.text, border: 'none', borderRadius: '5px', cursor: 'pointer', fontSize: '0.72rem', fontWeight: lockMin === m ? '700' : '500' } }, m + 'm')))),
         sectionTitle('Access'),
         row('Passkey unlock', status.passkeySupported ? (status.hasPasskey ? badge('Enrolled', true) : smallBtn('Add passkey', addPasskey)) : badge('Unsupported', false)),
         row('Recovery code', status.hasRecovery ? React.createElement('div', { style: { display: 'flex', gap: '0.4rem', alignItems: 'center' } }, badge('Active', true), smallBtn('Rotate', createRecoveryKit, recoveryBusy)) : smallBtn(recoveryBusy ? 'Creating…' : 'Create', createRecoveryKit, recoveryBusy)),
@@ -4853,236 +4880,142 @@ buy,crypto,bitcoin,0.5,45000,2024-01-15,10`)
   };
 
   // ========== MAIN RENDER ==========
+  const Icon = window.MaerminIcon || (() => null);
+  const Logo = (window.MaerminIcons && window.MaerminIcons.Logo) || (() => null);
+  const themeChoices = [
+    ['dark', 'Dark', '#0f1018'], ['white', 'Light', '#ffffff'], ['purple', 'Nebula', '#140e24'],
+    ['contrast', 'Contrast', '#000000'], ['cb', 'CB-safe', '#1f8ad1']
+  ];
+  // Theme switch with a circular "portal" reveal from the click point
+  // (View Transitions API). Falls back to an instant switch.
+  const switchTheme = (th, e) => {
+    if (th === theme) return;
+    const vt = document.startViewTransition;
+    const fxOn = !window.MaerminFX || window.MaerminFX.enabled();
+    if (!vt || !fxOn || !ReactDOM.flushSync) { setTheme(th); return; }
+    const x = e && e.clientX != null ? e.clientX : window.innerWidth - 60;
+    const y = e && e.clientY != null ? e.clientY : 40;
+    const r = Math.hypot(Math.max(x, window.innerWidth - x), Math.max(y, window.innerHeight - y));
+    const root = document.documentElement;
+    root.style.setProperty('--vt-x', x + 'px');
+    root.style.setProperty('--vt-y', y + 'px');
+    root.style.setProperty('--vt-r', r + 'px');
+    root.classList.add('mx-vt-theme');
+    const tr = document.startViewTransition(() => {
+      ReactDOM.flushSync(() => setTheme(th));
+      root.setAttribute('data-theme', th);
+      root.setAttribute('data-mode', (themes[th] && themes[th].mode) || 'dark');
+    });
+    tr.finished.finally(() => root.classList.remove('mx-vt-theme'));
+  };
+  const segBtn = (key, on, onClick, children, extra) => React.createElement('button', Object.assign({ key, type: 'button', className: on ? 'is-on' : '', onClick, 'aria-pressed': on }, extra || {}), children);
+  const menuItem = (icon, label, onClick, danger) => React.createElement('button', { type: 'button', className: 'mx-menu-item' + (danger ? ' is-danger' : ''), onClick }, Icon(icon, { size: 16 }), React.createElement('span', null, label));
+  const popLabel = (text) => React.createElement('span', { className: 'mx-pop-label' }, text);
 
   return React.createElement('div', {
+    className: 'mx-app',
+    'data-theme': currentTheme.name || theme,
     style: {
       minHeight: '100vh',
       background: currentTheme.background,
+      backgroundAttachment: 'fixed',
       color: currentTheme.text
     }
   },
-    // Header
-    React.createElement('header', {
-      style: {
-        padding: '0.85rem 1.5rem',
-        display: 'flex',
-        justifyContent: 'space-between',
-        alignItems: 'center',
-        borderBottom: `1px solid ${currentTheme.cardBorder}`,
-        position: 'sticky',
-        top: 0,
-        zIndex: 100,
-        background: theme === 'white' ? 'rgba(255,255,255,0.72)' : 'rgba(10,13,19,0.62)',
-        backdropFilter: 'blur(14px)',
-        WebkitBackdropFilter: 'blur(14px)'
-      }
-    },
-      React.createElement('div', { style: { display: 'flex', alignItems: 'center', gap: '0.7rem', flexWrap: 'wrap' } },
-        // Brand mark — gold gemstone
-        React.createElement('div', {
-          style: {
-            width: '30px', height: '30px', borderRadius: '9px', flexShrink: 0,
-            display: 'flex', alignItems: 'center', justifyContent: 'center',
-            background: 'linear-gradient(140deg, #ffd479 0%, #f5a524 55%, #d97706 100%)',
-            color: '#13110a', fontWeight: '900', fontSize: '1rem',
-            boxShadow: '0 4px 14px -4px rgba(245,165,36,0.6)'
-          }
-        }, '◆'),
-        React.createElement('h1', {
-          style: {
-            fontSize: '1.35rem',
-            fontWeight: '800',
-            letterSpacing: '-0.02em',
-            background: 'linear-gradient(135deg, #ffd479 0%, #f5a524 60%, #d97706 100%)',
-            WebkitBackgroundClip: 'text',
-            WebkitTextFillColor: 'transparent',
-            backgroundClip: 'text'
-          }
-        }, 'MAERMIN'),
-        React.createElement('span', {
-          style: {
-            fontSize: '0.68rem',
-            fontWeight: '600',
-            padding: '0.2rem 0.5rem',
-            background: currentTheme.accentSoft,
-            border: `1px solid ${currentTheme.accent}40`,
-            borderRadius: '999px',
-            color: currentTheme.accent,
-            letterSpacing: '0.02em'
-          }
-        }, 'v10.0'),
-
+    // Header — frosted glass top bar
+    React.createElement('header', { className: 'mx-header maermin-header' },
+      React.createElement('div', { className: 'mx-brand' },
+        Logo({ size: 32 }),
+        React.createElement('h1', { className: 'mx-brand-name' }, 'MAERMIN'),
+        React.createElement('span', { className: 'mx-brand-tag' }, 'v10')
       ),
 
-      // Centered command search (mockup: "Search features & jump to…")
+      // Command search
       React.createElement('button', {
+        type: 'button',
+        className: 'mx-search',
         onClick: () => window.MaerminUI.openOverlay('commandPalette'),
-        style: {
-          flex: 1, maxWidth: '440px', margin: '0 1.25rem',
-          padding: '0.55rem 0.95rem',
-          background: currentTheme.inputBg,
-          border: `1px solid ${currentTheme.cardBorder}`,
-          borderRadius: '11px',
-          color: currentTheme.textSecondary,
-          cursor: 'pointer',
-          display: 'flex', alignItems: 'center', gap: '0.5rem',
-          fontSize: '0.85rem'
-        },
-        onMouseEnter: e => { e.currentTarget.style.borderColor = `${currentTheme.accent}55`; },
-        onMouseLeave: e => { e.currentTarget.style.borderColor = currentTheme.cardBorder; }
+        'aria-label': t.searchCommands || 'Search features & jump to…'
       },
-        React.createElement('span', { style: { opacity: 0.7 } }, '⌕'),
-        React.createElement('span', { style: { flex: 1, textAlign: 'left' } }, t.searchCommands || 'Search features & jump to…'),
-        React.createElement('kbd', {
-          style: { padding: '0.1rem 0.4rem', background: currentTheme.card, border: `1px solid ${currentTheme.cardBorder}`, borderRadius: '5px', fontSize: '0.7rem', fontFamily: "'JetBrains Mono', ui-monospace, monospace" }
-        }, '⌘K')
+        Icon('search', { size: 16 }),
+        React.createElement('span', null, t.searchCommands || 'Search features & jump to…'),
+        React.createElement('kbd', { className: 'mx-kbd' }, '⌘K')
       ),
 
-      React.createElement('div', { style: { display: 'flex', gap: '0.5rem', alignItems: 'center', flexShrink: 0 }, ref: settingsRef },
-        // Live status pill
-        React.createElement('div', {
-          title: 'App is live',
-          style: { display: 'flex', alignItems: 'center', gap: '0.4rem', padding: '0.42rem 0.7rem', background: `${currentTheme.success}14`, border: `1px solid ${currentTheme.success}40`, borderRadius: '999px', color: currentTheme.success, fontSize: '0.78rem', fontWeight: '700' }
-        },
-          React.createElement('span', { style: { width: 8, height: 8, borderRadius: '50%', background: currentTheme.success, boxShadow: `0 0 6px ${currentTheme.success}` } }),
-          'Live'
-        ),
+      React.createElement('div', { className: 'mx-actions', ref: settingsRef },
+        React.createElement('div', { className: 'mx-live', title: 'App is live' }, React.createElement('i'), 'Live'),
 
         // Privacy toggle (mask all amounts)
         React.createElement('button', {
+          type: 'button',
+          className: 'mx-icon-btn' + (privacyMode ? ' is-on' : ''),
           onClick: () => setPrivacyMode(p => !p),
           title: (privacyMode ? (t.showAmounts || 'Show amounts') : (t.hideAmounts || 'Hide amounts')) + ' (p)',
           'aria-label': privacyMode ? (t.showAmounts || 'Show amounts') : (t.hideAmounts || 'Hide amounts'),
-          style: {
-            width: '38px', height: '38px',
-            display: 'flex', alignItems: 'center', justifyContent: 'center',
-            background: privacyMode ? currentTheme.accent : currentTheme.inputBg,
-            border: `1px solid ${privacyMode ? currentTheme.accent : currentTheme.cardBorder}`,
-            borderRadius: '10px',
-            color: privacyMode ? currentTheme.accentText : currentTheme.text,
-            cursor: 'pointer',
-            fontSize: '1rem',
-            transition: 'all 0.15s'
-          }
-        }, privacyMode ? '⦸' : '⦿'),
+          'aria-pressed': privacyMode
+        }, Icon(privacyMode ? 'eye-off' : 'eye', { size: 18 })),
 
         // Settings button
         React.createElement('button', {
+          type: 'button',
+          className: 'mx-icon-btn' + (showSettings ? ' is-on' : ''),
           onClick: () => setShowSettings(!showSettings),
           title: t.settings || 'Settings',
           'aria-label': t.settings || 'Settings',
-          style: {
-            width: '38px', height: '38px',
-            display: 'flex', alignItems: 'center', justifyContent: 'center',
-            background: showSettings ? currentTheme.accent : currentTheme.inputBg,
-            border: `1px solid ${showSettings ? currentTheme.accent : currentTheme.cardBorder}`,
-            borderRadius: '10px',
-            color: showSettings ? currentTheme.accentText : currentTheme.text,
-            cursor: 'pointer',
-            fontSize: '1rem',
-            transition: 'all 0.15s'
-          }
-        }, '⛭'),
+          'aria-expanded': showSettings
+        }, Icon('settings', { size: 18 })),
 
-        // Settings dropdown
-        showSettings && React.createElement('div', {
-          style: {
-            position: 'absolute',
-            top: '58px',
-            right: '1rem',
-            background: currentTheme.modalBg,
-            border: `1px solid ${currentTheme.modalBorder}`,
-            padding: '1rem',
-            borderRadius: '12px',
-            boxShadow: '0 20px 40px -8px rgba(0,0,0,0.5)',
-            zIndex: 2000,
-            minWidth: '220px'
-          }
-        },
-          // Theme
-          React.createElement('div', { style: { marginBottom: '1rem' } },
-            React.createElement('label', { style: { color: currentTheme.textSecondary, fontSize: '0.7rem', textTransform: 'uppercase', letterSpacing: '0.05em' } }, t.theme || 'Theme'),
-            React.createElement('div', { style: { display: 'flex', gap: '0.4rem', marginTop: '0.5rem' } },
-              [['white','Light'],['dark','Dark'],['purple','Purple'],['contrast','Contrast'],['cb','CB-Safe']].map(([th, ico]) =>
-                React.createElement('button', {
-                  key: th,
-                  onClick: () => setTheme(th),
-                  style: {
-                    flex: 1,
-                    padding: '0.4rem',
-                    background: theme === th ? currentTheme.accent : currentTheme.inputBg,
-                    color: theme === th ? '#fff' : currentTheme.text,
-                    border: 'none',
-                    borderRadius: '6px',
-                    cursor: 'pointer',
-                    fontSize: '0.8rem',
-                    display: 'flex',
-                    flexDirection: 'column',
-                    alignItems: 'center',
-                    gap: '2px'
-                  }
-                }, ico, React.createElement('span', { style: { fontSize: '0.65rem' } }, th.charAt(0).toUpperCase() + th.slice(1)))
+        // Settings popover
+        showSettings && React.createElement('div', { className: 'mx-popover', role: 'menu' },
+          React.createElement('div', { style: { marginBottom: '0.9rem' } },
+            popLabel(t.theme || 'Theme'),
+            React.createElement('div', { className: 'mx-seg' },
+              themeChoices.map(([th, lbl, sw]) => segBtn(th, theme === th, (e) => switchTheme(th, e), [
+                React.createElement('span', { key: 's', className: 'mx-swatch', style: { background: sw } }),
+                React.createElement('span', { key: 'l', style: { fontSize: '0.64rem' } }, lbl)
+              ], { title: lbl }))
+            )
+          ),
+          React.createElement('div', { style: { display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.6rem', marginBottom: '0.9rem' } },
+            React.createElement('div', null,
+              popLabel(t.language || 'Language'),
+              React.createElement('div', { className: 'mx-seg' },
+                [['en', 'EN'], ['de', 'DE']].map(([lng, lbl]) => segBtn(lng, language === lng, () => setLanguage(lng), lbl, { title: lng === 'en' ? 'English' : 'Deutsch' }))
+              )
+            ),
+            React.createElement('div', null,
+              popLabel(t.currency || 'Currency'),
+              React.createElement('div', { className: 'mx-seg' },
+                ['EUR', 'USD'].map(curr => segBtn(curr, currency === curr, () => setCurrency(curr), curr === 'EUR' ? '€ EUR' : '$ USD'))
               )
             )
           ),
-          // Language (v10.x) — English base + German overrides; missing keys fall back to English.
-          React.createElement('div', { style: { marginBottom: '1rem' } },
-            React.createElement('label', { style: { color: currentTheme.textSecondary, fontSize: '0.7rem', textTransform: 'uppercase', letterSpacing: '0.05em' } }, t.language || 'Language'),
-            React.createElement('div', { style: { display: 'flex', gap: '0.4rem', marginTop: '0.5rem' } },
-              [['en', 'English'], ['de', 'Deutsch']].map(([lng, lbl]) =>
-                React.createElement('button', {
-                  key: lng,
-                  onClick: () => setLanguage(lng),
-                  style: {
-                    flex: 1, padding: '0.5rem',
-                    background: language === lng ? currentTheme.accent : currentTheme.inputBg,
-                    color: language === lng ? '#fff' : currentTheme.text,
-                    border: 'none', borderRadius: '6px', cursor: 'pointer',
-                    fontSize: '0.8rem', fontWeight: language === lng ? '600' : '400'
-                  }
-                }, lbl)
-              )
-            )
-          ),
-          // Currency
-          React.createElement('div', { style: { marginBottom: '1rem' } },
-            React.createElement('label', { style: { color: currentTheme.textSecondary, fontSize: '0.7rem', textTransform: 'uppercase', letterSpacing: '0.05em' } }, t.currency || 'Currency'),
-            React.createElement('div', { style: { display: 'flex', gap: '0.4rem', marginTop: '0.5rem' } },
-              ['EUR', 'USD'].map(curr =>
-                React.createElement('button', {
-                  key: curr,
-                  onClick: () => setCurrency(curr),
-                  style: {
-                    flex: 1,
-                    padding: '0.5rem',
-                    background: currency === curr ? currentTheme.accent : currentTheme.inputBg,
-                    color: currency === curr ? '#fff' : currentTheme.text,
-                    border: 'none',
-                    borderRadius: '6px',
-                    cursor: 'pointer',
-                    fontSize: '0.8rem',
-                    fontWeight: currency === curr ? '600' : '400'
-                  }
-                }, curr === 'EUR' ? '€ EUR' : '$ USD')
-              )
-            )
-          ),
-          // Privacy
-          React.createElement('div', { style: { marginBottom: '1rem' } },
-            React.createElement('label', { style: { color: currentTheme.textSecondary, fontSize: '0.7rem', textTransform: 'uppercase', letterSpacing: '0.05em' } }, t.privacy || 'Privacy'),
+          React.createElement('div', { style: { marginBottom: '0.9rem' } },
+            popLabel(t.privacy || 'Privacy'),
             React.createElement('button', {
+              type: 'button',
+              className: 'mx-menu-item',
               onClick: () => setPrivacyMode(p => !p),
               title: 'Shortcut: p',
-              style: {
-                width: '100%', padding: '0.5rem 0.6rem', marginTop: '0.5rem',
-                background: privacyMode ? currentTheme.accent : currentTheme.inputBg,
-                color: privacyMode ? '#fff' : currentTheme.text, border: 'none',
-                borderRadius: '6px', cursor: 'pointer', fontSize: '0.8rem', fontWeight: '600',
-                display: 'flex', alignItems: 'center', justifyContent: 'space-between'
-              }
+              style: { justifyContent: 'space-between', background: 'var(--hover)', border: '1px solid var(--border)' }
             },
-              React.createElement('span', null, t.hideAmounts || 'Hide amounts'),
-              React.createElement('span', { style: { opacity: 0.85 } }, privacyMode ? 'ON' : 'OFF')
+              React.createElement('span', { style: { display: 'flex', alignItems: 'center', gap: '0.6rem' } }, Icon(privacyMode ? 'eye-off' : 'eye', { size: 16 }), t.hideAmounts || 'Hide amounts'),
+              React.createElement('span', { style: { width: 34, height: 20, borderRadius: 999, padding: 2, background: privacyMode ? 'var(--accent)' : 'var(--border-strong)', transition: 'background .15s', display: 'flex', justifyContent: privacyMode ? 'flex-end' : 'flex-start' } },
+                React.createElement('span', { style: { width: 16, height: 16, borderRadius: '50%', background: '#fff', boxShadow: '0 1px 3px rgba(0,0,0,.3)' } }))
+            )
+          ),
+          // Motion effects (Aurora FX) — toggling reloads so every surface re-inits.
+          window.MaerminFX && React.createElement('div', { style: { marginBottom: '0.9rem' } },
+            popLabel('Motion'),
+            React.createElement('button', {
+              type: 'button',
+              className: 'mx-menu-item',
+              onClick: () => window.MaerminFX.setEnabled(!window.MaerminFX.enabled()),
+              style: { justifyContent: 'space-between', background: 'var(--hover)', border: '1px solid var(--border)' }
+            },
+              React.createElement('span', { style: { display: 'flex', alignItems: 'center', gap: '0.6rem' } }, Icon('sparkle', { size: 16 }), 'Animations & effects'),
+              React.createElement('span', { style: { width: 34, height: 20, borderRadius: 999, padding: 2, background: window.MaerminFX.enabled() ? 'var(--accent)' : 'var(--border-strong)', display: 'flex', justifyContent: window.MaerminFX.enabled() ? 'flex-end' : 'flex-start' } },
+                React.createElement('span', { style: { width: 16, height: 16, borderRadius: '50%', background: '#fff', boxShadow: '0 1px 3px rgba(0,0,0,.3)' } }))
             )
           ),
           // Corporate actions (stock splits) — global list. Per-symbol add/scan
@@ -5109,44 +5042,14 @@ buy,crypto,bitcoin,0.5,45000,2024-01-15,10`)
               )
             );
           })(),
-          // Divider
-          React.createElement('div', { style: { height: '1px', background: currentTheme.cardBorder, margin: '0.75rem 0' } }),
-          // Change Password
-          React.createElement('button', {
-            onClick: () => { setShowSettings(false); setShowPasswordModal(true); },
-            style: {
-              width: '100%', padding: '0.5rem', background: 'transparent',
-              color: currentTheme.textSecondary, border: 'none',
-              borderRadius: '6px', cursor: 'pointer', fontSize: '0.8rem',
-              textAlign: 'left', marginBottom: '0.25rem'
-            }
-          }, (t.changePassword || 'Change Password')),
-          // API Settings
-          React.createElement('button', {
-            onClick: () => { setShowSettings(false); setShowApiSettings(true); },
-            style: {
-              width: '100%', padding: '0.5rem', background: 'transparent',
-              color: currentTheme.textSecondary, border: 'none',
-              borderRadius: '6px', cursor: 'pointer', fontSize: '0.8rem',
-              textAlign: 'left', marginBottom: '0.25rem'
-            }
-          }, (t.apiSettings || 'API Settings')),
-          // Security & Sync
-          React.createElement('button', {
-            onClick: () => { setShowSettings(false); setShowSecurity(true); },
-            style: {
-              width: '100%', padding: '0.5rem', background: 'transparent',
-              color: currentTheme.textSecondary, border: 'none',
-              borderRadius: '6px', cursor: 'pointer', fontSize: '0.8rem',
-              textAlign: 'left', marginBottom: '0.25rem'
-            }
-          }, 'Security & sync'),
-          // Divider
-          React.createElement('div', { style: { height: '1px', background: currentTheme.cardBorder, margin: '0.75rem 0' } }),
+          React.createElement('div', { className: 'mx-divider' }),
+          menuItem('key', t.changePassword || 'Change Password', () => { setShowSettings(false); setShowPasswordModal(true); }),
+          menuItem('data', t.apiSettings || 'API Settings', () => { setShowSettings(false); setShowApiSettings(true); }),
+          menuItem('shield', 'Security & sync', () => { setShowSettings(false); setShowSecurity(true); }),
+          React.createElement('div', { className: 'mx-divider' }),
           // Encrypted vault backup — disaster recovery (the vault has no password
           // recovery, so an offline backup file is the only safety net).
-          React.createElement('button', {
-            onClick: () => {
+          menuItem('download', t.backupVault || 'Backup vault (encrypted)', () => {
               if (!window.MaerminStorage || !window.MaerminStorage.exportEncryptedBackup) { addToast('Backup unavailable', 'error'); return; }
               window.MaerminStorage.exportEncryptedBackup().then((backup) => {
                 const blob = new Blob([JSON.stringify(backup)], { type: 'application/json' });
@@ -5158,17 +5061,9 @@ buy,crypto,bitcoin,0.5,45000,2024-01-15,10`)
                 if (window.MaerminAuditLog) window.MaerminAuditLog.record('vault.backup.export', 'encrypted vault backup downloaded');
                 addToast('Encrypted backup downloaded — keep it safe', 'success');
               }).catch((e) => addToast('Backup failed: ' + (e && e.message || 'error'), 'error'));
-            },
-            style: {
-              width: '100%', padding: '0.5rem', background: 'transparent',
-              color: currentTheme.textSecondary, border: 'none',
-              borderRadius: '6px', cursor: 'pointer', fontSize: '0.8rem',
-              textAlign: 'left', marginBottom: '0.25rem'
-            }
-          }, '↓ ' + (t.backupVault || 'Backup vault (encrypted)')),
+            }),
           // Restore from an encrypted backup file → reload → unlock with password.
-          React.createElement('button', {
-            onClick: () => {
+          menuItem('upload', t.restoreVault || 'Restore vault backup', () => {
               const input = document.createElement('input');
               input.type = 'file'; input.accept = 'application/json,.json';
               input.onchange = () => {
@@ -5185,131 +5080,81 @@ buy,crypto,bitcoin,0.5,45000,2024-01-15,10`)
                 reader.readAsText(file);
               };
               input.click();
-            },
-            style: {
-              width: '100%', padding: '0.5rem', background: 'transparent',
-              color: currentTheme.textSecondary, border: 'none',
-              borderRadius: '6px', cursor: 'pointer', fontSize: '0.8rem',
-              textAlign: 'left', marginBottom: '0.25rem'
-            }
-          }, '↑ ' + (t.restoreVault || 'Restore vault backup')),
-          // Security log viewer
-          React.createElement('button', {
-            onClick: () => { setShowSettings(false); setShowAuditLog(true); },
-            style: {
-              width: '100%', padding: '0.5rem', background: 'transparent',
-              color: currentTheme.textSecondary, border: 'none',
-              borderRadius: '6px', cursor: 'pointer', fontSize: '0.8rem',
-              textAlign: 'left', marginBottom: '0.25rem'
-            }
-          }, (t.securityLog || 'Security log')),
-          // Divider
-          React.createElement('div', { style: { height: '1px', background: currentTheme.cardBorder, margin: '0.75rem 0' } }),
-          // Logout
-          React.createElement('button', {
-            onClick: () => {
-              if (window.MaerminAuth) window.MaerminAuth.logout();
-            },
-            style: {
-              width: '100%',
-              padding: '0.5rem',
-              background: 'rgba(239,68,68,0.08)',
-              color: currentTheme.danger,
-              border: `1px solid rgba(239,68,68,0.2)`,
-              borderRadius: '6px',
-              cursor: 'pointer',
-              fontSize: '0.8rem',
-              fontWeight: '500',
-              textAlign: 'left'
-            }
-          }, (t.logout || 'Logout'))
+            }),
+          menuItem('log', t.securityLog || 'Security log', () => { setShowSettings(false); setShowAuditLog(true); }),
+          React.createElement('div', { className: 'mx-divider' }),
+          menuItem('logout', t.logout || 'Logout', () => { if (window.MaerminAuth) window.MaerminAuth.logout(); }, true)
         ),
 
         // User avatar — opens the account/settings menu
         React.createElement('button', {
+          type: 'button',
+          className: 'mx-avatar',
           onClick: () => setShowSettings(s => !s),
-          title: t.settings || 'Account', 'aria-label': 'Account',
-          style: { width: '38px', height: '38px', borderRadius: '50%', flexShrink: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', background: `linear-gradient(140deg, ${currentTheme.accent}, ${currentTheme.accent}99)`, color: currentTheme.accentText, border: `1px solid ${currentTheme.accent}66`, cursor: 'pointer', fontWeight: '800', fontSize: '0.78rem', fontFamily: "'Space Grotesk', sans-serif" }
+          title: t.settings || 'Account', 'aria-label': 'Account'
         }, 'MA')
       )
     ),
-    
+
     // Main layout
-    React.createElement('div', { style: { display: 'flex', alignItems: 'flex-start' } },
+    React.createElement('div', { className: 'mx-body' },
       // Sidebar
-      React.createElement('nav', {
-        className: 'maermin-sidebar',
-        style: {
-          width: '236px',
-          padding: '1rem 0.7rem',
-          borderRight: `1px solid ${currentTheme.cardBorder}`,
-          flexShrink: 0,
-          position: 'sticky',
-          top: '61px',
-          height: 'calc(100vh - 61px)',
-          overflowY: 'auto'
-        }
-      },
+      React.createElement('nav', { className: 'maermin-sidebar', 'aria-label': 'Main' },
         (() => {
           const portfolioItems = [
-            { id: 'overview',     icon: '⊞', label: t.navOverview || 'Overview' },
-            { id: 'transactions', icon: '⇅', label: t.navTransactions || 'Transactions' },
-            { id: 'portfolios',   icon: '▦', label: t.navPortfolios || 'Portfolios' },
-            { id: 'net-worth',    icon: '∑', label: t.navNetWorth || 'Net Worth' },
-            { id: 'dividends',    icon: '❖', label: t.navDividends || 'Dividends' },
-            { id: 'journal',      icon: '✎', label: t.navJournal || 'Journal' },
+            { id: 'overview',     label: t.navOverview || 'Overview' },
+            { id: 'transactions', label: t.navTransactions || 'Transactions' },
+            { id: 'portfolios',   label: t.navPortfolios || 'Portfolios' },
+            { id: 'net-worth',    label: t.navNetWorth || 'Net Worth' },
+            { id: 'dividends',    label: t.navDividends || 'Dividends' },
+            { id: 'journal',      label: t.navJournal || 'Journal' },
           ];
           const hubs = [
-            { id: 'hub-analytics', icon: '◫', label: 'Analytics', children: [
-              { id: 'returns',             icon: '↗', label: t.navReturns || 'Returns & XIRR' },
-              { id: 'performance',         icon: '⌁', label: t.navPerformance || 'Performance' },
-              { id: 'rebalancing',         icon: '⇌', label: t.navRebalancing || 'Rebalancing' },
-              { id: 'savings-plans',       icon: '⊕', label: t.navSavingsPlans || 'Savings Plans' },
-              { id: 'cashflow',            icon: '∿', label: t.navCashflow || 'Cash Flow' },
-              { id: 'fees',                icon: '%', label: t.navFees || 'Fee Analyzer' },
-              { id: 'analytics',           icon: '◫', label: t.navRiskCorrelation || 'Risk & Correlation' },
-              { id: 'health',              icon: '✚', label: t.navHealthScore || 'Health Score' },
-              { id: 'investment-analysis', icon: '⊛', label: t.navStrategy || 'Strategy' },
-              { id: 'tax',                 icon: '§', label: t.navTaxFifo || 'Tax & FIFO' },
+            { id: 'hub-analytics', label: 'Analytics', children: [
+              { id: 'returns',             label: t.navReturns || 'Returns & XIRR' },
+              { id: 'performance',         label: t.navPerformance || 'Performance' },
+              { id: 'rebalancing',         label: t.navRebalancing || 'Rebalancing' },
+              { id: 'savings-plans',       label: t.navSavingsPlans || 'Savings Plans' },
+              { id: 'cashflow',            label: t.navCashflow || 'Cash Flow' },
+              { id: 'fees',                label: t.navFees || 'Fee Analyzer' },
+              { id: 'analytics',           label: t.navRiskCorrelation || 'Risk & Correlation' },
+              { id: 'health',              label: t.navHealthScore || 'Health Score' },
+              { id: 'investment-analysis', label: t.navStrategy || 'Strategy' },
+              { id: 'tax',                 label: t.navTaxFifo || 'Tax & FIFO' },
             ]},
-            { id: 'hub-tools', icon: '◎', label: 'Discover & Tools', children: [
-              { id: 'intelligence', icon: '◈', label: t.intelTitle || 'Portfolio Intelligence' },
-              { id: 'tags',        icon: '⛯', label: t.navTags || 'Tags' },
-              { id: 'categories',  icon: '▤', label: t.navCategories || 'Categories' },
-              { id: 'customize',   icon: '▥', label: t.navCustomize || 'Customize Overview' },
-              { id: 'discovery',   icon: '◎', label: t.navDiscovery || 'Discovery' },
-              { id: 'share',       icon: '⊶', label: t.navShare || 'Share & Compare' },
-              { id: 'watchlist',   icon: '☆', label: t.navWatchlist || 'Watchlist' },
-              { id: 'alerts',      icon: '⚑', label: t.navPriceAlerts || 'Price Alerts' },
-              { id: 'rules',       icon: '◷', label: t.navRules || 'Alerts & Rules' },
-              { id: 'attribution', icon: '⊿', label: t.navAttribution || 'Attribution' },
-              { id: 'realized',    icon: '✓', label: t.navRealizedPnl || 'Realized P&L' },
-              { id: 'news',        icon: '☰', label: t.navNewsFeed || 'News Feed' },
-              { id: 'data',        icon: '⇆', label: t.navImportExport || 'Import / Export' },
+            { id: 'hub-tools', label: 'Discover & Tools', children: [
+              { id: 'intelligence', label: t.intelTitle || 'Portfolio Intelligence' },
+              { id: 'tags',        label: t.navTags || 'Tags' },
+              { id: 'categories',  label: t.navCategories || 'Categories' },
+              { id: 'customize',   label: t.navCustomize || 'Customize Overview' },
+              { id: 'discovery',   label: t.navDiscovery || 'Discovery' },
+              { id: 'share',       label: t.navShare || 'Share & Compare' },
+              { id: 'watchlist',   label: t.navWatchlist || 'Watchlist' },
+              { id: 'alerts',      label: t.navPriceAlerts || 'Price Alerts' },
+              { id: 'rules',       label: t.navRules || 'Alerts & Rules' },
+              { id: 'attribution', label: t.navAttribution || 'Attribution' },
+              { id: 'realized',    label: t.navRealizedPnl || 'Realized P&L' },
+              { id: 'news',        label: t.navNewsFeed || 'News Feed' },
+              { id: 'data',        label: t.navImportExport || 'Import / Export' },
             ]},
           ];
 
           const isLeafActive = (id) => activeView === id ||
             (id === 'analytics' && ['correlation', 'montecarlo', 'stress', 'risk'].includes(activeView));
 
-          const sectionLabel = (text, mt) => React.createElement('div', {
-            key: 'sec-' + text,
-            style: { padding: '0.9rem 0.75rem 0.45rem', fontSize: '0.62rem', fontWeight: '700', letterSpacing: '0.13em', textTransform: 'uppercase', color: currentTheme.textSecondary, opacity: 0.6, marginTop: mt }
-          }, text);
+          const sectionLabel = (text) => React.createElement('div', { key: 'sec-' + text, className: 'mx-nav-section' }, text);
 
-          const navButton = (item, indent) => {
+          const navButton = (item, child) => {
             const active = isLeafActive(item.id);
             return React.createElement('button', {
               key: item.id,
-              onClick: () => setActiveView(item.id),
-              style: { display: 'flex', alignItems: 'center', gap: '0.65rem', width: '100%', padding: indent ? '0.48rem 0.7rem 0.48rem 2.05rem' : '0.55rem 0.7rem', marginBottom: '0.12rem', background: active ? currentTheme.accentSoft : 'transparent', color: active ? currentTheme.accent : currentTheme.textSecondary, border: 'none', borderRadius: '10px', textAlign: 'left', cursor: 'pointer', fontSize: '0.83rem', fontWeight: active ? '650' : '450', position: 'relative', transition: 'background 0.14s, color 0.14s' },
-              onMouseEnter: e => { if (!active) { e.currentTarget.style.background = currentTheme.surface2; e.currentTarget.style.color = currentTheme.text; } },
-              onMouseLeave: e => { if (!active) { e.currentTarget.style.background = 'transparent'; e.currentTarget.style.color = currentTheme.textSecondary; } }
+              type: 'button',
+              className: 'mx-nav' + (child ? ' is-child' : '') + (active ? ' is-active' : ''),
+              'aria-current': active ? 'page' : undefined,
+              onClick: () => setActiveView(item.id)
             },
-              active && React.createElement('span', { style: { position: 'absolute', left: '-0.7rem', top: '50%', transform: 'translateY(-50%)', width: '3px', height: '60%', background: currentTheme.accent, borderRadius: '0 3px 3px 0' } }),
-              !indent && React.createElement('span', { style: { fontSize: '0.95rem', width: '18px', textAlign: 'center', flexShrink: 0, opacity: active ? 1 : 0.85 } }, item.icon),
-              indent && React.createElement('span', { style: { width: '5px', height: '5px', borderRadius: '50%', flexShrink: 0, background: active ? currentTheme.accent : currentTheme.textSecondary, opacity: active ? 1 : 0.4 } }),
-              item.label
+              Icon(item.id, { size: child ? 15 : 17 }),
+              React.createElement('span', { className: 'mx-nav-label' }, item.label)
             );
           };
 
@@ -5318,50 +5163,43 @@ buy,crypto,bitcoin,0.5,45000,2024-01-15,10`)
             const expanded = openHub === hub.id || childActive;
             return React.createElement('div', { key: hub.id },
               React.createElement('button', {
-                onClick: () => setOpenHub(prev => prev === hub.id ? '' : hub.id),
-                style: { display: 'flex', alignItems: 'center', gap: '0.65rem', width: '100%', padding: '0.55rem 0.7rem', marginBottom: '0.12rem', background: 'transparent', color: childActive ? currentTheme.text : currentTheme.textSecondary, border: 'none', borderRadius: '10px', textAlign: 'left', cursor: 'pointer', fontSize: '0.83rem', fontWeight: childActive ? '650' : '500', transition: 'background 0.14s, color 0.14s' },
-                onMouseEnter: e => { e.currentTarget.style.background = currentTheme.surface2; e.currentTarget.style.color = currentTheme.text; },
-                onMouseLeave: e => { e.currentTarget.style.background = 'transparent'; e.currentTarget.style.color = childActive ? currentTheme.text : currentTheme.textSecondary; }
+                type: 'button',
+                className: 'mx-nav' + (childActive ? ' has-active' : ''),
+                'aria-expanded': expanded,
+                style: childActive ? { color: 'var(--text)' } : undefined,
+                onClick: () => setOpenHub(prev => prev === hub.id ? '' : hub.id)
               },
-                React.createElement('span', { style: { fontSize: '0.95rem', width: '18px', textAlign: 'center', flexShrink: 0, opacity: 0.85 } }, hub.icon),
-                React.createElement('span', { style: { flex: 1 } }, hub.label),
-                React.createElement('span', { style: { fontSize: '0.6rem', color: currentTheme.textSecondary, background: currentTheme.surface2, borderRadius: '5px', padding: '0.05rem 0.32rem', fontWeight: '600' } }, String(hub.children.length)),
-                React.createElement('span', { style: { fontSize: '0.8rem', color: currentTheme.textSecondary, transform: expanded ? 'rotate(90deg)' : 'none', transition: 'transform 0.15s' } }, '›')
+                Icon(hub.id, { size: 17 }),
+                React.createElement('span', { className: 'mx-nav-label' }, hub.label),
+                React.createElement('span', { className: 'mx-count' }, String(hub.children.length)),
+                React.createElement('span', { className: 'mx-chev' + (expanded ? ' is-open' : '') }, Icon('chevron', { size: 14 }))
               ),
-              expanded && React.createElement('div', { style: { marginBottom: '0.3rem' } }, hub.children.map(c => navButton(c, true)))
+              expanded && React.createElement('div', { className: 'mx-hub-children' }, hub.children.map(c => navButton(c, true)))
             );
           };
 
-          const quickAccess = React.createElement('div', {
-            key: 'quick-access',
-            style: { marginTop: '1rem', padding: '0.85rem', borderRadius: '12px', background: `linear-gradient(160deg, ${currentTheme.accent}1a, ${currentTheme.accent}05)`, border: `1px solid ${currentTheme.accent}2e` }
-          },
-            React.createElement('div', { style: { fontSize: '0.74rem', fontWeight: '600', color: currentTheme.accent, marginBottom: '0.3rem' } }, 'Quick access'),
-            React.createElement('div', { style: { fontSize: '0.72rem', color: currentTheme.textSecondary, marginBottom: '0.6rem', lineHeight: 1.4 } }, 'Jump to any module instantly.'),
-            React.createElement('button', {
-              onClick: () => window.MaerminUI.openOverlay('commandPalette'),
-              style: { display: 'flex', alignItems: 'center', justifyContent: 'space-between', width: '100%', padding: '0.4rem 0.6rem', background: 'rgba(0,0,0,0.25)', border: `1px solid ${currentTheme.cardBorder}`, borderRadius: '8px', cursor: 'pointer', fontSize: '0.74rem', color: currentTheme.text }
-            },
+          const quickAccess = React.createElement('div', { key: 'quick-access', className: 'mx-promo' },
+            React.createElement('div', { className: 'mx-promo-title' }, Icon('sparkle', { size: 15 }), 'Quick access'),
+            React.createElement('div', { className: 'mx-promo-text' }, 'Jump to any module, holding or action instantly.'),
+            React.createElement('button', { type: 'button', onClick: () => window.MaerminUI.openOverlay('commandPalette') },
               React.createElement('span', null, 'Open palette'),
-              React.createElement('span', { style: { fontFamily: "'JetBrains Mono', monospace", fontSize: '0.64rem', color: currentTheme.textSecondary } }, '⌘K')
+              React.createElement('kbd', { className: 'mx-kbd' }, '⌘K')
             )
           );
 
           return [
-            sectionLabel(t.navGroupPortfolio || 'Portfolio', 0),
+            sectionLabel(t.navGroupPortfolio || 'Portfolio'),
             ...portfolioItems.map(it => navButton(it, false)),
-            sectionLabel('Insights', '0.6rem'),
+            sectionLabel('Insights'),
             ...hubs.map(hubButton),
+            React.createElement('div', { key: 'spacer', style: { flex: 1, minHeight: '1rem' } }),
             quickAccess
           ];
-        })(),
+        })()
       ),
 
       // Main content
-      React.createElement('main', {
-        className: 'maermin-main',
-        style: { flex: 1, minWidth: 0, overflow: 'auto' }
-      }, React.createElement(ViewErrorBoundary, { viewKey: activeView, theme: currentTheme }, renderView()))
+      React.createElement('main', { className: 'maermin-main' }, React.createElement(ViewErrorBoundary, { viewKey: activeView, theme: currentTheme }, renderView()))
     ),
 
     // Mobile Bottom Navigation

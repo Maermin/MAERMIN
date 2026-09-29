@@ -183,7 +183,7 @@
         var text = theme.text || '#e9edf4', dim = theme.textSecondary || '#8b94a7';
         var border = theme.cardBorder || 'rgba(255,255,255,0.08)';
         var card = theme.card || '#10151f';
-        var accent = theme.accent || '#f5a524', accentText = theme.accentText || '#13110a';
+        var accent = theme.accent || '#8b7cff', accentText = theme.accentText || '#ffffff';
 
         var s0 = useState(function () { return API.load(); });
         var st = s0[0], setSt = s0[1];

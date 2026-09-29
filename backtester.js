@@ -137,7 +137,7 @@
     var text = theme.text || '#e6edf3', dim = theme.textSecondary || '#9aa4b2';
     var border = theme.cardBorder || 'rgba(255,255,255,0.1)';
     var inputBg = theme.inputBg || '#0f172a', card = theme.card || theme.cardBg || '#10151f';
-    var accent = theme.accent || '#f5a524', good = theme.success || '#22c55e', bad = theme.danger || '#ef4444';
+    var accent = theme.accent || '#8b7cff', good = theme.success || '#22c55e', bad = theme.danger || '#ef4444';
     var workerBase = String(props.workerUrl || '').trim().replace(/\/+$/, '');
     var fmt = props.formatPrice || function (v) { return Number(v || 0).toFixed(2); };
     var sym = (props.getCurrencySymbol && props.getCurrencySymbol()) || '€';
@@ -252,7 +252,7 @@
         e('input', { type: 'text', value: initial, onChange: function (ev) { setInitial(ev.target.value); }, title: 'Starting capital', style: Object.assign({ width: '90px', textAlign: 'right' }, inputStyle) }),
         e('select', { value: bench, onChange: function (ev) { setBench(ev.target.value); }, style: inputStyle },
           presets.map(function (b) { return e('option', { key: b.key, value: b.key }, 'vs ' + b.label); })),
-        e('button', { onClick: runBacktest, disabled: busy, style: { padding: '0.4rem 1rem', borderRadius: '8px', border: 'none', cursor: busy ? 'default' : 'pointer', fontWeight: 700, fontSize: '0.8rem', background: accent, color: '#13110a', opacity: busy ? 0.6 : 1 } }, busy ? 'Running...' : 'Run backtest')),
+        e('button', { onClick: runBacktest, disabled: busy, style: { padding: '0.4rem 1rem', borderRadius: '8px', border: 'none', cursor: busy ? 'default' : 'pointer', fontWeight: 700, fontSize: '0.8rem', background: accent, color: '#ffffff', opacity: busy ? 0.6 : 1 } }, busy ? 'Running...' : 'Run backtest')),
       out && out.error ? e('div', { style: { color: bad, fontSize: '0.8rem' } }, out.error) : null,
       out && out.strategy ? e('div', null,
         metricRow('Your allocation' + (out.strategy.rebalances ? ' (' + out.strategy.rebalances + ' rebalances)' : ''), out.strategy.metrics, accent, out.strategy.path),

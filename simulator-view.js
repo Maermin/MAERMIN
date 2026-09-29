@@ -77,7 +77,7 @@
     var fmt = props.formatPrice || function (n) { return Math.round(n).toLocaleString(); };
     var sym = (props.getCurrencySymbol && props.getCurrencySymbol()) || '';
     var text = theme.text || '#e6edf3', dim = theme.textSecondary || '#9aa4b2';
-    var accent = theme.accent || '#f5a524', border = theme.cardBorder || 'rgba(255,255,255,0.1)';
+    var accent = theme.accent || '#8b7cff', border = theme.cardBorder || 'rgba(255,255,255,0.1)';
     var inputBg = theme.inputBg || '#0f172a', ok = theme.success || '#22c55e', bad = theme.danger || '#ef4444';
 
     var sMode = React.useState('future'); var mode = sMode[0], setMode = sMode[1];
@@ -145,7 +145,7 @@
       h('div', { style: { display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '0.5rem', marginBottom: '0.9rem' } },
         h('h3', { style: { color: text, fontSize: '1rem', fontWeight: '700', margin: 0 } }, 'Planning simulator'),
         h('div', { style: { display: 'flex', gap: '0.3rem', flexWrap: 'wrap' } }, MODES.map(function (m) {
-          return h('button', { key: m.id, onClick: function () { setMode(m.id); }, style: { padding: '0.35rem 0.75rem', borderRadius: '8px', border: 'none', cursor: 'pointer', fontSize: '0.78rem', fontWeight: mode === m.id ? '700' : '500', background: mode === m.id ? accent : inputBg, color: mode === m.id ? '#13110a' : dim } }, m.label);
+          return h('button', { key: m.id, onClick: function () { setMode(m.id); }, style: { padding: '0.35rem 0.75rem', borderRadius: '8px', border: 'none', cursor: 'pointer', fontSize: '0.78rem', fontWeight: mode === m.id ? '700' : '500', background: mode === m.id ? accent : inputBg, color: mode === m.id ? '#ffffff' : dim } }, m.label);
         }))
       ),
       h('div', { style: { display: 'grid', gridTemplateColumns: 'repeat(auto-fit,minmax(150px,1fr))', gap: '0.6rem' } }, (FIELDS[mode] || []).map(function (f) { return field(f[0], f[1], f[2]); })),

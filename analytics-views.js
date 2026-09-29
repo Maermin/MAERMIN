@@ -42,7 +42,7 @@
     if (!D || !A) return null;
     var e = React.createElement;
     var theme = props.theme || {};
-    var text = theme.text || '#e6edf3', dim = theme.textSecondary || '#9aa4b2', accent = theme.accent || '#f5a524';
+    var text = theme.text || '#e6edf3', dim = theme.textSecondary || '#9aa4b2', accent = theme.accent || '#8b7cff';
     var border = theme.cardBorder || 'rgba(255,255,255,0.1)', inputBg = theme.inputBg || '#0f172a';
     var ok = theme.success || '#22c55e', bad = theme.danger || '#ef4444';
     var card = theme.card || theme.cardBg || 'transparent';
@@ -112,7 +112,7 @@
       e('div', { style: { display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '0.5rem', marginBottom: '0.9rem' } },
         e('h3', { style: { color: text, fontSize: '1rem', fontWeight: '700', margin: 0 } }, 'Benchmark comparison'),
         e('div', { style: { display: 'flex', gap: '0.3rem', flexWrap: 'wrap' } }, presets.map(function (b) {
-          return e('button', { key: b.key, onClick: function () { setSel(b.key); }, style: { padding: '0.35rem 0.7rem', borderRadius: '8px', border: 'none', cursor: 'pointer', fontSize: '0.76rem', fontWeight: sel === b.key ? '700' : '500', background: sel === b.key ? accent : inputBg, color: sel === b.key ? '#13110a' : dim } }, b.label);
+          return e('button', { key: b.key, onClick: function () { setSel(b.key); }, style: { padding: '0.35rem 0.7rem', borderRadius: '8px', border: 'none', cursor: 'pointer', fontSize: '0.76rem', fontWeight: sel === b.key ? '700' : '500', background: sel === b.key ? accent : inputBg, color: sel === b.key ? '#ffffff' : dim } }, b.label);
         }))
       ),
       body
@@ -127,7 +127,7 @@
     if (!D || !A) return null;
     var e = React.createElement;
     var theme = props.theme || {};
-    var text = theme.text || '#e6edf3', dim = theme.textSecondary || '#9aa4b2', accent = theme.accent || '#f5a524';
+    var text = theme.text || '#e6edf3', dim = theme.textSecondary || '#9aa4b2', accent = theme.accent || '#8b7cff';
     var border = theme.cardBorder || 'rgba(255,255,255,0.1)', card = theme.card || theme.cardBg || 'transparent';
     var ok = theme.success || '#22c55e';
 

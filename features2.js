@@ -162,7 +162,7 @@ function RebalancingView({ portfolio, prices, theme, formatPrice, getCurrencySym
   const invest = parseFloat(investAmount) || 0;
   const grandTotal = totalValue + invest;
 
-  const catColors = { crypto: '#f5a524', stocks: '#3b82f6', skins: '#06b6d4', commodities: '#fb7185' };
+  const catColors = { crypto: '#8b7cff', stocks: '#3b82f6', skins: '#06b6d4', commodities: '#fb7185' };
   const catLabels = { crypto: 'Crypto', stocks: 'Stocks', skins: 'CS2 Skins', commodities: 'Commodities' };
 
   const rows = ['crypto','stocks','skins','commodities'].map(cat => {
@@ -534,9 +534,9 @@ function BrokerLogo({ brokerId, name, size = 36 }) {
     return React.createElement('div', {
       style: {
         width: size, height: size, borderRadius: '8px', flexShrink: 0,
-        background: 'rgba(245,165,36,0.15)', border: '1px solid rgba(245,165,36,0.2)',
+        background: 'rgba(139,124,255,0.15)', border: '1px solid rgba(139,124,255,0.2)',
         display: 'flex', alignItems: 'center', justifyContent: 'center',
-        fontSize: Math.round(size * 0.42) + 'px', fontWeight: '800', color: '#f5a524',
+        fontSize: Math.round(size * 0.42) + 'px', fontWeight: '800', color: '#8b7cff',
       }
     }, (name || '?')[0].toUpperCase());
   }
@@ -785,8 +785,8 @@ function BrokerImportWizard({ theme, t, addToast, onImport, existing }) {
         React.createElement('div', { key: i, style: {
           flex: 1, padding: '0.625rem', textAlign: 'center', fontSize: '0.8rem',
           fontWeight: i === step ? '700' : '400',
-          background: i === step ? theme.accent : i < step ? 'rgba(245,165,36,0.15)' : theme.card,
-          color: i === step ? '#13110a' : i < step ? theme.accent : theme.textSecondary,
+          background: i === step ? theme.accent : i < step ? 'rgba(139,124,255,0.15)' : theme.card,
+          color: i === step ? '#ffffff' : i < step ? theme.accent : theme.textSecondary,
           borderRight: i < steps.length-1 ? `1px solid ${theme.cardBorder}` : 'none'
         } }, `${i < step ? '✓ ' : ''}${s}`)
       )
@@ -877,7 +877,7 @@ function BrokerImportWizard({ theme, t, addToast, onImport, existing }) {
     step === 1 && selectedBroker !== 'getquin' && selectedBroker !== 'cointracking' && React.createElement('div', null,
       // API sync (read-only) for exchanges that expose a signed REST API.
       apiSupported && React.createElement('div', {
-        style: { background: 'rgba(245,165,36,0.06)', border: '1px solid rgba(245,165,36,0.25)', borderRadius: '16px', padding: '1.25rem', marginBottom: '1.25rem' }
+        style: { background: 'rgba(139,124,255,0.06)', border: '1px solid rgba(139,124,255,0.25)', borderRadius: '16px', padding: '1.25rem', marginBottom: '1.25rem' }
       },
         React.createElement('div', { style: { color: theme.text, fontWeight: '700', marginBottom: '0.35rem' } }, (selectedBrokerObj ? selectedBrokerObj.name : '') + ' API-Sync'),
         React.createElement('p', { style: { color: theme.textSecondary, fontSize: '0.78rem', lineHeight: '1.6', marginBottom: '0.9rem' } },
@@ -905,7 +905,7 @@ function BrokerImportWizard({ theme, t, addToast, onImport, existing }) {
         ),
         React.createElement('button', {
           onClick: handleApiSync, disabled: apiBusy || !apiCreds.key || !apiCreds.secret,
-          style: { padding: '0.6rem 1.2rem', border: 'none', borderRadius: '8px', cursor: (apiBusy || !apiCreds.key || !apiCreds.secret) ? 'not-allowed' : 'pointer', fontWeight: '600', fontSize: '0.85rem', opacity: (apiBusy || !apiCreds.key || !apiCreds.secret) ? 0.5 : 1, background: theme.accent, color: '#13110a' }
+          style: { padding: '0.6rem 1.2rem', border: 'none', borderRadius: '8px', cursor: (apiBusy || !apiCreds.key || !apiCreds.secret) ? 'not-allowed' : 'pointer', fontWeight: '600', fontSize: '0.85rem', opacity: (apiBusy || !apiCreds.key || !apiCreds.secret) ? 0.5 : 1, background: theme.accent, color: '#ffffff' }
         }, apiBusy ? '◎ Syncing…' : 'Sync via API'),
         React.createElement('div', { style: { textAlign: 'center', color: theme.textSecondary, fontSize: '0.72rem', margin: '0.9rem 0 0' } }, '— or import CSV —')
       ),
@@ -994,7 +994,7 @@ function BrokerImportWizard({ theme, t, addToast, onImport, existing }) {
                 presets.map(p => React.createElement('option', { key: p.id, value: p.id }, p.name))
               ),
               React.createElement('button', { onClick: saveCurrentPreset,
-                style: { padding: '0.35rem 0.7rem', background: theme.accent, color: '#13110a', border: 'none', borderRadius: '6px', cursor: 'pointer', fontSize: '0.76rem', fontWeight: '700' } }, t.presetSave || 'Save preset'),
+                style: { padding: '0.35rem 0.7rem', background: theme.accent, color: '#ffffff', border: 'none', borderRadius: '6px', cursor: 'pointer', fontSize: '0.76rem', fontWeight: '700' } }, t.presetSave || 'Save preset'),
               selectedPreset && React.createElement('button', { onClick: deleteSelectedPreset,
                 style: { padding: '0.35rem 0.7rem', background: 'none', color: theme.textSecondary, border: `1px solid ${theme.inputBorder}`, borderRadius: '6px', cursor: 'pointer', fontSize: '0.76rem' } }, t.presetDelete || 'Delete')
             )
@@ -1028,7 +1028,7 @@ function BrokerImportWizard({ theme, t, addToast, onImport, existing }) {
                   React.createElement('tr', { key: i, style: { opacity: tx.duplicate ? 0.45 : 1 } },
                     React.createElement('td', { style: { padding: '0.5rem 0.875rem', color: theme.text } }, tx.date || '—'),
                     React.createElement('td', { style: { padding: '0.5rem 0.875rem' } },
-                      React.createElement('span', { style: { padding: '0.125rem 0.375rem', borderRadius: '3px', fontSize: '0.7rem', fontWeight: '700', background: tx.type === 'buy' ? 'rgba(34,197,94,0.15)' : tx.type === 'sell' ? 'rgba(239,68,68,0.15)' : 'rgba(245,165,36,0.15)', color: tx.type === 'buy' ? '#22c55e' : tx.type === 'sell' ? '#ef4444' : theme.accent } }, (tx.type || '').toUpperCase())
+                      React.createElement('span', { style: { padding: '0.125rem 0.375rem', borderRadius: '3px', fontSize: '0.7rem', fontWeight: '700', background: tx.type === 'buy' ? 'rgba(34,197,94,0.15)' : tx.type === 'sell' ? 'rgba(239,68,68,0.15)' : 'rgba(139,124,255,0.15)', color: tx.type === 'buy' ? '#22c55e' : tx.type === 'sell' ? '#ef4444' : theme.accent } }, (tx.type || '').toUpperCase())
                     ),
                     React.createElement('td', { style: { padding: '0.5rem 0.875rem', color: theme.text, fontWeight: '600' } }, tx.symbol || '—'),
                     React.createElement('td', { style: { padding: '0.5rem 0.875rem', color: theme.text, textAlign: 'right' } }, tx.quantity?.toFixed?.(4) || '—'),
@@ -1108,7 +1108,7 @@ function PositionNotesView({ portfolio, theme, t }) {
               key: p.key,
               style: {
                 background: theme.card, borderRadius: '16px', boxShadow: theme.shadow,
-                border: `1px solid ${isActive ? theme.accent : note?.text ? 'rgba(245,165,36,0.3)' : theme.cardBorder}`,
+                border: `1px solid ${isActive ? theme.accent : note?.text ? 'rgba(139,124,255,0.3)' : theme.cardBorder}`,
                 padding: '1rem', transition: 'all 0.15s'
               }
             },
@@ -1130,7 +1130,7 @@ function PositionNotesView({ portfolio, theme, t }) {
                       style: { width: '100%', height: '120px', padding: '0.625rem', background: theme.inputBg, border: `1px solid ${theme.inputBorder}`, borderRadius: '6px', color: theme.text, fontSize: '0.8rem', resize: 'vertical', marginBottom: '0.5rem', lineHeight: '1.5' }
                     }),
                     React.createElement('div', { style: { display: 'flex', gap: '0.375rem' } },
-                      React.createElement('button', { onClick: save, style: { padding: '0.375rem 0.875rem', background: theme.accent, color: '#13110a', border: 'none', borderRadius: '6px', cursor: 'pointer', fontSize: '0.8rem', fontWeight: '600' } }, 'Save'),
+                      React.createElement('button', { onClick: save, style: { padding: '0.375rem 0.875rem', background: theme.accent, color: '#ffffff', border: 'none', borderRadius: '6px', cursor: 'pointer', fontSize: '0.8rem', fontWeight: '600' } }, 'Save'),
                       React.createElement('button', { onClick: () => { setActive(null); setDraft(''); }, style: { padding: '0.375rem 0.875rem', background: theme.inputBg, color: theme.text, border: `1px solid ${theme.cardBorder}`, borderRadius: '6px', cursor: 'pointer', fontSize: '0.8rem' } }, 'Cancel')
                     )
                   )
@@ -1254,7 +1254,7 @@ function DividendCalendarView({ portfolio, prices, metaVersion, theme, t, addToa
         React.createElement('button', { onClick: () => setViewMonth(p => { const d = new Date(p.year, p.month - 1); return { year: d.getFullYear(), month: d.getMonth() }; }), style: { padding: '0.5rem 0.875rem', background: theme.inputBg, border: `1px solid ${theme.cardBorder}`, borderRadius: '6px', color: theme.text, cursor: 'pointer' } }, '←'),
         React.createElement('span', { style: { color: theme.text, fontWeight: '700', minWidth: '100px', textAlign: 'center' } }, `${monthNames[month]} ${year}`),
         React.createElement('button', { onClick: () => setViewMonth(p => { const d = new Date(p.year, p.month + 1); return { year: d.getFullYear(), month: d.getMonth() }; }), style: { padding: '0.5rem 0.875rem', background: theme.inputBg, border: `1px solid ${theme.cardBorder}`, borderRadius: '6px', color: theme.text, cursor: 'pointer' } }, '→'),
-        React.createElement('button', { onClick: () => setShowAdd(p=>!p), style: { padding: '0.5rem 0.875rem', background: theme.accent, color: '#13110a', border: 'none', borderRadius: '6px', cursor: 'pointer', fontWeight: '600' } }, '+ Dividend')
+        React.createElement('button', { onClick: () => setShowAdd(p=>!p), style: { padding: '0.5rem 0.875rem', background: theme.accent, color: '#ffffff', border: 'none', borderRadius: '6px', cursor: 'pointer', fontWeight: '600' } }, '+ Dividend')
       )
     ),
 
@@ -1268,7 +1268,7 @@ function DividendCalendarView({ portfolio, prices, metaVersion, theme, t, addToa
         React.createElement('option', { value: 'USD' }, '$')
       ),
       inp('notes', 'Note (opt.)'),
-      React.createElement('button', { onClick: addEvent, style: { padding: '0.5rem 1rem', background: theme.accent, color: '#13110a', border: 'none', borderRadius: '6px', cursor: 'pointer', fontWeight: '600', whiteSpace: 'nowrap' } }, 'Add')
+      React.createElement('button', { onClick: addEvent, style: { padding: '0.5rem 1rem', background: theme.accent, color: '#ffffff', border: 'none', borderRadius: '6px', cursor: 'pointer', fontWeight: '600', whiteSpace: 'nowrap' } }, 'Add')
     ),
 
     // Calendar grid
@@ -1289,7 +1289,7 @@ function DividendCalendarView({ portfolio, prices, metaVersion, theme, t, addToa
             style: {
               minHeight: '70px', padding: '0.375rem', borderRight: i%7<6 ? `1px solid ${theme.cardBorder}` : 'none',
               borderBottom: `1px solid ${theme.cardBorder}`,
-              background: isToday ? 'rgba(245,165,36,0.08)' : 'transparent'
+              background: isToday ? 'rgba(139,124,255,0.08)' : 'transparent'
             }
           },
             d && React.createElement('div', { style: { fontSize: '0.75rem', fontWeight: isToday ? '700' : '400', color: isToday ? theme.accent : theme.text, marginBottom: '0.25rem' } }, d),
@@ -1330,63 +1330,30 @@ function DividendCalendarView({ portfolio, prices, metaVersion, theme, t, addToa
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// 6. MOBILE NAV HOOK (CSS injected once)
+// 6. MOBILE NAV (floating dock, styled by styles.css .mx-bottom-nav)
 // ─────────────────────────────────────────────────────────────────────────────
-function injectMobileCSS() {
-  if (document.getElementById('maermin-mobile-css')) return;
-  const style = document.createElement('style');
-  style.id = 'maermin-mobile-css';
-  style.textContent = `
-@media (max-width: 768px) {
-  /* Hide desktop sidebar, show bottom nav */
-  nav.maermin-sidebar { display: none !important; }
-  main.maermin-main   { padding-bottom: 70px !important; }
-  .maermin-bottom-nav { display: flex !important; }
-  header.maermin-header { padding: 0.625rem 1rem !important; }
-  header.maermin-header h1 { font-size: 1.2rem !important; }
-}
-@media (min-width: 769px) {
-  .maermin-bottom-nav { display: none !important; }
-}
-.maermin-bottom-nav {
-  position: fixed; bottom: 0; left: 0; right: 0; z-index: 500;
-  background: var(--maermin-modal-bg, #141a25);
-  border-top: 1px solid rgba(255,255,255,0.1);
-  padding: 0.375rem 0 env(safe-area-inset-bottom);
-  justify-content: space-around; align-items: center;
-  backdrop-filter: blur(12px);
-}
-.maermin-bottom-nav button {
-  display: flex; flex-direction: column; align-items: center; gap: 2px;
-  background: none; border: none; cursor: pointer; padding: 0.375rem 0.5rem;
-  font-size: 0.6rem; letter-spacing: 0.02em; min-width: 52px;
-  transition: opacity 0.15s;
-}
-.maermin-bottom-nav button:active { opacity: 0.7; }
-.maermin-bottom-nav button span.icon { font-size: 1.3rem; line-height: 1; }
-  `;
-  document.head.appendChild(style);
-}
 
 function MobileBottomNav({ activeView, setActiveView, theme }) {
-  useEffect(() => { injectMobileCSS(); }, []);
-
+  // Aurora redesign: floating glass dock. All styling lives in styles.css
+  // (.mx-bottom-nav) so it follows the active theme via CSS variables.
   const items = [
-    { id: 'overview',     icon: '◈', label: 'Overview' },
-    { id: 'portfolio',    icon: '◆', label: 'Portfolio' },
-    { id: 'transactions', icon: '↕', label: 'Trades' },
-    { id: 'watchlist',    icon: '○', label: 'Watch' },
-    { id: 'analytics',   icon: '◇', label: 'Analytics' },
+    { id: 'overview',     icon: 'overview',      label: 'Overview' },
+    { id: 'portfolio',    icon: 'portfolios',    label: 'Portfolio' },
+    { id: 'transactions', icon: 'transactions',  label: 'Trades' },
+    { id: 'watchlist',    icon: 'watchlist',     label: 'Watch' },
+    { id: 'analytics',    icon: 'hub-analytics', label: 'Analytics' },
   ];
+  const Icon = window.MaerminIcon || (() => null);
 
-  return React.createElement('div', { className: 'maermin-bottom-nav' },
+  return React.createElement('nav', { className: 'mx-bottom-nav maermin-bottom-nav', 'aria-label': 'Primary' },
     items.map(item =>
       React.createElement('button', {
         key: item.id,
-        onClick: () => setActiveView(item.id),
-        style: { color: activeView === item.id ? (theme?.accent || '#f5a524') : 'rgba(255,255,255,0.5)' }
+        className: activeView === item.id ? 'is-active' : '',
+        'aria-current': activeView === item.id ? 'page' : undefined,
+        onClick: () => setActiveView(item.id)
       },
-        React.createElement('span', { className: 'icon' }, item.icon),
+        Icon(item.icon, { size: 20 }),
         item.label
       )
     )

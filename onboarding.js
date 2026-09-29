@@ -124,7 +124,7 @@
     var onClose = props.onClose || function () {};
     var ok = theme.success || '#22c55e', warn = theme.warning || '#f59e0b', bad = theme.danger || theme.error || '#ef4444';
     var text = theme.text || '#e6edf3', dim = theme.textSecondary || '#9aa4b2';
-    var accent = theme.accent || '#f5a524', border = theme.cardBorder || 'rgba(255,255,255,0.1)';
+    var accent = theme.accent || '#8b7cff', border = theme.cardBorder || 'rgba(255,255,255,0.1)';
     var inputBg = theme.inputBg || '#0f172a', cardBg = theme.cardBg || '#141a25';
 
     var sStep = React.useState('intro'); var step = sStep[0], setStep = sStep[1];
@@ -155,7 +155,7 @@
 
     function btn(label, onClick, kind) {
       var bg = kind === 'primary' ? accent : 'transparent';
-      var col = kind === 'primary' ? '#13110a' : text;
+      var col = kind === 'primary' ? '#ffffff' : text;
       var bd = kind === 'primary' ? 'none' : ('1px solid ' + border);
       return h('button', { onClick: onClick, style: { padding: '0.6rem 1.1rem', background: bg, color: col,
         border: bd, borderRadius: '8px', cursor: 'pointer', fontWeight: kind === 'primary' ? '700' : '500', fontSize: '0.85rem' } }, label);
@@ -214,7 +214,7 @@
 
   function choiceCard(h, icon, title, sub, onClick, accent, text, dim, border, cardBg, primary) {
     return h('button', { onClick: onClick, style: { display: 'flex', gap: '0.85rem', alignItems: 'center', textAlign: 'left',
-        width: '100%', padding: '0.9rem 1rem', background: primary ? 'rgba(245,165,36,0.08)' : 'transparent',
+        width: '100%', padding: '0.9rem 1rem', background: primary ? 'rgba(139,124,255,0.08)' : 'transparent',
         border: '1px solid ' + (primary ? accent : border), borderRadius: '10px', cursor: 'pointer' } },
       h('span', { style: { fontSize: '1.3rem' } }, icon),
       h('span', null,

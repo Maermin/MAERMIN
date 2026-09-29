@@ -255,7 +255,7 @@
 
     var colorFor = {
       critical: theme.danger || '#ef4444', warning: theme.warning || '#f59e0b',
-      opportunity: theme.accent || '#f5a524', info: theme.textSecondary || '#8b94a7', good: theme.success || '#22c55e'
+      opportunity: theme.accent || '#8b7cff', info: theme.textSecondary || '#8b94a7', good: theme.success || '#22c55e'
     };
     var iconFor = { critical: '✗', warning: '!', opportunity: '◇', info: 'i', good: '✓' };
 

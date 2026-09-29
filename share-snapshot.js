@@ -201,7 +201,7 @@
     var text = theme.text || '#e6edf3', dim = theme.textSecondary || '#9aa4b2';
     var border = theme.cardBorder || 'rgba(255,255,255,0.1)';
     var inputBg = theme.inputBg || '#0f172a', card = theme.card || theme.cardBg || '#10151f';
-    var accent = theme.accent || '#f5a524', good = theme.success || '#22c55e', warn = theme.warning || '#f59e0b', bad = theme.danger || '#ef4444';
+    var accent = theme.accent || '#8b7cff', good = theme.success || '#22c55e', warn = theme.warning || '#f59e0b', bad = theme.danger || '#ef4444';
     var workerBase = String(props.workerUrl || '').trim().replace(/\/+$/, '');
 
     var snapshot = null;
@@ -316,7 +316,7 @@
               weightTable('Asset classes', snapshot, accent),
               showRaw ? e('pre', { style: { background: inputBg, border: '1px solid ' + border, borderRadius: '8px', padding: '0.7rem', color: dim, fontSize: '0.7rem', overflowX: 'auto', whiteSpace: 'pre-wrap' } }, JSON.stringify(snapshot, null, 2)) : null,
               e('div', { style: { display: 'flex', gap: '0.5rem', alignItems: 'center', flexWrap: 'wrap', marginTop: '0.6rem' } },
-                e('button', { onClick: publish, disabled: state.busy || !workerBase, style: { padding: '0.45rem 1rem', borderRadius: '8px', border: 'none', cursor: workerBase ? 'pointer' : 'default', fontWeight: 700, fontSize: '0.8rem', background: accent, color: '#13110a', opacity: (state.busy || !workerBase) ? 0.6 : 1 } }, state.busy ? 'Publishing...' : 'Publish snapshot'),
+                e('button', { onClick: publish, disabled: state.busy || !workerBase, style: { padding: '0.45rem 1rem', borderRadius: '8px', border: 'none', cursor: workerBase ? 'pointer' : 'default', fontWeight: 700, fontSize: '0.8rem', background: accent, color: '#ffffff', opacity: (state.busy || !workerBase) ? 0.6 : 1 } }, state.busy ? 'Publishing...' : 'Publish snapshot'),
                 state.link ? e('code', { style: { color: good, fontSize: '0.74rem', wordBreak: 'break-all' } }, state.link) : null,
                 state.mcp ? e('div', { style: { width: '100%', marginTop: '0.3rem' } },
                   e('span', { style: { color: dim, fontSize: '0.72rem' } }, 'MCP (AI read-only): '),

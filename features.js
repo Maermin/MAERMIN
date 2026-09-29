@@ -154,9 +154,9 @@ function PriceQualityBadge({ category, price, meta, fetchedAt, fetchFailed, them
 // 3. PORTFOLIO OVERVIEW mit Pie + Gainers/Losers + Sparklines
 // ─────────────────────────────────────────────────────────────────────────────
 const CATEGORY_COLORS = {
-  crypto:      ['#f59e0b','#ef4444','#3b82f6','#f5a524','#06b6d4','#10b981','#f97316','#ec4899','#84cc16','#14b8a6'],
-  stocks:      ['#3b82f6','#f5a524','#06b6d4','#10b981','#f59e0b','#ef4444','#f97316','#ec4899','#84cc16','#14b8a6'],
-  skins:       ['#06b6d4','#10b981','#f5a524','#f59e0b','#ef4444','#3b82f6','#f97316','#ec4899','#84cc16','#14b8a6'],
+  crypto:      ['#f59e0b','#ef4444','#3b82f6','#8b7cff','#06b6d4','#10b981','#f97316','#ec4899','#84cc16','#14b8a6'],
+  stocks:      ['#3b82f6','#8b7cff','#06b6d4','#10b981','#f59e0b','#ef4444','#f97316','#ec4899','#84cc16','#14b8a6'],
+  skins:       ['#06b6d4','#10b981','#8b7cff','#f59e0b','#ef4444','#3b82f6','#f97316','#ec4899','#84cc16','#14b8a6'],
   commodities: ['#d97706','#f59e0b','#fbbf24','#92400e','#b45309','#78716c','#a16207','#ca8a04','#d97706','#f97316'],
 };
 
@@ -219,7 +219,7 @@ function PortfolioOverviewPanel({ portfolio, prices, priceHistory, theme, format
     padding: '0.35rem 0.75rem', border: 'none', borderRadius: '6px', cursor: 'pointer',
     fontSize: '0.8rem', fontWeight: activeTab === id ? '700' : '400',
     background: activeTab === id ? theme.accent : 'transparent',
-    color: activeTab === id ? '#13110a' : theme.textSecondary,
+    color: activeTab === id ? '#ffffff' : theme.textSecondary,
     transition: 'all 0.15s'
   });
 
@@ -416,7 +416,7 @@ function WatchlistView({ prices, priceHistory, theme, t, addToast }) {
       React.createElement('button', {
         onClick: addItem,
         style: {
-          padding: '0.5rem 1.25rem', background: theme.accent, color: '#13110a',
+          padding: '0.5rem 1.25rem', background: theme.accent, color: '#ffffff',
           border: 'none', borderRadius: '8px', cursor: 'pointer', fontWeight: '600'
         }
       }, '+ Add')
@@ -607,7 +607,7 @@ function PriceAlertsView({ prices, theme, t, addToast, portfolio }) {
       e('div', { style: { color: theme.textSecondary, fontSize: '0.72rem', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: '0.5rem' } }, t.smartAlerts || 'Smart alerts'),
       e('div', { style: { display: 'flex', flexDirection: 'column', gap: '0.5rem' } },
         items.map((it, i) => {
-          const col = it.sev === 'danger' ? (theme.danger || '#ef4444') : it.sev === 'warning' ? (theme.warning || '#f59e0b') : it.sev === 'success' ? (theme.success || '#22c55e') : (theme.accent || '#f5a524');
+          const col = it.sev === 'danger' ? (theme.danger || '#ef4444') : it.sev === 'warning' ? (theme.warning || '#f59e0b') : it.sev === 'success' ? (theme.success || '#22c55e') : (theme.accent || '#8b7cff');
           return e('div', { key: i, style: { display: 'flex', alignItems: 'center', gap: '0.75rem', padding: '0.75rem 1rem', background: theme.card, border: `1px solid ${theme.cardBorder}`, borderLeft: `4px solid ${col}`, borderRadius: '8px' } },
             e('span', { style: { color: col, fontSize: '1rem' } }, it.icon),
             e('div', null,
@@ -642,7 +642,7 @@ function PriceAlertsView({ prices, theme, t, addToast, portfolio }) {
       }),
       React.createElement('button', {
         onClick: addAlert,
-        style: { padding: '0.5rem 1.25rem', background: theme.accent, color: '#13110a', border: 'none', borderRadius: '8px', cursor: 'pointer', fontWeight: '600' }
+        style: { padding: '0.5rem 1.25rem', background: theme.accent, color: '#ffffff', border: 'none', borderRadius: '8px', cursor: 'pointer', fontWeight: '600' }
       }, '+ Alert')
     ),
 

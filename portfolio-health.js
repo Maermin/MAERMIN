@@ -427,7 +427,7 @@
                 e('span', { style: { color: theme.textSecondary, fontWeight: 400, marginLeft: '0.4rem', fontSize: '0.72rem' } }, classLabel(p.cls, t))),
               e('span', { style: { color: theme.textSecondary } }, `${formatPrice(p.value)} ${sym} · ${(p.weight * 100).toFixed(1)}%`)),
             e('div', { style: { height: '6px', background: 'rgba(255,255,255,0.08)', borderRadius: '3px', overflow: 'hidden' } },
-              e('div', { style: { height: '100%', width: (p.weight * 100) + '%', background: p.weight > 0.3 ? '#f59e0b' : (theme.accent || '#f5a524'), borderRadius: '3px' } }))))
+              e('div', { style: { height: '100%', width: (p.weight * 100) + '%', background: p.weight > 0.3 ? '#f59e0b' : (theme.accent || '#8b7cff'), borderRadius: '3px' } }))))
       )
     );
   }

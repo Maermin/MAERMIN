@@ -116,7 +116,7 @@ function DataTable(props) {
               padding: '0.75rem',
               textAlign: 'left',
               borderBottom: '1px solid rgba(255,255,255,0.1)',
-              color: '#f5a524',
+              color: '#8b7cff',
               fontWeight: '600',
               fontSize: '0.75rem',
               textTransform: 'uppercase',
@@ -152,7 +152,7 @@ function ProgressBar(props) {
     green: '#22c55e',
     red: '#ef4444',
     blue: '#3b82f6',
-    purple: '#f5a524'
+    purple: '#8b7cff'
   };
   
   return React.createElement('div', { 
@@ -198,7 +198,7 @@ function TabBar(props) {
         onClick: function() { onChange(tab.id); },
         style: {
           padding: '0.5rem 1rem',
-          background: isActive ? 'rgba(245,165,36,0.3)' : 'transparent',
+          background: isActive ? 'rgba(139,124,255,0.3)' : 'transparent',
           border: 'none',
           color: isActive ? 'white' : 'rgba(255,255,255,0.6)',
           cursor: 'pointer',
@@ -550,7 +550,7 @@ function SectorAllocationView(props) {
     'Consumer': '#ec4899',
     'Energy': '#ef4444',
     'Crypto': '#f97316',
-    'Gaming': '#f5a524',
+    'Gaming': '#8b7cff',
     'Other': '#6b7280'
   };
   
@@ -560,7 +560,7 @@ function SectorAllocationView(props) {
     // Coverage hint: if a meaningful share is still unclassified, point the user
     // to the FMP key that backfills sector/country for every holding.
     sectorData.unknownPct > 15 && React.createElement('div', {
-      style: { marginBottom: '1rem', padding: '0.625rem 0.875rem', background: 'rgba(245,165,36,0.10)', border: '1px solid rgba(245,165,36,0.25)', borderRadius: '8px', color: 'rgba(255,255,255,0.75)', fontSize: '0.8rem' }
+      style: { marginBottom: '1rem', padding: '0.625rem 0.875rem', background: 'rgba(139,124,255,0.10)', border: '1px solid rgba(139,124,255,0.25)', borderRadius: '8px', color: 'rgba(255,255,255,0.75)', fontSize: '0.8rem' }
     }, '~' + sectorData.unknownPct.toFixed(0) + '% of equities are unclassified. Add a free Financial Modeling Prep API key in Settings → API to auto-fetch sector & country for every holding.'),
 
     sectorData.sectors.length > 0 ? React.createElement('div', { style: { display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem' } },
@@ -577,7 +577,7 @@ function SectorAllocationView(props) {
               style: { display: 'flex', justifyContent: 'space-between', marginBottom: '0.25rem' }
             },
               React.createElement('span', { style: { color: 'white', fontSize: '0.875rem' } }, sector.name),
-              React.createElement('span', { style: { color: sectorColors[sector.name] || '#f5a524' } }, 
+              React.createElement('span', { style: { color: sectorColors[sector.name] || '#8b7cff' } }, 
                 sector.weight.toFixed(1) + '%'
               )
             ),
@@ -588,7 +588,7 @@ function SectorAllocationView(props) {
                 style: { 
                   height: '100%',
                   width: sector.weight + '%',
-                  background: sectorColors[sector.name] || '#f5a524',
+                  background: sectorColors[sector.name] || '#8b7cff',
                   borderRadius: '4px'
                 }
               })
@@ -662,7 +662,7 @@ function CountryAllocationView(props) {
     return { rows: rows, totalValue: totalValue, count: rows.length };
   }, [portfolio, prices, props.metaVersion]);
 
-  var palette = ['#3b82f6', '#22c55e', '#f59e0b', '#ec4899', '#ef4444', '#f97316', '#f5a524', '#06b6d4', '#6b7280'];
+  var palette = ['#3b82f6', '#22c55e', '#f59e0b', '#ec4899', '#ef4444', '#f97316', '#8b7cff', '#06b6d4', '#6b7280'];
   var colorFor = function(i) { return palette[i % palette.length]; };
 
   return React.createElement('div', { style: { padding: '1rem' } },
@@ -1078,7 +1078,7 @@ function GoalInvestingView(props) {
       React.createElement('button', {
         onClick: function() { setShowAddGoal(true); },
         style: {
-          background: '#f5a524',
+          background: '#8b7cff',
           color: 'white',
           border: 'none',
           padding: '0.5rem 1rem',
@@ -1174,7 +1174,7 @@ function GoalInvestingView(props) {
           React.createElement('span', { style: { color: 'rgba(255,255,255,0.6)' } }, 
             goal.currentAmount.toFixed(0) + ' / ' + goal.targetAmount.toFixed(0) + ' EUR'
           ),
-          React.createElement('span', { style: { color: '#f5a524', fontWeight: '600' } },
+          React.createElement('span', { style: { color: '#8b7cff', fontWeight: '600' } },
             progress.progressPercent.toFixed(1) + '%'
           )
         ),
@@ -1371,7 +1371,7 @@ function OptionsTrackerView(props) {
       React.createElement('h2', { style: { color: 'white' } }, 'Options Calculator'),
       React.createElement('button', {
         onClick: function() { setShowCalculator(!showCalculator); },
-        style: { background: '#f5a524', color: 'white', border: 'none', padding: '0.5rem 1rem', borderRadius: '6px', cursor: 'pointer' }
+        style: { background: '#8b7cff', color: 'white', border: 'none', padding: '0.5rem 1rem', borderRadius: '6px', cursor: 'pointer' }
       }, showCalculator ? 'Hide' : 'Show Calculator')
     ),
     
@@ -1440,12 +1440,12 @@ function OptionsTrackerView(props) {
       
       React.createElement('div', { style: { marginTop: '1.5rem' } },
         React.createElement('div', { 
-          style: { textAlign: 'center', padding: '1.5rem', background: 'rgba(245,165,36,0.1)', borderRadius: '12px', marginBottom: '1rem' }
+          style: { textAlign: 'center', padding: '1.5rem', background: 'rgba(139,124,255,0.1)', borderRadius: '12px', marginBottom: '1rem' }
         },
           React.createElement('div', { style: { color: 'rgba(255,255,255,0.6)', fontSize: '0.875rem' } }, 
             calcParams.type.toUpperCase() + ' Option Price'
           ),
-          React.createElement('div', { style: { fontSize: '3rem', fontWeight: 'bold', color: '#f5a524' } },
+          React.createElement('div', { style: { fontSize: '3rem', fontWeight: 'bold', color: '#8b7cff' } },
             calcResult.price.toFixed(2) + ' EUR'
           )
         ),
@@ -1537,7 +1537,7 @@ function TaxPlanningView(props) {
       React.createElement(AnalysisCard, { title: 'German Tax Rules' },
         React.createElement('div', { style: { color: 'rgba(255,255,255,0.7)', fontSize: '0.875rem' } },
           React.createElement('div', { style: { marginBottom: '1rem' } },
-            React.createElement('strong', { style: { color: '#f5a524' } }, 'Capital Gains (Abgeltungssteuer)'),
+            React.createElement('strong', { style: { color: '#8b7cff' } }, 'Capital Gains (Abgeltungssteuer)'),
             React.createElement('div', null, '25% + 5.5% solidarity = 26.375%')
           ),
           React.createElement('div', { style: { marginBottom: '1rem' } },
@@ -1595,9 +1595,9 @@ function InvestmentAnalysisDashboard(props) {
     var active = activeSection === id;
     return {
       padding: '0.5rem 1rem',
-      background: active ? (theme.accentSoft || 'rgba(245,165,36,0.12)') : 'transparent',
+      background: active ? (theme.accentSoft || 'rgba(139,124,255,0.12)') : 'transparent',
       border: 'none',
-      color: active ? (theme.accent || '#f5a524') : (theme.textSecondary || 'rgba(255,255,255,0.6)'),
+      color: active ? (theme.accent || '#8b7cff') : (theme.textSecondary || 'rgba(255,255,255,0.6)'),
       cursor: 'pointer',
       borderRadius: '10px',
       fontSize: '0.875rem',

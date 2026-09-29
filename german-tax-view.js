@@ -215,7 +215,7 @@
           e('button', {
             disabled: !vap,
             onClick: function () { if (vap) { GT.saveVapRecord(r.symbol, year, vap.vorabpauschale); setSavedTick(savedTick + 1); } },
-            style: { padding: '0.3rem 0.7rem', borderRadius: '6px', border: 'none', cursor: vap ? 'pointer' : 'default', fontSize: '0.72rem', fontWeight: 700, background: savedAmt != null ? 'rgba(34,197,94,0.15)' : (theme.accent || '#f5a524'), color: savedAmt != null ? good : '#13110a', opacity: vap ? 1 : 0.5 }
+            style: { padding: '0.3rem 0.7rem', borderRadius: '6px', border: 'none', cursor: vap ? 'pointer' : 'default', fontSize: '0.72rem', fontWeight: 700, background: savedAmt != null ? 'rgba(34,197,94,0.15)' : (theme.accent || '#8b7cff'), color: savedAmt != null ? good : '#ffffff', opacity: vap ? 1 : 0.5 }
           }, savedAmt != null ? 'Saved ' + sym + fmt(savedAmt) : 'Save')));
     });
 
@@ -308,7 +308,7 @@
     var text = theme.text || '#e6edf3', dim = theme.textSecondary || '#9aa4b2';
     var border = theme.cardBorder || 'rgba(255,255,255,0.1)';
     var inputBg = theme.inputBg || '#0f172a', card = theme.card || theme.cardBg || '#10151f';
-    var accent = theme.accent || '#f5a524';
+    var accent = theme.accent || '#8b7cff';
 
     var sS = React.useState(TS.load); var s = sS[0], setS = sS[1];
     var sOpen = React.useState(false); var open = sOpen[0], setOpen = sOpen[1];

@@ -343,7 +343,7 @@
         var text = theme.text || '#e9edf4', dim = theme.textSecondary || '#8b94a7';
         var border = theme.cardBorder || 'rgba(255,255,255,0.08)';
         var card = theme.card || '#10151f', inputBg = theme.inputBg || '#0c1018';
-        var inputBorder = theme.inputBorder || border, accent = theme.accent || '#f5a524';
+        var inputBorder = theme.inputBorder || border, accent = theme.accent || '#8b7cff';
 
         var s0 = useState(function () { return API.load(); });
         var st = s0[0], setSt = s0[1];
@@ -383,7 +383,7 @@
               e('div', { style: { color: text, fontWeight: 600, fontSize: '0.85rem' } }, c.label),
               e('div', { style: { color: dim, fontSize: '0.72rem' } }, (API.EXCHANGES[c.exchange] || {}).label + (c.lastSync ? '  ·  ' + (t.exLastSync || 'last sync') + ' ' + c.lastSync : '  ·  ' + (t.exNeverSynced || 'never synced')))),
             e('div', { style: { display: 'flex', gap: '0.4rem' } },
-              e('button', { onClick: function () { syncConn(c); }, style: { background: accent, border: 'none', color: '#13110a', cursor: 'pointer', borderRadius: '7px', padding: '0.25rem 0.7rem', fontSize: '0.74rem', fontWeight: 700 } }, t.exSyncNow || 'Sync now'),
+              e('button', { onClick: function () { syncConn(c); }, style: { background: accent, border: 'none', color: '#ffffff', cursor: 'pointer', borderRadius: '7px', padding: '0.25rem 0.7rem', fontSize: '0.74rem', fontWeight: 700 } }, t.exSyncNow || 'Sync now'),
               e('button', { onClick: function () { removeConn(c.id); }, style: { background: 'none', border: '1px solid ' + inputBorder, color: dim, cursor: 'pointer', borderRadius: '7px', padding: '0.25rem 0.6rem', fontSize: '0.74rem' } }, t.exRemove || 'Remove')));
         });
 
@@ -397,7 +397,7 @@
             e('input', { value: form.label, onChange: function (ev) { setF({ label: ev.target.value }); }, placeholder: t.exLabel || 'Label (optional)', style: { padding: '0.5rem', background: inputBg, border: '1px solid ' + inputBorder, borderRadius: '8px', color: text, fontSize: '0.82rem' } }),
             e('input', { value: form.apiKey, onChange: function (ev) { setF({ apiKey: ev.target.value }); }, placeholder: t.exApiKey || 'API key (read-only)', style: { padding: '0.5rem', background: inputBg, border: '1px solid ' + inputBorder, borderRadius: '8px', color: text, fontSize: '0.82rem' } }),
             e('input', { value: form.apiSecret, type: 'password', onChange: function (ev) { setF({ apiSecret: ev.target.value }); }, placeholder: t.exApiSecret || 'API secret', style: { padding: '0.5rem', background: inputBg, border: '1px solid ' + inputBorder, borderRadius: '8px', color: text, fontSize: '0.82rem' } })),
-          e('button', { onClick: addConn, style: { marginTop: '0.6rem', padding: '0.5rem 1rem', background: accent, color: '#13110a', border: 'none', borderRadius: '8px', cursor: 'pointer', fontWeight: 700, fontSize: '0.82rem' } }, t.exAdd || 'Add connection'),
+          e('button', { onClick: addConn, style: { marginTop: '0.6rem', padding: '0.5rem 1rem', background: accent, color: '#ffffff', border: 'none', borderRadius: '8px', cursor: 'pointer', fontWeight: 700, fontSize: '0.82rem' } }, t.exAdd || 'Add connection'),
           msg ? e('div', { style: { color: dim, fontSize: '0.76rem', marginTop: '0.5rem' } }, msg) : null);
       } catch (err) {
         return e('div', { style: { padding: '0.75rem', color: (props.theme && props.theme.danger) || '#ef4444' } }, 'Exchange sync error: ' + (err && err.message));

@@ -107,8 +107,17 @@ function CommandPalette({ isOpen, onClose, onExecute, commands, t }) {
                 },
                 onMouseEnter: () => setSelectedIndex(index)
               },
-                React.createElement('div', { className: 'command-result-icon' }, 
-                  cmd.icon ? cmd.icon.charAt(0).toUpperCase() : '>'
+                React.createElement('div', { className: 'command-result-icon' },
+                  (function () {
+                    // Aurora icon set: map "nav:<view>" / "settings:*" ids to an icon.
+                    var I = window.MaerminIcons;
+                    var key = String(cmd.id || '').split(':');
+                    var name = key[0] === 'nav' ? key[1] : key[0] === 'settings' ? 'settings' : (key[1] || key[0]);
+                    if (name === 'taxes') name = 'tax';
+                    if (I && I.Icon && I.has(name)) return I.Icon(name, { size: 16 });
+                    if (I && I.Icon) return I.Icon(key[0] === 'nav' ? 'chevron' : 'sparkle', { size: 16 });
+                    return cmd.icon ? cmd.icon.charAt(0).toUpperCase() : '>';
+                  })()
                 ),
                 React.createElement('div', { className: 'command-result-content' },
                   React.createElement('div', { className: 'command-result-label' }, cmd.label),
@@ -665,7 +674,7 @@ function MonteCarloView({ portfolio, prices, t, theme, currency, formatPrice }) 
             width: '100%',
             padding: '0.75rem 1.5rem',
             background: isRunning ? theme.textSecondary : theme.accent,
-            color: '#13110a',
+            color: '#ffffff',
             border: 'none',
             borderRadius: '8px',
             cursor: isRunning ? 'not-allowed' : 'pointer',
@@ -907,7 +916,7 @@ function StressTestView({ portfolio, prices, t, theme, currency, formatPrice }) 
         style: {
           padding: '0.75rem 1.5rem',
           background: theme.accent,
-          color: '#13110a',
+          color: '#ffffff',
           border: 'none',
           borderRadius: '8px',
           cursor: 'pointer',
@@ -933,7 +942,7 @@ function StressTestView({ portfolio, prices, t, theme, currency, formatPrice }) 
           'aria-label': 'Run scenario ' + ((scenario && scenario.name) || id),
           'aria-pressed': selectedScenario === id,
           style: {
-            background: selectedScenario === id ? 'rgba(245,165,36,0.1)' : theme.card,
+            background: selectedScenario === id ? 'rgba(139,124,255,0.1)' : theme.card,
             padding: '1.25rem',
             borderRadius: '16px',
             border: `2px solid ${selectedScenario === id ? theme.accent : theme.cardBorder}`,

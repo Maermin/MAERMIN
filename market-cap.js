@@ -136,7 +136,7 @@
         var card = theme.card || '#10151f';
         var rate = props.exchangeRate || props.usdToEur || 1;
         var fmt = props.formatPrice || function (n) { return (Math.round(n * 100) / 100).toLocaleString(); };
-        var COLORS = { large: theme.accent || '#f5a524', mid: '#3b82f6', small: '#14b8a6', unknown: theme.textSecondary || '#6b7280' };
+        var COLORS = { large: theme.accent || '#8b7cff', mid: '#3b82f6', small: '#14b8a6', unknown: theme.textSecondary || '#6b7280' };
 
         var groups = props.portfolio || {};
         var prices = props.prices || {};

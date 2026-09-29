@@ -49,7 +49,7 @@ function PerformanceAttribution({ portfolio, prices, priceHistory, transactions,
     React.createElement('div', { style: { color, fontWeight: 800, fontSize: '1.05rem' } }, `${value >= 0 ? '+' : ''}${formatPrice(value)} ${getCurrencySymbol()}`)
   );
 
-  const catColors = { crypto: '#f59e0b', stocks: '#3b82f6', skins: '#f5a524', commodities: '#06b6d4' };
+  const catColors = { crypto: '#f59e0b', stocks: '#3b82f6', skins: '#8b7cff', commodities: '#06b6d4' };
 
   if (!attribution.length) return React.createElement('div', { style: { padding: '2rem', textAlign: 'center', color: theme.textSecondary } }, 'No positions to analyze');
 
