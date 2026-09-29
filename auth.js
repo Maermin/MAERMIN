@@ -100,6 +100,33 @@
       padding:1rem; text-align:center; word-break:break-all; margin-bottom:0.9rem; user-select:all; }
     #maermin-auth .rc-actions { display:flex; gap:0.5rem; margin-bottom:0.6rem; }
     #maermin-auth .rc-actions .auth-alt { margin-top:0; flex:1; height: 38px; font-size:0.8rem; }
+    #maermin-auth::after { content:''; position: fixed; inset: -20vmax; z-index: -1; pointer-events: none;
+      background:
+        radial-gradient(34vmax 28vmax at 25% 20%, rgba(124,108,255,0.38), transparent 70%),
+        radial-gradient(30vmax 24vmax at 78% 18%, rgba(56,189,248,0.22), transparent 70%),
+        radial-gradient(30vmax 24vmax at 55% 90%, rgba(236,72,153,0.14), transparent 70%);
+      filter: blur(40px); animation: authAurora 22s ease-in-out infinite alternate; }
+    #maermin-auth { isolation: isolate; }
+    @keyframes authAurora { 0% { transform: translate3d(0,0,0) rotate(0) scale(1); } 50% { transform: translate3d(4vmax,3vmax,0) rotate(8deg) scale(1.08); } 100% { transform: translate3d(-3vmax,4vmax,0) rotate(-6deg) scale(1.04); } }
+    #maermin-auth .auth-card::before { content:''; position:absolute; inset:-1px; border-radius: inherit; padding: 1px; pointer-events:none;
+      background: conic-gradient(from var(--mx-angle, 0deg), transparent 0 70%, #8b7cff 84%, #38bdf8 93%, transparent);
+      -webkit-mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0); -webkit-mask-composite: xor;
+      mask: linear-gradient(#000 0 0) content-box exclude, linear-gradient(#000 0 0);
+      animation: authSpin 6s linear infinite; }
+    @keyframes authSpin { to { --mx-angle: 360deg; } }
+    #maermin-auth .auth-logo::before { animation: authFloat 3.2s ease-in-out infinite; }
+    @keyframes authFloat { 50% { transform: translateY(-5px); box-shadow: 0 0 0 1px rgba(255,255,255,0.16) inset, 0 22px 50px -10px rgba(124,108,255,0.95); } }
+    #maermin-auth .auth-logo h1 { background: linear-gradient(90deg,#f1f2f8 0%,#f1f2f8 40%,#a597ff 50%,#f1f2f8 60%,#f1f2f8 100%); background-size: 300% 100%;
+      -webkit-background-clip: text; background-clip: text; -webkit-text-fill-color: transparent; animation: authSheen 6s ease-in-out infinite; }
+    @keyframes authSheen { 0%,55% { background-position: 100% 0; } 100% { background-position: -50% 0; } }
+    #maermin-auth .auth-field, #maermin-auth .auth-check, #maermin-auth .auth-btn, #maermin-auth .auth-alt, #maermin-auth .auth-sub, #maermin-auth .auth-footer { animation: authRise .7s cubic-bezier(0.16,1,0.3,1) both; }
+    #maermin-auth .auth-field:nth-of-type(2) { animation-delay: .06s; } #maermin-auth .auth-check { animation-delay: .12s; }
+    #maermin-auth .auth-btn { animation-delay: .18s; } #maermin-auth .auth-footer { animation-delay: .26s; }
+    @keyframes authRise { from { opacity: 0; transform: translateY(10px); filter: blur(4px); } to { opacity: 1; transform: none; filter: none; } }
+    #maermin-auth .auth-btn { position: relative; overflow: hidden; }
+    #maermin-auth .auth-btn::after { content:''; position:absolute; inset:0; background: linear-gradient(105deg, transparent 35%, rgba(255,255,255,0.45) 50%, transparent 65%); transform: translateX(-120%); animation: authShine 4s ease-in-out infinite; }
+    @keyframes authShine { 0%,60% { transform: translateX(-120%); } 100% { transform: translateX(120%); } }
+    @media (prefers-reduced-motion: reduce) { #maermin-auth *, #maermin-auth::after, #maermin-auth .auth-card::before { animation: none !important; } }
     @media (max-width: 480px) { #maermin-auth .auth-card { padding: 2rem 1.4rem 1.6rem; border-radius: 20px; } }
   `;
 

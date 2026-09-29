@@ -997,3 +997,326 @@ html[data-mode="light"] .command-palette-overlay { background: rgba(17, 19, 40, 
   .section-nav-btn { flex: 0 0 auto; white-space: nowrap; }
   .metric-grid { grid-template-columns: repeat(auto-fit, minmax(130px, 1fr)); gap: 0.6rem; }
 }
+
+/* ============================================================================
+   AURORA FX — futuristic motion layer
+   Classes are applied by fx.js (.mx-card, .mx-primary, .mx-reveal, …).
+   All motion is disabled under prefers-reduced-motion or html.mx-still.
+   ========================================================================== */
+
+@property --mx-angle { syntax: '<angle>'; initial-value: 0deg; inherits: false; }
+
+/* ---- Living aurora: drifting colour fields + film grain ----------------- */
+.mx-app::after {
+  content: '';
+  position: fixed;
+  inset: -20vmax;
+  z-index: -2;
+  pointer-events: none;
+  background:
+    radial-gradient(38vmax 30vmax at 22% 18%, color-mix(in srgb, var(--accent) 34%, transparent), transparent 70%),
+    radial-gradient(32vmax 26vmax at 78% 12%, rgba(56, 189, 248, 0.20), transparent 70%),
+    radial-gradient(36vmax 28vmax at 60% 88%, color-mix(in srgb, var(--accent-2) 22%, transparent), transparent 70%),
+    radial-gradient(24vmax 20vmax at 10% 80%, rgba(236, 72, 153, 0.12), transparent 70%);
+  filter: blur(40px) saturate(140%);
+  opacity: 0.95;
+  animation: auroraDrift 28s ease-in-out infinite alternate;
+}
+html[data-mode="light"] .mx-app::after { opacity: 0.45; }
+html[data-theme="contrast"] .mx-app::after { display: none; }
+
+@keyframes auroraDrift {
+  0%   { transform: translate3d(0, 0, 0) rotate(0deg) scale(1); }
+  33%  { transform: translate3d(4vmax, 3vmax, 0) rotate(8deg) scale(1.08); }
+  66%  { transform: translate3d(-3vmax, 5vmax, 0) rotate(-6deg) scale(1.04); }
+  100% { transform: translate3d(2vmax, -2vmax, 0) rotate(4deg) scale(1.1); }
+}
+
+/* Grid lines slowly scroll — a "holodeck" floor feel. */
+.mx-app::before { animation: gridPan 60s linear infinite; }
+@keyframes gridPan { to { background-position: 56px 56px, 56px 56px; } }
+
+/* Film grain keeps gradients from banding and adds a premium texture. */
+.mx-body::before {
+  content: '';
+  position: fixed;
+  inset: 0;
+  z-index: -1;
+  pointer-events: none;
+  opacity: 0.05;
+  mix-blend-mode: overlay;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='160' height='160'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.9' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
+}
+
+/* ---- Cursor aura -------------------------------------------------------- */
+.mx-aura {
+  position: fixed;
+  left: 0;
+  top: 0;
+  width: 600px;
+  height: 600px;
+  z-index: 0;
+  pointer-events: none;
+  border-radius: 50%;
+  background: radial-gradient(closest-side, color-mix(in srgb, var(--accent) 13%, transparent), transparent 70%);
+  transition: opacity 0.4s;
+  will-change: transform;
+  mix-blend-mode: screen;
+}
+html[data-mode="light"] .mx-aura { mix-blend-mode: multiply; opacity: 0.6; }
+
+/* ---- Header: glowing hairline + animated brand ------------------------- */
+.mx-header::after {
+  content: '';
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: -1px;
+  height: 1px;
+  background: linear-gradient(90deg, transparent, var(--accent) 20%, #38bdf8 50%, var(--accent-2) 80%, transparent);
+  background-size: 200% 100%;
+  opacity: 0.55;
+  animation: hairline 8s linear infinite;
+}
+@keyframes hairline { to { background-position: -200% 0; } }
+
+.mx-logo { position: relative; overflow: hidden; }
+.mx-logo::after {
+  content: '';
+  position: absolute;
+  inset: -40%;
+  background: linear-gradient(115deg, transparent 40%, rgba(255,255,255,0.55) 50%, transparent 60%);
+  animation: logoGlint 5.5s ease-in-out infinite;
+}
+@keyframes logoGlint { 0%, 70% { transform: translateX(-70%); } 100% { transform: translateX(70%); } }
+
+.mx-brand-name {
+  background: linear-gradient(90deg, var(--text) 0%, var(--text) 40%, var(--accent) 50%, var(--text) 60%, var(--text) 100%);
+  background-size: 300% 100%;
+  -webkit-background-clip: text;
+  background-clip: text;
+  -webkit-text-fill-color: transparent;
+  animation: brandSheen 7s ease-in-out infinite;
+}
+@keyframes brandSheen { 0%, 60% { background-position: 100% 0; } 100% { background-position: -50% 0; } }
+
+.mx-avatar { position: relative; }
+.mx-avatar::before {
+  content: '';
+  position: absolute;
+  inset: -4px;
+  border-radius: 50%;
+  background: conic-gradient(from var(--mx-angle), transparent 0 60%, var(--accent) 80%, #38bdf8 92%, transparent);
+  -webkit-mask: radial-gradient(closest-side, transparent 86%, #000 88%);
+  mask: radial-gradient(closest-side, transparent 86%, #000 88%);
+  animation: spinAngle 4s linear infinite;
+}
+@keyframes spinAngle { to { --mx-angle: 360deg; } }
+
+.mx-search { position: relative; overflow: hidden; }
+.mx-search::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(100deg, transparent 30%, color-mix(in srgb, var(--accent) 16%, transparent) 50%, transparent 70%);
+  transform: translateX(-100%);
+  transition: none;
+}
+.mx-search:hover::after { transform: translateX(100%); transition: transform 0.9s var(--ease); }
+
+/* ---- Sidebar: magnetic hover + active glow ------------------------------ */
+.mx-nav { transition: background 0.2s, color 0.2s, transform 0.25s var(--ease); }
+.mx-nav:hover { transform: translateX(3px); }
+.mx-nav svg { transition: transform 0.35s var(--ease), color 0.2s; }
+.mx-nav:hover svg { transform: scale(1.12) rotate(-4deg); }
+.mx-nav.is-active {
+  background:
+    linear-gradient(90deg, var(--accent-soft), transparent 95%),
+    radial-gradient(120px 40px at 0% 50%, color-mix(in srgb, var(--accent) 22%, transparent), transparent 80%);
+}
+.mx-nav.is-active svg { filter: drop-shadow(0 0 6px var(--accent)); }
+.mx-nav.is-active::before { animation: railPulse 2.6s ease-in-out infinite; }
+@keyframes railPulse { 50% { box-shadow: 0 0 20px var(--accent), 0 0 4px var(--accent); } }
+
+.mx-promo::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  padding: 1px;
+  background: conic-gradient(from var(--mx-angle), transparent 0 70%, var(--accent) 85%, #38bdf8 95%, transparent);
+  -webkit-mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
+  -webkit-mask-composite: xor;
+  mask: linear-gradient(#000 0 0) content-box exclude, linear-gradient(#000 0 0);
+  animation: spinAngle 6s linear infinite;
+  pointer-events: none;
+}
+
+/* ---- Cards: spotlight, animated glow border, lift & tilt --------------- */
+.mx-card {
+  position: relative;
+  isolation: isolate;
+  transition: transform 0.45s var(--ease), box-shadow 0.45s var(--ease), border-color 0.3s !important;
+  box-shadow: 0 1px 0 rgba(255,255,255,0.04) inset, 0 24px 48px -32px rgba(0,0,0,0.6);
+}
+/* Cursor-following spotlight on the surface */
+.mx-card::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  z-index: -1;
+  pointer-events: none;
+  opacity: 0;
+  transition: opacity 0.35s;
+  background: radial-gradient(420px circle at var(--mx-x, 50%) var(--mx-y, 50%), color-mix(in srgb, var(--accent) 12%, transparent), transparent 60%);
+}
+/* Glowing gradient border that follows the cursor + slowly rotates */
+.mx-card::after {
+  content: '';
+  position: absolute;
+  inset: -1px;
+  border-radius: inherit;
+  padding: 1px;
+  pointer-events: none;
+  opacity: 0;
+  transition: opacity 0.35s;
+  background:
+    radial-gradient(260px circle at var(--mx-x, 50%) var(--mx-y, 50%), var(--accent), transparent 70%),
+    conic-gradient(from var(--mx-angle), transparent 0 75%, color-mix(in srgb, var(--accent) 70%, transparent) 88%, #38bdf8 94%, transparent);
+  -webkit-mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
+  -webkit-mask-composite: xor;
+  mask: linear-gradient(#000 0 0) content-box exclude, linear-gradient(#000 0 0);
+}
+.mx-card.is-hot::before, .mx-card.is-hot::after { opacity: 1; }
+.mx-card.is-hot::after { animation: spinAngle 7s linear infinite; }
+.mx-card.is-hot {
+  box-shadow: 0 1px 0 rgba(255,255,255,0.06) inset, 0 30px 60px -28px color-mix(in srgb, var(--accent) 45%, rgba(0,0,0,0.6));
+}
+.mx-card.is-hot:not(.mx-card-lg) { transform: perspective(1200px) rotateX(var(--mx-rx, 0deg)) rotateY(var(--mx-ry, 0deg)) translateY(-3px); }
+.mx-subcard { transition: border-color 0.25s, background 0.25s, transform 0.3s var(--ease); }
+.mx-subcard:hover { border-color: color-mix(in srgb, var(--accent) 40%, transparent) !important; transform: translateY(-1px); }
+
+/* ---- Scroll reveal ------------------------------------------------------ */
+html.mx-motion .mx-reveal:not(.is-in) { opacity: 0; transform: translateY(18px) scale(0.985); filter: blur(6px); }
+html.mx-motion .mx-reveal.is-in {
+  animation: revealIn 0.8s var(--ease) both;
+  animation-delay: var(--mx-delay, 0ms);
+}
+@keyframes revealIn {
+  from { opacity: 0; transform: translateY(18px) scale(0.985); filter: blur(6px); }
+  to   { opacity: 1; transform: none; filter: none; }
+}
+
+/* ---- Big figures: subtle glow ------------------------------------------ */
+.mx-figure { text-shadow: 0 0 28px color-mix(in srgb, currentColor 28%, transparent); }
+
+/* ---- Primary buttons: gradient, shine sweep, glow ---------------------- */
+.mx-primary {
+  position: relative;
+  overflow: hidden;
+  background: var(--accent-grad) !important;
+  color: #fff !important;
+  border-color: transparent !important;
+  box-shadow: 0 1px 0 rgba(255,255,255,0.25) inset, 0 10px 24px -10px var(--accent-ring);
+}
+.mx-primary::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(105deg, transparent 35%, rgba(255,255,255,0.45) 50%, transparent 65%);
+  transform: translateX(-120%);
+  animation: shine 4.5s ease-in-out infinite;
+  pointer-events: none;
+}
+.mx-primary:hover { box-shadow: 0 1px 0 rgba(255,255,255,0.3) inset, 0 16px 34px -10px var(--accent); transform: translateY(-1px); }
+@keyframes shine { 0%, 65% { transform: translateX(-120%); } 100% { transform: translateX(120%); } }
+
+/* Click ripple */
+.mx-ink {
+  position: absolute;
+  border-radius: 50%;
+  pointer-events: none;
+  background: radial-gradient(closest-side, rgba(255,255,255,0.35), transparent 70%);
+  transform: scale(0);
+  animation: ink 0.65s var(--ease) forwards;
+}
+@keyframes ink { to { transform: scale(1); opacity: 0; } }
+
+/* ---- View transition: blur-through ------------------------------------- */
+.maermin-main > * { animation: viewWarp 0.6s var(--ease) both; }
+@keyframes viewWarp {
+  from { opacity: 0; transform: translateY(10px) scale(0.99); filter: blur(8px); }
+  to   { opacity: 1; transform: none; filter: none; }
+}
+
+/* Mobile dock: active pill glides */
+.mx-bottom-nav button { transition: background 0.3s var(--ease), color 0.2s, transform 0.3s var(--ease); }
+.mx-bottom-nav button.is-active { transform: translateY(-2px); box-shadow: 0 0 0 1px color-mix(in srgb, var(--accent) 30%, transparent) inset, 0 8px 20px -10px var(--accent); }
+.mx-bottom-nav button.is-active svg { filter: drop-shadow(0 0 6px var(--accent)); }
+
+/* Palette + popover: glowing edges */
+.command-palette, .mx-popover { position: relative; }
+.command-palette::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  padding: 1px;
+  background: conic-gradient(from var(--mx-angle), transparent 0 70%, var(--accent) 85%, #38bdf8 93%, transparent);
+  -webkit-mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
+  -webkit-mask-composite: xor;
+  mask: linear-gradient(#000 0 0) content-box exclude, linear-gradient(#000 0 0);
+  animation: spinAngle 5s linear infinite;
+  pointer-events: none;
+}
+
+/* ---- Boot screen: orbital loader --------------------------------------- */
+#loading::after {
+  content: '';
+  position: absolute;
+  width: 220px;
+  height: 220px;
+  top: 50%;
+  left: 50%;
+  margin: -196px 0 0 -110px;
+  border-radius: 50%;
+  border: 1px solid rgba(139, 124, 255, 0.18);
+  background: conic-gradient(from var(--mx-angle), transparent 0 80%, rgba(139,124,255,0.9) 94%, #38bdf8, transparent);
+  -webkit-mask: radial-gradient(closest-side, transparent 97%, #000 98%);
+  mask: radial-gradient(closest-side, transparent 97%, #000 98%);
+  animation: spinAngle 2.4s linear infinite;
+  pointer-events: none;
+}
+#loading h1 {
+  background: linear-gradient(90deg, #f1f2f8 0%, #f1f2f8 40%, #a597ff 50%, #f1f2f8 60%, #f1f2f8 100%);
+  background-size: 300% 100%;
+  -webkit-background-clip: text;
+  background-clip: text;
+  -webkit-text-fill-color: transparent;
+  animation: brandSheen 2.8s ease-in-out infinite, letterIn 0.9s var(--ease) both;
+}
+@keyframes letterIn { from { letter-spacing: 0.6em; opacity: 0; filter: blur(8px); } to { letter-spacing: 0.22em; opacity: 1; filter: none; } }
+
+/* ---- Reduced motion / motion off --------------------------------------- */
+html.mx-still .mx-app::after, html.mx-still .mx-app::before,
+html.mx-still .mx-header::after, html.mx-still .mx-logo::after,
+html.mx-still .mx-brand-name, html.mx-still .mx-primary::after,
+html.mx-still .mx-avatar::before, html.mx-still .mx-promo::before,
+html.mx-still .mx-card::after, html.mx-still .command-palette::before,
+html.mx-still .maermin-main > * { animation: none !important; }
+html.mx-still .mx-card { transform: none !important; }
+@media (prefers-reduced-motion: reduce) {
+  .mx-aura { display: none; }
+  .mx-card { transform: none !important; }
+}
+@media (hover: none) {
+  .mx-aura { display: none; }
+  .mx-card { transform: none !important; }
+  .mx-nav:hover { transform: none; }
+}
+
+/* Safety: a transformed ancestor would re-anchor position:fixed overlays
+   (modals rendered inside a card). Never tilt/lift a card hosting one. */
+.mx-card:has([style*="position: fixed"]),
+.maermin-main > *:has([style*="position: fixed"]) { transform: none !important; filter: none !important; animation: none !important; }

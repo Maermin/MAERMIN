@@ -4982,6 +4982,20 @@ buy,crypto,bitcoin,0.5,45000,2024-01-15,10`)
                 React.createElement('span', { style: { width: 16, height: 16, borderRadius: '50%', background: '#fff', boxShadow: '0 1px 3px rgba(0,0,0,.3)' } }))
             )
           ),
+          // Motion effects (Aurora FX) — toggling reloads so every surface re-inits.
+          window.MaerminFX && React.createElement('div', { style: { marginBottom: '0.9rem' } },
+            popLabel('Motion'),
+            React.createElement('button', {
+              type: 'button',
+              className: 'mx-menu-item',
+              onClick: () => window.MaerminFX.setEnabled(!window.MaerminFX.enabled()),
+              style: { justifyContent: 'space-between', background: 'var(--hover)', border: '1px solid var(--border)' }
+            },
+              React.createElement('span', { style: { display: 'flex', alignItems: 'center', gap: '0.6rem' } }, Icon('sparkle', { size: 16 }), 'Animations & effects'),
+              React.createElement('span', { style: { width: 34, height: 20, borderRadius: 999, padding: 2, background: window.MaerminFX.enabled() ? 'var(--accent)' : 'var(--border-strong)', display: 'flex', justifyContent: window.MaerminFX.enabled() ? 'flex-end' : 'flex-start' } },
+                React.createElement('span', { style: { width: 16, height: 16, borderRadius: '50%', background: '#fff', boxShadow: '0 1px 3px rgba(0,0,0,.3)' } }))
+            )
+          ),
           // Corporate actions (stock splits) — global list. Per-symbol add/scan
           // lives in the position detail modal; this is the cross-holding view.
           (function () {
