@@ -24,7 +24,7 @@
   var STORAGE_KEY = 'maermin_tags';
   var SCHEMA = 1;
   // A small default palette so new tags get a stable, distinct colour.
-  var PALETTE = ['#f5a524', '#22c55e', '#3b82f6', '#a855f7', '#ef4444',
+  var PALETTE = ['#8b7cff', '#22c55e', '#3b82f6', '#a855f7', '#ef4444',
                  '#14b8a6', '#ec4899', '#eab308', '#6366f1', '#f97316'];
 
   function normName(name) { return String(name == null ? '' : name).trim(); }
@@ -236,7 +236,7 @@
     var border = theme.cardBorder || 'rgba(255,255,255,0.08)';
     var card = theme.card || '#10151f';
     var inputBg = theme.inputBg || '#0c1018', inputBorder = theme.inputBorder || border;
-    var accent = theme.accent || '#f5a524', accentText = theme.accentText || '#13110a';
+    var accent = theme.accent || '#8b7cff', accentText = theme.accentText || '#ffffff';
     var up = theme.success || '#22c55e', down = theme.danger || '#ef4444';
     var fmt = props.formatPrice || function (n) { return (Math.round(n * 100) / 100).toLocaleString(); };
     var sym = props.getCurrencySymbol ? props.getCurrencySymbol() : '€';

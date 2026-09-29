@@ -362,7 +362,7 @@
           e('div', { style: { color: text, fontSize: '0.92rem', fontWeight: 700, marginRight: '0.3rem' } }, t.perfBenchTitle || 'vs. Benchmark'),
           benches.map(function (b) {
             return e('button', { key: b.key, type: 'button', onClick: function () { setBenchKey(b.key); },
-              style: { font: 'inherit', cursor: 'pointer', padding: '0.25rem 0.6rem', borderRadius: '999px', fontSize: '0.74rem', fontWeight: 700, border: '1px solid ' + (benchKey === b.key ? (theme.accent || '#f5a524') : border), background: benchKey === b.key ? (theme.accent || '#f5a524') : 'transparent', color: benchKey === b.key ? (theme.accentText || '#13110a') : dim } }, b.label);
+              style: { font: 'inherit', cursor: 'pointer', padding: '0.25rem 0.6rem', borderRadius: '999px', fontSize: '0.74rem', fontWeight: 700, border: '1px solid ' + (benchKey === b.key ? (theme.accent || '#8b7cff') : border), background: benchKey === b.key ? (theme.accent || '#8b7cff') : 'transparent', color: benchKey === b.key ? (theme.accentText || '#ffffff') : dim } }, b.label);
           })),
         !workerBase ? e('div', { style: { background: card, border: '1px solid ' + border, borderRadius: '14px', padding: '1rem', color: dim, fontSize: '0.85rem' } }, t.perfBenchNoWorker || 'Add a Worker URL in API Settings to compare against an index.')
           : benchLoading ? e('div', { style: { color: dim, fontSize: '0.85rem' } }, (t.loading || 'Loading') + ' …')

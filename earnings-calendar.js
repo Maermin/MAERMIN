@@ -121,7 +121,7 @@
           ),
           h('div', { style: { textAlign: 'right' } },
             h('div', { style: { fontWeight: 700, color: th.text || '#e9edf4' } }, r.earningsDate + (r.isEstimate ? ' (est.)' : '')),
-            h('div', { style: { fontSize: '0.72rem', color: th.accent || '#f5a524' } }, 'in ' + r.daysUntil + ' day' + (r.daysUntil === 1 ? '' : 's'))
+            h('div', { style: { fontSize: '0.72rem', color: th.accent || '#8b7cff' } }, 'in ' + r.daysUntil + ' day' + (r.daysUntil === 1 ? '' : 's'))
           )
         );
       }))

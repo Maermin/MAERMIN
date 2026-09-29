@@ -97,20 +97,20 @@
       '<style>' +
       '#maermin-pwa-install{position:fixed;left:50%;bottom:20px;transform:translateX(-50%);' +
       'z-index:99998;display:flex;align-items:center;gap:14px;padding:12px 16px;' +
-      'background:rgba(20,26,37,0.96);border:1px solid rgba(245,165,36,0.35);border-radius:14px;' +
+      'background:rgba(20,26,37,0.96);border:1px solid rgba(139,124,255,0.35);border-radius:14px;' +
       'box-shadow:0 18px 50px -12px rgba(0,0,0,0.7);backdrop-filter:blur(14px);' +
       'font-family:Inter,-apple-system,BlinkMacSystemFont,Segoe UI,sans-serif;color:#e9edf4;' +
       'max-width:calc(100vw - 32px);animation:mpwaIn .35s cubic-bezier(.16,1,.3,1)}' +
       '@keyframes mpwaIn{from{opacity:0;transform:translate(-50%,14px)}to{opacity:1;transform:translate(-50%,0)}}' +
       '#maermin-pwa-install .mpwa-ic{width:34px;height:34px;border-radius:9px;flex:0 0 auto;' +
-      'background:linear-gradient(135deg,#ffd479,#f5a524 55%,#d97706);display:flex;align-items:center;' +
-      'justify-content:center;color:#13110a;font-weight:800;font-size:18px}' +
+      'background:linear-gradient(135deg,#c3b8ff,#8b7cff 55%,#5b8cff);display:flex;align-items:center;' +
+      'justify-content:center;color:#ffffff;font-weight:800;font-size:18px}' +
       '#maermin-pwa-install .mpwa-tx{font-size:.86rem;line-height:1.25}' +
       '#maermin-pwa-install .mpwa-tx b{display:block;font-size:.9rem}' +
       '#maermin-pwa-install .mpwa-tx span{color:#8b94a7}' +
       '#maermin-pwa-install button{border:none;cursor:pointer;border-radius:9px;font-weight:700;' +
       'font-size:.82rem;padding:8px 12px}' +
-      '#maermin-pwa-install .mpwa-go{background:linear-gradient(135deg,#ffd479,#f5a524 55%,#d97706);color:#13110a}' +
+      '#maermin-pwa-install .mpwa-go{background:linear-gradient(135deg,#c3b8ff,#8b7cff 55%,#5b8cff);color:#ffffff}' +
       '#maermin-pwa-install .mpwa-no{background:transparent;color:#8b94a7;padding:8px}' +
       '</style>' +
       '<div class="mpwa-ic">M</div>' +

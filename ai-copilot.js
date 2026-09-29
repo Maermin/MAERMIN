@@ -112,7 +112,7 @@
           e('input', { value: ep, onChange: function (ev) { setEp(ev.target.value); }, placeholder: 'https://your-worker.workers.dev', style: inputStyle }),
           e('button', {
             onClick: function () { setEndpoint(ep); setErr(''); run(); },
-            style: { marginTop: '0.6rem', padding: '0.55rem 1.1rem', background: theme.accent, color: '#13110a', border: 'none', borderRadius: '8px', cursor: 'pointer', fontWeight: 700, fontSize: '0.85rem' }
+            style: { marginTop: '0.6rem', padding: '0.55rem 1.1rem', background: theme.accent, color: '#ffffff', border: 'none', borderRadius: '8px', cursor: 'pointer', fontWeight: 700, fontSize: '0.85rem' }
           }, t.aiSave || t.save || 'Save & analyse'))
       );
     } else if (loading) {
@@ -128,7 +128,7 @@
       bodyChildren.push(
         e('div', { key: 'fu', style: { display: 'flex', gap: '0.5rem', marginTop: '1rem' } },
           e('input', { value: question, onChange: function (ev) { setQuestion(ev.target.value); }, onKeyDown: function (ev) { if (ev.key === 'Enter' && question.trim()) run(question.trim()); }, placeholder: t.aiAskFollowup || 'Ask a follow-up…', style: inputStyle }),
-          e('button', { onClick: function () { if (question.trim()) run(question.trim()); }, disabled: loading, style: { padding: '0.6rem 1rem', background: theme.accent, color: '#13110a', border: 'none', borderRadius: '8px', cursor: 'pointer', fontWeight: 600, fontSize: '0.82rem' } }, '→'))
+          e('button', { onClick: function () { if (question.trim()) run(question.trim()); }, disabled: loading, style: { padding: '0.6rem 1rem', background: theme.accent, color: '#ffffff', border: 'none', borderRadius: '8px', cursor: 'pointer', fontWeight: 600, fontSize: '0.82rem' } }, '→'))
       );
     }
 
@@ -159,8 +159,8 @@
         title: t.aiAnalyze || 'Analyse with AI',
         style: Object.assign({
           display: 'inline-flex', alignItems: 'center', gap: '0.4rem', cursor: 'pointer',
-          background: (theme.accent || '#f5a524') + '18', color: theme.accent || '#f5a524',
-          border: '1px solid ' + ((theme.accent || '#f5a524') + '44'), borderRadius: '8px',
+          background: (theme.accent || '#8b7cff') + '18', color: theme.accent || '#8b7cff',
+          border: '1px solid ' + ((theme.accent || '#8b7cff') + '44'), borderRadius: '8px',
           fontWeight: 600, fontSize: compact ? '0.72rem' : '0.8rem', padding: compact ? '0.3rem 0.6rem' : '0.45rem 0.85rem'
         }, props.style || {})
       }, compact ? (t.aiShort || 'AI') : (t.aiAnalyze || 'Analyse with AI')),

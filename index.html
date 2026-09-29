@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="en" data-theme="dark" data-mode="dark">
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
@@ -7,14 +7,14 @@
   <meta http-equiv="Content-Security-Policy" content="default-src 'self' https:; script-src 'self' 'unsafe-inline' https://unpkg.com https://cdnjs.cloudflare.com; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com data:; img-src 'self' data: https: https://community.akamai.steamstatic.com; connect-src 'self' https://api.coingecko.com https://api.exchangerate-api.com https://open.er-api.com https://www.alphavantage.co https://*.workers.dev https://cdnjs.cloudflare.com https://www.googleapis.com https://graph.microsoft.com; worker-src 'self'; manifest-src 'self'; object-src 'none';">
   <title>MAERMIN v10.0 - Professional Portfolio Tracker</title>
 
-  <!-- Redesign typography: Hanken Grotesk (UI), Space Grotesk (headings/figures), JetBrains Mono (mono) -->
+  <!-- Aurora typography: Geist (UI + figures) and Geist Mono -->
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Hanken+Grotesk:wght@400;500;600;700&family=Space+Grotesk:wght@500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=Geist:wght@300..800&family=Geist+Mono:wght@400..600&display=swap" rel="stylesheet">
 
   <!-- PWA -->
   <link rel="manifest" href="manifest.webmanifest">
-  <meta name="theme-color" content="#10151f">
+  <meta name="theme-color" content="#07080d">
   <link rel="icon" type="image/svg+xml" href="icon.svg">
   <link rel="apple-touch-icon" href="icon.svg">
   <meta name="mobile-web-app-capable" content="yes">
@@ -52,10 +52,9 @@
   
   <div id="loading">
     <h1>MAERMIN</h1>
-    <div class="version-badge">v10.0</div>
-    <div class="subtitle">Multi-Asset Portfolio Tracker with Advanced Analysis</div>
-    <div id="module-status">Initializing...</div>
+    <div class="subtitle">Every asset. One private, encrypted place.</div>
     <div class="loader"></div>
+    <div id="module-status">Initializing…</div>
   </div>
   
   <div id="root"></div>
@@ -69,6 +68,7 @@
   
   <!-- MAERMIN v10.0 - CORE MODULES -->
   <script>updateStatus('Loading core modules...');</script>
+  <script src="icons.js"></script>
   <script src="utils.js"></script>
   <script src="store.js"></script>
   <script src="prefs-store.js"></script>

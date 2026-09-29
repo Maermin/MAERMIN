@@ -214,7 +214,7 @@
         var border = theme.cardBorder || 'rgba(255,255,255,0.08)';
         var card = theme.card || '#10151f';
         var inputBg = theme.inputBg || '#0c1018', inputBorder = theme.inputBorder || border;
-        var accent = theme.accent || '#f5a524', accentText = theme.accentText || '#13110a';
+        var accent = theme.accent || '#8b7cff', accentText = theme.accentText || '#ffffff';
         var up = theme.success || '#22c55e', down = theme.danger || '#ef4444';
         var fmt = props.formatPrice || function (n) { return (Math.round(n * 100) / 100).toLocaleString(); };
 

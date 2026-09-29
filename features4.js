@@ -42,7 +42,7 @@ function StatCell({ label, value, sub, color, theme }) {
 // Kein Datenmigrations-Problem — alle alten Transaktionen gehören zu "default"
 // ─────────────────────────────────────────────────────────────────────────────
 
-const DEFAULT_PORTFOLIO = { id: 'default', name: 'Main Portfolio', color: '#f5a524', icon: '◆' };
+const DEFAULT_PORTFOLIO = { id: 'default', name: 'Main Portfolio', color: '#8b7cff', icon: '◆' };
 
 function usePortfolios() {
   const [portfolios, setPortfolios] = useState(() => {
@@ -128,7 +128,7 @@ function PortfolioManagerView({ portfolios, activePortfolioId, transactions, pri
   const [editId, setEditId]     = useState(null);
   const [editName, setEditName] = useState('');
 
-  const COLORS = ['#f5a524','#3b82f6','#22c55e','#f59e0b','#ef4444','#06b6d4','#f97316','#ec4899'];
+  const COLORS = ['#8b7cff','#3b82f6','#22c55e','#f59e0b','#ef4444','#06b6d4','#f97316','#ec4899'];
 
   // Value per portfolio
   const portfolioStats = useMemo(() => {
@@ -371,7 +371,7 @@ function SavingsPlanView({ transactions, theme, formatPrice, getCurrencySymbol, 
       ),
       React.createElement('button', {
         onClick: openAdd,
-        style: { padding: '0.625rem 1.25rem', background: theme.accent, color: '#13110a', border: 'none', borderRadius: '8px', cursor: 'pointer', fontWeight: '700', fontSize: '0.875rem' }
+        style: { padding: '0.625rem 1.25rem', background: theme.accent, color: '#ffffff', border: 'none', borderRadius: '8px', cursor: 'pointer', fontWeight: '700', fontSize: '0.875rem' }
       }, '+ Add Plan')
     ),
 
@@ -455,7 +455,7 @@ function SavingsPlanView({ transactions, theme, formatPrice, getCurrencySymbol, 
       React.createElement('div', { style: { color: theme.textSecondary, fontSize: '0.74rem', marginBottom: '0.875rem', lineHeight: 1.5 } },
         'Due executions are booked automatically as real buy transactions when the app opens (marked, deletable). If no price is available for a due date, the execution stays pending instead of guessing a quantity.'),
       React.createElement('div', { style: { display: 'flex', gap: '0.5rem' } },
-        React.createElement('button', { onClick: savePlan, style: { padding: '0.625rem 1.25rem', background: theme.accent, color: '#13110a', border: 'none', borderRadius: '8px', cursor: 'pointer', fontWeight: '700', fontSize: '0.875rem' } }, editPlan === 'new' ? 'Add Plan' : 'Save'),
+        React.createElement('button', { onClick: savePlan, style: { padding: '0.625rem 1.25rem', background: theme.accent, color: '#ffffff', border: 'none', borderRadius: '8px', cursor: 'pointer', fontWeight: '700', fontSize: '0.875rem' } }, editPlan === 'new' ? 'Add Plan' : 'Save'),
         React.createElement('button', { onClick: () => setEditPlan(null), style: { padding: '0.625rem 1.25rem', background: theme.inputBg, color: theme.text, border: 'none', borderRadius: '8px', cursor: 'pointer', fontSize: '0.875rem' } }, 'Cancel')
       )
     ),
@@ -670,7 +670,7 @@ function DividendForecastView({ transactions, portfolio, prices, metaVersion, th
               padding: '0.3rem 0.6rem', border: 'none', borderRadius: '6px', cursor: 'pointer',
               fontSize: '0.75rem', fontWeight: forecastYears === y ? '700' : '400',
               background: forecastYears === y ? theme.accent : 'transparent',
-              color: forecastYears === y ? '#13110a' : theme.textSecondary
+              color: forecastYears === y ? '#ffffff' : theme.textSecondary
             }
           }, `${y}Y`)
         )

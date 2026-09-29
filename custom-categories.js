@@ -30,7 +30,7 @@
   // Built-ins mirror the colours already used across the app. 'options' is a
   // reserved built-in id (a special tx kind), so it cannot be reused either.
   var BUILTINS = [
-    { id: 'crypto',      label: 'Crypto',       color: '#f5a524' },
+    { id: 'crypto',      label: 'Crypto',       color: '#8b7cff' },
     { id: 'stocks',      label: 'Stocks',       color: '#3b82f6' },
     { id: 'skins',       label: 'CS2 Skins',    color: '#06b6d4' },
     { id: 'commodities', label: 'Commodities',  color: '#fb7185' }
@@ -161,7 +161,7 @@
         var border = theme.cardBorder || 'rgba(255,255,255,0.08)';
         var card = theme.card || '#10151f';
         var inputBg = theme.inputBg || '#0c1018', inputBorder = theme.inputBorder || border;
-        var accent = theme.accent || '#f5a524', accentText = theme.accentText || '#13110a';
+        var accent = theme.accent || '#8b7cff', accentText = theme.accentText || '#ffffff';
 
         var s0 = useState(function () { return API.load(); });
         var st = s0[0], setSt = s0[1];

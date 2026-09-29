@@ -31,61 +31,76 @@
   // Styles (shared by setup / unlock / lock)
   // ─────────────────────────────────────────────────────────────────────────
   var STYLE = `
-    #maermin-auth { position: fixed; inset: 0; z-index: 99999;
+    #maermin-auth { position: fixed; inset: 0; z-index: 99999; overflow-y: auto; padding: 1.5rem;
       background:
-        radial-gradient(800px 500px at 50% -10%, rgba(245,165,36,0.10) 0%, transparent 60%),
-        radial-gradient(1100px 700px at 50% 110%, #11161f 0%, #080b11 70%);
-      display: flex; align-items: center; justify-content: center;
-      font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; }
-    #maermin-auth .auth-card { background: rgba(20,26,37,0.92);
-      border: 1px solid rgba(255,255,255,0.08); border-radius: 20px; padding: 3rem;
-      width: 100%; max-width: 420px;
-      box-shadow: 0 32px 70px -20px rgba(0,0,0,0.8), 0 0 40px rgba(245,165,36,0.06);
-      backdrop-filter: blur(20px); animation: authFadeIn 0.5s cubic-bezier(0.16,1,0.3,1); }
-    @keyframes authFadeIn { from { opacity:0; transform: translateY(-20px) scale(0.97);} to { opacity:1; transform:none;} }
-    #maermin-auth .auth-logo { text-align:center; margin-bottom: 1.75rem; }
-    #maermin-auth .auth-logo h1 { font-size: 3rem; font-weight: 800; letter-spacing: -0.05em;
-      background: linear-gradient(135deg, #ffd479 0%, #f5a524 55%, #d97706 100%);
-      -webkit-background-clip: text; -webkit-text-fill-color: transparent; background-clip: text; }
-    #maermin-auth .auth-logo p { color: rgba(255,255,255,0.5); font-size: 0.8rem;
-      letter-spacing: 0.15em; text-transform: uppercase; margin-top: 0.25rem; }
-    #maermin-auth .auth-sub { color: rgba(255,255,255,0.55); font-size:.8rem; text-align:center;
-      margin: -0.5rem 0 1.25rem; line-height:1.5; }
-    #maermin-auth .auth-field { position: relative; margin-bottom: 1.1rem; }
-    #maermin-auth .auth-field label { display:block; color: rgba(255,255,255,0.6);
-      font-size: 0.75rem; letter-spacing: 0.05em; text-transform: uppercase; margin-bottom: 0.5rem; }
-    #maermin-auth .auth-field input { width:100%; padding: 0.875rem 1rem; background:#0f172a;
-      border:1px solid #334155; border-radius:10px; color:white; font-size:1rem; outline:none;
-      transition: border-color .2s, box-shadow .2s; }
-    #maermin-auth .auth-field input:focus { border-color:#f5a524; box-shadow:0 0 0 3px rgba(245,165,36,0.22); }
-    #maermin-auth .auth-field input.error { border-color:#ef4444; box-shadow:0 0 0 3px rgba(239,68,68,0.2); animation: shake .3s ease-out; }
+        radial-gradient(760px 460px at 20% -5%, rgba(124,92,255,0.30) 0%, transparent 65%),
+        radial-gradient(640px 420px at 85% 0%, rgba(56,189,248,0.14) 0%, transparent 65%),
+        radial-gradient(900px 600px at 50% 115%, rgba(124,92,255,0.10) 0%, transparent 60%),
+        #07080d;
+      display: flex; align-items: center; justify-content: center; color: #f1f2f8;
+      font-family: 'Geist', 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+      letter-spacing: -0.011em; -webkit-font-smoothing: antialiased; }
+    #maermin-auth::before { content:''; position: fixed; inset: 0; pointer-events: none;
+      background-image: linear-gradient(to right, rgba(255,255,255,0.05) 1px, transparent 1px),
+        linear-gradient(to bottom, rgba(255,255,255,0.05) 1px, transparent 1px);
+      background-size: 56px 56px;
+      -webkit-mask-image: radial-gradient(700px 480px at 50% 30%, #000 0%, transparent 75%);
+      mask-image: radial-gradient(700px 480px at 50% 30%, #000 0%, transparent 75%); }
+    #maermin-auth .auth-card { position: relative; width: 100%; max-width: 420px; padding: 2.5rem 2.25rem 2rem;
+      background: linear-gradient(180deg, rgba(23,24,36,0.82), rgba(15,16,24,0.88));
+      border: 1px solid rgba(255,255,255,0.09); border-radius: 24px;
+      box-shadow: 0 1px 0 rgba(255,255,255,0.06) inset, 0 40px 90px -30px rgba(0,0,0,0.9), 0 0 80px -20px rgba(124,108,255,0.25);
+      backdrop-filter: blur(24px); -webkit-backdrop-filter: blur(24px);
+      animation: authFadeIn 0.6s cubic-bezier(0.16,1,0.3,1); }
+    @keyframes authFadeIn { from { opacity:0; transform: translateY(14px) scale(0.98);} to { opacity:1; transform:none;} }
+    #maermin-auth .auth-logo { text-align:center; margin-bottom: 1.6rem; display:flex; flex-direction:column; align-items:center; }
+    #maermin-auth .auth-logo::before { content:''; width: 52px; height: 52px; border-radius: 16px; margin-bottom: 1.1rem;
+      background:
+        url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23fff' stroke-width='2.4' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M4 19V6l8 8 8-8v13'/%3E%3C/svg%3E") center / 30px no-repeat,
+        linear-gradient(135deg, #a597ff 0%, #7c6cff 50%, #5b8cff 100%);
+      box-shadow: 0 0 0 1px rgba(255,255,255,0.16) inset, 0 14px 40px -10px rgba(124,108,255,0.8); }
+    #maermin-auth .auth-logo h1 { font-size: 1.35rem; font-weight: 700; letter-spacing: 0.22em; color: #f1f2f8; }
+    #maermin-auth .auth-logo p { color: #8d91a7; font-size: 0.8rem; margin-top: 0.3rem; }
+    #maermin-auth .auth-sub { color: #8d91a7; font-size:.82rem; text-align:center; margin: -0.4rem 0 1.4rem; line-height:1.55; }
+    #maermin-auth .auth-field { position: relative; margin-bottom: 1rem; }
+    #maermin-auth .auth-field label { display:block; color: #b5b8ca; font-size: 0.78rem; font-weight: 500; margin-bottom: 0.45rem; }
+    #maermin-auth .auth-field input { width:100%; height: 46px; padding: 0 0.95rem; background: rgba(255,255,255,0.035);
+      border:1px solid rgba(255,255,255,0.10); border-radius:12px; color:#f1f2f8; font: inherit; font-size:0.95rem; outline:none;
+      transition: border-color .15s, box-shadow .15s, background .15s; }
+    #maermin-auth .auth-field input::placeholder { color: #6d7188; }
+    #maermin-auth .auth-field input:focus { border-color:#8b7cff; background: rgba(139,124,255,0.05); box-shadow:0 0 0 4px rgba(139,124,255,0.18); }
+    #maermin-auth .auth-field input.error { border-color:#ff6b81; box-shadow:0 0 0 4px rgba(255,107,129,0.16); animation: shake .3s ease-out; }
     @keyframes shake { 0%,100%{transform:translateX(0);} 20%{transform:translateX(-6px);} 60%{transform:translateX(6px);} }
-    #maermin-auth .auth-check { display:flex; gap:.6rem; align-items:flex-start; margin:.25rem 0 1.1rem;
-      color: rgba(255,255,255,0.65); font-size:.8rem; line-height:1.4; cursor:pointer; }
-    #maermin-auth .auth-check input { margin-top:.15rem; accent-color:#f5a524; }
-    #maermin-auth .auth-error { background: rgba(239,68,68,0.15); border:1px solid rgba(239,68,68,0.4);
-      border-radius:8px; padding:0.75rem 1rem; color:#fca5a5; font-size:0.875rem; margin-bottom:1rem; display:none; }
+    #maermin-auth .auth-check { display:flex; gap:.6rem; align-items:flex-start; margin:.35rem 0 1.25rem;
+      color: #a3a7bb; font-size:.8rem; line-height:1.45; cursor:pointer; }
+    #maermin-auth .auth-check input { margin-top:.15rem; accent-color:#8b7cff; }
+    #maermin-auth .auth-error { background: rgba(255,107,129,0.10); border:1px solid rgba(255,107,129,0.32);
+      border-radius:12px; padding:0.7rem 0.9rem; color:#ffb3bf; font-size:0.84rem; margin-bottom:1rem; display:none; }
     #maermin-auth .auth-error.visible { display:block; }
-    #maermin-auth .auth-btn { width:100%; padding:0.875rem;
-      background: linear-gradient(135deg, #ffd479 0%, #f5a524 55%, #d97706 100%);
-      border:none; border-radius:10px; color:#13110a; font-size:1rem; font-weight:700; cursor:pointer;
-      transition: all .2s; display:flex; align-items:center; justify-content:center; gap:0.5rem; }
-    #maermin-auth .auth-btn:hover:not(:disabled){ filter:brightness(1.05); transform:translateY(-1px); box-shadow:0 10px 24px -6px rgba(245,165,36,0.5); }
+    #maermin-auth .auth-btn { width:100%; height: 48px;
+      background: linear-gradient(135deg, #a597ff 0%, #7c6cff 50%, #5b8cff 100%);
+      border:none; border-radius:12px; color:#ffffff; font: inherit; font-size:0.95rem; font-weight:600; cursor:pointer;
+      box-shadow: 0 1px 0 rgba(255,255,255,0.25) inset, 0 12px 28px -10px rgba(124,108,255,0.7);
+      transition: transform .15s, box-shadow .2s, filter .15s; display:flex; align-items:center; justify-content:center; gap:0.5rem; }
+    #maermin-auth .auth-btn:hover:not(:disabled){ filter:brightness(1.07); transform:translateY(-1px); box-shadow: 0 1px 0 rgba(255,255,255,0.25) inset, 0 18px 36px -12px rgba(124,108,255,0.85); }
+    #maermin-auth .auth-btn:active:not(:disabled){ transform: scale(0.985); }
     #maermin-auth .auth-btn:disabled{ opacity:.7; cursor:not-allowed; transform:none; }
-    #maermin-auth .auth-btn .spinner{ width:18px;height:18px;border:2px solid rgba(19,17,10,0.3);
-      border-top-color:#13110a;border-radius:50%;animation:spin .8s linear infinite;display:none; }
+    #maermin-auth .auth-btn .spinner{ width:18px;height:18px;border:2px solid rgba(255,255,255,0.3);
+      border-top-color:#ffffff;border-radius:50%;animation:spin .8s linear infinite;display:none; }
     #maermin-auth .auth-btn.loading .spinner{ display:block; } #maermin-auth .auth-btn.loading .btn-text{ display:none; }
     @keyframes spin { to { transform: rotate(360deg); } }
-    #maermin-auth .auth-alt { width:100%; margin-top:.75rem; padding:.75rem; background:transparent;
-      border:1px solid rgba(255,255,255,0.12); border-radius:10px; color:rgba(255,255,255,0.8);
-      font-size:.9rem; cursor:pointer; transition:all .2s; }
-    #maermin-auth .auth-alt:hover{ border-color:#f5a524; color:#f5a524; }
-    #maermin-auth .auth-footer { margin-top: 1.5rem; text-align:center; color: rgba(255,255,255,0.3); font-size: 0.72rem; line-height: 1.6; }
-    #maermin-auth .rc-code { font-family: ui-monospace,'SF Mono',Menlo,monospace; font-size:1.1rem;
-      letter-spacing:0.05em; color:#ffd479; background:#0f172a; border:1px solid #334155; border-radius:10px;
+    #maermin-auth .auth-alt { width:100%; margin-top:.65rem; height: 44px; background: rgba(255,255,255,0.03);
+      border:1px solid rgba(255,255,255,0.10); border-radius:12px; color:#d5d7e3; font: inherit;
+      font-size:.86rem; font-weight: 500; cursor:pointer; transition: border-color .15s, background .15s, color .15s; }
+    #maermin-auth .auth-alt:hover{ border-color: rgba(139,124,255,0.55); background: rgba(139,124,255,0.08); color:#fff; }
+    #maermin-auth .auth-footer { margin-top: 1.5rem; padding-top: 1.1rem; border-top: 1px solid rgba(255,255,255,0.06);
+      text-align:center; color: #6d7188; font-size: 0.72rem; line-height: 1.6; }
+    #maermin-auth .rc-code { font-family: 'Geist Mono', ui-monospace,'SF Mono',Menlo,monospace; font-size:1.05rem;
+      letter-spacing:0.05em; color:#c3b8ff; background: rgba(139,124,255,0.08); border:1px dashed rgba(139,124,255,0.4); border-radius:12px;
       padding:1rem; text-align:center; word-break:break-all; margin-bottom:0.9rem; user-select:all; }
     #maermin-auth .rc-actions { display:flex; gap:0.5rem; margin-bottom:0.6rem; }
-    #maermin-auth .rc-actions .auth-alt { margin-top:0; flex:1; padding:0.6rem; font-size:0.82rem; }
+    #maermin-auth .rc-actions .auth-alt { margin-top:0; flex:1; height: 38px; font-size:0.8rem; }
+    @media (max-width: 480px) { #maermin-auth .auth-card { padding: 2rem 1.4rem 1.6rem; border-radius: 20px; } }
   `;
 
   function setError(msg) {

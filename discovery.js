@@ -164,7 +164,7 @@
     var theme = props.theme || {};
     var t = props.t || {};
     var text = theme.text || '#e6edf3', dim = theme.textSecondary || '#9aa4b2';
-    var accent = theme.accent || '#f5a524', border = theme.cardBorder || 'rgba(255,255,255,0.1)';
+    var accent = theme.accent || '#8b7cff', border = theme.cardBorder || 'rgba(255,255,255,0.1)';
     var inputBg = theme.inputBg || '#0f172a', card = theme.card || theme.cardBg || '#10151f';
     var ok = theme.success || theme.positive || '#22c55e', bad = theme.danger || theme.negative || '#ef4444';
     var workerBase = String(props.workerUrl || '').trim().replace(/\/+$/, '');
@@ -238,7 +238,7 @@
 
     // ---- presentational bits ----
     function pill(active, label, onClick, key) {
-      return e('button', { key: key || label, onClick: onClick, style: { padding: '0.4rem 0.85rem', borderRadius: '8px', border: 'none', cursor: 'pointer', fontSize: '0.8rem', fontWeight: active ? '700' : '500', background: active ? accent : inputBg, color: active ? '#13110a' : dim } }, label);
+      return e('button', { key: key || label, onClick: onClick, style: { padding: '0.4rem 0.85rem', borderRadius: '8px', border: 'none', cursor: 'pointer', fontSize: '0.8rem', fontWeight: active ? '700' : '500', background: active ? accent : inputBg, color: active ? '#ffffff' : dim } }, label);
     }
     function compactMoney(v) {
       if (v == null) return '—';

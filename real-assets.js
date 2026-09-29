@@ -287,7 +287,7 @@
         var text = theme.text || '#e9edf4', dim = theme.textSecondary || '#8b94a7';
         var border = theme.cardBorder || 'rgba(255,255,255,0.08)';
         var card = theme.card || '#10151f', inputBg = theme.inputBg || '#0c1018';
-        var inputBorder = theme.inputBorder || border, accent = theme.accent || '#f5a524';
+        var inputBorder = theme.inputBorder || border, accent = theme.accent || '#8b7cff';
         var up = theme.success || '#22c55e', down = theme.danger || '#ef4444';
 
         var s0 = useState(function () { return API.load(); });
@@ -364,7 +364,7 @@
                 agg.count + ' ' + (t.raAssets || 'assets') + '  ·  ' + (t.raNet || 'net') + ' ' + fmt(agg.netValue) + ' ' + sym +
                 (agg.annualIncome ? '  ·  ' + (t.raIncomePa || 'income p.a.') + ' ' + fmt(agg.annualIncome) + ' ' + sym : ''))),
             e('button', { onClick: function () { setShowAdd(!showAdd); },
-              style: { padding: '0.45rem 0.9rem', background: accent, color: '#13110a', border: 'none', borderRadius: '8px', cursor: 'pointer', fontWeight: 700, fontSize: '0.82rem' } }, t.raAdd || '+ Add Asset')),
+              style: { padding: '0.45rem 0.9rem', background: accent, color: '#ffffff', border: 'none', borderRadius: '8px', cursor: 'pointer', fontWeight: 700, fontSize: '0.82rem' } }, t.raAdd || '+ Add Asset')),
 
           showAdd ? e('div', { style: { padding: '0.85rem', background: inputBg, borderRadius: '10px', marginBottom: '0.85rem' } },
             e('div', { style: { display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(150px, 1fr))', gap: '0.6rem' } },
@@ -388,7 +388,7 @@
                   [e('option', { key: '_', value: '' }, t.raNoFinancing || 'None')].concat(
                     liabilityAccounts.map(function (a) { return e('option', { key: a.id, value: a.id }, a.name); }))))),
             e('div', { style: { display: 'flex', gap: '0.5rem', marginTop: '0.75rem' } },
-              e('button', { onClick: addCurrent, style: { padding: '0.5rem 1rem', background: accent, color: '#13110a', border: 'none', borderRadius: '8px', cursor: 'pointer', fontWeight: 700, fontSize: '0.82rem' } }, t.raSave || 'Add'),
+              e('button', { onClick: addCurrent, style: { padding: '0.5rem 1rem', background: accent, color: '#ffffff', border: 'none', borderRadius: '8px', cursor: 'pointer', fontWeight: 700, fontSize: '0.82rem' } }, t.raSave || 'Add'),
               e('button', { onClick: function () { setShowAdd(false); }, style: { padding: '0.5rem 1rem', background: inputBg, color: text, border: '1px solid ' + inputBorder, borderRadius: '8px', cursor: 'pointer', fontSize: '0.82rem' } }, t.raCancel || 'Cancel'))) : null,
 
           st.assets.length ? e('div', null, rows)

@@ -49,7 +49,7 @@ function chartPalette(theme) {
   return {
     up:        dark ? '#34d399' : '#059669',
     down:      dark ? '#fb7185' : '#dc2626',
-    neutral:   (theme && theme.accent) || '#f5a524',
+    neutral:   (theme && theme.accent) || '#8b7cff',
     info:      dark ? '#60a5fa' : '#2563eb',
     grid:      dark ? 'rgba(148,163,184,0.12)' : 'rgba(71,85,105,0.14)',
     gridStrong: dark ? 'rgba(148,163,184,0.28)' : 'rgba(71,85,105,0.32)',
@@ -774,7 +774,7 @@ function PortfolioHistoryChart({ portfolio, prices, transactions, apiKeys, theme
     return React.createElement('div', { style: { marginTop: '0.15rem' } },
       // Big portfolio value
       React.createElement('div', {
-        style: { display: 'flex', alignItems: 'baseline', flexWrap: 'wrap', gap: '0.05rem', fontFamily: "'Space Grotesk', 'Hanken Grotesk', sans-serif", lineHeight: 1 }
+        style: { display: 'flex', alignItems: 'baseline', flexWrap: 'wrap', gap: '0.05rem', fontFamily: "'Geist', 'Geist', sans-serif", lineHeight: 1 }
       },
         React.createElement('span', { style: { fontSize: 'clamp(2rem, 4.2vw, 2.9rem)', fontWeight: '700', letterSpacing: '-0.03em', color: theme.text } }, intPart),
         decPart && React.createElement('span', { style: { fontSize: 'clamp(1.2rem, 2.6vw, 1.7rem)', fontWeight: '600', letterSpacing: '-0.02em', color: GREY } }, decPart),

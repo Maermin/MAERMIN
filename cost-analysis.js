@@ -144,7 +144,7 @@
     var theme = props.theme || {};
     var t = props.t || {};
     var text = theme.text || '#e6edf3', dim = theme.textSecondary || '#9aa4b2';
-    var accent = theme.accent || '#f5a524', border = theme.cardBorder || 'rgba(255,255,255,0.1)';
+    var accent = theme.accent || '#8b7cff', border = theme.cardBorder || 'rgba(255,255,255,0.1)';
     var inputBg = theme.inputBg || '#0f172a', card = theme.card || theme.cardBg || '#10151f';
     var warn = theme.warning || '#f59e0b', bad = theme.danger || theme.negative || '#ef4444';
     var workerBase = String(props.workerUrl || '').trim().replace(/\/+$/, '');
