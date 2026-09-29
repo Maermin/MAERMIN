@@ -1256,7 +1256,7 @@ html.mx-motion .mx-reveal.is-in {
 .mx-bottom-nav button.is-active svg { filter: drop-shadow(0 0 6px var(--accent)); }
 
 /* Palette + popover: glowing edges */
-.command-palette, .mx-popover { position: relative; }
+.command-palette { position: relative; }
 .command-palette::before {
   content: '';
   position: absolute;
@@ -1320,3 +1320,228 @@ html.mx-still .mx-card { transform: none !important; }
    (modals rendered inside a card). Never tilt/lift a card hosting one. */
 .mx-card:has([style*="position: fixed"]),
 .maermin-main > *:has([style*="position: fixed"]) { transform: none !important; filter: none !important; animation: none !important; }
+
+/* ============================================================================
+   AURORA MOTION — purposeful feedback (classes from motion.js)
+   ========================================================================== */
+:root {
+  /* Physically-based spring (slight overshoot, fast settle). */
+  --spring: linear(0, 0.009, 0.035 2.1%, 0.141, 0.281 6.7%, 0.723 12.9%, 0.938 16.7%, 1.017, 1.077, 1.121, 1.149 24.3%, 1.159, 1.163, 1.161, 1.154 29.9%, 1.129 32.8%, 1.051 39.6%, 1.017 43.1%, 0.991, 0.977 51%, 0.974 53.8%, 0.975 57.1%, 0.997 69.8%, 1.003 76.9%, 1);
+  --spring-soft: linear(0, 0.006, 0.025 2.8%, 0.101 6.1%, 0.539 18.9%, 0.721 25.3%, 0.849 31.5%, 0.937 38.1%, 0.968 41.8%, 0.991 45.7%, 1.006 50.1%, 1.015 55%, 1.017 63.9%, 1.001 85.9%, 1);
+}
+
+/* ---- Value ticks: what changed after a refresh ------------------------- */
+.mx-tick-up, .mx-tick-down { position: relative; border-radius: 6px; }
+.mx-tick-up   { animation: tickUp 1.3s var(--ease); }
+.mx-tick-down { animation: tickDown 1.3s var(--ease); }
+@keyframes tickUp {
+  0%   { background: color-mix(in srgb, var(--success) 28%, transparent); box-shadow: 0 0 0 4px color-mix(in srgb, var(--success) 28%, transparent); transform: translateY(-2px); }
+  25%  { transform: translateY(0); }
+  100% { background: transparent; box-shadow: 0 0 0 4px transparent; }
+}
+@keyframes tickDown {
+  0%   { background: color-mix(in srgb, var(--danger) 28%, transparent); box-shadow: 0 0 0 4px color-mix(in srgb, var(--danger) 28%, transparent); transform: translateY(2px); }
+  25%  { transform: translateY(0); }
+  100% { background: transparent; box-shadow: 0 0 0 4px transparent; }
+}
+.mx-tick-up::after, .mx-tick-down::after {
+  position: absolute;
+  right: -1.1em;
+  top: 50%;
+  font-size: 0.7em;
+  font-weight: 700;
+  pointer-events: none;
+  animation: tickArrow 1.3s var(--ease) forwards;
+}
+.mx-tick-up::after   { content: '▲'; color: var(--success); }
+.mx-tick-down::after { content: '▼'; color: var(--danger); }
+@keyframes tickArrow {
+  0%   { opacity: 0; transform: translateY(-50%) scale(0.4); }
+  20%  { opacity: 1; transform: translateY(-50%) scale(1.15); }
+  70%  { opacity: 1; transform: translateY(-50%) scale(1); }
+  100% { opacity: 0; transform: translateY(-80%); }
+}
+.mx-mask { animation: maskIn 0.5s var(--ease); }
+@keyframes maskIn { from { filter: blur(6px); opacity: 0.3; } to { filter: none; opacity: 1; } }
+
+/* ---- Sidebar glider: one indicator that travels ------------------------ */
+.maermin-sidebar.has-glider { position: sticky; }
+.mx-glider {
+  position: absolute;
+  top: 0;
+  left: 0;
+  z-index: 0;
+  pointer-events: none;
+  border-radius: 10px;
+  background:
+    linear-gradient(90deg, var(--accent-soft), transparent 95%),
+    radial-gradient(120px 40px at 0% 50%, color-mix(in srgb, var(--accent) 24%, transparent), transparent 80%);
+  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--accent) 22%, transparent);
+  transition: transform 0.55s var(--spring), width 0.45s var(--spring-soft), height 0.45s var(--spring-soft), opacity 0.2s;
+}
+.mx-glider::before {
+  content: '';
+  position: absolute;
+  left: -0.75rem;
+  top: 22%;
+  bottom: 22%;
+  width: 3px;
+  border-radius: 0 4px 4px 0;
+  background: var(--accent-grad);
+  box-shadow: 0 0 14px var(--accent);
+}
+.mx-glider.is-child { background: var(--accent-soft); box-shadow: none; }
+.mx-glider.is-child::before { left: calc(1.2rem - 0.5px); top: 0; bottom: 0; width: 2px; border-radius: 2px; }
+.maermin-sidebar.has-glider .mx-nav { z-index: 1; }
+.maermin-sidebar.has-glider .mx-nav.is-active,
+.maermin-sidebar.has-glider .mx-nav.is-child.is-active { background: transparent; box-shadow: none; }
+.maermin-sidebar.has-glider .mx-nav.is-active::before { display: none; }
+.maermin-sidebar.has-glider .mx-nav.is-child.is-active::after { background: var(--border-strong); width: 1px; }
+
+/* ---- Chip glide --------------------------------------------------------- */
+.mx-chip-ghost {
+  position: fixed;
+  z-index: 3000;
+  pointer-events: none;
+  transition: transform 0.32s var(--spring), width 0.32s var(--spring-soft);
+  box-shadow: 0 6px 18px -6px var(--accent-ring);
+}
+.mx-chip-hide { visibility: hidden; }
+.mx-pop { animation: pop 0.4s var(--spring); }
+@keyframes pop { from { transform: scale(0.92); } to { transform: scale(1); } }
+
+/* Segmented controls get a soft press */
+.mx-seg button.is-on { animation: pop 0.4s var(--spring); }
+
+/* ---- Charts reveal ------------------------------------------------------ */
+html.mx-anim .mx-wipe { animation: wipe 1.1s var(--ease) both; }
+@keyframes wipe { from { clip-path: inset(0 100% 0 0); } to { clip-path: inset(0 0 0 0); } }
+html.mx-anim .mx-sweep { animation: sweep360 1.1s var(--ease) both; }
+@keyframes sweep360 {
+  from { clip-path: circle(0% at 50% 50%); transform: rotate(-90deg) scale(0.85); opacity: 0; }
+  60%  { opacity: 1; }
+  to   { clip-path: circle(75% at 50% 50%); transform: none; opacity: 1; }
+}
+
+/* ---- Bars grow ---------------------------------------------------------- */
+html.mx-anim .mx-grow { transform-origin: left center; animation: grow 1s var(--spring-soft) both; animation-delay: 0.15s; }
+@keyframes grow { from { transform: scaleX(0); } to { transform: scaleX(1); } }
+
+/* ---- Table rows cascade + hover rail ----------------------------------- */
+html.mx-anim .mx-row-in { animation: rowIn 0.55s var(--ease) both; animation-delay: calc(var(--mx-row, 0) * 35ms + 80ms); }
+@keyframes rowIn { from { opacity: 0; transform: translateX(-10px); } to { opacity: 1; transform: none; } }
+.maermin-main tbody tr { transition: background 0.2s, box-shadow 0.25s var(--ease); }
+.maermin-main tbody tr:hover {
+  background: linear-gradient(90deg, var(--accent-soft), transparent 60%) !important;
+  box-shadow: inset 2px 0 0 var(--accent);
+}
+
+/* ---- Dialogs: blur-in backdrop + spring --------------------------------- */
+html.mx-anim .mx-overlay {
+  animation: overlayFade 0.3s ease-out both;
+  backdrop-filter: blur(10px) saturate(120%);
+  -webkit-backdrop-filter: blur(10px) saturate(120%);
+}
+@keyframes overlayFade { from { opacity: 0; backdrop-filter: blur(0); } to { opacity: 1; } }
+html.mx-anim .mx-dialog { animation: dialogIn 0.6s var(--spring) both; }
+@keyframes dialogIn { from { opacity: 0; transform: translateY(16px) scale(0.94); } to { opacity: 1; transform: none; } }
+html.mx-anim .command-palette { animation: dialogIn 0.55s var(--spring) both; }
+html.mx-anim .mx-popover { animation: popoverIn 0.45s var(--spring) both; }
+@keyframes popoverIn { from { opacity: 0; transform: translateY(-8px) scale(0.95); } to { opacity: 1; transform: none; } }
+
+/* ---- Busy: scanning progress on refresh/sync actions ------------------ */
+.mx-busy { position: relative; overflow: hidden; }
+.mx-busy::before {
+  content: '';
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  height: 2px;
+  background: linear-gradient(90deg, transparent, var(--accent), #38bdf8, transparent);
+  animation: scan 0.8s linear infinite;
+}
+@keyframes scan { from { transform: translateX(-100%); } to { transform: translateX(100%); } }
+
+/* ---- Scroll progress + condensed header -------------------------------- */
+.mx-scrollbar {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 2px;
+  z-index: 200;
+  transform-origin: 0 50%;
+  transform: scaleX(0);
+  background: linear-gradient(90deg, var(--accent), #38bdf8);
+  box-shadow: 0 0 10px var(--accent);
+  pointer-events: none;
+}
+.mx-header { transition: background 0.3s, box-shadow 0.3s; }
+html.mx-scrolled .mx-header {
+  box-shadow: 0 10px 30px -18px rgba(0, 0, 0, 0.7);
+  background: color-mix(in srgb, var(--glass) 100%, var(--bg) 25%);
+}
+
+/* ---- Toasts: icon, countdown, spring ----------------------------------- */
+.toast { padding: 0.8rem 1rem 0.95rem 0.9rem !important; border-radius: 14px !important; border-left: 1px solid var(--border-strong) !important;
+  background: color-mix(in srgb, var(--surface) 90%, transparent) !important; color: var(--text) !important; }
+html.mx-anim .toast { animation: toastIn 0.6s var(--spring) both; }
+@keyframes toastIn { from { opacity: 0; transform: translateY(20px) scale(0.9); } to { opacity: 1; transform: none; } }
+.toast::before { display: none; }
+.toast-icon {
+  width: 26px; height: 26px; flex-shrink: 0; border-radius: 8px;
+  display: inline-flex; align-items: center; justify-content: center;
+  color: var(--accent); background: var(--accent-soft);
+}
+.toast.success .toast-icon { color: var(--success); background: color-mix(in srgb, var(--success) 14%, transparent); }
+.toast.error   .toast-icon { color: var(--danger);  background: color-mix(in srgb, var(--danger) 14%, transparent); }
+.toast.warning .toast-icon { color: var(--warning); background: color-mix(in srgb, var(--warning) 14%, transparent); }
+.toast-msg { flex: 1; min-width: 0; }
+.toast-timer {
+  position: absolute; left: 0; bottom: 0; height: 2px; width: 100%;
+  transform-origin: left; background: var(--accent);
+  animation: toastTimer var(--mx-ttl, 3000ms) linear forwards;
+}
+.toast.success .toast-timer { background: var(--success); }
+.toast.error .toast-timer { background: var(--danger); }
+.toast.warning .toast-timer { background: var(--warning); }
+.toast:hover .toast-timer { animation-play-state: paused; }
+@keyframes toastTimer { from { transform: scaleX(1); } to { transform: scaleX(0); } }
+
+/* ---- Theme switch: circular portal reveal (View Transitions) ----------- */
+html.mx-vt-theme::view-transition-old(root) { animation: none; }
+html.mx-vt-theme::view-transition-new(root) {
+  animation: themePortal 0.7s cubic-bezier(0.7, 0, 0.3, 1) both;
+}
+@keyframes themePortal {
+  from { clip-path: circle(0 at var(--vt-x, 90%) var(--vt-y, 5%)); }
+  to   { clip-path: circle(var(--vt-r, 150vmax) at var(--vt-x, 90%) var(--vt-y, 5%)); }
+}
+
+/* ---- Icon micro-motion ------------------------------------------------- */
+.mx-icon-btn svg { transition: transform 0.45s var(--spring); }
+.mx-icon-btn:hover svg { transform: scale(1.12); }
+.mx-icon-btn[aria-label="Settings"]:hover svg { transform: rotate(60deg) scale(1.05); }
+.mx-icon-btn[aria-label="Settings"].is-on svg { transform: rotate(90deg); }
+.mx-chev { transition: transform 0.4s var(--spring); }
+.mx-hub-children .mx-nav { animation: hubItem 0.45s var(--ease) both; }
+.mx-hub-children .mx-nav:nth-child(2) { animation-delay: 25ms; } .mx-hub-children .mx-nav:nth-child(3) { animation-delay: 50ms; }
+.mx-hub-children .mx-nav:nth-child(4) { animation-delay: 75ms; } .mx-hub-children .mx-nav:nth-child(5) { animation-delay: 100ms; }
+.mx-hub-children .mx-nav:nth-child(6) { animation-delay: 125ms; } .mx-hub-children .mx-nav:nth-child(7) { animation-delay: 150ms; }
+.mx-hub-children .mx-nav:nth-child(n+8) { animation-delay: 175ms; }
+@keyframes hubItem { from { opacity: 0; transform: translateX(-8px); } to { opacity: 1; transform: none; } }
+.mx-bottom-nav button:active svg { transform: scale(0.85); }
+.mx-bottom-nav button svg { transition: transform 0.4s var(--spring); }
+.mx-bottom-nav button.is-active svg { transform: translateY(-1px) scale(1.08); }
+
+/* ---- Buttons: springy press everywhere --------------------------------- */
+html.mx-anim button:not(:disabled):active { transform: scale(0.96); transition-timing-function: var(--spring); }
+
+/* Focus rings that glow (keyboard users get the same delight) */
+:focus-visible { outline: none; box-shadow: 0 0 0 2px var(--bg), 0 0 0 4px var(--accent), 0 0 18px 2px var(--accent-ring) !important; }
+
+@media (prefers-reduced-motion: reduce) {
+  .mx-glider, .mx-chip-ghost { transition: none; }
+  ::view-transition-group(*), ::view-transition-old(*), ::view-transition-new(*) { animation: none !important; }
+}

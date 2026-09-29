@@ -4886,6 +4886,28 @@ buy,crypto,bitcoin,0.5,45000,2024-01-15,10`)
     ['dark', 'Dark', '#0f1018'], ['white', 'Light', '#ffffff'], ['purple', 'Nebula', '#140e24'],
     ['contrast', 'Contrast', '#000000'], ['cb', 'CB-safe', '#1f8ad1']
   ];
+  // Theme switch with a circular "portal" reveal from the click point
+  // (View Transitions API). Falls back to an instant switch.
+  const switchTheme = (th, e) => {
+    if (th === theme) return;
+    const vt = document.startViewTransition;
+    const fxOn = !window.MaerminFX || window.MaerminFX.enabled();
+    if (!vt || !fxOn || !ReactDOM.flushSync) { setTheme(th); return; }
+    const x = e && e.clientX != null ? e.clientX : window.innerWidth - 60;
+    const y = e && e.clientY != null ? e.clientY : 40;
+    const r = Math.hypot(Math.max(x, window.innerWidth - x), Math.max(y, window.innerHeight - y));
+    const root = document.documentElement;
+    root.style.setProperty('--vt-x', x + 'px');
+    root.style.setProperty('--vt-y', y + 'px');
+    root.style.setProperty('--vt-r', r + 'px');
+    root.classList.add('mx-vt-theme');
+    const tr = document.startViewTransition(() => {
+      ReactDOM.flushSync(() => setTheme(th));
+      root.setAttribute('data-theme', th);
+      root.setAttribute('data-mode', (themes[th] && themes[th].mode) || 'dark');
+    });
+    tr.finished.finally(() => root.classList.remove('mx-vt-theme'));
+  };
   const segBtn = (key, on, onClick, children, extra) => React.createElement('button', Object.assign({ key, type: 'button', className: on ? 'is-on' : '', onClick, 'aria-pressed': on }, extra || {}), children);
   const menuItem = (icon, label, onClick, danger) => React.createElement('button', { type: 'button', className: 'mx-menu-item' + (danger ? ' is-danger' : ''), onClick }, Icon(icon, { size: 16 }), React.createElement('span', null, label));
   const popLabel = (text) => React.createElement('span', { className: 'mx-pop-label' }, text);
@@ -4948,7 +4970,7 @@ buy,crypto,bitcoin,0.5,45000,2024-01-15,10`)
           React.createElement('div', { style: { marginBottom: '0.9rem' } },
             popLabel(t.theme || 'Theme'),
             React.createElement('div', { className: 'mx-seg' },
-              themeChoices.map(([th, lbl, sw]) => segBtn(th, theme === th, () => setTheme(th), [
+              themeChoices.map(([th, lbl, sw]) => segBtn(th, theme === th, (e) => switchTheme(th, e), [
                 React.createElement('span', { key: 's', className: 'mx-swatch', style: { background: sw } }),
                 React.createElement('span', { key: 'l', style: { fontSize: '0.64rem' } }, lbl)
               ], { title: lbl }))

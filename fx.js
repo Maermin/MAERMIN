@@ -130,6 +130,7 @@
       return m[1] + p.join(sep) + m[3];
     };
     var t0 = performance.now(), dur = 900;
+    node.__mxOwnUntil = t0 + dur + 120; // motion.js ignores our frames
     (function step(now) {
       if (node.nodeValue !== finalText && node.__mxLast !== node.nodeValue) return; // React changed it — stop
       var k = Math.min(1, (now - t0) / dur);

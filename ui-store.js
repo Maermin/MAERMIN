@@ -37,9 +37,9 @@
 
   function add(message, type, ttl) {
     var id = 't' + Date.now() + '_' + (++_seq);
-    var toast = { id: id, message: String(message == null ? '' : message), type: type || 'info' };
-    if (toasts) toasts.setState(function (s) { return { items: reduceAdd(s.items, toast, MAX) }; });
     var ms = (typeof ttl === 'number') ? ttl : DEFAULT_TTL;
+    var toast = { id: id, message: String(message == null ? '' : message), type: type || 'info', ttl: ms };
+    if (toasts) toasts.setState(function (s) { return { items: reduceAdd(s.items, toast, MAX) }; });
     if (ms > 0 && typeof setTimeout !== 'undefined') setTimeout(function () { dismiss(id); }, ms);
     return id;
   }
@@ -76,23 +76,21 @@
     var list = Store.useStore(toasts, function (s) { return s.items; });
     return React.createElement('div', { className: 'toast-container' },
       list.map(function (toast) {
+        // Aurora: glass toast with a status icon, a live countdown bar (the
+        // real TTL) and click-to-dismiss. Colours come from styles.css.
+        var Icon = window.MaerminIcon;
+        var ico = toast.type === 'success' ? 'realized' : toast.type === 'error' ? 'close' : toast.type === 'warning' ? 'alerts' : 'sparkle';
         return React.createElement('div', {
           key: toast.id,
           className: 'toast ' + toast.type,
-          style: {
-            padding: '1rem 1.5rem',
-            background: theme.card,
-            borderRadius: '8px',
-            boxShadow: '0 10px 25px -5px rgba(0,0,0,0.3)',
-            color: theme.text,
-            borderLeft: '4px solid ' + (
-              toast.type === 'success' ? theme.success :
-              toast.type === 'error' ? theme.danger :
-              toast.type === 'warning' ? theme.warning :
-              theme.accent
-            )
-          }
-        }, toast.message);
+          role: toast.type === 'error' ? 'alert' : 'status',
+          onClick: function () { dismiss(toast.id); },
+          style: { '--mx-ttl': (toast.ttl > 0 ? toast.ttl : 0) + 'ms', cursor: 'pointer' }
+        },
+          Icon ? React.createElement('span', { className: 'toast-icon' }, Icon(ico, { size: 15, strokeWidth: 2.2 })) : null,
+          React.createElement('span', { className: 'toast-msg' }, toast.message),
+          toast.ttl > 0 ? React.createElement('span', { className: 'toast-timer', 'aria-hidden': 'true' }) : null
+        );
       }));
   }
 
