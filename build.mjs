@@ -29,6 +29,7 @@ let m;
 while ((m = scriptRe.exec(html)) !== null) {
   const src = m[1];
   if (/^https?:\/\//i.test(src)) cdn.push(m[0]);
+  else if (src === 'dev-boot.js') continue; // prod ships its own boot.js
   else local.push(src);
 }
 
@@ -101,7 +102,8 @@ await writeFile(join(dist, 'boot.js'),
 // needs 'unsafe-inline' — the biggest XSS-hardening win of the build. connect-src
 // mirrors the data sources the app actually calls (renderer fetchPrices + Worker).
 const CSP = "default-src 'self' https:; " +
-  "script-src 'self' https://unpkg.com https://cdnjs.cloudflare.com; " +
+  "script-src 'self' https://unpkg.com/react@18.3.1/umd/ https://unpkg.com/react-dom@18.3.1/umd/ " +
+  "https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/ https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.5.31/ https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/; " +
   "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; " +
   "font-src 'self' https://fonts.gstatic.com data:; " +
   "img-src 'self' data: https: https://community.akamai.steamstatic.com; " +

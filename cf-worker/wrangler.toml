@@ -11,3 +11,22 @@ compatibility_date = "2024-01-01"
 [[kv_namespaces]]
 binding = "SYNC"
 id = "REPLACE_WITH_KV_NAMESPACE_ID"
+
+# Recommended: atomic sync. One Durable Object per account serialises the
+# revision check, so two devices syncing at once can't silently overwrite each
+# other (KV has no compare-and-set). Existing KV records are adopted on first
+# use. SQLite-backed Durable Objects are available on the free plan.
+[[durable_objects.bindings]]
+name = "SYNC_DO"
+class_name = "SyncRoom"
+
+[[migrations]]
+tag = "v1"
+new_sqlite_classes = ["SyncRoom"]
+
+# CORS: exact origins allowed to read responses (the official app and
+# localhost are built in). Add your own domain(s), comma separated.
+# Set ALLOW_NULL_ORIGIN = "false" if you don't use the desktop app.
+[vars]
+# ALLOWED_ORIGINS = "https://portfolio.example.com"
+ALLOW_NULL_ORIGIN = "true"

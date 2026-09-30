@@ -16,7 +16,7 @@
 // of this per job, inside an ephemeral container.
 
 import {
-  readFileSync, writeFileSync, existsSync, mkdirSync, rmSync, readdirSync, statSync
+  readFileSync, writeFileSync, existsSync, mkdirSync, rmSync, readdirSync, statSync, realpathSync
 } from 'node:fs';
 import { resolve, join, sep, dirname, relative, isAbsolute } from 'node:path';
 import { spawnSync } from 'node:child_process';
@@ -28,8 +28,14 @@ export class ToolBus {
   // opts: { root, caps?, allowHosts?, timeoutMs?, maxBuffer?, onAudit? }
   constructor(opts = {}) {
     if (!opts.root) throw new Error('ToolBus requires a sandbox root');
-    this.root = resolve(opts.root);
-    mkdirSync(this.root, { recursive: true });
+    mkdirSync(resolve(opts.root), { recursive: true });
+    this.root = realpathSync(resolve(opts.root));
+    // Shell strings from the MODEL run through /bin/sh only when explicitly
+    // allowed; trusted callers (stage `verify`, the host) are unaffected.
+    this.untrustedShell = opts.untrustedShell === true;
+    // Child processes get a minimal environment - never the host's secrets
+    // (ANTHROPIC_API_KEY, GITHUB_TOKEN, cloud credentials, ...).
+    this.baseEnv = opts.inheritEnv ? { ...process.env } : pickEnv(process.env, ['PATH', 'HOME', 'LANG', 'LC_ALL', 'TMPDIR', 'TEMP', 'TMP', 'SYSTEMROOT', 'COMSPEC', 'PATHEXT']);
     this.caps = { fs: true, shell: true, git: true, http: true, ...(opts.caps || {}) };
     // http is allow-list-first: an empty list denies all outbound requests.
     this.allowHosts = new Set((opts.allowHosts || []).map((h) => h.toLowerCase()));
@@ -82,11 +88,15 @@ export class ToolBus {
     if (typeof p !== 'string' || p.length === 0) throw new Error('path required');
     if (isAbsolute(p)) throw new Error('absolute paths are not allowed: ' + p);
     const abs = resolve(this.root, p);
-    const rel = relative(this.root, abs);
-    if (rel === '' ) return abs; // the root itself
-    if (rel.startsWith('..') || isAbsolute(rel)) {
-      throw new Error('path escapes sandbox root: ' + p);
-    }
+    const inside = (x) => { const r = relative(this.root, x); return r === '' || (!r.startsWith('..') && !isAbsolute(r)); };
+    if (!inside(abs)) throw new Error('path escapes sandbox root: ' + p);
+    // Follow symlinks: resolve the deepest EXISTING ancestor for real, so a
+    // link planted inside the sandbox (ln -s / escape) cannot be traversed.
+    let probe = abs;
+    while (!existsSync(probe) && probe !== this.root) probe = dirname(probe);
+    let real;
+    try { real = realpathSync(probe); } catch (e) { real = probe; }
+    if (!inside(real)) throw new Error('path escapes sandbox root via symlink: ' + p);
     return abs;
   }
 
@@ -148,6 +158,11 @@ export class ToolBus {
     if (typeof cmd !== 'string' || !cmd.trim()) throw new Error('command required');
     const cwd = opts.cwd ? this._resolve(opts.cwd) : this.root;
     const useArgs = Array.isArray(opts.args);
+    if (!useArgs && opts.untrusted && !this.untrustedShell) {
+      const err = new Error('shell strings from the model are disabled; use {args:["prog","arg"]}');
+      this._record('shell', 'denied', cmd, false, err);
+      throw err;
+    }
     try {
       const r = spawnSync(cmd, useArgs ? opts.args : [], {
         cwd,
@@ -155,7 +170,7 @@ export class ToolBus {
         timeout: opts.timeoutMs ?? this.timeoutMs,
         maxBuffer: this.maxBuffer,
         encoding: 'utf8',
-        env: { ...process.env, ...(opts.env || {}) }
+        env: { ...this.baseEnv, ...(opts.env || {}) }
       });
       const out = {
         code: r.status,
@@ -221,6 +236,12 @@ export class ToolBus {
     } catch (e) { this._record('http', 'fetch', url, false, e); throw e; }
     finally { clearTimeout(timer); }
   }
+}
+
+function pickEnv(env, keys) {
+  const out = {};
+  for (const k of keys) if (env[k] !== undefined) out[k] = env[k];
+  return out;
 }
 
 // Factory — mirrors createProvider(); the central place to construct a scoped bus.

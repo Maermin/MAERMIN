@@ -60,8 +60,18 @@
   }
 
   // The date a crypto lot becomes tax-free, and how many days remain from `today`.
+  // First TAX-FREE sale date under §23 EStG: the one-year period ends on the
+  // anniversary (29 Feb -> 28 Feb, §188 BGB), so a sale is tax-free from the
+  // FOLLOWING day. (Selling on the anniversary itself is still taxable.)
+  // A custom holdDays other than the statutory 365 keeps the plain day count.
   function cryptoFreeDate(acquiredISO, holdDays) {
-    return addDays(ymd(acquiredISO), holdDays == null ? DEFAULTS.cryptoHoldDays : holdDays);
+    var iso = ymd(acquiredISO);
+    if (holdDays != null && holdDays !== DEFAULTS.cryptoHoldDays) return addDays(iso, holdDays);
+    var y = parseInt(iso.slice(0, 4), 10), m = parseInt(iso.slice(5, 7), 10), d = parseInt(iso.slice(8, 10), 10);
+    if (!(y > 0 && m > 0 && d > 0)) return addDays(iso, DEFAULTS.cryptoHoldDays + 1);
+    var last = new Date(Date.UTC(y + 1, m, 0)).getUTCDate();
+    var ann = (y + 1) + '-' + String(m).padStart(2, '0') + '-' + String(Math.min(d, last)).padStart(2, '0');
+    return addDays(ann, 1);
   }
 
   // Build open crypto lots (FIFO) from the transaction list. Returns one entry
@@ -81,7 +91,7 @@
     });
     var lots = [];
     Object.keys(bySym).forEach(function (sym) {
-      var txs = bySym[sym].slice().sort(function (a, b) { return ymd(a.date) < ymd(b.date) ? -1 : (ymd(a.date) > ymd(b.date) ? 1 : 0); });
+      var txs = bySym[sym].slice().sort(function (a, b) { return ymd(a.date) < ymd(b.date) ? -1 : (ymd(a.date) > ymd(b.date) ? 1 : ((a.type === 'buy' ? 0 : 1) - (b.type === 'buy' ? 0 : 1))); });
       var open = [];
       txs.forEach(function (tx) {
         var qty = num(tx.quantity);

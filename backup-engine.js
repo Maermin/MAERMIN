@@ -61,6 +61,20 @@
     'maermin_exchange_sync',
     // reusable CSV import presets (see import-mapping.js — saved column mappings)
     'maermin_import_presets',
+    // German fund taxation + tax settings (tax-settings.js, tax-calculation-
+    // engine.js): without these a restore silently lost fund types, recorded
+    // Vorabpauschale, church tax, manual overrides and the user's tax settings.
+    'maermin_fund_types',
+    'maermin_vap_records',
+    'maermin_kirchensteuer',
+    'maermin_tax_overrides',
+    'maermin_tax_settings',
+    'maermin_basiszins_overrides',
+    // ongoing-cost (TER) overrides + risk-monitor thresholds
+    'maermin_ter_overrides',
+    'maermin_risk_monitor',
+    // deleted auto-dividends (so a restore doesn't re-book them)
+    'maermin_div_skipped',
     'theme',
     'currency',
     'privacyMode',

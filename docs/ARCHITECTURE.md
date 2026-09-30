@@ -5,7 +5,7 @@ ways from the same source:
 
 - **Web** (GitHub Pages / any static host) — `index.html` loads plain global
   scripts; `build.mjs` concatenates + minifies them into `dist/`.
-- **Desktop** (Electron) — `main.js` + `preload.js` wrap the same UI.
+- **Desktop** (Electron) — `main.js` + `preload.js` wrap the same UI in a sandboxed, navigation-locked window (no privileged IPC; data stays in the renderer's encrypted storage).
 
 There is **no backend and no database**. State lives in the browser's
 `localStorage`; an optional Cloudflare Worker only proxies market data and an
@@ -319,7 +319,7 @@ they add no `SENSITIVE_KEYS` and need no migration.
   Node export, with minimal DOM/crypto stubs.
 - `npm run check` — `node --check` on every JS file (fast syntax gate).
 
-CI (`.github/workflows/node.js.yml`) runs `build:web` + `test` on Node 18/20/22.
+CI (`.github/workflows/node.js.yml`) runs `build:web` + `test` (incl. the platform suite) on Node 22/24.
 
 ---
 

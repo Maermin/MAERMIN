@@ -17,7 +17,7 @@ export const TOOL_PROMPT = [
   '{"tool":"fs.write","path":"src/x.js","content":"..."}',
   '```',
   'Tools: fs.write{path,content} · fs.read{path} · fs.list{path} · fs.exists{path} ·',
-  'shell.exec{cmd} or {args:["prog","arg"]} · git.add{path?} · git.commit{message} ·',
+  'shell.exec{args:["prog","arg"]} (no shell strings) · git.add{path?} · git.commit{message} ·',
   'git.branch{name} · git.status · git.diff · http.fetch{url}.',
   'Emit tool blocks to make changes; when finished, reply "STATUS: ok" with NO tool block.'
 ].join('\n');
@@ -54,7 +54,16 @@ function dispatch(bus, c) {
     case 'fs.list':   return bus.fs.list(c.path || '.');
     case 'fs.exists': return bus.fs.exists(c.path);
     case 'fs.remove': return bus.fs.remove(c.path);
-    case 'shell.exec':return bus.shell.exec(c.cmd || (Array.isArray(c.args) ? c.args[0] : ''), { args: c.args, cwd: c.cwd });
+    case 'shell.exec': {
+      // Model-issued commands are UNTRUSTED. The array form {args:["prog",...]}
+      // runs without a shell; args[0] is the program, the rest its arguments
+      // (previously the program name was passed again as its own first arg).
+      // A free-form shell string only runs if the bus opted in (untrustedShell).
+      if (Array.isArray(c.args) && c.args.length) {
+        return bus.shell.exec(String(c.args[0]), { args: c.args.slice(1).map(String), cwd: c.cwd });
+      }
+      return bus.shell.exec(c.cmd || '', { cwd: c.cwd, untrusted: true });
+    }
     case 'git.init':  return bus.git.init();
     case 'git.add':   return bus.git.add(c.path);
     case 'git.commit':return bus.git.commit(c.message || c.msg || 'update');

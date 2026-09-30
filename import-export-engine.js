@@ -420,8 +420,31 @@ function importData(data, format, options = {}) {
 /**
  * Parse CSV string
  */
+// Split CSV text into records. Newlines INSIDE quoted fields (multi-line notes
+// in broker exports) stay part of the record instead of breaking it apart; a
+// leading UTF-8 BOM (Excel "CSV UTF-8") is stripped so the first header still
+// matches; blank records are dropped.
+function splitCSVRecords(text) {
+  const s = String(text || '').replace(/^\uFEFF/, '');
+  const out = [];
+  let cur = '', inQ = false;
+  for (let i = 0; i < s.length; i++) {
+    const c = s[i];
+    if (c === '"') { inQ = !inQ; cur += c; continue; }
+    if (!inQ && (c === '\n' || c === '\r')) {
+      if (c === '\r' && s[i + 1] === '\n') i++;
+      if (cur.trim() !== '') out.push(cur);
+      cur = '';
+      continue;
+    }
+    cur += c;
+  }
+  if (cur.trim() !== '') out.push(cur);
+  return out;
+}
+
 function parseCSV(content) {
-  const lines = content.trim().split(/\r?\n/);
+  const lines = splitCSVRecords(content);
   if (lines.length === 0) return { headers: [], rows: [] };
 
   // Detect delimiter
@@ -545,6 +568,20 @@ function exportData(transactions, format, options = {}) {
 }
 
 /**
+ * One CSV cell: quotes are doubled (a `"` in a symbol/note broke the row), and
+ * text that a spreadsheet would evaluate as a formula (= + - @, tab, CR) is
+ * prefixed with an apostrophe - imported broker data is third-party input and
+ * must not become a live =HYPERLINK()/DDE formula when the export is opened.
+ * Plain numbers (including negatives) are left untouched.
+ */
+function csvCell(cell) {
+  let s = cell === null || cell === undefined ? '' : String(cell);
+  const isNumber = s.trim() !== '' && isFinite(Number(s));
+  if (!isNumber && /^[=+\-@\t\r]/.test(s)) s = "'" + s;
+  return '"' + s.replace(/"/g, '""') + '"';
+}
+
+/**
  * Export to CSV string
  */
 function exportToCSV(transactions, options = {}) {
@@ -565,8 +602,8 @@ function exportToCSV(transactions, options = {}) {
   ]);
 
   const csvContent = [
-    headers.join(','),
-    ...rows.map(row => row.map(cell => `"${cell}"`).join(','))
+    headers.map(csvCell).join(','),
+    ...rows.map(row => row.map(csvCell).join(','))
   ].join('\n');
 
   return csvContent;

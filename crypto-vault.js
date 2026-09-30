@@ -254,9 +254,11 @@
   }
 
   function lock() {
-    _key = null; _rawKey = null; _kdfName = null;
     stopAutoLock();
+    // Listeners run BEFORE the key is wiped so storage.js's final flush can
+    // start its (synchronous) encrypt calls with the key still available.
     fireLock();
+    _key = null; _rawKey = null; _kdfName = null;
   }
 
   // ---- idle auto-lock ------------------------------------------------------

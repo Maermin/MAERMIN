@@ -217,8 +217,27 @@
     return out.map((s) => s.trim());
   }
   /** Parse CSV text → { headers:string[], rows:object[] }. */
+  // Newlines inside quoted fields stay in their record; BOM stripped.
+  function splitRecords(text) {
+    const s = String(text || '').replace(/^\uFEFF/, '');
+    const out = [];
+    let cur = '', inQ = false;
+    for (let i = 0; i < s.length; i++) {
+      const c = s[i];
+      if (c === '"') { inQ = !inQ; cur += c; continue; }
+      if (!inQ && (c === '\n' || c === '\r')) {
+        if (c === '\r' && s[i + 1] === '\n') i++;
+        if (cur.trim() !== '') out.push(cur);
+        cur = '';
+        continue;
+      }
+      cur += c;
+    }
+    if (cur.trim() !== '') out.push(cur);
+    return out;
+  }
   function parseCSV(text) {
-    const lines = String(text || '').replace(/\r\n?/g, '\n').split('\n').filter((l) => l.trim() !== '');
+    const lines = splitRecords(text);
     if (lines.length === 0) return { headers: [], rows: [] };
     const delim = sniffDelimiter(lines[0]);
     const headers = splitLine(lines[0], delim);

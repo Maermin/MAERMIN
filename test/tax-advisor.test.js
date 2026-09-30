@@ -14,19 +14,25 @@ const A = require('../tax-advisor.js');
   console.log('tax-advisor:');
 
   // ---- cryptoFreeDate / boundary 364/365/366 ----
-  ok('cryptoFreeDate is acquired + 365', A.cryptoFreeDate('2025-01-01') === '2026-01-01');
-  // a lot acquired 2025-06-26, today 2026-06-25 -> 364 days held, 1 day left
+  // §23 EStG: tax-free only when held MORE than one year -> the day after the anniversary.
+  ok('cryptoFreeDate is the day after the anniversary', A.cryptoFreeDate('2025-01-01') === '2026-01-02');
+  ok('leap-day purchase: period ends 28 Feb, free from 1 Mar', A.cryptoFreeDate('2024-02-29') === '2025-03-01');
+  // a lot acquired 2025-06-26, today 2026-06-25 -> 364 days held, 2 days left (free 2026-06-27)
   const today = '2026-06-25';
   function lot(date, qty, cost, cur) { return { symbol: 'BTC', acquiredDate: date, quantity: qty, costBasisEUR: cost, currentValueEUR: cur }; }
   let r = A.analyze({ today, cryptoLots: [lot('2025-06-26', 1, 1000, 1500)] });
   let cd = r.findings.filter(f => f.kind === 'cryptoCountdown');
-  ok('364-day lot is flagged near tax-free', cd.length === 1 && cd[0].daysLeft === 1);
-  // exactly 365 days held (acquired 2025-06-25) -> 0 days left, already free, not flagged
+  ok('364-day lot is flagged near tax-free', cd.length === 1 && cd[0].daysLeft === 2);
+  // anniversary today (acquired 2025-06-25): selling TODAY is still taxable -> 1 day left, flagged
   r = A.analyze({ today, cryptoLots: [lot('2025-06-25', 1, 1000, 1500)] });
-  ok('365-day lot is already tax-free (not flagged)', r.findings.filter(f => f.kind === 'cryptoCountdown').length === 0);
-  // 30 days left is included, 31 days left is not
-  r = A.analyze({ today, cryptoLots: [lot('2025-07-25', 1, 1000, 1500), lot('2025-07-24', 1, 1000, 1500)] });
-  // 2025-07-25 +365 = 2026-07-25 -> 30 days left (in); 2025-07-24 -> 29 days left (in)
+  cd = r.findings.filter(f => f.kind === 'cryptoCountdown');
+  ok('anniversary-day lot is NOT yet tax-free (1 day left)', cd.length === 1 && cd[0].daysLeft === 1);
+  // acquired 2025-06-24: anniversary was yesterday -> tax-free today, not flagged
+  r = A.analyze({ today, cryptoLots: [lot('2025-06-24', 1, 1000, 1500)] });
+  ok('lot past its anniversary is tax-free (not flagged)', r.findings.filter(f => f.kind === 'cryptoCountdown').length === 0);
+  // 30 days left is included
+  r = A.analyze({ today, cryptoLots: [lot('2025-07-24', 1, 1000, 1500), lot('2025-07-23', 1, 1000, 1500)] });
+  // 2025-07-24 -> free 2026-07-25 (30 days left); 2025-07-23 -> 29 days left
   ok('lots within 30 days are flagged', r.findings.filter(f => f.kind === 'cryptoCountdown').length === 2);
   // a loss-making lot is not flagged (no tax benefit to waiting)
   r = A.analyze({ today, cryptoLots: [lot('2025-06-26', 1, 2000, 1500)] });

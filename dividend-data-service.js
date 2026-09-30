@@ -497,14 +497,17 @@ var DividendDataService = {
       nextYear = currentYear + 1;
     }
     
-    return new Date(nextYear, nextMonth - 1, 15).toISOString().split('T')[0];
+    // Build the date in UTC: a local-midnight Date serialised with toISOString()
+    // lands on the 14th for any timezone east of UTC.
+    return new Date(Date.UTC(nextYear, nextMonth - 1, 15)).toISOString().split('T')[0];
   },
   
   // Calculate payment date
   calculatePayDate: function(exDate) {
     if (!exDate) return null;
     var date = new Date(exDate);
-    date.setDate(date.getDate() + 14);
+    if (isNaN(date.getTime())) return null;
+    date.setUTCDate(date.getUTCDate() + 14); // UTC arithmetic: no DST off-by-one
     return date.toISOString().split('T')[0];
   },
   

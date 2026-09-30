@@ -23,6 +23,7 @@ export default {
   async fetch(request, env, ctx) {
     const url    = new URL(request.url);
     const action = url.searchParams.get('action') || '';
+    configureOrigins(env);
 
     if (request.method === 'OPTIONS') return res(null, 204, request);
 
@@ -42,51 +43,29 @@ export default {
     // concurrency: put with a stale baseRev → 409 + the server's current record
     // so the client can merge. Requires a KV namespace bound as env.SYNC.
     if (request.method === 'POST' && action === 'sync') {
-      if (!env || !env.SYNC) {
-        return res(JSON.stringify({ error: 'sync storage not configured (bind KV namespace SYNC)' }), 501, request);
+      if (!env || (!env.SYNC && !env.SYNC_DO)) {
+        return res(JSON.stringify({ error: 'sync storage not configured (bind KV namespace SYNC or Durable Object SYNC_DO)' }), 501, request);
       }
       let body;
       try { body = await request.json(); } catch { return res(JSON.stringify({ error: 'bad json' }), 400, request); }
-      const account = typeof body.account === 'string' ? body.account : '';
+      const account = typeof (body && body.account) === 'string' ? body.account : '';
       if (!/^[a-f0-9]{8,64}$/.test(account)) {
         return res(JSON.stringify({ error: 'invalid account' }), 400, request);
       }
+      // Preferred: one Durable Object per account = atomic revision check.
+      // KV is eventually consistent and has no compare-and-set, so two devices
+      // writing at the same time can both "win" and one update is lost.
+      if (env.SYNC_DO) {
+        const stub = env.SYNC_DO.get(env.SYNC_DO.idFromName(account));
+        const r = await stub.fetch('https://sync.internal/', { method: 'POST', body: JSON.stringify(body) });
+        return res(await r.text(), r.status, request);
+      }
       const key = 'sync:' + account;
-
-      if (body.op === 'get') {
-        const rec = await env.SYNC.get(key, { type: 'json' });
-        if (!rec) return res(JSON.stringify({ rev: 0, blob: null }), 200, request);
-        return res(JSON.stringify({ rev: rec.rev, blob: rec.blob, updatedAt: rec.updatedAt }), 200, request);
-      }
-
-      if (body.op === 'put') {
-        if (typeof body.blob !== 'string' || body.blob.length > 4_000_000) {
-          return res(JSON.stringify({ error: 'invalid blob' }), 400, request);
-        }
-        const baseRev = Number(body.baseRev) || 0;
-        const current = await env.SYNC.get(key, { type: 'json' });
-
-        // Write authorization (HMAC proof of vault possession). The blob is
-        // already zero-knowledge ciphertext, but writes used to be open: anyone
-        // who learned the opaque account id could overwrite/wipe a vault. The
-        // first writer registers an authKey (HKDF(vaultKey,'sync-auth'),
-        // independent of the data key) and every later write must carry a valid
-        // HMAC over `account.baseRev.blob`. Legacy accounts (no key) stay open.
-        const authz = await authorizeSyncPut(current, account, baseRev, body.blob, body.auth);
-        if (!authz.ok) return res(JSON.stringify({ error: authz.error }), authz.status, request);
-
-        const serverRev = current ? current.rev : 0;
-        if (serverRev !== baseRev) {
-          // Conflict: caller's base is stale — hand back the server record to merge.
-          return res(JSON.stringify({ conflict: true, serverRev, blob: current ? current.blob : null }), 409, request);
-        }
-        const next = { rev: baseRev + 1, blob: body.blob, updatedAt: Date.now() };
-        if (authz.authKey) next.authKey = authz.authKey;
-        await env.SYNC.put(key, JSON.stringify(next));
-        return res(JSON.stringify({ ok: true, rev: next.rev }), 200, request);
-      }
-
-      return res(JSON.stringify({ error: 'unknown sync op' }), 400, request);
+      const out = await handleSyncOp({
+        get: () => env.SYNC.get(key, { type: 'json' }),
+        put: (rec) => env.SYNC.put(key, JSON.stringify(rec)),
+      }, body);
+      return res(JSON.stringify(out.body), out.status, request);
     }
 
     // ── Privacy-preserving share snapshots + anonymous benchmark ────────────
@@ -106,6 +85,11 @@ export default {
       try { body = await request.json(); } catch { return res(JSON.stringify({ error: 'bad json' }), 400, request); }
 
       if (body.op === 'publish') {
+        // Each publish costs 2 KV writes; unthrottled spam could exhaust the
+        // namespace's daily write quota and take sync down with it.
+        if (isPublishLimited(request)) {
+          return res(JSON.stringify({ error: 'too many shares - try again later' }), 429, request);
+        }
         const v = validateShareSnapshot(body.snapshot);
         if (!v.ok) return res(JSON.stringify({ error: 'invalid snapshot: ' + v.error }), 400, request);
         const id = [...crypto.getRandomValues(new Uint8Array(9))].map(b => b.toString(16).padStart(2, '0')).join('');
@@ -235,6 +219,11 @@ export default {
       const range    = url.searchParams.get('range')    || '1y';
 
       if (!symbol) return res(JSON.stringify({ error: 'symbol required' }), 400, request);
+      // Both go verbatim into the upstream URL and the cache key: allowlist them
+      // (a value like "1y&x=y" or "1y#" would inject parameters / poison the cache).
+      if (!YF_INTERVALS.has(interval) || !YF_RANGES.has(range)) {
+        return res(JSON.stringify({ error: 'invalid interval or range' }), 400, request);
+      }
 
       // Cache key: symbol+interval+range
       const cacheKey = new Request(
@@ -1049,6 +1038,72 @@ export async function authorizeSyncPut(current, account, baseRev, blob, auth) {
   return { ok: true, authKey };
 }
 
+// ── Sync operation (storage-agnostic) ──────────────────────────────────────
+// store = { get(): Promise<record|null>, put(record): Promise }. Returns
+// { status, body }. Used by the KV path and by the SyncRoom Durable Object.
+export async function handleSyncOp(store, body) {
+  body = body || {};
+  const account = typeof body.account === 'string' ? body.account : '';
+  if (body.op === 'get') {
+    const rec = await store.get();
+    if (!rec) return { status: 200, body: { rev: 0, blob: null } };
+    return { status: 200, body: { rev: rec.rev, blob: rec.blob, updatedAt: rec.updatedAt } };
+  }
+  if (body.op === 'put') {
+    if (typeof body.blob !== 'string' || body.blob.length > 4_000_000) {
+      return { status: 413, body: { error: 'invalid blob (max 4 MB)' } };
+    }
+    const baseRev = Number(body.baseRev) || 0;
+    const current = await store.get();
+    // Write authorization (HMAC proof of vault possession): the first writer
+    // registers an authKey (HKDF(vaultKey,'sync-auth')), every later write must
+    // carry a valid HMAC over `account.baseRev.blob`. Legacy accounts stay open.
+    const authz = await authorizeSyncPut(current, account, baseRev, body.blob, body.auth);
+    if (!authz.ok) return { status: authz.status, body: { error: authz.error } };
+    const serverRev = current ? current.rev : 0;
+    if (serverRev !== baseRev) {
+      return { status: 409, body: { conflict: true, serverRev, blob: current ? current.blob : null } };
+    }
+    const next = { rev: baseRev + 1, blob: body.blob, updatedAt: Date.now() };
+    if (authz.authKey) next.authKey = authz.authKey;
+    await store.put(next);
+    return { status: 200, body: { ok: true, rev: next.rev } };
+  }
+  return { status: 400, body: { error: 'unknown sync op' } };
+}
+
+// Durable Object: one instance per sync account. blockConcurrencyWhile makes
+// read-check-write atomic even across the awaits in the HMAC check. On first
+// use it adopts an existing KV record so switching from KV loses nothing.
+export class SyncRoom {
+  constructor(state, env) { this.state = state; this.env = env; }
+  async fetch(request) {
+    let body;
+    try { body = await request.json(); } catch { return new Response(JSON.stringify({ error: 'bad json' }), { status: 400 }); }
+    let out;
+    await this.state.blockConcurrencyWhile(async () => {
+      const storage = this.state.storage;
+      const env = this.env;
+      const key = 'sync:' + String(body && body.account || '');
+      out = await handleSyncOp({
+        get: async () => {
+          let rec = await storage.get('rec');
+          if (!rec && env && env.SYNC) {
+            rec = await env.SYNC.get(key, { type: 'json' });
+            if (rec) await storage.put('rec', rec);
+          }
+          return rec || null;
+        },
+        put: (rec) => storage.put('rec', rec),
+      }, body);
+    });
+    return new Response(JSON.stringify(out.body), { status: out.status, headers: { 'Content-Type': 'application/json' } });
+  }
+}
+
+const YF_INTERVALS = new Set(['1m', '2m', '5m', '15m', '30m', '60m', '90m', '1h', '1d', '5d', '1wk', '1mo', '3mo']);
+const YF_RANGES = new Set(['1d', '5d', '1mo', '3mo', '6mo', '1y', '2y', '5y', '10y', 'ytd', 'max']);
+
 // Server-side allowlist validation for share snapshots (defense in depth -
 // the client redacts before sending, but the server never trusts that).
 // Accepts ONLY percentage weights, short labels and bounded scores; rebuilds
@@ -1205,30 +1260,52 @@ function isRateLimited(request) {
   return arr.length > RATE_LIMIT.max;
 }
 
-// Origin allowlist — stops arbitrary third-party websites from using this open
-// proxy / sync endpoint (abuse drives up Worker cost and gets the Worker's
-// Cloudflare IP rate-limited/banned by Yahoo & Steam, which then breaks the app
-// for everyone). Matches the deploy targets MAERMIN actually uses; add your
-// custom domain here. A request with NO Origin header (curl / same-origin) is
-// allowed; a browser request from a non-listed Origin gets 'null' (blocked).
-const ORIGIN_PATTERNS = [
-  /^https:\/\/[a-z0-9-]+\.github\.io$/i,
-  /^https:\/\/([a-z0-9-]+\.)*pages\.dev$/i,
-  /^https:\/\/([a-z0-9-]+\.)*workers\.dev$/i,
-  /^http:\/\/localhost(:\d+)?$/i,
-  /^http:\/\/127\.0\.0\.1(:\d+)?$/i,
-];
-function allowOrigin(request) {
+// Per-IP publish throttle for share snapshots (best effort, per isolate).
+const PUBLISH_LIMIT = { windowMs: 3600000, max: 10 };
+const _pubHits = new Map();
+function isPublishLimited(request) {
+  const ip = request.headers.get('CF-Connecting-IP') || 'anon';
+  const now = Date.now();
+  const arr = (_pubHits.get(ip) || []).filter((t) => t > now - PUBLISH_LIMIT.windowMs);
+  arr.push(now);
+  _pubHits.set(ip, arr);
+  if (_pubHits.size > 5000) _pubHits.clear();
+  return arr.length > PUBLISH_LIMIT.max;
+}
+
+// Origin allowlist. EXACT origins only: the old wildcard patterns
+// (*.github.io, *.pages.dev, *.workers.dev) let anyone with a free page on
+// those platforms read this Worker's responses. Defaults cover the official
+// app + local development; set the ALLOWED_ORIGINS variable (comma separated)
+// to add your own domain. 'null' is the origin of the Electron desktop app
+// (file://) - set ALLOW_NULL_ORIGIN = "false" if you only use the web app.
+// A request with NO Origin header (curl / same-origin) gets '*'. CORS only
+// gates what a browser may READ; write endpoints are protected server-side.
+const DEFAULT_ORIGINS = ['https://maermin.github.io'];
+let _originCfg = { list: DEFAULT_ORIGINS, allowNull: true };
+export function configureOrigins(env) {
+  const extra = String((env && env.ALLOWED_ORIGINS) || '').split(',').map((s) => s.trim().replace(/\/$/, '')).filter(Boolean);
+  _originCfg = {
+    list: DEFAULT_ORIGINS.concat(extra),
+    allowNull: !(env && String(env.ALLOW_NULL_ORIGIN).toLowerCase() === 'false'),
+  };
+}
+export function allowOrigin(request) {
   const o = request.headers.get('Origin');
   if (!o) return '*';
-  return ORIGIN_PATTERNS.some((re) => re.test(o)) ? o : 'null';
+  if (o === 'null') return _originCfg.allowNull ? 'null' : '';
+  if (_originCfg.list.includes(o)) return o;
+  if (/^http:\/\/(localhost|127\.0\.0\.1)(:\d+)?$/i.test(o)) return o;
+  return '';
 }
 
 function res(body, status, request) {
+  const origin = allowOrigin(request);
   return new Response(body, {
     status,
     headers: {
-      'Access-Control-Allow-Origin':  allowOrigin(request),
+      // An empty value is not a valid ACAO -> the browser blocks the read.
+      ...(origin ? { 'Access-Control-Allow-Origin': origin } : {}),
       'Access-Control-Allow-Methods': 'GET, POST, OPTIONS',
       'Access-Control-Allow-Headers': 'Content-Type',
       'Vary':         'Origin',

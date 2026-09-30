@@ -20,8 +20,21 @@ function calculateRealizedGainsAdvanced(transactions, year) {
     };
   }
 
-  const yearStart = new Date(year, 0, 1);
-  const yearEnd = new Date(year, 11, 31, 23, 59, 59);
+  // Compare the calendar year of the date STRING: `new Date('2026-01-01')` is
+  // UTC midnight, i.e. 31 Dec in any timezone west of UTC.
+  const inYear = (d) => {
+    const s = typeof d === 'string' ? d : (d instanceof Date ? d.toISOString() : String(d || ''));
+    return parseInt(s.slice(0, 4), 10) === Number(year);
+  };
+  const isoOf = (d) => (typeof d === 'string' ? d : (d instanceof Date ? d.toISOString() : String(d || ''))).slice(0, 10);
+  // Holding period must EXCEED one year (sale on the anniversary is short-term).
+  const anniversary = (iso) => {
+    const y = parseInt(iso.slice(0, 4), 10), m = parseInt(iso.slice(5, 7), 10), dd = parseInt(iso.slice(8, 10), 10);
+    if (!(y > 0 && m > 0 && dd > 0)) return '';
+    const last = new Date(Date.UTC(y + 1, m, 0)).getUTCDate();
+    return (y + 1) + '-' + String(m).padStart(2, '0') + '-' + String(Math.min(dd, last)).padStart(2, '0');
+  };
+  const heldOverOneYear = (buyISO, sellISO) => { const a = anniversary(buyISO); return !!a && sellISO > a; };
 
   // Group transactions by symbol. Accept BOTH shapes: the legacy
   // { asset: { symbol, category }, transactionDate } records this engine was
@@ -46,7 +59,9 @@ function calculateRealizedGainsAdvanced(transactions, year) {
     // them, and doing that on the caller's transaction objects would silently
     // corrupt the app state the next time anything reads quantities.
     if (tx.type === 'buy') {
-      symbols[symbol].buys.push({ ...tx });
+      // _qty0/_fees0 keep the ORIGINAL lot size so buy fees are pro-rated per
+      // unit even after earlier sells consumed part of the lot.
+      symbols[symbol].buys.push({ ...tx, quantity: Number(tx.quantity) || 0, _qty0: Number(tx.quantity) || 0, _fees0: Number(tx.fees) || 0 });
     } else if (tx.type === 'sell') {
       symbols[symbol].sells.push(tx);
     }
@@ -72,10 +87,13 @@ function calculateRealizedGainsAdvanced(transactions, year) {
     
     // Process each sell transaction
     data.sells.forEach(sell => {
-      const sellDate = new Date(sell.transactionDate || sell.timestamp || sell.date);
-      
-      // Only include sells in the selected year
-      if (sellDate < yearStart || sellDate > yearEnd) return;
+      const sellRaw = sell.transactionDate || sell.timestamp || sell.date;
+      const sellDate = new Date(sellRaw);
+      const sellISO = isoOf(sellRaw);
+      // Sells of EARLIER years must still consume their FIFO lots (otherwise a
+      // later sale is matched against lots that were already sold), so the
+      // year filter is applied only after matching.
+      const countThisYear = inYear(sellRaw);
       
       let remainingQuantity = sell.quantity;
       let totalCostBasis = 0;
@@ -86,16 +104,17 @@ function calculateRealizedGainsAdvanced(transactions, year) {
       // Match with buys using FIFO
       for (let i = 0; i < data.buys.length && remainingQuantity > 0.0001; i++) {
         const buy = data.buys[i];
-        const buyDate = new Date(buy.transactionDate || buy.timestamp || buy.date);
-        
-        // Skip buys after sell date
-        if (buyDate > sellDate) continue;
+        const buyRaw = buy.transactionDate || buy.timestamp || buy.date;
+        const buyDate = new Date(buyRaw);
+
+        // Skip buys after sell date / fully consumed lots
+        if (buyDate > sellDate || !(buy.quantity > 0)) continue;
         
         // Calculate available quantity from this buy
         const usedQuantity = Math.min(remainingQuantity, buy.quantity);
         
         // Calculate cost basis for this portion
-        const costBasis = (buy.price * usedQuantity) + ((buy.fees || 0) * (usedQuantity / buy.quantity));
+        const costBasis = (buy.price * usedQuantity) + ((buy._fees0 || 0) * (usedQuantity / buy._qty0));
         totalCostBasis += costBasis;
         
         // Calculate holding period in days
@@ -107,7 +126,8 @@ function calculateRealizedGainsAdvanced(transactions, year) {
           quantity: usedQuantity,
           price: buy.price,
           costBasis: costBasis,
-          holdingPeriod: holdingPeriodDays
+          holdingPeriod: holdingPeriodDays,
+          longTerm: heldOverOneYear(isoOf(buyRaw), sellISO)
         });
         
         remainingQuantity -= usedQuantity;
@@ -120,33 +140,31 @@ function calculateRealizedGainsAdvanced(transactions, year) {
       const totalMatchedQuantity = sell.quantity - remainingQuantity;
       const avgHoldingPeriod = totalMatchedQuantity > 0 ? Math.floor(weightedHoldingPeriod / totalMatchedQuantity) : 0;
       
-      // Calculate gain/loss
+      // Calculate gain/loss. Only the MATCHED part of the sell is realised
+      // against a cost basis (proceeds pro-rated), and each lot is classified
+      // on its OWN holding period: averaging mixed lots misclassified gains.
       const sellFees = sell.fees || 0;
-      const proceeds = totalProceeds - sellFees;
+      const matchedShare = sell.quantity > 0 ? totalMatchedQuantity / sell.quantity : 0;
+      const proceeds = (totalProceeds - sellFees) * matchedShare;
       const gain = proceeds - totalCostBasis;
-      
-      // Determine if long-term or short-term
-      const isLongTerm = avgHoldingPeriod >= 365;
-      
-      // Categorize by asset type and term
+      let longGain = 0, shortGain = 0;
+      matchedBuys.forEach(m => {
+        const lotGain = (totalMatchedQuantity > 0 ? proceeds * (m.quantity / totalMatchedQuantity) : 0) - m.costBasis;
+        if (m.longTerm) longGain += lotGain; else shortGain += lotGain;
+      });
+      const isLongTerm = matchedBuys.length > 0 && matchedBuys.every(m => m.longTerm);
+      if (!countThisYear) return;
+
       if (data.category === 'crypto') {
-        if (isLongTerm) {
-          cryptoLongTermGains += gain;
-          totalLongTermGains += gain;
-        } else {
-          cryptoShortTermGains += gain;
-          totalShortTermGains += gain;
-        }
+        cryptoLongTermGains += longGain;
+        cryptoShortTermGains += shortGain;
       } else {
         // Stocks, CS2, etc.
-        if (isLongTerm) {
-          stocksLongTermGains += gain;
-          totalLongTermGains += gain;
-        } else {
-          stocksShortTermGains += gain;
-          totalShortTermGains += gain;
-        }
+        stocksLongTermGains += longGain;
+        stocksShortTermGains += shortGain;
       }
+      totalLongTermGains += longGain;
+      totalShortTermGains += shortGain;
       
       // Add to results
       results.push({
