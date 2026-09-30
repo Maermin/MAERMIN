@@ -750,16 +750,14 @@ export default {
     // never transmitted — only the signature the client already computed. The
     // host whitelist keeps this from becoming an open SSRF proxy.
     if (request.method === 'POST' && action === 'brokerproxy') {
-      const ALLOWED = ['api.binance.com', 'api.kraken.com', 'api.exchange.coinbase.com', 'api.coinbase.com', 'api.bitpanda.com'];
       let spec;
       try { spec = await request.json(); } catch { return res(JSON.stringify({ error: 'Invalid JSON body' }), 400, request); }
       let target;
       try { target = new URL(spec.url); } catch { return res(JSON.stringify({ error: 'Invalid url' }), 400, request); }
-      if (target.protocol !== 'https:' || !ALLOWED.includes(target.hostname)) {
-        return res(JSON.stringify({ error: 'Host not allowed' }), 403, request);
-      }
+      const method = (spec.method || 'GET').toUpperCase();
+      const verdict = brokerRelayAllowed(target, method);
+      if (!verdict.ok) return res(JSON.stringify({ error: verdict.error }), 403, request);
       try {
-        const method = (spec.method || 'GET').toUpperCase();
         const r = await fetchWithTimeout(target.toString(), {
           method,
           headers: spec.headers || {},
@@ -983,6 +981,28 @@ function steamHeaders() {
     'Accept-Language': 'en-US,en;q=0.9',
     'Referer':         'https://steamcommunity.com/market/search?appid=730',
   };
+}
+
+// Read-only relay policy. Host allowlist alone let anyone use this Worker as
+// an anonymous relay for signed TRADING/withdrawal calls (any method, any path)
+// - the read-only guarantee was client-side only. Now each host has explicit
+// read endpoints + methods; everything else is refused server-side.
+const BROKER_RELAY_POLICY = {
+  'api.binance.com':           { GET: ['/api/v3/account', '/api/v3/myTrades', '/sapi/v1/account/apiRestrictions'] },
+  'api.bitpanda.com':          { GET: ['/v1/trades', '/v1/wallets', '/v1/fiatwallets', '/v1/asset-wallets'] },
+  'api.kraken.com':            { POST: ['/0/private/TradesHistory', '/0/private/Ledgers', '/0/private/Balance'] },
+  'api.exchange.coinbase.com': { GET: ['/fills', '/accounts'] },
+  'api.coinbase.com':          { GET: ['/api/v3/brokerage/orders/historical/fills', '/api/v3/brokerage/accounts', '/v2/accounts'] },
+};
+export function brokerRelayAllowed(target, method) {
+  if (!target || target.protocol !== 'https:') return { ok: false, error: 'Host not allowed' };
+  const policy = BROKER_RELAY_POLICY[target.hostname];
+  if (!policy) return { ok: false, error: 'Host not allowed' };
+  const paths = policy[String(method || 'GET').toUpperCase()];
+  if (!paths) return { ok: false, error: 'Method not allowed (read-only relay)' };
+  const path = target.pathname.replace(/\/+$/, '');
+  const ok = paths.some((p) => path === p || path.startsWith(p + '/'));
+  return ok ? { ok: true } : { ok: false, error: 'Endpoint not allowed (read-only relay)' };
 }
 
 function sleep(ms) { return new Promise(r => setTimeout(r, ms)); }

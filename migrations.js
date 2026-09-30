@@ -75,7 +75,59 @@
         if (changed) writeJSON('maermin_savings_plans', plans);
       }
     }
+    ,
+    {
+      v: 4,
+      name: 'priceHistory: repair year-less live timestamps to ISO-8601',
+      up: function () {
+        var hist = readJSON('priceHistory', null);
+        if (!hist || typeof hist !== 'object') return;
+        var res = repairPriceTimestamps(hist, new Date());
+        if (res.changed) writeJSON('priceHistory', res.history);
+      }
+    }
   ];
+
+  // Older builds stamped live price points with
+  // toLocaleString('en-US', {day, month, hour, minute}) -> "09/30, 08:14 PM":
+  // no year, 12-hour clock. Points are appended chronologically, so the year
+  // can be recovered by walking each series backwards from `now` and stepping
+  // back one year whenever the month/day/time jumps forward. Points that match
+  // neither ISO nor that pattern are dropped (they could never be dated).
+  var LEGACY_TS = /^(\d{1,2})\/(\d{1,2}),\s*(\d{1,2}):(\d{2})\s*([AP]M)$/i;
+  function repairPriceTimestamps(history, now) {
+    now = now || new Date();
+    var out = {}, changed = false;
+    Object.keys(history || {}).forEach(function (sym) {
+      var arr = Array.isArray(history[sym]) ? history[sym] : [];
+      var year = now.getFullYear();
+      var nextKey = null; // month/day/time key of the following (newer) point
+      var fixed = [];
+      for (var i = arr.length - 1; i >= 0; i--) {
+        var pt = arr[i];
+        if (!pt || typeof pt !== 'object') { changed = true; continue; }
+        var ts = pt.timestamp;
+        if (typeof ts === 'number' || /^\d{4}-\d{2}-\d{2}/.test(String(ts))) { fixed.push(pt); continue; }
+        var m = LEGACY_TS.exec(String(ts || '').trim());
+        if (!m) { changed = true; continue; }
+        var mo = parseInt(m[1], 10), d = parseInt(m[2], 10), h = parseInt(m[3], 10) % 12, mi = parseInt(m[4], 10);
+        if (/pm/i.test(m[5])) h += 12;
+        var key = ((mo * 100 + d) * 100 + h) * 100 + mi;
+        if (nextKey == null) {
+          var nowKey = (((now.getMonth() + 1) * 100 + now.getDate()) * 100 + now.getHours()) * 100 + now.getMinutes();
+          if (key > nowKey) year -= 1;
+        } else if (key > nextKey) {
+          year -= 1;
+        }
+        nextKey = key;
+        var iso = new Date(year, mo - 1, d, h, mi).toISOString();
+        fixed.push(Object.assign({}, pt, { timestamp: iso }));
+        changed = true;
+      }
+      out[sym] = fixed.reverse();
+    });
+    return { history: out, changed: changed };
+  }
 
   var LATEST = MIGRATIONS.reduce(function (m, x) { return Math.max(m, x.v); }, 0);
 
@@ -110,6 +162,7 @@
     VERSION_KEY: VERSION_KEY,
     LATEST: LATEST,
     MIGRATIONS: MIGRATIONS,
+    repairPriceTimestamps: repairPriceTimestamps,
     getVersion: getVersion,
     setVersion: setVersion,
     run: run

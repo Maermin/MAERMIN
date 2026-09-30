@@ -27,61 +27,56 @@ function calcXIRR(cashflows) {
 
 // Time-Weighted Return from price history. Delegates to the pure MaerminReturns
 // engine (returns-engine.js) — same logic, now Node-tested.
-function calcTWR(priceHistory, portfolio) {
-  if (typeof window !== 'undefined' && window.MaerminReturns) return window.MaerminReturns.twr(priceHistory, portfolio);
+function calcTWR(priceHistory, portfolio, transactions) {
+  if (typeof window !== 'undefined' && window.MaerminReturns) return window.MaerminReturns.twr(priceHistory, portfolio, transactions);
   return null;
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
 // 1. XIRR / TWR VIEW
 // ─────────────────────────────────────────────────────────────────────────────
-function ReturnsView({ transactions, portfolio, prices, priceHistory, theme, formatPrice, getCurrencySymbol, t }) {
-  const xirrResult = useMemo(() => {
-    if (!transactions.length) return null;
-    // Build cashflows: buys = negative (outflow), sells = positive (inflow)
-    const cfs = transactions.map(tx => ({
-      date: tx.date,
-      amount: tx.type === 'buy'
-        ? -(tx.quantity * tx.price + (tx.fees || 0))
-        :  (tx.quantity * tx.price - (tx.fees || 0))
-    }));
-    // Add current portfolio value as final positive cashflow (today)
-    let currentValue = 0;
-    ['crypto','stocks','skins','commodities'].forEach(cat => {
-      (portfolio[cat] || []).forEach(pos => {
-        const sym = (pos.symbol||pos.name||'').toLowerCase();
-        const p = prices[sym] || prices[pos.symbol||''] || pos.purchasePrice || 0;
-        currentValue += (pos.amount||1) * p;
+function ReturnsView({ transactions, portfolio, prices, priceHistory, theme, formatPrice, getCurrencySymbol, t, fxAt, exchangeRate }) {
+  const R = (typeof window !== 'undefined') ? window.MaerminReturns : null;
+  // Current EUR value over EVERY class in the book (custom categories too),
+  // using the same price lookup as MaerminMetrics.
+  const currentValue = useMemo(() => {
+    let v = 0;
+    Object.keys(portfolio || {}).forEach(cat => {
+      if (!Array.isArray(portfolio[cat])) return;
+      portfolio[cat].forEach(pos => {
+        const sym = pos.symbol || pos.name || '';
+        const p = prices[sym] || prices[sym.toLowerCase()] || prices[sym.toUpperCase()] || pos.purchasePrice || 0;
+        v += (parseFloat(pos.amount) || 0) * p;
       });
     });
-    if (currentValue > 0) {
-      cfs.push({ date: window.MaerminUtils.todayISO(), amount: currentValue });
-    }
-    return calcXIRR(cfs);
-  }, [transactions, portfolio, prices]);
+    return v;
+  }, [portfolio, prices]);
 
-  const twrResult = useMemo(() => calcTWR(priceHistory, portfolio), [priceHistory, portfolio]);
+  // All cash flows in EUR at the rate of their own date (see MaerminReturns.buildCashflows).
+  const flows = useMemo(() => (R && R.buildCashflows)
+    ? R.buildCashflows(transactions, { rate: exchangeRate, fxAt, currentValueEUR: currentValue, today: window.MaerminUtils.todayISO() })
+    : [], [transactions, exchangeRate, fxAt, currentValue]);
 
-  // Simple holding period stats
+  const xirrResult = useMemo(() => (transactions.length ? calcXIRR(flows) : null), [flows, transactions.length]);
+
+  const twrResult = useMemo(() => calcTWR(priceHistory, portfolio, transactions), [priceHistory, portfolio, transactions]);
+
+  // Simple holding period stats — every amount in EUR.
   const stats = useMemo(() => {
     if (!transactions.length) return null;
-    const invested = transactions.filter(t=>t.type==='buy').reduce((s,t)=>s+t.quantity*t.price+(t.fees||0),0);
-    const received = transactions.filter(t=>t.type==='sell').reduce((s,t)=>s+t.quantity*t.price-(t.fees||0),0);
-    const totalFees = transactions.reduce((s,t)=>s+(t.fees||0),0);
-    let currentValue = 0;
-    ['crypto','stocks','skins','commodities'].forEach(cat => {
-      (portfolio[cat] || []).forEach(pos => {
-        const sym = (pos.symbol||pos.name||'').toLowerCase();
-        const p = prices[sym] || prices[pos.symbol||''] || pos.purchasePrice || 0;
-        currentValue += (pos.amount||1) * p;
-      });
-    });
+    const invested = -flows.filter(f => f.amount < 0).reduce((s, f) => s + f.amount, 0);
+    const received = flows.filter(f => f.amount > 0).reduce((s, f) => s + f.amount, 0) - (currentValue > 0 ? currentValue : 0);
+    const totalFees = transactions.reduce((s, tx) => {
+      const f = parseFloat(tx.fees) || 0;
+      const r = tx.currency === 'USD' ? ((fxAt && fxAt(tx.date)) || exchangeRate || 1) : 1;
+      return s + f * r;
+    }, 0);
     const totalReturn = currentValue + received - invested;
     const totalReturnPct = invested > 0 ? totalReturn / invested : 0;
     const dates = transactions.map(tx => new Date(tx.date)).sort((a,b)=>a-b);
     const holdingDays = dates.length > 0 ? Math.floor((new Date() - dates[0]) / (24*3600*1000)) : 0;
     return { invested, received, currentValue, totalReturn, totalReturnPct, totalFees, holdingDays };
-  }, [transactions, portfolio, prices]);
+  }, [transactions, flows, currentValue, fxAt, exchangeRate]);
 
   const card = (label, value, sub, color) =>
     React.createElement('div', {
@@ -112,7 +107,7 @@ function ReturnsView({ transactions, portfolio, prices, priceHistory, theme, for
     stats && React.createElement('div', { style: { display: 'grid', gridTemplateColumns: 'repeat(auto-fit,minmax(160px,1fr))', gap: '1rem', marginBottom: '1.5rem' } },
       card('Invested', `${formatPrice(stats.invested)} ${getCurrencySymbol()}`, 'Total deposited', theme.text),
       card('Current Value', `${formatPrice(stats.currentValue)} ${getCurrencySymbol()}`, 'Open positions', theme.text),
-      card('Realized', `${formatPrice(stats.received)} ${getCurrencySymbol()}`, 'From sales', theme.text),
+      card('Realized', `${formatPrice(stats.received)} ${getCurrencySymbol()}`, 'Sales + dividends/interest', theme.text),
       card('Total Fees', `${formatPrice(stats.totalFees)} ${getCurrencySymbol()}`, 'All transactions', '#ef4444')
     ),
 
@@ -471,7 +466,12 @@ function isCrypto(symbol) {
     'CHZ','GALA','IMX','APE','LRC','DYDX','OP','ARB','PEPE','WLD','SUI','SEI',
     'USDT','USDC','BUSD','DAI','TUSD','USDP','FDUSD','UST','FRAX',
   ]);
-  return CRYPTO_SYMBOLS.has(symbol.toUpperCase()) || symbol.length > 5;
+  // Long tickers are usually tokens, but an exchange-suffixed symbol
+  // (VWCE.DE, SAP.DE, BRK-B) is always a security, never crypto.
+  const up = String(symbol || '').toUpperCase();
+  if (CRYPTO_SYMBOLS.has(up)) return true;
+  if (/[.:]/.test(up)) return false;
+  return up.length > 5;
 }
 
 function isStablecoin(symbol) {

@@ -67,7 +67,24 @@
     // Sync change log (tombstones/edit stamps) — reveals transaction ids.
     'maermin_tx_meta',
     // Deleted auto-dividend markers (symbol|date|portfolio).
-    'maermin_div_skipped'
+    'maermin_div_skipped',
+    // v10+ user data stores. These were plaintext at rest AND therefore never
+    // synced (the sync snapshot is the sensitive set). Existing plaintext is
+    // adopted into the encrypted store on the next unlock (adoptPlaintext()).
+    'maermin_real_assets',        // property values, financing
+    'maermin_snapshots',          // daily total-wealth history
+    'maermin_interest_ledger',    // interest bookings (amounts)
+    'maermin_tags',               // held symbols
+    'maermin_rules',              // symbols + price/weight thresholds
+    'maermin_rebalance_targets',  // allocation targets
+    'maermin_corporate_actions',  // held symbols + splits
+    'maermin_import_presets',     // broker column mappings
+    'maermin_exchange_sync',      // exchange connection metadata
+    'maermin_custom_categories',
+    'maermin_ter_overrides',      // held fund symbols
+    'maermin_tax_owner',          // taxpayer name + TAX ID
+    'maermin_fmp_api_key',        // third-party API secret
+    'maermin_sync_base'           // per-key sync merge base (hashes of the above)
   ];
   var sensitiveSet = {};
   SENSITIVE_KEYS.forEach(function (k) { sensitiveSet[k] = true; });
@@ -388,8 +405,40 @@
     return hydrate().then(function (ok) {
       // Remove plaintext backups left behind by earlier versions.
       if (ok) { try { (nativeRemove || Storage.prototype.removeItem).call(window.localStorage, BACKUP_KEY); } catch (e) {} }
+      if (ok) adoptPlaintext();
       return ok;
     });
+  }
+
+  // Keys added to SENSITIVE_KEYS after a vault was encrypted still sit in
+  // native plaintext. Once the shim serves sensitive keys from memory that
+  // data would look LOST (getItem -> null), so on every unlock any sensitive
+  // key missing from the decrypted set is moved in: copied into memory,
+  // persisted encrypted, then the plaintext original is removed. Idempotent.
+  function adoptPlaintext() {
+    if (!mem || typeof window === 'undefined') return 0;
+    var ls = window.localStorage, moved = [];
+    Object.keys(sensitiveSet).forEach(function (k) {
+      if (!isSensitive(k)) return;
+      var v = (nativeGet || Storage.prototype.getItem).call(ls, k);
+      if (v === null || v === undefined) return;
+      if (Object.prototype.hasOwnProperty.call(mem, k)) {
+        // Already encrypted (this runs right after hydrate, so memory holds the
+        // durable ciphertext's contents): the plaintext is a stale leftover
+        // from an earlier, interrupted adoption - drop it.
+        try { (nativeRemove || Storage.prototype.removeItem).call(ls, k); } catch (e) {}
+        return;
+      }
+      mem[k] = String(v);
+      dirty[k] = true;
+      moved.push(k);
+    });
+    if (!moved.length) return 0;
+    persist().then(function (okPersist) {
+      if (!okPersist) return; // keep plaintext until the ciphertext is durable
+      moved.forEach(function (k) { try { (nativeRemove || Storage.prototype.removeItem).call(ls, k); } catch (e) {} });
+    });
+    return moved.length;
   }
 
   // Wipe in-memory plaintext (called from the vault's onLock).
@@ -506,6 +555,7 @@
     SENSITIVE_KEYS: SENSITIVE_KEYS,
     isSensitive: isSensitive,
     registerSensitiveKey: registerSensitiveKey,
+    adoptPlaintext: adoptPlaintext,
     isEnabled: isEnabled,
     enableAtRest: enableAtRest,
     disableAtRest: disableAtRest,

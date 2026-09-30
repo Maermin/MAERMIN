@@ -91,36 +91,121 @@
     return (isFinite(root) && Math.abs(npv(root)) < 1e-4) ? root : null;
   }
 
-  // Time-weighted return from a per-symbol price-history map. Returns the total
-  // (not annualized) fractional return over the available window, or null.
-  function twr(priceHistory, portfolio) {
-    priceHistory = priceHistory || {};
-    portfolio = portfolio || {};
-    var symbols = [];
-    ['crypto', 'stocks', 'skins', 'commodities'].forEach(function (cat) {
-      (portfolio[cat] || []).forEach(function (pos) {
-        symbols.push({ sym: (pos.symbol || pos.name || '').toLowerCase(), amount: Number(pos.amount) || 1 });
-      });
-    });
-    if (!symbols.length) return null;
-
-    var tsMap = {};
-    symbols.forEach(function (s) {
-      (priceHistory[s.sym] || []).forEach(function (pt) {
-        if (!tsMap[pt.timestamp]) tsMap[pt.timestamp] = {};
-        tsMap[pt.timestamp][s.sym] = pt.price;
-      });
-    });
-    var ts = Object.keys(tsMap).sort();
-    if (ts.length < 2) return null;
-    var vals = ts.map(function (t) {
-      return symbols.reduce(function (sum, s) { return sum + s.amount * (tsMap[t][s.sym] || 0); }, 0);
-    }).filter(function (v) { return v > 0; });
-    if (vals.length < 2) return null;
-    return (vals[vals.length - 1] / vals[0]) - 1;
+  // Price-point timestamp -> epoch ms (ISO-8601 or epoch only; the legacy
+  // year-less "09/30, 08:14 PM" format is undatable and ignored).
+  function tsOf(v) {
+    if (typeof v === 'number') return isFinite(v) ? v : NaN;
+    var s = String(v == null ? '' : v);
+    return /^\d{4}-\d{2}-\d{2}/.test(s) ? new Date(s).getTime() : NaN;
   }
 
-  var api = { xirr: xirr, twr: twr };
+  // Time-weighted return (total, not annualised) from a per-symbol price
+  // history. Sub-period returns are chain-linked:
+  //   r_t = sum(q_{t-1} * p_t) / sum(q_{t-1} * p_{t-1}) - 1
+  // so a buy/sell at t changes the holdings for the NEXT period only and never
+  // counts as performance. Holdings come from `transactions` (buys - sells up
+  // to each timestamp) when supplied, else the current quantities (then this is
+  // the buy-and-hold return of today's book). Prices are forward-filled per
+  // symbol and the series only starts once every held symbol has a price, so
+  // assets that trade at different times (crypto 24/7 vs exchange hours) are
+  // never valued at 0. Timestamps are sorted chronologically, not as strings.
+  function twr(priceHistory, portfolio, transactions) {
+    priceHistory = priceHistory || {};
+    portfolio = portfolio || {};
+    var syms = {};
+    Object.keys(portfolio).forEach(function (cat) {
+      if (!Array.isArray(portfolio[cat])) return;
+      portfolio[cat].forEach(function (pos) {
+        var k = String(pos.symbol || pos.name || '').toLowerCase();
+        if (k) syms[k] = Number(pos.amount) || 0;
+      });
+    });
+    var keys = Object.keys(syms);
+    if (!keys.length) return null;
+
+    // Holdings resolver.
+    var txs = Array.isArray(transactions) ? transactions.filter(function (tx) {
+      return tx && (tx.type === 'buy' || tx.type === 'sell') && syms.hasOwnProperty(String(tx.symbol || '').toLowerCase());
+    }).map(function (tx) {
+      return { k: String(tx.symbol).toLowerCase(), t: tsOf(String(tx.date).length === 10 ? tx.date + 'T23:59:59Z' : tx.date),
+        q: (tx.type === 'buy' ? 1 : -1) * (Number(tx.quantity) || 0) };
+    }).filter(function (x) { return isFinite(x.t); }).sort(function (a, b) { return a.t - b.t; }) : null;
+    function holdingsAt(t) {
+      if (!txs) return syms;
+      var h = {};
+      for (var i = 0; i < txs.length && txs[i].t <= t; i++) h[txs[i].k] = (h[txs[i].k] || 0) + txs[i].q;
+      return h;
+    }
+
+    var events = [];
+    keys.forEach(function (k) {
+      (priceHistory[k] || []).forEach(function (pt) {
+        var t = tsOf(pt && pt.timestamp), p = Number(pt && pt.price);
+        if (isFinite(t) && p > 0) events.push({ t: t, k: k, p: p });
+      });
+    });
+    events.sort(function (a, b) { return a.t - b.t; });
+    if (events.length < 2) return null;
+
+    var last = {}, prevPrices = null, prevT = null, growth = 1, periods = 0;
+    for (var i = 0; i < events.length; i++) {
+      var ev = events[i];
+      last[ev.k] = ev.p;
+      if (i + 1 < events.length && events[i + 1].t === ev.t) continue; // group equal timestamps
+      var held = holdingsAt(ev.t);
+      var complete = Object.keys(held).every(function (k) { return !(held[k] > 1e-12) || last[k] > 0; });
+      if (!complete) continue;
+      var snapshot = {}; Object.keys(last).forEach(function (k) { snapshot[k] = last[k]; });
+      if (prevPrices) {
+        var h = holdingsAt(prevT);
+        var v0 = 0, v1 = 0;
+        Object.keys(h).forEach(function (k) {
+          if (!(h[k] > 1e-12) || !(prevPrices[k] > 0)) return;
+          v0 += h[k] * prevPrices[k];
+          v1 += h[k] * snapshot[k];
+        });
+        if (v0 > 0) { growth *= v1 / v0; periods++; }
+      }
+      prevPrices = snapshot; prevT = ev.t;
+    }
+    return periods > 0 ? growth - 1 : null;
+  }
+
+  // Money-weighted cash flows for XIRR, in EUR. Every leg converts at the FX
+  // rate of its own date (`fxAt(dateISO)`, falling back to `rate`) - the view
+  // used to mix raw USD amounts with a EUR terminal value. Only buys, sells and
+  // cash income (dividend/interest) are flows; option legs (premium x contract
+  // size, kept off the portfolio value) and unknown types are ignored.
+  //   opts = { rate, fxAt, currentValueEUR, today, categories? }
+  function buildCashflows(transactions, opts) {
+    opts = opts || {};
+    var rate = Number(opts.rate) || 0;
+    var fxAt = typeof opts.fxAt === 'function' ? opts.fxAt : null;
+    var cats = opts.categories || null; // optional allow-list of categories
+    function eur(amount, tx) {
+      if (tx.currency !== 'USD') return amount;
+      var r = (fxAt && fxAt(tx.date)) || rate;
+      return r > 0 ? amount * r : amount;
+    }
+    var flows = [];
+    (transactions || []).forEach(function (tx) {
+      if (!tx || !tx.date) return;
+      if (tx.category === 'options') return;
+      if (cats && cats.indexOf(tx.category || 'crypto') === -1) return;
+      var gross = (Number(tx.quantity) || 0) * (Number(tx.price) || 0);
+      var fees = Number(tx.fees) || 0;
+      var amt;
+      if (tx.type === 'buy') amt = -(gross + fees);
+      else if (tx.type === 'sell') amt = gross - fees;
+      else if (tx.type === 'dividend' || tx.type === 'interest') amt = (gross || Number(tx.amount) || 0) - (Number(tx.withholdingTax) || 0);
+      else return;
+      if (amt) flows.push({ date: tx.date, amount: eur(amt, tx) });
+    });
+    if (opts.currentValueEUR > 0) flows.push({ date: opts.today || new Date().toISOString().slice(0, 10), amount: opts.currentValueEUR });
+    return flows;
+  }
+
+  var api = { xirr: xirr, twr: twr, buildCashflows: buildCashflows };
   if (typeof window !== 'undefined') window.MaerminReturns = api;
   if (typeof module !== 'undefined' && module.exports) module.exports = api;
 })();

@@ -3,6 +3,49 @@
 // Support for CSV, Excel, and broker-specific formats
 // ============================================================================
 
+// ---- shared parsing helpers ----------------------------------------------
+// Locale-aware number parsing is REUSED from import-mapping.js (the one
+// implementation that understands "1.234,56"); a bare parseFloat truncated
+// German decimals ("180,55" -> 180, "1.234,56" -> 1.234).
+function resolveImportMapping() {
+  if (typeof window !== 'undefined' && window.MaerminImportMapping) return window.MaerminImportMapping;
+  try { return require('./import-mapping.js'); } catch (e) { return null; }
+}
+function num(value, locale) {
+  const IM = resolveImportMapping();
+  const n = IM && IM.parseNumber ? IM.parseNumber(value, locale) : parseFloat(value);
+  return isFinite(n) ? n : 0;
+}
+
+// Trade Republic / German broker transaction type -> 'buy' | 'sell' | null.
+// Order matters: "Verkauf" contains "kauf", so sells are matched first.
+// Anything that is not a trade (Dividende, Zinsen, Einzahlung, Steuer, ...) is
+// skipped instead of being booked as a sell.
+function germanTradeType(raw) {
+  const t = String(raw || '').toLowerCase();
+  if (/verkauf|\bsell\b|\bsale\b/.test(t)) return 'sell';
+  if (/kauf|\bbuy\b|sparplan|savings ?plan/.test(t)) return 'buy';
+  return null;
+}
+
+// Split an exchange pair ('BTCEUR', 'BTC/EUR', 'BTC-USDT') into base + quote.
+const PAIR_QUOTES = ['FDUSD', 'USDT', 'USDC', 'BUSD', 'EUR', 'USD', 'BTC', 'ETH', 'BNB'];
+function splitPair(pair) {
+  const p = String(pair || '').toUpperCase().replace(/[\/\-_ ]/g, '');
+  for (const q of PAIR_QUOTES) {
+    if (p.length > q.length && p.endsWith(q)) return { base: p.slice(0, -q.length), quote: q };
+  }
+  return { base: p, quote: '' };
+}
+// Quote currency -> the app's canonical transaction currency. Stablecoins are
+// USD; EUR stays EUR; crypto-to-crypto quotes are returned as-is so the data
+// quality layer can flag them (they are never silently treated as EUR).
+function quoteCurrency(q) {
+  if (q === 'EUR') return 'EUR';
+  if (['USD', 'USDT', 'USDC', 'BUSD', 'FDUSD'].includes(q)) return 'USD';
+  return q || 'USD';
+}
+
 /**
  * Broker-specific parsers for common trading platforms
  */
@@ -57,8 +100,9 @@ const BrokerParsers = {
       const transactions = [];
       
       rows.forEach(row => {
-        const quantity = parseFloat(row['Anzahl'] || row['Aantal'] || row['Number'] || 0);
-        const price = parseFloat(row['Kurs'] || row['Koers'] || row['Price'] || 0);
+        const loc = (row['Anzahl'] != null || row['Kurs'] != null || row['Aantal'] != null) ? 'de' : undefined;
+        const quantity = num(row['Anzahl'] || row['Aantal'] || row['Number'] || 0, loc);
+        const price = num(row['Kurs'] || row['Koers'] || row['Price'] || 0, loc);
         
         const transaction = {
           type: quantity > 0 ? 'buy' : 'sell',
@@ -66,7 +110,7 @@ const BrokerParsers = {
           isin: row['ISIN'],
           quantity: Math.abs(quantity),
           price: Math.abs(price),
-          fees: Math.abs(parseFloat(row['Gebühren'] || row['Kosten'] || row['Fees'] || 0)),
+          fees: Math.abs(num(row['Gebühren'] || row['Kosten'] || row['Fees'] || 0, loc)),
           date: parseDate(row['Datum'] || row['Date']),
           currency: row['Währung'] || row['Currency'] || 'EUR',
           broker: 'DEGIRO',
@@ -95,16 +139,16 @@ const BrokerParsers = {
       const transactions = [];
       
       rows.forEach(row => {
-        const type = (row['Typ'] || row['Type'] || '').toLowerCase();
-        const isBuy = type.includes('kauf') || type.includes('buy') || type.includes('sparplan');
-        
+        const tradeType = germanTradeType(row['Typ'] || row['Type']);
+        if (!tradeType) return; // dividend / interest / cash rows are not trades
+
         const transaction = {
-          type: isBuy ? 'buy' : 'sell',
+          type: tradeType,
           symbol: row['Wertpapier'] || row['Name'],
           isin: row['ISIN'],
-          quantity: Math.abs(parseFloat(row['Stück'] || row['Anteile'] || 0)),
-          price: Math.abs(parseFloat(row['Kurs'] || row['Preis'] || 0)),
-          fees: Math.abs(parseFloat(row['Gebühren'] || row['Provision'] || 0)),
+          quantity: Math.abs(num(row['Stück'] || row['Anteile'] || 0, 'de')),
+          price: Math.abs(num(row['Kurs'] || row['Preis'] || 0, 'de')),
+          fees: Math.abs(num(row['Gebühren'] || row['Provision'] || 0, 'de')),
           date: parseDate(row['Datum'] || row['Date']),
           currency: 'EUR',
           broker: 'Trade Republic',
@@ -172,14 +216,20 @@ const BrokerParsers = {
       rows.forEach(row => {
         const side = (row['Side'] || row['Type'] || '').toLowerCase();
         
+        // Symbol = the BASE asset of the pair and currency = the QUOTE (it
+        // used to keep 'BTCEUR' as the symbol and take the FEE coin, e.g. BNB,
+        // as the currency). A fee paid in another coin can't be valued here,
+        // so only a quote-currency fee is carried.
+        const pair = splitPair(row['Pair'] || row['Market']);
+        const feeCoin = String(row['Fee Coin'] || '').toUpperCase();
         const transaction = {
           type: side.includes('buy') ? 'buy' : 'sell',
-          symbol: row['Pair'] || row['Market'],
-          quantity: Math.abs(parseFloat(row['Executed'] || row['Amount'] || row['Qty'] || 0)),
-          price: Math.abs(parseFloat(row['Price'] || row['Avg Price'] || 0)),
-          fees: Math.abs(parseFloat(row['Fee'] || 0)),
+          symbol: pair.base,
+          quantity: Math.abs(num(row['Executed'] || row['Amount'] || row['Qty'] || 0)),
+          price: Math.abs(num(row['Price'] || row['Avg Price'] || 0)),
+          fees: (!feeCoin || feeCoin === pair.quote) ? Math.abs(num(row['Fee'] || 0)) : 0,
           date: parseDate(row['Date(UTC)'] || row['Date'] || row['Time']),
-          currency: row['Fee Coin'] || 'USDT',
+          currency: quoteCurrency(pair.quote),
           broker: 'Binance',
           originalRow: row
         };
@@ -249,9 +299,9 @@ const BrokerParsers = {
         const transaction = {
           type: getValueByMapping(row, mapping.type) || 'buy',
           symbol: getValueByMapping(row, mapping.symbol),
-          quantity: Math.abs(parseFloat(getValueByMapping(row, mapping.quantity)) || 0),
-          price: Math.abs(parseFloat(getValueByMapping(row, mapping.price)) || 0),
-          fees: Math.abs(parseFloat(getValueByMapping(row, mapping.fees)) || 0),
+          quantity: Math.abs(num(getValueByMapping(row, mapping.quantity))),
+          price: Math.abs(num(getValueByMapping(row, mapping.price))),
+          fees: Math.abs(num(getValueByMapping(row, mapping.fees))),
           date: parseDate(getValueByMapping(row, mapping.date)),
           currency: getValueByMapping(row, mapping.currency) || 'EUR',
           broker: 'Manual Import',
@@ -377,11 +427,17 @@ function importData(data, format, options = {}) {
     throw new Error(`Unsupported format: ${format}`);
   }
 
-  // Detect broker and parse
+  // Detect broker and parse. An explicitly chosen broker (the import wizard's
+  // selection) wins over header sniffing, which used to pick the first
+  // matching detector regardless of what the user selected.
   let parser = null;
   let detectedBroker = 'Unknown';
 
-  for (const [brokerId, brokerParser] of Object.entries(BrokerParsers)) {
+  if (options.broker && BrokerParsers[options.broker]) {
+    parser = BrokerParsers[options.broker];
+    detectedBroker = parser.name;
+  }
+  for (const [brokerId, brokerParser] of Object.entries(parser ? {} : BrokerParsers)) {
     if (brokerParser.detect(headers)) {
       parser = brokerParser;
       detectedBroker = brokerParser.name;
@@ -735,6 +791,9 @@ if (typeof window !== 'undefined') {
 if (typeof module !== 'undefined' && module.exports) {
   module.exports = {
     BrokerParsers,
+    germanTradeType,
+    splitPair,
+    quoteCurrency,
     importData,
     exportData,
     exportToCSV,

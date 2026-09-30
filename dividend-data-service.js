@@ -319,8 +319,10 @@ var DividendDataService = {
       }
 
       for (var pd = new Date(first); pd.getTime() <= horizon.getTime(); pd.setMonth(pd.getMonth() + monthsPerPay)) {
+        var exd = new Date(pd); exd.setDate(exd.getDate() - 14); // inverse of the ~14-day pay lag
         out.push({
           symbol: sym, date: pd.toISOString().split('T')[0],
+          exDate: exd.toISOString().split('T')[0],
           perShare: perShare, shares: shares,
           amount: Math.round(amount * 100) / 100, currency: currency, frequency: d.frequency,
           past: pd.getTime() < now.getTime()

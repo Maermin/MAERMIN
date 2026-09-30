@@ -27,6 +27,17 @@
 
   // Latest known price at or before `dateISO` from a priceHistory series of
   // { timestamp, price } rows (the app's real shape). Null when uncovered.
+  // Timestamp -> epoch ms. Only unambiguous forms are accepted: epoch numbers
+  // and ISO-8601 strings. Older builds stored live points as a year-less
+  // en-US string ("09/30, 08:14 PM") that V8 parses as the year 2001 - those
+  // must never be matched against a tax-year boundary.
+  function tsOf(v) {
+    if (typeof v === 'number') return isFinite(v) ? v : NaN;
+    var s = String(v == null ? '' : v);
+    if (!/^\d{4}-\d{2}-\d{2}/.test(s)) return NaN;
+    return new Date(s).getTime();
+  }
+
   function priceAt(history, dateISO) {
     if (!Array.isArray(history) || !history.length) return null;
     var cutoff = new Date(dateISO).getTime();
@@ -34,7 +45,7 @@
     var best = null, bestTs = -Infinity;
     for (var i = 0; i < history.length; i++) {
       var h = history[i];
-      var ts = new Date(h && h.timestamp).getTime();
+      var ts = tsOf(h && h.timestamp);
       var p = num(h && h.price);
       if (isNaN(ts) || p == null || p <= 0) continue;
       if (ts <= cutoff && ts > bestTs) { bestTs = ts; best = p; }
@@ -55,6 +66,33 @@
       if (tx.type === 'buy') qty += q; else if (tx.type === 'sell') qty -= q;
     });
     return Math.max(0, qty);
+  }
+
+  // Open FIFO lots of `symbol` at the end of `dateISO`: [{ qty, date }], oldest
+  // first. Same-day ties book buys before sells (matches the tax FIFO).
+  function openLotsAt(transactions, symbol, dateISO) {
+    var cutoff = new Date(dateISO).getTime();
+    var sym = String(symbol || '').toUpperCase();
+    var txs = (transactions || []).filter(function (tx) {
+      if (String(tx.symbol || '').toUpperCase() !== sym) return false;
+      if (tx.type !== 'buy' && tx.type !== 'sell') return false;
+      var ts = new Date(tx.date).getTime();
+      return !isNaN(ts) && ts <= cutoff;
+    }).sort(function (a, b) {
+      return (new Date(a.date) - new Date(b.date)) || ((a.type === 'buy' ? 0 : 1) - (b.type === 'buy' ? 0 : 1));
+    });
+    var lots = [];
+    txs.forEach(function (tx) {
+      var q = num(tx.quantity) || 0;
+      if (!(q > 0)) return;
+      if (tx.type === 'buy') { lots.push({ qty: q, date: tx.date }); return; }
+      while (q > 1e-9 && lots.length) {
+        var used = Math.min(q, lots[0].qty);
+        lots[0].qty -= used; q -= used;
+        if (lots[0].qty <= 1e-9) lots.shift();
+      }
+    });
+    return lots;
   }
 
   // Prefill one Vorabpauschale row for symbol/year from what the app already
@@ -82,14 +120,19 @@
       distributions += gross;
     });
 
-    // Month factor from the first acquisition that falls inside the year;
-    // positions opened earlier count the full year.
-    var earliestBuy = null;
-    (transactions || []).forEach(function (tx) {
-      if (tx.type !== 'buy' || String(tx.symbol || '').toUpperCase() !== sym) return;
-      if (!earliestBuy || new Date(tx.date) < new Date(earliestBuy)) earliestBuy = tx.date;
+    // Month factor PER LOT (sec. 18 (2) InvStG): every unit held at year end
+    // carries the factor of its own acquisition month, so the units of a
+    // savings plan bought during the year are reduced individually. The
+    // effective factor is the share-weighted average over the open FIFO lots.
+    // (It used to take the EARLIEST buy of the symbol, so a fund held since an
+    // earlier year counted every in-year Sparplan unit at 12/12.)
+    var lots = openLotsAt(transactions, sym, endISO + 'T23:59:59Z');
+    var lotQty = 0, weighted = 0;
+    lots.forEach(function (l) {
+      var f = GT ? GT.monthsFactorForPurchase(l.date, year) : 1;
+      lotQty += l.qty; weighted += l.qty * f;
     });
-    var monthsFactor = (GT && earliestBuy) ? GT.monthsFactorForPurchase(earliestBuy, year) : 1;
+    var monthsFactor = lotQty > 0 ? weighted / lotQty : 1;
 
     return {
       symbol: sym,
@@ -226,7 +269,7 @@
       if (TR) {
         var report = TR.build(transactions, {
           year: year, jurisdiction: 'de', baseCurrency: 'EUR',
-          exchangeRate: exchangeRate, fundTypes: fundTypes, kirchensteuerRate: kist
+          exchangeRate: exchangeRate, fxAt: props.fxAt, fundTypes: fundTypes, kirchensteuerRate: kist
         });
         detail = report && report.summary && report.summary.germanDetail;
       }
@@ -262,6 +305,9 @@
             e('option', { value: '0.08' }, '8%'),
             e('option', { value: '0.09' }, '9%')))),
 
+      e('div', { style: { color: dim, fontSize: '0.72rem', margin: '0 0 0.5rem', lineHeight: 1.5 } },
+        'Worksheet for value year ' + year + '. The Vorabpauschale is deemed received on the first working day of ' + (year + 1) +
+        ' (sec. 18 (3) InvStG), so a saved amount counts in the ' + (year + 1) + ' tax computation.'),
       rows.length
         ? e('div', { style: { overflowX: 'auto' } },
             e('table', { style: { width: '100%', borderCollapse: 'collapse' } },
@@ -281,7 +327,7 @@
         line('Taxable gains after Teilfreistellung', sym + fmt(detail.gainsTaxable)),
         line('Deductible losses after Teilfreistellung', sym + fmt(detail.lossesTaxable), detail.lossesTaxable < 0 ? bad : text),
         line('Taxable fund distributions', sym + fmt(detail.dividendsTaxable)),
-        line('Vorabpauschale ' + year + ' (taxable)', sym + fmt(detail.vorabpauschaleTaxable)),
+        line('Vorabpauschale ' + (year - 1) + ' (taxed in ' + year + ')', sym + fmt(detail.vorabpauschaleTaxable)),
         detail.vapCreditTotal > 0 ? line('Credited prior Vorabpauschalen', '-' + sym + fmt(detail.vapCreditTotal), good) : null,
         line('Teilfreistellung exempt', sym + fmt(detail.teilfreistellungExempt), good),
         line('Sparerpauschbetrag used', sym + fmt(detail.sparerpauschbetragUsed), good),
@@ -362,6 +408,7 @@
   var api = {
     priceAt: priceAt,
     qtyAt: qtyAt,
+    openLotsAt: openLotsAt,
     prefillRow: prefillRow,
     Panel: Panel,
     SettingsPanel: SettingsPanel

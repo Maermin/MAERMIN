@@ -45,11 +45,20 @@
   // sells up to and including that day). The schedule's `shares` is the
   // CURRENT position, which overstates past payouts for anything bought later
   // (and invents dividends for shares that were not held yet).
-  function sharesAt(transactions, symbol, date, portfolioId) {
+  // Entitlement is fixed by the EX-date: shares bought on/after it don't get
+  // the payout, shares sold on/after it still do - so count trades STRICTLY
+  // before the ex-date. Only the stocks book pays dividends (a crypto token
+  // with the same ticker must not count). Splits are applied when the
+  // corporate-actions overlay is loaded.
+  function sharesAt(transactions, symbol, date, portfolioId, strictlyBefore) {
     var sym = up(symbol), pid = portfolioId || 'default', q = 0;
-    (transactions || []).forEach(function (tx) {
+    var CA = (typeof window !== 'undefined') && window.MaerminCorporateActions;
+    var txs = (CA && CA.adjust) ? CA.adjust(transactions || []) : (transactions || []);
+    txs.forEach(function (tx) {
       if (!tx || up(tx.symbol) !== sym || (tx.portfolioId || 'default') !== pid) return;
-      if (!tx.date || String(tx.date) > String(date)) return;
+      if (tx.category && tx.category !== 'stocks') return;
+      var d = String(tx.date || '').slice(0, 10);
+      if (!d || (strictlyBefore ? d >= String(date) : d > String(date))) return;
       if (tx.type === 'buy') q += num(tx.quantity);
       else if (tx.type === 'sell') q -= num(tx.quantity);
     });
@@ -75,7 +84,9 @@
   // Re-scale a schedule row to the shares actually held on its date.
   function atHistoricShares(row, transactions, portfolioId) {
     if (!transactions) return row;
-    var held = sharesAt(transactions, row.symbol, row.date, portfolioId);
+    var held = row.exDate
+      ? sharesAt(transactions, row.symbol, row.exDate, portfolioId, true)
+      : sharesAt(transactions, row.symbol, row.date, portfolioId);
     var cur = num(row.shares);
     var per = num(row.perShare) || (cur > 0 ? num(row.amount) / cur : 0);
     if (!(held > 0) || !(per > 0)) return null;
@@ -92,7 +103,12 @@
     var qty = shares > 0 ? shares : 1;
     var price = shares > 0 ? perShare : amount;
     var cur = (row.currency === 'EUR') ? 'EUR' : (row.currency || 'USD');
+    // Default US withholding for a German resident with a W-8BEN (15%) on a
+    // plain US ticker paid in USD; other markets stay 0 (unknown, editable).
+    var withholding = (cur === 'USD' && /^[A-Z.\-]+$/.test(up(row.symbol)) && up(row.symbol).indexOf('.') === -1)
+      ? Math.round(amount * 0.15 * 100) / 100 : 0;
     return {
+      withholdingTax: withholding,
       type: 'dividend',
       category: 'stocks',
       symbol: row.symbol,

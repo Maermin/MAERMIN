@@ -92,10 +92,10 @@ for (const asset of ['manifest.webmanifest', 'service-worker.js', 'icon.svg']) {
 // external file so prod can run under a STRICT CSP with NO 'unsafe-inline' for
 // scripts (the whole point of bundling). Same behaviour, CSP-clean.
 await writeFile(join(dist, 'boot.js'),
-  "window.addEventListener('load',function(){setTimeout(function(){" +
+  "window.addEventListener('load',function(){" +
   "var l=document.getElementById('loading');" +
   "if(l){l.classList.add('hidden');setTimeout(function(){l.remove();},500);}" +
-  "},600);});\n");
+  "});\n");
 
 // Production Content-Security-Policy. Because the bundle replaces 70 inline-ish
 // script tags with ONE local file (+ pinned CDN deps), script-src no longer

@@ -23,8 +23,9 @@ function runMonteCarloSimulation(portfolio, config) {
 
   // Calculate portfolio metrics if not provided
   const portfolioValue = calculateTotalValue(portfolio);
-  const portfolioReturn = expectedReturn || estimateExpectedReturn(portfolio);
-  const portfolioVolatility = volatility || estimateVolatility(portfolio);
+  // `!= null` (not ||): an explicit 0% return / volatility is a valid input.
+  const portfolioReturn = expectedReturn != null ? expectedReturn : estimateExpectedReturn(portfolio);
+  const portfolioVolatility = volatility != null ? volatility : estimateVolatility(portfolio);
 
   const results = [];
   const yearlySnapshots = {};
@@ -214,62 +215,75 @@ function calculateGoalProbabilities(finalValues, initialValue) {
 /**
  * Estimate expected return based on asset allocation
  */
-function estimateExpectedReturn(portfolio) {
-  // Historical average returns (annual)
-  const assetReturns = {
-    crypto: 0.25,    // Very volatile, high expected return
-    stocks: 0.08,    // Long-term equity return
-    skins: 0.05      // CS2 items, moderate appreciation
-  };
+// Long-run class assumptions (annual). Unknown / custom classes fall back to
+// the equity assumptions. Deliberately round numbers — they are the default
+// when the user doesn't enter their own expected return / volatility.
+const CLASS_ASSUMPTIONS = {
+  crypto:      { ret: 0.25, vol: 0.80 },
+  stocks:      { ret: 0.08, vol: 0.18 },
+  skins:       { ret: 0.05, vol: 0.25 },
+  commodities: { ret: 0.04, vol: 0.15 }
+};
+// Assumed pairwise correlation between asset classes for the default volatility.
+const CROSS_CLASS_CORRELATION = 0.3;
 
-  let totalValue = 0;
-  let weightedReturn = 0;
+function assumptionFor(cls) { return CLASS_ASSUMPTIONS[cls] || CLASS_ASSUMPTIONS.stocks; }
 
-  ['crypto', 'stocks', 'skins'].forEach(category => {
-    const positions = portfolio[category] || [];
-    const categoryValue = positions.reduce((sum, p) => sum + (p.currentValue || 0), 0);
-    totalValue += categoryValue;
-    weightedReturn += categoryValue * assetReturns[category];
+// Market value of one position: an explicit currentValue wins; otherwise
+// amount x currentPrice; cost basis only as the last resort.
+function positionValue(p) {
+  if (!p) return 0;
+  if (p.currentValue > 0) return p.currentValue;
+  const amount = parseFloat(p.amount) || 0;
+  if (p.currentPrice > 0) return amount * p.currentPrice;
+  return amount * (parseFloat(p.purchasePrice) || 0);
+}
+
+// EUR value per class over EVERY array-valued class in the portfolio (the four
+// built-ins plus custom categories). Options are excluded (not in the value).
+function classValues(portfolio) {
+  const out = {};
+  Object.keys(portfolio || {}).forEach(cls => {
+    if (cls === 'options' || !Array.isArray(portfolio[cls])) return;
+    const v = portfolio[cls].reduce((sum, p) => sum + positionValue(p), 0);
+    if (v > 0) out[cls] = v;
   });
-
-  return totalValue > 0 ? weightedReturn / totalValue : 0.08;
+  return out;
 }
 
 /**
- * Estimate portfolio volatility based on asset allocation
+ * Estimate expected return based on asset allocation (value-weighted).
+ */
+function estimateExpectedReturn(portfolio) {
+  const vals = classValues(portfolio);
+  const total = Object.values(vals).reduce((a, b) => a + b, 0);
+  if (!(total > 0)) return 0.08;
+  return Object.keys(vals).reduce((s, c) => s + (vals[c] / total) * assumptionFor(c).ret, 0);
+}
+
+/**
+ * Estimate portfolio volatility from class weights with a constant cross-class
+ * correlation: sigma^2 = sum_i sum_j w_i w_j s_i s_j rho_ij (rho_ii = 1).
  */
 function estimateVolatility(portfolio) {
-  // Historical volatilities (annual standard deviation)
-  const assetVolatility = {
-    crypto: 0.80,    // Very high volatility
-    stocks: 0.18,    // Moderate volatility
-    skins: 0.25      // CS2 items, moderate-high volatility
-  };
-
-  let totalValue = 0;
-  let weightedVariance = 0;
-
-  ['crypto', 'stocks', 'skins'].forEach(category => {
-    const positions = portfolio[category] || [];
-    const categoryValue = positions.reduce((sum, p) => sum + (p.currentValue || 0), 0);
-    totalValue += categoryValue;
-    weightedVariance += categoryValue * Math.pow(assetVolatility[category], 2);
-  });
-
-  // Simplified: assumes no correlation benefit
-  return totalValue > 0 ? Math.sqrt(weightedVariance / totalValue) : 0.18;
+  const vals = classValues(portfolio);
+  const cls = Object.keys(vals);
+  const total = cls.reduce((a, c) => a + vals[c], 0);
+  if (!(total > 0)) return 0.18;
+  let variance = 0;
+  cls.forEach(a => cls.forEach(b => {
+    const rho = a === b ? 1 : CROSS_CLASS_CORRELATION;
+    variance += (vals[a] / total) * (vals[b] / total) * assumptionFor(a).vol * assumptionFor(b).vol * rho;
+  }));
+  return Math.sqrt(variance);
 }
 
 /**
  * Calculate total portfolio value
  */
 function calculateTotalValue(portfolio) {
-  let total = 0;
-  ['crypto', 'stocks', 'skins'].forEach(category => {
-    const positions = portfolio[category] || [];
-    total += positions.reduce((sum, p) => sum + (p.currentValue || p.amount * p.purchasePrice || 0), 0);
-  });
-  return total;
+  const vals = classValues(portfolio);
+  return Object.values(vals).reduce((a, b) => a + b, 0);
 }
 
 /**

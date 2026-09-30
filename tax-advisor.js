@@ -193,31 +193,55 @@
         { used: spbUsed, limit: spbLimit, remaining: 0 }));
     }
 
-    // ---- loss harvesting, stock vs other pots kept separate ----
+    // ---- loss harvesting in the three German loss pots ----
+    //   stocks : direct shares only (sec. 20 (6) S.4 EStG Aktienverlusttopf)
+    //   other  : funds/ETFs and all other capital income (sec. 20)
+    //   crypto : private sales (sec. 23) - only lots NOT yet held > 1 year,
+    //            offsettable only against sec. 23 gains, never capital income.
+    // ETFs are NOT shares for the stock pot, so a fund position needs
+    // p.isFund (or p.taxPot) to land in 'other'.
     var positions = Array.isArray(input.positions) ? input.positions : [];
-    var pots = { stocks: { loss: 0, names: [] }, other: { loss: 0, names: [] } };
+    var pots = { stocks: { loss: 0, names: [] }, other: { loss: 0, names: [] }, crypto: { loss: 0, names: [] } };
+    function potOf(p) {
+      if (p.taxPot && pots[p.taxPot]) return p.taxPot;
+      var cls = str(p.assetClass || p.category);
+      if (cls === 'crypto') return 'crypto';
+      if (cls === 'stocks' && !p.isFund) return 'stocks';
+      return 'other';
+    }
     positions.forEach(function (p) {
+      var pot = potOf(p);
+      if (pot === 'crypto') return; // crypto is evaluated per lot below
       var unreal = num(p.currentValueEUR) - num(p.costBasisEUR);
       if (unreal >= 0) return;
-      var pot = (str(p.assetClass || p.category) === 'stocks') ? 'stocks' : 'other';
       pots[pot].loss += unreal; // negative
       pots[pot].names.push(str(p.symbol));
     });
+    lots.forEach(function (l) {
+      var free = cryptoFreeDate(l.acquiredDate);
+      if (free && today >= free) return; // tax-free already: a loss there is irrelevant
+      var unreal = num(l.currentValueEUR) - num(l.costBasisEUR);
+      if (unreal >= 0) return;
+      pots.crypto.loss += unreal;
+      if (pots.crypto.names.indexOf(str(l.symbol)) === -1) pots.crypto.names.push(str(l.symbol));
+    });
     var realizedByPot = {
       stocks: num(input.realizedStockGainsYTD),
-      other: num(input.realizedOtherGainsYTD)
+      other: num(input.realizedOtherGainsYTD),
+      crypto: num(input.realizedCryptoGainsYTD)
     };
-    ['stocks', 'other'].forEach(function (potKey) {
+    var POT_LABEL = { stocks: 'stock (direct shares)', other: 'other capital income (funds/ETFs, bonds)', crypto: 'private sales (crypto, sec. 23)' };
+    ['stocks', 'other', 'crypto'].forEach(function (potKey) {
       var pot = pots[potKey];
       var harvestable = -pot.loss; // positive
       var realizedGains = realizedByPot[potKey];
       if (harvestable <= 0 || realizedGains <= 0) return;
       var offset = Math.min(harvestable, realizedGains);
-      var label = potKey === 'stocks' ? 'stock' : 'other (crypto/funds)';
+      var label = POT_LABEL[potKey];
       findings.push(finding('lossHarvest', 'important',
         'Loss-harvesting opportunity (' + label + ' pot)',
-        'You have about ' + Math.round(harvestable) + ' EUR of unrealised losses in the ' + label + ' pot (' + pot.names.slice(0, 4).join(', ') + ') against ' + Math.round(realizedGains) + ' EUR of realised gains in the same pot.',
-        'Realising up to ' + Math.round(offset) + ' EUR of these losses before year-end could offset the same-pot gains (German loss pots: stock losses only offset stock gains).',
+        'You have about ' + Math.round(harvestable) + ' EUR of unrealised losses in the ' + label + ' pot (' + pot.names.slice(0, 4).join(', ') + ') against ' + Math.round(realizedGains) + ' EUR of realised gains in the same pot this year.',
+        'Realising up to ' + Math.round(offset) + ' EUR of these losses before year-end could offset those gains. Losses only offset gains of the same pot: share losses only share gains, crypto losses only other private-sale gains.',
         { pot: potKey, harvestable: harvestable, realizedGains: realizedGains, offset: offset }));
     });
 
@@ -249,6 +273,7 @@
     var taxOwner = opts.taxOwner || {};
     function priceEUR(sym) {
       var p = prices[sym];
+      if (p == null) p = prices[String(sym).toLowerCase()];
       if (p == null) return null;
       // price maps are stored in their native currency; crypto on this app is EUR
       return num(p);

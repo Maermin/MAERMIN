@@ -301,10 +301,31 @@ function InvestmentTracker() {
   // the history cache is empty, so behaviour is unchanged until data arrives.
   const fxSeriesFetched = React.useRef(false);
   const [fxHistVersion, setFxHistVersion] = useState(0);
+  // Render-time memo for derived values computed inside the render helpers
+  // (renderOverview & co. are plain functions, so hooks can't be used there).
+  // Recomputes only when a dependency changes by identity — the overview used
+  // to rebuild positions, dividends and the health score (incl. price-history
+  // risk maths) on EVERY re-render, e.g. each toast or overlay toggle.
+  const _renderMemo = useRef({});
+  const memoBy = (key, deps, fn) => {
+    const e = _renderMemo.current[key];
+    if (e && e.deps.length === deps.length && e.deps.every((d, i) => d === deps[i])) return e.v;
+    const v = fn();
+    _renderMemo.current[key] = { deps, v };
+    return v;
+  };
+
   const fxAt = useMemo(
     () => (window.MaerminFxHistory ? window.MaerminFxHistory.fxResolver(exchangeRate) : null),
     [exchangeRate, fxHistVersion]
   );
+
+  // Bumped when a corporate action (split) is added/removed, so buildPositions
+  // re-runs. Declared BEFORE the `portfolio` memo that lists it as a
+  // dependency: declared later (as it was), the first render threw
+  // "Cannot access 'corpActionsRev' before initialization" and the app never
+  // mounted after unlock.
+  const [corpActionsRev, setCorpActionsRev] = useState(0);
 
   // Transactions filtered to the active portfolio
   const activeTransactions = useMemo(() =>
@@ -564,11 +585,13 @@ function InvestmentTracker() {
               // (GBp pence, CHF, JPY, ...) would be mis-scaled by the USD rate and
               // book wildly wrong quantities - leave those occurrences pending.
               const cur = data.currency || 'USD';
-              const rate = cur === 'EUR' ? 1 : cur === 'USD' ? (exchangeRate || 0.92) : null;
-              if (rate == null) { console.warn('[SAVINGS] unsupported quote currency', cur, 'for', sym); continue; }
+              if (cur !== 'EUR' && cur !== 'USD') { console.warn('[SAVINGS] unsupported quote currency', cur, 'for', sym); continue; }
+              // USD closes convert at the rate OF THAT DAY (fxAt), not today's
+              // live rate - otherwise every back-dated quantity carries today's FX.
+              const rateAt = (d) => cur === 'EUR' ? 1 : ((fxAt && fxAt(d)) || exchangeRate || 0.92);
               series = (data.prices || [])
                 .filter(r => r && typeof r.price === 'number' && r.price > 0)
-                .map(r => ({ timestamp: r.date || r.timestamp, price: r.price * rate }));
+                .map(r => { const ts = r.date || r.timestamp; return { timestamp: ts, price: r.price * rateAt(ts) }; });
             }
           }
           if (series && series.length) {
@@ -622,9 +645,6 @@ function InvestmentTracker() {
   const [taxYear, setTaxYear] = useState(() => new Date().getFullYear());
   // Bumped when tax settings change, to recompute the summary cards/report.
   const [taxSettingsRev, setTaxSettingsRev] = useState(0);
-  // Bumped when a corporate action (split) is removed from the global Settings
-  // list, so the list re-reads the store.
-  const [corpActionsRev, setCorpActionsRev] = useState(0);
   // Overview row → position detail modal (transactions, CAGR, splits, journal).
   const [positionDetail, setPositionDetail] = useState(null);
   const [taxOwner, setTaxOwner] = useState(() => {
@@ -1066,7 +1086,10 @@ function InvestmentTracker() {
     const pricePortfolio = allPortfoliosPortfolio || portfolio;
     const newPrices = { ...prices };
     const avFallbackSyms = new Set(); // symbols resolved via Alpha Vantage (provenance)
-    const timestamp = new Date().toLocaleString('en-US', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' });
+    // ISO-8601 so every consumer (TWR, cash-flow chart, Vorabpauschale prefill,
+    // savings-plan pricing) can date the point; the old en-US display string
+    // had no year and parsed as 2001. Formatting happens at display time.
+    const timestamp = new Date().toISOString();
     
     try {
       // First, fetch USD to EUR exchange rate from ExchangeRate-API (free, no key)
@@ -1082,6 +1105,8 @@ function InvestmentTracker() {
           if (fxData.result === 'success' && fxData.rates && fxData.rates.EUR) {
             usdToEur = fxData.rates.EUR;
             setExchangeRate(usdToEur);
+            // Keep the full USD-based table so GBp/CHF/JPY… quotes convert correctly.
+            if (window.MaerminFxHistory && window.MaerminFxHistory.setUsdRates) window.MaerminFxHistory.setUsdRates(fxData.rates);
             if (window.MaerminDataQuality) window.MaerminDataQuality.recordFetch(['__fx__'], 'open.er-api.com');
             dbg('[PRICES] Exchange rate: 1 USD =', usdToEur.toFixed(4), 'EUR');
           }
@@ -1090,6 +1115,15 @@ function InvestmentTracker() {
         console.error('[PRICES] Exchange rate fetch error:', e);
         dbg('[PRICES] Using fallback exchange rate: 1 USD =', usdToEur, 'EUR');
       }
+
+      // Quote → EUR for any Yahoo currency (EUR, USD, GBp pence, CHF, …).
+      // Unknown currency with no rate → null, i.e. the price stays unresolved
+      // rather than being mis-scaled by the USD rate.
+      const quoteEUR = (px, cur) => {
+        const FXH = window.MaerminFxHistory;
+        if (FXH && FXH.quoteToEUR) return FXH.quoteToEUR(px, cur || 'USD', usdToEur);
+        return px * ((cur || 'USD') === 'EUR' ? 1 : usdToEur);
+      };
 
       // v11: historical USD→EUR so each transaction is priced on its OWN day
       // (cost basis + German tax need the rate of the date, not one static live
@@ -1104,9 +1138,17 @@ function InvestmentTracker() {
           const wBase = (apiKeys.cs2Worker || '').trim().replace(/\/$/, '');
           if (wBase.length > 5 && !fxSeriesFetched.current) {
             fxSeriesFetched.current = true;
-            const r = await fetch(`${wBase}?action=yf&symbol=${encodeURIComponent('EURUSD=X')}&interval=1d&range=max`, { signal: AbortSignal.timeout(8000) });
+            // Incremental: the full daily history (~20 years) is downloaded once;
+            // later sessions only fetch the gap since the last successful backfill.
+            const FX_MARK = 'maermin_fx_backfill';
+            let lastFill = null;
+            try { lastFill = localStorage.getItem(FX_MARK); } catch (e) {}
+            const gapDays = lastFill ? (Date.now() - new Date(lastFill).getTime()) / 86400000 : Infinity;
+            const fxRange = gapDays < 25 ? '1mo' : gapDays < 360 ? '1y' : 'max';
+            const r = await fetch(`${wBase}?action=yf&symbol=${encodeURIComponent('EURUSD=X')}&interval=1d&range=${fxRange}`, { signal: AbortSignal.timeout(8000) });
             if (r.ok) {
               const series = FXH.ingestYahooSeries(await r.json());
+              if (Object.keys(series).length) { try { localStorage.setItem(FX_MARK, new Date().toISOString()); } catch (e) {} }
               if (Object.keys(series).length) { FXH.merge(series); dbg('[PRICES] FX history backfilled:', Object.keys(series).length, 'days'); }
             }
           }
@@ -1166,7 +1208,7 @@ function InvestmentTracker() {
             if (!res.ok) return null;
             const data = await res.json();
             const last = data.prices?.[data.prices.length - 1];
-            if (last?.price > 0) return last.price * (data.currency === 'EUR' ? 1 : usdToEur);
+            if (last?.price > 0) return quoteEUR(last.price, data.currency);
           } catch (e) { /* caller decides */ }
           return null;
         };
@@ -1283,9 +1325,8 @@ function InvestmentTracker() {
                 const data = await res.json();
                 const last = data.prices?.[data.prices.length - 1];
                 if (last?.price > 0) {
-                  const rate = data.currency === 'EUR' ? 1 : usdToEur;
-                  priceEUR = last.price * rate;
-                  dbg('[PRICES] Commodity (YF):', sym, '→', yfSym, '→', priceEUR.toFixed(2), 'EUR');
+                  priceEUR = quoteEUR(last.price, data.currency);
+                  if (priceEUR) dbg('[PRICES] Commodity (YF):', sym, '→', yfSym, '→', priceEUR.toFixed(2), 'EUR');
                 }
               }
             } catch(e) {
@@ -1600,6 +1641,11 @@ function InvestmentTracker() {
   
   const createBackup = () => {
     if (!window.MaerminBackup) { addToast('Backup engine not loaded', 'error'); return; }
+    // The full backup is PLAIN JSON (all transactions, net worth, taxpayer name
+    // and tax ID). With an encrypted vault, point to the encrypted backup first.
+    const encryptedAvailable = !!(window.MaerminStorage && window.MaerminStorage.exportEncryptedBackup && window.MaerminStorage.isEnabled && window.MaerminStorage.isEnabled());
+    if (encryptedAvailable && typeof window.confirm === 'function' &&
+        !window.confirm((t.backupPlainWarning) || 'This backup file is NOT encrypted — anyone with the file can read all your data (incl. taxpayer name and tax ID).\n\nFor an encrypted copy use Settings → "Backup vault (encrypted)".\n\nCreate the unencrypted backup anyway?')) return;
     // Build the full snapshot via the shared engine (the single source of truth
     // for which keys are data). It stores each key's raw localStorage string,
     // so the backup round-trips EXACTLY what was entered — including positions
@@ -2573,7 +2619,7 @@ function InvestmentTracker() {
       case 'returns':
         return window.MaerminFeatures2 ? React.createElement('div', null,
           React.createElement(window.MaerminFeatures2.ReturnsView, {
-            transactions: activeTransactions, portfolio, prices, priceHistory,
+            transactions: activeTransactions, portfolio, prices, priceHistory, fxAt, exchangeRate,
             theme: currentTheme, formatPrice, getCurrencySymbol, t
           }),
           // Benchmark overlay (α/β/TE/IR/R²) — folds the analytics engine into Returns.
@@ -2744,8 +2790,8 @@ function InvestmentTracker() {
     const sym = getCurrencySymbol();
     const nw      = M ? M.computeNetWorth(portfolioValue) : null;
     const fireM   = (M && nw) ? M.computeFireMetrics(nw.netWorth, fire) : null;
-    const divM    = M ? M.computeExpectedAnnualDividends(portfolio, prices) : null;
-    const healthM = M ? M.healthScore(portfolio, prices, t, { priceHistory, transactions }) : null;
+    const divM    = M ? memoBy('kpiDiv', [portfolio, prices], () => M.computeExpectedAnnualDividends(portfolio, prices)) : null;
+    const healthM = M ? memoBy('kpiHealth', [portfolio, prices, t, priceHistory, transactions], () => M.healthScore(portfolio, prices, t, { priceHistory, transactions })) : null;
 
     const healthColor = (s) => s >= 85 ? '#22c55e' : s >= 70 ? '#84cc16' : s >= 55 ? '#f59e0b' : s >= 40 ? '#f97316' : '#ef4444';
 
@@ -2978,13 +3024,13 @@ function InvestmentTracker() {
     // Transactions and portfolio for chart — filtered by mode
     const overviewTransactions = isAllMode
       ? transactions
-      : transactions.filter(tx => (tx.portfolioId || 'default') === overviewMode);
+      : memoBy('ovTx', [transactions, overviewMode], () => transactions.filter(tx => (tx.portfolioId || 'default') === overviewMode));
 
     // Single-portfolio mode delegates to the shared SSOT (FIFO cost basis) too,
     // so the Overview chart/allocation match "All" mode and the stat cards.
     const overviewPortfolio = isAllMode
       ? allPortfoliosPortfolio
-      : window.MaerminMetrics.buildPositions(overviewTransactions, { exchangeRate, fxAt });
+      : memoBy('ovPf', [overviewTransactions, exchangeRate, fxAt, corpActionsRev], () => window.MaerminMetrics.buildPositions(overviewTransactions, { exchangeRate, fxAt }));
 
     // Worker status → the header's green/red dot + a plain-language explanation
     // (never a silent failure when prices can't be fetched).
@@ -3149,8 +3195,8 @@ function InvestmentTracker() {
       // ── Stats cards (mockup parity: Invested · Total Return · Dividends · Health) ──
       dashVis('statCards') && (() => {
         const M = window.MaerminMetrics;
-        const divOv = M ? M.computeExpectedAnnualDividends(overviewPortfolio, prices) : null;
-        const healthOv = M ? M.healthScore(overviewPortfolio, prices, t, { priceHistory, transactions: overviewTransactions }) : null;
+        const divOv = M ? memoBy('ovDiv', [overviewPortfolio, prices], () => M.computeExpectedAnnualDividends(overviewPortfolio, prices)) : null;
+        const healthOv = M ? memoBy('ovHealth', [overviewPortfolio, prices, t, priceHistory, overviewTransactions], () => M.healthScore(overviewPortfolio, prices, t, { priceHistory, transactions: overviewTransactions })) : null;
         const hColor = (s) => s >= 85 ? '#22c55e' : s >= 70 ? '#84cc16' : s >= 55 ? '#f59e0b' : s >= 40 ? '#f97316' : '#ef4444';
         const hScore = healthOv && !healthOv.empty ? healthOv.score : null;
         return React.createElement('div', {
@@ -3747,13 +3793,18 @@ function InvestmentTracker() {
   const renderTaxView = () => {
     const currentYear = taxYear;
 
-    // Calculate tax data using tax engine if available
-    let taxData = { realizedGains: 0, shortTerm: 0, longTerm: 0, taxLiability: 0 };
-
-    if (typeof window.TaxCalculationEngine !== 'undefined') {
-      const result = window.TaxCalculationEngine.calculateTaxes(transactions, taxJurisdiction, currentYear);
-      taxData = result;
-    }
+    // Build the filing-grade report ONCE and derive the on-screen KPIs from it,
+    // so the screen and the PDF/Excel export can never disagree (the KPIs used
+    // to come from the legacy engine: no FX, crypto taxed like capital income).
+    const buildReport = () => window.MaerminTaxReport && window.MaerminTaxReport.build(transactions, {
+      year: currentYear, jurisdiction: taxJurisdiction, baseCurrency: 'EUR',
+      exchangeRate, fxAt, owner: taxOwner, portfolio, prices
+    });
+    let taxReport = null;
+    try { taxReport = buildReport(); } catch (e) { console.warn('[TAX] report build failed:', e); }
+    const taxData = (window.MaerminTaxReport && window.MaerminTaxReport.kpis)
+      ? window.MaerminTaxReport.kpis(taxReport)
+      : { realizedGains: 0, shortTerm: 0, longTerm: 0, taxLiability: 0 };
 
     // Years that have any transaction, newest first (plus the current year).
     const availableYears = (() => {
@@ -3762,11 +3813,6 @@ function InvestmentTracker() {
       return Array.from(set).filter(y => y > 1990 && y < 2100).sort((a, b) => b - a);
     })();
 
-    // Build the filing-grade report once, reuse for both exporters.
-    const buildReport = () => window.MaerminTaxReport && window.MaerminTaxReport.build(transactions, {
-      year: currentYear, jurisdiction: taxJurisdiction, baseCurrency: 'EUR',
-      exchangeRate, fxAt, owner: taxOwner, portfolio, prices
-    });
     const inputStyle = { padding: '0.5rem 0.75rem', background: currentTheme.inputBg, border: `1px solid ${currentTheme.inputBorder}`, borderRadius: '8px', color: currentTheme.text, fontSize: '0.85rem' };
 
     return React.createElement('div', { style: { padding: '1.5rem' } },
@@ -3790,11 +3836,11 @@ function InvestmentTracker() {
             React.createElement('option', { value: 'us' }, t.usa || 'USA')
           ),
           window.MaerminTaxReport && React.createElement('button', {
-            onClick: () => { const r = buildReport(); if (r) window.MaerminTaxReport.exportPDF(r); },
+            onClick: () => { const r = taxReport || buildReport(); if (r) window.MaerminTaxReport.exportPDF(r); },
             style: { padding: '0.5rem 1rem', background: currentTheme.accent, color: '#ffffff', border: 'none', borderRadius: '8px', cursor: 'pointer', fontWeight: 600 }
           }, t.exportPdf || 'Export PDF'),
           window.MaerminTaxReport && React.createElement('button', {
-            onClick: () => { const r = buildReport(); if (r) window.MaerminTaxReport.exportExcel(r); },
+            onClick: () => { const r = taxReport || buildReport(); if (r) window.MaerminTaxReport.exportExcel(r); },
             style: { padding: '0.5rem 1rem', background: 'rgba(34,197,94,0.15)', color: '#22c55e', border: '1px solid rgba(34,197,94,0.3)', borderRadius: '8px', cursor: 'pointer', fontWeight: 600 }
           }, t.exportExcel || 'Export Excel')
         )
@@ -3891,6 +3937,46 @@ function InvestmentTracker() {
       taxJurisdiction === 'de' && window.MaerminTaxAdvisor && window.MaerminTaxAdvisor.Panel &&
         React.createElement(window.MaerminTaxAdvisor.Panel, {
           transactions, prices, exchangeRate, taxOwner,
+          ...(() => {
+            // Feed the advisor the three German loss pots from the SAME report
+            // the KPIs use: direct shares, funds + other capital income, and
+            // sec. 23 private sales. Funds are identified by the user's fund-
+            // type classification or the X-Ray fund heuristic.
+            const GT = window.TaxCalculationEngine && window.TaxCalculationEngine.GermanTax;
+            const fundTypes = (GT && GT.loadFundTypes) ? GT.loadFundTypes() : {};
+            const LT = window.MaerminLookThrough;
+            const isFund = (sym, name) => {
+              const S = String(sym || '').toUpperCase();
+              if (fundTypes[S] && fundTypes[S] !== 'none') return true;
+              return !!(LT && LT.isFundCandidate && LT.isFundCandidate(S, name));
+            };
+            let stockG = 0, otherG = 0;
+            if (taxReport) {
+              (taxReport.realizedGains || []).concat(taxReport.realizedLosses || []).forEach((d) => {
+                if (d.category !== 'stocks') return;
+                if (isFund(d.symbol)) otherG += d.gain; else stockG += d.gain;
+              });
+              otherG += (taxReport.summary.dividendIncome || 0) + (taxReport.summary.interestIncome || 0);
+            }
+            const g = taxReport && taxReport.summary && taxReport.summary.germanDetail;
+            const book = allPortfoliosPortfolio || portfolio;
+            const positions = ((book && book.stocks) || []).map((p) => {
+              const sym = p.symbol || p.name || '';
+              const px = prices[sym] || prices[String(sym).toLowerCase()] || prices[String(sym).toUpperCase()] || 0;
+              const amount = parseFloat(p.amount) || 0;
+              return { symbol: sym, category: 'stocks', isFund: isFund(sym, p.name),
+                costBasisEUR: amount * (parseFloat(p.purchasePrice) || 0), currentValueEUR: px > 0 ? amount * px : amount * (parseFloat(p.purchasePrice) || 0) };
+            });
+            return {
+              positions,
+              taxData: {
+                realizedStockGainsYTD: stockG,
+                realizedOtherGainsYTD: otherG,
+                realizedCryptoGainsYTD: g && g.crypto ? g.crypto.netShortTermGains : 0,
+                sparerpauschbetragUsed: g ? g.sparerpauschbetragUsed : 0
+              }
+            };
+          })(),
           theme: currentTheme, t, formatPrice, getCurrencySymbol
         }),
 
@@ -3899,7 +3985,7 @@ function InvestmentTracker() {
       // ordered computation. Only relevant for the German jurisdiction.
       taxJurisdiction === 'de' && window.MaerminGermanTaxView && window.MaerminGermanTaxView.Panel &&
         React.createElement(window.MaerminGermanTaxView.Panel, {
-          transactions, portfolio, prices, priceHistory, year: currentYear, exchangeRate,
+          transactions, portfolio, prices, priceHistory, year: currentYear, exchangeRate, fxAt,
           theme: currentTheme, t, formatPrice, getCurrencySymbol
         }),
       // Editable tax parameters (Task 8): rate, Soli, church tax, allowance,
