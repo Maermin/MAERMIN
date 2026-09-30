@@ -296,15 +296,11 @@ function NewsFeedView({ portfolio, transactions, apiKeys, theme, formatPrice }) 
         try {
           if (cat === 'skins') continue; // no news for CS2 skins
           const yfSym = sym.toUpperCase();
-          const rssUrl = `https://feeds.finance.yahoo.com/rss/2.0/headline?s=${encodeURIComponent(yfSym)}&region=US&lang=en-US`;
 
-          let url;
-          if (workerBase) {
-            url = `${workerBase}?action=news&symbol=${encodeURIComponent(yfSym)}`;
-          } else {
-            // Direct fetch may be blocked by CORS — worker recommended
-            url = rssUrl;
-          }
+          // Yahoo's RSS has no CORS headers and isn't in the CSP connect-src, so
+          // a direct fetch can never succeed - only go through the Worker.
+          if (!workerBase) break;
+          const url = `${workerBase}?action=news&symbol=${encodeURIComponent(yfSym)}`;
 
           const res = await fetch(url, { signal: AbortSignal.timeout(5000) });
           if (!res.ok) continue;
@@ -316,7 +312,8 @@ function NewsFeedView({ portfolio, transactions, apiKeys, theme, formatPrice }) 
           const items  = [...doc.querySelectorAll('item')].slice(0, 4);
           items.forEach(item => {
             const title   = item.querySelector('title')?.textContent || '';
-            const link    = item.querySelector('link')?.textContent || '#';
+            const rawLink = item.querySelector('link')?.textContent || '';
+            const link    = window.MaerminUtils && window.MaerminUtils.safeUrl ? window.MaerminUtils.safeUrl(rawLink) : '#';
             const pubDate = item.querySelector('pubDate')?.textContent || '';
             const description = item.querySelector('description')?.textContent || '';
             if (title) allNews.push({ sym: yfSym, name, title, link, pubDate: new Date(pubDate), description });

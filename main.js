@@ -1,977 +1,186 @@
 // ============================================================================
-// MAERMIN v6.0 - Advanced Desktop Portfolio Tracker
-// Main Process with Multi-Window Support, SQLite & Plugin System
-// NOTE: Backups are handled entirely in the renderer (renderer.js createBackup),
-// which exports the real localStorage-backed data to a JSON file.
+// MAERMIN - Electron main process
+// ----------------------------------------------------------------------------
+// The desktop app is a thin, locked-down shell around the same web UI that runs
+// on GitHub Pages. All data lives in the renderer's (encrypted) storage; the
+// renderer never used the old IPC surface (JSON "database", alerts, workspaces,
+// plugin loader, arbitrary-path file import), so it was removed - it only added
+// attack surface (any XSS became a local file read) and crash paths.
+//
+// Hardening:
+//   - contextIsolation + sandbox, no nodeIntegration, minimal preload
+//   - no in-app navigation away from the bundled index.html; http(s) links open
+//     in the system browser, everything else is blocked
+//   - no new BrowserWindows from window.open (except blank print windows)
+//   - permission requests denied except clipboard + notifications
+//   - single instance; window bounds validated against the connected displays
+//   - no globalShortcut (it hijacked Ctrl+R/N/K in every other application)
 // ============================================================================
 
-const { app, BrowserWindow, ipcMain, dialog, Notification, Menu, globalShortcut } = require('electron');
+const { app, BrowserWindow, Menu, dialog, shell, screen, session } = require('electron');
 const path = require('path');
 const fs = require('fs');
 
-// ============================================================================
-// CONFIGURATION
-// ============================================================================
-
-const APP_CONFIG = {
-  name: 'MAERMIN',
-  version: '10.0.0',
-  dataDir: path.join(app.getPath('userData'), 'maermin-data'),
-  pluginDir: path.join(app.getPath('userData'), 'maermin-plugins'),
-  importWatchDir: path.join(app.getPath('documents'), 'MAERMIN-Import')
-};
-
-// Ensure directories exist
-[APP_CONFIG.dataDir, APP_CONFIG.pluginDir, APP_CONFIG.importWatchDir].forEach(dir => {
-  if (!fs.existsSync(dir)) {
-    fs.mkdirSync(dir, { recursive: true });
-  }
-});
-
-// ============================================================================
-// WINDOW MANAGEMENT
-// ============================================================================
+const APP_VERSION = require('./package.json').version;
+const INDEX_URL = require('url').pathToFileURL(path.join(__dirname, 'index.html')).href;
 
 let mainWindow = null;
-const detachedWindows = new Map();
-let workspaces = {};
-let currentWorkspace = 'default';
-let alerts = [];
 
-function createMainWindow() {
-  // Load saved window bounds
-  const boundsFile = path.join(APP_CONFIG.dataDir, 'window-bounds.json');
-  let bounds = { width: 1600, height: 1000 };
-  
-  if (fs.existsSync(boundsFile)) {
-    try {
-      bounds = JSON.parse(fs.readFileSync(boundsFile, 'utf8'));
-    } catch (e) {
-      console.error('Failed to load window bounds:', e);
+// ---- window bounds ----------------------------------------------------------
+function boundsFile() { return path.join(app.getPath('userData'), 'window-bounds.json'); }
+
+function loadBounds() {
+  const fallback = { width: 1600, height: 1000 };
+  try {
+    const b = JSON.parse(fs.readFileSync(boundsFile(), 'utf8'));
+    if (!b || !(b.width > 0) || !(b.height > 0)) return fallback;
+    // Drop a saved position that is no longer on any display (monitor removed).
+    if (typeof b.x === 'number' && typeof b.y === 'number') {
+      const visible = screen.getAllDisplays().some((d) => {
+        const a = d.workArea;
+        return b.x < a.x + a.width && b.x + b.width > a.x && b.y < a.y + a.height && b.y + b.height > a.y;
+      });
+      if (!visible) return { width: b.width, height: b.height };
     }
+    return b;
+  } catch (e) {
+    return fallback;
   }
+}
 
+function saveBounds(win) {
+  try {
+    if (!win || win.isDestroyed()) return;
+    fs.mkdirSync(path.dirname(boundsFile()), { recursive: true });
+    fs.writeFileSync(boundsFile(), JSON.stringify(win.getNormalBounds()));
+  } catch (e) {
+    console.error('[MAERMIN] could not save window bounds:', e.message);
+  }
+}
+
+// ---- navigation guards ------------------------------------------------------
+function isHttpUrl(u) {
+  try { const p = new URL(u).protocol; return p === 'https:' || p === 'http:'; } catch (e) { return false; }
+}
+
+function hardenContents(contents) {
+  // Links with target=_blank / window.open: http(s) goes to the system browser.
+  // about:blank is allowed so the recovery-code "Print" window keeps working.
+  contents.setWindowOpenHandler(({ url }) => {
+    if (url === 'about:blank' || url === '') {
+      return {
+        action: 'allow',
+        overrideBrowserWindowOptions: {
+          webPreferences: { sandbox: true, contextIsolation: true, nodeIntegration: false }
+        }
+      };
+    }
+    if (isHttpUrl(url)) shell.openExternal(url);
+    return { action: 'deny' };
+  });
+  // The app is a single page: never navigate the window itself anywhere else.
+  contents.on('will-navigate', (event, url) => {
+    if (url === INDEX_URL || url.startsWith(INDEX_URL + '?') || url.startsWith(INDEX_URL + '#')) return;
+    event.preventDefault();
+    if (isHttpUrl(url)) shell.openExternal(url);
+  });
+  contents.on('will-attach-webview', (event) => event.preventDefault());
+}
+
+// ---- main window ------------------------------------------------------------
+function createMainWindow() {
+  const bounds = loadBounds();
   mainWindow = new BrowserWindow({
-    width: bounds.width,
-    height: bounds.height,
-    x: bounds.x,
-    y: bounds.y,
-    minWidth: 1200,
-    minHeight: 800,
-    title: `MAERMIN v${APP_CONFIG.version}`,
+    ...bounds,
+    minWidth: 1024,
+    minHeight: 700,
+    title: `MAERMIN v${APP_VERSION}`,
     icon: path.join(__dirname, 'assets', 'icon.png'),
+    backgroundColor: '#080b11',
+    show: false,
     webPreferences: {
       nodeIntegration: false,
       contextIsolation: true,
+      sandbox: true,
+      webviewTag: false,
+      spellcheck: false,
       preload: path.join(__dirname, 'preload.js')
-    },
-    backgroundColor: '#080b11',
-    show: false
+    }
   });
 
   mainWindow.loadFile('index.html');
-
-  // Save window bounds on close
-  mainWindow.on('close', () => {
-    const bounds = mainWindow.getBounds();
-    fs.writeFileSync(boundsFile, JSON.stringify(bounds));
-  });
-
-  mainWindow.once('ready-to-show', () => {
-    mainWindow.show();
-  });
-
-  // Create application menu
-  createApplicationMenu();
-
+  mainWindow.once('ready-to-show', () => mainWindow && mainWindow.show());
+  mainWindow.on('close', () => saveBounds(mainWindow));
+  mainWindow.on('closed', () => { mainWindow = null; });
   return mainWindow;
 }
 
-// ============================================================================
-// DETACHABLE PANELS (Multi-Window)
-// ============================================================================
-
-ipcMain.handle('detach-panel', async (event, panelId, panelConfig) => {
-  const { width, height, title, component } = panelConfig;
-  
-  const detachedWin = new BrowserWindow({
-    width: width || 800,
-    height: height || 600,
-    title: `MAERMIN - ${title || panelId}`,
-    webPreferences: {
-      nodeIntegration: false,
-      contextIsolation: true,
-      preload: path.join(__dirname, 'preload.js')
-    },
-    backgroundColor: '#080b11'
-  });
-
-  detachedWin.loadFile('index.html', {
-    query: { 
-      detached: 'true', 
-      panel: panelId,
-      component: component
-    }
-  });
-
-  detachedWindows.set(panelId, detachedWin);
-
-  detachedWin.on('closed', () => {
-    detachedWindows.delete(panelId);
-    mainWindow?.webContents.send('panel-reattached', panelId);
-  });
-
-  return { success: true, windowId: detachedWin.id };
-});
-
-ipcMain.handle('get-detached-windows', () => {
-  return Array.from(detachedWindows.keys());
-});
-
-ipcMain.handle('close-detached-window', (event, panelId) => {
-  const win = detachedWindows.get(panelId);
-  if (win) {
-    win.close();
-    return true;
-  }
-  return false;
-});
-
-// Sync state between windows
-ipcMain.on('sync-state', (event, state) => {
-  BrowserWindow.getAllWindows().forEach(win => {
-    if (win.webContents.id !== event.sender.id) {
-      win.webContents.send('state-updated', state);
-    }
-  });
-});
-
-// ============================================================================
-// WORKSPACE MANAGEMENT
-// ============================================================================
-
-const workspacesFile = path.join(APP_CONFIG.dataDir, 'workspaces.json');
-
-function loadWorkspaces() {
-  if (fs.existsSync(workspacesFile)) {
-    try {
-      workspaces = JSON.parse(fs.readFileSync(workspacesFile, 'utf8'));
-    } catch (e) {
-      workspaces = createDefaultWorkspaces();
-    }
-  } else {
-    workspaces = createDefaultWorkspaces();
-  }
-}
-
-function createDefaultWorkspaces() {
-  return {
-    'default': {
-      name: 'Default',
-      panels: ['portfolio-summary', 'price-chart', 'watchlist'],
-      layout: { type: 'horizontal', sizes: [40, 35, 25] },
-      filters: {}
-    },
-    'tax-season': {
-      name: 'Tax Season',
-      panels: ['transactions', 'realized-gains', 'tax-report'],
-      layout: { type: 'horizontal', sizes: [30, 40, 30] },
-      filters: { year: new Date().getFullYear() }
-    },
-    'deep-analysis': {
-      name: 'Deep Analysis',
-      panels: ['correlation-matrix', 'monte-carlo', 'risk-analytics', 'stress-test'],
-      layout: { type: 'grid', columns: 2 },
-      filters: {}
-    },
-    'daily-check': {
-      name: 'Daily Check',
-      panels: ['portfolio-summary', 'watchlist', 'alerts'],
-      layout: { type: 'horizontal', sizes: [50, 30, 20] },
-      filters: {}
-    }
-  };
-}
-
-function saveWorkspaces() {
-  fs.writeFileSync(workspacesFile, JSON.stringify(workspaces, null, 2));
-}
-
-ipcMain.handle('get-workspaces', () => workspaces);
-
-ipcMain.handle('save-workspace', (event, workspaceId, config) => {
-  workspaces[workspaceId] = config;
-  saveWorkspaces();
-  return { success: true };
-});
-
-ipcMain.handle('delete-workspace', (event, workspaceId) => {
-  if (workspaceId !== 'default') {
-    delete workspaces[workspaceId];
-    saveWorkspaces();
-    return { success: true };
-  }
-  return { success: false, error: 'Cannot delete default workspace' };
-});
-
-ipcMain.handle('switch-workspace', (event, workspaceId) => {
-  if (workspaces[workspaceId]) {
-    currentWorkspace = workspaceId;
-    return { success: true, workspace: workspaces[workspaceId] };
-  }
-  return { success: false, error: 'Workspace not found' };
-});
-
-// ============================================================================
-// SQLITE DATABASE
-// ============================================================================
-
-let db = null;
-
-function initDatabase() {
-  const dbPath = path.join(APP_CONFIG.dataDir, 'maermin.db');
-  
-  // Using better-sqlite3 would be ideal, but for compatibility we'll use a JSON-based approach
-  // that mimics SQL queries for the renderer process
-  const dbFile = path.join(APP_CONFIG.dataDir, 'database.json');
-  
-  if (fs.existsSync(dbFile)) {
-    try {
-      db = JSON.parse(fs.readFileSync(dbFile, 'utf8'));
-    } catch (e) {
-      db = createEmptyDatabase();
-    }
-  } else {
-    db = createEmptyDatabase();
-  }
-}
-
-function createEmptyDatabase() {
-  return {
-    transactions: [],
-    positions: [],
-    price_history: [],
-    alerts: [],
-    watchlists: [],
-    queries: [],
-    plugins: []
-  };
-}
-
-function saveDatabase() {
-  const dbFile = path.join(APP_CONFIG.dataDir, 'database.json');
-  fs.writeFileSync(dbFile, JSON.stringify(db, null, 2));
-}
-
-ipcMain.handle('db-query', (event, query, params) => {
-  // Simple query parser for common operations
-  const queryLower = query.toLowerCase().trim();
-  
-  try {
-    if (queryLower.startsWith('select')) {
-      return handleSelectQuery(query, params);
-    } else if (queryLower.startsWith('insert')) {
-      return handleInsertQuery(query, params);
-    } else if (queryLower.startsWith('update')) {
-      return handleUpdateQuery(query, params);
-    } else if (queryLower.startsWith('delete')) {
-      return handleDeleteQuery(query, params);
-    }
-    return { success: false, error: 'Unsupported query type' };
-  } catch (e) {
-    return { success: false, error: e.message };
-  }
-});
-
-function handleSelectQuery(query, params) {
-  // Extract table name
-  const tableMatch = query.match(/from\s+(\w+)/i);
-  if (!tableMatch) return { success: false, error: 'Invalid SELECT query' };
-  
-  const table = tableMatch[1];
-  if (!db[table]) return { success: false, error: `Table ${table} not found` };
-  
-  let results = [...db[table]];
-  
-  // Handle WHERE clause
-  const whereMatch = query.match(/where\s+(.+?)(?:order|group|limit|$)/i);
-  if (whereMatch && params) {
-    // Simple filtering based on params
-    results = results.filter(row => {
-      return Object.entries(params).every(([key, value]) => row[key] === value);
-    });
-  }
-  
-  // Handle ORDER BY
-  const orderMatch = query.match(/order\s+by\s+(\w+)\s*(asc|desc)?/i);
-  if (orderMatch) {
-    const orderField = orderMatch[1];
-    const orderDir = (orderMatch[2] || 'asc').toLowerCase();
-    results.sort((a, b) => {
-      if (orderDir === 'desc') return b[orderField] > a[orderField] ? 1 : -1;
-      return a[orderField] > b[orderField] ? 1 : -1;
-    });
-  }
-  
-  // Handle LIMIT
-  const limitMatch = query.match(/limit\s+(\d+)/i);
-  if (limitMatch) {
-    results = results.slice(0, parseInt(limitMatch[1]));
-  }
-  
-  return { success: true, data: results };
-}
-
-function handleInsertQuery(query, params) {
-  const tableMatch = query.match(/into\s+(\w+)/i);
-  if (!tableMatch) return { success: false, error: 'Invalid INSERT query' };
-  
-  const table = tableMatch[1];
-  if (!db[table]) db[table] = [];
-  
-  const newRecord = {
-    id: generateId(),
-    ...params,
-    created_at: new Date().toISOString()
-  };
-  
-  db[table].push(newRecord);
-  saveDatabase();
-  
-  return { success: true, id: newRecord.id };
-}
-
-function handleUpdateQuery(query, params) {
-  const tableMatch = query.match(/update\s+(\w+)/i);
-  if (!tableMatch) return { success: false, error: 'Invalid UPDATE query' };
-  
-  const table = tableMatch[1];
-  if (!db[table]) return { success: false, error: `Table ${table} not found` };
-  
-  const { id, ...updates } = params;
-  const index = db[table].findIndex(r => r.id === id);
-  
-  if (index === -1) return { success: false, error: 'Record not found' };
-  
-  db[table][index] = { ...db[table][index], ...updates, updated_at: new Date().toISOString() };
-  saveDatabase();
-  
-  return { success: true };
-}
-
-function handleDeleteQuery(query, params) {
-  const tableMatch = query.match(/from\s+(\w+)/i);
-  if (!tableMatch) return { success: false, error: 'Invalid DELETE query' };
-  
-  const table = tableMatch[1];
-  if (!db[table]) return { success: false, error: `Table ${table} not found` };
-  
-  const { id } = params;
-  const initialLength = db[table].length;
-  db[table] = db[table].filter(r => r.id !== id);
-  saveDatabase();
-  
-  return { success: true, deleted: initialLength - db[table].length };
-}
-
-ipcMain.handle('db-get-all', (event, table) => {
-  if (!db[table]) return { success: false, error: `Table ${table} not found` };
-  return { success: true, data: db[table] };
-});
-
-ipcMain.handle('db-save-query', (event, queryName, queryText) => {
-  if (!db.queries) db.queries = [];
-  
-  const existingIndex = db.queries.findIndex(q => q.name === queryName);
-  if (existingIndex >= 0) {
-    db.queries[existingIndex].query = queryText;
-    db.queries[existingIndex].updated_at = new Date().toISOString();
-  } else {
-    db.queries.push({
-      id: generateId(),
-      name: queryName,
-      query: queryText,
-      created_at: new Date().toISOString()
-    });
-  }
-  
-  saveDatabase();
-  return { success: true };
-});
-
-ipcMain.handle('db-get-saved-queries', () => {
-  return { success: true, data: db.queries || [] };
-});
-
-// ============================================================================
-// PRICE ALERTS
-// ============================================================================
-
-const alertsFile = path.join(APP_CONFIG.dataDir, 'alerts.json');
-
-function loadAlerts() {
-  if (fs.existsSync(alertsFile)) {
-    try {
-      alerts = JSON.parse(fs.readFileSync(alertsFile, 'utf8'));
-    } catch (e) {
-      alerts = [];
-    }
-  }
-}
-
-function saveAlerts() {
-  fs.writeFileSync(alertsFile, JSON.stringify(alerts, null, 2));
-}
-
-ipcMain.handle('create-alert', (event, alertConfig) => {
-  const alert = {
-    id: generateId(),
-    ...alertConfig,
-    fired: false,
-    created_at: new Date().toISOString()
-  };
-  
-  alerts.push(alert);
-  saveAlerts();
-  
-  return { success: true, alert };
-});
-
-ipcMain.handle('get-alerts', () => {
-  return { success: true, alerts };
-});
-
-ipcMain.handle('delete-alert', (event, alertId) => {
-  alerts = alerts.filter(a => a.id !== alertId);
-  saveAlerts();
-  return { success: true };
-});
-
-ipcMain.handle('check-alerts', (event, currentPrices) => {
-  const triggeredAlerts = [];
-  
-  alerts.forEach(alert => {
-    if (alert.fired) return;
-    
-    const price = currentPrices[alert.symbol];
-    if (!price) return;
-    
-    let triggered = false;
-    
-    switch (alert.condition) {
-      case 'above':
-        triggered = price >= alert.threshold;
-        break;
-      case 'below':
-        triggered = price <= alert.threshold;
-        break;
-      case 'change_percent':
-        const change = ((price - alert.basePrice) / alert.basePrice) * 100;
-        triggered = Math.abs(change) >= alert.threshold;
-        break;
-    }
-    
-    if (triggered) {
-      alert.fired = true;
-      alert.fired_at = new Date().toISOString();
-      alert.triggered_price = price;
-      triggeredAlerts.push(alert);
-      
-      // Show system notification
-      new Notification({
-        title: `MAERMIN Alert: ${alert.symbol}`,
-        body: `${alert.symbol} is now ${price.toFixed(2)} (${alert.condition} ${alert.threshold})`
-      }).show();
-    }
-  });
-  
-  if (triggeredAlerts.length > 0) {
-    saveAlerts();
-  }
-  
-  return { success: true, triggered: triggeredAlerts };
-});
-
-ipcMain.handle('reset-alert', (event, alertId) => {
-  const alert = alerts.find(a => a.id === alertId);
-  if (alert) {
-    alert.fired = false;
-    alert.fired_at = null;
-    alert.triggered_price = null;
-    saveAlerts();
-    return { success: true };
-  }
-  return { success: false, error: 'Alert not found' };
-});
-
-// ============================================================================
-// FILE IMPORT SYSTEM
-// ============================================================================
-
-let fileWatcher = null;
-
-function startFileWatcher() {
-  const watchDir = APP_CONFIG.importWatchDir;
-  
-  // Simple polling-based watcher (cross-platform compatible)
-  let lastFiles = new Set(fs.readdirSync(watchDir));
-  
-  fileWatcher = setInterval(() => {
-    const currentFiles = new Set(fs.readdirSync(watchDir));
-    
-    currentFiles.forEach(file => {
-      if (!lastFiles.has(file)) {
-        const ext = path.extname(file).toLowerCase();
-        if (['.csv', '.xlsx', '.xls'].includes(ext)) {
-          mainWindow?.webContents.send('file-detected', {
-            path: path.join(watchDir, file),
-            name: file,
-            type: ext
-          });
-        }
-      }
-    });
-    
-    lastFiles = currentFiles;
-  }, 2000);
-}
-
-function stopFileWatcher() {
-  if (fileWatcher) {
-    clearInterval(fileWatcher);
-    fileWatcher = null;
-  }
-}
-
-ipcMain.handle('import-file', async (event, filePath) => {
-  const ext = path.extname(filePath).toLowerCase();
-  
-  try {
-    if (ext === '.csv') {
-      const content = fs.readFileSync(filePath, 'utf8');
-      return { success: true, data: parseCSV(content), type: 'csv' };
-    } else if (ext === '.xlsx' || ext === '.xls') {
-      // For Excel files, we'll need to handle in renderer with a library
-      const content = fs.readFileSync(filePath);
-      return { success: true, data: content.toString('base64'), type: 'excel' };
-    } else if (ext === '.json') {
-      const content = fs.readFileSync(filePath, 'utf8');
-      return { success: true, data: JSON.parse(content), type: 'json' };
-    }
-    
-    return { success: false, error: 'Unsupported file type' };
-  } catch (e) {
-    return { success: false, error: e.message };
-  }
-});
-
-ipcMain.handle('select-import-file', async () => {
-  const result = await dialog.showOpenDialog(mainWindow, {
-    title: 'Import Data',
-    filters: [
-      { name: 'Supported Files', extensions: ['csv', 'xlsx', 'xls', 'json'] },
-      { name: 'CSV Files', extensions: ['csv'] },
-      { name: 'Excel Files', extensions: ['xlsx', 'xls'] },
-      { name: 'JSON Files', extensions: ['json'] }
-    ],
-    properties: ['openFile']
-  });
-  
-  if (result.canceled) {
-    return { success: false, canceled: true };
-  }
-  
-  return { success: true, path: result.filePaths[0] };
-});
-
-function parseCSV(content) {
-  const lines = content.trim().split('\n');
-  if (lines.length === 0) return { headers: [], rows: [] };
-  
-  const headers = parseCSVLine(lines[0]);
-  const rows = lines.slice(1).map(line => {
-    const values = parseCSVLine(line);
-    const row = {};
-    headers.forEach((header, i) => {
-      row[header] = values[i] || '';
-    });
-    return row;
-  });
-  
-  return { headers, rows };
-}
-
-function parseCSVLine(line) {
-  const result = [];
-  let current = '';
-  let inQuotes = false;
-  
-  for (let i = 0; i < line.length; i++) {
-    const char = line[i];
-    
-    if (char === '"') {
-      inQuotes = !inQuotes;
-    } else if ((char === ',' || char === ';') && !inQuotes) {
-      result.push(current.trim());
-      current = '';
-    } else {
-      current += char;
-    }
-  }
-  
-  result.push(current.trim());
-  return result;
-}
-
-// ============================================================================
-// EXPORT SYSTEM
-// ============================================================================
-
-ipcMain.handle('export-to-file', async (event, data, format, defaultName) => {
-  const filters = {
-    'csv': { name: 'CSV Files', extensions: ['csv'] },
-    'xlsx': { name: 'Excel Files', extensions: ['xlsx'] },
-    'json': { name: 'JSON Files', extensions: ['json'] },
-    'pdf': { name: 'PDF Files', extensions: ['pdf'] },
-    'md': { name: 'Markdown Files', extensions: ['md'] },
-    'html': { name: 'HTML Files', extensions: ['html'] }
-  };
-  
-  const result = await dialog.showSaveDialog(mainWindow, {
-    title: 'Export Data',
-    defaultPath: defaultName || `maermin-export.${format}`,
-    filters: [filters[format] || { name: 'All Files', extensions: ['*'] }]
-  });
-  
-  if (result.canceled) {
-    return { success: false, canceled: true };
-  }
-  
-  try {
-    fs.writeFileSync(result.filePath, data);
-    return { success: true, path: result.filePath };
-  } catch (e) {
-    return { success: false, error: e.message };
-  }
-});
-
-// ============================================================================
-// PLUGIN SYSTEM
-// ============================================================================
-
-let loadedPlugins = new Map();
-
-function loadPlugins() {
-  const pluginDirs = fs.readdirSync(APP_CONFIG.pluginDir, { withFileTypes: true })
-    .filter(d => d.isDirectory())
-    .map(d => d.name);
-  
-  pluginDirs.forEach(pluginName => {
-    const pluginPath = path.join(APP_CONFIG.pluginDir, pluginName);
-    const manifestPath = path.join(pluginPath, 'manifest.json');
-    
-    if (fs.existsSync(manifestPath)) {
-      try {
-        const manifest = JSON.parse(fs.readFileSync(manifestPath, 'utf8'));
-        loadedPlugins.set(pluginName, {
-          manifest,
-          path: pluginPath,
-          enabled: true
-        });
-        console.log(`[Plugin] Loaded: ${manifest.name} v${manifest.version}`);
-      } catch (e) {
-        console.error(`[Plugin] Failed to load ${pluginName}:`, e);
-      }
-    }
-  });
-}
-
-ipcMain.handle('get-plugins', () => {
-  const plugins = [];
-  loadedPlugins.forEach((plugin, id) => {
-    plugins.push({
-      id,
-      ...plugin.manifest,
-      enabled: plugin.enabled,
-      path: plugin.path
-    });
-  });
-  return { success: true, plugins };
-});
-
-ipcMain.handle('install-plugin', async () => {
-  const result = await dialog.showOpenDialog(mainWindow, {
-    title: 'Install Plugin',
-    filters: [
-      { name: 'MAERMIN Plugin', extensions: ['maermin-plugin', 'zip'] }
-    ],
-    properties: ['openFile']
-  });
-  
-  if (result.canceled) {
-    return { success: false, canceled: true };
-  }
-  
-  // TODO: Implement plugin installation (unzip, validate, copy)
-  return { success: false, error: 'Plugin installation not yet implemented' };
-});
-
-ipcMain.handle('toggle-plugin', (event, pluginId, enabled) => {
-  const plugin = loadedPlugins.get(pluginId);
-  if (plugin) {
-    plugin.enabled = enabled;
-    return { success: true };
-  }
-  return { success: false, error: 'Plugin not found' };
-});
-
-// ============================================================================
-// APPLICATION MENU
-// ============================================================================
-
+// ---- menu ---------------------------------------------------------------------
+// Only standard roles: the web UI already handles its own shortcuts (Ctrl+K,
+// g+key, ...) through keydown listeners, so no accelerators are needed here.
 function createApplicationMenu() {
   const isMac = process.platform === 'darwin';
-  
   const template = [
-    ...(isMac ? [{
-      label: app.name,
-      submenu: [
-        { role: 'about' },
-        { type: 'separator' },
-        { role: 'services' },
-        { type: 'separator' },
-        { role: 'hide' },
-        { role: 'hideOthers' },
-        { role: 'unhide' },
-        { type: 'separator' },
-        { role: 'quit' }
-      ]
-    }] : []),
-    {
-      label: 'File',
-      submenu: [
-        {
-          label: 'Import...',
-          accelerator: 'CmdOrCtrl+I',
-          click: () => mainWindow?.webContents.send('menu-import')
-        },
-        {
-          label: 'Export...',
-          accelerator: 'CmdOrCtrl+E',
-          click: () => mainWindow?.webContents.send('menu-export')
-        },
-        { type: 'separator' },
-        isMac ? { role: 'close' } : { role: 'quit' }
-      ]
-    },
-    {
-      label: 'Edit',
-      submenu: [
-        { role: 'undo' },
-        { role: 'redo' },
-        { type: 'separator' },
-        { role: 'cut' },
-        { role: 'copy' },
-        { role: 'paste' },
-        { role: 'selectAll' }
-      ]
-    },
+    ...(isMac ? [{ role: 'appMenu' }] : []),
+    { label: 'File', submenu: [isMac ? { role: 'close' } : { role: 'quit' }] },
+    { role: 'editMenu' },
     {
       label: 'View',
       submenu: [
-        {
-          label: 'Command Palette',
-          accelerator: 'CmdOrCtrl+K',
-          click: () => mainWindow?.webContents.send('toggle-command-palette')
-        },
-        { type: 'separator' },
-        {
-          label: 'Workspaces',
-          submenu: [
-            {
-              label: 'Default',
-              click: () => mainWindow?.webContents.send('switch-workspace', 'default')
-            },
-            {
-              label: 'Tax Season',
-              click: () => mainWindow?.webContents.send('switch-workspace', 'tax-season')
-            },
-            {
-              label: 'Deep Analysis',
-              click: () => mainWindow?.webContents.send('switch-workspace', 'deep-analysis')
-            },
-            {
-              label: 'Daily Check',
-              click: () => mainWindow?.webContents.send('switch-workspace', 'daily-check')
-            }
-          ]
-        },
-        { type: 'separator' },
         { role: 'reload' },
-        { role: 'forceReload' },
-        { role: 'toggleDevTools' },
+        ...(app.isPackaged ? [] : [{ role: 'toggleDevTools' }]),
         { type: 'separator' },
-        { role: 'resetZoom' },
-        { role: 'zoomIn' },
-        { role: 'zoomOut' },
+        { role: 'resetZoom' }, { role: 'zoomIn' }, { role: 'zoomOut' },
         { type: 'separator' },
         { role: 'togglefullscreen' }
       ]
     },
-    {
-      label: 'Analytics',
-      submenu: [
-        {
-          label: 'Correlation Matrix',
-          click: () => mainWindow?.webContents.send('open-analytics', 'correlation')
-        },
-        {
-          label: 'Monte Carlo Simulation',
-          click: () => mainWindow?.webContents.send('open-analytics', 'montecarlo')
-        },
-        {
-          label: 'Stress Testing',
-          click: () => mainWindow?.webContents.send('open-analytics', 'stress')
-        },
-        { type: 'separator' },
-        {
-          label: 'Risk Analytics',
-          click: () => mainWindow?.webContents.send('open-analytics', 'risk')
-        },
-        {
-          label: 'CS2 Analytics',
-          click: () => mainWindow?.webContents.send('open-analytics', 'cs2')
-        }
-      ]
-    },
-    {
-      label: 'Window',
-      submenu: [
-        { role: 'minimize' },
-        { role: 'zoom' },
-        { type: 'separator' },
-        {
-          label: 'Detach Current Panel',
-          accelerator: 'CmdOrCtrl+Shift+D',
-          click: () => mainWindow?.webContents.send('detach-current-panel')
-        },
-        ...(isMac ? [
-          { type: 'separator' },
-          { role: 'front' }
-        ] : [])
-      ]
-    },
+    { role: 'windowMenu' },
     {
       label: 'Help',
-      submenu: [
-        {
-          label: 'Keyboard Shortcuts',
-          accelerator: 'CmdOrCtrl+/',
-          click: () => mainWindow?.webContents.send('show-shortcuts')
-        },
-        { type: 'separator' },
-        {
-          label: 'About MAERMIN',
-          click: () => {
-            dialog.showMessageBox(mainWindow, {
-              type: 'info',
-              title: 'About MAERMIN',
-              message: `MAERMIN v${APP_CONFIG.version}`,
-              detail: 'Multi-Asset Portfolio Tracker\n\nDesktop-native financial analysis for power users.\n\n© 2025'
-            });
-          }
-        }
-      ]
+      submenu: [{
+        label: 'About MAERMIN',
+        click: () => dialog.showMessageBox(mainWindow, {
+          type: 'info',
+          title: 'About MAERMIN',
+          message: `MAERMIN v${APP_VERSION}`,
+          detail: 'Multi-Asset Portfolio Tracker\n\nAll data stays encrypted on this device.'
+        })
+      }]
     }
   ];
-  
-  const menu = Menu.buildFromTemplate(template);
-  Menu.setApplicationMenu(menu);
+  Menu.setApplicationMenu(Menu.buildFromTemplate(template));
 }
 
-// ============================================================================
-// GLOBAL SHORTCUTS
-// ============================================================================
+// ---- lifecycle ------------------------------------------------------------------
+if (!app.requestSingleInstanceLock()) {
+  // A second instance would open a second window on the same storage and race
+  // the encrypted-store writes. Focus the running one instead.
+  app.quit();
+} else {
+  app.on('second-instance', () => {
+    if (!mainWindow) return;
+    if (mainWindow.isMinimized()) mainWindow.restore();
+    mainWindow.focus();
+  });
 
-function registerGlobalShortcuts() {
-  // Command palette
-  globalShortcut.register('CommandOrControl+K', () => {
-    mainWindow?.webContents.send('toggle-command-palette');
+  app.on('web-contents-created', (_event, contents) => hardenContents(contents));
+
+  app.whenReady().then(() => {
+    // Deny camera/mic/geolocation/etc. WebAuthn (passkeys) does not go through
+    // this handler; notifications + clipboard are what the app actually uses.
+    const allowed = new Set(['notifications', 'clipboard-sanitized-write', 'clipboard-read']);
+    session.defaultSession.setPermissionRequestHandler((_wc, permission, callback) => callback(allowed.has(permission)));
+
+    createApplicationMenu();
+    createMainWindow();
+
+    app.on('activate', () => {
+      if (BrowserWindow.getAllWindows().length === 0) createMainWindow();
+    });
   });
-  
-  // Quick add
-  globalShortcut.register('CommandOrControl+N', () => {
-    mainWindow?.webContents.send('quick-add');
-  });
-  
-  // Refresh prices
-  globalShortcut.register('CommandOrControl+R', () => {
-    mainWindow?.webContents.send('refresh-prices');
+
+  app.on('window-all-closed', () => {
+    if (process.platform !== 'darwin') app.quit();
   });
 }
-
-// ============================================================================
-// UTILITY FUNCTIONS
-// ============================================================================
-
-function generateId() {
-  return `${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
-}
-
-// ============================================================================
-// APP LIFECYCLE
-// ============================================================================
-
-app.whenReady().then(() => {
-  initDatabase();
-  loadWorkspaces();
-  loadAlerts();
-  loadPlugins();
-  
-  createMainWindow();
-  registerGlobalShortcuts();
-  startFileWatcher();
-
-  app.on('activate', () => {
-    if (BrowserWindow.getAllWindows().length === 0) {
-      createMainWindow();
-    }
-  });
-});
-
-app.on('window-all-closed', () => {
-  stopFileWatcher();
-  globalShortcut.unregisterAll();
-  
-  if (process.platform !== 'darwin') {
-    app.quit();
-  }
-});
-
-app.on('will-quit', () => {
-  stopFileWatcher();
-  globalShortcut.unregisterAll();
-});
-
-// ============================================================================
-// IPC: App Info
-// ============================================================================
-
-ipcMain.handle('get-app-info', () => {
-  return {
-    version: APP_CONFIG.version,
-    dataDir: APP_CONFIG.dataDir,
-    pluginDir: APP_CONFIG.pluginDir,
-    importWatchDir: APP_CONFIG.importWatchDir
-  };
-});
-
-ipcMain.handle('get-app-paths', () => {
-  return {
-    userData: app.getPath('userData'),
-    documents: app.getPath('documents'),
-    downloads: app.getPath('downloads')
-  };
-});
-
-console.log('[MAERMIN v' + APP_CONFIG.version + '] Main process initialized');

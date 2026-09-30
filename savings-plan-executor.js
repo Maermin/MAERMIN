@@ -44,7 +44,12 @@
     var n = typeof x === 'number' ? x : parseFloat(x);
     return (typeof n === 'number' && isFinite(n)) ? n : null;
   }
-  function todayISO() { return new Date().toISOString().split('T')[0]; }
+  // LOCAL calendar date (a UTC date is "yesterday" in Europe until 1-2 AM, so
+  // executions due today would be booked a day late / priced as back-dated).
+  function todayISO(d) {
+    d = d || new Date();
+    return d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0');
+  }
 
   // ---- schedule (REUSES MaerminRecurring - calendar-exact) -------------------
   // All occurrences of a plan from startDate up to min(asOf, endDate).
@@ -111,6 +116,27 @@
     };
   }
 
+  // A user who deletes an auto-booked execution means "this one did not
+  // happen" (skipped month, failed debit). Record the due date on the plan so
+  // the idempotent catch-up does not immediately book it again. Pure: returns
+  // { plans, changed }. `deletedTxs` = transaction objects that were removed.
+  function markSkipped(plans, deletedTxs) {
+    var byPlan = {};
+    (deletedTxs || []).forEach(function (tx) {
+      if (isExecution(tx)) (byPlan[tx.planId] || (byPlan[tx.planId] = [])).push(tx.dueDate);
+    });
+    var changed = false;
+    var out = (plans || []).map(function (plan) {
+      var dates = plan && byPlan[plan.id];
+      if (!dates) return plan;
+      var cur = Array.isArray(plan.skippedDates) ? plan.skippedDates.slice() : [];
+      dates.forEach(function (d) { if (cur.indexOf(d) === -1) { cur.push(d); changed = true; } });
+      cur.sort();
+      return Object.assign({}, plan, { skippedDates: cur });
+    });
+    return { plans: out, changed: changed };
+  }
+
   // ---- execution ------------------------------------------------------------------
   // Which due occurrences are not booked yet?
   function pendingExecutions(plans, transactions, asOfISO) {
@@ -119,8 +145,10 @@
     (plans || []).forEach(function (plan) {
       if (!plan || plan.active === false) return;
       if (!(num(plan.amount) > 0) || !plan.symbol) return;
+      var skipped = {};
+      (Array.isArray(plan.skippedDates) ? plan.skippedDates : []).forEach(function (d) { skipped[d] = true; });
       occurrences(plan, asOfISO).forEach(function (occ) {
-        if (!done[plan.id + '|' + occ.date]) out.push({ plan: plan, dueDate: occ.date });
+        if (!done[plan.id + '|' + occ.date] && !skipped[occ.date]) out.push({ plan: plan, dueDate: occ.date });
       });
     });
     return out;
@@ -214,7 +242,10 @@
     var txs = deduped.transactions;
     var pending = [];
     var created = [];
-    var idGen = newId || function (i) { return Date.now().toString() + '-sp' + i; };
+    // Random suffix: two catch-up runs in the same millisecond (or two devices)
+    // must never mint the same id - ids are the identity for delete + sync.
+    var runTag = Math.random().toString(36).slice(2, 8);
+    var idGen = newId || function (i) { return Date.now().toString() + '-sp' + i + '-' + runTag; };
     pendingExecutions(plans, txs, asOfISO).forEach(function (item, i) {
       var resolved = resolvePrice ? resolvePrice(item.plan, item.dueDate) : null;
       var price = resolved, estimated = false;
@@ -271,6 +302,8 @@
     isExecution: isExecution,
     pendingExecutions: pendingExecutions,
     dedupeExecutions: dedupeExecutions,
+    markSkipped: markSkipped,
+    todayISO: todayISO,
     buildTransaction: buildTransaction,
     amountToEUR: amountToEUR,
     priceAtDate: priceAtDate,

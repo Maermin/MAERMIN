@@ -37,7 +37,7 @@ const X = require('../exchange-sync.js');
   ok('binance fee in quote currency kept', bt[0].fees === 0.5 && bt[0].currency === 'EUR');
   ok('binance fee in non-quote asset ignored', bt[1].fees === 0);
   ok('binance USDT quote -> USD', bt[1].currency === 'USD' && bt[1].type === 'sell');
-  ok('binance carries external markers', bt[0].source === 'exchange-sync' && bt[0].exchange === 'binance' && bt[0].externalId === '111');
+  ok('binance carries external markers', bt[0].source === 'exchange-sync' && bt[0].exchange === 'binance' && bt[0].externalId === 'BTCEUR:111');
 
   // ---- Kraken adapter ----
   const krakenRaw = { result: { trades: {

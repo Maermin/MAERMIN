@@ -24,6 +24,21 @@
   function num(v) { var n = parseFloat(v); return isNaN(n) ? 0 : n; }
   function ymd(d) { try { return new Date(d).toISOString().split('T')[0]; } catch (e) { return ''; } }
   function days(a, b) { return Math.floor((new Date(b) - new Date(a)) / 86400000); }
+  // §23 EStG / US long-term: the holding period must EXCEED one year. The
+  // period ends on the anniversary of the acquisition (§§187, 188 BGB; a
+  // 29 Feb purchase ends on 28 Feb), so a sale ON the anniversary is still
+  // short-term and the first long-term / tax-free day is the day after.
+  function oneYearAnniversary(iso) {
+    var s = String(iso || '').slice(0, 10);
+    var y = parseInt(s.slice(0, 4), 10), m = parseInt(s.slice(5, 7), 10), d = parseInt(s.slice(8, 10), 10);
+    if (!(y > 0 && m > 0 && d > 0)) return '';
+    var last = new Date(Date.UTC(y + 1, m, 0)).getUTCDate();
+    return (y + 1) + '-' + String(m).padStart(2, '0') + '-' + String(Math.min(d, last)).padStart(2, '0');
+  }
+  function heldOverOneYear(acquiredISO, disposedISO) {
+    var ann = oneYearAnniversary(acquiredISO);
+    return !!ann && String(disposedISO || '').slice(0, 10) > ann;
+  }
 
   // Convert a per-unit price (or amount) in `cur` into the base currency. When
   // an `fxAt(dateISO)` resolver and a date are supplied, USD uses the rate AT
@@ -55,11 +70,19 @@
       var category = parts[0];
       var symbol = parts[1];
       var lots = []; // open buy lots: { qty, priceBase, date }
-      bySymbol[key].slice().sort(function (a, b) { return new Date(a.date) - new Date(b.date); }).forEach(function (tx) {
+      // Same-day ties: buys before sells (a same-day round trip is otherwise
+      // dropped as an unmatched sell and its buy lingers as an open lot).
+      bySymbol[key].slice().sort(function (a, b) {
+        return (new Date(a.date) - new Date(b.date)) || ((a.type === 'buy' ? 0 : 1) - (b.type === 'buy' ? 0 : 1));
+      }).forEach(function (tx) {
         var qty = num(tx.quantity);
+        if (!(qty > 0)) return;
         var priceBase = toBase(tx.price, tx.currency, rate, tx.date, fxAt);
         if (tx.type === 'buy') {
-          lots.push({ qty: qty, priceBase: priceBase, date: tx.date });
+          // Purchase fees are acquisition costs (Anschaffungsnebenkosten) and
+          // belong in the cost basis, pro rata per unit.
+          var buyFeeBase = toBase(tx.fees, tx.currency, rate, tx.date, fxAt);
+          lots.push({ qty: qty, priceBase: priceBase + (buyFeeBase > 0 ? buyFeeBase / qty : 0), date: tx.date });
           return;
         }
         // sell — match against open lots FIFO. Emit ONE disposal per matched
@@ -79,7 +102,7 @@
         }
         var matchedTotal = matches.reduce(function (s, m) { return s + m.used; }, 0);
         if (matchedTotal <= 0) return;
-        var sellYear = new Date(sellDate).getFullYear();
+        var sellYear = parseInt(ymd(sellDate).slice(0, 4), 10); // no timezone shift
         if (year && sellYear !== year) return; // only disposals in the tax year
         matches.forEach(function (m) {
           var proceeds = m.used * sellPriceBase - totalFeeBase * (m.used / matchedTotal); // fee pro-rated
@@ -89,7 +112,7 @@
             symbol: symbol, category: category,
             quantity: m.used,
             acquisitionDate: ymd(m.lotDate), disposalDate: ymd(sellDate),
-            holdingPeriodDays: hold, longTerm: hold >= 365,
+            holdingPeriodDays: hold, longTerm: heldOverOneYear(m.lotDate, sellDate),
             proceeds: proceeds, costBasis: costBasis, gain: proceeds - costBasis
           });
         });
@@ -539,7 +562,7 @@
     setTimeout(function () { URL.revokeObjectURL(a.href); }, 1000);
   }
 
-  var api = { build: build, fifo: fifo, exportPDF: exportPDF, exportExcel: exportExcel, buildExcelWorkbook: buildExcelWorkbook, _toBase: toBase };
+  var api = { build: build, fifo: fifo, oneYearAnniversary: oneYearAnniversary, heldOverOneYear: heldOverOneYear, exportPDF: exportPDF, exportExcel: exportExcel, buildExcelWorkbook: buildExcelWorkbook, _toBase: toBase };
   if (typeof window !== 'undefined') window.MaerminTaxReport = api;
   if (typeof module !== 'undefined' && module.exports) module.exports = api;
 })();

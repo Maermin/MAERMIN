@@ -343,7 +343,9 @@
       var db = b && b.date ? new Date(b.date).getTime() : 0;
       if (isNaN(da)) da = 0;
       if (isNaN(db)) db = 0;
-      return da - db;
+      // Same-day ties: buys first, so a same-day round trip (or a sell listed
+      // before its buy) doesn't skip the sell and leave a phantom open lot.
+      return (da - db) || ((a && a.type === 'buy' ? 0 : 1) - (b && b.type === 'buy' ? 0 : 1));
     });
     var lots = []; // open buy lots, oldest first: { qty, priceEUR, date }
     sorted.forEach(function (tx) {

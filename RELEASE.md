@@ -4,6 +4,38 @@
 
 > UI fold-in of the v10 engines + accessibility themes + a code-review hardening pass. No data migration; backup format unchanged.
 
+### Security & correctness hardening (review of 2f060dc)
+
+> No manual migration. Existing vaults, backups and sync accounts keep working. Two tax rules change results (see **Tax**).
+
+**Vault & encryption at rest**
+- The plaintext pre-encryption backup (`maermin_preenc_backup`) is deleted once the ciphertext is written, and removed from existing installs on the next unlock.
+- Auto-lock now unmounts the app (no decrypted data left in the DOM or React state) and re-mounts on unlock. Sensitive keys are never written in plaintext while locked, and the final flush runs *before* the key is wiped (writes made just before a lock were lost).
+- Unlock fails closed when stored data can't be decrypted, instead of opening an empty vault that the next write would overwrite. A failed re-encryption during a password change now reports an error. Exchange API credentials are re-encrypted on password change (they became unreadable before).
+
+**Cloud sync**
+- A device without local changes fast-forwards to the remote state: edits and deletions made on another device are no longer reverted/resurrected. Concurrent edits use tombstones and edit stamps (`maermin_tx_meta`) instead of a blind union.
+- HTTP errors (413 blob too large, 429, 5xx) are reported as failures instead of "Synced ✓". The app re-renders after a sync that changed local data, so stale state can't overwrite the merge.
+- Worker: optional `SyncRoom` Durable Object (`SYNC_DO`) makes the revision check atomic; existing KV records are adopted automatically.
+
+**Tax**
+- §23 EStG / US long-term: a lot is long-term (crypto tax-free) only if held **more than one year** — selling on the anniversary is still taxable; 29 Feb purchases end on 28 Feb. Applies to the tax report, the tax engine and the advisor countdown.
+- Buy fees are now part of the cost basis (Anschaffungsnebenkosten). Same-day round trips are realised correctly. Sells from earlier years consume their FIFO lots before the tax year is evaluated, and every lot is classified on its own holding period (was: weighted average).
+
+**Auto-booking**
+- Deleting an auto-booked savings-plan execution or dividend now means "skip this one" instead of being booked again immediately. Auto dividends use the shares held on the payout date, not today's position. Savings-plan history in currencies other than EUR/USD (GBp, CHF, …) is no longer mis-scaled; dates use the local calendar day.
+
+**Imports / exports**
+- CSV import strips the UTF-8 BOM and keeps newlines inside quoted fields. CSV export escapes quotes and neutralises formula-like cells (`=`, `+`, `-`, `@`).
+- Binance live sync works (it called `myTrades` without the required `symbol`); identical fills on the same day are no longer dropped as duplicates.
+- Full backup now includes German fund-tax data, tax settings, TER overrides and risk-monitor thresholds.
+
+**Web / desktop / Worker**
+- No inline scripts; script CSP without `'unsafe-inline'`, CDN sources pinned to the exact SRI-checked packages. RSS links are restricted to http(s).
+- Electron: unused IPC bridge removed (it exposed arbitrary file reads), sandboxed renderer, navigation/window-open guards, single instance, no system-wide shortcuts; Electron 44 / electron-builder 26 (Node ≥ 22.12). Unused `exceljs` dependency removed (`npm audit`: 0 vulnerabilities).
+- Worker CORS uses exact origins (`ALLOWED_ORIGINS` for your own domain), `yf` interval/range are allowlisted, share publishing is throttled. Service worker no longer caches error pages as the offline shell.
+- Platform tool bus: symlink escapes blocked, child processes get a minimal environment, model-issued shell strings disabled by default.
+
 ### Review pass — fixes, optimisations & features
 
 **Fixes**

@@ -39,15 +39,38 @@ const schedule = [
   ok('amount-only row still balances qty×price', (function () { const t = D.buildTransaction({ symbol: 'ABC', date: '2026-02-02', amount: 12.5, currency: 'USD', past: true }); return near(t.quantity * t.price, 12.5); })());
 
   // ---- runCatchUp books pending, is idempotent ----
-  const r1 = D.runCatchUp(schedule, [], 'default', 1000);
+  // Holdings the payouts are paid on (runCatchUp books at the shares held on
+  // each payout date, not the current position).
+  const holdings = [
+    { id: 'b1', type: 'buy', symbol: 'KO', quantity: 100, price: 60, date: '2025-12-01', portfolioId: 'default' },
+    { id: 'b2', type: 'buy', symbol: 'SAP.DE', quantity: 10, price: 200, date: '2025-12-01', portfolioId: 'default' },
+    { id: 'b3', type: 'buy', symbol: 'KO', quantity: 100, price: 60, date: '2025-12-01', portfolioId: 'p2' },
+    { id: 'b4', type: 'buy', symbol: 'SAP.DE', quantity: 10, price: 200, date: '2025-12-01', portfolioId: 'p2' }
+  ];
+  const r1 = D.runCatchUp(schedule, holdings, 'default', 1000);
   ok('runCatchUp books the two past payouts', r1.created.length === 2);
-  ok('runCatchUp appends to transactions', r1.transactions.length === 2);
+  ok('runCatchUp appends to transactions', r1.transactions.length === holdings.length + 2);
   const r2 = D.runCatchUp(schedule, r1.transactions, 'default', 2000);
-  ok('runCatchUp is idempotent (no double-book)', r2.created.length === 0 && r2.transactions.length === 2);
+  ok('runCatchUp is idempotent (no double-book)', r2.created.length === 0 && r2.transactions.length === holdings.length + 2);
 
   // ---- per-portfolio isolation ----
   const r3 = D.runCatchUp(schedule, r1.transactions, 'p2', 3000);
   ok('a different portfolio books its own', r3.created.length === 2);
+
+  // ---- historic share count ----
+  const late = [
+    { id: 'c1', type: 'buy', symbol: 'KO', quantity: 20, price: 60, date: '2026-01-10' },
+    { id: 'c2', type: 'buy', symbol: 'KO', quantity: 80, price: 60, date: '2026-04-01' } // after the March payout
+  ];
+  const r4 = D.runCatchUp(schedule, late, 'default', 4000);
+  const ko = r4.created.find(t => t.symbol === 'KO');
+  ok('dividend uses shares held on the payout date (20, not 100)', ko && near(ko.quantity, 20) && near(ko.quantity * ko.price, 20 * 0.485));
+  ok('no dividend for a position not held yet', !r4.created.some(t => t.symbol === 'SAP.DE'));
+  ok('sharesAt nets sells', D.sharesAt([{ type: 'buy', symbol: 'KO', quantity: 5, date: '2026-01-01' }, { type: 'sell', symbol: 'KO', quantity: 2, date: '2026-01-02' }], 'ko', '2026-02-01', 'default') === 3);
+
+  // ---- deleted auto-dividends stay deleted ----
+  const r5 = D.runCatchUp(schedule, holdings, 'default', 5000, ['KO|2026-03-15|default']);
+  ok('skipped marker is not re-booked', r5.created.length === 1 && r5.created[0].symbol === 'SAP.DE');
 
   // ---- isAuto only matches auto dividends ----
   ok('isAuto true for an auto row', D.isAuto(r1.created[0]) === true);

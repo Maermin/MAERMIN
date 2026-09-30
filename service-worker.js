@@ -18,7 +18,7 @@
  * ========================================================================== */
 'use strict';
 
-var VERSION = 'maermin-v5';
+var VERSION = 'maermin-v6';
 var SHELL_CACHE = VERSION + '-shell';
 var RUNTIME_CACHE = VERSION + '-runtime';
 
@@ -84,8 +84,12 @@ self.addEventListener('fetch', function (event) {
   if (req.mode === 'navigate') {
     event.respondWith(
       fetch(req).then(function (res) {
-        var copy = res.clone();
-        caches.open(SHELL_CACHE).then(function (c) { c.put('index.html', copy); });
+        // Only a successful page may replace the offline shell - caching a
+        // 404/5xx here would break the next offline start.
+        if (res && res.ok && res.type === 'basic') {
+          var copy = res.clone();
+          caches.open(SHELL_CACHE).then(function (c) { c.put('index.html', copy); });
+        }
         return res;
       }).catch(function () {
         return caches.match('index.html').then(function (m) { return m || caches.match('.'); });

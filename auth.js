@@ -26,6 +26,7 @@
   var _resolveUnlock;
   var _unlockedPromise = new Promise(function (res) { _resolveUnlock = res; });
   var _everUnlocked = false;
+  var _unlockListeners = [];
 
   // ─────────────────────────────────────────────────────────────────────────
   // Styles (shared by setup / unlock / lock)
@@ -281,6 +282,7 @@
   function finishUnlock() {
     _everUnlocked = true;
     _resolveUnlock(true);
+    _unlockListeners.forEach(function (cb) { try { cb(); } catch (e) {} });
     var overlay = document.getElementById('maermin-auth');
     if (overlay) {
       overlay.style.transition = 'opacity 0.4s ease-out';
@@ -354,6 +356,7 @@
 
     Vault.unlockWithRecovery(code)
       .then(function () { return Storage ? Storage.resume() : null; })
+      .then(function (ok) { if (Storage && Storage.isEnabled() && ok === false) { Vault.lock(); throw new Error('decrypt-failed'); } })
       .then(function () { audit('vault.unlock.recovery', 'unlocked with recovery code'); finishUnlock(); })
       .catch(function (e) {
         input.classList.add('error');
@@ -371,6 +374,7 @@
 
     Vault.unlock(pw)
       .then(function () { return Storage ? Storage.resume() : null; })
+      .then(function (ok) { if (Storage && Storage.isEnabled() && ok === false) { Vault.lock(); throw new Error('decrypt-failed'); } })
       .then(function () { audit('vault.unlock', 'unlocked with password'); finishUnlock(); })
       .catch(function (e) {
         input.classList.add('error');
@@ -384,6 +388,7 @@
     setError(''); setLoading(true);
     Vault.unlockWithPasskey()
       .then(function () { return Storage ? Storage.resume() : null; })
+      .then(function (ok) { if (Storage && Storage.isEnabled() && ok === false) { Vault.lock(); throw new Error('decrypt-failed'); } })
       .then(function () { audit('vault.unlock.passkey', 'unlocked with passkey'); finishUnlock(); })
       .catch(function () { setError('Passkey unlock failed. Use your password.'); setLoading(false); });
   }
@@ -454,6 +459,8 @@
   window.MaerminAuth = {
     /** App mount gate — resolves once the vault is unlocked. */
     whenUnlocked: function () { return _unlockedPromise; },
+    /** Called after EVERY successful unlock (incl. re-unlock after auto-lock). */
+    onUnlock: function (cb) { if (typeof cb === 'function') _unlockListeners.push(cb); },
     isUnlocked: function () { return !!(Vault && Vault.isUnlocked()); },
     /** Lock now (wipes key, re-shows unlock screen via onLock). */
     lock: function () { if (Vault) Vault.lock(); },
@@ -461,9 +468,20 @@
     logout: function () { if (Vault) Vault.lock(); window.location.reload(); },
     /** Change the access password and re-encrypt the data blob under the new key. */
     changePassword: function (oldPw, newPw) {
-      return Vault.changePassword(oldPw, newPw).then(function () {
-        audit('vault.password.change', 'access password changed');
-        return Storage && Storage.isEnabled() ? Storage.rekey() : true;
+      // Exchange API credentials are encrypted directly with the vault key;
+      // capture them under the old key so they can be re-wrapped afterwards.
+      var EX = window.MaerminExchangeSync;
+      var credsP = (EX && EX.exportAllCredentials && Vault.isUnlocked()) ? EX.exportAllCredentials() : Promise.resolve({});
+      return credsP.then(function (creds) {
+        return Vault.changePassword(oldPw, newPw).then(function () {
+          audit('vault.password.change', 'access password changed');
+          var dataP = (Storage && Storage.isEnabled())
+            ? Storage.rekey().then(function (ok) { if (ok === false) throw new Error('rekey-failed'); })
+            : Promise.resolve();
+          return dataP.then(function () {
+            return (EX && EX.importAllCredentials && Object.keys(creds).length) ? EX.importAllCredentials(creds) : true;
+          }).then(function () { return true; });
+        });
       });
     },
     /** Enroll a platform passkey (Touch ID / Hello) for password-less unlock. */

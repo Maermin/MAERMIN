@@ -345,8 +345,8 @@ function SavingsPlanView({ transactions, theme, formatPrice, getCurrencySymbol, 
       // Next due date from the calendar schedule (null once completed).
       let nextDate = null;
       if (status === 'active' && EX) {
-        const horizon = EX.occurrences({ ...plan, endDate: plan.endDate }, new Date(Date.now() + 400 * 86400000).toISOString().split('T')[0]);
-        const todayIso = new Date().toISOString().split('T')[0];
+        const horizon = EX.occurrences({ ...plan, endDate: plan.endDate }, window.MaerminUtils.todayISO(new Date(Date.now() + 400 * 86400000)));
+        const todayIso = window.MaerminUtils.todayISO();
         const next = horizon.find(o => o.date > todayIso);
         if (next) nextDate = new Date(next.date);
       }

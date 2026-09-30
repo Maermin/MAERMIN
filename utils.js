@@ -149,6 +149,18 @@
     return d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0');
   }
 
+  // Only http(s) links may reach an href. Third-party content (RSS feeds,
+  // API payloads) can carry `javascript:`/`data:` URLs, which React 18 still
+  // renders and the CSP ('unsafe-inline') would let execute on click.
+  function safeUrl(raw, fallback) {
+    const fb = fallback === undefined ? '#' : fallback;
+    if (typeof raw !== 'string') return fb;
+    const s = raw.trim();
+    if (!/^https?:\/\//i.test(s)) return fb;
+    try { const u = new URL(s); return (u.protocol === 'https:' || u.protocol === 'http:') ? u.href : fb; }
+    catch (e) { return fb; }
+  }
+
   const MaerminUtils = {
     formatNumber,
     formatCurrencyEUR,
@@ -163,6 +175,7 @@
     safeParse,
     parseDecimal,
     todayISO,
+    safeUrl,
   };
 
   if (typeof window !== 'undefined') {

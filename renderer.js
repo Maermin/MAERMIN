@@ -371,7 +371,7 @@ function InvestmentTracker() {
   const savingsCatchUp = React.useRef({ pendingToasted: false });
   useEffect(() => {
     const EX = window.MaerminSavingsExecutor;
-    if (!EX) return;
+    if (!EX || demoMode) return; // never book the user's plans into demo data
     const havePrices = Object.keys(prices).length > 0;
     try {
       const plans = JSON.parse(localStorage.getItem(EX.PLANS_KEY) || '[]');
@@ -407,7 +407,7 @@ function InvestmentTracker() {
         addToast(`${out.pending.length} savings-plan execution(s) pending - no price for the symbol yet`, 'warning');
       }
     } catch (e) { console.warn('[SAVINGS] catch-up failed:', e); }
-  }, [prices, transactions, priceHistory, savingsHistory, exchangeRate]);
+  }, [prices, transactions, priceHistory, savingsHistory, exchangeRate, demoMode]);
 
   // WI-2: interest accrual catch-up for cash / time-deposit Net-Worth accounts.
   // On app open, grow each interest-bearing account's balance (act/365) and book
@@ -444,7 +444,7 @@ function InvestmentTracker() {
     if (!EX || !DS) { if (announce) addToast('Dividend engine not loaded', 'warning'); return; }
     try {
       const sched = DS.buildPaymentSchedule(portfolio, { back: 12, months: 0 });
-      const out = EX.runCatchUp(sched, transactions, activePortfolioId);
+      const out = EX.runCatchUp(sched, transactions, activePortfolioId, undefined, EX.loadSkipped ? EX.loadSkipped() : []);
       if (out.created.length) { setTransactions(out.transactions); addToast(`${out.created.length} ${t.divBookedToast || 'dividend(s) booked (estimated)'}`, 'success'); }
       else if (announce) { addToast(t.divNoneToBook || 'No new dividends to book', 'info'); }
     } catch (e) { console.warn('[DIV] booking failed:', e); }
@@ -462,7 +462,7 @@ function InvestmentTracker() {
     if (!EX || !DS) return;
     try {
       const sched = DS.buildPaymentSchedule(portfolio, { back: 12, months: 0 });
-      const out = EX.runCatchUp(sched, transactions, activePortfolioId);
+      const out = EX.runCatchUp(sched, transactions, activePortfolioId, undefined, EX.loadSkipped ? EX.loadSkipped() : []);
       if (out.created.length) { setTransactions(out.transactions); addToast(`${out.created.length} ${t.divAutoBookedToast || 'dividend(s) auto-booked (estimated)'}`, 'success'); }
     } catch (e) { /* best-effort */ }
   }, [divAutoBook, transactions, portfolio, activePortfolioId, demoMode]);
@@ -506,7 +506,7 @@ function InvestmentTracker() {
   // back-dated buy be priced on ITS OWN day, and lets earlier estimated buys be
   // repriced to the real close. The latest point also seeds the live price map
   // so unheld plan assets get a current price. Fetched once per symbol/span set.
-  const savingsHistFetch = React.useRef('');
+  const savingsHistFetch = React.useRef({ sig: '', complete: false, at: 0 });
   useEffect(() => {
     const EX = window.MaerminSavingsExecutor;
     if (!EX) return;
@@ -526,8 +526,10 @@ function InvestmentTracker() {
     const syms = Object.values(bySym);
     if (!syms.length) return;
     const sig = syms.map(s => s.category + ':' + s.symbol + ':' + s.start).sort().join('|');
-    if (savingsHistFetch.current === sig) return;
-    savingsHistFetch.current = sig;
+    const last = savingsHistFetch.current;
+    // Same symbol set: done if complete; otherwise retry at most every 10 min.
+    if (last.sig === sig && (last.complete || Date.now() - last.at < 10 * 60 * 1000)) return;
+    savingsHistFetch.current = { sig, complete: false, at: Date.now() };
 
     (async () => {
       const histAdd = {}, priceAdd = {};
@@ -556,7 +558,12 @@ function InvestmentTracker() {
             const res = await fetch(url, { signal: AbortSignal.timeout(10000) });
             if (res.ok) {
               const data = await res.json();
-              const rate = data.currency === 'EUR' ? 1 : (exchangeRate || 0.92);
+              // Only EUR and USD can be converted here. Any other quote currency
+              // (GBp pence, CHF, JPY, ...) would be mis-scaled by the USD rate and
+              // book wildly wrong quantities - leave those occurrences pending.
+              const cur = data.currency || 'USD';
+              const rate = cur === 'EUR' ? 1 : cur === 'USD' ? (exchangeRate || 0.92) : null;
+              if (rate == null) { console.warn('[SAVINGS] unsupported quote currency', cur, 'for', sym); continue; }
               series = (data.prices || [])
                 .filter(r => r && typeof r.price === 'number' && r.price > 0)
                 .map(r => ({ timestamp: r.date || r.timestamp, price: r.price * rate }));
@@ -570,6 +577,9 @@ function InvestmentTracker() {
           }
         } catch (e) { console.warn('[SAVINGS] history fetch failed for', s.symbol, e && e.message); }
       }
+      // Allow a retry on the next price refresh if nothing could be fetched
+      // (offline, rate-limited) instead of pinning the signature forever.
+      if (savingsHistFetch.current.sig === sig) savingsHistFetch.current.complete = Object.keys(histAdd).length >= syms.length;
       if (Object.keys(histAdd).length) setSavingsHistory(prev => ({ ...prev, ...histAdd }));
       if (Object.keys(priceAdd).length) setPrices(prev => ({ ...prev, ...priceAdd }));
     })();
@@ -794,7 +804,38 @@ function InvestmentTracker() {
   useEffect(() => { window.MaerminPrefs.set('currency', currency); }, [currency]);
   // Demo mode is read-only over the user's data: never write sample transactions
   // back to the real 'transactions' key.
-  useEffect(() => { if (!demoMode) localStorage.setItem('transactions', JSON.stringify(transactions)); }, [transactions, demoMode]);
+  // Track deletions/edits for conflict-free cloud sync (tombstones + edit
+  // stamps, see sync-engine trackTxChanges). The first run of a mount only
+  // seeds the baseline, so a remount never stamps anything.
+  const txTrackRef = useRef(null);
+  useEffect(() => {
+    if (demoMode) { txTrackRef.current = null; return; }
+    localStorage.setItem('transactions', JSON.stringify(transactions));
+    const S = window.MaerminSync;
+    if (!S || !S.trackTxChanges) return;
+    try {
+      const prevMap = txTrackRef.current;
+      const res = S.trackTxChanges(prevMap, transactions, localStorage.getItem(S.TX_META_KEY));
+      txTrackRef.current = res.map;
+      // A deleted savings-plan auto-execution means "skip that due date" -
+      // otherwise the idempotent catch-up would book it again immediately.
+      const EX = window.MaerminSavingsExecutor;
+      if (prevMap && EX && EX.markSkipped) {
+        const gone = Object.keys(prevMap).filter((id) => res.map[id] === undefined)
+          .map((id) => { try { return JSON.parse(prevMap[id]); } catch (e) { return null; } })
+          .filter(Boolean);
+        if (gone.length) {
+          const plans = window.MaerminUtils.safeParse(localStorage.getItem(EX.PLANS_KEY), []) || [];
+          const sk = EX.markSkipped(plans, gone);
+          if (sk.changed) localStorage.setItem(EX.PLANS_KEY, JSON.stringify(sk.plans));
+          // Same for auto-booked dividends.
+          const DX = window.MaerminDividendExecutor;
+          if (DX && DX.markSkipped) DX.markSkipped(gone);
+        }
+      }
+      if (res.changed) localStorage.setItem(S.TX_META_KEY, JSON.stringify(res.meta));
+    } catch (e) { console.warn('[sync] change tracking failed:', e); }
+  }, [transactions, demoMode]);
   // Quota-safe priceHistory persistence. Per-symbol points are already capped at
   // 100; here we also drop the oldest half if localStorage rejects the write
   // (QuotaExceededError) so the app never crashes on a full store.
@@ -1576,9 +1617,10 @@ function InvestmentTracker() {
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
     a.href = url;
-    a.download = `maermin-backup-${new Date().toISOString().split('T')[0]}.json`;
+    a.download = `maermin-backup-${window.MaerminUtils.todayISO()}.json`;
     a.click();
-    URL.revokeObjectURL(url);
+    // Revoking synchronously can cancel the download in Firefox/Safari.
+    setTimeout(() => URL.revokeObjectURL(url), 1000);
 
     if (window.MaerminAuditLog) window.MaerminAuditLog.record('data.export', `Full backup (${transactions.length} transactions, ${Object.keys(backupData.store).length} data keys)`);
     // Record the backup so the reminder engine stops nudging until it goes stale.
@@ -1595,9 +1637,9 @@ function InvestmentTracker() {
       const url = URL.createObjectURL(blob);
       const a = document.createElement('a');
       a.href = url;
-      a.download = `maermin-export-${new Date().toISOString().split('T')[0]}.csv`;
+      a.download = `maermin-export-${window.MaerminUtils.todayISO()}.csv`;
       a.click();
-      URL.revokeObjectURL(url);
+      setTimeout(() => URL.revokeObjectURL(url), 1000);
       if (window.MaerminAuditLog) window.MaerminAuditLog.record('data.export', `CSV export (${transactions.length} transactions)`);
       addToast(t.exportSuccess || 'Export successful', 'success');
     }
@@ -5245,11 +5287,41 @@ buy,crypto,bitcoin,0.5,45000,2024-01-15,10`)
 // ============================================================================
 
 const root = ReactDOM.createRoot(document.getElementById('root'));
+let __maerminMountKey = 0;
+let __maerminMounted = false;
+function __maerminRender() {
+  __maerminMountKey += 1;
+  __maerminMounted = true;
+  root.render(React.createElement(InvestmentTracker, { key: 'app-' + __maerminMountKey }));
+}
+function __maerminUnmount() {
+  if (!__maerminMounted) return;
+  __maerminMounted = false;
+  root.render(null);
+  // Drop cached market data that reveals holdings; it is re-read on unlock.
+  try { if (window.MaerminMarket) { window.MaerminMarket.set('priceHistory', {}); window.MaerminMarket.set('prices', {}); } } catch (e) {}
+}
+let __maerminHooksBound = false;
+function __maerminBindLifecycle() {
+  if (__maerminHooksBound) return;
+  __maerminHooksBound = true;
+  try { if (window.MaerminVault && window.MaerminVault.onLock) window.MaerminVault.onLock(__maerminUnmount); } catch (e) {}
+  try { if (window.MaerminAuth && window.MaerminAuth.onUnlock) window.MaerminAuth.onUnlock(() => { if (!__maerminMounted) __maerminRender(); }); } catch (e) {}
+  try {
+    if (window.MaerminSync && window.MaerminSync.onChange) {
+      window.MaerminSync.onChange((ev) => {
+        const r = ev && ev.type === 'done' && ev.result;
+        if (r && __maerminMounted && r.appliedLocal) __maerminRender();
+      });
+    }
+  } catch (e) {}
+}
 function __maerminMount() {
   // Bring saved data up to the current schema BEFORE the app reads it (runs
   // post-unlock, so encrypted data is already hydrated and readable).
   try { if (window.MaerminMigrations) window.MaerminMigrations.run(); } catch (e) { console.error('[migrations]', e); }
-  root.render(React.createElement(InvestmentTracker));
+  __maerminBindLifecycle();
+  __maerminRender();
   dbg('[MAERMIN v10.0] Application initialized');
 }
 // Wait for the vault to be unlocked before mounting, so the app reads DECRYPTED

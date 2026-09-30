@@ -93,7 +93,8 @@
         if (!pr.base || !pr.quote) return;
         var fee = (str(tr.commissionAsset).toUpperCase() === pr.quote) ? num(tr.commission) : 0;
         out.push(tx(pr.base, tr.isBuyer ? 'buy' : 'sell', tr.qty, tr.price, fee, quoteCurrency(pr.quote),
-          new Date(num(tr.time)).toISOString(), 'binance', tr.id));
+          // Binance trade ids are only unique PER SYMBOL - qualify them.
+          new Date(num(tr.time)).toISOString(), 'binance', str(tr.symbol).toUpperCase() + ':' + str(tr.id)));
       });
       return out;
     },
@@ -157,14 +158,18 @@
     var extSet = {}, daySet = {};
     existing.forEach(function (t) {
       if (t.externalId) extSet[externalKey(t)] = true;
-      daySet[sameDayKey(t)] = true;
+      // The same-day fallback only matches rows WITHOUT an exchange id (CSV /
+      // manual entries of the same trade). Two synced fills with identical
+      // symbol/qty/price on one day are distinct trades and must both import.
+      else daySet[sameDayKey(t)] = true;
     });
     var unique = [], dropped = 0;
     (Array.isArray(candidates) ? candidates : []).forEach(function (c) {
       var ek = externalKey(c);
-      if ((c.externalId && extSet[ek]) || daySet[sameDayKey(c)]) { dropped++; return; }
-      // guard against duplicates WITHIN the same batch too
-      extSet[ek] = true; daySet[sameDayKey(c)] = true;
+      if (c.externalId ? extSet[ek] : false) { dropped++; return; }
+      if (daySet[sameDayKey(c)]) { dropped++; delete daySet[sameDayKey(c)]; return; } // one manual row absorbs one fill
+      if (c.externalId) extSet[ek] = true; // guard against duplicates WITHIN the batch
+      else daySet[sameDayKey(c)] = true;
       unique.push(c);
     });
     return { unique: unique, dropped: dropped };
@@ -249,6 +254,30 @@
     if (!rawEnv) return Promise.resolve(null);
     return window.MaerminVault.decryptJSON(rawEnv);
   }
+  // Password change support: credentials are encrypted directly with the vault
+  // key (not via storage.js), so they must be decrypted with the OLD key and
+  // re-encrypted with the NEW one, or they become unreadable. Resolves
+  // { connId: creds } for every stored connection (vault must be unlocked).
+  function credentialIds() {
+    var ids = [];
+    try {
+      for (var i = 0; i < localStorage.length; i++) {
+        var k = localStorage.key(i);
+        if (k && k.indexOf(VAULT_PREFIX) === 0) ids.push(k.slice(VAULT_PREFIX.length));
+      }
+    } catch (e) { /* no storage */ }
+    return ids;
+  }
+  function exportAllCredentials() {
+    var out = {};
+    return Promise.all(credentialIds().map(function (id) {
+      return loadCredentials(id).then(function (c) { if (c) out[id] = c; }, function () { /* unreadable: skip */ });
+    })).then(function () { return out; });
+  }
+  function importAllCredentials(map) {
+    return Promise.all(Object.keys(map || {}).map(function (id) { return storeCredentials(id, map[id]); }))
+      .then(function () { return true; });
+  }
   function removeCredentials(connId) {
     try { localStorage.removeItem(VAULT_PREFIX + connId); } catch (e) { /* non-fatal */ }
   }
@@ -270,14 +299,37 @@
   // pull. The secret is used only to compute the signature here; it is never put
   // in the relayed body. Supported live: Binance (HMAC query), Bitpanda (Bearer
   // header, no signing). Returns a Promise<{ method, url, headers }>.
+  // Binance signed GET for `path` with extra query params (signature last).
+  function binanceSigned(creds, path, params) {
+    var qs = (params ? params + '&' : '') + 'timestamp=' + Date.now() + '&recvWindow=60000';
+    return hmacSha256Hex(creds.apiSecret, qs).then(function (sig) {
+      return { method: 'GET', url: 'https://api.binance.com' + path + '?' + qs + '&signature=' + sig, headers: { 'X-MBX-APIKEY': creds.apiKey } };
+    });
+  }
+  // /api/v3/myTrades REQUIRES `symbol`, so the pull enumerates candidate pairs:
+  // every asset with a balance or already held/traded as crypto, against the
+  // quotes this importer understands. Pure + exported for tests.
+  var BINANCE_QUOTES = ['EUR', 'USDT', 'USDC'];
+  var BINANCE_MAX_PAIRS = 60;
+  function binanceCandidatePairs(balances, existing) {
+    var assets = {};
+    (Array.isArray(balances) ? balances : []).forEach(function (b) {
+      if (b && (num(b.free) > 0 || num(b.locked) > 0)) assets[str(b.asset).toUpperCase()] = true;
+    });
+    (Array.isArray(existing) ? existing : []).forEach(function (t) {
+      if (t && t.category === 'crypto' && t.symbol) assets[str(t.symbol).toUpperCase()] = true;
+    });
+    var pairs = [];
+    Object.keys(assets).sort().forEach(function (a) {
+      if (!/^[A-Z0-9]{2,15}$/.test(a) || BINANCE_QUOTES.indexOf(a) > -1) return;
+      BINANCE_QUOTES.forEach(function (q) { pairs.push(a + q); });
+    });
+    return pairs.slice(0, BINANCE_MAX_PAIRS);
+  }
+
   function buildSignedRequest(exchange, creds) {
-    var key = creds && creds.apiKey, secret = creds && creds.apiSecret;
-    if (exchange === 'binance') {
-      var qs = 'timestamp=' + Date.now() + '&recvWindow=60000';
-      return hmacSha256Hex(secret, qs).then(function (sig) {
-        return { method: 'GET', url: 'https://api.binance.com/api/v3/myTrades?' + qs + '&signature=' + sig, headers: { 'X-MBX-APIKEY': key } };
-      });
-    }
+    var key = creds && creds.apiKey;
+    if (exchange === 'binance') return binanceSigned(creds, '/api/v3/account', 'omitZeroBalances=true');
     if (exchange === 'bitpanda') {
       return Promise.resolve({ method: 'GET', url: 'https://api.bitpanda.com/v1/trades', headers: { 'X-API-KEY': key } });
     }
@@ -294,18 +346,42 @@
     if (!conn || !EXCHANGES[conn.exchange]) return Promise.reject(new Error('Unknown connection'));
     if (!ctx.workerUrl) return Promise.reject(new Error('A Worker URL is required to relay the request'));
     if (!fetchImpl) return Promise.reject(new Error('fetch unavailable'));
-    return loadCredentials(conn.id).then(function (creds) {
-      if (!creds || !creds.apiKey || !creds.apiSecret) throw new Error('No stored credentials for this connection');
-      return buildSignedRequest(conn.exchange, creds);
-    }).then(function (spec) {
-      var base = String(ctx.workerUrl).replace(/\/$/, '');
+    var base = String(ctx.workerUrl).replace(/\/$/, '');
+    function relay(spec) {
       return fetchImpl(base + (base.indexOf('?') > -1 ? '&' : '?') + 'action=brokerproxy', {
         method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(spec)
+      }).then(function (r) { return r.json(); }).then(function (resp) {
+        if (!resp || resp.error) throw new Error((resp && resp.error) || 'Relay failed');
+        return resp;
       });
-    }).then(function (r) { return r.json(); }).then(function (resp) {
-      if (!resp || resp.error) throw new Error((resp && resp.error) || 'Relay failed');
+    }
+    function checked(resp) {
       if (resp.ok === false || (resp.status && resp.status >= 400)) throw new Error('Exchange returned ' + resp.status);
-      var mapped = mapTrades(conn.exchange, resp.data);
+      return resp.data;
+    }
+    var credsRef;
+    return loadCredentials(conn.id).then(function (creds) {
+      if (!creds || !creds.apiKey || !creds.apiSecret) throw new Error('No stored credentials for this connection');
+      credsRef = creds;
+      return buildSignedRequest(conn.exchange, creds);
+    }).then(relay).then(function (resp) {
+      var data = checked(resp);
+      if (conn.exchange !== 'binance') return data;
+      // Binance: account balances -> candidate pairs -> one myTrades call each,
+      // sequentially (request weight). Unknown pairs (HTTP 400) are skipped.
+      var pairs = binanceCandidatePairs(data && data.balances, ctx.existing);
+      var all = [];
+      return pairs.reduce(function (p, sym) {
+        return p.then(function () {
+          return binanceSigned(credsRef, '/api/v3/myTrades', 'symbol=' + sym + '&limit=1000').then(relay).then(function (r) {
+            if (r.status === 400) return; // invalid symbol on Binance
+            var rows = checked(r);
+            if (Array.isArray(rows)) all = all.concat(rows);
+          });
+        });
+      }, Promise.resolve()).then(function () { return all; });
+    }).then(function (data) {
+      var mapped = mapTrades(conn.exchange, data);
       var merged = mergeSync(ctx.existing || [], mapped, { portfolioId: ctx.portfolioId || null });
       return { added: merged.added, skipped: merged.skipped, transactions: merged.transactions, mappedCount: mapped.length };
     });
@@ -318,7 +394,9 @@
     ADAPTERS: ADAPTERS, mapTrades: mapTrades, dedupe: dedupe, mergeSync: mergeSync,
     normalize: normalize, addConnection: addConnection, removeConnection: removeConnection,
     load: load, save: save,
-    storeCredentials: storeCredentials, loadCredentials: loadCredentials, removeCredentials: removeCredentials
+    storeCredentials: storeCredentials, loadCredentials: loadCredentials, removeCredentials: removeCredentials,
+    exportAllCredentials: exportAllCredentials, importAllCredentials: importAllCredentials,
+    binanceCandidatePairs: binanceCandidatePairs
   };
 
   api.Panel = makePanel(api);

@@ -144,13 +144,81 @@
   function parseArray(jsonStr) {
     try { var a = JSON.parse(jsonStr); return Array.isArray(a) ? a : null; } catch (e) { return null; }
   }
-  function unionTransactions(localStr, remoteStr) {
+  // ---- transaction change log (tombstones + edit stamps) --------------------
+  // Stored under TX_META_KEY (a sensitive, synced key): { deleted:{id:ts},
+  // edited:{id:ts} }. It lets a merge tell "deleted over there" from "added
+  // over here", and pick the most recently edited version of a transaction,
+  // instead of a blind union that resurrects deletes and reverts edits.
+  var TX_META_KEY = 'maermin_tx_meta';
+  var TX_META_TTL = 400 * 86400000; // prune stamps older than ~13 months
+  function parseTxMeta(str) {
+    var m = null;
+    try { m = typeof str === 'string' ? JSON.parse(str) : str; } catch (e) { m = null; }
+    m = (m && typeof m === 'object') ? m : {};
+    return { deleted: (m.deleted && typeof m.deleted === 'object') ? m.deleted : {},
+             edited: (m.edited && typeof m.edited === 'object') ? m.edited : {} };
+  }
+  function mergeStampMaps(a, b) {
+    var out = {};
+    [a || {}, b || {}].forEach(function (m) {
+      Object.keys(m).forEach(function (id) { if (!(out[id] >= m[id])) out[id] = m[id]; });
+    });
+    return out;
+  }
+  function mergeTxMeta(a, b) {
+    var A = parseTxMeta(a), B = parseTxMeta(b);
+    return { deleted: mergeStampMaps(A.deleted, B.deleted), edited: mergeStampMaps(A.edited, B.edited) };
+  }
+  function pruneTxMeta(meta, now) {
+    var cutoff = (now || Date.now()) - TX_META_TTL;
+    ['deleted', 'edited'].forEach(function (k) {
+      Object.keys(meta[k]).forEach(function (id) { if (!(meta[k][id] >= cutoff)) delete meta[k][id]; });
+    });
+    return meta;
+  }
+  // Pure: diff the previous id->json map against the next transaction list and
+  // stamp deletions/edits into `meta`. Returns { meta, map, changed }.
+  function trackTxChanges(prevMap, nextTxs, meta, now) {
+    now = now || Date.now();
+    meta = parseTxMeta(meta);
+    var map = {}, changed = false;
+    (nextTxs || []).forEach(function (tx) {
+      if (!tx || tx.id == null) return;
+      var id = String(tx.id), json = JSON.stringify(tx);
+      map[id] = json;
+      if (prevMap && prevMap[id] !== undefined && prevMap[id] !== json) { meta.edited[id] = now; changed = true; }
+      if (meta.deleted[id] !== undefined) { delete meta.deleted[id]; changed = true; } // re-added / restored
+    });
+    if (prevMap) {
+      Object.keys(prevMap).forEach(function (id) {
+        if (map[id] === undefined) { meta.deleted[id] = now; delete meta.edited[id]; changed = true; }
+      });
+    }
+    return { meta: pruneTxMeta(meta, now), map: map, changed: changed };
+  }
+
+  function unionTransactions(localStr, remoteStr, localMeta, remoteMeta) {
     var local = parseArray(localStr) || [];
     var remote = parseArray(remoteStr) || [];
+    var lm = parseTxMeta(localMeta), rm = parseTxMeta(remoteMeta);
+    var deleted = mergeStampMaps(lm.deleted, rm.deleted);
+    var remoteById = {};
+    remote.forEach(function (tx) { if (tx && tx.id != null) remoteById[String(tx.id)] = tx; });
     var seen = {}, out = [];
     local.concat(remote).forEach(function (tx) {
       var key = txIdentity(tx);
-      if (!seen[key]) { seen[key] = true; out.push(tx); }
+      if (seen[key]) return;
+      seen[key] = true;
+      if (tx && tx.id != null) {
+        var id = String(tx.id);
+        var editedAt = Math.max(lm.edited[id] || 0, rm.edited[id] || 0);
+        // Deleted on either side (and not edited after that) -> stays deleted.
+        if (deleted[id] !== undefined && deleted[id] >= editedAt) return;
+        // Same id on both sides with different content -> newest edit wins.
+        var r = remoteById[id];
+        if (r && r !== tx && (rm.edited[id] || 0) > (lm.edited[id] || 0)) tx = r;
+      }
+      out.push(tx);
     });
     return { str: JSON.stringify(out), added: out.length - local.length };
   }
@@ -172,8 +240,10 @@
       if (rv === undefined) { mergedData[k] = lv; return; }
       if (lv === rv) { mergedData[k] = lv; return; }
 
-      if (k === 'transactions') {
-        var u = unionTransactions(lv, rv);
+      if (k === TX_META_KEY) {
+        mergedData[k] = JSON.stringify(mergeTxMeta(lv, rv));
+      } else if (k === 'transactions') {
+        var u = unionTransactions(lv, rv, localData[TX_META_KEY], remoteData[TX_META_KEY]);
         mergedData[k] = u.str;
         conflicts.push({ key: k, resolution: 'union', addedFromRemote: u.added });
       } else {
@@ -191,7 +261,9 @@
 
   // Apply a snapshot's data back into storage (and live localStorage so the app
   // picks it up). Writes go through the (possibly encrypting) storage shim.
+  var _appliedLocal = false; // set when a sync run rewrote local data
   function applySnapshot(snapshot) {
+    _appliedLocal = true;
     var data = (snapshot && snapshot.data) || {};
     Object.keys(data).forEach(function (k) {
       try { localStorage.setItem(k, data[k]); } catch (e) {}
@@ -214,6 +286,7 @@
     return {
       get: function (account) {
         return call({ op: 'get', account: account }).then(function (r) {
+          if (r.status !== 200) throw new Error('sync-http-' + r.status + (r.json && r.json.error ? ': ' + r.json.error : ''));
           if (r.json && r.json.blob) return { rev: r.json.rev, blob: r.json.blob };
           return null;
         });
@@ -224,6 +297,9 @@
         return call(body).then(function (r) {
           if (r.status === 409) return { conflict: true, serverRev: r.json.serverRev, blob: r.json.blob };
           if (r.status === 403) return { unauthorized: true };
+          if (r.status !== 200 || !r.json || typeof r.json.rev !== 'number') {
+            throw new Error('sync-http-' + r.status + (r.json && r.json.error ? ': ' + r.json.error : ''));
+          }
           return { ok: true, rev: r.json.rev };
         });
       }
@@ -336,6 +412,7 @@
     if (!Vault || !Vault.isUnlocked()) return Promise.reject(new Error('locked'));
     if (_syncing) return Promise.resolve({ skipped: true });
     _syncing = true;
+    _appliedLocal = false;
     emit({ type: 'start' });
 
     var state = loadState();
@@ -358,6 +435,14 @@
               saveState(state);
               return { ok: true, unchanged: true, rev: remote.rev };
             }
+            if (state.lastHash && localHash === state.lastHash) {
+              // No local edits since the last sync: take the remote state as-is
+              // (propagates edits AND deletions made on other devices).
+              applySnapshot(remoteSnap);
+              state.rev = remote.rev; state.lastHash = remoteHash; state.lastSyncAt = Date.now();
+              saveState(state);
+              return { ok: true, pulled: true, rev: remote.rev };
+            }
             var m = mergeSnapshots(localSnap, remoteSnap);
             applySnapshot(m.merged);
             return pushSnapshot(account, remote.rev, m.merged, m.conflicts);
@@ -366,6 +451,7 @@
         return pipeline;
       });
     }).then(function (result) {
+      if (result && typeof result === 'object') result.appliedLocal = _appliedLocal;
       _syncing = false; emit({ type: 'done', result: result });
       return result;
     }).catch(function (e) {
@@ -452,6 +538,7 @@
     // pure core (tested)
     buildSnapshot: buildSnapshot, snapshotHash: snapshotHash, mergeSnapshots: mergeSnapshots,
     unionTransactions: unionTransactions, contentHash: contentHash,
+    trackTxChanges: trackTxChanges, mergeTxMeta: mergeTxMeta, TX_META_KEY: TX_META_KEY,
     STATE_KEY: STATE_KEY
   };
 

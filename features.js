@@ -583,7 +583,7 @@ function PriceAlertsView({ prices, theme, t, addToast, portfolio }) {
     const fire = M.computeFireMetrics(M.computeNetWorth(pv).netWorth);
     let divEvents = [];
     try { divEvents = JSON.parse(localStorage.getItem('maermin_divevents') || '[]'); } catch (e2) {}
-    const today = new Date().toISOString().slice(0, 10);
+    const today = window.MaerminUtils.todayISO();
     const upcomingDiv = (divEvents || []).filter(d => d.date && d.date >= today).sort((a, b) => a.date.localeCompare(b.date)).slice(0, 3);
 
     const items = [];

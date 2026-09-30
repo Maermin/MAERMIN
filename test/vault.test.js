@@ -76,7 +76,7 @@ const Storage = require('../storage.js'); // reads window.MaerminVault set above
 
   await Storage.enableAtRest();
   ok('blob created', !!localStorage.getItem(Storage.BLOB_KEY));
-  ok('plaintext backup created', !!localStorage.getItem(Storage.BACKUP_KEY));
+  ok('no plaintext backup left behind', !localStorage.getItem(Storage.BACKUP_KEY));
   ok('non-sensitive key untouched', localStorage.getItem('theme') === 'dark');
   ok('sensitive read via shim returns plaintext',
     localStorage.getItem('transactions') === JSON.stringify([{ s: 'BTC', q: 1 }]));

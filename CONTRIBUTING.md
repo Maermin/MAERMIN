@@ -44,7 +44,7 @@ No dev server is needed — open `index.html` directly, or serve the folder.
   `process.exit(failed ? 1 : 0)` (see existing tests for the style).
 - Crypto-dependent tests must polyfill Web Crypto for Node 18:
   `if (!globalThis.crypto) globalThis.crypto = require('node:crypto').webcrypto;`
-- `npm test` must stay green on Node 18/20/22 (CI matrix).
+- `npm test` must stay green on Node 22/24 (CI matrix; Electron 44 needs Node ≥ 22.12).
 
 ## Commits & PRs
 

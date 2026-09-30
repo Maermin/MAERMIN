@@ -63,7 +63,11 @@
     // Per-position manual taxable overrides reveal held symbols + amounts.
     // (The global tax settings maermin_tax_settings are rates/flags only and
     // intentionally NOT sensitive.)
-    'maermin_tax_overrides'
+    'maermin_tax_overrides',
+    // Sync change log (tombstones/edit stamps) — reveals transaction ids.
+    'maermin_tx_meta',
+    // Deleted auto-dividend markers (symbol|date|portfolio).
+    'maermin_div_skipped'
   ];
   var sensitiveSet = {};
   SENSITIVE_KEYS.forEach(function (k) { sensitiveSet[k] = true; });
@@ -111,20 +115,26 @@
       return nativeGet.call(this, key);
     };
     Storage.prototype.setItem = function (key, value) {
-      if (this === ls && mem && isSensitive(key)) {
-        mem[key] = String(value);
-        dirty[key] = true;
-        schedulePersist();
-        return;
+      if (this === ls && isSensitive(key)) {
+        if (!mem) { if (isEnabled()) return; }  // locked: drop, never persist plaintext
+        else {
+          mem[key] = String(value);
+          dirty[key] = true;
+          schedulePersist();
+          return;
+        }
       }
       return nativeSet.call(this, key, value);
     };
     Storage.prototype.removeItem = function (key) {
-      if (this === ls && mem && isSensitive(key)) {
-        delete mem[key];
-        dirty[key] = true;
-        schedulePersist();
-        return;
+      if (this === ls && isSensitive(key)) {
+        if (!mem) { if (isEnabled()) return; }
+        else {
+          delete mem[key];
+          dirty[key] = true;
+          schedulePersist();
+          return;
+        }
       }
       return nativeRemove.call(this, key);
     };
@@ -261,6 +271,7 @@
   function persistPerKey(IDB) {
     if (!_manifest) _manifest = {};
     var names = Object.keys(dirty);
+    if (!names.length && !_migrateBlobPending) return Promise.resolve(); // nothing to write
     dirty = {}; // capture this batch; writes during the await re-dirty + re-persist
     var ops = names.map(function (name) {
       if (Object.prototype.hasOwnProperty.call(mem, name)) {
@@ -271,8 +282,12 @@
       delete _manifest[name];
       return id ? IDB.del(recKey(id)) : Promise.resolve();
     });
+    // Encrypt the manifest now (same tick as the records) so a lock() right
+    // after this call cannot leave the batch without a readable manifest.
+    var manifestEnv = Vault.encryptJSON({ v: 1, map: _manifest });
     return Promise.all(ops)
-      .then(function () { return writeManifest(IDB); })
+      .then(function () { return manifestEnv; })
+      .then(function (env) { return IDB.set(MANIFEST_KEY, env); })
       .then(function () { if (_migrateBlobPending) { _migrateBlobPending = false; return blobDel(); } });
   }
   // Read mem from the per-key records; resolves null when there is no manifest
@@ -293,7 +308,7 @@
           _manifest = map;
           return out;
         });
-      }, function () { return null; }); // manifest decrypt failed → fall back to blob
+      }, function () { throw new Error('manifest-undecryptable'); }); // never fall back to an empty vault
     });
   }
   // Remove every per-key record + the manifest (disable / restore).
@@ -343,6 +358,8 @@
         (nativeRemove || Storage.prototype.removeItem).call(ls, k);
       });
       (nativeSet || Storage.prototype.setItem).call(ls, ATREST_FLAG, '1');
+      // The ciphertext is durable now; a plaintext copy would defeat at-rest encryption.
+      (nativeRemove || Storage.prototype.removeItem).call(ls, BACKUP_KEY);
       installShim();
       return true;
     });
@@ -368,7 +385,11 @@
   // enabled, hydrate + install the shim so the app reads decrypted data.
   function resume() {
     if (!isEnabled()) return Promise.resolve(false);
-    return hydrate();
+    return hydrate().then(function (ok) {
+      // Remove plaintext backups left behind by earlier versions.
+      if (ok) { try { (nativeRemove || Storage.prototype.removeItem).call(window.localStorage, BACKUP_KEY); } catch (e) {} }
+      return ok;
+    });
   }
 
   // Wipe in-memory plaintext (called from the vault's onLock).
@@ -386,7 +407,9 @@
   // unlock.
   function rekey() {
     if (idbBackend() && mem) { Object.keys(mem).forEach(function (k) { dirty[k] = true; }); }
-    return persist();
+    // Wait out an in-flight persist so this call really writes under the new key.
+    var wait = function () { return persisting ? new Promise(function (r) { setTimeout(r, 50); }).then(wait) : persist(); };
+    return wait();
   }
 
   // Export the current decrypted snapshot (for sync-engine.js to wrap+upload).
