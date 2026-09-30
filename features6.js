@@ -367,7 +367,12 @@ function PortfolioHistoryChart({ portfolio, prices, transactions, apiKeys, theme
           let resolved = null;
           try {
             const { prices: hist, currency } = await fetchYFHistory(pos.symOrig, currentPeriod, workerUrl);
-            const rate    = (currency === 'EUR') ? 1 : usdToEur;
+            // Currency-correct factor (GBp pence, CHF, …); unknown → fall through
+            // to the flat-line fallback instead of scaling by the USD rate.
+            const FXH  = window.MaerminFxHistory;
+            const rate = (FXH && FXH.quoteToEUR) ? FXH.quoteToEUR(1, currency || 'USD', usdToEur)
+              : ((currency === 'EUR') ? 1 : usdToEur);
+            if (!(rate > 0)) throw new Error('unsupported quote currency ' + currency);
             resolved = hist.map(h => ({ ...h, price: h.price * rate }));
             console.log(`[CHART] YF: ${pos.symOrig} (${currency}) → ${hist.length} points`);
           } catch(e) {

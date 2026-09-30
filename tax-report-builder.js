@@ -122,6 +122,65 @@
     return disposals;
   }
 
+  // US estimate over currency-correct disposals: short-term at an ordinary-
+  // income estimate (24%), long-term at 15%; losses net across both buckets.
+  function usEstimate(disposals) {
+    var st = 0, lt = 0;
+    (disposals || []).forEach(function (d) { if (d.longTerm) lt += d.gain; else st += d.gain; });
+    var s2 = st, l2 = lt;
+    if (s2 < 0) { l2 += s2; s2 = 0; }
+    if (l2 < 0) { s2 = Math.max(0, s2 + l2); l2 = 0; }
+    var shortTermTax = s2 * 0.24, longTermTax = l2 * 0.15;
+    return { jurisdiction: 'us', shortTermGains: st, longTermGains: lt, shortTermTax: shortTermTax,
+      longTermTax: longTermTax, totalTax: shortTermTax + longTermTax, shortTermRate: 24, longTermRate: 15 };
+  }
+
+  // Units of `symbol` held at the end of `iso` (split-adjusted txs expected).
+  function unitsAt(txs, symbol, iso) {
+    var q = 0;
+    (txs || []).forEach(function (tx) {
+      if (String(tx.symbol || tx.name || '').toUpperCase() !== symbol) return;
+      if (ymd(tx.date) > iso) return;
+      if (tx.type === 'buy') q += num(tx.quantity); else if (tx.type === 'sell') q -= num(tx.quantity);
+    });
+    return q > 1e-9 ? q : 0;
+  }
+
+  // Vorabpauschale credit for one disposal lot (see build()).
+  function vapCreditForLot(txs, vapRecords, d) {
+    var bySym = (vapRecords && vapRecords[d.symbol]) || {};
+    var sellYear = parseInt(String(d.disposalDate).slice(0, 4), 10);
+    var credit = 0;
+    Object.keys(bySym).forEach(function (y) {
+      var yr = parseInt(y, 10), amt = num(bySym[y]);
+      if (!(yr < sellYear) || !(amt > 0)) return;
+      var yearEnd = yr + '-12-31';
+      if (String(d.acquisitionDate) > yearEnd) return; // lot not held at that year end
+      var units = unitsAt(txs, d.symbol, yearEnd);
+      if (units > 0) credit += amt * Math.min(1, d.quantity / units);
+    });
+    return credit;
+  }
+
+  // On-screen KPIs derived from a built report, so the Tax view and the
+  // PDF/Excel export always show the same numbers.
+  function kpis(report) {
+    var empty = { realizedGains: 0, shortTerm: 0, longTerm: 0, taxLiability: 0, taxFree: 0 };
+    if (!report || !report.summary) return empty;
+    var st = 0, lt = 0;
+    (report.realizedGains || []).concat(report.realizedLosses || []).forEach(function (d) {
+      if (d.longTerm) lt += d.gain; else st += d.gain;
+    });
+    var g = report.summary.germanDetail;
+    return {
+      realizedGains: report.summary.netRealized,
+      shortTerm: st,
+      longTerm: lt,
+      taxLiability: report.summary.estimatedTaxLiability || 0,
+      taxFree: g && g.crypto ? g.crypto.exemptLongTermGains : 0
+    };
+  }
+
   // ---- main builder --------------------------------------------------------
   function build(transactions, opts) {
     opts = opts || {};
@@ -147,8 +206,9 @@
     // Dividend income — explicit dividend transactions, plus manual divevents.
     var dividends = [];
     txs.forEach(function (tx) {
-      var isDiv = tx.type === 'dividend' || (tx.notes || '').toLowerCase().indexOf('dividend') > -1;
-      if (isDiv && inYear(tx.date)) {
+      // Type only: a free-text note ("Dividend reinvestment" on a BUY) must
+      // never turn a purchase into taxable dividend income.
+      if (tx.type === 'dividend' && inYear(tx.date)) {
         var gross = toBase(num(tx.quantity) * num(tx.price) || num(tx.amount), tx.currency, rate, tx.date, fxAt);
         dividends.push({ symbol: (tx.symbol || '').toUpperCase(), date: ymd(tx.date), gross: gross,
           withholding: toBase(tx.withholdingTax, tx.currency, rate, tx.date, fxAt), currency: tx.currency || base });
@@ -156,8 +216,13 @@
     });
     try {
       var events = (opts.dividendEvents) || JSON.parse((typeof localStorage !== 'undefined' && localStorage.getItem('maermin_divevents')) || '[]');
+      // Manual calendar entries are skipped when the same payout (symbol +
+      // day) is already booked as a dividend transaction (e.g. auto-booking),
+      // otherwise it would be counted twice.
+      var booked = {};
+      dividends.forEach(function (d) { booked[d.symbol + '|' + d.date] = true; });
       (events || []).forEach(function (e) {
-        if (inYear(e.date)) dividends.push({ symbol: (e.symbol || '').toUpperCase(), date: ymd(e.date),
+        if (inYear(e.date) && !booked[(e.symbol || '').toUpperCase() + '|' + ymd(e.date)]) dividends.push({ symbol: (e.symbol || '').toUpperCase(), date: ymd(e.date),
           gross: toBase(e.amount, e.currency, rate, e.date, fxAt), withholding: toBase(e.withholding, e.currency, rate, e.date, fxAt), currency: e.currency || base });
       });
     } catch (e) {}
@@ -167,7 +232,7 @@
     // Interest income — explicit interest transactions.
     var interest = [];
     txs.forEach(function (tx) {
-      if ((tx.type === 'interest' || (tx.notes || '').toLowerCase().indexOf('interest') > -1) && inYear(tx.date)) {
+      if (tx.type === 'interest' && inYear(tx.date)) {
         interest.push({ source: tx.symbol || tx.notes || 'Interest', date: ymd(tx.date),
           amount: toBase(num(tx.amount) || num(tx.quantity) * num(tx.price), tx.currency, rate, tx.date, fxAt) });
       }
@@ -214,14 +279,14 @@
       return inYear(tx.date) && (tx.type === 'split' || tx.type === 'reinvest' || (tx.notes || '').toLowerCase().indexOf('split') > -1);
     }).map(function (tx) { return { date: ymd(tx.date), symbol: (tx.symbol || '').toUpperCase(), type: tx.type, detail: tx.notes || '' }; });
 
-    // Tax liability estimate via the existing jurisdiction engines (consistency).
+    // Tax liability estimate. Germany: the ordered computation below
+    // (germanDetail). US: short/long-term rate estimate over THESE currency-
+    // correct FIFO disposals (the legacy engine priced USD legs as EUR).
     var taxLiability = 0, summaryExtra = {};
-    try {
-      if (typeof window !== 'undefined') {
-        if (jurisdiction === 'de' && window.calculateGermanTax) { var de = window.calculateGermanTax(txs, year); taxLiability = de.totalTax; summaryExtra = de; }
-        else if (jurisdiction === 'us' && window.calculateUSTax) { var us = window.calculateUSTax(txs, year); taxLiability = us.totalTax; summaryExtra = us; }
-      }
-    } catch (e) {}
+    if (jurisdiction === 'us') {
+      summaryExtra = usEstimate(disposals);
+      taxLiability = summaryExtra.totalTax;
+    }
 
     // ---- German fund taxation detail (Vorabpauschale + Teilfreistellung) ----
     // Statutory order via TaxCalculationEngine.GermanTax: Teilfreistellung ->
@@ -238,11 +303,14 @@
         var vapRecords = opts.vapRecords || (GT.loadVapRecords ? GT.loadVapRecords() : {});
         // Current-year Vorabpauschalen: explicit, or derived from the records
         // the Tax view saved for the report year (one store, no extra plumbing).
+        // The Vorabpauschale of value year Y is deemed received on the first
+        // working day of Y+1 (sec. 18 (3) InvStG), so report year R taxes the
+        // amounts recorded for R-1.
         var vorabpauschalen = opts.vorabpauschalen;
         if (!vorabpauschalen) {
           vorabpauschalen = [];
           Object.keys(vapRecords).forEach(function (sym) {
-            var amt = vapRecords[sym] && parseFloat(vapRecords[sym][year]);
+            var amt = vapRecords[sym] && parseFloat(vapRecords[sym][year - 1]);
             if (isFinite(amt) && amt > 0) vorabpauschalen.push({ symbol: sym, amount: amt });
           });
         }
@@ -265,19 +333,19 @@
         // private-sale rules below). Prior-year Vorabpauschalen recorded for a
         // symbol are credited against its disposals, oldest first. A manual
         // per-position taxable override, when set, REPLACES the computed gain.
-        var creditPool = {};
+        // Credit per UNIT sold (sec. 19 (1) InvStG): each recorded year's
+        // Vorabpauschale is spread over the units held at the end of that
+        // year, and a disposal lot is credited only for the years its units
+        // were already held. The credit may turn a gain into a loss.
         var capitalDisposals = disposals.filter(function (d) { return d.category !== 'crypto'; }).map(function (d) {
           var sym = d.symbol;
           var override = lookupOverride(sym);
           if (override != null) return { symbol: sym, gain: override, vapCredit: 0, overridden: true };
-          if (creditPool[sym] == null) creditPool[sym] = GT.vapCreditForSale(vapRecords, sym, year, 1);
-          var credit = Math.min(creditPool[sym], Math.max(0, d.gain));
-          creditPool[sym] -= credit;
-          return { symbol: sym, gain: d.gain, vapCredit: credit };
+          return { symbol: sym, gain: d.gain, vapCredit: vapCreditForLot(txs, vapRecords, d) };
         });
         var capital = GT.computeGermanTaxDetailed({
           disposals: capitalDisposals,
-          dividends: dividends.map(function (d) { return { symbol: d.symbol, gross: d.gross }; }),
+          dividends: dividends.map(function (d) { return { symbol: d.symbol, gross: d.gross, withholding: d.withholding }; }),
           interestIncome: interestIncome,
           vorabpauschalen: vorabpauschalen,
           fundTypes: fundTypes,
@@ -369,8 +437,22 @@
   }
 
   // ---- PDF export ----------------------------------------------------------
+  // jsPDF + autotable are loaded lazily on the first export (they used to be
+  // render-blocking <script>s in <head> for a feature most sessions never use).
+  var JSPDF_CDN = [
+    { src: 'https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js',
+      integrity: 'sha384-JcnsjUPPylna1s1fvi1u12X5qjY5OL56iySh75FdtrwhO/SWXgMjoVqcKyIIWOLk' },
+    { src: 'https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.5.31/jspdf.plugin.autotable.min.js',
+      integrity: 'sha384-vuyrTV5nkscLp1knFvt+FIHfKKzmROBq5reruhMRslauj54mW+l2B8b6szMN6lCL' }
+  ];
+  function jsPdfReady() { return typeof jspdf !== 'undefined' || typeof jsPDF !== 'undefined'; }
   function exportPDF(report) {
-    if (typeof jspdf === 'undefined' && typeof jsPDF === 'undefined') { alert('PDF library not loaded.'); return; }
+    if (!jsPdfReady()) {
+      var U = (typeof window !== 'undefined') && window.MaerminUtils;
+      if (!U || !U.loadScripts) { alert('PDF library not loaded.'); return Promise.resolve(false); }
+      return U.loadScripts(JSPDF_CDN).then(function () { return exportPDF(report); },
+        function () { alert('PDF library could not be loaded (offline?).'); return false; });
+    }
     var JsPDF = (typeof jsPDF !== 'undefined') ? jsPDF : jspdf.jsPDF;
     var doc = new JsPDF();
     var cur = report.meta.baseCurrency;
@@ -562,7 +644,7 @@
     setTimeout(function () { URL.revokeObjectURL(a.href); }, 1000);
   }
 
-  var api = { build: build, fifo: fifo, oneYearAnniversary: oneYearAnniversary, heldOverOneYear: heldOverOneYear, exportPDF: exportPDF, exportExcel: exportExcel, buildExcelWorkbook: buildExcelWorkbook, _toBase: toBase };
+  var api = { build: build, kpis: kpis, usEstimate: usEstimate, vapCreditForLot: vapCreditForLot, fifo: fifo, oneYearAnniversary: oneYearAnniversary, heldOverOneYear: heldOverOneYear, exportPDF: exportPDF, exportExcel: exportExcel, buildExcelWorkbook: buildExcelWorkbook, _toBase: toBase };
   if (typeof window !== 'undefined') window.MaerminTaxReport = api;
   if (typeof module !== 'undefined' && module.exports) module.exports = api;
 })();

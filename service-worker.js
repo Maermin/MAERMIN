@@ -17,7 +17,7 @@
  * ========================================================================== */
 'use strict';
 
-var VERSION = 'maermin-v7';
+var VERSION = 'maermin-v8';
 var SHELL_CACHE = VERSION + '-shell';
 var RUNTIME_CACHE = VERSION + '-runtime';
 
@@ -114,12 +114,25 @@ self.addEventListener('fetch', function (event) {
   // Everything else: default network (no interception).
 });
 
+// Network-first with a short timeout: fresh code when the network is healthy,
+// but a flaky connection ("lie-fi") no longer stalls app start — after
+// NETWORK_TIMEOUT_MS the cached copy is served (the fetch still completes in
+// the background and refreshes the cache for next time).
+var NETWORK_TIMEOUT_MS = 3000;
 function networkFirst(req) {
   return caches.open(RUNTIME_CACHE).then(function (cache) {
-    return fetch(req).then(function (res) {
+    var network = fetch(req).then(function (res) {
       if (res && res.status === 200) cache.put(req, res.clone());
       return res;
-    }).catch(function () { return cache.match(req); });
+    });
+    var timeout = new Promise(function (resolve) {
+      setTimeout(function () {
+        cache.match(req).then(function (hit) { if (hit) resolve(hit); });
+      }, NETWORK_TIMEOUT_MS);
+    });
+    return Promise.race([network, timeout]).catch(function () {
+      return cache.match(req).then(function (hit) { return hit || network; });
+    });
   });
 }
 

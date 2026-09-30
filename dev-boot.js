@@ -4,17 +4,15 @@
 // WITHOUT 'unsafe-inline' for scripts. The production build ships its own
 // boot.js and skips this file.
 // ============================================================================
+// No artificial delay: the splash fades as soon as the page has loaded (it
+// used to wait an extra ~0.8 s here and ~1.1 s in the production boot.js).
 window.addEventListener('load', () => {
-  setTimeout(() => {
-    updateStatus('Ready!');
-    setTimeout(() => {
-      const loading = document.getElementById('loading');
-      if (loading) {
-        loading.classList.add('hidden');
-        setTimeout(() => loading.remove(), 500);
-      }
-    }, 500);
-  }, 300);
+  updateStatus('Ready!');
+  const loading = document.getElementById('loading');
+  if (loading) {
+    loading.classList.add('hidden');
+    setTimeout(() => loading.remove(), 500);
+  }
 });
 
 console.log('%c[MAERMIN v10.0] Professional Portfolio Tracker', 'font-size: 20px; font-weight: bold; color: #7e22ce; background: #f3e8ff; padding: 8px;');
@@ -55,7 +53,7 @@ setTimeout(() => {
     { name: 'Prefs Store', check: () => typeof window.MaerminPrefs !== 'undefined' },
     { name: 'UI Store', check: () => typeof window.MaerminUI !== 'undefined' },
     { name: 'Market Store', check: () => typeof window.MaerminMarket !== 'undefined' },
-    { name: 'jsPDF', check: () => typeof window.jspdf !== 'undefined' }
+    { name: 'jsPDF (lazy)', check: () => true }
   ];
   
   console.log('[MODULE CHECK MAERMIN v10.0]');

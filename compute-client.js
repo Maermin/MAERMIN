@@ -102,7 +102,16 @@
       _pending[id] = { onOk: function (r) { if (_pending[id]) delete _pending[id]; done(r); }, onFail: function () { if (_pending[id]) delete _pending[id]; fallback(); } };
       try { w.postMessage({ id: id, fn: fn, args: args }); }
       catch (e) { delete _pending[id]; fallback(); }
-      setTimeout(function () { if (!settled && _pending[id]) { delete _pending[id]; fallback(); } }, TIMEOUT_MS);
+      setTimeout(function () {
+        if (settled || !_pending[id]) return;
+        delete _pending[id];
+        // The worker is still crunching: terminate it so the synchronous
+        // fallback doesn't run IN ADDITION to it; the next call respawns one.
+        try { if (_worker) _worker.terminate(); } catch (e) {}
+        _worker = null;
+        failAll(new Error('worker timeout'));
+        fallback();
+      }, TIMEOUT_MS);
     });
   }
 

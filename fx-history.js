@@ -110,6 +110,47 @@
     };
   }
 
+  // ---- other quote currencies ---------------------------------------------
+  // Yahoo quotes many listings in neither EUR nor USD (LSE in GBp pence, SIX in
+  // CHF, ...). The app used to multiply every non-EUR quote by the USD rate
+  // (a GBp price came out ~100x too high). `usdRates` is the open.er-api
+  // "latest/USD" map: units of each currency per 1 USD (EUR, GBP, CHF, ...).
+  var RATES_KEY = 'maermin_fx_usd_rates';
+  var _usdRates = null;
+  function setUsdRates(rates) {
+    if (!rates || typeof rates !== 'object') return;
+    _usdRates = rates;
+    if (typeof localStorage !== 'undefined') { try { localStorage.setItem(RATES_KEY, JSON.stringify(rates)); } catch (e) {} }
+  }
+  function usdRates() {
+    if (_usdRates) return _usdRates;
+    if (typeof localStorage !== 'undefined') {
+      try { var r = JSON.parse(localStorage.getItem(RATES_KEY) || 'null'); if (r && typeof r === 'object') _usdRates = r; } catch (e) {}
+    }
+    return _usdRates || {};
+  }
+  // Minor units quoted by exchanges: price / 100 in the major currency.
+  var MINOR = { GBP_: 'GBP', GBX: 'GBP', ZAC: 'ZAR', ILA: 'ILS' };
+  // Convert a quote to EUR. usdToEur = EUR per 1 USD (the app's live rate).
+  // Returns null when the currency is unknown and no rate is available, so
+  // callers can leave the price unresolved instead of booking a wrong value.
+  function quoteToEUR(price, currency, usdToEur, rates) {
+    var p = num(price);
+    if (p == null) return null;
+    var cur = String(currency || 'USD');
+    if (cur === 'GBp') cur = 'GBP_';
+    cur = cur.toUpperCase() === 'GBP_' ? 'GBP_' : cur.toUpperCase();
+    if (MINOR[cur]) { p = p / 100; cur = MINOR[cur]; }
+    if (cur === 'EUR') return p;
+    var uE = num(usdToEur);
+    if (cur === 'USD') return uE > 0 ? p * uE : null;
+    rates = rates || usdRates();
+    var perUsd = num(rates[cur]);
+    var eurPerUsd = uE > 0 ? uE : num(rates.EUR);
+    if (!(perUsd > 0) || !(eurPerUsd > 0)) return null;
+    return (p / perUsd) * eurPerUsd;
+  }
+
   function has() { var h = load(); return Object.keys(h).length > 0; }
 
   var api = {
@@ -118,6 +159,9 @@
     ingestYahooSeries: ingestYahooSeries,
     rateAt: rateAt,
     fxResolver: fxResolver,
+    setUsdRates: setUsdRates,
+    usdRates: usdRates,
+    quoteToEUR: quoteToEUR,
     has: has
   };
   if (typeof window !== 'undefined') window.MaerminFxHistory = api;

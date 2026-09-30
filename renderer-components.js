@@ -528,10 +528,23 @@ function MonteCarloView({ portfolio, prices, t, theme, currency, formatPrice }) 
     // it falls back to a synchronous on-thread run if the worker is unavailable —
     // so this never blocks and never breaks. The setTimeout path is the last-
     // ditch fallback if the compute client itself failed to load.
+    // Value every position at its CURRENT price (the engine used to fall back
+    // to cost basis and to its 8%/18% defaults because positions carry no
+    // currentValue). Plain data, so it can be posted to the worker.
+    const valued = {};
+    Object.keys(portfolio || {}).forEach(cls => {
+      if (!Array.isArray(portfolio[cls])) return;
+      valued[cls] = portfolio[cls].map(p => {
+        const sym = p.symbol || p.name || '';
+        const px = (prices && (prices[sym] || prices[sym.toLowerCase()] || prices[sym.toUpperCase()])) || 0;
+        const amount = parseFloat(p.amount) || 0;
+        return { symbol: sym, amount, purchasePrice: p.purchasePrice, currentPrice: px, currentValue: px > 0 ? amount * px : 0 };
+      });
+    });
     if (window.MaerminCompute) {
-      window.MaerminCompute.montecarlo(portfolio, cfg).then(finish);
+      window.MaerminCompute.montecarlo(valued, cfg).then(finish);
     } else {
-      setTimeout(() => finish(window.MonteCarloEngine.runSimulation(portfolio, cfg)), 50);
+      setTimeout(() => finish(window.MonteCarloEngine.runSimulation(valued, cfg)), 50);
     }
   };
 

@@ -115,8 +115,19 @@
   // ---- snapshot / blob -----------------------------------------------------
   // The plaintext snapshot we sync = the sensitive data keys. We wrap it with a
   // payload envelope carrying updatedAt + deviceId so merges can reason about it.
+  // Merge base (per-key hashes of the last synced state). Kept in its own
+  // SENSITIVE key - never in the plaintext sync state - because a hash of a
+  // low-entropy value (e.g. the church-tax rate) could be brute-forced. It is
+  // device-local bookkeeping, so it is excluded from the synced snapshot.
+  var BASE_KEY = 'maermin_sync_base';
+  function loadBase() {
+    try { var b = JSON.parse(lsGet(BASE_KEY) || 'null'); return (b && typeof b === 'object') ? b : null; } catch (e) { return null; }
+  }
+  function saveBase(h) { lsSet(BASE_KEY, JSON.stringify(h || {})); }
+
   function buildSnapshot() {
     var data = Storage && Storage.snapshotPlaintext ? Storage.snapshotPlaintext() : {};
+    if (data && data[BASE_KEY] !== undefined) { data = Object.assign({}, data); delete data[BASE_KEY]; }
     return { v: 1, updatedAt: Date.now(), device: deviceId(), data: data };
   }
   function snapshotHash(snapshot) {
@@ -223,7 +234,22 @@
     return { str: JSON.stringify(out), added: out.length - local.length };
   }
 
-  function mergeSnapshots(localSnap, remoteSnap) {
+  // Per-key content hashes of a snapshot's data: recorded after every
+  // successful sync as the common BASE for the next three-way merge.
+  function keyHashes(snapshot) {
+    var data = (snapshot && snapshot.data) || {}, out = {};
+    Object.keys(data).forEach(function (k) { out[k] = contentHash(String(data[k])); });
+    return out;
+  }
+
+  // Three-way merge. With `base` (the per-key hashes of the last synced state)
+  // each non-transaction key takes the side that actually CHANGED since then:
+  // only remote changed -> remote, only local -> local. Only a true conflict
+  // (both changed) falls back to snapshot recency. Without a base (first sync
+  // after an upgrade) the old last-write-wins applies. The old code compared a
+  // local snapshot built at merge time ("now") with the remote push time, so
+  // local ALWAYS won and edits made on other devices were silently dropped.
+  function mergeSnapshots(localSnap, remoteSnap, base) {
     var conflicts = [];
     var localData = (localSnap && localSnap.data) || {};
     var remoteData = (remoteSnap && remoteSnap.data) || {};
@@ -246,10 +272,16 @@
         var u = unionTransactions(lv, rv, localData[TX_META_KEY], remoteData[TX_META_KEY]);
         mergedData[k] = u.str;
         conflicts.push({ key: k, resolution: 'union', addedFromRemote: u.added });
+      } else if (base && base[k] !== undefined && contentHash(String(lv)) === base[k]) {
+        mergedData[k] = rv; // unchanged here, edited elsewhere
+        conflicts.push({ key: k, resolution: 'remote' });
+      } else if (base && base[k] !== undefined && contentHash(String(rv)) === base[k]) {
+        mergedData[k] = lv; // edited here only
+        conflicts.push({ key: k, resolution: 'local' });
       } else {
-        // last-write-wins by blob timestamp
+        // true conflict (or no base yet): last-write-wins by blob timestamp
         mergedData[k] = remoteNewer ? rv : lv;
-        conflicts.push({ key: k, resolution: remoteNewer ? 'remote' : 'local' });
+        conflicts.push({ key: k, resolution: remoteNewer ? 'remote' : 'local', conflict: !!base });
       }
     });
 
@@ -349,6 +381,7 @@
             if (localHash === remoteHash) {
               // identical content — just align rev locally, no write.
               state.rev = remote.rev; state.lastHash = localHash; state.lastSyncAt = Date.now();
+              saveBase(keyHashes(localSnap));
               saveState(state);
               return { ok: true, unchanged: true, rev: remote.rev };
             }
@@ -357,10 +390,11 @@
               // (propagates edits AND deletions made on other devices).
               applySnapshot(remoteSnap);
               state.rev = remote.rev; state.lastHash = remoteHash; state.lastSyncAt = Date.now();
+              saveBase(keyHashes(remoteSnap));
               saveState(state);
               return { ok: true, pulled: true, rev: remote.rev };
             }
-            var m = mergeSnapshots(localSnap, remoteSnap);
+            var m = mergeSnapshots(localSnap, remoteSnap, loadBase());
             applySnapshot(m.merged);
             return pushSnapshot(account, remote.rev, m.merged, m.conflicts);
           });
@@ -384,7 +418,7 @@
           if (r && r.conflict) {
             // Another device wrote between our get and put — merge again and retry once.
             return decryptBlob(r.blob).then(function (serverSnap) {
-              var m = mergeSnapshots(snapshot, serverSnap);
+              var m = mergeSnapshots(snapshot, serverSnap, loadBase());
               applySnapshot(m.merged);
               return encryptSnapshot(m.merged).then(function (blob2) {
                 // Retry against the server's rev — the account already exists, so
@@ -394,6 +428,7 @@
                     if (r2 && r2.unauthorized) throw new Error('sync-unauthorized');
                     var st = loadState();
                     st.rev = r2.rev; st.lastHash = snapshotHash(m.merged); st.lastSyncAt = Date.now();
+                    saveBase(keyHashes(m.merged));
                     saveState(st);
                     return { ok: true, rev: r2.rev, conflicts: conflicts.concat(m.conflicts), retried: true };
                   });
@@ -404,6 +439,7 @@
           if (r && r.unauthorized) throw new Error('sync-unauthorized');
           var state = loadState();
           state.rev = r.rev; state.lastHash = snapshotHash(snapshot); state.lastSyncAt = Date.now();
+          saveBase(keyHashes(snapshot));
           saveState(state);
           return { ok: true, rev: r.rev, conflicts: conflicts };
         });
@@ -453,7 +489,7 @@
     sync: sync, hasLocalChanges: hasLocalChanges, getState: loadState, deviceId: deviceId,
     accountId: accountId, enableAutoSync: enableAutoSync, onChange: onChange,
     // pure core (tested)
-    buildSnapshot: buildSnapshot, snapshotHash: snapshotHash, mergeSnapshots: mergeSnapshots,
+    buildSnapshot: buildSnapshot, snapshotHash: snapshotHash, mergeSnapshots: mergeSnapshots, keyHashes: keyHashes,
     unionTransactions: unionTransactions, contentHash: contentHash,
     trackTxChanges: trackTxChanges, mergeTxMeta: mergeTxMeta, TX_META_KEY: TX_META_KEY,
     STATE_KEY: STATE_KEY

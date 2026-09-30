@@ -42,7 +42,8 @@ const REPORT = require('../tax-report-builder.js');
   ok('table year resolves (2023 = 2.55%)', approx(GT.basiszinsFor(2023), 0.0255));
   ok('2022 is negative (no Vorabpauschale)', GT.basiszinsFor(2022) < 0);
   ok('override beats the table', approx(GT.basiszinsFor(2023, { 2023: 0.03 }), 0.03));
-  ok('unknown future year falls back to latest known', approx(GT.basiszinsFor(2099), GT.BASISZINS[2025]));
+  ok('unknown future year falls back to latest known', approx(GT.basiszinsFor(2099), GT.BASISZINS[2026]));
+  ok('2026 Basiszins is the BMF value 3.20%', approx(GT.basiszinsFor(2026), 0.032));
 
   // ---- month factor ---------------------------------------------------------------
   ok('held all year -> factor 1', GT.monthsFactorForPurchase('2020-05-01', 2024) === 1);
@@ -160,11 +161,13 @@ const REPORT = require('../tax-report-builder.js');
   });
   const g = report.summary.germanDetail;
   ok('report carries the German detail for jurisdiction de', !!g);
-  // WORLD: gain 2000, credit 80, TF 30% -> 1344; VAP 100 -> 70; netted 1414;
-  // SPB -> 414; tax 103.50 + soli 5.6925 = 109.1925
-  ok('disposal gain is credited and teilfreigestellt', approx(g.gainsTaxable, (2000 - 80) * 0.7));
-  ok('credited Vorabpauschalen are reported', approx(g.vapCreditTotal, 80));
-  ok('capital tax follows the full order', approx(g.abgeltungsteuer + g.soli, 414 * 0.25 * 1.055));
+  // WORLD: 50 of the 100 units held at the end of 2023 and 2024 are sold, so
+  // only half of the recorded 50 + 30 is credited (sec. 19 (1) InvStG, per
+  // unit): gain 2000, credit 40, TF 30% -> 1372; VAP 100 -> 70; netted 1442;
+  // SPB -> 442; tax 110.50 + soli.
+  ok('disposal gain is credited per unit and teilfreigestellt', approx(g.gainsTaxable, (2000 - 40) * 0.7));
+  ok('credited Vorabpauschalen are pro-rated to the units sold', approx(g.vapCreditTotal, 40));
+  ok('capital tax follows the full order', approx(g.abgeltungsteuer + g.soli, 442 * 0.25 * 1.055));
   // Crypto: net short gain 1500 over the 1000 Freigrenze (2024+) -> all taxable.
   ok('crypto Freigrenze: above it the whole gain is taxable', approx(g.crypto.taxable, 1500) && approx(g.crypto.estimatedTax, 375));
   ok('summary liability uses the detailed total', approx(report.summary.estimatedTaxLiability, g.totalTax));

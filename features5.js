@@ -349,9 +349,11 @@ function CashflowChart({ transactions, priceHistory, portfolio, prices, theme, f
 
   // Build portfolio value timeline from priceHistory
   const valueSeries = useMemo(() => {
+    // Only datable points (ISO/epoch); sort chronologically, not as strings.
+    const tsOf = (v) => (window.MaerminUtils && window.MaerminUtils.parseTimestamp) ? window.MaerminUtils.parseTimestamp(v) : new Date(v).getTime();
     const tsSet = new Set();
-    Object.values(priceHistory).forEach(hist => hist.forEach(h => tsSet.add(h.timestamp)));
-    const sorted = [...tsSet].sort();
+    Object.values(priceHistory).forEach(hist => (hist || []).forEach(h => { const n = tsOf(h.timestamp); if (isFinite(n)) tsSet.add(n); }));
+    const sorted = [...tsSet].sort((a, b) => a - b);
 
     const positions = [];
     ['crypto','stocks','skins','commodities'].forEach(cat => {
@@ -364,10 +366,10 @@ function CashflowChart({ transactions, priceHistory, portfolio, prices, theme, f
       let value = 0;
       positions.forEach(pos => {
         const hist = priceHistory[pos.sym] || [];
-        const entry = [...hist].reverse().find(h => h.timestamp <= ts);
+        const entry = [...hist].reverse().find(h => { const n = tsOf(h.timestamp); return isFinite(n) && n <= ts; });
         if (entry) value += pos.amount * entry.price;
       });
-      return { date: ts.split('T')[0] || ts.substring(0, 10), value };
+      return { date: new Date(ts).toISOString().slice(0, 10), value };
     }).filter(d => d.value > 0);
   }, [priceHistory, portfolio]);
 

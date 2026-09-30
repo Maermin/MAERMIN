@@ -209,8 +209,20 @@ only the signature the client already computed is sent.
 // → { "status": <n>, "ok": <bool>, "data": <parsed|text> }
 ```
 
-Host whitelist: `api.binance.com`, `api.kraken.com`, `api.exchange.coinbase.com`,
-`api.coinbase.com`, `api.bitpanda.com`. Anything else → `403`. HTTPS only.
+The relay is **read-only on the server side** (`BROKER_RELAY_POLICY` /
+`brokerRelayAllowed`): each host has an explicit list of read endpoints and
+methods, everything else → `403` (HTTPS only):
+
+| Host | Method | Paths |
+|---|---|---|
+| `api.binance.com` | GET | `/api/v3/account`, `/api/v3/myTrades`, `/sapi/v1/account/apiRestrictions` |
+| `api.bitpanda.com` | GET | `/v1/trades`, `/v1/wallets`, `/v1/fiatwallets`, `/v1/asset-wallets` |
+| `api.kraken.com` | POST | `/0/private/TradesHistory`, `/0/private/Ledgers`, `/0/private/Balance` |
+| `api.exchange.coinbase.com` | GET | `/fills`, `/accounts` |
+| `api.coinbase.com` | GET | `/api/v3/brokerage/orders/historical/fills`, `/api/v3/brokerage/accounts`, `/v2/accounts` |
+
+Order, trade, transfer and withdrawal endpoints can therefore never be relayed,
+even with a signature produced outside the app.
 
 Used by the **read-only exchange sync** (`MaerminExchangeSync`, WI-7): the client
 signs a read-only trades request (Binance HMAC, Bitpanda Bearer key) and relays

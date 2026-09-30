@@ -161,6 +161,38 @@
     catch (e) { return fb; }
   }
 
+  // Price-point timestamp -> epoch ms, or NaN. Only unambiguous forms are
+  // accepted: epoch numbers and ISO-8601 strings. Older builds stored live
+  // points as a year-less en-US string ("09/30, 08:14 PM") that V8 parses as
+  // the year 2001, which silently broke every date lookup on the history.
+  function parseTimestamp(v) {
+    if (typeof v === 'number') return isFinite(v) ? v : NaN;
+    if (v instanceof Date) return v.getTime();
+    const s = String(v == null ? '' : v);
+    if (!/^\d{4}-\d{2}-\d{2}/.test(s)) return NaN;
+    return new Date(s).getTime();
+  }
+
+  // Lazy, SRI-pinned script loader (sequential, cached per URL). Heavy
+  // third-party libraries that are only needed for one action (PDF export)
+  // load on first use instead of blocking the first paint.
+  const _scriptPromises = {};
+  function loadScripts(list) {
+    if (typeof document === 'undefined') return Promise.reject(new Error('browser only'));
+    return (list || []).reduce((chain, lib) => chain.then(() => {
+      if (_scriptPromises[lib.src]) return _scriptPromises[lib.src];
+      _scriptPromises[lib.src] = new Promise((resolve, reject) => {
+        const el = document.createElement('script');
+        el.src = lib.src;
+        if (lib.integrity) { el.integrity = lib.integrity; el.crossOrigin = 'anonymous'; }
+        el.onload = resolve;
+        el.onerror = () => { delete _scriptPromises[lib.src]; reject(new Error('Failed to load ' + lib.src)); };
+        document.head.appendChild(el);
+      });
+      return _scriptPromises[lib.src];
+    }), Promise.resolve());
+  }
+
   const MaerminUtils = {
     formatNumber,
     formatCurrencyEUR,
@@ -176,6 +208,8 @@
     parseDecimal,
     todayISO,
     safeUrl,
+    parseTimestamp,
+    loadScripts,
   };
 
   if (typeof window !== 'undefined') {

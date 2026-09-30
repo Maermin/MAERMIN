@@ -42,9 +42,8 @@
   <script src="migrations.js"></script>
   <script src="auth.js"></script>
   
-  <!-- PDF Libraries — SRI-pinned. -->
-  <script crossorigin="anonymous" integrity="sha384-JcnsjUPPylna1s1fvi1u12X5qjY5OL56iySh75FdtrwhO/SWXgMjoVqcKyIIWOLk" src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
-  <script crossorigin="anonymous" integrity="sha384-vuyrTV5nkscLp1knFvt+FIHfKKzmROBq5reruhMRslauj54mW+l2B8b6szMN6lCL" src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.5.31/jspdf.plugin.autotable.min.js"></script>
+  <!-- PDF libraries (jsPDF + autotable) are loaded lazily, SRI-pinned, on the
+       first PDF export (tax-report-builder.js) — no longer render-blocking. -->
   
   <link rel="stylesheet" href="styles.css">
 </head>

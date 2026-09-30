@@ -287,7 +287,9 @@
         if (amount <= 0 || price <= 0 || cost <= 0) return;
         var unrealized = (price - cost) * amount;
         if (unrealized < 0) {
-          var wash = !!recentBuy[cls + '-' + (p.symbol || p.name || '').toLowerCase()];
+          // The 30-day wash-sale rule is US law; Germany has none, so it only
+          // applies when the caller asks for the US jurisdiction.
+          var wash = opts.jurisdiction === 'us' && !!recentBuy[cls + '-' + (p.symbol || p.name || '').toLowerCase()];
           rows.push({
             symbol: p.symbol || p.name, cls: cls,
             unrealizedLoss: unrealized,
@@ -352,7 +354,11 @@
       var qty = parseFloat(tx.quantity) || 0;
       if (qty <= 0) return;
       if (tx.type === 'buy') {
-        lots.push({ qty: qty, priceEUR: txPriceEUR(tx, rate, fxAt), date: tx.date });
+        // Purchase fees are acquisition costs (Anschaffungsnebenkosten): the
+        // SAME per-unit basis tax-report-builder.js uses, so the positions list
+        // and the tax report agree on cost basis and P&L.
+        var feeEUR = txPriceEUR({ price: tx.fees, currency: tx.currency, date: tx.date }, rate, fxAt);
+        lots.push({ qty: qty, priceEUR: txPriceEUR(tx, rate, fxAt) + (feeEUR > 0 ? feeEUR / qty : 0), date: tx.date });
       } else if (tx.type === 'sell') {
         var remaining = qty;
         while (remaining > 1e-9 && lots.length) {

@@ -200,13 +200,21 @@
   // Nearest EUR price at or before the due date from the app's priceHistory
   // series ({timestamp, price} rows); today's executions may fall back to the
   // live price map. Returns null when nothing covers the date.
+  // Only epoch numbers and ISO-8601 strings are datable; a legacy year-less
+  // "09/30, 08:14 PM" point parses as 2001 and would be taken as an exact fill.
+  function tsOf(v) {
+    if (typeof v === 'number') return isFinite(v) ? v : NaN;
+    var s = String(v == null ? '' : v);
+    return /^\d{4}-\d{2}-\d{2}/.test(s) ? new Date(s).getTime() : NaN;
+  }
+
   function priceAtDate(history, prices, symbol, dueDateISO) {
     var sym = String(symbol || '');
     var series = (history || {})[sym] || (history || {})[sym.toLowerCase()] || (history || {})[sym.toUpperCase()];
     var cutoff = new Date(dueDateISO + 'T23:59:59Z').getTime();
     var best = null, bestTs = -Infinity;
     (Array.isArray(series) ? series : []).forEach(function (h) {
-      var ts = new Date(h && h.timestamp).getTime();
+      var ts = tsOf(h && h.timestamp);
       var p = num(h && h.price);
       if (isNaN(ts) || p == null || p <= 0) return;
       if (ts <= cutoff && ts > bestTs) { bestTs = ts; best = p; }

@@ -381,7 +381,8 @@ var GermanTax = (function () {
   // come on top; unknown future years fall back to the latest known value.
   var BASISZINS = {
     2018: 0.0087, 2019: 0.0052, 2020: 0.0007, 2021: 0.00045,
-    2022: -0.0005, 2023: 0.0255, 2024: 0.0229, 2025: 0.0253
+    2022: -0.0005, 2023: 0.0255, 2024: 0.0229, 2025: 0.0253,
+    2026: 0.0320 // BMF 13.01.2026 (IV C 1 - S 1980/00230/012/001)
   };
 
   function teilfreistellungRate(fundType) {
@@ -543,7 +544,31 @@ var GermanTax = (function () {
       taxes = abgeltungsteuer(afterAllowance, settings ? settings.kirchensteuer : input.kirchensteuerRate);
     }
 
+    // Foreign withholding tax credit (sec. 32d (5) EStG): per payout at most
+    // the DTA rate of 15% of the gross, never more than the German tax that
+    // falls on the dividends that are actually taxed (income sheltered by the
+    // Sparerpauschbetrag carries no tax to credit against). With church tax the
+    // statutory formula (e - 4q) / (4 + k) reduces the tax by 4q / (4 + k).
+    var creditable = 0;
+    (input.dividends || []).forEach(function (d) {
+      var w = Math.max(0, num(d.withholding));
+      if (w > 0) creditable += Math.min(w, 0.15 * Math.max(0, num(d.gross)));
+    });
+    var k = num(settings ? settings.kirchensteuer : input.kirchensteuerRate);
+    if (!(k === 0.08 || k === 0.09)) k = 0;
+    var rateBase = (settings && settings.abgeltungRate != null) ? num(settings.abgeltungRate) : 0.25;
+    creditable = Math.min(creditable, rateBase * Math.max(0, Math.min(dividendsTaxable, afterAllowance)));
+    var withholdingCredit = 0;
+    if (creditable > 0 && taxes.tax > 0) {
+      var reduction = Math.min(taxes.tax, k > 0 ? (4 * creditable) / (4 + k) : creditable);
+      var scale = (taxes.tax - reduction) / taxes.tax;
+      withholdingCredit = reduction;
+      taxes = { tax: taxes.tax - reduction, soli: taxes.soli * scale, kirchensteuer: taxes.kirchensteuer * scale,
+        total: (taxes.tax - reduction) + taxes.soli * scale + taxes.kirchensteuer * scale };
+    }
+
     return {
+      withholdingCredit: withholdingCredit,
       gainsTaxable: gainsTaxable,
       lossesTaxable: lossesTaxable,
       dividendsTaxable: dividendsTaxable,

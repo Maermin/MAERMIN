@@ -68,7 +68,7 @@ const A = require('../tax-advisor.js');
   let lh = res.findings.filter(x => x.kind === 'lossHarvest');
   ok('only the stock pot harvests (other has no realised gains)', lh.length === 1 && lh[0].pot === 'stocks');
   ok('offset capped at realised gains', Math.round(lh[0].offset) === 1500);
-  // give the other pot realised gains too
+  // A crypto position loss must NOT offset capital income (sec. 23 vs sec. 20).
   res = A.analyze({ today,
     positions: [
       { symbol: 'AAA', assetClass: 'stocks', costBasisEUR: 10000, currentValueEUR: 8000 },
@@ -76,9 +76,29 @@ const A = require('../tax-advisor.js');
     ],
     realizedStockGainsYTD: 1500, realizedOtherGainsYTD: 500 });
   lh = res.findings.filter(x => x.kind === 'lossHarvest');
+  ok('crypto loss is never offered against other capital income', lh.length === 1 && lh[0].pot === 'stocks');
+  // An ETF is not a share: its loss belongs to the other pot, not the stock pot.
+  res = A.analyze({ today,
+    positions: [
+      { symbol: 'AAA', assetClass: 'stocks', costBasisEUR: 10000, currentValueEUR: 8000 },
+      { symbol: 'VWCE', assetClass: 'stocks', isFund: true, costBasisEUR: 5000, currentValueEUR: 4000 }
+    ],
+    realizedStockGainsYTD: 1500, realizedOtherGainsYTD: 500 });
+  lh = res.findings.filter(x => x.kind === 'lossHarvest');
   ok('both pots harvest when each has realised gains', lh.length === 2);
+  ok('ETF loss sits in the other pot', lh.some(x => x.pot === 'other' && Math.round(x.harvestable) === 1000));
   const other = lh.find(x => x.pot === 'other');
   ok('other-pot offset capped at its 500 realised gains', Math.round(other.offset) === 500);
+  ok('stock pot holds only the direct share loss', lh.some(x => x.pot === 'stocks' && Math.round(x.harvestable) === 2000));
+  // Crypto: a short-term (not yet tax-free) lot at a loss offsets sec. 23 gains.
+  res = A.analyze({ today,
+    cryptoLots: [
+      { symbol: 'ETH', acquiredDate: today, quantity: 1, costBasisEUR: 3000, currentValueEUR: 2000 },
+      { symbol: 'BTC', acquiredDate: '2000-01-01', quantity: 1, costBasisEUR: 3000, currentValueEUR: 1000 }
+    ],
+    realizedCryptoGainsYTD: 800 });
+  lh = res.findings.filter(x => x.kind === 'lossHarvest');
+  ok('crypto pot: only the short-term lot loss counts, capped at sec. 23 gains', lh.length === 1 && lh[0].pot === 'crypto' && Math.round(lh[0].harvestable) === 1000 && Math.round(lh[0].offset) === 800);
 
   // ---- buildCryptoLots FIFO ----
   const txs = [
