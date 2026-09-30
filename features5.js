@@ -1,9 +1,8 @@
 // ============================================================================
 // MAERMIN v10.0 — Professional Analytics Features
-// 1. Performance Period Selector  — 1D / 1W / 1M / YTD / 1Y / Max
-// 2. Net Worth Dashboard          — Vermögen inkl. Cash, Immobilien, Schulden
-// 3. Cashflow Chart               — Investiert vs. Portfoliowert über Zeit
-// 4. Fee Analyzer                 — fee analysis total, per year, per asset
+// 1. Net Worth Dashboard          — Vermögen inkl. Cash, Immobilien, Schulden
+// 2. Cashflow Chart               — Investiert vs. Portfoliowert über Zeit
+// 3. Fee Analyzer                 — fee analysis total, per year, per asset
 // ============================================================================
 (function () {
 'use strict';
@@ -33,154 +32,6 @@ function KpiCard({ theme, label, value, sub, color, badge }) {
     ),
     React.createElement('div', { style: { color: color || theme.text, fontSize: '1.6rem', fontWeight: '800', lineHeight: 1, letterSpacing: '-0.02em' } }, value),
     sub && React.createElement('div', { style: { color: theme.textSecondary, fontSize: '0.78rem', marginTop: '0.25rem' } }, sub)
-  );
-}
-
-// ─────────────────────────────────────────────────────────────────────────────
-// 1. PERFORMANCE PERIOD SELECTOR
-// Shows portfolio return % for: 1D, 1W, 1M, YTD, 1Y, Max
-// Uses priceHistory snapshots — no extra API calls needed
-// ─────────────────────────────────────────────────────────────────────────────
-function PerformancePeriods({ portfolio, priceHistory, prices, theme, formatPrice, getCurrencySymbol }) {
-  const [activePeriod, setActivePeriod] = useState('1M');
-
-  const PERIODS = [
-    { id: '1D',  label: '1D',  days: 1   },
-    { id: '1W',  label: '1W',  days: 7   },
-    { id: '1M',  label: '1M',  days: 30  },
-    { id: 'YTD', label: 'YTD', days: null }, // special: since Jan 1
-    { id: '1Y',  label: '1Y',  days: 365 },
-    { id: 'Max', label: 'Max', days: null }, // all time
-  ];
-
-  // Build a timeline of total portfolio values from priceHistory
-  const timeline = useMemo(() => {
-    // Collect all unique timestamps
-    const tsSet = new Set();
-    Object.values(priceHistory).forEach(hist => hist.forEach(h => tsSet.add(h.timestamp)));
-    const sortedTs = [...tsSet].sort();
-
-    // All current positions
-    const positions = [];
-    ['crypto','stocks','skins','commodities'].forEach(cat => {
-      (portfolio[cat] || []).forEach(pos => {
-        positions.push({ sym: (pos.symbol || pos.name || '').toLowerCase(), symOrig: pos.symbol || pos.name || '', amount: pos.amount || 0 });
-      });
-    });
-
-    return sortedTs.map(ts => {
-      let value = 0;
-      positions.forEach(pos => {
-        const hist = priceHistory[pos.sym] || priceHistory[pos.symOrig] || [];
-        // Find the price at or before this timestamp
-        const entry = [...hist].reverse().find(h => h.timestamp <= ts);
-        if (entry) value += pos.amount * entry.price;
-      });
-      return { ts, value };
-    }).filter(d => d.value > 0);
-  }, [priceHistory, portfolio]);
-
-  // Current value from live prices
-  const currentValue = useMemo(() => {
-    let v = 0;
-    ['crypto','stocks','skins','commodities'].forEach(cat => {
-      (portfolio[cat] || []).forEach(pos => {
-        const sym = (pos.symbol || pos.name || '');
-        const p = prices[sym] || prices[sym.toLowerCase()] || pos.purchasePrice || 0;
-        v += (pos.amount || 0) * p;
-      });
-    });
-    return v;
-  }, [portfolio, prices]);
-
-  // Compute return for each period
-  const periodData = useMemo(() => {
-    const now = new Date();
-    return PERIODS.map(p => {
-      let startValue = null;
-      if (p.id === 'YTD') {
-        const jan1Ts = Math.floor(new Date(now.getFullYear(), 0, 1).getTime() / 1000);
-        const snap = timeline.find(d => d.ts >= jan1Ts);
-        startValue = snap?.value ?? (timeline[0]?.value ?? null);
-      } else if (p.id === 'Max') {
-        startValue = timeline[0]?.value ?? null;
-      } else {
-        const cutoffTs = Math.floor((now - p.days * 86400000) / 1000);
-        const snap = timeline.slice().reverse().find(d => d.ts <= cutoffTs);
-        startValue = snap?.value ?? (timeline[0]?.value ?? null);
-      }
-
-      if (!startValue || startValue <= 0 || currentValue <= 0) {
-        return { ...p, change: null, changePct: null };
-      }
-      const change    = currentValue - startValue;
-      const changePct = (change / startValue) * 100;
-      return { ...p, change, changePct, startValue };
-    });
-  }, [timeline, currentValue, PERIODS]);
-
-  const active = periodData.find(p => p.id === activePeriod) || periodData[0];
-
-  return React.createElement('div', {
-    style: { background: theme.card, border: `1px solid ${theme.cardBorder}`, borderRadius: '14px', padding: '1.25rem', marginBottom: '1.5rem' }
-  },
-    // Header
-    React.createElement('div', { style: { display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem', flexWrap: 'wrap', gap: '0.5rem' } },
-      React.createElement('span', { style: { color: theme.text, fontWeight: '700', fontSize: '0.9rem' } }, 'Performance by Period'),
-      // Period buttons
-      React.createElement('div', { style: { display: 'flex', gap: '0.25rem', background: theme.inputBg, borderRadius: '8px', padding: '0.2rem' } },
-        periodData.map(p =>
-          React.createElement('button', {
-            key: p.id,
-            onClick: () => setActivePeriod(p.id),
-            style: {
-              padding: '0.3rem 0.6rem', border: 'none', borderRadius: '6px', cursor: 'pointer',
-              fontSize: '0.75rem', fontWeight: activePeriod === p.id ? '700' : '400',
-              background: activePeriod === p.id ? theme.accent : 'transparent',
-              color: activePeriod === p.id ? '#ffffff' : p.changePct !== null ? (p.changePct >= 0 ? '#22c55e' : '#ef4444') : theme.textSecondary,
-              transition: 'all 0.1s'
-            }
-          }, p.label)
-        )
-      )
-    ),
-
-    // Active period detail
-    active.changePct !== null
-      ? React.createElement('div', { style: { display: 'flex', alignItems: 'baseline', gap: '1rem', marginBottom: '1rem' } },
-          React.createElement('span', {
-            style: { fontSize: '2.25rem', fontWeight: '800', letterSpacing: '-0.03em',
-              color: active.changePct >= 0 ? '#22c55e' : '#ef4444' }
-          }, `${active.changePct >= 0 ? '+' : ''}${active.changePct.toFixed(2)}%`),
-          React.createElement('span', {
-            style: { fontSize: '1.1rem', fontWeight: '600', color: active.changePct >= 0 ? '#22c55e' : '#ef4444' }
-          }, `${active.change >= 0 ? '+' : ''}${formatPrice(active.change)} ${getCurrencySymbol()}`)
-        )
-      : React.createElement('div', { style: { color: theme.textSecondary, fontSize: '0.875rem', marginBottom: '1rem' } }, 'Not enough price history yet — refresh prices a few times'),
-
-    // All periods mini-grid
-    React.createElement('div', { style: { display: 'grid', gridTemplateColumns: 'repeat(6, 1fr)', gap: '0.5rem' } },
-      periodData.map(p =>
-        React.createElement('div', {
-          key: p.id,
-          ...window.MaerminUtils.clickable(() => setActivePeriod(p.id)),
-          'aria-label': 'Show period ' + (p.label || p.id),
-          'aria-pressed': activePeriod === p.id,
-          style: {
-            textAlign: 'center', padding: '0.5rem 0.25rem', borderRadius: '8px', cursor: 'pointer',
-            background: activePeriod === p.id ? `${theme.accent}15` : 'transparent',
-            border: `1px solid ${activePeriod === p.id ? theme.accent : 'transparent'}`,
-            transition: 'all 0.1s'
-          }
-        },
-          React.createElement('div', { style: { color: theme.textSecondary, fontSize: '0.65rem', marginBottom: '0.2rem', textTransform: 'uppercase', letterSpacing: '0.05em' } }, p.label),
-          React.createElement('div', {
-            style: { fontSize: '0.8rem', fontWeight: '700',
-              color: p.changePct === null ? theme.textSecondary : p.changePct >= 0 ? '#22c55e' : '#ef4444' }
-          }, p.changePct !== null ? `${p.changePct >= 0 ? '+' : ''}${p.changePct.toFixed(1)}%` : '—')
-        )
-      )
-    )
   );
 }
 
@@ -758,12 +609,11 @@ function FeeAnalyzer({ transactions, theme, formatPrice, getCurrencySymbol }) {
 // EXPORTS
 // ─────────────────────────────────────────────────────────────────────────────
 window.MaerminFeatures5 = {
-  PerformancePeriods,
   NetWorthView,
   CashflowChart,
   FeeAnalyzer,
 };
 
-console.log('[OK] MAERMIN Features5 v10.0 — Performance Periods, Net Worth, Cashflow, Fee Analyzer');
+console.log('[OK] MAERMIN Features5 v10.0 — Net Worth, Cashflow, Fee Analyzer');
 
 })();

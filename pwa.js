@@ -2,7 +2,7 @@
 // MAERMIN — PWA Controller  (window.MaerminPWA)
 // ----------------------------------------------------------------------------
 // Epic 2 client side: registers the service worker, manages updates, the
-// install prompt, notifications/push subscription, and background-sync requests.
+// install prompt, local notifications, and background-sync requests.
 //
 // Per the V7 rule we don't bolt on new chrome — the only UI is ONE small,
 // dismissible "Install" toast shown when the browser offers installation (the
@@ -32,7 +32,7 @@
   // ---- registration + update flow ------------------------------------------
   function register() {
     if (!('serviceWorker' in navigator)) return;
-    // file:// (Electron loads via file) can't host a SW — skip gracefully.
+    // file:// (index.html opened directly) can't host a SW — skip gracefully.
     if (location.protocol === 'file:') return;
 
     navigator.serviceWorker.register(SW_URL, { scope: SW_SCOPE })
@@ -145,7 +145,7 @@
     if (bar) bar.remove();
   });
 
-  // ---- notifications + push -------------------------------------------------
+  // ---- notifications ----------------------------------------------------------
   function notificationsSupported() { return 'Notification' in window; }
   function notificationPermission() { return notificationsSupported() ? Notification.permission : 'denied'; }
   function requestNotifications() {
@@ -154,7 +154,7 @@
   }
 
   // Local notification — works WITHOUT a server. The price-alerts feature can
-  // call this today; server-sent push arrives with the cloud-sync worker.
+  // call this today.
   function notify(title, options) {
     options = options || {};
     if (notificationPermission() !== 'granted') return Promise.resolve(false);
@@ -164,31 +164,6 @@
     }
     try { new Notification(title, options); return Promise.resolve(true); }
     catch (e) { return Promise.resolve(false); }
-  }
-
-  function urlBase64ToUint8Array(base64String) {
-    var padding = '='.repeat((4 - base64String.length % 4) % 4);
-    var base64 = (base64String + padding).replace(/-/g, '+').replace(/_/g, '/');
-    var raw = atob(base64);
-    var out = new Uint8Array(raw.length);
-    for (var i = 0; i < raw.length; i++) out[i] = raw.charCodeAt(i);
-    return out;
-  }
-
-  // Create a Web Push subscription. Sending the subscription to a push service
-  // (VAPID via the Cloudflare worker `push.subscribe`) is the cloud-sync slice;
-  // here we just produce the subscription object for that hand-off.
-  function subscribePush(vapidPublicKey) {
-    if (!registration || !registration.pushManager || !vapidPublicKey) {
-      return Promise.reject(new Error('push-unavailable'));
-    }
-    return registration.pushManager.getSubscription().then(function (existing) {
-      if (existing) return existing;
-      return registration.pushManager.subscribe({
-        userVisibleOnly: true,
-        applicationServerKey: urlBase64ToUint8Array(vapidPublicKey)
-      });
-    });
   }
 
   // ---- background sync ------------------------------------------------------
@@ -210,7 +185,6 @@
     notificationPermission: notificationPermission,
     requestNotifications: requestNotifications,
     notify: notify,
-    subscribePush: subscribePush,
     requestBackgroundSync: requestBackgroundSync
   };
 

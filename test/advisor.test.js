@@ -46,10 +46,6 @@ const Advisor = require('../advisor.js');
   ok('strong health → good finding', healthy.findings.some(f => f.id === 'health-good'));
   ok('no critical/warning for healthy portfolio', healthy.summary.critical === 0 && healthy.summary.warning === 0);
 
-  // chatContext shape feeds AICopilot
-  const ctx = Advisor.chatContext(r, 'How do I de-risk?');
-  ok('chatContext carries findings + question', ctx.data.findings.length === r.findings.length && ctx.question === 'How do I de-risk?');
-
   console.log('\n' + passed + ' passed, ' + failed + ' failed');
   process.exit(failed ? 1 : 0);
 })();

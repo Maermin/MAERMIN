@@ -76,7 +76,6 @@ interface MaerminPWAAPI {
   notificationPermission(): NotificationPermission;
   requestNotifications(): Promise<NotificationPermission>;
   notify(title: string, options?: NotificationOptions): Promise<boolean>;
-  subscribePush(vapidPublicKey: string): Promise<PushSubscription>;
   requestBackgroundSync(tag?: string): Promise<boolean>;
 }
 
@@ -86,7 +85,7 @@ interface SyncTransport {
   put(account: string, baseRev: number, blob: string): Promise<{ ok: true; rev: number } | { conflict: true; serverRev: number; blob: string }>;
 }
 interface MaerminSyncAPI {
-  configure(cfg: { provider?: 'worker' | 'drive' | 'onedrive'; endpoint?: string; tokenProvider?: () => string | Promise<string>; transport?: SyncTransport; fetchImpl?: typeof fetch }): SyncTransport;
+  configure(cfg: { provider?: 'worker'; endpoint?: string; transport?: SyncTransport; fetchImpl?: typeof fetch }): SyncTransport;
   isConfigured(): boolean;
   getConfig(): { provider: string; endpoint: string | null } | null;
   sync(): Promise<any>;
@@ -98,8 +97,6 @@ interface MaerminSyncAPI {
   onChange(cb: (ev: { type: string; result?: any; error?: any }) => void): void;
   mergeSnapshots(local: any, remote: any): { merged: any; conflicts: any[] };
   WorkerTransport(opts: any): SyncTransport;
-  DriveTransport(opts: any): SyncTransport;
-  OneDriveTransport(opts: any): SyncTransport;
 }
 
 // ---- advisor ---------------------------------------------------------------
@@ -108,8 +105,6 @@ interface MaerminAdvisorAPI {
   analyzeFromMetrics(bundle: any, t?: any): { findings: AdvisorFinding[]; summary: any };
   analyzePortfolio(portfolio: Portfolio, prices: Prices, transactions: Transaction[], t?: any): { findings: AdvisorFinding[]; summary: any };
   gatherBundle(portfolio: Portfolio, prices: Prices, transactions: Transaction[], t?: any): any;
-  chatContext(report: any, question?: string): any;
-  ask(report: any, question: string): Promise<string>;
   Panel(props: any): any;
 }
 
@@ -143,7 +138,6 @@ declare global {
     MaerminAdvisor: MaerminAdvisorAPI;
     MaerminAnalytics: MaerminAnalyticsAPI;
     MaerminMetrics: any;
-    AICopilot: any;
     PortfolioHealth: any;
     DividendDataService: any;
     MonteCarloEngine: any;

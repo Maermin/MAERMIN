@@ -1,15 +1,11 @@
 // ============================================================================
-// MAERMIN — AI Portfolio Advisor  (window.MaerminAdvisor)
+// MAERMIN — Portfolio Advisor  (window.MaerminAdvisor)
 // ----------------------------------------------------------------------------
-// Epic 3. Two layers, NO new analytics engine (per the V7 rule it reads the one
-// shared source, window.MaerminMetrics):
-//
-//   1. A DETERMINISTIC findings engine — concentration / diversification /
-//      currency / rebalancing / dividend / tax-loss / health. Rule-based, always
-//      available (works offline, no API key), produces ranked recommendations.
-//   2. A natural-language CHAT layered on window.AICopilot, which receives those
-//      findings as structured context — so the LLM explains real numbers instead
-//      of hallucinating them.
+// Epic 3. NO new analytics engine (per the V7 rule it reads the one shared
+// source, window.MaerminMetrics): a DETERMINISTIC findings engine —
+// concentration / diversification / currency / rebalancing / dividend /
+// tax-loss / health. Rule-based, fully on-device (works offline, no API key),
+// produces ranked recommendations.
 //
 // `analyzeFromMetrics(bundle, t)` is pure and unit-tested; `analyzePortfolio()`
 // gathers the bundle from MaerminMetrics. UI (`Panel`) embeds into existing
@@ -225,25 +221,6 @@
     return analyzeFromMetrics(gatherBundle(portfolio, prices, transactions, t, extras), t);
   }
 
-  // Build the AICopilot chat context from the deterministic findings, so the LLM
-  // answers grounded in real numbers.
-  function chatContext(report, question) {
-    return {
-      title: 'Portfolio Advisor',
-      data: {
-        summary: report.summary,
-        findings: report.findings.map(function (f) {
-          return { severity: f.severity, category: f.category, title: f.title, detail: f.detail, action: f.action };
-        })
-      },
-      question: question
-    };
-  }
-  function ask(report, question) {
-    if (!window.AICopilot || !window.AICopilot.analyze) return Promise.reject(new Error('NO_AI'));
-    return window.AICopilot.analyze(chatContext(report, question));
-  }
-
   // ---- embeddable Panel (docks into existing views; no new tab) ------------
   function Panel(props) {
     if (typeof React === 'undefined') return null;
@@ -279,10 +256,7 @@
     } },
       e('div', { style: { display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.5rem' } },
         e('div', { style: { color: theme.text || '#e9edf4', fontWeight: 800, fontSize: '1rem' } },
-          (t.advisorTitle || 'AI Portfolio Advisor')),
-        window.AICopilot && window.AICopilot.Button
-          ? e(window.AICopilot.Button, { theme: theme, t: t, compact: true, context: chatContext(report) })
-          : null
+          (t.advisorTitle || 'Portfolio Advisor'))
       ),
       findings.length
         ? rows
@@ -295,8 +269,6 @@
     analyzeFromMetrics: analyzeFromMetrics,
     analyzePortfolio: analyzePortfolio,
     gatherBundle: gatherBundle,
-    chatContext: chatContext,
-    ask: ask,
     Panel: Panel
   };
   if (typeof window !== 'undefined') window.MaerminAdvisor = api;

@@ -5,7 +5,7 @@
  * The app is a set of plain global-IIFE scripts loaded in order by
  * index.html. This build reads that exact order, concatenates the local
  * scripts and minifies them into a single bundle for production
- * (GitHub Pages / Electron), without changing the dev workflow.
+ * (GitHub Pages), without changing the dev workflow.
  *
  * Output:  dist/index.html, dist/maermin.min.js, dist/styles.css
  * Run:     npm run build:web
@@ -109,7 +109,7 @@ const CSP = "default-src 'self' https:; " +
   "img-src 'self' data: https: https://community.akamai.steamstatic.com; " +
   "connect-src 'self' https://api.coingecko.com https://api.exchangerate-api.com " +
   "https://open.er-api.com https://www.alphavantage.co https://*.workers.dev " +
-  "https://cdnjs.cloudflare.com https://www.googleapis.com https://graph.microsoft.com; " +
+  "https://cdnjs.cloudflare.com; " +
   "worker-src 'self'; manifest-src 'self'; base-uri 'self'; object-src 'none'";
 
 // Production index.html: keep <head> (CDN deps + styles), single bundle script.

@@ -317,7 +317,9 @@ function InvestmentTracker() {
   // build, the dividend/health calcs or the stats below.
   const portfolio = useMemo(
     () => window.MaerminMetrics.buildPositions(activeTransactions, { exchangeRate, fxAt }),
-    [activeTransactions, exchangeRate, fxAt]
+    // corpActionsRev: splits are an overlay read by buildPositions, so re-run it
+    // when one is added/removed (they are not part of the transactions array).
+    [activeTransactions, exchangeRate, fxAt, corpActionsRev]
   );
   
   // UI State
@@ -623,6 +625,8 @@ function InvestmentTracker() {
   // Bumped when a corporate action (split) is removed from the global Settings
   // list, so the list re-reads the store.
   const [corpActionsRev, setCorpActionsRev] = useState(0);
+  // Overview row → position detail modal (transactions, CAGR, splits, journal).
+  const [positionDetail, setPositionDetail] = useState(null);
   const [taxOwner, setTaxOwner] = useState(() => {
     try { return JSON.parse(localStorage.getItem('maermin_tax_owner') || '{}'); } catch { return {}; }
   });
@@ -687,7 +691,7 @@ function InvestmentTracker() {
   // ALL portfolios combined portfolio object — used on Overview in "All" mode.
   const allPortfoliosPortfolio = useMemo(
     () => window.MaerminMetrics.buildPositions(transactions, { exchangeRate, fxAt }),
-    [transactions, exchangeRate, fxAt]
+    [transactions, exchangeRate, fxAt, corpActionsRev]
   );
 
   // ALL portfolios combined totals — used on Overview to show total wealth.
@@ -716,7 +720,6 @@ function InvestmentTracker() {
     { id: 'nav:discovery',     label: t.discovery || 'Discovery',          category: 'Tools',      shortcut: 'g e' },
     { id: 'nav:share',         label: t.navShare || 'Share & Compare',     category: 'Tools',      shortcut: 'g h' },
     { id: 'nav:watchlist',     label: t.watchlist || 'Watchlist',          category: 'Tools',      shortcut: 'g w' },
-    { id: 'nav:alerts',        label: t.priceAlerts || 'Price Alerts',     category: 'Tools',      shortcut: 'g l' },
     { id: 'nav:rules',         label: t.navRules || 'Alerts & Rules',      category: 'Tools',      shortcut: 'g u' },
     { id: 'nav:categories',    label: t.navCategories || 'Categories',     category: 'Tools',      shortcut: 'g c' },
     { id: 'nav:customize',     label: t.navCustomize || 'Customize Overview', category: 'Tools',   shortcut: 'g y' },
@@ -1578,7 +1581,7 @@ function InvestmentTracker() {
         const ser = window.MaerminSnapshots.seriesFor(window.MaerminSnapshots.load(), 'all');
         if (ser.length) { let peak = 0; ser.forEach(p => { if (p.v > peak) peak = p.v; }); drop = peak > 0 ? ((peak - ser[ser.length - 1].v) / peak) * 100 : 0; }
       }
-      const ctx = window.MaerminRules.buildContext(positions, { byTag, dropFromPeakPct: drop });
+      const ctx = window.MaerminRules.buildContext(positions, { byTag, dropFromPeakPct: drop, prices });
       const seen = notifiedRulesRef.current;
       window.MaerminRules.evaluate(rulesState, ctx).forEach(res => {
         if (res.triggered && !seen[res.rule.id]) {
@@ -1910,7 +1913,6 @@ function InvestmentTracker() {
       case 'nav:discovery':     setActiveView('discovery'); break;
       case 'nav:share':         setActiveView('share'); break;
       case 'nav:watchlist':     setActiveView('watchlist'); break;
-      case 'nav:alerts':        setActiveView('alerts'); break;
       case 'nav:rules':         setActiveView('rules'); break;
       case 'nav:categories':    setActiveView('categories'); break;
       case 'nav:customize':     setActiveView('customize'); break;
@@ -2318,7 +2320,12 @@ function InvestmentTracker() {
 
   // ── TAX COMBINED VIEW (FIFO + Tax Report) ───────────────────────────────────
   const TaxCombinedView = ({ transactions, prices, theme, t, formatPrice, getCurrencySymbol, taxJurisdiction, setTaxJurisdiction, language }) => {
-    const [tab, setTab] = React.useState('fifo');
+    const [tabState, setTab] = React.useState('fifo');
+    // Under German tax law the Tax Report tab already carries the DE-aware
+    // tax advisor (loss harvesting with separate stock/other loss pots), so the
+    // generic harvest tab is only offered for other jurisdictions.
+    const showHarvest = taxJurisdiction !== 'de';
+    const tab = (tabState === 'harvest' && !showHarvest) ? 'report' : tabState;
 
     const tabBtn = (id, label) => React.createElement('button', {
       onClick: () => setTab(id),
@@ -2372,7 +2379,7 @@ function InvestmentTracker() {
         tabBtn('fifo',   t.taxTabFifo || 'FIFO Cost Basis'),
         tabBtn('report', t.taxTabReport || 'Tax Report'),
         tabBtn('realized', t.taxTabRealized || 'Realized vs Unrealized'),
-        tabBtn('harvest', t.taxTabHarvest || 'Tax-loss harvesting')
+        showHarvest && tabBtn('harvest', t.taxTabHarvest || 'Tax-loss harvesting')
       ),
       React.createElement('div', { style: { flex: 1, overflow: 'auto' } },
         tab === 'fifo' && window.MaerminFeatures4 ?
@@ -2472,11 +2479,21 @@ function InvestmentTracker() {
         }
         const rSymbols = rPositions.map(p => p.symbol).sort();
         const rCategories = Array.from(new Set(rPositions.map(p => p.category))).sort();
-        return React.createElement(window.MaerminRules.View, {
-          positions: rPositions, byTag: rByTag, dropFromPeakPct: rDrop,
-          symbols: rSymbols, categories: rCategories, tags: rTagNames,
-          theme: currentTheme, t, formatPrice
-        });
+        return React.createElement(React.Fragment, null,
+          React.createElement(window.MaerminRules.View, {
+            positions: rPositions, byTag: rByTag, dropFromPeakPct: rDrop,
+            symbols: rSymbols, categories: rCategories, tags: rTagNames,
+            prices, theme: currentTheme, t, formatPrice
+          }),
+          // Risk & drift monitor: preset structural rules with configurable
+          // thresholds + local-notification toggle. Its continuous evaluation
+          // runs on every price refresh; this is only the settings/status panel.
+          window.MaerminRiskMonitor && window.MaerminRiskMonitor.Panel &&
+            React.createElement(window.MaerminRiskMonitor.Panel, {
+              portfolio, prices, priceHistory, lookThrough: lookThroughResult,
+              theme: currentTheme, t
+            })
+        );
       }
 
       case 'discovery':
@@ -2583,7 +2600,7 @@ function InvestmentTracker() {
         return window.MaerminFeatures7 ?
           React.createElement(React.Fragment, null,
             React.createElement(window.MaerminFeatures7.PerformanceAttribution, {
-              portfolio, prices, priceHistory, transactions: activeTransactions,
+              portfolio, prices, transactions: activeTransactions, exchangeRate,
               theme: currentTheme, formatPrice, getCurrencySymbol, t
             }),
             // FX attribution fold-in: the currency dimension of attribution.
@@ -2594,13 +2611,6 @@ function InvestmentTracker() {
               })
             )
           ) : renderAnalyticsPlaceholder('Attribution');
-
-      case 'realized':
-        return window.MaerminFeatures7 ?
-          React.createElement(window.MaerminFeatures7.RealizedUnrealizedView, {
-            transactions: activeTransactions, portfolio, prices,
-            theme: currentTheme, formatPrice, getCurrencySymbol, exchangeRate
-          }) : renderAnalyticsPlaceholder('Realized P&L');
 
       case 'news':
         return window.MaerminFeatures7 ?
@@ -2659,22 +2669,6 @@ function InvestmentTracker() {
           React.createElement(window.MaerminFeatures.WatchlistView, {
             prices, priceHistory, theme: currentTheme, t, addToast
           }) : renderAnalyticsPlaceholder('Watchlist');
-
-      case 'alerts':
-        return window.MaerminFeatures ?
-          React.createElement(React.Fragment, null,
-            React.createElement(window.MaerminFeatures.PriceAlertsView, {
-              prices, theme: currentTheme, t, addToast, portfolio
-            }),
-            // Risk & drift monitor fold-in (no new tab): rule status with
-            // user-configurable thresholds + local-notification toggle. The
-            // continuous evaluation itself runs on every price refresh.
-            window.MaerminRiskMonitor && window.MaerminRiskMonitor.Panel &&
-              React.createElement(window.MaerminRiskMonitor.Panel, {
-                portfolio, prices, priceHistory, lookThrough: lookThroughResult,
-                theme: currentTheme, t
-              })
-          ) : renderAnalyticsPlaceholder('Price Alerts');
 
       case 'transactions':
         return renderTransactionsView();
@@ -2953,7 +2947,7 @@ function InvestmentTracker() {
       const filtered = transactions.filter(tx => (tx.portfolioId || 'default') === overviewMode);
       const pf = window.MaerminMetrics.buildPositions(filtered, { exchangeRate, fxAt });
       return window.MaerminMetrics.computeStats(pf, prices);
-    }, [overviewMode, transactions, prices, exchangeRate, fxAt]);
+    }, [overviewMode, transactions, prices, exchangeRate, fxAt, corpActionsRev]);
 
     const stats  = isAllMode ? allPortfoliosStats : singleStats || allPortfoliosStats;
     const isUp   = stats.totalProfit >= 0;
@@ -3344,7 +3338,15 @@ function InvestmentTracker() {
               )
             ),
             React.createElement('tbody', null,
-              positions.map(p => React.createElement('tr', { key: p.cat + p.sym, style: { borderTop: `1px solid ${currentTheme.cardBorder}` } },
+              positions.map(p => React.createElement('tr', {
+                key: p.cat + p.sym,
+                ...window.MaerminUtils.clickable(() => setPositionDetail({
+                  sym: p.sym, cat: p.cat, amount: p.amount,
+                  avgPrice: p.amount > 0 ? p.cost / p.amount : 0
+                })),
+                'aria-label': `${p.name} details`,
+                style: { borderTop: `1px solid ${currentTheme.cardBorder}`, cursor: 'pointer' }
+              },
                 React.createElement('td', { style: { padding: '0.85rem 1.5rem' } },
                   React.createElement('div', { style: { display: 'flex', alignItems: 'center', gap: '0.7rem' } },
                     React.createElement('div', { style: { width: '32px', height: '32px', borderRadius: '9px', background: `${p.color}22`, color: p.color, display: 'flex', alignItems: 'center', justifyContent: 'center', fontFamily: "'Geist', sans-serif", fontWeight: '700', fontSize: '0.78rem', flexShrink: 0 } }, glyph(p.sym)),
@@ -3386,7 +3388,16 @@ function InvestmentTracker() {
         return React.createElement(React.Fragment, null,
           React.createElement('div', { style: { display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem', marginBottom: '1.25rem' } }, allocCard, perfCard),
           positionsCard,
-          attributionPanel
+          attributionPanel,
+          positionDetail && window.MaerminFeatures3 && window.MaerminFeatures3.PositionDetailModal &&
+            React.createElement(window.MaerminFeatures3.PositionDetailModal, {
+              position: positionDetail, transactions: overviewTransactions, prices,
+              theme: currentTheme, formatPrice, getCurrencySymbol, t,
+              workerUrl: apiKeys.cs2Worker,
+              // A split may have been added/removed inside the modal — re-run
+              // the positions overlay so values and cost basis update.
+              onClose: () => { setPositionDetail(null); setCorpActionsRev(n => n + 1); }
+            })
         );
       })(),
 
@@ -5172,10 +5183,8 @@ buy,crypto,bitcoin,0.5,45000,2024-01-15,10`)
               { id: 'discovery',   label: t.navDiscovery || 'Discovery' },
               { id: 'share',       label: t.navShare || 'Share & Compare' },
               { id: 'watchlist',   label: t.navWatchlist || 'Watchlist' },
-              { id: 'alerts',      label: t.navPriceAlerts || 'Price Alerts' },
               { id: 'rules',       label: t.navRules || 'Alerts & Rules' },
               { id: 'attribution', label: t.navAttribution || 'Attribution' },
-              { id: 'realized',    label: t.navRealizedPnl || 'Realized P&L' },
               { id: 'news',        label: t.navNewsFeed || 'News Feed' },
               { id: 'data',        label: t.navImportExport || 'Import / Export' },
             ]},

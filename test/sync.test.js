@@ -1,6 +1,6 @@
 // Node harness for the cloud-sync engine. Exercises the real crypto blob +
 // merge/conflict logic against an in-memory mock transport (the same contract
-// the Cloudflare worker / Drive / OneDrive transports implement).
+// the Cloudflare worker transport implements).
 // Run: node test/sync.test.js
 'use strict';
 

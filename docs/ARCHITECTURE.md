@@ -5,7 +5,6 @@ ways from the same source:
 
 - **Web** (GitHub Pages / any static host) — `index.html` loads plain global
   scripts; `build.mjs` concatenates + minifies them into `dist/`.
-- **Desktop** (Electron) — `main.js` + `preload.js` wrap the same UI in a sandboxed, navigation-locked window (no privileged IPC; data stays in the renderer's encrypted storage).
 
 There is **no backend and no database**. State lives in the browser's
 `localStorage`; an optional Cloudflare Worker only proxies market data and an
@@ -136,7 +135,7 @@ volatility/return** panel and a **Fama-French factor-exposure** panel (MKT/SMB/H
 + annualised alpha, regressing the portfolio on ETF-proxy factor returns — VTI; IWM−IWB;
 IWD−IWF — over the same `yf` endpoint) to the **Risk** view. The proxy/diff alignment is
 pure and unit-tested (`MaerminAnalyticsData.alignReturns`/`subtract`); the engine's
-`factorExposure` OLS stays the single source of truth. The AI advisor's findings
+`factorExposure` OLS stays the single source of truth. The advisor's findings
 (`advisor.js` → `MaerminAdvisor.Panel`) fold into the **Health** view.
 
 **ETF look-through (X-Ray)** (`etf-lookthrough.js` → `MaerminLookThrough`) folds into
@@ -171,7 +170,7 @@ the score is computed from history alone and the panel says so. The score is lab
 a heuristic; nothing is persisted.
 
 **Risk & drift monitor** (`risk-monitor.js` → `MaerminRiskMonitor`) folds into the
-**Alerts** view below the price alerts (no new tab): a rule-status table (current value
+**Alerts & Rules** view below the user-defined rules (no new tab): a rule-status table (current value
 vs limit, breach state) with inline threshold editing, a notification toggle (wired to
 `MaerminPWA.requestNotifications`/`notify`) and a cooldown. The continuous part is one
 renderer `useEffect` on `prices`: `checkAndNotify` re-evaluates the rules on every

@@ -2,108 +2,15 @@
   "name": "maermin",
   "version": "10.0.0",
   "description": "MAERMIN v10.0 - Professional Multi-Asset Portfolio Tracker",
-  "main": "main.js",
   "author": "MAERMIN Team",
   "license": "MIT",
   "scripts": {
-    "start": "electron .",
-    "dev": "electron . --enable-logging",
     "build:web": "node build.mjs",
     "check": "node scripts/check.mjs",
-    "test": "node test/run-all.mjs && npm --prefix platform test",
-    "build": "electron-builder",
-    "build:win": "electron-builder --win",
-    "build:mac": "electron-builder --mac",
-    "build:linux": "electron-builder --linux",
-    "pack": "electron-builder --dir",
-    "postinstall": "electron-builder install-app-deps"
+    "test": "node test/run-all.mjs"
   },
   "devDependencies": {
-    "electron": "^44.5.0",
-    "electron-builder": "^26.15.3",
     "esbuild": "^0.28.0"
-  },
-  "build": {
-    "appId": "com.maermin.portfolio",
-    "productName": "MAERMIN",
-    "copyright": "Copyright 2025 MAERMIN",
-    "directories": {
-      "output": "dist",
-      "buildResources": "assets"
-    },
-    "files": [
-      "main.js",
-      "preload.js",
-      "index.html",
-      "styles.css",
-      "renderer.js",
-      "*.js",
-      "manifest.webmanifest",
-      "icon.svg",
-      "assets/**/*"
-    ],
-    "win": {
-      "target": [
-        {
-          "target": "nsis",
-          "arch": [
-            "x64"
-          ]
-        },
-        {
-          "target": "portable",
-          "arch": [
-            "x64"
-          ]
-        }
-      ],
-      "icon": "assets/icon.ico",
-      "artifactName": "MAERMIN-${version}-Setup.${ext}"
-    },
-    "nsis": {
-      "oneClick": false,
-      "allowToChangeInstallationDirectory": true,
-      "createDesktopShortcut": true,
-      "createStartMenuShortcut": true,
-      "shortcutName": "MAERMIN"
-    },
-    "mac": {
-      "target": [
-        {
-          "target": "dmg",
-          "arch": [
-            "x64",
-            "arm64"
-          ]
-        }
-      ],
-      "icon": "assets/icon.icns",
-      "category": "public.app-category.finance",
-      "artifactName": "MAERMIN-${version}.${ext}"
-    },
-    "linux": {
-      "target": [
-        {
-          "target": "AppImage",
-          "arch": [
-            "x64"
-          ]
-        },
-        {
-          "target": "deb",
-          "arch": [
-            "x64"
-          ]
-        }
-      ],
-      "icon": "assets/icons",
-      "category": "Finance",
-      "artifactName": "MAERMIN-${version}.${ext}"
-    },
-    "publish": {
-      "provider": "github",
-      "releaseType": "release"
-    }
   },
   "keywords": [
     "portfolio",
@@ -113,8 +20,6 @@
     "stocks",
     "cs2",
     "finance",
-    "desktop",
-    "electron",
     "dca",
     "dividends",
     "options",
