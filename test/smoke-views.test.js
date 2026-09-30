@@ -79,6 +79,7 @@ const engines = [
   '../recurring.js', '../equity-metadata.js', '../portfolio-health.js',
   '../data-quality.js', '../portfolio-analytics.js', '../analytics-data.js',
   '../tax-settings.js', '../tax-calculation-engine.js', '../tax-report-builder.js',
+  '../attribution.js',
 ];
 console.log('engine preload:');
 for (const e of engines) {
@@ -90,11 +91,11 @@ for (const e of engines) {
 // Tier 1 — every view module loads + exports the documented components.
 // ---------------------------------------------------------------------------
 const VIEW_MODULES = [
-  { file: '../features.js',         ns: 'MaerminFeatures',  comps: ['PieChart', 'Sparkline', 'PriceQualityBadge', 'PortfolioOverviewPanel', 'WatchlistView', 'PriceAlertsView', 'PerformanceChart', 'PositionsTable'] },
+  { file: '../features.js',         ns: 'MaerminFeatures',  comps: ['Sparkline', 'PriceQualityBadge', 'WatchlistView'] },
   { file: '../features2.js',        ns: 'MaerminFeatures2', comps: ['ReturnsView', 'RebalancingView', 'BrokerImportWizard', 'PositionNotesView', 'DividendCalendarView', 'MobileBottomNav', 'calcXIRR', 'calcTWR'] },
-  { file: '../features3.js',        ns: 'MaerminFeatures3', comps: ['BenchmarkWidget', 'DailyPnLCard', 'PositionDetailModal', 'EnhancedPositionsTable', 'CS2SkinPicker', 'CS2SkinImage', 'SymbolPicker'] },
-  { file: '../features4.js',        ns: 'MaerminFeatures4', comps: ['usePortfolios', 'PortfolioManagerView', 'PortfolioSwitcher', 'SavingsPlanView', 'DividendForecastView', 'FIFOView', 'calcFIFO'] },
-  { file: '../features5.js',        ns: 'MaerminFeatures5', comps: ['PerformancePeriods', 'NetWorthView', 'CashflowChart', 'FeeAnalyzer'] },
+  { file: '../features3.js',        ns: 'MaerminFeatures3', comps: ['PositionDetailModal', 'EnhancedPositionsTable', 'CS2SkinPicker', 'CS2SkinImage', 'SymbolPicker'] },
+  { file: '../features4.js',        ns: 'MaerminFeatures4', comps: ['usePortfolios', 'PortfolioManagerView', 'SavingsPlanView', 'DividendForecastView', 'FIFOView', 'calcFIFO'] },
+  { file: '../features5.js',        ns: 'MaerminFeatures5', comps: ['NetWorthView', 'CashflowChart', 'FeeAnalyzer'] },
   { file: '../features6.js',        ns: 'MaerminFeatures6', comps: ['PortfolioHistoryChart'] },
   { file: '../features7.js',        ns: 'MaerminFeatures7', comps: ['PerformanceAttribution', 'RealizedUnrealizedView', 'NewsFeedView'] },
   { file: '../investment-views.js', ns: 'InvestmentViews',  comps: ['DCAAnalyzerView', 'SectorAllocationView', 'CountryAllocationView', 'CurrencyExposureView', 'LiquidityAnalysisView', 'GoalInvestingView', 'InvestmentAnalysisDashboard', 'AnalysisCard', 'MetricGrid', 'DataTable', 'ProgressBar', 'TabBar'] },
@@ -186,13 +187,9 @@ const emptyProps = {
 // (Leaf/data components; container views that pull many child components are
 // covered at Tier 1 — full-tree rendering needs a real DOM, out of scope here.)
 const MUST_RENDER = [
-  ['MaerminFeatures', 'PieChart', { slices: [{ key: 'stocks', label: 'Stocks', value: 2200, color: '#f5a524', pct: 60 }, { key: 'crypto', label: 'Crypto', value: 50000, color: '#3b82f6', pct: 40 }], size: 150, thickness: 34, label: '52k', sublabel: 'Total' }],
   ['MaerminFeatures', 'Sparkline', { data: [1, 3, 2, 5, 4], color: '#16a34a' }],
   ['MaerminFeatures', 'PriceQualityBadge', { category: 'stocks', price: 228, fetchedAt: Date.now(), theme }],
   ['MaerminFeatures', 'PriceQualityBadge', { category: 'crypto', price: 0, theme }], // unavailable → no silent zero
-  ['MaerminFeatures', 'PortfolioOverviewPanel', baseProps],
-  ['MaerminFeatures', 'PositionsTable', baseProps],
-  ['MaerminFeatures', 'PerformanceChart', baseProps],
   ['MaerminFeatures5', 'NetWorthView', baseProps],
   ['MaerminFeatures5', 'FeeAnalyzer', baseProps],
   ['MaerminFeatures5', 'CashflowChart', baseProps],
@@ -212,8 +209,6 @@ const MUST_RENDER = [
   // they also get the empty-data variant for free; the two with bespoke props
   // (DataTable, TabBar) follow the AnalysisCard/MetricGrid pattern above.
   ['MaerminFeatures6', 'PortfolioHistoryChart', baseProps],
-  ['MaerminFeatures3', 'DailyPnLCard', baseProps],
-  ['MaerminFeatures3', 'BenchmarkWidget', baseProps],
   ['MaerminFeatures3', 'EnhancedPositionsTable', baseProps],
   ['MaerminFeatures7', 'PerformanceAttribution', baseProps],
   ['MaerminFeatures7', 'NewsFeedView', baseProps],

@@ -30,7 +30,7 @@
     'maermin_portfolios',
     'maermin_active_portfolio',
     'maermin_watchlist',
-    'maermin_alerts',
+    'maermin_alerts',          // legacy Price Alerts — kept so old backups restore; folded into maermin_rules on load
     'maermin_divevents',
     'maermin_targets',
     'maermin_notes',

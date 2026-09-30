@@ -1,14 +1,13 @@
 // ============================================================================
 // MAERMIN v10.0 — Advanced Portfolio Features
-// 1. Benchmark Comparison     — portfolio vs BTC / S&P500 proxy / Gold
-// 2. Position Detail Modal    — click any position for full breakdown
-// 3. CAGR per Position        — annualized return column in positions table
-// 4. Daily P&L Widget         — today's change on overview
+// 1. Position Detail Modal    — click any position for full breakdown
+// 2. CAGR per Position        — annualized return column in positions table
+// 3. CS2 Skin Picker / Symbol Picker
 // ============================================================================
 (function () {
 'use strict';
 
-const { useState, useEffect, useMemo, useCallback, useRef } = React;
+const { useState, useEffect, useMemo, useRef } = React;
 
 // ─────────────────────────────────────────────────────────────────────────────
 // SHARED HELPERS
@@ -23,166 +22,6 @@ function calcCAGR(invested, currentValue, purchaseDateStr) {
   const ratio = currentValue / invested;
   if (ratio <= 0) return null;
   return (Math.pow(ratio, 1 / years) - 1) * 100;
-}
-
-function Badge({ value, suffix = '%', size = 'sm' }) {
-  const pos = value >= 0;
-  return React.createElement('span', {
-    style: {
-      padding: size === 'sm' ? '0.15rem 0.4rem' : '0.25rem 0.6rem',
-      borderRadius: '5px',
-      fontSize: size === 'sm' ? '0.72rem' : '0.85rem',
-      fontWeight: '700',
-      background: pos ? 'rgba(34,197,94,0.15)' : 'rgba(239,68,68,0.15)',
-      color: pos ? '#22c55e' : '#ef4444',
-      whiteSpace: 'nowrap'
-    }
-  }, `${pos ? '+' : ''}${value.toFixed(2)}${suffix}`);
-}
-
-// ─────────────────────────────────────────────────────────────────────────────
-// 1. BENCHMARK COMPARISON
-// Compare portfolio total return % vs BTC, ETH, Gold proxy
-// Uses priceHistory (already collected) to compute reference returns
-// ─────────────────────────────────────────────────────────────────────────────
-function BenchmarkWidget({ portfolio, prices, priceHistory, transactions, theme, formatPrice, getCurrencySymbol }) {
-  // Compute portfolio total return %
-  const portfolioReturn = useMemo(() => {
-    let totalInvested = 0, totalValue = 0;
-    ['crypto','stocks','skins','commodities'].forEach(cat => {
-      (portfolio[cat] || []).forEach(pos => {
-        const sym = (pos.symbol || pos.name || '');
-        const price = prices[sym] || prices[sym.toLowerCase()] || pos.purchasePrice || 0;
-        totalInvested += (pos.amount || 0) * (pos.purchasePrice || 0);
-        totalValue    += (pos.amount || 0) * price;
-      });
-    });
-    return totalInvested > 0 ? ((totalValue - totalInvested) / totalInvested) * 100 : null;
-  }, [portfolio, prices]);
-
-  // BTC return from priceHistory
-  const btcReturn = useMemo(() => {
-    const hist = priceHistory['bitcoin'] || priceHistory['btc'] || [];
-    if (hist.length < 2) return null;
-    const first = hist[0].price, last = hist[hist.length - 1].price;
-    return first > 0 ? ((last - first) / first) * 100 : null;
-  }, [priceHistory]);
-
-  // ETH return
-  const ethReturn = useMemo(() => {
-    const hist = priceHistory['ethereum'] || priceHistory['eth'] || [];
-    if (hist.length < 2) return null;
-    const first = hist[0].price, last = hist[hist.length - 1].price;
-    return first > 0 ? ((last - first) / first) * 100 : null;
-  }, [priceHistory]);
-
-  const benchmarks = [
-    { label: 'Your Portfolio', value: portfolioReturn, color: theme.accent, primary: true },
-    { label: 'Bitcoin',        value: btcReturn,       color: '#f59e0b' },
-    { label: 'Ethereum',       value: ethReturn,       color: '#6366f1' },
-  ].filter(b => b.value !== null);
-
-  if (benchmarks.length < 2) return null;
-
-  const absMax = Math.max(...benchmarks.map(b => Math.abs(b.value)), 1);
-
-  const card = (style) => ({ ...style });
-
-  return React.createElement('div', {
-    style: {
-      background: theme.card,
-      border: `1px solid ${theme.cardBorder}`,
-      borderRadius: '14px',
-      padding: '1.25rem',
-      marginBottom: '1.5rem'
-    }
-  },
-    React.createElement('div', { style: { display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem' } },
-      React.createElement('span', { style: { color: theme.text, fontWeight: '700', fontSize: '0.9rem' } }, 'Benchmark Comparison'),
-      React.createElement('span', { style: { color: theme.textSecondary, fontSize: '0.75rem' } }, 'Since first price refresh')
-    ),
-    React.createElement('div', { style: { display: 'flex', flexDirection: 'column', gap: '0.75rem' } },
-      benchmarks.map((b, i) => {
-        const barPct = Math.abs(b.value) / absMax * 100;
-        const isPos  = b.value >= 0;
-        return React.createElement('div', { key: i },
-          React.createElement('div', { style: { display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.3rem' } },
-            React.createElement('span', {
-              style: {
-                color: b.primary ? theme.text : theme.textSecondary,
-                fontSize: '0.82rem',
-                fontWeight: b.primary ? '700' : '400'
-              }
-            }, b.label),
-            React.createElement(Badge, { value: b.value })
-          ),
-          // Bar
-          React.createElement('div', { style: { height: '6px', background: 'rgba(255,255,255,0.06)', borderRadius: '3px', overflow: 'hidden' } },
-            React.createElement('div', {
-              style: {
-                height: '100%',
-                width: `${barPct}%`,
-                background: isPos ? b.color : '#ef4444',
-                borderRadius: '3px',
-                transition: 'width 0.5s ease',
-                opacity: b.primary ? 1 : 0.6
-              }
-            })
-          )
-        );
-      })
-    )
-  );
-}
-
-// ─────────────────────────────────────────────────────────────────────────────
-// 2. DAILY P&L WIDGET
-// Uses the two most recent priceHistory entries to show today's change
-// ─────────────────────────────────────────────────────────────────────────────
-function DailyPnLCard({ portfolio, priceHistory, theme, formatPrice, getCurrencySymbol }) {
-  const { todayValue, yesterdayValue, change, changePct } = useMemo(() => {
-    // Collect last 2 price snapshots per symbol
-    let todayVal = 0, yesterdayVal = 0;
-    ['crypto','stocks','skins','commodities'].forEach(cat => {
-      (portfolio[cat] || []).forEach(pos => {
-        const sym   = (pos.symbol || pos.name || '').toLowerCase();
-        const hist  = priceHistory[sym] || priceHistory[pos.symbol] || [];
-        if (hist.length < 2) return;
-        const last   = hist[hist.length - 1].price;
-        const prev   = hist[hist.length - 2].price;
-        todayVal     += (pos.amount || 0) * last;
-        yesterdayVal += (pos.amount || 0) * prev;
-      });
-    });
-    const change    = todayVal - yesterdayVal;
-    const changePct = yesterdayVal > 0 ? (change / yesterdayVal) * 100 : 0;
-    return { todayValue: todayVal, yesterdayValue: yesterdayVal, change, changePct };
-  }, [portfolio, priceHistory]);
-
-  if (yesterdayValue <= 0) return null;
-
-  const isPos = change >= 0;
-  const color = isPos ? '#22c55e' : '#ef4444';
-
-  return React.createElement('div', {
-    style: {
-      background: theme.card,
-      border: `1px solid ${isPos ? 'rgba(34,197,94,0.2)' : 'rgba(239,68,68,0.2)'}`,
-      borderRadius: '16px',
-      padding: '1.5rem',
-      flex: '1',
-      minWidth: '180px'
-    }
-  },
-    React.createElement('div', { style: { color: theme.textSecondary, fontSize: '0.8rem', marginBottom: '0.375rem' } }, "Today's Change"),
-    React.createElement('div', { style: { color, fontSize: '1.6rem', fontWeight: '800', lineHeight: 1, marginBottom: '0.25rem' } },
-      `${isPos ? '+' : ''}${formatPrice(change)} ${getCurrencySymbol()}`
-    ),
-    React.createElement('div', { style: { display: 'flex', alignItems: 'center', gap: '0.5rem' } },
-      React.createElement(Badge, { value: changePct, size: 'sm' }),
-      React.createElement('span', { style: { color: theme.textSecondary, fontSize: '0.72rem' } }, 'vs last refresh')
-    )
-  );
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -348,7 +187,9 @@ function PositionDetailModal({ position, transactions, prices, theme, formatPric
         totalBought   += qty;
         totalInvested += qty * price + fees;
         if (!firstBuyDate) firstBuyDate = tx.date;
-      } else {
+      } else if (tx.type === 'sell') {
+        // Only sells reduce the position; dividend/interest bookings for the
+        // same symbol are income, not disposals.
         totalSold += qty;
         totalInvested -= qty * price - fees;
       }
@@ -525,7 +366,7 @@ function PositionDetailModal({ position, transactions, prices, theme, formatPric
 
 // ─────────────────────────────────────────────────────────────────────────────
 // 4. ENHANCED POSITIONS TABLE (with CAGR + clickable rows)
-// Wraps PositionsTable and adds CAGR column + click handler
+// Positions table with CAGR column + click-through to the detail modal
 // ─────────────────────────────────────────────────────────────────────────────
 function EnhancedPositionsTable({ portfolio, prices, priceHistory, transactions, theme, formatPrice, getCurrencySymbol, t, onAddTransaction, workerUrl }) {
   const [detailPosition, setDetailPosition] = useState(null);
@@ -1298,8 +1139,6 @@ function SymbolPicker({ category, workerUrl, theme, onSelect, selectedSymbol, se
 // EXPORTS
 // ─────────────────────────────────────────────────────────────────────────────
 window.MaerminFeatures3 = {
-  BenchmarkWidget,
-  DailyPnLCard,
   PositionDetailModal,
   EnhancedPositionsTable,
   CorporateActionsPanel,
@@ -1308,6 +1147,6 @@ window.MaerminFeatures3 = {
   SymbolPicker,
 };
 
-console.log('[OK] MAERMIN Features3 v10.0 loaded — Benchmark, Position Detail, CAGR, Daily P&L, CS2 Skin Picker, Symbol Picker');
+console.log('[OK] MAERMIN Features3 v10.0 loaded — Position Detail, CAGR, CS2 Skin Picker, Symbol Picker');
 
 })();

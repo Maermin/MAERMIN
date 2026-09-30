@@ -1277,8 +1277,8 @@ function isPublishLimited(request) {
 // (*.github.io, *.pages.dev, *.workers.dev) let anyone with a free page on
 // those platforms read this Worker's responses. Defaults cover the official
 // app + local development; set the ALLOWED_ORIGINS variable (comma separated)
-// to add your own domain. 'null' is the origin of the Electron desktop app
-// (file://) - set ALLOW_NULL_ORIGIN = "false" if you only use the web app.
+// to add your own domain. 'null' is the origin of index.html opened locally
+// (file://) - set ALLOW_NULL_ORIGIN = "false" if you only use the hosted app.
 // A request with NO Origin header (curl / same-origin) gets '*'. CORS only
 // gates what a browser may READ; write endpoints are protected server-side.
 const DEFAULT_ORIGINS = ['https://maermin.github.io'];

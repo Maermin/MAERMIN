@@ -3,7 +3,9 @@
 // ----------------------------------------------------------------------------
 // Roadmap feature #2. User-defined "if this, warn me" rules evaluated locally
 // against the live portfolio — e.g. "BTC weight > 30%", "Crypto category > 50%",
-// "tag:Speculative > 15%", "down more than 10% from peak", "total value < 5000".
+// "tag:Speculative > 15%", "down more than 10% from peak", "total value < 5000",
+// "BTC price ≥ 60000" (price alerts — these replaced the old standalone
+// Price Alerts view; legacy 'maermin_alerts' entries are migrated on load).
 // No backend, no background daemon: rules are evaluated on demand from a context
 // the caller assembles, so it stays 100% client-side and instant.
 //
@@ -18,6 +20,7 @@
   'use strict';
 
   var STORAGE_KEY = 'maermin_rules';
+  var LEGACY_ALERTS_KEY = 'maermin_alerts'; // old Price Alerts store (migrated)
   var SCHEMA = 1;
 
   // metric → { label, needsTarget, unit, targetKind }. targetKind hints the UI
@@ -27,7 +30,10 @@
     category_weight:    { label: 'Category weight',       needsTarget: true,  unit: '%', targetKind: 'category' },
     tag_weight:         { label: 'Tag weight',            needsTarget: true,  unit: '%', targetKind: 'tag' },
     total_value:        { label: 'Total value',           needsTarget: false, unit: '',  targetKind: null },
-    drop_from_peak_pct: { label: 'Drop from peak',        needsTarget: false, unit: '%', targetKind: null }
+    drop_from_peak_pct: { label: 'Drop from peak',        needsTarget: false, unit: '%', targetKind: null },
+    // Price alert: the symbol's current price, in the same unit the app's
+    // price map holds (what the old Price Alerts view compared against).
+    symbol_price:       { label: 'Price',                 needsTarget: true,  unit: '',  targetKind: 'price' }
   };
   var OPS = { gt: '>', lt: '<', gte: '≥', lte: '≤' };
 
@@ -47,6 +53,8 @@
     if (spec.needsTarget && !target) return null;
     // Normalise target casing to match how the context is keyed.
     if (spec.targetKind === 'symbol') target = normSym(target);
+    // 'price' targets keep their casing: price-map keys can be ids (e.g. a
+    // CoinGecko id) and are looked up case-insensitively in priceFor().
     else if (spec.targetKind === 'category') target = target.toLowerCase();
     return {
       id: r.id ? String(r.id) : uid(),
@@ -112,8 +120,22 @@
       byCategory: byCategory,
       bySymbol: bySymbol,
       byTag: extra.byTag || {},
-      dropFromPeakPct: isFinite(parseFloat(extra.dropFromPeakPct)) ? parseFloat(extra.dropFromPeakPct) : 0
+      dropFromPeakPct: isFinite(parseFloat(extra.dropFromPeakPct)) ? parseFloat(extra.dropFromPeakPct) : 0,
+      prices: (extra.prices && typeof extra.prices === 'object') ? extra.prices : {}
     };
+  }
+
+  // Price for a symbol from the app's price map (exact, lower- or upper-case
+  // key — the same lookup the old Price Alerts view used). null if unknown or
+  // not positive, so a missing quote never triggers a rule.
+  function priceFor(prices, sym) {
+    if (!prices || !sym) return null;
+    var k = normKey(sym);
+    var v = prices[k];
+    if (v == null) v = prices[k.toLowerCase()];
+    if (v == null) v = prices[k.toUpperCase()];
+    v = typeof v === 'number' ? v : parseFloat(v);
+    return isFinite(v) && v > 0 ? v : null;
   }
 
   // Actual value of a rule's metric in the given context (or null if not computable).
@@ -126,6 +148,7 @@
       case 'tag_weight':         return weight(ctx.byTag, rule.target);
       case 'total_value':        return total;
       case 'drop_from_peak_pct': return ctx.dropFromPeakPct;
+      case 'symbol_price':       return priceFor(ctx.prices, rule.target);
       default:                   return null;
     }
   }
@@ -148,6 +171,7 @@
       if (rule.metric === 'symbol_weight') subject = rule.target + ' weight';
       else if (rule.metric === 'category_weight') subject = rule.target + ' weight';
       else if (rule.metric === 'tag_weight') subject = 'tag:' + rule.target + ' weight';
+      else if (rule.metric === 'symbol_price') subject = rule.target + ' price';
     }
     return subject + ' ' + (OPS[rule.op] || '?') + ' ' + rule.threshold + (spec.unit || '');
   }
@@ -156,7 +180,7 @@
   // triggered rules first. A disabled rule never triggers.
   function evaluate(state, context) {
     state = normalize(state);
-    var ctx = context || { total: 0, byCategory: {}, bySymbol: {}, byTag: {}, dropFromPeakPct: 0 };
+    var ctx = context || { total: 0, byCategory: {}, bySymbol: {}, byTag: {}, dropFromPeakPct: 0, prices: {} };
     var out = state.rules.map(function (r) {
       var actual = actualFor(r, ctx);
       var triggered = !!(r.enabled && actual != null && isFinite(actual) && compare(actual, r.op, r.threshold));
@@ -170,12 +194,48 @@
     return evaluate(state, context).filter(function (x) { return x.triggered; }).length;
   }
 
+  // Convert legacy Price Alerts ({ id, symbol, condition:'above'|'below',
+  // targetPrice, triggered }) into symbol_price rules. Pure. An alert that had
+  // already fired was one-shot, so it arrives disabled (re-enable to re-arm)
+  // instead of notifying again. Entries already migrated (same id) are skipped.
+  function migrateLegacyAlerts(state, legacy) {
+    state = normalize(state);
+    var list = legacy;
+    if (typeof legacy === 'string') { try { list = JSON.parse(legacy); } catch (e) { list = null; } }
+    if (!Array.isArray(list)) return state;
+    var have = {};
+    state.rules.forEach(function (r) { have[r.id] = true; });
+    list.forEach(function (a) {
+      if (!a || typeof a !== 'object') return;
+      var id = 'pa-' + String(a.id != null ? a.id : (a.symbol + '-' + a.targetPrice));
+      if (have[id]) return;
+      var n = normalizeRule({
+        id: id, name: '', metric: 'symbol_price', target: a.symbol,
+        op: a.condition === 'below' ? 'lte' : 'gte', threshold: a.targetPrice,
+        enabled: !a.triggered
+      });
+      if (n) { state.rules.push(n); have[id] = true; }
+    });
+    return state;
+  }
+
   // ---- localStorage helpers (browser only) ---------------------------------
   function store() { return (typeof localStorage !== 'undefined') ? localStorage : null; }
   function load() {
     var s = store();
     if (!s) return { version: SCHEMA, rules: [] };
-    try { return normalize(s.getItem(STORAGE_KEY)); } catch (e) { return { version: SCHEMA, rules: [] }; }
+    try {
+      var state = normalize(s.getItem(STORAGE_KEY));
+      // One-time fold-in of the old Price Alerts store (also covers restoring an
+      // older backup that still carries it). The legacy key is only removed
+      // once the merged rules were written successfully.
+      var legacy = s.getItem(LEGACY_ALERTS_KEY);
+      if (legacy != null) {
+        state = migrateLegacyAlerts(state, legacy);
+        if (save(state)) { try { s.removeItem(LEGACY_ALERTS_KEY); } catch (e) {} }
+      }
+      return state;
+    } catch (e) { return { version: SCHEMA, rules: [] }; }
   }
   function save(state) {
     var s = store();
@@ -187,7 +247,8 @@
     STORAGE_KEY: STORAGE_KEY, SCHEMA: SCHEMA, METRICS: METRICS, OPS: OPS,
     normalize: normalize,
     addRule: addRule, updateRule: updateRule, removeRule: removeRule, toggleRule: toggleRule,
-    buildContext: buildContext, actualFor: actualFor, describe: describe,
+    buildContext: buildContext, actualFor: actualFor, describe: describe, priceFor: priceFor,
+    migrateLegacyAlerts: migrateLegacyAlerts, LEGACY_ALERTS_KEY: LEGACY_ALERTS_KEY,
     evaluate: evaluate, activeCount: activeCount,
     load: load, save: save
   };
@@ -228,7 +289,7 @@
 
         // Build evaluation context from props (positions [{symbol,category,valueEUR}],
         // byTag map, dropFromPeakPct). The renderer supplies these.
-        var ctx = API.buildContext(props.positions || [], { byTag: props.byTag || {}, dropFromPeakPct: props.dropFromPeakPct || 0 });
+        var ctx = API.buildContext(props.positions || [], { byTag: props.byTag || {}, dropFromPeakPct: props.dropFromPeakPct || 0, prices: props.prices || {} });
         var results = API.evaluate(st, ctx);
         var triggered = results.filter(function (r) { return r.triggered; }).length;
 
@@ -237,6 +298,9 @@
         if (spec.targetKind === 'symbol') targetOptions = (props.symbols || []).slice();
         else if (spec.targetKind === 'category') targetOptions = (props.categories || ['crypto', 'stocks', 'skins', 'commodities']).slice();
         else if (spec.targetKind === 'tag') targetOptions = (props.tags || []).slice();
+        // Price alerts may watch any symbol (not only holdings): free text with
+        // the held symbols offered as suggestions.
+        var priceTarget = spec.targetKind === 'price';
 
         function addCurrent() {
           var rule = { metric: form.metric, op: form.op, threshold: form.threshold, target: form.target, enabled: true };
@@ -258,7 +322,7 @@
 
         var ruleRows = results.map(function (res) {
           var r = res.rule;
-          var actStr = res.actual == null ? '—' : (r.metric === 'total_value' ? fmt(res.actual) : res.actual.toFixed(1) + (API.METRICS[r.metric].unit || ''));
+          var actStr = res.actual == null ? '—' : ((r.metric === 'total_value' || r.metric === 'symbol_price') ? fmt(res.actual) : res.actual.toFixed(1) + (API.METRICS[r.metric].unit || ''));
           return e('div', {
             key: r.id,
             style: {
@@ -285,13 +349,17 @@
         return e('div', { style: { padding: '1.5rem' } },
           e('h2', { style: { color: text, fontSize: '1.5rem', fontWeight: 800, letterSpacing: '-0.02em', margin: '0 0 0.35rem' } }, t.navRules || 'Alerts & Rules'),
           e('p', { style: { color: dim, fontSize: '0.88rem', margin: '0 0 1.25rem', lineHeight: 1.5, maxWidth: '62ch' } },
-            t.rulesSubtitle || 'Local "warn me when…" rules on concentration, allocation and drawdown — evaluated instantly against your live portfolio. Rules carry into your backup.'),
+            t.rulesSubtitle || 'Local "warn me when…" rules on prices, concentration, allocation and drawdown — evaluated on every price refresh against your live portfolio. Rules carry into your backup.'),
 
           e('div', { style: { display: 'flex', alignItems: 'flex-end', gap: '0.6rem', flexWrap: 'wrap', background: card, border: '1px solid ' + border, borderRadius: '14px', padding: '1rem', marginBottom: '1.25rem' } },
             field(sel(form.metric, function (v) { setF({ metric: v, target: '' }); },
               Object.keys(API.METRICS).map(function (k) { return [k, API.METRICS[k].label]; }))),
             spec.needsTarget ? field(
-              targetOptions.length
+              priceTarget
+                ? e(React.Fragment, null,
+                    e('input', { value: form.target, list: 'maermin-rule-price-symbols', onChange: function (ev) { setF({ target: ev.target.value }); }, placeholder: t.rulesSymbol || 'symbol', 'aria-label': t.rulesSymbol || 'symbol', style: { width: '120px', padding: '0.4rem 0.5rem', borderRadius: '8px', border: '1px solid ' + inputBorder, background: inputBg, color: text, fontSize: '0.82rem' } }),
+                    e('datalist', { id: 'maermin-rule-price-symbols' }, (props.symbols || []).map(function (sy) { return e('option', { key: sy, value: sy }); })))
+              : targetOptions.length
                 ? sel(form.target, function (v) { setF({ target: v }); }, targetOptions, t.rulesPickTarget || 'target…')
                 : e('input', { value: form.target, onChange: function (ev) { setF({ target: ev.target.value }); }, placeholder: t.rulesTarget || 'target', style: { padding: '0.4rem 0.5rem', borderRadius: '8px', border: '1px solid ' + inputBorder, background: inputBg, color: text, fontSize: '0.82rem', width: '120px' } })
             ) : null,

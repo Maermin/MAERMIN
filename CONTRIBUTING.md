@@ -21,7 +21,7 @@ No dev server is needed — open `index.html` directly, or serve the folder.
   export is what makes logic unit-testable — keep it.
 - **No JSX / no TypeScript:** UI uses `React.createElement` (React via CDN).
 - **No new runtime dependencies.** Browser-loaded code must stay dependency-free
-  (CDN libs are pinned + SRI-hashed). `devDependencies` (esbuild/electron) are fine.
+  (CDN libs are pinned + SRI-hashed). `devDependencies` (esbuild) are fine.
 - **One source of truth:** reuse `MaerminMetrics` for cross-cutting numbers
   (positions, net worth, dividends). Don't write a second allocation/tax/risk engine.
 - **Integrate, don't accrete:** prefer extending an existing view/card over
@@ -44,7 +44,7 @@ No dev server is needed — open `index.html` directly, or serve the folder.
   `process.exit(failed ? 1 : 0)` (see existing tests for the style).
 - Crypto-dependent tests must polyfill Web Crypto for Node 18:
   `if (!globalThis.crypto) globalThis.crypto = require('node:crypto').webcrypto;`
-- `npm test` must stay green on Node 22/24 (CI matrix; Electron 44 needs Node ≥ 22.12).
+- `npm test` must stay green on Node 22/24 (CI matrix).
 
 ## Commits & PRs
 

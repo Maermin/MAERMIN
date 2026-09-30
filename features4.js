@@ -79,47 +79,6 @@ function usePortfolios() {
   return { portfolios, activePortfolioId, setActivePortfolioId, addPortfolio, removePortfolio, renamePortfolio };
 }
 
-function PortfolioSwitcher({ portfolios, activePortfolioId, setActivePortfolioId, transactions, prices, theme }) {
-
-  const portfolioValues = useMemo(() => {
-    const values = {};
-    portfolios.forEach(p => {
-      const txs = transactions.filter(tx => (tx.portfolioId || 'default') === p.id);
-      const holdings = {};
-      txs.forEach(tx => {
-        const key = (tx.symbol || '').toLowerCase();
-        if (!holdings[key]) holdings[key] = { amount: 0, sym: tx.symbol };
-        if (tx.type === 'buy') holdings[key].amount += parseFloat(tx.quantity) || 0;
-        else holdings[key].amount -= parseFloat(tx.quantity) || 0;
-      });
-      let total = 0;
-      Object.values(holdings).forEach(h => {
-        const pr = prices[h.sym] || prices[(h.sym || '').toLowerCase()] || 0;
-        total += Math.max(0, h.amount) * pr;
-      });
-      values[p.id] = total;
-    });
-    return values;
-  }, [portfolios, transactions, prices]);
-
-  return React.createElement('div', { style: { display: 'flex', gap: '0.25rem', padding: '0.25rem', background: theme.inputBg, borderRadius: '10px' } },
-    portfolios.map(p =>
-      React.createElement('button', {
-        key: p.id,
-        onClick: () => setActivePortfolioId(p.id),
-        title: portfolioValues[p.id] ? `€${portfolioValues[p.id].toFixed(0)}` : '',
-        style: {
-          padding: '0.35rem 0.75rem', border: 'none', borderRadius: '7px', cursor: 'pointer',
-          fontSize: '0.78rem', fontWeight: activePortfolioId === p.id ? '700' : '400',
-          background: activePortfolioId === p.id ? p.color : 'transparent',
-          color: activePortfolioId === p.id ? '#fff' : theme.textSecondary,
-          transition: 'all 0.15s', whiteSpace: 'nowrap'
-        }
-      }, p.name)
-    )
-  );
-}
-
 function PortfolioManagerView({ portfolios, activePortfolioId, transactions, prices, theme, formatPrice, getCurrencySymbol,
   setActivePortfolioId, addPortfolio, removePortfolio, renamePortfolio }) {
 
@@ -897,7 +856,6 @@ function FIFOView({ transactions, prices, theme, formatPrice, getCurrencySymbol 
 window.MaerminFeatures4 = {
   usePortfolios,
   PortfolioManagerView,
-  PortfolioSwitcher,
   SavingsPlanView,
   DividendForecastView,
   FIFOView,

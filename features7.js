@@ -6,143 +6,94 @@
 
 const { useState, useEffect, useMemo, useCallback, useRef } = React;
 
-// ─────────────────────────────────────────────────────────────────────────────
+// ───────────────────────────────────────────────────────────────────────────
 // 1. PERFORMANCE ATTRIBUTION
-// Shows which positions drove portfolio gains/losses (contribution analysis)
-// ─────────────────────────────────────────────────────────────────────────────
-function PerformanceAttribution({ portfolio, prices, priceHistory, transactions, theme, formatPrice, getCurrencySymbol, t = {} }) {
+// Which positions drove the total return. The per-position math is the single
+// tested engine (window.MaerminAttribution.compute) fed the same FIFO/EUR cost
+// basis the Overview uses — this view adds the return decomposition on top.
+// ───────────────────────────────────────────────────────────────────────────
+function PerformanceAttribution({ portfolio, prices, transactions, exchangeRate, theme, formatPrice, getCurrencySymbol, t = {} }) {
   const Green = '#22c55e', Red = '#ef4444';
+  const A = window.MaerminAttribution;
 
-  const attribution = useMemo(() => {
-    const results = [];
-    ['crypto','stocks','skins','commodities'].forEach(cat => {
-      (portfolio[cat] || []).forEach(pos => {
-        const sym = pos.symbol || pos.name || '';
-        const symL = sym.toLowerCase();
-        const curPrice = prices[sym] || prices[symL] || prices[sym.toUpperCase()] || 0;
-        const value = pos.amount * curPrice;
-        const cost  = pos.amount * (pos.purchasePrice || 0);
-        const pnl   = value - cost;
-        const pct   = cost > 0 ? (pnl / cost) * 100 : 0;
-        if (value < 0.01) return;
-        results.push({ sym, name: pos.symbolName || sym, cat, value, cost, pnl, pct, amount: pos.amount, curPrice });
+  // Priced positions exactly like the Overview table: value = amount × price,
+  // invested = FIFO EUR cost basis (totalCostEUR) with the legacy fallback.
+  const positions = useMemo(() => {
+    const cats = ['crypto', 'stocks', 'skins', 'commodities']
+      .concat(window.MaerminCategories ? window.MaerminCategories.ids() : []);
+    const out = [];
+    cats.forEach(cat => {
+      (portfolio[cat] || []).forEach(p => {
+        const sym = p.symbol || p.name || '';
+        const price = prices[sym] ?? prices[sym.toLowerCase()] ?? prices[sym.toUpperCase()] ?? p.currentPrice ?? 0;
+        const amount = p.amount || 0;
+        const invested = p.totalCostEUR != null ? p.totalCostEUR : (p.purchasePrice || 0) * amount;
+        out.push({ symbol: sym, name: p.symbolName || sym, value: amount * price, invested });
       });
     });
-    return results.sort((a, b) => b.pnl - a.pnl);
+    return out;
   }, [portfolio, prices]);
 
-  const totalPnl = attribution.reduce((s, p) => s + p.pnl, 0);
-  const totalVal = attribution.reduce((s, p) => s + p.value, 0);
+  const result = useMemo(() => (A ? A.compute(positions) : null), [positions]);
 
-  // V7: decompose total return into price appreciation vs dividend income, and
-  // show the tax effect (German flat rate on gains). Dividends come from the
-  // real dividend transactions; price P&L is the attribution total above.
-  const TAX_RATE = 0.26375;
+  if (!A) return React.createElement('div', { style: { padding: '2rem', textAlign: 'center', color: theme.textSecondary } }, 'Attribution module not loaded');
+  if (!result || !result.rows.length) return React.createElement('div', { style: { padding: '2rem', textAlign: 'center', color: theme.textSecondary } }, 'No positions to analyze');
+
+  // Return decomposition: unrealised price gain + dividends received (booked
+  // dividend transactions only, converted to EUR) and an illustrative tax
+  // estimate using the user's own tax settings (rate, Soli, church tax,
+  // Sparerpauschbetrag) instead of a hard-coded flat rate.
+  const priceGain = result.totalGain;
+  const toEUR = (amt, cur) => (window.MaerminUtils ? window.MaerminUtils.toEUR(amt, cur, exchangeRate) : amt);
   const dividendsReceived = (transactions || [])
-    .filter(tx => tx.type === 'dividend' || (tx.notes || '').toLowerCase().includes('dividend'))
-    .reduce((s, tx) => s + (parseFloat(tx.quantity) || 0) * (parseFloat(tx.price) || 0), 0);
-  const grossReturn = totalPnl + dividendsReceived;
-  const estTaxOnGains = totalPnl > 0 ? totalPnl * TAX_RATE : 0;
-  const netReturn = grossReturn - estTaxOnGains;
+    .filter(tx => tx.type === 'dividend')
+    .reduce((s, tx) => s + toEUR((parseFloat(tx.quantity) || 0) * (parseFloat(tx.price) || 0), tx.currency || 'EUR'), 0);
+  const grossReturn = priceGain + dividendsReceived;
+  const TS = window.MaerminTaxSettings;
+  const taxSettings = TS ? TS.load() : null;
+  const taxable = Math.max(0, grossReturn - ((taxSettings && taxSettings.freistellungsauftrag) || 0));
+  const estTax = TS ? TS.computeAbgeltung(taxable, taxSettings).total : 0;
+  const netReturn = grossReturn - estTax;
   const decompItem = (label, value, color) => React.createElement('div', { key: label },
     React.createElement('div', { style: { color: theme.textSecondary, fontSize: '0.68rem', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '0.2rem' } }, label),
     React.createElement('div', { style: { color, fontWeight: 800, fontSize: '1.05rem' } }, `${value >= 0 ? '+' : ''}${formatPrice(value)} ${getCurrencySymbol()}`)
   );
 
-  const catColors = { crypto: '#f59e0b', stocks: '#3b82f6', skins: '#8b7cff', commodities: '#06b6d4' };
-
-  if (!attribution.length) return React.createElement('div', { style: { padding: '2rem', textAlign: 'center', color: theme.textSecondary } }, 'No positions to analyze');
-
-  // V7: the AI copilot explains the attribution + return decomposition this
-  // view already computed — it does not recompute any P&L.
-  const aiCtx = {
-    title: t.attributionTitle || 'Performance Attribution',
-    data: {
-      currency: getCurrencySymbol(),
-      totalValue: Math.round(totalVal),
-      bestPerformer: attribution[0] ? { name: attribution[0].name, returnPct: +attribution[0].pct.toFixed(1), pnl: Math.round(attribution[0].pnl) } : null,
-      worstPerformer: { name: attribution[attribution.length - 1].name, returnPct: +attribution[attribution.length - 1].pct.toFixed(1), pnl: Math.round(attribution[attribution.length - 1].pnl) },
-      decomposition: {
-        priceAppreciation: Math.round(totalPnl),
-        dividends: Math.round(dividendsReceived),
-        grossReturn: Math.round(grossReturn),
-        estTaxOnGains: -Math.round(estTaxOnGains),
-        netReturn: Math.round(netReturn),
-      },
-      topPositions: attribution.slice(0, 5).map(p => ({ name: p.name, pnl: Math.round(p.pnl), returnPct: +p.pct.toFixed(1) })),
-    },
-  };
+  // Rows are sorted by contribution (pp of total return), best first.
+  const best = result.rows[0], worst = result.rows[result.rows.length - 1];
+  const summary = (label, r) => React.createElement('div', { key: label, style: { background: theme.card, border: `1px solid ${theme.cardBorder}`, borderRadius: '16px', boxShadow: theme.shadow, padding: '1rem' } },
+    React.createElement('div', { style: { color: theme.textSecondary, fontSize: '0.7rem', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: '0.25rem' } }, label),
+    React.createElement('div', { style: { color: theme.text, fontWeight: '700', fontSize: '0.95rem', marginBottom: '0.125rem' } }, r ? r.name : '—'),
+    React.createElement('div', { style: { color: r && r.contributionPP >= 0 ? Green : Red, fontWeight: '700', fontSize: '1.1rem' } },
+      r ? `${r.contributionPP >= 0 ? '+' : ''}${r.contributionPP.toFixed(2)} pp` : '—')
+  );
 
   return React.createElement('div', { style: { padding: '1.5rem' } },
-    React.createElement('div', { style: { display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: '1rem', flexWrap: 'wrap', marginBottom: '1.5rem' } },
-      React.createElement('div', null,
-        React.createElement('h2', { style: { color: theme.text, fontSize: '1.35rem', fontWeight: '800', marginBottom: '0.25rem' } }, 'Performance Attribution'),
-        React.createElement('p', { style: { color: theme.textSecondary, fontSize: '0.82rem', margin: 0 } },
-          'Which positions drove your portfolio gains and losses')),
-      window.AICopilot ? React.createElement(window.AICopilot.Button, { theme: theme, t: t, context: aiCtx }) : null),
+    React.createElement('div', { style: { marginBottom: '1.5rem' } },
+      React.createElement('h2', { style: { color: theme.text, fontSize: '1.35rem', fontWeight: '800', marginBottom: '0.25rem' } }, t.attributionTitle || 'Performance Attribution'),
+      React.createElement('p', { style: { color: theme.textSecondary, fontSize: '0.82rem', margin: 0 } },
+        'Which positions drove your portfolio gains and losses')),
 
-    // Summary bar
     React.createElement('div', { style: { display: 'grid', gridTemplateColumns: 'repeat(auto-fit,minmax(160px,1fr))', gap: '1rem', marginBottom: '1.5rem' } },
-      [
-        { label: 'Best Performer', val: attribution[0], isGood: true },
-        { label: 'Worst Performer', val: attribution[attribution.length-1], isGood: false },
-      ].map(({ label, val, isGood }) =>
-        React.createElement('div', { key: label, style: { background: theme.card, border: `1px solid ${theme.cardBorder}`, borderRadius: '16px', boxShadow: theme.shadow, padding: '1rem' } },
-          React.createElement('div', { style: { color: theme.textSecondary, fontSize: '0.7rem', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: '0.25rem' } }, label),
-          React.createElement('div', { style: { color: theme.text, fontWeight: '700', fontSize: '0.95rem', marginBottom: '0.125rem' } }, val?.name || '—'),
-          React.createElement('div', { style: { color: (val?.pnl || 0) >= 0 ? Green : Red, fontWeight: '700', fontSize: '1.1rem' } },
-            val ? `${val.pct >= 0 ? '+' : ''}${val.pct.toFixed(1)}%` : '—'
-          )
-        )
-      )
+      summary('Top contributor', best),
+      summary('Top detractor', worst)
     ),
 
-    // Return decomposition (V7): price appreciation vs dividend income, and tax effect
     React.createElement('div', { style: { background: theme.card, border: `1px solid ${theme.cardBorder}`, borderRadius: '16px', boxShadow: theme.shadow, padding: '1.25rem', marginBottom: '1.5rem' } },
       React.createElement('div', { style: { color: theme.text, fontWeight: 700, fontSize: '0.95rem', marginBottom: '0.875rem' } }, t.attrDecomposition || 'Return decomposition'),
       React.createElement('div', { style: { display: 'grid', gridTemplateColumns: 'repeat(auto-fit,minmax(130px,1fr))', gap: '1rem' } },
-        decompItem(t.attrPriceReturn || 'Price appreciation', totalPnl, totalPnl >= 0 ? Green : Red),
+        decompItem(t.attrPriceReturn || 'Price appreciation', priceGain, priceGain >= 0 ? Green : Red),
         decompItem(t.attrDividends || 'Dividends', dividendsReceived, Green),
         decompItem(t.attrGross || 'Gross return', grossReturn, grossReturn >= 0 ? Green : Red),
-        decompItem(t.attrTaxEffect || 'Est. tax on gains', -estTaxOnGains, Red),
+        decompItem(t.attrTaxEffect || 'Est. tax on gains', -estTax, Red),
         decompItem(t.attrNet || 'Net return', netReturn, netReturn >= 0 ? Green : Red)
       ),
       React.createElement('div', { style: { color: theme.textSecondary, fontSize: '0.72rem', marginTop: '0.75rem' } },
-        t.attrTaxNote || 'Tax estimated at the German flat rate on unrealised gains — illustrative, not tax advice.')
+        t.attrTaxNote || 'Tax estimated with your tax settings (rate, Soli, church tax, allowance) as if all gains were realised now — illustrative, not tax advice.')
     ),
 
-    // Attribution waterfall list
-    React.createElement('div', { style: { background: theme.card, border: `1px solid ${theme.cardBorder}`, borderRadius: '16px', boxShadow: theme.shadow, overflow: 'hidden' } },
-      React.createElement('div', { style: { padding: '0.875rem 1.25rem', borderBottom: `1px solid ${theme.cardBorder}`, display: 'flex', gap: '1rem', fontSize: '0.7rem', color: theme.textSecondary, textTransform: 'uppercase', letterSpacing: '0.05em' } },
-        React.createElement('div', { style: { flex: 2 } }, 'Position'),
-        React.createElement('div', { style: { flex: 1, textAlign: 'right' } }, 'Value'),
-        React.createElement('div', { style: { flex: 1, textAlign: 'right' } }, 'P&L'),
-        React.createElement('div', { style: { flex: 1, textAlign: 'right' } }, 'Return'),
-        React.createElement('div', { style: { flex: 2 } }, 'Contribution')
-      ),
-      attribution.map((pos, i) => {
-        const contribution = totalVal > 0 ? (pos.value / totalVal) * 100 : 0;
-        const barW = Math.abs(pos.pnl) / Math.max(...attribution.map(p => Math.abs(p.pnl)), 1) * 100;
-        const isUp = pos.pnl >= 0;
-        return React.createElement('div', { key: pos.sym, style: { padding: '0.75rem 1.25rem', borderBottom: i < attribution.length-1 ? `1px solid ${theme.cardBorder}` : 'none', display: 'flex', alignItems: 'center', gap: '1rem' } },
-          // Name + category
-          React.createElement('div', { style: { flex: 2, minWidth: 0 } },
-            React.createElement('div', { style: { fontWeight: '600', color: theme.text, fontSize: '0.875rem', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' } }, pos.name),
-            React.createElement('span', { style: { fontSize: '0.65rem', padding: '0.1rem 0.3rem', borderRadius: '3px', background: `${catColors[pos.cat]}20`, color: catColors[pos.cat], fontWeight: '600' } }, pos.cat)
-          ),
-          React.createElement('div', { style: { flex: 1, textAlign: 'right', color: theme.textSecondary, fontSize: '0.82rem' } }, `${formatPrice(pos.value)} ${getCurrencySymbol()}`),
-          React.createElement('div', { style: { flex: 1, textAlign: 'right', fontWeight: '600', color: isUp ? Green : Red, fontSize: '0.82rem' } }, `${isUp?'+':''}${formatPrice(pos.pnl)}`),
-          React.createElement('div', { style: { flex: 1, textAlign: 'right', fontWeight: '700', color: isUp ? Green : Red, fontSize: '0.82rem' } }, `${isUp?'+':''}${pos.pct.toFixed(1)}%`),
-          // Contribution bar
-          React.createElement('div', { style: { flex: 2, display: 'flex', alignItems: 'center', gap: '0.5rem' } },
-            React.createElement('div', { style: { flex: 1, height: 6, background: theme.inputBg, borderRadius: 3, overflow: 'hidden' } },
-              React.createElement('div', { style: { width: `${barW}%`, height: '100%', background: isUp ? Green : Red, borderRadius: 3, transition: 'width 0.4s' } })
-            ),
-            React.createElement('div', { style: { fontSize: '0.65rem', color: theme.textSecondary, minWidth: 32, textAlign: 'right' } }, `${contribution.toFixed(1)}%`)
-          )
-        );
-      })
-    )
+    // Per-position contribution table — the shared engine's own panel.
+    React.createElement(A.Panel, { positions, theme, formatPrice, limit: result.rows.length })
   );
 }
 

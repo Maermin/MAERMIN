@@ -174,26 +174,9 @@ function RebalancingView({ portfolio, prices, theme, formatPrice, getCurrencySym
     return { cat, current, currentPct, targetPct, targetValue, delta };
   });
 
-  // V7: the AI copilot explains the drift/targets this view already computed.
-  const aiCtx = {
-    title: t.rebalancing || 'Rebalancing',
-    data: {
-      portfolioValue: Math.round(totalValue),
-      plannedInvestment: Math.round(invest),
-      allocations: rows.filter(r => r.targetPct > 0 || r.current > 0).map(r => ({
-        class: r.cat,
-        currentPct: +r.currentPct.toFixed(1),
-        targetPct: r.targetPct,
-        driftPct: +(r.currentPct - r.targetPct).toFixed(1),
-        actionAmount: Math.round(r.delta),
-      })),
-    },
-  };
-
   return React.createElement('div', { style: { padding: '1.5rem' } },
     React.createElement('div', { style: { display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '1rem', flexWrap: 'wrap', marginBottom: '1.5rem' } },
-      React.createElement('h2', { style: { color: theme.text, fontSize: '1.5rem', fontWeight: '800', letterSpacing: '-0.02em', margin: 0 } }, (t.rebalancing || 'Rebalancing')),
-      window.AICopilot ? React.createElement(window.AICopilot.Button, { theme: theme, t: t, context: aiCtx }) : null),
+      React.createElement('h2', { style: { color: theme.text, fontSize: '1.5rem', fontWeight: '800', letterSpacing: '-0.02em', margin: 0 } }, (t.rebalancing || 'Rebalancing'))),
 
     // v10.x: this view rebalances by ASSET CLASS. Tag-based target weights (e.g.
     // "Income", "High-conviction") live in the Tags view — surface a link so the
@@ -566,9 +549,6 @@ function BrokerImportWizard({ theme, t, addToast, onImport, existing }) {
   const [rawData, setRawData]       = useState('');
   const [parsed, setParsed]         = useState([]);
   const [fileName, setFileName]     = useState('');
-  const [apiCreds, setApiCreds]     = useState({});
-  const [apiProxy, setApiProxy]     = useState(() => (window.BrokerConnectors ? window.BrokerConnectors.getProxy() : ''));
-  const [apiBusy, setApiBusy]       = useState(false);
   const fileRef = useRef();
 
   // ── Smart mapping preview (window.MaerminImportMapping) ───────────────────
@@ -662,8 +642,9 @@ function BrokerImportWizard({ theme, t, addToast, onImport, existing }) {
   };
 
   const selectedBrokerObj = BROKERS.find(b => b.id === selectedBroker);
-  const apiConn = window.BrokerConnectors ? window.BrokerConnectors.get(selectedBroker) : null;
-  const apiSupported = !!(apiConn && apiConn.api);
+  // Exchanges with a read-only API are synced via the Exchange sync panel
+  // (MaerminExchangeSync, keys kept in the vault) shown below this wizard.
+  const exchangeSyncSupported = !!(window.MaerminExchangeSync && ['binance', 'kraken', 'coinbase'].includes(selectedBroker));
 
   const handleFile = (file) => {
     if (!file) return;
@@ -737,25 +718,7 @@ function BrokerImportWizard({ theme, t, addToast, onImport, existing }) {
     addToast && addToast(`${parsed.length} transactions imported`, 'success');
   };
 
-  const reset = () => { setStep(0); setBroker(null); setRawData(''); setParsed([]); setFileName(''); setApiCreds({}); };
-
-  // API sync: pull trades straight from the exchange via window.BrokerConnectors
-  // and feed them into the SAME preview/import flow the CSV path uses.
-  const handleApiSync = async () => {
-    const BC = window.BrokerConnectors;
-    if (!BC) { addToast && addToast('Broker connectors not loaded', 'error'); return; }
-    BC.setProxy(apiProxy);
-    setApiBusy(true);
-    try {
-      const txs = await BC.fetchTransactions(selectedBroker, apiCreds);
-      if (!txs.length) addToast && addToast('No trades found via the API', 'warning');
-      setParsed(txs);
-      setFileName((selectedBrokerObj ? selectedBrokerObj.name : 'Exchange') + ' API');
-      setStep(2);
-    } catch (e) {
-      addToast && addToast('API-Sync fehlgeschlagen: ' + (e && e.message || e), 'error');
-    } finally { setApiBusy(false); }
-  };
+  const reset = () => { setStep(0); setBroker(null); setRawData(''); setParsed([]); setFileName(''); };
 
   const btn = (label, onClick, primary=false, disabled=false) =>
     React.createElement('button', {
@@ -875,40 +838,8 @@ function BrokerImportWizard({ theme, t, addToast, onImport, existing }) {
 
     // ── Step 1: Generic file upload ──────────────────────────────────────────
     step === 1 && selectedBroker !== 'getquin' && selectedBroker !== 'cointracking' && React.createElement('div', null,
-      // API sync (read-only) for exchanges that expose a signed REST API.
-      apiSupported && React.createElement('div', {
-        style: { background: 'rgba(139,124,255,0.06)', border: '1px solid rgba(139,124,255,0.25)', borderRadius: '16px', padding: '1.25rem', marginBottom: '1.25rem' }
-      },
-        React.createElement('div', { style: { color: theme.text, fontWeight: '700', marginBottom: '0.35rem' } }, (selectedBrokerObj ? selectedBrokerObj.name : '') + ' API-Sync'),
-        React.createElement('p', { style: { color: theme.textSecondary, fontSize: '0.78rem', lineHeight: '1.6', marginBottom: '0.9rem' } },
-          'Use a read-only API key (no trade/withdraw permissions). The secret key is used locally to sign requests and is never transmitted — only the finished signature may pass through your proxy.'),
-        apiConn.fields.map(f =>
-          React.createElement('div', { key: f.key, style: { marginBottom: '0.6rem' } },
-            React.createElement('label', { style: { display: 'block', color: theme.textSecondary, fontSize: '0.72rem', marginBottom: '0.25rem' } }, f.label),
-            React.createElement('input', {
-              type: f.secret ? 'password' : 'text',
-              value: apiCreds[f.key] || '',
-              placeholder: f.placeholder || '',
-              autoComplete: 'off',
-              onChange: e => { const v = e.target.value; setApiCreds(prev => Object.assign({}, prev, { [f.key]: v })); },
-              style: { width: '100%', boxSizing: 'border-box', padding: '0.55rem 0.7rem', background: theme.inputBg, border: `1px solid ${theme.inputBorder}`, borderRadius: '8px', color: theme.text, fontSize: '0.85rem' }
-            })
-          )
-        ),
-        React.createElement('div', { style: { marginBottom: '0.6rem' } },
-          React.createElement('label', { style: { display: 'block', color: theme.textSecondary, fontSize: '0.72rem', marginBottom: '0.25rem' } }, 'Proxy URL (optional, to avoid CORS in the browser)'),
-          React.createElement('input', {
-            type: 'text', value: apiProxy, placeholder: 'https://your-worker.workers.dev', autoComplete: 'off',
-            onChange: e => setApiProxy(e.target.value),
-            style: { width: '100%', boxSizing: 'border-box', padding: '0.55rem 0.7rem', background: theme.inputBg, border: `1px solid ${theme.inputBorder}`, borderRadius: '8px', color: theme.text, fontSize: '0.85rem' }
-          })
-        ),
-        React.createElement('button', {
-          onClick: handleApiSync, disabled: apiBusy || !apiCreds.key || !apiCreds.secret,
-          style: { padding: '0.6rem 1.2rem', border: 'none', borderRadius: '8px', cursor: (apiBusy || !apiCreds.key || !apiCreds.secret) ? 'not-allowed' : 'pointer', fontWeight: '600', fontSize: '0.85rem', opacity: (apiBusy || !apiCreds.key || !apiCreds.secret) ? 0.5 : 1, background: theme.accent, color: '#ffffff' }
-        }, apiBusy ? '◎ Syncing…' : 'Sync via API'),
-        React.createElement('div', { style: { textAlign: 'center', color: theme.textSecondary, fontSize: '0.72rem', margin: '0.9rem 0 0' } }, '— or import CSV —')
-      ),
+      exchangeSyncSupported && React.createElement('p', { style: { color: theme.textSecondary, fontSize: '0.78rem', lineHeight: '1.6', marginBottom: '1rem' } },
+        'Prefer a live import? Use Exchange sync below with a read-only API key (stored encrypted in your vault).'),
       React.createElement('div', {
         onDrop: handleDrop, onDragOver: e => e.preventDefault(),
         ...window.MaerminUtils.clickable(() => fileRef.current?.click()),

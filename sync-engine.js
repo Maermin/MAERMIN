@@ -1,8 +1,8 @@
 // ============================================================================
 // MAERMIN — End-to-End Encrypted Cloud Sync  (window.MaerminSync)
 // ----------------------------------------------------------------------------
-// Epic 1. Multi-device sync where the server (or Google Drive / OneDrive) only
-// ever sees CIPHERTEXT. It docks onto the security foundation:
+// Epic 1. Multi-device sync where the server (your Cloudflare Worker) only ever
+// sees CIPHERTEXT. It docks onto the security foundation:
 //   - MaerminVault.encryptJSON / deriveSubKey  → AES-256-GCM blob + account id
 //   - MaerminStorage.snapshotPlaintext         → the data to sync
 //   - MaerminPWA.requestBackgroundSync         → retry trigger
@@ -17,7 +17,7 @@
 // use last-write-wins by blob timestamp) and re-push. A conflict report is
 // surfaced for the UI.
 //
-// Transports are pluggable; network is injected (fetchImpl / token providers)
+// Transports are pluggable; network is injected (fetchImpl)
 // so the core is fully unit-testable in Node. UI stays in the views.
 // ============================================================================
 (function () {
@@ -306,87 +306,6 @@
     };
   }
 
-  // Google Drive appDataFolder — one file per account. tokenProvider() supplies a
-  // short-lived OAuth access token (the app handles the OAuth dance separately).
-  function DriveTransport(opts) {
-    opts = opts || {};
-    var tokenProvider = opts.tokenProvider;
-    var fetchImpl = opts.fetchImpl || (typeof fetch !== 'undefined' ? fetch : null);
-    var FILES = 'https://www.googleapis.com/drive/v3/files';
-    var UPLOAD = 'https://www.googleapis.com/upload/drive/v3/files';
-    function fileName(account) { return 'maermin-sync-' + account + '.json'; }
-    function auth() { return Promise.resolve(tokenProvider()).then(function (t) { return { Authorization: 'Bearer ' + t }; }); }
-    function findFile(account, headers) {
-      var q = encodeURIComponent("name='" + fileName(account) + "' and trashed=false");
-      return fetchImpl(FILES + '?spaces=appDataFolder&fields=files(id)&q=' + q, { headers: headers })
-        .then(function (r) { return r.json(); })
-        .then(function (j) { return (j.files && j.files[0] && j.files[0].id) || null; });
-    }
-    return {
-      get: function (account) {
-        return auth().then(function (h) {
-          return findFile(account, h).then(function (id) {
-            if (!id) return null;
-            return fetchImpl(FILES + '/' + id + '?alt=media', { headers: h })
-              .then(function (r) { return r.json(); })
-              .then(function (rec) { return rec && rec.blob ? { rev: rec.rev, blob: rec.blob } : null; });
-          });
-        });
-      },
-      put: function (account, baseRev, blob) {
-        return auth().then(function (h) {
-          return findFile(account, h).then(function (id) {
-            var rec = { rev: baseRev + 1, blob: blob, updatedAt: Date.now() };
-            var body = JSON.stringify(rec);
-            if (id) {
-              return fetchImpl(UPLOAD + '/' + id + '?uploadType=media', {
-                method: 'PATCH', headers: Object.assign({ 'Content-Type': 'application/json' }, h), body: body
-              }).then(function () { return { ok: true, rev: rec.rev }; });
-            }
-            // create with appDataFolder parent via multipart
-            var boundary = 'maermin' + Date.now();
-            var meta = JSON.stringify({ name: fileName(account), parents: ['appDataFolder'] });
-            var multipart = '--' + boundary + '\r\nContent-Type: application/json; charset=UTF-8\r\n\r\n' +
-              meta + '\r\n--' + boundary + '\r\nContent-Type: application/json\r\n\r\n' + body + '\r\n--' + boundary + '--';
-            return fetchImpl(UPLOAD + '?uploadType=multipart', {
-              method: 'POST',
-              headers: Object.assign({ 'Content-Type': 'multipart/related; boundary=' + boundary }, h),
-              body: multipart
-            }).then(function () { return { ok: true, rev: rec.rev }; });
-          });
-        });
-      }
-    };
-  }
-
-  // OneDrive / Microsoft Graph app folder — single file per account.
-  function OneDriveTransport(opts) {
-    opts = opts || {};
-    var tokenProvider = opts.tokenProvider;
-    var fetchImpl = opts.fetchImpl || (typeof fetch !== 'undefined' ? fetch : null);
-    var ROOT = 'https://graph.microsoft.com/v1.0/me/drive/special/approot:/';
-    function path(account) { return ROOT + 'maermin-sync-' + account + '.json'; }
-    function auth() { return Promise.resolve(tokenProvider()).then(function (t) { return { Authorization: 'Bearer ' + t }; }); }
-    return {
-      get: function (account) {
-        return auth().then(function (h) {
-          return fetchImpl(path(account) + ':/content', { headers: h }).then(function (r) {
-            if (r.status === 404) return null;
-            return r.json().then(function (rec) { return rec && rec.blob ? { rev: rec.rev, blob: rec.blob } : null; });
-          });
-        });
-      },
-      put: function (account, baseRev, blob) {
-        return auth().then(function (h) {
-          var rec = { rev: baseRev + 1, blob: blob, updatedAt: Date.now() };
-          return fetchImpl(path(account) + ':/content', {
-            method: 'PUT', headers: Object.assign({ 'Content-Type': 'application/json' }, h), body: JSON.stringify(rec)
-          }).then(function () { return { ok: true, rev: rec.rev }; });
-        });
-      }
-    };
-  }
-
   // ---- orchestration -------------------------------------------------------
   var _transport = null;
   var _syncing = false;
@@ -397,8 +316,6 @@
   function configure(cfg) {
     cfg = cfg || {};
     if (cfg.provider === 'worker') _transport = WorkerTransport(cfg);
-    else if (cfg.provider === 'drive') _transport = DriveTransport(cfg);
-    else if (cfg.provider === 'onedrive') _transport = OneDriveTransport(cfg);
     else if (cfg.transport) _transport = cfg.transport; // injected (tests / custom)
     if (cfg.provider) lsSet(CONFIG_KEY, JSON.stringify({ provider: cfg.provider, endpoint: cfg.endpoint || null }));
     return _transport;
@@ -531,7 +448,7 @@
     // config
     configure: configure, isConfigured: isConfigured, getConfig: getConfig,
     // transports (exported for custom wiring / tests)
-    WorkerTransport: WorkerTransport, DriveTransport: DriveTransport, OneDriveTransport: OneDriveTransport,
+    WorkerTransport: WorkerTransport,
     // ops
     sync: sync, hasLocalChanges: hasLocalChanges, getState: loadState, deviceId: deviceId,
     accountId: accountId, enableAutoSync: enableAutoSync, onChange: onChange,

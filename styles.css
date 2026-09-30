@@ -779,7 +779,7 @@ html[data-mode="light"] .command-palette-overlay { background: rgba(17, 19, 40, 
   font-weight: 550;
 }
 
-.tab-bar, .workspace-tabs {
+.tab-bar {
   display: inline-flex;
   gap: 2px;
   padding: 4px;
@@ -789,7 +789,7 @@ html[data-mode="light"] .command-palette-overlay { background: rgba(17, 19, 40, 
   margin-bottom: 1rem;
   flex-wrap: wrap;
 }
-.tab-btn, .workspace-tab {
+.tab-btn {
   padding: 0.45rem 0.95rem;
   background: transparent;
   border: none;
@@ -799,8 +799,8 @@ html[data-mode="light"] .command-palette-overlay { background: rgba(17, 19, 40, 
   font-size: 0.84rem;
   font-weight: 550;
 }
-.tab-btn:hover, .workspace-tab:hover { color: var(--text); filter: none !important; }
-.tab-btn.active, .workspace-tab.active {
+.tab-btn:hover { color: var(--text); filter: none !important; }
+.tab-btn.active {
   background: var(--surface);
   color: var(--text);
   box-shadow: 0 1px 3px rgba(0,0,0,0.25), 0 0 0 1px var(--border-strong);

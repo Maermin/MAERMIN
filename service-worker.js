@@ -13,17 +13,16 @@
  *   - whitelisted CDNs       → cache-first (React, jsPDF rarely change).
  *   - market-data / API hosts→ bypass entirely (never cache volatile prices).
  *
- * Also: Web Push + notification clicks (local alerts work today; server-sent
- * push lands with the cloud-sync worker) and a Background Sync retry hook.
+ * Also: notification clicks for local alerts and a Background Sync retry hook.
  * ========================================================================== */
 'use strict';
 
-var VERSION = 'maermin-v6';
+var VERSION = 'maermin-v7';
 var SHELL_CACHE = VERSION + '-shell';
 var RUNTIME_CACHE = VERSION + '-runtime';
 
 // Minimal shell so a cold offline start can boot the app. Relative URLs keep
-// this correct under GitHub Pages subpaths (/MAERMIN/) and Electron alike.
+// this correct under GitHub Pages subpaths (/MAERMIN/) and any static host.
 var PRECACHE = ['.', 'index.html', 'styles.css', 'manifest.webmanifest', 'icon.svg'];
 
 // CDN hosts whose assets are safe to cache long-term.
@@ -148,23 +147,7 @@ function cacheFirst(req) {
   });
 }
 
-// ---- push notifications ----------------------------------------------------
-self.addEventListener('push', function (event) {
-  var data = {};
-  try { data = event.data ? event.data.json() : {}; }
-  catch (e) { data = { title: 'MAERMIN', body: event.data ? event.data.text() : '' }; }
-  var title = data.title || 'MAERMIN';
-  var options = {
-    body: data.body || '',
-    icon: data.icon || 'icon.svg',
-    badge: data.badge || 'icon.svg',
-    tag: data.tag || 'maermin',
-    data: data.data || { url: data.url || '.' },
-    requireInteraction: !!data.requireInteraction
-  };
-  event.waitUntil(self.registration.showNotification(title, options));
-});
-
+// ---- notification clicks (local notifications from MaerminPWA.notify) -----
 self.addEventListener('notificationclick', function (event) {
   event.notification.close();
   var target = (event.notification.data && event.notification.data.url) || '.';

@@ -88,6 +88,48 @@ const R = require('../rules-engine.js');
   const emptyRes = R.evaluate(rules, R.buildContext([], {}));
   ok('empty context -> nothing triggers on weights', emptyRes.filter(r => r.rule.metric === 'symbol_weight').every(r => !r.triggered));
 
+  // ---- price alerts (symbol_price) — replaced the standalone Price Alerts view ----
+  const pst = R.normalize({ rules: [
+    { id: 'p1', metric: 'symbol_price', op: 'gte', threshold: 100, target: 'bitcoin' },
+    { id: 'p2', metric: 'symbol_price', op: 'lte', threshold: 50, target: 'AAPL' },
+    { id: 'p3', metric: 'symbol_price', op: 'gte', threshold: 1, target: 'MISSING' }
+  ]});
+  ok('price target keeps its casing', pst.rules[0].target === 'bitcoin');
+  const pctx = R.buildContext([], { prices: { bitcoin: 120, aapl: 40 } });
+  const pres = {}; R.evaluate(pst, pctx).forEach(r => { pres[r.rule.id] = r; });
+  ok('price ≥ threshold triggers', pres.p1.triggered === true && pres.p1.actual === 120);
+  ok('price lookup is case-insensitive', pres.p2.actual === 40 && pres.p2.triggered === true);
+  ok('missing quote never triggers', pres.p3.actual === null && pres.p3.triggered === false);
+  ok('zero price treated as missing', R.priceFor({ X: 0 }, 'X') === null);
+  ok('describe price rule', R.describe({ metric: 'symbol_price', op: 'gte', threshold: 100, target: 'BTC' }) === 'BTC price ≥ 100');
+
+  // ---- legacy Price Alerts migration ----
+  const legacy = [
+    { id: '1', symbol: 'BTC', condition: 'above', targetPrice: 70000, triggered: false },
+    { id: '2', symbol: 'ETH', condition: 'below', targetPrice: 2000, triggered: true },
+    { id: '3', symbol: '', condition: 'above', targetPrice: 5 },               // invalid -> skipped
+    null
+  ];
+  const mig = R.migrateLegacyAlerts({ rules: [] }, JSON.stringify(legacy));
+  ok('migrates valid legacy alerts only', mig.rules.length === 2);
+  ok('above -> gte, below -> lte', mig.rules[0].op === 'gte' && mig.rules[1].op === 'lte');
+  ok('already-fired alert arrives disabled', mig.rules[0].enabled === true && mig.rules[1].enabled === false);
+  ok('migration is idempotent', R.migrateLegacyAlerts(mig, legacy).rules.length === 2);
+  ok('garbage legacy payload is ignored', R.migrateLegacyAlerts({ rules: [] }, 'not json').rules.length === 0);
+
+  // ---- load() folds the legacy store in once, then drops the legacy key ----
+  const mem = { maermin_alerts: JSON.stringify([{ id: '9', symbol: 'SOL', condition: 'above', targetPrice: 300 }]) };
+  global.localStorage = {
+    getItem: k => (k in mem ? mem[k] : null),
+    setItem: (k, v) => { mem[k] = String(v); },
+    removeItem: k => { delete mem[k]; }
+  };
+  const loaded = R.load();
+  ok('load migrates legacy alerts', loaded.rules.length === 1 && loaded.rules[0].metric === 'symbol_price');
+  ok('legacy key removed after save', !('maermin_alerts' in mem) && JSON.parse(mem.maermin_rules).rules.length === 1);
+  ok('second load is stable', R.load().rules.length === 1);
+  delete global.localStorage;
+
   console.log('\n' + passed + ' passed, ' + failed + ' failed');
   process.exit(failed ? 1 : 0);
 })();

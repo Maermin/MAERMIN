@@ -71,7 +71,9 @@
     var pct = function (n) { return (n >= 0 ? '+' : '') + n.toFixed(2) + '%'; };
     var pp = function (n) { return (n >= 0 ? '+' : '') + n.toFixed(2) + ' pp'; };
     var col = function (n) { return n >= 0 ? (th.success || '#34d399') : (th.danger || '#f87171'); };
-    var top = result.rows.slice(0, 8);
+    // limit: rows shown (default 8 for the Overview; the Attribution view shows all).
+    var limit = (props && props.limit) || 8;
+    var top = result.rows.slice(0, limit);
 
     return h('div', { style: { background: th.card || '#10151f', border: '1px solid ' + (th.cardBorder || 'rgba(255,255,255,0.07)'), borderRadius: '14px', padding: '1.25rem', marginTop: '1rem' } },
       h('div', { style: { fontWeight: 800, color: th.text || '#e9edf4', marginBottom: '0.25rem' } }, 'Return Attribution'),

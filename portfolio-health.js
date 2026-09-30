@@ -347,29 +347,12 @@
       e('div', { style: { fontSize: '0.66rem', color: theme.textSecondary, marginTop: '0.3rem', textTransform: 'uppercase', letterSpacing: '0.06em' } }, label)
     );
 
-    // V7: hand the already-computed score + sub-scores to the AI copilot — no
-    // analytics re-run, it only explains the numbers this view already shows.
-    const aiCtx = {
-      title: t.healthTitle || 'Portfolio Health',
-      data: {
-        healthScore: h.score,
-        grade: h.grade,
-        subScores: h.subScores,
-        positionCount: h.positionCount,
-        largestPositionPct: Math.round((h.maxWeight || 0) * 100),
-        effectivePositions: +(h.effectiveN || 0).toFixed(1),
-        unrealizedReturnPct: +(h.unrealizedPct || 0).toFixed(1),
-        recommendations: (h.recommendations || []).slice(0, 5),
-      },
-    };
-
     return e('div', { style: { padding: '1rem' } },
       e('div', { style: { display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: '1rem', flexWrap: 'wrap', marginBottom: '1.25rem' } },
         e('div', null,
           e('h2', { style: { color: theme.text, marginBottom: '0.25rem', fontSize: '1.4rem', fontWeight: 700 } }, t.healthTitle || 'Portfolio Health'),
           e('p', { style: { color: theme.textSecondary, fontSize: '0.85rem', margin: 0 } },
-            t.healthSubtitle || 'A structural check of diversification and concentration — independent of market direction.')),
-        window.AICopilot ? e(window.AICopilot.Button, { theme: theme, t: t, context: aiCtx }) : null),
+            t.healthSubtitle || 'A structural check of diversification and concentration — independent of market direction.'))),
 
       // Score hero + sub-score bars
       e('div', { style: { ...cardStyle, display: 'flex', gap: '2rem', flexWrap: 'wrap', alignItems: 'center' } },
