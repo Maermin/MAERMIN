@@ -4,6 +4,41 @@
 
 > UI fold-in of the v10 engines + accessibility themes + a code-review hardening pass. No data migration; backup format unchanged.
 
+### Full-project review fixes (REVIEW.md, 2026-09-30)
+
+> One automatic migration (schema v4: year-less price timestamps are repaired). Existing vaults, backups and sync accounts keep working. Several tax results change — they now match the PDF/Excel export and German law more closely (see **Tax**).
+
+**App start**
+- Fixed a crash on first render after unlock (`Cannot access 'corpActionsRev' before initialization`) — the app did not mount on `main`.
+
+**Tax (Germany)**
+- The Tax view KPIs now come from the same report as the PDF/Excel export (they used the legacy engine: no FX conversion, crypto taxed like capital income with the Sparerpauschbetrag, no Freigrenze). The legacy engine is no longer used for the UI; the US estimate is computed from the FX-correct FIFO disposals.
+- Dividend/interest income is detected by transaction type only — a buy with "Dividend reinvestment" in its note is no longer income. A manual dividend-calendar entry for a payout that is already booked as a transaction is not counted twice.
+- Vorabpauschale: the amount of value year Y is taxed in Y+1 (§ 18 (3) InvStG); the month factor is applied per lot (Sparplan units bought during the year were counted 12/12); the credit on a sale is per unit sold and only for years the lot was held (was: the full amount on the first partial sale). Basiszins 2026 = 3.20 % (BMF 13.01.2026).
+- Foreign withholding tax is credited against the Abgeltungsteuer (max. 15 %, § 32d (5) EStG, church-tax formula respected). Auto-booked US dividends carry 15 % withholding.
+- Tax advisor loss harvesting uses three pots: direct shares, other capital income (funds/ETFs), and § 23 private sales (short-term crypto lots only). It now receives the realised gains and Sparerpauschbetrag usage from the report. No US wash-sale flag for German users.
+
+**Portfolio & returns**
+- Position cost basis includes purchase fees (matches the tax lots).
+- XIRR cash flows are converted to EUR at each date's FX rate (USD positions biased XIRR); option legs are excluded. TWR is chain-linked with historical holdings, sorted chronologically, forward-filled per symbol.
+- Live price points are stored as ISO-8601 (they were `"09/30, 08:14 PM"`, parsed as 2001), which also fixes the Cash-flow chart, the Vorabpauschale prefill and back-dated savings-plan prices. Existing points are repaired (year recovered) by migration v4.
+- Quotes in GBp (pence), CHF and other non-EUR/USD currencies are converted correctly (they were multiplied by the USD rate). Savings-plan history converts USD at the rate of each day.
+- Monte Carlo starts from the market value of all asset classes and derives return/volatility from the real allocation (it used cost basis and always 8 %/18 %). Compute-worker timeouts terminate the worker instead of running twice.
+- Auto-booked dividends use the shares held before the ex-date and ignore same-ticker crypto.
+
+**Imports**
+- Trade Republic: "Verkauf" is a sell (was booked as a buy), non-trade rows (dividends, interest, deposits) are skipped, German numbers are parsed correctly (`180,55`, `1.234,56`). Same number fix for DEGIRO and the generic parser.
+- The broker selected in the import wizard is used (header sniffing picked the first matching parser). Binance: symbol = base asset, currency = quote (was the pair and the fee coin).
+
+**Privacy, sync & Worker**
+- v10 stores are encrypted at rest and synced: real assets, value snapshots, interest ledger, tags, rules, rebalancing targets, corporate actions, import presets, exchange connections, custom categories, TER overrides, taxpayer name/tax ID, FMP key. Existing plaintext is adopted into the vault on the next unlock.
+- Sync merges non-transaction keys three-way: an edit made only on another device is kept (the local side always won before).
+- The plain-JSON full backup asks for confirmation and points to the encrypted vault backup.
+- Worker `brokerproxy` only relays allow-listed read endpoints (GET/POST per exchange); order/withdraw endpoints are refused server-side. **Re-deploy `cf-worker/worker.js`.**
+
+**Performance**
+- jsPDF + autotable load lazily on the first PDF export (no longer render-blocking); no artificial splash delay; overview dividends/health/positions memoised; FX history is fetched incrementally after the first full download; service worker serves the cached shell after 3 s on slow networks.
+
 ### Security & correctness hardening (review of 2f060dc)
 
 > No manual migration. Existing vaults, backups and sync accounts keep working. Two tax rules change results (see **Tax**).
