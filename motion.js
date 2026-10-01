@@ -27,12 +27,24 @@
     try { if (win.matchMedia('(prefers-reduced-motion: reduce)').matches) return false; } catch (e) {}
     return !win.MaerminFX || win.MaerminFX.enabled();
   }
+  // Restart a one-shot animation class. The class is removed now and re-added
+  // in the next frame - all restarts of a frame are batched. (It used to force
+  // a synchronous reflow with offsetWidth per element, so a price refresh that
+  // ticks 30 numbers did 30 layouts in a row.)
+  var restarts = [], restartRaf = 0;
   function once(el, cls, ms) {
     el.classList.remove(cls);
-    void el.offsetWidth; // restart animation
-    el.classList.add(cls);
-    clearTimeout(el['__t_' + cls]);
-    el['__t_' + cls] = setTimeout(function () { el.classList.remove(cls); }, ms || 900);
+    restarts.push([el, cls, ms]);
+    if (!restartRaf) restartRaf = requestAnimationFrame(function () {
+      restartRaf = 0;
+      var list = restarts; restarts = [];
+      for (var i = 0; i < list.length; i++) {
+        var e = list[i][0], c = list[i][1];
+        e.classList.add(c);
+        clearTimeout(e['__t_' + c]);
+        e['__t_' + c] = setTimeout(function (x, y) { return function () { x.classList.remove(y); }; }(e, c), list[i][2] || 900);
+      }
+    });
   }
   function haptic(ms) { try { if (navigator.vibrate && matchMedia('(hover: none)').matches) navigator.vibrate(ms || 8); } catch (e) {} }
 
@@ -226,25 +238,37 @@
     var on = enabled();
     if (on) doc.documentElement.classList.add('mx-anim');
 
-    var pend = [], sched = false;
+    // The glider is re-measured only when the sidebar changed (its active item
+    // or its children). It used to be measured - two forced layouts - after
+    // EVERY class change anywhere in the app (card hover, reveals, ticks).
+    var pend = [], sched = false, navDirty = true;
+    function inSidebar(n) {
+      var e = n && (n.nodeType === 1 ? n : n.parentElement);
+      return !!(e && e.closest && e.closest('.maermin-sidebar'));
+    }
     function flush() {
       sched = false;
       var l = pend; pend = [];
       if (on) l.forEach(function (n) { if (n.isConnected) enhance(n); });
-      placeGlider();
+      if (navDirty || (glider && !glider.isConnected)) { navDirty = false; placeGlider(); }
     }
+    function kick() { if (!sched) { sched = true; requestAnimationFrame(flush); } }
     new MutationObserver(function (muts) {
       for (var i = 0; i < muts.length; i++) {
         var m = muts[i];
         if (m.type === 'characterData') { if (on) onText(m.target, m.oldValue); continue; }
+        if (m.type === 'attributes') {
+          if (m.target.classList && m.target.classList.contains('mx-nav')) { navDirty = true; kick(); }
+          continue;
+        }
+        if (!navDirty && (inSidebar(m.target) || m.target === rootEl)) navDirty = true;
         for (var j = 0; j < m.addedNodes.length; j++) {
           var n = m.addedNodes[j];
           if (n.nodeType === 1) pend.push(n);
           else if (n.nodeType === 3 && on && m.removedNodes.length === 1 && m.removedNodes[0].nodeType === 3) onText(n, m.removedNodes[0].nodeValue);
         }
-        if (m.type === 'attributes') { if (!sched) { sched = true; requestAnimationFrame(flush); } }
       }
-      if (pend.length && !sched) { sched = true; requestAnimationFrame(flush); }
+      if (pend.length || navDirty) kick();
     }).observe(rootEl, { childList: true, subtree: true, characterData: true, characterDataOldValue: true, attributes: true, attributeFilter: ['class'] });
     // Portals (modals appended to body) — overlays only.
     new MutationObserver(function (muts) {
@@ -252,7 +276,7 @@
       muts.forEach(function (m) { Array.prototype.forEach.call(m.addedNodes, function (n) { if (n.nodeType === 1 && n.id !== 'root') enhance(n); }); });
     }).observe(doc.body, { childList: true });
 
-    win.addEventListener('resize', function () { requestAnimationFrame(placeGlider); }, { passive: true });
+    win.addEventListener('resize', function () { navDirty = true; kick(); }, { passive: true });
 
     // Header condense + scroll progress
     var prog = doc.createElement('div');

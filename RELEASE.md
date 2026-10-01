@@ -4,6 +4,16 @@
 
 > UI fold-in of the v10 engines + accessibility themes + a code-review hardening pass. One automatic migration (schema v4, see below); backup format unchanged.
 
+### Smooth motion (2026-10-01)
+
+Animations were measured in the production build (`npm run bench:motion`, headless Chromium, 1440×900): the overview idled at **~5 fps** with motion on and 60 fps with it off. Now ~58 fps idle and while scrolling; hover, navigation and the command palette 34–44 fps in the same (software-rendered, worst-case) environment. The look is unchanged.
+
+- The aurora background no longer runs `filter: blur()` + `saturate()` on a layer twice the viewport; it drifts as a compositor-only transform in sub-pixel steps, so the glass header isn't re-blurred 60× per second.
+- No full-screen `mix-blend-mode` layers (film grain, cursor aura); no `background-position` loops (grid pan removed, header hairline now moves by transform, brand sheen plays once + on hover).
+- View changes, card reveals, dialogs and the boot title animate only opacity/transform (no blur filters, no animated `backdrop-filter` or `letter-spacing`); entrance cascade capped at ~180 ms.
+- Spinning rims (avatar, loader) rotate the element instead of animating a custom property; the palette and hovered-card rims are static; the sidebar promo rim spins only on hover. The live dot pulses via transform instead of box-shadow.
+- Pointer tracking writes non-inherited registered properties and no longer forces a layout per move; the sidebar glider is measured only when the sidebar changes; value ticks restart in one batched frame instead of a reflow per number; card detection reads the DOM before writing classes and runs before the first paint (no card blink on navigation).
+
 ### Verification pass (2026-10-01)
 
 - § 23 EStG: a private-sale gain of **exactly** 1,000 EUR (600 EUR before 2024) is now taxable — only gains of *less than* the Freigrenze are tax-free (report + tax advisor).

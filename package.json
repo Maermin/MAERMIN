@@ -8,7 +8,8 @@
     "build:web": "node build.mjs",
     "check": "node scripts/check.mjs",
     "test": "node test/run-all.mjs",
-    "test:e2e": "node test/e2e/app.e2e.mjs"
+    "test:e2e": "node test/e2e/app.e2e.mjs",
+    "bench:motion": "node test/e2e/motion.bench.mjs"
   },
   "devDependencies": {
     "esbuild": "^0.28.0",

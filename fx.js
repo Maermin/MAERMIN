@@ -47,15 +47,21 @@
   function near(a, b) { return a && b && Math.abs(a.r - b.r) + Math.abs(a.g - b.g) + Math.abs(a.b - b.b) < 24; }
 
   // ---- classification ------------------------------------------------------
+  // Two phases so the DOM is measured without interleaved writes: classify()
+  // only READS (inline style first, layout size only for candidates) and
+  // queues class changes into `ops`; applyOps() WRITES them afterwards. Adding
+  // a class between two offsetWidth reads forced a fresh layout per element.
   var ACC = null;
-  function classify(el) {
+  function isCard(e) { return e && (e.__mxCard || (e.classList && e.classList.contains('mx-card'))); }
+  function parentCardOf(el) {
+    for (var p = el.parentElement; p; p = p.parentElement) if (isCard(p)) return p;
+    return null;
+  }
+  function classify(el, ops) {
     if (el.nodeType !== 1 || el.__mxSeen) return;
     var s = el.style;
     if (!s) return;
     var tag = el.tagName;
-    // Not laid out yet (hidden tab, mounting) — leave unseen so a later scan retries.
-    if (!el.offsetWidth && (tag === 'DIV' || tag === 'BUTTON')) return;
-    el.__mxSeen = 1;
 
     if (tag === 'BUTTON') {
       var bg = parseRGB(s.backgroundColor) || null;
@@ -63,22 +69,35 @@
         // gradient fills that start with the accent
         bg = parseRGB(s.background);
       }
-      if (bg && bg.a > 0.85 && near(bg, ACC) && el.offsetWidth > 56) el.classList.add('mx-primary');
+      if (!(bg && bg.a > 0.85 && near(bg, ACC))) { el.__mxSeen = 1; return; }
+      // Not laid out yet (hidden tab, mounting): leave unseen; settle() retries.
+      if (!el.offsetWidth) { deferred.push(el); return; }
+      el.__mxSeen = 1;
+      if (el.offsetWidth > 56) ops.push([el, 'mx-primary']);
       return;
     }
-    if (tag !== 'DIV' && tag !== 'SECTION' && tag !== 'ARTICLE') return;
+    if (tag !== 'DIV' && tag !== 'SECTION' && tag !== 'ARTICLE') { el.__mxSeen = 1; return; }
     var radius = px(s.borderRadius);
     var hasBorder = (s.border && s.border.indexOf('1px') > -1) || px(s.borderWidth) >= 1;
     var padded = px(s.padding) >= 10 || px(s.paddingTop) >= 10;
-    if (radius >= 12 && hasBorder && padded) {
-      var w = el.offsetWidth, h = el.offsetHeight;
-      if (w >= 180 && h >= 64 && !el.closest('.mx-popover, .command-palette, [role="dialog"], .mx-card-nested-stop')) {
-        var parentCard = el.parentElement && el.parentElement.closest('.mx-card');
-        el.classList.add(parentCard ? 'mx-subcard' : 'mx-card');
-        if (!parentCard) {
-          if (w * h > 180000) el.classList.add('mx-card-lg');
-          queueReveal(el);
-        }
+    if (!(radius >= 12 && hasBorder && padded)) { el.__mxSeen = 1; return; }
+    var w = el.offsetWidth;
+    if (!w) { deferred.push(el); return; }
+    el.__mxSeen = 1;
+    var h = el.offsetHeight;
+    if (w >= 180 && h >= 64 && !el.closest('.mx-popover, .command-palette, [role="dialog"], .mx-card-nested-stop')) {
+      if (parentCardOf(el)) { ops.push([el, 'mx-subcard']); return; }
+      el.__mxCard = 1;
+      ops.push([el, 'mx-card', w * h > 180000]);
+    }
+  }
+  function applyOps(ops) {
+    for (var i = 0; i < ops.length; i++) {
+      var o = ops[i];
+      o[0].classList.add(o[1]);
+      if (o[1] === 'mx-card') {
+        if (o[2]) o[0].classList.add('mx-card-lg');
+        queueReveal(o[0]);
       }
     }
   }
@@ -93,7 +112,9 @@
           if (!en.isIntersecting) return;
           var t = en.target;
           io.unobserve(t);
-          t.style.setProperty('--mx-delay', (Math.min(revealBatch++, 10) * 55) + 'ms');
+          // Short cascade (max ~180 ms): a long stagger on top of the view's
+          // own entrance made new views feel slow to settle.
+          t.style.setProperty('--mx-delay', (Math.min(revealBatch++, 6) * 30) + 'ms');
           t.classList.add('is-in');
           clearTimeout(revealTimer);
           revealTimer = setTimeout(function () { revealBatch = 0; }, 180);
@@ -151,28 +172,56 @@
   }
 
   // ---- DOM observation -----------------------------------------------------
-  var pending = [], scheduled = false;
+  var pending = [], scheduled = false, deferred = [];
+  // The accent colour only changes with the theme: read it once and again
+  // after a theme switch (getComputedStyle() here forced a style recalc on
+  // every flush, right after React's commit).
+  var accDirty = true;
+  try {
+    new MutationObserver(function () { accDirty = true; })
+      .observe(doc.documentElement, { attributes: true, attributeFilter: ['data-theme', 'data-mode', 'style', 'class'] });
+  } catch (e) {}
   function flush() {
     scheduled = false;
-    ACC = accentRGB();
+    if (accDirty || !ACC) { ACC = accentRGB(); accDirty = false; }
     var list = pending; pending = [];
+    var ops = [], roots = [];
     for (var i = 0; i < list.length; i++) {
       var root = list[i];
       if (!root.isConnected || root.nodeType !== 1) continue;
-      classify(root);
+      roots.push(root);
+      classify(root, ops);
       var all = root.getElementsByTagName('*');
-      for (var j = 0; j < all.length; j++) classify(all[j]);
-      scanFigures(root);
+      for (var j = 0; j < all.length; j++) classify(all[j], ops);
     }
+    applyOps(ops);
+    for (var k = 0; k < roots.length; k++) scanFigures(roots[k]);
   }
+  // Retry only the elements that were skipped because they had no layout yet
+  // (it used to re-walk the WHOLE app, incl. a layout read per element, 700 ms
+  // after every React update - a long task right after each navigation).
   var settleTimer = 0;
   function settle() {
     clearTimeout(settleTimer);
-    settleTimer = setTimeout(function () { var r = doc.getElementById('root'); if (r) { pending.push(r); flush(); } }, 700);
+    settleTimer = setTimeout(function () {
+      var idle = win.requestIdleCallback || function (f) { return setTimeout(f, 0); };
+      idle(function () {
+        var list = deferred; deferred = [];
+        if (accDirty || !ACC) { ACC = accentRGB(); accDirty = false; }
+        var ops = [];
+        for (var i = 0; i < list.length; i++) if (list[i].isConnected && !list[i].__mxSeen) classify(list[i], ops);
+        applyOps(ops);
+      }, { timeout: 500 });
+    }, 700);
   }
-  function schedule(node) {
+  // New content is classified right in the MutationObserver callback, i.e.
+  // after React's commit but BEFORE the browser paints it. Deferred to an idle
+  // callback (as before), cards were first painted visible, then hidden by
+  // the reveal class and animated in again - a visible blink on navigation.
+  function schedule(node, sync) {
     settle();
     pending.push(node);
+    if (sync) { flush(); return; }
     if (!scheduled) { scheduled = true; (win.requestIdleCallback || requestAnimationFrame)(flush, { timeout: 120 }); }
   }
 
@@ -181,10 +230,12 @@
     if (!root) return;
     schedule(root);
     new MutationObserver(function (muts) {
+      var before = pending.length;
       for (var i = 0; i < muts.length; i++) {
         var add = muts[i].addedNodes;
-        for (var j = 0; j < add.length; j++) if (add[j].nodeType === 1) schedule(add[j]);
+        for (var j = 0; j < add.length; j++) if (add[j].nodeType === 1) pending.push(add[j]);
       }
+      if (pending.length > before) { settle(); flush(); } // one pass per callback, pre-paint
     }).observe(root, { childList: true, subtree: true });
 
     if (motionOff()) { doc.documentElement.classList.add('mx-still'); return; }
@@ -195,12 +246,18 @@
     aura.className = 'mx-aura';
     aura.setAttribute('aria-hidden', 'true');
     doc.body.appendChild(aura);
-    var lx = 0, ly = 0, raf = 0, hot = null;
+    var lx = 0, ly = 0, raf = 0, hot = null, hotRect = null;
+    // The hot card's rect is read once (on enter) and dropped on scroll/resize,
+    // instead of a getBoundingClientRect() per frame right after this frame's
+    // style writes (which forced a synchronous layout on every pointer move).
+    function dropRect() { hotRect = null; }
+    win.addEventListener('scroll', dropRect, { passive: true, capture: true });
+    win.addEventListener('resize', dropRect, { passive: true });
     function paint() {
       raf = 0;
       aura.style.transform = 'translate3d(' + (lx - 300) + 'px,' + (ly - 300) + 'px,0)';
       if (hot) {
-        var r = hot.getBoundingClientRect();
+        var r = hotRect || (hotRect = hot.getBoundingClientRect());
         var x = lx - r.left, y = ly - r.top;
         hot.style.setProperty('--mx-x', x + 'px');
         hot.style.setProperty('--mx-y', y + 'px');
@@ -216,7 +273,7 @@
       var c = e.target && e.target.closest ? e.target.closest('.mx-card') : null;
       if (c !== hot) {
         if (hot) { hot.classList.remove('is-hot'); hot.style.removeProperty('--mx-rx'); hot.style.removeProperty('--mx-ry'); }
-        hot = c;
+        hot = c; hotRect = null;
         if (hot) hot.classList.add('is-hot');
       }
       if (!raf) raf = requestAnimationFrame(paint);
@@ -233,8 +290,9 @@
       var ink = doc.createElement('span');
       ink.className = 'mx-ink';
       ink.style.cssText = 'width:' + d + 'px;height:' + d + 'px;left:' + (e.clientX - r.left - d / 2) + 'px;top:' + (e.clientY - r.top - d / 2) + 'px';
-      if (getComputedStyle(b).position === 'static') b.style.position = 'relative';
-      if (getComputedStyle(b).overflow !== 'hidden') b.style.overflow = 'hidden';
+      var cs = getComputedStyle(b);
+      if (cs.position === 'static') b.style.position = 'relative';
+      if (cs.overflow !== 'hidden') b.style.overflow = 'hidden';
       b.appendChild(ink);
       setTimeout(function () { ink.remove(); }, 650);
     }, { passive: true });
