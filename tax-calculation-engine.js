@@ -416,12 +416,20 @@ var GermanTax = (function () {
   // month preceding the month of acquisition (purchase in March → 10/12).
   function monthsFactorForPurchase(purchaseDate, year) {
     if (!purchaseDate) return 1;
-    var d = new Date(purchaseDate);
-    if (isNaN(d.getTime())) return 1;
-    var py = d.getFullYear();
+    // Year/month of the stored 'YYYY-MM-DD' string itself: new Date() parses it
+    // as UTC midnight and getMonth() would shift a 1st-of-month purchase into
+    // the previous month west of UTC.
+    var m = /^(\d{4})-(\d{2})/.exec(String(purchaseDate));
+    var py, pm;
+    if (m) { py = parseInt(m[1], 10); pm = parseInt(m[2], 10) - 1; }
+    else {
+      var d = new Date(purchaseDate);
+      if (isNaN(d.getTime())) return 1;
+      py = d.getFullYear(); pm = d.getMonth();
+    }
     if (py < year) return 1;
     if (py > year) return 0;
-    return (12 - d.getMonth()) / 12; // getMonth() Jan=0 → bought in Jan = 12/12
+    return (12 - pm) / 12; // Jan = 0 → bought in Jan = 12/12
   }
 
   // Vorabpauschale for ONE accumulating fund position and ONE year

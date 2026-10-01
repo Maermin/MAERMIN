@@ -155,7 +155,10 @@
     var txs = (typeof window !== 'undefined' && window.MaerminCorporateActions)
       ? window.MaerminCorporateActions.adjust(transactions || [])
       : (transactions || []);
-    var inYear = function (d) { return new Date(d).getFullYear() === year; };
+    // Calendar year of the stored date string itself. getFullYear() would use
+    // the device's time zone and move a 1 January item into the previous year
+    // west of UTC (dates are stored as UTC 'YYYY-MM-DD').
+    var inYear = function (d) { return parseInt(ymd(d).slice(0, 4), 10) === year; };
 
     var disposals = fifo(txs, year, rate, fxAt);
     var realizedGains = disposals.filter(function (d) { return d.gain >= 0; });
