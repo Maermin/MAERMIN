@@ -130,10 +130,15 @@
       return { k: String(tx.symbol).toLowerCase(), t: tsOf(String(tx.date).length === 10 ? tx.date + 'T23:59:59Z' : tx.date),
         q: (tx.type === 'buy' ? 1 : -1) * (Number(tx.quantity) || 0) };
     }).filter(function (x) { return isFinite(x.t); }).sort(function (a, b) { return a.t - b.t; }) : null;
+    // Holdings are accumulated with a forward pointer (events and trades are
+    // both in time order), so each trade is applied once instead of re-summing
+    // every trade for every price point (that was O(points x trades)).
+    var cum = {}, ptr = 0;
     function holdingsAt(t) {
       if (!txs) return syms;
+      while (ptr < txs.length && txs[ptr].t <= t) { cum[txs[ptr].k] = (cum[txs[ptr].k] || 0) + txs[ptr].q; ptr++; }
       var h = {};
-      for (var i = 0; i < txs.length && txs[i].t <= t; i++) h[txs[i].k] = (h[txs[i].k] || 0) + txs[i].q;
+      Object.keys(cum).forEach(function (k) { h[k] = cum[k]; });
       return h;
     }
 
@@ -147,7 +152,7 @@
     events.sort(function (a, b) { return a.t - b.t; });
     if (events.length < 2) return null;
 
-    var last = {}, prevPrices = null, prevT = null, growth = 1, periods = 0;
+    var last = {}, prevPrices = null, prevHeld = null, growth = 1, periods = 0;
     for (var i = 0; i < events.length; i++) {
       var ev = events[i];
       last[ev.k] = ev.p;
@@ -157,7 +162,7 @@
       if (!complete) continue;
       var snapshot = {}; Object.keys(last).forEach(function (k) { snapshot[k] = last[k]; });
       if (prevPrices) {
-        var h = holdingsAt(prevT);
+        var h = prevHeld;
         var v0 = 0, v1 = 0;
         Object.keys(h).forEach(function (k) {
           if (!(h[k] > 1e-12) || !(prevPrices[k] > 0)) return;
@@ -166,7 +171,7 @@
         });
         if (v0 > 0) { growth *= v1 / v0; periods++; }
       }
-      prevPrices = snapshot; prevT = ev.t;
+      prevPrices = snapshot; prevHeld = held;
     }
     return periods > 0 ? growth - 1 : null;
   }

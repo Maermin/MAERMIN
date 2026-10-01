@@ -416,18 +416,30 @@ var GermanTax = (function () {
   // month preceding the month of acquisition (purchase in March → 10/12).
   function monthsFactorForPurchase(purchaseDate, year) {
     if (!purchaseDate) return 1;
-    var d = new Date(purchaseDate);
-    if (isNaN(d.getTime())) return 1;
-    var py = d.getFullYear();
+    // Year/month of the stored 'YYYY-MM-DD' string itself: new Date() parses it
+    // as UTC midnight and getMonth() would shift a 1st-of-month purchase into
+    // the previous month west of UTC.
+    var m = /^(\d{4})-(\d{2})/.exec(String(purchaseDate));
+    var py, pm;
+    if (m) { py = parseInt(m[1], 10); pm = parseInt(m[2], 10) - 1; }
+    else {
+      var d = new Date(purchaseDate);
+      if (isNaN(d.getTime())) return 1;
+      py = d.getFullYear(); pm = d.getMonth();
+    }
     if (py < year) return 1;
     if (py > year) return 0;
-    return (12 - d.getMonth()) / 12; // getMonth() Jan=0 → bought in Jan = 12/12
+    return (12 - pm) / 12; // Jan = 0 → bought in Jan = 12/12
   }
 
-  // Vorabpauschale for ONE accumulating fund position and ONE year.
-  //   Basisertrag   = value at year start x Basiszins x 0.7 x month factor
-  //   capped by the actual value increase over the year,
-  //   reduced by distributions paid out during the year, floored at 0.
+  // Vorabpauschale for ONE accumulating fund position and ONE year
+  // (sec. 18 (1) InvStG):
+  //   Basisertrag   = value at year start x Basiszins x 0.7 x month factor,
+  //   capped by the "Mehrbetrag": the value increase over the year PLUS the
+  //   distributions paid during the year,
+  //   then reduced by those distributions, floored at 0.
+  // (The cap used to ignore the distributions, which understated the
+  // Vorabpauschale of distributing funds in years with a small price gain.)
   // A non-positive Basiszins (2022) yields zero across the board.
   function computeVorabpauschale(input) {
     input = input || {};
@@ -442,7 +454,8 @@ var GermanTax = (function () {
     }
     var basisertrag = valueStart * basiszins * 0.7 * monthsFactor;
     var wertzuwachs = Math.max(0, valueEnd - valueStart);
-    var vorabpauschale = Math.max(0, Math.min(basisertrag, wertzuwachs) - distributions);
+    var mehrbetrag = Math.max(0, valueEnd - valueStart + distributions);
+    var vorabpauschale = Math.max(0, Math.min(basisertrag, mehrbetrag) - distributions);
     return { basisertrag: basisertrag, wertzuwachs: wertzuwachs, vorabpauschale: vorabpauschale };
   }
 
