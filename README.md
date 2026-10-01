@@ -183,6 +183,7 @@ npm install        # once, pulls esbuild (web build)
 npm test           # run all Node test harnesses (test/*.test.js)
 npm run check      # syntax-check every JS file (fast pre-commit gate)
 npm run build:web  # -> dist/index.html + dist/maermin.min.js + dist/styles.css
+npm run test:e2e   # headless Chromium smoke test of index.html + dist/ (after build:web)
 ```
 
 Contributing guidelines and conventions: **[CONTRIBUTING.md](CONTRIBUTING.md)**.

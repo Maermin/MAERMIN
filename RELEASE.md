@@ -11,6 +11,13 @@
 - Dates are read from the stored `YYYY-MM-DD` instead of the device time zone: west of UTC a purchase on the 1st got the wrong Vorabpauschale month factor and a 1 January dividend fell into the previous tax year.
 - Tax view: choosing another year on the **Tax Report** tab no longer jumps back to **FIFO Cost Basis**.
 - TWR is computed in one pass over the trades (about 2.4× faster on 5,000 trades; identical results).
+- **Currencies:** transactions in CHF, GBP and other fiat are converted with the current cross rate (they were counted as EUR); USD stablecoins (USDT, USDC, …) like USD at the rate of the day. Currencies without any rate (e.g. a BTC-quoted trade) are flagged. The import preview warns per currency before importing.
+- **Data check:** sells without enough bought units and unconvertible currencies are listed on the Transactions and Tax views (they were silently left out of cost basis and gains).
+- **Sync:** a device that last synced with an older build now gets a merge base on upgrade, so its first sync no longer overwrites edits made on other devices.
+- Tax view: the report is no longer rebuilt on every app render (memoised; still rebuilt when tax settings, fund types or Vorabpauschale records change).
+- The production build keeps the Geist web fonts (dist/ fell back to the system font).
+- Removed the unused legacy tax engine (`calculateGermanTax`, `calculateUSTax`, `calculateRealizedGainsAdvanced`, `TaxCalculationEngine.calculateTaxes`); the Vorabpauschale prefill and credit read lots from the FIFO ledger (recorded splits applied).
+- New `npm run test:e2e`: headless browser test of the real app (dev + dist), also in CI.
 
 ### One FIFO ledger (`ledger.js`)
 

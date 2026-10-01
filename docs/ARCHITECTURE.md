@@ -99,7 +99,7 @@ conversion happens only at format time (`formatPrice`).
 | `dividend-data-service.js` | `DividendDataService` | Dividend data, FIFO forecast, calendar. Resolves per-symbol dividends via the Worker's `action=fundamentals` (Yahoo — `fetchDividendFromWorker`, no FMP key needed; frequency inferred from `dividendRate / lastDividendValue`), falling back to the FMP API (key) then the ~31-ticker built-in DB. Symbols are normalised through `MaerminTickers.normalizeForDividends`, which also applies renamed-ticker aliases (FISV→FI, FB→META, …). `buildPaymentSchedule(portfolio, {months, back})` expands resolved holdings into one dated entry **per individual payout** across a trailing `back` window (already-received, flagged `past`) plus the next `months` — the Dividend Calendar auto-derives these (read-only; upcoming blue, received grey) and merges them with the user's manual entries, so every payer shows who/when/how-much and the yearly total reconciles received + upcoming |
 | `tax-report-builder.js` | `MaerminTaxReport` | Per-lot FIFO tax report + PDF/Excel; for jurisdiction `de` integrates the GermanTax detail (`summary.germanDetail`, injectable via `opts.germanTax` for Node tests) |
 | `tax-settings.js` | `MaerminTaxSettings` | User-editable tax parameters (Abgeltung rate, Soli toggle, church tax, Freistellungsauftrag, crypto exemption, Teilfreistellung overrides) + per-position manual taxable overrides (sensitive). Pure `sanitize`/`computeAbgeltung`/`teilfreistellungRate`/`positionOverride`; the engine reads these and falls back to statutory defaults. Tested in `test/tax-settings.test.js` |
-| `tax-calculation-engine.js` | `TaxCalculationEngine` (+ `GermanTax`) | Jurisdiction tax estimates; `GermanTax` adds the pure German fund-taxation depth: Vorabpauschale (BMF Basiszins table + overrides, month pro-rating, sale credit), Teilfreistellung per fund type (symmetric on losses), statutory order Teilfreistellung -> Verrechnung -> Sparerpauschbetrag -> Abgeltungsteuer/Soli/Kirchensteuer (sec. 32d formula), crypto Freigrenze. Dual-exported, tested in `test/german-tax.test.js` |
+| `tax-calculation-engine.js` | `TaxCalculationEngine.GermanTax` | The German computation only (the legacy jurisdiction engine was removed; reports come from `MaerminTaxReport`): pure German fund-taxation depth: Vorabpauschale (BMF Basiszins table + overrides, month pro-rating, sale credit), Teilfreistellung per fund type (symmetric on losses), statutory order Teilfreistellung -> Verrechnung -> Sparerpauschbetrag -> Abgeltungsteuer/Soli/Kirchensteuer (sec. 32d formula), crypto Freigrenze. Dual-exported, tested in `test/german-tax.test.js` |
 | `allocation.js` | `MaerminAllocation` | Asset-class allocation + drill-down |
 | `projection.js` | `MaerminProjection` | Multi-scenario wealth projection |
 | `recurring.js` | `MaerminRecurring` | Recurring liabilities (loans/mortgages) |
@@ -325,6 +325,11 @@ they add no `SENSITIVE_KEYS` and need no migration.
   and fails on any non-zero exit. Tests exercise the **real** modules via the
   Node export, with minimal DOM/crypto stubs.
 - `npm run check` — `node --check` on every JS file (fast syntax gate).
+- `npm run test:e2e` — `test/e2e/app.e2e.mjs` runs the real app (dev `index.html`
+  and `dist/`) in headless Chromium via `playwright-core`: mount after unlock,
+  every sidebar view, Tax Report + PDF export, upgrade migration. Needs a built
+  `dist/` and a Chromium (`npx playwright-core install chromium`, or
+  `CHROME_PATH`); offline-safe (React from `node_modules`, `JSPDF_DIR` for jsPDF).
 
 CI (`.github/workflows/node.js.yml`) runs `build:web` + `test` (incl. the platform suite) on Node 22/24.
 
