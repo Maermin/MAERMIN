@@ -105,6 +105,13 @@ async function unlock(page, base) {
   await page.locator('#auth-submit').click();
   await page.locator('nav.maermin-sidebar').waitFor({ timeout: 30000 });
 }
+// Force an app re-render without changing app state (open + close an overlay).
+async function rerender(page) {
+  await page.evaluate(() => window.MaerminUI.openOverlay('commandPalette'));
+  await page.waitForTimeout(200);
+  await page.evaluate(() => window.MaerminUI.closeOverlay('commandPalette'));
+  await page.waitForTimeout(300);
+}
 // Click a sidebar entry (data-view); expand the hubs until it is visible.
 async function openView(page, id) {
   const entry = page.locator('nav.maermin-sidebar [data-view="' + id + '"]');
@@ -127,7 +134,10 @@ const TXS = [
   { id: 'a2', type: 'sell', category: 'stocks', symbol: 'AAPL', quantity: 10, price: 150, currency: 'EUR', date: '2025-06-02', portfolioId: 'default' },
   { id: 'b1', type: 'buy', category: 'crypto', symbol: 'BTC', quantity: 1, price: 500, currency: 'EUR', date: '2025-01-10', portfolioId: 'default' },
   { id: 'b2', type: 'sell', category: 'crypto', symbol: 'BTC', quantity: 1, price: 1200, currency: 'EUR', date: '2025-03-10', portfolioId: 'default' },
-  { id: 'v1', type: 'buy', category: 'stocks', symbol: 'VWCE.DE', quantity: 5, price: 110, currency: 'EUR', date: '2024-05-02', portfolioId: 'default' }
+  { id: 'v1', type: 'buy', category: 'stocks', symbol: 'VWCE.DE', quantity: 5, price: 110, currency: 'EUR', date: '2024-05-02', portfolioId: 'default' },
+  // data-check fixtures: a sell without a buy (oversold) and a crypto-quoted trade
+  { id: 'x1', type: 'sell', category: 'crypto', symbol: 'ADA', quantity: 5, price: 0, currency: 'EUR', date: '2024-02-01', portfolioId: 'default' },
+  { id: 'x2', type: 'buy', category: 'crypto', symbol: 'ETH', quantity: 1, price: 0.05, currency: 'BTC', date: '2024-02-01', portfolioId: 'default' }
 ];
 
 const VIEWS = ['overview', 'transactions', 'portfolios', 'net-worth', 'dividends', 'journal',
@@ -172,6 +182,10 @@ async function runBuild(browser, label, dir) {
     }
     ok('every sidebar view renders without an error (' + VIEWS.length + ' views)', crashedIn.length === 0, crashedIn.join(' || '));
 
+    await openView(page, 'transactions');
+    const check = await page.locator('[data-testid="ledger-issues"]').first().innerText().catch(() => '');
+    ok('Data check lists the oversell and the unconvertible currency', /Data check: 2 issues/.test(check), check.slice(0, 120));
+
     // Tax view: go there, pick the report tab and 2025.
     await openView(page, 'tax');
     await page.getByRole('button', { name: 'Tax Report', exact: true }).click();
@@ -180,6 +194,18 @@ async function runBuild(browser, label, dir) {
     const body = await page.innerText('body');
     ok('year switch keeps the Tax Report tab', /Export PDF/.test(body));
     // AAPL 500 + BTC 700 realised; stocks 490 < 1000 allowance, crypto 700 < Freigrenze -> 0 tax
+    // The report is memoised: a tax-setting change made outside React state
+    // (localStorage) must still rebuild it on the next render.
+    await page.evaluate(() => {
+      localStorage.setItem('maermin_tax_settings', JSON.stringify({ abgeltungRate: 0.25, soli: true, kirchensteuer: 0, freistellungsauftrag: 0, cryptoExemption: true }));
+    });
+    await rerender(page);
+    // no allowance: stock gain 490 -> 490 * 25 % * 1.055 = 129.24 (crypto 700 stays under the Freigrenze)
+    { const b2 = await page.innerText('body'); ok('memoised report rebuilds after a stored setting changes (129.24 €)', /Tax Liability\s*129\.24/.test(b2), b2.slice(b2.indexOf('Realized Gains'), b2.indexOf('Realized Gains') + 160).replace(/\n/g, ' | ')); }
+    await page.evaluate(() => {
+      localStorage.setItem('maermin_tax_settings', JSON.stringify({ abgeltungRate: 0.25, soli: true, kirchensteuer: 0, freistellungsauftrag: 1000, cryptoExemption: true }));
+    });
+    await rerender(page);
     ok('tax KPIs: realised 1,190.00 €, tax 0.00 €', /Realized Gains\s*1,190\.00/.test(body) && /Tax Liability\s*0\.00/.test(body), body.slice(body.indexOf('Realized Gains'), body.indexOf('Realized Gains') + 140).replace(/\n/g, ' | '));
 
     let pdf = null;
@@ -191,6 +217,7 @@ async function runBuild(browser, label, dir) {
       pdf = await download.path();
     } catch (e) { /* offline without JSPDF_DIR */ }
     if (pdf) ok('PDF export lazy-loads jsPDF and downloads', true);
+    else if (process.env.CI || JSPDF_DIR) ok('PDF export lazy-loads jsPDF and downloads', false, 'no download (CDN unreachable?)');
     else console.log('  - PDF export skipped (jsPDF not reachable; set JSPDF_DIR to test offline)');
     ok('no page errors in the session', errors.length === 0, errors.join(' | '));
     await context.close();
