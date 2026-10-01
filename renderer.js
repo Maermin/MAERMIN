@@ -643,6 +643,12 @@ function InvestmentTracker() {
   // Tax report: selected year + taxpayer details (persisted), used by the
   // filing-grade report builder (MaerminTaxReport).
   const [taxYear, setTaxYear] = useState(() => new Date().getFullYear());
+  // Active tab of the Tax view. Kept HERE, not inside TaxCombinedView: that
+  // component is declared inside InvestmentTracker, so every re-render of the
+  // app (changing the tax year, a price refresh, a toast) remounts it and a
+  // local useState fell back to 'fifo' - e.g. picking another year on the Tax
+  // Report tab jumped back to the FIFO tab.
+  const [taxTab, setTaxTab] = useState('fifo');
   // Bumped when tax settings change, to recompute the summary cards/report.
   const [taxSettingsRev, setTaxSettingsRev] = useState(0);
   // Overview row → position detail modal (transactions, CAGR, splits, journal).
@@ -2366,7 +2372,7 @@ function InvestmentTracker() {
 
   // ── TAX COMBINED VIEW (FIFO + Tax Report) ───────────────────────────────────
   const TaxCombinedView = ({ transactions, prices, theme, t, formatPrice, getCurrencySymbol, taxJurisdiction, setTaxJurisdiction, language }) => {
-    const [tabState, setTab] = React.useState('fifo');
+    const tabState = taxTab, setTab = setTaxTab;
     // Under German tax law the Tax Report tab already carries the DE-aware
     // tax advisor (loss harvesting with separate stock/other loss pots), so the
     // generic harvest tab is only offered for other jurisdictions.
