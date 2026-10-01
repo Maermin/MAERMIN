@@ -5294,6 +5294,7 @@ buy,crypto,bitcoin,0.5,45000,2024-01-15,10`)
               type: 'button',
               className: 'mx-nav' + (child ? ' is-child' : '') + (active ? ' is-active' : ''),
               'aria-current': active ? 'page' : undefined,
+              'data-view': item.id,
               onClick: () => setActiveView(item.id)
             },
               Icon(item.id, { size: child ? 15 : 17 }),
@@ -5309,6 +5310,7 @@ buy,crypto,bitcoin,0.5,45000,2024-01-15,10`)
                 type: 'button',
                 className: 'mx-nav' + (childActive ? ' has-active' : ''),
                 'aria-expanded': expanded,
+                'data-hub': hub.id,
                 style: childActive ? { color: 'var(--text)' } : undefined,
                 onClick: () => setOpenHub(prev => prev === hub.id ? '' : hub.id)
               },
