@@ -5108,6 +5108,9 @@ buy,crypto,bitcoin,0.5,45000,2024-01-15,10`)
   },
     // Header — frosted glass top bar
     React.createElement('header', { className: 'mx-header maermin-header' },
+      // Animated hairline under the header (styles.css .mx-hairline): a clipped
+      // strip whose sheen moves by transform, so it runs on the compositor.
+      React.createElement('span', { className: 'mx-hairline', 'aria-hidden': 'true' }),
       React.createElement('div', { className: 'mx-brand' },
         Logo({ size: 32 }),
         React.createElement('h1', { className: 'mx-brand-name' }, 'MAERMIN'),
