@@ -314,8 +314,9 @@
           settings: TS
         });
         // Crypto: private sale rules (sec. 23 EStG) - > 1y exempt; otherwise a
-        // Freigrenze applies (1000 EUR from 2024, 600 before): at or under it
-        // the whole net gain is tax-free, above it the WHOLE amount is taxable.
+        // Freigrenze applies (1000 EUR from 2024, 600 before): a net gain of
+        // LESS than it is tax-free; at or above it the WHOLE amount is taxable
+        // (sec. 23 (3) S.5 EStG: "weniger als 1 000 Euro").
         // The personal income-tax rate is unknown here; 25% is the documented
         // flat estimate, consistent with the legacy engine.
         // The 1-year crypto exemption can be turned off in the settings; then
@@ -327,7 +328,7 @@
           if (d.longTerm && cryptoExemptionOn) cryptoExempt += d.gain; else cryptoShort += d.gain;
         });
         var freigrenze = year >= 2024 ? 1000 : 600;
-        var cryptoTaxable = cryptoShort > freigrenze ? cryptoShort : 0;
+        var cryptoTaxable = cryptoShort >= freigrenze ? cryptoShort : 0;
         var cryptoRate = TS && TS.abgeltungRate != null ? TS.abgeltungRate : 0.25;
         var cryptoTax = cryptoTaxable * cryptoRate;
         germanDetail = Object.assign({}, capital, {

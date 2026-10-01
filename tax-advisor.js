@@ -144,17 +144,17 @@
     var cryptoUsed = num(input.realizedCryptoGainsYTD);
     var cryptoLimit = o.cryptoFreigrenze;
     var cryptoRemaining = cryptoLimit - cryptoUsed;
-    if (cryptoUsed > cryptoLimit) {
+    if (cryptoUsed >= cryptoLimit) {
       findings.push(finding('cryptoFreigrenze', 'critical',
         'Crypto Freigrenze exceeded',
-        'Realised private sale gains of ' + Math.round(cryptoUsed) + ' EUR this year exceed the 1.000 EUR Freigrenze. Because it is a Freigrenze (not an allowance), the ENTIRE amount is taxable, not just the excess.',
+        'Realised private sale gains of ' + Math.round(cryptoUsed) + ' EUR this year reach the 1.000 EUR Freigrenze (only gains of less than 1.000 EUR are tax-free). Because it is a Freigrenze (not an allowance), the ENTIRE amount is taxable, not just the excess.',
         'Avoid further short-term crypto sales this year; defer additional realisations into next year if possible.',
         { used: cryptoUsed, limit: cryptoLimit, remaining: cryptoRemaining }));
     } else if (cryptoUsed >= cryptoLimit * o.nearLimitPct) {
       findings.push(finding('cryptoFreigrenze', 'important',
         'Crypto Freigrenze nearly used',
         'Realised private sale gains of ' + Math.round(cryptoUsed) + ' EUR are close to the 1.000 EUR Freigrenze; only ' + Math.round(cryptoRemaining) + ' EUR of headroom remains.',
-        'Any sale that pushes total gains over 1.000 EUR makes the whole sum taxable — keep further short-term realisations under ' + Math.round(cryptoRemaining) + ' EUR.',
+        'Any sale that brings total gains to 1.000 EUR or more makes the whole sum taxable — keep further short-term realisations under ' + Math.round(cryptoRemaining) + ' EUR.',
         { used: cryptoUsed, limit: cryptoLimit, remaining: cryptoRemaining }));
     }
 
@@ -233,7 +233,7 @@
     return {
       findings: findings,
       summary: {
-        cryptoFreigrenze: { limit: cryptoLimit, used: cryptoUsed, remaining: cryptoRemaining, exceeded: cryptoUsed > cryptoLimit },
+        cryptoFreigrenze: { limit: cryptoLimit, used: cryptoUsed, remaining: cryptoRemaining, exceeded: cryptoUsed >= cryptoLimit },
         sparerpauschbetrag: { limit: spbLimit, used: spbUsed, remaining: spbRemaining },
         cryptoLotsTracked: lots.length, cryptoLotsNearFree: nearFree.length
       }
