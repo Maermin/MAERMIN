@@ -53,46 +53,35 @@
     return best;
   }
 
-  // Net quantity of `symbol` held at the end of `dateISO` (buys minus sells).
-  function qtyAt(transactions, symbol, dateISO) {
-    var cutoff = new Date(dateISO).getTime();
-    var sym = String(symbol || '').toUpperCase();
-    var qty = 0;
-    (transactions || []).forEach(function (tx) {
-      if (String(tx.symbol || '').toUpperCase() !== sym) return;
-      var ts = new Date(tx.date).getTime();
-      if (isNaN(ts) || ts > cutoff) return;
-      var q = num(tx.quantity) || 0;
-      if (tx.type === 'buy') qty += q; else if (tx.type === 'sell') qty -= q;
-    });
-    return Math.max(0, qty);
+  function ledgerMod() {
+    if (typeof window !== 'undefined' && window.MaerminLedger) return window.MaerminLedger;
+    try { return require('./ledger.js'); } catch (e) { return null; }
   }
 
   // Open FIFO lots of `symbol` at the end of `dateISO`: [{ qty, date }], oldest
-  // first. Same-day ties book buys before sells (matches the tax FIFO).
+  // first - from the one FIFO ledger (same-day buys before sells, recorded
+  // splits applied, so units match Yahoo's split-adjusted price history).
   function openLotsAt(transactions, symbol, dateISO) {
     var cutoff = new Date(dateISO).getTime();
     var sym = String(symbol || '').toUpperCase();
     var txs = (transactions || []).filter(function (tx) {
-      if (String(tx.symbol || '').toUpperCase() !== sym) return false;
+      if (!tx || String(tx.symbol || '').toUpperCase() !== sym) return false;
       if (tx.type !== 'buy' && tx.type !== 'sell') return false;
       var ts = new Date(tx.date).getTime();
       return !isNaN(ts) && ts <= cutoff;
-    }).sort(function (a, b) {
-      return (new Date(a.date) - new Date(b.date)) || ((a.type === 'buy' ? 0 : 1) - (b.type === 'buy' ? 0 : 1));
     });
+    var L = ledgerMod();
+    if (!L || !txs.length) return [];
     var lots = [];
-    txs.forEach(function (tx) {
-      var q = num(tx.quantity) || 0;
-      if (!(q > 0)) return;
-      if (tx.type === 'buy') { lots.push({ qty: q, date: tx.date }); return; }
-      while (q > 1e-9 && lots.length) {
-        var used = Math.min(q, lots[0].qty);
-        lots[0].qty -= used; q -= used;
-        if (lots[0].qty <= 1e-9) lots.shift();
-      }
+    L.build(txs, { exchangeRate: 1 }).list.forEach(function (g) {
+      g.openLots.forEach(function (l) { lots.push({ qty: l.qty, date: l.date }); });
     });
-    return lots;
+    return lots.sort(function (x, y) { return String(x.date) < String(y.date) ? -1 : (String(x.date) > String(y.date) ? 1 : 0); });
+  }
+
+  // Units of `symbol` held at the end of `dateISO` (sum of the open lots).
+  function qtyAt(transactions, symbol, dateISO) {
+    return openLotsAt(transactions, symbol, dateISO).reduce(function (s, l) { return s + l.qty; }, 0);
   }
 
   // Prefill one Vorabpauschale row for symbol/year from what the app already

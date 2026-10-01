@@ -104,14 +104,14 @@
       longTermTax: longTermTax, totalTax: shortTermTax + longTermTax, shortTermRate: 24, longTermRate: 15 };
   }
 
-  // Units of `symbol` held at the end of `iso` (split-adjusted txs expected).
+  // Units of `symbol` held at the end of `iso`: open lots of the one FIFO
+  // ledger (txs are already split-adjusted by build(), so no second pass).
   function unitsAt(txs, symbol, iso) {
-    var q = 0;
-    (txs || []).forEach(function (tx) {
-      if (String(tx.symbol || tx.name || '').toUpperCase() !== symbol) return;
-      if (ymd(tx.date) > iso) return;
-      if (tx.type === 'buy') q += num(tx.quantity); else if (tx.type === 'sell') q -= num(tx.quantity);
+    var f = (txs || []).filter(function (tx) {
+      return tx && (tx.type === 'buy' || tx.type === 'sell') && String(tx.symbol || tx.name || '').toUpperCase() === symbol && ymd(tx.date) <= iso;
     });
+    var q = 0;
+    ledger().build(f, { exchangeRate: 1, applyCorporateActions: false }).list.forEach(function (g) { q += g.openQty; });
     return q > 1e-9 ? q : 0;
   }
 

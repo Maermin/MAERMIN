@@ -184,11 +184,13 @@
     return out;
   }
 
-  // Single group convenience (callers that already grouped by symbol).
+  // Single group convenience (callers that already grouped by symbol). Same
+  // default as build(): recorded splits are applied unless
+  // applyCorporateActions === false (it used to apply them only for `true`).
   function group(txs, opts) {
     opts = opts || {};
     var CA = opts.applyCorporateActions === false ? null : corporateActions();
-    var list = (CA && CA.adjust && opts.applyCorporateActions === true) ? CA.adjust(txs || []) : (txs || []);
+    var list = (CA && CA.adjust) ? CA.adjust(txs || []) : (txs || []);
     return runGroup(list, num(opts.exchangeRate), typeof opts.fxAt === 'function' ? opts.fxAt : null,
       { usdRates: opts.usdRates, currencyIssues: [], seen: {} });
   }

@@ -161,26 +161,22 @@ const FAST = { params: { iterations: 1000, hash: 'SHA-256' } };
   ], 2026, 1);
   ok('same-day round trip is realised (sell listed first)', d2.length === 1 && near(d2[0].gain, 4));
 
-  const TCE = require('../tax-calculation-engine.js');
-  const calc = TCE.calculateRealizedGainsAdvanced || (TCE.TaxCalculationEngine && TCE.TaxCalculationEngine.calculateRealizedGainsAdvanced);
-  if (typeof calc === 'function') {
-    const g = calc([
-      { type: 'buy', category: 'crypto', symbol: 'ETH', quantity: 1, price: 100, date: '2024-01-01' },
-      { type: 'buy', category: 'crypto', symbol: 'ETH', quantity: 1, price: 300, date: '2025-06-01' },
-      { type: 'sell', category: 'crypto', symbol: 'ETH', quantity: 1, price: 150, date: '2024-06-01' }, // consumes the 2024 lot
-      { type: 'sell', category: 'crypto', symbol: 'ETH', quantity: 1, price: 400, date: '2026-01-10' }
-    ], 2026);
-    // The 2026 sale must match the 2025 lot (the 2024 lot was sold in 2024): 400 - 300.
-    ok('prior-year sells consume their lots before the tax year', near(g.cryptoShortTermGains, 100) && near(g.cryptoLongTermGains, 0));
-    const g2 = calc([
-      { type: 'buy', category: 'crypto', symbol: 'SOL', quantity: 1, price: 100, date: '2024-01-01' },
-      { type: 'buy', category: 'crypto', symbol: 'SOL', quantity: 1, price: 300, date: '2025-06-01' },
-      { type: 'sell', category: 'crypto', symbol: 'SOL', quantity: 2, price: 400, date: '2026-01-10' }
-    ], 2026);
-    ok('each lot classified on its own holding period', near(g2.cryptoLongTermGains, 300) && near(g2.cryptoShortTermGains, 100));
-  } else {
-    ok('calculateRealizedGainsAdvanced exported', false);
-  }
+  // Per-lot holding periods across years (now from the one FIFO via TR.fifo).
+  const g = TR.fifo([
+    { type: 'buy', category: 'crypto', symbol: 'ETH', quantity: 1, price: 100, currency: 'EUR', date: '2024-01-01' },
+    { type: 'buy', category: 'crypto', symbol: 'ETH', quantity: 1, price: 300, currency: 'EUR', date: '2025-06-01' },
+    { type: 'sell', category: 'crypto', symbol: 'ETH', quantity: 1, price: 150, currency: 'EUR', date: '2024-06-01' }, // consumes the 2024 lot
+    { type: 'sell', category: 'crypto', symbol: 'ETH', quantity: 1, price: 400, currency: 'EUR', date: '2026-01-10' }
+  ], 2026, 1);
+  // The 2026 sale must match the 2025 lot (the 2024 lot was sold in 2024): 400 - 300.
+  ok('prior-year sells consume their lots before the tax year', g.length === 1 && near(g[0].gain, 100) && g[0].longTerm === false);
+  const g2 = TR.fifo([
+    { type: 'buy', category: 'crypto', symbol: 'SOL', quantity: 1, price: 100, currency: 'EUR', date: '2024-01-01' },
+    { type: 'buy', category: 'crypto', symbol: 'SOL', quantity: 1, price: 300, currency: 'EUR', date: '2025-06-01' },
+    { type: 'sell', category: 'crypto', symbol: 'SOL', quantity: 2, price: 400, currency: 'EUR', date: '2026-01-10' }
+  ], 2026, 1);
+  const lt = g2.filter(d => d.longTerm).reduce((x, d) => x + d.gain, 0), st = g2.filter(d => !d.longTerm).reduce((x, d) => x + d.gain, 0);
+  ok('each lot classified on its own holding period', near(lt, 300) && near(st, 100));
 
   // ───────────────────────── CSV ─────────────────────────
   console.log('CSV import/export:');

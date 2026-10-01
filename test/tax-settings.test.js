@@ -1,7 +1,7 @@
 // Node harness for the user tax-settings layer: sanitisation/clamping, the
 // Abgeltungsteuer resolver (custom rate, Soli toggle, church-tax formula),
 // Teilfreistellung overrides, per-position taxable overrides, and the
-// integration into calculateGermanTax + the report builder's German detail.
+// integration into the report builder's German detail.
 // Run: node test/tax-settings.test.js
 'use strict';
 
@@ -63,24 +63,20 @@ const GT = ENGINE.GermanTax;
   S.saveOverride('AAPL', 2025, null);
   ok('null clears the override', S.positionOverride(S.loadOverrides(), 'AAPL', 2025) === null);
 
-  // ---- integration: calculateGermanTax reads settings -------------------------
+  // ---- integration: the report reads the settings ----------------------------
   const txs = [
     { type: 'buy', category: 'stocks', symbol: 'X', quantity: 1, price: 1000, date: '2024-01-02' },
     { type: 'sell', category: 'stocks', symbol: 'X', quantity: 1, price: 4000, date: '2025-03-01' }, // +3000 gain
     { type: 'buy', category: 'crypto', symbol: 'BTC', quantity: 1, price: 1000, date: '2023-01-02' },
     { type: 'sell', category: 'crypto', symbol: 'BTC', quantity: 1, price: 6000, date: '2025-03-01' } // +5000, >1y
   ];
-  const baseSettings = S.sanitize({});
-  // Inject the resolver so the pure (window-less) engine path uses settings too.
-  baseSettings.__viaModule = true;
-  const def2 = ENGINE.calculateGermanTax(txs, 2025, S.sanitize({}));
-  // Stocks 3000 - 1000 allowance = 2000 @ 25% + 5.5% Soli; crypto >1y exempt.
-  ok('default: long-term crypto exempt, stocks taxed', approx(def2.cryptoTaxFreeGains, 5000) && approx(def2.totalCapitalIncome, 3000));
-
-  const noExempt = ENGINE.calculateGermanTax(txs, 2025, S.sanitize({ cryptoExemption: false }));
-  ok('crypto exemption off taxes the long-term gain', approx(noExempt.totalCapitalIncome, 8000) && noExempt.cryptoTaxFreeGains === 0);
-
-  const higherAllowance = ENGINE.calculateGermanTax(txs, 2025, S.sanitize({ freistellungsauftrag: 3000 }));
+  const withSettings = (st) => REPORT.build(txs, { year: 2025, jurisdiction: 'de', exchangeRate: 1, germanTax: ENGINE.GermanTax,
+    dividendEvents: [], taxOverrides: {}, vapRecords: {}, fundTypes: {}, taxSettings: S.sanitize(st) }).summary.germanDetail;
+  const def2 = withSettings({});
+  ok('default: long-term crypto exempt, stocks taxed', approx(def2.crypto.exemptLongTermGains, 5000) && approx(def2.gainsTaxable, 3000));
+  const noExempt = withSettings({ cryptoExemption: false });
+  ok('crypto exemption off taxes the long-term gain', approx(noExempt.crypto.netShortTermGains, 5000) && approx(noExempt.crypto.taxable, 5000) && noExempt.crypto.exemptLongTermGains === 0);
+  const higherAllowance = withSettings({ freistellungsauftrag: 3000 });
   ok('higher allowance lowers taxable income', approx(higherAllowance.taxableIncome, 0));
 
   // ---- integration: report builder threads settings + overrides ---------------

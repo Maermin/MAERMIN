@@ -69,11 +69,13 @@ const REPORT = require('../tax-report-builder.js');
   const vapPro = GT.computeVorabpauschale({ valueStart: 10000, valueEnd: 11000, basiszins: 0.0255, monthsFactor: 10 / 12 });
   ok('month factor pro-rates the Basisertrag', approx(vapPro.basisertrag, 178.5 * 10 / 12));
 
-  // ---- sale credit -----------------------------------------------------------------------
+  // ---- sale credit (per unit, tax-report-builder.vapCreditForLot) --------------------------
   const records = { WORLD: { 2023: 50, 2024: 30, 2025: 99 } };
-  ok('credit sums only years before the sale', approx(GT.vapCreditForSale(records, 'WORLD', 2025, 1), 80));
-  ok('credit pro-rates by fraction sold', approx(GT.vapCreditForSale(records, 'world', 2025, 0.5), 40));
-  ok('no records -> zero credit', GT.vapCreditForSale({}, 'WORLD', 2025, 1) === 0);
+  const held = [{ type: 'buy', category: 'stocks', symbol: 'WORLD', quantity: 100, price: 50, currency: 'EUR', date: '2022-03-01' }];
+  const lot = (q) => ({ symbol: 'WORLD', quantity: q, acquisitionDate: '2022-03-01', disposalDate: '2025-06-01' });
+  ok('credit sums only years before the sale', approx(REPORT.vapCreditForLot(held, records, lot(100)), 80));
+  ok('credit pro-rates by units sold', approx(REPORT.vapCreditForLot(held, records, lot(50)), 40));
+  ok('no records -> zero credit', REPORT.vapCreditForLot(held, {}, lot(100)) === 0);
 
   // ---- Abgeltungsteuer + Kirchensteuer formula ----------------------------------------------
   const plain = GT.abgeltungsteuer(1000, 0);
@@ -126,7 +128,7 @@ const REPORT = require('../tax-report-builder.js');
   GT.saveVapRecord('WORLD', 2024, 0);
   ok('zero clears the VAP record', !GT.loadVapRecords().WORLD);
 
-  // ---- legacy engine fixes -----------------------------------------------------------------------
+  // ---- app-shaped transactions through the report (was: legacy engine) ---------------------
   const appTxs = [
     { type: 'buy', category: 'stocks', symbol: 'AAPL', quantity: 10, price: 100, date: '2024-02-01' },
     { type: 'sell', category: 'stocks', symbol: 'AAPL', quantity: 10, price: 300, date: '2025-03-01' },
@@ -134,15 +136,14 @@ const REPORT = require('../tax-report-builder.js');
     { type: 'sell', category: 'crypto', symbol: 'BTC', quantity: 1, price: 15000, date: '2025-02-01' }
   ];
   const qtyBefore = appTxs[0].quantity;
-  const legacy = ENGINE.calculateGermanTax(appTxs, 2025);
-  ok('app-shaped transactions now compute real gains (was always zero)', approx(legacy.stocksGains, 2000));
-  ok('crypto > 1y stays exempt with app shape', approx(legacy.cryptoTaxFreeGains, 5000) && legacy.cryptoShortTermGains === 0);
-  ok('allowance and rate unchanged (2000 - 1000 at 25% + Soli)', approx(legacy.totalTax, 1000 * 0.25 * 1.055));
-  ok('FIFO no longer mutates the caller transactions', appTxs[0].quantity === qtyBefore);
-  ok('legacy shape still works', approx(ENGINE.calculateGermanTax([
-    { type: 'buy', asset: { symbol: 'X', category: 'stocks' }, quantity: 1, price: 10, transactionDate: '2024-01-01' },
-    { type: 'sell', asset: { symbol: 'X', category: 'stocks' }, quantity: 1, price: 5010, transactionDate: '2025-01-02' }
-  ], 2025).stocksGains, 5000));
+  const appRep = REPORT.build(appTxs, { year: 2025, jurisdiction: 'de', exchangeRate: 1, germanTax: GT, dividendEvents: [],
+    taxSettings: { abgeltungRate: 0.25, soli: true, kirchensteuer: 0, freistellungsauftrag: 1000, cryptoExemption: true }, taxOverrides: {}, vapRecords: {}, fundTypes: {} });
+  const ag = appRep.summary.germanDetail;
+  ok('app-shaped transactions compute real gains', approx(ag.gainsTaxable, 2000));
+  ok('crypto > 1y stays exempt', approx(ag.crypto.exemptLongTermGains, 5000) && ag.crypto.netShortTermGains === 0);
+  ok('allowance and rate (2000 - 1000 at 25% + Soli)', approx(ag.totalTax, 1000 * 0.25 * 1.055));
+  ok('FIFO does not mutate the caller transactions', appTxs[0].quantity === qtyBefore);
+  ok('legacy engine is gone (GermanTax only)', Object.keys(ENGINE).join() === 'GermanTax');
 
   // ---- report integration (summary.germanDetail) ----------------------------------------------------
   const reportTxs = [
