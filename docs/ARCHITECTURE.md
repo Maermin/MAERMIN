@@ -52,7 +52,7 @@ at mount (post-unlock) via `MaerminMigrations.run()`.
 
 | Module | Global | Responsibility |
 |--------|--------|----------------|
-| `crypto-vault.js` | `MaerminVault` | AES-256-GCM; PBKDF2-600k or Argon2id KDF; wrap-check (no password stored); HKDF sub-keys; idle auto-lock; WebAuthn-PRF passkeys; **printable recovery-code kit** — a second wrapping of the vault key (`enrollRecovery`/`unlockWithRecovery`), the code is shown once and never stored/transmitted |
+| `crypto-vault.js` | `MaerminVault` | AES-256-GCM; PBKDF2-600k KDF (Argon2id only if a provider is registered via `registerKdf` — none is bundled); wrap-check (no password stored); HKDF sub-keys; idle auto-lock; WebAuthn-PRF passkeys; **printable recovery-code kit** — a second wrapping of the vault key (`enrollRecovery`/`unlockWithRecovery`), the code is shown once and never stored/transmitted |
 | `storage.js` | `MaerminStorage` | Transparent encryption-at-rest shim over `localStorage` for a fixed set of sensitive keys; reversible plaintext backup; portable **encrypted** backup export/import |
 | `auth.js` | `MaerminAuth` | Setup / unlock / lock UI; mount gate; change-password; one-time recovery-code reveal at setup + recovery-code unlock path |
 | `audit-log.js` | `MaerminAuditLog` | On-device event + error trail (non-sensitive, ring-buffered) |
@@ -72,14 +72,22 @@ transaction = { id, type(buy|sell|dividend|interest|…), category(crypto|stocks
 Everything else is **derived** from transactions (single source of truth in
 `metrics.js`):
 
-- `MaerminMetrics.buildPositions(transactions, {exchangeRate})` → grouped
-  `{crypto,stocks,skins,commodities}` with EUR cost basis (USD converted, sells
-  reduce basis proportionally).
+- `MaerminLedger.build(transactions, {exchangeRate, fxAt})` (`ledger.js`) — the
+  ONE FIFO implementation: open lots and disposals per category + symbol, buy
+  fees in the cost basis, sell fees pro-rated, USD legs at the FX rate of their
+  date, splits applied, same-day buys before sells, oversells reported. The
+  positions list, tax report, FIFO tab, Realized vs Unrealized, the tax
+  advisor's crypto lots and yield-on-cost all read from it.
+- `MaerminMetrics.buildPositions(transactions, {exchangeRate, fxAt})` → grouped
+  `{crypto,stocks,skins,commodities}` with the EUR cost basis of the open FIFO
+  lots (via the ledger).
 - `MaerminMetrics.computeStats(portfolio, prices)` → value / invested / P&L.
 - Net worth, FIRE, concentration, drift, currency exposure, tax-loss harvest.
 
-The canonical internal currency is **EUR**; USD inputs (CS2 skins, some stocks)
-are converted via the live `USD→EUR` rate (`MaerminUtils.toEUR`). Display
+The canonical internal currency is **EUR**; USD transactions are converted at
+the historical rate of their date (`MaerminFxHistory.fxResolver`, falling back
+to the live `USD→EUR` rate). Live quotes in other currencies (GBp pence, CHF, …)
+convert through the USD cross rates (`MaerminFxHistory.quoteToEUR`). Display
 conversion happens only at format time (`formatPrice`).
 
 ### Engines

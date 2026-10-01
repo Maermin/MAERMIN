@@ -22,7 +22,7 @@ Crypto · Stocks · ETFs · CS2 Skins · Commodities
 
 ## What is MAERMIN?
 
-MAERMIN is a **fully client-side** investment tracker that runs in your browser with no installation. All data is stored in your browser's `localStorage` — it never leaves your device. Access is protected by an **encrypted vault**: an access password derives an AES-256-GCM key (PBKDF2-600k, or Argon2id when available) via `crypto-vault.js`; the password is never stored, and sensitive data can be encrypted at rest. Optional passkey unlock (WebAuthn) and an idle auto-lock are built in.
+MAERMIN is a **fully client-side** investment tracker that runs in your browser with no installation. All data is stored in your browser's `localStorage` — it never leaves your device. Access is protected by an **encrypted vault**: an access password derives an AES-256-GCM key (PBKDF2-600k; Argon2id only if a provider is registered — none is bundled) via `crypto-vault.js`; the password is never stored, and sensitive data can be encrypted at rest. Optional passkey unlock (WebAuthn) and an idle auto-lock are built in.
 
 Built with React (via CDN) and vanilla JavaScript. No build step required for development, no framework to install. Works offline after the first load (PWA). A local audit log records security events and uncaught errors on-device.
 
@@ -156,6 +156,7 @@ MAERMIN/
 ├── migrations.js               localStorage schema migrations (window.MaerminMigrations)
 ├── auth.js                     Vault unlock/setup gate (window.MaerminAuth)
 ├── utils.js                    Shared formatters, upsertTransaction, FX (window.MaerminUtils)
+├── ledger.js                   The one FIFO lot ledger: cost basis, disposals (window.MaerminLedger)
 ├── metrics.js                  Shared metrics: positions, net worth, FIRE (window.MaerminMetrics)
 ├── portfolio-intelligence.js   Ten-check structural problem detection, ranked (window.MaerminIntelligence)
 ├── ticker-validation.js        Symbol normalisation (window.MaerminTickers)
@@ -163,7 +164,7 @@ MAERMIN/
 ├── dividend-data-service.js    Dividend data + forecast (window.DividendDataService)
 ├── tax-report-builder.js       Filing-grade tax report + PDF/Excel (window.MaerminTaxReport)
 ├── allocation.js · projection.js · recurring.js   Allocation / forecast / liabilities engines
-├── renderer.js                 Main React app — state, routing, transactions (~3,800 lines)
+├── renderer.js                 Main React app — state, routing, transactions (~5,400 lines)
 ├── features.js … features7.js  Feature views (charts, analysis, dividends, net worth, …)
 ├── build.mjs                   Web build — bundles + minifies (reads index.html order)
 ├── test/                       Node test harnesses (npm test)
@@ -191,7 +192,7 @@ Contributing guidelines and conventions: **[CONTRIBUTING.md](CONTRIBUTING.md)**.
 ## Privacy & Security
 
 - All data stored in `localStorage` — never transmitted anywhere
-- **Encrypted vault**: AES-256-GCM with PBKDF2-600k (or Argon2id); password never stored; optional encryption at rest, passkey unlock, idle auto-lock
+- **Encrypted vault**: AES-256-GCM with PBKDF2-600k; password never stored; optional encryption at rest, passkey unlock, idle auto-lock
 - **Recovery code**: a one-time code generated at setup is an alternative way to unlock the vault if you forget your password — implemented as a second key-wrapping (like a passkey), never stored in readable form and never transmitted, so the zero-knowledge model is preserved. Changing your password invalidates it; generate a fresh one afterwards.
 - **Encrypted backups**: export a portable, password-protected backup (Settings → Backup vault) — a portable recovery path you can store off-device
 - **On-device audit log**: security events + uncaught errors (Settings → Security log), never transmitted

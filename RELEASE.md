@@ -2,7 +2,15 @@
 
 ## [Unreleased] — v10.x
 
-> UI fold-in of the v10 engines + accessibility themes + a code-review hardening pass. No data migration; backup format unchanged.
+> UI fold-in of the v10 engines + accessibility themes + a code-review hardening pass. One automatic migration (schema v4, see below); backup format unchanged.
+
+### Verification pass (2026-10-01)
+
+- § 23 EStG: a private-sale gain of **exactly** 1,000 EUR (600 EUR before 2024) is now taxable — only gains of *less than* the Freigrenze are tax-free (report + tax advisor).
+- Vorabpauschale: the Basisertrag cap now includes the year's distributions (§ 18 (1) InvStG). Distributing funds with a small price gain were understated (e.g. 5.00 instead of 12.40 EUR).
+- Dates are read from the stored `YYYY-MM-DD` instead of the device time zone: west of UTC a purchase on the 1st got the wrong Vorabpauschale month factor and a 1 January dividend fell into the previous tax year.
+- Tax view: choosing another year on the **Tax Report** tab no longer jumps back to **FIFO Cost Basis**.
+- TWR is computed in one pass over the trades (about 2.4× faster on 5,000 trades; identical results).
 
 ### One FIFO ledger (`ledger.js`)
 
