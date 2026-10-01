@@ -114,6 +114,11 @@ const CSP = "default-src 'self' https:; " +
 
 // Production index.html: keep <head> (CDN deps + styles), single bundle script.
 const cdnTags = cdn.map((tag) => `  ${tag}`).join('\n');
+// Web-font <link>s (preconnect + Google Fonts stylesheet) from the dev head, so
+// prod renders the same typeface (they were dropped and dist/ fell back to the
+// system font). Only fonts.googleapis/gstatic links - both allowed by the CSP.
+const fontTags = (html.match(/<link\b[^>]*fonts\.(?:googleapis|gstatic)\.com[^>]*>/gi) || [])
+  .map((tag) => `  ${tag}`).join('\n');
 const prodHtml = `<!DOCTYPE html>
 <html lang="en">
 <head>
@@ -129,6 +134,7 @@ const prodHtml = `<!DOCTYPE html>
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-title" content="MAERMIN">
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+${fontTags}
   <link rel="stylesheet" href="styles.css">
 ${cdnTags}
 </head>

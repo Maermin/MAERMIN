@@ -68,6 +68,8 @@ function ReturnsView({ transactions, portfolio, prices, priceHistory, theme, for
     const received = flows.filter(f => f.amount > 0).reduce((s, f) => s + f.amount, 0) - (currentValue > 0 ? currentValue : 0);
     const totalFees = transactions.reduce((s, tx) => {
       const f = parseFloat(tx.fees) || 0;
+      const FXH = window.MaerminFxHistory;
+      if (FXH && FXH.txToEUR) return s + FXH.txToEUR(f, tx.currency, tx.date, exchangeRate, fxAt).value;
       const r = tx.currency === 'USD' ? ((fxAt && fxAt(tx.date)) || exchangeRate || 1) : 1;
       return s + f * r;
     }, 0);
@@ -734,6 +736,22 @@ function BrokerImportWizard({ theme, t, addToast, onImport, existing }) {
 
   const steps = ['Select source', 'Load file', 'Preview', 'Done'];
 
+  // Warn before importing rows whose currency has no exact EUR conversion:
+  // other fiat (CHF, GBP, ...) uses today's rate for every date; a currency
+  // with no rate at all (e.g. a BTC or BNB quote) would be counted as EUR.
+  const currencyNotice = (txs) => {
+    const FXH = window.MaerminFxHistory;
+    const rep = (FXH && FXH.currencyReport) ? FXH.currencyReport(txs) : [];
+    if (!rep.length) return null;
+    const bad = rep.some(r => r.status === 'unknown');
+    return React.createElement('div', { role: 'status', style: { background: bad ? 'rgba(239,68,68,0.06)' : 'rgba(245,158,11,0.08)', border: `1px solid ${bad ? 'rgba(239,68,68,0.3)' : 'rgba(245,158,11,0.3)'}`, borderRadius: '8px', padding: '0.6rem 0.8rem', marginBottom: '0.9rem', fontSize: '0.78rem', color: theme.text, lineHeight: 1.6 } },
+      rep.map(r => React.createElement('div', { key: r.currency },
+        React.createElement('strong', null, r.count + ' row(s) in ' + r.currency + ': '),
+        r.status === 'unknown'
+          ? 'no exchange rate - these amounts would be counted as EUR. Fix the currency column (or the source file) before importing.'
+          : 'converted with today\'s ' + r.currency + ' rate for every date (only USD has a per-day history).')));
+  };
+
   // Group brokers by category
   const categories = [...new Set(BROKERS.map(b => b.category))];
 
@@ -861,6 +879,7 @@ function BrokerImportWizard({ theme, t, addToast, onImport, existing }) {
 
     // ── Step 2: Preview & mapping ────────────────────────────────────────────
     step === 2 && React.createElement('div', null,
+      (!mp && parsed.length > 0) && currencyNotice(parsed),
       fileName && React.createElement('div', { style: { marginBottom: '1rem', color: theme.textSecondary, fontSize: '0.875rem' } }, `${fileName}`),
 
       // Paste fallback when there is no data yet (or the mapping module is absent).
@@ -930,6 +949,9 @@ function BrokerImportWizard({ theme, t, addToast, onImport, existing }) {
                 style: { padding: '0.35rem 0.7rem', background: 'none', color: theme.textSecondary, border: `1px solid ${theme.inputBorder}`, borderRadius: '6px', cursor: 'pointer', fontSize: '0.76rem' } }, t.presetDelete || 'Delete')
             )
           ),
+
+          // Currencies that can't be converted exactly (see MaerminFxHistory.txToEUR).
+          currencyNotice(mp.transactions),
 
           // Row-accurate error report.
           showErrors && mp.errors.length > 0 && React.createElement('div', { style: { background: 'rgba(239,68,68,0.06)', border: '1px solid rgba(239,68,68,0.25)', borderRadius: '8px', padding: '0.6rem 0.8rem', marginBottom: '0.9rem', maxHeight: '160px', overflow: 'auto', fontSize: '0.76rem' } },

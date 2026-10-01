@@ -187,7 +187,10 @@
     var rate = Number(opts.rate) || 0;
     var fxAt = typeof opts.fxAt === 'function' ? opts.fxAt : null;
     var cats = opts.categories || null; // optional allow-list of categories
+    var F = (typeof window !== 'undefined' && window.MaerminFxHistory) ? window.MaerminFxHistory
+      : (function () { try { return require('./fx-history.js'); } catch (e) { return null; } })();
     function eur(amount, tx) {
+      if (F && F.txToEUR) return F.txToEUR(amount, tx.currency, tx.date, rate, fxAt).value;
       if (tx.currency !== 'USD') return amount;
       var r = (fxAt && fxAt(tx.date)) || rate;
       return r > 0 ? amount * r : amount;

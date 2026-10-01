@@ -327,6 +327,14 @@ function InvestmentTracker() {
   // mounted after unlock.
   const [corpActionsRev, setCorpActionsRev] = useState(0);
 
+  // Data checks from the one FIFO ledger: sells without enough open units and
+  // transaction currencies without an exact EUR conversion. Both skew cost
+  // basis and tax, so they are listed on the Transactions and Tax views.
+  const ledgerIssues = useMemo(() => {
+    const L = window.MaerminLedger;
+    try { return L ? (L.build(transactions, { exchangeRate, fxAt }).issues || []) : []; } catch (e) { return []; }
+  }, [transactions, exchangeRate, fxAt, corpActionsRev]);
+
   // Transactions filtered to the active portfolio
   const activeTransactions = useMemo(() =>
     transactions.filter(tx => (tx.portfolioId || 'default') === activePortfolioId),
@@ -3553,6 +3561,26 @@ function InvestmentTracker() {
 
   // ========== TRANSACTIONS VIEW ==========
   
+  // Collapsible "Data check" box for ledgerIssues (null when there is none).
+  const renderLedgerIssues = () => {
+    if (!ledgerIssues.length) return null;
+    const warnings = ledgerIssues.filter(i => i.severity === 'warning').length;
+    const line = (i) => {
+      if (i.kind === 'oversold') return `${i.symbol} (${i.category}): ${+i.qty.toFixed(8)} more unit(s) sold than bought. The excess has no cost basis and is left out of realised gains - add the missing buy or transfer.`;
+      if (i.status === 'unknown') return `${i.symbol || 'A transaction'} in ${i.currency}: no exchange rate, so the amounts are counted as EUR. Change the transaction currency.`;
+      return `${i.currency} (e.g. ${i.symbol || 'a transaction'}): converted at today's rate for every date - only USD has a daily history.`;
+    };
+    return React.createElement('details', {
+      'data-testid': 'ledger-issues',
+      style: { background: warnings ? 'rgba(245,158,11,0.08)' : currentTheme.inputBg, border: `1px solid ${warnings ? 'rgba(245,158,11,0.35)' : currentTheme.inputBorder}`, borderRadius: '10px', padding: '0.6rem 0.9rem', marginBottom: '1rem', fontSize: '0.82rem', color: currentTheme.text }
+    },
+      React.createElement('summary', { style: { cursor: 'pointer', fontWeight: 700 } },
+        `Data check: ${ledgerIssues.length} issue${ledgerIssues.length === 1 ? '' : 's'}` + (warnings ? ` (${warnings} affect cost basis or tax)` : '')),
+      React.createElement('ul', { style: { margin: '0.5rem 0 0', paddingLeft: '1.1rem', lineHeight: 1.6, color: currentTheme.textSecondary } },
+        ledgerIssues.slice(0, 20).map((i, k) => React.createElement('li', { key: k }, line(i))),
+        ledgerIssues.length > 20 && React.createElement('li', { key: 'more' }, `… and ${ledgerIssues.length - 20} more`)));
+  };
+
   const renderTransactionsView = () => {
     // Filter by active portfolio first, then by search
     const filtered = transactions.filter(tx => {
@@ -3589,6 +3617,7 @@ function InvestmentTracker() {
     };
 
     return React.createElement('div', { style: { padding: '1.5rem' } },
+      renderLedgerIssues(),
       // Header row
       React.createElement('div', {
         style: { display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem', flexWrap: 'wrap', gap: '0.75rem' }
@@ -3806,8 +3835,17 @@ function InvestmentTracker() {
       year: currentYear, jurisdiction: taxJurisdiction, baseCurrency: 'EUR',
       exchangeRate, fxAt, owner: taxOwner, portfolio, prices
     });
+    // Memoised: the report (FIFO over every transaction + German detail) used
+    // to be rebuilt on EVERY render of the app. Besides the props it reads a
+    // few stores directly, so their raw strings are part of the key - saving a
+    // fund type, a Vorabpauschale record or a tax setting still rebuilds it.
+    const storeKey = ['maermin_fund_types', 'maermin_vap_records', 'maermin_basiszins_overrides', 'maermin_kirchensteuer',
+      'maermin_tax_settings', 'maermin_tax_overrides', 'maermin_divevents', 'maermin_corporate_actions', 'maermin_fx_usd_rates']
+      .map(k => { try { return localStorage.getItem(k) || ''; } catch (e) { return ''; } }).join('\u0001');
     let taxReport = null;
-    try { taxReport = buildReport(); } catch (e) { console.warn('[TAX] report build failed:', e); }
+    try {
+      taxReport = memoBy('taxReport', [transactions, currentYear, taxJurisdiction, exchangeRate, fxAt, taxOwner, portfolio, prices, taxSettingsRev, storeKey], buildReport);
+    } catch (e) { console.warn('[TAX] report build failed:', e); }
     const taxData = (window.MaerminTaxReport && window.MaerminTaxReport.kpis)
       ? window.MaerminTaxReport.kpis(taxReport)
       : { realizedGains: 0, shortTerm: 0, longTerm: 0, taxLiability: 0 };
@@ -3822,6 +3860,7 @@ function InvestmentTracker() {
     const inputStyle = { padding: '0.5rem 0.75rem', background: currentTheme.inputBg, border: `1px solid ${currentTheme.inputBorder}`, borderRadius: '8px', color: currentTheme.text, fontSize: '0.85rem' };
 
     return React.createElement('div', { style: { padding: '1.5rem' } },
+      renderLedgerIssues(),
       React.createElement('div', {
         style: { display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem', flexWrap: 'wrap', gap: '0.5rem' }
       },
@@ -3842,11 +3881,11 @@ function InvestmentTracker() {
             React.createElement('option', { value: 'us' }, t.usa || 'USA')
           ),
           window.MaerminTaxReport && React.createElement('button', {
-            onClick: () => { const r = taxReport || buildReport(); if (r) window.MaerminTaxReport.exportPDF(r); },
+            onClick: () => { const r = buildReport(); if (r) window.MaerminTaxReport.exportPDF(r); },
             style: { padding: '0.5rem 1rem', background: currentTheme.accent, color: '#ffffff', border: 'none', borderRadius: '8px', cursor: 'pointer', fontWeight: 600 }
           }, t.exportPdf || 'Export PDF'),
           window.MaerminTaxReport && React.createElement('button', {
-            onClick: () => { const r = taxReport || buildReport(); if (r) window.MaerminTaxReport.exportExcel(r); },
+            onClick: () => { const r = buildReport(); if (r) window.MaerminTaxReport.exportExcel(r); },
             style: { padding: '0.5rem 1rem', background: 'rgba(34,197,94,0.15)', color: '#22c55e', border: '1px solid rgba(34,197,94,0.3)', borderRadius: '8px', cursor: 'pointer', fontWeight: 600 }
           }, t.exportExcel || 'Export Excel')
         )
@@ -5294,6 +5333,7 @@ buy,crypto,bitcoin,0.5,45000,2024-01-15,10`)
               type: 'button',
               className: 'mx-nav' + (child ? ' is-child' : '') + (active ? ' is-active' : ''),
               'aria-current': active ? 'page' : undefined,
+              'data-view': item.id,
               onClick: () => setActiveView(item.id)
             },
               Icon(item.id, { size: child ? 15 : 17 }),
@@ -5309,6 +5349,7 @@ buy,crypto,bitcoin,0.5,45000,2024-01-15,10`)
                 type: 'button',
                 className: 'mx-nav' + (childActive ? ' has-active' : ''),
                 'aria-expanded': expanded,
+                'data-hub': hub.id,
                 style: childActive ? { color: 'var(--text)' } : undefined,
                 onClick: () => setOpenHub(prev => prev === hub.id ? '' : hub.id)
               },

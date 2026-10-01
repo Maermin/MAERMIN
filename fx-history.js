@@ -151,6 +151,45 @@
     return (p / perUsd) * eurPerUsd;
   }
 
+  // ---- transaction amounts -> EUR -------------------------------------------
+  // The ONE conversion for booked amounts (price, fees, dividends) of a
+  // transaction. Returns { value, status } where status is
+  //   'exact'   EUR, or USD / a USD stablecoin at the rate of the tx date
+  //             (fxAt(date), falling back to the static `rate`)
+  //   'approx'  another fiat currency (GBP, CHF, JPY, ...): converted with the
+  //             CURRENT cross rate - no per-date history exists for it
+  //   'unknown' no rate (e.g. a crypto quote like BTC or BNB): the amount is
+  //             returned unconverted so totals don't collapse to 0, and the
+  //             caller must flag it (data-quality issue).
+  var USD_PEGGED = { USD: 1, USDT: 1, USDC: 1, BUSD: 1, FDUSD: 1, TUSD: 1, USDP: 1, DAI: 1 };
+  function txToEUR(amount, currency, dateISO, rate, fxAt, rates) {
+    var a = num(amount) || 0;
+    var cur = String(currency || 'EUR');
+    var up = cur.toUpperCase();
+    if (up === 'EUR' || up === '') return { value: a, status: 'exact' };
+    if (USD_PEGGED[up]) {
+      var r = (typeof fxAt === 'function' && dateISO) ? (fxAt(dateISO) || rate) : rate;
+      r = num(r);
+      return r > 0 ? { value: a * r, status: 'exact' } : { value: a, status: 'unknown' };
+    }
+    var v = quoteToEUR(a, cur, rate, rates);
+    return v == null ? { value: a, status: 'unknown' } : { value: v, status: 'approx' };
+  }
+
+  // Currencies of a transaction list that do NOT convert exactly, for the
+  // import preview: [{ currency, status: 'approx'|'unknown', count }].
+  function currencyReport(transactions, rate, rates) {
+    var by = {};
+    (transactions || []).forEach(function (tx) {
+      if (!tx) return;
+      var st = txToEUR(1, tx.currency, tx.date, rate || 1, null, rates).status;
+      if (st === 'exact') return;
+      var k = String(tx.currency);
+      (by[k] = by[k] || { currency: k, status: st, count: 0 }).count++;
+    });
+    return Object.keys(by).map(function (k) { return by[k]; });
+  }
+
   function has() { var h = load(); return Object.keys(h).length > 0; }
 
   var api = {
@@ -162,6 +201,9 @@
     setUsdRates: setUsdRates,
     usdRates: usdRates,
     quoteToEUR: quoteToEUR,
+    txToEUR: txToEUR,
+    currencyReport: currencyReport,
+    USD_PEGGED: USD_PEGGED,
     has: has
   };
   if (typeof window !== 'undefined') window.MaerminFxHistory = api;

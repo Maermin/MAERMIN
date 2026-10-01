@@ -53,6 +53,26 @@ console.log('FX conversion:');
 }
 
 // ---------------------------------------------------------------------------
+console.log('transaction currencies (ledger + import check):');
+{
+  const rates = { CHF: 0.88, GBP: 0.8, EUR: 0.92 };
+  // CHF buy 10 @ 100 with 1 USD = 0.88 CHF and 1 USD = 0.92 EUR (static rate)
+  // -> 1000 / 0.88 * 0.92 = 1045.4545 EUR
+  const r = L.build([
+    { type: 'buy', category: 'stocks', symbol: 'NESN', quantity: 10, price: 100, currency: 'CHF', date: '2025-01-02' },
+    { type: 'buy', category: 'crypto', symbol: 'SOL', quantity: 1, price: 100, currency: 'USDT', date: '2025-01-02' },
+    { type: 'buy', category: 'crypto', symbol: 'ETH', quantity: 1, price: 0.05, currency: 'BTC', date: '2025-01-02' },
+    { type: 'sell', category: 'crypto', symbol: 'ADA', quantity: 5, price: 1, currency: 'EUR', date: '2025-01-03' }
+  ], { exchangeRate: 0.92, fxAt: () => 0.9, usdRates: rates, applyCorporateActions: false });
+  ok('CHF converted with the cross rate (was booked as EUR)', near(r.groups['stocks|NESN'].openCostEUR, 1000 / 0.88 * 0.92, 1e-9));
+  ok('USDT priced like USD at the date\'s rate', near(r.groups['crypto|SOL'].openCostEUR, 90));
+  const kinds = r.issues.map(i => i.kind + ':' + (i.currency || i.symbol) + ':' + (i.status || i.qty)).sort();
+  ok('issues: CHF approx, BTC unknown, ADA oversold by 5', JSON.stringify(kinds) === JSON.stringify(['currency:BTC:unknown', 'currency:CHF:approx', 'oversold:ADA:5']), JSON.stringify(kinds));
+  const rep = FXH.currencyReport([{ currency: 'EUR' }, { currency: 'USD' }, { currency: 'CHF' }, { currency: 'CHF' }, { currency: 'BNB' }], 0.92, rates);
+  ok('import check lists CHF x2 (approx) and BNB x1 (unknown)', rep.length === 2 && rep.find(x => x.currency === 'CHF').count === 2 && rep.find(x => x.currency === 'BNB').status === 'unknown');
+}
+
+// ---------------------------------------------------------------------------
 console.log('stock splits:');
 {
   // 10 @ 100 before a 4:1 split on 2025-06-01 -> 40 @ 25 (cash amount 1000 unchanged)

@@ -125,6 +125,41 @@
   }
   function saveBase(h) { lsSet(BASE_KEY, JSON.stringify(h || {})); }
 
+  // Keys that were synced BEFORE the v10 stores joined the snapshot
+  // (storage.js SENSITIVE_KEYS up to 8d67845). Used once per device to seed
+  // the merge base on upgrade, see seedBase().
+  var LEGACY_SYNC_KEYS = ['transactions', 'priceHistory', 'apiKeys', 'investmentGoals', 'maermin_active_portfolio',
+    'maermin_portfolios', 'maermin_networth_accounts', 'maermin_journal', 'maermin_notes', 'maermin_savings_plans',
+    'maermin_targets', 'maermin_watchlist', 'maermin_alerts', 'maermin_divevents', 'maermin_fire_settings',
+    'maermin_fund_types', 'maermin_vap_records', 'maermin_kirchensteuer', 'maermin_tax_overrides', 'maermin_tx_meta',
+    'maermin_div_skipped'];
+
+  // A device that synced with an older build has no merge base yet, so its
+  // first merge fell back to last-write-wins and the local side (stamped
+  // "now") overwrote every edit made elsewhere. And because the v10 stores
+  // were added to the snapshot, an upgraded device always looks "changed".
+  // If the local data still hashes to the last synced state - either as a
+  // whole or restricted to the keys synced before the upgrade - nothing was
+  // edited here since that sync, so its per-key hashes ARE the base. Only
+  // keys that were part of that synced state are seeded; never-synced keys
+  // stay out (no common base exists for them). Returns true when seeded.
+  function seedBase(localSnap, state) {
+    state = state || loadState();
+    if (loadBase() || !state || !state.lastHash) return false;
+    localSnap = localSnap || buildSnapshot();
+    var data = localSnap.data || {};
+    var legacy = {};
+    Object.keys(data).forEach(function (k) { if (LEGACY_SYNC_KEYS.indexOf(k) > -1) legacy[k] = data[k]; });
+    var keys = null;
+    if (contentHash(JSON.stringify(data)) === state.lastHash) keys = Object.keys(data);
+    else if (contentHash(JSON.stringify(legacy)) === state.lastHash) keys = Object.keys(legacy);
+    if (!keys) return false;
+    var all = keyHashes(localSnap), base = {};
+    keys.forEach(function (k) { base[k] = all[k]; });
+    saveBase(base);
+    return true;
+  }
+
   function buildSnapshot() {
     var data = Storage && Storage.snapshotPlaintext ? Storage.snapshotPlaintext() : {};
     if (data && data[BASE_KEY] !== undefined) { data = Object.assign({}, data); delete data[BASE_KEY]; }
@@ -366,6 +401,7 @@
 
     var state = loadState();
     var localSnap = buildSnapshot();
+    try { seedBase(localSnap, state); } catch (e) { /* best effort */ }
 
     return accountId().then(function (account) {
       return _transport.get(account).then(function (remote) {
@@ -457,6 +493,9 @@
   function enableAutoSync() {
     if (_autoBound || typeof window === 'undefined') return;
     _autoBound = true;
+    // Called at mount, before the user can edit anything: the best moment to
+    // recognise an untouched pre-upgrade state (see seedBase).
+    try { if (!Vault || Vault.isUnlocked()) seedBase(); } catch (e) { /* best effort */ }
     var debounced = null;
     function schedule() {
       if (!isConfigured() || !Vault || !Vault.isUnlocked()) return;
@@ -489,7 +528,7 @@
     sync: sync, hasLocalChanges: hasLocalChanges, getState: loadState, deviceId: deviceId,
     accountId: accountId, enableAutoSync: enableAutoSync, onChange: onChange,
     // pure core (tested)
-    buildSnapshot: buildSnapshot, snapshotHash: snapshotHash, mergeSnapshots: mergeSnapshots, keyHashes: keyHashes,
+    buildSnapshot: buildSnapshot, snapshotHash: snapshotHash, mergeSnapshots: mergeSnapshots, keyHashes: keyHashes, seedBase: seedBase, LEGACY_SYNC_KEYS: LEGACY_SYNC_KEYS,
     unionTransactions: unionTransactions, contentHash: contentHash,
     trackTxChanges: trackTxChanges, mergeTxMeta: mergeTxMeta, TX_META_KEY: TX_META_KEY,
     STATE_KEY: STATE_KEY

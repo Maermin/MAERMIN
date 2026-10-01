@@ -10,6 +10,7 @@ npm install
 npm test           # all Node test harnesses
 npm run check      # syntax-check every JS file
 npm run build:web  # production bundle in dist/
+npm run test:e2e   # headless browser smoke test (needs dist/ + Chromium: npx playwright-core install chromium)
 ```
 
 No dev server is needed — open `index.html` directly, or serve the folder.

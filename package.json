@@ -7,10 +7,14 @@
   "scripts": {
     "build:web": "node build.mjs",
     "check": "node scripts/check.mjs",
-    "test": "node test/run-all.mjs"
+    "test": "node test/run-all.mjs",
+    "test:e2e": "node test/e2e/app.e2e.mjs"
   },
   "devDependencies": {
-    "esbuild": "^0.28.0"
+    "esbuild": "^0.28.0",
+    "playwright-core": "1.56.0",
+    "react": "18.3.1",
+    "react-dom": "18.3.1"
   },
   "keywords": [
     "portfolio",
