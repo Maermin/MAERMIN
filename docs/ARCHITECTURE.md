@@ -330,6 +330,13 @@ they add no `SENSITIVE_KEYS` and need no migration.
   every sidebar view, Tax Report + PDF export, upgrade migration. Needs a built
   `dist/` and a Chromium (`npx playwright-core install chromium`, or
   `CHROME_PATH`); offline-safe (React from `node_modules`, `JSPDF_DIR` for jsPDF).
+- `npm run bench:motion` — `test/e2e/motion.bench.mjs` measures animation
+  smoothness of `dist/` (frame intervals, jank %, long tasks, style/layout/
+  paint/raster time) for idle, hover, navigation, palette and scroll;
+  `--cpu 4` throttles, `--fx-off` gives the motion-off reference, `--css`
+  injects CSS for ablation. Rule of thumb for styles.css / fx.js / motion.js:
+  animate only `transform` and `opacity`; no animated filters, blend modes,
+  `background-position` or custom properties on large or permanent elements.
 
 CI (`.github/workflows/node.js.yml`) runs `build:web` + `test` (incl. the platform suite) on Node 22/24.
 
