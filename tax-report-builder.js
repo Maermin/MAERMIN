@@ -56,69 +56,29 @@
   // Currency-correct FIFO. Returns realized disposals (one row per sell lot
   // match aggregated per sell) with acquisition/disposal dates + holding period.
   // `fxAt` (optional) prices each leg on its own transaction date.
+  function ledger() {
+    if (typeof window !== 'undefined' && window.MaerminLedger) return window.MaerminLedger;
+    return require('./ledger.js');
+  }
+  // Disposals of the tax year from the ONE FIFO implementation (ledger.js).
+  // Splits are applied by the caller (build), so the ledger must not re-apply.
   function fifo(transactions, year, rate, fxAt) {
-    var bySymbol = {};
-    (transactions || []).forEach(function (tx) {
-      if (tx.type !== 'buy' && tx.type !== 'sell') return;
-      var key = (tx.category || 'crypto') + '|' + (tx.symbol || tx.name || '').toUpperCase();
-      (bySymbol[key] || (bySymbol[key] = [])).push(tx);
-    });
-
+    var L = ledger().build(transactions, { exchangeRate: rate, fxAt: fxAt, applyCorporateActions: false });
     var disposals = [];
-    Object.keys(bySymbol).forEach(function (key) {
-      var parts = key.split('|');
-      var category = parts[0];
-      var symbol = parts[1];
-      var lots = []; // open buy lots: { qty, priceBase, date }
-      // Same-day ties: buys before sells (a same-day round trip is otherwise
-      // dropped as an unmatched sell and its buy lingers as an open lot).
-      bySymbol[key].slice().sort(function (a, b) {
-        return (new Date(a.date) - new Date(b.date)) || ((a.type === 'buy' ? 0 : 1) - (b.type === 'buy' ? 0 : 1));
-      }).forEach(function (tx) {
-        var qty = num(tx.quantity);
-        if (!(qty > 0)) return;
-        var priceBase = toBase(tx.price, tx.currency, rate, tx.date, fxAt);
-        if (tx.type === 'buy') {
-          // Purchase fees are acquisition costs (Anschaffungsnebenkosten) and
-          // belong in the cost basis, pro rata per unit.
-          var buyFeeBase = toBase(tx.fees, tx.currency, rate, tx.date, fxAt);
-          lots.push({ qty: qty, priceBase: priceBase + (buyFeeBase > 0 ? buyFeeBase / qty : 0), date: tx.date });
-          return;
-        }
-        // sell — match against open lots FIFO. Emit ONE disposal per matched
-        // lot (tax authorities classify each lot's holding period separately).
-        var sellDate = tx.date;
-        var sellPriceBase = toBase(tx.price, tx.currency, rate, tx.date, fxAt);
-        var totalFeeBase = toBase(tx.fees, tx.currency, rate, tx.date, fxAt);
-        var remaining = qty;
-        var matches = [];
-        while (remaining > 1e-9 && lots.length) {
-          var lot = lots[0];
-          var used = Math.min(remaining, lot.qty);
-          matches.push({ used: used, lotPrice: lot.priceBase, lotDate: lot.date });
-          lot.qty -= used;
-          remaining -= used;
-          if (lot.qty <= 1e-9) lots.shift();
-        }
-        var matchedTotal = matches.reduce(function (s, m) { return s + m.used; }, 0);
-        if (matchedTotal <= 0) return;
-        var sellYear = parseInt(ymd(sellDate).slice(0, 4), 10); // no timezone shift
-        if (year && sellYear !== year) return; // only disposals in the tax year
-        matches.forEach(function (m) {
-          var proceeds = m.used * sellPriceBase - totalFeeBase * (m.used / matchedTotal); // fee pro-rated
-          var costBasis = m.used * m.lotPrice;
-          var hold = days(m.lotDate, sellDate);
-          disposals.push({
-            symbol: symbol, category: category,
-            quantity: m.used,
-            acquisitionDate: ymd(m.lotDate), disposalDate: ymd(sellDate),
-            holdingPeriodDays: hold, longTerm: heldOverOneYear(m.lotDate, sellDate),
-            proceeds: proceeds, costBasis: costBasis, gain: proceeds - costBasis
-          });
+    L.list.forEach(function (g) {
+      var symbol = String(g.symbol || '').toUpperCase();
+      g.disposals.forEach(function (d) {
+        if (year && parseInt(d.disposalDate.slice(0, 4), 10) !== year) return;
+        disposals.push({
+          symbol: symbol, category: g.category,
+          quantity: d.qty,
+          acquisitionDate: d.acquisitionDate, disposalDate: d.disposalDate,
+          holdingPeriodDays: d.holdingPeriodDays, longTerm: d.longTerm,
+          proceeds: d.proceeds, costBasis: d.costBasis, gain: d.gain
         });
       });
     });
-    disposals.sort(function (a, b) { return new Date(a.disposalDate) - new Date(b.disposalDate); });
+    disposals.sort(function (a, b) { return a.disposalDate < b.disposalDate ? -1 : (a.disposalDate > b.disposalDate ? 1 : 0); });
     return disposals;
   }
 

@@ -2429,10 +2429,10 @@ function InvestmentTracker() {
       ),
       React.createElement('div', { style: { flex: 1, overflow: 'auto' } },
         tab === 'fifo' && window.MaerminFeatures4 ?
-          React.createElement(window.MaerminFeatures4.FIFOView, { transactions, prices, theme, formatPrice, getCurrencySymbol }) : null,
+          React.createElement(window.MaerminFeatures4.FIFOView, { transactions, prices, exchangeRate, fxAt, theme, formatPrice, getCurrencySymbol }) : null,
         tab === 'report' ? renderTaxView() : null,
         tab === 'realized' && window.MaerminFeatures7 ?
-          React.createElement(window.MaerminFeatures7.RealizedUnrealizedView, { transactions, portfolio, prices, theme, formatPrice, getCurrencySymbol, exchangeRate }) : null,
+          React.createElement(window.MaerminFeatures7.RealizedUnrealizedView, { transactions, portfolio, prices, theme, formatPrice, getCurrencySymbol, exchangeRate, fxAt }) : null,
         tab === 'harvest' ? renderHarvest() : null
       )
     );
@@ -2691,7 +2691,7 @@ function InvestmentTracker() {
           window.MaerminDividendYoc && window.MaerminDividendYoc.Panel &&
             React.createElement('div', { style: { padding: '0 1.5rem' } },
               React.createElement(window.MaerminDividendYoc.Panel, {
-                portfolio, prices, transactions: activeTransactions, exchangeRate,
+                portfolio, prices, transactions: activeTransactions, exchangeRate, fxAt,
                 theme: currentTheme, t, formatPrice, getCurrencySymbol
               })),
           // Earnings calendar for held stocks (read-only, gated like Discovery).
@@ -3936,7 +3936,7 @@ function InvestmentTracker() {
       // Sparerpauschbetrag headroom + loss-harvesting findings. Estimate only.
       taxJurisdiction === 'de' && window.MaerminTaxAdvisor && window.MaerminTaxAdvisor.Panel &&
         React.createElement(window.MaerminTaxAdvisor.Panel, {
-          transactions, prices, exchangeRate, taxOwner,
+          transactions, prices, exchangeRate, fxAt, taxOwner,
           ...(() => {
             // Feed the advisor the three German loss pots from the SAME report
             // the KPIs use: direct shares, funds + other capital income, and

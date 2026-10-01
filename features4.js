@@ -706,49 +706,32 @@ function DividendForecastView({ transactions, portfolio, prices, metaVersion, th
 // 4. FIFO COST BASIS — Steuer-genaue Kostenbasis (First In, First Out)
 // Für jede Sell-Transaktion: welche Buy-Lots wurden zuerst gekauft
 // ─────────────────────────────────────────────────────────────────────────────
-function calcFIFO(transactions) {
-  // Returns { symbol: { realizedPnL, lots: [{buyDate, buyPrice, qty, sellDate, sellPrice, pnl}] } }
-  const bySymbol = {};
-
-  const sorted = [...transactions].sort((a, b) => new Date(a.date) - new Date(b.date));
-
-  sorted.forEach(tx => {
-    const sym = ((tx.symbol || '') + '-' + (tx.category || 'crypto')).toLowerCase();
-    if (!bySymbol[sym]) bySymbol[sym] = { symbol: tx.symbol, category: tx.category, buyQueue: [], realized: [], unrealizedQty: 0, unrealizedCost: 0 };
-    const entry = bySymbol[sym];
-
-    if (tx.type === 'buy') {
-      entry.buyQueue.push({ date: tx.date, price: parseFloat(tx.price) || 0, qty: parseFloat(tx.quantity) || 0, remaining: parseFloat(tx.quantity) || 0 });
-    } else if (tx.type === 'sell') {
-      let remainingSell = parseFloat(tx.quantity) || 0;
-      const sellPrice   = parseFloat(tx.price) || 0;
-      while (remainingSell > 0.000001 && entry.buyQueue.length > 0) {
-        const lot = entry.buyQueue[0];
-        const usedQty = Math.min(lot.remaining, remainingSell);
-        const pnl = usedQty * (sellPrice - lot.price);
-        entry.realized.push({ buyDate: lot.date, buyPrice: lot.price, qty: usedQty, sellDate: tx.date, sellPrice, pnl });
-        lot.remaining -= usedQty;
-        remainingSell -= usedQty;
-        if (lot.remaining < 0.000001) entry.buyQueue.shift();
-      }
-    }
+// FIFO per position from the ONE ledger (ledger.js): EUR at each date's FX,
+// buy fees in the cost basis, sell fees in the proceeds, splits applied — the
+// same lots the tax report uses. Shape kept for the view below.
+function calcFIFO(transactions, opts) {
+  opts = opts || {};
+  const L = window.MaerminLedger.build(transactions, { exchangeRate: opts.exchangeRate, fxAt: opts.fxAt });
+  const out = {};
+  L.list.forEach(g => {
+    const key = ((g.symbol || '') + '-' + (g.category || 'crypto')).toLowerCase();
+    out[key] = {
+      symbol: g.symbol, category: g.category,
+      buyQueue: g.openLots.map(l => ({ date: l.date, price: l.unitCostEUR, qty: l.qty, remaining: l.qty })),
+      realized: g.disposals.map(d => ({ buyDate: d.acquisitionDate, buyPrice: d.unitCostEUR, qty: d.qty,
+        sellDate: d.disposalDate, sellPrice: d.qty > 0 ? d.proceeds / d.qty : d.unitProceedsEUR, pnl: d.gain, longTerm: d.longTerm })),
+      unrealizedQty: g.openQty,
+      unrealizedCost: g.openCostEUR,
+      avgCostFIFO: g.openQty > 0 ? g.openCostEUR / g.openQty : 0,
+      totalRealizedPnL: g.realizedGain,
+      oversold: g.oversold
+    };
   });
-
-  // Compute unrealized cost basis from remaining lots
-  Object.values(bySymbol).forEach(entry => {
-    let qty = 0, cost = 0;
-    entry.buyQueue.forEach(lot => { qty += lot.remaining; cost += lot.remaining * lot.price; });
-    entry.unrealizedQty  = qty;
-    entry.unrealizedCost = cost;
-    entry.avgCostFIFO    = qty > 0 ? cost / qty : 0;
-    entry.totalRealizedPnL = entry.realized.reduce((s, r) => s + r.pnl, 0);
-  });
-
-  return bySymbol;
+  return out;
 }
 
-function FIFOView({ transactions, prices, theme, formatPrice, getCurrencySymbol }) {
-  const fifo = useMemo(() => calcFIFO(transactions), [transactions]);
+function FIFOView({ transactions, prices, theme, formatPrice, getCurrencySymbol, exchangeRate, fxAt }) {
+  const fifo = useMemo(() => calcFIFO(transactions, { exchangeRate, fxAt }), [transactions, exchangeRate, fxAt]);
   const [activeSymbol, setActiveSymbol] = useState(null);
 
   const entries = Object.values(fifo).filter(e => e.realized.length > 0 || e.unrealizedQty > 0.0001);
@@ -793,7 +776,7 @@ function FIFOView({ transactions, prices, theme, formatPrice, getCurrencySymbol 
           entries.map(e => {
             const sym = (e.symbol || '').toLowerCase();
             const key = sym + '-' + (e.category || 'crypto');
-            const currentPrice = prices[e.symbol] || prices[sym] || 0;
+            const currentPrice = prices[e.symbol] || prices[sym] || prices[(e.symbol || '').toUpperCase()] || 0;
             const unrealizedPnL = e.unrealizedQty * (currentPrice - e.avgCostFIFO);
             return React.createElement('tr', {
               key,

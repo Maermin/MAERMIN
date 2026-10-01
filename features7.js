@@ -101,41 +101,23 @@ function PerformanceAttribution({ portfolio, prices, transactions, exchangeRate,
 // 2. REALIZED vs UNREALIZED P&L
 // Full FIFO-based breakdown of realized gains + remaining unrealized
 // ─────────────────────────────────────────────────────────────────────────────
-function RealizedUnrealizedView({ transactions, portfolio, prices, theme, formatPrice, getCurrencySymbol, exchangeRate }) {
+function RealizedUnrealizedView({ transactions, portfolio, prices, theme, formatPrice, getCurrencySymbol, exchangeRate, fxAt }) {
   const Green = '#22c55e', Red = '#ef4444';
   const usdToEur = exchangeRate || 0.91;
 
   const analysis = useMemo(() => {
-    // FIFO per symbol
+    // FIFO per position from the ONE ledger (ledger.js) — identical to the
+    // FIFO tab and the tax report (fees, per-date FX, splits).
+    const L = window.MaerminLedger.build(transactions, { exchangeRate: usdToEur, fxAt });
     const bySymbol = {};
-    const sorted = [...transactions].sort((a, b) => new Date(a.date) - new Date(b.date));
-
-    sorted.forEach(tx => {
-      const key = `${tx.category || 'crypto'}-${(tx.symbol || '').toLowerCase()}`;
-      if (!bySymbol[key]) bySymbol[key] = { symbol: tx.symbol, symbolName: tx.symbolName || tx.symbol, category: tx.category || 'crypto', buyQueue: [], realizedPnL: 0, realizedCost: 0, sellRevenue: 0 };
-      const e = bySymbol[key];
-      let price = parseFloat(tx.price) || 0;
-      if ((tx.currency || 'EUR') === 'USD') price *= usdToEur;
-      const qty = parseFloat(tx.quantity) || 0;
-
-      if (tx.type === 'buy') {
-        e.buyQueue.push({ qty, price, remaining: qty, date: tx.date });
-      } else if (tx.type === 'sell') {
-        let toSell = qty;
-        const revenue = price * qty;
-        let costBasis = 0;
-        while (toSell > 0 && e.buyQueue.length > 0) {
-          const lot = e.buyQueue[0];
-          const used = Math.min(toSell, lot.remaining);
-          costBasis += used * lot.price;
-          lot.remaining -= used;
-          toSell -= used;
-          if (lot.remaining < 0.0001) e.buyQueue.shift();
-        }
-        e.realizedPnL += revenue - costBasis;
-        e.realizedCost += costBasis;
-        e.sellRevenue += revenue;
-      }
+    L.list.forEach(g => {
+      bySymbol[g.key] = {
+        symbol: g.symbol, symbolName: g.symbolName || g.symbol, category: g.category,
+        buyQueue: g.openLots.map(l => ({ qty: l.qty, price: l.unitCostEUR, remaining: l.qty, date: l.date })),
+        realizedPnL: g.realizedGain,
+        realizedCost: g.disposals.reduce((s, d) => s + d.costBasis, 0),
+        sellRevenue: g.proceedsEUR
+      };
     });
 
     // Compute unrealized for remaining lots
@@ -159,7 +141,7 @@ function RealizedUnrealizedView({ transactions, portfolio, prices, theme, format
     const totalRealized   = results.reduce((s, e) => s + e.realizedPnL, 0);
     const totalUnrealized = results.reduce((s, e) => s + e.unrealizedPnL, 0);
     return { results: results.sort((a, b) => b.totalPnL - a.totalPnL), totalRealized, totalUnrealized };
-  }, [transactions, prices, usdToEur]);
+  }, [transactions, prices, usdToEur, fxAt]);
 
   const statCard = (label, value, sub, color) =>
     React.createElement('div', { style: { background: theme.card, border: `1px solid ${theme.cardBorder}`, borderRadius: '16px', boxShadow: theme.shadow, padding: '1.25rem' } },
