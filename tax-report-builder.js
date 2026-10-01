@@ -44,13 +44,22 @@
   // an `fxAt(dateISO)` resolver and a date are supplied, USD uses the rate AT
   // THAT DATE (ECB-style, correct for German tax); otherwise the single static
   // `rate` (backward-compatible).
+  // Amount -> base (EUR) via the shared transaction converter (EUR, USD and
+  // USD stablecoins at the date's rate, other fiat at the current cross rate,
+  // unknown currencies unconverted - the ledger reports those).
+  function fxMod() {
+    if (typeof window !== 'undefined' && window.MaerminFxHistory) return window.MaerminFxHistory;
+    try { return require('./fx-history.js'); } catch (e) { return null; }
+  }
   function toBase(amount, cur, rate, dateISO, fxAt) {
+    var F = fxMod();
+    if (F && F.txToEUR) return F.txToEUR(amount, cur, dateISO, rate, fxAt).value;
     var a = num(amount);
     if (cur === 'USD') {
       var r = (fxAt && dateISO) ? (fxAt(dateISO) || rate) : rate; // rate = USD→base (EUR)
       if (r > 0) return a * r;
     }
-    return a; // already base, or unknown → treated as base
+    return a;
   }
 
   // Currency-correct FIFO. Returns realized disposals (one row per sell lot

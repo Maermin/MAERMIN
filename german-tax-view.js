@@ -116,7 +116,9 @@
       var y = new Date(tx.date).getFullYear();
       if (y !== year) return;
       var gross = (num(tx.quantity) || 0) * (num(tx.price) || 0) || (num(tx.amount) || 0);
-      if (tx.currency === 'USD' && exchangeRate > 0) gross *= exchangeRate;
+      var FXH = (typeof window !== 'undefined' && window.MaerminFxHistory) || null;
+      if (FXH && FXH.txToEUR) gross = FXH.txToEUR(gross, tx.currency, tx.date, exchangeRate, null).value;
+      else if (tx.currency === 'USD' && exchangeRate > 0) gross *= exchangeRate;
       distributions += gross;
     });
 

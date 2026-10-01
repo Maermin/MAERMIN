@@ -13,15 +13,16 @@
 //   • fees:       buy fees are acquisition costs (Anschaffungsnebenkosten),
 //                 spread per unit; sell fees reduce proceeds, pro-rated over
 //                 the lots a sale consumes
-//   • currency:   USD legs convert at the rate OF THEIR DATE (`fxAt`), falling
-//                 back to the static `exchangeRate`; other currencies = EUR
+//   • currency:   USD (and USD stablecoins) convert at the rate OF THEIR DATE
+//                 (`fxAt`), falling back to the static `exchangeRate`; other
+//                 fiat at the current cross rate; unknown ones are reported
 //   • splits:     the corporate-actions overlay is applied first (if loaded)
 //   • oversells:  the unmatched remainder is reported, never silently dropped
 //   • holding:    long-term = held MORE than one year (§ 23 EStG; anniversary
 //                 sale is still short-term, 29 Feb → 28 Feb)
 //
 //   build(transactions, { exchangeRate, fxAt, applyCorporateActions = true })
-//     → { groups: { key: Group }, list: Group[] }
+//     → { groups: { key: Group }, list: Group[], issues: Issue[] }
 //   Group = { key, category, symbol, symbolName, symbolLogoUrl,
 //             openLots:  [{ qty, unitCostEUR, date }],      oldest first
 //             disposals: [{ qty, acquisitionDate, disposalDate, unitCostEUR,
@@ -56,14 +57,24 @@
     return !!ann && ymd(disposed) > ann;
   }
 
-  // Amount in the transaction currency → EUR at the transaction's date.
-  function toEUR(amount, tx, rate, fxAt) {
-    var a = num(amount);
-    if (tx.currency === 'USD') {
-      var r = (fxAt && tx.date) ? (fxAt(tx.date) || rate) : rate;
-      if (r > 0) return a * r;
+  function fx() {
+    if (typeof window !== 'undefined' && window.MaerminFxHistory) return window.MaerminFxHistory;
+    try { return require('./fx-history.js'); } catch (e) { return null; }
+  }
+
+  // Amount in the transaction currency → EUR (MaerminFxHistory.txToEUR): EUR,
+  // USD and USD stablecoins at the rate of the tx date; other fiat at the
+  // current cross rate ('approx'); no rate at all → 'unknown' (amount kept,
+  // reported via `currencyIssues`). Before, every non-USD currency was EUR.
+  function toEUR(amount, tx, rate, fxAt, ctx) {
+    var F = fx();
+    var res = F && F.txToEUR ? F.txToEUR(amount, tx.currency, tx.date, rate, fxAt, ctx && ctx.usdRates)
+      : { value: (tx.currency === 'USD' && rate > 0) ? num(amount) * rate : num(amount), status: 'exact' };
+    if (res.status !== 'exact' && ctx && num(amount) !== 0) {
+      var k = String(tx.currency) + '|' + res.status;
+      if (!ctx.seen[k]) { ctx.seen[k] = true; ctx.currencyIssues.push({ currency: String(tx.currency), status: res.status, symbol: tx.symbol || tx.name || '', date: ymd(tx.date) }); }
     }
-    return a;
+    return res.value;
   }
 
   function keyOf(tx) {
@@ -76,7 +87,7 @@
   }
 
   // FIFO over ONE group's transactions (any order). Returns the Group body.
-  function runGroup(txs, rate, fxAt) {
+  function runGroup(txs, rate, fxAt, ctx) {
     var sorted = (txs || []).slice().sort(function (a, b) {
       return (ts(a.date) - ts(b.date)) || ((a.type === 'buy' ? 0 : 1) - (b.type === 'buy' ? 0 : 1));
     });
@@ -87,13 +98,13 @@
       var qty = num(tx.quantity);
       if (!(qty > 0)) return;
       if (tx.type === 'buy') {
-        var fee = toEUR(tx.fees, tx, rate, fxAt);
-        open.push({ qty: qty, unitCostEUR: toEUR(tx.price, tx, rate, fxAt) + (fee > 0 ? fee / qty : 0), date: tx.date });
+        var fee = toEUR(tx.fees, tx, rate, fxAt, ctx);
+        open.push({ qty: qty, unitCostEUR: toEUR(tx.price, tx, rate, fxAt, ctx) + (fee > 0 ? fee / qty : 0), date: tx.date });
         return;
       }
       if (tx.type !== 'sell') return;
-      var unitProceeds = toEUR(tx.price, tx, rate, fxAt);
-      var sellFee = Math.max(0, toEUR(tx.fees, tx, rate, fxAt));
+      var unitProceeds = toEUR(tx.price, tx, rate, fxAt, ctx);
+      var sellFee = Math.max(0, toEUR(tx.fees, tx, rate, fxAt, ctx));
       var remaining = qty, matches = [];
       while (remaining > 1e-9 && open.length) {
         var lot = open[0];
@@ -149,12 +160,28 @@
       if (!m.symbolLogoUrl && tx.symbolLogoUrl) m.symbolLogoUrl = tx.symbolLogoUrl;
     });
     var groups = {}, list = [];
+    var ctx = { usdRates: opts.usdRates, currencyIssues: [], seen: {} };
     Object.keys(byKey).forEach(function (k) {
-      var g = Object.assign({ key: k }, meta[k], runGroup(byKey[k], rate, fxAt));
+      var g = Object.assign({ key: k }, meta[k], runGroup(byKey[k], rate, fxAt, ctx));
       groups[k] = g;
       list.push(g);
     });
-    return { groups: groups, list: list };
+    return { groups: groups, list: list, issues: issues(list, ctx.currencyIssues) };
+  }
+
+  // Data-quality findings of a build: sells without enough open units, and
+  // transaction currencies that could only be converted approximately or not
+  // at all. [{ kind: 'oversold'|'currency', severity, symbol, category?, qty?,
+  // currency?, status? }]
+  function issues(list, currencyIssues) {
+    var out = [];
+    (list || []).forEach(function (g) {
+      if (g.oversold > 1e-9) out.push({ kind: 'oversold', severity: 'warning', symbol: g.symbol, category: g.category, qty: g.oversold });
+    });
+    (currencyIssues || []).forEach(function (c) {
+      out.push({ kind: 'currency', severity: c.status === 'unknown' ? 'warning' : 'info', symbol: c.symbol, currency: c.currency, status: c.status, date: c.date });
+    });
+    return out;
   }
 
   // Single group convenience (callers that already grouped by symbol).
@@ -162,7 +189,8 @@
     opts = opts || {};
     var CA = opts.applyCorporateActions === false ? null : corporateActions();
     var list = (CA && CA.adjust && opts.applyCorporateActions === true) ? CA.adjust(txs || []) : (txs || []);
-    return runGroup(list, num(opts.exchangeRate), typeof opts.fxAt === 'function' ? opts.fxAt : null);
+    return runGroup(list, num(opts.exchangeRate), typeof opts.fxAt === 'function' ? opts.fxAt : null,
+      { usdRates: opts.usdRates, currencyIssues: [], seen: {} });
   }
 
   var api = {

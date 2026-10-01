@@ -318,19 +318,6 @@
   // never drift apart. Pure + unit-tested (test/positions.test.js).
   var ASSET_CLASSES = ['crypto', 'stocks', 'skins', 'commodities'];
 
-  // Convert a transaction's per-unit price to EUR. USD is converted with the
-  // rate AT THE TRANSACTION DATE when an `fxAt(dateISO)` resolver is supplied
-  // (historical, correct for cost basis + German tax), else with the single
-  // static `rate` (backward-compatible). Other currencies are treated as EUR.
-  function txPriceEUR(tx, rate, fxAt) {
-    var p = parseFloat(tx.price) || 0;
-    if (tx.currency === 'USD') {
-      var r = fxAt ? (fxAt(tx.date) || rate) : rate;
-      if (r > 0) p *= r;
-    }
-    return p;
-  }
-
   // FIFO lot matching for ONE symbol's buy/sell transactions. Transactions are
   // sorted chronologically and sells consume the OLDEST open lots first — the
   // statutory German method and the SAME method tax-report-builder.js uses for
