@@ -78,44 +78,27 @@
   // per remaining buy lot: { symbol, acquiredDate, quantity, costBasisEUR,
   // currentValueEUR }. `priceEUR(symbol)` resolves a current EUR unit price;
   // when missing the lot's current value falls back to its cost basis.
+  function ledger() {
+    if (typeof window !== 'undefined' && window.MaerminLedger) return window.MaerminLedger;
+    return require('./ledger.js');
+  }
   function buildCryptoLots(transactions, priceEUR, opts) {
     opts = opts || {};
     var rate = opts.usdToEur || 1;
-    var bySym = {};
-    (Array.isArray(transactions) ? transactions : []).forEach(function (tx) {
-      if (!tx || str(tx.category) !== 'crypto') return;
-      if (tx.type !== 'buy' && tx.type !== 'sell') return;
-      var sym = str(tx.symbol).toUpperCase();
-      if (!sym) return;
-      (bySym[sym] = bySym[sym] || []).push(tx);
-    });
+    // Open crypto lots from the ONE ledger (ledger.js): fees in the cost
+    // basis, per-date FX when opts.fxAt is given, splits applied.
+    var L = ledger().build(Array.isArray(transactions) ? transactions : [], { exchangeRate: rate, fxAt: opts.fxAt, categories: ['crypto'] });
     var lots = [];
-    Object.keys(bySym).forEach(function (sym) {
-      var txs = bySym[sym].slice().sort(function (a, b) { return ymd(a.date) < ymd(b.date) ? -1 : (ymd(a.date) > ymd(b.date) ? 1 : ((a.type === 'buy' ? 0 : 1) - (b.type === 'buy' ? 0 : 1))); });
-      var open = [];
-      txs.forEach(function (tx) {
-        var qty = num(tx.quantity);
-        var unitCost = (tx.currency === 'USD') ? num(tx.price) * rate : num(tx.price);
-        if (tx.type === 'buy') {
-          open.push({ symbol: sym, acquiredDate: ymd(tx.date), quantity: qty, unitCost: unitCost });
-        } else { // sell consumes oldest lots FIFO
-          var remaining = qty;
-          while (remaining > 1e-12 && open.length) {
-            var lot = open[0];
-            var take = Math.min(lot.quantity, remaining);
-            lot.quantity -= take;
-            remaining -= take;
-            if (lot.quantity <= 1e-12) open.shift();
-          }
-        }
-      });
-      open.forEach(function (lot) {
-        if (lot.quantity <= 1e-12) return;
+    L.list.forEach(function (g) {
+      var sym = str(g.symbol).toUpperCase();
+      if (!sym) return;
+      g.openLots.forEach(function (lot) {
+        if (lot.qty <= 1e-12) return;
         var px = priceEUR ? priceEUR(sym) : null;
-        var cur = (px != null && isFinite(px)) ? px * lot.quantity : lot.unitCost * lot.quantity;
+        var cur = (px != null && isFinite(px)) ? px * lot.qty : lot.unitCostEUR * lot.qty;
         lots.push({
-          symbol: sym, acquiredDate: lot.acquiredDate, quantity: lot.quantity,
-          costBasisEUR: lot.unitCost * lot.quantity, currentValueEUR: cur
+          symbol: sym, acquiredDate: ymd(lot.date), quantity: lot.qty,
+          costBasisEUR: lot.unitCostEUR * lot.qty, currentValueEUR: cur
         });
       });
     });
@@ -278,7 +261,7 @@
       // price maps are stored in their native currency; crypto on this app is EUR
       return num(p);
     }
-    var cryptoLots = buildCryptoLots(transactions, priceEUR, { usdToEur: rate });
+    var cryptoLots = buildCryptoLots(transactions, priceEUR, { usdToEur: rate, fxAt: opts.fxAt });
     var taxData = opts.taxData || {};
     return {
       today: (typeof window !== 'undefined' && window.MaerminUtils) ? window.MaerminUtils.todayISO() : new Date().toISOString().slice(0, 10),
@@ -325,6 +308,7 @@
           transactions: props.transactions || [],
           prices: props.prices || {},
           usdToEur: props.exchangeRate || props.usdToEur || 1,
+          fxAt: props.fxAt,
           taxOwner: props.taxOwner || (function () { try { return JSON.parse(localStorage.getItem('maermin_tax_owner') || '{}'); } catch (e) { return {}; } })(),
           taxData: props.taxData || {},
           positions: props.positions || []

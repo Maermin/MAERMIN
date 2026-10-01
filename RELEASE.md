@@ -4,6 +4,11 @@
 
 > UI fold-in of the v10 engines + accessibility themes + a code-review hardening pass. No data migration; backup format unchanged.
 
+### One FIFO ledger (`ledger.js`)
+
+- New `MaerminLedger` is the single FIFO implementation (fees as acquisition costs, sell fees pro-rated, per-date FX, splits, same-day buys first, oversells reported). The positions list, the tax report, the **FIFO Cost Basis** tab, **Realized vs Unrealized**, the tax advisor's crypto lots and yield-on-cost all read from it, so they show the same cost basis and realised P&L. The FIFO tab and Realized view previously ignored fees and per-date FX.
+- Yield-on-cost no longer multiplies EUR dividends (e.g. ALV.DE) by the USD rate.
+
 ### Full-project review fixes (REVIEW.md, 2026-09-30)
 
 > One automatic migration (schema v4: year-less price timestamps are repaired). Existing vaults, backups and sync accounts keep working. Several tax results change — they now match the PDF/Excel export and German law more closely (see **Tax**).

@@ -339,44 +339,20 @@
   // report can no longer disagree on cost basis after a partial sell. Pure +
   // exported for tests. Returns the OPEN lots' { amount, totalCostEUR, firstDate }
   // (amount/totalCostEUR are 0 when the position is fully sold).
+  function ledger() {
+    if (typeof window !== 'undefined' && window.MaerminLedger) return window.MaerminLedger;
+    return require('./ledger.js');
+  }
   function matchFifoLots(txs, rate, fxAt) {
-    var sorted = (txs || []).slice().sort(function (a, b) {
-      var da = a && a.date ? new Date(a.date).getTime() : 0;
-      var db = b && b.date ? new Date(b.date).getTime() : 0;
-      if (isNaN(da)) da = 0;
-      if (isNaN(db)) db = 0;
-      // Same-day ties: buys first, so a same-day round trip (or a sell listed
-      // before its buy) doesn't skip the sell and leave a phantom open lot.
-      return (da - db) || ((a && a.type === 'buy' ? 0 : 1) - (b && b.type === 'buy' ? 0 : 1));
-    });
-    var lots = []; // open buy lots, oldest first: { qty, priceEUR, date }
-    sorted.forEach(function (tx) {
-      var qty = parseFloat(tx.quantity) || 0;
-      if (qty <= 0) return;
-      if (tx.type === 'buy') {
-        // Purchase fees are acquisition costs (Anschaffungsnebenkosten): the
-        // SAME per-unit basis tax-report-builder.js uses, so the positions list
-        // and the tax report agree on cost basis and P&L.
-        var feeEUR = txPriceEUR({ price: tx.fees, currency: tx.currency, date: tx.date }, rate, fxAt);
-        lots.push({ qty: qty, priceEUR: txPriceEUR(tx, rate, fxAt) + (feeEUR > 0 ? feeEUR / qty : 0), date: tx.date });
-      } else if (tx.type === 'sell') {
-        var remaining = qty;
-        while (remaining > 1e-9 && lots.length) {
-          var lot = lots[0];
-          var used = Math.min(remaining, lot.qty);
-          lot.qty -= used;
-          remaining -= used;
-          if (lot.qty <= 1e-9) lots.shift();
-        }
-      }
-    });
-    var amount = 0, totalCostEUR = 0, firstDate = null;
-    lots.forEach(function (l) {
-      amount += l.qty;
-      totalCostEUR += l.qty * l.priceEUR;
-      if (firstDate == null) firstDate = l.date;
-    });
-    return { amount: amount, totalCostEUR: totalCostEUR, firstDate: firstDate };
+    // Delegates to the ONE FIFO implementation (ledger.js): fees, per-date FX
+    // and same-day tie-breaks are identical to the tax report.
+    var g = ledger().group(txs, { exchangeRate: rate, fxAt: fxAt, applyCorporateActions: false });
+    return {
+      amount: g.openQty,
+      totalCostEUR: g.openCostEUR,
+      firstDate: g.openLots.length ? g.openLots[0].date : null,
+      oversold: g.oversold
+    };
   }
 
   // Single, centralised corporate-action overlay. Every raw-transaction

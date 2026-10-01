@@ -173,21 +173,27 @@
         var DS = (typeof window !== 'undefined') ? window.DividendDataService : null;
         var divData = (DS && DS.getPortfolioDividendData) ? DS.getPortfolioDividendData(portfolio, prices) : {};
 
-        // Build per-symbol lots (EUR) from the stock transactions.
+        // Open lots (EUR) per stock from the ONE ledger (ledger.js): fees in
+        // the cost basis, per-date FX, splits applied — the same cost basis as
+        // the positions list and the tax report.
+        var L = (typeof window !== 'undefined' && window.MaerminLedger)
+          ? window.MaerminLedger.build(transactions, { exchangeRate: rate, fxAt: props.fxAt, categories: ['stocks'] })
+          : { list: [] };
         var lotsBySym = {};
-        transactions.forEach(function (tx) {
-          if (!tx || tx.category !== 'stocks') return;
-          if (tx.type !== 'buy' && tx.type !== 'sell') return;
-          var s = String(tx.symbol || '').toUpperCase();
+        L.list.forEach(function (g) {
+          var s = String(g.symbol || '').toUpperCase();
           if (!s) return;
-          var priceEUR = (tx.currency === 'USD') ? num(tx.price) * rate : num(tx.price);
-          (lotsBySym[s] = lotsBySym[s] || []).push({ type: tx.type, date: ymd(tx.date), shares: num(tx.quantity), priceEUR: priceEUR });
+          lotsBySym[s] = (lotsBySym[s] || []).concat(g.openLots.map(function (l) {
+            return { type: 'buy', date: ymd(l.date), shares: l.qty, priceEUR: l.unitCostEUR };
+          }));
         });
 
         var rows = Object.keys(lotsBySym).map(function (s) {
           var d = divData[s];
           var annualDps = d ? num(d.annualDividend) : 0;
-          var annualDpsEUR = annualDps * rate; // DividendDataService DPS is in the security currency (USD)
+          // DPS is in the payer's currency: only USD payers are converted
+          // (EUR payers such as ALV.DE were multiplied by the USD rate).
+          var annualDpsEUR = (d && d.currency === 'EUR') ? annualDps : annualDps * rate;
           var yoc = API.yieldOnCost({ lots: lotsBySym[s], annualDpsEUR: annualDpsEUR });
           return { symbol: s, yoc: yoc, annualDpsEUR: annualDpsEUR };
         }).filter(function (r) { return r.yoc.shares > 0 && r.annualDpsEUR > 0; })
