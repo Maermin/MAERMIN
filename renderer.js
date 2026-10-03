@@ -177,7 +177,7 @@ const themes = {
 // ============================================================================
 // PASSWORD CHANGE MODAL
 // ============================================================================
-function PasswordModal({ theme, t, onClose, addToast }) {
+function PasswordModal({ theme, t, onClose, addToast, restoreFocus }) {
   const [curPw, setCurPw]   = useState('');
   const [newPw, setNewPw]   = useState('');
   const [confPw, setConfPw] = useState('');
@@ -218,14 +218,15 @@ function PasswordModal({ theme, t, onClose, addToast }) {
       }
     });
 
-  return React.createElement('div', {
-    onClick: e => e.target === e.currentTarget && onClose(),
+  return React.createElement(window.MaerminUI.Overlay, {
+    onClose, restoreFocus,
     style: { position:'fixed',inset:0,background:'rgba(4,6,10,0.62)',display:'flex',justifyContent:'center',alignItems:'center',zIndex:10001,backdropFilter:'blur(8px)' }
   },
     React.createElement('div', {
+      ...window.MaerminUI.dialogProps('dlg-password'),
       style: { background: theme.modalBg, border:`1px solid ${theme.modalBorder}`, borderRadius:'16px', padding:'2rem', width:'380px', maxWidth:'90vw', boxShadow:'0 25px 50px -12px rgba(0,0,0,0.5)' }
     },
-      React.createElement('h2', { style:{ color:theme.text, fontSize:'1.25rem', fontWeight:'700', marginBottom:'1.25rem' } },
+      React.createElement('h2', { id: 'dlg-password', style:{ color:theme.text, fontSize:'1.25rem', fontWeight:'700', marginBottom:'1.25rem' } },
         (t.changePassword || 'Change Password')
       ),
       inp(curPw,  setCurPw,  t.currentPassword || 'Current Password'),
@@ -964,6 +965,9 @@ function InvestmentTracker() {
   
   // Ref for settings dropdown close-on-outside-click
   const settingsRef = useRef(null);
+  // Dialogs opened from the account menu: the menu item is gone when they
+  // close, so focus goes back to the account button.
+  const focusAccountButton = () => settingsRef.current && settingsRef.current.querySelector('.mx-avatar');
 
   useEffect(() => {
     const handleKeyDown = (e) => {
@@ -4258,6 +4262,7 @@ function InvestmentTracker() {
     return React.createElement(PasswordModal, {
       theme: currentTheme, t,
       onClose: () => setShowPasswordModal(false),
+      restoreFocus: focusAccountButton,
       addToast
     });
   };
@@ -4268,16 +4273,16 @@ function InvestmentTracker() {
     const th = currentTheme;
     const entries = (window.MaerminAuditLog ? window.MaerminAuditLog.getEntries({ limit: 200 }) : []);
     const levelColor = (lv) => lv === 'error' ? '#ef4444' : lv === 'warn' ? '#f59e0b' : th.textSecondary;
-    return React.createElement('div', {
-      onClick: () => setShowAuditLog(false),
+    return React.createElement(window.MaerminUI.Overlay, {
+      onClose: () => setShowAuditLog(false), restoreFocus: focusAccountButton,
       style: { position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.6)', zIndex: 1000, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '1rem' }
     },
       React.createElement('div', {
-        onClick: (e) => e.stopPropagation(),
+        ...window.MaerminUI.dialogProps('dlg-audit-log'),
         style: { background: th.card, border: `1px solid ${th.cardBorder}`, borderRadius: '14px', width: '100%', maxWidth: 640, maxHeight: '80vh', display: 'flex', flexDirection: 'column' }
       },
         React.createElement('div', { style: { display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '1.1rem 1.25rem', borderBottom: `1px solid ${th.cardBorder}` } },
-          React.createElement('div', { style: { color: th.text, fontWeight: 800, fontSize: '1rem' } }, (t.securityLog || 'Security log')),
+          React.createElement('div', { id: 'dlg-audit-log', style: { color: th.text, fontWeight: 800, fontSize: '1rem' } }, (t.securityLog || 'Security log')),
           React.createElement('div', { style: { display: 'flex', gap: '0.5rem' } },
             React.createElement('button', { onClick: () => { if (window.MaerminAuditLog) { window.MaerminAuditLog.clear(); setShowAuditLog(false); setTimeout(() => setShowAuditLog(true), 0); } },
               style: { padding: '0.35rem 0.7rem', background: 'transparent', border: `1px solid ${th.cardBorder}`, borderRadius: '7px', color: th.textSecondary, cursor: 'pointer', fontSize: '0.75rem' } }, t.clear || 'Clear'),
@@ -4324,7 +4329,7 @@ function InvestmentTracker() {
       });
     };
     
-    return React.createElement('div', {
+    return React.createElement(window.MaerminUI.Overlay, {
       style: {
         position: 'fixed',
         top: 0,
@@ -4338,9 +4343,10 @@ function InvestmentTracker() {
         zIndex: 10000,
         backdropFilter: 'blur(8px)'
       },
-      onClick: (e) => e.target === e.currentTarget && closeModal()
+      onClose: closeModal
     },
       React.createElement('div', {
+        ...window.MaerminUI.dialogProps('dlg-transaction'),
         style: {
           background: currentTheme.modalBg,
           border: `1px solid ${currentTheme.modalBorder}`,
@@ -4354,6 +4360,7 @@ function InvestmentTracker() {
         }
       },
         React.createElement('h2', {
+          id: 'dlg-transaction',
           style: { color: currentTheme.text, marginBottom: '1.5rem', fontSize: '1.5rem', fontWeight: '800', letterSpacing: '-0.02em' }
         }, isEditing ? (t.editTransaction || 'Edit Transaction') : (t.addTransaction || 'Add Transaction')),
         
@@ -4805,7 +4812,7 @@ function InvestmentTracker() {
   const renderImportModal = () => {
     if (!showImportModal) return null;
     
-    return React.createElement('div', {
+    return React.createElement(window.MaerminUI.Overlay, {
       style: {
         position: 'fixed',
         top: 0,
@@ -4819,9 +4826,10 @@ function InvestmentTracker() {
         zIndex: 10000,
         backdropFilter: 'blur(8px)'
       },
-      onClick: (e) => e.target === e.currentTarget && setShowImportModal(false)
+      onClose: () => setShowImportModal(false)
     },
       React.createElement('div', {
+        ...window.MaerminUI.dialogProps('dlg-import'),
         style: {
           background: currentTheme.modalBg,
           border: `1px solid ${currentTheme.modalBorder}`,
@@ -4835,6 +4843,7 @@ function InvestmentTracker() {
         }
       },
         React.createElement('h2', {
+          id: 'dlg-import',
           style: { color: currentTheme.text, marginBottom: '1rem', fontSize: '1.5rem', fontWeight: '800', letterSpacing: '-0.02em' }
         }, t.importData || 'Import Data'),
         
@@ -4962,7 +4971,7 @@ buy,crypto,bitcoin,0.5,45000,2024-01-15,10`)
   const renderApiSettingsModal = () => {
     if (!showApiSettings) return null;
     
-    return React.createElement('div', {
+    return React.createElement(window.MaerminUI.Overlay, {
       style: {
         position: 'fixed',
         top: 0,
@@ -4976,9 +4985,10 @@ buy,crypto,bitcoin,0.5,45000,2024-01-15,10`)
         zIndex: 10000,
         backdropFilter: 'blur(8px)'
       },
-      onClick: (e) => e.target === e.currentTarget && setShowApiSettings(false)
+      onClose: () => setShowApiSettings(false), restoreFocus: focusAccountButton
     },
       React.createElement('div', {
+        ...window.MaerminUI.dialogProps('dlg-api-settings'),
         style: {
           background: currentTheme.modalBg,
           border: `1px solid ${currentTheme.modalBorder}`,
@@ -4992,6 +5002,7 @@ buy,crypto,bitcoin,0.5,45000,2024-01-15,10`)
         }
       },
         React.createElement('h2', {
+          id: 'dlg-api-settings',
           style: { color: currentTheme.text, marginBottom: '1.5rem', fontSize: '1.5rem', fontWeight: '800', letterSpacing: '-0.02em' }
         }, t.apiSettings || 'API Settings'),
         
@@ -5230,9 +5241,9 @@ buy,crypto,bitcoin,0.5,45000,2024-01-15,10`)
     };
     const doCopy = () => { try { navigator.clipboard.writeText(code); addToast('Recovery code copied', 'success'); } catch (e) {} };
     const altBtn = (label, onClick) => React.createElement('button', { onClick, style: { flex: 1, padding: '0.6rem', background: 'transparent', color: currentTheme.text, border: `1px solid ${currentTheme.cardBorder}`, borderRadius: '8px', cursor: 'pointer', fontSize: '0.82rem' } }, label);
-    return React.createElement('div', { style: { position: 'fixed', inset: 0, zIndex: 9100, background: 'rgba(3,6,12,0.72)', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '1.5rem' } },
-      React.createElement('div', { style: { background: currentTheme.cardBg || '#141a25', border: `1px solid ${currentTheme.cardBorder}`, borderRadius: '16px', padding: '1.75rem', width: '100%', maxWidth: '460px', boxShadow: '0 30px 70px -20px rgba(0,0,0,0.7)' } },
-        React.createElement('h3', { style: { color: currentTheme.text, fontSize: '1.15rem', fontWeight: '700', margin: '0 0 0.5rem' } }, 'Your recovery code'),
+    return React.createElement(window.MaerminUI.Overlay, { dismissable: false, restoreFocus: focusAccountButton, style: { position: 'fixed', inset: 0, zIndex: 9100, background: 'rgba(3,6,12,0.72)', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '1.5rem' } },
+      React.createElement('div', { ...window.MaerminUI.dialogProps('dlg-recovery'), style: { background: currentTheme.cardBg || '#141a25', border: `1px solid ${currentTheme.cardBorder}`, borderRadius: '16px', padding: '1.75rem', width: '100%', maxWidth: '460px', boxShadow: '0 30px 70px -20px rgba(0,0,0,0.7)' } },
+        React.createElement('h3', { id: 'dlg-recovery', style: { color: currentTheme.text, fontSize: '1.15rem', fontWeight: '700', margin: '0 0 0.5rem' } }, 'Your recovery code'),
         React.createElement('p', { style: { color: currentTheme.textSecondary, fontSize: '0.85rem', lineHeight: '1.55', margin: '0 0 1rem' } }, 'Save this now — it can unlock your vault if you forget your password. It is shown once and never stored in readable form. Anyone with it can open your vault.'),
         React.createElement('div', { style: { fontFamily: 'ui-monospace,Menlo,monospace', fontSize: '1.05rem', letterSpacing: '0.05em', color: currentTheme.accent, background: currentTheme.inputBg, border: `1px solid ${currentTheme.cardBorder}`, borderRadius: '10px', padding: '1rem', textAlign: 'center', wordBreak: 'break-all', userSelect: 'all', marginBottom: '0.9rem' } }, code),
         React.createElement('div', { style: { display: 'flex', gap: '0.5rem', marginBottom: '1rem' } }, doCopy && altBtn('Copy', doCopy), altBtn('Download', doDownload), altBtn('Print', doPrint)),
@@ -5272,10 +5283,10 @@ buy,crypto,bitcoin,0.5,45000,2024-01-15,10`)
     const doEnableSync = () => { if (!workerUrl) { addToast('Add a Worker URL in API Settings first', 'error'); return; } if (!S) return; S.configure({ provider: 'worker', endpoint: workerUrl }); if (S.enableAutoSync) S.enableAutoSync(); runSync(); };
     const syncOn = !!((S && S.isConfigured && S.isConfigured()) || (syncCfg && syncCfg.provider));
 
-    return React.createElement('div', { style: { position: 'fixed', inset: 0, zIndex: 9050, background: 'rgba(3,6,12,0.72)', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '1.5rem' }, onClick: (e) => e.target === e.currentTarget && setShowSecurity(false) },
-      React.createElement('div', { style: { background: currentTheme.modalBg || currentTheme.cardBg || '#141a25', border: `1px solid ${currentTheme.cardBorder}`, borderRadius: '16px', padding: '1.75rem', width: '100%', maxWidth: '500px', maxHeight: '88vh', overflowY: 'auto', boxShadow: '0 30px 70px -20px rgba(0,0,0,0.7)' } },
+    return React.createElement(window.MaerminUI.Overlay, { onClose: () => setShowSecurity(false), restoreFocus: focusAccountButton, style: { position: 'fixed', inset: 0, zIndex: 9050, background: 'rgba(3,6,12,0.72)', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '1.5rem' } },
+      React.createElement('div', { ...window.MaerminUI.dialogProps('dlg-security'), style: { background: currentTheme.modalBg || currentTheme.cardBg || '#141a25', border: `1px solid ${currentTheme.cardBorder}`, borderRadius: '16px', padding: '1.75rem', width: '100%', maxWidth: '500px', maxHeight: '88vh', overflowY: 'auto', boxShadow: '0 30px 70px -20px rgba(0,0,0,0.7)' } },
         React.createElement('div', { style: { display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.25rem' } },
-          React.createElement('h3', { style: { color: currentTheme.text, fontSize: '1.15rem', fontWeight: '700', margin: 0 } }, 'Security & sync'),
+          React.createElement('h3', { id: 'dlg-security', style: { color: currentTheme.text, fontSize: '1.15rem', fontWeight: '700', margin: 0 } }, 'Security & sync'),
           React.createElement('button', { onClick: () => setShowSecurity(false), 'aria-label': 'Close', style: { background: 'none', border: 'none', color: currentTheme.textSecondary, fontSize: '1.4rem', cursor: 'pointer', lineHeight: 1 } }, '×')
         ),
         sectionTitle('Vault'),
@@ -5340,6 +5351,11 @@ buy,crypto,bitcoin,0.5,45000,2024-01-15,10`)
       color: currentTheme.text
     }
   },
+    // Skip link: first Tab stop, jumps past header and sidebar
+    React.createElement('a', {
+      href: '#main', className: 'mx-skip-link',
+      onClick: (e) => { e.preventDefault(); const m = document.getElementById('main'); if (m) m.focus(); }
+    }, t.skipToContent || 'Skip to content'),
     // Header — frosted glass top bar
     React.createElement('header', { className: 'mx-header maermin-header' },
       // Animated hairline under the header (styles.css .mx-hairline): a clipped
@@ -5620,7 +5636,7 @@ buy,crypto,bitcoin,0.5,45000,2024-01-15,10`)
       ),
 
       // Main content
-      React.createElement('main', { className: 'maermin-main' }, React.createElement(ViewErrorBoundary, { viewKey: activeView, theme: currentTheme }, renderView()))
+      React.createElement('main', { className: 'maermin-main', id: 'main', tabIndex: -1 }, React.createElement(ViewErrorBoundary, { viewKey: activeView, theme: currentTheme }, renderView()))
     ),
 
     // Mobile Bottom Navigation

@@ -199,12 +199,12 @@
       );
     }
 
-    return h('div', { style: { position: 'fixed', inset: 0, zIndex: 9000, background: 'rgba(3,6,12,0.72)',
-        display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '1.5rem' }, onClick: function (e) { if (e.target === e.currentTarget) onClose(); } },
-      h('div', { style: { background: cardBg, border: '1px solid ' + border, borderRadius: '16px', padding: '1.75rem',
+    return h(window.MaerminUI.Overlay, { onClose: onClose, style: { position: 'fixed', inset: 0, zIndex: 9000, background: 'rgba(3,6,12,0.72)',
+        display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '1.5rem' } },
+      h('div', { role: 'dialog', 'aria-modal': 'true', 'aria-labelledby': 'dlg-onboarding', style: { background: cardBg, border: '1px solid ' + border, borderRadius: '16px', padding: '1.75rem',
           width: '100%', maxWidth: '520px', maxHeight: '88vh', overflowY: 'auto', boxShadow: '0 30px 70px -20px rgba(0,0,0,0.7)' } },
         h('div', { style: { display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem' } },
-          h('h3', { style: { color: text, fontSize: '1.15rem', fontWeight: '700', margin: 0 } }, 'Set up your data sources'),
+          h('h3', { id: 'dlg-onboarding', style: { color: text, fontSize: '1.15rem', fontWeight: '700', margin: 0 } }, 'Set up your data sources'),
           h('button', { onClick: onClose, 'aria-label': 'Close', style: { background: 'none', border: 'none', color: dim, fontSize: '1.4rem', cursor: 'pointer', lineHeight: 1 } }, '×')
         ),
         body

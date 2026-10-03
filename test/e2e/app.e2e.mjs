@@ -193,13 +193,13 @@ async function createVault(page, base) {
   await page.locator('#auth-submit').click();
   await page.getByText('Recovery code').first().waitFor({ timeout: 30000 });
 }
-async function unlock(page, base) {
+async function unlock(page, base, ready = 'nav.maermin-sidebar') { // phone layout: pass a selector that is visible there
   await page.goto(base + '/index.html');
   const pw = page.locator('input[type=password]').first();
   await pw.waitFor({ timeout: 15000 });
   await pw.fill(PASSWORD);
   await page.locator('#auth-submit').click();
-  await page.locator('nav.maermin-sidebar').waitFor({ timeout: 30000 });
+  await page.locator(ready).waitFor({ timeout: 30000 });
 }
 // Figures count up when they appear (motion.js): read a text only once it has
 // stopped changing.
@@ -236,6 +236,30 @@ const RAW = `(() => { let f = document.getElementById('__raw'); if (!f) { f = do
   const W = f.contentWindow; return { get: (k) => W.Storage.prototype.getItem.call(W.localStorage, k),
   set: (k, v) => W.Storage.prototype.setItem.call(W.localStorage, k, v),
   keys: () => { const o = []; for (let i = 0; i < W.localStorage.length; i++) o.push(W.localStorage.key(i)); return o; } }; })()`;
+
+// In-page helpers for the dialog scenario. Deliberately independent of
+// ui-store.js: a dialog is found by its accessible name, a Tab stop is any
+// visible element the browser itself reports as tabbable (tabIndex >= 0).
+const DIALOG_PROBE = () => {
+  const nameOf = (d) => { const id = d.getAttribute('aria-labelledby'); return ((id ? (document.getElementById(id) || {}).textContent : d.getAttribute('aria-label')) || '').trim(); };
+  const find = (name) => Array.from(document.querySelectorAll('[role="dialog"]')).filter((d) => nameOf(d) === name);
+  const shown = (el) => el.getClientRects().length > 0;
+  let visited = new Set();
+  window.__dlg = {
+    desc(el) { return !el ? 'null' : el.tagName + (el.id ? '#' + el.id : '') + ' "' + (el.getAttribute('aria-label') || el.innerText || el.placeholder || '').trim().slice(0, 30) + '"'; },
+    info(name) {
+      const hit = find(name), d = hit[0], a = document.activeElement;
+      const all = Array.from(document.querySelectorAll('[role="dialog"]')).map(nameOf).join(' | ');
+      if (!d) return { count: 0, all };
+      const focus = a === d ? 'panel' : !d.contains(a) ? 'outside' : /^(INPUT|SELECT|TEXTAREA)$/.test(a.tagName) ? 'field' : 'control';
+      return { count: hit.length, all, modal: d.getAttribute('aria-modal'), focus, active: this.desc(a),
+        stops: Array.from(d.querySelectorAll('*')).filter((el) => el.tabIndex >= 0 && !el.disabled && shown(el)).length };
+    },
+    reset() { visited = new Set(); },
+    seen(name) { const d = find(name)[0], a = document.activeElement; if (!d || !d.contains(a)) return false; if (a !== d) visited.add(a); return true; },
+    visited() { return visited.size; }
+  };
+};
 
 const TXS = [
   { id: 'a1', type: 'buy', category: 'stocks', symbol: 'AAPL', quantity: 10, price: 100, fees: 10, currency: 'EUR', date: '2025-02-03', portfolioId: 'default' },
@@ -516,6 +540,141 @@ async function runBuild(browser, label, dir) {
     { const hint = await page.locator('[data-testid="tx-currency-hint"]').innerText().catch(() => '');
       ok('transaction dialog offers CHF and shows the rate of the trade date', hint.includes('1 CHF = 1.0600 EUR on ' + tradeDay), hint); }
     ok('no page errors in the currency session', errors.length === 0, errors.join(' | '));
+    await context.close();
+  }
+
+  // 7: dialogs for keyboard and screen-reader users, and the skip link.
+  // Every overlay is a named modal dialog, takes focus when it opens, keeps Tab
+  // inside, closes on Escape (the recovery code must not) and hands focus back.
+  for (const vp of [{ label: 'desktop 1366x900', opts: { viewport: { width: 1366, height: 900 } } },
+                    { label: 'phone 390x844 touch', opts: { viewport: { width: 390, height: 844 }, hasTouch: true, isMobile: true } }]) {
+    const context = await browser.newContext({ serviceWorkers: 'block', ...vp.opts });
+    await wire(context, external);
+    await context.addInitScript(DIALOG_PROBE);
+    const page = await context.newPage();
+    const errors = watch(page);
+    const tag = '[' + vp.label + '] ';
+    await createVault(page, base);
+    await unlock(page, base, 'main.maermin-main'); // first run: no Worker, no transactions -> the wizard opens by itself
+
+    const info = (name) => page.evaluate((n) => window.__dlg.info(n), name);
+    const closed = async (name) => { for (let i = 0; i < 10; i++) { if (!(await info(name)).count) return true; await page.waitForTimeout(100); } return false; };
+    const press = async (key) => { await page.keyboard.press(key); await page.waitForTimeout(40); };
+    // Tab forwards over every stop plus two, then the same backwards.
+    const walk = async (name) => {
+      const n = (await info(name)).stops;
+      await page.evaluate(() => window.__dlg.reset());
+      let left = 0;
+      for (const key of ['Tab', 'Shift+Tab']) for (let i = 0; i < n + 2; i++) { await press(key); if (!(await page.evaluate((x) => window.__dlg.seen(x), name))) left++; }
+      return { left, stops: n, visited: await page.evaluate(() => window.__dlg.visited()) };
+    };
+    // d: { name, open, focus: 'field' | 'panel', back: locator | '#main' }
+    const check = async (d) => {
+      const bad = [];
+      const run = async () => {
+        await d.open();
+        for (let i = 0; i < 50 && !(await info(d.name)).count; i++) await page.waitForTimeout(100);
+        await page.waitForTimeout(250);
+        const a = await info(d.name);
+        if (a.count !== 1) { bad.push('dialogs named "' + d.name + '": ' + a.count + ' (all: ' + a.all + ')'); return; }
+        if (a.modal !== 'true') bad.push('aria-modal=' + a.modal);
+        if (a.focus !== d.focus) bad.push('focus on open: ' + a.focus + ' (' + a.active + '), expected ' + d.focus);
+        const w = await walk(d.name);
+        if (w.left) bad.push('Tab left the dialog ' + w.left + 'x');
+        if (w.visited !== w.stops) bad.push('Tab reached ' + w.visited + ' of ' + w.stops + ' controls');
+        await press('Escape');
+        if (!(await closed(d.name))) { bad.push('Escape did not close it'); return; }
+        await page.waitForTimeout(150);
+        const back = d.back === '#main' ? await page.evaluate(() => document.activeElement && document.activeElement.id === 'main')
+          : await d.back.evaluate((el) => el === document.activeElement).catch(() => false);
+        if (!back) bad.push('focus after close: ' + (await page.evaluate(() => window.__dlg.desc(document.activeElement))));
+      };
+      try { await run(); } catch (e) { bad.push(String(e.message).split('\n')[0]); }
+      ok(tag + d.name + ': named modal dialog, focus moves in, Tab stays inside, Escape closes, focus goes back', bad.length === 0, bad.join('; '));
+      if ((await info(d.name)).count) { await page.mouse.click(3, 3); await page.waitForTimeout(300); } // leave no dialog behind for the next check
+    };
+    const wide = async (fn) => { // a view that the phone layout cannot reach without the sidebar
+      const size = page.viewportSize();
+      if (size.width < 900) { await page.setViewportSize({ width: 1366, height: 900 }); await page.waitForTimeout(300); }
+      await fn();
+      if (size.width < 900) { await page.setViewportSize(size); await page.waitForTimeout(300); }
+    };
+    const avatar = page.locator('.mx-avatar');
+    const fromMenu = (item) => async () => { await avatar.click(); await page.locator('.mx-menu-item', { hasText: item }).click(); };
+
+    await check({ name: 'Set up your data sources', focus: 'panel', back: '#main', open: async () => {} });
+
+    await page.evaluate((txs) => { localStorage.setItem('transactions', JSON.stringify(txs)); }, TXS);
+    await page.waitForTimeout(1500); // encrypted persist
+    await unlock(page, base, 'main.maermin-main');
+    await page.waitForTimeout(1500);
+
+    // Skip link: the first Tab stop, visible when focused, and it lands in <main>.
+    {
+      await press('Tab');
+      const first = await page.evaluate(() => { const a = document.activeElement, r = a.getBoundingClientRect(); return { skip: a.classList.contains('mx-skip-link'), text: a.innerText, shown: r.top >= 0 && r.left >= 0 && r.height > 0 }; });
+      await press('Enter');
+      const onMain = await page.evaluate(() => document.activeElement && document.activeElement.id === 'main' && document.activeElement.tagName === 'MAIN');
+      await press('Tab');
+      const inside = await page.evaluate(() => { const m = document.getElementById('main'); return !!m && m !== document.activeElement && m.contains(document.activeElement); });
+      ok(tag + 'skip link is the first Tab stop, shows when focused and moves focus into <main> (content reached with 3 keys)', first.skip && first.shown && first.text === 'Skip to content' && onMain && inside, JSON.stringify({ first, onMain, inside }));
+    }
+
+    const addTx = page.getByRole('button', { name: /Add Transaction/ }).first();
+    await wide(() => openView(page, 'transactions'));
+    await check({ name: 'Add Transaction', focus: 'field', back: addTx, open: () => addTx.click() });
+    await wide(() => openView(page, 'overview'));
+    await page.waitForTimeout(400);
+    const importBtn = page.getByRole('button', { name: '↑ Import' }).first();
+    await check({ name: 'Import Data', focus: 'field', back: importBtn, open: () => importBtn.click() });
+    const row = page.locator('main [role="button"]', { hasText: 'VWCE' }).first();
+    await check({ name: 'VWCE.DE', focus: 'panel', back: row, open: async () => { await row.scrollIntoViewIfNeeded(); await row.click(); } });
+    await check({ name: 'API Settings', focus: 'field', back: avatar, open: fromMenu('API Settings') });
+    await check({ name: 'Change Password', focus: 'field', back: avatar, open: fromMenu('Change Password') });
+    await check({ name: 'Security log', focus: 'panel', back: avatar, open: fromMenu('Security log') });
+    await check({ name: 'Security & sync', focus: 'panel', back: avatar, open: fromMenu('Security & sync') });
+    const search = page.locator('.mx-search');
+    await check({ name: 'Search commands...', focus: 'field', back: search, open: () => search.click() });
+    await check({ name: 'Keyboard Shortcuts', focus: 'panel', back: avatar, open: async () => { await avatar.focus(); await page.keyboard.press('?'); } });
+    await wide(() => openView(page, 'savings-plans'));
+    await page.waitForTimeout(300);
+    const addPlan = page.getByRole('button', { name: '+ Add Plan' }).first();
+    await check({ name: 'New Savings Plan', focus: 'field', back: addPlan, open: () => addPlan.click() });
+
+    // Recovery code, opened over Security & sync: Escape and a click beside it
+    // must not close it (the code is shown once); Tab stays inside it; closing
+    // it puts focus back into the dialog underneath; one Escape then closes that.
+    {
+      const bad = [];
+      try {
+        await fromMenu('Security & sync')();
+        await page.getByRole('button', { name: 'Rotate' }).click();
+        await page.getByText('Your recovery code').waitFor({ timeout: 30000 });
+        await page.waitForTimeout(300);
+        const a = await info('Your recovery code');
+        if (a.count !== 1 || a.modal !== 'true') bad.push('not a named modal dialog (' + a.all + ')');
+        if (a.focus !== 'panel') bad.push('focus on open: ' + a.focus + ' (' + a.active + ')');
+        const w = await walk('Your recovery code');
+        if (w.left) bad.push('Tab left the dialog ' + w.left + 'x');
+        if (w.visited !== w.stops) bad.push('Tab reached ' + w.visited + ' of ' + w.stops + ' controls');
+        await press('Escape');
+        await page.waitForTimeout(300);
+        if (!(await info('Your recovery code')).count) bad.push('Escape closed the recovery code');
+        if (!(await info('Security & sync')).count) bad.push('Escape closed the dialog underneath');
+        await page.mouse.click(3, 3);
+        await page.waitForTimeout(300);
+        if (!(await info('Your recovery code')).count) bad.push('a click beside it closed the recovery code');
+        await page.getByRole('button', { name: /I've saved it/ }).click();
+        if (!(await closed('Your recovery code'))) bad.push('"Done" did not close it');
+        await page.waitForTimeout(150);
+        const under = await info('Security & sync');
+        if (under.count !== 1 || under.focus === 'outside') bad.push('focus after close is not in Security & sync: ' + under.active);
+        await press('Escape');
+        if (!(await closed('Security & sync'))) bad.push('Escape did not close Security & sync afterwards');
+      } catch (e) { bad.push(String(e.message).split('\n')[0]); }
+      ok(tag + 'Your recovery code: modal over Security & sync, not closed by Escape or a click beside it, focus returns to the dialog underneath', bad.length === 0, bad.join('; '));
+    }
+    ok(tag + 'no page errors in the dialog session', errors.length === 0, errors.join(' | '));
     await context.close();
   }
 
