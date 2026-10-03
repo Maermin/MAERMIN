@@ -140,6 +140,18 @@ table, input, .metric-value, .greek-value, kbd { font-variant-numeric: tabular-n
 }
 button, a, input, select, textarea { outline: none; }
 
+/* Skip link: off-screen until it has keyboard focus. <main> is its target and
+   takes focus without a ring of its own. */
+.mx-skip-link {
+  position: fixed; top: 8px; left: 8px; z-index: 10100;
+  padding: 0.6rem 0.9rem; border-radius: 8px;
+  background: var(--bg); color: var(--text); border: 1px solid var(--accent);
+  font-size: 0.875rem; font-weight: 600; text-decoration: none;
+  transform: translateY(-200%);
+}
+.mx-skip-link:focus { transform: none; }
+#main:focus, #main:focus-visible { outline: none; box-shadow: none !important; }
+
 input:focus, select:focus, textarea:focus {
   border-color: var(--accent) !important;
   box-shadow: 0 0 0 3px var(--accent-soft);

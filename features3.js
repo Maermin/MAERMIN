@@ -235,11 +235,13 @@ function PositionDetailModal({ position, transactions, prices, theme, formatPric
       React.createElement('span', { style: { color, fontWeight: '600', fontSize: '0.875rem', fontFamily: mono ? 'monospace' : 'inherit' } }, value)
     );
 
-  return React.createElement('div', {
-    onClick: e => e.target === e.currentTarget && onClose(),
+  return React.createElement(window.MaerminUI.Overlay, {
+    onClose,
+    focusField: false, // a detail view: its only field is the note further down
     style: { position: 'fixed', inset: 0, background: 'rgba(4,6,10,0.62)', backdropFilter: 'blur(8px)', display: 'flex', justifyContent: 'center', alignItems: 'center', zIndex: 9999, padding: '1rem' }
   },
     React.createElement('div', {
+      ...window.MaerminUI.dialogProps('dlg-position'),
       style: { background: theme.modalBg, border: `1px solid ${theme.modalBorder}`, borderRadius: '16px', width: '520px', maxWidth: '100%', maxHeight: '90vh', overflow: 'auto', boxShadow: '0 25px 60px rgba(0,0,0,0.5)' }
     },
       // Header
@@ -247,7 +249,7 @@ function PositionDetailModal({ position, transactions, prices, theme, formatPric
         style: { padding: '1.25rem 1.5rem', borderBottom: `1px solid ${theme.modalBorder}`, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }
       },
         React.createElement('div', null,
-          React.createElement('div', { style: { color: theme.text, fontWeight: '800', fontSize: '1.25rem' } }, position.sym),
+          React.createElement('div', { id: 'dlg-position', style: { color: theme.text, fontWeight: '800', fontSize: '1.25rem' } }, position.sym),
           React.createElement('div', { style: { display: 'flex', gap: '0.5rem', marginTop: '0.25rem', alignItems: 'center' } },
             React.createElement('span', {
               style: { fontSize: '0.65rem', fontWeight: '700', padding: '0.15rem 0.4rem', borderRadius: '4px',

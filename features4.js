@@ -184,17 +184,13 @@ function PortfolioManagerView({ portfolios, activePortfolioId, transactions, pri
 // 2. SAVINGS PLAN TRACKER (Sparplan)
 // User defines recurring investment plans → MAERMIN tracks execution
 // ─────────────────────────────────────────────────────────────────────────────
-// Slim reusable modal: backdrop blur, close on button/Escape/backdrop click.
+// Slim reusable modal: backdrop blur, close on button/Escape/backdrop click
+// (Escape, backdrop and focus handling come from MaerminUI.Overlay).
 // Scrolls internally, so content stays reachable regardless of page height -
 // the reason the savings-plan form moved here from an inline card.
 function PlanModal({ theme, title, onClose, children }) {
-  useEffect(() => {
-    const onKey = (e) => { if (e.key === 'Escape') onClose(); };
-    document.addEventListener('keydown', onKey);
-    return () => document.removeEventListener('keydown', onKey);
-  }, [onClose]);
-  return React.createElement('div', {
-    onClick: (e) => { if (e.target === e.currentTarget) onClose(); },
+  return React.createElement(window.MaerminUI.Overlay, {
+    onClose,
     style: {
       position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, zIndex: 10000,
       background: 'rgba(4,6,10,0.62)', backdropFilter: 'blur(8px)',
@@ -202,6 +198,7 @@ function PlanModal({ theme, title, onClose, children }) {
     }
   },
     React.createElement('div', {
+      ...window.MaerminUI.dialogProps('dlg-plan'),
       style: {
         background: theme.modalBg || theme.card, border: `1px solid ${theme.modalBorder || theme.cardBorder}`,
         borderRadius: '16px', padding: '1.5rem', width: '560px', maxWidth: '92vw',
@@ -209,7 +206,7 @@ function PlanModal({ theme, title, onClose, children }) {
       }
     },
       React.createElement('div', { style: { display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.1rem' } },
-        React.createElement('div', { style: { color: theme.text, fontWeight: '800', fontSize: '1.1rem' } }, title),
+        React.createElement('div', { id: 'dlg-plan', style: { color: theme.text, fontWeight: '800', fontSize: '1.1rem' } }, title),
         React.createElement('button', {
           onClick: onClose, 'aria-label': 'Close',
           style: { background: 'none', border: 'none', color: theme.textSecondary, cursor: 'pointer', fontSize: '1.2rem', lineHeight: 1 }
