@@ -44,6 +44,7 @@ const Backup = require('../backup-engine.js');
     ['maermin_snapshots', 'maermin_tags', 'maermin_dashboard_layout', 'maermin_rebalance_targets', 'maermin_rules', 'maermin_custom_categories']
       .every(k => Backup.KEYS.indexOf(k) !== -1));
   ok('keys cover the corporate-actions store', Backup.KEYS.indexOf('maermin_corporate_actions') !== -1);
+  ok('keys cover the currency rate history', Backup.KEYS.indexOf('maermin_fx_currencies') !== -1);
 
   // ---- seed a realistic store, INCLUDING an item with no price ----
   const txList = [

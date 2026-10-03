@@ -4,6 +4,13 @@
 
 > UI fold-in of the v10 engines + accessibility themes + a code-review hardening pass. One automatic migration (schema v4, see below); backup format unchanged.
 
+### More trade currencies (2026-10-03)
+
+- Transactions in CHF, GBP (and pence), JPY, CAD, AUD, SEK, NOK, DKK, PLN and other fiat currencies are converted to EUR at the rate **of the trade date** in cost basis, realised gains, the tax report, XIRR and the fee total on the Returns view. Before, they used today's rate for every date.
+- The daily rates come through the Worker's existing `yf` route (`EURCHF=X` …), only for currencies that occur in your transactions and only back to the first such trade. Stored encrypted (`maermin_fx_currencies`), part of the backup, not synced (each device loads its own). Where no rate within a week of the trade date is stored (no Worker, not loaded yet), today's rate is used and the Data check says so.
+- The transaction dialog offers the other currencies and shows the rate it will apply. The import preview and the Data check say whether a currency is converted at the trade-date rate, at today's rate (no Worker, or not loaded yet) or not at all.
+- Tax report, "Currency Conversion Details": the rate column showed the USD rate for every currency; it now shows the rate applied to that row.
+
 ### Smooth motion (2026-10-01)
 
 Animations were measured in the production build (`npm run bench:motion`, headless Chromium, 1440×900): the overview idled at **~5 fps** with motion on and 60 fps with it off. Now ~58 fps idle and while scrolling; hover, navigation and the command palette 34–44 fps in the same (software-rendered, worst-case) environment. The look is unchanged.

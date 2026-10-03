@@ -640,6 +640,34 @@ function InvestmentTracker() {
     })();
   }, [fetchedPrices, apiKeys, exchangeRate]);
 
+  // Daily EUR rates for every other fiat currency in the transactions (CHF,
+  // GBP, ...), through the Worker (Yahoo EUR<CUR>=X). MaerminFxHistory.txToEUR
+  // then converts such a trade at the rate of ITS date in every view. Runs when
+  // a new currency / an earlier trade appears and after a price refresh (the
+  // plan itself re-requests a currency at most every 12 h). Not in demo mode.
+  const curSyncRef = useRef({ sig: '', at: 0, busy: false });
+  const [curTick, setCurTick] = useState(0); // re-check after a run (a currency may have been added meanwhile)
+  useEffect(() => {
+    const FXH = window.MaerminFxHistory;
+    if (!FXH || !FXH.syncCurrencies || demoMode) return;
+    const needed = FXH.currenciesNeeded(transactions);
+    const curs = Object.keys(needed);
+    const rawBase = (apiKeys.cs2Worker || '').trim().replace(/\/$/, '');
+    if (!curs.length || rawBase.length <= 5) return;
+    const sig = rawBase + '#' + curs.sort().map(c => c + ':' + needed[c]).join('|');
+    const st = curSyncRef.current;
+    if (st.busy || (st.sig === sig && Date.now() - st.at < 10 * 60 * 1000)) return;
+    curSyncRef.current = { sig, at: Date.now(), busy: true };
+    FXH.syncCurrencies({ transactions, workerBase: rawBase }).then((res) => {
+      curSyncRef.current.busy = false;
+      setCurTick(n => n + 1);
+      if (res.failed.length) dbg('[FX] no rate history for', res.failed.map(f => f.cur + ' (' + f.reason + ')').join(', '));
+      if (!res.changed) return;
+      if (!FXH.saveCurrencies(res.store)) console.warn('[FX] could not persist the currency history - kept for this session');
+      setFxHistVersion(v => v + 1); // new resolver identity -> positions, ledger, tax report recompute
+    }).catch(() => { curSyncRef.current.busy = false; });
+  }, [transactions, apiKeys.cs2Worker, demoMode, lastRefresh, curTick]);
+
   const showApiSettings = window.MaerminStore.useStore(window.MaerminUI.overlays, s => !!s.apiSettings);
   const setShowApiSettings = (v) => { const n = typeof v === 'function' ? v(showApiSettings) : v; n ? window.MaerminUI.openOverlay('apiSettings') : window.MaerminUI.closeOverlay('apiSettings'); };
   const showSettings = window.MaerminStore.useStore(window.MaerminUI.overlays, s => !!s.settings);
@@ -3597,7 +3625,9 @@ function InvestmentTracker() {
     const line = (i) => {
       if (i.kind === 'oversold') return `${i.symbol} (${i.category}): ${+i.qty.toFixed(8)} more unit(s) sold than bought. The excess has no cost basis and is left out of realised gains - add the missing buy or transfer.`;
       if (i.status === 'unknown') return `${i.symbol || 'A transaction'} in ${i.currency}: no exchange rate, so the amounts are counted as EUR. Change the transaction currency.`;
-      return `${i.currency} (e.g. ${i.symbol || 'a transaction'}): converted at today's rate for every date - only USD has a daily history.`;
+      return (window.MaerminFxHistory && window.MaerminFxHistory.hasHistory && window.MaerminFxHistory.hasHistory(i.currency))
+        ? `${i.currency} (e.g. ${i.symbol || 'a transaction'}): no ${i.currency} rate for the trade date (not loaded through the Worker yet, or the rate history does not reach that date) - today's rate is used.`
+        : `${i.currency} (e.g. ${i.symbol || 'a transaction'}): converted at today's rate for every date - there is no daily history for this currency.`;
     };
     return React.createElement('details', {
       'data-testid': 'ledger-issues',
@@ -4539,8 +4569,47 @@ function InvestmentTracker() {
                   fontWeight: '600'
                 }
               }, cur)
-            )
-          )
+            ),
+            // Any other trade currency (CHF, GBP, ...): converted to EUR at the
+            // rate of the trade date (MaerminFxHistory, rates via the Worker).
+            (() => {
+              const FXH = window.MaerminFxHistory;
+              const list = (FXH && FXH.FIAT) || [];
+              const cur = newTransaction.currency || 'EUR';
+              const other = cur !== 'EUR' && cur !== 'USD';
+              return React.createElement('select', {
+                'aria-label': t.otherCurrency || 'Other currency',
+                'data-testid': 'tx-currency-other',
+                value: other ? cur : '',
+                onChange: (e) => { if (e.target.value) setNewTransaction(prev => ({ ...prev, currency: e.target.value })); },
+                style: {
+                  flex: 1, padding: '0.5rem', borderRadius: '6px', cursor: 'pointer', fontSize: '0.875rem', fontWeight: '600',
+                  background: other ? currentTheme.accent : currentTheme.inputBg, color: other ? '#fff' : currentTheme.text,
+                  border: 'none'
+                }
+              },
+                React.createElement('option', { value: '', style: { background: currentTheme.inputBg, color: currentTheme.text } }, t.otherCurrency || 'Other…'),
+                // keep a stored currency selectable even if it is not in the list (e.g. an imported one)
+                (other && list.indexOf(cur) === -1 ? [cur] : []).concat(list).map(c => React.createElement('option', { key: c, value: c, style: { background: currentTheme.inputBg, color: currentTheme.text } }, c))
+              );
+            })()
+          ),
+          (() => {
+            const FXH = window.MaerminFxHistory;
+            const cur = newTransaction.currency || 'EUR';
+            if (cur === 'EUR' || cur === 'USD' || !FXH) return null;
+            const d = newTransaction.date || window.MaerminUtils.todayISO();
+            const res = FXH.txToEUR(1, cur, d, exchangeRate, fxAt);
+            const show = (v) => (v >= 0.1 ? v.toFixed(4) : v.toPrecision(4));
+            const hasW = (apiKeys.cs2Worker || '').trim().length > 5;
+            return React.createElement('div', { 'data-testid': 'tx-currency-hint', style: { color: currentTheme.textSecondary, fontSize: '0.78rem', marginTop: '0.4rem', lineHeight: 1.5 } },
+              res.status === 'exact' ? `1 ${cur} = ${show(res.value)} EUR on ${d} (rate of the trade date).`
+                : res.status === 'approx' ? (FXH.hasHistory(cur)
+                    ? (hasW ? `The ${cur} rate of the trade date is loaded after saving. Today's rate until then: 1 ${cur} ≈ ${show(res.value)} EUR.`
+                            : `Without a Worker only today's rate is available: 1 ${cur} ≈ ${show(res.value)} EUR. Add a Worker URL in API Settings for the rate of the trade date.`)
+                    : `No daily history for ${cur}: today's rate is used for every date (1 ${cur} ≈ ${show(res.value)} EUR).`)
+                : `No exchange rate for ${cur} - the amount would be counted as EUR.`);
+          })()
         ),
         
         // Total display

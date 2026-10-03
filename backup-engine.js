@@ -75,6 +75,9 @@
     'maermin_risk_monitor',
     // deleted auto-dividends (so a restore doesn't re-book them)
     'maermin_div_skipped',
+    // daily EUR rates of the non-EUR/USD currencies traded (fx-history.js): with
+    // them a restored vault costs CHF/GBP trades at the rate of their date offline
+    'maermin_fx_currencies',
     'theme',
     'currency',
     'privacyMode',
