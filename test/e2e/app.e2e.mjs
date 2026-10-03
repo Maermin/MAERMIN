@@ -182,6 +182,18 @@ async function runBuild(browser, label, dir) {
     }
     ok('every sidebar view renders without an error (' + VIEWS.length + ' views)', crashedIn.length === 0, crashedIn.join(' || '));
 
+    // Empty analytics states: a portfolio without price history must say so,
+    // not spin forever or print invented / zero figures.
+    await openView(page, 'analytics');
+    await page.waitForTimeout(400);
+    ok('correlation explains missing history instead of "Loading..."', (await page.locator('[data-testid="correlation-empty"]').count()) === 1 && (await page.locator('[data-testid="correlation-loading"]').count()) === 0);
+    await page.getByRole('button', { name: 'Risk Level' }).click();
+    await page.waitForTimeout(400);
+    { const rb = await page.innerText('body'); ok('risk view shows no zero metrics without history', !/Sharpe Ratio/.test(rb) && /observations so far/.test(rb)); }
+    await openView(page, 'investment-analysis');
+    await page.waitForTimeout(400);
+    { const db = await page.innerText('body'); ok('DCA analyzer shows no demo figures', (await page.locator('[data-testid="dca-empty"]').count()) === 1 && !/DCA Wins|12\.50%/.test(db)); }
+
     await openView(page, 'transactions');
     const check = await page.locator('[data-testid="ledger-issues"]').first().innerText().catch(() => '');
     ok('Data check lists the oversell and the unconvertible currency', /Data check: 2 issues/.test(check), check.slice(0, 120));

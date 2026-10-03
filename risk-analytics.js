@@ -255,6 +255,26 @@ function calculateBeta(assetReturns, marketReturns) {
 }
 
 /**
+ * How many return observations the price history can yield (longest series
+ * minus one). Volatility, VaR, Sharpe and drawdown are meaningless below
+ * MIN_RISK_OBSERVATIONS - the engine then returns zeros, which the view used
+ * to print as measured values ("Volatility 0.0%", "Risk level: Low").
+ * Accepts series of numbers or of {price} points.
+ */
+var MIN_RISK_OBSERVATIONS = 5;
+function riskObservations(priceHistory) {
+  var max = 0;
+  Object.keys(priceHistory || {}).forEach(function (k) {
+    var h = priceHistory[k];
+    if (!Array.isArray(h)) return;
+    var n = h.filter(function (pt) { var v = (pt && typeof pt === 'object') ? pt.price : pt; return typeof v === 'number' && isFinite(v) && v > 0; }).length;
+    if (n - 1 > max) max = n - 1;
+  });
+  return max;
+}
+function hasMeasurableRisk(priceHistory) { return riskObservations(priceHistory) >= MIN_RISK_OBSERVATIONS; }
+
+/**
  * Calculate comprehensive risk metrics for portfolio
  */
 function calculatePortfolioRiskMetrics(portfolio, priceHistory, portfolioValue) {
@@ -433,6 +453,9 @@ if (typeof window !== 'undefined') {
   window.calculateMaxDrawdown = calculateMaxDrawdown;
   window.calculateBeta = calculateBeta;
   window.calculatePortfolioRiskMetrics = calculatePortfolioRiskMetrics;
+  window.riskObservations = riskObservations;
+  window.hasMeasurableRisk = hasMeasurableRisk;
+  window.MIN_RISK_OBSERVATIONS = MIN_RISK_OBSERVATIONS;
   window.calculateRiskScore = calculateRiskScore;
   window.getRiskLevel = getRiskLevel;
   window.generateRiskRecommendations = generateRiskRecommendations;
@@ -450,6 +473,9 @@ if (typeof module !== 'undefined' && module.exports) {
     calculateMaxDrawdown: calculateMaxDrawdown,
     calculateBeta: calculateBeta,
     calculatePortfolioRiskMetrics: calculatePortfolioRiskMetrics,
+    riskObservations: riskObservations,
+    hasMeasurableRisk: hasMeasurableRisk,
+    MIN_RISK_OBSERVATIONS: MIN_RISK_OBSERVATIONS,
     generateRiskRecommendations: generateRiskRecommendations
   };
 }
