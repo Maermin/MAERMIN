@@ -368,10 +368,14 @@ function CashflowChart({ transactions, priceHistory, portfolio, prices, theme, f
         const hist = priceHistory[pos.sym] || [];
         const entry = [...hist].reverse().find(h => { const n = tsOf(h.timestamp); return isFinite(n) && n <= ts; });
         if (entry) value += pos.amount * entry.price;
+        // A holding with no price history at all (never quoted) is carried at
+        // the effective price - its cost basis - instead of dropping out of
+        // the value line and reading as a loss against "Invested".
+        else if (!hist.length && prices && prices[pos.sym] > 0) value += pos.amount * prices[pos.sym];
       });
       return { date: new Date(ts).toISOString().slice(0, 10), value };
     }).filter(d => d.value > 0);
-  }, [priceHistory, portfolio]);
+  }, [priceHistory, portfolio, prices]);
 
   if (investedSeries.length < 2 && valueSeries.length < 2) {
     return React.createElement(Card, { theme, style: { textAlign: 'center', padding: '3rem', marginBottom: '1.5rem' } },

@@ -50,6 +50,43 @@ const M = require('../market-store.js');
   M.set('priceHistory', M.mergePrices(M.get('priceHistory'), { ETH: [3] }));
   ok('priceHistory merged', M.get('priceHistory').BTC.length === 2 && M.get('priceHistory').ETH.length === 1);
 
+  // ---- last known + effective prices (prices right after unlock) ----
+  const hist = {
+    bitcoin: [{ timestamp: '2026-10-01T10:00:00.000Z', price: 50000 }, { timestamp: '2026-10-02T10:00:00.000Z', price: 60000 }],
+    AAPL: [{ timestamp: '2026-10-02T10:00:00.000Z', price: 120 }, { timestamp: '2026-10-03T10:00:00.000Z', price: 0 }],
+    junk: 'nope', legacy: [1, 2, 3]
+  };
+  const lk = M.lastKnownPrices(hist);
+  ok('last known = latest point', lk.bitcoin === 60000);
+  ok('last known skips non-positive points', lk.AAPL === 120);
+  ok('last known tolerates malformed / legacy series', lk.junk === undefined && lk.legacy === 3);
+  ok('last known of nothing is empty', JSON.stringify(M.lastKnownPrices(null)) === '{}');
+
+  const pf = {
+    crypto: [{ symbol: 'bitcoin', amount: 1, purchasePrice: 30000 }],
+    stocks: [{ symbol: 'AAPL', amount: 10, purchasePrice: 100 }, { symbol: 'VWCE.DE', amount: 5, purchasePrice: 110 },
+             { symbol: 'FREE', amount: 1, purchasePrice: 0 }],
+    custom_p2p: [{ symbol: 'Loan-1', amount: 1, purchasePrice: 500 }],
+    notAList: 7
+  };
+  const fetched = { bitcoin: 61000 };
+  const ev = M.effectivePrices(fetched, hist, pf);
+  ok('fetched quote beats last known', ev.prices.bitcoin === 61000);
+  ok('last known used when not fetched this session', ev.prices.AAPL === 120 && !ev.costKeys.aapl);
+  ok('never priced -> cost basis under every key casing',
+    ev.prices['VWCE.DE'] === 110 && ev.prices['vwce.de'] === 110 && ev.costKeys['vwce.de'] === true);
+  ok('custom categories fall back too', ev.prices['Loan-1'] === 500 && ev.prices['LOAN-1'] === 500);
+  ok('no cost basis -> stays unpriced', ev.prices.FREE === undefined && !ev.costKeys.free);
+  ok('fetched map is not mutated', JSON.stringify(fetched) === '{"bitcoin":61000}');
+  const ev2 = M.effectivePrices({ aapl: 130 }, null, pf);
+  ok('case-insensitive match avoids a cost fallback', ev2.prices.AAPL === undefined && ev2.prices.aapl === 130 && !ev2.costKeys.aapl);
+  ok('empty inputs are safe', JSON.stringify(M.effectivePrices(null, null, null)) === '{"prices":{},"costKeys":{}}');
+
+  M.setCostKeys(ev.costKeys);
+  ok('isCostFallback is case-insensitive', M.isCostFallback('VWCE.DE') && M.isCostFallback('vwce.de') && !M.isCostFallback('AAPL') && !M.isCostFallback(''));
+  M.setCostKeys(null);
+  ok('cost registry can be cleared', !M.isCostFallback('VWCE.DE'));
+
   console.log('\n' + passed + ' passed, ' + failed + ' failed');
   process.exit(failed ? 1 : 0);
 })();

@@ -63,6 +63,7 @@ const JSPDF = {
   'https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js': 'jspdf.umd.min.js',
   'https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.5.31/jspdf.plugin.autotable.min.js': 'jspdf.plugin.autotable.min.js'
 };
+const fetched = []; // market-data calls answered from fixtures
 async function wire(context, external) {
   await context.route('**/*', (route) => {
     const url = route.request().url();
@@ -74,6 +75,11 @@ async function wire(context, external) {
       }
       return route.continue(); // real CDN (CI); fails offline -> PDF step skipped
     }
+    // Market data the app fetches by itself right after unlock: answer from
+    // fixtures (still offline) and log the call so the test can assert on it.
+    const json = (o) => route.fulfill({ headers: { 'Access-Control-Allow-Origin': '*', 'Content-Type': 'application/json' }, body: JSON.stringify(o) });
+    if (url.startsWith('https://open.er-api.com/v6/latest/USD')) { fetched.push('fx'); return json({ result: 'success', rates: { EUR: 0.9, USD: 1 } }); }
+    if (url.startsWith('https://api.coingecko.com/api/v3/simple/price')) { fetched.push('crypto'); return json({ eth: { eur: 3000, usd: 3300 } }); }
     external.push(route.request().method() + ' ' + url.split('?')[0]);
     return route.abort();
   });
@@ -171,6 +177,18 @@ async function runBuild(browser, label, dir) {
       await context.close(); server.close(); return;
     }
     ok('app mounts after unlock', errors.length === 0, errors.join(' | '));
+
+    // Prices right after unlock: one fetch fires without a click, and holdings
+    // that have no quote yet are valued at cost and labelled - never -100%.
+    await page.waitForTimeout(2500);
+    ok('prices are fetched after unlock, without a click', fetched.includes('fx') && fetched.includes('crypto'), fetched.join(','));
+    {
+      const b0 = await page.innerText('body');
+      ok('unpriced holdings are not shown as a total loss', !/-100\.00%/.test(b0), (b0.match(/.{0,60}-100\.00%.{0,20}/) || [''])[0].replace(/\n/g, ' | '));
+      ok('unpriced holdings are labelled "no price"', (await page.locator('[data-testid="no-price"]').count()) > 0);
+      // ETH got a quote (3,000 EUR), VWCE.DE has none -> 5 x 110 at cost.
+      ok('total = fetched quote + cost fallback (3,550.00)', /3,550/.test(b0), (b0.match(/TOTAL PORTFOLIO VALUE[\s\S]{0,80}/) || [''])[0].replace(/\n/g, ' | '));
+    }
 
     const crashedIn = [];
     for (const id of VIEWS) {

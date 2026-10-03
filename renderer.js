@@ -279,7 +279,10 @@ function InvestmentTracker() {
   const setWorkerStatus = (v) => window.MaerminMarket.set('workerStatus', typeof v === 'function' ? v(window.MaerminMarket.get('workerStatus')) : v);
 
   // Prices
-  const prices = window.MaerminStore.useStore(window.MaerminMarket.store, s => s.prices);
+  // `fetchedPrices` = quotes fetched THIS session (the store slice). Views read
+  // the derived `prices` below (fetched -> last known -> cost basis); anything
+  // that books, alerts or records history must keep using `fetchedPrices`.
+  const fetchedPrices = window.MaerminStore.useStore(window.MaerminMarket.store, s => s.prices);
   const setPrices = (v) => window.MaerminMarket.set('prices', typeof v === 'function' ? v(window.MaerminMarket.get('prices')) : v);
   const priceHistory = window.MaerminStore.useStore(window.MaerminMarket.store, s => s.priceHistory);
   const setPriceHistory = (v) => window.MaerminMarket.set('priceHistory', typeof v === 'function' ? v(window.MaerminMarket.get('priceHistory')) : v);
@@ -326,6 +329,25 @@ function InvestmentTracker() {
   // "Cannot access 'corpActionsRev' before initialization" and the app never
   // mounted after unlock.
   const [corpActionsRev, setCorpActionsRev] = useState(0);
+
+  // ALL portfolios combined portfolio object — used on Overview in "All" mode
+  // and as the cost-basis source for positions without any market price.
+  const allPortfoliosPortfolio = useMemo(
+    () => window.MaerminMetrics.buildPositions(transactions, { exchangeRate, fxAt }),
+    [transactions, exchangeRate, fxAt, corpActionsRev]
+  );
+
+  // The price map the views read. After unlock nothing has been fetched yet, so
+  // a bare `fetchedPrices` valued every holding at 0 (-100%). Instead: this
+  // session's quote, else the last known price from the persisted history
+  // (badged stale by the data-quality layer), else the position's cost basis
+  // (labelled "no price"). See MaerminMarket.effectivePrices.
+  const priceView = useMemo(
+    () => window.MaerminMarket.effectivePrices(fetchedPrices, demoMode ? null : priceHistory, allPortfoliosPortfolio),
+    [fetchedPrices, priceHistory, allPortfoliosPortfolio, demoMode]
+  );
+  const prices = priceView.prices;
+  window.MaerminMarket.setCostKeys(priceView.costKeys);
 
   // Data checks from the one FIFO ledger: sells without enough open units and
   // transaction currencies without an exact EUR conversion. Both skew cost
@@ -383,10 +405,10 @@ function InvestmentTracker() {
   // checkAndNotify dedupes via its cooldown state, so this is cheap and never
   // spams; notifications only fire when the user enabled them in the monitor.
   useEffect(() => {
-    if (!window.MaerminRiskMonitor || !Object.keys(prices).length) return;
-    try { window.MaerminRiskMonitor.checkAndNotify(portfolio, prices, priceHistory, lookThroughResult); }
+    if (!window.MaerminRiskMonitor || !Object.keys(fetchedPrices).length) return;
+    try { window.MaerminRiskMonitor.checkAndNotify(portfolio, fetchedPrices, priceHistory, lookThroughResult); }
     catch (e) { /* monitoring must never break the app */ }
-  }, [prices]);
+  }, [fetchedPrices]);
 
   // Savings-plan catch-up: when the app opens/unlocks (never in the
   // background), book every due plan execution as a REAL buy transaction.
@@ -403,7 +425,7 @@ function InvestmentTracker() {
   useEffect(() => {
     const EX = window.MaerminSavingsExecutor;
     if (!EX || demoMode) return; // never book the user's plans into demo data
-    const havePrices = Object.keys(prices).length > 0;
+    const havePrices = Object.keys(fetchedPrices).length > 0;
     try {
       const plans = JSON.parse(localStorage.getItem(EX.PLANS_KEY) || '[]');
       if (!Array.isArray(plans) || !plans.length) return;
@@ -411,10 +433,10 @@ function InvestmentTracker() {
       // historical series fetched for savings-plan symbols. That yields a real
       // close at/before each due date, so every buy is priced on its own day.
       const histEff = Object.assign({}, priceHistory, savingsHistory);
-      const accurate = (sym, due) => EX.priceAtDate(histEff, prices, sym, due);
+      const accurate = (sym, due) => EX.priceAtDate(histEff, fetchedPrices, sym, due);
       const resolvePrice = (plan, dueDate) => EX.priceForBackfill
-        ? EX.priceForBackfill(histEff, prices, plan.symbol, dueDate)
-        : EX.priceAtDate(histEff, prices, plan.symbol, dueDate);
+        ? EX.priceForBackfill(histEff, fetchedPrices, plan.symbol, dueDate)
+        : EX.priceAtDate(histEff, fetchedPrices, plan.symbol, dueDate);
 
       let working = transactions;
       // 1) Re-price earlier ESTIMATED auto-executions now that real history exists.
@@ -438,7 +460,7 @@ function InvestmentTracker() {
         addToast(`${out.pending.length} savings-plan execution(s) pending - no price for the symbol yet`, 'warning');
       }
     } catch (e) { console.warn('[SAVINGS] catch-up failed:', e); }
-  }, [prices, transactions, priceHistory, savingsHistory, exchangeRate, demoMode]);
+  }, [fetchedPrices, transactions, priceHistory, savingsHistory, exchangeRate, demoMode]);
 
   // WI-2: interest accrual catch-up for cash / time-deposit Net-Worth accounts.
   // On app open, grow each interest-bearing account's balance (act/365) and book
@@ -616,7 +638,7 @@ function InvestmentTracker() {
       if (Object.keys(histAdd).length) setSavingsHistory(prev => ({ ...prev, ...histAdd }));
       if (Object.keys(priceAdd).length) setPrices(prev => ({ ...prev, ...priceAdd }));
     })();
-  }, [prices, apiKeys, exchangeRate]);
+  }, [fetchedPrices, apiKeys, exchangeRate]);
 
   const showApiSettings = window.MaerminStore.useStore(window.MaerminUI.overlays, s => !!s.apiSettings);
   const setShowApiSettings = (v) => { const n = typeof v === 'function' ? v(showApiSettings) : v; n ? window.MaerminUI.openOverlay('apiSettings') : window.MaerminUI.closeOverlay('apiSettings'); };
@@ -720,12 +742,6 @@ function InvestmentTracker() {
   const portfolioStats = useMemo(
     () => window.MaerminMetrics.computeStats(portfolio, prices),
     [portfolio, prices]
-  );
-
-  // ALL portfolios combined portfolio object — used on Overview in "All" mode.
-  const allPortfoliosPortfolio = useMemo(
-    () => window.MaerminMetrics.buildPositions(transactions, { exchangeRate, fxAt }),
-    [transactions, exchangeRate, fxAt, corpActionsRev]
   );
 
   // ALL portfolios combined totals — used on Overview to show total wealth.
@@ -1098,7 +1114,7 @@ function InvestmentTracker() {
     // is always correct. Falls back to the active portfolio if the combined
     // build is unavailable.
     const pricePortfolio = allPortfoliosPortfolio || portfolio;
-    const newPrices = { ...prices };
+    const newPrices = { ...fetchedPrices };
     const avFallbackSyms = new Set(); // symbols resolved via Alpha Vantage (provenance)
     // ISO-8601 so every consumer (TWR, cash-flow chart, Vorabpauschale prefill,
     // savings-plan pricing) can date the point; the old en-US display string
@@ -1463,6 +1479,7 @@ function InvestmentTracker() {
       // stays old and the badge stays honest. Last-known persists across multiple
       // throttled refreshes because `prices` already holds the carried value.
       const carriedKeys = new Set();
+      const lastKnownSkin = window.MaerminMarket.lastKnownPrices(priceHistory);
       if (pricePortfolio.skins && pricePortfolio.skins.length) {
         pricePortfolio.skins.forEach((s) => {
           const orig = (s.symbol || s.name || '').trim();
@@ -1470,7 +1487,7 @@ function InvestmentTracker() {
           const keyL = orig.toLowerCase();
           const have = (newPrices[orig] > 0) || (newPrices[keyL] > 0);
           if (have) return;
-          const prev = (prices[orig] > 0) ? prices[orig] : (prices[keyL] > 0 ? prices[keyL] : null);
+          const prev = (fetchedPrices[orig] > 0) ? fetchedPrices[orig] : (fetchedPrices[keyL] > 0 ? fetchedPrices[keyL] : (lastKnownSkin[orig] > 0 ? lastKnownSkin[orig] : (lastKnownSkin[keyL] > 0 ? lastKnownSkin[keyL] : null)));
           if (prev != null && prev > 0) {
             newPrices[orig] = prev;
             newPrices[keyL] = prev;
@@ -1550,7 +1567,13 @@ function InvestmentTracker() {
     window.addEventListener('focus', onVisible);
     window.addEventListener('online', onOnline);
     const iv = setInterval(() => maybeRefresh(false), POLL_MS);
+    // First load after unlock: nothing has been fetched this session and no
+    // focus/visibility event fires for an already-focused tab, so the app sat
+    // on last-known prices until the user clicked Refresh. Fetch once, shortly
+    // after mount so the saved Worker URL / API keys are in state.
+    const boot = setTimeout(() => maybeRefresh(true), 600);
     return () => {
+      clearTimeout(boot);
       document.removeEventListener('visibilitychange', onVisible);
       window.removeEventListener('focus', onVisible);
       window.removeEventListener('online', onOnline);
@@ -1625,7 +1648,7 @@ function InvestmentTracker() {
       if (demoMode || !window.MaerminRules) return;
       const rulesState = window.MaerminRules.load();
       if (!rulesState.rules.length) return;
-      const positions = window.MaerminTags ? window.MaerminTags.pricedPositions(transactions, prices) : [];
+      const positions = window.MaerminTags ? window.MaerminTags.pricedPositions(transactions, fetchedPrices) : [];
       const byTag = {};
       if (window.MaerminTags) {
         const agg = window.MaerminTags.aggregate(window.MaerminTags.load(), positions.map(p => ({ symbol: p.symbol, valueEUR: p.valueEUR })));
@@ -1636,7 +1659,7 @@ function InvestmentTracker() {
         const ser = window.MaerminSnapshots.seriesFor(window.MaerminSnapshots.load(), 'all');
         if (ser.length) { let peak = 0; ser.forEach(p => { if (p.v > peak) peak = p.v; }); drop = peak > 0 ? ((peak - ser[ser.length - 1].v) / peak) * 100 : 0; }
       }
-      const ctx = window.MaerminRules.buildContext(positions, { byTag, dropFromPeakPct: drop, prices });
+      const ctx = window.MaerminRules.buildContext(positions, { byTag, dropFromPeakPct: drop, prices: fetchedPrices });
       const seen = notifiedRulesRef.current;
       window.MaerminRules.evaluate(rulesState, ctx).forEach(res => {
         if (res.triggered && !seen[res.rule.id]) {
@@ -1649,7 +1672,7 @@ function InvestmentTracker() {
         }
       });
     } catch (e) { /* notifications are best-effort */ }
-  }, [transactions, prices, demoMode]);
+  }, [transactions, fetchedPrices, demoMode]);
 
   // ========== BACKUP FUNCTIONS ==========
   
@@ -3079,7 +3102,9 @@ function InvestmentTracker() {
         (allPortfoliosPortfolio[cls] || []).forEach((p) => {
           const sym = p.symbol;
           const e = meta[sym] || meta[String(sym).toUpperCase()] || meta[String(sym).toLowerCase()] || {};
-          const px = prices[sym] != null ? prices[sym] : (prices[String(sym).toUpperCase()] != null ? prices[String(sym).toUpperCase()] : p.currentPrice);
+          // A cost-basis fallback is not a price: count it as missing.
+          const px = window.MaerminMarket.isCostFallback(sym) ? null
+            : (prices[sym] != null ? prices[sym] : (prices[String(sym).toUpperCase()] != null ? prices[String(sym).toUpperCase()] : (prices[String(sym).toLowerCase()] != null ? prices[String(sym).toLowerCase()] : p.currentPrice)));
           items.push({ category: cls, price: px, fetchedAt: e.at });
         });
       });
@@ -3417,7 +3442,11 @@ function InvestmentTracker() {
                   )
                 ),
                 React.createElement('td', { style: { textAlign: 'right', padding: '0.85rem 0.75rem', fontFamily: "'Geist Mono', monospace", fontSize: '0.8rem', color: '#cbd3e1' } }, p.amount.toLocaleString(undefined, { maximumFractionDigits: 4 })),
-                React.createElement('td', { style: { textAlign: 'right', padding: '0.85rem 0.75rem', fontFamily: "'Geist', sans-serif", fontSize: '0.82rem', color: currentTheme.text } }, p.price > 0 ? money(p.price) : '—'),
+                React.createElement('td', { style: { textAlign: 'right', padding: '0.85rem 0.75rem', fontFamily: "'Geist', sans-serif", fontSize: '0.82rem', color: currentTheme.text } },
+                  p.price > 0 ? money(p.price) : '—',
+                  // Valued at cost because no quote has ever been fetched for it.
+                  window.MaerminMarket.isCostFallback(p.sym) && React.createElement('div', { 'data-testid': 'no-price', title: 'No market price available yet — valued at cost basis.', style: { fontSize: '0.62rem', color: gray } }, 'no price · at cost')
+                ),
                 React.createElement('td', { style: { textAlign: 'right', padding: '0.85rem 0.75rem', fontFamily: "'Geist', sans-serif", fontSize: '0.85rem', fontWeight: '600', color: currentTheme.text } }, money(p.value)),
                 React.createElement('td', { style: { padding: '0.85rem 1rem' } },
                   React.createElement('div', { style: { display: 'flex', alignItems: 'center', gap: '0.5rem' } },
