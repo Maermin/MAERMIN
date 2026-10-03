@@ -2148,7 +2148,7 @@ function InvestmentTracker() {
       section === 'broker' && (
         window.MaerminFeatures2
           ? React.createElement(window.MaerminFeatures2.BrokerImportWizard, {
-              theme, t, addToast,
+              theme, t, addToast, workerUrl: apiKeys.cs2Worker,
               existing: transactions, // for duplicate detection in the mapping preview
               onImport: (txs) => {
                 const newTxs = txs.map((tx, i) => ({ id: (Date.now()+i).toString(), ...tx }));

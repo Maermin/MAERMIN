@@ -473,8 +473,146 @@
     try { localStorage.setItem(PRESETS_KEY, JSON.stringify(normalizePresets(state))); return true; } catch (e) { return false; }
   }
 
+  // --- ISIN -> priceable ticker ----------------------------------------------
+  // Broker exports identify securities by ISIN, but quotes are fetched per
+  // listing (AAPL, APC.DE, ...). An ISIN left in the symbol field imported fine
+  // and then never got a price. The preview therefore proposes one listing per
+  // ISIN, editable before the import; the ISIN stays on the transaction.
+
+  /** Structural + check-digit (Luhn over the letter-expanded string) ISIN test. */
+  function isISIN(value) {
+    const s = String(value == null ? '' : value).trim().toUpperCase();
+    if (!/^[A-Z]{2}[A-Z0-9]{9}[0-9]$/.test(s)) return false;
+    let digits = '';
+    for (const ch of s) digits += (ch >= 'A' && ch <= 'Z') ? String(ch.charCodeAt(0) - 55) : ch;
+    let sum = 0, dbl = false;
+    for (let i = digits.length - 1; i >= 0; i--) {
+      let d = digits.charCodeAt(i) - 48;
+      if (dbl) { d *= 2; if (d > 9) d -= 9; }
+      sum += d; dbl = !dbl;
+    }
+    return sum % 10 === 0;
+  }
+
+  // Yahoo listing suffix -> quote currency. No suffix = US listing.
+  const SUFFIX_CURRENCY = {
+    DE: 'EUR', F: 'EUR', MU: 'EUR', SG: 'EUR', BE: 'EUR', DU: 'EUR', HM: 'EUR', HA: 'EUR',
+    PA: 'EUR', AS: 'EUR', MI: 'EUR', MC: 'EUR', BR: 'EUR', LS: 'EUR', VI: 'EUR', HE: 'EUR', IR: 'EUR',
+    L: 'GBP', IL: 'USD', SW: 'CHF', ST: 'SEK', CO: 'DKK', OL: 'NOK', TO: 'CAD', V: 'CAD',
+    T: 'JPY', HK: 'HKD', AX: 'AUD', SI: 'SGD', WA: 'PLN', PR: 'CZK'
+  };
+  // Within one currency, prefer the main venue (Xetra before the regional
+  // German floors, Paris/Amsterdam/Milan before nothing in particular).
+  const SUFFIX_RANK = ['DE', 'PA', 'AS', 'MI', 'MC', 'BR', 'VI', 'HE', 'LS', 'IR', 'F', 'SG', 'MU', 'BE', 'DU', 'HM', 'HA'];
+
+  function listingSuffix(symbol) {
+    const m = /\.([A-Z]{1,2})$/.exec(String(symbol || '').toUpperCase());
+    return m ? m[1] : '';
+  }
+  /** Quote currency of a Yahoo symbol, from its exchange suffix (null if unknown). */
+  function listingCurrency(symbol) {
+    const sfx = listingSuffix(symbol);
+    if (!sfx) return String(symbol || '').trim() ? 'USD' : null;
+    return SUFFIX_CURRENCY[sfx] || null;
+  }
+
+  /**
+   * Choose the listing to propose for a trade booked in `tradeCurrency`.
+   * candidates: [{symbol, name, exchange, type, score}] (Worker `yfsearch`).
+   * Same-currency listings win (so price and cost share a currency); among
+   * them the main venue, then Yahoo's score. No same-currency listing -> the
+   * best overall, flagged `currencyMismatch`. -> {symbol,name,currency,currencyMismatch} | null
+   */
+  function pickListing(candidates, tradeCurrency) {
+    const list = (candidates || []).filter((c) => c && c.symbol);
+    if (!list.length) return null;
+    const want = String(tradeCurrency || 'EUR').toUpperCase();
+    const rank = (c) => { const i = SUFFIX_RANK.indexOf(listingSuffix(c.symbol)); return i === -1 ? SUFFIX_RANK.length : i; };
+    const byPref = (a, b) => (rank(a) - rank(b)) || ((b.score || 0) - (a.score || 0));
+    const same = list.filter((c) => listingCurrency(c.symbol) === want).sort(byPref);
+    const best = same[0] || list.slice().sort((a, b) => (b.score || 0) - (a.score || 0))[0];
+    return {
+      symbol: String(best.symbol).toUpperCase(), name: best.name || '',
+      currency: listingCurrency(best.symbol), currencyMismatch: !same.length
+    };
+  }
+
+  /** Distinct ISINs in the symbol field, each with the trade currency most used for it. */
+  function collectIsins(transactions) {
+    const by = {};
+    (transactions || []).forEach((tx) => {
+      const sym = String((tx && tx.symbol) || '').toUpperCase();
+      if (!isISIN(sym)) return;
+      const cur = String(tx.currency || 'EUR').toUpperCase();
+      by[sym] = by[sym] || {};
+      by[sym][cur] = (by[sym][cur] || 0) + 1;
+    });
+    return Object.keys(by).map((isin) => ({
+      isin, currency: Object.keys(by[isin]).sort((a, b) => by[isin][b] - by[isin][a])[0]
+    }));
+  }
+
+  /**
+   * Rewrite a preview with the chosen tickers. tickerMap: { ISIN: 'TICKER' | {symbol,name} }.
+   * Mapped rows get symbol = ticker and keep `isin`; rows whose ISIN has no
+   * ticker stay as they are and are flagged `unresolvedIsin`. Duplicates are
+   * re-detected against `existing` under the ticker AND under the ISIN (rows
+   * imported before this feature carry the ISIN as their symbol).
+   */
+  function applyTickerMap(prev, tickerMap, existing) {
+    tickerMap = tickerMap || {};
+    const seen = new Set((existing || []).map(dupKey));
+    let unresolved = 0, mapped = 0, duplicates = 0;
+    const transactions = (prev.transactions || []).map((tx) => {
+      const isin = String(tx.isin || tx.symbol || '').toUpperCase();
+      const out = Object.assign({}, tx);
+      delete out.unresolvedIsin;
+      if (isISIN(isin)) {
+        const pick = tickerMap[isin];
+        const ticker = String((pick && typeof pick === 'object' ? pick.symbol : pick) || '').trim().toUpperCase();
+        out.isin = isin;
+        if (ticker && !isISIN(ticker)) {
+          out.symbol = ticker; mapped++;
+          if (pick && typeof pick === 'object' && pick.name) out.symbolName = pick.name;
+        } else { out.symbol = isin; out.unresolvedIsin = true; unresolved++; }
+      }
+      const keyTicker = dupKey(out);
+      const keyIsin = out.isin ? dupKey(Object.assign({}, out, { symbol: out.isin })) : keyTicker;
+      out.duplicate = seen.has(keyTicker) || seen.has(keyIsin);
+      if (out.duplicate) duplicates++;
+      seen.add(keyTicker); // also dedupe within the batch
+      return out;
+    });
+    return Object.assign({}, prev, {
+      transactions, duplicates,
+      stats: Object.assign({}, prev.stats, { duplicates, isinMapped: mapped, isinUnresolved: unresolved })
+    });
+  }
+
+  /**
+   * Look up listings for each ISIN through the Worker's symbol search.
+   * -> Promise<{ ISIN: [{symbol,name,exchange,type,score}] }> ([] on any failure).
+   * fetchFn is injectable for tests.
+   */
+  function resolveIsins(isins, opts) {
+    opts = opts || {};
+    const base = String(opts.workerBase || '').trim().replace(/\/$/, '');
+    const fetchFn = opts.fetch || (typeof fetch !== 'undefined' ? fetch : null);
+    const out = {};
+    const list = (isins || []).map((x) => (typeof x === 'string' ? x : x && x.isin)).filter(Boolean);
+    if (!base || !fetchFn || !list.length) { list.forEach((i) => { out[i] = []; }); return Promise.resolve(out); }
+    return list.reduce((chain, isin) => chain.then(() =>
+      fetchFn(base + '?action=yfsearch&q=' + encodeURIComponent(isin) + '&type=stock')
+        .then((r) => (r && r.ok ? r.json() : []))
+        .then((rows) => { out[isin] = Array.isArray(rows) ? rows : []; })
+        .catch(() => { out[isin] = []; })
+    ), Promise.resolve()).then(() => out);
+  }
+
   const api = {
     FIELDS, REQUIRED, BROKERS,
+    // ISIN -> ticker
+    isISIN, listingCurrency, pickListing, collectIsins, applyTickerMap, resolveIsins,
     detectBroker, suggestMapping, applyMapping, findDuplicates,
     parseNumber, parseDate, normalizeType, normalizeSymbol, parseCSV,
     preview, commit,
