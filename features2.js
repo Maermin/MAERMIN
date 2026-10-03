@@ -545,19 +545,20 @@ const BROKERS = [
   { id: 'generic',            name: 'Other / Manual',       hint: 'MAERMIN standard CSV / JSON',  category: 'Other' },
 ];
 
-function BrokerImportWizard({ theme, t, addToast, onImport, existing }) {
+function BrokerImportWizard({ theme, t, addToast, onImport, existing, workerUrl }) {
   const [step, setStep]             = useState(0);
   const [selectedBroker, setBroker] = useState(null);
   const [rawData, setRawData]       = useState('');
   const [parsed, setParsed]         = useState([]);
   const [fileName, setFileName]     = useState('');
+  const [importedCount, setImportedCount] = useState(0);
   const fileRef = useRef();
 
   // ── Smart mapping preview (window.MaerminImportMapping) ───────────────────
   // mp = { headers, broker, mapping, transactions(dup-flagged), errors, stats }.
   // mapping is user-editable; editing re-runs preview() so the table, errors and
   // duplicate count update live before anything is imported.
-  const [mp, setMp]                 = useState(null);
+  const [mpRaw, setMp]              = useState(null);
   const [mapping, setMapping]       = useState(null);
   const [includeDupes, setIncludeDupes] = useState(false);
   const [showErrors, setShowErrors] = useState(false);
@@ -569,6 +570,43 @@ function BrokerImportWizard({ theme, t, addToast, onImport, existing }) {
   const [selectedPreset, setSelectedPreset] = useState('');
 
   const catHint = /crypto/i.test((BROKERS.find(b => b.id === selectedBroker) || {}).category || '') ? 'crypto' : undefined;
+
+  // ── ISIN → ticker (MaerminImportMapping.applyTickerMap) ──────────────────
+  // Broker files carry ISINs; quotes need a listing. For every ISIN in the
+  // preview the Worker's symbol search is asked for its listings and the one
+  // matching the trade currency is proposed. isinPicks holds the (editable)
+  // choice per ISIN; `mp` is the preview with those tickers applied, so the
+  // table, the duplicate check and the import all see the final symbols.
+  const [isinPicks, setIsinPicks]   = useState({});   // { ISIN: { symbol, name, currencyMismatch } }
+  const [isinCands, setIsinCands]   = useState({});   // { ISIN: [candidates] }
+  const [isinBusy, setIsinBusy]     = useState(false);
+  const isinList = useMemo(() => {
+    const IM = window.MaerminImportMapping;
+    return (IM && IM.collectIsins && mpRaw) ? IM.collectIsins(mpRaw.transactions) : [];
+  }, [mpRaw]);
+  const isinKey = isinList.map(x => x.isin + ':' + x.currency).join(',');
+  useEffect(() => {
+    const IM = window.MaerminImportMapping;
+    if (!IM || !isinList.length) { setIsinPicks({}); setIsinCands({}); setIsinBusy(false); return; }
+    let cancelled = false;
+    setIsinBusy(true);
+    IM.resolveIsins(isinList, { workerBase: workerUrl }).then(found => {
+      if (cancelled) return;
+      const picks = {};
+      isinList.forEach(x => { const p = IM.pickListing(found[x.isin], x.currency); if (p) picks[x.isin] = p; });
+      setIsinCands(found);
+      // Keep anything the user already chose for an ISIN that is still present.
+      setIsinPicks(prev => { const next = Object.assign({}, picks); Object.keys(prev).forEach(k => { if (prev[k] && prev[k].manual && found[k] !== undefined) next[k] = prev[k]; }); return next; });
+      setIsinBusy(false);
+    });
+    return () => { cancelled = true; };
+  }, [isinKey, workerUrl]);
+  const setIsinTicker = (isin, symbol, name) => setIsinPicks(prev => Object.assign({}, prev, { [isin]: { symbol: String(symbol || '').trim().toUpperCase(), name: name || '', manual: true } }));
+  const mp = useMemo(() => {
+    const IM = window.MaerminImportMapping;
+    if (!mpRaw || !isinList.length || !IM || !IM.applyTickerMap) return mpRaw;
+    return IM.applyTickerMap(mpRaw, isinPicks, existing || []);
+  }, [mpRaw, isinPicks, isinKey, existing]);
 
   // Build the preview whenever fresh raw data arrives (auto-detects broker +
   // column mapping). Editing the mapping goes through updateMapping() instead, so
@@ -601,6 +639,7 @@ function BrokerImportWizard({ theme, t, addToast, onImport, existing }) {
     const out = IM.commit(mp, { includeDuplicates: includeDupes });
     if (!out.transactions.length) { addToast && addToast('Nothing to import', 'warning'); return; }
     onImport && onImport(out.transactions);
+    setImportedCount(out.transactions.length);
     setStep(3);
     addToast && addToast(`${out.transactions.length} transactions imported${out.skipped ? ` · ${out.skipped} duplicate(s) skipped` : ''}`, 'success');
   };
@@ -702,11 +741,11 @@ function BrokerImportWizard({ theme, t, addToast, onImport, existing }) {
     if (!rawData || !selectedBroker || selectedBroker === 'getquin') return;
     try {
       const txs = parseByBroker(rawData, selectedBroker);
-      if (Array.isArray(txs) && txs.length > 0) {
-        setParsed(txs);
-      } else {
-        addToast && addToast('No transactions detected — wrong format?', 'warning');
-      }
+      // No toast when this legacy parser finds nothing: the mapping preview
+      // above is the real pipeline and reports its own result ("✓ N valid"),
+      // so a "No transactions detected" toast next to it was contradictory.
+      // The step-2 paste fallback still says so when BOTH found nothing.
+      setParsed(Array.isArray(txs) ? txs : []);
     } catch(e) {
       console.error('[IMPORT] Parse error:', e);
       addToast && addToast('Parsing error: ' + e.message, 'error');
@@ -716,6 +755,7 @@ function BrokerImportWizard({ theme, t, addToast, onImport, existing }) {
   const doImport = () => {
     if (!parsed.length) return;
     onImport && onImport(parsed);
+    setImportedCount(parsed.length);
     setStep(3);
     addToast && addToast(`${parsed.length} transactions imported`, 'success');
   };
@@ -950,6 +990,39 @@ function BrokerImportWizard({ theme, t, addToast, onImport, existing }) {
             )
           ),
 
+          // ISIN → ticker: one row per ISIN with the proposed listing, editable.
+          isinList.length > 0 && React.createElement('div', { 'data-testid': 'isin-map', style: { background: theme.card, border: `1px solid ${theme.cardBorder}`, borderRadius: '10px', padding: '0.9rem', marginBottom: '0.9rem' } },
+            React.createElement('div', { style: { color: theme.textSecondary, fontSize: '0.72rem', fontWeight: '700', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: '0.3rem' } }, 'ISIN → ticker'),
+            React.createElement('div', { style: { color: theme.textSecondary, fontSize: '0.76rem', lineHeight: 1.5, marginBottom: '0.6rem' } },
+              isinBusy ? 'Looking up listings…'
+                : 'Prices are fetched per listing, so each ISIN needs a ticker. Proposed: the listing in the trade currency. Change it if it is not the one you hold.'),
+            isinList.map(x => {
+              const pick = isinPicks[x.isin] || {};
+              const cands = isinCands[x.isin] || [];
+              const inCands = cands.some(c => String(c.symbol).toUpperCase() === pick.symbol);
+              return React.createElement('div', { key: x.isin, style: { display: 'grid', gridTemplateColumns: 'minmax(120px, 150px) minmax(140px, 1fr) minmax(110px, 140px)', gap: '0.5rem', alignItems: 'center', marginBottom: '0.4rem', fontSize: '0.78rem' } },
+                React.createElement('span', { style: { color: theme.text, fontFamily: 'monospace' } }, x.isin, React.createElement('span', { style: { color: theme.textSecondary } }, ' · ' + x.currency)),
+                React.createElement('select', {
+                  'aria-label': 'Listing for ' + x.isin, value: inCands ? pick.symbol : '',
+                  onChange: e => { const c = cands.find(k => String(k.symbol).toUpperCase() === e.target.value); if (c) setIsinTicker(x.isin, c.symbol, c.name); },
+                  disabled: !cands.length,
+                  style: { padding: '0.4rem 0.5rem', minHeight: '40px', background: theme.inputBg, border: `1px solid ${theme.inputBorder}`, borderRadius: '6px', color: theme.text, fontSize: '0.78rem', width: '100%' }
+                },
+                  React.createElement('option', { value: '' }, cands.length ? ((pick.symbol && !inCands) ? 'other: ' + pick.symbol : '— choose a listing —') : (isinBusy ? 'searching…' : (workerUrl ? 'no listing found' : 'needs a Worker URL'))),
+                  cands.map(c => React.createElement('option', { key: c.symbol, value: String(c.symbol).toUpperCase() }, `${c.symbol} — ${c.name || ''}${c.exchange ? ' (' + c.exchange + ')' : ''}`))
+                ),
+                React.createElement('input', {
+                  'aria-label': 'Ticker for ' + x.isin, placeholder: 'ticker', value: pick.symbol || '',
+                  onChange: e => setIsinTicker(x.isin, e.target.value, ''),
+                  style: { padding: '0.4rem 0.5rem', minHeight: '40px', background: theme.inputBg, border: `1px solid ${pick.symbol ? theme.inputBorder : '#ef4444'}`, borderRadius: '6px', color: theme.text, fontSize: '0.78rem', width: '100%', boxSizing: 'border-box' }
+                }),
+                pick.currencyMismatch && React.createElement('span', { style: { gridColumn: '1 / -1', color: '#f59e0b', fontSize: '0.72rem' } }, `No ${x.currency} listing found — ${pick.symbol} is quoted in another currency. Its price is converted, so P&L will include the exchange-rate move.`)
+              );
+            }),
+            (!isinBusy && mp.stats.isinUnresolved > 0) && React.createElement('div', { role: 'status', 'data-testid': 'isin-unresolved', style: { color: '#ef4444', fontSize: '0.76rem', marginTop: '0.4rem' } },
+              `${mp.stats.isinUnresolved} row(s) have no ticker yet. They would be imported under their ISIN and stay without a price — enter a ticker above.`)
+          ),
+
           // Currencies that can't be converted exactly (see MaerminFxHistory.txToEUR).
           currencyNotice(mp.transactions),
 
@@ -983,7 +1056,10 @@ function BrokerImportWizard({ theme, t, addToast, onImport, existing }) {
                     React.createElement('td', { style: { padding: '0.5rem 0.875rem' } },
                       React.createElement('span', { style: { padding: '0.125rem 0.375rem', borderRadius: '3px', fontSize: '0.7rem', fontWeight: '700', background: tx.type === 'buy' ? 'rgba(34,197,94,0.15)' : tx.type === 'sell' ? 'rgba(239,68,68,0.15)' : 'rgba(139,124,255,0.15)', color: tx.type === 'buy' ? '#22c55e' : tx.type === 'sell' ? '#ef4444' : theme.accent } }, (tx.type || '').toUpperCase())
                     ),
-                    React.createElement('td', { style: { padding: '0.5rem 0.875rem', color: theme.text, fontWeight: '600' } }, tx.symbol || '—'),
+                    React.createElement('td', { style: { padding: '0.5rem 0.875rem', color: tx.unresolvedIsin ? '#ef4444' : theme.text, fontWeight: '600' } },
+                      tx.symbol || '—',
+                      (tx.isin && !tx.unresolvedIsin) && React.createElement('div', { style: { color: theme.textSecondary, fontWeight: '400', fontSize: '0.68rem', fontFamily: 'monospace' } }, tx.isin),
+                      tx.unresolvedIsin && React.createElement('div', { style: { fontWeight: '400', fontSize: '0.68rem' } }, 'no ticker')),
                     React.createElement('td', { style: { padding: '0.5rem 0.875rem', color: theme.text, textAlign: 'right' } }, tx.quantity?.toFixed?.(4) || '—'),
                     React.createElement('td', { style: { padding: '0.5rem 0.875rem', color: theme.text, textAlign: 'right' } }, tx.price?.toFixed?.(2) || '—'),
                     React.createElement('td', { style: { padding: '0.5rem 0.875rem', color: theme.textSecondary, textAlign: 'right' } }, tx.fees?.toFixed?.(2) || '0.00'),
@@ -1009,7 +1085,7 @@ function BrokerImportWizard({ theme, t, addToast, onImport, existing }) {
     step === 3 && React.createElement('div', { style: { textAlign: 'center', padding: '3rem' } },
       React.createElement('div', { style: { fontSize: '2rem', marginBottom: '1rem', color: '#22c55e' } }, '✓'),
       React.createElement('h3', { style: { color: theme.text, fontSize: '1.25rem', fontWeight: '700', marginBottom: '0.5rem' } }, 'Import successful!'),
-      React.createElement('p', { style: { color: theme.textSecondary, marginBottom: '1.5rem' } }, `${parsed.length} transactions were added.`),
+      React.createElement('p', { style: { color: theme.textSecondary, marginBottom: '1.5rem' } }, `${importedCount} transactions were added.`),
       btn('Start a new import', reset, true)
     )
   );
