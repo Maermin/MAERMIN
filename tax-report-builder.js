@@ -220,9 +220,12 @@
     var currencyConversions = txs.filter(function (tx) { return tx.currency && tx.currency !== base && inYear(tx.date); })
       .map(function (tx) {
         var orig = num(tx.quantity) * num(tx.price);
-        var txRate = (fxAt && tx.date) ? (fxAt(tx.date) || rate) : rate;
+        // The rate actually applied to THIS currency on that date (the USD
+        // rate was printed for every currency, e.g. next to a CHF trade).
+        var baseAmount = toBase(orig, tx.currency, rate, tx.date, fxAt);
+        var txRate = orig ? baseAmount / orig : toBase(1, tx.currency, rate, tx.date, fxAt);
         return { date: ymd(tx.date), symbol: (tx.symbol || '').toUpperCase(), currency: tx.currency,
-          originalAmount: orig, rate: txRate, baseAmount: toBase(orig, tx.currency, rate, tx.date, fxAt) };
+          originalAmount: orig, rate: txRate, baseAmount: baseAmount };
       });
 
     // Transaction summary — counts by type in the year.
@@ -485,7 +488,7 @@
     if (report.realizedLosses.length) { y = table('3. Realized Capital Losses', lotHead, lots(report.realizedLosses), y); }
     if (report.dividends.length) { doc.addPage(); y = table('4. Dividend Income', ['Symbol', 'Date', 'Gross', 'Withholding', 'Cur'], report.dividends.map(function (d) { return [d.symbol, d.date, money(d.gross, ''), money(d.withholding, ''), d.currency]; }), 20); }
     if (report.interest.length) { y = table('5. Interest Income', ['Source', 'Date', 'Amount'], report.interest.map(function (i) { return [i.source, i.date, money(i.amount, '')]; }), y); }
-    if (report.currencyConversions.length) { doc.addPage(); y = table('8. Currency Conversion Details', ['Date', 'Symbol', 'Cur', 'Original', 'Rate', 'Base'], report.currencyConversions.map(function (c) { return [c.date, c.symbol, c.currency, c.originalAmount.toFixed(2), c.rate.toFixed(4), money(c.baseAmount, '')]; }), 20); }
+    if (report.currencyConversions.length) { doc.addPage(); y = table('8. Currency Conversion Details', ['Date', 'Symbol', 'Cur', 'Original', 'Rate', 'Base'], report.currencyConversions.map(function (c) { return [c.date, c.symbol, c.currency, c.originalAmount.toFixed(2), (c.rate >= 0.1 ? c.rate.toFixed(4) : c.rate.toPrecision(4)), money(c.baseAmount, '')]; }), 20); }
     var txRows = Object.keys(report.transactionSummary).map(function (k) { return [k, String(report.transactionSummary[k])]; });
     if (txRows.length) { y = table('9. Transaction Summary', ['Type', 'Count'], txRows, y); }
     if (report.openPositions.length) { doc.addPage(); y = table('10. Open Positions Overview', ['Symbol', 'Class', 'Qty', 'Cost', 'Value', 'Unrealized'], report.openPositions.map(function (p) { return [p.symbol, p.category, p.quantity.toFixed(4), money(p.costBasis, ''), money(p.marketValue, ''), money(p.unrealized, '')]; }), 20); }

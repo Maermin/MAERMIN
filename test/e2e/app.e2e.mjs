@@ -12,6 +12,9 @@
 //   3. Tax view: KPIs, year switch keeps the tab, PDF export (lazy jsPDF)
 //   4. upgrade path: year-less price points + plaintext v10 store + schema 3
 //      -> migration v4 and plaintext adoption after unlock
+//   6. other trade currencies: a CHF buy is costed at the CHF rate of its date.
+//      The rates come through the REAL cf-worker/worker.js, run in this process;
+//      only its upstream (Yahoo) is a synthetic fixture.
 //
 // Offline by design: React is served from node_modules (same bytes as the
 // pinned unpkg URL, so SRI still verifies); every other external request is
@@ -68,6 +71,7 @@ async function wire(context, external) {
   await context.route('**/*', (route) => {
     const url = route.request().url();
     if (url.startsWith('http://127.0.0.1')) return route.continue();
+    if (url.startsWith(FX_WORKER)) return answerFromFxWorker(route);
     if (LOCAL[url]) return route.fulfill({ path: LOCAL[url], headers: { 'Access-Control-Allow-Origin': '*', 'Content-Type': 'application/javascript' } });
     if (JSPDF[url]) {
       if (JSPDF_DIR && existsSync(join(JSPDF_DIR, JSPDF[url]))) {
@@ -83,6 +87,40 @@ async function wire(context, external) {
     external.push(route.request().method() + ' ' + url.split('?')[0]);
     return route.abort();
   });
+}
+
+// ---- the real Worker for the currency scenario (synthetic Yahoo upstream) -----
+const FX_WORKER = 'https://maermin-fx-e2e.workers.dev';
+const fxWorker = await import('../../cf-worker/worker.js');
+const fxCalls = [];
+{
+  const cacheMap = new Map();
+  globalThis.caches = globalThis.caches || { default: {
+    match: async (req) => { const b = cacheMap.get(req.url); return b === undefined ? undefined : new Response(b); },
+    put: async (req, resp) => { cacheMap.set(req.url, await resp.text()); } } };
+  const realFetch = globalThis.fetch;
+  globalThis.fetch = async (input, init) => {
+    const u = String(input && input.url ? input.url : input);
+    const m = u.match(/query1\.finance\.yahoo\.com\/v8\/finance\/chart\/([^?]+)/);
+    if (!m || !FX_FIXTURE[decodeURIComponent(m[1])]) return m ? new Response('{}', { status: 404 }) : realFetch(input, init);
+    const f = FX_FIXTURE[decodeURIComponent(m[1])];
+    // one close per day for the last 800 days
+    const days = []; for (let i = 800; i >= 0; i--) days.push(Math.floor(Date.now() / 1000) - i * 86400);
+    return new Response(JSON.stringify({ chart: { result: [{ meta: { currency: f.currency }, timestamp: days, indicators: { quote: [{ close: days.map((t) => (typeof f.close === 'function' ? f.close(new Date(t * 1000).toISOString().slice(0, 10)) : f.close)) }] } }] } }), { status: 200 });
+  };
+}
+const FX_TRADE_DAY = new Date(Date.now() - 300 * 86400000).toISOString().slice(0, 10);
+const FX_FIXTURE = {
+  // 1 CHF = 1.06 EUR up to and including the trade day, 1.10 EUR from the next day on:
+  // taking the following day's (or the latest) rate would show.
+  'EURCHF=X': { currency: 'CHF', close: (d) => (d <= FX_TRADE_DAY ? 1 / 1.06 : 1 / 1.10) },
+  'EURUSD=X': { currency: 'USD', close: 1 / 0.9 }
+};
+async function answerFromFxWorker(route) {
+  const rq = route.request();
+  fxCalls.push(decodeURIComponent(rq.url().slice(FX_WORKER.length)));
+  const res = await fxWorker.default.fetch(new Request(rq.url(), { method: rq.method(), body: rq.method() === 'GET' ? undefined : rq.postData() }), {}, { waitUntil() {} });
+  return route.fulfill({ status: res.status, headers: { 'access-control-allow-origin': '*', 'content-type': 'application/json' }, body: await res.text() });
 }
 
 // ---- helpers ----------------------------------------------------------------
@@ -283,6 +321,57 @@ async function runBuild(browser, label, dir) {
     ok('year-less price points repaired to ISO', (r.hist.btc || []).length === 2 && r.hist.btc.every((p) => /^\d{4}-\d{2}-\d{2}T/.test(p.timestamp)), JSON.stringify(r.hist));
     ok('plaintext v10 store adopted into the vault', /Mustermann/.test(r.owner || '') && r.rawOwner === null && r.leak.length === 0, JSON.stringify({ rawOwner: r.rawOwner, leak: r.leak }));
     ok('no page errors in the upgrade session', errors.length === 0, errors.join(' | '));
+    await context.close();
+  }
+
+  // 6: a trade in another currency is converted at the rate of its date
+  {
+    const context = await browser.newContext({ serviceWorkers: 'block' });
+    await wire(context, external);
+    const page = await context.newPage();
+    const errors = watch(page);
+    fxCalls.length = 0;
+    const tradeDay = FX_TRADE_DAY;
+    await createVault(page, base);
+    await page.evaluate(({ day, worker }) => {
+      // today's cross rate would give 1 CHF = 1.00 EUR (0.9 / 0.9); the rate of the date is 1.06
+      localStorage.setItem('transactions', JSON.stringify([
+        { id: 'c1', type: 'buy', category: 'stocks', symbol: 'NESN.SW', quantity: 10, price: 100, fees: 20, currency: 'CHF', date: day, portfolioId: 'default' }]));
+      localStorage.setItem('apiKeys', JSON.stringify({ cs2Worker: worker }));
+    }, { day: tradeDay, worker: FX_WORKER });
+    await page.waitForTimeout(1500);
+    // open.er-api fixture has no CHF: add it for this session (CHF per USD = EUR per USD)
+    await context.route('https://open.er-api.com/**', (route) => route.fulfill({ headers: { 'Access-Control-Allow-Origin': '*', 'Content-Type': 'application/json' }, body: JSON.stringify({ result: 'success', rates: { EUR: 0.9, USD: 1, CHF: 0.9 } }) }));
+    await unlock(page, base);
+    await page.waitForTimeout(3000);
+    ok('CHF history requested through the Worker (?action=yf, EURCHF=X)', fxCalls.some((u) => /action=yf&symbol=EURCHF=X&interval=1d&range=1y/.test(u)), fxCalls.join(' '));
+    const st = await page.evaluate(`(() => { const R = ${RAW}; const F = window.MaerminFxHistory;
+      return { rate: F.currencyRateAt('CHF', '${tradeDay}'), status: F.txToEUR(1, 'CHF', '${tradeDay}', 0.9).status, raw: R.get('maermin_fx_currencies'), stored: !!localStorage.getItem('maermin_fx_currencies') }; })()`);
+    ok('rate of the trade date is stored (1 CHF = 1.06 EUR), encrypted', Math.abs(st.rate - 1.06) < 1e-6 && st.status === 'exact' && st.stored && st.raw === null, JSON.stringify(st));
+    await openView(page, 'returns');
+    await page.waitForTimeout(1200);
+    { const rb = await page.innerText('body');
+      // 10 x 100 CHF + 20 CHF fee = 1,020 CHF x 1.06 = 1,081.20 EUR (today's rate would give 1,020.00)
+      ok('CHF buy is costed at the rate of its date: invested 1,081.20 €', /INVESTED\s*1,081\.20/i.test(rb), (rb.match(/INVESTED[\s\S]{0,40}/i) || [''])[0].replace(/\n/g, ' | ')); }
+    // The price refresh for NESN.SW is still probing listings here (the fixture
+    // has no quote for it), and a navigation click that coincides with one of
+    // its re-renders can be lost: click until the view is active.
+    for (let i = 0; i < 3 && !(await page.locator('nav.maermin-sidebar [data-view="transactions"][aria-current="page"]').count()); i++) {
+      await openView(page, 'transactions');
+      await page.waitForTimeout(700);
+    }
+    { const tb = await page.innerText('body'); const at = tb.search(/CHF|nesn/i);
+      ok('Transactions list shows the CHF trade and the Data check has no entry for it', at !== -1 && (await page.locator('[data-testid="ledger-issues"]').count()) === 0, tb.slice(tb.indexOf('Quick access'), tb.indexOf('Quick access') + 500).replace(/\n/g, ' | ')); }
+    // Add-transaction dialog: CHF is selectable and the rate of the chosen date is shown
+    await page.keyboard.press('n');
+    const sel = page.locator('[data-testid="tx-currency-other"]');
+    await sel.waitFor({ timeout: 5000 });
+    await sel.selectOption('CHF');
+    await page.locator('input[type=date]').first().fill(tradeDay);
+    await page.waitForTimeout(300);
+    { const hint = await page.locator('[data-testid="tx-currency-hint"]').innerText().catch(() => '');
+      ok('transaction dialog offers CHF and shows the rate of the trade date', hint.includes('1 CHF = 1.0600 EUR on ' + tradeDay), hint); }
+    ok('no page errors in the currency session', errors.length === 0, errors.join(' | '));
     await context.close();
   }
 

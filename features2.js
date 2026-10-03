@@ -776,9 +776,10 @@ function BrokerImportWizard({ theme, t, addToast, onImport, existing, workerUrl 
 
   const steps = ['Select source', 'Load file', 'Preview', 'Done'];
 
-  // Warn before importing rows whose currency has no exact EUR conversion:
-  // other fiat (CHF, GBP, ...) uses today's rate for every date; a currency
-  // with no rate at all (e.g. a BTC or BNB quote) would be counted as EUR.
+  // Say before importing how rows in another currency will be converted:
+  // CHF, GBP & co. at the rate of each trade date (loaded through the Worker
+  // after the import); a currency with no rate at all (e.g. a BTC or BNB
+  // quote) would be counted as EUR.
   const currencyNotice = (txs) => {
     const FXH = window.MaerminFxHistory;
     const rep = (FXH && FXH.currencyReport) ? FXH.currencyReport(txs) : [];
@@ -789,7 +790,9 @@ function BrokerImportWizard({ theme, t, addToast, onImport, existing, workerUrl 
         React.createElement('strong', null, r.count + ' row(s) in ' + r.currency + ': '),
         r.status === 'unknown'
           ? 'no exchange rate - these amounts would be counted as EUR. Fix the currency column (or the source file) before importing.'
-          : 'converted with today\'s ' + r.currency + ' rate for every date (only USD has a per-day history).')));
+          : r.status === 'history'
+            ? 'will be converted at the ' + r.currency + ' rate of each trade date. The rates are loaded through your Worker after the import; until then (or without a Worker) today\'s rate is used and the Data check lists them.'
+            : 'converted with today\'s ' + r.currency + ' rate for every date (no daily history for this currency).')));
   };
 
   // Group brokers by category

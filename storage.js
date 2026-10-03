@@ -84,6 +84,7 @@
     'maermin_ter_overrides',      // held fund symbols
     'maermin_tax_owner',          // taxpayer name + TAX ID
     'maermin_fmp_api_key',        // legacy: FMP integration removed; kept so an old stored key stays encrypted
+    'maermin_fx_currencies',      // daily EUR rates of the currencies traded (fx-history.js): which, and since when; device-local, not synced
     'maermin_sync_base'           // per-key sync merge base (hashes of the above)
   ];
   var sensitiveSet = {};

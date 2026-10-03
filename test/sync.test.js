@@ -84,6 +84,10 @@ function MemTransport() {
   const transport = MemTransport();
   Sync.configure({ transport });
   await Storage.enableAtRest(); // sync reads via snapshotPlaintext (works at-rest or not)
+  // The currency rate history is a per-device cache: encrypted, never synced.
+  localStorage.setItem('maermin_fx_currencies', JSON.stringify({ v: 1, cur: { CHF: { req: '2024-01-01', at: 1, d: [19800], r: [1.05] } } }));
+  ok('currency history is a sensitive (encrypted) key', Storage.isSensitive('maermin_fx_currencies'));
+  ok('currency history is not in the sync snapshot', Sync.buildSnapshot().data.maermin_fx_currencies === undefined && Sync.buildSnapshot().data.transactions !== undefined);
   let r = await Sync.sync();
   ok('first sync pushes (rev 1)', r.ok && r.rev === 1 && transport._peek().rev === 1);
 

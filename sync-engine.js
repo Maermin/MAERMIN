@@ -120,6 +120,7 @@
   // low-entropy value (e.g. the church-tax rate) could be brute-forced. It is
   // device-local bookkeeping, so it is excluded from the synced snapshot.
   var BASE_KEY = 'maermin_sync_base';
+  var FX_CURRENCIES_KEY = 'maermin_fx_currencies';
   function loadBase() {
     try { var b = JSON.parse(lsGet(BASE_KEY) || 'null'); return (b && typeof b === 'object') ? b : null; } catch (e) { return null; }
   }
@@ -163,6 +164,10 @@
   function buildSnapshot() {
     var data = Storage && Storage.snapshotPlaintext ? Storage.snapshotPlaintext() : {};
     if (data && data[BASE_KEY] !== undefined) { data = Object.assign({}, data); delete data[BASE_KEY]; }
+    // The currency rate history is a re-fetchable cache each device keeps for
+    // itself: synced as one key, two devices would overwrite each other's
+    // currencies (whole-key last-write-wins).
+    if (data && data[FX_CURRENCIES_KEY] !== undefined) { data = Object.assign({}, data); delete data[FX_CURRENCIES_KEY]; }
     return { v: 1, updatedAt: Date.now(), device: deviceId(), data: data };
   }
   function snapshotHash(snapshot) {
