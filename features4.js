@@ -79,7 +79,7 @@ function usePortfolios() {
   return { portfolios, activePortfolioId, setActivePortfolioId, addPortfolio, removePortfolio, renamePortfolio };
 }
 
-function PortfolioManagerView({ portfolios, activePortfolioId, transactions, prices, theme, formatPrice, getCurrencySymbol,
+function PortfolioManagerView({ portfolios, activePortfolioId, transactions, prices, exchangeRate, fxAt, corpActionsRev, theme, formatPrice, getCurrencySymbol,
   setActivePortfolioId, addPortfolio, removePortfolio, renamePortfolio }) {
 
   const [newName, setNewName]   = useState('');
@@ -89,28 +89,16 @@ function PortfolioManagerView({ portfolios, activePortfolioId, transactions, pri
 
   const COLORS = ['#8b7cff','#3b82f6','#22c55e','#f59e0b','#ef4444','#06b6d4','#f97316','#ec4899'];
 
-  // Value per portfolio
+  // Value per portfolio — from the shared positions engine (MaerminMetrics), the
+  // same numbers the Overview shows for that portfolio. The former local loop
+  // subtracted the quantity of EVERY non-buy (so one booked dividend removed
+  // the whole position), ignored FX and never reduced "invested" on a sale.
   const portfolioStats = useMemo(() => {
-    return portfolios.map(p => {
-      const txs = transactions.filter(tx => (tx.portfolioId || 'default') === p.id);
-      const holdings = {};
-      txs.forEach(tx => {
-        const key = (tx.symbol || '').toLowerCase();
-        if (!holdings[key]) holdings[key] = { amount: 0, invested: 0, sym: tx.symbol };
-        const qty = parseFloat(tx.quantity) || 0;
-        const price = parseFloat(tx.price) || 0;
-        if (tx.type === 'buy') { holdings[key].amount += qty; holdings[key].invested += qty * price; }
-        else { holdings[key].amount -= qty; }
-      });
-      let value = 0, invested = 0;
-      Object.values(holdings).forEach(h => {
-        const pr = prices[h.sym] || prices[(h.sym || '').toLowerCase()] || 0;
-        value += Math.max(0, h.amount) * pr;
-        invested += h.invested;
-      });
-      return { ...p, value, invested, txCount: txs.length, pnl: value - invested, pnlPct: invested > 0 ? (value - invested) / invested * 100 : 0 };
-    });
-  }, [portfolios, transactions, prices]);
+    const totals = window.MaerminMetrics.computePortfolioTotals(portfolios, transactions, prices, { exchangeRate, fxAt });
+    const byId = {};
+    totals.forEach(t => { byId[t.id] = t; });
+    return portfolios.map(p => ({ ...p, ...(byId[p.id] || { value: 0, invested: 0, txCount: 0, pnl: 0, pnlPct: 0 }) }));
+  }, [portfolios, transactions, prices, exchangeRate, fxAt, corpActionsRev]);
 
   return React.createElement('div', { style: { padding: '1.5rem' } },
     React.createElement('h2', { style: { color: theme.text, fontSize: '1.5rem', fontWeight: '800', letterSpacing: '-0.02em', marginBottom: '1.5rem' } }, 'Portfolio Manager'),

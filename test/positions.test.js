@@ -84,6 +84,34 @@ const M = require('../metrics.js');
   const s2 = M.computeStats(p, {}); // no prices
   ok('value falls back to cost basis when price missing', near(s2.totalValue, s2.totalInvested));
 
+  console.log('computePortfolioTotals — per-portfolio figures match the shared engine:');
+  {
+    const pfs = [{ id: 'default', name: 'Main' }, { id: 'p2', name: 'Second' }, { id: 'empty', name: 'Empty' }];
+    const ptx = [
+      // default: USD buy, partial sell, a booked dividend (quantity = shares held)
+      { category: 'stocks', symbol: 'KO', type: 'buy', quantity: 20, price: 50, currency: 'USD', date: '2024-01-01' },
+      { category: 'stocks', symbol: 'KO', type: 'sell', quantity: 5, price: 60, currency: 'USD', date: '2024-06-01' },
+      { category: 'stocks', symbol: 'KO', type: 'dividend', quantity: 15, price: 0.5, currency: 'USD', date: '2024-07-01' },
+      { category: 'crypto', symbol: 'bitcoin', type: 'buy', quantity: 1, price: 1000, currency: 'EUR', date: '2024-01-01', portfolioId: 'default' },
+      // p2: one EUR position without a quote
+      { category: 'stocks', symbol: 'VWCE.DE', type: 'buy', quantity: 5, price: 110, currency: 'EUR', date: '2024-01-01', portfolioId: 'p2' }
+    ];
+    const px = { KO: 54, bitcoin: 2000 };
+    const tot = M.computePortfolioTotals(pfs, ptx, px, { exchangeRate: 0.9 });
+    const d = tot.find(x => x.id === 'default'), p2 = tot.find(x => x.id === 'p2'), e = tot.find(x => x.id === 'empty');
+    // 15 KO left (the dividend must not remove shares) at 54 + 1 BTC at 2000
+    ok('dividend does not dispose of the position', near(d.value, 15 * 54 + 2000));
+    // open cost: 15 x 50 USD x 0.9 + 1000
+    ok('invested = FIFO cost of OPEN lots, USD converted', near(d.invested, 15 * 50 * 0.9 + 1000));
+    ok('pnl and pct are value vs open cost', near(d.pnl, d.value - d.invested) && near(d.pnlPct, d.pnl / d.invested * 100));
+    ok('transactions without portfolioId belong to default', d.txCount === 4);
+    const ref = M.computeStats(M.buildPositions(ptx.filter(t => (t.portfolioId || 'default') === 'default'), { exchangeRate: 0.9 }), px);
+    ok('equals computeStats(buildPositions(...)) for that portfolio', near(d.value, ref.totalValue) && near(d.invested, ref.totalInvested));
+    ok('unpriced position is carried at cost, not zero', near(p2.value, 550) && near(p2.pnl, 0));
+    ok('empty portfolio is all zeros', e.value === 0 && e.invested === 0 && e.txCount === 0 && e.pnlPct === 0);
+    ok('bad input is safe', M.computePortfolioTotals(null, null, {}).length === 0);
+  }
+
   console.log('\n' + passed + ' passed, ' + failed + ' failed');
   process.exit(failed ? 1 : 0);
 })();
