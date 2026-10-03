@@ -111,6 +111,14 @@ const A = require('../portfolio-analytics.js');
     : { available: false };
   ok('factor pipeline produces finite named loadings', feLive.available && isFinite(feLive.betas.MKT) && isFinite(feLive.betas.SMB) && isFinite(feLive.betas.HML));
 
+  // alignByDate: dated series with different calendars → values on common days.
+  const datedBook = [{ d: '2025-01-03', v: 100 }, { d: '2025-01-04', v: 101 }, { d: '2025-01-05', v: 102 }, { d: '2025-01-06', v: 104 }];
+  const datedBench = [{ date: '2025-01-02', price: 50 }, { date: '2025-01-03', price: 51 }, { date: '2025-01-06', price: 52 }, { date: '2025-01-07', price: 0 }];
+  const byDate = D.alignByDate([datedBook, datedBench]);
+  ok('alignByDate keeps only common days (weekend points dropped)', byDate.length === 2 && byDate[0].join() === '100,104' && byDate[1].join() === '51,52');
+  ok('alignByDate accepts {d,v} and {date,price}; ignores non-positive values', D.alignByDate([datedBench, datedBench])[0].length === 3);
+  ok('alignByDate: fewer than two common days → []', D.alignByDate([datedBook, [{ d: '2025-01-03', v: 1 }]]).length === 0 && D.alignByDate([]).length === 0 && D.alignByDate([datedBook, null]).length === 0);
+
   console.log('\n  ' + passed + ' passed, ' + failed + ' failed');
   process.exit(failed ? 1 : 0);
 })();

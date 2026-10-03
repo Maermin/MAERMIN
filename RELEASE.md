@@ -10,6 +10,12 @@
 - The daily rates come through the Worker's existing `yf` route (`EURCHF=X` …), only for currencies that occur in your transactions and only back to the first such trade. Stored encrypted (`maermin_fx_currencies`), part of the backup, not synced (each device loads its own). Where no rate within a week of the trade date is stored (no Worker, not loaded yet), today's rate is used and the Data check says so.
 - The transaction dialog offers the other currencies and shows the rate it will apply. The import preview and the Data check say whether a currency is converted at the trade-date rate, at today's rate (no Worker, or not loaded yet) or not at all.
 - Tax report, "Currency Conversion Details": the rate column showed the USD rate for every currency; it now shows the rate applied to that row.
+### Value history from day one (2026-10-03)
+
+- **TWR from the first trade.** The time-weighted return is built from the transactions and daily closing prices instead of the points recorded on each manual refresh, so it is there right after an import. Deposits and withdrawals do not count; fees and dividends do; a buy or sell away from the day's close counts once. The card names the start date and, after a year, the yearly figure.
+- Daily closes come through the Worker's existing `yf` route (stocks, ETFs, commodities) and `steamhistory` route (skins); crypto from CoinGecko as before. They are stored encrypted on the device (`maermin_close_history`), are part of the full backup and are not synced (each device loads its own).
+- Benchmark comparison, rolling volatility, factor exposure, the risk metrics and the correlation matrix use the same daily data when it is available, paired by calendar day.
+- Fallback order when no daily closes are available (no Worker, offline, unknown symbol): the recorded daily value snapshots, chain-linked around deposits, then the refresh history as before. Holdings without any price history are left out of the TWR and named in the note.
 
 ### Smooth motion (2026-10-01)
 

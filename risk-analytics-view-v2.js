@@ -162,7 +162,12 @@ function RiskAnalyticsViewV2(props) {
   function riskHeader() {
     var e = React.createElement;
     return e('div', { style: { display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '1rem', flexWrap: 'wrap', marginBottom: '1.5rem' } },
-      e('h2', { style: { color: theme.text, fontSize: '1.5rem', fontWeight: '600', margin: 0 } }, t.riskLevel || 'Risk Analytics'));
+      e('h2', { style: { color: theme.text, fontSize: '1.5rem', fontWeight: '600', margin: 0 } }, t.riskLevel || 'Risk Analytics'),
+      // Source of the volatility / VaR / drawdown figures below.
+      e('div', { 'data-testid': 'risk-source', 'data-source': props.historySource || 'refresh', style: { color: theme.textSecondary, fontSize: '0.78rem' } },
+        props.historySource === 'daily'
+          ? 'Based on daily closing prices (' + (typeof riskObservations !== 'undefined' ? riskObservations(priceHistory) : 0) + ' daily returns)'
+          : 'Based on the prices recorded on your refreshes'));
   }
 
   if (!riskMetrics) {

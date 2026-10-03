@@ -100,6 +100,31 @@
     return list.map(function (s) { return toReturns(s.slice(s.length - n)); });
   }
 
+  // Align several DATED value series ([{ d: 'YYYY-MM-DD', v }] each) on the
+  // dates they all have and return plain value arrays of equal length - the
+  // exact version of the "trailing window" alignment above, for series with
+  // different calendars (a book holding crypto has weekend points, a stock
+  // benchmark does not). [] unless every series shares at least two dates.
+  function alignByDate(seriesList) {
+    var list = seriesList || [];
+    if (!list.length) return [];
+    var maps = [], common = null;
+    for (var i = 0; i < list.length; i++) {
+      var m = {};
+      (Array.isArray(list[i]) ? list[i] : []).forEach(function (pt) {
+        var d = pt && String(pt.d || pt.date || '').slice(0, 10);
+        var v = pt && (typeof pt.v === 'number' ? pt.v : pt.price);
+        if (d && typeof v === 'number' && isFinite(v) && v > 0) m[d] = v;
+      });
+      maps.push(m);
+      var keys = Object.keys(m);
+      common = common === null ? keys : common.filter(function (d) { return m[d] !== undefined; });
+    }
+    if (!common || common.length < 2) return [];
+    common.sort();
+    return maps.map(function (m) { return common.map(function (d) { return m[d]; }); });
+  }
+
   // Element-wise difference over the common length — builds long/short factor
   // returns (SMB = small − big, HML = value − growth) from two aligned return
   // series. Inputs are expected pre-aligned (see alignReturns).
@@ -119,6 +144,7 @@
     buildValueSeries: buildValueSeries,
     alignedReturns: alignedReturns,
     alignReturns: alignReturns,
+    alignByDate: alignByDate,
     subtract: subtract
   };
   if (typeof window !== 'undefined') window.MaerminAnalyticsData = api;

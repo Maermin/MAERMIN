@@ -12,6 +12,10 @@
 //   3. Tax view: KPIs, year switch keeps the tab, PDF export (lazy jsPDF)
 //   4. upgrade path: year-less price points + plaintext v10 store + schema 3
 //      -> migration v4 and plaintext adoption after unlock
+//   5. value history from day one: a three-year book + a Worker -> TWR,
+//      correlation, risk and rolling volatility without a manual refresh. The
+//      Worker is the REAL cf-worker/worker.js, run in this process; only its
+//      upstream (Yahoo) is a synthetic, deterministic fixture.
 //   6. other trade currencies: a CHF buy is costed at the CHF rate of its date.
 //      The rates come through the REAL cf-worker/worker.js, run in this process;
 //      only its upstream (Yahoo) is a synthetic fixture.
@@ -67,11 +71,59 @@ const JSPDF = {
   'https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.5.31/jspdf.plugin.autotable.min.js': 'jspdf.plugin.autotable.min.js'
 };
 const fetched = []; // market-data calls answered from fixtures
+
+// ---- the real Worker, with a synthetic Yahoo upstream --------------------------
+// Requests to WORKER_URL are answered by cf-worker/worker.js itself. Its own
+// outbound fetch (Yahoo) is replaced by deterministic series, so the numbers on
+// screen can be checked against values computed here.
+const WORKER_URL = 'https://maermin-e2e.workers.dev';
+const workerMod = await import('../../cf-worker/worker.js');
+const workerState = { down: false, upstream: [], requests: [] };
+const iso = (d) => d.toISOString().slice(0, 10);
+const WEEKDAYS = (() => { // every weekday of the last three years, up to today
+  const out = [], end = new Date(), d = new Date(Date.UTC(end.getUTCFullYear() - 3, end.getUTCMonth(), end.getUTCDate()));
+  for (; d <= end; d.setUTCDate(d.getUTCDate() + 1)) if (d.getUTCDay() % 6) out.push(iso(d));
+  return out;
+})();
+const SYNTH = { // close of day i
+  'VWCE.DE': { currency: 'EUR', px: (i) => 100 * Math.pow(1.0004, i) * (1 + 0.010 * Math.sin(i / 3)) },
+  'AAPL': { currency: 'USD', px: (i) => 150 * Math.pow(1.0006, i) * (1 + 0.020 * Math.cos(i / 5)) },
+  'EURUSD=X': { currency: 'USD', px: () => 1 / 0.9 } // 1 USD = 0.90 EUR on every day
+};
+const synthFor = (sym) => SYNTH[sym] || { currency: 'USD', px: (i) => 80 * Math.pow(1.0003, i) * (1 + 0.012 * Math.sin(i / 4 + sym.length)) };
+const closeOf = (sym, i) => Number(synthFor(sym).px(i).toFixed(4));
+{
+  const cacheMap = new Map();
+  globalThis.caches = { default: {
+    match: async (req) => { const b = cacheMap.get(req.url); return b === undefined ? undefined : new Response(b); },
+    put: async (req, resp) => { cacheMap.set(req.url, await resp.text()); } } };
+  const realFetch = globalThis.fetch;
+  globalThis.fetch = async (input, init) => {
+    const u = String(input && input.url ? input.url : input);
+    const m = u.match(/query1\.finance\.yahoo\.com\/v8\/finance\/chart\/([^?]+)/);
+    if (!m) return realFetch(input, init);
+    const sym = decodeURIComponent(m[1]);
+    workerState.upstream.push(sym);
+    return new Response(JSON.stringify({ chart: { result: [{ meta: { currency: synthFor(sym).currency, exchangeTimezoneName: 'UTC' },
+      timestamp: WEEKDAYS.map((d) => Math.floor(Date.parse(d + 'T16:00:00Z') / 1000)),
+      indicators: { quote: [{ close: WEEKDAYS.map((_, i) => closeOf(sym, i)) }] } }] } }), { status: 200, headers: { 'Content-Type': 'application/json' } });
+  };
+}
+async function answerFromWorker(route) {
+  if (workerState.down) return route.abort();
+  const rq = route.request();
+  workerState.requests.push(rq.url().slice(WORKER_URL.length));
+  const res = await workerMod.default.fetch(new Request(rq.url(), { method: rq.method(), headers: { Origin: new URL(rq.headers().origin || rq.headers().referer || 'http://127.0.0.1').origin }, body: rq.method() === 'GET' ? undefined : rq.postData() }), {}, { waitUntil() {} });
+  const headers = {}; res.headers.forEach((v, k) => { headers[k] = v; });
+  headers['access-control-allow-origin'] = '*';
+  return route.fulfill({ status: res.status, headers, body: await res.text() });
+}
 async function wire(context, external) {
   await context.route('**/*', (route) => {
     const url = route.request().url();
     if (url.startsWith('http://127.0.0.1')) return route.continue();
     if (url.startsWith(FX_WORKER)) return answerFromFxWorker(route);
+    if (url.startsWith(WORKER_URL)) return answerFromWorker(route);
     if (LOCAL[url]) return route.fulfill({ path: LOCAL[url], headers: { 'Access-Control-Allow-Origin': '*', 'Content-Type': 'application/javascript' } });
     if (JSPDF[url]) {
       if (JSPDF_DIR && existsSync(join(JSPDF_DIR, JSPDF[url]))) {
@@ -102,7 +154,7 @@ const fxCalls = [];
   globalThis.fetch = async (input, init) => {
     const u = String(input && input.url ? input.url : input);
     const m = u.match(/query1\.finance\.yahoo\.com\/v8\/finance\/chart\/([^?]+)/);
-    if (!m || !FX_FIXTURE[decodeURIComponent(m[1])]) return m ? new Response('{}', { status: 404 }) : realFetch(input, init);
+    if (!m || !FX_FIXTURE[decodeURIComponent(m[1])]) return realFetch(input, init); // other symbols: the synthetic price series above
     const f = FX_FIXTURE[decodeURIComponent(m[1])];
     // one close per day for the last 800 days
     const days = []; for (let i = 800; i >= 0; i--) days.push(Math.floor(Date.now() / 1000) - i * 86400);
@@ -148,6 +200,18 @@ async function unlock(page, base) {
   await pw.fill(PASSWORD);
   await page.locator('#auth-submit').click();
   await page.locator('nav.maermin-sidebar').waitFor({ timeout: 30000 });
+}
+// Figures count up when they appear (motion.js): read a text only once it has
+// stopped changing.
+async function settledText(locator) {
+  let prev = null;
+  for (let i = 0; i < 40; i++) {
+    const cur = await locator.innerText().catch(() => '');
+    if (cur && cur === prev) return cur;
+    prev = cur;
+    await new Promise((r) => setTimeout(r, 250));
+  }
+  return prev || '';
 }
 // Force an app re-render without changing app state (open + close an overlay).
 async function rerender(page) {
@@ -207,6 +271,9 @@ async function runBuild(browser, label, dir) {
       localStorage.setItem('transactions', JSON.stringify(txs));
       localStorage.setItem('taxJurisdiction', 'de');
       localStorage.setItem('maermin_tax_settings', JSON.stringify({ abgeltungRate: 0.25, soli: true, kirchensteuer: 0, freistellungsauftrag: 1000, cryptoExemption: true }));
+      // recorded daily values of the active portfolio (no trades in between): 3,000 -> 3,300
+      localStorage.setItem('maermin_snapshots', JSON.stringify({ version: 1, points: [
+        { d: '2025-07-01', v: 3000, pid: 'default' }, { d: '2025-07-02', v: 3150, pid: 'default' }, { d: '2025-07-03', v: 3300, pid: 'default' }] }));
     }, TXS);
     await page.waitForTimeout(1500); // encrypted persist
     try { await unlock(page, base); }
@@ -249,6 +316,16 @@ async function runBuild(browser, label, dir) {
     await openView(page, 'investment-analysis');
     await page.waitForTimeout(400);
     { const db = await page.innerText('body'); ok('DCA analyzer shows no demo figures', (await page.locator('[data-testid="dca-empty"]').count()) === 1 && !/DCA Wins|12\.50%/.test(db)); }
+
+    // No Worker and no daily closes in this session: TWR falls back to the
+    // recorded snapshots (3,000 -> today's 3,550 with no trade in between).
+    await openView(page, 'returns');
+    await page.waitForTimeout(300);
+    {
+      const card = page.locator('[data-testid="twr-card"]');
+      const txt = await settledText(card);
+      ok('TWR falls back to the recorded snapshots without daily closes (+18.33%)', (await card.getAttribute('data-source')) === 'snapshots' && /\+18\.33%/.test(txt), ((await card.getAttribute('data-source')) + ' | ' + txt).replace(/\n/g, ' | '));
+    }
 
     await openView(page, 'transactions');
     const check = await page.locator('[data-testid="ledger-issues"]').first().innerText().catch(() => '');
@@ -321,6 +398,73 @@ async function runBuild(browser, label, dir) {
     ok('year-less price points repaired to ISO', (r.hist.btc || []).length === 2 && r.hist.btc.every((p) => /^\d{4}-\d{2}-\d{2}T/.test(p.timestamp)), JSON.stringify(r.hist));
     ok('plaintext v10 store adopted into the vault', /Mustermann/.test(r.owner || '') && r.rawOwner === null && r.leak.length === 0, JSON.stringify({ rawOwner: r.rawOwner, leak: r.leak }));
     ok('no page errors in the upgrade session', errors.length === 0, errors.join(' | '));
+    await context.close();
+  }
+
+  // 5: value history from day one (real Worker code, synthetic Yahoo upstream)
+  {
+    const context = await browser.newContext({ serviceWorkers: 'block' });
+    await wire(context, external);
+    const page = await context.newPage();
+    const errors = watch(page);
+    workerState.down = false; workerState.upstream.length = 0; workerState.requests.length = 0;
+    const N = WEEKDAYS.length, mid = Math.floor(N / 2);
+    // Every trade at the close of its day, no fees: the time-weighted return is
+    // then exactly the chained day-to-day change of what was held the day before.
+    const book = [
+      { id: 'h1', type: 'buy', category: 'stocks', symbol: 'VWCE.DE', quantity: 10, price: closeOf('VWCE.DE', 0), currency: 'EUR', date: WEEKDAYS[0], portfolioId: 'default' },
+      { id: 'h2', type: 'buy', category: 'stocks', symbol: 'AAPL', quantity: 5, price: closeOf('AAPL', 0), currency: 'USD', date: WEEKDAYS[0], portfolioId: 'default' },
+      { id: 'h3', type: 'buy', category: 'stocks', symbol: 'VWCE.DE', quantity: 30, price: closeOf('VWCE.DE', mid), currency: 'EUR', date: WEEKDAYS[mid], portfolioId: 'default' }
+    ];
+    let growth = 1;
+    const eur = (sym, i) => closeOf(sym, i) * (sym === 'AAPL' ? 0.9 : 1);
+    for (let i = 1; i < N; i++) {
+      const qV = i - 1 >= mid ? 40 : 10; // held at the end of day i-1
+      growth *= (qV * eur('VWCE.DE', i) + 5 * eur('AAPL', i)) / (qV * eur('VWCE.DE', i - 1) + 5 * eur('AAPL', i - 1));
+    }
+    const expected = (growth - 1) * 100;
+    const naive = ((40 * eur('VWCE.DE', N - 1) + 5 * eur('AAPL', N - 1)) / (10 * eur('VWCE.DE', 0) + 5 * eur('AAPL', 0)) - 1) * 100; // counts the deposit as return
+
+    await createVault(page, base);
+    await page.evaluate(({ txs, worker }) => {
+      localStorage.setItem('transactions', JSON.stringify(txs));
+      localStorage.setItem('apiKeys', JSON.stringify({ cs2Worker: worker }));
+    }, { txs: book, worker: WORKER_URL });
+    await page.waitForTimeout(1500);
+    await unlock(page, base);
+    await openView(page, 'returns');
+    const card = page.locator('[data-testid="twr-card"][data-source="daily"]');
+    let shown = '';
+    try { await card.waitFor({ timeout: 15000 }); shown = await settledText(card); } catch (e) { shown = await page.locator('[data-testid="twr-card"]').innerText().catch(() => 'no card'); }
+    const want = (expected >= 0 ? '+' : '') + expected.toFixed(2) + '%';
+    ok('TWR from day one, without a refresh click: ' + want + ' (value change incl. deposit would read ' + naive.toFixed(0) + '%)', shown.includes(want), shown.replace(/\n/g, ' | '));
+    ok('TWR card names the start date and the yearly figure', shown.includes('since ' + WEEKDAYS[0]) && /% p\.a\./.test(shown), shown.replace(/\n/g, ' | '));
+    ok('closes came through the Worker route ?action=yf (5-year range for both holdings)', ['VWCE.DE', 'AAPL'].every((x) => workerState.requests.includes('/?action=yf&symbol=' + x + '&interval=1d&range=5y')), workerState.requests.join(' '));
+    await page.waitForTimeout(2500); // benchmark fetch
+    { const rb = await page.innerText('body'); ok('benchmark comparison is computed from daily returns', /Alpha \(ann\.\)/i.test(rb) && /daily returns since/.test(rb), (rb.match(/Benchmark comparison[\s\S]{0,200}/) || [''])[0].replace(/\n/g, ' | ')); }
+
+    await openView(page, 'analytics');
+    await page.waitForTimeout(800);
+    ok('correlation matrix is there right away, from daily closes', (await page.locator('[data-testid="correlation-source"][data-source="daily"]').count()) === 1 && (await page.locator('[data-testid="correlation-empty"]').count()) === 0);
+    await page.getByRole('button', { name: 'Risk Level' }).click();
+    await page.waitForTimeout(800);
+    { const rb = await page.innerText('body');
+      ok('risk metrics and rolling volatility from daily data', /Sharpe Ratio/.test(rb) && (await page.locator('[data-testid="risk-source"][data-source="daily"]').count()) === 1 && /daily time-weighted returns since/.test(rb), (rb.match(/Rolling volatility[\s\S]{0,200}/) || [''])[0].replace(/\n/g, ' | ')); }
+
+    const st = await page.evaluate(`(() => { const R = ${RAW}; const h = JSON.parse(localStorage.getItem('maermin_close_history') || '{}');
+      return { keys: Object.keys(h.series || {}).sort(), raw: R.get('maermin_close_history'), leak: R.keys().filter((k) => /stocks\\|(VWCE|AAPL)/.test(R.get(k) || '')) }; })()`);
+    ok('close history is stored encrypted (not readable in raw storage)', st.keys.join() === 'stocks|AAPL,stocks|VWCE.DE' && st.raw === null && st.leak.length === 0, JSON.stringify(st));
+
+    // Next session with the Worker unreachable: the stored closes still carry it.
+    await page.waitForTimeout(1500);
+    workerState.down = true;
+    await unlock(page, base);
+    await openView(page, 'returns');
+    await page.waitForTimeout(600);
+    { const c2 = page.locator('[data-testid="twr-card"]'); const t2 = await settledText(c2);
+      ok('next session, Worker unreachable: TWR still from the stored closes', (await c2.getAttribute('data-source')) === 'daily' && t2.includes('since ' + WEEKDAYS[0]), t2.replace(/\n/g, ' | ')); }
+    workerState.down = false;
+    ok('no page errors in the value-history session', errors.length === 0, errors.join(' | '));
     await context.close();
   }
 

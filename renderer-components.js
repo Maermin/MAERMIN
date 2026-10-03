@@ -256,7 +256,7 @@ function useToast() {
 // CORRELATION MATRIX VIEW
 // ============================================================================
 
-function CorrelationMatrixView({ portfolio, priceHistory, t, theme, formatPrice }) {
+function CorrelationMatrixView({ portfolio, priceHistory, historySource, t, theme, formatPrice }) {
   const [correlationData, setCorrelationData] = useState(null);
   const [selectedPair, setSelectedPair] = useState(null);
 
@@ -332,9 +332,16 @@ function CorrelationMatrixView({ portfolio, priceHistory, t, theme, formatPrice 
         marginBottom: '1.5rem'
       }
     },
-      React.createElement('h2', {
-        style: { color: theme.text, fontSize: '1.5rem', fontWeight: '600' }
-      }, t.correlationMatrix || 'Correlation Matrix'),
+      React.createElement('div', null,
+        React.createElement('h2', {
+          style: { color: theme.text, fontSize: '1.5rem', fontWeight: '600' }
+        }, t.correlationMatrix || 'Correlation Matrix'),
+        // Where the numbers come from: daily closes (available from the first
+        // trade) or the points recorded on each manual refresh.
+        React.createElement('div', { 'data-testid': 'correlation-source', 'data-source': historySource || 'refresh', style: { color: theme.textSecondary, fontSize: '0.78rem', marginTop: '0.25rem' } },
+          historySource === 'daily'
+            ? ('Daily closing prices, ' + Math.max(0, ((Object.values(priceHistory || {})[0] || []).length - 1)) + ' daily returns up to today')
+            : 'Prices recorded on your refreshes')),
       React.createElement('div', {
         style: {
           background: theme.card,
