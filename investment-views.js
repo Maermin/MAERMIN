@@ -558,10 +558,10 @@ function SectorAllocationView(props) {
     React.createElement('h2', { style: { color: 'white', marginBottom: '1rem' } }, 'Sector Allocation'),
 
     // Coverage hint: if a meaningful share is still unclassified, point the user
-    // to the FMP key that backfills sector/country for every holding.
+    // to the Worker URL that backfills sector/country for every holding.
     sectorData.unknownPct > 15 && React.createElement('div', {
       style: { marginBottom: '1rem', padding: '0.625rem 0.875rem', background: 'rgba(139,124,255,0.10)', border: '1px solid rgba(139,124,255,0.25)', borderRadius: '8px', color: 'rgba(255,255,255,0.75)', fontSize: '0.8rem' }
-    }, '~' + sectorData.unknownPct.toFixed(0) + '% of equities are unclassified. Add a free Financial Modeling Prep API key in Settings → API to auto-fetch sector & country for every holding.'),
+    }, '~' + sectorData.unknownPct.toFixed(0) + '% of equities are unclassified. Add your Worker URL in Settings → API to auto-fetch sector & country for every holding.'),
 
     sectorData.sectors.length > 0 ? React.createElement('div', { style: { display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem' } },
       React.createElement(AnalysisCard, {

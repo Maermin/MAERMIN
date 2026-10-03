@@ -7,20 +7,17 @@
 //
 //   getMeta(symbol)          → { sector, country, industry, source } (sync:
 //                              cache → expanded static map → 'Other')
-//   prefetchPortfolio(pf)    → fetch missing tickers from the FMP profile API
-//                              (when a key is set) and warm the cache. No key →
+//   prefetchPortfolio(pf)    → fetch missing tickers through the Worker's
+//                              profile route and warm the cache. No Worker →
 //                              static-only, still far better than before.
 //
 // Same architecture as dividend-data-service.js: 30-day localStorage cache,
-// ticker normalisation via MaerminTickers, FMP key shared
-// (localStorage 'maermin_fmp_api_key'). Pure-ish + unit-tested
+// ticker normalisation via MaerminTickers. Pure-ish + unit-tested
 // (test/equity-meta.test.js).
 // ============================================================================
 (function () {
   'use strict';
 
-  var FMP_BASE = 'https://financialmodelingprep.com/api/v3';
-  var API_KEY_STORAGE = 'maermin_fmp_api_key';
   var CACHE_KEY = 'maermin_equity_meta_cache';
   var CACHE_TTL = 30 * 24 * 60 * 60 * 1000; // 30 days — metadata is near-static
 
@@ -87,10 +84,6 @@
     return (symbol || '').toUpperCase();
   }
 
-  function getApiKey() {
-    try { return localStorage.getItem(API_KEY_STORAGE) || null; } catch (e) { return null; }
-  }
-
   function readCache() {
     try { return JSON.parse(localStorage.getItem(CACHE_KEY) || '{}'); } catch (e) { return {}; }
   }
@@ -118,24 +111,7 @@
     return { sector: 'Other', country: 'Other', industry: '', source: 'unknown' };
   }
 
-  function fetchFromAPI(symbol) {
-    var sym = norm(symbol);
-    var key = getApiKey();
-    if (!key) return Promise.resolve(null);
-    var url = FMP_BASE + '/profile/' + encodeURIComponent(sym) + '?apikey=' + key;
-    return fetch(url)
-      .then(function (r) { if (!r.ok) throw new Error('http ' + r.status); return r.json(); })
-      .then(function (data) {
-        var p = Array.isArray(data) ? data[0] : data;
-        if (!p) return null;
-        var meta = { sector: sectorName(p.sector) || 'Other', country: countryName(p.country) || 'Other', industry: p.industry || '' };
-        saveToCache(sym, meta);
-        return meta;
-      })
-      .catch(function () { return null; });
-  }
-
-  // FMP returns ISO country codes (US, DE, …) on some endpoints; map the common
+  // Some sources return ISO country codes (US, DE, …) on some endpoints; map the common
   // ones to readable names so the chart labels match the static map.
   var ISO = { US: 'USA', DE: 'Germany', GB: 'UK', FR: 'France', NL: 'Netherlands', CH: 'Switzerland',
     CN: 'China', JP: 'Japan', TW: 'Taiwan', CA: 'Canada', AU: 'Australia', IT: 'Italy', ES: 'Spain', SE: 'Sweden',
@@ -178,26 +154,21 @@
 
   // Warm the cache for all stock holdings (missing + uncached only). Resolves
   // sector/country through the user's Worker (Yahoo assetProfile) when a Worker
-  // URL is supplied — no FMP key required — and falls back to the FMP profile
-  // API when a key is set. With neither, resolves 0 (the static map still
-  // applies). Safe to call on every portfolio change.
+  // URL is supplied. Without one it resolves 0 (the static map still applies).
+  // Safe to call on every portfolio change.
   function prefetchPortfolio(portfolio, opts) {
     opts = opts || {};
     var workerUrl = opts.workerUrl;
     var hasWorker = !!(workerUrl && String(workerUrl).trim().length >= 5);
-    var hasKey = !!getApiKey();
     var stocks = (portfolio && portfolio.stocks) || [];
-    if ((!hasWorker && !hasKey) || stocks.length === 0) return Promise.resolve(0);
+    if (!hasWorker || stocks.length === 0) return Promise.resolve(0);
     var seen = {}, todo = [];
     stocks.forEach(function (s) {
       var sym = norm(s.symbol || s.name);
       if (sym && !seen[sym] && !getFromCache(sym)) { seen[sym] = true; todo.push(sym); }
     });
     if (todo.length === 0) return Promise.resolve(0);
-    var resolveOne = hasWorker
-      ? function (sym) { return fetchFromWorker(sym, workerUrl); }
-      : function (sym) { return fetchFromAPI(sym); };
-    return Promise.all(todo.map(resolveOne)).then(function (rows) { return rows.filter(Boolean).length; });
+    return Promise.all(todo.map(function (sym) { return fetchFromWorker(sym, workerUrl); })).then(function (rows) { return rows.filter(Boolean).length; });
   }
 
   var api = {
@@ -205,7 +176,6 @@
     getMeta: getMeta,
     getFromCache: getFromCache,
     saveToCache: saveToCache,
-    fetchFromAPI: fetchFromAPI,
     fetchFromWorker: fetchFromWorker,
     prefetchPortfolio: prefetchPortfolio,
     countryName: countryName,
