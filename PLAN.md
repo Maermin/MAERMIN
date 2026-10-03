@@ -1,8 +1,32 @@
 # MAERMIN — Implementation Plan
 
-**Status:** proposed, awaiting approval. No code has been changed.
-**Basis:** [`REPORT.md`](REPORT.md) (audit of `main` @ `d33d34d`, 2026-10-03).
-**Order:** repairs first (WP-1 … WP-8), then new features by priority (WP-0, WP-9 … WP-16), then the Phase 6 usability review.
+**Status:** scope confirmed 2026-10-03. Work proceeds one PR per package; the owner merges.
+**Basis:** [`REPORT.md`](REPORT.md) (audit of `main` @ `d33d34d`).
+
+## Confirmed scope
+
+Decisions: MAERMIN is a single-user app for now; the Cloudflare Worker stays the data source; GitHub Pages keeps serving the repo root.
+
+| Order | Package | Decision |
+|---|---|---|
+| 1 | WP-1 Prices after unlock | Fetch once on unlock; persist the last price map. Missing fresh price → last known price marked "stale" with date, else cost marked "no price" — in every view |
+| 2 | WP-2 Portfolio Manager | Use the shared ledger |
+| 3 | WP-3 Transaction labels | Dividend / interest / option labels |
+| 4 | WP-4 Mobile | Fix the dead "Portfolio" tab only; no "More" sheet |
+| 5 | WP-5 Empty states | Correlation, Risk, DCA demo figures |
+| 6 | FMP removal (from WP-7) | Delete the fallback and its key field |
+| 7 | WP-6 ISIN on import | Resolve via the Worker search; propose the listing matching the trade currency; editable per row |
+| 8 | WP-12 TWR from day one | From historical closes served by the Worker |
+| 9 | WP-11 More currencies | CHF, GBP etc.; historical rates through the Worker, no new third-party host |
+| 10 | WP-16 Importers | Trade Republic, Scalable Capital, Consorsbank — one at a time from the owner's export files |
+
+**Dropped:** WP-0, WP-8, WP-9, WP-10, WP-13, WP-14, WP-15 and the rest of WP-7 (native dialogs, setup copy, crypto ticker display, logo requests).
+**No work needed:** the September review's sync-merge and tax-pot findings are fixed in the current code.
+**Crypto exchanges:** no new code up front; the existing read-only API sync (Binance, Kraken, Coinbase, Bitpanda) is tried with real keys and fixed where it fails.
+**Needed from the owner:** one export file each from Trade Republic, Scalable Capital and Consorsbank before package 10.
+
+The package descriptions below are the original proposal; where they differ from the table above, the table wins.
+
 **Effort:** S ≤ ½ day · M 1–3 days · L > 3 days.
 **House rules kept:** pure logic in dual-export IIFE modules with Node tests; no new tabs unless stated; new persisted keys go into `backup-engine.js` `KEYS` and `storage.js` `SENSITIVE_KEYS`; no API key ever in client code or in the repo.
 
