@@ -264,15 +264,10 @@ function DCAAnalyzerView(props) {
         });
       }
     } else {
-      // Demo mode with simulated data
-      setAnalysis({
-        winner: 'dca',
-        dcaReturn: 12.5,
-        lumpSumReturn: 10.2,
-        difference: 2.3,
-        dcaPurchases: 12,
-        interpretation: 'Demo: DCA typically reduces risk through averaging. Add price history for real analysis.'
-      });
+      // Not enough history for a real comparison. This used to show invented
+      // figures ("DCA Wins 12.50%") that looked like a result for the user's
+      // own portfolio; show an explicit empty state instead.
+      setAnalysis(null);
     }
   }, [investAmount, frequency, priceArray]);
   
@@ -325,6 +320,11 @@ function DCAAnalyzerView(props) {
     
     React.createElement(TabBar, { tabs: tabs, active: activeTab, onChange: setActiveTab }),
     
+    !analysis && React.createElement('div', {
+      'data-testid': 'dca-empty',
+      style: { background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: '10px', padding: '1.25rem', color: 'rgba(255,255,255,0.65)', fontSize: '0.875rem', lineHeight: 1.6 }
+    }, 'Not enough price history for a DCA vs lump-sum comparison yet. It needs more than 30 recorded price points for a holding; you have ' + priceArray.length + '. A point is recorded on every price refresh.'),
+
     analysis && React.createElement(AnalysisCard, {
       title: 'Strategy Comparison',
       badge: analysis.winner === 'dca' ? 'DCA Wins' : 'Lump Sum Wins',

@@ -303,13 +303,21 @@ function CorrelationMatrixView({ portfolio, priceHistory, t, theme, formatPrice 
   };
 
   if (!correlationData) {
+    // "Loading..." was shown forever when there was simply nothing to compute.
+    // Only say loading while a computation can actually be running.
+    const withHistory = Object.values(priceHistory || {}).filter(h => Array.isArray(h) && h.length >= 2).length;
+    const computing = withHistory >= 2;
     return React.createElement('div', {
+      'data-testid': computing ? 'correlation-loading' : 'correlation-empty',
       style: {
         padding: '2rem',
         textAlign: 'center',
-        color: theme.textSecondary
+        color: theme.textSecondary,
+        lineHeight: 1.6
       }
-    }, t.loading || 'Loading...');
+    }, computing
+      ? (t.loading || 'Loading...')
+      : (t.correlationNeedsHistory || ('Not enough price history yet. The correlation matrix needs at least two holdings with two or more recorded prices each (' + withHistory + ' so far). A price point is recorded on every refresh.')));
   }
 
   const { matrix, score, extremes } = correlationData;

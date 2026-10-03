@@ -57,6 +57,12 @@ function RiskAnalyticsViewV2(props) {
         });
       }
       
+      // Too few observations: the engine returns zeros. Leave riskMetrics
+      // null so the "needs history" state renders instead of fake values.
+      if (typeof hasMeasurableRisk !== 'undefined' && !hasMeasurableRisk(convertedHistory)) {
+        setRiskMetrics(null); setRecommendations([]);
+        return;
+      }
       var metrics = calculatePortfolioRiskMetrics(portfolio, convertedHistory, portfolioValue);
       setRiskMetrics(metrics);
       
@@ -165,7 +171,8 @@ function RiskAnalyticsViewV2(props) {
       riskHeader(),
       renderDimensions(),
       React.createElement('div', { style: { background: theme.card, padding: '1.25rem', borderRadius: '12px', border: '1px solid ' + theme.cardBorder, color: theme.textSecondary, fontSize: '0.875rem' } },
-        t.riskNeedsHistory || 'Refresh prices a few times to unlock volatility, Value-at-Risk and drawdown — these need a short price history.')
+        (t.riskNeedsHistory || 'Refresh prices a few times to unlock volatility, Value-at-Risk and drawdown — these need a short price history.') +
+          (typeof riskObservations !== 'undefined' ? ' (' + riskObservations(priceHistory) + ' of ' + MIN_RISK_OBSERVATIONS + ' observations so far)' : ''))
     );
   }
 
