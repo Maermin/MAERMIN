@@ -193,7 +193,33 @@
     }), Promise.resolve());
   }
 
+  // One place that names a transaction type for display. Views used
+  // `type === 'buy' ? 'Buy' : 'Sell'`, so a dividend or an interest booking
+  // read "SELL". tone: 'in' (money into an asset), 'out' (disposal),
+  // 'income' (dividend/interest) or 'neutral' (anything unknown).
+  const TX_TYPES = {
+    buy:      { key: 'buy',           label: 'Buy',      tone: 'in' },
+    sell:     { key: 'sell',          label: 'Sell',     tone: 'out' },
+    dividend: { key: 'txDividend',    label: 'Dividend', tone: 'income' },
+    interest: { key: 'txInterest',    label: 'Interest', tone: 'income' }
+  };
+  const TX_TONES = {
+    in:      { color: '#22c55e', background: 'rgba(34,197,94,0.15)' },
+    out:     { color: '#ef4444', background: 'rgba(239,68,68,0.15)' },
+    income:  { color: '#3b82f6', background: 'rgba(59,130,246,0.15)' },
+    neutral: { color: '#94a3b8', background: 'rgba(148,163,184,0.15)' }
+  };
+  function txTypeInfo(type, t) {
+    const raw = String(type == null ? '' : type).trim();
+    const def = TX_TYPES[raw.toLowerCase()];
+    const tone = def ? def.tone : 'neutral';
+    const label = def ? ((t && t[def.key]) || def.label)
+      : (raw ? raw.charAt(0).toUpperCase() + raw.slice(1) : '—');
+    return { label, tone, color: TX_TONES[tone].color, background: TX_TONES[tone].background };
+  }
+
   const MaerminUtils = {
+    txTypeInfo,
     formatNumber,
     formatCurrencyEUR,
     formatPercentSigned,

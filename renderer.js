@@ -3721,10 +3721,10 @@ function InvestmentTracker() {
                             fontWeight: '700',
                             textTransform: 'uppercase',
                             letterSpacing: '0.05em',
-                            background: tx.type === 'buy' ? 'rgba(34,197,94,0.15)' : 'rgba(239,68,68,0.15)',
-                            color: tx.type === 'buy' ? currentTheme.success : currentTheme.danger
+                            background: window.MaerminUtils.txTypeInfo(tx.type, t).background,
+                            color: tx.type === 'buy' ? currentTheme.success : tx.type === 'sell' ? currentTheme.danger : window.MaerminUtils.txTypeInfo(tx.type, t).color
                           }
-                        }, tx.type === 'buy' ? (t.buy||'Buy') : (t.sell||'Sell'))
+                        }, window.MaerminUtils.txTypeInfo(tx.type, t).label)
                       ),
                       React.createElement('td', { style: { padding: '0.875rem 1rem' } },
                         React.createElement('div', { style: { color: currentTheme.text, fontWeight: '600', fontSize: '0.875rem' } }, tx.symbol),

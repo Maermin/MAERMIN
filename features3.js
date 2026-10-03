@@ -317,10 +317,10 @@ function PositionDetailModal({ position, transactions, prices, theme, formatPric
                   React.createElement('span', {
                     style: {
                       padding: '0.1rem 0.4rem', borderRadius: '4px', fontWeight: '700', textAlign: 'center',
-                      background: tx.type === 'buy' ? 'rgba(34,197,94,0.12)' : 'rgba(239,68,68,0.12)',
-                      color: tx.type === 'buy' ? '#22c55e' : '#ef4444'
+                      background: window.MaerminUtils.txTypeInfo(tx.type, t).background,
+                      color: window.MaerminUtils.txTypeInfo(tx.type, t).color
                     }
-                  }, tx.type?.toUpperCase()),
+                  }, window.MaerminUtils.txTypeInfo(tx.type, t).label.toUpperCase()),
                   React.createElement('span', { style: { color: theme.textSecondary } }, tx.date),
                   React.createElement('span', { style: { color: theme.text } }, `${qty.toFixed(4)} @ ${formatPrice(price)}`),
                   React.createElement('span', { style: { color: theme.text, fontWeight: '600', textAlign: 'right' } },
