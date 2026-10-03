@@ -304,5 +304,22 @@ for (const [ns, name, props] of MUST_RENDER) {
   }
 }
 
+// ---- navigation targets exist ------------------------------------------------
+// The mobile dock sent 'portfolio', a view id the router does not know, so the
+// tab silently fell through to the Overview. Every id the dock can send must
+// have a `case '<id>':` in renderer.js renderView().
+{
+  const fs = require('fs'), path = require('path');
+  const root = path.join(__dirname, '..');
+  const dock = fs.readFileSync(path.join(root, 'features2.js'), 'utf8');
+  const start = dock.indexOf('function MobileBottomNav');
+  const block = dock.slice(start, dock.indexOf('const Icon', start));
+  const ids = [...block.matchAll(/\{ id: '([^']+)'/g)].map((m) => m[1]);
+  const renderer = fs.readFileSync(path.join(root, 'renderer.js'), 'utf8');
+  ok('mobile dock lists its tabs', ids.length >= 4, 'found ' + ids.join(','));
+  ids.forEach((id) => ok("mobile tab '" + id + "' has a route",
+    id === 'overview' || renderer.indexOf("case '" + id + "':") !== -1, 'no case for ' + id));
+}
+
 console.log('\n' + passed + ' passed, ' + failed + ' failed');
 process.exit(failed ? 1 : 0);

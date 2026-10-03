@@ -1291,7 +1291,7 @@ function MobileBottomNav({ activeView, setActiveView, theme }) {
   // (.mx-bottom-nav) so it follows the active theme via CSS variables.
   const items = [
     { id: 'overview',     icon: 'overview',      label: 'Overview' },
-    { id: 'portfolio',    icon: 'portfolios',    label: 'Portfolio' },
+    { id: 'portfolios',   icon: 'portfolios',    label: 'Portfolio' },
     { id: 'transactions', icon: 'transactions',  label: 'Trades' },
     { id: 'watchlist',    icon: 'watchlist',     label: 'Watch' },
     { id: 'analytics',    icon: 'hub-analytics', label: 'Analytics' },
