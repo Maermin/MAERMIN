@@ -422,11 +422,30 @@
     };
   }
 
+  // Per-portfolio totals from the ONE positions engine, so the Portfolio
+  // Manager shows the same value / invested / P&L as the Overview filtered to
+  // that portfolio (FIFO cost basis, FX at trade date, splits, dividends and
+  // interest not treated as disposals). `opts` is passed to buildPositions.
+  function computePortfolioTotals(portfolios, transactions, prices, opts) {
+    transactions = Array.isArray(transactions) ? transactions : [];
+    return (Array.isArray(portfolios) ? portfolios : []).map(function (p) {
+      var txs = transactions.filter(function (tx) { return (tx.portfolioId || 'default') === p.id; });
+      var stats = computeStats(buildPositions(txs, opts || {}), prices);
+      return {
+        id: p.id, txCount: txs.length,
+        value: stats.totalValue, invested: stats.totalInvested,
+        pnl: stats.totalProfit, pnlPct: stats.totalProfitPercent,
+        positions: stats.totalPositions
+      };
+    });
+  }
+
   var api = {
     ASSET_CLASSES: ASSET_CLASSES,
     buildPositions: buildPositions,
     matchFifoLots: matchFifoLots,
     computeStats: computeStats,
+    computePortfolioTotals: computePortfolioTotals,
     LIABILITY_TYPES: LIABILITY_TYPES,
     NETWORTH_ACCOUNTS_KEY: NETWORTH_ACCOUNTS_KEY,
     FIRE_SETTINGS_KEY: FIRE_SETTINGS_KEY,

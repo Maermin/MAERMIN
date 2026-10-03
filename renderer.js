@@ -2608,7 +2608,7 @@ function InvestmentTracker() {
       case 'portfolios':
         return window.MaerminFeatures4 ?
           React.createElement(window.MaerminFeatures4.PortfolioManagerView, {
-            portfolios, activePortfolioId, transactions, prices,
+            portfolios, activePortfolioId, transactions, prices, exchangeRate, fxAt, corpActionsRev,
             theme: currentTheme, formatPrice, getCurrencySymbol,
             setActivePortfolioId,
             addPortfolio: portfolioHook?.addPortfolio,
