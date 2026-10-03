@@ -596,7 +596,7 @@ function FeeAnalyzer({ transactions, theme, formatPrice, getCurrencySymbol }) {
                         React.createElement('td', { style: { padding: '0.5rem 0.75rem', color: theme.textSecondary } }, tx.date),
                         React.createElement('td', { style: { padding: '0.5rem 0.75rem', color: theme.text, fontWeight: '600' } }, tx.symbol),
                         React.createElement('td', { style: { padding: '0.5rem 0.75rem' } },
-                          React.createElement('span', { style: { color: tx.type === 'buy' ? '#22c55e' : '#ef4444', fontWeight: '600', fontSize: '0.72rem' } }, tx.type?.toUpperCase())
+                          React.createElement('span', { style: { color: window.MaerminUtils.txTypeInfo(tx.type).color, fontWeight: '600', fontSize: '0.72rem' } }, window.MaerminUtils.txTypeInfo(tx.type).label.toUpperCase())
                         ),
                         React.createElement('td', { style: { padding: '0.5rem 0.75rem', textAlign: 'right', color: theme.textSecondary } }, `${formatPrice(trade)} ${getCurrencySymbol()}`),
                         React.createElement('td', { style: { padding: '0.5rem 0.75rem', textAlign: 'right', color: '#ef4444', fontWeight: '700' } }, `${formatPrice(fee)} ${getCurrencySymbol()}`),

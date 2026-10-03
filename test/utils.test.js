@@ -39,6 +39,21 @@ const Utils = require('../utils.js');
   ok('empty string returns fallback', Utils.safeParse('', 'FB') === 'FB');
   ok('undefined returns fallback', Utils.safeParse(undefined, 'FB') === 'FB');
 
+  // ---- txTypeInfo: one display name per transaction type ----
+  {
+    const T = Utils.txTypeInfo;
+    ok('buy / sell keep their labels and tones', T('buy').label === 'Buy' && T('buy').tone === 'in' && T('sell').label === 'Sell' && T('sell').tone === 'out');
+    ok('a dividend is not a sell', T('dividend').label === 'Dividend' && T('dividend').tone === 'income');
+    ok('interest is income', T('interest').label === 'Interest' && T('interest').tone === 'income');
+    ok('type is case-insensitive', T('DIVIDEND').label === 'Dividend');
+    ok('translations win when present', T('dividend', { txDividend: 'Dividende' }).label === 'Dividende' && T('buy', { buy: 'Kauf' }).label === 'Kauf');
+    ok('missing translation falls back to English', T('interest', { buy: 'Kauf' }).label === 'Interest');
+    ok('unknown type is shown as written, neutral', T('transfer').label === 'Transfer' && T('transfer').tone === 'neutral');
+    ok('empty type renders a dash', T(undefined).label === '—' && T('').tone === 'neutral');
+    ok('every tone carries colours', ['buy', 'sell', 'dividend', 'x'].every((k) => /^#/.test(T(k).color) && /^rgba/.test(T(k).background)));
+  }
+
+
   console.log('\n' + passed + ' passed, ' + failed + ' failed');
   if (failed) process.exit(1);
 })();

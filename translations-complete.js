@@ -162,6 +162,7 @@ const completeTranslations = {
     transactionType: 'Transaction Type',
     buy: 'Buy',
     sell: 'Sell',
+    txDividend: 'Dividend', txInterest: 'Interest',
     quantity: 'Quantity',
     price: 'Price',
     date: 'Date',
@@ -678,6 +679,7 @@ const completeTranslations = {
     reset: 'Zurücksetzen', apply: 'Anwenden', done: 'Fertig', yes: 'Ja', no: 'Nein', clear: 'Leeren',
     loading: 'Lädt …', details: 'Details', settings: 'Einstellungen', help: 'Hilfe', logout: 'Abmelden',
     // Core nouns
+    txDividend: 'Dividende', txInterest: 'Zinsen',
     buy: 'Kauf', sell: 'Verkauf', amount: 'Menge', quantity: 'Anzahl', price: 'Preis', date: 'Datum',
     symbol: 'Symbol', fees: 'Gebühren', profit: 'Gewinn', profitLoss: 'Gewinn/Verlust', invested: 'Investiert',
     total: 'Gesamt', totalValue: 'Gesamtwert', portfolioValue: 'Portfoliowert', positions: 'Positionen',
