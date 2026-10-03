@@ -45,10 +45,22 @@ function Sparkline({ values, width = 80, height = 32, color }) {
 // freshness, and an explicit signal instead of a silent zero. Takes a
 // precomputed `fetchedAt` (the table reads the price-meta map once) so it never
 // touches storage per row. Renders nothing if the data-quality layer is absent.
-function PriceQualityBadge({ category, price, meta, fetchedAt, fetchFailed, theme }) {
+function PriceQualityBadge({ category, price, meta, fetchedAt, fetchFailed, theme, noPrice }) {
   const Q = (typeof window !== 'undefined') && window.MaerminDataQuality;
   if (!Q) return null;
   theme = theme || {};
+  // No market price was ever fetched for this position: the app values it at
+  // its cost basis (MaerminMarket.effectivePrices). Say so instead of letting
+  // the figure pass as a quote.
+  if (noPrice) {
+    return React.createElement('span', {
+      title: 'No market price available yet — valued at cost basis until a quote can be fetched.',
+      style: { display: 'inline-flex', alignItems: 'center', gap: '0.3rem', fontSize: '0.62rem', color: theme.textSecondary || '#888', whiteSpace: 'nowrap' }
+    },
+      React.createElement('span', { style: { width: 6, height: 6, borderRadius: '50%', background: '#ef4444', flexShrink: 0 } }),
+      'no price · at cost'
+    );
+  }
   const m = meta || {};
   // Prefer the recorded source/freshness (so a fallback fetch shows its real
   // source); fall back to the legacy fetchedAt prop + category default.

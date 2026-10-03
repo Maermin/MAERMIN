@@ -582,7 +582,7 @@ function EnhancedPositionsTable({ portfolio, prices, priceHistory, transactions,
                       React.createElement('div', { style: { display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: '2px' } },
                         React.createElement('span', { style: { color: theme.text, fontWeight: '600', fontSize: '0.82rem' } },
                           p.price > 0 ? formatPrice(p.price) : React.createElement('span', { style: { color: theme.textSecondary } }, '—')),
-                        PriceBadge && React.createElement(PriceBadge, { category: p.cat, price: p.price, meta: metaFor(p.sym), theme })
+                        PriceBadge && React.createElement(PriceBadge, { category: p.cat, price: p.price, meta: metaFor(p.sym), theme, noPrice: !!(window.MaerminMarket && window.MaerminMarket.isCostFallback(p.sym)) })
                       )
                     ),
                     React.createElement('td', { style: { padding: '0.875rem 0.875rem', color: theme.text, textAlign: 'right', fontWeight: '700', fontSize: '0.875rem' } },
