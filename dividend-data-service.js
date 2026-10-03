@@ -1,7 +1,7 @@
 // ============================================================================
 // MAERMIN v7.0 - Dividend Data Service with API Integration
 // Automatic dividend data fetching, history tracking, and forecasting
-// Uses Financial Modeling Prep API (free tier) for real dividend data
+// Resolves real dividend data through the Worker (Yahoo fundamentals).
 // ============================================================================
 
 (function() {
@@ -9,9 +9,6 @@
 
 // API Configuration
 var API_CONFIG = {
-  // Financial Modeling Prep - Free tier allows 250 requests/day
-  FMP_BASE_URL: 'https://financialmodelingprep.com/api/v3',
-  FMP_API_KEY: '', // User can set via setApiKey()
   CACHE_DURATION: 24 * 60 * 60 * 1000 // 24 hours
 };
 
@@ -74,7 +71,6 @@ var DIVIDEND_DATABASE = {
 
 // Storage keys
 var STORAGE_KEYS = {
-  apiKey: 'maermin_fmp_api_key',
   cache: 'maermin_dividend_cache',
   history: 'maermin_dividend_history',
   lastFetch: 'maermin_dividend_last_fetch'
@@ -86,129 +82,6 @@ var STORAGE_KEYS = {
 
 var DividendDataService = {
   
-  // Set API key for Financial Modeling Prep
-  setApiKey: function(key) {
-    API_CONFIG.FMP_API_KEY = key;
-    try {
-      localStorage.setItem(STORAGE_KEYS.apiKey, key);
-    } catch (e) {
-      console.warn('Could not save API key to localStorage');
-    }
-    return this;
-  },
-  
-  // Get API key
-  getApiKey: function() {
-    if (API_CONFIG.FMP_API_KEY) return API_CONFIG.FMP_API_KEY;
-    try {
-      var saved = localStorage.getItem(STORAGE_KEYS.apiKey);
-      if (saved) {
-        API_CONFIG.FMP_API_KEY = saved;
-        return saved;
-      }
-    } catch (e) {}
-    return null;
-  },
-  
-  // Fetch dividend data from API
-  fetchDividendFromAPI: function(symbol) {
-    var self = this;
-    var apiKey = this.getApiKey();
-    
-    if (!apiKey) {
-      /* quiet: no API key, DB fallback */
-      return Promise.resolve(this.getFromDatabase(symbol));
-    }
-    
-    var url = API_CONFIG.FMP_BASE_URL + '/historical-price-full/stock_dividend/' + symbol + '?apikey=' + apiKey;
-    
-    return fetch(url)
-      .then(function(response) {
-        if (!response.ok) throw new Error('API error: ' + response.status);
-        return response.json();
-      })
-      .then(function(data) {
-        if (data && data.historical && data.historical.length > 0) {
-          var dividends = data.historical;
-          var latestDiv = dividends[0];
-          
-          // Calculate annual dividend from last 4 payments
-          var recentDivs = dividends.slice(0, 4);
-          var annualTotal = recentDivs.reduce(function(sum, d) {
-            return sum + (d.dividend || 0);
-          }, 0);
-          
-          // Determine frequency
-          var frequency = 'quarterly';
-          if (recentDivs.length >= 12) frequency = 'monthly';
-          else if (recentDivs.length <= 2) frequency = 'semi-annual';
-          else if (recentDivs.length === 1) frequency = 'annual';
-          
-          // Calculate growth rate
-          var growthRate = 0;
-          if (dividends.length >= 8) {
-            var lastYear = dividends.slice(0, 4).reduce(function(s, d) { return s + d.dividend; }, 0);
-            var prevYear = dividends.slice(4, 8).reduce(function(s, d) { return s + d.dividend; }, 0);
-            if (prevYear > 0) {
-              growthRate = (lastYear - prevYear) / prevYear;
-            }
-          }
-          
-          var result = {
-            symbol: symbol,
-            annualDividend: annualTotal,
-            dividendPerShare: latestDiv.dividend,
-            frequency: frequency,
-            exDate: latestDiv.date,
-            payDate: latestDiv.paymentDate,
-            growthRate: growthRate,
-            yearsOfGrowth: self.calculateYearsOfGrowth(dividends),
-            fromAPI: true
-          };
-          
-          // Cache the result
-          self.saveToCache(symbol, result);
-
-          
-          return result;
-        }
-        
-        // No dividend data from API, use fallback
-        return self.getFromDatabase(symbol);
-      })
-      .catch(function(err) {
-        console.warn('[DividendService] API error for ' + symbol + ':', err.message);
-        return self.getFromDatabase(symbol);
-      });
-  },
-  
-  // Calculate years of consecutive dividend growth
-  calculateYearsOfGrowth: function(dividends) {
-    if (!dividends || dividends.length < 8) return 0;
-    
-    var years = 0;
-    var yearlyDivs = {};
-    
-    // Group by year
-    dividends.forEach(function(d) {
-      var year = new Date(d.date).getFullYear();
-      if (!yearlyDivs[year]) yearlyDivs[year] = 0;
-      yearlyDivs[year] += d.dividend || 0;
-    });
-    
-    var sortedYears = Object.keys(yearlyDivs).sort().reverse();
-    for (var i = 0; i < sortedYears.length - 1; i++) {
-      var current = yearlyDivs[sortedYears[i]];
-      var previous = yearlyDivs[sortedYears[i + 1]];
-      if (current >= previous && previous > 0) {
-        years++;
-      } else {
-        break;
-      }
-    }
-    
-    return years;
-  },
   
   // Get from local database
   getFromDatabase: function(symbol) {
@@ -285,7 +158,7 @@ var DividendDataService = {
       var sym = (s.symbol || s.name || '').toUpperCase();
       var shares = parseFloat(s.amount) || 0;
       if (!sym || shares <= 0) return;
-      var d = self.getDividendData(sym);              // cache (Worker/FMP) → built-in DB
+      var d = self.getDividendData(sym);              // cache (Worker) → built-in DB
       if (!d || !(d.annualDividend > 0)) return;
       var ppy = self.getPaymentsPerYear(d.frequency);
       var monthsPerPay = Math.max(1, Math.round(12 / ppy));
@@ -350,18 +223,16 @@ var DividendDataService = {
 
   // Warm the cache for a whole portfolio so the synchronous getDividendData()
   // resolves far more than the ~31 built-in tickers. Resolves via the user's
-  // Worker (Yahoo fundamentals) when a Worker URL is supplied — NO FMP key
-  // needed — and falls back to the FMP API when a key is set. With neither,
-  // resolves immediately (DB-only). Safe to call on each price refresh; the
+  // Worker (Yahoo fundamentals) when a Worker URL is supplied. Without one it
+  // resolves immediately (built-in DB only). Safe to call on each price refresh; the
   // 24h client cache + the Worker's 6h server cache keep requests cheap.
   prefetchPortfolio: function(portfolio, opts) {
     opts = opts || {};
     var self = this;
     var workerUrl = opts.workerUrl;
     var hasWorker = !!(workerUrl && String(workerUrl).trim().length >= 5);
-    var hasKey = !!this.getApiKey();
     var stocks = (portfolio && portfolio.stocks) || [];
-    if ((!hasWorker && !hasKey) || stocks.length === 0) return Promise.resolve(0);
+    if (!hasWorker || stocks.length === 0) return Promise.resolve(0);
     var norm = (typeof window !== 'undefined' && window.MaerminTickers)
       ? function (s) { return window.MaerminTickers.normalizeForDividends(s) || (s || '').toUpperCase(); }
       : function (s) { return (s || '').toUpperCase(); };
@@ -372,10 +243,7 @@ var DividendDataService = {
       if (sym && !seen[sym] && !self.getFromCache(sym)) { seen[sym] = true; symbols.push(sym); }
     });
     if (symbols.length === 0) return Promise.resolve(0);
-    var resolveOne = hasWorker
-      ? function (sym) { return self.fetchDividendFromWorker(sym, workerUrl); }
-      : function (sym) { return self.fetchDividendFromAPI(sym).catch(function () { return null; }); };
-    return Promise.all(symbols.map(resolveOne)).then(function (rows) {
+    return Promise.all(symbols.map(function (sym) { return self.fetchDividendFromWorker(sym, workerUrl); })).then(function (rows) {
       return rows.filter(Boolean).length;
     });
   },
@@ -396,7 +264,7 @@ var DividendDataService = {
   },
 
   // Resolve dividend data through the user's Worker (Yahoo `fundamentals`) — the
-  // same source used for stock prices, so no FMP key is required. Returns null
+  // same source used for stock prices, so no API key is required. Returns null
   // for non-payers / on any failure (caller keeps the DB / "no data" fallback).
   fetchDividendFromWorker: function(symbol, workerUrl) {
     var self = this;
@@ -511,15 +379,6 @@ var DividendDataService = {
     if (isNaN(date.getTime())) return null;
     date.setUTCDate(date.getUTCDate() + 14); // UTC arithmetic: no DST off-by-one
     return date.toISOString().split('T')[0];
-  },
-  
-  // Fetch multiple symbols from API
-  fetchMultipleFromAPI: function(symbols) {
-    var self = this;
-    var promises = symbols.map(function(sym) {
-      return self.fetchDividendFromAPI(sym);
-    });
-    return Promise.all(promises);
   },
   
   // Get portfolio dividend data

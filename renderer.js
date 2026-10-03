@@ -1050,7 +1050,7 @@ function InvestmentTracker() {
     return () => { alive = false; clearInterval(iv); };
   }, [demoMode, apiKeys.cs2Worker]);
 
-  // Warm the dividend cache for held stocks (no-op without an FMP key or when
+  // Warm the dividend cache for held stocks (no-op without a Worker URL or when
   // already cached). Lets the Dividend Forecast/Calendar resolve far more than
   // the built-in ticker list. Cache + 24h TTL keep this within free-tier limits.
   useEffect(() => {
@@ -1062,10 +1062,10 @@ function InvestmentTracker() {
       }
       // Backfill sector/country metadata for the Strategy tab (covers existing
       // holdings, manual additions and sync updates — anything that changes the
-      // derived portfolio). No-op without an FMP key; static map still applies.
+      // derived portfolio). No-op without a Worker URL; static map still applies.
       if (window.MaerminEquityMeta) {
-        // Resolve sector/country through the Worker (Yahoo assetProfile) — no FMP
-        // key needed; falls back to FMP if a key is set, static map otherwise.
+        // Resolve sector/country through the Worker (Yahoo assetProfile); static
+        // map otherwise.
         window.MaerminEquityMeta.prefetchPortfolio(portfolio, { workerUrl: apiKeys.cs2Worker })
           .then((n) => { if (n > 0) setMetaVersion(v => v + 1); }) // refresh Strategy views once metadata lands
           .catch(() => {});

@@ -593,7 +593,7 @@ function DividendForecastView({ transactions, portfolio, prices, metaVersion, th
         React.createElement('div', { style: { color: theme.textSecondary, fontSize: '2rem', marginBottom: '0.5rem', opacity: 0.4 } }, '◎'),
         React.createElement('div', { style: { color: theme.text, fontWeight: '600', marginBottom: '0.5rem' } }, 'No dividend data yet'),
         React.createElement('div', { style: { color: theme.textSecondary, fontSize: '0.875rem', maxWidth: 360, margin: '0 auto' } },
-          'Add dividend transactions, or hold recognised dividend stocks (an FMP API key in Settings expands coverage beyond the built-in list).'
+          'Add dividend transactions, or hold recognised dividend stocks (a Worker URL in API Settings expands coverage beyond the built-in list).'
         )
       )
     );
