@@ -1,7 +1,7 @@
 // ============================================================================
 // MAERMIN v7.0 - Dividend Data Service with API Integration
 // Automatic dividend data fetching, history tracking, and forecasting
-// Resolves real dividend data through the Worker (Yahoo fundamentals);
+// Resolves real dividend data through the Worker (Yahoo fundamentals).
 // ============================================================================
 
 (function() {
