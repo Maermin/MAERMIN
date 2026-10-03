@@ -78,6 +78,9 @@
     // daily EUR rates of the non-EUR/USD currencies traded (fx-history.js): with
     // them a restored vault costs CHF/GBP trades at the rate of their date offline
     'maermin_fx_currencies',
+    // daily close history per holding (close-history.js): re-fetchable, but with
+    // it a restored vault shows TWR / risk figures offline and right away
+    'maermin_close_history',
     'theme',
     'currency',
     'privacyMode',

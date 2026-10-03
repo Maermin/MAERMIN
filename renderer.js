@@ -667,6 +667,147 @@ function InvestmentTracker() {
       setFxHistVersion(v => v + 1); // new resolver identity -> positions, ledger, tax report recompute
     }).catch(() => { curSyncRef.current.busy = false; });
   }, [transactions, apiKeys.cs2Worker, demoMode, lastRefresh, curTick]);
+  // ── Daily close history → value path (TWR from day one) ───────────────────
+  // priceHistory only has one point per refresh, so TWR, rolling volatility and
+  // correlation stayed empty for days after an import. MaerminCloseHistory keeps
+  // daily closes back to the first trade of every holding (stocks/commodities and
+  // skins through the Worker, crypto from CoinGecko), persisted encrypted;
+  // MaerminValuePath turns them + the transactions into the daily value path.
+  // Best effort: without a Worker / offline the views fall back to the recorded
+  // snapshots and the refresh history as before. Never runs in demo mode.
+  const [closeHistory, setCloseHistory] = useState(() => (demoMode || !window.MaerminCloseHistory) ? null : window.MaerminCloseHistory.load());
+  const closeStoreRef = useRef(closeHistory);
+  const closeSyncRef = useRef({ sig: '', at: 0, busy: false, failed: 0, pending: 0, rounds: 0, timer: null });
+  useEffect(() => () => { if (closeSyncRef.current.timer) clearTimeout(closeSyncRef.current.timer); }, []);
+  const [closeTick, setCloseTick] = useState(0);      // re-run for the holdings a batch left over
+  const [closePending, setClosePending] = useState(0); // holdings whose history is still to be loaded
+  useEffect(() => {
+    const CH = window.MaerminCloseHistory;
+    // Only after the first price refresh of the session: it resolves exchange
+    // suffixes (EUNL -> EUNL.DE) the history needs, and it gets the first go at
+    // the Worker's and CoinGecko's request limits.
+    if (!CH || demoMode || !lastRefresh) return;
+    const need = CH.need(transactions);
+    const keys = Object.keys(need);
+    if (!keys.length) return;
+    const rawBase = (apiKeys.cs2Worker || '').trim().replace(/\/$/, '');
+    const workerBase = rawBase.length > 5 ? rawBase : '';
+    const sig = workerBase + '#' + keys.map(k => k + ':' + need[k].first).sort().join('|');
+    const st = closeSyncRef.current;
+    // Same holdings: look again at most every 10 min; after 15 s when a batch
+    // left holdings over, after 1 min when a request failed. CH.plan() itself
+    // only re-requests a series every 6 h.
+    if (st.busy || (st.sig === sig && Date.now() - st.at < (st.pending ? 15 : st.failed ? 60 : 600) * 1000)) return;
+    closeSyncRef.current = { sig, at: Date.now(), busy: true, failed: 0, pending: 0, rounds: st.sig === sig ? st.rounds : 0, timer: st.timer };
+    let suffixCache = {};
+    try { suffixCache = JSON.parse(localStorage.getItem('maermin_symbol_suffix') || '{}') || {}; } catch (e) {}
+    CH.sync({
+      transactions, store: closeStoreRef.current || CH.load(), workerBase, suffixCache,
+      normalizeSkin: window.MaerminTickers && window.MaerminTickers.normalizeSkinName
+    }).then((res) => {
+      closeSyncRef.current.busy = false;
+      closeSyncRef.current.failed = res.failed.length;
+      // Left over by the batch / rate limit (not: no Worker configured): go again shortly.
+      const pending = workerBase ? res.skipped.length : res.skipped.filter(k => k.indexOf('crypto|') === 0).length;
+      const cur = closeSyncRef.current;
+      cur.pending = pending;
+      setClosePending(pending);
+      // Follow-up batches: only while this run made progress, at most 10 in a
+      // row, never from a hidden tab (the next price refresh picks it up).
+      if (cur.timer) { clearTimeout(cur.timer); cur.timer = null; }
+      if (pending && res.fetched.length && cur.rounds < 10 && !(typeof document !== 'undefined' && document.hidden)) {
+        cur.rounds++;
+        cur.timer = setTimeout(() => { cur.timer = null; setCloseTick(n => n + 1); }, 20000);
+      }
+      if (res.failed.length) dbg('[HISTORY] no daily closes for', res.failed.map(f => f.symbol + ' (' + f.reason + ')').join(', '));
+      if (!res.changed) { if (!closeStoreRef.current) { closeStoreRef.current = res.store; setCloseHistory(res.store); } return; }
+      if (!CH.save(res.store)) console.warn('[HISTORY] could not persist the close history (storage full?) - kept for this session');
+      closeStoreRef.current = res.store;
+      setCloseHistory(res.store);
+    }).catch(() => { closeSyncRef.current.busy = false; });
+  }, [transactions, apiKeys.cs2Worker, demoMode, lastRefresh, closeTick]);
+
+  // Stored closes are in the quote currency; convert each to EUR at the rate of
+  // its day: USD from the daily USD history, CHF / GBp & co. from the currency
+  // history (MaerminFxHistory.currencyRateAt) where it reaches that day, else
+  // today's cross rate.
+  const closeSeriesEUR = useMemo(() => {
+    const CH = window.MaerminCloseHistory, FXH = window.MaerminFxHistory;
+    const out = {};
+    if (!CH || !closeHistory || demoMode) return out;
+    Object.keys(closeHistory.series).forEach((k) => {
+      const e = closeHistory.series[k];
+      const closes = [];
+      CH.closesOf(e).forEach(([d, p]) => {
+        let v = p;
+        if (e.cur !== 'EUR') {
+          const usd = (fxAt && fxAt(d)) || exchangeRate;
+          const dated = (FXH && FXH.currencyRateAt && e.cur !== 'USD') ? FXH.currencyRateAt(e.cur, d) : null;
+          v = dated > 0 ? p * dated
+            : (FXH && FXH.quoteToEUR) ? FXH.quoteToEUR(p, e.cur, usd) : (e.cur === 'USD' ? p * usd : null);
+        }
+        if (v > 0) closes.push([d, v]);
+      });
+      if (closes.length) out[k] = { closes, splits: e.splits, cur: e.cur };
+    });
+    return out;
+  }, [closeHistory, fxAt, exchangeRate, demoMode]);
+
+  // Value path of the ACTIVE portfolio. Today is valued at this session's quote
+  // where one was fetched (else the last close); quantities are adjusted with
+  // the recorded splits only, exactly like the positions list.
+  const valuePath = useMemo(() => {
+    const VP = window.MaerminValuePath, CH = window.MaerminCloseHistory;
+    if (!VP || !CH || demoMode || !Object.keys(closeSeriesEUR).length) return null;
+    try {
+      const live = {};
+      Object.keys(closeSeriesEUR).forEach((k) => {
+        const sym = k.slice(k.indexOf('|') + 1);
+        const p = fetchedPrices[sym] > 0 ? fetchedPrices[sym] : fetchedPrices[sym.toLowerCase()];
+        if (p > 0) live[k] = p;
+      });
+      const splits = {};
+      const CA = window.MaerminCorporateActions;
+      ((CA && CA.load && CA.load().actions) || []).forEach((a) => {
+        const k = CH.keyOf(a.category, a.symbol);
+        (splits[k] = splits[k] || []).push({ date: a.date, num: a.num, den: a.den });
+      });
+      return VP.build(activeTransactions, closeSeriesEUR, { today: window.MaerminUtils.todayISO(), exchangeRate, fxAt, live, splits });
+    } catch (e) { console.warn('[HISTORY] value path failed:', e && e.message); return null; }
+  }, [activeTransactions, closeSeriesEUR, fetchedPrices, exchangeRate, fxAt, corpActionsRev, demoMode]);
+
+  // Inputs for the analytics views, all from the same daily closes:
+  //   index   flow-neutral TWR index [{ d, v }] (≤ 3 years) - benchmark, rolling risk, factors
+  //   bySymbol / byLower   per-holding closes on one date grid (≤ 1 year) for the
+  //                        correlation matrix (display symbol) and risk metrics (lower-case)
+  const dailyAnalytics = useMemo(() => {
+    const VP = window.MaerminValuePath, CH = window.MaerminCloseHistory;
+    const none = { index: [], bySymbol: {}, byLower: {}, since: null };
+    if (!VP || !CH || !valuePath || valuePath.twr === null) return none;
+    try {
+      const keys = [], labels = {}, lower = {};
+      let open = 0;
+      ['crypto', 'stocks', 'skins', 'commodities'].forEach((cat) => (portfolio[cat] || []).forEach((pos) => {
+        const sym = pos.symbol || pos.name || '';
+        const k = CH.keyOf(cat, sym);
+        if (labels[k]) return;
+        open++;
+        if (!closeSeriesEUR[k]) return;
+        keys.push(k); labels[k] = sym; lower[k] = sym.toLowerCase();
+      }));
+      const index = VP.index(valuePath, { max: 756 });
+      // Per-holding closes replace the refresh history only when EVERY open
+      // position has them - a partly covered book would understate risk and
+      // drop holdings from the matrix under a "daily closes" label.
+      const full = keys.length > 0 && keys.length === open;
+      return {
+        index,
+        bySymbol: full ? VP.alignedCloses(closeSeriesEUR, keys, { max: 365, labels }) : {},
+        byLower: full ? VP.alignedCloses(closeSeriesEUR, keys, { max: 365, labels: lower }) : {},
+        since: index.length ? index[0].d : null
+      };
+    } catch (e) { return none; }
+  }, [valuePath, closeSeriesEUR, portfolio]);
 
   const showApiSettings = window.MaerminStore.useStore(window.MaerminUI.overlays, s => !!s.apiSettings);
   const setShowApiSettings = (v) => { const n = typeof v === 'function' ? v(showApiSettings) : v; n ? window.MaerminUI.openOverlay('apiSettings') : window.MaerminUI.closeOverlay('apiSettings'); };
@@ -1247,14 +1388,8 @@ function InvestmentTracker() {
         const workerBase = (apiKeys.cs2Worker || '').trim().replace(/\/$/, '');
         const hasWorker  = workerBase.length > 5;
         // Known legacy symbols without an exchange suffix.
-        const LEGACY_MAP = {
-          'SIX2':'SIX2.DE','SIE':'SIE.DE','SAP':'SAP.DE','BMW':'BMW.DE',
-          'VOW3':'VOW3.DE','BAS':'BAS.DE','ALV':'ALV.DE','DTE':'DTE.DE',
-          'DBK':'DBK.DE','ADS':'ADS.DE','RWE':'RWE.DE','MRK':'MRK.DE',
-          'NVO':'NVO','SHEL':'SHEL.L','AZN':'AZN.L','BP':'BP.L',
-          'LVMH':'MC.PA','TTE':'TTE.PA','AIR':'AIR.PA',
-          'ASML':'ASML.AS','ING':'INGA.AS',
-        };
+        // (shared with the daily close history, so quote and history read the same listing)
+        const LEGACY_MAP = (window.MaerminCloseHistory || {}).YF_LEGACY || {};
         // Persistent cache of resolved YF symbols (bare → exchange-suffixed).
         let suffixCache = {};
         try { suffixCache = JSON.parse(localStorage.getItem('maermin_symbol_suffix') || '{}') || {}; } catch (e) {}
@@ -1344,13 +1479,7 @@ function InvestmentTracker() {
         const hasWorker  = workerBase.length > 5;
 
         // Yahoo Finance Futures symbols for commodities
-        const YF_COMMODITY = {
-          'GOLD':'GC=F','XAU':'GC=F','SILVER':'SI=F','XAG':'SI=F',
-          'OIL':'CL=F','WTI':'CL=F','BRENT':'BZ=F',
-          'GAS':'NG=F','NATURAL_GAS':'NG=F',
-          'COPPER':'HG=F','PLATINUM':'PL=F','XPT':'PL=F',
-          'PALLADIUM':'PA=F','XPD':'PA=F','WHEAT':'ZW=F','CORN':'ZC=F',
-        };
+        const YF_COMMODITY = (window.MaerminCloseHistory || {}).YF_COMMODITY || {};
 
         // Alpha Vantage commodity config (fallback only)
         const AV_COMMODITY = {
@@ -2685,12 +2814,13 @@ function InvestmentTracker() {
         return window.MaerminFeatures2 ? React.createElement('div', null,
           React.createElement(window.MaerminFeatures2.ReturnsView, {
             transactions: activeTransactions, portfolio, prices, priceHistory, fxAt, exchangeRate,
+            valuePath, historyPending: closePending, portfolioId: activePortfolioId, hasWorker: (apiKeys.cs2Worker || '').trim().length > 5,
             theme: currentTheme, formatPrice, getCurrencySymbol, t
           }),
           // Benchmark overlay (α/β/TE/IR/R²) — folds the analytics engine into Returns.
           window.MaerminAnalyticsViews && React.createElement('div', { style: { padding: '0 1.5rem 1.5rem' } },
             React.createElement(window.MaerminAnalyticsViews.BenchmarkPanel, {
-              portfolio, priceHistory, workerUrl: apiKeys.cs2Worker, theme: currentTheme, t, formatPrice
+              portfolio, priceHistory, valueSeries: dailyAnalytics.index, workerUrl: apiKeys.cs2Worker, theme: currentTheme, t, formatPrice
             }),
             // FX attribution: split the EUR return into asset vs exchange-rate
             // parts (no new tab; the EUR/USD path comes via the existing yf route).
@@ -3564,7 +3694,11 @@ function InvestmentTracker() {
     const renderContent = () => {
       switch(analyticsTab) {
         case 'correlation': return window.CorrelationMatrixView ?
-          React.createElement(window.CorrelationMatrixView, { portfolio, priceHistory, t, theme: currentTheme, formatPrice })
+          // Daily closes on one date grid when at least two holdings have them
+          // (available right after an import); else the refresh history.
+          React.createElement(window.CorrelationMatrixView, Object.keys(dailyAnalytics.bySymbol).length >= 2
+            ? { portfolio, priceHistory: dailyAnalytics.bySymbol, historySource: 'daily', t, theme: currentTheme, formatPrice }
+            : { portfolio, priceHistory, t, theme: currentTheme, formatPrice })
           : renderAnalyticsPlaceholder('Correlation Matrix');
         case 'montecarlo': return React.createElement(React.Fragment, null,
           window.MonteCarloView
@@ -3587,13 +3721,15 @@ function InvestmentTracker() {
           : renderAnalyticsPlaceholder('Stress Test');
         case 'risk': return React.createElement(React.Fragment, null,
           window.RiskAnalyticsViewV2
-            ? React.createElement(window.RiskAnalyticsViewV2, { portfolio, prices, priceHistory, transactions: activeTransactions, setActiveView, t, theme: currentTheme, formatPrice })
+            ? React.createElement(window.RiskAnalyticsViewV2, { portfolio, prices, transactions: activeTransactions, setActiveView, t, theme: currentTheme, formatPrice,
+                priceHistory: Object.keys(dailyAnalytics.byLower).length ? dailyAnalytics.byLower : priceHistory,
+                historySource: Object.keys(dailyAnalytics.byLower).length ? 'daily' : 'refresh' })
             : renderAnalyticsPlaceholder('Risk Analysis'),
           // Rolling volatility/return trajectory + Fama-French factor exposure —
           // folds the analytics engine into Risk (no new tab).
           window.MaerminAnalyticsViews && React.createElement('div', { style: { padding: '0 1.5rem 1.5rem' } },
-            React.createElement(window.MaerminAnalyticsViews.RollingRiskPanel, { portfolio, priceHistory, theme: currentTheme, t }),
-            window.MaerminAnalyticsViews.FactorExposurePanel && React.createElement(window.MaerminAnalyticsViews.FactorExposurePanel, { portfolio, priceHistory, workerUrl: apiKeys.cs2Worker, theme: currentTheme, t }),
+            React.createElement(window.MaerminAnalyticsViews.RollingRiskPanel, { portfolio, priceHistory, valueSeries: dailyAnalytics.index, theme: currentTheme, t }),
+            window.MaerminAnalyticsViews.FactorExposurePanel && React.createElement(window.MaerminAnalyticsViews.FactorExposurePanel, { portfolio, priceHistory, valueSeries: dailyAnalytics.index, workerUrl: apiKeys.cs2Worker, theme: currentTheme, t }),
             // ETF look-through, risk slice: fund overlap matrix + hidden
             // concentration findings — folds into Risk (no new tab).
             window.MaerminLookThrough && window.MaerminLookThrough.Panel && React.createElement(window.MaerminLookThrough.Panel, {

@@ -47,7 +47,10 @@
     var ok = theme.success || '#22c55e', bad = theme.danger || '#ef4444';
     var card = theme.card || theme.cardBg || 'transparent';
     var workerBase = (props.workerUrl || '').trim().replace(/\/$/, '');
-    var series = D.buildValueSeries(props.portfolio, props.priceHistory);
+    // Daily TWR index of the book ([{ d, v }], from the value path) when there is
+    // one; else the value series derived from the refresh history.
+    var dated = (Array.isArray(props.valueSeries) && props.valueSeries.length >= 3) ? props.valueSeries : null;
+    var series = dated ? dated.map(function (p) { return p.v; }) : D.buildValueSeries(props.portfolio, props.priceHistory);
 
     var sSel = React.useState('msci_world'); var sel = sSel[0], setSel = sSel[1];
     var sBench = React.useState(null); var bench = sBench[0], setBench = sBench[1];
@@ -60,7 +63,9 @@
     React.useEffect(function () {
       if (!workerBase || !preset) { setBench(null); return; }
       var cancelled = false; setLoading(true); setErr(null);
-      var url = workerBase + '?action=yf&symbol=' + encodeURIComponent(preset.proxy) + '&interval=1d&range=1y';
+      // Enough benchmark history to cover the book's own (up to three years).
+      var range = (dated && dated.length > 260) ? (dated.length > 520 ? '5y' : '2y') : '1y';
+      var url = workerBase + '?action=yf&symbol=' + encodeURIComponent(preset.proxy) + '&interval=1d&range=' + range;
       var ctrl = (typeof AbortController !== 'undefined') ? new AbortController() : null;
       var timer = ctrl ? setTimeout(function () { ctrl.abort(); }, 12000) : null;
       fetch(url, { signal: ctrl ? ctrl.signal : undefined })
@@ -68,17 +73,20 @@
         .then(function (j) {
           if (cancelled) return;
           if (!j || j.error || !Array.isArray(j.prices)) { setErr((j && j.error) || 'No benchmark data'); setBench(null); }
-          else { setBench({ series: D.pricesOf(j.prices), label: preset.label }); }
+          else { setBench({ series: D.pricesOf(j.prices), dated: j.prices, label: preset.label }); }
           setLoading(false);
         })
         .catch(function (ex) { if (cancelled) return; setErr((ex && ex.name === 'AbortError') ? 'Timed out' : 'Fetch failed'); setBench(null); setLoading(false); })
         .then(function () { if (timer) clearTimeout(timer); });
       return function () { cancelled = true; if (timer) clearTimeout(timer); };
-    }, [sel, workerBase]);
+    }, [sel, workerBase, dated ? (dated.length > 260 ? (dated.length > 520 ? 3 : 2) : 1) : 0]);
 
     var stats = null;
     if (bench && series.length >= 3 && bench.series.length >= 3) {
-      var al = D.alignedReturns(series, bench.series);
+      // Dated on both sides: pair the returns by calendar day (a book with crypto
+      // has weekend points the benchmark lacks). Otherwise trailing windows.
+      var byDate = dated ? D.alignByDate([dated, bench.dated]) : [];
+      var al = byDate.length === 2 ? { a: D.toReturns(byDate[0]), b: D.toReturns(byDate[1]) } : D.alignedReturns(series, bench.series);
       stats = A.benchmarkStats(al.a, al.b, { periodsPerYear: 252 });
     }
 
@@ -105,7 +113,7 @@
         tile('Correlation', stats.correlation.toFixed(2), text)
       ),
       e('div', { style: { color: dim, fontSize: '0.72rem', marginTop: '0.7rem', lineHeight: '1.5' } },
-        'Estimated from ' + stats.periods + ' overlapping price points vs ' + (bench ? bench.label : '') + ' (' + (preset ? preset.proxy : '') + '). Alpha/beta are CAPM estimates from available history, not guarantees.')
+        'Estimated from ' + stats.periods + (dated ? ' daily returns since ' + dated[0].d : ' overlapping price points') + ' vs ' + (bench ? bench.label : '') + ' (' + (preset ? preset.proxy : '') + '). Alpha/beta are CAPM estimates from available history, not guarantees.')
     );
 
     return e('div', { style: { background: card, border: '1px solid ' + border, borderRadius: '14px', padding: '1.25rem', marginTop: '1.25rem' } },
@@ -131,14 +139,18 @@
     var border = theme.cardBorder || 'rgba(255,255,255,0.1)', card = theme.card || theme.cardBg || 'transparent';
     var ok = theme.success || '#22c55e';
 
-    var series = D.buildValueSeries(props.portfolio, props.priceHistory);
+    // Daily TWR index from the value path when available (deposits do not show
+    // up as returns); else the value series from the refresh history.
+    var dated = (Array.isArray(props.valueSeries) && props.valueSeries.length >= 5) ? props.valueSeries : null;
+    var series = dated ? dated.map(function (p) { return p.v; }) : D.buildValueSeries(props.portfolio, props.priceHistory);
     var returns = D.toReturns(series);
 
     var inner;
     if (returns.length < 4) {
       inner = note(React, dim, 'Refresh prices a few times to unlock rolling volatility & return trends — they need a short price history.');
     } else {
-      var win = Math.max(2, Math.min(10, Math.floor(returns.length / 2)));
+      // Daily data: a one-month (21 trading day) window once there is enough of it.
+      var win = Math.max(2, Math.min(dated ? 21 : 10, Math.floor(returns.length / 2)));
       var rvol = A.rollingVolatility(returns, win, 252);
       var rret = A.rollingReturns(returns, win);
       var curVol = rvol.length ? rvol[rvol.length - 1] : 0;
@@ -156,7 +168,9 @@
             e('div', { style: { color: curRet >= 0 ? ok : (theme.danger || '#ef4444'), fontSize: '1rem', fontWeight: '700', marginTop: '0.3rem' } }, (curRet * 100).toFixed(1) + '%')
           )
         ),
-        e('div', { style: { color: dim, fontSize: '0.72rem', marginTop: '0.7rem' } }, 'Computed from your portfolio value path over the available price history.')
+        e('div', { 'data-testid': 'rolling-source', style: { color: dim, fontSize: '0.72rem', marginTop: '0.7rem' } }, dated
+          ? ('Computed from ' + returns.length + ' daily time-weighted returns since ' + dated[0].d + ' (deposits and withdrawals excluded).')
+          : 'Computed from your portfolio value path over the available price history.')
       );
     }
 
@@ -190,7 +204,8 @@
     var ok = theme.success || '#22c55e', bad = theme.danger || '#ef4444';
     var card = theme.card || theme.cardBg || 'transparent';
     var workerBase = (props.workerUrl || '').trim().replace(/\/$/, '');
-    var series = D.buildValueSeries(props.portfolio, props.priceHistory);
+    var dated = (Array.isArray(props.valueSeries) && props.valueSeries.length > FACTOR_MIN_PERIODS) ? props.valueSeries : null;
+    var series = dated ? dated.map(function (p) { return p.v; }) : D.buildValueSeries(props.portfolio, props.priceHistory);
 
     var sData = React.useState(null); var data = sData[0], setData = sData[1];
     var sLoad = React.useState(false); var loading = sLoad[0], setLoading = sLoad[1];
@@ -208,11 +223,12 @@
           .then(function (r) { return r.json(); })
           .then(function (j) {
             if (!j || j.error || !Array.isArray(j.prices)) throw new Error((j && j.error) || ('No data for ' + sym));
-            return D.pricesOf(j.prices);
+            return j.prices;
           });
-      })).then(function (arr) {
+      })).then(function (raw) {
         if (cancelled) return;
-        setData({ vti: arr[0], iwm: arr[1], iwb: arr[2], iwd: arr[3], iwf: arr[4] });
+        var arr = raw.map(D.pricesOf);
+        setData({ vti: arr[0], iwm: arr[1], iwb: arr[2], iwd: arr[3], iwf: arr[4], dated: raw });
         setLoading(false);
       }).catch(function (ex) {
         if (cancelled) return;
@@ -224,7 +240,9 @@
 
     var result = null, periods = 0;
     if (data) {
-      var aligned = D.alignReturns([series, data.vti, data.iwm, data.iwb, data.iwd, data.iwf]);
+      // Dated book series: pair by calendar day, then turn into returns.
+      var byDate = dated ? D.alignByDate([dated].concat(data.dated)) : [];
+      var aligned = byDate.length === 6 ? byDate.map(D.toReturns) : D.alignReturns([series, data.vti, data.iwm, data.iwb, data.iwd, data.iwf]);
       if (aligned.length === 6 && aligned[0].length >= FACTOR_MIN_PERIODS) {
         periods = aligned[0].length;
         var mkt = aligned[1];                       // rf≈0 → returns ≈ excess returns

@@ -35,7 +35,7 @@ function calcTWR(priceHistory, portfolio, transactions) {
 // ─────────────────────────────────────────────────────────────────────────────
 // 1. XIRR / TWR VIEW
 // ─────────────────────────────────────────────────────────────────────────────
-function ReturnsView({ transactions, portfolio, prices, priceHistory, theme, formatPrice, getCurrencySymbol, t, fxAt, exchangeRate }) {
+function ReturnsView({ transactions, portfolio, prices, priceHistory, theme, formatPrice, getCurrencySymbol, t, fxAt, exchangeRate, valuePath, historyPending, portfolioId, hasWorker }) {
   const R = (typeof window !== 'undefined') ? window.MaerminReturns : null;
   // Current EUR value over EVERY class in the book (custom categories too),
   // using the same price lookup as MaerminMetrics.
@@ -59,7 +59,29 @@ function ReturnsView({ transactions, portfolio, prices, priceHistory, theme, for
 
   const xirrResult = useMemo(() => (transactions.length ? calcXIRR(flows) : null), [flows, transactions.length]);
 
-  const twrResult = useMemo(() => calcTWR(priceHistory, portfolio, transactions), [priceHistory, portfolio, transactions]);
+  // TWR, best source first:
+  //   1. the daily value path (transactions × daily closes) - from the first trade
+  //   2. the recorded daily value snapshots, chain-linked around deposits
+  //   3. the per-refresh price history (needs refreshes on several days)
+  const twrInfo = useMemo(() => {
+    const VP = window.MaerminValuePath, SN = window.MaerminSnapshots;
+    if (valuePath && valuePath.twr !== null) return { source: 'daily', value: valuePath.twr, annualized: valuePath.annualized, since: valuePath.start, missing: valuePath.missing || [] };
+    if (VP && SN && transactions.length) {
+      try {
+        const pts = SN.seriesFor(SN.load(), portfolioId || SN.ALL);
+        const r = VP.fromValues(pts, VP.flowsOf(transactions, { exchangeRate, fxAt }));
+        if (r) return { source: 'snapshots', value: r.twr, annualized: r.annualized, since: r.start, missing: [] };
+      } catch (e) { /* fall through */ }
+    }
+    const legacy = calcTWR(priceHistory, portfolio, transactions);
+    return { source: legacy !== null ? 'refresh' : 'none', value: legacy, annualized: null, since: null, missing: [] };
+  }, [valuePath, priceHistory, portfolio, transactions, portfolioId, exchangeRate, fxAt]);
+  const twrResult = twrInfo.value;
+  const twrSub = twrInfo.source === 'daily'
+    ? ('Time-weighted, since ' + twrInfo.since + (twrInfo.annualized !== null ? ' · ' + (twrInfo.annualized >= 0 ? '+' : '') + (twrInfo.annualized * 100).toFixed(2) + '% p.a.' : ''))
+    : twrInfo.source === 'snapshots' ? ('From daily value snapshots since ' + twrInfo.since)
+    : twrInfo.source === 'refresh' ? 'From your price refreshes'
+    : 'No price history yet';
 
   // Simple holding period stats — every amount in EUR.
   const stats = useMemo(() => {
@@ -101,7 +123,8 @@ function ReturnsView({ transactions, portfolio, prices, priceHistory, theme, for
     // Main KPIs
     React.createElement('div', { style: { display: 'grid', gridTemplateColumns: 'repeat(auto-fit,minmax(180px,1fr))', gap: '1rem', marginBottom: '1.5rem' } },
       card('XIRR (annualized)', xirrResult !== null ? fmtPct(xirrResult) : '—', 'Money-weighted return p.a.', xirrResult !== null ? color(xirrResult) : theme.textSecondary),
-      card('TWR', twrResult !== null ? fmtPct(twrResult) : '—', 'Time-weighted total return', twrResult !== null ? color(twrResult) : theme.textSecondary),
+      React.createElement('div', { 'data-testid': 'twr-card', 'data-source': twrInfo.source, style: { display: 'contents' } },
+        card('TWR', twrResult !== null ? fmtPct(twrResult) : '—', twrSub, twrResult !== null ? color(twrResult) : theme.textSecondary)),
       stats && card('Total Return', fmtPct(stats.totalReturnPct), `${formatPrice(stats.totalReturn)} ${getCurrencySymbol()}`, color(stats.totalReturnPct)),
       stats && card('Holding Period', `${stats.holdingDays}d`, 'Since first transaction', theme.text)
     ),
@@ -118,7 +141,18 @@ function ReturnsView({ transactions, portfolio, prices, priceHistory, theme, for
       style: { background: 'rgba(59,130,246,0.06)', border: '1px solid rgba(59,130,246,0.2)', borderRadius: '10px', padding: '1rem', fontSize: '0.8rem', color: theme.textSecondary, lineHeight: '1.7' }
     },
       React.createElement('strong', { style: { color: theme.text } }, 'Note: '),
-      'TWR and XIRR need price-history data. Click "Refresh prices" multiple times across several days to collect meaningful data. XIRR needs at least one buy and the current portfolio value.'
+      twrInfo.source === 'daily'
+        ? ('TWR is built from your transactions and the daily closing prices since ' + twrInfo.since + ': deposits and withdrawals do not count, fees and dividends do.'
+          + (twrInfo.missing.length ? (historyPending > 0
+              ? ' Not included yet: ' + twrInfo.missing.map(m => m.symbol).join(', ') + ' (price history for ' + historyPending + ' holding' + (historyPending === 1 ? ' is' : 's are') + ' still loading).'
+              : ' Not included (no price history available): ' + twrInfo.missing.map(m => m.symbol).join(', ') + '.') : '')
+          + ' XIRR needs at least one buy and the current portfolio value.')
+        : twrInfo.source === 'snapshots'
+          ? 'Daily closing prices are not available right now, so TWR is chain-linked from the portfolio values recorded on this device (one per day the app was open). XIRR needs at least one buy and the current portfolio value.'
+          : ((hasWorker
+              ? 'Daily closing prices for your holdings have not been loaded yet (offline, or the symbols were not found).'
+              : 'Daily closing prices for stocks, ETFs, commodities and skins are loaded through your Worker - add its URL in API Settings.')
+            + ' Until then TWR uses your price refreshes and needs refreshes on several days. XIRR needs at least one buy and the current portfolio value.')
     )
   );
 }

@@ -88,6 +88,11 @@ function MemTransport() {
   localStorage.setItem('maermin_fx_currencies', JSON.stringify({ v: 1, cur: { CHF: { req: '2024-01-01', at: 1, d: [19800], r: [1.05] } } }));
   ok('currency history is a sensitive (encrypted) key', Storage.isSensitive('maermin_fx_currencies'));
   ok('currency history is not in the sync snapshot', Sync.buildSnapshot().data.maermin_fx_currencies === undefined && Sync.buildSnapshot().data.transactions !== undefined);
+  // The daily close history is a device-local market-data cache (it can reach
+  // several hundred KB): encrypted at rest, but never part of the synced blob.
+  localStorage.setItem('maermin_close_history', JSON.stringify({ v: 1, series: { 'stocks|AAPL': { cur: 'USD', d: [20000], p: [1] } } }));
+  ok('close history is a sensitive (encrypted) key', Storage.isSensitive('maermin_close_history'));
+  ok('close history is not in the sync snapshot', Sync.buildSnapshot().data.maermin_close_history === undefined && Sync.buildSnapshot().data.transactions !== undefined);
   let r = await Sync.sync();
   ok('first sync pushes (rev 1)', r.ok && r.rev === 1 && transport._peek().rev === 1);
 
