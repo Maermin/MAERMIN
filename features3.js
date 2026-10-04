@@ -71,10 +71,15 @@ function CorporateActionsPanel({ category, symbol, theme, t = {}, workerUrl }) {
   };
 
   const removeAction = (a) => {
-    if (typeof window !== 'undefined' && typeof window.confirm === 'function' &&
-      !window.confirm((t.caRemoveConfirm || 'Remove this split? It can be re-added or re-scanned.'))) return;
-    CA.remove(a.id);
-    setRev((n) => n + 1);
+    // In-app confirmation (the native dialog only if MaerminUI is missing).
+    const ask = (window.MaerminUI && window.MaerminUI.confirm)
+      ? window.MaerminUI.confirm({ title: t.caRemoveConfirm || 'Remove this split?', message: a.symbol + ' ' + a.num + ':' + a.den + ' on ' + a.date + '. It can be re-added or re-scanned.', confirmLabel: t.caRemove || 'Remove', danger: true })
+      : Promise.resolve(typeof window.confirm !== 'function' || window.confirm(t.caRemoveConfirm || 'Remove this split? It can be re-added or re-scanned.'));
+    ask.then((yes) => {
+      if (!yes) return;
+      CA.remove(a.id);
+      setRev((n) => n + 1);
+    });
   };
 
   const runScan = () => {
@@ -274,13 +279,13 @@ function PositionDetailModal({ position, transactions, prices, theme, formatPric
         [
           { label: 'Current Value',    value: `${formatPrice(metrics.currentValue)} ${getCurrencySymbol()}`, big: true },
           { label: 'Unrealized P&L',   value: `${metrics.unrealizedPL >= 0 ? '+' : ''}${formatPrice(metrics.unrealizedPL)} ${getCurrencySymbol()}`,
-            color: metrics.unrealizedPL >= 0 ? '#22c55e' : '#ef4444', big: true },
+            color: metrics.unrealizedPL >= 0 ? theme.success : theme.danger, big: true },
           { label: 'Avg Cost',         value: `${formatPrice(metrics.avgCost)} ${getCurrencySymbol()}` },
           { label: 'Current Price',    value: `${formatPrice(metrics.currentPrice)} ${getCurrencySymbol()}` },
           { label: 'Total Return',     value: `${metrics.unrealizedPct >= 0 ? '+' : ''}${metrics.unrealizedPct.toFixed(2)}%`,
-            color: metrics.unrealizedPct >= 0 ? '#22c55e' : '#ef4444' },
+            color: metrics.unrealizedPct >= 0 ? theme.success : theme.danger },
           { label: 'CAGR (annualized)', value: metrics.cagr !== null ? `${metrics.cagr >= 0 ? '+' : ''}${metrics.cagr.toFixed(2)}%` : '—',
-            color: metrics.cagr !== null ? (metrics.cagr >= 0 ? '#22c55e' : '#ef4444') : theme.textSecondary },
+            color: metrics.cagr !== null ? (metrics.cagr >= 0 ? theme.success : theme.danger) : theme.textSecondary },
           { label: 'Total Invested',   value: `${formatPrice(metrics.totalInvested)} ${getCurrencySymbol()}` },
           { label: 'Total Fees Paid',  value: `${formatPrice(metrics.totalFees)} ${getCurrencySymbol()}` },
         ].map((m, i) =>
@@ -545,7 +550,7 @@ function EnhancedPositionsTable({ portfolio, prices, priceHistory, transactions,
                 sorted.map((p, i) => {
                   const share    = totalValue > 0 ? (p.value / totalValue) * 100 : 0;
                   const barWidth = maxAbsProfit > 0 ? Math.abs(p.profit) / maxAbsProfit * 100 : 0;
-                  const cagrColor = p.cagr === null ? theme.textSecondary : p.cagr >= 0 ? '#22c55e' : '#ef4444';
+                  const cagrColor = p.cagr === null ? theme.textSecondary : p.cagr >= 0 ? theme.success : theme.danger;
                   return React.createElement('tr', {
                     key: p.sym + p.cat,
                     ...window.MaerminUtils.clickable(() => setDetailPosition(p)),
@@ -593,7 +598,7 @@ function EnhancedPositionsTable({ portfolio, prices, priceHistory, transactions,
                     // P&L with mini bar
                     React.createElement('td', { style: { padding: '0.875rem 0.875rem', textAlign: 'right' } },
                       React.createElement('div', { style: { display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: '3px' } },
-                        React.createElement('span', { style: { color: p.profit >= 0 ? '#22c55e' : '#ef4444', fontWeight: '600', fontSize: '0.8rem' } },
+                        React.createElement('span', { style: { color: p.profit >= 0 ? theme.success : theme.danger, fontWeight: '600', fontSize: '0.8rem' } },
                           `${p.profit >= 0 ? '+' : ''}${formatPrice(p.profit)}`
                         ),
                         React.createElement('div', { style: { width: 48, height: 3, background: 'rgba(255,255,255,0.08)', borderRadius: 2, overflow: 'hidden' } },
@@ -603,7 +608,7 @@ function EnhancedPositionsTable({ portfolio, prices, priceHistory, transactions,
                     ),
                     // Return %
                     React.createElement('td', { style: { padding: '0.875rem 0.875rem', textAlign: 'right' } },
-                      React.createElement('span', { style: { color: p.profitPct >= 0 ? '#22c55e' : '#ef4444', fontWeight: '700', fontSize: '0.82rem' } },
+                      React.createElement('span', { style: { color: p.profitPct >= 0 ? theme.success : theme.danger, fontWeight: '700', fontSize: '0.82rem' } },
                         `${p.profitPct >= 0 ? '+' : ''}${p.profitPct.toFixed(2)}%`
                       )
                     ),
@@ -728,7 +733,7 @@ function CS2SkinPicker({ workerUrl, theme, onSelect, selectedName }) {
         value: query,
         onChange: e => { setQuery(e.target.value); if (!e.target.value) { setResults([]); setOpen(false); } },
         onFocus: () => results.length > 0 && setOpen(true),
-        placeholder: 'Search CS2 skins — e.g. AK-47 Redline...',
+        placeholder: 'Search CS2 skins — e.g. AK-47 Redline...', 'aria-label': 'Skin',
         style: {
           width: '100%', padding: '0.75rem 2.5rem 0.75rem 0.75rem',
           background: theme.inputBg, border: `1px solid ${theme.inputBorder}`,
@@ -990,7 +995,7 @@ function SymbolPicker({ category, workerUrl, theme, onSelect, selectedSymbol, se
           value: query,
           onChange: e => { setQuery(e.target.value); setSelected(null); },
           onFocus: () => results.length > 0 && setOpen(true),
-          placeholder: isCrypto ? 'Search: Bitcoin, Ethereum, Solana...' : 'Search: Apple, ASML, Novo Nordisk...',
+          placeholder: isCrypto ? 'Search: Bitcoin, Ethereum, Solana...' : 'Search: Apple, ASML, Novo Nordisk...', 'aria-label': 'Symbol',
           style: {
             width: '100%', padding: '0.75rem 2.5rem 0.75rem 0.875rem',
             background: theme.inputBg, border: `1px solid ${selected ? theme.accent : theme.inputBorder}`,

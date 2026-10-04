@@ -8,10 +8,12 @@
 //
 //   Global knobs (NON-sensitive - rates/flags only, no holdings):
 //     maermin_tax_settings = {
-//       abgeltungRate, soli (bool), kirchensteuer (0|0.08|0.09),
+//       abgeltungRate, soli (bool),
 //       freistellungsauftrag, cryptoExemption (bool),
 //       teilfreistellung: { fundType: rate }   // per-fund-type overrides
 //     }
+//   The church-tax rate (0|0.08|0.09) is part of the settings object but is
+//   stored under the SENSITIVE maermin_kirchensteuer key (see load/save).
 //
 //   Per-position manual taxable-amount overrides reveal held symbols + amounts,
 //   so they live under a SEPARATE key registered in SENSITIVE_KEYS:
@@ -67,17 +69,52 @@
     return s;
   }
 
+  // The church-tax rate reveals a religious affiliation, so it is NOT kept in
+  // the plain settings key: its one store is maermin_kirchensteuer (shared with
+  // GermanTax.load/saveKirchensteuerRate, registered in SENSITIVE_KEYS). Older
+  // builds wrote it into maermin_tax_settings; load() moves such a value over
+  // once (unless the sensitive key already holds a rate) and strips it.
+  var KIST_KEY = 'maermin_kirchensteuer';
+  function readKist() {
+    try {
+      var n = parseFloat(localStorage.getItem(KIST_KEY));
+      return (n === 0.08 || n === 0.09) ? n : 0;
+    } catch (e) { return 0; }
+  }
+  function writeKist(k) {
+    try {
+      if (k === 0.08 || k === 0.09) localStorage.setItem(KIST_KEY, String(k));
+      else localStorage.removeItem(KIST_KEY);
+    } catch (e) { /* non-fatal */ }
+  }
+  function storePlain(s) {
+    var plain = Object.assign({}, s);
+    delete plain.kirchensteuer;
+    try { localStorage.setItem(SETTINGS_KEY, JSON.stringify(plain)); } catch (e) { /* non-fatal */ }
+  }
+
   function load() {
-    try { return sanitize(JSON.parse(localStorage.getItem(SETTINGS_KEY) || '{}')); }
-    catch (e) { return sanitize({}); }
+    var raw;
+    try { raw = JSON.parse(localStorage.getItem(SETTINGS_KEY) || '{}'); } catch (e) { raw = {}; }
+    raw = (raw && typeof raw === 'object') ? raw : {};
+    if (Object.prototype.hasOwnProperty.call(raw, 'kirchensteuer')) {
+      var legacy = sanitize(raw).kirchensteuer;
+      if (legacy && !readKist()) writeKist(legacy);
+      storePlain(sanitize(raw));
+    }
+    var s = sanitize(raw);
+    s.kirchensteuer = readKist();
+    return s;
   }
   function save(partial) {
     var merged = sanitize(Object.assign({}, load(), partial || {}));
-    try { localStorage.setItem(SETTINGS_KEY, JSON.stringify(merged)); } catch (e) { /* non-fatal */ }
+    writeKist(merged.kirchensteuer);
+    storePlain(merged);
     return merged;
   }
   function reset() {
     try { localStorage.removeItem(SETTINGS_KEY); } catch (e) {}
+    writeKist(0);
     return sanitize({});
   }
 
@@ -137,6 +174,21 @@
     return numOr(v, null);
   }
 
+  // Per-position tax class in the same sensitive store, key "SYMBOL|class":
+  // 'private' (sec. 23 private sale) or 'capital' (sec. 20 security, e.g. a
+  // gold ETC). Used to move a commodity out of the sec. 23 default.
+  function taxClassOf(overrides, symbol) {
+    var v = overrides && overrides[String(symbol || '').toUpperCase() + '|class'];
+    return (v === 'private' || v === 'capital') ? v : null;
+  }
+  function saveTaxClass(symbol, cls) {
+    var map = loadOverrides();
+    var key = String(symbol || '').toUpperCase() + '|class';
+    if (cls === 'private' || cls === 'capital') map[key] = cls; else delete map[key];
+    try { localStorage.setItem(OVERRIDES_KEY, JSON.stringify(map)); } catch (e) {}
+    return map;
+  }
+
   var api = {
     SETTINGS_KEY: SETTINGS_KEY,
     OVERRIDES_KEY: OVERRIDES_KEY,
@@ -149,7 +201,9 @@
     teilfreistellungRate: teilfreistellungRate,
     loadOverrides: loadOverrides,
     saveOverride: saveOverride,
-    positionOverride: positionOverride
+    positionOverride: positionOverride,
+    taxClassOf: taxClassOf,
+    saveTaxClass: saveTaxClass
   };
   if (typeof window !== 'undefined') window.MaerminTaxSettings = api;
   if (typeof module !== 'undefined' && module.exports) module.exports = api;

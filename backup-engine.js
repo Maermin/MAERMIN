@@ -143,13 +143,27 @@
     return restored;
   }
 
+  // What a restore would write, for the confirmation shown before it:
+  // { timestamp, transactionCount (null when unreadable), keyCount }.
+  function summary(backup) {
+    var store = (backup && backup.store && typeof backup.store === 'object') ? backup.store : {};
+    var count = null;
+    try {
+      var txs = JSON.parse(store.transactions);
+      if (Array.isArray(txs)) count = txs.length;
+    } catch (e) { count = null; }
+    var keyCount = Object.keys(store).filter(function (k) { return KEYS.indexOf(k) > -1 && typeof store[k] === 'string'; }).length;
+    return { timestamp: (backup && typeof backup.timestamp === 'string') ? backup.timestamp : null, transactionCount: count, keyCount: keyCount };
+  }
+
   var api = {
     FORMAT: FORMAT,
     VERSION: VERSION,
     KEYS: KEYS,
     snapshot: snapshot,
     isFullBackup: isFullBackup,
-    restore: restore
+    restore: restore,
+    summary: summary
   };
 
   if (typeof window !== 'undefined') window.MaerminBackup = api;

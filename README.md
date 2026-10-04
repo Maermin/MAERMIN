@@ -44,7 +44,7 @@ No account  ·  No server  ·  No ads  ·  No remote telemetry  ·  MIT License
 | **Symbol Picker** | Visual search for stocks (Yahoo Finance logos + exact YF symbol) and crypto (CoinGecko IDs) |
 | **CS2 Skin Picker** | Search Steam Market with images, rarity colours, live prices — auto-fills transaction |
 | **Positions Table** | Value, weight and P&L per holding — click any row for the position detail modal (transactions, avg cost, CAGR, stock splits, investment journal) |
-| **Multi-Portfolio** | Multiple portfolios with colour coding — Overview always shows combined totals |
+| **Multi-Portfolio** | Multiple portfolios with colour coding — the Overview shows all portfolios combined or one at a time (portfolio chips) |
 | **Net Worth** | Add cash accounts, real estate, loans — see true net wealth beyond investments · **real assets & property** with valuation history, acquisition cost+fees, optional financing link and recurring/one-off cashflows (net value + net rental yield + total return) · **interest-bearing cash & time deposits** (Festgeld): rate, daily/monthly/annual compounding, maturity — interest accrues day-accurate (act/365) and is booked as capital income for the tax report |
 | **Options** | Track long/short calls and puts (underlying, strike, expiry, premium, contract size) — signed book with net premium, moneyness, intrinsic value and estimated P&L on the Overview; kept separate from the share positions |
 | **Dividends** | Calendar view, 12-month forecast, auto-fetch from Yahoo Finance · quality & safety scoring per payer (payout ratio, growth streak, dividend growth, coverage, cut-risk flag) with an aggregated portfolio dividend-health value · **yield-on-cost** per payer over the FIFO cost basis plus a **DRIP simulation** (reinvest distributions at the day's price vs cash — a simulation, never books real transactions) |
@@ -133,12 +133,13 @@ Add a free [Alpha Vantage key](https://www.alphavantage.co/support/#api-key) in 
 | `GET /?action=fundamentals&symbol=KO` | Dividend-safety fundamentals: payout ratio, EPS, dividend rate/yield |
 | `GET /?action=profile&symbol=AAPL` | Equity sector / industry / country (Strategy tab Sector & Country allocation; Yahoo `assetProfile`, no FMP key needed) |
 | `GET /?action=earnings&symbol=AAPL` | Next earnings date + consensus EPS/revenue estimates (Earnings Calendar in the Dividends view; Yahoo `calendarEvents`, no key) |
+| `GET /?action=news&symbol=AAPL` | Yahoo Finance RSS headlines for a holding (News Feed view) |
 | `GET /?action=steamhistory&name=AK-47 \| Redline (FT)` | CS2 price history (USD) |
 | `GET /?action=search&q=ak47+redline` | Steam Market skin search with images |
 | `POST /` | Steam skin price lookup (array of names → USD price map) |
 | `POST /?action=sync` | E2E-encrypted cloud sync (KV-backed, zero-knowledge) |
 | `POST /?action=share` | Redacted share snapshots (percent weights/scores only, allowlist-validated server-side) + anonymous benchmark aggregate |
-| `POST /?action=brokerproxy` | Relay client-signed requests to whitelisted exchanges |
+| `GET /?action=mcp&id=<shareId>` | Read-only MCP view of a shared, redacted snapshot (same allowlist, same 90-day link) || `POST /?action=brokerproxy` | Relay client-signed requests to whitelisted exchanges |
 
 All endpoints are rate-limited (per-IP) and use hard fetch timeouts. Full request/response contracts: [docs/WORKER.md](docs/WORKER.md).
 
@@ -197,9 +198,11 @@ Contributing guidelines and conventions: **[CONTRIBUTING.md](CONTRIBUTING.md)**.
 - **Recovery code**: a one-time code generated at setup is an alternative way to unlock the vault if you forget your password — implemented as a second key-wrapping (like a passkey), never stored in readable form and never transmitted, so the zero-knowledge model is preserved. Changing your password invalidates it; generate a fresh one afterwards.
 - **Encrypted backups**: export a portable, password-protected backup (Settings → Backup vault) — a portable recovery path you can store off-device
 - **On-device audit log**: security events + uncaught errors (Settings → Security log), never transmitted
-- No analytics, no remote telemetry, no third-party tracking
-- API calls go to: CoinGecko, ExchangeRate-API, your own Cloudflare Worker
-- Your Worker only relays to Yahoo Finance / Steam / (optionally) whitelisted exchanges — no data is stored except the opt-in zero-knowledge sync blob
+- No analytics, no remote telemetry, no third-party tracking; the fonts (Geist) are self-hosted
+- Data requests go to: CoinGecko, ExchangeRate-API / open.er-api.com, your own Cloudflare Worker, and Alpha Vantage only if you add a key
+- Code from CDNs (version-pinned, SRI-checked): React from unpkg.com on every start; jsPDF and pdf.js from cdnjs.cloudflare.com on first PDF export/import
+- Images: position logos (Yahoo), coin icons (CoinGecko) and skin images (Steam) load from those services, which therefore see which logos you view
+- Your Worker only relays to Yahoo Finance / Steam / (optionally) whitelisted exchanges. It stores only the opt-in zero-knowledge sync blob and, if you use Share & Compare, the redacted share snapshots (percentages and scores, 90 days) with their anonymous aggregate
 - Set or change the access password in-app (Settings → Change Password) — no code edits needed
 
 ---

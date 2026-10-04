@@ -218,7 +218,35 @@
     return { label, tone, color: TX_TONES[tone].color, background: TX_TONES[tone].background };
   }
 
+  // Required fields of the transaction form that are still empty, in form
+  // order ('symbol', 'quantity', 'price'). `symbol` overrides tx.symbol (an
+  // option contract derives it). Values are only checked for presence here;
+  // the save handler validates the numbers afterwards.
+  function missingTxFields(tx, symbol) {
+    tx = tx || {};
+    const empty = (v) => v == null || String(v).trim() === '';
+    const out = [];
+    if (empty(symbol != null ? symbol : tx.symbol)) out.push('symbol');
+    if (empty(tx.quantity)) out.push('quantity');
+    if (empty(tx.price)) out.push('price');
+    return out;
+  }
+
+  // Has a flat form object changed since `initial`? Values compare as text and
+  // a missing key equals '' (a field that appears empty is no change), so the
+  // dialog only asks before discarding when the user actually typed or chose
+  // something.
+  function formChanged(initial, current) {
+    initial = initial || {}; current = current || {};
+    const txt = (v) => (v == null ? '' : String(v));
+    const keys = {};
+    Object.keys(initial).concat(Object.keys(current)).forEach((k) => { keys[k] = true; });
+    return Object.keys(keys).some((k) => txt(initial[k]) !== txt(current[k]));
+  }
+
   const MaerminUtils = {
+    formChanged,
+    missingTxFields,
     txTypeInfo,
     formatNumber,
     formatCurrencyEUR,

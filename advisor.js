@@ -25,8 +25,12 @@
   // ---- deterministic findings (PURE) --------------------------------------
   // bundle: { concentration, currency, drift, dividends, taxLoss, health, totalValue }
   // Each is the shape MaerminMetrics returns. Returns ranked findings + summary.
-  function analyzeFromMetrics(bundle, t) {
+  // opts.formatMoney(eur) → display string: the app passes its formatter so the
+  // amounts follow Privacy Mode and the display currency. Default: rounded EUR
+  // (all bundle amounts are EUR; the texts used to say "$").
+  function analyzeFromMetrics(bundle, t, opts) {
     bundle = bundle || {};
+    var fmt = (opts && typeof opts.formatMoney === 'function') ? opts.formatMoney : function (n) { return money(n) + ' €'; };
     var F = [];
 
     // 1) Concentration risk
@@ -100,8 +104,8 @@
     var dv = bundle.dividends;
     if (dv && dv.available) {
       F.push({ id: 'div-income', severity: 'info', category: 'Dividends',
-        title: '~$' + money(dv.totalAnnual) + '/yr dividend income (' + pct(dv.yield) + ' yield)',
-        detail: 'About $' + money(dv.monthly) + '/mo from ' + dv.payers + ' payer(s). ' +
+        title: '~' + fmt(dv.totalAnnual) + '/yr dividend income (' + pct(dv.yield) + ' yield)',
+        detail: 'About ' + fmt(dv.monthly) + '/mo from ' + dv.payers + ' payer(s). ' +
           (dv.yield < 1.5 ? 'A few dividend growers could raise durable income.' : 'Reinvesting these compounds your base.'),
         action: dv.yield < 1.5 ? 'Consider dividend-growth ETFs/stocks for income.' : 'Enable DRIP to compound.', metric: dv.yield });
     }
@@ -110,7 +114,7 @@
     var tl = bundle.taxLoss;
     if (tl && tl.available && tl.totalSavings > 0) {
       F.push({ id: 'tax-harvest', severity: 'opportunity', category: 'Tax',
-        title: 'Tax-loss harvesting could save ~$' + money(tl.totalSavings),
+        title: 'Tax-loss harvesting could save ~' + fmt(tl.totalSavings),
         detail: (tl.rows ? tl.rows.length : 0) + ' position(s) at an unrealised loss can offset realised gains.' +
           (tl.rows && tl.rows.some(function (r) { return r.washSale; }) ? ' Some are within the 30-day wash-sale window.' : ''),
         action: 'Review loss positions before year-end; mind wash-sale rules.', metric: tl.totalSavings });
@@ -217,8 +221,8 @@
     return bundle;
   }
 
-  function analyzePortfolio(portfolio, prices, transactions, t, extras) {
-    return analyzeFromMetrics(gatherBundle(portfolio, prices, transactions, t, extras), t);
+  function analyzePortfolio(portfolio, prices, transactions, t, extras, opts) {
+    return analyzeFromMetrics(gatherBundle(portfolio, prices, transactions, t, extras), t, opts);
   }
 
   // ---- embeddable Panel (docks into existing views; no new tab) ------------
@@ -227,7 +231,7 @@
     var e = React.createElement;
     var theme = props.theme || {};
     var t = props.t || {};
-    var report = props.report || analyzePortfolio(props.portfolio, props.prices, props.transactions, t, props.extras);
+    var report = props.report || analyzePortfolio(props.portfolio, props.prices, props.transactions, t, props.extras, { formatMoney: props.formatMoney });
     var findings = report.findings || [];
 
     var colorFor = {

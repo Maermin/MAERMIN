@@ -260,9 +260,9 @@
       ),
       // cashflow breakdown
       e('div', { style: { display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(130px, 1fr))', gap: '0.5rem', marginTop: '0.9rem', fontSize: '0.76rem' } },
-        [['Contributions', proj.scenarios.realistic.totalContributions, '#22c55e'],
+        [['Contributions', proj.scenarios.realistic.totalContributions, theme.success || '#22c55e'],
          ['Dividends', proj.scenarios.realistic.totalDividends, theme.accent || '#8b7cff'],
-         ['Debt service', -proj.scenarios.realistic.totalLiabilityPayments, '#ef4444']
+         ['Debt service', -proj.scenarios.realistic.totalLiabilityPayments, theme.danger || '#ef4444']
         ].map(function (row, i) {
           return e('div', { key: i, style: { background: theme.inputBg || 'rgba(255,255,255,0.03)', borderRadius: '8px', padding: '0.5rem 0.7rem' } },
             e('div', { style: { color: theme.textSecondary || '#888' } }, row[0]),

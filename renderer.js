@@ -534,6 +534,10 @@ function InvestmentTracker() {
     currency: 'EUR', // Track which currency the transaction was added in
     targetPortfolioId: 'default',
   });
+  // Required fields the last save attempt found empty (marked in the dialog).
+  const [txMissing, setTxMissing] = useState([]);
+  // The form as it was when the dialog opened: closing a changed form asks first.
+  const txInitialRef = useRef(null);
   // v12: modal open-states live in MaerminUI.overlays. Read the slice via
   // useStore; keep the setShowX name as a thin shim that delegates to the store,
   // so every existing call site (incl. the Escape handler + toggles) is unchanged.
@@ -965,6 +969,7 @@ function InvestmentTracker() {
   
   // Ref for settings dropdown close-on-outside-click
   const settingsRef = useRef(null);
+  const settingsBtnRef = useRef(null);
   // Dialogs opened from the account menu: the menu item is gone when they
   // close, so focus goes back to the account button.
   const focusAccountButton = () => settingsRef.current && settingsRef.current.querySelector('.mx-avatar');
@@ -978,6 +983,13 @@ function InvestmentTracker() {
         setShowTransactionModal(false);
         setShowImportModal(false);
         setShowApiSettings(false);
+        // Closing the settings panel by keyboard gives focus back to its button
+        // (it used to fall to <body>, i.e. the start of the page).
+        const pop = document.getElementById('mx-settings-panel');
+        const active = document.activeElement;
+        if (pop && (pop.contains(active) || !active || active === document.body)) {
+          setTimeout(() => { if (settingsBtnRef.current) settingsBtnRef.current.focus(); }, 0);
+        }
         setShowSettings(false);
         setShowPasswordModal(false);
         return;
@@ -1794,8 +1806,28 @@ function InvestmentTracker() {
   
   // Delegates to the MaerminUI store (handles id, cap, auto-dismiss). Kept as a
   // function so the dozens of existing addToast(...) call sites are unchanged.
-  const addToast = (message, type = 'info') => {
-    if (window.MaerminUI) return window.MaerminUI.add(message, type);
+  const addToast = (message, type = 'info', ttl) => {
+    if (window.MaerminUI) return window.MaerminUI.add(message, type, ttl);
+  };
+  // In-app confirmation (MaerminUI.confirm → Promise<boolean>); the native
+  // dialog only as a fallback if the UI module is missing.
+  const askConfirm = (opts) => (window.MaerminUI && window.MaerminUI.confirm)
+    ? window.MaerminUI.confirm(opts)
+    : Promise.resolve(typeof window.confirm === 'function' ? window.confirm([opts.title, opts.message].filter(Boolean).join('\n\n')) : true);
+  // A full backup REPLACES the current data: every restore path asks first,
+  // naming the backup's date and size next to the current data.
+  const askRestoreBackup = (backup) => {
+    const sum = (window.MaerminBackup && window.MaerminBackup.summary) ? window.MaerminBackup.summary(backup) : { timestamp: null, transactionCount: null, keyCount: 0 };
+    const when = sum.timestamp ? new Date(sum.timestamp).toLocaleString() : 'an unknown date';
+    const count = sum.transactionCount == null ? 'an unknown number of' : sum.transactionCount;
+    return askConfirm({
+      title: t.restoreBackupTitle || 'Replace your data with this backup?',
+      message: `Backup from ${when}: ${count} transactions, ${sum.keyCount} data sets.\n` +
+        `Your current data (${transactions.length} transactions) and every setting stored in the backup will be replaced. This cannot be undone.\n\n` +
+        'To keep a copy, cancel and use Data Management → Export & Backup first.',
+      confirmLabel: t.restoreBackupConfirm || 'Replace my data',
+      danger: true
+    });
   };
 
   // C1: Automation Rules → live notifications. Evaluate the user's rules on every
@@ -1842,8 +1874,18 @@ function InvestmentTracker() {
     // The full backup is PLAIN JSON (all transactions, net worth, taxpayer name
     // and tax ID). With an encrypted vault, point to the encrypted backup first.
     const encryptedAvailable = !!(window.MaerminStorage && window.MaerminStorage.exportEncryptedBackup && window.MaerminStorage.isEnabled && window.MaerminStorage.isEnabled());
-    if (encryptedAvailable && typeof window.confirm === 'function' &&
-        !window.confirm((t.backupPlainWarning) || 'This backup file is NOT encrypted — anyone with the file can read all your data (incl. taxpayer name and tax ID).\n\nFor an encrypted copy use Settings → "Backup vault (encrypted)".\n\nCreate the unencrypted backup anyway?')) return;
+    if (encryptedAvailable) {
+      askConfirm({
+        title: t.backupPlainTitle || 'Create an unencrypted backup?',
+        message: t.backupPlainWarning || 'This file is NOT encrypted: anyone with it can read all your data, including taxpayer name and tax ID.\n\nFor an encrypted copy use Settings → "Backup vault (encrypted)".',
+        confirmLabel: t.backupPlainConfirm || 'Create unencrypted backup',
+        danger: true
+      }).then(yes => { if (yes) writeBackup(); });
+      return;
+    }
+    writeBackup();
+  };
+  const writeBackup = () => {
     // Build the full snapshot via the shared engine (the single source of truth
     // for which keys are data). It stores each key's raw localStorage string,
     // so the backup round-trips EXACTLY what was entered — including positions
@@ -1924,10 +1966,23 @@ function InvestmentTracker() {
     }
 
     const effectiveSymbol = isOption ? window.MaerminOptions.contractSymbol(optionFields) : newTransaction.symbol;
-    if (!effectiveSymbol || !newTransaction.quantity || !newTransaction.price) {
-      addToast(t.fillRequired || 'Please fill required fields', 'error');
+    // Name the empty required fields, mark them and focus the first one (the
+    // toast used to say only "Please fill required fields").
+    const missing = window.MaerminUtils.missingTxFields(newTransaction, effectiveSymbol || '');
+    if (missing.length) {
+      const fieldNames = { symbol: t.symbol || 'Symbol', quantity: t.quantity || 'Quantity', price: t.pricePerUnit || 'Price per Unit' };
+      setTxMissing(missing);
+      addToast(`${t.fillInFields || 'Please fill in'}: ${missing.map(f => fieldNames[f]).join(', ')}`, 'error');
+      setTimeout(() => {
+        const dlg = document.querySelector('[aria-labelledby="dlg-transaction"]') || document;
+        const el = missing[0] === 'symbol'
+          ? dlg.querySelector('[aria-label="Symbol"], [aria-label="Skin"], [aria-label="Underlying symbol"]')
+          : document.getElementById('tx-' + missing[0]);
+        if (el && el.focus) el.focus();
+      }, 0);
       return;
     }
+    setTxMissing([]);
 
     // Locale-tolerant parsing ("1,5" = 1.5) + hard validation: a NaN quantity or
     // price would silently corrupt every downstream metric.
@@ -1980,7 +2035,7 @@ function InvestmentTracker() {
   // Open Add Transaction modal — pre-selects the currently active portfolio
   const openTransactionModal = () => {
     setEditingTransactionId(null);
-    setNewTransaction({
+    const initial = {
       type: 'buy',
       category: 'crypto',
       symbol: '',
@@ -1991,13 +2046,16 @@ function InvestmentTracker() {
       notes: '',
       currency: currency,
       targetPortfolioId: activePortfolioId,
-    });
+    };
+    setNewTransaction(initial);
+    txInitialRef.current = initial;
+    setTxMissing([]);
     setShowTransactionModal(true);
   };
 
   // Start editing a transaction
   const editTransaction = (tx) => {
-    setNewTransaction({
+    setNewTransaction(txInitialRef.current = {
       type: tx.type || 'buy',
       category: tx.category || 'crypto',
       symbol: tx.symbol || '',
@@ -2016,6 +2074,7 @@ function InvestmentTracker() {
       contractSize: tx.contractSize?.toString() || '',
     });
     setEditingTransactionId(tx.id);
+    setTxMissing([]);
     // NOTE: do NOT call openTransactionModal() here — it resets the form and
     // clears editingTransactionId, which made edits save as brand-new records.
     // Just reveal the modal; the form + editingTransactionId are already set.
@@ -2042,12 +2101,27 @@ function InvestmentTracker() {
       try {
         imported = JSON.parse(importData);
       } catch {
-        // Try CSV
-        if (window.ImportExportEngine) {
-          imported = window.ImportExportEngine.parseCSV(importData);
-        } else {
-          throw new Error('Invalid format');
+        // CSV: the wizard's parsing and row checks (MaerminImportMapping), with
+        // the dialog's per-row category column. It used to be split into
+        // { headers, rows }, which no branch below understood ("Unknown format").
+        const IM = window.MaerminImportMapping;
+        if (!IM || !IM.quickCSV) throw new Error('Invalid format');
+        const res = IM.quickCSV(importData, { currency });
+        const firstErr = res.errors[0] ? `Row ${res.errors[0].row}: ${res.errors[0].reason}` : '';
+        if (!res.transactions.length) {
+          // Keep the dialog and the pasted text so the user can correct it.
+          addToast(`${t.noTransactionsFound || 'No transactions found'}${firstErr ? ' - ' + firstErr : ''}`, 'error');
+          return;
         }
+        const stamp = Date.now();
+        // Into the portfolio the user is working in, like "+ Add Transaction".
+        const added = res.transactions.map((tx, idx) => ({ ...tx, id: (stamp + idx).toString(), notes: tx.notes || '', portfolioId: activePortfolioId }));
+        setTransactions(prev => [...prev, ...added]);
+        const skipped = res.errors.length ? ` - ${res.errors.length} row(s) skipped (${firstErr})` : '';
+        addToast(`${added.length} ${t.transactionsImported || 'transactions imported'}${skipped}`, res.errors.length ? 'warning' : 'success', res.errors.length ? 8000 : undefined);
+        setImportData('');
+        setShowImportModal(false);
+        return;
       }
       
       if (window.MaerminBackup && window.MaerminBackup.isFullBackup(imported)) {
@@ -2055,12 +2129,16 @@ function InvestmentTracker() {
         // key back to localStorage, then we reload so the feature modules
         // (watchlist, alerts, journal, savings plans, net-worth, …) that read
         // localStorage directly re-hydrate from the restored store.
-        const restored = window.MaerminBackup.restore(imported);
-        if (window.MaerminAuditLog) window.MaerminAuditLog.record('data.import', `Full backup restored (${restored} data keys)`);
-        addToast(t.importSuccess || 'Backup restored', 'success');
-        setImportData('');
-        setShowImportModal(false);
-        setTimeout(() => window.location.reload(), 600);
+        // It REPLACES the current data, so ask first and say what changes.
+        const doRestore = () => {
+          const restored = window.MaerminBackup.restore(imported);
+          if (window.MaerminAuditLog) window.MaerminAuditLog.record('data.import', `Full backup restored (${restored} data keys)`);
+          addToast(t.importSuccess || 'Backup restored', 'success');
+          setImportData('');
+          setShowImportModal(false);
+          setTimeout(() => window.location.reload(), 600);
+        };
+        askRestoreBackup(imported).then(yes => { if (yes) doRestore(); }); // cancelled: the dialog and the text stay
         return;
       } else if (Array.isArray(imported)) {
         // Array of transactions
@@ -2074,7 +2152,8 @@ function InvestmentTracker() {
           fees: parseFloat(item.fees) || 0,
           date: item.date || window.MaerminUtils.todayISO(),
           notes: item.notes || '',
-          currency: item.currency || currency
+          currency: item.currency || currency,
+          portfolioId: item.portfolioId || activePortfolioId
         }));
         
         setTransactions(prev => [...prev, ...newTransactions]);
@@ -2125,9 +2204,11 @@ function InvestmentTracker() {
           addToast(t.noDataToImport || 'No data to import', 'warning');
         }
       } else {
+        // Keep the dialog and the text: nothing was imported.
         addToast(t.unknownFormat || 'Unknown format', 'error');
+        return;
       }
-      
+
       setImportData('');
       setShowImportModal(false);
     } catch (e) {
@@ -2235,6 +2316,8 @@ function InvestmentTracker() {
           // journal, savings plans, net-worth, goals, settings, …) via the
           // engine and reloads — not just the transactions list.
           if (window.MaerminBackup && window.MaerminBackup.isFullBackup(parsed)) {
+            // Ask first, like the quick Import dialog (cancel keeps the text).
+            if (!(await askRestoreBackup(parsed))) return;
             const restored = window.MaerminBackup.restore(parsed);
             if (window.MaerminAuditLog) window.MaerminAuditLog.record('data.import', `Full backup restored (${restored} data keys)`);
             addToast('Backup restored — reloading…', 'success');
@@ -2243,8 +2326,17 @@ function InvestmentTracker() {
             return;
           }
           imported = Array.isArray(parsed) ? parsed : (parsed.transactions || []);
-        } else if (window.ImportExportEngine) {
-          imported = window.ImportExportEngine.parseCSV(txt);
+        } else {
+          // CSV: the same parsing and row checks as the quick Import dialog
+          // (parseCSV returned { headers, rows }, so every CSV ended in
+          // "No transactions found").
+          const IM = window.MaerminImportMapping;
+          if (!IM || !IM.quickCSV) throw new Error('CSV import not available');
+          const res = IM.quickCSV(txt, { currency });
+          const firstErr = res.errors[0] ? `Row ${res.errors[0].row}: ${res.errors[0].reason}` : '';
+          if (!res.transactions.length) throw new Error('No transactions found' + (firstErr ? ' - ' + firstErr : ''));
+          imported = res.transactions.map(tx => ({ ...tx, notes: tx.notes || '', portfolioId: activePortfolioId }));
+          if (res.errors.length) addToast(`${res.errors.length} row(s) skipped (${firstErr})`, 'warning', 8000);
         }
         if (!imported.length) throw new Error('No transactions found in data');
         const newTxs = imported.map((tx, i) => ({ id: (Date.now()+i).toString(), ...tx }));
@@ -2524,7 +2616,7 @@ function InvestmentTracker() {
         React.createElement('div', { style: { flex: 1 } }),
         React.createElement('button', {
           onClick: fetchDividends, disabled: fetching,
-          style: { padding: '0.45rem 1rem', background: fetching ? theme.inputBg : 'rgba(34,197,94,0.15)', border: '1px solid rgba(34,197,94,0.3)', borderRadius: '8px', color: fetching ? theme.textSecondary : '#22c55e', cursor: fetching ? 'not-allowed' : 'pointer', fontSize: '0.8rem', fontWeight: '600' }
+          style: { padding: '0.45rem 1rem', background: fetching ? theme.inputBg : 'rgba(34,197,94,0.15)', border: '1px solid rgba(34,197,94,0.3)', borderRadius: '8px', color: fetching ? theme.textSecondary : theme.success, cursor: fetching ? 'not-allowed' : 'pointer', fontSize: '0.8rem', fontWeight: '600' }
         }, fetching ? 'Fetching...' : '↓ Auto-fetch dividends'),
         // v10.x: book received dividends as transactions (in the payout currency)
         onBookDividends ? React.createElement('button', {
@@ -2543,7 +2635,7 @@ function InvestmentTracker() {
       React.createElement('div', { style: { flex: 1, overflow: 'auto' } },
         tab === 'calendar' && window.MaerminFeatures2 ?
           React.createElement(window.MaerminFeatures2.DividendCalendarView, {
-            portfolio, prices, metaVersion, theme, t, addToast, events: divEvents, setEvents: setDivEvents
+            portfolio, prices, metaVersion, theme, t, addToast, events: divEvents, setEvents: setDivEvents, privacyMode
           }) : null,
         tab === 'forecast' && window.MaerminFeatures4 ?
           React.createElement(window.MaerminFeatures4.DividendForecastView, {
@@ -2953,6 +3045,8 @@ function InvestmentTracker() {
           window.MaerminAdvisor && window.MaerminAdvisor.Panel && React.createElement('div', { style: { padding: '1rem 1.5rem 1.5rem' } },
             React.createElement(window.MaerminAdvisor.Panel, {
               portfolio, prices, transactions: activeTransactions, theme: currentTheme, t,
+              // Amounts in the findings follow Privacy Mode and the display currency.
+              formatMoney: (v) => `${formatPrice(v)} ${getCurrencySymbol()}`,
               extras: (() => {
                 const extras = {};
                 if (lookThroughResult) extras.lookThrough = lookThroughResult;
@@ -2992,7 +3086,7 @@ function InvestmentTracker() {
     const divM    = M ? memoBy('kpiDiv', [portfolio, prices], () => M.computeExpectedAnnualDividends(portfolio, prices)) : null;
     const healthM = M ? memoBy('kpiHealth', [portfolio, prices, t, priceHistory, transactions], () => M.healthScore(portfolio, prices, t, { priceHistory, transactions })) : null;
 
-    const healthColor = (s) => s >= 85 ? '#22c55e' : s >= 70 ? '#84cc16' : s >= 55 ? '#f59e0b' : s >= 40 ? '#f97316' : '#ef4444';
+    const healthColor = (s) => s >= 70 ? theme.success : s >= 40 ? theme.warning : theme.danger;
 
     const tile = (opts) => React.createElement('div', {
       key: opts.key,
@@ -3066,7 +3160,7 @@ function InvestmentTracker() {
       sub: (divM && divM.available)
         ? `${formatPrice(divM.monthly)} ${sym}/mo · ${divM.yield.toFixed(1)}%`
         : (t.kpiDividendsNone || 'No dividend payers'),
-      color: (divM && divM.available) ? '#22c55e' : theme.textSecondary,
+      color: (divM && divM.available) ? theme.success : theme.textSecondary,
       onClick: () => setActiveView('dividends')
     });
 
@@ -3278,7 +3372,7 @@ function InvestmentTracker() {
       // ── Demo-mode banner ─────────────────────────────────────────────────
       demoMode && React.createElement('div', {
         style: { display: 'flex', alignItems: 'center', gap: '0.6rem', flexWrap: 'wrap', padding: '0.6rem 0.9rem', marginBottom: '1rem', borderRadius: '10px', background: `${currentTheme.accent}14`, border: `1px solid ${currentTheme.accent}55`, color: currentTheme.text, fontSize: '0.82rem' } },
-        React.createElement('span', null, '★ You are exploring MAERMIN with sample data — your real data is untouched.'),
+        React.createElement('span', null, '★ You are exploring MAERMIN with sample data — your real data is untouched. Changes made in demo mode are not saved.'),
         React.createElement('button', { onClick: exitDemo, style: { marginLeft: 'auto', minHeight: '40px', padding: '0.45rem 0.9rem', background: currentTheme.accent, color: '#ffffff', border: 'none', borderRadius: '8px', cursor: 'pointer', fontWeight: '700', fontSize: '0.8rem' } }, 'Exit demo & use my data')
       ),
 
@@ -3331,10 +3425,12 @@ function InvestmentTracker() {
 
       // ── Portfolio selector tabs ──────────────────────────────────────────
       React.createElement('div', {
+        role: 'group', 'aria-label': 'Show portfolio',
         style: { display: 'flex', gap: '0.375rem', marginBottom: '1.5rem', flexWrap: 'wrap', alignItems: 'center' }
       },
         // All Portfolios tab
         React.createElement('button', {
+          'aria-pressed': overviewMode === 'all',
           onClick: () => setOverviewMode('all'),
           style: {
             display: 'flex', alignItems: 'center', gap: '0.4rem',
@@ -3355,6 +3451,7 @@ function InvestmentTracker() {
         ...portfolios.map(p =>
           React.createElement('button', {
             key: p.id,
+            'aria-pressed': overviewMode === p.id,
             onClick: () => { setOverviewMode(p.id); setActivePortfolioId(p.id); },
             style: {
               display: 'flex', alignItems: 'center', gap: '0.4rem',
@@ -3398,7 +3495,7 @@ function InvestmentTracker() {
         const M = window.MaerminMetrics;
         const divOv = M ? memoBy('ovDiv', [overviewPortfolio, prices], () => M.computeExpectedAnnualDividends(overviewPortfolio, prices)) : null;
         const healthOv = M ? memoBy('ovHealth', [overviewPortfolio, prices, t, priceHistory, overviewTransactions], () => M.healthScore(overviewPortfolio, prices, t, { priceHistory, transactions: overviewTransactions })) : null;
-        const hColor = (s) => s >= 85 ? '#22c55e' : s >= 70 ? '#84cc16' : s >= 55 ? '#f59e0b' : s >= 40 ? '#f97316' : '#ef4444';
+        const hColor = (s) => s >= 70 ? currentTheme.success : s >= 40 ? currentTheme.warning : currentTheme.danger;
         const hScore = healthOv && !healthOv.empty ? healthOv.score : null;
         return React.createElement('div', {
           style: { display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(190px, 1fr))', gap: '1rem', marginBottom: '1.5rem' }
@@ -3408,11 +3505,11 @@ function InvestmentTracker() {
           statCard(labelReturn,
             `${isUp ? '+' : ''}${formatPrice(stats.totalProfit)} ${getCurrencySymbol()}`,
             `${pctStr} all time`,
-            isUp ? '#22c55e' : '#ef4444'),
+            isUp ? currentTheme.success : currentTheme.danger),
           statCard('Dividends (12m)',
             (divOv && divOv.available) ? `${formatPrice(divOv.totalAnnual)} ${getCurrencySymbol()}` : '—',
             (divOv && divOv.available) ? `${formatPrice(divOv.monthly)} ${getCurrencySymbol()}/mo · ${divOv.yield.toFixed(1)}%` : 'No dividend payers',
-            (divOv && divOv.available) ? '#22c55e' : undefined,
+            (divOv && divOv.available) ? currentTheme.success : undefined,
             () => setActiveView('dividends')),
           statCard('Health Score',
             hScore != null ? String(hScore) : '—',
@@ -3525,7 +3622,8 @@ function InvestmentTracker() {
 
         const allocCard = React.createElement('div', { style: { background: currentTheme.card, border: `1px solid ${currentTheme.cardBorder}`, borderRadius: '16px', padding: '1.4rem 1.5rem' } },
           sectionTitle('Allocation by asset class'),
-          React.createElement('div', { style: { display: 'flex', alignItems: 'center', gap: '1.6rem' } },
+          // Wraps on narrow screens: the legend moves below the donut.
+          React.createElement('div', { style: { display: 'flex', alignItems: 'center', gap: '1.6rem', flexWrap: 'wrap', justifyContent: 'center' } },
             React.createElement('div', { style: { position: 'relative', width: '160px', height: '160px', flexShrink: 0 } },
               React.createElement('svg', { width: 160, height: 160, viewBox: '0 0 180 180', style: { transform: 'rotate(-90deg)' } },
                 React.createElement('circle', { cx: 90, cy: 90, r: 70, fill: 'none', stroke: currentTheme.inputBg, strokeWidth: 18 }),
@@ -3536,7 +3634,7 @@ function InvestmentTracker() {
                 React.createElement('div', { style: { fontSize: '0.62rem', color: gray, textTransform: 'uppercase', letterSpacing: '0.08em', marginTop: '0.15rem' } }, 'positions')
               )
             ),
-            React.createElement('div', { style: { flex: 1, display: 'flex', flexDirection: 'column', gap: '0.7rem' } },
+            React.createElement('div', { style: { flex: '1 1 200px', minWidth: 0, display: 'flex', flexDirection: 'column', gap: '0.7rem' } },
               ...classes.map(ct => React.createElement('div', { key: ct.c, style: { display: 'flex', alignItems: 'center', gap: '0.6rem' } },
                 React.createElement('span', { style: { width: '9px', height: '9px', borderRadius: '3px', background: ct.color, flexShrink: 0 } }),
                 React.createElement('span', { style: { flex: 1, fontSize: '0.82rem', color: currentTheme.text } }, ct.label),
@@ -3603,7 +3701,7 @@ function InvestmentTracker() {
                     )
                   )
                 ),
-                React.createElement('td', { style: { textAlign: 'right', padding: '0.85rem 0.75rem', fontFamily: "'Geist Mono', monospace", fontSize: '0.8rem', color: '#cbd3e1' } }, p.amount.toLocaleString(undefined, { maximumFractionDigits: 4 })),
+                React.createElement('td', { style: { textAlign: 'right', padding: '0.85rem 0.75rem', fontFamily: "'Geist Mono', monospace", fontSize: '0.8rem', color: currentTheme.textSecondary } }, p.amount.toLocaleString(undefined, { maximumFractionDigits: 4 })),
                 React.createElement('td', { style: { textAlign: 'right', padding: '0.85rem 0.75rem', fontFamily: "'Geist', sans-serif", fontSize: '0.82rem', color: currentTheme.text } },
                   p.price > 0 ? money(p.price) : '—',
                   // Valued at cost because no quote has ever been fetched for it.
@@ -3637,7 +3735,9 @@ function InvestmentTracker() {
           : null;
 
         return React.createElement(React.Fragment, null,
-          React.createElement('div', { style: { display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem', marginBottom: '1.25rem' } }, allocCard, perfCard),
+          // Two columns where they fit, one on phones ('1fr 1fr' could not shrink
+          // below the allocation card's content and pushed the page 390px wide).
+          React.createElement('div', { style: { display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(min(100%, 320px), 1fr))', gap: '1rem', marginBottom: '1.25rem' } }, allocCard, perfCard),
           positionsCard,
           attributionPanel,
           positionDetail && window.MaerminFeatures3 && window.MaerminFeatures3.PositionDetailModal &&
@@ -3764,7 +3864,9 @@ function InvestmentTracker() {
     const warnings = ledgerIssues.filter(i => i.severity === 'warning').length;
     const line = (i) => {
       if (i.kind === 'oversold') return `${i.symbol} (${i.category}): ${+i.qty.toFixed(8)} more unit(s) sold than bought. The excess has no cost basis and is left out of realised gains - add the missing buy or transfer.`;
+      if (i.kind === 'quantity') return `${i.symbol || 'A transaction'} (${i.category}), ${i.type} on ${i.date || 'an unknown date'}: quantity "${i.qty}" is not a positive number, so the trade is left out. Edit it (a sell needs a positive quantity).`;
       if (i.status === 'unknown') return `${i.symbol || 'A transaction'} in ${i.currency}: no exchange rate, so the amounts are counted as EUR. Change the transaction currency.`;
+      if (/^(USD|USDT|USDC|BUSD|FDUSD|TUSD|USDP|DAI)$/i.test(String(i.currency))) return `${i.currency} (e.g. ${i.symbol || 'a transaction'}): no stored USD rate for the trade date, so the nearest stored rate is used. Add a Worker URL in API Settings to load the daily history.`;
       return (window.MaerminFxHistory && window.MaerminFxHistory.hasHistory && window.MaerminFxHistory.hasHistory(i.currency))
         ? `${i.currency} (e.g. ${i.symbol || 'a transaction'}): no ${i.currency} rate for the trade date (not loaded through the Worker yet, or the rate history does not reach that date) - today's rate is used.`
         : `${i.currency} (e.g. ${i.symbol || 'a transaction'}): converted at today's rate for every date - there is no daily history for this currency.`;
@@ -3944,6 +4046,8 @@ function InvestmentTracker() {
                           React.createElement('button', {
                             onClick: () => editTransaction(tx),
                             title: t.edit || 'Edit',
+                            // Which row: nine identical "Edit" buttons said nothing to a screen reader.
+                            'aria-label': `${t.edit || 'Edit'}: ${window.MaerminUtils.txTypeInfo(tx.type, t).label} ${tx.symbolName || tx.symbol || ''}, ${String(tx.date || '').slice(0, 10)}`,
                             style: {
                               padding: '0.3rem 0.6rem',
                               background: currentTheme.accentSoft,
@@ -3958,6 +4062,7 @@ function InvestmentTracker() {
                           React.createElement('button', {
                             onClick: () => setTxDeleteConfirm(tx.id),
                             title: t.delete || 'Delete',
+                            'aria-label': `${t.delete || 'Delete'}: ${window.MaerminUtils.txTypeInfo(tx.type, t).label} ${tx.symbolName || tx.symbol || ''}, ${String(tx.date || '').slice(0, 10)}`,
                             style: {
                               padding: '0.3rem 0.6rem',
                               background: 'rgba(239,68,68,0.1)',
@@ -4085,7 +4190,7 @@ function InvestmentTracker() {
           }, t.exportPdf || 'Export PDF'),
           window.MaerminTaxReport && React.createElement('button', {
             onClick: () => { const r = buildReport(); if (r) window.MaerminTaxReport.exportExcel(r); },
-            style: { padding: '0.5rem 1rem', background: 'rgba(34,197,94,0.15)', color: '#22c55e', border: '1px solid rgba(34,197,94,0.3)', borderRadius: '8px', cursor: 'pointer', fontWeight: 600 }
+            style: { padding: '0.5rem 1rem', background: 'rgba(34,197,94,0.15)', color: currentTheme.success, border: '1px solid rgba(34,197,94,0.3)', borderRadius: '8px', cursor: 'pointer', fontWeight: 600 }
           }, t.exportExcel || 'Export Excel')
         )
       ),
@@ -4194,15 +4299,6 @@ function InvestmentTracker() {
               if (fundTypes[S] && fundTypes[S] !== 'none') return true;
               return !!(LT && LT.isFundCandidate && LT.isFundCandidate(S, name));
             };
-            let stockG = 0, otherG = 0;
-            if (taxReport) {
-              (taxReport.realizedGains || []).concat(taxReport.realizedLosses || []).forEach((d) => {
-                if (d.category !== 'stocks') return;
-                if (isFund(d.symbol)) otherG += d.gain; else stockG += d.gain;
-              });
-              otherG += (taxReport.summary.dividendIncome || 0) + (taxReport.summary.interestIncome || 0);
-            }
-            const g = taxReport && taxReport.summary && taxReport.summary.germanDetail;
             const book = allPortfoliosPortfolio || portfolio;
             const positions = ((book && book.stocks) || []).map((p) => {
               const sym = p.symbol || p.name || '';
@@ -4211,15 +4307,8 @@ function InvestmentTracker() {
               return { symbol: sym, category: 'stocks', isFund: isFund(sym, p.name),
                 costBasisEUR: amount * (parseFloat(p.purchasePrice) || 0), currentValueEUR: px > 0 ? amount * px : amount * (parseFloat(p.purchasePrice) || 0) };
             });
-            return {
-              positions,
-              taxData: {
-                realizedStockGainsYTD: stockG,
-                realizedOtherGainsYTD: otherG,
-                realizedCryptoGainsYTD: g && g.crypto ? g.crypto.netShortTermGains : 0,
-                sparerpauschbetragUsed: g ? g.sparerpauschbetragUsed : 0
-              }
-            };
+            // Pots + the Sparerpauschbetrag (limit and usage) the report applied.
+            return { positions, taxData: window.MaerminTaxAdvisor.taxDataFromReport(taxReport, isFund) };
           })(),
           theme: currentTheme, t, formatPrice, getCurrencySymbol
         }),
@@ -4230,7 +4319,8 @@ function InvestmentTracker() {
       taxJurisdiction === 'de' && window.MaerminGermanTaxView && window.MaerminGermanTaxView.Panel &&
         React.createElement(window.MaerminGermanTaxView.Panel, {
           transactions, portfolio, prices, priceHistory, year: currentYear, exchangeRate, fxAt,
-          theme: currentTheme, t, formatPrice, getCurrencySymbol
+          theme: currentTheme, t, formatPrice, getCurrencySymbol,
+          onChange: () => setTaxSettingsRev(r => r + 1)
         }),
       // Editable tax parameters (Task 8): rate, Soli, church tax, allowance,
       // crypto exemption, Teilfreistellung overrides. Engine + exports read them.
@@ -4311,7 +4401,13 @@ function InvestmentTracker() {
     if (!showTransactionModal) return null;
     
     const isEditing = !!editingTransactionId;
-    
+    // Fields flagged by the last save attempt that are still empty.
+    const emptyNow = window.MaerminUtils.missingTxFields(newTransaction,
+      newTransaction.category === 'options' ? (newTransaction.underlying || '') : undefined);
+    const shownMissing = txMissing.filter(f => emptyNow.includes(f));
+    const fieldNames = { symbol: t.symbol || 'Symbol', quantity: t.quantity || 'Quantity', price: t.pricePerUnit || 'Price per Unit' };
+    const invalidProps = (f) => shownMissing.includes(f) ? { 'aria-invalid': true, 'aria-describedby': 'tx-missing' } : {};
+
     const closeModal = () => {
       setShowTransactionModal(false);
       setEditingTransactionId(null);
@@ -4328,7 +4424,20 @@ function InvestmentTracker() {
         targetPortfolioId: activePortfolioId,
       });
     };
-    
+    // Escape, a click beside the dialog and Cancel: a changed form asks before
+    // its entries are thrown away (one stray Escape used to lose everything).
+    const requestClose = () => {
+      const changed = txInitialRef.current && window.MaerminUtils.formChanged(txInitialRef.current, newTransaction);
+      if (!changed || !(window.MaerminUI && window.MaerminUI.confirm)) { closeModal(); return; }
+      window.MaerminUI.confirm({
+        title: isEditing ? (t.discardEditTitle || 'Discard your changes?') : (t.discardTxTitle || 'Discard this transaction?'),
+        message: t.discardTxMessage || 'What you entered in this form will be lost.',
+        confirmLabel: t.discard || 'Discard',
+        cancelLabel: t.keepEditing || 'Keep editing',
+        danger: true
+      }).then(yes => { if (yes) closeModal(); });
+    };
+
     return React.createElement(window.MaerminUI.Overlay, {
       style: {
         position: 'fixed',
@@ -4343,7 +4452,7 @@ function InvestmentTracker() {
         zIndex: 10000,
         backdropFilter: 'blur(8px)'
       },
-      onClose: closeModal
+      onClose: requestClose
     },
       React.createElement('div', {
         ...window.MaerminUI.dialogProps('dlg-transaction'),
@@ -4366,8 +4475,9 @@ function InvestmentTracker() {
         
         // Portfolio selector — always shown as a select dropdown
         React.createElement('div', { style: { marginBottom: '1rem' } },
-          React.createElement('label', { style: { display: 'block', color: currentTheme.textSecondary, marginBottom: '0.5rem', fontSize: '0.875rem' } }, 'Portfolio'),
+          React.createElement('label', { htmlFor: 'tx-portfolio', style: { display: 'block', color: currentTheme.textSecondary, marginBottom: '0.5rem', fontSize: '0.875rem' } }, 'Portfolio'),
           React.createElement('select', {
+            id: 'tx-portfolio',
             value: newTransaction.targetPortfolioId || activePortfolioId,
             onChange: e => setNewTransaction(prev => ({ ...prev, targetPortfolioId: e.target.value })),
             style: {
@@ -4387,12 +4497,14 @@ function InvestmentTracker() {
         // Type selector
         React.createElement('div', { style: { marginBottom: '1rem' } },
           React.createElement('label', {
+            id: 'tx-type-label',
             style: { display: 'block', color: currentTheme.textSecondary, marginBottom: '0.5rem', fontSize: '0.875rem' }
           }, t.type || 'Type'),
-          React.createElement('div', { style: { display: 'flex', gap: '0.5rem' } },
+          React.createElement('div', { role: 'group', 'aria-labelledby': 'tx-type-label', style: { display: 'flex', gap: '0.5rem' } },
             ['buy', 'sell'].map(type =>
               React.createElement('button', {
                 key: type,
+                'aria-pressed': newTransaction.type === type,
                 onClick: () => setNewTransaction(prev => ({ ...prev, type })),
                 style: {
                   flex: 1,
@@ -4415,13 +4527,15 @@ function InvestmentTracker() {
         // Category selector
         React.createElement('div', { style: { marginBottom: '1rem' } },
           React.createElement('label', {
+            id: 'tx-category-label',
             style: { display: 'block', color: currentTheme.textSecondary, marginBottom: '0.5rem', fontSize: '0.875rem' }
           }, t.category || 'Category'),
-          React.createElement('div', { style: { display: 'flex', gap: '0.5rem', flexWrap: 'wrap' } },
+          React.createElement('div', { role: 'group', 'aria-labelledby': 'tx-category-label', style: { display: 'flex', gap: '0.5rem', flexWrap: 'wrap' } },
             ['crypto', 'stocks', 'skins', 'commodities', 'options']
               .concat(window.MaerminCategories ? window.MaerminCategories.ids() : []).map(cat =>
               React.createElement('button', {
                 key: cat,
+                'aria-pressed': newTransaction.category === cat,
                 onClick: () => setNewTransaction(prev => ({ ...prev, category: cat })),
                 style: {
                   flex: 1,
@@ -4469,7 +4583,7 @@ function InvestmentTracker() {
                           React.createElement('span', { style: { color: 'rgba(6,182,212,0.5)', fontSize: '0.7rem' } }, 'CS2')),
                     React.createElement('div', null,
                       React.createElement('div', { style: { color: currentTheme.text, fontWeight: '600', fontSize: '0.8rem' } }, newTransaction.symbol),
-                      newTransaction.price && React.createElement('div', { style: { color: '#22c55e', fontSize: '0.75rem', marginTop: '0.125rem' } }, `$${parseFloat(newTransaction.price).toFixed(2)}`)
+                      newTransaction.price && React.createElement('div', { style: { color: currentTheme.success, fontSize: '0.75rem', marginTop: '0.125rem' } }, `$${parseFloat(newTransaction.price).toFixed(2)}`)
                     )
                   )
                 )
@@ -4503,12 +4617,13 @@ function InvestmentTracker() {
                   React.createElement('input', {
                     type: 'text', value: newTransaction.underlying || '',
                     onChange: e => setNewTransaction(prev => ({ ...prev, underlying: e.target.value.toUpperCase() })),
-                    placeholder: 'Underlying symbol: AAPL, SAP.DE...',
+                    placeholder: 'Underlying symbol: AAPL, SAP.DE...', 'aria-label': 'Underlying symbol',
                     style: { width: '100%', padding: '0.625rem 0.875rem', background: currentTheme.inputBg, border: `1px solid ${currentTheme.inputBorder}`, borderRadius: '8px', color: currentTheme.text, fontSize: '0.875rem', boxSizing: 'border-box', marginBottom: '0.625rem' }
                   }),
                   React.createElement('div', { style: { display: 'flex', gap: '0.5rem', marginBottom: '0.625rem' } },
                     ['call', 'put'].map(ot => React.createElement('button', {
                       key: ot,
+                      'aria-pressed': (newTransaction.optionType || 'call') === ot,
                       onClick: () => setNewTransaction(prev => ({ ...prev, optionType: ot })),
                       style: {
                         flex: 1, padding: '0.5rem', border: 'none', borderRadius: '6px', cursor: 'pointer', fontSize: '0.875rem', fontWeight: '600',
@@ -4520,19 +4635,19 @@ function InvestmentTracker() {
                     React.createElement('input', {
                       type: 'number', value: newTransaction.strike || '', min: 0, step: 'any',
                       onChange: e => setNewTransaction(prev => ({ ...prev, strike: e.target.value })),
-                      placeholder: 'Strike',
+                      placeholder: 'Strike', 'aria-label': 'Strike price',
                       style: { flex: 1, padding: '0.625rem 0.875rem', background: currentTheme.inputBg, border: `1px solid ${currentTheme.inputBorder}`, borderRadius: '8px', color: currentTheme.text, fontSize: '0.875rem', minWidth: 0 }
                     }),
                     React.createElement('input', {
                       type: 'date', value: newTransaction.expiry || '',
                       onChange: e => setNewTransaction(prev => ({ ...prev, expiry: e.target.value })),
-                      title: 'Expiry date',
+                      title: 'Expiry date', 'aria-label': 'Expiry date',
                       style: { flex: 1, padding: '0.625rem 0.875rem', background: currentTheme.inputBg, border: `1px solid ${currentTheme.inputBorder}`, borderRadius: '8px', color: currentTheme.text, fontSize: '0.875rem', minWidth: 0 }
                     }),
                     React.createElement('input', {
                       type: 'number', value: newTransaction.contractSize || '', min: 1,
                       onChange: e => setNewTransaction(prev => ({ ...prev, contractSize: e.target.value })),
-                      placeholder: 'Size (100)', title: 'Contract size (shares per contract, default 100)',
+                      placeholder: 'Size (100)', 'aria-label': 'Contract size', title: 'Contract size (shares per contract, default 100)',
                       style: { width: '90px', padding: '0.625rem 0.875rem', background: currentTheme.inputBg, border: `1px solid ${currentTheme.inputBorder}`, borderRadius: '8px', color: currentTheme.text, fontSize: '0.875rem' }
                     })),
                   React.createElement('div', { style: { color: currentTheme.textSecondary, fontSize: '0.72rem', marginTop: '0.5rem', lineHeight: 1.5 } },
@@ -4555,6 +4670,7 @@ function InvestmentTracker() {
                       { sym: 'CORN',    label: 'Corn',         icon: '◇', color: '#fde68a', unit: 'bushel' },
                     ].map(c => React.createElement('button', {
                       key: c.sym,
+                      'aria-pressed': newTransaction.symbol === c.sym,
                       onClick: () => setNewTransaction(prev => ({ ...prev, symbol: c.sym, notes: prev.notes || `${c.label} (${c.unit})` })),
                       style: {
                         padding: '0.35rem 0.75rem', border: `1px solid ${newTransaction.symbol === c.sym ? c.color : currentTheme.cardBorder}`,
@@ -4569,7 +4685,7 @@ function InvestmentTracker() {
                   React.createElement('input', {
                     type: 'text', value: newTransaction.symbol,
                     onChange: e => setNewTransaction(prev => ({ ...prev, symbol: e.target.value.toUpperCase() })),
-                    placeholder: 'or enter ETF symbol: GLD, SLV, IAU...',
+                    placeholder: 'or enter ETF symbol: GLD, SLV, IAU...', 'aria-label': 'Symbol',
                     style: { width: '100%', padding: '0.625rem 0.875rem', background: currentTheme.inputBg, border: `1px solid ${currentTheme.inputBorder}`, borderRadius: '8px', color: currentTheme.text, fontSize: '0.875rem', boxSizing: 'border-box' }
                   })
                 )
@@ -4578,7 +4694,7 @@ function InvestmentTracker() {
             : React.createElement('input', {
                 type: 'text', value: newTransaction.symbol,
                 onChange: e => setNewTransaction(prev => ({ ...prev, symbol: e.target.value.toUpperCase() })),
-                placeholder: 'Symbol...',
+                placeholder: 'Symbol...', 'aria-label': 'Symbol',
                 style: { width: '100%', padding: '0.75rem', background: currentTheme.inputBg, border: `1px solid ${currentTheme.inputBorder}`, borderRadius: '8px', color: currentTheme.text }
               })
           ),
@@ -4586,9 +4702,12 @@ function InvestmentTracker() {
         // Quantity
         React.createElement('div', { style: { marginBottom: '1rem' } },
           React.createElement('label', {
+            htmlFor: 'tx-quantity',
             style: { display: 'block', color: currentTheme.textSecondary, marginBottom: '0.5rem', fontSize: '0.875rem' }
           }, t.quantity || 'Quantity'),
           React.createElement('input', {
+            id: 'tx-quantity',
+            ...invalidProps('quantity'),
             type: 'number',
             value: newTransaction.quantity,
             onChange: (e) => setNewTransaction(prev => ({ ...prev, quantity: e.target.value })),
@@ -4608,9 +4727,12 @@ function InvestmentTracker() {
         // Price per unit
         React.createElement('div', { style: { marginBottom: '1rem' } },
           React.createElement('label', {
+            htmlFor: 'tx-price',
             style: { display: 'block', color: currentTheme.textSecondary, marginBottom: '0.5rem', fontSize: '0.875rem' }
           }, t.pricePerUnit || 'Price per Unit'),
           React.createElement('input', {
+            id: 'tx-price',
+            ...invalidProps('price'),
             type: 'number',
             value: newTransaction.price,
             onChange: (e) => setNewTransaction(prev => ({ ...prev, price: e.target.value })),
@@ -4630,9 +4752,11 @@ function InvestmentTracker() {
         // Date
         React.createElement('div', { style: { marginBottom: '1rem' } },
           React.createElement('label', {
+            htmlFor: 'tx-date',
             style: { display: 'block', color: currentTheme.textSecondary, marginBottom: '0.5rem', fontSize: '0.875rem' }
           }, t.date || 'Date'),
           React.createElement('input', {
+            id: 'tx-date',
             type: 'date',
             value: newTransaction.date,
             onChange: (e) => setNewTransaction(prev => ({ ...prev, date: e.target.value })),
@@ -4650,9 +4774,11 @@ function InvestmentTracker() {
         // Fees
         React.createElement('div', { style: { marginBottom: '1rem' } },
           React.createElement('label', {
+            htmlFor: 'tx-fees',
             style: { display: 'block', color: currentTheme.textSecondary, marginBottom: '0.5rem', fontSize: '0.875rem' }
           }, t.feesOptional || 'Fees (optional)'),
           React.createElement('input', {
+            id: 'tx-fees',
             type: 'number',
             value: newTransaction.fees,
             onChange: (e) => setNewTransaction(prev => ({ ...prev, fees: e.target.value })),
@@ -4672,9 +4798,11 @@ function InvestmentTracker() {
         // Notes
         React.createElement('div', { style: { marginBottom: '1.5rem' } },
           React.createElement('label', {
+            htmlFor: 'tx-notes',
             style: { display: 'block', color: currentTheme.textSecondary, marginBottom: '0.5rem', fontSize: '0.875rem' }
           }, t.notesOptional || 'Notes (optional)'),
           React.createElement('input', {
+            id: 'tx-notes',
             type: 'text',
             value: newTransaction.notes,
             onChange: (e) => setNewTransaction(prev => ({ ...prev, notes: e.target.value })),
@@ -4693,12 +4821,14 @@ function InvestmentTracker() {
         // Currency selector
         React.createElement('div', { style: { marginBottom: '1rem' } },
           React.createElement('label', {
+            id: 'tx-currency-label',
             style: { display: 'block', color: currentTheme.textSecondary, marginBottom: '0.5rem', fontSize: '0.875rem' }
           }, t.currency || 'Currency'),
-          React.createElement('div', { style: { display: 'flex', gap: '0.5rem' } },
+          React.createElement('div', { role: 'group', 'aria-labelledby': 'tx-currency-label', style: { display: 'flex', gap: '0.5rem' } },
             ['EUR', 'USD'].map(cur =>
               React.createElement('button', {
                 key: cur,
+                'aria-pressed': newTransaction.currency === cur,
                 onClick: () => setNewTransaction(prev => ({ ...prev, currency: cur })),
                 style: {
                   flex: 1,
@@ -4773,10 +4903,16 @@ function InvestmentTracker() {
           )
         ),
         
+        // Which required fields are still empty after a save attempt.
+        shownMissing.length ? React.createElement('div', {
+          id: 'tx-missing', role: 'alert',
+          style: { color: currentTheme.danger, fontSize: '0.85rem', fontWeight: 600, marginBottom: '0.75rem' }
+        }, `${t.fillInFields || 'Please fill in'}: ${shownMissing.map(f => fieldNames[f]).join(', ')}`) : null,
+
         // Buttons
         React.createElement('div', { style: { display: 'flex', gap: '1rem' } },
           React.createElement('button', {
-            onClick: closeModal,
+            onClick: requestClose,
             style: {
               flex: 1,
               padding: '0.75rem',
@@ -5395,15 +5531,19 @@ buy,crypto,bitcoin,0.5,45000,2024-01-15,10`)
         // Settings button
         React.createElement('button', {
           type: 'button',
+          ref: settingsBtnRef,
           className: 'mx-icon-btn' + (showSettings ? ' is-on' : ''),
           onClick: () => setShowSettings(!showSettings),
           title: t.settings || 'Settings',
           'aria-label': t.settings || 'Settings',
-          'aria-expanded': showSettings
+          'aria-expanded': showSettings,
+          'aria-controls': 'mx-settings-panel'
         }, Icon('settings', { size: 18 })),
 
-        // Settings popover
-        showSettings && React.createElement('div', { className: 'mx-popover', role: 'menu' },
+        // Settings popover: a labelled group of ordinary buttons (Tab moves
+        // through them). It used to claim role="menu" without menu items or
+        // arrow-key handling.
+        showSettings && React.createElement('div', { className: 'mx-popover', id: 'mx-settings-panel', role: 'group', 'aria-label': t.settings || 'Settings' },
           React.createElement('div', { style: { marginBottom: '0.9rem' } },
             popLabel(t.theme || 'Theme'),
             React.createElement('div', { className: 'mx-seg' },
@@ -5463,8 +5603,8 @@ buy,crypto,bitcoin,0.5,45000,2024-01-15,10`)
             var all = CA.listFor();
             if (!all.length) return null;
             var removeOne = function (a) {
-              if (typeof window.confirm === 'function' && !window.confirm(t.caRemoveConfirm || 'Remove this split? It can be re-added or re-scanned.')) return;
-              CA.remove(a.id); setCorpActionsRev(function (n) { return n + 1; });
+              askConfirm({ title: t.caRemoveConfirm || 'Remove this split?', message: a.symbol + ' ' + a.num + ':' + a.den + ' on ' + a.date + '. It can be re-added or re-scanned.', confirmLabel: t.caRemove || 'Remove', danger: true })
+                .then(function (yes) { if (!yes) return; CA.remove(a.id); setCorpActionsRev(function (n) { return n + 1; }); });
             };
             return React.createElement('div', { key: 'corp-' + corpActionsRev, style: { marginBottom: '1rem' } },
               React.createElement('label', { style: { color: currentTheme.textSecondary, fontSize: '0.7rem', textTransform: 'uppercase', letterSpacing: '0.05em' } }, t.caTitle || 'Corporate actions (splits)'),
@@ -5509,10 +5649,12 @@ buy,crypto,bitcoin,0.5,45000,2024-01-15,10`)
                 const reader = new FileReader();
                 reader.onload = () => {
                   let obj; try { obj = JSON.parse(reader.result); } catch { addToast('Invalid backup file', 'error'); return; }
-                  if (!window.confirm('Restore this encrypted backup? It replaces the current vault. You will need its password to unlock.')) return;
-                  window.MaerminStorage.importEncryptedBackup(obj)
-                    .then(() => { if (window.MaerminAuditLog) window.MaerminAuditLog.record('vault.backup.restore', 'encrypted vault backup restored'); addToast('Backup restored — reloading…', 'success'); setTimeout(() => window.location.reload(), 800); })
-                    .catch((e) => addToast('Restore failed: ' + (e && e.message || 'error'), 'error'));
+                  askConfirm({ title: 'Restore this encrypted backup?', message: 'It replaces the current vault. You will need the backup\'s password to unlock.', confirmLabel: 'Replace vault', danger: true }).then((yes) => {
+                    if (!yes) return;
+                    window.MaerminStorage.importEncryptedBackup(obj)
+                      .then(() => { if (window.MaerminAuditLog) window.MaerminAuditLog.record('vault.backup.restore', 'encrypted vault backup restored'); addToast('Backup restored — reloading…', 'success'); setTimeout(() => window.location.reload(), 800); })
+                      .catch((e) => addToast('Restore failed: ' + (e && e.message || 'error'), 'error'));
+                  });
                 };
                 reader.readAsText(file);
               };
@@ -5528,7 +5670,8 @@ buy,crypto,bitcoin,0.5,45000,2024-01-15,10`)
           type: 'button',
           className: 'mx-avatar',
           onClick: () => setShowSettings(s => !s),
-          title: t.settings || 'Account', 'aria-label': 'Account'
+          title: t.settings || 'Account', 'aria-label': 'Account',
+          'aria-expanded': showSettings, 'aria-controls': 'mx-settings-panel'
         }, 'MA')
       )
     ),
@@ -5673,7 +5816,8 @@ buy,crypto,bitcoin,0.5,45000,2024-01-15,10`)
     
     // Toast notifications — own slice of MaerminStore; re-renders independently
     // of the app on add/expire (see ui-store.js).
-    window.MaerminUI && React.createElement(window.MaerminUI.ToastContainer, { theme: currentTheme })
+    window.MaerminUI && React.createElement(window.MaerminUI.ToastContainer, { theme: currentTheme }),
+    window.MaerminUI && window.MaerminUI.ConfirmHost && React.createElement(window.MaerminUI.ConfirmHost, { theme: currentTheme })
   );
 }
 

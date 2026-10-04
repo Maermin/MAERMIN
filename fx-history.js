@@ -102,22 +102,44 @@
   // Bind a fast resolver: pre-sorts the keys ONCE so each lookup is O(log n) —
   // matters for 10k+ transactions. Returns (dateISO) => rate, falling back to
   // `fallback` (the live rate) when the cache is empty or has no usable value.
+  // The resolver also carries `covers(dateISO)`: true only when a stored rate
+  // lies on or at most USD_MAX_GAP_DAYS before that date. Uncovered dates still
+  // get the nearest known rate (or the fallback), but txToEUR reports them as
+  // 'approx' so the data check can say so (without a Worker the history only
+  // holds the live rates of the days the app was opened).
+  var USD_MAX_GAP_DAYS = 7;
   function fxResolver(fallback, history) {
     var fb = num(fallback);
     var hist = history || load();
     var keys = Object.keys(hist).filter(function (k) { return pick(hist, k) != null; }).sort();
-    if (!keys.length) return function () { return fb; };
-    return function (dateISO) {
-      var target = ymd(dateISO);
-      if (!target) return fb != null ? fb : pick(hist, keys[keys.length - 1]);
+    if (!keys.length) {
+      var empty = function () { return fb; };
+      empty.covers = function () { return false; };
+      return empty;
+    }
+    function floorIndex(target) {
       var lo = 0, hi = keys.length - 1, ans = -1;
       while (lo <= hi) {
         var mid = (lo + hi) >> 1;
         if (keys[mid] <= target) { ans = mid; lo = mid + 1; } else { hi = mid - 1; }
       }
+      return ans;
+    }
+    var resolve = function (dateISO) {
+      var target = ymd(dateISO);
+      if (!target) return fb != null ? fb : pick(hist, keys[keys.length - 1]);
+      var ans = floorIndex(target);
       var r = pick(hist, ans === -1 ? keys[0] : keys[ans]);
       return r != null ? r : fb;
     };
+    resolve.covers = function (dateISO) {
+      var target = ymd(dateISO);
+      if (!target) return false;
+      var ans = floorIndex(target);
+      if (ans === -1) return false;
+      return (Date.parse(target + 'T00:00:00Z') - Date.parse(keys[ans] + 'T00:00:00Z')) / 86400000 <= USD_MAX_GAP_DAYS;
+    };
+    return resolve;
   }
 
   // ---- other quote currencies ---------------------------------------------
@@ -374,9 +396,13 @@
     var up = cur.toUpperCase();
     if (up === 'EUR' || up === '') return { value: a, status: 'exact' };
     if (USD_PEGGED[up]) {
-      var r = (typeof fxAt === 'function' && dateISO) ? (fxAt(dateISO) || rate) : rate;
+      var dated = typeof fxAt === 'function' && dateISO;
+      var r = dated ? (fxAt(dateISO) || rate) : rate;
       r = num(r);
-      return r > 0 ? { value: a * r, status: 'exact' } : { value: a, status: 'unknown' };
+      if (!(r > 0)) return { value: a, status: 'unknown' };
+      // A resolver that knows its coverage marks dates outside it 'approx'.
+      var covered = !dated || typeof fxAt.covers !== 'function' || fxAt.covers(dateISO);
+      return { value: a * r, status: covered ? 'exact' : 'approx' };
     }
     var dated = dateISO ? currencyRateAt(cur, dateISO) : null;
     if (dated > 0) return { value: a * dated, status: 'exact' };

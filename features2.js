@@ -112,7 +112,7 @@ function ReturnsView({ transactions, portfolio, prices, priceHistory, theme, for
     );
 
   const fmtPct = v => v !== null ? `${v >= 0 ? '+' : ''}${(v * 100).toFixed(2)}%` : '—';
-  const color  = v => v > 0 ? '#22c55e' : v < 0 ? '#ef4444' : theme.text;
+  const color  = v => v > 0 ? theme.success : v < 0 ? theme.danger : theme.text;
 
   return React.createElement('div', { style: { padding: '1.5rem' } },
     React.createElement('h2', { style: { color: theme.text, fontSize: '1.5rem', fontWeight: '800', letterSpacing: '-0.02em', marginBottom: '0.5rem' } }, (t.returns || 'Return Analysis')),
@@ -224,7 +224,7 @@ function RebalancingView({ portfolio, prices, theme, formatPrice, getCurrencySym
       React.createElement('div', { style: { display: 'flex', justifyContent: 'space-between', marginBottom: '1rem' } },
         React.createElement('span', { style: { color: theme.text, fontWeight: '700' } }, t.targetAllocation || 'Target Allocation'),
         React.createElement('span', {
-          style: { fontSize: '0.8rem', color: totalTarget === 100 ? '#22c55e' : '#ef4444', fontWeight: '600' }
+          style: { fontSize: '0.8rem', color: totalTarget === 100 ? theme.success : theme.danger, fontWeight: '600' }
         }, `${totalTarget}% ${totalTarget === 100 ? '✓' : '≠ 100%'}`)
       ),
       ['crypto','stocks','skins','commodities'].map(cat =>
@@ -293,7 +293,7 @@ function RebalancingView({ portfolio, prices, theme, formatPrice, getCurrencySym
                   style: {
                     padding: '0.25rem 0.75rem', borderRadius: '6px', fontWeight: '700', fontSize: '0.8rem', whiteSpace: 'nowrap',
                     background: Math.abs(row.delta) < 1 ? 'rgba(34,197,94,0.1)' : row.delta > 0 ? 'rgba(34,197,94,0.12)' : 'rgba(239,68,68,0.12)',
-                    color: Math.abs(row.delta) < 1 ? '#22c55e' : row.delta > 0 ? '#22c55e' : '#ef4444'
+                    color: Math.abs(row.delta) < 1 ? theme.success : row.delta > 0 ? theme.success : theme.danger
                   }
                 }, Math.abs(row.delta) < 1 ? '✓ Balanced' : `${row.delta > 0 ? '+ Buy' : '− Sell'} ${formatPrice(Math.abs(row.delta))} ${getCurrencySymbol()}`)
               )
@@ -649,7 +649,7 @@ function BrokerImportWizard({ theme, t, addToast, onImport, existing, workerUrl 
     const IM = window.MaerminImportMapping;
     if (!IM || !rawData || rawData === ' ') { setMp(null); setMapping(null); return; }
     try {
-      const prev = IM.preview(rawData, { existing: existing || [], category: catHint });
+      const prev = IM.preview(rawData, { existing: existing || [], category: catHint, broker: selectedBroker });
       setMapping(prev.mapping);
       setMp(prev);
     } catch (e) { console.error('[IMPORT] mapping preview error:', e); setMp(null); }
@@ -661,7 +661,7 @@ function BrokerImportWizard({ theme, t, addToast, onImport, existing, workerUrl 
     const next = Object.assign({}, mapping, { [field]: header || null });
     setMapping(next);
     if (IM && rawData) {
-      try { setMp(IM.preview(rawData, { existing: existing || [], category: catHint, mapping: next })); }
+      try { setMp(IM.preview(rawData, { existing: existing || [], category: catHint, mapping: next, broker: selectedBroker })); }
       catch (e) { console.error('[IMPORT] remap error:', e); }
     }
   };
@@ -691,7 +691,7 @@ function BrokerImportWizard({ theme, t, addToast, onImport, existing, workerUrl 
     if (!preset) return;
     const res = IM.applyPreset(preset, mp.headers);
     setMapping(res.mapping);
-    try { setMp(IM.preview(rawData, { existing: existing || [], category: res.category || catHint, mapping: res.mapping })); }
+    try { setMp(IM.preview(rawData, { existing: existing || [], category: res.category || catHint, mapping: res.mapping, broker: selectedBroker })); }
     catch (e) { console.error('[IMPORT] preset apply error:', e); }
     if (res.missing.length) addToast && addToast(`Preset applied · ${res.missing.length} column(s) not found in this file`, 'warning');
     else addToast && addToast('Preset applied', 'success');
@@ -982,10 +982,10 @@ function BrokerImportWizard({ theme, t, addToast, onImport, existing, workerUrl 
         return React.createElement('div', null,
           // Summary chips: broker + counts.
           React.createElement('div', { style: { display: 'flex', flexWrap: 'wrap', gap: '0.5rem', alignItems: 'center', marginBottom: '0.9rem', fontSize: '0.8rem' } },
-            mp.broker && React.createElement('span', { style: { padding: '0.25rem 0.6rem', borderRadius: '20px', background: `${theme.accent}1e`, color: theme.accent, fontWeight: '700' } }, `Detected: ${mp.broker.name}`),
-            React.createElement('span', { style: { padding: '0.25rem 0.6rem', borderRadius: '20px', background: 'rgba(34,197,94,0.15)', color: '#22c55e', fontWeight: '700' } }, `✓ ${mp.stats.ok} valid`),
+            mp.broker && React.createElement('span', { style: { padding: '0.25rem 0.6rem', borderRadius: '20px', background: `${theme.accent}1e`, color: theme.accent, fontWeight: '700' } }, mp.broker.chosen ? `${mp.broker.name} (columns detected)` : `Detected: ${mp.broker.name}`),
+            React.createElement('span', { style: { padding: '0.25rem 0.6rem', borderRadius: '20px', background: 'rgba(34,197,94,0.15)', color: theme.success, fontWeight: '700' } }, `✓ ${mp.stats.ok} valid`),
             mp.errors.length > 0 && React.createElement('span', { ...window.MaerminUtils.clickable(() => setShowErrors(v => !v)), 'aria-label': 'Toggle error details', style: { padding: '0.25rem 0.6rem', borderRadius: '20px', background: 'rgba(239,68,68,0.15)', color: '#ef4444', fontWeight: '700', cursor: 'pointer' } }, `✗ ${mp.errors.length} skipped ${showErrors ? '▲' : '▼'}`),
-            (mp.stats.duplicates > 0) && React.createElement('span', { style: { padding: '0.25rem 0.6rem', borderRadius: '20px', background: 'rgba(245,158,11,0.15)', color: '#f59e0b', fontWeight: '700' } }, `! ${mp.stats.duplicates} duplicate(s)`)
+            (mp.stats.duplicates > 0) && React.createElement('span', { style: { padding: '0.25rem 0.6rem', borderRadius: '20px', background: 'rgba(245,158,11,0.15)', color: theme.warning, fontWeight: '700' } }, `! ${mp.stats.duplicates} duplicate(s)`)
           ),
 
           // Editable column → field mapping.
@@ -1214,7 +1214,9 @@ function PositionNotesView({ portfolio, theme, t }) {
 // ─────────────────────────────────────────────────────────────────────────────
 // 5. DIVIDEND CALENDAR
 // ─────────────────────────────────────────────────────────────────────────────
-function DividendCalendarView({ portfolio, prices, metaVersion, theme, t, addToast, events: eventsProp, setEvents: setEventsProp }) {
+function DividendCalendarView({ portfolio, prices, metaVersion, theme, t, addToast, events: eventsProp, setEvents: setEventsProp, privacyMode }) {
+  // Privacy Mode masks every amount, like the app's formatPrice.
+  const amt = (text) => (privacyMode ? '••••••' : text);
   // Controlled when the parent passes events/setEvents (so auto-fetched payments
   // appear immediately); otherwise self-manage from localStorage (standalone use).
   const controlled = eventsProp != null && typeof setEventsProp === 'function';
@@ -1313,7 +1315,7 @@ function DividendCalendarView({ portfolio, prices, metaVersion, theme, t, addToa
       React.createElement('div', null,
         React.createElement('h2', { style: { color: theme.text, fontSize: '1.5rem', fontWeight: '800', letterSpacing: '-0.02em' } }, (t.dividendCalendar || 'Dividend Calendar')),
         React.createElement('div', { style: { color: theme.textSecondary, fontSize: '0.85rem', marginTop: '0.25rem' } },
-          `${monthNames[month]} ${year}: ${totalThisMonth.toFixed(2)} € · Year ${year}: ${totalYear.toFixed(2)} €`
+          `${monthNames[month]} ${year}: ${amt(totalThisMonth.toFixed(2) + ' €')} · Year ${year}: ${amt(totalYear.toFixed(2) + ' €')}`
         )
       ),
       React.createElement('div', { style: { display: 'flex', gap: '0.5rem', alignItems: 'center' } },
@@ -1366,14 +1368,20 @@ function DividendCalendarView({ portfolio, prices, metaVersion, theme, t, addToa
                 'aria-label': e.derived ? `Projected dividend ${e.symbol} ${e.amount} ${e.currency}` : `Delete dividend ${e.symbol} ${e.amount} ${e.currency}`,
                 style: {
                   background: e.past ? 'rgba(148,163,184,0.12)' : (e.derived ? 'rgba(59,130,246,0.14)' : 'rgba(34,197,94,0.15)'),
-                  color: e.past ? '#94a3b8' : (e.derived ? '#7cb0ff' : '#22c55e'),
+                  color: e.past ? theme.textSecondary : (e.derived ? theme.accent : theme.success),
                   fontSize: '0.65rem', fontWeight: '600', padding: '0.15rem 0.3rem', borderRadius: '3px', marginBottom: '0.15rem',
                   overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
                   cursor: e.derived ? 'default' : 'pointer',
                   borderLeft: e.past ? '2px solid rgba(148,163,184,0.5)' : (e.derived ? '2px solid rgba(59,130,246,0.6)' : 'none')
                 }
-              }, e.derived ? {} : window.MaerminUtils.clickable(() => { if (window.confirm(`Delete dividend? ${e.symbol} ${e.amount} ${e.currency}`)) setEvents(prev => prev.filter(ev => ev.id !== e.id)); })),
-              `${e.symbol} +${e.amount}${e.currency==='EUR'?'€':'$'}`)
+              }, e.derived ? {} : window.MaerminUtils.clickable(() => {
+                // In-app confirmation (the native dialog only if MaerminUI is missing).
+                const ask = (window.MaerminUI && window.MaerminUI.confirm)
+                  ? window.MaerminUI.confirm({ title: 'Delete this dividend?', message: `${e.symbol} ${e.amount} ${e.currency} on ${e.date}`, confirmLabel: 'Delete', danger: true })
+                  : Promise.resolve(window.confirm(`Delete dividend? ${e.symbol} ${e.amount} ${e.currency}`));
+                ask.then(yes => { if (yes) setEvents(prev => prev.filter(ev => ev.id !== e.id)); });
+              })),
+              `${e.symbol} ${amt('+' + e.amount + (e.currency==='EUR'?'€':'$'))}`)
             )
           );
         })
@@ -1388,7 +1396,7 @@ function DividendCalendarView({ portfolio, prices, metaVersion, theme, t, addToa
         React.createElement('div', { key: e.id, style: { display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '0.625rem 0.75rem', background: theme.card, borderRadius: '6px', marginBottom: '0.375rem', border: `1px solid ${theme.cardBorder}` } },
           React.createElement('span', { style: { color: theme.text, fontWeight: '600', fontSize: '0.875rem', minWidth: '64px' } }, e.symbol),
           React.createElement('span', { style: { color: theme.textSecondary, fontSize: '0.875rem' } }, new Date(e.date).toLocaleDateString('en-US')),
-          React.createElement('span', { style: { color: e.derived ? '#7cb0ff' : '#22c55e', fontWeight: '700', fontSize: '0.875rem' } }, `+${e.amount} ${e.currency==='EUR'?'€':'$'}`)
+          React.createElement('span', { style: { color: e.derived ? theme.accent : theme.success, fontWeight: '700', fontSize: '0.875rem' } }, amt(`+${e.amount} ${e.currency==='EUR'?'€':'$'}`))
         )
       )
     )

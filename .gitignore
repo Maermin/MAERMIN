@@ -23,3 +23,6 @@ Thumbs.db
 
 # Cloudflare Wrangler
 .wrangler/
+
+# Local, unreleased security audit findings
+docs/AUDIT.security.local.md

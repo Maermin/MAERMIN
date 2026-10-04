@@ -180,6 +180,59 @@
     }, props.children);
   }
 
+  // ---- in-app confirmation (replaces window.confirm) ------------------------
+  // confirm({ title, message, confirmLabel, cancelLabel, danger }) → Promise
+  // <boolean>. One <ConfirmHost> rendered by the app shows it through Overlay
+  // (focus trap, Escape = cancel, focus back to the opener). A new confirm
+  // while one is open cancels the old one.
+  var confirmState = Store ? Store.createStore({ open: false }) : null;
+  var _confirmResolve = null;
+  function confirm(opts) {
+    opts = opts || {};
+    return new Promise(function (resolve) {
+      if (_confirmResolve) { var prev = _confirmResolve; _confirmResolve = null; prev(false); }
+      _confirmResolve = resolve;
+      if (confirmState) confirmState.setState({
+        open: true,
+        title: String(opts.title || 'Are you sure?'),
+        message: opts.message == null ? '' : String(opts.message),
+        confirmLabel: String(opts.confirmLabel || 'Confirm'),
+        cancelLabel: String(opts.cancelLabel || 'Cancel'),
+        danger: !!opts.danger
+      });
+    });
+  }
+  function answerConfirm(value) {
+    var r = _confirmResolve;
+    _confirmResolve = null;
+    if (confirmState) confirmState.setState({ open: false });
+    if (r) r(!!value);
+  }
+  function ConfirmHost(props) {
+    var React = (typeof window !== 'undefined') ? window.React : null;
+    if (!React || !Store || !confirmState) return null;
+    var theme = (props && props.theme) || {};
+    var s = Store.useStore(confirmState, function (x) { return x; });
+    if (!s.open) return null;
+    var e = React.createElement;
+    var btn = { flex: 1, padding: '0.7rem', borderRadius: '8px', cursor: 'pointer', fontWeight: 600 };
+    return e(Overlay, {
+      onClose: function () { answerConfirm(false); },
+      style: { position: 'fixed', inset: 0, background: 'rgba(4,6,10,0.62)', display: 'flex', justifyContent: 'center', alignItems: 'center', zIndex: 10050, backdropFilter: 'blur(8px)' }
+    },
+      e('div', Object.assign({}, dialogProps('dlg-confirm'), {
+        'aria-describedby': s.message ? 'dlg-confirm-msg' : undefined,
+        style: { background: theme.modalBg || '#111827', border: '1px solid ' + (theme.modalBorder || 'rgba(255,255,255,0.1)'), borderRadius: '16px', padding: '1.5rem', width: '420px', maxWidth: '90vw', boxShadow: '0 25px 50px -12px rgba(0,0,0,0.5)' }
+      }),
+        e('h2', { id: 'dlg-confirm', style: { color: theme.text || '#e6edf3', fontSize: '1.15rem', fontWeight: 700, margin: '0 0 0.6rem' } }, s.title),
+        s.message ? e('p', { id: 'dlg-confirm-msg', style: { color: theme.textSecondary || '#9aa4b2', fontSize: '0.88rem', lineHeight: 1.5, margin: '0 0 1.1rem', whiteSpace: 'pre-line' } }, s.message) : null,
+        e('div', { style: { display: 'flex', gap: '0.75rem' } },
+          e('button', { type: 'button', onClick: function () { answerConfirm(false); },
+            style: Object.assign({}, btn, { background: theme.inputBg || '#0f172a', color: theme.text || '#e6edf3', border: '1px solid ' + (theme.cardBorder || 'rgba(255,255,255,0.1)') }) }, s.cancelLabel),
+          e('button', { type: 'button', onClick: function () { answerConfirm(true); },
+            style: Object.assign({}, btn, { background: s.danger ? (theme.danger || '#ef4444') : (theme.accent || '#8b7cff'), color: '#fff', border: 'none' }) }, s.confirmLabel))));
+  }
+
   // ---- React component (browser): subscribes to just the toasts slice -------
   function ToastContainer(props) {
     var React = (typeof window !== 'undefined') ? window.React : null;
@@ -218,6 +271,7 @@
     isOverlayOpen: isOverlayOpen, closeAllOverlays: closeAllOverlays, anyOverlayOpen: anyOverlayOpen,
     // modal dialogs
     Overlay: Overlay, dialogProps: dialogProps, trapTarget: trapTarget,
+    confirm: confirm, answerConfirm: answerConfirm, confirmState: confirmState, ConfirmHost: ConfirmHost,
     pushOverlay: pushOverlay, popOverlay: popOverlay, isTopOverlay: isTopOverlay, topOverlay: topOverlay, overlayDepth: overlayDepth
   };
   if (typeof window !== 'undefined') window.MaerminUI = api;

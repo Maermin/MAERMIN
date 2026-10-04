@@ -96,7 +96,15 @@
     var oversold = 0;
     sorted.forEach(function (tx) {
       var qty = num(tx.quantity);
-      if (!(qty > 0)) return;
+      if (!(qty > 0)) {
+        // A buy/sell without a positive quantity cannot be booked; report it
+        // instead of dropping it silently (a sell entered as -0.5 vanished).
+        if ((tx.type === 'buy' || tx.type === 'sell') && ctx && ctx.quantityIssues) {
+          ctx.quantityIssues.push({ kind: 'quantity', severity: 'warning', type: tx.type, symbol: tx.symbol || tx.name || '',
+            category: tx.category || 'crypto', date: ymd(tx.date), qty: isFinite(parseFloat(tx.quantity)) ? parseFloat(tx.quantity) : String(tx.quantity) });
+        }
+        return;
+      }
       if (tx.type === 'buy') {
         var fee = toEUR(tx.fees, tx, rate, fxAt, ctx);
         open.push({ qty: qty, unitCostEUR: toEUR(tx.price, tx, rate, fxAt, ctx) + (fee > 0 ? fee / qty : 0), date: tx.date });
@@ -160,21 +168,22 @@
       if (!m.symbolLogoUrl && tx.symbolLogoUrl) m.symbolLogoUrl = tx.symbolLogoUrl;
     });
     var groups = {}, list = [];
-    var ctx = { usdRates: opts.usdRates, currencyIssues: [], seen: {} };
+    var ctx = { usdRates: opts.usdRates, currencyIssues: [], quantityIssues: [], seen: {} };
     Object.keys(byKey).forEach(function (k) {
       var g = Object.assign({ key: k }, meta[k], runGroup(byKey[k], rate, fxAt, ctx));
       groups[k] = g;
       list.push(g);
     });
-    return { groups: groups, list: list, issues: issues(list, ctx.currencyIssues) };
+    return { groups: groups, list: list, issues: issues(list, ctx.currencyIssues, ctx.quantityIssues) };
   }
 
-  // Data-quality findings of a build: sells without enough open units, and
-  // transaction currencies that could only be converted approximately or not
-  // at all. [{ kind: 'oversold'|'currency', severity, symbol, category?, qty?,
-  // currency?, status? }]
-  function issues(list, currencyIssues) {
-    var out = [];
+  // Data-quality findings of a build: buy/sell rows without a positive
+  // quantity, sells without enough open units, and transaction currencies that
+  // could only be converted approximately or not at all.
+  // [{ kind: 'quantity'|'oversold'|'currency', severity, symbol, category?,
+  //    qty?, type?, date?, currency?, status? }]
+  function issues(list, currencyIssues, quantityIssues) {
+    var out = (quantityIssues || []).slice();
     (list || []).forEach(function (g) {
       if (g.oversold > 1e-9) out.push({ kind: 'oversold', severity: 'warning', symbol: g.symbol, category: g.category, qty: g.oversold });
     });

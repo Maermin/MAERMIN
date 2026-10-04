@@ -111,6 +111,32 @@ Metadata is near-static → cached 30 days. Nulls mean Yahoo has no value; the
 client keeps the static-map / "Other" fallback. `MaerminEquityMeta` normalises
 Yahoo's "Financial Services"→"Financials", "United States"→"USA", etc.
 
+### `GET /?action=earnings&symbol=AAPL`
+Next earnings date and consensus estimates for the **Earnings Calendar** in the
+Dividends view. Proxies Yahoo Finance `quoteSummary` (`calendarEvents`,
+`price`), same cookie+crumb retry as the other `quoteSummary` routes:
+
+```jsonc
+{
+  "symbol": "AAPL",
+  "name": "Apple Inc.",
+  "currency": "USD",
+  "earningsDate": "2026-10-29",      // ISO; next (or estimated) report date
+  "earningsDateEnd": null,           // set when Yahoo only gives a date range
+  "isEstimate": false,               // true for a range = not yet confirmed
+  "epsEstimate": 1.78, "epsLow": 1.70, "epsHigh": 1.85,
+  "revenueEstimate": 101200000000    // in `currency`
+}
+```
+
+Cached 6 h. Nulls mean Yahoo has no value; `404` when Yahoo returns nothing.
+
+### `GET /?action=news&symbol=AAPL`
+Yahoo Finance RSS headlines for one symbol (the **News Feed** view parses the
+XML client-side and sanitises every link through `MaerminUtils.safeUrl`).
+Returns the RSS XML as-is; an upstream error yields an empty `<rss>` channel,
+not an HTTP error. Cached 15 min.
+
 ### `GET /?action=search&q=ak47+redline`
 Steam Market CS2 skin search (USD, `currency=1`). Returns items with images.
 
