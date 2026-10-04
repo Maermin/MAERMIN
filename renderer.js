@@ -4012,6 +4012,8 @@ function InvestmentTracker() {
                           React.createElement('button', {
                             onClick: () => editTransaction(tx),
                             title: t.edit || 'Edit',
+                            // Which row: nine identical "Edit" buttons said nothing to a screen reader.
+                            'aria-label': `${t.edit || 'Edit'}: ${window.MaerminUtils.txTypeInfo(tx.type, t).label} ${tx.symbolName || tx.symbol || ''}, ${String(tx.date || '').slice(0, 10)}`,
                             style: {
                               padding: '0.3rem 0.6rem',
                               background: currentTheme.accentSoft,
@@ -4026,6 +4028,7 @@ function InvestmentTracker() {
                           React.createElement('button', {
                             onClick: () => setTxDeleteConfirm(tx.id),
                             title: t.delete || 'Delete',
+                            'aria-label': `${t.delete || 'Delete'}: ${window.MaerminUtils.txTypeInfo(tx.type, t).label} ${tx.symbolName || tx.symbol || ''}, ${String(tx.date || '').slice(0, 10)}`,
                             style: {
                               padding: '0.3rem 0.6rem',
                               background: 'rgba(239,68,68,0.1)',
