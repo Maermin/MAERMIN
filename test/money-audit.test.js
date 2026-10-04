@@ -69,6 +69,22 @@ function approx(a, b, eps) { return Math.abs(a - b) < (eps || 0.005); }
   ok('01.02.2025 is 1 February, not 2 January', legacyDates[1] === '2025-02-01');
   ok('ISO dates unchanged', legacyDates[2] === '2025-03-10');
 
+  // ---- BUG-011: non-positive quantities are reported, not silently dropped --
+  console.log('BUG-011 invalid quantities');
+  const lq = L.build([
+    { type: 'buy', category: 'crypto', symbol: 'ETH', quantity: 1, price: 1500, currency: 'EUR', date: '2024-02-01' },
+    { type: 'sell', category: 'crypto', symbol: 'ETH', quantity: -0.5, price: 1800, currency: 'EUR', date: '2024-03-01' },
+    { type: 'buy', category: 'crypto', symbol: 'ETH', quantity: 0, price: 1500, currency: 'EUR', date: '2024-03-02' },
+    { type: 'buy', category: 'crypto', symbol: 'ETH', quantity: 'abc', price: 1500, currency: 'EUR', date: '2024-03-03' },
+    { type: 'dividend', category: 'stocks', symbol: 'ALV', quantity: 0, price: 0, amount: 10, currency: 'EUR', date: '2024-03-04' }
+  ], { exchangeRate: 1 });
+  const qIssues = lq.issues.filter((i) => i.kind === 'quantity');
+  ok('three buy/sell rows with a bad quantity are reported', qIssues.length === 3);
+  ok('the issue names the row (type, symbol, date, quantity)', qIssues.some((i) => i.type === 'sell' && i.symbol === 'ETH' && i.date === '2024-03-01' && i.qty === -0.5));
+  ok('it is a warning (affects cost basis)', qIssues.every((i) => i.severity === 'warning'));
+  ok('dividends are not checked for a trade quantity', !qIssues.some((i) => i.type === 'dividend'));
+  ok('the valid buy still builds the position', approx(lq.list[0].openQty, 1));
+
   console.log('\n  ' + passed + ' passed, ' + failed + ' failed');
   process.exit(failed ? 1 : 0);
 })();
