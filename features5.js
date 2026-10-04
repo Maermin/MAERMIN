@@ -572,7 +572,8 @@ function FeeAnalyzer({ transactions, theme, formatPrice, getCurrencySymbol }) {
           ),
 
           // Top cost items
-          React.createElement(Card, { theme, style: { gridColumn: 'span 2' } },
+          // Full row in any column count ('span 2' forced a second column on phones).
+          React.createElement(Card, { theme, style: { gridColumn: '1 / -1' } },
             React.createElement('div', { style: { color: theme.text, fontWeight: '700', fontSize: '0.875rem', marginBottom: '0.75rem' } }, 'Most Expensive Transactions'),
             React.createElement('div', { style: { overflowX: 'auto' } },
               React.createElement('table', { style: { width: '100%', borderCollapse: 'collapse', fontSize: '0.8rem', minWidth: 420 } },
