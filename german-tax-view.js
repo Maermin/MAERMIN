@@ -102,7 +102,10 @@
     var distributions = 0;
     (transactions || []).forEach(function (tx) {
       if (tx.type !== 'dividend' || String(tx.symbol || '').toUpperCase() !== sym) return;
-      var y = new Date(tx.date).getFullYear();
+      // Year of the stored 'YYYY-MM-DD' itself: getFullYear() would move a
+      // 1 January payout into the previous year west of UTC.
+      var m = /^(\d{4})-\d{2}-\d{2}/.exec(String(tx.date || ''));
+      var y = m ? parseInt(m[1], 10) : new Date(tx.date).getFullYear();
       if (y !== year) return;
       var gross = (num(tx.quantity) || 0) * (num(tx.price) || 0) || (num(tx.amount) || 0);
       var FXH = (typeof window !== 'undefined' && window.MaerminFxHistory) || null;

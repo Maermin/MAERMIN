@@ -193,6 +193,15 @@ function deStore(txs, extra) {
           { type: 'sell', category: 'stocks', symbol: 'SAP', quantity: 15, price: 150, currency: 'EUR', date: '2025-09-01' }]);
   ok('two sales in the year: override counted once (500)', approx(g.gainsTaxable, 500));
 
+  // ---- BUG-007: Vorabpauschale prefill picks distributions by stored year --
+  console.log('BUG-007 prefill distribution year');
+  process.env.TZ = 'America/New_York';
+  const GV = require('../german-tax-view.js');
+  const distTx = [{ type: 'dividend', category: 'stocks', symbol: 'VHYL', quantity: 1, price: 100, currency: 'EUR', date: '2025-01-01' }];
+  ok('1 Jan distribution counts in its own year west of UTC', approx(GV.prefillRow(distTx, {}, 'VHYL', 2025, 1).distributions, 100));
+  ok('... and not in the previous year', approx(GV.prefillRow(distTx, {}, 'VHYL', 2024, 1).distributions, 0));
+  process.env.TZ = 'Europe/Berlin';
+
   console.log('\n  ' + passed + ' passed, ' + failed + ' failed');
   process.exit(failed ? 1 : 0);
 })();
