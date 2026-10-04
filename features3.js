@@ -728,7 +728,7 @@ function CS2SkinPicker({ workerUrl, theme, onSelect, selectedName }) {
         value: query,
         onChange: e => { setQuery(e.target.value); if (!e.target.value) { setResults([]); setOpen(false); } },
         onFocus: () => results.length > 0 && setOpen(true),
-        placeholder: 'Search CS2 skins — e.g. AK-47 Redline...',
+        placeholder: 'Search CS2 skins — e.g. AK-47 Redline...', 'aria-label': 'Skin',
         style: {
           width: '100%', padding: '0.75rem 2.5rem 0.75rem 0.75rem',
           background: theme.inputBg, border: `1px solid ${theme.inputBorder}`,
@@ -990,7 +990,7 @@ function SymbolPicker({ category, workerUrl, theme, onSelect, selectedSymbol, se
           value: query,
           onChange: e => { setQuery(e.target.value); setSelected(null); },
           onFocus: () => results.length > 0 && setOpen(true),
-          placeholder: isCrypto ? 'Search: Bitcoin, Ethereum, Solana...' : 'Search: Apple, ASML, Novo Nordisk...',
+          placeholder: isCrypto ? 'Search: Bitcoin, Ethereum, Solana...' : 'Search: Apple, ASML, Novo Nordisk...', 'aria-label': 'Symbol',
           style: {
             width: '100%', padding: '0.75rem 2.5rem 0.75rem 0.875rem',
             background: theme.inputBg, border: `1px solid ${selected ? theme.accent : theme.inputBorder}`,

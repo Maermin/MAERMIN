@@ -4387,8 +4387,9 @@ function InvestmentTracker() {
         
         // Portfolio selector — always shown as a select dropdown
         React.createElement('div', { style: { marginBottom: '1rem' } },
-          React.createElement('label', { style: { display: 'block', color: currentTheme.textSecondary, marginBottom: '0.5rem', fontSize: '0.875rem' } }, 'Portfolio'),
+          React.createElement('label', { htmlFor: 'tx-portfolio', style: { display: 'block', color: currentTheme.textSecondary, marginBottom: '0.5rem', fontSize: '0.875rem' } }, 'Portfolio'),
           React.createElement('select', {
+            id: 'tx-portfolio',
             value: newTransaction.targetPortfolioId || activePortfolioId,
             onChange: e => setNewTransaction(prev => ({ ...prev, targetPortfolioId: e.target.value })),
             style: {
@@ -4524,7 +4525,7 @@ function InvestmentTracker() {
                   React.createElement('input', {
                     type: 'text', value: newTransaction.underlying || '',
                     onChange: e => setNewTransaction(prev => ({ ...prev, underlying: e.target.value.toUpperCase() })),
-                    placeholder: 'Underlying symbol: AAPL, SAP.DE...',
+                    placeholder: 'Underlying symbol: AAPL, SAP.DE...', 'aria-label': 'Underlying symbol',
                     style: { width: '100%', padding: '0.625rem 0.875rem', background: currentTheme.inputBg, border: `1px solid ${currentTheme.inputBorder}`, borderRadius: '8px', color: currentTheme.text, fontSize: '0.875rem', boxSizing: 'border-box', marginBottom: '0.625rem' }
                   }),
                   React.createElement('div', { style: { display: 'flex', gap: '0.5rem', marginBottom: '0.625rem' } },
@@ -4541,19 +4542,19 @@ function InvestmentTracker() {
                     React.createElement('input', {
                       type: 'number', value: newTransaction.strike || '', min: 0, step: 'any',
                       onChange: e => setNewTransaction(prev => ({ ...prev, strike: e.target.value })),
-                      placeholder: 'Strike',
+                      placeholder: 'Strike', 'aria-label': 'Strike price',
                       style: { flex: 1, padding: '0.625rem 0.875rem', background: currentTheme.inputBg, border: `1px solid ${currentTheme.inputBorder}`, borderRadius: '8px', color: currentTheme.text, fontSize: '0.875rem', minWidth: 0 }
                     }),
                     React.createElement('input', {
                       type: 'date', value: newTransaction.expiry || '',
                       onChange: e => setNewTransaction(prev => ({ ...prev, expiry: e.target.value })),
-                      title: 'Expiry date',
+                      title: 'Expiry date', 'aria-label': 'Expiry date',
                       style: { flex: 1, padding: '0.625rem 0.875rem', background: currentTheme.inputBg, border: `1px solid ${currentTheme.inputBorder}`, borderRadius: '8px', color: currentTheme.text, fontSize: '0.875rem', minWidth: 0 }
                     }),
                     React.createElement('input', {
                       type: 'number', value: newTransaction.contractSize || '', min: 1,
                       onChange: e => setNewTransaction(prev => ({ ...prev, contractSize: e.target.value })),
-                      placeholder: 'Size (100)', title: 'Contract size (shares per contract, default 100)',
+                      placeholder: 'Size (100)', 'aria-label': 'Contract size', title: 'Contract size (shares per contract, default 100)',
                       style: { width: '90px', padding: '0.625rem 0.875rem', background: currentTheme.inputBg, border: `1px solid ${currentTheme.inputBorder}`, borderRadius: '8px', color: currentTheme.text, fontSize: '0.875rem' }
                     })),
                   React.createElement('div', { style: { color: currentTheme.textSecondary, fontSize: '0.72rem', marginTop: '0.5rem', lineHeight: 1.5 } },
@@ -4590,7 +4591,7 @@ function InvestmentTracker() {
                   React.createElement('input', {
                     type: 'text', value: newTransaction.symbol,
                     onChange: e => setNewTransaction(prev => ({ ...prev, symbol: e.target.value.toUpperCase() })),
-                    placeholder: 'or enter ETF symbol: GLD, SLV, IAU...',
+                    placeholder: 'or enter ETF symbol: GLD, SLV, IAU...', 'aria-label': 'Symbol',
                     style: { width: '100%', padding: '0.625rem 0.875rem', background: currentTheme.inputBg, border: `1px solid ${currentTheme.inputBorder}`, borderRadius: '8px', color: currentTheme.text, fontSize: '0.875rem', boxSizing: 'border-box' }
                   })
                 )
@@ -4599,7 +4600,7 @@ function InvestmentTracker() {
             : React.createElement('input', {
                 type: 'text', value: newTransaction.symbol,
                 onChange: e => setNewTransaction(prev => ({ ...prev, symbol: e.target.value.toUpperCase() })),
-                placeholder: 'Symbol...',
+                placeholder: 'Symbol...', 'aria-label': 'Symbol',
                 style: { width: '100%', padding: '0.75rem', background: currentTheme.inputBg, border: `1px solid ${currentTheme.inputBorder}`, borderRadius: '8px', color: currentTheme.text }
               })
           ),
@@ -4607,9 +4608,11 @@ function InvestmentTracker() {
         // Quantity
         React.createElement('div', { style: { marginBottom: '1rem' } },
           React.createElement('label', {
+            htmlFor: 'tx-quantity',
             style: { display: 'block', color: currentTheme.textSecondary, marginBottom: '0.5rem', fontSize: '0.875rem' }
           }, t.quantity || 'Quantity'),
           React.createElement('input', {
+            id: 'tx-quantity',
             type: 'number',
             value: newTransaction.quantity,
             onChange: (e) => setNewTransaction(prev => ({ ...prev, quantity: e.target.value })),
@@ -4629,9 +4632,11 @@ function InvestmentTracker() {
         // Price per unit
         React.createElement('div', { style: { marginBottom: '1rem' } },
           React.createElement('label', {
+            htmlFor: 'tx-price',
             style: { display: 'block', color: currentTheme.textSecondary, marginBottom: '0.5rem', fontSize: '0.875rem' }
           }, t.pricePerUnit || 'Price per Unit'),
           React.createElement('input', {
+            id: 'tx-price',
             type: 'number',
             value: newTransaction.price,
             onChange: (e) => setNewTransaction(prev => ({ ...prev, price: e.target.value })),
@@ -4651,9 +4656,11 @@ function InvestmentTracker() {
         // Date
         React.createElement('div', { style: { marginBottom: '1rem' } },
           React.createElement('label', {
+            htmlFor: 'tx-date',
             style: { display: 'block', color: currentTheme.textSecondary, marginBottom: '0.5rem', fontSize: '0.875rem' }
           }, t.date || 'Date'),
           React.createElement('input', {
+            id: 'tx-date',
             type: 'date',
             value: newTransaction.date,
             onChange: (e) => setNewTransaction(prev => ({ ...prev, date: e.target.value })),
@@ -4671,9 +4678,11 @@ function InvestmentTracker() {
         // Fees
         React.createElement('div', { style: { marginBottom: '1rem' } },
           React.createElement('label', {
+            htmlFor: 'tx-fees',
             style: { display: 'block', color: currentTheme.textSecondary, marginBottom: '0.5rem', fontSize: '0.875rem' }
           }, t.feesOptional || 'Fees (optional)'),
           React.createElement('input', {
+            id: 'tx-fees',
             type: 'number',
             value: newTransaction.fees,
             onChange: (e) => setNewTransaction(prev => ({ ...prev, fees: e.target.value })),
@@ -4693,9 +4702,11 @@ function InvestmentTracker() {
         // Notes
         React.createElement('div', { style: { marginBottom: '1.5rem' } },
           React.createElement('label', {
+            htmlFor: 'tx-notes',
             style: { display: 'block', color: currentTheme.textSecondary, marginBottom: '0.5rem', fontSize: '0.875rem' }
           }, t.notesOptional || 'Notes (optional)'),
           React.createElement('input', {
+            id: 'tx-notes',
             type: 'text',
             value: newTransaction.notes,
             onChange: (e) => setNewTransaction(prev => ({ ...prev, notes: e.target.value })),

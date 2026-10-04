@@ -160,7 +160,7 @@ function PortfolioManagerView({ portfolios, activePortfolioId, transactions, pri
       React.createElement('div', { style: { display: 'flex', gap: '0.75rem', flexWrap: 'wrap', alignItems: 'flex-end' } },
         React.createElement('input', {
           value: newName, onChange: e => setNewName(e.target.value),
-          placeholder: 'e.g. Trade Republic, CS2, Savings',
+          placeholder: 'e.g. Trade Republic, CS2, Savings', 'aria-label': 'New portfolio name',
           style: { flex: 1, minWidth: '180px', padding: '0.625rem 0.875rem', background: theme.inputBg, border: `1px solid ${theme.inputBorder}`, borderRadius: '8px', color: theme.text, fontSize: '0.875rem' }
         }),
         // Color picker
