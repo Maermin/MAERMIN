@@ -244,7 +244,25 @@
     return Object.keys(keys).some((k) => txt(initial[k]) !== txt(current[k]));
   }
 
+  // Category the Add Transaction dialog starts on: the one of the transaction
+  // entered last in this portfolio (ids are creation timestamps; without a
+  // numeric id the later array entry wins), else `fallback` ('crypto').
+  // `allowed` drops categories that no longer exist (a deleted custom one).
+  function defaultTxCategory(transactions, portfolioId, allowed, fallback) {
+    const pid = portfolioId || 'default';
+    let best = null, bestId = -Infinity;
+    (Array.isArray(transactions) ? transactions : []).forEach((tx, i) => {
+      if (!tx || !tx.category || (tx.portfolioId || 'default') !== pid) return;
+      if (Array.isArray(allowed) && allowed.indexOf(tx.category) === -1) return;
+      const n = Number(tx.id);
+      const key = isFinite(n) && String(tx.id).trim() !== '' ? n : i;
+      if (key >= bestId) { bestId = key; best = tx.category; }
+    });
+    return best || fallback || 'crypto';
+  }
+
   const MaerminUtils = {
+    defaultTxCategory,
     formChanged,
     missingTxFields,
     txTypeInfo,

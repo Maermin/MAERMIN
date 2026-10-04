@@ -2037,7 +2037,9 @@ function InvestmentTracker() {
     setEditingTransactionId(null);
     const initial = {
       type: 'buy',
-      category: 'crypto',
+      // Start on the category entered last here (it was always Crypto).
+      category: window.MaerminUtils.defaultTxCategory(transactions, activePortfolioId,
+        ['crypto', 'stocks', 'skins', 'commodities', 'options'].concat(window.MaerminCategories ? window.MaerminCategories.ids() : [])),
       symbol: '',
       quantity: '',
       price: '',
@@ -2119,6 +2121,7 @@ function InvestmentTracker() {
         setTransactions(prev => [...prev, ...added]);
         const skipped = res.errors.length ? ` - ${res.errors.length} row(s) skipped (${firstErr})` : '';
         addToast(`${added.length} ${t.transactionsImported || 'transactions imported'}${skipped}`, res.errors.length ? 'warning' : 'success', res.errors.length ? 8000 : undefined);
+        (res.warnings || []).slice(0, 2).forEach(w => addToast(w, 'warning', 10000));
         setImportData('');
         setShowImportModal(false);
         return;
@@ -2337,6 +2340,7 @@ function InvestmentTracker() {
           if (!res.transactions.length) throw new Error('No transactions found' + (firstErr ? ' - ' + firstErr : ''));
           imported = res.transactions.map(tx => ({ ...tx, notes: tx.notes || '', portfolioId: activePortfolioId }));
           if (res.errors.length) addToast(`${res.errors.length} row(s) skipped (${firstErr})`, 'warning', 8000);
+          (res.warnings || []).slice(0, 2).forEach(w => addToast(w, 'warning', 10000));
         }
         if (!imported.length) throw new Error('No transactions found in data');
         const newTxs = imported.map((tx, i) => ({ id: (Date.now()+i).toString(), ...tx }));
