@@ -95,7 +95,7 @@ empty input), TWR chain-linking, split overlay (split between lots + partial sal
 oversell reporting, sell-fee pro-rating.
 
 ### BUG-008 — CSV import turns savings-plan buys into sells (any type text containing "s")
-- **Severity:** Critical · **Status:** open · **Found:** 2026-10-04
+- **Severity:** Critical · **Status:** fixed (66acf84) · **Found:** 2026-10-04
 - **Location:** `import-mapping.js:86-88` (word lists with the single letters `'b'` and `'s'`), `import-mapping.js:177-184` (`includes()` matching, unknown type defaults to `buy`), `import-mapping.js:290` (`Math.abs` drops the quantity's sign)
 - **What happens:** `normalizeType` checks the sell list before the buy list, and the sell list contains `'s'`, matched with `t.includes(w)`. Any type text containing an "s" therefore becomes a sell. Any text that matches nothing becomes a buy. When no type column is mapped, a negative quantity (the usual way exports mark a sell) is made positive and booked as a buy.
 - **Reproduce:** `normalizeType('Savings plan')` → `sell`, `'Sparplan'` → `sell`, `'Purchase'` → `sell`, `'Deposit'` → `sell`, `'Transfer'` → `sell`, `'Fee'` → `buy`, `'Convert'` → `buy`. A row `BTC, quantity -0.5` with no type column → `buy 0.5`.
@@ -103,7 +103,7 @@ oversell reporting, sell-fee pro-rating.
 - **Proposed fix:** Match the single letters `b`/`s` only as the whole value. Match words on word boundaries. Add savings-plan words (`savings plan`, `sparplan`, `sparplanausführung`) to the buy list. A non-empty type that matches no list becomes a row error ("unknown type: …") instead of a silent buy. With no type value, a negative quantity means sell. Tests: the strings above, plus a negative quantity without a type column.
 
 ### BUG-009 — USD trades dated before the FX history are converted at an unrelated rate and labelled "exact"
-- **Severity:** Important · **Status:** open · **Found:** 2026-10-04
+- **Severity:** Important · **Status:** fixed (dd5c151, fdb06fb) · **Found:** 2026-10-04
 - **Location:** `fx-history.js:105-121` (`fxResolver` returns the **earliest** stored rate for a date before the history), `fx-history.js:376-380` (`txToEUR` reports `exact` for any USD conversion)
 - **What happens:** Without a Worker, the history only holds the live rates recorded on the days the app was opened (`renderer.js:1340`). A 2022 trade is converted at the rate of the first recorded day, and the status says `exact`, so the ledger's data check (`ledger.js:73-76`) never flags it. With a Worker the daily series covers about 20 years, so only very old trades or a failed backfill are affected.
 - **Reproduce:** History `{2026-09-01: 0.86, 2026-10-04: 0.85}`: a USD buy on 2022-03-01 → value 860 € at 0.86, status `exact`, `issues: []`.
@@ -111,17 +111,23 @@ oversell reporting, sell-fee pro-rating.
 - **Proposed fix:** `fxResolver` returns `null` for a date before the first stored day (more than a few days earlier). `txToEUR` then falls back to the static rate with status `approx` when `fxAt` gave no rate, so the Transactions/Tax data check lists it. Test: the case above reports `approx` and a currency issue; a covered date stays `exact`.
 
 ### BUG-010 — Legacy CSV fallback parser misreads dates
-- **Severity:** Optimization · **Status:** open · **Found:** 2026-10-04
+- **Severity:** Optimization · **Status:** fixed (697d0d6) · **Found:** 2026-10-04
 - **Location:** `import-export-engine.js:371-404` (`parseDate`), reached through `features2.js:518-527` and `features2.js:1117` only when the mapping preview could not be built (`mp` null)
 - **What happens:** Native parsing runs first, so V8 reads `01.02.2025` as 2 January. `31.12.2025` falls through to local midnight → `toISOString()` → `2025-12-30T23:00:00Z` in Germany, so dates move back one day and 1 January trades land in the previous year.
 - **Why it matters:** Only on the fallback path, but then silently. The main pipeline (`MaerminImportMapping.parseDate`) gets this right.
 - **Proposed fix:** Delegate to `MaerminImportMapping.parseDate` when it is loaded (day-first for dotted dates, `YYYY-MM-DD` output), and keep the native parse as the last resort. Test: `31.12.2025` → `2025-12-31`, `01.02.2025` → `2025-02-01`.
 
 ### BUG-011 — Sells with a zero or negative quantity disappear without a data-quality warning
-- **Severity:** Optimization · **Status:** open · **Found:** 2026-10-04
+- **Severity:** Optimization · **Status:** fixed (4489054) · **Found:** 2026-10-04
 - **Location:** `ledger.js:98-99` (`if (!(qty > 0)) return;`); reachable through the JSON quick import (`renderer.js:2072` keeps the sign)
 - **What happens:** `{type:'sell', quantity:-0.5}` is skipped. The position stays 0.5 too large and `issues` stays empty.
 - **Proposed fix:** Report a `kind: 'quantity'` issue for buy/sell rows with a non-positive or non-numeric quantity, so they show up in the existing data-check banner. Test: the row above produces one issue.
+
+### Fix notes
+- Regression tests: `test/money-audit.test.js` (32 checks), each block shown failing before its fix.
+- BUG-009 deviates slightly from the proposal: the converted value is unchanged (nearest stored rate, as `test/fx-history.test.js` intends); only the status becomes `approx` via the new `fxResolver(...).covers(date)`. The data-check banner got a USD-specific line.
+- BUG-008: unrecognised types are now row errors in the import preview (no silent buy).
+- Verified: `npm run check`, `npm test` (87 suites), `npm run test:e2e` (128 checks) and the data-check banner in Demo mode (AAPL USD buy without a Worker).
 
 ### Out of scope (noted, not investigated)
 - `renderer.js:2046-2051`: CSV pasted into the quick Import dialog is parsed into `{ headers, rows }`, which none of the following branches handles (array / `.transactions` / `.portfolio`). Likely a dead end for CSV in that dialog (usability).
