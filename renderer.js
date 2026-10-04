@@ -2616,7 +2616,7 @@ function InvestmentTracker() {
         React.createElement('div', { style: { flex: 1 } }),
         React.createElement('button', {
           onClick: fetchDividends, disabled: fetching,
-          style: { padding: '0.45rem 1rem', background: fetching ? theme.inputBg : 'rgba(34,197,94,0.15)', border: '1px solid rgba(34,197,94,0.3)', borderRadius: '8px', color: fetching ? theme.textSecondary : '#22c55e', cursor: fetching ? 'not-allowed' : 'pointer', fontSize: '0.8rem', fontWeight: '600' }
+          style: { padding: '0.45rem 1rem', background: fetching ? theme.inputBg : 'rgba(34,197,94,0.15)', border: '1px solid rgba(34,197,94,0.3)', borderRadius: '8px', color: fetching ? theme.textSecondary : theme.success, cursor: fetching ? 'not-allowed' : 'pointer', fontSize: '0.8rem', fontWeight: '600' }
         }, fetching ? 'Fetching...' : '↓ Auto-fetch dividends'),
         // v10.x: book received dividends as transactions (in the payout currency)
         onBookDividends ? React.createElement('button', {
@@ -3086,7 +3086,7 @@ function InvestmentTracker() {
     const divM    = M ? memoBy('kpiDiv', [portfolio, prices], () => M.computeExpectedAnnualDividends(portfolio, prices)) : null;
     const healthM = M ? memoBy('kpiHealth', [portfolio, prices, t, priceHistory, transactions], () => M.healthScore(portfolio, prices, t, { priceHistory, transactions })) : null;
 
-    const healthColor = (s) => s >= 85 ? '#22c55e' : s >= 70 ? '#84cc16' : s >= 55 ? '#f59e0b' : s >= 40 ? '#f97316' : '#ef4444';
+    const healthColor = (s) => s >= 70 ? theme.success : s >= 40 ? theme.warning : theme.danger;
 
     const tile = (opts) => React.createElement('div', {
       key: opts.key,
@@ -3160,7 +3160,7 @@ function InvestmentTracker() {
       sub: (divM && divM.available)
         ? `${formatPrice(divM.monthly)} ${sym}/mo · ${divM.yield.toFixed(1)}%`
         : (t.kpiDividendsNone || 'No dividend payers'),
-      color: (divM && divM.available) ? '#22c55e' : theme.textSecondary,
+      color: (divM && divM.available) ? theme.success : theme.textSecondary,
       onClick: () => setActiveView('dividends')
     });
 
@@ -3495,7 +3495,7 @@ function InvestmentTracker() {
         const M = window.MaerminMetrics;
         const divOv = M ? memoBy('ovDiv', [overviewPortfolio, prices], () => M.computeExpectedAnnualDividends(overviewPortfolio, prices)) : null;
         const healthOv = M ? memoBy('ovHealth', [overviewPortfolio, prices, t, priceHistory, overviewTransactions], () => M.healthScore(overviewPortfolio, prices, t, { priceHistory, transactions: overviewTransactions })) : null;
-        const hColor = (s) => s >= 85 ? '#22c55e' : s >= 70 ? '#84cc16' : s >= 55 ? '#f59e0b' : s >= 40 ? '#f97316' : '#ef4444';
+        const hColor = (s) => s >= 70 ? currentTheme.success : s >= 40 ? currentTheme.warning : currentTheme.danger;
         const hScore = healthOv && !healthOv.empty ? healthOv.score : null;
         return React.createElement('div', {
           style: { display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(190px, 1fr))', gap: '1rem', marginBottom: '1.5rem' }
@@ -3505,11 +3505,11 @@ function InvestmentTracker() {
           statCard(labelReturn,
             `${isUp ? '+' : ''}${formatPrice(stats.totalProfit)} ${getCurrencySymbol()}`,
             `${pctStr} all time`,
-            isUp ? '#22c55e' : '#ef4444'),
+            isUp ? currentTheme.success : currentTheme.danger),
           statCard('Dividends (12m)',
             (divOv && divOv.available) ? `${formatPrice(divOv.totalAnnual)} ${getCurrencySymbol()}` : '—',
             (divOv && divOv.available) ? `${formatPrice(divOv.monthly)} ${getCurrencySymbol()}/mo · ${divOv.yield.toFixed(1)}%` : 'No dividend payers',
-            (divOv && divOv.available) ? '#22c55e' : undefined,
+            (divOv && divOv.available) ? currentTheme.success : undefined,
             () => setActiveView('dividends')),
           statCard('Health Score',
             hScore != null ? String(hScore) : '—',
@@ -4190,7 +4190,7 @@ function InvestmentTracker() {
           }, t.exportPdf || 'Export PDF'),
           window.MaerminTaxReport && React.createElement('button', {
             onClick: () => { const r = buildReport(); if (r) window.MaerminTaxReport.exportExcel(r); },
-            style: { padding: '0.5rem 1rem', background: 'rgba(34,197,94,0.15)', color: '#22c55e', border: '1px solid rgba(34,197,94,0.3)', borderRadius: '8px', cursor: 'pointer', fontWeight: 600 }
+            style: { padding: '0.5rem 1rem', background: 'rgba(34,197,94,0.15)', color: currentTheme.success, border: '1px solid rgba(34,197,94,0.3)', borderRadius: '8px', cursor: 'pointer', fontWeight: 600 }
           }, t.exportExcel || 'Export Excel')
         )
       ),
@@ -4583,7 +4583,7 @@ function InvestmentTracker() {
                           React.createElement('span', { style: { color: 'rgba(6,182,212,0.5)', fontSize: '0.7rem' } }, 'CS2')),
                     React.createElement('div', null,
                       React.createElement('div', { style: { color: currentTheme.text, fontWeight: '600', fontSize: '0.8rem' } }, newTransaction.symbol),
-                      newTransaction.price && React.createElement('div', { style: { color: '#22c55e', fontSize: '0.75rem', marginTop: '0.125rem' } }, `$${parseFloat(newTransaction.price).toFixed(2)}`)
+                      newTransaction.price && React.createElement('div', { style: { color: currentTheme.success, fontSize: '0.75rem', marginTop: '0.125rem' } }, `$${parseFloat(newTransaction.price).toFixed(2)}`)
                     )
                   )
                 )

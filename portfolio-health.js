@@ -272,7 +272,12 @@
     };
   }
 
-  function scoreColor(score) {
+  // With a theme the score uses its status tokens (readable in every theme,
+  // incl. light and colour-blind safe); without one the original palette.
+  function scoreColor(score, theme) {
+    if (theme && theme.success && theme.warning && theme.danger) {
+      return score >= 70 ? theme.success : score >= 40 ? theme.warning : theme.danger;
+    }
     if (score >= 85) return '#22c55e';
     if (score >= 70) return '#84cc16';
     if (score >= 55) return '#f59e0b';
@@ -313,7 +318,7 @@
       );
     }
 
-    const col = scoreColor(h.score);
+    const col = scoreColor(h.score, theme);
 
     const meta = (k) => (h.subMeta || []).find((s) => s.key === k) || {};
 
@@ -338,7 +343,7 @@
           e('span', null, label, clickable ? e('span', { style: { opacity: 0.5, marginLeft: '0.35rem' } }, '›') : null),
           e('span', { style: { color: available ? theme.text : theme.textSecondary, fontWeight: 600 } }, available ? (value + ' / 100') : (t.healthNotAvailable || 'n/a'))),
         e('div', { style: { height: '8px', background: 'rgba(255,255,255,0.08)', borderRadius: '4px', overflow: 'hidden' } },
-          e('div', { style: { height: '100%', width: (available ? value : 0) + '%', background: scoreColor(value), borderRadius: '4px', transition: 'width 0.4s ease' } }))
+          e('div', { style: { height: '100%', width: (available ? value : 0) + '%', background: scoreColor(value, theme), borderRadius: '4px', transition: 'width 0.4s ease' } }))
       );
     };
 

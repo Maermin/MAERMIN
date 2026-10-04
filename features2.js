@@ -112,7 +112,7 @@ function ReturnsView({ transactions, portfolio, prices, priceHistory, theme, for
     );
 
   const fmtPct = v => v !== null ? `${v >= 0 ? '+' : ''}${(v * 100).toFixed(2)}%` : '—';
-  const color  = v => v > 0 ? '#22c55e' : v < 0 ? '#ef4444' : theme.text;
+  const color  = v => v > 0 ? theme.success : v < 0 ? theme.danger : theme.text;
 
   return React.createElement('div', { style: { padding: '1.5rem' } },
     React.createElement('h2', { style: { color: theme.text, fontSize: '1.5rem', fontWeight: '800', letterSpacing: '-0.02em', marginBottom: '0.5rem' } }, (t.returns || 'Return Analysis')),
@@ -224,7 +224,7 @@ function RebalancingView({ portfolio, prices, theme, formatPrice, getCurrencySym
       React.createElement('div', { style: { display: 'flex', justifyContent: 'space-between', marginBottom: '1rem' } },
         React.createElement('span', { style: { color: theme.text, fontWeight: '700' } }, t.targetAllocation || 'Target Allocation'),
         React.createElement('span', {
-          style: { fontSize: '0.8rem', color: totalTarget === 100 ? '#22c55e' : '#ef4444', fontWeight: '600' }
+          style: { fontSize: '0.8rem', color: totalTarget === 100 ? theme.success : theme.danger, fontWeight: '600' }
         }, `${totalTarget}% ${totalTarget === 100 ? '✓' : '≠ 100%'}`)
       ),
       ['crypto','stocks','skins','commodities'].map(cat =>
@@ -293,7 +293,7 @@ function RebalancingView({ portfolio, prices, theme, formatPrice, getCurrencySym
                   style: {
                     padding: '0.25rem 0.75rem', borderRadius: '6px', fontWeight: '700', fontSize: '0.8rem', whiteSpace: 'nowrap',
                     background: Math.abs(row.delta) < 1 ? 'rgba(34,197,94,0.1)' : row.delta > 0 ? 'rgba(34,197,94,0.12)' : 'rgba(239,68,68,0.12)',
-                    color: Math.abs(row.delta) < 1 ? '#22c55e' : row.delta > 0 ? '#22c55e' : '#ef4444'
+                    color: Math.abs(row.delta) < 1 ? theme.success : row.delta > 0 ? theme.success : theme.danger
                   }
                 }, Math.abs(row.delta) < 1 ? '✓ Balanced' : `${row.delta > 0 ? '+ Buy' : '− Sell'} ${formatPrice(Math.abs(row.delta))} ${getCurrencySymbol()}`)
               )
@@ -983,9 +983,9 @@ function BrokerImportWizard({ theme, t, addToast, onImport, existing, workerUrl 
           // Summary chips: broker + counts.
           React.createElement('div', { style: { display: 'flex', flexWrap: 'wrap', gap: '0.5rem', alignItems: 'center', marginBottom: '0.9rem', fontSize: '0.8rem' } },
             mp.broker && React.createElement('span', { style: { padding: '0.25rem 0.6rem', borderRadius: '20px', background: `${theme.accent}1e`, color: theme.accent, fontWeight: '700' } }, mp.broker.chosen ? `${mp.broker.name} (columns detected)` : `Detected: ${mp.broker.name}`),
-            React.createElement('span', { style: { padding: '0.25rem 0.6rem', borderRadius: '20px', background: 'rgba(34,197,94,0.15)', color: '#22c55e', fontWeight: '700' } }, `✓ ${mp.stats.ok} valid`),
+            React.createElement('span', { style: { padding: '0.25rem 0.6rem', borderRadius: '20px', background: 'rgba(34,197,94,0.15)', color: theme.success, fontWeight: '700' } }, `✓ ${mp.stats.ok} valid`),
             mp.errors.length > 0 && React.createElement('span', { ...window.MaerminUtils.clickable(() => setShowErrors(v => !v)), 'aria-label': 'Toggle error details', style: { padding: '0.25rem 0.6rem', borderRadius: '20px', background: 'rgba(239,68,68,0.15)', color: '#ef4444', fontWeight: '700', cursor: 'pointer' } }, `✗ ${mp.errors.length} skipped ${showErrors ? '▲' : '▼'}`),
-            (mp.stats.duplicates > 0) && React.createElement('span', { style: { padding: '0.25rem 0.6rem', borderRadius: '20px', background: 'rgba(245,158,11,0.15)', color: '#f59e0b', fontWeight: '700' } }, `! ${mp.stats.duplicates} duplicate(s)`)
+            (mp.stats.duplicates > 0) && React.createElement('span', { style: { padding: '0.25rem 0.6rem', borderRadius: '20px', background: 'rgba(245,158,11,0.15)', color: theme.warning, fontWeight: '700' } }, `! ${mp.stats.duplicates} duplicate(s)`)
           ),
 
           // Editable column → field mapping.
@@ -1368,7 +1368,7 @@ function DividendCalendarView({ portfolio, prices, metaVersion, theme, t, addToa
                 'aria-label': e.derived ? `Projected dividend ${e.symbol} ${e.amount} ${e.currency}` : `Delete dividend ${e.symbol} ${e.amount} ${e.currency}`,
                 style: {
                   background: e.past ? 'rgba(148,163,184,0.12)' : (e.derived ? 'rgba(59,130,246,0.14)' : 'rgba(34,197,94,0.15)'),
-                  color: e.past ? '#94a3b8' : (e.derived ? '#7cb0ff' : '#22c55e'),
+                  color: e.past ? theme.textSecondary : (e.derived ? theme.accent : theme.success),
                   fontSize: '0.65rem', fontWeight: '600', padding: '0.15rem 0.3rem', borderRadius: '3px', marginBottom: '0.15rem',
                   overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
                   cursor: e.derived ? 'default' : 'pointer',
@@ -1396,7 +1396,7 @@ function DividendCalendarView({ portfolio, prices, metaVersion, theme, t, addToa
         React.createElement('div', { key: e.id, style: { display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '0.625rem 0.75rem', background: theme.card, borderRadius: '6px', marginBottom: '0.375rem', border: `1px solid ${theme.cardBorder}` } },
           React.createElement('span', { style: { color: theme.text, fontWeight: '600', fontSize: '0.875rem', minWidth: '64px' } }, e.symbol),
           React.createElement('span', { style: { color: theme.textSecondary, fontSize: '0.875rem' } }, new Date(e.date).toLocaleDateString('en-US')),
-          React.createElement('span', { style: { color: e.derived ? '#7cb0ff' : '#22c55e', fontWeight: '700', fontSize: '0.875rem' } }, amt(`+${e.amount} ${e.currency==='EUR'?'€':'$'}`))
+          React.createElement('span', { style: { color: e.derived ? theme.accent : theme.success, fontWeight: '700', fontSize: '0.875rem' } }, amt(`+${e.amount} ${e.currency==='EUR'?'€':'$'}`))
         )
       )
     )

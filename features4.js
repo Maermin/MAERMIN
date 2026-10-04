@@ -145,7 +145,7 @@ function PortfolioManagerView({ portfolios, activePortfolioId, transactions, pri
             `${formatPrice(p.value)} ${getCurrencySymbol()}`
           ),
           React.createElement('div', { style: { display: 'flex', gap: '1rem', fontSize: '0.78rem' } },
-            React.createElement('span', { style: { color: p.pnl >= 0 ? '#22c55e' : '#ef4444', fontWeight: '600' } },
+            React.createElement('span', { style: { color: p.pnl >= 0 ? theme.success : theme.danger, fontWeight: '600' } },
               `${p.pnl >= 0 ? '+' : ''}${formatPrice(p.pnl)} (${p.pnlPct.toFixed(1)}%)`
             ),
             React.createElement('span', { style: { color: theme.textSecondary } }, `${p.txCount} transactions`)
@@ -426,7 +426,7 @@ function SavingsPlanView({ transactions, theme, formatPrice, getCurrencySymbol, 
                       style: {
                         fontSize: '0.66rem', padding: '0.12rem 0.45rem', borderRadius: '4px', fontWeight: '700', textTransform: 'uppercase',
                         background: plan.status === 'active' ? 'rgba(34,197,94,0.15)' : plan.status === 'completed' ? 'rgba(148,163,184,0.18)' : 'rgba(245,158,11,0.18)',
-                        color: plan.status === 'active' ? '#22c55e' : plan.status === 'completed' ? theme.textSecondary : '#f59e0b'
+                        color: plan.status === 'active' ? theme.success : plan.status === 'completed' ? theme.textSecondary : theme.warning
                       }
                     }, plan.status),
                     plan.autoCount > 0 && React.createElement('span', { style: { fontSize: '0.66rem', color: theme.textSecondary } }, `${plan.autoCount} auto-booked`)
@@ -457,7 +457,7 @@ function SavingsPlanView({ transactions, theme, formatPrice, getCurrencySymbol, 
                 [
                   { label: 'Executed', value: plan.actualCount },
                   { label: 'Expected', value: plan.expected },
-                  { label: 'Missed', value: Math.max(0, plan.expected - plan.actualCount), color: Math.max(0, plan.expected - plan.actualCount) > 0 ? '#ef4444' : '#22c55e' },
+                  { label: 'Missed', value: Math.max(0, plan.expected - plan.actualCount), color: Math.max(0, plan.expected - plan.actualCount) > 0 ? theme.danger : theme.success },
                   { label: 'Total Invested', value: `${formatPrice(plan.totalInvested)} ${getCurrencySymbol()}` },
                 ].map((s, i) =>
                   React.createElement('div', { key: i },
@@ -623,7 +623,7 @@ function DividendForecastView({ transactions, portfolio, prices, metaVersion, th
 
     // KPI cards
     React.createElement('div', { style: { display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(160px, 1fr))', gap: '1rem', marginBottom: '1.5rem' } },
-      React.createElement(StatCell, { theme, label: `${forecastYears}Y Total Forecast`, value: `${formatPrice(totalForecast)} ${getCurrencySymbol()}`, color: '#22c55e' }),
+      React.createElement(StatCell, { theme, label: `${forecastYears}Y Total Forecast`, value: `${formatPrice(totalForecast)} ${getCurrencySymbol()}`, color: theme.success }),
       React.createElement(StatCell, { theme, label: 'Per Year (avg)', value: `${formatPrice(totalForecast / forecastYears)} ${getCurrencySymbol()}` }),
       React.createElement(StatCell, { theme, label: 'Monthly Average', value: `${formatPrice(totalForecast / (forecastYears * 12))} ${getCurrencySymbol()}` }),
       React.createElement(StatCell, { theme, label: 'Dividend Sources', value: forecasts.length })
@@ -636,7 +636,7 @@ function DividendForecastView({ transactions, portfolio, prices, metaVersion, th
         byYear.map(({ year, total }) =>
           React.createElement('div', { key: year, style: { flex: '1 1 120px', textAlign: 'center', padding: '0.875rem', background: theme.inputBg, borderRadius: '10px', border: `1px solid ${theme.cardBorder}` } },
             React.createElement('div', { style: { color: theme.textSecondary, fontSize: '0.72rem', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: '0.375rem' } }, year),
-            React.createElement('div', { style: { color: '#22c55e', fontWeight: '800', fontSize: '1.1rem' } }, `${formatPrice(total)} ${getCurrencySymbol()}`)
+            React.createElement('div', { style: { color: theme.success, fontWeight: '800', fontSize: '1.1rem' } }, `${formatPrice(total)} ${getCurrencySymbol()}`)
           )
         )
       )
@@ -679,7 +679,7 @@ function DividendForecastView({ transactions, portfolio, prices, metaVersion, th
               React.createElement('span', { style: { color: theme.text, fontWeight: '700', marginRight: '0.5rem' } }, f.sym),
               React.createElement('span', { style: { fontSize: '0.68rem', color: theme.textSecondary, padding: '0.1rem 0.35rem', background: `${theme.accent}18`, borderRadius: '3px' } }, f.frequency)
             ),
-            React.createElement('span', { style: { color: '#22c55e', fontWeight: '700', fontSize: '0.875rem' } }, `${formatPrice(f.annualRate)} ${getCurrencySymbol()}/yr`)
+            React.createElement('span', { style: { color: theme.success, fontWeight: '700', fontSize: '0.875rem' } }, `${formatPrice(f.annualRate)} ${getCurrencySymbol()}/yr`)
           )
         )
       )
@@ -742,7 +742,7 @@ function FIFOView({ transactions, prices, theme, formatPrice, getCurrencySymbol,
     // Summary
     React.createElement('div', { style: { display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(180px, 1fr))', gap: '1rem', marginBottom: '1.5rem' } },
       React.createElement(StatCell, { theme, label: 'Total Realized P&L', value: `${totalRealizedPnL >= 0 ? '+' : ''}${formatPrice(totalRealizedPnL)} ${getCurrencySymbol()}`,
-        color: totalRealizedPnL >= 0 ? '#22c55e' : '#ef4444' }),
+        color: totalRealizedPnL >= 0 ? theme.success : theme.danger }),
       React.createElement(StatCell, { theme, label: 'Positions', value: entries.length }),
       React.createElement(StatCell, { theme, label: 'Total Realized Lots', value: entries.reduce((s, e) => s + e.realized.length, 0) })
     ),
@@ -776,7 +776,7 @@ function FIFOView({ transactions, prices, theme, formatPrice, getCurrencySymbol,
               React.createElement('td', { style: { padding: '0.75rem 0.875rem', color: theme.text, textAlign: 'right' } }, `${formatPrice(e.avgCostFIFO)} ${getCurrencySymbol()}`),
               React.createElement('td', { style: { padding: '0.75rem 0.875rem', color: theme.text, textAlign: 'right' } }, e.unrealizedQty.toFixed(4)),
               React.createElement('td', { style: { padding: '0.75rem 0.875rem', color: theme.textSecondary, textAlign: 'right' } }, `${formatPrice(e.unrealizedCost)} ${getCurrencySymbol()}`),
-              React.createElement('td', { style: { padding: '0.75rem 0.875rem', textAlign: 'right', color: e.totalRealizedPnL >= 0 ? '#22c55e' : '#ef4444', fontWeight: '700' } },
+              React.createElement('td', { style: { padding: '0.75rem 0.875rem', textAlign: 'right', color: e.totalRealizedPnL >= 0 ? theme.success : theme.danger, fontWeight: '700' } },
                 `${e.totalRealizedPnL >= 0 ? '+' : ''}${formatPrice(e.totalRealizedPnL)} ${getCurrencySymbol()}`
               ),
               React.createElement('td', { style: { padding: '0.75rem 0.875rem', textAlign: 'right', color: theme.textSecondary } }, e.realized.length)
@@ -806,7 +806,7 @@ function FIFOView({ transactions, prices, theme, formatPrice, getCurrencySymbol,
                 React.createElement('td', { style: { padding: '0.5rem 0.75rem', color: theme.text, textAlign: 'right' } }, lot.qty.toFixed(4)),
                 React.createElement('td', { style: { padding: '0.5rem 0.75rem', color: theme.textSecondary, textAlign: 'right' } }, `${formatPrice(lot.buyPrice)}`),
                 React.createElement('td', { style: { padding: '0.5rem 0.75rem', color: theme.textSecondary, textAlign: 'right' } }, `${formatPrice(lot.sellPrice)}`),
-                React.createElement('td', { style: { padding: '0.5rem 0.75rem', textAlign: 'right', fontWeight: '700', color: lot.pnl >= 0 ? '#22c55e' : '#ef4444' } },
+                React.createElement('td', { style: { padding: '0.5rem 0.75rem', textAlign: 'right', fontWeight: '700', color: lot.pnl >= 0 ? theme.success : theme.danger } },
                   `${lot.pnl >= 0 ? '+' : ''}${formatPrice(lot.pnl)} ${getCurrencySymbol()}`
                 )
               )

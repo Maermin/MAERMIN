@@ -232,7 +232,7 @@ function WatchlistView({ prices, priceHistory, theme, t, addToast }) {
                 },
                   React.createElement('td', { style: { padding: '0.875rem 1rem' } },
                     React.createElement('div', { style: { fontWeight: '700', color: theme.text, fontSize: '0.9rem' } }, item.displaySymbol),
-                    atTarget && React.createElement('div', { style: { color: '#22c55e', fontSize: '0.7rem', fontWeight: '600' } }, '◎ Target reached!'),
+                    atTarget && React.createElement('div', { style: { color: theme.success, fontSize: '0.7rem', fontWeight: '600' } }, '◎ Target reached!'),
                     item.note && React.createElement('div', { style: { color: theme.textSecondary, fontSize: '0.72rem', marginTop: '0.15rem', maxWidth: '220px', whiteSpace: 'normal', lineHeight: 1.35 } }, item.note)
                   ),
                   React.createElement('td', { style: { padding: '0.875rem 1rem' } },
@@ -251,7 +251,7 @@ function WatchlistView({ prices, priceHistory, theme, t, addToast }) {
                   React.createElement('td', { style: { padding: '0.875rem 1rem', textAlign: 'right' } },
                     price > 0
                       ? React.createElement('span', {
-                          style: { color: changePct >= 0 ? '#22c55e' : '#ef4444', fontWeight: '600', fontSize: '0.875rem' }
+                          style: { color: changePct >= 0 ? theme.success : theme.danger, fontWeight: '600', fontSize: '0.875rem' }
                         }, `${changePct >= 0 ? '+' : ''}${changePct.toFixed(2)}%`)
                       : React.createElement('span', { style: { color: theme.textSecondary } }, '—')
                   ),

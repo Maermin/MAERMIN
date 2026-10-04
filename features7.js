@@ -13,7 +13,7 @@ const { useState, useEffect, useMemo, useCallback, useRef } = React;
 // basis the Overview uses — this view adds the return decomposition on top.
 // ───────────────────────────────────────────────────────────────────────────
 function PerformanceAttribution({ portfolio, prices, transactions, exchangeRate, theme, formatPrice, getCurrencySymbol, t = {} }) {
-  const Green = '#22c55e', Red = '#ef4444';
+  const Green = theme.success, Red = theme.danger;
   const A = window.MaerminAttribution;
 
   // Priced positions exactly like the Overview table: value = amount × price,
@@ -102,7 +102,7 @@ function PerformanceAttribution({ portfolio, prices, transactions, exchangeRate,
 // Full FIFO-based breakdown of realized gains + remaining unrealized
 // ─────────────────────────────────────────────────────────────────────────────
 function RealizedUnrealizedView({ transactions, portfolio, prices, theme, formatPrice, getCurrencySymbol, exchangeRate, fxAt }) {
-  const Green = '#22c55e', Red = '#ef4444';
+  const Green = theme.success, Red = theme.danger;
   const usdToEur = exchangeRate || 0.91;
 
   const analysis = useMemo(() => {

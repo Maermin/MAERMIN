@@ -279,13 +279,13 @@ function PositionDetailModal({ position, transactions, prices, theme, formatPric
         [
           { label: 'Current Value',    value: `${formatPrice(metrics.currentValue)} ${getCurrencySymbol()}`, big: true },
           { label: 'Unrealized P&L',   value: `${metrics.unrealizedPL >= 0 ? '+' : ''}${formatPrice(metrics.unrealizedPL)} ${getCurrencySymbol()}`,
-            color: metrics.unrealizedPL >= 0 ? '#22c55e' : '#ef4444', big: true },
+            color: metrics.unrealizedPL >= 0 ? theme.success : theme.danger, big: true },
           { label: 'Avg Cost',         value: `${formatPrice(metrics.avgCost)} ${getCurrencySymbol()}` },
           { label: 'Current Price',    value: `${formatPrice(metrics.currentPrice)} ${getCurrencySymbol()}` },
           { label: 'Total Return',     value: `${metrics.unrealizedPct >= 0 ? '+' : ''}${metrics.unrealizedPct.toFixed(2)}%`,
-            color: metrics.unrealizedPct >= 0 ? '#22c55e' : '#ef4444' },
+            color: metrics.unrealizedPct >= 0 ? theme.success : theme.danger },
           { label: 'CAGR (annualized)', value: metrics.cagr !== null ? `${metrics.cagr >= 0 ? '+' : ''}${metrics.cagr.toFixed(2)}%` : '—',
-            color: metrics.cagr !== null ? (metrics.cagr >= 0 ? '#22c55e' : '#ef4444') : theme.textSecondary },
+            color: metrics.cagr !== null ? (metrics.cagr >= 0 ? theme.success : theme.danger) : theme.textSecondary },
           { label: 'Total Invested',   value: `${formatPrice(metrics.totalInvested)} ${getCurrencySymbol()}` },
           { label: 'Total Fees Paid',  value: `${formatPrice(metrics.totalFees)} ${getCurrencySymbol()}` },
         ].map((m, i) =>
@@ -550,7 +550,7 @@ function EnhancedPositionsTable({ portfolio, prices, priceHistory, transactions,
                 sorted.map((p, i) => {
                   const share    = totalValue > 0 ? (p.value / totalValue) * 100 : 0;
                   const barWidth = maxAbsProfit > 0 ? Math.abs(p.profit) / maxAbsProfit * 100 : 0;
-                  const cagrColor = p.cagr === null ? theme.textSecondary : p.cagr >= 0 ? '#22c55e' : '#ef4444';
+                  const cagrColor = p.cagr === null ? theme.textSecondary : p.cagr >= 0 ? theme.success : theme.danger;
                   return React.createElement('tr', {
                     key: p.sym + p.cat,
                     ...window.MaerminUtils.clickable(() => setDetailPosition(p)),
@@ -598,7 +598,7 @@ function EnhancedPositionsTable({ portfolio, prices, priceHistory, transactions,
                     // P&L with mini bar
                     React.createElement('td', { style: { padding: '0.875rem 0.875rem', textAlign: 'right' } },
                       React.createElement('div', { style: { display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: '3px' } },
-                        React.createElement('span', { style: { color: p.profit >= 0 ? '#22c55e' : '#ef4444', fontWeight: '600', fontSize: '0.8rem' } },
+                        React.createElement('span', { style: { color: p.profit >= 0 ? theme.success : theme.danger, fontWeight: '600', fontSize: '0.8rem' } },
                           `${p.profit >= 0 ? '+' : ''}${formatPrice(p.profit)}`
                         ),
                         React.createElement('div', { style: { width: 48, height: 3, background: 'rgba(255,255,255,0.08)', borderRadius: 2, overflow: 'hidden' } },
@@ -608,7 +608,7 @@ function EnhancedPositionsTable({ portfolio, prices, priceHistory, transactions,
                     ),
                     // Return %
                     React.createElement('td', { style: { padding: '0.875rem 0.875rem', textAlign: 'right' } },
-                      React.createElement('span', { style: { color: p.profitPct >= 0 ? '#22c55e' : '#ef4444', fontWeight: '700', fontSize: '0.82rem' } },
+                      React.createElement('span', { style: { color: p.profitPct >= 0 ? theme.success : theme.danger, fontWeight: '700', fontSize: '0.82rem' } },
                         `${p.profitPct >= 0 ? '+' : ''}${p.profitPct.toFixed(2)}%`
                       )
                     ),

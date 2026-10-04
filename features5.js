@@ -27,7 +27,7 @@ function KpiCard({ theme, label, value, sub, color, badge }) {
       badge && React.createElement('span', {
         style: { fontSize: '0.68rem', fontWeight: '700', padding: '0.1rem 0.4rem', borderRadius: '4px',
           background: badge.pos ? 'rgba(34,197,94,0.15)' : 'rgba(239,68,68,0.15)',
-          color: badge.pos ? '#22c55e' : '#ef4444' }
+          color: badge.pos ? theme.success : theme.danger }
       }, badge.text)
     ),
     React.createElement('div', { style: { color: color || theme.text, fontSize: '1.6rem', fontWeight: '800', lineHeight: 1, letterSpacing: '-0.02em' } }, value),
@@ -154,7 +154,7 @@ function NetWorthView({ portfolioStats, portfolio, prices, theme, formatPrice, g
 
     // KPI row
     React.createElement('div', { style: { display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(200px, 1fr))', gap: '1rem', marginBottom: '1.5rem' } },
-      React.createElement(KpiCard, { theme, label: 'Net Worth', value: `${formatPrice(netWorth)} ${getCurrencySymbol()}`, color: netWorth >= 0 ? '#22c55e' : '#ef4444' }),
+      React.createElement(KpiCard, { theme, label: 'Net Worth', value: `${formatPrice(netWorth)} ${getCurrencySymbol()}`, color: netWorth >= 0 ? theme.success : theme.danger }),
       React.createElement(KpiCard, { theme, label: 'Investment Portfolio', value: `${formatPrice(portfolioValue)} ${getCurrencySymbol()}`,
         badge: { pos: true, text: `${(portfolioValue / (netWorth + totalLiabilities) * 100).toFixed(0)}%` } }),
       React.createElement(KpiCard, { theme, label: 'Cash & Other Assets', value: `${formatPrice(totalAssets)} ${getCurrencySymbol()}` }),
@@ -311,7 +311,7 @@ function NetWorthView({ portfolioStats, portfolio, prices, theme, formatPrice, g
               )
             ),
             React.createElement('div', { style: { display: 'flex', alignItems: 'center', gap: '0.75rem' } },
-              React.createElement('span', { style: { color: isLiability ? '#ef4444' : '#22c55e', fontWeight: '700', fontSize: '0.9rem' } },
+              React.createElement('span', { style: { color: isLiability ? theme.danger : theme.success, fontWeight: '700', fontSize: '0.9rem' } },
                 `${isLiability ? '-' : '+'}${formatPrice(acc.value)} ${getCurrencySymbol()}`
               ),
               React.createElement('button', { onClick: () => setAccounts(prev => prev.filter(a => a.id !== acc.id)),
@@ -423,7 +423,7 @@ function CashflowChart({ transactions, priceHistory, portfolio, prices, theme, f
       React.createElement('span', {
         style: { fontSize: '0.85rem', fontWeight: '700', padding: '0.25rem 0.75rem', borderRadius: '6px',
           background: isUp ? 'rgba(34,197,94,0.15)' : 'rgba(239,68,68,0.15)',
-          color: isUp ? '#22c55e' : '#ef4444' }
+          color: isUp ? theme.success : theme.danger }
       }, `${isUp ? '+' : ''}${formatPrice(pnl)} (${pnlPct.toFixed(1)}%)`)
     ),
     React.createElement('svg', { viewBox: `0 0 ${W} ${H}`, width: '100%', style: { overflow: 'visible' } },
@@ -597,7 +597,7 @@ function FeeAnalyzer({ transactions, theme, formatPrice, getCurrencySymbol }) {
                         React.createElement('td', { style: { padding: '0.5rem 0.75rem', color: theme.textSecondary } }, tx.date),
                         React.createElement('td', { style: { padding: '0.5rem 0.75rem', color: theme.text, fontWeight: '600' } }, tx.symbol),
                         React.createElement('td', { style: { padding: '0.5rem 0.75rem' } },
-                          React.createElement('span', { style: { color: window.MaerminUtils.txTypeInfo(tx.type).color, fontWeight: '600', fontSize: '0.72rem' } }, window.MaerminUtils.txTypeInfo(tx.type).label.toUpperCase())
+                          React.createElement('span', { style: { color: tx.type === 'buy' ? theme.success : tx.type === 'sell' ? theme.danger : window.MaerminUtils.txTypeInfo(tx.type).color, fontWeight: '600', fontSize: '0.72rem' } }, window.MaerminUtils.txTypeInfo(tx.type).label.toUpperCase())
                         ),
                         React.createElement('td', { style: { padding: '0.5rem 0.75rem', textAlign: 'right', color: theme.textSecondary } }, `${formatPrice(trade)} ${getCurrencySymbol()}`),
                         React.createElement('td', { style: { padding: '0.5rem 0.75rem', textAlign: 'right', color: '#ef4444', fontWeight: '700' } }, `${formatPrice(fee)} ${getCurrencySymbol()}`),
