@@ -3701,7 +3701,7 @@ function InvestmentTracker() {
                     )
                   )
                 ),
-                React.createElement('td', { style: { textAlign: 'right', padding: '0.85rem 0.75rem', fontFamily: "'Geist Mono', monospace", fontSize: '0.8rem', color: '#cbd3e1' } }, p.amount.toLocaleString(undefined, { maximumFractionDigits: 4 })),
+                React.createElement('td', { style: { textAlign: 'right', padding: '0.85rem 0.75rem', fontFamily: "'Geist Mono', monospace", fontSize: '0.8rem', color: currentTheme.textSecondary } }, p.amount.toLocaleString(undefined, { maximumFractionDigits: 4 })),
                 React.createElement('td', { style: { textAlign: 'right', padding: '0.85rem 0.75rem', fontFamily: "'Geist', sans-serif", fontSize: '0.82rem', color: currentTheme.text } },
                   p.price > 0 ? money(p.price) : '—',
                   // Valued at cost because no quote has ever been fetched for it.
