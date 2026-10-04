@@ -3620,7 +3620,8 @@ function InvestmentTracker() {
 
         const allocCard = React.createElement('div', { style: { background: currentTheme.card, border: `1px solid ${currentTheme.cardBorder}`, borderRadius: '16px', padding: '1.4rem 1.5rem' } },
           sectionTitle('Allocation by asset class'),
-          React.createElement('div', { style: { display: 'flex', alignItems: 'center', gap: '1.6rem' } },
+          // Wraps on narrow screens: the legend moves below the donut.
+          React.createElement('div', { style: { display: 'flex', alignItems: 'center', gap: '1.6rem', flexWrap: 'wrap', justifyContent: 'center' } },
             React.createElement('div', { style: { position: 'relative', width: '160px', height: '160px', flexShrink: 0 } },
               React.createElement('svg', { width: 160, height: 160, viewBox: '0 0 180 180', style: { transform: 'rotate(-90deg)' } },
                 React.createElement('circle', { cx: 90, cy: 90, r: 70, fill: 'none', stroke: currentTheme.inputBg, strokeWidth: 18 }),
@@ -3631,7 +3632,7 @@ function InvestmentTracker() {
                 React.createElement('div', { style: { fontSize: '0.62rem', color: gray, textTransform: 'uppercase', letterSpacing: '0.08em', marginTop: '0.15rem' } }, 'positions')
               )
             ),
-            React.createElement('div', { style: { flex: 1, display: 'flex', flexDirection: 'column', gap: '0.7rem' } },
+            React.createElement('div', { style: { flex: '1 1 200px', minWidth: 0, display: 'flex', flexDirection: 'column', gap: '0.7rem' } },
               ...classes.map(ct => React.createElement('div', { key: ct.c, style: { display: 'flex', alignItems: 'center', gap: '0.6rem' } },
                 React.createElement('span', { style: { width: '9px', height: '9px', borderRadius: '3px', background: ct.color, flexShrink: 0 } }),
                 React.createElement('span', { style: { flex: 1, fontSize: '0.82rem', color: currentTheme.text } }, ct.label),
@@ -3732,7 +3733,9 @@ function InvestmentTracker() {
           : null;
 
         return React.createElement(React.Fragment, null,
-          React.createElement('div', { style: { display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem', marginBottom: '1.25rem' } }, allocCard, perfCard),
+          // Two columns where they fit, one on phones ('1fr 1fr' could not shrink
+          // below the allocation card's content and pushed the page 390px wide).
+          React.createElement('div', { style: { display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(min(100%, 320px), 1fr))', gap: '1rem', marginBottom: '1.25rem' } }, allocCard, perfCard),
           positionsCard,
           attributionPanel,
           positionDetail && window.MaerminFeatures3 && window.MaerminFeatures3.PositionDetailModal &&
