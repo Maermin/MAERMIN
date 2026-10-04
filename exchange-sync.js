@@ -37,6 +37,17 @@
   function str(x) { return String(x == null ? '' : x).trim(); }
   function uid() { return 'ex' + Date.now().toString(36) + Math.random().toString(36).slice(2, 7); }
   function ymd(d) { return str(d).slice(0, 10); }
+  // Trade timestamp -> calendar day in the device's time zone. The tax year
+  // and the sec. 23 holding period follow the local day: the UTC date booked
+  // a trade at 00:30 on 1 January (Berlin) into the previous year. A bare
+  // 'YYYY-MM-DD' is kept as is.
+  function tradeDay(d) {
+    var s = str(d);
+    if (/^\d{4}-\d{2}-\d{2}$/.test(s)) return s;
+    var t = new Date(s);
+    if (isNaN(t.getTime())) return ymd(s);
+    return t.getFullYear() + '-' + String(t.getMonth() + 1).padStart(2, '0') + '-' + String(t.getDate()).padStart(2, '0');
+  }
 
   // ---- read-only scope guard ------------------------------------------------
   // Reject any permission that grants writing, trading or withdrawal. Accepts a
@@ -77,7 +88,7 @@
     return {
       type: type, category: 'crypto', symbol: base, symbolName: base,
       quantity: num(qty), price: num(price), fees: num(fee),
-      currency: currency, date: ymd(date),
+      currency: currency, date: tradeDay(date),
       source: 'exchange-sync', exchange: exchange, externalId: str(externalId)
     };
   }

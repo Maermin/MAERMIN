@@ -140,6 +140,24 @@ function deStore(txs, extra) {
     year: 2025, jurisdiction: 'de', exchangeRate: 1, germanTax: GT, taxSettingsModule: TS, fundTypes: {}, vapRecords: {}, dividendEvents: [], taxOverrides: {} }));
   ok('export labels the block as private sales (sec. 23)', xml3.indexOf('Private sales (sec. 23)') > -1);
 
+  // ---- BUG-004: exchange trades are booked on the LOCAL calendar day -------
+  console.log('BUG-004 exchange trade dates');
+  process.env.TZ = 'Europe/Berlin';
+  const EX = require('../exchange-sync.js');
+  const ms = Date.parse('2025-12-31T23:30:00Z'); // 1 Jan 2026, 00:30 in Berlin
+  const bn = EX.ADAPTERS.binance([{ symbol: 'BTCEUR', id: 1, price: '90000', qty: '0.1', commission: '0', commissionAsset: 'EUR', time: ms, isBuyer: false }])[0];
+  ok('Binance trade at 00:30 local on 1 Jan is dated 2026-01-01', bn.date === '2026-01-01');
+  const kr = EX.ADAPTERS.kraken({ result: { trades: { T1: { pair: 'XBTEUR', type: 'buy', price: '1', vol: '1', fee: '0', time: ms / 1000 } } } })[0];
+  ok('Kraken trade dated on the local day', kr.date === '2026-01-01');
+  const cb = EX.ADAPTERS.coinbase([{ trade_id: 7, product_id: 'BTC-EUR', side: 'buy', size: '1', price: '1', fee: '0', created_at: '2025-12-31T23:30:00.000Z' }])[0];
+  ok('Coinbase trade dated on the local day', cb.date === '2026-01-01');
+  const bp = EX.ADAPTERS.bitpanda({ data: [{ id: 'b1', attributes: { cryptocoin_symbol: 'BTC', type: 'buy', amount: '1', price: '1', currency: 'EUR', time: { date_iso8601: '2026-03-10T09:00:00+01:00' } } }] })[0];
+  ok('offset-aware ISO dates keep their day', bp.date === '2026-03-10');
+  const buyMs = Date.parse('2025-03-09T23:30:00Z'); // 10 Mar 2025, 00:30 in Berlin
+  const buy = EX.ADAPTERS.binance([{ symbol: 'BTCEUR', id: 2, price: '80000', qty: '0.1', commission: '0', commissionAsset: 'EUR', time: buyMs, isBuyer: true }])[0];
+  const d4 = TR.fifo([buy, { type: 'sell', category: 'crypto', symbol: 'BTC', quantity: 0.1, price: 90000, currency: 'EUR', date: '2026-03-10' }], 2026, 1, null)[0];
+  ok('sale on the anniversary of a 00:30 buy stays taxable', buy.date === '2025-03-10' && d4.longTerm === false);
+
   console.log('\n  ' + passed + ' passed, ' + failed + ' failed');
   process.exit(failed ? 1 : 0);
 })();
