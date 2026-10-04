@@ -336,12 +336,20 @@
           if (cls === 'private' || cls === 'capital') return cls === 'private';
           return d.category === 'skins' || d.category === 'commodities';
         };
+        // The override is THE taxable amount of the symbol for the year, so it
+        // is applied once - FIFO emits one row per lot matched and per sale,
+        // and the further rows of an overridden symbol are dropped.
+        var overrideApplied = {};
         var capitalDisposals = disposals.filter(function (d) { return !isPrivateSale(d); }).map(function (d) {
           var sym = d.symbol;
           var override = lookupOverride(sym);
-          if (override != null) return { symbol: sym, gain: override, vapCredit: 0, overridden: true, pot: potOf(d) };
+          if (override != null) {
+            if (overrideApplied[sym]) return null;
+            overrideApplied[sym] = true;
+            return { symbol: sym, gain: override, vapCredit: 0, overridden: true, pot: potOf(d) };
+          }
           return { symbol: sym, gain: d.gain, vapCredit: vapCreditForLot(txs, vapRecords, d), pot: potOf(d) };
-        });
+        }).filter(Boolean);
         var capital = GT.computeGermanTaxDetailed({
           disposals: capitalDisposals,
           dividends: dividends.map(function (d) { return { symbol: d.symbol, gross: d.gross, withholding: d.withholding }; }),

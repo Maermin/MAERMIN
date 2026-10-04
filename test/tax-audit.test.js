@@ -178,6 +178,21 @@ function deStore(txs, extra) {
   const res0 = ADV.analyze(Object.assign(ADV.gather({ transactions: [], prices: {}, taxOwner: {}, taxData: ADV.taxDataFromReport(rep0, () => false) }), { today: '2025-06-01' }));
   ok('an allowance of 0 is respected (no fallback to 1000)', res0.summary.sparerpauschbetrag.limit === 0 && res0.summary.sparerpauschbetrag.remaining === 0);
 
+  // ---- BUG-006: a per-position override applies once per symbol and year ---
+  console.log('BUG-006 per-position override');
+  resetStore();
+  const sapLots = [
+    { type: 'buy', category: 'stocks', symbol: 'SAP', quantity: 10, price: 100, currency: 'EUR', date: '2024-01-10' },
+    { type: 'buy', category: 'stocks', symbol: 'SAP', quantity: 10, price: 110, currency: 'EUR', date: '2024-02-10' },
+    { type: 'buy', category: 'stocks', symbol: 'SAP', quantity: 10, price: 120, currency: 'EUR', date: '2024-03-10' }
+  ];
+  const ov = (sells) => deStore(sapLots.concat(sells), { taxSettings: TS.sanitize({ freistellungsauftrag: 0 }), taxOverrides: { 'SAP|2025': 500 } });
+  g = ov([{ type: 'sell', category: 'stocks', symbol: 'SAP', quantity: 30, price: 150, currency: 'EUR', date: '2025-06-01' }]);
+  ok('one sale over three lots: override counted once (500)', approx(g.gainsTaxable, 500));
+  g = ov([{ type: 'sell', category: 'stocks', symbol: 'SAP', quantity: 15, price: 150, currency: 'EUR', date: '2025-06-01' },
+          { type: 'sell', category: 'stocks', symbol: 'SAP', quantity: 15, price: 150, currency: 'EUR', date: '2025-09-01' }]);
+  ok('two sales in the year: override counted once (500)', approx(g.gainsTaxable, 500));
+
   console.log('\n  ' + passed + ' passed, ' + failed + ' failed');
   process.exit(failed ? 1 : 0);
 })();
