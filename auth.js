@@ -212,7 +212,7 @@
       <div class="auth-logo"><h1>MAERMIN</h1><p>Secure your vault</p></div>
       <div class="auth-sub">${hasLegacyData
         ? 'Set an access password. Your existing data will be encrypted with it.'
-        : 'Set an access password to encrypt your portfolio. There is no recovery — store it safely.'}</div>
+        : 'Set an access password to encrypt your portfolio. MAERMIN cannot reset it — the recovery code shown next is the only other way in.'}</div>
       <div class="auth-error" id="auth-error" role="alert"></div>
       <div class="auth-field">
         <label for="auth-pw">Access password</label>
