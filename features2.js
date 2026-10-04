@@ -336,187 +336,13 @@ function parseCSVToRows(text) {
   });
 }
 
-// Parse amount string: "1.234,56" or "1,234.56" or "1234.56" → number
-function parseAmount(str) {
-  if (!str) return 0;
-  const s = String(str).replace(/[^0-9.,\-]/g, '');
-  // If both . and , present: determine which is decimal separator
-  if (s.includes(',') && s.includes('.')) {
-    const lastComma = s.lastIndexOf(',');
-    const lastDot   = s.lastIndexOf('.');
-    // Whichever comes last is the decimal separator
-    if (lastComma > lastDot) return parseFloat(s.replace(/\./g, '').replace(',', '.'));
-    else return parseFloat(s.replace(/,/g, ''));
-  }
-  // Only comma → likely European decimal
-  if (s.includes(',') && !s.includes('.')) return parseFloat(s.replace(',', '.'));
-  return parseFloat(s) || 0;
-}
-
-// ── CoinTracking CSV Parser ──────────────────────────────────────────────────
-// CoinTracking exports use shortened headers ("Buy" not "Buy Amount") and
-// duplicate "Cur." headers — so we parse by COLUMN POSITION, not header name.
-//
-// Fixed column layout (EN + DE export):
-//   0: Type / Typ
-//   1: Buy amount / Kauf
-//   2: Buy currency (first "Cur.")
-//   3: Sell amount / Verkauf
-//   4: Sell currency (second "Cur.")
-//   5: Fee / Gebühr
-//   6: Fee currency (third "Cur.")
-//   7: Exchange / Börse
-//   8: Group / Gruppe
-//   9: Comment / Kommentar
-//  10: Date / Datum
-//
-function parseCoinTracking(text) {
-  // Strip BOM and normalize line endings
-  const clean = text.replace(/^\uFEFF/, '').replace(/\r\n/g, '\n').replace(/\r/g, '\n');
-  const lines  = clean.trim().split('\n').filter(l => l.trim());
-  if (lines.length < 2) return [];
-
-  // Detect delimiter
-  const firstLine = lines[0];
-  const delim = firstLine.split(';').length > firstLine.split(',').length ? ';' : ',';
-
-  // CSV row parser (handles quoted fields)
-  const parseRow = (line) => {
-    const cols = [];
-    let cur = '', inQ = false;
-    for (let i = 0; i < line.length; i++) {
-      const c = line[i];
-      if (c === '"') { inQ = !inQ; continue; }
-      if (c === delim && !inQ) { cols.push(cur.trim()); cur = ''; continue; }
-      cur += c;
-    }
-    cols.push(cur.trim());
-    return cols;
-  };
-
-  const headerCols = parseRow(firstLine);
-  const col0 = (headerCols[0] || '').toLowerCase();
-
-  // Must look like a CoinTracking file — col 0 is "type" or "typ"
-  if (col0 !== 'type' && col0 !== 'typ') return null;
-
-  // Parse date: "DD.MM.YYYY HH:MM:SS" or "YYYY-MM-DD HH:MM:SS"
-  const parseDate = (raw) => {
-    const s = (raw || '').trim();
-    if (/^\d{2}\.\d{2}\.\d{4}/.test(s)) {
-      const [d, m, rest] = s.split('.');
-      const y = rest.split(' ')[0];
-      return `${y}-${m.padStart(2,'0')}-${d.padStart(2,'0')}`;
-    }
-    if (/^\d{4}-\d{2}-\d{2}/.test(s)) return s.split(' ')[0];
-    return window.MaerminUtils.todayISO();
-  };
-
-  // Type normalization — map DE + EN + extra types to canonical
-  const normalizeType = (raw) => {
-    const t = (raw || '').toLowerCase().trim();
-    if (['trade','handel'].includes(t))                                        return 'trade';
-    if (['deposit','einzahlung','income','einkommen','mining',
-         'reward','gift/tip','geschenk','airdrop','staking'].includes(t))      return 'deposit';
-    if (['withdrawal','auszahlung','spend','ausgabe',
-         'donation','spende','lost','stolen'].includes(t))                     return 'withdrawal';
-    // German Futures/extra types → skip (not portfolio transactions)
-    return 'skip';
-  };
-
-  const transactions = [];
-
-  for (let i = 1; i < lines.length; i++) {
-    const cols = parseRow(lines[i]);
-    if (cols.length < 5) continue;
-
-    try {
-      const type    = normalizeType(cols[0]);
-      const buyAmt  = parseAmount(cols[1] || '');
-      const buyCur  = (cols[2] || '').trim().toUpperCase();
-      const sellAmt = parseAmount(cols[3] || '');
-      const sellCur = (cols[4] || '').trim().toUpperCase();
-      const fee     = parseAmount(cols[5] || '');
-      const exch    = (cols[7] || '').trim();
-      const comment = (cols[9] || '').trim();
-      const date    = parseDate(cols[10] || '');
-
-      if (type === 'trade') {
-        // Buy leg (what we received)
-        if (buyCur && buyAmt > 0 && !isStablecoin(buyCur)) {
-          const price = sellAmt > 0 && buyAmt > 0 ? sellAmt / buyAmt : 0;
-          transactions.push({
-            type: 'buy', symbol: buyCur, quantity: buyAmt, price,
-            fees: fee, date, category: isCrypto(buyCur) ? 'crypto' : 'stocks',
-            notes: [exch, comment].filter(Boolean).join(' · ') || 'CoinTracking'
-          });
-        }
-        // Sell leg (what we paid with — only if it's a real asset, not stablecoin)
-        if (sellCur && sellAmt > 0 && !isStablecoin(sellCur)) {
-          const price = buyAmt > 0 && sellAmt > 0 ? buyAmt / sellAmt : 0;
-          transactions.push({
-            type: 'sell', symbol: sellCur, quantity: sellAmt, price,
-            fees: 0, date, category: isCrypto(sellCur) ? 'crypto' : 'stocks',
-            notes: [exch, comment].filter(Boolean).join(' · ') || 'CoinTracking'
-          });
-        }
-
-      } else if (type === 'deposit') {
-        if (buyCur && buyAmt > 0 && !isStablecoin(buyCur)) {
-          transactions.push({
-            type: 'buy', symbol: buyCur, quantity: buyAmt, price: 0,
-            fees: fee, date, category: isCrypto(buyCur) ? 'crypto' : 'stocks',
-            notes: [(cols[0]||'').trim(), comment].filter(Boolean).join(' · ')
-          });
-        }
-
-      } else if (type === 'withdrawal') {
-        if (sellCur && sellAmt > 0 && !isStablecoin(sellCur)) {
-          transactions.push({
-            type: 'sell', symbol: sellCur, quantity: sellAmt, price: 0,
-            fees: fee, date, category: isCrypto(sellCur) ? 'crypto' : 'stocks',
-            notes: [(cols[0]||'').trim(), comment].filter(Boolean).join(' · ')
-          });
-        }
-      }
-      // type === 'skip' → Futures losses, fees, other non-portfolio rows
-
-    } catch(e) {
-      console.warn('[IMPORT] CoinTracking row', i, 'skipped:', e.message);
-    }
-  }
-
-  return transactions;
-}
-
-// Helper: is this symbol a crypto vs stock ticker?
-function isCrypto(symbol) {
-  // Stablecoins and common crypto — anything without a dot is likely crypto
-  // Stocks often come as "AAPL" but also without dot on some exchanges
-  // We keep it simple: known crypto list + anything that looks like a hash/long symbol
-  const CRYPTO_SYMBOLS = new Set([
-    'BTC','ETH','BNB','SOL','XRP','ADA','DOGE','AVAX','DOT','SHIB','MATIC','LTC',
-    'LINK','UNI','ATOM','XLM','ALGO','VET','ICP','FIL','EGLD','THETA','EOS','TRX',
-    'XMR','NEO','DASH','ZEC','BCH','ETC','AAVE','COMP','MKR','SNX','CRV','YFI',
-    'SUSHI','1INCH','BAL','REN','KNC','ZRX','BAT','GRT','ENJ','MANA','SAND','AXS',
-    'CHZ','GALA','IMX','APE','LRC','DYDX','OP','ARB','PEPE','WLD','SUI','SEI',
-    'USDT','USDC','BUSD','DAI','TUSD','USDP','FDUSD','UST','FRAX',
-  ]);
-  // Long tickers are usually tokens, but an exchange-suffixed symbol
-  // (VWCE.DE, SAP.DE, BRK-B) is always a security, never crypto.
-  const up = String(symbol || '').toUpperCase();
-  if (CRYPTO_SYMBOLS.has(up)) return true;
-  if (/[.:]/.test(up)) return false;
-  return up.length > 5;
-}
-
-function isStablecoin(symbol) {
-  return ['USDT','USDC','BUSD','DAI','TUSD','USDP','FDUSD','UST','FRAX','EUR','USD','GBP','CHF'].includes(symbol.toUpperCase());
-}
-
 // ── Broker parsers entry point ───────────────────────────────────────────────
 function parseByBroker(text, brokerId) {
-  if (brokerId === 'cointracking') return parseCoinTracking(text);
+  // CoinTracking: the shared parser (two legs per row, three "Cur." columns).
+  if (brokerId === 'cointracking') {
+    const IM = window.MaerminImportMapping;
+    return IM && IM.parseCoinTracking ? IM.parseCoinTracking(text).transactions : [];
+  }
   // For other brokers, fall through to ImportExportEngine
   const engine = window.ImportExportEngine;
   if (!engine) return [];
@@ -913,7 +739,8 @@ function BrokerImportWizard({ theme, t, addToast, onImport, existing, workerUrl 
         React.createElement('div', null, '1. In CoinTracking: ', React.createElement('b', { style: { color: theme.text } }, 'Reports → All Transactions')),
         React.createElement('div', null, '2. Top right: ', React.createElement('b', { style: { color: theme.text } }, '"Export" → "CSV (Full Export)"')),
         React.createElement('div', null, '3. Upload the downloaded file here'),
-        React.createElement('div', { style: { marginTop: '0.5rem', color: theme.accent, fontSize: '0.75rem' } }, '✓ Supported types: Trade, Deposit, Withdrawal, Income, Mining, Gift/Tip, Spend')
+        React.createElement('div', { style: { marginTop: '0.5rem', color: theme.accent, fontSize: '0.75rem' } }, '✓ Booked: Trade, Income, Staking, Mining, Airdrop, Gift/Tip, Interest, Spend · English and German exports'),
+        React.createElement('div', { style: { color: theme.textSecondary, fontSize: '0.75rem' } }, 'Use the full export: its "value in EUR" columns price coin-to-coin trades and rewards. Deposits and withdrawals are transfers and are not booked.')
       ),
       React.createElement('div', {
         onDrop: handleDrop, onDragOver: e => e.preventDefault(),
@@ -988,8 +815,18 @@ function BrokerImportWizard({ theme, t, addToast, onImport, existing, workerUrl 
             (mp.stats.duplicates > 0) && React.createElement('span', { style: { padding: '0.25rem 0.6rem', borderRadius: '20px', background: 'rgba(245,158,11,0.15)', color: theme.warning, fontWeight: '700' } }, `! ${mp.stats.duplicates} duplicate(s)`)
           ),
 
+          // Fixed-format files (CoinTracking) are read by their own parser: say
+          // how rows are booked and list what needs a look instead of a mapping.
+          mp.fixedFormat && React.createElement('div', { 'data-testid': 'ct-info', style: { background: theme.card, border: `1px solid ${theme.cardBorder}`, borderRadius: '10px', padding: '0.9rem', marginBottom: '0.9rem', fontSize: '0.78rem', color: theme.textSecondary, lineHeight: 1.6 } },
+            React.createElement('div', { style: { color: theme.text, fontWeight: '700', marginBottom: '0.3rem' } }, 'How CoinTracking rows are booked'),
+            React.createElement('div', null, 'Trades become buys and sells (a coin-to-coin trade is a sale plus a purchase at the recorded value). Income, staking, mining and airdrops are buys at their market value. Deposits and withdrawals between your own wallets are not booked' + (mp.stats.transfers ? ` (${mp.stats.transfers} in this file)` : '') + '; the skipped list says why each row was left out.'),
+            (mp.warnings || []).length > 0 && React.createElement('ul', { role: 'status', style: { margin: '0.5rem 0 0', paddingLeft: '1.1rem', color: theme.warning } },
+              mp.warnings.slice(0, 8).map((w, i) => React.createElement('li', { key: i }, w)),
+              mp.warnings.length > 8 && React.createElement('li', { key: 'more' }, `… and ${mp.warnings.length - 8} more`))
+          ),
+
           // Editable column → field mapping.
-          React.createElement('div', { style: { background: theme.card, border: `1px solid ${theme.cardBorder}`, borderRadius: '10px', padding: '0.9rem', marginBottom: '0.9rem' } },
+          !mp.fixedFormat && React.createElement('div', { style: { background: theme.card, border: `1px solid ${theme.cardBorder}`, borderRadius: '10px', padding: '0.9rem', marginBottom: '0.9rem' } },
             React.createElement('div', { style: { color: theme.textSecondary, fontSize: '0.72rem', fontWeight: '700', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: '0.6rem' } }, 'Column mapping (edit if a column is wrong)'),
             React.createElement('div', { style: { display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(150px, 1fr))', gap: '0.6rem' } },
               (window.MaerminImportMapping.FIELDS).map(field =>

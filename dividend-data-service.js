@@ -274,6 +274,9 @@ var DividendDataService = {
       : function (s) { return (s || '').toUpperCase(); };
     var sym = norm(symbol);
     if (!sym || base.length < 5) return Promise.resolve(null);
+    // Not a ticker (e.g. a CS2 skin filed as a stock): Yahoo has nothing.
+    var T = typeof window !== 'undefined' && window.MaerminTickers;
+    if (T && T.isMarketSymbol && !T.isMarketSymbol(sym)) return Promise.resolve(null);
     var url = base + '?action=fundamentals&symbol=' + encodeURIComponent(sym);
     return fetch(url)
       .then(function (r) { if (!r.ok) throw new Error('http ' + r.status); return r.json(); })

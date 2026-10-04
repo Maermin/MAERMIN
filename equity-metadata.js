@@ -140,6 +140,9 @@
     var sym = norm(symbol);
     var base = (workerUrl || '').trim().replace(/\/$/, '');
     if (!sym || base.length < 5) return Promise.resolve(null);
+    // Not a ticker (e.g. a CS2 skin filed as a stock): Yahoo has no profile.
+    var T = typeof window !== 'undefined' && window.MaerminTickers;
+    if (T && T.isMarketSymbol && !T.isMarketSymbol(sym)) return Promise.resolve(null);
     var url = base + '?action=profile&symbol=' + encodeURIComponent(sym);
     return fetch(url)
       .then(function (r) { if (!r.ok) throw new Error('http ' + r.status); return r.json(); })

@@ -91,8 +91,12 @@
     var fetchImpl = opts.fetch || (typeof fetch !== 'undefined' ? fetch : null);
     if (!workerUrl || !fetchImpl || !Array.isArray(symbols) || !symbols.length) return Promise.resolve(loadCache());
     var cache = loadCache();
+    // Only real tickers: a CS2 skin filed as a stock would just 404 upstream.
+    var T = typeof window !== 'undefined' && window.MaerminTickers;
+    var isTicker = (T && T.isMarketSymbol) ? T.isMarketSymbol : function () { return true; };
     var missing = symbols
       .map(function (s) { return String(s).toUpperCase(); })
+      .filter(isTicker)
       .filter(function (s) { var h = cache[s]; return !(h && (Date.now() - (h.ts || 0)) < CACHE_TTL); });
     if (!missing.length) return Promise.resolve(cache);
     var base = workerUrl.replace(/\/$/, '');

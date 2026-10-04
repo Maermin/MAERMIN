@@ -30,8 +30,8 @@
   // a lookup under the stored symbol 404s (this is why FISV charts/dividends
   // failed). Mapped to the current ticker before resolution. Keep conservative:
   // only unambiguous, well-known one-to-one renames.
+  // (Fiserv is no longer here: it trades as FISV again and Yahoo 404s "FI".)
   var RENAMES = {
-    FISV: 'FI',     // Fiserv → FI (2025)
     FB:   'META',   // Facebook → Meta
     RTN:  'RTX',    // Raytheon → RTX
     ANTM: 'ELV',    // Anthem → Elevance Health
@@ -116,9 +116,37 @@
   // whitespace damage so the price lookup, the history fetch and the picker
   // all hit the same listing. Applied at LOOKUP time - stored data stays as-is.
   var WEAR_NAMES = ['Factory New', 'Minimal Wear', 'Field-Tested', 'Well-Worn', 'Battle-Scarred'];
+
+  // Steam spelling of names that plain title case gets wrong.
+  var SKIN_WORDS = {};
+  ['AK-47', 'AWP', 'AUG', 'FAMAS', 'M4A4', 'M4A1-S', 'M249', 'MAC-10', 'MAG-7', 'MP5-SD', 'MP7', 'MP9',
+    'P2000', 'P250', 'P90', 'PP-Bizon', 'SG', 'SSG', 'UMP-45', 'USP-S', 'XM1014', 'CZ75-Auto', 'G3SG1',
+    'SCAR-20', 'Glock-18', 'Five-SeveN', 'Tec-9', 'R8', 'AR', 'StatTrak™', 'CS:GO', 'CS20', 'CS2', 'ESL',
+    'DreamHack', 'EMS', 'MLG', 'PGL', 'IEM', 'BLAST', 'ELEAGUE', 'FACEIT', 'HLTV', 'NaVi', 'G2', 'FaZe',
+    'MOUZ', 'NIP', 'TSM', 'VP', 'CT', 'T', 'X-Ray', 'GO', 'II', 'III', 'IV', 'V2']
+    .forEach(function (w) { SKIN_WORDS[w.toUpperCase()] = w; });
+  var SKIN_SMALL = { OF: 'of', THE: 'the', AND: 'and', IN: 'in', ON: 'on', A: 'a', TO: 'to' };
+  // An ALL-CAPS market name (an import upper-cased it like a stock ticker) back
+  // to Steam's spelling: Steam answers nothing for "AK-47 | FUEL INJECTOR
+  // (FIELD-TESTED)". Title case with Steam's weapon/brand spellings; names
+  // that already contain a lower-case letter are left alone.
+  function restoreSkinCase(s) {
+    if (!/[A-Z]/.test(s) || /[a-z]/.test(s)) return s;
+    return s.replace(/[^\s|()]+/g, function (word, offset) {
+      var up = word.toUpperCase();
+      // Start of a part: the name, after "|" or "(", or after a ★ / StatTrak™ prefix.
+      var before = s.slice(0, offset).replace(/(★|STATTRAK™|SOUVENIR)\s*/g, '').trim();
+      var partStart = !before || /[|(]$/.test(before);
+      if (SKIN_WORDS[up]) return SKIN_WORDS[up];
+      if (!partStart && SKIN_SMALL[up]) return SKIN_SMALL[up];
+      return word.toLowerCase().replace(/(^|-)([a-zà-ÿ])/g, function (m, sep, ch) { return sep + ch.toUpperCase(); });
+    });
+  }
+
   function normalizeSkinName(raw) {
     var s = String(raw == null ? '' : raw).replace(/\s+/g, ' ').trim();
     if (!s) return '';
+    s = restoreSkinCase(s);
     // Prefix casing (Steam: "Souvenir AWP | ...", "StatTrak™ AK-47 | ...").
     s = s.replace(/^souvenir\s+/i, 'Souvenir ');
     s = s.replace(/^stattrak(?:™|\(tm\)|tm)?\s+/i, 'StatTrak™ ');
@@ -136,9 +164,126 @@
     return s;
   }
 
+  // Does a stored symbol look like a CS2 market name ("AK-47 | Redline
+  // (Field-Tested)", "★ Nomad Knife", "Fever Case", "Sticker | ...")? Market
+  // tickers never contain spaces, "|", "★" or "™", so such a name filed under
+  // stocks would only flood the Yahoo routes with 404s.
+  var SKIN_ITEM_WORDS = /\b(case|capsule|package|sticker|patch|graffiti|music kit|pin|key|souvenir|stattrak|knife|gloves|wraps|agent|charm)\b/i;
+  function looksLikeSkin(raw) {
+    var s = String(raw == null ? '' : raw).trim();
+    if (!s) return false;
+    if (/[|★™]/.test(s)) return true;
+    if (/\((factory new|minimal wear|field-tested|well-worn|battle-scarred)\)\s*$/i.test(s)) return true;
+    return /\s/.test(s) && SKIN_ITEM_WORDS.test(s);
+  }
+
+  // Could this be a market symbol Yahoo understands (AAPL, SAP.DE, BRK-B,
+  // ^GDAXI, EURUSD=X, GC=F, 0700.HK, an ISIN)? Anything else is not worth a
+  // request to the quote, fundamentals or profile routes.
+  function isMarketSymbol(raw) {
+    var s = String(raw == null ? '' : raw).trim();
+    return /^[A-Za-z0-9^][A-Za-z0-9.\-=^_]{0,23}$/.test(s);
+  }
+
+  // Common crypto tickers -> CoinGecko id. Crypto is priced per id
+  // ("bitcoin"); the exchange sync, imports and older data store tickers
+  // ("BTC"), which CoinGecko does not know, so the lookup maps them.
+  var COINGECKO_IDS = {
+    BTC: 'bitcoin', ETH: 'ethereum', SOL: 'solana', ADA: 'cardano', XRP: 'ripple', DOGE: 'dogecoin',
+    DOT: 'polkadot', LTC: 'litecoin', BCH: 'bitcoin-cash', LINK: 'chainlink', MATIC: 'matic-network',
+    POL: 'polygon-ecosystem-token', AVAX: 'avalanche-2', BNB: 'binancecoin', TRX: 'tron', UNI: 'uniswap',
+    ATOM: 'cosmos', ETC: 'ethereum-classic', XLM: 'stellar', ALGO: 'algorand', VET: 'vechain',
+    ICP: 'internet-computer', FIL: 'filecoin', EGLD: 'elrond-erd-2', THETA: 'theta-token', EOS: 'eos',
+    XMR: 'monero', NEO: 'neo', DASH: 'dash', ZEC: 'zcash', AAVE: 'aave', COMP: 'compound-governance-token',
+    MKR: 'maker', SNX: 'havven', CRV: 'curve-dao-token', YFI: 'yearn-finance', SUSHI: 'sushi',
+    '1INCH': '1inch', BAT: 'basic-attention-token', GRT: 'the-graph', ENJ: 'enjincoin',
+    MANA: 'decentraland', SAND: 'the-sandbox', AXS: 'axie-infinity', CHZ: 'chiliz', GALA: 'gala',
+    IMX: 'immutable-x', APE: 'apecoin', LRC: 'loopring', DYDX: 'dydx-chain', OP: 'optimism',
+    ARB: 'arbitrum', PEPE: 'pepe', SHIB: 'shiba-inu', WLD: 'worldcoin-wld', SUI: 'sui', SEI: 'sei-network',
+    APT: 'aptos', NEAR: 'near', TON: 'the-open-network', HBAR: 'hedera-hashgraph', KAS: 'kaspa',
+    INJ: 'injective-protocol', RNDR: 'render-token', RENDER: 'render-token', FET: 'fetch-ai',
+    XTZ: 'tezos', IOTA: 'iota', MIOTA: 'iota', QNT: 'quant-network', FTM: 'fantom', S: 'sonic-3',
+    KSM: 'kusama', CRO: 'crypto-com-chain', OKB: 'okb', LEO: 'leo-token', XDC: 'xdce-crowd-sale',
+    STX: 'blockstack', TIA: 'celestia', JUP: 'jupiter-exchange-solana', BONK: 'bonk', WIF: 'dogwifcoin',
+    FLOKI: 'floki', ONDO: 'ondo-finance', ENA: 'ethena', PYTH: 'pyth-network', HYPE: 'hyperliquid',
+    TAO: 'bittensor', CAKE: 'pancakeswap-token', RUNE: 'thorchain', ZRX: '0x', KNC: 'kyber-network-crystal',
+    BAL: 'balancer', LDO: 'lido-dao', RPL: 'rocket-pool', GNO: 'gnosis', XEM: 'nem', WAVES: 'waves',
+    ZIL: 'zilliqa', ICX: 'icon', ONT: 'ontology', QTUM: 'qtum', BTT: 'bittorrent', HOT: 'holotoken',
+    NEXO: 'nexo', BEST: 'bitpanda-ecosystem-token', PAXG: 'pax-gold', XAUT: 'tether-gold',
+    WBTC: 'wrapped-bitcoin', STETH: 'staked-ether', WETH: 'weth',
+    USDT: 'tether', USDC: 'usd-coin', DAI: 'dai', BUSD: 'binance-usd', FDUSD: 'first-digital-usd',
+    EURC: 'euro-coin', PYUSD: 'paypal-usd', USDE: 'ethena-usde', XBT: 'bitcoin'
+  };
+  /** Stored crypto symbol -> CoinGecko id ("BTC" / "btc" -> "bitcoin"; an id stays as it is). */
+  function coinGeckoId(raw) {
+    var s = String(raw == null ? '' : raw).trim();
+    if (!s) return '';
+    var up = s.toUpperCase();
+    if (Object.prototype.hasOwnProperty.call(COINGECKO_IDS, up)) return COINGECKO_IDS[up];
+    return s.toLowerCase();
+  }
+
+  // Transactions filed under stocks (or crypto) whose symbol is a CS2 market
+  // name: [{ symbol, category, count }], one entry per stored symbol.
+  function findMisfiledSkins(transactions) {
+    var by = {};
+    (Array.isArray(transactions) ? transactions : []).forEach(function (tx) {
+      if (!tx || (tx.category !== 'stocks' && tx.category !== 'crypto')) return;
+      if (!looksLikeSkin(tx.symbol)) return;
+      var k = tx.category + '|' + tx.symbol;
+      by[k] = by[k] || { symbol: tx.symbol, category: tx.category, count: 0 };
+      by[k].count++;
+    });
+    return Object.keys(by).map(function (k) { return by[k]; });
+  }
+
+  // Steam's exact market name for a stored (e.g. upper-cased) one, from the
+  // Worker's search results [{ name }]: the result equal to it ignoring case
+  // and spacing, else null (never a merely similar item).
+  function pickSkinName(stored, results) {
+    var want = normalizeSkinName(stored).toLowerCase();
+    if (!want) return null;
+    var list = Array.isArray(results) ? results : [];
+    for (var i = 0; i < list.length; i++) {
+      var n = list[i] && list[i].name;
+      if (n && normalizeSkinName(n).toLowerCase() === want) return n;
+    }
+    return null;
+  }
+
+  // Move those transactions to the skins category. nameMap { stored -> Steam
+  // name } restores the exact market name (imports upper-cased it); without
+  // an entry the name is only re-spaced (normalizeSkinName). Returns
+  // { transactions, moved } - a new array, the input is not changed.
+  function repairMisfiledSkins(transactions, nameMap) {
+    nameMap = nameMap || {};
+    var moved = 0;
+    var out = (Array.isArray(transactions) ? transactions : []).map(function (tx) {
+      if (!tx || (tx.category !== 'stocks' && tx.category !== 'crypto') || !looksLikeSkin(tx.symbol)) return tx;
+      moved++;
+      var name = nameMap[tx.symbol] || normalizeSkinName(tx.symbol);
+      var next = {};
+      Object.keys(tx).forEach(function (k) { next[k] = tx[k]; });
+      next.category = 'skins';
+      next.symbol = name;
+      if (!next.symbolName || next.symbolName === tx.symbol) next.symbolName = name;
+      // Steam quotes skins in USD; a stock import set the currency from the file.
+      if (!next.currency) next.currency = 'USD';
+      return next;
+    });
+    return { transactions: out, moved: moved };
+  }
+
   var api = {
     EXCHANGE_SUFFIXES: EXCHANGE_SUFFIXES,
     RENAMES: RENAMES,
+    COINGECKO_IDS: COINGECKO_IDS,
+    coinGeckoId: coinGeckoId,
+    looksLikeSkin: looksLikeSkin,
+    isMarketSymbol: isMarketSymbol,
+    findMisfiledSkins: findMisfiledSkins,
+    pickSkinName: pickSkinName,
+    repairMisfiledSkins: repairMisfiledSkins,
     parseSymbol: parseSymbol,
     normalizeForDividends: normalizeForDividends,
     isDividendEligible: isDividendEligible,

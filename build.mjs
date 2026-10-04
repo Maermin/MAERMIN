@@ -114,7 +114,7 @@ const CSP = "default-src 'self' https:; " +
   "font-src 'self' data:; " +
   "img-src 'self' data: https: https://community.akamai.steamstatic.com; " +
   "connect-src 'self' https://api.coingecko.com https://api.exchangerate-api.com " +
-  "https://open.er-api.com https://www.alphavantage.co https://*.workers.dev " +
+  "https://open.er-api.com https://*.workers.dev " +
   "https://cdnjs.cloudflare.com; " +
   "worker-src 'self'; manifest-src 'self'; base-uri 'self'; object-src 'none'";
 

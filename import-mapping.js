@@ -296,7 +296,14 @@
     (rows || []).forEach((row, i) => {
       const rowNo = i + 1; // 1-based, header is row 0
       const get = (f) => (mapping[f] ? row[mapping[f]] : undefined);
-      const symbol = normalizeSymbol(get('symbol'), category);
+      // A CS2 market name is a skin whatever the file's default category says,
+      // and keeps its spelling (Steam looks names up exactly; upper-casing it
+      // as a stock ticker left it without a price and sent it to Yahoo).
+      const T = tickersApi();
+      const rawSym = String(get('symbol') == null ? '' : get('symbol')).trim();
+      const isSkin = !!(T && T.looksLikeSkin && T.looksLikeSkin(rawSym));
+      const rowCategory = isSkin ? 'skins' : category;
+      const symbol = isSkin ? (T.normalizeSkinName ? T.normalizeSkinName(rawSym) : rawSym) : normalizeSymbol(rawSym, category);
       const date = parseDate(get('date'), locale);
       const rawQty = parseNumber(get('quantity'), locale);
       const quantity = Math.abs(rawQty);
@@ -322,7 +329,7 @@
       if (!type) type = rawQty < 0 ? 'sell' : 'buy';
       const feeNum = parseNumber(get('fee'), locale);
       transactions.push({
-        category,
+        category: rowCategory,
         type,
         symbol,
         quantity,
@@ -347,6 +354,10 @@
     const { headers, rows } = parseCSV(text);
     if (!headers.length || !rows.length) {
       return { transactions: [], errors: [{ row: 0, reason: 'no data rows below the header line', raw: null }] };
+    }
+    if (isCoinTracking(headers)) {
+      const ct = parseCoinTracking(text, opts);
+      return { transactions: ct.transactions, errors: ct.errors, warnings: ct.warnings };
     }
     const mapping = suggestMapping(headers);
     const catHeader = headers.find((h) => lc(h) === 'category');
@@ -409,6 +420,17 @@
     // The broker the user picked in the wizard wins over header sniffing (it
     // reported "Detected: Interactive Brokers" for a chosen Scalable file).
     const broker = chosenBroker(opts.broker) || detectBroker(headers);
+    // CoinTracking has a fixed two-leg layout: its own parser, no column mapping.
+    if (!opts.mapping && (broker && broker.id === 'cointracking') && isCoinTracking(headers)) {
+      const ct = parseCoinTracking(csvText, opts);
+      const dupCt = findDuplicates(ct.transactions, opts.existing || []);
+      return {
+        headers, rows, broker, category: 'crypto', mapping: suggestMapping(headers, 'cointracking'),
+        fixedFormat: true, warnings: ct.warnings,
+        transactions: dupCt.marked, errors: ct.errors, duplicates: dupCt.duplicates.length,
+        stats: Object.assign({}, ct.stats, { duplicates: dupCt.duplicates.length })
+      };
+    }
     const category = opts.category || (broker && broker.category) || 'stocks';
     const mapping = opts.mapping || suggestMapping(headers, broker && broker.id);
     const applied = applyMapping(rows, mapping, { category, locale: opts.locale, currency: opts.currency });
@@ -673,8 +695,224 @@
     ), Promise.resolve()).then(() => out);
   }
 
+  // --- CoinTracking ------------------------------------------------------------
+  // The CoinTracking trade list has one row per movement with TWO legs (Buy and
+  // Sell) and three columns all named "Cur.", so the column mapping above cannot
+  // read it. This parser finds the columns by position relative to their
+  // labels (EN + DE export, with or without the "value in EUR/USD" columns of
+  // the full export) and books each row the way the ledger needs it:
+  //   Trade fiat -> coin       buy  (price = fiat / quantity)
+  //   Trade coin -> fiat       sell
+  //   Trade coin -> coin       sell + buy, priced from the value columns
+  //   Income, Staking, ...     buy at the market value (the cost basis)
+  //   Spend                    sell at the market value (a disposal)
+  //   Deposit / Withdrawal     not booked - a transfer between own wallets
+  //   Donation, Gift, Lost ... not booked - reported, enter by hand if needed
+  // Stablecoins count as the fiat they track. Coin tickers become CoinGecko ids
+  // (the app prices crypto by id); unknown tickers are listed in `warnings`.
+
+  // The ticker -> CoinGecko id table lives in ticker-validation.js (shared with
+  // the price lookup). It loads after this file, so it is looked up per call.
+  function tickersApi() {
+    if (typeof window !== 'undefined' && window.MaerminTickers) return window.MaerminTickers;
+    try { return typeof require === 'function' ? require('./ticker-validation.js') : null; } catch (e) { return null; }
+  }
+  const CT_FIAT = ['EUR', 'USD', 'GBP', 'CHF', 'JPY', 'CAD', 'AUD', 'NZD', 'SEK', 'NOK', 'DKK', 'PLN', 'CZK', 'HUF', 'TRY', 'HKD', 'SGD', 'CNY', 'KRW', 'BRL', 'MXN', 'ZAR', 'INR', 'RUB'];
+  /** Stablecoins -> the fiat they track. */
+  const CT_STABLE = { USDT: 'USD', USDC: 'USD', BUSD: 'USD', DAI: 'USD', TUSD: 'USD', USDP: 'USD', FDUSD: 'USD', UST: 'USD', USTC: 'USD', FRAX: 'USD', PYUSD: 'USD', USDE: 'USD', GUSD: 'USD', USDS: 'USD', EURT: 'EUR', EURC: 'EUR', EUROC: 'EUR', EURS: 'EUR' };
+  function ctFiat(cur) {
+    const c = String(cur || '').trim().toUpperCase();
+    if (CT_FIAT.indexOf(c) > -1) return c;
+    return CT_STABLE[c] || null;
+  }
+
+  /** CoinTracking ticker -> { symbol, known }. Unknown tickers stay lowercase. */
+  function coinGeckoId(ticker) {
+    const t = String(ticker || '').trim().toUpperCase();
+    if (!t) return { symbol: '', known: false };
+    const T = tickersApi();
+    const ids = (T && T.COINGECKO_IDS) || {};
+    if (Object.prototype.hasOwnProperty.call(ids, t)) return { symbol: ids[t], known: true };
+    return { symbol: t.toLowerCase(), known: false };
+  }
+
+  // Row type -> how it is booked. Keys are lowercase EN + DE labels.
+  const CT_KIND = {
+    trade: 'trade', handel: 'trade',
+    deposit: 'transfer', einzahlung: 'transfer', withdrawal: 'transfer', auszahlung: 'transfer',
+    income: 'income', einnahme: 'income', einkommen: 'income', 'other income': 'income', 'sonstige einnahme': 'income',
+    mining: 'income', 'mining (commercial)': 'income', staking: 'income', airdrop: 'income',
+    'gift/tip': 'income', 'gift/tip(in)': 'income', 'geschenk/trinkgeld': 'income', 'reward / bonus': 'income',
+    'reward/bonus': 'income', 'belohnung / bonus': 'income', 'belohnung/bonus': 'income',
+    'interest income': 'income', zinseinnahme: 'income', zinsen: 'income', 'lending income': 'income',
+    'dividends income': 'income', dividendeneinnahme: 'income', masternode: 'income', minting: 'income',
+    spend: 'spend', ausgabe: 'spend',
+    donation: 'nobook', spende: 'nobook', gift: 'nobook', geschenk: 'nobook', 'gift(out)': 'nobook',
+    lost: 'nobook', verlust: 'nobook', verloren: 'nobook', stolen: 'nobook', gestohlen: 'nobook'
+  };
+
+  function ctColumns(headers) {
+    const hs = headers.map(lc);
+    const first = (names, from) => {
+      for (let i = from || 0; i < hs.length; i++) if (names.indexOf(hs[i]) > -1) return i;
+      return -1;
+    };
+    // The "Cur." / "value in X" column belonging to a leg is the next one after it.
+    const after = (start, test) => {
+      if (start < 0) return -1;
+      for (let i = start + 1; i < hs.length && i <= start + 3; i++) if (test(hs[i])) return i;
+      return -1;
+    };
+    const isCur = (h) => h === 'cur.' || h === 'cur' || h === 'currency' || h === 'währung';
+    const isVal = (h) => /^(value|wert)\b/.test(h) || /\b(value|wert) in\b/.test(h);
+    const type = first(['type', 'typ']);
+    const buy = first(['buy', 'kauf', 'buy amount', 'eingang']);
+    const sell = first(['sell', 'verkauf', 'sell amount', 'ausgang']);
+    const fee = first(['fee', 'gebühr', 'gebuehr', 'fee amount']);
+    const col = {
+      type, buy, buyCur: after(buy, isCur), buyVal: after(buy, isVal),
+      sell, sellCur: after(sell, isCur), sellVal: after(sell, isVal),
+      fee, feeCur: after(fee, isCur), feeVal: after(fee, isVal),
+      exchange: first(['exchange', 'börse', 'boerse']),
+      comment: first(['comment', 'kommentar']),
+      tradeId: first(['trade id', 'trade-id', 'tx-id', 'txid']),
+      date: first(['date', 'datum', 'trade date'])
+    };
+    // "value in EUR" -> EUR: the currency every value column is quoted in.
+    const valHeader = [col.buyVal, col.sellVal, col.feeVal].filter((i) => i > -1).map((i) => headers[i])[0] || '';
+    const m = /\b([A-Z]{3})\b\s*\)?\s*$/.exec(String(valHeader).toUpperCase());
+    col.valueCurrency = m && CT_FIAT.indexOf(m[1]) > -1 ? m[1] : null;
+    return col;
+  }
+
+  /** Does this header row look like a CoinTracking trade list? */
+  function isCoinTracking(headers) {
+    const c = ctColumns(headers || []);
+    return c.type > -1 && c.buy > -1 && c.buyCur > -1 && c.sell > -1 && c.sellCur > -1 && c.date > -1;
+  }
+
+  /**
+   * CoinTracking CSV -> { transactions, errors, warnings, stats, headers }.
+   * errors: [{row, reason, raw}] for every row that is not booked (transfers
+   * included, so nothing disappears silently). opts.locale forces '1.234,56'.
+   */
+  function parseCoinTracking(text, opts) {
+    opts = opts || {};
+    const lines = splitRecords(text);
+    const out = { transactions: [], errors: [], warnings: [], headers: [], stats: { total: 0, ok: 0, failed: 0, transfers: 0 } };
+    if (!lines.length) return out;
+    const delim = sniffDelimiter(lines[0]);
+    const headers = splitLine(lines[0], delim);
+    out.headers = headers;
+    const col = ctColumns(headers);
+    if (!isCoinTracking(headers)) {
+      out.errors.push({ row: 0, reason: 'not a CoinTracking trade list (expected the columns Type, Buy, Cur., Sell, Cur., Date)', raw: null });
+      return out;
+    }
+    const locale = opts.locale;
+    const unknownCoins = {};
+    let cryptoFees = 0;
+
+    const num = (v) => { const n = parseNumber(v, locale); return isFinite(n) ? Math.abs(n) : 0; };
+
+    lines.slice(1).forEach((line, i) => {
+      const rowNo = i + 1;
+      const v = splitLine(line, delim);
+      const at = (k) => (col[k] > -1 && v[col[k]] != null ? v[col[k]] : '');
+      const raw = {}; headers.forEach((h, k) => { raw[h + (raw[h] !== undefined ? '#' + k : '')] = v[k] != null ? v[k] : ''; });
+      out.stats.total++;
+      const skip = (reason) => { out.errors.push({ row: rowNo, reason, raw }); };
+
+      const rawType = String(at('type')).trim();
+      const kind = CT_KIND[lc(rawType)];
+      const date = parseDate(at('date'), locale || 'de');
+      if (!kind) { skip('type "' + rawType + '" is not booked (margin, futures, fees and loans stay in CoinTracking)'); return; }
+      if (!date) { skip('invalid/missing: date'); return; }
+      if (kind === 'transfer') { out.stats.transfers++; skip(rawType + ': transfer between your own wallets, not a purchase or sale - not booked'); return; }
+      if (kind === 'nobook') { skip(rawType + ': not booked automatically (no sale price) - enter it by hand if it should reduce the holding'); return; }
+
+      const buyAmt = num(at('buy')), buyCur = String(at('buyCur')).trim().toUpperCase();
+      const sellAmt = num(at('sell')), sellCur = String(at('sellCur')).trim().toUpperCase();
+      const feeAmt = num(at('fee')), feeCur = String(at('feeCur')).trim().toUpperCase();
+      const buyVal = col.buyVal > -1 ? num(at('buyVal')) : 0;
+      const sellVal = col.sellVal > -1 ? num(at('sellVal')) : 0;
+      const feeVal = col.feeVal > -1 ? num(at('feeVal')) : 0;
+      const valCur = col.valueCurrency;
+      const notes = ['CoinTracking', rawType, at('exchange'), at('comment')].map((s) => String(s || '').trim()).filter(Boolean).join(' · ');
+      const tradeId = String(at('tradeId') || '').trim();
+
+      const coin = (ticker) => {
+        const g = coinGeckoId(ticker);
+        if (!g.known) unknownCoins[ticker] = true;
+        return g.symbol;
+      };
+      const push = (tx) => {
+        const t = Object.assign({ category: 'crypto', fees: 0, date, notes }, tx);
+        t.symbolName = t.symbolName || '';
+        if (tradeId) t.externalId = 'cointracking:' + tradeId + ':' + t.type;
+        out.transactions.push(t);
+      };
+      // Fee in a currency the trade is priced in -> fees field; a fee paid in a
+      // coin uses its value column, else it is reported (not deducted).
+      const feeIn = (cur) => {
+        if (!feeAmt) return 0;
+        if (feeCur && ctFiat(feeCur) === cur) return feeAmt;
+        if (feeVal && valCur === cur) return feeVal;
+        cryptoFees++;
+        return 0;
+      };
+
+      if (kind === 'trade') {
+        if (!(buyAmt > 0) || !buyCur || !(sellAmt > 0) || !sellCur) { skip('trade without both amounts and currencies'); return; }
+        const buyFiat = ctFiat(buyCur), sellFiat = ctFiat(sellCur);
+        if (buyFiat && sellFiat) { skip('fiat/stablecoin exchange (' + sellCur + ' -> ' + buyCur + ') - not booked'); return; }
+        if (sellFiat) {
+          push({ type: 'buy', symbol: coin(buyCur), symbolName: buyCur, quantity: buyAmt, price: sellAmt / buyAmt, currency: sellFiat, fees: feeIn(sellFiat) });
+        } else if (buyFiat) {
+          push({ type: 'sell', symbol: coin(sellCur), symbolName: sellCur, quantity: sellAmt, price: buyAmt / sellAmt, currency: buyFiat, fees: feeIn(buyFiat) });
+        } else {
+          // Coin -> coin: a sale of one coin and a purchase of the other, both
+          // at the market value CoinTracking recorded for the trade.
+          const value = sellVal || buyVal;
+          if (!(value > 0) || !valCur) { skip('coin-to-coin trade (' + sellCur + ' -> ' + buyCur + ') needs the "value in EUR" columns - export "CSV (full)" from CoinTracking'); return; }
+          const fee = feeIn(valCur);
+          push({ type: 'sell', symbol: coin(sellCur), symbolName: sellCur, quantity: sellAmt, price: (sellVal || value) / sellAmt, currency: valCur, fees: fee });
+          push({ type: 'buy', symbol: coin(buyCur), symbolName: buyCur, quantity: buyAmt, price: (buyVal || value) / buyAmt, currency: valCur });
+        }
+        return;
+      }
+
+      if (kind === 'income') {
+        if (!(buyAmt > 0) || !buyCur) { skip(rawType + ' without an amount'); return; }
+        if (ctFiat(buyCur)) { skip(rawType + ' paid in ' + buyCur + ' - not a coin position, not booked'); return; }
+        const hasVal = buyVal > 0 && valCur;
+        push({ type: 'buy', symbol: coin(buyCur), symbolName: buyCur, quantity: buyAmt,
+          price: hasVal ? buyVal / buyAmt : 0, currency: hasVal ? valCur : (opts.currency || 'EUR'),
+          fees: hasVal ? feeIn(valCur) : 0 });
+        if (!hasVal) out.warnings.push('Row ' + rowNo + ': ' + rawType + ' ' + buyAmt + ' ' + buyCur + ' booked with a cost basis of 0 (no value column in the file).');
+        return;
+      }
+
+      if (kind === 'spend') {
+        if (!(sellAmt > 0) || !sellCur) { skip(rawType + ' without an amount'); return; }
+        if (ctFiat(sellCur)) { skip(rawType + ' paid in ' + sellCur + ' - not a coin position, not booked'); return; }
+        if (!(sellVal > 0) || !valCur) { skip(rawType + ' of ' + sellCur + ' needs the "value in EUR" column to be booked as a sale'); return; }
+        push({ type: 'sell', symbol: coin(sellCur), symbolName: sellCur, quantity: sellAmt, price: sellVal / sellAmt, currency: valCur, fees: feeIn(valCur) });
+      }
+    });
+
+    const unknown = Object.keys(unknownCoins);
+    if (unknown.length) out.warnings.unshift('No CoinGecko id known for ' + unknown.join(', ') + ' - imported under the ticker in lower case; edit the symbol if it gets no price.');
+    if (cryptoFees) out.warnings.push(cryptoFees + ' fee(s) paid in a coin were not deducted (the file has no value for them).');
+    out.stats.ok = out.transactions.length;
+    out.stats.failed = out.errors.length;
+    return out;
+  }
+
   const api = {
     FIELDS, REQUIRED, BROKERS,
+    // CoinTracking
+    coinGeckoId, isCoinTracking, parseCoinTracking,
     // ISIN -> ticker
     isISIN, listingCurrency, pickListing, collectIsins, applyTickerMap, resolveIsins,
     detectBroker, suggestMapping, applyMapping, quickCSV, findDuplicates,

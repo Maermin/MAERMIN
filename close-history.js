@@ -277,12 +277,19 @@
       return r.json();
     });
   }
+  // A MaerminTickers helper when the module is loaded (browser), else null.
+  function tickerFn(name) {
+    var T = (typeof window !== 'undefined' && window.MaerminTickers) || null;
+    return T && typeof T[name] === 'function' ? T[name] : null;
+  }
   function wait(ms) { return ms > 0 ? new Promise(function (r) { setTimeout(r, ms); }) : Promise.resolve(); }
 
   function fetchOne(job, o) {
     var today = o.today, meta = { at: o.now };
     if (job.category === 'crypto') {
-      var id = String(job.symbol).toLowerCase();
+      // CoinGecko knows ids ("bitcoin"), not the tickers ("BTC") the exchange
+      // sync and imports store.
+      var id = o.cryptoId ? o.cryptoId(job.symbol) : String(job.symbol).toLowerCase();
       meta.sym = id;
       var days = Math.max(2, dayNo(today) - dayNo(job.from) + 1);
       var url = function (n) { return 'https://api.coingecko.com/api/v3/coins/' + encodeURIComponent(id) + '/market_chart?vs_currency=eur&days=' + n + '&interval=daily'; };
@@ -301,6 +308,8 @@
     }
     var sym = yfSymbol(job.category, job.symbol, o.suffixCache);
     meta.sym = sym;
+    // Not a ticker (a CS2 skin filed as a stock): no request, Yahoo would 404.
+    if (o.isTicker && !o.isTicker(sym)) return Promise.reject(new Error('not a market symbol'));
     return getJson(o.fetch, o.workerBase + '?action=yf&symbol=' + encodeURIComponent(sym) + '&interval=1d&range=' + rangeFor(job.from, today), o.timeoutMs)
       .then(function (j) { return ingestYahoo(j, meta); });
   }
@@ -318,6 +327,8 @@
       fetch: opts.fetch || (typeof fetch !== 'undefined' ? fetch : null),
       workerBase: String(opts.workerBase || '').trim().replace(/\/$/, ''),
       suffixCache: opts.suffixCache || {}, normalizeSkin: opts.normalizeSkin,
+      cryptoId: opts.cryptoId || tickerFn('coinGeckoId'),
+      isTicker: opts.isTicker || tickerFn('isMarketSymbol'),
       now: now, today: opts.today || new Date(now).toISOString().slice(0, 10),
       timeoutMs: opts.timeoutMs || 12000
     };

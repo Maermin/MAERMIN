@@ -81,8 +81,8 @@ const Svc = globalThis.window.DividendDataService;
     }) });
   };
 
-  Svc.fetchDividendFromWorker('FISV', 'https://w.example').then((rec) => {
-    ok('renames FISV → FI in the query URL', /symbol=FI(&|$)/.test(lastUrl));
+  Svc.fetchDividendFromWorker('FB', 'https://w.example').then((rec) => {
+    ok('renames FB → META in the query URL', /symbol=META(&|$)/.test(lastUrl));
     ok('record carries the annual rate', rec && rec.annualDividend === 2.04);
     ok('infers quarterly (2.04 / 0.51 ≈ 4)', rec.frequency === 'quarterly');
     ok('anchors ex-month from the ex-date (Sep → 9)', Array.isArray(rec.exMonths) && rec.exMonths[0] === 9);

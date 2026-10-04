@@ -536,6 +536,8 @@ function InvestmentTracker() {
   });
   // Required fields the last save attempt found empty (marked in the dialog).
   const [txMissing, setTxMissing] = useState([]);
+  // CS2 skins filed as stocks are being moved to the skins category.
+  const [skinRepairBusy, setSkinRepairBusy] = useState(false);
   // The form as it was when the dialog opened: closing a changed form asks first.
   const txInitialRef = useRef(null);
   // v12: modal open-states live in MaerminUI.overlays. Read the slice via
@@ -1300,7 +1302,6 @@ function InvestmentTracker() {
     // build is unavailable.
     const pricePortfolio = allPortfoliosPortfolio || portfolio;
     const newPrices = { ...fetchedPrices };
-    const avFallbackSyms = new Set(); // symbols resolved via Alpha Vantage (provenance)
     // ISO-8601 so every consumer (TWR, cash-flow chart, Vorabpauschale prefill,
     // savings-plan pricing) can date the point; the old en-US display string
     // had no year and parsed as 2001. Formatting happens at display time.
@@ -1373,7 +1374,18 @@ function InvestmentTracker() {
 
       // Fetch crypto prices from CoinGecko (free, no API key needed)
       if (pricePortfolio.crypto && pricePortfolio.crypto.length > 0) {
-        const ids = pricePortfolio.crypto.map(c => (c.symbol || c.name || '').toLowerCase()).join(',');
+        // Prices are fetched per CoinGecko id; a stored ticker ("BTC" from the
+        // exchange sync or an import) is mapped to its id ("bitcoin") and the
+        // price is stored under the id AND the stored symbol.
+        const toId = window.MaerminTickers?.coinGeckoId || (s => String(s || '').toLowerCase());
+        const symsById = {};
+        pricePortfolio.crypto.forEach(c => {
+          const sym = (c.symbol || c.name || '').trim();
+          const id = toId(sym);
+          if (!id) return;
+          (symsById[id] = symsById[id] || []).push(sym);
+        });
+        const ids = Object.keys(symsById).map(encodeURIComponent).join(',');
         if (ids) {
           try {
             const res = await fetch(`https://api.coingecko.com/api/v3/simple/price?ids=${ids}&vs_currencies=eur,usd&include_24hr_change=true`);
@@ -1384,6 +1396,7 @@ function InvestmentTracker() {
                 const eurPrice = data[id].eur || (data[id].usd * usdToEur);
                 newPrices[id] = eurPrice;
                 newPrices[id.toLowerCase()] = eurPrice;
+                (symsById[id] || []).forEach(sym => { newPrices[sym] = eurPrice; newPrices[sym.toLowerCase()] = eurPrice; });
               });
               dbg('[PRICES] Crypto prices fetched:', Object.keys(data).length);
             }
@@ -1393,13 +1406,15 @@ function InvestmentTracker() {
         }
       }
       
-      // ── Stock Prices: Yahoo Finance (primary) → Alpha Vantage (fallback) ──
+      // ── Stock Prices: Yahoo Finance via the Worker ──────────────────────
       // v11: no more 10-symbol cap (portfolios above 10 stocks silently lost
-      // their prices). The Worker (Yahoo) phase now runs CONCURRENTLY in small
+      // their prices). The Worker (Yahoo) phase runs CONCURRENTLY in small
       // chunks for ALL stocks, and resolved exchange suffixes are cached in
       // localStorage so we never brute-force ".DE/.L/.PA…" for the same symbol
-      // twice. The Alpha Vantage fallback stays SEQUENTIAL (AV rate-limits hard)
-      // and only runs for the genuine misses.
+      // twice. A "stock" whose symbol cannot be a ticker (a CS2 skin filed as
+      // a stock) is not sent at all: it cost 7 requests per refresh (bare + 6
+      // suffixes), every one a 404, and the flood hit the Worker's rate limit.
+      const isTicker = window.MaerminTickers?.isMarketSymbol || (() => true);
       if (pricePortfolio.stocks && pricePortfolio.stocks.length > 0) {
         const workerBase = (apiKeys.cs2Worker || '').trim().replace(/\/$/, '');
         const hasWorker  = workerBase.length > 5;
@@ -1426,7 +1441,7 @@ function InvestmentTracker() {
         const resolveStockYF = async (stock) => {
           const sym  = (stock.symbol || stock.name || '').toUpperCase();
           const symL = sym.toLowerCase();
-          if (!hasWorker) return { sym, symL, priceEUR: null };
+          if (!hasWorker || !isTicker(sym)) return { sym, symL, priceEUR: null };
           const cached = !sym.includes('.') && (suffixCache[sym] || LEGACY_MAP[sym]);
           const primary = sym.includes('.') ? sym : (cached || sym);
           let priceEUR = null;
@@ -1450,68 +1465,26 @@ function InvestmentTracker() {
           return { sym, symL, priceEUR };
         };
 
-        // Phase 1 — Worker/Yahoo, concurrent in chunks for ALL stocks.
-        const misses = [];
+        // Worker/Yahoo, concurrent in chunks for ALL stocks.
         const CHUNK = 6;
         for (let i = 0; i < pricePortfolio.stocks.length; i += CHUNK) {
           const settled = await Promise.all(pricePortfolio.stocks.slice(i, i + CHUNK).map(resolveStockYF));
           settled.forEach(r => {
             if (r.priceEUR && r.priceEUR > 0) { newPrices[r.symL] = r.priceEUR; newPrices[r.sym] = r.priceEUR; }
-            else misses.push(r);
           });
         }
         if (suffixDirty) { try { localStorage.setItem('maermin_symbol_suffix', JSON.stringify(suffixCache)); } catch (e) {} }
-
-        // Phase 2 — Alpha Vantage fallback, sequential, misses only.
-        if (apiKeys.alphaVantage && misses.length) {
-          for (const r of misses) {
-            try {
-              dbg('[PRICES] Stock AV fallback:', r.sym);
-              const res  = await fetch(`https://www.alphavantage.co/query?function=GLOBAL_QUOTE&symbol=${r.sym}&apikey=${apiKeys.alphaVantage}`);
-              const data = await res.json();
-              if (data['Global Quote']?.['05. price']) {
-                const priceEUR = parseFloat(data['Global Quote']['05. price']) * usdToEur;
-                if (priceEUR > 0) {
-                  newPrices[r.symL] = priceEUR; newPrices[r.sym] = priceEUR;
-                  avFallbackSyms.add(r.sym);
-                  dbg('[PRICES] Stock (AV fallback):', r.sym, '→', priceEUR.toFixed(2), 'EUR');
-                }
-              } else if (data['Note'] || data['Information']) {
-                console.warn('[PRICES] Alpha Vantage rate limit hit for', r.sym);
-                addToast('Alpha Vantage: Rate limit reached', 'warning');
-                break; // stop hammering AV once rate-limited
-              }
-              await new Promise(rr => setTimeout(rr, 12000)); // AV rate limit
-            } catch(e) {
-              console.warn('[PRICES] AV stock fallback error for', r.sym, e.message);
-            }
-          }
-        }
+        const notTickers = pricePortfolio.stocks.map(s => s.symbol || s.name || '').filter(s => s && !isTicker(s));
+        if (notTickers.length) console.warn('[PRICES] Not priced as stocks (not a ticker - CS2 skin filed as a stock?):', notTickers.join(', '));
       }
 
-      // ── Commodity Prices: Yahoo Finance (primary) → Alpha Vantage (fallback) ──
+      // ── Commodity Prices: Yahoo Finance futures via the Worker ─────────────
       if (pricePortfolio.commodities && pricePortfolio.commodities.length > 0) {
         const workerBase = (apiKeys.cs2Worker || '').trim().replace(/\/$/, '');
         const hasWorker  = workerBase.length > 5;
 
         // Yahoo Finance Futures symbols for commodities
         const YF_COMMODITY = (window.MaerminCloseHistory || {}).YF_COMMODITY || {};
-
-        // Alpha Vantage commodity config (fallback only)
-        const AV_COMMODITY = {
-          'XAU':{ fn:'CURRENCY_EXCHANGE_RATE', from:'XAU' },
-          'GOLD':{ fn:'CURRENCY_EXCHANGE_RATE', from:'XAU' },
-          'XAG':{ fn:'CURRENCY_EXCHANGE_RATE', from:'XAG' },
-          'SILVER':{ fn:'CURRENCY_EXCHANGE_RATE', from:'XAG' },
-          'XPT':{ fn:'CURRENCY_EXCHANGE_RATE', from:'XPT' },
-          'PLATINUM':{ fn:'CURRENCY_EXCHANGE_RATE', from:'XPT' },
-          'XPD':{ fn:'CURRENCY_EXCHANGE_RATE', from:'XPD' },
-          'PALLADIUM':{ fn:'CURRENCY_EXCHANGE_RATE', from:'XPD' },
-          'WTI':{ fn:'WTI' },'OIL':{ fn:'WTI' },
-          'BRENT':{ fn:'BRENT' },'GAS':{ fn:'NATURAL_GAS' },
-          'NATURAL_GAS':{ fn:'NATURAL_GAS' },'COPPER':{ fn:'COPPER' },
-          'WHEAT':{ fn:'WHEAT' },'CORN':{ fn:'CORN' },
-        };
 
         for (const pos of pricePortfolio.commodities.slice(0, 8)) {
           const sym  = (pos.symbol || pos.name || '').toUpperCase().trim();
@@ -1534,37 +1507,6 @@ function InvestmentTracker() {
               }
             } catch(e) {
               console.warn('[PRICES] YF commodity failed for', sym, '—', e.message);
-            }
-          }
-
-          // ── Fallback: Alpha Vantage ──────────────────────────────────────
-          if (!priceEUR && apiKeys.alphaVantage) {
-            const avConf = AV_COMMODITY[sym];
-            try {
-              let priceUSD = null;
-              if (avConf?.fn === 'CURRENCY_EXCHANGE_RATE') {
-                const res  = await fetch(`https://www.alphavantage.co/query?function=CURRENCY_EXCHANGE_RATE&from_currency=${avConf.from}&to_currency=USD&apikey=${apiKeys.alphaVantage}`);
-                const data = await res.json();
-                const rate = data['Realtime Currency Exchange Rate'];
-                if (rate?.['5. Exchange Rate']) priceUSD = parseFloat(rate['5. Exchange Rate']);
-              } else if (avConf) {
-                const res  = await fetch(`https://www.alphavantage.co/query?function=${avConf.fn}&interval=monthly&apikey=${apiKeys.alphaVantage}`);
-                const data = await res.json();
-                if (data.data?.[0]?.value) priceUSD = parseFloat(data.data[0].value);
-              } else {
-                // Unknown commodity — try GLOBAL_QUOTE (ETF like GLD, SLV)
-                const res  = await fetch(`https://www.alphavantage.co/query?function=GLOBAL_QUOTE&symbol=${sym}&apikey=${apiKeys.alphaVantage}`);
-                const data = await res.json();
-                if (data['Global Quote']?.['05. price']) priceUSD = parseFloat(data['Global Quote']['05. price']);
-              }
-              if (priceUSD && priceUSD > 0) {
-                priceEUR = priceUSD * usdToEur;
-                avFallbackSyms.add(sym);
-                dbg('[PRICES] Commodity (AV fallback):', sym, '→', priceEUR.toFixed(2), 'EUR');
-              }
-              await new Promise(r => setTimeout(r, 12000));
-            } catch(e) {
-              console.warn('[PRICES] AV commodity fallback error for', sym, e.message);
             }
           }
 
@@ -1597,44 +1539,57 @@ function InvestmentTracker() {
             const skinPairs = pricePortfolio.skins
               .map(s => { const orig = (s.symbol || s.name || '').trim(); return { orig, norm: normalize(orig) }; })
               .filter(p => p.orig);
-            const skinNames = skinPairs.map(p => p.norm);
-            dbg('[PRICES] CS2 Steam: fetching', skinNames.length, 'skins via Worker...');
+            // Skins are delivered in USD → convert to the canonical EUR at full
+            // precision (display rounds later). All downstream calcs (Net Worth,
+            // Allocation, Performance, Showcase) read this map.
+            const store = (skinName, priceUSD, source) => {
+              const priceEUR = window.MaerminUtils.toEUR(priceUSD, 'USD', usdToEur);
+              newPrices[skinName.toLowerCase()] = priceEUR;
+              newPrices[skinName] = priceEUR;
+              dbg('[PRICES] CS2 (' + source + '):', skinName, '→ $' + priceUSD.toFixed(2), '→', priceEUR.toFixed(2), 'EUR');
+            };
 
-            // POST array of names — Worker fetches Steam price per skin
-            const res = await fetch(workerUrl.replace(/\/$/, ''), {
-              method: 'POST',
-              headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify(skinNames),
-              signal: AbortSignal.timeout(60000) // Steam needs ~1.5s per skin
-            });
-
-            if (res.ok) {
-              const priceMap = await res.json(); // { "AK-47 | Redline (FT)": 12.34, ... }
-              let matchedCount = 0;
-
-              skinPairs.forEach(({ orig: skinName, norm }) => {
-                const priceUSD = priceMap[norm] != null ? priceMap[norm] : priceMap[skinName];
-                if (priceUSD && priceUSD > 0) {
-                  // Skins are delivered in USD → convert to the canonical EUR at
-                  // full precision (display rounds later). All downstream calcs
-                  // (Net Worth, Allocation, Performance, Showcase) read this map.
-                  const priceEUR = window.MaerminUtils.toEUR(priceUSD, 'USD', usdToEur);
-                  newPrices[skinName.toLowerCase()] = priceEUR;
-                  newPrices[skinName] = priceEUR;
-                  matchedCount++;
-                  dbg('[PRICES] CS2:', skinName, '→ $' + priceUSD.toFixed(2), '→', priceEUR.toFixed(2), 'EUR');
-                } else {
-                  console.warn('[PRICES] CS2: no price for', skinName);
-                }
+            // 1) Skinport: one request prices every skin (no per-item Steam calls).
+            let missing = skinPairs;
+            const SP = window.MaerminSkinport;
+            const spIndex = SP ? await SP.load(workerUrl) : null;
+            if (spIndex) {
+              missing = [];
+              skinPairs.forEach(p => {
+                const usd = SP.priceFor(spIndex, p.norm) || SP.priceFor(spIndex, p.orig);
+                if (usd > 0) store(p.orig, usd, 'Skinport'); else missing.push(p);
               });
+              dbg('[PRICES] CS2 Skinport:', skinPairs.length - missing.length, '/', skinPairs.length);
+            }
 
-              dbg('[PRICES] CS2 matched:', matchedCount, '/', skinNames.length);
-              if (matchedCount < skinNames.length) {
-                addToast(`CS2: ${matchedCount}/${skinNames.length} prices fetched — check skin names match Steam Market exactly`, 'info');
+            // 2) Steam, only for items Skinport does not list (or when the
+            //    Worker has no Skinport route yet).
+            let steamMatched = 0;
+            if (missing.length) {
+              dbg('[PRICES] CS2 Steam: fetching', missing.length, 'skins via Worker...');
+              const res = await fetch(workerUrl.replace(/\/$/, ''), {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(missing.map(p => p.norm)),
+                signal: AbortSignal.timeout(60000) // Steam needs ~1.5s per skin
+              });
+              if (res.ok) {
+                const priceMap = await res.json(); // { "AK-47 | Redline (FT)": 12.34, ... }
+                missing.forEach(({ orig: skinName, norm }) => {
+                  const priceUSD = priceMap[norm] != null ? priceMap[norm] : priceMap[skinName];
+                  if (priceUSD && priceUSD > 0) { store(skinName, priceUSD, 'Steam'); steamMatched++; }
+                  else console.warn('[PRICES] CS2: no price for', skinName);
+                });
+              } else {
+                console.error('[PRICES] CS2 Worker HTTP', res.status);
+                addToast('CS2 Worker error: HTTP ' + res.status, 'warning');
               }
-            } else {
-              console.error('[PRICES] CS2 Worker HTTP', res.status);
-              addToast('CS2 Worker error: HTTP ' + res.status, 'warning');
+            }
+
+            const matchedCount = skinPairs.length - missing.length + steamMatched;
+            dbg('[PRICES] CS2 matched:', matchedCount, '/', skinPairs.length);
+            if (matchedCount < skinPairs.length) {
+              addToast(`CS2: ${matchedCount}/${skinPairs.length} prices fetched — check skin names match the Steam Market name exactly`, 'info');
             }
           } catch (e) {
             console.error('[PRICES] CS2 Worker error:', e.message);
@@ -1676,11 +1631,6 @@ function InvestmentTracker() {
       // skins are excluded so they keep their previous timestamp and badge stale.
       if (window.MaerminDataQuality) {
         window.MaerminDataQuality.recordFetch(Object.keys(newPrices).filter((k) => !carriedKeys.has(k)), 'live');
-        // Provenance: mark symbols that came from the Alpha Vantage fallback so the
-        // badge can show WHY (primary source returned no data) — not a silent swap.
-        if (avFallbackSyms.size) {
-          window.MaerminDataQuality.recordFetch([...avFallbackSyms], 'Alpha Vantage', { fallback: true, reason: 'Yahoo Finance returned no data' });
-        }
       }
 
       // Update price history
@@ -2037,7 +1987,9 @@ function InvestmentTracker() {
     setEditingTransactionId(null);
     const initial = {
       type: 'buy',
-      category: 'crypto',
+      // Start on the category entered last here (it was always Crypto).
+      category: window.MaerminUtils.defaultTxCategory(transactions, activePortfolioId,
+        ['crypto', 'stocks', 'skins', 'commodities', 'options'].concat(window.MaerminCategories ? window.MaerminCategories.ids() : [])),
       symbol: '',
       quantity: '',
       price: '',
@@ -2119,6 +2071,7 @@ function InvestmentTracker() {
         setTransactions(prev => [...prev, ...added]);
         const skipped = res.errors.length ? ` - ${res.errors.length} row(s) skipped (${firstErr})` : '';
         addToast(`${added.length} ${t.transactionsImported || 'transactions imported'}${skipped}`, res.errors.length ? 'warning' : 'success', res.errors.length ? 8000 : undefined);
+        (res.warnings || []).slice(0, 2).forEach(w => addToast(w, 'warning', 10000));
         setImportData('');
         setShowImportModal(false);
         return;
@@ -2337,6 +2290,7 @@ function InvestmentTracker() {
           if (!res.transactions.length) throw new Error('No transactions found' + (firstErr ? ' - ' + firstErr : ''));
           imported = res.transactions.map(tx => ({ ...tx, notes: tx.notes || '', portfolioId: activePortfolioId }));
           if (res.errors.length) addToast(`${res.errors.length} row(s) skipped (${firstErr})`, 'warning', 8000);
+          (res.warnings || []).slice(0, 2).forEach(w => addToast(w, 'warning', 10000));
         }
         if (!imported.length) throw new Error('No transactions found in data');
         const newTxs = imported.map((tx, i) => ({ id: (Date.now()+i).toString(), ...tx }));
@@ -2464,21 +2418,19 @@ function InvestmentTracker() {
 
     React.useEffect(() => { localStorage.setItem('maermin_divevents', JSON.stringify(divEvents)); }, [divEvents]);
 
-    // Auto-fetch dividends from Alpha Vantage for stock positions
+    // Auto-fetch dividends for stock positions (Yahoo Finance via the Worker)
     const fetchDividends = async () => {
-      // Primary: Yahoo Finance via Worker — returns dividend data in quote summary
-      // Fallback: Alpha Vantage OVERVIEW (if worker not configured)
       const workerBase = (apiKeys?.cs2Worker || '').trim().replace(/\/$/, '');
       const hasWorker  = workerBase.length > 5;
-      const avKey      = apiKeys?.alphaVantage;
 
-      if (!hasWorker && !avKey) {
-        addToast('Add your Worker URL or Alpha Vantage key in Settings to auto-fetch dividends', 'warning');
+      if (!hasWorker) {
+        addToast('Add your Worker URL in Settings to auto-fetch dividends', 'warning');
         return;
       }
 
+      const isTicker = window.MaerminTickers?.isMarketSymbol || (() => true);
       const stockSymbols = [...new Set(
-        transactions.filter(tx => tx.category === 'stocks').map(tx => (tx.symbol || '').toUpperCase()).filter(Boolean)
+        transactions.filter(tx => tx.category === 'stocks').map(tx => (tx.symbol || '').toUpperCase()).filter(s => s && isTicker(s))
       )];
       if (!stockSymbols.length) { addToast('No stock positions found', 'info'); return; }
 
@@ -2500,7 +2452,7 @@ function InvestmentTracker() {
 
       for (const sym of stockSymbols.slice(0, 20)) {
         let exDate = null, annualPerShare = 0, currency = 'USD', ppy = 4;
-        // Query Yahoo under the normalised/renamed ticker (e.g. FISV→FI, BRK.B→
+        // Query Yahoo under the normalised/renamed ticker (e.g. FB→META, BRK.B→
         // BRK-B) so renamed symbols resolve; keep `sym` for share-matching/labels.
         const qsym = (window.MaerminTickers && window.MaerminTickers.normalizeForDividends(sym)) || sym;
 
@@ -2523,22 +2475,6 @@ function InvestmentTracker() {
               }
             }
           } catch(e) { console.warn('[DIV] fundamentals failed for', sym, e.message); }
-        }
-
-        // ── Fallback: Alpha Vantage OVERVIEW (annual DPS + ex-date) ────────
-        if ((!annualPerShare || !exDate) && avKey) {
-          try {
-            const res  = await fetch(`https://www.alphavantage.co/query?function=OVERVIEW&symbol=${qsym}&apikey=${avKey}`);
-            const data = await res.json();
-            const avDiv = parseFloat(data.DividendPerShare) || 0; // AV reports the ANNUAL per-share
-            if (avDiv > 0) {
-              if (!annualPerShare) annualPerShare = avDiv;
-              if (!exDate && data.ExDividendDate && data.ExDividendDate !== 'None') exDate = data.ExDividendDate;
-              currency = 'USD';
-              dbg(`[DIV] AV fallback ${sym}: $${avDiv}/yr, ex: ${exDate}`);
-            }
-          } catch(e) { console.warn('[DIV] AV fallback failed for', sym, e.message); }
-          await new Promise(r => setTimeout(r, 500));
         }
 
         if (!(annualPerShare > 0)) continue;
@@ -3546,6 +3482,9 @@ function InvestmentTracker() {
           React.createElement('button', { onClick: () => setShowApiSettings(true), style: { padding: '0.5rem 1rem', background: currentTheme.warning, color: '#1a1a1a', border: 'none', borderRadius: '6px', cursor: 'pointer', fontWeight: '700', fontSize: '0.8rem' } }, 'Add Worker URL →')
         ),
 
+      // CS2 skins filed as stocks (see renderMisfiledSkins)
+      !demoMode && renderMisfiledSkins(),
+
       // Recovery-kit nudge for vaults created before recovery codes existed
       showRecoveryNudge && React.createElement('div', { style: { background: 'rgba(245,158,11,0.06)', border: '1px solid rgba(245,158,11,0.25)', borderRadius: '10px', padding: '0.875rem 1.25rem', marginBottom: '1.25rem', display: 'flex', alignItems: 'center', gap: '1rem', flexWrap: 'wrap' } },
         React.createElement('span', { style: { fontSize: '1.25rem', color: currentTheme.warning, fontWeight: '700' } }, '!'),
@@ -3882,6 +3821,69 @@ function InvestmentTracker() {
         ledgerIssues.length > 20 && React.createElement('li', { key: 'more' }, `… and ${ledgerIssues.length - 20} more`)));
   };
 
+  // CS2 skins filed as stocks (an import that did not know them): they get no
+  // price, and every refresh sent them to the stock routes, which 404ed and
+  // ran the Worker into its rate limit - Steam prices then failed too. One
+  // click moves them to CS2 Skins, with Steam's exact names when the Worker
+  // can look them up (imports upper-cased them).
+  const repairMisfiledSkins = async (found) => {
+    const T = window.MaerminTickers;
+    if (!T || !found.length || skinRepairBusy) return;
+    const count = found.reduce((s, f) => s + f.count, 0);
+    const ok = await askConfirm({
+      title: `Move ${found.length} item(s) to CS2 Skins?`,
+      message: `${count} transaction(s) of ${found.slice(0, 4).map(f => f.symbol).join(', ')}${found.length > 4 ? ` and ${found.length - 4} more` : ''} are filed as ${found[0].category === 'crypto' ? 'crypto' : 'stocks'} but are CS2 items. They will be moved to CS2 Skins so they get CS2 skin prices (Skinport, else Steam). Quantities, prices and dates stay as they are.`,
+      confirmLabel: 'Move to CS2 Skins',
+      cancelLabel: t.cancel || 'Cancel'
+    });
+    if (!ok) return;
+    setSkinRepairBusy(true);
+    const nameMap = {};
+    const base = (apiKeys.cs2Worker || '').trim().replace(/\/$/, '');
+    if (base.length > 5) {
+      // Exact names from the Skinport list first (one request, no throttling)...
+      const SP = window.MaerminSkinport;
+      const sp = SP ? await SP.load(base) : null;
+      if (sp) found.forEach(f => {
+        const e = sp.byLower[T.normalizeSkinName(f.symbol).toLowerCase()] || sp.byLower[String(f.symbol).toLowerCase()];
+        if (e) nameMap[f.symbol] = e.name;
+      });
+      // ...then Steam's search for the rest, one after another (Steam throttles bursts).
+      for (const f of found.filter(x => !nameMap[x.symbol])) {
+        try {
+          const q = T.normalizeSkinName(f.symbol);
+          const r = await fetch(`${base}?action=search&q=${encodeURIComponent(q)}`, { signal: AbortSignal.timeout(10000) });
+          const exact = r.ok ? T.pickSkinName(f.symbol, await r.json()) : null;
+          if (exact) nameMap[f.symbol] = exact;
+        } catch (e) { /* keep the re-spaced name */ }
+      }
+    }
+    let moved = 0;
+    setTransactions(prev => { const res = T.repairMisfiledSkins(prev, nameMap); moved = res.moved; return res.transactions; });
+    setSkinRepairBusy(false);
+    const named = Object.keys(nameMap).length;
+    addToast(`${found.length} item(s) moved to CS2 Skins${base.length > 5 ? ` · ${named}/${found.length} matched to their market name` : ''} - refresh prices to load them`, 'success', 8000);
+  };
+
+  const renderMisfiledSkins = () => {
+    const T = window.MaerminTickers;
+    if (!T || !T.findMisfiledSkins) return null;
+    const found = T.findMisfiledSkins(transactions);
+    if (!found.length) return null;
+    return React.createElement('div', {
+      role: 'status', 'data-testid': 'misfiled-skins',
+      style: { background: `${currentTheme.warning}14`, border: `1px solid ${currentTheme.warning}55`, borderRadius: '10px', padding: '0.75rem 0.9rem', marginBottom: '1rem', fontSize: '0.82rem', color: currentTheme.text, display: 'flex', flexWrap: 'wrap', gap: '0.75rem', alignItems: 'center', justifyContent: 'space-between' }
+    },
+      React.createElement('div', { style: { flex: '1 1 260px', lineHeight: 1.5 } },
+        React.createElement('strong', null, `${found.length} CS2 item(s) are filed as ${found.some(f => f.category === 'stocks') ? 'stocks' : 'crypto'}`),
+        React.createElement('div', { style: { color: currentTheme.textSecondary, fontSize: '0.78rem' } },
+          `${found.slice(0, 3).map(f => f.symbol).join(', ')}${found.length > 3 ? ' …' : ''} - they get no price there. Move them to CS2 Skins to get their skin prices.`)),
+      React.createElement('button', {
+        onClick: () => repairMisfiledSkins(found), disabled: skinRepairBusy,
+        style: { padding: '0.5rem 1rem', minHeight: '40px', background: currentTheme.accent, color: '#fff', border: 'none', borderRadius: '8px', cursor: skinRepairBusy ? 'wait' : 'pointer', fontWeight: '700', fontSize: '0.82rem' }
+      }, skinRepairBusy ? 'Looking up Steam names…' : 'Move to CS2 Skins'));
+  };
+
   const renderTransactionsView = () => {
     // Filter by active portfolio first, then by search
     const filtered = transactions.filter(tx => {
@@ -3918,6 +3920,7 @@ function InvestmentTracker() {
     };
 
     return React.createElement('div', { style: { padding: '1.5rem' } },
+      renderMisfiledSkins(),
       renderLedgerIssues(),
       // Header row
       React.createElement('div', {
@@ -4164,6 +4167,7 @@ function InvestmentTracker() {
     const inputStyle = { padding: '0.5rem 0.75rem', background: currentTheme.inputBg, border: `1px solid ${currentTheme.inputBorder}`, borderRadius: '8px', color: currentTheme.text, fontSize: '0.85rem' };
 
     return React.createElement('div', { style: { padding: '1.5rem' } },
+      renderMisfiledSkins(),
       renderLedgerIssues(),
       React.createElement('div', {
         style: { display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem', flexWrap: 'wrap', gap: '0.5rem' }
@@ -5166,15 +5170,15 @@ buy,crypto,bitcoin,0.5,45000,2024-01-15,10`)
             }, (apiKeys.cs2Worker||'').trim().length > 5 ? '✓ Configured' : 'Not configured')
           ),
           React.createElement('p', { style: { color: currentTheme.textSecondary, fontSize: '0.8rem', marginBottom: '0.875rem', lineHeight: '1.6' } },
-            'One Worker URL — three features: CS2 skin prices (Steam), historical portfolio chart (Yahoo Finance), and CS2 price history (Steam). No API key needed.'
+            'One Worker URL — three features: CS2 skin prices (Skinport, Steam for items Skinport lacks), historical portfolio chart (Yahoo Finance), and CS2 price history (Steam). No API key needed.'
           ),
           // Three-column feature overview
           React.createElement('div', { style: { display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '0.5rem', marginBottom: '0.875rem' } },
             React.createElement('div', { style: { background: 'rgba(6,182,212,0.06)', border: '1px solid rgba(6,182,212,0.15)', borderRadius: '6px', padding: '0.625rem 0.75rem', fontSize: '0.72rem', color: currentTheme.textSecondary, lineHeight: '1.6' } },
               React.createElement('div', { style: { color: '#06b6d4', fontWeight: '700', marginBottom: '0.25rem' } }, 'CS2 Skin Prices'),
-              React.createElement('div', null, '→ Steam Market prices'),
-              React.createElement('div', null, '→ Search with images'),
-              React.createElement('div', null, '→ Real-time via POST')
+              React.createElement('div', null, '→ Skinport price list'),
+              React.createElement('div', null, '→ Search with images (Steam)'),
+              React.createElement('div', null, '→ Steam for missing items')
             ),
             React.createElement('div', { style: { background: 'rgba(59,130,246,0.06)', border: '1px solid rgba(59,130,246,0.15)', borderRadius: '6px', padding: '0.625rem 0.75rem', fontSize: '0.72rem', color: currentTheme.textSecondary, lineHeight: '1.6' } },
               React.createElement('div', { style: { color: '#3b82f6', fontWeight: '700', marginBottom: '0.25rem' } }, 'Portfolio History Chart'),
@@ -5212,40 +5216,6 @@ buy,crypto,bitcoin,0.5,45000,2024-01-15,10`)
             onClick: () => { setShowApiSettings(false); openOnboarding(); },
             style: { marginTop: '0.625rem', padding: '0.5rem 0.9rem', background: 'transparent', color: currentTheme.accent, border: `1px solid ${currentTheme.accent}`, borderRadius: '6px', cursor: 'pointer', fontWeight: '600', fontSize: '0.8rem' }
           }, 'Guided setup & connection test')
-        ),
-
-        // Alpha Vantage Section — Fallback only
-        React.createElement('div', {
-          style: { background: currentTheme.inputBg, padding: '1.25rem', borderRadius: '8px', marginBottom: '1rem' }
-        },
-          React.createElement('div', {
-            style: { display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.5rem' }
-          },
-            React.createElement('div', null,
-              React.createElement('h3', { style: { color: currentTheme.text, fontSize: '1rem', fontWeight: '600' } }, 'Alpha Vantage'),
-              React.createElement('span', { style: { fontSize: '0.68rem', padding: '0.1rem 0.4rem', borderRadius: '3px', background: 'rgba(245,158,11,0.12)', color: '#f59e0b', fontWeight: '700' } }, 'Fallback only — optional')
-            ),
-            React.createElement('span', {
-              style: { fontSize: '0.75rem', padding: '0.25rem 0.5rem', borderRadius: '4px',
-                background: apiKeys.alphaVantage ? 'rgba(34,197,94,0.2)' : 'rgba(255,255,255,0.06)',
-                color: apiKeys.alphaVantage ? currentTheme.success : currentTheme.textSecondary }
-            }, apiKeys.alphaVantage ? 'Configured' : 'Not configured')
-          ),
-          React.createElement('p', { style: { color: currentTheme.textSecondary, fontSize: '0.8rem', marginBottom: '0.75rem', lineHeight: '1.5' } },
-            'Only used when the Cloudflare Worker is not set or Yahoo Finance returns no data for a symbol. Stock & commodity prices are fetched via Yahoo Finance first. Free tier: 25 requests/day.'
-          ),
-          React.createElement('input', {
-            type: 'password',
-            value: apiKeys.alphaVantage || '',
-            onChange: (e) => setApiKeys(prev => ({ ...prev, alphaVantage: e.target.value })),
-            placeholder: 'Enter Alpha Vantage API Key (optional)',
-            style: { width: '100%', padding: '0.75rem', background: currentTheme.background, border: `1px solid ${currentTheme.inputBorder}`, borderRadius: '6px', color: currentTheme.text, marginBottom: '0.5rem' }
-          }),
-          React.createElement('a', {
-            href: 'https://www.alphavantage.co/support/#api-key',
-            target: '_blank', rel: 'noopener noreferrer',
-            style: { color: currentTheme.accent, fontSize: '0.8rem', textDecoration: 'none' }
-          }, 'Get free API key from alphavantage.co')
         ),
 
         // Steam Market Info Section
@@ -5306,7 +5276,7 @@ buy,crypto,bitcoin,0.5,45000,2024-01-15,10`)
           ),
           React.createElement('p', {
             style: { color: currentTheme.textSecondary, fontSize: '0.8rem', marginBottom: '0.5rem' }
-          }, t.exchangeRateInfo || 'Stock prices from Alpha Vantage are in USD and automatically converted to EUR using daily exchange rates.'),
+          }, t.exchangeRateInfo || 'Prices quoted in USD or another currency (US stocks, CS2 skins) are converted to EUR with daily exchange rates.'),
           React.createElement('div', {
             style: { 
               display: 'flex',

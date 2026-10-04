@@ -34,7 +34,9 @@
         url: base + '?action=yf&symbol=AAPL&interval=1d&range=5d' },
       { id: 'yfsearch',     label: 'Symbol search',
         url: base + '?action=yfsearch&q=Apple&type=stock' },
-      { id: 'steamhistory', label: 'CS2 skin prices (Steam)',
+      { id: 'skinport',     label: 'CS2 skin prices (Skinport)',
+        url: base + '?action=skinport' },
+      { id: 'steamhistory', label: 'CS2 price history (Steam)',
         url: base + '?action=steamhistory&name=' + encodeURIComponent('AK-47 | Redline (Field-Tested)') },
       { id: 'search',       label: 'CS2 skin search',
         url: base + '?action=search&q=ak47' }

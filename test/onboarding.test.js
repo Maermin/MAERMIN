@@ -39,10 +39,11 @@ function fakeFetch(routes) {
 
   // endpoints
   const eps = O.endpoints('https://x.workers.dev/');
-  ok('builds 4 endpoint probes', eps.length === 4);
-  ok('ids are the 4 data sources', eps.map(e => e.id).join(',') === 'yf,yfsearch,steamhistory,search');
+  ok('builds 5 endpoint probes', eps.length === 5);
+  ok('ids are the 5 data sources', eps.map(e => e.id).join(',') === 'yf,yfsearch,skinport,steamhistory,search');
+  ok('skinport probe targets the price list', eps[2].url === 'https://x.workers.dev?action=skinport');
   ok('yf probe targets AAPL', eps[0].url === 'https://x.workers.dev?action=yf&symbol=AAPL&interval=1d&range=5d');
-  ok('steam name is URL-encoded', eps[2].url.indexOf(encodeURIComponent('AK-47 | Redline (Field-Tested)')) > -1);
+  ok('steam name is URL-encoded', eps[3].url.indexOf(encodeURIComponent('AK-47 | Redline (Field-Tested)')) > -1);
 
   // classify — happy paths
   ok('yf ok when prices present', O.classify('yf', { status: 200, payload: { prices: [1, 2] } }).state === 'ok');
@@ -74,10 +75,11 @@ function fakeFetch(routes) {
   const all = await O.probeAll('https://w.dev', { fetch: fakeFetch({
     'action=yf&': { status: 200, body: { prices: [1] } },
     'action=yfsearch': { status: 200, body: [{ s: 'A' }] },
+    'action=skinport': { status: 200, body: [{ market_hash_name: 'Fever Case', suggested_price: 0.8 }] },
     'action=steamhistory': { status: 200, body: { prices: [{ p: 1 }] } },
     'action=search': { status: 200, body: [{ n: 'ak' }] }
   }) });
-  ok('probeAll runs all 4', all.length === 4 && all.every(r => r.state === 'ok'));
+  ok('probeAll runs all 5', all.length === 5 && all.every(r => r.state === 'ok'));
 
   // fetchWorkerSource — first-path / fallback / all-fail
   const src1 = await O.fetchWorkerSource({ paths: ['a', 'b'], fetch: fakeFetch({ 'a': { status: 200, body: 'WORKER_CODE' } }) });

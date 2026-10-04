@@ -34,6 +34,9 @@
   function buildUrl(workerBase, symbol) {
     var base = String(workerBase || '').trim().replace(/\/+$/, '');
     if (!base || !symbol) return '';
+    // Not a ticker (e.g. a CS2 skin filed as a stock): no request.
+    var T = typeof window !== 'undefined' && window.MaerminTickers;
+    if (T && T.isMarketSymbol && !T.isMarketSymbol(symbol)) return '';
     return base + '?action=fundamentals&symbol=' + encodeURIComponent(symbol);
   }
 

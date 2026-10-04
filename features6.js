@@ -6,8 +6,9 @@
 //   → No API key needed  → no rate limits per-symbol
 //   → Worker caches responses (5 min short, 1h long periods)
 //
-// Fallback: Alpha Vantage (existing key) if Worker URL not set
+// Without a Worker URL: a flat line at the current price
 // Crypto: CoinGecko (free, direct)
+// CS2 skins: Steam price history via the Worker
 //
 // Periods: 1H · 1D · 1W · 1M · 1Y · 3Y · 5Y · Max
 // ============================================================================
@@ -91,14 +92,14 @@ function smoothAreaPath(points, baselineY) {
 // PERIOD CONFIG
 // ─────────────────────────────────────────────────────────────────────────────
 const PERIODS = [
-  { id: '1H',  label: '1H',  yfRange: '1d',  yfInterval: '1m',  cgDays: 1,    avCompact: true  },
-  { id: '1D',  label: '1D',  yfRange: '1d',  yfInterval: '5m',  cgDays: 1,    avCompact: true  },
-  { id: '1W',  label: '1W',  yfRange: '5d',  yfInterval: '60m', cgDays: 7,    avCompact: true  },
-  { id: '1M',  label: '1M',  yfRange: '1mo', yfInterval: '1d',  cgDays: 30,   avCompact: true  },
-  { id: '1Y',  label: '1Y',  yfRange: '1y',  yfInterval: '1d',  cgDays: 365,  avCompact: true  },
-  { id: '3Y',  label: '3Y',  yfRange: '5y',  yfInterval: '1wk', cgDays: 1095, avCompact: false },
-  { id: '5Y',  label: '5Y',  yfRange: '5y',  yfInterval: '1wk', cgDays: 1825, avCompact: false },
-  { id: 'Max', label: 'Max', yfRange: 'max', yfInterval: '1mo', cgDays: 'max', avCompact: false },
+  { id: '1H',  label: '1H',  yfRange: '1d',  yfInterval: '1m',  cgDays: 1 },
+  { id: '1D',  label: '1D',  yfRange: '1d',  yfInterval: '5m',  cgDays: 1 },
+  { id: '1W',  label: '1W',  yfRange: '5d',  yfInterval: '60m', cgDays: 7 },
+  { id: '1M',  label: '1M',  yfRange: '1mo', yfInterval: '1d',  cgDays: 30 },
+  { id: '1Y',  label: '1Y',  yfRange: '1y',  yfInterval: '1d',  cgDays: 365 },
+  { id: '3Y',  label: '3Y',  yfRange: '5y',  yfInterval: '1wk', cgDays: 1095 },
+  { id: '5Y',  label: '5Y',  yfRange: '5y',  yfInterval: '1wk', cgDays: 1825 },
+  { id: 'Max', label: 'Max', yfRange: 'max', yfInterval: '1mo', cgDays: 'max' },
 ];
 
 // Yahoo Finance symbol map for known European stocks
@@ -197,22 +198,6 @@ async function fetchCryptoHistory(coinId, period) {
   }));
 }
 
-// Alpha Vantage fallback for stocks (if no worker URL)
-async function fetchAVHistory(symbol, avKey, period) {
-  const outputsize = period.avCompact ? 'compact' : 'full';
-  const url = `https://www.alphavantage.co/query?function=TIME_SERIES_DAILY&symbol=${symbol}&outputsize=${outputsize}&apikey=${avKey}`;
-  const res = await fetch(url, { signal: AbortSignal.timeout(15000) });
-  if (!res.ok) throw new Error(`AV ${res.status}`);
-  const data = await res.json();
-  if (data['Note'] || data['Information']) throw new Error('Rate limit');
-  const series = data['Time Series (Daily)'];
-  if (!series) throw new Error(data['Error Message'] || 'No data');
-  return Object.entries(series).map(([date, v]) => ({
-    ts: Math.floor(new Date(date).getTime() / 1000),
-    date, price: parseFloat(v['4. close']), inEur: false,
-  })).sort((a, b) => a.ts - b.ts);
-}
-
 // ─────────────────────────────────────────────────────────────────────────────
 // CHART COMPONENT
 // ─────────────────────────────────────────────────────────────────────────────
@@ -228,7 +213,6 @@ function PortfolioHistoryChart({ portfolio, prices, transactions, apiKeys, theme
 
   const usdToEur      = exchangeRate || 0.91;
   const workerUrl     = (apiKeys?.cs2Worker || '').trim();
-  const avKey         = apiKeys?.alphaVantage;
   const hasWorker     = workerUrl.length > 5;
   const currentPeriod = PERIODS.find(p => p.id === period) || PERIODS[3];
 
@@ -301,7 +285,9 @@ function PortfolioHistoryChart({ portfolio, prices, transactions, apiKeys, theme
           const ckey = `${pos.sym}|${period}`;
           if (cacheRef.current[ckey]) { historyMap[pos.symOrig] = cacheRef.current[ckey]; return; }
           try {
-            const hist = await fetchCryptoHistory(pos.sym, currentPeriod);
+            // CoinGecko knows ids ("bitcoin"), not tickers ("btc").
+            const cgId = window.MaerminTickers?.coinGeckoId ? window.MaerminTickers.coinGeckoId(pos.sym) : pos.sym;
+            const hist = await fetchCryptoHistory(cgId, currentPeriod);
             cacheRef.current[ckey] = hist;
             historyMap[pos.symOrig] = hist;
           } catch(e) {
@@ -352,74 +338,52 @@ function PortfolioHistoryChart({ portfolio, prices, transactions, apiKeys, theme
       }
 
       // ── Stocks + Commodities: Yahoo Finance via Worker (parallel) ────────
+      // A symbol that cannot be a ticker (a CS2 skin filed as a stock) is not
+      // sent to Yahoo: it 404ed for the bare name and every exchange suffix,
+      // and that flood ran the Worker into its rate limit. It gets the flat
+      // line of its current price instead.
       const nonCrypto = positions.filter(p => p.cat !== 'crypto' && p.cat !== 'skins');
+      const isTicker = window.MaerminTickers?.isMarketSymbol || (() => true);
+      const flatFor = (pos) => {
+        const p = prices[pos.symOrig] || prices[(pos.symOrig||'').toLowerCase()] || 0;
+        return p > 0 ? flatLine(p, pos.firstTs) : null;
+      };
 
       if (hasWorker && nonCrypto.length > 0) {
         await Promise.all(nonCrypto.map(async pos => {
           const ckey = `${pos.symOrig}|${period}|yf`;
           if (cacheRef.current[ckey]) { historyMap[pos.symOrig] = cacheRef.current[ckey]; return; }
-          // Resolve to ONE history (YF → AV fallback → flat line), then cache it
-          // under `ckey` no matter which path won. A renamed/delisted symbol
-          // (e.g. FISV → 404) otherwise missed this cache every time buildChart
-          // re-ran (deps: prices/positions), re-hammering the dead 404 + AV on
-          // each render. Caching the resolved/flat result negative-caches the
-          // miss so the symbol is fetched at most once per period per session.
+          // Resolve to ONE history (YF → flat line), then cache it under `ckey`
+          // no matter which path won. A renamed/delisted symbol otherwise missed
+          // this cache every time buildChart re-ran (deps: prices/positions),
+          // re-hammering the dead 404 on each render. Caching the resolved/flat
+          // result negative-caches the miss so the symbol is fetched at most
+          // once per period per session.
           let resolved = null;
-          try {
-            const { prices: hist, currency } = await fetchYFHistory(pos.symOrig, currentPeriod, workerUrl);
-            // Currency-correct factor (GBp pence, CHF, …); unknown → fall through
-            // to the flat-line fallback instead of scaling by the USD rate.
-            const FXH  = window.MaerminFxHistory;
-            const rate = (FXH && FXH.quoteToEUR) ? FXH.quoteToEUR(1, currency || 'USD', usdToEur)
-              : ((currency === 'EUR') ? 1 : usdToEur);
-            if (!(rate > 0)) throw new Error('unsupported quote currency ' + currency);
-            resolved = hist.map(h => ({ ...h, price: h.price * rate }));
-            console.log(`[CHART] YF: ${pos.symOrig} (${currency}) → ${hist.length} points`);
-          } catch(e) {
-            console.warn('[CHART] YF failed for', pos.symOrig, '—', e.message);
-            if (pos.cat === 'stocks' && avKey) {
-              try {
-                const hist = await fetchAVHistory(pos.symOrig.toUpperCase(), avKey, currentPeriod);
-                resolved = hist.map(h => ({ ...h, price: h.price * usdToEur }));
-                console.log(`[CHART] AV fallback: ${pos.symOrig} → ${hist.length} points`);
-              } catch(e2) {
-                console.warn('[CHART] AV fallback failed for', pos.symOrig, '—', e2.message);
-              }
-            }
-            if (!resolved) {
-              const p = prices[pos.symOrig] || prices[(pos.symOrig||'').toLowerCase()] || 0;
-              if (p > 0) resolved = flatLine(p, pos.firstTs);
+          if (!isTicker(pos.symOrig)) {
+            resolved = flatFor(pos);
+          } else {
+            try {
+              const { prices: hist, currency } = await fetchYFHistory(pos.symOrig, currentPeriod, workerUrl);
+              // Currency-correct factor (GBp pence, CHF, …); unknown → fall through
+              // to the flat-line fallback instead of scaling by the USD rate.
+              const FXH  = window.MaerminFxHistory;
+              const rate = (FXH && FXH.quoteToEUR) ? FXH.quoteToEUR(1, currency || 'USD', usdToEur)
+                : ((currency === 'EUR') ? 1 : usdToEur);
+              if (!(rate > 0)) throw new Error('unsupported quote currency ' + currency);
+              resolved = hist.map(h => ({ ...h, price: h.price * rate }));
+              console.log(`[CHART] YF: ${pos.symOrig} (${currency}) → ${hist.length} points`);
+            } catch(e) {
+              console.warn('[CHART] YF failed for', pos.symOrig, '—', e.message);
+              resolved = flatFor(pos);
             }
           }
           if (resolved) { cacheRef.current[ckey] = resolved; historyMap[pos.symOrig] = resolved; }
         }));
-
-      } else if (!hasWorker && avKey && nonCrypto.length > 0) {
-        let rateLimited = false;
-        for (const pos of nonCrypto) {
-          const ckey = `${pos.symOrig}|${period}|av`;
-          if (cacheRef.current[ckey]) { historyMap[pos.symOrig] = cacheRef.current[ckey]; continue; }
-          if (rateLimited) {
-            const p = prices[pos.symOrig] || 0;
-            if (p > 0) historyMap[pos.symOrig] = flatLine(p, pos.firstTs);
-            continue;
-          }
-          try {
-            const hist    = await fetchAVHistory(pos.symOrig.toUpperCase(), avKey, currentPeriod);
-            const histEUR = hist.map(h => ({ ...h, price: h.price * usdToEur }));
-            cacheRef.current[ckey] = histEUR;
-            historyMap[pos.symOrig] = histEUR;
-          } catch(e) {
-            if ((e.message||'').includes('Rate limit')) rateLimited = true;
-            const p = prices[pos.symOrig] || 0;
-            if (p > 0) historyMap[pos.symOrig] = flatLine(p, pos.firstTs);
-          }
-          if (!rateLimited) await new Promise(r => setTimeout(r, 12500));
-        }
       } else {
         nonCrypto.forEach(pos => {
-          const p = prices[pos.symOrig] || prices[(pos.symOrig||'').toLowerCase()] || 0;
-          if (p > 0) historyMap[pos.symOrig] = flatLine(p, pos.firstTs);
+          const flat = flatFor(pos);
+          if (flat) historyMap[pos.symOrig] = flat;
         });
       }
 
@@ -507,7 +471,7 @@ function PortfolioHistoryChart({ portfolio, prices, transactions, apiKeys, theme
     } finally {
       setLoading(false);
     }
-  }, [positions, period, workerUrl, avKey, usdToEur, prices, currentPeriod]);
+  }, [positions, period, workerUrl, usdToEur, prices, currentPeriod]);
 
   useEffect(() => { buildChart(); }, [buildChart]);
 
@@ -740,9 +704,9 @@ function PortfolioHistoryChart({ portfolio, prices, transactions, apiKeys, theme
 
   const dataSources = [
     positions.some(p => p.cat === 'crypto')      && 'CoinGecko',
-    positions.some(p => p.cat === 'stocks')      && (hasWorker ? 'Yahoo Finance' : avKey ? 'Alpha Vantage' : null),
+    positions.some(p => p.cat === 'stocks')      && (hasWorker ? 'Yahoo Finance' : null),
     positions.some(p => p.cat === 'commodities') && (hasWorker ? 'Yahoo Finance' : null),
-    positions.some(p => p.cat === 'skins')       && (hasWorker ? 'Steam Market' : null),
+    positions.some(p => p.cat === 'skins')       && (hasWorker ? 'Steam Market (history)' : null),
   ].filter(Boolean);
 
   // ── Colour constants ──────────────────────────────────────────────────────
