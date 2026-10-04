@@ -401,7 +401,8 @@
     var TF_TYPES = [['aktienfonds', 'Equity fund', 0.30], ['mischfonds', 'Mixed fund', 0.15], ['immobilienfonds', 'Real-estate fund', 0.60], ['auslandsimmobilienfonds', 'Foreign RE fund', 0.80]];
 
     return e('div', { style: { background: card, border: '1px solid ' + border, borderRadius: '14px', padding: '1.1rem 1.25rem', marginTop: '1.25rem' } },
-      e('div', { style: { display: 'flex', justifyContent: 'space-between', alignItems: 'center', cursor: 'pointer' }, onClick: function () { setOpen(!open); } },
+      // Re-read on open: the church tax can also change in the fund-tax panel.
+      e('div', { style: { display: 'flex', justifyContent: 'space-between', alignItems: 'center', cursor: 'pointer' }, onClick: function () { if (!open) setS(TS.load()); setOpen(!open); } },
         e('h3', { style: { color: text, fontSize: '1rem', fontWeight: 700, margin: 0 } }, t.taxSettingsTitle || 'Tax settings (overrides)'),
         e('span', { style: { color: accent, fontSize: '0.8rem' } }, open ? 'Hide' : 'Edit')),
       open ? e('div', { style: { marginTop: '0.6rem' } },
