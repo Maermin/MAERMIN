@@ -706,7 +706,7 @@ function PortfolioHistoryChart({ portfolio, prices, transactions, apiKeys, theme
     positions.some(p => p.cat === 'crypto')      && 'CoinGecko',
     positions.some(p => p.cat === 'stocks')      && (hasWorker ? 'Yahoo Finance' : null),
     positions.some(p => p.cat === 'commodities') && (hasWorker ? 'Yahoo Finance' : null),
-    positions.some(p => p.cat === 'skins')       && (hasWorker ? 'Steam Market' : null),
+    positions.some(p => p.cat === 'skins')       && (hasWorker ? 'Steam Market (history)' : null),
   ].filter(Boolean);
 
   // ── Colour constants ──────────────────────────────────────────────────────

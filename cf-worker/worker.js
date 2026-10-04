@@ -13,8 +13,9 @@
  *   GET  /?action=fundamentals&symbol=KO       → dividend-safety fundamentals: payout
  *                                                 ratio, EPS, dividend rate/yield
  *   GET  /?action=steamhistory&name=...        → Steam skin price (fallback to current)
- *   GET  /?action=search&q=...                 → Steam Market skin search
- *   POST /                                      → Steam skin price lookup
+ *   GET  /?action=skinport                      → Skinport price list, all CS2 items (USD)
+ *   GET  /?action=search&q=...                 → Steam Market skin search (images)
+ *   POST /                                      → Steam skin price lookup (items Skinport lacks)
  */
 
 const STEAM_IMG = 'https://community.akamai.steamstatic.com/economy/image';
@@ -724,6 +725,33 @@ export default {
       } catch(e) { return res('<?xml version="1.0"?><rss><channel></channel></rss>', 200, request); }
     }
 
+    // ── Skinport price list (all CS2 items, one request) ─────────────────────
+    // GET /?action=skinport → Skinport's public /v1/items list in USD:
+    // [{ market_hash_name, suggested_price, min_price, median_price, quantity, ... }]
+    // One upstream call prices every skin, so the app no longer asks Steam per
+    // item (Steam 429-throttles Cloudflare IPs). The ~9 MB body is streamed
+    // through UNPARSED - parsing it would exceed the free plan's CPU budget;
+    // the app parses it. Kept 10 min (Skinport allows 8 calls / 5 min and
+    // caches 5 min itself); when Skinport refuses or fails, the last good copy
+    // (up to 24 h old) is served with `X-Skinport-Stale: 1`.
+    if (request.method === 'GET' && action === 'skinport') {
+      const copy = skinportStore(env);
+      const hit = await copy.get();
+      if (hit && Date.now() - hit.fetchedAt < SKINPORT_FRESH_MS) return passThrough(hit.response, request, false, hit.fetchedAt);
+      try {
+        const r = await fetchWithTimeout('https://api.skinport.com/v1/items?app_id=730&currency=USD&tradable=0',
+          { headers: { 'Accept-Encoding': 'br', 'Accept': 'application/json' } }, 20000);
+        if (!r.ok || !r.body) throw new Error('Skinport ' + r.status);
+        const [toClient, toStore] = r.body.tee();
+        const fetchedAt = Date.now();
+        ctx.waitUntil(copy.put(toStore, fetchedAt));
+        return passThrough(new Response(toClient), request, false, fetchedAt);
+      } catch (e) {
+        if (hit) return passThrough(hit.response, request, true, hit.fetchedAt);
+        return res(JSON.stringify({ error: 'Skinport unavailable: ' + (e && e.message) }), 502, request);
+      }
+    }
+
     if (request.method === 'GET' && action === 'search') {
       const q = url.searchParams.get('q') || '';
       if (!q) return res(JSON.stringify([]), 200, request);
@@ -1288,7 +1316,7 @@ export function isMarketSymbol(raw) {
 // Which rate-limit budget a request draws from: Steam (POST skin prices,
 // steamhistory, search) or everything else. PURE, exported for the harness.
 export function rateBucket(request, action) {
-  const steam = action === 'steamhistory' || action === 'search' ||
+  const steam = action === 'steamhistory' || action === 'search' || action === 'skinport' ||
     (request.method === 'POST' && !action);
   return steam ? 'steam' : 'default';
 }
@@ -1350,6 +1378,56 @@ export function allowOrigin(request) {
   if (_originCfg.list.includes(o)) return o;
   if (/^http:\/\/(localhost|127\.0\.0\.1)(:\d+)?$/i.test(o)) return o;
   return '';
+}
+
+// Skinport list: served from the edge copy for this long before re-fetching.
+const SKINPORT_FRESH_MS = 10 * 60 * 1000;
+
+// Where the last Skinport list is kept: the KV namespace bound as SYNC when
+// there is one (the edge cache does not keep anything for Workers on a
+// workers.dev address), else the edge cache. Values are streamed in and out,
+// never parsed. get() -> { response, fetchedAt } | null.
+function skinportStore(env) {
+  const KV_KEY = 'skinport:items-usd';
+  if (env && env.SYNC && typeof env.SYNC.put === 'function') {
+    return {
+      async get() {
+        const r = await env.SYNC.getWithMetadata(KV_KEY, { type: 'stream' });
+        if (!r || !r.value) return null;
+        return { response: new Response(r.value), fetchedAt: Number((r.metadata && r.metadata.fetchedAt) || 0) };
+      },
+      put: (stream, fetchedAt) => env.SYNC.put(KV_KEY, stream, { metadata: { fetchedAt }, expirationTtl: 86400 }),
+    };
+  }
+  const key = new Request('https://cache.maermin/skinport/items-usd');
+  return {
+    async get() {
+      const hit = await caches.default.match(key);
+      return hit ? { response: hit, fetchedAt: Number(hit.headers.get('X-Fetched-At') || 0) } : null;
+    },
+    put: (stream, fetchedAt) => caches.default.put(key, new Response(stream, {
+      headers: { 'Content-Type': 'application/json', 'X-Fetched-At': String(fetchedAt), 'Cache-Control': 'public, max-age=86400' },
+    })),
+  };
+}
+
+// Stream a cached/upstream Response to the client with the CORS headers of
+// res(), without reading the body (the Skinport list is never parsed here).
+function passThrough(upstream, request, stale, fetchedAt) {
+  const origin = allowOrigin(request);
+  return new Response(upstream.body, {
+    status: 200,
+    headers: {
+      ...(origin ? { 'Access-Control-Allow-Origin': origin } : {}),
+      'Access-Control-Allow-Methods': 'GET, POST, OPTIONS',
+      'Access-Control-Allow-Headers': 'Content-Type',
+      'Access-Control-Expose-Headers': 'X-Fetched-At, X-Skinport-Stale',
+      'Vary':         'Origin',
+      'Content-Type': 'application/json',
+      'X-Fetched-At': String(fetchedAt || Date.now()),
+      ...(stale ? { 'X-Skinport-Stale': '1' } : {}),
+    },
+  });
 }
 
 function res(body, status, request) {

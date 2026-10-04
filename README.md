@@ -114,7 +114,8 @@ After updating `cf-worker/worker.js`, paste and deploy it again — the app's ne
 |--------|----------|:------------:|
 | **Yahoo Finance** | Stocks, ETFs, commodities, all global exchanges, historical data | ✗ (via Worker) |
 | **CoinGecko** | Crypto prices + history | ✗ (direct) |
-| **Steam Market** | CS2 skin prices + search | ✗ (via Worker) |
+| **Skinport** | CS2 skin prices — one list for all items | ✗ (via Worker) |
+| **Steam Market** | CS2 skin search with images, price history, prices for items Skinport lacks | ✗ (via Worker) |
 | **ExchangeRate-API** | USD → EUR conversion | ✗ |
 | **Cloudflare Worker** | CORS proxy for all Worker endpoints | ✗ (free tier) |
 
@@ -200,7 +201,7 @@ Contributing guidelines and conventions: **[CONTRIBUTING.md](CONTRIBUTING.md)**.
 - Data requests go to: CoinGecko, ExchangeRate-API / open.er-api.com and your own Cloudflare Worker
 - Code from CDNs (version-pinned, SRI-checked): React from unpkg.com on every start; jsPDF and pdf.js from cdnjs.cloudflare.com on first PDF export/import
 - Images: position logos (Yahoo), coin icons (CoinGecko) and skin images (Steam) load from those services, which therefore see which logos you view
-- Your Worker only relays to Yahoo Finance / Steam / (optionally) whitelisted exchanges. It stores only the opt-in zero-knowledge sync blob and, if you use Share & Compare, the redacted share snapshots (percentages and scores, 90 days) with their anonymous aggregate
+- Your Worker only relays to Yahoo Finance / Skinport / Steam / (optionally) whitelisted exchanges. It stores only the opt-in zero-knowledge sync blob and, if you use Share & Compare, the redacted share snapshots (percentages and scores, 90 days) with their anonymous aggregate
 - Set or change the access password in-app (Settings → Change Password) — no code edits needed
 
 ---

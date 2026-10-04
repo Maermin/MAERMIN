@@ -1539,44 +1539,57 @@ function InvestmentTracker() {
             const skinPairs = pricePortfolio.skins
               .map(s => { const orig = (s.symbol || s.name || '').trim(); return { orig, norm: normalize(orig) }; })
               .filter(p => p.orig);
-            const skinNames = skinPairs.map(p => p.norm);
-            dbg('[PRICES] CS2 Steam: fetching', skinNames.length, 'skins via Worker...');
+            // Skins are delivered in USD → convert to the canonical EUR at full
+            // precision (display rounds later). All downstream calcs (Net Worth,
+            // Allocation, Performance, Showcase) read this map.
+            const store = (skinName, priceUSD, source) => {
+              const priceEUR = window.MaerminUtils.toEUR(priceUSD, 'USD', usdToEur);
+              newPrices[skinName.toLowerCase()] = priceEUR;
+              newPrices[skinName] = priceEUR;
+              dbg('[PRICES] CS2 (' + source + '):', skinName, '→ $' + priceUSD.toFixed(2), '→', priceEUR.toFixed(2), 'EUR');
+            };
 
-            // POST array of names — Worker fetches Steam price per skin
-            const res = await fetch(workerUrl.replace(/\/$/, ''), {
-              method: 'POST',
-              headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify(skinNames),
-              signal: AbortSignal.timeout(60000) // Steam needs ~1.5s per skin
-            });
-
-            if (res.ok) {
-              const priceMap = await res.json(); // { "AK-47 | Redline (FT)": 12.34, ... }
-              let matchedCount = 0;
-
-              skinPairs.forEach(({ orig: skinName, norm }) => {
-                const priceUSD = priceMap[norm] != null ? priceMap[norm] : priceMap[skinName];
-                if (priceUSD && priceUSD > 0) {
-                  // Skins are delivered in USD → convert to the canonical EUR at
-                  // full precision (display rounds later). All downstream calcs
-                  // (Net Worth, Allocation, Performance, Showcase) read this map.
-                  const priceEUR = window.MaerminUtils.toEUR(priceUSD, 'USD', usdToEur);
-                  newPrices[skinName.toLowerCase()] = priceEUR;
-                  newPrices[skinName] = priceEUR;
-                  matchedCount++;
-                  dbg('[PRICES] CS2:', skinName, '→ $' + priceUSD.toFixed(2), '→', priceEUR.toFixed(2), 'EUR');
-                } else {
-                  console.warn('[PRICES] CS2: no price for', skinName);
-                }
+            // 1) Skinport: one request prices every skin (no per-item Steam calls).
+            let missing = skinPairs;
+            const SP = window.MaerminSkinport;
+            const spIndex = SP ? await SP.load(workerUrl) : null;
+            if (spIndex) {
+              missing = [];
+              skinPairs.forEach(p => {
+                const usd = SP.priceFor(spIndex, p.norm) || SP.priceFor(spIndex, p.orig);
+                if (usd > 0) store(p.orig, usd, 'Skinport'); else missing.push(p);
               });
+              dbg('[PRICES] CS2 Skinport:', skinPairs.length - missing.length, '/', skinPairs.length);
+            }
 
-              dbg('[PRICES] CS2 matched:', matchedCount, '/', skinNames.length);
-              if (matchedCount < skinNames.length) {
-                addToast(`CS2: ${matchedCount}/${skinNames.length} prices fetched — check skin names match Steam Market exactly`, 'info');
+            // 2) Steam, only for items Skinport does not list (or when the
+            //    Worker has no Skinport route yet).
+            let steamMatched = 0;
+            if (missing.length) {
+              dbg('[PRICES] CS2 Steam: fetching', missing.length, 'skins via Worker...');
+              const res = await fetch(workerUrl.replace(/\/$/, ''), {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(missing.map(p => p.norm)),
+                signal: AbortSignal.timeout(60000) // Steam needs ~1.5s per skin
+              });
+              if (res.ok) {
+                const priceMap = await res.json(); // { "AK-47 | Redline (FT)": 12.34, ... }
+                missing.forEach(({ orig: skinName, norm }) => {
+                  const priceUSD = priceMap[norm] != null ? priceMap[norm] : priceMap[skinName];
+                  if (priceUSD && priceUSD > 0) { store(skinName, priceUSD, 'Steam'); steamMatched++; }
+                  else console.warn('[PRICES] CS2: no price for', skinName);
+                });
+              } else {
+                console.error('[PRICES] CS2 Worker HTTP', res.status);
+                addToast('CS2 Worker error: HTTP ' + res.status, 'warning');
               }
-            } else {
-              console.error('[PRICES] CS2 Worker HTTP', res.status);
-              addToast('CS2 Worker error: HTTP ' + res.status, 'warning');
+            }
+
+            const matchedCount = skinPairs.length - missing.length + steamMatched;
+            dbg('[PRICES] CS2 matched:', matchedCount, '/', skinPairs.length);
+            if (matchedCount < skinPairs.length) {
+              addToast(`CS2: ${matchedCount}/${skinPairs.length} prices fetched — check skin names match the Steam Market name exactly`, 'info');
             }
           } catch (e) {
             console.error('[PRICES] CS2 Worker error:', e.message);
@@ -3819,7 +3832,7 @@ function InvestmentTracker() {
     const count = found.reduce((s, f) => s + f.count, 0);
     const ok = await askConfirm({
       title: `Move ${found.length} item(s) to CS2 Skins?`,
-      message: `${count} transaction(s) of ${found.slice(0, 4).map(f => f.symbol).join(', ')}${found.length > 4 ? ` and ${found.length - 4} more` : ''} are filed as ${found[0].category === 'crypto' ? 'crypto' : 'stocks'} but are CS2 items. They will be moved to CS2 Skins so they are priced through Steam. Quantities, prices and dates stay as they are.`,
+      message: `${count} transaction(s) of ${found.slice(0, 4).map(f => f.symbol).join(', ')}${found.length > 4 ? ` and ${found.length - 4} more` : ''} are filed as ${found[0].category === 'crypto' ? 'crypto' : 'stocks'} but are CS2 items. They will be moved to CS2 Skins so they get CS2 skin prices (Skinport, else Steam). Quantities, prices and dates stay as they are.`,
       confirmLabel: 'Move to CS2 Skins',
       cancelLabel: t.cancel || 'Cancel'
     });
@@ -3828,8 +3841,15 @@ function InvestmentTracker() {
     const nameMap = {};
     const base = (apiKeys.cs2Worker || '').trim().replace(/\/$/, '');
     if (base.length > 5) {
-      // One search per item, one after another (Steam throttles bursts).
-      for (const f of found) {
+      // Exact names from the Skinport list first (one request, no throttling)...
+      const SP = window.MaerminSkinport;
+      const sp = SP ? await SP.load(base) : null;
+      if (sp) found.forEach(f => {
+        const e = sp.byLower[T.normalizeSkinName(f.symbol).toLowerCase()] || sp.byLower[String(f.symbol).toLowerCase()];
+        if (e) nameMap[f.symbol] = e.name;
+      });
+      // ...then Steam's search for the rest, one after another (Steam throttles bursts).
+      for (const f of found.filter(x => !nameMap[x.symbol])) {
         try {
           const q = T.normalizeSkinName(f.symbol);
           const r = await fetch(`${base}?action=search&q=${encodeURIComponent(q)}`, { signal: AbortSignal.timeout(10000) });
@@ -3842,7 +3862,7 @@ function InvestmentTracker() {
     setTransactions(prev => { const res = T.repairMisfiledSkins(prev, nameMap); moved = res.moved; return res.transactions; });
     setSkinRepairBusy(false);
     const named = Object.keys(nameMap).length;
-    addToast(`${found.length} item(s) moved to CS2 Skins${base.length > 5 ? ` · ${named}/${found.length} matched to their Steam name` : ''} - refresh prices to load them`, 'success', 8000);
+    addToast(`${found.length} item(s) moved to CS2 Skins${base.length > 5 ? ` · ${named}/${found.length} matched to their market name` : ''} - refresh prices to load them`, 'success', 8000);
   };
 
   const renderMisfiledSkins = () => {
@@ -3857,7 +3877,7 @@ function InvestmentTracker() {
       React.createElement('div', { style: { flex: '1 1 260px', lineHeight: 1.5 } },
         React.createElement('strong', null, `${found.length} CS2 item(s) are filed as ${found.some(f => f.category === 'stocks') ? 'stocks' : 'crypto'}`),
         React.createElement('div', { style: { color: currentTheme.textSecondary, fontSize: '0.78rem' } },
-          `${found.slice(0, 3).map(f => f.symbol).join(', ')}${found.length > 3 ? ' …' : ''} - they get no price there. Move them to CS2 Skins to price them through Steam.`)),
+          `${found.slice(0, 3).map(f => f.symbol).join(', ')}${found.length > 3 ? ' …' : ''} - they get no price there. Move them to CS2 Skins to get their skin prices.`)),
       React.createElement('button', {
         onClick: () => repairMisfiledSkins(found), disabled: skinRepairBusy,
         style: { padding: '0.5rem 1rem', minHeight: '40px', background: currentTheme.accent, color: '#fff', border: 'none', borderRadius: '8px', cursor: skinRepairBusy ? 'wait' : 'pointer', fontWeight: '700', fontSize: '0.82rem' }
@@ -5150,15 +5170,15 @@ buy,crypto,bitcoin,0.5,45000,2024-01-15,10`)
             }, (apiKeys.cs2Worker||'').trim().length > 5 ? '✓ Configured' : 'Not configured')
           ),
           React.createElement('p', { style: { color: currentTheme.textSecondary, fontSize: '0.8rem', marginBottom: '0.875rem', lineHeight: '1.6' } },
-            'One Worker URL — three features: CS2 skin prices (Steam), historical portfolio chart (Yahoo Finance), and CS2 price history (Steam). No API key needed.'
+            'One Worker URL — three features: CS2 skin prices (Skinport, Steam for items Skinport lacks), historical portfolio chart (Yahoo Finance), and CS2 price history (Steam). No API key needed.'
           ),
           // Three-column feature overview
           React.createElement('div', { style: { display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '0.5rem', marginBottom: '0.875rem' } },
             React.createElement('div', { style: { background: 'rgba(6,182,212,0.06)', border: '1px solid rgba(6,182,212,0.15)', borderRadius: '6px', padding: '0.625rem 0.75rem', fontSize: '0.72rem', color: currentTheme.textSecondary, lineHeight: '1.6' } },
               React.createElement('div', { style: { color: '#06b6d4', fontWeight: '700', marginBottom: '0.25rem' } }, 'CS2 Skin Prices'),
-              React.createElement('div', null, '→ Steam Market prices'),
-              React.createElement('div', null, '→ Search with images'),
-              React.createElement('div', null, '→ Real-time via POST')
+              React.createElement('div', null, '→ Skinport price list'),
+              React.createElement('div', null, '→ Search with images (Steam)'),
+              React.createElement('div', null, '→ Steam for missing items')
             ),
             React.createElement('div', { style: { background: 'rgba(59,130,246,0.06)', border: '1px solid rgba(59,130,246,0.15)', borderRadius: '6px', padding: '0.625rem 0.75rem', fontSize: '0.72rem', color: currentTheme.textSecondary, lineHeight: '1.6' } },
               React.createElement('div', { style: { color: '#3b82f6', fontWeight: '700', marginBottom: '0.25rem' } }, 'Portfolio History Chart'),

@@ -696,20 +696,27 @@ function CS2SkinPicker({ workerUrl, theme, onSelect, selectedName }) {
     debounceRef.current = setTimeout(async () => {
       if (!workerUrl) { setError('No Worker URL set — add it in API Settings'); return; }
       setLoading(true); setError(null);
+      // Images (and rarity/wear) come from Steam's search; prices from the
+      // Skinport list - the same source the portfolio is priced with. When
+      // Steam throttles the search, the Skinport list is searched instead
+      // (names and prices, no images).
+      const SP = window.MaerminSkinport;
+      const spPromise = SP ? SP.load(workerUrl) : Promise.resolve(null);
       try {
         const base = workerUrl.trim().replace(/\/$/, '');
         const url  = `${base}?action=search&q=${encodeURIComponent(query.trim())}`;
         const res  = await fetch(url, { signal: AbortSignal.timeout(10000) });
         if (!res.ok) throw new Error('Worker returned ' + res.status);
         const data = await res.json();
-        if (Array.isArray(data)) {
-          setResults(data);
-          setOpen(true);
-        } else {
-          setError(data.error || 'Search failed');
-        }
+        if (!Array.isArray(data)) throw new Error(data.error || 'Search failed');
+        const sp = await spPromise;
+        setResults(sp ? data.map(it => { const p = SP.priceFor(sp, it.name); return p > 0 ? { ...it, price: p } : it; }) : data);
+        setOpen(true);
       } catch (e) {
-        setError(e.message);
+        const sp = await spPromise;
+        const local = sp ? SP.search(sp, query.trim(), 24) : [];
+        if (local.length) { setResults(local); setOpen(true); }
+        else setError(e.message);
       } finally {
         setLoading(false);
       }
@@ -817,7 +824,7 @@ function CS2SkinPicker({ workerUrl, theme, onSelect, selectedName }) {
               }, item.wear),
               item.price && React.createElement('span', {
                 style: { fontSize: '0.75rem', fontWeight: '700', color: '#22c55e' }
-              }, `€${item.price.toFixed(2)}`)
+              }, `$${item.price.toFixed(2)}`) // skin prices are USD (Skinport / Steam)
             )
           )
         )

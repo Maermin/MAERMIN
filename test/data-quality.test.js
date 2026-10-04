@@ -22,7 +22,7 @@ const Q = require('../data-quality.js');
   console.log('source labels:');
   ok('crypto → CoinGecko', Q.sourceFor('crypto') === 'CoinGecko');
   ok('stocks → Yahoo Finance', Q.sourceFor('stocks') === 'Yahoo Finance');
-  ok('skins → Steam Market', Q.sourceFor('skins') === 'Steam Market');
+  ok('skins → Skinport / Steam Market', Q.sourceFor('skins') === 'Skinport / Steam Market');
 
   console.log('priceState — never a silent zero:');
   const good = Q.priceState(228, { category: 'stocks', fetchedAt: now - 60000, now });
