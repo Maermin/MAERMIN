@@ -73,6 +73,19 @@ function approx(a, b, eps) { return Math.abs(a - b) < (eps || 1e-9); }
   ok('the font licence ships with the files', fs.existsSync(path.join(rootDir, 'fonts', 'OFL.txt')));
   ok('build.mjs copies the fonts into dist', /fonts/.test(read('build.mjs')) && /OFL\.txt|readdir/.test(read('build.mjs')));
 
+  // ---- LOOK-003: advisor amounts follow the app formatter (privacy, currency)
+  console.log('LOOK-003 advisor amounts');
+  const ADVZ = require('../advisor.js');
+  const bundle3 = { dividends: { available: true, totalAnnual: 11.52, monthly: 0.96, yield: 0.1, payers: 1 },
+    taxLoss: { available: true, totalLoss: -500, totalSavings: 131.88, rows: [{ symbol: 'X', unrealizedLoss: -500, taxSavings: 131.88 }] } };
+  const textOf = (r) => r.findings.map((f) => f.title + ' ' + f.detail).join(' | ');
+  const plain = textOf(ADVZ.analyzeFromMetrics(bundle3, {}));
+  ok('default amounts are in EUR, not $', /€/.test(plain) && !/\$/.test(plain));
+  const masked = textOf(ADVZ.analyzeFromMetrics(bundle3, {}, { formatMoney: () => '••••••' }));
+  ok('a masking formatter hides every amount (Privacy Mode)', /••••••/.test(masked) && !/12|0\.96|132|131/.test(masked));
+  const usd = textOf(ADVZ.analyzeFromMetrics(bundle3, {}, { formatMoney: (v) => (v / 0.9).toFixed(2) + ' $' }));
+  ok('the app formatter decides currency and conversion', /12\.80 \$/.test(usd));
+
   // ---- UX-002: confirm before a pasted full backup is restored --------------
   console.log('UX-002 backup restore confirmation');
   const B = require('../backup-engine.js');

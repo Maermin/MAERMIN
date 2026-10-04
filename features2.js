@@ -1214,7 +1214,9 @@ function PositionNotesView({ portfolio, theme, t }) {
 // ─────────────────────────────────────────────────────────────────────────────
 // 5. DIVIDEND CALENDAR
 // ─────────────────────────────────────────────────────────────────────────────
-function DividendCalendarView({ portfolio, prices, metaVersion, theme, t, addToast, events: eventsProp, setEvents: setEventsProp }) {
+function DividendCalendarView({ portfolio, prices, metaVersion, theme, t, addToast, events: eventsProp, setEvents: setEventsProp, privacyMode }) {
+  // Privacy Mode masks every amount, like the app's formatPrice.
+  const amt = (text) => (privacyMode ? '••••••' : text);
   // Controlled when the parent passes events/setEvents (so auto-fetched payments
   // appear immediately); otherwise self-manage from localStorage (standalone use).
   const controlled = eventsProp != null && typeof setEventsProp === 'function';
@@ -1313,7 +1315,7 @@ function DividendCalendarView({ portfolio, prices, metaVersion, theme, t, addToa
       React.createElement('div', null,
         React.createElement('h2', { style: { color: theme.text, fontSize: '1.5rem', fontWeight: '800', letterSpacing: '-0.02em' } }, (t.dividendCalendar || 'Dividend Calendar')),
         React.createElement('div', { style: { color: theme.textSecondary, fontSize: '0.85rem', marginTop: '0.25rem' } },
-          `${monthNames[month]} ${year}: ${totalThisMonth.toFixed(2)} € · Year ${year}: ${totalYear.toFixed(2)} €`
+          `${monthNames[month]} ${year}: ${amt(totalThisMonth.toFixed(2) + ' €')} · Year ${year}: ${amt(totalYear.toFixed(2) + ' €')}`
         )
       ),
       React.createElement('div', { style: { display: 'flex', gap: '0.5rem', alignItems: 'center' } },
@@ -1379,7 +1381,7 @@ function DividendCalendarView({ portfolio, prices, metaVersion, theme, t, addToa
                   : Promise.resolve(window.confirm(`Delete dividend? ${e.symbol} ${e.amount} ${e.currency}`));
                 ask.then(yes => { if (yes) setEvents(prev => prev.filter(ev => ev.id !== e.id)); });
               })),
-              `${e.symbol} +${e.amount}${e.currency==='EUR'?'€':'$'}`)
+              `${e.symbol} ${amt('+' + e.amount + (e.currency==='EUR'?'€':'$'))}`)
             )
           );
         })
@@ -1394,7 +1396,7 @@ function DividendCalendarView({ portfolio, prices, metaVersion, theme, t, addToa
         React.createElement('div', { key: e.id, style: { display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '0.625rem 0.75rem', background: theme.card, borderRadius: '6px', marginBottom: '0.375rem', border: `1px solid ${theme.cardBorder}` } },
           React.createElement('span', { style: { color: theme.text, fontWeight: '600', fontSize: '0.875rem', minWidth: '64px' } }, e.symbol),
           React.createElement('span', { style: { color: theme.textSecondary, fontSize: '0.875rem' } }, new Date(e.date).toLocaleDateString('en-US')),
-          React.createElement('span', { style: { color: e.derived ? '#7cb0ff' : '#22c55e', fontWeight: '700', fontSize: '0.875rem' } }, `+${e.amount} ${e.currency==='EUR'?'€':'$'}`)
+          React.createElement('span', { style: { color: e.derived ? '#7cb0ff' : '#22c55e', fontWeight: '700', fontSize: '0.875rem' } }, amt(`+${e.amount} ${e.currency==='EUR'?'€':'$'}`))
         )
       )
     )

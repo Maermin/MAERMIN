@@ -2635,7 +2635,7 @@ function InvestmentTracker() {
       React.createElement('div', { style: { flex: 1, overflow: 'auto' } },
         tab === 'calendar' && window.MaerminFeatures2 ?
           React.createElement(window.MaerminFeatures2.DividendCalendarView, {
-            portfolio, prices, metaVersion, theme, t, addToast, events: divEvents, setEvents: setDivEvents
+            portfolio, prices, metaVersion, theme, t, addToast, events: divEvents, setEvents: setDivEvents, privacyMode
           }) : null,
         tab === 'forecast' && window.MaerminFeatures4 ?
           React.createElement(window.MaerminFeatures4.DividendForecastView, {
@@ -3045,6 +3045,8 @@ function InvestmentTracker() {
           window.MaerminAdvisor && window.MaerminAdvisor.Panel && React.createElement('div', { style: { padding: '1rem 1.5rem 1.5rem' } },
             React.createElement(window.MaerminAdvisor.Panel, {
               portfolio, prices, transactions: activeTransactions, theme: currentTheme, t,
+              // Amounts in the findings follow Privacy Mode and the display currency.
+              formatMoney: (v) => `${formatPrice(v)} ${getCurrencySymbol()}`,
               extras: (() => {
                 const extras = {};
                 if (lookThroughResult) extras.lookThrough = lookThroughResult;
