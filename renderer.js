@@ -3766,6 +3766,7 @@ function InvestmentTracker() {
       if (i.kind === 'oversold') return `${i.symbol} (${i.category}): ${+i.qty.toFixed(8)} more unit(s) sold than bought. The excess has no cost basis and is left out of realised gains - add the missing buy or transfer.`;
       if (i.kind === 'quantity') return `${i.symbol || 'A transaction'} (${i.category}), ${i.type} on ${i.date || 'an unknown date'}: quantity "${i.qty}" is not a positive number, so the trade is left out. Edit it (a sell needs a positive quantity).`;
       if (i.status === 'unknown') return `${i.symbol || 'A transaction'} in ${i.currency}: no exchange rate, so the amounts are counted as EUR. Change the transaction currency.`;
+      if (/^(USD|USDT|USDC|BUSD|FDUSD|TUSD|USDP|DAI)$/i.test(String(i.currency))) return `${i.currency} (e.g. ${i.symbol || 'a transaction'}): no stored USD rate for the trade date, so the nearest stored rate is used. Add a Worker URL in API Settings to load the daily history.`;
       return (window.MaerminFxHistory && window.MaerminFxHistory.hasHistory && window.MaerminFxHistory.hasHistory(i.currency))
         ? `${i.currency} (e.g. ${i.symbol || 'a transaction'}): no ${i.currency} rate for the trade date (not loaded through the Worker yet, or the rate history does not reach that date) - today's rate is used.`
         : `${i.currency} (e.g. ${i.symbol || 'a transaction'}): converted at today's rate for every date - there is no daily history for this currency.`;
