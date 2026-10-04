@@ -534,6 +534,8 @@ function InvestmentTracker() {
     currency: 'EUR', // Track which currency the transaction was added in
     targetPortfolioId: 'default',
   });
+  // Required fields the last save attempt found empty (marked in the dialog).
+  const [txMissing, setTxMissing] = useState([]);
   // v12: modal open-states live in MaerminUI.overlays. Read the slice via
   // useStore; keep the setShowX name as a thin shim that delegates to the store,
   // so every existing call site (incl. the Escape handler + toggles) is unchanged.
@@ -1924,10 +1926,23 @@ function InvestmentTracker() {
     }
 
     const effectiveSymbol = isOption ? window.MaerminOptions.contractSymbol(optionFields) : newTransaction.symbol;
-    if (!effectiveSymbol || !newTransaction.quantity || !newTransaction.price) {
-      addToast(t.fillRequired || 'Please fill required fields', 'error');
+    // Name the empty required fields, mark them and focus the first one (the
+    // toast used to say only "Please fill required fields").
+    const missing = window.MaerminUtils.missingTxFields(newTransaction, effectiveSymbol || '');
+    if (missing.length) {
+      const fieldNames = { symbol: t.symbol || 'Symbol', quantity: t.quantity || 'Quantity', price: t.pricePerUnit || 'Price per Unit' };
+      setTxMissing(missing);
+      addToast(`${t.fillInFields || 'Please fill in'}: ${missing.map(f => fieldNames[f]).join(', ')}`, 'error');
+      setTimeout(() => {
+        const dlg = document.querySelector('[aria-labelledby="dlg-transaction"]') || document;
+        const el = missing[0] === 'symbol'
+          ? dlg.querySelector('[aria-label="Symbol"], [aria-label="Skin"], [aria-label="Underlying symbol"]')
+          : document.getElementById('tx-' + missing[0]);
+        if (el && el.focus) el.focus();
+      }, 0);
       return;
     }
+    setTxMissing([]);
 
     // Locale-tolerant parsing ("1,5" = 1.5) + hard validation: a NaN quantity or
     // price would silently corrupt every downstream metric.
@@ -1992,6 +2007,7 @@ function InvestmentTracker() {
       currency: currency,
       targetPortfolioId: activePortfolioId,
     });
+    setTxMissing([]);
     setShowTransactionModal(true);
   };
 
@@ -2016,6 +2032,7 @@ function InvestmentTracker() {
       contractSize: tx.contractSize?.toString() || '',
     });
     setEditingTransactionId(tx.id);
+    setTxMissing([]);
     // NOTE: do NOT call openTransactionModal() here — it resets the form and
     // clears editingTransactionId, which made edits save as brand-new records.
     // Just reveal the modal; the form + editingTransactionId are already set.
@@ -4335,7 +4352,13 @@ function InvestmentTracker() {
     if (!showTransactionModal) return null;
     
     const isEditing = !!editingTransactionId;
-    
+    // Fields flagged by the last save attempt that are still empty.
+    const emptyNow = window.MaerminUtils.missingTxFields(newTransaction,
+      newTransaction.category === 'options' ? (newTransaction.underlying || '') : undefined);
+    const shownMissing = txMissing.filter(f => emptyNow.includes(f));
+    const fieldNames = { symbol: t.symbol || 'Symbol', quantity: t.quantity || 'Quantity', price: t.pricePerUnit || 'Price per Unit' };
+    const invalidProps = (f) => shownMissing.includes(f) ? { 'aria-invalid': true, 'aria-describedby': 'tx-missing' } : {};
+
     const closeModal = () => {
       setShowTransactionModal(false);
       setEditingTransactionId(null);
@@ -4622,6 +4645,7 @@ function InvestmentTracker() {
           }, t.quantity || 'Quantity'),
           React.createElement('input', {
             id: 'tx-quantity',
+            ...invalidProps('quantity'),
             type: 'number',
             value: newTransaction.quantity,
             onChange: (e) => setNewTransaction(prev => ({ ...prev, quantity: e.target.value })),
@@ -4646,6 +4670,7 @@ function InvestmentTracker() {
           }, t.pricePerUnit || 'Price per Unit'),
           React.createElement('input', {
             id: 'tx-price',
+            ...invalidProps('price'),
             type: 'number',
             value: newTransaction.price,
             onChange: (e) => setNewTransaction(prev => ({ ...prev, price: e.target.value })),
@@ -4816,6 +4841,12 @@ function InvestmentTracker() {
           )
         ),
         
+        // Which required fields are still empty after a save attempt.
+        shownMissing.length ? React.createElement('div', {
+          id: 'tx-missing', role: 'alert',
+          style: { color: currentTheme.danger, fontSize: '0.85rem', fontWeight: 600, marginBottom: '0.75rem' }
+        }, `${t.fillInFields || 'Please fill in'}: ${shownMissing.map(f => fieldNames[f]).join(', ')}`) : null,
+
         // Buttons
         React.createElement('div', { style: { display: 'flex', gap: '1rem' } },
           React.createElement('button', {

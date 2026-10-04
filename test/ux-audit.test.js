@@ -55,6 +55,17 @@ function approx(a, b, eps) { return Math.abs(a - b) < (eps || 1e-9); }
   const sumBad = typeof B.summary === 'function' ? B.summary({ store: { transactions: 'not json' } }) : null;
   ok('unreadable transactions → count null, no throw', !!sumBad && sumBad.transactionCount === null && sumBad.timestamp === null);
 
+  // ---- UX-005: name the missing required fields ------------------------------
+  console.log('UX-005 missing transaction fields');
+  const U = require('../utils.js');
+  const miss = (tx, sym) => (typeof U.missingTxFields === 'function' ? U.missingTxFields(tx, sym) : null);
+  ok('missingTxFields exists', typeof U.missingTxFields === 'function');
+  ok('empty form → symbol, quantity, price (in form order)', JSON.stringify(miss({ symbol: '', quantity: '', price: '' })) === '["symbol","quantity","price"]');
+  ok('only the price missing', JSON.stringify(miss({ symbol: 'BTC', quantity: '1', price: '' })) === '["price"]');
+  ok('whitespace-only symbol counts as missing', JSON.stringify(miss({ symbol: '  ', quantity: '1', price: '5' })) === '["symbol"]');
+  ok('a derived symbol (options) is used instead of tx.symbol', JSON.stringify(miss({ symbol: '', quantity: '1', price: '5' }, 'AAPL 2026-12-18 C 150')) === '[]');
+  ok('complete form → nothing missing', JSON.stringify(miss({ symbol: 'BTC', quantity: '0.5', price: '45000' })) === '[]');
+
   const UI = require('../ui-store.js');
   const hasConfirm = typeof UI.confirm === 'function' && typeof UI.answerConfirm === 'function';
   ok('MaerminUI.confirm / answerConfirm exist', hasConfirm);

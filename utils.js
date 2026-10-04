@@ -218,7 +218,22 @@
     return { label, tone, color: TX_TONES[tone].color, background: TX_TONES[tone].background };
   }
 
+  // Required fields of the transaction form that are still empty, in form
+  // order ('symbol', 'quantity', 'price'). `symbol` overrides tx.symbol (an
+  // option contract derives it). Values are only checked for presence here;
+  // the save handler validates the numbers afterwards.
+  function missingTxFields(tx, symbol) {
+    tx = tx || {};
+    const empty = (v) => v == null || String(v).trim() === '';
+    const out = [];
+    if (empty(symbol != null ? symbol : tx.symbol)) out.push('symbol');
+    if (empty(tx.quantity)) out.push('quantity');
+    if (empty(tx.price)) out.push('price');
+    return out;
+  }
+
   const MaerminUtils = {
+    missingTxFields,
     txTypeInfo,
     formatNumber,
     formatCurrencyEUR,
