@@ -370,7 +370,18 @@ function getValueByMapping(row, column) {
  */
 function parseDate(dateStr) {
   if (!dateStr) return new Date().toISOString();
-  
+
+  // The mapping pipeline's parser first: day-first dotted dates and a plain
+  // 'YYYY-MM-DD' result. Native Date parsing read 01.02.2025 as 2 January, and
+  // a local-midnight Date turned into the previous day by toISOString() east
+  // of UTC (31.12.2025 -> 2025-12-30).
+  const IM = (typeof window !== 'undefined' && window.MaerminImportMapping)
+    || (typeof require === 'function' ? (() => { try { return require('./import-mapping.js'); } catch (e) { return null; } })() : null);
+  if (IM && typeof IM.parseDate === 'function') {
+    const d = IM.parseDate(dateStr);
+    if (d) return d;
+  }
+
   // Try common formats
   const formats = [
     // ISO

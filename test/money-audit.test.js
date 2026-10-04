@@ -59,6 +59,16 @@ function approx(a, b, eps) { return Math.abs(a - b) < (eps || 0.005); }
   ok('ledger data check lists the approximate USD conversion', lb.issues.some((i) => i.kind === 'currency' && i.currency === 'USD' && i.status === 'approx'));
   ok('plain resolver use (no fxAt) keeps the static rate as "exact"', F.txToEUR(1000, 'USD', '2022-03-01', 0.85, null).status === 'exact');
 
+  // ---- BUG-010: legacy CSV fallback reads dates day-first, no UTC shift -----
+  console.log('BUG-010 legacy CSV dates');
+  process.env.TZ = 'Europe/Berlin';
+  const IE = require('../import-export-engine.js');
+  const legacyDates = IE.importData('Date,Symbol,Quantity,Price\n31.12.2025,AAPL,1,100\n01.02.2025,MSFT,1,100\n2025-03-10,SAP,1,100', 'csv', { broker: 'generic' })
+    .transactions.map((t) => String(t.date).slice(0, 10));
+  ok('31.12.2025 stays 2025-12-31 (no shift into the day before)', legacyDates[0] === '2025-12-31');
+  ok('01.02.2025 is 1 February, not 2 January', legacyDates[1] === '2025-02-01');
+  ok('ISO dates unchanged', legacyDates[2] === '2025-03-10');
+
   console.log('\n  ' + passed + ' passed, ' + failed + ' failed');
   process.exit(failed ? 1 : 0);
 })();
