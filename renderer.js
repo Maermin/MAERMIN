@@ -3341,7 +3341,7 @@ function InvestmentTracker() {
       // ── Demo-mode banner ─────────────────────────────────────────────────
       demoMode && React.createElement('div', {
         style: { display: 'flex', alignItems: 'center', gap: '0.6rem', flexWrap: 'wrap', padding: '0.6rem 0.9rem', marginBottom: '1rem', borderRadius: '10px', background: `${currentTheme.accent}14`, border: `1px solid ${currentTheme.accent}55`, color: currentTheme.text, fontSize: '0.82rem' } },
-        React.createElement('span', null, '★ You are exploring MAERMIN with sample data — your real data is untouched.'),
+        React.createElement('span', null, '★ You are exploring MAERMIN with sample data — your real data is untouched. Changes made in demo mode are not saved.'),
         React.createElement('button', { onClick: exitDemo, style: { marginLeft: 'auto', minHeight: '40px', padding: '0.45rem 0.9rem', background: currentTheme.accent, color: '#ffffff', border: 'none', borderRadius: '8px', cursor: 'pointer', fontWeight: '700', fontSize: '0.8rem' } }, 'Exit demo & use my data')
       ),
 
