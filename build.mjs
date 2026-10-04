@@ -11,7 +11,7 @@
  * Run:     npm run build:web
  */
 import { build } from 'esbuild';
-import { readFile, writeFile, mkdir, copyFile, rm } from 'node:fs/promises';
+import { readFile, writeFile, mkdir, copyFile, rm, readdir } from 'node:fs/promises';
 import { fileURLToPath } from 'node:url';
 import { dirname, join } from 'node:path';
 
@@ -87,6 +87,12 @@ console.log('[build] dist/compute.worker.js  ' + (workerOut.outputFiles[0].text.
 for (const asset of ['manifest.webmanifest', 'service-worker.js', 'icon.svg']) {
   await copyFile(join(root, asset), join(dist, asset));
 }
+// Self-hosted web fonts (styles.css @font-face) and their licence (OFL.txt):
+// no request to Google Fonts in dev or prod.
+await mkdir(join(dist, 'fonts'), { recursive: true });
+for (const file of await readdir(join(root, 'fonts'))) {
+  await copyFile(join(root, 'fonts', file), join(dist, 'fonts', file));
+}
 
 // The loading-screen teardown lived in an inline <script>. Ship it as an
 // external file so prod can run under a STRICT CSP with NO 'unsafe-inline' for
@@ -104,8 +110,8 @@ await writeFile(join(dist, 'boot.js'),
 const CSP = "default-src 'self' https:; " +
   "script-src 'self' https://unpkg.com/react@18.3.1/umd/ https://unpkg.com/react-dom@18.3.1/umd/ " +
   "https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/ https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.5.31/ https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/; " +
-  "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; " +
-  "font-src 'self' https://fonts.gstatic.com data:; " +
+  "style-src 'self' 'unsafe-inline'; " +
+  "font-src 'self' data:; " +
   "img-src 'self' data: https: https://community.akamai.steamstatic.com; " +
   "connect-src 'self' https://api.coingecko.com https://api.exchangerate-api.com " +
   "https://open.er-api.com https://www.alphavantage.co https://*.workers.dev " +
@@ -114,11 +120,6 @@ const CSP = "default-src 'self' https:; " +
 
 // Production index.html: keep <head> (CDN deps + styles), single bundle script.
 const cdnTags = cdn.map((tag) => `  ${tag}`).join('\n');
-// Web-font <link>s (preconnect + Google Fonts stylesheet) from the dev head, so
-// prod renders the same typeface (they were dropped and dist/ fell back to the
-// system font). Only fonts.googleapis/gstatic links - both allowed by the CSP.
-const fontTags = (html.match(/<link\b[^>]*fonts\.(?:googleapis|gstatic)\.com[^>]*>/gi) || [])
-  .map((tag) => `  ${tag}`).join('\n');
 const prodHtml = `<!DOCTYPE html>
 <html lang="en">
 <head>
@@ -134,7 +135,6 @@ const prodHtml = `<!DOCTYPE html>
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-title" content="MAERMIN">
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-${fontTags}
   <link rel="stylesheet" href="styles.css">
 ${cdnTags}
 </head>

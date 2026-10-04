@@ -4,13 +4,10 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
   <!-- Strict script CSP: no inline scripts; CDN sources pinned to the exact SRI-checked packages. -->
-  <meta http-equiv="Content-Security-Policy" content="default-src 'self' https:; script-src 'self' https://unpkg.com/react@18.3.1/umd/ https://unpkg.com/react-dom@18.3.1/umd/ https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/ https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.5.31/ https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com data:; img-src 'self' data: https: https://community.akamai.steamstatic.com; connect-src 'self' https://api.coingecko.com https://api.exchangerate-api.com https://open.er-api.com https://www.alphavantage.co https://*.workers.dev https://cdnjs.cloudflare.com; worker-src 'self'; manifest-src 'self'; base-uri 'self'; object-src 'none';">
+  <meta http-equiv="Content-Security-Policy" content="default-src 'self' https:; script-src 'self' https://unpkg.com/react@18.3.1/umd/ https://unpkg.com/react-dom@18.3.1/umd/ https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/ https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.5.31/ https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/; style-src 'self' 'unsafe-inline'; font-src 'self' data:; img-src 'self' data: https: https://community.akamai.steamstatic.com; connect-src 'self' https://api.coingecko.com https://api.exchangerate-api.com https://open.er-api.com https://www.alphavantage.co https://*.workers.dev https://cdnjs.cloudflare.com; worker-src 'self'; manifest-src 'self'; base-uri 'self'; object-src 'none';">
   <title>MAERMIN v10.0 - Professional Portfolio Tracker</title>
 
-  <!-- Aurora typography: Geist (UI + figures) and Geist Mono -->
-  <link rel="preconnect" href="https://fonts.googleapis.com">
-  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Geist:wght@300..800&family=Geist+Mono:wght@400..600&display=swap" rel="stylesheet">
+  <!-- Aurora typography: Geist (UI + figures) and Geist Mono, self-hosted in fonts/ (@font-face in styles.css) -->
 
   <!-- PWA -->
   <link rel="manifest" href="manifest.webmanifest">

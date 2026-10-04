@@ -58,6 +58,21 @@ function approx(a, b, eps) { return Math.abs(a - b) < (eps || 1e-9); }
   const unknown = M.preview(csv10, { broker: 'generic' });
   ok('"generic" or an unknown id keeps header sniffing', unknown.broker && unknown.broker.id === 'ibkr');
 
+  // ---- FEAT-001: fonts are self-hosted, no Google Fonts request -------------
+  console.log('FEAT-001 self-hosted fonts');
+  const fs = require('fs'), path = require('path');
+  const rootDir = path.join(__dirname, '..');
+  const read = (f) => fs.readFileSync(path.join(rootDir, f), 'utf8');
+  ok('index.html loads nothing from Google Fonts', !/fonts\.(googleapis|gstatic)\.com/.test(read('index.html')));
+  ok('the production build (build.mjs) neither', !/fonts\.(googleapis|gstatic)\.com/.test(read('build.mjs')));
+  const css = read('styles.css');
+  const faces = ['Geist', 'Geist Mono'].every((fam) => new RegExp("@font-face\\s*\\{[^}]*font-family:\\s*'" + fam + "'[^}]*url\\(\\s*['\"]?fonts/", 'm').test(css));
+  ok('styles.css declares Geist and Geist Mono from fonts/', faces);
+  const urls = (css.match(/url\(\s*['"]?(fonts\/[^'")]+)/g) || []).map((u) => u.replace(/url\(\s*['"]?/, ''));
+  ok('every referenced font file exists', urls.length >= 4 && urls.every((u) => fs.existsSync(path.join(rootDir, u))));
+  ok('the font licence ships with the files', fs.existsSync(path.join(rootDir, 'fonts', 'OFL.txt')));
+  ok('build.mjs copies the fonts into dist', /fonts/.test(read('build.mjs')) && /OFL\.txt|readdir/.test(read('build.mjs')));
+
   // ---- UX-002: confirm before a pasted full backup is restored --------------
   console.log('UX-002 backup restore confirmation');
   const B = require('../backup-engine.js');
