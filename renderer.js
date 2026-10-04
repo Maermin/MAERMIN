@@ -3365,10 +3365,12 @@ function InvestmentTracker() {
 
       // ── Portfolio selector tabs ──────────────────────────────────────────
       React.createElement('div', {
+        role: 'group', 'aria-label': 'Show portfolio',
         style: { display: 'flex', gap: '0.375rem', marginBottom: '1.5rem', flexWrap: 'wrap', alignItems: 'center' }
       },
         // All Portfolios tab
         React.createElement('button', {
+          'aria-pressed': overviewMode === 'all',
           onClick: () => setOverviewMode('all'),
           style: {
             display: 'flex', alignItems: 'center', gap: '0.4rem',
@@ -3389,6 +3391,7 @@ function InvestmentTracker() {
         ...portfolios.map(p =>
           React.createElement('button', {
             key: p.id,
+            'aria-pressed': overviewMode === p.id,
             onClick: () => { setOverviewMode(p.id); setActivePortfolioId(p.id); },
             style: {
               display: 'flex', alignItems: 'center', gap: '0.4rem',
@@ -4409,12 +4412,14 @@ function InvestmentTracker() {
         // Type selector
         React.createElement('div', { style: { marginBottom: '1rem' } },
           React.createElement('label', {
+            id: 'tx-type-label',
             style: { display: 'block', color: currentTheme.textSecondary, marginBottom: '0.5rem', fontSize: '0.875rem' }
           }, t.type || 'Type'),
-          React.createElement('div', { style: { display: 'flex', gap: '0.5rem' } },
+          React.createElement('div', { role: 'group', 'aria-labelledby': 'tx-type-label', style: { display: 'flex', gap: '0.5rem' } },
             ['buy', 'sell'].map(type =>
               React.createElement('button', {
                 key: type,
+                'aria-pressed': newTransaction.type === type,
                 onClick: () => setNewTransaction(prev => ({ ...prev, type })),
                 style: {
                   flex: 1,
@@ -4437,13 +4442,15 @@ function InvestmentTracker() {
         // Category selector
         React.createElement('div', { style: { marginBottom: '1rem' } },
           React.createElement('label', {
+            id: 'tx-category-label',
             style: { display: 'block', color: currentTheme.textSecondary, marginBottom: '0.5rem', fontSize: '0.875rem' }
           }, t.category || 'Category'),
-          React.createElement('div', { style: { display: 'flex', gap: '0.5rem', flexWrap: 'wrap' } },
+          React.createElement('div', { role: 'group', 'aria-labelledby': 'tx-category-label', style: { display: 'flex', gap: '0.5rem', flexWrap: 'wrap' } },
             ['crypto', 'stocks', 'skins', 'commodities', 'options']
               .concat(window.MaerminCategories ? window.MaerminCategories.ids() : []).map(cat =>
               React.createElement('button', {
                 key: cat,
+                'aria-pressed': newTransaction.category === cat,
                 onClick: () => setNewTransaction(prev => ({ ...prev, category: cat })),
                 style: {
                   flex: 1,
@@ -4531,6 +4538,7 @@ function InvestmentTracker() {
                   React.createElement('div', { style: { display: 'flex', gap: '0.5rem', marginBottom: '0.625rem' } },
                     ['call', 'put'].map(ot => React.createElement('button', {
                       key: ot,
+                      'aria-pressed': (newTransaction.optionType || 'call') === ot,
                       onClick: () => setNewTransaction(prev => ({ ...prev, optionType: ot })),
                       style: {
                         flex: 1, padding: '0.5rem', border: 'none', borderRadius: '6px', cursor: 'pointer', fontSize: '0.875rem', fontWeight: '600',
@@ -4577,6 +4585,7 @@ function InvestmentTracker() {
                       { sym: 'CORN',    label: 'Corn',         icon: '◇', color: '#fde68a', unit: 'bushel' },
                     ].map(c => React.createElement('button', {
                       key: c.sym,
+                      'aria-pressed': newTransaction.symbol === c.sym,
                       onClick: () => setNewTransaction(prev => ({ ...prev, symbol: c.sym, notes: prev.notes || `${c.label} (${c.unit})` })),
                       style: {
                         padding: '0.35rem 0.75rem', border: `1px solid ${newTransaction.symbol === c.sym ? c.color : currentTheme.cardBorder}`,
@@ -4725,12 +4734,14 @@ function InvestmentTracker() {
         // Currency selector
         React.createElement('div', { style: { marginBottom: '1rem' } },
           React.createElement('label', {
+            id: 'tx-currency-label',
             style: { display: 'block', color: currentTheme.textSecondary, marginBottom: '0.5rem', fontSize: '0.875rem' }
           }, t.currency || 'Currency'),
-          React.createElement('div', { style: { display: 'flex', gap: '0.5rem' } },
+          React.createElement('div', { role: 'group', 'aria-labelledby': 'tx-currency-label', style: { display: 'flex', gap: '0.5rem' } },
             ['EUR', 'USD'].map(cur =>
               React.createElement('button', {
                 key: cur,
+                'aria-pressed': newTransaction.currency === cur,
                 onClick: () => setNewTransaction(prev => ({ ...prev, currency: cur })),
                 style: {
                   flex: 1,
