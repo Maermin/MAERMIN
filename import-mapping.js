@@ -296,7 +296,14 @@
     (rows || []).forEach((row, i) => {
       const rowNo = i + 1; // 1-based, header is row 0
       const get = (f) => (mapping[f] ? row[mapping[f]] : undefined);
-      const symbol = normalizeSymbol(get('symbol'), category);
+      // A CS2 market name is a skin whatever the file's default category says,
+      // and keeps its spelling (Steam looks names up exactly; upper-casing it
+      // as a stock ticker left it without a price and sent it to Yahoo).
+      const T = tickersApi();
+      const rawSym = String(get('symbol') == null ? '' : get('symbol')).trim();
+      const isSkin = !!(T && T.looksLikeSkin && T.looksLikeSkin(rawSym));
+      const rowCategory = isSkin ? 'skins' : category;
+      const symbol = isSkin ? (T.normalizeSkinName ? T.normalizeSkinName(rawSym) : rawSym) : normalizeSymbol(rawSym, category);
       const date = parseDate(get('date'), locale);
       const rawQty = parseNumber(get('quantity'), locale);
       const quantity = Math.abs(rawQty);
@@ -322,7 +329,7 @@
       if (!type) type = rawQty < 0 ? 'sell' : 'buy';
       const feeNum = parseNumber(get('fee'), locale);
       transactions.push({
-        category,
+        category: rowCategory,
         type,
         symbol,
         quantity,
@@ -704,31 +711,12 @@
   // Stablecoins count as the fiat they track. Coin tickers become CoinGecko ids
   // (the app prices crypto by id); unknown tickers are listed in `warnings`.
 
-  /** Common tickers -> CoinGecko id (prices are fetched per id). */
-  const COINGECKO_IDS = {
-    BTC: 'bitcoin', ETH: 'ethereum', SOL: 'solana', ADA: 'cardano', XRP: 'ripple', DOGE: 'dogecoin',
-    DOT: 'polkadot', LTC: 'litecoin', BCH: 'bitcoin-cash', LINK: 'chainlink', MATIC: 'matic-network',
-    POL: 'polygon-ecosystem-token', AVAX: 'avalanche-2', BNB: 'binancecoin', TRX: 'tron', UNI: 'uniswap',
-    ATOM: 'cosmos', ETC: 'ethereum-classic', XLM: 'stellar', ALGO: 'algorand', VET: 'vechain',
-    ICP: 'internet-computer', FIL: 'filecoin', EGLD: 'elrond-erd-2', THETA: 'theta-token', EOS: 'eos',
-    XMR: 'monero', NEO: 'neo', DASH: 'dash', ZEC: 'zcash', AAVE: 'aave', COMP: 'compound-governance-token',
-    MKR: 'maker', SNX: 'havven', CRV: 'curve-dao-token', YFI: 'yearn-finance', SUSHI: 'sushi',
-    '1INCH': '1inch', BAT: 'basic-attention-token', GRT: 'the-graph', ENJ: 'enjincoin',
-    MANA: 'decentraland', SAND: 'the-sandbox', AXS: 'axie-infinity', CHZ: 'chiliz', GALA: 'gala',
-    IMX: 'immutable-x', APE: 'apecoin', LRC: 'loopring', DYDX: 'dydx-chain', OP: 'optimism',
-    ARB: 'arbitrum', PEPE: 'pepe', SHIB: 'shiba-inu', WLD: 'worldcoin-wld', SUI: 'sui', SEI: 'sei-network',
-    APT: 'aptos', NEAR: 'near', TON: 'the-open-network', HBAR: 'hedera-hashgraph', KAS: 'kaspa',
-    INJ: 'injective-protocol', RNDR: 'render-token', RENDER: 'render-token', FET: 'fetch-ai',
-    XTZ: 'tezos', IOTA: 'iota', MIOTA: 'iota', QNT: 'quant-network', FTM: 'fantom', S: 'sonic-3',
-    KSM: 'kusama', CRO: 'crypto-com-chain', OKB: 'okb', LEO: 'leo-token', XDC: 'xdce-crowd-sale',
-    STX: 'blockstack', TIA: 'celestia', JUP: 'jupiter-exchange-solana', BONK: 'bonk', WIF: 'dogwifcoin',
-    FLOKI: 'floki', ONDO: 'ondo-finance', ENA: 'ethena', PYTH: 'pyth-network', HYPE: 'hyperliquid',
-    TAO: 'bittensor', CAKE: 'pancakeswap-token', RUNE: 'thorchain', ZRX: '0x', KNC: 'kyber-network-crystal',
-    BAL: 'balancer', LDO: 'lido-dao', RPL: 'rocket-pool', GNO: 'gnosis', XEM: 'nem', WAVES: 'waves',
-    ZIL: 'zilliqa', ICX: 'icon', ONT: 'ontology', QTUM: 'qtum', BTT: 'bittorrent', HOT: 'holotoken',
-    NEXO: 'nexo', BEST: 'bitpanda-ecosystem-token', PAXG: 'pax-gold', XAUT: 'tether-gold',
-    WBTC: 'wrapped-bitcoin', STETH: 'staked-ether', WETH: 'weth'
-  };
+  // The ticker -> CoinGecko id table lives in ticker-validation.js (shared with
+  // the price lookup). It loads after this file, so it is looked up per call.
+  function tickersApi() {
+    if (typeof window !== 'undefined' && window.MaerminTickers) return window.MaerminTickers;
+    try { return typeof require === 'function' ? require('./ticker-validation.js') : null; } catch (e) { return null; }
+  }
   const CT_FIAT = ['EUR', 'USD', 'GBP', 'CHF', 'JPY', 'CAD', 'AUD', 'NZD', 'SEK', 'NOK', 'DKK', 'PLN', 'CZK', 'HUF', 'TRY', 'HKD', 'SGD', 'CNY', 'KRW', 'BRL', 'MXN', 'ZAR', 'INR', 'RUB'];
   /** Stablecoins -> the fiat they track. */
   const CT_STABLE = { USDT: 'USD', USDC: 'USD', BUSD: 'USD', DAI: 'USD', TUSD: 'USD', USDP: 'USD', FDUSD: 'USD', UST: 'USD', USTC: 'USD', FRAX: 'USD', PYUSD: 'USD', USDE: 'USD', GUSD: 'USD', USDS: 'USD', EURT: 'EUR', EURC: 'EUR', EUROC: 'EUR', EURS: 'EUR' };
@@ -742,7 +730,9 @@
   function coinGeckoId(ticker) {
     const t = String(ticker || '').trim().toUpperCase();
     if (!t) return { symbol: '', known: false };
-    if (COINGECKO_IDS[t]) return { symbol: COINGECKO_IDS[t], known: true };
+    const T = tickersApi();
+    const ids = (T && T.COINGECKO_IDS) || {};
+    if (Object.prototype.hasOwnProperty.call(ids, t)) return { symbol: ids[t], known: true };
     return { symbol: t.toLowerCase(), known: false };
   }
 
@@ -922,7 +912,7 @@
   const api = {
     FIELDS, REQUIRED, BROKERS,
     // CoinTracking
-    COINGECKO_IDS, coinGeckoId, isCoinTracking, parseCoinTracking,
+    coinGeckoId, isCoinTracking, parseCoinTracking,
     // ISIN -> ticker
     isISIN, listingCurrency, pickListing, collectIsins, applyTickerMap, resolveIsins,
     detectBroker, suggestMapping, applyMapping, quickCSV, findDuplicates,

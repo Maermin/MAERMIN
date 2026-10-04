@@ -32,7 +32,6 @@ var BYPASS_HOST_PATTERNS = [
   /(^|\.)coingecko\.com$/i,
   /(^|\.)exchangerate-api\.com$/i,
   /(^|\.)er-api\.com$/i,
-  /(^|\.)alphavantage\.co$/i,
   /(^|\.)workers\.dev$/i,
   /(^|\.)steampowered\.com$/i,
   /(^|\.)steamcommunity\.com$/i

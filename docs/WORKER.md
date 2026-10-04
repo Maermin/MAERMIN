@@ -12,7 +12,8 @@ Configure it in the app under **API Settings → Cloudflare Worker**.
 - **CORS:** exact-origin allowlist (`https://maermin.github.io`, localhost, the desktop app's `null` origin) plus anything in the `ALLOWED_ORIGINS` variable (comma separated). Other browser origins get no `Access-Control-Allow-Origin`. `Vary: Origin`.
 - **Sync storage:** bind the `SyncRoom` Durable Object as `SYNC_DO` (see `wrangler.toml`) for atomic revision checks; a KV namespace `SYNC` alone still works but is eventually consistent. Blobs over 4 MB are rejected with `413`.
 - **Share publishing:** throttled to 10 publishes per hour per IP.
-- **Rate limiting:** per-IP sliding window (default 120 req/min) → `429` when exceeded.
+- **Rate limiting:** per-IP sliding window (default 120 req/min) → `429` when exceeded. Steam requests (skin prices `POST /`, `steamhistory`, `search`) have their own 120 req/min budget, so a burst of stock or chart requests cannot block skin prices.
+- **Symbol check:** the Yahoo routes (`yf`, `fundamentals`, `profile`, `earnings`, `fundholdings`) only take market symbols (`AAPL`, `SAP.DE`, `BRK-B`, `^GDAXI`, `EURUSD=X`, `GC=F`, ISINs). Anything else — e.g. a CS2 item name like `AK-47 | Redline (Field-Tested)` — gets `400 {"error":"not a market symbol"}` straight away, without an upstream call and without counting against the rate limit.
 - **Timeouts:** every upstream `fetch` is wrapped with an 8s abort.
 - **Caching:** Yahoo search/history responses are cached (`caches.default`, 5 min–1 h).
 

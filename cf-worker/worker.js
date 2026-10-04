@@ -27,12 +27,27 @@ export default {
 
     if (request.method === 'OPTIONS') return res(null, 204, request);
 
+    // ── Yahoo routes take market symbols only ────────────────────────────────
+    // A CS2 skin name filed as a stock ("AK-47 | Redline (Field-Tested)") was
+    // sent to the Yahoo routes on every refresh, bare and with six exchange
+    // suffixes: hundreds of upstream 404s that also used up the rate limit, so
+    // the Steam price requests were refused with 429. Such a symbol is answered
+    // here, without an upstream call and without counting against the limit.
+    if (request.method === 'GET' && SYMBOL_ROUTES.has(action)) {
+      const sym = (url.searchParams.get('symbol') || '').trim();
+      if (sym && !isMarketSymbol(sym)) {
+        return res(JSON.stringify({ error: 'not a market symbol', hint: 'CS2 items are priced through Steam (category CS2 Skins)' }), 400, request);
+      }
+    }
+
     // ── Best-effort rate limiting ────────────────────────────────────────────
     // A sliding per-IP cap protects the worker (and its upstream/billing) from
     // bursts and casual abuse of the open proxy/sync endpoints. In-memory per
     // isolate (no external dependency); not a hard global guarantee, but it
-    // blunts floods. Tune RATE_LIMIT below.
-    if (isRateLimited(request)) {
+    // blunts floods. Tune RATE_LIMIT below. Steam requests (skin prices,
+    // history, search) have their own budget, so a burst of stock or chart
+    // requests can never starve the skin prices.
+    if (isRateLimited(request, rateBucket(request, action))) {
       return res(JSON.stringify({ error: 'rate limited — slow down' }), 429, request);
     }
 
@@ -1260,12 +1275,30 @@ async function fetchWithTimeout(url, opts = {}, ms = 8000) {
   }
 }
 
+// Routes whose `symbol` goes to Yahoo Finance.
+const SYMBOL_ROUTES = new Set(['yf', 'fundamentals', 'profile', 'earnings', 'fundholdings', 'dividends']);
+
+// Could this be a Yahoo symbol (AAPL, SAP.DE, BRK-B, ^GDAXI, EURUSD=X, GC=F,
+// 0700.HK, an ISIN)? Spaces, "|", "★" or "™" mean a CS2 market name. PURE and
+// exported for the Node harness; same rule as MaerminTickers.isMarketSymbol.
+export function isMarketSymbol(raw) {
+  return /^[A-Za-z0-9^][A-Za-z0-9.\-=^_]{0,23}$/.test(String(raw == null ? '' : raw).trim());
+}
+
+// Which rate-limit budget a request draws from: Steam (POST skin prices,
+// steamhistory, search) or everything else. PURE, exported for the harness.
+export function rateBucket(request, action) {
+  const steam = action === 'steamhistory' || action === 'search' ||
+    (request.method === 'POST' && !action);
+  return steam ? 'steam' : 'default';
+}
+
 // In-memory sliding-window rate limiter (per worker isolate). Keyed by client
-// IP. Best-effort: isolates don't share memory, but this still caps bursts.
+// IP and budget. Best-effort: isolates don't share memory, but this still caps bursts.
 const RATE_LIMIT = { windowMs: 60000, max: 120 };
-const _rlHits = new Map(); // ip -> number[] (timestamps)
-function isRateLimited(request) {
-  const ip = request.headers.get('CF-Connecting-IP') || request.headers.get('X-Forwarded-For') || 'anon';
+const _rlHits = new Map(); // ip|bucket -> number[] (timestamps)
+function isRateLimited(request, bucket) {
+  const ip = (request.headers.get('CF-Connecting-IP') || request.headers.get('X-Forwarded-For') || 'anon') + '|' + (bucket || 'default');
   const now = Date.now();
   const cutoff = now - RATE_LIMIT.windowMs;
   let arr = _rlHits.get(ip);

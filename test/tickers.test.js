@@ -17,7 +17,7 @@ const T = require('../ticker-validation.js');
   ok('share class dash preserved (BRK-B)', T.normalizeForDividends('BRK-B') === 'BRK-B');
 
   console.log('renamed tickers (second converter):');
-  ok('FISV → FI (Fiserv rename)', T.normalizeForDividends('FISV') === 'FI');
+  ok('FISV stays FISV (Fiserv trades as FISV again; Yahoo 404s "FI")', T.normalizeForDividends('FISV') === 'FISV');
   ok('FB → META', T.normalizeForDividends('fb') === 'META');
   ok('RTN → RTX', T.normalizeForDividends('RTN') === 'RTX');
   ok('SQ → XYZ (Block rename)', T.normalizeForDividends('SQ') === 'XYZ');
