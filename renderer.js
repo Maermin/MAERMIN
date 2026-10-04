@@ -969,6 +969,7 @@ function InvestmentTracker() {
   
   // Ref for settings dropdown close-on-outside-click
   const settingsRef = useRef(null);
+  const settingsBtnRef = useRef(null);
   // Dialogs opened from the account menu: the menu item is gone when they
   // close, so focus goes back to the account button.
   const focusAccountButton = () => settingsRef.current && settingsRef.current.querySelector('.mx-avatar');
@@ -982,6 +983,13 @@ function InvestmentTracker() {
         setShowTransactionModal(false);
         setShowImportModal(false);
         setShowApiSettings(false);
+        // Closing the settings panel by keyboard gives focus back to its button
+        // (it used to fall to <body>, i.e. the start of the page).
+        const pop = document.getElementById('mx-settings-panel');
+        const active = document.activeElement;
+        if (pop && (pop.contains(active) || !active || active === document.body)) {
+          setTimeout(() => { if (settingsBtnRef.current) settingsBtnRef.current.focus(); }, 0);
+        }
         setShowSettings(false);
         setShowPasswordModal(false);
         return;
@@ -5486,15 +5494,19 @@ buy,crypto,bitcoin,0.5,45000,2024-01-15,10`)
         // Settings button
         React.createElement('button', {
           type: 'button',
+          ref: settingsBtnRef,
           className: 'mx-icon-btn' + (showSettings ? ' is-on' : ''),
           onClick: () => setShowSettings(!showSettings),
           title: t.settings || 'Settings',
           'aria-label': t.settings || 'Settings',
-          'aria-expanded': showSettings
+          'aria-expanded': showSettings,
+          'aria-controls': 'mx-settings-panel'
         }, Icon('settings', { size: 18 })),
 
-        // Settings popover
-        showSettings && React.createElement('div', { className: 'mx-popover', role: 'menu' },
+        // Settings popover: a labelled group of ordinary buttons (Tab moves
+        // through them). It used to claim role="menu" without menu items or
+        // arrow-key handling.
+        showSettings && React.createElement('div', { className: 'mx-popover', id: 'mx-settings-panel', role: 'group', 'aria-label': t.settings || 'Settings' },
           React.createElement('div', { style: { marginBottom: '0.9rem' } },
             popLabel(t.theme || 'Theme'),
             React.createElement('div', { className: 'mx-seg' },
@@ -5619,7 +5631,8 @@ buy,crypto,bitcoin,0.5,45000,2024-01-15,10`)
           type: 'button',
           className: 'mx-avatar',
           onClick: () => setShowSettings(s => !s),
-          title: t.settings || 'Account', 'aria-label': 'Account'
+          title: t.settings || 'Account', 'aria-label': 'Account',
+          'aria-expanded': showSettings, 'aria-controls': 'mx-settings-panel'
         }, 'MA')
       )
     ),
