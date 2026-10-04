@@ -1814,6 +1814,21 @@ function InvestmentTracker() {
   const askConfirm = (opts) => (window.MaerminUI && window.MaerminUI.confirm)
     ? window.MaerminUI.confirm(opts)
     : Promise.resolve(typeof window.confirm === 'function' ? window.confirm([opts.title, opts.message].filter(Boolean).join('\n\n')) : true);
+  // A full backup REPLACES the current data: every restore path asks first,
+  // naming the backup's date and size next to the current data.
+  const askRestoreBackup = (backup) => {
+    const sum = (window.MaerminBackup && window.MaerminBackup.summary) ? window.MaerminBackup.summary(backup) : { timestamp: null, transactionCount: null, keyCount: 0 };
+    const when = sum.timestamp ? new Date(sum.timestamp).toLocaleString() : 'an unknown date';
+    const count = sum.transactionCount == null ? 'an unknown number of' : sum.transactionCount;
+    return askConfirm({
+      title: t.restoreBackupTitle || 'Replace your data with this backup?',
+      message: `Backup from ${when}: ${count} transactions, ${sum.keyCount} data sets.\n` +
+        `Your current data (${transactions.length} transactions) and every setting stored in the backup will be replaced. This cannot be undone.\n\n` +
+        'To keep a copy, cancel and use Data Management → Export & Backup first.',
+      confirmLabel: t.restoreBackupConfirm || 'Replace my data',
+      danger: true
+    });
+  };
 
   // C1: Automation Rules → live notifications. Evaluate the user's rules on every
   // price/transaction change and fire a toast (+ desktop notification via the
@@ -2123,19 +2138,7 @@ function InvestmentTracker() {
           setShowImportModal(false);
           setTimeout(() => window.location.reload(), 600);
         };
-        const ask = window.MaerminUI && window.MaerminUI.confirm;
-        if (!ask) { doRestore(); return; }
-        const sum = window.MaerminBackup.summary ? window.MaerminBackup.summary(imported) : { timestamp: null, transactionCount: null, keyCount: 0 };
-        const when = sum.timestamp ? new Date(sum.timestamp).toLocaleString() : 'an unknown date';
-        const count = sum.transactionCount == null ? 'an unknown number of' : sum.transactionCount;
-        ask({
-          title: t.restoreBackupTitle || 'Replace your data with this backup?',
-          message: `Backup from ${when}: ${count} transactions, ${sum.keyCount} data sets.\n` +
-            `Your current data (${transactions.length} transactions) and every setting stored in the backup will be replaced. This cannot be undone.\n\n` +
-            'To keep a copy, cancel and use Data Management → Export & Backup first.',
-          confirmLabel: t.restoreBackupConfirm || 'Replace my data',
-          danger: true
-        }).then(yes => { if (yes) doRestore(); }); // cancelled: the dialog and the text stay
+        askRestoreBackup(imported).then(yes => { if (yes) doRestore(); }); // cancelled: the dialog and the text stay
         return;
       } else if (Array.isArray(imported)) {
         // Array of transactions
@@ -2313,6 +2316,8 @@ function InvestmentTracker() {
           // journal, savings plans, net-worth, goals, settings, …) via the
           // engine and reloads — not just the transactions list.
           if (window.MaerminBackup && window.MaerminBackup.isFullBackup(parsed)) {
+            // Ask first, like the quick Import dialog (cancel keeps the text).
+            if (!(await askRestoreBackup(parsed))) return;
             const restored = window.MaerminBackup.restore(parsed);
             if (window.MaerminAuditLog) window.MaerminAuditLog.record('data.import', `Full backup restored (${restored} data keys)`);
             addToast('Backup restored — reloading…', 'success');
