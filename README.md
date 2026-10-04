@@ -44,7 +44,7 @@ No account  ·  No server  ·  No ads  ·  No remote telemetry  ·  MIT License
 | **Symbol Picker** | Visual search for stocks (Yahoo Finance logos + exact YF symbol) and crypto (CoinGecko IDs) |
 | **CS2 Skin Picker** | Search Steam Market with images, rarity colours, live prices — auto-fills transaction |
 | **Positions Table** | Value, weight and P&L per holding — click any row for the position detail modal (transactions, avg cost, CAGR, stock splits, investment journal) |
-| **Multi-Portfolio** | Multiple portfolios with colour coding — Overview always shows combined totals |
+| **Multi-Portfolio** | Multiple portfolios with colour coding — the Overview shows all portfolios combined or one at a time (portfolio chips) |
 | **Net Worth** | Add cash accounts, real estate, loans — see true net wealth beyond investments · **real assets & property** with valuation history, acquisition cost+fees, optional financing link and recurring/one-off cashflows (net value + net rental yield + total return) · **interest-bearing cash & time deposits** (Festgeld): rate, daily/monthly/annual compounding, maturity — interest accrues day-accurate (act/365) and is booked as capital income for the tax report |
 | **Options** | Track long/short calls and puts (underlying, strike, expiry, premium, contract size) — signed book with net premium, moneyness, intrinsic value and estimated P&L on the Overview; kept separate from the share positions |
 | **Dividends** | Calendar view, 12-month forecast, auto-fetch from Yahoo Finance · quality & safety scoring per payer (payout ratio, growth streak, dividend growth, coverage, cut-risk flag) with an aggregated portfolio dividend-health value · **yield-on-cost** per payer over the FIFO cost basis plus a **DRIP simulation** (reinvest distributions at the day's price vs cash — a simulation, never books real transactions) |
@@ -137,8 +137,7 @@ Add a free [Alpha Vantage key](https://www.alphavantage.co/support/#api-key) in 
 | `GET /?action=search&q=ak47+redline` | Steam Market skin search with images |
 | `POST /` | Steam skin price lookup (array of names → USD price map) |
 | `POST /?action=sync` | E2E-encrypted cloud sync (KV-backed, zero-knowledge) |
-| `POST /?action=share` | Redacted share snapshots (percent weights/scores only, allowlist-validated server-side) + anonymous benchmark aggregate |
-| `POST /?action=brokerproxy` | Relay client-signed requests to whitelisted exchanges |
+| `POST /?action=share` | Redacted share snapshots (percent weights/scores only, allowlist-validated server-side) + anonymous benchmark aggregate || `POST /?action=brokerproxy` | Relay client-signed requests to whitelisted exchanges |
 
 All endpoints are rate-limited (per-IP) and use hard fetch timeouts. Full request/response contracts: [docs/WORKER.md](docs/WORKER.md).
 
