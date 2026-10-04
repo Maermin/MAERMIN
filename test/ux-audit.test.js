@@ -66,6 +66,18 @@ function approx(a, b, eps) { return Math.abs(a - b) < (eps || 1e-9); }
   ok('a derived symbol (options) is used instead of tx.symbol', JSON.stringify(miss({ symbol: '', quantity: '1', price: '5' }, 'AAPL 2026-12-18 C 150')) === '[]');
   ok('complete form → nothing missing', JSON.stringify(miss({ symbol: 'BTC', quantity: '0.5', price: '45000' })) === '[]');
 
+  // ---- UX-006: is the transaction form dirty? --------------------------------
+  console.log('UX-006 dirty form');
+  const fc = (a, b) => (typeof U.formChanged === 'function' ? U.formChanged(a, b) : null);
+  const blank = { type: 'buy', symbol: '', quantity: '', price: '', notes: '' };
+  ok('formChanged exists', typeof U.formChanged === 'function');
+  ok('unchanged form → false', fc(blank, Object.assign({}, blank)) === false);
+  ok('a typed quantity → true', fc(blank, Object.assign({}, blank, { quantity: '5' })) === true);
+  ok('switching buy → sell → true', fc(blank, Object.assign({}, blank, { type: 'sell' })) === true);
+  ok('key order does not matter', fc({ a: '1', b: '2' }, { b: '2', a: '1' }) === false);
+  ok('a field added empty (undefined vs "") is not a change', fc(blank, Object.assign({}, blank, { underlying: '' })) === false);
+  ok('numbers vs the same text are not a change', fc({ quantity: '2' }, { quantity: 2 }) === false);
+
   const UI = require('../ui-store.js');
   const hasConfirm = typeof UI.confirm === 'function' && typeof UI.answerConfirm === 'function';
   ok('MaerminUI.confirm / answerConfirm exist', hasConfirm);

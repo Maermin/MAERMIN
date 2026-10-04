@@ -232,7 +232,20 @@
     return out;
   }
 
+  // Has a flat form object changed since `initial`? Values compare as text and
+  // a missing key equals '' (a field that appears empty is no change), so the
+  // dialog only asks before discarding when the user actually typed or chose
+  // something.
+  function formChanged(initial, current) {
+    initial = initial || {}; current = current || {};
+    const txt = (v) => (v == null ? '' : String(v));
+    const keys = {};
+    Object.keys(initial).concat(Object.keys(current)).forEach((k) => { keys[k] = true; });
+    return Object.keys(keys).some((k) => txt(initial[k]) !== txt(current[k]));
+  }
+
   const MaerminUtils = {
+    formChanged,
     missingTxFields,
     txTypeInfo,
     formatNumber,

@@ -536,6 +536,8 @@ function InvestmentTracker() {
   });
   // Required fields the last save attempt found empty (marked in the dialog).
   const [txMissing, setTxMissing] = useState([]);
+  // The form as it was when the dialog opened: closing a changed form asks first.
+  const txInitialRef = useRef(null);
   // v12: modal open-states live in MaerminUI.overlays. Read the slice via
   // useStore; keep the setShowX name as a thin shim that delegates to the store,
   // so every existing call site (incl. the Escape handler + toggles) is unchanged.
@@ -1995,7 +1997,7 @@ function InvestmentTracker() {
   // Open Add Transaction modal — pre-selects the currently active portfolio
   const openTransactionModal = () => {
     setEditingTransactionId(null);
-    setNewTransaction({
+    const initial = {
       type: 'buy',
       category: 'crypto',
       symbol: '',
@@ -2006,14 +2008,16 @@ function InvestmentTracker() {
       notes: '',
       currency: currency,
       targetPortfolioId: activePortfolioId,
-    });
+    };
+    setNewTransaction(initial);
+    txInitialRef.current = initial;
     setTxMissing([]);
     setShowTransactionModal(true);
   };
 
   // Start editing a transaction
   const editTransaction = (tx) => {
-    setNewTransaction({
+    setNewTransaction(txInitialRef.current = {
       type: tx.type || 'buy',
       category: tx.category || 'crypto',
       symbol: tx.symbol || '',
@@ -4375,7 +4379,20 @@ function InvestmentTracker() {
         targetPortfolioId: activePortfolioId,
       });
     };
-    
+    // Escape, a click beside the dialog and Cancel: a changed form asks before
+    // its entries are thrown away (one stray Escape used to lose everything).
+    const requestClose = () => {
+      const changed = txInitialRef.current && window.MaerminUtils.formChanged(txInitialRef.current, newTransaction);
+      if (!changed || !(window.MaerminUI && window.MaerminUI.confirm)) { closeModal(); return; }
+      window.MaerminUI.confirm({
+        title: isEditing ? (t.discardEditTitle || 'Discard your changes?') : (t.discardTxTitle || 'Discard this transaction?'),
+        message: t.discardTxMessage || 'What you entered in this form will be lost.',
+        confirmLabel: t.discard || 'Discard',
+        cancelLabel: t.keepEditing || 'Keep editing',
+        danger: true
+      }).then(yes => { if (yes) closeModal(); });
+    };
+
     return React.createElement(window.MaerminUI.Overlay, {
       style: {
         position: 'fixed',
@@ -4390,7 +4407,7 @@ function InvestmentTracker() {
         zIndex: 10000,
         backdropFilter: 'blur(8px)'
       },
-      onClose: closeModal
+      onClose: requestClose
     },
       React.createElement('div', {
         ...window.MaerminUI.dialogProps('dlg-transaction'),
@@ -4850,7 +4867,7 @@ function InvestmentTracker() {
         // Buttons
         React.createElement('div', { style: { display: 'flex', gap: '1rem' } },
           React.createElement('button', {
-            onClick: closeModal,
+            onClick: requestClose,
             style: {
               flex: 1,
               padding: '0.75rem',
