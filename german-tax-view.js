@@ -183,6 +183,21 @@
     });
 
     var records = GT.loadVapRecords();
+
+    // Commodities default to sec. 23 private sales (physical metal); a
+    // securitised commodity (ETC/ETF) is capital income - one select per
+    // position, stored as "SYMBOL|class" in the sensitive overrides store.
+    var TSm = window.MaerminTaxSettings;
+    var sClassTick = React.useState(0); var setClassTick = sClassTick[1];
+    var classOverrides = (TSm && TSm.loadOverrides) ? TSm.loadOverrides() : {};
+    var commoditySeen = {};
+    var commodityRows = [];
+    ((props.portfolio || {}).commodities || []).forEach(function (p) {
+      var s = String(p.symbol || p.name || '').toUpperCase();
+      if (!s || commoditySeen[s]) return;
+      commoditySeen[s] = true;
+      commodityRows.push({ symbol: s, name: p.name || s });
+    });
     var inputStyle = { width: '110px', background: inputBg, border: '1px solid ' + border, borderRadius: '6px', padding: '0.3rem 0.45rem', color: text, fontSize: '0.76rem', textAlign: 'right' };
 
     function edited(symbol, field, fallback) {
@@ -313,6 +328,22 @@
       e('div', { style: { color: dim, fontSize: '0.7rem', marginTop: '0.6rem', lineHeight: 1.5 } },
         'Values prefill from your local price history at the year boundaries (shares held at year end x per-share price) and are editable. Save a Vorabpauschale so a later sale credits it against the gain.'),
 
+      (commodityRows.length && TSm && TSm.saveTaxClass) ? e('div', { style: { marginTop: '1rem' } },
+        e('div', { style: { color: dim, fontSize: '0.72rem', textTransform: 'uppercase', letterSpacing: '0.05em', fontWeight: 700, marginBottom: '0.3rem' } }, 'Commodities: tax treatment'),
+        commodityRows.map(function (r) {
+          var cls = (TSm.taxClassOf && TSm.taxClassOf(classOverrides, r.symbol)) || 'private';
+          return e('div', { key: r.symbol, style: { display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '0.6rem', padding: '0.3rem 0', borderTop: '1px solid ' + border } },
+            e('span', { style: { color: text, fontSize: '0.8rem', fontWeight: 600 } }, r.symbol),
+            e('select', {
+              value: cls,
+              'aria-label': 'Tax treatment of ' + r.symbol,
+              onChange: function (ev) { TSm.saveTaxClass(r.symbol, ev.target.value === 'capital' ? 'capital' : null); setClassTick(function (n) { return n + 1; }); },
+              style: { background: inputBg, border: '1px solid ' + border, borderRadius: '6px', padding: '0.3rem 0.4rem', color: text, fontSize: '0.74rem' }
+            },
+              e('option', { value: 'private' }, 'Physical - private sale (sec. 23, tax-free after 1 year)'),
+              e('option', { value: 'capital' }, 'Security, e.g. ETC/ETF - capital income (sec. 20)')));
+        })) : null,
+
       detail && e('div', { style: { marginTop: '1rem', borderTop: '1px solid ' + border, paddingTop: '0.8rem' } },
         e('div', { style: { color: dim, fontSize: '0.72rem', textTransform: 'uppercase', letterSpacing: '0.05em', fontWeight: 700, marginBottom: '0.4rem' } }, 'Computation (statutory order)'),
         line('Taxable gains after Teilfreistellung', sym + fmt(detail.gainsTaxable)),
@@ -325,11 +356,11 @@
         line('Sparerpauschbetrag used', sym + fmt(detail.sparerpauschbetragUsed), good),
         line('Taxable capital income', sym + fmt(detail.taxableIncome)),
         line('Abgeltungsteuer + Soli' + (detail.kirchensteuer > 0 ? ' + Kirchensteuer' : ''), sym + fmt(detail.abgeltungsteuer + detail.soli + detail.kirchensteuer), warn),
-        detail.crypto && detail.crypto.netShortTermGains !== 0 ? line('Crypto net short-term (Freigrenze ' + detail.crypto.freigrenze + ')', sym + fmt(detail.crypto.netShortTermGains) + ' -> tax ' + sym + fmt(detail.crypto.estimatedTax)) : null,
+        detail.crypto && detail.crypto.netShortTermGains !== 0 ? line('Private sales (sec. 23) net short-term (Freigrenze ' + detail.crypto.freigrenze + ')', sym + fmt(detail.crypto.netShortTermGains) + ' -> tax ' + sym + fmt(detail.crypto.estimatedTax)) : null,
         line('Total estimated tax ' + year, sym + fmt(detail.totalTax), warn)),
 
       e('div', { style: { color: dim, fontSize: '0.7rem', marginTop: '0.8rem', lineHeight: 1.5 } },
-        'Helper computation under InvStG/EStG rules with simplified loss netting; crypto uses a flat-rate estimate. All inputs stay on this device (encrypted at rest). Not tax advice - verify with your tax advisor.'));
+        'Helper computation under InvStG/EStG rules with simplified loss netting; private sales (crypto, skins, physical commodities) use a flat-rate estimate. All inputs stay on this device (encrypted at rest). Not tax advice - verify with your tax advisor.'));
   }
 
   // ---- Tax settings panel (Task 8) ------------------------------------------

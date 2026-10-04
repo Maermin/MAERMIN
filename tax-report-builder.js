@@ -326,7 +326,17 @@
           return !!(LT && LT.isFundCandidate && LT.isFundCandidate(sym, name));
         };
         var potOf = function (d) { return (d.category === 'stocks' && !isFund(d.symbol, d.symbolName)) ? 'shares' : 'other'; };
-        var capitalDisposals = disposals.filter(function (d) { return d.category !== 'crypto'; }).map(function (d) {
+        // Private sales (sec. 23 EStG): crypto, CS2 skins and physical
+        // commodities by default; a per-symbol class override ("SYMBOL|class"
+        // in the overrides store) moves e.g. a gold ETC to capital income or
+        // any other non-crypto position into sec. 23.
+        var isPrivateSale = function (d) {
+          if (d.category === 'crypto') return true;
+          var cls = posOverrides[String(d.symbol || '').toUpperCase() + '|class'];
+          if (cls === 'private' || cls === 'capital') return cls === 'private';
+          return d.category === 'skins' || d.category === 'commodities';
+        };
+        var capitalDisposals = disposals.filter(function (d) { return !isPrivateSale(d); }).map(function (d) {
           var sym = d.symbol;
           var override = lookupOverride(sym);
           if (override != null) return { symbol: sym, gain: override, vapCredit: 0, overridden: true, pot: potOf(d) };
@@ -342,19 +352,23 @@
           kirchensteuerRate: kirchensteuerRate,
           settings: TS
         });
-        // Crypto: private sale rules (sec. 23 EStG) - > 1y exempt; otherwise a
-        // Freigrenze applies (1000 EUR from 2024, 600 before): a net gain of
-        // LESS than it is tax-free; at or above it the WHOLE amount is taxable
+        // Private sales (sec. 23 EStG: crypto, skins, physical commodities) -
+        // > 1y exempt; otherwise ONE Freigrenze across all of them applies
+        // (1000 EUR from 2024, 600 before): a net gain of LESS than it is
+        // tax-free; at or above it the WHOLE amount is taxable
         // (sec. 23 (3) S.5 EStG: "weniger als 1 000 Euro").
         // The personal income-tax rate is unknown here; 25% is the documented
         // flat estimate, consistent with the legacy engine.
         // The 1-year crypto exemption can be turned off in the settings; then
-        // long-term crypto gains are taxed alongside the short-term ones.
+        // long-term crypto gains are taxed alongside the short-term ones
+        // (other private-sale assets keep the 1-year rule).
+        // The result keeps the historic key `crypto` for its callers.
         var cryptoExemptionOn = TS ? TS.cryptoExemption !== false : true;
         var cryptoShort = 0, cryptoExempt = 0;
         disposals.forEach(function (d) {
-          if (d.category !== 'crypto') return;
-          if (d.longTerm && cryptoExemptionOn) cryptoExempt += d.gain; else cryptoShort += d.gain;
+          if (!isPrivateSale(d)) return;
+          var exemptOn = d.category === 'crypto' ? cryptoExemptionOn : true;
+          if (d.longTerm && exemptOn) cryptoExempt += d.gain; else cryptoShort += d.gain;
         });
         var freigrenze = year >= 2024 ? 1000 : 600;
         var cryptoTaxable = cryptoShort >= freigrenze ? cryptoShort : 0;
@@ -420,9 +434,9 @@
       ['Abgeltungsteuer', money(g.abgeltungsteuer, cur)],
       ['Solidaritaetszuschlag', money(g.soli, cur)],
       ['Kirchensteuer', money(g.kirchensteuer, cur)],
-      ['Crypto net short-term gains (Freigrenze ' + g.crypto.freigrenze + ')', money(g.crypto.netShortTermGains, cur)],
-      ['Crypto tax-exempt long-term gains', money(g.crypto.exemptLongTermGains, cur)],
-      ['Crypto estimated tax (flat-rate estimate)', money(g.crypto.estimatedTax, cur)],
+      ['Private sales (sec. 23) net short-term gains (Freigrenze ' + g.crypto.freigrenze + ')', money(g.crypto.netShortTermGains, cur)],
+      ['Private sales (sec. 23) tax-exempt long-term gains', money(g.crypto.exemptLongTermGains, cur)],
+      ['Private sales (sec. 23) estimated tax (flat-rate estimate)', money(g.crypto.estimatedTax, cur)],
       ['Total estimated tax', money(g.totalTax, cur)]
     ];
   }
@@ -491,7 +505,7 @@
       y = table('1a. German Fund Taxation (Vorabpauschale + Teilfreistellung)', ['Item', 'Amount'],
         germanDetailRows(s.germanDetail, cur), y);
       doc.setFontSize(8); doc.setTextColor(120, 120, 120);
-      doc.text('Helper computation under InvStG/EStG rules (simplified loss netting; crypto at flat-rate estimate). Not tax advice.', 14, y - 4);
+      doc.text('Helper computation under InvStG/EStG rules (simplified loss netting; private sales at flat-rate estimate). Not tax advice.', 14, y - 4);
     }
 
     function lots(rows) {
@@ -598,9 +612,9 @@
           ['Abgeltungsteuer', num(g.abgeltungsteuer)],
           ['Solidaritaetszuschlag', num(g.soli)],
           ['Kirchensteuer', num(g.kirchensteuer)],
-          ['Crypto net short-term gains (Freigrenze ' + g.crypto.freigrenze + ')', num(g.crypto.netShortTermGains)],
-          ['Crypto tax-exempt long-term gains', num(g.crypto.exemptLongTermGains)],
-          ['Crypto estimated tax', num(g.crypto.estimatedTax)],
+          ['Private sales (sec. 23) net short-term gains (Freigrenze ' + g.crypto.freigrenze + ')', num(g.crypto.netShortTermGains)],
+          ['Private sales (sec. 23) tax-exempt long-term gains', num(g.crypto.exemptLongTermGains)],
+          ['Private sales (sec. 23) estimated tax', num(g.crypto.estimatedTax)],
           ['Total estimated tax', num(g.totalTax)]
         ] });
     }

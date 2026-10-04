@@ -103,6 +103,43 @@ function deStore(txs, extra) {
     year: 2025, jurisdiction: 'de', exchangeRate: 1, germanTax: GT, taxSettingsModule: TS, fundTypes: {}, vapRecords: {}, dividendEvents: [], taxOverrides: {} }));
   ok('export lists the carried share loss', xml.indexOf('Share losses not offset') > -1);
 
+  // ---- BUG-003: skins + physical commodities are sec. 23 private sales -----
+  console.log('BUG-003 private sales');
+  resetStore();
+  const lot = (cat, sym, buyDate, buy, sellDate, sell) => [
+    { type: 'buy', category: cat, symbol: sym, quantity: 1, price: buy, currency: 'EUR', date: buyDate },
+    { type: 'sell', category: cat, symbol: sym, quantity: 1, price: sell, currency: 'EUR', date: sellDate }
+  ];
+  g = deStore(lot('skins', 'AWP DRAGON LORE', '2022-01-10', 2000, '2025-06-01', 5000));
+  ok('skin held > 1 year is tax-free', approx(g.totalTax, 0) && approx(g.gainsTaxable, 0) && approx(g.crypto.exemptLongTermGains, 3000));
+
+  g = deStore(lot('skins', 'AK REDLINE', '2025-01-10', 200, '2025-06-01', 1000));
+  ok('short-term skin gain under the Freigrenze is tax-free', approx(g.totalTax, 0) && approx(g.crypto.netShortTermGains, 800));
+  ok('... and does not use the Sparerpauschbetrag', approx(g.sparerpauschbetragUsed, 0));
+
+  g = deStore(lot('skins', 'AK REDLINE', '2025-01-10', 200, '2025-06-01', 1000).concat(lot('crypto', 'ETH', '2025-02-01', 1000, '2025-07-01', 1300)));
+  ok('one Freigrenze across skins + crypto (800 + 300 taxable)', approx(g.crypto.taxable, 1100));
+
+  g = deStore(lot('commodities', 'GOLD BAR', '2023-01-10', 1500, '2025-06-01', 2500));
+  ok('physical commodity held > 1 year is tax-free by default', approx(g.totalTax, 0) && approx(g.crypto.exemptLongTermGains, 1000));
+
+  TS.saveTaxClass('4GLD', 'capital');
+  ok('tax class override stored in the sensitive per-position store', TS.taxClassOf(TS.loadOverrides(), '4gld') === 'capital');
+  g = TR.build(lot('commodities', '4GLD', '2023-01-10', 1500, '2025-06-01', 2500), {
+    year: 2025, jurisdiction: 'de', exchangeRate: 1, germanTax: GT, taxSettingsModule: TS, fundTypes: {}, vapRecords: {}, dividendEvents: [],
+    taxOverrides: TS.loadOverrides(), sparerpauschbetrag: 0 }).summary.germanDetail;
+  ok('commodity marked as security (ETC) is capital income', approx(g.gainsTaxable, 1000) && approx(g.crypto.exemptLongTermGains, 0));
+  TS.saveTaxClass('4GLD', null);
+  ok('clearing the class override removes it', TS.taxClassOf(TS.loadOverrides(), '4GLD') === null);
+
+  g = deStore(lot('crypto', 'BTC', '2022-01-10', 1000, '2025-06-01', 4000).concat(lot('skins', 'M4 HOWL', '2022-01-10', 1000, '2025-06-01', 4000)),
+    { taxSettings: TS.sanitize({ cryptoExemption: false }) });
+  ok('crypto exemption toggle leaves the skin 1-year rule alone', approx(g.crypto.netShortTermGains, 3000) && approx(g.crypto.exemptLongTermGains, 3000));
+
+  const xml3 = TR.buildExcelWorkbook(TR.build(lot('skins', 'X', '2025-01-10', 1, '2025-06-01', 2), {
+    year: 2025, jurisdiction: 'de', exchangeRate: 1, germanTax: GT, taxSettingsModule: TS, fundTypes: {}, vapRecords: {}, dividendEvents: [], taxOverrides: {} }));
+  ok('export labels the block as private sales (sec. 23)', xml3.indexOf('Private sales (sec. 23)') > -1);
+
   console.log('\n  ' + passed + ' passed, ' + failed + ' failed');
   process.exit(failed ? 1 : 0);
 })();

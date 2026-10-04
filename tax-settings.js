@@ -174,6 +174,21 @@
     return numOr(v, null);
   }
 
+  // Per-position tax class in the same sensitive store, key "SYMBOL|class":
+  // 'private' (sec. 23 private sale) or 'capital' (sec. 20 security, e.g. a
+  // gold ETC). Used to move a commodity out of the sec. 23 default.
+  function taxClassOf(overrides, symbol) {
+    var v = overrides && overrides[String(symbol || '').toUpperCase() + '|class'];
+    return (v === 'private' || v === 'capital') ? v : null;
+  }
+  function saveTaxClass(symbol, cls) {
+    var map = loadOverrides();
+    var key = String(symbol || '').toUpperCase() + '|class';
+    if (cls === 'private' || cls === 'capital') map[key] = cls; else delete map[key];
+    try { localStorage.setItem(OVERRIDES_KEY, JSON.stringify(map)); } catch (e) {}
+    return map;
+  }
+
   var api = {
     SETTINGS_KEY: SETTINGS_KEY,
     OVERRIDES_KEY: OVERRIDES_KEY,
@@ -186,7 +201,9 @@
     teilfreistellungRate: teilfreistellungRate,
     loadOverrides: loadOverrides,
     saveOverride: saveOverride,
-    positionOverride: positionOverride
+    positionOverride: positionOverride,
+    taxClassOf: taxClassOf,
+    saveTaxClass: saveTaxClass
   };
   if (typeof window !== 'undefined') window.MaerminTaxSettings = api;
   if (typeof module !== 'undefined' && module.exports) module.exports = api;
