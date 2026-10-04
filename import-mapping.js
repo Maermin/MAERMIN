@@ -83,7 +83,9 @@
   };
 
   // Normalisation tables for transaction "type".
-  const BUY_WORDS  = ['buy', 'kauf', 'purchase', 'deposit', 'einzahlung', 'long', 'b', 'acquisition'];
+  // Single letters (IBKR 'B'/'S') only ever match the WHOLE value - matched as
+  // a substring, 's' turned "Savings plan", "Purchase" or "Deposit" into sells.
+  const BUY_WORDS  = ['buy', 'kauf', 'purchase', 'deposit', 'einzahlung', 'long', 'b', 'acquisition', 'sparplan', 'savings plan', 'savingsplan'];
   const SELL_WORDS = ['sell', 'verkauf', 'sale', 'withdrawal', 'auszahlung', 'short', 's', 'disposal'];
   const DIV_WORDS  = ['dividend', 'dividende', 'distribution', 'ausschüttung', 'interest', 'zinsen', 'staking', 'reward'];
 
@@ -173,14 +175,23 @@
     return `${y}-${p(mo)}-${p(d)}`;
   }
 
-  /** Normalise a free-text transaction type → 'buy'|'sell'|'dividend'. */
-  function normalizeType(value) {
+  /**
+   * Classify a free-text transaction type → 'buy'|'sell'|'dividend', or null
+   * when the value is empty or matches no known word (the caller decides:
+   * applyMapping rejects an unknown type instead of guessing a buy).
+   */
+  function classifyType(value) {
     const t = lc(value);
-    if (!t) return 'buy';
-    if (DIV_WORDS.some((w) => t.includes(w))) return 'dividend';
-    if (SELL_WORDS.some((w) => t === w || t.includes(w))) return 'sell';
-    if (BUY_WORDS.some((w) => t === w || t.includes(w))) return 'buy';
-    return 'buy';
+    if (!t) return null;
+    const hit = (w) => (w.length === 1 ? t === w : t.includes(w));
+    if (DIV_WORDS.some(hit)) return 'dividend';
+    if (SELL_WORDS.some(hit)) return 'sell';
+    if (BUY_WORDS.some(hit)) return 'buy';
+    return null;
+  }
+  /** Normalise a free-text transaction type → 'buy'|'sell'|'dividend' (unknown → 'buy'). */
+  function normalizeType(value) {
+    return classifyType(value) || 'buy';
   }
 
   /** Normalise a symbol via MaerminTickers when available, else uppercase trim. */
@@ -287,7 +298,8 @@
       const get = (f) => (mapping[f] ? row[mapping[f]] : undefined);
       const symbol = normalizeSymbol(get('symbol'), category);
       const date = parseDate(get('date'), locale);
-      const quantity = Math.abs(parseNumber(get('quantity'), locale));
+      const rawQty = parseNumber(get('quantity'), locale);
+      const quantity = Math.abs(rawQty);
       const price = parseNumber(get('price'), locale);
       const missing = [];
       if (!symbol) missing.push('symbol');
@@ -298,10 +310,20 @@
         errors.push({ row: rowNo, reason: 'invalid/missing: ' + missing.join(', '), raw: row });
         return;
       }
+      // Type: a known word, or - with no type value - the quantity's sign
+      // (exports mark sells with a negative quantity). An unrecognised type is
+      // reported instead of silently booked as a buy.
+      const rawType = String(get('type') == null ? '' : get('type')).trim();
+      let type = classifyType(rawType);
+      if (!type && rawType) {
+        errors.push({ row: rowNo, reason: 'unknown type "' + rawType + '" (map it or edit the file)', raw: row });
+        return;
+      }
+      if (!type) type = rawQty < 0 ? 'sell' : 'buy';
       const feeNum = parseNumber(get('fee'), locale);
       transactions.push({
         category,
-        type: normalizeType(get('type')),
+        type,
         symbol,
         quantity,
         price: Math.abs(price),
