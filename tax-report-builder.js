@@ -293,6 +293,10 @@
         // manual taxable overrides. Both fall back to defaults when absent.
         var TSmod = opts.taxSettingsModule || (typeof window !== 'undefined' && window.MaerminTaxSettings) || null;
         var TS = opts.taxSettings || (TSmod && TSmod.load && TSmod.load()) || null;
+        // An explicit church-tax rate wins: the engine computes from the
+        // settings object, so carry it there (it used to be passed only as
+        // kirchensteuerRate, which the engine ignores once settings exist).
+        if (TS && opts.kirchensteuerRate != null) TS = Object.assign({}, TS, { kirchensteuer: opts.kirchensteuerRate });
         // Make the engine's tax step honour custom rate / Soli toggle even in
         // the window-less Node path by carrying the resolver on the settings.
         if (TS && TSmod && TSmod.computeAbgeltung && !TS.__computeAbgeltung) {
