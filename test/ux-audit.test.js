@@ -1,0 +1,50 @@
+// Regression tests for the usability findings of the 2026-10-04 audit
+// (docs/AUDIT.md, UX-001 ...). Pure logic only; the UI side is checked in the
+// running app.
+// Run: node test/ux-audit.test.js
+'use strict';
+
+let passed = 0, failed = 0;
+function ok(name, cond) {
+  if (cond) { passed++; console.log('  ✓ ' + name); }
+  else { failed++; console.error('  ✗ ' + name); }
+}
+function approx(a, b, eps) { return Math.abs(a - b) < (eps || 1e-9); }
+
+(function () {
+  // ---- UX-001: CSV in the quick Import dialog -------------------------------
+  console.log('UX-001 quick import CSV');
+  const M = require('../import-mapping.js');
+  const has = typeof M.quickCSV === 'function';
+  ok('quickCSV exists', has);
+  const run = (text, opts) => (has ? M.quickCSV(text, opts) : { transactions: [], errors: [] });
+
+  // The example the dialog itself shows.
+  const ex = run('type,category,symbol,quantity,price,date,fees\nbuy,crypto,bitcoin,0.5,45000,2024-01-15,10');
+  const t0 = ex.transactions[0] || {};
+  ok('the dialog\'s own CSV example imports one transaction', ex.transactions.length === 1 && ex.errors.length === 0);
+  ok('... with its fields', t0.type === 'buy' && t0.category === 'crypto' && t0.symbol === 'BITCOIN' && approx(t0.quantity, 0.5) && approx(t0.price, 45000) && t0.date === '2024-01-15' && approx(t0.fees, 10));
+
+  const cat = run('type,category,symbol,quantity,price,date\nbuy,stocks,SAP.DE,2,180,2025-03-05\nsell,crypto,ETH,1,2400,2025-03-06');
+  ok('the category column is used per row', cat.transactions.length === 2 && cat.transactions[0].category === 'stocks' && cat.transactions[1].category === 'crypto' && cat.transactions[1].type === 'sell');
+
+  const noCat = run('Date,Type,Symbol,Quantity,Price\n2025-03-05,buy,SAP.DE,2,180', { category: 'stocks' });
+  ok('without a category column the default category applies', noCat.transactions[0].category === 'stocks');
+  const badCat = run('type,category,symbol,quantity,price,date\nbuy,whatever,SAP.DE,2,180,2025-03-05', { category: 'crypto' });
+  ok('an unknown category falls back to the default', badCat.transactions[0].category === 'crypto');
+
+  const de = run('Datum;Typ;Symbol;Anzahl;Kurs;Gebühr\n05.03.2025;Kauf;SAP.DE;2;180,50;1,00');
+  ok('German semicolon CSV with comma decimals', de.transactions.length === 1 && de.transactions[0].date === '2025-03-05' && approx(de.transactions[0].price, 180.5) && approx(de.transactions[0].fees, 1));
+
+  const mixed = run('type,symbol,quantity,price,date\nbuy,BTC,1,100,2025-01-01\nbuy,,1,100,2025-01-02\nTransfer,ETH,1,100,2025-01-03');
+  ok('bad rows are reported with their row number, good rows kept', mixed.transactions.length === 1 && mixed.errors.length === 2 && mixed.errors[0].row === 2 && /symbol/.test(mixed.errors[0].reason) && mixed.errors[1].row === 3 && /Transfer/.test(mixed.errors[1].reason));
+
+  const notes = run('type,symbol,quantity,price,date,notes\nbuy,BTC,1,100,2025-01-01,from Kraken');
+  ok('a notes column is kept', notes.transactions[0].notes === 'from Kraken');
+
+  const empty = run('type,symbol,quantity,price,date');
+  ok('header without rows → one explanatory error', empty.transactions.length === 0 && empty.errors.length === 1);
+
+  console.log('\n  ' + passed + ' passed, ' + failed + ' failed');
+  process.exit(failed ? 1 : 0);
+})();

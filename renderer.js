@@ -1794,8 +1794,8 @@ function InvestmentTracker() {
   
   // Delegates to the MaerminUI store (handles id, cap, auto-dismiss). Kept as a
   // function so the dozens of existing addToast(...) call sites are unchanged.
-  const addToast = (message, type = 'info') => {
-    if (window.MaerminUI) return window.MaerminUI.add(message, type);
+  const addToast = (message, type = 'info', ttl) => {
+    if (window.MaerminUI) return window.MaerminUI.add(message, type, ttl);
   };
 
   // C1: Automation Rules → live notifications. Evaluate the user's rules on every
@@ -2042,12 +2042,27 @@ function InvestmentTracker() {
       try {
         imported = JSON.parse(importData);
       } catch {
-        // Try CSV
-        if (window.ImportExportEngine) {
-          imported = window.ImportExportEngine.parseCSV(importData);
-        } else {
-          throw new Error('Invalid format');
+        // CSV: the wizard's parsing and row checks (MaerminImportMapping), with
+        // the dialog's per-row category column. It used to be split into
+        // { headers, rows }, which no branch below understood ("Unknown format").
+        const IM = window.MaerminImportMapping;
+        if (!IM || !IM.quickCSV) throw new Error('Invalid format');
+        const res = IM.quickCSV(importData, { currency });
+        const firstErr = res.errors[0] ? `Row ${res.errors[0].row}: ${res.errors[0].reason}` : '';
+        if (!res.transactions.length) {
+          // Keep the dialog and the pasted text so the user can correct it.
+          addToast(`${t.noTransactionsFound || 'No transactions found'}${firstErr ? ' - ' + firstErr : ''}`, 'error');
+          return;
         }
+        const stamp = Date.now();
+        // Into the portfolio the user is working in, like "+ Add Transaction".
+        const added = res.transactions.map((tx, idx) => ({ ...tx, id: (stamp + idx).toString(), notes: tx.notes || '', portfolioId: activePortfolioId }));
+        setTransactions(prev => [...prev, ...added]);
+        const skipped = res.errors.length ? ` - ${res.errors.length} row(s) skipped (${firstErr})` : '';
+        addToast(`${added.length} ${t.transactionsImported || 'transactions imported'}${skipped}`, res.errors.length ? 'warning' : 'success', res.errors.length ? 8000 : undefined);
+        setImportData('');
+        setShowImportModal(false);
+        return;
       }
       
       if (window.MaerminBackup && window.MaerminBackup.isFullBackup(imported)) {
@@ -2074,7 +2089,8 @@ function InvestmentTracker() {
           fees: parseFloat(item.fees) || 0,
           date: item.date || window.MaerminUtils.todayISO(),
           notes: item.notes || '',
-          currency: item.currency || currency
+          currency: item.currency || currency,
+          portfolioId: item.portfolioId || activePortfolioId
         }));
         
         setTransactions(prev => [...prev, ...newTransactions]);
@@ -2125,9 +2141,11 @@ function InvestmentTracker() {
           addToast(t.noDataToImport || 'No data to import', 'warning');
         }
       } else {
+        // Keep the dialog and the text: nothing was imported.
         addToast(t.unknownFormat || 'Unknown format', 'error');
+        return;
       }
-      
+
       setImportData('');
       setShowImportModal(false);
     } catch (e) {

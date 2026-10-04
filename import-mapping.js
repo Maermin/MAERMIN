@@ -335,6 +335,37 @@
     return { transactions, errors, stats: { total: (rows || []).length, ok: transactions.length, failed: errors.length } };
   }
 
+  /**
+   * CSV pasted into the quick Import dialog → { transactions, errors }. Same
+   * parsing, type rules and row errors as the wizard (suggestMapping +
+   * applyMapping); on top, a `category` column is honoured per row (falling
+   * back to opts.category, default 'crypto') and a `notes` column is kept.
+   */
+  const QUICK_CATEGORIES = ['crypto', 'stocks', 'skins', 'commodities'];
+  function quickCSV(text, opts) {
+    opts = opts || {};
+    const { headers, rows } = parseCSV(text);
+    if (!headers.length || !rows.length) {
+      return { transactions: [], errors: [{ row: 0, reason: 'no data rows below the header line', raw: null }] };
+    }
+    const mapping = suggestMapping(headers);
+    const catHeader = headers.find((h) => lc(h) === 'category');
+    const notesHeader = headers.find((h) => lc(h) === 'notes' || lc(h) === 'note');
+    const fallback = QUICK_CATEGORIES.indexOf(opts.category) > -1 ? opts.category : 'crypto';
+    const transactions = [], errors = [];
+    rows.forEach((row, i) => {
+      const c = catHeader ? lc(row[catHeader]) : '';
+      const category = QUICK_CATEGORIES.indexOf(c) > -1 ? c : fallback;
+      const res = applyMapping([row], mapping, { category, locale: opts.locale, currency: opts.currency });
+      res.errors.forEach((e) => errors.push(Object.assign({}, e, { row: i + 1 })));
+      res.transactions.forEach((tx) => {
+        if (notesHeader && row[notesHeader]) tx.notes = String(row[notesHeader]);
+        transactions.push(tx);
+      });
+    });
+    return { transactions, errors };
+  }
+
   /** Stable identity key for duplicate detection. */
   function dupKey(tx) {
     return [tx.date, tx.type, lc(tx.symbol), round(tx.quantity), round(tx.price)].join('|');
@@ -635,7 +666,7 @@
     FIELDS, REQUIRED, BROKERS,
     // ISIN -> ticker
     isISIN, listingCurrency, pickListing, collectIsins, applyTickerMap, resolveIsins,
-    detectBroker, suggestMapping, applyMapping, findDuplicates,
+    detectBroker, suggestMapping, applyMapping, quickCSV, findDuplicates,
     parseNumber, parseDate, normalizeType, normalizeSymbol, parseCSV,
     preview, commit,
     // presets (WI-8)
