@@ -158,6 +158,26 @@ function deStore(txs, extra) {
   const d4 = TR.fifo([buy, { type: 'sell', category: 'crypto', symbol: 'BTC', quantity: 0.1, price: 90000, currency: 'EUR', date: '2026-03-10' }], 2026, 1, null)[0];
   ok('sale on the anniversary of a 00:30 buy stays taxable', buy.date === '2025-03-10' && d4.longTerm === false);
 
+  // ---- BUG-005: advisor headroom uses the configured allowance --------------
+  console.log('BUG-005 advisor Sparerpauschbetrag');
+  resetStore();
+  const ADV = require('../tax-advisor.js');
+  const div600 = [{ type: 'dividend', category: 'stocks', symbol: 'ALV', quantity: 1, price: 600, currency: 'EUR', date: '2025-05-10' }];
+  const rep5 = TR.build(div600, { year: 2025, jurisdiction: 'de', exchangeRate: 1, germanTax: GT, taxSettings: TS.sanitize({ freistellungsauftrag: 500 }),
+    fundTypes: {}, vapRecords: {}, dividendEvents: [], taxOverrides: {} });
+  const td = typeof ADV.taxDataFromReport === 'function' ? ADV.taxDataFromReport(rep5, () => false) : {};
+  const res5 = ADV.analyze(Object.assign(ADV.gather({ transactions: [], prices: {}, taxOwner: {}, taxData: td }), { today: '2025-06-01' }));
+  ok('advisor limit = Freistellungsauftrag setting (500)', res5.summary.sparerpauschbetrag.limit === 500);
+  ok('no headroom left after 600 of dividends', res5.summary.sparerpauschbetrag.remaining <= 0);
+  const td2 = typeof ADV.taxDataFromReport === 'function'
+    ? ADV.taxDataFromReport(TR.build(buySell('SAP', 100, 110).concat(buySell('WORLD', 100, 105)).concat(div600), { year: 2025, jurisdiction: 'de', exchangeRate: 1, germanTax: GT,
+        taxSettings: TS.sanitize({}), fundTypes: {}, vapRecords: {}, dividendEvents: [], taxOverrides: {} }), (s) => s === 'WORLD') : {};
+  ok('pots split as before: shares 1000, other 500 + 600', td2.realizedStockGainsYTD === 1000 && td2.realizedOtherGainsYTD === 1100);
+  const rep0 = TR.build(div600, { year: 2025, jurisdiction: 'de', exchangeRate: 1, germanTax: GT, taxSettings: TS.sanitize({ freistellungsauftrag: 0 }),
+    fundTypes: {}, vapRecords: {}, dividendEvents: [], taxOverrides: {} });
+  const res0 = ADV.analyze(Object.assign(ADV.gather({ transactions: [], prices: {}, taxOwner: {}, taxData: ADV.taxDataFromReport(rep0, () => false) }), { today: '2025-06-01' }));
+  ok('an allowance of 0 is respected (no fallback to 1000)', res0.summary.sparerpauschbetrag.limit === 0 && res0.summary.sparerpauschbetrag.remaining === 0);
+
   console.log('\n  ' + passed + ' passed, ' + failed + ' failed');
   process.exit(failed ? 1 : 0);
 })();

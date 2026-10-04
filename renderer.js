@@ -4194,15 +4194,6 @@ function InvestmentTracker() {
               if (fundTypes[S] && fundTypes[S] !== 'none') return true;
               return !!(LT && LT.isFundCandidate && LT.isFundCandidate(S, name));
             };
-            let stockG = 0, otherG = 0;
-            if (taxReport) {
-              (taxReport.realizedGains || []).concat(taxReport.realizedLosses || []).forEach((d) => {
-                if (d.category !== 'stocks') return;
-                if (isFund(d.symbol)) otherG += d.gain; else stockG += d.gain;
-              });
-              otherG += (taxReport.summary.dividendIncome || 0) + (taxReport.summary.interestIncome || 0);
-            }
-            const g = taxReport && taxReport.summary && taxReport.summary.germanDetail;
             const book = allPortfoliosPortfolio || portfolio;
             const positions = ((book && book.stocks) || []).map((p) => {
               const sym = p.symbol || p.name || '';
@@ -4211,15 +4202,8 @@ function InvestmentTracker() {
               return { symbol: sym, category: 'stocks', isFund: isFund(sym, p.name),
                 costBasisEUR: amount * (parseFloat(p.purchasePrice) || 0), currentValueEUR: px > 0 ? amount * px : amount * (parseFloat(p.purchasePrice) || 0) };
             });
-            return {
-              positions,
-              taxData: {
-                realizedStockGainsYTD: stockG,
-                realizedOtherGainsYTD: otherG,
-                realizedCryptoGainsYTD: g && g.crypto ? g.crypto.netShortTermGains : 0,
-                sparerpauschbetragUsed: g ? g.sparerpauschbetragUsed : 0
-              }
-            };
+            // Pots + the Sparerpauschbetrag (limit and usage) the report applied.
+            return { positions, taxData: window.MaerminTaxAdvisor.taxDataFromReport(taxReport, isFund) };
           })(),
           theme: currentTheme, t, formatPrice, getCurrencySymbol
         }),

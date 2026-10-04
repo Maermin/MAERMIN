@@ -159,7 +159,9 @@
     }
 
     // ---- Sparerpauschbetrag headroom ----
-    var spbLimit = num(input.sparerpauschbetrag) || o.sparerpauschbetrag;
+    // An explicit 0 (allowance used up at another bank) is a real limit.
+    var spbLimit = (input.sparerpauschbetrag != null && isFinite(parseFloat(input.sparerpauschbetrag)))
+      ? num(input.sparerpauschbetrag) : o.sparerpauschbetrag;
     var spbUsed = num(input.sparerpauschbetragUsed);
     var spbRemaining = spbLimit - spbUsed;
     if (spbRemaining > 0 && spbRemaining < spbLimit) {
@@ -246,6 +248,30 @@
     return married ? DEFAULTS.sparerpauschbetrag * 2 : DEFAULTS.sparerpauschbetrag;
   }
 
+  // The advisor's taxData from a built MaerminTaxReport: realised gains per
+  // German loss pot (direct shares / funds + other capital income / sec. 23)
+  // and the Sparerpauschbetrag the report applied - limit AND usage, so the
+  // headroom follows the user's Freistellungsauftrag setting. isFund(symbol)
+  // separates funds from direct shares among stock disposals.
+  function taxDataFromReport(report, isFund) {
+    var stockG = 0, otherG = 0;
+    if (report) {
+      (report.realizedGains || []).concat(report.realizedLosses || []).forEach(function (d) {
+        if (d.category !== 'stocks') return;
+        if (isFund && isFund(d.symbol)) otherG += d.gain; else stockG += d.gain;
+      });
+      otherG += num(report.summary && report.summary.dividendIncome) + num(report.summary && report.summary.interestIncome);
+    }
+    var g = report && report.summary && report.summary.germanDetail;
+    return {
+      realizedStockGainsYTD: stockG,
+      realizedOtherGainsYTD: otherG,
+      realizedCryptoGainsYTD: g && g.crypto ? g.crypto.netShortTermGains : 0,
+      sparerpauschbetrag: g ? num(g.sparerpauschbetrag) : null,
+      sparerpauschbetragUsed: g ? g.sparerpauschbetragUsed : 0
+    };
+  }
+
   // Browser gather: build the analyze() input from the live transaction list +
   // prices + the German tax summary (best-effort; defensive everywhere).
   function gather(opts) {
@@ -269,7 +295,8 @@
       realizedCryptoGainsYTD: num(taxData.realizedCryptoGainsYTD),
       realizedStockGainsYTD: num(taxData.realizedStockGainsYTD),
       realizedOtherGainsYTD: num(taxData.realizedOtherGainsYTD),
-      sparerpauschbetrag: num(taxData.sparerpauschbetrag) || sparerLimitFor(taxOwner),
+      sparerpauschbetrag: (taxData.sparerpauschbetrag != null && isFinite(parseFloat(taxData.sparerpauschbetrag)))
+        ? num(taxData.sparerpauschbetrag) : sparerLimitFor(taxOwner),
       sparerpauschbetragUsed: num(taxData.sparerpauschbetragUsed),
       positions: opts.positions || []
     };
@@ -278,7 +305,7 @@
   var api = {
     PRIORITY_RANK: PRIORITY_RANK, DEFAULTS: DEFAULTS,
     daysBetween: daysBetween, addDays: addDays, cryptoFreeDate: cryptoFreeDate,
-    buildCryptoLots: buildCryptoLots, sparerLimitFor: sparerLimitFor,
+    buildCryptoLots: buildCryptoLots, sparerLimitFor: sparerLimitFor, taxDataFromReport: taxDataFromReport,
     analyze: analyze, gather: gather
   };
 
