@@ -45,6 +45,41 @@ function approx(a, b, eps) { return Math.abs(a - b) < (eps || 1e-9); }
   const empty = run('type,symbol,quantity,price,date');
   ok('header without rows → one explanatory error', empty.transactions.length === 0 && empty.errors.length === 1);
 
-  console.log('\n  ' + passed + ' passed, ' + failed + ' failed');
-  process.exit(failed ? 1 : 0);
+  // ---- UX-002: confirm before a pasted full backup is restored --------------
+  console.log('UX-002 backup restore confirmation');
+  const B = require('../backup-engine.js');
+  const bk = { format: 'maermin-full', version: '10.0.0', timestamp: '2026-06-20T08:00:00.000Z',
+    store: { transactions: JSON.stringify([{ id: 1 }, { id: 2 }, { id: 3 }]), theme: '"dark"', apiKeys: 'x', unknown_key: 'y' } };
+  const sum = typeof B.summary === 'function' ? B.summary(bk) : null;
+  ok('summary reports date, transaction count and restorable keys', !!sum && sum.timestamp === '2026-06-20T08:00:00.000Z' && sum.transactionCount === 3 && sum.keyCount === 2);
+  const sumBad = typeof B.summary === 'function' ? B.summary({ store: { transactions: 'not json' } }) : null;
+  ok('unreadable transactions → count null, no throw', !!sumBad && sumBad.transactionCount === null && sumBad.timestamp === null);
+
+  const UI = require('../ui-store.js');
+  const hasConfirm = typeof UI.confirm === 'function' && typeof UI.answerConfirm === 'function';
+  ok('MaerminUI.confirm / answerConfirm exist', hasConfirm);
+  if (hasConfirm) {
+    return (async () => {
+      const p1 = UI.confirm({ title: 'Restore backup?', message: 'Replaces data', confirmLabel: 'Restore', danger: true });
+      const st = UI.confirmState.getState();
+      ok('opening sets the dialog state', st.open === true && st.title === 'Restore backup?' && st.confirmLabel === 'Restore' && st.danger === true);
+      UI.answerConfirm(true);
+      ok('confirming resolves true and closes', (await p1) === true && UI.confirmState.getState().open === false);
+      const p2 = UI.confirm({ title: 'Again?' });
+      UI.answerConfirm(false);
+      ok('cancelling resolves false', (await p2) === false);
+      const p3 = UI.confirm({ title: 'First' });
+      const p4 = UI.confirm({ title: 'Second' });
+      ok('a second confirm cancels the first', (await p3) === false && UI.confirmState.getState().title === 'Second');
+      UI.answerConfirm(true);
+      ok('... and the second still works', (await p4) === true);
+      finish();
+    })();
+  }
+  finish();
+
+  function finish() {
+    console.log('\n  ' + passed + ' passed, ' + failed + ' failed');
+    process.exit(failed ? 1 : 0);
+  }
 })();

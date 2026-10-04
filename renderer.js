@@ -2070,12 +2070,28 @@ function InvestmentTracker() {
         // key back to localStorage, then we reload so the feature modules
         // (watchlist, alerts, journal, savings plans, net-worth, …) that read
         // localStorage directly re-hydrate from the restored store.
-        const restored = window.MaerminBackup.restore(imported);
-        if (window.MaerminAuditLog) window.MaerminAuditLog.record('data.import', `Full backup restored (${restored} data keys)`);
-        addToast(t.importSuccess || 'Backup restored', 'success');
-        setImportData('');
-        setShowImportModal(false);
-        setTimeout(() => window.location.reload(), 600);
+        // It REPLACES the current data, so ask first and say what changes.
+        const doRestore = () => {
+          const restored = window.MaerminBackup.restore(imported);
+          if (window.MaerminAuditLog) window.MaerminAuditLog.record('data.import', `Full backup restored (${restored} data keys)`);
+          addToast(t.importSuccess || 'Backup restored', 'success');
+          setImportData('');
+          setShowImportModal(false);
+          setTimeout(() => window.location.reload(), 600);
+        };
+        const ask = window.MaerminUI && window.MaerminUI.confirm;
+        if (!ask) { doRestore(); return; }
+        const sum = window.MaerminBackup.summary ? window.MaerminBackup.summary(imported) : { timestamp: null, transactionCount: null, keyCount: 0 };
+        const when = sum.timestamp ? new Date(sum.timestamp).toLocaleString() : 'an unknown date';
+        const count = sum.transactionCount == null ? 'an unknown number of' : sum.transactionCount;
+        ask({
+          title: t.restoreBackupTitle || 'Replace your data with this backup?',
+          message: `Backup from ${when}: ${count} transactions, ${sum.keyCount} data sets.\n` +
+            `Your current data (${transactions.length} transactions) and every setting stored in the backup will be replaced. This cannot be undone.\n\n` +
+            'To keep a copy, cancel and use Data Management → Export & Backup first.',
+          confirmLabel: t.restoreBackupConfirm || 'Replace my data',
+          danger: true
+        }).then(yes => { if (yes) doRestore(); }); // cancelled: the dialog and the text stay
         return;
       } else if (Array.isArray(imported)) {
         // Array of transactions
@@ -5678,7 +5694,8 @@ buy,crypto,bitcoin,0.5,45000,2024-01-15,10`)
     
     // Toast notifications — own slice of MaerminStore; re-renders independently
     // of the app on add/expire (see ui-store.js).
-    window.MaerminUI && React.createElement(window.MaerminUI.ToastContainer, { theme: currentTheme })
+    window.MaerminUI && React.createElement(window.MaerminUI.ToastContainer, { theme: currentTheme }),
+    window.MaerminUI && window.MaerminUI.ConfirmHost && React.createElement(window.MaerminUI.ConfirmHost, { theme: currentTheme })
   );
 }
 
