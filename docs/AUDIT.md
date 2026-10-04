@@ -245,3 +245,80 @@ Working well: the sidebar is keyboard-operable with `aria-current`; shortcuts do
 - UX-008 and UX-012 touch `auth.js`: markup, error display and one sentence of text only; no unlock or vault logic changed.
 - UX-012 was checked in code only: showing the setup screen would have meant deleting the test vault.
 - Every UI fix was re-checked in the running app (Demo mode, keyboard, screen-reader attributes). Gates at the end: check 195 files, test 88 suites, e2e 128/128.
+---
+
+## Run 2026-10-04 (5) — focus `security` (summary), `features`, `look`
+
+Branch `audit/bugs-2026-10-04` @ `d367ca0`. Running app: dev `index.html` served locally, built-in browser, Demo mode, test vault.
+
+**Security:** no new finding with a realistic attack path (vault, injection sinks, CSP, Worker routes, sync auth, share allowlist, service-worker caching and SRI checked). Details and four hardening notes are in the git-ignored `docs/AUDIT.security.local.md`.
+
+### Found during the features pass (usability)
+
+### UX-014 — Manual Import tab restores a pasted full backup without asking
+- **Severity:** Important · **Status:** open · **Found:** 2026-10-04 (code trace)
+- **Location:** `renderer.js:2315-2321` (Data Management → Manual Import, `DataManagementView.handleImport`)
+- **What happens:** This is the second import path. It still writes every key of a pasted full backup and reloads at once. UX-002 added the confirmation only to the quick Import dialog.
+- **Proposed fix:** Reuse the UX-002 confirmation (`MaerminBackup.summary` + `MaerminUI.confirm`) here.
+
+### UX-015 — Manual Import tab rejects every CSV
+- **Severity:** Important · **Status:** open · **Found:** 2026-10-04 (code trace)
+- **Location:** `renderer.js:2324-2327`
+- **What happens:** The tab says "Paste JSON or CSV data", but CSV goes through `ImportExportEngine.parseCSV`, which returns `{ headers, rows }` (no `.length`), so it always ends in "Import failed: No transactions found in data". It is the same dead end as UX-001 on a second path.
+- **Proposed fix:** Use `MaerminImportMapping.quickCSV` (from UX-001), with the same row-error message and active-portfolio default.
+
+### Features (documented vs real)
+
+Checked and matching: every ROADMAP module exists and is loaded by `index.html`; keyboard shortcuts (`g`+key, `n r b i p`, `?`) as documented; Monte Carlo defaults to 10,000 iterations (adjustable); DRIP simulation, earnings calendar, watchlist sparkline and stress scenarios exist; PLAN.md's "tax-pot findings fixed" is now true (BUG-002).
+
+### FEAT-001 — The privacy section understates which third parties the app contacts
+- **Severity:** Important · **Status:** open · **Found:** 2026-10-04
+- **Location:** `README.md:195-202` vs `index.html:11-13` (Google Fonts), `index.html:32-33` (React from unpkg), jsPDF/pdf.js from cdnjs on first use, position logos from `s.yimg.com` (`REPORT.md`), skin/coin images from Steam/CoinGecko, optional Alpha Vantage
+- **What happens:** README: "API calls go to: CoinGecko, ExchangeRate-API, your own Cloudflare Worker" and "no data is stored except the opt-in zero-knowledge sync blob". In fact every app start loads the Geist fonts from `fonts.googleapis.com`/`fonts.gstatic.com` (the user's IP goes to Google), React comes from unpkg, and published Share snapshots plus their aggregate are stored in the Worker's KV for 90 days.
+- **Why it matters:** This is a privacy promise in an app whose selling point is privacy, and German users in particular check for Google Fonts.
+- **Proposed fix:** Self-host the two Geist font files (and drop the Google Fonts `link` + CSP entries), then list the remaining hosts (unpkg/cdnjs, image hosts, optional Alpha Vantage) and the opt-in Share storage in the README.
+
+### FEAT-002 — README says the Overview always shows combined totals
+- **Severity:** Optimization · **Status:** open · **Found:** 2026-10-04
+- **Location:** `README.md:47` vs the portfolio chips on the Overview (`renderer.js` "Portfolio selector tabs")
+- **What happens:** Choosing a portfolio chip filters the Overview to that portfolio ("Test Depot · 0.00 €"). The README says it always shows combined totals.
+- **Proposed fix:** "Overview shows all portfolios combined or one portfolio at a time."
+
+### FEAT-003 — Worker endpoint lists are incomplete
+- **Severity:** Optimization · **Status:** open · **Found:** 2026-10-04
+- **Location:** `README.md:125-141` (missing `news`, `mcp`), `docs/WORKER.md` (missing `earnings`, `news`); routes in `cf-worker/worker.js` lines 517 and 693
+- **Proposed fix:** Add the missing routes with their request/response shape.
+
+### Look
+
+Method: all 27 sidebar views at 375 px (phone) measuring horizontal overflow of `<main>` (its own scroll container) and the elements causing it; all views with Privacy Mode on, scanning visible text for amounts; all views in the light theme computing WCAG contrast of every visible text against its composited background (text on images/gradients skipped).
+
+### LOOK-001 — Overview overflows by 390 px on phones
+- **Severity:** Important · **Status:** open · **Found:** 2026-10-04
+- **Location:** `renderer.js:3721` (`gridTemplateColumns: '1fr 1fr'` for the allocation and top-performers cards)
+- **What happens:** `1fr` columns cannot shrink below their content, and the allocation card needs about 458 px, so the grid is 725 px wide inside a 327 px column. The Overview scrolls sideways and "Top performers" sits off-screen.
+- **Proposed fix:** `repeat(auto-fit, minmax(min(100%, 320px), 1fr))`. Re-check at 375 px and desktop.
+
+### LOOK-002 — Fee Analyzer overflows by 139 px on phones
+- **Severity:** Important · **Status:** open · **Found:** 2026-10-04
+- **Location:** `features5.js:575` (`gridColumn: 'span 2'` on the top-10 card inside an `auto-fit` grid)
+- **What happens:** The span forces an implicit second column even where only one fits.
+- **Proposed fix:** `gridColumn: '1 / -1'` (full row in any column count).
+
+### LOOK-003 — Privacy Mode leaks dividend amounts (and shows them in $)
+- **Severity:** Important · **Status:** open · **Found:** 2026-10-04
+- **Location:** `features2.js:1316` (calendar header "Dec 2026: 2.88 € · Year 2026: 11.52 €") and the calendar day cells ("AAPL +2.88$"); `advisor.js:103-104` (Health: "~$12/yr dividend income", "About $1/mo")
+- **What happens:** With "Hide amounts" on, these strings are built with `toFixed`/a local `money()` instead of the masking `formatPrice`, so they stay readable. The advisor also hard-codes `$` although the app currency is EUR (the same income is 11.52 € elsewhere).
+- **Proposed fix:** Format through the app's formatter (pass `formatPrice`/privacy state into the calendar and advisor) and use the app currency symbol.
+
+### LOOK-004 — Light theme: hard-coded dark-theme colours fail contrast in 10+ views
+- **Severity:** Important · **Status:** open · **Found:** 2026-10-04
+- **Location:** `#22c55e` literals (87 uses; most in `investment-views.js`, `features3.js`, `renderer.js`, `features4.js`, `features5.js`), dividend calendar `#7cb0ff`, fee figures `#f59e0b`, the Health grade orange
+- **What happens:** In the light theme (`renderer.js:82-103`, which defines `success: '#0f9f68'`, `warning: '#d97706'`) these fixed colours reach only 2.0–2.3:1 for gains on white (Portfolios, Net Worth, Returns, Rebalancing, Savings Plans, Fees, Tax, Attribution), 1.9:1 for calendar entries and 2.2–2.5:1 for orange figures. WCAG AA needs 4.5:1 (3:1 for large text).
+- **Proposed fix:** Replace the literals with `theme.success` / `theme.warning` / `theme.accent` (most components already receive `theme`); keep the bright values only in the dark themes.
+
+### LOOK-005 — Overview position quantities nearly invisible in the light theme
+- **Severity:** Important · **Status:** open · **Found:** 2026-10-04
+- **Location:** `renderer.js:3687` (`color: '#cbd3e1'` on the quantity cell)
+- **What happens:** 1.51:1 on white; quantities like "0.25" and "65" are barely readable.
+- **Proposed fix:** `color: currentTheme.textSecondary`.
