@@ -394,10 +394,21 @@
    * (after the user edits `mapping`) back to `commit()`.
    * → { headers, rows, broker, mapping, transactions, errors, duplicates, stats }
    */
+  // Broker ids of the import wizard (features2.js) → ids of BROKERS.
+  const WIZARD_BROKER_ALIASES = { traderepublic: 'traderepublic', interactivebrokers: 'ibkr' };
+  function chosenBroker(id) {
+    const key = lc(id);
+    if (!key) return null;
+    const b = BROKERS.find((x) => x.id === (WIZARD_BROKER_ALIASES[key] || key));
+    return b ? { id: b.id, name: b.name, category: b.category, score: null, confidence: 1, chosen: true } : null;
+  }
+
   function preview(csvText, opts) {
     opts = opts || {};
     const { headers, rows } = parseCSV(csvText);
-    const broker = detectBroker(headers);
+    // The broker the user picked in the wizard wins over header sniffing (it
+    // reported "Detected: Interactive Brokers" for a chosen Scalable file).
+    const broker = chosenBroker(opts.broker) || detectBroker(headers);
     const category = opts.category || (broker && broker.category) || 'stocks';
     const mapping = opts.mapping || suggestMapping(headers, broker && broker.id);
     const applied = applyMapping(rows, mapping, { category, locale: opts.locale, currency: opts.currency });

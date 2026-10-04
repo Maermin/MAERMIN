@@ -45,6 +45,19 @@ function approx(a, b, eps) { return Math.abs(a - b) < (eps || 1e-9); }
   const empty = run('type,symbol,quantity,price,date');
   ok('header without rows → one explanatory error', empty.transactions.length === 0 && empty.errors.length === 1);
 
+  // ---- UX-010: the wizard's chosen broker wins over header sniffing ---------
+  console.log('UX-010 chosen broker');
+  const csv10 = 'Date;Type;Symbol;Quantity;Price;Fee;Currency\n05.03.2025;Savings plan;SAP.DE;2;180,50;0;EUR';
+  const sniffed = M.preview(csv10, {});
+  ok('(header sniffing alone picks Interactive Brokers)', sniffed.broker && sniffed.broker.id === 'ibkr');
+  const chosen = M.preview(csv10, { broker: 'scalable' });
+  ok('a chosen broker is reported instead', chosen.broker && chosen.broker.id === 'scalable' && chosen.broker.chosen === true && /Scalable/.test(chosen.broker.name));
+  ok('... and the rows still map', chosen.transactions.length === 1 && chosen.transactions[0].type === 'buy');
+  const alias = M.preview(csv10, { broker: 'tradeRepublic' });
+  ok('wizard ids are mapped (tradeRepublic → traderepublic)', alias.broker && alias.broker.id === 'traderepublic');
+  const unknown = M.preview(csv10, { broker: 'generic' });
+  ok('"generic" or an unknown id keeps header sniffing', unknown.broker && unknown.broker.id === 'ibkr');
+
   // ---- UX-002: confirm before a pasted full backup is restored --------------
   console.log('UX-002 backup restore confirmation');
   const B = require('../backup-engine.js');

@@ -649,7 +649,7 @@ function BrokerImportWizard({ theme, t, addToast, onImport, existing, workerUrl 
     const IM = window.MaerminImportMapping;
     if (!IM || !rawData || rawData === ' ') { setMp(null); setMapping(null); return; }
     try {
-      const prev = IM.preview(rawData, { existing: existing || [], category: catHint });
+      const prev = IM.preview(rawData, { existing: existing || [], category: catHint, broker: selectedBroker });
       setMapping(prev.mapping);
       setMp(prev);
     } catch (e) { console.error('[IMPORT] mapping preview error:', e); setMp(null); }
@@ -661,7 +661,7 @@ function BrokerImportWizard({ theme, t, addToast, onImport, existing, workerUrl 
     const next = Object.assign({}, mapping, { [field]: header || null });
     setMapping(next);
     if (IM && rawData) {
-      try { setMp(IM.preview(rawData, { existing: existing || [], category: catHint, mapping: next })); }
+      try { setMp(IM.preview(rawData, { existing: existing || [], category: catHint, mapping: next, broker: selectedBroker })); }
       catch (e) { console.error('[IMPORT] remap error:', e); }
     }
   };
@@ -691,7 +691,7 @@ function BrokerImportWizard({ theme, t, addToast, onImport, existing, workerUrl 
     if (!preset) return;
     const res = IM.applyPreset(preset, mp.headers);
     setMapping(res.mapping);
-    try { setMp(IM.preview(rawData, { existing: existing || [], category: res.category || catHint, mapping: res.mapping })); }
+    try { setMp(IM.preview(rawData, { existing: existing || [], category: res.category || catHint, mapping: res.mapping, broker: selectedBroker })); }
     catch (e) { console.error('[IMPORT] preset apply error:', e); }
     if (res.missing.length) addToast && addToast(`Preset applied · ${res.missing.length} column(s) not found in this file`, 'warning');
     else addToast && addToast('Preset applied', 'success');
@@ -982,7 +982,7 @@ function BrokerImportWizard({ theme, t, addToast, onImport, existing, workerUrl 
         return React.createElement('div', null,
           // Summary chips: broker + counts.
           React.createElement('div', { style: { display: 'flex', flexWrap: 'wrap', gap: '0.5rem', alignItems: 'center', marginBottom: '0.9rem', fontSize: '0.8rem' } },
-            mp.broker && React.createElement('span', { style: { padding: '0.25rem 0.6rem', borderRadius: '20px', background: `${theme.accent}1e`, color: theme.accent, fontWeight: '700' } }, `Detected: ${mp.broker.name}`),
+            mp.broker && React.createElement('span', { style: { padding: '0.25rem 0.6rem', borderRadius: '20px', background: `${theme.accent}1e`, color: theme.accent, fontWeight: '700' } }, mp.broker.chosen ? `${mp.broker.name} (columns detected)` : `Detected: ${mp.broker.name}`),
             React.createElement('span', { style: { padding: '0.25rem 0.6rem', borderRadius: '20px', background: 'rgba(34,197,94,0.15)', color: '#22c55e', fontWeight: '700' } }, `✓ ${mp.stats.ok} valid`),
             mp.errors.length > 0 && React.createElement('span', { ...window.MaerminUtils.clickable(() => setShowErrors(v => !v)), 'aria-label': 'Toggle error details', style: { padding: '0.25rem 0.6rem', borderRadius: '20px', background: 'rgba(239,68,68,0.15)', color: '#ef4444', fontWeight: '700', cursor: 'pointer' } }, `✗ ${mp.errors.length} skipped ${showErrors ? '▲' : '▼'}`),
             (mp.stats.duplicates > 0) && React.createElement('span', { style: { padding: '0.25rem 0.6rem', borderRadius: '20px', background: 'rgba(245,158,11,0.15)', color: '#f59e0b', fontWeight: '700' } }, `! ${mp.stats.duplicates} duplicate(s)`)
