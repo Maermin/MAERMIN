@@ -317,6 +317,7 @@
         e('div', { style: { color: dim, fontSize: '0.72rem', textTransform: 'uppercase', letterSpacing: '0.05em', fontWeight: 700, marginBottom: '0.4rem' } }, 'Computation (statutory order)'),
         line('Taxable gains after Teilfreistellung', sym + fmt(detail.gainsTaxable)),
         line('Deductible losses after Teilfreistellung', sym + fmt(detail.lossesTaxable), detail.lossesTaxable < 0 ? bad : text),
+        detail.shareLossCarried > 0 ? line('Share losses not offset (only against share gains)', sym + fmt(detail.shareLossCarried), dim) : null,
         line('Taxable fund distributions', sym + fmt(detail.dividendsTaxable)),
         line('Vorabpauschale ' + (year - 1) + ' (taxed in ' + year + ')', sym + fmt(detail.vorabpauschaleTaxable)),
         detail.vapCreditTotal > 0 ? line('Credited prior Vorabpauschalen', '-' + sym + fmt(detail.vapCreditTotal), good) : null,

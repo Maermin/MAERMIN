@@ -79,7 +79,7 @@
       g.disposals.forEach(function (d) {
         if (year && parseInt(d.disposalDate.slice(0, 4), 10) !== year) return;
         disposals.push({
-          symbol: symbol, category: g.category,
+          symbol: symbol, category: g.category, symbolName: g.symbolName || '',
           quantity: d.qty,
           acquisitionDate: d.acquisitionDate, disposalDate: d.disposalDate,
           holdingPeriodDays: d.holdingPeriodDays, longTerm: d.longTerm,
@@ -316,11 +316,21 @@
         // Vorabpauschale is spread over the units held at the end of that
         // year, and a disposal lot is credited only for the years its units
         // were already held. The credit may turn a gain into a loss.
+        // Loss pot per disposal: a direct share (category stocks, not a fund)
+        // goes to the 'shares' pot (sec. 20 (6) S.4 EStG). Funds are the
+        // user's fund-type classification or the X-Ray fund heuristic - the
+        // same rule the Tax view uses for the advisor's pots.
+        var LT = (typeof window !== 'undefined') && window.MaerminLookThrough;
+        var isFund = (typeof opts.isFund === 'function') ? opts.isFund : function (sym, name) {
+          if (fundTypes[sym] && fundTypes[sym] !== 'none') return true;
+          return !!(LT && LT.isFundCandidate && LT.isFundCandidate(sym, name));
+        };
+        var potOf = function (d) { return (d.category === 'stocks' && !isFund(d.symbol, d.symbolName)) ? 'shares' : 'other'; };
         var capitalDisposals = disposals.filter(function (d) { return d.category !== 'crypto'; }).map(function (d) {
           var sym = d.symbol;
           var override = lookupOverride(sym);
-          if (override != null) return { symbol: sym, gain: override, vapCredit: 0, overridden: true };
-          return { symbol: sym, gain: d.gain, vapCredit: vapCreditForLot(txs, vapRecords, d) };
+          if (override != null) return { symbol: sym, gain: override, vapCredit: 0, overridden: true, pot: potOf(d) };
+          return { symbol: sym, gain: d.gain, vapCredit: vapCreditForLot(txs, vapRecords, d), pot: potOf(d) };
         });
         var capital = GT.computeGermanTaxDetailed({
           disposals: capitalDisposals,
@@ -399,6 +409,7 @@
     return [
       ['Taxable gains after Teilfreistellung', money(g.gainsTaxable, cur)],
       ['Deductible losses after Teilfreistellung', money(g.lossesTaxable, cur)],
+      ['Share losses not offset (Aktienverlusttopf)', money(g.shareLossCarried, cur)],
       ['Taxable fund distributions', money(g.dividendsTaxable, cur)],
       ['Vorabpauschale (current year, taxable)', money(g.vorabpauschaleTaxable, cur)],
       ['Credited prior Vorabpauschalen', money(-g.vapCreditTotal, cur)],
@@ -576,6 +587,7 @@
         money: [false, true], rows: [
           ['Taxable gains after Teilfreistellung', num(g.gainsTaxable)],
           ['Deductible losses after Teilfreistellung', num(g.lossesTaxable)],
+          ['Share losses not offset (Aktienverlusttopf)', num(g.shareLossCarried)],
           ['Taxable fund distributions', num(g.dividendsTaxable)],
           ['Vorabpauschale (current year, taxable)', num(g.vorabpauschaleTaxable)],
           ['Credited prior Vorabpauschalen', -num(g.vapCreditTotal)],

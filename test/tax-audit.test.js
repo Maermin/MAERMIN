@@ -72,6 +72,37 @@ function deStore(txs, extra) {
   TS.reset();
   ok('reset to defaults clears church tax too', TS.load().kirchensteuer === 0 && localStorage.getItem('maermin_kirchensteuer') === null);
 
+  // ---- BUG-002: share losses only offset share gains (sec. 20 (6) S.4) ------
+  console.log('BUG-002 loss pots');
+  resetStore();
+  const buySell = (sym, buy, sell, extra) => [
+    Object.assign({ type: 'buy', category: 'stocks', symbol: sym, quantity: 100, price: buy, currency: 'EUR', date: '2024-01-10' }, extra || {}),
+    Object.assign({ type: 'sell', category: 'stocks', symbol: sym, quantity: 100, price: sell, currency: 'EUR', date: '2025-06-01' }, extra || {})
+  ];
+  g = deStore(buySell('BAYN', 50, 30).concat(div3000));
+  ok('share loss does not offset dividends (taxable 2000)', approx(g.taxableIncome, 2000) && approx(g.totalTax, 527.5));
+  ok('unused share loss is reported as carried', approx(g.shareLossCarried, 2000));
+  ok('no deductible loss shown for it', approx(g.lossesTaxable, 0));
+
+  g = deStore(buySell('BAYN', 50, 30).concat(buySell('SAP', 100, 130)), { sparerpauschbetrag: 0 });
+  ok('share loss offsets share gains (3000 - 2000)', approx(g.taxableIncome, 1000) && approx(g.shareLossCarried, 0));
+
+  g = deStore(buySell('BAYN', 50, 30).concat(buySell('SAP', 100, 110)), { sparerpauschbetrag: 0 });
+  ok('share loss larger than share gains: rest carried', approx(g.taxableIncome, 0) && approx(g.shareLossCarried, 1000));
+
+  g = deStore(buySell('WORLD', 100, 90).concat(buySell('SAP', 100, 120)), { sparerpauschbetrag: 0, fundTypes: { WORLD: 'aktienfonds' } });
+  ok('fund loss (after 30% TF) offsets share gains', approx(g.taxableIncome, 2000 - 700) && approx(g.shareLossCarried, 0));
+
+  g = deStore(buySell('WORLD', 100, 90).concat(div3000), { sparerpauschbetrag: 0, fundTypes: { WORLD: 'aktienfonds' } });
+  ok('fund loss offsets dividends (other pot)', approx(g.taxableIncome, 3000 - 700));
+
+  g = deStore(buySell('IWDA', 100, 90).concat(div3000), { sparerpauschbetrag: 0, isFund: (s) => s === 'IWDA' });
+  ok('unclassified ETF recognised by the fund rule is not a share', approx(g.taxableIncome, 2000) && approx(g.shareLossCarried, 0));
+
+  const xml = TR.buildExcelWorkbook(TR.build(buySell('BAYN', 50, 30).concat(div3000), {
+    year: 2025, jurisdiction: 'de', exchangeRate: 1, germanTax: GT, taxSettingsModule: TS, fundTypes: {}, vapRecords: {}, dividendEvents: [], taxOverrides: {} }));
+  ok('export lists the carried share loss', xml.indexOf('Share losses not offset') > -1);
+
   console.log('\n  ' + passed + ' passed, ' + failed + ' failed');
   process.exit(failed ? 1 : 0);
 })();

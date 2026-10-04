@@ -138,7 +138,7 @@ var GermanTax = (function () {
   // Crypto stays outside this block (private sale rules, handled by the
   // existing engine); pass only capital-income items here.
   //   input = {
-  //     disposals:  [{ symbol, gain, vapCredit? }],
+  //     disposals:  [{ symbol, gain, vapCredit?, pot? ('shares'|'other') }],
   //     dividends:  [{ symbol, gross }],
   //     interestIncome?,
   //     vorabpauschalen?: [{ symbol, amount }],
@@ -156,16 +156,28 @@ var GermanTax = (function () {
     var defaultSpb = (settings && settings.freistellungsauftrag != null) ? num(settings.freistellungsauftrag) : 1000;
     var spb = input.sparerpauschbetrag != null ? num(input.sparerpauschbetrag) : defaultSpb;
 
+    // Loss pots (sec. 20 (6) S.4 EStG): losses from selling SHARES (pot
+    // 'shares' - direct stocks, not funds) only offset gains from selling
+    // shares; what is left of them is not deductible this year and is reported
+    // as shareLossCarried. All other losses offset every kind of capital
+    // income, share gains included. Disposals without a pot count as 'other'.
     var exemptTotal = 0, vapCreditTotal = 0;
-    var gainsTaxable = 0, lossesTaxable = 0;
+    var gainsTaxable = 0, otherLosses = 0, shareGains = 0, shareLosses = 0;
     (input.disposals || []).forEach(function (d) {
       var credit = Math.max(0, num(d.vapCredit));
       var gain = num(d.gain) - credit; // credited Vorabpauschalen reduce the gain
       vapCreditTotal += credit;
       var tf = applyTeilfreistellung(gain, typeOf(d.symbol));
       exemptTotal += tf.exempt;
-      if (tf.taxable >= 0) gainsTaxable += tf.taxable; else lossesTaxable += tf.taxable;
+      if (tf.taxable >= 0) {
+        gainsTaxable += tf.taxable;
+        if (d.pot === 'shares') shareGains += tf.taxable;
+      } else if (d.pot === 'shares') shareLosses += tf.taxable;
+      else otherLosses += tf.taxable;
     });
+    var shareLossDeductible = -Math.min(shareGains, -shareLosses);
+    var shareLossCarried = Math.max(0, -(shareGains + shareLosses));
+    var lossesTaxable = otherLosses + shareLossDeductible;
 
     var dividendsTaxable = 0;
     (input.dividends || []).forEach(function (d) {
@@ -185,8 +197,8 @@ var GermanTax = (function () {
 
     var interest = Math.max(0, num(input.interestIncome));
 
-    // Verrechnung: one common pot (the engine does not model the separate
-    // stock-loss bucket of sec. 20 (6) — documented simplification).
+    // Verrechnung: share losses enter only up to the share gains (above);
+    // loss carry-forward into later years is not modelled.
     var netted = gainsTaxable + lossesTaxable + dividendsTaxable + vapTaxable + interest;
     var afterAllowance = Math.max(0, netted - spb);
     var spbUsed = Math.max(0, Math.min(spb, netted));
@@ -228,6 +240,7 @@ var GermanTax = (function () {
       withholdingCredit: withholdingCredit,
       gainsTaxable: gainsTaxable,
       lossesTaxable: lossesTaxable,
+      shareLossCarried: shareLossCarried,
       dividendsTaxable: dividendsTaxable,
       vorabpauschaleGross: vapGross,
       vorabpauschaleTaxable: vapTaxable,
