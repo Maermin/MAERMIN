@@ -131,11 +131,24 @@
     @media (max-width: 480px) { #maermin-auth .auth-card { padding: 2rem 1.4rem 1.6rem; border-radius: 20px; } }
   `;
 
+  // The box is role="alert": screen readers announce the message. The fields
+  // point at it (aria-describedby) and are marked aria-invalid while it shows.
+  // Clearing first makes a repeated identical message ("Incorrect password")
+  // announce again.
   function setError(msg) {
     var box = document.getElementById('auth-error');
     if (!box) return;
-    if (msg) { box.textContent = msg; box.classList.add('visible'); }
-    else box.classList.remove('visible');
+    ['auth-pw', 'auth-pw2', 'auth-rc'].forEach(function (id) {
+      var f = document.getElementById(id);
+      if (!f) return;
+      if (msg) { f.setAttribute('aria-invalid', 'true'); f.setAttribute('aria-describedby', 'auth-error'); }
+      else { f.removeAttribute('aria-invalid'); f.removeAttribute('aria-describedby'); }
+    });
+    if (msg) {
+      box.textContent = '';
+      box.classList.add('visible');
+      setTimeout(function () { box.textContent = msg; }, 30);
+    } else box.classList.remove('visible');
   }
   function setLoading(on) {
     var btn = document.getElementById('auth-submit');
@@ -200,7 +213,7 @@
       <div class="auth-sub">${hasLegacyData
         ? 'Set an access password. Your existing data will be encrypted with it.'
         : 'Set an access password to encrypt your portfolio. There is no recovery — store it safely.'}</div>
-      <div class="auth-error" id="auth-error"></div>
+      <div class="auth-error" id="auth-error" role="alert"></div>
       <div class="auth-field">
         <label for="auth-pw">Access password</label>
         <input type="password" id="auth-pw" placeholder="At least 8 characters" autocomplete="new-password" autofocus />
@@ -220,7 +233,7 @@
     return `
       <div class="auth-logo"><h1>MAERMIN</h1><p>${locked ? 'Locked' : 'Professional Portfolio Tracker'}</p></div>
       ${locked ? '<div class="auth-sub">Session locked due to inactivity.</div>' : ''}
-      <div class="auth-error" id="auth-error"></div>
+      <div class="auth-error" id="auth-error" role="alert"></div>
       <div class="auth-field">
         <label for="auth-pw">Access password</label>
         <input type="password" id="auth-pw" placeholder="Enter your password…" autocomplete="current-password" autofocus />
@@ -255,7 +268,7 @@
     return `
       <div class="auth-logo"><h1>MAERMIN</h1><p>Recovery</p></div>
       <div class="auth-sub">Enter your recovery code to unlock without your password.</div>
-      <div class="auth-error" id="auth-error"></div>
+      <div class="auth-error" id="auth-error" role="alert"></div>
       <div class="auth-field">
         <label for="auth-rc">Recovery code</label>
         <input type="text" id="auth-rc" placeholder="XXXX-XXXX-XXXX-XXXX-XXXX-XXXX" autocomplete="off" autocapitalize="characters" spellcheck="false" autofocus />
