@@ -78,11 +78,11 @@ function CommandPalette({ isOpen, onClose, onExecute, commands, t }) {
 
   if (!isOpen) return null;
 
-  return React.createElement('div', {
+  return React.createElement(window.MaerminUI.Overlay, {
     className: 'command-palette-overlay',
-    onClick: (e) => e.target === e.currentTarget && onClose()
+    onClose
   },
-    React.createElement('div', { className: 'command-palette' },
+    React.createElement('div', { className: 'command-palette', ...window.MaerminUI.dialogProps(null, t.searchCommands || 'Search commands') },
       React.createElement('input', {
         ref: inputRef,
         type: 'text',
@@ -177,13 +177,13 @@ function ShortcutsModal({ isOpen, onClose, t, theme }) {
     ]
   };
 
-  return React.createElement('div', {
+  return React.createElement(window.MaerminUI.Overlay, {
     className: 'command-palette-overlay',
-    onClick: (e) => e.target === e.currentTarget && onClose()
+    onClose
   },
-    React.createElement('div', { className: 'shortcuts-modal' },
+    React.createElement('div', { className: 'shortcuts-modal', ...window.MaerminUI.dialogProps('dlg-shortcuts') },
       React.createElement('div', { className: 'shortcuts-modal-header' },
-        React.createElement('h2', null, t.keyboardShortcuts || 'Keyboard Shortcuts'),
+        React.createElement('h2', { id: 'dlg-shortcuts' }, t.keyboardShortcuts || 'Keyboard Shortcuts'),
         React.createElement('button', {
           className: 'shortcuts-modal-close',
           onClick: onClose

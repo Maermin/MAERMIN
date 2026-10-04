@@ -69,6 +69,45 @@ const UI = require('../ui-store.js');
   ok('no notification when overlay state is unchanged', n === 0);
   uo();
 
+  // ---- modal dialogs: Tab trap -----------------------------------------------
+  console.log('ui-store dialog focus trap:');
+  ok('Tab on the last element wraps to the first', UI.trapTarget(4, 3, false) === 0);
+  ok('Shift+Tab on the first element wraps to the last', UI.trapTarget(4, 0, true) === 3);
+  ok('Tab in the middle is left to the browser', UI.trapTarget(4, 1, false) === null && UI.trapTarget(4, 2, true) === null);
+  ok('Tab on the first / Shift+Tab on the last is left to the browser', UI.trapTarget(4, 0, false) === null && UI.trapTarget(4, 3, true) === null);
+  ok('focus outside the dialog: Tab enters at the first element', UI.trapTarget(4, -1, false) === 0);
+  ok('focus outside the dialog: Shift+Tab enters at the last element', UI.trapTarget(4, -1, true) === 3);
+  ok('an index past the list counts as outside', UI.trapTarget(4, 9, false) === 0);
+  ok('one focusable element: Tab and Shift+Tab stay on it', UI.trapTarget(1, 0, false) === 0 && UI.trapTarget(1, 0, true) === 0);
+  ok('no focusable element: focus stays on the panel (-1)', UI.trapTarget(0, -1, false) === -1 && UI.trapTarget(0, -1, true) === -1);
+
+  // ---- modal dialogs: stack ---------------------------------------------------
+  console.log('ui-store dialog stack:');
+  const d1 = {}, d2 = {};
+  ok('no dialog open: nothing is on top', UI.overlayDepth() === 0 && !UI.isTopOverlay(d1));
+  UI.pushOverlay(d1);
+  ok('a single dialog is the top one', UI.isTopOverlay(d1) && UI.overlayDepth() === 1);
+  UI.pushOverlay(d2);
+  ok('a dialog opened over another takes the keys', UI.isTopOverlay(d2) && !UI.isTopOverlay(d1) && UI.overlayDepth() === 2);
+  ok('the dialog underneath is not the top one while another is open', UI.topOverlay() === d2);
+  UI.popOverlay(d2);
+  ok('closing the top dialog hands the keys back', UI.isTopOverlay(d1) && UI.overlayDepth() === 1);
+  ok('focus can go back to the dialog underneath', UI.topOverlay() === d1);
+  UI.pushOverlay(d2);
+  UI.popOverlay(d1);
+  ok('closing the lower dialog first leaves the upper one on top', UI.isTopOverlay(d2) && UI.overlayDepth() === 1);
+  UI.popOverlay(d1);
+  ok('closing a dialog twice changes nothing', UI.isTopOverlay(d2) && UI.overlayDepth() === 1);
+  UI.popOverlay(d2);
+  ok('all closed: stack is empty', UI.overlayDepth() === 0 && !UI.isTopOverlay(d2) && UI.topOverlay() === null);
+
+  // ---- modal dialogs: panel attributes ----------------------------------------
+  console.log('ui-store dialog attributes:');
+  const withTitle = UI.dialogProps('dlg-title');
+  ok('panel is a modal dialog named by its title', withTitle.role === 'dialog' && withTitle['aria-modal'] === 'true' && withTitle['aria-labelledby'] === 'dlg-title' && !('aria-label' in withTitle));
+  const noTitle = UI.dialogProps(null, 'Search');
+  ok('a dialog without a visible title gets aria-label', noTitle.role === 'dialog' && noTitle['aria-label'] === 'Search' && !('aria-labelledby' in noTitle));
+
   console.log('\n' + passed + ' passed, ' + failed + ' failed');
   process.exit(failed ? 1 : 0);
 })();

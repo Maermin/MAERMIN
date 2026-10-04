@@ -345,6 +345,7 @@ const completeTranslations = {
     
     // v6.0 - Keyboard Shortcuts
     keyboardShortcuts: 'Keyboard Shortcuts',
+    skipToContent: 'Skip to content',
     shortcut: 'Shortcut',
     pressToOpen: 'Press to open',
     navigation: 'Navigation',
@@ -707,6 +708,7 @@ const completeTranslations = {
     transactionUpdated: 'Transaktion aktualisiert', backupCreated: 'Backup erstellt',
     backupRestored: 'Backup wiederhergestellt', pricesUpdated: 'Preise aktualisiert', passwordChanged: 'Passwort geändert',
     // Misc UI
+    skipToContent: 'Zum Inhalt springen',
     keyboardShortcuts: 'Tastenkürzel', privacyMode: 'Beträge verbergen', hideAmounts: 'Beträge verbergen',
     showAmounts: 'Beträge anzeigen', createBackup: 'Backup erstellen', restoreBackup: 'Backup wiederherstellen',
     backup: 'Backup', apiSettings: 'API-Einstellungen', exchangeRate: 'Wechselkurs',
