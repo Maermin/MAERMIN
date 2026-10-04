@@ -71,10 +71,15 @@ function CorporateActionsPanel({ category, symbol, theme, t = {}, workerUrl }) {
   };
 
   const removeAction = (a) => {
-    if (typeof window !== 'undefined' && typeof window.confirm === 'function' &&
-      !window.confirm((t.caRemoveConfirm || 'Remove this split? It can be re-added or re-scanned.'))) return;
-    CA.remove(a.id);
-    setRev((n) => n + 1);
+    // In-app confirmation (the native dialog only if MaerminUI is missing).
+    const ask = (window.MaerminUI && window.MaerminUI.confirm)
+      ? window.MaerminUI.confirm({ title: t.caRemoveConfirm || 'Remove this split?', message: a.symbol + ' ' + a.num + ':' + a.den + ' on ' + a.date + '. It can be re-added or re-scanned.', confirmLabel: t.caRemove || 'Remove', danger: true })
+      : Promise.resolve(typeof window.confirm !== 'function' || window.confirm(t.caRemoveConfirm || 'Remove this split? It can be re-added or re-scanned.'));
+    ask.then((yes) => {
+      if (!yes) return;
+      CA.remove(a.id);
+      setRev((n) => n + 1);
+    });
   };
 
   const runScan = () => {

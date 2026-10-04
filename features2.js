@@ -1372,7 +1372,13 @@ function DividendCalendarView({ portfolio, prices, metaVersion, theme, t, addToa
                   cursor: e.derived ? 'default' : 'pointer',
                   borderLeft: e.past ? '2px solid rgba(148,163,184,0.5)' : (e.derived ? '2px solid rgba(59,130,246,0.6)' : 'none')
                 }
-              }, e.derived ? {} : window.MaerminUtils.clickable(() => { if (window.confirm(`Delete dividend? ${e.symbol} ${e.amount} ${e.currency}`)) setEvents(prev => prev.filter(ev => ev.id !== e.id)); })),
+              }, e.derived ? {} : window.MaerminUtils.clickable(() => {
+                // In-app confirmation (the native dialog only if MaerminUI is missing).
+                const ask = (window.MaerminUI && window.MaerminUI.confirm)
+                  ? window.MaerminUI.confirm({ title: 'Delete this dividend?', message: `${e.symbol} ${e.amount} ${e.currency} on ${e.date}`, confirmLabel: 'Delete', danger: true })
+                  : Promise.resolve(window.confirm(`Delete dividend? ${e.symbol} ${e.amount} ${e.currency}`));
+                ask.then(yes => { if (yes) setEvents(prev => prev.filter(ev => ev.id !== e.id)); });
+              })),
               `${e.symbol} +${e.amount}${e.currency==='EUR'?'€':'$'}`)
             )
           );

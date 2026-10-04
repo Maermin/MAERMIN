@@ -1809,6 +1809,11 @@ function InvestmentTracker() {
   const addToast = (message, type = 'info', ttl) => {
     if (window.MaerminUI) return window.MaerminUI.add(message, type, ttl);
   };
+  // In-app confirmation (MaerminUI.confirm → Promise<boolean>); the native
+  // dialog only as a fallback if the UI module is missing.
+  const askConfirm = (opts) => (window.MaerminUI && window.MaerminUI.confirm)
+    ? window.MaerminUI.confirm(opts)
+    : Promise.resolve(typeof window.confirm === 'function' ? window.confirm([opts.title, opts.message].filter(Boolean).join('\n\n')) : true);
 
   // C1: Automation Rules → live notifications. Evaluate the user's rules on every
   // price/transaction change and fire a toast (+ desktop notification via the
@@ -1854,8 +1859,18 @@ function InvestmentTracker() {
     // The full backup is PLAIN JSON (all transactions, net worth, taxpayer name
     // and tax ID). With an encrypted vault, point to the encrypted backup first.
     const encryptedAvailable = !!(window.MaerminStorage && window.MaerminStorage.exportEncryptedBackup && window.MaerminStorage.isEnabled && window.MaerminStorage.isEnabled());
-    if (encryptedAvailable && typeof window.confirm === 'function' &&
-        !window.confirm((t.backupPlainWarning) || 'This backup file is NOT encrypted — anyone with the file can read all your data (incl. taxpayer name and tax ID).\n\nFor an encrypted copy use Settings → "Backup vault (encrypted)".\n\nCreate the unencrypted backup anyway?')) return;
+    if (encryptedAvailable) {
+      askConfirm({
+        title: t.backupPlainTitle || 'Create an unencrypted backup?',
+        message: t.backupPlainWarning || 'This file is NOT encrypted: anyone with it can read all your data, including taxpayer name and tax ID.\n\nFor an encrypted copy use Settings → "Backup vault (encrypted)".',
+        confirmLabel: t.backupPlainConfirm || 'Create unencrypted backup',
+        danger: true
+      }).then(yes => { if (yes) writeBackup(); });
+      return;
+    }
+    writeBackup();
+  };
+  const writeBackup = () => {
     // Build the full snapshot via the shared engine (the single source of truth
     // for which keys are data). It stores each key's raw localStorage string,
     // so the backup round-trips EXACTLY what was entered — including positions
@@ -5569,8 +5584,8 @@ buy,crypto,bitcoin,0.5,45000,2024-01-15,10`)
             var all = CA.listFor();
             if (!all.length) return null;
             var removeOne = function (a) {
-              if (typeof window.confirm === 'function' && !window.confirm(t.caRemoveConfirm || 'Remove this split? It can be re-added or re-scanned.')) return;
-              CA.remove(a.id); setCorpActionsRev(function (n) { return n + 1; });
+              askConfirm({ title: t.caRemoveConfirm || 'Remove this split?', message: a.symbol + ' ' + a.num + ':' + a.den + ' on ' + a.date + '. It can be re-added or re-scanned.', confirmLabel: t.caRemove || 'Remove', danger: true })
+                .then(function (yes) { if (!yes) return; CA.remove(a.id); setCorpActionsRev(function (n) { return n + 1; }); });
             };
             return React.createElement('div', { key: 'corp-' + corpActionsRev, style: { marginBottom: '1rem' } },
               React.createElement('label', { style: { color: currentTheme.textSecondary, fontSize: '0.7rem', textTransform: 'uppercase', letterSpacing: '0.05em' } }, t.caTitle || 'Corporate actions (splits)'),
@@ -5615,10 +5630,12 @@ buy,crypto,bitcoin,0.5,45000,2024-01-15,10`)
                 const reader = new FileReader();
                 reader.onload = () => {
                   let obj; try { obj = JSON.parse(reader.result); } catch { addToast('Invalid backup file', 'error'); return; }
-                  if (!window.confirm('Restore this encrypted backup? It replaces the current vault. You will need its password to unlock.')) return;
-                  window.MaerminStorage.importEncryptedBackup(obj)
-                    .then(() => { if (window.MaerminAuditLog) window.MaerminAuditLog.record('vault.backup.restore', 'encrypted vault backup restored'); addToast('Backup restored — reloading…', 'success'); setTimeout(() => window.location.reload(), 800); })
-                    .catch((e) => addToast('Restore failed: ' + (e && e.message || 'error'), 'error'));
+                  askConfirm({ title: 'Restore this encrypted backup?', message: 'It replaces the current vault. You will need the backup\'s password to unlock.', confirmLabel: 'Replace vault', danger: true }).then((yes) => {
+                    if (!yes) return;
+                    window.MaerminStorage.importEncryptedBackup(obj)
+                      .then(() => { if (window.MaerminAuditLog) window.MaerminAuditLog.record('vault.backup.restore', 'encrypted vault backup restored'); addToast('Backup restored — reloading…', 'success'); setTimeout(() => window.location.reload(), 800); })
+                      .catch((e) => addToast('Restore failed: ' + (e && e.message || 'error'), 'error'));
+                  });
                 };
                 reader.readAsText(file);
               };
