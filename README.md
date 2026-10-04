@@ -133,11 +133,13 @@ Add a free [Alpha Vantage key](https://www.alphavantage.co/support/#api-key) in 
 | `GET /?action=fundamentals&symbol=KO` | Dividend-safety fundamentals: payout ratio, EPS, dividend rate/yield |
 | `GET /?action=profile&symbol=AAPL` | Equity sector / industry / country (Strategy tab Sector & Country allocation; Yahoo `assetProfile`, no FMP key needed) |
 | `GET /?action=earnings&symbol=AAPL` | Next earnings date + consensus EPS/revenue estimates (Earnings Calendar in the Dividends view; Yahoo `calendarEvents`, no key) |
+| `GET /?action=news&symbol=AAPL` | Yahoo Finance RSS headlines for a holding (News Feed view) |
 | `GET /?action=steamhistory&name=AK-47 \| Redline (FT)` | CS2 price history (USD) |
 | `GET /?action=search&q=ak47+redline` | Steam Market skin search with images |
 | `POST /` | Steam skin price lookup (array of names → USD price map) |
 | `POST /?action=sync` | E2E-encrypted cloud sync (KV-backed, zero-knowledge) |
-| `POST /?action=share` | Redacted share snapshots (percent weights/scores only, allowlist-validated server-side) + anonymous benchmark aggregate || `POST /?action=brokerproxy` | Relay client-signed requests to whitelisted exchanges |
+| `POST /?action=share` | Redacted share snapshots (percent weights/scores only, allowlist-validated server-side) + anonymous benchmark aggregate |
+| `GET /?action=mcp&id=<shareId>` | Read-only MCP view of a shared, redacted snapshot (same allowlist, same 90-day link) || `POST /?action=brokerproxy` | Relay client-signed requests to whitelisted exchanges |
 
 All endpoints are rate-limited (per-IP) and use hard fetch timeouts. Full request/response contracts: [docs/WORKER.md](docs/WORKER.md).
 
