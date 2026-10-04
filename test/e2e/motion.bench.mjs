@@ -125,7 +125,7 @@ async function main() {
   await pw.nth(1).waitFor();
   await pw.nth(0).fill(PASSWORD); await pw.nth(1).fill(PASSWORD);
   await page.locator('#auth-submit').click();
-  await page.getByText('Recovery code').first().waitFor({ timeout: 30000 });
+  await page.locator('#rc-code').waitFor({ timeout: 30000 }); // the recovery-code screen itself
   await page.evaluate(() => { localStorage.setItem('maermin_demo', '1'); localStorage.setItem('maermin_active_view', 'overview'); localStorage.setItem('maermin_onboarded', '1'); });
   if (FX_OFF) await page.evaluate(() => localStorage.setItem('maermin_fx', 'off'));
   await page.waitForTimeout(1200);

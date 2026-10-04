@@ -191,7 +191,8 @@ async function createVault(page, base) {
   await pw.nth(0).fill(PASSWORD);
   await pw.nth(1).fill(PASSWORD);
   await page.locator('#auth-submit').click();
-  await page.getByText('Recovery code').first().waitFor({ timeout: 30000 });
+  // The recovery-code screen itself (the setup text also mentions "recovery code").
+  await page.locator('#rc-code').waitFor({ timeout: 30000 });
 }
 async function unlock(page, base, ready = 'nav.maermin-sidebar') { // phone layout: pass a selector that is visible there
   await page.goto(base + '/index.html');
