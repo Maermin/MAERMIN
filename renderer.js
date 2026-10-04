@@ -4216,7 +4216,8 @@ function InvestmentTracker() {
       taxJurisdiction === 'de' && window.MaerminGermanTaxView && window.MaerminGermanTaxView.Panel &&
         React.createElement(window.MaerminGermanTaxView.Panel, {
           transactions, portfolio, prices, priceHistory, year: currentYear, exchangeRate, fxAt,
-          theme: currentTheme, t, formatPrice, getCurrencySymbol
+          theme: currentTheme, t, formatPrice, getCurrencySymbol,
+          onChange: () => setTaxSettingsRev(r => r + 1)
         }),
       // Editable tax parameters (Task 8): rate, Soli, church tax, allowance,
       // crypto exemption, Teilfreistellung overrides. Engine + exports read them.

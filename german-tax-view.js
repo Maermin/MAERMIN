@@ -160,6 +160,9 @@
     var year = props.year || new Date().getFullYear();
     var transactions = props.transactions || [];
     var exchangeRate = props.exchangeRate || 0;
+    // Every save here feeds the Tax view's report (KPIs, advisor, export):
+    // tell the parent so it rebuilds instead of showing the old total.
+    var changed = function () { if (props.onChange) props.onChange(); };
 
     var sFundTypes = React.useState(GT.loadFundTypes);
     var fundTypes = sFundTypes[0], setFundTypes = sFundTypes[1];
@@ -249,7 +252,7 @@
         e('td', { style: { padding: '0.4rem 0.45rem' } },
           e('select', {
             value: type,
-            onChange: function (ev) { setFundTypes(GT.saveFundType(r.symbol, ev.target.value)); },
+            onChange: function (ev) { setFundTypes(GT.saveFundType(r.symbol, ev.target.value)); changed(); },
             style: { background: inputBg, border: '1px solid ' + border, borderRadius: '6px', padding: '0.3rem 0.4rem', color: text, fontSize: '0.74rem' }
           },
             e('option', { value: 'none' }, 'Not a fund / other (0%)'),
@@ -266,7 +269,7 @@
         e('td', { style: { padding: '0.4rem 0.45rem', textAlign: 'right' } },
           e('button', {
             disabled: !vap,
-            onClick: function () { if (vap) { GT.saveVapRecord(r.symbol, year, vap.vorabpauschale); setSavedTick(savedTick + 1); } },
+            onClick: function () { if (vap) { GT.saveVapRecord(r.symbol, year, vap.vorabpauschale); setSavedTick(savedTick + 1); changed(); } },
             style: { padding: '0.3rem 0.7rem', borderRadius: '6px', border: 'none', cursor: vap ? 'pointer' : 'default', fontSize: '0.72rem', fontWeight: 700, background: savedAmt != null ? 'rgba(34,197,94,0.15)' : (theme.accent || '#8b7cff'), color: savedAmt != null ? good : '#ffffff', opacity: vap ? 1 : 0.5 }
           }, savedAmt != null ? 'Saved ' + sym + fmt(savedAmt) : 'Save')));
     });
@@ -300,14 +303,14 @@
             type: 'text', value: (overrides[year] != null ? overrides[year] * 100 : basiszins * 100).toFixed(3),
             onChange: function (ev) {
               var pct = parseFloat(String(ev.target.value).replace(',', '.'));
-              setOverrides(GT.saveBasiszinsOverride(year, isFinite(pct) ? pct / 100 : null));
+              setOverrides(GT.saveBasiszinsOverride(year, isFinite(pct) ? pct / 100 : null)); changed();
             },
             style: { width: '70px', background: inputBg, border: '1px solid ' + border, borderRadius: '6px', padding: '0.3rem 0.45rem', color: text, fontSize: '0.76rem', textAlign: 'right' }
           }),
           e('span', { style: { color: dim, fontSize: '0.74rem' } }, '%  Church tax'),
           e('select', {
             value: String(kist),
-            onChange: function (ev) { setKist(GT.saveKirchensteuerRate(parseFloat(ev.target.value))); },
+            onChange: function (ev) { setKist(GT.saveKirchensteuerRate(parseFloat(ev.target.value))); changed(); },
             style: { background: inputBg, border: '1px solid ' + border, borderRadius: '6px', padding: '0.3rem 0.4rem', color: text, fontSize: '0.74rem' }
           },
             e('option', { value: '0' }, 'none'),
@@ -340,7 +343,7 @@
             e('select', {
               value: cls,
               'aria-label': 'Tax treatment of ' + r.symbol,
-              onChange: function (ev) { TSm.saveTaxClass(r.symbol, ev.target.value === 'capital' ? 'capital' : null); setClassTick(function (n) { return n + 1; }); },
+              onChange: function (ev) { TSm.saveTaxClass(r.symbol, ev.target.value === 'capital' ? 'capital' : null); setClassTick(function (n) { return n + 1; }); changed(); },
               style: { background: inputBg, border: '1px solid ' + border, borderRadius: '6px', padding: '0.3rem 0.4rem', color: text, fontSize: '0.74rem' }
             },
               e('option', { value: 'private' }, 'Physical - private sale (sec. 23, tax-free after 1 year)'),
