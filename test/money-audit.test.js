@@ -41,6 +41,24 @@ function approx(a, b, eps) { return Math.abs(a - b) < (eps || 0.005); }
   ok('empty type value + negative quantity = sell', one('', '-1').transactions[0].type === 'sell');
   ok('normalizeType keeps its contract for an empty value (buy)', M.normalizeType('') === 'buy');
 
+  // ---- BUG-009: USD conversions outside the FX history are flagged ----------
+  console.log('BUG-009 FX coverage');
+  const F = require('../fx-history.js');
+  const L = require('../ledger.js');
+  const sessionRates = { '2026-09-01': 0.86, '2026-10-04': 0.85 }; // no Worker: live rates of app sessions
+  const fxAt = F.fxResolver(0.85, sessionRates);
+  const old = F.txToEUR(1000, 'USD', '2022-03-01', 0.85, fxAt);
+  ok('2022 USD trade before the history is "approx"', old.status === 'approx');
+  ok('... value unchanged (nearest known rate)', approx(old.value, 860));
+  ok('covered date stays "exact"', F.txToEUR(1000, 'USD', '2026-10-04', 0.85, fxAt).status === 'exact');
+  ok('a date within 7 days after a stored rate stays "exact"', F.txToEUR(1000, 'USD', '2026-09-05', 0.85, fxAt).status === 'exact');
+  ok('a date in a long gap between stored rates is "approx"', F.txToEUR(1000, 'USD', '2026-09-20', 0.85, fxAt).status === 'approx');
+  ok('empty history: every date is "approx"', F.txToEUR(1000, 'USD', '2026-10-04', 0.85, F.fxResolver(0.85, {})).status === 'approx');
+  ok('USD stablecoins follow the same rule', F.txToEUR(1000, 'USDT', '2022-03-01', 0.85, fxAt).status === 'approx');
+  const lb = L.build([{ type: 'buy', category: 'stocks', symbol: 'AAPL', quantity: 10, price: 100, currency: 'USD', date: '2022-03-01' }], { exchangeRate: 0.85, fxAt });
+  ok('ledger data check lists the approximate USD conversion', lb.issues.some((i) => i.kind === 'currency' && i.currency === 'USD' && i.status === 'approx'));
+  ok('plain resolver use (no fxAt) keeps the static rate as "exact"', F.txToEUR(1000, 'USD', '2022-03-01', 0.85, null).status === 'exact');
+
   console.log('\n  ' + passed + ' passed, ' + failed + ' failed');
   process.exit(failed ? 1 : 0);
 })();
