@@ -153,3 +153,82 @@ Not testable in the UI (covered by unit tests): BUG-004 (needs exchange API keys
 ### Noted during QA (not investigated)
 - Broker Import wizard: after choosing Scalable Capital the preview says "Detected: Interactive Brokers" (`MaerminImportMapping.preview` sniffs the headers and ignores the chosen broker). The suggested mapping was still correct.
 - Demo mode does not keep imported transactions across a reload (by design, "your real data is untouched"), but nothing tells the user that their test imports will vanish.
+---
+
+## Run 2026-10-04 (3) — focus `usability`, whole app
+
+Branch `audit/bugs-2026-10-04` @ `f169eef`. Dev `index.html` served locally, built-in browser (Chromium, 1024×768), Demo mode, test vault. Walked: lock (idle auto-lock) and unlock (wrong and right password), add transaction, quick Import dialog, Broker Import wizard, create and switch portfolio, open the settings menu, delete a transaction, and keyboard-only navigation of the sidebar and menus. Every finding below was seen in the running app; DOM facts were read with the page inspector. The baseline is `REPORT.md` §6; its items are only repeated where their status changed.
+
+Working well: the sidebar is keyboard-operable with `aria-current`; shortcuts do not fire while typing; "Session locked due to inactivity" plus a clear wrong-password message; delete asks inline; an empty portfolio shows a helpful welcome state; "+ Add Transaction" preselects the active portfolio; dialogs are named with a focus trap (fixed since `REPORT.md`).
+
+### UX-001 — Quick "Import Data" dialog offers CSV, rejects every CSV, and throws the pasted text away
+- **Severity:** Important · **Status:** open · **Found:** 2026-10-04
+- **Location:** `renderer.js:2046-2051` (CSV parsed to `{ headers, rows }`, which no branch handles), `renderer.js:2128-2132` (error path clears the text and closes the dialog), `renderer.js:4839` and `4862-4864` (instructions and a CSV example)
+- **What happens:** The dialog says "Paste your transaction data in JSON or CSV format" and shows a CSV example. Any CSV, including that example, ends with the toast "Unknown format"; the dialog closes and the pasted data is gone.
+- **Reproduce:** Overview → ↑ Import → paste `Date,Type,Symbol,Quantity,Price` / `2025-03-05,buy,SAP.DE,2,180` → Import.
+- **Why it matters:** This is a dead end on the most visible import entry point, and it costs the user their input.
+- **Proposed fix:** Map the parsed CSV rows like the JSON array (same column names), or hand CSV to the Broker Import wizard (`MaerminImportMapping.preview`) with its error report. On any error keep the dialog open with the text, and say what was wrong.
+
+### UX-002 — A full backup pasted into "Import Data" overwrites the vault without asking
+- **Severity:** Important · **Status:** open · **Found:** 2026-10-04 (traced in code; not run, to protect the test vault)
+- **Location:** `renderer.js:2053-2063`; `backup-engine.js:131-144` (`restore` writes every whitelisted key in the file)
+- **What happens:** If the pasted JSON is a full backup, the app restores it immediately: transactions, settings and the other stores in the file replace the current ones. Then it reloads. Only a "Backup restored" toast is shown, and there is no undo.
+- **Why it matters:** Pasting an old backup by mistake silently loses everything entered since. The encrypted restore in the settings menu does ask (`renderer.js:5499`).
+- **Proposed fix:** An in-app confirmation before restoring, naming the backup's date and transaction count next to the current count. Offer "download a backup of the current data first".
+
+### UX-003 — Add Transaction (and portfolio name) fields have no programmatic labels
+- **Severity:** Important · **Status:** open · **Found:** 2026-10-04
+- **Location:** Add Transaction dialog in `renderer.js` (around `4380-4800`, e.g. the "Price per Unit" label at `4599`); portfolio name input `features4.js:163`
+- **What happens:** Visible `<label>` elements ("Portfolio", "Quantity", "Price per Unit", "Date", "Fees (optional)", "Notes (optional)") exist but have no `for`/`id`. Screen readers announce the three number fields only as "0.00", and the portfolio and date fields have no name at all. 7 of 8 fields are unnamed. (`REPORT.md` listed unlabeled Overview inputs; the dialog role has been fixed since, the labels have not.)
+- **Proposed fix:** Give each input an `id` and its label `htmlFor`; add an `aria-label` to the symbol search and the portfolio name input.
+
+### UX-004 — Toggle buttons expose no selected state (Buy/Sell, asset class, currency, portfolio chips)
+- **Severity:** Important · **Status:** open · **Found:** 2026-10-04
+- **Location:** Add Transaction dialog (`renderer.js` around `4397`), portfolio chips on the Overview
+- **What happens:** Only the colour shows the choice. No `aria-pressed`/`aria-checked`, so a screen-reader user cannot tell whether they are entering a buy or a sell, or which portfolio is filtered.
+- **Proposed fix:** `aria-pressed` on each toggle (or `role="radiogroup"` + `role="radio"` + `aria-checked` per group).
+
+### UX-005 — "Please fill in all required fields!" without saying which
+- **Severity:** Important · **Status:** open · **Found:** 2026-10-04
+- **Location:** `renderer.js:1928`
+- **What happens:** Submitting an incomplete transaction only shows that toast; no field is marked, nothing gets focus.
+- **Proposed fix:** Name the missing fields in the message, set `aria-invalid` + an inline hint on each, and move focus to the first one.
+
+### UX-006 — Escape discards a half-filled transaction without asking
+- **Severity:** Optimization · **Status:** open · **Found:** 2026-10-04
+- **Location:** Add Transaction dialog close handling in `renderer.js`
+- **What happens:** With quantity and a note typed, a single Escape (even with the cursor in a text field) closes the dialog. Reopening shows an empty form.
+- **Proposed fix:** When the form is dirty, ask before discarding (or keep the draft until saved or explicitly cancelled).
+
+### UX-007 — Settings menu: `role="menu"` without menu behaviour, and Escape loses focus
+- **Severity:** Optimization · **Status:** open · **Found:** 2026-10-04
+- **Location:** `renderer.js:5393`
+- **What happens:** The 18 entries are plain buttons (no `menuitem`); arrow keys do nothing. Escape closes the menu but focus falls to `<body>` instead of the Settings button.
+- **Proposed fix:** Drop `role="menu"` (a labelled group of buttons is enough), or implement the menu pattern; return focus to the trigger on close.
+
+### UX-008 — Wrong-password message is not announced
+- **Severity:** Optimization · **Status:** open · **Found:** 2026-10-04
+- **Location:** `auth.js:203`, `223`, `258` (`#auth-error`), `auth.js:135`
+- **What happens:** The error box has no `role="alert"`/`aria-live`, and the field gets no `aria-invalid`/`aria-describedby`. The field is cleared and keeps focus, so a screen-reader user hears nothing.
+- **Proposed fix:** `role="alert"` on `#auth-error`, `aria-describedby="auth-error"` + `aria-invalid` on the field while an error shows.
+
+### UX-009 — Row actions are all called "Edit" / "Delete"
+- **Severity:** Optimization · **Status:** open · **Found:** 2026-10-04
+- **Location:** transaction rows in the Transactions view (`renderer.js`, row action buttons)
+- **What happens:** 9 rows → 9 identical "Delete" buttons in a screen reader's button list.
+- **Proposed fix:** `aria-label` such as "Delete AAPL dividend, 2024-05-16".
+
+### UX-010 — Broker Import reports a different broker than the one chosen
+- **Severity:** Optimization · **Status:** open · **Found:** 2026-10-04
+- **Location:** `features2.js:652` (`IM.preview` is called without the selected broker)
+- **What happens:** After choosing Scalable Capital the preview says "Detected: Interactive Brokers". The mapping was still right, but the label makes users doubt the import.
+- **Proposed fix:** Pass the chosen broker to `preview` (it already accepts a mapping) and show "Scalable Capital (columns detected)".
+
+### UX-011 — Demo mode drops your test entries on reload or auto-lock without saying so
+- **Severity:** Optimization · **Status:** open · **Found:** 2026-10-04
+- **What happens:** Transactions added or imported in Demo mode vanish after a reload or an idle lock. The banner says "your real data is untouched", but not that demo changes are temporary.
+- **Proposed fix:** Add "Changes in demo mode are not saved" to the banner.
+
+### Still open from `REPORT.md` (status unchanged)
+- Setup says "There is no recovery — store it safely" and then issues a recovery code.
+- Native `confirm()` for the plaintext-backup warning and the encrypted restore (`renderer.js:1846`, `5499`).
