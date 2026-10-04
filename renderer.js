@@ -2326,8 +2326,17 @@ function InvestmentTracker() {
             return;
           }
           imported = Array.isArray(parsed) ? parsed : (parsed.transactions || []);
-        } else if (window.ImportExportEngine) {
-          imported = window.ImportExportEngine.parseCSV(txt);
+        } else {
+          // CSV: the same parsing and row checks as the quick Import dialog
+          // (parseCSV returned { headers, rows }, so every CSV ended in
+          // "No transactions found").
+          const IM = window.MaerminImportMapping;
+          if (!IM || !IM.quickCSV) throw new Error('CSV import not available');
+          const res = IM.quickCSV(txt, { currency });
+          const firstErr = res.errors[0] ? `Row ${res.errors[0].row}: ${res.errors[0].reason}` : '';
+          if (!res.transactions.length) throw new Error('No transactions found' + (firstErr ? ' - ' + firstErr : ''));
+          imported = res.transactions.map(tx => ({ ...tx, notes: tx.notes || '', portfolioId: activePortfolioId }));
+          if (res.errors.length) addToast(`${res.errors.length} row(s) skipped (${firstErr})`, 'warning', 8000);
         }
         if (!imported.length) throw new Error('No transactions found in data');
         const newTxs = imported.map((tx, i) => ({ id: (Date.now()+i).toString(), ...tx }));
