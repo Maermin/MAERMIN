@@ -19,7 +19,7 @@ reproduced by loading the real modules (`fx-history`, `ledger`, `tax-settings`,
 (V8, time zone Europe/Berlin), unless marked "traced".
 
 ### BUG-001 — Church-tax selector in the German fund-tax panel has no effect
-- **Severity:** Critical · **Status:** fixed (fff1500, a0079b1) · **Found:** 2026-10-04
+- **Severity:** Critical · **Status:** fixed (fff1500, a0079b1, 61a0e3f) · **Found:** 2026-10-04
 - **Location:** `german-tax-view.js:163`, `german-tax-view.js:263`, `german-tax-view.js:290-297`; `tax-calculation-engine.js:196-201`, `tax-calculation-engine.js:214`; `tax-report-builder.js:305-306`
 - **What happens:** Church tax is stored twice: in `maermin_kirchensteuer`, written by the selector in the panel header, and in `maermin_tax_settings.kirchensteuer`, written by "Tax settings (overrides)". The report always receives a settings object (`TS.load()` returns defaults when nothing is stored). The engine then computes the tax, and the withholding-credit factor `k`, from `settings.kirchensteuer` only. The panel's `kirchensteuerRate` is passed through but never read, and the renderer's KPI build doesn't pass it at all.
 - **Reproduce:** Dividends of 3,000 EUR, tax settings at defaults, `build(..., { kirchensteuerRate: 0.09 })`. Total tax is **527.50**, the same as without church tax, and `kirchensteuer = 0`. Expected **559.90** (Kirchensteuer 44.01). In the app: pick "9%" in the panel header and neither Est. Tax nor the panel total changes.
@@ -131,3 +131,25 @@ oversell reporting, sell-fee pro-rating.
 
 ### Out of scope (noted, not investigated)
 - `renderer.js:2046-2051`: CSV pasted into the quick Import dialog is parsed into `{ headers, rows }`, which none of the following branches handles (array / `.transactions` / `.portfolio`). Likely a dead end for CSV in that dialog (usability).
+---
+
+## QA pass 2026-10-04 — all fixes in the running app
+
+Branch `audit/bugs-2026-10-04`, dev `index.html` served locally, Demo mode, test vault (e2e fixture password). Test data imported through **Data Management → Manual Import**: BAYN.DE bought 2024-01-10 at 50 and sold 2025-06-01 at 30 (×100), an ALV.DE dividend of 3,000 on 2025-05-10, the demo skin sold 2025-06-01 at 500 (×2), and the demo XAU sold 2025-06-01 at 2,500 (×0.5). Tax year 2025, Germany.
+
+| Check | Expected | Seen |
+|---|---|---|
+| BUG-002 share loss vs dividends | taxable 2,000, tax 527.50, carried share loss 2,000 | ✓ card + panel 527.50, "Share losses not offset €2,000.00" |
+| BUG-003 skin + XAU held > 1 year | no tax on 944 + 338.33 | ✓ realised −717.67, no private-sale tax |
+| BUG-003 XAU switched to capital income | taxable 2,338.33 → 616.74 | ✓ |
+| BUG-001 church tax 9 % in the panel | 559.90 | ✓ panel; the card was stale → fixed in `61a0e3f`, re-checked: card + panel 699.88 (allowance 500) and 794.59 (with XAU as capital) immediately |
+| BUG-005 Freistellungsauftrag 500 | advisor 0 / 500, tax 659.38 | ✓ |
+| BUG-008 Broker Import (Scalable), CSV with "Savings plan" / "Sell" / "Transfer" | BUY, SELL, row error | ✓ "Row 3: unknown type \"Transfer\" (map it or edit the file)", Import 2 |
+| BUG-009 USD buy 2023 without a Worker | data check, USD line | ✓ |
+| BUG-011 JSON import of a sell with quantity −0.5 | data check warning | ✓ "quantity \"-0.5\" is not a positive number" |
+
+Not testable in the UI (covered by unit tests): BUG-004 (needs exchange API keys), BUG-006 (no editor), BUG-007 (time zone west of UTC), BUG-010 (fallback path only). PDF/Excel downloads were not clicked (downloads need the owner's OK); the e2e suite covers the PDF export. Gates after the follow-up: check 194 files, test 87 suites, e2e 128/128.
+
+### Noted during QA (not investigated)
+- Broker Import wizard: after choosing Scalable Capital the preview says "Detected: Interactive Brokers" (`MaerminImportMapping.preview` sniffs the headers and ignores the chosen broker). The suggested mapping was still correct.
+- Demo mode does not keep imported transactions across a reload (by design, "your real data is untouched"), but nothing tells the user that their test imports will vanish.
