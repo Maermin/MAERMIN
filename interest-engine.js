@@ -104,7 +104,7 @@
       total += r.interest;
       postings.push({
         accountId: str(acc.id), name: str(acc.name) || 'Interest',
-        date: r.toDate, periodEnd: r.toDate, year: r.toDate.slice(0, 4),
+        date: r.toDate, periodStart: r.fromDate, periodEnd: r.toDate, year: r.toDate.slice(0, 4),
         amount: r.interest, currency: str(acc.currency) || 'EUR'
       });
       return Object.assign({}, acc, { value: r.newBalance, lastAccrualDate: r.lastAccrualDate });
@@ -169,13 +169,105 @@
         quantity: 1, price: p.amount, amount: p.amount, fees: 0,
         currency: p.currency || 'EUR', date: p.date,
         portfolioId: portfolioId, source: 'interest-accrual', accountId: p.accountId,
-        periodEnd: p.periodEnd, auto: true, notes: 'Interest accrual'
+        periodStart: p.periodStart, periodEnd: p.periodEnd, auto: true, notes: 'Interest accrual'
       });
     });
     var ledger = appendLedger(opts.ledger, res.postings);
     return {
       accounts: res.accounts, transactions: created.length ? txs.concat(created) : txs,
       created: created, postings: res.postings, ledger: ledger, total: res.total
+    };
+  }
+
+  // ---- post-sync dedupe -----------------------------------------------------
+  // Two devices that each ran the catch-up before syncing book the same days
+  // under their own ids and periodEnds; the sync union keeps both. The
+  // accounts key itself is last-write-wins, so the merged account (balance +
+  // lastAccrualDate) is exactly ONE device's accrual chain. Keep that chain -
+  // traced back from lastAccrualDate via periodStart - and drop every other
+  // accrual of the account whose [periodStart, periodEnd] overlaps a kept one.
+  // Then balance, lastAccrualDate and booked interest agree, and the next
+  // catch-up books only what is still missing. Legacy rows (no periodStart)
+  // are dropped only when they repeat the exact same period. Deterministic, so
+  // both devices remove the same rows. Returns { transactions, accounts,
+  // ledger, removed, removedTxs }; `transactions` is the input array when
+  // nothing changed.
+  function isAccrual(tx) { return !!(tx && tx.source === 'interest-accrual' && tx.accountId); }
+  function byId(a, b) { return String(a.id) < String(b.id) ? -1 : (String(a.id) > String(b.id) ? 1 : 0); }
+  function overlaps(a, b) {
+    return !!(a.periodStart && b.periodStart) && ymd(a.periodStart) < ymd(b.periodEnd) && ymd(b.periodStart) < ymd(a.periodEnd);
+  }
+  function dedupeAccruals(transactions, accounts, ledger) {
+    var txs = Array.isArray(transactions) ? transactions : [];
+    accounts = Array.isArray(accounts) ? accounts : [];
+    var groups = {};
+    txs.forEach(function (tx) {
+      if (!isAccrual(tx)) return;
+      var k = str(tx.accountId);
+      (groups[k] || (groups[k] = [])).push(tx);
+    });
+    var removeIds = {}, removedTxs = [], keptByAcc = {};
+    Object.keys(groups).forEach(function (accId) {
+      var list = groups[accId].slice().sort(byId);
+      // 1) exact repeats of one period: smallest id wins
+      var seenPeriod = {}, uniq = [];
+      list.forEach(function (tx) {
+        var k = ymd(tx.periodStart) + '|' + ymd(tx.periodEnd);
+        if (seenPeriod[k]) { removeIds[tx.id] = true; removedTxs.push(tx); return; }
+        seenPeriod[k] = true; uniq.push(tx);
+      });
+      // 2) the chain the merged account reflects
+      var acc = accounts.filter(function (a) { return a && str(a.id) === accId; })[0];
+      var kept = [], keptSet = {};
+      var cur = acc ? ymd(acc.lastAccrualDate) : '';
+      while (cur) {
+        var link = uniq.filter(function (tx) { return ymd(tx.periodEnd) === cur && tx.periodStart && !keptSet[tx.id]; })[0];
+        if (!link) break;
+        kept.push(link); keptSet[link.id] = true;
+        cur = ymd(link.periodStart);
+      }
+      // 3) everything else: latest period first, keep unless it overlaps
+      uniq.filter(function (tx) { return !keptSet[tx.id]; })
+        .sort(function (a, b) { return ymd(a.periodEnd) > ymd(b.periodEnd) ? -1 : (ymd(a.periodEnd) < ymd(b.periodEnd) ? 1 : byId(a, b)); })
+        .forEach(function (tx) {
+          if (kept.some(function (k) { return overlaps(tx, k); })) { removeIds[tx.id] = true; removedTxs.push(tx); return; }
+          kept.push(tx); keptSet[tx.id] = true;
+        });
+      keptByAcc[accId] = kept;
+    });
+    var removed = removedTxs.length;
+    if (!removed) return { transactions: txs, accounts: accounts, ledger: ledger, removed: 0, removedTxs: [] };
+
+    // Re-derive lastAccrualDate: an account that never saw a kept accrual
+    // ending after its anchor (no chain to trace) takes that interest on board.
+    var outAccounts = accounts.map(function (acc) {
+      var kept = acc && keptByAcc[str(acc.id)];
+      if (!kept || !kept.length) return acc;
+      var last = ymd(acc.lastAccrualDate);
+      var unseen = kept.filter(function (tx) { return tx.periodStart && ymd(tx.periodStart) >= last && ymd(tx.periodEnd) > last; });
+      if (!unseen.length) return acc;
+      var add = unseen.reduce(function (s, tx) { return s + num(tx.amount != null ? tx.amount : tx.price); }, 0);
+      var end = unseen.reduce(function (m, tx) { return ymd(tx.periodEnd) > m ? ymd(tx.periodEnd) : m; }, last);
+      return Object.assign({}, acc, { value: num(acc.value) + add, lastAccrualDate: end });
+    });
+
+    // The per-year ledger follows the kept accruals.
+    var l = normalizeLedger(ledger);
+    var keptKeys = {}, keptPostings = [];
+    Object.keys(keptByAcc).forEach(function (accId) {
+      keptByAcc[accId].forEach(function (tx) {
+        keptKeys[accId + '|' + ymd(tx.periodEnd)] = true;
+        keptPostings.push({ accountId: accId, date: ymd(tx.periodEnd), amount: num(tx.amount != null ? tx.amount : tx.price) });
+      });
+    });
+    var dropKeys = {};
+    removedTxs.forEach(function (tx) { var k = str(tx.accountId) + '|' + ymd(tx.periodEnd); if (!keptKeys[k]) dropKeys[k] = true; });
+    l.entries = l.entries.filter(function (en) { return !dropKeys[en.accountId + '|' + en.date]; });
+    l = appendLedger(l, keptPostings);
+
+    return {
+      transactions: txs.filter(function (tx) { return !(tx && removeIds[tx.id]); }),
+      accounts: outAccounts, ledger: l, removed: removed, removedTxs: removedTxs
     };
   }
 
@@ -197,7 +289,7 @@
     daysBetween: daysBetween, isInterestBearing: isInterestBearing, growthFactor: growthFactor,
     accrue: accrue, accrueAll: accrueAll,
     normalizeLedger: normalizeLedger, appendLedger: appendLedger, yearlyInterest: yearlyInterest,
-    runCatchUp: runCatchUp, loadLedger: loadLedger, saveLedger: saveLedger
+    runCatchUp: runCatchUp, dedupeAccruals: dedupeAccruals, loadLedger: loadLedger, saveLedger: saveLedger
   };
 
   if (typeof window !== 'undefined') window.MaerminInterest = api;

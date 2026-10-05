@@ -200,6 +200,58 @@
     return { transactions: (Array.isArray(existing) ? existing : []).concat(added), added: added, skipped: d.dropped };
   }
 
+  // Append synced rows to the CURRENT transaction list (call it inside the
+  // setTransactions updater). A sync dedupes against the snapshot it started
+  // from, so two overlapping runs would both add the same trades; this drops
+  // every row whose exchange|externalId is already present.
+  function appendNew(prev, added) {
+    prev = Array.isArray(prev) ? prev : [];
+    var seen = {};
+    prev.forEach(function (t) { if (t && t.externalId) seen[externalKey(t)] = true; });
+    var fresh = (Array.isArray(added) ? added : []).filter(function (t) {
+      if (!t || !t.externalId) return true;
+      var k = externalKey(t);
+      if (seen[k]) return false;
+      seen[k] = true;
+      return true;
+    });
+    return fresh.length ? prev.concat(fresh) : prev;
+  }
+
+  // After a cloud-sync merge, two devices may each have imported the same
+  // exchange trade under their own ids. Deterministic survivor (smallest id,
+  // as in MaerminSavingsExecutor.dedupeExecutions), so every device removes
+  // the same rows. Only exchange-synced rows with an external id are touched.
+  function dedupeImported(transactions) {
+    var byKey = {};
+    (transactions || []).forEach(function (t) {
+      if (!t || t.source !== 'exchange-sync' || !t.externalId) return;
+      var k = externalKey(t);
+      (byKey[k] || (byKey[k] = [])).push(t);
+    });
+    var removeIds = {};
+    Object.keys(byKey).forEach(function (k) {
+      var list = byKey[k];
+      if (list.length < 2) return;
+      list.sort(function (a, b) { return String(a.id) < String(b.id) ? -1 : 1; });
+      list.slice(1).forEach(function (t) { removeIds[t.id] = true; });
+    });
+    var removed = Object.keys(removeIds).length;
+    if (!removed) return { transactions: transactions || [], removed: 0 };
+    return { transactions: (transactions || []).filter(function (t) { return !(t && removeIds[t.id]); }), removed: removed };
+  }
+
+  // One sync per connection at a time (the button is disabled too, but the
+  // flag also covers a second Panel instance or a fast double click).
+  var _inFlight = {};
+  function beginSync(connId) {
+    if (_inFlight[connId]) return false;
+    _inFlight[connId] = true;
+    return true;
+  }
+  function endSync(connId) { delete _inFlight[connId]; }
+  function isSyncing(connId) { return !!_inFlight[connId]; }
+
   // ---- state (NO secrets) ---------------------------------------------------
   function normalizeConnection(c) {
     if (!c || typeof c !== 'object') return null;
@@ -403,6 +455,8 @@
     buildSignedRequest: buildSignedRequest, syncConnection: syncConnection,
     validateReadOnly: validateReadOnly, parsePair: parsePair, quoteCurrency: quoteCurrency,
     ADAPTERS: ADAPTERS, mapTrades: mapTrades, dedupe: dedupe, mergeSync: mergeSync,
+    appendNew: appendNew, dedupeImported: dedupeImported,
+    beginSync: beginSync, endSync: endSync, isSyncing: isSyncing,
     normalize: normalize, addConnection: addConnection, removeConnection: removeConnection,
     load: load, save: save,
     storeCredentials: storeCredentials, loadCredentials: loadCredentials, removeCredentials: removeCredentials,
@@ -454,9 +508,16 @@
           }).catch(function (err) { setMsg((err && err.message) || 'Failed to store keys'); });
         }
         function removeConn(id) { API.removeCredentials(id); mutate(API.removeConnection(st, id)); }
+        var b0 = useState({}); var busy = b0[0], setBusy = b0[1];
+        function setConnBusy(id, on) {
+          setBusy(function (prev) { var n = Object.assign({}, prev); if (on) n[id] = true; else delete n[id]; return n; });
+        }
         function syncConn(c) {
+          if (!API.beginSync(c.id)) return;
+          setConnBusy(c.id, true);
           setMsg((t.exSyncing || 'Syncing') + ' ' + c.label + '…');
           API.syncConnection(c, { workerUrl: props.workerUrl, existing: props.existing || [], portfolioId: props.portfolioId, fetch: (typeof fetch !== 'undefined' ? fetch : null) })
+            .finally(function () { API.endSync(c.id); setConnBusy(c.id, false); })
             .then(function (r) {
               if (props.onImport && r.added.length) props.onImport(r.added);
               var today = (window.MaerminUtils && window.MaerminUtils.todayISO) ? window.MaerminUtils.todayISO() : new Date().toISOString().slice(0, 10);
@@ -472,7 +533,7 @@
               e('div', { style: { color: text, fontWeight: 600, fontSize: '0.85rem' } }, c.label),
               e('div', { style: { color: dim, fontSize: '0.72rem' } }, (API.EXCHANGES[c.exchange] || {}).label + (c.lastSync ? '  ·  ' + (t.exLastSync || 'last sync') + ' ' + c.lastSync : '  ·  ' + (t.exNeverSynced || 'never synced')))),
             e('div', { style: { display: 'flex', gap: '0.4rem' } },
-              e('button', { onClick: function () { syncConn(c); }, style: { background: accent, border: 'none', color: '#ffffff', cursor: 'pointer', borderRadius: '7px', padding: '0.25rem 0.7rem', fontSize: '0.74rem', fontWeight: 700 } }, t.exSyncNow || 'Sync now'),
+              e('button', { onClick: function () { syncConn(c); }, disabled: !!busy[c.id], 'aria-busy': busy[c.id] ? 'true' : 'false', style: { background: accent, border: 'none', color: '#ffffff', cursor: busy[c.id] ? 'wait' : 'pointer', opacity: busy[c.id] ? 0.6 : 1, borderRadius: '7px', padding: '0.25rem 0.7rem', fontSize: '0.74rem', fontWeight: 700 } }, busy[c.id] ? ((t.exSyncing || 'Syncing') + '…') : (t.exSyncNow || 'Sync now')),
               e('button', { onClick: function () { removeConn(c.id); }, style: { background: 'none', border: '1px solid ' + inputBorder, color: dim, cursor: 'pointer', borderRadius: '7px', padding: '0.25rem 0.6rem', fontSize: '0.74rem' } }, t.exRemove || 'Remove')));
         });
 

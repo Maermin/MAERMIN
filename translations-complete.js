@@ -381,6 +381,7 @@ const completeTranslations = {
     divAutoLabel: 'Auto-book',
     divAutoHint: 'Automatically book each dividend as a transaction (in its payout currency) once its pay date passes.',
     divBookedToast: 'dividend(s) booked (estimated)',
+    dupAutoRemovedToast: 'duplicate automatic booking(s) removed after sync',
     divAutoBookedToast: 'dividend(s) auto-booked (estimated)',
     divNoneToBook: 'No new dividends to book',
     tagsSubtitle: 'Cross-cutting labels on your holdings — group by your own thesis (high-conviction, income, speculative…), see value & weight per tag, and optionally set target weights.',
@@ -569,6 +570,7 @@ const completeTranslations = {
     divAutoLabel: 'Auto-Buchung',
     divAutoHint: 'Bucht jede Dividende automatisch als Transaktion (in Auszahlungswährung), sobald ihr Zahltag vergangen ist.',
     divBookedToast: 'Dividende(n) gebucht (geschätzt)',
+    dupAutoRemovedToast: 'doppelte automatische Buchung(en) nach der Synchronisierung entfernt',
     divAutoBookedToast: 'Dividende(n) automatisch gebucht (geschätzt)',
     divNoneToBook: 'Keine neuen Dividenden zu buchen',
     // Tags view

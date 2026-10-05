@@ -77,9 +77,11 @@ const schedule = [
   ok('isAuto false for a manual dividend', D.isAuto({ type: 'dividend', symbol: 'KO', date: '2026-03-15' }) === false);
   ok('isAuto false for a buy', D.isAuto({ type: 'buy', symbol: 'KO' }) === false);
 
-  // ---- a manual dividend does NOT block the auto one (different marker) ----
+  // ---- a manual dividend on the pay date counts as booked (FINDINGS C-2) ----
+  // It used to book a second row next to it, which the tax report then summed.
   const withManual = [{ type: 'dividend', symbol: 'KO', date: '2026-03-15', quantity: 100, price: 0.485 }];
-  ok('manual dividend does not suppress auto-booking', D.pending(schedule, withManual, 'default').length === 2);
+  const pm = D.pending(schedule, withManual, 'default');
+  ok('manual dividend suppresses the auto-booking of the same payout', pm.length === 1 && pm[0].symbol === 'SAP.DE');
 
   console.log('\n' + passed + ' passed, ' + failed + ' failed');
   process.exit(failed ? 1 : 0);

@@ -422,6 +422,40 @@ function InvestmentTracker() {
   // safely re-run whenever prices, transactions or the FX rate change - that is
   // what lets a late-arriving plan-symbol price book the back-dated occurrences.
   // The (daily) USD->EUR rate is threaded through so USD plan amounts convert.
+  // Post-sync dedupe of automatic bookings. Two devices each run their
+  // catch-ups before they sync, so the transaction union can hold the same
+  // auto-dividend, exchange trade or interest period twice. Survivors are
+  // deterministic, so every device removes the same rows (savings plans do
+  // the same inside their own catch-up). Runs before the catch-ups below.
+  useEffect(() => {
+    if (demoMode) return;
+    const DX = window.MaerminDividendExecutor, XS = window.MaerminExchangeSync, IN = window.MaerminInterest;
+    try {
+      let working = transactions, removed = 0, accounts = null;
+      if (DX && DX.dedupeBooked) { const r = DX.dedupeBooked(working); working = r.transactions; removed += r.removed; }
+      if (XS && XS.dedupeImported) { const r = XS.dedupeImported(working); working = r.transactions; removed += r.removed; }
+      if (IN && IN.dedupeAccruals && working.some(tx => tx && tx.source === 'interest-accrual')) {
+        const r = IN.dedupeAccruals(working, JSON.parse(localStorage.getItem('maermin_networth_accounts') || '[]'), IN.loadLedger());
+        if (r.removed) {
+          accounts = r.accounts;
+          localStorage.setItem('maermin_networth_accounts', JSON.stringify(r.accounts));
+          IN.saveLedger(r.ledger);
+          working = r.transactions; removed += r.removed;
+        }
+      }
+      if (!removed) return;
+      // Re-apply to the latest list: a catch-up may have queued an update.
+      setTransactions(prev => {
+        let next = prev;
+        if (DX && DX.dedupeBooked) next = DX.dedupeBooked(next).transactions;
+        if (XS && XS.dedupeImported) next = XS.dedupeImported(next).transactions;
+        if (accounts) next = IN.dedupeAccruals(next, accounts).transactions;
+        return next;
+      });
+      addToast(`${removed} ${t.dupAutoRemovedToast || 'duplicate automatic booking(s) removed after sync'}`, 'info');
+    } catch (e) { console.warn('[DEDUPE] post-sync dedupe failed:', e); }
+  }, [transactions, demoMode]);
+
   const savingsCatchUp = React.useRef({ pendingToasted: false });
   useEffect(() => {
     const EX = window.MaerminSavingsExecutor;
@@ -479,7 +513,7 @@ function InvestmentTracker() {
       if (out.created.length) {
         localStorage.setItem('maermin_networth_accounts', JSON.stringify(out.accounts));
         IN.saveLedger(out.ledger);
-        setTransactions(out.transactions);
+        setTransactions(prev => prev.concat(out.created));
         addToast(`${out.created.length} ${t.interestBookedToast || 'interest accrual(s) booked'}`, 'success');
       }
     } catch (e) { console.warn('[INTEREST] catch-up failed:', e); }
@@ -499,7 +533,7 @@ function InvestmentTracker() {
     try {
       const sched = DS.buildPaymentSchedule(portfolio, { back: 12, months: 0 });
       const out = EX.runCatchUp(sched, transactions, activePortfolioId, undefined, EX.loadSkipped ? EX.loadSkipped() : []);
-      if (out.created.length) { setTransactions(out.transactions); addToast(`${out.created.length} ${t.divBookedToast || 'dividend(s) booked (estimated)'}`, 'success'); }
+      if (out.created.length) { setTransactions(prev => prev.concat(out.created)); addToast(`${out.created.length} ${t.divBookedToast || 'dividend(s) booked (estimated)'}`, 'success'); }
       else if (announce) { addToast(t.divNoneToBook || 'No new dividends to book', 'info'); }
     } catch (e) { console.warn('[DIV] booking failed:', e); }
   }, [portfolio, transactions, activePortfolioId]);
@@ -517,7 +551,7 @@ function InvestmentTracker() {
     try {
       const sched = DS.buildPaymentSchedule(portfolio, { back: 12, months: 0 });
       const out = EX.runCatchUp(sched, transactions, activePortfolioId, undefined, EX.loadSkipped ? EX.loadSkipped() : []);
-      if (out.created.length) { setTransactions(out.transactions); addToast(`${out.created.length} ${t.divAutoBookedToast || 'dividend(s) auto-booked (estimated)'}`, 'success'); }
+      if (out.created.length) { setTransactions(prev => prev.concat(out.created)); addToast(`${out.created.length} ${t.divAutoBookedToast || 'dividend(s) auto-booked (estimated)'}`, 'success'); }
     } catch (e) { /* best-effort */ }
   }, [divAutoBook, transactions, portfolio, activePortfolioId, demoMode]);
 
@@ -2356,7 +2390,7 @@ function InvestmentTracker() {
         React.createElement(window.MaerminExchangeSync.Panel, {
           theme, t, workerUrl: apiKeys.cs2Worker, existing: transactions, portfolioId: activePortfolioId,
           onImport: (txs) => {
-            setTransactions(prev => [...prev, ...txs]);
+            setTransactions(prev => window.MaerminExchangeSync.appendNew(prev, txs));
             if (window.MaerminAuditLog) window.MaerminAuditLog.record('data.import', `${txs.length} exchange trade(s) imported`);
             addToast(`${txs.length} exchange trade(s) imported`, 'success');
           }
