@@ -127,3 +127,23 @@ Baseline from the i18n audit: `en` 499 keys, `de` 295 (210 missing); 69 keys use
 ## Phase 3 — Usability review
 
 After Phase 2: walk first run, add transaction, import, refresh, tax export, backup/restore, sync and Steam import on desktop and mobile, in DE and EN and all five themes; deliver a severity-sorted list with fixes.
+
+---
+
+## Progress
+
+Updated in each package's PR. After a context reset: read this table and `git log`, then continue with the first package that is not merged.
+
+Gate note: `npm run test:e2e` needs a Chromium. On a machine without the Playwright download, set `CHROME_PATH` to an installed Chrome (e.g. `C:\Program Files\Google\Chrome\Application\chrome.exe`).
+
+| Package | Status | Branch | PR | Notes |
+|---|---|---|---|---|
+| P1-1 Duplicate bookings | PR open | `fix/p1-1-duplicate-bookings` | (see PR) | Post-sync dedupe runs at app open in `renderer.js` (one effect for dividends, exchange trades, interest). Interest accruals now carry `periodStart`; legacy accruals without it are deduped only on an identical period. |
+| P1-2 Portfolio delete | not started | | | |
+| P1-3 Vault & recovery | not started | | | |
+| P1-4 Sync & refresh honesty | not started | | | |
+| P1-5 Import & FX correctness | not started | | | H-1: do not strip a trailing Z blindly (XTZ = Tezos); H-2: purge the wrongly dated USD keys, a merge alone keeps them. |
+| P1-6 Return & tax correctness | not started | | | |
+| P1-7 Light theme Strategy | not started | | | |
+| P1-8 Security hardening | not started | | | |
+| P2-1 … P2-7, Phase 3 | not started | | | |

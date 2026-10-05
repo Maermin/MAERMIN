@@ -69,16 +69,65 @@
   //   { symbol, date, perShare, shares, amount, currency, past }
   // Pending = a PAST payout with a positive amount that isn't booked yet and
   // wasn't deleted by the user (skipped markers).
+  // Any dividend row of the same symbol and portfolio within ±3 days of the
+  // pay date means this payout is already booked, whatever its source (typed
+  // in, CSV/PDF import, auto). Brokers book a few days off the pay date.
+  var BOOKED_WINDOW_DAYS = 3;
+  function dayNum(iso) {
+    var t = Date.parse(String(iso || '').slice(0, 10) + 'T00:00:00Z');
+    return isFinite(t) ? Math.round(t / 86400000) : null;
+  }
+  function dividendDays(transactions) {
+    var map = {};
+    (transactions || []).forEach(function (tx) {
+      if (!tx || tx.type !== 'dividend' || !tx.symbol) return;
+      var d = dayNum(tx.date);
+      if (d == null) return;
+      var k = up(tx.symbol) + '|' + (tx.portfolioId || 'default');
+      (map[k] || (map[k] = [])).push(d);
+    });
+    return map;
+  }
+  function bookedNear(days, symbol, date, portfolioId) {
+    var list = days[up(symbol) + '|' + (portfolioId || 'default')];
+    var d = dayNum(date);
+    if (!list || d == null) return false;
+    return list.some(function (x) { return Math.abs(x - d) <= BOOKED_WINDOW_DAYS; });
+  }
+
   function pending(schedule, transactions, portfolioId, skipped) {
     portfolioId = portfolioId || 'default';
     var done = bookedSet(transactions);
+    var days = dividendDays(transactions);
     var skip = {};
     (Array.isArray(skipped) ? skipped : []).forEach(function (m) { skip[m] = true; });
     return (schedule || []).filter(function (r) {
       if (!(r && r.past === true && num(r.amount) > 0 && r.symbol && r.date)) return false;
       var m = markerOf(r.symbol, r.date, portfolioId);
-      return !done[m] && !skip[m];
+      return !done[m] && !skip[m] && !bookedNear(days, r.symbol, r.date, portfolioId);
     });
+  }
+
+  // After a cloud-sync merge, two devices may each have auto-booked the same
+  // payout under their own ids. Deterministic survivor (smallest id, as in
+  // MaerminSavingsExecutor.dedupeExecutions). Manual rows are never touched.
+  function dedupeBooked(transactions) {
+    var byKey = {};
+    (transactions || []).forEach(function (tx) {
+      if (!isAuto(tx)) return;
+      var k = markerOf(tx.symbol, tx.divDate, tx.portfolioId);
+      (byKey[k] || (byKey[k] = [])).push(tx);
+    });
+    var removeIds = {};
+    Object.keys(byKey).forEach(function (k) {
+      var list = byKey[k];
+      if (list.length < 2) return;
+      list.sort(function (a, b) { return String(a.id) < String(b.id) ? -1 : 1; });
+      list.slice(1).forEach(function (tx) { removeIds[tx.id] = true; });
+    });
+    var removed = Object.keys(removeIds).length;
+    if (!removed) return { transactions: transactions || [], removed: 0 };
+    return { transactions: (transactions || []).filter(function (tx) { return !(tx && removeIds[tx.id]); }), removed: removed };
   }
 
   // Re-scale a schedule row to the shares actually held on its date.
@@ -171,6 +220,8 @@
     isAuto: isAuto,
     bookedSet: bookedSet,
     pending: pending,
+    dedupeBooked: dedupeBooked,
+    BOOKED_WINDOW_DAYS: BOOKED_WINDOW_DAYS,
     buildTransaction: buildTransaction,
     runCatchUp: runCatchUp,
     isEnabled: isEnabled,
