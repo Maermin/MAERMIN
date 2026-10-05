@@ -2251,7 +2251,25 @@ const completeTranslations = {
     ddsShrink: 'Dividend income projected to decrease {pct} vs last year',
     ddsMonthly: 'Average monthly dividend income: {amount}',
     ddsHighYield: 'High portfolio yield ({pct}) - verify dividend sustainability',
-    ddsLowYield: 'Portfolio yield: {pct} - consider adding dividend stocks'
+    ddsLowYield: 'Portfolio yield: {pct} - consider adding dividend stocks',
+
+    // P2-2 import row messages (import-mapping.js)
+    imInvalid: 'invalid/missing: {list}',
+    imUnknownType: 'unknown type "{type}" (map it or edit the file)',
+    imNoRows: 'no data rows below the header line',
+    imNotCt: 'not a CoinTracking trade list (expected the columns Type, Buy, Cur., Sell, Cur., Date)',
+    imCtType: 'type "{type}" is not booked (margin, futures, fees and loans stay in CoinTracking)',
+    imCtTransfer: '{type}: transfer between your own wallets, not a purchase or sale - not booked',
+    imCtNoBook: '{type}: not booked automatically (no sale price) - enter it by hand if it should reduce the holding',
+    imCtNoAmounts: 'trade without both amounts and currencies',
+    imCtFiat: 'fiat/stablecoin exchange ({from} -> {to}) - not booked',
+    imCtCoinCoin: 'coin-to-coin trade ({from} -> {to}) needs the "value in EUR" columns - export "CSV (full)" from CoinTracking',
+    imCtNoAmount: '{type} without an amount',
+    imCtPaidIn: '{type} paid in {cur} - not a coin position, not booked',
+    imCtZeroCost: 'Row {row}: {type} {amount} {cur} booked with a cost basis of 0 (no value column in the file).',
+    imCtSpendValue: '{type} of {cur} needs the "value in EUR" column to be booked as a sale',
+    imCtNoCgId: 'No CoinGecko id known for {list} - imported under the ticker in lower case; edit the symbol if it gets no price.',
+    imCtCoinFees: '{n} {n:fee|fees} paid in a coin were not deducted (the file has no value for them).'
   },
 
   // German locale (v10.x). Curated high-traffic strings; any missing key falls
@@ -4337,7 +4355,25 @@ const completeTranslations = {
     ddsShrink: 'Das Dividendeneinkommen sinkt voraussichtlich um {pct} gegenüber dem Vorjahr',
     ddsMonthly: 'Durchschnittliches monatliches Dividendeneinkommen: {amount}',
     ddsHighYield: 'Hohe Portfoliorendite ({pct}) – prüfe, ob die Dividenden nachhaltig sind',
-    ddsLowYield: 'Portfoliorendite: {pct} – erwäge zusätzliche Dividendenaktien'
+    ddsLowYield: 'Portfoliorendite: {pct} – erwäge zusätzliche Dividendenaktien',
+
+    // P2-2 import row messages (import-mapping.js)
+    imInvalid: 'ungültig/fehlt: {list}',
+    imUnknownType: 'unbekannte Art „{type}“ (zuordnen oder Datei bearbeiten)',
+    imNoRows: 'keine Datenzeilen unter der Kopfzeile',
+    imNotCt: 'keine CoinTracking-Handelsliste (erwartet werden die Spalten Type, Buy, Cur., Sell, Cur., Date)',
+    imCtType: 'Art „{type}“ wird nicht gebucht (Margin, Futures, Gebühren und Kredite bleiben in CoinTracking)',
+    imCtTransfer: '{type}: Übertrag zwischen deinen eigenen Wallets, kein Kauf oder Verkauf – nicht gebucht',
+    imCtNoBook: '{type}: nicht automatisch gebucht (kein Verkaufspreis) – trage es von Hand ein, wenn es den Bestand verringern soll',
+    imCtNoAmounts: 'Trade ohne beide Beträge und Währungen',
+    imCtFiat: 'Tausch Fiat/Stablecoin ({from} -> {to}) – nicht gebucht',
+    imCtCoinCoin: 'Coin-zu-Coin-Trade ({from} -> {to}) braucht die Spalten „Wert in EUR“ – exportiere „CSV (Full)“ aus CoinTracking',
+    imCtNoAmount: '{type} ohne Betrag',
+    imCtPaidIn: '{type} in {cur} ausgezahlt – keine Coin-Position, nicht gebucht',
+    imCtZeroCost: 'Zeile {row}: {type} {amount} {cur} mit Einstandswert 0 gebucht (keine Wertspalte in der Datei).',
+    imCtSpendValue: '{type} von {cur} braucht die Spalte „Wert in EUR“, um als Verkauf gebucht zu werden',
+    imCtNoCgId: 'Keine CoinGecko-ID bekannt für {list} – unter dem Ticker in Kleinbuchstaben importiert; bearbeite das Symbol, falls es keinen Kurs bekommt.',
+    imCtCoinFees: '{n} in einem Coin gezahlte {n:Gebühr wurde|Gebühren wurden} nicht abgezogen (die Datei enthält keinen Wert dafür).'
   }
 };
 

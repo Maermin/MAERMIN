@@ -25,6 +25,8 @@
  */
 (function () {
   'use strict';
+// Translation lookup (i18n.js): __('key', 'English fallback', { slot: value }).
+function __(k, f, v) { return (typeof window !== 'undefined' && window.MaerminI18n ? window.MaerminI18n : require('./i18n.js')).t(k, f, v); }
 
   /** Logical fields a mapping can target. `fee` maps onto the tx `fees` prop. */
   const FIELDS = ['date', 'type', 'symbol', 'quantity', 'price', 'fee', 'currency'];
@@ -314,7 +316,7 @@
       if (!isFinite(quantity) || quantity <= 0) missing.push('quantity');
       if (!isFinite(price)) missing.push('price');
       if (missing.length) {
-        errors.push({ row: rowNo, reason: 'invalid/missing: ' + missing.join(', '), raw: row });
+        errors.push({ row: rowNo, reason: __('imInvalid', 'invalid/missing: {list}', { list: missing.join(', ') }), raw: row });
         return;
       }
       // Type: a known word, or - with no type value - the quantity's sign
@@ -323,7 +325,7 @@
       const rawType = String(get('type') == null ? '' : get('type')).trim();
       let type = classifyType(rawType);
       if (!type && rawType) {
-        errors.push({ row: rowNo, reason: 'unknown type "' + rawType + '" (map it or edit the file)', raw: row });
+        errors.push({ row: rowNo, reason: __('imUnknownType', 'unknown type "{type}" (map it or edit the file)', { type: rawType }), raw: row });
         return;
       }
       if (!type) type = rawQty < 0 ? 'sell' : 'buy';
@@ -353,7 +355,7 @@
     opts = opts || {};
     const { headers, rows } = parseCSV(text);
     if (!headers.length || !rows.length) {
-      return { transactions: [], errors: [{ row: 0, reason: 'no data rows below the header line', raw: null }] };
+      return { transactions: [], errors: [{ row: 0, reason: __('imNoRows', 'no data rows below the header line'), raw: null }] };
     }
     if (isCoinTracking(headers)) {
       const ct = parseCoinTracking(text, opts);
@@ -806,7 +808,7 @@
     out.headers = headers;
     const col = ctColumns(headers);
     if (!isCoinTracking(headers)) {
-      out.errors.push({ row: 0, reason: 'not a CoinTracking trade list (expected the columns Type, Buy, Cur., Sell, Cur., Date)', raw: null });
+      out.errors.push({ row: 0, reason: __('imNotCt', 'not a CoinTracking trade list (expected the columns Type, Buy, Cur., Sell, Cur., Date)'), raw: null });
       return out;
     }
     const locale = opts.locale;
@@ -826,10 +828,10 @@
       const rawType = String(at('type')).trim();
       const kind = CT_KIND[lc(rawType)];
       const date = parseDate(at('date'), locale || 'de');
-      if (!kind) { skip('type "' + rawType + '" is not booked (margin, futures, fees and loans stay in CoinTracking)'); return; }
-      if (!date) { skip('invalid/missing: date'); return; }
-      if (kind === 'transfer') { out.stats.transfers++; skip(rawType + ': transfer between your own wallets, not a purchase or sale - not booked'); return; }
-      if (kind === 'nobook') { skip(rawType + ': not booked automatically (no sale price) - enter it by hand if it should reduce the holding'); return; }
+      if (!kind) { skip(__('imCtType', 'type "{type}" is not booked (margin, futures, fees and loans stay in CoinTracking)', { type: rawType })); return; }
+      if (!date) { skip(__('imInvalid', 'invalid/missing: {list}', { list: 'date' })); return; }
+      if (kind === 'transfer') { out.stats.transfers++; skip(__('imCtTransfer', '{type}: transfer between your own wallets, not a purchase or sale - not booked', { type: rawType })); return; }
+      if (kind === 'nobook') { skip(__('imCtNoBook', '{type}: not booked automatically (no sale price) - enter it by hand if it should reduce the holding', { type: rawType })); return; }
 
       const buyAmt = num(at('buy')), buyCur = String(at('buyCur')).trim().toUpperCase();
       const sellAmt = num(at('sell')), sellCur = String(at('sellCur')).trim().toUpperCase();
@@ -863,9 +865,9 @@
       };
 
       if (kind === 'trade') {
-        if (!(buyAmt > 0) || !buyCur || !(sellAmt > 0) || !sellCur) { skip('trade without both amounts and currencies'); return; }
+        if (!(buyAmt > 0) || !buyCur || !(sellAmt > 0) || !sellCur) { skip(__('imCtNoAmounts', 'trade without both amounts and currencies')); return; }
         const buyFiat = ctFiat(buyCur), sellFiat = ctFiat(sellCur);
-        if (buyFiat && sellFiat) { skip('fiat/stablecoin exchange (' + sellCur + ' -> ' + buyCur + ') - not booked'); return; }
+        if (buyFiat && sellFiat) { skip(__('imCtFiat', 'fiat/stablecoin exchange ({from} -> {to}) - not booked', { from: sellCur, to: buyCur })); return; }
         if (sellFiat) {
           push({ type: 'buy', symbol: coin(buyCur), symbolName: buyCur, quantity: buyAmt, price: sellAmt / buyAmt, currency: sellFiat, fees: feeIn(sellFiat) });
         } else if (buyFiat) {
@@ -874,7 +876,7 @@
           // Coin -> coin: a sale of one coin and a purchase of the other, both
           // at the market value CoinTracking recorded for the trade.
           const value = sellVal || buyVal;
-          if (!(value > 0) || !valCur) { skip('coin-to-coin trade (' + sellCur + ' -> ' + buyCur + ') needs the "value in EUR" columns - export "CSV (full)" from CoinTracking'); return; }
+          if (!(value > 0) || !valCur) { skip(__('imCtCoinCoin', 'coin-to-coin trade ({from} -> {to}) needs the "value in EUR" columns - export "CSV (full)" from CoinTracking', { from: sellCur, to: buyCur })); return; }
           const fee = feeIn(valCur);
           push({ type: 'sell', symbol: coin(sellCur), symbolName: sellCur, quantity: sellAmt, price: (sellVal || value) / sellAmt, currency: valCur, fees: fee });
           push({ type: 'buy', symbol: coin(buyCur), symbolName: buyCur, quantity: buyAmt, price: (buyVal || value) / buyAmt, currency: valCur });
@@ -883,27 +885,27 @@
       }
 
       if (kind === 'income') {
-        if (!(buyAmt > 0) || !buyCur) { skip(rawType + ' without an amount'); return; }
-        if (ctFiat(buyCur)) { skip(rawType + ' paid in ' + buyCur + ' - not a coin position, not booked'); return; }
+        if (!(buyAmt > 0) || !buyCur) { skip(__('imCtNoAmount', '{type} without an amount', { type: rawType })); return; }
+        if (ctFiat(buyCur)) { skip(__('imCtPaidIn', '{type} paid in {cur} - not a coin position, not booked', { type: rawType, cur: buyCur })); return; }
         const hasVal = buyVal > 0 && valCur;
         push({ type: 'buy', symbol: coin(buyCur), symbolName: buyCur, quantity: buyAmt,
           price: hasVal ? buyVal / buyAmt : 0, currency: hasVal ? valCur : (opts.currency || 'EUR'),
           fees: hasVal ? feeIn(valCur) : 0 });
-        if (!hasVal) out.warnings.push('Row ' + rowNo + ': ' + rawType + ' ' + buyAmt + ' ' + buyCur + ' booked with a cost basis of 0 (no value column in the file).');
+        if (!hasVal) out.warnings.push(__('imCtZeroCost', 'Row {row}: {type} {amount} {cur} booked with a cost basis of 0 (no value column in the file).', { row: rowNo, type: rawType, amount: buyAmt, cur: buyCur }));
         return;
       }
 
       if (kind === 'spend') {
-        if (!(sellAmt > 0) || !sellCur) { skip(rawType + ' without an amount'); return; }
-        if (ctFiat(sellCur)) { skip(rawType + ' paid in ' + sellCur + ' - not a coin position, not booked'); return; }
-        if (!(sellVal > 0) || !valCur) { skip(rawType + ' of ' + sellCur + ' needs the "value in EUR" column to be booked as a sale'); return; }
+        if (!(sellAmt > 0) || !sellCur) { skip(__('imCtNoAmount', '{type} without an amount', { type: rawType })); return; }
+        if (ctFiat(sellCur)) { skip(__('imCtPaidIn', '{type} paid in {cur} - not a coin position, not booked', { type: rawType, cur: sellCur })); return; }
+        if (!(sellVal > 0) || !valCur) { skip(__('imCtSpendValue', '{type} of {cur} needs the "value in EUR" column to be booked as a sale', { type: rawType, cur: sellCur })); return; }
         push({ type: 'sell', symbol: coin(sellCur), symbolName: sellCur, quantity: sellAmt, price: sellVal / sellAmt, currency: valCur, fees: feeIn(valCur) });
       }
     });
 
     const unknown = Object.keys(unknownCoins);
-    if (unknown.length) out.warnings.unshift('No CoinGecko id known for ' + unknown.join(', ') + ' - imported under the ticker in lower case; edit the symbol if it gets no price.');
-    if (cryptoFees) out.warnings.push(cryptoFees + ' fee(s) paid in a coin were not deducted (the file has no value for them).');
+    if (unknown.length) out.warnings.unshift(__('imCtNoCgId', 'No CoinGecko id known for {list} - imported under the ticker in lower case; edit the symbol if it gets no price.', { list: unknown.join(', ') }));
+    if (cryptoFees) out.warnings.push(__('imCtCoinFees', '{n} {n:fee|fees} paid in a coin were not deducted (the file has no value for them).', { n: cryptoFees }));
     out.stats.ok = out.transactions.length;
     out.stats.failed = out.errors.length;
     return out;
