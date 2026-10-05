@@ -32,6 +32,16 @@ if (!globalThis.crypto || !globalThis.crypto.subtle) {
 const Vault = require('../crypto-vault.js');
 const Storage = require('../storage.js');
 const Sync = require('../sync-engine.js');
+// A leaked plaintext shows up as its JSON text, e.g. "s":"BTC". Base64 has no
+// quotes or colons, so - unlike a bare 'BTC', which random ciphertext contains
+// about once in a few hundred runs - this cannot match by chance. Base64 runs
+// are also decoded, so a plaintext that is merely encoded is caught too.
+function leaksPlaintext(stored, fragment) {
+  const s = String(stored);
+  if (s.includes(fragment)) return true;
+  return (s.match(/[A-Za-z0-9+/=]{16,}/g) || []).some((c) => Buffer.from(c, 'base64').toString('latin1').includes(fragment));
+}
+
 
 // ---- in-memory transport implementing the get/put contract (rev concurrency) ----
 function MemTransport() {
@@ -97,7 +107,7 @@ function MemTransport() {
   ok('first sync pushes (rev 1)', r.ok && r.rev === 1 && transport._peek().rev === 1);
 
   // server is opaque ciphertext (no plaintext leak)
-  ok('stored blob is ciphertext (no symbol leak)', !String(transport._peek().blob).includes('BTC'));
+  ok('stored blob is ciphertext (no symbol leak)', !leaksPlaintext(transport._peek().blob, '"symbol":"BTC"'));
 
   // no local change → second sync is a no-op alignment
   r = await Sync.sync();

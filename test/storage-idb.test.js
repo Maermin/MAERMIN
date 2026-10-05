@@ -40,6 +40,16 @@ const Vault = require('../crypto-vault.js');
 const Storage = require('../storage.js');
 const BLOB = Storage.BLOB_KEY;
 const recKeys = () => [...idb._map.keys()].filter((k) => k.startsWith('r:'));
+// A leaked plaintext shows up as its JSON text, e.g. "s":"BTC". Base64 has no
+// quotes or colons, so - unlike a bare 'BTC', which random ciphertext contains
+// about once in a few hundred runs - this cannot match by chance. Base64 runs
+// are also decoded, so a plaintext that is merely encoded is caught too.
+function leaksPlaintext(stored, fragment) {
+  const s = String(stored);
+  if (s.includes(fragment)) return true;
+  return (s.match(/[A-Za-z0-9+/=]{16,}/g) || []).some((c) => Buffer.from(c, 'base64').toString('latin1').includes(fragment));
+}
+
 
 (async function run() {
   console.log('storage-idb (per-key):');
@@ -54,7 +64,7 @@ const recKeys = () => [...idb._map.keys()].filter((k) => k.startsWith('r:'));
   ok('encrypted manifest present in IDB', !!idb._map.get(MANIFEST));
   ok('one record per sensitive key', recKeys().length === 2);
   ok('records + manifest are ciphertext (no plaintext leak)',
-    recKeys().every((k) => !String(idb._map.get(k)).includes('BTC')) &&
+    recKeys().every((k) => !leaksPlaintext(idb._map.get(k), '"s":"BTC"')) &&
     !String(idb._map.get(MANIFEST)).includes('transactions') &&
     !String(idb._map.get(MANIFEST)).includes('maermin_portfolios'));
   ok('sensitive read via shim returns plaintext',
