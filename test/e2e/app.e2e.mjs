@@ -421,13 +421,13 @@ async function runBuild(browser, label, dir) {
     await unlock(page, base);
     await page.waitForTimeout(1500); // adoption persists asynchronously
     const r = await page.evaluate(`(() => { const R = ${RAW}; return {
-      schema: localStorage.getItem('maermin_schema_version'),
+      schema: localStorage.getItem('maermin_schema_version'), latest: window.MaerminMigrations.LATEST,
       hist: JSON.parse(localStorage.getItem('priceHistory') || '{}'),
       owner: localStorage.getItem('maermin_tax_owner'),
       rawOwner: R.get('maermin_tax_owner'),
       leak: R.keys().filter((k) => /Mustermann|12345678901/.test(R.get(k) || ''))
     }; })()`);
-    ok('migration v4 ran (schema 3 -> 4)', r.schema === '4', 'schema=' + r.schema);
+    ok('migrations from v4 on ran (schema 3 -> latest)', r.latest >= 4 && r.schema === String(r.latest), 'schema=' + r.schema + ' latest=' + r.latest);
     ok('year-less price points repaired to ISO', (r.hist.btc || []).length === 2 && r.hist.btc.every((p) => /^\d{4}-\d{2}-\d{2}T/.test(p.timestamp)), JSON.stringify(r.hist));
     ok('plaintext v10 store adopted into the vault', /Mustermann/.test(r.owner || '') && r.rawOwner === null && r.leak.length === 0, JSON.stringify({ rawOwner: r.rawOwner, leak: r.leak }));
     ok('no page errors in the upgrade session', errors.length === 0, errors.join(' | '));

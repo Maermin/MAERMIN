@@ -422,6 +422,23 @@ function InvestmentTracker() {
   // safely re-run whenever prices, transactions or the FX rate change - that is
   // what lets a late-arriving plan-symbol price book the back-dated occurrences.
   // The (daily) USD->EUR rate is threaded through so USD plan amounts convert.
+  // Deleting a portfolio moves its transactions and savings plans to the Main
+  // Portfolio (FINDINGS C-4: they used to keep the deleted id and show in no
+  // portfolio). The confirmation lives in the Portfolio Manager.
+  const removePortfolioMovingRows = (id) => {
+    if (!portfolioHook || id === 'default') return;
+    const MG = window.MaerminMigrations;
+    if (MG && MG.movePortfolioRows) {
+      setTransactions(prev => MG.movePortfolioRows(prev, [id], 'default').items);
+      try {
+        const plans = JSON.parse(localStorage.getItem('maermin_savings_plans') || '[]');
+        const moved = MG.movePortfolioRows(plans, [id], 'default');
+        if (moved.moved) localStorage.setItem('maermin_savings_plans', JSON.stringify(moved.items));
+      } catch (e) { console.warn('[PORTFOLIO] moving savings plans failed:', e); }
+    }
+    portfolioHook.removePortfolio(id);
+  };
+
   // Post-sync dedupe of automatic bookings. Two devices each run their
   // catch-ups before they sync, so the transaction union can hold the same
   // auto-dividend, exchange trade or interest period twice. Survivors are
@@ -2813,10 +2830,10 @@ function InvestmentTracker() {
         return window.MaerminFeatures4 ?
           React.createElement(window.MaerminFeatures4.PortfolioManagerView, {
             portfolios, activePortfolioId, transactions, prices, exchangeRate, fxAt, corpActionsRev,
-            theme: currentTheme, formatPrice, getCurrencySymbol,
+            theme: currentTheme, t, formatPrice, getCurrencySymbol,
             setActivePortfolioId,
             addPortfolio: portfolioHook?.addPortfolio,
-            removePortfolio: portfolioHook?.removePortfolio,
+            removePortfolio: removePortfolioMovingRows,
             renamePortfolio: portfolioHook?.renamePortfolio
           }) : renderAnalyticsPlaceholder('Portfolios');
 
