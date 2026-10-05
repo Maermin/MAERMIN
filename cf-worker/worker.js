@@ -740,8 +740,11 @@ export default {
       if (hit && Date.now() - hit.fetchedAt < SKINPORT_FRESH_MS) return passThrough(hit.response, request, false, hit.fetchedAt);
       try {
         const r = await fetchWithTimeout('https://api.skinport.com/v1/items?app_id=730&currency=USD&tradable=0',
-          { headers: { 'Accept-Encoding': 'br', 'Accept': 'application/json' } }, 20000);
-        if (!r.ok || !r.body) throw new Error('Skinport ' + r.status);
+          // A Worker sends no User-Agent by default; Skinport's bot protection
+          // answered such requests with 403.
+          { headers: { 'Accept-Encoding': 'br', 'Accept': 'application/json',
+            'User-Agent': 'MAERMIN-Portfolio-Worker/1.0 (+https://github.com/Maermin/MAERMIN)' } }, 20000);
+        if (!r.ok || !r.body) throw new Error('Skinport ' + r.status + (r.status === 403 ? ' (Skinport refuses requests from this Worker - skin prices fall back to Steam)' : ''));
         const [toClient, toStore] = r.body.tee();
         const fetchedAt = Date.now();
         ctx.waitUntil(copy.put(toStore, fetchedAt));

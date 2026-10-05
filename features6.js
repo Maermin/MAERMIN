@@ -120,7 +120,6 @@ const YF_SYMBOL_MAP = {
   // FI = Fiserv Inc. (NYSE) — YF sometimes returns no data for bare "FI"
   // Try bare first, suffix fallback (.DE/.L etc.) handles the rest automatically
   'FI': 'FI',
-  'FISV': 'FI', // legacy Fiserv ticker alias
   // Amsterdam (.AS)
   'ASML': 'ASML.AS', 'SHELL': 'SHEL.AS', 'ING': 'INGA.AS', 'PHIA': 'PHIA.AS',
   // London (.L)
@@ -183,19 +182,43 @@ async function fetchYFHistory(symbol, period, workerUrl) {
   throw new Error(lastError);
 }
 
-// CoinGecko: [{ts, date, price_eur}] — direct, no CORS on CoinGecko
+// CoinGecko: [{ts, date, price_eur}]. Through the shared CoinGecko queue at
+// low priority (window.MaerminCoinGecko): the price refresh goes first, and
+// during a rate-limit pause this rejects at once (the chart then uses stored
+// closes or a flat line) instead of adding to the flood.
 async function fetchCryptoHistory(coinId, period) {
   const url = `https://api.coingecko.com/api/v3/coins/${encodeURIComponent(coinId)}/market_chart` +
     `?vs_currency=eur&days=${period.cgDays}`;
-  const res = await fetch(url, { signal: AbortSignal.timeout(15000) });
-  if (!res.ok) throw new Error(`CoinGecko ${res.status}`);
-  const data = await res.json();
+  const CG = window.MaerminCoinGecko;
+  const data = CG ? await CG.getJson(url, { priority: 'low', timeoutMs: 15000 })
+    : await fetch(url, { signal: AbortSignal.timeout(15000) }).then(r => { if (!r.ok) throw new Error(`CoinGecko ${r.status}`); return r.json(); });
   return (data.prices || []).map(([ms, price]) => ({
     ts:    Math.floor(ms / 1000),
     date:  new Date(ms).toISOString().split('T')[0],
     price, // EUR already
     inEur: true,
   }));
+}
+
+// Crypto histories fetched this session (shared by every chart instance and
+// re-render), and how many may be fetched per chart build.
+const CRYPTO_HIST = new Map();          // `${coinId}|${periodId}` -> { at, hist }
+const CRYPTO_HIST_TTL = 30 * 60 * 1000;
+const CRYPTO_FETCH_BUDGET = 8;
+
+// Daily closes the background close history (MaerminCloseHistory) stored for
+// a coin, cut to the period - for daily periods only (1M and longer), and only
+// when they reach to within 3 days of today. → [{ts,date,price,inEur}] | null
+function storedCryptoCloses(symbol, period) {
+  const CH = window.MaerminCloseHistory;
+  if (!CH || !CH.load || !(period.cgDays === 'max' || period.cgDays >= 30)) return null;
+  let entry;
+  try { entry = CH.load().series[CH.keyOf('crypto', symbol)]; } catch (e) { return null; }
+  if (!entry || !entry.to || (Date.now() - Date.parse(entry.to + 'T00:00:00Z')) > 3 * 86400000) return null;
+  const from = period.cgDays === 'max' ? '' : new Date(Date.now() - period.cgDays * 86400000).toISOString().slice(0, 10);
+  const rows = CH.closesOf(entry).filter(([d]) => d >= from);
+  if (rows.length < 2) return null;
+  return rows.map(([date, price]) => ({ ts: Math.floor(Date.parse(date + 'T00:00:00Z') / 1000), date, price, inEur: true }));
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -279,24 +302,35 @@ function PortfolioHistoryChart({ portfolio, prices, transactions, apiKeys, theme
     try {
       const historyMap = {}; // symOrig → [{ts, date, price (EUR)}]
 
-      // ── Crypto: CoinGecko (parallel, free) ─────────────────────────────
-      await Promise.all(
-        positions.filter(p => p.cat === 'crypto').map(async pos => {
-          const ckey = `${pos.sym}|${period}`;
-          if (cacheRef.current[ckey]) { historyMap[pos.symOrig] = cacheRef.current[ckey]; return; }
-          try {
-            // CoinGecko knows ids ("bitcoin"), not tickers ("btc").
-            const cgId = window.MaerminTickers?.coinGeckoId ? window.MaerminTickers.coinGeckoId(pos.sym) : pos.sym;
-            const hist = await fetchCryptoHistory(cgId, currentPeriod);
-            cacheRef.current[ckey] = hist;
-            historyMap[pos.symOrig] = hist;
-          } catch(e) {
-            console.warn('[CHART] CoinGecko failed for', pos.sym, '—', e.message);
-            const p = prices[pos.symOrig] || prices[pos.sym] || 0;
-            if (p > 0) historyMap[pos.symOrig] = flatLine(p, pos.firstTs);
-          }
-        })
-      );
+      // ── Crypto: stored daily closes first, then CoinGecko (queued) ──────
+      // CoinGecko allows only a few calls a minute: ~40 parallel history
+      // requests got everything refused - prices included. Daily periods take
+      // the closes the background close history already stored; only the
+      // largest positions without them are fetched (CRYPTO_FETCH_BUDGET per
+      // build), the rest get a flat line until their closes are stored.
+      const cryptoPos = positions.filter(p => p.cat === 'crypto')
+        .map(p => ({ ...p, value: (p.amount || 0) * (prices[p.symOrig] || prices[p.sym] || 0) }))
+        .sort((a, b) => b.value - a.value);
+      let budget = CRYPTO_FETCH_BUDGET;
+      for (const pos of cryptoPos) {
+        const cgId = window.MaerminTickers?.coinGeckoId ? window.MaerminTickers.coinGeckoId(pos.sym) : pos.sym;
+        const ckey = `${cgId}|${period}`;
+        const memo = CRYPTO_HIST.get(ckey);
+        if (memo && Date.now() - memo.at < CRYPTO_HIST_TTL) { historyMap[pos.symOrig] = memo.hist; continue; }
+        const stored = storedCryptoCloses(pos.symOrig, currentPeriod);
+        if (stored) { historyMap[pos.symOrig] = stored; continue; }
+        const flat = () => { const p = prices[pos.symOrig] || prices[pos.sym] || 0; if (p > 0) historyMap[pos.symOrig] = flatLine(p, pos.firstTs); };
+        if (budget <= 0 || window.MaerminCoinGecko?.coolingDown?.()) { flat(); continue; }
+        budget--;
+        try {
+          const hist = await fetchCryptoHistory(cgId, currentPeriod);
+          CRYPTO_HIST.set(ckey, { at: Date.now(), hist });
+          historyMap[pos.symOrig] = hist;
+        } catch(e) {
+          if (!e || !e.rateLimited) console.warn('[CHART] CoinGecko failed for', pos.sym, '—', e && e.message);
+          flat();
+        }
+      }
 
       // ── CS2 Skins: Steam Market Price History via Worker ────────────────
       const skinPositions = positions.filter(p => p.cat === 'skins');

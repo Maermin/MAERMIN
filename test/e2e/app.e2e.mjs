@@ -135,7 +135,12 @@ async function wire(context, external) {
     // fixtures (still offline) and log the call so the test can assert on it.
     const json = (o) => route.fulfill({ headers: { 'Access-Control-Allow-Origin': '*', 'Content-Type': 'application/json' }, body: JSON.stringify(o) });
     if (url.startsWith('https://open.er-api.com/v6/latest/USD')) { fetched.push('fx'); return json({ result: 'success', rates: { EUR: 0.9, USD: 1 } }); }
-    if (url.startsWith('https://api.coingecko.com/api/v3/simple/price')) { fetched.push('crypto'); return json({ eth: { eur: 3000, usd: 3300 } }); }
+    // Answers under the requested CoinGecko id, like the real API (the app
+    // maps the stored ticker "eth" to the id "ethereum").
+    if (url.startsWith('https://api.coingecko.com/api/v3/simple/price')) {
+      fetched.push('crypto');
+      const ids = (new URL(url).searchParams.get('ids') || '').split(',');      return json(ids.includes('ethereum') ? { ethereum: { eur: 3000, usd: 3300 } } : {});
+    }
     external.push(route.request().method() + ' ' + url.split('?')[0]);
     return route.abort();
   });
@@ -312,6 +317,9 @@ async function runBuild(browser, label, dir) {
     // that have no quote yet are valued at cost and labelled - never -100%.
     await page.waitForTimeout(2500);
     ok('prices are fetched after unlock, without a click', fetched.includes('fx') && fetched.includes('crypto'), fetched.join(','));
+    // CoinGecko calls are queued 1.5 s apart (rate limit), so the quote can
+    // land a moment after the request: wait for it instead of a fixed delay.
+    await page.waitForFunction(() => /3,550/.test(document.body.innerText), null, { timeout: 10000 }).catch(() => {});
     {
       const b0 = await page.innerText('body');
       ok('unpriced holdings are not shown as a total loss', !/-100\.00%/.test(b0), (b0.match(/.{0,60}-100\.00%.{0,20}/) || [''])[0].replace(/\n/g, ' | '));

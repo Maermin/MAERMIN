@@ -282,6 +282,10 @@
     var T = (typeof window !== 'undefined' && window.MaerminTickers) || null;
     return T && typeof T[name] === 'function' ? T[name] : null;
   }
+  function cgQueue() {
+    var CG = (typeof window !== 'undefined' && window.MaerminCoinGecko) || null;
+    return CG && typeof CG.getJson === 'function' ? CG.getJson : null;
+  }
   function wait(ms) { return ms > 0 ? new Promise(function (r) { setTimeout(r, ms); }) : Promise.resolve(); }
 
   function fetchOne(job, o) {
@@ -293,9 +297,13 @@
       meta.sym = id;
       var days = Math.max(2, dayNo(today) - dayNo(job.from) + 1);
       var url = function (n) { return 'https://api.coingecko.com/api/v3/coins/' + encodeURIComponent(id) + '/market_chart?vs_currency=eur&days=' + n + '&interval=daily'; };
-      return getJson(o.fetch, url(days), o.timeoutMs).catch(function (e) {
+      // Through the shared CoinGecko queue when there is one (browser): low
+      // priority behind the price refresh; a refusal comes back as status 429.
+      var get = o.cgGet ? function (u) { return o.cgGet(u, { priority: 'low', timeoutMs: o.timeoutMs }); }
+        : function (u) { return getJson(o.fetch, u, o.timeoutMs); };
+      return get(url(days)).catch(function (e) {
         // The public API refuses ranges beyond a year (401/400): take what it gives.
-        if (days > 365 && (e.status === 400 || e.status === 401 || e.status === 403)) return getJson(o.fetch, url(365), o.timeoutMs);
+        if (days > 365 && (e.status === 400 || e.status === 401 || e.status === 403)) return get(url(365));
         throw e;
       }).then(function (j) { return ingestCoinGecko(j, meta); });
     }
@@ -328,6 +336,7 @@
       workerBase: String(opts.workerBase || '').trim().replace(/\/$/, ''),
       suffixCache: opts.suffixCache || {}, normalizeSkin: opts.normalizeSkin,
       cryptoId: opts.cryptoId || tickerFn('coinGeckoId'),
+      cgGet: opts.cgGet || (opts.fetch ? null : cgQueue()),
       isTicker: opts.isTicker || tickerFn('isMarketSymbol'),
       now: now, today: opts.today || new Date(now).toISOString().slice(0, 10),
       timeoutMs: opts.timeoutMs || 12000

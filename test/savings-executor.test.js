@@ -67,7 +67,9 @@ const PLAN = { id: 'p1', symbol: 'BTC', category: 'crypto', amount: 100, frequen
   ] };
   ok('nearest close at or before the due date wins', E.priceAtDate(history, {}, 'BTC', '2026-03-15') === 49500);
   ok('no coverage and not today -> null (stays pending)', E.priceAtDate({}, { BTC: 50000 }, 'BTC', '2026-03-15') === null);
-  const today = new Date().toISOString().split('T')[0];
+  // The executor's own local date: a UTC date failed this check every night
+  // between midnight and 1-2 am in Germany.
+  const today = E.todayISO();
   ok('live price only for executions due today', E.priceAtDate({}, { BTC: 50000 }, 'BTC', today) === 50000);
 
   // ---- runCatchUp: booking + idempotency over two runs --------------------------------

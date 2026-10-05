@@ -1388,9 +1388,13 @@ function InvestmentTracker() {
         const ids = Object.keys(symsById).map(encodeURIComponent).join(',');
         if (ids) {
           try {
-            const res = await fetch(`https://api.coingecko.com/api/v3/simple/price?ids=${ids}&vs_currencies=eur,usd&include_24hr_change=true`);
-            if (res.ok) {
-              const data = await res.json();
+            // Through the shared CoinGecko queue at high priority: charts and
+            // history wait behind it, so they can no longer use up the limit first.
+            const cgUrl = `https://api.coingecko.com/api/v3/simple/price?ids=${ids}&vs_currencies=eur,usd&include_24hr_change=true`;
+            const CG = window.MaerminCoinGecko;
+            const data = CG ? await CG.getJson(cgUrl, { priority: 'high', timeoutMs: 20000 })
+              : await fetch(cgUrl).then(r => { if (!r.ok) throw new Error('HTTP ' + r.status); return r.json(); });
+            if (data && typeof data === 'object') {
               Object.keys(data).forEach(id => {
                 // Store EUR price (or convert from USD if EUR not available)
                 const eurPrice = data[id].eur || (data[id].usd * usdToEur);
@@ -1402,6 +1406,7 @@ function InvestmentTracker() {
             }
           } catch (e) {
             console.error('[PRICES] CoinGecko error:', e);
+            if (e && e.rateLimited) addToast('CoinGecko is busy (rate limit) - crypto keeps its last prices, refresh again in a minute', 'warning', 8000);
           }
         }
       }
@@ -1608,8 +1613,11 @@ function InvestmentTracker() {
       // throttled refreshes because `prices` already holds the carried value.
       const carriedKeys = new Set();
       const lastKnownSkin = window.MaerminMarket.lastKnownPrices(priceHistory);
-      if (pricePortfolio.skins && pricePortfolio.skins.length) {
-        pricePortfolio.skins.forEach((s) => {
+      // Crypto too: when CoinGecko refuses (rate limit), coins keep their
+      // last-known price (badged stale) instead of dropping to "no price".
+      const carryList = [].concat(pricePortfolio.skins || [], pricePortfolio.crypto || []);
+      if (carryList.length) {
+        carryList.forEach((s) => {
           const orig = (s.symbol || s.name || '').trim();
           if (!orig) return;
           const keyL = orig.toLowerCase();
@@ -1620,7 +1628,7 @@ function InvestmentTracker() {
             newPrices[orig] = prev;
             newPrices[keyL] = prev;
             carriedKeys.add(orig); carriedKeys.add(keyL);
-            dbg('[PRICES] CS2: carried last-known price for', orig, '→', prev.toFixed(2), 'EUR (stale)');
+            dbg('[PRICES] carried last-known price for', orig, '→', prev.toFixed(2), 'EUR (stale)');
           }
         });
       }
