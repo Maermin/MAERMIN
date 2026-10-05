@@ -21,6 +21,8 @@
 // ============================================================================
 (function () {
   'use strict';
+// Translation lookup (i18n.js): __('key', 'English fallback', { slot: value }).
+function __(k, f, v) { return (typeof window !== 'undefined' && window.MaerminI18n ? window.MaerminI18n : require('./i18n.js')).t(k, f, v); }
 
   var STORAGE_KEY = 'maermin_exchange_sync';
   var VAULT_PREFIX = 'maermin_exchange_cred_'; // vault-encrypted credential blobs
@@ -426,7 +428,7 @@
     }
     // Kraken / Coinbase need a nonce/passphrase signing scheme — connection is
     // stored but the live pull is not wired yet (mappers are ready + tested).
-    return Promise.reject(new Error('Live sync for ' + (EXCHANGES[exchange] ? EXCHANGES[exchange].label : exchange) + ' is not available yet'));
+    return Promise.reject(new Error(__('exNotYet', 'Live sync for {name} is not available yet', { name: EXCHANGES[exchange] ? EXCHANGES[exchange].label : exchange })));
   }
 
   // Pull read-only trades for one connection and return mapped+deduped trades to
@@ -584,7 +586,7 @@
           e('button', { onClick: addConn, style: { marginTop: '0.6rem', padding: '0.5rem 1rem', background: accent, color: '#ffffff', border: 'none', borderRadius: '8px', cursor: 'pointer', fontWeight: 700, fontSize: '0.82rem' } }, t.exAdd || 'Add connection'),
           msg ? e('div', { style: { color: dim, fontSize: '0.76rem', marginTop: '0.5rem' } }, msg) : null);
       } catch (err) {
-        return e('div', { style: { padding: '0.75rem', color: (props.theme && props.theme.danger) || '#ef4444' } }, 'Exchange sync error: ' + (err && err.message));
+        return e('div', { style: { padding: '0.75rem', color: (props.theme && props.theme.danger) || '#ef4444' } }, __('exError', 'Exchange sync error: ') + (err && err.message));
       }
     };
   }

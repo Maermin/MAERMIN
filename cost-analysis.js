@@ -24,6 +24,8 @@
 // ============================================================================
 (function () {
   'use strict';
+// Translation lookup (i18n.js): __('key', 'English fallback', { slot: value }).
+function __(k, f, v) { return (typeof window !== 'undefined' && window.MaerminI18n ? window.MaerminI18n : require('./i18n.js')).t(k, f, v); }
 
   // ---- TER overrides (localStorage, NOT sensitive) --------------------------
   // { ROOTSYMBOL: fraction } — e.g. { VWCE: 0.0022 }. Symbols and expense
@@ -148,7 +150,7 @@
     var inputBg = theme.inputBg || '#0f172a', card = theme.card || theme.cardBg || '#10151f';
     var warn = theme.warning || '#f59e0b', bad = theme.danger || theme.negative || '#ef4444';
     var workerBase = String(props.workerUrl || '').trim().replace(/\/+$/, '');
-    var fmt = props.formatPrice || function (v) { return Number(v || 0).toFixed(2); };
+    var fmt = props.formatPrice || function (v) { return window.MaerminI18n.num(v, 2); };
     var sym = (props.getCurrencySymbol && props.getCurrencySymbol()) || '€';
 
     var rows = LT.positionRows(props.portfolio, props.prices);
@@ -191,8 +193,9 @@
       setEdit(function (m) { var c = {}; for (var k in m) { if (k !== symbol) c[k] = m[k]; } return c; });
     }
 
-    var pctOf = function (x) { return (x * 100).toFixed(2) + '%'; };
-    var sourceLabel = { worker: 'live', fallback: 'snapshot', override: 'manual' };
+    var pctOf = function (x) { return window.MaerminI18n.pct(x * 100, 2); };
+    var sourceLabel = { worker: __('caSrcLive', 'live'), fallback: __('caSrcSnapshot', 'snapshot'), override: __('caSrcManual', 'manual') };
+    var amt = function (v) { return fmt(v) + ' ' + sym; };
 
     function kpi(label, value, color) {
       return e('div', { key: label, style: { background: inputBg, border: '1px solid ' + border, borderRadius: '10px', padding: '0.7rem 0.9rem', minWidth: '130px' } },
@@ -203,26 +206,26 @@
     var body;
     if (!candidates.length) {
       body = e('div', { style: { color: dim, fontSize: '0.85rem', padding: '0.5rem 0' } },
-        'No ETF or fund positions detected. Ongoing costs (TER) apply to funds; transaction fees above cover everything else.');
+        __('caNoFunds', 'No ETF or fund positions detected. Ongoing costs (TER) apply to funds; transaction fees above cover everything else.'));
     } else if (state.loading) {
-      body = e('div', { style: { color: dim, fontSize: '0.85rem', padding: '0.5rem 0' } }, 'Loading expense ratios...');
+      body = e('div', { style: { color: dim, fontSize: '0.85rem', padding: '0.5rem 0' } }, __('caLoading', 'Loading expense ratios...'));
     } else if (!costs || !costs.available) {
       body = e('div', { style: { color: dim, fontSize: '0.85rem', padding: '0.5rem 0' } },
-        'No expense-ratio data for your fund positions yet. Set a TER manually below once the table appears, or re-deploy the latest Worker for live data.');
+        __('caNoData', 'No expense-ratio data for your fund positions yet. Set a TER manually below once the table appears, or re-deploy the latest Worker for live data.'));
     } else {
       var parts = [];
 
       parts.push(e('div', { style: { display: 'flex', flexWrap: 'wrap', gap: '0.6rem', marginBottom: '0.9rem' } },
-        kpi('Ongoing costs p.a.', sym + fmt(costs.totalAnnualCostEUR), bad),
-        kpi('Weighted avg TER', costs.weightedTer != null ? pctOf(costs.weightedTer) : '-'),
-        kpi('Fund value covered', sym + fmt(costs.knownValue)),
-        costs.unknownCount > 0 ? kpi('Funds without TER', String(costs.unknownCount), warn) : null));
+        kpi(__('caOngoingPa', 'Ongoing costs p.a.'), amt(costs.totalAnnualCostEUR), bad),
+        kpi(__('caWeightedTer', 'Weighted avg TER'), costs.weightedTer != null ? pctOf(costs.weightedTer) : '-'),
+        kpi(__('caFundCovered', 'Fund value covered'), amt(costs.knownValue)),
+        costs.unknownCount > 0 ? kpi(__('caNoTer', 'Funds without TER'), String(costs.unknownCount), warn) : null));
 
       // Per-fund table with the manual override input.
       parts.push(e('div', { style: { overflowX: 'auto' } },
         e('table', { style: { width: '100%', borderCollapse: 'collapse' } },
           e('thead', null, e('tr', null,
-            ['Fund', 'Value', 'TER', 'Source', 'Cost p.a.', 'Override %'].map(function (h, i) {
+            [__('gtFund', 'Fund'), __('colValue', 'Value'), 'TER', __('trSource', 'Source'), __('caCostPa', 'Cost p.a.'), __('caOverridePct', 'Override %')].map(function (h, i) {
               return e('th', { key: h, style: { textAlign: i === 0 ? 'left' : 'right', padding: '0.4rem 0.5rem', color: dim, fontSize: '0.68rem', textTransform: 'uppercase', letterSpacing: '0.04em' } }, h);
             }))),
           e('tbody', null, costs.rows.map(function (r) {
@@ -232,13 +235,13 @@
             return e('tr', { key: r.symbol, style: { borderTop: '1px solid ' + border } },
               e('td', { style: { padding: '0.45rem 0.5rem', color: text, fontSize: '0.8rem', fontWeight: 600 } }, r.symbol,
                 e('span', { style: { color: dim, fontWeight: 400, fontSize: '0.7rem' } }, '  ' + (r.name || ''))),
-              e('td', { style: { padding: '0.45rem 0.5rem', textAlign: 'right', color: dim, fontSize: '0.78rem' } }, sym + fmt(r.valueEUR)),
-              e('td', { style: { padding: '0.45rem 0.5rem', textAlign: 'right', color: r.ter != null ? text : warn, fontSize: '0.78rem', fontWeight: 600 } }, r.ter != null ? pctOf(r.ter) : 'unknown'),
+              e('td', { style: { padding: '0.45rem 0.5rem', textAlign: 'right', color: dim, fontSize: '0.78rem' } }, amt(r.valueEUR)),
+              e('td', { style: { padding: '0.45rem 0.5rem', textAlign: 'right', color: r.ter != null ? text : warn, fontSize: '0.78rem', fontWeight: 600 } }, r.ter != null ? pctOf(r.ter) : __('dqUnknownLower', 'unknown')),
               e('td', { style: { padding: '0.45rem 0.5rem', textAlign: 'right', color: dim, fontSize: '0.72rem' } }, r.terSource ? (sourceLabel[r.terSource] || r.terSource) : '-'),
-              e('td', { style: { padding: '0.45rem 0.5rem', textAlign: 'right', color: r.annualCostEUR != null ? bad : dim, fontSize: '0.78rem', fontWeight: 700 } }, r.annualCostEUR != null ? sym + fmt(r.annualCostEUR) : '-'),
+              e('td', { style: { padding: '0.45rem 0.5rem', textAlign: 'right', color: r.annualCostEUR != null ? bad : dim, fontSize: '0.78rem', fontWeight: 700 } }, r.annualCostEUR != null ? amt(r.annualCostEUR) : '-'),
               e('td', { style: { padding: '0.45rem 0.5rem', textAlign: 'right' } },
                 e('input', {
-                  type: 'text', value: inputVal, placeholder: 'e.g. 0.22',
+                  type: 'text', value: inputVal, placeholder: __('caOverridePh', 'e.g. {v}', { v: window.MaerminI18n.num(0.22, 2) }),
                   onChange: function (ev) { var v = ev.target.value; setEdit(function (m) { var c = {}; for (var k in m) c[k] = m[k]; c[r.symbol] = v; return c; }); },
                   onBlur: function (ev) { commitOverride(r.symbol, ev.target.value); },
                   onKeyDown: function (ev) { if (ev.key === 'Enter') commitOverride(r.symbol, ev.target.value); },
@@ -251,21 +254,20 @@
         var growth = 0.05;
         var proj = projectCostDrag(costs.knownValue, costs.weightedTer, { years: 20, growthRate: growth });
         var marks = [5, 10, 20].map(function (y) { return proj[y - 1]; });
-        parts.push(e('div', { style: { color: dim, fontSize: '0.72rem', textTransform: 'uppercase', letterSpacing: '0.05em', margin: '1rem 0 0.5rem', fontWeight: 700 } }, 'Cumulative cost drag (projection)'));
+        parts.push(e('div', { style: { color: dim, fontSize: '0.72rem', textTransform: 'uppercase', letterSpacing: '0.05em', margin: '1rem 0 0.5rem', fontWeight: 700 } }, __('caDrag', 'Cumulative cost drag (projection)')));
         parts.push(e('div', { style: { display: 'flex', flexWrap: 'wrap', gap: '0.6rem' } },
-          marks.map(function (m) { return kpi('After ' + m.year + ' years', sym + fmt(m.cumulativeCost), bad); })));
+          marks.map(function (m) { return kpi(__('caAfterYears', 'After {n} years', { n: m.year }), amt(m.cumulativeCost), bad); })));
         parts.push(e('div', { style: { color: dim, fontSize: '0.7rem', marginTop: '0.5rem', lineHeight: 1.5 } },
-          'Assumes ' + (growth * 100).toFixed(0) + '% p.a. growth on your current fund value of ' + sym + fmt(costs.knownValue) +
-          ' at the weighted TER of ' + pctOf(costs.weightedTer) + ' — the gap between compounding with and without ongoing fees. An illustration, not a forecast.'));
+          __('caAssumes', 'Assumes {g} p.a. growth on your current fund value of {value} at the weighted TER of {ter} — the gap between compounding with and without ongoing fees. An illustration, not a forecast.', { g: window.MaerminI18n.pct(growth * 100, 0), value: amt(costs.knownValue), ter: pctOf(costs.weightedTer) })));
       }
 
       if (state.unsupported) {
         parts.push(e('div', { style: { color: warn, fontSize: '0.74rem', marginTop: '0.6rem', lineHeight: 1.5 } },
-          'Your Worker does not support fund data yet. Re-deploy the latest cf-worker/worker.js (action=fundholdings) for live expense ratios; until then a built-in snapshot of common ETFs and your manual overrides are used.'));
+          __('caUnsupported', 'Your Worker does not support fund data yet. Re-deploy the latest cf-worker/worker.js (action=fundholdings) for live expense ratios; until then a built-in snapshot of common ETFs and your manual overrides are used.')));
       }
 
       parts.push(e('div', { style: { color: dim, fontSize: '0.7rem', marginTop: '0.6rem', lineHeight: 1.5 } },
-        'Expense ratios are approximations from fund profiles; the manual override (in percent, e.g. 0.22) takes precedence and is stored only on this device.'));
+        __('caFootnote', 'Expense ratios are approximations from fund profiles; the manual override (in percent, e.g. {v}) takes precedence and is stored only on this device.', { v: window.MaerminI18n.num(0.22, 2) })));
 
       body = e('div', null, parts);
     }

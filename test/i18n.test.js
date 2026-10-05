@@ -40,6 +40,8 @@ const U = require('../utils.js');
   ok('t: unknown key uses the fallback', I.t('noSuchKeyXyz', 'Fallback') === 'Fallback');
   ok('t: slots are filled', I.t('fireMedianReaches', '', { y: 7 }) === 'Der Median-Pfad erreicht FIRE in Jahr 7');
   ok('fill leaves unknown slots', I.fill('{a} {b}', { a: 1 }) === '1 {b}');
+  ok('fill: plural forms', I.fill('{n} {n:fee|fees}', { n: 1 }) === '1 fee' && I.fill('{n} {n:fee|fees}', { n: 2 }) === '2 fees');
+  ok('fill: a plural form may hold slots', I.fill('{n:One portfolio|All {n} portfolios}', { n: 1 }) === 'One portfolio' && I.fill('{n:One portfolio|All {n} portfolios}', { n: 3 }) === 'All 3 portfolios');
   I.setLang('fr');
   ok('an unsupported language falls back to English', I.lang() === 'en' && I.locale() === 'en-US');
   I.setLang(null);

@@ -24,6 +24,9 @@
 // ============================================================================
 (function () {
   'use strict';
+// Translation lookup (i18n.js): __('key', 'English fallback', { slot: value }).
+function __(k, f, v) { return (typeof window !== 'undefined' && window.MaerminI18n ? window.MaerminI18n : require('./i18n.js')).t(k, f, v); }
+  function I18N() { return (typeof window !== 'undefined' && window.MaerminI18n) || require('./i18n.js'); }
 
   var SETTINGS_KEY = 'maermin_risk_monitor';
   var STATE_KEY = 'maermin_risk_monitor_state';
@@ -108,14 +111,14 @@
     }
 
     var checks = [
-      check('position', 'Largest position', num(inputs.maxPositionPct), settings.maxPositionPct,
+      check('position', __('healthLargestPosition', 'Largest position'), num(inputs.maxPositionPct), settings.maxPositionPct,
         inputs.topPositionLabel ? String(inputs.topPositionLabel) : ''),
-      check('effective', 'Largest effective exposure (look-through)', num(inputs.effectivePct), settings.maxEffectivePct,
-        inputs.effectiveLabel ? String(inputs.effectiveLabel) + (inputs.effectiveFunds && inputs.effectiveFunds.length ? ' via ' + inputs.effectiveFunds.join(', ') : '') : ''),
-      check('drift', 'Allocation drift from target', num(inputs.driftPct), settings.maxDriftPct,
-        inputs.driftClass ? String(inputs.driftClass) : ''),
-      check('drawdown', 'Drawdown from peak', num(inputs.drawdownPct), settings.maxDrawdownPct, ''),
-      check('volatility', 'Volatility (annualised)', num(inputs.volatilityPct), settings.maxVolatilityPct, '')
+      check('effective', __('rmEffective', 'Largest effective exposure (look-through)'), num(inputs.effectivePct), settings.maxEffectivePct,
+        inputs.effectiveLabel ? String(inputs.effectiveLabel) + (inputs.effectiveFunds && inputs.effectiveFunds.length ? ' ' + __('ltVia', 'via {list}', { list: inputs.effectiveFunds.join(', ') }) : '') : ''),
+      check('drift', __('rmDrift', 'Allocation drift from target'), num(inputs.driftPct), settings.maxDriftPct,
+        inputs.driftClass ? I18N().category(String(inputs.driftClass)) : ''),
+      check('drawdown', __('rmDrawdown', 'Drawdown from peak'), num(inputs.drawdownPct), settings.maxDrawdownPct, ''),
+      check('volatility', __('rmVolatility', 'Volatility (annualised)'), num(inputs.volatilityPct), settings.maxVolatilityPct, '')
     ];
 
     var alerts = checks.filter(function (c) { return c.breached; }).map(function (c) {
@@ -123,7 +126,7 @@
       return {
         id: c.id,
         severity: severity,
-        title: c.label + ' at ' + c.valuePct.toFixed(1) + '% (limit ' + c.thresholdPct + '%)',
+        title: __('rmAlertTitle', '{label} at {value} (limit {limit})', { label: c.label, value: I18N().pct(c.valuePct, 1), limit: I18N().pct(c.thresholdPct, { min: 0, max: 1 }) }),
         detail: c.detail,
         metric: c.valuePct,
         threshold: c.thresholdPct
@@ -238,7 +241,7 @@
       var pwa = (typeof window !== 'undefined') && window.MaerminPWA;
       if (pwa && pwa.notify) {
         decision.toNotify.forEach(function (a) {
-          try { pwa.notify('MAERMIN risk alert', { body: a.title + (a.detail ? ' - ' + a.detail : ''), tag: 'maermin-risk-' + a.id }); } catch (e) {}
+          try { pwa.notify(__('rmNotifyTitle', 'MAERMIN risk alert'), { body: a.title + (a.detail ? ' - ' + a.detail : ''), tag: 'maermin-risk-' + a.id }); } catch (e) {}
         });
       }
     }
@@ -284,12 +287,12 @@
     var rows = FIELDS.map(function (f) {
       var c = result.checks.filter(function (x) { return x.id === f.rule; })[0];
       var statusColor = !c.available ? dim : (c.breached ? (c.valuePct >= c.thresholdPct * 1.5 ? bad : warn) : good);
-      var statusText = !c.available ? 'no data' : (c.breached ? 'BREACH' : 'ok');
+      var statusText = !c.available ? __('dqNoData', 'no data') : (c.breached ? __('rmBreach', 'BREACH') : 'ok');
       return e('tr', { key: f.rule, style: { borderTop: '1px solid ' + border } },
         e('td', { style: { padding: '0.45rem 0.5rem', color: text, fontSize: '0.8rem' } }, c.label,
           c.detail ? e('span', { style: { color: dim, fontSize: '0.7rem' } }, '  ' + c.detail) : null),
         e('td', { style: { padding: '0.45rem 0.5rem', textAlign: 'right', color: c.available ? text : dim, fontSize: '0.78rem', fontWeight: 600 } },
-          c.available ? c.valuePct.toFixed(1) + '%' : '-'),
+          c.available ? I18N().pct(c.valuePct, 1) : '-'),
         e('td', { style: { padding: '0.45rem 0.5rem', textAlign: 'right' } },
           e('input', {
             type: 'number', min: 1, max: 1000, value: settings[f.key],
@@ -315,7 +318,7 @@
       e('div', { style: { display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '0.5rem', marginBottom: '0.9rem' } },
         e('h3', { style: { color: text, fontSize: '1rem', fontWeight: 700, margin: 0 } }, t.riskMonitorTitle || 'Risk & drift monitor'),
         e('div', { style: { display: 'flex', alignItems: 'center', gap: '0.5rem' } },
-          e('span', { style: { color: dim, fontSize: '0.74rem' } }, 'Cooldown'),
+          e('span', { style: { color: dim, fontSize: '0.74rem' } }, __('rmCooldown', 'Cooldown')),
           e('input', {
             type: 'number', min: 1, max: 168, value: settings.cooldownHours,
             onChange: function (ev) { commit('cooldownHours', ev.target.value); },
@@ -325,15 +328,15 @@
           e('button', {
             onClick: toggleNotify,
             style: { padding: '0.35rem 0.8rem', borderRadius: '8px', border: 'none', cursor: 'pointer', fontSize: '0.76rem', fontWeight: 700, background: settings.notify ? good : inputBg, color: settings.notify ? '#08130a' : dim }
-          }, settings.notify ? 'Notifications on' : 'Notifications off'))),
+          }, settings.notify ? __('rmNotifyOn', 'Notifications on') : __('rmNotifyOff', 'Notifications off')))),
       e('div', { style: { overflowX: 'auto' } },
         e('table', { style: { width: '100%', borderCollapse: 'collapse' } },
-          e('thead', null, e('tr', null, ['Rule', 'Current', 'Limit', 'Status'].map(function (h, i) {
+          e('thead', null, e('tr', null, [__('rmRule', 'Rule'), __('rbCurrent', 'Current'), __('rmLimit', 'Limit'), __('secStatus', 'Status')].map(function (h, i) {
             return e('th', { key: h, style: { textAlign: i === 0 ? 'left' : 'right', padding: '0.4rem 0.5rem', color: dim, fontSize: '0.68rem', textTransform: 'uppercase', letterSpacing: '0.04em' } }, h);
           }))),
           e('tbody', null, rows))),
       e('div', { style: { color: dim, fontSize: '0.7rem', marginTop: '0.7rem', lineHeight: 1.5 } },
-        'Structural rules evaluated on every price refresh while the app is open. The look-through rule needs fund data (open Health once to resolve it); drawdown and volatility need a short portfolio price history. Notifications are local on this device.'));
+        __('rmFootnote', 'Structural rules evaluated on every price refresh while the app is open. The look-through rule needs fund data (open Health once to resolve it); drawdown and volatility need a short portfolio price history. Notifications are local on this device.')));
   }
 
   var api = {

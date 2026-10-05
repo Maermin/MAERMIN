@@ -9,6 +9,8 @@
 // ============================================================================
 (function () {
   'use strict';
+// Translation lookup (i18n.js): __('key', 'English fallback', { slot: value }).
+function __(k, f, v) { return (typeof window !== 'undefined' && window.MaerminI18n ? window.MaerminI18n : require('./i18n.js')).t(k, f, v); }
 
   var MODES = [
     { id: 'future',     label: 'Future Value' },
@@ -63,10 +65,10 @@
 
   // Which inputs each mode surfaces (keeps the form relevant per mode).
   var FIELDS = {
-    future:     [['startValue', 'Current value', ''], ['monthly', 'Monthly contribution', ''], ['annualReturn', 'Annual return', '%'], ['years', 'Years', '']],
-    fire:       [['startValue', 'Current value', ''], ['monthly', 'Monthly contribution', ''], ['annualReturn', 'Real return', '%'], ['annualExpenses', 'Annual expenses', ''], ['withdrawalRate', 'Withdrawal rate', '%']],
-    withdraw:   [['startValue', 'Start value', ''], ['annualWithdrawal', 'Annual withdrawal', ''], ['annualReturn', 'Annual return', '%'], ['inflation', 'Inflation', '%'], ['years', 'Years', '']],
-    montecarlo: [['startValue', 'Start value', ''], ['monthly', 'Monthly contribution', ''], ['annualReturn', 'Mean return', '%'], ['volatility', 'Volatility', '%'], ['years', 'Years', '']]
+    future:     [['startValue', __('simCurrentValue', 'Current value'), ''], ['monthly', __('simMonthlyContrib', 'Monthly contribution'), ''], ['annualReturn', __('simAnnualReturn', 'Annual return'), '%'], ['years', __('simYears', 'Years'), '']],
+    fire:       [['startValue', __('simCurrentValue', 'Current value'), ''], ['monthly', __('simMonthlyContrib', 'Monthly contribution'), ''], ['annualReturn', __('simRealReturn', 'Real return'), '%'], ['annualExpenses', __('fireAnnualExpenses', 'Annual expenses'), ''], ['withdrawalRate', __('fireWithdrawalRate', 'Withdrawal rate'), '%']],
+    withdraw:   [['startValue', __('simStartValue', 'Start value'), ''], ['annualWithdrawal', __('simAnnualWithdrawal', 'Annual withdrawal'), ''], ['annualReturn', __('simAnnualReturn', 'Annual return'), '%'], ['inflation', __('simInflation', 'Inflation'), '%'], ['years', __('simYears', 'Years'), '']],
+    montecarlo: [['startValue', __('simStartValue', 'Start value'), ''], ['monthly', __('simMonthlyContrib', 'Monthly contribution'), ''], ['annualReturn', __('simMeanReturn', 'Mean return'), '%'], ['volatility', __('volatility', 'Volatility'), '%'], ['years', __('simYears', 'Years'), '']]
   };
 
   function Panel(props) {
@@ -74,7 +76,7 @@
     if (!React) return null;
     var h = React.createElement;
     var theme = props.theme || {};
-    var fmt = props.formatPrice || function (n) { return Math.round(n).toLocaleString(); };
+    var fmt = props.formatPrice || function (n) { return window.MaerminI18n.num(Math.round(n), 0); };
     var sym = (props.getCurrencySymbol && props.getCurrencySymbol()) || '';
     var text = theme.text || '#e6edf3', dim = theme.textSecondary || '#9aa4b2';
     var accent = theme.accent || '#8b7cff', border = theme.cardBorder || 'rgba(255,255,255,0.1)';
@@ -111,31 +113,31 @@
     }
 
     function results() {
-      if (!window.MaerminAnalytics) return h('div', { style: { color: dim, fontSize: '0.85rem' } }, 'Analytics engine unavailable.');
+      if (!window.MaerminAnalytics) return h('div', { style: { color: dim, fontSize: '0.85rem' } }, __('simEngineMissing', 'Analytics engine unavailable.'));
       if (!res) return null;
       var cards = [];
       if (mode === 'future') {
-        cards = [stat('Projected value', money(res.projected), accent), stat('Total contributions', money(res.contributions)), stat('Investment growth', money(res.growth), ok)];
+        cards = [stat(__('simProjected', 'Projected value'), money(res.projected), accent), stat(__('simTotalContrib', 'Total contributions'), money(res.contributions)), stat(__('simGrowth', 'Investment growth'), money(res.growth), ok)];
       } else if (mode === 'fire') {
-        if (!res.configured) return h('div', { style: { color: dim, fontSize: '0.85rem' } }, 'Enter your annual expenses to compute your FIRE number.');
+        if (!res.configured) return h('div', { style: { color: dim, fontSize: '0.85rem' } }, __('simNeedExpenses', 'Enter your annual expenses to compute your FIRE number.'));
         cards = [
-          stat('FIRE number', money(res.fireNumber), accent),
-          stat('Progress', (res.currentProgress || 0).toFixed(1) + '%', res.currentProgress >= 100 ? ok : text),
-          stat('Years to FIRE', res.yearsToFire == null ? '100+' : res.yearsToFire, res.reached ? ok : text),
-          stat('Projected at FIRE', money(res.projectedValueAtFire))
+          stat(__('simFireNumber', 'FIRE number'), money(res.fireNumber), accent),
+          stat(__('simProgress', 'Progress'), window.MaerminI18n.pct(res.currentProgress || 0, 1), res.currentProgress >= 100 ? ok : text),
+          stat(__('simYearsToFire', 'Years to FIRE'), res.yearsToFire == null ? '100+' : res.yearsToFire, res.reached ? ok : text),
+          stat(__('simProjectedAtFire', 'Projected at FIRE'), money(res.projectedValueAtFire))
         ];
       } else if (mode === 'withdraw') {
         cards = [
-          stat('Outcome', res.survives ? 'Survives the horizon' : 'Depletes', res.survives ? ok : bad),
-          stat('Depletes in year', res.depletedYear == null ? '—' : ('Year ' + res.depletedYear), res.depletedYear == null ? ok : bad),
-          stat('Ending balance', money(res.endingBalance), res.endingBalance > 0 ? ok : bad)
+          stat(__('simOutcome', 'Outcome'), res.survives ? __('simSurvives', 'Survives the horizon') : __('simDepletes', 'Depletes'), res.survives ? ok : bad),
+          stat(__('simDepletesYear', 'Depletes in year'), res.depletedYear == null ? '—' : __('dcYear', 'Year {y}', { y: res.depletedYear }), res.depletedYear == null ? ok : bad),
+          stat(__('simEndingBalance', 'Ending balance'), money(res.endingBalance), res.endingBalance > 0 ? ok : bad)
         ];
       } else if (mode === 'montecarlo') {
         cards = [
-          stat('Success rate', (res.successRate * 100).toFixed(1) + '%', res.successRate >= 0.8 ? ok : (res.successRate >= 0.5 ? accent : bad)),
-          stat('Median ending', money(res.median), accent),
-          stat('Pessimistic (P10)', money(res.p10), bad),
-          stat('Optimistic (P90)', money(res.p90), ok)
+          stat(__('simSuccessRate', 'Success rate'), window.MaerminI18n.pct(res.successRate * 100, 1), res.successRate >= 0.8 ? ok : (res.successRate >= 0.5 ? accent : bad)),
+          stat(__('simMedianEnding', 'Median ending'), money(res.median), accent),
+          stat(__('simP10', 'Pessimistic (P10)'), money(res.p10), bad),
+          stat(__('simP90', 'Optimistic (P90)'), money(res.p90), ok)
         ];
       }
       return h('div', { style: { display: 'grid', gridTemplateColumns: 'repeat(auto-fit,minmax(150px,1fr))', gap: '0.6rem', marginTop: '1rem' } }, cards);
@@ -143,14 +145,14 @@
 
     return h('div', { style: { background: theme.cardBg || 'transparent', border: '1px solid ' + border, borderRadius: '14px', padding: '1.25rem', margin: '1rem 1.5rem' } },
       h('div', { style: { display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '0.5rem', marginBottom: '0.9rem' } },
-        h('h3', { style: { color: text, fontSize: '1rem', fontWeight: '700', margin: 0 } }, 'Planning simulator'),
+        h('h3', { style: { color: text, fontSize: '1rem', fontWeight: '700', margin: 0 } }, __('simTitle', 'Planning simulator')),
         h('div', { style: { display: 'flex', gap: '0.3rem', flexWrap: 'wrap' } }, MODES.map(function (m) {
-          return h('button', { key: m.id, onClick: function () { setMode(m.id); }, style: { padding: '0.35rem 0.75rem', borderRadius: '8px', border: 'none', cursor: 'pointer', fontSize: '0.78rem', fontWeight: mode === m.id ? '700' : '500', background: mode === m.id ? accent : inputBg, color: mode === m.id ? '#ffffff' : dim } }, m.label);
+          return h('button', { key: m.id, onClick: function () { setMode(m.id); }, style: { padding: '0.35rem 0.75rem', borderRadius: '8px', border: 'none', cursor: 'pointer', fontSize: '0.78rem', fontWeight: mode === m.id ? '700' : '500', background: mode === m.id ? accent : inputBg, color: mode === m.id ? '#ffffff' : dim } }, ({ future: __('simFuture', 'Future Value'), fire: 'FIRE', withdraw: __('simWithdraw', 'Withdrawal'), montecarlo: __('simMonteCarlo', 'Monte Carlo') })[m.id] || m.label);
         }))
       ),
       h('div', { style: { display: 'grid', gridTemplateColumns: 'repeat(auto-fit,minmax(150px,1fr))', gap: '0.6rem' } }, (FIELDS[mode] || []).map(function (f) { return field(f[0], f[1], f[2]); })),
       results(),
-      h('div', { style: { color: dim, fontSize: '0.72rem', marginTop: '0.8rem', lineHeight: '1.5' } }, 'Projections are assumption-based estimates, not guarantees. Monte-Carlo uses a fixed seed for reproducibility.')
+      h('div', { style: { color: dim, fontSize: '0.72rem', marginTop: '0.8rem', lineHeight: '1.5' } }, __('simFootnote', 'Projections are assumption-based estimates, not guarantees. Monte-Carlo uses a fixed seed for reproducibility.'))
     );
   }
 

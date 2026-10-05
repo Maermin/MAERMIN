@@ -18,6 +18,8 @@
 // ============================================================================
 (function () {
   'use strict';
+// Translation lookup (i18n.js): __('key', 'English fallback', { slot: value }).
+function __(k, f, v) { return (typeof window !== 'undefined' && window.MaerminI18n ? window.MaerminI18n : require('./i18n.js')).t(k, f, v); }
 
   var STORAGE_KEY = 'maermin_rules';
   var LEGACY_ALERTS_KEY = 'maermin_alerts'; // old Price Alerts store (migrated)
@@ -164,16 +166,22 @@
   }
 
   // Human-readable rule text, e.g. "BTC weight > 30%".
+  function I18N() { return (typeof window !== 'undefined' && window.MaerminI18n) || require('./i18n.js'); }
+  // Metric id -> label in the UI language.
+  function metricLabel(m) {
+    return ({ symbol_weight: __('rlSymbolWeight', 'Symbol weight'), category_weight: __('rlCategoryWeight', 'Category weight'), tag_weight: __('rlTagWeight', 'Tag weight'), total_value: __('rlTotalValue', 'Total value'), drop_from_peak_pct: __('rlDropFromPeak', 'Drop from peak'), symbol_price: __('price', 'Price') })[m] || (METRICS[m] && METRICS[m].label) || m;
+  }
+
   function describe(rule) {
     var spec = METRICS[rule.metric] || {};
-    var subject = spec.label || rule.metric;
+    var subject = metricLabel(rule.metric);
     if (spec.needsTarget && rule.target) {
-      if (rule.metric === 'symbol_weight') subject = rule.target + ' weight';
-      else if (rule.metric === 'category_weight') subject = rule.target + ' weight';
-      else if (rule.metric === 'tag_weight') subject = 'tag:' + rule.target + ' weight';
-      else if (rule.metric === 'symbol_price') subject = rule.target + ' price';
+      if (rule.metric === 'symbol_weight') subject = __('rlWeightOf', '{name} weight', { name: rule.target });
+      else if (rule.metric === 'category_weight') subject = __('rlWeightOf', '{name} weight', { name: I18N().category(rule.target) });
+      else if (rule.metric === 'tag_weight') subject = __('rlWeightOf', '{name} weight', { name: 'tag:' + rule.target });
+      else if (rule.metric === 'symbol_price') subject = __('rlPriceOf', '{name} price', { name: rule.target });
     }
-    return subject + ' ' + (OPS[rule.op] || '?') + ' ' + rule.threshold + (spec.unit || '');
+    return subject + ' ' + (OPS[rule.op] || '?') + ' ' + I18N().num(rule.threshold, { min: 0, max: 4 }) + (spec.unit ? (spec.unit === '%' && I18N().lang() === 'de' ? ' %' : spec.unit) : '');
   }
 
   // Evaluate all rules. Returns [{ rule, actual, triggered, message }], with
@@ -247,7 +255,7 @@
     STORAGE_KEY: STORAGE_KEY, SCHEMA: SCHEMA, METRICS: METRICS, OPS: OPS,
     normalize: normalize,
     addRule: addRule, updateRule: updateRule, removeRule: removeRule, toggleRule: toggleRule,
-    buildContext: buildContext, actualFor: actualFor, describe: describe, priceFor: priceFor,
+    buildContext: buildContext, actualFor: actualFor, describe: describe, metricLabel: metricLabel, priceFor: priceFor,
     migrateLegacyAlerts: migrateLegacyAlerts, LEGACY_ALERTS_KEY: LEGACY_ALERTS_KEY,
     evaluate: evaluate, activeCount: activeCount,
     load: load, save: save
@@ -277,7 +285,7 @@
         var inputBg = theme.inputBg || '#0c1018', inputBorder = theme.inputBorder || border;
         var accent = theme.accent || '#8b7cff', accentText = theme.accentText || '#ffffff';
         var up = theme.success || '#22c55e', down = theme.danger || '#ef4444';
-        var fmt = props.formatPrice || function (n) { return (Math.round(n * 100) / 100).toLocaleString(); };
+        var fmt = props.formatPrice || function (n) { return window.MaerminI18n.num(n, 2); };
 
         var s0 = useState(function () { return API.load(); });
         var st = s0[0], setSt = s0[1];
@@ -322,7 +330,7 @@
 
         var ruleRows = results.map(function (res) {
           var r = res.rule;
-          var actStr = res.actual == null ? '—' : ((r.metric === 'total_value' || r.metric === 'symbol_price') ? fmt(res.actual) : res.actual.toFixed(1) + (API.METRICS[r.metric].unit || ''));
+          var actStr = res.actual == null ? '—' : ((r.metric === 'total_value' || r.metric === 'symbol_price') ? fmt(res.actual) : (API.METRICS[r.metric].unit === '%' ? window.MaerminI18n.pct(res.actual, 1) : window.MaerminI18n.num(res.actual, 1)));
           return e('div', {
             key: r.id,
             style: {
@@ -331,7 +339,7 @@
               background: res.triggered ? 'rgba(239,68,68,0.06)' : card, marginBottom: '0.6rem'
             }
           },
-            e('span', { 'aria-hidden': 'true', title: res.triggered ? 'Triggered' : 'OK', style: { color: res.triggered ? down : up, fontWeight: 800, fontSize: '1rem' } }, res.triggered ? '●' : '○'),
+            e('span', { 'aria-hidden': 'true', title: res.triggered ? __('rlTriggered', 'Triggered') : 'OK', style: { color: res.triggered ? down : up, fontWeight: 800, fontSize: '1rem' } }, res.triggered ? '●' : '○'),
             e('div', { style: { flex: 1, minWidth: 0 } },
               e('div', { style: { color: text, fontWeight: 700, fontSize: '0.9rem' } }, r.name || API.describe(r)),
               e('div', { style: { color: dim, fontSize: '0.76rem', marginTop: '0.1rem' } },
@@ -358,7 +366,7 @@
 
           e('div', { style: { display: 'flex', alignItems: 'flex-end', gap: '0.6rem', flexWrap: 'wrap', background: card, border: '1px solid ' + border, borderRadius: '14px', padding: '1rem', marginBottom: '1.25rem' } },
             field(sel(form.metric, function (v) { setF({ metric: v, target: '' }); },
-              Object.keys(API.METRICS).map(function (k) { return [k, API.METRICS[k].label]; }))),
+              Object.keys(API.METRICS).map(function (k) { return [k, API.metricLabel(k)]; }))),
             spec.needsTarget ? field(
               priceTarget
                 ? e(React.Fragment, null,
@@ -389,7 +397,7 @@
             : e('div', { style: { background: card, border: '1px solid ' + border, borderRadius: '14px', padding: '2rem', textAlign: 'center', color: dim, fontSize: '0.9rem' } },
                 t.rulesEmpty || 'No rules yet. Add one above — e.g. a symbol weight above 30% to catch concentration.'));
       } catch (err) {
-        return e('div', { style: { padding: '1.5rem', color: (props.theme && props.theme.danger) || '#ef4444' } }, 'Rules view error: ' + (err && err.message));
+        return e('div', { style: { padding: '1.5rem', color: (props.theme && props.theme.danger) || '#ef4444' } }, __('rlViewError', 'Rules view error: ') + (err && err.message));
       }
     };
   }

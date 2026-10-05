@@ -29,6 +29,8 @@
 // ============================================================================
 (function () {
   'use strict';
+// Translation lookup (i18n.js): __('key', 'English fallback', { slot: value }).
+function __(k, f, v) { return (typeof window !== 'undefined' && window.MaerminI18n ? window.MaerminI18n : require('./i18n.js')).t(k, f, v); }
 
   var CATEGORY = 'options';
   var DEFAULT_CONTRACT_SIZE = 100;
@@ -74,14 +76,14 @@
   function validateOptionTx(tx) {
     tx = tx || {};
     var errors = [];
-    if (!String(tx.underlying || '').trim()) errors.push('Underlying symbol is required.');
-    if (tx.optionType !== 'call' && tx.optionType !== 'put') errors.push('Option type must be call or put.');
+    if (!String(tx.underlying || '').trim()) errors.push(__('opUnderlyingReq', 'Underlying symbol is required.'));
+    if (tx.optionType !== 'call' && tx.optionType !== 'put') errors.push(__('opTypeReq', 'Option type must be call or put.'));
     var k = num(tx.strike);
-    if (k == null || k <= 0) errors.push('Strike must be a number greater than 0.');
+    if (k == null || k <= 0) errors.push(__('opStrikeReq', 'Strike must be a number greater than 0.'));
     var ex = String(tx.expiry || '');
-    if (!/^\d{4}-\d{2}-\d{2}/.test(ex) || isNaN(new Date(ex).getTime())) errors.push('Expiry must be a valid date (YYYY-MM-DD).');
+    if (!/^\d{4}-\d{2}-\d{2}/.test(ex) || isNaN(new Date(ex).getTime())) errors.push(__('opExpiryReq', 'Expiry must be a valid date (YYYY-MM-DD).'));
     var cs = num(tx.contractSize);
-    if (tx.contractSize != null && tx.contractSize !== '' && (cs == null || cs <= 0)) errors.push('Contract size must be a number greater than 0.');
+    if (tx.contractSize != null && tx.contractSize !== '' && (cs == null || cs <= 0)) errors.push(__('opSizeReq', 'Contract size must be a number greater than 0.'));
     return { ok: errors.length === 0, errors: errors };
   }
 
@@ -228,7 +230,7 @@
     var border = theme.cardBorder || 'rgba(255,255,255,0.1)';
     var inputBg = theme.inputBg || '#0f172a', card = theme.card || theme.cardBg || '#10151f';
     var good = theme.success || '#22c55e', warn = theme.warning || '#f59e0b', bad = theme.danger || theme.negative || '#ef4444';
-    var fmt = props.formatPrice || function (v) { return Number(v || 0).toFixed(2); };
+    var fmt = props.formatPrice || function (v) { return window.MaerminI18n.num(v, 2); };
     var sym = (props.getCurrencySymbol && props.getCurrencySymbol()) || '€';
     var rate = props.exchangeRate || 0;
 
@@ -236,7 +238,7 @@
     var stats = computeStats(positions, props.prices || {}, { exchangeRate: rate });
 
     var pnlColor = function (v) { return v == null ? dim : (v >= 0 ? good : bad); };
-    var signed = function (v) { return v == null ? '-' : ((v >= 0 ? '+' : '-') + sym + fmt(Math.abs(v))); };
+    var signed = function (v) { return v == null ? '-' : ((v >= 0 ? '+' : '-') + fmt(Math.abs(v)) + ' ' + sym); };
 
     function kpi(label, value, color) {
       return e('div', { key: label, style: { background: inputBg, border: '1px solid ' + border, borderRadius: '10px', padding: '0.7rem 0.9rem', minWidth: '120px' } },
@@ -244,31 +246,31 @@
         e('div', { style: { color: color || text, fontSize: '1.1rem', fontWeight: '700', marginTop: '0.15rem' } }, value));
     }
 
-    var header = ['Contract', 'Side', 'Contracts', 'Net premium', 'Expiry', 'Moneyness', 'Intrinsic', 'Est. P&L'];
+    var header = [__('opContract', 'Contract'), __('opSide', 'Side'), __('opContracts', 'Contracts'), __('opNetPremium', 'Net premium'), __('opExpiry', 'Expiry'), __('opMoneyness', 'Moneyness'), __('opIntrinsic', 'Intrinsic'), __('opEstPnl', 'Est. P&L')];
     var bodyRows = stats.rows.map(function (r) {
       var p = r.position, m = r.metrics;
       var sideColor = p.side === 'long' ? good : (p.side === 'short' ? warn : dim);
-      var expiryTxt = m.status === 'closed' ? 'closed'
-        : (m.status === 'expired' ? 'expired' : (p.expiry + ' (' + m.daysToExpiry + 'd)'));
+      var expiryTxt = m.status === 'closed' ? __('opClosed', 'closed')
+        : (m.status === 'expired' ? __('opExpired', 'expired') : (window.MaerminI18n.date(p.expiry) + ' (' + __('retDays', '{n} d', { n: m.daysToExpiry }) + ')'));
       return e('tr', { key: p.key, style: { borderTop: '1px solid ' + border, opacity: m.status === 'open' ? 1 : 0.65 } },
         e('td', { style: { padding: '0.45rem 0.5rem', color: text, fontSize: '0.8rem', fontWeight: 600 } }, p.symbol),
-        e('td', { style: { padding: '0.45rem 0.5rem', color: sideColor, fontSize: '0.74rem', fontWeight: 700, textTransform: 'uppercase' } }, p.side),
-        e('td', { style: { padding: '0.45rem 0.5rem', textAlign: 'right', color: text, fontSize: '0.78rem' } }, String(Math.abs(p.netContracts)) + ' x ' + p.contractSize),
+        e('td', { style: { padding: '0.45rem 0.5rem', color: sideColor, fontSize: '0.74rem', fontWeight: 700, textTransform: 'uppercase' } }, ({ long: 'Long', short: 'Short', flat: __('opFlat', 'flat') })[p.side] || p.side),
+        e('td', { style: { padding: '0.45rem 0.5rem', textAlign: 'right', color: text, fontSize: '0.78rem' } }, String(Math.abs(p.netContracts)) + ' × ' + p.contractSize),
         e('td', { style: { padding: '0.45rem 0.5rem', textAlign: 'right', color: pnlColor(p.netPremiumEUR), fontSize: '0.78rem' } }, signed(p.netPremiumEUR)),
         e('td', { style: { padding: '0.45rem 0.5rem', textAlign: 'right', color: m.status === 'open' && m.daysToExpiry <= 30 ? warn : dim, fontSize: '0.78rem', whiteSpace: 'nowrap' } }, expiryTxt),
         e('td', { style: { padding: '0.45rem 0.5rem', textAlign: 'right', color: m.moneyness === 'ITM' ? good : dim, fontSize: '0.78rem' } }, m.moneyness || '-'),
-        e('td', { style: { padding: '0.45rem 0.5rem', textAlign: 'right', color: dim, fontSize: '0.78rem' } }, m.intrinsicValueEUR != null ? sym + fmt(m.intrinsicValueEUR) : '-'),
+        e('td', { style: { padding: '0.45rem 0.5rem', textAlign: 'right', color: dim, fontSize: '0.78rem' } }, m.intrinsicValueEUR != null ? fmt(m.intrinsicValueEUR) + ' ' + sym : '-'),
         e('td', { style: { padding: '0.45rem 0.5rem', textAlign: 'right', color: pnlColor(m.estPnlEUR), fontSize: '0.78rem', fontWeight: 700 } }, signed(m.estPnlEUR)));
     });
 
     return e('div', { style: { background: card, border: '1px solid ' + border, borderRadius: '14px', padding: '1.25rem', marginBottom: '1.5rem' } },
       e('h3', { style: { color: text, fontSize: '1rem', fontWeight: 700, margin: '0 0 0.9rem' } }, t.optionsTitle || 'Options'),
       e('div', { style: { display: 'flex', flexWrap: 'wrap', gap: '0.6rem', marginBottom: '0.9rem' } },
-        kpi('Open positions', String(stats.openCount) + ' (' + stats.openContracts + ' contracts)'),
-        kpi('Net premium', signed(stats.netPremiumEUR), pnlColor(stats.netPremiumEUR)),
-        kpi('Intrinsic value', sym + fmt(stats.intrinsicValueEUR)),
-        kpi('Est. P&L', signed(stats.estPnlEUR), pnlColor(stats.estPnlEUR)),
-        stats.expiringSoon.length ? kpi('Expiring in 30d', String(stats.expiringSoon.length), warn) : null),
+        kpi(__('retOpenPositions', 'Open positions'), String(stats.openCount) + ' (' + __('opNContracts', '{n} {n:contract|contracts}', { n: stats.openContracts }) + ')'),
+        kpi(__('opNetPremium', 'Net premium'), signed(stats.netPremiumEUR), pnlColor(stats.netPremiumEUR)),
+        kpi(__('opIntrinsicValue', 'Intrinsic value'), fmt(stats.intrinsicValueEUR) + ' ' + sym),
+        kpi(__('opEstPnl', 'Est. P&L'), signed(stats.estPnlEUR), pnlColor(stats.estPnlEUR)),
+        stats.expiringSoon.length ? kpi(__('opExpiring30', 'Expiring in 30d'), String(stats.expiringSoon.length), warn) : null),
       e('div', { style: { overflowX: 'auto' } },
         e('table', { style: { width: '100%', borderCollapse: 'collapse' } },
           e('thead', null, e('tr', null, header.map(function (h, i) {
@@ -276,7 +278,7 @@
           }))),
           e('tbody', null, bodyRows))),
       e('div', { style: { color: dim, fontSize: '0.7rem', marginTop: '0.7rem', lineHeight: 1.5 } },
-        'Valuation is intrinsic-only (no time value, no Greeks): an estimate from the current underlying price, not a market quote. Options are tracked separately and are not part of the portfolio value or tax figures. Not investment advice.'));
+        __('opFootnote', 'Valuation is intrinsic-only (no time value, no Greeks): an estimate from the current underlying price, not a market quote. Options are tracked separately and are not part of the portfolio value or tax figures. Not investment advice.')));
   }
 
   var api = {

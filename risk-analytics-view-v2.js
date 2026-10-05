@@ -1,3 +1,5 @@
+// Translation lookup (i18n.js): __('key', 'English fallback', { slot: value }).
+function __(k, f, v) { return (typeof window !== 'undefined' && window.MaerminI18n ? window.MaerminI18n : require('./i18n.js')).t(k, f, v); }
 // ============================================================================
 // MAERMIN v6.0 - Risk Analytics View Component
 // Visual display of risk metrics
@@ -9,7 +11,7 @@ function RiskAnalyticsViewV2(props) {
   var priceHistory = props.priceHistory;
   var t = props.t || ((typeof window !== 'undefined' && window.MaerminI18n) ? window.MaerminI18n.dict() : {});
   var theme = props.theme || {};
-  var formatPrice = props.formatPrice || function(v) { return v.toFixed(2); };
+  var formatPrice = props.formatPrice || function(v) { return window.MaerminI18n.num(v, 2); };
   // formatPrice converts to the display currency, so the label must follow it (FINDINGS M-12).
   var currencyLabel = typeof props.getCurrencySymbol === 'function' ? props.getCurrencySymbol() : 'EUR';
   var transactions = props.transactions || [];
@@ -87,10 +89,10 @@ function RiskAnalyticsViewV2(props) {
   
   var getRiskLabel = function(level) {
     var labels = {
-      'low': 'Low',
-      'medium': 'Medium',
-      'high': 'High',
-      'very-high': 'Very High'
+      'low': __('rkLow', 'Low'),
+      'medium': __('rkMedium', 'Medium'),
+      'high': __('rkHigh', 'High'),
+      'very-high': __('rkVeryHigh', 'Very High')
     };
     return labels[level] || level;
   };
@@ -128,9 +130,9 @@ function RiskAnalyticsViewV2(props) {
         conc.available
           ? e('div', { key: 'c' },
               e('div', { style: { display: 'flex', alignItems: 'baseline', gap: '0.5rem' } },
-                e('span', { style: { fontSize: '1.6rem', fontWeight: 800, color: conc.maxWeight > 0.3 ? (theme.danger || '#ef4444') : theme.text } }, (conc.maxWeight * 100).toFixed(0) + '%'),
+                e('span', { style: { fontSize: '1.6rem', fontWeight: 800, color: conc.maxWeight > 0.3 ? (theme.danger || '#ef4444') : theme.text } }, window.MaerminI18n.pct(conc.maxWeight * 100, 0)),
                 e('span', { style: { color: theme.textSecondary, fontSize: '0.8rem' } }, t.riskLargestPosition || 'largest position')),
-              e('div', { style: { color: theme.textSecondary, fontSize: '0.8rem', marginTop: '0.35rem' } }, (conc.effectiveN || 0).toFixed(1) + ' ' + (t.healthEffectivePositions || 'effective positions')))
+              e('div', { style: { color: theme.textSecondary, fontSize: '0.8rem', marginTop: '0.35rem' } }, window.MaerminI18n.num(conc.effectiveN || 0, 1) + ' ' + (t.healthEffectivePositions || 'effective positions')))
           : noData
       ]),
       box([
@@ -140,8 +142,8 @@ function RiskAnalyticsViewV2(props) {
               return e('div', { key: r.cls, style: { display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.4rem', fontSize: '0.8rem' } },
                 e('span', { style: { color: theme.textSecondary } }, clsLabel(r.cls)),
                 e('span', { style: { color: theme.text } },
-                  r.currentPct.toFixed(0) + '% / ' + r.targetPct.toFixed(0) + '% ',
-                  e('span', { style: { color: driftColor(r.drift), fontWeight: 700 } }, (r.drift >= 0 ? '+' : '') + r.drift.toFixed(0) + '%')));
+                  window.MaerminI18n.pct(r.currentPct, 0) + ' / ' + window.MaerminI18n.pct(r.targetPct, 0) + ' ',
+                  e('span', { style: { color: driftColor(r.drift), fontWeight: 700 } }, window.MaerminI18n.pct(r.drift, 0, true))));
             }))
           : noData
       ]),
@@ -152,7 +154,7 @@ function RiskAnalyticsViewV2(props) {
               return e('div', { key: r.currency, style: { marginBottom: '0.5rem' } },
                 e('div', { style: { display: 'flex', justifyContent: 'space-between', fontSize: '0.8rem', marginBottom: '0.2rem' } },
                   e('span', { style: { color: theme.text, fontWeight: 600 } }, r.currency),
-                  e('span', { style: { color: theme.textSecondary } }, r.pct.toFixed(0) + '%')),
+                  e('span', { style: { color: theme.textSecondary } }, window.MaerminI18n.pct(r.pct, 0))),
                 e('div', { style: { height: '6px', background: theme.inputBg, borderRadius: '3px', overflow: 'hidden' } },
                   e('div', { style: { height: '100%', width: r.pct + '%', background: theme.accent, borderRadius: '3px' } })));
             }))
@@ -168,8 +170,8 @@ function RiskAnalyticsViewV2(props) {
       // Source of the volatility / VaR / drawdown figures below.
       e('div', { 'data-testid': 'risk-source', 'data-source': props.historySource || 'refresh', style: { color: theme.textSecondary, fontSize: '0.78rem' } },
         props.historySource === 'daily'
-          ? 'Based on daily closing prices (' + (typeof riskObservations !== 'undefined' ? riskObservations(priceHistory) : 0) + ' daily returns)'
-          : 'Based on the prices recorded on your refreshes'));
+          ? __('rkBasedDaily', 'Based on daily closing prices ({n} daily returns)', { n: typeof riskObservations !== 'undefined' ? riskObservations(priceHistory) : 0 })
+          : __('rkBasedRefresh', 'Based on the prices recorded on your refreshes')));
   }
 
   if (!riskMetrics) {
@@ -179,7 +181,7 @@ function RiskAnalyticsViewV2(props) {
       renderDimensions(),
       React.createElement('div', { style: { background: theme.card, padding: '1.25rem', borderRadius: '12px', border: '1px solid ' + theme.cardBorder, color: theme.textSecondary, fontSize: '0.875rem' } },
         (t.riskNeedsHistory || 'Refresh prices a few times to unlock volatility, Value-at-Risk and drawdown — these need a short price history.') +
-          (typeof riskObservations !== 'undefined' ? ' (' + riskObservations(priceHistory) + ' of ' + MIN_RISK_OBSERVATIONS + ' observations so far)' : ''))
+          (typeof riskObservations !== 'undefined' ? ' ' + __('rkObsSoFar', '({n} of {min} observations so far)', { n: riskObservations(priceHistory), min: MIN_RISK_OBSERVATIONS }) : ''))
     );
   }
 
@@ -203,7 +205,7 @@ function RiskAnalyticsViewV2(props) {
     },
       React.createElement('div', {
         style: { fontSize: '4rem', fontWeight: '700', color: getRiskColor(riskMetrics.riskLevel) }
-      }, riskMetrics.riskScore.toFixed(0)),
+      }, window.MaerminI18n.num(riskMetrics.riskScore, 0)),
       React.createElement('div', {
         style: { fontSize: '1.25rem', color: theme.textSecondary, marginBottom: '0.5rem' }
       }, t.riskLevel || 'Risk Score'),
@@ -241,7 +243,7 @@ function RiskAnalyticsViewV2(props) {
           t.volatility || 'Volatility (Annual)'
         ),
         React.createElement('div', { style: { color: theme.text, fontSize: '1.5rem', fontWeight: '800', letterSpacing: '-0.02em' } },
-          riskMetrics.volatility.toFixed(1) + '%'
+          window.MaerminI18n.pct(riskMetrics.volatility, 1)
         )
       ),
       
@@ -255,7 +257,7 @@ function RiskAnalyticsViewV2(props) {
         }
       },
         React.createElement('div', { style: { color: theme.textSecondary, fontSize: '0.875rem' } },
-          'VaR (95%, 1-day)'
+          __('rkVar', 'VaR (95%, 1-day)')
         ),
         React.createElement('div', { style: { color: theme.danger || '#ef4444', fontSize: '1.5rem', fontWeight: '800', letterSpacing: '-0.02em' } },
           formatPrice(riskMetrics.var95) + ' ' + currencyLabel
@@ -272,7 +274,7 @@ function RiskAnalyticsViewV2(props) {
         }
       },
         React.createElement('div', { style: { color: theme.textSecondary, fontSize: '0.875rem' } },
-          'CVaR (95%)'
+          'CVaR (' + window.MaerminI18n.pct(95, 0) + ')'
         ),
         React.createElement('div', { style: { color: theme.danger || '#ef4444', fontSize: '1.5rem', fontWeight: '800', letterSpacing: '-0.02em' } },
           formatPrice(riskMetrics.cvar95) + ' ' + currencyLabel
@@ -289,7 +291,7 @@ function RiskAnalyticsViewV2(props) {
         }
       },
         React.createElement('div', { style: { color: theme.textSecondary, fontSize: '0.875rem' } },
-          'Sharpe Ratio'
+          __('rkSharpe', 'Sharpe Ratio')
         ),
         React.createElement('div', {
           style: {
@@ -298,7 +300,7 @@ function RiskAnalyticsViewV2(props) {
             fontSize: '1.5rem',
             fontWeight: '700'
           }
-        }, riskMetrics.sharpeRatio.toFixed(2))
+        }, window.MaerminI18n.num(riskMetrics.sharpeRatio, 2))
       ),
       
       // Sortino Ratio
@@ -311,10 +313,10 @@ function RiskAnalyticsViewV2(props) {
         }
       },
         React.createElement('div', { style: { color: theme.textSecondary, fontSize: '0.875rem' } },
-          'Sortino Ratio'
+          __('rkSortino', 'Sortino Ratio')
         ),
         React.createElement('div', { style: { color: theme.text, fontSize: '1.5rem', fontWeight: '800', letterSpacing: '-0.02em' } },
-          isFinite(riskMetrics.sortinoRatio) ? riskMetrics.sortinoRatio.toFixed(2) : 'N/A'
+          isFinite(riskMetrics.sortinoRatio) ? window.MaerminI18n.num(riskMetrics.sortinoRatio, 2) : __('healthNotAvailable', 'n/a')
         )
       ),
       
@@ -328,10 +330,10 @@ function RiskAnalyticsViewV2(props) {
         }
       },
         React.createElement('div', { style: { color: theme.textSecondary, fontSize: '0.875rem' } },
-          'Max Drawdown'
+          __('rkMaxDd', 'Max Drawdown')
         ),
         React.createElement('div', { style: { color: theme.danger || '#ef4444', fontSize: '1.5rem', fontWeight: '800', letterSpacing: '-0.02em' } },
-          '-' + riskMetrics.maxDrawdownPercent.toFixed(1) + '%'
+          '-' + window.MaerminI18n.pct(riskMetrics.maxDrawdownPercent, 1)
         )
       )
     ),
@@ -432,7 +434,7 @@ function RiskAnalyticsViewV2(props) {
           ),
           React.createElement('span', {
             style: { width: '50px', textAlign: 'right', color: theme.textSecondary }
-          }, (weight * 100).toFixed(1) + '%')
+          }, window.MaerminI18n.pct(weight * 100, 1))
         );
       })
     )
