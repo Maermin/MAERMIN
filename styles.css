@@ -438,6 +438,9 @@ html[data-theme="contrast"] .mx-app::before { display: none; }
   flex-direction: column;
 }
 
+/* Entries keep their height; a long list scrolls instead of squeezing (P2-1). */
+.maermin-sidebar > * { flex-shrink: 0; }
+
 .mx-nav-section {
   padding: 1rem 0.7rem 0.45rem;
   font-size: 0.64rem;
@@ -545,6 +548,33 @@ html[data-theme="contrast"] .mx-app::before { display: none; }
 .maermin-main { flex: 1; min-width: 0; overflow: auto; }
 .maermin-main > * { animation: viewIn 0.35s var(--ease); }
 @keyframes viewIn { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: none; } }
+
+/* ---- Area nav (P2-1): tabs of a merged page; on phones also the area's views */
+.mx-area-nav { display: flex; flex-direction: column; gap: 0.5rem; padding: 1rem 1.5rem 0; }
+.mx-area-nav:empty { display: none; }
+.mx-area-entries, .mx-area-tabs { display: flex; gap: 0.4rem; overflow-x: auto; scrollbar-width: none; }
+.mx-area-entries::-webkit-scrollbar, .mx-area-tabs::-webkit-scrollbar { display: none; }
+.mx-area-entries { display: none; }
+.mx-area-chip {
+  flex-shrink: 0;
+  padding: 0.42rem 0.95rem;
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  background: var(--hover);
+  color: var(--text-dim);
+  font-size: 0.82rem;
+  font-weight: 500;
+  white-space: nowrap;
+  cursor: pointer;
+}
+.mx-area-chip:hover { color: var(--text); filter: none !important; }
+.mx-area-chip.is-active { color: var(--text); background: var(--accent-soft); border-color: color-mix(in srgb, var(--accent) 40%, transparent); font-weight: 650; }
+.mx-area-tabs .mx-area-chip { border-radius: 10px; }
+
+/* Simple-mode hint at the foot of the sidebar */
+.mx-mode-hint { display: flex; flex-direction: column; gap: 0.35rem; padding: 0.6rem 0.7rem; margin-bottom: 0.6rem; font-size: 0.74rem; color: var(--text-dim); border: 1px dashed var(--border-strong); border-radius: 10px; }
+.mx-mode-hint button { align-self: flex-start; padding: 0; border: none; background: none; color: var(--accent); font-size: 0.78rem; font-weight: 600; cursor: pointer; }
+.mx-mode-hint button:hover { text-decoration: underline; filter: none !important; }
 
 /* ============================================================================
    Loading screen
@@ -872,6 +902,11 @@ html[data-mode="light"] .command-palette-overlay { background: rgba(17, 19, 40, 
 @media (max-width: 768px) {
   .maermin-sidebar { display: none; }
   .mx-bottom-nav { display: flex; }
+  .mx-area-entries { display: flex; }
+  .mx-area-nav { padding: 0.75rem 0.85rem 0; }
+  .mx-bottom-nav { left: 8px; right: 8px; padding: 6px 4px; }
+  .mx-bottom-nav button { min-width: 0; padding: 0 2px; }
+  .mx-bottom-label { max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
   .maermin-main { padding-bottom: calc(88px + env(safe-area-inset-bottom)); }
   .mx-header { height: 58px; padding: 0 0.85rem; }
   .mx-brand-tag, .mx-live { display: none; }

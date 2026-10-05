@@ -454,6 +454,28 @@ function InvestmentTracker() {
     return () => { live = false; };
   }, []);
 
+  // P2-1 Simple/Advanced navigation (nav-model.js). Until the user picks one,
+  // the mode follows the vault: transactions -> Advanced, none -> Simple. It is
+  // saved once that is settled: Advanced as soon as transactions exist, Simple
+  // only after the start-up pull, so a new device of a synced account does not
+  // lock itself into Simple before its transactions arrive. Demo data never
+  // decides it.
+  const [uiModeStored, setUiModeStored] = useState(() => window.MaerminNav.normalizeMode(window.MaerminPrefs.get('uiMode')));
+  const uiMode = window.MaerminNav.initialMode(uiModeStored, transactions.length);
+  useEffect(() => {
+    if (uiModeStored || demoMode) return;
+    if (transactions.length > 0 || startupSynced) {
+      window.MaerminPrefs.set('uiMode', uiMode);
+      setUiModeStored(uiMode);
+    }
+  }, [uiModeStored, demoMode, transactions.length, startupSynced, uiMode]);
+  const setUiMode = (mode) => {
+    const m = window.MaerminNav.normalizeMode(mode);
+    if (!m) return;
+    window.MaerminPrefs.set('uiMode', m);
+    setUiModeStored(m);
+  };
+
   // Post-sync dedupe of automatic bookings. Two devices each run their
   // catch-ups before they sync, so the transaction union can hold the same
   // auto-dividend, exchange trade or interest period twice. Survivors are
@@ -613,7 +635,6 @@ function InvestmentTracker() {
   const setShowTransactionModal = (v) => { const n = typeof v === 'function' ? v(showTransactionModal) : v; n ? window.MaerminUI.openOverlay('transactionModal') : window.MaerminUI.closeOverlay('transactionModal'); };
   const [overviewMode, setOverviewMode] = useState('all'); // 'all' | activePortfolioId
   // Which sidebar hub (Analytics / Discover & Tools) is expanded. '' = none.
-  const [openHub, setOpenHub] = useState('');
   const [editingTransactionId, setEditingTransactionId] = useState(null); // null = adding new, id = editing
   const showImportModal = window.MaerminStore.useStore(window.MaerminUI.overlays, s => !!s.importModal);
   const setShowImportModal = (v) => { const n = typeof v === 'function' ? v(showImportModal) : v; n ? window.MaerminUI.openOverlay('importModal') : window.MaerminUI.closeOverlay('importModal'); };
@@ -1028,6 +1049,8 @@ function InvestmentTracker() {
     { id: 'settings:purple',   label: t.purpleMode || 'Purple Mode',       category: 'Design' },
     { id: 'settings:contrast', label: t.contrastMode || 'High Contrast',   category: 'Design' },
     { id: 'settings:cb',       label: t.cbMode || 'Colour-Blind Safe',     category: 'Design' },
+    { id: 'settings:mode-simple',   label: (t.uiMode || 'View') + ': ' + (t.uiModeSimple || 'Simple'),     category: 'Design' },
+    { id: 'settings:mode-advanced', label: (t.uiMode || 'View') + ': ' + (t.uiModeAdvanced || 'Advanced'), category: 'Design' },
     { id: 'help:shortcuts',    label: t.keyboardShortcuts || 'Keyboard Shortcuts', category: 'Help', shortcut: '?' },
   ], [t]);
 
@@ -2273,6 +2296,8 @@ function InvestmentTracker() {
       case 'nav:customize':     setActiveView('customize'); break;
       case 'nav:broker-import': setActiveView('broker-import'); break;
       // Aktionen
+      case 'settings:mode-simple':   switchUiMode('simple'); break;
+      case 'settings:mode-advanced': switchUiMode('advanced'); break;
       case 'action:add':        openTransactionModal(); break;
       case 'action:refresh':    fetchPrices(); break;
       case 'action:backup':     createBackup(); break;
@@ -5541,6 +5566,41 @@ buy,crypto,bitcoin,0.5,45000,2024-01-15,10`)
     tr.finished.finally(() => root.classList.remove('mx-vt-theme'));
   };
   const segBtn = (key, on, onClick, children, extra) => React.createElement('button', Object.assign({ key, type: 'button', className: on ? 'is-on' : '', onClick, 'aria-pressed': on }, extra || {}), children);
+  const switchUiMode = (mode) => {
+    if (mode === uiMode) return;
+    setUiMode(mode);
+    addToast(mode === 'simple' ? (t.uiModeSwitchedSimple || 'Simple view: niche tools are hidden') : (t.uiModeSwitchedAdvanced || 'Advanced view: all tools are shown'), 'info');
+  };
+
+  // P2-1: the tabs of a merged page (e.g. Returns · Performance · Attribution),
+  // and on phones - where the sidebar is hidden - the views of the open area.
+  const renderAreaNav = () => {
+    const Nav = window.MaerminNav;
+    const areaId = Nav.areaOf(activeView) || 'portfolio';
+    const entries = Nav.visibleEntries(areaId, uiMode, activeView);
+    const tabs = Nav.tabsFor(activeView, uiMode);
+    const current = Nav.canonical(activeView);
+    if (entries.length < 2 && !tabs.length) return null;
+    const chip = (id, label, active, attrs) => React.createElement('button', Object.assign({
+      key: id, type: 'button', className: 'mx-area-chip' + (active ? ' is-active' : ''),
+      'aria-current': active ? 'page' : undefined
+    }, attrs || {}), label);
+    return React.createElement('div', { className: 'mx-area-nav' },
+      entries.length > 1 && React.createElement('nav', { className: 'mx-area-entries', 'aria-label': Nav.label(Nav.getArea(areaId), t) },
+        entries.map(e => chip(e.id, Nav.label(e, t), Nav.entryActive(e, activeView), {
+          'data-area-entry': e.id,
+          onClick: () => { if (!Nav.entryActive(e, activeView)) setActiveView(Nav.entryTarget(e, uiMode)); }
+        }))
+      ),
+      tabs.length > 0 && React.createElement('nav', { className: 'mx-area-tabs', 'aria-label': t.navAreaTabs || 'Sections' },
+        tabs.map(x => chip(x.id, Nav.label(x, t), x.id === current, {
+          'data-tab': x.id,
+          onClick: () => { if (x.id !== current) setActiveView(x.id); }
+        }))
+      )
+    );
+  };
+
   const menuItem = (icon, label, onClick, danger) => React.createElement('button', { type: 'button', className: 'mx-menu-item' + (danger ? ' is-danger' : ''), onClick }, Icon(icon, { size: 16 }), React.createElement('span', null, label));
   const popLabel = (text) => React.createElement('span', { className: 'mx-pop-label' }, text);
 
@@ -5632,6 +5692,12 @@ buy,crypto,bitcoin,0.5,45000,2024-01-15,10`)
               React.createElement('div', { className: 'mx-seg' },
                 ['EUR', 'USD'].map(curr => segBtn(curr, currency === curr, () => setCurrency(curr), curr === 'EUR' ? '€ EUR' : '$ USD'))
               )
+            )
+          ),
+          React.createElement('div', { style: { marginBottom: '0.9rem' } },
+            popLabel(t.uiMode || 'View'),
+            React.createElement('div', { className: 'mx-seg' },
+              [['simple', t.uiModeSimple || 'Simple'], ['advanced', t.uiModeAdvanced || 'Advanced']].map(([m, lbl]) => segBtn(m, uiMode === m, () => switchUiMode(m), lbl, { 'data-ui-mode': m }))
             )
           ),
           React.createElement('div', { style: { marginBottom: '0.9rem' } },
@@ -5748,82 +5814,37 @@ buy,crypto,bitcoin,0.5,45000,2024-01-15,10`)
       // Sidebar
       React.createElement('nav', { className: 'maermin-sidebar', 'aria-label': 'Main' },
         (() => {
-          const portfolioItems = [
-            { id: 'overview',     label: t.navOverview || 'Overview' },
-            { id: 'transactions', label: t.navTransactions || 'Transactions' },
-            { id: 'portfolios',   label: t.navPortfolios || 'Portfolios' },
-            { id: 'net-worth',    label: t.navNetWorth || 'Net Worth' },
-            { id: 'dividends',    label: t.navDividends || 'Dividends' },
-            { id: 'journal',      label: t.navJournal || 'Journal' },
-          ];
-          const hubs = [
-            { id: 'hub-analytics', label: 'Analytics', children: [
-              { id: 'returns',             label: t.navReturns || 'Returns & XIRR' },
-              { id: 'performance',         label: t.navPerformance || 'Performance' },
-              { id: 'rebalancing',         label: t.navRebalancing || 'Rebalancing' },
-              { id: 'savings-plans',       label: t.navSavingsPlans || 'Savings Plans' },
-              { id: 'cashflow',            label: t.navCashflow || 'Cash Flow' },
-              { id: 'fees',                label: t.navFees || 'Fee Analyzer' },
-              { id: 'analytics',           label: t.navRiskCorrelation || 'Risk & Correlation' },
-              { id: 'health',              label: t.navHealthScore || 'Health Score' },
-              { id: 'investment-analysis', label: t.navStrategy || 'Strategy' },
-              { id: 'tax',                 label: t.navTaxFifo || 'Tax & FIFO' },
-            ]},
-            { id: 'hub-tools', label: 'Discover & Tools', children: [
-              { id: 'intelligence', label: t.intelTitle || 'Portfolio Intelligence' },
-              { id: 'tags',        label: t.navTags || 'Tags' },
-              { id: 'categories',  label: t.navCategories || 'Categories' },
-              { id: 'customize',   label: t.navCustomize || 'Customize Overview' },
-              { id: 'discovery',   label: t.navDiscovery || 'Discovery' },
-              { id: 'share',       label: t.navShare || 'Share & Compare' },
-              { id: 'watchlist',   label: t.navWatchlist || 'Watchlist' },
-              { id: 'rules',       label: t.navRules || 'Alerts & Rules' },
-              { id: 'attribution', label: t.navAttribution || 'Attribution' },
-              { id: 'news',        label: t.navNewsFeed || 'News Feed' },
-              { id: 'data',        label: t.navImportExport || 'Import / Export' },
-            ]},
-          ];
+          // P2-1: six areas from nav-model.js. Grouped views (Returns +
+          // Performance + Attribution, Health + Intelligence + Risk) are one
+          // entry here and tabs on the page (renderAreaTabs).
+          const Nav = window.MaerminNav;
+          const sectionLabel = (text, key) => React.createElement('div', { key: 'sec-' + key, className: 'mx-nav-section' }, text);
 
-          const isLeafActive = (id) => activeView === id ||
-            (id === 'analytics' && ['correlation', 'montecarlo', 'stress', 'risk'].includes(activeView));
-
-          const sectionLabel = (text) => React.createElement('div', { key: 'sec-' + text, className: 'mx-nav-section' }, text);
-
-          const navButton = (item, child) => {
-            const active = isLeafActive(item.id);
+          const navButton = (entry) => {
+            const active = Nav.entryActive(entry, activeView);
+            const target = Nav.entryTarget(entry, uiMode);
             return React.createElement('button', {
-              key: item.id,
+              key: entry.id,
               type: 'button',
-              className: 'mx-nav' + (child ? ' is-child' : '') + (active ? ' is-active' : ''),
+              className: 'mx-nav' + (active ? ' is-active' : ''),
               'aria-current': active ? 'page' : undefined,
-              'data-view': item.id,
-              onClick: () => setActiveView(item.id)
+              'data-view': entry.tabs ? undefined : entry.id,
+              'data-group': entry.tabs ? entry.id : undefined,
+              'data-views': entry.tabs ? entry.tabs.map(x => x.id).join(' ') : undefined,
+              onClick: () => setActiveView(active && entry.tabs ? Nav.canonical(activeView) : target)
             },
-              Icon(item.id, { size: child ? 15 : 17 }),
-              React.createElement('span', { className: 'mx-nav-label' }, item.label)
+              Icon(entry.tabs ? entry.tabs[0].id : entry.id, { size: 17 }),
+              React.createElement('span', { className: 'mx-nav-label' }, Nav.label(entry, t))
             );
           };
 
-          const hubButton = (hub) => {
-            const childActive = hub.children.some(c => isLeafActive(c.id));
-            const expanded = openHub === hub.id || childActive;
-            return React.createElement('div', { key: hub.id },
-              React.createElement('button', {
-                type: 'button',
-                className: 'mx-nav' + (childActive ? ' has-active' : ''),
-                'aria-expanded': expanded,
-                'data-hub': hub.id,
-                style: childActive ? { color: 'var(--text)' } : undefined,
-                onClick: () => setOpenHub(prev => prev === hub.id ? '' : hub.id)
-              },
-                Icon(hub.id, { size: 17 }),
-                React.createElement('span', { className: 'mx-nav-label' }, hub.label),
-                React.createElement('span', { className: 'mx-count' }, String(hub.children.length)),
-                React.createElement('span', { className: 'mx-chev' + (expanded ? ' is-open' : '') }, Icon('chevron', { size: 14 }))
-              ),
-              expanded && React.createElement('div', { className: 'mx-hub-children' }, hub.children.map(c => navButton(c, true)))
-            );
-          };
+          const hiddenCount = uiMode === 'simple'
+            ? Nav.AREAS.reduce((n, a) => n + a.entries.reduce((m, e) => m + (e.tabs || [e]).filter(x => x.advanced).length, 0), 0)
+            : 0;
+          const modeHint = uiMode === 'simple' && React.createElement('div', { key: 'mode-hint', className: 'mx-mode-hint' },
+            React.createElement('span', null, (t.uiModeHidden || 'Simple view: {n} tools hidden').replace('{n}', String(hiddenCount))),
+            React.createElement('button', { type: 'button', 'data-ui-mode': 'advanced', onClick: () => switchUiMode('advanced') }, t.uiModeShowAll || 'Show all tools')
+          );
 
           const quickAccess = React.createElement('div', { key: 'quick-access', className: 'mx-promo' },
             React.createElement('div', { className: 'mx-promo-title' }, Icon('sparkle', { size: 15 }), 'Quick access'),
@@ -5834,24 +5855,29 @@ buy,crypto,bitcoin,0.5,45000,2024-01-15,10`)
             )
           );
 
+          const out = [];
+          Nav.AREAS.forEach((area) => {
+            const entries = Nav.visibleEntries(area.id, uiMode, activeView);
+            if (!entries.length) return;
+            out.push(sectionLabel(Nav.label(area, t), area.id));
+            entries.forEach(e => out.push(navButton(e)));
+          });
           return [
-            sectionLabel(t.navGroupPortfolio || 'Portfolio'),
-            ...portfolioItems.map(it => navButton(it, false)),
-            sectionLabel('Insights'),
-            ...hubs.map(hubButton),
+            ...out,
             React.createElement('div', { key: 'spacer', style: { flex: 1, minHeight: '1rem' } }),
+            modeHint,
             quickAccess
           ];
         })()
       ),
 
       // Main content
-      React.createElement('main', { className: 'maermin-main', id: 'main', tabIndex: -1 }, React.createElement(ViewErrorBoundary, { viewKey: activeView, theme: currentTheme }, renderView()))
+      React.createElement('main', { className: 'maermin-main', id: 'main', tabIndex: -1 }, renderAreaNav(), React.createElement(ViewErrorBoundary, { viewKey: activeView, theme: currentTheme }, renderView()))
     ),
 
     // Mobile Bottom Navigation
     window.MaerminFeatures2 && React.createElement(window.MaerminFeatures2.MobileBottomNav, {
-      activeView, setActiveView, theme: currentTheme
+      activeView, setActiveView, theme: currentTheme, uiMode, t
     }),
     
     // Modals

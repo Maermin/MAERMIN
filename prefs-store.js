@@ -27,7 +27,10 @@
     theme:      { key: 'theme',               def: 'dark' },
     language:   { key: 'maermin_language',    def: 'en' },
     activeView: { key: 'maermin_active_view', def: 'overview' },
-    currency:   { key: 'currency',            def: 'EUR' }
+    currency:   { key: 'currency',            def: 'EUR' },
+    // Simple/Advanced navigation (nav-model.js). '' = not chosen yet: the
+    // renderer derives it from the vault (MaerminNav.initialMode) and saves it.
+    uiMode:     { key: 'maermin_ui_mode',     def: '' }
   };
 
   function lsGet(k) { try { return (typeof localStorage !== 'undefined') ? localStorage.getItem(k) : null; } catch (e) { return null; } }

@@ -226,15 +226,23 @@ async function rerender(page) {
   await page.evaluate(() => window.MaerminUI.closeOverlay('commandPalette'));
   await page.waitForTimeout(300);
 }
-// Click a sidebar entry (data-view); expand the hubs until it is visible.
+// Click a sidebar entry (data-view). A view inside a merged page (P2-1) is
+// reached through its group entry (data-views) and then its tab (data-tab).
 async function openView(page, id) {
   const entry = page.locator('nav.maermin-sidebar [data-view="' + id + '"]');
-  if (!(await entry.count())) {
-    const hubs = page.locator('nav.maermin-sidebar [data-hub][aria-expanded="false"]');
-    for (let i = 0; i < await hubs.count() && !(await entry.count()); i++) await hubs.nth(i).click();
-  }
-  if (!(await entry.count())) throw new Error('no sidebar entry for ' + id);
-  await entry.first().click();
+  if (await entry.count()) { await entry.first().click(); return; }
+  const group = page.locator('nav.maermin-sidebar [data-views~="' + id + '"]');
+  if (!(await group.count())) throw new Error('no sidebar entry for ' + id);
+  await group.first().click();
+  const tab = page.locator('main .mx-area-tabs [data-tab="' + id + '"]');
+  if (await tab.count()) await tab.first().click();
+}
+// The sidebar marks the open view (or its group) and, on a merged page, the tab.
+async function isOpen(page, id) {
+  if (await page.locator('nav.maermin-sidebar [data-view="' + id + '"][aria-current="page"]').count()) return true;
+  if (!(await page.locator('nav.maermin-sidebar [data-views~="' + id + '"][aria-current="page"]').count())) return false;
+  const tabs = page.locator('main .mx-area-tabs [data-tab]');
+  return !(await tabs.count()) || (await page.locator('main .mx-area-tabs [data-tab="' + id + '"][aria-current="page"]').count()) > 0;
 }
 // Raw (un-shimmed) localStorage through a same-origin iframe: storage.js
 // patches Storage.prototype in the app window only.
@@ -328,12 +336,38 @@ async function runBuild(browser, label, dir) {
       ok('total = fetched quote + cost fallback (3,550.00)', /3,550/.test(b0), (b0.match(/TOTAL PORTFOLIO VALUE[\s\S]{0,80}/) || [''])[0].replace(/\n/g, ' | '));
     }
 
+    // P2-1: a vault that already holds transactions opens in Advanced, with
+    // the six areas; Simple hides niche tools and the switch persists.
+    {
+      const sections = await page.locator('nav.maermin-sidebar .mx-nav-section').allInnerTexts();
+      ok('sidebar shows the six areas', sections.map((x) => x.trim().toUpperCase()).join() === 'PORTFOLIO,TRANSACTIONS,DIVIDENDS,ANALYSIS,TAXES,SETTINGS', sections.join(','));
+      ok('a vault with transactions starts in Advanced', (await page.evaluate(RAW + '.get("maermin_ui_mode")')) === 'advanced' && (await page.locator('nav.maermin-sidebar [data-view="tags"]').count()) === 1);
+      await page.locator('.mx-avatar').click();
+      await page.locator('#mx-settings-panel [data-ui-mode="simple"]').click();
+      await page.locator('.mx-avatar').click();
+      await page.waitForTimeout(300);
+      const simpleOk = (await page.locator('nav.maermin-sidebar [data-view="tags"]').count()) === 0 && (await page.locator('nav.maermin-sidebar .mx-mode-hint').count()) === 1
+        && (await page.evaluate(RAW + '.get("maermin_ui_mode")')) === 'simple';
+      ok('Simple hides niche tools, says so and is saved', simpleOk);
+      await page.keyboard.press('g'); await page.keyboard.press('u'); // Alerts & Rules: hidden in Simple, the shortcut still works
+      await page.waitForTimeout(300);
+      ok('a hidden view stays reachable by shortcut and shows in its area', (await page.locator('nav.maermin-sidebar [data-view="rules"][aria-current="page"]').count()) === 1);
+      await openView(page, 'returns');
+      await page.waitForTimeout(200);
+      const tabs = (await page.locator('main .mx-area-tabs [data-tab]').evaluateAll((els) => els.map((e) => e.dataset.tab))).join();
+      ok('Simple shows Returns + Performance as tabs (no Attribution)', tabs === 'returns,performance', tabs);
+      await page.locator('nav.maermin-sidebar .mx-mode-hint [data-ui-mode="advanced"]').click();
+      await page.waitForTimeout(200);
+      const tabsAdv = (await page.locator('main .mx-area-tabs [data-tab]').evaluateAll((els) => els.map((e) => e.dataset.tab))).join();
+      ok('"Show all tools" switches back to Advanced (Attribution tab back)', tabsAdv === 'returns,performance,attribution' && (await page.evaluate(RAW + '.get("maermin_ui_mode")')) === 'advanced', tabsAdv);
+    }
+
     const crashedIn = [];
     for (const id of VIEWS) {
       const before = errors.length;
       try { await openView(page, id); } catch (e) { crashedIn.push(id + ': ' + e.message); continue; }
       await page.waitForTimeout(150);
-      if (!(await page.locator('nav.maermin-sidebar [data-view="' + id + '"][aria-current="page"]').count())) crashedIn.push(id + ': not active after click');
+      if (!(await isOpen(page, id))) crashedIn.push(id + ': not active after click');
       if (errors.length > before) crashedIn.push(id + ': ' + errors.slice(before).join(' | '));
     }
     ok('every sidebar view renders without an error (' + VIEWS.length + ' views)', crashedIn.length === 0, crashedIn.join(' || '));
@@ -535,7 +569,7 @@ async function runBuild(browser, label, dir) {
     // The price refresh for NESN.SW is still probing listings here (the fixture
     // has no quote for it), and a navigation click that coincides with one of
     // its re-renders can be lost: click until the view is active.
-    for (let i = 0; i < 3 && !(await page.locator('nav.maermin-sidebar [data-view="transactions"][aria-current="page"]').count()); i++) {
+    for (let i = 0; i < 3 && !(await isOpen(page, 'transactions')); i++) {
       await openView(page, 'transactions');
       await page.waitForTimeout(700);
     }
@@ -625,6 +659,9 @@ async function runBuild(browser, label, dir) {
     await unlock(page, base, 'main.maermin-main');
     await page.waitForTimeout(1500);
 
+    // P2-1: the vault was created empty, so it stays in Simple after the import.
+    ok(tag + 'a new vault starts in Simple and keeps it', (await page.evaluate(RAW + '.get("maermin_ui_mode")')) === 'simple');
+
     // Skip link: the first Tab stop, visible when focused, and it lands in <main>.
     {
       await press('Tab');
@@ -694,6 +731,25 @@ async function runBuild(browser, label, dir) {
         if (!(await closed('Security & sync'))) bad.push('Escape did not close Security & sync afterwards');
       } catch (e) { bad.push(String(e.message).split('\n')[0]); }
       ok(tag + 'Your recovery code: modal over Security & sync, not closed by Escape or a click beside it, focus returns to the dialog underneath', bad.length === 0, bad.join('; '));
+    }
+    // P2-1: the phone dock has one button per area; an area's views are chips.
+    if (page.viewportSize().width < 900) {
+      const bad = [];
+      try {
+        const areas = await page.locator('.mx-bottom-nav [data-area]').evaluateAll((els) => els.map((e) => e.dataset.area));
+        if (areas.join() !== 'portfolio,transactions,dividends,analysis,taxes,settings') bad.push('dock: ' + areas.join());
+        await page.locator('.mx-bottom-nav [data-area="analysis"]').click();
+        await page.waitForTimeout(300);
+        if (!(await page.locator('.mx-bottom-nav [data-area="analysis"][aria-current="page"]').count())) bad.push('analysis not current');
+        const chips = await page.locator('main .mx-area-entries [data-area-entry]').evaluateAll((els) => els.filter((e) => e.getClientRects().length).map((e) => e.dataset.areaEntry));
+        if (chips.join() !== 'grp-returns,grp-health') bad.push('chips: ' + chips.join());
+        await page.locator('main .mx-area-entries [data-area-entry="grp-health"]').click();
+        await page.waitForTimeout(300);
+        if (!(await page.locator('main .mx-area-entries [data-area-entry="grp-health"][aria-current="page"]').count())) bad.push('health chip not current');
+        const overflow = await page.evaluate(() => document.documentElement.scrollWidth - window.innerWidth);
+        if (overflow > 1) bad.push('page scrolls sideways by ' + overflow + 'px');
+      } catch (e) { bad.push(String(e.message).split('\n')[0]); }
+      ok(tag + 'dock shows the six areas and the area views as chips', bad.length === 0, bad.join('; '));
     }
     ok(tag + 'no page errors in the dialog session', errors.length === 0, errors.join(' | '));
     await context.close();

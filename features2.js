@@ -1217,30 +1217,33 @@ function DividendCalendarView({ portfolio, prices, metaVersion, theme, t, addToa
 // 6. MOBILE NAV (floating dock, styled by styles.css .mx-bottom-nav)
 // ─────────────────────────────────────────────────────────────────────────────
 
-function MobileBottomNav({ activeView, setActiveView, theme }) {
+function MobileBottomNav({ activeView, setActiveView, theme, uiMode, t }) {
   // Aurora redesign: floating glass dock. All styling lives in styles.css
   // (.mx-bottom-nav) so it follows the active theme via CSS variables.
-  const items = [
-    { id: 'overview',     icon: 'overview',      label: 'Overview' },
-    { id: 'portfolios',   icon: 'portfolios',    label: 'Portfolio' },
-    { id: 'transactions', icon: 'transactions',  label: 'Trades' },
-    { id: 'watchlist',    icon: 'watchlist',     label: 'Watch' },
-    { id: 'analytics',    icon: 'hub-analytics', label: 'Analytics' },
-  ];
+  // P2-1: one button per navigation area (nav-model.js); the views inside an
+  // area are the chip row at the top of the page.
+  const Nav = window.MaerminNav;
   const Icon = window.MaerminIcon || (() => null);
+  const tt = t || {};
+  const current = Nav ? Nav.areaOf(activeView) : null;
 
   return React.createElement('nav', { className: 'mx-bottom-nav maermin-bottom-nav', 'aria-label': 'Primary' },
-    items.map(item =>
-      React.createElement('button', {
-        key: item.id,
-        className: activeView === item.id ? 'is-active' : '',
-        'aria-current': activeView === item.id ? 'page' : undefined,
-        onClick: () => setActiveView(item.id)
+    (Nav ? Nav.AREAS : []).map(area => {
+      const active = current === area.id;
+      const label = (area.shortKey && tt[area.shortKey]) || area.short || Nav.label(area, tt);
+      return React.createElement('button', {
+        key: area.id,
+        type: 'button',
+        className: active ? 'is-active' : '',
+        'aria-current': active ? 'page' : undefined,
+        'data-area': area.id,
+        title: Nav.label(area, tt),
+        onClick: () => { if (!active) setActiveView(Nav.firstView(area.id, uiMode || 'advanced')); }
       },
-        Icon(item.icon, { size: 20 }),
-        item.label
-      )
-    )
+        Icon(area.icon, { size: 20 }),
+        React.createElement('span', { className: 'mx-bottom-label' }, label)
+      );
+    })
   );
 }
 
