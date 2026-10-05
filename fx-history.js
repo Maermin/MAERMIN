@@ -65,15 +65,33 @@
   // The Worker's `?action=yf&symbol=EURUSD=X` response is { prices:[{date, price}] }
   // where price = USD per 1 EUR (e.g. 1.08). USD→EUR = 1 / price. Produces a
   // { 'YYYY-MM-DD': usdToEur } map; rows with a non-positive price are dropped.
+  // The bar's day comes from barDate (below): the Worker's `date` is the UTC
+  // day, which in British Summer Time is the day BEFORE the London trading day
+  // (FINDINGS H-2: summer USD trades converted at the next day's rate).
   function ingestYahooSeries(json) {
     var out = {};
     var prices = json && json.prices;
     if (!Array.isArray(prices)) return out;
+    var tz = json.exchangeTz && json.exchangeTz !== 'UTC' ? String(json.exchangeTz) : '';
     prices.forEach(function (p) {
-      var d = ymd(p && p.date);
+      var d = ymd(barDate(p, tz));
       var eurUsd = num(p && p.price);
       if (d && eurUsd != null && eurUsd > 0) out[d] = 1 / eurUsd; // USD→EUR
     });
+    return out;
+  }
+
+  // Replace every stored rate inside the date range of a freshly fetched
+  // series with that series; keys outside the range are kept. A plain merge
+  // would leave keys the new series no longer has (the wrongly dated Sunday
+  // keys of the H-2 bug) in place, where rateAt would keep finding them. Pure.
+  function replaceRange(current, series) {
+    var keys = Object.keys(series || {}).map(ymd).filter(Boolean).sort();
+    var out = {};
+    if (!keys.length) { Object.keys(current || {}).forEach(function (k) { out[k] = current[k]; }); return out; }
+    var lo = keys[0], hi = keys[keys.length - 1];
+    Object.keys(current || {}).forEach(function (k) { var d = ymd(k); if (d && (d < lo || d > hi)) out[d] = current[k]; });
+    Object.keys(series).forEach(function (k) { var d = ymd(k), r = num(series[k]); if (d && r != null && r > 0) out[d] = r; });
     return out;
   }
 
@@ -435,6 +453,9 @@
     KEY: KEY,
     load: load, save: save, merge: merge,
     ingestYahooSeries: ingestYahooSeries,
+    replaceRange: replaceRange, barDate: barDate,
+    // Store a fetched daily series, replacing what the cache holds in its range.
+    applySeries: function (series) { var next = replaceRange(load(), series); save(next); return next; },
     rateAt: rateAt,
     fxResolver: fxResolver,
     setUsdRates: setUsdRates,

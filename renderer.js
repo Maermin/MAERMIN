@@ -508,7 +508,7 @@ function InvestmentTracker() {
       let working = transactions;
       // 1) Re-price earlier ESTIMATED auto-executions now that real history exists.
       if (EX.repriceEstimated) {
-        const rep = EX.repriceEstimated(working, accurate, exchangeRate);
+        const rep = EX.repriceEstimated(working, accurate, fxAt || exchangeRate); // rate of each due date (M-16)
         if (rep.repriced) {
           working = rep.transactions;
           addToast(`${rep.repriced} estimated savings buy(s) repriced to the historical close`, 'success');
@@ -516,7 +516,7 @@ function InvestmentTracker() {
       }
       // 2) Book any outstanding occurrences (real close when available, else a
       //    flagged estimate from the current price).
-      const out = EX.runCatchUp(plans, working, resolvePrice, undefined, undefined, exchangeRate);
+      const out = EX.runCatchUp(plans, working, resolvePrice, undefined, undefined, fxAt || exchangeRate);
       if (out.created.length || out.removedDuplicates || working !== transactions) {
         setTransactions(out.transactions);
         if (out.created.length) addToast(`${out.created.length} savings-plan execution(s) booked`, 'success');
@@ -527,7 +527,7 @@ function InvestmentTracker() {
         addToast(`${out.pending.length} savings-plan execution(s) pending - no price for the symbol yet`, 'warning');
       }
     } catch (e) { console.warn('[SAVINGS] catch-up failed:', e); }
-  }, [fetchedPrices, transactions, priceHistory, savingsHistory, exchangeRate, demoMode, startupSynced]);
+  }, [fetchedPrices, transactions, priceHistory, savingsHistory, exchangeRate, fxAt, demoMode, startupSynced]);
 
   // WI-2: interest accrual catch-up for cash / time-deposit Net-Worth accounts.
   // On app open, grow each interest-bearing account's balance (act/365) and book
@@ -1444,7 +1444,8 @@ function InvestmentTracker() {
             if (r.ok) {
               const series = FXH.ingestYahooSeries(await r.json());
               if (Object.keys(series).length) { try { localStorage.setItem(FX_MARK, new Date().toISOString()); } catch (e) {} }
-              if (Object.keys(series).length) { FXH.merge(series); dbg('[PRICES] FX history backfilled:', Object.keys(series).length, 'days'); }
+              // Replace (not merge) inside the fetched range, so misdated keys of older builds go away.
+              if (Object.keys(series).length) { (FXH.applySeries || FXH.merge)(series); dbg('[PRICES] FX history backfilled:', Object.keys(series).length, 'days'); }
             }
           }
           setFxHistVersion(v => v + 1); // rebuild the resolver with the latest cache

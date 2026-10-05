@@ -161,12 +161,18 @@
   // is derived: quantity = amountEUR / priceEUR. The original amount + currency
   // travel on the transaction for transparency.
   var DEFAULT_USD_EUR = 0.92;
-  function amountToEUR(plan, fxUsdToEur) {
+  // `fxUsdToEur` is a rate, or a resolver (dateISO) => rate. With a resolver a
+  // back-dated execution converts at the rate of ITS due date, not today's
+  // (FINDINGS M-16: a catch-up booked every missed month at the live rate).
+  function usdRateOn(fxUsdToEur, dateISO) {
+    var fx = typeof fxUsdToEur === 'function' ? num(fxUsdToEur(dateISO)) : num(fxUsdToEur);
+    return fx && fx > 0 ? fx : DEFAULT_USD_EUR;
+  }
+  function amountToEUR(plan, fxUsdToEur, dateISO) {
     var amount = num(plan && plan.amount) || 0;
     var cur = (plan && plan.amountCurrency === 'USD') ? 'USD' : 'EUR';
     if (cur !== 'USD') return amount;
-    var fx = num(fxUsdToEur);
-    return amount * (fx && fx > 0 ? fx : DEFAULT_USD_EUR);
+    return amount * usdRateOn(fxUsdToEur, dateISO);
   }
 
   function buildTransaction(plan, dueDate, priceEUR, estimated, fxUsdToEur) {
@@ -174,7 +180,7 @@
     var price = num(priceEUR);
     if (!(amount > 0) || !(price > 0)) return null;
     var cur = (plan.amountCurrency === 'USD') ? 'USD' : 'EUR';
-    var amountEUR = amountToEUR(plan, fxUsdToEur);
+    var amountEUR = amountToEUR(plan, fxUsdToEur, dueDate);
     return {
       type: 'buy',
       category: plan.category || 'crypto',
@@ -284,7 +290,7 @@
       var amountEUR;
       if (num(tx.planAmount) != null) {
         amountEUR = (tx.planAmountCurrency === 'USD')
-          ? num(tx.planAmount) * (num(fxUsdToEur) && num(fxUsdToEur) > 0 ? num(fxUsdToEur) : DEFAULT_USD_EUR)
+          ? num(tx.planAmount) * usdRateOn(fxUsdToEur, tx.dueDate)
           : num(tx.planAmount);
       } else {
         // Older auto rows without planAmount: the EUR invested is quantity*price.

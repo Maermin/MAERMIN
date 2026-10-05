@@ -57,9 +57,74 @@
     return last / first - 1;
   }
 
+  // ---- dated series (FINDINGS M-5) ------------------------------------------
+  // Price refreshes are not trading days: 100 refreshes in two days used to be
+  // measured against the last 100 DAILY FX bars. Both sides now carry dates and
+  // are aligned by calendar day.
+  function ymd(v) {
+    if (v == null) return '';
+    if (typeof v === 'number') { var t = new Date(v); return isNaN(t.getTime()) ? '' : t.toISOString().slice(0, 10); }
+    var s = String(v);
+    return /^\d{4}-\d{2}-\d{2}/.test(s) ? s.slice(0, 10) : '';
+  }
+  // priceHistory points [{timestamp, price}] -> [{date, value}], the LAST
+  // point of each day, oldest first. Undatable points are skipped.
+  function datedSeries(points) {
+    var byDay = {};
+    (Array.isArray(points) ? points : []).forEach(function (p) {
+      var d = ymd(p && p.timestamp), v = num(p && p.price);
+      if (!d || v == null || v <= 0) return;
+      var ts = typeof p.timestamp === 'number' ? p.timestamp : Date.parse(p.timestamp);
+      if (!byDay[d] || ts >= byDay[d].ts) byDay[d] = { ts: ts, value: v };
+    });
+    return Object.keys(byDay).sort().map(function (d) { return { date: d, value: byDay[d].value }; });
+  }
+  // Worker yf response for EURUSD=X -> [{date, value: EUR per USD}], each bar
+  // under its trading day (MaerminFxHistory.barDate, see H-2).
+  function datedFx(json) {
+    var FXH = (typeof window !== 'undefined') && window.MaerminFxHistory;
+    var tz = json && json.exchangeTz && json.exchangeTz !== 'UTC' ? String(json.exchangeTz) : '';
+    var by = {};
+    ((json && json.prices) || []).forEach(function (p) {
+      var d = (FXH && FXH.barDate) ? FXH.barDate(p, tz) : ymd(p && p.date), px = num(p && p.price);
+      if (d && px != null && px > 0) by[d] = 1 / px;
+    });
+    return Object.keys(by).sort().map(function (d) { return { date: d, value: by[d] }; });
+  }
+  // EUR-per-USD rate on or at most 7 days before `date` (weekends/holidays
+  // take the last bar); null when the FX path does not cover the date.
+  var FX_MAX_GAP_DAYS = 7;
+  function fxOnOrBefore(fxDated, date) {
+    var best = null;
+    (fxDated || []).forEach(function (f) { if (f.date <= date && (!best || f.date > best.date)) best = f; });
+    if (!best) return null;
+    return (Date.parse(date + 'T00:00:00Z') - Date.parse(best.date + 'T00:00:00Z')) / 86400000 <= FX_MAX_GAP_DAYS ? best.value : null;
+  }
+  function isDated(series) { return Array.isArray(series) && series.length > 0 && series[0] && typeof series[0] === 'object' && 'date' in series[0]; }
+
+  function decomposeDated(eurDated, fxDated, currency) {
+    if (!eurDated || eurDated.length < 2) return null;
+    if (currency !== 'USD' || !fxDated || !fxDated.length) {
+      var r0 = eurDated[eurDated.length - 1].value / eurDated[0].value - 1;
+      return { eurReturn: r0, localReturn: r0, fxReturn: 0, interaction: 0, periods: eurDated.length, currency: currency || 'EUR', from: eurDated[0].date, to: eurDated[eurDated.length - 1].date };
+    }
+    // The window: the first and last position days that the FX path covers.
+    var pts = eurDated.map(function (p) { return { date: p.date, value: p.value, fx: fxOnOrBefore(fxDated, p.date) }; })
+      .filter(function (p) { return p.fx != null; });
+    if (pts.length < 2) return null;
+    var first = pts[0], last = pts[pts.length - 1];
+    var eurReturn = last.value / first.value - 1;
+    var fxReturn = last.fx / first.fx - 1;
+    var localReturn = (1 + eurReturn) / (1 + fxReturn) - 1;
+    return { eurReturn: eurReturn, localReturn: localReturn, fxReturn: fxReturn, interaction: eurReturn - localReturn - fxReturn, periods: pts.length, currency: 'USD', from: first.date, to: last.date };
+  }
+
   // Decompose ONE position's EUR return over the overlap with the FX path.
   // currency 'EUR' (or a missing FX path) means the whole return is local.
+  // Dated series ([{date, value}]) are aligned by day; plain arrays keep the
+  // older tail alignment by count.
   function decompose(eurSeries, fxSeries, currency) {
+    if (isDated(eurSeries)) return decomposeDated(eurSeries, isDated(fxSeries) ? fxSeries : null, currency);
     var eurReturn = totalReturn(eurSeries);
     if (eurReturn == null) return null;
     if (currency !== 'USD' || !fxSeries || fxSeries.length < 2) {
@@ -139,14 +204,13 @@
 
   // Build attribution rows from the app's primitives (browser glue, thin).
   function rowsFromPortfolio(portfolio, prices, priceHistory, transactions) {
-    var D = (typeof window !== 'undefined') && window.MaerminAnalyticsData;
     var currencyOf = currencyOfPositions(transactions);
     var rows = [];
     ['crypto', 'stocks', 'skins', 'commodities'].forEach(function (cls) {
       ((portfolio || {})[cls] || []).forEach(function (p) {
         var s = p.symbol || p.name || '';
         var hist = (priceHistory || {})[s] || (priceHistory || {})[s.toLowerCase()] || (priceHistory || {})[s.toUpperCase()];
-        var series = (D && D.pricesOf) ? D.pricesOf(hist) : [];
+        var series = datedSeries(hist); // one dated point per day (M-5)
         var amount = parseFloat(p.amount) || 0;
         var price = (prices || {})[s] || (prices || {})[s.toLowerCase()] || (prices || {})[s.toUpperCase()] || parseFloat(p.purchasePrice) || 0;
         var valueEUR = amount * price;
@@ -180,7 +244,6 @@
     React.useEffect(function () {
       if (!workerBase || _fxCache) return;
       var cancelled = false; setLoading(true); setErr(null);
-      var D = window.MaerminAnalyticsData;
       var url = workerBase + '?action=yf&symbol=' + encodeURIComponent('EURUSD=X') + '&interval=1d&range=1y';
       var ctrl = (typeof AbortController !== 'undefined') ? new AbortController() : null;
       var timer = ctrl ? setTimeout(function () { ctrl.abort(); }, 12000) : null;
@@ -190,7 +253,7 @@
           if (cancelled) return;
           if (!j || j.error || !Array.isArray(j.prices)) { setErr((j && j.error) || 'No FX data'); }
           else {
-            _fxCache = invertSeries(D && D.pricesOf ? D.pricesOf(j.prices) : j.prices.map(function (p) { return p.price; }));
+            _fxCache = datedFx(j); // dated EUR-per-USD bars, aligned to positions by day (M-5)
             setFx(_fxCache);
           }
           setLoading(false);
@@ -270,6 +333,7 @@
     alignTails: alignTails,
     totalReturn: totalReturn,
     decompose: decompose,
+    datedSeries: datedSeries, datedFx: datedFx, fxOnOrBefore: fxOnOrBefore,
     currencyOfPositions: currencyOfPositions,
     attribute: attribute,
     rowsFromPortfolio: rowsFromPortfolio,
