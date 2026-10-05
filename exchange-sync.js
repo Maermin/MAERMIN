@@ -70,9 +70,17 @@
   // Split an exchange pair into { base, quote }. Handles 'BTCEUR', 'BTC-EUR',
   // 'XBT/EUR' (Kraken XBT = BTC). Only EUR/USD quotes are imported.
   var QUOTES = ['EUR', 'USD', 'USDT', 'USDC'];
-  function normalizeBase(b) { b = str(b).toUpperCase(); return b === 'XBT' ? 'BTC' : b; }
+  // Kraken's own asset codes (XBT = BTC, XDG = DOGE) and their legacy 4-letter
+  // forms with the X prefix (XXBT, XETH, XXDG, ...).
+  var KRAKEN_ASSETS = { XBT: 'BTC', XXBT: 'BTC', XDG: 'DOGE', XXDG: 'DOGE', XETH: 'ETH' };
+  function normalizeBase(b) { b = str(b).toUpperCase(); return KRAKEN_ASSETS[b] || b; }
   function parsePair(pair) {
     var p = str(pair).toUpperCase().replace(/[\/\-_]/g, '');
+    // Kraken's legacy pair names: X<asset>Z<fiat>, e.g. XXBTZEUR, XETHZUSD
+    // (FINDINGS H-1). Only this exact 8-letter shape is unwrapped - stripping
+    // an X or Z elsewhere would break real assets such as XTZ (Tezos) or XRP.
+    var legacy = /^X([A-Z]{3})Z(EUR|USD)$/.exec(p);
+    if (legacy) return { base: normalizeBase(legacy[1]), quote: legacy[2] };
     for (var i = 0; i < QUOTES.length; i++) {
       var q = QUOTES[i];
       if (p.length > q.length && p.slice(-q.length) === q) {
@@ -102,10 +110,29 @@
       arr.forEach(function (tr) {
         var pr = parsePair(tr.symbol);
         if (!pr.base || !pr.quote) return;
-        var fee = (str(tr.commissionAsset).toUpperCase() === pr.quote) ? num(tr.commission) : 0;
-        out.push(tx(pr.base, tr.isBuyer ? 'buy' : 'sell', tr.qty, tr.price, fee, quoteCurrency(pr.quote),
+        // The commission can be taken in the quote, in the traded coin or in a
+        // third asset (BNB). FINDINGS M-2: a fee in the bought coin used to be
+        // dropped, so the quantity was 0.1 % too high on every buy.
+        var feeAsset = str(tr.commissionAsset).toUpperCase(), commission = num(tr.commission);
+        var qty = num(tr.qty), price = num(tr.price), fee = 0, extra = null;
+        if (feeAsset === pr.quote) fee = commission;
+        else if (feeAsset === pr.base) {
+          // Valued at the trade price so the cost (or proceeds) stay exact; on a
+          // buy the coin arrives net of the fee.
+          fee = commission * price;
+          if (tr.isBuyer) qty = qty - commission;
+        } else if (feeAsset && commission > 0) {
+          // No price for the fee asset here: keep it on the row instead of losing it.
+          extra = { feeAsset: feeAsset, feeQuantity: commission };
+        }
+        var row = tx(pr.base, tr.isBuyer ? 'buy' : 'sell', qty, price, fee, quoteCurrency(pr.quote),
           // Binance trade ids are only unique PER SYMBOL - qualify them.
-          new Date(num(tr.time)).toISOString(), 'binance', str(tr.symbol).toUpperCase() + ':' + str(tr.id)));
+          new Date(num(tr.time)).toISOString(), 'binance', str(tr.symbol).toUpperCase() + ':' + str(tr.id));
+        if (extra) {
+          row.feeAsset = extra.feeAsset; row.feeQuantity = extra.feeQuantity;
+          row.notes = 'Fee paid in ' + extra.feeAsset + ': ' + extra.feeQuantity + ' (not in the cost basis - add it as fee if you want it counted)';
+        }
+        out.push(row);
       });
       return out;
     },
@@ -194,7 +221,8 @@
     var added = d.unique.map(function (c) {
       return Object.assign({}, c, {
         id: (typeof window !== 'undefined' && window.MaerminUtils && window.MaerminUtils.generateId) ? window.MaerminUtils.generateId() : uid(),
-        portfolioId: portfolioId, auto: true, notes: 'Imported from ' + (EXCHANGES[c.exchange] ? EXCHANGES[c.exchange].label : c.exchange)
+        portfolioId: portfolioId, auto: true,
+        notes: 'Imported from ' + (EXCHANGES[c.exchange] ? EXCHANGES[c.exchange].label : c.exchange) + (c.notes ? ' · ' + c.notes : '')
       });
     });
     return { transactions: (Array.isArray(existing) ? existing : []).concat(added), added: added, skipped: d.dropped };

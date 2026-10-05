@@ -35,7 +35,8 @@ const X = require('../exchange-sync.js');
   ok('binance maps two trades', bt.length === 2);
   ok('binance buy mapped', bt[0].type === 'buy' && bt[0].symbol === 'BTC' && bt[0].quantity === 0.1 && bt[0].price === 50000);
   ok('binance fee in quote currency kept', bt[0].fees === 0.5 && bt[0].currency === 'EUR');
-  ok('binance fee in non-quote asset ignored', bt[1].fees === 0);
+  // FINDINGS M-2: a fee in the traded coin used to be ignored (fee 0).
+  ok('binance fee in the traded coin is valued at the trade price', bt[1].fees === 0.01 * 3000 && bt[1].quantity === 1);
   ok('binance USDT quote -> USD', bt[1].currency === 'USD' && bt[1].type === 'sell');
   ok('binance carries external markers', bt[0].source === 'exchange-sync' && bt[0].exchange === 'binance' && bt[0].externalId === 'BTCEUR:111');
 

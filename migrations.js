@@ -109,6 +109,16 @@
           if (p.moved) writeJSON('maermin_savings_plans', p.items);
         }
       }
+    },
+    {
+      v: 6,
+      name: 'fx: re-fetch the USD->EUR history once (its summer bars were filed one day early)',
+      up: function () {
+        // The cached daily rates stay usable until then; the next refresh with a
+        // Worker downloads the full range again and replaces the cache in that
+        // range (MaerminFxHistory.applySeries), dropping the misdated keys.
+        try { localStorage.removeItem('maermin_fx_backfill'); } catch (e) { /* best effort */ }
+      }
     }
   ];
 
