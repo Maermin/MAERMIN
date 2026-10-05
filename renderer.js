@@ -41,8 +41,6 @@ class ViewErrorBoundary extends React.Component {
   }
 }
 
-// Get translations
-const translations = typeof window.completeTranslations !== 'undefined' ? window.completeTranslations : { en: {} };
 
 // Theme configuration
 // ── Design system: "Aurora" ─────────────────────────────────────────────────
@@ -966,7 +964,11 @@ function InvestmentTracker() {
   
   // Merge: English is the base, the selected language overrides it — so any key
   // missing from a non-English locale gracefully falls back to English.
-  const t = Object.assign({}, translations.en || {}, translations[language] || {});
+  // MaerminI18n follows the same language during this render, so modules that
+  // translate through it (and the locale formatters) match the `t` below.
+  window.MaerminI18n.setLang(language);
+  const t = window.MaerminI18n.dict(language);
+  useEffect(() => { window.MaerminI18n.applyHtmlLang(language); }, [language]);
   const currentTheme = themes[theme] || themes.dark;
 
   // Mirror the active theme onto <html> so CSS-only chrome (palette, toasts,
@@ -987,8 +989,8 @@ function InvestmentTracker() {
     // All prices are stored in EUR
     // If user wants USD, convert from EUR to USD by dividing by the USD->EUR rate
     const converted = currency === 'USD' && exchangeRate > 0 ? price / exchangeRate : price;
-    return converted.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
-  }, [currency, exchangeRate, privacyMode]);
+    return window.MaerminI18n.num(converted, 2, language);
+  }, [currency, exchangeRate, privacyMode, language]);
 
   const getCurrencySymbol = () => currency === 'EUR' ? '€' : '$';
 

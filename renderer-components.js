@@ -294,7 +294,7 @@ function CorrelationMatrixView({ portfolio, priceHistory, historySource, t, them
       }
     }, computing
       ? (t.loading || 'Loading...')
-      : (t.correlationNeedsHistory || ('Not enough price history yet. The correlation matrix needs at least two holdings with two or more recorded prices each (' + withHistory + ' so far). A price point is recorded on every refresh.')));
+      : window.MaerminI18n.fill(t.correlationNeedsHistory || 'Not enough price history yet. The correlation matrix needs at least two holdings with two or more recorded prices each ({n} so far). A price point is recorded on every refresh.', { n: withHistory }));
   }
 
   const { matrix, score, extremes } = correlationData;

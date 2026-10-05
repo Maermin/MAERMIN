@@ -115,7 +115,7 @@ function ReturnsView({ transactions, portfolio, prices, priceHistory, theme, for
   const color  = v => v > 0 ? theme.success : v < 0 ? theme.danger : theme.text;
 
   return React.createElement('div', { style: { padding: '1.5rem' } },
-    React.createElement('h2', { style: { color: theme.text, fontSize: '1.5rem', fontWeight: '800', letterSpacing: '-0.02em', marginBottom: '0.5rem' } }, (t.returns || 'Return Analysis')),
+    React.createElement('h2', { style: { color: theme.text, fontSize: '1.5rem', fontWeight: '800', letterSpacing: '-0.02em', marginBottom: '0.5rem' } }, (t.returnAnalysis || 'Return Analysis')),
     React.createElement('p', { style: { color: theme.textSecondary, fontSize: '0.875rem', marginBottom: '1.5rem', lineHeight: '1.6' } },
       t.returnsHint || 'XIRR (Money-Weighted Return) accounts for the timing and size of your cash flows. TWR shows portfolio performance independent of cash flows.'
     ),
