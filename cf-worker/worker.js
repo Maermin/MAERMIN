@@ -12,13 +12,9 @@
  *                                                 (Strategy tab Sector & Country allocation)
  *   GET  /?action=fundamentals&symbol=KO       → dividend-safety fundamentals: payout
  *                                                 ratio, EPS, dividend rate/yield
- *   GET  /?action=steamhistory&name=...        → Steam skin price (fallback to current)
- *   GET  /?action=skinport                      → Skinport price list, all CS2 items (USD)
- *   GET  /?action=search&q=...                 → Steam Market skin search (images)
- *   POST /                                      → Steam skin price lookup (items Skinport lacks)
+ *   GET  /?action=skinprices                    → CS2 Steam Market prices, all items (USD,
+ *                                                 CSGO Trader's daily price file)
  */
-
-const STEAM_IMG = 'https://community.akamai.steamstatic.com/economy/image';
 
 export default {
   async fetch(request, env, ctx) {
@@ -32,12 +28,12 @@ export default {
     // A CS2 skin name filed as a stock ("AK-47 | Redline (Field-Tested)") was
     // sent to the Yahoo routes on every refresh, bare and with six exchange
     // suffixes: hundreds of upstream 404s that also used up the rate limit, so
-    // the Steam price requests were refused with 429. Such a symbol is answered
+    // the skin price requests were refused with 429. Such a symbol is answered
     // here, without an upstream call and without counting against the limit.
     if (request.method === 'GET' && SYMBOL_ROUTES.has(action)) {
       const sym = (url.searchParams.get('symbol') || '').trim();
       if (sym && !isMarketSymbol(sym)) {
-        return res(JSON.stringify({ error: 'not a market symbol', hint: 'CS2 items are priced through Steam (category CS2 Skins)' }), 400, request);
+        return res(JSON.stringify({ error: 'not a market symbol', hint: 'CS2 items are priced through the skin price list (category CS2 Skins)' }), 400, request);
       }
     }
 
@@ -45,9 +41,8 @@ export default {
     // A sliding per-IP cap protects the worker (and its upstream/billing) from
     // bursts and casual abuse of the open proxy/sync endpoints. In-memory per
     // isolate (no external dependency); not a hard global guarantee, but it
-    // blunts floods. Tune RATE_LIMIT below. Steam requests (skin prices,
-    // history, search) have their own budget, so a burst of stock or chart
-    // requests can never starve the skin prices.
+    // blunts floods. Tune RATE_LIMIT below. The skin price list has its own
+    // budget, so a burst of stock or chart requests can never starve it.
     if (isRateLimited(request, rateBucket(request, action))) {
       return res(JSON.stringify({ error: 'rate limited — slow down' }), 429, request);
     }
@@ -610,101 +605,6 @@ export default {
       }
     }
 
-    // ── Steam Market Price History ────────────────────────────────────────
-    // GET /?action=steamhistory&name=AK-47+|+Redline+(Field-Tested)
-    // Primary: the listing page embeds the price graph as "var line1" for
-    // anonymous visitors. KNOWN GAP (diagnosed 2026-06): Steam REDIRECTS some
-    // items (notably Souvenir skins) to a grouped item page WITHOUT line1, so
-    // the scrape legitimately finds nothing there - that case is detected
-    // explicitly (parseSteamLine1.found) instead of being treated like an
-    // error. Fallback: priceoverview (current price as a 2-point line) with a
-    // small backoff retry because Steam rate-limits it aggressively (429) for
-    // datacenter IPs. CONTRACT: prices are USD (currency=1 everywhere); the
-    // response says so honestly and the client converts (MaerminUtils.toEUR).
-    if (request.method === 'GET' && action === 'steamhistory') {
-      const name = url.searchParams.get('name') || '';
-      if (!name) return res(JSON.stringify({ error: 'name required' }), 400, request);
-
-      const cacheKey = new Request(`https://cache.maermin/steamhist3/${encodeURIComponent(name)}`);
-      const cache    = caches.default;
-      const cached   = await cache.match(cacheKey);
-      if (cached) return res(await cached.text(), 200, request);
-
-      let prices = [];
-      let source = null;
-      let note = null;
-
-      // ── Primary: scrape the listing page HTML ─────────────────────────────
-      try {
-        const listingUrl = `https://steamcommunity.com/market/listings/730/${encodeURIComponent(name)}`;
-        const r = await fetchWithTimeout(listingUrl, {
-          headers: {
-            'User-Agent':      'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36',
-            'Accept':          'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
-            'Accept-Language': 'en-US,en;q=0.9',
-            'Accept-Encoding': 'gzip, deflate, br',
-          },
-        }, 12000);
-
-        if (r.ok) {
-          const parsed = parseSteamLine1(await r.text());
-          if (parsed.found && parsed.prices.length) {
-            prices = parsed.prices;
-            source = 'listing';
-          } else if (!parsed.found) {
-            // Grouped/redirected page or layout change - not an error per se.
-            note = 'listing page has no price graph (grouped item page)';
-            console.log(`[STEAM] no line1 for ${name} - falling back to priceoverview`);
-          } else {
-            note = 'price graph present but empty';
-          }
-        }
-      } catch(e) {
-        console.warn('[STEAM] Listing page scrape failed:', e.message);
-      }
-
-      // ── Fallback: current price from priceoverview (no auth, no history). ──
-      // Retried once after a short pause on 429 - Steam throttles this endpoint
-      // hard for datacenter IPs, which is exactly why Souvenir positions ended
-      // up with "No price data" despite a live market.
-      if (prices.length === 0) {
-        const price = await fetchSteamOverviewPrice(name);
-        if (price > 0) {
-          const now = Math.floor(Date.now() / 1000);
-          prices = [
-            { ts: now - 86400 * 90, date: new Date((now - 86400 * 90) * 1000).toISOString().split('T')[0], price },
-            { ts: now,              date: new Date(now * 1000).toISOString().split('T')[0],                 price },
-          ];
-          source = 'overview';
-          console.log(`[STEAM] priceoverview fallback: ${name} → ${price}`);
-        }
-      }
-
-      if (prices.length === 0) {
-        return res(JSON.stringify({ error: 'No price data', prices: [], note }), 200, request);
-      }
-
-      // v10.x: seed the bulk price-lookup cache (POST /) with the current price
-      // (the latest point). The chart resolves a skin's price here first; sharing
-      // it means the price POST fills its map from cache instead of re-hitting
-      // Steam's priceoverview, which 429-throttles the whole batch ("no price").
-      try {
-        const cur = prices[prices.length - 1] && prices[prices.length - 1].price;
-        if (cur > 0) ctx.waitUntil(cache.put(
-          new Request(`https://cache.maermin/steamprice/${encodeURIComponent(name)}`),
-          new Response(String(cur), { headers: { 'Cache-Control': 'public, max-age=21600' } })));
-      } catch (e) { /* cache seed is best-effort */ }
-
-      const payload = JSON.stringify({ prices, currency: 'USD', source, note });
-      // Cache: real history 4h; an overview-only 2-point line just 10 min so a
-      // throttled phase does not pin a flat line for hours.
-      const ttl = source === 'listing' ? 14400 : 600;
-      ctx.waitUntil(cache.put(cacheKey, new Response(payload, {
-        headers: { 'Content-Type': 'application/json', 'Cache-Control': `public, max-age=${ttl}` }
-      })));
-      return res(payload, 200, request);
-    }
-
     // GET /?action=news&symbol=AAPL — Yahoo Finance RSS news for a symbol
     if (request.method === 'GET' && action === 'news') {
       const symbol = url.searchParams.get('symbol') || '';
@@ -725,70 +625,33 @@ export default {
       } catch(e) { return res('<?xml version="1.0"?><rss><channel></channel></rss>', 200, request); }
     }
 
-    // ── Skinport price list (all CS2 items, one request) ─────────────────────
-    // GET /?action=skinport → Skinport's public /v1/items list in USD:
-    // [{ market_hash_name, suggested_price, min_price, median_price, quantity, ... }]
-    // One upstream call prices every skin, so the app no longer asks Steam per
-    // item (Steam 429-throttles Cloudflare IPs). The ~9 MB body is streamed
-    // through UNPARSED - parsing it would exceed the free plan's CPU budget;
-    // the app parses it. Kept 10 min (Skinport allows 8 calls / 5 min and
-    // caches 5 min itself); when Skinport refuses or fails, the last good copy
-    // (up to 24 h old) is served with `X-Skinport-Stale: 1`.
-    if (request.method === 'GET' && action === 'skinport') {
-      const copy = skinportStore(env);
+    // ── CS2 skin prices (all items, one request) ─────────────────────────────
+    // GET /?action=skinprices → CSGO Trader's daily Steam Market price file:
+    // { "<market_hash_name>": { last_24h, last_7d, last_30d, last_90d }, ... } (USD)
+    // Steam and Skinport themselves block or throttle Cloudflare Workers; this
+    // file is on Amazon S3/CloudFront, is rebuilt once a day and prices every
+    // CS2 item in ONE call. The ~4 MB body is streamed through UNPARSED (the
+    // free plan's CPU budget); the app parses it. Kept for an hour (KV when
+    // bound as SYNC, else the edge cache); when the source fails, the last good
+    // copy (up to 3 days old) is served with `X-Stale: 1`.
+    if (request.method === 'GET' && action === 'skinprices') {
+      const copy = skinPriceStore(env);
       const hit = await copy.get();
-      if (hit && Date.now() - hit.fetchedAt < SKINPORT_FRESH_MS) return passThrough(hit.response, request, false, hit.fetchedAt);
+      if (hit && Date.now() - hit.fetchedAt < SKIN_PRICES_FRESH_MS) return passThrough(hit.response, request, false, hit.fetchedAt);
       try {
-        const r = await fetchWithTimeout('https://api.skinport.com/v1/items?app_id=730&currency=USD&tradable=0',
-          // A Worker sends no User-Agent by default; Skinport's bot protection
-          // answered such requests with 403.
-          { headers: { 'Accept-Encoding': 'br', 'Accept': 'application/json',
-            'User-Agent': 'MAERMIN-Portfolio-Worker/1.0 (+https://github.com/Maermin/MAERMIN)' } }, 20000);
-        if (!r.ok || !r.body) throw new Error('Skinport ' + r.status + (r.status === 403 ? ' (Skinport refuses requests from this Worker - skin prices fall back to Steam)' : ''));
+        const r = await fetchWithTimeout(SKIN_PRICES_URL, { headers: { 'Accept': 'application/json',
+          'User-Agent': 'MAERMIN-Portfolio-Worker/1.0 (+https://github.com/Maermin/MAERMIN)' } }, 20000);
+        if (!r.ok || !r.body) throw new Error('price file ' + r.status);
         const [toClient, toStore] = r.body.tee();
         const fetchedAt = Date.now();
         ctx.waitUntil(copy.put(toStore, fetchedAt));
         return passThrough(new Response(toClient), request, false, fetchedAt);
       } catch (e) {
         if (hit) return passThrough(hit.response, request, true, hit.fetchedAt);
-        return res(JSON.stringify({ error: 'Skinport unavailable: ' + (e && e.message) }), 502, request);
+        return res(JSON.stringify({ error: 'Skin prices unavailable: ' + (e && e.message) }), 502, request);
       }
     }
 
-    if (request.method === 'GET' && action === 'search') {
-      const q = url.searchParams.get('q') || '';
-      if (!q) return res(JSON.stringify([]), 200, request);
-
-      const searchUrl = `https://steamcommunity.com/market/search/render/?` +
-        `query=${encodeURIComponent(q)}&appid=730&norender=1&count=24` +
-        `&search_descriptions=0&sort_column=popular&sort_dir=desc&currency=1`;
-
-      try {
-        const r = await fetchWithTimeout(searchUrl, { headers: steamHeaders() });
-        if (!r.ok) return res(JSON.stringify({ error: 'Steam search failed: ' + r.status }), r.status, request);
-
-        const data  = await r.json();
-        const items = (data.results || []).map(item => ({
-          name:  item.hash_name || item.name,
-          image: item.asset_description?.icon_url
-            ? `${STEAM_IMG}/${item.asset_description.icon_url}/330x192`
-            : null,
-          price:     item.sell_price ? item.sell_price / 100 : null,
-          priceText: item.sell_price_text || null,
-          count:     item.sell_listings  || 0,
-          rarity:    item.asset_description?.tags?.find(t => t.category === 'Rarity')?.localized_tag_name || null,
-          rarityColor: item.asset_description?.tags?.find(t => t.category === 'Rarity')?.color
-            ? '#' + item.asset_description.tags.find(t => t.category === 'Rarity').color : null,
-          wear: item.asset_description?.tags?.find(t => t.category === 'Exterior')?.localized_tag_name || null,
-        }));
-
-        return res(JSON.stringify(items), 200, request);
-      } catch (e) {
-        return res(JSON.stringify({ error: e.message }), 502, request);
-      }
-    }
-
-    // ── Steam Price Lookup (POST) ─────────────────────────────────────────────
     // ── Broker proxy ─────────────────────────────────────────────────────────
     // POST /?action=brokerproxy  body: { method, url, headers, body }
     // Relays a CLIENT-SIGNED request to a whitelisted exchange host so the
@@ -816,218 +679,11 @@ export default {
       }
     }
 
-    if (request.method === 'POST') {
-      let names;
-      try {
-        names = await request.json();
-        if (!Array.isArray(names)) throw new Error('expected array');
-      } catch {
-        return res(JSON.stringify({ error: 'Body must be JSON array of skin names' }), 400, request);
-      }
-
-      names = names.slice(0, 30);
-      const results = {};
-
-      // CONTRACT: skin prices are returned in USD (Steam currency=1). The client
-      // converts USD → its canonical EUR via the live FX rate (MaerminUtils.toEUR)
-      // and then displays in the user's selected currency. Keep all skin price
-      // endpoints (priceoverview, search, history) on currency=1 so the source
-      // currency is unambiguous.
-      //
-      // Per-skin edge cache (30 min). Steam 429-throttles priceoverview hard for
-      // datacenter (Cloudflare) IPs, so a freshly resolved price is precious:
-      // cache each one and only hit Steam for the misses. This both fills more
-      // of the map and shrinks the burst that triggers the throttling.
-      const cache = caches.default;
-      const priceKey = (n) => new Request(`https://cache.maermin/steamprice/${encodeURIComponent(n)}`);
-      // Skin prices move slowly; a resolved price is precious because Steam
-      // 429-throttles the Worker's Cloudflare IP. Cache for 6h so a daily user's
-      // map stays filled and we only hit Steam for genuinely new/expired skins.
-      const STEAM_PRICE_TTL = 21600;
-
-      const toFetch = [];
-      await Promise.all(names.map(async (name) => {
-        if (!name || typeof name !== 'string') return;
-        const trimmed = name.trim();
-        const hit = await cache.match(priceKey(trimmed));
-        if (hit) {
-          const p = parseFloat(await hit.text());
-          if (p > 0) { results[name] = p; return; }
-        }
-        // v10.x: before re-hitting Steam, reuse the chart's history cache
-        // (steamhist3) — it resolves a skin's current price first and shares the
-        // same normalised name, so this fills the map without a second Steam
-        // burst (which is what 429s the batch into an empty "no price" result).
-        try {
-          const histHit = await cache.match(new Request(`https://cache.maermin/steamhist3/${encodeURIComponent(trimmed)}`));
-          if (histHit) {
-            const j = JSON.parse(await histHit.text());
-            const pts = j && j.prices;
-            const last = (pts && pts.length) ? pts[pts.length - 1].price : 0;
-            if (last > 0) {
-              results[name] = last;
-              ctx.waitUntil(cache.put(priceKey(trimmed), new Response(String(last), { headers: { 'Cache-Control': `public, max-age=${STEAM_PRICE_TTL}` } })));
-              return;
-            }
-          }
-        } catch (e) { /* fall through to a fresh fetch */ }
-        toFetch.push(name);
-      }));
-
-      // Fetch the cache misses in small concurrent batches instead of
-      // one-at-a-time-with-1.5s-sleep (which took up to 45s for 30 skins).
-      // Smaller batches + a longer gap keep us under Steam's burst limit, which
-      // 429s a wide concurrent fan-out and returns an empty map ("no price").
-      const BATCH = 3, GAP_MS = 700;
-      const fetchOne = async (name) => {
-        // Same robust overview path as steamhistory: shared parsing (handles
-        // lowest_price-only Souvenir responses) + one backoff retry on 429.
-        const price = await fetchSteamOverviewPrice(name.trim());
-        if (price > 0) {
-          results[name] = price;
-          ctx.waitUntil(cache.put(priceKey(name.trim()), new Response(String(price), {
-            headers: { 'Cache-Control': `public, max-age=${STEAM_PRICE_TTL}` },
-          })));
-        }
-      };
-      for (let i = 0; i < toFetch.length; i += BATCH) {
-        await Promise.all(toFetch.slice(i, i + BATCH).map(fetchOne));
-        if (i + BATCH < toFetch.length) await sleep(GAP_MS);
-      }
-
-      return res(JSON.stringify(results), 200, request);
-    }
-
     return res(JSON.stringify({ error: 'Unknown action' }), 400, request);
   },
 };
 
 // ── Helpers ──────────────────────────────────────────────────────────────────
-
-// Parse the "var line1" price graph embedded in a Steam listing page.
-// PURE and exported for the Node harness (test/steam-history.test.js).
-// Returns { found, prices }:
-//   found:false             - the page has no line1 at all (grouped/redirected
-//                             item page, e.g. Souvenir skins, or layout change)
-//   found:true, prices:[]   - a graph variable exists but holds no usable rows
-//   found:true, prices:[..] - [{ts, date, price(USD)}] sorted ascending
-export function parseSteamLine1(html) {
-  const text = String(html || '');
-  // Tolerate an empty array too: /\[.*?\]/ instead of the old /\[\[.+?\]\]/,
-  // which silently failed to match "var line1=[];" on sparse items.
-  const match = text.match(/var line1\s*=\s*(\[[\s\S]*?\])\s*;/);
-  if (!match) return { found: false, prices: [] };
-  let raw;
-  try { raw = JSON.parse(match[1]); } catch { return { found: true, prices: [] }; }
-  if (!Array.isArray(raw)) return { found: true, prices: [] };
-  const prices = raw.map((row) => {
-    if (!Array.isArray(row) || row.length < 2) return null;
-    // Row: ["Dec 01 2021 01: +0", "12.50", "3"] - strip the hour suffix.
-    const clean = String(row[0]).replace(/\s+\d+:\s+\+0$/, '').trim();
-    const d = new Date(clean + ' UTC');
-    if (isNaN(d.getTime())) return null;
-    const price = parseFloat(row[1]) || 0;
-    return price > 0 ? { ts: Math.floor(d.getTime() / 1000), date: d.toISOString().split('T')[0], price } : null;
-  }).filter(Boolean).sort((a, b) => a.ts - b.ts);
-  return { found: true, prices };
-}
-
-// Parse a priceoverview JSON body into a USD price. PURE and exported.
-// Handles the real-world shapes: lowest_price only (Souvenir items often have
-// no median_price), median_price only, both, or neither.
-export function parseSteamOverview(body) {
-  if (!body || body.success !== true) return 0;
-  const raw = body.lowest_price || body.median_price || '';
-  // Disambiguate the separator. With currency=1 Steam sends USD "$1,113.00"
-  // where the comma is a THOUSANDS separator - the old `.replace(',', '.')`
-  // turned that into 1.113 (off by 1000x, which is why pricey knives broke).
-  // Still tolerate EU-format "12,34" (comma = decimal) for robustness.
-  let s = String(raw).replace(/[^0-9.,]/g, '');
-  if (s.includes(',') && s.includes('.')) {
-    s = s.replace(/,/g, '');                          // both -> comma is thousands
-  } else if (s.includes(',')) {
-    s = /,\d{1,2}$/.test(s) ? s.replace(',', '.')     // trailing ,dd -> decimal
-                            : s.replace(/,/g, '');      // otherwise thousands
-  }
-  const price = parseFloat(s);
-  return (isFinite(price) && price > 0) ? price : 0;
-}
-
-// Lowest current ASK (USD) from the Steam listings *render* endpoint. PURE and
-// exported. This is the fallback for ILLIQUID items (expensive knives, Doppler
-// phases) where priceoverview returns nothing because there were no recent
-// SALES — but there are active LISTINGS, whose asks live in `listinginfo`
-// (converted_price + converted_fee, in integer cents at currency=1).
-export function parseSteamListingRender(body) {
-  if (!body || body.success !== true || !body.listinginfo || typeof body.listinginfo !== 'object') return 0;
-  let lowest = 0;
-  for (const id of Object.keys(body.listinginfo)) {
-    const li = body.listinginfo[id];
-    if (!li) continue;
-    const cents = (parseInt(li.converted_price, 10) || 0) + (parseInt(li.converted_fee, 10) || 0);
-    if (cents > 0) { const usd = cents / 100; if (lowest === 0 || usd < lowest) lowest = usd; }
-  }
-  return lowest;
-}
-
-// priceoverview with escalating backoff on 429/5xx - Steam throttles this
-// endpoint aggressively for datacenter IPs.
-async function fetchPriceOverviewOnly(name) {
-  const ovUrl = `https://steamcommunity.com/market/priceoverview/` +
-    `?appid=730&currency=1&market_hash_name=${encodeURIComponent(name)}`;
-  const BACKOFF = [900, 2000];
-  for (let attempt = 0; attempt < 3; attempt++) {
-    try {
-      const r = await fetchWithTimeout(ovUrl, { headers: steamHeaders() });
-      if (r.status === 429 || r.status >= 500) {
-        if (attempt < BACKOFF.length) { await sleep(BACKOFF[attempt]); continue; }
-        return 0;
-      }
-      if (!r.ok) return 0;
-      return parseSteamOverview(await r.json());
-    } catch {
-      if (attempt < BACKOFF.length) { await sleep(400 * (attempt + 1)); continue; }
-      return 0;
-    }
-  }
-  return 0;
-}
-
-// Lowest current ask from the listings render endpoint (one backoff retry).
-async function fetchSteamListingPrice(name) {
-  const url = `https://steamcommunity.com/market/listings/730/${encodeURIComponent(name)}/render/` +
-    `?start=0&count=10&currency=1&language=english&format=json`;
-  for (let attempt = 0; attempt < 2; attempt++) {
-    try {
-      const r = await fetchWithTimeout(url, { headers: steamHeaders() }, 12000);
-      if (r.status === 429 || r.status >= 500) { if (attempt < 1) { await sleep(1200); continue; } return 0; }
-      if (!r.ok) return 0;
-      return parseSteamListingRender(await r.json());
-    } catch {
-      if (attempt < 1) { await sleep(500); continue; }
-      return 0;
-    }
-  }
-  return 0;
-}
-
-// Best current USD price for a skin: priceoverview (recent sales) first, then
-// the listings render endpoint (current lowest ask) for illiquid items that
-// have no recent sales. Both callers (steamhistory fallback + POST) use this.
-async function fetchSteamOverviewPrice(name) {
-  const ov = await fetchPriceOverviewOnly(name);
-  if (ov > 0) return ov;
-  return await fetchSteamListingPrice(name);
-}
-
-function steamHeaders() {
-  return {
-    'User-Agent':      'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36',
-    'Accept':          'application/json, text/plain, */*',
-    'Accept-Language': 'en-US,en;q=0.9',
-    'Referer':         'https://steamcommunity.com/market/search?appid=730',
-  };
-}
 
 // Read-only relay policy. Host allowlist alone let anyone use this Worker as
 // an anonymous relay for signed TRADING/withdrawal calls (any method, any path)
@@ -1051,7 +707,6 @@ export function brokerRelayAllowed(target, method) {
   return ok ? { ok: true } : { ok: false, error: 'Endpoint not allowed (read-only relay)' };
 }
 
-function sleep(ms) { return new Promise(r => setTimeout(r, ms)); }
 
 function safeJson(text) { try { return JSON.parse(text); } catch { return text; } }
 
@@ -1316,12 +971,10 @@ export function isMarketSymbol(raw) {
   return /^[A-Za-z0-9^][A-Za-z0-9.\-=^_]{0,23}$/.test(String(raw == null ? '' : raw).trim());
 }
 
-// Which rate-limit budget a request draws from: Steam (POST skin prices,
-// steamhistory, search) or everything else. PURE, exported for the harness.
+// Which rate-limit budget a request draws from: the skin price list or
+// everything else. PURE, exported for the harness.
 export function rateBucket(request, action) {
-  const steam = action === 'steamhistory' || action === 'search' || action === 'skinport' ||
-    (request.method === 'POST' && !action);
-  return steam ? 'steam' : 'default';
+  return action === 'skinprices' ? 'skins' : 'default';
 }
 
 // In-memory sliding-window rate limiter (per worker isolate). Keyed by client
@@ -1383,15 +1036,16 @@ export function allowOrigin(request) {
   return '';
 }
 
-// Skinport list: served from the edge copy for this long before re-fetching.
-const SKINPORT_FRESH_MS = 10 * 60 * 1000;
+// CS2 price file (CSGO Trader, Steam Market prices) and how long a copy is used.
+const SKIN_PRICES_URL = 'https://prices.csgotrader.app/latest/steam.json';
+const SKIN_PRICES_FRESH_MS = 60 * 60 * 1000;
 
-// Where the last Skinport list is kept: the KV namespace bound as SYNC when
-// there is one (the edge cache does not keep anything for Workers on a
-// workers.dev address), else the edge cache. Values are streamed in and out,
-// never parsed. get() -> { response, fetchedAt } | null.
-function skinportStore(env) {
-  const KV_KEY = 'skinport:items-usd';
+// Where the last price file is kept: the KV namespace bound as SYNC when there
+// is one (the edge cache does not keep anything for Workers on a workers.dev
+// address), else the edge cache. Streamed in and out, never parsed.
+// get() -> { response, fetchedAt } | null.
+function skinPriceStore(env) {
+  const KV_KEY = 'skinprices:steam-usd';
   if (env && env.SYNC && typeof env.SYNC.put === 'function') {
     return {
       async get() {
@@ -1399,23 +1053,23 @@ function skinportStore(env) {
         if (!r || !r.value) return null;
         return { response: new Response(r.value), fetchedAt: Number((r.metadata && r.metadata.fetchedAt) || 0) };
       },
-      put: (stream, fetchedAt) => env.SYNC.put(KV_KEY, stream, { metadata: { fetchedAt }, expirationTtl: 86400 }),
+      put: (stream, fetchedAt) => env.SYNC.put(KV_KEY, stream, { metadata: { fetchedAt }, expirationTtl: 3 * 86400 }),
     };
   }
-  const key = new Request('https://cache.maermin/skinport/items-usd');
+  const key = new Request('https://cache.maermin/skinprices/steam-usd');
   return {
     async get() {
       const hit = await caches.default.match(key);
       return hit ? { response: hit, fetchedAt: Number(hit.headers.get('X-Fetched-At') || 0) } : null;
     },
     put: (stream, fetchedAt) => caches.default.put(key, new Response(stream, {
-      headers: { 'Content-Type': 'application/json', 'X-Fetched-At': String(fetchedAt), 'Cache-Control': 'public, max-age=86400' },
+      headers: { 'Content-Type': 'application/json', 'X-Fetched-At': String(fetchedAt), 'Cache-Control': 'public, max-age=259200' },
     })),
   };
 }
 
 // Stream a cached/upstream Response to the client with the CORS headers of
-// res(), without reading the body (the Skinport list is never parsed here).
+// res(), without reading the body (the price file is never parsed here).
 function passThrough(upstream, request, stale, fetchedAt) {
   const origin = allowOrigin(request);
   return new Response(upstream.body, {
@@ -1424,11 +1078,11 @@ function passThrough(upstream, request, stale, fetchedAt) {
       ...(origin ? { 'Access-Control-Allow-Origin': origin } : {}),
       'Access-Control-Allow-Methods': 'GET, POST, OPTIONS',
       'Access-Control-Allow-Headers': 'Content-Type',
-      'Access-Control-Expose-Headers': 'X-Fetched-At, X-Skinport-Stale',
+      'Access-Control-Expose-Headers': 'X-Fetched-At, X-Stale',
       'Vary':         'Origin',
       'Content-Type': 'application/json',
       'X-Fetched-At': String(fetchedAt || Date.now()),
-      ...(stale ? { 'X-Skinport-Stale': '1' } : {}),
+      ...(stale ? { 'X-Stale': '1' } : {}),
     },
   });
 }

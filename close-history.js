@@ -8,7 +8,6 @@
 //
 // Sources (no new host):
 //   stocks, commodities   the Worker's `?action=yf` route (Yahoo closes + splits)
-//   skins                 the Worker's `?action=steamhistory` route (USD)
 //   crypto                CoinGecko `market_chart` in EUR - the same direct call
 //                         the value chart and the savings plans already make
 //
@@ -17,7 +16,7 @@
 //
 //   need(transactions)                 holdings that can have a series
 //   plan(need, store, nowMs)           what to fetch: full range or just the tail
-//   ingestYahoo / ingestCoinGecko / ingestSteam   response -> series
+//   ingestYahoo / ingestCoinGecko      response -> series
 //   sync({ transactions, workerBase, fetch, ... })   run the plan (injectable fetch)
 //   load() / save()                    persisted at localStorage[KEY]
 //
@@ -42,7 +41,9 @@
   var REFRESH_MS = 6 * 3600 * 1000; // a covered series is topped up at most every 6 h
   var MISS_MS = 24 * 3600 * 1000;   // a holding without history is asked again after a day
   var LEAD_DAYS = 7;                // fetch a week before the first trade (prior close)
-  var CATEGORIES = { stocks: 1, commodities: 1, crypto: 1, skins: 1 };
+  // CS2 skins have no daily history source (the chart uses the averages of the
+  // daily skin price list instead).
+  var CATEGORIES = { stocks: 1, commodities: 1, crypto: 1 };
 
   // Bare tickers the price refresh maps to an exchange listing. ONE table for
   // the live quote (renderer.js fetchPrices) and the history, so both always
@@ -192,16 +193,6 @@
     return build(rows, { cur: 'EUR', src: 'cg', sym: (meta && meta.sym) || '', at: meta && meta.at });
   }
 
-  // Worker `?action=steamhistory`: { prices: [{ date, price }], currency: 'USD', source }.
-  // Only a real listing history counts: the Worker's 'overview' fallback is the
-  // CURRENT price drawn as a flat 90-day line, not a history. Workers without a
-  // `source` field mislabel the same USD numbers as EUR (see features6.js).
-  function ingestSteam(json, meta) {
-    if (!json || json.error || !Array.isArray(json.prices) || json.source !== 'listing') return null;
-    var rows = json.prices.map(function (r) { return [ymd(r && r.date), num(r && r.price)]; });
-    return build(rows, { cur: 'USD', src: 'steam', sym: (meta && meta.sym) || '', at: meta && meta.at });
-  }
-
   // Merge a freshly fetched series over a stored one (new values win).
   function mergeSeries(old, inc) {
     if (!inc) return old || null;
@@ -308,12 +299,6 @@
       }).then(function (j) { return ingestCoinGecko(j, meta); });
     }
     if (!o.workerBase) return Promise.reject(new Error('no Worker'));
-    if (job.category === 'skins') {
-      var name = o.normalizeSkin ? o.normalizeSkin(job.symbol) : job.symbol;
-      meta.sym = name;
-      return getJson(o.fetch, o.workerBase + '?action=steamhistory&name=' + encodeURIComponent(name), o.timeoutMs)
-        .then(function (j) { return ingestSteam(j, meta); });
-    }
     var sym = yfSymbol(job.category, job.symbol, o.suffixCache);
     meta.sym = sym;
     // Not a ticker (a CS2 skin filed as a stock): no request, Yahoo would 404.
@@ -324,7 +309,7 @@
 
   // Run the plan. Never throws; resolves to
   //   { store, changed, fetched: [key], failed: [{ key, symbol, reason }], skipped: [key] }
-  // opts: { transactions, store, fetch, workerBase, suffixCache, normalizeSkin,
+  // opts: { transactions, store, fetch, workerBase, suffixCache,
   //         now, today, timeoutMs, chunk, chunkDelayMs, cryptoDelayMs, maxWorker, maxCrypto }
   // `skipped` = not tried in this run (no Worker, batch limit, rate limit) - try again later;
   // `failed`  = asked and no history came back.
@@ -334,7 +319,7 @@
     var o = {
       fetch: opts.fetch || (typeof fetch !== 'undefined' ? fetch : null),
       workerBase: String(opts.workerBase || '').trim().replace(/\/$/, ''),
-      suffixCache: opts.suffixCache || {}, normalizeSkin: opts.normalizeSkin,
+      suffixCache: opts.suffixCache || {},
       cryptoId: opts.cryptoId || tickerFn('coinGeckoId'),
       cgGet: opts.cgGet || (opts.fetch ? null : cgQueue()),
       isTicker: opts.isTicker || tickerFn('isMarketSymbol'),
@@ -433,7 +418,7 @@
     YF_LEGACY: YF_LEGACY, YF_COMMODITY: YF_COMMODITY,
     keyOf: keyOf, yfSymbol: yfSymbol, rangeFor: rangeFor,
     normalize: normalize, load: load, save: save, closesOf: closesOf,
-    ingestYahoo: ingestYahoo, ingestCoinGecko: ingestCoinGecko, ingestSteam: ingestSteam,
+    ingestYahoo: ingestYahoo, ingestCoinGecko: ingestCoinGecko,
     mergeSeries: mergeSeries, need: need, plan: plan, sync: sync
   };
   if (typeof window !== 'undefined') window.MaerminCloseHistory = api;

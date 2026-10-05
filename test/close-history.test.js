@@ -1,6 +1,6 @@
 // Node harness for the daily close history (what to fetch, ingestion, merge,
 // the fetch run). The Worker part runs the REAL cf-worker/worker.js in-process;
-// only the upstream (Yahoo / Steam) answers are synthetic fixtures.
+// only the upstream (Yahoo) answers are synthetic fixtures.
 // Run: node test/close-history.test.js
 'use strict';
 
@@ -29,8 +29,8 @@ const json = (o, status) => ({ ok: (status || 200) < 400, status: status || 200,
   const need = CH.need([tx('stocks', 'AAPL', '2024-03-01'), tx('stocks', 'aapl', '2023-01-05'), tx('stocks', 'AAPL', '2025-01-01', 'sell'),
     tx('crypto', 'bitcoin', '2024-01-01'), tx('skins', 'AK-47 | Redline (Field-Tested)', '2024-02-01'), tx('commodities', 'GOLD', '2024-02-01'),
     tx('options', 'AAPL250620C', '2024-02-01'), tx('bonds', 'X', '2024-02-01'), { type: 'dividend', category: 'stocks', symbol: 'KO', date: '2024-01-01' }, null]);
-  ok('one entry per traded holding with a source, earliest date', Object.keys(need).sort().join() === 'commodities|GOLD,crypto|BITCOIN,skins|AK-47 | REDLINE (FIELD-TESTED),stocks|AAPL' && need['stocks|AAPL'].first === '2023-01-05', Object.keys(need));
-  ok('options, custom classes and dividend-only symbols are not fetched', !need['options|AAPL250620C'] && !need['bonds|X'] && !need['stocks|KO']);
+  ok('one entry per traded holding with a source, earliest date', Object.keys(need).sort().join() === 'commodities|GOLD,crypto|BITCOIN,stocks|AAPL' && need['stocks|AAPL'].first === '2023-01-05', Object.keys(need));
+  ok('CS2 skins, options, custom classes and dividend-only symbols are not fetched', !Object.keys(need).some((k) => k.indexOf('skins|') === 0) && !need['options|AAPL250620C'] && !need['bonds|X'] && !need['stocks|KO']);
 
   console.log('ingestion:');
   const y = CH.ingestYahoo({ currency: 'USD', prices: [{ date: '2025-06-05', price: 200.123456789 }, { date: '2025-06-06', price: 0 }, { date: '2025-06-09', price: 204 }], splits: [{ date: '2025-06-09', numerator: 4, denominator: 1 }, { date: null, numerator: 1, denominator: 0 }] }, { sym: 'AAPL', at: NOW });
@@ -41,8 +41,6 @@ const json = (o, status) => ({ ok: (status || 200) < 400, status: status || 200,
   const midnight = (d) => Date.parse(d + 'T00:00:00Z');
   const cg = CH.ingestCoinGecko({ prices: [[midnight('2025-06-08'), 90000], [midnight('2025-06-09'), 91000], [midnight('2025-06-10'), 92000], [NOW, 93000]] });
   ok('CoinGecko: a 00:00 point is the close of the day before; "now" is today', JSON.stringify(CH.closesOf(cg)) === JSON.stringify([['2025-06-07', 90000], ['2025-06-08', 91000], ['2025-06-09', 92000], ['2025-06-10', 93000]]) && cg.cur === 'EUR', CH.closesOf(cg));
-  ok('Steam: listing history, last point of a day wins, USD', (() => { const s = CH.ingestSteam({ source: 'listing', currency: 'USD', prices: [{ date: '2025-06-09', price: 10 }, { date: '2025-06-09', price: 11 }] }); return s.cur === 'USD' && s.p.join() === '11'; })());
-  ok('Steam: the flat "overview" line is not a history', CH.ingestSteam({ source: 'overview', prices: [{ date: '2025-03-01', price: 5 }, { date: '2025-06-09', price: 5 }] }) === null && CH.ingestSteam({ prices: [{ date: '2025-06-09', price: 5 }] }) === null);
 
   console.log('store:');
   const m = CH.mergeSeries(y, CH.ingestYahoo({ currency: 'USD', prices: [{ date: '2025-06-09', price: 205 }, { date: '2025-06-10', price: 206 }] }, { at: NOW + 1 }));
@@ -74,13 +72,12 @@ const json = (o, status) => ({ ok: (status || 200) < 400, status: status || 200,
       calls.push(url);
       if (/coingecko/.test(url)) return /days=365&/.test(url) ? json({ prices: [[midnight('2025-06-10'), 92000]] }) : json({ error: 'exceeds' }, 401);
       if (/symbol=FAIL/.test(url)) return json({ error: 'Yahoo Finance returned 404' }, 404);
-      if (/steamhistory/.test(url)) return json({ source: 'overview', currency: 'USD', prices: [{ date: '2025-06-09', price: 5 }] });
       return json({ currency: 'EUR', prices: [{ date: '2025-06-09', price: 100 }, { date: '2025-06-10', price: 101 }], splits: [] });
     };
     const r = await CH.sync({ transactions: [tx('stocks', 'EUNL', '2025-05-20'), tx('stocks', 'FAIL', '2025-05-20'), tx('crypto', 'bitcoin', '2022-01-01'), tx('skins', 'AK', '2025-05-20')],
       workerBase: 'https://w.example/', fetch: fetchFn, now: NOW, suffixCache: { EUNL: 'EUNL.DE' }, cryptoDelayMs: 0 });
     ok('stock via the Worker with the resolved listing and the smallest range', calls.some((u) => u === 'https://w.example?action=yf&symbol=EUNL.DE&interval=1d&range=3mo'), calls);
-    ok('fetched / failed are reported, never thrown', r.fetched.sort().join() === 'crypto|BITCOIN,stocks|EUNL' && r.failed.map((f) => f.key).sort().join() === 'skins|AK,stocks|FAIL' && r.changed === true, r.failed);
+    ok('fetched / failed are reported, never thrown', r.fetched.sort().join() === 'crypto|BITCOIN,stocks|EUNL' && r.failed.map((f) => f.key).sort().join() === 'stocks|FAIL' && r.changed === true, r.failed);
     ok('CoinGecko beyond a year: falls back to 365 days', calls.filter((u) => /coingecko/.test(u)).length === 2 && !!r.store.series['crypto|BITCOIN']);
     ok('requested start is remembered', r.store.series['stocks|EUNL'].req === '2025-05-13' && r.store.series['crypto|BITCOIN'].req === '2021-12-25');
     const again = await CH.sync({ transactions: [tx('stocks', 'EUNL', '2025-05-20'), tx('crypto', 'bitcoin', '2022-01-01')], store: r.store, workerBase: 'https://w.example', fetch: async (u) => { calls.push('second:' + u); return json({}); }, now: NOW + 1000, cryptoDelayMs: 0 });
@@ -119,12 +116,12 @@ const json = (o, status) => ({ ok: (status || 200) < 400, status: status || 200,
   }
 
   {
-    // 22 skins without a price graph + 5 stocks: the skins must not take every
-    // batch slot again and again (they did, and the stocks were never loaded).
-    const txs = []; for (let i = 0; i < 22; i++) txs.push(tx('skins', 'Skin ' + i, '2025-05-20'));
+    // 22 holdings Yahoo does not know + 5 stocks: the unknown ones must not take
+    // every batch slot again and again (they did, and the stocks were never loaded).
+    const txs = []; for (let i = 0; i < 22; i++) txs.push(tx('stocks', 'GONE' + i, '2025-05-20'));
     for (let i = 0; i < 5; i++) txs.push(tx('stocks', 'ST' + i + '.DE', '2025-05-20'));
     let calls = 0;
-    const f = async (u) => { calls++; return /steamhistory/.test(u) ? json({ source: 'overview', prices: [{ date: '2025-06-09', price: 5 }] }) : json({ currency: 'EUR', prices: [{ date: '2025-06-09', price: 1 }] }); };
+    const f = async (u) => { calls++; return /symbol=GONE/.test(u) ? json({ error: 'Yahoo Finance returned 404' }, 404) : json({ currency: 'EUR', prices: [{ date: '2025-06-09', price: 1 }] }); };
     let r = await CH.sync({ transactions: txs, workerBase: 'https://w.example', now: NOW, chunkDelayMs: 0, fetch: f });
     r = await CH.sync({ transactions: txs, store: r.store, workerBase: 'https://w.example', now: NOW + 1000, chunkDelayMs: 0, fetch: f });
     ok('holdings without history are remembered: second run loads the stocks', calls === 27 && Object.keys(r.store.series).length === 5 && Object.keys(r.store.miss).length === 22 && r.skipped.length === 0, { calls, series: Object.keys(r.store.series).length });
@@ -137,7 +134,7 @@ const json = (o, status) => ({ ok: (status || 200) < 400, status: status || 200,
     ok('a timeout is not remembered as "no history"', Object.keys(t.store.miss).length === 0 && t.failed.length === 1);
   }
 
-  console.log('real Worker code, synthetic Yahoo / Steam upstream:');
+  console.log('real Worker code, synthetic Yahoo upstream:');
   {
     const W = await import('../cf-worker/worker.js');
     const worker = W.default;

@@ -645,17 +645,21 @@ function EnhancedPositionsTable({ portfolio, prices, priceHistory, transactions,
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// 5. CS2 SKIN IMAGE — zeigt das Steam-CDN-Bild einer Position
+// 5. CS2 SKIN IMAGE — Steam CDN picture of a position
+// From the bundled image table (data/skin-images.json, MaerminSkinPrices),
+// loaded on first use; items without a picture show the CS2 placeholder.
 // ─────────────────────────────────────────────────────────────────────────────
 function CS2SkinImage({ name, size = 48, style = {} }) {
   const [src, setSrc] = useState(null);
   const [err, setErr] = useState(false);
 
   useEffect(() => {
-    if (!name) return;
-    // Build Steam Market thumbnail URL directly from the name
-    const hash = encodeURIComponent(name);
-    setSrc(`https://community.akamai.steamstatic.com/economy/image/class/730/${hash}/330x192`);
+    let live = true;
+    setErr(false); setSrc(null);
+    const SKP = window.MaerminSkinPrices;
+    if (!name || !SKP) return;
+    SKP.loadImages().then(map => { if (live) setSrc(SKP.imageFor(map, name)); });
+    return () => { live = false; };
   }, [name]);
 
   if (err || !src) {
@@ -677,8 +681,8 @@ function CS2SkinImage({ name, size = 48, style = {} }) {
 // ─────────────────────────────────────────────────────────────────────────────
 // 6. CS2 SKIN PICKER
 // Ersetzt das Symbol-Textfeld wenn Kategorie = skins
-// Sucht über den Cloudflare Worker → Steam Market Search
-// Zeigt Skin-Bilder, Preise, Rarity-Farben
+// Sucht in der täglichen Steam-Market-Preisliste (über den Worker)
+// Zeigt Skin-Bilder (gebündelte Bildtabelle) und Preise
 // ─────────────────────────────────────────────────────────────────────────────
 function CS2SkinPicker({ workerUrl, theme, onSelect, selectedName }) {
   const [query, setQuery]       = useState(selectedName || '');
@@ -696,31 +700,27 @@ function CS2SkinPicker({ workerUrl, theme, onSelect, selectedName }) {
     debounceRef.current = setTimeout(async () => {
       if (!workerUrl) { setError('No Worker URL set — add it in API Settings'); return; }
       setLoading(true); setError(null);
-      // Images (and rarity/wear) come from Steam's search; prices from the
-      // Skinport list - the same source the portfolio is priced with. When
-      // Steam throttles the search, the Skinport list is searched instead
-      // (names and prices, no images).
-      const SP = window.MaerminSkinport;
-      const spPromise = SP ? SP.load(workerUrl) : Promise.resolve(null);
+      // Names and prices from the daily Steam Market price list (the source the
+      // portfolio is priced with), pictures from the bundled image table.
+      const SKP = window.MaerminSkinPrices;
       try {
-        const base = workerUrl.trim().replace(/\/$/, '');
-        const url  = `${base}?action=search&q=${encodeURIComponent(query.trim())}`;
-        const res  = await fetch(url, { signal: AbortSignal.timeout(10000) });
-        if (!res.ok) throw new Error('Worker returned ' + res.status);
-        const data = await res.json();
-        if (!Array.isArray(data)) throw new Error(data.error || 'Search failed');
-        const sp = await spPromise;
-        setResults(sp ? data.map(it => { const p = SP.priceFor(sp, it.name); return p > 0 ? { ...it, price: p } : it; }) : data);
+        if (!SKP) throw new Error('Skin price module not loaded');
+        const [index, images] = await Promise.all([SKP.load(workerUrl), SKP.loadImages()]);
+        if (!index) throw new Error('The skin price list could not be loaded - check the Worker URL');
+        const found = SKP.search(index, query.trim(), 24).map(it => {
+          const wear = (it.name.match(/\(([^)]+)\)\s*$/) || [])[1] || null;
+          return { ...it, image: SKP.imageFor(images, it.name), wear };
+        });
+        setResults(found);
         setOpen(true);
+        if (!found.length) setError('No CS2 item matches "' + query.trim() + '"');
       } catch (e) {
-        const sp = await spPromise;
-        const local = sp ? SP.search(sp, query.trim(), 24) : [];
-        if (local.length) { setResults(local); setOpen(true); }
-        else setError(e.message);
+        setError(e.message);
       } finally {
         setLoading(false);
       }
     }, 400);
+
   }, [query, workerUrl]);
 
   const select = (item) => {
@@ -729,8 +729,6 @@ function CS2SkinPicker({ workerUrl, theme, onSelect, selectedName }) {
     setOpen(false);
     onSelect({ name: item.name, price: item.price, image: item.image });
   };
-
-  const RARITY_ORDER = ['Consumer Grade','Industrial Grade','Mil-Spec Grade','Restricted','Classified','Covert','Contraband','Extraordinary'];
 
   return React.createElement('div', { style: { position: 'relative' } },
     // Search input
@@ -807,11 +805,6 @@ function CS2SkinPicker({ workerUrl, theme, onSelect, selectedName }) {
                   style: { width: '100%', aspectRatio: '330/192', background: 'rgba(6,182,212,0.08)', borderRadius: '6px', display: 'flex', alignItems: 'center', justifyContent: 'center' }
                 }, React.createElement('span', { style: { color: 'rgba(6,182,212,0.4)', fontSize: '0.7rem' } }, 'No image')),
 
-            // Rarity bar
-            item.rarityColor && React.createElement('div', {
-              style: { height: '2px', borderRadius: '1px', background: item.rarityColor, opacity: 0.8 }
-            }),
-
             // Name
             React.createElement('div', {
               style: { color: theme.text, fontSize: '0.72rem', fontWeight: '600', lineHeight: '1.3', wordBreak: 'break-word' }
@@ -824,7 +817,7 @@ function CS2SkinPicker({ workerUrl, theme, onSelect, selectedName }) {
               }, item.wear),
               item.price && React.createElement('span', {
                 style: { fontSize: '0.75rem', fontWeight: '700', color: '#22c55e' }
-              }, `$${item.price.toFixed(2)}`) // skin prices are USD (Skinport / Steam)
+              }, `$${item.price.toFixed(2)}`) // skin prices are USD (Steam Market price list)
             )
           )
         )

@@ -40,9 +40,9 @@ No account  ·  No server  ·  No ads  ·  No remote telemetry  ·  MIT License
 | Feature | Description |
 |---------|-------------|
 | **Overview** | Stats cards showing all portfolios combined — total value, invested, return, positions |
-| **Portfolio History Chart** | Real historical data from Yahoo Finance · CoinGecko · Steam — 1H · 1D · 1W · 1M · 1Y · 3Y · 5Y · Max |
+| **Portfolio History Chart** | Real historical data from Yahoo Finance · CoinGecko, CS2 trend from the daily Steam Market price list — 1H · 1D · 1W · 1M · 1Y · 3Y · 5Y · Max |
 | **Symbol Picker** | Visual search for stocks (Yahoo Finance logos + exact YF symbol) and crypto (CoinGecko IDs) |
-| **CS2 Skin Picker** | Search Steam Market with images, rarity colours, live prices — auto-fills transaction |
+| **CS2 Skin Picker** | Search every CS2 item with picture and Steam Market price — auto-fills transaction |
 | **Positions Table** | Value, weight and P&L per holding — click any row for the position detail modal (transactions, avg cost, CAGR, stock splits, investment journal) |
 | **Multi-Portfolio** | Multiple portfolios with colour coding — the Overview shows all portfolios combined or one at a time (portfolio chips) |
 | **Net Worth** | Add cash accounts, real estate, loans — see true net wealth beyond investments · **real assets & property** with valuation history, acquisition cost+fees, optional financing link and recurring/one-off cashflows (net value + net rental yield + total return) · **interest-bearing cash & time deposits** (Festgeld): rate, daily/monthly/annual compounding, maturity — interest accrues day-accurate (act/365) and is booked as capital income for the tax report |
@@ -114,8 +114,8 @@ After updating `cf-worker/worker.js`, paste and deploy it again — the app's ne
 |--------|----------|:------------:|
 | **Yahoo Finance** | Stocks, ETFs, commodities, all global exchanges, historical data | ✗ (via Worker) |
 | **CoinGecko** | Crypto prices + history | ✗ (direct) |
-| **Skinport** | CS2 skin prices — one list for all items | ✗ (via Worker) |
-| **Steam Market** | CS2 skin search with images, price history, prices for items Skinport lacks | ✗ (via Worker) |
+| **CSGO Trader price file** | CS2 skin prices — daily Steam Market averages (24 h / 7 / 30 / 90 days) for every item, one request | ✗ (via Worker) |
+| **ByMykel CSGO-API** | CS2 item pictures — bundled as `data/skin-images.json` (`node scripts/build-skin-images.mjs` refreshes it) | ✗ |
 | **ExchangeRate-API** | USD → EUR conversion | ✗ |
 | **Cloudflare Worker** | CORS proxy for all Worker endpoints | ✗ (free tier) |
 
@@ -133,9 +133,7 @@ After updating `cf-worker/worker.js`, paste and deploy it again — the app's ne
 | `GET /?action=profile&symbol=AAPL` | Equity sector / industry / country (Strategy tab Sector & Country allocation; Yahoo `assetProfile`, no FMP key needed) |
 | `GET /?action=earnings&symbol=AAPL` | Next earnings date + consensus EPS/revenue estimates (Earnings Calendar in the Dividends view; Yahoo `calendarEvents`, no key) |
 | `GET /?action=news&symbol=AAPL` | Yahoo Finance RSS headlines for a holding (News Feed view) |
-| `GET /?action=steamhistory&name=AK-47 \| Redline (FT)` | CS2 price history (USD) |
-| `GET /?action=search&q=ak47+redline` | Steam Market skin search with images |
-| `POST /` | Steam skin price lookup (array of names → USD price map) |
+| `GET /?action=skinprices` | CS2 Steam Market prices for every item (USD, daily file, cached 1 h) |
 | `POST /?action=sync` | E2E-encrypted cloud sync (KV-backed, zero-knowledge) |
 | `POST /?action=share` | Redacted share snapshots (percent weights/scores only, allowlist-validated server-side) + anonymous benchmark aggregate |
 | `GET /?action=mcp&id=<shareId>` | Read-only MCP view of a shared, redacted snapshot (same allowlist, same 90-day link) || `POST /?action=brokerproxy` | Relay client-signed requests to whitelisted exchanges |
@@ -200,8 +198,8 @@ Contributing guidelines and conventions: **[CONTRIBUTING.md](CONTRIBUTING.md)**.
 - No analytics, no remote telemetry, no third-party tracking; the fonts (Geist) are self-hosted
 - Data requests go to: CoinGecko, ExchangeRate-API / open.er-api.com and your own Cloudflare Worker
 - Code from CDNs (version-pinned, SRI-checked): React from unpkg.com on every start; jsPDF and pdf.js from cdnjs.cloudflare.com on first PDF export/import
-- Images: position logos (Yahoo), coin icons (CoinGecko) and skin images (Steam) load from those services, which therefore see which logos you view
-- Your Worker only relays to Yahoo Finance / Skinport / Steam / (optionally) whitelisted exchanges. It stores only the opt-in zero-knowledge sync blob and, if you use Share & Compare, the redacted share snapshots (percentages and scores, 90 days) with their anonymous aggregate
+- Images: position logos (Yahoo), coin icons (CoinGecko) and skin pictures (Steam CDN) load from those services, which therefore see which logos you view
+- Your Worker only relays to Yahoo Finance / CSGO Trader's price file / (optionally) whitelisted exchanges. It stores only the opt-in zero-knowledge sync blob and, if you use Share & Compare, the redacted share snapshots (percentages and scores, 90 days) with their anonymous aggregate
 - Set or change the access password in-app (Settings → Change Password) — no code edits needed
 
 ---
