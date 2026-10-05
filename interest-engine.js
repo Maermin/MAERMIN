@@ -89,25 +89,51 @@
     };
   }
 
+  // A time deposit (Festgeld) pays its interest at maturity, so that is when it
+  // is income (Zuflussprinzip) - unless the account says it credits interest
+  // every year (interestPayout: 'annual').
+  function paysAtMaturity(acc) {
+    return str(acc && acc.type) === 'time_deposit' && !!ymd(acc && acc.maturityDate) && str(acc && acc.interestPayout) !== 'annual';
+  }
+
   // Accrue every interest-bearing account. Returns updated accounts (value +
-  // lastAccrualDate advanced) and one posting per account that actually earned.
+  // lastAccrualDate advanced) and the postings, one per account and calendar
+  // year: interest is taxed in the year it accrues, so a window across
+  // 31 December is split there (FINDINGS M-3). The split is exact - the growth
+  // factors of the pieces multiply to the factor of the whole window. A time
+  // deposit paying at maturity books nothing before that day and then one
+  // posting for its whole term, dated the maturity day.
   function accrueAll(accounts, asOfISO) {
     accounts = Array.isArray(accounts) ? accounts : [];
     var postings = [], total = 0;
     var updated = accounts.map(function (acc) {
       if (!isInterestBearing(acc)) return acc;
-      var r = accrue(acc, asOfISO);
-      if (r.days <= 0 || !(r.interest > 0)) {
+      var asOf = ymd(asOfISO);
+      var atMaturity = paysAtMaturity(acc);
+      if (atMaturity && asOf < ymd(acc.maturityDate)) return acc; // not paid yet
+      var whole = accrue(acc, asOf);
+      if (whole.days <= 0 || !(whole.interest > 0)) {
         // still advance the anchor so we don't recompute the same zero window
-        return Object.assign({}, acc, { lastAccrualDate: r.lastAccrualDate || acc.lastAccrualDate });
+        return Object.assign({}, acc, { lastAccrualDate: whole.lastAccrualDate || acc.lastAccrualDate });
       }
-      total += r.interest;
-      postings.push({
-        accountId: str(acc.id), name: str(acc.name) || 'Interest',
-        date: r.toDate, periodStart: r.fromDate, periodEnd: r.toDate, year: r.toDate.slice(0, 4),
-        amount: r.interest, currency: str(acc.currency) || 'EUR'
-      });
-      return Object.assign({}, acc, { value: r.newBalance, lastAccrualDate: r.lastAccrualDate });
+      var cur = Object.assign({}, acc);
+      var start = whole.fromDate;
+      while (start < whole.toDate) {
+        var yearEnd = start.slice(0, 4) + '-12-31';
+        var segEnd = (!atMaturity && yearEnd > start && yearEnd < whole.toDate) ? yearEnd : whole.toDate;
+        var r = accrue(Object.assign({}, cur, { lastAccrualDate: start }), segEnd);
+        if (r.days > 0 && r.interest > 0) {
+          total += r.interest;
+          postings.push({
+            accountId: str(acc.id), name: str(acc.name) || 'Interest',
+            date: segEnd, periodStart: start, periodEnd: segEnd, year: segEnd.slice(0, 4),
+            amount: r.interest, currency: str(acc.currency) || 'EUR'
+          });
+          cur.value = r.newBalance;
+        }
+        start = segEnd;
+      }
+      return Object.assign({}, acc, { value: cur.value, lastAccrualDate: whole.lastAccrualDate });
     });
     return { accounts: updated, postings: postings, total: total };
   }

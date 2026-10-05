@@ -262,13 +262,62 @@
     return { available: true, rows: rows, total: total, currencyCount: rows.length };
   }
 
+  // What selling one position now would change in tax, lot by lot, for the
+  // jurisdiction (FINDINGS L-2: one flat 26.375 % for everything, including
+  // German crypto and skins held over a year, whose sale is tax-free):
+  //   'us': long-term lots (held > 1 year) 15 %, short-term 24 % - the flat
+  //         estimates of the US tax report;
+  //   'de': securities at Abgeltungsteuer incl. Soli and church tax from the
+  //         tax settings; private sales (crypto, skins, physical commodities)
+  //         are tax-free after one year (crypto only while the exemption is on)
+  //         and use the report's 25 % estimate within the year.
+  // Returns the tax saved (>= 0) and whether the whole position is tax-free;
+  // null when the ledger has no open lots for it (callers fall back).
+  var US_SHORT_RATE = 0.24, US_LONG_RATE = 0.15, DE_PRIVATE_RATE = 0.25;
+  function harvestByLots(group, priceEUR, opts) {
+    if (!group || !group.openLots || !group.openLots.length) return null;
+    var L = ledger();
+    var asOf = opts.asOf || new Date().toISOString().slice(0, 10);
+    var settings = opts.settings || {};
+    var cls = group.category;
+    var privateSale = cls === 'crypto' || cls === 'skins' || cls === 'commodities';
+    var exemptOn = cls === 'crypto' ? settings.cryptoExemption !== false : true;
+    var deSecurities = (function () {
+      var TS = (typeof window !== 'undefined' && window.MaerminTaxSettings) ? window.MaerminTaxSettings
+        : (function () { try { return require('./tax-settings.js'); } catch (e) { return null; } })();
+      if (TS && TS.computeAbgeltung) return TS.computeAbgeltung(1, settings).total;
+      return 0.26375;
+    })();
+    var taxDelta = 0, allFree = true;
+    group.openLots.forEach(function (lot) {
+      var pnl = (priceEUR - lot.unitCostEUR) * lot.qty;
+      var longTerm = L && L.heldOverOneYear ? L.heldOverOneYear(lot.date, asOf) : false;
+      var r;
+      if (opts.jurisdiction === 'us') r = longTerm ? US_LONG_RATE : US_SHORT_RATE;
+      else if (privateSale) r = (longTerm && exemptOn) ? 0 : (settings.abgeltungRate != null ? settings.abgeltungRate : DE_PRIVATE_RATE);
+      else r = deSecurities;
+      if (r > 0) allFree = false;
+      taxDelta += pnl * r;
+    });
+    return { taxSavings: Math.max(0, -taxDelta), taxFree: allFree };
+  }
+  function ledger() {
+    if (typeof window !== 'undefined' && window.MaerminLedger) return window.MaerminLedger;
+    try { return require('./ledger.js'); } catch (e) { return null; }
+  }
+
   // Tax-loss harvesting candidates — open positions at an unrealised loss that
   // could be sold to offset realised gains. Uses the real portfolio (average
   // cost lives in purchasePrice) + transactions for a 30-day wash-sale flag.
-  // rate defaults to the German flat capital-gains rate (Abgeltungssteuer).
+  // With opts.jurisdiction the tax saved is computed per open lot at that
+  // jurisdiction's rate (harvestByLots); without it, `rate` (default: the
+  // German flat 26.375 %) is applied to the whole loss as before.
+  //   opts = { jurisdiction: 'de'|'us', asOf, exchangeRate, fxAt, settings, rate }
   function computeTaxLossHarvest(portfolio, prices, transactions, opts) {
     opts = opts || {};
     var rate = opts.rate != null ? opts.rate : 0.26375;
+    var L = opts.jurisdiction ? ledger() : null;
+    var groups = (L && L.build) ? L.build(transactions || [], { exchangeRate: opts.exchangeRate, fxAt: opts.fxAt }).groups : null;
     transactions = transactions || [];
     var now = Date.now();
     var recentBuy = {};
@@ -290,10 +339,12 @@
           // The 30-day wash-sale rule is US law; Germany has none, so it only
           // applies when the caller asks for the US jurisdiction.
           var wash = opts.jurisdiction === 'us' && !!recentBuy[cls + '-' + (p.symbol || p.name || '').toLowerCase()];
+          var byLots = groups ? harvestByLots(groups[cls + '|' + String(p.symbol || p.name || '').toUpperCase()], price, opts) : null;
           rows.push({
             symbol: p.symbol || p.name, cls: cls,
             unrealizedLoss: unrealized,
-            taxSavings: wash ? 0 : Math.abs(unrealized) * rate,
+            taxSavings: wash ? 0 : (byLots ? byLots.taxSavings : Math.abs(unrealized) * rate),
+            taxFree: !!(byLots && byLots.taxFree),
             washSale: wash
           });
         }

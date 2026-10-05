@@ -2689,14 +2689,20 @@ function InvestmentTracker() {
     // come from the InvestmentTracker closure.
     const renderHarvest = () => {
       const M = window.MaerminMetrics;
-      const h = M ? M.computeTaxLossHarvest(portfolio, prices, transactions) : { available: false, rows: [] };
+      // Rate per lot and jurisdiction (FINDINGS L-2), not one flat German rate.
+      const TSm = window.MaerminTaxSettings;
+      const h = M ? M.computeTaxLossHarvest(portfolio, prices, transactions, {
+        jurisdiction: taxJurisdiction, exchangeRate, fxAt, settings: TSm && TSm.load ? TSm.load() : undefined
+      }) : { available: false, rows: [] };
       const sym = getCurrencySymbol();
       const sumCard = (label, value, color) => React.createElement('div', { style: { background: theme.card, border: `1px solid ${theme.cardBorder}`, borderRadius: '12px', padding: '1rem 1.25rem' } },
         React.createElement('div', { style: { color: theme.textSecondary, fontSize: '0.72rem', textTransform: 'uppercase', letterSpacing: '0.05em' } }, label),
         React.createElement('div', { style: { color, fontSize: '1.4rem', fontWeight: 800 } }, `${formatPrice(value)} ${sym}`));
       return React.createElement('div', { style: { padding: '1.5rem' } },
         React.createElement('h2', { style: { color: theme.text, fontSize: '1.5rem', fontWeight: 700, marginBottom: '0.4rem' } }, t.taxHarvestTitle || 'Tax-loss harvesting'),
-        React.createElement('p', { style: { color: theme.textSecondary, fontSize: '0.85rem', marginBottom: '1.25rem' } }, t.taxHarvestSubtitle || 'Positions at an unrealised loss you could realise to offset gains. Estimated at the German flat rate — not tax advice.'),
+        React.createElement('p', { style: { color: theme.textSecondary, fontSize: '0.85rem', marginBottom: '1.25rem' } }, taxJurisdiction === 'us'
+          ? (t.taxHarvestSubtitleUs || 'Positions at an unrealised loss you could realise to offset gains. Estimated at 24 % for lots held up to a year and 15 % for longer - not tax advice.')
+          : (t.taxHarvestSubtitle || 'Positions at an unrealised loss you could realise to offset gains. Estimated at the German flat rate — not tax advice.')),
         !h.available
           ? React.createElement('div', { style: { color: theme.textSecondary } }, t.taxHarvestNone || 'No positions are currently at an unrealised loss.')
           : React.createElement('div', null,

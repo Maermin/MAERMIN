@@ -215,7 +215,17 @@
     try { bundle.currency = M.computeCurrencyExposure(portfolio, prices, transactions); } catch (e) {}
     try { bundle.drift = M.computeRebalancingDrift(portfolio, prices); } catch (e) {}
     try { bundle.dividends = M.computeExpectedAnnualDividends(portfolio, prices); } catch (e) {}
-    try { bundle.taxLoss = M.computeTaxLossHarvest(portfolio, prices, transactions); } catch (e) {}
+    // Rate per lot for the user's jurisdiction (FINDINGS L-2): German crypto and
+    // skins held over a year are tax-free, so selling them "saves" nothing.
+    try {
+      var jur = 'de', TSm = (typeof window !== 'undefined') && window.MaerminTaxSettings;
+      try { jur = localStorage.getItem('taxJurisdiction') || 'de'; } catch (e2) {}
+      bundle.taxLoss = M.computeTaxLossHarvest(portfolio, prices, transactions, {
+        jurisdiction: jur, exchangeRate: extras && extras.exchangeRate,
+        fxAt: (typeof window !== 'undefined' && window.MaerminFxHistory) ? window.MaerminFxHistory.fxResolver(extras && extras.exchangeRate) : undefined,
+        settings: TSm && TSm.load ? TSm.load() : undefined
+      });
+    } catch (e) {}
     try { bundle.health = M.healthScore(portfolio, prices, t, { transactions: transactions }); } catch (e) {}
     if (extras) Object.assign(bundle, extras);
     return bundle;

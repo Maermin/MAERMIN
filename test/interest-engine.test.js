@@ -52,25 +52,30 @@ const I = require('../interest-engine.js');
   // ---- idempotency: same-day re-run books nothing ----
   let accounts = [acc];
   const pass1 = I.accrueAll(accounts, '2027-01-01');
-  ok('first accrueAll books one posting', pass1.postings.length === 1);
+  // FINDINGS M-3: the window 2026-01-01 -> 2027-01-01 crosses 31 Dec, so it is
+  // booked per year (it used to be ONE posting dated 2027, i.e. a whole year
+  // of 2026 interest taxed in 2027). Same total.
+  ok('first accrueAll books one posting per year', pass1.postings.length === 2 && pass1.postings[0].year === '2026' && pass1.postings[1].year === '2027' &&
+    near(pass1.postings[0].amount + pass1.postings[1].amount, expected, 1e-6));
   const pass2 = I.accrueAll(pass1.accounts, '2027-01-01'); // lastAccrualDate now 2027-01-01
   ok('second accrueAll same day books nothing', pass2.postings.length === 0);
   ok('balance unchanged on re-run', near(pass2.accounts[0].value, pass1.accounts[0].value, 1e-9));
 
   // ---- runCatchUp books a type:interest transaction, idempotently ----
   const cu1 = I.runCatchUp({ accounts: [acc], transactions: [], asOf: '2027-01-01' });
-  ok('runCatchUp creates one interest tx', cu1.created.length === 1 && cu1.created[0].type === 'interest');
+  ok('runCatchUp creates one interest tx per year', cu1.created.length === 2 && cu1.created.every((t) => t.type === 'interest'));
   ok('interest tx carries the accrual marker', cu1.created[0].source === 'interest-accrual' && cu1.created[0].accountId === 'a1');
-  ok('interest tx amount matches accrual', near(cu1.created[0].amount, expected, 1e-6));
+  ok('interest tx amounts add up to the accrual', near(cu1.created[0].amount + cu1.created[1].amount, expected, 1e-6));
   const cu2 = I.runCatchUp({ accounts: cu1.accounts, transactions: cu1.transactions, asOf: '2027-01-01' });
-  ok('runCatchUp idempotent (no second tx)', cu2.created.length === 0 && cu2.transactions.length === 1);
+  ok('runCatchUp idempotent (no further tx)', cu2.created.length === 0 && cu2.transactions.length === 2);
 
   // ---- ledger ----
-  ok('ledger has one entry after catch-up', cu1.ledger.entries.length === 1);
-  ok('yearlyInterest sums the year', near(I.yearlyInterest(cu1.ledger, 2027), expected, 1e-6));
+  ok('ledger has one entry per year after catch-up', cu1.ledger.entries.length === 2);
+  ok('yearlyInterest puts 2026 interest in 2026', near(I.yearlyInterest(cu1.ledger, 2026) + I.yearlyInterest(cu1.ledger, 2027), expected, 1e-6) &&
+    I.yearlyInterest(cu1.ledger, 2026) > 0.99 * expected);
   ok('yearlyInterest other year = 0', I.yearlyInterest(cu1.ledger, 2025) === 0);
   const reappend = I.appendLedger(cu1.ledger, cu1.postings);
-  ok('appendLedger idempotent on (accountId, periodEnd)', reappend.entries.length === 1);
+  ok('appendLedger idempotent on (accountId, periodEnd)', reappend.entries.length === 2);
 
   console.log('\n' + passed + ' passed, ' + failed + ' failed');
   process.exit(failed ? 1 : 0);

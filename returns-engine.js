@@ -199,6 +199,10 @@
     (transactions || []).forEach(function (tx) {
       if (!tx || !tx.date) return;
       if (tx.category === 'options') return;
+      // Interest of a Net-Worth cash account / Festgeld (the interest engine's
+      // bookings) is not portfolio income: the account balance is not part of
+      // the terminal value, so counting it inflated XIRR (FINDINGS M-1).
+      if (tx.source === 'interest-accrual' || tx.category === 'cash') return;
       if (cats && cats.indexOf(tx.category || 'crypto') === -1) return;
       var gross = (Number(tx.quantity) || 0) * (Number(tx.price) || 0);
       var fees = Number(tx.fees) || 0;
