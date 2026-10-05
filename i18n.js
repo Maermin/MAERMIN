@@ -100,6 +100,11 @@
     return nf(locale(l), { style: 'percent', minimumFractionDigits: d, maximumFractionDigits: d, signDisplay: signed ? 'exceptZero' : 'auto' }).format(finite(v) / 100);
   }
 
+  // compact(12500) -> "12.5K" (en) / "12.500" (de); 1.2e6 -> "1.2M" / "1,2 Mio.".
+  function compact(v, l) {
+    return nf(locale(l), { notation: 'compact', maximumFractionDigits: 1 }).format(finite(v));
+  }
+
   // ---- dates -----------------------------------------------------------------
   var DATE_STYLES = {
     short: { day: '2-digit', month: '2-digit', year: 'numeric' },   // 05.10.2026 / 10/05/2026
@@ -166,7 +171,7 @@
   var api = {
     LANGS: LANGS, LOCALES: LOCALES, lang: lang, setLang: setLang, locale: locale,
     dict: dict, t: t, fill: fill,
-    num: num, money: money, pct: pct, date: date, monthNames: monthNames, weekdayNames: weekdayNames, category: category, freq: freq,
+    num: num, money: money, pct: pct, compact: compact, date: date, monthNames: monthNames, weekdayNames: weekdayNames, category: category, freq: freq,
     applyHtmlLang: applyHtmlLang
   };
   if (typeof window !== 'undefined') { window.MaerminI18n = api; applyHtmlLang(); }

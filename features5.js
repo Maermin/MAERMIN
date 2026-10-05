@@ -42,7 +42,7 @@ function KpiCard({ theme, label, value, sub, color, badge }) {
 // Adds cash accounts, property, and liabilities to the portfolio value
 // ─────────────────────────────────────────────────────────────────────────────
 function NetWorthView({ portfolioStats, portfolio, prices, theme, formatPrice, getCurrencySymbol, t, usdToEur }) {
-  t = t || {};
+  t = t || ((typeof window !== 'undefined' && window.MaerminI18n) ? window.MaerminI18n.dict() : {});
   const rate = usdToEur || (prices && prices.usdToEur) || 1;
   const [accounts, setAccounts] = useState(() => {
     try { return JSON.parse(localStorage.getItem('maermin_networth_accounts') || '[]'); } catch { return []; }

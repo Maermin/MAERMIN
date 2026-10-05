@@ -11,7 +11,7 @@
 //      rewrites the baseline.
 import { writeFileSync, existsSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
-import { root, appFiles, loadDicts, readSrc, scanText, tokenize, unquote } from './i18n-lib.mjs';
+import { root, appFiles, loadDicts, readSrc, scanText, tokenize, unquote, SCAN_SKIP } from './i18n-lib.mjs';
 
 const BASELINE = join(root, 'scripts', 'i18n-baseline.json');
 
@@ -84,7 +84,7 @@ export function run({ update = false, quiet = false } = {}) {
   const found = {};
   for (const f of files) {
     const src = readSrc(f);
-    const hits = scanText(src);
+    const hits = SCAN_SKIP.has(f) ? [] : scanText(src);
     if (hits.length) { counts[f] = hits.length; found[f] = hits; }
     const loc = (src.match(/\.toLocale(?:Date|Time)?String\(/g) || []).length
       + (src.match(/\.toFixed\(\d\)(?:\s*\+\s*['"]\s*%|\}\s*%)/g) || []).length; // percent text built with toFixed

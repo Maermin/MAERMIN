@@ -152,7 +152,7 @@ function __(k, f, v) { return (typeof window !== 'undefined' && window.MaerminI1
     if (!React || !GT) return null;
     var e = React.createElement;
     var theme = props.theme || {};
-    var t = props.t || {};
+    var t = props.t || ((typeof window !== 'undefined' && window.MaerminI18n) ? window.MaerminI18n.dict() : {});
     var text = theme.text || '#e6edf3', dim = theme.textSecondary || '#9aa4b2';
     var border = theme.cardBorder || 'rgba(255,255,255,0.1)';
     var inputBg = theme.inputBg || '#0f172a', card = theme.card || theme.cardBg || '#10151f';
@@ -383,7 +383,7 @@ function __(k, f, v) { return (typeof window !== 'undefined' && window.MaerminI1
     if (!React || !TS) return null;
     var e = React.createElement;
     var theme = props.theme || {};
-    var t = props.t || {};
+    var t = props.t || ((typeof window !== 'undefined' && window.MaerminI18n) ? window.MaerminI18n.dict() : {});
     var text = theme.text || '#e6edf3', dim = theme.textSecondary || '#9aa4b2';
     var border = theme.cardBorder || 'rgba(255,255,255,0.1)';
     var inputBg = theme.inputBg || '#0f172a', card = theme.card || theme.cardBg || '#10151f';

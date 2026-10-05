@@ -175,20 +175,20 @@
   // ─────────────────────────────────────────────────────────────────────────
   function recoveryFileText(code) {
     return [
-      'MAERMIN — Vault Recovery Code',
+      'MAERMIN — ' + tr('authRcFileTitle', 'Vault Recovery Code'),
       '================================',
       '',
-      'Recovery code:',
+      tr('authRcFileCode', 'Recovery code:'),
       '    ' + code,
       '',
-      'Use this on the unlock screen ("Use a recovery code") to open your vault',
-      'if you forget your password. MAERMIN cannot reset it for you.',
+      tr('authRcFileUse1', 'Use this on the unlock screen ("Use a recovery code") to open your vault'),
+      tr('authRcFileUse2', 'if you forget your password. MAERMIN cannot reset it for you.'),
       '',
-      '• Anyone with this code can open your vault — keep it offline and private.',
-      '• It is NEVER uploaded; only a one-way wrapped copy lives on this device.',
+      '• ' + tr('authRcFileAnyone', 'Anyone with this code can open your vault — keep it offline and private.'),
+      '• ' + tr('authRcFileNever', 'It is NEVER uploaded; only a one-way wrapped copy lives on this device.'),
       '• ' + tr('authRcKeepsOnPwChange', 'Changing your password does not change this code.'),
       '',
-      'Generated: ' + new Date().toISOString()
+      tr('authRcFileGenerated', 'Generated:') + ' ' + new Date().toISOString()
     ].join('\n');
   }
   function downloadText(filename, text) {
@@ -222,39 +222,39 @@
 
   function setupInner(hasLegacyData) {
     return `
-      <div class="auth-logo"><h1>MAERMIN</h1><p>Secure your vault</p></div>
+      <div class="auth-logo"><h1>MAERMIN</h1><p>${tr('authSecureVault', 'Secure your vault')}</p></div>
       <div class="auth-sub">${hasLegacyData
-        ? 'Set an access password. Your existing data will be encrypted with it.'
-        : 'Set an access password to encrypt your portfolio. MAERMIN cannot reset it — the recovery code shown next is the only other way in.'}</div>
+        ? tr('authSetupLegacy', 'Set an access password. Your existing data will be encrypted with it.')
+        : tr('authSetupNew', 'Set an access password to encrypt your portfolio. MAERMIN cannot reset it — the recovery code shown next is the only other way in.')}</div>
       <div class="auth-error" id="auth-error" role="alert"></div>
       <div class="auth-field">
-        <label for="auth-pw">Access password</label>
-        <input type="password" id="auth-pw" placeholder="At least 8 characters" autocomplete="new-password" autofocus />
+        <label for="auth-pw">${tr('authAccessPw', 'Access password')}</label>
+        <input type="password" id="auth-pw" placeholder="${tr('authPwMinHint', 'At least 8 characters')}" autocomplete="new-password" autofocus />
       </div>
       <div class="auth-field">
-        <label for="auth-pw2">Confirm password</label>
-        <input type="password" id="auth-pw2" placeholder="Repeat password" autocomplete="new-password" />
+        <label for="auth-pw2">${tr('authConfirmPw', 'Confirm password')}</label>
+        <input type="password" id="auth-pw2" placeholder="${tr('authPwRepeat', 'Repeat password')}" autocomplete="new-password" />
       </div>
       <label class="auth-check"><input type="checkbox" id="auth-atrest" checked />
-        <span>Encrypt my portfolio data at rest (AES-256). Recommended.</span></label>
-      <button class="auth-btn" id="auth-submit"><div class="spinner"></div><span class="btn-text">Create vault →</span></button>
-      <div class="auth-footer">Encrypted locally with ${Vault && Vault.availableKdfs().indexOf('argon2id') > -1 ? 'Argon2id' : 'PBKDF2'} + AES-256-GCM.<br>All data stays in your browser.</div>
+        <span>${tr('authAtRest', 'Encrypt my portfolio data at rest (AES-256). Recommended.')}</span></label>
+      <button class="auth-btn" id="auth-submit"><div class="spinner"></div><span class="btn-text">${tr('authCreateVault', 'Create vault →')}</span></button>
+      <div class="auth-footer">${tr('authEncryptedWith', 'Encrypted locally with {kdf} + AES-256-GCM.').replace('{kdf}', Vault && Vault.availableKdfs().indexOf('argon2id') > -1 ? 'Argon2id' : 'PBKDF2')}<br>${tr('authStaysInBrowser', 'All data stays in your browser.')}</div>
     `;
   }
 
   function unlockInner(hasPasskey, hasRecovery, locked) {
     return `
-      <div class="auth-logo"><h1>MAERMIN</h1><p>${locked ? 'Locked' : 'Professional Portfolio Tracker'}</p></div>
-      ${locked ? '<div class="auth-sub">Session locked due to inactivity.</div>' : ''}
+      <div class="auth-logo"><h1>MAERMIN</h1><p>${locked ? tr('authLocked', 'Locked') : tr('authTagline', 'Professional Portfolio Tracker')}</p></div>
+      ${locked ? '<div class="auth-sub">' + tr('authLockedIdle', 'Session locked due to inactivity.') + '</div>' : ''}
       <div class="auth-error" id="auth-error" role="alert"></div>
       <div class="auth-field">
-        <label for="auth-pw">Access password</label>
-        <input type="password" id="auth-pw" placeholder="Enter your password…" autocomplete="current-password" autofocus />
+        <label for="auth-pw">${tr('authAccessPw', 'Access password')}</label>
+        <input type="password" id="auth-pw" placeholder="${tr('authEnterPw', 'Enter your password…')}" autocomplete="current-password" autofocus />
       </div>
-      <button class="auth-btn" id="auth-submit"><div class="spinner"></div><span class="btn-text">Unlock →</span></button>
-      ${hasPasskey ? '<button class="auth-alt" id="auth-passkey" type="button">Use a passkey</button>' : ''}
-      ${hasRecovery ? '<button class="auth-alt" id="auth-recovery" type="button">Use a recovery code</button>' : ''}
-      <div class="auth-footer">All data stays local in your browser.</div>
+      <button class="auth-btn" id="auth-submit"><div class="spinner"></div><span class="btn-text">${tr('authUnlock', 'Unlock →')}</span></button>
+      ${hasPasskey ? '<button class="auth-alt" id="auth-passkey" type="button">' + tr('authUsePasskey', 'Use a passkey') + '</button>' : ''}
+      ${hasRecovery ? '<button class="auth-alt" id="auth-recovery" type="button">' + tr('authUseRecovery', 'Use a recovery code') + '</button>' : ''}
+      <div class="auth-footer">${tr('authStaysLocal', 'All data stays local in your browser.')}</div>
     `;
   }
 
@@ -262,33 +262,33 @@
   // already unlocked at this point; "Continue" just mounts the app.
   function recoveryKitInner(code) {
     return `
-      <div class="auth-logo"><h1>MAERMIN</h1><p>Recovery code</p></div>
-      <div class="auth-sub">Save this now — it's the <b>only</b> way into your vault if you forget your password. MAERMIN can't reset it for you.</div>
+      <div class="auth-logo"><h1>MAERMIN</h1><p>${tr('secRecovery', 'Recovery code')}</p></div>
+      <div class="auth-sub">${tr('authRcSaveNow', "Save this now — it's the <b>only</b> way into your vault if you forget your password. MAERMIN can't reset it for you.")}</div>
       <div class="rc-code" id="rc-code">${code}</div>
       <div class="rc-actions">
-        <button class="auth-alt" id="rc-copy" type="button">Copy</button>
-        <button class="auth-alt" id="rc-download" type="button">Download</button>
-        <button class="auth-alt" id="rc-print" type="button">Print</button>
+        <button class="auth-alt" id="rc-copy" type="button">${tr('authCopy', 'Copy')}</button>
+        <button class="auth-alt" id="rc-download" type="button">${tr('authDownload', 'Download')}</button>
+        <button class="auth-alt" id="rc-print" type="button">${tr('authPrint', 'Print')}</button>
       </div>
       <div class="auth-sub" id="rc-copy-msg" role="status" aria-live="polite"></div>
       <label class="auth-check"><input type="checkbox" id="rc-saved" />
-        <span>I've saved my recovery code somewhere safe and private.</span></label>
-      <button class="auth-btn" id="auth-submit" disabled><div class="spinner"></div><span class="btn-text">Continue →</span></button>
-      <div class="auth-footer">Never uploaded — anyone with this code can open your vault.</div>
+        <span>${tr('authRcSaved', "I've saved my recovery code somewhere safe and private.")}</span></label>
+      <button class="auth-btn" id="auth-submit" disabled><div class="spinner"></div><span class="btn-text">${tr('authContinue', 'Continue →')}</span></button>
+      <div class="auth-footer">${tr('authRcNeverUploaded', 'Never uploaded — anyone with this code can open your vault.')}</div>
     `;
   }
 
   function recoveryUnlockInner() {
     return `
-      <div class="auth-logo"><h1>MAERMIN</h1><p>Recovery</p></div>
-      <div class="auth-sub">Enter your recovery code to unlock without your password.</div>
+      <div class="auth-logo"><h1>MAERMIN</h1><p>${tr('authRecovery', 'Recovery')}</p></div>
+      <div class="auth-sub">${tr('authRcEnter', 'Enter your recovery code to unlock without your password.')}</div>
       <div class="auth-error" id="auth-error" role="alert"></div>
       <div class="auth-field">
-        <label for="auth-rc">Recovery code</label>
+        <label for="auth-rc">${tr('secRecovery', 'Recovery code')}</label>
         <input type="text" id="auth-rc" placeholder="XXXX-XXXX-XXXX-XXXX-XXXX-XXXX" autocomplete="off" autocapitalize="characters" spellcheck="false" autofocus />
       </div>
-      <button class="auth-btn" id="auth-submit"><div class="spinner"></div><span class="btn-text">Unlock →</span></button>
-      <button class="auth-alt" id="auth-back" type="button">Back to password</button>
+      <button class="auth-btn" id="auth-submit"><div class="spinner"></div><span class="btn-text">${tr('authUnlock', 'Unlock →')}</span></button>
+      <button class="auth-alt" id="auth-back" type="button">${tr('authBackToPw', 'Back to password')}</button>
       <div class="auth-footer">${tr('authRcNextStep', 'After unlocking you set a new password.')}</div>
     `;
   }
@@ -341,8 +341,8 @@
     var pw = (document.getElementById('auth-pw').value || '');
     var pw2 = (document.getElementById('auth-pw2').value || '');
     var atRest = document.getElementById('auth-atrest').checked;
-    if (pw.length < 8) { setError('Password must be at least 8 characters.'); return; }
-    if (pw !== pw2) { setError('Passwords do not match.'); return; }
+    if (pw.length < 8) { setError(tr('authPwTooShort', 'Password must be at least 8 characters.')); return; }
+    if (pw !== pw2) { setError(tr('authPwMismatch', 'Passwords do not match.')); return; }
     setError(''); setLoading(true);
 
     Vault.create(pw)
@@ -370,7 +370,7 @@
       })
       .catch(function (e) {
         console.error('[MAERMIN Auth] setup failed:', e);
-        setError('Could not create the vault. ' + (e && e.message === 'crypto-unsupported' ? 'WebCrypto unavailable in this browser.' : 'Please try again.'));
+        setError(tr('authCreateFailed', 'Could not create the vault.') + ' ' + (e && e.message === 'crypto-unsupported' ? tr('authNoWebCrypto', 'WebCrypto unavailable in this browser.') : tr('authTryAgain', 'Please try again.')));
         setLoading(false);
       });
   }
@@ -416,7 +416,7 @@
         navigator.clipboard.writeText(code).then(function () {
           var msg = document.getElementById('rc-copy-msg');
           if (msg) msg.textContent = '';
-          copy.textContent = 'Copied ✓'; setTimeout(function () { copy.textContent = 'Copy'; }, 1500);
+          copy.textContent = tr('obCopied', 'Copied ✓'); setTimeout(function () { copy.textContent = tr('authCopy', 'Copy'); }, 1500);
         }, copyFailed);
       } catch (e) { copyFailed(); }
     });
@@ -438,7 +438,7 @@
       .then(function () { audit('vault.unlock.recovery', 'unlocked with recovery code'); setLoading(false); showScreen('new-password', {}); })
       .catch(function (e) {
         input.classList.add('error');
-        setError(e && e.message === 'bad-recovery-code' ? 'That recovery code is not valid.' : 'Recovery failed. Please try again.');
+        setError(e && e.message === 'bad-recovery-code' ? tr('authRcInvalid', 'That recovery code is not valid.') : tr('authRcFailed', 'Recovery failed. Please try again.'));
         setLoading(false); input.focus();
         setTimeout(function () { input.classList.remove('error'); }, 600);
       });
@@ -456,7 +456,7 @@
       .then(function () { audit('vault.unlock', 'unlocked with password'); finishUnlock(); })
       .catch(function (e) {
         input.classList.add('error');
-        setError(e && e.message === 'bad-password' ? 'Incorrect password. Please try again.' : 'Unlock failed. Please try again.');
+        setError(e && e.message === 'bad-password' ? tr('authBadPw', 'Incorrect password. Please try again.') : tr('authUnlockFailed', 'Unlock failed. Please try again.'));
         input.value = ''; input.focus(); setLoading(false);
         setTimeout(function () { input.classList.remove('error'); }, 600);
       });
@@ -468,7 +468,7 @@
       .then(function () { return Storage ? Storage.resume() : null; })
       .then(function (ok) { if (Storage && Storage.isEnabled() && ok === false) { Vault.lock(); throw new Error('decrypt-failed'); } })
       .then(function () { audit('vault.unlock.passkey', 'unlocked with passkey'); finishUnlock(); })
-      .catch(function () { setError('Passkey unlock failed. Use your password.'); setLoading(false); });
+      .catch(function () { setError(tr('authPasskeyFailed', 'Passkey unlock failed. Use your password.')); setLoading(false); });
   }
 
   // ─────────────────────────────────────────────────────────────────────────
@@ -517,7 +517,7 @@
   function init() {
     if (!Vault || !Vault.isSupported()) {
       // No WebCrypto → cannot secure the vault. Fail closed with a message.
-      var el = overlayShell('<div class="auth-logo"><h1>MAERMIN</h1></div><div class="auth-sub">This browser does not support the Web Crypto API required to unlock your vault. Please use a modern browser.</div>');
+      var el = overlayShell('<div class="auth-logo"><h1>MAERMIN</h1></div><div class="auth-sub">' + tr('authNoCryptoApi', 'This browser does not support the Web Crypto API required to unlock your vault. Please use a modern browser.') + '</div>');
       document.body.appendChild(el);
       return;
     }

@@ -240,7 +240,7 @@
     if (typeof React === 'undefined') return null;
     var e = React.createElement;
     var theme = props.theme || {};
-    var t = props.t || {};
+    var t = props.t || ((typeof window !== 'undefined' && window.MaerminI18n) ? window.MaerminI18n.dict() : {});
     var report = props.report || analyzePortfolio(props.portfolio, props.prices, props.transactions, t, props.extras, { formatMoney: props.formatMoney });
     var findings = report.findings || [];
 

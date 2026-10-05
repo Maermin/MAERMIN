@@ -17,6 +17,8 @@ export const NOT_UI = new Set([
   DICT_FILE, 'i18n.js', 'equity-metadata.js', 'demo-data.js', 'dev-boot.js', 'icons.js',
   'service-worker.js', 'compute.worker.js', 'compute.worker.harness.js', 'loader-status.js'
 ]);
+// Files whose literals are English fallbacks of keys the guard already checks.
+export const SCAN_SKIP = new Set(['nav-model.js']);
 
 export function appFiles() {
   return readdirSync(root).filter((f) => f.endsWith('.js') && !NOT_UI.has(f)).sort();
@@ -50,7 +52,7 @@ export function unquote(tok) {
   catch (e) { return body; }
 }
 
-const CALLS_NOT_UI = new Set(['log', 'dbg', 'warn', 'error', 'info', 'debug', 'Error', 'TypeError', 'RangeError',
+const CALLS_NOT_UI = new Set(['log', 'dbg', 'audit', 'warn', 'error', 'info', 'debug', 'Error', 'TypeError', 'RangeError',
   'querySelector', 'querySelectorAll', 'getElementById', 'getItem', 'setItem', 'removeItem',
   'addEventListener', 'removeEventListener', 'require', 'record', 'fetch', 'postMessage',
   'setAttribute', 'getAttribute', 'createElementNS', 'matchMedia', 'emit', 'on', 'off', 'test', 'match', 'replace', 'split', 'startsWith', 'endsWith', 'includes', 'indexOf']);
@@ -63,7 +65,8 @@ const SAME_IN_ALL = new Set(['MAERMIN', 'CoinGecko', 'ExchangeRate-API', 'Cloudf
 
 // Does this literal read like text a person sees?
 function looksLikeText(s) {
-  s = s.trim();
+  s = s.replace(/<[^>]*>/g, ' ').replace(/…/g, '0').trim();       // markup and template slots are not text
+  if (!/[A-Za-z]{2}/.test(s)) return false;
   if (SAME_IN_ALL.has(s)) return false;
   if (/^[^\s]*[?=&][^\s]*$/.test(s)) return false;               // query strings
   if (s === 'use strict') return false;

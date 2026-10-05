@@ -25,7 +25,7 @@
 
   // Localised asset-class label: prefer the app's translation keys, fall back to English.
   function classLabel(cls, t) {
-    t = t || {};
+    t = t || ((typeof window !== 'undefined' && window.MaerminI18n) ? window.MaerminI18n.dict() : {});
     const map = { crypto: t.crypto, stocks: t.stocks, skins: t.cs2Skins };
     if (map[cls]) return map[cls];
     const I = (typeof window !== 'undefined' && window.MaerminI18n) || require('./i18n.js');
@@ -149,7 +149,7 @@
   // extras: { priceHistory, transactions, accounts } — all optional; each sub-score
   // degrades gracefully and the total is re-normalised over what's available.
   function computeHealth(portfolio, prices, t, extras) {
-    t = t || {};
+    t = t || ((typeof window !== 'undefined' && window.MaerminI18n) ? window.MaerminI18n.dict() : {});
     extras = extras || {};
     const positions = flatten(portfolio, prices);
     const totalValue = positions.reduce((s, p) => s + p.value, 0);
@@ -295,7 +295,7 @@
     const theme = props.theme || {};
     const formatPrice = props.formatPrice || ((v) => (v || 0).toFixed(2));
     const sym = props.getCurrencySymbol ? props.getCurrencySymbol() : '';
-    const t = props.t || {};
+    const t = props.t || ((typeof window !== 'undefined' && window.MaerminI18n) ? window.MaerminI18n.dict() : {});
     const priceHistory = props.priceHistory || {};
     const transactions = props.transactions || [];
     const setActiveView = props.setActiveView;
