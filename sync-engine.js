@@ -120,7 +120,10 @@
   // low-entropy value (e.g. the church-tax rate) could be brute-forced. It is
   // device-local bookkeeping, so it is excluded from the synced snapshot.
   var BASE_KEY = 'maermin_sync_base';
-  var LOCAL_ONLY_KEYS = [BASE_KEY, 'maermin_close_history', 'maermin_fx_currencies'];
+  var LOCAL_ONLY_KEYS = [BASE_KEY, 'maermin_close_history', 'maermin_fx_currencies',
+    // re-fetchable market-data caches (encrypted at rest, kept per device)
+    'maermin_price_meta', 'maermin_equity_meta_cache', 'maermin_dividend_cache',
+    'maermin_marketcap_cache', 'maermin_symbol_suffix', 'maermin_div_notified'];
   function loadBase() {
     try { var b = JSON.parse(lsGet(BASE_KEY) || 'null'); return (b && typeof b === 'object') ? b : null; } catch (e) { return null; }
   }
