@@ -558,6 +558,13 @@ function SymbolPicker({ category, workerUrl, theme, onSelect, selectedSymbol, se
   const prevCat     = useRef(category);
 
   const isCrypto = category === 'crypto';
+  // A typed crypto symbol: CoinGecko ids are lower case ("quant-network"),
+  // tickers upper case ("QNT" - priced through MaerminTickers.coinGeckoId).
+  const typedSymbol = (v) => {
+    const s = String(v || '').trim();
+    if (!isCrypto || !s) return s;
+    return /[\s-]/.test(s) ? s.toLowerCase().replace(/\s+/g, '-') : s.toUpperCase();
+  };
 
   // ── Vollständiger Reset wenn Kategorie wechselt ─────────────────────────
   useEffect(() => {
@@ -584,11 +591,14 @@ function SymbolPicker({ category, workerUrl, theme, onSelect, selectedSymbol, se
       try {
         if (isCrypto) {
           // ── Crypto: CoinGecko only — never shows stocks ──────────────────
-          const res  = await fetch(
-            `https://api.coingecko.com/api/v3/search?query=${encodeURIComponent(q)}`,
-            { signal: AbortSignal.timeout(8000) }
-          );
-          const data = await res.json();
+          // Through the shared CoinGecko queue (high priority: the user is
+          // waiting). A direct call was refused while the price refresh had
+          // used up CoinGecko's per-minute limit, and the picker went blank.
+          const url = `https://api.coingecko.com/api/v3/search?query=${encodeURIComponent(q)}`;
+          const CG  = window.MaerminCoinGecko;
+          const data = CG
+            ? await CG.getJson(url, { priority: 'high', timeoutMs: 8000 })
+            : await fetch(url, { signal: AbortSignal.timeout(8000) }).then(r => { if (!r.ok) throw new Error(`Search failed: ${r.status}`); return r.json(); });
           const coins = (data.coins || [])
             .filter(c => {
               // Filter out tokenized stocks (xStock, rStock, Ondo) and stablecoins
@@ -645,7 +655,10 @@ function SymbolPicker({ category, workerUrl, theme, onSelect, selectedSymbol, se
           setOpen(items.length > 0);
         }
       } catch(e) {
-        setError(e.message);
+        setResults([]); setOpen(false);
+        setError(isCrypto
+          ? 'CoinGecko search is busy right now. You can still save: type the ticker (e.g. QNT) or the CoinGecko id (e.g. quant-network).'
+          : e.message);
       } finally {
         setLoading(false);
       }
@@ -686,7 +699,15 @@ function SymbolPicker({ category, workerUrl, theme, onSelect, selectedSymbol, se
           ref: inputRef,
           type: 'text',
           value: query,
-          onChange: e => { setQuery(e.target.value); setSelected(null); },
+          // Typed text counts as the symbol until a suggestion is picked: the
+          // form used to see an empty symbol ("Please fill in: Symbol") unless
+          // the user clicked a search result, and with the search unavailable
+          // nothing could be added at all.
+          onChange: e => {
+            const v = e.target.value;
+            setQuery(v); setSelected(null);
+            onSelect({ symbol: typedSymbol(v), name: '', logoUrl: null, manual: true });
+          },
           onFocus: () => results.length > 0 && setOpen(true),
           placeholder: isCrypto ? 'Search: Bitcoin, Ethereum, Solana...' : 'Search: Apple, ASML, Novo Nordisk...', 'aria-label': 'Symbol',
           style: {
@@ -706,6 +727,11 @@ function SymbolPicker({ category, workerUrl, theme, onSelect, selectedSymbol, se
         style: { padding: '0.5rem', background: 'rgba(239,68,68,0.1)', border: '1px solid rgba(239,68,68,0.2)', borderRadius: '6px', color: '#ef4444', cursor: 'pointer', fontSize: '0.875rem', lineHeight: 1 }
       }, '×')
     ),
+
+    // ── Typed, not picked: say what will be saved ─────────────────────────
+    !selected && query.trim() && React.createElement('div', {
+      style: { marginTop: '0.4rem', fontSize: '0.72rem', color: theme.textSecondary }
+    }, `Saved as typed: ${typedSymbol(query)} — pick a suggestion for the exact ${isCrypto ? 'coin' : 'listing'}.`),
 
     // ── Selected Preview ──────────────────────────────────────────────────
     selected && React.createElement('div', {
