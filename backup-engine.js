@@ -84,7 +84,9 @@
     'theme',
     'currency',
     'privacyMode',
-    'maermin_language'
+    'maermin_language',
+    // Simple/Advanced navigation mode (nav-model.js)
+    'maermin_ui_mode'
   ];
 
   function defaultStore() {

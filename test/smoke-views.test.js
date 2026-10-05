@@ -303,17 +303,17 @@ for (const [ns, name, props] of MUST_RENDER) {
 
 // ---- navigation targets exist ------------------------------------------------
 // The mobile dock sent 'portfolio', a view id the router does not know, so the
-// tab silently fell through to the Overview. Every id the dock can send must
-// have a `case '<id>':` in renderer.js renderView().
+// tab silently fell through to the Overview. The dock now opens the first view
+// of each area (nav-model.js); every such id must have a `case '<id>':` in
+// renderer.js renderView().
 {
   const fs = require('fs'), path = require('path');
   const root = path.join(__dirname, '..');
-  const dock = fs.readFileSync(path.join(root, 'features2.js'), 'utf8');
-  const start = dock.indexOf('function MobileBottomNav');
-  const block = dock.slice(start, dock.indexOf('const Icon', start));
-  const ids = [...block.matchAll(/\{ id: '([^']+)'/g)].map((m) => m[1]);
+  const Nav = require('../nav-model.js');
   const renderer = fs.readFileSync(path.join(root, 'renderer.js'), 'utf8');
-  ok('mobile dock lists its tabs', ids.length >= 4, 'found ' + ids.join(','));
+  const ids = [];
+  ['simple', 'advanced'].forEach((m) => Nav.AREAS.forEach((a) => ids.push(Nav.firstView(a.id, m))));
+  ok('mobile dock has one tab per area', Nav.AREAS.length === 6 && ids.every(Boolean), 'found ' + ids.join(','));
   ids.forEach((id) => ok("mobile tab '" + id + "' has a route",
     id === 'overview' || renderer.indexOf("case '" + id + "':") !== -1, 'no case for ' + id));
 }

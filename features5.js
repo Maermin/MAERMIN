@@ -322,7 +322,12 @@ function NetWorthView({ portfolioStats, portfolio, prices, theme, formatPrice, g
               React.createElement('span', { style: { color: isLiability ? theme.danger : theme.success, fontWeight: '700', fontSize: '0.9rem' } },
                 `${isLiability ? '-' : '+'}${formatPrice(acc.value)} ${getCurrencySymbol()}`
               ),
-              React.createElement('button', { onClick: () => setAccounts(prev => prev.filter(a => a.id !== acc.id)),
+              React.createElement('button', { onClick: () => window.MaerminUtils.confirmThen({
+                  title: (t.nwRemoveTitle || 'Remove the account "{name}"?').replace('{name}', acc.name),
+                  message: t.nwRemoveMessage || 'Its value leaves your net worth. This cannot be undone.',
+                  confirmLabel: t.remove || 'Remove', cancelLabel: t.cancel || 'Cancel'
+                }, () => setAccounts(prev => prev.filter(a => a.id !== acc.id))),
+                'aria-label': (t.nwRemoveAria || 'Remove account {name}').replace('{name}', acc.name),
                 style: { background: 'none', border: 'none', color: theme.textSecondary, cursor: 'pointer', fontSize: '0.9rem', padding: '0.25rem' }
               }, '×')
             )

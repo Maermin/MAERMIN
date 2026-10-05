@@ -125,6 +125,7 @@ function PortfolioManagerView({ portfolios, activePortfolioId, transactions, pri
                     onBlur: () => { renamePortfolio(p.id, editName); setEditId(null); },
                     onKeyDown: e => e.key === 'Enter' && (renamePortfolio(p.id, editName), setEditId(null)),
                     autoFocus: true,
+                    'aria-label': (t && t.pfNameLabel) || 'Portfolio name',
                     style: { background: theme.inputBg, border: `1px solid ${theme.inputBorder}`, borderRadius: '6px', color: theme.text, padding: '0.25rem 0.5rem', fontSize: '0.9rem', fontWeight: '700', width: '140px' },
                     onClick: e => e.stopPropagation()
                   })
@@ -133,6 +134,8 @@ function PortfolioManagerView({ portfolios, activePortfolioId, transactions, pri
             React.createElement('div', { style: { display: 'flex', gap: '0.375rem' } },
               React.createElement('button', {
                 onClick: e => { e.stopPropagation(); setEditId(p.id); setEditName(p.name); },
+                'aria-label': ((t && t.pfRenameAria) || 'Rename portfolio {name}').replace('{name}', p.name),
+                title: (t && t.pfRename) || 'Rename',
                 style: { background: 'none', border: 'none', color: theme.textSecondary, cursor: 'pointer', fontSize: '0.8rem', padding: '0.25rem' }
               }, '✎'),
               p.id !== 'default' && React.createElement('button', {
@@ -244,15 +247,30 @@ function SavingsPlanView({ transactions, theme, formatPrice, getCurrencySymbol, 
 
   useEffect(() => { localStorage.setItem('maermin_savings_plans', JSON.stringify(plans)); }, [plans]);
 
-  const openAdd = () => { setForm(emptyForm()); setEditPlan('new'); };
+  // The form as it was opened: Escape, a click beside the dialog or Cancel
+  // ask before a changed form is thrown away (FINDINGS L-5).
+  const formInitialRef = useRef(null);
+  const openAdd = () => { const f = emptyForm(); formInitialRef.current = f; setForm(f); setEditPlan('new'); };
+  const requestClose = () => {
+    const U = window.MaerminUtils;
+    const changed = formInitialRef.current && U.formChanged(formInitialRef.current, form);
+    if (!changed) { setEditPlan(null); return; }
+    U.confirmThen({
+      title: (t && t.discardPlanTitle) || 'Discard this savings plan?',
+      message: (t && t.discardTxMessage) || 'What you entered in this form will be lost.',
+      confirmLabel: (t && t.discard) || 'Discard',
+      cancelLabel: (t && t.keepEditing) || 'Keep editing'
+    }, () => setEditPlan(null));
+  };
   const openEdit = (plan) => {
-    setForm({
+    formInitialRef.current = {
       symbol: plan.symbol || '', amount: String(plan.amount || ''), frequency: plan.frequency || 'monthly',
       category: plan.category || 'crypto', startDate: plan.startDate || window.MaerminUtils.todayISO(),
       endDate: plan.endDate || '', noEnd: !plan.endDate,
       portfolioId: plan.portfolioId || activePortfolioId || 'default',
       amountCurrency: plan.amountCurrency || 'EUR'
-    });
+    };
+    setForm(formInitialRef.current);
     setEditPlan(plan);
   };
 
@@ -344,7 +362,7 @@ function SavingsPlanView({ transactions, theme, formatPrice, getCurrencySymbol, 
     }),
 
     // Add/Edit Plan MODAL (independent of the projection graph's height).
-    editPlan && React.createElement(PlanModal, { theme, onClose: () => setEditPlan(null), title: editPlan === 'new' ? 'New Savings Plan' : `Edit ${form.symbol || 'Plan'}` },
+    editPlan && React.createElement(PlanModal, { theme, onClose: requestClose, title: editPlan === 'new' ? 'New Savings Plan' : `Edit ${form.symbol || 'Plan'}` },
       React.createElement('div', { style: { display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(160px, 1fr))', gap: '0.75rem', marginBottom: '0.875rem' } },
         React.createElement('div', null,
           React.createElement('label', { style: { display: 'block', color: theme.textSecondary, fontSize: '0.72rem', marginBottom: '0.25rem', textTransform: 'uppercase' } }, 'Symbol'),
@@ -414,7 +432,7 @@ function SavingsPlanView({ transactions, theme, formatPrice, getCurrencySymbol, 
         'Due executions are booked automatically as real buy transactions when the app opens (marked, deletable). If no price is available for a due date, the execution stays pending instead of guessing a quantity.'),
       React.createElement('div', { style: { display: 'flex', gap: '0.5rem' } },
         React.createElement('button', { onClick: savePlan, style: { padding: '0.625rem 1.25rem', background: theme.accent, color: '#ffffff', border: 'none', borderRadius: '8px', cursor: 'pointer', fontWeight: '700', fontSize: '0.875rem' } }, editPlan === 'new' ? 'Add Plan' : 'Save'),
-        React.createElement('button', { onClick: () => setEditPlan(null), style: { padding: '0.625rem 1.25rem', background: theme.inputBg, color: theme.text, border: 'none', borderRadius: '8px', cursor: 'pointer', fontSize: '0.875rem' } }, 'Cancel')
+        React.createElement('button', { onClick: requestClose, style: { padding: '0.625rem 1.25rem', background: theme.inputBg, color: theme.text, border: 'none', borderRadius: '8px', cursor: 'pointer', fontSize: '0.875rem' } }, 'Cancel')
       )
     ),
 
@@ -491,7 +509,11 @@ function SavingsPlanView({ transactions, theme, formatPrice, getCurrencySymbol, 
                   style: { background: 'none', border: 'none', color: theme.textSecondary, cursor: 'pointer', fontSize: '0.78rem' }
                 }, plan.active === false ? 'Resume' : 'Pause'),
                 React.createElement('button', {
-                  onClick: () => setPlans(prev => prev.filter(p => p.id !== plan.id)),
+                  onClick: () => window.MaerminUtils.confirmThen({
+                    title: ((t && t.spRemoveTitle) || 'Remove the savings plan {name}?').replace('{name}', plan.symbol || ''),
+                    message: (t && t.spRemoveMessage) || 'Executions already booked stay in your transactions.',
+                    confirmLabel: (t && t.spRemove) || 'Remove plan', cancelLabel: (t && t.cancel) || 'Cancel'
+                  }, () => setPlans(prev => prev.filter(p => p.id !== plan.id))),
                   style: { background: 'none', border: 'none', color: theme.textSecondary, cursor: 'pointer', fontSize: '0.78rem' }
                 }, 'Remove plan')
               )

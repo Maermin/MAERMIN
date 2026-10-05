@@ -191,7 +191,12 @@
             }),
             e('code', { style: { color: dim, fontSize: '0.72rem' } }, c.id),
             e('button', {
-              onClick: function () { mutate(API.remove(st, c.id)); },
+              onClick: function () {
+                window.MaerminUtils.confirmThen({
+                  title: (t.catDeleteTitle || 'Delete the category "{name}"?').replace('{name}', c.label),
+                  confirmLabel: t.catDelete || 'Delete', cancelLabel: t.cancel || 'Cancel'
+                }, function () { mutate(API.remove(st, c.id)); });
+              },
               style: { padding: '0.3rem 0.6rem', fontSize: '0.74rem', fontWeight: 700, cursor: 'pointer', borderRadius: '8px', border: '1px solid ' + inputBorder, background: 'transparent', color: text }
             }, t.catDelete || 'Delete'));
         });

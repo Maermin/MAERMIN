@@ -213,6 +213,7 @@ function WatchlistView({ prices, priceHistory, theme, t, addToast }) {
                   React.createElement('td', { style: { padding: '0.5rem', textAlign: 'center' } },
                     React.createElement('button', {
                       onClick: () => removeItem(item.id),
+                      'aria-label': 'Remove ' + (item.displaySymbol || item.symbol || '') + ' from the watchlist',
                       style: {
                         background: 'rgba(239,68,68,0.1)', border: '1px solid rgba(239,68,68,0.2)',
                         color: '#ef4444', borderRadius: '4px', cursor: 'pointer', padding: '0.25rem 0.5rem', fontSize: '0.75rem'

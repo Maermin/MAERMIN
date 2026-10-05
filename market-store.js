@@ -118,10 +118,26 @@
     return { total: total, fetched: fetched, carried: carriedN, missing: missing, outcome: outcome };
   }
 
+  // Automatic refreshes (timer, focus, online) run quietly (FINDINGS M-11): no
+  // success toast, and a problem is reported once - again only when it
+  // changes. A refresh the user started always reports. `key` names the
+  // outcome ('ok', 'none:3', 'partial:1', 'cs2-worker', 'error'); lastKey is
+  // the key of the last automatic notice. Returns { key, show }.
+  function refreshNotice(key, opts) {
+    opts = opts || {};
+    if (!opts.silent) return { key: key, show: true };
+    if (key === 'ok') return { key: key, show: false };
+    return { key: key, show: key !== opts.lastKey };
+  }
+  function summaryKey(sum) {
+    if (!sum || sum.outcome === 'all' || sum.outcome === 'empty') return 'ok';
+    return sum.outcome + ':' + (sum.total - sum.fetched);
+  }
+
   var api = {
     store: store,
     getState: getState, get: get, set: set, subscribe: subscribe,
-    mergePrices: mergePrices, refreshSummary: refreshSummary,
+    mergePrices: mergePrices, refreshSummary: refreshSummary, refreshNotice: refreshNotice, summaryKey: summaryKey,
     lastKnownPrices: lastKnownPrices, effectivePrices: effectivePrices,
     setCostKeys: setCostKeys, isCostFallback: isCostFallback
   };

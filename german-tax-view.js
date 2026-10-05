@@ -430,7 +430,13 @@
             }, style: inputStyle }),
             e('span', { style: { color: dim, fontSize: '0.76rem', marginLeft: '0.25rem' } }, '%')), 'Default ' + (tf[2] * 100) + '%');
         }),
-        e('button', { onClick: function () { setS(TS.reset()); if (props.onChange) props.onChange(); }, style: { marginTop: '0.7rem', padding: '0.35rem 0.8rem', borderRadius: '6px', border: '1px solid ' + border, background: inputBg, color: dim, cursor: 'pointer', fontSize: '0.74rem' } }, 'Reset to defaults'),
+        e('button', { onClick: function () {
+          window.MaerminUtils.confirmThen({
+            title: t.taxResetTitle || 'Reset the tax settings to the defaults?',
+            message: t.taxResetMessage || 'Your rates, church tax and Teilfreistellung overrides are replaced by the defaults.',
+            confirmLabel: t.taxReset || 'Reset', cancelLabel: t.cancel || 'Cancel'
+          }, function () { setS(TS.reset()); if (props.onChange) props.onChange(); });
+        }, style: { marginTop: '0.7rem', padding: '0.35rem 0.8rem', borderRadius: '6px', border: '1px solid ' + border, background: inputBg, color: dim, cursor: 'pointer', fontSize: '0.74rem' } }, 'Reset to defaults'),
         e('div', { style: { color: dim, fontSize: '0.7rem', marginTop: '0.6rem', lineHeight: 1.5 } }, 'Overrides are stored on this device and feed the tax computation and the PDF/Excel export. Defaults apply where unset. Not tax advice.')
       ) : null);
   }

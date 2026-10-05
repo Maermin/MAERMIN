@@ -205,6 +205,8 @@ function NewsFeedView({ portfolio, transactions, apiKeys, theme, formatPrice }) 
   const [news, setNews]       = useState([]);
   const [loading, setLoading] = useState(false);
   const [filter, setFilter]   = useState('all'); // 'all' or symbol
+  // Requests of the last load: a Worker that fails is not "no news" (FINDINGS M-14).
+  const [requests, setRequests] = useState({ tried: 0, failed: 0 });
 
   const heldSymbols = useMemo(() => {
     const syms = new Set();
@@ -223,6 +225,7 @@ function NewsFeedView({ portfolio, transactions, apiKeys, theme, formatPrice }) 
       // Try Yahoo Finance RSS via Worker for each symbol
       const workerBase = (apiKeys?.cs2Worker || '').trim().replace(/\/$/, '');
       const allNews = [];
+      let tried = 0, failed = 0;
 
       // Use Yahoo Finance news RSS (free, no key)
       for (const { sym, name, cat } of heldSymbols.slice(0, 5)) {
@@ -235,8 +238,9 @@ function NewsFeedView({ portfolio, transactions, apiKeys, theme, formatPrice }) 
           if (!workerBase) break;
           const url = `${workerBase}?action=news&symbol=${encodeURIComponent(yfSym)}`;
 
+          tried++;
           const res = await fetch(url, { signal: AbortSignal.timeout(5000) });
-          if (!res.ok) continue;
+          if (!res.ok) { failed++; continue; }
 
           const text = await res.text();
           // Parse RSS XML
@@ -251,8 +255,9 @@ function NewsFeedView({ portfolio, transactions, apiKeys, theme, formatPrice }) 
             const description = item.querySelector('description')?.textContent || '';
             if (title) allNews.push({ sym: yfSym, name, title, link, pubDate: new Date(pubDate), description });
           });
-        } catch(e) { /* skip */ }
+        } catch(e) { failed++; }
       }
+      setRequests({ tried, failed });
 
       // Sort by date, newest first
       allNews.sort((a, b) => b.pubDate - a.pubDate);
@@ -325,15 +330,28 @@ function NewsFeedView({ portfolio, transactions, apiKeys, theme, formatPrice }) 
         )
       : !loading && React.createElement('div', { style: { background: theme.card, border: `1px solid ${theme.cardBorder}`, borderRadius: '16px', boxShadow: theme.shadow, padding: '3rem', textAlign: 'center', color: theme.textSecondary } },
           React.createElement('div', { style: { fontSize: '2rem', marginBottom: '0.5rem', opacity: 0.3 } }, '☰'),
-          React.createElement('div', null, hasWorker ? 'No news found for your positions' : 'Add Worker URL to load news')
-        )
+          React.createElement('div', { 'data-testid': 'news-status' }, newsEmptyText(hasWorker, requests))
+        ),
+    news.length > 0 && requests.failed > 0 && React.createElement('div', { style: { marginTop: '0.75rem', color: theme.textSecondary, fontSize: '0.78rem' } },
+      newsPartialText(requests))
   );
+}
+
+// What an empty News Feed says (FINDINGS M-14): a Worker that failed every
+// request is an error, not an empty feed.
+function newsEmptyText(hasWorker, req) {
+  if (!hasWorker) return 'Add Worker URL to load news';
+  if (req && req.tried > 0 && req.failed === req.tried) return 'News could not be loaded: your Worker did not answer (' + req.failed + ' of ' + req.tried + ' requests failed). Check the Worker URL in API Settings or redeploy the Worker.';
+  return 'No news found for your positions';
+}
+function newsPartialText(req) {
+  return 'News for ' + req.failed + ' of ' + req.tried + ' positions could not be loaded.';
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
 // EXPORTS
 // ─────────────────────────────────────────────────────────────────────────────
-window.MaerminFeatures7 = { PerformanceAttribution, RealizedUnrealizedView, NewsFeedView };
+window.MaerminFeatures7 = { PerformanceAttribution, RealizedUnrealizedView, NewsFeedView, newsEmptyText };
 console.log('[OK] MAERMIN Features7 v10.0 — Performance Attribution, Realized P&L, News Feed');
 
 })();

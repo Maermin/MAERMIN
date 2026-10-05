@@ -74,6 +74,8 @@
     #maermin-auth .auth-logo h1 { font-size: 1.35rem; font-weight: 700; letter-spacing: 0.22em; color: #f1f2f8; }
     #maermin-auth .auth-logo p { color: #8d91a7; font-size: 0.8rem; margin-top: 0.3rem; }
     #maermin-auth .auth-sub { color: #8d91a7; font-size:.82rem; text-align:center; margin: -0.4rem 0 1.4rem; line-height:1.55; }
+    #maermin-auth #rc-copy-msg { color: #f5b14c; margin: 0 0 0.9rem; }
+    #maermin-auth #rc-copy-msg:empty { margin: 0; }
     #maermin-auth .auth-field { position: relative; margin-bottom: 1rem; }
     #maermin-auth .auth-field label { display:block; color: #b5b8ca; font-size: 0.78rem; font-weight: 500; margin-bottom: 0.45rem; }
     #maermin-auth .auth-field input { width:100%; height: 46px; padding: 0 0.95rem; background: rgba(255,255,255,0.035);
@@ -268,6 +270,7 @@
         <button class="auth-alt" id="rc-download" type="button">Download</button>
         <button class="auth-alt" id="rc-print" type="button">Print</button>
       </div>
+      <div class="auth-sub" id="rc-copy-msg" role="status" aria-live="polite"></div>
       <label class="auth-check"><input type="checkbox" id="rc-saved" />
         <span>I've saved my recovery code somewhere safe and private.</span></label>
       <button class="auth-btn" id="auth-submit" disabled><div class="spinner"></div><span class="btn-text">Continue →</span></button>
@@ -398,12 +401,24 @@
     var submit = document.getElementById('auth-submit');
     if (saved && submit) saved.addEventListener('change', function () { submit.disabled = !saved.checked; });
     var copy = document.getElementById('rc-copy');
+    // A failed copy says so and selects the code for a manual copy (FINDINGS L-7).
+    var copyFailed = function () {
+      var msg = document.getElementById('rc-copy-msg');
+      if (msg) msg.textContent = tr('rcCopyFailed', 'Copy failed — select the code and copy it by hand.');
+      var el = document.getElementById('rc-code');
+      try {
+        var range = document.createRange(); range.selectNodeContents(el);
+        var sel = window.getSelection(); sel.removeAllRanges(); sel.addRange(range);
+      } catch (e) {}
+    };
     if (copy) copy.addEventListener('click', function () {
       try {
         navigator.clipboard.writeText(code).then(function () {
+          var msg = document.getElementById('rc-copy-msg');
+          if (msg) msg.textContent = '';
           copy.textContent = 'Copied ✓'; setTimeout(function () { copy.textContent = 'Copy'; }, 1500);
-        }, function () {});
-      } catch (e) {}
+        }, copyFailed);
+      } catch (e) { copyFailed(); }
     });
     var dl = document.getElementById('rc-download');
     if (dl) dl.addEventListener('click', function () { downloadText('maermin-recovery-code.txt', recoveryFileText(code)); });

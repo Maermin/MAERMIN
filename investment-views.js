@@ -21,6 +21,32 @@ var DEFAULT_THEME = {
 };
 var ThemeCtx = React.createContext(DEFAULT_THEME);
 function useT() { return Object.assign({}, DEFAULT_THEME, React.useContext(ThemeCtx) || {}); }
+// Amounts (EUR inside) go through the app's formatter, which converts to the
+// display currency and masks them in Privacy Mode (FINDINGS M-12). On its own
+// a view prints plain EUR.
+var MoneyCtx = React.createContext(null);
+function plainEUR(v) { return (Number(v) || 0).toFixed(0) + ' EUR'; }
+function useMoney() { return React.useContext(MoneyCtx) || plainEUR; }
+
+// Goal progress (FINDINGS M-13). A goal without a positive target has no
+// progress and no on-track verdict; a goal whose date has passed is on track
+// only when it is reached.
+function goalProgress(goal, now) {
+  var target = Number(goal && goal.targetAmount) || 0;
+  var current = Number(goal && goal.currentAmount) || 0;
+  var monthly = Number(goal && goal.monthlyContribution) || 0;
+  if (!(target > 0)) return { progressPercent: 0, onTrack: null, monthsRemaining: 0, requiredMonthly: 0, invalid: true };
+  var targetDate = new Date(goal.targetDate);
+  var monthsRemaining = isFinite(targetDate) ? Math.max(0, (targetDate - (now || new Date())) / (1000 * 60 * 60 * 24 * 30)) : 0;
+  var left = Math.max(0, target - current);
+  var requiredMonthly = monthsRemaining > 0 ? left / monthsRemaining : 0;
+  return {
+    progressPercent: Math.max(0, Math.min(100, (current / target) * 100)),
+    onTrack: left === 0 ? true : monthsRemaining > 0 ? monthly >= requiredMonthly : false,
+    monthsRemaining: Math.round(monthsRemaining),
+    requiredMonthly: requiredMonthly
+  };
+}
 
 // ============================================================================
 // SHARED COMPONENTS
@@ -368,6 +394,7 @@ function DCAAnalyzerView(props) {
 // ============================================================================
 
 function SectorAllocationView(props) {
+  var money = useMoney();
   var T = useT();
   var portfolio = props.portfolio || {};
   var prices = props.prices || {};
@@ -476,7 +503,7 @@ function SectorAllocationView(props) {
             { label: 'Sectors', value: sectorData.sectorCount },
             { label: 'Top Sector', value: sectorData.sectors[0] ? sectorData.sectors[0].name : 'N/A' },
             { label: 'Top Weight', value: sectorData.sectors[0] ? sectorData.sectors[0].weight.toFixed(1) + '%' : '0%' },
-            { label: 'Total Value', value: sectorData.totalValue.toFixed(0) + ' EUR' }
+            { label: 'Total Value', value: money(sectorData.totalValue) }
           ]
         }),
         sectorData.sectors[0] && sectorData.sectors[0].weight > 50 && React.createElement('div', {
@@ -501,6 +528,7 @@ function SectorAllocationView(props) {
 // ============================================================================
 
 function CountryAllocationView(props) {
+  var money = useMoney();
   var T = useT();
   var portfolio = props.portfolio || {};
   var prices = props.prices || {};
@@ -558,7 +586,7 @@ function CountryAllocationView(props) {
           { label: 'Regions', value: data.count },
           { label: 'Top Region', value: data.rows[0] ? data.rows[0].name : 'N/A' },
           { label: 'Top Weight', value: data.rows[0] ? data.rows[0].weight.toFixed(1) + '%' : '0%' },
-          { label: 'Total Value', value: data.totalValue.toFixed(0) + ' EUR' }
+          { label: 'Total Value', value: money(data.totalValue) }
         ] }),
         data.rows[0] && data.rows[0].weight > 60 && React.createElement('div', { style: { marginTop: '1rem', padding: '0.75rem', background: 'rgba(239,68,68,0.1)', borderRadius: '8px' } },
           React.createElement('div', { style: { color: '#ef4444', fontWeight: '600', marginBottom: '0.5rem' } }, 'Concentration Warning'),
@@ -573,6 +601,7 @@ function CountryAllocationView(props) {
 // ============================================================================
 
 function CurrencyExposureView(props) {
+  var money = useMoney();
   var T = useT();
   var portfolio = props.portfolio || {};
   
@@ -664,7 +693,7 @@ function CurrencyExposureView(props) {
             { label: 'Domestic (' + baseCurrency + ')', value: currencyData.domesticExposure.toFixed(1) + '%', color: '#22c55e' },
             { label: 'Foreign', value: currencyData.foreignExposure.toFixed(1) + '%', color: '#f59e0b' },
             { label: 'Currencies', value: currencyData.currencyCount },
-            { label: 'Total Value', value: currencyData.totalValue.toFixed(0) + ' EUR' }
+            { label: 'Total Value', value: money(currencyData.totalValue) }
           ]
         }),
         React.createElement('div', { style: { marginTop: '1rem' } },
@@ -711,6 +740,7 @@ function CurrencyExposureView(props) {
 // ============================================================================
 
 function LiquidityAnalysisView(props) {
+  var money = useMoney();
   var T = useT();
   var portfolio = props.portfolio || {};
   
@@ -808,7 +838,7 @@ function LiquidityAnalysisView(props) {
             { label: 'Liquidity Score', value: liquidityData.portfolioLiquidityScore.toFixed(0) + '/100', color: getLiquidityColor(liquidityData.portfolioLiquidityScore) },
             { label: 'Est. Cost', value: liquidityData.costToLiquidatePercent.toFixed(2) + '%' },
             { label: 'Positions', value: liquidityData.positions.length },
-            { label: 'Total Value', value: liquidityData.totalValue.toFixed(0) + ' EUR' }
+            { label: 'Total Value', value: money(liquidityData.totalValue) }
           ]
         })
       ),
@@ -849,6 +879,7 @@ function LiquidityAnalysisView(props) {
 // ============================================================================
 
 function GoalInvestingView(props) {
+  var money = useMoney();
   var T = useT();
   var portfolioValue = props.portfolioValue || 0;
   
@@ -885,7 +916,7 @@ function GoalInvestingView(props) {
   }, [goals]);
   
   var addGoal = function() {
-    if (!newGoal.name) return;
+    if (!newGoal.name || !(newGoal.targetAmount > 0)) return;
     
     var goal = {
       id: Date.now().toString(),
@@ -914,21 +945,7 @@ function GoalInvestingView(props) {
     setGoals(goals.filter(function(g) { return g.id !== goalId; }));
   };
   
-  var calculateProgress = function(goal) {
-    var progress = (goal.currentAmount / goal.targetAmount) * 100;
-    var targetDate = new Date(goal.targetDate);
-    var now = new Date();
-    var monthsRemaining = Math.max(0, (targetDate - now) / (1000 * 60 * 60 * 24 * 30));
-    var requiredMonthly = monthsRemaining > 0 ? (goal.targetAmount - goal.currentAmount) / monthsRemaining : 0;
-    var onTrack = goal.monthlyContribution >= requiredMonthly;
-    
-    return {
-      progressPercent: Math.min(100, progress),
-      onTrack: onTrack,
-      monthsRemaining: Math.round(monthsRemaining),
-      requiredMonthly: requiredMonthly
-    };
-  };
+  var calculateProgress = function(goal) { return goalProgress(goal); };
   
   var goalTypes = [
     { id: 'retirement', label: 'Retirement' },
@@ -1023,7 +1040,9 @@ function GoalInvestingView(props) {
         }, 'Cancel'),
         React.createElement('button', {
           onClick: addGoal,
-          style: { background: '#22c55e', color: '#ffffff', border: 'none', padding: '0.5rem 1rem', borderRadius: '6px', cursor: 'pointer' }
+          disabled: !newGoal.name || !(newGoal.targetAmount > 0),
+          title: !(newGoal.targetAmount > 0) ? 'Enter a target amount above 0' : undefined,
+          style: { background: '#22c55e', color: '#ffffff', border: 'none', padding: '0.5rem 1rem', borderRadius: '6px', cursor: (!newGoal.name || !(newGoal.targetAmount > 0)) ? 'not-allowed' : 'pointer', opacity: (!newGoal.name || !(newGoal.targetAmount > 0)) ? 0.5 : 1 }
         }, 'Create Goal')
       )
     ),
@@ -1034,12 +1053,12 @@ function GoalInvestingView(props) {
       return React.createElement(AnalysisCard, {
         key: goal.id,
         title: goal.name,
-        badge: progress.onTrack ? 'On Track' : 'Behind',
+        badge: progress.invalid ? 'No target' : progress.onTrack ? 'On Track' : 'Behind',
         badgeType: progress.onTrack ? 'positive' : 'warning'
       },
         React.createElement('div', { style: { display: 'flex', justifyContent: 'space-between', marginBottom: '0.5rem' } },
           React.createElement('span', { style: { color: T.textSecondary } }, 
-            goal.currentAmount.toFixed(0) + ' / ' + goal.targetAmount.toFixed(0) + ' EUR'
+            money(goal.currentAmount) + ' / ' + money(goal.targetAmount)
           ),
           React.createElement('span', { style: { color: T.accent, fontWeight: '600' } },
             progress.progressPercent.toFixed(1) + '%'
@@ -1056,14 +1075,17 @@ function GoalInvestingView(props) {
           ),
           React.createElement('div', null,
             React.createElement('div', { style: { color: T.textSecondary, fontSize: '0.75rem' } }, 'Monthly'),
-            React.createElement('div', { style: { color: T.text } }, goal.monthlyContribution + ' EUR')
+            React.createElement('div', { style: { color: T.text } }, money(goal.monthlyContribution))
           ),
           React.createElement('div', null,
             React.createElement('div', { style: { color: T.textSecondary, fontSize: '0.75rem' } }, 'Remaining'),
-            React.createElement('div', { style: { color: T.text } }, (goal.targetAmount - goal.currentAmount).toFixed(0) + ' EUR')
+            React.createElement('div', { style: { color: T.text } }, money(Math.max(0, goal.targetAmount - goal.currentAmount)))
           ),
           React.createElement('button', {
-            onClick: function() { deleteGoal(goal.id); },
+            onClick: function() {
+              var U = (typeof window !== 'undefined') && window.MaerminUtils;
+              if (U && U.confirmThen) U.confirmThen({ title: 'Delete the goal "' + goal.name + '"?', confirmLabel: 'Delete' }, function() { deleteGoal(goal.id); });
+            },
             style: { background: 'rgba(239,68,68,0.2)', color: '#ef4444', border: 'none', padding: '0.25rem 0.75rem', borderRadius: '4px', cursor: 'pointer', fontSize: '0.75rem' }
           }, 'Delete')
         )
@@ -1144,7 +1166,12 @@ function InvestmentAnalysisDashboard(props) {
     }
   };
   // Every section reads the app theme from here (FINDINGS H-8).
-  var renderSection = function() { return React.createElement(ThemeCtx.Provider, { value: theme }, renderSectionRaw()); };
+  var fp = props.formatPrice, sym = typeof props.getCurrencySymbol === 'function' ? props.getCurrencySymbol() : '€';
+  var money = typeof fp === 'function' ? function(v) { return fp(Number(v) || 0) + ' ' + sym; } : null;
+  var renderSection = function() {
+    return React.createElement(ThemeCtx.Provider, { value: theme },
+      React.createElement(MoneyCtx.Provider, { value: money }, renderSectionRaw()));
+  };
 
   
   return React.createElement('div', null,
@@ -1178,7 +1205,9 @@ window.InvestmentViews = {
   DataTable: DataTable,
   ProgressBar: ProgressBar,
   TabBar: TabBar,
-  ThemeContext: ThemeCtx
+  ThemeContext: ThemeCtx,
+  MoneyContext: MoneyCtx,
+  goalProgress: goalProgress
 };
 
 console.log('[OK] Investment Views v7.1 loaded');
