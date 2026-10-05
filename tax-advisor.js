@@ -26,6 +26,11 @@
 // ============================================================================
 (function () {
   'use strict';
+// Translation lookup (i18n.js): __('key', 'English fallback', { slot: value }).
+function __(k, f, v) { return (typeof window !== 'undefined' && window.MaerminI18n ? window.MaerminI18n : require('./i18n.js')).t(k, f, v); }
+  function I18N() { return (typeof window !== 'undefined' && window.MaerminI18n) || require('./i18n.js'); }
+  function EUR(v) { return I18N().money(Math.round(v || 0), 'EUR', 0); }
+  function D8(iso) { return I18N().date(iso); }
 
   var PRIORITY_RANK = { critical: 0, important: 1, optimization: 2 };
   var DEFAULTS = {
@@ -134,9 +139,9 @@
     nearFree.sort(function (a, b) { return a._daysLeft - b._daysLeft; });
     nearFree.forEach(function (lot) {
       findings.push(finding('cryptoCountdown', 'important',
-        lot.symbol + ': ' + lot._daysLeft + ' day(s) until tax-free',
-        'This crypto lot (acquired ' + lot.acquiredDate + ') reaches the 1-year §23 EStG holding period on ' + lot._freeDate + '. An unrealised gain of about ' + Math.round(lot._gain) + ' EUR would then be tax-free.',
-        'Consider waiting until ' + lot._freeDate + ' before selling this lot to realise the gain tax-free.',
+        __('taCdTitle', '{sym}: {n} {n:day|days} until tax-free', { sym: lot.symbol, n: lot._daysLeft }),
+        __('taCdDetail', 'This crypto lot (acquired {acq}) reaches the 1-year §23 EStG holding period on {free}. An unrealised gain of about {gain} would then be tax-free.', { acq: D8(lot.acquiredDate), free: D8(lot._freeDate), gain: EUR(lot._gain) }),
+        __('taCdAction', 'Consider waiting until {free} before selling this lot to realise the gain tax-free.', { free: D8(lot._freeDate) }),
         { symbol: lot.symbol, daysLeft: lot._daysLeft, freeDate: lot._freeDate, gain: lot._gain }));
     });
 
@@ -146,15 +151,15 @@
     var cryptoRemaining = cryptoLimit - cryptoUsed;
     if (cryptoUsed >= cryptoLimit) {
       findings.push(finding('cryptoFreigrenze', 'critical',
-        'Crypto Freigrenze exceeded',
-        'Realised private sale gains of ' + Math.round(cryptoUsed) + ' EUR this year reach the 1.000 EUR Freigrenze (only gains of less than 1.000 EUR are tax-free). Because it is a Freigrenze (not an allowance), the ENTIRE amount is taxable, not just the excess.',
-        'Avoid further short-term crypto sales this year; defer additional realisations into next year if possible.',
+        __('taFgExceeded', 'Crypto Freigrenze exceeded'),
+        __('taFgExceededDetail', 'Realised private sale gains of {used} this year reach the {limit} Freigrenze (only gains of less than {limit} are tax-free). Because it is a Freigrenze (not an allowance), the ENTIRE amount is taxable, not just the excess.', { used: EUR(cryptoUsed), limit: EUR(cryptoLimit) }),
+        __('taFgExceededAction', 'Avoid further short-term crypto sales this year; defer additional realisations into next year if possible.'),
         { used: cryptoUsed, limit: cryptoLimit, remaining: cryptoRemaining }));
     } else if (cryptoUsed >= cryptoLimit * o.nearLimitPct) {
       findings.push(finding('cryptoFreigrenze', 'important',
-        'Crypto Freigrenze nearly used',
-        'Realised private sale gains of ' + Math.round(cryptoUsed) + ' EUR are close to the 1.000 EUR Freigrenze; only ' + Math.round(cryptoRemaining) + ' EUR of headroom remains.',
-        'Any sale that brings total gains to 1.000 EUR or more makes the whole sum taxable — keep further short-term realisations under ' + Math.round(cryptoRemaining) + ' EUR.',
+        __('taFgNear', 'Crypto Freigrenze nearly used'),
+        __('taFgNearDetail', 'Realised private sale gains of {used} are close to the {limit} Freigrenze; only {left} of headroom remains.', { used: EUR(cryptoUsed), limit: EUR(cryptoLimit), left: EUR(cryptoRemaining) }),
+        __('taFgNearAction', 'Any sale that brings total gains to {limit} or more makes the whole sum taxable — keep further short-term realisations under {left}.', { limit: EUR(cryptoLimit), left: EUR(cryptoRemaining) }),
         { used: cryptoUsed, limit: cryptoLimit, remaining: cryptoRemaining }));
     }
 
@@ -166,15 +171,15 @@
     var spbRemaining = spbLimit - spbUsed;
     if (spbRemaining > 0 && spbRemaining < spbLimit) {
       findings.push(finding('sparerHeadroom', 'optimization',
-        'Sparerpauschbetrag headroom',
-        Math.round(spbUsed) + ' EUR of your ' + Math.round(spbLimit) + ' EUR Sparerpauschbetrag is used; ' + Math.round(spbRemaining) + ' EUR remains tax-free this year.',
-        'You can still realise about ' + Math.round(spbRemaining) + ' EUR of capital income (gains, dividends, interest) tax-free this year.',
+        __('taSpbHeadroom', 'Sparerpauschbetrag headroom'),
+        __('taSpbHeadroomDetail', '{used} of your {limit} Sparerpauschbetrag is used; {left} remains tax-free this year.', { used: EUR(spbUsed), limit: EUR(spbLimit), left: EUR(spbRemaining) }),
+        __('taSpbHeadroomAction', 'You can still realise about {left} of capital income (gains, dividends, interest) tax-free this year.', { left: EUR(spbRemaining) }),
         { used: spbUsed, limit: spbLimit, remaining: spbRemaining }));
     } else if (spbRemaining <= 0) {
       findings.push(finding('sparerHeadroom', 'optimization',
-        'Sparerpauschbetrag exhausted',
-        'Your ' + Math.round(spbLimit) + ' EUR Sparerpauschbetrag is fully used this year.',
-        'Further capital income this year is taxable at the Abgeltungsteuer rate; consider deferring optional realisations into next year.',
+        __('taSpbExhausted', 'Sparerpauschbetrag exhausted'),
+        __('taSpbExhaustedDetail', 'Your {limit} Sparerpauschbetrag is fully used this year.', { limit: EUR(spbLimit) }),
+        __('taSpbExhaustedAction', 'Further capital income this year is taxable at the Abgeltungsteuer rate; consider deferring optional realisations into next year.'),
         { used: spbUsed, limit: spbLimit, remaining: 0 }));
     }
 
@@ -215,7 +220,7 @@
       other: num(input.realizedOtherGainsYTD),
       crypto: num(input.realizedCryptoGainsYTD)
     };
-    var POT_LABEL = { stocks: 'stock (direct shares)', other: 'other capital income (funds/ETFs, bonds)', crypto: 'private sales (crypto, sec. 23)' };
+    var POT_LABEL = { stocks: __('taPotStocks', 'stock (direct shares)'), other: __('taPotOther', 'other capital income (funds/ETFs, bonds)'), crypto: __('taPotCrypto', 'private sales (crypto, sec. 23)') };
     ['stocks', 'other', 'crypto'].forEach(function (potKey) {
       var pot = pots[potKey];
       var harvestable = -pot.loss; // positive
@@ -224,9 +229,9 @@
       var offset = Math.min(harvestable, realizedGains);
       var label = POT_LABEL[potKey];
       findings.push(finding('lossHarvest', 'important',
-        'Loss-harvesting opportunity (' + label + ' pot)',
-        'You have about ' + Math.round(harvestable) + ' EUR of unrealised losses in the ' + label + ' pot (' + pot.names.slice(0, 4).join(', ') + ') against ' + Math.round(realizedGains) + ' EUR of realised gains in the same pot this year.',
-        'Realising up to ' + Math.round(offset) + ' EUR of these losses before year-end could offset those gains. Losses only offset gains of the same pot: share losses only share gains, crypto losses only other private-sale gains.',
+        __('taLhTitle', 'Loss-harvesting opportunity ({pot} pot)', { pot: label }),
+        __('taLhDetail', 'You have about {loss} of unrealised losses in the {pot} pot ({names}) against {gains} of realised gains in the same pot this year.', { loss: EUR(harvestable), pot: label, names: pot.names.slice(0, 4).join(', '), gains: EUR(realizedGains) }),
+        __('taLhAction', 'Realising up to {offset} of these losses before year-end could offset those gains. Losses only offset gains of the same pot: share losses only share gains, crypto losses only other private-sale gains.', { offset: EUR(offset) }),
         { pot: potKey, harvestable: harvestable, realizedGains: realizedGains, offset: offset }));
     });
 
@@ -370,7 +375,7 @@
               e('div', { style: { color: text, fontWeight: 800, fontSize: '1.05rem' } }, s.cryptoLotsNearFree + ' / ' + s.cryptoLotsTracked))),
           cards.length ? cards : e('div', { style: { color: dim, fontSize: '0.84rem' } }, t.taNone || 'No tax actions flagged right now.'));
       } catch (err) {
-        return e('div', { style: { padding: '0.75rem', color: (props.theme && props.theme.danger) || '#ef4444' } }, 'Tax advisor error: ' + (err && err.message));
+        return e('div', { style: { padding: '0.75rem', color: (props.theme && props.theme.danger) || '#ef4444' } }, __('taError', 'Tax advisor error: {msg}', { msg: err && err.message }));
       }
     };
   }

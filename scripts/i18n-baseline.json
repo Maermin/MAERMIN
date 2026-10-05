@@ -1,7 +1,6 @@
 {
   "text": {
     "advisor.js": 15,
-    "analytics-views.js": 38,
     "audit-log.js": 2,
     "auth.js": 8,
     "backtester.js": 23,
@@ -50,16 +49,14 @@
     "rules-engine.js": 6,
     "savings-plan-executor.js": 4,
     "share-snapshot.js": 9,
-    "simulator-view.js": 42,
+    "simulator-view.js": 2,
     "stress-test-engine.js": 31,
     "tags.js": 2,
-    "tax-advisor.js": 38,
     "tax-report-builder.js": 12,
     "ticker-validation.js": 49,
     "utils.js": 4
   },
   "locale": {
-    "analytics-views.js": 4,
     "backtester.js": 3,
     "dividend-data-service.js": 5,
     "dividend-yoc.js": 1,
@@ -71,7 +68,6 @@
     "risk-analytics-view-v2.js": 8,
     "risk-analytics.js": 3,
     "rules-engine.js": 1,
-    "simulator-view.js": 3,
     "tags.js": 3
   }
 }

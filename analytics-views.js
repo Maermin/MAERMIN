@@ -16,6 +16,8 @@
 // ============================================================================
 (function () {
   'use strict';
+// Translation lookup (i18n.js): __('key', 'English fallback', { slot: value }).
+function __(k, f, v) { return (typeof window !== 'undefined' && window.MaerminI18n ? window.MaerminI18n : require('./i18n.js')).t(k, f, v); }
 
   function sparkline(React, values, color, h) {
     if (!values || values.length < 2) return null;
@@ -72,11 +74,11 @@
         .then(function (r) { return r.json(); })
         .then(function (j) {
           if (cancelled) return;
-          if (!j || j.error || !Array.isArray(j.prices)) { setErr((j && j.error) || 'No benchmark data'); setBench(null); }
+          if (!j || j.error || !Array.isArray(j.prices)) { setErr((j && j.error) || __('avNoBenchData', 'No benchmark data')); setBench(null); }
           else { setBench({ series: D.pricesOf(j.prices), dated: j.prices, label: preset.label }); }
           setLoading(false);
         })
-        .catch(function (ex) { if (cancelled) return; setErr((ex && ex.name === 'AbortError') ? 'Timed out' : 'Fetch failed'); setBench(null); setLoading(false); })
+        .catch(function (ex) { if (cancelled) return; setErr((ex && ex.name === 'AbortError') ? __('fxaTimedOut', 'Timed out') : __('fxaFetchFailed', 'Fetch failed')); setBench(null); setLoading(false); })
         .then(function () { if (timer) clearTimeout(timer); });
       return function () { cancelled = true; if (timer) clearTimeout(timer); };
     }, [sel, workerBase, dated ? (dated.length > 260 ? (dated.length > 520 ? 3 : 2) : 1) : 0]);
@@ -90,7 +92,7 @@
       stats = A.benchmarkStats(al.a, al.b, { periodsPerYear: 252 });
     }
 
-    var pct = function (x) { return (x * 100).toFixed(1) + '%'; };
+    var pct = function (x) { return window.MaerminI18n.pct(x * 100, 1); };
     var tile = function (label, value, color) {
       return e('div', { key: label, style: { background: inputBg, border: '1px solid ' + border, borderRadius: '10px', padding: '0.7rem 0.9rem', minWidth: '110px' } },
         e('div', { style: { color: dim, fontSize: '0.68rem', textTransform: 'uppercase', letterSpacing: '0.04em' } }, label),
@@ -98,27 +100,27 @@
     };
 
     var body;
-    if (!workerBase) body = note(React, dim, 'Add a Worker URL in API Settings to compare against a benchmark.');
-    else if (series.length < 3) body = note(React, dim, 'Refresh prices a few times to unlock benchmark analytics — they need a short portfolio price history.');
-    else if (loading) body = note(React, dim, 'Loading ' + (preset ? preset.label : 'benchmark') + '…');
-    else if (err) body = note(React, bad, 'Could not load benchmark: ' + err);
-    else if (!stats || !stats.available) body = note(React, dim, 'Not enough overlapping history to compute benchmark stats yet.');
+    if (!workerBase) body = note(React, dim, __('avNeedWorkerBench', 'Add a Worker URL in API Settings to compare against a benchmark.'));
+    else if (series.length < 3) body = note(React, dim, __('avNeedHistoryBench', 'Refresh prices a few times to unlock benchmark analytics — they need a short portfolio price history.'));
+    else if (loading) body = note(React, dim, __('avLoadingBench', 'Loading {name}…', { name: preset ? preset.label : __('perfBenchmark', 'Benchmark') }));
+    else if (err) body = note(React, bad, __('avBenchFailed', 'Could not load benchmark: {msg}', { msg: err }));
+    else if (!stats || !stats.available) body = note(React, dim, __('avNotEnoughBench', 'Not enough overlapping history to compute benchmark stats yet.'));
     else body = e('div', null,
       e('div', { style: { display: 'flex', flexWrap: 'wrap', gap: '0.6rem' } },
-        tile('Alpha (ann.)', pct(stats.alpha), stats.alpha >= 0 ? ok : bad),
-        tile('Beta', stats.beta.toFixed(2), text),
-        tile('Tracking error', pct(stats.trackingError), text),
-        tile('Information ratio', stats.informationRatio.toFixed(2), stats.informationRatio >= 0 ? ok : bad),
+        tile(__('avAlphaAnn', 'Alpha (ann.)'), pct(stats.alpha), stats.alpha >= 0 ? ok : bad),
+        tile('Beta', window.MaerminI18n.num(stats.beta, 2), text),
+        tile(__('avTrackingError', 'Tracking error'), pct(stats.trackingError), text),
+        tile(__('avInfoRatio', 'Information ratio'), window.MaerminI18n.num(stats.informationRatio, 2), stats.informationRatio >= 0 ? ok : bad),
         tile('R²', pct(stats.rSquared), text),
-        tile('Correlation', stats.correlation.toFixed(2), text)
+        tile(__('avCorrelation', 'Correlation'), window.MaerminI18n.num(stats.correlation, 2), text)
       ),
       e('div', { style: { color: dim, fontSize: '0.72rem', marginTop: '0.7rem', lineHeight: '1.5' } },
-        'Estimated from ' + stats.periods + (dated ? ' daily returns since ' + dated[0].d : ' overlapping price points') + ' vs ' + (bench ? bench.label : '') + ' (' + (preset ? preset.proxy : '') + '). Alpha/beta are CAPM estimates from available history, not guarantees.')
+        (dated ? __('avEstDaily', 'Estimated from {n} daily returns since {date} vs {bench} ({proxy}).', { n: stats.periods, date: window.MaerminI18n.date(dated[0].d), bench: bench ? bench.label : '', proxy: preset ? preset.proxy : '' }) : __('avEstPoints', 'Estimated from {n} overlapping price points vs {bench} ({proxy}).', { n: stats.periods, bench: bench ? bench.label : '', proxy: preset ? preset.proxy : '' })) + ' ' + __('avCapmNote', 'Alpha/beta are CAPM estimates from available history, not guarantees.'))
     );
 
     return e('div', { style: { background: card, border: '1px solid ' + border, borderRadius: '14px', padding: '1.25rem', marginTop: '1.25rem' } },
       e('div', { style: { display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '0.5rem', marginBottom: '0.9rem' } },
-        e('h3', { style: { color: text, fontSize: '1rem', fontWeight: '700', margin: 0 } }, 'Benchmark comparison'),
+        e('h3', { style: { color: text, fontSize: '1rem', fontWeight: '700', margin: 0 } }, __('avBenchTitle', 'Benchmark comparison')),
         e('div', { style: { display: 'flex', gap: '0.3rem', flexWrap: 'wrap' } }, presets.map(function (b) {
           return e('button', { key: b.key, onClick: function () { setSel(b.key); }, style: { padding: '0.35rem 0.7rem', borderRadius: '8px', border: 'none', cursor: 'pointer', fontSize: '0.76rem', fontWeight: sel === b.key ? '700' : '500', background: sel === b.key ? accent : inputBg, color: sel === b.key ? '#ffffff' : dim } }, b.label);
         }))
@@ -147,7 +149,7 @@
 
     var inner;
     if (returns.length < 4) {
-      inner = note(React, dim, 'Refresh prices a few times to unlock rolling volatility & return trends — they need a short price history.');
+      inner = note(React, dim, __('avNeedHistoryRoll', 'Refresh prices a few times to unlock rolling volatility & return trends — they need a short price history.'));
     } else {
       // Daily data: a one-month (21 trading day) window once there is enough of it.
       var win = Math.max(2, Math.min(dated ? 21 : 10, Math.floor(returns.length / 2)));
@@ -158,24 +160,24 @@
       inner = e('div', null,
         e('div', { style: { display: 'flex', gap: '1.5rem', flexWrap: 'wrap' } },
           e('div', { style: { flex: 1, minWidth: '240px' } },
-            e('div', { style: { color: dim, fontSize: '0.72rem', textTransform: 'uppercase', letterSpacing: '0.04em', marginBottom: '0.3rem' } }, win + '-pt rolling volatility (annualised)'),
+            e('div', { style: { color: dim, fontSize: '0.72rem', textTransform: 'uppercase', letterSpacing: '0.04em', marginBottom: '0.3rem' } }, __('avRollVol', '{n}-pt rolling volatility (annualised)', { n: win })),
             sparkline(React, rvol, accent),
-            e('div', { style: { color: text, fontSize: '1rem', fontWeight: '700', marginTop: '0.3rem' } }, (curVol * 100).toFixed(1) + '%')
+            e('div', { style: { color: text, fontSize: '1rem', fontWeight: '700', marginTop: '0.3rem' } }, window.MaerminI18n.pct(curVol * 100, 1))
           ),
           e('div', { style: { flex: 1, minWidth: '240px' } },
-            e('div', { style: { color: dim, fontSize: '0.72rem', textTransform: 'uppercase', letterSpacing: '0.04em', marginBottom: '0.3rem' } }, win + '-pt rolling return'),
+            e('div', { style: { color: dim, fontSize: '0.72rem', textTransform: 'uppercase', letterSpacing: '0.04em', marginBottom: '0.3rem' } }, __('avRollRet', '{n}-pt rolling return', { n: win })),
             sparkline(React, rret, curRet >= 0 ? ok : (theme.danger || '#ef4444')),
-            e('div', { style: { color: curRet >= 0 ? ok : (theme.danger || '#ef4444'), fontSize: '1rem', fontWeight: '700', marginTop: '0.3rem' } }, (curRet * 100).toFixed(1) + '%')
+            e('div', { style: { color: curRet >= 0 ? ok : (theme.danger || '#ef4444'), fontSize: '1rem', fontWeight: '700', marginTop: '0.3rem' } }, window.MaerminI18n.pct(curRet * 100, 1))
           )
         ),
         e('div', { 'data-testid': 'rolling-source', style: { color: dim, fontSize: '0.72rem', marginTop: '0.7rem' } }, dated
-          ? ('Computed from ' + returns.length + ' daily time-weighted returns since ' + dated[0].d + ' (deposits and withdrawals excluded).')
-          : 'Computed from your portfolio value path over the available price history.')
+          ? __('avRollDaily', 'Computed from {n} daily time-weighted returns since {date} (deposits and withdrawals excluded).', { n: returns.length, date: window.MaerminI18n.date(dated[0].d) })
+          : __('avRollPath', 'Computed from your portfolio value path over the available price history.'))
       );
     }
 
     return e('div', { style: { background: card, border: '1px solid ' + border, borderRadius: '14px', padding: '1.25rem', marginTop: '1rem' } },
-      e('h3', { style: { color: text, fontSize: '1rem', fontWeight: '700', margin: '0 0 0.9rem' } }, 'Rolling volatility & returns'),
+      e('h3', { style: { color: text, fontSize: '1rem', fontWeight: '700', margin: '0 0 0.9rem' } }, __('avRollTitle', 'Rolling volatility & returns')),
       inner
     );
   }
@@ -222,7 +224,7 @@
         return fetch(url, { signal: ctrl ? ctrl.signal : undefined })
           .then(function (r) { return r.json(); })
           .then(function (j) {
-            if (!j || j.error || !Array.isArray(j.prices)) throw new Error((j && j.error) || ('No data for ' + sym));
+            if (!j || j.error || !Array.isArray(j.prices)) throw new Error((j && j.error) || __('avNoDataFor', 'No data for {sym}', { sym: sym }));
             return j.prices;
           });
       })).then(function (raw) {
@@ -232,7 +234,7 @@
         setLoading(false);
       }).catch(function (ex) {
         if (cancelled) return;
-        setErr((ex && ex.name === 'AbortError') ? 'Timed out' : (ex && ex.message) || 'Fetch failed');
+        setErr((ex && ex.name === 'AbortError') ? __('fxaTimedOut', 'Timed out') : (ex && ex.message) || __('fxaFetchFailed', 'Fetch failed'));
         setData(null); setLoading(false);
       }).then(function () { if (timer) clearTimeout(timer); });
       return function () { cancelled = true; if (timer) clearTimeout(timer); };
@@ -252,7 +254,7 @@
       }
     }
 
-    var pct = function (x) { return (x * 100).toFixed(1) + '%'; };
+    var pct = function (x) { return window.MaerminI18n.pct(x * 100, 1); };
     var tile = function (label, value, color) {
       return e('div', { key: label, style: { background: inputBg, border: '1px solid ' + border, borderRadius: '10px', padding: '0.7rem 0.9rem', minWidth: '110px' } },
         e('div', { style: { color: dim, fontSize: '0.68rem', textTransform: 'uppercase', letterSpacing: '0.04em' } }, label),
@@ -260,31 +262,31 @@
     };
 
     var body;
-    if (!workerBase) body = note(React, dim, 'Add a Worker URL in API Settings to estimate factor exposure.');
-    else if (series.length <= FACTOR_MIN_PERIODS) body = note(React, dim, 'Refresh prices a few more times to unlock factor analysis — a Fama-French regression needs a longer portfolio price history.');
-    else if (loading) body = note(React, dim, 'Loading factor proxies (VTI · IWM/IWB · IWD/IWF)…');
-    else if (err) body = note(React, bad, 'Could not load factor proxies: ' + err);
-    else if (!result || !result.available || periods < FACTOR_MIN_PERIODS) body = note(React, dim, 'Not enough overlapping history to estimate factor exposure yet.');
+    if (!workerBase) body = note(React, dim, __('avNeedWorkerFactor', 'Add a Worker URL in API Settings to estimate factor exposure.'));
+    else if (series.length <= FACTOR_MIN_PERIODS) body = note(React, dim, __('avNeedHistoryFactor', 'Refresh prices a few more times to unlock factor analysis — a Fama-French regression needs a longer portfolio price history.'));
+    else if (loading) body = note(React, dim, __('avLoadingFactors', 'Loading factor proxies (VTI · IWM/IWB · IWD/IWF)…'));
+    else if (err) body = note(React, bad, __('avFactorFailed', 'Could not load factor proxies: {msg}', { msg: err }));
+    else if (!result || !result.available || periods < FACTOR_MIN_PERIODS) body = note(React, dim, __('avNotEnoughFactor', 'Not enough overlapping history to estimate factor exposure yet.'));
     else {
       var b = result.betas || {};
       var alphaAnn = result.alpha > -1 ? (Math.pow(1 + result.alpha, 252) - 1) : 0;
-      var tilt = function (beta, hi, lo) { return beta > 0.05 ? hi : (beta < -0.05 ? lo : 'neutral'); };
+      var tilt = function (beta, hi, lo) { return beta > 0.05 ? hi : (beta < -0.05 ? lo : __('avNeutral', 'neutral')); };
       body = e('div', null,
         e('div', { style: { display: 'flex', flexWrap: 'wrap', gap: '0.6rem' } },
-          tile('Market (MKT) β', (b.MKT != null ? b.MKT : 0).toFixed(2), text),
-          tile('Size (SMB) β', (b.SMB != null ? b.SMB : 0).toFixed(2), text),
-          tile('Value (HML) β', (b.HML != null ? b.HML : 0).toFixed(2), text),
-          tile('Alpha (ann.)', pct(alphaAnn), alphaAnn >= 0 ? ok : bad)
+          tile(__('avMkt', 'Market (MKT) β'), window.MaerminI18n.num(b.MKT != null ? b.MKT : 0, 2), text),
+          tile(__('avSmb', 'Size (SMB) β'), window.MaerminI18n.num(b.SMB != null ? b.SMB : 0, 2), text),
+          tile(__('avHml', 'Value (HML) β'), window.MaerminI18n.num(b.HML != null ? b.HML : 0, 2), text),
+          tile(__('avAlphaAnn', 'Alpha (ann.)'), pct(alphaAnn), alphaAnn >= 0 ? ok : bad)
         ),
         e('div', { style: { color: dim, fontSize: '0.74rem', marginTop: '0.7rem', lineHeight: '1.55' } },
-          'Reads as a ' + tilt(b.SMB || 0, 'small-cap', 'large-cap') + ' / ' + tilt(b.HML || 0, 'value', 'growth') + ' tilt, market beta ' + (b.MKT != null ? b.MKT : 0).toFixed(2) + '. '),
+          __('avReadsAs', 'Reads as a {size} / {style} tilt, market beta {beta}.', { size: tilt(b.SMB || 0, __('avSmallCap', 'small-cap'), __('avLargeCap', 'large-cap')), style: tilt(b.HML || 0, __('avValue', 'value'), __('avGrowth', 'growth')), beta: window.MaerminI18n.num(b.MKT != null ? b.MKT : 0, 2) }) + ' '),
         e('div', { style: { color: dim, fontSize: '0.72rem', marginTop: '0.3rem', lineHeight: '1.5' } },
-          'Estimated from ' + periods + ' overlapping daily returns regressed on ETF proxies (VTI; IWM−IWB; IWD−IWF). A statistical estimate from limited history, not a precise factor loading.')
+          __('avFactorNote', 'Estimated from {n} overlapping daily returns regressed on ETF proxies (VTI; IWM−IWB; IWD−IWF). A statistical estimate from limited history, not a precise factor loading.', { n: periods }))
       );
     }
 
     return e('div', { style: { background: card, border: '1px solid ' + border, borderRadius: '14px', padding: '1.25rem', marginTop: '1rem' } },
-      e('h3', { style: { color: text, fontSize: '1rem', fontWeight: '700', margin: '0 0 0.9rem' } }, 'Factor exposure (Fama-French)'),
+      e('h3', { style: { color: text, fontSize: '1rem', fontWeight: '700', margin: '0 0 0.9rem' } }, __('avFactorTitle', 'Factor exposure (Fama-French)')),
       body
     );
   }
