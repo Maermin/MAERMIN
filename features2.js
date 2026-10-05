@@ -9,6 +9,8 @@
 // ============================================================================
 (function () {
 'use strict';
+// Translation lookup (i18n.js): __('key', 'English fallback', { slot: value }).
+function __(k, f, v) { return (typeof window !== 'undefined' && window.MaerminI18n ? window.MaerminI18n : require('./i18n.js')).t(k, f, v); }
 
 const { useState, useEffect, useRef, useMemo, useCallback } = React;
 
@@ -77,11 +79,12 @@ function ReturnsView({ transactions, portfolio, prices, priceHistory, theme, for
     return { source: legacy !== null ? 'refresh' : 'none', value: legacy, annualized: null, since: null, missing: [] };
   }, [valuePath, priceHistory, portfolio, transactions, portfolioId, exchangeRate, fxAt]);
   const twrResult = twrInfo.value;
+  const since = twrInfo.since ? window.MaerminI18n.date(twrInfo.since) : '';
   const twrSub = twrInfo.source === 'daily'
-    ? ('Time-weighted, since ' + twrInfo.since + (twrInfo.annualized !== null ? ' · ' + (twrInfo.annualized >= 0 ? '+' : '') + (twrInfo.annualized * 100).toFixed(2) + '% p.a.' : ''))
-    : twrInfo.source === 'snapshots' ? ('From daily value snapshots since ' + twrInfo.since)
-    : twrInfo.source === 'refresh' ? 'From your price refreshes'
-    : 'No price history yet';
+    ? (__('retTwrSince', 'Time-weighted, since {date}', { date: since }) + (twrInfo.annualized !== null ? ' · ' + __('retPa', '{pct} p.a.', { pct: window.MaerminI18n.pct(twrInfo.annualized * 100, 2, true) }) : ''))
+    : twrInfo.source === 'snapshots' ? __('retSnapshotsSince', 'From daily value snapshots since {date}', { date: since })
+    : twrInfo.source === 'refresh' ? __('retFromRefreshes', 'From your price refreshes')
+    : __('retNoHistory', 'No price history yet');
 
   // Simple holding period stats — every amount in EUR.
   const stats = useMemo(() => {
@@ -111,7 +114,7 @@ function ReturnsView({ transactions, portfolio, prices, priceHistory, theme, for
       sub && React.createElement('div', { style: { color: theme.textSecondary, fontSize: '0.8rem', marginTop: '0.25rem' } }, sub)
     );
 
-  const fmtPct = v => v !== null ? `${v >= 0 ? '+' : ''}${(v * 100).toFixed(2)}%` : '—';
+  const fmtPct = v => v !== null ? window.MaerminI18n.pct(v * 100, 2, true) : '—';
   const color  = v => v > 0 ? theme.success : v < 0 ? theme.danger : theme.text;
 
   return React.createElement('div', { style: { padding: '1.5rem' } },
@@ -122,37 +125,37 @@ function ReturnsView({ transactions, portfolio, prices, priceHistory, theme, for
 
     // Main KPIs
     React.createElement('div', { style: { display: 'grid', gridTemplateColumns: 'repeat(auto-fit,minmax(180px,1fr))', gap: '1rem', marginBottom: '1.5rem' } },
-      card('XIRR (annualized)', xirrResult !== null ? fmtPct(xirrResult) : '—', 'Money-weighted return p.a.', xirrResult !== null ? color(xirrResult) : theme.textSecondary),
+      card(__('retXirr', 'XIRR (annualized)'), xirrResult !== null ? fmtPct(xirrResult) : '—', __('retXirrSub', 'Money-weighted return p.a.'), xirrResult !== null ? color(xirrResult) : theme.textSecondary),
       React.createElement('div', { 'data-testid': 'twr-card', 'data-source': twrInfo.source, style: { display: 'contents' } },
         card('TWR', twrResult !== null ? fmtPct(twrResult) : '—', twrSub, twrResult !== null ? color(twrResult) : theme.textSecondary)),
-      stats && card('Total Return', fmtPct(stats.totalReturnPct), `${formatPrice(stats.totalReturn)} ${getCurrencySymbol()}`, color(stats.totalReturnPct)),
-      stats && card('Holding Period', `${stats.holdingDays}d`, 'Since first transaction', theme.text)
+      stats && card(__('ovTotalReturn', 'Total Return'), fmtPct(stats.totalReturnPct), `${formatPrice(stats.totalReturn)} ${getCurrencySymbol()}`, color(stats.totalReturnPct)),
+      stats && card(__('holdingPeriod', 'Holding Period'), __('retDays', '{n} d', { n: stats.holdingDays }), __('retSinceFirst', 'Since first transaction'), theme.text)
     ),
 
     stats && React.createElement('div', { style: { display: 'grid', gridTemplateColumns: 'repeat(auto-fit,minmax(160px,1fr))', gap: '1rem', marginBottom: '1.5rem' } },
-      card('Invested', `${formatPrice(stats.invested)} ${getCurrencySymbol()}`, 'Total deposited', theme.text),
-      card('Current Value', `${formatPrice(stats.currentValue)} ${getCurrencySymbol()}`, 'Open positions', theme.text),
-      card('Realized', `${formatPrice(stats.received)} ${getCurrencySymbol()}`, 'Sales + dividends/interest', theme.text),
-      card('Total Fees', `${formatPrice(stats.totalFees)} ${getCurrencySymbol()}`, 'All transactions', '#ef4444')
+      card(__('invested', 'Invested'), `${formatPrice(stats.invested)} ${getCurrencySymbol()}`, __('retTotalDeposited', 'Total deposited'), theme.text),
+      card(__('retCurrentValue', 'Current Value'), `${formatPrice(stats.currentValue)} ${getCurrencySymbol()}`, __('retOpenPositions', 'Open positions'), theme.text),
+      card(__('retRealized', 'Realized'), `${formatPrice(stats.received)} ${getCurrencySymbol()}`, __('retRealizedSub', 'Sales + dividends/interest'), theme.text),
+      card(__('retTotalFees', 'Total Fees'), `${formatPrice(stats.totalFees)} ${getCurrencySymbol()}`, __('retAllTx', 'All transactions'), '#ef4444')
     ),
 
     // Explanation
     React.createElement('div', {
       style: { background: 'rgba(59,130,246,0.06)', border: '1px solid rgba(59,130,246,0.2)', borderRadius: '10px', padding: '1rem', fontSize: '0.8rem', color: theme.textSecondary, lineHeight: '1.7' }
     },
-      React.createElement('strong', { style: { color: theme.text } }, 'Note: '),
+      React.createElement('strong', { style: { color: theme.text } }, __('retNote', 'Note:') + ' '),
       twrInfo.source === 'daily'
-        ? ('TWR is built from your transactions and the daily closing prices since ' + twrInfo.since + ': deposits and withdrawals do not count, fees and dividends do.'
-          + (twrInfo.missing.length ? (historyPending > 0
-              ? ' Not included yet: ' + twrInfo.missing.map(m => m.symbol).join(', ') + ' (price history for ' + historyPending + ' holding' + (historyPending === 1 ? ' is' : 's are') + ' still loading).'
-              : ' Not included (no price history available): ' + twrInfo.missing.map(m => m.symbol).join(', ') + '.') : '')
-          + ' XIRR needs at least one buy and the current portfolio value.')
+        ? (__('retNoteDaily', 'TWR is built from your transactions and the daily closing prices since {date}: deposits and withdrawals do not count, fees and dividends do.', { date: since })
+          + (twrInfo.missing.length ? ' ' + (historyPending > 0
+              ? __('retNotYetIncluded', 'Not included yet: {list} (price history for {n} {n:holding is|holdings are} still loading).', { list: twrInfo.missing.map(m => m.symbol).join(', '), n: historyPending })
+              : __('retNotIncluded', 'Not included (no price history available): {list}.', { list: twrInfo.missing.map(m => m.symbol).join(', ') })) : '')
+          + ' ' + __('retXirrNeeds', 'XIRR needs at least one buy and the current portfolio value.'))
         : twrInfo.source === 'snapshots'
-          ? 'Daily closing prices are not available right now, so TWR is chain-linked from the portfolio values recorded on this device (one per day the app was open). XIRR needs at least one buy and the current portfolio value.'
+          ? __('retNoteSnapshots', 'Daily closing prices are not available right now, so TWR is chain-linked from the portfolio values recorded on this device (one per day the app was open).') + ' ' + __('retXirrNeeds', 'XIRR needs at least one buy and the current portfolio value.')
           : ((hasWorker
-              ? 'Daily closing prices for your holdings have not been loaded yet (offline, or the symbols were not found).'
-              : 'Daily closing prices for stocks, ETFs, commodities and skins are loaded through your Worker - add its URL in API Settings.')
-            + ' Until then TWR uses your price refreshes and needs refreshes on several days. XIRR needs at least one buy and the current portfolio value.')
+              ? __('retNoteNotLoaded', 'Daily closing prices for your holdings have not been loaded yet (offline, or the symbols were not found).')
+              : __('retNoteNeedWorker', 'Daily closing prices for stocks, ETFs, commodities and skins are loaded through your Worker - add its URL in API Settings.'))
+            + ' ' + __('retNoteUntil', 'Until then TWR uses your price refreshes and needs refreshes on several days.') + ' ' + __('retXirrNeeds', 'XIRR needs at least one buy and the current portfolio value.'))
     )
   );
 }
@@ -194,7 +197,7 @@ function RebalancingView({ portfolio, prices, theme, formatPrice, getCurrencySym
   const grandTotal = totalValue + invest;
 
   const catColors = { crypto: '#8b7cff', stocks: '#3b82f6', skins: '#06b6d4', commodities: '#fb7185' };
-  const catLabels = { crypto: 'Crypto', stocks: 'Stocks', skins: 'CS2 Skins', commodities: 'Commodities' };
+  const catLabels = { crypto: window.MaerminI18n.category('crypto'), stocks: window.MaerminI18n.category('stocks'), skins: window.MaerminI18n.category('skins'), commodities: window.MaerminI18n.category('commodities') };
 
   const rows = ['crypto','stocks','skins','commodities'].map(cat => {
     const current = positions[cat] || 0;
@@ -225,13 +228,13 @@ function RebalancingView({ portfolio, prices, theme, formatPrice, getCurrencySym
         React.createElement('span', { style: { color: theme.text, fontWeight: '700' } }, t.targetAllocation || 'Target Allocation'),
         React.createElement('span', {
           style: { fontSize: '0.8rem', color: totalTarget === 100 ? theme.success : theme.danger, fontWeight: '600' }
-        }, `${totalTarget}% ${totalTarget === 100 ? '✓' : '≠ 100%'}`)
+        }, `${window.MaerminI18n.pct(totalTarget, 0)} ${totalTarget === 100 ? '✓' : '≠ ' + window.MaerminI18n.pct(100, 0)}`)
       ),
       ['crypto','stocks','skins','commodities'].map(cat =>
         React.createElement('div', { key: cat, style: { marginBottom: '1rem' } },
           React.createElement('div', { style: { display: 'flex', justifyContent: 'space-between', marginBottom: '0.375rem' } },
             React.createElement('span', { style: { color: catColors[cat], fontWeight: '600', fontSize: '0.875rem' } }, catLabels[cat]),
-            React.createElement('span', { style: { color: theme.text, fontWeight: '700' } }, `${targets[cat]}%`)
+            React.createElement('span', { style: { color: theme.text, fontWeight: '700' } }, window.MaerminI18n.pct(targets[cat], 0))
           ),
           React.createElement('input', {
             type: 'range', min: 0, max: 100, value: targets[cat],
@@ -265,7 +268,7 @@ function RebalancingView({ portfolio, prices, theme, formatPrice, getCurrencySym
       React.createElement('table', { style: { width: '100%', borderCollapse: 'collapse' } },
         React.createElement('thead', null,
           React.createElement('tr', null,
-            ['Category','Current','Current %','Target %','Target Value','Action'].map((h, i) =>
+            [__('category', 'Category'), __('rbCurrent', 'Current'), __('rbCurrentPct', 'Current %'), __('rbTargetPct', 'Target %'), __('targetValue', 'Target Value'), __('action', 'Action')].map((h, i) =>
               React.createElement('th', {
                 key: i,
                 style: { padding: '0.75rem 1rem', textAlign: i === 0 ? 'left' : 'right', color: theme.textSecondary, borderBottom: `1px solid ${theme.cardBorder}`, fontSize: '0.75rem', fontWeight: '600', textTransform: 'uppercase' }
@@ -283,10 +286,10 @@ function RebalancingView({ portfolio, prices, theme, formatPrice, getCurrencySym
                   React.createElement('div', { style: { width: 40, height: 4, background: 'rgba(255,255,255,0.08)', borderRadius: 2, overflow: 'hidden' } },
                     React.createElement('div', { style: { height: '100%', width: `${Math.min(100,row.currentPct)}%`, background: catColors[row.cat], borderRadius: 2 } })
                   ),
-                  React.createElement('span', { style: { color: theme.textSecondary, fontSize: '0.875rem', minWidth: '3rem', textAlign: 'right' } }, `${row.currentPct.toFixed(1)}%`)
+                  React.createElement('span', { style: { color: theme.textSecondary, fontSize: '0.875rem', minWidth: '3rem', textAlign: 'right' } }, window.MaerminI18n.pct(row.currentPct, 1))
                 )
               ),
-              React.createElement('td', { style: { padding: '1rem', color: theme.text, textAlign: 'right', fontWeight: '600' } }, `${row.targetPct}%`),
+              React.createElement('td', { style: { padding: '1rem', color: theme.text, textAlign: 'right', fontWeight: '600' } }, window.MaerminI18n.pct(row.targetPct, 0)),
               React.createElement('td', { style: { padding: '1rem', color: theme.text, textAlign: 'right' } }, `${formatPrice(row.targetValue)} ${getCurrencySymbol()}`),
               React.createElement('td', { style: { padding: '1rem', textAlign: 'right' } },
                 React.createElement('span', {
@@ -295,7 +298,7 @@ function RebalancingView({ portfolio, prices, theme, formatPrice, getCurrencySym
                     background: Math.abs(row.delta) < 1 ? 'rgba(34,197,94,0.1)' : row.delta > 0 ? 'rgba(34,197,94,0.12)' : 'rgba(239,68,68,0.12)',
                     color: Math.abs(row.delta) < 1 ? theme.success : row.delta > 0 ? theme.success : theme.danger
                   }
-                }, Math.abs(row.delta) < 1 ? '✓ Balanced' : `${row.delta > 0 ? '+ Buy' : '− Sell'} ${formatPrice(Math.abs(row.delta))} ${getCurrencySymbol()}`)
+                }, Math.abs(row.delta) < 1 ? __('rbBalanced', '✓ Balanced') : `${row.delta > 0 ? __('rbBuy', '+ Buy') : __('rbSell', '− Sell')} ${formatPrice(Math.abs(row.delta))} ${getCurrencySymbol()}`)
               )
             )
           )
@@ -367,16 +370,21 @@ function BrokerLogo({ brokerId, name, size = 36 }) {
 
 const BROKERS = [
   { id: 'cointracking',       name: 'CoinTracking',        hint: 'CSV Full Export',              category: 'Portfolio Tracker' },
-  { id: 'getquin',            name: 'getquin',              hint: 'No CSV export available',       category: 'Portfolio Tracker', noExport: true },
+  { id: 'getquin',            name: 'getquin',              hint: 'No CSV export available', hintKey: 'bhNoExport', category: 'Portfolio Tracker', noExport: true },
   { id: 'degiro',             name: 'DEGIRO',               hint: 'Transactions.csv',             category: 'Broker' },
-  { id: 'tradeRepublic',      name: 'Trade Republic',       hint: 'Transaction history CSV',      category: 'Broker' },
-  { id: 'scalable',           name: 'Scalable Capital',     hint: 'Transaction report CSV',       category: 'Broker' },
+  { id: 'tradeRepublic',      name: 'Trade Republic',       hint: 'Transaction history CSV', hintKey: 'bhTxHistory', category: 'Broker' },
+  { id: 'scalable',           name: 'Scalable Capital',     hint: 'Transaction report CSV', hintKey: 'bhTxReport', category: 'Broker' },
   { id: 'interactiveBrokers', name: 'Interactive Brokers',  hint: 'Activity Statement CSV',       category: 'Broker' },
-  { id: 'coinbase',           name: 'Coinbase',             hint: 'Standard CSV export',          category: 'Crypto' },
+  { id: 'coinbase',           name: 'Coinbase',             hint: 'Standard CSV export', hintKey: 'bhStandard', category: 'Crypto' },
   { id: 'binance',            name: 'Binance',              hint: 'Trade History CSV',            category: 'Crypto' },
   { id: 'kraken',             name: 'Kraken',               hint: 'Ledger CSV',                   category: 'Crypto' },
-  { id: 'generic',            name: 'Other / Manual',       hint: 'MAERMIN standard CSV / JSON',  category: 'Other' },
+  { id: 'generic',            name: 'Other / Manual',       hint: 'MAERMIN standard CSV / JSON', hintKey: 'bhMaermin',  category: 'Other' },
 ];
+
+// Import field ids -> labels.
+function fieldLabel(f) {
+  return ({ date: __('date', 'Date'), type: __('type', 'Type'), symbol: __('symbol', 'Symbol'), quantity: __('quantity', 'Quantity'), price: __('price', 'Price'), fee: __('feeFee', 'Fee'), currency: __('currency', 'Currency') })[f] || f;
+}
 
 function BrokerImportWizard({ theme, t, addToast, onImport, existing, workerUrl }) {
   const [step, setStep]             = useState(0);
@@ -470,11 +478,11 @@ function BrokerImportWizard({ theme, t, addToast, onImport, existing, workerUrl 
     const IM = window.MaerminImportMapping;
     if (!IM || !mp) return;
     const out = IM.commit(mp, { includeDuplicates: includeDupes });
-    if (!out.transactions.length) { addToast && addToast('Nothing to import', 'warning'); return; }
+    if (!out.transactions.length) { addToast && addToast(__('biNothing', 'Nothing to import'), 'warning'); return; }
     onImport && onImport(out.transactions);
     setImportedCount(out.transactions.length);
     setStep(3);
-    addToast && addToast(`${out.transactions.length} transactions imported${out.skipped ? ` · ${out.skipped} duplicate(s) skipped` : ''}`, 'success');
+    addToast && addToast(__('txImportedN', '{n} {n:transaction|transactions} imported', { n: out.transactions.length }) + (out.skipped ? ' · ' + __('biDupSkipped', '{n} {n:duplicate|duplicates} skipped', { n: out.skipped }) : ''), 'success');
   };
 
   // --- import presets (WI-8): save / load / delete the current column mapping ---
@@ -492,19 +500,19 @@ function BrokerImportWizard({ theme, t, addToast, onImport, existing, workerUrl 
     setMapping(res.mapping);
     try { setMp(IM.preview(rawData, { existing: existing || [], category: res.category || catHint, mapping: res.mapping, broker: selectedBroker })); }
     catch (e) { console.error('[IMPORT] preset apply error:', e); }
-    if (res.missing.length) addToast && addToast(`Preset applied · ${res.missing.length} column(s) not found in this file`, 'warning');
-    else addToast && addToast('Preset applied', 'success');
+    if (res.missing.length) addToast && addToast(__('biPresetApplied', 'Preset applied') + ' · ' + __('biPresetMissing', '{n} {n:column|columns} not found in this file', { n: res.missing.length }), 'warning');
+    else addToast && addToast(__('biPresetApplied', 'Preset applied'), 'success');
   };
   const saveCurrentPreset = () => {
     const IM = window.MaerminImportMapping;
     if (!IM || !mapping) return;
-    const name = (typeof prompt === 'function') ? prompt('Preset name (e.g. your broker):') : null;
+    const name = (typeof prompt === 'function') ? prompt(__('biPresetName', 'Preset name (e.g. your broker):')) : null;
     if (!name) return;
     const preset = IM.buildPreset({ name, mapping, category: (mp && mp.category) || catHint || 'stocks' });
     const next = IM.upsertPreset(IM.loadPresets(), preset);
     IM.savePresets(next);
     refreshPresets();
-    addToast && addToast('Mapping preset saved', 'success');
+    addToast && addToast(__('biPresetSaved', 'Mapping preset saved'), 'success');
   };
   const deleteSelectedPreset = () => {
     const IM = window.MaerminImportMapping;
@@ -512,7 +520,7 @@ function BrokerImportWizard({ theme, t, addToast, onImport, existing, workerUrl 
     IM.savePresets(IM.removePreset(IM.loadPresets(), selectedPreset));
     setSelectedPreset('');
     refreshPresets();
-    addToast && addToast('Preset deleted', 'info');
+    addToast && addToast(__('biPresetDeleted', 'Preset deleted'), 'info');
   };
 
   const selectedBrokerObj = BROKERS.find(b => b.id === selectedBroker);
@@ -536,22 +544,22 @@ function BrokerImportWizard({ theme, t, addToast, onImport, existing, workerUrl 
   const [pdfBusy, setPdfBusy] = useState(false);
   const handlePdfFiles = (files) => {
     const PI = window.MaerminPdfImport;
-    if (!PI) { addToast && addToast('PDF import module not loaded', 'error'); return; }
+    if (!PI) { addToast && addToast(__('biPdfMissing', 'PDF import module not loaded'), 'error'); return; }
     setPdfBusy(true);
-    setFileName(files.length === 1 ? files[0].name : files.length + ' PDF statements');
+    setFileName(files.length === 1 ? files[0].name : __('biPdfStatements', '{n} PDF statements', { n: files.length }));
     PI.parseFiles(files).then(out => {
       setPdfBusy(false);
       out.errors.slice(0, 3).forEach(e => addToast && addToast(e, 'warning'));
       if (!out.candidates.length) {
-        addToast && addToast('No transactions recognised in the PDF(s) - is it a settlement statement?', 'error');
+        addToast && addToast(__('biPdfNone', 'No transactions recognised in the PDF(s) - is it a settlement statement?'), 'error');
         return;
       }
-      addToast && addToast(`${out.candidates.length} transaction(s) recognised${out.brokers.length ? ' (' + out.brokers.join(', ') + ')' : ''} - review before importing`, 'success');
+      addToast && addToast(__('biPdfRecognised', '{n} {n:transaction|transactions} recognised', { n: out.candidates.length }) + (out.brokers.length ? ' (' + out.brokers.join(', ') + ')' : '') + ' - ' + __('biReviewFirst', 'review before importing'), 'success');
       setRawData(out.csv);
       setStep(2);
     }).catch(e => {
       setPdfBusy(false);
-      addToast && addToast('PDF parsing failed: ' + ((e && e.message) || e), 'error');
+      addToast && addToast(__('biPdfFailed', 'PDF parsing failed: {msg}', { msg: (e && e.message) || e }), 'error');
     });
   };
 
@@ -581,7 +589,7 @@ function BrokerImportWizard({ theme, t, addToast, onImport, existing, workerUrl 
       setParsed(Array.isArray(txs) ? txs : []);
     } catch(e) {
       console.error('[IMPORT] Parse error:', e);
-      addToast && addToast('Parsing error: ' + e.message, 'error');
+      addToast && addToast(__('biParseError', 'Parsing error: {msg}', { msg: e.message }), 'error');
     }
   }, [rawData, selectedBroker]);
 
@@ -590,7 +598,7 @@ function BrokerImportWizard({ theme, t, addToast, onImport, existing, workerUrl 
     onImport && onImport(parsed);
     setImportedCount(parsed.length);
     setStep(3);
-    addToast && addToast(`${parsed.length} transactions imported`, 'success');
+    addToast && addToast(__('txImportedN', '{n} {n:transaction|transactions} imported', { n: parsed.length }), 'success');
   };
 
   const reset = () => { setStep(0); setBroker(null); setRawData(''); setParsed([]); setFileName(''); };
@@ -607,7 +615,7 @@ function BrokerImportWizard({ theme, t, addToast, onImport, existing, workerUrl 
       }
     }, label);
 
-  const steps = ['Select source', 'Load file', 'Preview', 'Done'];
+  const steps = [__('biStepSource', 'Select source'), __('biStepLoad', 'Load file'), __('biStepPreview', 'Preview'), __('biStepDone', 'Done')];
 
   // Say before importing how rows in another currency will be converted:
   // CHF, GBP & co. at the rate of each trade date (loaded through the Worker
@@ -620,12 +628,12 @@ function BrokerImportWizard({ theme, t, addToast, onImport, existing, workerUrl 
     const bad = rep.some(r => r.status === 'unknown');
     return React.createElement('div', { role: 'status', style: { background: bad ? 'rgba(239,68,68,0.06)' : 'rgba(245,158,11,0.08)', border: `1px solid ${bad ? 'rgba(239,68,68,0.3)' : 'rgba(245,158,11,0.3)'}`, borderRadius: '8px', padding: '0.6rem 0.8rem', marginBottom: '0.9rem', fontSize: '0.78rem', color: theme.text, lineHeight: 1.6 } },
       rep.map(r => React.createElement('div', { key: r.currency },
-        React.createElement('strong', null, r.count + ' row(s) in ' + r.currency + ': '),
+        React.createElement('strong', null, __('biCurRows', '{n} {n:row|rows} in {cur}:', { n: r.count, cur: r.currency }) + ' '),
         r.status === 'unknown'
-          ? 'no exchange rate - these amounts would be counted as EUR. Fix the currency column (or the source file) before importing.'
+          ? __('biCurUnknown', 'no exchange rate - these amounts would be counted as EUR. Fix the currency column (or the source file) before importing.')
           : r.status === 'history'
-            ? 'will be converted at the ' + r.currency + ' rate of each trade date. The rates are loaded through your Worker after the import; until then (or without a Worker) today\'s rate is used and the Data check lists them.'
-            : 'converted with today\'s ' + r.currency + ' rate for every date (no daily history for this currency).')));
+            ? __('biCurHistory', "will be converted at the {cur} rate of each trade date. The rates are loaded through your Worker after the import; until then (or without a Worker) today's rate is used and the Data check lists them.", { cur: r.currency })
+            : __('biCurToday', "converted with today's {cur} rate for every date (no daily history for this currency).", { cur: r.currency }))));
   };
 
   // Group brokers by category
@@ -653,13 +661,13 @@ function BrokerImportWizard({ theme, t, addToast, onImport, existing, workerUrl 
     step === 0 && React.createElement('div', null,
       categories.map(cat =>
         React.createElement('div', { key: cat, style: { marginBottom: '1.25rem' } },
-          React.createElement('div', { style: { color: theme.textSecondary, fontSize: '0.68rem', fontWeight: '700', letterSpacing: '0.1em', textTransform: 'uppercase', marginBottom: '0.5rem', paddingLeft: '0.25rem' } }, cat),
+          React.createElement('div', { style: { color: theme.textSecondary, fontSize: '0.68rem', fontWeight: '700', letterSpacing: '0.1em', textTransform: 'uppercase', marginBottom: '0.5rem', paddingLeft: '0.25rem' } }, ({ 'Portfolio Tracker': __('biCatTracker', 'Portfolio Tracker'), Broker: __('biCatBroker', 'Broker'), Crypto: __('crypto', 'Crypto'), Other: __('biCatOther', 'Other') })[cat] || cat),
           React.createElement('div', { style: { display: 'grid', gridTemplateColumns: 'repeat(auto-fill,minmax(200px,1fr))', gap: '0.625rem' } },
             BROKERS.filter(b => b.category === cat).map(b =>
               React.createElement('div', {
                 key: b.id,
                 ...window.MaerminUtils.clickable(() => { setBroker(b.id); setStep(1); }),
-                'aria-label': 'Select broker ' + (b.name || b.id),
+                'aria-label': __('biSelectBroker', 'Select broker {name}', { name: b.name || b.id }),
                 style: {
                   background: selectedBroker === b.id ? `${theme.accent}22` : theme.card,
                   border: `1px solid ${selectedBroker === b.id ? theme.accent : theme.cardBorder}`,
@@ -671,7 +679,7 @@ function BrokerImportWizard({ theme, t, addToast, onImport, existing, workerUrl 
                 React.createElement(BrokerLogo, { brokerId: b.id, name: b.name, size: 36 }),
                 React.createElement('div', null,
                   React.createElement('div', { style: { color: theme.text, fontWeight: '600', fontSize: '0.875rem' } }, b.name),
-                  React.createElement('div', { style: { color: b.noExport ? theme.warning : theme.textSecondary, fontSize: '0.7rem', marginTop: '0.125rem' } }, b.hint)
+                  React.createElement('div', { style: { color: b.noExport ? theme.warning : theme.textSecondary, fontSize: '0.7rem', marginTop: '0.125rem' } }, b.hintKey ? __(b.hintKey, b.hint) : b.hint)
                 )
               )
             )
@@ -686,20 +694,20 @@ function BrokerImportWizard({ theme, t, addToast, onImport, existing, workerUrl 
         style: { background: 'rgba(245,158,11,0.08)', border: '1px solid rgba(245,158,11,0.3)', borderRadius: '16px', padding: '1.5rem', marginBottom: '1.5rem' }
       },
         
-        React.createElement('h3', { style: { color: theme.text, fontWeight: '700', marginBottom: '0.75rem' } }, 'getquin has no CSV export'),
+        React.createElement('h3', { style: { color: theme.text, fontWeight: '700', marginBottom: '0.75rem' } }, __('biGetquinTitle', 'getquin has no CSV export')),
         React.createElement('p', { style: { color: theme.textSecondary, fontSize: '0.875rem', lineHeight: '1.7', marginBottom: '1rem' } },
-          'getquin does not let you export your transactions. Once the data is in there, it is "locked in" — that is a deliberate design decision by the app.'
+          __('biGetquinBody', 'getquin does not let you export your transactions. Once the data is in there, it is "locked in" — that is a deliberate design decision by the app.')
         ),
-        React.createElement('div', { style: { color: theme.text, fontSize: '0.875rem', fontWeight: '600', marginBottom: '0.5rem' } }, 'Your options:'),
+        React.createElement('div', { style: { color: theme.text, fontSize: '0.875rem', fontWeight: '600', marginBottom: '0.5rem' } }, __('biYourOptions', 'Your options:')),
         React.createElement('div', { style: { color: theme.textSecondary, fontSize: '0.8rem', lineHeight: '2' } },
-          React.createElement('div', null, '① Enter transactions manually in MAERMIN (+ Symbol key, or Add Transaction)'),
-          React.createElement('div', null, '② Export the original broker CSV and import it here (e.g. DEGIRO, Trade Republic, Coinbase)'),
-          React.createElement('div', null, '③ Take a screenshot of your getquin positions and enter them manually')
+          React.createElement('div', null, __('biOpt1', '① Enter transactions manually in MAERMIN (+ Symbol key, or Add Transaction)')),
+          React.createElement('div', null, __('biOpt2', '② Export the original broker CSV and import it here (e.g. DEGIRO, Trade Republic, Coinbase)')),
+          React.createElement('div', null, __('biOpt3', '③ Take a screenshot of your getquin positions and enter them manually'))
         )
       ),
       React.createElement('div', { style: { display: 'flex', gap: '0.5rem' } },
-        btn('← Back', reset),
-        btn('Add manually', () => { addToast && addToast('Use "+ Transaction" to enter positions manually', 'info'); reset(); })
+        btn(__('back', '← Back'), reset),
+        btn(__('biAddManually', 'Add manually'), () => { addToast && addToast(__('biUsePlusTx', 'Use "+ Transaction" to enter positions manually'), 'info'); reset(); })
       )
     ),
 
@@ -708,49 +716,49 @@ function BrokerImportWizard({ theme, t, addToast, onImport, existing, workerUrl 
       React.createElement('div', {
         style: { background: 'rgba(34,197,94,0.06)', border: '1px solid rgba(34,197,94,0.2)', borderRadius: '10px', padding: '1rem', marginBottom: '1rem', fontSize: '0.8rem', color: theme.textSecondary, lineHeight: '1.8' }
       },
-        React.createElement('div', { style: { color: theme.text, fontWeight: '700', marginBottom: '0.375rem' } }, 'CoinTracking export instructions:'),
-        React.createElement('div', null, '1. In CoinTracking: ', React.createElement('b', { style: { color: theme.text } }, 'Reports → All Transactions')),
-        React.createElement('div', null, '2. Top right: ', React.createElement('b', { style: { color: theme.text } }, '"Export" → "CSV (Full Export)"')),
-        React.createElement('div', null, '3. Upload the downloaded file here'),
-        React.createElement('div', { style: { marginTop: '0.5rem', color: theme.accent, fontSize: '0.75rem' } }, '✓ Booked: Trade, Income, Staking, Mining, Airdrop, Gift/Tip, Interest, Spend · English and German exports'),
-        React.createElement('div', { style: { color: theme.textSecondary, fontSize: '0.75rem' } }, 'Use the full export: its "value in EUR" columns price coin-to-coin trades and rewards. Deposits and withdrawals are transfers and are not booked.')
+        React.createElement('div', { style: { color: theme.text, fontWeight: '700', marginBottom: '0.375rem' } }, __('biCtInstr', 'CoinTracking export instructions:')),
+        React.createElement('div', null, '1. ' + __('biCtStep1', 'In CoinTracking:') + ' ', React.createElement('b', { style: { color: theme.text } }, 'Reports → All Transactions')),
+        React.createElement('div', null, '2. ' + __('biCtStep2', 'Top right:') + ' ', React.createElement('b', { style: { color: theme.text } }, '"Export" → "CSV (Full Export)"')),
+        React.createElement('div', null, __('biCtStep3', '3. Upload the downloaded file here')),
+        React.createElement('div', { style: { marginTop: '0.5rem', color: theme.accent, fontSize: '0.75rem' } }, __('biCtBooked', '✓ Booked: Trade, Income, Staking, Mining, Airdrop, Gift/Tip, Interest, Spend · English and German exports')),
+        React.createElement('div', { style: { color: theme.textSecondary, fontSize: '0.75rem' } }, __('biCtFull', 'Use the full export: its "value in EUR" columns price coin-to-coin trades and rewards. Deposits and withdrawals are transfers and are not booked.'))
       ),
       React.createElement('div', {
         onDrop: handleDrop, onDragOver: e => e.preventDefault(),
         ...window.MaerminUtils.clickable(() => fileRef.current?.click()),
-        'aria-label': 'Choose CSV file to import',
+        'aria-label': __('biChooseCsv', 'Choose CSV file to import'),
         style: { border: `2px dashed ${theme.cardBorder}`, borderRadius: '16px', padding: '2.5rem', textAlign: 'center', cursor: 'pointer', marginBottom: '1rem' }
       },
         React.createElement('div', { style: { fontSize: '2rem', marginBottom: '0.5rem', opacity: 0.4 } }, '↑'),
-        React.createElement('div', { style: { color: theme.text, fontWeight: '600', marginBottom: '0.25rem' } }, 'Drop CoinTracking CSV here'),
-        React.createElement('div', { style: { color: theme.textSecondary, fontSize: '0.8rem' } }, 'or click to select'),
+        React.createElement('div', { style: { color: theme.text, fontWeight: '600', marginBottom: '0.25rem' } }, __('biDropCt', 'Drop CoinTracking CSV here')),
+        React.createElement('div', { style: { color: theme.textSecondary, fontSize: '0.8rem' } }, __('biOrClickSelect', 'or click to select')),
         React.createElement('input', { type: 'file', accept: '.csv,.txt', ref: fileRef, style: { display: 'none' }, onChange: e => handleFile(e.target.files[0]) })
       ),
       React.createElement('div', { style: { display: 'flex', gap: '0.5rem' } },
-        btn('← Back', () => setStep(0))
+        btn(__('back', '← Back'), () => setStep(0))
       )
     ),
 
     // ── Step 1: Generic file upload ──────────────────────────────────────────
     step === 1 && selectedBroker !== 'getquin' && selectedBroker !== 'cointracking' && React.createElement('div', null,
       exchangeSyncSupported && React.createElement('p', { style: { color: theme.textSecondary, fontSize: '0.78rem', lineHeight: '1.6', marginBottom: '1rem' } },
-        'Prefer a live import? Use Exchange sync below with a read-only API key (stored encrypted in your vault).'),
+        __('biPreferLive', 'Prefer a live import? Use Exchange sync below with a read-only API key (stored encrypted in your vault).')),
       React.createElement('div', {
         onDrop: handleDrop, onDragOver: e => e.preventDefault(),
         ...window.MaerminUtils.clickable(() => fileRef.current?.click()),
-        'aria-label': 'Choose CSV file to import',
+        'aria-label': __('biChooseCsv', 'Choose CSV file to import'),
         style: { border: `2px dashed ${theme.cardBorder}`, borderRadius: '16px', padding: '3rem', textAlign: 'center', cursor: 'pointer', marginBottom: '1rem' }
       },
         React.createElement('div', { style: { fontSize: '2rem', marginBottom: '0.5rem', opacity: 0.4 } }, '↑'),
-        React.createElement('div', { style: { color: theme.text, fontWeight: '600', marginBottom: '0.25rem' } }, pdfBusy ? 'Reading PDF statement(s)...' : 'Drag CSV or PDF statement(s) here'),
-        React.createElement('div', { style: { color: theme.textSecondary, fontSize: '0.875rem' } }, `Or click · ${selectedBrokerObj?.name || ''} · ${selectedBrokerObj?.hint || ''}`),
-        React.createElement('div', { style: { color: theme.textSecondary, fontSize: '0.75rem', marginTop: '0.3rem' } }, 'PDF settlement statements: Trade Republic, Scalable, ING, DKB, Comdirect - parsed on this device, the file never leaves it.'),
+        React.createElement('div', { style: { color: theme.text, fontWeight: '600', marginBottom: '0.25rem' } }, pdfBusy ? __('biReadingPdf', 'Reading PDF statement(s)...') : __('biDragHere', 'Drag CSV or PDF statement(s) here')),
+        React.createElement('div', { style: { color: theme.textSecondary, fontSize: '0.875rem' } }, `${__('biOrClick', 'Or click')} · ${selectedBrokerObj?.name || ''} · ${selectedBrokerObj ? (selectedBrokerObj.hintKey ? __(selectedBrokerObj.hintKey, selectedBrokerObj.hint) : selectedBrokerObj.hint) : ''}`),
+        React.createElement('div', { style: { color: theme.textSecondary, fontSize: '0.75rem', marginTop: '0.3rem' } }, __('biPdfSupported', 'PDF settlement statements: Trade Republic, Scalable, ING, DKB, Comdirect - parsed on this device, the file never leaves it.')),
         React.createElement('input', { type: 'file', accept: '.csv,.txt,.json,.pdf', multiple: true, ref: fileRef, style: { display: 'none' }, onChange: e => handleFiles(e.target.files) })
       ),
-      React.createElement('p', { style: { color: theme.textSecondary, fontSize: '0.8rem', lineHeight: '1.6' } }, 'All data stays local. Nothing is uploaded.'),
+      React.createElement('p', { style: { color: theme.textSecondary, fontSize: '0.8rem', lineHeight: '1.6' } }, __('biLocalOnly', 'All data stays local. Nothing is uploaded.')),
       React.createElement('div', { style: { display: 'flex', gap: '0.5rem', marginTop: '1rem' } },
-        btn('← Back', () => setStep(0)),
-        btn('Paste text', () => { setRawData(' '); setStep(2); })
+        btn(__('back', '← Back'), () => setStep(0)),
+        btn(__('biPasteText', 'Paste text'), () => { setRawData(' '); setStep(2); })
       )
     ),
 
@@ -761,11 +769,11 @@ function BrokerImportWizard({ theme, t, addToast, onImport, existing, workerUrl 
 
       // Paste fallback when there is no data yet (or the mapping module is absent).
       (!mp && parsed.length === 0) && React.createElement('div', null,
-        React.createElement('p', { style: { color: theme.warning, marginBottom: '1rem' } }, 'No transactions detected. Paste CSV content manually:'),
+        React.createElement('p', { style: { color: theme.warning, marginBottom: '1rem' } }, __('biNoneDetected', 'No transactions detected. Paste CSV content manually:')),
         React.createElement('textarea', {
           value: rawData === ' ' ? '' : rawData,
           onChange: e => setRawData(e.target.value),
-          placeholder: 'Paste CSV content...',
+          placeholder: __('biPasteCsvPh', 'Paste CSV content...'),
           style: { width: '100%', height: '150px', padding: '0.75rem', background: theme.inputBg, border: `1px solid ${theme.inputBorder}`, borderRadius: '8px', color: theme.text, fontFamily: 'monospace', fontSize: '0.8rem', resize: 'vertical', marginBottom: '0.75rem' }
         })
       ),
@@ -782,42 +790,42 @@ function BrokerImportWizard({ theme, t, addToast, onImport, existing, workerUrl 
         return React.createElement('div', null,
           // Summary chips: broker + counts.
           React.createElement('div', { style: { display: 'flex', flexWrap: 'wrap', gap: '0.5rem', alignItems: 'center', marginBottom: '0.9rem', fontSize: '0.8rem' } },
-            mp.broker && React.createElement('span', { style: { padding: '0.25rem 0.6rem', borderRadius: '20px', background: `${theme.accent}1e`, color: theme.accent, fontWeight: '700' } }, mp.broker.chosen ? `${mp.broker.name} (columns detected)` : `Detected: ${mp.broker.name}`),
-            React.createElement('span', { style: { padding: '0.25rem 0.6rem', borderRadius: '20px', background: 'rgba(34,197,94,0.15)', color: theme.success, fontWeight: '700' } }, `✓ ${mp.stats.ok} valid`),
-            mp.errors.length > 0 && React.createElement('span', { ...window.MaerminUtils.clickable(() => setShowErrors(v => !v)), 'aria-label': 'Toggle error details', style: { padding: '0.25rem 0.6rem', borderRadius: '20px', background: 'rgba(239,68,68,0.15)', color: '#ef4444', fontWeight: '700', cursor: 'pointer' } }, `✗ ${mp.errors.length} skipped ${showErrors ? '▲' : '▼'}`),
-            (mp.stats.duplicates > 0) && React.createElement('span', { style: { padding: '0.25rem 0.6rem', borderRadius: '20px', background: 'rgba(245,158,11,0.15)', color: theme.warning, fontWeight: '700' } }, `! ${mp.stats.duplicates} duplicate(s)`)
+            mp.broker && React.createElement('span', { style: { padding: '0.25rem 0.6rem', borderRadius: '20px', background: `${theme.accent}1e`, color: theme.accent, fontWeight: '700' } }, mp.broker.chosen ? __('biColsDetected', '{name} (columns detected)', { name: mp.broker.name }) : __('biDetected', 'Detected: {name}', { name: mp.broker.name })),
+            React.createElement('span', { style: { padding: '0.25rem 0.6rem', borderRadius: '20px', background: 'rgba(34,197,94,0.15)', color: theme.success, fontWeight: '700' } }, __('biValid', '✓ {n} valid', { n: mp.stats.ok })),
+            mp.errors.length > 0 && React.createElement('span', { ...window.MaerminUtils.clickable(() => setShowErrors(v => !v)), 'aria-label': __('biToggleErrors', 'Toggle error details'), style: { padding: '0.25rem 0.6rem', borderRadius: '20px', background: 'rgba(239,68,68,0.15)', color: '#ef4444', fontWeight: '700', cursor: 'pointer' } }, `${__('biSkipped', '✗ {n} skipped', { n: mp.errors.length })} ${showErrors ? '▲' : '▼'}`),
+            (mp.stats.duplicates > 0) && React.createElement('span', { style: { padding: '0.25rem 0.6rem', borderRadius: '20px', background: 'rgba(245,158,11,0.15)', color: theme.warning, fontWeight: '700' } }, __('biDuplicates', '! {n} {n:duplicate|duplicates}', { n: mp.stats.duplicates }))
           ),
 
           // Fixed-format files (CoinTracking) are read by their own parser: say
           // how rows are booked and list what needs a look instead of a mapping.
           mp.fixedFormat && React.createElement('div', { 'data-testid': 'ct-info', style: { background: theme.card, border: `1px solid ${theme.cardBorder}`, borderRadius: '10px', padding: '0.9rem', marginBottom: '0.9rem', fontSize: '0.78rem', color: theme.textSecondary, lineHeight: 1.6 } },
-            React.createElement('div', { style: { color: theme.text, fontWeight: '700', marginBottom: '0.3rem' } }, 'How CoinTracking rows are booked'),
-            React.createElement('div', null, 'Trades become buys and sells (a coin-to-coin trade is a sale plus a purchase at the recorded value). Income, staking, mining and airdrops are buys at their market value. Deposits and withdrawals between your own wallets are not booked' + (mp.stats.transfers ? ` (${mp.stats.transfers} in this file)` : '') + '; the skipped list says why each row was left out.'),
+            React.createElement('div', { style: { color: theme.text, fontWeight: '700', marginBottom: '0.3rem' } }, __('biCtHow', 'How CoinTracking rows are booked')),
+            React.createElement('div', null, __('biCtRules', 'Trades become buys and sells (a coin-to-coin trade is a sale plus a purchase at the recorded value). Income, staking, mining and airdrops are buys at their market value. Deposits and withdrawals between your own wallets are not booked') + (mp.stats.transfers ? ' ' + __('biInThisFile', '({n} in this file)', { n: mp.stats.transfers }) : '') + __('biCtRulesEnd', '; the skipped list says why each row was left out.')),
             (mp.warnings || []).length > 0 && React.createElement('ul', { role: 'status', style: { margin: '0.5rem 0 0', paddingLeft: '1.1rem', color: theme.warning } },
               mp.warnings.slice(0, 8).map((w, i) => React.createElement('li', { key: i }, w)),
-              mp.warnings.length > 8 && React.createElement('li', { key: 'more' }, `… and ${mp.warnings.length - 8} more`))
+              mp.warnings.length > 8 && React.createElement('li', { key: 'more' }, __('andNMore', '… and {n} more', { n: mp.warnings.length - 8 })))
           ),
 
           // Editable column → field mapping.
           !mp.fixedFormat && React.createElement('div', { style: { background: theme.card, border: `1px solid ${theme.cardBorder}`, borderRadius: '10px', padding: '0.9rem', marginBottom: '0.9rem' } },
-            React.createElement('div', { style: { color: theme.textSecondary, fontSize: '0.72rem', fontWeight: '700', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: '0.6rem' } }, 'Column mapping (edit if a column is wrong)'),
+            React.createElement('div', { style: { color: theme.textSecondary, fontSize: '0.72rem', fontWeight: '700', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: '0.6rem' } }, __('biColMapping', 'Column mapping (edit if a column is wrong)')),
             React.createElement('div', { style: { display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(150px, 1fr))', gap: '0.6rem' } },
               (window.MaerminImportMapping.FIELDS).map(field =>
                 React.createElement('label', { key: field, style: { display: 'block' } },
                   React.createElement('span', { style: { display: 'block', color: theme.textSecondary, fontSize: '0.7rem', marginBottom: '0.2rem' } },
-                    field + (window.MaerminImportMapping.REQUIRED.indexOf(field) !== -1 ? ' *' : '')),
+                    fieldLabel(field) + (window.MaerminImportMapping.REQUIRED.indexOf(field) !== -1 ? ' *' : '')),
                   React.createElement('select', {
                     value: (mapping && mapping[field]) || '',
                     onChange: e => updateMapping(field, e.target.value || null),
                     style: selStyle(field)
                   },
-                    React.createElement('option', { value: '' }, '— none —'),
+                    React.createElement('option', { value: '' }, __('biNone', '— none —')),
                     mp.headers.map((h, i) => React.createElement('option', { key: i, value: h }, h))
                   )
                 )
               )
             ),
-            reqMissing.length > 0 && React.createElement('div', { style: { color: '#ef4444', fontSize: '0.74rem', marginTop: '0.5rem' } }, `Map the required field(s): ${reqMissing.join(', ')}`),
+            reqMissing.length > 0 && React.createElement('div', { style: { color: '#ef4444', fontSize: '0.74rem', marginTop: '0.5rem' } }, __('biMapRequired', 'Map the required field(s): {list}', { list: reqMissing.map(fieldLabel).join(', ') })),
 
             // Reusable mapping presets (WI-8): load a saved mapping for this
             // broker, save the current one, or delete a preset.
@@ -839,10 +847,10 @@ function BrokerImportWizard({ theme, t, addToast, onImport, existing, workerUrl 
 
           // ISIN → ticker: one row per ISIN with the proposed listing, editable.
           isinList.length > 0 && React.createElement('div', { 'data-testid': 'isin-map', style: { background: theme.card, border: `1px solid ${theme.cardBorder}`, borderRadius: '10px', padding: '0.9rem', marginBottom: '0.9rem' } },
-            React.createElement('div', { style: { color: theme.textSecondary, fontSize: '0.72rem', fontWeight: '700', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: '0.3rem' } }, 'ISIN → ticker'),
+            React.createElement('div', { style: { color: theme.textSecondary, fontSize: '0.72rem', fontWeight: '700', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: '0.3rem' } }, __('biIsinTicker', 'ISIN → ticker')),
             React.createElement('div', { style: { color: theme.textSecondary, fontSize: '0.76rem', lineHeight: 1.5, marginBottom: '0.6rem' } },
-              isinBusy ? 'Looking up listings…'
-                : 'Prices are fetched per listing, so each ISIN needs a ticker. Proposed: the listing in the trade currency. Change it if it is not the one you hold.'),
+              isinBusy ? __('biLookingUp', 'Looking up listings…')
+                : __('biIsinHint', 'Prices are fetched per listing, so each ISIN needs a ticker. Proposed: the listing in the trade currency. Change it if it is not the one you hold.')),
             isinList.map(x => {
               const pick = isinPicks[x.isin] || {};
               const cands = isinCands[x.isin] || [];
@@ -850,24 +858,24 @@ function BrokerImportWizard({ theme, t, addToast, onImport, existing, workerUrl 
               return React.createElement('div', { key: x.isin, style: { display: 'grid', gridTemplateColumns: 'minmax(120px, 150px) minmax(140px, 1fr) minmax(110px, 140px)', gap: '0.5rem', alignItems: 'center', marginBottom: '0.4rem', fontSize: '0.78rem' } },
                 React.createElement('span', { style: { color: theme.text, fontFamily: 'monospace' } }, x.isin, React.createElement('span', { style: { color: theme.textSecondary } }, ' · ' + x.currency)),
                 React.createElement('select', {
-                  'aria-label': 'Listing for ' + x.isin, value: inCands ? pick.symbol : '',
+                  'aria-label': __('biListingFor', 'Listing for {isin}', { isin: x.isin }), value: inCands ? pick.symbol : '',
                   onChange: e => { const c = cands.find(k => String(k.symbol).toUpperCase() === e.target.value); if (c) setIsinTicker(x.isin, c.symbol, c.name); },
                   disabled: !cands.length,
                   style: { padding: '0.4rem 0.5rem', minHeight: '40px', background: theme.inputBg, border: `1px solid ${theme.inputBorder}`, borderRadius: '6px', color: theme.text, fontSize: '0.78rem', width: '100%' }
                 },
-                  React.createElement('option', { value: '' }, cands.length ? ((pick.symbol && !inCands) ? 'other: ' + pick.symbol : '— choose a listing —') : (isinBusy ? 'searching…' : (workerUrl ? 'no listing found' : 'needs a Worker URL'))),
+                  React.createElement('option', { value: '' }, cands.length ? ((pick.symbol && !inCands) ? __('biOther', 'other: {sym}', { sym: pick.symbol }) : __('biChooseListing', '— choose a listing —')) : (isinBusy ? __('biSearching', 'searching…') : (workerUrl ? __('biNoListing', 'no listing found') : __('biNeedsWorker', 'needs a Worker URL')))),
                   cands.map(c => React.createElement('option', { key: c.symbol, value: String(c.symbol).toUpperCase() }, `${c.symbol} — ${c.name || ''}${c.exchange ? ' (' + c.exchange + ')' : ''}`))
                 ),
                 React.createElement('input', {
-                  'aria-label': 'Ticker for ' + x.isin, placeholder: 'ticker', value: pick.symbol || '',
+                  'aria-label': __('biTickerFor', 'Ticker for {isin}', { isin: x.isin }), placeholder: __('biTickerPh', 'ticker'), value: pick.symbol || '',
                   onChange: e => setIsinTicker(x.isin, e.target.value, ''),
                   style: { padding: '0.4rem 0.5rem', minHeight: '40px', background: theme.inputBg, border: `1px solid ${pick.symbol ? theme.inputBorder : '#ef4444'}`, borderRadius: '6px', color: theme.text, fontSize: '0.78rem', width: '100%', boxSizing: 'border-box' }
                 }),
-                pick.currencyMismatch && React.createElement('span', { style: { gridColumn: '1 / -1', color: '#f59e0b', fontSize: '0.72rem' } }, `No ${x.currency} listing found — ${pick.symbol} is quoted in another currency. Its price is converted, so P&L will include the exchange-rate move.`)
+                pick.currencyMismatch && React.createElement('span', { style: { gridColumn: '1 / -1', color: '#f59e0b', fontSize: '0.72rem' } }, __('biCurMismatch', 'No {cur} listing found — {sym} is quoted in another currency. Its price is converted, so P&L will include the exchange-rate move.', { cur: x.currency, sym: pick.symbol }))
               );
             }),
             (!isinBusy && mp.stats.isinUnresolved > 0) && React.createElement('div', { role: 'status', 'data-testid': 'isin-unresolved', style: { color: '#ef4444', fontSize: '0.76rem', marginTop: '0.4rem' } },
-              `${mp.stats.isinUnresolved} row(s) have no ticker yet. They would be imported under their ISIN and stay without a price — enter a ticker above.`)
+              __('biIsinUnresolved', '{n} {n:row has|rows have} no ticker yet. They would be imported under their ISIN and stay without a price — enter a ticker above.', { n: mp.stats.isinUnresolved }))
           ),
 
           // Currencies that can't be converted exactly (see MaerminFxHistory.txToEUR).
@@ -876,14 +884,14 @@ function BrokerImportWizard({ theme, t, addToast, onImport, existing, workerUrl 
           // Row-accurate error report.
           showErrors && mp.errors.length > 0 && React.createElement('div', { style: { background: 'rgba(239,68,68,0.06)', border: '1px solid rgba(239,68,68,0.25)', borderRadius: '8px', padding: '0.6rem 0.8rem', marginBottom: '0.9rem', maxHeight: '160px', overflow: 'auto', fontSize: '0.76rem' } },
             mp.errors.slice(0, 50).map((er, i) => React.createElement('div', { key: i, style: { color: theme.textSecondary, lineHeight: '1.7' } },
-              React.createElement('span', { style: { color: '#ef4444', fontWeight: '700' } }, `Row ${er.row}: `), er.reason)),
-            mp.errors.length > 50 && React.createElement('div', { style: { color: theme.textSecondary } }, `… and ${mp.errors.length - 50} more`)
+              React.createElement('span', { style: { color: '#ef4444', fontWeight: '700' } }, __('importRowLabel', 'Row {row}:', { row: er.row }) + ' '), er.reason)),
+            mp.errors.length > 50 && React.createElement('div', { style: { color: theme.textSecondary } }, __('andNMore', '… and {n} more', { n: mp.errors.length - 50 }))
           ),
 
           // Duplicate handling toggle.
           (mp.stats.duplicates > 0) && React.createElement('label', { style: { display: 'flex', alignItems: 'center', gap: '0.5rem', marginBottom: '0.9rem', fontSize: '0.82rem', color: theme.text, cursor: 'pointer' } },
             React.createElement('input', { type: 'checkbox', checked: includeDupes, onChange: e => setIncludeDupes(e.target.checked) }),
-            `Import the ${mp.stats.duplicates} duplicate(s) too (already in your portfolio)`
+            __('biImportDupes', 'Import the {n} {n:duplicate|duplicates} too (already in your portfolio)', { n: mp.stats.duplicates })
           ),
 
           // Preview table — duplicates greyed + flagged.
@@ -891,7 +899,7 @@ function BrokerImportWizard({ theme, t, addToast, onImport, existing, workerUrl 
             React.createElement('table', { style: { width: '100%', borderCollapse: 'collapse', minWidth: '560px', fontSize: '0.8rem' } },
               React.createElement('thead', null,
                 React.createElement('tr', null,
-                  ['Date', 'Type', 'Symbol', 'Quantity', 'Price', 'Fees', ''].map((h, i) =>
+                  [__('date', 'Date'), __('type', 'Type'), __('symbol', 'Symbol'), __('quantity', 'Quantity'), __('price', 'Price'), __('fees', 'Fees'), ''].map((h, i) =>
                     React.createElement('th', { key: i, style: { padding: '0.6rem 0.875rem', textAlign: (i > 2 && i < 6) ? 'right' : 'left', color: theme.textSecondary, borderBottom: `1px solid ${theme.cardBorder}`, fontWeight: '600' } }, h)
                   )
                 )
@@ -899,41 +907,41 @@ function BrokerImportWizard({ theme, t, addToast, onImport, existing, workerUrl 
               React.createElement('tbody', null,
                 mp.transactions.slice(0, 20).map((tx, i) =>
                   React.createElement('tr', { key: i, style: { opacity: tx.duplicate ? 0.45 : 1 } },
-                    React.createElement('td', { style: { padding: '0.5rem 0.875rem', color: theme.text } }, tx.date || '—'),
+                    React.createElement('td', { style: { padding: '0.5rem 0.875rem', color: theme.text } }, tx.date ? window.MaerminI18n.date(tx.date) : '—'),
                     React.createElement('td', { style: { padding: '0.5rem 0.875rem' } },
                       React.createElement('span', { style: { padding: '0.125rem 0.375rem', borderRadius: '3px', fontSize: '0.7rem', fontWeight: '700', background: tx.type === 'buy' ? 'rgba(34,197,94,0.15)' : tx.type === 'sell' ? 'rgba(239,68,68,0.15)' : 'rgba(139,124,255,0.15)', color: tx.type === 'buy' ? '#22c55e' : tx.type === 'sell' ? '#ef4444' : theme.accent } }, (tx.type || '').toUpperCase())
                     ),
                     React.createElement('td', { style: { padding: '0.5rem 0.875rem', color: tx.unresolvedIsin ? '#ef4444' : theme.text, fontWeight: '600' } },
                       tx.symbol || '—',
                       (tx.isin && !tx.unresolvedIsin) && React.createElement('div', { style: { color: theme.textSecondary, fontWeight: '400', fontSize: '0.68rem', fontFamily: 'monospace' } }, tx.isin),
-                      tx.unresolvedIsin && React.createElement('div', { style: { fontWeight: '400', fontSize: '0.68rem' } }, 'no ticker')),
-                    React.createElement('td', { style: { padding: '0.5rem 0.875rem', color: theme.text, textAlign: 'right' } }, tx.quantity?.toFixed?.(4) || '—'),
-                    React.createElement('td', { style: { padding: '0.5rem 0.875rem', color: theme.text, textAlign: 'right' } }, tx.price?.toFixed?.(2) || '—'),
-                    React.createElement('td', { style: { padding: '0.5rem 0.875rem', color: theme.textSecondary, textAlign: 'right' } }, tx.fees?.toFixed?.(2) || '0.00'),
+                      tx.unresolvedIsin && React.createElement('div', { style: { fontWeight: '400', fontSize: '0.68rem' } }, __('biNoTicker', 'no ticker'))),
+                    React.createElement('td', { style: { padding: '0.5rem 0.875rem', color: theme.text, textAlign: 'right' } }, (typeof tx.quantity === 'number' ? window.MaerminI18n.num(tx.quantity, 4) : '—')),
+                    React.createElement('td', { style: { padding: '0.5rem 0.875rem', color: theme.text, textAlign: 'right' } }, (typeof tx.price === 'number' ? window.MaerminI18n.num(tx.price, 2) : '—')),
+                    React.createElement('td', { style: { padding: '0.5rem 0.875rem', color: theme.textSecondary, textAlign: 'right' } }, window.MaerminI18n.num(typeof tx.fees === 'number' ? tx.fees : 0, 2)),
                     React.createElement('td', { style: { padding: '0.5rem 0.875rem', textAlign: 'right' } }, tx.duplicate ? React.createElement('span', { style: { color: '#f59e0b', fontSize: '0.68rem', fontWeight: '700' } }, 'DUP') : '')
                   )
                 )
               )
             )
           ),
-          mp.transactions.length > 20 && React.createElement('div', { style: { color: theme.textSecondary, fontSize: '0.8rem', marginTop: '0.5rem' } }, `... and ${mp.transactions.length - 20} more`)
+          mp.transactions.length > 20 && React.createElement('div', { style: { color: theme.textSecondary, fontSize: '0.8rem', marginTop: '0.5rem' } }, __('andNMore', '… and {n} more', { n: mp.transactions.length - 20 }))
         );
       })(),
 
       React.createElement('div', { style: { display: 'flex', gap: '0.5rem', marginTop: '1rem' } },
-        btn('← Back', () => setStep(1)),
+        btn(__('back', '← Back'), () => setStep(1)),
         mp
-          ? btn(`✓ Import ${Math.max(0, mp.stats.ok - (includeDupes ? 0 : (mp.stats.duplicates || 0)))}`, doImportMapped, true, (mp.stats.ok - (includeDupes ? 0 : (mp.stats.duplicates || 0))) <= 0)
-          : btn(`✓ Import ${parsed.length}`, doImport, true, parsed.length === 0)
+          ? btn(__('biImportN', '✓ Import {n}', { n: Math.max(0, mp.stats.ok - (includeDupes ? 0 : (mp.stats.duplicates || 0))) }), doImportMapped, true, (mp.stats.ok - (includeDupes ? 0 : (mp.stats.duplicates || 0))) <= 0)
+          : btn(__('biImportN', '✓ Import {n}', { n: parsed.length }), doImport, true, parsed.length === 0)
       )
     ),
 
     // ── Step 3: Done ─────────────────────────────────────────────────────────
     step === 3 && React.createElement('div', { style: { textAlign: 'center', padding: '3rem' } },
       React.createElement('div', { style: { fontSize: '2rem', marginBottom: '1rem', color: '#22c55e' } }, '✓'),
-      React.createElement('h3', { style: { color: theme.text, fontSize: '1.25rem', fontWeight: '700', marginBottom: '0.5rem' } }, 'Import successful!'),
-      React.createElement('p', { style: { color: theme.textSecondary, marginBottom: '1.5rem' } }, `${importedCount} transactions were added.`),
-      btn('Start a new import', reset, true)
+      React.createElement('h3', { style: { color: theme.text, fontSize: '1.25rem', fontWeight: '700', marginBottom: '0.5rem' } }, __('biSuccess', 'Import successful!')),
+      React.createElement('p', { style: { color: theme.textSecondary, marginBottom: '1.5rem' } }, __('biAddedN', '{n} {n:transaction was|transactions were} added.', { n: importedCount })),
+      btn(__('biStartNew', 'Start a new import'), reset, true)
     )
   );
 }
@@ -970,11 +978,11 @@ function PositionNotesView({ portfolio, theme, t }) {
 
   return React.createElement('div', { style: { padding: '1.5rem' } },
     React.createElement('h2', { style: { color: theme.text, fontSize: '1.5rem', fontWeight: '800', letterSpacing: '-0.02em', marginBottom: '0.5rem' } }, (t.tradeJournal || 'Trade Journal')),
-    React.createElement('p', { style: { color: theme.textSecondary, fontSize: '0.875rem', marginBottom: '1.5rem' } }, `${noteCount} of ${allPositions.length} positions have notes`),
+    React.createElement('p', { style: { color: theme.textSecondary, fontSize: '0.875rem', marginBottom: '1.5rem' } }, __('jnNotesCount', '{n} of {total} positions have notes', { n: noteCount, total: allPositions.length })),
 
     allPositions.length === 0
       ? React.createElement('div', { style: { padding: '3rem', textAlign: 'center', color: theme.textSecondary, background: theme.card, borderRadius: '16px', boxShadow: theme.shadow, border: `1px solid ${theme.cardBorder}` } },
-          'Add positions first'
+          __('jnAddFirst', 'Add positions first')
         )
       : React.createElement('div', { style: { display: 'grid', gridTemplateColumns: 'repeat(auto-fill,minmax(280px,1fr))', gap: '0.75rem' } },
           allPositions.map(p => {
@@ -994,7 +1002,7 @@ function PositionNotesView({ portfolio, theme, t }) {
                   React.createElement('span', { style: { color: theme.textSecondary, fontSize: '0.75rem', marginLeft: '0.5rem' } }, p.cat)
                 ),
                 note?.updatedAt && React.createElement('span', { style: { color: theme.textSecondary, fontSize: '0.7rem' } },
-                  new Date(note.updatedAt).toLocaleDateString('en-US')
+                  window.MaerminI18n.date(note.updatedAt)
                 )
               ),
               isActive
@@ -1002,19 +1010,19 @@ function PositionNotesView({ portfolio, theme, t }) {
                     React.createElement('textarea', {
                       value: draft, autoFocus: true,
                       onChange: e => setDraft(e.target.value),
-                      placeholder: 'Investment thesis, target price, risks, strategy...',
+                      placeholder: __('jnThesisPh', 'Investment thesis, target price, risks, strategy...'),
                       style: { width: '100%', height: '120px', padding: '0.625rem', background: theme.inputBg, border: `1px solid ${theme.inputBorder}`, borderRadius: '6px', color: theme.text, fontSize: '0.8rem', resize: 'vertical', marginBottom: '0.5rem', lineHeight: '1.5' }
                     }),
                     React.createElement('div', { style: { display: 'flex', gap: '0.375rem' } },
-                      React.createElement('button', { onClick: save, style: { padding: '0.375rem 0.875rem', background: theme.accent, color: '#ffffff', border: 'none', borderRadius: '6px', cursor: 'pointer', fontSize: '0.8rem', fontWeight: '600' } }, 'Save'),
-                      React.createElement('button', { onClick: () => { setActive(null); setDraft(''); }, style: { padding: '0.375rem 0.875rem', background: theme.inputBg, color: theme.text, border: `1px solid ${theme.cardBorder}`, borderRadius: '6px', cursor: 'pointer', fontSize: '0.8rem' } }, 'Cancel')
+                      React.createElement('button', { onClick: save, style: { padding: '0.375rem 0.875rem', background: theme.accent, color: '#ffffff', border: 'none', borderRadius: '6px', cursor: 'pointer', fontSize: '0.8rem', fontWeight: '600' } }, __('save', 'Save')),
+                      React.createElement('button', { onClick: () => { setActive(null); setDraft(''); }, style: { padding: '0.375rem 0.875rem', background: theme.inputBg, color: theme.text, border: `1px solid ${theme.cardBorder}`, borderRadius: '6px', cursor: 'pointer', fontSize: '0.8rem' } }, __('cancel', 'Cancel'))
                     )
                   )
                 : React.createElement('div', {
                     ...window.MaerminUtils.clickable(() => { setActive(p.key); setDraft(note?.text || ''); }),
-                    'aria-label': note?.text ? 'Edit note' : 'Add note',
+                    'aria-label': note?.text ? __('jnEditNote', 'Edit note') : __('jnAddNote', 'Add note'),
                     style: { cursor: 'pointer', minHeight: '60px', padding: '0.5rem', background: theme.inputBg, borderRadius: '6px', fontSize: '0.8rem', color: note?.text ? theme.text : theme.textSecondary, lineHeight: '1.5', whiteSpace: 'pre-wrap' }
-                  }, note?.text || '+ Add note...')
+                  }, note?.text || __('jnAddNotePh', '+ Add note...'))
             );
           })
         )
@@ -1053,7 +1061,7 @@ function DividendCalendarView({ portfolio, prices, metaVersion, theme, t, addToa
       return svc.buildPaymentSchedule(portfolio, {}).map(p => ({
         id: `derived-${p.symbol}-${p.date}`,
         symbol: p.symbol, date: p.date, amount: p.amount, currency: p.currency,
-        notes: `≈ ${p.perShare.toFixed(3)}/sh × ${p.shares} · ${p.frequency || 'est.'}${p.past ? ' · received' : ''}`,
+        notes: __('dcDerivedNote', '≈ {perShare}/sh × {shares}', { perShare: window.MaerminI18n.num(p.perShare, 3), shares: window.MaerminI18n.num(p.shares, { min: 0, max: 4 }) }) + ' · ' + (p.frequency ? freqLabel(p.frequency) : __('dcEst', 'est.')) + (p.past ? ' · ' + __('dcReceived', 'received') : ''),
         derived: true, past: !!p.past
       }));
     } catch (e) { return []; }
@@ -1075,7 +1083,7 @@ function DividendCalendarView({ portfolio, prices, metaVersion, theme, t, addToa
     setEvents(prev => [...prev, { id: Date.now().toString(), ...form, amount: parseFloat(form.amount) }]);
     setForm({ symbol: '', date: '', amount: '', currency: 'EUR', notes: '' });
     setShowAdd(false);
-    addToast && addToast('Dividend added', 'success');
+    addToast && addToast(__('dcAdded', 'Dividend added'), 'success');
   };
 
   // First payments can be months out, so the current month's grid may be empty.
@@ -1112,7 +1120,7 @@ function DividendCalendarView({ portfolio, prices, metaVersion, theme, t, addToa
   const dayEvents = (d) => monthEvents.filter(e => new Date(e.date).getDate() === d);
   const today = new Date();
 
-  const monthNames = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+  const monthNames = window.MaerminI18n.monthNames('short');
 
   const inp = (field, placeholder, type='text', opts) =>
     React.createElement('input', { type, value: form[field], placeholder, ...opts, onChange: e => setForm(p=>({...p,[field]:e.target.value})),
@@ -1125,35 +1133,35 @@ function DividendCalendarView({ portfolio, prices, metaVersion, theme, t, addToa
       React.createElement('div', null,
         React.createElement('h2', { style: { color: theme.text, fontSize: '1.5rem', fontWeight: '800', letterSpacing: '-0.02em' } }, (t.dividendCalendar || 'Dividend Calendar')),
         React.createElement('div', { style: { color: theme.textSecondary, fontSize: '0.85rem', marginTop: '0.25rem' } },
-          `${monthNames[month]} ${year}: ${amt(totalThisMonth.toFixed(2) + ' €')} · Year ${year}: ${amt(totalYear.toFixed(2) + ' €')}`
+          `${monthNames[month]} ${year}: ${amt(window.MaerminI18n.money(totalThisMonth, 'EUR'))} · ${__('dcYear', 'Year {y}', { y: year })}: ${amt(window.MaerminI18n.money(totalYear, 'EUR'))}`
         )
       ),
       React.createElement('div', { style: { display: 'flex', gap: '0.5rem', alignItems: 'center' } },
         React.createElement('button', { onClick: () => setViewMonth(p => { const d = new Date(p.year, p.month - 1); return { year: d.getFullYear(), month: d.getMonth() }; }), style: { padding: '0.5rem 0.875rem', background: theme.inputBg, border: `1px solid ${theme.cardBorder}`, borderRadius: '6px', color: theme.text, cursor: 'pointer' } }, '←'),
         React.createElement('span', { style: { color: theme.text, fontWeight: '700', minWidth: '100px', textAlign: 'center' } }, `${monthNames[month]} ${year}`),
         React.createElement('button', { onClick: () => setViewMonth(p => { const d = new Date(p.year, p.month + 1); return { year: d.getFullYear(), month: d.getMonth() }; }), style: { padding: '0.5rem 0.875rem', background: theme.inputBg, border: `1px solid ${theme.cardBorder}`, borderRadius: '6px', color: theme.text, cursor: 'pointer' } }, '→'),
-        React.createElement('button', { onClick: () => setShowAdd(p=>!p), style: { padding: '0.5rem 0.875rem', background: theme.accent, color: '#ffffff', border: 'none', borderRadius: '6px', cursor: 'pointer', fontWeight: '600' } }, '+ Dividend')
+        React.createElement('button', { onClick: () => setShowAdd(p=>!p), style: { padding: '0.5rem 0.875rem', background: theme.accent, color: '#ffffff', border: 'none', borderRadius: '6px', cursor: 'pointer', fontWeight: '600' } }, __('dcAddBtn', '+ Dividend'))
       )
     ),
 
     // Add form
     showAdd && React.createElement('div', { style: { background: theme.card, border: `1px solid ${theme.cardBorder}`, borderRadius: '10px', padding: '1rem', marginBottom: '1rem', display: 'flex', gap: '0.5rem', flexWrap: 'wrap', alignItems: 'flex-end' } },
-      inp('symbol', 'Symbol (e.g. AAPL)'),
-      inp('date', 'Date', 'date'),
-      inp('amount', 'Amount', 'number', { step: '0.01' }),
+      inp('symbol', __('dcSymbolPh', 'Symbol (e.g. AAPL)')),
+      inp('date', __('date', 'Date'), 'date'),
+      inp('amount', __('amount', 'Amount'), 'number', { step: '0.01' }),
       React.createElement('select', { value: form.currency, onChange: e=>setForm(p=>({...p,currency:e.target.value})), style: { padding: '0.5rem', background: theme.inputBg, border: `1px solid ${theme.inputBorder}`, borderRadius: '6px', color: theme.text } },
         React.createElement('option', { value: 'EUR' }, '€'),
         React.createElement('option', { value: 'USD' }, '$')
       ),
-      inp('notes', 'Note (opt.)'),
-      React.createElement('button', { onClick: addEvent, style: { padding: '0.5rem 1rem', background: theme.accent, color: '#ffffff', border: 'none', borderRadius: '6px', cursor: 'pointer', fontWeight: '600', whiteSpace: 'nowrap' } }, 'Add')
+      inp('notes', __('dcNotePh', 'Note (opt.)')),
+      React.createElement('button', { onClick: addEvent, style: { padding: '0.5rem 1rem', background: theme.accent, color: '#ffffff', border: 'none', borderRadius: '6px', cursor: 'pointer', fontWeight: '600', whiteSpace: 'nowrap' } }, __('add', 'Add'))
     ),
 
     // Calendar grid
     React.createElement('div', { style: { background: theme.card, borderRadius: '16px', boxShadow: theme.shadow, border: `1px solid ${theme.cardBorder}`, overflow: 'hidden' } },
       // Weekdays header
       React.createElement('div', { style: { display: 'grid', gridTemplateColumns: 'repeat(7,1fr)' } },
-        ['Mon','Tue','Wed','Thu','Fri','Sat','Sun'].map(d =>
+        window.MaerminI18n.weekdayNames('short').map(d =>
           React.createElement('div', { key: d, style: { padding: '0.625rem', textAlign: 'center', color: theme.textSecondary, fontSize: '0.75rem', fontWeight: '600', borderBottom: `1px solid ${theme.cardBorder}` } }, d)
         )
       ),
@@ -1174,8 +1182,8 @@ function DividendCalendarView({ portfolio, prices, metaVersion, theme, t, addToa
             evs.map(e =>
               React.createElement('div', Object.assign({
                 key: e.id,
-                title: `${e.symbol}: ${e.amount} ${e.currency}${e.notes ? ' · ' + e.notes : ''}${e.derived ? ' · projected' : ''}`,
-                'aria-label': e.derived ? `Projected dividend ${e.symbol} ${e.amount} ${e.currency}` : `Delete dividend ${e.symbol} ${e.amount} ${e.currency}`,
+                title: `${e.symbol}: ${window.MaerminI18n.money(e.amount, e.currency || 'EUR')}${e.notes ? ' · ' + e.notes : ''}${e.derived ? ' · ' + __('dcProjected', 'projected') : ''}`,
+                'aria-label': e.derived ? __('dcProjectedAria', 'Projected dividend {sym} {amount}', { sym: e.symbol, amount: window.MaerminI18n.money(e.amount, e.currency || 'EUR') }) : __('dcDeleteAria', 'Delete dividend {sym} {amount}', { sym: e.symbol, amount: window.MaerminI18n.money(e.amount, e.currency || 'EUR') }),
                 style: {
                   background: e.past ? 'rgba(148,163,184,0.12)' : (e.derived ? 'rgba(59,130,246,0.14)' : 'rgba(34,197,94,0.15)'),
                   color: e.past ? theme.textSecondary : (e.derived ? theme.accent : theme.success),
@@ -1187,11 +1195,11 @@ function DividendCalendarView({ portfolio, prices, metaVersion, theme, t, addToa
               }, e.derived ? {} : window.MaerminUtils.clickable(() => {
                 // In-app confirmation (the native dialog only if MaerminUI is missing).
                 const ask = (window.MaerminUI && window.MaerminUI.confirm)
-                  ? window.MaerminUI.confirm({ title: 'Delete this dividend?', message: `${e.symbol} ${e.amount} ${e.currency} on ${e.date}`, confirmLabel: 'Delete', danger: true })
-                  : Promise.resolve(window.confirm(`Delete dividend? ${e.symbol} ${e.amount} ${e.currency}`));
+                  ? window.MaerminUI.confirm({ title: __('dcDeleteTitle', 'Delete this dividend?'), message: __('dcDeleteMsg', '{sym} {amount} on {date}', { sym: e.symbol, amount: window.MaerminI18n.money(e.amount, e.currency || 'EUR'), date: window.MaerminI18n.date(e.date) }), confirmLabel: __('delete', 'Delete'), danger: true })
+                  : Promise.resolve(window.confirm(__('dcDeleteTitle', 'Delete this dividend?')));
                 ask.then(yes => { if (yes) setEvents(prev => prev.filter(ev => ev.id !== e.id)); });
               })),
-              `${e.symbol} ${amt('+' + e.amount + (e.currency==='EUR'?'€':'$'))}`)
+              `${e.symbol} ${amt('+' + window.MaerminI18n.money(e.amount, e.currency || 'EUR'))}`)
             )
           );
         })
@@ -1201,12 +1209,12 @@ function DividendCalendarView({ portfolio, prices, metaVersion, theme, t, addToa
     // Upcoming list
     events.filter(e => new Date(e.date) >= today).sort((a,b)=>new Date(a.date)-new Date(b.date)).slice(0,5).length > 0 &&
     React.createElement('div', { style: { marginTop: '1rem' } },
-      React.createElement('div', { style: { color: theme.text, fontWeight: '700', fontSize: '0.9rem', marginBottom: '0.5rem' } }, 'Upcoming dividends'),
+      React.createElement('div', { style: { color: theme.text, fontWeight: '700', fontSize: '0.9rem', marginBottom: '0.5rem' } }, __('dcUpcoming', 'Upcoming dividends')),
       events.filter(e => new Date(e.date) >= today).sort((a,b)=>new Date(a.date)-new Date(b.date)).slice(0,60).map(e =>
         React.createElement('div', { key: e.id, style: { display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '0.625rem 0.75rem', background: theme.card, borderRadius: '6px', marginBottom: '0.375rem', border: `1px solid ${theme.cardBorder}` } },
           React.createElement('span', { style: { color: theme.text, fontWeight: '600', fontSize: '0.875rem', minWidth: '64px' } }, e.symbol),
-          React.createElement('span', { style: { color: theme.textSecondary, fontSize: '0.875rem' } }, new Date(e.date).toLocaleDateString('en-US')),
-          React.createElement('span', { style: { color: e.derived ? theme.accent : theme.success, fontWeight: '700', fontSize: '0.875rem' } }, amt(`+${e.amount} ${e.currency==='EUR'?'€':'$'}`))
+          React.createElement('span', { style: { color: theme.textSecondary, fontSize: '0.875rem' } }, window.MaerminI18n.date(e.date)),
+          React.createElement('span', { style: { color: e.derived ? theme.accent : theme.success, fontWeight: '700', fontSize: '0.875rem' } }, amt('+' + window.MaerminI18n.money(e.amount, e.currency || 'EUR')))
         )
       )
     )
@@ -1227,7 +1235,7 @@ function MobileBottomNav({ activeView, setActiveView, theme, uiMode, t }) {
   const tt = t || {};
   const current = Nav ? Nav.areaOf(activeView) : null;
 
-  return React.createElement('nav', { className: 'mx-bottom-nav maermin-bottom-nav', 'aria-label': 'Primary' },
+  return React.createElement('nav', { className: 'mx-bottom-nav maermin-bottom-nav', 'aria-label': __('primaryNav', 'Primary') },
     (Nav ? Nav.AREAS : []).map(area => {
       const active = current === area.id;
       const label = (area.shortKey && tt[area.shortKey]) || area.short || Nav.label(area, tt);

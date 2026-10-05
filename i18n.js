@@ -133,6 +133,23 @@
     return out;
   }
 
+  // Asset class id -> label in the current language; custom categories
+  // (custom-categories.js) keep the name the user gave them.
+  function category(cat) {
+    var k = { crypto: ['crypto', 'Crypto'], stocks: ['stocks', 'Stocks'], skins: ['cs2Skins', 'CS2 Skins'],
+      commodities: ['catCommodities', 'Commodities'], options: ['catOptions', 'Options'] }[cat];
+    if (k) return t(k[0], k[1]);
+    try { if (typeof window !== 'undefined' && window.MaerminCategories) return window.MaerminCategories.label(cat); } catch (e) {}
+    return cat;
+  }
+
+  // Weekday names, Monday first: weekdayNames('short') -> ['Mon', …].
+  function weekdayNames(width, l) {
+    var out = [];
+    for (var d = 0; d < 7; d++) out.push(new Date(2024, 0, 1 + d, 12).toLocaleString(locale(l), { weekday: width || 'short' }));
+    return out;
+  }
+
   // <html lang> follows the language (screen readers, hyphenation, spellcheck).
   function applyHtmlLang(l) {
     try { if (typeof document !== 'undefined') document.documentElement.setAttribute('lang', normalize(l || lang())); } catch (e) {}
@@ -141,7 +158,7 @@
   var api = {
     LANGS: LANGS, LOCALES: LOCALES, lang: lang, setLang: setLang, locale: locale,
     dict: dict, t: t, fill: fill,
-    num: num, money: money, pct: pct, date: date, monthNames: monthNames,
+    num: num, money: money, pct: pct, date: date, monthNames: monthNames, weekdayNames: weekdayNames, category: category,
     applyHtmlLang: applyHtmlLang
   };
   if (typeof window !== 'undefined') { window.MaerminI18n = api; applyHtmlLang(); }
