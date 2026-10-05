@@ -229,29 +229,6 @@ function ToastContainer({ toasts, onRemove }) {
   );
 }
 
-function useToast() {
-  const [toasts, setToasts] = useState([]);
-
-  const addToast = useCallback((message, type = 'info', duration = 3000) => {
-    const id = generateId();
-    setToasts(prev => [...prev, { id, message, type }]);
-    
-    if (duration > 0) {
-      setTimeout(() => {
-        setToasts(prev => prev.filter(t => t.id !== id));
-      }, duration);
-    }
-    
-    return id;
-  }, []);
-
-  const removeToast = useCallback((id) => {
-    setToasts(prev => prev.filter(t => t.id !== id));
-  }, []);
-
-  return { toasts, addToast, removeToast };
-}
-
 // ============================================================================
 // CORRELATION MATRIX VIEW
 // ============================================================================
@@ -1115,7 +1092,6 @@ if (typeof window !== 'undefined') {
   window.CommandPalette = CommandPalette;
   window.ShortcutsModal = ShortcutsModal;
   window.ToastContainer = ToastContainer;
-  window.useToast = useToast;
   window.CorrelationMatrixView = CorrelationMatrixView;
   window.MonteCarloView = MonteCarloView;
   window.StressTestView = StressTestView;
