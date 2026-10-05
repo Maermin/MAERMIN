@@ -78,7 +78,7 @@ const json = (o, status) => ({ ok: (status || 200) < 400, status: status || 200,
       workerBase: 'https://w.example/', fetch: fetchFn, now: NOW, suffixCache: { EUNL: 'EUNL.DE' }, cryptoDelayMs: 0 });
     ok('stock via the Worker with the resolved listing and the smallest range', calls.some((u) => u === 'https://w.example?action=yf&symbol=EUNL.DE&interval=1d&range=3mo'), calls);
     ok('fetched / failed are reported, never thrown', r.fetched.sort().join() === 'crypto|BITCOIN,stocks|EUNL' && r.failed.map((f) => f.key).sort().join() === 'stocks|FAIL' && r.changed === true, r.failed);
-    ok('CoinGecko beyond a year: falls back to 365 days', calls.filter((u) => /coingecko/.test(u)).length === 2 && !!r.store.series['crypto|BITCOIN']);
+    ok('CoinGecko beyond a year: asks for 365 days right away (no refused request)', calls.filter((u) => /coingecko/.test(u)).length === 1 && !!r.store.series['crypto|BITCOIN']);
     ok('requested start is remembered', r.store.series['stocks|EUNL'].req === '2025-05-13' && r.store.series['crypto|BITCOIN'].req === '2021-12-25');
     const again = await CH.sync({ transactions: [tx('stocks', 'EUNL', '2025-05-20'), tx('crypto', 'bitcoin', '2022-01-01')], store: r.store, workerBase: 'https://w.example', fetch: async (u) => { calls.push('second:' + u); return json({}); }, now: NOW + 1000, cryptoDelayMs: 0 });
     ok('second run right after: no request at all', !calls.some((u) => /^second:/.test(u)) && again.changed === false);
@@ -132,6 +132,38 @@ const json = (o, status) => ({ ok: (status || 200) < 400, status: status || 200,
     ok('…but again after a day', calls === before + 22 + 5);
     const t = await CH.sync({ transactions: [tx('stocks', 'TMO', '2025-05-20')], workerBase: 'https://w.example', now: NOW, fetch: async () => { throw new Error('timeout'); } });
     ok('a timeout is not remembered as "no history"', Object.keys(t.store.miss).length === 0 && t.failed.length === 1);
+  }
+
+  console.log('crypto through Yahoo:');
+  {
+    const T = require('../ticker-validation.js');
+    ok('Yahoo pair from ticker or CoinGecko id', T.yahooCryptoSymbol('BTC') === 'BTC-USD' && T.yahooCryptoSymbol('bitcoin') === 'BTC-USD' && T.yahooCryptoSymbol('near') === 'NEAR-USD'
+      && T.yahooCryptoSymbol('binance-usd') === 'BUSD-USD' && T.yahooCryptoSymbol('UNI') === 'UNI7083-USD' && T.yahooCryptoSymbol('unknown-coin') === '' && T.yahooCryptoSymbol('') === '');
+    const yfDays = (p) => json({ currency: 'USD', prices: [{ date: '2025-06-09', price: p }, { date: '2025-06-10', price: p }] });
+    const calls = [];
+    const fetchFn = async (u) => {
+      calls.push(u);
+      if (/coingecko/.test(u)) return json({ prices: [[midnight('2025-06-10'), 5]] });
+      if (/BTC-USD/.test(u)) return yfDays(100000);
+      if (/NEAR-USD/.test(u)) return yfDays(4.8);
+      if (/ODD-USD/.test(u)) return yfDays(900);               // Yahoo's "ODD" is another coin
+      return json({ error: 'Yahoo Finance returned 404' }, 404);
+    };
+    const live = { BTC: 92000, near: 4.2, ODD: 0.3 };
+    const r = await CH.sync({ transactions: [tx('crypto', 'BTC', '2022-01-01'), tx('crypto', 'near', '2025-05-20'), tx('crypto', 'ODD', '2025-05-20'), tx('crypto', 'GONEX', '2025-05-20')],
+      workerBase: 'https://w.example', fetch: fetchFn, now: NOW, chunkDelayMs: 0, cryptoDelayMs: 0, yahooCrypto: T.yahooCryptoSymbol, cryptoId: T.coinGeckoId, priceOf: (s) => live[s] || 0 });
+    ok('coins come from the Worker as USD pairs over the full range', calls.includes('https://w.example?action=yf&symbol=BTC-USD&interval=1d&range=5y') && r.store.series['crypto|BTC'].src === 'yf' && r.store.series['crypto|BTC'].cur === 'USD', calls);
+    ok('a coin Yahoo has needs no CoinGecko call', !calls.some((u) => /coins\/(bitcoin|near)\//.test(u)) && r.store.series['crypto|NEAR'].p.join() === '4.8,4.8');
+    ok('price far off the live one, or unknown to Yahoo → CoinGecko', calls.some((u) => /coins\/odd\//.test(u)) && calls.some((u) => /coins\/gonex\//.test(u)) && r.store.series['crypto|ODD'].src === 'cg' && r.store.series['crypto|GONEX'].src === 'cg');
+    const old = CH.ingestCoinGecko({ prices: [[midnight('2025-01-01'), 80000], [midnight('2025-06-01'), 90000]] }, { at: NOW - 7 * 3600e3 });
+    old.req = '2021-12-25';
+    const calls2 = [];
+    const r2 = await CH.sync({ transactions: [tx('crypto', 'BTC', '2022-01-01')], store: { v: 1, series: { 'crypto|BTC': old } }, workerBase: 'https://w.example', now: NOW, chunkDelayMs: 0,
+      yahooCrypto: T.yahooCryptoSymbol, fetch: async (u) => { calls2.push(u); return yfDays(100000); } });
+    ok('stored CoinGecko closes are replaced by the full Yahoo range, not merged with a tail', calls2.length === 2 && /range=5y/.test(calls2[1]) && r2.store.series['crypto|BTC'].src === 'yf', calls2);
+    const r3 = await CH.sync({ transactions: [tx('crypto', 'ODD', '2025-05-20')], workerBase: 'https://w.example', now: NOW, chunkDelayMs: 0, yahooCrypto: T.yahooCryptoSymbol, priceOf: () => 0.3,
+      cgGet: async () => { const e = new Error('busy'); e.status = 429; throw e; }, fetch: fetchFn });
+    ok('CoinGecko busy on the fallback: "try later", not "no history"', r3.skipped.includes('crypto|ODD') && r3.failed.length === 0 && !r3.store.miss['crypto|ODD'], r3);
   }
 
   console.log('real Worker code, synthetic Yahoo upstream:');

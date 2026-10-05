@@ -223,6 +223,28 @@
     return s.toLowerCase();
   }
 
+  // Yahoo lists coins as "<TICKER>-USD" (EUR pairs only for the largest); tickers several coins share
+  // carry Yahoo's own number ("UNI7083"). The caller still checks the price
+  // against the live one: a wrong match falls back to CoinGecko.
+  var YAHOO_CRYPTO = {
+    UNI: 'UNI7083', GRT: 'GRT6719', APT: 'APT21794', SUI: 'SUI20947', ARB: 'ARB11841',
+    TAO: 'TAO22974', PEPE: 'PEPE24478', TON: 'TON11419', STX: 'STX4847', IMX: 'IMX10603', XBT: 'BTC'
+  };
+  var GECKO_TICKER = null;
+  /** Stored crypto symbol or CoinGecko id -> Yahoo pair ("BTC" / "bitcoin" -> "BTC-USD"; USD pairs cover far more coins than EUR), or '' when unknown. */
+  function yahooCryptoSymbol(raw, quote) {
+    var s = String(raw == null ? '' : raw).trim();
+    if (!s) return '';
+    if (!GECKO_TICKER) {
+      GECKO_TICKER = {};
+      Object.keys(COINGECKO_IDS).forEach(function (t) { if (!GECKO_TICKER[COINGECKO_IDS[t]]) GECKO_TICKER[COINGECKO_IDS[t]] = t; });
+      GECKO_TICKER.bitcoin = 'BTC';
+    }
+    var t = GECKO_TICKER[s.toLowerCase()] || s.toUpperCase();
+    if (!/^[A-Z0-9]{1,10}$/.test(t)) return '';
+    return (YAHOO_CRYPTO[t] || t) + '-' + (quote || 'USD');
+  }
+
   // Transactions filed under stocks (or crypto) whose symbol is a CS2 market
   // name: [{ symbol, category, count }], one entry per stored symbol.
   function findMisfiledSkins(transactions) {
@@ -265,6 +287,7 @@
     RENAMES: RENAMES,
     COINGECKO_IDS: COINGECKO_IDS,
     coinGeckoId: coinGeckoId,
+    yahooCryptoSymbol: yahooCryptoSymbol,
     looksLikeSkin: looksLikeSkin,
     isMarketSymbol: isMarketSymbol,
     findMisfiledSkins: findMisfiledSkins,

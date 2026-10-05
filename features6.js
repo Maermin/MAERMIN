@@ -187,8 +187,10 @@ async function fetchYFHistory(symbol, period, workerUrl) {
 // during a rate-limit pause this rejects at once (the chart then uses stored
 // closes or a flat line) instead of adding to the flood.
 async function fetchCryptoHistory(coinId, period) {
+  // The public API refuses more than a year (401): longer periods get 365 days.
+  const days = period.cgDays === 'max' ? 365 : Math.min(365, period.cgDays);
   const url = `https://api.coingecko.com/api/v3/coins/${encodeURIComponent(coinId)}/market_chart` +
-    `?vs_currency=eur&days=${period.cgDays}`;
+    `?vs_currency=eur&days=${days}`;
   const CG = window.MaerminCoinGecko;
   const data = CG ? await CG.getJson(url, { priority: 'low', timeoutMs: 15000 })
     : await fetch(url, { signal: AbortSignal.timeout(15000) }).then(r => { if (!r.ok) throw new Error(`CoinGecko ${r.status}`); return r.json(); });
@@ -200,16 +202,40 @@ async function fetchCryptoHistory(coinId, period) {
   }));
 }
 
+// Yahoo coin pair through the Worker ("BTC-USD", converted to EUR):
+// [{ts,date,price(EUR)}] | null. Null too when the last price is far off the
+// live one - Yahoo filed the ticker under another coin.
+async function fetchYahooCryptoHistory(sym, period, workerUrl, livePrice, usdToEur) {
+  const pair = window.MaerminTickers.yahooCryptoSymbol(sym);
+  if (!pair) return null;
+  try {
+    const base = workerUrl.replace(/\/$/, '');
+    const res = await fetch(`${base}?action=yf&symbol=${encodeURIComponent(pair)}&interval=${period.yfInterval}&range=${period.yfRange}`, { signal: AbortSignal.timeout(20000) });
+    if (!res.ok) return null;
+    const data = await res.json();
+    if (data.error || !data.prices || data.prices.length < 2) return null;
+    const FXH = window.MaerminFxHistory;
+    const cur = data.currency || 'USD';
+    const rate = (FXH && FXH.quoteToEUR) ? FXH.quoteToEUR(1, cur, usdToEur) : (cur === 'EUR' ? 1 : usdToEur);
+    if (!(rate > 0)) return null;
+    const hist = data.prices.map(h => ({ ...h, price: h.price * rate, inEur: true }));
+    const last = hist[hist.length - 1].price;
+    if (livePrice > 0 && !(last / livePrice > 0.5 && last / livePrice < 2)) return null;
+    return hist;
+  } catch (e) { return null; } // timeout / offline: CoinGecko, then a flat line
+}
+
 // Crypto histories fetched this session (shared by every chart instance and
 // re-render), and how many may be fetched per chart build.
 const CRYPTO_HIST = new Map();          // `${coinId}|${periodId}` -> { at, hist }
 const CRYPTO_HIST_TTL = 30 * 60 * 1000;
-const CRYPTO_FETCH_BUDGET = 8;
+const CRYPTO_FETCH_BUDGET = 8;          // CoinGecko (fallback)
+const CRYPTO_YAHOO_MAX = 30;            // Yahoo via the Worker
 
 // Daily closes the background close history (MaerminCloseHistory) stored for
 // a coin, cut to the period - for daily periods only (1M and longer), and only
 // when they reach to within 3 days of today. → [{ts,date,price,inEur}] | null
-function storedCryptoCloses(symbol, period) {
+function storedCryptoCloses(symbol, period, usdToEur) {
   const CH = window.MaerminCloseHistory;
   if (!CH || !CH.load || !(period.cgDays === 'max' || period.cgDays >= 30)) return null;
   let entry;
@@ -218,7 +244,11 @@ function storedCryptoCloses(symbol, period) {
   const from = period.cgDays === 'max' ? '' : new Date(Date.now() - period.cgDays * 86400000).toISOString().slice(0, 10);
   const rows = CH.closesOf(entry).filter(([d]) => d >= from);
   if (rows.length < 2) return null;
-  return rows.map(([date, price]) => ({ ts: Math.floor(Date.parse(date + 'T00:00:00Z') / 1000), date, price, inEur: true }));
+  // Yahoo coin pairs are stored in USD, CoinGecko closes in EUR.
+  const FXH = window.MaerminFxHistory;
+  const rate = entry.cur === 'EUR' ? 1 : (FXH && FXH.quoteToEUR) ? FXH.quoteToEUR(1, entry.cur, usdToEur) : (entry.cur === 'USD' ? usdToEur : 0);
+  if (!(rate > 0)) return null;
+  return rows.map(([date, price]) => ({ ts: Math.floor(Date.parse(date + 'T00:00:00Z') / 1000), date, price: price * rate, inEur: true }));
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -302,24 +332,43 @@ function PortfolioHistoryChart({ portfolio, prices, transactions, apiKeys, theme
     try {
       const historyMap = {}; // symOrig → [{ts, date, price (EUR)}]
 
-      // ── Crypto: stored daily closes first, then CoinGecko (queued) ──────
+      // ── Crypto: stored daily closes, then Yahoo, then CoinGecko ─────────
       // CoinGecko allows only a few calls a minute: ~40 parallel history
-      // requests got everything refused - prices included. Daily periods take
-      // the closes the background close history already stored; only the
-      // largest positions without them are fetched (CRYPTO_FETCH_BUDGET per
-      // build), the rest get a flat line until their closes are stored.
+      // requests got everything refused - prices included - and every coin
+      // drew a flat line. Daily periods take the closes the background close
+      // history already stored; the rest come from Yahoo's coin pairs through
+      // the Worker; CoinGecko (queued, CRYPTO_FETCH_BUDGET per build) only for
+      // coins Yahoo does not have. Whatever is left gets a flat line.
       const cryptoPos = positions.filter(p => p.cat === 'crypto')
         .map(p => ({ ...p, value: (p.amount || 0) * (prices[p.symOrig] || prices[p.sym] || 0) }))
         .sort((a, b) => b.value - a.value);
-      let budget = CRYPTO_FETCH_BUDGET;
+      // Yahoo through the Worker first ("BTC-USD": no CoinGecko limit), for the
+      // largest CRYPTO_YAHOO_MAX positions, a few at a time.
+      const T = window.MaerminTickers;
+      const livePrice = (pos) => prices[pos.symOrig] || prices[pos.sym] || 0;
+      const todo = [];
       for (const pos of cryptoPos) {
-        const cgId = window.MaerminTickers?.coinGeckoId ? window.MaerminTickers.coinGeckoId(pos.sym) : pos.sym;
+        const cgId = T?.coinGeckoId ? T.coinGeckoId(pos.sym) : pos.sym;
         const ckey = `${cgId}|${period}`;
         const memo = CRYPTO_HIST.get(ckey);
         if (memo && Date.now() - memo.at < CRYPTO_HIST_TTL) { historyMap[pos.symOrig] = memo.hist; continue; }
-        const stored = storedCryptoCloses(pos.symOrig, currentPeriod);
+        const stored = storedCryptoCloses(pos.symOrig, currentPeriod, usdToEur);
         if (stored) { historyMap[pos.symOrig] = stored; continue; }
-        const flat = () => { const p = prices[pos.symOrig] || prices[pos.sym] || 0; if (p > 0) historyMap[pos.symOrig] = flatLine(p, pos.firstTs); };
+        todo.push({ pos, cgId, ckey });
+      }
+      if (hasWorker && T?.yahooCryptoSymbol) {
+        const viaYahoo = todo.slice(0, CRYPTO_YAHOO_MAX);
+        for (let i = 0; i < viaYahoo.length; i += 5) {
+          await Promise.all(viaYahoo.slice(i, i + 5).map(async (job) => {
+            const hist = await fetchYahooCryptoHistory(job.pos.sym, currentPeriod, workerUrl, livePrice(job.pos), usdToEur);
+            if (hist) { CRYPTO_HIST.set(job.ckey, { at: Date.now(), hist }); historyMap[job.pos.symOrig] = hist; job.done = true; }
+          }));
+        }
+      }
+      let budget = CRYPTO_FETCH_BUDGET;
+      for (const { pos, cgId, ckey, done } of todo) {
+        if (done) continue;
+        const flat = () => { const p = livePrice(pos); if (p > 0) historyMap[pos.symOrig] = flatLine(p, pos.firstTs); };
         if (budget <= 0 || window.MaerminCoinGecko?.coolingDown?.()) { flat(); continue; }
         budget--;
         try {
