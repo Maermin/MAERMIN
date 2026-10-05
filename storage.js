@@ -86,7 +86,15 @@
     'maermin_fmp_api_key',        // legacy: FMP integration removed; kept so an old stored key stays encrypted
     'maermin_fx_currencies',      // daily EUR rates of the currencies traded (fx-history.js): which, and since when; device-local, not synced
     'maermin_sync_base',          // per-key sync merge base (hashes of the above)
-    'maermin_close_history'       // daily closes per held symbol (close-history.js); device-local cache, not synced
+    'maermin_close_history',      // daily closes per held symbol (close-history.js); device-local cache, not synced
+    // Market-data caches keyed by held symbols. Device-local, not synced
+    // (sync-engine LOCAL_ONLY_KEYS); older plaintext is adopted on unlock.
+    'maermin_price_meta',         // per-symbol fetch times (data-quality.js)
+    'maermin_equity_meta_cache',  // sector/country per symbol (equity-metadata.js)
+    'maermin_dividend_cache',     // dividend data per symbol (dividend-data-service.js)
+    'maermin_marketcap_cache',    // market cap per symbol (market-cap.js)
+    'maermin_symbol_suffix',      // resolved exchange suffixes (renderer.js)
+    'maermin_div_notified'        // dividend reminders sent, symbol@date (dividend-reminder.js)
   ];
   var sensitiveSet = {};
   SENSITIVE_KEYS.forEach(function (k) { sensitiveSet[k] = true; });
