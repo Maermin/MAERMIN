@@ -752,7 +752,6 @@ var DividendDataService = {
 
 // Export
 window.DividendDataService = DividendDataService;
-window.DIVIDEND_DATABASE = DIVIDEND_DATABASE;
 
 console.log('[OK] Dividend Data Service v7.0 loaded (with API support)');
 
