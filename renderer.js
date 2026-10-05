@@ -4485,7 +4485,8 @@ function InvestmentTracker() {
             id: 'tx-category-label',
             style: { display: 'block', color: currentTheme.textSecondary, marginBottom: '0.5rem', fontSize: '0.875rem' }
           }, t.category || 'Category'),
-          React.createElement('div', { role: 'group', 'aria-labelledby': 'tx-category-label', style: { display: 'flex', gap: '0.5rem', flexWrap: 'wrap' } },
+          // Equal columns that wrap to a new row instead of squeezing the labels.
+          React.createElement('div', { role: 'group', 'aria-labelledby': 'tx-category-label', style: { display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(110px, 1fr))', gap: '0.5rem' } },
             ['crypto', 'stocks', 'skins', 'commodities', 'options']
               .concat(window.MaerminCategories ? window.MaerminCategories.ids() : []).map(cat =>
               React.createElement('button', {
@@ -4493,14 +4494,17 @@ function InvestmentTracker() {
                 'aria-pressed': newTransaction.category === cat,
                 onClick: () => setNewTransaction(prev => ({ ...prev, category: cat })),
                 style: {
-                  flex: 1,
-                  padding: '0.5rem',
+                  padding: '0.6rem 0.5rem',
                   background: newTransaction.category === cat ? currentTheme.accent : currentTheme.inputBg,
                   color: newTransaction.category === cat ? '#fff' : currentTheme.text,
                   border: 'none',
                   borderRadius: '6px',
                   cursor: 'pointer',
-                  fontSize: '0.875rem'
+                  fontSize: '0.875rem',
+                  fontWeight: newTransaction.category === cat ? '600' : '400',
+                  whiteSpace: 'nowrap',
+                  overflow: 'hidden',
+                  textOverflow: 'ellipsis'
                 }
               }, getCategoryDisplayName(cat))
             )
