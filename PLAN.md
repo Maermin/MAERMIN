@@ -139,8 +139,8 @@ Gate note: `npm run test:e2e` needs a Chromium. On a machine without the Playwri
 | Package | Status | Branch | PR | Notes |
 |---|---|---|---|---|
 | P1-1 Duplicate bookings | merged | `fix/p1-1-duplicate-bookings` | https://github.com/Maermin/MAERMIN/pull/81 | Post-sync dedupe runs at app open in `renderer.js` (one effect for dividends, exchange trades, interest). Interest accruals now carry `periodStart`; legacy accruals without it are deduped only on an identical period. |
-| P1-2 Portfolio delete | PR open | `fix/p1-2-portfolio-delete` | (see PR) | Delete moves rows to `default` (with `movedFrom`); migration v5 re-homes old orphans, only when `maermin_portfolios` is saved. Moved auto-dividends become `source:'dividend-auto-moved'`. A row added on another device to a portfolio deleted here still becomes an orphan after sync (only v5 re-homes, once). |
-| P1-3 Vault & recovery | not started | | | |
+| P1-2 Portfolio delete | merged | `fix/p1-2-portfolio-delete` | https://github.com/Maermin/MAERMIN/pull/82 | Delete moves rows to `default` (with `movedFrom`); migration v5 re-homes old orphans, only when `maermin_portfolios` is saved. Moved auto-dividends become `source:'dividend-auto-moved'`. A row added on another device to a portfolio deleted here still becomes an orphan after sync (only v5 re-homes, once). |
+| P1-3 Vault & recovery | PR open | `fix/p1-3-vault-recovery` | https://github.com/Maermin/MAERMIN/pull/83 | Vault meta v2 (`pwWrap`): a password change re-wraps the data key, so passkey, recovery code, auto-lock and sync account stay. v1 vaults upgrade on their first password change. New recovery codes are pending until confirmed (`enrollRecovery({pending})` + `confirmRecovery`). auth.js reads translations via `tr()`. |
 | P1-4 Sync & refresh honesty | not started | | | |
 | P1-5 Import & FX correctness | not started | | | H-1: do not strip a trailing Z blindly (XTZ = Tezos); H-2: purge the wrongly dated USD keys, a merge alone keeps them. |
 | P1-6 Return & tax correctness | not started | | | |

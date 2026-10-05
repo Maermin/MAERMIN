@@ -182,28 +182,33 @@ function PasswordModal({ theme, t, onClose, addToast, restoreFocus }) {
   const [newPw, setNewPw]   = useState('');
   const [confPw, setConfPw] = useState('');
   const [busy, setBusy]     = useState(false);
+  // Enter in a field bypasses the disabled button, so guard with a ref that
+  // flips synchronously (FINDINGS M-8: two overlapping changes).
+  const busyRef = React.useRef(false);
 
   const handleChange = async () => {
+    if (busyRef.current) return;
     if (!curPw || !newPw || !confPw) return;
     if (newPw !== confPw) { addToast(t.passwordMismatch || 'Passwords do not match', 'error'); return; }
-    if (newPw.length < 8)  { addToast('Password must be at least 8 characters', 'warning'); return; }
-    // v11: real vault re-key (replaces the obsolete SHA-256 "copy hash to
-    // auth.js" flow). MaerminAuth.changePassword re-derives the AES key and
-    // re-encrypts the data blob under the new password — fully zero-knowledge.
+    if (newPw.length < 8)  { addToast(t.passwordTooShort || 'Password must be at least 8 characters', 'warning'); return; }
+    // MaerminAuth.changePassword re-wraps the vault's data key with the new
+    // password. Data, passkey, recovery code, auto-lock and sync stay valid.
     if (!window.MaerminAuth || typeof window.MaerminAuth.changePassword !== 'function') {
       addToast('Password change is unavailable in this build', 'error'); return;
     }
+    busyRef.current = true;
     setBusy(true);
     try {
       await window.MaerminAuth.changePassword(curPw, newPw);
-      addToast(t.passwordChanged || 'Password changed. Re-generate your recovery code in Security settings.', 'success');
+      addToast(t.passwordChangedKept || 'Password changed. Your recovery code, passkey and sync keep working.', 'success');
       setCurPw(''); setNewPw(''); setConfPw('');
       onClose();
     } catch (e) {
       const wrong = e && e.message === 'bad-password';
       addToast(wrong ? (t.passwordWrong || 'Current password is incorrect')
-                     : 'Could not change the password. Please try again.', 'error');
+                     : (t.passwordChangeFailed || 'Could not change the password. Please try again.'), 'error');
     }
+    busyRef.current = false;
     setBusy(false);
   };
 
@@ -878,6 +883,7 @@ function InvestmentTracker() {
   const setShowRecoveryKit = (v) => { const n = typeof v === 'function' ? v(showRecoveryKit) : v; n ? window.MaerminUI.openOverlay('recoveryKit') : window.MaerminUI.closeOverlay('recoveryKit'); };
   const [recoveryCode, setRecoveryCode] = useState('');
   const [recoveryBusy, setRecoveryBusy] = useState(false);
+  const [recoverySaved, setRecoverySaved] = useState(false); // "I saved it" ticked in the code dialog
   // Security & Sync settings card
   const showSecurity = window.MaerminStore.useStore(window.MaerminUI.overlays, s => !!s.security);
   const setShowSecurity = (v) => { const n = typeof v === 'function' ? v(showSecurity) : v; n ? window.MaerminUI.openOverlay('security') : window.MaerminUI.closeOverlay('security'); };
@@ -1744,17 +1750,41 @@ function InvestmentTracker() {
   };
 
   // ========== RECOVERY KIT (let pre-existing vaults add one) ==========
-  const createRecoveryKit = () => {
-    if (recoveryBusy || !window.MaerminAuth || !window.MaerminAuth.enrollRecovery) return;
+  // The new code stays pending until the user ticks "I saved it" and presses
+  // Done; until then an existing code keeps working (FINDINGS M-6).
+  const createRecoveryKit = async () => {
+    const A = window.MaerminAuth;
+    if (recoveryBusy || !A || !A.enrollRecovery) return;
+    const replacing = !!(A.getStatus && A.getStatus().hasRecovery);
+    if (replacing && window.MaerminUI && window.MaerminUI.confirm) {
+      const yes = await window.MaerminUI.confirm({
+        title: t.rcRotateTitle || 'Replace your recovery code?',
+        message: t.rcRotateMessage || 'You get a new code. Your current code keeps working until you confirm that you saved the new one; after that it stops working.',
+        confirmLabel: t.rcRotateConfirm || 'Create new code',
+        cancelLabel: t.cancel || 'Cancel'
+      });
+      if (!yes) return;
+    }
     setRecoveryBusy(true);
-    window.MaerminAuth.enrollRecovery().then((kit) => {
+    A.enrollRecovery({ pending: true }).then((kit) => {
       setRecoveryCode(kit.code);
+      setRecoverySaved(false);
       setShowRecoveryKit(true);
       setRecoveryBusy(false);
     }, () => {
       setRecoveryBusy(false);
-      addToast('Could not create a recovery code. Please try again.', 'error');
+      addToast(t.rcCreateFailed || 'Could not create a recovery code. Please try again.', 'error');
     });
+  };
+  const finishRecoveryKit = (confirmed) => {
+    if (confirmed && window.MaerminAuth && window.MaerminAuth.confirmRecovery) {
+      window.MaerminAuth.confirmRecovery();
+      addToast(t.rcSavedToast || 'Recovery code active', 'success');
+    }
+    setRecoveryCode('');
+    setRecoverySaved(false);
+    setShowRecoveryKit(false);
+    setSecurityRev(r => r + 1);
   };
   const dismissRecoveryNudge = () => {
     setRecoveryNudgeDismissed(true);
@@ -5348,15 +5378,27 @@ buy,crypto,bitcoin,0.5,45000,2024-01-15,10`)
         w.document.close(); w.focus(); w.print();
       } catch (e) {}
     };
-    const doCopy = () => { try { navigator.clipboard.writeText(code); addToast('Recovery code copied', 'success'); } catch (e) {} };
+    // Report "copied" only when the clipboard write actually succeeded.
+    const doCopy = () => {
+      const failed = () => addToast(t.rcCopyFailed || 'Copy failed. Select the code and copy it manually.', 'error');
+      try {
+        navigator.clipboard.writeText(code).then(() => addToast(t.rcCopied || 'Recovery code copied', 'success'), failed);
+      } catch (e) { failed(); }
+    };
     const altBtn = (label, onClick) => React.createElement('button', { onClick, style: { flex: 1, padding: '0.6rem', background: 'transparent', color: currentTheme.text, border: `1px solid ${currentTheme.cardBorder}`, borderRadius: '8px', cursor: 'pointer', fontSize: '0.82rem' } }, label);
-    return React.createElement(window.MaerminUI.Overlay, { dismissable: false, restoreFocus: focusAccountButton, style: { position: 'fixed', inset: 0, zIndex: 9100, background: 'rgba(3,6,12,0.72)', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '1.5rem' } },
-      React.createElement('div', { ...window.MaerminUI.dialogProps('dlg-recovery'), style: { background: currentTheme.cardBg || '#141a25', border: `1px solid ${currentTheme.cardBorder}`, borderRadius: '16px', padding: '1.75rem', width: '100%', maxWidth: '460px', boxShadow: '0 30px 70px -20px rgba(0,0,0,0.7)' } },
-        React.createElement('h3', { id: 'dlg-recovery', style: { color: currentTheme.text, fontSize: '1.15rem', fontWeight: '700', margin: '0 0 0.5rem' } }, 'Your recovery code'),
-        React.createElement('p', { style: { color: currentTheme.textSecondary, fontSize: '0.85rem', lineHeight: '1.55', margin: '0 0 1rem' } }, 'Save this now — it can unlock your vault if you forget your password. It is shown once and never stored in readable form. Anyone with it can open your vault.'),
+    // focusField: false - open on the panel so the code is read first, not the checkbox.
+    return React.createElement(window.MaerminUI.Overlay, { dismissable: false, focusField: false, restoreFocus: focusAccountButton, style: { position: 'fixed', inset: 0, zIndex: 9100, background: 'rgba(3,6,12,0.72)', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '1.5rem' } },
+      React.createElement('div', { ...window.MaerminUI.dialogProps('dlg-recovery'), style: { background: currentTheme.modalBg || currentTheme.cardBg || '#141a25', border: `1px solid ${currentTheme.cardBorder}`, borderRadius: '16px', padding: '1.75rem', width: '100%', maxWidth: '460px', boxShadow: '0 30px 70px -20px rgba(0,0,0,0.7)' } },
+        React.createElement('h3', { id: 'dlg-recovery', style: { color: currentTheme.text, fontSize: '1.15rem', fontWeight: '700', margin: '0 0 0.5rem' } }, t.rcTitle || 'Your recovery code'),
+        React.createElement('p', { style: { color: currentTheme.textSecondary, fontSize: '0.85rem', lineHeight: '1.55', margin: '0 0 1rem' } }, t.rcIntro || 'Save this now — it can unlock your vault if you forget your password. It is shown once and never stored in readable form. Anyone with it can open your vault.'),
         React.createElement('div', { style: { fontFamily: 'ui-monospace,Menlo,monospace', fontSize: '1.05rem', letterSpacing: '0.05em', color: currentTheme.accent, background: currentTheme.inputBg, border: `1px solid ${currentTheme.cardBorder}`, borderRadius: '10px', padding: '1rem', textAlign: 'center', wordBreak: 'break-all', userSelect: 'all', marginBottom: '0.9rem' } }, code),
-        React.createElement('div', { style: { display: 'flex', gap: '0.5rem', marginBottom: '1rem' } }, doCopy && altBtn('Copy', doCopy), altBtn('Download', doDownload), altBtn('Print', doPrint)),
-        React.createElement('button', { onClick: () => setShowRecoveryKit(false), style: { width: '100%', padding: '0.7rem', background: currentTheme.accent, color: '#ffffff', border: 'none', borderRadius: '8px', cursor: 'pointer', fontWeight: '700', fontSize: '0.9rem' } }, 'Done — I\'ve saved it')
+        React.createElement('div', { style: { display: 'flex', gap: '0.5rem', marginBottom: '1rem' } }, doCopy && altBtn(t.rcCopy || 'Copy', doCopy), altBtn(t.rcDownload || 'Download', doDownload), altBtn(t.rcPrint || 'Print', doPrint)),
+        React.createElement('label', { style: { display: 'flex', gap: '0.55rem', alignItems: 'flex-start', color: currentTheme.text, fontSize: '0.84rem', lineHeight: '1.45', marginBottom: '0.9rem', cursor: 'pointer' } },
+          React.createElement('input', { type: 'checkbox', checked: recoverySaved, onChange: (e) => setRecoverySaved(e.target.checked), style: { marginTop: '0.2rem', accentColor: currentTheme.accent } }),
+          React.createElement('span', null, t.rcSavedCheck || 'I\'ve saved this recovery code somewhere safe and private.')),
+        React.createElement('button', { onClick: () => finishRecoveryKit(true), disabled: !recoverySaved, style: { width: '100%', padding: '0.7rem', background: currentTheme.accent, color: '#ffffff', border: 'none', borderRadius: '8px', cursor: recoverySaved ? 'pointer' : 'not-allowed', opacity: recoverySaved ? 1 : 0.5, fontWeight: '700', fontSize: '0.9rem' } }, t.rcDone || 'Done — I\'ve saved it'),
+        React.createElement('button', { onClick: () => finishRecoveryKit(false), style: { width: '100%', marginTop: '0.5rem', padding: '0.55rem', background: 'transparent', color: currentTheme.textSecondary, border: 'none', cursor: 'pointer', fontSize: '0.8rem' } },
+          (window.MaerminAuth && window.MaerminAuth.getStatus && window.MaerminAuth.getStatus().hasRecovery) ? (t.rcKeepOld || 'Cancel — keep my current code') : (t.rcNotNow || 'Not now'))
       )
     );
   };
