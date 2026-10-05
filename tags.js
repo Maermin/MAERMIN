@@ -338,7 +338,13 @@
               onChange: function (ev) { setTarget(tag.name, ev.target.value); },
               placeholder: '0', style: { width: '56px', padding: '0.2rem 0.35rem', borderRadius: '6px', border: '1px solid ' + inputBorder, background: inputBg, color: text, fontSize: '0.78rem' }
             }), '%') : null,
-          btn(t.tagsDelete || 'Delete', function () { mutate(removeTag(st, tag.name)); })),
+          btn(t.tagsDelete || 'Delete', function () {
+            window.MaerminUtils.confirmThen({
+              title: (t.tagsDeleteTitle || 'Delete the tag "{name}"?').replace('{name}', tag.name),
+              message: t.tagsDeleteMessage || 'The tag is removed from all its symbols. The holdings stay.',
+              confirmLabel: t.tagsDelete || 'Delete', cancelLabel: t.cancel || 'Cancel'
+            }, function () { mutate(removeTag(st, tag.name)); });
+          })),
         e('div', { style: { display: 'flex', alignItems: 'center', gap: '0.4rem', flexWrap: 'wrap' } },
           chips.length ? chips : e('span', { style: { color: dim, fontSize: '0.78rem' } }, t.tagsNoSymbols || 'No symbols yet'),
           addSelect),

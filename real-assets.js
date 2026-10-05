@@ -352,7 +352,14 @@
               e('div', { style: { textAlign: 'right' } },
                 e('div', { style: { color: up, fontWeight: 700, fontSize: '0.9rem' } }, fmt(nv) + ' ' + sym),
                 a.financingAccountId ? e('div', { style: { color: dim, fontSize: '0.7rem' } }, (t.raGross || 'Gross') + ' ' + fmt(cv) + ' ' + sym) : null),
-              e('button', { onClick: function () { mutate(API.removeAsset(st, a.id)); },
+              e('button', { onClick: function () {
+                  window.MaerminUtils.confirmThen({
+                    title: (t.raRemoveTitle || 'Remove "{name}"?').replace('{name}', a.name),
+                    message: t.raRemoveMessage || 'Its value, cash flows and history are deleted. This cannot be undone.',
+                    confirmLabel: t.remove || 'Remove', cancelLabel: t.cancel || 'Cancel'
+                  }, function () { mutate(API.removeAsset(st, a.id)); });
+                },
+                'aria-label': (t.raRemoveAria || 'Remove {name}').replace('{name}', a.name),
                 style: { background: 'none', border: 'none', color: dim, cursor: 'pointer', fontSize: '0.9rem', padding: '0.25rem' } }, '×')));
         });
 

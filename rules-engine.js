@@ -341,7 +341,12 @@
               style: { padding: '0.3rem 0.6rem', fontSize: '0.74rem', fontWeight: 700, cursor: 'pointer', borderRadius: '8px', border: '1px solid ' + inputBorder, background: 'transparent', color: r.enabled ? text : dim }
             }, r.enabled ? (t.rulesOn || 'On') : (t.rulesOff || 'Off')),
             e('button', {
-              onClick: function () { mutate(API.removeRule(st, r.id)); },
+              onClick: function () {
+                window.MaerminUtils.confirmThen({
+                  title: (t.rulesDeleteTitle || 'Delete the rule "{name}"?').replace('{name}', r.name || API.describe(r)),
+                  confirmLabel: t.rulesDelete || 'Delete', cancelLabel: t.cancel || 'Cancel'
+                }, function () { mutate(API.removeRule(st, r.id)); });
+              },
               style: { padding: '0.3rem 0.6rem', fontSize: '0.74rem', fontWeight: 700, cursor: 'pointer', borderRadius: '8px', border: '1px solid ' + inputBorder, background: 'transparent', color: text }
             }, t.rulesDelete || 'Delete'));
         });

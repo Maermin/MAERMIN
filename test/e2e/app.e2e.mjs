@@ -372,6 +372,22 @@ async function runBuild(browser, label, dir) {
     }
     ok('every sidebar view renders without an error (' + VIEWS.length + ' views)', crashedIn.length === 0, crashedIn.join(' || '));
 
+    // M-10: a space typed while renaming a portfolio stays in the name.
+    {
+      await openView(page, 'portfolios');
+      await page.getByRole('button', { name: /Rename portfolio/ }).first().click();
+      const field = page.locator('main input[aria-label="Portfolio name"]'); // inside a role=button card, so not a separate textbox role
+      await field.fill('');
+      await field.type('Trade Republic');
+      const typed = await field.inputValue();
+      await field.press('Enter');
+      await page.waitForTimeout(200);
+      ok('renaming a portfolio keeps the space ("Trade Republic")', typed === 'Trade Republic' && (await page.locator('main', { hasText: 'Trade Republic' }).count()) > 0, typed);
+      await page.getByRole('button', { name: /Rename portfolio/ }).first().click();
+      await field.fill('Main Portfolio');
+      await field.press('Enter');
+    }
+
     // Empty analytics states: a portfolio without price history must say so,
     // not spin forever or print invented / zero figures.
     await openView(page, 'analytics');

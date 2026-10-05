@@ -132,10 +132,17 @@
     var sResults = React.useState(null); var results = sResults[0], setResults = sResults[1];
     var sCopy = React.useState('Copy worker.js'); var copyLbl = sCopy[0], setCopyLbl = sCopy[1];
 
+    // Results belong to the URL they were taken for: editing the URL clears
+    // them, and a test still running for an older URL is ignored (FINDINGS L-6).
+    var runRef = React.useRef(0);
+    function editUrl(v) { runRef.current++; setUrl(v); setResults(null); setBusy(false); }
     function runTest() {
+      if (busy) return;
       if (!isValidWorkerUrl(url)) { setResults([{ id: 'url', label: 'Worker URL', state: 'fail', message: 'Enter a valid https:// Worker URL first.' }]); return; }
+      var run = ++runRef.current;
       setBusy(true); setResults(null);
-      probeAll(url).then(function (rs) { setResults(rs); setBusy(false); }, function () { setBusy(false); });
+      probeAll(url).then(function (rs) { if (run !== runRef.current) return; setResults(rs); setBusy(false); },
+        function () { if (run === runRef.current) setBusy(false); });
     }
     function copyWorker() {
       fetchWorkerSource().then(function (src) {
@@ -152,12 +159,12 @@
       onClose();
     }
 
-    function btn(label, onClick, kind) {
+    function btn(label, onClick, kind, disabled) {
       var bg = kind === 'primary' ? accent : 'transparent';
       var col = kind === 'primary' ? '#ffffff' : text;
       var bd = kind === 'primary' ? 'none' : ('1px solid ' + border);
-      return h('button', { onClick: onClick, style: { padding: '0.6rem 1.1rem', background: bg, color: col,
-        border: bd, borderRadius: '8px', cursor: 'pointer', fontWeight: kind === 'primary' ? '700' : '500', fontSize: '0.85rem' } }, label);
+      return h('button', { type: 'button', onClick: onClick, disabled: !!disabled, 'aria-busy': disabled ? 'true' : undefined, style: { padding: '0.6rem 1.1rem', background: bg, color: col, opacity: disabled ? 0.6 : 1,
+        border: bd, borderRadius: '8px', cursor: disabled ? 'wait' : 'pointer', fontWeight: kind === 'primary' ? '700' : '500', fontSize: '0.85rem' } }, label);
     }
 
     var body;
@@ -185,13 +192,13 @@
         ),
         h('label', { style: { display: 'block', color: dim, fontSize: '0.75rem', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '0.4rem' } }, 'Worker URL'),
         h('input', { type: 'text', value: url, placeholder: 'https://your-worker.workers.dev',
-          onChange: function (e) { setUrl(e.target.value); }, spellCheck: false,
+          onChange: function (e) { editUrl(e.target.value); }, spellCheck: false,
           style: { width: '100%', padding: '0.7rem 0.85rem', background: inputBg, border: '1px solid ' + border, borderRadius: '8px', color: text, fontSize: '0.9rem', boxSizing: 'border-box', marginBottom: '0.9rem' } }),
         results && h('div', { style: { marginBottom: '0.9rem' } }, results.map(function (r) { return resultRow(h, r, ok, warn, bad, text, dim, border); })),
         h('div', { style: { display: 'flex', gap: '0.6rem', justifyContent: 'space-between', alignItems: 'center' } },
           btn('← Back', function () { setStep('intro'); }, 'secondary'),
           h('div', { style: { display: 'flex', gap: '0.6rem' } },
-            btn(busy ? 'Testing…' : 'Test connection', runTest, 'secondary'),
+            btn(busy ? 'Testing…' : 'Test connection', runTest, 'secondary', busy),
             results && results.every(function (r) { return r.state !== 'fail'; }) ? btn('Save & Finish', saveAndClose, 'primary') : null
           )
         )

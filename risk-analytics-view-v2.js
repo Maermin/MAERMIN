@@ -10,6 +10,8 @@ function RiskAnalyticsViewV2(props) {
   var t = props.t || {};
   var theme = props.theme || {};
   var formatPrice = props.formatPrice || function(v) { return v.toFixed(2); };
+  // formatPrice converts to the display currency, so the label must follow it (FINDINGS M-12).
+  var currencyLabel = typeof props.getCurrencySymbol === 'function' ? props.getCurrencySymbol() : 'EUR';
   var transactions = props.transactions || [];
   var setActiveView = props.setActiveView;
 
@@ -256,7 +258,7 @@ function RiskAnalyticsViewV2(props) {
           'VaR (95%, 1-day)'
         ),
         React.createElement('div', { style: { color: theme.danger || '#ef4444', fontSize: '1.5rem', fontWeight: '800', letterSpacing: '-0.02em' } },
-          formatPrice(riskMetrics.var95) + ' EUR'
+          formatPrice(riskMetrics.var95) + ' ' + currencyLabel
         )
       ),
       
@@ -273,7 +275,7 @@ function RiskAnalyticsViewV2(props) {
           'CVaR (95%)'
         ),
         React.createElement('div', { style: { color: theme.danger || '#ef4444', fontSize: '1.5rem', fontWeight: '800', letterSpacing: '-0.02em' } },
-          formatPrice(riskMetrics.cvar95) + ' EUR'
+          formatPrice(riskMetrics.cvar95) + ' ' + currencyLabel
         )
       ),
       

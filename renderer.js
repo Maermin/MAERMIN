@@ -1379,12 +1379,21 @@ function InvestmentTracker() {
   // ========== API FUNCTIONS ==========
   
   const priceRefreshRef = useRef(false); // a refresh is running (see fetchPrices)
-  const fetchPrices = async () => {
+  // opts.silent: an automatic refresh (see AUTO PRICE REFRESH) - it reports a
+  // problem once, and again only when it changes (FINDINGS M-11).
+  const autoNoticeRef = useRef('ok');
+  const fetchPrices = async (opts) => {
+    const silent = !!(opts && opts.silent);
+    const notify = (key, message, type) => {
+      const n = window.MaerminMarket.refreshNotice(key, { silent, lastKey: autoNoticeRef.current });
+      if (silent || key === 'ok') autoNoticeRef.current = key;
+      if (n.show && message) addToast(message, type);
+    };
     // Demo mode: re-apply offline sample prices, never hit the network.
     if (demoMode && window.MaerminDemo) {
       setPrices(window.MaerminDemo.getPrices());
       setLastRefresh(new Date());
-      addToast('Demo mode — showing sample prices', 'info');
+      if (!silent) addToast('Demo mode — showing sample prices', 'info');
       return;
     }
     // One refresh at a time: the `r` shortcut, the stale chip, focus and the
@@ -1635,7 +1644,7 @@ function InvestmentTracker() {
         const SKP = window.MaerminSkinPrices;
         if (!workerUrl) {
           console.warn('[PRICES] No Worker URL — add it in API Settings');
-          addToast('CS2: add your Worker URL in API Settings', 'warning');
+          notify('cs2-worker', 'CS2: add your Worker URL in API Settings', 'warning');
         } else if (SKP) {
           const index = await SKP.load(workerUrl);
           const names = pricePortfolio.skins.map(s => (s.symbol || s.name || '').trim()).filter(Boolean);
@@ -1718,18 +1727,19 @@ function InvestmentTracker() {
       // Decoupled signal: any module can react to a refresh without the renderer
       // wiring it a bespoke effect (event-bus foundation, Phase-5 decoupling).
       try { if (window.MaerminBus) window.MaerminBus.emit('prices:refreshed', { count: sum.fetched, total: sum.total, at: Date.now() }); } catch (e) {}
+      const key = window.MaerminMarket.summaryKey(sum);
       if (sum.outcome === 'none') {
-        addToast(t.pricesNone || 'No prices could be updated - showing the last known prices', 'warning');
+        notify(key, t.pricesNone || 'No prices could be updated - showing the last known prices', 'warning');
       } else if (sum.outcome === 'partial') {
-        addToast((t.pricesPartial || '{n} of {total} prices updated - {missing} kept their last price or have none')
+        notify(key, (t.pricesPartial || '{n} of {total} prices updated - {missing} kept their last price or have none')
           .replace('{n}', sum.fetched).replace('{total}', sum.total).replace('{missing}', sum.total - sum.fetched), 'warning');
         if (sum.missing.length) console.warn('[PRICES] not updated this run:', sum.missing.join(', '));
       } else {
-        addToast(`${t.pricesUpdated || 'Prices updated'} (${sum.fetched})`, 'success');
+        notify('ok', `${t.pricesUpdated || 'Prices updated'} (${sum.fetched})`, 'success');
       }
     } catch (error) {
       console.error('[PRICES] General error:', error);
-      addToast(t.error || 'Error fetching prices', 'error');
+      notify('error', t.error || 'Error fetching prices', 'error');
     }
 
     priceRefreshRef.current = false;
@@ -1757,7 +1767,7 @@ function InvestmentTracker() {
         if (!force && now - lastAutoRefreshRef.current < MIN_GAP_MS) return;
         lastAutoRefreshRef.current = now;
         const fn = fetchPricesRef.current;
-        if (typeof fn === 'function') fn();
+        if (typeof fn === 'function') fn({ silent: true });
       } catch (e) {}
     };
     const onVisible = () => { if (!document.hidden) maybeRefresh(false); };
@@ -3061,7 +3071,7 @@ function InvestmentTracker() {
         return window.InvestmentViews && window.InvestmentViews.InvestmentAnalysisDashboard ?
           React.createElement(window.InvestmentViews.InvestmentAnalysisDashboard, {
             portfolio, prices, priceHistory, metaVersion,
-            theme: currentTheme, t, formatPrice, workerUrl: apiKeys.cs2Worker, exchangeRate
+            theme: currentTheme, t, formatPrice, getCurrencySymbol, workerUrl: apiKeys.cs2Worker, exchangeRate
           }) : renderAnalyticsPlaceholder('Strategy Analysis');
 
       case 'health':
@@ -3442,14 +3452,14 @@ function InvestmentTracker() {
             wsLabel
           ),
           // Data-health chip — only appears when something is stale/missing.
-          dqHealth && (dqHealth.stale + dqHealth.missing) > 0 && React.createElement('div', {
-            onClick: () => fetchPrices(), title: [
+          dqHealth && (dqHealth.stale + dqHealth.missing) > 0 && React.createElement('button', {
+            type: 'button', onClick: () => fetchPrices(), title: [
               dqHealth.stale ? dqHealth.stale + ' price' + (dqHealth.stale > 1 ? 's' : '') + ' stale' : '',
               dqHealth.missing ? dqHealth.missing + ' price' + (dqHealth.missing > 1 ? 's' : '') + ' missing' : ''
             ].filter(Boolean).join(' · ') + ' — click to refresh prices',
-            style: { display: 'flex', alignItems: 'center', gap: '0.4rem', minHeight: '40px', padding: '0.5rem 0.7rem', background: `${currentTheme.warning}14`, border: `1px solid ${currentTheme.warning}55`, borderRadius: '8px', cursor: 'pointer', fontSize: '0.78rem', color: currentTheme.warning, fontWeight: '600' }
+            style: { display: 'flex', alignItems: 'center', gap: '0.4rem', minHeight: '40px', padding: '0.5rem 0.7rem', background: `${currentTheme.warning}14`, border: `1px solid ${currentTheme.warning}55`, borderRadius: '8px', cursor: 'pointer', fontSize: '0.78rem', color: currentTheme.warning, fontWeight: '600', fontFamily: 'inherit' }
           },
-            React.createElement('span', { style: { fontWeight: '800' } }, '!'),
+            React.createElement('span', { style: { fontWeight: '800' }, 'aria-hidden': 'true' }, '!'),
             (dqHealth.stale + dqHealth.missing) + (dqHealth.stale ? ' stale' : ' missing')
           ),
           // FX transparency chip — shows the USD→EUR rate, source + age on hover.
@@ -3872,7 +3882,7 @@ function InvestmentTracker() {
           : renderAnalyticsPlaceholder('Stress Test');
         case 'risk': return React.createElement(React.Fragment, null,
           window.RiskAnalyticsViewV2
-            ? React.createElement(window.RiskAnalyticsViewV2, { portfolio, prices, transactions: activeTransactions, setActiveView, t, theme: currentTheme, formatPrice,
+            ? React.createElement(window.RiskAnalyticsViewV2, { portfolio, prices, transactions: activeTransactions, setActiveView, t, theme: currentTheme, formatPrice, getCurrencySymbol,
                 priceHistory: Object.keys(dailyAnalytics.byLower).length ? dailyAnalytics.byLower : priceHistory,
                 historySource: Object.keys(dailyAnalytics.byLower).length ? 'daily' : 'refresh' })
             : renderAnalyticsPlaceholder('Risk Analysis'),
@@ -4477,9 +4487,13 @@ function InvestmentTracker() {
         React.createElement('div', { style: { display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '1.1rem 1.25rem', borderBottom: `1px solid ${th.cardBorder}` } },
           React.createElement('div', { id: 'dlg-audit-log', style: { color: th.text, fontWeight: 800, fontSize: '1rem' } }, (t.securityLog || 'Security log')),
           React.createElement('div', { style: { display: 'flex', gap: '0.5rem' } },
-            React.createElement('button', { onClick: () => { if (window.MaerminAuditLog) { window.MaerminAuditLog.clear(); setShowAuditLog(false); setTimeout(() => setShowAuditLog(true), 0); } },
+            React.createElement('button', { onClick: () => window.MaerminUtils.confirmThen({
+                title: t.auditClearTitle || 'Clear the security log?',
+                message: t.auditClearMessage || 'All recorded security events on this device are deleted.',
+                confirmLabel: t.clear || 'Clear', cancelLabel: t.cancel || 'Cancel'
+              }, () => { if (window.MaerminAuditLog) { window.MaerminAuditLog.clear(); setShowAuditLog(false); setTimeout(() => setShowAuditLog(true), 0); } }),
               style: { padding: '0.35rem 0.7rem', background: 'transparent', border: `1px solid ${th.cardBorder}`, borderRadius: '7px', color: th.textSecondary, cursor: 'pointer', fontSize: '0.75rem' } }, t.clear || 'Clear'),
-            React.createElement('button', { onClick: () => setShowAuditLog(false),
+            React.createElement('button', { onClick: () => setShowAuditLog(false), 'aria-label': t.close || 'Close',
               style: { padding: '0.35rem 0.7rem', background: 'transparent', border: `1px solid ${th.cardBorder}`, borderRadius: '7px', color: th.textSecondary, cursor: 'pointer', fontSize: '0.75rem' } }, '✕')
           )
         ),

@@ -562,7 +562,13 @@
               e('div', { style: { color: dim, fontSize: '0.72rem' } }, (API.EXCHANGES[c.exchange] || {}).label + (c.lastSync ? '  ·  ' + (t.exLastSync || 'last sync') + ' ' + c.lastSync : '  ·  ' + (t.exNeverSynced || 'never synced')))),
             e('div', { style: { display: 'flex', gap: '0.4rem' } },
               e('button', { onClick: function () { syncConn(c); }, disabled: !!busy[c.id], 'aria-busy': busy[c.id] ? 'true' : 'false', style: { background: accent, border: 'none', color: '#ffffff', cursor: busy[c.id] ? 'wait' : 'pointer', opacity: busy[c.id] ? 0.6 : 1, borderRadius: '7px', padding: '0.25rem 0.7rem', fontSize: '0.74rem', fontWeight: 700 } }, busy[c.id] ? ((t.exSyncing || 'Syncing') + '…') : (t.exSyncNow || 'Sync now')),
-              e('button', { onClick: function () { removeConn(c.id); }, style: { background: 'none', border: '1px solid ' + inputBorder, color: dim, cursor: 'pointer', borderRadius: '7px', padding: '0.25rem 0.6rem', fontSize: '0.74rem' } }, t.exRemove || 'Remove')));
+              e('button', { onClick: function () {
+                window.MaerminUtils.confirmThen({
+                  title: (t.exRemoveTitle || 'Remove the connection "{name}"?').replace('{name}', c.label),
+                  message: t.exRemoveMessage || 'Its stored API keys are deleted from this vault. Trades already imported stay.',
+                  confirmLabel: t.exRemove || 'Remove', cancelLabel: t.cancel || 'Cancel'
+                }, function () { removeConn(c.id); });
+              }, style: { background: 'none', border: '1px solid ' + inputBorder, color: dim, cursor: 'pointer', borderRadius: '7px', padding: '0.25rem 0.6rem', fontSize: '0.74rem' } }, t.exRemove || 'Remove')));
         });
 
         return e('div', { style: { background: card, border: '1px solid ' + border, borderRadius: '14px', padding: '1.1rem', marginBottom: '1.25rem' } },

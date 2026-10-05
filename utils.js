@@ -96,19 +96,41 @@
   //   React.createElement('div', { ...clickable(() => select(x)), style })
   // It wires onClick AND an Enter/Space onKeyDown to the same handler, and adds
   // role="button" + tabIndex so the element is focusable and announced.
+  // Keys and clicks inside a form field of the element (e.g. the rename input
+  // on a portfolio card) belong to that field: typing a space there must not
+  // be swallowed, and focusing it must not run the card's action (FINDINGS M-10).
+  function fromField(e) {
+    var t = e && e.target;
+    if (!t || t === e.currentTarget) return false;
+    var tag = (t.tagName || '').toUpperCase();
+    return tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT' || !!t.isContentEditable;
+  }
   function clickable(handler, opts) {
     opts = opts || {};
     return {
       role: opts.role || 'button',
       tabIndex: opts.tabIndex === undefined ? 0 : opts.tabIndex,
-      onClick: handler,
+      onClick: function (e) { if (!fromField(e)) handler(e); },
       onKeyDown: function (e) {
+        if (e && e.target && e.currentTarget && e.target !== e.currentTarget) return;
         if (e.key === 'Enter' || e.key === ' ' || e.key === 'Spacebar') {
           e.preventDefault();
           handler(e);
         }
       },
     };
+  }
+
+  // Ask before a destructive action (FINDINGS M-9). opts go to
+  // MaerminUI.confirm ({ title, message, confirmLabel }); danger is the default.
+  // Without the dialog host nothing happens: a one-click delete is the bug.
+  function confirmThen(opts, action) {
+    var UI = (typeof window !== 'undefined') && window.MaerminUI;
+    if (!UI || typeof UI.confirm !== 'function') return Promise.resolve(false);
+    return UI.confirm(Object.assign({ danger: true }, opts)).then(function (yes) {
+      if (yes) action();
+      return !!yes;
+    });
   }
 
   // JSON.parse that never throws — a corrupted storage entry must not take the
@@ -276,6 +298,7 @@
     toEUR,
     fromEUR,
     clickable,
+    confirmThen,
     safeParse,
     parseDecimal,
     todayISO,

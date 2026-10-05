@@ -268,6 +268,7 @@ function PositionDetailModal({ position, transactions, prices, theme, formatPric
         ),
         React.createElement('button', {
           onClick: onClose,
+          'aria-label': 'Close',
           style: { background: 'none', border: `1px solid ${theme.cardBorder}`, borderRadius: '8px', color: theme.textSecondary, cursor: 'pointer', padding: '0.4rem 0.75rem', fontSize: '0.875rem' }
         }, '×')
       ),
@@ -467,6 +468,7 @@ function CS2SkinPicker({ workerUrl, theme, onSelect, selectedName }) {
         React.createElement('span', { style: { color: theme.textSecondary, fontSize: '0.72rem' } }, `${results.length} results — click to select`),
         React.createElement('button', {
           onClick: () => setOpen(false),
+          'aria-label': 'Close',
           style: { background: 'none', border: 'none', color: theme.textSecondary, cursor: 'pointer', fontSize: '1rem', lineHeight: 1, padding: '0 0.25rem' }
         }, '×')
       ),
@@ -723,7 +725,7 @@ function SymbolPicker({ category, workerUrl, theme, onSelect, selectedSymbol, se
       ),
       selected && React.createElement('button', {
         onClick: clear,
-        title: 'Clear selection',
+        title: 'Clear selection', 'aria-label': 'Clear selection',
         style: { padding: '0.5rem', background: 'rgba(239,68,68,0.1)', border: '1px solid rgba(239,68,68,0.2)', borderRadius: '6px', color: '#ef4444', cursor: 'pointer', fontSize: '0.875rem', lineHeight: 1 }
       }, '×')
     ),
@@ -800,6 +802,7 @@ function SymbolPicker({ category, workerUrl, theme, onSelect, selectedSymbol, se
         ),
         React.createElement('button', {
           onClick: () => setOpen(false),
+          'aria-label': 'Close',
           style: { background: 'none', border: 'none', color: theme.textSecondary, cursor: 'pointer', fontSize: '1rem', padding: '0 0.25rem', lineHeight: 1 }
         }, '×')
       ),
