@@ -619,22 +619,6 @@ function categorizeAssets(transactions) {
 }
 
 /**
- * Export transactions to various formats
- */
-function exportData(transactions, format, options = {}) {
-  switch (format) {
-    case 'csv':
-      return exportToCSV(transactions, options);
-    case 'json':
-      return exportToJSON(transactions, options);
-    case 'excel':
-      return exportToExcelData(transactions, options);
-    default:
-      throw new Error(`Unsupported export format: ${format}`);
-  }
-}
-
-/**
  * One CSV cell: quotes are doubled (a `"` in a symbol/note broke the row), and
  * text that a spreadsheet would evaluate as a formula (= + - @, tab, CR) is
  * prefixed with an apostrophe - imported broker data is third-party input and
@@ -676,126 +660,15 @@ function exportToCSV(transactions, options = {}) {
   return csvContent;
 }
 
-/**
- * Export to JSON string
- */
-function exportToJSON(transactions, options = {}) {
-  const data = {
-    exportDate: new Date().toISOString(),
-    version: '6.0',
-    count: transactions.length,
-    transactions: transactions.map(tx => ({
-      date: tx.date,
-      type: tx.type,
-      symbol: tx.symbol,
-      category: tx.category,
-      quantity: tx.quantity,
-      price: tx.price,
-      fees: tx.fees,
-      currency: tx.currency
-    }))
-  };
-
-  return JSON.stringify(data, null, 2);
-}
-
-/**
- * Generate Excel-compatible data structure
- */
-function exportToExcelData(transactions, options = {}) {
-  return {
-    sheets: [
-      {
-        name: 'Transactions',
-        headers: ['Date', 'Type', 'Symbol', 'Category', 'Quantity', 'Price', 'Total', 'Fees', 'Currency'],
-        rows: transactions.map(tx => [
-          tx.date,
-          tx.type,
-          tx.symbol,
-          tx.category,
-          tx.quantity,
-          tx.price,
-          (tx.quantity || 0) * (tx.price || 0),
-          tx.fees,
-          tx.currency
-        ])
-      },
-      {
-        name: 'Summary',
-        headers: ['Category', 'Count', 'Total Value', 'Total Fees'],
-        rows: summarizeByCategory(transactions)
-      }
-    ]
-  };
-}
-
-/**
- * Summarize transactions by category
- */
-function summarizeByCategory(transactions) {
-  const summary = {};
-
-  transactions.forEach(tx => {
-    const cat = tx.category || 'other';
-    if (!summary[cat]) {
-      summary[cat] = { count: 0, value: 0, fees: 0 };
-    }
-    summary[cat].count++;
-    summary[cat].value += (tx.quantity || 0) * (tx.price || 0);
-    summary[cat].fees += tx.fees || 0;
-  });
-
-  return Object.entries(summary).map(([category, data]) => [
-    category,
-    data.count,
-    data.value.toFixed(2),
-    data.fees.toFixed(2)
-  ]);
-}
-
-/**
- * Column mapping wizard helper
- */
-function createColumnMappingWizard(headers) {
-  const fields = [
-    { id: 'type', label: 'Transaction Type (Buy/Sell)', required: false },
-    { id: 'symbol', label: 'Asset Symbol/Name', required: true },
-    { id: 'quantity', label: 'Quantity/Amount', required: true },
-    { id: 'price', label: 'Price per Unit', required: true },
-    { id: 'fees', label: 'Fees/Commission', required: false },
-    { id: 'date', label: 'Date/Timestamp', required: true },
-    { id: 'currency', label: 'Currency', required: false }
-  ];
-
-  const suggestions = detectColumnMapping(headers);
-
-  return {
-    fields,
-    headers,
-    suggestions,
-    validate: (mapping) => {
-      const required = fields.filter(f => f.required);
-      const missing = required.filter(f => !mapping[f.id]);
-      return {
-        valid: missing.length === 0,
-        missing: missing.map(f => f.label)
-      };
-    }
-  };
-}
-
 // Export for use
 if (typeof window !== 'undefined') {
   window.ImportExportEngine = {
     BrokerParsers,
     importData,
-    exportData,
     exportToCSV,
-    exportToJSON,
     parseCSV,
     detectDuplicates,
-    categorizeAssets,
-    createColumnMappingWizard
+    categorizeAssets
   };
 }
 
@@ -806,12 +679,9 @@ if (typeof module !== 'undefined' && module.exports) {
     splitPair,
     quoteCurrency,
     importData,
-    exportData,
     exportToCSV,
-    exportToJSON,
     parseCSV,
     detectDuplicates,
-    categorizeAssets,
-    createColumnMappingWizard
+    categorizeAssets
   };
 }
