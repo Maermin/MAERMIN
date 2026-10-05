@@ -88,10 +88,40 @@
   function setCostKeys(keys) { _costKeys = keys || {}; }
   function isCostFallback(sym) { return !!(sym && _costKeys[String(sym).toLowerCase()]); }
 
+  // Pure: what one price refresh achieved, per held POSITION (the price map
+  // stores every symbol under several keys, so counting keys overstated it
+  // and a refresh that fetched nothing still read "Prices updated (84)").
+  // `freshKeys` = keys written from a source in THIS run, `carriedKeys` =
+  // keys filled from a last-known price. Returns { total, fetched, carried,
+  // missing: [symbol], outcome: 'empty'|'all'|'partial'|'none' }.
+  function refreshSummary(portfolio, freshKeys, carriedKeys) {
+    function keySet(list) {
+      var s = {};
+      (list && typeof list.forEach === 'function' ? list : []).forEach(function (k) { s[String(k).toLowerCase()] = true; });
+      return s;
+    }
+    var fresh = keySet(freshKeys), carried = keySet(carriedKeys);
+    var total = 0, fetched = 0, carriedN = 0, missing = [];
+    Object.keys(portfolio || {}).forEach(function (cls) {
+      var list = Array.isArray(portfolio[cls]) ? portfolio[cls] : [];
+      list.forEach(function (pos) {
+        var sym = String((pos && (pos.symbol || pos.name)) || '').trim();
+        if (!sym) return;
+        total++;
+        var k = sym.toLowerCase();
+        if (fresh[k]) fetched++;
+        else if (carried[k]) carriedN++;
+        else missing.push(sym);
+      });
+    });
+    var outcome = total === 0 ? 'empty' : fetched === total ? 'all' : fetched === 0 ? 'none' : 'partial';
+    return { total: total, fetched: fetched, carried: carriedN, missing: missing, outcome: outcome };
+  }
+
   var api = {
     store: store,
     getState: getState, get: get, set: set, subscribe: subscribe,
-    mergePrices: mergePrices,
+    mergePrices: mergePrices, refreshSummary: refreshSummary,
     lastKnownPrices: lastKnownPrices, effectivePrices: effectivePrices,
     setCostKeys: setCostKeys, isCostFallback: isCostFallback
   };

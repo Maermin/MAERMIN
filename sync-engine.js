@@ -446,12 +446,71 @@
       });
     }).then(function (result) {
       if (result && typeof result === 'object') result.appliedLocal = _appliedLocal;
+      setLastError(null);
       _syncing = false; emit({ type: 'done', result: result });
       return result;
     }).catch(function (e) {
+      // Remember the failure so the UI can show it - background syncs used to
+      // swallow every error behind a green "Enabled" badge (FINDINGS H-6).
+      setLastError(e);
       _syncing = false; emit({ type: 'error', error: e });
       throw e;
     });
+  }
+
+  // ---- error state for the UI ---------------------------------------------
+  function setLastError(e) {
+    var st = loadState();
+    if (e) st.lastError = { message: String((e && e.message) || e || 'error').slice(0, 200), at: Date.now() };
+    else if (!st.lastError) return;
+    else delete st.lastError;
+    saveState(st);
+  }
+  // Pure: badge status from a sync state. 'error' while the last attempt
+  // failed after the last success, 'ok' after a success, else 'never'.
+  function statusOf(state) {
+    state = state || {};
+    var err = state.lastError;
+    if (err && !(state.lastSyncAt > err.at)) return { state: 'error', message: err.message, at: err.at };
+    if (state.lastSyncAt) return { state: 'ok', at: state.lastSyncAt };
+    return { state: 'never' };
+  }
+
+  // ---- scheduling ----------------------------------------------------------
+  // Debounced background sync, e.g. after the user changed data. Errors are
+  // recorded by sync() itself (see setLastError), so nothing is lost here.
+  var _debounced = null;
+  function scheduleSync(delayMs) {
+    if (!isConfigured() || !Vault || !Vault.isUnlocked()) return false;
+    if (_debounced) clearTimeout(_debounced);
+    _debounced = setTimeout(function () { _debounced = null; sync().catch(function () {}); }, typeof delayMs === 'number' ? delayMs : 4000);
+    return true;
+  }
+
+  // Pull once right after unlock, BEFORE the app's catch-up writers (interest,
+  // dividends, savings plans) book anything - otherwise each device books the
+  // same period on its own and the merge doubles it (FINDINGS H-6, C-3).
+  // Re-arms the transport from the saved config (opts.endpoint as fallback).
+  // Never rejects and never waits longer than opts.timeoutMs: a dead Worker
+  // must not keep the app from opening. Resolves { ran, ok, result, error,
+  // timedOut }; a sync that outlives the timeout keeps running and announces
+  // its result through onChange as usual.
+  function syncOnStart(opts) {
+    opts = opts || {};
+    if (!isConfigured()) {
+      var cfg = getConfig();
+      var endpoint = cfg && cfg.provider === 'worker' ? (cfg.endpoint || opts.endpoint) : null;
+      if (endpoint) configure({ provider: 'worker', endpoint: endpoint });
+    }
+    if (!isConfigured() || !Vault || !Vault.isUnlocked()) return Promise.resolve({ ran: false });
+    var ms = typeof opts.timeoutMs === 'number' ? opts.timeoutMs : 8000;
+    var timer = null;
+    var run = sync().then(
+      function (result) { return { ran: true, ok: true, result: result }; },
+      function (e) { return { ran: true, ok: false, error: String((e && e.message) || e) }; }
+    );
+    var timeout = new Promise(function (res) { timer = setTimeout(function () { res({ ran: true, ok: false, timedOut: true }); }, ms); });
+    return Promise.race([run, timeout]).then(function (r) { if (timer) clearTimeout(timer); return r; });
   }
 
   function pushSnapshot(account, baseRev, snapshot, conflicts, register) {
@@ -503,12 +562,7 @@
     // Called at mount, before the user can edit anything: the best moment to
     // recognise an untouched pre-upgrade state (see seedBase).
     try { if (!Vault || Vault.isUnlocked()) seedBase(); } catch (e) { /* best effort */ }
-    var debounced = null;
-    function schedule() {
-      if (!isConfigured() || !Vault || !Vault.isUnlocked()) return;
-      if (debounced) clearTimeout(debounced);
-      debounced = setTimeout(function () { sync().catch(function () {}); }, 4000);
-    }
+    function schedule() { scheduleSync(); }
     window.addEventListener('online', schedule);
     if (typeof document !== 'undefined') {
       document.addEventListener('visibilitychange', function () {
@@ -534,6 +588,7 @@
     // ops
     sync: sync, hasLocalChanges: hasLocalChanges, getState: loadState, deviceId: deviceId,
     accountId: accountId, enableAutoSync: enableAutoSync, onChange: onChange,
+    syncOnStart: syncOnStart, scheduleSync: scheduleSync, statusOf: statusOf,
     // pure core (tested)
     buildSnapshot: buildSnapshot, snapshotHash: snapshotHash, mergeSnapshots: mergeSnapshots, keyHashes: keyHashes, seedBase: seedBase, LEGACY_SYNC_KEYS: LEGACY_SYNC_KEYS,
     unionTransactions: unionTransactions, contentHash: contentHash,
