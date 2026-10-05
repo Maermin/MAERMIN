@@ -1,186 +1,129 @@
 # MAERMIN — Implementation Plan
 
-**Status:** scope confirmed 2026-10-03. Work proceeds one PR per package; the owner merges.
-**Basis:** [`REPORT.md`](REPORT.md) (audit of `main` @ `d33d34d`).
+**Status:** scope confirmed 2026-10-05. Work proceeds one PR per package; the owner merges.
+**Basis:** [`FINDINGS.md`](FINDINGS.md) (audit 2026-10-05), an i18n audit of `main` @ `0d0fdbd` (summarised in P2-2), and the owner interview of 2026-10-05.
+**Previous plan:** the 2026-10-03 plan (WP-1 … WP-12) is done; see this file's git history. Its WP-16 (importers) is deferred below.
 
-## Confirmed scope
+## Decisions
 
-Decisions: MAERMIN is a single-user app for now; the Cloudflare Worker stays the data source; GitHub Pages keeps serving the repo root.
+- **Audience:** public users. Market: DACH **and** international, UI in German and English.
+- **Tax systems:** German and US only. No new tax engines; the tax view says plainly which systems are supported.
+- **Market data:** bring-your-own Cloudflare Worker stays. No shared hosted Worker.
+- **Order:** stabilize first (Phase 1: wrong money/tax figures, data loss, security), then improve (Phase 2).
+- **Navigation:** 5–6 areas plus a Simple/Advanced mode. Nothing is deleted.
+- **Legal:** in-app disclaimer + privacy page. No Impressum in this plan (the owner checks § 5 DDG separately).
 
-| Order | Package | Decision |
-|---|---|---|
-| 1 | WP-1 Prices after unlock | Fetch once on unlock; persist the last price map. Missing fresh price → last known price marked "stale" with date, else cost marked "no price" — in every view |
-| 2 | WP-2 Portfolio Manager | Use the shared ledger |
-| 3 | WP-3 Transaction labels | Dividend / interest / option labels |
-| 4 | WP-4 Mobile | Fix the dead "Portfolio" tab only; no "More" sheet |
-| 5 | WP-5 Empty states | Correlation, Risk, DCA demo figures |
-| 6 | FMP removal (from WP-7) | Delete the fallback and its key field |
-| 7 | WP-6 ISIN on import | Resolve via the Worker search; propose the listing matching the trade currency; editable per row |
-| 8 | WP-12 TWR from day one | From historical closes served by the Worker |
-| 9 | WP-11 More currencies | CHF, GBP etc.; historical rates through the Worker, no new third-party host |
-| 10 | WP-16 Importers | Trade Republic, Scalable Capital, Consorsbank — one at a time from the owner's export files |
-
-**Dropped:** WP-0, WP-8, WP-9, WP-10, WP-13, WP-14, WP-15 and the rest of WP-7 (native dialogs, setup copy, crypto ticker display, logo requests).
-**No work needed:** the September review's sync-merge and tax-pot findings are fixed in the current code.
-**Crypto exchanges:** no new code up front; the existing read-only API sync (Binance, Kraken, Coinbase, Bitpanda) is tried with real keys and fixed where it fails.
-**Needed from the owner:** one export file each from Trade Republic, Scalable Capital and Consorsbank before package 10.
-
-The package descriptions below are the original proposal; where they differ from the table above, the table wins.
+**Deferred:** broker importers for Trade Republic, Scalable Capital, Consorsbank (old WP-16); a shared hosted Worker; AT/CH/UK tax systems; the remaining Medium/Low findings that are not listed in a package below stay in `FINDINGS.md`.
 
 **Effort:** S ≤ ½ day · M 1–3 days · L > 3 days.
-**House rules kept:** pure logic in dual-export IIFE modules with Node tests; no new tabs unless stated; new persisted keys go into `backup-engine.js` `KEYS` and `storage.js` `SENSITIVE_KEYS`; no API key ever in client code or in the repo.
+
+**House rules:** pure logic in dual-export IIFE modules with Node tests; new persisted keys go into `backup-engine.js` `KEYS` and, when sensitive, `storage.js` `SENSITIVE_KEYS`; no API key ever in client code or in the repo; every money/tax fix gets a Node test that reproduces the finding first (red → green).
+New UI text goes through translation keys in both `en` and `de` (enforced from P2-2 on).
+
+**Security:** the repo is public. Security findings live only in the git-ignored `docs/AUDIT.security.local.md`. Their fixes, commits and PR texts must not describe the vulnerability; use a neutral title such as "harden <module>".
 
 Every package ends with the same gate: `npm run check && npm test && npm run build:web && npm run test:e2e`.
 
 ---
 
-## Part A — Repairs
+## Phase 1 — Stabilize
 
-### WP-1 · Correct numbers right after unlock (M)
-- **Goal:** no view shows −100 % or 0.00 € because prices have not loaded yet.
-- **Files:** `renderer.js` (auto-refresh effect ~1525, overview/attribution fallbacks), `market-store.js`, `storage.js`, `backup-engine.js`, `metrics.js`, `features4.js`, `features5.js`, `attribution.js`.
-- **Approach:** (1) trigger one `fetchPrices()` when the app mounts after unlock; (2) persist the last price map with its timestamp in a new sensitive key and hydrate it on start; (3) one helper in `MaerminMetrics` returning `{ price, known }`, used by every view so a missing price renders "—" and is excluded from P&L instead of counting as zero.
-- **Dependencies:** none.
-- **Acceptance:** with seeded holdings and no click, the Overview shows last-known values within the first render and fresh values after the automatic fetch; with the network blocked, positions show "price unavailable" and totals exclude them consistently in Overview, Portfolios, Cash flow and Attribution.
-- **Test:** new e2e scenario (seed → reload → unlock → assert no "-100.00%"); unit test for the price helper.
+| Order | Package | Findings | Effort |
+|---|---|---|---|
+| 1 | P1-1 Duplicate bookings | C-1, C-2, C-3 | M |
+| 2 | P1-2 Portfolio delete | C-4 | S |
+| 3 | P1-3 Vault & recovery | H-3, H-4 | M |
+| 4 | P1-4 Sync & refresh honesty | H-6, H-7, H-5 | M |
+| 5 | P1-5 Import & FX correctness | H-1, H-2, M-2, M-5, M-16 | M |
+| 6 | P1-6 Return & tax correctness | M-1, M-3, L-1, L-2 | M |
+| 7 | P1-7 Light theme Strategy | H-8 | S |
+| 8 | P1-8 Security hardening | the 2 Medium items in `docs/AUDIT.security.local.md` | S–M |
 
-### WP-2 · Portfolio Manager uses the shared ledger (S)
-- **Goal:** per-portfolio value and P&L equal the Overview for the same portfolio.
-- **Files:** `features4.js:92-112`, `metrics.js`.
-- **Approach:** delete the local holdings loop; call `MaerminMetrics.buildPositions` + `computeStats` per `portfolioId` (FX, fees, splits, dividends handled once).
-- **Dependencies:** WP-1 (price helper).
-- **Acceptance:** a portfolio containing a USD buy, a partial sell and a dividend shows the same value as the Overview filtered to that portfolio.
-- **Test:** unit test with that fixture; e2e assertion comparing both figures.
+### P1-1 · Duplicate bookings (M)
+- **C-1:** in-flight flag per exchange connection, button disabled while syncing; dedupe on `exchange|externalId` against `prev` inside the `setTransactions` updater.
+- **C-2:** a `type:'dividend'` row with the same symbol and portfolio within ±3 days of the pay date counts as booked, whatever its `source`.
+- **C-3:** a post-merge dedupe next to `dedupeExecutions`: smallest id per auto-dividend marker and per `exchange|externalId`; for interest drop accruals whose date range overlaps one already kept, then re-derive `lastAccrualDate`.
+- **Done when:** the Node repros from FINDINGS.md give one row each and 251.30 € interest.
 
-### WP-3 · Transaction types labelled correctly (S)
-- **Goal:** dividends, interest and option trades are not shown as "SELL".
-- **Files:** `renderer.js:3720-3730` and `4195-4210`, `features3.js:320`, `features5.js:595`, `translations-complete.js`.
-- **Approach:** one `MaerminUtils.txTypeLabel(type)` with colour mapping; replace the `type === 'buy' ? … : …` ternaries.
-- **Acceptance:** a dividend row reads "Dividend" in the list, position modal and net-worth history, in EN and DE.
-- **Test:** unit test for the mapper; e2e text check.
+### P1-2 · Portfolio delete (S)
+- `removePortfolio` moves the transactions to `default`, or the dialog offers to delete them instead; `MaerminUI.confirm` replaces the last native `confirm()`.
+- One-time migration: re-home transactions whose `portfolioId` no longer exists.
 
-### WP-4 · Mobile navigation (S)
-- **Goal:** every view is reachable on a phone without the search palette.
-- **Files:** `features2.js:1292-1310`, `styles.css` (`.mx-bottom-nav`), `renderer.js`.
-- **Approach:** fix the `portfolio` → `portfolios` id; replace the "Watch" slot with "More", opening a sheet that lists the same hubs as the sidebar; 44 px minimum targets.
-- **Acceptance:** at 390×844 each of the 27 views opens in at most two taps; the active tab is marked.
-- **Test:** e2e mobile loop over all views.
+### P1-3 · Vault & recovery (M)
+- H-3: a recovery-code unlock leads to setting a new password.
+- H-4: a password change re-wraps and keeps the passkey, recovery code, auto-lock setting and sync account.
+- Includes M-6, M-7, M-8 (recovery-code rotation, reload during setup, double submit), as they touch the same flows.
 
-### WP-5 · Honest empty states in analytics (S–M)
-- **Goal:** no perpetual "Loading…" and no zeros presented as measurements.
-- **Files:** `renderer-components.js:259-315`, `risk-analytics-view-v2.js`, `investment-views.js` (DCA demo figures), `features2.js` (TWR note).
-- **Approach:** distinguish *loading*, *not enough data* and *result*; state what is missing and how to get it. Remove the hard-coded DCA demo numbers.
-- **Dependencies:** WP-12 removes most "not enough data" cases later.
-- **Acceptance:** a new portfolio shows an explanatory empty state in Correlation, Risk and DCA; no numeric KPI is rendered without input data.
-- **Test:** view smoke tests with empty history.
+### P1-4 · Sync & refresh honesty (M)
+- H-6: pull on app start before catch-up writers run; errors show in the sync badge.
+- H-7: "Prices updated (N)" only on success; refreshes cannot overlap.
+- H-5: deleting the last savings goal persists.
 
-### WP-6 · ISIN handling on import (M)
-- **Goal:** imported rows carry a priceable ticker.
-- **Files:** `import-mapping.js`, `import-export-engine.js`, `features2.js` (wizard preview, stale toast at 708), `ticker-validation.js`.
-- **Approach:** detect ISINs in the symbol column; resolve through the static symbol index (WP-9) or, when a Worker is configured, `yfsearch`; show the proposed ticker in the preview, editable; keep the ISIN on the transaction. Remove the contradictory "No transactions detected" toast.
-- **Dependencies:** WP-9 for the Worker-less path (Worker path can ship first).
-- **Acceptance:** the Trade Republic sample (ISIN `US0378331005`) imports as `AAPL` and is priced after refresh; unresolved ISINs are flagged, not silently imported.
-- **Test:** unit tests for detection/resolution with an injected resolver; e2e import.
+### P1-5 · Import & FX correctness (M)
+- H-1 Kraken symbols, H-2 USD→EUR history day offset, M-2 Binance fee in the bought coin, M-5 FX attribution matched by date, M-16 back-dated USD savings plans at the rate of the execution date.
 
-### WP-7 · Small correctness and copy fixes (S)
-- **Goal:** remove the remaining broken or misleading bits.
-- **Files:** `index.html:7` + `build.mjs` (CSP), `equity-metadata.js`, `dividend-data-service.js`, `onboarding.js`, `auth.js:202`, `renderer.js:1661`, `tax-report-builder.js:424-427`, `features3.js:932`.
-- **Approach:** FMP: add the host to `connect-src` or remove the integration (your decision, REPORT §7.6); ship `cf-worker/worker.js` into `dist/` for "Copy worker.js"; reword "There is no recovery"; replace native `confirm`/`alert` with the in-app dialog and toasts; show the real ticker for crypto instead of "BITC"; drop the `s.yimg.com` logo requests or document them.
-- **Acceptance:** each item verifiable in the UI; no native dialogs in the backup and PDF flows.
-- **Test:** e2e for copy button in `dist/`; grep gate for `alert(`/`confirm(`.
+### P1-6 · Return & tax correctness (M)
+- M-1 XIRR excludes Net-Worth cash interest, M-3 interest taxed in its accrual year, L-1 § 23 Freigrenze on rounded amounts, L-2 loss-harvest rate per jurisdiction and asset.
 
-### WP-8 · Deploy the built bundle to Pages (S)
-- **Goal:** Pages serves `dist/` (one bundle) instead of 95 scripts from the repo root.
-- **Files:** new `.github/workflows/pages.yml`, `build.mjs`, `README.md`.
-- **Approach:** workflow builds on push to `main` and deploys with `actions/deploy-pages`; later packages add generated data to the same artifact.
-- **Dependencies:** you switch Pages source to "GitHub Actions" (REPORT §7.4).
-- **Acceptance:** live site loads `maermin.min.js`; service worker updates cleanly from the old layout.
-- **Test:** workflow run; manual check of the live URL on desktop and phone.
+### P1-7 · Light theme Strategy (S)
+- H-8, checked in all five themes.
+
+### P1-8 · Security hardening (S–M)
+- See the local file. Neutral commit and PR wording.
 
 ---
 
-## Part B — New features (Worker-less first)
+## Phase 2 — Improve
 
-### WP-0 · CORS and source probe (S) — prerequisite for Part B
-- **Goal:** replace assumptions in REPORT §5 with facts.
-- **Files:** `scripts/probe.html` (not shipped).
-- **Approach:** a page run in a real browser from the Pages origin that fetches each candidate (Frankfurter, Skinport, Alpha Vantage, Twelve Data, Finnhub, GitHub API, Binance/Kraken/Coinbase/Bitpanda) and records status and CORS result.
-- **Acceptance:** a table of results committed to `docs/`; Part B packages adjusted if a source fails.
-- **Test:** the probe itself.
+| Order | Package | Effort |
+|---|---|---|
+| 1 | P2-1 Navigation + Simple/Advanced mode | L |
+| 2 | P2-2 Full DE/EN translation + locale formats + CI guard | L |
+| 3 | P2-3 Worker deploy button + version check | M |
+| 4 | P2-4 Undo + trash | M |
+| 5 | P2-5 Trust pages | S |
+| 6 | P2-6 German tax: Anlage KAP + Freistellungsauftrag per broker | M–L |
+| 7 | P2-7 Steam inventory import | M |
 
-### WP-9 · Static market-data pipeline (L)
-- **Goal:** prices, history, search and fund data for a curated universe with no Worker and no key.
-- **Files:** new `scripts/data/*.mjs`, `.github/workflows/data.yml`, published under `data/` in the Pages artifact.
-- **Approach:** scheduled Actions jobs generate: `symbols.json` (ticker, name, ISIN, exchange, currency) as search index; `prices/<symbol>.json` (daily closes + splits); `funds/<symbol>.json` (holdings, sectors, TER); `fundamentals/<symbol>.json`; `movers.json`; `cs2/prices.json` + item index from Skinport. Data is published in the deploy artifact, not committed to `main`. Any paid source key lives in Actions secrets.
-- **Dependencies:** WP-0, WP-8, decision on data source and universe (REPORT §7.1–7.2).
-- **Acceptance:** files regenerate on schedule; a failed source leaves the previous files in place; total artifact stays under the Pages size limit.
-- **Test:** Node tests for each generator against recorded fixtures; schema check in CI.
+### P2-1 · Navigation + Simple/Advanced mode (L)
+- Group the ~30 views into: **Portfolio · Transactions · Dividends · Analysis · Taxes · Settings**. Merge overlapping views as tabs of one area (e.g. Health + Intelligence + Risk Monitor; Returns + Performance + Attribution). Existing view ids, `g`+key shortcuts and the command palette keep working.
+- **Simple/Advanced:** new vaults start in Simple (niche tools hidden); vaults that already have transactions start in Advanced. One toggle in Settings, persisted (backup key).
+- Mobile nav follows the same areas.
+- Folds in the UX/a11y findings: M-9 (confirmation for destructive actions; undo lands in P2-4), M-10, M-11, M-12, M-13, M-14, L-3, L-4, L-5, L-6, L-7.
 
-### WP-10 · Data-provider layer in the client (M)
-- **Goal:** one module decides where a quote comes from: static data → user key → Worker.
-- **Files:** new `data-providers.js` (+ test), `renderer.js` (fetchPrices, history, search), `features3.js` (pickers), `discovery.js`, `etf-lookthrough.js`, `dividend-data-service.js`, `equity-metadata.js`, `onboarding.js`, CSP.
-- **Approach:** pure provider interface with injectable `fetch`; existing Worker calls become one provider; the wizard's first option becomes "works out of the box", Worker and API keys become optional upgrades. Each price carries its source and date; EOD prices are labelled as such.
-- **Dependencies:** WP-9, WP-1.
-- **Acceptance:** fresh vault, no Worker: adding `VWCE.DE` and `AAPL` yields prices, 5-year chart, X-Ray and dividends; a symbol outside the universe explains the options.
-- **Test:** unit tests per provider and for fallback order; e2e "no Worker" scenario.
+### P2-2 · Full DE/EN translation (L)
+Baseline from the i18n audit: `en` 499 keys, `de` 295 (210 missing); 69 keys used in code exist in neither dictionary; ~2,000 hardcoded English UI strings, only 33 of ~100 files use translation keys at all; all formatting is `en-US`/`en-GB` (no `de-DE`); `<html lang="en">` is fixed.
+- Every UI string (labels, placeholders, `aria-label`, toasts, confirms, PDF/Excel export headings) goes through a key in `en` and `de`.
+- One formatter module: numbers, currency, percentages and dates follow the language via `Intl` (`de-DE` → `1.234,56 €`, `en-US` → `€1,234.56`). Replace `toLocaleString('en-US')`, bare `toLocaleString()` and display `toFixed`.
+- `<html lang>` follows the language.
+- **CI guard** in `scripts/check.mjs`: fail on en/de key mismatch and on `t.key` uses missing from the dictionaries. Remove dead keys.
+- Order: Simple-mode areas first, then Advanced views.
+- **Done when:** the guard passes, and a browser click-through of every area in DE and EN shows no English in DE mode (apart from accepted terms such as "ETF", "Watchlist") and German number formats.
 
-### WP-11 · ECB FX history and more transaction currencies (M)
-- **Goal:** CHF, GBP and other currencies in transactions; FX history without the Worker.
-- **Files:** `fx-history.js`, `utils.js`, `ledger.js`, `metrics.js`, `renderer.js` (currency select), `import-mapping.js`.
-- **Approach:** per-currency daily series from Frankfurter cached in IndexedDB; `fxAt(date, currency)` generalised from USD-only; transaction modal and importers accept ISO currencies.
-- **Dependencies:** WP-0.
-- **Acceptance:** a CHF buy is costed at the ECB rate of its date; tax report and XIRR reflect it.
-- **Test:** ledger and tax tests with CHF/GBP fixtures.
+### P2-3 · Worker deploy button + version check (M)
+- "Deploy to Cloudflare" button in README and the onboarding wizard (repo-based deploy) replaces copy-paste as the primary path; copy-paste stays as fallback.
+- Worker reports its version (`?action=version`); the app compares with the release it expects and shows "Your Worker is outdated → update" instead of failing silently per feature.
 
-### WP-12 · TWR and value history from day one (M)
-- **Goal:** time-weighted return and benchmark comparison without waiting days.
-- **Files:** `returns-engine.js`, `analytics-data.js`, `features2.js`, `portfolio-snapshots.js`.
-- **Approach:** build the daily value path from transactions × historical closes (WP-10) with external flows chain-linked; snapshots remain the fallback.
-- **Dependencies:** WP-10.
-- **Acceptance:** importing a three-year history shows TWR, rolling volatility and correlation immediately.
-- **Test:** unit tests with synthetic series and flows (known TWR).
+### P2-4 · Undo + trash (M)
+- Deleted transactions, portfolios, savings plans (and similar user records) go to a trash for 30 days; an "Undo" toast after each delete; a Trash view in Settings to restore or purge.
+- Trash is a persisted key (backup, sync-safe — a restored item must not resurrect duplicates).
 
-### WP-13 · Share links without a server (S)
-- **Goal:** sharing works with no Worker.
-- **Files:** `share-snapshot.js` (+ test), `renderer.js`.
-- **Approach:** encode the already-validated redacted snapshot in the URL fragment; the existing allowlist validation runs on open. Worker publish stays as an option for short links, MCP and the benchmark.
-- **Acceptance:** a link opened in a clean browser renders the snapshot; a tampered fragment is rejected.
-- **Test:** round-trip and leak-proof unit tests.
+### P2-5 · Trust pages (S)
+- Disclaimer "No tax or investment advice — estimates only" on the tax, tax-advisor, advisor and intelligence views.
+- Privacy page: what stays local, what goes to the user's Worker, CoinGecko and other sources, what sharing/sync sends.
+- Tax view states that only German and US rules are supported.
 
-### WP-14 · Serverless sync (M)
-- **Goal:** device sync without running a Worker.
-- **Files:** `sync-engine.js` (transport interface), new `sync-transport-gist.js`, `sync-transport-file.js`, settings modal in `renderer.js`.
-- **Approach:** keep the E2E blob and revision logic; add transports for a private Gist (user's fine-grained token, stored in the vault) and an encrypted file in a user-chosen folder.
-- **Dependencies:** WP-0 (GitHub API from the browser), decision in REPORT §7.5.
-- **Acceptance:** two browsers converge after edits on both; conflicting revisions merge as today.
-- **Test:** existing sync suites run against each transport with a fake backend.
+### P2-6 · German tax: Anlage KAP + Freistellungsauftrag (M–L)
+- The tax report maps its figures onto the lines of Anlage KAP / KAP-INV for the selected year (in-app table + export).
+- Freistellungsauftrag per broker: the user enters the amount per broker; warning when the sum exceeds 1,000 € (single) / 2,000 € (joint); shows remaining headroom per broker.
 
-### WP-15 · Self-host libraries and fonts (S)
-- **Goal:** true offline start and no third-party requests at load.
-- **Files:** `index.html`, `build.mjs`, `service-worker.js`, `tax-report-builder.js`, `pdf-import.js`, `styles.css`.
-- **Approach:** vendor React, jsPDF, autotable, pdf.js and the Geist fonts into the build; precache them; tighten the CSP.
-- **Acceptance:** after one visit the app starts and unlocks in airplane mode; the network log at start shows only same-origin requests.
-- **Test:** e2e offline scenario with service workers enabled.
-
-### WP-16 · Importer coverage (L, incremental)
-- **Goal:** close the import gap for the most used German brokers.
-- **Files:** `import-mapping.js`, `pdf-import.js`, fixtures in `test/`.
-- **Approach:** one broker per iteration, driven by anonymised sample files; order to be agreed (suggestion: Trade Republic current CSV, ING, comdirect, Consorsbank, Scalable).
-- **Dependencies:** WP-6; sample files from you.
-- **Acceptance:** per broker, the sample file imports with no manual mapping.
-- **Test:** fixture tests per broker.
-
-**Not planned** (cannot run on Pages without a server): Open-Banking broker sync, push/email alerts while the app is closed, a live anonymous benchmark, an MCP endpoint, intraday quotes without a user key. They remain available through the optional Worker where they exist today.
+### P2-7 · Steam inventory import (M)
+- User enters a public Steam profile; the Worker fetches the CS2 inventory (new Worker route, rate-limited like the others).
+- Editable preview (like the PDF import): purchase price pre-filled with today's price, editable per row, plus date.
+- Re-import shows only items not imported before (by asset id); it never books sales.
 
 ---
 
-## Part C — Phase 6 usability review
+## Phase 3 — Usability review
 
-After Part A (and again after Part B): walk first run, add transaction, import, refresh, tax export, backup/restore and sync on desktop and mobile; check clarity, step count, error messages, load time, empty states, keyboard navigation and contrast in all five themes; deliver a severity-sorted list with fixes. Baseline: REPORT §6.
-
-## Suggested sequence
-
-1. WP-1 → WP-2 → WP-3 → WP-4 → WP-5 → WP-7 (one PR each, all independent of your open decisions except FMP).
-2. WP-8, then WP-0.
-3. WP-9 → WP-10 → WP-6 (static path) → WP-12 → WP-11.
-4. WP-13, WP-15, WP-14, WP-16.
+After Phase 2: walk first run, add transaction, import, refresh, tax export, backup/restore, sync and Steam import on desktop and mobile, in DE and EN and all five themes; deliver a severity-sorted list with fixes.
