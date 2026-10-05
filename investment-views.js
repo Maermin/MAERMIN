@@ -829,7 +829,15 @@ function LiquidityAnalysisView(props) {
 function GoalInvestingView(props) {
   var portfolioValue = props.portfolioValue || 0;
   
-  var _goals = useState([]);
+  // Read the saved goals in the initializer (not in an effect), so the save
+  // effect below never sees a not-yet-loaded [] and can always write - also
+  // the empty list after the last goal was deleted (FINDINGS H-5).
+  var _goals = useState(function () {
+    try {
+      var saved = JSON.parse(localStorage.getItem('investmentGoals') || '[]');
+      return Array.isArray(saved) ? saved : [];
+    } catch (e) { return []; }
+  });
   var goals = _goals[0];
   var setGoals = _goals[1];
   
@@ -848,23 +856,9 @@ function GoalInvestingView(props) {
   var newGoal = _newGoal[0];
   var setNewGoal = _newGoal[1];
   
-  // Load goals from localStorage
-  useEffect(function() {
-    var saved = localStorage.getItem('investmentGoals');
-    if (saved) {
-      try {
-        setGoals(JSON.parse(saved));
-      } catch (e) {
-        setGoals([]);
-      }
-    }
-  }, []);
-  
   // Save goals to localStorage
   useEffect(function() {
-    if (goals.length > 0) {
-      localStorage.setItem('investmentGoals', JSON.stringify(goals));
-    }
+    localStorage.setItem('investmentGoals', JSON.stringify(goals));
   }, [goals]);
   
   var addGoal = function() {
