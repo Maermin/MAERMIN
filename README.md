@@ -161,7 +161,7 @@ MAERMIN/
 ├── equity-metadata.js          Sector/country metadata (window.MaerminEquityMeta)
 ├── dividend-data-service.js    Dividend data + forecast (window.DividendDataService)
 ├── tax-report-builder.js       Filing-grade tax report + PDF/Excel (window.MaerminTaxReport)
-├── allocation.js · projection.js · recurring.js   Allocation / forecast / liabilities engines
+├── projection.js · recurring.js  Forecast / liabilities engines
 ├── renderer.js                 Main React app — state, routing, transactions (~5,400 lines)
 ├── features.js … features7.js  Feature views (charts, analysis, dividends, net worth, …)
 ├── build.mjs                   Web build — bundles + minifies (reads index.html order)

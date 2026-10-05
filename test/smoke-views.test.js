@@ -75,7 +75,7 @@ globalThis.window.navigator = globalThis.navigator || { language: 'en-US', clipb
 // Each is optional — record but don't hard-fail if one can't load here.
 // ---------------------------------------------------------------------------
 const engines = [
-  '../utils.js', '../ledger.js', '../allocation.js', '../metrics.js', '../projection.js',
+  '../utils.js', '../ledger.js', '../metrics.js', '../projection.js',
   '../recurring.js', '../equity-metadata.js', '../portfolio-health.js',
   '../data-quality.js', '../portfolio-analytics.js', '../analytics-data.js',
   '../tax-settings.js', '../tax-calculation-engine.js', '../tax-report-builder.js',
