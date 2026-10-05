@@ -297,7 +297,7 @@
       const rowNo = i + 1; // 1-based, header is row 0
       const get = (f) => (mapping[f] ? row[mapping[f]] : undefined);
       // A CS2 market name is a skin whatever the file's default category says,
-      // and keeps its spelling (Steam looks names up exactly; upper-casing it
+      // and keeps its spelling (market names are matched exactly; upper-casing it
       // as a stock ticker left it without a price and sent it to Yahoo).
       const T = tickersApi();
       const rawSym = String(get('symbol') == null ? '' : get('symbol')).trim();

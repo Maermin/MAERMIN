@@ -39,21 +39,19 @@ function fakeFetch(routes) {
 
   // endpoints
   const eps = O.endpoints('https://x.workers.dev/');
-  ok('builds 5 endpoint probes', eps.length === 5);
-  ok('ids are the 5 data sources', eps.map(e => e.id).join(',') === 'yf,yfsearch,skinport,steamhistory,search');
-  ok('skinport probe targets the price list', eps[2].url === 'https://x.workers.dev?action=skinport');
+  ok('builds 3 endpoint probes', eps.length === 3);
+  ok('ids are the 3 data sources', eps.map(e => e.id).join(',') === 'yf,yfsearch,skinprices');
+  ok('skin price probe targets the price list', eps[2].url === 'https://x.workers.dev?action=skinprices');
   ok('yf probe targets AAPL', eps[0].url === 'https://x.workers.dev?action=yf&symbol=AAPL&interval=1d&range=5d');
-  ok('steam name is URL-encoded', eps[3].url.indexOf(encodeURIComponent('AK-47 | Redline (Field-Tested)')) > -1);
 
   // classify — happy paths
   ok('yf ok when prices present', O.classify('yf', { status: 200, payload: { prices: [1, 2] } }).state === 'ok');
-  ok('steamhistory ok when prices present', O.classify('steamhistory', { status: 200, payload: { prices: [{ p: 1 }] } }).state === 'ok');
+  ok('skinprices ok when the price file has items', O.classify('skinprices', { status: 200, payload: { 'Fever Case': { last_24h: 0.89 } } }).state === 'ok');
+  ok('skinprices warn when the price file is empty', O.classify('skinprices', { status: 200, payload: {} }).state === 'warn');
   ok('yfsearch ok when array non-empty', O.classify('yfsearch', { status: 200, payload: [{ s: 'AAPL' }] }).state === 'ok');
-  ok('search ok when array non-empty', O.classify('search', { status: 200, payload: [{ n: 'ak' }] }).state === 'ok');
 
   // classify — warn (reachable, no data)
   ok('yf warn when prices empty', O.classify('yf', { status: 200, payload: { prices: [] } }).state === 'warn');
-  ok('search warn when array empty', O.classify('search', { status: 200, payload: [] }).state === 'warn');
 
   // classify — fail paths
   ok('fail on non-2xx', O.classify('yf', { status: 500, payload: { error: 'x' } }).state === 'fail');
@@ -75,11 +73,9 @@ function fakeFetch(routes) {
   const all = await O.probeAll('https://w.dev', { fetch: fakeFetch({
     'action=yf&': { status: 200, body: { prices: [1] } },
     'action=yfsearch': { status: 200, body: [{ s: 'A' }] },
-    'action=skinport': { status: 200, body: [{ market_hash_name: 'Fever Case', suggested_price: 0.8 }] },
-    'action=steamhistory': { status: 200, body: { prices: [{ p: 1 }] } },
-    'action=search': { status: 200, body: [{ n: 'ak' }] }
+    'action=skinprices': { status: 200, body: { 'Fever Case': { last_24h: 0.89 } } }
   }) });
-  ok('probeAll runs all 5', all.length === 5 && all.every(r => r.state === 'ok'));
+  ok('probeAll runs all 3', all.length === 3 && all.every(r => r.state === 'ok'));
 
   // fetchWorkerSource — first-path / fallback / all-fail
   const src1 = await O.fetchWorkerSource({ paths: ['a', 'b'], fetch: fakeFetch({ 'a': { status: 200, body: 'WORKER_CODE' } }) });

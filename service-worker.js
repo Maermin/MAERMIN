@@ -32,9 +32,7 @@ var BYPASS_HOST_PATTERNS = [
   /(^|\.)coingecko\.com$/i,
   /(^|\.)exchangerate-api\.com$/i,
   /(^|\.)er-api\.com$/i,
-  /(^|\.)workers\.dev$/i,
-  /(^|\.)steampowered\.com$/i,
-  /(^|\.)steamcommunity\.com$/i
+  /(^|\.)workers\.dev$/i
 ];
 
 function isBypassHost(host) {

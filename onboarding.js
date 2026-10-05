@@ -5,7 +5,7 @@
 // it into a guided wizard:
 //   • step-by-step deploy guide + one-click "Copy worker.js"
 //   • a live "Test connection" that pings each data-source endpoint (yf,
-//     yfsearch, steamhistory, search) and reports green / amber / red per source
+//     yfsearch, skinprices) and reports green / amber / red per source
 //   • a Demo-mode entry so newcomers can explore the full app before any setup.
 //
 // Pure logic (endpoints/classify/probe/fetchWorkerSource) is dual-exported and
@@ -25,7 +25,7 @@
     return /^https?:\/\/[^\s]+$/i.test(normalizeWorkerUrl(url));
   }
 
-  // The four data-source endpoints the app depends on, each with a cheap probe
+  // The three data-source endpoints the app depends on, each with a cheap probe
   // using a well-known query so a healthy worker returns real data.
   function endpoints(workerUrl) {
     var base = normalizeWorkerUrl(workerUrl);
@@ -34,12 +34,8 @@
         url: base + '?action=yf&symbol=AAPL&interval=1d&range=5d' },
       { id: 'yfsearch',     label: 'Symbol search',
         url: base + '?action=yfsearch&q=Apple&type=stock' },
-      { id: 'skinport',     label: 'CS2 skin prices (Skinport)',
-        url: base + '?action=skinport' },
-      { id: 'steamhistory', label: 'CS2 price history (Steam)',
-        url: base + '?action=steamhistory&name=' + encodeURIComponent('AK-47 | Redline (Field-Tested)') },
-      { id: 'search',       label: 'CS2 skin search',
-        url: base + '?action=search&q=ak47' }
+      { id: 'skinprices',   label: 'CS2 skin prices (Steam Market list)',
+        url: base + '?action=skinprices' }
     ];
   }
 
@@ -60,8 +56,9 @@
     if (p && p.error) return { state: 'fail', message: 'Worker error: ' + p.error };
 
     var hasData;
-    if (id === 'yf' || id === 'steamhistory') hasData = !!(p && Array.isArray(p.prices) && p.prices.length);
-    else hasData = Array.isArray(p) && p.length > 0; // yfsearch / search return arrays
+    if (id === 'yf') hasData = !!(p && Array.isArray(p.prices) && p.prices.length);
+    else if (id === 'skinprices') hasData = !!(p && typeof p === 'object' && !Array.isArray(p) && Object.keys(p).length > 0);
+    else hasData = Array.isArray(p) && p.length > 0; // yfsearch returns an array
 
     if (hasData) return { state: 'ok', message: 'Connected — live data received.' };
     return { state: 'warn', message: 'Worker reachable, but the source returned no data right now ' +

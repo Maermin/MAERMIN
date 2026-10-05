@@ -93,6 +93,11 @@ await mkdir(join(dist, 'fonts'), { recursive: true });
 for (const file of await readdir(join(root, 'fonts'))) {
   await copyFile(join(root, 'fonts', file), join(dist, 'fonts', file));
 }
+// Data files loaded on demand (data/skin-images.json for the skin picker).
+await mkdir(join(dist, 'data'), { recursive: true });
+for (const file of await readdir(join(root, 'data'))) {
+  await copyFile(join(root, 'data', file), join(dist, 'data', file));
+}
 
 // The loading-screen teardown lived in an inline <script>. Ship it as an
 // external file so prod can run under a STRICT CSP with NO 'unsafe-inline' for

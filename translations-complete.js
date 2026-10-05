@@ -48,9 +48,7 @@ const completeTranslations = {
     
     // API Settings
     apiSettings: 'API Settings',
-    apiSettingsInfo: 'Configure API keys for fetching live prices. CS2 Skin prices are fetched from Skinport (no key required). Crypto prices are fetched from CoinGecko (no key required).',
-    skinportKey: 'Skinport API Key (for CS2 Skins):',
-    skinportInfo: 'CS2 skin prices are fetched from the public Skinport API. No API key required.',
+    apiSettingsInfo: 'Configure API keys for fetching live prices. CS2 skin prices come from a daily Steam Market price list through your Worker (no key required). Crypto prices are fetched from CoinGecko (no key required).',
     coingeckoInfo: 'Crypto prices are fetched from the public CoinGecko API. No API key required.',
     getKeyFree: '-> Get Free API Key',
     viewDocs: 'View API documentation',

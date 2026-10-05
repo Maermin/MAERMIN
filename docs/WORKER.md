@@ -12,7 +12,7 @@ Configure it in the app under **API Settings → Cloudflare Worker**.
 - **CORS:** exact-origin allowlist (`https://maermin.github.io`, localhost, the desktop app's `null` origin) plus anything in the `ALLOWED_ORIGINS` variable (comma separated). Other browser origins get no `Access-Control-Allow-Origin`. `Vary: Origin`.
 - **Sync storage:** bind the `SyncRoom` Durable Object as `SYNC_DO` (see `wrangler.toml`) for atomic revision checks; a KV namespace `SYNC` alone still works but is eventually consistent. Blobs over 4 MB are rejected with `413`.
 - **Share publishing:** throttled to 10 publishes per hour per IP.
-- **Rate limiting:** per-IP sliding window (default 120 req/min) → `429` when exceeded. Skin requests (Skinport list, skin prices `POST /`, `steamhistory`, `search`) have their own 120 req/min budget, so a burst of stock or chart requests cannot block skin prices.
+- **Rate limiting:** per-IP sliding window (default 120 req/min) → `429` when exceeded. The skin price list (`skinprices`) has its own 120 req/min budget, so a burst of stock or chart requests cannot block skin prices.
 - **Symbol check:** the Yahoo routes (`yf`, `fundamentals`, `profile`, `earnings`, `fundholdings`) only take market symbols (`AAPL`, `SAP.DE`, `BRK-B`, `^GDAXI`, `EURUSD=X`, `GC=F`, ISINs). Anything else — e.g. a CS2 item name like `AK-47 | Redline (Field-Tested)` — gets `400 {"error":"not a market symbol"}` straight away, without an upstream call and without counting against the rate limit.
 - **Timeouts:** every upstream `fetch` is wrapped with an 8s abort.
 - **Caching:** Yahoo search/history responses are cached (`caches.default`, 5 min–1 h).
@@ -138,39 +138,19 @@ XML client-side and sanitises every link through `MaerminUtils.safeUrl`).
 Returns the RSS XML as-is; an upstream error yields an empty `<rss>` channel,
 not an HTTP error. Cached 15 min.
 
-### `GET /?action=skinport`
-Skinport's public price list for all CS2 items in USD (`/v1/items?app_id=730&currency=USD`),
-one request instead of one Steam call per skin:
-`[{ market_hash_name, suggested_price, min_price, median_price, mean_price, quantity, ... }]`
-(~21k items, ~9 MB). The body is **streamed through unparsed** — parsing it would exceed the
-free plan's CPU budget; the app parses it (price = suggested, else median, else lowest
-listing). The last list is kept for 10 min — in the KV namespace bound as `SYNC` when there is
-one (key `skinport:items-usd`, 24 h TTL; the edge cache does not keep anything for Workers on a
-`workers.dev` address), else in the edge cache. Skinport allows 8 calls per 5 minutes. When
-Skinport refuses or fails, the last good copy is served with `X-Skinport-Stale: 1`; without
-one → `502 {"error":"Skinport unavailable: …"}`. `X-Fetched-At` carries the list's age.
-Binding a KV namespace as `SYNC` (Worker → Settings → Bindings → KV namespace) is recommended.
-
-### `GET /?action=search&q=ak47+redline`
-Steam Market CS2 skin search (USD, `currency=1`). Returns items with images — the skin
-picker uses it for the pictures and takes the prices from the Skinport list.
-
-### `GET /?action=steamhistory&name=<market_hash_name>`
-CS2 price history. Primary source is the listing page's embedded `var line1`
-graph (parsed by the exported, unit-tested `parseSteamLine1`). Some items -
-notably Souvenir skins - redirect to a grouped page WITHOUT that graph; the
-response then falls back to `priceoverview` (current price as a 2-point line,
-one backoff retry on Steam's aggressive 429s). Returns
-`{ prices: [{ts, date, price}], currency: 'USD', source: 'listing'|'overview',
-note? }` - prices are ALWAYS USD (the client converts to EUR); legacy Workers
-mislabelled the same USD numbers as `EUR` and lack `source`, which clients use
-to keep converting against old deployments. Listing data caches 4 h,
-overview-only lines 10 min.
-
-### `POST /`  (body: JSON array of skin names, max 30)
-Steam skin price lookup → `{ "<name>": <usdPrice> }`. Fetched in concurrent
-batches. The app only sends the items the Skinport list does not have (or all
-of them when the Worker has no `skinport` route yet). **Contract:** all skin prices are USD; the client converts USD→EUR.
+### `GET /?action=skinprices`
+CS2 skin prices for every item in ONE request: CSGO Trader's daily Steam Market price file
+(`https://prices.csgotrader.app/latest/steam.json`, Amazon S3/CloudFront):
+`{ "<market_hash_name>": { last_24h, last_7d, last_30d, last_90d } }` (USD, ~34k items, ~4 MB).
+Steam and Skinport block or throttle requests from Cloudflare Workers, so neither is asked
+directly. The body is **streamed through unparsed** (the free plan's CPU budget); the app parses
+it — price = 24 h average, else 7 / 30 / 90 days; the four averages also draw the CS2 trend in
+the history chart. The last file is kept for an hour — in the KV namespace bound as `SYNC` when
+there is one (key `skinprices:steam-usd`, 3-day TTL; the edge cache does not keep anything for
+Workers on a `workers.dev` address), else in the edge cache. When the source fails, the last
+good copy is served with `X-Stale: 1`; without one → `502 {"error":"Skin prices unavailable: …"}`.
+`X-Fetched-At` carries the copy's age. Binding a KV namespace as `SYNC` is recommended.
+**Contract:** all skin prices are USD; the client converts USD→EUR.
 
 ---
 

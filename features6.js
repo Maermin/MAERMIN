@@ -8,7 +8,7 @@
 //
 // Without a Worker URL: a flat line at the current price
 // Crypto: CoinGecko (free, direct)
-// CS2 skins: Steam price history via the Worker
+// CS2 skins: trend from the daily Steam Market price list (MaerminSkinPrices)
 //
 // Periods: 1H · 1D · 1W · 1M · 1Y · 3Y · 5Y · Max
 // ============================================================================
@@ -332,44 +332,22 @@ function PortfolioHistoryChart({ portfolio, prices, transactions, apiKeys, theme
         }
       }
 
-      // ── CS2 Skins: Steam Market Price History via Worker ────────────────
+      // ── CS2 Skins: trend from the skin price list ───────────────────────
+      // The daily Steam Market price list (MaerminSkinPrices, one request for
+      // every item) carries 90 / 30 / 7-day and 24 h averages: a coarse curve
+      // ending at today's price. Items not in the list get a flat line.
       const skinPositions = positions.filter(p => p.cat === 'skins');
-      if (hasWorker && skinPositions.length > 0) {
-        await Promise.all(skinPositions.map(async pos => {
-          const ckey = `${pos.symOrig}|${period}|steam`;
-          if (cacheRef.current[ckey]) { historyMap[pos.symOrig] = cacheRef.current[ckey]; return; }
-          try {
-            const base = workerUrl.replace(/\/$/, '');
-            // ONE normalising place for market_hash_name (Souvenir/StatTrak
-            // prefixes, separator spacing) — same as the price lookup uses.
-            const hashName = window.MaerminTickers?.normalizeSkinName
-              ? window.MaerminTickers.normalizeSkinName(pos.symOrig) : pos.symOrig;
-            const url  = `${base}?action=steamhistory&name=${encodeURIComponent(hashName)}`;
-            const res  = await fetch(url, { signal: AbortSignal.timeout(15000) });
-            if (!res.ok) throw new Error(`Steam history ${res.status}`);
-            const data = await res.json();
-            if (data.error || !data.prices?.length) throw new Error((data.error || 'No data') + (data.note ? ` (${data.note})` : ''));
-            // Currency: new Workers say currency:'USD' honestly (they always
-            // delivered USD); legacy Workers mislabel the same USD numbers as
-            // 'EUR' and lack the `source` field — convert in both cases. Only
-            // a future Worker that really sends EUR (label + source) skips it.
-            const rate = (data.currency === 'EUR' && data.source) ? 1 : usdToEur;
-            const hist = data.prices.map(h => ({ ...h, price: h.price * rate }));
-            cacheRef.current[ckey] = hist;
-            historyMap[pos.symOrig] = hist;
-            console.log(`[CHART] Steam history: ${pos.symOrig} → ${hist.length} points (${data.source || 'legacy'})`);
-          } catch(e) {
-            console.warn('[CHART] Steam history failed for', pos.symOrig, '—', e.message);
-            const p = prices[pos.symOrig] || prices[pos.sym] || 0;
-            if (p > 0) historyMap[pos.symOrig] = flatLine(p, pos.firstTs);
-          }
-        }));
-      } else {
-        skinPositions.forEach(pos => {
-          const p = prices[pos.symOrig] || prices[pos.sym] || 0;
-          if (p > 0) historyMap[pos.symOrig] = flatLine(p, pos.firstTs);
-        });
-      }
+      const SKP = window.MaerminSkinPrices;
+      const skinIndex = (hasWorker && SKP && skinPositions.length) ? await SKP.load(workerUrl) : null;
+      skinPositions.forEach(pos => {
+        const hist = skinIndex ? SKP.history(skinIndex, pos.symOrig) : [];
+        if (hist.length >= 2) {
+          historyMap[pos.symOrig] = hist.map(h => ({ ...h, price: h.price * usdToEur })); // list prices are USD
+          return;
+        }
+        const p = prices[pos.symOrig] || prices[pos.sym] || 0;
+        if (p > 0) historyMap[pos.symOrig] = flatLine(p, pos.firstTs);
+      });
 
       // ── Stocks + Commodities: Yahoo Finance via Worker (parallel) ────────
       // A symbol that cannot be a ticker (a CS2 skin filed as a stock) is not
@@ -740,7 +718,7 @@ function PortfolioHistoryChart({ portfolio, prices, transactions, apiKeys, theme
     positions.some(p => p.cat === 'crypto')      && 'CoinGecko',
     positions.some(p => p.cat === 'stocks')      && (hasWorker ? 'Yahoo Finance' : null),
     positions.some(p => p.cat === 'commodities') && (hasWorker ? 'Yahoo Finance' : null),
-    positions.some(p => p.cat === 'skins')       && (hasWorker ? 'Steam Market (history)' : null),
+    positions.some(p => p.cat === 'skins')       && (hasWorker ? 'Steam Market price list' : null),
   ].filter(Boolean);
 
   // ── Colour constants ──────────────────────────────────────────────────────

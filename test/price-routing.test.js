@@ -63,13 +63,11 @@ const LOGGED = ['AK-47 | FUEL INJECTOR (FIELD-TESTED)', 'FAMAS | COMMEMORATION (
   const found = T.findMisfiledSkins(txs);
   ok('found: one entry per stored symbol, with its count', found.length === 2 && found.find((f) => f.symbol === 'FEVER CASE').count === 1 && found.find((f) => /FUEL/.test(f.symbol)).count === 2, found);
   ok('stocks and real skins are not reported', !found.some((f) => f.symbol === 'AAPL' || /Asiimov/.test(f.symbol)));
-  const exact = T.pickSkinName('AK-47 | FUEL INJECTOR (FIELD-TESTED)', [{ name: 'AK-47 | Fuel Injector (Minimal Wear)' }, { name: 'AK-47 | Fuel Injector (Field-Tested)' }]);
-  ok('pickSkinName: the exact Steam name, ignoring case', exact === 'AK-47 | Fuel Injector (Field-Tested)');
-  ok('pickSkinName: a merely similar item is not taken', T.pickSkinName('AK-47 | FUEL INJECTOR (FIELD-TESTED)', [{ name: 'AK-47 | Fuel Injector (Minimal Wear)' }]) === null);
+  const exact = 'AK-47 | Fuel Injector (Field-Tested)'; // as the price list spells it
   const rep = T.repairMisfiledSkins(txs, { 'AK-47 | FUEL INJECTOR (FIELD-TESTED)': exact });
   const r1 = rep.transactions[0], r3 = rep.transactions[2];
   ok('moved 3 transactions to skins', rep.moved === 3 && r1.category === 'skins' && rep.transactions[1].category === 'skins' && r3.category === 'skins');
-  ok('the Steam name replaces the upper-cased one (symbol and display name)', r1.symbol === 'AK-47 | Fuel Injector (Field-Tested)' && r1.symbolName === 'AK-47 | Fuel Injector (Field-Tested)');
+  ok('the market name replaces the upper-cased one (symbol and display name)', r1.symbol === 'AK-47 | Fuel Injector (Field-Tested)' && r1.symbolName === 'AK-47 | Fuel Injector (Field-Tested)');
   ok('quantity, price, currency and date are kept', r1.quantity === 1 && r1.price === 40 && r1.currency === 'EUR' && r1.date === '2024-01-01' && r1.id === '1');
   ok('without a Steam name the spelling is restored by rule', r3.symbol === 'Fever Case', r3.symbol);
   ok('a missing currency becomes USD (Steam quotes USD)', r3.currency === 'USD');
@@ -100,7 +98,7 @@ const LOGGED = ['AK-47 | FUEL INJECTOR (FIELD-TESTED)', 'FAMAS | COMMEMORATION (
   const W = await import('../cf-worker/worker.js');
   ok('Worker isMarketSymbol matches the client rule', LOGGED.every((s) => !W.isMarketSymbol(s)) && ['AAPL', 'SAP.DE', 'EURUSD=X', '^GDAXI'].every(W.isMarketSymbol));
   const req = (method) => ({ method, headers: { get: () => null } });
-  ok('Steam requests have their own rate-limit budget', W.rateBucket(req('POST'), '') === 'steam' && W.rateBucket(req('GET'), 'steamhistory') === 'steam' && W.rateBucket(req('GET'), 'search') === 'steam');
+  ok('the skin price list has its own rate-limit budget', W.rateBucket(req('GET'), 'skinprices') === 'skins');
   ok('Yahoo, sync and the broker relay share the default budget', W.rateBucket(req('GET'), 'yf') === 'default' && W.rateBucket(req('POST'), 'sync') === 'default' && W.rateBucket(req('POST'), 'brokerproxy') === 'default');
   const env = {};
   const ctx = { waitUntil() {} };

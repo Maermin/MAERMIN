@@ -237,20 +237,6 @@
     return Object.keys(by).map(function (k) { return by[k]; });
   }
 
-  // Steam's exact market name for a stored (e.g. upper-cased) one, from the
-  // Worker's search results [{ name }]: the result equal to it ignoring case
-  // and spacing, else null (never a merely similar item).
-  function pickSkinName(stored, results) {
-    var want = normalizeSkinName(stored).toLowerCase();
-    if (!want) return null;
-    var list = Array.isArray(results) ? results : [];
-    for (var i = 0; i < list.length; i++) {
-      var n = list[i] && list[i].name;
-      if (n && normalizeSkinName(n).toLowerCase() === want) return n;
-    }
-    return null;
-  }
-
   // Move those transactions to the skins category. nameMap { stored -> Steam
   // name } restores the exact market name (imports upper-cased it); without
   // an entry the name is only re-spaced (normalizeSkinName). Returns
@@ -282,7 +268,6 @@
     looksLikeSkin: looksLikeSkin,
     isMarketSymbol: isMarketSymbol,
     findMisfiledSkins: findMisfiledSkins,
-    pickSkinName: pickSkinName,
     repairMisfiledSkins: repairMisfiledSkins,
     parseSymbol: parseSymbol,
     normalizeForDividends: normalizeForDividends,

@@ -23,7 +23,7 @@
     crypto: 'CoinGecko',
     stocks: 'Yahoo Finance',
     commodities: 'Yahoo Finance',
-    skins: 'Skinport / Steam Market',
+    skins: 'Steam Market price list',
     fx: 'Yahoo Finance'
   };
 
