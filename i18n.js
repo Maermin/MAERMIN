@@ -95,9 +95,10 @@
 
   // pct(12.5) -> "12,50 %" (de) / "12.50%" (en). Input is in percent units.
   // signed: a leading "+" for positive values.
+  // dec: fixed decimals, or { min, max } for a range.
   function pct(v, dec, signed, l) {
-    var d = dec == null ? 2 : dec;
-    return nf(locale(l), { style: 'percent', minimumFractionDigits: d, maximumFractionDigits: d, signDisplay: signed ? 'exceptZero' : 'auto' }).format(finite(v) / 100);
+    var o = (dec && typeof dec === 'object') ? dec : { min: dec == null ? 2 : dec, max: dec == null ? 2 : dec };
+    return nf(locale(l), { style: 'percent', minimumFractionDigits: o.min, maximumFractionDigits: o.max, signDisplay: signed ? 'exceptZero' : 'auto' }).format(finite(v) / 100);
   }
 
   // compact(12500) -> "12.5K" (en) / "12.500" (de); 1.2e6 -> "1.2M" / "1,2 Mio.".
@@ -155,6 +156,39 @@
     return out;
   }
 
+  // Sector names from the metadata/Worker (GICS and Yahoo spellings) -> label.
+  var SECTORS = {
+    'Technology': ['secTechnology', 'Technology'], 'Communication Services': ['secCommunication', 'Communication Services'],
+    'Consumer Discretionary': ['secConsDisc', 'Consumer Discretionary'], 'Consumer Cyclical': ['secConsDisc', 'Consumer Discretionary'],
+    'Consumer Staples': ['secConsStaples', 'Consumer Staples'], 'Consumer Defensive': ['secConsStaples', 'Consumer Staples'],
+    'Energy': ['secEnergy', 'Energy'], 'Financials': ['secFinancials', 'Financials'], 'Financial Services': ['secFinancials', 'Financials'],
+    'Healthcare': ['secHealthcare', 'Healthcare'], 'Health Care': ['secHealthcare', 'Healthcare'], 'Industrials': ['secIndustrials', 'Industrials'],
+    'Materials': ['secMaterials', 'Materials'], 'Basic Materials': ['secMaterials', 'Materials'], 'Real Estate': ['secRealEstate', 'Real Estate'],
+    'Utilities': ['secUtilities', 'Utilities'], 'Other': ['secOther', 'Other'], 'Unknown': ['dqUnknown', 'Unknown'],
+    'Crypto': ['crypto', 'Crypto'], 'Commodities': ['catCommodities', 'Commodities'], 'Gaming': ['secGaming', 'Gaming'],
+    'Consumer': ['secConsumer', 'Consumer'], 'ETF': ['secEtf', 'ETF']
+  };
+  function sector(name) { var k = SECTORS[name]; return k ? t(k[0], k[1]) : name; }
+
+  // Country names as the data spells them -> name in the UI language (Intl).
+  var COUNTRY_CODES = {
+    'USA': 'US', 'United States': 'US', 'US': 'US', 'UK': 'GB', 'United Kingdom': 'GB', 'Germany': 'DE', 'France': 'FR',
+    'Netherlands': 'NL', 'Switzerland': 'CH', 'Japan': 'JP', 'China': 'CN', 'Taiwan': 'TW', 'Denmark': 'DK', 'Israel': 'IL',
+    'Ireland': 'IE', 'Canada': 'CA', 'Australia': 'AU', 'South Korea': 'KR', 'Korea': 'KR', 'India': 'IN', 'Sweden': 'SE',
+    'Spain': 'ES', 'Italy': 'IT', 'Belgium': 'BE', 'Finland': 'FI', 'Norway': 'NO', 'Austria': 'AT', 'Hong Kong': 'HK',
+    'Singapore': 'SG', 'Brazil': 'BR', 'Mexico': 'MX', 'Luxembourg': 'LU', 'Bermuda': 'BM', 'Cayman Islands': 'KY', 'Uruguay': 'UY'
+  };
+  function country(name) {
+    if (name === 'Global') return t('ctyGlobal', 'Global');
+    if (name === 'Global (Crypto)') return t('ctyGlobalCrypto', 'Global (Crypto)');
+    if (name === 'Global (Gaming)') return t('ctyGlobalGaming', 'Global (Gaming)');
+    if (name === 'Other') return t('secOther', 'Other');
+    if (name === 'Unknown') return t('dqUnknown', 'Unknown');
+    var code = COUNTRY_CODES[name];
+    if (!code) return name;
+    try { return new Intl.DisplayNames([locale()], { type: 'region' }).of(code) || name; } catch (e) { return name; }
+  }
+
   // Interval / frequency id -> label ('semiannual' and 'semi-annual' both work).
   function freq(id) {
     var k = { weekly: ['freqWeekly', 'Weekly'], biweekly: ['freqBiweekly', 'Bi-weekly'], monthly: ['freqMonthly', 'Monthly'],
@@ -171,7 +205,7 @@
   var api = {
     LANGS: LANGS, LOCALES: LOCALES, lang: lang, setLang: setLang, locale: locale,
     dict: dict, t: t, fill: fill,
-    num: num, money: money, pct: pct, compact: compact, date: date, monthNames: monthNames, weekdayNames: weekdayNames, category: category, freq: freq,
+    num: num, money: money, pct: pct, compact: compact, date: date, monthNames: monthNames, weekdayNames: weekdayNames, category: category, freq: freq, sector: sector, country: country,
     applyHtmlLang: applyHtmlLang
   };
   if (typeof window !== 'undefined') { window.MaerminI18n = api; applyHtmlLang(); }

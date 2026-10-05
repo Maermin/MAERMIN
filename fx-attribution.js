@@ -27,6 +27,8 @@
 // ============================================================================
 (function () {
   'use strict';
+// Translation lookup (i18n.js): __('key', 'English fallback', { slot: value }).
+function __(k, f, v) { return (typeof window !== 'undefined' && window.MaerminI18n ? window.MaerminI18n : require('./i18n.js')).t(k, f, v); }
 
   function num(x) {
     var n = typeof x === 'number' ? x : parseFloat(x);
@@ -258,7 +260,7 @@
           }
           setLoading(false);
         })
-        .catch(function (ex) { if (cancelled) return; setErr((ex && ex.name === 'AbortError') ? 'Timed out' : 'Fetch failed'); setLoading(false); })
+        .catch(function (ex) { if (cancelled) return; setErr((ex && ex.name === 'AbortError') ? __('fxaTimedOut', 'Timed out') : __('fxaFetchFailed', 'Fetch failed')); setLoading(false); })
         .then(function () { if (timer) clearTimeout(timer); });
       return function () { cancelled = true; if (timer) clearTimeout(timer); };
     }, [workerBase]);
@@ -267,7 +269,7 @@
     var result = attribute(rows, fx);
     var hasUsd = rows.some(function (r) { return r.currency === 'USD'; });
 
-    var pct = function (x) { return x == null ? '-' : ((x >= 0 ? '+' : '') + (x * 100).toFixed(2) + '%'); };
+    var pct = function (x) { return x == null ? '-' : window.MaerminI18n.pct(x * 100, 2, true); };
     var colorOf = function (x) { return x == null ? dim : (x >= 0 ? good : bad); };
     function tile(label, value, color) {
       return e('div', { key: label, style: { background: inputBg, border: '1px solid ' + border, borderRadius: '10px', padding: '0.7rem 0.9rem', minWidth: '120px' } },
@@ -277,50 +279,50 @@
 
     var body;
     if (!rows.length) {
-      body = e('div', { style: { color: dim, fontSize: '0.85rem' } }, 'Refresh prices a few times to unlock FX attribution - it needs a short per-position price history.');
+      body = e('div', { style: { color: dim, fontSize: '0.85rem' } }, __('fxaNeedHistory', 'Refresh prices a few times to unlock FX attribution - it needs a short per-position price history.'));
     } else if (!hasUsd) {
-      body = e('div', { style: { color: dim, fontSize: '0.85rem' } }, 'All positions are EUR-denominated - exchange rates contribute nothing to your returns.');
+      body = e('div', { style: { color: dim, fontSize: '0.85rem' } }, __('fxaAllEur', 'All positions are EUR-denominated - exchange rates contribute nothing to your returns.'));
     } else if (!workerBase) {
-      body = e('div', { style: { color: dim, fontSize: '0.85rem' } }, 'Add a Worker URL in API Settings to load the EUR/USD history for the FX decomposition.');
+      body = e('div', { style: { color: dim, fontSize: '0.85rem' } }, __('fxaNeedWorker', 'Add a Worker URL in API Settings to load the EUR/USD history for the FX decomposition.'));
     } else if (loading) {
-      body = e('div', { style: { color: dim, fontSize: '0.85rem' } }, 'Loading EUR/USD history...');
+      body = e('div', { style: { color: dim, fontSize: '0.85rem' } }, __('fxaLoading', 'Loading EUR/USD history...'));
     } else if (err) {
-      body = e('div', { style: { color: bad, fontSize: '0.85rem' } }, 'Could not load FX history: ' + err);
+      body = e('div', { style: { color: bad, fontSize: '0.85rem' } }, __('fxaLoadFailed', 'Could not load FX history: {msg}', { msg: err }));
     } else if (!result.available) {
-      body = e('div', { style: { color: dim, fontSize: '0.85rem' } }, 'Not enough overlapping history to attribute yet.');
+      body = e('div', { style: { color: dim, fontSize: '0.85rem' } }, __('fxaNotEnough', 'Not enough overlapping history to attribute yet.'));
     } else {
       var tot = result.totals;
       var topRows = result.positions.filter(function (p) { return p.currency === 'USD'; }).slice(0, 6);
       body = e('div', null,
         e('div', { style: { display: 'flex', flexWrap: 'wrap', gap: '0.6rem', marginBottom: '0.9rem' } },
-          tile('Portfolio return (EUR)', pct(tot.eurReturn), colorOf(tot.eurReturn)),
-          tile('Asset (local) part', pct(tot.localReturn), colorOf(tot.localReturn)),
-          tile('FX part', pct(tot.fxReturn), colorOf(tot.fxReturn)),
-          tile('Interaction', pct(tot.interaction), dim)),
-        e('div', { style: { color: dim, fontSize: '0.72rem', textTransform: 'uppercase', letterSpacing: '0.05em', fontWeight: 700, margin: '0.4rem 0 0.4rem' } }, 'By currency'),
+          tile(__('fxaPortReturn', 'Portfolio return (EUR)'), pct(tot.eurReturn), colorOf(tot.eurReturn)),
+          tile(__('fxaLocalPart', 'Asset (local) part'), pct(tot.localReturn), colorOf(tot.localReturn)),
+          tile(__('fxaFxPart', 'FX part'), pct(tot.fxReturn), colorOf(tot.fxReturn)),
+          tile(__('fxaInteraction', 'Interaction'), pct(tot.interaction), dim)),
+        e('div', { style: { color: dim, fontSize: '0.72rem', textTransform: 'uppercase', letterSpacing: '0.05em', fontWeight: 700, margin: '0.4rem 0 0.4rem' } }, __('fxaByCurrency', 'By currency')),
         result.byCurrency.map(function (c) {
           return e('div', { key: c.currency, style: { display: 'flex', justifyContent: 'space-between', padding: '0.25rem 0', fontSize: '0.8rem' } },
-            e('span', { style: { color: text, fontWeight: 600 } }, c.currency + '  ' + (c.weight * 100).toFixed(0) + '% of value'),
-            e('span', { style: { color: dim } }, 'asset ', e('span', { style: { color: colorOf(c.localContribution), fontWeight: 600 } }, pct(c.localContribution)),
-              '  fx ', e('span', { style: { color: colorOf(c.fxContribution), fontWeight: 600 } }, pct(c.fxContribution))));
+            e('span', { style: { color: text, fontWeight: 600 } }, c.currency + '  ' + __('rtaOfValue', '{pct} of value', { pct: window.MaerminI18n.pct(c.weight * 100, 0) })),
+            e('span', { style: { color: dim } }, __('fxaAsset', 'asset') + ' ', e('span', { style: { color: colorOf(c.localContribution), fontWeight: 600 } }, pct(c.localContribution)),
+              '  ' + __('fxaFx', 'fx') + ' ', e('span', { style: { color: colorOf(c.fxContribution), fontWeight: 600 } }, pct(c.fxContribution))));
         }),
         topRows.length ? e('div', null,
-          e('div', { style: { color: dim, fontSize: '0.72rem', textTransform: 'uppercase', letterSpacing: '0.05em', fontWeight: 700, margin: '0.8rem 0 0.3rem' } }, 'Largest FX impacts'),
+          e('div', { style: { color: dim, fontSize: '0.72rem', textTransform: 'uppercase', letterSpacing: '0.05em', fontWeight: 700, margin: '0.8rem 0 0.3rem' } }, __('fxaLargest', 'Largest FX impacts')),
           e('div', { style: { overflowX: 'auto' } },
             e('table', { style: { width: '100%', borderCollapse: 'collapse' } },
-              e('thead', null, e('tr', null, ['Position', 'Weight', 'EUR return', 'Local return', 'FX effect'].map(function (h, i) {
+              e('thead', null, e('tr', null, [__('position', 'Position'), __('colWeight', 'Weight'), __('fxaEurReturn', 'EUR return'), __('fxaLocalReturn', 'Local return'), __('fxaFxEffect', 'FX effect')].map(function (h, i) {
                 return e('th', { key: h, style: { textAlign: i === 0 ? 'left' : 'right', padding: '0.35rem 0.45rem', color: dim, fontSize: '0.66rem', textTransform: 'uppercase', letterSpacing: '0.04em' } }, h);
               }))),
               e('tbody', null, topRows.map(function (p) {
                 return e('tr', { key: p.cls + p.symbol, style: { borderTop: '1px solid ' + border } },
                   e('td', { style: { padding: '0.4rem 0.45rem', color: text, fontSize: '0.8rem', fontWeight: 600 } }, p.symbol),
-                  e('td', { style: { padding: '0.4rem 0.45rem', textAlign: 'right', color: dim, fontSize: '0.78rem' } }, (p.weight * 100).toFixed(1) + '%'),
+                  e('td', { style: { padding: '0.4rem 0.45rem', textAlign: 'right', color: dim, fontSize: '0.78rem' } }, window.MaerminI18n.pct(p.weight * 100, 1)),
                   e('td', { style: { padding: '0.4rem 0.45rem', textAlign: 'right', color: colorOf(p.eurReturn), fontSize: '0.78rem' } }, pct(p.eurReturn)),
                   e('td', { style: { padding: '0.4rem 0.45rem', textAlign: 'right', color: colorOf(p.localReturn), fontSize: '0.78rem' } }, pct(p.localReturn)),
                   e('td', { style: { padding: '0.4rem 0.45rem', textAlign: 'right', color: colorOf(p.fxReturn), fontSize: '0.78rem', fontWeight: 700 } }, pct(p.fxReturn)));
               }))))) : null,
         e('div', { style: { color: dim, fontSize: '0.7rem', marginTop: '0.8rem', lineHeight: 1.5 } },
-          'Decomposition (1+r_EUR) = (1+r_local) x (1+r_fx) over each position\'s available history vs the EUR/USD path; the portfolio line is the value-weighted average across positions, so windows differ with data coverage. An estimate, not a statement of account.'));
+          __('fxaFootnote', "Decomposition (1+r_EUR) = (1+r_local) x (1+r_fx) over each position's available history vs the EUR/USD path; the portfolio line is the value-weighted average across positions, so windows differ with data coverage. An estimate, not a statement of account.")));
     }
 
     return e('div', { style: { background: card, border: '1px solid ' + border, borderRadius: '14px', padding: '1.25rem', marginTop: '1rem' } },

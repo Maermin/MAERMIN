@@ -73,7 +73,7 @@ export function run({ update = false, quiet = false } = {}) {
 
   // 4. dead keys: referenced nowhere in app code (any word match counts, so
   // keys built at run time from a known name still count when the name appears).
-  const corpus = files.map(readSrc).join('\n');
+  const corpus = files.concat(['i18n.js']).map(readSrc).join('\n');
   const words = new Set(corpus.match(/[A-Za-z_][A-Za-z0-9_]*/g));
   const dead = enKeys.filter((k) => !words.has(k));
   if (dead.length) errors.push(`${dead.length} dead key(s): ${dead.join(', ')}`);
