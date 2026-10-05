@@ -286,137 +286,10 @@ function calculateTotalValue(portfolio) {
   return Object.values(vals).reduce((a, b) => a + b, 0);
 }
 
-/**
- * Run retirement projection simulation
- */
-function runRetirementSimulation(portfolio, config) {
-  const {
-    currentAge,
-    retirementAge,
-    lifeExpectancy = 90,
-    monthlyContribution,
-    desiredMonthlyIncome,
-    socialSecurityAge = 67,
-    socialSecurityAmount = 0
-  } = config;
-
-  const yearsToRetirement = retirementAge - currentAge;
-  const yearsInRetirement = lifeExpectancy - retirementAge;
-
-  // Phase 1: Accumulation
-  const accumulationResults = runMonteCarloSimulation(portfolio, {
-    iterations: 5000,
-    years: yearsToRetirement,
-    monthlyContribution
-  });
-
-  // Phase 2: Distribution (using median from accumulation)
-  const retirementPortfolio = {
-    crypto: [],
-    stocks: [{ currentValue: accumulationResults.percentiles[50] }],
-    skins: []
-  };
-
-  const withdrawalStart = socialSecurityAge > retirementAge 
-    ? socialSecurityAge - retirementAge 
-    : 0;
-
-  const adjustedWithdrawal = desiredMonthlyIncome - 
-    (socialSecurityAge <= retirementAge ? socialSecurityAmount : 0);
-
-  const distributionResults = runMonteCarloSimulation(retirementPortfolio, {
-    iterations: 5000,
-    years: yearsInRetirement,
-    monthlyContribution: 0,
-    withdrawalAmount: adjustedWithdrawal * 12,
-    withdrawalStartYear: 1
-  });
-
-  // Calculate success rate (not running out of money)
-  const successRate = distributionResults.statistics.min > 0 
-    ? 100 
-    : (distributionResults.percentiles[10] > 0 ? 90 : 
-       distributionResults.percentiles[25] > 0 ? 75 : 50);
-
-  return {
-    accumulation: accumulationResults,
-    distribution: distributionResults,
-    projectedRetirementValue: accumulationResults.percentiles[50],
-    successRate,
-    yearsToRetirement,
-    yearsInRetirement
-  };
-}
-
-/**
- * Sensitivity analysis - vary parameters and see impact
- */
-function runSensitivityAnalysis(portfolio, baseConfig) {
-  const baseResult = runMonteCarloSimulation(portfolio, { ...baseConfig, iterations: 1000 });
-  const baseMedian = baseResult.percentiles[50];
-
-  const analyses = [];
-
-  // Vary expected return
-  [-0.02, -0.01, 0.01, 0.02].forEach(delta => {
-    const result = runMonteCarloSimulation(portfolio, {
-      ...baseConfig,
-      iterations: 1000,
-      expectedReturn: (baseConfig.expectedReturn || 0.08) + delta
-    });
-    analyses.push({
-      parameter: 'Expected Return',
-      change: `${delta > 0 ? '+' : ''}${(delta * 100).toFixed(0)}%`,
-      medianOutcome: result.percentiles[50],
-      impactPercent: ((result.percentiles[50] - baseMedian) / baseMedian) * 100
-    });
-  });
-
-  // Vary volatility
-  [-0.05, -0.02, 0.02, 0.05].forEach(delta => {
-    const result = runMonteCarloSimulation(portfolio, {
-      ...baseConfig,
-      iterations: 1000,
-      volatility: Math.max(0.05, (baseConfig.volatility || 0.20) + delta)
-    });
-    analyses.push({
-      parameter: 'Volatility',
-      change: `${delta > 0 ? '+' : ''}${(delta * 100).toFixed(0)}%`,
-      medianOutcome: result.percentiles[50],
-      impactPercent: ((result.percentiles[50] - baseMedian) / baseMedian) * 100
-    });
-  });
-
-  // Vary contribution
-  const baseMonthlyCont = baseConfig.monthlyContribution || 0;
-  if (baseMonthlyCont > 0) {
-    [0.5, 0.75, 1.25, 1.5].forEach(multiplier => {
-      const result = runMonteCarloSimulation(portfolio, {
-        ...baseConfig,
-        iterations: 1000,
-        monthlyContribution: baseMonthlyCont * multiplier
-      });
-      analyses.push({
-        parameter: 'Monthly Contribution',
-        change: `${multiplier}x`,
-        medianOutcome: result.percentiles[50],
-        impactPercent: ((result.percentiles[50] - baseMedian) / baseMedian) * 100
-      });
-    });
-  }
-
-  return {
-    baseMedian,
-    analyses: analyses.sort((a, b) => Math.abs(b.impactPercent) - Math.abs(a.impactPercent))
-  };
-}
-
 // Export functions for use in renderer
 if (typeof window !== 'undefined') {
   window.MonteCarloEngine = {
     runSimulation: runMonteCarloSimulation,
-    runRetirementSimulation,
-    runSensitivityAnalysis,
     estimateExpectedReturn,
     estimateVolatility
   };
@@ -426,8 +299,6 @@ if (typeof window !== 'undefined') {
 if (typeof module !== 'undefined' && module.exports) {
   module.exports = {
     runMonteCarloSimulation,
-    runRetirementSimulation,
-    runSensitivityAnalysis,
     estimateExpectedReturn,
     estimateVolatility
   };

@@ -552,8 +552,6 @@ function InvestmentTracker() {
   const showImportModal = window.MaerminStore.useStore(window.MaerminUI.overlays, s => !!s.importModal);
   const setShowImportModal = (v) => { const n = typeof v === 'function' ? v(showImportModal) : v; n ? window.MaerminUI.openOverlay('importModal') : window.MaerminUI.closeOverlay('importModal'); };
   const [importData, setImportData] = useState('');
-  const showAlertModal = window.MaerminStore.useStore(window.MaerminUI.overlays, s => !!s.alertModal);
-  const setShowAlertModal = (v) => { const n = typeof v === 'function' ? v(showAlertModal) : v; n ? window.MaerminUI.openOverlay('alertModal') : window.MaerminUI.closeOverlay('alertModal'); };
   const showPasswordModal = window.MaerminStore.useStore(window.MaerminUI.overlays, s => !!s.passwordModal);
   const setShowPasswordModal = (v) => { const n = typeof v === 'function' ? v(showPasswordModal) : v; n ? window.MaerminUI.openOverlay('passwordModal') : window.MaerminUI.closeOverlay('passwordModal'); };
   const [apiKeys, setApiKeys] = useState(() => {
@@ -2181,7 +2179,7 @@ function InvestmentTracker() {
   const gPendingRef = useRef(0);
   const overlayRef = useRef(false);
   overlayRef.current = showCommandPalette || showShortcuts || showTransactionModal ||
-    showImportModal || showApiSettings || showPasswordModal || showAlertModal;
+    showImportModal || showApiSettings || showPasswordModal;
 
   useEffect(() => {
     const single = {};

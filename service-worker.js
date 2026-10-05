@@ -133,18 +133,6 @@ function networkFirst(req) {
   });
 }
 
-function staleWhileRevalidate(req) {
-  return caches.open(RUNTIME_CACHE).then(function (cache) {
-    return cache.match(req).then(function (cached) {
-      var network = fetch(req).then(function (res) {
-        if (res && res.status === 200) cache.put(req, res.clone());
-        return res;
-      }).catch(function () { return cached; });
-      return cached || network;
-    });
-  });
-}
-
 function cacheFirst(req) {
   return caches.open(RUNTIME_CACHE).then(function (cache) {
     return cache.match(req).then(function (cached) {

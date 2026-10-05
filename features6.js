@@ -256,7 +256,6 @@ function storedCryptoCloses(symbol, period, usdToEur) {
 // ─────────────────────────────────────────────────────────────────────────────
 function PortfolioHistoryChart({ portfolio, prices, transactions, apiKeys, theme, formatPrice, getCurrencySymbol, exchangeRate, currentValue, totalInvested, totalProfit, totalProfitPercent }) {
   const [period, setPeriod]         = useState('1M');
-  const chartMode = 'value'; // return tab removed — always show value chart
   const [loading, setLoading]       = useState(false);
   const [error, setError]           = useState(null);
   const [chartData, setChartData]   = useState([]);
@@ -598,163 +597,6 @@ function PortfolioHistoryChart({ portfolio, prices, transactions, apiKeys, theme
 
   const hovered = hoveredIdx !== null ? chartData[hoveredIdx] : null;
 
-  // ── Return % chart computation ─────────────────────────────────────────────
-  const computedReturn = useMemo(() => {
-    if (chartData.length < 2) return null;
-
-    // ── Normalized return % curve ────────────────────────────────────────────
-    // Problem: historical chart values may only include assets with data at that time
-    // (e.g. only a €17 skin exists in 2018, stocks bought in 2024 add no history).
-    // Using any historical base causes exploding % values.
-    //
-    // Solution: normalize the ENTIRE curve so the last point = true ROI (from header).
-    // impliedBase = lastValue / (1 + trueROI/100)
-    // retVal_t   = (value_t / impliedBase - 1) × 100
-    //
-    // This guarantees:
-    //   • Last point always equals the header "Total Return" exactly
-    //   • Shape of curve correctly reflects portfolio value movements
-    //   • No exploding values regardless of period or portfolio history
-    //   • 0% line represents "break-even on current invested capital"
-    const lastV = chartData[chartData.length - 1]?.value;
-    if (!lastV) return null;
-
-    // impliedBase is what the portfolio would need to have started at
-    // for the current value to represent trueROI
-    const roiFactor = (typeof trueROI === 'number' && trueROI > -100)
-      ? (1 + trueROI / 100)
-      : 1;
-    const impliedBase = lastV / roiFactor;
-
-    // Skip leading points where portfolio was negligible (<2% of implied base)
-    // to avoid showing flat lines from before real investing began
-    const threshold = impliedBase * 0.02;
-    let startIdx = 0;
-    for (let i = 0; i < chartData.length; i++) {
-      if (chartData[i].value >= threshold) { startIdx = i; break; }
-    }
-    const meaningfulData = chartData.slice(startIdx);
-    if (meaningfulData.length < 2) return null;
-
-    const firstV = impliedBase; // used only for EUR amount in hover tooltip
-
-    // Normalize: each point = (value / impliedBase - 1) × 100
-    const retVals = meaningfulData.map(d => (d.value / impliedBase - 1) * 100);
-    const minR    = Math.min(...retVals);
-    const maxR    = Math.max(...retVals);
-    // SYMMETRIC axis: 0% is always in the exact vertical center.
-    // This makes the chart visually distinct from the value chart —
-    // the line oscillates around a fixed middle baseline.
-    const extent  = Math.max(Math.abs(minR), Math.abs(maxR), 1) * 1.15; // 15% padding
-    const lo      = -extent;
-    const hi      =  extent;
-    const range   = hi - lo;
-
-    const toX  = i => PAD.l + (i / (meaningfulData.length - 1)) * (W - PAD.l - PAD.r);
-    const toY  = v => PAD.t + (1 - (v - lo) / range) * (H - PAD.t - PAD.b);
-    const y0   = toY(0); // pixel position of the 0% baseline
-
-    // Build SVG polyline string for the return curve
-    const pts = retVals.map((r, i) => `${toX(i)},${toY(r)}`).join(' ');
-
-    // Build proper closed area paths for positive (green) and negative (red) regions.
-    // We walk through the points and interpolate exact crossing X positions where
-    // the line crosses y0. Each closed segment is a valid non-self-intersecting polygon.
-    // This is the ONLY correct way — single polygon + clipPath creates stripe artifacts
-    // when the line oscillates above/below zero.
-    const buildSignedPaths = () => {
-      const posPath = []; // D string segments for above-zero (green)
-      const negPath = []; // D string segments for below-zero (red)
-
-      let segPos = null; // current open positive segment points
-      let segNeg = null; // current open negative segment points
-
-      const closeSegment = (seg, container) => {
-        if (seg && seg.length >= 2) {
-          // Close back to y0 at the last and first x
-          const first = seg[0];
-          const last  = seg[seg.length - 1];
-          container.push(`M ${first.x},${y0} ` +
-            seg.map(p => `L ${p.x},${p.y}`).join(' ') +
-            ` L ${last.x},${y0} Z`);
-        }
-      };
-
-      for (let i = 0; i < retVals.length; i++) {
-        const r = retVals[i];
-        const x = toX(i);
-        const y = toY(r);
-        const above = r >= 0;
-
-        // Check for crossing between previous point and this one
-        if (i > 0) {
-          const prevR = retVals[i-1];
-          const prevX = toX(i-1);
-          const prevAbove = prevR >= 0;
-
-          if (above !== prevAbove) {
-            // Interpolate exact crossing X
-            const crossFrac = Math.abs(prevR) / (Math.abs(prevR) + Math.abs(r));
-            const crossX    = prevX + crossFrac * (x - prevX);
-
-            // Close the outgoing segment at the crossing
-            if (prevAbove) {
-              if (segPos) { segPos.push({ x: crossX, y: y0 }); closeSegment(segPos, posPath); segPos = null; }
-            } else {
-              if (segNeg) { segNeg.push({ x: crossX, y: y0 }); closeSegment(segNeg, negPath); segNeg = null; }
-            }
-            // Start the new segment from the crossing
-            if (above) { segPos = [{ x: crossX, y: y0 }]; }
-            else        { segNeg = [{ x: crossX, y: y0 }]; }
-          }
-        }
-
-        // Add point to active segment
-        if (above) {
-          if (!segPos) segPos = [];
-          segPos.push({ x, y });
-        } else {
-          if (!segNeg) segNeg = [];
-          segNeg.push({ x, y });
-        }
-      }
-
-      // Close any open segments
-      closeSegment(segPos, posPath);
-      closeSegment(segNeg, negPath);
-
-      return { posPath: posPath.join(' '), negPath: negPath.join(' ') };
-    };
-
-    const { posPath, negPath } = buildSignedPaths();
-
-    // Y labels — use clean rounded % steps
-    const stepSize = extent > 20 ? 10 : extent > 10 ? 5 : extent > 5 ? 2 : 1;
-    const yLabels = [];
-    for (let v = Math.ceil(lo / stepSize) * stepSize; v <= hi + 0.001; v += stepSize) {
-      yLabels.push({ y: toY(v), label: `${v > 0 ? '+' : ''}${v.toFixed(v % 1 === 0 ? 0 : 1)}%`, isZero: v === 0 });
-    }
-
-    const xCount = 6;
-    const xStep  = Math.max(1, Math.floor((meaningfulData.length-1)/(xCount-1)));
-    const xLabels = Array.from({length: xCount}, (_,i) => {
-      const idx = Math.min(i*xStep, meaningfulData.length-1);
-      const d   = meaningfulData[idx];
-      let label = d.date;
-      if (['1H','1D'].includes(period)) {
-        label = new Date(d.ts*1000).toLocaleTimeString('en-GB', {hour:'2-digit',minute:'2-digit'});
-      } else if (['1W','1M'].includes(period)) {
-        label = new Date(d.date).toLocaleDateString('en-GB', {day:'2-digit',month:'short'});
-      } else {
-        label = new Date(d.date).toLocaleDateString('en-GB', {month:'short',year:'2-digit'});
-      }
-      return { idx, label, x: toX(idx) };
-    });
-
-    const lastR = retVals[retVals.length - 1];
-    return { retVals, meaningfulData, startIdx, lo, hi, range, toX, toY, y0, pts, posPath, negPath, yLabels, xLabels, lastR, firstV };
-  }, [chartData, period, trueROI]);
-
   const handleMouseMove = e => {
     if (!svgRef.current || chartData.length < 2) return;
     const rect = svgRef.current.getBoundingClientRect();
@@ -829,33 +671,12 @@ function PortfolioHistoryChart({ portfolio, prices, transactions, apiKeys, theme
   // ── Hover value display ──────────────────────────────────────────────────
   const hoverDisplay = () => {
     if (!hovered) return null;
-    if (chartMode === 'value') {
-      return React.createElement('div', { style: { display:'flex', alignItems:'baseline', gap:'0.5rem', marginTop:'0.25rem' } },
-        React.createElement('span', { style: { fontSize:'1.85rem', fontWeight:'800', letterSpacing:'-0.03em', color: theme.text } },
-          `${formatPrice(hovered.value)} ${getCurrencySymbol()}`),
-        React.createElement('span', { style: { fontSize:'0.78rem', color: GREY } }, hovered.date)
-      );
-    }
-    // return mode — show % relative to chart base, EUR vs totalInvested
-    if (!computedReturn) return null;
-    const mI   = hoveredIdx - (computedReturn.startIdx || 0);
-    const r    = (mI >= 0 && mI < computedReturn.retVals.length) ? computedReturn.retVals[mI] : 0;
-    const col  = r >= 0 ? GREEN : RED;
-    const base = (typeof totalInvested === 'number' && totalInvested > 0) ? totalInvested : (computedReturn.firstV || 0);
-    const eur  = (r / 100) * base;
-    return React.createElement('div', { style: { display:'flex', alignItems:'baseline', gap:'0.5rem', flexWrap:'wrap', marginTop:'0.25rem' } },
-      React.createElement('span', { style: { fontSize:'1.85rem', fontWeight:'800', letterSpacing:'-0.03em', color: col } },
-        `${r >= 0 ? '+' : ''}${r.toFixed(2)}%`),
-      React.createElement('span', { style: { fontSize:'0.9rem', fontWeight:'700', color: col } },
-        `${eur >= 0 ? '+' : ''}${formatPrice(eur)} ${getCurrencySymbol()}`),
+    return React.createElement('div', { style: { display:'flex', alignItems:'baseline', gap:'0.5rem', marginTop:'0.25rem' } },
+      React.createElement('span', { style: { fontSize:'1.85rem', fontWeight:'800', letterSpacing:'-0.03em', color: theme.text } },
+        `${formatPrice(hovered.value)} ${getCurrencySymbol()}`),
       React.createElement('span', { style: { fontSize:'0.78rem', color: GREY } }, hovered.date)
     );
   };
-
-  // ── SVG grid helper ───────────────────────────────────────────────────────
-  const gridLine = (y, dashed = true) =>
-    React.createElement('line', { x1:PAD.l, y1:y, x2:W-PAD.r, y2:y,
-      stroke: GREY2, strokeWidth:1, strokeDasharray: dashed ? '4,6' : '0' });
 
   // ── Value chart SVG ───────────────────────────────────────────────────────
   const renderValueChart = () => {
@@ -912,86 +733,6 @@ function PortfolioHistoryChart({ portfolio, prices, transactions, apiKeys, theme
     }
     return React.createElement('svg', {
       ref: svgRef, viewBox: `0 0 ${W} ${H}`, width:'100%',
-      style: { display:'block', overflow:'visible', cursor:'crosshair' },
-      onMouseMove: handleMouseMove, onMouseLeave: () => setHoveredIdx(null)
-    }, children);
-  };
-
-  // ── Return % chart SVG ────────────────────────────────────────────────────
-  const renderReturnChart = () => {
-    if (!computedReturn || error) return null;
-    const xCount = 5;
-    const xStep  = Math.max(1, Math.floor((chartData.length-1) / (xCount-1)));
-    const xLabels = Array.from({length: xCount}, (_,i) => {
-      const idx = Math.min(i*xStep, chartData.length-1);
-      return { idx, x: computedReturn.toX(idx), label: fmtX(chartData[idx]) };
-    });
-
-    const { y0, posPath, negPath, pts, lastR, toX, toY, retVals, meaningfulData: mData, startIdx } = computedReturn;
-    // Correct fill approach: separate closed path segments per sign region.
-    // One area polygon is drawn twice — once clipped above y0, once below y0.
-    // This avoids the zig-zag artifact of the clamping/split-polygon approach.
-    const children = [
-      React.createElement('defs', {key:'defs'},
-        React.createElement('linearGradient', { id:'retGreen', x1:'0', y1:'0', x2:'0', y2:'1' },
-          React.createElement('stop', { offset:'0%',   stopColor: GREEN, stopOpacity: PALETTE.dark ? 0.34 : 0.24 }),
-          React.createElement('stop', { offset:'100%', stopColor: GREEN, stopOpacity: 0.02 })
-        ),
-        React.createElement('linearGradient', { id:'retRed', x1:'0', y1:'0', x2:'0', y2:'1' },
-          React.createElement('stop', { offset:'0%',   stopColor: RED, stopOpacity: 0.02 }),
-          React.createElement('stop', { offset:'100%', stopColor: RED, stopOpacity: PALETTE.dark ? 0.34 : 0.24 })
-        )
-      ),
-      // Grid + Y labels: the 0% baseline is the strong anchor line.
-      ...computedReturn.yLabels.map((yl,i) => [
-        React.createElement('line', { key:`gl${i}`, x1:PAD.l, y1:yl.y, x2:W-PAD.r, y2:yl.y,
-          stroke: yl.isZero ? PALETTE.gridStrong : GREY2,
-          strokeWidth: yl.isZero ? 1.5 : 1
-        }),
-        React.createElement('text', { key:`gt${i}`, x:PAD.l-8, y:yl.y+3.5, textAnchor:'end',
-          fill: yl.isZero ? PALETTE.axisText : GREY,
-          fontSize:10, fontWeight: yl.isZero ? 700 : 400, style:{fontVariantNumeric:'tabular-nums'}
-        }, yl.label)
-      ]).flat(),
-      // X labels
-      ...xLabels.map((xl,i) =>
-        React.createElement('text', { key:`xl${i}`, x:xl.x, y:H-PAD.b+14, textAnchor:'middle', fill:GREY, fontSize:10 }, xl.label)
-      ),
-      // Green fill — each above-zero segment as its own closed path (no self-intersection)
-      posPath && React.createElement('path', { key:'ag', d: posPath, fill:'url(#retGreen)' }),
-      // Red fill — each below-zero segment as its own closed path
-      negPath && React.createElement('path', { key:'ar', d: negPath, fill:'url(#retRed)' }),
-      // The line on top — smoothed to match the value chart's curve style.
-      React.createElement('path', { key:'line', d: smoothPath(retVals.map((r, i) => ({ x: toX(i), y: toY(r) }))), fill:'none',
-        stroke: lastR >= 0 ? GREEN : RED,
-        strokeWidth: 2.2, strokeLinejoin:'round', strokeLinecap:'round'
-      }),
-    ];
-
-    // Map global hoveredIdx to meaningfulData index
-    const mIdx = hoveredIdx - startIdx;
-    const mHovered = (mIdx >= 0 && mIdx < (mData?.length || 0)) ? mData[mIdx] : null;
-    if (mHovered && retVals[mIdx] !== undefined) {
-      const r   = retVals[mIdx];
-      const col = r >= 0 ? GREEN : RED;
-      const hx  = toX(mIdx);
-      const hy  = toY(r);
-      children.push(
-        React.createElement('line', { key:'hx', x1:hx, y1:PAD.t, x2:hx, y2:H-PAD.b, stroke:PALETTE.gridStrong, strokeWidth:1, strokeDasharray:'3,3' }),
-        React.createElement('circle', { key:'hc', cx:hx, cy:hy, r:4.5, fill:col, stroke:theme.card, strokeWidth:2 }),
-        React.createElement('g', { key:'ht', transform:`translate(${Math.min(hx+10, W-150)},${Math.max(hy-48, PAD.t)})` },
-          React.createElement('rect', { width:142, height:52, rx:8, fill:theme.card, stroke:col, strokeWidth:1, opacity:0.97 }),
-          React.createElement('text', { x:10, y:16, fill:GREY, fontSize:10 }, mHovered.date),
-          React.createElement('text', { x:10, y:33, fill:col, fontSize:13, fontWeight:700, style:{fontVariantNumeric:'tabular-nums'} },
-            `${r >= 0 ? '+' : ''}${r.toFixed(2)}%`),
-          React.createElement('text', { x:10, y:46, fill:GREY, fontSize:10, style:{fontVariantNumeric:'tabular-nums'} },
-            `${formatPrice(mHovered.value)} ${getCurrencySymbol()}`)
-        )
-      );
-    }
-
-    return React.createElement('svg', {
-      ref: svgRefReturn, viewBox: `0 0 ${W} ${H}`, width:'100%',
       style: { display:'block', overflow:'visible', cursor:'crosshair' },
       onMouseMove: handleMouseMove, onMouseLeave: () => setHoveredIdx(null)
     }, children);

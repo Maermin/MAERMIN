@@ -75,7 +75,7 @@ globalThis.window.navigator = globalThis.navigator || { language: 'en-US', clipb
 // Each is optional — record but don't hard-fail if one can't load here.
 // ---------------------------------------------------------------------------
 const engines = [
-  '../utils.js', '../ledger.js', '../allocation.js', '../metrics.js', '../projection.js',
+  '../utils.js', '../ledger.js', '../metrics.js', '../projection.js',
   '../recurring.js', '../equity-metadata.js', '../portfolio-health.js',
   '../data-quality.js', '../portfolio-analytics.js', '../analytics-data.js',
   '../tax-settings.js', '../tax-calculation-engine.js', '../tax-report-builder.js',
@@ -91,9 +91,9 @@ for (const e of engines) {
 // Tier 1 — every view module loads + exports the documented components.
 // ---------------------------------------------------------------------------
 const VIEW_MODULES = [
-  { file: '../features.js',         ns: 'MaerminFeatures',  comps: ['Sparkline', 'PriceQualityBadge', 'WatchlistView'] },
+  { file: '../features.js',         ns: 'MaerminFeatures',  comps: ['Sparkline', 'WatchlistView'] },
   { file: '../features2.js',        ns: 'MaerminFeatures2', comps: ['ReturnsView', 'RebalancingView', 'BrokerImportWizard', 'PositionNotesView', 'DividendCalendarView', 'MobileBottomNav', 'calcXIRR', 'calcTWR'] },
-  { file: '../features3.js',        ns: 'MaerminFeatures3', comps: ['PositionDetailModal', 'EnhancedPositionsTable', 'CS2SkinPicker', 'CS2SkinImage', 'SymbolPicker'] },
+  { file: '../features3.js',        ns: 'MaerminFeatures3', comps: ['PositionDetailModal', 'CS2SkinPicker', 'SymbolPicker'] },
   { file: '../features4.js',        ns: 'MaerminFeatures4', comps: ['usePortfolios', 'PortfolioManagerView', 'SavingsPlanView', 'DividendForecastView', 'FIFOView', 'calcFIFO'] },
   { file: '../features5.js',        ns: 'MaerminFeatures5', comps: ['NetWorthView', 'CashflowChart', 'FeeAnalyzer'] },
   { file: '../features6.js',        ns: 'MaerminFeatures6', comps: ['PortfolioHistoryChart'] },
@@ -188,8 +188,6 @@ const emptyProps = {
 // covered at Tier 1 — full-tree rendering needs a real DOM, out of scope here.)
 const MUST_RENDER = [
   ['MaerminFeatures', 'Sparkline', { data: [1, 3, 2, 5, 4], color: '#16a34a' }],
-  ['MaerminFeatures', 'PriceQualityBadge', { category: 'stocks', price: 228, fetchedAt: Date.now(), theme }],
-  ['MaerminFeatures', 'PriceQualityBadge', { category: 'crypto', price: 0, theme }], // unavailable → no silent zero
   ['MaerminFeatures5', 'NetWorthView', baseProps],
   ['MaerminFeatures5', 'FeeAnalyzer', baseProps],
   ['MaerminFeatures5', 'CashflowChart', baseProps],
@@ -209,7 +207,6 @@ const MUST_RENDER = [
   // they also get the empty-data variant for free; the two with bespoke props
   // (DataTable, TabBar) follow the AnalysisCard/MetricGrid pattern above.
   ['MaerminFeatures6', 'PortfolioHistoryChart', baseProps],
-  ['MaerminFeatures3', 'EnhancedPositionsTable', baseProps],
   ['MaerminFeatures7', 'PerformanceAttribution', baseProps],
   ['MaerminFeatures7', 'NewsFeedView', baseProps],
   ['MaerminFeatures4', 'DividendForecastView', baseProps],

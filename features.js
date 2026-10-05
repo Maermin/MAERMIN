@@ -41,62 +41,6 @@ function Sparkline({ values, width = 80, height = 32, color }) {
   );
 }
 
-// Compact data-trust badge for a position's current price: data source +
-// freshness, and an explicit signal instead of a silent zero. Takes a
-// precomputed `fetchedAt` (the table reads the price-meta map once) so it never
-// touches storage per row. Renders nothing if the data-quality layer is absent.
-function PriceQualityBadge({ category, price, meta, fetchedAt, fetchFailed, theme, noPrice }) {
-  const Q = (typeof window !== 'undefined') && window.MaerminDataQuality;
-  if (!Q) return null;
-  theme = theme || {};
-  // No market price was ever fetched for this position: the app values it at
-  // its cost basis (MaerminMarket.effectivePrices). Say so instead of letting
-  // the figure pass as a quote.
-  if (noPrice) {
-    return React.createElement('span', {
-      title: 'No market price available yet — valued at cost basis until a quote can be fetched.',
-      style: { display: 'inline-flex', alignItems: 'center', gap: '0.3rem', fontSize: '0.62rem', color: theme.textSecondary || '#888', whiteSpace: 'nowrap' }
-    },
-      React.createElement('span', { style: { width: 6, height: 6, borderRadius: '50%', background: '#ef4444', flexShrink: 0 } }),
-      'no price · at cost'
-    );
-  }
-  const m = meta || {};
-  // Prefer the recorded source/freshness (so a fallback fetch shows its real
-  // source); fall back to the legacy fetchedAt prop + category default.
-  const st = Q.priceState(price, {
-    category, source: m.source, fallback: m.fallback, reason: m.reason,
-    fetchedAt: (m.at != null ? m.at : fetchedAt), fetchFailed
-  });
-  const muted = theme.textSecondary || '#888';
-  const fbSuffix = st.fallback ? (' · fallback source' + (st.reason ? ' (' + st.reason + ')' : '')) : '';
-  let dot, text, title;
-  if (!st.available) {
-    dot = '#ef4444';
-    text = st.badge || 'n/a';
-    title = st.source + ' · ' + (st.badge || 'unavailable');
-  } else if (st.freshness.level === 'missing') {
-    dot = st.fallback ? '#3b82f6' : muted; // age unknown — no false alarm unless via fallback
-    text = (st.fallback ? '↩ ' : '') + st.source;
-    title = 'Source: ' + st.source + fbSuffix;
-  } else if (st.freshness.stale) {
-    dot = '#f59e0b';
-    text = '! ' + st.freshness.label;
-    title = st.source + ' · ' + st.freshness.label + ' (stale)' + fbSuffix;
-  } else {
-    dot = st.fallback ? '#3b82f6' : '#22c55e';
-    text = st.fallback ? ('↩ ' + st.source) : st.freshness.label;
-    title = st.source + ' · ' + st.freshness.label + fbSuffix;
-  }
-  return React.createElement('span', {
-    title,
-    style: { display: 'inline-flex', alignItems: 'center', gap: '0.3rem', fontSize: '0.62rem', color: muted, whiteSpace: 'nowrap' }
-  },
-    React.createElement('span', { style: { width: 6, height: 6, borderRadius: '50%', background: dot, flexShrink: 0 } }),
-    text
-  );
-}
-
 // ─────────────────────────────────────────────────────────────────────────────
 // 4. WATCHLIST
 // ─────────────────────────────────────────────────────────────────────────────
@@ -289,7 +233,6 @@ function WatchlistView({ prices, priceHistory, theme, t, addToast }) {
 if (typeof window !== 'undefined') {
   window.MaerminFeatures = {
     Sparkline,
-    PriceQualityBadge,
     WatchlistView
   };
 }

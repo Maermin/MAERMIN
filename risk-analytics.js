@@ -4,41 +4,6 @@
 // ============================================================================
 
 /**
- * Calculate portfolio volatility (standard deviation of returns)
- */
-function calculateVolatility(priceHistory, period) {
-  period = period || 30;
-  
-  if (!priceHistory || priceHistory.length < 2) {
-    return 0;
-  }
-  
-  // Calculate daily returns
-  var returns = [];
-  for (var i = 1; i < priceHistory.length; i++) {
-    if (priceHistory[i - 1] !== 0) {
-      returns.push((priceHistory[i] - priceHistory[i - 1]) / priceHistory[i - 1]);
-    }
-  }
-  
-  if (returns.length === 0) return 0;
-  
-  // Use last N periods
-  var recentReturns = returns.slice(-period);
-  
-  // Calculate mean
-  var mean = recentReturns.reduce(function(a, b) { return a + b; }, 0) / recentReturns.length;
-  
-  // Calculate variance
-  var variance = recentReturns.reduce(function(sum, r) {
-    return sum + Math.pow(r - mean, 2);
-  }, 0) / recentReturns.length;
-  
-  // Return annualized volatility
-  return Math.sqrt(variance) * Math.sqrt(252);
-}
-
-/**
  * Calculate Value at Risk (VaR) using historical simulation
  */
 function calculateVaR(priceHistory, portfolioValue, confidenceLevel, holdingPeriod) {
@@ -219,39 +184,6 @@ function calculateMaxDrawdown(priceHistory) {
     peakIndex: peakIndex,
     troughIndex: troughIndex
   };
-}
-
-/**
- * Calculate Beta (systematic risk relative to market)
- */
-function calculateBeta(assetReturns, marketReturns) {
-  if (!assetReturns || !marketReturns || assetReturns.length < 2) {
-    return 1;
-  }
-  
-  var minLength = Math.min(assetReturns.length, marketReturns.length);
-  var asset = assetReturns.slice(-minLength);
-  var market = marketReturns.slice(-minLength);
-  
-  // Calculate means
-  var assetMean = asset.reduce(function(a, b) { return a + b; }, 0) / asset.length;
-  var marketMean = market.reduce(function(a, b) { return a + b; }, 0) / market.length;
-  
-  // Calculate covariance and market variance
-  var covariance = 0;
-  var marketVariance = 0;
-  
-  for (var i = 0; i < asset.length; i++) {
-    covariance += (asset[i] - assetMean) * (market[i] - marketMean);
-    marketVariance += Math.pow(market[i] - marketMean, 2);
-  }
-  
-  covariance /= asset.length;
-  marketVariance /= market.length;
-  
-  if (marketVariance === 0) return 1;
-  
-  return covariance / marketVariance;
 }
 
 /**
@@ -445,13 +377,11 @@ function generateRiskRecommendations(riskMetrics, portfolio) {
 
 // Export functions
 if (typeof window !== 'undefined') {
-  window.calculateVolatility = calculateVolatility;
   window.calculateVaR = calculateVaR;
   window.calculateCVaR = calculateCVaR;
   window.calculateSharpeRatio = calculateSharpeRatio;
   window.calculateSortinoRatio = calculateSortinoRatio;
   window.calculateMaxDrawdown = calculateMaxDrawdown;
-  window.calculateBeta = calculateBeta;
   window.calculatePortfolioRiskMetrics = calculatePortfolioRiskMetrics;
   window.riskObservations = riskObservations;
   window.hasMeasurableRisk = hasMeasurableRisk;
@@ -465,13 +395,11 @@ if (typeof window !== 'undefined') {
 
 if (typeof module !== 'undefined' && module.exports) {
   module.exports = {
-    calculateVolatility: calculateVolatility,
     calculateVaR: calculateVaR,
     calculateCVaR: calculateCVaR,
     calculateSharpeRatio: calculateSharpeRatio,
     calculateSortinoRatio: calculateSortinoRatio,
     calculateMaxDrawdown: calculateMaxDrawdown,
-    calculateBeta: calculateBeta,
     calculatePortfolioRiskMetrics: calculatePortfolioRiskMetrics,
     riskObservations: riskObservations,
     hasMeasurableRisk: hasMeasurableRisk,
