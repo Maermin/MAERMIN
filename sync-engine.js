@@ -415,8 +415,11 @@
         var pipeline;
         if (!remote) {
           // First push — nothing remote yet. Register the write-auth key (TOFU)
-          // so this account is protected from creation onward.
-          pipeline = pushSnapshot(account, state.rev, localSnap, [], true);
+          // so this account is protected from creation onward. The server has
+          // no record, so its revision is 0 - also for a device that synced
+          // before (a new Worker / KV namespace): pushing our own old revision
+          // got a 409 without data and failed for good.
+          pipeline = pushSnapshot(account, 0, localSnap, [], true);
         } else {
           return decryptBlob(remote.blob).then(function (remoteSnap) {
             var localHash = snapshotHash(localSnap);
@@ -513,10 +516,16 @@
     return Promise.race([run, timeout]).then(function (r) { if (timer) clearTimeout(timer); return r; });
   }
 
-  function pushSnapshot(account, baseRev, snapshot, conflicts, register) {
+  function pushSnapshot(account, baseRev, snapshot, conflicts, register, retried) {
     return encryptSnapshot(snapshot).then(function (blob) {
       return buildAuth(account, baseRev, blob, !!register).then(function (auth) {
         return _transport.put(account, baseRev, blob, auth).then(function (r) {
+          if (r && r.conflict && !r.blob) {
+            // The record vanished between our get and put: nothing to merge,
+            // upload ours as a first push against the server's revision (once).
+            if (retried) throw new Error('sync-conflict');
+            return pushSnapshot(account, r.serverRev || 0, snapshot, conflicts, true, true);
+          }
           if (r && r.conflict) {
             // Another device wrote between our get and put — merge again and retry once.
             return decryptBlob(r.blob).then(function (serverSnap) {
