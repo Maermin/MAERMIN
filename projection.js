@@ -133,7 +133,7 @@ function __(k, f, v) { return (typeof window !== 'undefined' && window.MaerminI1
     if (typeof React === 'undefined') return null;
     var e = React.createElement;
     var theme = props.theme || {};
-    var fmt = props.formatPrice || function (v) { return Math.round(v).toLocaleString('en-US'); };
+    var fmt = props.formatPrice || function (v) { return window.MaerminI18n.num(v, 0); };
     var sym = (props.getCurrencySymbol && props.getCurrencySymbol()) || '';
 
     var hzState = React.useState(10); var years = hzState[0]; var setYears = hzState[1];

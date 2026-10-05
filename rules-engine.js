@@ -285,7 +285,7 @@ function __(k, f, v) { return (typeof window !== 'undefined' && window.MaerminI1
         var inputBg = theme.inputBg || '#0c1018', inputBorder = theme.inputBorder || border;
         var accent = theme.accent || '#8b7cff', accentText = theme.accentText || '#ffffff';
         var up = theme.success || '#22c55e', down = theme.danger || '#ef4444';
-        var fmt = props.formatPrice || function (n) { return (Math.round(n * 100) / 100).toLocaleString(); };
+        var fmt = props.formatPrice || function (n) { return window.MaerminI18n.num(n, 2); };
 
         var s0 = useState(function () { return API.load(); });
         var st = s0[0], setSt = s0[1];

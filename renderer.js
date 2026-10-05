@@ -4708,7 +4708,7 @@ function InvestmentTracker() {
                           React.createElement('span', { style: { color: 'rgba(6,182,212,0.5)', fontSize: '0.7rem' } }, 'CS2')),
                     React.createElement('div', null,
                       React.createElement('div', { style: { color: currentTheme.text, fontWeight: '600', fontSize: '0.8rem' } }, newTransaction.symbol),
-                      newTransaction.price && React.createElement('div', { style: { color: currentTheme.success, fontSize: '0.75rem', marginTop: '0.125rem' } }, `$${parseFloat(newTransaction.price).toFixed(2)}`)
+                      newTransaction.price && React.createElement('div', { style: { color: currentTheme.success, fontSize: '0.75rem', marginTop: '0.125rem' } }, window.MaerminI18n.money(parseFloat(newTransaction.price), 'USD', 2))
                     )
                   )
                 )

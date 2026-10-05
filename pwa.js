@@ -14,6 +14,8 @@
 // ============================================================================
 (function () {
   'use strict';
+// Translation lookup (i18n.js): __('key', 'English fallback', { slot: value }).
+function __(k, f, v) { return (typeof window !== 'undefined' && window.MaerminI18n ? window.MaerminI18n : require('./i18n.js')).t(k, f, v); }
 
   var SW_URL = 'service-worker.js';   // relative → correct under GH Pages subpaths
   var SW_SCOPE = './';
@@ -114,9 +116,9 @@
       '#maermin-pwa-install .mpwa-no{background:transparent;color:#8b94a7;padding:8px}' +
       '</style>' +
       '<div class="mpwa-ic">M</div>' +
-      '<div class="mpwa-tx"><b>Install MAERMIN</b><span>Add to your device for offline access</span></div>' +
-      '<button class="mpwa-go" id="mpwa-go">Install</button>' +
-      '<button class="mpwa-no" id="mpwa-no" title="Dismiss">✕</button>';
+      '<div class="mpwa-tx"><b>' + __('pwaInstallTitle', 'Install MAERMIN') + '</b><span>' + __('pwaInstallSub', 'Add to your device for offline access') + '</span></div>' +
+      '<button class="mpwa-go" id="mpwa-go">' + __('pwaInstall', 'Install') + '</button>' +
+      '<button class="mpwa-no" id="mpwa-no" title="' + __('pwaDismiss', 'Dismiss') + '">✕</button>';
     document.body.appendChild(bar);
 
     document.getElementById('mpwa-go').addEventListener('click', function () {

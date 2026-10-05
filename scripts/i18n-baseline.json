@@ -29,13 +29,12 @@
     "motion.js": 1,
     "onboarding.js": 1,
     "options-engine.js": 2,
-    "pdf-import.js": 20,
+    "pdf-import.js": 15,
     "performance-cards.js": 1,
     "performance-map.js": 2,
     "portfolio-analytics.js": 3,
     "portfolio-health.js": 4,
-    "projection.js": 1,
-    "pwa.js": 3,
+    "pwa.js": 2,
     "renderer-components.js": 4,
     "renderer.js": 10,
     "risk-analytics-view-v2.js": 1,
@@ -49,10 +48,6 @@
   },
   "locale": {
     "dividend-data-service.js": 1,
-    "dividend-yoc.js": 1,
-    "performance-cards.js": 2,
-    "performance-map.js": 1,
-    "projection.js": 1,
-    "rules-engine.js": 1
+    "performance-cards.js": 1
   }
 }

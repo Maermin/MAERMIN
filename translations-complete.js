@@ -2269,7 +2269,20 @@ const completeTranslations = {
     imCtZeroCost: 'Row {row}: {type} {amount} {cur} booked with a cost basis of 0 (no value column in the file).',
     imCtSpendValue: '{type} of {cur} needs the "value in EUR" column to be booked as a sale',
     imCtNoCgId: 'No CoinGecko id known for {list} - imported under the ticker in lower case; edit the symbol if it gets no price.',
-    imCtCoinFees: '{n} {n:fee|fees} paid in a coin were not deducted (the file has no value for them).'
+    imCtCoinFees: '{n} {n:fee|fees} paid in a coin were not deducted (the file has no value for them).',
+
+    // P2-2 PDF import messages (pdf-import.js)
+    piNoType: 'transaction type not recognised (assumed buy)',
+    piNoIsin: 'no ISIN found',
+    piNoQty: 'quantity not found',
+    piNoPrice: 'price not found',
+    piNoDate: 'date not found',
+
+    // P2-2 install banner (pwa.js)
+    pwaInstallTitle: 'Install MAERMIN',
+    pwaInstallSub: 'Add to your device for offline access',
+    pwaInstall: 'Install',
+    pwaDismiss: 'Dismiss'
   },
 
   // German locale (v10.x). Curated high-traffic strings; any missing key falls
@@ -2401,7 +2414,7 @@ const completeTranslations = {
     divAutoBookedToast: 'Dividende(n) automatisch gebucht (geschätzt)',
     divNoneToBook: 'Keine neuen Dividenden zu buchen',
     // Tags view
-    tagsSubtitle: 'Querschnittliche Labels auf deinen Positionen — gruppiere nach eigener These (High-Conviction, Income, Spekulativ …), sieh Wert & Gewicht pro Tag und setze optional Zielgewichte.',
+    tagsSubtitle: 'Querschnittliche Labels auf deinen Positionen — gruppiere nach eigener These (Überzeugung, Dividende, Spekulativ …), sieh Wert & Gewicht pro Tag und setze optional Zielgewichte.',
     tagsAdd: 'Tag hinzufügen', tagsNewPlaceholder: 'Neuer Tag-Name …', tagsAddSymbol: '+ Symbol', tagsDelete: 'Löschen',
     tagsTarget: 'Ziel', tagsUnassign: 'Zum Entfernen klicken', tagsRemoveSymbol: 'Entfernen', tagsNoSymbols: 'Noch keine Symbole',
     tagsEmpty: 'Noch keine Tags. Erstelle oben einen und weise ihm Positionen zu.', tagsOnTarget: 'Im Ziel',
@@ -4373,7 +4386,20 @@ const completeTranslations = {
     imCtZeroCost: 'Zeile {row}: {type} {amount} {cur} mit Einstandswert 0 gebucht (keine Wertspalte in der Datei).',
     imCtSpendValue: '{type} von {cur} braucht die Spalte „Wert in EUR“, um als Verkauf gebucht zu werden',
     imCtNoCgId: 'Keine CoinGecko-ID bekannt für {list} – unter dem Ticker in Kleinbuchstaben importiert; bearbeite das Symbol, falls es keinen Kurs bekommt.',
-    imCtCoinFees: '{n} in einem Coin gezahlte {n:Gebühr wurde|Gebühren wurden} nicht abgezogen (die Datei enthält keinen Wert dafür).'
+    imCtCoinFees: '{n} in einem Coin gezahlte {n:Gebühr wurde|Gebühren wurden} nicht abgezogen (die Datei enthält keinen Wert dafür).',
+
+    // P2-2 PDF import messages (pdf-import.js)
+    piNoType: 'Transaktionsart nicht erkannt (Kauf angenommen)',
+    piNoIsin: 'keine ISIN gefunden',
+    piNoQty: 'Stückzahl nicht gefunden',
+    piNoPrice: 'Kurs nicht gefunden',
+    piNoDate: 'Datum nicht gefunden',
+
+    // P2-2 install banner (pwa.js)
+    pwaInstallTitle: 'MAERMIN installieren',
+    pwaInstallSub: 'Auf dem Gerät hinzufügen für Offline-Zugriff',
+    pwaInstall: 'Installieren',
+    pwaDismiss: 'Ausblenden'
   }
 };
 

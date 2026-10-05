@@ -632,7 +632,7 @@ function __(k, f, v) { return (typeof window !== 'undefined' && window.MaerminI1
 
         var maxCur = result.currencyExposure.length ? result.currencyExposure[0].weight : 0;
         parts.push(sectionTitle(__('ltCurrency', 'Currency look-through (approximate)')));
-        parts.push(e('div', null, result.currencyExposure.slice(0, 6).map(function (c) { return bar(c.currency, c.weight, maxCur, theme.success || '#22c55e', 'cur-' + c.currency); })));
+        parts.push(e('div', null, result.currencyExposure.slice(0, 6).map(function (c) { return bar(window.MaerminI18n.sector(c.currency), c.weight, maxCur, theme.success || '#22c55e', 'cur-' + c.currency); })));
       }
 
       if (mode !== 'overview') {

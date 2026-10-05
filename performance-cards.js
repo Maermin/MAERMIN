@@ -276,7 +276,7 @@ function __(k, f, v) { return (typeof window !== 'undefined' && window.MaerminI1
       var border = theme.cardBorder || 'rgba(255,255,255,0.08)';
       var card = theme.card || '#10151f';
       var up = theme.success || '#22c55e', down = theme.danger || '#ef4444';
-      var fmt = props.formatPrice || function (n) { return (Math.round(n * 100) / 100).toLocaleString(); };
+      var fmt = props.formatPrice || function (n) { return window.MaerminI18n.num(n, 2); };
       var sym = props.getCurrencySymbol ? props.getCurrencySymbol() : '€';
 
       var series = props.series || seriesFromSnapshots(props.portfolioId);

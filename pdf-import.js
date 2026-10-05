@@ -25,6 +25,8 @@
 // ============================================================================
 (function () {
   'use strict';
+// Translation lookup (i18n.js): __('key', 'English fallback', { slot: value }).
+function __(k, f, v) { return (typeof window !== 'undefined' && window.MaerminI18n ? window.MaerminI18n : require('./i18n.js')).t(k, f, v); }
 
   // Reuse the import-mapping primitives (locale numbers/dates). In the browser
   // the script loads after import-mapping.js; under Node the tests require it.
@@ -154,13 +156,13 @@
     if (/dividendengutschrift|ertragsgutschrift|aussch(ü|ue)ttung|dividende\b/i.test(t)) type = 'dividend';
     else if (/wertpapierabrechnung\s*:?\s*verkauf|\bverkauf\b/i.test(t)) type = 'sell';
     else if (/\bkauf\b|sparplanausf(ü|ue)hrung|sparplan|wertpapierkauf/i.test(t)) type = 'buy';
-    else errors.push('transaction type not recognised (assumed buy)');
+    else errors.push(__('piNoType', 'transaction type not recognised (assumed buy)'));
 
     // Security: ISIN is the canonical symbol (the mapping layer normalises it);
     // the human name is whatever precedes the ISIN on its line.
     var isinMatch = t.match(ISIN_RX);
     var symbol = isinMatch ? isinMatch[1] : '';
-    if (!symbol) errors.push('no ISIN found');
+    if (!symbol) errors.push(__('piNoIsin', 'no ISIN found'));
     var symbolName = '';
     if (isinMatch) {
       var lines = t.split('\n');
@@ -187,7 +189,7 @@
       /\bst\.\s*([\d.,]+)/i
     ]);
     var quantity = qtyM ? Math.abs(num(IM, qtyM[1])) : NaN;
-    if (!(quantity > 0)) errors.push('quantity not found');
+    if (!(quantity > 0)) errors.push(__('piNoQty', 'quantity not found'));
 
     // Price per share + currency. Order matters: the explicit execution-price
     // labels first, the bare Trade-Republic layout ("2 Stk. 80,46 EUR") last.
@@ -207,7 +209,7 @@
       var grossM = t.match(/bruttobetrag\s*:?\s*([\d.,]+)\s*(EUR|USD)/i);
       if (grossM) { price = Math.abs(num(IM, grossM[1])) / quantity; currency = grossM[2].toUpperCase(); }
     }
-    if (!(price > 0)) errors.push('price not found');
+    if (!(price > 0)) errors.push(__('piNoPrice', 'price not found'));
 
     // Fees: every known fee label, summed.
     var fees = 0;
@@ -222,7 +224,7 @@
       /(\d{1,2}\.\d{1,2}\.\d{4})/
     ]);
     var date = dateM ? (IM ? IM.parseDate(dateM[1], 'de') : null) : null;
-    if (!date) errors.push('date not found');
+    if (!date) errors.push(__('piNoDate', 'date not found'));
 
     if (!symbol || !(quantity > 0) || !(price > 0) || !date) {
       return { candidate: null, errors: errors };

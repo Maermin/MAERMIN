@@ -774,6 +774,48 @@ async function runBuild(browser, label, dir) {
     await context.close();
   }
 
+  // 8: German browser (P2-2): the app follows navigator.language, every view
+  // is German and numbers use German separators. The deny-list holds common
+  // English UI words that never occur in German text; accepted loan words
+  // (Performance, Watchlist, Tags, Journal, Score, ETF …) are not in it.
+  {
+    const context = await browser.newContext({ serviceWorkers: 'block', locale: 'de-DE', viewport: { width: 1400, height: 900 } });
+    await wire(context, external);
+    const page = await context.newPage();
+    const errors = watch(page);
+    await createVault(page, base);
+    const authText = await page.locator('#maermin-auth').innerText();
+    await page.evaluate((txs) => {
+      localStorage.setItem('transactions', JSON.stringify(txs));
+      localStorage.setItem('maermin_ui_mode', 'advanced');
+    }, TXS);
+    await page.waitForTimeout(1500);
+    await unlock(page, base);
+    await page.keyboard.press('Escape');
+    await page.waitForTimeout(500);
+    const EN = /\b(the|and|your|with|from|this|Add|Total|Value|Settings|Loading|Save|Delete|Cancel|Close|Edit|Date|Price|Holdings|Invested|Income|Returns?|Search|Show|Hide|Back|Next|Error|Warning|Unknown|Quantity|Fees?|Amount|Shares|Yearly|Monthly|Annual|Gain|Loss|Profit|Buy|Sell|Dividends|Taxes|Overview|Transactions)\b/;
+    const hits = [];
+    ok('German browser: <html lang="de">', (await page.evaluate(() => document.documentElement.lang)) === 'de');
+    { const bad = authText.split('\n').filter((s) => EN.test(s)); ok('German browser: recovery-code screen is German', bad.length === 0, bad.join(' | ')); }
+    for (const id of VIEWS) {
+      try { await openView(page, id); } catch (e) { hits.push(id + ': ' + e.message); continue; }
+      await page.waitForTimeout(500);
+      const lines = (await page.locator('main').innerText()).split('\n').map((s) => s.trim()).filter((s) => EN.test(s));
+      for (const l of new Set(lines)) hits.push(id + ': ' + l.slice(0, 100));
+    }
+    const side = (await page.locator('nav.maermin-sidebar').innerText()).split('\n').filter((s) => EN.test(s));
+    for (const l of side) hits.push('sidebar: ' + l);
+    ok('German browser: no English UI words in ' + VIEWS.length + ' views and the sidebar', hits.length === 0, hits.slice(0, 12).join(' | '));
+    await openView(page, 'overview');
+    await page.waitForTimeout(800);
+    { const body = await settledText(page.locator('main'));
+      // "$→€ 0,900" is the FX rate, not an amount; a tab or line break is a cell edge.
+      const enAmounts = body.match(/(?<!→)€ ?\d[\d.,]*|\d[\d,]*\.\d{2}\s€/g) || [];
+      ok('German browser: amounts use German separators (1.234,56 €), no en-US amounts', /\d,\d{2}\s€/.test(body) && enAmounts.length === 0, enAmounts.slice(0, 6).join(' | ') || body.slice(0, 300)); }
+    ok('no page errors in the German session', errors.length === 0, errors.join(' | '));
+    await context.close();
+  }
+
   const unexpected = [...new Set(external)].filter((u) => !/api\.coingecko\.com|open\.er-api\.com|api\.exchangerate-api\.com|fonts\.googleapis\.com|fonts\.gstatic\.com/.test(u));
   ok('no unexpected external requests', unexpected.length === 0, unexpected.join(', '));
   server.close();
