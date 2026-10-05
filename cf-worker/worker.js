@@ -96,24 +96,36 @@ export default {
       try { body = await request.json(); } catch { return res(JSON.stringify({ error: 'bad json' }), 400, request); }
 
       if (body.op === 'publish') {
-        // Each publish costs 2 KV writes; unthrottled spam could exhaust the
-        // namespace's daily write quota and take sync down with it.
-        if (isPublishLimited(request)) {
-          return res(JSON.stringify({ error: 'too many shares - try again later' }), 429, request);
-        }
+        // Publishing writes to the namespace that sync uses, so it is limited
+        // per client and per day (see shareClientKey / shareRoomOp).
+        const clientKey = shareClientKey(request);
         const v = validateShareSnapshot(body.snapshot);
-        if (!v.ok) return res(JSON.stringify({ error: 'invalid snapshot: ' + v.error }), 400, request);
+        if (env.SYNC_DO) {
+          if (!v.ok) return res(JSON.stringify({ error: 'invalid snapshot: ' + v.error }), 400, request);
+          const room = env.SYNC_DO.get(env.SYNC_DO.idFromName('share'));
+          const acc = await (await room.fetch('https://share.internal/share', { method: 'POST',
+            body: JSON.stringify({ op: 'publish', key: clientKey, classes: v.snapshot.assetClasses, dailyMax: env.SHARE_DAILY_MAX }) })).json();
+          if (!acc || !acc.ok) return res(JSON.stringify({ error: 'too many shares - try again later' }), 429, request);
+        } else {
+          if (isPublishLimited(request) || isDailyBudgetSpent(env)) {
+            return res(JSON.stringify({ error: 'too many shares - try again later' }), 429, request);
+          }
+          if (!v.ok) return res(JSON.stringify({ error: 'invalid snapshot: ' + v.error }), 400, request);
+        }
         const id = [...crypto.getRandomValues(new Uint8Array(9))].map(b => b.toString(16).padStart(2, '0')).join('');
         await env.SYNC.put('share:' + id, JSON.stringify({ snapshot: v.snapshot, at: Date.now() }), { expirationTtl: 90 * 86400 });
-        // Best-effort rolling aggregate (count + per-class weight sums only).
-        try {
-          const agg = (await env.SYNC.get('share:aggregate', { type: 'json' })) || { count: 0, sums: {} };
-          agg.count += 1;
-          for (const [cls, pct] of Object.entries(v.snapshot.assetClasses || {})) {
-            agg.sums[cls] = (agg.sums[cls] || 0) + pct;
-          }
-          await env.SYNC.put('share:aggregate', JSON.stringify(agg));
-        } catch { /* aggregate is best-effort */ }
+        // Without the Durable Object: best-effort rolling aggregate in KV
+        // (count + per-class weight sums only), one contribution per client a day.
+        if (!env.SYNC_DO && takeContribution(clientKey, Date.now())) {
+          try {
+            const agg = (await env.SYNC.get('share:aggregate', { type: 'json' })) || { count: 0, sums: {} };
+            agg.count += 1;
+            for (const [cls, pct] of Object.entries(v.snapshot.assetClasses || {})) {
+              agg.sums[cls] = (agg.sums[cls] || 0) + pct;
+            }
+            await env.SYNC.put('share:aggregate', JSON.stringify(agg));
+          } catch { /* aggregate is best-effort */ }
+        }
         return res(JSON.stringify({ ok: true, id }), 200, request);
       }
 
@@ -126,7 +138,9 @@ export default {
       }
 
       if (body.op === 'aggregate') {
-        const agg = (await env.SYNC.get('share:aggregate', { type: 'json' })) || { count: 0, sums: {} };
+        const agg = env.SYNC_DO
+          ? await (await env.SYNC_DO.get(env.SYNC_DO.idFromName('share')).fetch('https://share.internal/share', { method: 'POST', body: JSON.stringify({ op: 'aggregate' }) })).json()
+          : ((await env.SYNC.get('share:aggregate', { type: 'json' })) || { count: 0, sums: {} });
         const avg = {};
         if (agg.count > 0) {
           for (const [cls, sum] of Object.entries(agg.sums)) avg[cls] = Math.round((sum / agg.count) * 10) / 10;
@@ -801,6 +815,19 @@ export class SyncRoom {
   async fetch(request) {
     let body;
     try { body = await request.json(); } catch { return new Response(JSON.stringify({ error: 'bad json' }), { status: 400 }); }
+    // The instance named 'share' keeps the share counters and benchmark.
+    if (new URL(request.url).pathname === '/share') {
+      let shareOut;
+      await this.state.blockConcurrencyWhile(async () => {
+        const storage = this.state.storage;
+        // First use: adopt the aggregate an older Worker kept in KV.
+        if (!(await storage.get('agg')) && this.env && this.env.SYNC) {
+          try { const old = await this.env.SYNC.get('share:aggregate', { type: 'json' }); if (old && old.count > 0) await storage.put('agg', old); } catch { /* best effort */ }
+        }
+        shareOut = await shareRoomOp(storage, body, Date.now());
+      });
+      return new Response(JSON.stringify(shareOut), { status: 200, headers: { 'Content-Type': 'application/json' } });
+    }
     let out;
     await this.state.blockConcurrencyWhile(async () => {
       const storage = this.state.storage;
@@ -997,17 +1024,97 @@ function isRateLimited(request, bucket) {
   return arr.length > RATE_LIMIT.max;
 }
 
-// Per-IP publish throttle for share snapshots (best effort, per isolate).
-const PUBLISH_LIMIT = { windowMs: 3600000, max: 10 };
-const _pubHits = new Map();
-function isPublishLimited(request) {
-  const ip = request.headers.get('CF-Connecting-IP') || 'anon';
-  const now = Date.now();
-  const arr = (_pubHits.get(ip) || []).filter((t) => t > now - PUBLISH_LIMIT.windowMs);
+// Share publishing: per-client limits and benchmark accounting.
+// A client is its IP; an IPv6 client is its /64 (one connection gets a whole
+// /64). With the SyncRoom Durable Object bound (SYNC_DO) the counters, a
+// global daily budget and the benchmark aggregate live in ONE instance named
+// 'share', so they hold across isolates and update atomically. Without it the
+// same rules apply per isolate (best effort).
+const PUBLISH_LIMIT = { windowMs: 3600000, max: 10, maxClients: 5000 };
+const SHARE_DAILY_MAX_DEFAULT = 300; // publishes per UTC day (each costs one KV write)
+export function shareClientKey(request) {
+  const ip = String(request.headers.get('CF-Connecting-IP') || 'anon');
+  if (ip.indexOf(':') === -1) return ip;
+  const full = ip.split('::');
+  const head = full[0] ? full[0].split(':') : [];
+  const tail = full.length > 1 && full[1] ? full[1].split(':') : [];
+  const groups = full.length > 1 ? head.concat(new Array(Math.max(0, 8 - head.length - tail.length)).fill('0'), tail) : head;
+  return groups.slice(0, 4).map((g) => (g || '0').toLowerCase().replace(/^0+(?=.)/, '')).join(':') + '::/64';
+}
+function utcDay(now) { return new Date(now).toISOString().slice(0, 10); }
+// Pure sliding-window check on a Map key -> timestamps. Only expired entries
+// are evicted (oldest first beyond the size cap), so a flood of other clients
+// can never reset the counters of active ones.
+function hitAndCheck(map, key, now, limit) {
+  const cutoff = now - limit.windowMs;
+  const arr = (map.get(key) || []).filter((t) => t > cutoff);
   arr.push(now);
-  _pubHits.set(ip, arr);
-  if (_pubHits.size > 5000) _pubHits.clear();
-  return arr.length > PUBLISH_LIMIT.max;
+  map.delete(key); map.set(key, arr); // re-insert: Map order = least recently used first
+  if (map.size > limit.maxClients) {
+    for (const [k, v] of map) { if (!v.length || v[v.length - 1] <= cutoff) map.delete(k); }
+    // Still too many: drop clients below the limit (least recently used
+    // first); a client that IS limited stays limited.
+    for (const [k, v] of map) { if (map.size <= limit.maxClients) break; if (k !== key && v.length < limit.max) map.delete(k); }
+  }
+  return arr.length > limit.max;
+}
+const _pubHits = new Map();
+const _contrib = { day: '', keys: new Set() };
+function isPublishLimited(request) {
+  return hitAndCheck(_pubHits, shareClientKey(request), Date.now(), PUBLISH_LIMIT);
+}
+// One benchmark contribution per client and UTC day (per isolate without SYNC_DO).
+function takeContribution(key, now) {
+  const day = utcDay(now);
+  if (_contrib.day !== day) { _contrib.day = day; _contrib.keys = new Set(); }
+  if (_contrib.keys.has(key)) return false;
+  _contrib.keys.add(key);
+  return true;
+}
+// Daily publish budget per isolate (without SYNC_DO).
+const _budget = { day: '', n: 0 };
+function isDailyBudgetSpent(env) {
+  const day = utcDay(Date.now());
+  if (_budget.day !== day) { _budget.day = day; _budget.n = 0; }
+  const max = Number(env && env.SHARE_DAILY_MAX) > 0 ? Number(env.SHARE_DAILY_MAX) : SHARE_DAILY_MAX_DEFAULT;
+  if (_budget.n >= max) return true;
+  _budget.n += 1;
+  return false;
+}
+// Test helpers (the in-memory state is per isolate).
+export function resetShareLimits() { _pubHits.clear(); _contrib.day = ''; _contrib.keys = new Set(); _budget.day = ''; _budget.n = 0; }
+export function notePublishForTest(ip) { hitAndCheck(_pubHits, shareClientKey(new Request('https://x/', { headers: { 'CF-Connecting-IP': ip } })), Date.now(), PUBLISH_LIMIT); }
+
+// The 'share' SyncRoom instance: atomic counters + benchmark aggregate.
+// ops: { op:'publish', key, classes, dailyMax } -> { ok } | { limited, reason }
+//      { op:'aggregate' } -> { count, sums }
+async function shareRoomOp(storage, body, now) {
+  if (body.op === 'aggregate') return (await storage.get('agg')) || { count: 0, sums: {} };
+  if (body.op !== 'publish') return { error: 'unknown op' };
+  const day = utcDay(now);
+  const budget = (await storage.get('budget')) || { day, n: 0 };
+  if (budget.day !== day) { budget.day = day; budget.n = 0; }
+  const dailyMax = Number(body.dailyMax) > 0 ? Number(body.dailyMax) : SHARE_DAILY_MAX_DEFAULT;
+  if (budget.n >= dailyMax) return { limited: true, reason: 'daily' };
+  const hits = new Map(Object.entries((await storage.get('hits')) || {}));
+  if (hitAndCheck(hits, String(body.key), now, PUBLISH_LIMIT)) {
+    await storage.put('hits', Object.fromEntries(hits));
+    return { limited: true, reason: 'client' };
+  }
+  budget.n += 1;
+  const contrib = (await storage.get('contrib')) || { day, keys: {} };
+  if (contrib.day !== day) { contrib.day = day; contrib.keys = {}; }
+  if (!contrib.keys[body.key]) {
+    contrib.keys[body.key] = 1;
+    const agg = (await storage.get('agg')) || { count: 0, sums: {} };
+    agg.count += 1;
+    for (const [cls, pct] of Object.entries(body.classes || {})) agg.sums[cls] = (agg.sums[cls] || 0) + pct;
+    await storage.put('agg', agg);
+  }
+  await storage.put('budget', budget);
+  await storage.put('hits', Object.fromEntries(hits));
+  await storage.put('contrib', contrib);
+  return { ok: true };
 }
 
 // Origin allowlist. EXACT origins only: the old wildcard patterns

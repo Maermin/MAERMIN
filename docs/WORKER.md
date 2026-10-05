@@ -197,6 +197,16 @@ no account, no PII, 90-day TTL.
 The aggregate is a running count+sum of asset-class weights only - individual
 snapshots are never exposed through it.
 
+**Limits.** Publishing is limited per client (10 per hour; an IPv6 client is
+its /64) and per UTC day (`SHARE_DAILY_MAX`, default 300, set it under `[vars]`
+to change it). Each client counts once per day in the aggregate; further
+publishes still get a link. With the `SyncRoom` Durable Object bound as
+`SYNC_DO` (recommended, see `wrangler.toml`), the counters and the aggregate
+live in one Durable Object instance named `share`: they hold across Worker
+isolates, update atomically, and a publish costs one KV write instead of two.
+An aggregate kept in KV by an older Worker is adopted on first use. Without
+`SYNC_DO` the same limits apply per isolate.
+
 ### `GET /?action=mcp&id=<shareId>`
 MCP-compatible **read-only** view over the exact same redacted share snapshot
 (WI-9). Same opt-in, time-limited link as `action=share`: an expired/unknown id

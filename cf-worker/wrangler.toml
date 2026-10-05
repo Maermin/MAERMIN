@@ -30,3 +30,5 @@ new_sqlite_classes = ["SyncRoom"]
 [vars]
 # ALLOWED_ORIGINS = "https://portfolio.example.com"
 ALLOW_NULL_ORIGIN = "true"
+# Share snapshots per UTC day (each costs one KV write). Default 300.
+# SHARE_DAILY_MAX = "300"
