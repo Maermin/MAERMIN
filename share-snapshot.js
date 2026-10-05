@@ -25,6 +25,9 @@
 // ============================================================================
 (function () {
   'use strict';
+// Translation lookup (i18n.js): __('key', 'English fallback', { slot: value }).
+function __(k, f, v) { return (typeof window !== 'undefined' && window.MaerminI18n ? window.MaerminI18n : require('./i18n.js')).t(k, f, v); }
+  function I18N() { return (typeof window !== 'undefined' && window.MaerminI18n) || require('./i18n.js'); }
 
   var CLASSES = ['crypto', 'stocks', 'skins', 'commodities'];
 
@@ -236,7 +239,7 @@
       if (!snapshot || !workerBase) return;
       // Validate one last time right before the wire - belt and braces.
       var v = validateSnapshot(snapshot);
-      if (!v.ok) { setState({ busy: false, link: null, error: 'refused to publish: ' + v.error, unsupported: false }); return; }
+      if (!v.ok) { setState({ busy: false, link: null, error: __('shRefused', 'refused to publish: {msg}', { msg: v.error }), unsupported: false }); return; }
       setState({ busy: true, link: null, error: null, unsupported: false });
       post({ op: 'publish', snapshot: v.snapshot }).then(function (j) {
         if (!j.ok || !j.id) throw new Error(j.error || 'publish failed');
@@ -252,18 +255,18 @@
 
     function openShared() {
       var id = parseShareId(openInput);
-      if (!id) { setTheirs({ error: 'No share id found in the input.' }); return; }
+      if (!id) { setTheirs({ error: __('shNoId', 'No share id found in the input.') }); return; }
       post({ op: 'get', id: id }).then(function (j) {
         if (j.error) throw new Error(j.error);
         var v = validateSnapshot(j.snapshot);
-        setTheirs(v.ok ? { snapshot: v.snapshot } : { error: 'shared snapshot failed validation' });
-      }).catch(function (ex) { setTheirs({ error: ex._unsupported ? 'Worker does not support sharing yet.' : ((ex && ex.message) || 'failed') }); });
+        setTheirs(v.ok ? { snapshot: v.snapshot } : { error: __('shInvalid', 'shared snapshot failed validation') });
+      }).catch(function (ex) { setTheirs({ error: ex._unsupported ? __('shUnsupportedShort', 'Worker does not support sharing yet.') : ((ex && ex.message) || __('shFailed', 'failed')) }); });
     }
 
     function loadAggregate() {
       post({ op: 'aggregate' }).then(function (j) {
         setAgg(j.error ? { error: j.error } : j);
-      }).catch(function (ex) { setAgg({ error: ex._unsupported ? 'Worker does not support sharing yet.' : ((ex && ex.message) || 'failed') }); });
+      }).catch(function (ex) { setAgg({ error: ex._unsupported ? __('shUnsupportedShort', 'Worker does not support sharing yet.') : ((ex && ex.message) || __('shFailed', 'failed')) }); });
     }
 
     function weightTable(title, snap, color) {
@@ -273,14 +276,14 @@
         Object.keys(snap.assetClasses || {}).map(function (cls) {
           var pct = snap.assetClasses[cls];
           return e('div', { key: cls, style: { display: 'flex', alignItems: 'center', gap: '0.6rem', marginBottom: '0.25rem' } },
-            e('span', { style: { color: text, fontSize: '0.78rem', width: '110px', textTransform: 'capitalize' } }, cls),
+            e('span', { style: { color: text, fontSize: '0.78rem', width: '110px' } }, I18N().category(cls)),
             e('div', { style: { flex: 1, background: inputBg, borderRadius: '5px', height: '9px', overflow: 'hidden' } },
               e('div', { style: { width: Math.min(100, pct) + '%', height: '100%', background: color || accent, borderRadius: '5px' } })),
-            e('span', { style: { color: dim, fontSize: '0.76rem', width: '50px', textAlign: 'right' } }, pct.toFixed(1) + '%'));
+            e('span', { style: { color: dim, fontSize: '0.76rem', width: '50px', textAlign: 'right' } }, I18N().pct(pct, 1)));
         }),
         snap.metrics ? e('div', { style: { color: dim, fontSize: '0.74rem', marginTop: '0.3rem' } },
-          (snap.metrics.healthScore != null ? 'Health ' + snap.metrics.healthScore + '/100  ' : '') +
-          (snap.metrics.effectiveN != null ? 'Diversification ~' + snap.metrics.effectiveN + ' effective holdings' : '')) : null);
+          (snap.metrics.healthScore != null ? __('shHealth', 'Health {n}/100', { n: snap.metrics.healthScore }) + '  ' : '') +
+          (snap.metrics.effectiveN != null ? __('shDiv', 'Diversification ~{n} effective holdings', { n: I18N().num(snap.metrics.effectiveN, { min: 0, max: 1 }) }) : '')) : null);
     }
 
     function compareTable(mine, other, otherLabel) {
@@ -288,15 +291,15 @@
       if (!rows.length) return null;
       return e('div', { style: { overflowX: 'auto', marginTop: '0.5rem' } },
         e('table', { style: { width: '100%', borderCollapse: 'collapse' } },
-          e('thead', null, e('tr', null, ['Class', 'You', otherLabel, 'Diff'].map(function (h, i) {
+          e('thead', null, e('tr', null, [__('trClass', 'Class'), __('shYou', 'You'), otherLabel, __('shDiff', 'Diff')].map(function (h, i) {
             return e('th', { key: h, style: { textAlign: i === 0 ? 'left' : 'right', padding: '0.35rem 0.45rem', color: dim, fontSize: '0.66rem', textTransform: 'uppercase', letterSpacing: '0.04em' } }, h);
           }))),
           e('tbody', null, rows.map(function (r) {
             return e('tr', { key: r.cls, style: { borderTop: '1px solid ' + border } },
-              e('td', { style: { padding: '0.4rem 0.45rem', color: text, fontSize: '0.8rem', textTransform: 'capitalize' } }, r.cls),
-              e('td', { style: { padding: '0.4rem 0.45rem', textAlign: 'right', color: text, fontSize: '0.78rem' } }, r.mine.toFixed(1) + '%'),
-              e('td', { style: { padding: '0.4rem 0.45rem', textAlign: 'right', color: dim, fontSize: '0.78rem' } }, r.theirs.toFixed(1) + '%'),
-              e('td', { style: { padding: '0.4rem 0.45rem', textAlign: 'right', color: r.diff >= 0 ? good : bad, fontSize: '0.78rem', fontWeight: 600 } }, (r.diff >= 0 ? '+' : '') + r.diff.toFixed(1) + '%'));
+              e('td', { style: { padding: '0.4rem 0.45rem', color: text, fontSize: '0.8rem' } }, I18N().category(r.cls)),
+              e('td', { style: { padding: '0.4rem 0.45rem', textAlign: 'right', color: text, fontSize: '0.78rem' } }, I18N().pct(r.mine, 1)),
+              e('td', { style: { padding: '0.4rem 0.45rem', textAlign: 'right', color: dim, fontSize: '0.78rem' } }, I18N().pct(r.theirs, 1)),
+              e('td', { style: { padding: '0.4rem 0.45rem', textAlign: 'right', color: r.diff >= 0 ? good : bad, fontSize: '0.78rem', fontWeight: 600 } }, I18N().pct(r.diff, 1, true)));
           }))));
     }
 
@@ -305,51 +308,51 @@
     return e('div', { style: { padding: '1.25rem 1.5rem' } },
       e('h2', { style: { color: text, fontSize: '1.35rem', fontWeight: 800, margin: '0 0 0.3rem' } }, t.navShare || 'Share & Compare'),
       e('div', { style: { color: dim, fontSize: '0.82rem', marginBottom: '1rem', lineHeight: 1.5 } },
-        'Share a redacted snapshot of your allocation - percentage weights and scores only. No amounts, no quantities, no symbols ever leave this device. Opt-in per click, links expire after 90 days.'),
+        __('shIntro', 'Share a redacted snapshot of your allocation - percentage weights and scores only. No amounts, no quantities, no symbols ever leave this device. Opt-in per click, links expire after 90 days.')),
 
       e('div', { style: cardStyle },
         e('div', { style: { display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '0.5rem', marginBottom: '0.6rem' } },
-          e('h3', { style: { color: text, fontSize: '0.95rem', fontWeight: 700, margin: 0 } }, 'Your snapshot (exactly what would be shared)'),
-          e('button', { onClick: function () { setShowRaw(!showRaw); }, style: { padding: '0.3rem 0.7rem', borderRadius: '6px', border: '1px solid ' + border, background: inputBg, color: dim, cursor: 'pointer', fontSize: '0.72rem' } }, showRaw ? 'hide payload' : 'show raw payload')),
+          e('h3', { style: { color: text, fontSize: '0.95rem', fontWeight: 700, margin: 0 } }, __('shYours', 'Your snapshot (exactly what would be shared)')),
+          e('button', { onClick: function () { setShowRaw(!showRaw); }, style: { padding: '0.3rem 0.7rem', borderRadius: '6px', border: '1px solid ' + border, background: inputBg, color: dim, cursor: 'pointer', fontSize: '0.72rem' } }, showRaw ? __('shHidePayload', 'hide payload') : __('shShowPayload', 'show raw payload'))),
         snapshot
           ? e('div', null,
-              weightTable('Asset classes', snapshot, accent),
+              weightTable(__('shAssetClasses', 'Asset classes'), snapshot, accent),
               showRaw ? e('pre', { style: { background: inputBg, border: '1px solid ' + border, borderRadius: '8px', padding: '0.7rem', color: dim, fontSize: '0.7rem', overflowX: 'auto', whiteSpace: 'pre-wrap' } }, JSON.stringify(snapshot, null, 2)) : null,
               e('div', { style: { display: 'flex', gap: '0.5rem', alignItems: 'center', flexWrap: 'wrap', marginTop: '0.6rem' } },
-                e('button', { onClick: publish, disabled: state.busy || !workerBase, style: { padding: '0.45rem 1rem', borderRadius: '8px', border: 'none', cursor: workerBase ? 'pointer' : 'default', fontWeight: 700, fontSize: '0.8rem', background: accent, color: '#ffffff', opacity: (state.busy || !workerBase) ? 0.6 : 1 } }, state.busy ? 'Publishing...' : 'Publish snapshot'),
+                e('button', { onClick: publish, disabled: state.busy || !workerBase, style: { padding: '0.45rem 1rem', borderRadius: '8px', border: 'none', cursor: workerBase ? 'pointer' : 'default', fontWeight: 700, fontSize: '0.8rem', background: accent, color: '#ffffff', opacity: (state.busy || !workerBase) ? 0.6 : 1 } }, state.busy ? __('shPublishing', 'Publishing...') : __('shPublish', 'Publish snapshot')),
                 state.link ? e('code', { style: { color: good, fontSize: '0.74rem', wordBreak: 'break-all' } }, state.link) : null,
                 state.mcp ? e('div', { style: { width: '100%', marginTop: '0.3rem' } },
-                  e('span', { style: { color: dim, fontSize: '0.72rem' } }, 'MCP (AI read-only): '),
+                  e('span', { style: { color: dim, fontSize: '0.72rem' } }, __('shMcp', 'MCP (AI read-only): ')),
                   e('code', { style: { color: dim, fontSize: '0.72rem', wordBreak: 'break-all' } }, state.mcp)) : null,
                 state.error ? e('span', { style: { color: bad, fontSize: '0.76rem' } }, state.error) : null,
-                !workerBase ? e('span', { style: { color: dim, fontSize: '0.76rem' } }, 'Add a Worker URL in API Settings to publish.') : null))
-          : e('div', { style: { color: dim, fontSize: '0.82rem' } }, 'Add holdings first - the snapshot needs at least one position.'),
+                !workerBase ? e('span', { style: { color: dim, fontSize: '0.76rem' } }, __('shNeedWorker', 'Add a Worker URL in API Settings to publish.')) : null))
+          : e('div', { style: { color: dim, fontSize: '0.82rem' } }, __('shNeedHoldings', 'Add holdings first - the snapshot needs at least one position.')),
         state.unsupported ? e('div', { style: { color: warn, fontSize: '0.74rem', marginTop: '0.5rem' } },
-          'Your Worker does not support sharing yet. Re-deploy the latest cf-worker/worker.js (action=share).') : null),
+          __('shUnsupported', 'Your Worker does not support sharing yet. Re-deploy the latest cf-worker/worker.js (action=share).')) : null),
 
       e('div', { style: cardStyle },
-        e('h3', { style: { color: text, fontSize: '0.95rem', fontWeight: 700, margin: '0 0 0.5rem' } }, 'Open a shared snapshot'),
+        e('h3', { style: { color: text, fontSize: '0.95rem', fontWeight: 700, margin: '0 0 0.5rem' } }, __('shOpenShared', 'Open a shared snapshot')),
         e('div', { style: { display: 'flex', gap: '0.5rem', flexWrap: 'wrap' } },
-          e('input', { type: 'text', value: openInput, placeholder: 'Paste a share link or id', onChange: function (ev) { setOpenInput(ev.target.value); }, style: { flex: 1, minWidth: '220px', background: inputBg, border: '1px solid ' + border, borderRadius: '8px', padding: '0.45rem 0.7rem', color: text, fontSize: '0.8rem' } }),
-          e('button', { onClick: openShared, disabled: !workerBase, style: { padding: '0.45rem 1rem', borderRadius: '8px', border: 'none', cursor: 'pointer', fontWeight: 700, fontSize: '0.8rem', background: inputBg, color: text, opacity: workerBase ? 1 : 0.5 } }, 'Open')),
+          e('input', { type: 'text', value: openInput, placeholder: __('shPastePh', 'Paste a share link or id'), onChange: function (ev) { setOpenInput(ev.target.value); }, style: { flex: 1, minWidth: '220px', background: inputBg, border: '1px solid ' + border, borderRadius: '8px', padding: '0.45rem 0.7rem', color: text, fontSize: '0.8rem' } }),
+          e('button', { onClick: openShared, disabled: !workerBase, style: { padding: '0.45rem 1rem', borderRadius: '8px', border: 'none', cursor: 'pointer', fontWeight: 700, fontSize: '0.8rem', background: inputBg, color: text, opacity: workerBase ? 1 : 0.5 } }, __('shOpen', 'Open'))),
         theirs && theirs.error ? e('div', { style: { color: bad, fontSize: '0.78rem', marginTop: '0.5rem' } }, theirs.error) : null,
         theirs && theirs.snapshot ? e('div', { style: { marginTop: '0.7rem' } },
-          weightTable('Shared allocation', theirs.snapshot, '#3b82f6'),
-          snapshot ? compareTable(snapshot, theirs.snapshot, 'Them') : null) : null),
+          weightTable(__('shSharedAlloc', 'Shared allocation'), theirs.snapshot, '#3b82f6'),
+          snapshot ? compareTable(snapshot, theirs.snapshot, __('shThem', 'Them')) : null) : null),
 
       e('div', { style: cardStyle },
         e('div', { style: { display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '0.5rem' } },
-          e('h3', { style: { color: text, fontSize: '0.95rem', fontWeight: 700, margin: 0 } }, 'Anonymous benchmark'),
-          e('button', { onClick: loadAggregate, disabled: !workerBase, style: { padding: '0.35rem 0.8rem', borderRadius: '8px', border: 'none', cursor: 'pointer', fontWeight: 700, fontSize: '0.76rem', background: inputBg, color: text, opacity: workerBase ? 1 : 0.5 } }, 'Compare vs all shared snapshots')),
+          e('h3', { style: { color: text, fontSize: '0.95rem', fontWeight: 700, margin: 0 } }, __('shBenchmark', 'Anonymous benchmark')),
+          e('button', { onClick: loadAggregate, disabled: !workerBase, style: { padding: '0.35rem 0.8rem', borderRadius: '8px', border: 'none', cursor: 'pointer', fontWeight: 700, fontSize: '0.76rem', background: inputBg, color: text, opacity: workerBase ? 1 : 0.5 } }, __('shCompareAll', 'Compare vs all shared snapshots'))),
         agg && agg.error ? e('div', { style: { color: bad, fontSize: '0.78rem', marginTop: '0.5rem' } }, agg.error) : null,
         agg && !agg.error ? (agg.count > 0 && snapshot
           ? e('div', { style: { marginTop: '0.5rem' } },
-              compareTable(snapshot, agg.avgAssetClasses, 'Avg of ' + agg.count),
-              e('div', { style: { color: dim, fontSize: '0.7rem', marginTop: '0.4rem' } }, 'Average asset-class weights across ' + agg.count + ' shared snapshot(s). Individual snapshots are never exposed.'))
-          : e('div', { style: { color: dim, fontSize: '0.78rem', marginTop: '0.5rem' } }, 'No shared snapshots in the aggregate yet.')) : null),
+              compareTable(snapshot, agg.avgAssetClasses, __('shAvgOf', 'Avg of {n}', { n: agg.count })),
+              e('div', { style: { color: dim, fontSize: '0.7rem', marginTop: '0.4rem' } }, __('shAvgNote', 'Average asset-class weights across {n} shared {n:snapshot|snapshots}. Individual snapshots are never exposed.', { n: agg.count })))
+          : e('div', { style: { color: dim, fontSize: '0.78rem', marginTop: '0.5rem' } }, __('shNoAgg', 'No shared snapshots in the aggregate yet.'))) : null),
 
       e('div', { style: { color: dim, fontSize: '0.7rem', lineHeight: 1.5 } },
-        'Privacy: snapshots are validated against a hard allowlist on this device AND on the Worker before storage - only percentages and scores can travel. Published snapshots carry a random id, no account, no IP-derived data, and expire after 90 days.'));
+        __('shPrivacy', 'Privacy: snapshots are validated against a hard allowlist on this device AND on the Worker before storage - only percentages and scores can travel. Published snapshots carry a random id, no account, no IP-derived data, and expire after 90 days.')));
   }
 
   var api = {

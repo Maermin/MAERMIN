@@ -17,11 +17,18 @@
 // ============================================================================
 (function () {
   'use strict';
+// Translation lookup (i18n.js): __('key', 'English fallback', { slot: value }).
+function __(k, f, v) { return (typeof window !== 'undefined' && window.MaerminI18n ? window.MaerminI18n : require('./i18n.js')).t(k, f, v); }
 
   // ---- catalogue ----------------------------------------------------------
   // Top-movers + screener categories map to Yahoo "predefined screener" ids
   // (scrId mode). The dividend screener uses a curated universe via the Worker's
   // batch-quote mode (symbols=...), which is steadier than a predefined list.
+  // Mover/screen labels in the UI language (the tables keep the English ids).
+  function discLabel(l) {
+    return ({ 'Top Gainers': __('dsGainers', 'Top Gainers'), 'Top Losers': __('dsLosers', 'Top Losers'), 'Most Active': __('dsActive', 'Most Active'), 'Growth Tech': __('dsGrowthTech', 'Growth Tech'), 'Undervalued Growth': __('dsUndervalued', 'Undervalued Growth'), 'Aggressive Small Caps': __('dsSmallCaps', 'Aggressive Small Caps') })[l] || l;
+  }
+
   var MOVERS = [
     { id: 'gainers', label: 'Top Gainers', scrId: 'day_gainers' },
     { id: 'losers',  label: 'Top Losers',  scrId: 'day_losers' },
@@ -223,7 +230,7 @@
         .catch(function (ex) {
           if (cancelled) return;
           if (ex && ex._unsupported) { setUnsupported(true); setRows([]); }
-          else setErr((ex && ex.name === 'AbortError') ? 'Timed out' : 'Fetch failed');
+          else setErr((ex && ex.name === 'AbortError') ? __('fxaTimedOut', 'Timed out') : __('fxaFetchFailed', 'Fetch failed'));
           setLoading(false);
         })
         .then(function () { if (timer) clearTimeout(timer); });
@@ -243,10 +250,7 @@
     function compactMoney(v) {
       if (v == null) return '—';
       var abs = Math.abs(v);
-      if (abs >= 1e12) return sym + (v / 1e12).toFixed(2) + 'T';
-      if (abs >= 1e9) return sym + (v / 1e9).toFixed(2) + 'B';
-      if (abs >= 1e6) return sym + (v / 1e6).toFixed(1) + 'M';
-      return sym + fmt(v);
+      return window.MaerminI18n.compact(v) + ' ' + sym;
     }
     function header(label, key, align) {
       var active = sort.key === key;
@@ -258,26 +262,26 @@
     }
 
     var subControls;
-    if (tab === 'movers') subControls = e('div', { style: { display: 'flex', gap: '0.4rem', flexWrap: 'wrap' } }, MOVERS.map(function (m) { return pill(mover === m.id, m.label, function () { setMover(m.id); }, m.id); }));
-    else if (tab === 'screener') subControls = e('div', { style: { display: 'flex', gap: '0.4rem', flexWrap: 'wrap' } }, SCREENS.map(function (s) { return pill(screen === s.id, s.label, function () { setScreen(s.id); }, s.id); }));
+    if (tab === 'movers') subControls = e('div', { style: { display: 'flex', gap: '0.4rem', flexWrap: 'wrap' } }, MOVERS.map(function (m) { return pill(mover === m.id, discLabel(m.label), function () { setMover(m.id); }, m.id); }));
+    else if (tab === 'screener') subControls = e('div', { style: { display: 'flex', gap: '0.4rem', flexWrap: 'wrap' } }, SCREENS.map(function (s) { return pill(screen === s.id, discLabel(s.label), function () { setScreen(s.id); }, s.id); }));
     else subControls = e('div', { style: { display: 'flex', gap: '0.5rem', alignItems: 'center', flexWrap: 'wrap' } },
-      e('span', { style: { color: dim, fontSize: '0.78rem' } }, 'Min yield'),
-      [0, 0.02, 0.03, 0.04].map(function (y) { return pill(minYield === y, (y * 100).toFixed(0) + '%', function () { setMinYield(y); }, 'y' + y); })
+      e('span', { style: { color: dim, fontSize: '0.78rem' } }, __('dsMinYield', 'Min yield')),
+      [0, 0.02, 0.03, 0.04].map(function (y) { return pill(minYield === y, window.MaerminI18n.pct(y * 100, 0), function () { setMinYield(y); }, 'y' + y); })
     );
 
     var body;
     if (!workerBase) {
-      body = e('div', { style: { color: dim, fontSize: '0.85rem', padding: '1rem 0' } }, 'Add a Worker URL in API Settings to use Discovery. It is read-only and never changes your portfolio.');
+      body = e('div', { style: { color: dim, fontSize: '0.85rem', padding: '1rem 0' } }, __('dsNeedWorker', 'Add a Worker URL in API Settings to use Discovery. It is read-only and never changes your portfolio.'));
     } else if (unsupported) {
       body = e('div', { style: { color: dim, fontSize: '0.85rem', padding: '1rem 0', lineHeight: 1.6 } },
-        e('div', { style: { color: theme.warning || '#f59e0b', fontWeight: 700, marginBottom: '0.3rem' } }, 'Your Worker doesn\'t support Discovery yet.'),
-        'Re-deploy the latest ', e('code', { style: { color: accent } }, 'cf-worker/worker.js'), ' (it adds the ', e('code', { style: { color: accent } }, 'action=screener'), ' endpoint). Everything else keeps working without it.');
+        e('div', { style: { color: theme.warning || '#f59e0b', fontWeight: 700, marginBottom: '0.3rem' } }, __('dsUnsupported', "Your Worker doesn't support Discovery yet.")),
+        __('dsRedeploy1', 'Re-deploy the latest') + ' ', e('code', { style: { color: accent } }, 'cf-worker/worker.js'), ' ' + __('dsRedeploy2', '(it adds the') + ' ', e('code', { style: { color: accent } }, 'action=screener'), ' ' + __('dsRedeploy3', 'endpoint). Everything else keeps working without it.'));
     } else if (loading) {
-      body = e('div', { style: { color: dim, fontSize: '0.85rem', padding: '1rem 0' } }, 'Loading…');
+      body = e('div', { style: { color: dim, fontSize: '0.85rem', padding: '1rem 0' } }, __('loadingEllipsis', 'Loading…'));
     } else if (err) {
-      body = e('div', { style: { color: bad, fontSize: '0.85rem', padding: '1rem 0' } }, 'Could not load: ' + err);
+      body = e('div', { style: { color: bad, fontSize: '0.85rem', padding: '1rem 0' } }, __('dsLoadFailed', 'Could not load: {msg}', { msg: err }));
     } else if (!view.length) {
-      body = e('div', { style: { color: dim, fontSize: '0.85rem', padding: '1rem 0' } }, 'No results match your filters.');
+      body = e('div', { style: { color: dim, fontSize: '0.85rem', padding: '1rem 0' } }, __('dsNoMatch', 'No results match your filters.'));
     } else {
       var rowsEl = view.map(function (r) {
         var chg = r.changePercent;
@@ -286,30 +290,30 @@
             e('div', { style: { color: text, fontWeight: 700, fontSize: '0.85rem' } }, r.symbol),
             e('div', { style: { color: dim, fontSize: '0.72rem', maxWidth: '220px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' } }, r.name)),
           e('td', { style: { padding: '0.55rem 0.6rem', textAlign: 'left' } }, e('span', { style: { fontSize: '0.66rem', color: dim, border: '1px solid ' + border, borderRadius: '5px', padding: '0.1rem 0.35rem' } }, r.type)),
-          e('td', { style: { padding: '0.55rem 0.6rem', textAlign: 'right', color: text, fontWeight: 600, fontSize: '0.82rem' } }, sym + fmt(r.priceEUR != null ? r.priceEUR : r.price)),
-          e('td', { style: { padding: '0.55rem 0.6rem', textAlign: 'right', color: chg == null ? dim : (chg >= 0 ? ok : bad), fontWeight: 600, fontSize: '0.82rem' } }, chg == null ? '—' : ((chg >= 0 ? '+' : '') + chg.toFixed(2) + '%')),
+          e('td', { style: { padding: '0.55rem 0.6rem', textAlign: 'right', color: text, fontWeight: 600, fontSize: '0.82rem' } }, fmt(r.priceEUR != null ? r.priceEUR : r.price) + ' ' + sym),
+          e('td', { style: { padding: '0.55rem 0.6rem', textAlign: 'right', color: chg == null ? dim : (chg >= 0 ? ok : bad), fontWeight: 600, fontSize: '0.82rem' } }, chg == null ? '—' : window.MaerminI18n.pct(chg, 2, true)),
           e('td', { style: { padding: '0.55rem 0.6rem', textAlign: 'right', color: dim, fontSize: '0.8rem' } }, compactMoney(r.marketCapEUR)),
-          e('td', { style: { padding: '0.55rem 0.6rem', textAlign: 'right', color: r.dividendYield ? text : dim, fontSize: '0.8rem' } }, r.dividendYield != null ? (r.dividendYield * 100).toFixed(2) + '%' : '—'));
+          e('td', { style: { padding: '0.55rem 0.6rem', textAlign: 'right', color: r.dividendYield ? text : dim, fontSize: '0.8rem' } }, r.dividendYield != null ? window.MaerminI18n.pct(r.dividendYield * 100, 2) : '—'));
       });
       body = e('div', { style: { overflowX: 'auto', marginTop: '0.5rem' } },
         e('table', { style: { width: '100%', borderCollapse: 'collapse' } },
           e('thead', null, e('tr', null,
-            header('Symbol', 'symbol', 'left'),
-            e('th', { style: { textAlign: 'left', padding: '0.5rem 0.6rem', color: dim, fontSize: '0.7rem', textTransform: 'uppercase', letterSpacing: '0.04em' } }, 'Type'),
-            header('Price', 'priceEUR'),
-            header('Change', 'changePercent'),
-            header('Mkt Cap', 'marketCapEUR'),
-            header('Div Yield', 'dividendYield'))),
+            header(__('symbol', 'Symbol'), 'symbol', 'left'),
+            e('th', { style: { textAlign: 'left', padding: '0.5rem 0.6rem', color: dim, fontSize: '0.7rem', textTransform: 'uppercase', letterSpacing: '0.04em' } }, __('type', 'Type')),
+            header(__('price', 'Price'), 'priceEUR'),
+            header(__('wlChange', 'Change'), 'changePercent'),
+            header(__('dsMktCap', 'Mkt Cap'), 'marketCapEUR'),
+            header(__('dsDivYield', 'Div Yield'), 'dividendYield'))),
           e('tbody', null, rowsEl)),
         e('div', { style: { color: dim, fontSize: '0.72rem', marginTop: '0.6rem', lineHeight: 1.5 } },
-          view.length + ' results · prices converted to ' + sym + ' at ingestion (1 USD = ' + Number(usdToEur).toFixed(3) + ' EUR) · read-only, sourced live via your Worker. Not investment advice.'));
+          __('dsFooter', '{n} {n:result|results} · prices converted to {sym} at ingestion (1 USD = {rate} EUR) · read-only, sourced live via your Worker. Not investment advice.', { n: view.length, sym: sym, rate: window.MaerminI18n.num(usdToEur, 3) })));
     }
 
     return e('div', { style: { padding: '1.25rem 1.5rem' } },
       e('div', { style: { display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '0.6rem', marginBottom: '0.3rem' } },
         e('h2', { style: { color: text, fontSize: '1.35rem', fontWeight: 800, margin: 0 } }, t.navDiscovery || 'Discovery'),
-        e('input', { type: 'text', value: query, onChange: function (ev) { setQuery(ev.target.value); }, placeholder: 'Filter symbol / name…', style: { background: inputBg, border: '1px solid ' + border, borderRadius: '8px', padding: '0.45rem 0.7rem', color: text, fontSize: '0.82rem', minWidth: '180px' } })),
-      e('div', { style: { color: dim, fontSize: '0.82rem', marginBottom: '0.9rem' } }, 'Read-only screener for ETFs, stocks & crypto. Discover, then add via the usual flow — Discovery never touches your holdings.'),
+        e('input', { type: 'text', value: query, onChange: function (ev) { setQuery(ev.target.value); }, placeholder: __('dsFilterPh', 'Filter symbol / name…'), style: { background: inputBg, border: '1px solid ' + border, borderRadius: '8px', padding: '0.45rem 0.7rem', color: text, fontSize: '0.82rem', minWidth: '180px' } })),
+      e('div', { style: { color: dim, fontSize: '0.82rem', marginBottom: '0.9rem' } }, __('dsIntro', 'Read-only screener for ETFs, stocks & crypto. Discover, then add via the usual flow — Discovery never touches your holdings.')),
       e('div', { style: { display: 'flex', gap: '0.4rem', flexWrap: 'wrap', marginBottom: '0.7rem' } }, TABS.map(function (x) { return pill(tab === x.id, x.label, function () { setTab(x.id); }, x.id); })),
       e('div', { style: { background: card, border: '1px solid ' + border, borderRadius: '14px', padding: '1rem 1.1rem' } },
         e('div', { style: { marginBottom: '0.5rem' } }, subControls),
