@@ -1,7 +1,7 @@
 # Prompt for Claude Opus 5.5 — MAERMIN: analyze, then implement PLAN.md
 
-Copy everything below the line into a new Claude Code session (model: Opus 5.5) opened in a
-local clone of the repository.
+Copy everything below the line into a new Claude Code session (model: Opus 5.5) opened in the
+owner's local checkout. That checkout holds `docs/AUDIT.security.local.md`, which GitHub doesn't have.
 
 ---
 
@@ -12,10 +12,15 @@ vault, and fetches market data through a Cloudflare Worker that each user deploy
 (`cf-worker/worker.js`). It is published on GitHub Pages and is meant for **public users** in
 DACH and internationally, in German and English.
 
+People use the app's figures for real decisions and for their tax return. A doubled trade or a
+wrong tax number does real harm, and so does lost data. That is why correctness comes before
+new features, and why every fix is proven by a test and by looking at the running app.
+
 ## Your job
 
 1. **Analyze the project first.** Do not change any code until you finish this step.
-   - Clone or update the repo (`git clone https://github.com/Maermin/MAERMIN` or `git pull` on `main`), then run `npm ci`.
+   - You are in a local clone of the GitHub repo. Run `git checkout main && git pull`, then `npm ci`.
+   - The repo is large (about 120 modules). Use sub-agents to explore areas in parallel, and read the key files yourself.
    - Read `README.md`, `CONTRIBUTING.md`, `docs/ARCHITECTURE.md`, `docs/WORKER.md`, `FINDINGS.md` and **`PLAN.md`**.
    - If `docs/AUDIT.security.local.md` exists in your checkout, read it too. It is git-ignored on purpose.
    - Map the architecture:
@@ -67,5 +72,12 @@ DACH and internationally, in German and English.
 - a fix would change stored data in a way that cannot be undone
 - the Worker needs a new route or a new upstream host (P2-3 and P2-7 are already approved)
 - you find a new Critical or High bug. Report it with a reproduction and don't silently fold it into an unrelated PR.
+
+## Keep track of progress
+
+This work runs across many sessions and context resets. Keep a `## Progress` table at the end of
+`PLAN.md`, with one row per package: status, branch, PR link and notes for whoever continues.
+Update it in each package's PR. When you start, or after a context reset, read that table and
+`git log` first, and continue from there. Don't redo finished work.
 
 Report after each package with a few lines: what you did, the gate result, the PR link, and the next package.
