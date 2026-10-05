@@ -2130,7 +2130,128 @@ const completeTranslations = {
     taLhTitle: 'Loss-harvesting opportunity ({pot} pot)',
     taLhDetail: 'You have about {loss} of unrealised losses in the {pot} pot ({names}) against {gains} of realised gains in the same pot this year.',
     taLhAction: 'Realising up to {offset} of these losses before year-end could offset those gains. Losses only offset gains of the same pot: share losses only share gains, crypto losses only other private-sale gains.',
-    taError: 'Tax advisor error: {msg}'
+    taError: 'Tax advisor error: {msg}',
+
+    // P2-2 backtester (backtester.js)
+    btNoAlloc: 'no valid allocation',
+    btMissingFor: 'missing history for',
+    btNotAligned: 'series could not be aligned',
+    btNoDataFor: 'no data for {sym}',
+    btMaxDd: 'max DD',
+    btVol: 'vol',
+    btNoRebal: 'no rebalancing',
+    btRebalMonthly: 'rebalance monthly',
+    btRebalQuarterly: 'rebalance quarterly',
+    btRebalYearly: 'rebalance yearly',
+    btVs: 'vs {name}',
+    btYourAlloc: 'Your allocation',
+    btRebalances: '{n} {n:rebalance|rebalances}',
+    btFootnote: 'Backtest over the common history of all symbols ({days} trading days, {years} years), prices as delivered by Yahoo Finance. Past performance is not indicative of future results.',
+    btNeedSymbol: 'Enter at least one symbol with a positive weight.',
+    btNeedWorker: 'Add a Worker URL in API Settings to load price history.',
+    btIntro: 'What would this allocation have become over real history? Symbols are Yahoo tickers (URTH, VWCE.DE, ^GSPC, BTC-USD, ...). Weights normalise automatically.',
+    btWeightPct: 'Weight %',
+    btAddAsset: '+ asset',
+    btStartCapital: 'Starting capital',
+    btRunning: 'Running...',
+    btRun: 'Run backtest',
+    btActual: 'Your actual portfolio (rescaled)',
+
+    // P2-2 options (options-engine.js)
+    opContract: 'Contract',
+    opSide: 'Side',
+    opContracts: 'Contracts',
+    opNetPremium: 'Net premium',
+    opExpiry: 'Expiry',
+    opMoneyness: 'Moneyness',
+    opIntrinsic: 'Intrinsic',
+    opEstPnl: 'Est. P&L',
+    opClosed: 'closed',
+    opExpired: 'expired',
+    opFlat: 'flat',
+    opNContracts: '{n} {n:contract|contracts}',
+    opIntrinsicValue: 'Intrinsic value',
+    opExpiring30: 'Expiring in 30d',
+    opUnderlyingReq: 'Underlying symbol is required.',
+    opTypeReq: 'Option type must be call or put.',
+    opStrikeReq: 'Strike must be a number greater than 0.',
+    opExpiryReq: 'Expiry must be a valid date (YYYY-MM-DD).',
+    opSizeReq: 'Contract size must be a number greater than 0.',
+    opFootnote: 'Valuation is intrinsic-only (no time value, no Greeks): an estimate from the current underlying price, not a market quote. Options are tracked separately and are not part of the portfolio value or tax figures. Not investment advice.',
+
+    // P2-2 stress scenarios (stress-test-engine.js)
+    stSc2008FinancialCrisisName: '2008 Financial Crisis',
+    stSc2008FinancialCrisisDesc: 'Global financial meltdown triggered by subprime mortgage crisis.',
+    stSc2020CovidCrashName: 'COVID-19 Crash',
+    stSc2020CovidCrashDesc: 'Rapid market decline due to global pandemic, followed by gaming boom',
+    stSc2022RateHikesName: '2022 Rate Hike Bear Market',
+    stSc2022RateHikesDesc: 'Federal Reserve aggressive rate increases to combat inflation',
+    stScDotcomBubbleName: 'Dot-Com Bubble Burst',
+    stScDotcomBubbleDesc: 'Technology stock collapse after speculative bubble.',
+    stScCryptoWinter2022Name: '2022 Crypto Winter',
+    stScCryptoWinter2022Desc: 'Crypto market collapse including Luna/FTX failures',
+    stScBlackMonday1987Name: 'Black Monday 1987',
+    stScBlackMonday1987Desc: 'Largest one-day percentage decline in stock market history',
+    stScModerateRecessionName: 'Moderate Recession',
+    stScModerateRecessionDesc: 'Typical economic recession scenario',
+    stScSevereRecessionName: 'Severe Recession',
+    stScSevereRecessionDesc: 'Deep economic downturn scenario',
+    stScCryptoCollapseName: 'Crypto Market Collapse',
+    stScCryptoCollapseDesc: 'Major cryptocurrency market failure',
+    stScGamingMarketCrashName: 'Gaming/Esports Market Crash',
+    stScGamingMarketCrashDesc: 'Collapse in gaming and esports markets',
+    stScSkinsNote: 'CS:GO skins marketplace launched in August 2013. Skins are not affected in this historical scenario.',
+    stHypothetical: 'Hypothetical',
+
+    // P2-2 risk analytics (risk-analytics-view-v2.js)
+    rkLow: 'Low',
+    rkMedium: 'Medium',
+    rkHigh: 'High',
+    rkVeryHigh: 'Very High',
+    rkBasedDaily: 'Based on daily closing prices ({n} daily returns)',
+    rkBasedRefresh: 'Based on the prices recorded on your refreshes',
+    rkObsSoFar: '({n} of {min} observations so far)',
+    rkVar: 'VaR (95%, 1-day)',
+    rkSharpe: 'Sharpe Ratio',
+    rkSortino: 'Sortino Ratio',
+    rkMaxDd: 'Max Drawdown',
+
+    // P2-2 real assets (real-assets.js)
+    raVehicle: 'Vehicle',
+    raWatch: 'Watch',
+    raCollectible: 'Collectible',
+    raRental: 'Rental income',
+    raRunning: 'Running cost',
+    raRenovation: 'Renovation',
+    raNamePh: 'e.g. Apartment Berlin',
+    raError: 'Real assets error: ',
+
+    // P2-2 categories (custom-categories.js)
+    ccError: 'Categories view error: ',
+
+    // P2-2 company size (market-cap.js)
+    mcError: 'Market cap error: ',
+
+    // P2-2 tags (tags.js)
+    tg30d: '30d',
+
+    // P2-2 exchange sync (exchange-sync.js)
+    exNotYet: 'Live sync for {name} is not available yet',
+    exError: 'Exchange sync error: ',
+
+    // P2-2 risk recommendations (risk-analytics.js)
+    rarVol: 'Portfolio volatility is high ({pct}). Consider adding stable assets.',
+    rarDd: 'Maximum drawdown of {pct} indicates significant downside risk.',
+    rarSharpe: 'Sharpe ratio is low ({v}). Risk-adjusted returns could be improved.',
+    rarConc: '{sym} represents {pct} of portfolio. Consider diversifying.',
+    rarOverall: 'Overall risk score is very high. Consider rebalancing to reduce exposure.',
+
+    // P2-2 dividend insights (dividend-data-service.js)
+    ddsGrow: 'Dividend income projected to grow {pct} vs last year',
+    ddsShrink: 'Dividend income projected to decrease {pct} vs last year',
+    ddsMonthly: 'Average monthly dividend income: {amount}',
+    ddsHighYield: 'High portfolio yield ({pct}) - verify dividend sustainability',
+    ddsLowYield: 'Portfolio yield: {pct} - consider adding dividend stocks'
   },
 
   // German locale (v10.x). Curated high-traffic strings; any missing key falls
@@ -4095,7 +4216,128 @@ const completeTranslations = {
     taLhTitle: 'Chance zur Verlustverrechnung (Topf {pot})',
     taLhDetail: 'Du hast etwa {loss} Buchverluste im Topf {pot} ({names}) gegenüber {gains} realisierten Gewinnen im selben Topf in diesem Jahr.',
     taLhAction: 'Bis zu {offset} dieser Verluste vor Jahresende zu realisieren, könnte diese Gewinne ausgleichen. Verluste gleichen nur Gewinne desselben Topfs aus: Aktienverluste nur Aktiengewinne, Kryptoverluste nur andere Gewinne aus privaten Veräußerungsgeschäften.',
-    taError: 'Fehler im Steuerberater: {msg}'
+    taError: 'Fehler im Steuerberater: {msg}',
+
+    // P2-2 backtester (backtester.js)
+    btNoAlloc: 'keine gültige Aufteilung',
+    btMissingFor: 'fehlender Verlauf für',
+    btNotAligned: 'Verläufe konnten nicht abgeglichen werden',
+    btNoDataFor: 'keine Daten für {sym}',
+    btMaxDd: 'max. DD',
+    btVol: 'Vol.',
+    btNoRebal: 'kein Rebalancing',
+    btRebalMonthly: 'monatlich rebalancieren',
+    btRebalQuarterly: 'vierteljährlich rebalancieren',
+    btRebalYearly: 'jährlich rebalancieren',
+    btVs: 'vs. {name}',
+    btYourAlloc: 'Deine Aufteilung',
+    btRebalances: '{n}× Rebalancing',
+    btFootnote: 'Backtest über den gemeinsamen Verlauf aller Symbole ({days} Handelstage, {years} Jahre), Kurse wie von Yahoo Finance geliefert. Vergangene Wertentwicklung ist kein Hinweis auf künftige Ergebnisse.',
+    btNeedSymbol: 'Gib mindestens ein Symbol mit positivem Gewicht ein.',
+    btNeedWorker: 'Trage in den API-Einstellungen eine Worker-URL ein, um den Kursverlauf zu laden.',
+    btIntro: 'Was wäre aus dieser Aufteilung im realen Verlauf geworden? Symbole sind Yahoo-Ticker (URTH, VWCE.DE, ^GSPC, BTC-USD, …). Die Gewichte werden automatisch normiert.',
+    btWeightPct: 'Gewicht %',
+    btAddAsset: '+ Anlage',
+    btStartCapital: 'Startkapital',
+    btRunning: 'Berechne …',
+    btRun: 'Backtest starten',
+    btActual: 'Dein tatsächliches Portfolio (skaliert)',
+
+    // P2-2 options (options-engine.js)
+    opContract: 'Kontrakt',
+    opSide: 'Seite',
+    opContracts: 'Kontrakte',
+    opNetPremium: 'Nettoprämie',
+    opExpiry: 'Verfall',
+    opMoneyness: 'Moneyness',
+    opIntrinsic: 'Innerer Wert',
+    opEstPnl: 'Gesch. G/V',
+    opClosed: 'geschlossen',
+    opExpired: 'verfallen',
+    opFlat: 'glattgestellt',
+    opNContracts: '{n} {n:Kontrakt|Kontrakte}',
+    opIntrinsicValue: 'Innerer Wert',
+    opExpiring30: 'Verfall in 30 T.',
+    opUnderlyingReq: 'Der Basiswert ist erforderlich.',
+    opTypeReq: 'Die Optionsart muss Call oder Put sein.',
+    opStrikeReq: 'Der Ausübungspreis muss eine Zahl größer als 0 sein.',
+    opExpiryReq: 'Das Verfallsdatum muss ein gültiges Datum sein (JJJJ-MM-TT).',
+    opSizeReq: 'Die Kontraktgröße muss eine Zahl größer als 0 sein.',
+    opFootnote: 'Bewertet wird nur der innere Wert (kein Zeitwert, keine Griechen): eine Schätzung aus dem aktuellen Kurs des Basiswerts, kein Marktpreis. Optionen werden getrennt geführt und sind nicht Teil des Portfoliowerts oder der Steuerzahlen. Keine Anlageberatung.',
+
+    // P2-2 stress scenarios (stress-test-engine.js)
+    stSc2008FinancialCrisisName: 'Finanzkrise 2008',
+    stSc2008FinancialCrisisDesc: 'Globaler Finanzkollaps, ausgelöst durch die Subprime-Hypothekenkrise.',
+    stSc2020CovidCrashName: 'Corona-Crash',
+    stSc2020CovidCrashDesc: 'Schneller Markteinbruch durch die globale Pandemie, gefolgt von einem Gaming-Boom',
+    stSc2022RateHikesName: 'Bärenmarkt 2022 durch Zinserhöhungen',
+    stSc2022RateHikesDesc: 'Aggressive Zinserhöhungen der US-Notenbank gegen die Inflation',
+    stScDotcomBubbleName: 'Platzen der Dotcom-Blase',
+    stScDotcomBubbleDesc: 'Einbruch der Technologieaktien nach einer Spekulationsblase.',
+    stScCryptoWinter2022Name: 'Krypto-Winter 2022',
+    stScCryptoWinter2022Desc: 'Einbruch des Kryptomarkts inklusive der Pleiten von Luna/FTX',
+    stScBlackMonday1987Name: 'Schwarzer Montag 1987',
+    stScBlackMonday1987Desc: 'Größter prozentualer Tagesverlust in der Geschichte des Aktienmarkts',
+    stScModerateRecessionName: 'Moderate Rezession',
+    stScModerateRecessionDesc: 'Typisches Rezessionsszenario',
+    stScSevereRecessionName: 'Schwere Rezession',
+    stScSevereRecessionDesc: 'Szenario eines tiefen Wirtschaftseinbruchs',
+    stScCryptoCollapseName: 'Zusammenbruch des Kryptomarkts',
+    stScCryptoCollapseDesc: 'Schwerer Einbruch des Kryptowährungsmarkts',
+    stScGamingMarketCrashName: 'Crash des Gaming-/E-Sport-Markts',
+    stScGamingMarketCrashDesc: 'Einbruch der Gaming- und E-Sport-Märkte',
+    stScSkinsNote: 'Der Marktplatz für CS:GO-Skins startete im August 2013. Skins sind von diesem historischen Szenario nicht betroffen.',
+    stHypothetical: 'Hypothetisch',
+
+    // P2-2 risk analytics (risk-analytics-view-v2.js)
+    rkLow: 'Niedrig',
+    rkMedium: 'Mittel',
+    rkHigh: 'Hoch',
+    rkVeryHigh: 'Sehr hoch',
+    rkBasedDaily: 'Auf Basis täglicher Schlusskurse ({n} Tagesrenditen)',
+    rkBasedRefresh: 'Auf Basis der bei deinen Aktualisierungen gespeicherten Kurse',
+    rkObsSoFar: '(bisher {n} von {min} Beobachtungen)',
+    rkVar: 'VaR (95 %, 1 Tag)',
+    rkSharpe: 'Sharpe-Ratio',
+    rkSortino: 'Sortino-Ratio',
+    rkMaxDd: 'Max. Drawdown',
+
+    // P2-2 real assets (real-assets.js)
+    raVehicle: 'Fahrzeug',
+    raWatch: 'Uhr',
+    raCollectible: 'Sammlerstück',
+    raRental: 'Mieteinnahmen',
+    raRunning: 'Laufende Kosten',
+    raRenovation: 'Renovierung',
+    raNamePh: 'z. B. Wohnung Berlin',
+    raError: 'Fehler bei Sachwerten: ',
+
+    // P2-2 categories (custom-categories.js)
+    ccError: 'Fehler in der Kategorienansicht: ',
+
+    // P2-2 company size (market-cap.js)
+    mcError: 'Fehler bei der Marktkapitalisierung: ',
+
+    // P2-2 tags (tags.js)
+    tg30d: '30 T.',
+
+    // P2-2 exchange sync (exchange-sync.js)
+    exNotYet: 'Live-Sync für {name} ist noch nicht verfügbar',
+    exError: 'Fehler beim Börsen-Sync: ',
+
+    // P2-2 risk recommendations (risk-analytics.js)
+    rarVol: 'Die Volatilität des Portfolios ist hoch ({pct}). Erwäge stabilere Anlagen.',
+    rarDd: 'Ein maximaler Drawdown von {pct} zeigt ein erhebliches Verlustrisiko.',
+    rarSharpe: 'Die Sharpe-Ratio ist niedrig ({v}). Die risikobereinigte Rendite ließe sich verbessern.',
+    rarConc: '{sym} macht {pct} des Portfolios aus. Erwäge eine breitere Streuung.',
+    rarOverall: 'Der Gesamtrisikowert ist sehr hoch. Erwäge ein Rebalancing, um das Risiko zu senken.',
+
+    // P2-2 dividend insights (dividend-data-service.js)
+    ddsGrow: 'Das Dividendeneinkommen steigt voraussichtlich um {pct} gegenüber dem Vorjahr',
+    ddsShrink: 'Das Dividendeneinkommen sinkt voraussichtlich um {pct} gegenüber dem Vorjahr',
+    ddsMonthly: 'Durchschnittliches monatliches Dividendeneinkommen: {amount}',
+    ddsHighYield: 'Hohe Portfoliorendite ({pct}) – prüfe, ob die Dividenden nachhaltig sind',
+    ddsLowYield: 'Portfoliorendite: {pct} – erwäge zusätzliche Dividendenaktien'
   }
 };
 

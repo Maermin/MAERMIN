@@ -26,25 +26,27 @@
 // ============================================================================
 (function () {
   'use strict';
+// Translation lookup (i18n.js): __('key', 'English fallback', { slot: value }).
+function __(k, f, v) { return (typeof window !== 'undefined' && window.MaerminI18n ? window.MaerminI18n : require('./i18n.js')).t(k, f, v); }
 
   var STORAGE_KEY = 'maermin_real_assets';
   var SCHEMA = 1;
 
   var KINDS = {
-    real_estate:  { label: 'Real Estate',  icon: '◉' },
-    vehicle:      { label: 'Vehicle',      icon: '◐' },
-    watch:        { label: 'Watch',        icon: '◍' },
-    collectible:  { label: 'Collectible',  icon: '◇' },
-    other:        { label: 'Other',        icon: '◌' }
+    real_estate:  { get label() { return __('nwProperty', 'Real Estate'); }, icon: '◉' },
+    vehicle:      { get label() { return __('raVehicle', 'Vehicle'); }, icon: '◐' },
+    watch:        { get label() { return __('raWatch', 'Watch'); }, icon: '◍' },
+    collectible:  { get label() { return __('raCollectible', 'Collectible'); }, icon: '◇' },
+    other:        { get label() { return __('secOther', 'Other'); }, icon: '◌' }
   };
 
   // Cashflow types and their sign for cumulative net cashflow / yield math.
   // Income adds, costs subtract; 'other' takes the amount's own sign.
   var CASHFLOW_TYPES = {
-    rental_income: { label: 'Rental income', sign: 1,  income: true },
-    running_cost:  { label: 'Running cost',  sign: -1, income: false },
-    renovation:    { label: 'Renovation',    sign: -1, income: false },
-    other:         { label: 'Other',         sign: 1,  income: false }
+    rental_income: { get label() { return __('raRental', 'Rental income'); }, sign: 1,  income: true },
+    running_cost:  { get label() { return __('raRunning', 'Running cost'); }, sign: -1, income: false },
+    renovation:    { get label() { return __('raRenovation', 'Renovation'); }, sign: -1, income: false },
+    other:         { get label() { return __('secOther', 'Other'); }, sign: 1,  income: false }
   };
 
   function num(v) { var n = parseFloat(v); return isFinite(n) ? n : 0; }
@@ -214,7 +216,7 @@
 
   function describe(asset) {
     var k = KINDS[asset && asset.kind] || KINDS.other;
-    return (asset && asset.name ? asset.name : 'Asset') + ' (' + k.label + ')';
+    return (asset && asset.name ? asset.name : __('colAsset', 'Asset')) + ' (' + k.label + ')';
   }
 
   // ---- CRUD on state --------------------------------------------------------
@@ -282,7 +284,7 @@
         var t = props.t || ((typeof window !== 'undefined' && window.MaerminI18n) ? window.MaerminI18n.dict() : {});
         var accounts = props.accounts || [];
         var rate = props.usdToEur || (props.prices && props.prices.usdToEur) || 1;
-        var fmt = props.formatPrice || function (n) { return (Math.round(n * 100) / 100).toLocaleString(); };
+        var fmt = props.formatPrice || function (n) { return window.MaerminI18n.num(n, 2); };
         var sym = (props.getCurrencySymbol ? props.getCurrencySymbol() : '');
         var text = theme.text || '#e9edf4', dim = theme.textSecondary || '#8b94a7';
         var border = theme.cardBorder || 'rgba(255,255,255,0.08)';
@@ -346,8 +348,8 @@
               e('div', { style: { minWidth: 0 } },
                 e('div', { style: { color: text, fontWeight: 600, fontSize: '0.875rem' } }, a.name),
                 e('div', { style: { color: dim, fontSize: '0.72rem' } },
-                  k.label + (ny ? '  ·  ' + (t.raNetYield || 'Net yield') + ' ' + (ny * 100).toFixed(1) + '%' : '') +
-                  '  ·  ' + (t.raTotalReturn || 'Total return') + ' ' + (tr.percent >= 0 ? '+' : '') + tr.percent.toFixed(1) + '%'))),
+                  k.label + (ny ? '  ·  ' + (t.raNetYield || 'Net yield') + ' ' + window.MaerminI18n.pct(ny * 100, 1) : '') +
+                  '  ·  ' + (t.raTotalReturn || 'Total return') + ' ' + window.MaerminI18n.pct(tr.percent, 1, true)))),
             e('div', { style: { display: 'flex', alignItems: 'center', gap: '0.75rem' } },
               e('div', { style: { textAlign: 'right' } },
                 e('div', { style: { color: up, fontWeight: 700, fontSize: '0.9rem' } }, fmt(nv) + ' ' + sym),
@@ -375,7 +377,7 @@
 
           showAdd ? e('div', { style: { padding: '0.85rem', background: inputBg, borderRadius: '10px', marginBottom: '0.85rem' } },
             e('div', { style: { display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(150px, 1fr))', gap: '0.6rem' } },
-              e('div', null, label(t.raName || 'Name'), inp('name', { placeholder: 'e.g. Apartment Berlin' })),
+              e('div', null, label(t.raName || 'Name'), inp('name', { placeholder: __('raNamePh', 'e.g. Apartment Berlin') })),
               e('div', null, label(t.raKind || 'Kind'),
                 e('select', { value: form.kind, onChange: function (ev) { setF({ kind: ev.target.value }); },
                   style: { padding: '0.55rem 0.7rem', background: inputBg, border: '1px solid ' + inputBorder, borderRadius: '8px', color: text, fontSize: '0.85rem', width: '100%' } },
@@ -402,7 +404,7 @@
             : (showAdd ? null : e('div', { style: { color: dim, fontSize: '0.84rem', padding: '0.5rem 0' } },
                 t.raEmpty || 'No real assets yet. Add a property, vehicle or valuable to track its value, financing and rental cashflows.')));
       } catch (err) {
-        return e('div', { style: { padding: '0.75rem', color: (props.theme && props.theme.danger) || '#ef4444' } }, 'Real assets error: ' + (err && err.message));
+        return e('div', { style: { padding: '0.75rem', color: (props.theme && props.theme.danger) || '#ef4444' } }, __('raError', 'Real assets error: ') + (err && err.message));
       }
     };
   }

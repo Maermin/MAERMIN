@@ -6,6 +6,8 @@
 
 (function() {
 'use strict';
+// Translation lookup (i18n.js): __('key', 'English fallback', { slot: value }).
+function __(k, f, v) { return (typeof window !== 'undefined' && window.MaerminI18n ? window.MaerminI18n : require('./i18n.js')).t(k, f, v); }
 
 // API Configuration
 var API_CONFIG = {
@@ -646,15 +648,15 @@ var DividendDataService = {
       insights.push({
         type: growth >= 0 ? 'positive' : 'warning',
         message: growth >= 0 ?
-          'Dividend income projected to grow ' + growth.toFixed(1) + '% vs last year' :
-          'Dividend income projected to decrease ' + Math.abs(growth).toFixed(1) + '% vs last year'
+          __('ddsGrow', 'Dividend income projected to grow {pct} vs last year', { pct: (typeof window !== 'undefined' && window.MaerminI18n ? window.MaerminI18n : require('./i18n.js')).pct(growth, 1) }) :
+          __('ddsShrink', 'Dividend income projected to decrease {pct} vs last year', { pct: (typeof window !== 'undefined' && window.MaerminI18n ? window.MaerminI18n : require('./i18n.js')).pct(Math.abs(growth), 1) })
       });
     }
     
     if (summary && summary.monthlyIncome > 0) {
       insights.push({
         type: 'info',
-        message: 'Average monthly dividend income: ' + summary.monthlyIncome.toFixed(2) + ' EUR'
+        message: __('ddsMonthly', 'Average monthly dividend income: {amount}', { amount: (typeof window !== 'undefined' && window.MaerminI18n ? window.MaerminI18n : require('./i18n.js')).money(summary.monthlyIncome, 'EUR') })
       });
     }
     
@@ -662,12 +664,12 @@ var DividendDataService = {
       if (summary.totalYield > 5) {
         insights.push({
           type: 'warning',
-          message: 'High portfolio yield (' + summary.totalYield.toFixed(2) + '%) - verify dividend sustainability'
+          message: __('ddsHighYield', 'High portfolio yield ({pct}) - verify dividend sustainability', { pct: (typeof window !== 'undefined' && window.MaerminI18n ? window.MaerminI18n : require('./i18n.js')).pct(summary.totalYield, 2) })
         });
       } else if (summary.totalYield < 2 && summary.totalYield > 0) {
         insights.push({
           type: 'info',
-          message: 'Portfolio yield: ' + summary.totalYield.toFixed(2) + '% - consider adding dividend stocks'
+          message: __('ddsLowYield', 'Portfolio yield: {pct} - consider adding dividend stocks', { pct: (typeof window !== 'undefined' && window.MaerminI18n ? window.MaerminI18n : require('./i18n.js')).pct(summary.totalYield, 2) })
         });
       }
     }

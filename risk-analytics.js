@@ -1,3 +1,5 @@
+// Translation lookup (i18n.js): __('key', 'English fallback', { slot: value }).
+function __(k, f, v) { return (typeof window !== 'undefined' && window.MaerminI18n ? window.MaerminI18n : require('./i18n.js')).t(k, f, v); }
 // ============================================================================
 // MAERMIN v6.0 - Risk Analytics Module
 // VaR, Volatility, Sharpe Ratio, and Risk Metrics
@@ -321,7 +323,7 @@ function generateRiskRecommendations(riskMetrics, portfolio) {
     recommendations.push({
       type: 'warning',
       priority: 'high',
-      message: 'Portfolio volatility is high (' + riskMetrics.volatility.toFixed(1) + '%). Consider adding stable assets.',
+      message: __('rarVol', 'Portfolio volatility is high ({pct}). Consider adding stable assets.', { pct: (typeof window !== 'undefined' && window.MaerminI18n ? window.MaerminI18n : require('./i18n.js')).pct(riskMetrics.volatility, 1) }),
       metric: 'volatility'
     });
   }
@@ -330,7 +332,7 @@ function generateRiskRecommendations(riskMetrics, portfolio) {
     recommendations.push({
       type: 'warning',
       priority: 'high',
-      message: 'Maximum drawdown of ' + riskMetrics.maxDrawdownPercent.toFixed(1) + '% indicates significant downside risk.',
+      message: __('rarDd', 'Maximum drawdown of {pct} indicates significant downside risk.', { pct: (typeof window !== 'undefined' && window.MaerminI18n ? window.MaerminI18n : require('./i18n.js')).pct(riskMetrics.maxDrawdownPercent, 1) }),
       metric: 'drawdown'
     });
   }
@@ -339,7 +341,7 @@ function generateRiskRecommendations(riskMetrics, portfolio) {
     recommendations.push({
       type: 'info',
       priority: 'medium',
-      message: 'Sharpe ratio is low (' + riskMetrics.sharpeRatio.toFixed(2) + '). Risk-adjusted returns could be improved.',
+      message: __('rarSharpe', 'Sharpe ratio is low ({v}). Risk-adjusted returns could be improved.', { v: (typeof window !== 'undefined' && window.MaerminI18n ? window.MaerminI18n : require('./i18n.js')).num(riskMetrics.sharpeRatio, 2) }),
       metric: 'sharpe'
     });
   }
@@ -348,7 +350,7 @@ function generateRiskRecommendations(riskMetrics, portfolio) {
     recommendations.push({
       type: 'warning',
       priority: 'high',
-      message: 'Overall risk score is very high. Consider rebalancing to reduce exposure.',
+      message: __('rarOverall', 'Overall risk score is very high. Consider rebalancing to reduce exposure.'),
       metric: 'overall'
     });
   }
@@ -367,7 +369,7 @@ function generateRiskRecommendations(riskMetrics, portfolio) {
     recommendations.push({
       type: 'warning',
       priority: 'medium',
-      message: maxWeightAsset.toUpperCase() + ' represents ' + (maxWeight * 100).toFixed(0) + '% of portfolio. Consider diversifying.',
+      message: __('rarConc', '{sym} represents {pct} of portfolio. Consider diversifying.', { sym: maxWeightAsset.toUpperCase(), pct: (typeof window !== 'undefined' && window.MaerminI18n ? window.MaerminI18n : require('./i18n.js')).pct(maxWeight * 100, 0) }),
       metric: 'concentration'
     });
   }

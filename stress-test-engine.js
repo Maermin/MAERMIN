@@ -10,11 +10,14 @@
  * Pre-built historical stress scenarios
  * NOTE: skins values for pre-2013 are estimated based on gaming/entertainment market correlation
  */
+// Translation lookup (i18n.js): __('key', 'English fallback', { slot: value }).
+function __(k, f, v) { return (typeof window !== 'undefined' && window.MaerminI18n ? window.MaerminI18n : require('./i18n.js')).t(k, f, v); }
+
 const HISTORICAL_SCENARIOS = {
   '2008-financial-crisis': {
-    name: '2008 Financial Crisis',
-    description: 'Global financial meltdown triggered by subprime mortgage crisis.',
-    period: '2008-09 to 2009-03',
+    get name() { return __('stSc2008FinancialCrisisName', '2008 Financial Crisis'); },
+    get description() { return __('stSc2008FinancialCrisisDesc', 'Global financial meltdown triggered by subprime mortgage crisis.'); },
+    period: '2008-09 – 2009-03',
     impacts: {
       stocks: -0.55,
       crypto: 0,        // Bitcoin launched 2009
@@ -24,13 +27,13 @@ const HISTORICAL_SCENARIOS = {
     },
     recoveryMonths: 48,
     peakToTrough: -57,
-    note: 'CS:GO skins marketplace launched in August 2013. Skins are not affected in this historical scenario.'
+    get note() { return __('stScSkinsNote', 'CS:GO skins marketplace launched in August 2013. Skins are not affected in this historical scenario.'); }
   },
   
   '2020-covid-crash': {
-    name: 'COVID-19 Crash',
-    description: 'Rapid market decline due to global pandemic, followed by gaming boom',
-    period: '2020-02 to 2020-03',
+    get name() { return __('stSc2020CovidCrashName', 'COVID-19 Crash'); },
+    get description() { return __('stSc2020CovidCrashDesc', 'Rapid market decline due to global pandemic, followed by gaming boom'); },
+    period: '2020-02 – 2020-03',
     impacts: {
       stocks: -0.34,
       crypto: -0.50,
@@ -43,9 +46,9 @@ const HISTORICAL_SCENARIOS = {
   },
   
   '2022-rate-hikes': {
-    name: '2022 Rate Hike Bear Market',
-    description: 'Federal Reserve aggressive rate increases to combat inflation',
-    period: '2022-01 to 2022-10',
+    get name() { return __('stSc2022RateHikesName', '2022 Rate Hike Bear Market'); },
+    get description() { return __('stSc2022RateHikesDesc', 'Federal Reserve aggressive rate increases to combat inflation'); },
+    period: '2022-01 – 2022-10',
     impacts: {
       stocks: -0.25,
       crypto: -0.75,
@@ -58,9 +61,9 @@ const HISTORICAL_SCENARIOS = {
   },
   
   'dotcom-bubble': {
-    name: 'Dot-Com Bubble Burst',
-    description: 'Technology stock collapse after speculative bubble.',
-    period: '2000-03 to 2002-10',
+    get name() { return __('stScDotcomBubbleName', 'Dot-Com Bubble Burst'); },
+    get description() { return __('stScDotcomBubbleDesc', 'Technology stock collapse after speculative bubble.'); },
+    period: '2000-03 – 2002-10',
     impacts: {
       stocks: -0.49,
       crypto: 0,        // Did not exist
@@ -70,13 +73,13 @@ const HISTORICAL_SCENARIOS = {
     },
     recoveryMonths: 84,
     peakToTrough: -78,
-    note: 'CS:GO skins marketplace launched in August 2013. Skins are not affected in this historical scenario.'
+    get note() { return __('stScSkinsNote', 'CS:GO skins marketplace launched in August 2013. Skins are not affected in this historical scenario.'); }
   },
   
   'crypto-winter-2022': {
-    name: '2022 Crypto Winter',
-    description: 'Crypto market collapse including Luna/FTX failures',
-    period: '2022-04 to 2022-12',
+    get name() { return __('stScCryptoWinter2022Name', '2022 Crypto Winter'); },
+    get description() { return __('stScCryptoWinter2022Desc', 'Crypto market collapse including Luna/FTX failures'); },
+    period: '2022-04 – 2022-12',
     impacts: {
       stocks: -0.15,
       crypto: -0.70,
@@ -88,8 +91,8 @@ const HISTORICAL_SCENARIOS = {
   },
   
   'black-monday-1987': {
-    name: 'Black Monday 1987',
-    description: 'Largest one-day percentage decline in stock market history',
+    get name() { return __('stScBlackMonday1987Name', 'Black Monday 1987'); },
+    get description() { return __('stScBlackMonday1987Desc', 'Largest one-day percentage decline in stock market history'); },
     period: '1987-10',
     impacts: {
       stocks: -0.22,
@@ -102,9 +105,9 @@ const HISTORICAL_SCENARIOS = {
   },
 
   'moderate-recession': {
-    name: 'Moderate Recession',
-    description: 'Typical economic recession scenario',
-    period: 'Hypothetical',
+    get name() { return __('stScModerateRecessionName', 'Moderate Recession'); },
+    get description() { return __('stScModerateRecessionDesc', 'Typical economic recession scenario'); },
+    get period() { return __('stHypothetical', 'Hypothetical'); },
     impacts: {
       stocks: -0.30,
       crypto: -0.45,
@@ -116,9 +119,9 @@ const HISTORICAL_SCENARIOS = {
   },
 
   'severe-recession': {
-    name: 'Severe Recession',
-    description: 'Deep economic downturn scenario',
-    period: 'Hypothetical',
+    get name() { return __('stScSevereRecessionName', 'Severe Recession'); },
+    get description() { return __('stScSevereRecessionDesc', 'Deep economic downturn scenario'); },
+    get period() { return __('stHypothetical', 'Hypothetical'); },
     impacts: {
       stocks: -0.50,
       crypto: -0.70,
@@ -130,9 +133,9 @@ const HISTORICAL_SCENARIOS = {
   },
 
   'crypto-collapse': {
-    name: 'Crypto Market Collapse',
-    description: 'Major cryptocurrency market failure',
-    period: 'Hypothetical',
+    get name() { return __('stScCryptoCollapseName', 'Crypto Market Collapse'); },
+    get description() { return __('stScCryptoCollapseDesc', 'Major cryptocurrency market failure'); },
+    get period() { return __('stHypothetical', 'Hypothetical'); },
     impacts: {
       stocks: -0.10,
       crypto: -0.85,
@@ -144,9 +147,9 @@ const HISTORICAL_SCENARIOS = {
   },
 
   'gaming-market-crash': {
-    name: 'Gaming/Esports Market Crash',
-    description: 'Collapse in gaming and esports markets',
-    period: 'Hypothetical',
+    get name() { return __('stScGamingMarketCrashName', 'Gaming/Esports Market Crash'); },
+    get description() { return __('stScGamingMarketCrashDesc', 'Collapse in gaming and esports markets'); },
+    get period() { return __('stHypothetical', 'Hypothetical'); },
     impacts: {
       stocks: -0.05,
       crypto: -0.10,

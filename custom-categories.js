@@ -23,6 +23,8 @@
 // ============================================================================
 (function () {
   'use strict';
+// Translation lookup (i18n.js): __('key', 'English fallback', { slot: value }).
+function __(k, f, v) { return (typeof window !== 'undefined' && window.MaerminI18n ? window.MaerminI18n : require('./i18n.js')).t(k, f, v); }
 
   var STORAGE_KEY = 'maermin_custom_categories';
   var SCHEMA = 1;
@@ -30,10 +32,10 @@
   // Built-ins mirror the colours already used across the app. 'options' is a
   // reserved built-in id (a special tx kind), so it cannot be reused either.
   var BUILTINS = [
-    { id: 'crypto',      label: 'Crypto',       color: '#8b7cff' },
-    { id: 'stocks',      label: 'Stocks',       color: '#3b82f6' },
-    { id: 'skins',       label: 'CS2 Skins',    color: '#06b6d4' },
-    { id: 'commodities', label: 'Commodities',  color: '#fb7185' }
+    { id: 'crypto',      get label() { return __('crypto', 'Crypto'); }, color: '#8b7cff' },
+    { id: 'stocks',      get label() { return __('stocks', 'Stocks'); }, color: '#3b82f6' },
+    { id: 'skins',       get label() { return __('cs2Skins', 'CS2 Skins'); }, color: '#06b6d4' },
+    { id: 'commodities', get label() { return __('catCommodities', 'Commodities'); }, color: '#fb7185' }
   ];
   var RESERVED = { crypto: 1, stocks: 1, skins: 1, commodities: 1, options: 1 };
   var PALETTE = ['#22c55e', '#a855f7', '#ef4444', '#14b8a6', '#ec4899',
@@ -223,7 +225,7 @@
           e('div', { style: { color: dim, fontSize: '0.72rem', marginTop: '1rem', lineHeight: 1.5 } },
             t.catFootnote || 'Note: by-asset-class breakdowns (rebalancing-by-class, currency-by-class) currently cover the four base classes; custom-category value is included in totals and shown here and in Tags.'));
       } catch (err) {
-        return e('div', { style: { padding: '1.5rem', color: (props.theme && props.theme.danger) || '#ef4444' } }, 'Categories view error: ' + (err && err.message));
+        return e('div', { style: { padding: '1.5rem', color: (props.theme && props.theme.danger) || '#ef4444' } }, __('ccError', 'Categories view error: ') + (err && err.message));
       }
     };
   }

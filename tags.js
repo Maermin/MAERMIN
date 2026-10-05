@@ -20,6 +20,8 @@
 // ============================================================================
 (function () {
   'use strict';
+// Translation lookup (i18n.js): __('key', 'English fallback', { slot: value }).
+function __(k, f, v) { return (typeof window !== 'undefined' && window.MaerminI18n ? window.MaerminI18n : require('./i18n.js')).t(k, f, v); }
 
   var STORAGE_KEY = 'maermin_tags';
   var SCHEMA = 1;
@@ -238,7 +240,7 @@
     var inputBg = theme.inputBg || '#0c1018', inputBorder = theme.inputBorder || border;
     var accent = theme.accent || '#8b7cff', accentText = theme.accentText || '#ffffff';
     var up = theme.success || '#22c55e', down = theme.danger || '#ef4444';
-    var fmt = props.formatPrice || function (n) { return (Math.round(n * 100) / 100).toLocaleString(); };
+    var fmt = props.formatPrice || function (n) { return window.MaerminI18n.num(n, 2); };
     var sym = props.getCurrencySymbol ? props.getCurrencySymbol() : '€';
 
     var st0 = useState(function () { return load(); });
@@ -322,12 +324,12 @@
         e('div', { style: { display: 'flex', alignItems: 'center', gap: '0.6rem', marginBottom: '0.6rem', flexWrap: 'wrap' } },
           dot(tag.color),
           e('span', { style: { color: text, fontWeight: 800, fontSize: '0.95rem' } }, tag.name),
-          e('span', { style: { color: dim, fontSize: '0.78rem' } }, fmt(row.value) + ' ' + sym + ' · ' + row.weightPct.toFixed(1) + '%'),
+          e('span', { style: { color: dim, fontSize: '0.78rem' } }, fmt(row.value) + ' ' + sym + ' · ' + window.MaerminI18n.pct(row.weightPct, 1)),
           (function () {
             var perf = tagPerf(tag.name);
             return (perf && perf.pct != null)
-              ? e('span', { title: (perf.partial ? (t.tagsSinceStart || 'since first record') : '30d'), style: { color: perf.pct >= 0 ? up : down, fontSize: '0.74rem', fontWeight: 700 } },
-                  (perf.pct >= 0 ? '+' : '') + perf.pct.toFixed(1) + '% · ' + (perf.partial ? '∗' : '30d'))
+              ? e('span', { title: (perf.partial ? (t.tagsSinceStart || 'since first record') : __('tg30d', '30d')), style: { color: perf.pct >= 0 ? up : down, fontSize: '0.74rem', fontWeight: 700 } },
+                  window.MaerminI18n.pct(perf.pct, 1, true) + ' · ' + (perf.partial ? '∗' : __('tg30d', '30d')))
               : null;
           })(),
           e('span', { style: { flex: 1 } }),
@@ -352,8 +354,8 @@
           (Math.abs(driftPp) < 0.05
             ? (t.tagsOnTarget || 'On target')
             : (driftPp > 0
-              ? (t.tagsOverweight || 'Overweight') + ' ' + driftPp.toFixed(1) + 'pp → ' + (t.tagsSell || 'sell') + ' ' + fmt(Math.abs(deltaVal)) + ' ' + sym
-              : (t.tagsUnderweight || 'Underweight') + ' ' + Math.abs(driftPp).toFixed(1) + 'pp → ' + (t.tagsBuy || 'buy') + ' ' + fmt(Math.abs(deltaVal)) + ' ' + sym))) : null);
+              ? (t.tagsOverweight || 'Overweight') + ' ' + __('ppValue', '{v} pp', { v: window.MaerminI18n.num(driftPp, 1) }) + ' → ' + (t.tagsSell || 'sell') + ' ' + fmt(Math.abs(deltaVal)) + ' ' + sym
+              : (t.tagsUnderweight || 'Underweight') + ' ' + __('ppValue', '{v} pp', { v: window.MaerminI18n.num(Math.abs(driftPp), 1) }) + ' → ' + (t.tagsBuy || 'buy') + ' ' + fmt(Math.abs(deltaVal)) + ' ' + sym))) : null);
     });
 
     return e('div', { style: { padding: '1.5rem' } },

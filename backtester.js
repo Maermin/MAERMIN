@@ -23,6 +23,8 @@
 // ============================================================================
 (function () {
   'use strict';
+// Translation lookup (i18n.js): __('key', 'English fallback', { slot: value }).
+function __(k, f, v) { return (typeof window !== 'undefined' && window.MaerminI18n ? window.MaerminI18n : require('./i18n.js')).t(k, f, v); }
 
   function analytics() {
     if (typeof window !== 'undefined' && window.MaerminAnalytics) return window.MaerminAnalytics;
@@ -116,13 +118,13 @@
   // One-call pipeline for a strategy: weights in, path + metrics out.
   function run(rows, seriesBySymbol, opts) {
     var weights = normalizeWeights(rows);
-    if (!weights) return { ok: false, error: 'no valid allocation' };
+    if (!weights) return { ok: false, error: __('btNoAlloc', 'no valid allocation') };
     var seriesList = weights.map(function (w) { return (seriesBySymbol || {})[w.symbol]; });
     if (seriesList.some(function (s) { return !Array.isArray(s) || s.length < 2; })) {
-      return { ok: false, error: 'missing history for ' + weights.filter(function (w, i) { return !Array.isArray(seriesList[i]) || seriesList[i].length < 2; }).map(function (w) { return w.symbol; }).join(', ') };
+      return { ok: false, error: __('btMissingFor', 'missing history for') + ' ' + weights.filter(function (w, i) { return !Array.isArray(seriesList[i]) || seriesList[i].length < 2; }).map(function (w) { return w.symbol; }).join(', ') };
     }
     var bt = backtest(weights, seriesList, opts);
-    if (!bt) return { ok: false, error: 'series could not be aligned' };
+    if (!bt) return { ok: false, error: __('btNotAligned', 'series could not be aligned') };
     var metrics = summarize(bt.path, opts);
     return { ok: true, weights: weights, path: bt.path, rebalances: bt.rebalances, metrics: metrics };
   }
@@ -139,7 +141,7 @@
     var inputBg = theme.inputBg || '#0f172a', card = theme.card || theme.cardBg || '#10151f';
     var accent = theme.accent || '#8b7cff', good = theme.success || '#22c55e', bad = theme.danger || '#ef4444';
     var workerBase = String(props.workerUrl || '').trim().replace(/\/+$/, '');
-    var fmt = props.formatPrice || function (v) { return Number(v || 0).toFixed(2); };
+    var fmt = props.formatPrice || function (v) { return window.MaerminI18n.num(v, 2); };
     var sym = (props.getCurrencySymbol && props.getCurrencySymbol()) || '€';
     var A = (typeof window !== 'undefined') && window.MaerminAnalytics;
     var D = (typeof window !== 'undefined') && window.MaerminAnalyticsData;
@@ -166,15 +168,15 @@
     function fetchSeries(symbol) {
       var url = workerBase + '?action=yf&symbol=' + encodeURIComponent(symbol) + '&interval=1d&range=' + encodeURIComponent(range);
       return fetch(url).then(function (r) { return r.json(); }).then(function (j) {
-        if (!j || j.error || !Array.isArray(j.prices)) throw new Error((j && j.error) || ('no data for ' + symbol));
+        if (!j || j.error || !Array.isArray(j.prices)) throw new Error((j && j.error) || __('btNoDataFor', 'no data for {sym}', { sym: symbol }));
         return (D && D.pricesOf) ? D.pricesOf(j.prices) : j.prices.map(function (p) { return p.price; });
       });
     }
 
     function runBacktest() {
       var weights = normalizeWeights(rows);
-      if (!weights) { setOut({ error: 'Enter at least one symbol with a positive weight.' }); return; }
-      if (!workerBase) { setOut({ error: 'Add a Worker URL in API Settings to load price history.' }); return; }
+      if (!weights) { setOut({ error: __('btNeedSymbol', 'Enter at least one symbol with a positive weight.') }); return; }
+      if (!workerBase) { setOut({ error: __('btNeedWorker', 'Add a Worker URL in API Settings to load price history.') }); return; }
       setBusy(true); setOut(null);
       var preset = ((A && A.BENCHMARKS) || []).filter(function (b) { return b.key === bench; })[0];
       var symbols = weights.map(function (w) { return w.symbol; });
@@ -218,16 +220,16 @@
         e('polyline', { points: pts, fill: 'none', stroke: color, strokeWidth: '2', strokeLinejoin: 'round', strokeLinecap: 'round' }));
     }
 
-    var pct = function (x) { return x == null ? '-' : ((x >= 0 ? '+' : '') + (x * 100).toFixed(1) + '%'); };
+    var pct = function (x) { return x == null ? '-' : window.MaerminI18n.pct(x * 100, 1, true); };
     function metricRow(label, m, color, path) {
       if (!m) return null;
       return e('div', { key: label, style: { borderTop: '1px solid ' + border, padding: '0.6rem 0' } },
         e('div', { style: { display: 'flex', justifyContent: 'space-between', flexWrap: 'wrap', gap: '0.4rem', marginBottom: '0.3rem' } },
           e('span', { style: { color: color, fontWeight: 700, fontSize: '0.84rem' } }, label),
           e('span', { style: { color: text, fontSize: '0.8rem' } },
-            sym + fmt(m.endValue) + '  ', e('span', { style: { color: dim } }, 'CAGR '), e('span', { style: { color: m.cagr >= 0 ? good : bad, fontWeight: 600 } }, pct(m.cagr)),
-            e('span', { style: { color: dim } }, '  max DD '), e('span', { style: { color: bad, fontWeight: 600 } }, '-' + (m.maxDrawdown * 100).toFixed(1) + '%'),
-            e('span', { style: { color: dim } }, '  vol '), e('span', { style: { color: text, fontWeight: 600 } }, (m.volatility * 100).toFixed(1) + '%'))),
+            fmt(m.endValue) + ' ' + sym + '  ', e('span', { style: { color: dim } }, 'CAGR '), e('span', { style: { color: m.cagr >= 0 ? good : bad, fontWeight: 600 } }, pct(m.cagr)),
+            e('span', { style: { color: dim } }, '  ' + __('btMaxDd', 'max DD') + ' '), e('span', { style: { color: bad, fontWeight: 600 } }, '-' + window.MaerminI18n.pct(m.maxDrawdown * 100, 1)),
+            e('span', { style: { color: dim } }, '  ' + __('btVol', 'vol') + ' '), e('span', { style: { color: text, fontWeight: 600 } }, window.MaerminI18n.pct(m.volatility * 100, 1)))),
         path ? sparkline(path, color) : null);
     }
 
@@ -236,30 +238,30 @@
 
     return e('div', { style: { background: card, border: '1px solid ' + border, borderRadius: '14px', padding: '1.25rem', margin: '1rem 1.5rem 1.5rem' } },
       e('h3', { style: { color: text, fontSize: '1rem', fontWeight: 700, margin: '0 0 0.5rem' } }, t.backtesterTitle || 'Allocation backtester (what-if)'),
-      e('div', { style: { color: dim, fontSize: '0.78rem', marginBottom: '0.8rem' } }, 'What would this allocation have become over real history? Symbols are Yahoo tickers (URTH, VWCE.DE, ^GSPC, BTC-USD, ...). Weights normalise automatically.'),
+      e('div', { style: { color: dim, fontSize: '0.78rem', marginBottom: '0.8rem' } }, __('btIntro', 'What would this allocation have become over real history? Symbols are Yahoo tickers (URTH, VWCE.DE, ^GSPC, BTC-USD, ...). Weights normalise automatically.')),
       rows.map(function (r, i) {
         return e('div', { key: i, style: { display: 'flex', gap: '0.4rem', marginBottom: '0.4rem', alignItems: 'center' } },
-          e('input', { type: 'text', value: r.symbol, placeholder: 'Symbol', onChange: function (ev) { setRow(i, 'symbol', ev.target.value); }, style: Object.assign({ width: '130px' }, inputStyle) }),
-          e('input', { type: 'text', value: r.weight, placeholder: 'Weight %', onChange: function (ev) { setRow(i, 'weight', ev.target.value); }, style: Object.assign({ width: '80px', textAlign: 'right' }, inputStyle) }),
+          e('input', { type: 'text', value: r.symbol, placeholder: __('symbol', 'Symbol'), onChange: function (ev) { setRow(i, 'symbol', ev.target.value); }, style: Object.assign({ width: '130px' }, inputStyle) }),
+          e('input', { type: 'text', value: r.weight, placeholder: __('btWeightPct', 'Weight %'), onChange: function (ev) { setRow(i, 'weight', ev.target.value); }, style: Object.assign({ width: '80px', textAlign: 'right' }, inputStyle) }),
           rows.length > 1 ? e('button', { onClick: function () { removeRow(i); }, style: { background: 'none', border: 'none', color: dim, cursor: 'pointer', fontSize: '0.9rem' } }, 'x') : null);
       }),
       e('div', { style: { display: 'flex', gap: '0.5rem', flexWrap: 'wrap', alignItems: 'center', margin: '0.6rem 0 0.9rem' } },
-        e('button', { onClick: addRow, style: { padding: '0.3rem 0.7rem', borderRadius: '6px', border: '1px solid ' + border, background: inputBg, color: dim, cursor: 'pointer', fontSize: '0.74rem' } }, '+ asset'),
+        e('button', { onClick: addRow, style: { padding: '0.3rem 0.7rem', borderRadius: '6px', border: '1px solid ' + border, background: inputBg, color: dim, cursor: 'pointer', fontSize: '0.74rem' } }, __('btAddAsset', '+ asset')),
         e('select', { value: range, onChange: function (ev) { setRange(ev.target.value); }, style: inputStyle },
           ['1y', '2y', '5y', '10y', 'max'].map(function (r2) { return e('option', { key: r2, value: r2 }, r2); })),
         e('select', { value: rebal, onChange: function (ev) { setRebal(ev.target.value); }, style: inputStyle },
-          [['none', 'no rebalancing'], ['monthly', 'rebalance monthly'], ['quarterly', 'rebalance quarterly'], ['yearly', 'rebalance yearly']].map(function (o) { return e('option', { key: o[0], value: o[0] }, o[1]); })),
-        e('input', { type: 'text', value: initial, onChange: function (ev) { setInitial(ev.target.value); }, title: 'Starting capital', style: Object.assign({ width: '90px', textAlign: 'right' }, inputStyle) }),
+          [['none', __('btNoRebal', 'no rebalancing')], ['monthly', __('btRebalMonthly', 'rebalance monthly')], ['quarterly', __('btRebalQuarterly', 'rebalance quarterly')], ['yearly', __('btRebalYearly', 'rebalance yearly')]].map(function (o) { return e('option', { key: o[0], value: o[0] }, o[1]); })),
+        e('input', { type: 'text', value: initial, onChange: function (ev) { setInitial(ev.target.value); }, title: __('btStartCapital', 'Starting capital'), style: Object.assign({ width: '90px', textAlign: 'right' }, inputStyle) }),
         e('select', { value: bench, onChange: function (ev) { setBench(ev.target.value); }, style: inputStyle },
-          presets.map(function (b) { return e('option', { key: b.key, value: b.key }, 'vs ' + b.label); })),
-        e('button', { onClick: runBacktest, disabled: busy, style: { padding: '0.4rem 1rem', borderRadius: '8px', border: 'none', cursor: busy ? 'default' : 'pointer', fontWeight: 700, fontSize: '0.8rem', background: accent, color: '#ffffff', opacity: busy ? 0.6 : 1 } }, busy ? 'Running...' : 'Run backtest')),
+          presets.map(function (b) { return e('option', { key: b.key, value: b.key }, __('btVs', 'vs {name}', { name: b.label })); })),
+        e('button', { onClick: runBacktest, disabled: busy, style: { padding: '0.4rem 1rem', borderRadius: '8px', border: 'none', cursor: busy ? 'default' : 'pointer', fontWeight: 700, fontSize: '0.8rem', background: accent, color: '#ffffff', opacity: busy ? 0.6 : 1 } }, busy ? __('btRunning', 'Running...') : __('btRun', 'Run backtest'))),
       out && out.error ? e('div', { style: { color: bad, fontSize: '0.8rem' } }, out.error) : null,
       out && out.strategy ? e('div', null,
-        metricRow('Your allocation' + (out.strategy.rebalances ? ' (' + out.strategy.rebalances + ' rebalances)' : ''), out.strategy.metrics, accent, out.strategy.path),
+        metricRow(__('btYourAlloc', 'Your allocation') + (out.strategy.rebalances ? ' (' + __('btRebalances', '{n} {n:rebalance|rebalances}', { n: out.strategy.rebalances }) + ')' : ''), out.strategy.metrics, accent, out.strategy.path),
         out.benchmark ? metricRow(out.preset.label + ' (' + out.preset.proxy + ')', out.benchmark.metrics, dim, out.benchmark.path) : null,
-        out.actual ? metricRow('Your actual portfolio (rescaled)', out.actual.metrics, good, out.actual.path) : null,
+        out.actual ? metricRow(__('btActual', 'Your actual portfolio (rescaled)'), out.actual.metrics, good, out.actual.path) : null,
         e('div', { style: { color: dim, fontSize: '0.7rem', marginTop: '0.7rem', lineHeight: 1.5 } },
-          'Backtest over the common history of all symbols (' + out.strategy.metrics.periods + ' trading days, ' + out.strategy.metrics.years.toFixed(1) + ' years), prices as delivered by Yahoo Finance. Past performance is not indicative of future results.')) : null);
+          __('btFootnote', 'Backtest over the common history of all symbols ({days} trading days, {years} years), prices as delivered by Yahoo Finance. Past performance is not indicative of future results.', { days: out.strategy.metrics.periods, years: window.MaerminI18n.num(out.strategy.metrics.years, 1) }))) : null);
   }
 
   var api = {

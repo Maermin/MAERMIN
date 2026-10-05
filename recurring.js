@@ -15,14 +15,16 @@
 // ============================================================================
 (function () {
   'use strict';
+// Translation lookup (i18n.js): __('key', 'English fallback', { slot: value }).
+function __(k, f, v) { return (typeof window !== 'undefined' && window.MaerminI18n ? window.MaerminI18n : require('./i18n.js')).t(k, f, v); }
 
   var INTERVALS = {
-    weekly:     { label: 'Weekly',       perYear: 52 },
-    biweekly:   { label: 'Bi-weekly',    perYear: 26 },
-    monthly:    { label: 'Monthly',      perYear: 12 },
-    quarterly:  { label: 'Quarterly',    perYear: 4 },
-    semiannual: { label: 'Semi-annual',  perYear: 2 },
-    annual:     { label: 'Annual',       perYear: 1 }
+    weekly:     { get label() { return __('freqWeekly', 'Weekly'); },       perYear: 52 },
+    biweekly:   { get label() { return __('freqBiweekly', 'Bi-weekly'); },    perYear: 26 },
+    monthly:    { get label() { return __('freqMonthly', 'Monthly'); },      perYear: 12 },
+    quarterly:  { get label() { return __('freqQuarterly', 'Quarterly'); },    perYear: 4 },
+    semiannual: { get label() { return __('freqSemiAnnual', 'Semi-annual'); },  perYear: 2 },
+    annual:     { get label() { return __('freqAnnual', 'Annual'); },       perYear: 1 }
   };
 
   // Parse an ISO yyyy-mm-dd at UTC midnight (TZ-stable).

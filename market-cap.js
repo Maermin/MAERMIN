@@ -15,6 +15,8 @@
 // ============================================================================
 (function () {
   'use strict';
+// Translation lookup (i18n.js): __('key', 'English fallback', { slot: value }).
+function __(k, f, v) { return (typeof window !== 'undefined' && window.MaerminI18n ? window.MaerminI18n : require('./i18n.js')).t(k, f, v); }
 
   var CACHE_KEY = 'maermin_marketcap_cache';
   var CACHE_TTL = 30 * 24 * 60 * 60 * 1000; // 30 days
@@ -23,7 +25,7 @@
   var LARGE_MIN = 10e9; // >= 10 bn EUR
   var MID_MIN = 2e9;    // 2-10 bn EUR
   var ORDER = ['large', 'mid', 'small', 'unknown'];
-  var LABELS = { large: 'Large cap', mid: 'Mid cap', small: 'Small cap', unknown: 'Unknown' };
+  var LABELS = { get large() { return __('mcLarge', 'Large cap'); }, get mid() { return __('mcMid', 'Mid cap'); }, get small() { return __('mcSmall', 'Small cap'); }, get unknown() { return __('dqUnknown', 'Unknown'); } };
 
   function num(x) { var n = parseFloat(x); return isFinite(n) ? n : NaN; }
 
@@ -139,7 +141,7 @@
         var border = theme.cardBorder || 'rgba(255,255,255,0.08)';
         var card = theme.card || '#10151f';
         var rate = props.exchangeRate || props.usdToEur || 1;
-        var fmt = props.formatPrice || function (n) { return (Math.round(n * 100) / 100).toLocaleString(); };
+        var fmt = props.formatPrice || function (n) { return window.MaerminI18n.num(n, 2); };
         var COLORS = { large: theme.accent || '#8b7cff', mid: '#3b82f6', small: '#14b8a6', unknown: theme.textSecondary || '#6b7280' };
 
         var groups = props.portfolio || {};
@@ -170,7 +172,7 @@
           return e('div', { key: b.key, style: { marginBottom: '0.6rem' } },
             e('div', { style: { display: 'flex', justifyContent: 'space-between', fontSize: '0.8rem', marginBottom: '0.25rem' } },
               e('span', { style: { color: text, fontWeight: 600 } }, API.LABELS[b.key] === 'Large cap' ? (t.mcLarge || 'Large cap') : API.LABELS[b.key] === 'Mid cap' ? (t.mcMid || 'Mid cap') : API.LABELS[b.key] === 'Small cap' ? (t.mcSmall || 'Small cap') : (t.mcUnknown || 'Unknown')),
-              e('span', { style: { color: dim } }, b.weight.toFixed(1) + '%  ·  ' + fmt(b.value))),
+              e('span', { style: { color: dim } }, window.MaerminI18n.pct(b.weight, 1) + '  ·  ' + fmt(b.value))),
             e('div', { style: { height: 8, borderRadius: 6, background: theme.inputBg || '#0c1018', overflow: 'hidden' } },
               e('div', { style: { width: Math.max(0, Math.min(100, b.weight)) + '%', height: '100%', background: COLORS[b.key], transition: 'width 0.3s' } })));
         });
@@ -180,7 +182,7 @@
           e('div', { style: { color: dim, fontSize: '0.76rem', marginBottom: '0.9rem' } }, t.mcSubtitle || 'Equity allocation by market-cap size (EUR-normalised)'),
           agg.total > 0 ? bars : e('div', { style: { color: dim, fontSize: '0.84rem' } }, t.mcEmpty || 'No equity positions to size yet.'));
       } catch (err) {
-        return e('div', { style: { padding: '0.75rem', color: (props.theme && props.theme.danger) || '#ef4444' } }, 'Market cap error: ' + (err && err.message));
+        return e('div', { style: { padding: '0.75rem', color: (props.theme && props.theme.danger) || '#ef4444' } }, __('mcError', 'Market cap error: ') + (err && err.message));
       }
     };
   }
