@@ -5,6 +5,8 @@
 
 (function() {
 'use strict';
+// Translation lookup (i18n.js): __('key', 'English fallback', { slot: value }).
+function __(k, f, v) { return (typeof window !== 'undefined' && window.MaerminI18n ? window.MaerminI18n : require('./i18n.js')).t(k, f, v); }
 
 const { useState, useEffect, useMemo, useCallback, useRef } = React;
 
@@ -134,7 +136,7 @@ function CommandPalette({ isOpen, onClose, onExecute, commands, t }) {
       React.createElement('div', { className: 'command-palette-footer' },
         React.createElement('span', null, React.createElement('kbd', null, 'Enter'), ' ', t.confirm || 'Select'),
         React.createElement('span', null, React.createElement('kbd', null, 'Esc'), ' ', t.close || 'Close'),
-        React.createElement('span', null, React.createElement('kbd', null, 'Up/Down'), ' Navigate')
+        React.createElement('span', null, React.createElement('kbd', null, '↑/↓'), ' ' + __('palNavigate', 'Navigate'))
       )
     )
   );
@@ -221,7 +223,7 @@ function ToastContainer({ toasts, onRemove }) {
         key: toast.id,
         className: `toast ${toast.type}`,
         ...window.MaerminUtils.clickable(() => onRemove(toast.id)),
-        'aria-label': 'Dismiss notification'
+        'aria-label': __('toastDismiss', 'Dismiss notification')
       },
         React.createElement('span', null, toast.message)
       )
@@ -294,7 +296,7 @@ function CorrelationMatrixView({ portfolio, priceHistory, historySource, t, them
       }
     }, computing
       ? (t.loading || 'Loading...')
-      : (t.correlationNeedsHistory || ('Not enough price history yet. The correlation matrix needs at least two holdings with two or more recorded prices each (' + withHistory + ' so far). A price point is recorded on every refresh.')));
+      : window.MaerminI18n.fill(t.correlationNeedsHistory || 'Not enough price history yet. The correlation matrix needs at least two holdings with two or more recorded prices each ({n} so far). A price point is recorded on every refresh.', { n: withHistory }));
   }
 
   const { matrix, score, extremes } = correlationData;
@@ -317,8 +319,8 @@ function CorrelationMatrixView({ portfolio, priceHistory, historySource, t, them
         // trade) or the points recorded on each manual refresh.
         React.createElement('div', { 'data-testid': 'correlation-source', 'data-source': historySource || 'refresh', style: { color: theme.textSecondary, fontSize: '0.78rem', marginTop: '0.25rem' } },
           historySource === 'daily'
-            ? ('Daily closing prices, ' + Math.max(0, ((Object.values(priceHistory || {})[0] || []).length - 1)) + ' daily returns up to today')
-            : 'Prices recorded on your refreshes')),
+            ? __('corrDaily', 'Daily closing prices, {n} daily returns up to today', { n: Math.max(0, ((Object.values(priceHistory || {})[0] || []).length - 1)) })
+            : __('corrRefresh', 'Prices recorded on your refreshes'))),
       React.createElement('div', {
         style: {
           background: theme.card,
@@ -337,7 +339,7 @@ function CorrelationMatrixView({ portfolio, priceHistory, historySource, t, them
             fontSize: '1.25rem',
             color: score.score >= 60 ? theme.success : score.score >= 40 ? theme.warning : theme.danger
           }
-        }, `${score.score.toFixed(0)}/100`)
+        }, `${window.MaerminI18n.num(score.score, 0)}/100`)
       )
     ),
 
@@ -406,8 +408,8 @@ function CorrelationMatrixView({ portfolio, priceHistory, historySource, t, them
               asset2: colSymbol, 
               correlation: value 
             }),
-            title: `${rowSymbol} / ${colSymbol}: ${value.toFixed(2)}`
-          }, i === j ? '-' : value.toFixed(2))
+            title: `${rowSymbol} / ${colSymbol}: ${window.MaerminI18n.num(value, 2)}`
+          }, i === j ? '-' : window.MaerminI18n.num(value, 2))
         })
       ])
     ),
@@ -447,7 +449,7 @@ function CorrelationMatrixView({ portfolio, priceHistory, historySource, t, them
             ),
             React.createElement('span', {
               style: { color: theme.danger, fontWeight: '600' }
-            }, pair.correlation.toFixed(2))
+            }, window.MaerminI18n.num(pair.correlation, 2))
           )
         )
       ),
@@ -479,7 +481,7 @@ function CorrelationMatrixView({ portfolio, priceHistory, historySource, t, them
             ),
             React.createElement('span', {
               style: { color: theme.success, fontWeight: '600' }
-            }, pair.correlation.toFixed(2))
+            }, window.MaerminI18n.num(pair.correlation, 2))
           )
         )
       )
@@ -707,7 +709,7 @@ function MonteCarloView({ portfolio, prices, t, theme, currency, formatPrice }) 
           }
         },
           React.createElement('div', { style: { color: theme.textSecondary, fontSize: '0.875rem' } },
-            `${t.bestCase || 'Best Case'} (95th)`
+            `${t.bestCase || 'Best Case'} (${__('mcP95', '95th')})`
           ),
           React.createElement('div', { style: { color: theme.success, fontSize: '1.5rem', fontWeight: '800', letterSpacing: '-0.02em' } },
             `${formatPrice(results.percentiles[95])} ${currencySymbol}`
@@ -724,7 +726,7 @@ function MonteCarloView({ portfolio, prices, t, theme, currency, formatPrice }) 
           }
         },
           React.createElement('div', { style: { color: theme.textSecondary, fontSize: '0.875rem' } },
-            `${t.worstCase || 'Worst Case'} (5th)`
+            `${t.worstCase || 'Worst Case'} (${__('mcP5', '5th')})`
           ),
           React.createElement('div', { style: { color: theme.danger, fontSize: '1.5rem', fontWeight: '800', letterSpacing: '-0.02em' } },
             `${formatPrice(results.percentiles[5])} ${currencySymbol}`
@@ -738,7 +740,7 @@ function MonteCarloView({ portfolio, prices, t, theme, currency, formatPrice }) 
       },
         React.createElement('div', { style: { display: 'flex', flexDirection: 'column', alignItems: 'center', minWidth: '120px' } },
           React.createElement('div', { style: { fontSize: '2.5rem', fontWeight: 800, color: results.fireTarget.probability >= 75 ? theme.success : results.fireTarget.probability >= 40 ? theme.warning : theme.danger } },
-            `${results.fireTarget.probability.toFixed(0)}%`),
+            window.MaerminI18n.pct(results.fireTarget.probability, 0)),
           React.createElement('div', { style: { color: theme.textSecondary, fontSize: '0.8rem' } }, t.fireProbability || 'FIRE probability')
         ),
         React.createElement('div', { style: { flex: 1, minWidth: '200px' } },
@@ -746,8 +748,8 @@ function MonteCarloView({ portfolio, prices, t, theme, currency, formatPrice }) 
             `${t.kpiFireTarget || 'Target'}: ${formatPrice(results.fireTarget.value)} ${currencySymbol}`),
           React.createElement('div', { style: { color: theme.textSecondary, fontSize: '0.85rem' } },
             results.fireTarget.reachedYear
-              ? (t.fireMedianReaches || 'Median path reaches FIRE in year {y}').replace('{y}', results.fireTarget.reachedYear)
-              : (t.fireMedianMisses || 'Median path does not reach FIRE within {n} years').replace('{n}', results.years))
+              ? window.MaerminI18n.fill(t.fireMedianReaches || 'Median path reaches FIRE in year {y}', { y: results.fireTarget.reachedYear })
+              : window.MaerminI18n.fill(t.fireMedianMisses || 'Median path does not reach FIRE within {n} years', { n: results.years }))
         )
       ),
 
@@ -784,7 +786,7 @@ function MonteCarloView({ portfolio, prices, t, theme, currency, formatPrice }) 
             },
               React.createElement('div', {
                 style: { fontSize: '2rem', fontWeight: '700', color: theme.accent }
-              }, `${goal.probability.toFixed(0)}%`),
+              }, window.MaerminI18n.pct(goal.probability, 0)),
               React.createElement('div', { style: { color: theme.textSecondary, fontSize: '0.875rem' } },
                 goal.label
               )
@@ -907,7 +909,7 @@ function StressTestView({ portfolio, prices, t, theme, currency, formatPrice }) 
           key: id,
           className: `scenario-card ${selectedScenario === id ? 'selected' : ''}`,
           ...window.MaerminUtils.clickable(() => runScenario(id)),
-          'aria-label': 'Run scenario ' + ((scenario && scenario.name) || id),
+          'aria-label': __('stRunScenario', 'Run scenario {name}', { name: (scenario && scenario.name) || id }),
           'aria-pressed': selectedScenario === id,
           style: {
             background: selectedScenario === id ? 'rgba(139,124,255,0.1)' : theme.card,
@@ -941,7 +943,7 @@ function StressTestView({ portfolio, prices, t, theme, currency, formatPrice }) 
                   background: impact < 0 ? 'rgba(239,68,68,0.2)' : 'rgba(34,197,94,0.2)',
                   color: impact < 0 ? theme.danger : theme.success
                 }
-              }, `${asset}: ${(impact * 100).toFixed(0)}%`)
+              }, `${window.MaerminI18n.category(asset)}: ${window.MaerminI18n.pct(impact * 100, 0)}`)
             )
           )
         )
@@ -997,7 +999,7 @@ function StressTestView({ portfolio, prices, t, theme, currency, formatPrice }) 
             t.potentialLoss || 'Potential Loss'
           ),
           React.createElement('div', { style: { color: theme.danger, fontSize: '1.25rem', fontWeight: '700' } },
-            `-${formatPrice(results.totalLoss)} ${currencySymbol} (-${results.lossPercent.toFixed(1)}%)`
+            `-${formatPrice(results.totalLoss)} ${currencySymbol} (-${window.MaerminI18n.pct(results.lossPercent, 1)})`
           )
         ),
         React.createElement('div', {
@@ -1021,16 +1023,16 @@ function StressTestView({ portfolio, prices, t, theme, currency, formatPrice }) 
       },
         React.createElement('thead', null,
           React.createElement('tr', null,
-            React.createElement('th', { style: { textAlign: 'left', padding: '0.75rem', color: theme.textSecondary } }, 'Category'),
-            React.createElement('th', { style: { textAlign: 'right', padding: '0.75rem', color: theme.textSecondary } }, 'Original'),
-            React.createElement('th', { style: { textAlign: 'right', padding: '0.75rem', color: theme.textSecondary } }, 'Stressed'),
-            React.createElement('th', { style: { textAlign: 'right', padding: '0.75rem', color: theme.textSecondary } }, 'Loss')
+            React.createElement('th', { style: { textAlign: 'left', padding: '0.75rem', color: theme.textSecondary } }, __('category', 'Category')),
+            React.createElement('th', { style: { textAlign: 'right', padding: '0.75rem', color: theme.textSecondary } }, __('trOriginal', 'Original')),
+            React.createElement('th', { style: { textAlign: 'right', padding: '0.75rem', color: theme.textSecondary } }, __('stStressed', 'Stressed')),
+            React.createElement('th', { style: { textAlign: 'right', padding: '0.75rem', color: theme.textSecondary } }, __('stLoss', 'Loss'))
           )
         ),
         React.createElement('tbody', null,
           Object.entries(results.categoryBreakdown).map(([category, data]) =>
             React.createElement('tr', { key: category },
-              React.createElement('td', { style: { padding: '0.75rem', color: theme.text, textTransform: 'capitalize' } }, category),
+              React.createElement('td', { style: { padding: '0.75rem', color: theme.text } }, window.MaerminI18n.category(category)),
               React.createElement('td', { style: { padding: '0.75rem', textAlign: 'right', color: theme.text } },
                 `${formatPrice(data.originalValue)} ${currencySymbol}`
               ),
@@ -1038,7 +1040,7 @@ function StressTestView({ portfolio, prices, t, theme, currency, formatPrice }) 
                 `${formatPrice(data.stressedValue)} ${currencySymbol}`
               ),
               React.createElement('td', { style: { padding: '0.75rem', textAlign: 'right', color: theme.danger } },
-                `-${data.lossPercent.toFixed(1)}%`
+                '-' + window.MaerminI18n.pct(data.lossPercent, 1)
               )
             )
           )
@@ -1064,9 +1066,9 @@ function StressTestView({ portfolio, prices, t, theme, currency, formatPrice }) 
       },
         React.createElement('thead', null,
           React.createElement('tr', null,
-            React.createElement('th', { style: { textAlign: 'left', padding: '0.75rem', color: theme.textSecondary, borderBottom: `1px solid ${theme.cardBorder}` } }, 'Scenario'),
-            React.createElement('th', { style: { textAlign: 'right', padding: '0.75rem', color: theme.textSecondary, borderBottom: `1px solid ${theme.cardBorder}` } }, 'Loss'),
-            React.createElement('th', { style: { textAlign: 'right', padding: '0.75rem', color: theme.textSecondary, borderBottom: `1px solid ${theme.cardBorder}` } }, 'Recovery')
+            React.createElement('th', { style: { textAlign: 'left', padding: '0.75rem', color: theme.textSecondary, borderBottom: `1px solid ${theme.cardBorder}` } }, __('stScenario', 'Scenario')),
+            React.createElement('th', { style: { textAlign: 'right', padding: '0.75rem', color: theme.textSecondary, borderBottom: `1px solid ${theme.cardBorder}` } }, __('stLoss', 'Loss')),
+            React.createElement('th', { style: { textAlign: 'right', padding: '0.75rem', color: theme.textSecondary, borderBottom: `1px solid ${theme.cardBorder}` } }, __('stRecovery', 'Recovery'))
           )
         ),
         React.createElement('tbody', null,
@@ -1074,10 +1076,10 @@ function StressTestView({ portfolio, prices, t, theme, currency, formatPrice }) 
             React.createElement('tr', { key: idx },
               React.createElement('td', { style: { padding: '0.75rem', color: theme.text } }, result.scenario),
               React.createElement('td', { style: { padding: '0.75rem', textAlign: 'right', color: theme.danger } },
-                `-${result.lossPercent.toFixed(1)}%`
+                '-' + window.MaerminI18n.pct(result.lossPercent, 1)
               ),
               React.createElement('td', { style: { padding: '0.75rem', textAlign: 'right', color: theme.textSecondary } },
-                `${result.recoveryEstimate.months} mo`
+                __('stMonthsShort', '{n} mo', { n: result.recoveryEstimate.months })
               )
             )
           )

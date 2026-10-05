@@ -28,7 +28,7 @@ const Advisor = require('../advisor.js');
   ok('flags rebalancing drift', ids.includes('rebal-warning'));
   ok('surfaces dividend income', ids.includes('div-income'));
   ok('surfaces tax-loss harvest opportunity', ids.includes('tax-harvest'));
-  ok('flags low health with weakest area', r.findings.find(f => f.id === 'health-low').detail.includes('diversification'));
+  ok('flags low health with weakest area', /diversification/i.test(r.findings.find(f => f.id === 'health-low').detail));
 
   // critical sorts before warning before opportunity before good
   ok('findings ranked by severity', r.findings[0].severity === 'critical');

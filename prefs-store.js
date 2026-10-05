@@ -22,10 +22,18 @@
     ? window.MaerminStore
     : (function () { try { return require('./store.js'); } catch (e) { return null; } })();
 
+  function browserLanguage() {
+    try {
+      var l = (typeof navigator !== 'undefined' && (navigator.language || (navigator.languages && navigator.languages[0]))) || '';
+      return /^de\b/i.test(l) ? 'de' : 'en';
+    } catch (e) { return 'en'; }
+  }
+
   // name → { localStorage key, default }. Mirrors the renderer's prior usage.
   var SPEC = {
     theme:      { key: 'theme',               def: 'dark' },
-    language:   { key: 'maermin_language',    def: 'en' },
+    // First run follows the browser: German browsers start in German.
+    language:   { key: 'maermin_language',    def: browserLanguage() },
     activeView: { key: 'maermin_active_view', def: 'overview' },
     currency:   { key: 'currency',            def: 'EUR' },
     // Simple/Advanced navigation (nav-model.js). '' = not chosen yet: the

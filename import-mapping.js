@@ -847,10 +847,10 @@
         return g.symbol;
       };
       const push = (tx) => {
-        const t = Object.assign({ category: 'crypto', fees: 0, date, notes }, tx);
-        t.symbolName = t.symbolName || '';
-        if (tradeId) t.externalId = 'cointracking:' + tradeId + ':' + t.type;
-        out.transactions.push(t);
+        const row = Object.assign({ category: 'crypto', fees: 0, date, notes }, tx);
+        row.symbolName = row.symbolName || '';
+        if (tradeId) row.externalId = 'cointracking:' + tradeId + ':' + row.type;
+        out.transactions.push(row);
       };
       // Fee in a currency the trade is priced in -> fees field; a fee paid in a
       // coin uses its value column, else it is reported (not deducted).

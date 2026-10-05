@@ -47,7 +47,7 @@ const schedule = [
   ok('prune keeps a recent key', pruned['NEW@' + iso(-1)] === true);
 
   ok('summarize single row mentions symbol and date',
-    R.summarize([up[0]]).includes('KO') && R.summarize([up[0]]).includes(up[0].date));
+    R.summarize([up[0]]).includes('KO') && R.summarize([up[0]]).includes(require('../i18n.js').date(up[0].date)));
   ok('summarize multi row gives a count', R.summarize(up).includes('2 dividends'));
 
   ok('empty schedule → no upcoming', R.upcoming([], { now: NOW }).length === 0);

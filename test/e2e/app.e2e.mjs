@@ -33,6 +33,9 @@ import { readFile, stat } from 'node:fs/promises';
 import { existsSync } from 'node:fs';
 import { join, extname, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
+
+// English UI dates (MaerminI18n 'short' style): 2026-10-05 -> 10/05/2026.
+const usDate = (iso) => iso.slice(5, 7) + '/' + iso.slice(8, 10) + '/' + iso.slice(0, 4);
 import { chromium } from 'playwright-core';
 
 const root = join(dirname(fileURLToPath(import.meta.url)), '..', '..');
@@ -523,7 +526,7 @@ async function runBuild(browser, label, dir) {
     try { await card.waitFor({ timeout: 15000 }); shown = await settledText(card); } catch (e) { shown = await page.locator('[data-testid="twr-card"]').innerText().catch(() => 'no card'); }
     const want = (expected >= 0 ? '+' : '') + expected.toFixed(2) + '%';
     ok('TWR from day one, without a refresh click: ' + want + ' (value change incl. deposit would read ' + naive.toFixed(0) + '%)', shown.includes(want), shown.replace(/\n/g, ' | '));
-    ok('TWR card names the start date and the yearly figure', shown.includes('since ' + WEEKDAYS[0]) && /% p\.a\./.test(shown), shown.replace(/\n/g, ' | '));
+    ok('TWR card names the start date and the yearly figure', shown.includes('since ' + usDate(WEEKDAYS[0])) && /% p\.a\./.test(shown), shown.replace(/\n/g, ' | '));
     ok('closes came through the Worker route ?action=yf (5-year range for both holdings)', ['VWCE.DE', 'AAPL'].every((x) => workerState.requests.includes('/?action=yf&symbol=' + x + '&interval=1d&range=5y')), workerState.requests.join(' '));
     await page.waitForTimeout(2500); // benchmark fetch
     { const rb = await page.innerText('body'); ok('benchmark comparison is computed from daily returns', /Alpha \(ann\.\)/i.test(rb) && /daily returns since/.test(rb), (rb.match(/Benchmark comparison[\s\S]{0,200}/) || [''])[0].replace(/\n/g, ' | ')); }
@@ -547,7 +550,7 @@ async function runBuild(browser, label, dir) {
     await openView(page, 'returns');
     await page.waitForTimeout(600);
     { const c2 = page.locator('[data-testid="twr-card"]'); const t2 = await settledText(c2);
-      ok('next session, Worker unreachable: TWR still from the stored closes', (await c2.getAttribute('data-source')) === 'daily' && t2.includes('since ' + WEEKDAYS[0]), t2.replace(/\n/g, ' | ')); }
+      ok('next session, Worker unreachable: TWR still from the stored closes', (await c2.getAttribute('data-source')) === 'daily' && t2.includes('since ' + usDate(WEEKDAYS[0])), t2.replace(/\n/g, ' | ')); }
     workerState.down = false;
     ok('no page errors in the value-history session', errors.length === 0, errors.join(' | '));
     await context.close();
@@ -599,7 +602,7 @@ async function runBuild(browser, label, dir) {
     await page.locator('input[type=date]').first().fill(tradeDay);
     await page.waitForTimeout(300);
     { const hint = await page.locator('[data-testid="tx-currency-hint"]').innerText().catch(() => '');
-      ok('transaction dialog offers CHF and shows the rate of the trade date', hint.includes('1 CHF = 1.0600 EUR on ' + tradeDay), hint); }
+      ok('transaction dialog offers CHF and shows the rate of the trade date', hint.includes('1 CHF = 1.0600 EUR on ' + usDate(tradeDay)), hint); }
     ok('no page errors in the currency session', errors.length === 0, errors.join(' | '));
     await context.close();
   }

@@ -203,7 +203,7 @@ function byAnalysis(report, a) { return report.findings.filter((f) => f.analysis
   // ---- 11) single asset-class concentration (volatile bucket) ----------------
   const acC = I.analyzeFromInputs({ assetClass: { available: true, top: { cls: 'crypto', pct: 62 }, classes: [{ cls: 'crypto', pct: 62 }, { cls: 'stocks', pct: 38 }] } });
   ok('62% crypto → important asset-class finding', byId(acC, 'assetclass-important') && byId(acC, 'assetclass-important').priority === 'important');
-  ok('asset-class finding names the class + pct', /crypto/.test(byId(acC, 'assetclass-important').title) && /62/.test(byId(acC, 'assetclass-important').title));
+  ok('asset-class finding names the class + pct', /crypto/i.test(byId(acC, 'assetclass-important').title) && /62/.test(byId(acC, 'assetclass-important').title));
   ok('40% skins → optimization', byId(
     I.analyzeFromInputs({ assetClass: { available: true, top: { cls: 'skins', pct: 40 }, classes: [{ cls: 'skins', pct: 40 }] } }), 'assetclass-optimize').priority === 'optimization');
   ok('100% stocks → no asset-class finding (equity book is normal)', byAnalysis(

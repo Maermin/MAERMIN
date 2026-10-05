@@ -24,6 +24,8 @@
 // ============================================================================
 (function () {
   'use strict';
+// Translation lookup (i18n.js): __('key', 'English fallback', { slot: value }).
+function __(k, f, v) { return (typeof window !== 'undefined' && window.MaerminI18n ? window.MaerminI18n : require('./i18n.js')).t(k, f, v); }
 
   // ---- static fallback (approximate snapshots) -----------------------------
   // Top holdings + sector/country weights for the most commonly held index
@@ -523,7 +525,7 @@
     if (!React) return null;
     var e = React.createElement;
     var theme = props.theme || {};
-    var t = props.t || {};
+    var t = props.t || ((typeof window !== 'undefined' && window.MaerminI18n) ? window.MaerminI18n.dict() : {});
     var text = theme.text || '#e6edf3', dim = theme.textSecondary || '#9aa4b2';
     var accent = theme.accent || '#8b7cff', border = theme.cardBorder || 'rgba(255,255,255,0.1)';
     var inputBg = theme.inputBg || '#0f172a', card = theme.card || theme.cardBg || '#10151f';
@@ -569,7 +571,7 @@
       if (onResult && result && state.holdings) onResult(result);
     }, [state.holdings, candidateKey]);
 
-    var pct = function (x) { return (x * 100).toFixed(1) + '%'; };
+    var pct = function (x) { return window.MaerminI18n.pct(x * 100, 1); };
 
     function bar(label, weight, max, color, key) {
       var w = max > 0 ? Math.max(2, (weight / max) * 100) : 0;
@@ -589,94 +591,93 @@
 
     if (!candidates.length) {
       body = e('div', { style: { color: dim, fontSize: '0.85rem', padding: '0.5rem 0' } },
-        'No ETF or fund positions detected. Look-through resolves funds into their underlying holdings once you hold one.');
+        __('ltNoFunds', 'No ETF or fund positions detected. Look-through resolves funds into their underlying holdings once you hold one.'));
     } else if (state.loading) {
-      body = e('div', { style: { color: dim, fontSize: '0.85rem', padding: '0.5rem 0' } }, 'Resolving fund holdings...');
+      body = e('div', { style: { color: dim, fontSize: '0.85rem', padding: '0.5rem 0' } }, __('ltResolving', 'Resolving fund holdings...'));
     } else if (!result || !result.available || !fundCount) {
       body = e('div', { style: { color: dim, fontSize: '0.85rem', padding: '0.5rem 0' } },
-        'No holdings data available for your fund positions yet. Live data needs the latest Worker (action=fundholdings); a built-in snapshot covers the most common index ETFs.');
+        __('ltNoData', 'No holdings data available for your fund positions yet. Live data needs the latest Worker (action=fundholdings); a built-in snapshot covers the most common index ETFs.'));
     } else {
       var parts = [];
 
       if (mode !== 'risk') {
         // Effective exposure (direct + through funds)
-        parts.push(sectionTitle('Effective exposure (direct + through funds)'));
+        parts.push(sectionTitle(__('ltEffective', 'Effective exposure (direct + through funds)')));
         var top = result.effectiveExposure.slice(0, 10);
         parts.push(e('div', { style: { overflowX: 'auto' } },
           e('table', { style: { width: '100%', borderCollapse: 'collapse' } },
             e('thead', null, e('tr', null,
-              ['Security', 'Direct', 'Via funds', 'Effective', 'Value'].map(function (h, i) {
+              [__('ltSecurity', 'Security'), __('ltDirect', 'Direct'), __('ltViaFunds', 'Via funds'), __('ltEffectiveCol', 'Effective'), __('colValue', 'Value')].map(function (h, i) {
                 return e('th', { key: h, style: { textAlign: i === 0 ? 'left' : 'right', padding: '0.4rem 0.5rem', color: dim, fontSize: '0.68rem', textTransform: 'uppercase', letterSpacing: '0.04em' } }, h);
               }))),
             e('tbody', null, top.map(function (x) {
               return e('tr', { key: x.key, style: { borderTop: '1px solid ' + border } },
                 e('td', { style: { padding: '0.45rem 0.5rem', color: text, fontSize: '0.8rem', fontWeight: 600 } },
                   x.name || x.key,
-                  x.via.length ? e('span', { style: { color: dim, fontWeight: 400, fontSize: '0.7rem' } }, '  via ' + x.via.map(function (v) { return v.fund; }).join(', ')) : null),
+                  x.via.length ? e('span', { style: { color: dim, fontWeight: 400, fontSize: '0.7rem' } }, '  ' + __('ltVia', 'via {list}', { list: x.via.map(function (v) { return v.fund; }).join(', ') })) : null),
                 e('td', { style: { padding: '0.45rem 0.5rem', textAlign: 'right', color: dim, fontSize: '0.78rem' } }, x.directWeight > 0 ? pct(x.directWeight) : '-'),
                 e('td', { style: { padding: '0.45rem 0.5rem', textAlign: 'right', color: dim, fontSize: '0.78rem' } }, x.fundedWeight > 0 ? pct(x.fundedWeight) : '-'),
                 e('td', { style: { padding: '0.45rem 0.5rem', textAlign: 'right', color: text, fontSize: '0.78rem', fontWeight: 700 } }, pct(x.effectiveWeight)),
-                e('td', { style: { padding: '0.45rem 0.5rem', textAlign: 'right', color: dim, fontSize: '0.78rem' } }, sym + fmt(x.valueEUR)));
+                e('td', { style: { padding: '0.45rem 0.5rem', textAlign: 'right', color: dim, fontSize: '0.78rem' } }, fmt(x.valueEUR) + ' ' + sym));
             })))));
 
         // Sector / country / currency look-through
         var maxSector = result.sectorExposure.length ? result.sectorExposure[0].weight : 0;
-        parts.push(sectionTitle('Sector look-through'));
-        parts.push(e('div', null, result.sectorExposure.slice(0, 8).map(function (s) { return bar(s.sector, s.weight, maxSector, accent, 's-' + s.sector); })));
+        parts.push(sectionTitle(__('ltSector', 'Sector look-through')));
+        parts.push(e('div', null, result.sectorExposure.slice(0, 8).map(function (s) { return bar(window.MaerminI18n.sector(s.sector), s.weight, maxSector, accent, 's-' + s.sector); })));
 
         var maxCountry = result.countryExposure.length ? result.countryExposure[0].weight : 0;
-        parts.push(sectionTitle('Country look-through'));
-        parts.push(e('div', null, result.countryExposure.slice(0, 8).map(function (c) { return bar(c.country, c.weight, maxCountry, theme.info || '#3b82f6', 'c-' + c.country); })));
+        parts.push(sectionTitle(__('ltCountry', 'Country look-through')));
+        parts.push(e('div', null, result.countryExposure.slice(0, 8).map(function (c) { return bar(window.MaerminI18n.country(c.country), c.weight, maxCountry, theme.info || '#3b82f6', 'c-' + c.country); })));
 
         var maxCur = result.currencyExposure.length ? result.currencyExposure[0].weight : 0;
-        parts.push(sectionTitle('Currency look-through (approximate)'));
+        parts.push(sectionTitle(__('ltCurrency', 'Currency look-through (approximate)')));
         parts.push(e('div', null, result.currencyExposure.slice(0, 6).map(function (c) { return bar(c.currency, c.weight, maxCur, theme.success || '#22c55e', 'cur-' + c.currency); })));
       }
 
       if (mode !== 'overview') {
         // Fund overlap
-        parts.push(sectionTitle('Fund overlap'));
+        parts.push(sectionTitle(__('ltOverlap', 'Fund overlap')));
         if (!result.overlapPairs.length) {
           parts.push(e('div', { style: { color: dim, fontSize: '0.8rem' } },
-            fundCount > 1 ? 'No overlap detected between the disclosed holdings of your funds.' : 'Overlap needs at least two fund positions.'));
+            fundCount > 1 ? __('ltNoOverlap', 'No overlap detected between the disclosed holdings of your funds.') : __('ltNeedTwo', 'Overlap needs at least two fund positions.')));
         } else {
           parts.push(e('div', null, result.overlapPairs.slice(0, 6).map(function (p) {
             return e('div', { key: p.a + '-' + p.b, style: { borderTop: '1px solid ' + border, padding: '0.5rem 0' } },
               e('div', { style: { display: 'flex', justifyContent: 'space-between', gap: '0.5rem' } },
                 e('span', { style: { color: text, fontSize: '0.82rem', fontWeight: 600 } }, p.a + ' / ' + p.b),
-                e('span', { style: { color: p.overlap >= 0.25 ? warn : text, fontSize: '0.82rem', fontWeight: 700 } }, pct(p.overlap) + ' overlap')),
+                e('span', { style: { color: p.overlap >= 0.25 ? warn : text, fontSize: '0.82rem', fontWeight: 700 } }, __('ltOverlapPct', '{pct} overlap', { pct: pct(p.overlap) }))),
               e('div', { style: { color: dim, fontSize: '0.72rem', marginTop: '0.15rem' } },
-                'Shared: ' + p.shared.map(function (s) { return s.name || s.key; }).join(', ')));
+                __('ltShared', 'Shared: {list}', { list: p.shared.map(function (s) { return s.name || s.key; }).join(', ') })));
           })));
         }
 
         // Hidden concentrations
-        parts.push(sectionTitle('Hidden concentration risks'));
+        parts.push(sectionTitle(__('ltHidden', 'Hidden concentration risks')));
         if (!result.hiddenConcentrations.length) {
-          parts.push(e('div', { style: { color: dim, fontSize: '0.8rem' } }, 'No single security exceeds 5% of the portfolio once fund holdings are counted.'));
+          parts.push(e('div', { style: { color: dim, fontSize: '0.8rem' } }, __('ltNoHidden', 'No single security exceeds {pct} of the portfolio once fund holdings are counted.', { pct: window.MaerminI18n.pct(5, 0) })));
         } else {
           parts.push(e('div', null, result.hiddenConcentrations.slice(0, 6).map(function (h) {
             return e('div', { key: h.key, style: { borderTop: '1px solid ' + border, padding: '0.5rem 0' } },
               e('div', { style: { display: 'flex', justifyContent: 'space-between', gap: '0.5rem' } },
                 e('span', { style: { color: text, fontSize: '0.82rem', fontWeight: 600 } }, h.name || h.key),
-                e('span', { style: { color: h.effectiveWeight >= 0.1 ? bad : warn, fontSize: '0.82rem', fontWeight: 700 } }, pct(h.effectiveWeight) + ' effective')),
+                e('span', { style: { color: h.effectiveWeight >= 0.1 ? bad : warn, fontSize: '0.82rem', fontWeight: 700 } }, __('ltEffectivePct', '{pct} effective', { pct: pct(h.effectiveWeight) }))),
               e('div', { style: { color: dim, fontSize: '0.72rem', marginTop: '0.15rem' } },
-                (h.directWeight > 0 ? pct(h.directWeight) + ' held directly, ' : '') + pct(h.fundedWeight) + ' inside ' + h.funds.join(', ')));
+                (h.directWeight > 0 ? __('ltHeldDirectly', '{pct} held directly', { pct: pct(h.directWeight) }) + ', ' : '') + __('ltInside', '{pct} inside {list}', { pct: pct(h.fundedWeight), list: h.funds.join(', ') })));
           })));
         }
       }
 
       // Footer: coverage + sources + approximation disclaimer
       var sources = result.funds.some(function (f) { return f.source === 'worker'; })
-        ? (result.funds.some(function (f) { return f.source === 'fallback'; }) ? 'live Worker data + built-in snapshot' : 'live Worker data')
-        : 'built-in snapshot (approximate)';
+        ? (result.funds.some(function (f) { return f.source === 'fallback'; }) ? __('ltSrcBoth', 'live Worker data + built-in snapshot') : __('ltSrcWorker', 'live Worker data'))
+        : __('ltSrcSnapshot', 'built-in snapshot (approximate)');
       parts.push(e('div', { style: { color: dim, fontSize: '0.7rem', marginTop: '0.9rem', lineHeight: 1.5 } },
-        fundCount + ' fund(s) resolved, ' + pct(result.coverage) + ' of portfolio value mapped to disclosed holdings. ' +
-        'Source: ' + sources + '. Holdings are approximations (top holdings only) and not investment advice.'));
+        __('ltFooter', '{n} {n:fund|funds} resolved, {pct} of portfolio value mapped to disclosed holdings. Source: {src}. Holdings are approximations (top holdings only) and not investment advice.', { n: fundCount, pct: pct(result.coverage), src: sources })));
 
       if (state.unsupported) {
         parts.push(e('div', { style: { color: warn, fontSize: '0.74rem', marginTop: '0.5rem', lineHeight: 1.5 } },
-          'Your Worker does not support fund look-through yet. Re-deploy the latest cf-worker/worker.js (it adds the action=fundholdings endpoint) for live holdings; until then a built-in snapshot of common ETFs is used.'));
+          __('ltUnsupported', 'Your Worker does not support fund look-through yet. Re-deploy the latest cf-worker/worker.js (it adds the action=fundholdings endpoint) for live holdings; until then a built-in snapshot of common ETFs is used.')));
       }
 
       body = e('div', null, parts);

@@ -10,33 +10,34 @@
  */
 (function () {
   'use strict';
+// Translation lookup (i18n.js): __('key', 'English fallback', { slot: value }).
+function __(k, f, v) { return (typeof window !== 'undefined' && window.MaerminI18n ? window.MaerminI18n : require('./i18n.js')).t(k, f, v); }
 
-  // Number with fixed decimals, e.g. 1234.5 -> "1,234.50"
+  // Locale formatting lives in i18n.js (MaerminI18n); these keep their old
+  // names and follow the selected language. utils.js loads first, so look the
+  // module up when a formatter runs.
+  function I18n() {
+    return (typeof window !== 'undefined' && window.MaerminI18n) || require('./i18n.js');
+  }
+
+  // Number with fixed decimals, e.g. 1234.5 -> "1,234.50" (en) / "1.234,50" (de)
   function formatNumber(value, decimals) {
-    decimals = decimals !== undefined ? decimals : 2;
-    if (value === undefined || value === null || isNaN(value)) {
-      return (0).toLocaleString('en-US', { minimumFractionDigits: decimals, maximumFractionDigits: decimals });
-    }
-    return value.toLocaleString('en-US', { minimumFractionDigits: decimals, maximumFractionDigits: decimals });
+    return I18n().num(value, decimals !== undefined ? decimals : 2);
   }
 
-  // EUR currency, e.g. 1234.5 -> "1,234.50 EUR"
+  // EUR amount, e.g. 1234.5 -> "€1,234.50" (en) / "1.234,50 €" (de)
   function formatCurrencyEUR(value, decimals) {
-    decimals = decimals !== undefined ? decimals : 2;
-    return (value || 0).toLocaleString('en-US', { minimumFractionDigits: decimals, maximumFractionDigits: decimals }) + ' EUR';
+    return I18n().money(value, 'EUR', decimals !== undefined ? decimals : 2);
   }
 
-  // Signed percent, e.g. 1.23 -> "+1.23%", -1.23 -> "-1.23%"
+  // Signed percent, e.g. 1.23 -> "+1.23%" (en) / "+1,23 %" (de)
   function formatPercentSigned(value) {
-    if (value === undefined || value === null || isNaN(value)) return '0.00%';
-    return `${value >= 0 ? '+' : ''}${value.toFixed(2)}%`;
+    return I18n().pct(value, 2, true);
   }
 
-  // Locale date string, e.g. "2024-03-01" -> "3/1/2024"
+  // Calendar date, e.g. "2024-03-01" -> "03/01/2024" (en) / "01.03.2024" (de)
   function formatDate(dateStr) {
-    if (!dateStr) return '';
-    const date = new Date(dateStr);
-    return date.toLocaleDateString('en-US');
+    return I18n().date(dateStr, 'short');
   }
 
   // Reasonably-unique id for client-side records
@@ -100,10 +101,10 @@
   // on a portfolio card) belong to that field: typing a space there must not
   // be swallowed, and focusing it must not run the card's action (FINDINGS M-10).
   function fromField(e) {
-    var t = e && e.target;
-    if (!t || t === e.currentTarget) return false;
-    var tag = (t.tagName || '').toUpperCase();
-    return tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT' || !!t.isContentEditable;
+    var el = e && e.target;
+    if (!el || el === e.currentTarget) return false;
+    var tag = (el.tagName || '').toUpperCase();
+    return tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT' || !!el.isContentEditable;
   }
   function clickable(handler, opts) {
     opts = opts || {};
@@ -235,7 +236,7 @@
     const raw = String(type == null ? '' : type).trim();
     const def = TX_TYPES[raw.toLowerCase()];
     const tone = def ? def.tone : 'neutral';
-    const label = def ? ((t && t[def.key]) || def.label)
+    const label = def ? ((t && t[def.key]) || __(def.key, def.label))
       : (raw ? raw.charAt(0).toUpperCase() + raw.slice(1) : '—');
     return { label, tone, color: TX_TONES[tone].color, background: TX_TONES[tone].background };
   }

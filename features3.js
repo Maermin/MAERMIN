@@ -6,6 +6,8 @@
 // ============================================================================
 (function () {
 'use strict';
+// Translation lookup (i18n.js): __('key', 'English fallback', { slot: value }).
+function __(k, f, v) { return (typeof window !== 'undefined' && window.MaerminI18n ? window.MaerminI18n : require('./i18n.js')).t(k, f, v); }
 
 const { useState, useEffect, useMemo, useRef } = React;
 
@@ -73,7 +75,7 @@ function CorporateActionsPanel({ category, symbol, theme, t = {}, workerUrl }) {
   const removeAction = (a) => {
     // In-app confirmation (the native dialog only if MaerminUI is missing).
     const ask = (window.MaerminUI && window.MaerminUI.confirm)
-      ? window.MaerminUI.confirm({ title: t.caRemoveConfirm || 'Remove this split?', message: a.symbol + ' ' + a.num + ':' + a.den + ' on ' + a.date + '. It can be re-added or re-scanned.', confirmLabel: t.caRemove || 'Remove', danger: true })
+      ? window.MaerminUI.confirm({ title: t.caRemoveConfirm || 'Remove this split?', message: __('caRemoveMsg', '{sym} {ratio} on {date}. It can be re-added or re-scanned.', { sym: a.symbol, ratio: a.num + ':' + a.den, date: window.MaerminI18n.date(a.date) }), confirmLabel: t.caRemove || 'Remove', danger: true })
       : Promise.resolve(typeof window.confirm !== 'function' || window.confirm(t.caRemoveConfirm || 'Remove this split? It can be re-added or re-scanned.'));
     ask.then((yes) => {
       if (!yes) return;
@@ -260,15 +262,15 @@ function PositionDetailModal({ position, transactions, prices, theme, formatPric
               style: { fontSize: '0.65rem', fontWeight: '700', padding: '0.15rem 0.4rem', borderRadius: '4px',
                 background: position.cat === 'crypto' ? 'rgba(245,158,11,0.15)' : position.cat === 'stocks' ? 'rgba(59,130,246,0.15)' : 'rgba(6,182,212,0.15)',
                 color: position.cat === 'crypto' ? '#f59e0b' : position.cat === 'stocks' ? '#3b82f6' : '#06b6d4' }
-            }, position.cat.toUpperCase()),
+            }, window.MaerminI18n.category(position.cat).toUpperCase()),
             React.createElement('span', { style: { color: theme.textSecondary, fontSize: '0.8rem' } },
-              metrics.firstBuyDate ? `Since ${metrics.firstBuyDate}` : ''
+              metrics.firstBuyDate ? __('pdSince', 'Since {date}', { date: window.MaerminI18n.date(metrics.firstBuyDate) }) : ''
             )
           )
         ),
         React.createElement('button', {
           onClick: onClose,
-          'aria-label': 'Close',
+          'aria-label': __('close', 'Close'),
           style: { background: 'none', border: `1px solid ${theme.cardBorder}`, borderRadius: '8px', color: theme.textSecondary, cursor: 'pointer', padding: '0.4rem 0.75rem', fontSize: '0.875rem' }
         }, '×')
       ),
@@ -278,17 +280,17 @@ function PositionDetailModal({ position, transactions, prices, theme, formatPric
         style: { display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1px', background: theme.modalBorder, borderBottom: `1px solid ${theme.modalBorder}` }
       },
         [
-          { label: 'Current Value',    value: `${formatPrice(metrics.currentValue)} ${getCurrencySymbol()}`, big: true },
-          { label: 'Unrealized P&L',   value: `${metrics.unrealizedPL >= 0 ? '+' : ''}${formatPrice(metrics.unrealizedPL)} ${getCurrencySymbol()}`,
+          { label: __('retCurrentValue', 'Current Value'),    value: `${formatPrice(metrics.currentValue)} ${getCurrencySymbol()}`, big: true },
+          { label: __('pdUnrealized', 'Unrealized P&L'),   value: `${metrics.unrealizedPL >= 0 ? '+' : ''}${formatPrice(metrics.unrealizedPL)} ${getCurrencySymbol()}`,
             color: metrics.unrealizedPL >= 0 ? theme.success : theme.danger, big: true },
-          { label: 'Avg Cost',         value: `${formatPrice(metrics.avgCost)} ${getCurrencySymbol()}` },
-          { label: 'Current Price',    value: `${formatPrice(metrics.currentPrice)} ${getCurrencySymbol()}` },
-          { label: 'Total Return',     value: `${metrics.unrealizedPct >= 0 ? '+' : ''}${metrics.unrealizedPct.toFixed(2)}%`,
+          { label: __('pdAvgCost', 'Avg Cost'),         value: `${formatPrice(metrics.avgCost)} ${getCurrencySymbol()}` },
+          { label: __('pdCurrentPrice', 'Current Price'),    value: `${formatPrice(metrics.currentPrice)} ${getCurrencySymbol()}` },
+          { label: __('ovTotalReturn', 'Total Return'),     value: window.MaerminI18n.pct(metrics.unrealizedPct, 2, true),
             color: metrics.unrealizedPct >= 0 ? theme.success : theme.danger },
-          { label: 'CAGR (annualized)', value: metrics.cagr !== null ? `${metrics.cagr >= 0 ? '+' : ''}${metrics.cagr.toFixed(2)}%` : '—',
+          { label: __('pdCagr', 'CAGR (annualized)'), value: metrics.cagr !== null ? window.MaerminI18n.pct(metrics.cagr, 2, true) : '—',
             color: metrics.cagr !== null ? (metrics.cagr >= 0 ? theme.success : theme.danger) : theme.textSecondary },
-          { label: 'Total Invested',   value: `${formatPrice(metrics.totalInvested)} ${getCurrencySymbol()}` },
-          { label: 'Total Fees Paid',  value: `${formatPrice(metrics.totalFees)} ${getCurrencySymbol()}` },
+          { label: __('totalInvested', 'Total Invested'),   value: `${formatPrice(metrics.totalInvested)} ${getCurrencySymbol()}` },
+          { label: __('feeTotalPaid', 'Total Fees Paid'),  value: `${formatPrice(metrics.totalFees)} ${getCurrencySymbol()}` },
         ].map((m, i) =>
           React.createElement('div', {
             key: i,
@@ -303,10 +305,10 @@ function PositionDetailModal({ position, transactions, prices, theme, formatPric
       // Transaction history
       React.createElement('div', { style: { padding: '1.25rem 1.5rem' } },
         React.createElement('div', { style: { color: theme.text, fontWeight: '700', fontSize: '0.875rem', marginBottom: '0.75rem' } },
-          `Transaction History (${posTxs.length})`
+          __('pdTxHistory', 'Transaction History ({n})', { n: posTxs.length })
         ),
         posTxs.length === 0
-          ? React.createElement('div', { style: { color: theme.textSecondary, fontSize: '0.8rem', textAlign: 'center', padding: '1rem' } }, 'No transactions found')
+          ? React.createElement('div', { style: { color: theme.textSecondary, fontSize: '0.8rem', textAlign: 'center', padding: '1rem' } }, __('noTransactionsFound', 'No transactions found'))
           : React.createElement('div', { style: { display: 'flex', flexDirection: 'column', gap: '1px' } },
               posTxs.map((tx, i) => {
                 const qty = parseFloat(tx.quantity) || 0;
@@ -329,8 +331,8 @@ function PositionDetailModal({ position, transactions, prices, theme, formatPric
                       color: window.MaerminUtils.txTypeInfo(tx.type, t).color
                     }
                   }, window.MaerminUtils.txTypeInfo(tx.type, t).label.toUpperCase()),
-                  React.createElement('span', { style: { color: theme.textSecondary } }, tx.date),
-                  React.createElement('span', { style: { color: theme.text } }, `${qty.toFixed(4)} @ ${formatPrice(price)}`),
+                  React.createElement('span', { style: { color: theme.textSecondary } }, window.MaerminI18n.date(tx.date)),
+                  React.createElement('span', { style: { color: theme.text } }, `${window.MaerminI18n.num(qty, 4)} @ ${formatPrice(price)}`),
                   React.createElement('span', { style: { color: theme.text, fontWeight: '600', textAlign: 'right' } },
                     `${formatPrice(total)} ${getCurrencySymbol()}`
                   )
@@ -392,22 +394,22 @@ function CS2SkinPicker({ workerUrl, theme, onSelect, selectedName }) {
     if (!query.trim() || query === selectedName) { setResults([]); return; }
 
     debounceRef.current = setTimeout(async () => {
-      if (!workerUrl) { setError('No Worker URL set — add it in API Settings'); return; }
+      if (!workerUrl) { setError(__('ssNoWorker', 'No Worker URL set — add it in API Settings')); return; }
       setLoading(true); setError(null);
       // Names and prices from the daily Steam Market price list (the source the
       // portfolio is priced with), pictures from the bundled image table.
       const SKP = window.MaerminSkinPrices;
       try {
-        if (!SKP) throw new Error('Skin price module not loaded');
+        if (!SKP) throw new Error(__('ssModuleMissing', 'Skin price module not loaded'));
         const [index, images] = await Promise.all([SKP.load(workerUrl), SKP.loadImages()]);
-        if (!index) throw new Error('The skin price list could not be loaded - check the Worker URL');
+        if (!index) throw new Error(__('ssListFailed', 'The skin price list could not be loaded - check the Worker URL'));
         const found = SKP.search(index, query.trim(), 24).map(it => {
           const wear = (it.name.match(/\(([^)]+)\)\s*$/) || [])[1] || null;
           return { ...it, image: SKP.imageFor(images, it.name), wear };
         });
         setResults(found);
         setOpen(true);
-        if (!found.length) setError('No CS2 item matches "' + query.trim() + '"');
+        if (!found.length) setError(__('ssNoMatch', 'No CS2 item matches "{q}"', { q: query.trim() }));
       } catch (e) {
         setError(e.message);
       } finally {
@@ -432,7 +434,7 @@ function CS2SkinPicker({ workerUrl, theme, onSelect, selectedName }) {
         value: query,
         onChange: e => { setQuery(e.target.value); if (!e.target.value) { setResults([]); setOpen(false); } },
         onFocus: () => results.length > 0 && setOpen(true),
-        placeholder: 'Search CS2 skins — e.g. AK-47 Redline...', 'aria-label': 'Skin',
+        placeholder: __('ssSearchPh', 'Search CS2 skins — e.g. AK-47 Redline...'), 'aria-label': __('ssSkin', 'Skin'),
         style: {
           width: '100%', padding: '0.75rem 2.5rem 0.75rem 0.75rem',
           background: theme.inputBg, border: `1px solid ${theme.inputBorder}`,
@@ -465,10 +467,10 @@ function CS2SkinPicker({ workerUrl, theme, onSelect, selectedName }) {
       React.createElement('div', {
         style: { padding: '0.625rem 0.875rem', borderBottom: `1px solid ${theme.cardBorder}`, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }
       },
-        React.createElement('span', { style: { color: theme.textSecondary, fontSize: '0.72rem' } }, `${results.length} results — click to select`),
+        React.createElement('span', { style: { color: theme.textSecondary, fontSize: '0.72rem' } }, __('ssResults', '{n} {n:result|results} — click to select', { n: results.length })),
         React.createElement('button', {
           onClick: () => setOpen(false),
-          'aria-label': 'Close',
+          'aria-label': __('close', 'Close'),
           style: { background: 'none', border: 'none', color: theme.textSecondary, cursor: 'pointer', fontSize: '1rem', lineHeight: 1, padding: '0 0.25rem' }
         }, '×')
       ),
@@ -498,7 +500,7 @@ function CS2SkinPicker({ workerUrl, theme, onSelect, selectedName }) {
                 })
               : React.createElement('div', {
                   style: { width: '100%', aspectRatio: '330/192', background: 'rgba(6,182,212,0.08)', borderRadius: '6px', display: 'flex', alignItems: 'center', justifyContent: 'center' }
-                }, React.createElement('span', { style: { color: 'rgba(6,182,212,0.4)', fontSize: '0.7rem' } }, 'No image')),
+                }, React.createElement('span', { style: { color: 'rgba(6,182,212,0.4)', fontSize: '0.7rem' } }, __('ssNoImage', 'No image'))),
 
             // Name
             React.createElement('div', {
@@ -512,7 +514,7 @@ function CS2SkinPicker({ workerUrl, theme, onSelect, selectedName }) {
               }, item.wear),
               item.price && React.createElement('span', {
                 style: { fontSize: '0.75rem', fontWeight: '700', color: '#22c55e' }
-              }, `$${item.price.toFixed(2)}`) // skin prices are USD (Steam Market price list)
+              }, window.MaerminI18n.money(item.price, 'USD')) // skin prices are USD (Steam Market price list)
             )
           )
         )
@@ -541,10 +543,10 @@ const TYPE_COLOR = {
   CRYPTOCURRENCY: '#f59e0b', COMMODITY: '#d97706',
 };
 
-const TYPE_LABEL = {
-  EQUITY: 'Stock', ETF: 'ETF', MUTUALFUND: 'Fund',
-  CRYPTOCURRENCY: 'Crypto', COMMODITY: 'Commodity',
-};
+const typeLabel = (type) => ({
+  EQUITY: __('spkStock', 'Stock'), ETF: 'ETF', MUTUALFUND: __('spkFund', 'Fund'),
+  CRYPTOCURRENCY: __('crypto', 'Crypto'), COMMODITY: __('spkCommodity', 'Commodity'),
+})[type] || __('spkStock', 'Stock');
 
 function SymbolPicker({ category, workerUrl, theme, onSelect, selectedSymbol, selectedName }) {
   const [query, setQuery]     = useState(selectedName || selectedSymbol || '');
@@ -617,14 +619,14 @@ function SymbolPicker({ category, workerUrl, theme, onSelect, selectedSymbol, se
             name:     c.name,
             logoUrl:  c.large || c.thumb,             // direct CoinGecko CDN URL
             type:     'CRYPTOCURRENCY',
-            exchange: `Rank #${c.market_cap_rank || '—'}`,
+            exchange: __('spkRank', 'Rank #{n}', { n: c.market_cap_rank || '—' }),
           }));
           setResults(coins);
           setOpen(coins.length > 0);
 
         } else {
           // ── Stocks/ETFs: Yahoo Finance via Worker — never shows crypto ────
-          if (!workerUrl) { setError('Add Worker URL in Settings for stock search'); setLoading(false); return; }
+          if (!workerUrl) { setError(__('spkNeedWorker', 'Add Worker URL in Settings for stock search')); setLoading(false); return; }
           const base = workerUrl.trim().replace(/\/$/, '');
           // Pass type=stock so Worker strictly excludes CRYPTOCURRENCY results
           const res  = await fetch(
@@ -659,7 +661,7 @@ function SymbolPicker({ category, workerUrl, theme, onSelect, selectedSymbol, se
       } catch(e) {
         setResults([]); setOpen(false);
         setError(isCrypto
-          ? 'CoinGecko search is busy right now. You can still save: type the ticker (e.g. QNT) or the CoinGecko id (e.g. quant-network).'
+          ? __('spkCgBusy', 'CoinGecko search is busy right now. You can still save: type the ticker (e.g. QNT) or the CoinGecko id (e.g. quant-network).')
           : e.message);
       } finally {
         setLoading(false);
@@ -711,7 +713,7 @@ function SymbolPicker({ category, workerUrl, theme, onSelect, selectedSymbol, se
             onSelect({ symbol: typedSymbol(v), name: '', logoUrl: null, manual: true });
           },
           onFocus: () => results.length > 0 && setOpen(true),
-          placeholder: isCrypto ? 'Search: Bitcoin, Ethereum, Solana...' : 'Search: Apple, ASML, Novo Nordisk...', 'aria-label': 'Symbol',
+          placeholder: isCrypto ? __('spkCryptoPh', 'Search: Bitcoin, Ethereum, Solana...') : __('spkStockPh', 'Search: Apple, ASML, Novo Nordisk...'), 'aria-label': __('symbol', 'Symbol'),
           style: {
             width: '100%', padding: '0.75rem 2.5rem 0.75rem 0.875rem',
             background: theme.inputBg, border: `1px solid ${selected ? theme.accent : theme.inputBorder}`,
@@ -725,7 +727,7 @@ function SymbolPicker({ category, workerUrl, theme, onSelect, selectedSymbol, se
       ),
       selected && React.createElement('button', {
         onClick: clear,
-        title: 'Clear selection', 'aria-label': 'Clear selection',
+        title: __('clearSelection', 'Clear selection'), 'aria-label': __('clearSelection', 'Clear selection'),
         style: { padding: '0.5rem', background: 'rgba(239,68,68,0.1)', border: '1px solid rgba(239,68,68,0.2)', borderRadius: '6px', color: '#ef4444', cursor: 'pointer', fontSize: '0.875rem', lineHeight: 1 }
       }, '×')
     ),
@@ -733,7 +735,7 @@ function SymbolPicker({ category, workerUrl, theme, onSelect, selectedSymbol, se
     // ── Typed, not picked: say what will be saved ─────────────────────────
     !selected && query.trim() && React.createElement('div', {
       style: { marginTop: '0.4rem', fontSize: '0.72rem', color: theme.textSecondary }
-    }, `Saved as typed: ${typedSymbol(query)} — pick a suggestion for the exact ${isCrypto ? 'coin' : 'listing'}.`),
+    }, isCrypto ? __('spkTypedCoin', 'Saved as typed: {sym} — pick a suggestion for the exact coin.', { sym: typedSymbol(query) }) : __('spkTypedListing', 'Saved as typed: {sym} — pick a suggestion for the exact listing.', { sym: typedSymbol(query) })),
 
     // ── Selected Preview ──────────────────────────────────────────────────
     selected && React.createElement('div', {
@@ -759,7 +761,7 @@ function SymbolPicker({ category, workerUrl, theme, onSelect, selectedSymbol, se
         // Name + type badge
         React.createElement('div', { style: { display: 'flex', alignItems: 'center', gap: '0.375rem', flexWrap: 'wrap', marginBottom: '0.25rem' } },
           React.createElement('span', { style: { color: theme.text, fontWeight: '700', fontSize: '0.875rem' } }, selected.name),
-          React.createElement('span', { style: { fontSize: '0.62rem', padding: '0.1rem 0.35rem', borderRadius: '3px', background: `${TYPE_COLOR[selected.type] || theme.accent}20`, color: TYPE_COLOR[selected.type] || theme.accent, fontWeight: '700' } }, TYPE_LABEL[selected.type] || 'Stock'),
+          React.createElement('span', { style: { fontSize: '0.62rem', padding: '0.1rem 0.35rem', borderRadius: '3px', background: `${TYPE_COLOR[selected.type] || theme.accent}20`, color: TYPE_COLOR[selected.type] || theme.accent, fontWeight: '700' } }, typeLabel(selected.type)),
           selected.exchange && React.createElement('span', { style: { fontSize: '0.65rem', color: theme.textSecondary } }, selected.exchange)
         ),
         // The exact symbol that will be saved — most important part
@@ -771,7 +773,7 @@ function SymbolPicker({ category, workerUrl, theme, onSelect, selectedSymbol, se
             isCrypto ? selected.symbol : selected.symbol  // exact YF symbol or CoinGecko ID
           ),
           React.createElement('span', { style: { color: 'rgba(34,197,94,0.6)', fontSize: '0.65rem' } },
-            isCrypto ? '· CoinGecko ID' : '· Yahoo Finance symbol'
+            isCrypto ? '· ' + __('spkCgId', 'CoinGecko ID') : '· ' + __('spkYfSymbol', 'Yahoo Finance symbol')
           )
         )
       )
@@ -798,11 +800,11 @@ function SymbolPicker({ category, workerUrl, theme, onSelect, selectedSymbol, se
         style: { padding: '0.5rem 0.875rem', borderBottom: `1px solid ${theme.cardBorder}`, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }
       },
         React.createElement('span', { style: { color: theme.textSecondary, fontSize: '0.7rem' } },
-          `${results.length} result${results.length !== 1 ? 's' : ''} · click to select`
+          __('spkResults', '{n} {n:result|results} · click to select', { n: results.length })
         ),
         React.createElement('button', {
           onClick: () => setOpen(false),
-          'aria-label': 'Close',
+          'aria-label': __('close', 'Close'),
           style: { background: 'none', border: 'none', color: theme.textSecondary, cursor: 'pointer', fontSize: '1rem', padding: '0 0.25rem', lineHeight: 1 }
         }, '×')
       ),
@@ -847,7 +849,7 @@ function SymbolPicker({ category, workerUrl, theme, onSelect, selectedSymbol, se
                 React.createElement('span', { style: { color: theme.text, fontWeight: '700', fontSize: '0.875rem' } }, item.ticker || item.symbol),
                 React.createElement('span', {
                   style: { fontSize: '0.6rem', padding: '0.1rem 0.3rem', borderRadius: '3px', background: `${TYPE_COLOR[item.type] || '#3b82f6'}20`, color: TYPE_COLOR[item.type] || '#3b82f6', fontWeight: '600' }
-                }, TYPE_LABEL[item.type] || 'Stock'),
+                }, typeLabel(item.type)),
                 item.exchange && React.createElement('span', { style: { fontSize: '0.65rem', color: theme.textSecondary } }, item.exchange)
               ),
               React.createElement('div', {

@@ -52,10 +52,11 @@ const S = require('../store.js');
 
   ok('loadFrom reads keys + applies defaults', (() => {
     const s = P.loadFrom((k) => ls.getItem(k));
-    return s.theme === 'purple' && s.activeView === 'tax' && s.language === 'en' && s.currency === 'EUR';
+    return s.theme === 'purple' && s.activeView === 'tax' && s.language === P.SPEC.language.def && s.currency === 'EUR';
   })());
   ok('get returns stored values', P.get('theme') === 'purple' && P.get('activeView') === 'tax');
-  ok('get returns the default for an unset key', P.get('language') === 'en' && P.get('currency') === 'EUR');
+  ok('get returns the default for an unset key', P.get('language') === P.SPEC.language.def && P.get('currency') === 'EUR');
+  ok('the default language follows the browser (de or en)', P.SPEC.language.def === (/^de\b/i.test((typeof navigator !== 'undefined' && navigator.language) || '') ? 'de' : 'en'));
 
   P.set('language', 'de');
   ok('set writes through to localStorage (correct key)', ls.getItem('maermin_language') === 'de');

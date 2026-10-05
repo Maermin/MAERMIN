@@ -279,7 +279,7 @@
       var useState = React.useState;
       try {
         var theme = props.theme || {};
-        var t = props.t || {};
+        var t = props.t || ((typeof window !== 'undefined' && window.MaerminI18n) ? window.MaerminI18n.dict() : {});
         var accounts = props.accounts || [];
         var rate = props.usdToEur || (props.prices && props.prices.usdToEur) || 1;
         var fmt = props.formatPrice || function (n) { return (Math.round(n * 100) / 100).toLocaleString(); };

@@ -13,6 +13,8 @@
  */
 (function () {
   'use strict';
+// Translation lookup (i18n.js): __('key', 'English fallback', { slot: value }).
+function __(k, f, v) { return (typeof window !== 'undefined' && window.MaerminI18n ? window.MaerminI18n : require('./i18n.js')).t(k, f, v); }
 
   var HOUR = 3600 * 1000;
   var DEFAULT_STALE_HOURS = 6;
@@ -28,17 +30,20 @@
   };
 
   /** Human source label for an asset category. */
-  function sourceFor(category) { return SOURCES[category] || 'Unknown'; }
+  function sourceFor(category) {
+    if (category === 'skins') return __('chSteamList', 'Steam Market price list');
+    return SOURCES[category] || __('dqUnknown', 'Unknown');
+  }
 
   /** Compact age label: "just now" / "5m ago" / "3h ago" / "2d ago". */
   function ageLabel(ms) {
-    if (ms == null || !isFinite(ms)) return 'unknown';
-    if (ms < 60 * 1000) return 'just now';
+    if (ms == null || !isFinite(ms)) return __('dqUnknownLower', 'unknown');
+    if (ms < 60 * 1000) return __('agoJustNow', 'just now');
     var m = Math.floor(ms / 60000);
-    if (m < 60) return m + 'm ago';
+    if (m < 60) return __('dqAgoM', '{n}m ago', { n: m });
     var h = Math.floor(m / 60);
-    if (h < 24) return h + 'h ago';
-    return Math.floor(h / 24) + 'd ago';
+    if (h < 24) return __('dqAgoH', '{n}h ago', { n: h });
+    return __('dqAgoD', '{n}d ago', { n: Math.floor(h / 24) });
   }
 
   /**
@@ -50,7 +55,7 @@
     opts = opts || {};
     var staleMs = (opts.staleHours || DEFAULT_STALE_HOURS) * HOUR;
     var t = typeof now === 'number' ? now : Date.now();
-    if (!fetchedAt || !isFinite(fetchedAt)) return { level: 'missing', stale: true, ageMs: null, label: 'no data' };
+    if (!fetchedAt || !isFinite(fetchedAt)) return { level: 'missing', stale: true, ageMs: null, label: __('dqNoData', 'no data') };
     var ageMs = Math.max(0, t - fetchedAt);
     var stale = ageMs > staleMs;
     return { level: stale ? 'stale' : 'fresh', stale: stale, ageMs: ageMs, label: ageLabel(ageMs) };
@@ -63,14 +68,14 @@
    */
   function priceState(price, opts) {
     opts = opts || {};
-    var source = opts.source || (opts.category ? sourceFor(opts.category) : 'Unknown');
+    var source = opts.source || (opts.category ? sourceFor(opts.category) : __('dqUnknown', 'Unknown'));
     var fresh = freshness(opts.fetchedAt, opts.now, opts);
     var available = typeof price === 'number' && isFinite(price) && price > 0;
     var fallback = !!opts.fallback;
     var badge = null;
-    if (!available) badge = opts.fetchFailed ? 'fetch failed' : 'not available';
-    else if (fresh.stale) badge = 'stale · ' + fresh.label;
-    else if (fallback) badge = 'via ' + source;
+    if (!available) badge = opts.fetchFailed ? __('dqFetchFailed', 'fetch failed') : __('dqNotAvailable', 'not available');
+    else if (fresh.stale) badge = __('dqStaleAge', 'stale · {age}', { age: fresh.label });
+    else if (fallback) badge = __('dqVia', 'via {source}', { source: source });
     return {
       available: available,
       value: available ? price : null,

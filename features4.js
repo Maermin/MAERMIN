@@ -7,6 +7,8 @@
 // ============================================================================
 (function () {
 'use strict';
+// Translation lookup (i18n.js): __('key', 'English fallback', { slot: value }).
+function __(k, f, v) { return (typeof window !== 'undefined' && window.MaerminI18n ? window.MaerminI18n : require('./i18n.js')).t(k, f, v); }
 
 const { useState, useEffect, useMemo, useRef, useCallback } = React;
 
@@ -43,6 +45,11 @@ function StatCell({ label, value, sub, color, theme }) {
 // ─────────────────────────────────────────────────────────────────────────────
 
 const DEFAULT_PORTFOLIO = { id: 'default', name: 'Main Portfolio', color: '#8b7cff', icon: '◆' };
+
+// Dividend frequency ids → label.
+function freqLabel(f) {
+  return ({ weekly: __('freqWeekly', 'Weekly'), biweekly: __('freqBiweekly', 'Bi-weekly'), monthly: __('freqMonthly', 'Monthly'), quarterly: __('freqQuarterly', 'Quarterly'), 'semi-annual': __('freqSemiAnnual', 'Semi-annual'), annual: __('freqAnnual', 'Annual') })[f] || f;
+}
 
 function usePortfolios() {
   const [portfolios, setPortfolios] = useState(() => {
@@ -101,7 +108,7 @@ function PortfolioManagerView({ portfolios, activePortfolioId, transactions, pri
   }, [portfolios, transactions, prices, exchangeRate, fxAt, corpActionsRev]);
 
   return React.createElement('div', { style: { padding: '1.5rem' } },
-    React.createElement('h2', { style: { color: theme.text, fontSize: '1.5rem', fontWeight: '800', letterSpacing: '-0.02em', marginBottom: '1.5rem' } }, 'Portfolio Manager'),
+    React.createElement('h2', { style: { color: theme.text, fontSize: '1.5rem', fontWeight: '800', letterSpacing: '-0.02em', marginBottom: '1.5rem' } }, __('pfManager', 'Portfolio Manager')),
 
     // Portfolio Cards
     React.createElement('div', { style: { display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))', gap: '1rem', marginBottom: '1.5rem' } },
@@ -109,7 +116,7 @@ function PortfolioManagerView({ portfolios, activePortfolioId, transactions, pri
         React.createElement('div', {
           key: p.id,
           ...window.MaerminUtils.clickable(() => setActivePortfolioId(p.id)),
-          'aria-label': 'Switch to portfolio ' + (p.name || p.id),
+          'aria-label': __('pfSwitchTo', 'Switch to portfolio {name}', { name: p.name || p.id }),
           'aria-pressed': activePortfolioId === p.id,
           style: {
             background: theme.card, border: `2px solid ${activePortfolioId === p.id ? p.color : theme.cardBorder}`,
@@ -163,9 +170,9 @@ function PortfolioManagerView({ portfolios, activePortfolioId, transactions, pri
           ),
           React.createElement('div', { style: { display: 'flex', gap: '1rem', fontSize: '0.78rem' } },
             React.createElement('span', { style: { color: p.pnl >= 0 ? theme.success : theme.danger, fontWeight: '600' } },
-              `${p.pnl >= 0 ? '+' : ''}${formatPrice(p.pnl)} (${p.pnlPct.toFixed(1)}%)`
+              `${p.pnl >= 0 ? '+' : ''}${formatPrice(p.pnl)} (${window.MaerminI18n.pct(p.pnlPct, 1)})`
             ),
-            React.createElement('span', { style: { color: theme.textSecondary } }, `${p.txCount} transactions`)
+            React.createElement('span', { style: { color: theme.textSecondary } }, __('pfTxCount', '{n} {n:transaction|transactions}', { n: p.txCount }))
           )
         )
       )
@@ -173,11 +180,11 @@ function PortfolioManagerView({ portfolios, activePortfolioId, transactions, pri
 
     // Add new portfolio
     React.createElement(Card, { theme, style: { marginBottom: 0 } },
-      React.createElement('div', { style: { color: theme.text, fontWeight: '700', marginBottom: '0.875rem', fontSize: '0.9rem' } }, 'Add Portfolio'),
+      React.createElement('div', { style: { color: theme.text, fontWeight: '700', marginBottom: '0.875rem', fontSize: '0.9rem' } }, __('pfAdd', 'Add Portfolio')),
       React.createElement('div', { style: { display: 'flex', gap: '0.75rem', flexWrap: 'wrap', alignItems: 'flex-end' } },
         React.createElement('input', {
           value: newName, onChange: e => setNewName(e.target.value),
-          placeholder: 'e.g. Trade Republic, CS2, Savings', 'aria-label': 'New portfolio name',
+          placeholder: __('pfNewPh', 'e.g. Trade Republic, CS2, Savings'), 'aria-label': __('pfNewAria', 'New portfolio name'),
           style: { flex: 1, minWidth: '180px', padding: '0.625rem 0.875rem', background: theme.inputBg, border: `1px solid ${theme.inputBorder}`, borderRadius: '8px', color: theme.text, fontSize: '0.875rem' }
         }),
         // Color picker
@@ -191,7 +198,7 @@ function PortfolioManagerView({ portfolios, activePortfolioId, transactions, pri
           onClick: () => { if (newName.trim()) { addPortfolio(newName.trim(), newColor); setNewName(''); } },
           disabled: !newName.trim(),
           style: { padding: '0.625rem 1.25rem', background: newName.trim() ? theme.accent : theme.inputBg, color: newName.trim() ? '#fff' : theme.textSecondary, border: 'none', borderRadius: '8px', cursor: newName.trim() ? 'pointer' : 'not-allowed', fontWeight: '700', fontSize: '0.875rem' }
-        }, '+ Add')
+        }, __('addShort', '+ Add'))
       )
     )
   );
@@ -225,7 +232,7 @@ function PlanModal({ theme, title, onClose, children }) {
       React.createElement('div', { style: { display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.1rem' } },
         React.createElement('div', { id: 'dlg-plan', style: { color: theme.text, fontWeight: '800', fontSize: '1.1rem' } }, title),
         React.createElement('button', {
-          onClick: onClose, 'aria-label': 'Close',
+          onClick: onClose, 'aria-label': __('close', 'Close'),
           style: { background: 'none', border: 'none', color: theme.textSecondary, cursor: 'pointer', fontSize: '1.2rem', lineHeight: 1 }
         }, 'x')
       ),
@@ -331,7 +338,7 @@ function SavingsPlanView({ transactions, theme, formatPrice, getCurrencySymbol, 
     });
   }, [plans, transactions]);
 
-  const FREQ_LABELS = { weekly: 'Weekly', biweekly: 'Bi-weekly', monthly: 'Monthly', quarterly: 'Quarterly' };
+  const FREQ_LABELS = { weekly: __('freqWeekly', 'Weekly'), biweekly: __('freqBiweekly', 'Bi-weekly'), monthly: __('freqMonthly', 'Monthly'), quarterly: __('freqQuarterly', 'Quarterly') };
 
   const inp = (field, props = {}) => React.createElement('input', {
     value: form[field], onChange: e => setForm(p => ({ ...p, [field]: e.target.value })),
@@ -342,13 +349,13 @@ function SavingsPlanView({ transactions, theme, formatPrice, getCurrencySymbol, 
   return React.createElement('div', { style: { padding: '1.5rem' } },
     React.createElement('div', { style: { display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.5rem' } },
       React.createElement('div', null,
-        React.createElement('h2', { style: { color: theme.text, fontSize: '1.5rem', fontWeight: '800', letterSpacing: '-0.02em', marginBottom: '0.25rem' } }, 'Savings Plans'),
-        React.createElement('p', { style: { color: theme.textSecondary, fontSize: '0.875rem' } }, 'Track your recurring investment plans and execution rate')
+        React.createElement('h2', { style: { color: theme.text, fontSize: '1.5rem', fontWeight: '800', letterSpacing: '-0.02em', marginBottom: '0.25rem' } }, __('spTitle', 'Savings Plans')),
+        React.createElement('p', { style: { color: theme.textSecondary, fontSize: '0.875rem' } }, __('spSubtitle', 'Track your recurring investment plans and execution rate'))
       ),
       React.createElement('button', {
         onClick: openAdd,
         style: { padding: '0.625rem 1.25rem', background: theme.accent, color: '#ffffff', border: 'none', borderRadius: '8px', cursor: 'pointer', fontWeight: '700', fontSize: '0.875rem' }
-      }, '+ Add Plan')
+      }, __('spAddPlan', '+ Add Plan'))
     ),
 
     // Whole-portfolio projection (#6): composes current value + these savings
@@ -358,18 +365,18 @@ function SavingsPlanView({ transactions, theme, formatPrice, getCurrencySymbol, 
       savingsPlans: plans,
       dividendYield: dividendYield || 0,
       theme, formatPrice, getCurrencySymbol, t,
-      scopeLabel: 'Portfolio'
+      scopeLabel: __('portfolio', 'Portfolio')
     }),
 
     // Add/Edit Plan MODAL (independent of the projection graph's height).
-    editPlan && React.createElement(PlanModal, { theme, onClose: requestClose, title: editPlan === 'new' ? 'New Savings Plan' : `Edit ${form.symbol || 'Plan'}` },
+    editPlan && React.createElement(PlanModal, { theme, onClose: requestClose, title: editPlan === 'new' ? __('spNewPlan', 'New Savings Plan') : __('spEditPlan', 'Edit {name}', { name: form.symbol || __('spPlan', 'Plan') }) },
       React.createElement('div', { style: { display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(160px, 1fr))', gap: '0.75rem', marginBottom: '0.875rem' } },
         React.createElement('div', null,
-          React.createElement('label', { style: { display: 'block', color: theme.textSecondary, fontSize: '0.72rem', marginBottom: '0.25rem', textTransform: 'uppercase' } }, 'Symbol'),
-          inp('symbol', { placeholder: 'BTC, ETH, AAPL...' })
+          React.createElement('label', { style: { display: 'block', color: theme.textSecondary, fontSize: '0.72rem', marginBottom: '0.25rem', textTransform: 'uppercase' } }, __('symbol', 'Symbol')),
+          inp('symbol', { placeholder: __('spSymbolPh', 'BTC, ETH, AAPL...') })
         ),
         React.createElement('div', null,
-          React.createElement('label', { style: { display: 'block', color: theme.textSecondary, fontSize: '0.72rem', marginBottom: '0.25rem', textTransform: 'uppercase' } }, 'Amount per execution'),
+          React.createElement('label', { style: { display: 'block', color: theme.textSecondary, fontSize: '0.72rem', marginBottom: '0.25rem', textTransform: 'uppercase' } }, __('spAmountPer', 'Amount per execution')),
           React.createElement('div', { style: { display: 'flex', gap: '0.4rem' } },
             React.createElement('input', {
               value: form.amount, onChange: e => setForm(p => ({ ...p, amount: e.target.value })),
@@ -378,7 +385,7 @@ function SavingsPlanView({ transactions, theme, formatPrice, getCurrencySymbol, 
             }),
             React.createElement('select', {
               value: form.amountCurrency, onChange: e => setForm(p => ({ ...p, amountCurrency: e.target.value })),
-              'aria-label': 'Amount currency',
+              'aria-label': __('spAmountCurrency', 'Amount currency'),
               style: { padding: '0.625rem 0.4rem', background: theme.inputBg, border: `1px solid ${theme.inputBorder}`, borderRadius: '8px', color: theme.text, fontSize: '0.875rem', cursor: 'pointer' }
             },
               React.createElement('option', { value: 'EUR' }, '€ EUR'),
@@ -387,7 +394,7 @@ function SavingsPlanView({ transactions, theme, formatPrice, getCurrencySymbol, 
           )
         ),
         React.createElement('div', null,
-          React.createElement('label', { style: { display: 'block', color: theme.textSecondary, fontSize: '0.72rem', marginBottom: '0.25rem', textTransform: 'uppercase' } }, 'Frequency'),
+          React.createElement('label', { style: { display: 'block', color: theme.textSecondary, fontSize: '0.72rem', marginBottom: '0.25rem', textTransform: 'uppercase' } }, __('spFrequency', 'Frequency')),
           React.createElement('select', {
             value: form.frequency, onChange: e => setForm(p => ({ ...p, frequency: e.target.value })),
             style: { padding: '0.625rem 0.875rem', background: theme.inputBg, border: `1px solid ${theme.inputBorder}`, borderRadius: '8px', color: theme.text, fontSize: '0.875rem', width: '100%' }
@@ -396,7 +403,7 @@ function SavingsPlanView({ transactions, theme, formatPrice, getCurrencySymbol, 
           )
         ),
         React.createElement('div', null,
-          React.createElement('label', { style: { display: 'block', color: theme.textSecondary, fontSize: '0.72rem', marginBottom: '0.25rem', textTransform: 'uppercase' } }, 'Category'),
+          React.createElement('label', { style: { display: 'block', color: theme.textSecondary, fontSize: '0.72rem', marginBottom: '0.25rem', textTransform: 'uppercase' } }, __('category', 'Category')),
           React.createElement('select', {
             value: form.category, onChange: e => setForm(p => ({ ...p, category: e.target.value })),
             style: { padding: '0.625rem 0.875rem', background: theme.inputBg, border: `1px solid ${theme.inputBorder}`, borderRadius: '8px', color: theme.text, fontSize: '0.875rem', width: '100%' }
@@ -405,7 +412,7 @@ function SavingsPlanView({ transactions, theme, formatPrice, getCurrencySymbol, 
           )
         ),
         React.createElement('div', null,
-          React.createElement('label', { style: { display: 'block', color: theme.textSecondary, fontSize: '0.72rem', marginBottom: '0.25rem', textTransform: 'uppercase' } }, 'Portfolio'),
+          React.createElement('label', { style: { display: 'block', color: theme.textSecondary, fontSize: '0.72rem', marginBottom: '0.25rem', textTransform: 'uppercase' } }, __('portfolio', 'Portfolio')),
           React.createElement('select', {
             value: form.portfolioId, onChange: e => setForm(p => ({ ...p, portfolioId: e.target.value })),
             style: { padding: '0.625rem 0.875rem', background: theme.inputBg, border: `1px solid ${theme.inputBorder}`, borderRadius: '8px', color: theme.text, fontSize: '0.875rem', width: '100%' }
@@ -414,25 +421,25 @@ function SavingsPlanView({ transactions, theme, formatPrice, getCurrencySymbol, 
           )
         ),
         React.createElement('div', null,
-          React.createElement('label', { style: { display: 'block', color: theme.textSecondary, fontSize: '0.72rem', marginBottom: '0.25rem', textTransform: 'uppercase' } }, 'Start Date'),
+          React.createElement('label', { style: { display: 'block', color: theme.textSecondary, fontSize: '0.72rem', marginBottom: '0.25rem', textTransform: 'uppercase' } }, __('spStartDate', 'Start Date')),
           inp('startDate', { type: 'date' })
         ),
         React.createElement('div', null,
-          React.createElement('label', { style: { display: 'block', color: theme.textSecondary, fontSize: '0.72rem', marginBottom: '0.25rem', textTransform: 'uppercase' } }, 'End Date'),
+          React.createElement('label', { style: { display: 'block', color: theme.textSecondary, fontSize: '0.72rem', marginBottom: '0.25rem', textTransform: 'uppercase' } }, __('spEndDate', 'End Date')),
           React.createElement('label', { style: { display: 'flex', alignItems: 'center', gap: '0.4rem', color: theme.textSecondary, fontSize: '0.8rem', marginBottom: '0.35rem', cursor: 'pointer' } },
             React.createElement('input', { type: 'checkbox', checked: form.noEnd, onChange: e => setForm(p => ({ ...p, noEnd: e.target.checked })) }),
-            'No fixed end date'
+            __('spNoEnd', 'No fixed end date')
           ),
           !form.noEnd && inp('endDate', { type: 'date', min: form.startDate })
         )
       ),
       !form.noEnd && form.endDate && form.endDate < form.startDate &&
-        React.createElement('div', { style: { color: '#ef4444', fontSize: '0.78rem', marginBottom: '0.6rem' } }, 'End date must not be before the start date.'),
+        React.createElement('div', { style: { color: '#ef4444', fontSize: '0.78rem', marginBottom: '0.6rem' } }, __('spEndBeforeStart', 'End date must not be before the start date.')),
       React.createElement('div', { style: { color: theme.textSecondary, fontSize: '0.74rem', marginBottom: '0.875rem', lineHeight: 1.5 } },
-        'Due executions are booked automatically as real buy transactions when the app opens (marked, deletable). If no price is available for a due date, the execution stays pending instead of guessing a quantity.'),
+        __('spAutoHint', 'Due executions are booked automatically as real buy transactions when the app opens (marked, deletable). If no price is available for a due date, the execution stays pending instead of guessing a quantity.')),
       React.createElement('div', { style: { display: 'flex', gap: '0.5rem' } },
-        React.createElement('button', { onClick: savePlan, style: { padding: '0.625rem 1.25rem', background: theme.accent, color: '#ffffff', border: 'none', borderRadius: '8px', cursor: 'pointer', fontWeight: '700', fontSize: '0.875rem' } }, editPlan === 'new' ? 'Add Plan' : 'Save'),
-        React.createElement('button', { onClick: requestClose, style: { padding: '0.625rem 1.25rem', background: theme.inputBg, color: theme.text, border: 'none', borderRadius: '8px', cursor: 'pointer', fontSize: '0.875rem' } }, 'Cancel')
+        React.createElement('button', { onClick: savePlan, style: { padding: '0.625rem 1.25rem', background: theme.accent, color: '#ffffff', border: 'none', borderRadius: '8px', cursor: 'pointer', fontWeight: '700', fontSize: '0.875rem' } }, editPlan === 'new' ? __('spAddPlanBtn', 'Add Plan') : __('save', 'Save')),
+        React.createElement('button', { onClick: requestClose, style: { padding: '0.625rem 1.25rem', background: theme.inputBg, color: theme.text, border: 'none', borderRadius: '8px', cursor: 'pointer', fontSize: '0.875rem' } }, __('cancel', 'Cancel'))
       )
     ),
 
@@ -440,8 +447,8 @@ function SavingsPlanView({ transactions, theme, formatPrice, getCurrencySymbol, 
     plans.length === 0
       ? React.createElement(Card, { theme, style: { textAlign: 'center', padding: '3rem' } },
           React.createElement('div', { style: { color: theme.textSecondary, marginBottom: '0.5rem', fontSize: '1.5rem' } }, '◎'),
-          React.createElement('div', { style: { color: theme.text, fontWeight: '600', marginBottom: '0.25rem' } }, 'No savings plans yet'),
-          React.createElement('div', { style: { color: theme.textSecondary, fontSize: '0.875rem' } }, 'Add a recurring investment plan to track your execution rate')
+          React.createElement('div', { style: { color: theme.text, fontWeight: '600', marginBottom: '0.25rem' } }, __('spEmpty', 'No savings plans yet')),
+          React.createElement('div', { style: { color: theme.textSecondary, fontSize: '0.875rem' } }, __('spEmptyHint', 'Add a recurring investment plan to track your execution rate'))
         )
       : React.createElement('div', { style: { display: 'flex', flexDirection: 'column', gap: '1rem' } },
           planStats.map(plan =>
@@ -452,7 +459,7 @@ function SavingsPlanView({ transactions, theme, formatPrice, getCurrencySymbol, 
                   React.createElement('div', { style: { display: 'flex', alignItems: 'center', gap: '0.625rem', marginBottom: '0.375rem', flexWrap: 'wrap' } },
                     React.createElement('span', { style: { color: theme.text, fontWeight: '800', fontSize: '1.1rem' } }, plan.symbol),
                     React.createElement('span', { style: { fontSize: '0.7rem', padding: '0.15rem 0.5rem', background: `${theme.accent}22`, color: theme.accent, borderRadius: '4px', fontWeight: '600' } }, FREQ_LABELS[plan.frequency]),
-                    React.createElement('span', { style: { fontSize: '0.7rem', color: theme.textSecondary } }, `${plan.amountCurrency === 'USD' ? '$' : '€'}${plan.amount.toFixed(0)}/execution`),
+                    React.createElement('span', { style: { fontSize: '0.7rem', color: theme.textSecondary } }, __('spPerExecution', '{amount}/execution', { amount: window.MaerminI18n.money(plan.amount, plan.amountCurrency === 'USD' ? 'USD' : 'EUR', 0) })),
                     // Status: active / completed (end date passed) / paused.
                     React.createElement('span', {
                       style: {
@@ -460,13 +467,13 @@ function SavingsPlanView({ transactions, theme, formatPrice, getCurrencySymbol, 
                         background: plan.status === 'active' ? 'rgba(34,197,94,0.15)' : plan.status === 'completed' ? 'rgba(148,163,184,0.18)' : 'rgba(245,158,11,0.18)',
                         color: plan.status === 'active' ? theme.success : plan.status === 'completed' ? theme.textSecondary : theme.warning
                       }
-                    }, plan.status),
-                    plan.autoCount > 0 && React.createElement('span', { style: { fontSize: '0.66rem', color: theme.textSecondary } }, `${plan.autoCount} auto-booked`)
+                    }, ({ active: __('spStatusActive', 'active'), completed: __('spStatusCompleted', 'completed'), paused: __('spStatusPaused', 'paused') })[plan.status] || plan.status),
+                    plan.autoCount > 0 && React.createElement('span', { style: { fontSize: '0.66rem', color: theme.textSecondary } }, __('spAutoBooked', '{n} auto-booked', { n: plan.autoCount }))
                   ),
                   React.createElement('div', { style: { color: theme.textSecondary, fontSize: '0.78rem' } },
-                    `Started ${plan.startDate}` +
-                    (plan.endDate ? ` · Ends ${plan.endDate}` : '') +
-                    (plan.nextDate ? ` · Next ${plan.nextDate.toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' })}` : ''))
+                    __('spStarted', 'Started {date}', { date: window.MaerminI18n.date(plan.startDate, 'medium') }) +
+                    (plan.endDate ? ' · ' + __('spEnds', 'Ends {date}', { date: window.MaerminI18n.date(plan.endDate, 'medium') }) : '') +
+                    (plan.nextDate ? ' · ' + __('spNext', 'Next {date}', { date: window.MaerminI18n.date(plan.nextDate, 'medium') }) : ''))
                 ),
                 // Right: adherence ring
                 React.createElement('div', { style: { textAlign: 'center' } },
@@ -478,7 +485,7 @@ function SavingsPlanView({ transactions, theme, formatPrice, getCurrencySymbol, 
                     }
                   },
                     React.createElement('div', { style: { position: 'absolute', inset: 4, borderRadius: '50%', background: theme.card, display: 'flex', alignItems: 'center', justifyContent: 'center', flexDirection: 'column' } },
-                      React.createElement('span', { style: { color: theme.text, fontWeight: '800', fontSize: '0.8rem', lineHeight: 1 } }, `${plan.adherence}%`),
+                      React.createElement('span', { style: { color: theme.text, fontWeight: '800', fontSize: '0.8rem', lineHeight: 1 } }, window.MaerminI18n.pct(plan.adherence, 0)),
                       React.createElement('span', { style: { color: theme.textSecondary, fontSize: '0.55rem' } }, 'rate')
                     )
                   )
@@ -487,10 +494,10 @@ function SavingsPlanView({ transactions, theme, formatPrice, getCurrencySymbol, 
               // Stats row
               React.createElement('div', { style: { display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(130px, 1fr))', gap: '0.75rem', marginTop: '1rem', paddingTop: '1rem', borderTop: `1px solid ${theme.cardBorder}` } },
                 [
-                  { label: 'Executed', value: plan.actualCount },
-                  { label: 'Expected', value: plan.expected },
-                  { label: 'Missed', value: Math.max(0, plan.expected - plan.actualCount), color: Math.max(0, plan.expected - plan.actualCount) > 0 ? theme.danger : theme.success },
-                  { label: 'Total Invested', value: `${formatPrice(plan.totalInvested)} ${getCurrencySymbol()}` },
+                  { label: __('spExecuted', 'Executed'), value: plan.actualCount },
+                  { label: __('spExpected', 'Expected'), value: plan.expected },
+                  { label: __('spMissed', 'Missed'), value: Math.max(0, plan.expected - plan.actualCount), color: Math.max(0, plan.expected - plan.actualCount) > 0 ? theme.danger : theme.success },
+                  { label: __('totalInvested', 'Total Invested'), value: `${formatPrice(plan.totalInvested)} ${getCurrencySymbol()}` },
                 ].map((s, i) =>
                   React.createElement('div', { key: i },
                     React.createElement('div', { style: { color: theme.textSecondary, fontSize: '0.68rem', textTransform: 'uppercase', letterSpacing: '0.05em' } }, s.label),
@@ -503,11 +510,11 @@ function SavingsPlanView({ transactions, theme, formatPrice, getCurrencySymbol, 
                 React.createElement('button', {
                   onClick: () => openEdit(plan),
                   style: { background: 'none', border: 'none', color: theme.accent, cursor: 'pointer', fontSize: '0.78rem', fontWeight: '600' }
-                }, 'Edit'),
+                }, __('edit', 'Edit')),
                 plan.status !== 'completed' && React.createElement('button', {
                   onClick: () => setPlans(prev => prev.map(p => p.id === plan.id ? { ...p, active: p.active === false } : p)),
                   style: { background: 'none', border: 'none', color: theme.textSecondary, cursor: 'pointer', fontSize: '0.78rem' }
-                }, plan.active === false ? 'Resume' : 'Pause'),
+                }, plan.active === false ? __('resume', 'Resume') : __('pause', 'Pause')),
                 React.createElement('button', {
                   onClick: () => window.MaerminUtils.confirmThen({
                     title: ((t && t.spRemoveTitle) || 'Remove the savings plan {name}?').replace('{name}', plan.symbol || ''),
@@ -515,7 +522,7 @@ function SavingsPlanView({ transactions, theme, formatPrice, getCurrencySymbol, 
                     confirmLabel: (t && t.spRemove) || 'Remove plan', cancelLabel: (t && t.cancel) || 'Cancel'
                   }, () => setPlans(prev => prev.filter(p => p.id !== plan.id))),
                   style: { background: 'none', border: 'none', color: theme.textSecondary, cursor: 'pointer', fontSize: '0.78rem' }
-                }, 'Remove plan')
+                }, __('spRemove', 'Remove plan'))
               )
             )
           )
@@ -590,7 +597,7 @@ function DividendForecastView({ transactions, portfolio, prices, metaVersion, th
     const totalMonths = forecastYears * 12;
     for (let i = 0; i < totalMonths; i++) {
       const d = new Date(now.getFullYear(), now.getMonth() + i, 1);
-      months.push({ date: d, year: d.getFullYear(), label: d.toLocaleDateString('en-US', { month: 'short', year: '2-digit' }), amount: 0, items: [] });
+      months.push({ date: d, year: d.getFullYear(), label: window.MaerminI18n.date(d, { month: 'short', year: '2-digit' }), amount: 0, items: [] });
     }
     forecasts.forEach(f => {
       const paymentsPerYear = f.frequency === 'monthly' ? 12 : f.frequency === 'quarterly' ? 4 : f.frequency === 'semi-annual' ? 2 : 1;
@@ -621,12 +628,12 @@ function DividendForecastView({ transactions, portfolio, prices, metaVersion, th
 
   if (forecasts.length === 0) {
     return React.createElement('div', { style: { padding: '1.5rem' } },
-      React.createElement('h2', { style: { color: theme.text, fontSize: '1.5rem', fontWeight: '800', letterSpacing: '-0.02em', marginBottom: '1rem' } }, 'Dividend Forecast'),
+      React.createElement('h2', { style: { color: theme.text, fontSize: '1.5rem', fontWeight: '800', letterSpacing: '-0.02em', marginBottom: '1rem' } }, __('dfTitle', 'Dividend Forecast')),
       React.createElement(Card, { theme, style: { textAlign: 'center', padding: '3rem' } },
         React.createElement('div', { style: { color: theme.textSecondary, fontSize: '2rem', marginBottom: '0.5rem', opacity: 0.4 } }, '◎'),
-        React.createElement('div', { style: { color: theme.text, fontWeight: '600', marginBottom: '0.5rem' } }, 'No dividend data yet'),
+        React.createElement('div', { style: { color: theme.text, fontWeight: '600', marginBottom: '0.5rem' } }, __('dfEmpty', 'No dividend data yet')),
         React.createElement('div', { style: { color: theme.textSecondary, fontSize: '0.875rem', maxWidth: 360, margin: '0 auto' } },
-          'Add dividend transactions, or hold recognised dividend stocks (a Worker URL in API Settings expands coverage beyond the built-in list).'
+          __('dfEmptyHint', 'Add dividend transactions, or hold recognised dividend stocks (a Worker URL in API Settings expands coverage beyond the built-in list).')
         )
       )
     );
@@ -636,9 +643,9 @@ function DividendForecastView({ transactions, portfolio, prices, metaVersion, th
     // Header + year selector
     React.createElement('div', { style: { display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '1.25rem', flexWrap: 'wrap', gap: '0.75rem' } },
       React.createElement('div', null,
-        React.createElement('h2', { style: { color: theme.text, fontSize: '1.5rem', fontWeight: '800', letterSpacing: '-0.02em', marginBottom: '0.25rem' } }, 'Dividend Forecast'),
+        React.createElement('h2', { style: { color: theme.text, fontSize: '1.5rem', fontWeight: '800', letterSpacing: '-0.02em', marginBottom: '0.25rem' } }, __('dfTitle', 'Dividend Forecast')),
         React.createElement('p', { style: { color: theme.textSecondary, fontSize: '0.8rem' } },
-          isEstimated ? 'Estimated from current holdings × known dividend rates' : 'Projected from your recorded dividend frequency and amount')
+          isEstimated ? __('dfEstimated', 'Estimated from current holdings × known dividend rates') : __('dfProjected', 'Projected from your recorded dividend frequency and amount'))
       ),
       // Year range toggle
       React.createElement('div', { style: { display: 'flex', background: theme.inputBg, borderRadius: '8px', padding: '0.2rem', gap: '0.15rem' } },
@@ -659,15 +666,15 @@ function DividendForecastView({ transactions, portfolio, prices, metaVersion, th
 
     // KPI cards
     React.createElement('div', { style: { display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(160px, 1fr))', gap: '1rem', marginBottom: '1.5rem' } },
-      React.createElement(StatCell, { theme, label: `${forecastYears}Y Total Forecast`, value: `${formatPrice(totalForecast)} ${getCurrencySymbol()}`, color: theme.success }),
-      React.createElement(StatCell, { theme, label: 'Per Year (avg)', value: `${formatPrice(totalForecast / forecastYears)} ${getCurrencySymbol()}` }),
-      React.createElement(StatCell, { theme, label: 'Monthly Average', value: `${formatPrice(totalForecast / (forecastYears * 12))} ${getCurrencySymbol()}` }),
-      React.createElement(StatCell, { theme, label: 'Dividend Sources', value: forecasts.length })
+      React.createElement(StatCell, { theme, label: __('dfTotalYears', '{n}Y Total Forecast', { n: forecastYears }), value: `${formatPrice(totalForecast)} ${getCurrencySymbol()}`, color: theme.success }),
+      React.createElement(StatCell, { theme, label: __('dfPerYearAvg', 'Per Year (avg)'), value: `${formatPrice(totalForecast / forecastYears)} ${getCurrencySymbol()}` }),
+      React.createElement(StatCell, { theme, label: __('dfMonthlyAvg', 'Monthly Average'), value: `${formatPrice(totalForecast / (forecastYears * 12))} ${getCurrencySymbol()}` }),
+      React.createElement(StatCell, { theme, label: __('dfSources', 'Dividend Sources'), value: forecasts.length })
     ),
 
     // Annual summary table
     forecastYears > 1 && React.createElement(Card, { theme, style: { marginBottom: '1.5rem' } },
-      React.createElement('div', { style: { color: theme.text, fontWeight: '700', fontSize: '0.9rem', marginBottom: '1rem' } }, 'Annual Summary'),
+      React.createElement('div', { style: { color: theme.text, fontWeight: '700', fontSize: '0.9rem', marginBottom: '1rem' } }, __('dfAnnualSummary', 'Annual Summary')),
       React.createElement('div', { style: { display: 'flex', gap: '1rem', flexWrap: 'wrap' } },
         byYear.map(({ year, total }) =>
           React.createElement('div', { key: year, style: { flex: '1 1 120px', textAlign: 'center', padding: '0.875rem', background: theme.inputBg, borderRadius: '10px', border: `1px solid ${theme.cardBorder}` } },
@@ -681,7 +688,7 @@ function DividendForecastView({ transactions, portfolio, prices, metaVersion, th
     // Monthly bar chart (show up to 24 months at a time, scrollable)
     React.createElement(Card, { theme, style: { marginBottom: '1.5rem', overflow: 'auto' } },
       React.createElement('div', { style: { color: theme.text, fontWeight: '700', fontSize: '0.9rem', marginBottom: '1rem' } },
-        forecastYears <= 2 ? 'Monthly Breakdown' : 'Monthly Breakdown (first 24 months)'
+        forecastYears <= 2 ? __('dfMonthly', 'Monthly Breakdown') : __('dfMonthly24', 'Monthly Breakdown (first 24 months)')
       ),
       React.createElement('div', { style: { display: 'flex', gap: '0.25rem', alignItems: 'flex-end', height: 120, minWidth: Math.min(forecastYears * 12, 24) * 36 } },
         monthlyForecast.slice(0, Math.min(forecastYears * 12, 24)).map((m, i) => {
@@ -698,7 +705,7 @@ function DividendForecastView({ transactions, portfolio, prices, metaVersion, th
               }
             }),
             React.createElement('div', { style: { color: theme.textSecondary, fontSize: '0.5rem', textAlign: 'center', whiteSpace: 'nowrap', transform: 'rotate(-45deg)', transformOrigin: 'top center', marginTop: '0.25rem' } },
-              m.date.toLocaleDateString('en-US', { month: 'short' })
+              window.MaerminI18n.date(m.date, { month: 'short' })
             )
           );
         })
@@ -707,15 +714,15 @@ function DividendForecastView({ transactions, portfolio, prices, metaVersion, th
 
     // Per-symbol breakdown
     React.createElement(Card, { theme },
-      React.createElement('div', { style: { color: theme.text, fontWeight: '700', fontSize: '0.9rem', marginBottom: '0.875rem' } }, 'By Source (annual rate)'),
+      React.createElement('div', { style: { color: theme.text, fontWeight: '700', fontSize: '0.9rem', marginBottom: '0.875rem' } }, __('dfBySource', 'By Source (annual rate)')),
       React.createElement('div', { style: { display: 'flex', flexDirection: 'column', gap: '0.5rem' } },
         forecasts.map((f, i) =>
           React.createElement('div', { key: i, style: { display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '0.5rem 0.75rem', background: theme.inputBg, borderRadius: '8px' } },
             React.createElement('div', null,
               React.createElement('span', { style: { color: theme.text, fontWeight: '700', marginRight: '0.5rem' } }, f.sym),
-              React.createElement('span', { style: { fontSize: '0.68rem', color: theme.textSecondary, padding: '0.1rem 0.35rem', background: `${theme.accent}18`, borderRadius: '3px' } }, f.frequency)
+              React.createElement('span', { style: { fontSize: '0.68rem', color: theme.textSecondary, padding: '0.1rem 0.35rem', background: `${theme.accent}18`, borderRadius: '3px' } }, freqLabel(f.frequency))
             ),
-            React.createElement('span', { style: { color: theme.success, fontWeight: '700', fontSize: '0.875rem' } }, `${formatPrice(f.annualRate)} ${getCurrencySymbol()}/yr`)
+            React.createElement('span', { style: { color: theme.success, fontWeight: '700', fontSize: '0.875rem' } }, __('perYear', '{amount}/yr', { amount: `${formatPrice(f.annualRate)} ${getCurrencySymbol()}` }))
           )
         )
       )
@@ -759,9 +766,9 @@ function FIFOView({ transactions, prices, theme, formatPrice, getCurrencySymbol,
   const totalRealizedPnL = entries.reduce((s, e) => s + e.totalRealizedPnL, 0);
 
   if (entries.length === 0) return React.createElement('div', { style: { padding: '1.5rem' } },
-    React.createElement('h2', { style: { color: theme.text, fontSize: '1.5rem', fontWeight: '800', letterSpacing: '-0.02em', marginBottom: '1rem' } }, 'FIFO Cost Basis'),
+    React.createElement('h2', { style: { color: theme.text, fontSize: '1.5rem', fontWeight: '800', letterSpacing: '-0.02em', marginBottom: '1rem' } }, __('fifoTitle', 'FIFO Cost Basis')),
     React.createElement(Card, { theme, style: { textAlign: 'center', padding: '3rem' } },
-      React.createElement('div', { style: { color: theme.textSecondary } }, 'Add transactions to see FIFO cost basis analysis')
+      React.createElement('div', { style: { color: theme.textSecondary } }, __('fifoEmpty', 'Add transactions to see FIFO cost basis analysis'))
     )
   );
 
@@ -770,17 +777,17 @@ function FIFOView({ transactions, prices, theme, formatPrice, getCurrencySymbol,
   return React.createElement('div', { style: { padding: '1.5rem' } },
     React.createElement('div', { style: { display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '1rem', flexWrap: 'wrap', gap: '0.75rem' } },
       React.createElement('div', null,
-        React.createElement('h2', { style: { color: theme.text, fontSize: '1.5rem', fontWeight: '800', letterSpacing: '-0.02em', marginBottom: '0.25rem' } }, 'FIFO Cost Basis'),
-        React.createElement('p', { style: { color: theme.textSecondary, fontSize: '0.875rem' } }, 'First In, First Out — standard tax method in Germany')
+        React.createElement('h2', { style: { color: theme.text, fontSize: '1.5rem', fontWeight: '800', letterSpacing: '-0.02em', marginBottom: '0.25rem' } }, __('fifoTitle', 'FIFO Cost Basis')),
+        React.createElement('p', { style: { color: theme.textSecondary, fontSize: '0.875rem' } }, __('fifoSubtitle', 'First In, First Out — standard tax method in Germany'))
       )
     ),
 
     // Summary
     React.createElement('div', { style: { display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(180px, 1fr))', gap: '1rem', marginBottom: '1.5rem' } },
-      React.createElement(StatCell, { theme, label: 'Total Realized P&L', value: `${totalRealizedPnL >= 0 ? '+' : ''}${formatPrice(totalRealizedPnL)} ${getCurrencySymbol()}`,
+      React.createElement(StatCell, { theme, label: __('fifoTotalRealized', 'Total Realized P&L'), value: `${totalRealizedPnL >= 0 ? '+' : ''}${formatPrice(totalRealizedPnL)} ${getCurrencySymbol()}`,
         color: totalRealizedPnL >= 0 ? theme.success : theme.danger }),
-      React.createElement(StatCell, { theme, label: 'Positions', value: entries.length }),
-      React.createElement(StatCell, { theme, label: 'Total Realized Lots', value: entries.reduce((s, e) => s + e.realized.length, 0) })
+      React.createElement(StatCell, { theme, label: __('positions', 'Positions'), value: entries.length }),
+      React.createElement(StatCell, { theme, label: __('fifoTotalLots', 'Total Realized Lots'), value: entries.reduce((s, e) => s + e.realized.length, 0) })
     ),
 
     // Position table
@@ -788,7 +795,7 @@ function FIFOView({ transactions, prices, theme, formatPrice, getCurrencySymbol,
       React.createElement('table', { style: { width: '100%', borderCollapse: 'collapse', minWidth: 550, fontSize: '0.82rem' } },
         React.createElement('thead', null,
           React.createElement('tr', null,
-            ['Symbol', 'Avg Cost (FIFO)', 'Qty Held', 'Total Cost', 'Realized P&L', 'Lots'].map((h, i) =>
+            [__('symbol', 'Symbol'), __('fifoAvgCost', 'Avg Cost (FIFO)'), __('fifoQtyHeld', 'Qty Held'), __('fifoTotalCost', 'Total Cost'), __('fifoRealizedPnl', 'Realized P&L'), __('fifoLots', 'Lots')].map((h, i) =>
               React.createElement('th', { key: i, style: { padding: '0.625rem 0.875rem', textAlign: i > 0 ? 'right' : 'left', color: theme.textSecondary, borderBottom: `1px solid ${theme.cardBorder}`, fontWeight: '600', textTransform: 'uppercase', fontSize: '0.68rem', letterSpacing: '0.05em', whiteSpace: 'nowrap' } }, h)
             )
           )
@@ -802,7 +809,7 @@ function FIFOView({ transactions, prices, theme, formatPrice, getCurrencySymbol,
             return React.createElement('tr', {
               key,
               ...window.MaerminUtils.clickable(() => setActiveSymbol(activeSymbol === key ? null : key)),
-              'aria-label': 'Toggle lot details for ' + (e.symbol || key),
+              'aria-label': __('fifoToggleLots', 'Toggle lot details for {sym}', { sym: e.symbol || key }),
               'aria-expanded': activeSymbol === key,
               style: { borderBottom: `1px solid ${theme.cardBorder}`, cursor: 'pointer', transition: 'background 0.1s' },
               onMouseEnter: el => el.currentTarget.style.background = `${theme.accent}08`,
@@ -810,7 +817,7 @@ function FIFOView({ transactions, prices, theme, formatPrice, getCurrencySymbol,
             },
               React.createElement('td', { style: { padding: '0.75rem 0.875rem', color: theme.text, fontWeight: '700' } }, e.symbol),
               React.createElement('td', { style: { padding: '0.75rem 0.875rem', color: theme.text, textAlign: 'right' } }, `${formatPrice(e.avgCostFIFO)} ${getCurrencySymbol()}`),
-              React.createElement('td', { style: { padding: '0.75rem 0.875rem', color: theme.text, textAlign: 'right' } }, e.unrealizedQty.toFixed(4)),
+              React.createElement('td', { style: { padding: '0.75rem 0.875rem', color: theme.text, textAlign: 'right' } }, window.MaerminI18n.num(e.unrealizedQty, 4)),
               React.createElement('td', { style: { padding: '0.75rem 0.875rem', color: theme.textSecondary, textAlign: 'right' } }, `${formatPrice(e.unrealizedCost)} ${getCurrencySymbol()}`),
               React.createElement('td', { style: { padding: '0.75rem 0.875rem', textAlign: 'right', color: e.totalRealizedPnL >= 0 ? theme.success : theme.danger, fontWeight: '700' } },
                 `${e.totalRealizedPnL >= 0 ? '+' : ''}${formatPrice(e.totalRealizedPnL)} ${getCurrencySymbol()}`
@@ -824,12 +831,12 @@ function FIFOView({ transactions, prices, theme, formatPrice, getCurrencySymbol,
 
     // Lot detail for active symbol
     detail && React.createElement(Card, { theme },
-      React.createElement('div', { style: { color: theme.text, fontWeight: '700', marginBottom: '0.875rem' } }, `${detail.symbol} — Realized Lots`),
+      React.createElement('div', { style: { color: theme.text, fontWeight: '700', marginBottom: '0.875rem' } }, __('fifoRealizedLotsOf', '{sym} — Realized Lots', { sym: detail.symbol })),
       React.createElement('div', { style: { overflowX: 'auto' } },
         React.createElement('table', { style: { width: '100%', borderCollapse: 'collapse', fontSize: '0.78rem', minWidth: 500 } },
           React.createElement('thead', null,
             React.createElement('tr', null,
-              ['Buy Date', 'Sell Date', 'Qty', 'Buy Price', 'Sell Price', 'P&L'].map((h, i) =>
+              [__('fifoBuyDate', 'Buy Date'), __('fifoSellDate', 'Sell Date'), __('colQty', 'Qty'), __('fifoBuyPrice', 'Buy Price'), __('fifoSellPrice', 'Sell Price'), __('colPnl', 'P&L')].map((h, i) =>
                 React.createElement('th', { key: i, style: { padding: '0.5rem 0.75rem', textAlign: i > 1 ? 'right' : 'left', color: theme.textSecondary, borderBottom: `1px solid ${theme.cardBorder}`, fontWeight: '600', textTransform: 'uppercase', fontSize: '0.65rem', whiteSpace: 'nowrap' } }, h)
               )
             )
@@ -837,9 +844,9 @@ function FIFOView({ transactions, prices, theme, formatPrice, getCurrencySymbol,
           React.createElement('tbody', null,
             detail.realized.map((lot, i) =>
               React.createElement('tr', { key: i, style: { borderBottom: `1px solid ${theme.cardBorder}` } },
-                React.createElement('td', { style: { padding: '0.5rem 0.75rem', color: theme.textSecondary } }, lot.buyDate),
-                React.createElement('td', { style: { padding: '0.5rem 0.75rem', color: theme.textSecondary } }, lot.sellDate),
-                React.createElement('td', { style: { padding: '0.5rem 0.75rem', color: theme.text, textAlign: 'right' } }, lot.qty.toFixed(4)),
+                React.createElement('td', { style: { padding: '0.5rem 0.75rem', color: theme.textSecondary } }, window.MaerminI18n.date(lot.buyDate)),
+                React.createElement('td', { style: { padding: '0.5rem 0.75rem', color: theme.textSecondary } }, window.MaerminI18n.date(lot.sellDate)),
+                React.createElement('td', { style: { padding: '0.5rem 0.75rem', color: theme.text, textAlign: 'right' } }, window.MaerminI18n.num(lot.qty, 4)),
                 React.createElement('td', { style: { padding: '0.5rem 0.75rem', color: theme.textSecondary, textAlign: 'right' } }, `${formatPrice(lot.buyPrice)}`),
                 React.createElement('td', { style: { padding: '0.5rem 0.75rem', color: theme.textSecondary, textAlign: 'right' } }, `${formatPrice(lot.sellPrice)}`),
                 React.createElement('td', { style: { padding: '0.5rem 0.75rem', textAlign: 'right', fontWeight: '700', color: lot.pnl >= 0 ? theme.success : theme.danger } },

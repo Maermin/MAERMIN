@@ -25,14 +25,17 @@
 
   // Localised asset-class label: prefer the app's translation keys, fall back to English.
   function classLabel(cls, t) {
-    t = t || {};
-    const map = { crypto: t.crypto, stocks: t.stocks, skins: t.cs2Skins, commodities: t.commodities };
-    return map[cls] || CLASS_LABELS[cls] || cls;
+    t = t || ((typeof window !== 'undefined' && window.MaerminI18n) ? window.MaerminI18n.dict() : {});
+    const map = { crypto: t.crypto, stocks: t.stocks, skins: t.cs2Skins };
+    if (map[cls]) return map[cls];
+    const I = (typeof window !== 'undefined' && window.MaerminI18n) || require('./i18n.js');
+    return CLASS_LABELS[cls] ? I.category(cls) : cls;
   }
 
   // Fill {placeholders} in a translation string.
   function fill(str, vars) {
-    return String(str).replace(/\{(\w+)\}/g, (_, k) => (vars[k] != null ? vars[k] : ''));
+    const I = (typeof window !== 'undefined' && window.MaerminI18n) || require('./i18n.js');
+    return I.fill(String(str), vars);
   }
 
   function priceOf(prices, pos) {
@@ -146,7 +149,7 @@
   // extras: { priceHistory, transactions, accounts } — all optional; each sub-score
   // degrades gracefully and the total is re-normalised over what's available.
   function computeHealth(portfolio, prices, t, extras) {
-    t = t || {};
+    t = t || ((typeof window !== 'undefined' && window.MaerminI18n) ? window.MaerminI18n.dict() : {});
     extras = extras || {};
     const positions = flatten(portfolio, prices);
     const totalValue = positions.reduce((s, p) => s + p.value, 0);
@@ -236,7 +239,7 @@
     }
     if (positions.length < 5) {
       recs.push(fill(t.healthRecBreadth ||
-        'Only {n} holding(s) — a broader set smooths day-to-day volatility.',
+        'Only {n} {n:holding|holdings} — a broader set smooths day-to-day volatility.',
         { n: positions.length }));
     }
     if (recs.length === 0) {
@@ -292,7 +295,7 @@
     const theme = props.theme || {};
     const formatPrice = props.formatPrice || ((v) => (v || 0).toFixed(2));
     const sym = props.getCurrencySymbol ? props.getCurrencySymbol() : '';
-    const t = props.t || {};
+    const t = props.t || ((typeof window !== 'undefined' && window.MaerminI18n) ? window.MaerminI18n.dict() : {});
     const priceHistory = props.priceHistory || {};
     const transactions = props.transactions || [];
     const setActiveView = props.setActiveView;
@@ -391,9 +394,9 @@
         e('div', { style: { display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(120px, 1fr))', gap: '0.75rem' } },
           metric(t.healthHoldings || 'Holdings', String(h.positionCount)),
           metric(t.healthEffectivePositions || 'Effective positions', h.effectiveN.toFixed(1)),
-          metric(t.healthLargestPosition || 'Largest position', (h.maxWeight * 100).toFixed(0) + '%'),
+          metric(t.healthLargestPosition || 'Largest position', window.MaerminI18n.pct(h.maxWeight * 100, 0)),
           metric(t.healthAssetClasses || 'Asset classes', String(h.classCount)),
-          metric(t.healthUnrealized || 'Unrealized', (h.unrealizedPct >= 0 ? '+' : '') + h.unrealizedPct.toFixed(1) + '%'))
+          metric(t.healthUnrealized || 'Unrealized', window.MaerminI18n.pct(h.unrealizedPct, 1, true)))
       ),
 
       // Recommendations
@@ -413,7 +416,7 @@
             e('div', { style: { display: 'flex', justifyContent: 'space-between', marginBottom: '0.25rem', fontSize: '0.82rem' } },
               e('span', { style: { color: theme.text, fontWeight: 600 } }, p.symbol,
                 e('span', { style: { color: theme.textSecondary, fontWeight: 400, marginLeft: '0.4rem', fontSize: '0.72rem' } }, classLabel(p.cls, t))),
-              e('span', { style: { color: theme.textSecondary } }, `${formatPrice(p.value)} ${sym} · ${(p.weight * 100).toFixed(1)}%`)),
+              e('span', { style: { color: theme.textSecondary } }, `${formatPrice(p.value)} ${sym} · ${window.MaerminI18n.pct(p.weight * 100, 1)}`)),
             e('div', { style: { height: '6px', background: 'rgba(255,255,255,0.08)', borderRadius: '3px', overflow: 'hidden' } },
               e('div', { style: { height: '100%', width: (p.weight * 100) + '%', background: p.weight > 0.3 ? '#f59e0b' : (theme.accent || '#8b7cff'), borderRadius: '3px' } }))))
       )

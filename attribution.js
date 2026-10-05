@@ -11,6 +11,8 @@
 // ============================================================================
 (function () {
   'use strict';
+// Translation lookup (i18n.js): __('key', 'English fallback', { slot: value }).
+function __(k, f, v) { return (typeof window !== 'undefined' && window.MaerminI18n ? window.MaerminI18n : require('./i18n.js')).t(k, f, v); }
 
   // positions: [{ symbol, name?, value, invested }] in EUR.
   //   value     — current market value
@@ -68,22 +70,23 @@
     var fmt = (props && props.formatPrice) || function (n) { return String(Math.round(n)); };
     var result = compute((props && props.positions) || []);
     if (!result.rows.length) return null;
-    var pct = function (n) { return (n >= 0 ? '+' : '') + n.toFixed(2) + '%'; };
-    var pp = function (n) { return (n >= 0 ? '+' : '') + n.toFixed(2) + ' pp'; };
+    var I = window.MaerminI18n;
+    var pct = function (n) { return I.pct(n, 2, true); };
+    var pp = function (n) { return __('ppValue', '{v} pp', { v: (n >= 0 ? '+' : '') + I.num(n, 2) }); };
     var col = function (n) { return n >= 0 ? (th.success || '#34d399') : (th.danger || '#f87171'); };
     // limit: rows shown (default 8 for the Overview; the Attribution view shows all).
     var limit = (props && props.limit) || 8;
     var top = result.rows.slice(0, limit);
 
     return h('div', { style: { background: th.card || '#10151f', border: '1px solid ' + (th.cardBorder || 'rgba(255,255,255,0.07)'), borderRadius: '14px', padding: '1.25rem', marginTop: '1rem' } },
-      h('div', { style: { fontWeight: 800, color: th.text || '#e9edf4', marginBottom: '0.25rem' } }, 'Return Attribution'),
+      h('div', { style: { fontWeight: 800, color: th.text || '#e9edf4', marginBottom: '0.25rem' } }, __('rtaTitle', 'Return Attribution')),
       h('div', { style: { fontSize: '0.78rem', color: th.textSecondary || '#8b94a7', marginBottom: '0.9rem' } },
-        'Contribution of each holding to the total return (' + pct(result.totalReturnPct) + ').'),
+        __('rtaSubtitle', 'Contribution of each holding to the total return ({pct}).', { pct: pct(result.totalReturnPct) })),
       h('div', { role: 'list' }, top.map(function (r) {
         return h('div', { key: r.symbol, role: 'listitem', style: { display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '0.4rem 0', borderBottom: '1px solid ' + (th.cardBorder || 'rgba(255,255,255,0.05)') } },
           h('div', { style: { minWidth: 0 } },
             h('div', { style: { fontWeight: 700, color: th.text || '#e9edf4' } }, r.symbol),
-            h('div', { style: { fontSize: '0.72rem', color: th.textSecondary || '#8b94a7' } }, r.weightPct.toFixed(1) + '% of value · ' + pct(r.returnPct))
+            h('div', { style: { fontSize: '0.72rem', color: th.textSecondary || '#8b94a7' } }, __('rtaOfValue', '{pct} of value', { pct: I.pct(r.weightPct, 1) }) + ' · ' + pct(r.returnPct))
           ),
           h('div', { style: { textAlign: 'right' } },
             h('div', { style: { fontWeight: 700, color: col(r.contributionPP) } }, pp(r.contributionPP)),

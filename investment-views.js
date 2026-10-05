@@ -5,6 +5,8 @@
 
 (function() {
 'use strict';
+// Translation lookup (i18n.js): __('key', 'English fallback', { slot: value }).
+function __(k, f, v) { return (typeof window !== 'undefined' && window.MaerminI18n ? window.MaerminI18n : require('./i18n.js')).t(k, f, v); }
 
 var useState = React.useState;
 var useEffect = React.useEffect;
@@ -303,8 +305,8 @@ function DCAAnalyzerView(props) {
           difference: result.comparison.difference,
           dcaPurchases: result.dca.purchases.length,
           interpretation: result.comparison.winner === 'dca' 
-            ? 'DCA outperformed by ' + result.comparison.difference.toFixed(2) + '% due to buying at lower average prices'
-            : 'Lump sum outperformed by ' + result.comparison.difference.toFixed(2) + '% due to market appreciation'
+            ? __('ivDcaWon', 'DCA outperformed by {pct} due to buying at lower average prices', { pct: window.MaerminI18n.pct(result.comparison.difference, 2) })
+            : __('ivLumpWon', 'Lump sum outperformed by {pct} due to market appreciation', { pct: window.MaerminI18n.pct(result.comparison.difference, 2) })
         });
       }
     } else {
@@ -316,17 +318,17 @@ function DCAAnalyzerView(props) {
   }, [investAmount, frequency, priceArray]);
   
   var tabs = [
-    { id: 'comparison', label: 'DCA vs Lump Sum' },
-    { id: 'schedule', label: 'DCA Schedule' },
-    { id: 'projection', label: 'Projection' }
+    { id: 'comparison', label: __('ivDcaVsLump', 'DCA vs Lump Sum') },
+    { id: 'schedule', label: __('ivDcaSchedule', 'DCA Schedule') },
+    { id: 'projection', label: __('ivProjection', 'Projection') }
   ];
   
   return React.createElement('div', { style: { padding: '1rem' } },
-    React.createElement('h2', { style: { color: T.text, marginBottom: '1rem' } }, 'DCA Strategy Analyzer'),
+    React.createElement('h2', { style: { color: T.text, marginBottom: '1rem' } }, __('ivDcaTitle', 'DCA Strategy Analyzer')),
     
     React.createElement('div', { style: { display: 'flex', gap: '1rem', marginBottom: '1rem', flexWrap: 'wrap' } },
       React.createElement('div', null,
-        React.createElement('label', { style: { color: T.textSecondary, fontSize: '0.75rem', display: 'block', marginBottom: '0.25rem' } }, 'Investment Amount'),
+        React.createElement('label', { style: { color: T.textSecondary, fontSize: '0.75rem', display: 'block', marginBottom: '0.25rem' } }, __('ivInvestAmount', 'Investment Amount')),
         React.createElement('input', {
           type: 'number',
           value: investAmount,
@@ -342,7 +344,7 @@ function DCAAnalyzerView(props) {
         })
       ),
       React.createElement('div', null,
-        React.createElement('label', { style: { color: T.textSecondary, fontSize: '0.75rem', display: 'block', marginBottom: '0.25rem' } }, 'Frequency'),
+        React.createElement('label', { style: { color: T.textSecondary, fontSize: '0.75rem', display: 'block', marginBottom: '0.25rem' } }, __('spFrequency', 'Frequency')),
         React.createElement('select', {
           value: frequency,
           onChange: function(e) { setFrequency(e.target.value); },
@@ -354,10 +356,10 @@ function DCAAnalyzerView(props) {
             color: T.text
           }
         },
-          React.createElement('option', { value: 'weekly' }, 'Weekly'),
-          React.createElement('option', { value: 'biweekly' }, 'Bi-Weekly'),
-          React.createElement('option', { value: 'monthly' }, 'Monthly'),
-          React.createElement('option', { value: 'quarterly' }, 'Quarterly')
+          React.createElement('option', { value: 'weekly' }, window.MaerminI18n.freq('weekly')),
+          React.createElement('option', { value: 'biweekly' }, window.MaerminI18n.freq('biweekly')),
+          React.createElement('option', { value: 'monthly' }, window.MaerminI18n.freq('monthly')),
+          React.createElement('option', { value: 'quarterly' }, window.MaerminI18n.freq('quarterly'))
         )
       )
     ),
@@ -367,19 +369,19 @@ function DCAAnalyzerView(props) {
     !analysis && React.createElement('div', {
       'data-testid': 'dca-empty',
       style: { background: T.card, border: '1px solid ' + T.cardBorder, borderRadius: '10px', padding: '1.25rem', color: T.textSecondary, fontSize: '0.875rem', lineHeight: 1.6 }
-    }, 'Not enough price history for a DCA vs lump-sum comparison yet. It needs more than 30 recorded price points for a holding; you have ' + priceArray.length + '. A point is recorded on every price refresh.'),
+    }, __('ivDcaEmpty', 'Not enough price history for a DCA vs lump-sum comparison yet. It needs more than 30 recorded price points for a holding; you have {n}. A point is recorded on every price refresh.', { n: priceArray.length })),
 
     analysis && React.createElement(AnalysisCard, {
-      title: 'Strategy Comparison',
-      badge: analysis.winner === 'dca' ? 'DCA Wins' : 'Lump Sum Wins',
+      title: __('ivStratComp', 'Strategy Comparison'),
+      badge: analysis.winner === 'dca' ? __('ivDcaWins', 'DCA Wins') : __('ivLumpWins', 'Lump Sum Wins'),
       badgeType: 'positive'
     },
       React.createElement(MetricGrid, {
         metrics: [
-          { label: 'DCA Return', value: (analysis.dcaReturn || 0).toFixed(2) + '%', color: '#22c55e' },
-          { label: 'Lump Sum Return', value: (analysis.lumpSumReturn || 0).toFixed(2) + '%', color: '#3b82f6' },
-          { label: 'Difference', value: (analysis.difference || 0).toFixed(2) + '%', color: '#f59e0b' },
-          { label: 'Purchases', value: analysis.dcaPurchases || 12 }
+          { label: __('ivDcaReturn', 'DCA Return'), value: window.MaerminI18n.pct(analysis.dcaReturn || 0, 2), color: '#22c55e' },
+          { label: __('ivLumpReturn', 'Lump Sum Return'), value: window.MaerminI18n.pct(analysis.lumpSumReturn || 0, 2), color: '#3b82f6' },
+          { label: __('ivDifference', 'Difference'), value: window.MaerminI18n.pct(analysis.difference || 0, 2), color: '#f59e0b' },
+          { label: __('ivPurchases', 'Purchases'), value: analysis.dcaPurchases || 12 }
         ]
       }),
       React.createElement('p', {
@@ -451,18 +453,18 @@ function SectorAllocationView(props) {
   };
   
   return React.createElement('div', { style: { padding: '1rem' } },
-    React.createElement('h2', { style: { color: T.text, marginBottom: '1rem' } }, 'Sector Allocation'),
+    React.createElement('h2', { style: { color: T.text, marginBottom: '1rem' } }, __('ivSectorAlloc', 'Sector Allocation')),
 
     // Coverage hint: if a meaningful share is still unclassified, point the user
     // to the Worker URL that backfills sector/country for every holding.
     sectorData.unknownPct > 15 && React.createElement('div', {
       style: { marginBottom: '1rem', padding: '0.625rem 0.875rem', background: 'rgba(139,124,255,0.10)', border: '1px solid rgba(139,124,255,0.25)', borderRadius: '8px', color: 'rgba(255,255,255,0.75)', fontSize: '0.8rem' }
-    }, '~' + sectorData.unknownPct.toFixed(0) + '% of equities are unclassified. Add your Worker URL in Settings → API to auto-fetch sector & country for every holding.'),
+    }, __('ivUnclassified', '~{pct} of equities are unclassified. Add your Worker URL in Settings → API to auto-fetch sector & country for every holding.', { pct: window.MaerminI18n.pct(sectorData.unknownPct, 0) })),
 
     sectorData.sectors.length > 0 ? React.createElement('div', { style: { display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem' } },
       React.createElement(AnalysisCard, {
-        title: 'Sector Breakdown',
-        badge: sectorData.sectorCount + ' Sectors'
+        title: __('ivSectorBreakdown', 'Sector Breakdown'),
+        badge: __('ivNSectors', '{n} {n:Sector|Sectors}', { n: sectorData.sectorCount })
       },
         sectorData.sectors.map(function(sector) {
           return React.createElement('div', { 
@@ -472,9 +474,9 @@ function SectorAllocationView(props) {
             React.createElement('div', { 
               style: { display: 'flex', justifyContent: 'space-between', marginBottom: '0.25rem' }
             },
-              React.createElement('span', { style: { color: T.text, fontSize: '0.875rem' } }, sector.name),
+              React.createElement('span', { style: { color: T.text, fontSize: '0.875rem' } }, window.MaerminI18n.sector(sector.name)),
               React.createElement('span', { style: { color: sectorColors[sector.name] || '#8b7cff' } }, 
-                sector.weight.toFixed(1) + '%'
+                window.MaerminI18n.pct(sector.weight, 1)
               )
             ),
             React.createElement('div', { 
@@ -494,30 +496,30 @@ function SectorAllocationView(props) {
       ),
       
       React.createElement(AnalysisCard, {
-        title: 'Concentration Analysis',
-        badge: sectorData.sectorCount < 3 ? 'High Risk' : sectorData.sectorCount < 5 ? 'Moderate' : 'Diversified',
+        title: __('ivConcAnalysis', 'Concentration Analysis'),
+        badge: sectorData.sectorCount < 3 ? __('ivHighRisk', 'High Risk') : sectorData.sectorCount < 5 ? __('ivModerate', 'Moderate') : __('diversified', 'Diversified'),
         badgeType: sectorData.sectorCount < 3 ? 'warning' : 'positive'
       },
         React.createElement(MetricGrid, {
           metrics: [
-            { label: 'Sectors', value: sectorData.sectorCount },
-            { label: 'Top Sector', value: sectorData.sectors[0] ? sectorData.sectors[0].name : 'N/A' },
-            { label: 'Top Weight', value: sectorData.sectors[0] ? sectorData.sectors[0].weight.toFixed(1) + '%' : '0%' },
-            { label: 'Total Value', value: money(sectorData.totalValue) }
+            { label: __('ivSectors', 'Sectors'), value: sectorData.sectorCount },
+            { label: __('ivTopSector', 'Top Sector'), value: sectorData.sectors[0] ? window.MaerminI18n.sector(sectorData.sectors[0].name) : __('healthNotAvailable', 'n/a') },
+            { label: __('ivTopWeight', 'Top Weight'), value: window.MaerminI18n.pct(sectorData.sectors[0] ? sectorData.sectors[0].weight : 0, 1) },
+            { label: __('ovTotalValue', 'Total Value'), value: money(sectorData.totalValue) }
           ]
         }),
         sectorData.sectors[0] && sectorData.sectors[0].weight > 50 && React.createElement('div', {
           style: { marginTop: '1rem', padding: '0.75rem', background: 'rgba(239,68,68,0.1)', borderRadius: '8px' }
         },
-          React.createElement('div', { style: { color: '#ef4444', fontWeight: '600', marginBottom: '0.5rem' } }, 'Concentration Warning'),
+          React.createElement('div', { style: { color: '#ef4444', fontWeight: '600', marginBottom: '0.5rem' } }, __('ivConcWarning', 'Concentration Warning')),
           React.createElement('div', { style: { color: T.textSecondary, fontSize: '0.875rem' } }, 
-            'Over 50% in ' + sectorData.sectors[0].name + '. Consider diversifying.'
+            __('ivSectorWarn', 'Over {pct} in {name}. Consider diversifying.', { pct: window.MaerminI18n.pct(50, 0), name: window.MaerminI18n.sector(sectorData.sectors[0].name) })
           )
         )
       )
     ) : React.createElement('div', {
       style: { color: T.textSecondary, padding: '2rem', textAlign: 'center' }
-    }, 'Add positions to analyze sector allocation')
+    }, __('ivNoSectorData', 'Add positions to analyze sector allocation'))
   );
 }
 
@@ -564,35 +566,35 @@ function CountryAllocationView(props) {
   var colorFor = function(i) { return palette[i % palette.length]; };
 
   return React.createElement('div', { style: { padding: '1rem' } },
-    React.createElement('h2', { style: { color: T.text, marginBottom: '1rem' } }, 'Country / Region Allocation'),
+    React.createElement('h2', { style: { color: T.text, marginBottom: '1rem' } }, __('ivCountryAlloc', 'Country / Region Allocation')),
 
     data.rows.length > 0 ? React.createElement('div', { style: { display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem' } },
-      React.createElement(AnalysisCard, { title: 'Geographic Breakdown', badge: data.count + ' Regions' },
+      React.createElement(AnalysisCard, { title: __('ivGeoBreakdown', 'Geographic Breakdown'), badge: __('ivNRegions', '{n} {n:Region|Regions}', { n: data.count }) },
         data.rows.map(function(row, i) {
           return React.createElement('div', { key: row.name, style: { marginBottom: '0.75rem' } },
             React.createElement('div', { style: { display: 'flex', justifyContent: 'space-between', marginBottom: '0.25rem' } },
-              React.createElement('span', { style: { color: T.text, fontSize: '0.875rem' } }, row.name),
-              React.createElement('span', { style: { color: colorFor(i) } }, row.weight.toFixed(1) + '%')),
+              React.createElement('span', { style: { color: T.text, fontSize: '0.875rem' } }, window.MaerminI18n.country(row.name)),
+              React.createElement('span', { style: { color: colorFor(i) } }, window.MaerminI18n.pct(row.weight, 1))),
             React.createElement('div', { style: { height: '8px', background: T.cardBorder, borderRadius: '4px', overflow: 'hidden' } },
               React.createElement('div', { style: { height: '100%', width: row.weight + '%', background: colorFor(i), borderRadius: '4px' } })));
         })
       ),
       React.createElement(AnalysisCard, {
-        title: 'Concentration Analysis',
-        badge: data.count < 2 ? 'High Risk' : data.count < 4 ? 'Moderate' : 'Diversified',
+        title: __('ivConcAnalysis', 'Concentration Analysis'),
+        badge: data.count < 2 ? __('ivHighRisk', 'High Risk') : data.count < 4 ? __('ivModerate', 'Moderate') : __('diversified', 'Diversified'),
         badgeType: data.count < 2 ? 'warning' : 'positive'
       },
         React.createElement(MetricGrid, { metrics: [
-          { label: 'Regions', value: data.count },
-          { label: 'Top Region', value: data.rows[0] ? data.rows[0].name : 'N/A' },
-          { label: 'Top Weight', value: data.rows[0] ? data.rows[0].weight.toFixed(1) + '%' : '0%' },
-          { label: 'Total Value', value: money(data.totalValue) }
+          { label: __('ivRegions', 'Regions'), value: data.count },
+          { label: __('ivTopRegion', 'Top Region'), value: data.rows[0] ? window.MaerminI18n.country(data.rows[0].name) : __('healthNotAvailable', 'n/a') },
+          { label: __('ivTopWeight', 'Top Weight'), value: window.MaerminI18n.pct(data.rows[0] ? data.rows[0].weight : 0, 1) },
+          { label: __('ovTotalValue', 'Total Value'), value: money(data.totalValue) }
         ] }),
         data.rows[0] && data.rows[0].weight > 60 && React.createElement('div', { style: { marginTop: '1rem', padding: '0.75rem', background: 'rgba(239,68,68,0.1)', borderRadius: '8px' } },
-          React.createElement('div', { style: { color: '#ef4444', fontWeight: '600', marginBottom: '0.5rem' } }, 'Concentration Warning'),
-          React.createElement('div', { style: { color: T.textSecondary, fontSize: '0.875rem' } }, 'Over 60% in ' + data.rows[0].name + '. Consider geographic diversification.'))
+          React.createElement('div', { style: { color: '#ef4444', fontWeight: '600', marginBottom: '0.5rem' } }, __('ivConcWarning', 'Concentration Warning')),
+          React.createElement('div', { style: { color: T.textSecondary, fontSize: '0.875rem' } }, __('ivCountryWarn', 'Over {pct} in {name}. Consider geographic diversification.', { pct: window.MaerminI18n.pct(60, 0), name: window.MaerminI18n.country(data.rows[0].name) })))
       )
-    ) : React.createElement('div', { style: { color: T.textSecondary, padding: '2rem', textAlign: 'center' } }, 'Add positions to analyze country allocation')
+    ) : React.createElement('div', { style: { color: T.textSecondary, padding: '2rem', textAlign: 'center' } }, __('ivNoCountryData', 'Add positions to analyze country allocation'))
   );
 }
 
@@ -655,17 +657,17 @@ function CurrencyExposureView(props) {
   }, [portfolio, baseCurrency]);
   
   var scenarios = [
-    { scenario: 'EUR +10%', portfolioImpact: -(currencyData.foreignExposure * 0.1) },
-    { scenario: 'EUR -10%', portfolioImpact: currencyData.foreignExposure * 0.1 },
-    { scenario: 'USD +10%', portfolioImpact: (currencyData.exposure['USD'] ? currencyData.exposure['USD'].weight : 0) * 0.1 },
-    { scenario: 'USD -10%', portfolioImpact: -(currencyData.exposure['USD'] ? currencyData.exposure['USD'].weight : 0) * 0.1 }
+    { scenario: 'EUR ' + window.MaerminI18n.pct(10, 0, true), portfolioImpact: -(currencyData.foreignExposure * 0.1) },
+    { scenario: 'EUR ' + window.MaerminI18n.pct(-10, 0, true), portfolioImpact: currencyData.foreignExposure * 0.1 },
+    { scenario: 'USD ' + window.MaerminI18n.pct(10, 0, true), portfolioImpact: (currencyData.exposure['USD'] ? currencyData.exposure['USD'].weight : 0) * 0.1 },
+    { scenario: 'USD ' + window.MaerminI18n.pct(-10, 0, true), portfolioImpact: -(currencyData.exposure['USD'] ? currencyData.exposure['USD'].weight : 0) * 0.1 }
   ];
   
   return React.createElement('div', { style: { padding: '1rem' } },
-    React.createElement('h2', { style: { color: T.text, marginBottom: '1rem' } }, 'Currency Exposure'),
+    React.createElement('h2', { style: { color: T.text, marginBottom: '1rem' } }, __('ivCurrencyExposure', 'Currency Exposure')),
     
     React.createElement('div', { style: { marginBottom: '1rem' } },
-      React.createElement('label', { style: { color: T.textSecondary, fontSize: '0.75rem', marginRight: '0.5rem' } }, 'Base Currency:'),
+      React.createElement('label', { style: { color: T.textSecondary, fontSize: '0.75rem', marginRight: '0.5rem' } }, __('ivBaseCurrency', 'Base Currency:')),
       React.createElement('select', {
         value: baseCurrency,
         onChange: function(e) { setBaseCurrency(e.target.value); },
@@ -677,23 +679,23 @@ function CurrencyExposureView(props) {
           color: T.text
         }
       },
-        React.createElement('option', { value: 'EUR' }, 'EUR - Euro'),
-        React.createElement('option', { value: 'USD' }, 'USD - US Dollar')
+        React.createElement('option', { value: 'EUR' }, 'EUR – ' + __('ivEuro', 'Euro')),
+        React.createElement('option', { value: 'USD' }, 'USD – ' + __('ivUsDollar', 'US Dollar'))
       )
     ),
     
     React.createElement('div', { style: { display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem' } },
       React.createElement(AnalysisCard, {
-        title: 'Currency Breakdown',
-        badge: currencyData.foreignExposure.toFixed(1) + '% Foreign',
+        title: __('ivCurBreakdown', 'Currency Breakdown'),
+        badge: __('ivForeignPct', '{pct} foreign', { pct: window.MaerminI18n.pct(currencyData.foreignExposure, 1) }),
         badgeType: currencyData.foreignExposure > 50 ? 'warning' : 'neutral'
       },
         React.createElement(MetricGrid, {
           metrics: [
-            { label: 'Domestic (' + baseCurrency + ')', value: currencyData.domesticExposure.toFixed(1) + '%', color: '#22c55e' },
-            { label: 'Foreign', value: currencyData.foreignExposure.toFixed(1) + '%', color: '#f59e0b' },
-            { label: 'Currencies', value: currencyData.currencyCount },
-            { label: 'Total Value', value: money(currencyData.totalValue) }
+            { label: __('ivDomestic', 'Domestic ({cur})', { cur: baseCurrency }), value: window.MaerminI18n.pct(currencyData.domesticExposure, 1), color: '#22c55e' },
+            { label: __('ivForeign', 'Foreign'), value: window.MaerminI18n.pct(currencyData.foreignExposure, 1), color: '#f59e0b' },
+            { label: __('ivCurrencies', 'Currencies'), value: currencyData.currencyCount },
+            { label: __('ovTotalValue', 'Total Value'), value: money(currencyData.totalValue) }
           ]
         }),
         React.createElement('div', { style: { marginTop: '1rem' } },
@@ -707,7 +709,7 @@ function CurrencyExposureView(props) {
             },
               React.createElement('span', { style: { color: T.text } }, currency),
               React.createElement('span', { style: { color: currency === baseCurrency ? '#22c55e' : '#f59e0b' } }, 
-                exp.weight.toFixed(1) + '%'
+                window.MaerminI18n.pct(exp.weight, 1)
               )
             );
           })
@@ -715,16 +717,16 @@ function CurrencyExposureView(props) {
       ),
       
       React.createElement(AnalysisCard, {
-        title: 'FX Scenario Analysis',
-        badge: 'Stress Tests'
+        title: __('ivFxScenarios', 'FX Scenario Analysis'),
+        badge: __('ivStressTests', 'Stress Tests')
       },
         React.createElement(DataTable, {
-          headers: ['Scenario', 'Impact'],
+          headers: [__('stScenario', 'Scenario'), __('ivImpact', 'Impact')],
           rows: scenarios.map(function(s) {
             return [
               s.scenario,
               {
-                value: (s.portfolioImpact >= 0 ? '+' : '') + s.portfolioImpact.toFixed(2) + '%',
+                value: window.MaerminI18n.pct(s.portfolioImpact, 2, true),
                 style: { color: s.portfolioImpact >= 0 ? '#22c55e' : '#ef4444' }
               }
             ];
@@ -738,6 +740,10 @@ function CurrencyExposureView(props) {
 // ============================================================================
 // LIQUIDITY ANALYSIS VIEW
 // ============================================================================
+
+function liqRating(r) {
+  return ({ Excellent: __('ivExcellent', 'Excellent'), Good: __('good', 'Good'), Fair: __('ivFair', 'Fair'), Poor: __('ivPoor', 'Poor') })[r] || r;
+}
 
 function LiquidityAnalysisView(props) {
   var money = useMoney();
@@ -825,27 +831,27 @@ function LiquidityAnalysisView(props) {
   };
   
   return React.createElement('div', { style: { padding: '1rem' } },
-    React.createElement('h2', { style: { color: T.text, marginBottom: '1rem' } }, 'Liquidity Analysis'),
+    React.createElement('h2', { style: { color: T.text, marginBottom: '1rem' } }, __('ivLiqAnalysis', 'Liquidity Analysis')),
     
     React.createElement('div', { style: { display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem' } },
       React.createElement(AnalysisCard, {
-        title: 'Portfolio Liquidity',
-        badge: liquidityData.portfolioLiquidityRating,
+        title: __('ivPortLiq', 'Portfolio Liquidity'),
+        badge: liqRating(liquidityData.portfolioLiquidityRating),
         badgeType: liquidityData.portfolioLiquidityScore >= 60 ? 'positive' : 'warning'
       },
         React.createElement(MetricGrid, {
           metrics: [
-            { label: 'Liquidity Score', value: liquidityData.portfolioLiquidityScore.toFixed(0) + '/100', color: getLiquidityColor(liquidityData.portfolioLiquidityScore) },
-            { label: 'Est. Cost', value: liquidityData.costToLiquidatePercent.toFixed(2) + '%' },
-            { label: 'Positions', value: liquidityData.positions.length },
-            { label: 'Total Value', value: money(liquidityData.totalValue) }
+            { label: __('ivLiqScore', 'Liquidity Score'), value: window.MaerminI18n.num(liquidityData.portfolioLiquidityScore, 0) + '/100', color: getLiquidityColor(liquidityData.portfolioLiquidityScore) },
+            { label: __('ivEstCost', 'Est. Cost'), value: window.MaerminI18n.pct(liquidityData.costToLiquidatePercent, 2) },
+            { label: __('positions', 'Positions'), value: liquidityData.positions.length },
+            { label: __('ovTotalValue', 'Total Value'), value: money(liquidityData.totalValue) }
           ]
         })
       ),
       
       React.createElement(AnalysisCard, {
-        title: 'Least Liquid Positions',
-        badge: 'Watch List'
+        title: __('ivLeastLiquid', 'Least Liquid Positions'),
+        badge: __('ivWatchList', 'Watch list')
       },
         liquidityData.leastLiquid.length > 0 ? liquidityData.leastLiquid.map(function(pos, i) {
           return React.createElement('div', {
@@ -862,13 +868,13 @@ function LiquidityAnalysisView(props) {
             React.createElement('div', { style: { display: 'flex', gap: '1rem', alignItems: 'center' } },
               React.createElement('span', { 
                 style: { color: getLiquidityColor(pos.liquidityScore), fontSize: '0.875rem' } 
-              }, pos.liquidityScore.toFixed(0) + '/100'),
+              }, window.MaerminI18n.num(pos.liquidityScore, 0) + '/100'),
               React.createElement('span', { 
                 style: { color: T.textSecondary, fontSize: '0.75rem' } 
-              }, pos.liquidityRating)
+              }, liqRating(pos.liquidityRating))
             )
           );
-        }) : React.createElement('p', { style: { color: T.textSecondary } }, 'Add positions to see liquidity analysis')
+        }) : React.createElement('p', { style: { color: T.textSecondary } }, __('ivNoLiqData', 'Add positions to see liquidity analysis'))
       )
     )
   );
@@ -948,17 +954,17 @@ function GoalInvestingView(props) {
   var calculateProgress = function(goal) { return goalProgress(goal); };
   
   var goalTypes = [
-    { id: 'retirement', label: 'Retirement' },
-    { id: 'house', label: 'House' },
-    { id: 'education', label: 'Education' },
-    { id: 'emergency', label: 'Emergency Fund' },
-    { id: 'vacation', label: 'Vacation' },
-    { id: 'custom', label: 'Custom' }
+    { id: 'retirement', label: __('glRetirement', 'Retirement') },
+    { id: 'house', label: __('glHouse', 'House') },
+    { id: 'education', label: __('glEducation', 'Education') },
+    { id: 'emergency', label: __('glEmergency', 'Emergency Fund') },
+    { id: 'vacation', label: __('glVacation', 'Vacation') },
+    { id: 'custom', label: __('glCustom', 'Custom') }
   ];
   
   return React.createElement('div', { style: { padding: '1rem' } },
     React.createElement('div', { style: { display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem' } },
-      React.createElement('h2', { style: { color: T.text } }, 'Goal-Based Investing'),
+      React.createElement('h2', { style: { color: T.text } }, __('glTitle', 'Goal-Based Investing')),
       React.createElement('button', {
         onClick: function() { setShowAddGoal(true); },
         style: {
@@ -969,23 +975,23 @@ function GoalInvestingView(props) {
           borderRadius: '6px',
           cursor: 'pointer'
         }
-      }, '+ Add Goal')
+      }, __('glAdd', '+ Add Goal'))
     ),
     
-    showAddGoal && React.createElement(AnalysisCard, { title: 'Create New Goal' },
+    showAddGoal && React.createElement(AnalysisCard, { title: __('glCreateNew', 'Create New Goal') },
       React.createElement('div', { style: { display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: '1rem' } },
         React.createElement('div', null,
-          React.createElement('label', { style: { color: T.textSecondary, fontSize: '0.75rem', display: 'block', marginBottom: '0.25rem' } }, 'Goal Name'),
+          React.createElement('label', { style: { color: T.textSecondary, fontSize: '0.75rem', display: 'block', marginBottom: '0.25rem' } }, __('glName', 'Goal Name')),
           React.createElement('input', {
             type: 'text',
             value: newGoal.name,
             onChange: function(e) { setNewGoal(Object.assign({}, newGoal, { name: e.target.value })); },
-            placeholder: 'e.g., House Down Payment',
+            placeholder: __('glNamePh', 'e.g., House Down Payment'),
             style: { width: '100%', background: T.inputBg, border: '1px solid ' + T.inputBorder, borderRadius: '6px', padding: '0.5rem', color: T.text }
           })
         ),
         React.createElement('div', null,
-          React.createElement('label', { style: { color: T.textSecondary, fontSize: '0.75rem', display: 'block', marginBottom: '0.25rem' } }, 'Goal Type'),
+          React.createElement('label', { style: { color: T.textSecondary, fontSize: '0.75rem', display: 'block', marginBottom: '0.25rem' } }, __('glType', 'Goal Type')),
           React.createElement('select', {
             value: newGoal.type,
             onChange: function(e) { setNewGoal(Object.assign({}, newGoal, { type: e.target.value })); },
@@ -997,7 +1003,7 @@ function GoalInvestingView(props) {
           )
         ),
         React.createElement('div', null,
-          React.createElement('label', { style: { color: T.textSecondary, fontSize: '0.75rem', display: 'block', marginBottom: '0.25rem' } }, 'Target Amount (EUR)'),
+          React.createElement('label', { style: { color: T.textSecondary, fontSize: '0.75rem', display: 'block', marginBottom: '0.25rem' } }, __('glTargetAmount', 'Target Amount (EUR)')),
           React.createElement('input', {
             type: 'number',
             value: newGoal.targetAmount,
@@ -1006,7 +1012,7 @@ function GoalInvestingView(props) {
           })
         ),
         React.createElement('div', null,
-          React.createElement('label', { style: { color: T.textSecondary, fontSize: '0.75rem', display: 'block', marginBottom: '0.25rem' } }, 'Current Saved'),
+          React.createElement('label', { style: { color: T.textSecondary, fontSize: '0.75rem', display: 'block', marginBottom: '0.25rem' } }, __('glCurrentSaved', 'Current Saved')),
           React.createElement('input', {
             type: 'number',
             value: newGoal.currentAmount,
@@ -1015,7 +1021,7 @@ function GoalInvestingView(props) {
           })
         ),
         React.createElement('div', null,
-          React.createElement('label', { style: { color: T.textSecondary, fontSize: '0.75rem', display: 'block', marginBottom: '0.25rem' } }, 'Target Date'),
+          React.createElement('label', { style: { color: T.textSecondary, fontSize: '0.75rem', display: 'block', marginBottom: '0.25rem' } }, __('glTargetDate', 'Target Date')),
           React.createElement('input', {
             type: 'date',
             value: newGoal.targetDate,
@@ -1024,7 +1030,7 @@ function GoalInvestingView(props) {
           })
         ),
         React.createElement('div', null,
-          React.createElement('label', { style: { color: T.textSecondary, fontSize: '0.75rem', display: 'block', marginBottom: '0.25rem' } }, 'Monthly Contribution'),
+          React.createElement('label', { style: { color: T.textSecondary, fontSize: '0.75rem', display: 'block', marginBottom: '0.25rem' } }, __('monthlyContribution', 'Monthly Contribution')),
           React.createElement('input', {
             type: 'number',
             value: newGoal.monthlyContribution,
@@ -1037,13 +1043,13 @@ function GoalInvestingView(props) {
         React.createElement('button', {
           onClick: function() { setShowAddGoal(false); },
           style: { background: T.cardBorder, color: T.text, border: 'none', padding: '0.5rem 1rem', borderRadius: '6px', cursor: 'pointer' }
-        }, 'Cancel'),
+        }, __('cancel', 'Cancel')),
         React.createElement('button', {
           onClick: addGoal,
           disabled: !newGoal.name || !(newGoal.targetAmount > 0),
-          title: !(newGoal.targetAmount > 0) ? 'Enter a target amount above 0' : undefined,
+          title: !(newGoal.targetAmount > 0) ? __('glEnterTarget', 'Enter a target amount above 0') : undefined,
           style: { background: '#22c55e', color: '#ffffff', border: 'none', padding: '0.5rem 1rem', borderRadius: '6px', cursor: (!newGoal.name || !(newGoal.targetAmount > 0)) ? 'not-allowed' : 'pointer', opacity: (!newGoal.name || !(newGoal.targetAmount > 0)) ? 0.5 : 1 }
-        }, 'Create Goal')
+        }, __('glCreate', 'Create Goal'))
       )
     ),
     
@@ -1053,7 +1059,7 @@ function GoalInvestingView(props) {
       return React.createElement(AnalysisCard, {
         key: goal.id,
         title: goal.name,
-        badge: progress.invalid ? 'No target' : progress.onTrack ? 'On Track' : 'Behind',
+        badge: progress.invalid ? __('glNoTarget', 'No target') : progress.onTrack ? __('glOnTrack', 'On Track') : __('glBehind', 'Behind'),
         badgeType: progress.onTrack ? 'positive' : 'warning'
       },
         React.createElement('div', { style: { display: 'flex', justifyContent: 'space-between', marginBottom: '0.5rem' } },
@@ -1061,7 +1067,7 @@ function GoalInvestingView(props) {
             money(goal.currentAmount) + ' / ' + money(goal.targetAmount)
           ),
           React.createElement('span', { style: { color: T.accent, fontWeight: '600' } },
-            progress.progressPercent.toFixed(1) + '%'
+            window.MaerminI18n.pct(progress.progressPercent, 1)
           )
         ),
         React.createElement(ProgressBar, { 
@@ -1070,31 +1076,31 @@ function GoalInvestingView(props) {
         }),
         React.createElement('div', { style: { display: 'flex', justifyContent: 'space-between', marginTop: '1rem', flexWrap: 'wrap', gap: '0.5rem' } },
           React.createElement('div', null,
-            React.createElement('div', { style: { color: T.textSecondary, fontSize: '0.75rem' } }, 'Target Date'),
-            React.createElement('div', { style: { color: T.text } }, goal.targetDate)
+            React.createElement('div', { style: { color: T.textSecondary, fontSize: '0.75rem' } }, __('glTargetDate', 'Target Date')),
+            React.createElement('div', { style: { color: T.text } }, window.MaerminI18n.date(goal.targetDate))
           ),
           React.createElement('div', null,
-            React.createElement('div', { style: { color: T.textSecondary, fontSize: '0.75rem' } }, 'Monthly'),
+            React.createElement('div', { style: { color: T.textSecondary, fontSize: '0.75rem' } }, __('freqMonthly', 'Monthly')),
             React.createElement('div', { style: { color: T.text } }, money(goal.monthlyContribution))
           ),
           React.createElement('div', null,
-            React.createElement('div', { style: { color: T.textSecondary, fontSize: '0.75rem' } }, 'Remaining'),
+            React.createElement('div', { style: { color: T.textSecondary, fontSize: '0.75rem' } }, __('glRemaining', 'Remaining')),
             React.createElement('div', { style: { color: T.text } }, money(Math.max(0, goal.targetAmount - goal.currentAmount)))
           ),
           React.createElement('button', {
             onClick: function() {
               var U = (typeof window !== 'undefined') && window.MaerminUtils;
-              if (U && U.confirmThen) U.confirmThen({ title: 'Delete the goal "' + goal.name + '"?', confirmLabel: 'Delete' }, function() { deleteGoal(goal.id); });
+              if (U && U.confirmThen) U.confirmThen({ title: __('glDeleteTitle', 'Delete the goal "{name}"?', { name: goal.name }), confirmLabel: __('delete', 'Delete') }, function() { deleteGoal(goal.id); });
             },
             style: { background: 'rgba(239,68,68,0.2)', color: '#ef4444', border: 'none', padding: '0.25rem 0.75rem', borderRadius: '4px', cursor: 'pointer', fontSize: '0.75rem' }
-          }, 'Delete')
+          }, __('delete', 'Delete'))
         )
       );
     }),
     
     goals.length === 0 && !showAddGoal && React.createElement('div', {
       style: { color: T.textSecondary, padding: '2rem', textAlign: 'center' }
-    }, 'No goals yet. Click "+ Add Goal" to create your first investment goal.')
+    }, __('glEmpty', 'No goals yet. Click "+ Add Goal" to create your first investment goal.'))
   );
 }
 
@@ -1126,13 +1132,13 @@ function InvestmentAnalysisDashboard(props) {
   
   // Only real, data-driven analysis tabs
   var sections = [
-    { id: 'dca',      label: 'DCA Strategy',     desc: 'Compare DCA vs. lump sum' },
-    { id: 'sectors',  label: 'Sectors',          desc: 'Analyze sector allocation' },
-    { id: 'countries',label: 'Countries',        desc: 'Geographic allocation' },
-    { id: 'currency', label: 'Currencies',       desc: 'Foreign-currency exposure' },
-    { id: 'size',     label: 'Company Size',      desc: 'Market-cap size buckets' },
-    { id: 'liquidity',label: 'Liquidity',        desc: 'Position Liquidity Score' },
-    { id: 'goals',    label: 'Goals',            desc: 'Track savings goals' }
+    { id: 'dca',      label: __('ivTabDca', 'DCA Strategy'),     desc: __('ivTabDcaDesc', 'Compare DCA vs. lump sum') },
+    { id: 'sectors',  label: __('ivSectors', 'Sectors'),          desc: __('ivTabSectorsDesc', 'Analyze sector allocation') },
+    { id: 'countries',label: __('ivTabCountries', 'Countries'),        desc: __('ivTabCountriesDesc', 'Geographic allocation') },
+    { id: 'currency', label: __('ivCurrencies', 'Currencies'),       desc: __('ivTabCurrencyDesc', 'Foreign-currency exposure') },
+    { id: 'size',     label: __('ivTabSize', 'Company Size'),      desc: __('ivTabSizeDesc', 'Market-cap size buckets') },
+    { id: 'liquidity',label: __('kpiLiquidity', 'Liquidity'),        desc: __('ivTabLiqDesc', 'Position Liquidity Score') },
+    { id: 'goals',    label: __('ivTabGoals', 'Goals'),            desc: __('ivTabGoalsDesc', 'Track savings goals') }
   ];
 
   var tabStyle = function(id) {
@@ -1159,7 +1165,7 @@ function InvestmentAnalysisDashboard(props) {
       case 'currency': return React.createElement(CurrencyExposureView, { portfolio: portfolio });
       case 'size':     return window.MaerminMarketCap
         ? React.createElement(window.MaerminMarketCap.Panel, { portfolio: portfolio, prices: prices, theme: theme, t: props.t, formatPrice: props.formatPrice, workerUrl: props.workerUrl, exchangeRate: props.exchangeRate })
-        : React.createElement('div', { style: { padding: '1.5rem', color: theme.textSecondary } }, 'Market-cap module unavailable');
+        : React.createElement('div', { style: { padding: '1.5rem', color: theme.textSecondary } }, __('ivMcapUnavailable', 'Market-cap module unavailable'));
       case 'liquidity':return React.createElement(LiquidityAnalysisView, { portfolio: portfolio });
       case 'goals':    return React.createElement(GoalInvestingView, { portfolioValue: portfolioValue });
       default:         return React.createElement(DCAAnalyzerView, { portfolio: portfolio, priceHistory: priceHistory });

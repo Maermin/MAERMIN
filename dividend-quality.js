@@ -24,6 +24,9 @@
 // ============================================================================
 (function () {
   'use strict';
+// Translation lookup (i18n.js): __('key', 'English fallback', { slot: value }).
+function __(k, f, v) { return (typeof window !== 'undefined' && window.MaerminI18n ? window.MaerminI18n : require('./i18n.js')).t(k, f, v); }
+  function I18N() { return (typeof window !== 'undefined' && window.MaerminI18n) || require('./i18n.js'); }
 
   function num(x) {
     var n = typeof x === 'number' ? x : parseFloat(x);
@@ -107,7 +110,7 @@
 
     if (earningsNegative) {
       components.payout = 0;
-      reasons.push('Dividend is not covered by earnings (negative EPS).');
+      reasons.push(__('dqlNotCovered', 'Dividend is not covered by earnings (negative EPS).'));
     } else if (payout != null) {
       if (payout <= 0) { components.payout = null; }
       else if (payout <= 0.3) components.payout = 100;
@@ -115,19 +118,19 @@
       else if (payout <= 0.8) components.payout = 70 - ((payout - 0.6) / 0.2) * 30;    // 70 → 40
       else if (payout <= 1.0) components.payout = 40 - ((payout - 0.8) / 0.2) * 30;    // 40 → 10
       else components.payout = 0;
-      if (payout > 0.9) reasons.push('Payout ratio above 90% leaves no buffer for earnings dips.');
-      else if (payout > 0.7) reasons.push('Elevated payout ratio (' + Math.round(payout * 100) + '%).');
+      if (payout > 0.9) reasons.push(__('dqlPayout90', 'Payout ratio above {pct} leaves no buffer for earnings dips.', { pct: I18N().pct(90, 0) }));
+      else if (payout > 0.7) reasons.push(__('dqlElevated', 'Elevated payout ratio ({pct}).', { pct: I18N().pct(payout * 100, 0) }));
     } else {
       components.payout = null;
-      reasons.push('No payout/earnings data — score based on dividend history only.');
+      reasons.push(__('dqlNoPayoutData', 'No payout/earnings data — score based on dividend history only.'));
     }
 
     // Growth streak (years of uninterrupted growth). 25y (aristocrat) → 100.
     var streak = num(input.yearsOfGrowth);
     if (streak != null) {
       components.streak = Math.max(0, Math.min(100, streak * 4));
-      if (streak >= 25) reasons.push(String(streak) + ' years of uninterrupted dividend growth.');
-      else if (streak === 0) reasons.push('No streak of consecutive dividend increases.');
+      if (streak >= 25) reasons.push(__('dqlStreak', '{n} years of uninterrupted dividend growth.', { n: streak }));
+      else if (streak === 0) reasons.push(__('dqlNoStreak', 'No streak of consecutive dividend increases.'));
     } else {
       components.streak = null;
     }
@@ -143,7 +146,7 @@
       else if (growth > 0) components.growth = 55;
       else if (growth === 0) components.growth = 40;
       else components.growth = 10;
-      if (growth < 0) reasons.push('Dividend was cut recently (negative growth).');
+      if (growth < 0) reasons.push(__('dqlCut', 'Dividend was cut recently (negative growth).'));
     } else {
       components.growth = null;
     }
@@ -155,7 +158,7 @@
       else if (y <= 0.08) components.yieldSanity = 70;
       else if (y <= 0.12) components.yieldSanity = 35;
       else components.yieldSanity = 10;
-      if (y > 0.08) reasons.push('Yield above 8% — possible yield trap.');
+      if (y > 0.08) reasons.push(__('dqlYieldTrap', 'Yield above {pct} — possible yield trap.', { pct: I18N().pct(8, 0) }));
     } else {
       components.yieldSanity = null;
     }
@@ -171,7 +174,7 @@
       || (payout != null && payout > 0.9)
       || (growth != null && growth < 0)
       || (y != null && y > 0.08 && (streak || 0) < 5);
-    if (cutRisk && reasons.length === 0) reasons.push('Multiple stress signals on this dividend.');
+    if (cutRisk && reasons.length === 0) reasons.push(__('dqlStress', 'Multiple stress signals on this dividend.'));
 
     var rating = score == null ? 'unknown' : (score >= 70 ? 'safe' : (score >= 45 ? 'moderate' : 'risky'));
 
@@ -237,13 +240,13 @@
     if (!React || !svc) return null;
     var e = React.createElement;
     var theme = props.theme || {};
-    var t = props.t || {};
+    var t = props.t || ((typeof window !== 'undefined' && window.MaerminI18n) ? window.MaerminI18n.dict() : {});
     var text = theme.text || '#e6edf3', dim = theme.textSecondary || '#9aa4b2';
     var border = theme.cardBorder || 'rgba(255,255,255,0.1)';
     var inputBg = theme.inputBg || '#0f172a', card = theme.card || theme.cardBg || '#10151f';
     var good = theme.success || '#22c55e', warn = theme.warning || '#f59e0b', bad = theme.danger || theme.negative || '#ef4444';
     var workerBase = String(props.workerUrl || '').trim().replace(/\/+$/, '');
-    var fmt = props.formatPrice || function (v) { return Number(v || 0).toFixed(2); };
+    var fmt = props.formatPrice || function (v) { return I18N().num(v, 2); };
     var sym = (props.getCurrencySymbol && props.getCurrencySymbol()) || '€';
     var prices = props.prices || {};
 
@@ -328,7 +331,8 @@
     var health = scorePortfolio(rows.map(function (r) { return { score: r.q.score, cutRisk: r.q.cutRisk, incomeEUR: r.payer.income }; }));
 
     var ratingColor = { safe: good, moderate: warn, risky: bad, unknown: dim };
-    var pctTxt = function (x, digits) { return x == null ? '-' : (x * 100).toFixed(digits == null ? 0 : digits) + '%'; };
+    var pctTxt = function (x, digits) { return x == null ? '-' : I18N().pct(x * 100, digits == null ? 0 : digits); };
+    var ratingLabel = function (r) { return ({ safe: __('dqlSafe', 'safe'), moderate: __('dqlModerate', 'moderate'), risky: __('dqlRisky', 'risky'), unknown: __('dqUnknownLower', 'unknown'), healthy: __('dqlHealthy', 'healthy'), mixed: __('dqlMixed', 'mixed'), fragile: __('dqlFragile', 'fragile') })[r] || r; };
 
     function kpi(label, value, color) {
       return e('div', { key: label, style: { background: inputBg, border: '1px solid ' + border, borderRadius: '10px', padding: '0.7rem 0.9rem', minWidth: '130px' } },
@@ -339,17 +343,17 @@
     var body;
     if (!payers.length) {
       body = e('div', { style: { color: dim, fontSize: '0.85rem', padding: '0.5rem 0' } },
-        'No dividend-paying positions detected yet. Quality scoring starts once a holding has dividend data.');
+        __('dqlNone', 'No dividend-paying positions detected yet. Quality scoring starts once a holding has dividend data.'));
     } else {
       var parts = [];
       parts.push(e('div', { style: { display: 'flex', flexWrap: 'wrap', gap: '0.6rem', marginBottom: '0.9rem' } },
-        kpi('Dividend health', health.available ? (health.score + '/100 (' + health.label + ')') : '-',
+        kpi(__('dqlHealth', 'Dividend health'), health.available ? (health.score + '/100 (' + ratingLabel(health.label) + ')') : '-',
           health.available ? (health.score >= 70 ? good : (health.score >= 45 ? warn : bad)) : dim),
-        kpi('Payers scored', String(rows.filter(function (r) { return r.q.score != null; }).length) + ' / ' + payers.length),
-        kpi('Income at cut risk', health.incomeAtRiskPct > 0 ? health.incomeAtRiskPct.toFixed(0) + '%' : '0%',
+        kpi(__('dqlScored', 'Payers scored'), String(rows.filter(function (r) { return r.q.score != null; }).length) + ' / ' + payers.length),
+        kpi(__('dqlAtRisk', 'Income at cut risk'), I18N().pct(health.incomeAtRiskPct > 0 ? health.incomeAtRiskPct : 0, 0),
           health.incomeAtRiskPct > 25 ? bad : (health.incomeAtRiskPct > 0 ? warn : good))));
 
-      var header = ['Position', 'Income p.a.', 'Payout', 'Streak', 'Growth', 'Coverage', 'Score'];
+      var header = [__('position', 'Position'), __('dqlIncomePa', 'Income p.a.'), __('dqlPayout', 'Payout'), __('dqlStreakCol', 'Streak'), __('dqlGrowth', 'Growth'), __('dqlCoverage', 'Coverage'), __('dqlScore', 'Score')];
       parts.push(e('div', { style: { overflowX: 'auto' } },
         e('table', { style: { width: '100%', borderCollapse: 'collapse' } },
           e('thead', null, e('tr', null, header.map(function (h, i) {
@@ -365,37 +369,37 @@
             },
               e('td', { style: { padding: '0.45rem 0.5rem', color: text, fontSize: '0.8rem', fontWeight: 600 } },
                 p.symbol,
-                q.cutRisk ? e('span', { style: { marginLeft: '0.45rem', fontSize: '0.64rem', padding: '0.08rem 0.4rem', borderRadius: '4px', background: 'rgba(239,68,68,0.16)', color: bad, fontWeight: 700 } }, 'CUT RISK') : null),
-              e('td', { style: { padding: '0.45rem 0.5rem', textAlign: 'right', color: text, fontSize: '0.78rem' } }, sym + fmt(p.income)),
+                q.cutRisk ? e('span', { style: { marginLeft: '0.45rem', fontSize: '0.64rem', padding: '0.08rem 0.4rem', borderRadius: '4px', background: 'rgba(239,68,68,0.16)', color: bad, fontWeight: 700 } }, __('dqlCutRisk', 'CUT RISK')) : null),
+              e('td', { style: { padding: '0.45rem 0.5rem', textAlign: 'right', color: text, fontSize: '0.78rem' } }, fmt(p.income) + ' ' + sym),
               e('td', { style: { padding: '0.45rem 0.5rem', textAlign: 'right', color: m.payoutRatio != null && m.payoutRatio > 0.8 ? warn : dim, fontSize: '0.78rem' } }, pctTxt(m.payoutRatio)),
-              e('td', { style: { padding: '0.45rem 0.5rem', textAlign: 'right', color: dim, fontSize: '0.78rem' } }, m.streakYears != null ? m.streakYears + 'y' : '-'),
-              e('td', { style: { padding: '0.45rem 0.5rem', textAlign: 'right', color: m.growth != null ? (m.growth >= 0 ? good : bad) : dim, fontSize: '0.78rem' } }, m.growth != null ? ((m.growth >= 0 ? '+' : '') + (m.growth * 100).toFixed(1) + '%') : '-'),
-              e('td', { style: { padding: '0.45rem 0.5rem', textAlign: 'right', color: dim, fontSize: '0.78rem' } }, m.coverage != null ? m.coverage.toFixed(1) + 'x' : '-'),
+              e('td', { style: { padding: '0.45rem 0.5rem', textAlign: 'right', color: dim, fontSize: '0.78rem' } }, m.streakYears != null ? __('pjYears', '{n}y', { n: m.streakYears }) : '-'),
+              e('td', { style: { padding: '0.45rem 0.5rem', textAlign: 'right', color: m.growth != null ? (m.growth >= 0 ? good : bad) : dim, fontSize: '0.78rem' } }, m.growth != null ? I18N().pct(m.growth * 100, 1, true) : '-'),
+              e('td', { style: { padding: '0.45rem 0.5rem', textAlign: 'right', color: dim, fontSize: '0.78rem' } }, m.coverage != null ? I18N().num(m.coverage, 1) + '×' : '-'),
               e('td', { style: { padding: '0.45rem 0.5rem', textAlign: 'right' } },
                 e('span', { style: { color: ratingColor[q.rating], fontWeight: 800, fontSize: '0.82rem' } },
                   q.score != null ? String(q.score) : '-'),
-                e('span', { style: { color: dim, fontSize: '0.68rem', marginLeft: '0.3rem' } }, q.rating)));
+                e('span', { style: { color: dim, fontSize: '0.68rem', marginLeft: '0.3rem' } }, ratingLabel(q.rating))));
             if (!isOpen) return mainRow;
             var detail = e('tr', { key: p.symbol + '-detail' },
               e('td', { colSpan: header.length, style: { padding: '0.2rem 0.5rem 0.7rem', background: inputBg } },
                 e('div', { style: { color: dim, fontSize: '0.74rem', lineHeight: 1.6 } },
-                  (q.reasons.length ? q.reasons.join(' ') : 'No notable findings.') +
-                  ' Based on ' + (r.hasFundamentals ? 'live fundamentals + dividend history.' : 'dividend history only (no fundamentals available).'))));
+                  (q.reasons.length ? q.reasons.join(' ') : __('dqlNoFindings', 'No notable findings.')) + ' ' +
+                  (r.hasFundamentals ? __('dqlBasedLive', 'Based on live fundamentals + dividend history.') : __('dqlBasedHistory', 'Based on dividend history only (no fundamentals available).')))));
             return [mainRow, detail];
           })))));
 
       if (state.loading) {
-        parts.push(e('div', { style: { color: dim, fontSize: '0.74rem', marginTop: '0.5rem' } }, 'Loading fundamentals...'));
+        parts.push(e('div', { style: { color: dim, fontSize: '0.74rem', marginTop: '0.5rem' } }, __('dqlLoading', 'Loading fundamentals...')));
       }
       if (state.unsupported) {
         parts.push(e('div', { style: { color: warn, fontSize: '0.74rem', marginTop: '0.6rem', lineHeight: 1.5 } },
-          'Your Worker does not support fundamentals yet. Re-deploy the latest cf-worker/worker.js (action=fundamentals) for payout/earnings data; until then scores use dividend history only.'));
+          __('dqlUnsupported', 'Your Worker does not support fundamentals yet. Re-deploy the latest cf-worker/worker.js (action=fundamentals) for payout/earnings data; until then scores use dividend history only.')));
       } else if (!workerBase) {
         parts.push(e('div', { style: { color: dim, fontSize: '0.74rem', marginTop: '0.6rem', lineHeight: 1.5 } },
-          'Add a Worker URL in API Settings to include payout/earnings data; scores currently use dividend history only.'));
+          __('dqlNeedWorker', 'Add a Worker URL in API Settings to include payout/earnings data; scores currently use dividend history only.')));
       }
       parts.push(e('div', { style: { color: dim, fontSize: '0.7rem', marginTop: '0.6rem', lineHeight: 1.5 } },
-        'The safety score is a heuristic from payout ratio, growth streak, dividend growth and yield level - higher is safer. Click a row for the reasoning. Not investment advice.'));
+        __('dqlDisclaimer', 'The safety score is a heuristic from payout ratio, growth streak, dividend growth and yield level - higher is safer. Click a row for the reasoning. Not investment advice.')));
       body = e('div', null, parts);
     }
 

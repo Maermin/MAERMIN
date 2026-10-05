@@ -33,6 +33,8 @@
 // ============================================================================
 (function () {
   'use strict';
+// Translation lookup (i18n.js): __('key', 'English fallback', { slot: value }).
+function __(k, f, v) { return (typeof window !== 'undefined' && window.MaerminI18n ? window.MaerminI18n : require('./i18n.js')).t(k, f, v); }
 
   // ---- priority model ---------------------------------------------------------
   // Three buckets the spec asks for. Lower rank sorts first.
@@ -129,7 +131,8 @@
     if (n == null) return null;
     return n <= 1 ? n * 100 : n;
   }
-  function fmtPct(n) { return (Math.round((n || 0) * 10) / 10) + '%'; }
+  function I18N() { return (typeof window !== 'undefined' && window.MaerminI18n) || require('./i18n.js'); }
+  function fmtPct(n) { return I18N().pct(Math.round((n || 0) * 10) / 10, { min: 0, max: 1 }); }
   function mergeThresholds(opts) {
     var T = {};
     Object.keys(DEFAULTS).forEach(function (k) { T[k] = DEFAULTS[k]; });
@@ -182,17 +185,17 @@
       var effPct = asPct(topEff.effectiveWeight);
       var name = topEff.name || topEff.key;
       var via = topEff.funds || (topEff.via ? topEff.via.map(function (v) { return v.fund; }) : []);
-      var viaTxt = via && via.length ? ' (held directly and through ' + via.join(', ') + ')' : '';
+      var viaTxt = via && via.length ? ' ' + __('piViaTxt', '(held directly and through {list})', { list: via.join(', ') }) : '';
       if (effPct != null && effPct >= T.singleCompanyCritical) {
         push('singleCompany', 'critical', 'sc-critical',
-          'Your portfolio carries ' + fmtPct(effPct) + ' effective ' + name + ' exposure across ETFs and single stocks',
-          'A single company above ' + T.singleCompanyCritical + '% — counting what your ETFs hold — drives most of your idiosyncratic risk.' + (viaTxt ? '' : ''),
-          'Trim ' + name + viaTxt + ' toward a 20–25% cap or add uncorrelated holdings.', effPct);
+          __('piScCritTitle', 'Your portfolio carries {pct} effective {name} exposure across ETFs and single stocks', { pct: fmtPct(effPct), name: name }),
+          __('piScCritDetail', 'A single company above {limit} — counting what your ETFs hold — drives most of your idiosyncratic risk.', { limit: fmtPct(T.singleCompanyCritical) }),
+          __('piScCritAction', 'Trim {name} toward a {cap} cap or add uncorrelated holdings.', { name: name + viaTxt, cap: I18N().pct(20, 0) + '–' + fmtPct(25) }), effPct);
       } else if (effPct != null && effPct >= T.singleCompanyImportant) {
         push('singleCompany', 'important', 'sc-important',
-          'Effective ' + name + ' exposure is ' + fmtPct(effPct) + ' across funds and direct holdings',
-          'Above ' + T.singleCompanyImportant + '% in one company increases concentration risk you may not see in the position list.',
-          'Watch this effective weight; rebalance if it keeps growing.', effPct);
+          __('piScImpTitle', 'Effective {name} exposure is {pct} across funds and direct holdings', { name: name, pct: fmtPct(effPct) }),
+          __('piScImpDetail', 'Above {limit} in one company increases concentration risk you may not see in the position list.', { limit: fmtPct(T.singleCompanyImportant) }),
+          __('piScImpAction', 'Watch this effective weight; rebalance if it keeps growing.'), effPct);
       }
     }
 
@@ -204,10 +207,10 @@
       var h0 = hidden[0];
       var fundedPct = asPct(h0.fundedWeight), directPct = asPct(h0.directWeight) || 0, effH = asPct(h0.effectiveWeight);
       push('hidden', directPct < fundedPct ? 'important' : 'optimization', 'hidden-1',
-        (h0.name || h0.key) + ' is ' + fmtPct(effH) + ' of your portfolio, ' + fmtPct(fundedPct) + ' of it hidden inside funds',
-        (directPct > 0 ? fmtPct(directPct) + ' is held directly; ' : '') + fmtPct(fundedPct) + ' sits inside ' + ((h0.funds || []).join(', ') || 'your ETFs') + '.' +
-          (hidden.length > 1 ? ' ' + (hidden.length - 1) + ' more security(ies) are similarly concentrated.' : ''),
-        'Overlapping funds multiply single-stock risk — check the look-through before adding more of the same funds.', effH);
+        __('piHidTitle', '{name} is {pct} of your portfolio, {funded} of it hidden inside funds', { name: h0.name || h0.key, pct: fmtPct(effH), funded: fmtPct(fundedPct) }),
+        (directPct > 0 ? __('piHidDirect', '{pct} is held directly;', { pct: fmtPct(directPct) }) + ' ' : '') + __('piHidInside', '{pct} sits inside {list}.', { pct: fmtPct(fundedPct), list: (h0.funds || []).join(', ') || __('piYourEtfs', 'your ETFs') }) +
+          (hidden.length > 1 ? ' ' + __('piHidMore', '{n} more {n:security is|securities are} similarly concentrated.', { n: hidden.length - 1 }) : ''),
+        __('piHidAction', 'Overlapping funds multiply single-stock risk — check the look-through before adding more of the same funds.'), effH);
     }
 
     // 2b) Magnificent-7 cluster (effective, look-through) ----------------------
@@ -223,14 +226,14 @@
       mag7Pct = Math.round(mag7Pct * 10) / 10;
       if (mag7Pct >= T.mag7Important) {
         push('mag7', 'important', 'mag7-important',
-          fmtPct(mag7Pct) + ' of your portfolio is in the "Magnificent 7" mega-caps',
-          'These few names (' + mag7Names.slice(0, 7).join(', ') + ') move together and dominate broad index ETFs — your effective tech-megacap bet is larger than the position list shows.',
-          'Check how much of this is unintended ETF overlap; diversify beyond mega-cap US tech if it is.', mag7Pct);
+          __('piMag7Title', '{pct} of your portfolio is in the "Magnificent 7" mega-caps', { pct: fmtPct(mag7Pct) }),
+          __('piMag7Detail', 'These few names ({list}) move together and dominate broad index ETFs — your effective tech-megacap bet is larger than the position list shows.', { list: mag7Names.slice(0, 7).join(', ') }),
+          __('piMag7Action', 'Check how much of this is unintended ETF overlap; diversify beyond mega-cap US tech if it is.'), mag7Pct);
       } else if (mag7Pct >= T.mag7Optimize) {
         push('mag7', 'optimization', 'mag7-optimize',
-          'Combined "Magnificent 7" exposure is ' + fmtPct(mag7Pct),
-          'Common for global index investors, but worth knowing it is a correlated cluster.',
-          'Keep an eye on it so the mega-cap tilt does not grow unchecked.', mag7Pct);
+          __('piMag7OptTitle', 'Combined "Magnificent 7" exposure is {pct}', { pct: fmtPct(mag7Pct) }),
+          __('piMag7OptDetail', 'Common for global index investors, but worth knowing it is a correlated cluster.'),
+          __('piMag7OptAction', 'Keep an eye on it so the mega-cap tilt does not grow unchecked.'), mag7Pct);
       }
     }
 
@@ -246,14 +249,14 @@
       semiPct = Math.round(semiPct * 10) / 10;
       if (semiPct >= T.semiImportant) {
         push('semiconductor', 'important', 'semi-important',
-          fmtPct(semiPct) + ' of your portfolio is in semiconductors',
-          'Chips (' + semiNames.slice(0, 6).join(', ') + ') are one deeply cyclical industry; this much effective weight — counting ETF holdings — is a concentrated cycle bet.',
-          'Confirm the chip tilt is intentional; trim or broaden across industries if not.', semiPct);
+          __('piSemiTitle', '{pct} of your portfolio is in semiconductors', { pct: fmtPct(semiPct) }),
+          __('piSemiDetail', 'Chips ({list}) are one deeply cyclical industry; this much effective weight — counting ETF holdings — is a concentrated cycle bet.', { list: semiNames.slice(0, 6).join(', ') }),
+          __('piSemiAction', 'Confirm the chip tilt is intentional; trim or broaden across industries if not.'), semiPct);
       } else if (semiPct >= T.semiOptimize) {
         push('semiconductor', 'optimization', 'semi-optimize',
-          'Semiconductor exposure is ' + fmtPct(semiPct),
-          'Moderate, but semis swing hard with the cycle — worth tracking so it does not creep up.',
-          'Steer new contributions toward other industries if you want to cap it.', semiPct);
+          __('piSemiOptTitle', 'Semiconductor exposure is {pct}', { pct: fmtPct(semiPct) }),
+          __('piSemiOptDetail', 'Moderate, but semis swing hard with the cycle — worth tracking so it does not creep up.'),
+          __('piSemiOptAction', 'Steer new contributions toward other industries if you want to cap it.'), semiPct);
       }
     }
 
@@ -271,14 +274,14 @@
       var levMetric = Math.round(rawWeight * 10) / 10;
       if (rawWeight >= T.leverageImportant || hasInverse || levWeighted >= 20) {
         push('leverage', 'important', 'leverage-important',
-          'You hold leveraged/inverse ETPs (' + fmtPct(rawWeight) + ' of the portfolio, ' + fmtPct(Math.round(levWeighted * 10) / 10) + ' gross exposure)',
-          'Daily-reset products (' + names.join(', ') + ') decay in volatile, sideways markets and can diverge sharply from the index over weeks — they are trading tools, not buy-and-hold.',
-          'Hold these only as deliberate short-term positions; size them to what you can actively manage.', levMetric);
+          __('piLevTitle', 'You hold leveraged/inverse ETPs ({pct} of the portfolio, {gross} gross exposure)', { pct: fmtPct(rawWeight), gross: fmtPct(Math.round(levWeighted * 10) / 10) }),
+          __('piLevDetail', 'Daily-reset products ({list}) decay in volatile, sideways markets and can diverge sharply from the index over weeks — they are trading tools, not buy-and-hold.', { list: names.join(', ') }),
+          __('piLevAction', 'Hold these only as deliberate short-term positions; size them to what you can actively manage.'), levMetric);
       } else if (rawWeight >= T.leverageOptimize) {
         push('leverage', 'optimization', 'leverage-optimize',
-          'A small leveraged/inverse position (' + fmtPct(rawWeight) + ': ' + names.join(', ') + ')',
-          'Manageable, but daily-reset leverage is path-dependent and erodes in choppy markets.',
-          'Keep it small and intentional; avoid treating it as a long-term core holding.', levMetric);
+          __('piLevOptTitle', 'A small leveraged/inverse position ({pct}: {list})', { pct: fmtPct(rawWeight), list: names.join(', ') }),
+          __('piLevOptDetail', 'Manageable, but daily-reset leverage is path-dependent and erodes in choppy markets.'),
+          __('piLevOptAction', 'Keep it small and intentional; avoid treating it as a long-term core holding.'), levMetric);
       }
     }
 
@@ -296,14 +299,14 @@
       topN = Math.round(topN * 10) / 10;
       if (topN >= T.top5Important) {
         push('concentration', 'important', 'topholdings-important',
-          'Your ' + nTop + ' largest holdings are ' + fmtPct(topN) + ' of the portfolio',
-          'A handful of names (' + topNames.slice(0, nTop).join(', ') + ') — counting what your ETFs hold — drive most of your outcome; a setback in them dominates your return.',
-          'Confirm this concentration is intended; broaden the base if a few positions have grown to dominate.', topN);
+          __('piTopTitle', 'Your {n} largest holdings are {pct} of the portfolio', { n: nTop, pct: fmtPct(topN) }),
+          __('piTopDetail', 'A handful of names ({list}) — counting what your ETFs hold — drive most of your outcome; a setback in them dominates your return.', { list: topNames.slice(0, nTop).join(', ') }),
+          __('piTopAction', 'Confirm this concentration is intended; broaden the base if a few positions have grown to dominate.'), topN);
       } else if (topN >= T.top5Optimize) {
         push('concentration', 'optimization', 'topholdings-optimize',
-          'Your ' + nTop + ' largest holdings are ' + fmtPct(topN) + ' of the portfolio',
-          'Moderately top-heavy — common, but worth knowing how much rides on the few biggest positions.',
-          'Steer new contributions to the rest of the book if you want to dilute the top.', topN);
+          __('piTopTitle', 'Your {n} largest holdings are {pct} of the portfolio', { n: nTop, pct: fmtPct(topN) }),
+          __('piTopOptDetail', 'Moderately top-heavy — common, but worth knowing how much rides on the few biggest positions.'),
+          __('piTopOptAction', 'Steer new contributions to the rest of the book if you want to dilute the top.'), topN);
       }
     }
 
@@ -322,14 +325,14 @@
         effN = Math.round(effN * 10) / 10;
         if (effN < T.divEffectiveImportant) {
           push('diversification', 'important', 'diversification-important',
-            'Your ' + eff.length + ' holdings behave like only ~' + effN + ' equally-weighted positions',
-            'The effective holding count (inverse Herfindahl on look-through weights) is far below your nominal count — a few names carry most of the risk, so you are less diversified than the position list suggests.',
-            'Rebalance toward the smaller positions or trim the dominant ones to raise effective diversification.', effN);
+            __('piDivTitle', 'Your {n} holdings behave like only ~{eff} equally-weighted positions', { n: eff.length, eff: I18N().num(effN, { min: 0, max: 1 }) }),
+            __('piDivDetail', 'The effective holding count (inverse Herfindahl on look-through weights) is far below your nominal count — a few names carry most of the risk, so you are less diversified than the position list suggests.'),
+            __('piDivAction', 'Rebalance toward the smaller positions or trim the dominant ones to raise effective diversification.'), effN);
         } else if (effN < T.divEffectiveOptimize) {
           push('diversification', 'optimization', 'diversification-optimize',
-            'Your portfolio diversifies like ~' + effN + ' equal positions across ' + eff.length + ' holdings',
-            'Reasonable, but the largest holdings still dominate the effective risk more than the raw count implies.',
-            'Tilt new contributions toward the smaller positions to lift effective diversification.', effN);
+            __('piDivOptTitle', 'Your portfolio diversifies like ~{eff} equal positions across {n} holdings', { eff: I18N().num(effN, { min: 0, max: 1 }), n: eff.length }),
+            __('piDivOptDetail', 'Reasonable, but the largest holdings still dominate the effective risk more than the raw count implies.'),
+            __('piDivOptAction', 'Tilt new contributions toward the smaller positions to lift effective diversification.'), effN);
         }
       }
     }
@@ -340,19 +343,19 @@
       var secPct = asPct(sec.weight);
       if (secPct != null && secPct >= T.sectorCritical) {
         push('sector', 'critical', 'sector-critical',
-          fmtPct(secPct) + ' of your portfolio is in the ' + sec.sector + ' sector',
-          'A single sector above ' + T.sectorCritical + '% concentrates you in one part of the economic cycle.',
-          'Diversify into under-weighted sectors to reduce cyclical risk.', secPct);
+          __('piSecTitle', '{pct} of your portfolio is in the {sector} sector', { pct: fmtPct(secPct), sector: I18N().sector(sec.sector) }),
+          __('piSecCritDetail', 'A single sector above {limit} concentrates you in one part of the economic cycle.', { limit: fmtPct(T.sectorCritical) }),
+          __('piSecCritAction', 'Diversify into under-weighted sectors to reduce cyclical risk.'), secPct);
       } else if (secPct != null && secPct >= T.sectorImportant) {
         push('sector', 'important', 'sector-important',
-          fmtPct(secPct) + ' of your portfolio is in the ' + sec.sector + ' sector',
-          'Heavy single-sector weight (over ' + T.sectorImportant + '%) raises correlation between your holdings.',
-          'Consider broadening across sectors on the next contribution.', secPct);
+          __('piSecTitle', '{pct} of your portfolio is in the {sector} sector', { pct: fmtPct(secPct), sector: I18N().sector(sec.sector) }),
+          __('piSecImpDetail', 'Heavy single-sector weight (over {limit}) raises correlation between your holdings.', { limit: fmtPct(T.sectorImportant) }),
+          __('piSecImpAction', 'Consider broadening across sectors on the next contribution.'), secPct);
       } else if (secPct != null && secPct >= T.sectorOptimize) {
         push('sector', 'optimization', 'sector-optimize',
-          'Largest sector is ' + sec.sector + ' at ' + fmtPct(secPct),
-          'Still moderate, but worth watching so it does not become a concentration.',
-          'Steer new contributions toward other sectors.', secPct);
+          __('piSecOptTitle', 'Largest sector is {sector} at {pct}', { sector: I18N().sector(sec.sector), pct: fmtPct(secPct) }),
+          __('piSecOptDetail', 'Still moderate, but worth watching so it does not become a concentration.'),
+          __('piSecOptAction', 'Steer new contributions toward other sectors.'), secPct);
       }
     }
 
@@ -362,14 +365,14 @@
       var cPct = asPct(ctry.weight);
       if (cPct != null && cPct >= T.countryImportant) {
         push('country', 'important', 'country-important',
-          fmtPct(cPct) + ' of your portfolio is exposed to ' + ctry.country,
-          'Single-country weight over ' + T.countryImportant + '% ties your wealth to one economy and policy regime.',
-          'Add regions outside ' + ctry.country + ' (e.g. a broad ex-' + ctry.country + ' fund).', cPct);
+          __('piCtyTitle', '{pct} of your portfolio is exposed to {country}', { pct: fmtPct(cPct), country: I18N().country(ctry.country) }),
+          __('piCtyDetail', 'Single-country weight over {limit} ties your wealth to one economy and policy regime.', { limit: fmtPct(T.countryImportant) }),
+          __('piCtyAction', 'Add regions outside {country} (e.g. a broad ex-{country} fund).', { country: I18N().country(ctry.country) }), cPct);
       } else if (cPct != null && cPct >= T.countryOptimize) {
         push('country', 'optimization', 'country-optimize',
-          'Largest country exposure is ' + ctry.country + ' at ' + fmtPct(cPct),
-          'Common for global index investors, but a more balanced regional split lowers single-country risk.',
-          'Tilt future buys toward other regions if you want to reduce it.', cPct);
+          __('piCtyOptTitle', 'Largest country exposure is {country} at {pct}', { country: I18N().country(ctry.country), pct: fmtPct(cPct) }),
+          __('piCtyOptDetail', 'Common for global index investors, but a more balanced regional split lowers single-country risk.'),
+          __('piCtyOptAction', 'Tilt future buys toward other regions if you want to reduce it.'), cPct);
       }
     }
 
@@ -379,14 +382,14 @@
       var curPct = asPct(cur.weight);
       if (curPct != null && curPct >= T.currencyImportant) {
         push('currency', 'important', 'currency-important',
-          cur.currency + ' exposure is ' + fmtPct(curPct),
-          'Most of your real return now depends on the ' + cur.currency + ' exchange rate, not just on your holdings.',
-          'Diversify currencies or consider an FX-hedged share class for part of the position.', curPct);
+          __('piCurTitle', '{cur} exposure is {pct}', { cur: cur.currency, pct: fmtPct(curPct) }),
+          __('piCurDetail', 'Most of your real return now depends on the {cur} exchange rate, not just on your holdings.', { cur: cur.currency }),
+          __('piCurAction', 'Diversify currencies or consider an FX-hedged share class for part of the position.'), curPct);
       } else if (curPct != null && curPct >= T.currencyOptimize) {
         push('currency', 'optimization', 'currency-optimize',
-          cur.currency + ' exposure is ' + fmtPct(curPct),
-          'Your portfolio leans on one currency; some FX risk is unavoidable for a global investor.',
-          'Keep an eye on it; add non-' + cur.currency + ' assets opportunistically.', curPct);
+          __('piCurTitle', '{cur} exposure is {pct}', { cur: cur.currency, pct: fmtPct(curPct) }),
+          __('piCurOptDetail', 'Your portfolio leans on one currency; some FX risk is unavoidable for a global investor.'),
+          __('piCurOptAction', 'Keep an eye on it; add non-{cur} assets opportunistically.', { cur: cur.currency }), curPct);
       }
     }
 
@@ -397,14 +400,14 @@
       var shared = (ov.shared || []).slice(0, 3).map(function (s) { return s.name || s.key; }).filter(Boolean);
       if (ovPct != null && ovPct >= T.overlapImportant) {
         push('correlation', 'important', 'corr-important',
-          ov.a + ' and ' + ov.b + ' overlap by ' + fmtPct(ovPct) + ' — they form a correlated cluster, not diversification',
-          'Holding both adds little diversification' + (shared.length ? '; both are heavy in ' + shared.join(', ') + '.' : '.'),
-          'Keep the cheaper/broader of the two and redeploy the rest into something uncorrelated.', ovPct);
+          __('piOvTitle', '{a} and {b} overlap by {pct} — they form a correlated cluster, not diversification', { a: ov.a, b: ov.b, pct: fmtPct(ovPct) }),
+          (shared.length ? __('piOvDetailShared', 'Holding both adds little diversification; both are heavy in {list}.', { list: shared.join(', ') }) : __('piOvDetail', 'Holding both adds little diversification.')),
+          __('piOvAction', 'Keep the cheaper/broader of the two and redeploy the rest into something uncorrelated.'), ovPct);
       } else if (ovPct != null && ovPct >= T.overlapOptimize) {
         push('correlation', 'optimization', 'corr-optimize',
-          ov.a + ' and ' + ov.b + ' overlap by ' + fmtPct(ovPct),
-          'Moderate overlap' + (shared.length ? ' driven by ' + shared.join(', ') + '.' : '.'),
-          'Fine to hold both, but avoid stacking more funds with the same core.', ovPct);
+          __('piOvOptTitle', '{a} and {b} overlap by {pct}', { a: ov.a, b: ov.b, pct: fmtPct(ovPct) }),
+          (shared.length ? __('piOvOptShared', 'Moderate overlap driven by {list}.', { list: shared.join(', ') }) : __('piOvOptDetail', 'Moderate overlap.')),
+          __('piOvOptAction', 'Fine to hold both, but avoid stacking more funds with the same core.'), ovPct);
       }
     }
 
@@ -417,9 +420,9 @@
         if (gap >= T.styleTiltPp && topSecPct < T.sectorCritical) {
           // Don't duplicate the critical sector finding; this is the "drift" angle.
           push('styleDrift', 'optimization', 'style-drift',
-            'Your style has drifted toward ' + sec.sector + ' (' + fmtPct(topSecPct) + ' vs ~' + ref + '% in a broad global index)',
-            'A ' + fmtPct(gap) + ' overweight versus the market means you are taking an active style bet, intended or not.',
-            'Confirm the tilt is deliberate; otherwise rebalance toward market weights.', gap);
+            __('piStyleTitle', 'Your style has drifted toward {sector} ({pct} vs ~{ref} in a broad global index)', { sector: I18N().sector(sec.sector), pct: fmtPct(topSecPct), ref: fmtPct(ref) }),
+            __('piStyleDetail', 'A {gap} overweight versus the market means you are taking an active style bet, intended or not.', { gap: fmtPct(gap) }),
+            __('piStyleAction', 'Confirm the tilt is deliberate; otherwise rebalance toward market weights.'), gap);
         }
       }
     }
@@ -430,18 +433,18 @@
       var y = num(dv.yield), g = num(dv.weightedGrowth);
       if (y >= T.dividendYieldHigh && g != null && g < T.dividendGrowthLow) {
         push('dividendTrap', 'important', 'div-trap',
-          'Dividend yield is high (' + fmtPct(y) + ') but dividend growth is low (' + fmtPct(g) + ')',
-          'A high yield with stagnant or shrinking dividends often signals a value/dividend trap rather than durable income.',
-          'Favour dividend growers over the highest headline yields; verify payout sustainability.', y);
+          __('piDtTitle', 'Dividend yield is high ({y}) but dividend growth is low ({g})', { y: fmtPct(y), g: fmtPct(g) }),
+          __('piDtDetail', 'A high yield with stagnant or shrinking dividends often signals a value/dividend trap rather than durable income.'),
+          __('piDtAction', 'Favour dividend growers over the highest headline yields; verify payout sustainability.'), y);
       }
       // 9) Yield trap (high yield + cut-risk signal) ---------------------------
       var atRisk = num(dv.incomeAtRiskPct);
       var trapNames = (dv.traps || []).filter(function (x) { return x && x.cutRisk; }).map(function (x) { return x.symbol; }).filter(Boolean);
       if (y >= T.yieldTrapYield && ((atRisk != null && atRisk > 0) || trapNames.length)) {
         push('yieldTrap', 'critical', 'yield-trap',
-          'Possible yield trap: ' + fmtPct(y) + ' yield with dividend cut-risk signals' + (atRisk != null && atRisk > 0 ? ' on ' + fmtPct(atRisk) + ' of income' : ''),
-          'High yields paired with weak coverage or recent cuts frequently precede a dividend reduction' + (trapNames.length ? ' (' + trapNames.slice(0, 3).join(', ') + ').' : '.'),
-          'Stress-test the payout; do not buy the dip on yield alone.', y);
+          __('piYtTitle', 'Possible yield trap: {pct} yield with dividend cut-risk signals', { pct: fmtPct(y) }) + (atRisk != null && atRisk > 0 ? ' ' + __('piYtOnIncome', 'on {pct} of income', { pct: fmtPct(atRisk) }) : ''),
+          __('piYtDetail', 'High yields paired with weak coverage or recent cuts frequently precede a dividend reduction') + (trapNames.length ? ' (' + trapNames.slice(0, 3).join(', ') + ').' : '.'),
+          __('piYtAction', 'Stress-test the payout; do not buy the dip on yield alone.'), y);
       }
 
       // 9b) Income concentration (one payer funds most dividends) -------------
@@ -452,14 +455,14 @@
         var share = num(tp.incomeSharePct);
         if (share >= T.incomeConcImportant) {
           push('incomeConcentration', 'important', 'income-conc-important',
-            tp.symbol + ' pays ' + fmtPct(share) + ' of your dividend income',
-            'Relying on one payer for most of your income means a single dividend cut or suspension hits the whole stream at once.',
-            'Spread income across more payers and sectors so no single cut breaks your cash flow.', share);
+            __('piIcTitle', '{sym} pays {pct} of your dividend income', { sym: tp.symbol, pct: fmtPct(share) }),
+            __('piIcDetail', 'Relying on one payer for most of your income means a single dividend cut or suspension hits the whole stream at once.'),
+            __('piIcAction', 'Spread income across more payers and sectors so no single cut breaks your cash flow.'), share);
         } else if (share >= T.incomeConcOptimize) {
           push('incomeConcentration', 'optimization', 'income-conc-optimize',
-            tp.symbol + ' pays ' + fmtPct(share) + ' of your dividend income',
-            'A sizeable share of income comes from one payer — manageable, but worth diversifying over time.',
-            'Add income from other payers on future contributions to balance the stream.', share);
+            __('piIcTitle', '{sym} pays {pct} of your dividend income', { sym: tp.symbol, pct: fmtPct(share) }),
+            __('piIcOptDetail', 'A sizeable share of income comes from one payer — manageable, but worth diversifying over time.'),
+            __('piIcOptAction', 'Add income from other payers on future contributions to balance the stream.'), share);
         }
       }
     }
@@ -469,17 +472,17 @@
     if (lq && lq.available && num(lq.illiquidPct) != null) {
       var ill = num(lq.illiquidPct);
       var clsTxt = (lq.classes || []).filter(function (c) { return num(c.pct) > 0; })
-        .map(function (c) { return c.cls + ' ' + fmtPct(asPct(c.pct)); });
+        .map(function (c) { return I18N().category(c.cls) + ' ' + fmtPct(asPct(c.pct)); });
       if (ill >= T.liquidityImportant) {
         push('liquidity', 'important', 'liq-important',
-          fmtPct(ill) + ' of your portfolio is in hard-to-sell assets',
-          'Illiquid holdings' + (clsTxt.length ? ' (' + clsTxt.join(', ') + ')' : '') + ' can be slow or costly to exit when you need cash.',
-          'Keep an adequate liquid buffer; size illiquid bets to what you can hold through a downturn.', ill);
+          __('piLiqTitle', '{pct} of your portfolio is in hard-to-sell assets', { pct: fmtPct(ill) }),
+          __('piLiqDetail', 'Illiquid holdings{list} can be slow or costly to exit when you need cash.', { list: clsTxt.length ? ' (' + clsTxt.join(', ') + ')' : '' }),
+          __('piLiqAction', 'Keep an adequate liquid buffer; size illiquid bets to what you can hold through a downturn.'), ill);
       } else if (ill >= T.liquidityOptimize) {
         push('liquidity', 'optimization', 'liq-optimize',
-          fmtPct(ill) + ' of your portfolio is in less-liquid assets',
-          'Manageable, but worth tracking' + (clsTxt.length ? ' (' + clsTxt.join(', ') + ').' : '.'),
-          'Avoid letting illiquid positions grow past your comfort for forced sales.', ill);
+          __('piLiqOptTitle', '{pct} of your portfolio is in less-liquid assets', { pct: fmtPct(ill) }),
+          __('piLiqOptDetail', 'Manageable, but worth tracking') + (clsTxt.length ? ' (' + clsTxt.join(', ') + ').' : '.'),
+          __('piLiqOptAction', 'Avoid letting illiquid positions grow past your comfort for forced sales.'), ill);
       }
     }
 
@@ -490,17 +493,17 @@
     var ac = inputs.assetClass;
     if (ac && ac.available && ac.top && VOLATILE_CLASSES[String(ac.top.cls || '').toLowerCase()]) {
       var acPct = asPct(ac.top.pct);
-      var acCls = ac.top.cls;
+      var acCls = I18N().category(ac.top.cls);
       if (acPct != null && acPct >= T.acVolatileImportant) {
         push('assetClass', 'important', 'assetclass-important',
-          fmtPct(acPct) + ' of your portfolio is in ' + acCls,
-          acCls + ' is a single, highly volatile market; this much in one class means a drawdown there dominates your whole portfolio.',
-          'Confirm the concentration is intentional; trim toward other classes or hold a larger stable buffer.', acPct);
+          __('piAcTitle', '{pct} of your portfolio is in {cls}', { pct: fmtPct(acPct), cls: acCls }),
+          __('piAcDetail', '{cls} is a single, highly volatile market; this much in one class means a drawdown there dominates your whole portfolio.', { cls: acCls }),
+          __('piAcAction', 'Confirm the concentration is intentional; trim toward other classes or hold a larger stable buffer.'), acPct);
       } else if (acPct != null && acPct >= T.acVolatileOptimize) {
         push('assetClass', 'optimization', 'assetclass-optimize',
-          acCls + ' is ' + fmtPct(acPct) + ' of your portfolio',
-          'A meaningful slice in one volatile class — fine if deliberate, but worth tracking so it does not creep up.',
-          'Steer new contributions toward other classes if you want to cap the swing.', acPct);
+          __('piAcOptTitle', '{cls} is {pct} of your portfolio', { cls: acCls, pct: fmtPct(acPct) }),
+          __('piAcOptDetail', 'A meaningful slice in one volatile class — fine if deliberate, but worth tracking so it does not creep up.'),
+          __('piAcOptAction', 'Steer new contributions toward other classes if you want to cap the swing.'), acPct);
       }
     }
 
@@ -508,12 +511,12 @@
     // effective exposure data, so the engine still says something useful offline.
     if (!eff.length && inputs.directConcentration && inputs.directConcentration.available) {
       var dc = asPct(inputs.directConcentration.maxWeight);
-      var dl = inputs.directConcentration.topLabel || 'Top position';
+      var dl = inputs.directConcentration.topLabel || __('advTopPosition', 'Top position');
       if (dc != null && dc >= T.singleCompanyImportant) {
         push('singleCompany', dc >= T.singleCompanyCritical ? 'critical' : 'important', 'sc-direct',
-          dl + ' is ' + fmtPct(dc) + ' of your portfolio',
-          'Largest single position by direct weight (fund look-through unavailable — open Health once to resolve effective exposure).',
-          'Reduce ' + dl + ' or diversify; load fund data for the full picture.', dc);
+          __('advIsOfPortfolio', '{name} is {pct} of your portfolio', { name: dl, pct: fmtPct(dc) }),
+          __('piDirectDetail', 'Largest single position by direct weight (fund look-through unavailable — open Health once to resolve effective exposure).'),
+          __('piDirectAction', 'Reduce {name} or diversify; load fund data for the full picture.', { name: dl }), dc);
       }
     }
 
@@ -563,7 +566,7 @@
           var top = conc.top && conc.top[0];
           inputs.directConcentration = {
             available: true, maxWeight: conc.maxWeight,
-            topLabel: top ? (top.label || top.symbol || top.name) : 'Top position'
+            topLabel: top ? (top.label || top.symbol || top.name) : __('advTopPosition', 'Top position')
           };
         }
       }
@@ -738,7 +741,7 @@
     if (!React) return null;
     var e = React.createElement;
     var theme = props.theme || {};
-    var t = props.t || {};
+    var t = props.t || ((typeof window !== 'undefined' && window.MaerminI18n) ? window.MaerminI18n.dict() : {});
     var text = theme.text || '#e9edf4', dim = theme.textSecondary || '#8b94a7';
     var border = theme.cardBorder || 'rgba(255,255,255,0.08)';
     var card = theme.card || theme.cardBg || '#10151f';
@@ -824,9 +827,9 @@
 
       e('div', { style: { color: dim, fontSize: '0.72rem', marginTop: '0.9rem', lineHeight: 1.5 } },
         (hasLook && summary.coverage != null
-          ? 'Look-through covers ' + Math.round(summary.coverage * 100) + '% of value. '
-          : 'Open the Health view once to load fund look-through for full effective-exposure analysis. ') +
-        'All findings are computed locally from your own data — no advice is generated by a remote model.'));
+          ? __('piCoverage', 'Look-through covers {pct} of value.', { pct: I18N().pct(Math.round(summary.coverage * 100), 0) }) + ' '
+          : __('piOpenHealth', 'Open the Health view once to load fund look-through for full effective-exposure analysis.') + ' ') +
+        __('piLocalNote', 'All findings are computed locally from your own data — no advice is generated by a remote model.')));
   }
 
   var api = {

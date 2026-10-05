@@ -4,6 +4,8 @@
 // ============================================================================
 (function () {
 'use strict';
+// Translation lookup (i18n.js): __('key', 'English fallback', { slot: value }).
+function __(k, f, v) { return (typeof window !== 'undefined' && window.MaerminI18n ? window.MaerminI18n : require('./i18n.js')).t(k, f, v); }
 
 const { useState, useEffect } = React;
 
@@ -61,7 +63,7 @@ function WatchlistView({ prices, priceHistory, theme, t, addToast }) {
     const sym = newSymbol.trim().toLowerCase();
     if (!sym) return;
     if (items.find(i => i.symbol === sym)) {
-      addToast && addToast('Already in watchlist', 'warning');
+      addToast && addToast(__('wlAlready', 'Already in watchlist'), 'warning');
       return;
     }
     setItems(prev => [...prev, {
@@ -100,20 +102,20 @@ function WatchlistView({ prices, priceHistory, theme, t, addToast }) {
         type: 'text', value: newSymbol,
         onChange: e => setNewSymbol(e.target.value),
         onKeyDown: e => e.key === 'Enter' && addItem(),
-        placeholder: 'bitcoin, AAPL, AK-47 | Redline...',
+        placeholder: __('wlSymbolPh', 'bitcoin, AAPL, AK-47 | Redline...'),
         style: { ...inputStyle, flex: '1', minWidth: '160px' }
       }),
       React.createElement('select', {
         value: newCat, onChange: e => setNewCat(e.target.value), style: inputStyle
       },
-        React.createElement('option', { value: 'crypto' }, 'Crypto'),
-        React.createElement('option', { value: 'stocks' }, 'Stocks'),
+        React.createElement('option', { value: 'crypto' }, __('crypto', 'Crypto')),
+        React.createElement('option', { value: 'stocks' }, __('stocks', 'Stocks')),
         React.createElement('option', { value: 'skins'  }, 'CS2')
       ),
       React.createElement('input', {
         type: 'number', value: newTarget,
         onChange: e => setNewTarget(e.target.value),
-        placeholder: 'Target price (opt.)',
+        placeholder: __('wlTargetPh', 'Target price (opt.)'),
         style: { ...inputStyle, width: '150px' }
       }),
       React.createElement('input', {
@@ -129,7 +131,7 @@ function WatchlistView({ prices, priceHistory, theme, t, addToast }) {
           padding: '0.5rem 1.25rem', background: theme.accent, color: '#ffffff',
           border: 'none', borderRadius: '8px', cursor: 'pointer', fontWeight: '600'
         }
-      }, '+ Add')
+      }, __('addShort', '+ Add'))
     ),
 
     // List
@@ -147,7 +149,7 @@ function WatchlistView({ prices, priceHistory, theme, t, addToast }) {
           React.createElement('table', { style: { width: '100%', borderCollapse: 'collapse', minWidth: '500px' } },
             React.createElement('thead', null,
               React.createElement('tr', null,
-                ['Symbol','Category','Price','Change','Target','Spark',''].map((h,i) =>
+                [__('symbol', 'Symbol'),__('category', 'Category'),__('price', 'Price'),__('wlChange', 'Change'),__('wlTarget', 'Target'),__('wlSpark', 'Spark'),''].map((h,i) =>
                   React.createElement('th', {
                     key: i,
                     style: {
@@ -176,7 +178,7 @@ function WatchlistView({ prices, priceHistory, theme, t, addToast }) {
                 },
                   React.createElement('td', { style: { padding: '0.875rem 1rem' } },
                     React.createElement('div', { style: { fontWeight: '700', color: theme.text, fontSize: '0.9rem' } }, item.displaySymbol),
-                    atTarget && React.createElement('div', { style: { color: theme.success, fontSize: '0.7rem', fontWeight: '600' } }, '◎ Target reached!'),
+                    atTarget && React.createElement('div', { style: { color: theme.success, fontSize: '0.7rem', fontWeight: '600' } }, __('wlTargetReached', '◎ Target reached!')),
                     item.note && React.createElement('div', { style: { color: theme.textSecondary, fontSize: '0.72rem', marginTop: '0.15rem', maxWidth: '220px', whiteSpace: 'normal', lineHeight: 1.35 } }, item.note)
                   ),
                   React.createElement('td', { style: { padding: '0.875rem 1rem' } },
@@ -187,33 +189,33 @@ function WatchlistView({ prices, priceHistory, theme, t, addToast }) {
                                     item.category === 'stocks' ? 'rgba(59,130,246,0.15)' : 'rgba(6,182,212,0.15)',
                         color: item.category === 'crypto' ? '#f59e0b' : item.category === 'stocks' ? '#3b82f6' : '#06b6d4'
                       }
-                    }, item.category.toUpperCase())
+                    }, window.MaerminI18n.category(item.category).toUpperCase())
                   ),
                   React.createElement('td', { style: { padding: '0.875rem 1rem', textAlign: 'right', color: theme.text, fontWeight: '600' } },
-                    price > 0 ? price.toFixed(2) : '—'
+                    price > 0 ? window.MaerminI18n.num(price, 2) : '—'
                   ),
                   React.createElement('td', { style: { padding: '0.875rem 1rem', textAlign: 'right' } },
                     price > 0
                       ? React.createElement('span', {
                           style: { color: changePct >= 0 ? theme.success : theme.danger, fontWeight: '600', fontSize: '0.875rem' }
-                        }, `${changePct >= 0 ? '+' : ''}${changePct.toFixed(2)}%`)
+                        }, window.MaerminI18n.pct(changePct, 2, true))
                       : React.createElement('span', { style: { color: theme.textSecondary } }, '—')
                   ),
                   React.createElement('td', { style: { padding: '0.875rem 1rem', textAlign: 'right', color: theme.textSecondary, fontSize: '0.875rem' } },
-                    item.targetPrice ? item.targetPrice.toFixed(2) : '—',
+                    item.targetPrice ? window.MaerminI18n.num(item.targetPrice, 2) : '—',
                     (distPct !== null && !atTarget) && React.createElement('div', {
                       style: { color: theme.textSecondary, fontSize: '0.7rem', marginTop: '0.1rem', opacity: 0.85 }
-                    }, `${distPct >= 0 ? '+' : ''}${distPct.toFixed(1)}% ${distPct >= 0 ? (t.watchlistToGo || 'to go') : (t.watchlistAbove || 'above')}`)
+                    }, `${window.MaerminI18n.pct(distPct, 1, true)} ${distPct >= 0 ? (t.watchlistToGo || 'to go') : (t.watchlistAbove || 'above')}`)
                   ),
                   React.createElement('td', { style: { padding: '0.875rem 1rem', textAlign: 'right' } },
                     sparkVals.length > 1
                       ? React.createElement(Sparkline, { values: sparkVals, width: 72, height: 28 })
-                      : React.createElement('span', { style: { color: theme.textSecondary, fontSize: '0.75rem' } }, 'No data')
+                      : React.createElement('span', { style: { color: theme.textSecondary, fontSize: '0.75rem' } }, __('noData', 'No data'))
                   ),
                   React.createElement('td', { style: { padding: '0.5rem', textAlign: 'center' } },
                     React.createElement('button', {
                       onClick: () => removeItem(item.id),
-                      'aria-label': 'Remove ' + (item.displaySymbol || item.symbol || '') + ' from the watchlist',
+                      'aria-label': __('wlRemoveAria', 'Remove {sym} from the watchlist', { sym: item.displaySymbol || item.symbol || '' }),
                       style: {
                         background: 'rgba(239,68,68,0.1)', border: '1px solid rgba(239,68,68,0.2)',
                         color: '#ef4444', borderRadius: '4px', cursor: 'pointer', padding: '0.25rem 0.5rem', fontSize: '0.75rem'

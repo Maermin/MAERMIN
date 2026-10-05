@@ -12,6 +12,8 @@
 // ============================================================================
 (function () {
   'use strict';
+// Translation lookup (i18n.js): __('key', 'English fallback', { slot: value }).
+function __(k, f, v) { return (typeof window !== 'undefined' && window.MaerminI18n ? window.MaerminI18n : require('./i18n.js')).t(k, f, v); }
 
   var KEY = 'maermin_div_notified';
   var DAY_MS = 24 * 60 * 60 * 1000;
@@ -75,10 +77,10 @@
     if (!rows.length) return '';
     if (rows.length === 1) {
       var r = rows[0];
-      return r.symbol + ' pays ' + fmt(r.amount) + ' on ' + r.date;
+      return __('drOnePays', '{sym} pays {amount} on {date}', { sym: r.symbol, amount: fmt(r.amount), date: (typeof window !== 'undefined' && window.MaerminI18n ? window.MaerminI18n : require('./i18n.js')).date(r.date) });
     }
     var total = rows.reduce(function (s, r) { return s + (Number(r.amount) || 0); }, 0);
-    return rows.length + ' dividends due soon (~' + fmt(total) + ')';
+    return __('drManyDue', '{n} dividends due soon (~{amount})', { n: rows.length, amount: fmt(total) });
   }
 
   // ---- thin localStorage bridge (browser only) -----------------------------

@@ -1,6 +1,7 @@
 #!/usr/bin/env node
 // Fast syntax gate: run `node --check` on every project JS file. Catches parse
-// errors before they reach the browser bundle or CI test run. No deps.
+// errors before they reach the browser bundle or CI test run. Then the i18n
+// guard (scripts/i18n-check.mjs).
 import { readdirSync, statSync } from 'node:fs';
 import { spawnSync } from 'node:child_process';
 import { join, dirname } from 'node:path';
@@ -30,3 +31,8 @@ for (const f of files) {
 
 if (failed) { console.error(`\n${failed} of ${files.length} files failed syntax check`); process.exit(1); }
 console.log(`✓ ${files.length} JS files pass syntax check`);
+
+// Translation guard (PLAN P2-2): en/de parity, defined keys, no dead keys,
+// hardcoded UI text never grows.
+const { run: i18n } = await import('./i18n-check.mjs');
+if (i18n().errors.length) process.exit(1);

@@ -13,13 +13,18 @@
 // ============================================================================
 (function () {
   'use strict';
+// Translation lookup (i18n.js): __('key', 'English fallback', { slot: value }).
+function __(k, f, v) { return (typeof window !== 'undefined' && window.MaerminI18n ? window.MaerminI18n : require('./i18n.js')).t(k, f, v); }
 
   var SEVERITY_RANK = { critical: 0, warning: 1, opportunity: 2, info: 3, good: 4 };
 
-  function pct(n) { return (Math.round((n || 0) * 10) / 10) + '%'; }
-  function money(n) {
-    var v = Math.round(n || 0);
-    return v.toLocaleString('en-US');
+  function I18N() { return (typeof window !== 'undefined' && window.MaerminI18n) || require('./i18n.js'); }
+  function pct(n) { return I18N().pct(Math.round((n || 0) * 10) / 10, { min: 0, max: 1 }); }
+  function money(n) { return I18N().num(Math.round(n || 0), 0); }
+
+  // Health sub-score key -> label.
+  function areaLabel(k) {
+    return ({ diversification: __('healthDiversification', 'Diversification'), risk: __('healthRiskCat', 'Risk'), liquidity: __('healthLiquidityCat', 'Liquidity'), tax: __('healthTaxCat', 'Tax efficiency'), taxEfficiency: __('healthTaxCat', 'Tax efficiency') })[k] || k;
   }
 
   // ---- deterministic findings (PURE) --------------------------------------
@@ -30,34 +35,34 @@
   // (all bundle amounts are EUR; the texts used to say "$").
   function analyzeFromMetrics(bundle, t, opts) {
     bundle = bundle || {};
-    var fmt = (opts && typeof opts.formatMoney === 'function') ? opts.formatMoney : function (n) { return money(n) + ' €'; };
+    var fmt = (opts && typeof opts.formatMoney === 'function') ? opts.formatMoney : function (n) { return I18N().money(Math.round(n || 0), 'EUR', 0); };
     var F = [];
 
     // 1) Concentration risk
     var c = bundle.concentration;
     if (c && c.available) {
-      var topName = (c.top && c.top[0] && (c.top[0].label || c.top[0].symbol || c.top[0].name)) || 'Top position';
+      var topName = (c.top && c.top[0] && (c.top[0].label || c.top[0].symbol || c.top[0].name)) || __('advTopPosition', 'Top position');
       if (c.maxWeight >= 30) {
         F.push({ id: 'conc-critical', severity: 'critical', category: 'Concentration',
-          title: topName + ' is ' + pct(c.maxWeight) + ' of your portfolio',
-          detail: 'A single holding above 30% drives most of your risk. Consider trimming toward a 20–25% cap.',
-          action: 'Reduce ' + topName + ' or add uncorrelated positions.', metric: c.maxWeight });
+          title: __('advIsOfPortfolio', '{name} is {pct} of your portfolio', { name: topName, pct: pct(c.maxWeight) }),
+          detail: __('advConcCritical', 'A single holding above {a} drives most of your risk. Consider trimming toward a {b} cap.', { a: pct(30), b: I18N().pct(20, 0) + '–' + pct(25) }),
+          action: __('advReduce', 'Reduce {name} or add uncorrelated positions.', { name: topName }), metric: c.maxWeight });
       } else if (c.maxWeight >= 20) {
         F.push({ id: 'conc-warning', severity: 'warning', category: 'Concentration',
-          title: topName + ' is ' + pct(c.maxWeight) + ' of your portfolio',
-          detail: 'Above 20% in one position increases idiosyncratic risk.',
-          action: 'Watch this weight; rebalance if it keeps growing.', metric: c.maxWeight });
+          title: __('advIsOfPortfolio', '{name} is {pct} of your portfolio', { name: topName, pct: pct(c.maxWeight) }),
+          detail: __('advConcWarn', 'Above {a} in one position increases idiosyncratic risk.', { a: pct(20) }),
+          action: __('advWatchWeight', 'Watch this weight; rebalance if it keeps growing.'), metric: c.maxWeight });
       }
       // 2) Diversification (effective number of holdings)
       if (c.effectiveN && c.effectiveN < 3) {
         F.push({ id: 'div-low', severity: 'warning', category: 'Diversification',
-          title: 'Low effective diversification (~' + (Math.round(c.effectiveN * 10) / 10) + ' holdings)',
-          detail: 'Most of your money behaves like just a few bets. Spreading across more positions/sectors smooths returns.',
-          action: 'Add positions in under-represented asset classes.', metric: c.effectiveN });
+          title: __('advLowDiv', 'Low effective diversification (~{n} holdings)', { n: I18N().num(Math.round(c.effectiveN * 10) / 10, { min: 0, max: 1 }) }),
+          detail: __('advLowDivDetail', 'Most of your money behaves like just a few bets. Spreading across more positions/sectors smooths returns.'),
+          action: __('advLowDivAction', 'Add positions in under-represented asset classes.'), metric: c.effectiveN });
       } else if (c.effectiveN && c.effectiveN >= 8) {
         F.push({ id: 'div-good', severity: 'good', category: 'Diversification',
-          title: 'Well diversified (~' + Math.round(c.effectiveN) + ' effective holdings)',
-          detail: 'Risk is spread across many positions.', metric: c.effectiveN });
+          title: __('advWellDiv', 'Well diversified (~{n} effective holdings)', { n: Math.round(c.effectiveN) }),
+          detail: __('advWellDivDetail', 'Risk is spread across many positions.'), metric: c.effectiveN });
       }
     }
 
@@ -67,13 +72,13 @@
       var top = cur.rows[0];
       if (top.pct >= 80 && cur.currencyCount > 1) {
         F.push({ id: 'fx-warning', severity: 'warning', category: 'Currency',
-          title: pct(top.pct) + ' of assets are in ' + top.currency,
-          detail: 'Heavy single-currency exposure adds FX risk to your real returns.',
-          action: 'Consider holdings in other currencies or an FX hedge.', metric: top.pct });
+          title: __('advFxTitle', '{pct} of assets are in {cur}', { pct: pct(top.pct), cur: top.currency }),
+          detail: __('advFxHeavy', 'Heavy single-currency exposure adds FX risk to your real returns.'),
+          action: __('advFxAction', 'Consider holdings in other currencies or an FX hedge.'), metric: top.pct });
       } else if (top.pct >= 60 && cur.currencyCount > 1) {
         F.push({ id: 'fx-info', severity: 'info', category: 'Currency',
-          title: pct(top.pct) + ' of assets are in ' + top.currency,
-          detail: 'Your portfolio leans on one currency.', metric: top.pct });
+          title: __('advFxTitle', '{pct} of assets are in {cur}', { pct: pct(top.pct), cur: top.currency }),
+          detail: __('advFxLean', 'Your portfolio leans on one currency.'), metric: top.pct });
       }
     }
 
@@ -84,19 +89,19 @@
         .sort(function (a, b) { return Math.abs(b.drift) - Math.abs(a.drift); });
       if (d.maxDrift >= 10) {
         F.push({ id: 'rebal-warning', severity: 'warning', category: 'Rebalancing',
-          title: 'Allocation has drifted up to ' + pct(d.maxDrift) + ' from target',
+          title: __('advDrift', 'Allocation has drifted up to {pct} from target', { pct: pct(d.maxDrift) }),
           detail: drifted.slice(0, 3).map(function (r) {
-            return r.cls + ' ' + (r.drift > 0 ? '+' : '') + pct(r.drift);
+            return I18N().category(r.cls) + ' ' + (r.drift > 0 ? '+' : '') + pct(r.drift);
           }).join(', ') + '.',
-          action: 'Rebalance toward your target weights (sell over-weights, add to under-weights).', metric: d.maxDrift });
+          action: __('advDriftAction', 'Rebalance toward your target weights (sell over-weights, add to under-weights).'), metric: d.maxDrift });
       } else if (d.maxDrift >= 5) {
         F.push({ id: 'rebal-info', severity: 'info', category: 'Rebalancing',
-          title: 'Minor allocation drift (' + pct(d.maxDrift) + ')',
-          detail: 'Still close to target — rebalance opportunistically.', metric: d.maxDrift });
+          title: __('advMinorDrift', 'Minor allocation drift ({pct})', { pct: pct(d.maxDrift) }),
+          detail: __('advMinorDriftDetail', 'Still close to target — rebalance opportunistically.'), metric: d.maxDrift });
       } else {
         F.push({ id: 'rebal-good', severity: 'good', category: 'Rebalancing',
-          title: 'Allocation on target',
-          detail: 'Drift is under 5% — no action needed.', metric: d.maxDrift });
+          title: __('advOnTarget', 'Allocation on target'),
+          detail: __('advOnTargetDetail', 'Drift is under {pct} — no action needed.', { pct: pct(5) }), metric: d.maxDrift });
       }
     }
 
@@ -104,20 +109,20 @@
     var dv = bundle.dividends;
     if (dv && dv.available) {
       F.push({ id: 'div-income', severity: 'info', category: 'Dividends',
-        title: '~' + fmt(dv.totalAnnual) + '/yr dividend income (' + pct(dv.yield) + ' yield)',
-        detail: 'About ' + fmt(dv.monthly) + '/mo from ' + dv.payers + ' payer(s). ' +
-          (dv.yield < 1.5 ? 'A few dividend growers could raise durable income.' : 'Reinvesting these compounds your base.'),
-        action: dv.yield < 1.5 ? 'Consider dividend-growth ETFs/stocks for income.' : 'Enable DRIP to compound.', metric: dv.yield });
+        title: __('advDivTitle', '~{amount}/yr dividend income ({pct} yield)', { amount: fmt(dv.totalAnnual), pct: pct(dv.yield) }),
+        detail: __('advDivDetail', 'About {amount}/mo from {n} {n:payer|payers}.', { amount: fmt(dv.monthly), n: dv.payers }) + ' ' +
+          (dv.yield < 1.5 ? __('advDivGrowers', 'A few dividend growers could raise durable income.') : __('advDivReinvest', 'Reinvesting these compounds your base.')),
+        action: dv.yield < 1.5 ? __('advDivGrowAction', 'Consider dividend-growth ETFs/stocks for income.') : __('advDivDrip', 'Enable DRIP to compound.'), metric: dv.yield });
     }
 
     // 6) Tax optimisation (loss harvesting)
     var tl = bundle.taxLoss;
     if (tl && tl.available && tl.totalSavings > 0) {
       F.push({ id: 'tax-harvest', severity: 'opportunity', category: 'Tax',
-        title: 'Tax-loss harvesting could save ~' + fmt(tl.totalSavings),
-        detail: (tl.rows ? tl.rows.length : 0) + ' position(s) at an unrealised loss can offset realised gains.' +
-          (tl.rows && tl.rows.some(function (r) { return r.washSale; }) ? ' Some are within the 30-day wash-sale window.' : ''),
-        action: 'Review loss positions before year-end; mind wash-sale rules.', metric: tl.totalSavings });
+        title: __('advTaxTitle', 'Tax-loss harvesting could save ~{amount}', { amount: fmt(tl.totalSavings) }),
+        detail: __('advTaxDetail', '{n} {n:position|positions} at an unrealised loss can offset realised gains.', { n: tl.rows ? tl.rows.length : 0 }) +
+          (tl.rows && tl.rows.some(function (r) { return r.washSale; }) ? ' ' + __('advWashSale', 'Some are within the 30-day wash-sale window.') : ''),
+        action: __('advTaxAction', 'Review loss positions before year-end; mind wash-sale rules.'), metric: tl.totalSavings });
     }
 
     // 7) Hidden concentration through funds (ETF look-through, when available).
@@ -131,11 +136,11 @@
       var fundedPct = (hc.fundedWeight || 0) * 100;
       F.push({
         id: 'lookthrough-conc', severity: effPct >= 10 ? 'critical' : 'warning', category: 'Look-through',
-        title: (hc.name || hc.key) + ' is ' + pct(effPct) + ' of your portfolio counting fund holdings',
-        detail: (directPct > 0 ? pct(directPct) + ' held directly plus ' : '') + pct(fundedPct) +
-          ' hidden inside ' + (hc.funds || []).join(', ') + '.' +
-          (lt.hiddenConcentrations.length > 1 ? ' ' + (lt.hiddenConcentrations.length - 1) + ' more security(ies) cross the threshold.' : ''),
-        action: 'Check the ETF look-through panel; overlapping funds multiply single-stock risk.',
+        title: __('advLtTitle', '{name} is {pct} of your portfolio counting fund holdings', { name: hc.name || hc.key, pct: pct(effPct) }),
+        detail: (directPct > 0 ? __('advLtDirect', '{pct} held directly plus', { pct: pct(directPct) }) + ' ' : '') +
+          __('advLtHidden', '{pct} hidden inside {list}.', { pct: pct(fundedPct), list: (hc.funds || []).join(', ') }) +
+          (lt.hiddenConcentrations.length > 1 ? ' ' + __('advLtMore', '{n} more {n:security crosses|securities cross} the threshold.', { n: lt.hiddenConcentrations.length - 1 }) : ''),
+        action: __('advLtAction', 'Check the ETF look-through panel; overlapping funds multiply single-stock risk.'),
         metric: effPct
       });
     }
@@ -152,9 +157,9 @@
           id: 'riskmon-' + a.id, severity: a.severity, category: 'Risk monitor',
           title: a.title,
           detail: (a.id === 'drawdown'
-            ? 'The portfolio sits below your configured drawdown limit relative to its peak.'
-            : 'Recent swings exceed your configured volatility limit.'),
-          action: 'Review the Risk & drift monitor in Alerts; adjust the limit or de-risk.',
+            ? __('advRmDrawdown', 'The portfolio sits below your configured drawdown limit relative to its peak.')
+            : __('advRmVol', 'Recent swings exceed your configured volatility limit.')),
+          action: __('advRmAction', 'Review the Risk & drift monitor in Alerts; adjust the limit or de-risk.'),
           metric: a.metric
         });
       });
@@ -172,13 +177,13 @@
       });
       if (h.score != null && h.score < 50) {
         F.push({ id: 'health-low', severity: 'warning', category: 'Health',
-          title: 'Portfolio health is ' + Math.round(h.score) + '/100',
-          detail: weakest ? ('Weakest area: ' + weakest.key + ' (' + Math.round(weakest.val) + '/100).') : '',
-          action: 'Focus on the weakest sub-score first.', metric: h.score });
+          title: __('advHealthLow', 'Portfolio health is {n}/100', { n: Math.round(h.score) }),
+          detail: weakest ? __('advWeakest', 'Weakest area: {area} ({n}/100).', { area: areaLabel(weakest.key), n: Math.round(weakest.val) }) : '',
+          action: __('advWeakestAction', 'Focus on the weakest sub-score first.'), metric: h.score });
       } else if (h.score != null && h.score >= 80) {
         F.push({ id: 'health-good', severity: 'good', category: 'Health',
-          title: 'Strong portfolio health (' + Math.round(h.score) + '/100)',
-          detail: 'Fundamentals look solid.', metric: h.score });
+          title: __('advHealthGood', 'Strong portfolio health ({n}/100)', { n: Math.round(h.score) }),
+          detail: __('advHealthGoodDetail', 'Fundamentals look solid.'), metric: h.score });
       }
     }
 
@@ -240,7 +245,7 @@
     if (typeof React === 'undefined') return null;
     var e = React.createElement;
     var theme = props.theme || {};
-    var t = props.t || {};
+    var t = props.t || ((typeof window !== 'undefined' && window.MaerminI18n) ? window.MaerminI18n.dict() : {});
     var report = props.report || analyzePortfolio(props.portfolio, props.prices, props.transactions, t, props.extras, { formatMoney: props.formatMoney });
     var findings = report.findings || [];
 

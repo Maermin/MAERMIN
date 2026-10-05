@@ -17,6 +17,8 @@
 // ============================================================================
 (function () {
   'use strict';
+// Translation lookup (i18n.js): __('key', 'English fallback', { slot: value }).
+function __(k, f, v) { return (typeof window !== 'undefined' && window.MaerminI18n ? window.MaerminI18n : require('./i18n.js')).t(k, f, v); }
 
   var PER_YEAR = { weekly: 52, biweekly: 26, monthly: 12, quarterly: 4, semiannual: 2, annual: 1 };
 
@@ -149,9 +151,9 @@
     });
 
     var SCN = [
-      { key: 'optimistic', color: '#22c55e', label: 'Optimistic' },
-      { key: 'realistic', color: theme.accent || '#8b7cff', label: 'Realistic' },
-      { key: 'conservative', color: '#ef4444', label: 'Conservative' }
+      { key: 'optimistic', color: '#22c55e', label: __('pjOptimistic', 'Optimistic') },
+      { key: 'realistic', color: theme.accent || '#8b7cff', label: __('pjRealistic', 'Realistic') },
+      { key: 'conservative', color: '#ef4444', label: __('pjConservative', 'Conservative') }
     ];
 
     // ---- SVG chart geometry -------------------------------------------------
@@ -184,10 +186,7 @@
 
     // Compact axis-value formatter (23.9k / 1.2M) to keep the Y axis narrow.
     function compact(v) {
-      var a = Math.abs(v);
-      if (a >= 1e6) return (v / 1e6).toFixed(a >= 1e7 ? 0 : 1) + 'M';
-      if (a >= 1e3) return (v / 1e3).toFixed(a >= 1e4 ? 0 : 1) + 'k';
-      return String(Math.round(v));
+      return window.MaerminI18n.compact(v);
     }
     var TICKS = 4;
     var yTicks = [];
@@ -203,16 +202,16 @@
         style: { padding: '0.3rem 0.7rem', borderRadius: '6px', border: '1px solid ' + (theme.cardBorder || '#333'),
           background: years === yr && !custom ? (theme.accent || '#8b7cff') : 'transparent',
           color: years === yr && !custom ? '#ffffff' : (theme.textSecondary || '#888'),
-          cursor: 'pointer', fontSize: '0.78rem', fontWeight: years === yr ? 700 : 400 } }, yr + 'y');
+          cursor: 'pointer', fontSize: '0.78rem', fontWeight: years === yr ? 700 : 400 } }, __('pjYears', '{n}y', { n: yr }));
     }
 
     return e('div', { style: { background: theme.card || '#10151f', border: '1px solid ' + (theme.cardBorder || 'rgba(255,255,255,0.08)'), borderRadius: '14px', padding: '1.25rem', marginBottom: '1.5rem' } },
       e('div', { style: { display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.75rem', flexWrap: 'wrap', gap: '0.5rem' } },
         e('div', { style: { color: theme.text || '#e9edf4', fontWeight: 800, fontSize: '1rem' } },
-          (props.scopeLabel ? props.scopeLabel + ' — ' : '') + 'Wealth Projection'),
+          (props.scopeLabel ? props.scopeLabel + ' — ' : '') + __('pjTitle', 'Wealth Projection')),
         e('div', { style: { display: 'flex', gap: '0.35rem', alignItems: 'center' } },
           horizons.map(hzBtn),
-          e('input', { type: 'number', value: custom, placeholder: 'yr', onChange: function (ev) { setCustom(ev.target.value); var v = parseFloat(ev.target.value); if (v > 0) setYears(v); },
+          e('input', { type: 'number', value: custom, placeholder: __('pjYrPh', 'yr'), onChange: function (ev) { setCustom(ev.target.value); var v = parseFloat(ev.target.value); if (v > 0) setYears(v); },
             style: { width: '54px', padding: '0.3rem 0.4rem', borderRadius: '6px', border: '1px solid ' + (theme.cardBorder || '#333'), background: theme.inputBg || '#0f172a', color: theme.text || '#fff', fontSize: '0.78rem' } })
         )
       ),
@@ -236,7 +235,7 @@
         pts.map(function (p, i) {
           if (i % xStep !== 0 && i !== pts.length - 1) return null;
           return e('text', { key: 'x' + i, x: x(p), y: H - 10, textAnchor: 'middle', fontSize: 10, fill: theme.textSecondary || '#888' },
-            p.year === 0 ? 'Now' : (Math.round(p.year * 10) / 10) + 'y');
+            p.year === 0 ? __('pjNow', 'Now') : __('pjYears', '{n}y', { n: window.MaerminI18n.num(Math.round(p.year * 10) / 10, { min: 0, max: 1 }) }));
         }),
         // soft fill under the realistic curve
         e('path', { d: areaPath, fill: 'url(#' + gridId + ')', stroke: 'none' }),
@@ -260,9 +259,9 @@
       ),
       // cashflow breakdown
       e('div', { style: { display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(130px, 1fr))', gap: '0.5rem', marginTop: '0.9rem', fontSize: '0.76rem' } },
-        [['Contributions', proj.scenarios.realistic.totalContributions, theme.success || '#22c55e'],
-         ['Dividends', proj.scenarios.realistic.totalDividends, theme.accent || '#8b7cff'],
-         ['Debt service', -proj.scenarios.realistic.totalLiabilityPayments, theme.danger || '#ef4444']
+        [[__('pjContributions', 'Contributions'), proj.scenarios.realistic.totalContributions, theme.success || '#22c55e'],
+         [__('attrDividends', 'Dividends'), proj.scenarios.realistic.totalDividends, theme.accent || '#8b7cff'],
+         [__('pjDebtService', 'Debt service'), -proj.scenarios.realistic.totalLiabilityPayments, theme.danger || '#ef4444']
         ].map(function (row, i) {
           return e('div', { key: i, style: { background: theme.inputBg || 'rgba(255,255,255,0.03)', borderRadius: '8px', padding: '0.5rem 0.7rem' } },
             e('div', { style: { color: theme.textSecondary || '#888' } }, row[0]),
@@ -270,7 +269,7 @@
         })
       ),
       e('div', { style: { color: theme.textSecondary || '#888', fontSize: '0.68rem', marginTop: '0.6rem', opacity: 0.8 } },
-        'Projection over ' + (Math.round(years * 10) / 10) + 'y. Returns are assumptions (3/6/9% p.a.), not guarantees.')
+        __('pjFootnote', 'Projection over {n}y. Returns are assumptions ({rates} p.a.), not guarantees.', { n: window.MaerminI18n.num(Math.round(years * 10) / 10, { min: 0, max: 1 }), rates: window.MaerminI18n.pct(3, 0) + '/' + window.MaerminI18n.pct(6, 0) + '/' + window.MaerminI18n.pct(9, 0) }))
     );
   }
 
