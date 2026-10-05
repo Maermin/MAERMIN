@@ -1,6 +1,6 @@
 // Node harness for the recovery kit (alternative vault unlock via a printable
 // code). Proves the code recovers the SAME data key without storing/transmitting
-// it, and that a password change invalidates the kit. Run: node test/vault-recovery.test.js
+// it, and that the kit survives a password change. Run: node test/vault-recovery.test.js
 'use strict';
 
 let passed = 0, failed = 0;
@@ -81,15 +81,18 @@ const Vault = require('../crypto-vault.js');
   ok('hasRecovery false after remove', !Vault.hasRecovery());
   ok('removeRecovery returns false when absent', Vault.removeRecovery() === false);
 
-  // A password change re-keys the vault → the old kit must NOT survive (same
-  // convention as passkeys; UI re-prompts for a fresh kit).
+  // A password change only re-wraps the data key, so the kit survives it
+  // (FINDINGS H-4: it used to be dropped silently, together with the passkey
+  // and the sync account).
   await Vault.unlock('correct horse battery staple');
   const kit2 = await Vault.enrollRecovery();
   ok('re-enrolled before password change', Vault.hasRecovery());
   await Vault.changePassword('correct horse battery staple', 'a brand new passphrase');
-  ok('recovery kit dropped after password change', !Vault.hasRecovery());
+  ok('recovery kit kept after password change', Vault.hasRecovery());
   Vault.lock();
-  await throws('stale recovery code no longer works', Vault.unlockWithRecovery(kit2.code), 'no-recovery');
+  await Vault.unlockWithRecovery(kit2.code);
+  ok('the recovery code still unlocks the same key', Vault.isUnlocked() && (await Vault.decrypt(env)) === secret);
+  Vault.lock();
   await Vault.unlock('a brand new passphrase');
   ok('new password still unlocks', Vault.isUnlocked());
 

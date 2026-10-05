@@ -231,6 +231,13 @@
     var salt = b64decode(meta.salt);
 
     return kdf.derive(password, salt, meta.params)
+      // v1: the password-derived key IS the data key. v2 (after a password
+      // change): it only unwraps the data key stored in meta.pwWrap.
+      .then(function (derived) {
+        if (!meta.pwWrap) return derived;
+        return importAesKey(derived).then(function (kek) { return decryptWith(kek, meta.pwWrap); })
+          .then(function (rawB64) { return b64decode(rawB64); });
+      })
       .then(function (rawKey) { return importAesKey(rawKey).then(function (k) { return { rawKey: rawKey, key: k }; }); })
       .then(function (pair) {
         return decryptWith(pair.key, meta.wrapCheck)
@@ -239,17 +246,50 @@
             _key = pair.key; _rawKey = pair.rawKey; _kdfName = meta.kdf;
             startAutoLock(meta.autoLockMs);
             return true;
-          })
-          .catch(function () { throw new Error('bad-password'); });
+          });
+      })
+      .catch(function () { throw new Error('bad-password'); });
+  }
+
+  // Set a new password for the UNLOCKED vault (also right after a recovery-
+  // code or passkey unlock). The data key stays the same; only its password
+  // wrapping changes (meta v2: pwWrap = data key encrypted with the new
+  // password's key). So stored data, exchange credentials, the passkey and
+  // recovery wraps, the auto-lock setting and the sync account (derived from
+  // the data key) all keep working - nothing is re-encrypted.
+  function setPassword(newPassword, opts) {
+    opts = opts || {};
+    if (!isSupported()) return Promise.reject(new Error('crypto-unsupported'));
+    if (!_rawKey || !_key) return Promise.reject(new Error('locked'));
+    if (!newPassword) return Promise.reject(new Error('empty-password'));
+    var meta = readMeta();
+    if (!meta) return Promise.reject(new Error('no-vault'));
+    var kdfName = opts.kdf || DEFAULT_KDF;
+    var kdf = KDFS[kdfName] || KDFS.pbkdf2;
+    var params = opts.params || kdf.defaultParams();
+    var salt = getRandom(new Uint8Array(16));
+    var rawKey = _rawKey, dataKey = _key;
+    return kdf.derive(newPassword, salt, params)
+      .then(function (derived) { return importAesKey(derived); })
+      .then(function (kek) { return encryptWith(kek, b64encode(rawKey)); })
+      .then(function (pwWrap) {
+        return encryptWith(dataKey, WRAP_CHECK_PLAINTEXT).then(function (wrapCheck) {
+          var next = Object.assign({}, meta, {
+            v: 2, kdf: kdfName, params: params, salt: b64encode(salt),
+            pwWrap: pwWrap, wrapCheck: wrapCheck, updatedAt: Date.now()
+          });
+          writeMeta(next);
+          _kdfName = kdfName;
+          return true;
+        });
       });
   }
 
-  // Re-key the vault to a new password without re-encrypting data: callers that
-  // store data re-encrypt their blob with the new key (storage.js handles this
-  // via the change-password flow). Returns the OLD raw key so data can be moved.
+  // Change the password: verify the current one, then re-wrap the data key.
+  // A wrong current password rejects with 'bad-password' and changes nothing.
   function changePassword(oldPassword, newPassword, opts) {
     return unlock(oldPassword).then(function () {
-      return create(newPassword, opts).then(function () { return true; });
+      return setPassword(newPassword, opts);
     });
   }
 
@@ -380,9 +420,8 @@
   // in meta. This gives a real recovery path for a forgotten password without
   // weakening the zero-knowledge model (server/meta never see plaintext key).
   //
-  // Like passkeys, the recovery wrap is bound to the CURRENT raw key, so a
-  // password change (which re-keys the vault via create()) invalidates it — the
-  // UI re-prompts the user to generate a fresh kit afterwards.
+  // Like passkeys, the recovery wrap is bound to the raw data key. A password
+  // change only re-wraps that key (setPassword), so the code keeps working.
   var RECOVERY_ALPHABET = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789'; // base32, no 0/1/I/O
 
   // 15 random bytes (120 bits) → 24 base32 chars, no padding.
@@ -418,7 +457,12 @@
   // Generate + store a recovery kit for the unlocked vault. Resolves with the
   // one-time code (formatted for display) — the caller must surface it then drop
   // it; it is not recoverable afterwards.
-  function enrollRecovery() {
+  // opts.pending: store it as meta.recoveryPending - it neither unlocks nor
+  // counts as a recovery code, and an existing code keeps working, until
+  // confirmRecovery() is called once the user confirmed they saved it. A
+  // reload in between therefore never leaves a code nobody has seen.
+  function enrollRecovery(opts) {
+    opts = opts || {};
     if (!isSupported()) return Promise.reject(new Error('crypto-unsupported'));
     if (!_rawKey) return Promise.reject(new Error('locked'));
     var meta = readMeta();
@@ -428,15 +472,29 @@
     var params = KDFS.pbkdf2.defaultParams(); // always-available + portable (Node tests)
     return deriveRecoveryWrapKey(code, salt, 'pbkdf2', params).then(function (wrapKey) {
       return encryptWith(wrapKey, b64encode(_rawKey)).then(function (wrapped) {
-        meta.recovery = {
+        var rec = {
           kdf: 'pbkdf2', params: params, salt: b64encode(salt),
           wrappedKey: wrapped, createdAt: Date.now()
         };
+        if (opts.pending) meta.recoveryPending = rec;
+        else { meta.recovery = rec; delete meta.recoveryPending; }
         meta.updatedAt = Date.now();
         writeMeta(meta);
-        return { code: formatRecoveryCode(code), createdAt: meta.recovery.createdAt };
+        return { code: formatRecoveryCode(code), createdAt: rec.createdAt, pending: !!opts.pending };
       });
     });
+  }
+
+  // Activate the pending recovery code (replacing the old one). Returns true
+  // when there was one to activate.
+  function confirmRecovery() {
+    var m = readMeta();
+    if (!m || !m.recoveryPending) return false;
+    m.recovery = m.recoveryPending;
+    delete m.recoveryPending;
+    m.updatedAt = Date.now();
+    writeMeta(m);
+    return true;
   }
 
   function unlockWithRecovery(inputCode) {
@@ -464,7 +522,7 @@
   function removeRecovery() {
     var m = readMeta();
     if (!m || !m.recovery) return false;
-    delete m.recovery; m.updatedAt = Date.now(); writeMeta(m);
+    delete m.recovery; delete m.recoveryPending; m.updatedAt = Date.now(); writeMeta(m);
     return true;
   }
 
@@ -484,6 +542,7 @@
     create: create,
     unlock: unlock,
     changePassword: changePassword,
+    setPassword: setPassword,
     lock: lock,
     // crypto
     encrypt: encrypt,
@@ -501,6 +560,7 @@
     unlockWithPasskey: unlockWithPasskey,
     // recovery kit (alternative unlock via printable code)
     enrollRecovery: enrollRecovery,
+    confirmRecovery: confirmRecovery,
     unlockWithRecovery: unlockWithRecovery,
     hasRecovery: hasRecovery,
     removeRecovery: removeRecovery,

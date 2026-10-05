@@ -422,12 +422,14 @@ async function runBuild(browser, label, dir) {
     await page.waitForTimeout(1500); // adoption persists asynchronously
     const r = await page.evaluate(`(() => { const R = ${RAW}; return {
       schema: localStorage.getItem('maermin_schema_version'),
+      hasRecovery: window.MaerminAuth.getStatus().hasRecovery,
       hist: JSON.parse(localStorage.getItem('priceHistory') || '{}'),
       owner: localStorage.getItem('maermin_tax_owner'),
       rawOwner: R.get('maermin_tax_owner'),
       leak: R.keys().filter((k) => /Mustermann|12345678901/.test(R.get(k) || ''))
     }; })()`);
     ok('migration v4 ran (schema 3 -> 4)', r.schema === '4', 'schema=' + r.schema);
+    ok('a reload on the recovery-code screen leaves no unseen active code', r.hasRecovery === false, 'hasRecovery=' + r.hasRecovery);
     ok('year-less price points repaired to ISO', (r.hist.btc || []).length === 2 && r.hist.btc.every((p) => /^\d{4}-\d{2}-\d{2}T/.test(p.timestamp)), JSON.stringify(r.hist));
     ok('plaintext v10 store adopted into the vault', /Mustermann/.test(r.owner || '') && r.rawOwner === null && r.leak.length === 0, JSON.stringify({ rawOwner: r.rawOwner, leak: r.leak }));
     ok('no page errors in the upgrade session', errors.length === 0, errors.join(' | '));
@@ -564,6 +566,11 @@ async function runBuild(browser, label, dir) {
     const errors = watch(page);
     const tag = '[' + vp.label + '] ';
     await createVault(page, base);
+    // Finish setup like a user: the recovery code only becomes active once
+    // "saved" is ticked and Continue pressed (FINDINGS M-7).
+    await page.locator('#rc-saved').check();
+    await page.locator('#auth-submit').click();
+    await page.locator('main.maermin-main').waitFor({ timeout: 30000 });
     await unlock(page, base, 'main.maermin-main'); // first run: no Worker, no transactions -> the wizard opens by itself
 
     const info = (name) => page.evaluate((n) => window.__dlg.info(n), name);
@@ -658,6 +665,8 @@ async function runBuild(browser, label, dir) {
       try {
         await fromMenu('Security & sync')();
         await page.getByRole('button', { name: 'Rotate' }).click();
+        // Replacing an active code asks first (FINDINGS M-6).
+        await page.getByRole('button', { name: 'Create new code' }).click();
         await page.getByText('Your recovery code').waitFor({ timeout: 30000 });
         await page.waitForTimeout(300);
         const a = await info('Your recovery code');
@@ -673,6 +682,9 @@ async function runBuild(browser, label, dir) {
         await page.mouse.click(3, 3);
         await page.waitForTimeout(300);
         if (!(await info('Your recovery code')).count) bad.push('a click beside it closed the recovery code');
+        // Done stays disabled until the user confirms saving the code (M-6).
+        if (await page.getByRole('button', { name: /I've saved it/ }).isEnabled()) bad.push('Done is enabled before the saved checkbox is ticked');
+        await page.getByRole('checkbox', { name: /saved this recovery code/ }).check();
         await page.getByRole('button', { name: /I've saved it/ }).click();
         if (!(await closed('Your recovery code'))) bad.push('"Done" did not close it');
         await page.waitForTimeout(150);

@@ -28,6 +28,17 @@
   var _everUnlocked = false;
   var _unlockListeners = [];
 
+  // Translation lookup for this pre-React screen. The dictionary and prefs
+  // load after this file, but init() runs at DOMContentLoaded, so both exist
+  // by the time a screen is built. Falls back to English, then to `fb`.
+  function tr(key, fb) {
+    try {
+      var T = window.completeTranslations;
+      var lang = (window.MaerminPrefs && window.MaerminPrefs.get('language')) || 'en';
+      return (T && T[lang] && T[lang][key]) || (T && T.en && T.en[key]) || fb;
+    } catch (e) { return fb; }
+  }
+
   // ─────────────────────────────────────────────────────────────────────────
   // Styles (shared by setup / unlock / lock)
   // ─────────────────────────────────────────────────────────────────────────
@@ -173,7 +184,7 @@
       '',
       '• Anyone with this code can open your vault — keep it offline and private.',
       '• It is NEVER uploaded; only a one-way wrapped copy lives on this device.',
-      '• Changing your password invalidates this code — generate a new one after.',
+      '• ' + tr('authRcKeepsOnPwChange', 'Changing your password does not change this code.'),
       '',
       'Generated: ' + new Date().toISOString()
     ].join('\n');
@@ -275,7 +286,26 @@
       </div>
       <button class="auth-btn" id="auth-submit"><div class="spinner"></div><span class="btn-text">Unlock →</span></button>
       <button class="auth-alt" id="auth-back" type="button">Back to password</button>
-      <div class="auth-footer">Changing your password invalidates the recovery code.</div>
+      <div class="auth-footer">${tr('authRcNextStep', 'After unlocking you set a new password.')}</div>
+    `;
+  }
+
+  // Right after a recovery-code unlock: the user has forgotten the password,
+  // so they set a new one (re-wraps the unlocked data key; nothing else changes).
+  function newPasswordInner() {
+    return `
+      <div class="auth-logo"><h1>MAERMIN</h1><p>${tr('authNewPwTitle', 'Set a new password')}</p></div>
+      <div class="auth-sub">${tr('authNewPwSub', 'You unlocked with your recovery code. Set a new password now. Your data, recovery code and passkey stay as they are.')}</div>
+      <div class="auth-error" id="auth-error" role="alert"></div>
+      <div class="auth-field">
+        <label for="auth-pw">${tr('authNewPwLabel', 'New password')}</label>
+        <input type="password" id="auth-pw" placeholder="${tr('authPwMinHint', 'At least 8 characters')}" autocomplete="new-password" autofocus />
+      </div>
+      <div class="auth-field">
+        <label for="auth-pw2">${tr('authNewPwConfirm', 'Confirm new password')}</label>
+        <input type="password" id="auth-pw2" placeholder="${tr('authPwRepeat', 'Repeat password')}" autocomplete="new-password" />
+      </div>
+      <button class="auth-btn" id="auth-submit"><div class="spinner"></div><span class="btn-text">${tr('authNewPwSave', 'Save password')} →</span></button>
     `;
   }
 
@@ -319,8 +349,10 @@
       })
       // Generate a recovery kit so a forgotten password is recoverable. If the
       // enrollment itself fails we still let the user in (the vault is created).
+      // The code stays pending until "Continue": a reload on the code screen
+      // must not leave a recovery code the user never saw (FINDINGS M-7).
       .then(function () {
-        return Vault.enrollRecovery().then(
+        return Vault.enrollRecovery({ pending: true }).then(
           function (kit) {
             audit('vault.setup', 'vault created' + (atRest ? ' (encrypted at rest)' : '') + ' + recovery kit');
             setLoading(false);
@@ -341,7 +373,25 @@
   }
 
   // Continue from the one-time recovery-code reveal — vault is already unlocked.
-  function handleRecoveryContinue() { finishUnlock(); }
+  function handleRecoveryContinue() {
+    try { Vault.confirmRecovery(); } catch (e) { console.error('[MAERMIN Auth] confirm recovery failed:', e); }
+    finishUnlock();
+  }
+
+  function handleNewPassword() {
+    var pw = (document.getElementById('auth-pw').value || '');
+    var pw2 = (document.getElementById('auth-pw2').value || '');
+    if (pw.length < 8) { setError(tr('authPwTooShort', 'Password must be at least 8 characters.')); return; }
+    if (pw !== pw2) { setError(tr('authPwMismatch', 'Passwords do not match.')); return; }
+    setError(''); setLoading(true);
+    Vault.setPassword(pw)
+      .then(function () { audit('vault.password.reset', 'new password set after recovery-code unlock'); finishUnlock(); })
+      .catch(function (e) {
+        console.error('[MAERMIN Auth] set password failed:', e);
+        setError(tr('authNewPwFailed', 'Could not save the new password. Please try again.'));
+        setLoading(false);
+      });
+  }
 
   function wireRecoveryKit(code) {
     var saved = document.getElementById('rc-saved');
@@ -370,7 +420,7 @@
     Vault.unlockWithRecovery(code)
       .then(function () { return Storage ? Storage.resume() : null; })
       .then(function (ok) { if (Storage && Storage.isEnabled() && ok === false) { Vault.lock(); throw new Error('decrypt-failed'); } })
-      .then(function () { audit('vault.unlock.recovery', 'unlocked with recovery code'); finishUnlock(); })
+      .then(function () { audit('vault.unlock.recovery', 'unlocked with recovery code'); setLoading(false); showScreen('new-password', {}); })
       .catch(function (e) {
         input.classList.add('error');
         setError(e && e.message === 'bad-recovery-code' ? 'That recovery code is not valid.' : 'Recovery failed. Please try again.');
@@ -418,15 +468,21 @@
     if (mode === 'setup') { inner = setupInner(opts.hasLegacyData); onSubmit = handleSetup; }
     else if (mode === 'recovery-kit') { inner = recoveryKitInner(opts.code); onSubmit = handleRecoveryContinue; }
     else if (mode === 'recovery-unlock') { inner = recoveryUnlockInner(); onSubmit = handleRecoveryUnlock; }
+    else if (mode === 'new-password') { inner = newPasswordInner(); onSubmit = handleNewPassword; }
     else { inner = unlockInner(opts.hasPasskey, opts.hasRecovery, opts.locked); onSubmit = handleUnlock; }
 
     var overlay = overlayShell(inner);
     document.body.appendChild(overlay);
 
-    document.getElementById('auth-submit').addEventListener('click', onSubmit);
+    // One submit at a time: the handlers disable the button while they run,
+    // and Enter must respect that too (FINDINGS M-8: setup and unlock could
+    // run twice in parallel).
+    var submitBtn = document.getElementById('auth-submit');
+    function submitOnce() { if (!submitBtn.disabled) onSubmit(); }
+    submitBtn.addEventListener('click', submitOnce);
     var fields = overlay.querySelectorAll('input[type="password"], #auth-rc');
     fields.forEach(function (f) {
-      f.addEventListener('keydown', function (e) { if (e.key === 'Enter') onSubmit(); });
+      f.addEventListener('keydown', function (e) { if (e.key === 'Enter') submitOnce(); });
     });
     var pk = document.getElementById('auth-passkey');
     if (pk) pk.addEventListener('click', handlePasskey);
@@ -479,29 +535,22 @@
     lock: function () { if (Vault) Vault.lock(); },
     /** Lock + reload to a clean state. */
     logout: function () { if (Vault) Vault.lock(); window.location.reload(); },
-    /** Change the access password and re-encrypt the data blob under the new key. */
+    /** Change the access password. Only the password wrapping of the data key
+     *  changes (MaerminVault.setPassword): stored data, exchange credentials,
+     *  passkey, recovery code, auto-lock and the sync account stay valid. */
     changePassword: function (oldPw, newPw) {
-      // Exchange API credentials are encrypted directly with the vault key;
-      // capture them under the old key so they can be re-wrapped afterwards.
-      var EX = window.MaerminExchangeSync;
-      var credsP = (EX && EX.exportAllCredentials && Vault.isUnlocked()) ? EX.exportAllCredentials() : Promise.resolve({});
-      return credsP.then(function (creds) {
-        return Vault.changePassword(oldPw, newPw).then(function () {
-          audit('vault.password.change', 'access password changed');
-          var dataP = (Storage && Storage.isEnabled())
-            ? Storage.rekey().then(function (ok) { if (ok === false) throw new Error('rekey-failed'); })
-            : Promise.resolve();
-          return dataP.then(function () {
-            return (EX && EX.importAllCredentials && Object.keys(creds).length) ? EX.importAllCredentials(creds) : true;
-          }).then(function () { return true; });
-        });
+      return Vault.changePassword(oldPw, newPw).then(function () {
+        audit('vault.password.change', 'access password changed');
+        return true;
       });
     },
     /** Enroll a platform passkey (Touch ID / Hello) for password-less unlock. */
     enrollPasskey: function (label) { return Vault.enrollPasskey(label); },
     /** Generate (or rotate) the printable recovery kit — resolves with { code }.
      *  The caller must surface the one-time code; it is never recoverable after. */
-    enrollRecovery: function () { return Vault.enrollRecovery(); },
+    enrollRecovery: function (opts) { return Vault.enrollRecovery(opts); },
+    /** Activate a pending recovery code once the user confirmed saving it. */
+    confirmRecovery: function () { return Vault.confirmRecovery(); },
     /** Remove the recovery kit (e.g. user opts out). */
     removeRecovery: function () { return Vault.removeRecovery(); },
     /** Build the printable/downloadable recovery-code document (for re-enroll UIs). */
