@@ -40,6 +40,16 @@ if (!globalThis.crypto || !globalThis.crypto.subtle) {
 
 const Vault = require('../crypto-vault.js');
 const Storage = require('../storage.js'); // reads window.MaerminVault set above
+// A leaked plaintext shows up as its JSON text, e.g. "s":"BTC". Base64 has no
+// quotes or colons, so - unlike a bare 'BTC', which random ciphertext contains
+// about once in a few hundred runs - this cannot match by chance. Base64 runs
+// are also decoded, so a plaintext that is merely encoded is caught too.
+function leaksPlaintext(stored, fragment) {
+  const s = String(stored);
+  if (s.includes(fragment)) return true;
+  return (s.match(/[A-Za-z0-9+/=]{16,}/g) || []).some((c) => Buffer.from(c, 'base64').toString('latin1').includes(fragment));
+}
+
 
 (async function run() {
   console.log('crypto-vault:');
@@ -82,7 +92,7 @@ const Storage = require('../storage.js'); // reads window.MaerminVault set above
     localStorage.getItem('transactions') === JSON.stringify([{ s: 'BTC', q: 1 }]));
   ok('blob ciphertext does not contain plaintext',
     !String(localStorage.getItem(Storage.BLOB_KEY)).includes('maermin_portfolios') &&
-    !String(localStorage.getItem(Storage.BLOB_KEY)).includes('BTC'));
+    !leaksPlaintext(localStorage.getItem(Storage.BLOB_KEY), '"s":"BTC"'));
 
   // write through the shim, flush, then simulate reload (lock → unlock → resume)
   localStorage.setItem('transactions', JSON.stringify([{ s: 'ETH', q: 2 }]));
