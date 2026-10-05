@@ -8,8 +8,9 @@
 //
 // Sources (no new host):
 //   stocks, commodities   the Worker's `?action=yf` route (Yahoo closes + splits)
-//   crypto                CoinGecko `market_chart` in EUR - the same direct call
-//                         the value chart and the savings plans already make
+//   crypto                the same route with the Yahoo pair ("BTC-USD"); CoinGecko
+//                         `market_chart` (EUR, at most a year) when Yahoo has no
+//                         such pair, its price is off, or there is no Worker
 //
 // Closes are stored in their QUOTE currency; conversion to EUR happens when the
 // path is built, so a better FX history improves old points too.
@@ -279,24 +280,47 @@
   }
   function wait(ms) { return ms > 0 ? new Promise(function (r) { setTimeout(r, ms); }) : Promise.resolve(); }
 
+  // Does a fetched series end near the live price? A ticker Yahoo files under
+  // another coin is off by far more than a factor of two. No live price: yes.
+  function plausible(series, live) {
+    if (!series || !series.p.length) return false;
+    if (!(live > 0)) return true;
+    var last = series.p[series.p.length - 1];
+    return last / live > 0.5 && last / live < 2;
+  }
+
+  function fetchCoinGecko(job, o) {
+    // CoinGecko knows ids ("bitcoin"), not the tickers ("BTC") the exchange
+    // sync and imports store.
+    var id = o.cryptoId ? o.cryptoId(job.symbol) : String(job.symbol).toLowerCase();
+    // The public API refuses ranges beyond a year (401): ask for at most 365 days.
+    var days = Math.min(365, Math.max(2, dayNo(o.today) - dayNo(job.from) + 1));
+    var url = 'https://api.coingecko.com/api/v3/coins/' + encodeURIComponent(id) + '/market_chart?vs_currency=eur&days=' + days + '&interval=daily';
+    // Through the shared CoinGecko queue when there is one (browser): low
+    // priority behind the price refresh; a refusal comes back as status 429.
+    var get = o.cgGet ? o.cgGet(url, { priority: 'low', timeoutMs: o.timeoutMs }) : getJson(o.fetch, url, o.timeoutMs);
+    return get.then(function (j) { return ingestCoinGecko(j, { at: o.now, sym: id }); });
+  }
+
   function fetchOne(job, o) {
     var today = o.today, meta = { at: o.now };
     if (job.category === 'crypto') {
-      // CoinGecko knows ids ("bitcoin"), not the tickers ("BTC") the exchange
-      // sync and imports store.
-      var id = o.cryptoId ? o.cryptoId(job.symbol) : String(job.symbol).toLowerCase();
-      meta.sym = id;
-      var days = Math.max(2, dayNo(today) - dayNo(job.from) + 1);
-      var url = function (n) { return 'https://api.coingecko.com/api/v3/coins/' + encodeURIComponent(id) + '/market_chart?vs_currency=eur&days=' + n + '&interval=daily'; };
-      // Through the shared CoinGecko queue when there is one (browser): low
-      // priority behind the price refresh; a refusal comes back as status 429.
-      var get = o.cgGet ? function (u) { return o.cgGet(u, { priority: 'low', timeoutMs: o.timeoutMs }); }
-        : function (u) { return getJson(o.fetch, u, o.timeoutMs); };
-      return get(url(days)).catch(function (e) {
-        // The public API refuses ranges beyond a year (401/400): take what it gives.
-        if (days > 365 && (e.status === 400 || e.status === 401 || e.status === 403)) return get(url(365));
-        throw e;
-      }).then(function (j) { return ingestCoinGecko(j, meta); });
+      // Yahoo through the Worker first ("BTC-USD", years of daily closes, none
+      // of CoinGecko's few-calls-a-minute limit); CoinGecko when Yahoo does not
+      // know the coin or files the ticker under another one.
+      var pair = o.workerBase && o.yahooCrypto ? o.yahooCrypto(job.symbol) : '';
+      if (!pair) return fetchCoinGecko(job, o);
+      var live = o.priceOf ? o.priceOf(job.symbol) : 0;
+      return getJson(o.fetch, o.workerBase + '?action=yf&symbol=' + encodeURIComponent(pair) + '&interval=1d&range=' + rangeFor(job.from, today), o.timeoutMs)
+        .then(function (j) { return ingestYahoo(j, { at: o.now, sym: pair }); }, function (e) { if (e && e.status === 429) throw e; return null; })
+        .then(function (s) {
+          if (plausible(s, live)) return s;
+          return fetchCoinGecko(job, o).catch(function (e) {
+            // CoinGecko busy: "try later", without stopping the Worker batch.
+            if (e && e.status === 429) { var r = new Error('CoinGecko busy'); r.retry = true; throw r; }
+            throw e;
+          });
+        });
     }
     if (!o.workerBase) return Promise.reject(new Error('no Worker'));
     var sym = yfSymbol(job.category, job.symbol, o.suffixCache);
@@ -323,6 +347,8 @@
       cryptoId: opts.cryptoId || tickerFn('coinGeckoId'),
       cgGet: opts.cgGet || (opts.fetch ? null : cgQueue()),
       isTicker: opts.isTicker || tickerFn('isMarketSymbol'),
+      yahooCrypto: opts.yahooCrypto || tickerFn('yahooCryptoSymbol'),
+      priceOf: typeof opts.priceOf === 'function' ? opts.priceOf : null,
       now: now, today: opts.today || new Date(now).toISOString().slice(0, 10),
       timeoutMs: opts.timeoutMs || 12000
     };
@@ -330,18 +356,22 @@
     var result = { store: store, changed: false, fetched: [], failed: [], skipped: [] };
     if (!o.fetch) return Promise.resolve(result);
     var jobs = plan(need(opts.transactions), store, now);
-    var viaWorker = jobs.filter(function (j) { return j.category !== 'crypto'; });
-    var crypto = jobs.filter(function (j) { return j.category === 'crypto'; });
+    // Crypto goes through the Worker (Yahoo) too when there is one and the coin
+    // has a Yahoo pair; only the rest asks CoinGecko directly.
+    function viaYahoo(j) { return j.category !== 'crypto' || !!(o.workerBase && o.yahooCrypto && o.yahooCrypto(j.symbol)); }
+    var viaWorker = jobs.filter(viaYahoo);
+    var crypto = jobs.filter(function (j) { return !viaYahoo(j); });
 
     function missed(job) { if (!store.series[job.key]) { store.miss[job.key] = { at: now, req: job.from }; result.changed = true; } }
     function apply(job, series) {
       if (!series) { result.failed.push({ key: job.key, symbol: job.symbol, reason: 'no history' }); missed(job); return; }
       delete store.miss[job.key];
       var old = store.series[job.key];
-      // A split the stored closes do not know rescales all earlier closes: the
-      // tail cannot be merged, the whole range has to be fetched again.
-      if (job.mode === 'tail' && old && (series.splits || []).some(function (s) { return s.date > old.to; })) {
-        return fetchOne({ key: job.key, category: job.category, symbol: job.symbol, mode: 'full', from: old.from }, o)
+      // A split the stored closes do not know rescales all earlier closes, and
+      // closes from another source (CoinGecko -> Yahoo) do not merge: the tail
+      // cannot be used, the whole range has to be fetched again.
+      if (job.mode === 'tail' && old && (old.src !== series.src || old.cur !== series.cur || (series.splits || []).some(function (s) { return s.date > old.to; }))) {
+        return fetchOne({ key: job.key, category: job.category, symbol: job.symbol, mode: 'full', from: old.req || old.from }, o)
           .then(function (full) {
             if (!full) { result.failed.push({ key: job.key, symbol: job.symbol, reason: 'split: full history not available' }); return; }
             full.req = old.req || old.from; store.series[job.key] = full; result.changed = true; result.fetched.push(job.key);
@@ -357,6 +387,7 @@
     function run(job) {
       return fetchOne(job, o).then(function (s) { return apply(job, s); })
         .catch(function (e) {
+          if (e && e.retry) { result.skipped.push(job.key); return; }
           result.failed.push({ key: job.key, symbol: job.symbol, reason: (e && e.message) || 'failed', status: e && e.status });
           if (e && e.status === 404) missed(job); // the source does not know it (not: timeout, 429, 5xx)
         });

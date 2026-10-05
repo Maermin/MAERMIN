@@ -709,7 +709,9 @@ function InvestmentTracker() {
     let suffixCache = {};
     try { suffixCache = JSON.parse(localStorage.getItem('maermin_symbol_suffix') || '{}') || {}; } catch (e) {}
     CH.sync({
-      transactions, store: closeStoreRef.current || CH.load(), workerBase, suffixCache
+      transactions, store: closeStoreRef.current || CH.load(), workerBase, suffixCache,
+      // live EUR price: a Yahoo coin pair far off it is another coin
+      priceOf: (sym) => { const s = String(sym || ''); return prices[s] || prices[s.toLowerCase()] || prices[s.toUpperCase()] || 0; }
     }).then((res) => {
       closeSyncRef.current.busy = false;
       closeSyncRef.current.failed = res.failed.length;
