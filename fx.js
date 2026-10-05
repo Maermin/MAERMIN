@@ -64,6 +64,9 @@
     var tag = el.tagName;
 
     if (tag === 'BUTTON') {
+      // Toggle / tab buttons are accent-filled only while selected; a button is
+      // tagged once, so the gradient stuck to the option selected first.
+      if (el.hasAttribute('aria-pressed') || el.hasAttribute('aria-selected') || el.getAttribute('role') === 'tab') { el.__mxSeen = 1; return; }
       var bg = parseRGB(s.backgroundColor) || null;
       if (!bg && s.background && s.background.indexOf('gradient') > -1 && ACC) {
         // gradient fills that start with the accent
