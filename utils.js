@@ -10,6 +10,8 @@
  */
 (function () {
   'use strict';
+// Translation lookup (i18n.js): __('key', 'English fallback', { slot: value }).
+function __(k, f, v) { return (typeof window !== 'undefined' && window.MaerminI18n ? window.MaerminI18n : require('./i18n.js')).t(k, f, v); }
 
   // Locale formatting lives in i18n.js (MaerminI18n); these keep their old
   // names and follow the selected language. utils.js loads first, so look the
@@ -234,7 +236,7 @@
     const raw = String(type == null ? '' : type).trim();
     const def = TX_TYPES[raw.toLowerCase()];
     const tone = def ? def.tone : 'neutral';
-    const label = def ? ((t && t[def.key]) || def.label)
+    const label = def ? ((t && t[def.key]) || __(def.key, def.label))
       : (raw ? raw.charAt(0).toUpperCase() + raw.slice(1) : '—');
     return { label, tone, color: TX_TONES[tone].color, background: TX_TONES[tone].background };
   }

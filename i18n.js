@@ -150,6 +150,14 @@
     return out;
   }
 
+  // Interval / frequency id -> label ('semiannual' and 'semi-annual' both work).
+  function freq(id) {
+    var k = { weekly: ['freqWeekly', 'Weekly'], biweekly: ['freqBiweekly', 'Bi-weekly'], monthly: ['freqMonthly', 'Monthly'],
+      quarterly: ['freqQuarterly', 'Quarterly'], semiannual: ['freqSemiAnnual', 'Semi-annual'], 'semi-annual': ['freqSemiAnnual', 'Semi-annual'],
+      annual: ['freqAnnual', 'Annual'] }[id];
+    return k ? t(k[0], k[1]) : id;
+  }
+
   // <html lang> follows the language (screen readers, hyphenation, spellcheck).
   function applyHtmlLang(l) {
     try { if (typeof document !== 'undefined') document.documentElement.setAttribute('lang', normalize(l || lang())); } catch (e) {}
@@ -158,7 +166,7 @@
   var api = {
     LANGS: LANGS, LOCALES: LOCALES, lang: lang, setLang: setLang, locale: locale,
     dict: dict, t: t, fill: fill,
-    num: num, money: money, pct: pct, date: date, monthNames: monthNames, weekdayNames: weekdayNames, category: category,
+    num: num, money: money, pct: pct, date: date, monthNames: monthNames, weekdayNames: weekdayNames, category: category, freq: freq,
     applyHtmlLang: applyHtmlLang
   };
   if (typeof window !== 'undefined') { window.MaerminI18n = api; applyHtmlLang(); }

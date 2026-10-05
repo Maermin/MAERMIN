@@ -20,6 +20,8 @@
 // ============================================================================
 (function () {
   'use strict';
+// Translation lookup (i18n.js): __('key', 'English fallback', { slot: value }).
+function __(k, f, v) { return (typeof window !== 'undefined' && window.MaerminI18n ? window.MaerminI18n : require('./i18n.js')).t(k, f, v); }
 
   function num(v) { var n = parseFloat(v); return isNaN(n) ? 0 : n; }
   function ymd(d) { try { return new Date(d).toISOString().split('T')[0]; } catch (e) { return ''; } }
@@ -426,30 +428,34 @@
   }
 
   // ---- formatting ----------------------------------------------------------
+  function I18N() { return (typeof window !== 'undefined' && window.MaerminI18n) || require('./i18n.js'); }
   function money(v, cur) {
-    return (num(v)).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) + ' ' + (cur || '');
+    return I18N().num(num(v), 2) + (cur ? ' ' + cur : '');
   }
+  // Reports show dates and asset classes in the UI language.
+  function d8(iso) { return iso ? I18N().date(iso) : ''; }
+  function cls(c) { return I18N().category(c); }
 
   // Shared row set for the German fund-taxation section (PDF + Excel).
   function germanDetailRows(g, cur) {
     return [
-      ['Taxable gains after Teilfreistellung', money(g.gainsTaxable, cur)],
-      ['Deductible losses after Teilfreistellung', money(g.lossesTaxable, cur)],
-      ['Share losses not offset (Aktienverlusttopf)', money(g.shareLossCarried, cur)],
-      ['Taxable fund distributions', money(g.dividendsTaxable, cur)],
-      ['Vorabpauschale (current year, taxable)', money(g.vorabpauschaleTaxable, cur)],
-      ['Credited prior Vorabpauschalen', money(-g.vapCreditTotal, cur)],
-      ['Teilfreistellung exempt total', money(g.teilfreistellungExempt, cur)],
-      ['Net capital income', money(g.nettedIncome, cur)],
-      ['Sparerpauschbetrag used', money(g.sparerpauschbetragUsed, cur)],
-      ['Taxable capital income', money(g.taxableIncome, cur)],
+      [__('trGainsAfterTf', 'Taxable gains after Teilfreistellung'), money(g.gainsTaxable, cur)],
+      [__('trLossesAfterTf', 'Deductible losses after Teilfreistellung'), money(g.lossesTaxable, cur)],
+      [__('trShareLossTopf', 'Share losses not offset (Aktienverlusttopf)'), money(g.shareLossCarried, cur)],
+      [__('trFundDistributions', 'Taxable fund distributions'), money(g.dividendsTaxable, cur)],
+      [__('trVapCurrent', 'Vorabpauschale (current year, taxable)'), money(g.vorabpauschaleTaxable, cur)],
+      [__('trCreditedVap', 'Credited prior Vorabpauschalen'), money(-g.vapCreditTotal, cur)],
+      [__('trTfExemptTotal', 'Teilfreistellung exempt total'), money(g.teilfreistellungExempt, cur)],
+      [__('trNetCapitalIncome', 'Net capital income'), money(g.nettedIncome, cur)],
+      [__('trSpbUsed', 'Sparerpauschbetrag used'), money(g.sparerpauschbetragUsed, cur)],
+      [__('trTaxableCapital', 'Taxable capital income'), money(g.taxableIncome, cur)],
       ['Abgeltungsteuer', money(g.abgeltungsteuer, cur)],
-      ['Solidaritaetszuschlag', money(g.soli, cur)],
+      ['Solidaritätszuschlag', money(g.soli, cur)],
       ['Kirchensteuer', money(g.kirchensteuer, cur)],
-      ['Private sales (sec. 23) net short-term gains (Freigrenze ' + g.crypto.freigrenze + ')', money(g.crypto.netShortTermGains, cur)],
-      ['Private sales (sec. 23) tax-exempt long-term gains', money(g.crypto.exemptLongTermGains, cur)],
-      ['Private sales (sec. 23) estimated tax (flat-rate estimate)', money(g.crypto.estimatedTax, cur)],
-      ['Total estimated tax', money(g.totalTax, cur)]
+      [__('trPrivShort', 'Private sales (sec. 23) net short-term gains (Freigrenze {limit})', { limit: money(g.crypto.freigrenze, cur) }), money(g.crypto.netShortTermGains, cur)],
+      [__('trPrivLong', 'Private sales (sec. 23) tax-exempt long-term gains'), money(g.crypto.exemptLongTermGains, cur)],
+      [__('trPrivTaxFlat', 'Private sales (sec. 23) estimated tax (flat-rate estimate)'), money(g.crypto.estimatedTax, cur)],
+      [__('trTotalTax', 'Total estimated tax'), money(g.totalTax, cur)]
     ];
   }
 
@@ -466,9 +472,9 @@
   function exportPDF(report) {
     if (!jsPdfReady()) {
       var U = (typeof window !== 'undefined') && window.MaerminUtils;
-      if (!U || !U.loadScripts) { alert('PDF library not loaded.'); return Promise.resolve(false); }
+      if (!U || !U.loadScripts) { alert(__('trPdfMissing', 'PDF library not loaded.')); return Promise.resolve(false); }
       return U.loadScripts(JSPDF_CDN).then(function () { return exportPDF(report); },
-        function () { alert('PDF library could not be loaded (offline?).'); return false; });
+        function () { alert(__('trPdfOffline', 'PDF library could not be loaded (offline?).')); return false; });
     }
     var JsPDF = (typeof jsPDF !== 'undefined') ? jsPDF : jspdf.jsPDF;
     var doc = new JsPDF();
@@ -478,16 +484,16 @@
     // Cover header
     doc.setFillColor(126, 34, 206); doc.rect(0, 0, W, 38, 'F');
     doc.setTextColor(255, 255, 255); doc.setFontSize(22); doc.setFont('helvetica', 'bold');
-    doc.text('Tax Report ' + report.meta.year, 14, 22);
+    doc.text(__('trTitle', 'Tax Report {y}', { y: report.meta.year }), 14, 22);
     doc.setFontSize(11); doc.setFont('helvetica', 'normal');
-    doc.text('MAERMIN Portfolio Tracker · ' + (report.meta.jurisdiction === 'de' ? 'Germany' : 'USA') + ' · FIFO', 14, 31);
+    doc.text('MAERMIN Portfolio Tracker · ' + (report.meta.jurisdiction === 'de' ? __('germany', 'Germany') : __('usa', 'USA')) + ' · FIFO', 14, 31);
 
     var owner = report.meta.owner || {};
     doc.setTextColor(30, 41, 59); doc.setFontSize(10);
     var oy = 48;
-    if (owner.name) { doc.text('Taxpayer: ' + owner.name, 14, oy); oy += 6; }
-    if (owner.taxId) { doc.text('Tax ID: ' + owner.taxId, 14, oy); oy += 6; }
-    doc.text('Generated: ' + new Date(report.meta.generatedAt).toLocaleString('en-US'), 14, oy); oy += 8;
+    if (owner.name) { doc.text(__('trTaxpayerLine', 'Taxpayer: {v}', { v: owner.name }), 14, oy); oy += 6; }
+    if (owner.taxId) { doc.text(__('trTaxIdLine', 'Tax ID: {v}', { v: owner.taxId }), 14, oy); oy += 6; }
+    doc.text(__('trGenerated', 'Generated: {v}', { v: I18N().date(report.meta.generatedAt, 'dateTime') }), 14, oy); oy += 8;
 
     var s = report.summary;
     var autoTable = doc.autoTable ? doc.autoTable.bind(doc) : (typeof doc.autoTable === 'function' ? doc.autoTable : null);
@@ -500,48 +506,48 @@
 
     var y = oy + 2;
     // 1. Summary
-    y = table('1. Tax-Year Summary', ['Item', 'Amount'], [
-      ['Realized Gains', money(s.realizedGains, cur)],
-      ['Realized Losses', money(s.realizedLosses, cur)],
-      ['Net Realized', money(s.netRealized, cur)],
-      ['Dividend Income', money(s.dividendIncome, cur)],
-      ['Interest Income', money(s.interestIncome, cur)],
-      ['Withholding Tax Paid', money(s.withholdingTax, cur)],
-      ['Foreign Tax Paid', money(s.foreignTax, cur)],
-      ['Total Taxable Income', money(s.totalTaxableIncome, cur)],
-      ['Estimated Tax Liability', money(s.estimatedTaxLiability, cur)]
+    y = table(__('trSec1', '1. Tax-Year Summary'), ['Item', __('amount', 'Amount')], [
+      [__('realizedGains', 'Realized Gains'), money(s.realizedGains, cur)],
+      [__('trRealizedLosses', 'Realized Losses'), money(s.realizedLosses, cur)],
+      [__('trNetRealized', 'Net Realized'), money(s.netRealized, cur)],
+      [__('trDividendIncome', 'Dividend Income'), money(s.dividendIncome, cur)],
+      [__('trInterestIncome', 'Interest Income'), money(s.interestIncome, cur)],
+      [__('trWhtPaid', 'Withholding Tax Paid'), money(s.withholdingTax, cur)],
+      [__('trForeignPaid', 'Foreign Tax Paid'), money(s.foreignTax, cur)],
+      [__('trTotalTaxable', 'Total Taxable Income'), money(s.totalTaxableIncome, cur)],
+      [__('trEstLiability', 'Estimated Tax Liability'), money(s.estimatedTaxLiability, cur)]
     ], y);
 
     // German fund taxation detail (when computed for jurisdiction 'de').
     if (s.germanDetail) {
-      y = table('1a. German Fund Taxation (Vorabpauschale + Teilfreistellung)', ['Item', 'Amount'],
+      y = table(__('trSec1a', '1a. German Fund Taxation (Vorabpauschale + Teilfreistellung)'), ['Item', __('amount', 'Amount')],
         germanDetailRows(s.germanDetail, cur), y);
       doc.setFontSize(8); doc.setTextColor(120, 120, 120);
-      doc.text('Helper computation under InvStG/EStG rules (simplified loss netting; private sales at flat-rate estimate). Not tax advice.', 14, y - 4);
+      doc.text(__('trHelperNote', 'Helper computation under InvStG/EStG rules (simplified loss netting; private sales at flat-rate estimate). Not tax advice.'), 14, y - 4);
     }
 
     function lots(rows) {
-      return rows.map(function (d) { return [d.symbol, d.category, d.quantity.toFixed(4), d.acquisitionDate, d.disposalDate, d.holdingPeriodDays + 'd' + (d.longTerm ? ' (LT)' : ''), money(d.proceeds, ''), money(d.costBasis, ''), money(d.gain, '')]; });
+      return rows.map(function (d) { return [d.symbol, cls(d.category), I18N().num(d.quantity, 4), d8(d.acquisitionDate), d8(d.disposalDate), __('trHeldDays', '{n} d', { n: d.holdingPeriodDays }) + (d.longTerm ? ' ' + __('trLongTermShort', '(LT)') : ''), money(d.proceeds, ''), money(d.costBasis, ''), money(d.gain, '')]; });
     }
-    var lotHead = ['Symbol', 'Class', 'Qty', 'Acquired', 'Disposed', 'Held', 'Proceeds', 'Cost', 'Gain/Loss'];
+    var lotHead = [__('symbol', 'Symbol'), __('trClass', 'Class'), __('colQty', 'Qty'), __('trAcquired', 'Acquired'), __('trDisposed', 'Disposed'), __('trHeld', 'Held'), __('trProceeds', 'Proceeds'), __('trCost', 'Cost'), __('trGainLoss', 'Gain/Loss')];
 
-    if (report.realizedGains.length) { doc.addPage(); y = table('2. Realized Capital Gains', lotHead, lots(report.realizedGains), 20); }
-    if (report.realizedLosses.length) { y = table('3. Realized Capital Losses', lotHead, lots(report.realizedLosses), y); }
-    if (report.dividends.length) { doc.addPage(); y = table('4. Dividend Income', ['Symbol', 'Date', 'Gross', 'Withholding', 'Cur'], report.dividends.map(function (d) { return [d.symbol, d.date, money(d.gross, ''), money(d.withholding, ''), d.currency]; }), 20); }
-    if (report.interest.length) { y = table('5. Interest Income', ['Source', 'Date', 'Amount'], report.interest.map(function (i) { return [i.source, i.date, money(i.amount, '')]; }), y); }
-    if (report.currencyConversions.length) { doc.addPage(); y = table('8. Currency Conversion Details', ['Date', 'Symbol', 'Cur', 'Original', 'Rate', 'Base'], report.currencyConversions.map(function (c) { return [c.date, c.symbol, c.currency, c.originalAmount.toFixed(2), (c.rate >= 0.1 ? c.rate.toFixed(4) : c.rate.toPrecision(4)), money(c.baseAmount, '')]; }), 20); }
-    var txRows = Object.keys(report.transactionSummary).map(function (k) { return [k, String(report.transactionSummary[k])]; });
-    if (txRows.length) { y = table('9. Transaction Summary', ['Type', 'Count'], txRows, y); }
-    if (report.openPositions.length) { doc.addPage(); y = table('10. Open Positions Overview', ['Symbol', 'Class', 'Qty', 'Cost', 'Value', 'Unrealized'], report.openPositions.map(function (p) { return [p.symbol, p.category, p.quantity.toFixed(4), money(p.costBasis, ''), money(p.marketValue, ''), money(p.unrealized, '')]; }), 20); }
-    if (report.corporateActions.length) { y = table('11. Tax-Relevant Corporate Actions', ['Date', 'Symbol', 'Type', 'Detail'], report.corporateActions.map(function (a) { return [a.date, a.symbol, a.type, a.detail]; }), y); }
+    if (report.realizedGains.length) { doc.addPage(); y = table(__('trSec2', '2. Realized Capital Gains'), lotHead, lots(report.realizedGains), 20); }
+    if (report.realizedLosses.length) { y = table(__('trSec3', '3. Realized Capital Losses'), lotHead, lots(report.realizedLosses), y); }
+    if (report.dividends.length) { doc.addPage(); y = table(__('trSec4', '4. Dividend Income'), [__('symbol', 'Symbol'), __('date', 'Date'), __('trGross', 'Gross'), __('trWithholding', 'Withholding'), __('trCur', 'Cur')], report.dividends.map(function (d) { return [d.symbol, d8(d.date), money(d.gross, ''), money(d.withholding, ''), d.currency]; }), 20); }
+    if (report.interest.length) { y = table(__('trSec5', '5. Interest Income'), [__('trSource', 'Source'), __('date', 'Date'), __('amount', 'Amount')], report.interest.map(function (i) { return [i.source, d8(i.date), money(i.amount, '')]; }), y); }
+    if (report.currencyConversions.length) { doc.addPage(); y = table(__('trSec8', '8. Currency Conversion Details'), [__('date', 'Date'), __('symbol', 'Symbol'), __('trCur', 'Cur'), __('trOriginal', 'Original'), __('rate', 'Rate'), __('trBase', 'Base')], report.currencyConversions.map(function (c) { return [d8(c.date), c.symbol, c.currency, I18N().num(c.originalAmount, 2), (c.rate >= 0.1 ? I18N().num(c.rate, 4) : I18N().num(Number(c.rate.toPrecision(4)), { min: 0, max: 10 })), money(c.baseAmount, '')]; }), 20); }
+    var txRows = Object.keys(report.transactionSummary).map(function (k) { return [(typeof window !== 'undefined' && window.MaerminUtils) ? window.MaerminUtils.txTypeInfo(k).label : k, String(report.transactionSummary[k])]; });
+    if (txRows.length) { y = table(__('trSec9', '9. Transaction Summary'), [__('type', 'Type'), __('trCount', 'Count')], txRows, y); }
+    if (report.openPositions.length) { doc.addPage(); y = table(__('trSec10', '10. Open Positions Overview'), [__('symbol', 'Symbol'), __('trClass', 'Class'), __('colQty', 'Qty'), __('trCost', 'Cost'), __('colValue', 'Value'), __('healthUnrealized', 'Unrealized')], report.openPositions.map(function (p) { return [p.symbol, cls(p.category), I18N().num(p.quantity, 4), money(p.costBasis, ''), money(p.marketValue, ''), money(p.unrealized, '')]; }), 20); }
+    if (report.corporateActions.length) { y = table(__('trSec11', '11. Tax-Relevant Corporate Actions'), [__('date', 'Date'), __('symbol', 'Symbol'), __('type', 'Type'), __('trDetail', 'Detail')], report.corporateActions.map(function (a) { return [d8(a.date), a.symbol, a.type, a.detail]; }), y); }
 
     // Page numbers + footer on every page
     var pages = doc.internal.getNumberOfPages();
     for (var i = 1; i <= pages; i++) {
       doc.setPage(i);
       doc.setFontSize(8); doc.setTextColor(120, 120, 120);
-      doc.text('Page ' + i + ' of ' + pages, W - 14, doc.internal.pageSize.getHeight() - 8, { align: 'right' });
-      doc.text('For informational purposes only — consult a tax advisor.', 14, doc.internal.pageSize.getHeight() - 8);
+      doc.text(__('trPageOf', 'Page {i} of {n}', { i: i, n: pages }), W - 14, doc.internal.pageSize.getHeight() - 8, { align: 'right' });
+      doc.text(__('trFooter', 'For informational purposes only — consult a tax advisor.'), 14, doc.internal.pageSize.getHeight() - 8);
     }
     doc.save('maermin-tax-report-' + report.meta.year + '.pdf');
   }
@@ -591,56 +597,56 @@
     var sheets = [];
 
     var summaryRows = [
-      ['Tax year', report.meta.year], ['Jurisdiction', report.meta.jurisdiction === 'de' ? 'Germany' : 'USA'],
-      ['Method', report.meta.method || 'FIFO'], ['Base currency', cur]
+      [__('trTaxYear', 'Tax year'), report.meta.year], [__('jurisdiction', 'Jurisdiction'), report.meta.jurisdiction === 'de' ? __('germany', 'Germany') : __('usa', 'USA')],
+      [__('trMethod', 'Method'), report.meta.method || 'FIFO'], [__('trBaseCurrency', 'Base currency'), cur]
     ];
-    if (owner.name) summaryRows.push(['Taxpayer', owner.name]);
-    if (owner.taxId) summaryRows.push(['Tax ID', owner.taxId]);
+    if (owner.name) summaryRows.push([__('trTaxpayer', 'Taxpayer'), owner.name]);
+    if (owner.taxId) summaryRows.push([__('trTaxId', 'Tax ID'), owner.taxId]);
     summaryRows.push(['', '']);
     var sm = [
-      ['Realized Gains', num(s.realizedGains)], ['Realized Losses', num(s.realizedLosses)],
-      ['Net Realized', num(s.netRealized)], ['Dividend Income', num(s.dividendIncome)],
-      ['Interest Income', num(s.interestIncome)], ['Withholding Tax', num(s.withholdingTax)],
-      ['Foreign Tax', num(s.foreignTax)], ['Total Taxable Income', num(s.totalTaxableIncome)],
-      ['Estimated Tax Liability', num(s.estimatedTaxLiability)]
+      [__('realizedGains', 'Realized Gains'), num(s.realizedGains)], [__('trRealizedLosses', 'Realized Losses'), num(s.realizedLosses)],
+      [__('trNetRealized', 'Net Realized'), num(s.netRealized)], [__('trDividendIncome', 'Dividend Income'), num(s.dividendIncome)],
+      [__('trInterestIncome', 'Interest Income'), num(s.interestIncome)], [__('trWht', 'Withholding Tax'), num(s.withholdingTax)],
+      [__('trForeign', 'Foreign Tax'), num(s.foreignTax)], [__('trTotalTaxable', 'Total Taxable Income'), num(s.totalTaxableIncome)],
+      [__('trEstLiability', 'Estimated Tax Liability'), num(s.estimatedTaxLiability)]
     ];
-    sheets.push({ name: 'Summary', columns: [200, 120], headers: ['Item', 'Amount (' + cur + ')'],
+    sheets.push({ name: __('trSheetSummary', 'Summary'), columns: [200, 120], headers: [__('trItem', 'Item'), __('trAmountCur', 'Amount ({cur})', { cur: cur })],
       rows: summaryRows.concat(sm), money: [false, true] });
 
     if (s.germanDetail) {
       var g = s.germanDetail;
-      sheets.push({ name: 'German Tax', columns: [320, 120], headers: ['Item', 'Amount (' + cur + ')'],
+      sheets.push({ name: __('trSheetGerman', 'German Tax'), columns: [320, 120], headers: [__('trItem', 'Item'), __('trAmountCur', 'Amount ({cur})', { cur: cur })],
         money: [false, true], rows: [
-          ['Taxable gains after Teilfreistellung', num(g.gainsTaxable)],
-          ['Deductible losses after Teilfreistellung', num(g.lossesTaxable)],
-          ['Share losses not offset (Aktienverlusttopf)', num(g.shareLossCarried)],
-          ['Taxable fund distributions', num(g.dividendsTaxable)],
-          ['Vorabpauschale (current year, taxable)', num(g.vorabpauschaleTaxable)],
-          ['Credited prior Vorabpauschalen', -num(g.vapCreditTotal)],
-          ['Teilfreistellung exempt total', num(g.teilfreistellungExempt)],
-          ['Net capital income', num(g.nettedIncome)],
-          ['Sparerpauschbetrag used', num(g.sparerpauschbetragUsed)],
-          ['Taxable capital income', num(g.taxableIncome)],
+          [__('trGainsAfterTf', 'Taxable gains after Teilfreistellung'), num(g.gainsTaxable)],
+          [__('trLossesAfterTf', 'Deductible losses after Teilfreistellung'), num(g.lossesTaxable)],
+          [__('trShareLossTopf', 'Share losses not offset (Aktienverlusttopf)'), num(g.shareLossCarried)],
+          [__('trFundDistributions', 'Taxable fund distributions'), num(g.dividendsTaxable)],
+          [__('trVapCurrent', 'Vorabpauschale (current year, taxable)'), num(g.vorabpauschaleTaxable)],
+          [__('trCreditedVap', 'Credited prior Vorabpauschalen'), -num(g.vapCreditTotal)],
+          [__('trTfExemptTotal', 'Teilfreistellung exempt total'), num(g.teilfreistellungExempt)],
+          [__('trNetCapitalIncome', 'Net capital income'), num(g.nettedIncome)],
+          [__('trSpbUsed', 'Sparerpauschbetrag used'), num(g.sparerpauschbetragUsed)],
+          [__('trTaxableCapital', 'Taxable capital income'), num(g.taxableIncome)],
           ['Abgeltungsteuer', num(g.abgeltungsteuer)],
-          ['Solidaritaetszuschlag', num(g.soli)],
+          ['Solidaritätszuschlag', num(g.soli)],
           ['Kirchensteuer', num(g.kirchensteuer)],
-          ['Private sales (sec. 23) net short-term gains (Freigrenze ' + g.crypto.freigrenze + ')', num(g.crypto.netShortTermGains)],
-          ['Private sales (sec. 23) tax-exempt long-term gains', num(g.crypto.exemptLongTermGains)],
-          ['Private sales (sec. 23) estimated tax', num(g.crypto.estimatedTax)],
-          ['Total estimated tax', num(g.totalTax)]
+          [__('trPrivShort', 'Private sales (sec. 23) net short-term gains (Freigrenze {limit})', { limit: money(g.crypto.freigrenze, cur) }), num(g.crypto.netShortTermGains)],
+          [__('trPrivLong', 'Private sales (sec. 23) tax-exempt long-term gains'), num(g.crypto.exemptLongTermGains)],
+          [__('trPrivTax', 'Private sales (sec. 23) estimated tax'), num(g.crypto.estimatedTax)],
+          [__('trTotalTax', 'Total estimated tax'), num(g.totalTax)]
         ] });
     }
 
-    var lotHead = ['Symbol', 'Class', 'Qty', 'Acquired', 'Disposed', 'Holding (days)', 'Long-term', 'Proceeds', 'Cost Basis', 'Gain/Loss'];
+    var lotHead = [__('symbol', 'Symbol'), __('trClass', 'Class'), __('colQty', 'Qty'), __('trAcquired', 'Acquired'), __('trDisposed', 'Disposed'), __('trHolding', 'Holding (days)'), __('trLongTerm', 'Long-term'), __('trProceeds', 'Proceeds'), __('trCostBasis', 'Cost Basis'), __('trGainLoss', 'Gain/Loss')];
     var lotCols = [110, 90, 80, 95, 95, 95, 80, 100, 100, 100];
     var lotMoney = [false, false, false, false, false, false, false, true, true, true];
-    function lotRows(rows) { return rows.map(function (d) { return [d.symbol, d.category, d.quantity, d.acquisitionDate, d.disposalDate, d.holdingPeriodDays, d.longTerm ? 'Yes' : 'No', d.proceeds, d.costBasis, d.gain]; }); }
-    if (report.realizedGains.length) sheets.push({ name: 'Realized Gains', columns: lotCols, headers: lotHead, rows: lotRows(report.realizedGains), money: lotMoney, number: [false, false, true, false, false, true, false, true, true, true] });
-    if (report.realizedLosses.length) sheets.push({ name: 'Realized Losses', columns: lotCols, headers: lotHead, rows: lotRows(report.realizedLosses), money: lotMoney, number: [false, false, true, false, false, true, false, true, true, true] });
-    if (report.dividends.length) sheets.push({ name: 'Dividends', columns: [110, 95, 100, 100, 80], headers: ['Symbol', 'Date', 'Gross', 'Withholding', 'Currency'], rows: report.dividends.map(function (d) { return [d.symbol, d.date, num(d.gross), num(d.withholding), d.currency]; }), money: [false, false, true, true, false] });
-    if (report.interest.length) sheets.push({ name: 'Interest', columns: [200, 95, 100], headers: ['Source', 'Date', 'Amount'], rows: report.interest.map(function (i) { return [i.source, i.date, num(i.amount)]; }), money: [false, false, true] });
-    if (report.currencyConversions.length) sheets.push({ name: 'FX Conversions', columns: [95, 110, 80, 100, 90, 100], headers: ['Date', 'Symbol', 'Currency', 'Original', 'Rate', 'Base (' + cur + ')'], rows: report.currencyConversions.map(function (c) { return [c.date, c.symbol, c.currency, num(c.originalAmount), num(c.rate), num(c.baseAmount)]; }), money: [false, false, false, true, false, true], number: [false, false, false, true, true, true] });
-    if (report.openPositions.length) sheets.push({ name: 'Open Positions', columns: [110, 90, 80, 100, 100, 100], headers: ['Symbol', 'Class', 'Qty', 'Cost Basis', 'Market Value', 'Unrealized'], rows: report.openPositions.map(function (p) { return [p.symbol, p.category, p.quantity, p.costBasis, p.marketValue, p.unrealized]; }), money: [false, false, false, true, true, true], number: [false, false, true, true, true, true] });
+    function lotRows(rows) { return rows.map(function (d) { return [d.symbol, cls(d.category), d.quantity, d.acquisitionDate, d.disposalDate, d.holdingPeriodDays, d.longTerm ? __('yes', 'Yes') : __('no', 'No'), d.proceeds, d.costBasis, d.gain]; }); }
+    if (report.realizedGains.length) sheets.push({ name: __('realizedGains', 'Realized Gains'), columns: lotCols, headers: lotHead, rows: lotRows(report.realizedGains), money: lotMoney, number: [false, false, true, false, false, true, false, true, true, true] });
+    if (report.realizedLosses.length) sheets.push({ name: __('trRealizedLosses', 'Realized Losses'), columns: lotCols, headers: lotHead, rows: lotRows(report.realizedLosses), money: lotMoney, number: [false, false, true, false, false, true, false, true, true, true] });
+    if (report.dividends.length) sheets.push({ name: __('trSheetDividends', 'Dividends'), columns: [110, 95, 100, 100, 80], headers: [__('symbol', 'Symbol'), __('date', 'Date'), __('trGross', 'Gross'), __('trWithholding', 'Withholding'), __('currency', 'Currency')], rows: report.dividends.map(function (d) { return [d.symbol, d.date, num(d.gross), num(d.withholding), d.currency]; }), money: [false, false, true, true, false] });
+    if (report.interest.length) sheets.push({ name: __('trSheetInterest', 'Interest'), columns: [200, 95, 100], headers: [__('trSource', 'Source'), __('date', 'Date'), __('amount', 'Amount')], rows: report.interest.map(function (i) { return [i.source, i.date, num(i.amount)]; }), money: [false, false, true] });
+    if (report.currencyConversions.length) sheets.push({ name: __('trSheetFx', 'FX Conversions'), columns: [95, 110, 80, 100, 90, 100], headers: [__('date', 'Date'), __('symbol', 'Symbol'), __('currency', 'Currency'), __('trOriginal', 'Original'), __('rate', 'Rate'), __('trBaseCur', 'Base ({cur})', { cur: cur })], rows: report.currencyConversions.map(function (c) { return [c.date, c.symbol, c.currency, num(c.originalAmount), num(c.rate), num(c.baseAmount)]; }), money: [false, false, false, true, false, true], number: [false, false, false, true, true, true] });
+    if (report.openPositions.length) sheets.push({ name: __('trSheetOpen', 'Open Positions'), columns: [110, 90, 80, 100, 100, 100], headers: [__('symbol', 'Symbol'), __('trClass', 'Class'), __('colQty', 'Qty'), __('trCostBasis', 'Cost Basis'), __('trMarketValue', 'Market Value'), __('healthUnrealized', 'Unrealized')], rows: report.openPositions.map(function (p) { return [p.symbol, cls(p.category), p.quantity, p.costBasis, p.marketValue, p.unrealized]; }), money: [false, false, false, true, true, true], number: [false, false, true, true, true, true] });
 
     var styles = '<Styles>' +
       '<Style ss:ID="Default"><Alignment ss:Vertical="Center"/></Style>' +

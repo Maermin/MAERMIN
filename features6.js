@@ -14,6 +14,8 @@
 // ============================================================================
 (function () {
 'use strict';
+// Translation lookup (i18n.js): __('key', 'English fallback', { slot: value }).
+function __(k, f, v) { return (typeof window !== 'undefined' && window.MaerminI18n ? window.MaerminI18n : require('./i18n.js')).t(k, f, v); }
 
 const { useState, useEffect, useMemo, useCallback, useRef } = React;
 
@@ -91,6 +93,13 @@ function smoothAreaPath(points, baselineY) {
 // ─────────────────────────────────────────────────────────────────────────────
 // PERIOD CONFIG
 // ─────────────────────────────────────────────────────────────────────────────
+// Period buttons: 1H 1D 1W 1M 1Y … in the UI language (de: 1 Std. 1 T 1 W 1 M 1 J).
+function periodLabel(id) {
+  if (id === 'Max') return __('chMax', 'Max');
+  const n = id.slice(0, -1), u = id.slice(-1);
+  return n + ({ H: __('chUnitH', 'H'), D: __('chUnitD', 'D'), W: __('chUnitW', 'W'), M: __('chUnitM', 'M'), Y: __('chUnitY', 'Y') })[u];
+}
+
 const PERIODS = [
   { id: '1H',  label: '1H',  yfRange: '1d',  yfInterval: '1m',  cgDays: 1 },
   { id: '1D',  label: '1D',  yfRange: '1d',  yfInterval: '5m',  cgDays: 1 },
@@ -564,13 +573,13 @@ function PortfolioHistoryChart({ portfolio, prices, transactions, apiKeys, theme
       let label = d.date;
       if (['1H','1D'].includes(period)) {
         const dt = new Date(d.ts*1000);
-        label = dt.toLocaleTimeString('en-GB', {hour:'2-digit',minute:'2-digit'});
+        label = window.MaerminI18n.date(dt, 'time');
       } else if (['1W','1M'].includes(period)) {
         const dt = new Date(d.date);
-        label = dt.toLocaleDateString('en-GB', {day:'2-digit',month:'short'});
+        label = window.MaerminI18n.date(dt, 'dayMonth');
       } else {
         const dt = new Date(d.date);
-        label = dt.toLocaleDateString('en-GB', {month:'short',year:'2-digit'});
+        label = window.MaerminI18n.date(dt, { month: 'short', year: '2-digit' });
       }
       return { idx, label, x: toX(idx) };
     });
@@ -609,7 +618,7 @@ function PortfolioHistoryChart({ portfolio, prices, transactions, apiKeys, theme
     positions.some(p => p.cat === 'crypto')      && 'CoinGecko',
     positions.some(p => p.cat === 'stocks')      && (hasWorker ? 'Yahoo Finance' : null),
     positions.some(p => p.cat === 'commodities') && (hasWorker ? 'Yahoo Finance' : null),
-    positions.some(p => p.cat === 'skins')       && (hasWorker ? 'Steam Market price list' : null),
+    positions.some(p => p.cat === 'skins')       && (hasWorker ? __('chSteamList', 'Steam Market price list') : null),
   ].filter(Boolean);
 
   // ── Colour constants ──────────────────────────────────────────────────────
@@ -625,9 +634,9 @@ function PortfolioHistoryChart({ portfolio, prices, transactions, apiKeys, theme
 
   // ── Shared X-label formatter ──────────────────────────────────────────────
   const fmtX = d => {
-    if (['1H','1D'].includes(period)) return new Date(d.ts*1000).toLocaleTimeString('en-GB',{hour:'2-digit',minute:'2-digit'});
-    if (['1W','1M'].includes(period)) return new Date(d.date).toLocaleDateString('en-GB',{day:'2-digit',month:'short'});
-    return new Date(d.date).toLocaleDateString('en-GB',{month:'short',year:'2-digit'});
+    if (['1H','1D'].includes(period)) return window.MaerminI18n.date(new Date(d.ts*1000), 'time');
+    if (['1W','1M'].includes(period)) return window.MaerminI18n.date(new Date(d.date), 'dayMonth');
+    return window.MaerminI18n.date(new Date(d.date), { month: 'short', year: '2-digit' });
   };
 
   // ── Header stat pill (same in both modes = real ROI) ──────────────────────
@@ -662,8 +671,8 @@ function PortfolioHistoryChart({ portfolio, prices, transactions, apiKeys, theme
           React.createElement('span', { style: { fontSize: '0.65rem' } }, up ? '▲' : '▼'),
           `${sign}${formatPrice(Math.abs(eur))} ${getCurrencySymbol()}`
         ),
-        React.createElement('span', { style: { color: deltaCol, fontWeight: '700', fontSize: '0.92rem' } }, `${sign}${pct.toFixed(2)}%`),
-        React.createElement('span', { style: { color: GREY, fontSize: '0.8rem' } }, 'all time')
+        React.createElement('span', { style: { color: deltaCol, fontWeight: '700', fontSize: '0.92rem' } }, `${sign}${window.MaerminI18n.pct(pct, 2)}`),
+        React.createElement('span', { style: { color: GREY, fontSize: '0.8rem' } }, __('chAllTime', 'all time'))
       )
     );
   };
@@ -761,7 +770,7 @@ function PortfolioHistoryChart({ portfolio, prices, transactions, apiKeys, theme
           style: { display: 'flex', alignItems: 'center', gap: '0.5rem', marginBottom: '0.1rem', flexWrap: 'wrap' }
         },
           React.createElement('span', { style: { fontSize:'0.68rem', fontWeight:'700', color: theme.textSecondary, textTransform:'uppercase', letterSpacing:'0.06em' } },
-            'Total Portfolio Value'
+            __('chTotalValue', 'Total Portfolio Value')
           ),
           ...dataSources.map((src, i) =>
             React.createElement('span', { key:i, style:{
@@ -792,7 +801,7 @@ function PortfolioHistoryChart({ portfolio, prices, transactions, apiKeys, theme
               color: active ? '#fff' : theme.textSecondary,
               transition: 'all 0.1s', opacity: loading ? 0.5 : 1, whiteSpace: 'nowrap'
             }
-          }, p.label);
+          }, periodLabel(p.id));
         })
       )
     ),
@@ -801,20 +810,20 @@ function PortfolioHistoryChart({ portfolio, prices, transactions, apiKeys, theme
     React.createElement('div', { style: { position:'relative' } },
       loading && React.createElement('div', {
         style: { position:'absolute', inset:0, display:'flex', alignItems:'center', justifyContent:'center', background:'rgba(0,0,0,0.22)', zIndex:2, borderRadius:'0 0 16px 16px' }
-      }, React.createElement('span', { style: { color: theme.textSecondary, fontSize:'0.875rem' } }, '◎ Loading...')),
+      }, React.createElement('span', { style: { color: theme.textSecondary, fontSize:'0.875rem' } }, __('loadingDots', '◎ Loading...'))),
 
       error && !loading && React.createElement('div', {
         style: { padding:'2rem', textAlign:'center', color: theme.textSecondary, fontSize:'0.875rem' }
-      }, `Chart error: ${error}`),
+      }, __('chError', 'Chart error: {msg}', { msg: error })),
 
       !error && !computed && !loading && React.createElement('div', {
         style: { padding:'3rem 2rem', textAlign:'center', color: theme.textSecondary, fontSize:'0.875rem' }
       },
         React.createElement('div', { style: { fontSize:'2rem', opacity:0.15, marginBottom:'0.5rem' } }, '↗'),
-        hasWorker ? 'Chart loads automatically — select a period above'
+        hasWorker ? __('chAuto', 'Chart loads automatically — select a period above')
           : React.createElement('span', null,
-              'Add a ', React.createElement('strong', null, 'Cloudflare Worker URL'),
-              ' in Settings for stocks & CS2. Crypto loads automatically.'
+              __('chAddA', 'Add a') + ' ', React.createElement('strong', null, 'Cloudflare Worker URL'),
+              ' ' + __('chInSettings', 'in Settings for stocks & CS2. Crypto loads automatically.')
             )
       ),
 

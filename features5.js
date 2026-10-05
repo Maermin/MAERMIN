@@ -282,7 +282,7 @@ function NetWorthView({ portfolioStats, portfolio, prices, theme, formatPrice, g
             React.createElement('label', { style: { display: 'block', color: theme.textSecondary, fontSize: '0.7rem', marginBottom: '0.25rem', textTransform: 'uppercase' } }, __('nwInterval', 'Interval')),
             React.createElement('select', { value: form.interval, onChange: e => setForm(p => ({ ...p, interval: e.target.value })),
               style: { padding: '0.625rem 0.875rem', background: theme.inputBg, border: `1px solid ${theme.inputBorder}`, borderRadius: '8px', color: theme.text, fontSize: '0.85rem', width: '100%' }
-            }, Object.entries((window.MaerminRecurring && window.MaerminRecurring.INTERVALS) || { monthly: { label: __('freqMonthly', 'Monthly') } }).map(([v, spec]) => React.createElement('option', { key: v, value: v }, spec.label)))
+            }, Object.entries((window.MaerminRecurring && window.MaerminRecurring.INTERVALS) || { monthly: { label: __('freqMonthly', 'Monthly') } }).map(([v]) => React.createElement('option', { key: v, value: v }, window.MaerminI18n.freq(v))))
           ),
           React.createElement('div', null,
             React.createElement('label', { style: { display: 'block', color: theme.textSecondary, fontSize: '0.7rem', marginBottom: '0.25rem', textTransform: 'uppercase' } }, __('nwStartDate', 'Start date')),

@@ -15,6 +15,8 @@
 // ============================================================================
 (function () {
   'use strict';
+// Translation lookup (i18n.js): __('key', 'English fallback', { slot: value }).
+function __(k, f, v) { return (typeof window !== 'undefined' && window.MaerminI18n ? window.MaerminI18n : require('./i18n.js')).t(k, f, v); }
 
   function num(x) { var n = parseFloat(x); return isFinite(n) ? n : 0; }
   function clamp(v, lo, hi) { return v < lo ? lo : (v > hi ? hi : v); }
@@ -173,7 +175,7 @@
         function periodBtn(pp) {
           var active = pp === period;
           return e('button', { key: pp, onClick: function () { setPeriod(pp); },
-            style: { padding: '0.25rem 0.6rem', fontSize: '0.72rem', fontWeight: 700, cursor: 'pointer', borderRadius: '7px', border: '1px solid ' + border, background: active ? (theme.accent || '#8b7cff') : 'transparent', color: active ? '#ffffff' : text } }, pp);
+            style: { padding: '0.25rem 0.6rem', fontSize: '0.72rem', fontWeight: 700, cursor: 'pointer', borderRadius: '7px', border: '1px solid ' + border, background: active ? (theme.accent || '#8b7cff') : 'transparent', color: active ? '#ffffff' : text } }, pp === 'Total' ? __('pmTotal', 'Total') : pp === 'YTD' ? __('perfYtd', 'YTD') : pp.replace(/Y$/, __('chUnitY', 'Y')).replace(/D$/, __('chUnitD', 'D')));
         }
 
         var svg = e('svg', { viewBox: '0 0 ' + W + ' ' + H, width: '100%', style: { display: 'block', borderRadius: '10px', background: theme.inputBg || '#0c1018' }, role: 'img', 'aria-label': t.pmTitle || 'Performance map' },
@@ -181,10 +183,10 @@
             var showText = r.w > 46 && r.h > 22;
             return e('g', { key: r.key },
               e('rect', { x: r.x, y: r.y, width: Math.max(0, r.w - 1), height: Math.max(0, r.h - 1), fill: r.color, rx: 3,
-                role: 'listitem', 'aria-label': r.label + ' ' + (r.weight * 100).toFixed(1) + '% ' + (r.perf >= 0 ? '+' : '') + r.perf.toFixed(1) + '%' },
-                e('title', null, r.label + '  ·  ' + (privacy ? '•••' : (fmt(r.value) + ' ' + sym)) + '  ·  ' + (r.perf >= 0 ? '+' : '') + r.perf.toFixed(1) + '%')),
+                role: 'listitem', 'aria-label': r.label + ' ' + window.MaerminI18n.pct(r.weight * 100, 1) + ' ' + window.MaerminI18n.pct(r.perf, 1, true) },
+                e('title', null, r.label + '  ·  ' + (privacy ? '•••' : (fmt(r.value) + ' ' + sym)) + '  ·  ' + window.MaerminI18n.pct(r.perf, 1, true))),
               showText ? e('text', { x: r.x + 6, y: r.y + 16, fill: '#0b0e14', style: { fontSize: '11px', fontWeight: 800, pointerEvents: 'none' } }, r.label) : null,
-              showText ? e('text', { x: r.x + 6, y: r.y + 30, fill: 'rgba(11,14,20,0.8)', style: { fontSize: '10px', fontWeight: 600, pointerEvents: 'none' } }, (r.perf >= 0 ? '+' : '') + r.perf.toFixed(1) + '%') : null);
+              showText ? e('text', { x: r.x + 6, y: r.y + 30, fill: 'rgba(11,14,20,0.8)', style: { fontSize: '10px', fontWeight: 600, pointerEvents: 'none' } }, window.MaerminI18n.pct(r.perf, 1, true)) : null);
           }));
 
         return e('div', { style: { background: card, border: '1px solid ' + border, borderRadius: '14px', padding: '1.1rem', marginBottom: '1.5rem' } },
@@ -195,7 +197,7 @@
             e('div', { style: { display: 'flex', gap: '0.3rem', flexWrap: 'wrap' } }, PERIODS.map(periodBtn))),
           rects.length ? svg : e('div', { style: { color: dim, fontSize: '0.84rem', padding: '1rem 0' } }, t.pmEmpty || 'No priced positions to map yet.'));
       } catch (err) {
-        return e('div', { style: { padding: '0.75rem', color: (props.theme && props.theme.danger) || '#ef4444' } }, 'Performance map error: ' + (err && err.message));
+        return e('div', { style: { padding: '0.75rem', color: (props.theme && props.theme.danger) || '#ef4444' } }, __('pmError', 'Performance map error: {msg}', { msg: err && err.message }));
       }
     };
 

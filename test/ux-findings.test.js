@@ -120,7 +120,7 @@ const read = (f) => fs.readFileSync(path.join(__dirname, '..', f), 'utf8');
   {
     const src = read('features7.js');
     const m = src.match(/function newsEmptyText[\s\S]*?\n\}/);
-    const newsEmptyText = m && new Function(m[0] + '; return newsEmptyText;')();
+    const newsEmptyText = m && new Function('__', m[0] + '; return newsEmptyText;')(require('../i18n.js').t);
     ok('M-14: a Worker that failed every request is an error', newsEmptyText && /could not be loaded/.test(newsEmptyText(true, { tried: 5, failed: 5 })));
     ok('M-14: an answer without items is "no news"', newsEmptyText && /No news found/.test(newsEmptyText(true, { tried: 5, failed: 0 })));
     ok('no Worker: asks for one', newsEmptyText && /Add Worker URL/.test(newsEmptyText(false, { tried: 0, failed: 0 })));
@@ -131,7 +131,7 @@ const read = (f) => fs.readFileSync(path.join(__dirname, '..', f), 'utf8');
     const f3 = read('features3.js');
     const unnamed = (src) => (src.match(/React\.createElement\('button', \{[^}]*?\}, '[×✕]'\)/g) || []).filter((b) => !/aria-label/.test(b));
     ok('L-3: watchlist remove is named', /removeItem\(item\.id\),\s*'aria-label'/.test(read('features.js')));
-    ok('L-3: position-detail close buttons are named', (f3.match(/'aria-label': 'Close'/g) || []).length >= 3);
+    ok('L-3: position-detail close buttons are named', (f3.match(/'aria-label': (?:__\('close', )?'Close'/g) || []).length >= 3);
     ok('L-3: portfolio rename is named', /pfRenameAria/.test(read('features4.js')));
     ok('L-3: net-worth and real-asset remove are named', /nwRemoveAria/.test(read('features5.js')) && /raRemoveAria/.test(read('real-assets.js')));
     ok('L-3: security log close is named', /setShowAuditLog\(false\), 'aria-label'/.test(read('renderer.js')));

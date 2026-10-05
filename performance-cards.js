@@ -16,6 +16,8 @@
 // ============================================================================
 (function () {
   'use strict';
+// Translation lookup (i18n.js): __('key', 'English fallback', { slot: value }).
+function __(k, f, v) { return (typeof window !== 'undefined' && window.MaerminI18n ? window.MaerminI18n : require('./i18n.js')).t(k, f, v); }
 
   // Period definitions in display order. `kind` drives how the start date is
   // derived from the as-of date: day/month offsets, or the special YTD / MAX.
@@ -281,7 +283,9 @@
       var rows = computeAll(series, props.asOf);
       var ext = dailyExtremes(series);
 
-      function pctStr(p) { return (p == null) ? '—' : (p >= 0 ? '+' : '') + p.toFixed(2) + '%'; }
+      function pctStr(p) { return (p == null) ? '—' : window.MaerminI18n.pct(p, 2, true); }
+      // Period chips: 1M 3M 6M YTD 1Y Max in the UI language.
+      function periodLabel(l) { return l === 'Max' ? __('chMax', 'Max') : l === 'YTD' ? __('perfYtd', 'YTD') : l.replace(/Y$/, __('chUnitY', 'Y')).replace(/M$/, __('chUnitM', 'M')); }
       function moveColor(v) { return v > 0 ? up : v < 0 ? down : dim; }
 
       var cardEls = rows.map(function (r) {
@@ -293,7 +297,7 @@
           }
         },
           e('div', { style: { display: 'flex', alignItems: 'center', gap: '0.4rem' } },
-            e('span', { style: { color: dim, fontSize: '0.7rem', fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.06em' } }, r.label),
+            e('span', { style: { color: dim, fontSize: '0.7rem', fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.06em' } }, periodLabel(r.label)),
             r.partial ? e('span', { title: t.perfPartial || 'Since inception (history shorter than this period)', style: { color: dim, fontSize: '0.62rem', border: '1px solid ' + border, borderRadius: '999px', padding: '0.05rem 0.35rem' } }, '≈') : null),
           e('div', { style: { color: moveColor(r.abs), fontSize: '1.15rem', fontWeight: 800, marginTop: '0.35rem', letterSpacing: '-0.01em' } }, pctStr(r.pct)),
           e('div', { style: { color: dim, fontSize: '0.78rem', marginTop: '0.15rem' } },
@@ -325,8 +329,8 @@
             e('line', { x1: 0, y1: 0, x2: 300, y2: 0, stroke: border, strokeWidth: 1 }),
             e('path', { d: areaPath, fill: down, fillOpacity: 0.22, stroke: down, strokeWidth: 1 })),
           e('div', { style: { display: 'flex', gap: '1rem', flexWrap: 'wrap' } },
-            stat(t.perfMaxDrawdown || 'Max drawdown', ddStat.maxDd.toFixed(1) + '%', down),
-            stat(t.perfCurrentDd || 'Current', ddStat.currentDd.toFixed(1) + '%', ddStat.currentDd < -0.05 ? down : up),
+            stat(t.perfMaxDrawdown || 'Max drawdown', window.MaerminI18n.pct(ddStat.maxDd, 1), down),
+            stat(t.perfCurrentDd || 'Current', window.MaerminI18n.pct(ddStat.currentDd, 1), ddStat.currentDd < -0.05 ? down : up),
             stat(t.perfRecovery || 'Status', ddStat.recovered ? (t.perfRecovered || 'Recovered') : (t.perfUnderwater || 'Underwater'), ddStat.recovered ? up : down)));
       })() : null;
 
@@ -346,14 +350,14 @@
               e('div', { style: { color: text, fontWeight: 700, fontSize: '0.88rem' } }, g.name || (t.perfGoal || 'Goal')),
               e('div', { style: { color: dim, fontSize: '0.76rem', marginTop: '0.15rem' } }, fmt(currentValue) + ' / ' + fmt(target) + ' ' + sym),
               e('div', { style: { height: '7px', borderRadius: '999px', background: theme.inputBg || '#0c1018', margin: '0.5rem 0', overflow: 'hidden' } },
-                e('div', { style: { width: prog.toFixed(0) + '%', height: '100%', background: up } })),
+                e('div', { style: { width: prog.toFixed(0) + '%', height: '100%', background: up } })), // CSS width
               e('div', { style: { color: eta.alreadyReached ? up : text, fontSize: '0.82rem', fontWeight: 600 } },
                 eta.alreadyReached ? (t.perfGoalReached || '✓ Reached')
-                  : eta.reachable ? ((t.perfGoalEta || 'On track — ') + eta.etaISO)
+                  : eta.reachable ? ((t.perfGoalEta || 'On track — ') + window.MaerminI18n.date(eta.etaISO, 'medium'))
                   : (t.perfGoalUnreachable || 'Not reachable at the current pace')));
           })),
         e('div', { style: { color: dim, fontSize: '0.72rem', marginTop: '0.6rem' } },
-          (t.perfGoalAssume || 'Assumes your historical return') + (assumedReturn != null ? ' (' + assumedReturn.toFixed(1) + '%/yr)' : '') + (t.perfGoalPlusContrib || ' plus your monthly contribution.'))) : null;
+          (t.perfGoalAssume || 'Assumes your historical return') + (assumedReturn != null ? ' (' + __('perfPerYr', '{pct}/yr', { pct: window.MaerminI18n.pct(assumedReturn, 1) }) + ')' : '') + (t.perfGoalPlusContrib || ' plus your monthly contribution.'))) : null;
 
       // ---- #1 benchmark comparison ----
       var benchRows = (benchData && benchData.length) ? PERIODS.filter(function (p) { return ['1M', '3M', '6M', '1Y'].indexOf(p.id) !== -1; }).map(function (p) { return compareBenchmark(series, benchData, p.id, props.asOf); }).filter(Boolean) : [];
@@ -369,11 +373,11 @@
           : benchRows.length ? e('div', { style: { background: card, border: '1px solid ' + border, borderRadius: '14px', overflow: 'hidden' } },
               benchRows.map(function (r, ri) {
                 return e('div', { key: r.id, style: { display: 'flex', alignItems: 'center', gap: '0.5rem', padding: '0.6rem 1rem', borderTop: ri ? '1px solid ' + border : 'none' } },
-                  e('span', { style: { color: dim, fontSize: '0.72rem', fontWeight: 800, width: '40px' } }, r.label),
+                  e('span', { style: { color: dim, fontSize: '0.72rem', fontWeight: 800, width: '40px' } }, periodLabel(r.label)),
                   e('span', { title: t.perfBenchYou || 'You', style: { color: moveColor(r.port), fontWeight: 700, fontSize: '0.85rem', width: '74px', textAlign: 'right' } }, pctStr(r.port)),
-                  e('span', { title: benchPreset ? benchPreset.label : 'Benchmark', style: { color: dim, fontSize: '0.78rem', width: '66px', textAlign: 'right' } }, r.bench == null ? '—' : pctStr(r.bench)),
+                  e('span', { title: benchPreset ? benchPreset.label : __('perfBenchmark', 'Benchmark'), style: { color: dim, fontSize: '0.78rem', width: '66px', textAlign: 'right' } }, r.bench == null ? '—' : pctStr(r.bench)),
                   e('span', { style: { flex: 1 } }),
-                  r.rel == null ? null : e('span', { style: { color: r.rel >= 0 ? up : down, fontWeight: 800, fontSize: '0.82rem' } }, (r.rel >= 0 ? '+' : '') + r.rel.toFixed(1) + 'pp'));
+                  r.rel == null ? null : e('span', { style: { color: r.rel >= 0 ? up : down, fontWeight: 800, fontSize: '0.82rem' } }, __('ppValue', '{v} pp', { v: (r.rel >= 0 ? '+' : '') + window.MaerminI18n.num(r.rel, 1) })));
               }))
           : e('div', { style: { color: dim, fontSize: '0.85rem' } }, t.perfBenchNoData || 'No benchmark data available yet.')) : null;
 
@@ -407,7 +411,7 @@
           (t.perfFootnote || 'Periods marked ≈ are measured from your first snapshot because the full look-back is not yet covered.')));
     } catch (err) {
       return e('div', { style: { padding: '1.5rem', color: (props.theme && props.theme.danger) || '#ef4444' } },
-        'Performance view error: ' + (err && err.message));
+        __('perfViewError', 'Performance view error: {msg}', { msg: err && err.message }));
     }
   }
 

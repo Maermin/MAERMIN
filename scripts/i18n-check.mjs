@@ -86,7 +86,8 @@ export function run({ update = false, quiet = false } = {}) {
     const src = readSrc(f);
     const hits = scanText(src);
     if (hits.length) { counts[f] = hits.length; found[f] = hits; }
-    const loc = (src.match(/\.toLocale(?:Date|Time)?String\(/g) || []).length;
+    const loc = (src.match(/\.toLocale(?:Date|Time)?String\(/g) || []).length
+      + (src.match(/\.toFixed\(\d\)(?:\s*\+\s*['"]\s*%|\}\s*%)/g) || []).length; // percent text built with toFixed
     if (loc) locale[f] = loc;
   }
   const base = existsSync(BASELINE) ? JSON.parse(readFileSync(BASELINE, 'utf8')) : {};
@@ -102,7 +103,7 @@ export function run({ update = false, quiet = false } = {}) {
     }
     for (const f of Object.keys(locale)) {
       const allowed = (base.locale || {})[f] || 0;
-      if (locale[f] > allowed) errors.push(`${f}: ${locale[f]} toLocale*String call(s), baseline ${allowed}. Format with MaerminI18n.num/money/pct/date so the language decides.`);
+      if (locale[f] > allowed) errors.push(`${f}: ${locale[f]} raw number/date format(s) (toLocale*String, toFixed + '%'), baseline ${allowed}. Format with MaerminI18n.num/money/pct/date so the language decides.`);
     }
   }
 

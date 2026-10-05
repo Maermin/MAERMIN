@@ -18,6 +18,8 @@
 // ============================================================================
 (function () {
   'use strict';
+// Translation lookup (i18n.js): __('key', 'English fallback', { slot: value }).
+function __(k, f, v) { return (typeof window !== 'undefined' && window.MaerminI18n ? window.MaerminI18n : require('./i18n.js')).t(k, f, v); }
 
   var STORAGE_KEY = 'maermin_dashboard_layout';
   var SCHEMA = 1;
@@ -27,9 +29,9 @@
   // and 1:1 with real sections so every toggle in the Customize view does
   // something. The renderer may pass its own list to normalize().
   var DEFAULT_WIDGETS = [
-    { id: 'valueChart', label: 'Value History Chart' },
-    { id: 'statCards',  label: 'Stat Cards (Invested · Return · Dividends · Health)' },
-    { id: 'allocation', label: 'Allocation · Top Performers · Positions' }
+    { id: 'valueChart', label: 'Value History Chart', key: 'dashWValueChart' },
+    { id: 'statCards',  label: 'Stat Cards (Invested · Return · Dividends · Health)', key: 'dashWStatCards' },
+    { id: 'allocation', label: 'Allocation · Top Performers · Positions', key: 'dashWAllocation' }
   ];
 
   function defaultIds() { return DEFAULT_WIDGETS.map(function (w) { return w.id; }); }
@@ -189,7 +191,7 @@
         var st = s0[0], setSt = s0[1];
         function commit(next) { API.save(next); setSt(API.normalize(next)); }
 
-        var byId = {}; API.DEFAULT_WIDGETS.forEach(function (w) { byId[w.id] = w.label; });
+        var byId = {}; API.DEFAULT_WIDGETS.forEach(function (w) { byId[w.id] = w.key ? __(w.key, w.label) : w.label; });
 
         var rows = API.normalize(st).widgets.map(function (w) {
           return e('div', { key: w.id, style: { display: 'flex', alignItems: 'center', gap: '0.75rem', padding: '0.8rem 1rem', background: card, border: '1px solid ' + border, borderRadius: '12px', marginBottom: '0.6rem' } },
@@ -197,7 +199,7 @@
               onClick: function () { commit(API.toggle(st, w.id)); },
               title: w.visible ? (t.dashHide || 'Hide') : (t.dashShow || 'Show'),
               style: { width: '44px', flexShrink: 0, padding: '0.3rem 0', fontSize: '0.74rem', fontWeight: 800, cursor: 'pointer', borderRadius: '999px', border: '1px solid ' + (w.visible ? accent : border), background: w.visible ? accent : 'transparent', color: w.visible ? accentText : dim } },
-              w.visible ? 'On' : 'Off'),
+              w.visible ? __('secOn', 'On') : __('dashOff', 'Off')),
             e('div', { style: { flex: 1, minWidth: 0, color: w.visible ? text : dim, fontSize: '0.88rem', fontWeight: 600 } }, byId[w.id] || w.id));
         });
 
@@ -209,7 +211,7 @@
           e('button', { onClick: function () { commit(API.reset()); }, style: { marginTop: '0.5rem', padding: '0.45rem 0.9rem', fontSize: '0.82rem', fontWeight: 700, cursor: 'pointer', borderRadius: '8px', border: '1px solid ' + border, background: 'transparent', color: text } },
             t.dashReset || 'Reset to default'));
       } catch (err) {
-        return e('div', { style: { padding: '1.5rem', color: (props.theme && props.theme.danger) || '#ef4444' } }, 'Customize view error: ' + (err && err.message));
+        return e('div', { style: { padding: '1.5rem', color: (props.theme && props.theme.danger) || '#ef4444' } }, __('dashError', 'Customize view error: {msg}', { msg: err && err.message }));
       }
     };
   }

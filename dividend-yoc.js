@@ -18,6 +18,8 @@
 // ============================================================================
 (function () {
   'use strict';
+// Translation lookup (i18n.js): __('key', 'English fallback', { slot: value }).
+function __(k, f, v) { return (typeof window !== 'undefined' && window.MaerminI18n ? window.MaerminI18n : require('./i18n.js')).t(k, f, v); }
 
   function num(x) { var n = parseFloat(x); return isFinite(n) ? n : 0; }
   function ymd(d) { return String(d == null ? '' : d).slice(0, 10); }
@@ -215,7 +217,7 @@
             e('span', { style: { color: text, fontWeight: 600 } }, r.symbol),
             e('span', { style: { color: dim, textAlign: 'right' } }, fmt(r.yoc.costBasisEUR) + ' ' + sym),
             e('span', { style: { color: dim, textAlign: 'right' } }, fmt(r.yoc.annualDividendEUR) + ' ' + sym),
-            e('span', { style: { color: theme.success || '#22c55e', textAlign: 'right', fontWeight: 700 } }, r.yoc.yocPct.toFixed(2) + '%'));
+            e('span', { style: { color: theme.success || '#22c55e', textAlign: 'right', fontWeight: 700 } }, window.MaerminI18n.pct(r.yoc.yocPct, 2)));
         });
 
         return e('div', { style: { background: card, border: '1px solid ' + border, borderRadius: '14px', padding: '1.1rem', margin: '1rem 0' } },
@@ -223,7 +225,7 @@
           e('div', { style: { color: dim, fontSize: '0.76rem', marginBottom: '0.8rem' } }, t.yocSubtitle || 'Annual dividend over your FIFO cost basis. DRIP figures are a simulation — no real transactions are booked.'),
           header, body);
       } catch (err) {
-        return e('div', { style: { padding: '0.75rem', color: (props.theme && props.theme.danger) || '#ef4444' } }, 'Yield-on-cost error: ' + (err && err.message));
+        return e('div', { style: { padding: '0.75rem', color: (props.theme && props.theme.danger) || '#ef4444' } }, __('yocError', 'Yield-on-cost error: {msg}', { msg: err && err.message }));
       }
     };
   }
