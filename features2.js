@@ -309,33 +309,6 @@ function RebalancingView({ portfolio, prices, theme, formatPrice, getCurrencySym
 // IMPORT PARSERS
 // ─────────────────────────────────────────────────────────────────────────────
 
-// Parse any CSV text → array of rows (objects keyed by header)
-function parseCSVToRows(text) {
-  const lines = text.trim().split(/\r?\n/);
-  if (lines.length < 2) return [];
-  // Detect delimiter: semicolon or comma
-  const delim = lines[0].split(';').length > lines[0].split(',').length ? ';' : ',';
-  const parseRow = (line) => {
-    const cols = [];
-    let cur = '', inQ = false;
-    for (let i = 0; i < line.length; i++) {
-      const c = line[i];
-      if (c === '"') { inQ = !inQ; continue; }
-      if (c === delim && !inQ) { cols.push(cur.trim()); cur = ''; continue; }
-      cur += c;
-    }
-    cols.push(cur.trim());
-    return cols;
-  };
-  const headers = parseRow(lines[0]).map(h => h.replace(/^"/, '').replace(/"$/, '').trim());
-  return lines.slice(1).filter(l => l.trim()).map(line => {
-    const vals = parseRow(line);
-    const row = {};
-    headers.forEach((h, i) => { row[h] = (vals[i] || '').replace(/^"/, '').replace(/"$/, '').trim(); });
-    return row;
-  });
-}
-
 // ── Broker parsers entry point ───────────────────────────────────────────────
 function parseByBroker(text, brokerId) {
   // CoinTracking: the shared parser (two legs per row, three "Cur." columns).
