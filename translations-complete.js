@@ -413,6 +413,8 @@ const completeTranslations = {
     passwordTooShort: 'Password must be at least 8 characters',
     passwordChangedKept: 'Password changed. Your recovery code, passkey and sync keep working.',
     passwordChangeFailed: 'Could not change the password. Please try again.',
+    pfDeleteTitle: 'Delete portfolio "{name}"?', pfDeleteConfirm: 'Delete portfolio', pfDeleteAria: 'Delete portfolio {name}',
+    pfDeleteMessage: '{n} transaction(s) and the savings plans of this portfolio move to "{main}". Nothing is deleted.',
     divAutoBookedToast: 'dividend(s) auto-booked (estimated)',
     divNoneToBook: 'No new dividends to book',
     tagsSubtitle: 'Cross-cutting labels on your holdings — group by your own thesis (high-conviction, income, speculative…), see value & weight per tag, and optionally set target weights.',
@@ -633,6 +635,8 @@ const completeTranslations = {
     passwordTooShort: 'Das Passwort muss mindestens 8 Zeichen lang sein',
     passwordChangedKept: 'Passwort geändert. Wiederherstellungscode, Passkey und Synchronisierung funktionieren weiter.',
     passwordChangeFailed: 'Das Passwort konnte nicht geändert werden. Bitte versuche es erneut.',
+    pfDeleteTitle: 'Portfolio "{name}" löschen?', pfDeleteConfirm: 'Portfolio löschen', pfDeleteAria: 'Portfolio {name} löschen',
+    pfDeleteMessage: '{n} Transaktion(en) und die Sparpläne dieses Portfolios werden nach "{main}" verschoben. Es wird nichts gelöscht.',
     divAutoBookedToast: 'Dividende(n) automatisch gebucht (geschätzt)',
     divNoneToBook: 'Keine neuen Dividenden zu buchen',
     // Tags view
