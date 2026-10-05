@@ -382,6 +382,8 @@ const completeTranslations = {
     divAutoHint: 'Automatically book each dividend as a transaction (in its payout currency) once its pay date passes.',
     divBookedToast: 'dividend(s) booked (estimated)',
     dupAutoRemovedToast: 'duplicate automatic booking(s) removed after sync',
+    pfDeleteTitle: 'Delete portfolio "{name}"?', pfDeleteConfirm: 'Delete portfolio', pfDeleteAria: 'Delete portfolio {name}',
+    pfDeleteMessage: '{n} transaction(s) and the savings plans of this portfolio move to "{main}". Nothing is deleted.',
     divAutoBookedToast: 'dividend(s) auto-booked (estimated)',
     divNoneToBook: 'No new dividends to book',
     tagsSubtitle: 'Cross-cutting labels on your holdings — group by your own thesis (high-conviction, income, speculative…), see value & weight per tag, and optionally set target weights.',
@@ -571,6 +573,8 @@ const completeTranslations = {
     divAutoHint: 'Bucht jede Dividende automatisch als Transaktion (in Auszahlungswährung), sobald ihr Zahltag vergangen ist.',
     divBookedToast: 'Dividende(n) gebucht (geschätzt)',
     dupAutoRemovedToast: 'doppelte automatische Buchung(en) nach der Synchronisierung entfernt',
+    pfDeleteTitle: 'Portfolio "{name}" löschen?', pfDeleteConfirm: 'Portfolio löschen', pfDeleteAria: 'Portfolio {name} löschen',
+    pfDeleteMessage: '{n} Transaktion(en) und die Sparpläne dieses Portfolios werden nach "{main}" verschoben. Es wird nichts gelöscht.',
     divAutoBookedToast: 'Dividende(n) automatisch gebucht (geschätzt)',
     divNoneToBook: 'Keine neuen Dividenden zu buchen',
     // Tags view

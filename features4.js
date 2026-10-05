@@ -79,7 +79,7 @@ function usePortfolios() {
   return { portfolios, activePortfolioId, setActivePortfolioId, addPortfolio, removePortfolio, renamePortfolio };
 }
 
-function PortfolioManagerView({ portfolios, activePortfolioId, transactions, prices, exchangeRate, fxAt, corpActionsRev, theme, formatPrice, getCurrencySymbol,
+function PortfolioManagerView({ portfolios, activePortfolioId, transactions, prices, exchangeRate, fxAt, corpActionsRev, theme, t, formatPrice, getCurrencySymbol,
   setActivePortfolioId, addPortfolio, removePortfolio, renamePortfolio }) {
 
   const [newName, setNewName]   = useState('');
@@ -136,7 +136,21 @@ function PortfolioManagerView({ portfolios, activePortfolioId, transactions, pri
                 style: { background: 'none', border: 'none', color: theme.textSecondary, cursor: 'pointer', fontSize: '0.8rem', padding: '0.25rem' }
               }, '✎'),
               p.id !== 'default' && React.createElement('button', {
-                onClick: e => { e.stopPropagation(); if (confirm(`Delete "${p.name}"? Transactions will move to Main Portfolio.`)) removePortfolio(p.id); },
+                onClick: e => {
+                  e.stopPropagation();
+                  const tt = t || {};
+                  const main = (portfolios.find(x => x.id === 'default') || DEFAULT_PORTFOLIO).name;
+                  const msg = (tt.pfDeleteMessage || '{n} transaction(s) and the savings plans of this portfolio move to "{main}". Nothing is deleted.')
+                    .replace('{n}', String(p.txCount)).replace('{main}', main);
+                  window.MaerminUI.confirm({
+                    title: (tt.pfDeleteTitle || 'Delete portfolio "{name}"?').replace('{name}', p.name),
+                    message: msg,
+                    confirmLabel: tt.pfDeleteConfirm || 'Delete portfolio',
+                    cancelLabel: tt.cancel || 'Cancel',
+                    danger: true
+                  }).then(yes => { if (yes) removePortfolio(p.id); });
+                },
+                'aria-label': ((t && t.pfDeleteAria) || 'Delete portfolio {name}').replace('{name}', p.name),
                 style: { background: 'none', border: 'none', color: theme.danger || '#ef4444', cursor: 'pointer', fontSize: '0.8rem', padding: '0.25rem' }
               }, '×')
             )

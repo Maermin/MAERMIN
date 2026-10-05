@@ -85,8 +85,56 @@
         var res = repairPriceTimestamps(hist, new Date());
         if (res.changed) writeJSON('priceHistory', res.history);
       }
+    },
+    {
+      v: 5,
+      name: 'portfolios: re-home transactions and savings plans of deleted portfolios',
+      up: function () {
+        // Older builds deleted a portfolio without touching its rows, which
+        // then showed in no portfolio. Without a saved list there is no way
+        // to tell an orphan from a live portfolio, so do nothing.
+        var portfolios = readJSON('maermin_portfolios', null);
+        if (!Array.isArray(portfolios) || portfolios.length === 0) return;
+        var known = { 'default': true };
+        portfolios.forEach(function (p) { if (p && p.id != null) known[String(p.id)] = true; });
+        function orphan(pid) { return pid != null && pid !== '' && !known[String(pid)]; }
+        var txs = readJSON('transactions', null);
+        if (Array.isArray(txs)) {
+          var t = movePortfolioRows(txs, orphan, 'default');
+          if (t.moved) writeJSON('transactions', t.items);
+        }
+        var plans = readJSON('maermin_savings_plans', null);
+        if (Array.isArray(plans)) {
+          var p = movePortfolioRows(plans, orphan, 'default');
+          if (p.moved) writeJSON('maermin_savings_plans', p.items);
+        }
+      }
     }
   ];
+
+  // Move every row (transaction or savings plan) whose portfolioId is in
+  // `from` (an array of ids, or a predicate) to `toId`. Each moved row keeps
+  // its old id in `movedFrom`. A moved auto-dividend loses its auto marker:
+  // its marker would now equal the target portfolio's own auto-dividend for
+  // the same payout, and the post-sync dedupe would drop a real payout. It
+  // still counts as booked through the dividend date window. Pure; returns
+  // { items, moved } with the input array when nothing moved.
+  function movePortfolioRows(items, from, toId) {
+    var list = Array.isArray(items) ? items : [];
+    var test = typeof from === 'function' ? from : function (pid) {
+      return (from || []).map(String).indexOf(String(pid)) > -1;
+    };
+    var target = toId || 'default';
+    var moved = 0;
+    var out = list.map(function (row) {
+      if (!row || typeof row !== 'object' || row.portfolioId == null || String(row.portfolioId) === target || !test(row.portfolioId)) return row;
+      moved++;
+      var next = Object.assign({}, row, { portfolioId: target, movedFrom: String(row.portfolioId) });
+      if (next.source === 'dividend-auto') next.source = 'dividend-auto-moved';
+      return next;
+    });
+    return { items: moved ? out : list, moved: moved };
+  }
 
   // Older builds stamped live price points with
   // toLocaleString('en-US', {day, month, hour, minute}) -> "09/30, 08:14 PM":
@@ -163,6 +211,7 @@
     LATEST: LATEST,
     MIGRATIONS: MIGRATIONS,
     repairPriceTimestamps: repairPriceTimestamps,
+    movePortfolioRows: movePortfolioRows,
     getVersion: getVersion,
     setVersion: setVersion,
     run: run
