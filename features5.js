@@ -50,7 +50,7 @@ function NetWorthView({ portfolioStats, portfolio, prices, theme, formatPrice, g
   const [showAdd, setShowAdd]   = useState(false);
   const [form, setForm]         = useState({ name: '', value: '', type: 'cash', currency: 'EUR',
     recurring: false, amount: '', interval: 'monthly', startDate: window.MaerminUtils.todayISO(), endDate: '',
-    interestRate: '', compounding: 'daily', interestStart: window.MaerminUtils.todayISO(), maturityDate: '' });
+    interestRate: '', compounding: 'daily', interestStart: window.MaerminUtils.todayISO(), maturityDate: '', interestPayout: 'maturity' });
 
   useEffect(() => { localStorage.setItem('maermin_networth_accounts', JSON.stringify(accounts)); }, [accounts]);
 
@@ -111,6 +111,8 @@ function NetWorthView({ portfolioStats, portfolio, prices, theme, formatPrice, g
       account.startDate = form.interestStart || window.MaerminUtils.todayISO();
       account.lastAccrualDate = account.startDate;
       if (form.type === 'time_deposit' && form.maturityDate) account.maturityDate = form.maturityDate;
+      // Festgeld interest is income when it is paid (FINDINGS M-3): at maturity by default.
+      if (form.type === 'time_deposit') account.interestPayout = form.interestPayout === 'annual' ? 'annual' : 'maturity';
     }
     if (wantsRecurring) {
       account.recurring = true;
@@ -122,7 +124,7 @@ function NetWorthView({ portfolioStats, portfolio, prices, theme, formatPrice, g
     setAccounts(prev => [...prev, account]);
     setForm({ name: '', value: '', type: 'cash', currency: 'EUR',
       recurring: false, amount: '', interval: 'monthly', startDate: window.MaerminUtils.todayISO(), endDate: '',
-      interestRate: '', compounding: 'daily', interestStart: window.MaerminUtils.todayISO(), maturityDate: '' });
+      interestRate: '', compounding: 'daily', interestStart: window.MaerminUtils.todayISO(), maturityDate: '', interestPayout: 'maturity' });
     setShowAdd(false);
   };
 
@@ -253,6 +255,12 @@ function NetWorthView({ portfolioStats, portfolio, prices, theme, formatPrice, g
           form.type === 'time_deposit' && React.createElement('div', null,
             React.createElement('label', { style: { display: 'block', color: theme.textSecondary, fontSize: '0.7rem', marginBottom: '0.25rem', textTransform: 'uppercase' } }, t.interestMaturity || 'Maturity date'),
             inp('maturityDate', { type: 'date' })
+          ),
+          form.type === 'time_deposit' && React.createElement('div', null,
+            React.createElement('label', { style: { display: 'block', color: theme.textSecondary, fontSize: '0.7rem', marginBottom: '0.25rem', textTransform: 'uppercase' } }, t.interestPayout || 'Interest paid'),
+            React.createElement('select', { value: form.interestPayout || 'maturity', onChange: e => setForm(p => ({ ...p, interestPayout: e.target.value })),
+              style: { padding: '0.625rem 0.875rem', background: theme.inputBg, border: `1px solid ${theme.inputBorder}`, borderRadius: '8px', color: theme.text, fontSize: '0.85rem', width: '100%' }
+            }, [['maturity', t.interestPayoutMaturity || 'At maturity'], ['annual', t.interestPayoutAnnual || 'Every year']].map(([v, l]) => React.createElement('option', { key: v, value: v }, l)))
           )
         )
       ),

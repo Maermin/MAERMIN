@@ -379,6 +379,10 @@
           if (d.longTerm && exemptOn) cryptoExempt += d.gain; else cryptoShort += d.gain;
         });
         var freigrenze = year >= 2024 ? 1000 : 600;
+        // Compare in cents: summed float gains of exactly 1,000.00 EUR read
+        // 999.9999999999999 and fell under the Freigrenze (FINDINGS L-1).
+        cryptoShort = Math.round(cryptoShort * 100) / 100;
+        cryptoExempt = Math.round(cryptoExempt * 100) / 100;
         var cryptoTaxable = cryptoShort >= freigrenze ? cryptoShort : 0;
         var cryptoRate = TS && TS.abgeltungRate != null ? TS.abgeltungRate : 0.25;
         var cryptoTax = cryptoTaxable * cryptoRate;
