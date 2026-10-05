@@ -53,8 +53,13 @@
   }
 
   // "{n} tools hidden" + { n: 3 } -> "3 tools hidden". Unknown slots stay.
+  // Plurals: "{n} {n:issue|issues}" picks the first form when n is 1.
   function fill(str, vars) {
     if (!vars || typeof str !== 'string') return str;
+    str = str.replace(/\{(\w+):([^{}|]*)\|([^{}]*)\}/g, function (m, name, one, other) {
+      if (!Object.prototype.hasOwnProperty.call(vars, name)) return m;
+      return Number(vars[name]) === 1 ? one : other;
+    });
     return str.replace(/\{(\w+)\}/g, function (m, name) {
       return Object.prototype.hasOwnProperty.call(vars, name) && vars[name] != null ? String(vars[name]) : m;
     });

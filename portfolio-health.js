@@ -32,7 +32,8 @@
 
   // Fill {placeholders} in a translation string.
   function fill(str, vars) {
-    return String(str).replace(/\{(\w+)\}/g, (_, k) => (vars[k] != null ? vars[k] : ''));
+    const I = (typeof window !== 'undefined' && window.MaerminI18n) || require('./i18n.js');
+    return I.fill(String(str), vars);
   }
 
   function priceOf(prices, pos) {
@@ -236,7 +237,7 @@
     }
     if (positions.length < 5) {
       recs.push(fill(t.healthRecBreadth ||
-        'Only {n} holding(s) — a broader set smooths day-to-day volatility.',
+        'Only {n} {n:holding|holdings} — a broader set smooths day-to-day volatility.',
         { n: positions.length }));
     }
     if (recs.length === 0) {

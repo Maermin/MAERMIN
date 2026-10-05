@@ -6,8 +6,9 @@
 //   3. __('key', 'Text') carries the same English text as the dictionary, so
 //      the fallback in the code never drifts from what users see.
 //   4. No dead keys: every dictionary key is referenced somewhere.
-//   5. Hardcoded UI text does not grow: per-file counts may only go down
-//      (scripts/i18n-baseline.json). `--update` rewrites the baseline.
+//   5. Hardcoded UI text and raw toLocale*String calls do not grow: per-file
+//      counts may only go down (scripts/i18n-baseline.json). `--update`
+//      rewrites the baseline.
 import { writeFileSync, existsSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { root, appFiles, loadDicts, readSrc, scanText, tokenize, unquote } from './i18n-lib.mjs';
@@ -77,23 +78,31 @@ export function run({ update = false, quiet = false } = {}) {
   const dead = enKeys.filter((k) => !words.has(k));
   if (dead.length) errors.push(`${dead.length} dead key(s): ${dead.join(', ')}`);
 
-  // 5. hardcoded text ratchet
-  const counts = {};
+  // 5. ratchets: hardcoded text, and toLocale*String calls that bypass the
+  // locale formatters (MaerminI18n.num/money/pct/date).
+  const counts = {}, locale = {};
   const found = {};
   for (const f of files) {
-    const hits = scanText(readSrc(f));
+    const src = readSrc(f);
+    const hits = scanText(src);
     if (hits.length) { counts[f] = hits.length; found[f] = hits; }
+    const loc = (src.match(/\.toLocale(?:Date|Time)?String\(/g) || []).length;
+    if (loc) locale[f] = loc;
   }
   const base = existsSync(BASELINE) ? JSON.parse(readFileSync(BASELINE, 'utf8')) : {};
   if (update) {
-    writeFileSync(BASELINE, JSON.stringify(counts, null, 2) + '\n');
+    writeFileSync(BASELINE, JSON.stringify({ text: counts, locale }, null, 2) + '\n');
   } else {
     for (const f of Object.keys(counts)) {
-      const allowed = base[f] || 0;
+      const allowed = (base.text || {})[f] || 0;
       if (counts[f] > allowed) {
         errors.push(`${f}: ${counts[f]} hardcoded UI string(s), baseline ${allowed}. Use __('key', 'Text') with en + de entries. Candidates:\n` +
           found[f].slice(0, 12).map((h) => `      ${f}:${h.line}  ${JSON.stringify(h.text)}`).join('\n'));
       }
+    }
+    for (const f of Object.keys(locale)) {
+      const allowed = (base.locale || {})[f] || 0;
+      if (locale[f] > allowed) errors.push(`${f}: ${locale[f]} toLocale*String call(s), baseline ${allowed}. Format with MaerminI18n.num/money/pct/date so the language decides.`);
     }
   }
 
@@ -103,10 +112,10 @@ export function run({ update = false, quiet = false } = {}) {
       console.error('✗ i18n check failed:');
       errors.forEach((e) => console.error('  - ' + e));
     } else {
-      console.log(`✓ i18n: ${enKeys.length} keys in en and de, ${uses.length} uses resolve, ${total} hardcoded UI string(s) left (baseline)`);
+      console.log(`✓ i18n: ${enKeys.length} keys in en and de, ${uses.length} uses resolve, ${total} hardcoded UI string(s) and ${Object.values(locale).reduce((a, b) => a + b, 0)} raw toLocale call(s) left`);
     }
   }
-  return { errors, counts, total, missingDe, extraDe, undef, dead };
+  return { errors, counts, locale, total, missingDe, extraDe, undef, dead };
 }
 
 if (import.meta.url === `file://${process.argv[1]}`) {

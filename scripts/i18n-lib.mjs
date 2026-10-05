@@ -50,13 +50,23 @@ export function unquote(tok) {
   catch (e) { return body; }
 }
 
-const CALLS_NOT_UI = new Set(['log', 'warn', 'error', 'info', 'debug', 'Error', 'TypeError', 'RangeError',
+const CALLS_NOT_UI = new Set(['log', 'dbg', 'warn', 'error', 'info', 'debug', 'Error', 'TypeError', 'RangeError',
   'querySelector', 'querySelectorAll', 'getElementById', 'getItem', 'setItem', 'removeItem',
   'addEventListener', 'removeEventListener', 'require', 'record', 'fetch', 'postMessage',
   'setAttribute', 'getAttribute', 'createElementNS', 'matchMedia', 'emit', 'on', 'off', 'test', 'match', 'replace', 'split', 'startsWith', 'endsWith', 'includes', 'indexOf']);
 
+// Names that read the same in every language (products, services, codes).
+const SAME_IN_ALL = new Set(['MAERMIN', 'CoinGecko', 'ExchangeRate-API', 'Cloudflare Worker', 'Yahoo Finance',
+  'Argon2id', 'PBKDF2-600k', 'English', 'Deutsch', '1 USD', '€ EUR', '$ USD', 'Steam Market', 'Binance', 'Kraken',
+  'Coinbase', 'Bitpanda', 'Trade Republic', 'Scalable Capital', 'Interactive Brokers', 'XIRR', 'TWR', 'FIFO', 'FIRE',
+  'Monte Carlo', 'Coast-FIRE', 'Sharpe', 'Sortino', 'Beta', 'Alpha', 'ETF', 'ETFs', 'Watchlist', 'Dashboard', 'Live', 'Demo', 'Nebula', 'OK']);
+
 // Does this literal read like text a person sees?
 function looksLikeText(s) {
+  s = s.trim();
+  if (SAME_IN_ALL.has(s)) return false;
+  if (/^[^\s]*[?=&][^\s]*$/.test(s)) return false;               // query strings
+  if (/^→ /.test(s) && SAME_IN_ALL.has(s.slice(2))) return false;
   if (!/[A-Za-z]{2}/.test(s)) return false;
   if (/^(https?:|data:|mailto:|\.\/|\/|#)/.test(s)) return false;
   if (/^[a-z0-9_.:\/@-]+$/.test(s)) return false;                // ids, classes, keys, mime
@@ -86,10 +96,11 @@ export function scanText(src) {
     const prev = toks[i - 1] || {}, next = toks[i + 1] || {};
     if (prev.value === '||') continue;
     if (next.value === ':' && (prev.value === '{' || prev.value === ',')) continue;
+    if (/^(===|!==|==|!=|case|in)$/.test(prev.value) || /^(===|!==|==|!=|in)$/.test(next.value)) continue;
     if (prev.value === ',' && toks[i - 2] && toks[i - 2].type === 'string' && toks[i - 3] && toks[i - 3].value === '(' && toks[i - 4] && /^(__|tr|t)$/.test(toks[i - 4].value)) continue;
     if (prev.value === '(' && toks[i - 1] && toks[i - 2] && /^(__|tr)$/.test(toks[i - 2].value)) continue;
     const text = tk.value[0] === '`'
-      ? tk.value.slice(1, -1).replace(/\$\{(?:[^{}]|\{[^}]*\})*\}/g, ' ')
+      ? tk.value.slice(1, -1).replace(/\$\{(?:[^{}]|\{[^}]*\})*\}/g, '\u2026')
       : unquote(tk.value);
     if (!looksLikeText(text)) continue;
     // Inside console.x( / Error( / querySelector( … within a few tokens.

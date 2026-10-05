@@ -2,7 +2,7 @@
 // Dev tool (not part of the gate): move English literals into translation
 // keys. Usage: node scripts/i18n-apply.mjs <batch.mjs> [...more]
 //
-// A batch module exports { file?, section, items } where each item is
+// A batch module exports { file?, section, items, subs? } where each item is
 //   ['key', 'English text', 'Deutscher Text']            replace the literal in `file`
 //   ['key', 'English text', 'Deutscher Text', { dict: true }]   dictionary only
 //   ['key', 'English text', 'Deutscher Text', { line: 123 }]    only that line
@@ -20,18 +20,23 @@ const HELPER = "// Translation lookup (i18n.js): __('key', 'English fallback', {
 
 function q(s) { return "'" + String(s).replace(/\\/g, '\\\\').replace(/'/g, "\\'").replace(/\n/g, '\\n') + "'"; }
 
-export function addKeys(entries, section) {
+export function addKeys(entries, section, dry) {
   const p = join(root, DICT_FILE);
   let src = readFileSync(p, 'utf8');
   const T = loadDicts();
   const enAdd = [], deAdd = [];
+  const seen = {};
   for (const [key, en, de] of entries) {
     if (!/^[A-Za-z_]\w*$/.test(key)) throw new Error('bad key ' + key);
+    if (key in seen && seen[key] !== en) throw new Error(`key ${key} given twice with different en values`);
+    seen[key] = en;
+    if (typeof de !== 'string' || !de) throw new Error(`key ${key} has no de value`);
     if (key in T.en) {
       if (T.en[key] !== en) throw new Error(`key ${key} exists with a different en value: '${T.en[key]}' vs '${en}'`);
     } else if (!enAdd.some((l) => l.startsWith('    ' + key + ':'))) enAdd.push(`    ${key}: ${q(en)},`);
     if (!(key in T.de) && !deAdd.some((l) => l.startsWith('    ' + key + ':'))) deAdd.push(`    ${key}: ${q(de)},`);
   }
+  if (dry) return;
   const head = `\n\n    // ${section}\n`;
   if (enAdd.length) {
     const deStart = src.indexOf('\n  de: {');
@@ -71,14 +76,23 @@ export function replaceLiterals(file, items) {
     const prev = toks[i - 1] || {}, next = toks[i + 1] || {};
     if (prev.value === '||') continue;
     if (next.value === ':' && (prev.value === '{' || prev.value === ',')) continue;
+    if (/^(===|!==|==|!=|case|in)$/.test(prev.value) || /^(===|!==|==|!=|in)$/.test(next.value)) continue;
+    if (prev.value === '(' && toks[i - 2] && /^(__|tr|includes|indexOf|has|get|getItem|setItem|querySelector)$/.test(toks[i - 2].value)) continue;
     if (prev.value === '(' && toks[i - 2] && /^(__|tr)$/.test(toks[i - 2].value)) continue;
     if (prev.value === ',' && toks[i - 3] && toks[i - 3].value === '(' && toks[i - 4] && /^(__|tr)$/.test(toks[i - 4].value)) continue;
     const val = unquote(tk.value);
     const line = src.slice(0, tk.index).split('\n').length;
-    const item = items.find((it) => !(it[3] && it[3].dict) && it[1] === val && (!(it[3] && it[3].line) || it[3].line === line));
+    const item = items.find((it) => {
+      const o = it[3] || {};
+      if (o.dict || it[1] !== val) return false;
+      if (o.line && o.line !== line) return false;
+      if (o.lines && o.lines.indexOf(line) < 0) return false;
+      return true;
+    });
     if (!item) continue;
     edits.push({ at: tk.index, len: tk.value.length, text: `__('${item[0]}', ${tk.value})` });
     hits[item[0]] = (hits[item[0]] || 0) + 1;
+    if (process.env.I18N_VERBOSE) console.log(`  ${file}:${line}  ${item[0]}`);
   }
   for (const e of edits.sort((a, b) => b.at - a.at)) src = src.slice(0, e.at) + e.text + src.slice(e.at + e.len);
   if (edits.length && !/\nfunction __\(k, f, v\)|\n\s+function __\(k, f, v\)/.test(src)) {
@@ -97,6 +111,24 @@ if (import.meta.url === `file://${process.argv[1]}`) {
   if (rm > -1) { removeKeys(process.argv[rm + 1].split(',')); process.argv.splice(rm, 2); }
   for (const arg of process.argv.slice(2)) {
     const batch = (await import(pathToFileURL(resolve(arg)).href)).default;
+    addKeys(batch.items, '', true); // validate keys before touching any file
+    // subs: exact [old, new] source edits for text built from templates or
+    // concatenation; every `old` must be present.
+    if (batch.subs && batch.subs.length) {
+      const p = join(root, batch.file);
+      let src = readFileSync(p, 'utf8');
+      const bad = [];
+      for (const [o, n, all] of batch.subs) {
+        if (!src.includes(o)) { bad.push(o.slice(0, 80)); continue; }
+        src = all ? src.split(o).join(n) : src.replace(o, () => n);
+      }
+      if (bad.length) { console.error(`${arg}: subs not found:\n  ` + bad.join('\n  ')); process.exit(1); }
+      if (!/\nfunction __\(k, f, v\)|\n\s+function __\(k, f, v\)/.test(src) && /\b__\(/.test(src)) {
+        const m = src.match(/(['"])use strict\1;?\n/);
+        src = m ? src.slice(0, m.index + m[0].length) + HELPER + src.slice(m.index + m[0].length) : HELPER + src;
+      }
+      writeFileSync(p, src);
+    }
     const r = batch.file ? replaceLiterals(batch.file, batch.items) : { replaced: 0, missed: [] };
     const d = addKeys(batch.items, batch.section || batch.file);
     console.log(`${arg}: ${r.replaced} literal(s) replaced in ${batch.file || '-'}, +${d.en} en / +${d.de} de` + (r.missed.length ? `; NOT FOUND: ${r.missed.join(', ')}` : ''));

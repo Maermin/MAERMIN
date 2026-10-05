@@ -599,7 +599,7 @@ async function runBuild(browser, label, dir) {
     await page.locator('input[type=date]').first().fill(tradeDay);
     await page.waitForTimeout(300);
     { const hint = await page.locator('[data-testid="tx-currency-hint"]').innerText().catch(() => '');
-      ok('transaction dialog offers CHF and shows the rate of the trade date', hint.includes('1 CHF = 1.0600 EUR on ' + tradeDay), hint); }
+      ok('transaction dialog offers CHF and shows the rate of the trade date', hint.includes('1 CHF = 1.0600 EUR on ' + tradeDay.slice(5, 7) + '/' + tradeDay.slice(8) + '/' + tradeDay.slice(0, 4)), hint); }
     ok('no page errors in the currency session', errors.length === 0, errors.join(' | '));
     await context.close();
   }
