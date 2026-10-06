@@ -521,6 +521,40 @@ async function runBuild(browser, label, dir) {
     if (pdf) ok('PDF export lazy-loads jsPDF and downloads', true);
     else if (process.env.CI || JSPDF_DIR) ok('PDF export lazy-loads jsPDF and downloads', false, 'no download (CDN unreachable?)');
     else console.log('  - PDF export skipped (jsPDF not reachable; set JSPDF_DIR to test offline)');
+
+    // P2-7: Steam inventory import through the paste path (no Worker needed).
+    {
+      const inv = JSON.stringify({ assets: [
+        { appid: 730, contextid: '2', assetid: 's1', classid: 'k1', instanceid: '0', amount: '1' },
+        { appid: 730, contextid: '2', assetid: 's2', classid: 'k1', instanceid: '0', amount: '1' },
+        { appid: 730, contextid: '2', assetid: 's3', classid: 'k2', instanceid: '0', amount: '1' }],
+        descriptions: [{ classid: 'k1', instanceid: '0', market_hash_name: 'AK-47 | Redline (Field-Tested)', marketable: 1 },
+          { classid: 'k2', instanceid: '0', market_hash_name: 'Service Medal', marketable: 0 }] });
+      const panel = page.locator('[data-testid="steam-import"]');
+      const readPasted = async () => {
+        // The Data view remounts after an import and opens on its first tab.
+        if (!(await panel.count())) await page.getByRole('button', { name: /Steam inventory/ }).click();
+        if (!(await panel.getByRole('textbox', { name: 'Inventory JSON' }).count())) await panel.getByRole('button', { name: 'Paste instead' }).click();
+        await panel.getByRole('textbox', { name: 'Inventory JSON' }).fill(inv);
+        await panel.getByRole('button', { name: 'Read pasted inventory' }).click();
+        await page.waitForTimeout(300);
+      };
+      let booked = null, again = '';
+      try {
+        await openView(page, 'data');
+        await readPasted();
+        const price = panel.getByRole('textbox', { name: 'Price per item for AK-47 | Redline (Field-Tested)' });
+        await price.fill('12.50'); await price.press('Tab');
+        await page.waitForTimeout(200);
+        await panel.getByRole('button', { name: 'Import 1 row' }).click();
+        await page.waitForTimeout(500);
+        booked = await page.evaluate(() => JSON.parse(localStorage.getItem('transactions') || '[]').filter((t) => t.source === 'steam-import'));
+        await readPasted();
+        again = await panel.locator('[data-testid="steam-msg"]').innerText().catch(() => '');
+      } catch (e) { again = 'ERR ' + e.message.split('\n')[0]; }
+      ok('Steam import: pasted inventory -> one buy of 2 × AK-47 at 12.50 € with both asset ids', !!booked && booked.length === 1 && booked[0].quantity === 2 && booked[0].price === 12.5 && booked[0].category === 'skins' && booked[0].steamAssetIds.join() === 's1,s2', JSON.stringify(booked));
+      ok('Steam import: a re-import offers only the item not imported before', /^1 new item \(1 name\)/.test(again) && (await panel.locator('tr[data-steam-item]').count()) === 1, again);
+    }
     ok('no page errors in the session', errors.length === 0, errors.join(' | '));
     await context.close();
   }

@@ -50,7 +50,8 @@ function __(k, f, v) { return (typeof window !== 'undefined' && window.MaerminI1
       [__('pvOptTitle', 'Only if you turn it on'), [
         __('pvSync', 'Cloud sync: your Worker stores your data encrypted on your device, under an anonymous account id. It cannot read it.'),
         __('pvShare', 'Share & Compare: a redacted snapshot (percentages and scores, no amounts or quantities) is stored by your Worker for 90 days, plus an anonymous aggregate for the comparison.'),
-        __('pvExchange', 'Exchange connections: requests are signed in your browser and relayed by your Worker to the exchange. The API keys stay in your encrypted vault.')]]
+        __('pvExchange', 'Exchange connections: requests are signed in your browser and relayed by your Worker to the exchange. The API keys stay in your encrypted vault.'),
+        __('pvSteam', 'Steam inventory import: your Worker asks Steam for the inventory of the profile you enter. The profile is not stored.')]]
     ];
   }
 

@@ -16,14 +16,16 @@
  *                                                 CSGO Trader's daily price file)
  *   GET  /?action=version                       → { version, actions }: the app compares
  *                                                 it with the version it expects
+ *   GET  /?action=steaminv&profile=<id|url>     → CS2 items of a PUBLIC Steam inventory:
+ *                                                 { steamid, items: [{ assetid, name, marketable }] }
  */
 
 // Bump on every change to this file that the app relies on, and set
 // EXPECTED_WORKER_VERSION in onboarding.js to the same value (test/worker-version
 // enforces both). Format YYYY.M.N; compared numerically per part.
-export const WORKER_VERSION = '2026.10.1';
+export const WORKER_VERSION = '2026.10.2';
 export const WORKER_ACTIONS = ['yf', 'yfsearch', 'screener', 'fundholdings', 'fundamentals', 'earnings', 'profile',
-  'news', 'skinprices', 'sync', 'share', 'mcp', 'brokerproxy', 'version'];
+  'news', 'skinprices', 'steaminv', 'sync', 'share', 'mcp', 'brokerproxy', 'version'];
 
 export default {
   async fetch(request, env, ctx) {
@@ -680,6 +682,43 @@ export default {
       }
     }
 
+    // ── Steam inventory (CS2) ────────────────────────────────────────────────
+    // GET /?action=steaminv&profile=<SteamID64 | profile URL | custom URL name>
+    // Reads a PUBLIC inventory (no key): a custom URL name is resolved through
+    // the profile's XML, then up to 5 pages of 2,000 items are joined with
+    // their descriptions. Only steamcommunity.com is asked, with a validated id
+    // or name. Steam throttles cloud IPs: 429 is passed on, and the app offers
+    // to paste the inventory JSON opened in the user's own browser instead.
+    if (request.method === 'GET' && action === 'steaminv') {
+      const who = parseSteamProfile(url.searchParams.get('profile'));
+      if (!who) return res(JSON.stringify({ error: 'not a Steam profile (SteamID64, profile URL or custom URL name)' }), 400, request);
+      const hdr = { headers: { 'Accept': 'application/json', 'User-Agent': 'MAERMIN-Portfolio-Worker/1.0 (+https://github.com/Maermin/MAERMIN)' } };
+      try {
+        let id = who.steamid;
+        if (!id) {
+          const r = await fetchWithTimeout('https://steamcommunity.com/id/' + encodeURIComponent(who.vanity) + '/?xml=1', hdr, 10000);
+          const m = r.ok ? (await r.text()).match(/<steamID64>(\d{17})<\/steamID64>/) : null;
+          if (!m) return res(JSON.stringify({ error: 'Steam profile not found' }), 404, request);
+          id = m[1];
+        }
+        const pages = [];
+        let start = '';
+        for (let i = 0; i < 5; i++) {
+          const r = await fetchWithTimeout('https://steamcommunity.com/inventory/' + id + '/730/2?l=english&count=2000' + (start ? '&start_assetid=' + start : ''), hdr, 15000);
+          if (r.status === 403) return res(JSON.stringify({ error: 'inventory is private', steamid: id }), 403, request);
+          if (r.status === 429) return res(JSON.stringify({ error: 'Steam rate limit', steamid: id }), 429, request);
+          if (!r.ok) return res(JSON.stringify({ error: 'Steam answered ' + r.status, steamid: id }), 502, request);
+          const page = await r.json();
+          pages.push(page);
+          if (!page || !page.more_items || !page.last_assetid) break;
+          start = String(page.last_assetid).replace(/\D/g, '');
+        }
+        return res(JSON.stringify({ steamid: id, items: parseSteamInventory(pages) }), 200, request);
+      } catch (e) {
+        return res(JSON.stringify({ error: 'Steam unreachable: ' + (e && e.message) }), 502, request);
+      }
+    }
+
     // ── Broker proxy ─────────────────────────────────────────────────────────
     // POST /?action=brokerproxy  body: { method, url, headers, body }
     // Relays a CLIENT-SIGNED request to a whitelisted exchange host so the
@@ -1012,10 +1051,38 @@ export function isMarketSymbol(raw) {
   return /^[A-Za-z0-9^][A-Za-z0-9.\-=^_]{0,23}$/.test(String(raw == null ? '' : raw).trim());
 }
 
-// Which rate-limit budget a request draws from: the skin price list or
-// everything else. PURE, exported for the harness.
+// Which rate-limit budget a request draws from: the skin price list, the
+// Steam inventory, or everything else. PURE, exported for the harness.
 export function rateBucket(request, action) {
-  return action === 'skinprices' ? 'skins' : 'default';
+  return action === 'skinprices' ? 'skins' : action === 'steaminv' ? 'steam' : 'default';
+}
+
+// SteamID64, a profiles/ or id/ URL, or a bare custom URL name ->
+// { steamid } | { vanity } | null. PURE, exported for the harness.
+export function parseSteamProfile(raw) {
+  const s = String(raw == null ? '' : raw).trim();
+  let m = s.match(/^(?:https?:\/\/)?(?:www\.)?steamcommunity\.com\/profiles\/(\d{17})\/?$/i) || s.match(/^(\d{17})$/);
+  if (m) return { steamid: m[1] };
+  m = s.match(/^(?:https?:\/\/)?(?:www\.)?steamcommunity\.com\/id\/([A-Za-z0-9_-]{2,32})\/?$/i) || s.match(/^([A-Za-z0-9_-]{2,32})$/);
+  return m ? { vanity: m[1] } : null;
+}
+
+// Inventory pages ({ assets, descriptions }) -> [{ assetid, name, marketable }].
+// The app's import works on the same shape when the JSON is pasted. PURE.
+export function parseSteamInventory(pages) {
+  const out = [];
+  (Array.isArray(pages) ? pages : [pages]).forEach((p) => {
+    if (!p || !Array.isArray(p.assets)) return;
+    const desc = {};
+    (p.descriptions || []).forEach((d) => { if (d) desc[d.classid + '_' + (d.instanceid || '0')] = d; });
+    p.assets.forEach((a) => {
+      const d = desc[a.classid + '_' + (a.instanceid || '0')];
+      if (!a || !d || !d.market_hash_name) return;
+      const n = Math.max(1, parseInt(a.amount, 10) || 1);
+      for (let i = 0; i < n; i++) out.push({ assetid: String(a.assetid) + (n > 1 ? '#' + i : ''), name: String(d.market_hash_name), marketable: d.marketable === 1 || d.marketable === true });
+    });
+  });
+  return out;
 }
 
 // In-memory sliding-window rate limiter (per worker isolate). Keyed by client

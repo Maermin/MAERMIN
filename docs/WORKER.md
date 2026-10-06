@@ -165,6 +165,17 @@ good copy is served with `X-Stale: 1`; without one → `502 {"error":"Skin price
 
 ---
 
+## Steam inventory (optional)
+
+### `GET /?action=steaminv&profile=<SteamID64 | profile URL | custom URL name>`
+Reads a **public** CS2 inventory without a key: a custom URL name is resolved through the profile's
+XML (`steamcommunity.com/id/<name>/?xml=1`), then up to 5 pages of 2,000 items
+(`/inventory/<id>/730/2`) are joined with their descriptions.
+`200 { "steamid": "7656…", "items": [{ "assetid", "name" (market_hash_name), "marketable" }] }`.
+Errors: `400` not a profile, `404` unknown custom URL, `403` private inventory, `429` Steam rate limit
+(passed on — Steam throttles cloud IPs; the app then offers to paste the inventory JSON), `502` other.
+Only `steamcommunity.com` is asked, with a validated id or name. Own rate-limit budget (`steam`).
+
 ## Encrypted cloud sync (optional)
 
 Requires a KV namespace bound as `env.SYNC`. Zero-knowledge: the server only sees
