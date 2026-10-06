@@ -2372,7 +2372,47 @@ const completeTranslations = {
     fsaTotal: 'Total',
     fsaUnassigned: 'Not assigned: {x}',
     fsaNamePh: 'Broker, e.g. Trade Republic',
-    fsaAdd: 'Add broker'
+    fsaAdd: 'Add broker',
+
+    // P2-7 Steam inventory import
+    stTab: 'Steam inventory',
+    stNote: 'Steam inventory import',
+    stBadJson: 'That is not a Steam inventory (JSON with "assets" and "descriptions").',
+    stFound: '{n} new {n:item|items} ({k} {k:name|names}) not imported before.',
+    stNothingNew: 'Every item of this inventory is already imported.',
+    stNoWorker: 'Loading needs your Worker URL (API Settings). You can paste the inventory instead.',
+    stPrivate: 'The inventory is private. Set it to public in your Steam privacy settings and try again.',
+    stLimited: 'Steam refused the request from the Worker (rate limit). Paste the inventory instead (below).',
+    stNotFound: 'No Steam profile with that name.',
+    stOldWorker: 'Your Worker is older than this feature. Update it (API Settings) or paste the inventory instead.',
+    stFailed: 'Loading failed ({msg}). Paste the inventory instead (below).',
+    stImported: '{n} {n:item|items} imported as {k} {k:transaction|transactions}',
+    stTitle: 'Steam inventory (CS2)',
+    stIntro: 'Imports the CS2 items of a public Steam inventory as purchases. You check every row before anything is booked; a later import only offers items not imported before, and nothing is ever sold.',
+    stProfile: 'Steam profile',
+    stProfilePh: 'SteamID64, profile URL or custom URL name',
+    stLoading: 'Loading…',
+    stLoad: 'Load inventory',
+    stPasteToggle: 'Paste instead',
+    stPasteOpen: 'Open',
+    stPasteLink: 'your inventory as JSON',
+    stPasteCopy: 'while signed in to Steam, select everything, copy it and paste it here.',
+    stPasteNeedId: 'Enter your SteamID64 (17 digits, in your profile URL) above to get the link to your inventory JSON.',
+    stPasteAria: 'Inventory JSON',
+    stReadPasted: 'Read pasted inventory',
+    stItem: 'Item',
+    stQty: 'Qty',
+    stPrice: 'Price per item (EUR)',
+    stDate: 'Purchase date',
+    stInclude: 'Import {name}',
+    stNotMarketable: 'not marketable',
+    stPriceAria: 'Price per item for {name}',
+    stDateAria: 'Purchase date for {name}',
+    stPriceHint: 'Prices are today\'s Steam Market prices; change them to what you paid.',
+    stImportBtn: 'Import {n} {n:row|rows}',
+
+    // P2-7 privacy line
+    pvSteam: 'Steam inventory import: your Worker asks Steam for the inventory of the profile you enter. The profile is not stored.'
   },
 
   // German locale (v10.x). Curated high-traffic strings; any missing key falls
@@ -4579,7 +4619,47 @@ const completeTranslations = {
     fsaTotal: 'Summe',
     fsaUnassigned: 'Nicht verteilt: {x}',
     fsaNamePh: 'Broker, z. B. Trade Republic',
-    fsaAdd: 'Broker hinzufügen'
+    fsaAdd: 'Broker hinzufügen',
+
+    // P2-7 Steam inventory import
+    stTab: 'Steam-Inventar',
+    stNote: 'Import aus dem Steam-Inventar',
+    stBadJson: 'Das ist kein Steam-Inventar (JSON mit „assets“ und „descriptions“).',
+    stFound: '{n} {n:neuer Gegenstand|neue Gegenstände} ({k} {k:Name|Namen}), noch nicht importiert.',
+    stNothingNew: 'Alle Gegenstände dieses Inventars sind schon importiert.',
+    stNoWorker: 'Zum Laden brauchst du deine Worker-URL (API-Einstellungen). Du kannst das Inventar stattdessen einfügen.',
+    stPrivate: 'Das Inventar ist privat. Stelle es in deinen Steam-Privatsphäre-Einstellungen auf öffentlich und versuche es erneut.',
+    stLimited: 'Steam hat die Anfrage des Workers abgelehnt (Ratenlimit). Füge das Inventar stattdessen ein (unten).',
+    stNotFound: 'Kein Steam-Profil mit diesem Namen.',
+    stOldWorker: 'Dein Worker ist älter als diese Funktion. Aktualisiere ihn (API-Einstellungen) oder füge das Inventar stattdessen ein.',
+    stFailed: 'Laden fehlgeschlagen ({msg}). Füge das Inventar stattdessen ein (unten).',
+    stImported: '{n} {n:Gegenstand|Gegenstände} als {k} {k:Transaktion|Transaktionen} importiert',
+    stTitle: 'Steam-Inventar (CS2)',
+    stIntro: 'Importiert die CS2-Gegenstände eines öffentlichen Steam-Inventars als Käufe. Du prüfst jede Zeile, bevor etwas gebucht wird; ein späterer Import bietet nur noch nicht importierte Gegenstände an, und verkauft wird nie etwas.',
+    stProfile: 'Steam-Profil',
+    stProfilePh: 'SteamID64, Profil-URL oder eigener URL-Name',
+    stLoading: 'Lädt…',
+    stLoad: 'Inventar laden',
+    stPasteToggle: 'Stattdessen einfügen',
+    stPasteOpen: 'Öffne',
+    stPasteLink: 'dein Inventar als JSON',
+    stPasteCopy: '(bei Steam angemeldet), markiere alles, kopiere es und füge es hier ein.',
+    stPasteNeedId: 'Gib oben deine SteamID64 ein (17 Ziffern, steht in deiner Profil-URL), um den Link zu deinem Inventar-JSON zu bekommen.',
+    stPasteAria: 'Inventar-JSON',
+    stReadPasted: 'Eingefügtes Inventar lesen',
+    stItem: 'Gegenstand',
+    stQty: 'Anz.',
+    stPrice: 'Preis je Stück (EUR)',
+    stDate: 'Kaufdatum',
+    stInclude: '{name} importieren',
+    stNotMarketable: 'nicht handelbar',
+    stPriceAria: 'Preis je Stück für {name}',
+    stDateAria: 'Kaufdatum für {name}',
+    stPriceHint: 'Die Preise sind heutige Steam-Market-Preise; ändere sie auf das, was du bezahlt hast.',
+    stImportBtn: '{n} {n:Zeile|Zeilen} importieren',
+
+    // P2-7 privacy line
+    pvSteam: 'Steam-Inventar-Import: Dein Worker fragt bei Steam das Inventar des Profils ab, das du eingibst. Das Profil wird nicht gespeichert.'
   }
 };
 

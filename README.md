@@ -65,6 +65,7 @@ No account  ·  No server  ·  No ads  ·  No remote telemetry  ·  MIT License
 | **Health Score** | 0–100 structural score (diversification · concentration · asset-class spread · breadth) with a letter grade and concrete, actionable recommendations · advisor findings folded in |
 | **ETF X-Ray** | Look-through of ETF/fund positions: effective per-security exposure across funds + direct holdings, sector/country/currency look-through, fund-overlap detection, hidden concentration risks — in the Health and Risk views (live via Worker, built-in snapshot fallback) |
 | **Corporate Actions** | Stock splits and reverse splits applied to historical lots so quantities, prices, position value, P&L, CAGR, the value chart and FIFO cost basis stay correct across a split · add manually (ratio New:Old) per holding or auto-detect via the Worker · managed in the position detail modal, with a global list in Settings · carried in the full-vault backup |
+| **Steam inventory import** | Data → Steam inventory: the CS2 items of a public inventory (SteamID64, profile URL or custom URL name, through your Worker — or paste the inventory JSON) become buys in an editable preview, prices pre-filled with today's Steam Market price · a re-import only offers items not imported before (asset ids) · never books sales |
 | **Trash & Undo** | Deleted transactions, portfolios, savings plans, net-worth accounts, goals, rules and real assets go to a trash for 30 days · every delete toast offers **Undo** · Settings → Trash restores or deletes for good · encrypted, synced and in the full backup; a restore never creates a duplicate |
 | **Tax & FIFO** | German tax law: 1-year crypto exemption with Freigrenze, Vorabpauschale per accumulating fund (BMF base rates, month pro-rating, sale credit), Teilfreistellung by fund type, Sparerpauschbetrag, Soli and optional church tax in the statutory order · US tax law (short/long-term gains) · editable tax settings (rate, Soli, church tax, allowance, crypto exemption, Teilfreistellung) · multi-sheet Excel + PDF export · **tax advisor** (estimate): crypto §23 EStG tax-free countdown per lot, 1.000 EUR Freigrenze buffer, Sparerpauschbetrag headroom, loss-harvesting with the stock vs other pots kept separate, ranked Critical/Important/Optimization |
 
@@ -138,6 +139,7 @@ The Worker is **required** for stock prices, historical chart data, CS2 prices, 
 | `GET /?action=earnings&symbol=AAPL` | Next earnings date + consensus EPS/revenue estimates (Earnings Calendar in the Dividends view; Yahoo `calendarEvents`, no key) |
 | `GET /?action=news&symbol=AAPL` | Yahoo Finance RSS headlines for a holding (News Feed view) |
 | `GET /?action=skinprices` | CS2 Steam Market prices for every item (USD, daily file, cached 1 h) |
+| `GET /?action=steaminv&profile=<id\|url>` | CS2 items of a public Steam inventory (Steam inventory import; Steam may throttle cloud IPs, the app then offers to paste the inventory JSON) |
 | `GET /?action=version` | `{ version, actions }` — the app compares the version with the one its release expects and asks you to update an older Worker |
 | `POST /?action=sync` | E2E-encrypted cloud sync (KV-backed, zero-knowledge) |
 | `POST /?action=share` | Redacted share snapshots (percent weights/scores only, allowlist-validated server-side) + anonymous benchmark aggregate |
@@ -205,7 +207,7 @@ Contributing guidelines and conventions: **[CONTRIBUTING.md](CONTRIBUTING.md)**.
 - Data requests go to: CoinGecko, ExchangeRate-API / open.er-api.com and your own Cloudflare Worker
 - Code from CDNs (version-pinned, SRI-checked): React from unpkg.com on every start; jsPDF and pdf.js from cdnjs.cloudflare.com on first PDF export/import
 - Images: position logos (Yahoo), coin icons (CoinGecko) and skin pictures (Steam CDN) load from those services, which therefore see which logos you view
-- Your Worker only relays to Yahoo Finance / CSGO Trader's price file / (optionally) whitelisted exchanges. It stores only the opt-in zero-knowledge sync blob and, if you use Share & Compare, the redacted share snapshots (percentages and scores, 90 days) with their anonymous aggregate
+- Your Worker only relays to Yahoo Finance / CSGO Trader's price file / (optionally) Steam for the inventory import and whitelisted exchanges. It stores only the opt-in zero-knowledge sync blob and, if you use Share & Compare, the redacted share snapshots (percentages and scores, 90 days) with their anonymous aggregate
 - Set or change the access password in-app (Settings → Change Password) — no code edits needed
 
 ---

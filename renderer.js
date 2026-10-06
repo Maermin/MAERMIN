@@ -2499,8 +2499,19 @@ function InvestmentTracker() {
       React.createElement('div', { style: { display: 'flex', gap: '0.5rem', marginBottom: '1.5rem', flexWrap: 'wrap' } },
         tabBtn('export', __('dmExportBackup', 'Export & Backup'), '↓ '),
         tabBtn('import', __('dmManualImport', 'Manual Import'), '↑ '),
-        tabBtn('broker', t.brokerImport || 'Broker Import', '◁ ')
+        tabBtn('broker', t.brokerImport || 'Broker Import', '◁ '),
+        window.MaerminSteamImport && tabBtn('steam', __('stTab', 'Steam inventory'), '◆ ')
       ),
+
+      // Steam inventory import (P2-7): CS2 items as purchases, editable preview.
+      section === 'steam' && window.MaerminSteamImport && React.createElement(window.MaerminSteamImport.Panel, {
+        theme, workerUrl: apiKeys.cs2Worker, transactions, exchangeRate, addToast,
+        portfolioId: activePortfolioId === 'all' ? 'default' : activePortfolioId,
+        onImport: (txs) => {
+          setTransactions(prev => [...prev, ...txs]);
+          if (window.MaerminAuditLog) window.MaerminAuditLog.record('data.import', `${txs.length} Steam item transaction(s) imported`);
+        }
+      }),
 
       // ── Export & Backup ──────────────────────────────────────────────────
       section === 'export' && React.createElement('div', { style: { background: theme.card, border: `1px solid ${theme.cardBorder}`, borderRadius: '12px', padding: '1.5rem' } },
