@@ -2327,7 +2327,33 @@ const completeTranslations = {
     trashRestoreFailed: 'Could not restore this item.',
     trashRestoreAria: 'Restore {name}',
     trashPurgeTitle: 'Delete "{name}" forever?',
-    trashPurgeAria: 'Delete {name} forever'
+    trashPurgeAria: 'Delete {name} forever',
+
+    // P2-5 Trust pages
+    navPrivacy: 'Privacy',
+    taxRulesLabel: 'Tax rules',
+    trustNoAdvice: 'No tax or investment advice — estimates only.',
+    trustTaxRules: 'Only German and US tax rules are supported. Check the figures against your tax documents or with a tax adviser.',
+    trustInvest: 'The findings are rules of thumb applied to your data, not a recommendation to buy or sell.',
+    pvTitle: 'Privacy',
+    pvIntro: 'MAERMIN has no server of its own. This page lists everything that leaves your device and where it goes.',
+    pvLocalTitle: 'Stays on this device',
+    pvLocal1: 'Your transactions, portfolios, settings and every other record are stored in this browser, encrypted with your password (AES-256-GCM).',
+    pvLocal2: 'Your password and recovery code never leave the device; nobody can reset them for you.',
+    pvLocal3: 'The security log stays on the device. There is no analytics, telemetry or tracking, and the fonts are part of the app.',
+    pvLocal4: 'Backups and exports are files you save yourself; MAERMIN does not upload them.',
+    pvWorkerTitle: 'Your Cloudflare Worker',
+    pvWorker1: 'The Worker runs in your own Cloudflare account. It receives the symbols of your holdings and your search terms, and fetches prices, history, dividends, fund data and news for them from Yahoo Finance, and the CS2 price list.',
+    pvWorker2: 'For these requests it keeps only short-lived caches of the answers. Amounts and quantities are not sent.',
+    pvDirectTitle: 'Requests from your browser to other services',
+    pvDirect1: 'CoinGecko: the coins you hold, for prices and coin icons.',
+    pvDirect2: 'open.er-api.com / ExchangeRate-API: exchange rates, without any portfolio data.',
+    pvDirect3: 'unpkg.com (React, on every start) and cdnjs.cloudflare.com (PDF tools, on the first PDF export or import): program code, version-pinned and integrity-checked.',
+    pvDirect4: 'Logos and pictures load from Yahoo, CoinGecko and the Steam CDN, so those services see which ones you view.',
+    pvOptTitle: 'Only if you turn it on',
+    pvSync: 'Cloud sync: your Worker stores your data encrypted on your device, under an anonymous account id. It cannot read it.',
+    pvShare: 'Share & Compare: a redacted snapshot (percentages and scores, no amounts or quantities) is stored by your Worker for 90 days, plus an anonymous aggregate for the comparison.',
+    pvExchange: 'Exchange connections: requests are signed in your browser and relayed by your Worker to the exchange. The API keys stay in your encrypted vault.'
   },
 
   // German locale (v10.x). Curated high-traffic strings; any missing key falls
@@ -4489,7 +4515,33 @@ const completeTranslations = {
     trashRestoreFailed: 'Dieser Eintrag ließ sich nicht wiederherstellen.',
     trashRestoreAria: '{name} wiederherstellen',
     trashPurgeTitle: '„{name}“ endgültig löschen?',
-    trashPurgeAria: '{name} endgültig löschen'
+    trashPurgeAria: '{name} endgültig löschen',
+
+    // P2-5 Trust pages
+    navPrivacy: 'Datenschutz',
+    taxRulesLabel: 'Steuerregeln',
+    trustNoAdvice: 'Keine Steuer- oder Anlageberatung – nur Schätzungen.',
+    trustTaxRules: 'Unterstützt werden nur deutsche und US-Steuerregeln. Prüfe die Zahlen mit deinen Steuerunterlagen oder mit einer Steuerberatung.',
+    trustInvest: 'Die Hinweise sind Faustregeln, angewandt auf deine Daten – keine Empfehlung zum Kauf oder Verkauf.',
+    pvTitle: 'Datenschutz',
+    pvIntro: 'MAERMIN hat keinen eigenen Server. Diese Seite listet alles, was dein Gerät verlässt, und wohin es geht.',
+    pvLocalTitle: 'Bleibt auf diesem Gerät',
+    pvLocal1: 'Deine Transaktionen, Portfolios, Einstellungen und alle anderen Daten liegen in diesem Browser, verschlüsselt mit deinem Passwort (AES-256-GCM).',
+    pvLocal2: 'Passwort und Wiederherstellungscode verlassen nie das Gerät; niemand kann sie für dich zurücksetzen.',
+    pvLocal3: 'Das Sicherheitsprotokoll bleibt auf dem Gerät. Es gibt keine Analyse, keine Telemetrie und kein Tracking; die Schriften sind Teil der App.',
+    pvLocal4: 'Sicherungen und Exporte sind Dateien, die du selbst speicherst; MAERMIN lädt sie nirgends hoch.',
+    pvWorkerTitle: 'Dein Cloudflare Worker',
+    pvWorker1: 'Der Worker läuft in deinem eigenen Cloudflare-Konto. Er erhält die Symbole deiner Positionen und deine Suchbegriffe und holt dazu Kurse, Verläufe, Dividenden, Fondsdaten und News von Yahoo Finance sowie die CS2-Preisliste.',
+    pvWorker2: 'Für diese Anfragen hält er nur kurzlebige Zwischenspeicher der Antworten. Beträge und Stückzahlen werden nicht gesendet.',
+    pvDirectTitle: 'Anfragen deines Browsers an andere Dienste',
+    pvDirect1: 'CoinGecko: die Coins, die du hältst, für Kurse und Coin-Symbole.',
+    pvDirect2: 'open.er-api.com / ExchangeRate-API: Wechselkurse, ohne Portfoliodaten.',
+    pvDirect3: 'unpkg.com (React, bei jedem Start) und cdnjs.cloudflare.com (PDF-Werkzeuge, beim ersten PDF-Export oder -Import): Programmcode, in fester Version und mit Integritätsprüfung.',
+    pvDirect4: 'Logos und Bilder laden von Yahoo, CoinGecko und dem Steam-CDN; diese Dienste sehen also, welche du ansiehst.',
+    pvOptTitle: 'Nur wenn du es einschaltest',
+    pvSync: 'Cloud-Sync: Dein Worker speichert deine Daten, auf deinem Gerät verschlüsselt, unter einer anonymen Konto-ID. Lesen kann er sie nicht.',
+    pvShare: 'Teilen & Vergleichen: Ein reduzierter Schnappschuss (Prozente und Werte, keine Beträge oder Stückzahlen) liegt 90 Tage bei deinem Worker, dazu ein anonymer Gesamtwert für den Vergleich.',
+    pvExchange: 'Börsenverbindungen: Anfragen werden in deinem Browser signiert und von deinem Worker an die Börse weitergeleitet. Die API-Schlüssel bleiben in deinem verschlüsselten Tresor.'
   }
 };
 

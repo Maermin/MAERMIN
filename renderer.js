@@ -1043,6 +1043,7 @@ function InvestmentTracker() {
     { id: 'nav:discovery',     label: t.discovery || 'Discovery',          category: __('palCatTools', 'Tools'),      shortcut: 'g e' },
     { id: 'nav:share',         label: t.navShare || 'Share & Compare',     category: __('palCatTools', 'Tools'),      shortcut: 'g h' },
     { id: 'nav:trash',         label: t.navTrash || 'Trash',               category: __('palCatTools', 'Tools') },
+    { id: 'nav:privacy',       label: t.navPrivacy || 'Privacy',           category: __('palCatTools', 'Tools') },
     { id: 'nav:watchlist',     label: t.watchlist || 'Watchlist',          category: __('palCatTools', 'Tools'),      shortcut: 'g w' },
     { id: 'nav:rules',         label: t.navRules || 'Alerts & Rules',      category: __('palCatTools', 'Tools'),      shortcut: 'g u' },
     { id: 'nav:categories',    label: t.navCategories || 'Categories',     category: __('palCatTools', 'Tools'),      shortcut: 'g c' },
@@ -2361,6 +2362,7 @@ function InvestmentTracker() {
       case 'nav:discovery':     setActiveView('discovery'); break;
       case 'nav:share':         setActiveView('share'); break;
       case 'nav:trash':         setActiveView('trash'); break;
+      case 'nav:privacy':       setActiveView('privacy'); break;
       case 'nav:watchlist':     setActiveView('watchlist'); break;
       case 'nav:rules':         setActiveView('rules'); break;
       case 'nav:categories':    setActiveView('categories'); break;
@@ -2832,6 +2834,7 @@ function InvestmentTracker() {
         tabBtn('realized', t.taxTabRealized || 'Realized vs Unrealized'),
         showHarvest && tabBtn('harvest', t.taxTabHarvest || 'Tax-loss harvesting')
       ),
+      window.MaerminTrust && React.createElement(window.MaerminTrust.Disclaimer, { theme, kind: 'tax', style: { margin: '0.75rem 1.5rem 0' } }),
       React.createElement('div', { style: { flex: 1, overflow: 'auto' } },
         tab === 'fifo' && window.MaerminFeatures4 ?
           React.createElement(window.MaerminFeatures4.FIFOView, { transactions, prices, exchangeRate, fxAt, theme, formatPrice, getCurrencySymbol }) : null,
@@ -2856,10 +2859,12 @@ function InvestmentTracker() {
       // direct-concentration fallback when fund data has not been loaded yet.
       case 'intelligence':
         return window.MaerminIntelligence ?
-          React.createElement(window.MaerminIntelligence.View, {
-            portfolio, prices, transactions: activeTransactions,
-            lookThrough: lookThroughResult, theme: currentTheme, t
-          }) : renderAnalyticsPlaceholder(t.intelTitle || 'Portfolio Intelligence');
+          React.createElement(React.Fragment, null,
+            window.MaerminTrust && React.createElement(window.MaerminTrust.Disclaimer, { theme: currentTheme, kind: 'invest', style: { margin: '1rem 1.5rem 0' } }),
+            React.createElement(window.MaerminIntelligence.View, {
+              portfolio, prices, transactions: activeTransactions,
+              lookThrough: lookThroughResult, theme: currentTheme, t
+            })) : renderAnalyticsPlaceholder(t.intelTitle || 'Portfolio Intelligence');
 
       // v10.x: snapshot-powered performance cards (1D…Max), derived 100% from the
       // on-device value history — no API. Defaults to the combined 'all' series.
@@ -3080,6 +3085,11 @@ function InvestmentTracker() {
           initialSection: activeView === 'broker-import' ? 'broker' : 'export'
         });
 
+      case 'privacy':
+        return window.MaerminTrust
+          ? React.createElement(window.MaerminTrust.PrivacyView, { theme: currentTheme })
+          : renderAnalyticsPlaceholder(t.navPrivacy || 'Privacy');
+
       case 'trash':
         return window.MaerminTrash
           ? React.createElement(window.MaerminTrash.TrashView, { theme: currentTheme, addToast })
@@ -3163,6 +3173,7 @@ function InvestmentTracker() {
           // itself: the look-through result and the risk-monitor evaluation
           // (drawdown/volatility breaches against the user's thresholds).
           window.MaerminAdvisor && window.MaerminAdvisor.Panel && React.createElement('div', { style: { padding: '1rem 1.5rem 1.5rem' } },
+            window.MaerminTrust && React.createElement(window.MaerminTrust.Disclaimer, { theme: currentTheme, kind: 'invest', style: { marginBottom: '0.75rem' } }),
             React.createElement(window.MaerminAdvisor.Panel, {
               portfolio, prices, transactions: activeTransactions, theme: currentTheme, t,
               // Amounts in the findings follow Privacy Mode and the display currency.
@@ -4366,7 +4377,7 @@ function InvestmentTracker() {
           React.createElement('select', {
             value: taxJurisdiction,
             onChange: (e) => setTaxJurisdiction(e.target.value),
-            style: inputStyle
+            style: inputStyle, 'aria-label': __('taxRulesLabel', 'Tax rules'), title: __('taxRulesLabel', 'Tax rules')
           },
             React.createElement('option', { value: 'de' }, t.germany || 'Germany'),
             React.createElement('option', { value: 'us' }, t.usa || 'USA')

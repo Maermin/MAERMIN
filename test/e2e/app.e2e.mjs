@@ -294,7 +294,7 @@ const TXS = [
 const VIEWS = ['overview', 'transactions', 'portfolios', 'net-worth', 'dividends', 'journal',
   'returns', 'performance', 'rebalancing', 'savings-plans', 'cashflow', 'fees', 'analytics', 'health',
   'investment-analysis', 'tax', 'intelligence', 'tags', 'categories', 'customize', 'discovery', 'share',
-  'watchlist', 'rules', 'attribution', 'news', 'data', 'trash'];
+  'watchlist', 'rules', 'attribution', 'news', 'data', 'trash', 'privacy'];
 
 // ---- scenarios ----------------------------------------------------------------
 async function runBuild(browser, label, dir) {
@@ -444,6 +444,24 @@ async function runBuild(browser, label, dir) {
       ok('Settings → Trash lists the deleted transaction and Restore puts it back', listed && (await hasX2()) && /The trash is empty/.test(tv), tv.slice(0, 200));
       const dup = await page.evaluate(() => JSON.parse(localStorage.getItem('transactions') || '[]').filter((t) => t.id === 'x2').length);
       ok('restored once, no duplicate', dup === 1, String(dup));
+    }
+
+    // P2-5: the views whose figures could read as advice say they are not.
+    {
+      const missing = [];
+      for (const [id, kind] of [['tax', 'tax'], ['health', 'invest'], ['intelligence', 'invest']]) {
+        await openView(page, id);
+        await page.waitForTimeout(300);
+        const d = page.locator('main [data-testid="disclaimer"][data-kind="' + kind + '"]');
+        if (!(await d.count()) || !/No tax or investment advice/.test(await d.first().innerText())) missing.push(id);
+      }
+      const taxNote = await page.locator('main [data-testid="disclaimer"]').first().innerText().catch(() => '');
+      ok('disclaimer on Tax, Health (advisor) and Intelligence', missing.length === 0, missing.join(', '));
+      await openView(page, 'tax');
+      ok('Tax view names the supported tax rules', /German and US tax rules/.test(await page.locator('main [data-testid="disclaimer"][data-kind="tax"]').first().innerText().catch(() => '')), taxNote);
+      await openView(page, 'privacy');
+      const pv = await page.locator('[data-testid="privacy-view"]').innerText().catch(() => '');
+      ok('Settings → Privacy lists what stays local and what goes where', ['Stays on this device', 'Your Cloudflare Worker', 'CoinGecko', 'Cloud sync', 'Share & Compare'].every((x) => pv.includes(x)), pv.slice(0, 160));
     }
 
     // Tax view: go there, pick the report tab and 2025.
