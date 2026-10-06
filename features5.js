@@ -55,6 +55,9 @@ function NetWorthView({ portfolioStats, portfolio, prices, theme, formatPrice, g
     interestRate: '', compounding: 'daily', interestStart: window.MaerminUtils.todayISO(), maturityDate: '', interestPayout: 'maturity' });
 
   useEffect(() => { localStorage.setItem('maermin_networth_accounts', JSON.stringify(accounts)); }, [accounts]);
+  if (window.MaerminTrash) window.MaerminTrash.useReload('maermin_networth_accounts', () => {
+    try { setAccounts(JSON.parse(localStorage.getItem('maermin_networth_accounts') || '[]')); } catch (e) { /* keep */ }
+  });
 
   const TYPES = {
     cash:      { label: __('nwCash', 'Cash / Savings'),   color: '#22c55e', icon: '◈' },
@@ -326,9 +329,12 @@ function NetWorthView({ portfolioStats, portfolio, prices, theme, formatPrice, g
               ),
               React.createElement('button', { onClick: () => window.MaerminUtils.confirmThen({
                   title: (t.nwRemoveTitle || 'Remove the account "{name}"?').replace('{name}', acc.name),
-                  message: t.nwRemoveMessage || 'Its value leaves your net worth. This cannot be undone.',
+                  message: t.nwRemoveMessage || 'Its value leaves your net worth. It stays in the trash for 30 days.',
                   confirmLabel: t.remove || 'Remove', cancelLabel: t.cancel || 'Cancel'
-                }, () => setAccounts(prev => prev.filter(a => a.id !== acc.id))),
+                }, () => {
+                  setAccounts(prev => prev.filter(a => a.id !== acc.id));
+                  if (window.MaerminTrash) window.MaerminTrash.trashed('account', acc.name, acc);
+                }),
                 'aria-label': (t.nwRemoveAria || 'Remove account {name}').replace('{name}', acc.name),
                 style: { background: 'none', border: 'none', color: theme.textSecondary, cursor: 'pointer', fontSize: '0.9rem', padding: '0.25rem' }
               }, '×')

@@ -35,10 +35,12 @@
 
   var toasts = Store ? Store.createStore({ items: [] }) : null;
 
-  function add(message, type, ttl) {
+  // action (optional): { label, run } — a button in the toast (e.g. "Undo").
+  function add(message, type, ttl, action) {
     var id = 't' + Date.now() + '_' + (++_seq);
     var ms = (typeof ttl === 'number') ? ttl : DEFAULT_TTL;
     var toast = { id: id, message: String(message == null ? '' : message), type: type || 'info', ttl: ms };
+    if (action && typeof action.run === 'function') toast.action = { label: String(action.label || ''), run: action.run };
     if (toasts) toasts.setState(function (s) { return { items: reduceAdd(s.items, toast, MAX) }; });
     if (ms > 0 && typeof setTimeout !== 'undefined') setTimeout(function () { dismiss(id); }, ms);
     return id;
@@ -254,6 +256,8 @@
         },
           Icon ? React.createElement('span', { className: 'toast-icon' }, Icon(ico, { size: 15, strokeWidth: 2.2 })) : null,
           React.createElement('span', { className: 'toast-msg' }, toast.message),
+          toast.action ? React.createElement('button', { type: 'button', className: 'toast-action', 'data-testid': 'toast-action',
+            onClick: function (ev) { ev.stopPropagation(); dismiss(toast.id); toast.action.run(); } }, toast.action.label) : null,
           toast.ttl > 0 ? React.createElement('span', { className: 'toast-timer', 'aria-hidden': 'true' }) : null
         );
       }));

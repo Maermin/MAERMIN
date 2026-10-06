@@ -243,7 +243,9 @@
       var id = String(tx.id), json = JSON.stringify(tx);
       map[id] = json;
       if (prevMap && prevMap[id] !== undefined && prevMap[id] !== json) { meta.edited[id] = now; changed = true; }
-      if (meta.deleted[id] !== undefined) { delete meta.deleted[id]; changed = true; } // re-added / restored
+      // Re-added / restored: drop the tombstone and stamp an edit newer than it,
+      // so another device's copy of the tombstone cannot delete it again.
+      if (meta.deleted[id] !== undefined) { delete meta.deleted[id]; meta.edited[id] = now; changed = true; }
     });
     if (prevMap) {
       Object.keys(prevMap).forEach(function (id) {

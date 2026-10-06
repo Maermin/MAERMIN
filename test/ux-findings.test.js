@@ -61,7 +61,7 @@ const read = (f) => fs.readFileSync(path.join(__dirname, '..', f), 'utf8');
 
     // Every site from the finding goes through the confirmation.
     const sites = [
-      ['features4.js', /confirmThen\(\{[\s\S]{0,400}setPlans\(prev => prev\.filter/],
+      ['features4.js', /confirmThen\(\{[\s\S]{0,600}setPlans\(prev => prev\.filter/],
       ['features5.js', /confirmThen\(\{[\s\S]{0,400}setAccounts\(prev => prev\.filter/],
       ['real-assets.js', /confirmThen\(\{[\s\S]{0,400}API\.removeAsset/],
       ['rules-engine.js', /confirmThen\(\{[\s\S]{0,400}API\.removeRule/],

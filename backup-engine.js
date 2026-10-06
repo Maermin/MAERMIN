@@ -86,7 +86,9 @@
     'privacyMode',
     'maermin_language',
     // Simple/Advanced navigation mode (nav-model.js)
-    'maermin_ui_mode'
+    'maermin_ui_mode',
+    // deleted records kept 30 days for restore (trash.js)
+    'maermin_trash'
   ];
 
   function defaultStore() {

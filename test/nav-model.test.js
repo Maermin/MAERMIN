@@ -55,7 +55,7 @@ const simpleAnalysis = ids(N.visibleEntries('analysis', 'simple', 'overview'));
 ok('simple analysis shows only the two groups', simpleAnalysis.join() === 'grp-returns,grp-health');
 ok('advanced analysis shows strategy, fees, discovery, news',
   ids(N.visibleEntries('analysis', 'advanced', 'overview')).join() === 'grp-returns,grp-health,investment-analysis,fees,discovery,news');
-ok('simple settings shows only Customize', ids(N.visibleEntries('settings', 'simple', 'overview')).join() === 'customize');
+ok('simple settings shows Customize and Trash', ids(N.visibleEntries('settings', 'simple', 'overview')).join() === 'customize,trash');
 ok('an open advanced view stays visible in simple mode',
   ids(N.visibleEntries('settings', 'simple', 'tags')).indexOf('tags') > -1);
 ok('every area has a view in simple mode', N.AREAS.every((a) => N.firstView(a.id, 'simple')));

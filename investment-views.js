@@ -920,6 +920,9 @@ function GoalInvestingView(props) {
   useEffect(function() {
     localStorage.setItem('investmentGoals', JSON.stringify(goals));
   }, [goals]);
+  if (typeof window !== 'undefined' && window.MaerminTrash) window.MaerminTrash.useReload('investmentGoals', function () {
+    try { var g = JSON.parse(localStorage.getItem('investmentGoals') || '[]'); if (Array.isArray(g)) setGoals(g); } catch (e) { /* keep */ }
+  });
   
   var addGoal = function() {
     if (!newGoal.name || !(newGoal.targetAmount > 0)) return;
@@ -948,7 +951,9 @@ function GoalInvestingView(props) {
   };
   
   var deleteGoal = function(goalId) {
+    var gone = goals.filter(function(g) { return g.id === goalId; })[0];
     setGoals(goals.filter(function(g) { return g.id !== goalId; }));
+    if (gone && typeof window !== 'undefined' && window.MaerminTrash) window.MaerminTrash.trashed('goal', gone.name, gone);
   };
   
   var calculateProgress = function(goal) { return goalProgress(goal); };
