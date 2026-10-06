@@ -4520,6 +4520,14 @@ function InvestmentTracker() {
           theme: currentTheme, t, formatPrice, getCurrencySymbol,
           onChange: () => setTaxSettingsRev(r => r + 1)
         }),
+      // Freistellungsaufträge per broker (P2-6): orders vs the allowance, and
+      // the headroom left at each broker from its portfolios' income.
+      taxJurisdiction === 'de' && window.MaerminFSA && React.createElement(window.MaerminFSA.Panel, {
+        theme: currentTheme, transactions, portfolios, year: currentYear, exchangeRate, fxAt,
+        allowance: (() => { const TSm = window.MaerminTaxSettings; try { return TSm ? TSm.load().freistellungsauftrag : 1000; } catch (e) { return 1000; } })(),
+        // Orders are EUR amounts: shown in EUR whatever the display currency.
+        formatMoney: (v) => privacyMode ? '••••••' : window.MaerminI18n.money(v, 'EUR')
+      }),
       // Editable tax parameters (Task 8): rate, Soli, church tax, allowance,
       // crypto exemption, Teilfreistellung overrides. Engine + exports read them.
       taxJurisdiction === 'de' && window.MaerminGermanTaxView && window.MaerminGermanTaxView.SettingsPanel &&

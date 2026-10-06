@@ -2353,7 +2353,26 @@ const completeTranslations = {
     pvOptTitle: 'Only if you turn it on',
     pvSync: 'Cloud sync: your Worker stores your data encrypted on your device, under an anonymous account id. It cannot read it.',
     pvShare: 'Share & Compare: a redacted snapshot (percentages and scores, no amounts or quantities) is stored by your Worker for 90 days, plus an anonymous aggregate for the comparison.',
-    pvExchange: 'Exchange connections: requests are signed in your browser and relayed by your Worker to the exchange. The API keys stay in your encrypted vault.'
+    pvExchange: 'Exchange connections: requests are signed in your browser and relayed by your Worker to the exchange. The API keys stay in your encrypted vault.',
+
+    // P2-6 Freistellungsaufträge
+    fsaTitle: 'Freistellungsaufträge per broker',
+    fsaIntro: 'Split your allowance of {a} across your brokers. Link the portfolios you hold at each broker to see how much of its order this year has used.',
+    fsaOver: 'Your orders add up to {t}, {x} more than your allowance of {a}. Lower one of them: banks may not exempt more than the allowance in total.',
+    fsaBroker: 'Broker',
+    fsaOrder: 'Order',
+    fsaIncome: 'Capital income {y}',
+    fsaUsed: 'Used',
+    fsaLeft: 'Left',
+    fsaOrderAria: 'Order at {name}',
+    fsaRemoveAria: 'Remove {name}',
+    fsaRemoveTitle: 'Remove the order at "{name}"?',
+    fsaPortfolios: 'Portfolios at this broker:',
+    fsaTaxedAtBroker: '{x} of the income is above the order, so the broker withholds tax on it. Unassigned allowance can still be claimed in the tax return.',
+    fsaTotal: 'Total',
+    fsaUnassigned: 'Not assigned: {x}',
+    fsaNamePh: 'Broker, e.g. Trade Republic',
+    fsaAdd: 'Add broker'
   },
 
   // German locale (v10.x). Curated high-traffic strings; any missing key falls
@@ -4541,7 +4560,26 @@ const completeTranslations = {
     pvOptTitle: 'Nur wenn du es einschaltest',
     pvSync: 'Cloud-Sync: Dein Worker speichert deine Daten, auf deinem Gerät verschlüsselt, unter einer anonymen Konto-ID. Lesen kann er sie nicht.',
     pvShare: 'Teilen & Vergleichen: Ein reduzierter Schnappschuss (Prozente und Werte, keine Beträge oder Stückzahlen) liegt 90 Tage bei deinem Worker, dazu ein anonymer Gesamtwert für den Vergleich.',
-    pvExchange: 'Börsenverbindungen: Anfragen werden in deinem Browser signiert und von deinem Worker an die Börse weitergeleitet. Die API-Schlüssel bleiben in deinem verschlüsselten Tresor.'
+    pvExchange: 'Börsenverbindungen: Anfragen werden in deinem Browser signiert und von deinem Worker an die Börse weitergeleitet. Die API-Schlüssel bleiben in deinem verschlüsselten Tresor.',
+
+    // P2-6 Freistellungsaufträge
+    fsaTitle: 'Freistellungsaufträge je Broker',
+    fsaIntro: 'Verteile deinen Sparer-Pauschbetrag von {a} auf deine Broker. Verknüpfe die Portfolios, die du beim jeweiligen Broker hältst, um zu sehen, wie viel des Auftrags dieses Jahr verbraucht ist.',
+    fsaOver: 'Deine Aufträge ergeben zusammen {t}, {x} mehr als dein Pauschbetrag von {a}. Senke einen davon: Insgesamt dürfen die Banken nicht mehr als den Pauschbetrag freistellen.',
+    fsaBroker: 'Broker',
+    fsaOrder: 'Auftrag',
+    fsaIncome: 'Kapitalerträge {y}',
+    fsaUsed: 'Verbraucht',
+    fsaLeft: 'Übrig',
+    fsaOrderAria: 'Auftrag bei {name}',
+    fsaRemoveAria: '{name} entfernen',
+    fsaRemoveTitle: 'Den Auftrag bei „{name}“ entfernen?',
+    fsaPortfolios: 'Portfolios bei diesem Broker:',
+    fsaTaxedAtBroker: '{x} der Erträge liegen über dem Auftrag; darauf behält der Broker Steuer ein. Nicht verteilten Pauschbetrag kannst du noch in der Steuererklärung geltend machen.',
+    fsaTotal: 'Summe',
+    fsaUnassigned: 'Nicht verteilt: {x}',
+    fsaNamePh: 'Broker, z. B. Trade Republic',
+    fsaAdd: 'Broker hinzufügen'
   }
 };
 
