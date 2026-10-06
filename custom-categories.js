@@ -163,7 +163,7 @@ function __(k, f, v) { return (typeof window !== 'undefined' && window.MaerminI1
         var border = theme.cardBorder || 'rgba(255,255,255,0.08)';
         var card = theme.card || '#10151f';
         var inputBg = theme.inputBg || '#0c1018', inputBorder = theme.inputBorder || border;
-        var accent = theme.accent || '#8b7cff', accentText = theme.accentText || '#ffffff';
+        var accent = theme.accent || '#8b7cff', accentText = theme.accentText || '#ffffff', accentFill = theme.accentFill || accent;
 
         var s0 = useState(function () { return API.load(); });
         var st = s0[0], setSt = s0[1];
@@ -217,7 +217,7 @@ function __(k, f, v) { return (typeof window !== 'undefined' && window.MaerminI1
               placeholder: t.catNewPlaceholder || 'New category, e.g. Real Estate…',
               style: { flex: 1, minWidth: '200px', maxWidth: '340px', padding: '0.5rem 0.75rem', borderRadius: '8px', border: '1px solid ' + inputBorder, background: inputBg, color: text, fontSize: '0.85rem' }
             }),
-            e('button', { onClick: addCurrent, style: { padding: '0.5rem 1rem', fontSize: '0.85rem', fontWeight: 800, cursor: 'pointer', borderRadius: '8px', border: 'none', background: accent, color: accentText } }, t.catAdd || 'Add category')),
+            e('button', { onClick: addCurrent, style: { padding: '0.5rem 1rem', fontSize: '0.85rem', fontWeight: 800, cursor: 'pointer', borderRadius: '8px', border: 'none', background: accentFill, color: accentText } }, t.catAdd || 'Add category')),
 
           customRows.length ? customRows : e('div', { style: { background: card, border: '1px solid ' + border, borderRadius: '14px', padding: '2rem', textAlign: 'center', color: dim, fontSize: '0.9rem' } },
             t.catEmpty || 'No custom categories yet. Add one above — it will appear in the Add-Transaction category picker.'),

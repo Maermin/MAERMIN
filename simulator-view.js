@@ -143,7 +143,7 @@ function __(k, f, v) { return (typeof window !== 'undefined' && window.MaerminI1
       return h('div', { style: { display: 'grid', gridTemplateColumns: 'repeat(auto-fit,minmax(150px,1fr))', gap: '0.6rem', marginTop: '1rem' } }, cards);
     }
 
-    return h('div', { style: { background: theme.cardBg || 'transparent', border: '1px solid ' + border, borderRadius: '14px', padding: '1.25rem', margin: '1rem 1.5rem' } },
+    return h('div', { style: { background: theme.card || theme.cardBg || 'transparent', border: '1px solid ' + border, borderRadius: '14px', padding: '1.25rem', margin: '1rem 1.5rem' } },
       h('div', { style: { display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '0.5rem', marginBottom: '0.9rem' } },
         h('h3', { style: { color: text, fontSize: '1rem', fontWeight: '700', margin: 0 } }, __('simTitle', 'Planning simulator')),
         h('div', { style: { display: 'flex', gap: '0.3rem', flexWrap: 'wrap' } }, MODES.map(function (m) {

@@ -161,7 +161,7 @@ function CorporateActionsPanel({ category, symbol, theme, t = {}, workerUrl }) {
     ),
     React.createElement('div', { style: { display: 'flex', gap: '0.5rem', marginTop: '0.5rem' } },
       React.createElement('input', { placeholder: t.caNotePh || 'Note (optional)', value: form.note, onChange: (e) => setForm({ ...form, note: e.target.value }), style: { ...input, flex: 1 } }),
-      React.createElement('button', { onClick: addManual, style: btn(theme.accent, '#ffffff') }, t.caAdd || 'Add split')
+      React.createElement('button', { onClick: addManual, style: btn(theme.accentFill || theme.accent, '#ffffff') }, t.caAdd || 'Add split')
     ),
     scan.msg && React.createElement('div', { style: { color: theme.warning || '#f59e0b', fontSize: '0.76rem', marginTop: '0.5rem' } }, scan.msg),
     React.createElement('div', { style: { color: theme.textSecondary, fontSize: '0.72rem', marginTop: '0.5rem' } },
@@ -359,7 +359,7 @@ function PositionDetailModal({ position, transactions, prices, theme, formatPric
         React.createElement('label', { style: jLabel }, t.journalReviews || 'Reviews'),
         React.createElement('div', { style: { display: 'flex', gap: '0.5rem', marginBottom: '0.5rem' } },
           React.createElement('input', { value: reviewDraft, onChange: e => setReviewDraft(e.target.value), onKeyDown: e => { if (e.key === 'Enter') addReview(); }, placeholder: t.journalAddReview || 'Add a dated review...', style: { ...jInput, flex: 1 } }),
-          React.createElement('button', { onClick: addReview, style: { padding: '0.5rem 0.9rem', background: theme.accent, color: '#ffffff', border: 'none', borderRadius: '8px', cursor: 'pointer', fontWeight: 600, fontSize: '0.82rem' } }, '+')
+          React.createElement('button', { onClick: addReview, style: { padding: '0.5rem 0.9rem', background: (theme.accentFill || theme.accent), color: '#ffffff', border: 'none', borderRadius: '8px', cursor: 'pointer', fontWeight: 600, fontSize: '0.82rem' } }, '+')
         ),
         (j.reviews || []).length > 0 && React.createElement('div', { style: { display: 'flex', flexDirection: 'column', gap: '0.4rem' } },
           j.reviews.map((rv, i) => React.createElement('div', { key: i, style: { fontSize: '0.8rem', borderLeft: `2px solid ${theme.cardBorder}`, paddingLeft: '0.6rem' } },

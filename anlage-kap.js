@@ -128,7 +128,7 @@ function __(k, f, v) { return (typeof window !== 'undefined' && window.MaerminI1
       setTimeout(function () { URL.revokeObjectURL(a.href); }, 1000);
     }
 
-    return e('div', { 'data-testid': 'kap-panel', style: { background: th.cardBg, border: '1px solid ' + border, borderRadius: '14px', padding: '1.25rem', margin: '1.5rem 0 0' } },
+    return e('div', { 'data-testid': 'kap-panel', style: { background: th.card || th.cardBg, border: '1px solid ' + border, borderRadius: '14px', padding: '1.25rem', margin: '1.5rem 0 0' } },
       e('h3', { style: { color: text, fontSize: '1.05rem', fontWeight: 700, margin: '0 0 0.35rem' } }, __('kapTitle', 'Anlage KAP / KAP-INV {y} (brokers without German tax withholding)', { y: props.year })),
       e('p', { style: { color: dim, fontSize: '0.8rem', margin: '0 0 0.6rem', lineHeight: 1.5 } },
         __('kapIntro', 'Tick the portfolios you hold at a broker that does not withhold German tax (a foreign broker). For German banks, take the figures from their annual tax certificate (Steuerbescheinigung) instead.')),

@@ -973,7 +973,7 @@ function GoalInvestingView(props) {
       React.createElement('button', {
         onClick: function() { setShowAddGoal(true); },
         style: {
-          background: T.accent,
+          background: (T.accentFill || T.accent),
           color: '#ffffff',
           border: 'none',
           padding: '0.5rem 1rem',

@@ -27,6 +27,10 @@
 
 :root {
   --accent: #8b7cff;
+  /* Filled buttons with white text: >= 4.5:1 (WCAG AA). --accent stays the
+     bright tone for text, borders and focus rings on dark surfaces. */
+  --accent-fill: #6352f0;
+  --accent-fill-grad: linear-gradient(135deg, #6f5ff2 0%, #5a48ec 55%, #3f5bd6 100%);
   --accent-2: #5b8cff;
   --accent-soft: rgba(139, 124, 255, 0.14);
   --accent-ring: rgba(139, 124, 255, 0.45);
@@ -63,7 +67,8 @@
 }
 
 html[data-mode="light"] {
-  --accent: #6d5dfc;
+  --accent: #5244e0;
+  --accent-fill: #6352f0;
   --accent-soft: rgba(109, 93, 252, 0.10);
   --accent-ring: rgba(109, 93, 252, 0.35);
   --accent-grad: linear-gradient(135deg, #8b7cff 0%, #6d5dfc 50%, #3f6fff 100%);
@@ -76,26 +81,29 @@ html[data-mode="light"] {
   --text: #0d0f1c;
   --text-dim: #5d6278;
   --hover: rgba(17, 19, 40, 0.045);
-  --success: #0f9f68;
-  --danger: #e5484d;
-  --warning: #d97706;
+  --success: #066b45;
+  --danger: #c42b33;
+  --warning: #a14a06;
   color-scheme: light;
 }
 html[data-theme="purple"] {
   --accent: #b26bff; --accent-2: #ec4899; --accent-soft: rgba(178, 107, 255, 0.16);
+  --accent-fill: #9147e6; --accent-fill-grad: linear-gradient(135deg, #9147e6 0%, #8a3ee0 60%, #b0307a 100%);
   --accent-ring: rgba(178, 107, 255, 0.45);
   --accent-grad: linear-gradient(135deg, #d59bff 0%, #a855f7 50%, #ec4899 100%);
   --bg: #0b0716; --surface: #140e24; --surface-2: #1c1530; --glass: rgba(14, 9, 26, 0.66);
   --text: #f5f0ff; --text-dim: #a597c2;
 }
 html[data-theme="contrast"] {
-  --accent: #4d7cff; --accent-soft: rgba(77, 124, 255, 0.22); --accent-grad: #4d7cff;
+  --accent: #4d7cff; --accent-soft: rgba(77, 124, 255, 0.22); --accent-grad: #3563ec;
+  --accent-fill: #3563ec; --accent-fill-grad: #3563ec;
   --bg: #000; --surface: #0a0a0a; --surface-2: #161616; --glass: rgba(0, 0, 0, 0.92);
   --border: rgba(255, 255, 255, 0.35); --border-strong: rgba(255, 255, 255, 0.5);
   --text: #fff; --text-dim: #d6d6d6;
 }
 html[data-theme="cb"] {
   --accent: #1f8ad1; --accent-soft: rgba(86, 180, 233, 0.16);
+  --accent-fill: #1b73b0; --accent-fill-grad: linear-gradient(135deg, #1b73b0 0%, #0b5f96 100%);
   --accent-grad: linear-gradient(135deg, #56B4E9 0%, #0072B2 100%);
   --success: #56B4E9; --danger: #E69F00; --warning: #F0E442;
 }
@@ -911,7 +919,9 @@ html[data-mode="light"] .command-palette-overlay { background: rgba(17, 19, 40, 
   .mx-header { height: 58px; padding: 0 0.85rem; }
   .mx-brand-tag, .mx-live { display: none; }
   .mx-popover { position: fixed; top: 64px; left: 12px; right: 12px; width: auto; }
-  .toast-container { left: 12px; right: 12px; bottom: calc(86px + env(safe-area-inset-bottom)); }
+  /* Phase 3: at the bottom a toast covered the fields of an open dialog and
+     the content above the dock; on phones it sits under the top bar. */
+  .toast-container { left: 12px; right: 12px; top: calc(64px + env(safe-area-inset-top)); bottom: auto; }
 }
 
 /* ============================================================================
@@ -1187,7 +1197,8 @@ html.mx-motion .mx-reveal.is-in {
 .mx-primary {
   position: relative;
   overflow: hidden;
-  background: var(--accent-grad) !important;
+  /* the fill gradient keeps white text at >= 4.5:1 on every stop */
+  background: var(--accent-fill-grad, var(--accent-fill)) !important;
   color: #fff !important;
   border-color: transparent !important;
   box-shadow: 0 1px 0 rgba(255,255,255,0.25) inset, 0 10px 24px -10px var(--accent-ring);
@@ -1527,4 +1538,14 @@ html.mx-anim button:not(:disabled):active { transform: scale(0.96); transition-t
 @media (prefers-reduced-motion: reduce) {
   .mx-glider, .mx-chip-ghost { transition: none; }
   ::view-transition-group(*), ::view-transition-old(*), ::view-transition-new(*) { animation: none !important; }
+}
+
+/* ---- Target size (Phase 3 usability review) ------------------------------
+   WCAG 2.2 AA asks for 24 x 24 px pointer targets. Several icon buttons (the
+   dialog "x", inline "Manage portfolios ->") were 11-17 px. Touch screens
+   get 32 px. Checkboxes and radios inside a label are covered by the label. */
+button, [role="button"], select { min-width: 24px; min-height: 24px; }
+@media (pointer: coarse) {
+  button, [role="button"], select, input:not([type="checkbox"]):not([type="radio"]):not([type="hidden"]) { min-height: 32px; }
+  button, [role="button"] { min-width: 32px; }
 }

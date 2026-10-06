@@ -364,7 +364,7 @@ const completeTranslations = {
     interestMatures: 'matures', interestBookedToast: 'interest accrual(s) booked',
     taTitle: 'Tax Advisor', taSubtitle: 'Forward-looking tax findings from your lots — an estimate, not tax advice.',
     taPriCritical: 'Critical', taPriImportant: 'Important', taPriOptimize: 'Optimization',
-    taCryptoFreigrenze: 'Crypto Freigrenze (1.000 EUR)', taLeft: 'left', taSparer: 'Sparerpauschbetrag',
+taSparer: 'Sparerpauschbetrag',
     taCryptoLots: 'Crypto lots near tax-free', taNone: 'No tax actions flagged right now.',
     pmTitle: 'Performance Map', pmSubtitle: 'Area = weight, colour = performance', pmEmpty: 'No priced positions to map yet.',
     mcTitle: 'Company size', mcSubtitle: 'Equity allocation by market-cap size (EUR-normalised)',
@@ -907,7 +907,7 @@ const completeTranslations = {
     syncEnable: 'Enable & sync',
     syncNeedWorkerHint: 'Add a Worker URL in API Settings to enable sync.',
     themeContrast: 'Contrast',
-    themeCbSafe: 'CB-safe',
+    themeCbSafe: 'Color-blind',
 
     // P2-2 header, account menu, sidebar (renderer.js)
     appIsLive: 'App is live',
@@ -2436,7 +2436,20 @@ const completeTranslations = {
     kapLine: 'Line',
     kapWhat: 'What',
     kapAmount: 'Amount',
-    kapCsv: 'Download as CSV'
+    kapCsv: 'Download as CSV',
+
+    // Phase 3 tax advisor amounts
+    taFgLabel: 'Crypto Freigrenze ({limit})',
+    taAmountLeft: '{x} left',
+    taOfLeft: '{x} of {limit} left',
+
+    // Phase 3 backup/restore
+    dmRestoreFile: '↺ Restore from file…',
+    dmBackupHint: 'The JSON backup is not encrypted. For an encrypted copy use the account menu → Backup vault (encrypted).',
+    dmChooseFile: 'Choose file…',
+
+    // Phase 3 Basiszins label
+    gtBasiszinsAria: 'Basiszins {y} in percent'
   },
 
   // German locale (v10.x). Curated high-traffic strings; any missing key falls
@@ -2593,7 +2606,7 @@ const completeTranslations = {
     interestMatures: 'fällig', interestBookedToast: 'Zinsbuchung(en) gebucht',
     taTitle: 'Steuer-Assistent', taSubtitle: 'Vorausschauende Steuer-Hinweise aus deinen Lots — eine Schätzung, keine Steuerberatung.',
     taPriCritical: 'Kritisch', taPriImportant: 'Wichtig', taPriOptimize: 'Optimierung',
-    taCryptoFreigrenze: 'Krypto-Freigrenze (1.000 EUR)', taLeft: 'übrig', taSparer: 'Sparerpauschbetrag',
+taSparer: 'Sparerpauschbetrag',
     taCryptoLots: 'Krypto-Lots kurz vor steuerfrei', taNone: 'Aktuell keine Steuer-Aktionen markiert.',
     pmTitle: 'Performance-Karte', pmSubtitle: 'Fläche = Gewicht, Farbe = Performance', pmEmpty: 'Noch keine bepreisten Positionen für die Karte.',
     mcTitle: 'Unternehmensgröße', mcSubtitle: 'Aktien-Allokation nach Marktkapitalisierung (EUR-normiert)',
@@ -3130,9 +3143,9 @@ const completeTranslations = {
     apiInChart: '→ Im Portfolio-Chart angezeigt',
     apiUpdateWorker: 'Bestehenden Worker aktualisieren (ca. 1 Min.):',
     apiStep1: 'Workers & Pages → dein Worker',
-    apiStep2a: 'Edit code → Inhalt einfügen von',
+    apiStep2a: '„Edit code“ → Inhalt einfügen von',
     apiStep2b: 'aus dem ZIP',
-    apiStep3: 'Save and Deploy – keine Secrets nötig',
+    apiStep3: '„Deploy“ klicken – keine Secrets nötig',
     apiStep4: 'Worker-URL unten einfügen',
     apiWorkerLabel: 'Worker-URL – für CS2-Kurse, Portfolio-Verlaufschart & CS2-Preisverlauf',
     apiGuided: 'Geführte Einrichtung & Verbindungstest',
@@ -3178,7 +3191,7 @@ const completeTranslations = {
     syncEnable: 'Aktivieren & synchronisieren',
     syncNeedWorkerHint: 'Trage in den API-Einstellungen eine Worker-URL ein, um Sync zu aktivieren.',
     themeContrast: 'Kontrast',
-    themeCbSafe: 'Farbenblind-sicher',
+    themeCbSafe: 'Farbenblind',
 
     // P2-2 header, account menu, sidebar (renderer.js)
     appIsLive: 'App ist aktiv',
@@ -4707,7 +4720,20 @@ const completeTranslations = {
     kapLine: 'Zeile',
     kapWhat: 'Inhalt',
     kapAmount: 'Betrag',
-    kapCsv: 'Als CSV herunterladen'
+    kapCsv: 'Als CSV herunterladen',
+
+    // Phase 3 tax advisor amounts
+    taFgLabel: 'Krypto-Freigrenze ({limit})',
+    taAmountLeft: '{x} übrig',
+    taOfLeft: '{x} von {limit} übrig',
+
+    // Phase 3 backup/restore
+    dmRestoreFile: '↺ Aus Datei wiederherstellen…',
+    dmBackupHint: 'Die JSON-Sicherung ist nicht verschlüsselt. Für eine verschlüsselte Kopie nutze das Kontomenü → Tresor sichern (verschlüsselt).',
+    dmChooseFile: 'Datei wählen…',
+
+    // Phase 3 Basiszins label
+    gtBasiszinsAria: 'Basiszins {y} in Prozent'
   }
 };
 

@@ -155,7 +155,7 @@ function NetWorthView({ portfolioStats, portfolio, prices, theme, formatPrice, g
       ),
       React.createElement('button', {
         onClick: () => setShowAdd(!showAdd),
-        style: { padding: '0.625rem 1.25rem', background: theme.accent, color: '#ffffff', border: 'none', borderRadius: '8px', cursor: 'pointer', fontWeight: '700', fontSize: '0.875rem' }
+        style: { padding: '0.625rem 1.25rem', background: (theme.accentFill || theme.accent), color: '#ffffff', border: 'none', borderRadius: '8px', cursor: 'pointer', fontWeight: '700', fontSize: '0.875rem' }
       }, __('nwAddAccount', '+ Add Account'))
     ),
 
@@ -298,7 +298,7 @@ function NetWorthView({ portfolioStats, portfolio, prices, theme, formatPrice, g
         )
       ),
       React.createElement('div', { style: { display: 'flex', gap: '0.5rem' } },
-        React.createElement('button', { onClick: addAccount, style: { padding: '0.625rem 1.25rem', background: theme.accent, color: '#ffffff', border: 'none', borderRadius: '8px', cursor: 'pointer', fontWeight: '700', fontSize: '0.875rem' } }, __('add', 'Add')),
+        React.createElement('button', { onClick: addAccount, style: { padding: '0.625rem 1.25rem', background: (theme.accentFill || theme.accent), color: '#ffffff', border: 'none', borderRadius: '8px', cursor: 'pointer', fontWeight: '700', fontSize: '0.875rem' } }, __('add', 'Add')),
         React.createElement('button', { onClick: () => setShowAdd(false), style: { padding: '0.625rem 1.25rem', background: theme.inputBg, color: theme.text, border: 'none', borderRadius: '8px', cursor: 'pointer', fontSize: '0.875rem' } }, __('cancel', 'Cancel'))
       )
     ),

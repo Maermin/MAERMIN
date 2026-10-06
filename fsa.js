@@ -125,7 +125,7 @@ function __(k, f, v) { return (typeof window !== 'undefined' && window.MaerminI1
       mutate(upsert(st, Object.assign({}, b, { portfolioIds: ids })));
     }
 
-    return e('div', { 'data-testid': 'fsa-panel', style: { background: th.cardBg, border: '1px solid ' + border, borderRadius: '14px', padding: '1.25rem', margin: '1.5rem 0 0' } },
+    return e('div', { 'data-testid': 'fsa-panel', style: { background: th.card || th.cardBg, border: '1px solid ' + border, borderRadius: '14px', padding: '1.25rem', margin: '1.5rem 0 0' } },
       e('h3', { style: { color: text, fontSize: '1.05rem', fontWeight: 700, margin: '0 0 0.35rem' } }, __('fsaTitle', 'Freistellungsaufträge per broker')),
       e('p', { style: { color: dim, fontSize: '0.8rem', margin: '0 0 0.9rem', lineHeight: 1.5 } },
         __('fsaIntro', 'Split your allowance of {a} across your brokers. Link the portfolios you hold at each broker to see how much of its order this year has used.', { a: money(sum.allowance) })),
@@ -176,7 +176,7 @@ function __(k, f, v) { return (typeof window !== 'undefined' && window.MaerminI1
           onChange: function (ev) { setForm(Object.assign({}, form, { amount: ev.target.value })); },
           onKeyDown: function (ev) { if (ev.key === 'Enter') add(); }, style: Object.assign({}, inp, { width: '7rem' }) }),
         e('button', { type: 'button', onClick: add, disabled: !form.name.trim(), style: { padding: '0.45rem 0.9rem', borderRadius: '7px', border: 'none', cursor: 'pointer', fontWeight: 700, fontSize: '0.82rem',
-          background: th.accent || '#8b7cff', color: '#ffffff', opacity: form.name.trim() ? 1 : 0.5 } }, __('fsaAdd', 'Add broker'))));
+          background: (th.accentFill || th.accent) || '#8b7cff', color: '#ffffff', opacity: form.name.trim() ? 1 : 0.5 } }, __('fsaAdd', 'Add broker'))));
   }
 
   var api = { KEY: KEY, normalize: normalize, upsert: upsert, remove: remove, summarize: summarize, load: load, save: save, Panel: Panel };

@@ -60,7 +60,7 @@ function __(k, f, v) { return (typeof window !== 'undefined' && window.MaerminI1
     if (!React) return null;
     var e = React.createElement, th = props.theme || {};
     var text = th.text || '#e6edf3', dim = th.textSecondary || '#9aa4b2', border = th.cardBorder || 'rgba(255,255,255,0.1)';
-    return e('div', { 'data-testid': 'privacy-view', style: { background: th.cardBg, border: '1px solid ' + border, borderRadius: '14px', padding: '1.25rem', maxWidth: '52rem' } },
+    return e('div', { 'data-testid': 'privacy-view', style: { background: th.card || th.cardBg, border: '1px solid ' + border, borderRadius: '14px', padding: '1.25rem', maxWidth: '52rem' } },
       e('h2', { style: { color: text, fontSize: '1.2rem', fontWeight: 800, margin: '0 0 0.4rem' } }, __('pvTitle', 'Privacy')),
       e('p', { style: { color: dim, fontSize: '0.85rem', margin: '0 0 1rem', lineHeight: 1.55 } },
         __('pvIntro', 'MAERMIN has no server of its own. This page lists everything that leaves your device and where it goes.')),

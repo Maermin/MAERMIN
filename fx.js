@@ -45,6 +45,13 @@
     return parseRGB(v);
   }
   function near(a, b) { return a && b && Math.abs(a.r - b.r) + Math.abs(a.g - b.g) + Math.abs(a.b - b.b) < 24; }
+  // The darker fill used for buttons with white text (--accent-fill).
+  function accentFillRGB() {
+    var v = getComputedStyle(doc.documentElement).getPropertyValue('--accent-fill').trim();
+    if (/^#([0-9a-f]{6})$/i.test(v)) { var n = parseInt(v.slice(1), 16); return { r: n >> 16 & 255, g: n >> 8 & 255, b: n & 255 }; }
+    return parseRGB(v);
+  }
+  var ACC_FILL = null;
 
   // ---- classification ------------------------------------------------------
   // Two phases so the DOM is measured without interleaved writes: classify()
@@ -72,7 +79,7 @@
         // gradient fills that start with the accent
         bg = parseRGB(s.background);
       }
-      if (!(bg && bg.a > 0.85 && near(bg, ACC))) { el.__mxSeen = 1; return; }
+      if (!(bg && bg.a > 0.85 && (near(bg, ACC) || near(bg, ACC_FILL)))) { el.__mxSeen = 1; return; }
       // Not laid out yet (hidden tab, mounting): leave unseen; settle() retries.
       if (!el.offsetWidth) { deferred.push(el); return; }
       el.__mxSeen = 1;
@@ -186,7 +193,7 @@
   } catch (e) {}
   function flush() {
     scheduled = false;
-    if (accDirty || !ACC) { ACC = accentRGB(); accDirty = false; }
+    if (accDirty || !ACC) { ACC = accentRGB(); ACC_FILL = accentFillRGB(); accDirty = false; }
     var list = pending; pending = [];
     var ops = [], roots = [];
     for (var i = 0; i < list.length; i++) {
@@ -210,7 +217,7 @@
       var idle = win.requestIdleCallback || function (f) { return setTimeout(f, 0); };
       idle(function () {
         var list = deferred; deferred = [];
-        if (accDirty || !ACC) { ACC = accentRGB(); accDirty = false; }
+        if (accDirty || !ACC) { ACC = accentRGB(); ACC_FILL = accentFillRGB(); accDirty = false; }
         var ops = [];
         for (var i = 0; i < list.length; i++) if (list[i].isConnected && !list[i].__mxSeen) classify(list[i], ops);
         applyOps(ops);

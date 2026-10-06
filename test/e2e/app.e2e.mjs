@@ -957,6 +957,81 @@ async function runBuild(browser, label, dir) {
     await context.close();
   }
 
+  // 9: Phase 3 usability fixes (docs/USABILITY.md): dialog close + visible
+  // save, one selected tab, view state that survives an app re-render, number
+  // fields that can be typed, AA contrast on filled buttons, restore from file.
+  {
+    const context = await browser.newContext({ serviceWorkers: 'block', viewport: { width: 1366, height: 900 } });
+    await wire(context, external);
+    const page = await context.newPage();
+    const errors = watch(page);
+    await createVault(page, base);
+    await page.evaluate((txs) => { localStorage.setItem('transactions', JSON.stringify(txs)); localStorage.setItem('maermin_ui_mode', 'advanced'); }, TXS);
+    await page.waitForTimeout(1500);
+    await unlock(page, base);
+    await page.keyboard.press('Escape');
+    await page.waitForTimeout(400);
+
+    // M-1: filled primary button reaches 4.5:1 (dark theme)
+    { const ratio = await page.evaluate(() => {
+        const b = Array.from(document.querySelectorAll('main button')).find((x) => /^\+\s*Add$/.test(x.innerText.trim()));
+        if (!b) return 0;
+        const rgb = (c) => (c.match(/[\d.]+/g) || []).slice(0, 3).map(Number);
+        const lum = (a) => { const f = (v) => { v /= 255; return v <= 0.03928 ? v / 12.92 : Math.pow((v + 0.055) / 1.055, 2.4); }; return 0.2126 * f(a[0]) + 0.7152 * f(a[1]) + 0.0722 * f(a[2]); };
+        const cs = getComputedStyle(b);
+        // a gradient fill: take its darkest-to-lightest stop as the worst case
+        const stops = (cs.backgroundImage.match(/rgba?\([^)]+\)|#[0-9a-f]{6}/gi) || [cs.backgroundColor]).map((c) => c.startsWith('#') ? [1, 3, 5].map((i) => parseInt(c.slice(i, i + 2), 16)) : rgb(c));
+        const fg = lum(rgb(cs.color));
+        return Math.min(...stops.map((s) => { const bg = lum(s); return (Math.max(fg, bg) + 0.05) / (Math.min(fg, bg) + 0.05); }));
+      });
+      ok('filled "+ Add" button: text contrast >= 4.5:1 on every stop of its fill', ratio >= 4.5, ratio.toFixed(2)); }
+
+    // M-3: Add transaction has a close button and its save button is in view
+    await page.keyboard.press('n');
+    const dlg = page.locator('[aria-labelledby="dlg-transaction"]');
+    await dlg.waitFor({ timeout: 5000 });
+    { const save = dlg.getByRole('button', { name: /^Add Buy$/ });
+      const box = await save.boundingBox();
+      ok('Add transaction: save button visible without scrolling (900 px window)', !!box && box.y + box.height <= 900, JSON.stringify(box));
+      await dlg.getByRole('button', { name: 'Close', exact: true }).click();
+      await page.waitForTimeout(300);
+      ok('Add transaction: the close button closes it', (await dlg.count()) === 0); }
+
+    // H-1 + M-5: Data view keeps its state through an app re-render; one tab selected
+    await openView(page, 'data');
+    await page.getByRole('button', { name: /Manual Import/ }).click();
+    await page.getByRole('textbox', { name: 'Manual Import' }).fill('[{"type":"buy"}]');
+    await page.evaluate(() => window.MaerminMarket.set('workerStatus', { ok: false, reachable: false, error: 'network', at: Date.now() }));
+    await page.waitForTimeout(400);
+    { const kept = await page.getByRole('textbox', { name: 'Manual Import' }).inputValue().catch(() => '');
+      ok('Data view: pasted text and tab survive an app re-render', kept === '[{"type":"buy"}]', kept); }
+    { const st = await page.evaluate(() => Array.from(document.querySelectorAll('main button[aria-pressed]')).filter((b) => /Export & Backup|Manual Import|Broker Import|Steam inventory/.test(b.innerText))
+        .map((b) => ({ t: b.innerText.trim(), p: b.getAttribute('aria-pressed'), g: b.classList.contains('mx-primary') })));
+      ok('Data tabs: exactly one pressed, and only it carries the accent styling', st.filter((x) => x.p === 'true').length === 1 && st.every((x) => !x.g || x.p === 'true'), JSON.stringify(st)); }
+
+    // M-4: restore from file runs the backup confirmation
+    { const chooser = page.waitForEvent('filechooser', { timeout: 5000 }).catch(() => null);
+      await page.getByRole('button', { name: /Export & Backup/ }).click();
+      await page.getByRole('button', { name: /Restore from file/ }).click();
+      const fc = await chooser;
+      ok('Export & Backup offers "Restore from file…" (opens a file picker)', !!fc); }
+
+    // H-2: the Basiszins field can be typed and commits on blur
+    await openView(page, 'tax');
+    await page.getByRole('button', { name: 'Tax Report', exact: true }).click();
+    { const year = new Date().getFullYear();
+      const f = page.getByRole('textbox', { name: 'Basiszins ' + year + ' in percent' });
+      let saved = null;
+      try {
+        await f.fill('2,5'); await f.press('Tab');
+        await page.waitForTimeout(300);
+        saved = await page.evaluate((y) => (JSON.parse(localStorage.getItem('maermin_basiszins_overrides') || '{}'))[y], year);
+      } catch (e) { saved = 'ERR ' + e.message.split('\n')[0]; }
+      ok('Basiszins: typing "2,5" and leaving the field saves 2.5 %', Math.abs(saved - 0.025) < 1e-9, String(saved)); }
+    ok('no page errors in the usability session', errors.length === 0, errors.join(' | '));
+    await context.close();
+  }
+
   const unexpected = [...new Set(external)].filter((u) => !/api\.coingecko\.com|open\.er-api\.com|api\.exchangerate-api\.com|fonts\.googleapis\.com|fonts\.gstatic\.com/.test(u));
   ok('no unexpected external requests', unexpected.length === 0, unexpected.join(', '));
   server.close();

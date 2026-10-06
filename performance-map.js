@@ -175,7 +175,7 @@ function __(k, f, v) { return (typeof window !== 'undefined' && window.MaerminI1
         function periodBtn(pp) {
           var active = pp === period;
           return e('button', { key: pp, onClick: function () { setPeriod(pp); },
-            style: { padding: '0.25rem 0.6rem', fontSize: '0.72rem', fontWeight: 700, cursor: 'pointer', borderRadius: '7px', border: '1px solid ' + border, background: active ? (theme.accent || '#8b7cff') : 'transparent', color: active ? '#ffffff' : text } }, pp === 'Total' ? __('pmTotal', 'Total') : pp === 'YTD' ? __('perfYtd', 'YTD') : pp.replace(/Y$/, __('chUnitY', 'Y')).replace(/D$/, __('chUnitD', 'D')));
+            style: { padding: '0.25rem 0.6rem', fontSize: '0.72rem', fontWeight: 700, cursor: 'pointer', borderRadius: '7px', border: '1px solid ' + border, background: active ? ((theme.accentFill || theme.accent) || '#8b7cff') : 'transparent', color: active ? '#ffffff' : text } }, pp === 'Total' ? __('pmTotal', 'Total') : pp === 'YTD' ? __('perfYtd', 'YTD') : pp.replace(/Y$/, __('chUnitY', 'Y')).replace(/D$/, __('chUnitD', 'D')));
         }
 
         var svg = e('svg', { viewBox: '0 0 ' + W + ' ' + H, width: '100%', style: { display: 'block', borderRadius: '10px', background: theme.inputBg || '#0c1018' }, role: 'img', 'aria-label': t.pmTitle || 'Performance map' },

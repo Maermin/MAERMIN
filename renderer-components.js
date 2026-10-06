@@ -643,7 +643,7 @@ function MonteCarloView({ portfolio, prices, t, theme, currency, formatPrice }) 
           style: {
             width: '100%',
             padding: '0.75rem 1.5rem',
-            background: isRunning ? theme.textSecondary : theme.accent,
+            background: isRunning ? theme.textSecondary : (theme.accentFill || theme.accent),
             color: '#ffffff',
             border: 'none',
             borderRadius: '8px',
@@ -885,7 +885,7 @@ function StressTestView({ portfolio, prices, t, theme, currency, formatPrice }) 
         onClick: runComparison,
         style: {
           padding: '0.75rem 1.5rem',
-          background: theme.accent,
+          background: (theme.accentFill || theme.accent),
           color: '#ffffff',
           border: 'none',
           borderRadius: '8px',

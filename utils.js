@@ -134,6 +134,18 @@ function __(k, f, v) { return (typeof window !== 'undefined' && window.MaerminI1
     });
   }
 
+  // Text colour for a filled surface: white when it reaches WCAG AA (4.5:1)
+  // on `bg`, else near-black. Bright fills (success green, warning amber,
+  // the dark-theme accents) get dark text. Non-hex colours keep white.
+  function onColor(bg) {
+    const m = String(bg || '').trim().match(/^#([0-9a-f]{3}|[0-9a-f]{6})$/i);
+    if (!m) return '#ffffff';
+    let h = m[1]; if (h.length === 3) h = h.split('').map((c) => c + c).join('');
+    const ch = [0, 2, 4].map((i) => parseInt(h.slice(i, i + 2), 16) / 255).map((v) => (v <= 0.03928 ? v / 12.92 : Math.pow((v + 0.055) / 1.055, 2.4)));
+    const L = 0.2126 * ch[0] + 0.7152 * ch[1] + 0.0722 * ch[2];
+    return (1.05 / (L + 0.05)) >= 4.5 ? '#ffffff' : '#0b0b14';
+  }
+
   // JSON.parse that never throws — a corrupted storage entry must not take the
   // whole app down at boot; callers get the fallback instead.
   function safeParse(raw, fallback) {
@@ -300,6 +312,7 @@ function __(k, f, v) { return (typeof window !== 'undefined' && window.MaerminI1
     fromEUR,
     clickable,
     confirmThen,
+    onColor,
     safeParse,
     parseDecimal,
     todayISO,

@@ -202,7 +202,7 @@ function __(k, f, v) { return (typeof window !== 'undefined' && window.MaerminI1
     function confirmPurge(title, run) {
       window.MaerminUtils.confirmThen({ title: title, message: __('trashPurgeMsg', 'This cannot be undone.'), confirmLabel: __('trashPurge', 'Delete forever'), cancelLabel: __('cancel', 'Cancel') }, run);
     }
-    return e('div', { 'data-testid': 'trash-view', style: { background: th.cardBg, border: '1px solid ' + border, borderRadius: '14px', padding: '1.25rem' } },
+    return e('div', { 'data-testid': 'trash-view', style: { background: th.card || th.cardBg, border: '1px solid ' + border, borderRadius: '14px', padding: '1.25rem' } },
       e('div', { style: { display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '1rem', flexWrap: 'wrap', marginBottom: '0.5rem' } },
         e('h2', { style: { color: text, fontSize: '1.2rem', fontWeight: 800, margin: 0 } }, __('trashTitle', 'Trash')),
         items.length ? btn(__('trashEmpty', 'Empty trash'), function () { confirmPurge(__('trashEmptyTitle', 'Delete all {n} {n:item|items} forever?', { n: items.length }), purgeAll); }, true) : null),
