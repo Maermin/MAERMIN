@@ -88,7 +88,9 @@
     // Simple/Advanced navigation mode (nav-model.js)
     'maermin_ui_mode',
     // deleted records kept 30 days for restore (trash.js)
-    'maermin_trash'
+    'maermin_trash',
+    // Freistellungsaufträge per broker (fsa.js)
+    'maermin_fsa'
   ];
 
   function defaultStore() {

@@ -486,6 +486,30 @@ async function runBuild(browser, label, dir) {
     await rerender(page);
     ok('tax KPIs: realised 1,190.00 €, tax 0.00 €', /Realized Gains\s*1,190\.00/.test(body) && /Tax Liability\s*0\.00/.test(body), body.slice(body.indexOf('Realized Gains'), body.indexOf('Realized Gains') + 140).replace(/\n/g, ' | '));
 
+    // P2-6: Freistellungsaufträge per broker. Main Portfolio's 2025 capital
+    // income is the AAPL gain of 490 (crypto stays out): order 600 -> 490 used, 110 left.
+    {
+      const panel = page.locator('[data-testid="fsa-panel"]');
+      const addBroker = async (name, amount) => {
+        await panel.getByRole('textbox', { name: 'Broker', exact: true }).fill(name);
+        await panel.getByRole('textbox', { name: 'Order', exact: true }).fill(amount);
+        await panel.getByRole('button', { name: 'Add broker' }).click();
+        await page.waitForTimeout(200);
+      };
+      let row = '';
+      try {
+        await panel.waitFor({ timeout: 5000 });
+        await addBroker('Bank A', '600');
+        await panel.locator('label', { hasText: 'Main Portfolio' }).first().locator('input[type=checkbox]').check();
+        await page.waitForTimeout(400);
+        row = await panel.locator('tr[data-fsa-broker="Bank A"]').innerText();
+      } catch (e) { row = 'ERR ' + e.message.split('\n')[0]; }
+      ok('FSA: a broker linked to Main Portfolio shows its 2025 income, used and left (490 / 490 / 110)', /490\.00[\s\S]*490\.00[\s\S]*110\.00/.test(row), row.replace(/\s+/g, ' '));
+      await addBroker('Broker B', '500');
+      const over = await panel.locator('[data-testid="fsa-over"]').innerText().catch(() => '');
+      ok('FSA: orders of 1,100 over the 1,000 allowance are flagged', /1,100\.00/.test(over) && /100\.00 more/.test(over), over);
+    }
+
     let pdf = null;
     try {
       const [download] = await Promise.all([
