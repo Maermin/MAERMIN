@@ -81,6 +81,7 @@
     'maermin_import_presets',     // broker column mappings
     'maermin_exchange_sync',      // exchange connection metadata
     'maermin_custom_categories',
+    'maermin_trash',              // deleted records (transactions, plans, accounts …) for 30 days
     'maermin_ter_overrides',      // held fund symbols
     'maermin_tax_owner',          // taxpayer name + TAX ID
     'maermin_fmp_api_key',        // legacy: FMP integration removed; kept so an old stored key stays encrypted

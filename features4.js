@@ -79,11 +79,16 @@ function usePortfolios() {
     if (activePortfolioId === id) setActivePortfolioId('default');
   };
 
+  // Trash restore (P2-4): put a deleted portfolio back, never twice.
+  const restorePortfolio = useCallback((pf) => {
+    setPortfolios(prev => prev.some(p => p.id === pf.id) ? prev : [...prev, pf]);
+  }, []);
+
   const renamePortfolio = (id, name) => {
     setPortfolios(prev => prev.map(p => p.id === id ? { ...p, name } : p));
   };
 
-  return { portfolios, activePortfolioId, setActivePortfolioId, addPortfolio, removePortfolio, renamePortfolio };
+  return { portfolios, activePortfolioId, setActivePortfolioId, addPortfolio, removePortfolio, restorePortfolio, renamePortfolio };
 }
 
 function PortfolioManagerView({ portfolios, activePortfolioId, transactions, prices, exchangeRate, fxAt, corpActionsRev, theme, t, formatPrice, getCurrencySymbol,
@@ -253,6 +258,10 @@ function SavingsPlanView({ transactions, theme, formatPrice, getCurrencySymbol, 
   const [form, setForm] = useState(emptyForm);
 
   useEffect(() => { localStorage.setItem('maermin_savings_plans', JSON.stringify(plans)); }, [plans]);
+  // A restore from the trash (or a portfolio restore) wrote the key: reload it.
+  if (window.MaerminTrash) window.MaerminTrash.useReload('maermin_savings_plans', () => {
+    try { setPlans(JSON.parse(localStorage.getItem('maermin_savings_plans') || '[]')); } catch (e) { /* keep */ }
+  });
 
   // The form as it was opened: Escape, a click beside the dialog or Cancel
   // ask before a changed form is thrown away (FINDINGS L-5).
@@ -520,7 +529,10 @@ function SavingsPlanView({ transactions, theme, formatPrice, getCurrencySymbol, 
                     title: ((t && t.spRemoveTitle) || 'Remove the savings plan {name}?').replace('{name}', plan.symbol || ''),
                     message: (t && t.spRemoveMessage) || 'Executions already booked stay in your transactions.',
                     confirmLabel: (t && t.spRemove) || 'Remove plan', cancelLabel: (t && t.cancel) || 'Cancel'
-                  }, () => setPlans(prev => prev.filter(p => p.id !== plan.id))),
+                  }, () => {
+                    setPlans(prev => prev.filter(p => p.id !== plan.id));
+                    if (window.MaerminTrash) window.MaerminTrash.trashed('savingsPlan', plan.symbol || plan.name || '', plan);
+                  }),
                   style: { background: 'none', border: 'none', color: theme.textSecondary, cursor: 'pointer', fontSize: '0.78rem' }
                 }, __('spRemove', 'Remove plan'))
               )

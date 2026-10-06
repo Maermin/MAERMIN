@@ -443,7 +443,11 @@ function InvestmentTracker() {
         if (moved.moved) localStorage.setItem('maermin_savings_plans', JSON.stringify(moved.items));
       } catch (e) { console.warn('[PORTFOLIO] moving savings plans failed:', e); }
     }
+    const pf = (portfolioHook.portfolios || []).find(p => p.id === id);
     portfolioHook.removePortfolio(id);
+    // P2-4: the portfolio goes to the trash; its rows keep `movedFrom`, so a
+    // restore can move them back.
+    if (pf && window.MaerminTrash) window.MaerminTrash.trashed('portfolio', pf.name, pf);
   };
 
   // The catch-up writers below wait for the start-up pull (FINDINGS H-6):
@@ -1038,6 +1042,7 @@ function InvestmentTracker() {
     { id: 'nav:tags',          label: t.navTags || 'Tags',                 category: __('palCatTools', 'Tools'),      shortcut: 'g s' },
     { id: 'nav:discovery',     label: t.discovery || 'Discovery',          category: __('palCatTools', 'Tools'),      shortcut: 'g e' },
     { id: 'nav:share',         label: t.navShare || 'Share & Compare',     category: __('palCatTools', 'Tools'),      shortcut: 'g h' },
+    { id: 'nav:trash',         label: t.navTrash || 'Trash',               category: __('palCatTools', 'Tools') },
     { id: 'nav:watchlist',     label: t.watchlist || 'Watchlist',          category: __('palCatTools', 'Tools'),      shortcut: 'g w' },
     { id: 'nav:rules',         label: t.navRules || 'Alerts & Rules',      category: __('palCatTools', 'Tools'),      shortcut: 'g u' },
     { id: 'nav:categories',    label: t.navCategories || 'Categories',     category: __('palCatTools', 'Tools'),      shortcut: 'g c' },
@@ -2159,11 +2164,50 @@ function InvestmentTracker() {
     setShowTransactionModal(true);
   };
 
-  // Delete a transaction
+  // Delete a transaction: it goes to the trash (P2-4) and the toast offers Undo.
   const deleteTransaction = (txId) => {
-    setTransactions(prev => prev.filter(tx => tx.id !== txId));
-    addToast(t.transactionDeleted || 'Transaction deleted', 'success');
+    const tx = transactions.find(x => x.id === txId);
+    setTransactions(prev => prev.filter(x => x.id !== txId));
+    const TR = window.MaerminTrash;
+    if (!tx || !TR) { addToast(t.transactionDeleted || 'Transaction deleted', 'success'); return; }
+    const label = [window.MaerminUtils.txTypeInfo(tx.type).label, tx.quantity != null ? window.MaerminI18n.num(tx.quantity, { min: 0, max: 8 }) : '', tx.symbol, '·', tx.date ? window.MaerminI18n.date(tx.date) : ''].filter(Boolean).join(' ');
+    TR.toastUndo(t.transactionDeleted || 'Transaction deleted', TR.put('transaction', label, tx));
   };
+
+  // Restore handlers for the records held in React state (trash.js).
+  useEffect(() => {
+    const TR = window.MaerminTrash;
+    if (!TR) return;
+    const offTx = TR.register('transaction', (tx) => {
+      setTransactions(prev => TR.restoreInto(prev, [tx]).items);
+      return true;
+    });
+    const offPf = TR.register('portfolio', (pf) => {
+      if (!portfolioHook || !pf || !pf.id) return false;
+      portfolioHook.restorePortfolio(pf);
+      // Rows moved to the Main Portfolio on delete go back.
+      const back = (rows) => {
+        let n = 0;
+        const items = (rows || []).map((r) => {
+          if (!r || r.movedFrom !== pf.id || r.portfolioId !== 'default') return r;
+          n++;
+          const next = Object.assign({}, r, { portfolioId: pf.id });
+          delete next.movedFrom;
+          if (next.source === 'dividend-auto-moved') next.source = 'dividend-auto';
+          return next;
+        });
+        return { items: n ? items : rows, n };
+      };
+      setTransactions(prev => back(prev).items);
+      try {
+        const plans = JSON.parse(localStorage.getItem('maermin_savings_plans') || '[]');
+        const r = back(plans);
+        if (r.n) { localStorage.setItem('maermin_savings_plans', JSON.stringify(r.items)); TR.notify('maermin_savings_plans'); }
+      } catch (e) { console.warn('[TRASH] moving savings plans back failed:', e); }
+      return true;
+    });
+    return () => { offTx(); offPf(); };
+  }, [portfolioHook && portfolioHook.restorePortfolio]);
 
   // ========== IMPORT DATA ==========
   
@@ -2316,6 +2360,7 @@ function InvestmentTracker() {
       case 'nav:tags':          setActiveView('tags'); break;
       case 'nav:discovery':     setActiveView('discovery'); break;
       case 'nav:share':         setActiveView('share'); break;
+      case 'nav:trash':         setActiveView('trash'); break;
       case 'nav:watchlist':     setActiveView('watchlist'); break;
       case 'nav:rules':         setActiveView('rules'); break;
       case 'nav:categories':    setActiveView('categories'); break;
@@ -3034,6 +3079,11 @@ function InvestmentTracker() {
           // Broker-Import nav entry deep-links straight to the wizard tab.
           initialSection: activeView === 'broker-import' ? 'broker' : 'export'
         });
+
+      case 'trash':
+        return window.MaerminTrash
+          ? React.createElement(window.MaerminTrash.TrashView, { theme: currentTheme, addToast })
+          : renderAnalyticsPlaceholder(t.navTrash || 'Trash');
 
       case 'journal':
         return window.MaerminFeatures2 ?

@@ -293,6 +293,7 @@ function __(k, f, v) { return (typeof window !== 'undefined' && window.MaerminI1
         var form = f0[0], setForm = f0[1];
 
         function mutate(next) { API.save(next); setSt(API.normalize(next)); }
+        if (window.MaerminTrash) window.MaerminTrash.useReload(STORAGE_KEY, function () { setSt(API.load()); });
         function setF(patch) { setForm(Object.assign({}, form, patch)); }
 
         // Build evaluation context from props (positions [{symbol,category,valueEUR}],
@@ -353,7 +354,10 @@ function __(k, f, v) { return (typeof window !== 'undefined' && window.MaerminI1
                 window.MaerminUtils.confirmThen({
                   title: (t.rulesDeleteTitle || 'Delete the rule "{name}"?').replace('{name}', r.name || API.describe(r)),
                   confirmLabel: t.rulesDelete || 'Delete', cancelLabel: t.cancel || 'Cancel'
-                }, function () { mutate(API.removeRule(st, r.id)); });
+                }, function () {
+                  mutate(API.removeRule(st, r.id));
+                  if (window.MaerminTrash) window.MaerminTrash.trashed('rule', r.name || API.describe(r), r);
+                });
               },
               style: { padding: '0.3rem 0.6rem', fontSize: '0.74rem', fontWeight: 700, cursor: 'pointer', borderRadius: '8px', border: '1px solid ' + inputBorder, background: 'transparent', color: text }
             }, t.rulesDelete || 'Delete'));

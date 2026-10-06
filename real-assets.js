@@ -301,6 +301,7 @@ function __(k, f, v) { return (typeof window !== 'undefined' && window.MaerminI1
         var form = f0[0], setForm = f0[1];
 
         function mutate(next) { API.save(next); setSt(API.normalize(next)); if (props.onChange) props.onChange(API.normalize(next)); }
+        if (window.MaerminTrash) window.MaerminTrash.useReload(STORAGE_KEY, function () { var n = API.load(); setSt(n); if (props.onChange) props.onChange(n); });
         function setF(patch) { setForm(Object.assign({}, form, patch)); }
 
         function addCurrent() {
@@ -357,9 +358,12 @@ function __(k, f, v) { return (typeof window !== 'undefined' && window.MaerminI1
               e('button', { onClick: function () {
                   window.MaerminUtils.confirmThen({
                     title: (t.raRemoveTitle || 'Remove "{name}"?').replace('{name}', a.name),
-                    message: t.raRemoveMessage || 'Its value, cash flows and history are deleted. This cannot be undone.',
+                    message: t.raRemoveMessage || 'Its value, cash flows and history leave your net worth. It stays in the trash for 30 days.',
                     confirmLabel: t.remove || 'Remove', cancelLabel: t.cancel || 'Cancel'
-                  }, function () { mutate(API.removeAsset(st, a.id)); });
+                  }, function () {
+                    mutate(API.removeAsset(st, a.id));
+                    if (window.MaerminTrash) window.MaerminTrash.trashed('realAsset', a.name, a);
+                  });
                 },
                 'aria-label': (t.raRemoveAria || 'Remove {name}').replace('{name}', a.name),
                 style: { background: 'none', border: 'none', color: dim, cursor: 'pointer', fontSize: '0.9rem', padding: '0.25rem' } }, '×')));

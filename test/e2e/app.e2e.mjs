@@ -294,7 +294,7 @@ const TXS = [
 const VIEWS = ['overview', 'transactions', 'portfolios', 'net-worth', 'dividends', 'journal',
   'returns', 'performance', 'rebalancing', 'savings-plans', 'cashflow', 'fees', 'analytics', 'health',
   'investment-analysis', 'tax', 'intelligence', 'tags', 'categories', 'customize', 'discovery', 'share',
-  'watchlist', 'rules', 'attribution', 'news', 'data'];
+  'watchlist', 'rules', 'attribution', 'news', 'data', 'trash'];
 
 // ---- scenarios ----------------------------------------------------------------
 async function runBuild(browser, label, dir) {
@@ -418,6 +418,33 @@ async function runBuild(browser, label, dir) {
     await openView(page, 'transactions');
     const check = await page.locator('[data-testid="ledger-issues"]').first().innerText().catch(() => '');
     ok('Data check lists the oversell and the unconvertible currency', /Data check: 2 issues/.test(check), check.slice(0, 120));
+
+    // P2-4: a deleted transaction goes to the trash; Undo and Restore bring it back.
+    {
+      const hasX2 = () => page.evaluate(() => JSON.parse(localStorage.getItem('transactions') || '[]').some((t) => t.id === 'x2'));
+      const delX2 = async () => {
+        await page.locator('button[aria-label^="Delete: "][aria-label*="ETH"]').first().click();
+        await page.locator('tr', { hasText: 'Delete this transaction?' }).getByRole('button', { name: 'Delete', exact: true }).click();
+        await page.waitForTimeout(400);
+      };
+      await delX2();
+      const gone = !(await hasX2());
+      const undo = page.locator('[data-testid="toast-action"]', { hasText: 'Undo' });
+      const undoShown = (await undo.count()) > 0;
+      if (undoShown) await undo.first().click();
+      await page.waitForTimeout(400);
+      ok('delete → toast with Undo → the transaction is back', gone && undoShown && (await hasX2()));
+      await delX2();
+      await openView(page, 'trash');
+      const row = page.locator('[data-testid="trash-view"] li[data-trash-kind="transaction"]');
+      const listed = (await row.count()) === 1 && /ETH/.test(await row.first().innerText());
+      if (listed) await row.first().getByRole('button', { name: /^Restore/ }).click();
+      await page.waitForTimeout(400);
+      const tv = await page.locator('[data-testid="trash-view"]').innerText().catch(() => '');
+      ok('Settings → Trash lists the deleted transaction and Restore puts it back', listed && (await hasX2()) && /The trash is empty/.test(tv), tv.slice(0, 200));
+      const dup = await page.evaluate(() => JSON.parse(localStorage.getItem('transactions') || '[]').filter((t) => t.id === 'x2').length);
+      ok('restored once, no duplicate', dup === 1, String(dup));
+    }
 
     // Tax view: go there, pick the report tab and 2025.
     await openView(page, 'tax');
