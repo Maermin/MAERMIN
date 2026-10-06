@@ -797,7 +797,7 @@ function PortfolioHistoryChart({ portfolio, prices, transactions, apiKeys, theme
               padding: '0.3rem 0.55rem', border:'none', borderRadius:'7px',
               cursor: loading ? 'not-allowed' : 'pointer',
               fontSize: '0.72rem', fontWeight: active ? '700' : '400',
-              background: active ? (computed ? lineColor : theme.accent) : 'transparent',
+              background: active ? (computed ? lineColor : (theme.accentFill || theme.accent)) : 'transparent',
               color: active ? '#fff' : theme.textSecondary,
               transition: 'all 0.1s', opacity: loading ? 0.5 : 1, whiteSpace: 'nowrap'
             }

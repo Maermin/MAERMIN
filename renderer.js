@@ -37,7 +37,7 @@ class ViewErrorBoundary extends React.Component {
         React.createElement('div', { style: { color: th.textSecondary || '#8b94a7', fontSize: '0.85rem', marginBottom: '1.25rem' } }, __('errViewBody', 'Your data is safe. Try this view again or switch to another.')),
         React.createElement('div', { style: { color: th.textSecondary || '#8b94a7', fontSize: '0.72rem', fontFamily: 'ui-monospace,monospace', marginBottom: '1.25rem', wordBreak: 'break-word', opacity: 0.8 } }, String(this.state.error && this.state.error.message || this.state.error)),
         React.createElement('button', { onClick: () => this.setState({ error: null }),
-          style: { padding: '0.5rem 1.1rem', background: th.accent || '#8b7cff', color: '#ffffff', border: 'none', borderRadius: '8px', cursor: 'pointer', fontWeight: 700, fontSize: '0.85rem' } }, __('retry', 'Retry'))
+          style: { padding: '0.5rem 1.1rem', background: (th.accentFill || th.accent) || '#8b7cff', color: '#ffffff', border: 'none', borderRadius: '8px', cursor: 'pointer', fontWeight: 700, fontSize: '0.85rem' } }, __('retry', 'Retry'))
       )
     );
   }
@@ -58,6 +58,7 @@ const ON_ACCENT = '#ffffff';    // text on accent fills
 
 const themes = {
   dark: {
+    accentFill: '#6352f0', // filled buttons with white text (WCAG AA 4.5:1)
     name: 'dark', mode: 'dark',
     background: 'radial-gradient(900px 520px at 12% -8%, rgba(124,92,255,0.20) 0%, transparent 62%), radial-gradient(760px 480px at 92% -6%, rgba(56,189,248,0.10) 0%, transparent 60%), radial-gradient(1200px 800px at 50% 120%, rgba(124,92,255,0.07) 0%, transparent 60%), #07080d',
     card: '#0f1018',
@@ -80,6 +81,7 @@ const themes = {
     warning: '#ffb454'
   },
   white: {
+    accentFill: '#6352f0', // filled buttons with white text (WCAG AA 4.5:1)
     name: 'white', mode: 'light',
     background: 'radial-gradient(900px 520px at 10% -10%, rgba(124,92,255,0.12) 0%, transparent 60%), radial-gradient(760px 480px at 95% -8%, rgba(56,189,248,0.10) 0%, transparent 60%), #f6f7fb',
     card: '#ffffff',
@@ -91,18 +93,20 @@ const themes = {
     textSecondary: '#5d6278',
     inputBg: '#f3f4f9',
     inputBorder: 'rgba(17,19,40,0.12)',
-    accent: ACCENT_DEEP,
+    accent: '#5244e0', // >= 4.5:1 also on its tinted chips
     accentText: ON_ACCENT,
     accentSoft: 'rgba(109,93,252,0.10)',
     accentGradient: 'linear-gradient(135deg, #8b7cff 0%, #6d5dfc 50%, #3f6fff 100%)',
     glass: 'rgba(255,255,255,0.72)',
     shadow: '0 1px 2px rgba(17,19,40,0.04), 0 18px 40px -22px rgba(17,19,40,0.18)',
-    success: '#0f9f68',
-    danger: '#e5484d',
-    warning: '#d97706'
+    // >= 4.5:1 on white and on their own tinted chips (Phase 3 contrast pass)
+    success: '#066b45',
+    danger: '#c42b33',
+    warning: '#a14a06'
   },
   // "Nebula" — the purple theme, re-imagined as a deep violet night sky.
   purple: {
+    accentFill: '#9147e6', // filled buttons with white text (WCAG AA 4.5:1)
     name: 'purple', mode: 'dark',
     background: 'radial-gradient(900px 560px at 15% -10%, rgba(168,85,247,0.26) 0%, transparent 62%), radial-gradient(800px 520px at 90% 0%, rgba(236,72,153,0.12) 0%, transparent 60%), #0b0716',
     card: '#140e24',
@@ -127,6 +131,7 @@ const themes = {
   // High-contrast theme (WCAG AAA-leaning): pure-black canvas, white text,
   // heavy borders. Accent chosen to clear 4.5:1 against both black and white.
   contrast: {
+    accentFill: '#3563ec', // filled buttons with white text (WCAG AA 4.5:1)
     name: 'contrast', mode: 'dark',
     background: '#000000',
     card: '#0a0a0a',
@@ -151,6 +156,7 @@ const themes = {
   // Colour-blind-safe (Okabe–Ito): positive = sky-blue, negative = orange,
   // never red/green. P&L colours flow from theme.success/danger.
   cb: {
+    accentFill: '#1b73b0', // filled buttons with white text (WCAG AA 4.5:1)
     name: 'cb', mode: 'dark',
     background: 'radial-gradient(900px 520px at 12% -8%, rgba(0,114,178,0.22) 0%, transparent 62%), #07090d',
     card: '#0f1118',
@@ -244,7 +250,7 @@ function PasswordModal({ theme, t, onClose, addToast, restoreFocus }) {
         }, t.cancel || 'Cancel'),
         React.createElement('button', {
           onClick: handleChange, disabled: busy || !curPw || !newPw || !confPw,
-          style:{ flex:1, padding:'0.75rem', background: busy ? theme.inputBg : theme.accent, color:'#fff', border:'none', borderRadius:'8px', cursor: busy ? 'not-allowed' : 'pointer', fontWeight:'600' }
+          style:{ flex:1, padding:'0.75rem', background: busy ? theme.inputBg : (theme.accentFill || theme.accent), color:'#fff', border:'none', borderRadius:'8px', cursor: busy ? 'not-allowed' : 'pointer', fontWeight:'600' }
         }, busy ? '...' : (t.changePassword || 'Change Password'))
       )
     )
@@ -2431,13 +2437,17 @@ function InvestmentTracker() {
     const [importText, setImportText] = React.useState('');
     const [importing, setImporting]   = React.useState(false);
     const [section, setSection]       = React.useState(initialSection || 'export'); // 'export' | 'import' | 'broker'
+    // The view keeps its state now (StableViews): a deep link still switches the tab.
+    React.useEffect(() => { if (initialSection) setSection(initialSection); }, [initialSection]);
 
-    const handleImport = async () => {
-      if (!importText.trim()) { addToast(__('pasteFirst', 'Paste JSON or CSV data first'), 'error'); return; }
+    // source: text from a picked file; without it the pasted text is used.
+    const handleImport = async (source) => {
+      const raw = typeof source === 'string' ? source : importText;
+      if (!raw.trim()) { addToast(__('pasteFirst', 'Paste JSON or CSV data first'), 'error'); return; }
       setImporting(true);
       try {
         let imported = [];
-        const txt = importText.trim();
+        const txt = raw.trim();
         if (txt.startsWith('[') || txt.startsWith('{')) {
           const parsed = JSON.parse(txt);
           // A full backup restores ALL data (watchlist, alerts, dividends,
@@ -2477,13 +2487,27 @@ function InvestmentTracker() {
       } finally { setImporting(false); }
     };
 
+    // Open a file picker and hand the text of the chosen file to `done`.
+    const pickTextFile = (accept, done) => {
+      const input = document.createElement('input');
+      input.type = 'file'; input.accept = accept;
+      input.onchange = () => {
+        const f = input.files && input.files[0];
+        if (!f) return;
+        const reader = new FileReader();
+        reader.onload = () => done(String(reader.result || ''));
+        reader.readAsText(f);
+      };
+      input.click();
+    };
+
     const tabBtn = (id, label, icon) => React.createElement('button', {
-      onClick: () => setSection(id),
+      onClick: () => setSection(id), 'aria-pressed': section === id,
       style: {
         display: 'flex', alignItems: 'center', gap: '0.375rem',
         padding: '0.5rem 1rem', border: 'none', borderRadius: '8px', cursor: 'pointer',
         fontSize: '0.875rem', fontWeight: section === id ? '700' : '400',
-        background: section === id ? theme.accent : theme.inputBg,
+        background: section === id ? (theme.accentFill || theme.accent) : theme.inputBg,
         color: section === id ? '#fff' : theme.text,
         transition: 'all 0.12s'
       }
@@ -2522,7 +2546,7 @@ function InvestmentTracker() {
         React.createElement('div', { style: { display: 'flex', gap: '0.75rem', flexWrap: 'wrap' } },
           React.createElement('button', {
             onClick: createBackup,
-            style: { padding: '0.625rem 1.25rem', background: theme.accent, color: '#ffffff', border: 'none', borderRadius: '8px', cursor: 'pointer', fontWeight: '600', fontSize: '0.875rem', display: 'flex', alignItems: 'center', gap: '0.5rem' }
+            style: { padding: '0.625rem 1.25rem', background: theme.accentFill, color: '#ffffff', border: 'none', borderRadius: '8px', cursor: 'pointer', fontWeight: '600', fontSize: '0.875rem', display: 'flex', alignItems: 'center', gap: '0.5rem' }
           }, __('dmJsonBackup', '↓ JSON Backup'),
             React.createElement('span', { style: { fontSize: '0.72rem', opacity: 0.8, fontWeight: '400' } }, __('dmFullRestore', '— full restore'))
           ),
@@ -2531,8 +2555,17 @@ function InvestmentTracker() {
             style: { padding: '0.625rem 1.25rem', background: theme.inputBg, color: theme.text, border: `1px solid ${theme.cardBorder}`, borderRadius: '8px', cursor: 'pointer', fontSize: '0.875rem', display: 'flex', alignItems: 'center', gap: '0.5rem' }
           }, __('dmExportCsv', '↑ Export CSV'),
             React.createElement('span', { style: { fontSize: '0.72rem', color: theme.textSecondary, fontWeight: '400' } }, __('dmSpreadsheet', '— spreadsheet'))
-          )
-        )
+          ),
+          // Phase 3: restoring used to mean opening the file and pasting it
+          // into Manual Import. Same confirm-and-restore path as pasting.
+          React.createElement('button', {
+            type: 'button', 'data-testid': 'restore-from-file', disabled: importing,
+            onClick: () => pickTextFile('.json,application/json', (txt) => handleImport(txt)),
+            style: { padding: '0.625rem 1.25rem', background: theme.inputBg, color: theme.text, border: `1px solid ${theme.cardBorder}`, borderRadius: '8px', cursor: 'pointer', fontSize: '0.875rem' }
+          }, __('dmRestoreFile', '↺ Restore from file…'))
+        ),
+        React.createElement('p', { style: { color: theme.textSecondary, fontSize: '0.76rem', margin: '0.9rem 0 0', lineHeight: 1.5 } },
+          __('dmBackupHint', 'The JSON backup is not encrypted. For an encrypted copy use the account menu → Backup vault (encrypted).'))
       ),
 
       // ── Manual Import ────────────────────────────────────────────────────
@@ -2544,6 +2577,7 @@ function InvestmentTracker() {
         React.createElement('textarea', {
           value: importText,
           onChange: e => setImportText(e.target.value),
+          'aria-label': __('dmManualImport', 'Manual Import'),
           placeholder: '[{"type":"buy","category":"crypto","symbol":"bitcoin","quantity":0.5,"price":45000,"date":"2024-01-15"}]',
           rows: 7,
           style: { width: '100%', boxSizing: 'border-box', padding: '0.75rem', background: theme.inputBg, border: `1px solid ${theme.inputBorder}`, borderRadius: '8px', color: theme.text, fontSize: '0.8rem', fontFamily: 'monospace', resize: 'vertical', marginBottom: '0.875rem' }
@@ -2551,8 +2585,12 @@ function InvestmentTracker() {
         React.createElement('div', { style: { display: 'flex', gap: '0.75rem', alignItems: 'center' } },
           React.createElement('button', {
             onClick: handleImport, disabled: importing || !importText.trim(),
-            style: { padding: '0.625rem 1.25rem', background: importing || !importText.trim() ? theme.inputBg : theme.accent, color: importing || !importText.trim() ? theme.textSecondary : '#fff', border: 'none', borderRadius: '8px', cursor: importing || !importText.trim() ? 'not-allowed' : 'pointer', fontWeight: '600', fontSize: '0.875rem' }
+            style: { padding: '0.625rem 1.25rem', background: importing || !importText.trim() ? theme.inputBg : theme.accentFill, color: importing || !importText.trim() ? theme.textSecondary : '#fff', border: 'none', borderRadius: '8px', cursor: importing || !importText.trim() ? 'not-allowed' : 'pointer', fontWeight: '600', fontSize: '0.875rem' }
           }, importing ? __('importing', '◎ Importing...') : __('importBtn', '↑ Import')),
+          React.createElement('button', {
+            type: 'button', onClick: () => pickTextFile('.json,.csv,application/json,text/csv', setImportText),
+            style: { padding: '0.625rem 1rem', background: theme.inputBg, color: theme.text, border: `1px solid ${theme.cardBorder}`, borderRadius: '8px', cursor: 'pointer', fontSize: '0.85rem' }
+          }, __('dmChooseFile', 'Choose file…')),
           importText.trim() && React.createElement('button', {
             onClick: () => setImportText(''),
             style: { padding: '0.625rem 1rem', background: 'none', color: theme.textSecondary, border: 'none', cursor: 'pointer', fontSize: '0.85rem' }
@@ -2720,11 +2758,11 @@ function InvestmentTracker() {
     ];
 
     const tabBtn = (id, label) => React.createElement('button', {
-      onClick: () => setTab(id),
+      'aria-pressed': tab === id, onClick: () => setTab(id),
       style: {
         padding: '0.5rem 1.25rem', border: 'none', borderRadius: '8px', cursor: 'pointer',
         fontSize: '0.875rem', fontWeight: tab === id ? '600' : '400',
-        background: tab === id ? theme.accent : theme.inputBg,
+        background: tab === id ? (theme.accentFill || theme.accent) : theme.inputBg,
         color: tab === id ? '#fff' : theme.text, transition: 'all 0.15s'
       }
     }, label);
@@ -2786,11 +2824,11 @@ function InvestmentTracker() {
     const tab = (tabState === 'harvest' && !showHarvest) ? 'report' : tabState;
 
     const tabBtn = (id, label) => React.createElement('button', {
-      onClick: () => setTab(id),
+      'aria-pressed': tab === id, onClick: () => setTab(id),
       style: {
         padding: '0.5rem 1.25rem', border: 'none', borderRadius: '8px', cursor: 'pointer',
         fontSize: '0.875rem', fontWeight: tab === id ? '600' : '400',
-        background: tab === id ? theme.accent : theme.inputBg,
+        background: tab === id ? (theme.accentFill || theme.accent) : theme.inputBg,
         color: tab === id ? '#fff' : theme.text, transition: 'all 0.15s'
       }
     }, label);
@@ -3089,7 +3127,7 @@ function InvestmentTracker() {
 
       case 'data':
       case 'broker-import':
-        return React.createElement(DataManagementView, {
+        return React.createElement(StableViews.DataManagementView, {
           transactions, setTransactions, createBackup, exportData,
           theme: currentTheme, t, addToast, formatPrice,
           // Broker-Import nav entry deep-links straight to the wizard tab.
@@ -3114,7 +3152,7 @@ function InvestmentTracker() {
 
       case 'dividends':
         return React.createElement(React.Fragment, null,
-          React.createElement(DividendsCombinedView, {
+          React.createElement(StableViews.DividendsCombinedView, {
             portfolio, prices, transactions: activeTransactions, apiKeys,
             theme: currentTheme, t, addToast, formatPrice, getCurrencySymbol,
             divAutoBook, toggleDivAutoBook, onBookDividends: () => bookDividends(true)
@@ -3136,7 +3174,7 @@ function InvestmentTracker() {
         );
 
       case 'tax':
-        return React.createElement(TaxCombinedView, {
+        return React.createElement(StableViews.TaxCombinedView, {
           transactions: activeTransactions, prices,
           theme: currentTheme, t, formatPrice, getCurrencySymbol,
           taxJurisdiction, setTaxJurisdiction, language
@@ -3356,7 +3394,7 @@ function InvestmentTracker() {
           ),
           React.createElement('button', {
             onClick: () => { if (M) M.saveFireSettings(fire); setEditFire(false); },
-            style: { padding: '0.55rem 1.1rem', background: theme.accent, color: '#ffffff', border: 'none', borderRadius: '8px', cursor: 'pointer', fontWeight: '700', fontSize: '0.85rem' }
+            style: { padding: '0.55rem 1.1rem', background: (theme.accentFill || theme.accent), color: '#ffffff', border: 'none', borderRadius: '8px', cursor: 'pointer', fontWeight: '700', fontSize: '0.85rem' }
           }, t.save || 'Save')
         ),
         fireM && fireM.configured && React.createElement('div', { style: { color: theme.textSecondary, fontSize: '0.78rem', marginTop: '0.75rem' } },
@@ -3513,9 +3551,9 @@ function InvestmentTracker() {
 
       // ── Demo-mode banner ─────────────────────────────────────────────────
       demoMode && React.createElement('div', {
-        style: { display: 'flex', alignItems: 'center', gap: '0.6rem', flexWrap: 'wrap', padding: '0.6rem 0.9rem', marginBottom: '1rem', borderRadius: '10px', background: `${currentTheme.accent}14`, border: `1px solid ${currentTheme.accent}55`, color: currentTheme.text, fontSize: '0.82rem' } },
+        style: { display: 'flex', alignItems: 'center', gap: '0.6rem', flexWrap: 'wrap', padding: '0.6rem 0.9rem', marginBottom: '1rem', borderRadius: '10px', background: `${(currentTheme.accentFill || currentTheme.accent)}14`, border: `1px solid ${currentTheme.accent}55`, color: currentTheme.text, fontSize: '0.82rem' } },
         React.createElement('span', null, __('demoBanner', '★ You are exploring MAERMIN with sample data — your real data is untouched. Changes made in demo mode are not saved.')),
-        React.createElement('button', { onClick: exitDemo, style: { marginLeft: 'auto', minHeight: '40px', padding: '0.45rem 0.9rem', background: currentTheme.accent, color: '#ffffff', border: 'none', borderRadius: '8px', cursor: 'pointer', fontWeight: '700', fontSize: '0.8rem' } }, __('demoExitUseMine', 'Exit demo & use my data'))
+        React.createElement('button', { onClick: exitDemo, style: { marginLeft: 'auto', minHeight: '40px', padding: '0.45rem 0.9rem', background: (currentTheme.accentFill || currentTheme.accent), color: '#ffffff', border: 'none', borderRadius: '8px', cursor: 'pointer', fontWeight: '700', fontSize: '0.8rem' } }, __('demoExitUseMine', 'Exit demo & use my data'))
       ),
 
       // ── Header ──────────────────────────────────────────────────────────
@@ -3561,11 +3599,12 @@ function InvestmentTracker() {
             title: __('fxChipTitle', 'FX: {label} (source: {source})', { label: fxInfo.label, source: fxInfo.source }),
             style: { display: 'flex', alignItems: 'center', minHeight: '40px', padding: '0.5rem 0.7rem', background: currentTheme.inputBg, border: `1px solid ${currentTheme.cardBorder}`, borderRadius: '8px', fontSize: '0.78rem', color: currentTheme.textSecondary }
           }, `$→€ ${window.MaerminI18n.num(fxInfo.rate, 3)}`),
-          // Demo toggle — instant value for first-run users.
+          // Demo toggle — instant value for first-run users; hidden once the
+          // vault has its own transactions (Phase 3: clutter on phones).
           demoMode
             ? React.createElement('button', { onClick: exitDemo, style: { minHeight: '40px', padding: '0.5rem 0.9rem', background: currentTheme.inputBg, color: currentTheme.text, border: `1px solid ${currentTheme.cardBorder}`, borderRadius: '8px', cursor: 'pointer', fontSize: '0.85rem' } }, __('demoExit', 'Exit demo'))
-            : React.createElement('button', { onClick: enterDemo, title: __('demoTryTitle', 'Load sample data to explore the app instantly — no setup'), style: { minHeight: '40px', padding: '0.5rem 0.9rem', background: currentTheme.inputBg, color: currentTheme.text, border: `1px solid ${currentTheme.cardBorder}`, borderRadius: '8px', cursor: 'pointer', fontSize: '0.85rem' } }, __('demoTry', '★ Try demo')),
-          React.createElement('button', { onClick: () => openTransactionModal(), style: { padding: '0.5rem 1rem', background: currentTheme.accent, color: '#ffffff', border: 'none', borderRadius: '8px', cursor: 'pointer', fontWeight: '600', fontSize: '0.85rem' } }, __('addShort', '+ Add')),
+            : transactions.length > 0 ? null : React.createElement('button', { onClick: enterDemo, title: __('demoTryTitle', 'Load sample data to explore the app instantly — no setup'), style: { minHeight: '40px', padding: '0.5rem 0.9rem', background: currentTheme.inputBg, color: currentTheme.text, border: `1px solid ${currentTheme.cardBorder}`, borderRadius: '8px', cursor: 'pointer', fontSize: '0.85rem' } }, __('demoTry', '★ Try demo')),
+          React.createElement('button', { onClick: () => openTransactionModal(), style: { padding: '0.5rem 1rem', background: (currentTheme.accentFill || currentTheme.accent), color: '#ffffff', border: 'none', borderRadius: '8px', cursor: 'pointer', fontWeight: '600', fontSize: '0.85rem' } }, __('addShort', '+ Add')),
           React.createElement('button', { onClick: () => setShowImportModal(true), style: { padding: '0.5rem 1rem', background: currentTheme.inputBg, color: currentTheme.text, border: `1px solid ${currentTheme.cardBorder}`, borderRadius: '8px', cursor: 'pointer', fontSize: '0.85rem' } }, __('importBtn', '↑ Import')),
           React.createElement('button', { onClick: fetchPrices, disabled: loading, style: { padding: '0.5rem 1rem', background: loading ? currentTheme.inputBg : `${currentTheme.accent}18`, color: loading ? currentTheme.textSecondary : currentTheme.accent, border: `1px solid ${currentTheme.accent}33`, borderRadius: '8px', cursor: loading ? 'not-allowed' : 'pointer', fontSize: '0.85rem', fontWeight: '600', display: 'flex', alignItems: 'center', gap: '0.375rem' } }, loading ? __('refreshing', '◎ Refreshing...') : __('refreshPrices', '↻ Refresh prices'))
         )
@@ -3670,7 +3709,7 @@ function InvestmentTracker() {
       // ── KPI strip removed: Dividends + Health now live in the stat cards above
       //    (Net Worth / FIRE remain reachable from their own sidebar views).
       false &&
-        React.createElement(DashboardKpiStrip, {
+        React.createElement(StableViews.DashboardKpiStrip, {
           portfolio: overviewPortfolio,
           prices, priceHistory,
           transactions: overviewTransactions,
@@ -3704,7 +3743,7 @@ function InvestmentTracker() {
           React.createElement('div', { style: { color: currentTheme.text, fontWeight: '600', fontSize: '0.875rem' } }, __('rcNudgeTitle', 'Add a recovery code')),
           React.createElement('div', { style: { color: currentTheme.textSecondary, fontSize: '0.8rem', marginTop: '0.125rem' } }, __('rcNudgeBody', 'Your vault has no recovery code. Without one, a forgotten password cannot be reset — generate a printable code now.'))
         ),
-        React.createElement('button', { onClick: createRecoveryKit, disabled: recoveryBusy, style: { padding: '0.5rem 1rem', background: currentTheme.accent, color: '#ffffff', border: 'none', borderRadius: '6px', cursor: recoveryBusy ? 'wait' : 'pointer', fontWeight: '700', fontSize: '0.8rem' } }, recoveryBusy ? __('creating', 'Creating…') : __('rcCreate', 'Create recovery code')),
+        React.createElement('button', { onClick: createRecoveryKit, disabled: recoveryBusy, style: { padding: '0.5rem 1rem', background: (currentTheme.accentFill || currentTheme.accent), color: '#ffffff', border: 'none', borderRadius: '6px', cursor: recoveryBusy ? 'wait' : 'pointer', fontWeight: '700', fontSize: '0.8rem' } }, recoveryBusy ? __('creating', 'Creating…') : __('rcCreate', 'Create recovery code')),
         React.createElement('button', { onClick: dismissRecoveryNudge, style: { padding: '0.5rem 0.75rem', background: 'transparent', color: currentTheme.textSecondary, border: `1px solid ${currentTheme.cardBorder}`, borderRadius: '6px', cursor: 'pointer', fontSize: '0.8rem' } }, __('dismiss', 'Dismiss'))
       ),
 
@@ -3714,7 +3753,7 @@ function InvestmentTracker() {
         React.createElement('h3', { style: { color: currentTheme.text, fontSize: '1.125rem', fontWeight: '600', marginBottom: '0.5rem' } }, t.welcomeTitle || 'Welcome to MAERMIN'),
         React.createElement('p', { style: { color: currentTheme.textSecondary, fontSize: '0.875rem', marginBottom: '1rem', lineHeight: '1.6' } }, t.welcomeHint || 'Start by adding your first transaction.'),
         React.createElement('div', { style: { display: 'flex', gap: '0.75rem', justifyContent: 'center', flexWrap: 'wrap' } },
-          window.MaerminOnboarding && window.MaerminOnboarding.Wizard && React.createElement('button', { onClick: openOnboarding, style: { padding: '0.625rem 1.25rem', background: currentTheme.accent, color: '#ffffff', border: 'none', borderRadius: '8px', cursor: 'pointer', fontWeight: '700', fontSize: '0.875rem' } }, __('guidedSetup', 'Guided setup')),
+          window.MaerminOnboarding && window.MaerminOnboarding.Wizard && React.createElement('button', { onClick: openOnboarding, style: { padding: '0.625rem 1.25rem', background: (currentTheme.accentFill || currentTheme.accent), color: '#ffffff', border: 'none', borderRadius: '8px', cursor: 'pointer', fontWeight: '700', fontSize: '0.875rem' } }, __('guidedSetup', 'Guided setup')),
           React.createElement('button', { onClick: () => openTransactionModal(), style: { padding: '0.625rem 1.25rem', background: currentTheme.inputBg, color: currentTheme.text, border: `1px solid ${currentTheme.cardBorder}`, borderRadius: '8px', cursor: 'pointer', fontWeight: '600', fontSize: '0.875rem' } }, '+ ' + (t.addTransaction || 'Add Transaction')),
           React.createElement('button', { onClick: () => setShowImportModal(true), style: { padding: '0.625rem 1.25rem', background: currentTheme.inputBg, color: currentTheme.text, border: `1px solid ${currentTheme.cardBorder}`, borderRadius: '8px', cursor: 'pointer', fontSize: '0.875rem' } }, t.importData || 'Import Data')
         )
@@ -3735,7 +3774,9 @@ function InvestmentTracker() {
         const catMeta = (cat) => CLASS[cat] || (window.MaerminCategories
           ? { label: window.MaerminCategories.label(cat), color: window.MaerminCategories.color(cat) }
           : { label: cat, color: '#8b94a7' });
-        const green = '#34d399', red = '#f87171', gray = '#8b94a7';
+        // Theme tokens, not fixed dark-theme colours: on the light theme the
+        // fixed green read 1.9:1 and the grey 3:1 (Phase 3 contrast pass).
+        const green = currentTheme.success, red = currentTheme.danger, gray = currentTheme.textSecondary;
         const glyph = s => (s || '').replace(/[^A-Za-z0-9]/g, '').slice(0, 4).toUpperCase();
         const money = v => `${formatPrice(v)} ${getCurrencySymbol()}`;
         const fmtPct = n => window.MaerminI18n.pct(n, 2, true);
@@ -3937,11 +3978,11 @@ function InvestmentTracker() {
 
     const tabBtn = (id, label) => React.createElement('button', {
       key: id,
-      onClick: () => setAnalyticsTab(id),
+      'aria-pressed': analyticsTab === id, onClick: () => setAnalyticsTab(id),
       style: {
         padding: '0.5rem 1.1rem', border: 'none', borderRadius: '10px', cursor: 'pointer',
         fontWeight: analyticsTab === id ? '650' : '450', fontSize: '0.875rem',
-        background: analyticsTab === id ? currentTheme.accent : currentTheme.inputBg,
+        background: analyticsTab === id ? (currentTheme.accentFill || currentTheme.accent) : currentTheme.inputBg,
         color: analyticsTab === id ? currentTheme.accentText : currentTheme.textSecondary, transition: 'all 0.15s'
       }
     }, label);
@@ -4085,7 +4126,7 @@ function InvestmentTracker() {
           `${found.slice(0, 3).map(f => f.symbol).join(', ')}${found.length > 3 ? ' …' : ''} - ${__('skinMisfiledHint', 'they get no price there. Move them to CS2 Skins to get their skin prices.')}`)),
       React.createElement('button', {
         onClick: () => repairMisfiledSkins(found), disabled: skinRepairBusy,
-        style: { padding: '0.5rem 1rem', minHeight: '40px', background: currentTheme.accent, color: '#fff', border: 'none', borderRadius: '8px', cursor: skinRepairBusy ? 'wait' : 'pointer', fontWeight: '700', fontSize: '0.82rem' }
+        style: { padding: '0.5rem 1rem', minHeight: '40px', background: (currentTheme.accentFill || currentTheme.accent), color: '#fff', border: 'none', borderRadius: '8px', cursor: skinRepairBusy ? 'wait' : 'pointer', fontWeight: '700', fontSize: '0.82rem' }
       }, skinRepairBusy ? __('skinLookingUp', 'Looking up market names…') : __('skinMoveBtn', 'Move to CS2 Skins')));
   };
 
@@ -4159,7 +4200,7 @@ function InvestmentTracker() {
             onClick: () => openTransactionModal(),
             style: {
               padding: '0.5rem 1.25rem',
-              background: currentTheme.accent,
+              background: (currentTheme.accentFill || currentTheme.accent),
               color: currentTheme.accentText,
               border: 'none',
               borderRadius: '10px',
@@ -4395,7 +4436,7 @@ function InvestmentTracker() {
           ),
           window.MaerminTaxReport && React.createElement('button', {
             onClick: () => { const r = buildReport(); if (r) window.MaerminTaxReport.exportPDF(r); },
-            style: { padding: '0.5rem 1rem', background: currentTheme.accent, color: '#ffffff', border: 'none', borderRadius: '8px', cursor: 'pointer', fontWeight: 600 }
+            style: { padding: '0.5rem 1rem', background: (currentTheme.accentFill || currentTheme.accent), color: '#ffffff', border: 'none', borderRadius: '8px', cursor: 'pointer', fontWeight: 600 }
           }, t.exportPdf || 'Export PDF'),
           window.MaerminTaxReport && React.createElement('button', {
             onClick: () => { const r = buildReport(); if (r) window.MaerminTaxReport.exportExcel(r); },
@@ -4695,10 +4736,15 @@ function InvestmentTracker() {
           boxShadow: '0 32px 70px -20px rgba(0,0,0,0.75)'
         }
       },
-        React.createElement('h2', {
-          id: 'dlg-transaction',
-          style: { color: currentTheme.text, marginBottom: '1.5rem', fontSize: '1.5rem', fontWeight: '800', letterSpacing: '-0.02em' }
-        }, isEditing ? (t.editTransaction || 'Edit Transaction') : (t.addTransaction || 'Add Transaction')),
+        // Header with a close button (Phase 3: the dialog had none; Escape and
+        // the backdrop were the only ways out on touch).
+        React.createElement('div', { style: { display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: '1rem', marginBottom: '1.5rem' } },
+          React.createElement('h2', {
+            id: 'dlg-transaction',
+            style: { color: currentTheme.text, margin: 0, fontSize: '1.5rem', fontWeight: '800', letterSpacing: '-0.02em' }
+          }, isEditing ? (t.editTransaction || 'Edit Transaction') : (t.addTransaction || 'Add Transaction')),
+          React.createElement('button', { type: 'button', onClick: requestClose, 'aria-label': t.close || 'Close',
+            style: { width: 36, height: 36, flexShrink: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'transparent', border: `1px solid ${currentTheme.cardBorder}`, borderRadius: '8px', color: currentTheme.textSecondary, cursor: 'pointer', fontSize: '1.25rem', lineHeight: 1 } }, '×')),
         
         // Portfolio selector — always shown as a select dropdown
         React.createElement('div', { style: { marginBottom: '1rem' } },
@@ -4739,7 +4785,7 @@ function InvestmentTracker() {
                   background: newTransaction.type === type ? 
                     (type === 'buy' ? currentTheme.success : currentTheme.danger) : 
                     currentTheme.inputBg,
-                  color: newTransaction.type === type ? '#fff' : currentTheme.text,
+                  color: newTransaction.type === type ? window.MaerminUtils.onColor(type === 'buy' ? currentTheme.success : currentTheme.danger) : currentTheme.text,
                   border: 'none',
                   borderRadius: '6px',
                   cursor: 'pointer',
@@ -4767,7 +4813,7 @@ function InvestmentTracker() {
                 onClick: () => setNewTransaction(prev => ({ ...prev, category: cat })),
                 style: {
                   padding: '0.6rem 0.5rem',
-                  background: newTransaction.category === cat ? currentTheme.accent : currentTheme.inputBg,
+                  background: newTransaction.category === cat ? (currentTheme.accentFill || currentTheme.accent) : currentTheme.inputBg,
                   color: newTransaction.category === cat ? '#fff' : currentTheme.text,
                   border: 'none',
                   borderRadius: '6px',
@@ -5064,7 +5110,7 @@ function InvestmentTracker() {
                 style: {
                   flex: 1,
                   padding: '0.5rem',
-                  background: newTransaction.currency === cur ? currentTheme.accent : currentTheme.inputBg,
+                  background: newTransaction.currency === cur ? (currentTheme.accentFill || currentTheme.accent) : currentTheme.inputBg,
                   color: newTransaction.currency === cur ? '#fff' : currentTheme.text,
                   border: 'none',
                   borderRadius: '6px',
@@ -5088,7 +5134,7 @@ function InvestmentTracker() {
                 onChange: (e) => { if (e.target.value) setNewTransaction(prev => ({ ...prev, currency: e.target.value })); },
                 style: {
                   flex: 1, padding: '0.5rem', borderRadius: '6px', cursor: 'pointer', fontSize: '0.875rem', fontWeight: '600',
-                  background: other ? currentTheme.accent : currentTheme.inputBg, color: other ? '#fff' : currentTheme.text,
+                  background: other ? (currentTheme.accentFill || currentTheme.accent) : currentTheme.inputBg, color: other ? '#fff' : currentTheme.text,
                   border: 'none'
                 }
               },
@@ -5140,8 +5186,9 @@ function InvestmentTracker() {
           style: { color: currentTheme.danger, fontSize: '0.85rem', fontWeight: 600, marginBottom: '0.75rem' }
         }, `${t.fillInFields || 'Please fill in'}: ${shownMissing.map(f => fieldNames[f]).join(', ')}`) : null,
 
-        // Buttons
-        React.createElement('div', { style: { display: 'flex', gap: '1rem' } },
+        // Buttons: stay in view while the form scrolls (the save button was
+        // below the fold on a 900 px tall window).
+        React.createElement('div', { style: { display: 'flex', gap: '1rem', position: 'sticky', bottom: '-2rem', margin: '0 -2rem -2rem', padding: '1rem 2rem 2rem', background: currentTheme.modalBg, borderTop: `1px solid ${currentTheme.modalBorder}` } },
           React.createElement('button', {
             onClick: requestClose,
             style: {
@@ -5160,7 +5207,7 @@ function InvestmentTracker() {
               flex: 1,
               padding: '0.75rem',
               background: newTransaction.type === 'buy' ? currentTheme.success : currentTheme.danger,
-              color: '#fff',
+              color: window.MaerminUtils.onColor(newTransaction.type === 'buy' ? currentTheme.success : currentTheme.danger),
               border: 'none',
               borderRadius: '8px',
               cursor: 'pointer',
@@ -5320,7 +5367,7 @@ buy,crypto,bitcoin,0.5,45000,2024-01-15,10`)
             style: {
               flex: 1,
               padding: '0.75rem',
-              background: importData.trim() ? currentTheme.accent : currentTheme.inputBg,
+              background: importData.trim() ? (currentTheme.accentFill || currentTheme.accent) : currentTheme.inputBg,
               color: importData.trim() ? '#fff' : currentTheme.textSecondary,
               border: 'none',
               borderRadius: '8px',
@@ -5536,7 +5583,7 @@ buy,crypto,bitcoin,0.5,45000,2024-01-15,10`)
           style: {
             width: '100%',
             padding: '0.75rem',
-            background: currentTheme.accent,
+            background: (currentTheme.accentFill || currentTheme.accent),
             color: '#ffffff',
             border: 'none',
             borderRadius: '8px',
@@ -5599,7 +5646,7 @@ buy,crypto,bitcoin,0.5,45000,2024-01-15,10`)
         React.createElement('label', { style: { display: 'flex', gap: '0.55rem', alignItems: 'flex-start', color: currentTheme.text, fontSize: '0.84rem', lineHeight: '1.45', marginBottom: '0.9rem', cursor: 'pointer' } },
           React.createElement('input', { type: 'checkbox', checked: recoverySaved, onChange: (e) => setRecoverySaved(e.target.checked), style: { marginTop: '0.2rem', accentColor: currentTheme.accent } }),
           React.createElement('span', null, t.rcSavedCheck || 'I\'ve saved this recovery code somewhere safe and private.')),
-        React.createElement('button', { onClick: () => finishRecoveryKit(true), disabled: !recoverySaved, style: { width: '100%', padding: '0.7rem', background: currentTheme.accent, color: '#ffffff', border: 'none', borderRadius: '8px', cursor: recoverySaved ? 'pointer' : 'not-allowed', opacity: recoverySaved ? 1 : 0.5, fontWeight: '700', fontSize: '0.9rem' } }, t.rcDone || 'Done — I\'ve saved it'),
+        React.createElement('button', { onClick: () => finishRecoveryKit(true), disabled: !recoverySaved, style: { width: '100%', padding: '0.7rem', background: (currentTheme.accentFill || currentTheme.accent), color: '#ffffff', border: 'none', borderRadius: '8px', cursor: recoverySaved ? 'pointer' : 'not-allowed', opacity: recoverySaved ? 1 : 0.5, fontWeight: '700', fontSize: '0.9rem' } }, t.rcDone || 'Done — I\'ve saved it'),
         React.createElement('button', { onClick: () => finishRecoveryKit(false), style: { width: '100%', marginTop: '0.5rem', padding: '0.55rem', background: 'transparent', color: currentTheme.textSecondary, border: 'none', cursor: 'pointer', fontSize: '0.8rem' } },
           (window.MaerminAuth && window.MaerminAuth.getStatus && window.MaerminAuth.getStatus().hasRecovery) ? (t.rcKeepOld || 'Cancel — keep my current code') : (t.rcNotNow || 'Not now'))
       )
@@ -5646,7 +5693,7 @@ buy,crypto,bitcoin,0.5,45000,2024-01-15,10`)
         sectionTitle(__('secVault', 'Vault')),
         row(__('secAtRest', 'Encryption at rest'), status.encryptedAtRest ? badge(__('secOn', 'On'), true) : smallBtn(__('secEncryptNow', 'Encrypt now'), enableAtRest)),
         row(__('secKdf', 'Key derivation'), badge(status.kdf === 'argon2id' ? 'Argon2id' : 'PBKDF2-600k', true)),
-        row(__('secAutoLock', 'Auto-lock'), React.createElement('div', { style: { display: 'flex', gap: '0.3rem' } }, [1, 5, 15, 30].map((m) => React.createElement('button', { key: m, onClick: () => setLock(m), style: { padding: '0.3rem 0.5rem', background: lockMin === m ? currentTheme.accent : currentTheme.inputBg, color: lockMin === m ? '#ffffff' : currentTheme.text, border: 'none', borderRadius: '5px', cursor: 'pointer', fontSize: '0.72rem', fontWeight: lockMin === m ? '700' : '500' } }, m + 'm')))),
+        row(__('secAutoLock', 'Auto-lock'), React.createElement('div', { style: { display: 'flex', gap: '0.3rem' } }, [1, 5, 15, 30].map((m) => React.createElement('button', { key: m, onClick: () => setLock(m), style: { padding: '0.3rem 0.5rem', background: lockMin === m ? (currentTheme.accentFill || currentTheme.accent) : currentTheme.inputBg, color: lockMin === m ? '#ffffff' : currentTheme.text, border: 'none', borderRadius: '5px', cursor: 'pointer', fontSize: '0.72rem', fontWeight: lockMin === m ? '700' : '500' } }, m + 'm')))),
         sectionTitle(__('secAccess', 'Access')),
         row(__('secPasskey', 'Passkey unlock'), status.passkeySupported ? (status.hasPasskey ? badge(__('secEnrolled', 'Enrolled'), true) : smallBtn(__('secAddPasskey', 'Add passkey'), addPasskey)) : badge(__('secUnsupported', 'Unsupported'), false)),
         row(__('secRecovery', 'Recovery code'), status.hasRecovery ? React.createElement('div', { style: { display: 'flex', gap: '0.4rem', alignItems: 'center' } }, badge(__('secActive', 'Active'), true), smallBtn(__('secRotate', 'Rotate'), createRecoveryKit, recoveryBusy)) : smallBtn(recoveryBusy ? __('creating', 'Creating…') : __('create', 'Create'), createRecoveryKit, recoveryBusy)),
@@ -5675,7 +5722,7 @@ buy,crypto,bitcoin,0.5,45000,2024-01-15,10`)
   const Logo = (window.MaerminIcons && window.MaerminIcons.Logo) || (() => null);
   const themeChoices = [
     ['dark', t.darkMode || 'Dark', '#0f1018'], ['white', t.whiteMode || 'Light', '#ffffff'], ['purple', 'Nebula', '#140e24'],
-    ['contrast', __('themeContrast', 'Contrast'), '#000000'], ['cb', __('themeCbSafe', 'CB-safe'), '#1f8ad1']
+    ['contrast', __('themeContrast', 'Contrast'), '#000000'], ['cb', __('themeCbSafe', 'Color-blind'), '#1f8ad1']
   ];
   // Theme switch with a circular "portal" reveal from the click point
   // (View Transitions API). Falls back to an instant switch.
@@ -5737,6 +5784,24 @@ buy,crypto,bitcoin,0.5,45000,2024-01-15,10`)
 
   const menuItem = (icon, label, onClick, danger) => React.createElement('button', { type: 'button', className: 'mx-menu-item' + (danger ? ' is-danger' : ''), onClick }, Icon(icon, { size: 16 }), React.createElement('span', null, label));
   const popLabel = (text) => React.createElement('span', { className: 'mx-pop-label' }, text);
+
+
+  // Views defined inside this component were new component types on every
+  // render, so React remounted them and dropped their state (a pasted backup,
+  // the chosen tab, a half-typed Freistellungsauftrag) whenever the app
+  // re-rendered - at least every minute with the Worker status check
+  // (Phase 3). Each gets one stable component that runs the latest closure.
+  const latestViews = useRef({});
+  latestViews.current = { DataManagementView, DividendsCombinedView, TaxCombinedView, DashboardKpiStrip };
+  const StableViews = useMemo(() => {
+    const out = {};
+    Object.keys(latestViews.current).forEach((name) => {
+      const C = (props) => latestViews.current[name](props);
+      C.displayName = name;
+      out[name] = C;
+    });
+    return out;
+  }, []);
 
   return React.createElement('div', {
     className: 'mx-app',

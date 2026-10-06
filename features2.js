@@ -610,7 +610,7 @@ function BrokerImportWizard({ theme, t, addToast, onImport, existing, workerUrl 
         padding: '0.625rem 1.25rem', border: 'none', borderRadius: '8px',
         cursor: disabled ? 'not-allowed' : 'pointer',
         fontWeight: '600', fontSize: '0.875rem', opacity: disabled ? 0.5 : 1,
-        background: primary ? theme.accent : theme.inputBg,
+        background: primary ? (theme.accentFill || theme.accent) : theme.inputBg,
         color: primary ? '#fff' : theme.text
       }
     }, label);
@@ -650,7 +650,7 @@ function BrokerImportWizard({ theme, t, addToast, onImport, existing, workerUrl 
         React.createElement('div', { key: i, style: {
           flex: 1, padding: '0.625rem', textAlign: 'center', fontSize: '0.8rem',
           fontWeight: i === step ? '700' : '400',
-          background: i === step ? theme.accent : i < step ? 'rgba(139,124,255,0.15)' : theme.card,
+          background: i === step ? (theme.accentFill || theme.accent) : i < step ? 'rgba(139,124,255,0.15)' : theme.card,
           color: i === step ? '#ffffff' : i < step ? theme.accent : theme.textSecondary,
           borderRight: i < steps.length-1 ? `1px solid ${theme.cardBorder}` : 'none'
         } }, `${i < step ? '✓ ' : ''}${s}`)
@@ -839,7 +839,7 @@ function BrokerImportWizard({ theme, t, addToast, onImport, existing, workerUrl 
                 presets.map(p => React.createElement('option', { key: p.id, value: p.id }, p.name))
               ),
               React.createElement('button', { onClick: saveCurrentPreset,
-                style: { padding: '0.35rem 0.7rem', background: theme.accent, color: '#ffffff', border: 'none', borderRadius: '6px', cursor: 'pointer', fontSize: '0.76rem', fontWeight: '700' } }, t.presetSave || 'Save preset'),
+                style: { padding: '0.35rem 0.7rem', background: (theme.accentFill || theme.accent), color: '#ffffff', border: 'none', borderRadius: '6px', cursor: 'pointer', fontSize: '0.76rem', fontWeight: '700' } }, t.presetSave || 'Save preset'),
               selectedPreset && React.createElement('button', { onClick: deleteSelectedPreset,
                 style: { padding: '0.35rem 0.7rem', background: 'none', color: theme.textSecondary, border: `1px solid ${theme.inputBorder}`, borderRadius: '6px', cursor: 'pointer', fontSize: '0.76rem' } }, t.presetDelete || 'Delete')
             )
@@ -1014,7 +1014,7 @@ function PositionNotesView({ portfolio, theme, t }) {
                       style: { width: '100%', height: '120px', padding: '0.625rem', background: theme.inputBg, border: `1px solid ${theme.inputBorder}`, borderRadius: '6px', color: theme.text, fontSize: '0.8rem', resize: 'vertical', marginBottom: '0.5rem', lineHeight: '1.5' }
                     }),
                     React.createElement('div', { style: { display: 'flex', gap: '0.375rem' } },
-                      React.createElement('button', { onClick: save, style: { padding: '0.375rem 0.875rem', background: theme.accent, color: '#ffffff', border: 'none', borderRadius: '6px', cursor: 'pointer', fontSize: '0.8rem', fontWeight: '600' } }, __('save', 'Save')),
+                      React.createElement('button', { onClick: save, style: { padding: '0.375rem 0.875rem', background: (theme.accentFill || theme.accent), color: '#ffffff', border: 'none', borderRadius: '6px', cursor: 'pointer', fontSize: '0.8rem', fontWeight: '600' } }, __('save', 'Save')),
                       React.createElement('button', { onClick: () => { setActive(null); setDraft(''); }, style: { padding: '0.375rem 0.875rem', background: theme.inputBg, color: theme.text, border: `1px solid ${theme.cardBorder}`, borderRadius: '6px', cursor: 'pointer', fontSize: '0.8rem' } }, __('cancel', 'Cancel'))
                     )
                   )
@@ -1140,7 +1140,7 @@ function DividendCalendarView({ portfolio, prices, metaVersion, theme, t, addToa
         React.createElement('button', { onClick: () => setViewMonth(p => { const d = new Date(p.year, p.month - 1); return { year: d.getFullYear(), month: d.getMonth() }; }), style: { padding: '0.5rem 0.875rem', background: theme.inputBg, border: `1px solid ${theme.cardBorder}`, borderRadius: '6px', color: theme.text, cursor: 'pointer' } }, '←'),
         React.createElement('span', { style: { color: theme.text, fontWeight: '700', minWidth: '100px', textAlign: 'center' } }, `${monthNames[month]} ${year}`),
         React.createElement('button', { onClick: () => setViewMonth(p => { const d = new Date(p.year, p.month + 1); return { year: d.getFullYear(), month: d.getMonth() }; }), style: { padding: '0.5rem 0.875rem', background: theme.inputBg, border: `1px solid ${theme.cardBorder}`, borderRadius: '6px', color: theme.text, cursor: 'pointer' } }, '→'),
-        React.createElement('button', { onClick: () => setShowAdd(p=>!p), style: { padding: '0.5rem 0.875rem', background: theme.accent, color: '#ffffff', border: 'none', borderRadius: '6px', cursor: 'pointer', fontWeight: '600' } }, __('dcAddBtn', '+ Dividend'))
+        React.createElement('button', { onClick: () => setShowAdd(p=>!p), style: { padding: '0.5rem 0.875rem', background: (theme.accentFill || theme.accent), color: '#ffffff', border: 'none', borderRadius: '6px', cursor: 'pointer', fontWeight: '600' } }, __('dcAddBtn', '+ Dividend'))
       )
     ),
 
@@ -1154,7 +1154,7 @@ function DividendCalendarView({ portfolio, prices, metaVersion, theme, t, addToa
         React.createElement('option', { value: 'USD' }, '$')
       ),
       inp('notes', __('dcNotePh', 'Note (opt.)')),
-      React.createElement('button', { onClick: addEvent, style: { padding: '0.5rem 1rem', background: theme.accent, color: '#ffffff', border: 'none', borderRadius: '6px', cursor: 'pointer', fontWeight: '600', whiteSpace: 'nowrap' } }, __('add', 'Add'))
+      React.createElement('button', { onClick: addEvent, style: { padding: '0.5rem 1rem', background: (theme.accentFill || theme.accent), color: '#ffffff', border: 'none', borderRadius: '6px', cursor: 'pointer', fontWeight: '600', whiteSpace: 'nowrap' } }, __('add', 'Add'))
     ),
 
     // Calendar grid

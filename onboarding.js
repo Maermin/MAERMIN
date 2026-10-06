@@ -183,7 +183,7 @@ function __(k, f, v) { return (typeof window !== 'undefined' && window.MaerminI1
     var ok = theme.success || '#22c55e', warn = theme.warning || '#f59e0b', bad = theme.danger || theme.error || '#ef4444';
     var text = theme.text || '#e6edf3', dim = theme.textSecondary || '#9aa4b2';
     var accent = theme.accent || '#8b7cff', border = theme.cardBorder || 'rgba(255,255,255,0.1)';
-    var inputBg = theme.inputBg || '#0f172a', cardBg = theme.cardBg || '#141a25';
+    var inputBg = theme.inputBg || '#0f172a', cardBg = theme.modalBg || theme.card || theme.cardBg || '#141a25';
 
     var sStep = React.useState('intro'); var step = sStep[0], setStep = sStep[1];
     var sUrl = React.useState(props.workerUrl || ''); var url = sUrl[0], setUrl = sUrl[1];

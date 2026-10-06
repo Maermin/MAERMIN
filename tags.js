@@ -238,7 +238,7 @@ function __(k, f, v) { return (typeof window !== 'undefined' && window.MaerminI1
     var border = theme.cardBorder || 'rgba(255,255,255,0.08)';
     var card = theme.card || '#10151f';
     var inputBg = theme.inputBg || '#0c1018', inputBorder = theme.inputBorder || border;
-    var accent = theme.accent || '#8b7cff', accentText = theme.accentText || '#ffffff';
+    var accent = theme.accent || '#8b7cff', accentText = theme.accentText || '#ffffff', accentFill = theme.accentFill || accent;
     var up = theme.success || '#22c55e', down = theme.danger || '#ef4444';
     var fmt = props.formatPrice || function (n) { return window.MaerminI18n.num(n, 2); };
     var sym = props.getCurrencySymbol ? props.getCurrencySymbol() : '€';
@@ -286,7 +286,7 @@ function __(k, f, v) { return (typeof window !== 'undefined' && window.MaerminI1
         style: {
           padding: '0.35rem 0.7rem', fontSize: '0.78rem', fontWeight: 700, cursor: 'pointer',
           borderRadius: '8px', border: '1px solid ' + (solid ? accent : inputBorder),
-          background: solid ? accent : 'transparent', color: solid ? accentText : text
+          background: solid ? accentFill : 'transparent', color: solid ? accentText : text
         }
       }, label);
     }

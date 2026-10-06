@@ -185,7 +185,7 @@ function __(k, f, v) { return (typeof window !== 'undefined' && window.MaerminI1
         var text = theme.text || '#e9edf4', dim = theme.textSecondary || '#8b94a7';
         var border = theme.cardBorder || 'rgba(255,255,255,0.08)';
         var card = theme.card || '#10151f';
-        var accent = theme.accent || '#8b7cff', accentText = theme.accentText || '#ffffff';
+        var accent = theme.accent || '#8b7cff', accentText = theme.accentText || '#ffffff', accentFill = theme.accentFill || accent;
 
         var s0 = useState(function () { return API.load(); });
         var st = s0[0], setSt = s0[1];
@@ -198,7 +198,7 @@ function __(k, f, v) { return (typeof window !== 'undefined' && window.MaerminI1
             e('button', {
               onClick: function () { commit(API.toggle(st, w.id)); },
               title: w.visible ? (t.dashHide || 'Hide') : (t.dashShow || 'Show'),
-              style: { width: '44px', flexShrink: 0, padding: '0.3rem 0', fontSize: '0.74rem', fontWeight: 800, cursor: 'pointer', borderRadius: '999px', border: '1px solid ' + (w.visible ? accent : border), background: w.visible ? accent : 'transparent', color: w.visible ? accentText : dim } },
+              style: { width: '44px', flexShrink: 0, padding: '0.3rem 0', fontSize: '0.74rem', fontWeight: 800, cursor: 'pointer', borderRadius: '999px', border: '1px solid ' + (w.visible ? accent : border), background: w.visible ? accentFill : 'transparent', color: w.visible ? accentText : dim } },
               w.visible ? __('secOn', 'On') : __('dashOff', 'Off')),
             e('div', { style: { flex: 1, minWidth: 0, color: w.visible ? text : dim, fontSize: '0.88rem', fontWeight: 600 } }, byId[w.id] || w.id));
         });

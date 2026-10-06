@@ -275,7 +275,7 @@ function __(k, f, v) { return (typeof window !== 'undefined' && window.MaerminI1
           e('button', {
             disabled: !vap,
             onClick: function () { if (vap) { GT.saveVapRecord(r.symbol, year, vap.vorabpauschale); setSavedTick(savedTick + 1); changed(); } },
-            style: { padding: '0.3rem 0.7rem', borderRadius: '6px', border: 'none', cursor: vap ? 'pointer' : 'default', fontSize: '0.72rem', fontWeight: 700, background: savedAmt != null ? 'rgba(34,197,94,0.15)' : (theme.accent || '#8b7cff'), color: savedAmt != null ? good : '#ffffff', opacity: vap ? 1 : 0.5 }
+            style: { padding: '0.3rem 0.7rem', borderRadius: '6px', border: 'none', cursor: vap ? 'pointer' : 'default', fontSize: '0.72rem', fontWeight: 700, background: savedAmt != null ? 'rgba(34,197,94,0.15)' : ((theme.accentFill || theme.accent) || '#8b7cff'), color: savedAmt != null ? good : '#ffffff', opacity: vap ? 1 : 0.5 }
           }, savedAmt != null ? __('gtSavedAmt', 'Saved {amount}', { amount: amt(savedAmt) }) : __('save', 'Save'))));
     });
 
@@ -304,16 +304,23 @@ function __(k, f, v) { return (typeof window !== 'undefined' && window.MaerminI1
           (t.germanFundTaxTitle || 'German fund taxation') + ' ' + year),
         e('div', { style: { display: 'flex', alignItems: 'center', gap: '0.6rem', flexWrap: 'wrap' } },
           e('span', { style: { color: dim, fontSize: '0.74rem' } }, __('gtBasiszins', 'Basiszins {y}', { y: year })),
+          // Committed on blur / Enter: re-formatting on every keystroke made the
+          // field impossible to edit ("3," parsed as nothing and reset it).
           e('input', {
-            type: 'text', value: (overrides[year] != null ? overrides[year] * 100 : basiszins * 100).toFixed(3),
-            onChange: function (ev) {
-              var pct = parseFloat(String(ev.target.value).replace(',', '.'));
+            type: 'text', inputMode: 'decimal', key: 'bz-' + year + '-' + (overrides[year] != null ? overrides[year] : 'd'),
+            'aria-label': __('gtBasiszinsAria', 'Basiszins {y} in percent', { y: year }),
+            defaultValue: window.MaerminI18n.num((overrides[year] != null ? overrides[year] : basiszins) * 100, { min: 2, max: 3 }),
+            onBlur: function (ev) {
+              var raw = String(ev.target.value).trim();
+              var pct = raw === '' ? NaN : window.MaerminUtils.parseDecimal(raw);
               setOverrides(GT.saveBasiszinsOverride(year, isFinite(pct) ? pct / 100 : null)); changed();
             },
+            onKeyDown: function (ev) { if (ev.key === 'Enter') ev.target.blur(); },
             style: { width: '70px', background: inputBg, border: '1px solid ' + border, borderRadius: '6px', padding: '0.3rem 0.45rem', color: text, fontSize: '0.76rem', textAlign: 'right' }
           }),
           e('span', { style: { color: dim, fontSize: '0.74rem' } }, '%  ' + __('gtChurchTax', 'Church tax')),
           e('select', {
+            'aria-label': __('gtChurchTax', 'Church tax'),
             value: String(kist),
             onChange: function (ev) { setKist(GT.saveKirchensteuerRate(parseFloat(ev.target.value))); changed(); },
             style: { background: inputBg, border: '1px solid ' + border, borderRadius: '6px', padding: '0.3rem 0.4rem', color: text, fontSize: '0.74rem' }
@@ -394,6 +401,16 @@ function __(k, f, v) { return (typeof window !== 'undefined' && window.MaerminI1
     function update(patch) { setS(TS.save(patch)); if (props.onChange) props.onChange(); }
 
     var inputStyle = { background: inputBg, border: '1px solid ' + border, borderRadius: '6px', padding: '0.3rem 0.45rem', color: text, fontSize: '0.78rem', width: '90px', textAlign: 'right' };
+    // A number field that commits on blur / Enter. A controlled field reset to
+    // its default the moment it was cleared, so a new value could not be typed.
+    // An empty field commits null (the caller's default).
+    function numInput(id, value, dec, label, commit) {
+      return e('input', { key: id + '-' + value, type: 'text', inputMode: 'decimal', 'aria-label': label,
+        defaultValue: window.MaerminI18n.num(value, dec),
+        onBlur: function (ev) { var raw = String(ev.target.value).trim(); var v = raw === '' ? NaN : window.MaerminUtils.parseDecimal(raw); commit(isFinite(v) ? v : null); },
+        onKeyDown: function (ev) { if (ev.key === 'Enter') ev.target.blur(); },
+        style: inputStyle });
+    }
     function row(label, control, hint) {
       return e('div', { style: { display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '0.8rem', padding: '0.4rem 0', borderTop: '1px solid ' + border } },
         e('div', null,
@@ -414,24 +431,24 @@ function __(k, f, v) { return (typeof window !== 'undefined' && window.MaerminI1
         e('span', { style: { color: accent, fontSize: '0.8rem' } }, open ? __('hide', 'Hide') : __('edit', 'Edit'))),
       open ? e('div', { style: { marginTop: '0.6rem' } },
         row(__('gtAbgRate', 'Abgeltungsteuer rate'), e('div', null,
-          e('input', { type: 'number', step: '0.1', value: (s.abgeltungRate * 100).toFixed(2).replace(/\.00$/, ''), onChange: function (ev) { var v = parseFloat(ev.target.value); update({ abgeltungRate: isFinite(v) ? v / 100 : 0.25 }); }, style: inputStyle }),
+          numInput('abg', s.abgeltungRate * 100, { min: 0, max: 2 }, __('gtAbgRate', 'Abgeltungsteuer rate'), function (v) { update({ abgeltungRate: v != null ? v / 100 : 0.25 }); }),
           e('span', { style: { color: dim, fontSize: '0.76rem', marginLeft: '0.25rem' } }, '%')), __('gtDefaultPct', 'Default {pct}', { pct: window.MaerminI18n.pct(25, 0) })),
         row('Solidaritätszuschlag', toggle(s.soli, function () { update({ soli: !s.soli }); }), __('gtSoliHint', '{pct} of the tax', { pct: window.MaerminI18n.pct(5.5, 1) })),
         row('Kirchensteuer', e('select', { value: String(s.kirchensteuer), onChange: function (ev) { update({ kirchensteuer: parseFloat(ev.target.value) }); }, style: { background: inputBg, border: '1px solid ' + border, borderRadius: '6px', padding: '0.3rem 0.4rem', color: text, fontSize: '0.76rem' } },
           e('option', { value: '0' }, __('none', 'None')), e('option', { value: '0.08' }, window.MaerminI18n.pct(8, 0)), e('option', { value: '0.09' }, window.MaerminI18n.pct(9, 0)))),
         row('Freistellungsauftrag', e('div', null,
-          e('input', { type: 'number', value: s.freistellungsauftrag, onChange: function (ev) { var v = parseFloat(ev.target.value); update({ freistellungsauftrag: isFinite(v) ? v : 1000 }); }, style: inputStyle }),
+          numInput('fsa', s.freistellungsauftrag, 0, 'Freistellungsauftrag', function (v) { update({ freistellungsauftrag: v != null ? v : 1000 }); }),
           e('span', { style: { color: dim, fontSize: '0.76rem', marginLeft: '0.25rem' } }, 'EUR')), __('gtSpbHint', 'Sparerpauschbetrag, default 1000')),
         row(__('gtCryptoExempt', 'Crypto 1-year exemption'), toggle(s.cryptoExemption, function () { update({ cryptoExemption: !s.cryptoExemption }); }), __('gtCryptoExemptHint', 'Private-sale rule (sec. 23 EStG)')),
         e('div', { style: { color: dim, fontSize: '0.72rem', textTransform: 'uppercase', letterSpacing: '0.05em', fontWeight: 700, margin: '0.8rem 0 0.3rem' } }, __('gtTfOverrides', 'Teilfreistellung overrides')),
         TF_TYPES.map(function (tf) {
           var ovVal = (s.teilfreistellung && s.teilfreistellung[tf[0]] != null) ? s.teilfreistellung[tf[0]] : tf[2];
           return row(tf[1], e('div', null,
-            e('input', { key: tf[0], type: 'number', step: '1', value: (ovVal * 100).toFixed(0), onChange: function (ev) {
-              var v = parseFloat(ev.target.value); var map = Object.assign({}, s.teilfreistellung);
-              if (isFinite(v) && Math.abs(v / 100 - tf[2]) > 1e-9) map[tf[0]] = v / 100; else delete map[tf[0]];
+            numInput('tf-' + tf[0], ovVal * 100, 0, tf[1], function (v) {
+              var map = Object.assign({}, s.teilfreistellung);
+              if (v != null && Math.abs(v / 100 - tf[2]) > 1e-9) map[tf[0]] = v / 100; else delete map[tf[0]];
               update({ teilfreistellung: map });
-            }, style: inputStyle }),
+            }),
             e('span', { style: { color: dim, fontSize: '0.76rem', marginLeft: '0.25rem' } }, '%')), __('gtDefaultPct', 'Default {pct}', { pct: window.MaerminI18n.pct(tf[2] * 100, 0) }));
         }),
         e('button', { onClick: function () {

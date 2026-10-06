@@ -128,7 +128,7 @@ function WatchlistView({ prices, priceHistory, theme, t, addToast }) {
       React.createElement('button', {
         onClick: addItem,
         style: {
-          padding: '0.5rem 1.25rem', background: theme.accent, color: '#ffffff',
+          padding: '0.5rem 1.25rem', background: (theme.accentFill || theme.accent), color: '#ffffff',
           border: 'none', borderRadius: '8px', cursor: 'pointer', fontWeight: '600'
         }
       }, __('addShort', '+ Add'))

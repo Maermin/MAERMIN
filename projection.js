@@ -200,7 +200,7 @@ function __(k, f, v) { return (typeof window !== 'undefined' && window.MaerminI1
     function hzBtn(yr) {
       return e('button', { key: yr, onClick: function () { setYears(yr); setCustom(''); },
         style: { padding: '0.3rem 0.7rem', borderRadius: '6px', border: '1px solid ' + (theme.cardBorder || '#333'),
-          background: years === yr && !custom ? (theme.accent || '#8b7cff') : 'transparent',
+          background: years === yr && !custom ? ((theme.accentFill || theme.accent) || '#8b7cff') : 'transparent',
           color: years === yr && !custom ? '#ffffff' : (theme.textSecondary || '#888'),
           cursor: 'pointer', fontSize: '0.78rem', fontWeight: years === yr ? 700 : 400 } }, __('pjYears', '{n}y', { n: yr }));
     }

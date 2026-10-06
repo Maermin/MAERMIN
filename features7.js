@@ -303,7 +303,7 @@ function NewsFeedView({ portfolio, transactions, apiKeys, theme, formatPrice }) 
           style: {
             padding: '0.3rem 0.75rem', border: 'none', borderRadius: '6px', cursor: 'pointer',
             fontSize: '0.78rem', fontWeight: filter === sym ? '700' : '400',
-            background: filter === sym ? theme.accent : theme.inputBg,
+            background: filter === sym ? (theme.accentFill || theme.accent) : theme.inputBg,
             color: filter === sym ? '#fff' : theme.textSecondary
           }
         }, name)

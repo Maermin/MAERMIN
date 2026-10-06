@@ -232,7 +232,7 @@
           e('button', { type: 'button', onClick: function () { answerConfirm(false); },
             style: Object.assign({}, btn, { background: theme.inputBg || '#0f172a', color: theme.text || '#e6edf3', border: '1px solid ' + (theme.cardBorder || 'rgba(255,255,255,0.1)') }) }, s.cancelLabel),
           e('button', { type: 'button', onClick: function () { answerConfirm(true); },
-            style: Object.assign({}, btn, { background: s.danger ? (theme.danger || '#ef4444') : (theme.accent || '#8b7cff'), color: '#fff', border: 'none' }) }, s.confirmLabel))));
+            style: Object.assign({}, btn, { background: s.danger ? (theme.danger || '#ef4444') : ((theme.accentFill || theme.accent) || '#8b7cff'), color: s.danger ? ((typeof window !== 'undefined' && window.MaerminUtils && window.MaerminUtils.onColor) ? window.MaerminUtils.onColor(theme.danger || '#ef4444') : '#fff') : '#fff', border: 'none' }) }, s.confirmLabel))));
   }
 
   // ---- React component (browser): subscribes to just the toasts slice -------
