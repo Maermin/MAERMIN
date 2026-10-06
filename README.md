@@ -196,7 +196,7 @@ Contributing guidelines and conventions: **[CONTRIBUTING.md](CONTRIBUTING.md)**.
 
 ## Privacy & Security
 
-- All data stored in `localStorage` — never transmitted anywhere
+- All data is stored in this browser, encrypted; what leaves the device (market-data requests, opt-in sync and sharing) is listed in-app under **Settings → Privacy** and below
 - **Encrypted vault**: AES-256-GCM with PBKDF2-600k; password never stored; optional encryption at rest, passkey unlock, idle auto-lock
 - **Recovery code**: a one-time code generated at setup is an alternative way to unlock the vault if you forget your password — implemented as a second key-wrapping (like a passkey), never stored in readable form and never transmitted, so the zero-knowledge model is preserved. Changing your password invalidates it; generate a fresh one afterwards.
 - **Encrypted backups**: export a portable, password-protected backup (Settings → Backup vault) — a portable recovery path you can store off-device

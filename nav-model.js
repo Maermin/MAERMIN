@@ -67,7 +67,8 @@
       v('tags', 'navTags', 'Tags', true),
       v('rules', 'navRules', 'Alerts & Rules', true),
       v('share', 'navShare', 'Share & Compare', true),
-      v('trash', 'navTrash', 'Trash')
+      v('trash', 'navTrash', 'Trash'),
+      v('privacy', 'navPrivacy', 'Privacy')
     ] }
   ];
 
