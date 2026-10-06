@@ -90,7 +90,9 @@
     // deleted records kept 30 days for restore (trash.js)
     'maermin_trash',
     // Freistellungsaufträge per broker (fsa.js)
-    'maermin_fsa'
+    'maermin_fsa',
+    // portfolios at brokers without German withholding (anlage-kap.js)
+    'maermin_kap_foreign'
   ];
 
   function defaultStore() {

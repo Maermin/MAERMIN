@@ -388,6 +388,14 @@ function __(k, f, v) { return (typeof window !== 'undefined' && window.MaerminI1
         var cryptoTaxable = cryptoShort >= freigrenze ? cryptoShort : 0;
         var cryptoRate = TS && TS.abgeltungRate != null ? TS.abgeltungRate : 0.25;
         var cryptoTax = cryptoTaxable * cryptoRate;
+        // The inputs of the capital block, for the Anlage KAP / KAP-INV
+        // mapping (anlage-kap.js): which items are funds, of which type.
+        capital.kapInputs = {
+          disposals: capitalDisposals,
+          dividends: dividends.map(function (d) { return { symbol: d.symbol, gross: d.gross, withholding: d.withholding }; }),
+          interestIncome: interestIncome, vorabpauschalen: vorabpauschalen, fundTypes: fundTypes,
+          fundSymbols: (function () { var m = {}; capitalDisposals.concat(dividends).concat(vorabpauschalen).forEach(function (x) { if (x && isFund(x.symbol)) m[x.symbol] = true; }); return m; })()
+        };
         germanDetail = Object.assign({}, capital, {
           crypto: { netShortTermGains: cryptoShort, exemptLongTermGains: cryptoExempt, freigrenze: freigrenze, taxable: cryptoTaxable, estimatedTax: cryptoTax },
           totalTax: capital.totalTax + cryptoTax
