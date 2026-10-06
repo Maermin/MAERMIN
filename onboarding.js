@@ -17,7 +17,54 @@
 // Translation lookup (i18n.js): __('key', 'English fallback', { slot: value }).
 function __(k, f, v) { return (typeof window !== 'undefined' && window.MaerminI18n ? window.MaerminI18n : require('./i18n.js')).t(k, f, v); }
 
-  var GITHUB_WORKER_URL = 'https://github.com/maermin/MAERMIN/blob/main/cf-worker/worker.js';
+  var GITHUB_WORKER_URL = 'https://github.com/Maermin/MAERMIN/blob/main/cf-worker/worker.js';
+  // One-click deploy: Cloudflare copies cf-worker/ into the user's GitHub,
+  // creates the KV namespace and deploys (Workers Builds).
+  var DEPLOY_URL = 'https://deploy.workers.cloudflare.com/?url=https://github.com/Maermin/MAERMIN/tree/main/cf-worker';
+  // The Worker version this release relies on: WORKER_VERSION in
+  // cf-worker/worker.js (test/worker-version.test.js keeps them equal).
+  var EXPECTED_WORKER_VERSION = '2026.10.1';
+
+  // ---- pure: version compare ("2026.10.1" vs "2026.9.4"), per numeric part --
+  function compareVersions(a, b) {
+    var pa = String(a || '').split('.'), pb = String(b || '').split('.');
+    for (var i = 0; i < Math.max(pa.length, pb.length); i++) {
+      var x = parseInt(pa[i], 10) || 0, y = parseInt(pb[i], 10) || 0;
+      if (x !== y) return x < y ? -1 : 1;
+    }
+    return 0;
+  }
+
+  // ---- pure: what a ?action=version answer means ---------------------------
+  // outcome = { networkError?, status?, payload? } -> { state, version }
+  // state: 'current' | 'outdated' | 'newer' | 'unreachable'. A Worker from
+  // before the version route answers 400 "Unknown action": outdated.
+  function versionState(outcome, expected) {
+    outcome = outcome || {}; expected = expected || EXPECTED_WORKER_VERSION;
+    if (outcome.networkError || typeof outcome.status !== 'number') return { state: 'unreachable', version: null };
+    var p = outcome.payload, v = p && typeof p === 'object' && typeof p.version === 'string' ? p.version : null;
+    if (!v) return { state: outcome.status >= 500 ? 'unreachable' : 'outdated', version: null };
+    var c = compareVersions(v, expected);
+    return { state: c < 0 ? 'outdated' : (c > 0 ? 'newer' : 'current'), version: v };
+  }
+
+  // ---- impure: ask the Worker for its version (fetch injectable) -----------
+  function checkWorkerVersion(workerUrl, opts) {
+    opts = opts || {};
+    var doFetch = opts.fetch || (typeof fetch !== 'undefined' ? fetch : null);
+    var base = normalizeWorkerUrl(workerUrl);
+    if (!base || !doFetch) return Promise.resolve({ state: 'unreachable', version: null, expected: EXPECTED_WORKER_VERSION });
+    var ctrl = (typeof AbortController !== 'undefined') ? new AbortController() : null;
+    var timer = ctrl ? setTimeout(function () { ctrl.abort(); }, opts.timeoutMs || 8000) : null;
+    return doFetch(base + '?action=version', { method: 'GET', signal: ctrl ? ctrl.signal : undefined })
+      .then(function (r) {
+        return r.text().then(function (txt) {
+          var payload; try { payload = JSON.parse(txt); } catch (e) { payload = null; }
+          return versionState({ status: r.status, payload: payload });
+        });
+      }, function () { return versionState({ networkError: 'network' }); })
+      .then(function (out) { if (timer) clearTimeout(timer); out.expected = EXPECTED_WORKER_VERSION; return out; });
+  }
 
   // ---- pure: worker URL helpers -------------------------------------------
   function normalizeWorkerUrl(url) {
@@ -93,7 +140,19 @@ function __(k, f, v) { return (typeof window !== 'undefined' && window.MaerminI1
   }
 
   function probeAll(workerUrl, opts) {
-    return Promise.all(endpoints(workerUrl).map(function (ep) { return probe(ep, opts); }));
+    return Promise.all(endpoints(workerUrl).map(function (ep) { return probe(ep, opts); })
+      .concat([checkWorkerVersion(workerUrl, opts).then(versionRow)]));
+  }
+
+  // The version as a result row of the connection test. Outdated is a warning:
+  // the data routes above may still work, newer features may not.
+  function versionRow(v) {
+    var row = { id: 'version', label: __('obEpVersion', 'Worker version') };
+    if (v.state === 'current' || v.state === 'newer') return Object.assign(row, { state: 'ok', message: __('obVersionOk', 'Version {v} — up to date.', { v: v.version }) });
+    if (v.state === 'outdated') return Object.assign(row, { state: 'warn', outdated: true, message: v.version
+      ? __('obVersionOld', 'Version {v} is outdated (this app expects {e}). Update the Worker so every feature works.', { v: v.version, e: v.expected })
+      : __('obVersionNone', 'This Worker is older than {e} and does not report a version. Update it so every feature works.', { e: v.expected }) });
+    return Object.assign(row, { state: 'fail', message: __('obVersionUnknown', 'Could not read the Worker version.') });
   }
 
   // ---- impure: fetch the bundled worker.js text for the copy button -------
@@ -180,18 +239,28 @@ function __(k, f, v) { return (typeof window !== 'undefined' && window.MaerminI1
       );
     } else if (step === 'deploy') {
       body = h('div', null,
-        h('ol', { style: { color: text, fontSize: '0.88rem', lineHeight: '1.7', paddingLeft: '1.2rem', margin: '0 0 1rem' } },
-          h('li', null, __('obOpen', 'Open') + ' ', h('a', { href: 'https://dash.cloudflare.com', target: '_blank', style: { color: accent } }, 'dash.cloudflare.com'), ' → ' + __('obCreateWorker', 'Workers & Pages → Create Worker.')),
-          h('li', null, __('obReplaceWith', 'Replace the default code with') + ' ', h('b', null, 'worker.js'), ' ' + __('obCopyBelow', '(copy below).')),
-          h('li', null, __('obSaveDeploy', 'Save and Deploy, then copy your Worker URL.')),
+        h('ol', { style: { color: text, fontSize: '0.88rem', lineHeight: '1.7', paddingLeft: '1.2rem', margin: '0 0 0.75rem' } },
+          h('li', null, __('obDeployStep1', 'Click "Deploy to Cloudflare", sign in (free account) and confirm. Cloudflare creates the Worker and its storage.')),
+          h('li', null, __('obDeployStep2', 'Copy the Worker URL shown at the end (…workers.dev).')),
           h('li', null, __('obPasteTest', 'Paste the URL here and test the connection.'))
         ),
-        h('div', { style: { display: 'flex', gap: '0.5rem', marginBottom: '1rem' } },
-          btn(copyLbl, copyWorker, 'secondary'),
-          h('a', { href: GITHUB_WORKER_URL, target: '_blank', style: { padding: '0.6rem 1.1rem', border: '1px solid ' + border, borderRadius: '8px', color: text, fontSize: '0.85rem', textDecoration: 'none' } }, __('obGithub', 'View on GitHub'))
+        h('div', { style: { marginBottom: '0.75rem' } },
+          h('a', { href: DEPLOY_URL, target: '_blank', rel: 'noopener noreferrer', 'data-testid': 'deploy-worker', style: { display: 'inline-block', padding: '0.6rem 1.1rem', background: accent, color: '#ffffff', borderRadius: '8px', fontWeight: '700', fontSize: '0.85rem', textDecoration: 'none' } }, __('obDeployBtn', 'Deploy to Cloudflare ↗'))
         ),
-        h('label', { style: { display: 'block', color: dim, fontSize: '0.75rem', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '0.4rem' } }, 'Worker URL'),
-        h('input', { type: 'text', value: url, placeholder: 'https://your-worker.workers.dev',
+        h('details', { style: { marginBottom: '1rem', color: dim, fontSize: '0.82rem' } },
+          h('summary', { style: { cursor: 'pointer', color: text } }, __('obManual', 'Or set it up by hand (copy and paste)')),
+          h('ol', { style: { lineHeight: '1.7', paddingLeft: '1.2rem', margin: '0.5rem 0' } },
+            h('li', null, __('obOpen', 'Open') + ' ', h('a', { href: 'https://dash.cloudflare.com', target: '_blank', rel: 'noopener noreferrer', style: { color: accent } }, 'dash.cloudflare.com'), ' → ' + __('obCreateWorker', 'Workers & Pages → Create Worker.')),
+            h('li', null, __('obReplaceWith', 'Replace the default code with') + ' ', h('b', null, 'worker.js'), ' ' + __('obCopyBelow', '(copy below).')),
+            h('li', null, __('obSaveDeploy', 'Save and Deploy, then copy your Worker URL.'))
+          ),
+          h('div', { style: { display: 'flex', gap: '0.5rem' } },
+            btn(copyLbl, copyWorker, 'secondary'),
+            h('a', { href: GITHUB_WORKER_URL, target: '_blank', rel: 'noopener noreferrer', style: { padding: '0.6rem 1.1rem', border: '1px solid ' + border, borderRadius: '8px', color: text, fontSize: '0.85rem', textDecoration: 'none' } }, __('obGithub', 'View on GitHub'))
+          )
+        ),
+        h('label', { style: { display: 'block', color: dim, fontSize: '0.75rem', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '0.4rem' }, htmlFor: 'ob-worker-url' }, __('obWorkerUrl', 'Worker URL')),
+        h('input', { id: 'ob-worker-url', type: 'text', value: url, placeholder: 'https://your-worker.workers.dev',
           onChange: function (e) { editUrl(e.target.value); }, spellCheck: false,
           style: { width: '100%', padding: '0.7rem 0.85rem', background: inputBg, border: '1px solid ' + border, borderRadius: '8px', color: text, fontSize: '0.9rem', boxSizing: 'border-box', marginBottom: '0.9rem' } }),
         results && h('div', { style: { marginBottom: '0.9rem' } }, results.map(function (r) { return resultRow(h, r, ok, warn, bad, text, dim, border); })),
@@ -250,8 +319,14 @@ function __(k, f, v) { return (typeof window !== 'undefined' && window.MaerminI1
     probe: probe,
     probeAll: probeAll,
     fetchWorkerSource: fetchWorkerSource,
+    compareVersions: compareVersions,
+    versionState: versionState,
+    checkWorkerVersion: checkWorkerVersion,
+    versionRow: versionRow,
     Wizard: Wizard,
-    GITHUB_WORKER_URL: GITHUB_WORKER_URL
+    GITHUB_WORKER_URL: GITHUB_WORKER_URL,
+    DEPLOY_URL: DEPLOY_URL,
+    EXPECTED_WORKER_VERSION: EXPECTED_WORKER_VERSION
   };
 
   if (typeof window !== 'undefined') window.MaerminOnboarding = api;

@@ -22,7 +22,7 @@
     : (function () { try { return require('./store.js'); } catch (e) { return null; } })();
 
   var store = Store ? Store.createStore({
-    prices: {}, priceHistory: {}, workerStatus: null, loading: false, lastRefresh: null
+    prices: {}, priceHistory: {}, workerStatus: null, workerVersion: null, loading: false, lastRefresh: null
   }) : null;
 
   function getState() { return store ? store.getState() : {}; }

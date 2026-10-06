@@ -2,15 +2,13 @@ name = "maermin-skinport-proxy"
 main = "worker.js"
 compatibility_date = "2024-01-01"
 
-# Deploy: wrangler deploy
-# Set secret: wrangler secret put PRICEMPIRE_KEY
+# Deploy: the "Deploy to Cloudflare" button in the README, or `npx wrangler deploy`
+# in this folder (wrangler 4.45 or later).
 
-# E2E cloud sync (Epic 1) stores only ciphertext. Create the namespace, then
-# paste the printed id below:
-#   wrangler kv namespace create SYNC
+# E2E cloud sync (Epic 1) stores only ciphertext. No id: Cloudflare creates the
+# KV namespace on the first deploy and keeps it bound on later deploys.
 [[kv_namespaces]]
 binding = "SYNC"
-id = "REPLACE_WITH_KV_NAMESPACE_ID"
 
 # Recommended: atomic sync. One Durable Object per account serialises the
 # revision check, so two devices syncing at once can't silently overwrite each

@@ -2282,7 +2282,25 @@ const completeTranslations = {
     pwaInstallTitle: 'Install MAERMIN',
     pwaInstallSub: 'Add to your device for offline access',
     pwaInstall: 'Install',
-    pwaDismiss: 'Dismiss'
+    pwaDismiss: 'Dismiss',
+
+    // P2-3 Worker deploy + version
+    obEpVersion: 'Worker version',
+    obVersionOk: 'Version {v} — up to date.',
+    obVersionOld: 'Version {v} is outdated (this app expects {e}). Update the Worker so every feature works.',
+    obVersionNone: 'This Worker is older than {e} and does not report a version. Update it so every feature works.',
+    obVersionUnknown: 'Could not read the Worker version.',
+    obDeployStep1: 'Click "Deploy to Cloudflare", sign in (free account) and confirm. Cloudflare creates the Worker and its storage.',
+    obDeployStep2: 'Copy the Worker URL shown at the end (…workers.dev).',
+    obDeployBtn: 'Deploy to Cloudflare ↗',
+    obManual: 'Or set it up by hand (copy and paste)',
+    wvOutdatedTitle: 'Your Worker is older than this app expects ({e}). Some features may fail until you update it.',
+    wvOutdated: 'Worker outdated → update',
+    wvOutdatedIs: 'Your Worker is version {v}; this app expects {e}. Update it with the steps below.',
+    wvOutdatedNone: 'Your Worker is older than {e} (it reports no version). Update it with the steps below.',
+    wvCurrent: 'Worker version {v} — up to date.',
+    apiNewWorker: 'No Worker yet?',
+    apiDeployHint: '— one click, then paste the Worker URL below.'
   },
 
   // German locale (v10.x). Curated high-traffic strings; any missing key falls
@@ -4399,7 +4417,25 @@ const completeTranslations = {
     pwaInstallTitle: 'MAERMIN installieren',
     pwaInstallSub: 'Auf dem Gerät hinzufügen für Offline-Zugriff',
     pwaInstall: 'Installieren',
-    pwaDismiss: 'Ausblenden'
+    pwaDismiss: 'Ausblenden',
+
+    // P2-3 Worker deploy + version
+    obEpVersion: 'Worker-Version',
+    obVersionOk: 'Version {v} – aktuell.',
+    obVersionOld: 'Version {v} ist veraltet (diese App erwartet {e}). Aktualisiere den Worker, damit alle Funktionen laufen.',
+    obVersionNone: 'Dieser Worker ist älter als {e} und meldet keine Version. Aktualisiere ihn, damit alle Funktionen laufen.',
+    obVersionUnknown: 'Die Worker-Version konnte nicht gelesen werden.',
+    obDeployStep1: 'Klicke auf „Deploy to Cloudflare“, melde dich an (kostenloses Konto) und bestätige. Cloudflare legt den Worker und seinen Speicher an.',
+    obDeployStep2: 'Kopiere am Ende die angezeigte Worker-URL (…workers.dev).',
+    obDeployBtn: 'Deploy to Cloudflare ↗',
+    obManual: 'Oder von Hand einrichten (Kopieren und Einfügen)',
+    wvOutdatedTitle: 'Dein Worker ist älter, als diese App erwartet ({e}). Manche Funktionen können fehlschlagen, bis du ihn aktualisierst.',
+    wvOutdated: 'Worker veraltet → aktualisieren',
+    wvOutdatedIs: 'Dein Worker hat Version {v}; diese App erwartet {e}. Aktualisiere ihn mit den Schritten unten.',
+    wvOutdatedNone: 'Dein Worker ist älter als {e} (er meldet keine Version). Aktualisiere ihn mit den Schritten unten.',
+    wvCurrent: 'Worker-Version {v} – aktuell.',
+    apiNewWorker: 'Noch kein Worker?',
+    apiDeployHint: '– ein Klick, dann die Worker-URL unten einfügen.'
   }
 };
 

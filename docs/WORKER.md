@@ -19,6 +19,17 @@ Configure it in the app under **API Settings → Cloudflare Worker**.
 
 ---
 
+## Version
+
+### `GET /?action=version`
+`200 { "version": "2026.10.1", "actions": ["yf", "yfsearch", …] }`. No upstream call and no rate limit.
+`WORKER_VERSION` in `worker.js` and `EXPECTED_WORKER_VERSION` in `onboarding.js` name the same release
+(`test/worker-version.test.js` enforces it); bump both when the app starts to rely on a Worker change.
+The app checks the version once per Worker URL (and when API Settings opens or closes). An older Worker,
+or one from before this route (it answers `400 Unknown action`), shows "Worker outdated → update".
+
+---
+
 ## Market data
 
 ### `GET /?action=yf&symbol=AAPL&interval=1d&range=1y`
@@ -267,6 +278,11 @@ scopes are rejected client-side before any request is signed.
 
 ## Deploy
 
-Cloudflare Dashboard → Workers → Create → paste `cf-worker/worker.js` → Deploy.
-For sync, create a KV namespace and bind it as `SYNC`. No secrets/env vars are
-required for market data.
+**Deploy to Cloudflare button** (README): Cloudflare copies `cf-worker/` into a repository in your
+GitHub account, creates the `SYNC` KV namespace (the binding in `wrangler.toml` has no id, so it is
+provisioned automatically) and the `SyncRoom` Durable Object, and deploys. Later pushes to that
+repository redeploy.
+
+**By hand:** Cloudflare Dashboard → Workers → Create → paste `cf-worker/worker.js` → Deploy. For sync,
+create a KV namespace and bind it as `SYNC`. Or `npx wrangler deploy` in `cf-worker/` (wrangler ≥ 4.45
+provisions the KV namespace itself). No secrets/env vars are required for market data.

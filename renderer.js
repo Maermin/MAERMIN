@@ -283,6 +283,8 @@ function InvestmentTracker() {
   // Worker reachability for the status indicator (null = not yet probed).
   const workerStatus = window.MaerminStore.useStore(window.MaerminMarket.store, s => s.workerStatus);
   const setWorkerStatus = (v) => window.MaerminMarket.set('workerStatus', typeof v === 'function' ? v(window.MaerminMarket.get('workerStatus')) : v);
+  // { state: 'current'|'outdated'|'newer'|'unreachable', version, expected } from ?action=version.
+  const workerVersion = window.MaerminStore.useStore(window.MaerminMarket.store, s => s.workerVersion);
 
   // Prices
   // `fetchedPrices` = quotes fetched THIS session (the store slice). Views read
@@ -1332,6 +1334,18 @@ function InvestmentTracker() {
     const iv = setInterval(probe, 60000);
     return () => { alive = false; clearInterval(iv); };
   }, [demoMode, apiKeys.cs2Worker]);
+
+  // Ask the Worker for its version once per URL: an outdated Worker gets one
+  // clear "update" notice instead of features failing one by one.
+  useEffect(() => {
+    const O = window.MaerminOnboarding;
+    const url = (apiKeys.cs2Worker || '').trim();
+    if (demoMode || !url) window.MaerminMarket.set('workerVersion', null);
+    if (demoMode || !url || !O || !O.checkWorkerVersion) return;
+    let alive = true;
+    O.checkWorkerVersion(url).then((v) => { if (alive) window.MaerminMarket.set('workerVersion', v); });
+    return () => { alive = false; };
+  }, [demoMode, apiKeys.cs2Worker, showApiSettings]); // re-checked when API Settings opens or closes (after an update)
 
   // Warm the dividend cache for held stocks (no-op without a Worker URL or when
   // already cached). Lets the Dividend Forecast/Calendar resolve far more than
@@ -3453,6 +3467,12 @@ function InvestmentTracker() {
             React.createElement('span', { style: { width: 9, height: 9, borderRadius: '50%', background: wsColor, flexShrink: 0, boxShadow: `0 0 6px ${wsColor}` } }),
             wsLabel
           ),
+          // Outdated Worker: one notice that leads to the update steps.
+          !demoMode && workerVersion && workerVersion.state === 'outdated' && React.createElement('button', {
+            type: 'button', 'data-testid': 'worker-outdated', onClick: () => setShowApiSettings(true),
+            title: __('wvOutdatedTitle', 'Your Worker is older than this app expects ({e}). Some features may fail until you update it.', { e: workerVersion.expected }),
+            style: { display: 'flex', alignItems: 'center', gap: '0.4rem', minHeight: '40px', padding: '0.5rem 0.7rem', background: `${currentTheme.warning}14`, border: `1px solid ${currentTheme.warning}55`, borderRadius: '8px', cursor: 'pointer', color: currentTheme.warning, fontSize: '0.78rem', fontWeight: '600' }
+          }, __('wvOutdated', 'Worker outdated → update')),
           // Data-health chip — only appears when something is stale/missing.
           dqHealth && (dqHealth.stale + dqHealth.missing) > 0 && React.createElement('button', {
             type: 'button', onClick: () => fetchPrices(), title: [
@@ -5317,6 +5337,16 @@ buy,crypto,bitcoin,0.5,45000,2024-01-15,10`)
           React.createElement('div', {
             style: { background: currentTheme.inputBg, borderRadius: '8px', padding: '0.875rem', marginBottom: '0.875rem', fontSize: '0.78rem', color: currentTheme.textSecondary, lineHeight: '1.8' }
           },
+            workerVersion && workerVersion.state === 'outdated' && React.createElement('div', { 'data-testid': 'worker-version-note', style: { color: currentTheme.warning, fontWeight: '600', marginBottom: '0.5rem' } },
+              workerVersion.version
+                ? __('wvOutdatedIs', 'Your Worker is version {v}; this app expects {e}. Update it with the steps below.', { v: workerVersion.version, e: workerVersion.expected })
+                : __('wvOutdatedNone', 'Your Worker is older than {e} (it reports no version). Update it with the steps below.', { e: workerVersion.expected })),
+            workerVersion && (workerVersion.state === 'current' || workerVersion.state === 'newer') && React.createElement('div', { style: { color: currentTheme.success, marginBottom: '0.5rem' } },
+              __('wvCurrent', 'Worker version {v} — up to date.', { v: workerVersion.version })),
+            React.createElement('div', { style: { fontWeight: '700', color: currentTheme.text, marginBottom: '0.375rem' } }, __('apiNewWorker', 'No Worker yet?')),
+            React.createElement('div', { style: { marginBottom: '0.625rem' } },
+              window.MaerminOnboarding && React.createElement('a', { href: window.MaerminOnboarding.DEPLOY_URL, target: '_blank', rel: 'noopener noreferrer', style: { color: currentTheme.accent, fontWeight: '600' } }, __('obDeployBtn', 'Deploy to Cloudflare ↗')),
+              ' ' + __('apiDeployHint', '— one click, then paste the Worker URL below.')),
             React.createElement('div', { style: { fontWeight: '700', color: currentTheme.text, marginBottom: '0.375rem' } }, __('apiUpdateWorker', 'Update existing Worker (~1 min):')),
             React.createElement('div', null, '1. ', React.createElement('a', { href: 'https://dash.cloudflare.com', target: '_blank', rel: 'noopener noreferrer', style: { color: currentTheme.accent } }, 'dash.cloudflare.com'), ' → ' + __('apiStep1', 'Workers & Pages → your Worker')),
             React.createElement('div', null, '2. ' + __('apiStep2a', 'Edit code → paste contents of') + ' ', React.createElement('code', { style: { background: 'rgba(0,0,0,0.2)', padding: '0 4px', borderRadius: '3px' } }, 'cf-worker/worker.js'), ' ' + __('apiStep2b', 'from ZIP')),

@@ -14,7 +14,16 @@
  *                                                 ratio, EPS, dividend rate/yield
  *   GET  /?action=skinprices                    → CS2 Steam Market prices, all items (USD,
  *                                                 CSGO Trader's daily price file)
+ *   GET  /?action=version                       → { version, actions }: the app compares
+ *                                                 it with the version it expects
  */
+
+// Bump on every change to this file that the app relies on, and set
+// EXPECTED_WORKER_VERSION in onboarding.js to the same value (test/worker-version
+// enforces both). Format YYYY.M.N; compared numerically per part.
+export const WORKER_VERSION = '2026.10.1';
+export const WORKER_ACTIONS = ['yf', 'yfsearch', 'screener', 'fundholdings', 'fundamentals', 'earnings', 'profile',
+  'news', 'skinprices', 'sync', 'share', 'mcp', 'brokerproxy', 'version'];
 
 export default {
   async fetch(request, env, ctx) {
@@ -23,6 +32,11 @@ export default {
     configureOrigins(env);
 
     if (request.method === 'OPTIONS') return res(null, 204, request);
+
+    // Version handshake: no upstream call, so it is not rate limited.
+    if (request.method === 'GET' && action === 'version') {
+      return res(JSON.stringify({ version: WORKER_VERSION, actions: WORKER_ACTIONS }), 200, request);
+    }
 
     // ── Yahoo routes take market symbols only ────────────────────────────────
     // A CS2 skin name filed as a stock ("AK-47 | Redline (Field-Tested)") was

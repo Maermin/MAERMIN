@@ -70,6 +70,7 @@ function looksLikeText(s) {
   if (SAME_IN_ALL.has(s)) return false;
   if (/^[^\s]*[?=&][^\s]*$/.test(s)) return false;               // query strings
   if (s === 'use strict') return false;
+  if (/^(noopener|noreferrer|nofollow)( (noopener|noreferrer|nofollow))*$/.test(s)) return false; // link rel values
   if (/^((top|bottom|left|right|center|auto|[\d.]+(px|rem|em|%)?)\s*){1,4}$/.test(s)) return false; // CSS positions
   if (/^→ /.test(s) && SAME_IN_ALL.has(s.slice(2))) return false;
   if (!/[A-Za-z]{2}/.test(s)) return false;
