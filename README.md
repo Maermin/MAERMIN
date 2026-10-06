@@ -97,14 +97,17 @@ re-open it anytime from **API Settings → Guided setup**, or pick **Demo mode**
 a sample portfolio before any setup.
 
 ### 2 — Deploy your Cloudflare Worker
-The Worker is **required** for stock prices, historical chart data, CS2 prices, and symbol search. It's free and takes ~2 minutes. The in-app **guided setup wizard** walks you through this with a one-click *Copy worker.js* and a live **connection test** that pings each data source and shows green/red per endpoint.
+The Worker is **required** for stock prices, historical chart data, CS2 prices, and symbol search. It's free and takes ~2 minutes.
 
-1. Go to [dash.cloudflare.com](https://dash.cloudflare.com) → **Workers & Pages** → **Create Worker**
-2. Paste the contents of [`cf-worker/worker.js`](cf-worker/worker.js)
-3. **Save and Deploy** — copy the Worker URL
-4. Paste URL in MAERMIN → **API Settings** → Cloudflare Worker (or let the wizard test + save it)
+[![Deploy to Cloudflare](https://deploy.workers.cloudflare.com/button)](https://deploy.workers.cloudflare.com/?url=https://github.com/Maermin/MAERMIN/tree/main/cf-worker)
 
-After updating `cf-worker/worker.js`, paste and deploy it again — the app's new features rely on the Worker version from the same release.
+1. Click **Deploy to Cloudflare**, sign in (free account) and confirm. Cloudflare copies `cf-worker/` into a repository in your GitHub account, creates the KV namespace for sync and deploys the Worker.
+2. Copy the Worker URL shown at the end (`https://….workers.dev`).
+3. Paste it in MAERMIN → **API Settings** → Cloudflare Worker, or let the in-app **guided setup wizard** test and save it. The wizard's connection test checks each data source and the Worker version.
+
+**By hand (fallback):** [dash.cloudflare.com](https://dash.cloudflare.com) → **Workers & Pages** → **Create Worker** → paste [`cf-worker/worker.js`](cf-worker/worker.js) → **Deploy** (the wizard has a *Copy worker.js* button). Or run `npx wrangler deploy` in `cf-worker/` (wrangler 4.45 or later).
+
+**Updating:** the app asks the Worker for its version (`?action=version`). When the Worker is older than the release expects, the overview shows **Worker outdated → update**, and API Settings lists the steps: open your Worker in the Cloudflare dashboard → **Edit code** → paste the new `cf-worker/worker.js` → **Deploy**. If you used the button, you can instead update `worker.js` in the repository it created; Cloudflare redeploys on every push.
 
 ---
 
@@ -134,9 +137,11 @@ After updating `cf-worker/worker.js`, paste and deploy it again — the app's ne
 | `GET /?action=earnings&symbol=AAPL` | Next earnings date + consensus EPS/revenue estimates (Earnings Calendar in the Dividends view; Yahoo `calendarEvents`, no key) |
 | `GET /?action=news&symbol=AAPL` | Yahoo Finance RSS headlines for a holding (News Feed view) |
 | `GET /?action=skinprices` | CS2 Steam Market prices for every item (USD, daily file, cached 1 h) |
+| `GET /?action=version` | `{ version, actions }` — the app compares the version with the one its release expects and asks you to update an older Worker |
 | `POST /?action=sync` | E2E-encrypted cloud sync (KV-backed, zero-knowledge) |
 | `POST /?action=share` | Redacted share snapshots (percent weights/scores only, allowlist-validated server-side) + anonymous benchmark aggregate |
-| `GET /?action=mcp&id=<shareId>` | Read-only MCP view of a shared, redacted snapshot (same allowlist, same 90-day link) || `POST /?action=brokerproxy` | Relay client-signed requests to whitelisted exchanges |
+| `GET /?action=mcp&id=<shareId>` | Read-only MCP view of a shared, redacted snapshot (same allowlist, same 90-day link) |
+| `POST /?action=brokerproxy` | Relay client-signed requests to whitelisted exchanges |
 
 All endpoints are rate-limited (per-IP) and use hard fetch timeouts. Full request/response contracts: [docs/WORKER.md](docs/WORKER.md).
 

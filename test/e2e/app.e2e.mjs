@@ -81,7 +81,7 @@ const fetched = []; // market-data calls answered from fixtures
 // screen can be checked against values computed here.
 const WORKER_URL = 'https://maermin-e2e.workers.dev';
 const workerMod = await import('../../cf-worker/worker.js');
-const workerState = { down: false, upstream: [], requests: [] };
+const workerState = { down: false, oldVersion: false, upstream: [], requests: [] };
 const iso = (d) => d.toISOString().slice(0, 10);
 const WEEKDAYS = (() => { // every weekday of the last three years, up to today
   const out = [], end = new Date(), d = new Date(Date.UTC(end.getUTCFullYear() - 3, end.getUTCMonth(), end.getUTCDate()));
@@ -116,6 +116,8 @@ async function answerFromWorker(route) {
   if (workerState.down) return route.abort();
   const rq = route.request();
   workerState.requests.push(rq.url().slice(WORKER_URL.length));
+  // A Worker from before the version route (P2-3) answers like any unknown action.
+  if (workerState.oldVersion && /[?&]action=version\b/.test(rq.url())) return route.fulfill({ status: 400, headers: { 'access-control-allow-origin': '*', 'content-type': 'application/json' }, body: JSON.stringify({ error: 'Unknown action' }) });
   const res = await workerMod.default.fetch(new Request(rq.url(), { method: rq.method(), headers: { Origin: new URL(rq.headers().origin || rq.headers().referer || 'http://127.0.0.1').origin }, body: rq.method() === 'GET' ? undefined : rq.postData() }), {}, { waitUntil() {} });
   const headers = {}; res.headers.forEach((v, k) => { headers[k] = v; });
   headers['access-control-allow-origin'] = '*';
@@ -543,6 +545,11 @@ async function runBuild(browser, label, dir) {
       return { keys: Object.keys(h.series || {}).sort(), raw: R.get('maermin_close_history'), leak: R.keys().filter((k) => /stocks\\|(VWCE|AAPL)/.test(R.get(k) || '')) }; })()`);
     ok('close history is stored encrypted (not readable in raw storage)', st.keys.join() === 'stocks|AAPL,stocks|VWCE.DE' && st.raw === null && st.leak.length === 0, JSON.stringify(st));
 
+    // P2-3: the app asked the Worker for its version; the current one shows no notice.
+    await openView(page, 'overview');
+    await page.waitForTimeout(500);
+    ok('version handshake: ?action=version asked, current Worker shows no "outdated" notice', workerState.requests.includes('/?action=version') && (await page.locator('[data-testid="worker-outdated"]').count()) === 0, workerState.requests.filter((r) => /version/.test(r)).join(' '));
+
     // Next session with the Worker unreachable: the stored closes still carry it.
     await page.waitForTimeout(1500);
     workerState.down = true;
@@ -552,6 +559,23 @@ async function runBuild(browser, label, dir) {
     { const c2 = page.locator('[data-testid="twr-card"]'); const t2 = await settledText(c2);
       ok('next session, Worker unreachable: TWR still from the stored closes', (await c2.getAttribute('data-source')) === 'daily' && t2.includes('since ' + usDate(WEEKDAYS[0])), t2.replace(/\n/g, ' | ')); }
     workerState.down = false;
+    // Next session with a Worker from before the version route: one notice
+    // that leads to the update steps in API Settings.
+    workerState.oldVersion = true;
+    await unlock(page, base);
+    await openView(page, 'overview');
+    { const chip = page.locator('[data-testid="worker-outdated"]');
+      let seen = true; try { await chip.waitFor({ timeout: 8000 }); } catch (e) { seen = false; }
+      ok('old Worker: "Worker outdated → update" notice on the overview', seen);
+      if (seen) {
+        await chip.click();
+        const note = page.locator('[data-testid="worker-version-note"]');
+        let txt = ''; try { await note.waitFor({ timeout: 5000 }); txt = await note.innerText(); } catch (e) { /* missing */ }
+        ok('the notice opens API Settings with the expected version and the update steps', txt.includes(workerMod.WORKER_VERSION) && (await page.locator('a[href^="https://deploy.workers.cloudflare.com/"]').count()) > 0, txt);
+        await page.keyboard.press('Escape');
+      }
+    }
+    workerState.oldVersion = false;
     ok('no page errors in the value-history session', errors.length === 0, errors.join(' | '));
     await context.close();
   }

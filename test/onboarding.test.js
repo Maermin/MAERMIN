@@ -73,9 +73,25 @@ function fakeFetch(routes) {
   const all = await O.probeAll('https://w.dev', { fetch: fakeFetch({
     'action=yf&': { status: 200, body: { prices: [1] } },
     'action=yfsearch': { status: 200, body: [{ s: 'A' }] },
-    'action=skinprices': { status: 200, body: { 'Fever Case': { last_24h: 0.89 } } }
+    'action=skinprices': { status: 200, body: { 'Fever Case': { last_24h: 0.89 } } },
+    'action=version': { status: 200, body: { version: O.EXPECTED_WORKER_VERSION } }
   }) });
-  ok('probeAll runs all 3', all.length === 3 && all.every(r => r.state === 'ok'));
+  ok('probeAll runs the 3 data probes + the version check', all.length === 4 && all.every(r => r.state === 'ok') && all[3].id === 'version');
+
+  // version handshake
+  ok('compareVersions is numeric per part', O.compareVersions('2026.10.1', '2026.9.4') === 1 && O.compareVersions('2026.9.4', '2026.10.1') === -1 && O.compareVersions('2026.10', '2026.10.0') === 0);
+  ok('versionState: same version → current', O.versionState({ status: 200, payload: { version: O.EXPECTED_WORKER_VERSION } }).state === 'current');
+  ok('versionState: older → outdated', O.versionState({ status: 200, payload: { version: '2020.1.1' } }).state === 'outdated');
+  ok('versionState: newer → newer', O.versionState({ status: 200, payload: { version: '2999.1.1' } }).state === 'newer');
+  ok('versionState: old Worker without the route (400 Unknown action) → outdated', O.versionState({ status: 400, payload: { error: 'Unknown action' } }).state === 'outdated');
+  ok('versionState: network error / 5xx → unreachable', O.versionState({ networkError: 'x' }).state === 'unreachable' && O.versionState({ status: 503, payload: null }).state === 'unreachable');
+  const vOld = await O.checkWorkerVersion('https://w.dev/', { fetch: fakeFetch({ 'w.dev?action=version': { status: 400, body: { error: 'Unknown action' } } }) });
+  ok('checkWorkerVersion: old Worker → outdated, expected attached', vOld.state === 'outdated' && vOld.version === null && vOld.expected === O.EXPECTED_WORKER_VERSION);
+  const vNet = await O.checkWorkerVersion('https://w.dev', { fetch: fakeFetch({ 'version': { throw: 'Failed to fetch' } }) });
+  ok('checkWorkerVersion: network error → unreachable', vNet.state === 'unreachable');
+  ok('checkWorkerVersion: no URL → unreachable without a request', (await O.checkWorkerVersion('', { fetch: () => { throw new Error('called'); } })).state === 'unreachable');
+  ok('versionRow: outdated is a warning (Save & Finish stays possible)', O.versionRow({ state: 'outdated', version: '2020.1.1', expected: '2026.10.1' }).state === 'warn');
+  ok('deploy button points at the cf-worker folder', /^https:\/\/deploy\.workers\.cloudflare\.com\/\?url=https:\/\/github\.com\/Maermin\/MAERMIN\/tree\/main\/cf-worker$/.test(O.DEPLOY_URL));
 
   // fetchWorkerSource — first-path / fallback / all-fail
   const src1 = await O.fetchWorkerSource({ paths: ['a', 'b'], fetch: fakeFetch({ 'a': { status: 200, body: 'WORKER_CODE' } }) });
