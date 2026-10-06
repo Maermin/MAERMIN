@@ -510,6 +510,20 @@ async function runBuild(browser, label, dir) {
       ok('FSA: orders of 1,100 over the 1,000 allowance are flagged', /1,100\.00/.test(over) && /100\.00 more/.test(over), over);
     }
 
+    // P2-6: Anlage KAP lines for a portfolio at a broker without German withholding.
+    {
+      const kap = page.locator('[data-testid="kap-panel"]');
+      let l19 = '', l20 = '', note = '';
+      try {
+        await kap.locator('label', { hasText: 'Main Portfolio' }).first().locator('input[type=checkbox]').check();
+        await page.waitForTimeout(400);
+        l19 = await kap.locator('tr[data-kap-line="KAP:19"]').innerText();
+        l20 = await kap.locator('tr[data-kap-line="KAP:20"]').innerText();
+        note = await kap.locator('[data-testid="kap-check"]').innerText();
+      } catch (e) { l19 = 'ERR ' + e.message.split('\n')[0]; }
+      ok('Anlage KAP: line 19 and 20 carry the AAPL gain of 490, with the "check the line numbers" note', /490\.00/.test(l19) && /490\.00/.test(l20) && /Check them against the form/.test(note), l19 + ' | ' + l20);
+    }
+
     let pdf = null;
     try {
       const [download] = await Promise.all([

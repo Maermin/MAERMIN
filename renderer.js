@@ -4539,6 +4539,12 @@ function InvestmentTracker() {
         // Orders are EUR amounts: shown in EUR whatever the display currency.
         formatMoney: (v) => privacyMode ? '••••••' : window.MaerminI18n.money(v, 'EUR')
       }),
+      // Anlage KAP / KAP-INV lines for portfolios at a broker without German
+      // withholding (P2-6).
+      taxJurisdiction === 'de' && window.MaerminAnlageKap && React.createElement(window.MaerminAnlageKap.Panel, {
+        theme: currentTheme, transactions, portfolios, year: currentYear, exchangeRate, fxAt,
+        formatMoney: (v) => privacyMode ? '••••••' : window.MaerminI18n.money(v, 'EUR')
+      }),
       // Editable tax parameters (Task 8): rate, Soli, church tax, allowance,
       // crypto exemption, Teilfreistellung overrides. Engine + exports read them.
       taxJurisdiction === 'de' && window.MaerminGermanTaxView && window.MaerminGermanTaxView.SettingsPanel &&

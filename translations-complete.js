@@ -2412,7 +2412,31 @@ const completeTranslations = {
     stImportBtn: 'Import {n} {n:row|rows}',
 
     // P2-7 privacy line
-    pvSteam: 'Steam inventory import: your Worker asks Steam for the inventory of the profile you enter. The profile is not stored.'
+    pvSteam: 'Steam inventory import: your Worker asks Steam for the inventory of the profile you enter. The profile is not stored.',
+
+    // P2-6 Anlage KAP
+    kapFundEquity: 'equity funds',
+    kapFundMixed: 'mixed funds',
+    kapFundRealEstate: 'real-estate funds',
+    kapFundForeignRealEstate: 'foreign real-estate funds',
+    kapFundOther: 'other investment funds',
+    kapL19: 'Foreign capital income (without funds), share losses not included',
+    kapL20: 'of which gains from selling shares',
+    kapL22: 'losses included in line 19, without share losses',
+    kapL23: 'losses from selling shares, not included in line 19',
+    kapL41: 'creditable foreign withholding tax',
+    kapInvDist: 'Distributions of {type}',
+    kapInvVap: 'Vorabpauschale of {type}',
+    kapInvGain: 'Gain or loss from selling {type}',
+    kapTitle: 'Anlage KAP / KAP-INV {y} (brokers without German tax withholding)',
+    kapIntro: 'Tick the portfolios you hold at a broker that does not withhold German tax (a foreign broker). For German banks, take the figures from their annual tax certificate (Steuerbescheinigung) instead.',
+    kapCheckLines: 'Line numbers follow the 2024/2025 forms. Check them against the form of your year before you file; fund losses are shown as negative amounts in the gain line.',
+    kapNone: 'No capital income in {y} for these portfolios.',
+    kapForm: 'Form',
+    kapLine: 'Line',
+    kapWhat: 'What',
+    kapAmount: 'Amount',
+    kapCsv: 'Download as CSV'
   },
 
   // German locale (v10.x). Curated high-traffic strings; any missing key falls
@@ -4659,7 +4683,31 @@ const completeTranslations = {
     stImportBtn: '{n} {n:Zeile|Zeilen} importieren',
 
     // P2-7 privacy line
-    pvSteam: 'Steam-Inventar-Import: Dein Worker fragt bei Steam das Inventar des Profils ab, das du eingibst. Das Profil wird nicht gespeichert.'
+    pvSteam: 'Steam-Inventar-Import: Dein Worker fragt bei Steam das Inventar des Profils ab, das du eingibst. Das Profil wird nicht gespeichert.',
+
+    // P2-6 Anlage KAP
+    kapFundEquity: 'Aktienfonds',
+    kapFundMixed: 'Mischfonds',
+    kapFundRealEstate: 'Immobilienfonds',
+    kapFundForeignRealEstate: 'Auslands-Immobilienfonds',
+    kapFundOther: 'sonstige Investmentfonds',
+    kapL19: 'Ausländische Kapitalerträge (ohne Fonds), ohne Verluste aus Aktienveräußerungen',
+    kapL20: 'darin enthaltene Gewinne aus Aktienveräußerungen',
+    kapL22: 'in Zeile 19 enthaltene Verluste ohne Verluste aus Aktienveräußerungen',
+    kapL23: 'nicht in Zeile 19 enthaltene Verluste aus der Veräußerung von Aktien',
+    kapL41: 'anrechenbare ausländische Quellensteuer',
+    kapInvDist: 'Ausschüttungen aus {type}',
+    kapInvVap: 'Vorabpauschalen aus {type}',
+    kapInvGain: 'Gewinn oder Verlust aus der Veräußerung von {type}',
+    kapTitle: 'Anlage KAP / KAP-INV {y} (Broker ohne deutschen Steuerabzug)',
+    kapIntro: 'Hake die Portfolios an, die du bei einem Broker ohne deutschen Steuerabzug hältst (ausländischer Broker). Für deutsche Banken nimm stattdessen die Zahlen aus ihrer Jahressteuerbescheinigung.',
+    kapCheckLines: 'Die Zeilennummern folgen den Formularen 2024/2025. Prüfe sie vor der Abgabe im Formular deines Jahres; Fondsverluste stehen als negativer Betrag in der Gewinnzeile.',
+    kapNone: 'Keine Kapitalerträge {y} in diesen Portfolios.',
+    kapForm: 'Formular',
+    kapLine: 'Zeile',
+    kapWhat: 'Inhalt',
+    kapAmount: 'Betrag',
+    kapCsv: 'Als CSV herunterladen'
   }
 };
 
