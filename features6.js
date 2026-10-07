@@ -198,11 +198,8 @@ async function fetchYFHistory(symbol, period, workerUrl) {
 async function fetchCryptoHistory(coinId, period) {
   // The public API refuses more than a year (401): longer periods get 365 days.
   const days = period.cgDays === 'max' ? 365 : Math.min(365, period.cgDays);
-  const url = `https://api.coingecko.com/api/v3/coins/${encodeURIComponent(coinId)}/market_chart` +
-    `?vs_currency=eur&days=${days}`;
-  const CG = window.MaerminCoinGecko;
-  const data = CG ? await CG.getJson(url, { priority: 'low', timeoutMs: 15000 })
-    : await fetch(url, { signal: AbortSignal.timeout(15000) }).then(r => { if (!r.ok) throw new Error(`CoinGecko ${r.status}`); return r.json(); });
+  // Through the Worker (?action=cg), via the shared queue at low priority.
+  const data = await window.MaerminCoinGecko.get(`coins/${coinId}/market_chart`, { vs_currency: 'eur', days }, { priority: 'low', timeoutMs: 15000 });
   return (data.prices || []).map(([ms, price]) => ({
     ts:    Math.floor(ms / 1000),
     date:  new Date(ms).toISOString().split('T')[0],

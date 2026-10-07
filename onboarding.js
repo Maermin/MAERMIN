@@ -23,7 +23,7 @@ function __(k, f, v) { return (typeof window !== 'undefined' && window.MaerminI1
   var DEPLOY_URL = 'https://deploy.workers.cloudflare.com/?url=https://github.com/Maermin/MAERMIN/tree/main/cf-worker';
   // The Worker version this release relies on: WORKER_VERSION in
   // cf-worker/worker.js (test/worker-version.test.js keeps them equal).
-  var EXPECTED_WORKER_VERSION = '2026.10.2';
+  var EXPECTED_WORKER_VERSION = '2026.10.3';
 
   // ---- pure: version compare ("2026.10.1" vs "2026.9.4"), per numeric part --
   function compareVersions(a, b) {

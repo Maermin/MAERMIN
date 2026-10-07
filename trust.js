@@ -40,10 +40,10 @@ function __(k, f, v) { return (typeof window !== 'undefined' && window.MaerminI1
         __('pvLocal3', 'The security log stays on the device. There is no analytics, telemetry or tracking, and the fonts are part of the app.'),
         __('pvLocal4', 'Backups and exports are files you save yourself; MAERMIN does not upload them.')]],
       [__('pvWorkerTitle', 'Your Cloudflare Worker'), [
-        __('pvWorker1', 'The Worker runs in your own Cloudflare account. It receives the symbols of your holdings and your search terms, and fetches prices, history, dividends, fund data and news for them from Yahoo Finance, and the CS2 price list.'),
+        __('pvWorker1', 'The Worker runs in your own Cloudflare account. It receives the symbols of your holdings and your search terms, and fetches prices, history, dividends, fund data and news for them from Yahoo Finance and CoinGecko, and the CS2 price list.'),
         __('pvWorker2', 'For these requests it keeps only short-lived caches of the answers. Amounts and quantities are not sent.')]],
       [__('pvDirectTitle', 'Requests from your browser to other services'), [
-        __('pvDirect1', 'CoinGecko: the coins you hold, for prices and coin icons.'),
+        __('pvDirect1', 'CoinGecko image server: coin icons in the symbol search.'),
         __('pvDirect2', 'open.er-api.com / ExchangeRate-API: exchange rates, without any portfolio data.'),
         __('pvDirect3', 'unpkg.com (React, on every start) and cdnjs.cloudflare.com (PDF tools, on the first PDF export or import): program code, version-pinned and integrity-checked.'),
         __('pvDirect4', 'Logos and pictures load from Yahoo, CoinGecko and the Steam CDN, so those services see which ones you view.')]],

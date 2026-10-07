@@ -16,6 +16,9 @@
  *                                                 CSGO Trader's daily price file)
  *   GET  /?action=version                       → { version, actions }: the app compares
  *                                                 it with the version it expects
+ *   GET  /?action=cg&p=simple/price&ids=bitcoin&vs_currencies=eur,usd
+ *                                               → CoinGecko, cached (prices, charts, search);
+ *                                                 the browser never calls CoinGecko itself
  *   GET  /?action=steaminv&profile=<id|url>     → CS2 items of a PUBLIC Steam inventory:
  *                                                 { steamid, items: [{ assetid, name, marketable }] }
  */
@@ -23,9 +26,9 @@
 // Bump on every change to this file that the app relies on, and set
 // EXPECTED_WORKER_VERSION in onboarding.js to the same value (test/worker-version
 // enforces both). Format YYYY.M.N; compared numerically per part.
-export const WORKER_VERSION = '2026.10.2';
+export const WORKER_VERSION = '2026.10.3';
 export const WORKER_ACTIONS = ['yf', 'yfsearch', 'screener', 'fundholdings', 'fundamentals', 'earnings', 'profile',
-  'news', 'skinprices', 'steaminv', 'sync', 'share', 'mcp', 'brokerproxy', 'version'];
+  'news', 'skinprices', 'steaminv', 'cg', 'sync', 'share', 'mcp', 'brokerproxy', 'version'];
 
 export default {
   async fetch(request, env, ctx) {
@@ -280,6 +283,12 @@ export default {
         const body = await cached.text();
         return res(body, 200, request);
       }
+      // A symbol Yahoo does not know (a coin listed only on CoinGecko, a
+      // delisted share) is remembered for 6 h instead of being asked again on
+      // every refresh and chart.
+      const negKey = new Request(`https://cache.maermin/yf-404/${encodeURIComponent(symbol)}`);
+      if (await cache.match(negKey)) return res(JSON.stringify({ error: 'No data from Yahoo Finance', symbol, cached: true }), 404, request);
+      const rememberMissing = () => ctx.waitUntil(cache.put(negKey, new Response('1', { headers: { 'Cache-Control': 'public, max-age=21600' } })));
 
       const yfUrl = `https://query1.finance.yahoo.com/v8/finance/chart/${encodeURIComponent(symbol)}` +
         `?interval=${interval}&range=${range}&includeTimestamps=true&includePrePost=false&events=div,split`;
@@ -295,6 +304,7 @@ export default {
         });
 
         if (!r.ok) {
+          if (r.status === 404) rememberMissing();
           return res(JSON.stringify({ error: `Yahoo Finance returned ${r.status}`, symbol }), r.status, request);
         }
 
@@ -302,6 +312,7 @@ export default {
         const result = data?.chart?.result?.[0];
 
         if (!result) {
+          rememberMissing();
           return res(JSON.stringify({ error: 'No data from Yahoo Finance', symbol }), 404, request);
         }
 
@@ -682,6 +693,52 @@ export default {
       }
     }
 
+    // ── CoinGecko (crypto prices, charts, search) ────────────────────────────
+    // GET /?action=cg&p=<endpoint>&<params>. The browser used to call CoinGecko
+    // directly; its free API allows a few calls a minute per IP and answers a
+    // refusal (429) without CORS headers, so the app saw "CORS errors" and lost
+    // prices and charts. Here: only the four endpoints the app uses, with
+    // allowlisted parameters; answers cached (prices 60 s, charts 1 h, search
+    // 1 day), unknown coins remembered for a day, and on a refusal the last
+    // good copy (up to 2 days) is served with X-Stale: 1. An optional
+    // COINGECKO_API_KEY (demo key, `wrangler secret put COINGECKO_API_KEY`)
+    // raises CoinGecko's limit.
+    if (request.method === 'GET' && action === 'cg') {
+      const target = coinGeckoTarget(url.searchParams);
+      if (!target) return res(JSON.stringify({ error: 'unsupported CoinGecko request' }), 400, request);
+      const cache = caches.default;
+      const fresh = new Request('https://cache.maermin/cg/' + target.key);
+      const stale = new Request('https://cache.maermin/cg-stale/' + target.key);
+      const missing = new Request('https://cache.maermin/cg-404/' + target.key);
+      const hit = await cache.match(fresh);
+      if (hit) return res(await hit.text(), 200, request);
+      if (await cache.match(missing)) return res(JSON.stringify({ error: 'unknown coin', cached: true }), 404, request);
+      const serveStale = async (status, error) => {
+        const old = await cache.match(stale);
+        if (old) return withHeader(res(await old.text(), 200, request), 'X-Stale', '1');
+        return res(JSON.stringify({ error }), status, request);
+      };
+      try {
+        const headers = { 'Accept': 'application/json', 'User-Agent': 'MAERMIN-Portfolio-Worker/1.0 (+https://github.com/Maermin/MAERMIN)' };
+        if (env && env.COINGECKO_API_KEY) headers['x-cg-demo-api-key'] = env.COINGECKO_API_KEY;
+        const r = await fetchWithTimeout(target.url, { headers }, 12000);
+        if (r.status === 404) {
+          ctx.waitUntil(cache.put(missing, new Response('1', { headers: { 'Cache-Control': 'public, max-age=86400' } })));
+          return res(JSON.stringify({ error: 'unknown coin' }), 404, request);
+        }
+        if (r.status === 429) return serveStale(429, 'CoinGecko rate limit');
+        if (!r.ok) return serveStale(502, 'CoinGecko returned ' + r.status);
+        const body = await r.text();
+        ctx.waitUntil(Promise.all([
+          cache.put(fresh, new Response(body, { headers: { 'Cache-Control': 'public, max-age=' + target.ttl } })),
+          cache.put(stale, new Response(body, { headers: { 'Cache-Control': 'public, max-age=172800' } }))
+        ]));
+        return res(body, 200, request);
+      } catch (e) {
+        return serveStale(502, 'CoinGecko unreachable: ' + (e && e.message));
+      }
+    }
+
     // ── Steam inventory (CS2) ────────────────────────────────────────────────
     // GET /?action=steaminv&profile=<SteamID64 | profile URL | custom URL name>
     // Reads a PUBLIC inventory (no key): a custom URL name is resolved through
@@ -1052,18 +1109,54 @@ export function isMarketSymbol(raw) {
 }
 
 // Which rate-limit budget a request draws from: the skin price list, the
-// Steam inventory, or everything else. PURE, exported for the harness.
+// Steam inventory, CoinGecko, or everything else. PURE, exported for the harness.
 export function rateBucket(request, action) {
-  return action === 'skinprices' ? 'skins' : action === 'steaminv' ? 'steam' : 'default';
+  return action === 'skinprices' ? 'skins' : action === 'steaminv' ? 'steam' : action === 'cg' ? 'cg' : 'default';
+}
+
+// CoinGecko request from the app's query -> { url, key, ttl } or null. Only the
+// endpoints the app uses, only their parameters, each value checked: nothing
+// else reaches CoinGecko (no open proxy). PURE, exported for the harness.
+const CG_BASE = 'https://api.coingecko.com/api/v3/';
+const CG_PARAM = {
+  ids: /^[a-z0-9-]{1,80}(,[a-z0-9-]{1,80}){0,249}$/, vs_currencies: /^[a-z]{3,5}(,[a-z]{3,5}){0,4}$/, include_24hr_change: /^(true|false)$/,
+  query: /^[^\u0000-\u001f]{1,60}$/, vs_currency: /^[a-z]{3,5}$/, days: /^(\d{1,4}|max)$/, interval: /^daily$/, from: /^\d{1,11}$/, to: /^\d{1,11}$/
+};
+export function coinGeckoTarget(params) {
+  const p = String(params.get('p') || '');
+  let m, allowed, ttl;
+  if (p === 'simple/price') { allowed = ['ids', 'vs_currencies', 'include_24hr_change']; ttl = 60; }
+  else if (p === 'search') { allowed = ['query']; ttl = 86400; }
+  else if ((m = p.match(/^coins\/([a-z0-9-]{1,80})\/market_chart$/))) { allowed = ['vs_currency', 'days', 'interval']; ttl = 3600; }
+  else if ((m = p.match(/^coins\/([a-z0-9-]{1,80})\/market_chart\/range$/))) { allowed = ['vs_currency', 'from', 'to']; ttl = 3600; }
+  else return null;
+  const q = [];
+  for (const k of allowed) {
+    const v = params.get(k);
+    if (v == null || v === '') continue;
+    if (!CG_PARAM[k].test(v)) return null;
+    q.push(k + '=' + encodeURIComponent(v));
+  }
+  if (p === 'simple/price' && !params.get('ids')) return null;
+  if (p === 'search' && !params.get('query')) return null;
+  const path = p + (q.length ? '?' + q.join('&') : '');
+  return { url: CG_BASE + path, key: encodeURIComponent(path), ttl };
+}
+
+// A Response with one more header (Responses from res() are immutable-safe to copy).
+function withHeader(r, name, value) {
+  const h = new Headers(r.headers); h.set(name, value);
+  return new Response(r.body, { status: r.status, headers: h });
 }
 
 // SteamID64, a profiles/ or id/ URL, or a bare custom URL name ->
 // { steamid } | { vanity } | null. PURE, exported for the harness.
 export function parseSteamProfile(raw) {
   const s = String(raw == null ? '' : raw).trim();
-  let m = s.match(/^(?:https?:\/\/)?(?:www\.)?steamcommunity\.com\/profiles\/(\d{17})\/?$/i) || s.match(/^(\d{17})$/);
+  // Profile links may go on (".../inventory/", ".../home"): only the id counts.
+  let m = s.match(/^(?:https?:\/\/)?(?:www\.)?steamcommunity\.com\/profiles\/(\d{17})(?:[/?#].*)?$/i) || s.match(/^(\d{17})$/);
   if (m) return { steamid: m[1] };
-  m = s.match(/^(?:https?:\/\/)?(?:www\.)?steamcommunity\.com\/id\/([A-Za-z0-9_-]{2,32})\/?$/i) || s.match(/^([A-Za-z0-9_-]{2,32})$/);
+  m = s.match(/^(?:https?:\/\/)?(?:www\.)?steamcommunity\.com\/id\/([A-Za-z0-9_-]{2,32})(?:[/?#].*)?$/i) || s.match(/^([A-Za-z0-9_-]{2,32})$/);
   return m ? { vanity: m[1] } : null;
 }
 

@@ -656,6 +656,8 @@ function InvestmentTracker() {
   const [apiKeys, setApiKeys] = useState(() => {
     try { return JSON.parse(localStorage.getItem('apiKeys') || '{}'); } catch { return {}; }
   });
+  // CoinGecko goes through the Worker: the client builds its URLs from it.
+  if (window.MaerminCoinGecko && window.MaerminCoinGecko.setBase) window.MaerminCoinGecko.setBase(apiKeys.cs2Worker);
 
   // Fetch a historical price series for each savings-plan symbol (crypto via
   // CoinGecko market_chart in EUR; stocks via the YF Worker, converted to EUR at
@@ -699,10 +701,9 @@ function InvestmentTracker() {
             const tkr = (s.symbol || '').toLowerCase();
             const id = CG_IDS[tkr] || tkr;
             const fromSec = Math.floor(new Date(s.start + 'T00:00:00Z').getTime() / 1000) - 86400;
-            const url = `https://api.coingecko.com/api/v3/coins/${encodeURIComponent(id)}/market_chart/range?vs_currency=eur&from=${fromSec}&to=${nowSec}`;
-            const res = await fetch(url);
-            if (res.ok) {
-              const data = await res.json();
+            // Through the Worker; `to` on the hour so the Worker's cache can answer repeats.
+            const data = await window.MaerminCoinGecko.get(`coins/${id}/market_chart/range`, { vs_currency: 'eur', from: fromSec, to: Math.ceil(nowSec / 3600) * 3600 }, { priority: 'low', timeoutMs: 20000 }).catch(() => null);
+            if (data) {
               series = (data.prices || [])
                 .map(pt => ({ timestamp: new Date(pt[0]).toISOString(), price: pt[1] }))
                 .filter(r => typeof r.price === 'number' && r.price > 0);
@@ -1527,15 +1528,13 @@ function InvestmentTracker() {
           if (!id) return;
           (symsById[id] = symsById[id] || []).push(sym);
         });
-        const ids = Object.keys(symsById).map(encodeURIComponent).join(',');
+        const ids = Object.keys(symsById).join(',');
         if (ids) {
           try {
-            // Through the shared CoinGecko queue at high priority: charts and
-            // history wait behind it, so they can no longer use up the limit first.
-            const cgUrl = `https://api.coingecko.com/api/v3/simple/price?ids=${ids}&vs_currencies=eur,usd&include_24hr_change=true`;
-            const CG = window.MaerminCoinGecko;
-            const data = CG ? await CG.getJson(cgUrl, { priority: 'high', timeoutMs: 20000 })
-              : await fetch(cgUrl).then(r => { if (!r.ok) throw new Error('HTTP ' + r.status); return r.json(); });
+            // CoinGecko through the Worker (?action=cg: cached, refusals answered
+            // with the last good copy), via the shared queue at high priority so
+            // charts and history wait behind the prices.
+            const data = await window.MaerminCoinGecko.get('simple/price', { ids, vs_currencies: 'eur,usd', include_24hr_change: 'true' }, { priority: 'high', timeoutMs: 20000 });
             if (data && typeof data === 'object') {
               Object.keys(data).forEach(id => {
                 // Store EUR price (or convert from USD if EUR not available)
@@ -1548,8 +1547,9 @@ function InvestmentTracker() {
               dbg('[PRICES] Crypto prices fetched:', Object.keys(data).length);
             }
           } catch (e) {
-            console.error('[PRICES] CoinGecko error:', e);
+            if (!(e && e.noWorker)) console.error('[PRICES] CoinGecko error:', e);
             if (e && e.rateLimited) addToast(__('cgRateLimited', 'CoinGecko is busy (rate limit) - crypto keeps its last prices, refresh again in a minute'), 'warning', 8000);
+            else if (e && e.noWorker && !window.__maerminCgHintShown && (window.__maerminCgHintShown = true)) addToast(__('cgNeedsWorker', 'Crypto prices come through your Worker - add its URL in API Settings'), 'warning', 8000);
           }
         }
       }
@@ -5529,7 +5529,7 @@ buy,crypto,bitcoin,0.5,45000,2024-01-15,10`)
           ),
           React.createElement('p', {
             style: { color: currentTheme.textSecondary, fontSize: '0.8rem' }
-          }, t.coingeckoInfo || 'Crypto prices are fetched from the public CoinGecko API. No API key required.')
+          }, t.coingeckoInfo || 'Crypto prices come from CoinGecko through your Worker, which caches them. No API key needed; an optional CoinGecko demo key on the Worker (COINGECKO_API_KEY) raises the limit.')
         ),
         
         // Exchange Rate Section
