@@ -35,6 +35,18 @@ or one from before this route (it answers `400 Unknown action`), shows "Worker o
 ### `GET /?action=yf&symbol=AAPL&interval=1d&range=1y`
 Yahoo Finance historical candles. `interval` ∈ `1m…1mo`, `range` ∈ `1d…max`.
 
+### `GET /?action=cg&p=<endpoint>&…`
+CoinGecko, so the browser never calls it (CoinGecko limits per IP and answers a
+429 without CORS headers). Allowed endpoints and parameters:
+`simple/price` (`ids`, `vs_currencies`, `include_24hr_change`; cached 60 s),
+`search` (`query`; 1 day), `coins/<id>/market_chart` (`vs_currency`, `days`,
+`interval`; 1 h), `coins/<id>/market_chart/range` (`vs_currency`, `from`, `to`; 1 h).
+A 404 (unknown coin) is remembered for a day. On a 429 or upstream error the last
+good answer (kept 2 days) is served with `X-Stale: 1`. Optional secret
+`COINGECKO_API_KEY` (a free CoinGecko demo key) is sent as `x-cg-demo-api-key`.
+
+`?action=yf` remembers a symbol Yahoo does not know for 6 h (`404`, `cached: true`).
+
 ### `GET /?action=yfsearch&q=Apple&type=stock`
 Symbol search. `type` = `stock` (EQUITY/ETF/MUTUALFUND) or `crypto`. Returns
 `[{symbol, name, exchange, type, score}]`.

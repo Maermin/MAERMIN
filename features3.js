@@ -598,11 +598,8 @@ function SymbolPicker({ category, workerUrl, theme, onSelect, selectedSymbol, se
           // Through the shared CoinGecko queue (high priority: the user is
           // waiting). A direct call was refused while the price refresh had
           // used up CoinGecko's per-minute limit, and the picker went blank.
-          const url = `https://api.coingecko.com/api/v3/search?query=${encodeURIComponent(q)}`;
-          const CG  = window.MaerminCoinGecko;
-          const data = CG
-            ? await CG.getJson(url, { priority: 'high', timeoutMs: 8000 })
-            : await fetch(url, { signal: AbortSignal.timeout(8000) }).then(r => { if (!r.ok) throw new Error(`Search failed: ${r.status}`); return r.json(); });
+          // Through the Worker (?action=cg), via the shared queue (the user is waiting).
+          const data = await window.MaerminCoinGecko.get('search', { query: q }, { priority: 'high', timeoutMs: 8000 });
           const coins = (data.coins || [])
             .filter(c => {
               // Filter out tokenized stocks (xStock, rStock, Ondo) and stablecoins

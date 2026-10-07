@@ -25,7 +25,8 @@ function __(k, f, v) { return (typeof window !== 'undefined' && window.MaerminI1
 
   // SteamID64 from an id or a profiles/ URL (custom URL names need the Worker).
   function steamId64(raw) {
-    var m = String(raw == null ? '' : raw).trim().match(/^(?:(?:https?:\/\/)?(?:www\.)?steamcommunity\.com\/profiles\/)?(\d{17})\/?$/i);
+    // Profile links may go on (".../inventory/"): only the id counts.
+    var m = String(raw == null ? '' : raw).trim().match(/^(?:(?:https?:\/\/)?(?:www\.)?steamcommunity\.com\/profiles\/)?(\d{17})(?:[/?#].*)?$/i);
     return m ? m[1] : null;
   }
   function inventoryUrl(id) { return 'https://steamcommunity.com/inventory/' + id + '/730/2?l=english&count=2000'; }

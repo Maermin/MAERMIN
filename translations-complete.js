@@ -41,7 +41,7 @@ const completeTranslations = {
     
     // API Settings
     apiSettings: 'API Settings',
-    coingeckoInfo: 'Crypto prices are fetched from the public CoinGecko API. No API key required.',
+    coingeckoInfo: 'Crypto prices come from CoinGecko through your Worker, which caches them. No API key needed; an optional CoinGecko demo key on the Worker (COINGECKO_API_KEY) raises the limit.',
     configured: 'Configured',
     publicApi: 'Public API',
     pricesUpdated: 'Prices updated',
@@ -2343,10 +2343,10 @@ taSparer: 'Sparerpauschbetrag',
     pvLocal3: 'The security log stays on the device. There is no analytics, telemetry or tracking, and the fonts are part of the app.',
     pvLocal4: 'Backups and exports are files you save yourself; MAERMIN does not upload them.',
     pvWorkerTitle: 'Your Cloudflare Worker',
-    pvWorker1: 'The Worker runs in your own Cloudflare account. It receives the symbols of your holdings and your search terms, and fetches prices, history, dividends, fund data and news for them from Yahoo Finance, and the CS2 price list.',
+    pvWorker1: 'The Worker runs in your own Cloudflare account. It receives the symbols of your holdings and your search terms, and fetches prices, history, dividends, fund data and news for them from Yahoo Finance and CoinGecko, and the CS2 price list.',
     pvWorker2: 'For these requests it keeps only short-lived caches of the answers. Amounts and quantities are not sent.',
     pvDirectTitle: 'Requests from your browser to other services',
-    pvDirect1: 'CoinGecko: the coins you hold, for prices and coin icons.',
+    pvDirect1: 'CoinGecko image server: coin icons in the symbol search.',
     pvDirect2: 'open.er-api.com / ExchangeRate-API: exchange rates, without any portfolio data.',
     pvDirect3: 'unpkg.com (React, on every start) and cdnjs.cloudflare.com (PDF tools, on the first PDF export or import): program code, version-pinned and integrity-checked.',
     pvDirect4: 'Logos and pictures load from Yahoo, CoinGecko and the Steam CDN, so those services see which ones you view.',
@@ -2449,7 +2449,10 @@ taSparer: 'Sparerpauschbetrag',
     dmChooseFile: 'Choose file…',
 
     // Phase 3 Basiszins label
-    gtBasiszinsAria: 'Basiszins {y} in percent'
+    gtBasiszinsAria: 'Basiszins {y} in percent',
+
+    // CoinGecko via Worker
+    cgNeedsWorker: 'Crypto prices come through your Worker - add its URL in API Settings'
   },
 
   // German locale (v10.x). Curated high-traffic strings; any missing key falls
@@ -2667,7 +2670,7 @@ taSparer: 'Sparerpauschbetrag',
     feesOptional: 'Gebühren (optional)',
     bought: 'Gekauft',
     distribution: 'Portfolio-Aufteilung',
-    coingeckoInfo: 'Kryptokurse kommen von der öffentlichen CoinGecko-API. Kein API-Schlüssel nötig.',
+    coingeckoInfo: 'Kryptokurse kommen von CoinGecko über deinen Worker, der sie zwischenspeichert. Kein API-Schlüssel nötig; ein optionaler CoinGecko-Demo-Schlüssel im Worker (COINGECKO_API_KEY) hebt das Limit an.',
     configured: 'Eingerichtet',
     publicApi: 'Öffentliche API',
     pricesUpdated: 'Kurse aktualisiert',
@@ -4627,10 +4630,10 @@ taSparer: 'Sparerpauschbetrag',
     pvLocal3: 'Das Sicherheitsprotokoll bleibt auf dem Gerät. Es gibt keine Analyse, keine Telemetrie und kein Tracking; die Schriften sind Teil der App.',
     pvLocal4: 'Sicherungen und Exporte sind Dateien, die du selbst speicherst; MAERMIN lädt sie nirgends hoch.',
     pvWorkerTitle: 'Dein Cloudflare Worker',
-    pvWorker1: 'Der Worker läuft in deinem eigenen Cloudflare-Konto. Er erhält die Symbole deiner Positionen und deine Suchbegriffe und holt dazu Kurse, Verläufe, Dividenden, Fondsdaten und News von Yahoo Finance sowie die CS2-Preisliste.',
+    pvWorker1: 'Der Worker läuft in deinem eigenen Cloudflare-Konto. Er erhält die Symbole deiner Positionen und deine Suchbegriffe und holt dazu Kurse, Verläufe, Dividenden, Fondsdaten und News von Yahoo Finance und CoinGecko sowie die CS2-Preisliste.',
     pvWorker2: 'Für diese Anfragen hält er nur kurzlebige Zwischenspeicher der Antworten. Beträge und Stückzahlen werden nicht gesendet.',
     pvDirectTitle: 'Anfragen deines Browsers an andere Dienste',
-    pvDirect1: 'CoinGecko: die Coins, die du hältst, für Kurse und Coin-Symbole.',
+    pvDirect1: 'CoinGecko-Bildserver: Coin-Symbole in der Symbolsuche.',
     pvDirect2: 'open.er-api.com / ExchangeRate-API: Wechselkurse, ohne Portfoliodaten.',
     pvDirect3: 'unpkg.com (React, bei jedem Start) und cdnjs.cloudflare.com (PDF-Werkzeuge, beim ersten PDF-Export oder -Import): Programmcode, in fester Version und mit Integritätsprüfung.',
     pvDirect4: 'Logos und Bilder laden von Yahoo, CoinGecko und dem Steam-CDN; diese Dienste sehen also, welche du ansiehst.',
@@ -4733,7 +4736,10 @@ taSparer: 'Sparerpauschbetrag',
     dmChooseFile: 'Datei wählen…',
 
     // Phase 3 Basiszins label
-    gtBasiszinsAria: 'Basiszins {y} in Prozent'
+    gtBasiszinsAria: 'Basiszins {y} in Prozent',
+
+    // CoinGecko via Worker
+    cgNeedsWorker: 'Kryptokurse kommen über deinen Worker – trage seine URL in den API-Einstellungen ein'
   }
 };
 

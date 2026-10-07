@@ -123,12 +123,28 @@ async function answerFromWorker(route) {
   headers['access-control-allow-origin'] = '*';
   return route.fulfill({ status: res.status, headers, body: await res.text() });
 }
+// Scenario 1's Worker: crypto prices (?action=cg) come from a fixture, answered
+// under the requested CoinGecko id like the real API (the app maps the stored
+// ticker "eth" to the id "ethereum"); every other route has no data.
+const CG_WORKER = 'https://maermin-cg-e2e.workers.dev';
+async function answerFromCgWorker(route) {
+  const u = new URL(route.request().url()), a = u.searchParams.get('action');
+  const json = (o, status = 200) => route.fulfill({ status, headers: { 'Access-Control-Allow-Origin': '*', 'Content-Type': 'application/json' }, body: JSON.stringify(o) });
+  if (a === 'version') return json({ version: workerMod.WORKER_VERSION, actions: [] });
+  if (a === 'cg' && u.searchParams.get('p') === 'simple/price') {
+    fetched.push('crypto');
+    const ids = (u.searchParams.get('ids') || '').split(',');
+    return json(ids.includes('ethereum') ? { ethereum: { eur: 3000, usd: 3300 } } : {});
+  }
+  return json({ error: 'No data' }, 404);
+}
 async function wire(context, external) {
   await context.route('**/*', (route) => {
     const url = route.request().url();
     if (url.startsWith('http://127.0.0.1')) return route.continue();
     if (url.startsWith(FX_WORKER)) return answerFromFxWorker(route);
     if (url.startsWith(WORKER_URL)) return answerFromWorker(route);
+    if (url.startsWith(CG_WORKER)) return answerFromCgWorker(route);
     if (LOCAL[url]) return route.fulfill({ path: LOCAL[url], headers: { 'Access-Control-Allow-Origin': '*', 'Content-Type': 'application/javascript' } });
     if (JSPDF[url]) {
       if (JSPDF_DIR && existsSync(join(JSPDF_DIR, JSPDF[url]))) {
@@ -140,12 +156,6 @@ async function wire(context, external) {
     // fixtures (still offline) and log the call so the test can assert on it.
     const json = (o) => route.fulfill({ headers: { 'Access-Control-Allow-Origin': '*', 'Content-Type': 'application/json' }, body: JSON.stringify(o) });
     if (url.startsWith('https://open.er-api.com/v6/latest/USD')) { fetched.push('fx'); return json({ result: 'success', rates: { EUR: 0.9, USD: 1 } }); }
-    // Answers under the requested CoinGecko id, like the real API (the app
-    // maps the stored ticker "eth" to the id "ethereum").
-    if (url.startsWith('https://api.coingecko.com/api/v3/simple/price')) {
-      fetched.push('crypto');
-      const ids = (new URL(url).searchParams.get('ids') || '').split(',');      return json(ids.includes('ethereum') ? { ethereum: { eur: 3000, usd: 3300 } } : {});
-    }
     external.push(route.request().method() + ' ' + url.split('?')[0]);
     return route.abort();
   });
@@ -310,14 +320,15 @@ async function runBuild(browser, label, dir) {
     const page = await context.newPage();
     const errors = watch(page);
     await createVault(page, base);
-    await page.evaluate((txs) => {
+    await page.evaluate(([txs, cg]) => {
       localStorage.setItem('transactions', JSON.stringify(txs));
       localStorage.setItem('taxJurisdiction', 'de');
+      localStorage.setItem('apiKeys', JSON.stringify({ cs2Worker: cg }));
       localStorage.setItem('maermin_tax_settings', JSON.stringify({ abgeltungRate: 0.25, soli: true, kirchensteuer: 0, freistellungsauftrag: 1000, cryptoExemption: true }));
       // recorded daily values of the active portfolio (no trades in between): 3,000 -> 3,300
       localStorage.setItem('maermin_snapshots', JSON.stringify({ version: 1, points: [
         { d: '2025-07-01', v: 3000, pid: 'default' }, { d: '2025-07-02', v: 3150, pid: 'default' }, { d: '2025-07-03', v: 3300, pid: 'default' }] }));
-    }, TXS);
+    }, [TXS, CG_WORKER]);
     await page.waitForTimeout(1500); // encrypted persist
     try { await unlock(page, base); }
     catch (e) {
@@ -1032,7 +1043,7 @@ async function runBuild(browser, label, dir) {
     await context.close();
   }
 
-  const unexpected = [...new Set(external)].filter((u) => !/api\.coingecko\.com|open\.er-api\.com|api\.exchangerate-api\.com|fonts\.googleapis\.com|fonts\.gstatic\.com/.test(u));
+  const unexpected = [...new Set(external)].filter((u) => !/open\.er-api\.com|api\.exchangerate-api\.com|fonts\.googleapis\.com|fonts\.gstatic\.com/.test(u));
   ok('no unexpected external requests', unexpected.length === 0, unexpected.join(', '));
   server.close();
 }

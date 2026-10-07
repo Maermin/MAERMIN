@@ -28,5 +28,7 @@ new_sqlite_classes = ["SyncRoom"]
 [vars]
 # ALLOWED_ORIGINS = "https://portfolio.example.com"
 ALLOW_NULL_ORIGIN = "true"
+# Optional: a free CoinGecko demo key raises the crypto price limit:
+#   npx wrangler secret put COINGECKO_API_KEY
 # Share snapshots per UTC day (each costs one KV write). Default 300.
 # SHARE_DAILY_MAX = "300"

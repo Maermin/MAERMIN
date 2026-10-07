@@ -118,7 +118,7 @@ The Worker is **required** for stock prices, historical chart data, CS2 prices, 
 | Source | Used For | Key Required |
 |--------|----------|:------------:|
 | **Yahoo Finance** | Stocks, ETFs, commodities, all global exchanges, historical data | ✗ (via Worker) |
-| **CoinGecko** | Crypto prices + history | ✗ (direct) |
+| **CoinGecko** | Crypto prices + history | ✗ (via Worker; optional `COINGECKO_API_KEY` demo key raises the limit) |
 | **CSGO Trader price file** | CS2 skin prices — daily Steam Market averages (24 h / 7 / 30 / 90 days) for every item, one request | ✗ (via Worker) |
 | **ByMykel CSGO-API** | CS2 item pictures — bundled as `data/skin-images.json` (`node scripts/build-skin-images.mjs` refreshes it) | ✗ |
 | **ExchangeRate-API** | USD → EUR conversion | ✗ |
@@ -132,6 +132,7 @@ The Worker is **required** for stock prices, historical chart data, CS2 prices, 
 |----------|-------------|
 | `GET /?action=yf&symbol=AAPL&interval=1d&range=1y` | Yahoo Finance historical data |
 | `GET /?action=yfsearch&q=Apple&type=stock` | Symbol search (stocks or crypto) |
+| `GET /?action=cg&p=simple/price&ids=bitcoin&vs_currencies=eur` | CoinGecko (prices, coin search, history); cached, unknown coins remembered, last good copy on a rate limit |
 | `GET /?action=screener&scrId=day_gainers` (or `&symbols=KO,PG`) | Discovery: predefined screener / movers, or batch quote |
 | `GET /?action=fundholdings&symbol=VWCE.DE` | ETF/fund look-through: top holdings, sector weights, expense ratio (TER) |
 | `GET /?action=fundamentals&symbol=KO` | Dividend-safety fundamentals: payout ratio, EPS, dividend rate/yield |
@@ -204,7 +205,7 @@ Contributing guidelines and conventions: **[CONTRIBUTING.md](CONTRIBUTING.md)**.
 - **Encrypted backups**: export a portable, password-protected backup (Settings → Backup vault) — a portable recovery path you can store off-device
 - **On-device audit log**: security events + uncaught errors (Settings → Security log), never transmitted
 - No analytics, no remote telemetry, no third-party tracking; the fonts (Geist) are self-hosted
-- Data requests go to: CoinGecko, ExchangeRate-API / open.er-api.com and your own Cloudflare Worker
+- Data requests go to: ExchangeRate-API / open.er-api.com and your own Cloudflare Worker (which asks Yahoo Finance and CoinGecko)
 - Code from CDNs (version-pinned, SRI-checked): React from unpkg.com on every start; jsPDF and pdf.js from cdnjs.cloudflare.com on first PDF export/import
 - Images: position logos (Yahoo), coin icons (CoinGecko) and skin pictures (Steam CDN) load from those services, which therefore see which logos you view
 - Your Worker only relays to Yahoo Finance / CSGO Trader's price file / (optionally) Steam for the inventory import and whitelisted exchanges. It stores only the opt-in zero-knowledge sync blob and, if you use Share & Compare, the redacted share snapshots (percentages and scores, 90 days) with their anonymous aggregate

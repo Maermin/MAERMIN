@@ -70,7 +70,7 @@ const json = (o, status) => ({ ok: (status || 200) < 400, status: status || 200,
     const calls = [];
     const fetchFn = async (url) => {
       calls.push(url);
-      if (/coingecko/.test(url)) return /days=365&/.test(url) ? json({ prices: [[midnight('2025-06-10'), 92000]] }) : json({ error: 'exceeds' }, 401);
+      if (/action=cg&p=coins/.test(url)) return /days=365&/.test(url) ? json({ prices: [[midnight('2025-06-10'), 92000]] }) : json({ error: 'exceeds' }, 401);
       if (/symbol=FAIL/.test(url)) return json({ error: 'Yahoo Finance returned 404' }, 404);
       return json({ currency: 'EUR', prices: [{ date: '2025-06-09', price: 100 }, { date: '2025-06-10', price: 101 }], splits: [] });
     };
@@ -78,7 +78,7 @@ const json = (o, status) => ({ ok: (status || 200) < 400, status: status || 200,
       workerBase: 'https://w.example/', fetch: fetchFn, now: NOW, suffixCache: { EUNL: 'EUNL.DE' }, cryptoDelayMs: 0 });
     ok('stock via the Worker with the resolved listing and the smallest range', calls.some((u) => u === 'https://w.example?action=yf&symbol=EUNL.DE&interval=1d&range=3mo'), calls);
     ok('fetched / failed are reported, never thrown', r.fetched.sort().join() === 'crypto|BITCOIN,stocks|EUNL' && r.failed.map((f) => f.key).sort().join() === 'stocks|FAIL' && r.changed === true, r.failed);
-    ok('CoinGecko beyond a year: asks for 365 days right away (no refused request)', calls.filter((u) => /coingecko/.test(u)).length === 1 && !!r.store.series['crypto|BITCOIN']);
+    ok('CoinGecko beyond a year: asks for 365 days right away (no refused request)', calls.filter((u) => /action=cg&p=coins/.test(u)).length === 1 && !!r.store.series['crypto|BITCOIN']);
     ok('requested start is remembered', r.store.series['stocks|EUNL'].req === '2025-05-13' && r.store.series['crypto|BITCOIN'].req === '2021-12-25');
     const again = await CH.sync({ transactions: [tx('stocks', 'EUNL', '2025-05-20'), tx('crypto', 'bitcoin', '2022-01-01')], store: r.store, workerBase: 'https://w.example', fetch: async (u) => { calls.push('second:' + u); return json({}); }, now: NOW + 1000, cryptoDelayMs: 0 });
     ok('second run right after: no request at all', !calls.some((u) => /^second:/.test(u)) && again.changed === false);
@@ -88,7 +88,13 @@ const json = (o, status) => ({ ok: (status || 200) < 400, status: status || 200,
     const r = await CH.sync({ transactions: [tx('stocks', 'AAPL', '2025-05-20'), tx('crypto', 'bitcoin', '2025-05-20'), tx('crypto', 'ethereum', '2025-05-20')], workerBase: '',
       fetch: async (u) => { calls.push(u); return json({}, 429); }, now: NOW, cryptoDelayMs: 0 });
     ok('no Worker: stocks are skipped, not requested', r.skipped.indexOf('stocks|AAPL') !== -1 && !calls.some((u) => /action=yf/.test(u)));
-    ok('CoinGecko 429: stops after the first refusal; both stay "try later", not "no history"', calls.length === 1 && r.skipped.indexOf('crypto|ETHEREUM') !== -1 && r.skipped.indexOf('crypto|BITCOIN') !== -1 && r.failed.length === 0 && r.changed === false, { calls, r });
+    ok('no Worker: coins are skipped too (CoinGecko only through the Worker), nothing requested', calls.length === 0 && r.skipped.indexOf('crypto|ETHEREUM') !== -1 && r.skipped.indexOf('crypto|BITCOIN') !== -1 && r.failed.length === 0 && r.changed === false, { calls, r });
+  }
+  {
+    const calls = [];
+    const r = await CH.sync({ transactions: [tx('crypto', 'bitcoin', '2025-05-20'), tx('crypto', 'ethereum', '2025-05-20')], workerBase: 'https://w.example',
+      yahooCrypto: () => '', fetch: async (u) => { calls.push(u); return json({ error: 'CoinGecko rate limit' }, 429); }, now: NOW, cryptoDelayMs: 0 });
+    ok('CoinGecko 429 (via the Worker): stops after the first refusal; both stay "try later", not "no history"', calls.length === 1 && /\?action=cg&p=coins\//.test(calls[0]) && r.skipped.indexOf('crypto|ETHEREUM') !== -1 && r.skipped.indexOf('crypto|BITCOIN') !== -1 && r.failed.length === 0, { calls, r });
   }
   {
     // 30 holdings: one run asks the Worker for at most 20, the rest waits.
@@ -143,7 +149,7 @@ const json = (o, status) => ({ ok: (status || 200) < 400, status: status || 200,
     const calls = [];
     const fetchFn = async (u) => {
       calls.push(u);
-      if (/coingecko/.test(u)) return json({ prices: [[midnight('2025-06-10'), 5]] });
+      if (/action=cg&p=coins/.test(u)) return json({ prices: [[midnight('2025-06-10'), 5]] });
       if (/BTC-USD/.test(u)) return yfDays(100000);
       if (/NEAR-USD/.test(u)) return yfDays(4.8);
       if (/ODD-USD/.test(u)) return yfDays(900);               // Yahoo's "ODD" is another coin

@@ -8,7 +8,13 @@
 // arrives WITHOUT CORS headers, so the browser reports it as a CORS / network
 // error (status 0), which the callers did not recognise as a rate limit.
 //
-// Every CoinGecko call now goes through this queue:
+// The browser no longer calls CoinGecko itself: every request goes to the
+// user's Worker (?action=cg), which caches the answers, remembers unknown
+// coins and serves its last good copy when CoinGecko refuses. get(path,
+// params) builds that URL from the Worker base set with setBase(); without a
+// Worker it rejects with { noWorker: true }.
+//
+// Every CoinGecko call still goes through this queue:
 //   - one request at a time, SPACING_MS apart;
 //   - priority 'high' (prices) goes before 'low' (charts, history);
 //   - a refusal (429 or a network/CORS error) starts a COOLDOWN_MS pause:
@@ -23,7 +29,7 @@
 (function () {
   'use strict';
 
-  var SPACING_MS = 1500;
+  var SPACING_MS = 400; // the Worker caches; CoinGecko itself is asked far less often
   var COOLDOWN_MS = 65000;
 
   function create(opts) {
@@ -91,12 +97,30 @@
       });
     }
 
-    return { getJson: getJson, coolingDown: coolingDown, pending: function () { return queue.length; } };
+    // Worker URL for a CoinGecko endpoint ("simple/price", "search",
+    // "coins/<id>/market_chart[/range]") with its parameters, or '' without a Worker.
+    var base = '';
+    function setBase(url) { base = String(url || '').trim().replace(/\/+$/, ''); if (base && !/^https?:\/\//i.test(base)) base = 'https://' + base; }
+    function url(path, params) {
+      if (!base) return '';
+      var q = ['action=cg', 'p=' + encodeURIComponent(path)];
+      Object.keys(params || {}).forEach(function (k) { if (params[k] != null && params[k] !== '') q.push(k + '=' + encodeURIComponent(params[k])); });
+      return base + (base.indexOf('?') > -1 ? '&' : '?') + q.join('&');
+    }
+    // → Promise<json>; opts as getJson. Rejects { noWorker: true } without a Worker.
+    function get(path, params, o) {
+      var u = url(path, params);
+      if (!u) { var e = new Error('CoinGecko needs your Worker URL (API Settings)'); e.noWorker = true; return Promise.reject(e); }
+      return getJson(u, o);
+    }
+
+    return { getJson: getJson, get: get, url: url, setBase: setBase, coolingDown: coolingDown, pending: function () { return queue.length; } };
   }
 
   var shared = create();
   var api = { SPACING_MS: SPACING_MS, COOLDOWN_MS: COOLDOWN_MS, create: create,
-    getJson: shared.getJson, coolingDown: shared.coolingDown, pending: shared.pending };
+    getJson: shared.getJson, get: shared.get, url: shared.url, setBase: shared.setBase,
+    coolingDown: shared.coolingDown, pending: shared.pending };
   if (typeof window !== 'undefined') window.MaerminCoinGecko = api;
   if (typeof module !== 'undefined' && module.exports) module.exports = api;
 })();

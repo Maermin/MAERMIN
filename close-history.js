@@ -295,7 +295,10 @@
     var id = o.cryptoId ? o.cryptoId(job.symbol) : String(job.symbol).toLowerCase();
     // The public API refuses ranges beyond a year (401): ask for at most 365 days.
     var days = Math.min(365, Math.max(2, dayNo(o.today) - dayNo(job.from) + 1));
-    var url = 'https://api.coingecko.com/api/v3/coins/' + encodeURIComponent(id) + '/market_chart?vs_currency=eur&days=' + days + '&interval=daily';
+    // CoinGecko through the Worker (?action=cg: cached, unknown coins
+    // remembered); the browser no longer calls CoinGecko itself.
+    if (!o.workerBase) return Promise.reject(new Error('no Worker'));
+    var url = o.workerBase + '?action=cg&p=coins/' + encodeURIComponent(id) + '/market_chart&vs_currency=eur&days=' + days + '&interval=daily';
     // Through the shared CoinGecko queue when there is one (browser): low
     // priority behind the price refresh; a refusal comes back as status 429.
     var get = o.cgGet ? o.cgGet(url, { priority: 'low', timeoutMs: o.timeoutMs }) : getJson(o.fetch, url, o.timeoutMs);
@@ -356,8 +359,8 @@
     var result = { store: store, changed: false, fetched: [], failed: [], skipped: [] };
     if (!o.fetch) return Promise.resolve(result);
     var jobs = plan(need(opts.transactions), store, now);
-    // Crypto goes through the Worker (Yahoo) too when there is one and the coin
-    // has a Yahoo pair; only the rest asks CoinGecko directly.
+    // Crypto goes through the Worker: Yahoo when the coin has a Yahoo pair,
+    // else CoinGecko via the Worker's ?action=cg.
     function viaYahoo(j) { return j.category !== 'crypto' || !!(o.workerBase && o.yahooCrypto && o.yahooCrypto(j.symbol)); }
     var viaWorker = jobs.filter(viaYahoo);
     var crypto = jobs.filter(function (j) { return !viaYahoo(j); });
@@ -429,6 +432,8 @@
       viaWorker.forEach(function (j) { result.skipped.push(j.key); });
     }
     var limited = false;
+    // CoinGecko is reached through the Worker only: without one, try later.
+    if (!o.workerBase) { crypto.forEach(function (j) { result.skipped.push(j.key); }); crypto = []; }
     crypto.slice(maxCrypto).forEach(function (j) { result.skipped.push(j.key); });
     crypto.slice(0, maxCrypto).forEach(function (job, idx) {
       p = p.then(function () {
