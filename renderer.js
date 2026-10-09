@@ -3145,7 +3145,7 @@ function InvestmentTracker() {
 
       case 'privacy':
         return window.MaerminTrust
-          ? React.createElement(window.MaerminTrust.PrivacyView, { theme: currentTheme })
+          ? React.createElement(window.MaerminTrust.PrivacyView, { theme: currentTheme, portfolio, prices, transactions: activeTransactions, privacyMode })
           : renderAnalyticsPlaceholder(t.navPrivacy || 'Privacy');
 
       case 'trash':
