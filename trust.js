@@ -35,22 +35,22 @@ function __(k, f, v) { return (typeof window !== 'undefined' && window.MaerminI1
   function privacySections() {
     return [
       [__('pvLocalTitle', 'Stays on this device'), [
-        __('pvLocal1', 'Your transactions, portfolios, settings and every other record are stored in this browser, encrypted with your password (AES-256-GCM).'),
+        __('pvLocal1', 'Your transactions, portfolios, settings and every other record are stored in this browser (localStorage and IndexedDB). With encryption at rest switched on - the default for a new vault - your financial records are encrypted with your password (AES-256-GCM); a few settings (tax settings, exchange-rate history, the security log) stay unencrypted.'),
         __('pvLocal2', 'Your password and recovery code never leave the device; nobody can reset them for you.'),
         __('pvLocal3', 'The security log stays on the device. There is no analytics, telemetry or tracking, and the fonts are part of the app.'),
         __('pvLocal4', 'Backups and exports are files you save yourself; MAERMIN does not upload them.')]],
       [__('pvWorkerTitle', 'Your Cloudflare Worker'), [
         __('pvWorker1', 'The Worker runs in your own Cloudflare account. It receives the symbols of your holdings and your search terms, and fetches prices, history, dividends, fund data and news for them from Yahoo Finance and CoinGecko, and the CS2 price list.'),
-        __('pvWorker2', 'For these requests it keeps only short-lived caches of the answers. Amounts and quantities are not sent.')]],
+        __('pvWorker2', 'It caches the answers, for up to 30 days (company profiles). Amounts and quantities are not sent.')]],
       [__('pvDirectTitle', 'Requests from your browser to other services'), [
         __('pvDirect1', 'CoinGecko image server: coin icons in the symbol search.'),
         __('pvDirect2', 'open.er-api.com / ExchangeRate-API: exchange rates, without any portfolio data.'),
-        __('pvDirect3', 'unpkg.com (React, on every start) and cdnjs.cloudflare.com (PDF tools, on the first PDF export or import): program code, version-pinned and integrity-checked.'),
+        __('pvDirect3', 'unpkg.com (React, on the first start and after an update; otherwise from the offline cache) and cdnjs.cloudflare.com (PDF tools, on the first PDF export or import): program code, version-pinned and integrity-checked.'),
         __('pvDirect4', 'Logos and pictures load from Yahoo, CoinGecko and the Steam CDN, so those services see which ones you view.')]],
       [__('pvOptTitle', 'Only if you turn it on'), [
         __('pvSync', 'Cloud sync: your Worker stores your data encrypted on your device, under an anonymous account id. It cannot read it.'),
         __('pvShare', 'Share & Compare: a redacted snapshot (percentages and scores, no amounts or quantities) is stored by your Worker for 90 days, plus an anonymous aggregate for the comparison.'),
-        __('pvExchange', 'Exchange connections: requests are signed in your browser and relayed by your Worker to the exchange. The API keys stay in your encrypted vault.'),
+        __('pvExchange', 'Exchange connections: your Worker relays each request to the exchange. The API key travels with every request (Binance: the request is signed in your browser and the secret stays here). Keys are stored encrypted in your vault.'),
         __('pvSteam', 'Steam inventory import: your Worker asks Steam for the inventory of the profile you enter. The profile is not stored.')]]
     ];
   }
@@ -63,7 +63,7 @@ function __(k, f, v) { return (typeof window !== 'undefined' && window.MaerminI1
     return e('div', { 'data-testid': 'privacy-view', style: { background: th.card || th.cardBg, border: '1px solid ' + border, borderRadius: '14px', padding: '1.25rem', maxWidth: '52rem' } },
       e('h2', { style: { color: text, fontSize: '1.2rem', fontWeight: 800, margin: '0 0 0.4rem' } }, __('pvTitle', 'Privacy')),
       e('p', { style: { color: dim, fontSize: '0.85rem', margin: '0 0 1rem', lineHeight: 1.55 } },
-        __('pvIntro', 'MAERMIN has no server of its own. This page lists everything that leaves your device and where it goes.')),
+        __('pvIntro', 'MAERMIN has no server of its own. Apart from loading the app itself (from GitHub Pages or wherever you host it), this page lists everything that leaves your device and where it goes.')),
       privacySections().map(function (sec, i) {
         return e('section', { key: i, style: { borderTop: '1px solid ' + border, padding: '0.85rem 0' } },
           e('h3', { style: { color: text, fontSize: '0.95rem', fontWeight: 700, margin: '0 0 0.4rem' } }, sec[0]),

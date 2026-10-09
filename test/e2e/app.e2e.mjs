@@ -751,6 +751,36 @@ async function runBuild(browser, label, dir) {
     await context.close();
   }
 
+  // P4-9: the demo works without a Worker (sample daily closes in memory)
+  {
+    const context = await browser.newContext({ serviceWorkers: 'block' });
+    await wire(context, external);
+    const page = await context.newPage();
+    const errors = watch(page);
+    await createVault(page, base);
+    await page.evaluate(() => { localStorage.setItem('maermin_demo', '1'); localStorage.setItem('maermin_ui_mode', 'advanced'); localStorage.setItem('maermin_onboarded', '1'); });
+    let chart = 0, twr = '', cells = 0, closed = '', stored = 'x', err = '';
+    try {
+      await unlock(page, base);
+      await page.keyboard.press('Escape');
+      await page.waitForTimeout(1500);
+      chart = await page.locator('main svg path').count();
+      await page.locator('[data-pos-tab="closed"]').click();
+      closed = await page.locator('[data-pos-tab="closed"]').innerText();
+      await openView(page, 'returns');
+      await page.waitForTimeout(800);
+      twr = await page.getByText('TWR', { exact: true }).first().locator('xpath=..').innerText();
+      cells = await page.locator('[data-r]').count();
+      stored = await page.evaluate(() => localStorage.getItem('maermin_close_history'));
+    } catch (e) { err = e.message.split('\n')[0]; }
+    ok('P4-9: demo draws the value chart without a Worker', chart > 0, err || String(chart));
+    ok('P4-9: demo TWR is a figure, the monthly grid is filled', /[+-]\d/.test(twr) && cells > 12, err || twr.replace(/\s+/g, ' ') + ' | cells ' + cells);
+    ok('P4-9: demo shows a closed position', /\(1\)/.test(closed), err || closed);
+    ok('P4-9: the sample closes are never stored', stored === null, err || String(stored).slice(0, 60));
+    ok('no page errors in the demo session', errors.length === 0, errors.join(' | '));
+    await context.close();
+  }
+
   // 4: upgrade path
   {
     const context = await browser.newContext({ serviceWorkers: 'block' });

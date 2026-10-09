@@ -260,7 +260,7 @@ function storedCryptoCloses(symbol, period, usdToEur) {
 // ─────────────────────────────────────────────────────────────────────────────
 // CHART COMPONENT
 // ─────────────────────────────────────────────────────────────────────────────
-function PortfolioHistoryChart({ portfolio, prices, transactions, apiKeys, theme, formatPrice, getCurrencySymbol, exchangeRate, currentValue, totalInvested, totalProfit, totalProfitPercent }) {
+function PortfolioHistoryChart({ portfolio, prices, transactions, apiKeys, theme, formatPrice, getCurrencySymbol, exchangeRate, currentValue, totalInvested, totalProfit, totalProfitPercent, pathPoints }) {
   const [period, setPeriod]         = useState('1M');
   const [loading, setLoading]       = useState(false);
   const [error, setError]           = useState(null);
@@ -329,6 +329,14 @@ function PortfolioHistoryChart({ portfolio, prices, transactions, apiKeys, theme
 
   const buildChart = useCallback(async () => {
     if (positions.length === 0) return;
+    // Demo mode: the daily value path of the sample closes, no fetching.
+    if (Array.isArray(pathPoints) && pathPoints.length > 1) {
+      const days = currentPeriod.cgDays === 'max' ? Infinity : Math.max(2, currentPeriod.cgDays);
+      const from = days === Infinity ? '' : new Date(Date.now() - days * 86400000).toISOString().slice(0, 10);
+      setHoveredIdx(null); setError(null); setLoading(false);
+      setChartData(pathPoints.filter(pt => pt.d >= from && pt.v > 0).map(pt => ({ ts: Math.floor(Date.parse(pt.d + 'T00:00:00Z') / 1000), value: pt.v, date: pt.d })));
+      return;
+    }
     setChartData([]);   // Clear immediately — no stale data shown during load
     setHoveredIdx(null);
     setLoading(true);
@@ -537,7 +545,7 @@ function PortfolioHistoryChart({ portfolio, prices, transactions, apiKeys, theme
     } finally {
       setLoading(false);
     }
-  }, [positions, period, workerUrl, usdToEur, prices, currentPeriod]);
+  }, [positions, period, workerUrl, usdToEur, prices, currentPeriod, pathPoints]);
 
   useEffect(() => { buildChart(); }, [buildChart]);
 
@@ -820,7 +828,7 @@ function PortfolioHistoryChart({ portfolio, prices, transactions, apiKeys, theme
         hasWorker ? __('chAuto', 'Chart loads automatically — select a period above')
           : React.createElement('span', null,
               __('chAddA', 'Add a') + ' ', React.createElement('strong', null, 'Cloudflare Worker URL'),
-              ' ' + __('chInSettings', 'in Settings for stocks & CS2. Crypto loads automatically.')
+              ' ' + __('chInSettings', 'in Settings to load prices and history (stocks, crypto, CS2).')
             )
       ),
 

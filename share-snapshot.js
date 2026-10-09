@@ -352,7 +352,7 @@ function __(k, f, v) { return (typeof window !== 'undefined' && window.MaerminI1
           : e('div', { style: { color: dim, fontSize: '0.78rem', marginTop: '0.5rem' } }, __('shNoAgg', 'No shared snapshots in the aggregate yet.'))) : null),
 
       e('div', { style: { color: dim, fontSize: '0.7rem', lineHeight: 1.5 } },
-        __('shPrivacy', 'Privacy: snapshots are validated against a hard allowlist on this device AND on the Worker before storage - only percentages and scores can travel. Published snapshots carry a random id, no account, no IP-derived data, and expire after 90 days.')));
+        __('shPrivacy', 'Privacy: snapshots are validated against a hard allowlist on this device AND on the Worker before storage - only percentages and scores can travel. Published snapshots carry a random id, no account and no IP, and expire after 90 days. To limit abuse the Worker counts publishes per IP address for one day.')));
   }
 
   var api = {

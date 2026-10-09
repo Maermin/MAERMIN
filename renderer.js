@@ -780,7 +780,9 @@ function InvestmentTracker() {
   // MaerminValuePath turns them + the transactions into the daily value path.
   // Best effort: without a Worker / offline the views fall back to the recorded
   // snapshots and the refresh history as before. Never runs in demo mode.
-  const [closeHistory, setCloseHistory] = useState(() => (demoMode || !window.MaerminCloseHistory) ? null : window.MaerminCloseHistory.load());
+  // Demo mode: the sample series of MaerminDemo, in memory only (never saved).
+  const demoCloses = () => (window.MaerminDemo && window.MaerminDemo.closeHistory) ? window.MaerminDemo.closeHistory(window.MaerminUtils.todayISO()) : null;
+  const [closeHistory, setCloseHistory] = useState(() => !window.MaerminCloseHistory ? null : demoMode ? demoCloses() : window.MaerminCloseHistory.load());
   const closeStoreRef = useRef(closeHistory);
   const closeSyncRef = useRef({ sig: '', at: 0, busy: false, failed: 0, pending: 0, rounds: 0, timer: null });
   useEffect(() => () => { if (closeSyncRef.current.timer) clearTimeout(closeSyncRef.current.timer); }, []);
@@ -840,7 +842,7 @@ function InvestmentTracker() {
   const closeSeriesEUR = useMemo(() => {
     const CH = window.MaerminCloseHistory, FXH = window.MaerminFxHistory;
     const out = {};
-    if (!CH || !closeHistory || demoMode) return out;
+    if (!CH || !closeHistory) return out;
     Object.keys(closeHistory.series).forEach((k) => {
       const e = closeHistory.series[k];
       const closes = [];
@@ -864,7 +866,7 @@ function InvestmentTracker() {
   // the recorded splits only, exactly like the positions list.
   const valuePath = useMemo(() => {
     const VP = window.MaerminValuePath, CH = window.MaerminCloseHistory;
-    if (!VP || !CH || demoMode || !Object.keys(closeSeriesEUR).length) return null;
+    if (!VP || !CH || !Object.keys(closeSeriesEUR).length) return null;
     try {
       const live = {};
       Object.keys(closeSeriesEUR).forEach((k) => {
@@ -1833,6 +1835,7 @@ function InvestmentTracker() {
     setPrices(window.MaerminDemo.getPrices());
     setExchangeRate(window.MaerminDemo.SETTINGS.exchangeRate);
     setLastRefresh(new Date());
+    { const dc = demoCloses(); closeStoreRef.current = null; setCloseHistory(dc); }
     addToast(__('demoOn', 'Demo mode on — exploring sample data'), 'info');
   };
   const exitDemo = () => {
@@ -1841,6 +1844,7 @@ function InvestmentTracker() {
     const saved = localStorage.getItem('transactions');
     setTransactions(window.MaerminUtils.safeParse(saved, []) || []);
     setPrices({});
+    { const real = window.MaerminCloseHistory ? window.MaerminCloseHistory.load() : null; closeStoreRef.current = real; setCloseHistory(real); }
     addToast(__('demoOff', 'Demo mode off — your data restored'), 'success');
   };
 
@@ -3576,6 +3580,8 @@ function InvestmentTracker() {
           totalInvested:      stats.totalInvested,
           totalProfit:        stats.totalProfit,
           totalProfitPercent: stats.totalProfitPercent,
+          // demo: drawn from the sample daily closes instead of fetched
+          pathPoints:         demoMode && valuePath ? valuePath.points : null,
           theme: currentTheme, formatPrice, getCurrencySymbol
         })
       ),
@@ -3999,7 +4005,7 @@ function InvestmentTracker() {
         React.createElement('div', null),
 
       // CS2 banner
-      portfolio.skins && portfolio.skins.length > 0 && !(apiKeys.cs2Worker||'').trim() &&
+      !demoMode && portfolio.skins && portfolio.skins.length > 0 && !(apiKeys.cs2Worker||'').trim() &&
         React.createElement('div', { style: { background: 'rgba(245,158,11,0.06)', border: '1px solid rgba(245,158,11,0.25)', borderRadius: '10px', padding: '0.875rem 1.25rem', marginBottom: '1.25rem', display: 'flex', alignItems: 'center', gap: '1rem', flexWrap: 'wrap' } },
           React.createElement('span', { style: { fontSize: '1.25rem' } }, '!'),
           React.createElement('div', { style: { flex: 1, minWidth: '200px' } },
