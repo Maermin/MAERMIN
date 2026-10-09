@@ -2,7 +2,9 @@
 
 ## Unreleased
 
-_Nothing yet._
+- **A demo that works without setup (P4-9):** Demo mode now brings made-up daily prices, so the value chart, TWR, the monthly returns grid, risk figures, a closed position and the withholding-tax table all show something before you deploy a Worker. Nothing of it is stored; leaving the demo shows your own data.
+- **Privacy texts made exact (P4-9):** the README and Settings → Privacy now say precisely what leaves the device: the symbols you hold go to your own Worker, encryption at rest is on by default but optional (a few settings stay unencrypted), exchange API keys travel with each request through your Worker, React is loaded once and then served from the offline cache, and what the Worker caches and counts. The app also no longer claims that crypto prices load without a Worker.
+- **README:** screenshots and a comparison with Parqet, getquin, Portfolio Performance, Ghostfolio and Wealthfolio, each claim dated and linked.
 
 ## [v11.0.0] — 9 October 2026
 

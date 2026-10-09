@@ -230,7 +230,7 @@ function __(k, f, v) { return (typeof window !== 'undefined' && window.MaerminI1
     if (step === 'intro') {
       body = h('div', null,
         h('p', { style: { color: dim, fontSize: '0.9rem', lineHeight: '1.6', marginBottom: '1.25rem' } },
-          __('obIntro', 'MAERMIN runs entirely in your browser. A free Cloudflare Worker unlocks live stock, ETF and CS2 prices. Set it up now, or explore with demo data first.')),
+          __('obIntro', 'MAERMIN runs in your browser; your data stays on this device unless you turn on sync. A free Cloudflare Worker of your own loads live prices (stocks, ETFs, crypto, CS2). Set it up now, or explore with demo data first.')),
         h('div', { style: { display: 'grid', gap: '0.75rem' } },
           choiceCard(h, '◆', __('obSetupWorker', 'Set up the Cloudflare Worker'), __('obSetupWorkerHint', 'Guided — ~2 minutes. Unlocks all live data.'), function () { setStep('deploy'); }, accent, text, dim, border, cardBg, true),
           choiceCard(h, '◇', __('obDemo', 'Explore Demo mode'), __('obDemoHint', 'Load a realistic example portfolio. Reset anytime.'), function () { if (props.onActivateDemo) props.onActivateDemo(); onClose(); }, accent, text, dim, border, cardBg, false),
