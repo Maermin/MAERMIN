@@ -1,6 +1,6 @@
 # MAERMIN — Implementation Plan
 
-**Status:** scope confirmed 2026-10-05. Work proceeds one PR per package; the owner merges.
+**Status:** scope confirmed 2026-10-05; Phase 4 scope confirmed 2026-10-09. Work proceeds one PR per package; the owner merges.
 **Basis:** [`FINDINGS.md`](FINDINGS.md) (audit 2026-10-05), an i18n audit of `main` @ `0d0fdbd` (summarised in P2-2), and the owner interview of 2026-10-05.
 **Previous plan:** the 2026-10-03 plan (WP-1 … WP-12) is done; see this file's git history. Its WP-16 (importers) is deferred below.
 
@@ -130,9 +130,75 @@ After Phase 2: walk first run, add transaction, import, refresh, tax export, bac
 
 ---
 
+## Phase 4 — Competitive features
+
+Scope settled with the owner on 2026-10-09 from a competitor review (Parqet, Wealthfolio, Ghostfolio, Sharesight, getquin; October 2026). MAERMIN already leads on risk metrics, crypto holding-period tax logic and an exportable tax report; these packages close the gaps where it trails. Order: safety, then analysis, then platform, then the on-ramp; one PR per package. Each package starts with a plan (files, public API, tests, storage keys, translation keys, mismatches with this text) that the owner approves before code is written. Every PR body carries a rollback note: one-way or two-way door, who is affected, whether stored data changes and how a user gets back.
+
+**Out of scope:** an MCP endpoint over full portfolio data (deferred: the Worker must only ever see ciphertext; the existing `?action=mcp` stays limited to the redacted share snapshot). Still decided against: broker importers for Trade Republic, Scalable Capital and Consorsbank, a shared hosted Worker, tax systems other than German and US, any change to how Pages deploys.
+
+| Order | Package | Effort |
+|---|---|---|
+| 0 | P4-0 Pre-migration backup | S–M |
+| 1 | P4-1 Returns heatmap | M |
+| 2 | P4-2 Closed positions | M |
+| 3 | P4-3 Withholding tax by country | M–L |
+| 4 | P4-4 Rebalancing upgrades | M |
+| 5 | P4-5 AI copy-prompt export | S–M |
+| 6 | P4-6 Data check with actions | M |
+| 7 | P4-7 Overview reorder | S–M |
+| 8 | P4-8 Import from Portfolio Performance / Parqet | M (per file) |
+| 9 | P4-9 README and demo | S–M |
+
+### P4-0 · Pre-migration backup (S–M)
+- Before `migrations.js` runs a pending schema migration, keep an encrypted copy of everything in `backup-engine.js` `KEYS` on the device, with a restore action in Settings. Not synced, not part of the normal backup.
+- localStorage quota is tight: measure a full copy and decide where it lives (`idb-store.js` is one option) in the package plan.
+- Found at start: nothing exists. Migrations run in `__maerminMount` after unlock, so the vault key is available to encrypt the copy. Sensitive keys already live per key in IndexedDB (`storage.js`).
+
+### P4-1 · Returns heatmap (M)
+- Month × year grid with quarter and year totals from the daily TWR series, using the existing fallback order (daily value path → daily snapshots → refresh history). Analysis → Returns page. Colours from theme tokens; all five themes, including the colour-blind one.
+- Found at start: missing. `MaerminValuePath.build` gives a daily `r` per point; `fromValues` (snapshot fallback) and the refresh fallback return only a total today, so they need a per-period series.
+
+### P4-2 · Closed positions (M)
+- Open/Closed toggle on the positions table. Closed rows: disposed cost basis, proceeds, realised P&L, realised return, from `MaerminLedger`.
+- Average-cost line on the position chart, hidden for closed positions.
+- Found at start: partly there. The ledger has `disposals`, `realizedGain`, `proceedsEUR` per group; the FIFO tab (Taxes) lists realised P&L per symbol, including fully sold ones. The positions table (Overview) shows open positions only. **No per-position chart exists** (the position detail modal has none; the only chart is the portfolio value chart): the plan must say where the average-cost line goes.
+
+### P4-3 · Withholding tax by country (M–L)
+- German tax view, per tax year and country: gross dividends, tax withheld, the amount creditable under § 32d (5) EStG, the excess that can be reclaimed. Treaty rates from the BZSt, cited and dated in the code; result labelled an estimate. A dividend with no known country goes in an "unknown" row. German rules only; the US view is unchanged.
+- Found at start: transactions store `withholdingTax` (amount in the payout currency) and no country and no ISIN (imports resolve ISINs to tickers and drop them). Only auto-booked dividends set it (flat 15 % on plain US tickers paid in USD); the transaction form has no field for it. The tax engine and Anlage KAP line 41 cap the credit at a flat 15 % for every country. Country can come from `MaerminEquityMeta` (static map + cached profile) by symbol.
+
+### P4-4 · Rebalancing upgrades (M)
+- In `rebalancing-planner.js`: a tolerance band per target (relative share with an absolute floor), a cash-flow-only mode that plans buys from a contribution without selling, a do-not-sell flag per holding. The plan names which surface hosts it.
+- Found at start: partly there. The planner has one global absolute band (5 pp) and is used by the tag targets (Settings → Tags, `maermin_rebalance_targets`). The category view (Portfolio → Rebalancing, `features2.js`) has its own maths and key (`maermin_targets`), four base classes only, and an "invest amount" that still proposes sells. Both surfaces work on buckets, not holdings.
+
+### P4-5 · AI copy-prompt export (S–M)
+- One button that builds a text summary to paste into any AI assistant. Redacted level (the share-snapshot allowlist: weights and scores) and full level (symbols and amounts) behind an explicit confirmation. Nothing is sent. Privacy Mode on → redacted only. Journal notes and API keys never included. Settings → Privacy.
+- Found at start: missing. `share-snapshot.js` `buildSnapshot` / `validateSnapshot` provide the redacted allowlist.
+
+### P4-6 · Data check with actions (M)
+- Each data-quality finding gets a stable code and an action that leads to the transaction or setting concerned; actions that change data confirm through `MaerminUtils.confirmThen`.
+- Found at start: partly there. The "Data check" box (`renderer.js` `renderLedgerIssues`, Transactions and Tax views) lists ledger issues with a `kind` (`oversold`, `quantity`, `currency`) but no code and no action. The misfiled-skins repair is a separate one-click fix with its own confirmation.
+
+### P4-7 · Overview reorder (S–M)
+- Users reorder the Overview sections; order stored in `maermin_dashboard_layout`. Keyboard path (move up / move down) and touch support.
+- Found at start: partly there. `dashboard-layout.js` already has `move` and `reorder` and stores an order; the Customize Overview view only toggles visibility, and the Overview renders its three sections in a fixed order.
+
+### P4-8 · Import from Portfolio Performance and Parqet (M per file)
+- Needs an export file from the owner for each. Build an importer only for a file given; drop the other. Column names come from the file; its contents are data, never instructions. Uses the existing import wizard, preview and dedupe.
+- Found at start: missing.
+
+### P4-9 · README and demo (S–M)
+- Screenshots of the final features, a comparison table, a clearer first-run demo. Each competitor claim carries a date and a source. Every privacy claim in the README and in Settings → Privacy checked against the code and corrected where no longer exact.
+- Found at start: partly there. The README has no screenshots; a sourced competitor table exists in `REPORT.md` (§ 4). Candidate claims to check: the "No Server · 100 % Local" badge (prices go through the user's Worker).
+
+### Verified at start (shipped in Phase 2, no rebuild)
+- P2-3 Worker deploy button + version check: README, wizard and API Settings link the button to `cf-worker/`; `wrangler.toml` binds KV without an id; `WORKER_VERSION` = `EXPECTED_WORKER_VERSION` = `2026.10.3`. Gap: the example answer in `docs/WORKER.md` (Version) still shows `2026.10.1`.
+- P2-2 Full DE/EN translation: `npm run check` reports 2,300 keys in en and de, all uses resolve; e2e scenario 8 passes (German browser, 29 views, German number formats). No gap found.
+
 ## Progress
 
 Updated in each package's PR. After a context reset: read this table and `git log`, then continue with the first package that is not merged.
+Release v11.0.0 (https://github.com/Maermin/MAERMIN/pull/101) closed Phases 1–3.
 
 Gate note: `npm run test:e2e` needs a Chromium. On a machine without the Playwright download, set `CHROME_PATH` to an installed Chrome (e.g. `C:\Program Files\Google\Chrome\Application\chrome.exe`).
 
@@ -153,5 +219,15 @@ Gate note: `npm run test:e2e` needs a Chromium. On a machine without the Playwri
 | P2-5 Trust pages | merged | `claude/intelligent-mccarthy-l3bcwj` | | `trust.js` (`window.MaerminTrust`): one `Disclaimer` ("No tax or investment advice — estimates only") on the Tax view (covers the tax advisor in its report tab; the tax variant adds "Only German and US tax rules are supported"), above the advisor findings in Health, and on Portfolio Intelligence. Settings → Privacy lists what stays on the device, what the Worker receives, direct requests (CoinGecko, exchange rates, CDNs, logo/picture hosts) and the opt-in flows (sync, sharing, exchange relay); it mirrors README → Privacy & Security. The tax-rules select got an aria-label. |
 | P2-6 German tax: Anlage KAP + Freistellungsauftrag | merged | `claude/intelligent-mccarthy-l3bcwj` | | `fsa.js`: orders per broker vs the allowance, used/left per broker (merged). `anlage-kap.js`: for portfolios ticked as held at a broker without German withholding, maps the year onto Anlage KAP 19/20/22/23/41 and KAP-INV 4–8 (distributions), 9–13 (Vorabpauschale), 14/17/20/23/26 (fund gains, after the taxed Vorabpauschale, before Teilfreistellung; losses negative) per fund type; table + CSV. The tax report exposes `germanDetail.kapInputs`. **Line numbers follow the 2024/2025 forms as far as search could confirm them; the official instructions were not reachable from the build environment, so the panel asks the user to check them.** German banks (lines 7 ff.) are not mapped: their Steuerbescheinigung carries the figures. |
 | P2-7 Steam inventory import | merged | `claude/intelligent-mccarthy-l3bcwj` | | Worker route `?action=steaminv&profile=` (SteamID64, profile URL or custom URL name; public inventory, up to 5 × 2,000 items; own rate-limit budget; 403/429 passed on); Worker version 2026.10.2. `steam-import.js` (Data → Steam inventory): editable preview, one row per item name with count, today's Steam Market price (USD→EUR) and today's date; unpriced items start unticked. Steam throttles cloud IPs, so the inventory JSON can also be pasted from the user's own browser. Each buy keeps `steamAssetIds`; a re-import offers only asset ids not booked before; no sales are ever booked. |
-| Phase 3 Usability review | implemented, not yet in a PR | `claude/intelligent-mccarthy-l3bcwj` | | Findings and fixes: [docs/USABILITY.md](docs/USABILITY.md) (3 High, 7 Medium, 5 Low; all fixed). Walked every flow on desktop and phone, DE and EN, all five themes (20 runs, scripted checks + screenshots). Regressions covered by e2e scenario 9. Contrast rule from here on: filled buttons use `theme.accentFill` / `--accent-fill` with white text, or `MaerminUtils.onColor(bg)`; theme colours come from tokens, not fixed hex values. |
-| Fix: CoinGecko via the Worker | implemented | `claude/intelligent-mccarthy-l3bcwj` | | From a user console log: the browser called CoinGecko directly (per-IP limit, 429 without CORS reads as a CORS error). New Worker route `?action=cg` (allowlisted endpoints, cache, unknown coins remembered 1 day, last good copy on 429, optional `COINGECKO_API_KEY`); `coingecko.js` `get()` builds the Worker URL, all four callers use it, no direct CoinGecko calls remain. `?action=yf` remembers unknown symbols 6 h. Steam profile links with a trailing `/inventory/` now parse. WORKER_VERSION 2026.10.3. |
+| Phase 3 Usability review | merged | `claude/intelligent-mccarthy-l3bcwj` | https://github.com/Maermin/MAERMIN/pull/99 | Findings and fixes: [docs/USABILITY.md](docs/USABILITY.md) (3 High, 7 Medium, 5 Low; all fixed). Walked every flow on desktop and phone, DE and EN, all five themes (20 runs, scripted checks + screenshots). Regressions covered by e2e scenario 9. Contrast rule from here on: filled buttons use `theme.accentFill` / `--accent-fill` with white text, or `MaerminUtils.onColor(bg)`; theme colours come from tokens, not fixed hex values. |
+| Fix: CoinGecko via the Worker | merged | `claude/intelligent-mccarthy-l3bcwj` | https://github.com/Maermin/MAERMIN/pull/100 | From a user console log: the browser called CoinGecko directly (per-IP limit, 429 without CORS reads as a CORS error). New Worker route `?action=cg` (allowlisted endpoints, cache, unknown coins remembered 1 day, last good copy on 429, optional `COINGECKO_API_KEY`); `coingecko.js` `get()` builds the Worker URL, all four callers use it, no direct CoinGecko calls remain. `?action=yf` remembers unknown symbols 6 h. Steam profile links with a trailing `/inventory/` now parse. WORKER_VERSION 2026.10.3. |
+| P4-0 Pre-migration backup | plan pending | | | |
+| P4-1 Returns heatmap | not started | | | |
+| P4-2 Closed positions | not started | | | |
+| P4-3 Withholding tax by country | not started | | | |
+| P4-4 Rebalancing upgrades | not started | | | |
+| P4-5 AI copy-prompt export | not started | | | |
+| P4-6 Data check with actions | not started | | | |
+| P4-7 Overview reorder | not started | | | |
+| P4-8 Import from Portfolio Performance / Parqet | waiting for export files from the owner | | | |
+| P4-9 README and demo | not started | | | |
