@@ -2,6 +2,7 @@
 
 ## Unreleased
 
+- **Closed positions (P4-2):** the Overview positions table has an Open / Closed switch. Closed lists every fully sold position with the cost basis sold, the proceeds, the realized P&L and the realized return, from the same FIFO ledger as the tax report. The position dialog shows the daily price since the first buy with a dashed average-cost line (open positions only), and realized figures for a closed position. On phones the positions table now scrolls inside its card instead of being cut off.
 - **Monthly returns (P4-1):** Analysis → Returns shows a month × year grid of time-weighted returns with quarter and year totals, from the same data as the TWR card (daily closes, else the daily snapshots, else your price refreshes). Quarters and years are compounded, so all months together give the TWR above. Every cell prints its figure; colours follow the theme, including the colour-blind one.
 - **Copy before a data update (P4-0):** before the app updates the format of your saved data, it keeps an encrypted copy of it on this device. Settings → Trash shows it and can put it back or delete it. It is not synced and not part of a backup; the next update replaces it. If no copy can be saved (for example, the browser blocks IndexedDB or its storage is full), the update waits and the app says so.
 

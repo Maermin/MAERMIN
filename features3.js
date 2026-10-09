@@ -169,7 +169,7 @@ function CorporateActionsPanel({ category, symbol, theme, t = {}, workerUrl }) {
   );
 }
 
-function PositionDetailModal({ position, transactions, prices, theme, formatPrice, getCurrencySymbol, onClose, t = {}, workerUrl }) {
+function PositionDetailModal({ position, transactions, prices, theme, formatPrice, getCurrencySymbol, onClose, t = {}, workerUrl, closeSeries }) {
   if (!position) return null;
 
   // Filter transactions for this position
@@ -275,11 +275,26 @@ function PositionDetailModal({ position, transactions, prices, theme, formatPric
         }, '×')
       ),
 
+      // P4-2: daily price since the first buy, with the average cost for an open position
+      window.MaerminPositionChart && React.createElement(window.MaerminPositionChart.View, {
+        series: closeSeries, avgCost: position.avgPrice, closed: !!position.closed || !(position.amount > 0), firstDate: metrics.firstBuyDate,
+        theme, formatPrice, getCurrencySymbol }),
+
       // Key metrics grid
       React.createElement('div', {
         style: { display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1px', background: theme.modalBorder, borderBottom: `1px solid ${theme.modalBorder}` }
       },
-        [
+        (position.closedRow ? [
+          // P4-2: a fully sold position - realised figures from the FIFO ledger
+          { label: __('colRealizedPnl', 'Realized P&L'), value: `${position.closedRow.gain >= 0 ? '+' : ''}${formatPrice(position.closedRow.gain)} ${getCurrencySymbol()}`,
+            color: position.closedRow.gain >= 0 ? theme.success : theme.danger, big: true },
+          { label: __('pdRealizedReturn', 'Realized return'), value: position.closedRow.ret === null ? '—' : window.MaerminI18n.pct(position.closedRow.ret * 100, 2, true),
+            color: position.closedRow.ret === null ? theme.textSecondary : (position.closedRow.ret >= 0 ? theme.success : theme.danger), big: true },
+          { label: __('colDisposedCost', 'Cost basis sold'), value: `${formatPrice(position.closedRow.cost)} ${getCurrencySymbol()}` },
+          { label: __('colProceeds', 'Proceeds'), value: `${formatPrice(position.closedRow.proceeds)} ${getCurrencySymbol()}` },
+          { label: __('pdHeld', 'Held'), value: window.MaerminI18n.date(position.closedRow.opened) + ' – ' + window.MaerminI18n.date(position.closedRow.closed) },
+          { label: __('feeTotalPaid', 'Total Fees Paid'),  value: `${formatPrice(metrics.totalFees)} ${getCurrencySymbol()}` },
+        ] : [
           { label: __('retCurrentValue', 'Current Value'),    value: `${formatPrice(metrics.currentValue)} ${getCurrencySymbol()}`, big: true },
           { label: __('pdUnrealized', 'Unrealized P&L'),   value: `${metrics.unrealizedPL >= 0 ? '+' : ''}${formatPrice(metrics.unrealizedPL)} ${getCurrencySymbol()}`,
             color: metrics.unrealizedPL >= 0 ? theme.success : theme.danger, big: true },
@@ -291,7 +306,7 @@ function PositionDetailModal({ position, transactions, prices, theme, formatPric
             color: metrics.cagr !== null ? (metrics.cagr >= 0 ? theme.success : theme.danger) : theme.textSecondary },
           { label: __('totalInvested', 'Total Invested'),   value: `${formatPrice(metrics.totalInvested)} ${getCurrencySymbol()}` },
           { label: __('feeTotalPaid', 'Total Fees Paid'),  value: `${formatPrice(metrics.totalFees)} ${getCurrencySymbol()}` },
-        ].map((m, i) =>
+        ]).map((m, i) =>
           React.createElement('div', {
             key: i,
             style: { background: theme.modalBg, padding: '0.875rem 1.25rem' }

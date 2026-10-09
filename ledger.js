@@ -21,6 +21,7 @@
 //   • holding:    long-term = held MORE than one year (§ 23 EStG; anniversary
 //                 sale is still short-term, 29 Feb → 28 Feb)
 //
+//   closedPositions(build)  fully sold positions with cost, proceeds, realised P&L
 //   build(transactions, { exchangeRate, fxAt, applyCorporateActions = true })
 //     → { groups: { key: Group }, list: Group[], issues: Issue[] }
 //   Group = { key, category, symbol, symbolName, symbolLogoUrl,
@@ -204,8 +205,37 @@
       { usdRates: opts.usdRates, currencyIssues: [], seen: {} });
   }
 
+  // Fully sold positions of a build (P4-2: "Closed" in the positions table).
+  // A group is closed when nothing is left open and at least one sale was
+  // matched against bought lots. Figures are the sums over its disposals:
+  //   cost      disposed cost basis (buy price + buy fees, EUR at each date)
+  //   proceeds  sale proceeds net of sell fees (EUR at each date)
+  //   gain      realised P&L = proceeds − cost
+  //   ret       realised return = gain / cost (null without cost)
+  //   opened / closed   first buy date of a sold lot / last sale date
+  // Options are left out (they are not positions). Newest close first.
+  function closedPositions(built, opts) {
+    opts = opts || {};
+    var eps = opts.eps > 0 ? opts.eps : 1e-9;
+    var out = [];
+    ((built && built.list) || []).forEach(function (g) {
+      if (!g || g.category === 'options' || g.openQty > eps || !(g.disposals && g.disposals.length)) return;
+      var cost = 0, proceeds = 0, qty = 0, opened = '', closed = '';
+      g.disposals.forEach(function (d) {
+        cost += d.costBasis; proceeds += d.proceeds; qty += d.qty;
+        if (!opened || d.acquisitionDate < opened) opened = d.acquisitionDate;
+        if (!closed || d.disposalDate > closed) closed = d.disposalDate;
+      });
+      out.push({ key: g.key, category: g.category, symbol: g.symbol, symbolName: g.symbolName || '', qty: qty,
+        cost: cost, proceeds: proceeds, gain: proceeds - cost, ret: cost > 0 ? (proceeds - cost) / cost : null,
+        opened: opened, closed: closed, oversold: g.oversold || 0 });
+    });
+    return out.sort(function (a, b) { return a.closed < b.closed ? 1 : a.closed > b.closed ? -1 : 0; });
+  }
+
   var api = {
     build: build,
+    closedPositions: closedPositions,
     group: group,
     keyOf: keyOf,
     oneYearAnniversary: oneYearAnniversary,
