@@ -320,6 +320,11 @@ they add no `SENSITIVE_KEYS` and need no migration.
   `MaerminTags.aggregate(...).rows` for the tag basis) — and returns per-bucket drift (in
   percentage points) plus the concrete buy(+)/sell(−) delta to reach target within a tolerance
   band, with a turnover/`balanced` summary. Node-tested in `test/rebalancing-planner.test.js`.
+  P4-4: a band per target (`defaultBand` / `bands`: `{ rel, abs }` → max(rel × target, abs)), an
+  invest-only mode (`mode: 'cashflow'`, `contribution`; never sells) and a `sellable` value per
+  row (holdings marked "never sell" left out; blocked sales are reported). Portfolio →
+  Rebalancing runs on it, with its settings in `maermin_rebalance_prefs` (encrypted, in the
+  backup); tested in `test/rebalancing-upgrades.test.js`.
 
 ---
 

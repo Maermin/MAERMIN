@@ -47,6 +47,7 @@
     'maermin_dashboard_layout',
     // v10.x roadmap stores (see rebalancing-planner.js / rules-engine.js / custom-categories.js)
     'maermin_rebalance_targets',
+    'maermin_rebalance_prefs',   // Rebalancing view: mode, tolerance bands, never-sell holdings (P4-4)
     'maermin_rules',
     'maermin_custom_categories',
     'maermin_div_autobook',

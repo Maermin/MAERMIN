@@ -600,6 +600,29 @@ async function runBuild(browser, label, dir) {
       ok('Steam import: pasted inventory -> one buy of 2 × AK-47 at 12.50 € with both asset ids', !!booked && booked.length === 1 && booked[0].quantity === 2 && booked[0].price === 12.5 && booked[0].category === 'skins' && booked[0].steamAssetIds.join() === 's1,s2', JSON.stringify(booked));
       ok('Steam import: a re-import offers only the item not imported before', /^1 new item \(1 name\)/.test(again) && (await panel.locator('tr[data-steam-item]').count()) === 1, again);
     }
+    // P4-4: Rebalancing - never-sell holding, then invest only
+    {
+      await openView(page, 'rebalancing');
+      await page.waitForTimeout(400);
+      let crypto = null, blocked = '', after = null, summary = '';
+      try {
+        await page.locator('[data-testid="rb-nosell"] summary').click();
+        await page.locator('input[data-nosell="ETH"]').check();
+        await page.waitForTimeout(300);
+        crypto = await page.locator('tr[data-rb-row="crypto"]').getAttribute('data-action');
+        blocked = await page.locator('[data-testid="rb-summary"]').innerText();
+        await page.locator('[data-rb-mode="cashflow"]').click();
+        await page.locator('#rb-invest').fill('1000');
+        await page.waitForTimeout(300);
+        after = await page.locator('tr[data-rb-row]').evaluateAll((rs) => rs.map((r) => r.getAttribute('data-action')));
+        summary = await page.locator('[data-testid="rb-summary"]').innerText();
+      } catch (e) { summary = 'ERR ' + e.message.split('\n')[0]; }
+      ok('P4-4: ETH marked "never sell" - crypto is held and the plan names what cannot be sold', crypto === 'hold' && /cannot be sold \(never-sell holdings\)/.test(blocked), crypto + ' | ' + blocked);
+      ok('P4-4: invest only - 1,000 planned as buys, nothing sold', !!after && !after.includes('sell') && /^Buy 1,000\.00/.test(summary), JSON.stringify(after) + ' | ' + summary);
+      const saved = await page.evaluate(() => JSON.parse(localStorage.getItem('maermin_rebalance_prefs') || '{}'));
+      const raw = await page.evaluate(RAW + '.get("maermin_rebalance_prefs")');
+      ok('P4-4: mode and never-sell list are saved, encrypted', saved.mode === 'cashflow' && (saved.noSell || []).join() === 'ETH' && raw === null, JSON.stringify(saved) + ' raw=' + raw);
+    }
     ok('no page errors in the session', errors.length === 0, errors.join(' | '));
     await context.close();
   }

@@ -223,106 +223,194 @@ function ReturnsView({ transactions, portfolio, prices, priceHistory, theme, for
 // ─────────────────────────────────────────────────────────────────────────────
 const DEFAULT_TARGETS = { crypto: 35, stocks: 45, skins: 10, commodities: 10 };
 
+// P4-4: the asset-class rebalancing runs on MaerminRebalance.plan(): a
+// tolerance band per target (share of the target with a floor in percentage
+// points), an "invest only" mode that plans buys from new money without
+// selling, and holdings marked "never sell". Targets stay in maermin_targets;
+// mode, bands and the never-sell list in maermin_rebalance_prefs.
 function RebalancingView({ portfolio, prices, theme, formatPrice, getCurrencySymbol, t, setActiveView }) {
+  const RB = window.MaerminRebalance;
+  const CATS = ['crypto', 'stocks', 'skins', 'commodities'];
   const [targets, setTargets] = useState(() => {
     try { return JSON.parse(localStorage.getItem('maermin_targets') || JSON.stringify(DEFAULT_TARGETS)); }
     catch { return DEFAULT_TARGETS; }
   });
   const [investAmount, setInvestAmount] = useState('');
+  const [prefs, setPrefsState] = useState(() => RB.loadPrefs());
+  const setPrefs = (next) => { const n = RB.normalizePrefs(next); RB.savePrefs(n); setPrefsState(n); };
 
   useEffect(() => {
     localStorage.setItem('maermin_targets', JSON.stringify(targets));
   }, [targets]);
 
   const totalTarget = Object.values(targets).reduce((s, v) => s + v, 0);
+  const I = window.MaerminI18n;
+  const money = (v) => `${formatPrice(v)} ${getCurrencySymbol()}`;
 
-  const positions = useMemo(() => {
-    const result = {};
-    ['crypto','stocks','skins','commodities'].forEach(cat => {
-      let value = 0;
+  // Holdings per asset class (value at today's price), for the bucket values
+  // and the never-sell list.
+  const holdings = useMemo(() => {
+    const out = [];
+    CATS.forEach(cat => {
       (portfolio[cat] || []).forEach(pos => {
-        const sym = (pos.symbol||pos.name||'').toLowerCase();
-        const p = prices[sym] || prices[pos.symbol||''] || pos.purchasePrice || 0;
-        value += (pos.amount||1) * p;
+        const sym = String(pos.symbol || pos.name || '');
+        const p = prices[sym.toLowerCase()] || prices[sym] || pos.purchasePrice || 0;
+        const value = (pos.amount || 1) * p;
+        if (value > 0) out.push({ cat, symbol: sym, name: pos.symbolName || sym, value });
       });
-      result[cat] = value;
     });
-    return result;
+    return out.sort((a, b) => b.value - a.value);
   }, [portfolio, prices]);
 
-  const totalValue = Object.values(positions).reduce((s, v) => s + v, 0);
-  const invest = parseFloat(investAmount) || 0;
-  const grandTotal = totalValue + invest;
+  const totalValue = holdings.reduce((s, h) => s + h.value, 0);
+  const invest = Math.max(0, (window.MaerminUtils.parseDecimal ? window.MaerminUtils.parseDecimal(investAmount) : parseFloat(investAmount)) || 0);
+  const noSellSet = new Set(prefs.noSell);
+  const result = useMemo(() => {
+    const actual = CATS.map(cat => {
+      const hs = holdings.filter(h => h.cat === cat);
+      const value = hs.reduce((s, h) => s + h.value, 0);
+      const sellable = hs.filter(h => !noSellSet.has(h.symbol.toUpperCase())).reduce((s, h) => s + h.value, 0);
+      return { key: cat, value, sellable };
+    });
+    return RB.plan({ version: 1, basis: 'category', targets }, actual,
+      { mode: prefs.mode, contribution: invest, defaultBand: prefs.defaultBand, bands: prefs.bands });
+  }, [holdings, targets, prefs, invest]);
+  const rowOf = {}; result.rows.forEach(r => { rowOf[r.key] = r; });
 
   const catColors = { crypto: '#8b7cff', stocks: '#3b82f6', skins: '#06b6d4', commodities: '#fb7185' };
-  const catLabels = { crypto: window.MaerminI18n.category('crypto'), stocks: window.MaerminI18n.category('stocks'), skins: window.MaerminI18n.category('skins'), commodities: window.MaerminI18n.category('commodities') };
+  const catLabels = { crypto: I.category('crypto'), stocks: I.category('stocks'), skins: I.category('skins'), commodities: I.category('commodities') };
+  const card = { background: theme.card, borderRadius: '16px', border: `1px solid ${theme.cardBorder}`, boxShadow: theme.shadow, padding: '1.5rem', marginBottom: '1rem' };
+  const small = { color: theme.textSecondary, fontSize: '0.78rem' };
+  const inputStyle = { width: '4.5rem', padding: '0.35rem 0.5rem', background: theme.inputBg, border: `1px solid ${theme.inputBorder}`, borderRadius: '7px', color: theme.text, fontSize: '0.82rem', textAlign: 'right' };
 
-  const rows = ['crypto','stocks','skins','commodities'].map(cat => {
-    const current = positions[cat] || 0;
-    const currentPct = totalValue > 0 ? (current / totalValue) * 100 : 0;
-    const targetPct = targets[cat] || 0;
-    const targetValue = grandTotal * targetPct / 100;
-    const delta = targetValue - current;
-    return { cat, current, currentPct, targetPct, targetValue, delta };
-  });
+  // A number field that commits on blur / Enter (typing "2," must not snap back).
+  const NumField = ({ value, onCommit, label, suffix, id }) => React.createElement('span', { style: { display: 'inline-flex', alignItems: 'center', gap: '0.3rem' } },
+    React.createElement('input', {
+      key: id + ':' + value, id, type: 'text', inputMode: 'decimal', defaultValue: I.num(value, { min: 0, max: 2 }), 'aria-label': label, style: inputStyle,
+      onBlur: (e) => { const v = window.MaerminUtils.parseDecimal(e.target.value); if (isFinite(v) && v >= 0) onCommit(v); else e.target.value = I.num(value, { min: 0, max: 2 }); },
+      onKeyDown: (e) => { if (e.key === 'Enter') e.target.blur(); }
+    }),
+    suffix && React.createElement('span', { style: small }, suffix));
+
+  const bandOf = (cat) => prefs.bands[cat] || prefs.defaultBand;
+  const setBand = (cat, patch) => {
+    const bands = { ...prefs.bands };
+    if (cat === null) { setPrefs({ ...prefs, defaultBand: { ...prefs.defaultBand, ...patch } }); return; }
+    bands[cat] = { ...bandOf(cat), ...patch };
+    setPrefs({ ...prefs, bands });
+  };
+  const resetBand = (cat) => { const bands = { ...prefs.bands }; delete bands[cat]; setPrefs({ ...prefs, bands }); };
+  const toggleNoSell = (sym) => {
+    const k = sym.toUpperCase();
+    setPrefs({ ...prefs, noSell: noSellSet.has(k) ? prefs.noSell.filter(x => x !== k) : prefs.noSell.concat(k) });
+  };
+  const modeBtn = (id, label) => React.createElement('button', {
+    type: 'button', 'aria-pressed': prefs.mode === id, 'data-rb-mode': id, onClick: () => setPrefs({ ...prefs, mode: id }),
+    style: { padding: '0.45rem 0.85rem', fontSize: '0.8rem', fontWeight: 600, borderRadius: '8px', cursor: 'pointer',
+      background: prefs.mode === id ? (theme.accentFill || theme.accent) : 'transparent', color: prefs.mode === id ? '#ffffff' : theme.text,
+      border: `1px solid ${prefs.mode === id ? 'transparent' : theme.cardBorder}` }
+  }, label);
+  const cashflow = prefs.mode === 'cashflow';
+
+  const actionLabel = (r) => {
+    if (r.action === 'buy') return `${__('rbBuy', '+ Buy')} ${money(r.deltaValue)}`;
+    if (r.action === 'sell') return `${__('rbSell', '− Sell')} ${money(-r.deltaValue)}`;
+    if (r.blockedSell > 0.005) return __('rbHoldBlocked', 'Hold (never-sell holdings)');
+    return Math.abs(r.driftPp) <= r.bandPp ? __('rbWithinBand', '✓ Within ±{pp} pp', { pp: I.num(r.bandPp, { min: 0, max: 1 }) }) : __('rbBalanced', '✓ Balanced');
+  };
 
   return React.createElement('div', { style: { padding: '1.5rem' } },
     React.createElement('div', { style: { display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '1rem', flexWrap: 'wrap', marginBottom: '1.5rem' } },
       React.createElement('h2', { style: { color: theme.text, fontSize: '1.5rem', fontWeight: '800', letterSpacing: '-0.02em', margin: 0 } }, (t.rebalancing || 'Rebalancing'))),
 
-    // v10.x: this view rebalances by ASSET CLASS. Tag-based target weights (e.g.
-    // "Income", "High-conviction") live in the Tags view — surface a link so the
-    // two rebalancing surfaces are discoverable from one another.
+    // This view rebalances by ASSET CLASS. Tag-based target weights live in the Tags view.
     (setActiveView && window.MaerminTags) ? React.createElement('button', {
       onClick: () => setActiveView('tags'),
       style: { display: 'inline-flex', alignItems: 'center', gap: '0.4rem', marginBottom: '1.25rem', padding: '0.5rem 0.85rem', background: 'transparent', color: theme.accent, border: `1px solid ${theme.accent}55`, borderRadius: '8px', cursor: 'pointer', fontSize: '0.8rem', fontWeight: '600' }
     }, '⛯ ', (t.rebalanceByTagHint || 'Rebalance by tag instead → Tags view')) : null,
 
-    // Target allocation sliders
-    React.createElement('div', {
-      style: { background: theme.card, borderRadius: '16px', border: `1px solid ${theme.cardBorder}`, boxShadow: theme.shadow, padding: '1.5rem', marginBottom: '1rem' }
-    },
-      React.createElement('div', { style: { display: 'flex', justifyContent: 'space-between', marginBottom: '1rem' } },
+    // Mode + new money
+    React.createElement('div', { style: card },
+      React.createElement('div', { role: 'group', 'aria-label': __('rbModeAria', 'How to rebalance'), style: { display: 'flex', gap: '0.5rem', flexWrap: 'wrap', marginBottom: '0.6rem' } },
+        modeBtn('full', __('rbModeFull', 'Buy and sell')), modeBtn('cashflow', __('rbModeCash', 'Invest only (no sales)'))),
+      React.createElement('p', { style: { ...small, margin: '0 0 0.9rem', lineHeight: 1.5 } }, cashflow
+        ? __('rbModeCashHint', 'New money goes to the classes furthest below target, in proportion to the gap. Nothing is sold.')
+        : __('rbModeFullHint', 'Classes outside their tolerance band go back to target: sales first, then buys from the sales and any new money.')),
+      React.createElement('label', { htmlFor: 'rb-invest', style: { ...small, display: 'block', marginBottom: '0.375rem' } },
+        cashflow ? __('rbInvestAmount', 'Amount to invest') : (t.additionalInvestment || 'Additional amount (optional)')),
+      React.createElement('input', {
+        id: 'rb-invest', type: 'text', inputMode: 'decimal', value: investAmount,
+        onChange: e => setInvestAmount(e.target.value),
+        placeholder: I.num(0, { min: 2, max: 2 }),
+        style: { width: '200px', padding: '0.5rem 0.75rem', background: theme.inputBg, border: `1px solid ${theme.inputBorder}`, borderRadius: '8px', color: theme.text, fontSize: '0.875rem' }
+      })
+    ),
+
+    // Target allocation + tolerance per target
+    React.createElement('div', { style: card },
+      React.createElement('div', { style: { display: 'flex', justifyContent: 'space-between', marginBottom: '0.75rem', gap: '0.5rem', flexWrap: 'wrap' } },
         React.createElement('span', { style: { color: theme.text, fontWeight: '700' } }, t.targetAllocation || 'Target Allocation'),
         React.createElement('span', {
           style: { fontSize: '0.8rem', color: totalTarget === 100 ? theme.success : theme.danger, fontWeight: '600' }
-        }, `${window.MaerminI18n.pct(totalTarget, 0)} ${totalTarget === 100 ? '✓' : '≠ ' + window.MaerminI18n.pct(100, 0)}`)
+        }, `${I.pct(totalTarget, 0)} ${totalTarget === 100 ? '✓' : '≠ ' + I.pct(100, 0)}`)
       ),
-      ['crypto','stocks','skins','commodities'].map(cat =>
-        React.createElement('div', { key: cat, style: { marginBottom: '1rem' } },
+      !cashflow && React.createElement('div', { 'data-testid': 'rb-default-band', style: { ...small, display: 'flex', alignItems: 'center', gap: '0.4rem', flexWrap: 'wrap', marginBottom: '1rem', lineHeight: 1.8 } },
+        __('rbBandDefault', 'Tolerance for every class:'),
+        NumField({ id: 'rb-band-rel', value: prefs.defaultBand.rel * 100, label: __('rbBandRelAria', 'Tolerance as a share of the target, in percent'), suffix: __('rbBandRelSuffix', '% of the target,'), onCommit: (v) => setBand(null, { rel: Math.min(v, 100) / 100 }) }),
+        __('rbBandAtLeast', 'at least'),
+        NumField({ id: 'rb-band-abs', value: prefs.defaultBand.abs, label: __('rbBandAbsAria', 'Minimum tolerance in percentage points'), suffix: __('rbBandAbsSuffix', 'pp'), onCommit: (v) => setBand(null, { abs: Math.min(v, 100) }) })),
+      CATS.map(cat => {
+        const r = rowOf[cat] || { bandPp: 0 };
+        const own = !!prefs.bands[cat];
+        return React.createElement('div', { key: cat, style: { marginBottom: '1rem' } },
           React.createElement('div', { style: { display: 'flex', justifyContent: 'space-between', marginBottom: '0.375rem' } },
-            React.createElement('span', { style: { color: catColors[cat], fontWeight: '600', fontSize: '0.875rem' } }, catLabels[cat]),
-            React.createElement('span', { style: { color: theme.text, fontWeight: '700' } }, window.MaerminI18n.pct(targets[cat], 0))
+            React.createElement('label', { htmlFor: 'rb-t-' + cat, style: { color: catColors[cat], fontWeight: '600', fontSize: '0.875rem' } }, catLabels[cat]),
+            React.createElement('span', { style: { color: theme.text, fontWeight: '700' } }, I.pct(targets[cat] || 0, 0))
           ),
           React.createElement('input', {
-            type: 'range', min: 0, max: 100, value: targets[cat],
+            id: 'rb-t-' + cat, type: 'range', min: 0, max: 100, value: targets[cat] || 0,
             onChange: e => setTargets(prev => ({ ...prev, [cat]: parseInt(e.target.value) })),
             style: { width: '100%', accentColor: catColors[cat] }
-          })
-        )
-      ),
+          }),
+          !cashflow && React.createElement('details', { 'data-rb-band': cat, open: own, style: { ...small, marginTop: '0.2rem' } },
+            React.createElement('summary', { style: { cursor: 'pointer', minHeight: '24px', display: 'list-item', paddingTop: '0.2rem' } },
+              __('rbBandRow', 'Tolerance ±{pp} pp', { pp: I.num(r.bandPp, { min: 0, max: 1 }) }) + (own ? ' · ' + __('rbBandOwn', 'own setting') : '')),
+            React.createElement('div', { style: { display: 'flex', alignItems: 'center', gap: '0.4rem', flexWrap: 'wrap', marginTop: '0.35rem', lineHeight: 1.8 } },
+              NumField({ id: 'rb-rel-' + cat, value: bandOf(cat).rel * 100, label: __('rbBandRelFor', 'Tolerance for {name} as a share of the target, in percent', { name: catLabels[cat] }), suffix: __('rbBandRelSuffix', '% of the target,'), onCommit: (v) => setBand(cat, { rel: Math.min(v, 100) / 100 }) }),
+              __('rbBandAtLeast', 'at least'),
+              NumField({ id: 'rb-abs-' + cat, value: bandOf(cat).abs, label: __('rbBandAbsFor', 'Minimum tolerance for {name} in percentage points', { name: catLabels[cat] }), suffix: __('rbBandAbsSuffix', 'pp'), onCommit: (v) => setBand(cat, { abs: Math.min(v, 100) }) }),
+              own && React.createElement('button', { type: 'button', onClick: () => resetBand(cat), style: { background: 'transparent', border: `1px solid ${theme.cardBorder}`, color: theme.textSecondary, borderRadius: '7px', padding: '0.2rem 0.55rem', cursor: 'pointer', fontSize: '0.75rem', minHeight: '24px' } }, __('rbBandUseDefault', 'Use the default'))))
+        );
+      })
+    ),
 
-      // Invest additional amount
-      React.createElement('div', { style: { marginTop: '1rem', paddingTop: '1rem', borderTop: `1px solid ${theme.cardBorder}` } },
-        React.createElement('label', { style: { color: theme.textSecondary, fontSize: '0.8rem', display: 'block', marginBottom: '0.375rem' } },
-          t.additionalInvestment || 'Additional amount (optional)'
-        ),
-        React.createElement('input', {
-          type: 'number', value: investAmount,
-          onChange: e => setInvestAmount(e.target.value),
-          placeholder: '0.00',
-          style: { width: '200px', padding: '0.5rem 0.75rem', background: theme.inputBg, border: `1px solid ${theme.inputBorder}`, borderRadius: '8px', color: theme.text, fontSize: '0.875rem' }
-        })
-      )
+    // Never sell
+    holdings.length > 0 && React.createElement('details', { 'data-testid': 'rb-nosell', style: { ...card, padding: '1rem 1.5rem' } },
+      React.createElement('summary', { style: { cursor: 'pointer', color: theme.text, fontWeight: 700, fontSize: '0.9rem', minHeight: '24px' } },
+        __('rbNoSellTitle', 'Holdings you never sell ({n})', { n: prefs.noSell.filter(s => holdings.some(h => h.symbol.toUpperCase() === s)).length })),
+      React.createElement('p', { style: { ...small, margin: '0.5rem 0 0.75rem', lineHeight: 1.5 } },
+        __('rbNoSellHint', 'A class can only be sold down with the holdings that are not marked here. What cannot be sold is shown in the plan.')),
+      React.createElement('div', { style: { display: 'flex', flexDirection: 'column', gap: '0.35rem' } },
+        holdings.map(h => React.createElement('label', { key: h.cat + '|' + h.symbol, style: { display: 'flex', alignItems: 'center', gap: '0.6rem', minHeight: '28px', color: theme.text, fontSize: '0.84rem', cursor: 'pointer' } },
+          React.createElement('input', { type: 'checkbox', checked: noSellSet.has(h.symbol.toUpperCase()), onChange: () => toggleNoSell(h.symbol), 'data-nosell': h.symbol, style: { width: '18px', height: '18px', accentColor: theme.accent } }),
+          React.createElement('span', { style: { flex: 1, minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis' } }, h.name, React.createElement('span', { style: { ...small, marginLeft: '0.4rem' } }, catLabels[h.cat])),
+          React.createElement('span', { style: small }, money(h.value)))))
     ),
 
     // Results table
     totalValue > 0 && React.createElement('div', {
-      style: { background: theme.card, borderRadius: '16px', border: `1px solid ${theme.cardBorder}`, boxShadow: theme.shadow, overflow: 'hidden' }
+      'data-testid': 'rb-plan', style: { background: theme.card, borderRadius: '16px', border: `1px solid ${theme.cardBorder}`, boxShadow: theme.shadow, overflow: 'hidden' }
     },
       React.createElement('div', { style: { padding: '1rem 1.25rem', borderBottom: `1px solid ${theme.cardBorder}` } },
-        React.createElement('span', { style: { color: theme.text, fontWeight: '700', fontSize: '0.9rem' } }, t.rebalancingPlan || 'Rebalancing Plan')
+        React.createElement('span', { style: { color: theme.text, fontWeight: '700', fontSize: '0.9rem' } }, t.rebalancingPlan || 'Rebalancing Plan'),
+        React.createElement('div', { 'data-testid': 'rb-summary', style: { ...small, marginTop: '0.3rem', lineHeight: 1.5 } },
+          [(result.summary.toBuy > 0.005 || result.summary.toSell > 0.005) ? __('rbSumBuy', 'Buy {amt}', { amt: money(result.summary.toBuy) }) : __('rbSumNothing', 'Nothing to buy or sell'),
+           !cashflow && result.summary.toSell > 0.005 && __('rbSumSell', 'sell {amt}', { amt: money(result.summary.toSell) }),
+           result.summary.cashLeft > 0.005 && __('rbSumCashLeft', '{amt} stays uninvested (every class is within its band)', { amt: money(result.summary.cashLeft) }),
+           result.summary.blocked > 0.005 && __('rbSumBlocked', '{amt} cannot be sold (never-sell holdings)', { amt: money(result.summary.blocked) })
+          ].filter(Boolean).join(' · '))
       ),
+      React.createElement('div', { role: 'region', tabIndex: 0, 'aria-label': t.rebalancingPlan || 'Rebalancing Plan', style: { overflowX: 'auto' } },
       React.createElement('table', { style: { width: '100%', borderCollapse: 'collapse' } },
         React.createElement('thead', null,
           React.createElement('tr', null,
@@ -335,33 +423,31 @@ function RebalancingView({ portfolio, prices, theme, formatPrice, getCurrencySym
           )
         ),
         React.createElement('tbody', null,
-          rows.map(row =>
-            React.createElement('tr', { key: row.cat },
-              React.createElement('td', { style: { padding: '1rem', fontWeight: '700', color: catColors[row.cat] } }, catLabels[row.cat]),
-              React.createElement('td', { style: { padding: '1rem', color: theme.text, textAlign: 'right' } }, `${formatPrice(row.current)} ${getCurrencySymbol()}`),
+          CATS.map(cat => {
+            const r = rowOf[cat];
+            if (!r) return null;
+            const tone = r.action === 'buy' ? theme.success : r.action === 'sell' ? theme.danger : (r.blockedSell > 0.005 ? theme.warning : theme.success);
+            return React.createElement('tr', { key: cat, 'data-rb-row': cat, 'data-action': r.action },
+              React.createElement('td', { style: { padding: '1rem', fontWeight: '700', color: catColors[cat] } }, catLabels[cat]),
+              React.createElement('td', { style: { padding: '1rem', color: theme.text, textAlign: 'right' } }, money(r.actualValue)),
               React.createElement('td', { style: { padding: '1rem', textAlign: 'right' } },
                 React.createElement('div', { style: { display: 'flex', alignItems: 'center', justifyContent: 'flex-end', gap: '0.5rem' } },
-                  React.createElement('div', { style: { width: 40, height: 4, background: 'rgba(255,255,255,0.08)', borderRadius: 2, overflow: 'hidden' } },
-                    React.createElement('div', { style: { height: '100%', width: `${Math.min(100,row.currentPct)}%`, background: catColors[row.cat], borderRadius: 2 } })
+                  React.createElement('div', { style: { width: 40, height: 4, background: theme.inputBg, borderRadius: 2, overflow: 'hidden' } },
+                    React.createElement('div', { style: { height: '100%', width: `${Math.min(100, r.actualPct)}%`, background: catColors[cat], borderRadius: 2 } })
                   ),
-                  React.createElement('span', { style: { color: theme.textSecondary, fontSize: '0.875rem', minWidth: '3rem', textAlign: 'right' } }, window.MaerminI18n.pct(row.currentPct, 1))
+                  React.createElement('span', { style: { color: theme.textSecondary, fontSize: '0.875rem', minWidth: '3rem', textAlign: 'right' } }, I.pct(r.actualPct, 1))
                 )
               ),
-              React.createElement('td', { style: { padding: '1rem', color: theme.text, textAlign: 'right', fontWeight: '600' } }, window.MaerminI18n.pct(row.targetPct, 0)),
-              React.createElement('td', { style: { padding: '1rem', color: theme.text, textAlign: 'right' } }, `${formatPrice(row.targetValue)} ${getCurrencySymbol()}`),
+              React.createElement('td', { style: { padding: '1rem', color: theme.text, textAlign: 'right', fontWeight: '600' } }, I.pct(r.targetPct, 0)),
+              React.createElement('td', { style: { padding: '1rem', color: theme.text, textAlign: 'right' } }, money(r.targetValue)),
               React.createElement('td', { style: { padding: '1rem', textAlign: 'right' } },
-                React.createElement('span', {
-                  style: {
-                    padding: '0.25rem 0.75rem', borderRadius: '6px', fontWeight: '700', fontSize: '0.8rem', whiteSpace: 'nowrap',
-                    background: Math.abs(row.delta) < 1 ? 'rgba(34,197,94,0.1)' : row.delta > 0 ? 'rgba(34,197,94,0.12)' : 'rgba(239,68,68,0.12)',
-                    color: Math.abs(row.delta) < 1 ? theme.success : row.delta > 0 ? theme.success : theme.danger
-                  }
-                }, Math.abs(row.delta) < 1 ? __('rbBalanced', '✓ Balanced') : `${row.delta > 0 ? __('rbBuy', '+ Buy') : __('rbSell', '− Sell')} ${formatPrice(Math.abs(row.delta))} ${getCurrencySymbol()}`)
-              )
-            )
-          )
+                React.createElement('span', { style: { padding: '0.25rem 0.75rem', borderRadius: '6px', fontWeight: '700', fontSize: '0.8rem', whiteSpace: 'nowrap', border: `1px solid ${tone}55`, color: tone } }, actionLabel(r)),
+                r.blockedSell > 0.005 && r.action !== 'hold' && React.createElement('div', { style: { ...small, marginTop: '0.25rem' } },
+                  __('rbBlockedRow', '{amt} not sold (never-sell holdings)', { amt: money(r.blockedSell) })))
+            );
+          })
         )
-      )
+      ))
     )
   );
 }
