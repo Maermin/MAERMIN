@@ -7,7 +7,7 @@
 Crypto · Stocks · ETFs · CS2 Skins · Commodities
 
 [![Live Demo](https://img.shields.io/badge/Live%20Demo-maermin.github.io-8b5cf6?style=for-the-badge&logo=github&logoColor=white)](https://maermin.github.io/MAERMIN/)
-[![Version](https://img.shields.io/badge/Version-10.0.0-3b82f6?style=for-the-badge)](#changelog)
+[![Version](https://img.shields.io/badge/Version-11.0.0-3b82f6?style=for-the-badge)](#changelog)
 [![License](https://img.shields.io/badge/License-MIT-22c55e?style=for-the-badge)](LICENSE)
 [![No Account](https://img.shields.io/badge/No%20Account-Required-f59e0b?style=for-the-badge)](#)
 [![No Server](https://img.shields.io/badge/No%20Server-100%25%20Local-22c55e?style=for-the-badge)](#)
@@ -219,7 +219,8 @@ See [RELEASE.md](RELEASE.md) for full release notes.
 
 | Version | Date | Highlights |
 |---------|------|------------|
-| **v10.0** | June 2026 | New dark-fintech UI · Portfolio Value Snapshots · Smart Tags · Custom Dashboard Layout · Portfolio Intelligence |
+| **v11.0** | Oct 2026 | One FIFO ledger · Value history from day one · Trade-date FX · Anlage KAP · Full German UI · Simple/Advanced mode · Trash & undo · Steam import |
+| v10.0 | June 2026 | New dark-fintech UI · Portfolio Value Snapshots · Smart Tags · Custom Dashboard Layout · Portfolio Intelligence |
 | v9.0 | March 2026 | Real historical chart · Symbol Picker · P&L calculation fix · Yahoo Finance primary |
 | v8.3 | Feb 2026 | CS2 skin picker · Historical chart v1 · Multi-portfolio |
 | v8.2 | Feb 2026 | Net worth · Fee analyzer · Performance periods |

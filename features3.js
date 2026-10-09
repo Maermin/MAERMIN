@@ -1,5 +1,5 @@
 // ============================================================================
-// MAERMIN v10.0 — Advanced Portfolio Features
+// MAERMIN v11.0 — Advanced Portfolio Features
 // 1. Position Detail Modal    — click any position for full breakdown
 // 2. CAGR per Position        — annualized return column in positions table
 // 3. CS2 Skin Picker / Symbol Picker
@@ -873,6 +873,6 @@ window.MaerminFeatures3 = {
   SymbolPicker,
 };
 
-console.log('[OK] MAERMIN Features3 v10.0 loaded — Position Detail, CAGR, CS2 Skin Picker, Symbol Picker');
+console.log('[OK] MAERMIN Features3 v11.0 loaded — Position Detail, CAGR, CS2 Skin Picker, Symbol Picker');
 
 })();

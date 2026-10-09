@@ -1,5 +1,5 @@
 // ============================================================================
-// MAERMIN v10.0 — Features 7: Performance Attribution, Realized P&L, News Feed
+// MAERMIN v11.0 — Features 7: Performance Attribution, Realized P&L, News Feed
 // ============================================================================
 (function () {
 'use strict';
@@ -354,6 +354,6 @@ function newsPartialText(req) {
 // EXPORTS
 // ─────────────────────────────────────────────────────────────────────────────
 window.MaerminFeatures7 = { PerformanceAttribution, RealizedUnrealizedView, NewsFeedView, newsEmptyText };
-console.log('[OK] MAERMIN Features7 v10.0 — Performance Attribution, Realized P&L, News Feed');
+console.log('[OK] MAERMIN Features7 v11.0 — Performance Attribution, Realized P&L, News Feed');
 
 })();

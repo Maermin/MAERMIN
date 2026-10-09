@@ -1,5 +1,5 @@
 // ============================================================================
-// MAERMIN v10.0 — Custom Dashboard Layout  (window.MaerminDashboard)
+// MAERMIN v11.0 — Custom Dashboard Layout  (window.MaerminDashboard)
 // ----------------------------------------------------------------------------
 // New in v10. Lets the user reorder and hide the cards on the Overview, so the
 // dashboard reflects what THEY care about (a trader pins P&L; a long-term saver

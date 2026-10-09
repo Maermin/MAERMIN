@@ -1,8 +1,37 @@
 # Release Notes
 
-## [Unreleased] — v10.x
+## [v11.0.0] — October 2026
 
-> UI fold-in of the v10 engines + accessibility themes + a code-review hardening pass. One automatic migration (schema v4, see below); backup format unchanged.
+> **Major release** · Stabilised for public use · One automatic migration (schema v4: year-less price timestamps are repaired) · Backup format unchanged (v10 backups restore) · **Re-deploy `cf-worker/worker.js`** (CoinGecko, share and broker routes changed)
+
+### Highlights
+
+- **One FIFO ledger** — positions, tax report, FIFO tab, realised P&L, tax advisor and yield-on-cost all read the same cost basis (fees, per-date FX, splits).
+- **Value history from day one** — TWR, benchmark, volatility and risk metrics built from daily closes, so they work right after an import.
+- **Trade-date FX** — CHF, GBP, JPY and other fiat trades are converted at the rate of the trade date.
+- **German tax** — Anlage KAP / KAP-INV lines for foreign brokers, Freistellungsaufträge per broker, Vorabpauschale and § 23 fixes.
+- **Full German UI** — every view, export and message translated, with locale number/date formats.
+- **Six areas + Simple/Advanced mode**, undo and a 30-day trash, advice disclaimers and a privacy page.
+- **Steam inventory import**, a Deploy-to-Cloudflare button with a Worker version check, and CoinGecko through the Worker.
+- **Smooth motion** — the overview idles at ~58 fps instead of ~5 fps.
+
+### Since 2026-10-04
+
+- **Crypto:** CoinGecko requests go through the Worker; unknown symbols are remembered and not requested again.
+- **Usability review (phase 3):** contrast, dialogs, view state kept across navigation, input fixes.
+- **Tax:** Anlage KAP / KAP-INV lines for foreign brokers; Freistellungsaufträge per broker.
+- **Import:** Steam inventory import (CS2 items) via the Worker.
+- **Trust:** advice disclaimers and a privacy page.
+- **Trash:** undo and a 30-day trash for deleted records.
+- **Worker:** Deploy to Cloudflare button and a version check in the app; hardened share route.
+- **i18n:** German translation of the whole app, locale formatter module and a translation guard in CI.
+- **Navigation:** six areas and a Simple/Advanced mode; deletes are confirmed, auto-refresh is quiet.
+- **Fixes:** no duplicate exchange trades/dividends/interest; deleting a portfolio moves its rows to the Main Portfolio; password change keeps passkey, recovery code and sync; sync pulls on start and recovers after the server lost its record; XIRR without cash-account interest; Kraken symbols, Binance fees, summer USD rates.
+
+### Engineering
+
+- All version strings moved to **v11.0** (package.json, index.html, build, boot, feature modules, backup `version` = `11.0.0`).
+- Service-worker cache bumped to `maermin-v9` so existing installs pull the new build.
 
 ### More trade currencies (2026-10-03)
 
