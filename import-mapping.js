@@ -361,6 +361,11 @@ function __(k, f, v) { return (typeof window !== 'undefined' && window.MaerminI1
       const ct = parseCoinTracking(text, opts);
       return { transactions: ct.transactions, errors: ct.errors, warnings: ct.warnings };
     }
+    const TI = trackerApi();
+    if (TI && TI.detect(headers)) {
+      const tr = TI.parse(text, opts);
+      return { transactions: tr.transactions, errors: tr.errors, warnings: tr.warnings };
+    }
     const mapping = suggestMapping(headers);
     const catHeader = headers.find((h) => lc(h) === 'category');
     const notesHeader = headers.find((h) => lc(h) === 'notes' || lc(h) === 'note');
@@ -422,6 +427,21 @@ function __(k, f, v) { return (typeof window !== 'undefined' && window.MaerminI1
     // The broker the user picked in the wizard wins over header sniffing (it
     // reported "Detected: Interactive Brokers" for a chosen Scalable file).
     const broker = chosenBroker(opts.broker) || detectBroker(headers);
+    // Portfolio Performance and Parqet (tracker-import.js): an exact header
+    // match is unambiguous, so it wins over a picked broker; own parser, no
+    // column mapping.
+    const TI = !opts.mapping ? trackerApi() : null;
+    const tracker = TI ? TI.detect(headers) : null;
+    if (tracker) {
+      const tr = TI.parse(csvText, opts);
+      const dupTr = findDuplicates(tr.transactions, opts.existing || []);
+      return {
+        headers, rows, broker: { id: tracker.id, name: tracker.name, category: 'stocks', score: null, confidence: 1 },
+        category: 'stocks', mapping: suggestMapping(headers), fixedFormat: true, format: tr.format, warnings: tr.warnings,
+        transactions: dupTr.marked, errors: tr.errors, duplicates: dupTr.duplicates.length,
+        stats: Object.assign({}, tr.stats, { duplicates: dupTr.duplicates.length })
+      };
+    }
     // CoinTracking has a fixed two-leg layout: its own parser, no column mapping.
     if (!opts.mapping && (broker && broker.id === 'cointracking') && isCoinTracking(headers)) {
       const ct = parseCoinTracking(csvText, opts);
@@ -715,6 +735,10 @@ function __(k, f, v) { return (typeof window !== 'undefined' && window.MaerminI1
 
   // The ticker -> CoinGecko id table lives in ticker-validation.js (shared with
   // the price lookup). It loads after this file, so it is looked up per call.
+  function trackerApi() {
+    if (typeof window !== 'undefined' && window.MaerminTrackerImport) return window.MaerminTrackerImport;
+    try { return typeof require === 'function' ? require('./tracker-import.js') : null; } catch (e) { return null; }
+  }
   function tickersApi() {
     if (typeof window !== 'undefined' && window.MaerminTickers) return window.MaerminTickers;
     try { return typeof require === 'function' ? require('./ticker-validation.js') : null; } catch (e) { return null; }

@@ -512,9 +512,13 @@ function BrokerLogo({ brokerId, name, size = 36 }) {
   });
 }
 
+// Category id of the tracker tiles (label via biCatTracker).
+const CAT_TRACKER = 'Portfolio Tracker';
 const BROKERS = [
-  { id: 'cointracking',       name: 'CoinTracking',        hint: 'CSV Full Export',              category: 'Portfolio Tracker' },
-  { id: 'getquin',            name: 'getquin',              hint: 'No CSV export available', hintKey: 'bhNoExport', category: 'Portfolio Tracker', noExport: true },
+  { id: 'cointracking',       name: 'CoinTracking',        hint: 'CSV Full Export',              category: CAT_TRACKER },
+  { id: 'portfolioPerformance', name: 'Portfolio Performance', hint: '', hintKey: 'bhPpCsv', category: CAT_TRACKER },
+  { id: 'parqet',             name: 'Parqet',               hint: '', hintKey: 'bhParqetCsv', category: CAT_TRACKER },
+  { id: 'getquin',            name: 'getquin',              hint: 'No CSV export available', hintKey: 'bhNoExport', category: CAT_TRACKER, noExport: true },
   { id: 'degiro',             name: 'DEGIRO',               hint: 'Transactions.csv',             category: 'Broker' },
   { id: 'tradeRepublic',      name: 'Trade Republic',       hint: 'Transaction history CSV', hintKey: 'bhTxHistory', category: 'Broker' },
   { id: 'scalable',           name: 'Scalable Capital',     hint: 'Transaction report CSV', hintKey: 'bhTxReport', category: 'Broker' },
@@ -885,6 +889,17 @@ function BrokerImportWizard({ theme, t, addToast, onImport, existing, workerUrl 
 
     // ── Step 1: Generic file upload ──────────────────────────────────────────
     step === 1 && selectedBroker !== 'getquin' && selectedBroker !== 'cointracking' && React.createElement('div', null,
+      (selectedBroker === 'portfolioPerformance' || selectedBroker === 'parqet') && React.createElement('div', { 'data-testid': 'tracker-howto', style: { background: theme.card, border: `1px solid ${theme.cardBorder}`, borderRadius: '10px', padding: '1rem', marginBottom: '1rem', fontSize: '0.8rem', color: theme.textSecondary, lineHeight: '1.8' } },
+        React.createElement('div', { style: { color: theme.text, fontWeight: '700', marginBottom: '0.375rem' } }, __('biTrackerInstr', 'How to export:')),
+        selectedBroker === 'portfolioPerformance'
+          ? React.createElement('div', null,
+              React.createElement('div', null, __('biPpStep1', '1. In Portfolio Performance open the CSV export (window "Export CSV", German "CSV exportieren").')),
+              React.createElement('div', null, __('biPpStep2', '2. Choose "Securities Account Transactions" (Depotumsätze) for purchases and sales, and "Account Transactions" (Kontoumsätze) for dividends.')),
+              React.createElement('div', null, __('biPpStep3', '3. Upload each file here. The program language must be English or German. A purchase in both files is recognised as a duplicate.')))
+          : React.createElement('div', null,
+              React.createElement('div', null, __('biPqStep1', '1. In Parqet open Activities and choose Export (CSV).')),
+              React.createElement('div', null, __('biPqStep2', '2. Upload the file here. Securities and crypto are imported; cash bookings are listed, not booked.')))
+      ),
       exchangeSyncSupported && React.createElement('p', { style: { color: theme.textSecondary, fontSize: '0.78rem', lineHeight: '1.6', marginBottom: '1rem' } },
         __('biPreferLive', 'Prefer a live import? Use Exchange sync below with a read-only API key (stored encrypted in your vault).')),
       React.createElement('div', {
@@ -942,9 +957,13 @@ function BrokerImportWizard({ theme, t, addToast, onImport, existing, workerUrl 
 
           // Fixed-format files (CoinTracking) are read by their own parser: say
           // how rows are booked and list what needs a look instead of a mapping.
-          mp.fixedFormat && React.createElement('div', { 'data-testid': 'ct-info', style: { background: theme.card, border: `1px solid ${theme.cardBorder}`, borderRadius: '10px', padding: '0.9rem', marginBottom: '0.9rem', fontSize: '0.78rem', color: theme.textSecondary, lineHeight: 1.6 } },
-            React.createElement('div', { style: { color: theme.text, fontWeight: '700', marginBottom: '0.3rem' } }, __('biCtHow', 'How CoinTracking rows are booked')),
-            React.createElement('div', null, __('biCtRules', 'Trades become buys and sells (a coin-to-coin trade is a sale plus a purchase at the recorded value). Income, staking, mining and airdrops are buys at their market value. Deposits and withdrawals between your own wallets are not booked') + (mp.stats.transfers ? ' ' + __('biInThisFile', '({n} in this file)', { n: mp.stats.transfers }) : '') + __('biCtRulesEnd', '; the skipped list says why each row was left out.')),
+          mp.fixedFormat && React.createElement('div', { 'data-testid': mp.format ? 'tracker-info' : 'ct-info', style: { background: theme.card, border: `1px solid ${theme.cardBorder}`, borderRadius: '10px', padding: '0.9rem', marginBottom: '0.9rem', fontSize: '0.78rem', color: theme.textSecondary, lineHeight: 1.6 } },
+            mp.format
+              ? React.createElement('div', { style: { color: theme.text, fontWeight: '700', marginBottom: '0.3rem' } }, __('biTrackerHow', 'How {name} rows are booked', { name: mp.broker ? mp.broker.name : '' }))
+              : React.createElement('div', { style: { color: theme.text, fontWeight: '700', marginBottom: '0.3rem' } }, __('biCtHow', 'How CoinTracking rows are booked')),
+            mp.format
+              ? React.createElement('div', null, __('biTrackerRules', 'Purchases and inbound deliveries become buys at their price before fees (taxes on a purchase count as costs). Sales become sells; tax withheld on a sale goes to the note, not into the cost basis. Dividends are booked gross with the foreign tax as withholding tax. Cash bookings, interest, transfers between your own accounts and outbound deliveries are not booked; the skipped list says why.'))
+              : React.createElement('div', null, __('biCtRules', 'Trades become buys and sells (a coin-to-coin trade is a sale plus a purchase at the recorded value). Income, staking, mining and airdrops are buys at their market value. Deposits and withdrawals between your own wallets are not booked') + (mp.stats.transfers ? ' ' + __('biInThisFile', '({n} in this file)', { n: mp.stats.transfers }) : '') + __('biCtRulesEnd', '; the skipped list says why each row was left out.')),
             (mp.warnings || []).length > 0 && React.createElement('ul', { role: 'status', style: { margin: '0.5rem 0 0', paddingLeft: '1.1rem', color: theme.warning } },
               mp.warnings.slice(0, 8).map((w, i) => React.createElement('li', { key: i }, w)),
               mp.warnings.length > 8 && React.createElement('li', { key: 'more' }, __('andNMore', '… and {n} more', { n: mp.warnings.length - 8 })))

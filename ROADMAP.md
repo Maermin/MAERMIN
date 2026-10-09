@@ -41,6 +41,7 @@ Every shipped module is covered by a Node test in `test/`.
 | **P4-6 Data check with actions** | `data-check.js`, `ledger.js` (`txId` on findings), `renderer.js` (Data check box, misfiled skins) | ✅ shipped — stable `DQ-*` codes, one action per finding, data changes confirmed | `test/data-check.test.js` (14), e2e scenario 1 |
 | **P4-7 Overview reorder** | `dashboard-layout.js` (`sectionOrder`, Customize view: ↑/↓, drag handle on pointer events, live announcement), `renderer.js` (`renderOverview` renders the sections in the saved order) | ✅ shipped — order in `maermin_dashboard_layout` (existing key, in backup) | `test/overview-order.test.js` (10), e2e scenario 1 |
 | **P4-3 Withholding tax by country** | `withholding-tax.js`, `renderer.js` (German tax view, dividend field in the transaction dialog), `features2.js` (dividend calendar field) | ✅ shipped — per-country gross / withheld / creditable / reclaim, estimate; rates from secondary sources pending the BZSt table | `test/withholding-tax.test.js` (14), e2e scenario 1 |
+| **P4-8 Import from Portfolio Performance / Parqet** | `tracker-import.js`, `import-mapping.js` (`preview`, `quickCSV`), `features2.js` (wizard tiles, export steps, booking rules) | ✅ shipped — PP CSV export (EN/DE, both locales) and Parqet activities export through the existing preview, ISIN → ticker step and duplicate check | `test/tracker-import.test.js` (28), e2e scenario 1 |
 
 ### Competitive Gaps (round closing real gaps vs Parqet / getquin / Snowball / Sharesight)
 
