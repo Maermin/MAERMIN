@@ -127,6 +127,18 @@ function __(k, f, v) { return (typeof window !== 'undefined' && window.MaerminI1
     return { version: SCHEMA, widgets: out };
   }
 
+  // P4-7: the Overview's section ids in the saved order. Unknown saved ids are
+  // dropped; sections the saved layout does not name yet keep their default
+  // place at the end. `known` defaults to the built-in sections.
+  function sectionOrder(state, known) {
+    var ids = (known && known.length ? known : defaultIds()).slice();
+    var set = {}; ids.forEach(function (id) { set[id] = true; });
+    var out = [];
+    normalize(state, ids).widgets.forEach(function (w) { if (set[w.id] && out.indexOf(w.id) === -1) out.push(w.id); });
+    ids.forEach(function (id) { if (out.indexOf(id) === -1) out.push(id); });
+    return out;
+  }
+
   function reset(available) {
     return normalize({ version: SCHEMA, widgets: [] }, available);
   }
@@ -160,6 +172,7 @@ function __(k, f, v) { return (typeof window !== 'undefined' && window.MaerminI1
     setVisible: setVisible,
     move: move,
     reorder: reorder,
+    sectionOrder: sectionOrder,
     reset: reset,
     load: load,
     save: save
@@ -193,21 +206,84 @@ function __(k, f, v) { return (typeof window !== 'undefined' && window.MaerminI1
 
         var byId = {}; API.DEFAULT_WIDGETS.forEach(function (w) { byId[w.id] = w.key ? __(w.key, w.label) : w.label; });
 
-        var rows = API.normalize(st).widgets.map(function (w) {
-          return e('div', { key: w.id, style: { display: 'flex', alignItems: 'center', gap: '0.75rem', padding: '0.8rem 1rem', background: card, border: '1px solid ' + border, borderRadius: '12px', marginBottom: '0.6rem' } },
+        // P4-7: reorder - "move up / move down" buttons (keyboard; focus stays on
+        // the moved row's button) and a drag handle on pointer events (touch and
+        // mouse). A live region says where the section went.
+        var ann = useState(''), said = ann[0], say = ann[1];
+        var dr = useState(null), drag = dr[0], setDrag = dr[1];   // { id, order: [ids] } while dragging
+        var listRef = React.useRef(null);
+        var widgets = API.normalize(st).widgets;
+        var order = drag ? drag.order : widgets.map(function (w) { return w.id; });
+        var visOf = {}; widgets.forEach(function (w) { visOf[w.id] = w.visible; });
+        function announce(id, ord) {
+          say(__('dashMoved', '{name}: position {pos} of {n}', { name: byId[id] || id, pos: ord.indexOf(id) + 1, n: ord.length }));
+        }
+        function moveBy(id, dir) {
+          var next = API.move(st, id, dir);
+          commit(next);
+          announce(id, next.widgets.map(function (w) { return w.id; }));
+          setTimeout(function () {
+            var root = listRef.current;
+            var b = root && (root.querySelector('[data-dash-move="' + dir + '"][data-dash-id="' + id + '"]:not([disabled])') || root.querySelector('[data-dash-id="' + id + '"][data-dash-move]:not([disabled])'));
+            if (b) b.focus();
+          }, 0);
+        }
+        function onPointerDown(ev, id) {
+          if (ev.button != null && ev.button !== 0) return;
+          ev.preventDefault();
+          try { ev.currentTarget.setPointerCapture(ev.pointerId); } catch (err) { /* old browsers */ }
+          setDrag({ id: id, order: widgets.map(function (w) { return w.id; }) });
+        }
+        function onPointerMove(ev) {
+          if (!drag || !listRef.current) return;
+          var rowsEl = Array.prototype.slice.call(listRef.current.querySelectorAll('[data-dash-row]'));
+          var y = ev.clientY, target = 0;
+          rowsEl.forEach(function (el, k) { var r = el.getBoundingClientRect(); if (y > r.top + r.height / 2) target = k; });
+          var cur = drag.order.filter(function (x) { return x !== drag.id; });
+          var idxNow = drag.order.indexOf(drag.id);
+          if (target === idxNow) return;
+          cur.splice(target, 0, drag.id);
+          setDrag({ id: drag.id, order: cur });
+        }
+        function onPointerUp() {
+          if (!drag) return;
+          var ord = drag.order, id = drag.id;
+          setDrag(null);
+          commit(API.reorder(st, ord));
+          announce(id, ord);
+        }
+        function iconBtn(label, dir, id, disabled) {
+          return e('button', { type: 'button', 'data-dash-move': dir, 'data-dash-id': id, disabled: disabled, 'aria-label': label, title: label,
+            onClick: function () { moveBy(id, dir); },
+            style: { width: '40px', height: '40px', flexShrink: 0, fontSize: '1rem', lineHeight: 1, cursor: disabled ? 'default' : 'pointer', borderRadius: '10px',
+              border: '1px solid ' + border, background: 'transparent', color: disabled ? border : text, opacity: disabled ? 0.45 : 1 } }, dir === 'up' ? '↑' : '↓');
+        }
+
+        var rows = order.map(function (id, k) {
+          var visible = visOf[id] !== false, name = byId[id] || id, dragging = drag && drag.id === id;
+          return e('div', { key: id, 'data-dash-row': id, style: { display: 'flex', alignItems: 'center', gap: '0.6rem', padding: '0.6rem 0.75rem', background: card, border: '1px solid ' + (dragging ? accent : border), borderRadius: '12px', marginBottom: '0.6rem', boxShadow: dragging ? '0 6px 18px rgba(0,0,0,0.25)' : 'none' } },
+            e('button', { type: 'button', 'data-dash-handle': id, 'aria-label': __('dashDragAria', 'Drag {name} to a new place (or use the arrow buttons)', { name: name }),
+              onPointerDown: function (ev) { onPointerDown(ev, id); }, onPointerMove: onPointerMove, onPointerUp: onPointerUp, onPointerCancel: onPointerUp,
+              onKeyDown: function (ev) { if (ev.key === 'ArrowUp' && k > 0) { ev.preventDefault(); moveBy(id, 'up'); } else if (ev.key === 'ArrowDown' && k < order.length - 1) { ev.preventDefault(); moveBy(id, 'down'); } },
+              style: { width: '40px', height: '40px', flexShrink: 0, cursor: dragging ? 'grabbing' : 'grab', touchAction: 'none', borderRadius: '10px', border: '1px solid ' + border, background: 'transparent', color: dim, fontSize: '1.1rem' } }, '⠿'),
             e('button', {
-              onClick: function () { commit(API.toggle(st, w.id)); },
-              title: w.visible ? (t.dashHide || 'Hide') : (t.dashShow || 'Show'),
-              style: { width: '44px', flexShrink: 0, padding: '0.3rem 0', fontSize: '0.74rem', fontWeight: 800, cursor: 'pointer', borderRadius: '999px', border: '1px solid ' + (w.visible ? accent : border), background: w.visible ? accentFill : 'transparent', color: w.visible ? accentText : dim } },
-              w.visible ? __('secOn', 'On') : __('dashOff', 'Off')),
-            e('div', { style: { flex: 1, minWidth: 0, color: w.visible ? text : dim, fontSize: '0.88rem', fontWeight: 600 } }, byId[w.id] || w.id));
+              type: 'button',
+              onClick: function () { commit(API.toggle(st, id)); },
+              title: visible ? (t.dashHide || 'Hide') : (t.dashShow || 'Show'),
+              'aria-pressed': visible, 'aria-label': __('dashShowAria', 'Show {name}', { name: name }),
+              style: { width: '44px', minHeight: '32px', flexShrink: 0, padding: '0.3rem 0', fontSize: '0.74rem', fontWeight: 800, cursor: 'pointer', borderRadius: '999px', border: '1px solid ' + (visible ? accent : border), background: visible ? accentFill : 'transparent', color: visible ? accentText : dim } },
+              visible ? __('secOn', 'On') : __('dashOff', 'Off')),
+            e('div', { style: { flex: 1, minWidth: 0, color: visible ? text : dim, fontSize: '0.88rem', fontWeight: 600 } }, name),
+            iconBtn(__('dashUpAria', 'Move {name} up', { name: name }), 'up', id, k === 0 || !!drag),
+            iconBtn(__('dashDownAria', 'Move {name} down', { name: name }), 'down', id, k === order.length - 1 || !!drag));
         });
 
-        return e('div', { style: { padding: '1.5rem' } },
+        return e('div', { style: { padding: '1.5rem', position: 'relative' } },
           e('h2', { style: { color: text, fontSize: '1.5rem', fontWeight: 800, letterSpacing: '-0.02em', margin: '0 0 0.35rem' } }, t.navCustomize || 'Customize Overview'),
           e('p', { style: { color: dim, fontSize: '0.88rem', margin: '0 0 1.25rem', lineHeight: 1.5, maxWidth: '60ch' } },
-            t.dashSubtitle || 'Show or hide the main Overview sections. Changes are saved instantly and carried in your backup; reopen the Overview to see them.'),
-          rows,
+            __('dashSubtitleOrder', 'Show, hide and reorder the main Overview sections: drag a row by its handle, or use the arrow buttons. Changes are saved instantly and carried in your backup.')),
+          e('div', { ref: listRef, 'data-testid': 'dash-order' }, rows),
+          e('div', { role: 'status', 'aria-live': 'polite', style: { position: 'absolute', width: '1px', height: '1px', overflow: 'hidden', clipPath: 'inset(50%)', whiteSpace: 'nowrap' } }, said),
           e('button', { onClick: function () { commit(API.reset()); }, style: { marginTop: '0.5rem', padding: '0.45rem 0.9rem', fontSize: '0.82rem', fontWeight: 700, cursor: 'pointer', borderRadius: '8px', border: '1px solid ' + border, background: 'transparent', color: text } },
             t.dashReset || 'Reset to default'));
       } catch (err) {

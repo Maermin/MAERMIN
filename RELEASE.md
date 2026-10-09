@@ -2,6 +2,7 @@
 
 ## Unreleased
 
+- **Reorder the Overview (P4-7):** Settings → Customize Overview orders the three main sections (value chart, stat cards, allocation & positions): drag a row by its handle (mouse or touch) or use the ↑ / ↓ buttons; the drag handle also moves with the arrow keys. The order is saved in the existing layout key, so it is part of the backup. Notices (e.g. the recovery-code reminder) stay between the second and third section.
 - **Data check with actions (P4-6):** every Data check finding shows a stable code (e.g. `DQ-OVERSOLD`) and a button that leads to the fix: show or edit the transaction concerned, load exchange rates or add a Worker. Moving CS2 items filed as stocks asks first, as before.
 - **Summary for an AI assistant (P4-5):** Settings → Privacy builds a text about your portfolio to copy into any AI assistant. Nothing is sent from the app. "Without amounts" holds only what a share link may hold (weights and scores); "With holdings and amounts" asks first and is not offered while "Hide amounts" is on. Journal notes and API keys are never included.
 - **Rebalancing (P4-4):** Portfolio → Rebalancing gets a tolerance band per target (a share of the target with a floor in percentage points, default ±5 pp as before), an "Invest only (no sales)" mode that spreads new money over the classes furthest below target, and holdings you mark as "never sell": a class is then sold down only with the other holdings, and the plan says what cannot be sold. Settings are stored encrypted (`maermin_rebalance_prefs`, in the backup and synced).
