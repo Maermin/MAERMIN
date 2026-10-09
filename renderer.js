@@ -3558,123 +3558,10 @@ function InvestmentTracker() {
       return Q.summarize(items);
     })();
 
-    return React.createElement('div', { style: { padding: '1.5rem' } },
-
-      // ── Demo-mode banner ─────────────────────────────────────────────────
-      demoMode && React.createElement('div', {
-        style: { display: 'flex', alignItems: 'center', gap: '0.6rem', flexWrap: 'wrap', padding: '0.6rem 0.9rem', marginBottom: '1rem', borderRadius: '10px', background: `${(currentTheme.accentFill || currentTheme.accent)}14`, border: `1px solid ${currentTheme.accent}55`, color: currentTheme.text, fontSize: '0.82rem' } },
-        React.createElement('span', null, __('demoBanner', '★ You are exploring MAERMIN with sample data — your real data is untouched. Changes made in demo mode are not saved.')),
-        React.createElement('button', { onClick: exitDemo, style: { marginLeft: 'auto', minHeight: '40px', padding: '0.45rem 0.9rem', background: (currentTheme.accentFill || currentTheme.accent), color: '#ffffff', border: 'none', borderRadius: '8px', cursor: 'pointer', fontWeight: '700', fontSize: '0.8rem' } }, __('demoExitUseMine', 'Exit demo & use my data'))
-      ),
-
-      // ── Header ──────────────────────────────────────────────────────────
-      React.createElement('div', {
-        style: { display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '1.25rem', flexWrap: 'wrap', gap: '0.75rem' }
-      },
-        React.createElement('div', null,
-          React.createElement('h2', { style: { color: currentTheme.text, fontSize: '1.35rem', fontWeight: '800', marginBottom: '0.125rem' } }, t.navOverview || 'Overview'),
-          React.createElement('div', { style: { color: currentTheme.textSecondary, fontSize: '0.72rem' } },
-            isAllMode
-              ? `${__('ovAllCombined', 'All {n} {n:portfolio|portfolios} combined', { n: portfolios.length })} · ${lastRefresh ? __('ovLastRefresh', 'Last refresh {time}', { time: window.MaerminI18n.date(lastRefresh, 'time') }) : __('ovRefreshToUpdate', 'Refresh to update')}`
-              : `${selectedPortfolio?.name || t.portfolio || 'Portfolio'} · ${lastRefresh ? __('ovLastRefresh', 'Last refresh {time}', { time: window.MaerminI18n.date(lastRefresh, 'time') }) : __('ovRefreshToUpdate', 'Refresh to update')}`
-          )
-        ),
-        React.createElement('div', { style: { display: 'flex', gap: '0.5rem', flexWrap: 'wrap', alignItems: 'center' } },
-          // Worker status indicator — click opens API settings.
-          React.createElement('div', {
-            onClick: () => setShowApiSettings(true), title: wsTitle,
-            style: { display: 'flex', alignItems: 'center', gap: '0.4rem', minHeight: '40px', padding: '0.5rem 0.7rem', background: currentTheme.inputBg, border: `1px solid ${currentTheme.cardBorder}`, borderRadius: '8px', cursor: 'pointer', fontSize: '0.78rem', color: currentTheme.textSecondary }
-          },
-            React.createElement('span', { style: { width: 9, height: 9, borderRadius: '50%', background: wsColor, flexShrink: 0, boxShadow: `0 0 6px ${wsColor}` } }),
-            wsLabel
-          ),
-          // Outdated Worker: one notice that leads to the update steps.
-          !demoMode && workerVersion && workerVersion.state === 'outdated' && React.createElement('button', {
-            type: 'button', 'data-testid': 'worker-outdated', onClick: () => setShowApiSettings(true),
-            title: __('wvOutdatedTitle', 'Your Worker is older than this app expects ({e}). Some features may fail until you update it.', { e: workerVersion.expected }),
-            style: { display: 'flex', alignItems: 'center', gap: '0.4rem', minHeight: '40px', padding: '0.5rem 0.7rem', background: `${currentTheme.warning}14`, border: `1px solid ${currentTheme.warning}55`, borderRadius: '8px', cursor: 'pointer', color: currentTheme.warning, fontSize: '0.78rem', fontWeight: '600' }
-          }, __('wvOutdated', 'Worker outdated → update')),
-          // Data-health chip — only appears when something is stale/missing.
-          dqHealth && (dqHealth.stale + dqHealth.missing) > 0 && React.createElement('button', {
-            type: 'button', onClick: () => fetchPrices(), title: [
-              dqHealth.stale ? __('dqPricesStale', '{n} {n:price|prices} stale', { n: dqHealth.stale }) : '',
-              dqHealth.missing ? __('dqPricesMissing', '{n} {n:price|prices} missing', { n: dqHealth.missing }) : ''
-            ].filter(Boolean).join(' · ') + ' — ' + __('dqClickRefresh', 'click to refresh prices'),
-            style: { display: 'flex', alignItems: 'center', gap: '0.4rem', minHeight: '40px', padding: '0.5rem 0.7rem', background: `${currentTheme.warning}14`, border: `1px solid ${currentTheme.warning}55`, borderRadius: '8px', cursor: 'pointer', fontSize: '0.78rem', color: currentTheme.warning, fontWeight: '600', fontFamily: 'inherit' }
-          },
-            React.createElement('span', { style: { fontWeight: '800' }, 'aria-hidden': 'true' }, '!'),
-            dqHealth.stale ? __('dqStaleChip', '{n} stale', { n: dqHealth.stale + dqHealth.missing }) : __('dqMissingChip', '{n} missing', { n: dqHealth.missing })
-          ),
-          // FX transparency chip — shows the USD→EUR rate, source + age on hover.
-          fxInfo && fxInfo.rate && React.createElement('div', {
-            title: __('fxChipTitle', 'FX: {label} (source: {source})', { label: fxInfo.label, source: fxInfo.source }),
-            style: { display: 'flex', alignItems: 'center', minHeight: '40px', padding: '0.5rem 0.7rem', background: currentTheme.inputBg, border: `1px solid ${currentTheme.cardBorder}`, borderRadius: '8px', fontSize: '0.78rem', color: currentTheme.textSecondary }
-          }, `$→€ ${window.MaerminI18n.num(fxInfo.rate, 3)}`),
-          // Demo toggle — instant value for first-run users; hidden once the
-          // vault has its own transactions (Phase 3: clutter on phones).
-          demoMode
-            ? React.createElement('button', { onClick: exitDemo, style: { minHeight: '40px', padding: '0.5rem 0.9rem', background: currentTheme.inputBg, color: currentTheme.text, border: `1px solid ${currentTheme.cardBorder}`, borderRadius: '8px', cursor: 'pointer', fontSize: '0.85rem' } }, __('demoExit', 'Exit demo'))
-            : transactions.length > 0 ? null : React.createElement('button', { onClick: enterDemo, title: __('demoTryTitle', 'Load sample data to explore the app instantly — no setup'), style: { minHeight: '40px', padding: '0.5rem 0.9rem', background: currentTheme.inputBg, color: currentTheme.text, border: `1px solid ${currentTheme.cardBorder}`, borderRadius: '8px', cursor: 'pointer', fontSize: '0.85rem' } }, __('demoTry', '★ Try demo')),
-          React.createElement('button', { onClick: () => openTransactionModal(), style: { padding: '0.5rem 1rem', background: (currentTheme.accentFill || currentTheme.accent), color: '#ffffff', border: 'none', borderRadius: '8px', cursor: 'pointer', fontWeight: '600', fontSize: '0.85rem' } }, __('addShort', '+ Add')),
-          React.createElement('button', { onClick: () => setShowImportModal(true), style: { padding: '0.5rem 1rem', background: currentTheme.inputBg, color: currentTheme.text, border: `1px solid ${currentTheme.cardBorder}`, borderRadius: '8px', cursor: 'pointer', fontSize: '0.85rem' } }, __('importBtn', '↑ Import')),
-          React.createElement('button', { onClick: fetchPrices, disabled: loading, style: { padding: '0.5rem 1rem', background: loading ? currentTheme.inputBg : `${currentTheme.accent}18`, color: loading ? currentTheme.textSecondary : currentTheme.accent, border: `1px solid ${currentTheme.accent}33`, borderRadius: '8px', cursor: loading ? 'not-allowed' : 'pointer', fontSize: '0.85rem', fontWeight: '600', display: 'flex', alignItems: 'center', gap: '0.375rem' } }, loading ? __('refreshing', '◎ Refreshing...') : __('refreshPrices', '↻ Refresh prices'))
-        )
-      ),
-
-      // ── Portfolio selector tabs ──────────────────────────────────────────
-      React.createElement('div', {
-        role: 'group', 'aria-label': __('ovShowPortfolio', 'Show portfolio'),
-        style: { display: 'flex', gap: '0.375rem', marginBottom: '1.5rem', flexWrap: 'wrap', alignItems: 'center' }
-      },
-        // All Portfolios tab
-        React.createElement('button', {
-          'aria-pressed': overviewMode === 'all',
-          onClick: () => setOverviewMode('all'),
-          style: {
-            display: 'flex', alignItems: 'center', gap: '0.4rem',
-            padding: '0.375rem 0.875rem',
-            background: overviewMode === 'all' ? `${currentTheme.accent}20` : currentTheme.inputBg,
-            border: `1px solid ${overviewMode === 'all' ? currentTheme.accent : currentTheme.cardBorder}`,
-            borderRadius: '8px', cursor: 'pointer', transition: 'all 0.1s',
-            fontSize: '0.8rem', fontWeight: overviewMode === 'all' ? '700' : '400',
-            color: overviewMode === 'all' ? currentTheme.accent : currentTheme.text
-          }
-        },
-          React.createElement('span', { style: { fontSize: '0.7rem' } }, '◈'),
-          __('allPortfolios', 'All Portfolios')
-        ),
-        // Divider
-        React.createElement('div', { style: { width: 1, height: 20, background: currentTheme.cardBorder, margin: '0 0.125rem' } }),
-        // Individual portfolio tabs
-        ...portfolios.map(p =>
-          React.createElement('button', {
-            key: p.id,
-            'aria-pressed': overviewMode === p.id,
-            onClick: () => { setOverviewMode(p.id); setActivePortfolioId(p.id); },
-            style: {
-              display: 'flex', alignItems: 'center', gap: '0.4rem',
-              padding: '0.375rem 0.875rem',
-              background: overviewMode === p.id ? `${p.color}18` : currentTheme.inputBg,
-              border: `1px solid ${overviewMode === p.id ? p.color : currentTheme.cardBorder}`,
-              borderRadius: '8px', cursor: 'pointer', transition: 'all 0.1s',
-              fontSize: '0.8rem', fontWeight: overviewMode === p.id ? '700' : '400',
-              color: currentTheme.text
-            }
-          },
-            React.createElement('div', { style: { width: 7, height: 7, borderRadius: '50%', background: p.color, flexShrink: 0 } }),
-            p.name
-          )
-        ),
-        React.createElement('button', {
-          onClick: () => setActiveView('portfolios'),
-          style: { fontSize: '0.72rem', color: currentTheme.textSecondary, background: 'none', border: 'none', cursor: 'pointer', marginLeft: 'auto', padding: '0 0.25rem' }
-        }, __('managePortfolios', 'Manage portfolios →'))
-      ),
-
-      // ── Hero: total portfolio value ─────────────────────────────────────
-      // The history chart already combines the big value, the all-time return
-      // and the 1H…Max timeframe tabs — so it IS the hero. Rendered first.
-      dashVis('valueChart') && window.MaerminFeatures6 && stats.totalPositions > 0 &&
+    // P4-7: the Overview sections as thunks, rendered in the saved order.
+    const ovSections = {
+      valueChart: () => (
+      window.MaerminFeatures6 && stats.totalPositions > 0 &&
         React.createElement(window.MaerminFeatures6.PortfolioHistoryChart, {
           portfolio:          overviewPortfolio,
           prices,
@@ -3686,10 +3573,10 @@ function InvestmentTracker() {
           totalProfit:        stats.totalProfit,
           totalProfitPercent: stats.totalProfitPercent,
           theme: currentTheme, formatPrice, getCurrencySymbol
-        }),
-
-      // ── Stats cards (mockup parity: Invested · Total Return · Dividends · Health) ──
-      dashVis('statCards') && (() => {
+        })
+      ),
+      statCards: () => (
+      (() => {
         const M = window.MaerminMetrics;
         const divOv = M ? memoBy('ovDiv', [overviewPortfolio, prices], () => M.computeExpectedAnnualDividends(overviewPortfolio, prices)) : null;
         const healthOv = M ? memoBy('ovHealth', [overviewPortfolio, prices, t, priceHistory, overviewTransactions], () => M.healthScore(overviewPortfolio, prices, t, { priceHistory, transactions: overviewTransactions })) : null;
@@ -3715,63 +3602,10 @@ function InvestmentTracker() {
             hScore != null ? hColor(hScore) : undefined,
             () => setActiveView('health'))
         );
-      })(),
-
-      // ── KPI strip removed: Dividends + Health now live in the stat cards above
-      //    (Net Worth / FIRE remain reachable from their own sidebar views).
-      false &&
-        React.createElement(StableViews.DashboardKpiStrip, {
-          portfolio: overviewPortfolio,
-          prices, priceHistory,
-          transactions: overviewTransactions,
-          portfolioValue: stats.totalValue,
-          theme: currentTheme, t, formatPrice, getCurrencySymbol, setActiveView
-        }),
-
-      // ── Chart ────────────────────────────────────────────────────────────
-      // (Portfolio value chart moved up to the Overview hero slot — see above)
-      false &&
-        React.createElement('div', null),
-
-      // CS2 banner
-      portfolio.skins && portfolio.skins.length > 0 && !(apiKeys.cs2Worker||'').trim() &&
-        React.createElement('div', { style: { background: 'rgba(245,158,11,0.06)', border: '1px solid rgba(245,158,11,0.25)', borderRadius: '10px', padding: '0.875rem 1.25rem', marginBottom: '1.25rem', display: 'flex', alignItems: 'center', gap: '1rem', flexWrap: 'wrap' } },
-          React.createElement('span', { style: { fontSize: '1.25rem' } }, '!'),
-          React.createElement('div', { style: { flex: 1, minWidth: '200px' } },
-            React.createElement('div', { style: { color: currentTheme.text, fontWeight: '600', fontSize: '0.875rem' } }, __('cs2WorkerNeeded', 'CS2 skin prices need a Cloudflare Worker URL')),
-            React.createElement('div', { style: { color: currentTheme.textSecondary, fontSize: '0.8rem', marginTop: '0.125rem' } }, __('cs2WorkerDeploy', 'Deploy the worker.js and paste the URL in API Settings.'))
-          ),
-          React.createElement('button', { onClick: () => setShowApiSettings(true), style: { padding: '0.5rem 1rem', background: currentTheme.warning, color: '#1a1a1a', border: 'none', borderRadius: '6px', cursor: 'pointer', fontWeight: '700', fontSize: '0.8rem' } }, __('addWorkerUrl', 'Add Worker URL →'))
-        ),
-
-      // CS2 skins filed as stocks (see renderMisfiledSkins)
-      !demoMode && renderMisfiledSkins(),
-
-      // Recovery-kit nudge for vaults created before recovery codes existed
-      showRecoveryNudge && React.createElement('div', { style: { background: 'rgba(245,158,11,0.06)', border: '1px solid rgba(245,158,11,0.25)', borderRadius: '10px', padding: '0.875rem 1.25rem', marginBottom: '1.25rem', display: 'flex', alignItems: 'center', gap: '1rem', flexWrap: 'wrap' } },
-        React.createElement('span', { style: { fontSize: '1.25rem', color: currentTheme.warning, fontWeight: '700' } }, '!'),
-        React.createElement('div', { style: { flex: 1, minWidth: '220px' } },
-          React.createElement('div', { style: { color: currentTheme.text, fontWeight: '600', fontSize: '0.875rem' } }, __('rcNudgeTitle', 'Add a recovery code')),
-          React.createElement('div', { style: { color: currentTheme.textSecondary, fontSize: '0.8rem', marginTop: '0.125rem' } }, __('rcNudgeBody', 'Your vault has no recovery code. Without one, a forgotten password cannot be reset — generate a printable code now.'))
-        ),
-        React.createElement('button', { onClick: createRecoveryKit, disabled: recoveryBusy, style: { padding: '0.5rem 1rem', background: (currentTheme.accentFill || currentTheme.accent), color: '#ffffff', border: 'none', borderRadius: '6px', cursor: recoveryBusy ? 'wait' : 'pointer', fontWeight: '700', fontSize: '0.8rem' } }, recoveryBusy ? __('creating', 'Creating…') : __('rcCreate', 'Create recovery code')),
-        React.createElement('button', { onClick: dismissRecoveryNudge, style: { padding: '0.5rem 0.75rem', background: 'transparent', color: currentTheme.textSecondary, border: `1px solid ${currentTheme.cardBorder}`, borderRadius: '6px', cursor: 'pointer', fontSize: '0.8rem' } }, __('dismiss', 'Dismiss'))
+      })()
       ),
-
-      // Onboarding
-      stats.totalPositions === 0 && React.createElement('div', { style: { background: 'linear-gradient(135deg,rgba(59,130,246,0.1),rgba(139,124,255,0.1))', border: '1px solid rgba(139,124,255,0.3)', borderRadius: '12px', padding: '2rem', marginBottom: '2rem', textAlign: 'center' } },
-        React.createElement('div', { style: { fontSize: '2rem', marginBottom: '0.75rem', color: 'rgba(139,124,255,0.5)', fontWeight: '300' } }, '↗'),
-        React.createElement('h3', { style: { color: currentTheme.text, fontSize: '1.125rem', fontWeight: '600', marginBottom: '0.5rem' } }, t.welcomeTitle || 'Welcome to MAERMIN'),
-        React.createElement('p', { style: { color: currentTheme.textSecondary, fontSize: '0.875rem', marginBottom: '1rem', lineHeight: '1.6' } }, t.welcomeHint || 'Start by adding your first transaction.'),
-        React.createElement('div', { style: { display: 'flex', gap: '0.75rem', justifyContent: 'center', flexWrap: 'wrap' } },
-          window.MaerminOnboarding && window.MaerminOnboarding.Wizard && React.createElement('button', { onClick: openOnboarding, style: { padding: '0.625rem 1.25rem', background: (currentTheme.accentFill || currentTheme.accent), color: '#ffffff', border: 'none', borderRadius: '8px', cursor: 'pointer', fontWeight: '700', fontSize: '0.875rem' } }, __('guidedSetup', 'Guided setup')),
-          React.createElement('button', { onClick: () => openTransactionModal(), style: { padding: '0.625rem 1.25rem', background: currentTheme.inputBg, color: currentTheme.text, border: `1px solid ${currentTheme.cardBorder}`, borderRadius: '8px', cursor: 'pointer', fontWeight: '600', fontSize: '0.875rem' } }, '+ ' + (t.addTransaction || 'Add Transaction')),
-          React.createElement('button', { onClick: () => setShowImportModal(true), style: { padding: '0.625rem 1.25rem', background: currentTheme.inputBg, color: currentTheme.text, border: `1px solid ${currentTheme.cardBorder}`, borderRadius: '8px', cursor: 'pointer', fontSize: '0.875rem' } }, t.importData || 'Import Data')
-        )
-      ),
-
-      // ── Allocation + Top performers + Positions (mockup-exact, real data) ──
-      dashVis('allocation') && stats.totalPositions > 0 && (() => {
+      allocation: () => (
+      stats.totalPositions > 0 && (() => {
         const CLASS = {
           crypto:      { label: t.crypto || 'Crypto',        color: '#8b7cff' },
           stocks:      { label: __('catStocksEtfs', 'Stocks & ETFs'), color: '#6ea8ff' },
@@ -4014,7 +3848,191 @@ function InvestmentTracker() {
               onClose: () => { setPositionDetail(null); setCorpActionsRev(n => n + 1); }
             })
         );
-      })(),
+      })()
+      )
+    };
+    const ovOrder = window.MaerminDashboard ? window.MaerminDashboard.sectionOrder(window.MaerminDashboard.load(), Object.keys(ovSections)) : Object.keys(ovSections);
+    const ovSlot = (i) => { const id = ovOrder[i]; if (!id || !dashVis(id)) return null; const el = ovSections[id](); return el ? React.createElement('div', { key: 'ov-' + id, 'data-ov-section': id }, el) : null; };
+
+    return React.createElement('div', { style: { padding: '1.5rem' } },
+
+      // ── Demo-mode banner ─────────────────────────────────────────────────
+      demoMode && React.createElement('div', {
+        style: { display: 'flex', alignItems: 'center', gap: '0.6rem', flexWrap: 'wrap', padding: '0.6rem 0.9rem', marginBottom: '1rem', borderRadius: '10px', background: `${(currentTheme.accentFill || currentTheme.accent)}14`, border: `1px solid ${currentTheme.accent}55`, color: currentTheme.text, fontSize: '0.82rem' } },
+        React.createElement('span', null, __('demoBanner', '★ You are exploring MAERMIN with sample data — your real data is untouched. Changes made in demo mode are not saved.')),
+        React.createElement('button', { onClick: exitDemo, style: { marginLeft: 'auto', minHeight: '40px', padding: '0.45rem 0.9rem', background: (currentTheme.accentFill || currentTheme.accent), color: '#ffffff', border: 'none', borderRadius: '8px', cursor: 'pointer', fontWeight: '700', fontSize: '0.8rem' } }, __('demoExitUseMine', 'Exit demo & use my data'))
+      ),
+
+      // ── Header ──────────────────────────────────────────────────────────
+      React.createElement('div', {
+        style: { display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '1.25rem', flexWrap: 'wrap', gap: '0.75rem' }
+      },
+        React.createElement('div', null,
+          React.createElement('h2', { style: { color: currentTheme.text, fontSize: '1.35rem', fontWeight: '800', marginBottom: '0.125rem' } }, t.navOverview || 'Overview'),
+          React.createElement('div', { style: { color: currentTheme.textSecondary, fontSize: '0.72rem' } },
+            isAllMode
+              ? `${__('ovAllCombined', 'All {n} {n:portfolio|portfolios} combined', { n: portfolios.length })} · ${lastRefresh ? __('ovLastRefresh', 'Last refresh {time}', { time: window.MaerminI18n.date(lastRefresh, 'time') }) : __('ovRefreshToUpdate', 'Refresh to update')}`
+              : `${selectedPortfolio?.name || t.portfolio || 'Portfolio'} · ${lastRefresh ? __('ovLastRefresh', 'Last refresh {time}', { time: window.MaerminI18n.date(lastRefresh, 'time') }) : __('ovRefreshToUpdate', 'Refresh to update')}`
+          )
+        ),
+        React.createElement('div', { style: { display: 'flex', gap: '0.5rem', flexWrap: 'wrap', alignItems: 'center' } },
+          // Worker status indicator — click opens API settings.
+          React.createElement('div', {
+            onClick: () => setShowApiSettings(true), title: wsTitle,
+            style: { display: 'flex', alignItems: 'center', gap: '0.4rem', minHeight: '40px', padding: '0.5rem 0.7rem', background: currentTheme.inputBg, border: `1px solid ${currentTheme.cardBorder}`, borderRadius: '8px', cursor: 'pointer', fontSize: '0.78rem', color: currentTheme.textSecondary }
+          },
+            React.createElement('span', { style: { width: 9, height: 9, borderRadius: '50%', background: wsColor, flexShrink: 0, boxShadow: `0 0 6px ${wsColor}` } }),
+            wsLabel
+          ),
+          // Outdated Worker: one notice that leads to the update steps.
+          !demoMode && workerVersion && workerVersion.state === 'outdated' && React.createElement('button', {
+            type: 'button', 'data-testid': 'worker-outdated', onClick: () => setShowApiSettings(true),
+            title: __('wvOutdatedTitle', 'Your Worker is older than this app expects ({e}). Some features may fail until you update it.', { e: workerVersion.expected }),
+            style: { display: 'flex', alignItems: 'center', gap: '0.4rem', minHeight: '40px', padding: '0.5rem 0.7rem', background: `${currentTheme.warning}14`, border: `1px solid ${currentTheme.warning}55`, borderRadius: '8px', cursor: 'pointer', color: currentTheme.warning, fontSize: '0.78rem', fontWeight: '600' }
+          }, __('wvOutdated', 'Worker outdated → update')),
+          // Data-health chip — only appears when something is stale/missing.
+          dqHealth && (dqHealth.stale + dqHealth.missing) > 0 && React.createElement('button', {
+            type: 'button', onClick: () => fetchPrices(), title: [
+              dqHealth.stale ? __('dqPricesStale', '{n} {n:price|prices} stale', { n: dqHealth.stale }) : '',
+              dqHealth.missing ? __('dqPricesMissing', '{n} {n:price|prices} missing', { n: dqHealth.missing }) : ''
+            ].filter(Boolean).join(' · ') + ' — ' + __('dqClickRefresh', 'click to refresh prices'),
+            style: { display: 'flex', alignItems: 'center', gap: '0.4rem', minHeight: '40px', padding: '0.5rem 0.7rem', background: `${currentTheme.warning}14`, border: `1px solid ${currentTheme.warning}55`, borderRadius: '8px', cursor: 'pointer', fontSize: '0.78rem', color: currentTheme.warning, fontWeight: '600', fontFamily: 'inherit' }
+          },
+            React.createElement('span', { style: { fontWeight: '800' }, 'aria-hidden': 'true' }, '!'),
+            dqHealth.stale ? __('dqStaleChip', '{n} stale', { n: dqHealth.stale + dqHealth.missing }) : __('dqMissingChip', '{n} missing', { n: dqHealth.missing })
+          ),
+          // FX transparency chip — shows the USD→EUR rate, source + age on hover.
+          fxInfo && fxInfo.rate && React.createElement('div', {
+            title: __('fxChipTitle', 'FX: {label} (source: {source})', { label: fxInfo.label, source: fxInfo.source }),
+            style: { display: 'flex', alignItems: 'center', minHeight: '40px', padding: '0.5rem 0.7rem', background: currentTheme.inputBg, border: `1px solid ${currentTheme.cardBorder}`, borderRadius: '8px', fontSize: '0.78rem', color: currentTheme.textSecondary }
+          }, `$→€ ${window.MaerminI18n.num(fxInfo.rate, 3)}`),
+          // Demo toggle — instant value for first-run users; hidden once the
+          // vault has its own transactions (Phase 3: clutter on phones).
+          demoMode
+            ? React.createElement('button', { onClick: exitDemo, style: { minHeight: '40px', padding: '0.5rem 0.9rem', background: currentTheme.inputBg, color: currentTheme.text, border: `1px solid ${currentTheme.cardBorder}`, borderRadius: '8px', cursor: 'pointer', fontSize: '0.85rem' } }, __('demoExit', 'Exit demo'))
+            : transactions.length > 0 ? null : React.createElement('button', { onClick: enterDemo, title: __('demoTryTitle', 'Load sample data to explore the app instantly — no setup'), style: { minHeight: '40px', padding: '0.5rem 0.9rem', background: currentTheme.inputBg, color: currentTheme.text, border: `1px solid ${currentTheme.cardBorder}`, borderRadius: '8px', cursor: 'pointer', fontSize: '0.85rem' } }, __('demoTry', '★ Try demo')),
+          React.createElement('button', { onClick: () => openTransactionModal(), style: { padding: '0.5rem 1rem', background: (currentTheme.accentFill || currentTheme.accent), color: '#ffffff', border: 'none', borderRadius: '8px', cursor: 'pointer', fontWeight: '600', fontSize: '0.85rem' } }, __('addShort', '+ Add')),
+          React.createElement('button', { onClick: () => setShowImportModal(true), style: { padding: '0.5rem 1rem', background: currentTheme.inputBg, color: currentTheme.text, border: `1px solid ${currentTheme.cardBorder}`, borderRadius: '8px', cursor: 'pointer', fontSize: '0.85rem' } }, __('importBtn', '↑ Import')),
+          React.createElement('button', { onClick: fetchPrices, disabled: loading, style: { padding: '0.5rem 1rem', background: loading ? currentTheme.inputBg : `${currentTheme.accent}18`, color: loading ? currentTheme.textSecondary : currentTheme.accent, border: `1px solid ${currentTheme.accent}33`, borderRadius: '8px', cursor: loading ? 'not-allowed' : 'pointer', fontSize: '0.85rem', fontWeight: '600', display: 'flex', alignItems: 'center', gap: '0.375rem' } }, loading ? __('refreshing', '◎ Refreshing...') : __('refreshPrices', '↻ Refresh prices'))
+        )
+      ),
+
+      // ── Portfolio selector tabs ──────────────────────────────────────────
+      React.createElement('div', {
+        role: 'group', 'aria-label': __('ovShowPortfolio', 'Show portfolio'),
+        style: { display: 'flex', gap: '0.375rem', marginBottom: '1.5rem', flexWrap: 'wrap', alignItems: 'center' }
+      },
+        // All Portfolios tab
+        React.createElement('button', {
+          'aria-pressed': overviewMode === 'all',
+          onClick: () => setOverviewMode('all'),
+          style: {
+            display: 'flex', alignItems: 'center', gap: '0.4rem',
+            padding: '0.375rem 0.875rem',
+            background: overviewMode === 'all' ? `${currentTheme.accent}20` : currentTheme.inputBg,
+            border: `1px solid ${overviewMode === 'all' ? currentTheme.accent : currentTheme.cardBorder}`,
+            borderRadius: '8px', cursor: 'pointer', transition: 'all 0.1s',
+            fontSize: '0.8rem', fontWeight: overviewMode === 'all' ? '700' : '400',
+            color: overviewMode === 'all' ? currentTheme.accent : currentTheme.text
+          }
+        },
+          React.createElement('span', { style: { fontSize: '0.7rem' } }, '◈'),
+          __('allPortfolios', 'All Portfolios')
+        ),
+        // Divider
+        React.createElement('div', { style: { width: 1, height: 20, background: currentTheme.cardBorder, margin: '0 0.125rem' } }),
+        // Individual portfolio tabs
+        ...portfolios.map(p =>
+          React.createElement('button', {
+            key: p.id,
+            'aria-pressed': overviewMode === p.id,
+            onClick: () => { setOverviewMode(p.id); setActivePortfolioId(p.id); },
+            style: {
+              display: 'flex', alignItems: 'center', gap: '0.4rem',
+              padding: '0.375rem 0.875rem',
+              background: overviewMode === p.id ? `${p.color}18` : currentTheme.inputBg,
+              border: `1px solid ${overviewMode === p.id ? p.color : currentTheme.cardBorder}`,
+              borderRadius: '8px', cursor: 'pointer', transition: 'all 0.1s',
+              fontSize: '0.8rem', fontWeight: overviewMode === p.id ? '700' : '400',
+              color: currentTheme.text
+            }
+          },
+            React.createElement('div', { style: { width: 7, height: 7, borderRadius: '50%', background: p.color, flexShrink: 0 } }),
+            p.name
+          )
+        ),
+        React.createElement('button', {
+          onClick: () => setActiveView('portfolios'),
+          style: { fontSize: '0.72rem', color: currentTheme.textSecondary, background: 'none', border: 'none', cursor: 'pointer', marginLeft: 'auto', padding: '0 0.25rem' }
+        }, __('managePortfolios', 'Manage portfolios →'))
+      ),
+
+      // ── Hero: total portfolio value ─────────────────────────────────────
+      // The history chart already combines the big value, the all-time return
+      // and the 1H…Max timeframe tabs — so it IS the hero. Rendered first.
+      // ── The three main sections, in the order set in Customize Overview (P4-7).
+      //    Default: value chart (the hero), stat cards, allocation; the notices
+      //    below stay between the second and the third section.
+      ovSlot(0),
+
+      // ── Stats cards (mockup parity: Invested · Total Return · Dividends · Health) ──
+      ovSlot(1),
+
+      // ── KPI strip removed: Dividends + Health now live in the stat cards above
+      //    (Net Worth / FIRE remain reachable from their own sidebar views).
+      false &&
+        React.createElement(StableViews.DashboardKpiStrip, {
+          portfolio: overviewPortfolio,
+          prices, priceHistory,
+          transactions: overviewTransactions,
+          portfolioValue: stats.totalValue,
+          theme: currentTheme, t, formatPrice, getCurrencySymbol, setActiveView
+        }),
+
+      // ── Chart ────────────────────────────────────────────────────────────
+      // (Portfolio value chart moved up to the Overview hero slot — see above)
+      false &&
+        React.createElement('div', null),
+
+      // CS2 banner
+      portfolio.skins && portfolio.skins.length > 0 && !(apiKeys.cs2Worker||'').trim() &&
+        React.createElement('div', { style: { background: 'rgba(245,158,11,0.06)', border: '1px solid rgba(245,158,11,0.25)', borderRadius: '10px', padding: '0.875rem 1.25rem', marginBottom: '1.25rem', display: 'flex', alignItems: 'center', gap: '1rem', flexWrap: 'wrap' } },
+          React.createElement('span', { style: { fontSize: '1.25rem' } }, '!'),
+          React.createElement('div', { style: { flex: 1, minWidth: '200px' } },
+            React.createElement('div', { style: { color: currentTheme.text, fontWeight: '600', fontSize: '0.875rem' } }, __('cs2WorkerNeeded', 'CS2 skin prices need a Cloudflare Worker URL')),
+            React.createElement('div', { style: { color: currentTheme.textSecondary, fontSize: '0.8rem', marginTop: '0.125rem' } }, __('cs2WorkerDeploy', 'Deploy the worker.js and paste the URL in API Settings.'))
+          ),
+          React.createElement('button', { onClick: () => setShowApiSettings(true), style: { padding: '0.5rem 1rem', background: currentTheme.warning, color: '#1a1a1a', border: 'none', borderRadius: '6px', cursor: 'pointer', fontWeight: '700', fontSize: '0.8rem' } }, __('addWorkerUrl', 'Add Worker URL →'))
+        ),
+
+      // CS2 skins filed as stocks (see renderMisfiledSkins)
+      !demoMode && renderMisfiledSkins(),
+
+      // Recovery-kit nudge for vaults created before recovery codes existed
+      showRecoveryNudge && React.createElement('div', { style: { background: 'rgba(245,158,11,0.06)', border: '1px solid rgba(245,158,11,0.25)', borderRadius: '10px', padding: '0.875rem 1.25rem', marginBottom: '1.25rem', display: 'flex', alignItems: 'center', gap: '1rem', flexWrap: 'wrap' } },
+        React.createElement('span', { style: { fontSize: '1.25rem', color: currentTheme.warning, fontWeight: '700' } }, '!'),
+        React.createElement('div', { style: { flex: 1, minWidth: '220px' } },
+          React.createElement('div', { style: { color: currentTheme.text, fontWeight: '600', fontSize: '0.875rem' } }, __('rcNudgeTitle', 'Add a recovery code')),
+          React.createElement('div', { style: { color: currentTheme.textSecondary, fontSize: '0.8rem', marginTop: '0.125rem' } }, __('rcNudgeBody', 'Your vault has no recovery code. Without one, a forgotten password cannot be reset — generate a printable code now.'))
+        ),
+        React.createElement('button', { onClick: createRecoveryKit, disabled: recoveryBusy, style: { padding: '0.5rem 1rem', background: (currentTheme.accentFill || currentTheme.accent), color: '#ffffff', border: 'none', borderRadius: '6px', cursor: recoveryBusy ? 'wait' : 'pointer', fontWeight: '700', fontSize: '0.8rem' } }, recoveryBusy ? __('creating', 'Creating…') : __('rcCreate', 'Create recovery code')),
+        React.createElement('button', { onClick: dismissRecoveryNudge, style: { padding: '0.5rem 0.75rem', background: 'transparent', color: currentTheme.textSecondary, border: `1px solid ${currentTheme.cardBorder}`, borderRadius: '6px', cursor: 'pointer', fontSize: '0.8rem' } }, __('dismiss', 'Dismiss'))
+      ),
+
+      // Onboarding
+      stats.totalPositions === 0 && React.createElement('div', { style: { background: 'linear-gradient(135deg,rgba(59,130,246,0.1),rgba(139,124,255,0.1))', border: '1px solid rgba(139,124,255,0.3)', borderRadius: '12px', padding: '2rem', marginBottom: '2rem', textAlign: 'center' } },
+        React.createElement('div', { style: { fontSize: '2rem', marginBottom: '0.75rem', color: 'rgba(139,124,255,0.5)', fontWeight: '300' } }, '↗'),
+        React.createElement('h3', { style: { color: currentTheme.text, fontSize: '1.125rem', fontWeight: '600', marginBottom: '0.5rem' } }, t.welcomeTitle || 'Welcome to MAERMIN'),
+        React.createElement('p', { style: { color: currentTheme.textSecondary, fontSize: '0.875rem', marginBottom: '1rem', lineHeight: '1.6' } }, t.welcomeHint || 'Start by adding your first transaction.'),
+        React.createElement('div', { style: { display: 'flex', gap: '0.75rem', justifyContent: 'center', flexWrap: 'wrap' } },
+          window.MaerminOnboarding && window.MaerminOnboarding.Wizard && React.createElement('button', { onClick: openOnboarding, style: { padding: '0.625rem 1.25rem', background: (currentTheme.accentFill || currentTheme.accent), color: '#ffffff', border: 'none', borderRadius: '8px', cursor: 'pointer', fontWeight: '700', fontSize: '0.875rem' } }, __('guidedSetup', 'Guided setup')),
+          React.createElement('button', { onClick: () => openTransactionModal(), style: { padding: '0.625rem 1.25rem', background: currentTheme.inputBg, color: currentTheme.text, border: `1px solid ${currentTheme.cardBorder}`, borderRadius: '8px', cursor: 'pointer', fontWeight: '600', fontSize: '0.875rem' } }, '+ ' + (t.addTransaction || 'Add Transaction')),
+          React.createElement('button', { onClick: () => setShowImportModal(true), style: { padding: '0.625rem 1.25rem', background: currentTheme.inputBg, color: currentTheme.text, border: `1px solid ${currentTheme.cardBorder}`, borderRadius: '8px', cursor: 'pointer', fontSize: '0.875rem' } }, t.importData || 'Import Data')
+        )
+      ),
+
+      // ── Allocation + Top performers + Positions (mockup-exact, real data) ──
+      ovSlot(2),
 
       // Options book (no new tab): tracked separately from the shared positions
       // engine — buildPositions ignores the 'options' category by design. The

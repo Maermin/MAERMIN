@@ -662,6 +662,42 @@ async function runBuild(browser, label, dir) {
       const raw = await page.evaluate(RAW + '.get("maermin_rebalance_prefs")');
       ok('P4-4: mode and never-sell list are saved, encrypted', saved.mode === 'cashflow' && (saved.noSell || []).join() === 'ETH' && raw === null, JSON.stringify(saved) + ' raw=' + raw);
     }
+    // P4-7: reorder the Overview sections - arrow buttons, keyboard on the handle, pointer drag
+    {
+      const order = () => page.locator('[data-ov-section]').evaluateAll((els) => els.map((x) => x.getAttribute('data-ov-section')).join(','));
+      let a = '', b = '', c = '', said = '', focusOk = false, err = '';
+      try {
+        await openView(page, 'customize');
+        await page.getByRole('button', { name: 'Move Allocation · Top Performers · Positions up' }).click();
+        await page.getByRole('button', { name: 'Move Allocation · Top Performers · Positions up' }).click();
+        await page.waitForTimeout(150); // focus is restored after the re-render
+        said = await page.locator('main [role="status"][aria-live="polite"]').last().innerText();
+        focusOk = await page.evaluate(() => (document.activeElement && document.activeElement.getAttribute('data-dash-id')) === 'allocation');
+        await openView(page, 'overview'); await page.waitForTimeout(400);
+        a = await order();
+        await openView(page, 'customize');
+        await page.locator('[data-dash-handle="valueChart"]').focus();
+        await page.keyboard.press('ArrowDown');
+        await page.waitForTimeout(200);
+        await openView(page, 'overview'); await page.waitForTimeout(400);
+        b = await order();
+        await openView(page, 'customize');
+        const h = await page.locator('[data-dash-handle="statCards"]').boundingBox();
+        const top = await page.locator('[data-dash-row="allocation"]').boundingBox();
+        await page.mouse.move(h.x + h.width / 2, h.y + h.height / 2);
+        await page.mouse.down();
+        await page.mouse.move(h.x + h.width / 2, top.y + 4, { steps: 8 });
+        await page.mouse.up();
+        await page.waitForTimeout(200);
+        await openView(page, 'overview'); await page.waitForTimeout(400);
+        c = await order();
+        await openView(page, 'customize');
+        await page.getByRole('button', { name: 'Reset to default' }).click();
+      } catch (e) { err = e.message.split('\n')[0]; }
+      ok('P4-7: "Move up" twice puts Allocation first on the Overview, focus stays, position announced', a === 'allocation,valueChart,statCards' && focusOk && /position 1 of 3/.test(said), err || a + ' | ' + said + ' | focus ' + focusOk);
+      ok('P4-7: ArrowDown on a drag handle moves that section', b === 'allocation,statCards,valueChart', err || b);
+      ok('P4-7: dragging a handle (pointer) moves the section to the top', c === 'statCards,allocation,valueChart', err || c);
+    }
     ok('no page errors in the session', errors.length === 0, errors.join(' | '));
     await context.close();
   }

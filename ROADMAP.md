@@ -39,6 +39,7 @@ Every shipped module is covered by a Node test in `test/`.
 | **P4-4 Rebalancing upgrades** | `rebalancing-planner.js` (`plan` options `defaultBand`/`bands`/`mode`/`contribution`, rows `sellable`; `bandPp`; prefs), `features2.js` (`RebalancingView` now on the planner) | ✅ shipped — band per target (relative with absolute floor), invest-only mode, never-sell holdings; key `maermin_rebalance_prefs` (encrypted, backup) | `test/rebalancing-upgrades.test.js` (31), e2e scenario 1 |
 | **P4-5 AI copy-prompt export** | `ai-prompt.js`, `trust.js` (Privacy view), `renderer.js` | ✅ shipped — redacted (share-snapshot allowlist) and full (after confirmation, not in Privacy Mode) text summaries; nothing sent; no notes or keys | `test/ai-prompt.test.js` (14, leak proof), e2e scenario 1 |
 | **P4-6 Data check with actions** | `data-check.js`, `ledger.js` (`txId` on findings), `renderer.js` (Data check box, misfiled skins) | ✅ shipped — stable `DQ-*` codes, one action per finding, data changes confirmed | `test/data-check.test.js` (14), e2e scenario 1 |
+| **P4-7 Overview reorder** | `dashboard-layout.js` (`sectionOrder`, Customize view: ↑/↓, drag handle on pointer events, live announcement), `renderer.js` (`renderOverview` renders the sections in the saved order) | ✅ shipped — order in `maermin_dashboard_layout` (existing key, in backup) | `test/overview-order.test.js` (10), e2e scenario 1 |
 
 ### Competitive Gaps (round closing real gaps vs Parqet / getquin / Snowball / Sharesight)
 
@@ -99,7 +100,7 @@ remove tags, per-tag value & weight, and tag-basis target weights with buy/sell 
   **Customize Overview** view (`MaerminDashboard.View`, Tools · `g y`) that shows/hides the three
   main Overview sections (Value chart · Stat cards · Allocation/Performers/Positions).
   `renderOverview` gates each section with `dashVis(id)` (reads `visibleSet()` per render; unknown
-  ids default visible). Show/hide only — not drag-reorder (the Overview renders in fixed order).
+  ids default visible). Since P4-7 the sections also render in the saved order (drag or ↑/↓ in the view).
   Persisted in `maermin_dashboard_layout` (already in backup).
 - ✅ **By-asset-class allocation is custom-category-aware** — `allocation.js` (`computeAllocation`)
   and the Overview's own donut/legend/positions now include custom categories with their label &
