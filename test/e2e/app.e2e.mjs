@@ -679,6 +679,19 @@ async function runBuild(browser, label, dir) {
     const want = (expected >= 0 ? '+' : '') + expected.toFixed(2) + '%';
     ok('TWR from day one, without a refresh click: ' + want + ' (value change incl. deposit would read ' + naive.toFixed(0) + '%)', shown.includes(want), shown.replace(/\n/g, ' | '));
     ok('TWR card names the start date and the yearly figure', shown.includes('since ' + usDate(WEEKDAYS[0])) && /% p\.a\./.test(shown), shown.replace(/\n/g, ' | '));
+    // P4-1: monthly returns heatmap from the same daily chain
+    { const hm = await page.evaluate(() => {
+        const root = document.querySelector('[data-testid="returns-heatmap"]');
+        if (!root) return null;
+        const years = Array.from(root.querySelectorAll('td[data-kind="y"]')).map((td) => parseFloat(td.getAttribute('data-r')));
+        const months = Array.from(root.querySelectorAll('td[data-kind^="m"]')).map((td) => parseFloat(td.getAttribute('data-r')));
+        return { years, months, rows: root.querySelectorAll('tbody tr').length, text: root.innerText.slice(0, 120) };
+      });
+      const prodY = hm ? hm.years.reduce((g, r) => g * (1 + r), 1) - 1 : NaN;
+      const prodM = hm ? hm.months.reduce((g, r) => g * (1 + r), 1) - 1 : NaN;
+      const yearsSpanned = new Set(WEEKDAYS.map((d) => d.slice(0, 4))).size;
+      ok('P4-1: monthly returns heatmap, one row per year of history', !!hm && hm.rows === yearsSpanned && /Monthly returns/.test(hm.text), JSON.stringify(hm && { rows: hm.rows, yearsSpanned }));
+      ok('P4-1: product of the year totals and of the months = the TWR card', Math.abs(prodY * 100 - expected) < 1e-6 && Math.abs(prodM * 100 - expected) < 1e-6, prodY * 100 + ' / ' + prodM * 100 + ' vs ' + expected); }
     ok('closes came through the Worker route ?action=yf (5-year range for both holdings)', ['VWCE.DE', 'AAPL'].every((x) => workerState.requests.includes('/?action=yf&symbol=' + x + '&interval=1d&range=5y')), workerState.requests.join(' '));
     await page.waitForTimeout(2500); // benchmark fetch
     { const rb = await page.innerText('body'); ok('benchmark comparison is computed from daily returns', /Alpha \(ann\.\)/i.test(rb) && /daily returns since/.test(rb), (rb.match(/Benchmark comparison[\s\S]{0,200}/) || [''])[0].replace(/\n/g, ' | ')); }
