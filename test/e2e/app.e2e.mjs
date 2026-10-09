@@ -449,6 +449,26 @@ async function runBuild(browser, label, dir) {
     await openView(page, 'transactions');
     const check = await page.locator('[data-testid="ledger-issues"]').first().innerText().catch(() => '');
     ok('Data check lists the oversell and the unconvertible currency', /Data check: 2 issues/.test(check), check.slice(0, 120));
+    // P4-6: each finding has a stable code and an action
+    { let codes = [], editSym = '', search = '', err = '';
+      try {
+        await page.locator('[data-testid="ledger-issues"] summary').first().click();
+        codes = await page.locator('[data-testid="ledger-issues"] li[data-dq-code]').evaluateAll((ls) => ls.map((l) => l.getAttribute('data-dq-code')));
+        await page.locator('li[data-dq-code="DQ-FX-UNKNOWN"] [data-dq-action="edit-transaction"]').click();
+        const dlg = page.locator('[aria-labelledby="dlg-transaction"]');
+        await dlg.waitFor({ timeout: 5000 });
+        editSym = await dlg.locator('input').evaluateAll((ins) => ins.map((i) => i.value).join('|'));
+        await dlg.getByRole('button', { name: 'Close', exact: true }).click();
+        await page.waitForTimeout(300);
+        await page.locator('li[data-dq-code="DQ-OVERSOLD"] [data-dq-action="show-transactions"]').click();
+        await page.waitForTimeout(300);
+        search = await page.locator('main input[type="text"], main input[type="search"]').evaluateAll((ins) => ins.map((i) => i.value).filter(Boolean).join('|'));
+        await page.locator('main input[value="ADA"]').first().fill(''); // the next steps need the full list
+        await page.waitForTimeout(200);
+      } catch (e) { err = e.message.split('\n')[0]; }
+      ok('P4-6: findings carry codes DQ-OVERSOLD and DQ-FX-UNKNOWN', codes.includes('DQ-OVERSOLD') && codes.includes('DQ-FX-UNKNOWN'), err || codes.join(','));
+      ok('P4-6: "Edit transaction" opens the ETH trade quoted in BTC', /ETH/.test(editSym) && /0\.05/.test(editSym), err || editSym);
+      ok('P4-6: "Show transactions" filters the list to ADA', /ADA/.test(search), err || search); }
 
     // P2-4: a deleted transaction goes to the trash; Undo and Restore bring it back.
     {

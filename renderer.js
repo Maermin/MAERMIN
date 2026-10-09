@@ -4122,6 +4122,32 @@ function InvestmentTracker() {
 
   // ========== TRANSACTIONS VIEW ==========
   
+  // P4-6: what a Data check action does. Only 'move-skins' changes data and it
+  // asks first (repairMisfiledSkins); the others open the place to fix it.
+  const DC = window.MaerminDataCheck;
+  const hasWorker = (apiKeys.cs2Worker || '').trim().length > 5;
+  const runDataAction = (action) => {
+    if (!action) return;
+    if (action.type === 'edit-transaction') {
+      const tx = transactions.find(x => String(x.id) === String(action.txId));
+      if (tx) { editTransaction(tx); return; }
+    }
+    if (action.type === 'show-transactions' || action.type === 'edit-transaction') {
+      const sym = String(action.symbol || '').toLowerCase();
+      const tx = sym ? transactions.find(x => String(x.symbol || x.name || '').toLowerCase() === sym) : null;
+      if (tx) setActivePortfolioId(tx.portfolioId || 'default');
+      setTxSearch(action.symbol || '');
+      setActiveView('transactions');
+      return;
+    }
+    if (action.type === 'refresh') { fetchPrices(); return; }
+    if (action.type === 'open-api-settings') { setShowApiSettings(true); return; }
+    if (action.type === 'move-skins') {
+      const T = window.MaerminTickers;
+      repairMisfiledSkins(T && T.findMisfiledSkins ? T.findMisfiledSkins(transactions) : []);
+    }
+  };
+
   // Collapsible "Data check" box for ledgerIssues (null when there is none).
   const renderLedgerIssues = () => {
     if (!ledgerIssues.length) return null;
@@ -4144,7 +4170,16 @@ function InvestmentTracker() {
       React.createElement('summary', { style: { cursor: 'pointer', fontWeight: 700 } },
         __('issueSummary', 'Data check: {n} {n:issue|issues}', { n: ledgerIssues.length }) + (warnings ? ' ' + __('issueSummaryWarn', '({n} affect cost basis or tax)', { n: warnings }) : '')),
       React.createElement('ul', { style: { margin: '0.5rem 0 0', paddingLeft: '1.1rem', lineHeight: 1.6, color: currentTheme.textSecondary } },
-        ledgerIssues.slice(0, 20).map((i, k) => React.createElement('li', { key: k }, line(i))),
+        ledgerIssues.slice(0, 20).map((i, k) => {
+          // P4-6: stable code + one action per finding
+          const c = DC ? DC.classify(i, { hasWorker, hasHistory: (cur) => !!(window.MaerminFxHistory && window.MaerminFxHistory.hasHistory && window.MaerminFxHistory.hasHistory(cur)) }) : null;
+          return React.createElement('li', { key: k, 'data-dq-code': c ? c.code : undefined, style: { marginBottom: '0.35rem' } }, line(i),
+            c && React.createElement('span', { style: { display: 'inline-flex', alignItems: 'center', gap: '0.5rem', marginLeft: '0.5rem', flexWrap: 'wrap', verticalAlign: 'middle' } },
+              React.createElement('code', { style: { fontSize: '0.7rem', color: currentTheme.textSecondary } }, c.code),
+              React.createElement('button', { type: 'button', 'data-dq-action': c.action.type, onClick: () => runDataAction(c.action),
+                style: { padding: '0.2rem 0.6rem', minHeight: '24px', fontSize: '0.75rem', fontWeight: 600, borderRadius: '6px', cursor: 'pointer', background: 'transparent', color: currentTheme.accent, border: `1px solid ${currentTheme.accent}55` } },
+                DC.actionLabel(c.action))));
+        }),
         ledgerIssues.length > 20 && React.createElement('li', { key: 'more' }, __('andNMore', '… and {n} more', { n: ledgerIssues.length - 20 }))));
   };
 
@@ -4157,12 +4192,14 @@ function InvestmentTracker() {
     const T = window.MaerminTickers;
     if (!T || !found.length || skinRepairBusy) return;
     const count = found.reduce((s, f) => s + f.count, 0);
-    const ok = await askConfirm({
+    // P4-6: data-changing actions confirm through MaerminUtils.confirmThen
+    const ok = await window.MaerminUtils.confirmThen({
       title: __('skinMoveTitle', 'Move {n} {n:item|items} to CS2 Skins?', { n: found.length }),
       message: __('skinMoveMsg', '{count} {count:transaction|transactions} of {list} are filed as {cat} but are CS2 items. They will be moved to CS2 Skins so they get CS2 skin prices (Steam Market list). Quantities, prices and dates stay as they are.', { count, list: found.slice(0, 4).map(f => f.symbol).join(', ') + (found.length > 4 ? ' ' + __('andNMoreShort', 'and {n} more', { n: found.length - 4 }) : ''), cat: found[0].category === 'crypto' ? (t.crypto || 'Crypto') : (t.stocks || 'Stocks') }),
       confirmLabel: __('skinMoveBtn', 'Move to CS2 Skins'),
-      cancelLabel: t.cancel || 'Cancel'
-    });
+      cancelLabel: t.cancel || 'Cancel',
+      danger: false
+    }, () => {});
     if (!ok) return;
     setSkinRepairBusy(true);
     const nameMap = {};
@@ -4189,10 +4226,11 @@ function InvestmentTracker() {
     const found = T.findMisfiledSkins(transactions);
     if (!found.length) return null;
     return React.createElement('div', {
-      role: 'status', 'data-testid': 'misfiled-skins',
+      role: 'status', 'data-testid': 'misfiled-skins', 'data-dq-code': DC ? DC.CODES.skinMisfiled : undefined,
       style: { background: `${currentTheme.warning}14`, border: `1px solid ${currentTheme.warning}55`, borderRadius: '10px', padding: '0.75rem 0.9rem', marginBottom: '1rem', fontSize: '0.82rem', color: currentTheme.text, display: 'flex', flexWrap: 'wrap', gap: '0.75rem', alignItems: 'center', justifyContent: 'space-between' }
     },
       React.createElement('div', { style: { flex: '1 1 260px', lineHeight: 1.5 } },
+        DC && React.createElement('code', { style: { fontSize: '0.7rem', color: currentTheme.textSecondary, marginRight: '0.4rem' } }, DC.CODES.skinMisfiled),
         React.createElement('strong', null, __('skinMisfiled', '{n} CS2 {n:item is|items are} filed as {cat}', { n: found.length, cat: found.some(f => f.category === 'stocks') ? (t.stocks || 'Stocks') : (t.crypto || 'Crypto') })),
         React.createElement('div', { style: { color: currentTheme.textSecondary, fontSize: '0.78rem' } },
           `${found.slice(0, 3).map(f => f.symbol).join(', ')}${found.length > 3 ? ' …' : ''} - ${__('skinMisfiledHint', 'they get no price there. Move them to CS2 Skins to get their skin prices.')}`)),

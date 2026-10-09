@@ -38,6 +38,7 @@ Every shipped module is covered by a Node test in `test/`.
 | **P4-2 Closed positions** | `ledger.js` (`closedPositions`), `position-chart.js`, `renderer.js` (Overview positions card), `features3.js` (position dialog) | ✅ shipped — Open/Closed toggle; closed rows: cost basis sold, proceeds, realized P&L and return from the FIFO ledger; price chart with average-cost line in the position dialog | `test/closed-positions.test.js` (19), e2e scenarios 1 and 5 |
 | **P4-4 Rebalancing upgrades** | `rebalancing-planner.js` (`plan` options `defaultBand`/`bands`/`mode`/`contribution`, rows `sellable`; `bandPp`; prefs), `features2.js` (`RebalancingView` now on the planner) | ✅ shipped — band per target (relative with absolute floor), invest-only mode, never-sell holdings; key `maermin_rebalance_prefs` (encrypted, backup) | `test/rebalancing-upgrades.test.js` (31), e2e scenario 1 |
 | **P4-5 AI copy-prompt export** | `ai-prompt.js`, `trust.js` (Privacy view), `renderer.js` | ✅ shipped — redacted (share-snapshot allowlist) and full (after confirmation, not in Privacy Mode) text summaries; nothing sent; no notes or keys | `test/ai-prompt.test.js` (14, leak proof), e2e scenario 1 |
+| **P4-6 Data check with actions** | `data-check.js`, `ledger.js` (`txId` on findings), `renderer.js` (Data check box, misfiled skins) | ✅ shipped — stable `DQ-*` codes, one action per finding, data changes confirmed | `test/data-check.test.js` (14), e2e scenario 1 |
 
 ### Competitive Gaps (round closing real gaps vs Parqet / getquin / Snowball / Sharesight)
 
