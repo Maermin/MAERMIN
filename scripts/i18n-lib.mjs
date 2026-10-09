@@ -60,7 +60,7 @@ const CALLS_NOT_UI = new Set(['log', 'dbg', 'audit', 'warn', 'error', 'info', 'd
 // Names that read the same in every language (products, services, codes).
 const SAME_IN_ALL = new Set(['MAERMIN', 'CoinGecko', 'ExchangeRate-API', 'Cloudflare Worker', 'Yahoo Finance',
   'Argon2id', 'PBKDF2-600k', 'English', 'Deutsch', '1 USD', '€ EUR', '$ USD', 'Steam Market', 'Binance', 'Kraken',
-  'Coinbase', 'Bitpanda', 'Trade Republic', 'Scalable Capital', 'Interactive Brokers', 'XIRR', 'TWR', 'FIFO', 'FIRE',
+  'Coinbase', 'Bitpanda', 'Trade Republic', 'Scalable Capital', 'Portfolio Performance', 'Parqet', 'Interactive Brokers', 'XIRR', 'TWR', 'FIFO', 'FIRE',
   'Monte Carlo', 'Coast-FIRE', 'Vorabpauschale', 'Solidaritätszuschlag', 'Kirchensteuer', 'Freistellungsauftrag', 'Sparerpauschbetrag', 'Abgeltungsteuer', 'Teilfreistellung', 'Sharpe', 'Sortino', 'Beta', 'Alpha', 'ETF', 'ETFs', 'Watchlist', 'Dashboard', 'Live', 'Demo', 'Nebula', 'OK']);
 
 // Does this literal read like text a person sees?

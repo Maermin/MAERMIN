@@ -723,6 +723,30 @@ async function runBuild(browser, label, dir) {
       ok('P4-3: a dividend without a known country sits in the "unknown" row', /Country unknown/.test(unk) && /20\.00/.test(unk), err || flat(unk));
       await page.evaluate(() => localStorage.setItem('maermin_divevents', '[]'));
     }
+    // P4-8: Portfolio Performance export (German layout, made-up figures) through the import wizard
+    {
+      const PP = ['Datum;Typ;Wert;Buchungswährung;Bruttobetrag;Währung Bruttobetrag;Wechselkurs;Gebühren;Steuern;Stück;ISIN;WKN;Ticker-Symbol;Wertpapiername;Notiz',
+        '2024-01-15T00:00;Einlage;5.000,00;EUR;;;;;;;;;;;',
+        '2024-01-16T09:30;Kauf;-1.004,99;EUR;;;;4,99;;10;IE00B4L5Y983;A0RPWH;EUNL.DE;iShares Core MSCI World;',
+        '2024-03-15T00:00;Dividende;8,50;EUR;11,55;USD;1,0870;;1,59;5;US0378331005;865985;AAPL;Apple Inc.;',
+        '2024-06-03T14:00;Verkauf;520,00;EUR;;;;5,00;15,00;5;IE00B4L5Y983;A0RPWH;EUNL.DE;iShares Core MSCI World;'].join('\r\n');
+      let howto = '', info = '', chips = '', toast = '', err = '';
+      try {
+        await openView(page, 'data');
+        await page.getByRole('button', { name: /Broker Import/ }).click();
+        await page.getByRole('button', { name: 'Select broker Portfolio Performance' }).click();
+        howto = await page.locator('[data-testid="tracker-howto"]').innerText();
+        await page.locator('input[type="file"][accept*=".pdf"]').setInputFiles({ name: 'Depotumsaetze.csv', mimeType: 'text/csv', buffer: Buffer.from(PP, 'utf8') });
+        info = await page.locator('[data-testid="tracker-info"]').innerText();
+        chips = await page.locator('[data-testid="tracker-info"]').locator('xpath=preceding-sibling::div[1]').innerText();
+        await page.getByRole('button', { name: /Import 3/ }).click();
+        toast = await page.getByText(/3 transactions imported/).first().innerText();
+      } catch (e) { err = e.message.split('\n')[0]; }
+      ok('P4-8: the PP tile explains the export (Depotumsätze / Kontoumsätze)', /Securities Account Transactions/.test(howto) && /Kontoumsätze/.test(howto), err || howto);
+      ok('P4-8: file read as Portfolio Performance, booking rules shown, no column mapping', /How Portfolio Performance rows are booked/.test(info), err || info);
+      ok('P4-8: 3 valid rows, the deposit skipped', /Detected: Portfolio Performance/.test(chips) && /3 valid/.test(chips) && /1 skipped/.test(chips), err || chips);
+      ok('P4-8: import books the 3 rows', /3 transactions imported/.test(toast), err || toast);
+    }
     ok('no page errors in the session', errors.length === 0, errors.join(' | '));
     await context.close();
   }
