@@ -5989,7 +5989,7 @@ buy,crypto,bitcoin,0.5,45000,2024-01-15,10`)
       React.createElement('div', { className: 'mx-brand' },
         Logo({ size: 32 }),
         React.createElement('h1', { className: 'mx-brand-name' }, 'MAERMIN'),
-        React.createElement('span', { className: 'mx-brand-tag' }, 'v10')
+        React.createElement('span', { className: 'mx-brand-tag' }, 'v11')
       ),
 
       // Command search
