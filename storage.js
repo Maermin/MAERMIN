@@ -77,6 +77,7 @@
     'maermin_tags',               // held symbols
     'maermin_rules',              // symbols + price/weight thresholds
     'maermin_rebalance_targets',  // allocation targets
+    'maermin_rebalance_prefs',    // never-sell holdings (symbols) + tolerance bands (P4-4)
     'maermin_corporate_actions',  // held symbols + splits
     'maermin_import_presets',     // broker column mappings
     'maermin_exchange_sync',      // exchange connection metadata
