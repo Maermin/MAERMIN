@@ -2,9 +2,7 @@
 
 ## Unreleased
 
-- **A demo that works without setup (P4-9):** Demo mode now brings made-up daily prices, so the value chart, TWR, the monthly returns grid, risk figures, a closed position and the withholding-tax table all show something before you deploy a Worker. Nothing of it is stored; leaving the demo shows your own data.
-- **Privacy texts made exact (P4-9):** the README and Settings → Privacy now say precisely what leaves the device: the symbols you hold go to your own Worker, encryption at rest is on by default but optional (a few settings stay unencrypted), exchange API keys travel with each request through your Worker, React is loaded once and then served from the offline cache, and what the Worker caches and counts. The app also no longer claims that crypto prices load without a Worker.
-- **README:** screenshots and a comparison with Parqet, getquin, Portfolio Performance, Ghostfolio and Wealthfolio, each claim dated and linked.
+_Nothing yet._
 
 ## [v11.0.0] — 9 October 2026
 
@@ -24,6 +22,9 @@
 
 ### Phase 4 (2026-10-09)
 
+- **A demo that works without setup (P4-9):** Demo mode now brings made-up daily prices, so the value chart, TWR, the monthly returns grid, risk figures, a closed position and the withholding-tax table all show something before you deploy a Worker. Nothing of it is stored; leaving the demo shows your own data.
+- **Privacy texts made exact (P4-9):** the README and Settings → Privacy now say precisely what leaves the device: the symbols you hold go to your own Worker, encryption at rest is on by default but optional (a few settings stay unencrypted), exchange API keys travel with each request through your Worker, React is loaded once and then served from the offline cache, and what the Worker caches and counts. The app also no longer claims that crypto prices load without a Worker.
+- **README:** screenshots and a comparison with Parqet, getquin, Portfolio Performance, Ghostfolio and Wealthfolio, each claim dated and linked.
 - **Import from Portfolio Performance and Parqet (P4-8):** Import / Export → Broker Import has two new tiles. Portfolio Performance: the CSV export "Securities Account Transactions" (purchases, sales, inbound deliveries) and "Account Transactions" (dividends), in English or German. Parqet: the activities CSV export (securities and crypto). Both use the usual preview, ISIN → ticker step and duplicate check; a purchase that is in both PP files is imported once. Dividends are booked gross with the foreign tax as withholding tax; cash bookings, interest, transfers between your own accounts and outbound deliveries are listed with the reason and not booked.
 - **Withholding tax by country (P4-3):** the German tax view shows, per country and year, gross dividends, tax withheld abroad, the part creditable under § 32d (5) EStG (at most 15 % of each payout, as the tax calculation already does) and the excess you can only reclaim in the source country. Labelled an estimate: the statutory rates come from secondary summaries of the BZSt table and are not checked against the original. Withholding can now be entered when editing a dividend transaction and in the dividend calendar.
 - **Reorder the Overview (P4-7):** Settings → Customize Overview orders the three main sections (value chart, stat cards, allocation & positions): drag a row by its handle (mouse or touch) or use the ↑ / ↓ buttons; the drag handle also moves with the arrow keys. The order is saved in the existing layout key, so it is part of the backup. Notices (e.g. the recovery-code reminder) stay between the second and third section.
