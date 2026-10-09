@@ -110,6 +110,13 @@
   // assets that trade at different times (crypto 24/7 vs exchange hours) are
   // never valued at 0. Timestamps are sorted chronologically, not as strings.
   function twr(priceHistory, portfolio, transactions) {
+    var res = twrSteps(priceHistory, portfolio, transactions);
+    return res ? res.twr : null;
+  }
+
+  // The same chain as twr(), with the return of each period dated at its end:
+  //   → { twr, steps: [{ d: 'YYYY-MM-DD', r }] } | null   (returns heatmap)
+  function twrSteps(priceHistory, portfolio, transactions) {
     priceHistory = priceHistory || {};
     portfolio = portfolio || {};
     var syms = {};
@@ -152,7 +159,7 @@
     events.sort(function (a, b) { return a.t - b.t; });
     if (events.length < 2) return null;
 
-    var last = {}, prevPrices = null, prevHeld = null, growth = 1, periods = 0;
+    var last = {}, prevPrices = null, prevHeld = null, growth = 1, periods = 0, steps = [];
     for (var i = 0; i < events.length; i++) {
       var ev = events[i];
       last[ev.k] = ev.p;
@@ -169,11 +176,11 @@
           v0 += h[k] * prevPrices[k];
           v1 += h[k] * snapshot[k];
         });
-        if (v0 > 0) { growth *= v1 / v0; periods++; }
+        if (v0 > 0) { growth *= v1 / v0; periods++; steps.push({ d: new Date(ev.t).toISOString().slice(0, 10), r: v1 / v0 - 1 }); }
       }
       prevPrices = snapshot; prevHeld = held;
     }
-    return periods > 0 ? growth - 1 : null;
+    return periods > 0 ? { twr: growth - 1, steps: steps } : null;
   }
 
   // Money-weighted cash flows for XIRR, in EUR. Every leg converts at the FX
@@ -217,7 +224,7 @@
     return flows;
   }
 
-  var api = { xirr: xirr, twr: twr, buildCashflows: buildCashflows };
+  var api = { xirr: xirr, twr: twr, twrSteps: twrSteps, buildCashflows: buildCashflows };
   if (typeof window !== 'undefined') window.MaerminReturns = api;
   if (typeof module !== 'undefined' && module.exports) module.exports = api;
 })();

@@ -37,6 +37,57 @@ function calcTWR(priceHistory, portfolio, transactions) {
 // ─────────────────────────────────────────────────────────────────────────────
 // 1. XIRR / TWR VIEW
 // ─────────────────────────────────────────────────────────────────────────────
+// P4-1: monthly returns heatmap (returns-heatmap.js). Rows = years, newest
+// first; Jan-Dec, then the compounded quarters and year. Each cell prints its
+// figure, so colour is never the only signal (colour-blind theme). On a phone
+// the table scrolls inside its card, with the year column fixed.
+function ReturnsHeatmap({ steps, source, theme }) {
+  const H = (typeof window !== 'undefined') ? window.MaerminReturnsHeatmap : null;
+  const grid = useMemo(() => (H && steps && steps.length) ? H.fromSteps(steps) : null, [H, steps]);
+  if (!H || source === 'none') return null;
+  const I = window.MaerminI18n;
+  const months = I.monthNames('short');
+  const monthsLong = I.monthNames('long');
+  const fmt = (r) => I.pct(r * 100, 1, true);
+  const cellStyle = { padding: '0.4rem 0.45rem', textAlign: 'right', fontSize: '0.76rem', fontVariantNumeric: 'tabular-nums', whiteSpace: 'nowrap', borderRadius: '5px' };
+  const headStyle = { padding: '0.35rem 0.45rem', textAlign: 'right', fontSize: '0.7rem', fontWeight: 600, color: theme.textSecondary, textTransform: 'uppercase', letterSpacing: '0.04em', whiteSpace: 'nowrap' };
+  const cell = (r, label, maxAbs, key, partial, strong) => {
+    if (r === null || r === undefined) {
+      return React.createElement('td', { key, 'aria-label': __('rhCellNone', '{label}: no data', { label }), style: { ...cellStyle, background: 'transparent', color: theme.textSecondary } }, '—');
+    }
+    const bg = H.cellColor(r, { up: theme.success, down: theme.danger, base: theme.card, maxAbs });
+    const text = fmt(r) + (partial ? '*' : '');
+    return React.createElement('td', {
+      key, 'data-r': r, 'data-kind': key, title: label + ': ' + fmt(r) + (partial ? ' (' + __('rhPartial', 'part of the month') + ')' : ''),
+      'aria-label': __('rhCellAria', '{label}: {pct}', { label, pct: fmt(r) }) + (partial ? ', ' + __('rhPartial', 'part of the month') : ''),
+      style: { ...cellStyle, background: bg, color: H.textOn(bg), fontWeight: strong ? 700 : 500 }
+    }, text);
+  };
+  const srcNote = source === 'daily' ? __('rhSrcDaily', 'From the daily closing prices, like the TWR above.')
+    : source === 'snapshots' ? __('rhSrcSnapshots', 'From the daily value snapshots, like the TWR above. A period that spans several months counts in the month it ends in.')
+    : __('rhSrcRefresh', 'From your price refreshes, like the TWR above. Months without a refresh show —; a period that spans several months counts in the month it ends in.');
+  return React.createElement('div', { 'data-testid': 'returns-heatmap', style: { background: theme.card, borderRadius: '16px', boxShadow: theme.shadow, border: `1px solid ${theme.cardBorder}`, padding: '1.25rem', marginBottom: '1.5rem', minWidth: 0 } },
+    React.createElement('h3', { style: { color: theme.text, fontSize: '1rem', fontWeight: 700, margin: '0 0 0.25rem' } }, __('rhTitle', 'Monthly returns')),
+    React.createElement('p', { style: { color: theme.textSecondary, fontSize: '0.8rem', margin: '0 0 0.85rem', lineHeight: 1.5 } },
+      srcNote + ' ' + __('rhCompound', 'Quarters and years are compounded, not added up.')),
+    !grid
+      ? React.createElement('div', { style: { color: theme.textSecondary, fontSize: '0.85rem', padding: '0.75rem 0' } }, __('rhEmpty', 'Not enough history yet for monthly returns.'))
+      : React.createElement('div', { role: 'region', tabIndex: 0, 'aria-label': __('rhScrollAria', 'Monthly returns table, scrolls sideways'), style: { overflowX: 'auto', maxWidth: '100%' } },
+          React.createElement('table', { style: { borderCollapse: 'separate', borderSpacing: '3px', minWidth: '100%' } },
+            React.createElement('thead', null, React.createElement('tr', null,
+              React.createElement('th', { scope: 'col', style: { ...headStyle, textAlign: 'left', position: 'sticky', left: 0, background: theme.card } }, __('rhYear', 'Year')),
+              months.map((m, i) => React.createElement('th', { key: 'm' + i, scope: 'col', abbr: monthsLong[i], style: headStyle }, m)),
+              [1, 2, 3, 4].map((q) => React.createElement('th', { key: 'q' + q, scope: 'col', style: headStyle }, __('rhQuarter', 'Q{n}', { n: q }))),
+              React.createElement('th', { scope: 'col', style: headStyle }, __('rhTotal', 'Year')))),
+            React.createElement('tbody', null, grid.years.map((Y) => React.createElement('tr', { key: Y.year },
+              React.createElement('th', { scope: 'row', style: { ...headStyle, textAlign: 'left', color: theme.text, position: 'sticky', left: 0, background: theme.card } }, String(Y.year)),
+              Y.months.map((r, i) => cell(r, monthsLong[i] + ' ' + Y.year, 0.1, 'm' + i, !!Y.partial[i])),
+              Y.quarters.map((r, q) => cell(r, __('rhQuarter', 'Q{n}', { n: q + 1 }) + ' ' + Y.year, 0.2, 'q' + q)),
+              cell(Y.total, String(Y.year), 0.3, 'y', Object.keys(Y.partial).length > 0, true)))))),
+    grid && grid.years.some((Y) => Object.keys(Y.partial).length) && React.createElement('div', { style: { color: theme.textSecondary, fontSize: '0.74rem', marginTop: '0.5rem' } },
+      __('rhPartialNote', '* part of the month or year only (the history starts or ends inside it).')));
+}
+
 function ReturnsView({ transactions, portfolio, prices, priceHistory, theme, formatPrice, getCurrencySymbol, t, fxAt, exchangeRate, valuePath, historyPending, portfolioId, hasWorker }) {
   const R = (typeof window !== 'undefined') ? window.MaerminReturns : null;
   // Current EUR value over EVERY class in the book (custom categories too),
@@ -67,17 +118,21 @@ function ReturnsView({ transactions, portfolio, prices, priceHistory, theme, for
   //   3. the per-refresh price history (needs refreshes on several days)
   const twrInfo = useMemo(() => {
     const VP = window.MaerminValuePath, SN = window.MaerminSnapshots;
-    if (valuePath && valuePath.twr !== null) return { source: 'daily', value: valuePath.twr, annualized: valuePath.annualized, since: valuePath.start, missing: valuePath.missing || [] };
+    // steps: the chain of period returns behind the figure (monthly heatmap).
+    if (valuePath && valuePath.twr !== null) return { source: 'daily', value: valuePath.twr, annualized: valuePath.annualized, since: valuePath.start, missing: valuePath.missing || [],
+      steps: (valuePath.points || []).map(p => ({ d: p.d, r: p.r })) };
     if (VP && SN && transactions.length) {
       try {
         const pts = SN.seriesFor(SN.load(), portfolioId || SN.ALL);
         const r = VP.fromValues(pts, VP.flowsOf(transactions, { exchangeRate, fxAt }));
-        if (r) return { source: 'snapshots', value: r.twr, annualized: r.annualized, since: r.start, missing: [] };
+        if (r) return { source: 'snapshots', value: r.twr, annualized: r.annualized, since: r.start, missing: [], steps: r.steps || [] };
       } catch (e) { /* fall through */ }
     }
-    const legacy = calcTWR(priceHistory, portfolio, transactions);
-    return { source: legacy !== null ? 'refresh' : 'none', value: legacy, annualized: null, since: null, missing: [] };
-  }, [valuePath, priceHistory, portfolio, transactions, portfolioId, exchangeRate, fxAt]);
+    const legacy = (R && R.twrSteps) ? R.twrSteps(priceHistory, portfolio, transactions) : null;
+    if (legacy) return { source: 'refresh', value: legacy.twr, annualized: null, since: null, missing: [], steps: legacy.steps };
+    const plain = calcTWR(priceHistory, portfolio, transactions);
+    return { source: plain !== null ? 'refresh' : 'none', value: plain, annualized: null, since: null, missing: [], steps: [] };
+  }, [valuePath, priceHistory, portfolio, transactions, portfolioId, exchangeRate, fxAt, R]);
   const twrResult = twrInfo.value;
   const since = twrInfo.since ? window.MaerminI18n.date(twrInfo.since) : '';
   const twrSub = twrInfo.source === 'daily'
@@ -138,6 +193,9 @@ function ReturnsView({ transactions, portfolio, prices, priceHistory, theme, for
       card(__('retRealized', 'Realized'), `${formatPrice(stats.received)} ${getCurrencySymbol()}`, __('retRealizedSub', 'Sales + dividends/interest'), theme.text),
       card(__('retTotalFees', 'Total Fees'), `${formatPrice(stats.totalFees)} ${getCurrencySymbol()}`, __('retAllTx', 'All transactions'), '#ef4444')
     ),
+
+    // P4-1: month × year grid of the same chain of returns
+    React.createElement(ReturnsHeatmap, { steps: twrInfo.steps, source: twrInfo.source, theme }),
 
     // Explanation
     React.createElement('div', {

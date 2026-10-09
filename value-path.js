@@ -213,14 +213,15 @@
   // a deposit larger than everything held before, which is measured on its own
   // amount - otherwise its first-day move would be credited to the small
   // previous balance.
-  //   → { twr, annualized, start, end, days, periods } | null (fewer than 2 points)
+  //   → { twr, annualized, start, end, days, periods, steps: [{ d, r }] } | null (fewer than 2 points)
+  //   steps: the return of each period, dated at its END point (returns heatmap)
   function fromValues(points, flows) {
     var pts = (points || []).filter(function (p) { return p && ymd(p.d) && isFinite(parseFloat(p.v)); })
       .map(function (p) { return { d: ymd(p.d), v: num(p.v) }; })
       .sort(function (a, b) { return a.d < b.d ? -1 : a.d > b.d ? 1 : 0; });
     if (pts.length < 2) return null;
     var fl = (flows || []).slice().sort(function (a, b) { return a.d < b.d ? -1 : a.d > b.d ? 1 : 0; });
-    var growth = 1, periods = 0, j = 0;
+    var growth = 1, periods = 0, j = 0, steps = [];
     while (j < fl.length && fl[j].d <= pts[0].d) j++; // already inside the first value
     for (var i = 1; i < pts.length; i++) {
       var f = 0;
@@ -236,10 +237,11 @@
       if (!(factor > 0) || (f !== 0 && (factor < 0.5 || factor > 2))) return null;
       growth *= factor;
       periods++;
+      steps.push({ d: pts[i].d, r: factor - 1 });
     }
     if (!periods) return null;
     var days = daysBetween(pts[0].d, pts[pts.length - 1].d);
-    return { twr: growth - 1, annualized: annualize(growth, days), start: pts[0].d, end: pts[pts.length - 1].d, days: days, periods: periods };
+    return { twr: growth - 1, annualized: annualize(growth, days), start: pts[0].d, end: pts[pts.length - 1].d, days: days, periods: periods, steps: steps };
   }
 
   // Flow-neutral index of the path as [{ d, v }] (v = cumulative growth × 100),

@@ -34,6 +34,7 @@ Every shipped module is covered by a Node test in `test/`.
 | Package | Module(s) | Status | Tests |
 |---|---|---|---|
 | **P4-0 Pre-migration backup** | `premigration-backup.js`, `migrations.js` (`pending`), `renderer.js` (mount, Trash) | ✅ shipped — encrypted copy of every backup key in IndexedDB before a pending migration; restore / delete in Settings → Trash; no copy → no migration on that load | `test/premigration-backup.test.js` (24), e2e scenario 4 |
+| **P4-1 Returns heatmap** | `returns-heatmap.js`, `features2.js` (`ReturnsView`), `value-path.js` (`fromValues().steps`), `returns-engine.js` (`twrSteps`) | ✅ shipped — month × year TWR grid with compounded quarter/year totals, same fallback order as the TWR card, theme-token colours with readable text in all five themes | `test/returns-heatmap.test.js` (28), e2e scenario 5 |
 
 ### Competitive Gaps (round closing real gaps vs Parqet / getquin / Snowball / Sharesight)
 
