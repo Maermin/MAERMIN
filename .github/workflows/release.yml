@@ -1,0 +1,38 @@
+# Creates a GitHub release (and its tag) on the commit it runs on, with the
+# notes taken from the matching section of RELEASE.md. Run by hand:
+# Actions → Release → Run workflow (or the workflow_dispatch API).
+name: Release
+
+on:
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: 'Tag to create, e.g. MAERMIN_v11'
+        required: true
+      title:
+        description: 'Release title, e.g. MAERMIN v11'
+        required: true
+      version:
+        description: 'RELEASE.md section to use as notes, e.g. v11.0.0'
+        required: true
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v4
+    - name: Notes from RELEASE.md
+      env:
+        VERSION: ${{ inputs.version }}
+      run: |
+        awk -v head="## [$VERSION]" 'index($0, head) == 1 { on = 1; next } on && /^## / { exit } on' RELEASE.md > notes.md
+        test -s notes.md || { echo "No section '## [$VERSION]' in RELEASE.md"; exit 1; }
+    - name: Create tag and release
+      env:
+        GH_TOKEN: ${{ github.token }}
+        TAG: ${{ inputs.tag }}
+        TITLE: ${{ inputs.title }}
+      run: gh release create "$TAG" --target "$GITHUB_SHA" --title "$TITLE" --notes-file notes.md --latest
