@@ -959,6 +959,8 @@ function InvestmentTracker() {
   const [taxSettingsRev, setTaxSettingsRev] = useState(0);
   // Overview row → position detail modal (transactions, CAGR, splits, journal).
   const [positionDetail, setPositionDetail] = useState(null);
+  // P4-2: Overview positions table shows open or fully sold (closed) positions.
+  const [posTab, setPosTab] = useState('open');
   const [taxOwner, setTaxOwner] = useState(() => {
     try { return JSON.parse(localStorage.getItem('maermin_tax_owner') || '{}'); } catch { return {}; }
   });
@@ -3867,12 +3869,72 @@ function InvestmentTracker() {
 
         const th = (label, align, pad, width) => React.createElement('th', { key: label, style: { textAlign: align, padding: pad, fontSize: '0.66rem', fontWeight: '600', textTransform: 'uppercase', letterSpacing: '0.06em', color: gray, width } }, label);
 
+        // P4-2: fully sold positions from the one FIFO ledger (same cost basis
+        // as the tax report and the FIFO tab), for the transactions shown here.
+        const closedRows = memoBy('ovClosed', [overviewTransactions, exchangeRate, fxAt, corpActionsRev], () => {
+          const L = window.MaerminLedger;
+          try { return L && L.closedPositions ? L.closedPositions(L.build(overviewTransactions, { exchangeRate, fxAt })) : []; } catch (e) { return []; }
+        });
+        const showClosed = posTab === 'closed';
+        const tabBtn = (id, label) => React.createElement('button', {
+          type: 'button', 'aria-pressed': posTab === id, 'data-pos-tab': id, onClick: () => setPosTab(id),
+          style: { padding: '0.3rem 0.7rem', fontSize: '0.74rem', fontWeight: 600, borderRadius: '7px', cursor: 'pointer', minHeight: '24px',
+            background: posTab === id ? (currentTheme.accentFill || currentTheme.accent) : 'transparent', color: posTab === id ? '#ffffff' : currentTheme.textSecondary,
+            border: `1px solid ${posTab === id ? 'transparent' : currentTheme.cardBorder}` }
+        }, label);
+        const closedTable = React.createElement('table', { 'data-testid': 'closed-positions', style: { width: '100%', borderCollapse: 'collapse', fontVariantNumeric: 'tabular-nums' } },
+          React.createElement('thead', null,
+            React.createElement('tr', { style: { borderTop: `1px solid ${currentTheme.cardBorder}` } },
+              th(__('colAsset', 'Asset'), 'left', '0.7rem 1.5rem'),
+              th(__('colDisposedCost', 'Cost basis sold'), 'right', '0.7rem 0.75rem'),
+              th(__('colProceeds', 'Proceeds'), 'right', '0.7rem 0.75rem'),
+              th(__('colRealizedPnl', 'Realized P&L'), 'right', '0.7rem 1.5rem')
+            )
+          ),
+          React.createElement('tbody', null,
+            closedRows.length === 0
+              ? React.createElement('tr', null, React.createElement('td', { colSpan: 4, style: { padding: '1.25rem 1.5rem', fontSize: '0.82rem', color: gray } }, __('ovNoClosed', 'No closed positions yet. A position appears here once it is sold completely.')))
+              : closedRows.map(c => {
+                  const color = catMeta(c.category).color, up = c.gain >= 0;
+                  return React.createElement('tr', {
+                    key: c.key, 'data-closed-key': c.key,
+                    ...window.MaerminUtils.clickable(() => setPositionDetail({ sym: c.symbol, cat: c.category, amount: 0, avgPrice: 0, closed: true, closedRow: c })),
+                    'aria-label': __('ovPosDetails', '{name} details', { name: c.symbolName || c.symbol }),
+                    style: { borderTop: `1px solid ${currentTheme.cardBorder}`, cursor: 'pointer' }
+                  },
+                    React.createElement('td', { style: { padding: '0.85rem 1.5rem' } },
+                      React.createElement('div', { style: { display: 'flex', alignItems: 'center', gap: '0.7rem' } },
+                        React.createElement('div', { style: { width: '32px', height: '32px', borderRadius: '9px', background: `${color}22`, color, display: 'flex', alignItems: 'center', justifyContent: 'center', fontFamily: "'Geist', sans-serif", fontWeight: '700', fontSize: '0.78rem', flexShrink: 0 } }, glyph(c.symbol)),
+                        React.createElement('div', null,
+                          React.createElement('div', { style: { fontSize: '0.85rem', fontWeight: '600', color: currentTheme.text } }, c.symbolName || c.symbol),
+                          React.createElement('div', { style: { fontSize: '0.7rem', color: gray } }, __('ovClosedOn', 'sold {date}', { date: window.MaerminI18n.date(c.closed) }))
+                        )
+                      )
+                    ),
+                    React.createElement('td', { style: { textAlign: 'right', padding: '0.85rem 0.75rem', fontFamily: "'Geist', sans-serif", fontSize: '0.82rem', color: currentTheme.text } }, money(c.cost)),
+                    React.createElement('td', { style: { textAlign: 'right', padding: '0.85rem 0.75rem', fontFamily: "'Geist', sans-serif", fontSize: '0.82rem', color: currentTheme.text } }, money(c.proceeds)),
+                    React.createElement('td', { style: { textAlign: 'right', padding: '0.85rem 1.5rem' } },
+                      React.createElement('div', { style: { fontFamily: "'Geist', sans-serif", fontSize: '0.85rem', fontWeight: '600', color: up ? green : red } }, `${up ? '+' : ''}${money(c.gain)}`),
+                      React.createElement('div', { style: { fontSize: '0.72rem', color: up ? green : red } }, c.ret === null ? '—' : fmtPct(c.ret * 100))
+                    )
+                  );
+                })
+          )
+        );
+
         const positionsCard = React.createElement('div', { style: { background: currentTheme.card, border: `1px solid ${currentTheme.cardBorder}`, borderRadius: '16px', overflow: 'hidden', marginBottom: '1.5rem' } },
-          React.createElement('div', { style: { display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '1.25rem 1.5rem 0.9rem' } },
-            React.createElement('div', { style: { fontSize: '0.92rem', fontWeight: '600', color: currentTheme.text } }, t.positions || 'Positions'),
+          React.createElement('div', { style: { display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '0.75rem', flexWrap: 'wrap', padding: '1.25rem 1.5rem 0.9rem' } },
+            React.createElement('div', { style: { display: 'flex', alignItems: 'center', gap: '0.75rem', flexWrap: 'wrap' } },
+              React.createElement('div', { style: { fontSize: '0.92rem', fontWeight: '600', color: currentTheme.text } }, t.positions || 'Positions'),
+              React.createElement('div', { role: 'group', 'aria-label': __('ovPosShow', 'Show positions'), style: { display: 'flex', gap: '0.3rem' } },
+                tabBtn('open', __('ovPosOpen', 'Open')),
+                tabBtn('closed', __('ovPosClosed', 'Closed ({n})', { n: closedRows.length })))
+            ),
             React.createElement('div', { onClick: () => setActiveView('transactions'), style: { fontSize: '0.76rem', color: gray, cursor: 'pointer' } }, __('ovViewAll', 'View all →'))
           ),
-          React.createElement('table', { style: { width: '100%', borderCollapse: 'collapse', fontVariantNumeric: 'tabular-nums' } },
+          // Phones: the table scrolls inside the card instead of being clipped by it.
+          React.createElement('div', { role: 'region', tabIndex: 0, 'aria-label': showClosed ? __('ovPosClosedAria', 'Closed positions') : (t.positions || 'Positions'), style: { overflowX: 'auto', maxWidth: '100%' } },
+          showClosed ? closedTable : React.createElement('table', { style: { width: '100%', borderCollapse: 'collapse', fontVariantNumeric: 'tabular-nums' } },
             React.createElement('thead', null,
               React.createElement('tr', { style: { borderTop: `1px solid ${currentTheme.cardBorder}` } },
                 th(__('colAsset', 'Asset'), 'left', '0.7rem 1.5rem'),
@@ -3923,7 +3985,7 @@ function InvestmentTracker() {
                 )
               ))
             )
-          )
+          ))
         );
 
         // Return attribution: which holdings drove the total return (reuses the
@@ -3946,6 +4008,7 @@ function InvestmentTracker() {
               position: positionDetail, transactions: overviewTransactions, prices,
               theme: currentTheme, formatPrice, getCurrencySymbol, t,
               workerUrl: apiKeys.cs2Worker,
+              closeSeries: window.MaerminCloseHistory ? closeSeriesEUR[window.MaerminCloseHistory.keyOf(positionDetail.cat, positionDetail.sym)] : null,
               // A split may have been added/removed inside the modal — re-run
               // the positions overlay so values and cost basis update.
               onClose: () => { setPositionDetail(null); setCorpActionsRev(n => n + 1); }

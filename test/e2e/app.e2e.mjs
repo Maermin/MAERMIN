@@ -352,6 +352,26 @@ async function runBuild(browser, label, dir) {
       ok('total = fetched quote + cost fallback (3,550.00)', /3,550/.test(b0), (b0.match(/TOTAL PORTFOLIO VALUE[\s\S]{0,80}/) || [''])[0].replace(/\n/g, ' | '));
     }
 
+    // P4-2: Open/Closed toggle on the positions table; closed rows from the FIFO ledger
+    {
+      await page.locator('[data-pos-tab="closed"]').click();
+      await page.waitForTimeout(300);
+      const rows = await page.locator('[data-testid="closed-positions"] tbody tr[data-closed-key]').allInnerTexts();
+      const aapl = rows.find((r) => /AAPL/.test(r)) || '', btc = rows.find((r) => /BTC/.test(r)) || '';
+      ok('P4-2: Closed lists the two fully sold positions (AAPL, BTC), newest sale first', rows.length === 2 && /AAPL/.test(rows[0]), rows.map((r) => r.replace(/\n/g, ' ')).join(' || '));
+      ok('P4-2: AAPL cost 1,010 (incl. fee), proceeds 1,500, realized +490 (+48.51%)', /1,010\.00/.test(aapl) && /1,500\.00/.test(aapl) && /\+490\.00/.test(aapl) && /\+48\.51%/.test(aapl), aapl.replace(/\n/g, ' '));
+      ok('P4-2: BTC realized +700 (+140.00%)', /\+700\.00/.test(btc) && /\+140\.00%/.test(btc), btc.replace(/\n/g, ' '));
+      await page.locator('[data-testid="closed-positions"] tbody tr[data-closed-key="stocks|AAPL"]').click();
+      const dlg = page.locator('[aria-labelledby="dlg-position"]');
+      await dlg.waitFor({ timeout: 5000 }).catch(() => {});
+      const dt = await dlg.innerText().catch(() => '');
+      ok('P4-2: the dialog of a closed position shows realized figures and no average-cost line', /Realized P&L/i.test(dt) && /\+490\.00/.test(dt) && (await page.locator('[data-testid="avg-cost-line"]').count()) === 0, dt.slice(0, 200).replace(/\n/g, ' | '));
+      await page.keyboard.press('Escape');
+      await page.waitForTimeout(300);
+      await page.locator('[data-pos-tab="open"]').click();
+      await page.waitForTimeout(300);
+    }
+
     // P2-1: a vault that already holds transactions opens in Advanced, with
     // the six areas; Simple hides niche tools and the switch persists.
     {
@@ -707,6 +727,18 @@ async function runBuild(browser, label, dir) {
     const st = await page.evaluate(`(() => { const R = ${RAW}; const h = JSON.parse(localStorage.getItem('maermin_close_history') || '{}');
       return { keys: Object.keys(h.series || {}).sort(), raw: R.get('maermin_close_history'), leak: R.keys().filter((k) => /stocks\\|(VWCE|AAPL)/.test(R.get(k) || '')) }; })()`);
     ok('close history is stored encrypted (not readable in raw storage)', st.keys.join() === 'stocks|AAPL,stocks|VWCE.DE' && st.raw === null && st.leak.length === 0, JSON.stringify(st));
+
+    // P4-2: an open position's dialog shows its daily price and the average-cost line
+    await openView(page, 'overview');
+    await page.waitForTimeout(500);
+    { await page.locator('tr[aria-label="VWCE.DE details"]').first().click().catch(() => {});
+      const chart = page.locator('[data-testid="position-chart"]');
+      await chart.waitFor({ timeout: 5000 }).catch(() => {});
+      const avg = await page.locator('[data-testid="avg-cost-line"]').innerText().catch(() => '');
+      const label = await chart.locator('svg').getAttribute('aria-label').catch(() => '');
+      ok('P4-2: open position dialog: daily price chart with the average-cost line', (await chart.count()) === 1 && /Average cost/.test(avg) && /Average cost/.test(label || ''), avg + ' | ' + label);
+      await page.keyboard.press('Escape');
+      await page.waitForTimeout(300); }
 
     // P2-3: the app asked the Worker for its version; the current one shows no notice.
     await openView(page, 'overview');

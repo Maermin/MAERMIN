@@ -35,6 +35,7 @@ Every shipped module is covered by a Node test in `test/`.
 |---|---|---|---|
 | **P4-0 Pre-migration backup** | `premigration-backup.js`, `migrations.js` (`pending`), `renderer.js` (mount, Trash) | ✅ shipped — encrypted copy of every backup key in IndexedDB before a pending migration; restore / delete in Settings → Trash; no copy → no migration on that load | `test/premigration-backup.test.js` (24), e2e scenario 4 |
 | **P4-1 Returns heatmap** | `returns-heatmap.js`, `features2.js` (`ReturnsView`), `value-path.js` (`fromValues().steps`), `returns-engine.js` (`twrSteps`) | ✅ shipped — month × year TWR grid with compounded quarter/year totals, same fallback order as the TWR card, theme-token colours with readable text in all five themes | `test/returns-heatmap.test.js` (28), e2e scenario 5 |
+| **P4-2 Closed positions** | `ledger.js` (`closedPositions`), `position-chart.js`, `renderer.js` (Overview positions card), `features3.js` (position dialog) | ✅ shipped — Open/Closed toggle; closed rows: cost basis sold, proceeds, realized P&L and return from the FIFO ledger; price chart with average-cost line in the position dialog | `test/closed-positions.test.js` (19), e2e scenarios 1 and 5 |
 
 ### Competitive Gaps (round closing real gaps vs Parqet / getquin / Snowball / Sharesight)
 
