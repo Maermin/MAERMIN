@@ -17,7 +17,7 @@
  * ========================================================================== */
 'use strict';
 
-var VERSION = 'maermin-v8';
+var VERSION = 'maermin-v9';
 var SHELL_CACHE = VERSION + '-shell';
 var RUNTIME_CACHE = VERSION + '-runtime';
 

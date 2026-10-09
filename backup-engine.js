@@ -19,7 +19,7 @@
   'use strict';
 
   var FORMAT = 'maermin-full';
-  var VERSION = '10.0.0';
+  var VERSION = '11.0.0';
 
   // Every localStorage key that holds user-entered data. UI-only flags
   // (onboarding, last view, debug, recovery nudge) are NOT data and are

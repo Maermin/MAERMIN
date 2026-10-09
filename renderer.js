@@ -1,5 +1,5 @@
 // ============================================================================
-// MAERMIN v10.0 - Main Application
+// MAERMIN v11.0 - Main Application
 // Professional Multi-Asset Portfolio Tracker with Advanced Investment Analytics
 // ============================================================================
 
@@ -6175,7 +6175,7 @@ function __maerminMount() {
   __maerminBindLifecycle();
   __maerminStartSync();
   __maerminRender();
-  dbg('[MAERMIN v10.0] Application initialized');
+  dbg('[MAERMIN v11.0] Application initialized');
 }
 // Wait for the vault to be unlocked before mounting, so the app reads DECRYPTED
 // data (storage.js hydrates the in-memory store during unlock). Falls back to an

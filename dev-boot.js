@@ -15,8 +15,8 @@ window.addEventListener('load', () => {
   }
 });
 
-console.log('%c[MAERMIN v10.0] Professional Portfolio Tracker', 'font-size: 20px; font-weight: bold; color: #7e22ce; background: #f3e8ff; padding: 8px;');
-console.log('[INFO] v10.0: New UI · Portfolio Value Snapshots · Smart Tags · Custom Dashboard Layout');
+console.log('%c[MAERMIN v11.0] Professional Portfolio Tracker', 'font-size: 20px; font-weight: bold; color: #7e22ce; background: #f3e8ff; padding: 8px;');
+console.log('[INFO] v11.0: One FIFO ledger · Value history from day one · Trade-date FX · Anlage KAP · Steam import');
 console.log('[INFO] DCA Analyzer, Dividend Tracker, Benchmark Comparison');
 console.log('[INFO] Goal Planning, Portfolio Optimization, Factor Analysis');
 console.log('[INFO] Sector Allocation, Currency Exposure, Liquidity Analysis');
@@ -56,7 +56,7 @@ setTimeout(() => {
     { name: 'jsPDF (lazy)', check: () => true }
   ];
   
-  console.log('[MODULE CHECK MAERMIN v10.0]');
+  console.log('[MODULE CHECK MAERMIN v11.0]');
   let loaded = 0;
   checks.forEach(item => {
     const status = item.check();

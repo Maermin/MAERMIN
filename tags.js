@@ -1,5 +1,5 @@
 // ============================================================================
-// MAERMIN v10.0 — Smart Tags / Labels  (window.MaerminTags)
+// MAERMIN v11.0 — Smart Tags / Labels  (window.MaerminTags)
 // ----------------------------------------------------------------------------
 // New in v10. User-defined, cross-cutting labels on symbols — orthogonal to the
 // built-in asset categories (crypto / stocks / skins …). A position can carry
