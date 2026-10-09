@@ -197,6 +197,13 @@
   }
   function setVersion(n) { try { localStorage.setItem(VERSION_KEY, String(n)); } catch (e) {} }
 
+  // The migrations run() would apply now, oldest first (P4-0: a copy of the
+  // data is taken before they run).
+  function pending() {
+    var current = getVersion();
+    return MIGRATIONS.filter(function (m) { return m.v > current; });
+  }
+
   // Apply every pending migration in order. Stops (without bumping) on the first
   // failure so the next load retries from the same point. Returns the new version.
   function run() {
@@ -224,6 +231,7 @@
     movePortfolioRows: movePortfolioRows,
     getVersion: getVersion,
     setVersion: setVersion,
+    pending: pending,
     run: run
   };
   if (typeof window !== 'undefined') window.MaerminMigrations = api;

@@ -1899,6 +1899,13 @@ function InvestmentTracker() {
   const addToast = (message, type = 'info', ttl) => {
     if (window.MaerminUI) return window.MaerminUI.add(message, type, ttl);
   };
+  // P4-0: a migration postponed because no copy of the data could be saved
+  // is said once at start (details in Settings → Trash).
+  useEffect(() => {
+    const PM = window.MaerminPreMigration;
+    const s = PM && PM.status();
+    if (s && s.state === 'blocked') addToast(PM.blockedText(s), 'warning', 15000);
+  }, []);
   // In-app confirmation (MaerminUI.confirm → Promise<boolean>); the native
   // dialog only as a fallback if the UI module is missing.
   const askConfirm = (opts) => (window.MaerminUI && window.MaerminUI.confirm)
@@ -3141,7 +3148,9 @@ function InvestmentTracker() {
 
       case 'trash':
         return window.MaerminTrash
-          ? React.createElement(window.MaerminTrash.TrashView, { theme: currentTheme, addToast })
+          ? React.createElement('div', null,
+              window.MaerminPreMigration && React.createElement(window.MaerminPreMigration.PreMigrationCard, { theme: currentTheme, addToast }),
+              React.createElement(window.MaerminTrash.TrashView, { theme: currentTheme, addToast }))
           : renderAnalyticsPlaceholder(t.navTrash || 'Trash');
 
       case 'journal':
@@ -6169,13 +6178,23 @@ function __maerminBindLifecycle() {
   } catch (e) {}
 }
 function __maerminMount() {
+  const start = () => {
+    __maerminBindLifecycle();
+    __maerminStartSync();
+    __maerminRender();
+    dbg('[MAERMIN v11.0] Application initialized');
+  };
   // Bring saved data up to the current schema BEFORE the app reads it (runs
-  // post-unlock, so encrypted data is already hydrated and readable).
+  // post-unlock, so encrypted data is already hydrated and readable). A
+  // pending migration first gets an encrypted copy of the data (P4-0); when
+  // that copy cannot be written, the migrations wait for the next load.
+  const PM = window.MaerminPreMigration;
+  if (PM && window.MaerminMigrations) {
+    PM.guardedRun().catch((e) => console.error('[migrations]', e)).then(start);
+    return;
+  }
   try { if (window.MaerminMigrations) window.MaerminMigrations.run(); } catch (e) { console.error('[migrations]', e); }
-  __maerminBindLifecycle();
-  __maerminStartSync();
-  __maerminRender();
-  dbg('[MAERMIN v11.0] Application initialized');
+  start();
 }
 // Wait for the vault to be unlocked before mounting, so the app reads DECRYPTED
 // data (storage.js hydrates the in-memory store during unlock). Falls back to an

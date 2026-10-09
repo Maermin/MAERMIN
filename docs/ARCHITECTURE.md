@@ -44,7 +44,10 @@ audit-log.js → crypto-vault.js → storage.js → migrations.js → auth.js
 
 `auth.js` gates the React mount: `renderer.js` awaits `MaerminAuth.whenUnlocked()`
 before rendering, so the app always reads decrypted data. Schema migrations run
-at mount (post-unlock) via `MaerminMigrations.run()`.
+at mount (post-unlock) via `MaerminPreMigration.guardedRun()`: when a migration is
+pending it first stores an encrypted copy of every backup key in IndexedDB, then
+calls `MaerminMigrations.run()`. If the copy cannot be written, the migrations
+wait for the next load.
 
 ---
 
@@ -57,6 +60,7 @@ at mount (post-unlock) via `MaerminMigrations.run()`.
 | `auth.js` | `MaerminAuth` | Setup / unlock / lock UI; mount gate; change-password; one-time recovery-code reveal at setup + recovery-code unlock path |
 | `audit-log.js` | `MaerminAuditLog` | On-device event + error trail (non-sensitive, ring-buffered) |
 | `migrations.js` | `MaerminMigrations` | Versioned, idempotent localStorage migrations |
+| `premigration-backup.js` | `MaerminPreMigration` | Encrypted copy of the data before a pending migration (one IndexedDB record `maermin_premigration_backup`, vault key, not synced, not in the backup); restore / delete in Settings → Trash |
 
 ---
 
