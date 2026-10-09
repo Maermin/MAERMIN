@@ -73,7 +73,7 @@
       : { value: (tx.currency === 'USD' && rate > 0) ? num(amount) * rate : num(amount), status: 'exact' };
     if (res.status !== 'exact' && ctx && num(amount) !== 0) {
       var k = String(tx.currency) + '|' + res.status;
-      if (!ctx.seen[k]) { ctx.seen[k] = true; ctx.currencyIssues.push({ currency: String(tx.currency), status: res.status, symbol: tx.symbol || tx.name || '', date: ymd(tx.date) }); }
+      if (!ctx.seen[k]) { ctx.seen[k] = true; ctx.currencyIssues.push({ currency: String(tx.currency), status: res.status, symbol: tx.symbol || tx.name || '', date: ymd(tx.date), txId: tx.id != null ? tx.id : null }); }
     }
     return res.value;
   }
@@ -101,7 +101,7 @@
         // A buy/sell without a positive quantity cannot be booked; report it
         // instead of dropping it silently (a sell entered as -0.5 vanished).
         if ((tx.type === 'buy' || tx.type === 'sell') && ctx && ctx.quantityIssues) {
-          ctx.quantityIssues.push({ kind: 'quantity', severity: 'warning', type: tx.type, symbol: tx.symbol || tx.name || '',
+          ctx.quantityIssues.push({ kind: 'quantity', severity: 'warning', type: tx.type, symbol: tx.symbol || tx.name || '', txId: tx.id != null ? tx.id : null,
             category: tx.category || 'crypto', date: ymd(tx.date), qty: isFinite(parseFloat(tx.quantity)) ? parseFloat(tx.quantity) : String(tx.quantity) });
         }
         return;
@@ -182,14 +182,15 @@
   // quantity, sells without enough open units, and transaction currencies that
   // could only be converted approximately or not at all.
   // [{ kind: 'quantity'|'oversold'|'currency', severity, symbol, category?,
-  //    qty?, type?, date?, currency?, status? }]
+  //    qty?, type?, date?, currency?, status?, txId? (quantity, currency: the
+  //    first transaction concerned) }]
   function issues(list, currencyIssues, quantityIssues) {
     var out = (quantityIssues || []).slice();
     (list || []).forEach(function (g) {
       if (g.oversold > 1e-9) out.push({ kind: 'oversold', severity: 'warning', symbol: g.symbol, category: g.category, qty: g.oversold });
     });
     (currencyIssues || []).forEach(function (c) {
-      out.push({ kind: 'currency', severity: c.status === 'unknown' ? 'warning' : 'info', symbol: c.symbol, currency: c.currency, status: c.status, date: c.date });
+      out.push({ kind: 'currency', severity: c.status === 'unknown' ? 'warning' : 'info', symbol: c.symbol, currency: c.currency, status: c.status, date: c.date, txId: c.txId });
     });
     return out;
   }
