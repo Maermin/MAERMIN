@@ -493,6 +493,25 @@ async function runBuild(browser, label, dir) {
       await openView(page, 'privacy');
       const pv = await page.locator('[data-testid="privacy-view"]').innerText().catch(() => '');
       ok('Settings → Privacy lists what stays local and what goes where', ['Stays on this device', 'Your Cloudflare Worker', 'CoinGecko', 'Cloud sync', 'Share & Compare'].every((x) => pv.includes(x)), pv.slice(0, 160));
+      // P4-5: summary for an AI assistant - redacted by default, full only after a confirmation, never with Privacy Mode
+      { let red = '', full = '', priv = null, err = '';
+        try {
+          await page.locator('[data-ai-level="redacted"]').click();
+          red = await page.locator('[data-testid="ai-text"]').inputValue();
+          await page.locator('[data-ai-level="full"]').click();
+          await page.getByRole('dialog').getByRole('button', { name: 'Show full summary' }).click();
+          await page.waitForTimeout(200);
+          full = await page.locator('[data-testid="ai-text"]').inputValue();
+          await page.keyboard.press('p'); // Privacy Mode on
+          await page.waitForTimeout(300);
+          priv = { fullBtn: await page.locator('[data-ai-level="full"]').count(), note: await page.locator('[data-testid="ai-privacy-note"]').count(),
+            text: await page.locator('[data-testid="ai-text"]').inputValue().catch(() => '') };
+          await page.keyboard.press('p'); // off again
+          await page.waitForTimeout(200);
+        } catch (e) { err = e.message.split('\n')[0]; }
+        ok('P4-5: the summary without amounts has weights and no holding or amount', /Asset classes: /.test(red) && !/ETH|VWCE|€|3,000/.test(red), err || red.slice(0, 160));
+        ok('P4-5: the full summary (after confirming) names holdings and amounts', /ETH/.test(full) && /VWCE\.DE/.test(full) && /€/.test(full), err || full.slice(0, 160));
+        ok('P4-5: with Privacy Mode only the summary without amounts is offered', !!priv && priv.fullBtn === 0 && priv.note === 1 && !/ETH|€/.test(priv.text), JSON.stringify(priv)); }
     }
 
     // Tax view: go there, pick the report tab and 2025.

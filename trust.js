@@ -70,6 +70,8 @@ function __(k, f, v) { return (typeof window !== 'undefined' && window.MaerminI1
           e('ul', { style: { margin: 0, paddingLeft: '1.1rem', color: dim, fontSize: '0.84rem', lineHeight: 1.6 } },
             sec[1].map(function (line, j) { return e('li', { key: j }, line); })));
       }),
+      // P4-5: copy a summary for an AI assistant (built here, never sent)
+      (typeof window !== 'undefined' && window.MaerminAIPrompt) ? e(window.MaerminAIPrompt.Panel, { theme: th, portfolio: props.portfolio, prices: props.prices, transactions: props.transactions, privacyMode: props.privacyMode }) : null,
       e(Disclaimer, { theme: th, kind: 'invest', style: { marginTop: '0.5rem' } }));
   }
 
