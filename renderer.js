@@ -2086,6 +2086,8 @@ function InvestmentTracker() {
     const qty = window.MaerminUtils.parseDecimal(newTransaction.quantity);
     const price = window.MaerminUtils.parseDecimal(newTransaction.price);
     const fees = window.MaerminUtils.parseDecimal(newTransaction.fees);
+    // P4-3: foreign tax withheld on a dividend (in the payout currency)
+    const wht = window.MaerminUtils.parseDecimal(newTransaction.withholdingTax);
     if (!(qty > 0)) { addToast(t.invalidQuantity || 'Quantity must be a number greater than 0', 'error'); return; }
     if (isNaN(price) || price < 0) { addToast(t.invalidPrice || 'Price must be a valid number', 'error'); return; }
 
@@ -2103,6 +2105,7 @@ function InvestmentTracker() {
       currency: newTransaction.currency || currency,
       portfolioId: newTransaction.targetPortfolioId || activePortfolioId,
       ...(newTransaction.skinIconUrl ? { skinIconUrl: newTransaction.skinIconUrl } : {}),
+      ...(newTransaction.type === 'dividend' ? { withholdingTax: (isNaN(wht) || wht < 0) ? 0 : wht } : {}),
       ...(optionFields || {})
     };
     
@@ -2162,6 +2165,7 @@ function InvestmentTracker() {
       price: tx.price?.toString() || '',
       date: tx.date || window.MaerminUtils.todayISO(),
       fees: tx.fees?.toString() || '',
+      withholdingTax: tx.withholdingTax != null ? String(tx.withholdingTax) : '',
       notes: tx.notes || '',
       currency: tx.currency || 'EUR',
       targetPortfolioId: tx.portfolioId || activePortfolioId,
@@ -4714,6 +4718,11 @@ function InvestmentTracker() {
         theme: currentTheme, transactions, portfolios, year: currentYear, exchangeRate, fxAt,
         formatMoney: (v) => privacyMode ? '••••••' : window.MaerminI18n.money(v, 'EUR')
       }),
+      // P4-3: foreign withholding tax per country (estimate, German rules)
+      taxJurisdiction === 'de' && window.MaerminWithholding && React.createElement(window.MaerminWithholding.Panel, {
+        theme: currentTheme, year: currentYear, dividends: (taxReport && taxReport.dividends) || [],
+        formatMoney: (v) => privacyMode ? '••••••' : window.MaerminI18n.money(v, 'EUR')
+      }),
       // Editable tax parameters (Task 8): rate, Soli, church tax, allowance,
       // crypto exemption, Teilfreistellung overrides. Engine + exports read them.
       taxJurisdiction === 'de' && window.MaerminGermanTaxView && window.MaerminGermanTaxView.SettingsPanel &&
@@ -5198,6 +5207,32 @@ function InvestmentTracker() {
               color: currentTheme.text
             }
           })
+        ),
+
+        // P4-3: foreign withholding tax on a dividend
+        newTransaction.type === 'dividend' && React.createElement('div', { style: { marginBottom: '1rem' } },
+          React.createElement('label', {
+            htmlFor: 'tx-wht',
+            style: { display: 'block', color: currentTheme.textSecondary, marginBottom: '0.5rem', fontSize: '0.875rem' }
+          }, __('txWhtLabel', 'Withholding tax (optional, in {cur})', { cur: newTransaction.currency || currency })),
+          React.createElement('input', {
+            id: 'tx-wht',
+            type: 'text', inputMode: 'decimal',
+            value: newTransaction.withholdingTax || '',
+            onChange: (e) => setNewTransaction(prev => ({ ...prev, withholdingTax: e.target.value })),
+            placeholder: window.MaerminI18n.num(0, { min: 2, max: 2 }),
+            'aria-describedby': 'tx-wht-hint',
+            style: {
+              width: '100%',
+              padding: '0.75rem',
+              background: currentTheme.inputBg,
+              border: `1px solid ${currentTheme.inputBorder}`,
+              borderRadius: '8px',
+              color: currentTheme.text
+            }
+          }),
+          React.createElement('div', { id: 'tx-wht-hint', style: { color: currentTheme.textSecondary, fontSize: '0.75rem', marginTop: '0.3rem' } },
+            __('txWhtHint', 'Tax the source country kept before paying out. The German tax view credits up to 15 % of the gross dividend.'))
         ),
         
         // Notes

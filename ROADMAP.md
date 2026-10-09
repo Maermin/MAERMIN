@@ -40,6 +40,7 @@ Every shipped module is covered by a Node test in `test/`.
 | **P4-5 AI copy-prompt export** | `ai-prompt.js`, `trust.js` (Privacy view), `renderer.js` | ✅ shipped — redacted (share-snapshot allowlist) and full (after confirmation, not in Privacy Mode) text summaries; nothing sent; no notes or keys | `test/ai-prompt.test.js` (14, leak proof), e2e scenario 1 |
 | **P4-6 Data check with actions** | `data-check.js`, `ledger.js` (`txId` on findings), `renderer.js` (Data check box, misfiled skins) | ✅ shipped — stable `DQ-*` codes, one action per finding, data changes confirmed | `test/data-check.test.js` (14), e2e scenario 1 |
 | **P4-7 Overview reorder** | `dashboard-layout.js` (`sectionOrder`, Customize view: ↑/↓, drag handle on pointer events, live announcement), `renderer.js` (`renderOverview` renders the sections in the saved order) | ✅ shipped — order in `maermin_dashboard_layout` (existing key, in backup) | `test/overview-order.test.js` (10), e2e scenario 1 |
+| **P4-3 Withholding tax by country** | `withholding-tax.js`, `renderer.js` (German tax view, dividend field in the transaction dialog), `features2.js` (dividend calendar field) | ✅ shipped — per-country gross / withheld / creditable / reclaim, estimate; rates from secondary sources pending the BZSt table | `test/withholding-tax.test.js` (14), e2e scenario 1 |
 
 ### Competitive Gaps (round closing real gaps vs Parqet / getquin / Snowball / Sharesight)
 
