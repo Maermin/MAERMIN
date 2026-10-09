@@ -615,6 +615,28 @@ async function runBuild(browser, label, dir) {
     ok('a reload on the recovery-code screen leaves no unseen active code', r.hasRecovery === false, 'hasRecovery=' + r.hasRecovery);
     ok('year-less price points repaired to ISO', (r.hist.btc || []).length === 2 && r.hist.btc.every((p) => /^\d{4}-\d{2}-\d{2}T/.test(p.timestamp)), JSON.stringify(r.hist));
     ok('plaintext v10 store adopted into the vault', /Mustermann/.test(r.owner || '') && r.rawOwner === null && r.leak.length === 0, JSON.stringify({ rawOwner: r.rawOwner, leak: r.leak }));
+
+    // P4-0: an encrypted copy was taken before the migrations; Settings → Trash restores it
+    { const inf = await page.evaluate(() => window.MaerminPreMigration.info());
+      const raw = await page.evaluate((k) => window.MaerminIDB.get(k), 'maermin_premigration_backup');
+      ok('P4-0: a copy from before the migration exists (schema 3 -> latest)', !!inf && inf.fromVersion === 3 && inf.toVersion === r.latest && inf.transactionCount === 0, JSON.stringify(inf));
+      ok('P4-0: the copy is ciphertext (no price or owner in it)', typeof raw === 'string' && !/Mustermann|91000|priceHistory/.test(raw)); }
+    await page.evaluate(() => localStorage.setItem('transactions', JSON.stringify([{ id: 'after-update', type: 'buy', category: 'crypto', symbol: 'BTC', quantity: 1, price: 1, currency: 'EUR', date: '2026-01-02', portfolioId: 'default' }])));
+    await page.waitForTimeout(800);
+    await page.keyboard.press('Escape'); // empty book: the setup wizard opens by itself
+    await page.waitForTimeout(300);
+    await openView(page, 'trash');
+    const card = page.locator('[data-testid="premigration-card"]');
+    await card.waitFor({ timeout: 5000 }).catch(() => {});
+    ok('P4-0: Settings → Trash shows the copy', (await card.count()) === 1 && /0 transactions/.test(await card.innerText()));
+    await card.getByRole('button', { name: 'Restore copy' }).click();
+    await page.getByRole('dialog').getByRole('button', { name: 'Restore copy' }).click();
+    await page.waitForTimeout(2500); // flush + reload
+    await unlock(page, base);
+    { const after = await page.evaluate(() => ({ txs: JSON.parse(localStorage.getItem('transactions') || 'null'), schema: localStorage.getItem('maermin_schema_version'),
+        hist: JSON.parse(localStorage.getItem('priceHistory') || '{}') }));
+      ok('P4-0: restore brings back the data from before the update', Array.isArray(after.txs) && after.txs.length === 0, JSON.stringify(after.txs));
+      ok('P4-0: after the restore the migrations ran again', after.schema === String(r.latest) && (after.hist.btc || []).every((p) => /^\d{4}-\d{2}-\d{2}T/.test(p.timestamp)), after.schema); }
     ok('no page errors in the upgrade session', errors.length === 0, errors.join(' | '));
     await context.close();
   }

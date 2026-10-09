@@ -29,6 +29,12 @@ Every shipped module is covered by a Node test in `test/`.
 | **v10 Dashboard** | `dashboard-layout.js` | Reorder/hide Overview cards, build-safe layout reconciliation, in backup | `test/dashboard-layout.test.js` |
 | **Corporate actions** | `corporate-actions.js`, `metrics.js`, `tax-report-builder.js`, `cf-worker/worker.js` (`?action=yf` splits) | Stock/reverse splits applied as a centralised overlay in `MaerminMetrics.buildPositions` + the tax FIFO (identity until a split is recorded, cash-amount-invariant) · manual entry + best-effort Worker auto-detect · managed in the position detail modal + a global Settings list · key `maermin_corporate_actions`, in backup | `test/corporate-actions.test.js` |
 
+### Phase 4 — Competitive features (PLAN.md, from 2026-10-09)
+
+| Package | Module(s) | Status | Tests |
+|---|---|---|---|
+| **P4-0 Pre-migration backup** | `premigration-backup.js`, `migrations.js` (`pending`), `renderer.js` (mount, Trash) | ✅ shipped — encrypted copy of every backup key in IndexedDB before a pending migration; restore / delete in Settings → Trash; no copy → no migration on that load | `test/premigration-backup.test.js` (24), e2e scenario 4 |
+
 ### Competitive Gaps (round closing real gaps vs Parqet / getquin / Snowball / Sharesight)
 
 | WI | Module(s) | Status | Tests |

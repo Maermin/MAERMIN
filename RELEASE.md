@@ -1,5 +1,9 @@
 # Release Notes
 
+## Unreleased
+
+- **Copy before a data update (P4-0):** before the app updates the format of your saved data, it keeps an encrypted copy of it on this device. Settings → Trash shows it and can put it back or delete it. It is not synced and not part of a backup; the next update replaces it. If no copy can be saved (for example, the browser blocks IndexedDB or its storage is full), the update waits and the app says so.
+
 ## [v11.0.0] — October 2026
 
 > **Major release** · Stabilised for public use · One automatic migration (schema v4: year-less price timestamps are repaired) · Backup format unchanged (v10 backups restore) · **Re-deploy `cf-worker/worker.js`** (CoinGecko, share and broker routes changed)
