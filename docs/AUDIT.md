@@ -328,3 +328,314 @@ Method: all 27 sidebar views at 375 px (phone) measuring horizontal overflow of 
 - LOOK-003: `MaerminAdvisor.analyzeFromMetrics(bundle, t, { formatMoney })`, test in `test/ux-audit.test.js`; calendar masks via a `privacyMode` prop. Checked with Privacy Mode on and off.
 - LOOK-004: semantic status colours only (gain/loss, ok/warning, health score) moved to theme tokens in 9 files; categorical/chart palettes unchanged. Light-theme contrast scan after the fix: remaining items below 3:1 are the light theme's own `success`/`warning` tokens on their tinted badges (2.76-2.99:1, e.g. "Buy", "Grade D") and category colours used as text (CS2 Skins, fee category). Both are theme/palette design choices, not literals; left for a theme-palette decision.
 - Gates at the end: check 195 files, test 88 suites, e2e 128/128.
+
+---
+
+## Run 2026-10-09 — cleanup and quality audit (Phase 1, no code changes)
+
+Branch `audit/cleanup-2026-10-09` from `main` @ `83a9976` (v11.0.0, after the Phase 3 usability review, #99).
+Severity scale for this run: **critical** (wrong money/tax figures in a common case, data loss, exploitable hole) ·
+**high** · **medium** · **low**. Every finding has an ID, category, location, what is wrong, evidence, proposed change,
+severity and the risk of the change. Screenshots: `docs/screenshots/audit-2026-10/` (demo data; the Worker URL is
+masked or not on screen).
+
+### Baseline (before any change)
+
+| Gate | Result |
+|---|---|
+| `npm install` | ok (npm notes that esbuild's postinstall is not auto-approved; the build works) |
+| `npm run check` | ok: 246 JS files; i18n guard: 2448 keys in en and de, 535 hardcoded UI strings and 2 raw `toLocale` calls left (within the baseline) |
+| `npm test` | ok: 120 suites, 0 failures |
+| `npm run build:web` | ok, with 2 esbuild warnings: duplicate key `rcCopyFailed` in `translations-complete.js` (en and de; DEAD-007) |
+| `npm run test:e2e` | 278/278 with `CHROME_PATH` set to the installed Chrome (without it the run stops: Playwright's own Chromium is not installed on this machine) |
+
+### Method
+
+- **Dead code:** declaration, export, CSS-class, icon and translation-key scans over all tracked files, then a manual check of
+  global (`window.Maermin*`) and string-based lookups (view ids, nav model, command list, shortcut maps, event-bus names,
+  dashboard ids, compute worker, service worker, tests, Worker). Each finding says how it was verified.
+- **Click-through:** the local branch served on `localhost`, a fresh vault per run, Demo mode, every sidebar view, every area
+  tab and the sub-tabs, the overview chart ranges, menus, dialogs, command palette and keyboard shortcuts. Scripted with
+  Playwright on the installed Chrome (full-page screenshots, console, failed requests, horizontal overflow, clipped text,
+  NaN/undefined text, active-state count) and reviewed by hand. Runs: desktop 1366×900 in all five themes, phone 390×844
+  (dark and light), Privacy Mode on (desktop and phone), German. Without a Worker and with the test Worker.
+- **Bugs:** code review of the money paths with a failing Node test per bug where the logic is reachable from Node. The tests
+  are on the local branch `audit/failing-tests` (not pushed; `test/audit-*.test.js`, 16 files) and go into the bug-fix PR.
+- **Security:** source review plus local experiments only (the real `cf-worker/worker.js` in Node with stubbed upstreams).
+  The repository is public: this file states the problem class and the fix in neutral words. Attack paths and proofs are
+  in the git-ignored `docs/AUDIT.security.local.md`, as `PLAN.md` asks.
+
+### The test Worker (version 2026.10.3, the same as `cf-worker/worker.js`)
+
+Wizard connection test: Stock & ETF prices, Symbol search, CS2 skin prices and Worker version all **green**.
+Seen in use (Demo mode, then five holdings of my own in the local test vault, at a normal pace; about 240 requests in total):
+
+| Endpoint | Result |
+|---|---|
+| `version`, `yf`, `yfsearch`, `skinprices`, `fundamentals`, `profile`, `fundholdings`, `earnings`, `news`, `screener` (`scrId`) | green |
+| `screener` (`symbols=`, Discovery → Dividends) | **red, 401** from Yahoo — BUG-031 (in the repo code, not only the deployed copy) |
+| `cg` (CoinGecko) | green once, then **429** twice (CoinGecko limits the Worker's IP); no last good copy existed yet — BUG-035 |
+| `sync`, `share` | **red, 501**: the deployed Worker has no KV namespace / Durable Object bound. The app degrades (no crash) but the messages are developer-oriented — UX-017 |
+| `steaminv`, `mcp`, `brokerproxy` | not exercised (no Steam profile, no share id, no exchange keys). Exchange sync was reviewed in code and its UI walked up to the key form |
+
+**Created on the test Worker: nothing.** Sync and share were each tried once with Demo data; both answered 501 before
+storing anything. Worker-gated features (Discovery, News, earnings, benchmark, factor exposure, ETF X-Ray, sector/country
+allocation, company size, TER panel, split scan) all appear with the Worker connected and explain what is missing without it.
+Slow or failing Worker responses were not simulated against the live Worker; the e2e suite covers a Worker that is down.
+
+### Counts
+
+| Category | critical | high | medium | low | total |
+|---|---|---|---|---|---|
+| Dead code and hidden features (DEAD) | 0 | 0 | 1 | 19 | 20 |
+| Bugs (BUG) | 0 | 4 | 15 | 9 | 28 |
+| Visual and state display (VIS) | 0 | 1 | 6 | 12 | 19 |
+| Usability (UX) | 0 | 0 | 7 | 10 | 17 |
+| Security, new (SEC-017…028) | 0 | 0 | 2 | 10 | 12 |
+| Security, still open from earlier runs (SEC-004…016, H-1…H-4) | 0 | 0 | 0 | 17 | 17 |
+| **Total** | **0** | **5** | **31** | **77** | **113** |
+
+Removable code: about 400 lines that are certainly unused, up to about 1,000 more if the owner decides the UNSURE items
+(DEAD-012/013/018/019/020) in favour of removal.
+
+### Needs the owner's decision before Phase 2
+
+**Removal candidates where it is unclear whether they are wanted:**
+- DEAD-002 PWA "update available" hooks (planned Settings card?)
+- DEAD-003 `storage.rekey()` (planned data-key rotation? see SEC-017)
+- DEAD-012 DRIP simulation, YoC trend, FIRE variants, retirement plan: wire into the UI or delete
+- DEAD-013 test-only API members (tag rename, rule edit, real-asset edit, Intelligence export): wire, keep or delete
+- DEAD-016 clickable correlation cells: show the pair or drop the click
+- DEAD-018 `REPORT.md`, `docs/PROMPT-OPUS.md`
+- DEAD-019 `scripts/i18n-apply.mjs`
+- DEAD-020 two Monte Carlo engines, three FIRE computations
+
+**Fixes that touch old vaults, backups or deployed Workers** (each needs a migration or a version gate, described in the
+finding): BUG-014 (savings-plan due dates), BUG-023 (restore re-runs migrations), SEC-004 (KDF parameters in old backups),
+SEC-007 (bind records to their key name), SEC-017 (key rotation, sync account move), SEC-018 (sync account creation needs
+an auth key; older apps), SEC-026 (old share records), SEC-027 (passkey user verification).
+
+### Checklist
+
+| PR | Findings | Status |
+|---|---|---|
+| 1 Dead code and hidden features | DEAD-002, 004–011, 014–017 (+ approved UNSURE items) | open |
+| 2 Bug fixes | BUG-012…039 | open |
+| 3 Visual and state display | VIS-001…019 | open |
+| 4 Usability | UX-016…032 | open |
+| 5 Security, app and Worker | SEC-008…016, 018, 019, 020…026, H-1…H-4 | open |
+| 6 crypto-vault.js, auth.js, storage.js | SEC-004…007, 017, 027, 028, DEAD-001, DEAD-003 | open |
+
+---
+
+### 1. Dead code and hidden features
+
+Verification for every item: word-boundary search over all tracked `.js/.mjs/.ts/.html` (dist excluded), plus string and
+`window[...]` lookups, the compute worker, service worker, tests and Worker. Nothing below is the only reader of stored
+data; all `localStorage` keys, `migrations.js` steps, backup `KEYS`, `SENSITIVE_KEYS`, nav-model `ALIASES` and Worker
+endpoints stay.
+
+**Checked and in use** (not removable): `risk-analytics.js` + `risk-analytics-view-v2.js` (engine + view), `analytics-views.js`,
+`dev-boot.js` (dev only, excluded by `build.mjs:31`), `compute.worker.js` + harness, `features.js`…`features7.js` (every
+exported view is rendered), `motion.js`, `fx.js`, the four stores, `attribution.js` vs `fx-attribution.js` (different jobs),
+`data-quality.js` vs `data-check.js` (different jobs), the DCA, correlation, Monte Carlo and stress engines, `idb-store.js`,
+`renderer-components.js`, fonts, `data/skin-images.json`, all devDependencies, `types/maermin-globals.d.ts`, the service-worker
+cache list, `RELEASE.md` (read by the release workflow), `PLAN.md`, `FINDINGS.md`. No hash/deep-link routing exists.
+Gated features confirmed reachable: Worker URL (Discovery, Share, News, earnings, benchmark/factor, X-Ray, TER, dividend
+quality), German jurisdiction (tax advisor, fund tax, Anlage KAP, withholding), exchange keys, sync account, passkey,
+Advanced mode (14 views), option transactions (Options panel).
+
+#### DEAD-001 — `storage.js` helpers `nativeRead`, `writeManifest` are never called
+- **Location:** `storage.js:237-239`, `storage.js:297-299` · **Evidence:** each name occurs once repo-wide (its declaration, inside the IIFE). · **Change:** delete. · **Severity:** low · **Risk:** very low · **PR 6**
+
+#### DEAD-002 — PWA update API and the service worker's `SKIP_WAITING` handler are unreachable (UNSURE)
+- **Location:** `pwa.js:26, 43-50, 66-71, 80, 136, 182-185`; `service-worker.js:175-178`; `types/maermin-globals.d.ts`
+- **Evidence:** nothing subscribes to `update`/`install`, nothing calls `hasUpdate/applyUpdate/canInstall`; `skipWaiting()` already runs on install.
+- **Change:** delete them (keep install toast, notifications, background sync). **Severity:** low · **Risk:** low (service-worker change) · **Unsure:** keep if a "new version" card is planned.
+
+#### DEAD-003 — `storage.rekey()` is never called (UNSURE)
+- **Location:** `storage.js:465-475, 579` · **Evidence:** only declaration/export/.d.ts; a password change re-wraps the data key, records stay. · **Change:** delete, or reuse for SEC-017 key rotation. · **Severity:** low · **Risk:** low · **PR 6**
+
+#### DEAD-004 — Exported helpers no code or test calls
+- **Location:** `utils.js:29-31` `formatCurrencyEUR`; `exchange-sync.js:283` `isSyncing`, `:364-373` `exportAllCredentials`/`importAllCredentials`; `fx-history.js:276` `resetCurrencyCache`; `rebalancing-planner.js:74-78` `clearTargets`; `prefs-store.js:73-76` `useValue`; `nav-model.js:95` `isAdvanced`; `fx.js:317` `rescan`; unused test seams `storage._setNative`, `equity-metadata._norm`, `tax-report-builder._toBase`, `performance-cards._toISO`
+- **Evidence:** export scan (each module required in Node, every export key searched in every other file) + in-file search. · **Change:** delete. · **Severity:** low · **Risk:** very low · ~35 lines
+
+#### DEAD-005 — The `?` shortcuts dialog lists shortcuts that do nothing and omits ones that work
+- **Location:** `renderer-components.js:153-180`; keys `workspaces`, `defaultWorkspace`, `taxSeasonWorkspace`, `deepAnalysisWorkspace`, `saveWorkspace`
+- **What:** lists Workspaces `w 1/2/3/s`, `a c/m/s/r`, `g p` and `t`; no handler exists (`renderer.js:2420-2449` builds its maps from the command list, which has none of them). Pressing `a r` actually fires `r` (refresh). The working `g i/s/u/c/y/f/d/x` are not listed.
+- **Evidence:** keys pressed in the click-through (`docs/screenshots/audit-2026-10/shortcuts-overlay.jpg`); no `workspace` code anywhere.
+- **Change:** build the table from the same `commands` list the handler uses; drop the five workspace keys. **Severity:** low · **Risk:** very low
+
+#### DEAD-006 — 29 translation keys are never looked up
+- **Location:** `translations-complete.js` (en 12-242 and de twins): `statistics, totalValue, purchasePrice, purchaseDate, bought, configured, totalAssets, insights, balanced, netWorth, expenses, monthlyIncome, monthlyExpenses, sources, expectedReturn, exportData, detectedBroker, importedCount, restoreBackup, shortcut, database, reports, apply, reset, filter, sort, ascending, help, about`
+- **Evidence:** they pass `scripts/i18n-check.mjs` only because the same word appears as a variable name. · **Change:** delete (en+de); optionally make the gate look for lookups. **Severity:** low · **Risk:** very low
+
+#### DEAD-007 — `rcCopyFailed` defined twice per language
+- **Location:** `translations-complete.js:310/445` (en), `:2666/2717` (de); `auth.js:407` fallback uses the dead wording · **Evidence:** esbuild warning in the baseline. · **Change:** delete 310/2666, align the auth.js fallback. **Severity:** low · **Risk:** none
+
+#### DEAD-008 — Dev console banner advertises six features that do not exist
+- **Location:** `dev-boot.js:18-65` · **What:** "Portfolio Optimization, Economic Indicators, Options/Greeks, Tax Withdrawal Planning, Margin Tracker, Sentiment Analysis"; the module check logs only `typeof` of globals that always exist. · **Change:** delete lines 18-65 (keep the splash teardown). **Severity:** low · **Risk:** none (dev only)
+
+#### DEAD-009 — `loader-status.js` and the `updateStatus` stub
+- **Location:** `loader-status.js`, `index.html:58` script tag, `build.mjs:42-45`, `dev-boot.js:9`, `#module-status` (`index.html:51`, `styles.css:657-665`)
+- **What:** only sets "Ready!" on a splash that is already being removed; in prod a no-op. · **Change:** remove the file, script tag, stub and call; keep `index.html`/`build.mjs` order consistent. **Severity:** low · **Risk:** very low
+
+#### DEAD-010 — Unused CSS
+- **Location:** `styles.css:523-526` (`.mx-chev`, `.mx-hub-children`, `@keyframes hubIn`), `:655` (`@keyframes pulse`) · **Evidence:** class-token scan incl. concatenated class names. · **Change:** delete. **Severity:** low · **Risk:** very low
+
+#### DEAD-011 — Icons no caller can request
+- **Location:** `icons.js`: `hub-tools`, `command`, `lock`, `more`, `attribution`; aliases `correlation, montecarlo, stress, risk, fire`, self-aliases `settings`, `more` · **Change:** delete. **Severity:** low · **Risk:** very low (unknown names fall back to `sparkle`)
+
+#### DEAD-012 — Hidden features: tested engine code with no entry point (UNSURE)
+- **Location:** `dividend-yoc.js:76-140` (`yocSeries`, `dripSimulate`); `fire-extras.js:51-98` (`yearsToFireCompound`, `fireVariants`, `baristaFire`); `portfolio-analytics.js` `retirementPlan`, `correlationMatrix`, `sharpe`
+- **What:** no nav entry, command, shortcut, setting or gate leads to them; the Dividends panel is titled "Yield on cost & DRIP" but shows no DRIP figure. · **Change:** owner decision — wire them, or delete with their tests and fix the panel title. **Severity:** low · **Risk:** low · ~120 lines + tests
+
+#### DEAD-013 — API members used only by tests (UNSURE per item)
+- **Location:** e.g. `tags.renameTag`, `rules-engine.updateRule`, `real-assets.updateAsset`, `portfolio-intelligence.toExport`, `rebalancing-planner.removeTarget/groupBy/isNoSell`, `recurring.scheduleBetween`, `ui-store` overlay helpers, `utils.fromEUR`, the seven `window.calculate*` aliases in `risk-analytics.js:382-392` (full list in the local notes of this run)
+- **Change:** per item: keep as tested API, add the missing UI, or delete. **Severity:** low · **Risk:** low · ~150 lines
+
+#### DEAD-014 — Unused `activeTab` state in `renderer.js:391` · **Change:** delete. **Severity:** low · **Risk:** none
+
+#### DEAD-015 — 14 unused locals and constants
+- **Location:** `renderer-components.js:26-28`, `renderer.js:56, 3495` (orphans key `ovPortfolioValue`), `ai-prompt.js:35`, `features2.js:942`, `features3.js:237-243`, `features4.js:820`, `features6.js:636`, `import-export-engine.js:386-395`, `performance-map.js:210`, `portfolio-intelligence.js:750` · **Change:** delete. **Severity:** low · **Risk:** none
+
+#### DEAD-016 — Correlation cells store a clicked pair that is never shown (UNSURE)
+- **Location:** `renderer-components.js:240, 404-409` · **Change:** show it or drop the click and pointer cursor. **Severity:** low · **Risk:** none
+
+#### DEAD-017 — "Loaded" console logs in the production bundle
+- **Location:** `dca-analyzer-engine.js:128`, `dividend-data-service.js:758`, `features3.js:891`, `features4.js:888`, `features5.js:645`, `features6.js:863`, `features7.js:357`, `investment-views.js:1224`, `risk-analytics.js:395`, per-chart log `features6.js:449` · **Change:** delete or route through the existing debug logger. **Severity:** low · **Risk:** none
+
+#### DEAD-018 — Stale working documents (UNSURE): `REPORT.md`, `docs/PROMPT-OPUS.md` · **Change:** archive or delete. **Severity:** low
+
+#### DEAD-019 — `scripts/i18n-apply.mjs`, a one-off migration tool (UNSURE) · keep while hardcoded strings are still being moved. **Severity:** low
+
+#### DEAD-020 — Two Monte Carlo engines on one tab, three FIRE computations (UNSURE)
+- **Location:** `monte-carlo-engine.js` and `portfolio-analytics.js:302`, both in Analysis → Monte Carlo; FIRE in `metrics.js`, `portfolio-analytics.js`, `fire-extras.js`
+- **Change:** owner decision: one engine per figure. **Severity:** medium (~300 lines, two different results on one screen) · **Risk:** medium (numbers change)
+
+---
+
+### 2. Bugs
+
+Tests: local branch `audit/failing-tests` (`b253f99`, `e9a9e75`). All 120 existing suites still pass with them; each audit
+test fails for the stated reason. Where no Node test is possible, the finding says why and names the e2e check to add.
+
+| ID | Sev | Location | What is wrong | Evidence / test | Proposed change | Risk of change |
+|---|---|---|---|---|---|---|
+| BUG-012 | high | `import-mapping.js:132-140` (`parseNumber`), `features2.js:607` | German CSV "0,125" is read as 125; "1.234.567" as 1.234 | `audit-import-number-parse` (5 fail): preview books quantity 125 | treat `0,ddd` as decimal, multi-group separators as thousands; infer the file locale and pass it | new imports only |
+| BUG-013 | high | `import-mapping.js:292-344`, hints `:77-78` | Binance "Pair" `BTCUSDT` stored as symbol with currency EUR; Kraken `XXBTZEUR` kept | `audit-import-crypto-pairs` (3/4 fail) | split pairs with `exchange-sync.parsePair`, quote → currency, base → CoinGecko id | rows already stored stay wrong; add a data-check hint |
+| BUG-014 | medium | `recurring.js:46-61, 76-83` | schedules starting on the 29th–31st drift to the 28th for good (savings plans book on the 28th) | `audit-recurring-month-end` 1-4 | compute occurrence i from the start date | **high**: stored `dueDate` markers would look missing → duplicate buys; needs period-based idempotency or a marker migration (stop point) |
+| BUG-015 | low | `recurring.js:122-131` | payment due on the as-of date counted in "paid" and "remaining" | `audit-recurring-month-end` 5 | start "remaining" the day after | none |
+| BUG-016 | low | `tax-calculation-engine.js:40` | Basiszins 2021 +0.045 % instead of −0.45 % (verify against the BMF letter) | `audit-basiszins-2021` | correct the table | saved 2021 records stay as entered |
+| BUG-017 | medium | `tax-calculation-engine.js:156-157`, `tax-report-builder.js:355-363` | Sparerpauschbetrag 1,000 € applied to years before 2023 (801 €) | `audit-sparerpauschbetrag-year` (3/4) | statutory allowance per year, doubled for joint assessment | none |
+| BUG-018 | medium | `interest-engine.js:120-135` | interest catch-up splits only at the first 31 Dec; the night of 31 Dec goes to the next year | `audit-interest-multiyear` (3/4) | loop over every year boundary | only future postings change |
+| BUG-019 | medium | `savings-plan-executor.js:217-236` | a price of any age is taken as the exact fill | `audit-savings-plan-price` 1 | accept a point within ~7 days, else estimated | none |
+| BUG-020 | low | `savings-plan-executor.js:97-117` (same pattern in dividend-executor, exchange-sync `:255-271`, interest-engine `:295`) | post-sync dedupe deletes every copy when two rows share one id | `audit-savings-plan-price` 3 | remove by index/identity | none |
+| BUG-021 | low | `returns-engine.js:41-70` | XIRR returns 10 % p.a. when all flows are on one day | `audit-xirr-degenerate` | null for a zero time span | none |
+| BUG-022 | medium | `tax-report-builder.js:79-99`, `ledger.js:154-170` | options in the tax report ignore the contract size and lose short positions | `audit-options-tax` (2/3) | keep options out of the share FIFO; use `options-engine` | none |
+| BUG-023 | medium | `backup-engine.js:117-131`, `migrations.js:209` | restoring an old backup skips the schema migrations | `audit-restore-migrations` | reset `maermin_schema_version` to 0 on restore (migrations are idempotent) | migrations re-run; old backups must still load (stop point to confirm) |
+| BUG-024 | medium | `performance-cards.js` `computePeriod` | deposits counted as performance (1M +10 % on a flat market after a buy) | `audit-performance-cards-deposits` | chain-link with flows, or call it "value change" | none |
+| BUG-025 | medium | `renderer.js:1225-1260` | daily value snapshots use unsorted transactions, clamp sells, ignore splits | traced (inside the React component; no Node entry point) — e2e: a split holding keeps its snapshot value | use `MaerminMetrics.buildPositions` | recorded history stays |
+| BUG-026 | low | `portfolio-snapshots.js:33-38`, `performance-cards` `todayISO` | snapshot day is the UTC day | `audit-snapshot-local-day` | local day | none |
+| BUG-027 | low | `import-mapping.js:149-155` | CSV keeps the UTC day of exchange timestamps | `audit-import-utc-date` (3/4) | convert Z/offset values to the local day | night rows of old imports may no longer be flagged as duplicates |
+| BUG-028 | low | `utils.js:83-87`, `options-engine.js:42-48`, `features7.js:49-52` | `toEUR` treats every non-USD currency (GBP, GBp, CHF…) as EUR | `audit-utils-toeur-currencies` (4/5) | delegate to `MaerminFxHistory` | none |
+| BUG-029 | medium | `portfolio-intelligence.js:129-133` (`asPct`), `:590` (skin price lookup) | Intelligence prints a sub-1 % class weight as a fraction: "CS2 Skins 12.6 %" for 0.13 %; skins priced at cost | `audit-clickthrough-figures` (BUG-029, 2 fail); screenshot `intelligence-liquidity.jpg` | pass percent explicitly (no ≤1 guessing); look up skin prices by item name | none |
+| BUG-030 | medium | `share-snapshot.js:188` | Share & Compare and the AI summary compute the health score without price history and transactions: 45/100 vs 52/100 in the Health view | `audit-clickthrough-figures` (BUG-030); `share-health-45.jpg`, `overview-health-52.jpg` | pass `{ priceHistory, transactions }` as `renderer.js:3286` does | shared snapshots change score (correct value) |
+| BUG-031 | medium | `cf-worker/worker.js:383-396` | batch quote (`screener&symbols=`) calls Yahoo v7 without the cookie+crumb retry → 401; Discovery → Dividends shows "Could not load" | `audit-worker-screener-crumb` (2 fail); live: 401 from the test Worker; `worker-discovery-dividends-401.jpg` | reuse the quoteSummary crumb session (`worker.js:1051-1090`) | **needs Worker redeploy**; older apps unaffected |
+| BUG-032 | high | `features4.js:563-576` (`DividendForecastView`) | one recorded dividend is annualised over a clamped 0.08 years (×12.5) and its USD amount is taken as EUR: demo AAPL 11.40 USD → "142.50 €/yr" (Overview and quality panel: 11.52 €) | `dividend-forecast-142.jpg`; not unit-testable (logic inside a component's `useMemo`) — the fix extracts a pure `forecastFromPayments` and tests it | extract and test; convert to EUR at the payment date; with fewer than two payments use the resolved rate or "once" | none |
+| BUG-033 | medium | `features5.js:494-529` (`FeeAnalyzer`) | fees and trade values summed in their own currency and shown as EUR (USD trades listed as "1,980.00 €"); total fees 18.50 € vs 18.18 € in Returns | `fees-usd-as-eur.jpg`; not unit-testable (component) — extract `feeStats(transactions, fx)` | convert each row with the trade-date rate (`MaerminFxHistory`) | none |
+| BUG-034 | high | `features5.js:372-418` (`CashflowView`) | value line built only from refresh-point `priceHistory`; with daily closes but few refreshes (demo, a fresh import) it shows value 0.00 € and "−23,071.00 (−100.0 %)" | `cashflow-value-zero.jpg`; component — e2e: Cash Flow last value equals the Overview total | use `MaerminValuePath` (as the Overview chart does) | none |
+| BUG-035 | medium | `renderer.js:1541`, `coingecko.js:48-73` | a CoinGecko 429 leaves crypto without a price ("no price · at cost") though Yahoo USD pairs are already used for crypto history (`close-history.js`) | observed with the test Worker (2× 429); `worker-overview-live-badges.jpg` ("1 missing") | fall back to the Yahoo `XXX-USD` quote | none |
+| BUG-036 | medium | `features6.js:170`, `renderer.js:1565-1610` | a symbol with no listing (e.g. saved as typed, "Apple") makes the chart probe 8 exchange suffixes on every range and re-request profile/fundamentals/earnings: ~70 Worker requests for one holding, against a 120/min per-IP limit | test-Worker log: 65× `yf` 404, 13× `fundamentals` 502, 11× `profile` 502 for two typed symbols | remember a failed symbol client-side (the price path already does, `maermin_symbol_suffix`); probe suffixes once, not per range | none |
+| BUG-037 | medium | `features2.js` (Dividend Calendar header and auto-derived schedule) | "Oct 2026: €0.00 · Year 2026: €0.00" for an AAPL holding held since 2024 with resolved dividends, although the calendar is documented to show received payouts | `worker-dividends-income.jpg`; root cause not traced yet | trace `buildPaymentSchedule(... back)` input; e2e check | none |
+| BUG-038 | low | `dividend-yoc.js` vs `dividend-quality.js` | two annual incomes for one payer in one view: 10.60 € vs 11.52 € (demo), 4.82 € vs 5.40 € (live) | `dividends-light-yoc-earnings.jpg` | one income source (rate × shares, one FX rate) | none |
+| BUG-039 | low | `pwa.js:44` | `TypeError: Cannot read properties of undefined (reading 'waiting')` when service-worker registration fails | console in every run (registration blocked by the test browser) | guard the registration result | none |
+
+---
+
+### 3. Visual and state display
+
+| ID | Sev | Location | What is wrong | Evidence | Proposed change | Risk |
+|---|---|---|---|---|---|---|
+| VIS-001 | medium | `renderer.js:3602`, `features6.js:680` | Overview chart: the range highlights 1H…Max but the gain figure always says "+20,482.22 € +85.18 % all time" | `chart-1h-all-time.jpg` | show the change over the selected range (keep all-time in the stat card) | low |
+| VIS-002 | low | `features6.js` (history chart axis) | 1H/1D on daily data: all axis labels "02:00 AM", the last overlaps; daily closes drawn as intraday | `chart-1h-all-time.jpg` | disable or explain intraday ranges without intraday data; de-duplicate labels | low |
+| VIS-003 | high | `renderer.js:~4400-4460` (Transactions table) | Privacy Mode leaves unit prices and totals readable in Transactions (desktop and phone) | `privacy-transactions.jpg`; scan of every view with Privacy Mode on | format through the masking formatter | low |
+| VIS-004 | medium | tax advisor panel (`renderer.js` German tax view, `tax-advisor.js` texts) | Privacy Mode shows "€203 left", "€343 of your €1,000 … is used" | `privacy-tax-advisor.jpg` | mask the user-derived amounts (statutory limits may stay) | low |
+| VIS-005 | medium | `risk-analytics-view-v2.js:183`, `fx-attribution.js:282`, `analytics-views.js:104/152`, correlation and DCA views | "Refresh prices a few times… (0 of 5 so far)" next to a panel computed from 653–755 daily returns | `risk-level-contradiction.jpg` | feed these panels from the daily close history (value path) like the rolling panel | low |
+| VIS-006 | medium | Overview, Returns, Cash Flow, Tax views | the same label means different numbers: "Invested" 24,045.78 € (open cost basis) / 26,450.87 € (all buys) / 23,071.00 € (net); "Total return" +20,482 € (unrealised) / +21,620 € (incl. realised + dividends); "Realized" 3,543 € (proceeds) vs realised P&L 1,129.54 €; "Total P&L" 21,611.76 €; "Dividends (12M)" is a forward estimate | `overview-health-52.jpg`, `returns-invested.jpg`, `realized-unrealized.jpg`, `cashflow-value-zero.jpg` | name each figure for what it is (e.g. "Cost basis (open)", "Unrealised gain", "Sale proceeds", "Expected dividends, next 12 months") and use one definition per name | low (labels only) |
+| VIS-007 | low | `features7.js` (Attribution) | "Top detractor: AK-47 +0.11 pp" — a positive contributor labelled detractor | `attribution-detractor.jpg` | hide the card when nothing is negative | none |
+| VIS-008 | medium | `portfolio-intelligence.js` (category label), `stress-test-engine.js` scenario keys | raw ids shown as labels and untranslated in German: "SINGLECOMPANY", "INCOMECONCENTRATION", "ASSETCLASS"; "bonds", "gold", "tech_stocks", "stablecoins", "gaming_stocks"; "CS:GO" next to "CS2" | `intelligence-raw-ids-de.jpg`, `stress-raw-labels-de.jpg` | translation keys for every category and asset key | none |
+| VIS-009 | low | `performance-cards.js`, `performance-map.js` | Performance view in demo: cards area empty without explanation; treemap colour saturates (26 % and 142 % the same green) | `performance-empty-cards.jpg` | empty-state text; scale colours to the range shown | none |
+| VIS-010 | low | Dividends view (Earnings Calendar card) | the card sits outside the content column (wider, shifted left) | `dividends-light-yoc-earnings.jpg` | same container padding as the other cards | none |
+| VIS-011 | low | Trash view | card flush against the sidebar and the right edge (no page padding) | `trash-padding.jpg` | standard view padding | none |
+| VIS-012 | medium | Transactions table, Overview positions table | on a phone the tables are cut off: quantity, price, total and edit/delete only by horizontal scrolling; dates and "€" wrap | `phone-transactions.jpg`, `phone-overview.jpg` | card layout below ~600 px | low |
+| VIS-013 | low | `features2.js` broker tiles | the Binance and Kraken monograms overflow their tiles | `broker-tiles.jpg` | fit the monogram | none |
+| VIS-014 | low | dividend calendar header, tax advisor | currency formats mixed in one language: "€0.00", "€1,000 left" vs "0.00 €" elsewhere | `dividend-forecast-142.jpg`, `tax-report-vwce-type.jpg` | one formatter (`MaerminI18n`) | none |
+| VIS-015 | low | Transactions table | the Total column has no currency while USD and EUR rows mix; quantity column uses monospace for decimals only | `privacy-transactions.jpg` | show currency per total; one font | none |
+| VIS-016 | low | header "Live" badge (`title="App is live"`) and Overview status chip | two "Live" indicators; the header one is green also with no Worker and in demo | `worker-overview-live-badges.jpg` | drop the header badge or make it reflect data status | none |
+| VIS-017 | low | Overview value card source chips | demo (sample prices) shows "CoinGecko"; with a Worker "Yahoo Finance" appears twice | `overview-health-52.jpg`, `worker-overview-live-badges.jpg` | "Sample data" in demo; de-duplicate | none |
+| VIS-018 | low | Rebalancing plan summary | "… 522.80 € stays uninvested (every class is within its band)" while the plan sells 13.6k € of crypto | `rebalancing-plan-text.jpg` | say why money stays uninvested (classes already in band after the trades) | none |
+| VIS-019 | low | Discovery table | long names cut without ellipsis ("American Tower Corporation (REI") | test-Worker run | `text-overflow: ellipsis` + title | none |
+
+---
+
+### 4. Usability
+
+| ID | Sev | Location | What is wrong | Evidence | Proposed change | Risk |
+|---|---|---|---|---|---|---|
+| UX-016 | medium | `onboarding.js` (`endpoints()`) | the connection test checks 4 routes; sync/share storage, CoinGecko, fundamentals and earnings are not tested, so a Worker without storage shows "all green" and fails later | test Worker: wizard green, sync/share 501 | add a storage probe (read-only `share op:aggregate` or `sync op:get` of a random id) and a CoinGecko probe; mark optional features amber | low |
+| UX-017 | medium | sync status (`renderer.js` Security & sync), `share-snapshot.js` | errors say "sync-http-501: sync storage not configured (bind KV namespace SYNC or Durable Object SYNC_DO)" / "see docs/WORKER.md" — no next step for a user | `worker-sync-501.jpg`, `worker-share-501.jpg` | plain text + link: "Your Worker has no storage. Redeploy with the Deploy button, or add a KV namespace named SYNC (steps)" | none |
+| UX-018 | low | API Settings dialog | stale copy: "one Worker URL — three features", crypto "always free" (now through the Worker), "paste … from ZIP" | `api-settings-text.jpg` | rewrite from the current endpoint list | none |
+| UX-019 | medium | `renderer.js:602` | "Book received dividends" writes estimated dividend rows into the user's transactions with no preview, confirmation or Undo | click-through: "4 dividend(s) booked (estimated)" | preview list with confirm, Undo toast via the trash | low |
+| UX-020 | low | `dashboard-layout.js:287` | "Reset to default" resets the Overview layout without confirmation or feedback | click-through | confirmation or Undo toast | none |
+| UX-021 | low | Savings Plans view | with no plans the view shows only a wealth projection — no "no savings plans yet, add one" state | `savings-plans-no-empty-state.jpg` | empty state with the Add button | none |
+| UX-022 | medium | Add transaction, symbol field (`features3.js` SymbolPicker) | a typed name without a picked suggestion is saved as is ("Apple"); it never gets a price and triggers BUG-036 | test-Worker run | require a pick for stocks/crypto, or confirm "save without a listing" | low |
+| UX-023 | medium | Watchlist (4), Alerts & Rules (10), Transactions search/sort, Strategy amount/frequency, Fee TER override, Discovery filter, Categories, Tags, Share, Net Worth custom years | form fields without a programmatic label (WCAG 1.3.1 / 4.1.2) | automated pass over every view | `aria-label` or `<label>` | none |
+| UX-024 | medium | Portfolios colour swatches (8), Data-check action button | buttons without an accessible name; swatches 22×22 px | automated pass | name + selected state; 24 px minimum | none |
+| UX-025 | low | Rebalancing toggles (18 px), Dividends Auto-book checkbox (13 px) | targets below 24×24 px (WCAG 2.5.8) | automated pass | larger hit area | none |
+| UX-026 | low | Overview value chart and donut, Net Worth, Savings, Cash Flow charts | charts without a text alternative | automated pass | `role="img"` + summary label | none |
+| UX-027 | low | all views | no `h1` per view (headings start at `h2`) | automated pass | view title as `h1` | none |
+| UX-028 | low | `features3.js:90` | split scan runs without a start date and offers splits from before the first purchase (AAPL 2020 for a 2024 buy) | `worker-split-scan.jpg` | pass the first-buy date | none |
+| UX-029 | low | Categories view | developer note shown to users ("rebalancing-by-class, currency-by-class") | click-through | plain wording or remove | none |
+| UX-030 | low | News Feed | without a Worker "Refresh" does nothing silently; texts say "Settings" where others say "API Settings" | click-through | disable Refresh with the hint; one name | none |
+| UX-031 | medium | German fund taxation (`german-tax-view.js`) | known equity ETFs (demo VWCE.DE) default to "Not a fund / other (0 %)", so the 30 % Teilfreistellung is missing until the user classifies them; nothing prompts to | `tax-report-vwce-type.jpg` | prefill from fund data (`fundholdings` type) and flag unclassified funds in the data check | changes tax estimates (correct direction) |
+| UX-032 | low | header | the gear and the avatar open the same menu | click-through | one entry point, or split settings/account | none |
+
+---
+
+### 5. Security (neutral summary; details in the local file)
+
+No critical or high issue. No exploitable XSS found (no `dangerouslySetInnerHTML`, `eval`, data-fed `innerHTML`; RSS links
+pass `safeUrl`), no prototype pollution, CSV/Excel export is formula-safe, `npm audit` reports 0 vulnerabilities, every CDN
+script is version-pinned with SRI, no secret reaches logs, URLs or the plaintext backup.
+
+| ID | Sev | Area | Location | Problem (neutral) | Proposed change | Risk of change / redeploy | PR |
+|---|---|---|---|---|---|---|---|
+| SEC-004 | low | vault | `crypto-vault.js:230-233, 507`, `storage.js:545` | KDF parameters read from stored or imported metadata are not validated | allowlist KDF names, require ≥ 600k iterations with a cap, re-key after a weaker unlock | old backups with valid params unaffected; must not reject vaults made by older releases (check their params) | 6 |
+| SEC-005 | low | vault | `auth.js:344, 387`, `renderer.js:199` | password minimum is 8 characters | strength meter / longer minimum for new passwords | existing passwords keep working | 6 |
+| SEC-006 | low | vault | `auth.js:238, 351` | encryption at rest can be switched off at setup without a lasting warning | persistent warning while off | none | 6 |
+| SEC-007 | low | vault | `crypto-vault.js:146-162` | encrypted records are not bound to their key name | add associated data per record | **migration of every record**; old backups must still open (stop point) | 6 |
+| SEC-008 | low | worker | `worker.js:115-117` | a malformed share request body causes an unhandled error | input check + top-level error handler | redeploy | 5 |
+| SEC-009 | low | worker | `worker.js:1303-1317`, `wrangler.toml:30` | origin allowlist is broader than needed | narrow the defaults | redeploy; check the desktop/file origin need | 5 |
+| SEC-010 | low | worker | `worker.js:794-831` | broker relay path/URL normalisation and forwarded headers are looser than the allowlist intends | exact path match, rebuild the URL, forward only listed headers | redeploy; exchange sync must still work | 5 |
+| SEC-011 | low | worker | `worker.js:80, 115, 787` | request bodies are parsed before their size is checked | reject by Content-Length first | redeploy | 5 |
+| SEC-012 | low | worker | `worker.js:354…802`, `:308, 396` | upstream error text and status codes reach clients | generic message, `upstreamStatus` field | redeploy; app reads statuses — keep 404/429 semantics where the app relies on them | 5 |
+| SEC-013 | low | worker | `worker.js:1354-1384` | missing `nosniff`; RSS served with a JSON content type | headers + content type per route | redeploy | 5 |
+| SEC-014 | low | worker | `worker.js:683-689` | the skin price copy accepts any successful response | validate before storing; single-flight refresh | redeploy | 5 |
+| SEC-015 | low | worker | `worker.js:1186` | rate-limit key falls back to a client-supplied header; per-IP list unbounded | use the platform IP only; cap the list | redeploy | 5 |
+| SEC-016 | low | worker | `worker.js:971` | share snapshot labels are free text; row sums unchecked | allowlist labels, check sums | redeploy | 5 |
+| SEC-017 | medium | vault | `crypto-vault.js:260-294, 349-381, 464-498`, `sync-engine.js:69-93`, `README.md:238` | a credential cannot be fully revoked: the data key never changes; no passkey removal; README claims a password change invalidates the recovery code | "rotate encryption key" (re-encrypt, re-wrap, move sync), passkey removal, README fix | **medium; rewrites the store; other sync devices must re-join** (stop point) | 6 |
+| SEC-018 | medium | worker | `worker.js:73-99, 878-917` | sync account creation has no quota and does not require an auth key | per-client and daily creation limits; require an auth key for new accounts behind the version handshake | redeploy; **older apps** cannot create accounts if the key becomes mandatory (stop point) | 5 |
+| SEC-019 | low | sync | `sync-engine.js:298-350` | a sync download may write any key, not only synced data keys | allowlist sensitive, non-local-only keys on apply | none | 5 |
+| SEC-020 | low | csp | `index.html:7`, `build.mjs:115-124` | the CSP is tight for scripts but broad for images, connections, styles and forms | explicit per-directive policy; move injected `<style>` into `styles.css` | medium functional risk (missing image hosts, custom Worker domains) | 5 |
+| SEC-021 | low | deps | `pdf-import.js:44-47`, `tax-report-builder.js:473-477` | pdf.js 3.11.174 and jsPDF 2.5.1 are outdated (known issues mitigated or unreachable today) | upgrade; run pdf.js in a worker | re-run PDF import/export tests | 5 |
+| SEC-022 | low | import | `pdf-import.js:185-218` | some PDF parsing patterns are super-linear on crafted text (tab freeze) | cap text and line length; bounded patterns | low | 5 |
+| SEC-023 | low | import | `features4.js:563-566`, `steam-import.js:71-75`, `import-mapping.js` | special object property names as symbols or headers crash a view or import (no pollution) | `Map`/`Object.create(null)`, reject reserved names | very low | 5 |
+| SEC-024 | low | worker | `worker.js:196-210, 372-383, 649-662, 1172-1176` | some query parameters are unbounded or unvalidated; an upstream count field is not capped | caps and allowlists; `news` in the symbol check | redeploy; keep the app's dividend list under the cap | 5 |
+| SEC-025 | low | secrets | `exchange-sync.js:426-457`, `docs/WORKER.md:270` | for one exchange the API key itself travels through the Worker, while the docs say the secret never leaves the browser | correct the UI and docs per exchange; drop the unused field | low | 5 |
+| SEC-026 | low | worker | `worker.js:151-156` | share `get` does not re-validate stored records (`mcp` does) | validate on read | redeploy; links to pre-allowlist records stop working (stop point) | 5 |
+| SEC-027 | low | vault | `crypto-vault.js:363, 395` | passkey unlock does not require user verification | `required` for new enrolments; HKDF on the PRF output | existing passkeys must keep working (store the mode per enrolment) | 6 |
+| SEC-028 | low | vault | `crypto-vault.js:296-302`, `storage.js:458-463` | after the idle lock decrypted data and key bytes stay in memory until garbage collection | zero the key, reload after the final save, clear module caches | low (reload must wait for the flush) | 6 |
+| H-1…H-4 | low | worker / audit log / hosting | see local file | hardening notes from 2026-10-04, still open | as described there | — | 5 |
+
+Worker items need a redeploy of the test Worker to take effect: SEC-008…016, SEC-018, SEC-024, SEC-026, BUG-031.
