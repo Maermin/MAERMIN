@@ -698,6 +698,31 @@ async function runBuild(browser, label, dir) {
       ok('P4-7: ArrowDown on a drag handle moves that section', b === 'allocation,statCards,valueChart', err || b);
       ok('P4-7: dragging a handle (pointer) moves the section to the top', c === 'statCards,allocation,valueChart', err || c);
     }
+    // P4-3: foreign withholding tax by country (German tax view), from dividend calendar entries
+    {
+      await page.evaluate(() => localStorage.setItem('maermin_divevents', JSON.stringify([
+        { id: 'w1', symbol: 'AAPL', date: '2025-05-10', amount: 100, withholding: 30, currency: 'EUR' },
+        { id: 'w2', symbol: 'NESN.SW', date: '2025-04-20', amount: 200, withholding: 70, currency: 'EUR' },
+        { id: 'w3', symbol: 'ZZQQ', date: '2025-06-01', amount: 20, withholding: 0, currency: 'EUR' }])));
+      let us = '', ch = '', unk = '', title = '', err = '';
+      try {
+        await openView(page, 'tax');
+        await page.getByRole('button', { name: 'Tax Report', exact: true }).click();
+        await page.locator('select', { has: page.locator('option[value="2025"]') }).first().selectOption('2025');
+        await page.waitForTimeout(500);
+        const panel = page.locator('[data-testid="wht-panel"]');
+        title = await panel.locator('h3').innerText();
+        us = await panel.locator('tr[data-wht-country="US"]').innerText();
+        ch = await panel.locator('tr[data-wht-country="CH"]').innerText();
+        unk = await panel.locator('tr[data-wht-country="unknown"]').innerText();
+      } catch (e) { err = e.message.split('\n')[0]; }
+      const flat = (x) => x.replace(/\s+/g, ' ');
+      ok('P4-3: panel is labelled an estimate for 2025', /2025 \(estimate\)/.test(title), err || title);
+      ok('P4-3: USA - gross 100, withheld 30, creditable 15, reclaim 15', /100\.00/.test(us) && /30\.00/.test(us) && (flat(us).match(/15\.00/g) || []).length === 2, err || flat(us));
+      ok('P4-3: Switzerland - withheld 70 of 200, creditable 30, reclaim 40', /200\.00/.test(ch) && /70\.00/.test(ch) && /30\.00/.test(ch) && /40\.00/.test(ch), err || flat(ch));
+      ok('P4-3: a dividend without a known country sits in the "unknown" row', /Country unknown/.test(unk) && /20\.00/.test(unk), err || flat(unk));
+      await page.evaluate(() => localStorage.setItem('maermin_divevents', '[]'));
+    }
     ok('no page errors in the session', errors.length === 0, errors.join(' | '));
     await context.close();
   }

@@ -1188,7 +1188,7 @@ function DividendCalendarView({ portfolio, prices, metaVersion, theme, t, addToa
   const manualEvents = controlled ? eventsProp : localEvents;
   const setEvents = controlled ? setEventsProp : setLocalEvents;
   const [showAdd, setShowAdd] = useState(false);
-  const [form, setForm] = useState({ symbol: '', date: '', amount: '', currency: 'EUR', notes: '' });
+  const [form, setForm] = useState({ symbol: '', date: '', amount: '', withholding: '', currency: 'EUR', notes: '' });
   const [viewMonth, setViewMonth] = useState(() => { const d = new Date(); return { year: d.getFullYear(), month: d.getMonth() }; });
 
   // Persist only when uncontrolled — the parent owns persistence otherwise.
@@ -1224,8 +1224,10 @@ function DividendCalendarView({ portfolio, prices, metaVersion, theme, t, addToa
 
   const addEvent = () => {
     if (!form.symbol || !form.date || !form.amount) return;
-    setEvents(prev => [...prev, { id: Date.now().toString(), ...form, amount: parseFloat(form.amount) }]);
-    setForm({ symbol: '', date: '', amount: '', currency: 'EUR', notes: '' });
+    // P4-3: foreign tax withheld (optional), read by the tax report and the withholding table
+    const wht = window.MaerminUtils.parseDecimal(form.withholding);
+    setEvents(prev => [...prev, { id: Date.now().toString(), ...form, amount: parseFloat(form.amount), withholding: (isFinite(wht) && wht > 0) ? wht : 0 }]);
+    setForm({ symbol: '', date: '', amount: '', withholding: '', currency: 'EUR', notes: '' });
     setShowAdd(false);
     addToast && addToast(__('dcAdded', 'Dividend added'), 'success');
   };
@@ -1293,6 +1295,7 @@ function DividendCalendarView({ portfolio, prices, metaVersion, theme, t, addToa
       inp('symbol', __('dcSymbolPh', 'Symbol (e.g. AAPL)')),
       inp('date', __('date', 'Date'), 'date'),
       inp('amount', __('amount', 'Amount'), 'number', { step: '0.01' }),
+      inp('withholding', __('dcWhtPh', 'Withholding tax (opt.)'), 'text', { inputMode: 'decimal', 'aria-label': __('dcWhtPh', 'Withholding tax (opt.)') }),
       React.createElement('select', { value: form.currency, onChange: e=>setForm(p=>({...p,currency:e.target.value})), style: { padding: '0.5rem', background: theme.inputBg, border: `1px solid ${theme.inputBorder}`, borderRadius: '6px', color: theme.text } },
         React.createElement('option', { value: 'EUR' }, '€'),
         React.createElement('option', { value: 'USD' }, '$')
