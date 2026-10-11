@@ -210,6 +210,18 @@ function ToastContainer({ toasts, onRemove }) {
 // CORRELATION MATRIX VIEW
 // ============================================================================
 
+// VIS-008: scenario asset keys in the UI language (were shown raw: "tech_stocks").
+function stressAssetLabel(asset) {
+  switch (asset) {
+    case 'bonds': return __('stAssetBonds', 'Bonds');
+    case 'gold': return __('stAssetGold', 'Gold');
+    case 'tech_stocks': return __('stAssetTech', 'Tech stocks');
+    case 'stablecoins': return __('stAssetStable', 'Stablecoins');
+    case 'gaming_stocks': return __('stAssetGaming', 'Gaming stocks');
+    default: return window.MaerminI18n.category(asset);
+  }
+}
+
 function CorrelationMatrixView({ portfolio, priceHistory, historySource, t, theme, formatPrice }) {
   const [correlationData, setCorrelationData] = useState(null);
 
@@ -294,7 +306,9 @@ function CorrelationMatrixView({ portfolio, priceHistory, historySource, t, them
         React.createElement('div', { 'data-testid': 'correlation-source', 'data-source': historySource || 'refresh', style: { color: theme.textSecondary, fontSize: '0.78rem', marginTop: '0.25rem' } },
           historySource === 'daily'
             ? __('corrDaily', 'Daily closing prices, {n} daily returns up to today', { n: Math.max(0, ((Object.values(priceHistory || {})[0] || []).length - 1)) })
-            : __('corrRefresh', 'Prices recorded on your refreshes'))),
+            : historySource === 'partial'
+              ? __('corrPartial', 'Daily closing prices of the {k} holdings that have them, {n} daily returns up to today', { k: Object.keys(priceHistory || {}).length, n: Math.max(0, ((Object.values(priceHistory || {})[0] || []).length - 1)) })
+              : __('corrRefresh', 'Prices recorded on your refreshes'))),
       React.createElement('div', {
         style: {
           background: theme.card,
@@ -911,7 +925,7 @@ function StressTestView({ portfolio, prices, t, theme, currency, formatPrice }) 
                   background: impact < 0 ? 'rgba(239,68,68,0.2)' : 'rgba(34,197,94,0.2)',
                   color: impact < 0 ? theme.danger : theme.success
                 }
-              }, `${window.MaerminI18n.category(asset)}: ${window.MaerminI18n.pct(impact * 100, 0)}`)
+              }, `${stressAssetLabel(asset)}: ${window.MaerminI18n.pct(impact * 100, 0)}`)
             )
           )
         )

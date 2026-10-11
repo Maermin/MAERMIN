@@ -89,9 +89,17 @@
   }
 
   // money(1234.5, 'EUR') -> "1.234,50 €" (de) / "€1,234.50" (en).
+  // The symbol always follows the number ("1,234.50 €" / "1.234,50 €"), as the
+  // app's own formatPrice writes it: Intl's English "€1,234.50" put two currency
+  // styles side by side in one view (VIS-014).
   function money(v, currency, dec, l) {
     var d = dec == null ? 2 : dec;
-    return nf(locale(l), { style: 'currency', currency: currency || 'EUR', minimumFractionDigits: d, maximumFractionDigits: d }).format(finite(v));
+    var f = nf(locale(l), { style: 'currency', currency: currency || 'EUR', minimumFractionDigits: d, maximumFractionDigits: d });
+    if (typeof f.formatToParts !== 'function') return f.format(finite(v));
+    var parts = f.formatToParts(finite(v));
+    var sym = parts.filter(function (p) { return p.type === 'currency'; }).map(function (p) { return p.value; }).join('');
+    var body = parts.filter(function (p) { return p.type !== 'currency' && p.type !== 'literal'; }).map(function (p) { return p.value; }).join('');
+    return body + ' ' + sym;
   }
 
   // pct(12.5) -> "12,50 %" (de) / "12.50%" (en). Input is in percent units.

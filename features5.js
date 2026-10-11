@@ -451,8 +451,8 @@ function CashflowChart({ transactions, priceHistory, portfolio, prices, theme, f
       // Grid
       [minV, (minV + maxV) / 2, maxV].map((v, i) =>
         React.createElement(React.Fragment, { key: i },
-          React.createElement('line', { x1: PAD.l, y1: toY(v), x2: W - PAD.r, y2: toY(v), stroke: 'rgba(255,255,255,0.05)', strokeDasharray: '4,4', strokeWidth: 1 }),
-          React.createElement('text', { x: PAD.l - 6, y: toY(v) + 4, textAnchor: 'end', fill: 'rgba(255,255,255,0.3)', fontSize: 10 }, formatPrice(v))
+          React.createElement('line', { x1: PAD.l, y1: toY(v), x2: W - PAD.r, y2: toY(v), stroke: theme.cardBorder, strokeDasharray: '4,4', strokeWidth: 1 }),
+          React.createElement('text', { x: PAD.l - 6, y: toY(v) + 4, textAnchor: 'end', fill: theme.textSecondary, fontSize: 10 }, formatPrice(v))
         )
       ),
       // Area between lines (P&L fill)
@@ -461,12 +461,13 @@ function CashflowChart({ transactions, priceHistory, portfolio, prices, theme, f
         fill: isUp ? 'rgba(34,197,94,0.08)' : 'rgba(239,68,68,0.08)'
       }),
       // Invested line (dashed)
-      React.createElement('polyline', { points: invPts, fill: 'none', stroke: 'rgba(255,255,255,0.3)', strokeWidth: 1.5, strokeDasharray: '5,3' }),
+      React.createElement('polyline', { points: invPts, fill: 'none', stroke: theme.textSecondary, strokeWidth: 1.5, strokeDasharray: '5,3' }),
       // Value line
       React.createElement('polyline', { points: valPts, fill: 'none', stroke: isUp ? '#22c55e' : '#ef4444', strokeWidth: 2, strokeLinejoin: 'round' }),
       // X axis labels
       xIdxs.map(i =>
-        React.createElement('text', { key: i, x: toX(i), y: H - 4, textAnchor: 'middle', fill: 'rgba(255,255,255,0.3)', fontSize: 10 },
+        // VIS-020: the last label ends at the edge instead of being cut; VIS-021: theme colours
+        React.createElement('text', { key: i, x: toX(i), y: H - 4, textAnchor: i === chartData.length - 1 ? 'end' : 'middle', fill: theme.textSecondary, fontSize: 10 },
           chartData[i].date
         )
       )
@@ -474,8 +475,8 @@ function CashflowChart({ transactions, priceHistory, portfolio, prices, theme, f
     // Legend
     React.createElement('div', { style: { display: 'flex', gap: '1.5rem', marginTop: '0.75rem', justifyContent: 'flex-end' } },
       React.createElement('div', { style: { display: 'flex', alignItems: 'center', gap: '0.375rem', fontSize: '0.75rem', color: theme.textSecondary } },
-        React.createElement('div', { style: { width: 20, height: 2, background: 'rgba(255,255,255,0.35)', borderTop: '2px dashed rgba(255,255,255,0.35)' } }),
-        __('cfInvestedLegend', 'Invested: {amount}', { amount: `${formatPrice(lastInv)} ${getCurrencySymbol()}` })
+        React.createElement('div', { style: { width: 20, height: 0, borderTop: '2px dashed ' + theme.textSecondary } }),
+        __('cfNetInvestedLegend', 'Net invested: {amount}', { amount: `${formatPrice(lastInv)} ${getCurrencySymbol()}` })
       ),
       React.createElement('div', { style: { display: 'flex', alignItems: 'center', gap: '0.375rem', fontSize: '0.75rem', color: theme.textSecondary } },
         React.createElement('div', { style: { width: 20, height: 2, background: isUp ? '#22c55e' : '#ef4444' } }),

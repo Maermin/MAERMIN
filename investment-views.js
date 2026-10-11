@@ -1117,6 +1117,8 @@ function InvestmentAnalysisDashboard(props) {
   var portfolio = props.portfolio || { crypto: [], stocks: [], skins: [] };
   var prices = props.prices || {};
   var priceHistory = props.priceHistory || {};
+  // VIS-005: the DCA comparison takes the daily closes when there are any
+  var dcaHistory = (props.dailyCloses && Object.keys(props.dailyCloses).length) ? props.dailyCloses : priceHistory;
   var theme = props.theme || {};
   
   var _activeSection = useState('dca');
@@ -1164,7 +1166,7 @@ function InvestmentAnalysisDashboard(props) {
   
   var renderSectionRaw = function() {
     switch(activeSection) {
-      case 'dca':      return React.createElement(DCAAnalyzerView, { portfolio: portfolio, priceHistory: priceHistory });
+      case 'dca':      return React.createElement(DCAAnalyzerView, { portfolio: portfolio, priceHistory: dcaHistory });
       case 'sectors':  return React.createElement(SectorAllocationView, { portfolio: portfolio, prices: prices, metaVersion: props.metaVersion });
       case 'countries':return React.createElement(CountryAllocationView, { portfolio: portfolio, prices: prices, metaVersion: props.metaVersion });
       case 'currency': return React.createElement(CurrencyExposureView, { portfolio: portfolio });
@@ -1173,7 +1175,7 @@ function InvestmentAnalysisDashboard(props) {
         : React.createElement('div', { style: { padding: '1.5rem', color: theme.textSecondary } }, __('ivMcapUnavailable', 'Market-cap module unavailable'));
       case 'liquidity':return React.createElement(LiquidityAnalysisView, { portfolio: portfolio });
       case 'goals':    return React.createElement(GoalInvestingView, { portfolioValue: portfolioValue });
-      default:         return React.createElement(DCAAnalyzerView, { portfolio: portfolio, priceHistory: priceHistory });
+      default:         return React.createElement(DCAAnalyzerView, { portfolio: portfolio, priceHistory: dcaHistory });
     }
   };
   // Every section reads the app theme from here (FINDINGS H-8).

@@ -421,7 +421,7 @@ an auth key; older apps), SEC-026 (old share records), SEC-027 (passkey user ver
 |---|---|---|
 | 1 Dead code and hidden features | DEAD-002, 004–011, 014–017 (+ approved UNSURE items) | open |
 | 2 Bug fixes | BUG-012…039 | open |
-| 3 Visual and state display | VIS-001…019 | open |
+| 3 Visual and state display | VIS-001…021 | fixed in PR 3 (`fix/audit-visual`) |
 | 4 Usability | UX-016…032 | open |
 | 5 Security, app and Worker | SEC-008…016, 018, 019, 020…026, H-1…H-4 | open |
 | 6 crypto-vault.js, auth.js, storage.js | SEC-004…007, 017, 027, 028, DEAD-001, DEAD-003 | open |
@@ -593,6 +593,26 @@ test fails for the stated reason. Where no Node test is possible, the finding sa
 | VIS-017 | low | Overview value card source chips | demo (sample prices) shows "CoinGecko"; with a Worker "Yahoo Finance" appears twice | `overview-health-52.jpg`, `worker-overview-live-badges.jpg` | "Sample data" in demo; de-duplicate | none |
 | VIS-018 | low | Rebalancing plan summary | "… 522.80 € stays uninvested (every class is within its band)" while the plan sells 13.6k € of crypto | `rebalancing-plan-text.jpg` | say why money stays uninvested (classes already in band after the trades) | none |
 | VIS-019 | low | Discovery table | long names cut without ellipsis ("American Tower Corporation (REI") | test-Worker run | `text-overflow: ellipsis` + title | none |
+| VIS-020 | low | `features5.js` Cash Flow chart | the last x-axis label is cut at the right edge ("2026-10-") | found in Phase 2 (PR 3) | anchor the last label at its end | none |
+| VIS-021 | low | `features5.js` Cash Flow chart | axis labels, grid and the invested line are fixed white: invisible on the light theme | found in Phase 2 (PR 3) | theme colours | none |
+
+**Status (Phase 2, branch `fix/audit-visual`, PR 3):** all fixed — VIS-001…021. Notes:
+- VIS-001: the range figure is the change in value minus the money put in or taken out inside the range; the percentage is
+  the time-weighted return of the drawn points (`MaerminValuePath.fromValues`). "Max" keeps the all-time figure.
+- VIS-002: the demo path has one close per day, so 1H/1D are not offered there; repeated axis labels are dropped.
+- VIS-005: the Risk Level panel falls back to the flow-neutral daily index of the whole portfolio (the series the rolling
+  panel already used) when not every holding has daily closes; the correlation matrix uses the closes of the holdings that
+  have them and says so; FX attribution and the DCA comparison take each holding's daily closes.
+- VIS-006: Overview "Cost basis (open)", "Unrealised gain", "Expected dividends (12m)"; Returns "Total bought",
+  "Proceeds received"; position detail "Unrealised return"; Cash Flow "Net invested". "Total return" now only names the
+  Returns figure (sales and income included).
+- VIS-009: the empty cards came from the reveal-on-scroll capture; the real empty state said "check back tomorrow" in the
+  demo, which records no snapshots — it now says so, and the "≈" footnote shows only with data.
+- VIS-014: `MaerminI18n.money` writes the symbol after the number in every language ("1,234.50 €"), as `formatPrice`
+  does; two tests that matched the old English "€1,234.50" were updated.
+- VIS-016: the header badge is removed; the Overview status chip reports the data state.
+- VIS-019: the screener route of the Worker now prefers Yahoo's `longName` (`shortName` is cut at 30 characters) — reaches
+  a deployed Worker only after a redeploy.
 
 ---
 
