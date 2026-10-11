@@ -403,7 +403,8 @@ export default {
 
         const quotes = raw.map(q => ({
           symbol:        q.symbol,
-          name:          q.shortName || q.longName || q.displayName || q.symbol,
+          // longName first: Yahoo cuts shortName at 30 characters ("… (REI") (VIS-019)
+          name:          q.longName || q.shortName || q.displayName || q.symbol,
           price:         numOrNull(q.regularMarketPrice),
           currency:      q.currency || 'USD',
           changePercent: numOrNull(q.regularMarketChangePercent),

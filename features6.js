@@ -259,7 +259,7 @@ function storedCryptoCloses(symbol, period, usdToEur) {
 // ─────────────────────────────────────────────────────────────────────────────
 // CHART COMPONENT
 // ─────────────────────────────────────────────────────────────────────────────
-function PortfolioHistoryChart({ portfolio, prices, transactions, apiKeys, theme, formatPrice, getCurrencySymbol, exchangeRate, currentValue, totalInvested, totalProfit, totalProfitPercent, pathPoints }) {
+function PortfolioHistoryChart({ portfolio, prices, transactions, apiKeys, theme, formatPrice, getCurrencySymbol, exchangeRate, currentValue, totalInvested, totalProfit, totalProfitPercent, pathPoints, fxAt }) {
   const [period, setPeriod]         = useState('1M');
   const [loading, setLoading]       = useState(false);
   const [error, setError]           = useState(null);
@@ -272,6 +272,10 @@ function PortfolioHistoryChart({ portfolio, prices, transactions, apiKeys, theme
   const workerUrl     = (apiKeys?.cs2Worker || '').trim();
   const hasWorker     = workerUrl.length > 5;
   const currentPeriod = PERIODS.find(p => p.id === period) || PERIODS[3];
+  // VIS-002: the demo path holds one close per day - no intraday ranges for it.
+  const dailyOnly     = Array.isArray(pathPoints) && pathPoints.length > 1;
+  const shownPeriods  = dailyOnly ? PERIODS.filter(p => p.id !== '1H' && p.id !== '1D') : PERIODS;
+  useEffect(() => { if (dailyOnly && (period === '1H' || period === '1D')) setPeriod('1W'); }, [dailyOnly, period]);
 
   // True ROI from transaction cost basis — same as stats cards
   const trueROI    = (typeof totalProfitPercent === 'number') ? totalProfitPercent : 0;
@@ -607,6 +611,20 @@ function PortfolioHistoryChart({ portfolio, prices, transactions, apiKeys, theme
     return { vals, minV, maxV, range, toX, toY, pts, area, firstV, lastV, change, pct, isUp, yLabels, xLabels, markers };
   }, [chartData, period, formatPrice, transactions]);
 
+  // VIS-001: the change over the selected range, net of the money put in or
+  // taken out inside it (a deposit is not a gain). Max keeps the all-time figure.
+  const rangeStat = useMemo(() => {
+    if (period === 'Max' || chartData.length < 2) return null;
+    const VP = window.MaerminValuePath;
+    const first = chartData[0], last = chartData[chartData.length - 1];
+    const flows = VP ? VP.flowsOf(transactions, { exchangeRate: usdToEur, fxAt }) : [];
+    const net = flows.filter(f => f.d > first.date && f.d <= last.date).reduce((s, f) => s + f.amount, 0);
+    const gain = last.value - first.value - net;
+    const tw = VP ? VP.fromValues(chartData.map(d => ({ d: d.date, v: d.value })), flows) : null;
+    const pct = tw ? tw.twr * 100 : (first.value > 0 ? gain / first.value * 100 : 0);
+    return { gain, pct };
+  }, [chartData, period, transactions, usdToEur, fxAt]);
+
   const hovered = hoveredIdx !== null ? chartData[hoveredIdx] : null;
 
   const handleMouseMove = e => {
@@ -617,12 +635,12 @@ function PortfolioHistoryChart({ portfolio, prices, transactions, apiKeys, theme
     setHoveredIdx(Math.round(frac * (chartData.length - 1)));
   };
 
-  const dataSources = [
+  const dataSources = dailyOnly ? [__('chSampleData', 'Sample data')] : [...new Set([
     positions.some(p => p.cat === 'crypto')      && 'CoinGecko',
     positions.some(p => p.cat === 'stocks')      && (hasWorker ? 'Yahoo Finance' : null),
     positions.some(p => p.cat === 'commodities') && (hasWorker ? 'Yahoo Finance' : null),
     positions.some(p => p.cat === 'skins')       && (hasWorker ? __('chSteamList', 'Steam Market price list') : null),
-  ].filter(Boolean);
+  ].filter(Boolean))];
 
   // ── Colour constants ──────────────────────────────────────────────────────
   // Theme-aware palette: the old constants were white-based rgba values that
@@ -636,16 +654,16 @@ function PortfolioHistoryChart({ portfolio, prices, transactions, apiKeys, theme
 
   // ── Shared X-label formatter ──────────────────────────────────────────────
   const fmtX = d => {
-    if (['1H','1D'].includes(period)) return window.MaerminI18n.date(new Date(d.ts*1000), 'time');
-    if (['1W','1M'].includes(period)) return window.MaerminI18n.date(new Date(d.date), 'dayMonth');
+    if (['1H','1D'].includes(period) && !dailyOnly) return window.MaerminI18n.date(new Date(d.ts*1000), 'time');
+    if (['1H','1D','1W','1M'].includes(period)) return window.MaerminI18n.date(new Date(d.date), 'dayMonth');
     return window.MaerminI18n.date(new Date(d.date), { month: 'short', year: '2-digit' });
   };
 
   // ── Header stat pill (same in both modes = real ROI) ──────────────────────
   const roiPill = () => {
-    const pct = trueROI;
-    const eur = trueProfit;
-    const up  = isROIup;
+    const pct = rangeStat ? rangeStat.pct : trueROI;
+    const eur = rangeStat ? rangeStat.gain : trueProfit;
+    const up  = rangeStat ? rangeStat.gain >= 0 : isROIup;
     const sign = up ? '+' : '';
     const deltaCol = up ? GREEN : RED;
     // Mockup hero: lead with the big € portfolio value, return as a chip beside it.
@@ -674,7 +692,7 @@ function PortfolioHistoryChart({ portfolio, prices, transactions, apiKeys, theme
           `${sign}${formatPrice(Math.abs(eur))} ${getCurrencySymbol()}`
         ),
         React.createElement('span', { style: { color: deltaCol, fontWeight: '700', fontSize: '0.92rem' } }, `${sign}${window.MaerminI18n.pct(pct, 2)}`),
-        React.createElement('span', { style: { color: GREY, fontSize: '0.8rem' } }, __('chAllTime', 'all time'))
+        React.createElement('span', { style: { color: GREY, fontSize: '0.8rem' } }, rangeStat ? __('chInRange', 'in {range}', { range: periodLabel(period) }) : __('chAllTime', 'all time'))
       )
     );
   };
@@ -697,7 +715,7 @@ function PortfolioHistoryChart({ portfolio, prices, transactions, apiKeys, theme
     const xLabels = Array.from({length: xCount}, (_,i) => {
       const idx = Math.min(i*xStep, chartData.length-1);
       return { idx, x: computed.toX(idx), label: fmtX(chartData[idx]) };
-    });
+    }).filter((xl, i, a) => i === 0 || (xl.idx !== a[i - 1].idx && xl.label !== a[i - 1].label)); // no repeated labels
 
     // Smooth geometry: the line and its gradient fill share the same
     // Catmull-Rom path, so they always agree. Visual change only - the data
@@ -789,7 +807,7 @@ function PortfolioHistoryChart({ portfolio, prices, transactions, apiKeys, theme
       React.createElement('div', {
         style: { display:'flex', gap:'0.15rem', background: theme.inputBg, borderRadius:'10px', padding:'0.2rem', alignSelf:'flex-start' }
       },
-        PERIODS.map(p => {
+        shownPeriods.map(p => {
           const active = period === p.id;
           return React.createElement('button', {
             key: p.id,

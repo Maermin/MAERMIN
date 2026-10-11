@@ -306,40 +306,6 @@ html[data-theme="contrast"] .mx-app::before { display: none; }
 .mx-icon-btn:hover { border-color: var(--border-strong); filter: none !important; background: var(--surface-2); }
 .mx-icon-btn.is-on { background: var(--accent); border-color: var(--accent); color: var(--on-accent); box-shadow: 0 6px 20px -6px var(--accent-ring); }
 
-.mx-live {
-  display: inline-flex;
-  align-items: center;
-  gap: 0.45rem;
-  height: 32px;
-  padding: 0 0.75rem;
-  border-radius: 999px;
-  font-size: 0.74rem;
-  font-weight: 600;
-  color: var(--success);
-  background: color-mix(in srgb, var(--success) 10%, transparent);
-  border: 1px solid color-mix(in srgb, var(--success) 28%, transparent);
-}
-.mx-live i {
-  position: relative;
-  width: 7px; height: 7px; border-radius: 50%;
-  background: var(--success);
-}
-/* Pulse ring: a scaled + faded pseudo (compositor-only). It used to animate
-   box-shadow, which repaints the header on every frame. */
-.mx-live i::after {
-  content: '';
-  position: absolute;
-  inset: 0;
-  border-radius: 50%;
-  background: color-mix(in srgb, var(--success) 55%, transparent);
-  animation: livePulse 2.2s ease-out infinite;
-  will-change: transform, opacity;
-}
-@keyframes livePulse {
-  0% { transform: scale(1); opacity: 1; }
-  70%, 100% { transform: scale(3); opacity: 0; }
-}
-
 .mx-avatar {
   width: 40px;
   height: 40px;
@@ -902,6 +868,22 @@ html[data-mode="light"] .command-palette-overlay { background: rgba(17, 19, 40, 
   .mx-search { flex: 0 0 40px; width: 40px; padding: 0; justify-content: center; }
 }
 
+/* VIS-012: wide tables become one card per row on a phone; each cell
+   carries its column name in data-label. Inline cell styles need !important. */
+@media (max-width: 600px) {
+  .mx-table-cards { min-width: 0 !important; }
+  .mx-table-cards thead { display: none; }
+  .mx-table-cards, .mx-table-cards tbody, .mx-table-cards tr { display: block; width: 100%; }
+  .mx-table-cards tr { border-top: 1px solid var(--border); padding: 0.65rem 1rem; }
+  .mx-table-cards td { display: flex; justify-content: space-between; align-items: center; gap: 0.75rem;
+    padding: 0.2rem 0 !important; text-align: right !important; border: 0 !important; }
+  .mx-table-cards td > * { min-width: 0; }
+  .mx-table-cards td[data-label]::before { content: attr(data-label); color: var(--text-dim); font-size: 0.75rem; text-align: left; flex-shrink: 0; }
+  .mx-table-cards td.mx-card-lead { justify-content: flex-start; text-align: left !important; font-weight: 600; }
+  .mx-table-cards td.mx-card-actions { justify-content: flex-end; padding-top: 0.4rem !important; }
+  .mx-table-cards td.mx-hide-phone { display: none; }
+}
+
 @media (max-width: 768px) {
   .maermin-sidebar { display: none; }
   .mx-bottom-nav { display: flex; }
@@ -912,7 +894,7 @@ html[data-mode="light"] .command-palette-overlay { background: rgba(17, 19, 40, 
   .mx-bottom-label { max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
   .maermin-main { padding-bottom: calc(88px + env(safe-area-inset-bottom)); }
   .mx-header { height: 58px; padding: 0 0.85rem; }
-  .mx-brand-tag, .mx-live { display: none; }
+  .mx-brand-tag { display: none; }
   .mx-popover { position: fixed; top: 64px; left: 12px; right: 12px; width: auto; }
   /* Phase 3: at the bottom a toast covered the fields of an open dialog and
      the content above the dock; on phones it sits under the top bar. */
@@ -1284,7 +1266,7 @@ html.mx-motion .mx-reveal.is-in {
 html.mx-still .mx-app::after, html.mx-still .mx-app::before,
 html.mx-still .mx-hairline::before, html.mx-still .mx-logo::after,
 html.mx-still .mx-brand-name, html.mx-still .mx-primary::after,
-html.mx-still .mx-avatar::before, html.mx-still .mx-promo::before, html.mx-still .mx-live i::after,
+html.mx-still .mx-avatar::before, html.mx-still .mx-promo::before,
 html.mx-still .mx-card::after, html.mx-still .command-palette::before,
 html.mx-still .maermin-main > * { animation: none !important; }
 html.mx-still .mx-card { transform: none !important; }
