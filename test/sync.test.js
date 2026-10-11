@@ -173,6 +173,14 @@ function MemTransport() {
   const er2 = await Sync.sync();
   ok('legitimate client keeps writing after registration', er2.ok && et._peek().rev >= 2);
 
+  // SEC-019: a remote snapshot cannot set vault infrastructure or local keys
+  const metaBefore = localStorage.getItem('maermin_vault_meta');
+  Sync.applySnapshot({ v: 1, data: { maermin_vault_meta: '{"forged":true}', apiKeys: '{"cs2Worker":"https://other.example"}', maermin_sync_base: '{}', transactions: localStorage.getItem('transactions') } });
+  ok('SEC-019: vault meta is not taken from a snapshot', localStorage.getItem('maermin_vault_meta') === metaBefore);
+  ok('SEC-019: dropped keys are reported', Sync.lastDropped().indexOf('maermin_vault_meta') !== -1 && Sync.lastDropped().indexOf('maermin_sync_base') !== -1);
+  const mm = Sync.mergeSnapshots({ v: 1, updatedAt: 1, data: {} }, { v: 1, updatedAt: 2, data: { maermin_vault_meta: 'x', transactions: '[]' } }, null);
+  ok('SEC-019: a remote-only infrastructure key is not merged in', !('maermin_vault_meta' in mm.merged.data) && ('transactions' in mm.merged.data));
+
   console.log('\n' + passed + ' passed, ' + failed + ' failed');
   process.exit(failed ? 1 : 0);
 })().catch(e => { console.error('FATAL', e); process.exit(1); });

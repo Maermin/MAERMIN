@@ -38,9 +38,12 @@ function req(url, init) { return new Request(url, init); }
   // ---- sync op over a fake store ----
   let rec = null;
   const store = { get: async () => rec, put: async (x) => { rec = x; } };
-  let out = await W.handleSyncOp(store, { op: 'put', account: 'abcdef12', baseRev: 0, blob: 'b1' });
+  let out = await W.handleSyncOp(store, { op: 'put', account: 'abcdef12', baseRev: 0, blob: 'b0' });
+  ok('SEC-018: a new account without a write key is refused (426)', out.status === 426 && rec === null);
+  out = await W.handleSyncOp(store, { op: 'put', account: 'abcdef12', baseRev: 0, blob: 'b1', auth: { key: 'a'.repeat(64) } });
   ok('first put creates rev 1', out.status === 200 && out.body.rev === 1);
-  out = await W.handleSyncOp(store, { op: 'put', account: 'abcdef12', baseRev: 0, blob: 'b2' });
+  const K = 'a'.repeat(64);
+  out = await W.handleSyncOp(store, { op: 'put', account: 'abcdef12', baseRev: 0, blob: 'b2', auth: { mac: await W.syncMac(K, 'abcdef12.0.b2') } });
   ok('stale baseRev -> 409 conflict', out.status === 409 && out.body.conflict === true);
   out = await W.handleSyncOp(store, { op: 'put', account: 'abcdef12', baseRev: 1, blob: 'x'.repeat(4_000_001) });
   ok('oversized blob -> 413', out.status === 413);
@@ -53,7 +56,7 @@ function req(url, init) { return new Request(url, init); }
     blockConcurrencyWhile(fn) { const p = chain.then(fn); chain = p.catch(() => {}); return p; }
   };
   const room = new W.SyncRoom(state, {});
-  const put = (blob) => room.fetch(new Request('https://sync.internal/', { method: 'POST', body: JSON.stringify({ op: 'put', account: 'abcdef12', baseRev: 0, blob }) }));
+  const put = async (blob) => room.fetch(new Request('https://sync.internal/', { method: 'POST', body: JSON.stringify({ op: 'put', account: 'abcdef12', baseRev: 0, blob, auth: { key: 'a'.repeat(64), mac: await W.syncMac('a'.repeat(64), 'abcdef12.0.' + blob) } }) }));
   const [a, b] = await Promise.all([put('A'), put('B')]);
   ok('two concurrent writers: exactly one wins, the other gets 409', [a.status, b.status].sort().join(',') === '200,409');
   ok('stored record is the winner at rev 1', mem.get('rec').rev === 1);

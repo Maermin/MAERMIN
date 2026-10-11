@@ -24,7 +24,8 @@ new_sqlite_classes = ["SyncRoom"]
 
 # CORS: exact origins allowed to read responses (the official app and
 # localhost are built in). Add your own domain(s), comma separated.
-# Set ALLOW_NULL_ORIGIN = "false" if you don't use the desktop app.
+# "null" is the origin of index.html opened from disk; set ALLOW_NULL_ORIGIN
+# and ALLOW_LOCALHOST to "false" if you only use the hosted app.
 [vars]
 # ALLOWED_ORIGINS = "https://portfolio.example.com"
 ALLOW_NULL_ORIGIN = "true"
@@ -32,3 +33,6 @@ ALLOW_NULL_ORIGIN = "true"
 #   npx wrangler secret put COINGECKO_API_KEY
 # Share snapshots per UTC day (each costs one KV write). Default 300.
 # SHARE_DAILY_MAX = "300"
+# New sync accounts per UTC day (each client at most 5). Default 200.
+# SYNC_DAILY_NEW_MAX = "200"
+# ALLOW_LOCALHOST = "true"
