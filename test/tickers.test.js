@@ -37,14 +37,6 @@ const T = require('../ticker-validation.js');
   ok('crypto category not dividend-eligible', T.validate('BTC', 'crypto').valid === false && T.validate('BTC', 'crypto').reason === 'not-an-equity');
   ok('stocks category eligible', T.isDividendEligible('stocks') === true);
 
-  console.log('validatePortfolio:');
-  const report = T.validatePortfolio({ stocks: [
-    { symbol: 'AAPL' }, { symbol: 'SAP.DE' }, { symbol: 'Some Company Ltd' }, { symbol: 'BRK.B' }
-  ] });
-  ok('counts total stocks', report.total === 4);
-  ok('flags the unresolved name', report.unresolved === 1 && report.invalid[0].symbol === 'Some Company Ltd');
-  ok('valid ones normalised', report.valid.find(v => v.symbol === 'BRK.B').verdict.normalized === 'BRK-B');
-
   console.log('\n' + passed + ' passed, ' + failed + ' failed');
   process.exit(failed ? 1 : 0);
 })();

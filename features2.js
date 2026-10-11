@@ -939,7 +939,6 @@ function BrokerImportWizard({ theme, t, addToast, onImport, existing, workerUrl 
 
       // NEW smart mapping preview (window.MaerminImportMapping).
       mp && (function () {
-        const importable = mp.stats.ok - (includeDupes ? 0 : (mp.stats.duplicates || 0));
         const reqMissing = (window.MaerminImportMapping.REQUIRED || []).filter(f => !mapping || !mapping[f]);
         const selStyle = (field) => ({
           padding: '0.4rem 0.5rem', minHeight: '40px', background: theme.inputBg,

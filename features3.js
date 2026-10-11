@@ -234,14 +234,6 @@ function PositionDetailModal({ position, transactions, prices, theme, formatPric
   const jLabel = { display: 'block', color: theme.textSecondary, fontSize: '0.68rem', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '0.25rem' };
   const jInput = { width: '100%', boxSizing: 'border-box', padding: '0.5rem 0.7rem', background: theme.inputBg, border: `1px solid ${theme.inputBorder || theme.cardBorder}`, borderRadius: '8px', color: theme.text, fontSize: '0.82rem', fontFamily: 'inherit' };
 
-  const row = (label, value, color = theme.text, mono = false) =>
-    React.createElement('div', {
-      style: { display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '0.6rem 0', borderBottom: `1px solid ${theme.cardBorder}` }
-    },
-      React.createElement('span', { style: { color: theme.textSecondary, fontSize: '0.82rem' } }, label),
-      React.createElement('span', { style: { color, fontWeight: '600', fontSize: '0.875rem', fontFamily: mono ? 'monospace' : 'inherit' } }, value)
-    );
-
   return React.createElement(window.MaerminUI.Overlay, {
     onClose,
     focusField: false, // a detail view: its only field is the note further down
@@ -888,6 +880,5 @@ window.MaerminFeatures3 = {
   SymbolPicker,
 };
 
-console.log('[OK] MAERMIN Features3 v11.0 loaded — Position Detail, CAGR, CS2 Skin Picker, Symbol Picker');
 
 })();

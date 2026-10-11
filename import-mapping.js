@@ -191,11 +191,6 @@ function __(k, f, v) { return (typeof window !== 'undefined' && window.MaerminI1
     if (BUY_WORDS.some(hit)) return 'buy';
     return null;
   }
-  /** Normalise a free-text transaction type → 'buy'|'sell'|'dividend' (unknown → 'buy'). */
-  function normalizeType(value) {
-    return classifyType(value) || 'buy';
-  }
-
   /** Normalise a symbol via MaerminTickers when available, else uppercase trim. */
   function normalizeSymbol(raw, category) {
     const s = String(raw == null ? '' : raw).trim();
@@ -942,7 +937,7 @@ function __(k, f, v) { return (typeof window !== 'undefined' && window.MaerminI1
     // ISIN -> ticker
     isISIN, listingCurrency, pickListing, collectIsins, applyTickerMap, resolveIsins,
     detectBroker, suggestMapping, applyMapping, quickCSV, findDuplicates,
-    parseNumber, parseDate, normalizeType, normalizeSymbol, parseCSV,
+    parseNumber, parseDate, normalizeSymbol, parseCSV,
     preview, commit,
     // presets (WI-8)
     PRESETS_KEY, PRESETS_SCHEMA,

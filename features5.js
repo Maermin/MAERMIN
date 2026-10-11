@@ -642,6 +642,5 @@ window.MaerminFeatures5 = {
   FeeAnalyzer,
 };
 
-console.log('[OK] MAERMIN Features5 v11.0 — Net Worth, Cashflow, Fee Analyzer');
 
 })();

@@ -1,8 +1,8 @@
 // ============================================================================
 // MAERMIN — PWA Controller  (window.MaerminPWA)
 // ----------------------------------------------------------------------------
-// Epic 2 client side: registers the service worker, manages updates, the
-// install prompt, local notifications, and background-sync requests.
+// Epic 2 client side: registers the service worker, the install prompt,
+// local notifications, and background-sync requests.
 //
 // Per the V7 rule we don't bolt on new chrome — the only UI is ONE small,
 // dismissible "Install" toast shown when the browser offers installation (the
@@ -23,35 +23,21 @@ function __(k, f, v) { return (typeof window !== 'undefined' && window.MaerminI1
 
   var registration = null;
   var deferredInstall = null;
-  var updateReady = false;
-  var listeners = { update: [], install: [], sync: [] };
+  var listeners = { sync: [] };
 
   function emit(type, payload) {
     (listeners[type] || []).forEach(function (cb) { try { cb(payload); } catch (e) {} });
   }
   function on(type, cb) { if (listeners[type] && typeof cb === 'function') listeners[type].push(cb); }
 
-  // ---- registration + update flow ------------------------------------------
+  // ---- registration ------------------------------------------------------------
   function register() {
     if (!('serviceWorker' in navigator)) return;
     // file:// (index.html opened directly) can't host a SW — skip gracefully.
     if (location.protocol === 'file:') return;
 
     navigator.serviceWorker.register(SW_URL, { scope: SW_SCOPE })
-      .then(function (reg) {
-        registration = reg;
-        // Detect an updated worker waiting to take over.
-        if (reg.waiting) { updateReady = true; emit('update', reg); }
-        reg.addEventListener('updatefound', function () {
-          var sw = reg.installing;
-          if (!sw) return;
-          sw.addEventListener('statechange', function () {
-            if (sw.state === 'installed' && navigator.serviceWorker.controller) {
-              updateReady = true; emit('update', reg);
-            }
-          });
-        });
-      })
+      .then(function (reg) { registration = reg || null; })
       .catch(function (e) { console.warn('[MAERMIN PWA] SW registration failed:', e); });
 
     // Background-sync retries are forwarded from the SW to the app.
@@ -59,17 +45,12 @@ function __(k, f, v) { return (typeof window !== 'undefined' && window.MaerminI1
       if (ev.data && ev.data.type === 'background-sync') emit('sync', ev.data.tag);
     });
 
-    // Reload once the new SW takes control (after applyUpdate()).
+    // Reload once a new SW takes control (service-worker.js calls skipWaiting()
+    // on install, so an update applies on the next load).
     var refreshing = false;
     navigator.serviceWorker.addEventListener('controllerchange', function () {
       if (refreshing) return; refreshing = true; window.location.reload();
     });
-  }
-
-  function applyUpdate() {
-    if (registration && registration.waiting) {
-      registration.waiting.postMessage({ type: 'SKIP_WAITING' });
-    }
   }
 
   // ---- install prompt -------------------------------------------------------
@@ -77,7 +58,6 @@ function __(k, f, v) { return (typeof window !== 'undefined' && window.MaerminI1
     return (window.matchMedia && window.matchMedia('(display-mode: standalone)').matches) ||
            window.navigator.standalone === true;
   }
-  function canInstall() { return !!deferredInstall; }
 
   function promptInstall() {
     if (!deferredInstall) return Promise.resolve({ outcome: 'unavailable' });
@@ -133,7 +113,6 @@ function __(k, f, v) { return (typeof window !== 'undefined' && window.MaerminI1
   window.addEventListener('beforeinstallprompt', function (e) {
     e.preventDefault();
     deferredInstall = e;
-    emit('install', true);
     // Defer the toast until the app is unlocked, so it never overlaps the auth screen.
     if (window.MaerminAuth && window.MaerminAuth.whenUnlocked) {
       window.MaerminAuth.whenUnlocked().then(function () { setTimeout(showInstallToast, 1500); });
@@ -179,10 +158,7 @@ function __(k, f, v) { return (typeof window !== 'undefined' && window.MaerminI1
   window.MaerminPWA = {
     on: on,
     isStandalone: isStandalone,
-    canInstall: canInstall,
     promptInstall: promptInstall,
-    hasUpdate: function () { return updateReady; },
-    applyUpdate: applyUpdate,
     notificationsSupported: notificationsSupported,
     notificationPermission: notificationPermission,
     requestNotifications: requestNotifications,

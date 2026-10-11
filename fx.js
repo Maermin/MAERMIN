@@ -313,8 +313,7 @@
       try { localStorage.setItem('maermin_fx', on ? 'on' : 'off'); } catch (e) {}
       win.location.reload();
     },
-    enabled: function () { return !motionOff(); },
-    rescan: function () { var r = doc.getElementById('root'); if (r) schedule(r); }
+    enabled: function () { return !motionOff(); }
   };
 
   if (doc.readyState === 'loading') doc.addEventListener('DOMContentLoaded', boot);

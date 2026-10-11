@@ -37,16 +37,10 @@ const D = require('../dashboard-layout.js');
   ok('unknown saved id dropped', !st.widgets.some(w => w.id === 'zzz'));
   ok('known saved id kept', st.widgets[0].id === 'b' && st.widgets[0].visible === false);
 
-  // ---- toggle / setVisible ----
+  // ---- toggle ----
   let t = D.normalize(null, AVAIL);
   t = D.toggle(t, 'a', AVAIL);
   ok('toggle flips visibility', t.widgets.find(w => w.id === 'a').visible === false);
-  t = D.setVisible(t, 'a', true, AVAIL);
-  ok('setVisible forces a state', t.widgets.find(w => w.id === 'a').visible === true);
-
-  // ---- visibleWidgets returns only visible ids in order ----
-  let v = D.toggle(D.normalize(null, AVAIL), 'b', AVAIL);
-  ok('visibleWidgets filters hidden', D.visibleWidgets(v, AVAIL).join('') === 'acd');
 
   // ---- move up / down + bounds ----
   let m = D.normalize(null, AVAIL);

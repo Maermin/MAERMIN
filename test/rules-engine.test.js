@@ -27,14 +27,12 @@ const R = require('../rules-engine.js');
   ok('total_value needs no target', st.rules[2].target === '');
   ok('each rule gets an id', st.rules.every(r => !!r.id));
 
-  // ---- addRule / toggle / remove / update ----
+  // ---- addRule / toggle / remove ----
   let s2 = R.addRule({ version: 1, rules: [] }, { metric: 'symbol_weight', op: 'gt', threshold: 25, target: 'nvda' });
   ok('addRule adds one (uppercased target)', s2.rules.length === 1 && s2.rules[0].target === 'NVDA');
   const id = s2.rules[0].id;
   s2 = R.toggleRule(s2, id);
   ok('toggleRule flips enabled', s2.rules[0].enabled === false);
-  s2 = R.updateRule(s2, id, { threshold: 40, enabled: true });
-  ok('updateRule patches fields', s2.rules[0].threshold === 40 && s2.rules[0].enabled === true);
   s2 = R.removeRule(s2, id);
   ok('removeRule deletes', s2.rules.length === 0);
 
@@ -70,14 +68,14 @@ const R = require('../rules-engine.js');
   ok('total_value below triggers', byDesc['total_value:'].triggered === true);
   ok('tag weight triggers', byDesc['tag_weight:Speculative'].triggered === true);
   ok('drop from peak triggers', byDesc['drop_from_peak_pct:'].triggered === true);
-  ok('activeCount counts triggers', R.activeCount(rules, ctx) === 5);
+  ok('five rules trigger', res.filter(x => x.triggered).length === 5);
   ok('triggered rules sort first', res[0].triggered === true);
 
   // ---- disabled rule never triggers ----
   const disabled = R.toggleRule(R.normalize({ rules: [
     { metric: 'symbol_weight', op: 'gt', threshold: 1, target: 'BTC' }
   ]}), null); // toggle with wrong id = no-op, so explicitly disable below
-  const off = R.updateRule(R.normalize({ rules: [{ id: 'x', metric: 'symbol_weight', op: 'gt', threshold: 1, target: 'BTC', enabled: false }] }), 'x', {});
+  const off = R.normalize({ rules: [{ id: 'x', metric: 'symbol_weight', op: 'gt', threshold: 1, target: 'BTC', enabled: false }] });
   ok('disabled rule never triggers', R.evaluate(off, ctx)[0].triggered === false);
 
   // ---- describe text ----

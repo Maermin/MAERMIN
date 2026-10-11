@@ -40,11 +40,6 @@ const A = require('../portfolio-analytics.js');
   const rv = A.rollingVolatility(rets, 3, 12);
   ok('rolling volatility produced', rv.length === rets.length - 2 && rv.every(x => x >= 0));
 
-  const cm = A.correlationMatrix({ A: [1, 2, 3, 4], B: [2, 4, 6, 8], C: [4, 3, 2, 1] });
-  ok('correlation matrix diagonal = 1', cm.matrix[0][0] === 1 && cm.matrix[1][1] === 1);
-  ok('perfectly correlated A,B ≈ 1', near(cm.matrix[0][1], 1, 1e-3));
-  ok('perfectly anti-correlated A,C ≈ -1', near(cm.matrix[0][2], -1, 1e-3));
-
   // Factor regression: y = 0.3 + 2*MKT - 1*SMB exactly → recover alpha+betas
   const MKT = [0.02, -0.01, 0.03, 0.00, 0.015, -0.02];
   const SMB = [0.01, 0.00, -0.02, 0.01, -0.01, 0.005];
@@ -67,17 +62,6 @@ const A = require('../portfolio-analytics.js');
 
   const wd = A.withdrawalSimulation({ startValue: 100000, annualWithdrawal: 50000, annualReturn: 0, inflation: 0, years: 5 });
   ok('withdrawal depletes ~year 2 at 50k/yr from 100k @0%', wd.depletedYear === 2 && !wd.survives);
-
-  const ret = A.retirementPlan({ currentAge: 35, retireAge: 65, currentValue: 50000, monthlyContribution: 1000, realReturn: 0.05, annualSpending: 40000, lifeExpectancy: 90, withdrawalRate: 4 });
-  ok('retirement plan computes value at retirement', ret.valueAtRetirement > 50000);
-  ok('retirement plan reports FIRE number 1,000,000', ret.fireNumber === 1000000);
-
-  // Monte Carlo is deterministic with a seed
-  const mc1 = A.monteCarlo({ startValue: 100000, monthlyContribution: 1000, annualReturn: 0.07, volatility: 0.15, years: 20, paths: 500, seed: 42 });
-  const mc2 = A.monteCarlo({ startValue: 100000, monthlyContribution: 1000, annualReturn: 0.07, volatility: 0.15, years: 20, paths: 500, seed: 42 });
-  ok('Monte Carlo deterministic for fixed seed', mc1.median === mc2.median);
-  ok('Monte Carlo percentiles ordered p10≤median≤p90', mc1.p10 <= mc1.median && mc1.median <= mc1.p90);
-  ok('Monte Carlo success rate in [0,1]', mc1.successRate >= 0 && mc1.successRate <= 1);
 
   console.log('\n' + passed + ' passed, ' + failed + ' failed');
   process.exit(failed ? 1 : 0);

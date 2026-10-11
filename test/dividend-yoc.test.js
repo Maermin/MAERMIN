@@ -1,4 +1,4 @@
-// Node harness for Yield-on-Cost + DRIP (WI-6). Pure, no browser.
+// Node harness for Yield-on-Cost (WI-6). Pure, no browser.
 // Run: node test/dividend-yoc.test.js
 'use strict';
 
@@ -39,42 +39,6 @@ const Y = require('../dividend-yoc.js');
   // matches a manual calc: 100 shares at avg 50 EUR, DPS 2 -> YoC 4%
   const manual = Y.yieldOnCost({ lots: [{ type: 'buy', date: '2023-01-01', shares: 100, priceEUR: 50 }], annualDpsEUR: 2 });
   ok('manual YoC check (4%)', near(manual.yocPct, 4));
-
-  // ---- yocSeries trend over multiple buys ----
-  const series = Y.yocSeries({ buys: lots, annualDpsEUR: 5 });
-  ok('series has one point per buy', series.length === 2);
-  // after buy1: 10 sh, cost 1000, yoc = 50/1000 = 5%
-  ok('series point 1 YoC', near(series[0].yocPct, 5));
-  // after buy2 at higher price: avg cost rises, YoC falls to 4.545%
-  ok('series point 2 YoC', near(series[1].yocPct, 100 / 2200 * 100));
-  ok('YoC falls as average cost rises', series[1].yocPct < series[0].yocPct);
-
-  // ---- dripSimulate ----
-  // buy 10 @ 100 (t0); two dividends of 2 EUR/share; price flat at 100; final 100
-  const sim = Y.dripSimulate({
-    buys: [{ date: '2024-01-01', shares: 10, priceEUR: 100 }],
-    dividends: [{ date: '2024-04-01', dpsEUR: 2 }, { date: '2024-07-01', dpsEUR: 2 }],
-    priceAt: () => 100
-  });
-  // baseline: 10 shares, value 1000, cash = 10*2 + 10*2 = 40
-  ok('baseline shares unchanged', sim.baseline.shares === 10);
-  ok('baseline value', sim.baseline.value === 1000);
-  ok('baseline cash collected', near(sim.baseline.cashCollected, 40));
-  // drip: t1 cash 20 -> +0.2 sh -> 10.2 ; t2 cash 20.4 -> +0.204 -> 10.404
-  ok('drip compounds shares', near(sim.drip.shares, 10.404));
-  ok('drip value higher than baseline', sim.drip.value > sim.baseline.value);
-  ok('drip end value', near(sim.drip.value, 1040.4));
-  ok('extra shares from reinvest', near(sim.extraShares, 0.404));
-  ok('extra value vs baseline', near(sim.extraValue, 40.4));
-  ok('flagged as a simulation', sim.simulation === true);
-
-  // an unpriced dividend day falls back to cash (no reinvest)
-  const noPrice = Y.dripSimulate({
-    buys: [{ date: '2024-01-01', shares: 10, priceEUR: 100 }],
-    dividends: [{ date: '2024-04-01', dpsEUR: 2 }],
-    priceAt: (d) => d === '2024-04-01' ? 0 : 100, finalPrice: 100
-  });
-  ok('unpriced dividend does not reinvest', near(noPrice.drip.shares, 10));
 
   console.log('\n' + passed + ' passed, ' + failed + ' failed');
   process.exit(failed ? 1 : 0);

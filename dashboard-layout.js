@@ -67,12 +67,6 @@ function __(k, f, v) { return (typeof window !== 'undefined' && window.MaerminI1
     return { version: SCHEMA, widgets: out };
   }
 
-  function visibleWidgets(state, available) {
-    return normalize(state, available).widgets
-      .filter(function (w) { return w.visible; })
-      .map(function (w) { return w.id; });
-  }
-
   // Map { id -> visible } straight from storage — what the renderer reads each
   // render to gate Overview sections. Unknown ids (not in the layout) default
   // visible, so a section is never hidden by accident.
@@ -86,14 +80,6 @@ function __(k, f, v) { return (typeof window !== 'undefined' && window.MaerminI1
     var st = normalize(state, available);
     st.widgets = st.widgets.map(function (w) {
       return w.id === id ? { id: w.id, visible: !w.visible } : w;
-    });
-    return st;
-  }
-
-  function setVisible(state, id, visible, available) {
-    var st = normalize(state, available);
-    st.widgets = st.widgets.map(function (w) {
-      return w.id === id ? { id: w.id, visible: !!visible } : w;
     });
     return st;
   }
@@ -166,10 +152,8 @@ function __(k, f, v) { return (typeof window !== 'undefined' && window.MaerminI1
     DEFAULT_WIDGETS: DEFAULT_WIDGETS,
     defaultIds: defaultIds,
     normalize: normalize,
-    visibleWidgets: visibleWidgets,
     visibleSet: visibleSet,
     toggle: toggle,
-    setVisible: setVisible,
     move: move,
     reorder: reorder,
     sectionOrder: sectionOrder,

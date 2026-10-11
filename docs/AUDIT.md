@@ -430,6 +430,23 @@ an auth key; older apps), SEC-026 (old share records), SEC-027 (passkey user ver
 
 ### 1. Dead code and hidden features
 
+**Status (Phase 2, branch `fix/cleanup-dead-code`, PR 1):** owner decision of 2026-10-11 — remove the UNSURE
+candidates, except where a later fix needs the code. About 1,275 lines removed (77 files).
+- Fixed: DEAD-002, 004 (except `exportAllCredentials`/`importAllCredentials`: kept, SEC-017's key rotation needs them;
+  `storage._setNative`: moves to PR 6), 005 (the dialog is now built from the command list), 006, 007, 008, 009, 010, 011,
+  012 (DRIP, YoC trend, FIRE variants, retirement plan, `sharpe`, `correlationMatrix` removed with their tests; panel
+  title is now "Yield on cost"), 013 (removed: `visibleWidgets`, `setVisible`, `nextReport`, `normalizeType`,
+  `toExport`, `updateAsset`, `removeTarget`, `groupBy`, `isNoSell`, `scheduleBetween`, `updateRule`, `activeCount`,
+  `expectedExecutions`, `renameTag`, `validatePortfolio`, `closeAllOverlays`, `fromEUR`, six unused `window.*`
+  aliases in `risk-analytics.js`; kept as test seams: `isCustom`, `yearlyInterest`, `tagsForSymbol`, `isOverlayOpen`,
+  `anyOverlayOpen`, `listenerCount`, `overlayDepth`, `isKnown`, and the documented `registerKdf` hook), 014, 015,
+  016, 017 (also drops two chart logs that printed held symbols), 018, 019, 020 (the Planning simulator's own Monte-Carlo
+  mode and `portfolio-analytics.monteCarlo` removed; the Monte-Carlo view is the one Monte-Carlo figure. The three FIRE
+  figures stay: they answer different questions — Overview FIRE card, simulator projection, Coast-FIRE).
+- Also fixed here: BUG-039 (the `pwa.js:44` TypeError was in the removed update code).
+- Moved to PR 6 (`storage.js`): DEAD-001, DEAD-003 (kept: used by SEC-017), `storage._setNative`.
+- Stored data untouched: no key, migration or backup field changed.
+
 Verification for every item: word-boundary search over all tracked `.js/.mjs/.ts/.html` (dist excluded), plus string and
 `window[...]` lookups, the compute worker, service worker, tests and Worker. Nothing below is the only reader of stored
 data; all `localStorage` keys, `migrations.js` steps, backup `KEYS`, `SENSITIVE_KEYS`, nav-model `ALIASES` and Worker

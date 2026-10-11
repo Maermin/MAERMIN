@@ -181,7 +181,6 @@ async function fetchYFHistory(symbol, period, workerUrl) {
         lastError = data.error || `No prices for ${sym}`;
         continue;
       }
-      if (sym !== symU) console.log(`[CHART] YF auto-matched ${symbol} → ${sym}`);
       return { prices: data.prices, currency: data.currency || 'USD', matchedSym: sym };
     } catch(e) {
       lastError = e.message;
@@ -446,7 +445,6 @@ function PortfolioHistoryChart({ portfolio, prices, transactions, apiKeys, theme
                 : ((currency === 'EUR') ? 1 : usdToEur);
               if (!(rate > 0)) throw new Error('unsupported quote currency ' + currency);
               resolved = hist.map(h => ({ ...h, price: h.price * rate }));
-              console.log(`[CHART] YF: ${pos.symOrig} (${currency}) → ${hist.length} points`);
             } catch(e) {
               console.warn('[CHART] YF failed for', pos.symOrig, '—', e.message);
               resolved = flatFor(pos);
@@ -633,7 +631,6 @@ function PortfolioHistoryChart({ portfolio, prices, transactions, apiKeys, theme
   const GREEN  = PALETTE.up;
   const RED    = PALETTE.down;
   const GREY   = PALETTE.axisText;
-  const GREY2  = PALETTE.grid;
   // Mockup hero uses the gold accent for the value chart (not up/down green/red).
   const lineColor = theme.accent || (computed?.isUp ? GREEN : RED);
 
@@ -860,6 +857,5 @@ var api = { PortfolioHistoryChart: PortfolioHistoryChart,
 if (typeof window !== 'undefined') window.MaerminFeatures6 = api;
 if (typeof module !== 'undefined' && module.exports) module.exports = api;
 
-if (typeof console !== 'undefined') console.log('[OK] MAERMIN Features6 v11.0 — Yahoo Finance Historical Chart (1H/1D/1W/1M/1Y/3Y/5Y/Max)');
 
 })();

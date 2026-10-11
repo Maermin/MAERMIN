@@ -431,8 +431,7 @@ function __(k, f, v) { return (typeof window !== 'undefined' && window.MaerminI1
     compareBenchmark: compareBenchmark,
     seriesFromSnapshots: seriesFromSnapshots,
     cards: cards,
-    View: View,
-    _toISO: toISO
+    View: View
   };
 
   if (typeof window !== 'undefined') window.MaerminPerformance = api;

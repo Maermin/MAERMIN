@@ -65,18 +65,6 @@
     return state;
   }
 
-  function removeTarget(state, key) {
-    state = normalize(state);
-    delete state.targets[normKey(key)];
-    return state;
-  }
-
-  function clearTargets(state) {
-    state = normalize(state);
-    state.targets = {};
-    return state;
-  }
-
   function totalTargetPct(state) {
     state = normalize(state);
     return Object.keys(state.targets).reduce(function (s, k) { return s + state.targets[k]; }, 0);
@@ -281,24 +269,6 @@
     if (!s) return false;
     try { s.setItem(PREFS_KEY, JSON.stringify(normalizePrefs(p))); return true; } catch (e) { return false; }
   }
-  function isNoSell(prefs, symbol) {
-    return normalizePrefs(prefs).noSell.indexOf(String(symbol || '').trim().toUpperCase()) !== -1;
-  }
-
-  // Helper: collapse priced positions [{ <field>, valueEUR }] into the
-  // [{ key, value }] rows the planner expects (category basis). For tag basis,
-  // pass MaerminTags.aggregate(...).rows mapped to { key: name, value }.
-  function groupBy(positions, field) {
-    field = field || 'category';
-    var map = {};
-    (Array.isArray(positions) ? positions : []).forEach(function (p) {
-      var key = normKey(p && p[field]);
-      var v = p && (typeof p.valueEUR === 'number' ? p.valueEUR : parseFloat(p.valueEUR));
-      if (!key || !isFinite(v)) return;
-      map[key] = (map[key] || 0) + v;
-    });
-    return Object.keys(map).map(function (k) { return { key: k, value: map[k] }; });
-  }
 
   // ---- localStorage helpers (browser only) ---------------------------------
   function store() { return (typeof localStorage !== 'undefined') ? localStorage : null; }
@@ -324,21 +294,17 @@
     normalize: normalize,
     setBasis: setBasis,
     setTarget: setTarget,
-    removeTarget: removeTarget,
-    clearTargets: clearTargets,
     totalTargetPct: totalTargetPct,
     normalizeWeights: normalizeWeights,
     plan: plan,
     bandPp: bandPp,
     cleanBand: cleanBand,
-    groupBy: groupBy,
     load: load,
     save: save,
     PREFS_KEY: PREFS_KEY,
     normalizePrefs: normalizePrefs,
     loadPrefs: loadPrefs,
     savePrefs: savePrefs,
-    isNoSell: isNoSell
   };
 
   if (typeof window !== 'undefined') window.MaerminRebalance = api;

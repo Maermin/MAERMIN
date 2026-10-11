@@ -40,11 +40,7 @@ if (local.length === 0) {
 console.log(`[build] ${local.length} local scripts, ${cdn.length} CDN scripts`);
 
 // Concatenate local scripts in load order (each is a self-contained IIFE).
-// The dev index.html sprinkles inline `updateStatus('…')` calls between script
-// tags; the bundle drops those, so define a no-op stub up front to keep any
-// stray reference harmless WITHOUT needing an inline <script> in prod (which
-// would force 'unsafe-inline' back into the CSP).
-let combined = 'window.updateStatus=window.updateStatus||function(){};\n';
+let combined = '';
 for (const src of local) {
   const code = await readFile(join(root, src), 'utf8');
   combined += `\n/* ==== ${src} ==== */\n${code}\n`;

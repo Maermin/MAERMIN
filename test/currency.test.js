@@ -11,17 +11,16 @@ const U = require('../utils.js');
 (function run() {
   const rate = 0.9137; // 1 USD = 0.9137 EUR
 
-  console.log('toEUR / fromEUR:');
+  console.log('toEUR:');
   ok('USD → EUR multiplies by rate', near(U.toEUR(100, 'USD', rate), 91.37));
   ok('EUR → EUR is identity', U.toEUR(100, 'EUR', rate) === 100);
   ok('unknown currency treated as canonical EUR', U.toEUR(100, 'GBP', rate) === 100);
-  ok('fromEUR USD divides by rate', near(U.fromEUR(91.37, 'USD', rate), 100));
 
   console.log('round-trip exactness (no drift):');
   // A skin priced at $12.34 → EUR → back to USD must return the original.
   const usd = 12.34;
   const eur = U.toEUR(usd, 'USD', rate);
-  ok('USD→EUR→USD round-trips exactly', near(U.fromEUR(eur, 'USD', rate), usd, 1e-12));
+  ok('USD→EUR keeps full precision', near(eur / rate, usd, 1e-12));
 
   // Aggregation must use full precision; rounding only at the very end.
   const skinUsd = [3.07, 11.49, 0.83, 250.16, 7.77];

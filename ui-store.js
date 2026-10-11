@@ -58,12 +58,6 @@
   function closeOverlay(name) { if (overlays) overlays.setState(function () { var p = {}; p[name] = false; return p; }); }
   function toggleOverlay(name) { if (overlays) overlays.setState(function (s) { var p = {}; p[name] = !s[name]; return p; }); }
   function isOverlayOpen(name) { return overlays ? !!overlays.getState()[name] : false; }
-  function closeAllOverlays() {
-    if (!overlays) return;
-    var s = overlays.getState(), p = {};
-    Object.keys(s).forEach(function (k) { p[k] = false; });
-    overlays.setState(p);
-  }
   function anyOverlayOpen() {
     if (!overlays) return false;
     var s = overlays.getState();
@@ -272,7 +266,7 @@
     // overlays
     overlays: overlays,
     openOverlay: openOverlay, closeOverlay: closeOverlay, toggleOverlay: toggleOverlay,
-    isOverlayOpen: isOverlayOpen, closeAllOverlays: closeAllOverlays, anyOverlayOpen: anyOverlayOpen,
+    isOverlayOpen: isOverlayOpen, anyOverlayOpen: anyOverlayOpen,
     // modal dialogs
     Overlay: Overlay, dialogProps: dialogProps, trapTarget: trapTarget,
     confirm: confirm, answerConfirm: answerConfirm, confirmState: confirmState, ConfirmHost: ConfirmHost,

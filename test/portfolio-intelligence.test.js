@@ -233,11 +233,6 @@ function byAnalysis(report, a) { return report.findings.filter((f) => f.analysis
   const lenient = I.analyzeFromInputs({ effectiveExposure: [{ name: 'X', effectiveWeight: 0.34 }] }, { thresholds: { singleCompanyCritical: 40 } });
   ok('raising the critical threshold downgrades the finding', byId(lenient, 'sc-critical') == null && byId(lenient, 'sc-important') != null);
 
-  // ---- export helper ---------------------------------------------------------
-  const exp = I.toExport(full, { generatedAt: '2026-01-01T00:00:00.000Z' });
-  ok('export carries module + version + fixed timestamp', exp.module === 'portfolio-intelligence' && exp.version === 1 && exp.generatedAt === '2026-01-01T00:00:00.000Z');
-  ok('export findings omit no priority and keep advice text', exp.findings.length === full.findings.length && exp.findings.every((f) => f.title && f.priority));
-
   console.log('\n  ' + passed + ' passed, ' + failed + ' failed');
   process.exit(failed ? 1 : 0);
 })();

@@ -354,6 +354,5 @@ function newsPartialText(req) {
 // EXPORTS
 // ─────────────────────────────────────────────────────────────────────────────
 window.MaerminFeatures7 = { PerformanceAttribution, RealizedUnrealizedView, NewsFeedView, newsEmptyText };
-console.log('[OK] MAERMIN Features7 v11.0 — Performance Attribution, Realized P&L, News Feed');
 
 })();

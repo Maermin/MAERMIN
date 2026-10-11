@@ -816,8 +816,6 @@ function FIFOView({ transactions, prices, theme, formatPrice, getCurrencySymbol,
           entries.map(e => {
             const sym = (e.symbol || '').toLowerCase();
             const key = sym + '-' + (e.category || 'crypto');
-            const currentPrice = prices[e.symbol] || prices[sym] || prices[(e.symbol || '').toUpperCase()] || 0;
-            const unrealizedPnL = e.unrealizedQty * (currentPrice - e.avgCostFIFO);
             return React.createElement('tr', {
               key,
               ...window.MaerminUtils.clickable(() => setActiveSymbol(activeSymbol === key ? null : key)),
@@ -885,6 +883,5 @@ window.MaerminFeatures4 = {
   calcFIFO,
 };
 
-console.log('[OK] MAERMIN Features4 v11.0 — Multi-Portfolio, Sparplan, Dividenden-Prognose, FIFO');
 
 })();

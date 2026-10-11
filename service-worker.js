@@ -173,7 +173,3 @@ self.addEventListener('sync', function (event) {
   }
 });
 
-// ---- update control --------------------------------------------------------
-self.addEventListener('message', function (event) {
-  if (event.data && event.data.type === 'SKIP_WAITING') self.skipWaiting();
-});
