@@ -194,9 +194,10 @@ function PortfolioManagerView({ portfolios, activePortfolioId, transactions, pri
         }),
         // Color picker
         React.createElement('div', { style: { display: 'flex', gap: '0.375rem' } },
-          COLORS.map(c => React.createElement('button', {
-            key: c, onClick: () => setNewColor(c),
-            style: { width: 22, height: 22, borderRadius: '50%', background: c, border: newColor === c ? '2px solid white' : '2px solid transparent', cursor: 'pointer', boxShadow: newColor === c ? '0 0 0 2px ' + c : 'none' }
+          COLORS.map((c, i) => React.createElement('button', {
+            key: c, type: 'button', onClick: () => setNewColor(c),
+            'aria-label': __('pfColorN', 'Colour {n}', { n: i + 1 }), 'aria-pressed': newColor === c,
+            style: { width: 24, height: 24, borderRadius: '50%', background: c, border: newColor === c ? '2px solid white' : '2px solid transparent', cursor: 'pointer', boxShadow: newColor === c ? '0 0 0 2px ' + c : 'none' }
           }))
         ),
         React.createElement('button', {
@@ -367,6 +368,13 @@ function SavingsPlanView({ transactions, theme, formatPrice, getCurrencySymbol, 
       }, __('spAddPlan', '+ Add Plan'))
     ),
 
+    // UX-021: no plans yet - say so first, with the Add button.
+    plans.length === 0 && React.createElement(Card, { theme, style: { textAlign: 'center', padding: '2.5rem', marginBottom: '1.5rem' } },
+      React.createElement('div', { style: { color: theme.textSecondary, marginBottom: '0.5rem', fontSize: '1.5rem' } }, '◎'),
+      React.createElement('div', { style: { color: theme.text, fontWeight: '600', marginBottom: '0.25rem' } }, __('spEmpty', 'No savings plans yet')),
+      React.createElement('div', { style: { color: theme.textSecondary, fontSize: '0.875rem', marginBottom: '1rem' } }, __('spEmptyHint', 'Add a recurring investment plan to track your execution rate')),
+      React.createElement('button', { onClick: openAdd, style: { padding: '0.625rem 1.25rem', background: (theme.accentFill || theme.accent), color: '#ffffff', border: 'none', borderRadius: '8px', cursor: 'pointer', fontWeight: '700', fontSize: '0.875rem' } }, __('spAddPlan', '+ Add Plan'))),
+
     // Whole-portfolio projection (#6): composes current value + these savings
     // plans + dividends + recurring liabilities across 3 scenarios.
     window.MaerminProjection && React.createElement(window.MaerminProjection.Panel, {
@@ -454,11 +462,7 @@ function SavingsPlanView({ transactions, theme, formatPrice, getCurrencySymbol, 
 
     // Plans list
     plans.length === 0
-      ? React.createElement(Card, { theme, style: { textAlign: 'center', padding: '3rem' } },
-          React.createElement('div', { style: { color: theme.textSecondary, marginBottom: '0.5rem', fontSize: '1.5rem' } }, '◎'),
-          React.createElement('div', { style: { color: theme.text, fontWeight: '600', marginBottom: '0.25rem' } }, __('spEmpty', 'No savings plans yet')),
-          React.createElement('div', { style: { color: theme.textSecondary, fontSize: '0.875rem' } }, __('spEmptyHint', 'Add a recurring investment plan to track your execution rate'))
-        )
+      ? null
       : React.createElement('div', { style: { display: 'flex', flexDirection: 'column', gap: '1rem' } },
           planStats.map(plan =>
             React.createElement(Card, { key: plan.id, theme },

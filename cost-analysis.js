@@ -241,7 +241,7 @@ function __(k, f, v) { return (typeof window !== 'undefined' && window.MaerminI1
               e('td', { style: { padding: '0.45rem 0.5rem', textAlign: 'right', color: r.annualCostEUR != null ? bad : dim, fontSize: '0.78rem', fontWeight: 700 } }, r.annualCostEUR != null ? amt(r.annualCostEUR) : '-'),
               e('td', { style: { padding: '0.45rem 0.5rem', textAlign: 'right' } },
                 e('input', {
-                  type: 'text', value: inputVal, placeholder: __('caOverridePh', 'e.g. {v}', { v: window.MaerminI18n.num(0.22, 2) }),
+                  type: 'text', value: inputVal, placeholder: __('caOverridePh', 'e.g. {v}', { v: window.MaerminI18n.num(0.22, 2) }), 'aria-label': __('caOverridePct', 'Override %') + ' ' + r.symbol,
                   onChange: function (ev) { var v = ev.target.value; setEdit(function (m) { var c = {}; for (var k in m) c[k] = m[k]; c[r.symbol] = v; return c; }); },
                   onBlur: function (ev) { commitOverride(r.symbol, ev.target.value); },
                   onKeyDown: function (ev) { if (ev.key === 'Enter') commitOverride(r.symbol, ev.target.value); },

@@ -597,8 +597,23 @@ function InvestmentTracker() {
     try {
       const sched = DS.buildPaymentSchedule(portfolio, { back: 12, months: 0 });
       const out = EX.runCatchUp(sched, transactions, activePortfolioId, undefined, EX.loadSkipped ? EX.loadSkipped() : []);
-      if (out.created.length) { setTransactions(prev => prev.concat(out.created)); addToast(`${out.created.length} ${t.divBookedToast || 'dividend(s) booked (estimated)'}`, 'success'); }
-      else if (announce) { addToast(t.divNoneToBook || 'No new dividends to book', 'info'); }
+      if (!out.created.length) { if (announce) addToast(t.divNoneToBook || 'No new dividends to book', 'info'); return; }
+      const book = () => {
+        const ids = new Set(out.created.map(tx => tx.id));
+        setTransactions(prev => prev.concat(out.created));
+        if (window.MaerminUI) window.MaerminUI.add(`${out.created.length} ${t.divBookedToast || 'dividend(s) booked (estimated)'}`, 'success', 8000, { label: __('undo', 'Undo'), run: () => {
+          setTransactions(prev => prev.filter(tx => !ids.has(tx.id)));
+          try { EX.markSkipped && EX.markSkipped(out.created); } catch (e) {}
+        } });
+      };
+      if (!announce) { book(); return; }
+      const lines = out.created.slice(0, 8).map(tx => `${tx.symbol} · ${window.MaerminI18n.date(tx.date)} · ${window.MaerminI18n.money(tx.quantity * tx.price, tx.currency || 'EUR')}`);
+      if (out.created.length > 8) lines.push(__('divBookMore', '… and {n} more', { n: out.created.length - 8 }));
+      askConfirm({
+        title: __('divBookTitle', 'Book {n} estimated {n:dividend|dividends}?', { n: out.created.length }),
+        message: lines.join('\n') + '\n\n' + __('divBookNote', 'Estimated from the dividend history and the shares you held on each date. They go into your transactions; Undo or delete them if your broker paid a different amount.'),
+        confirmLabel: __('divBookConfirm', 'Book')
+      }).then((yes) => { if (yes) book(); });
     } catch (e) { console.warn('[DIV] booking failed:', e); }
   }, [portfolio, transactions, activePortfolioId]);
   const toggleDivAutoBook = useCallback(() => {
@@ -1084,7 +1099,7 @@ function InvestmentTracker() {
   const settingsBtnRef = useRef(null);
   // Dialogs opened from the account menu: the menu item is gone when they
   // close, so focus goes back to the account button.
-  const focusAccountButton = () => settingsRef.current && settingsRef.current.querySelector('.mx-avatar');
+  const focusAccountButton = () => settingsBtnRef.current;
 
   useEffect(() => {
     const handleKeyDown = (e) => {
@@ -2035,8 +2050,19 @@ function InvestmentTracker() {
 
   // ========== ADD TRANSACTION ==========
   
-  const saveTransaction = () => {
+  const saveTransaction = (opts) => {
     const isOption = newTransaction.category === 'options';
+    // UX-022: a typed stock NAME (not a ticker) has no listing - it would never
+    // get a price. Ask before saving it.
+    const typedSym = String(newTransaction.symbol || '').trim();
+    if (!(opts && opts.typedOk) && newTransaction.category === 'stocks' && newTransaction.symbolTyped && typedSym && !/^[A-Z0-9^][A-Z0-9.\-^=]{0,19}$/.test(typedSym)) {
+      askConfirm({
+        title: __('txNoListingTitle', 'Save "{sym}" without a listing?', { sym: typedSym }),
+        message: __('txNoListingMsg', 'No suggestion was picked, so "{sym}" is not a ticker the price sources know: it gets no market price and is valued at cost. Pick a suggestion from the list for live prices.', { sym: typedSym }),
+        confirmLabel: __('txNoListingSave', 'Save anyway'), cancelLabel: __('txNoListingPick', 'Pick a listing')
+      }).then((yes) => { if (yes) saveTransaction({ typedOk: true }); });
+      return;
+    }
 
     // Option contracts: validate via the engine (the contract identity must be
     // sound or the book grouping corrupts) and derive tx.symbol from it — the
@@ -2803,7 +2829,7 @@ function InvestmentTracker() {
           title: t.divAutoHint || 'Automatically book each dividend as a transaction (in its payout currency) once its pay date passes',
           style: { display: 'inline-flex', alignItems: 'center', gap: '0.4rem', fontSize: '0.78rem', color: theme.textSecondary, cursor: 'pointer', userSelect: 'none' }
         },
-          React.createElement('input', { type: 'checkbox', checked: !!divAutoBook, onChange: () => toggleDivAutoBook(), style: { accentColor: theme.accent, cursor: 'pointer' } }),
+          React.createElement('input', { type: 'checkbox', checked: !!divAutoBook, onChange: () => toggleDivAutoBook(), style: { width: '24px', height: '24px', margin: 0, accentColor: theme.accent, cursor: 'pointer' } }),
           (t.divAutoLabel || 'Auto-book')) : null
       ),
       // Content
@@ -3669,7 +3695,7 @@ function InvestmentTracker() {
           // Wraps on narrow screens: the legend moves below the donut.
           React.createElement('div', { style: { display: 'flex', alignItems: 'center', gap: '1.6rem', flexWrap: 'wrap', justifyContent: 'center' } },
             React.createElement('div', { style: { position: 'relative', width: '160px', height: '160px', flexShrink: 0 } },
-              React.createElement('svg', { width: 160, height: 160, viewBox: '0 0 180 180', style: { transform: 'rotate(-90deg)' } },
+              React.createElement('svg', { role: 'img', 'aria-label': __('ovAllocAria', 'Allocation: {list}', { list: classes.map(ct => ct.label + ' ' + window.MaerminI18n.pct(ct.pct, 1)).join(', ') }), width: 160, height: 160, viewBox: '0 0 180 180', style: { transform: 'rotate(-90deg)' } },
                 React.createElement('circle', { cx: 90, cy: 90, r: 70, fill: 'none', stroke: currentTheme.inputBg, strokeWidth: 18 }),
                 ...donutSegs
               ),
@@ -4201,7 +4227,7 @@ function InvestmentTracker() {
           return React.createElement('li', { key: k, 'data-dq-code': c ? c.code : undefined, style: { marginBottom: '0.35rem' } }, line(i),
             c && React.createElement('span', { style: { display: 'inline-flex', alignItems: 'center', gap: '0.5rem', marginLeft: '0.5rem', flexWrap: 'wrap', verticalAlign: 'middle' } },
               React.createElement('code', { style: { fontSize: '0.7rem', color: currentTheme.textSecondary } }, c.code),
-              React.createElement('button', { type: 'button', 'data-dq-action': c.action.type, onClick: () => runDataAction(c.action),
+              React.createElement('button', { type: 'button', 'data-dq-action': c.action.type, 'aria-label': DC.actionLabel(c.action) || c.code, onClick: () => runDataAction(c.action),
                 style: { padding: '0.2rem 0.6rem', minHeight: '24px', fontSize: '0.75rem', fontWeight: 600, borderRadius: '6px', cursor: 'pointer', background: 'transparent', color: currentTheme.accent, border: `1px solid ${currentTheme.accent}55` } },
                 DC.actionLabel(c.action))));
         }),
@@ -4316,12 +4342,12 @@ function InvestmentTracker() {
             type: 'text',
             value: txSearch,
             onChange: e => setTxSearch(e.target.value),
-            placeholder: t.search || 'Search...',
+            placeholder: t.search || 'Search...', 'aria-label': t.search || 'Search...',
             style: { ...inputStyle, width: '180px' }
           }),
           // Sort
           React.createElement('select', {
-            value: txSortBy,
+            value: txSortBy, 'aria-label': __('txSortLabel', 'Sort transactions'),
             onChange: e => setTxSortBy(e.target.value),
             style: inputStyle
           },
@@ -5013,9 +5039,9 @@ function InvestmentTracker() {
                   theme: currentTheme,
                   selectedSymbol: newTransaction.symbol,
                   selectedName: newTransaction.symbolName || '',
-                  onSelect: ({ symbol, ticker, name, logoUrl, exchange }) => {
+                  onSelect: ({ symbol, ticker, name, logoUrl, exchange, manual }) => {
                     if (!symbol) {
-                      setNewTransaction(prev => ({ ...prev, symbol: '', symbolName: '', symbolLogoUrl: '' }));
+                      setNewTransaction(prev => ({ ...prev, symbol: '', symbolName: '', symbolLogoUrl: '', symbolTyped: false }));
                       return;
                     }
                     setNewTransaction(prev => ({
@@ -5023,6 +5049,7 @@ function InvestmentTracker() {
                       symbol,           // exact API symbol (CoinGecko ID or YF ticker)
                       symbolName: name, // human-readable name stored for display
                       symbolLogoUrl: logoUrl || '',
+                      symbolTyped: !!manual, // typed, no suggestion picked (UX-022)
                     }));
                   }
                 })
@@ -5588,7 +5615,7 @@ buy,crypto,bitcoin,0.5,45000,2024-01-15,10`)
         
         React.createElement('p', {
           style: { color: currentTheme.textSecondary, marginBottom: '1.5rem', fontSize: '0.875rem', lineHeight: '1.5' }
-        }, __('apiIntro', 'Configure API keys for live prices. Crypto (CoinGecko) and exchange rates are always free.')),
+        }, __('apiIntro', 'Live prices come through your Cloudflare Worker. Exchange rates need no key.')),
 
         // ── Cloudflare Worker (CS2 + Yahoo Finance Historical Data) ─────────
         React.createElement('div', {
@@ -5610,7 +5637,7 @@ buy,crypto,bitcoin,0.5,45000,2024-01-15,10`)
             }, (apiKeys.cs2Worker||'').trim().length > 5 ? __('apiConfigured', '✓ Configured') : __('apiNotConfigured', 'Not configured'))
           ),
           React.createElement('p', { style: { color: currentTheme.textSecondary, fontSize: '0.8rem', marginBottom: '0.875rem', lineHeight: '1.6' } },
-            __('apiWorkerIntro', 'One Worker URL — three features: CS2 skin prices (daily Steam Market price list), historical portfolio chart (Yahoo Finance), and a CS2 price trend (24 h / 7 / 30 / 90-day averages). No API key needed.')
+            __('apiWorkerIntro', 'One Worker URL for all live data: stock, ETF and commodity prices and history (Yahoo Finance), crypto prices (CoinGecko), CS2 skin prices (daily Steam Market list), symbol search, dividends, earnings and news - plus encrypted sync and share links when the Worker has storage. No API key needed.')
           ),
           // Three-column feature overview
           React.createElement('div', { style: { display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '0.5rem', marginBottom: '0.875rem' } },
@@ -5648,7 +5675,7 @@ buy,crypto,bitcoin,0.5,45000,2024-01-15,10`)
               ' ' + __('apiDeployHint', '— one click, then paste the Worker URL below.')),
             React.createElement('div', { style: { fontWeight: '700', color: currentTheme.text, marginBottom: '0.375rem' } }, __('apiUpdateWorker', 'Update existing Worker (~1 min):')),
             React.createElement('div', null, '1. ', React.createElement('a', { href: 'https://dash.cloudflare.com', target: '_blank', rel: 'noopener noreferrer', style: { color: currentTheme.accent } }, 'dash.cloudflare.com'), ' → ' + __('apiStep1', 'Workers & Pages → your Worker')),
-            React.createElement('div', null, '2. ' + __('apiStep2a', 'Edit code → paste contents of') + ' ', React.createElement('code', { style: { background: 'rgba(0,0,0,0.2)', padding: '0 4px', borderRadius: '3px' } }, 'cf-worker/worker.js'), ' ' + __('apiStep2b', 'from ZIP')),
+            React.createElement('div', null, '2. ' + __('apiStep2a', 'Edit code → paste contents of') + ' ', React.createElement('code', { style: { background: 'rgba(0,0,0,0.2)', padding: '0 4px', borderRadius: '3px' } }, 'cf-worker/worker.js'), ' ' + __('apiStep2b', 'from this repository')),
             React.createElement('div', null, '3. ' + __('apiStep3', 'Save and Deploy — no secrets needed')),
             React.createElement('div', null, '4. ' + __('apiStep4', 'Paste the Worker URL below'))
           ),
@@ -6024,7 +6051,7 @@ buy,crypto,bitcoin,0.5,45000,2024-01-15,10`)
         React.createElement('button', {
           type: 'button',
           ref: settingsBtnRef,
-          className: 'mx-icon-btn' + (showSettings ? ' is-on' : ''),
+          className: 'mx-icon-btn mx-settings-btn' + (showSettings ? ' is-on' : ''),
           onClick: () => setShowSettings(!showSettings),
           title: t.settings || 'Settings',
           'aria-label': t.settings || 'Settings',
@@ -6163,14 +6190,6 @@ buy,crypto,bitcoin,0.5,45000,2024-01-15,10`)
           menuItem('logout', t.logout || 'Logout', () => { if (window.MaerminAuth) window.MaerminAuth.logout(); }, true)
         ),
 
-        // User avatar — opens the account/settings menu
-        React.createElement('button', {
-          type: 'button',
-          className: 'mx-avatar',
-          onClick: () => setShowSettings(s => !s),
-          title: t.settings || 'Account', 'aria-label': __('account', 'Account'),
-          'aria-expanded': showSettings, 'aria-controls': 'mx-settings-panel'
-        }, 'MA')
       )
     ),
 
@@ -6237,7 +6256,9 @@ buy,crypto,bitcoin,0.5,45000,2024-01-15,10`)
       ),
 
       // Main content
-      React.createElement('main', { className: 'maermin-main', id: 'main', tabIndex: -1 }, renderAreaNav(), React.createElement(ViewErrorBoundary, { viewKey: activeView, theme: currentTheme }, renderView()))
+      React.createElement('main', { className: 'maermin-main', id: 'main', tabIndex: -1 },
+        React.createElement('h1', { className: 'mx-sr-only' }, window.MaerminNav.viewTitle(activeView, t) || 'MAERMIN'),
+        renderAreaNav(), React.createElement(ViewErrorBoundary, { viewKey: activeView, theme: currentTheme }, renderView()))
     ),
 
     // Mobile Bottom Navigation

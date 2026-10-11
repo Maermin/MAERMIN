@@ -123,7 +123,7 @@ const read = (f) => fs.readFileSync(path.join(__dirname, '..', f), 'utf8');
     const newsEmptyText = m && new Function('__', m[0] + '; return newsEmptyText;')(require('../i18n.js').t);
     ok('M-14: a Worker that failed every request is an error', newsEmptyText && /could not be loaded/.test(newsEmptyText(true, { tried: 5, failed: 5 })));
     ok('M-14: an answer without items is "no news"', newsEmptyText && /No news found/.test(newsEmptyText(true, { tried: 5, failed: 0 })));
-    ok('no Worker: asks for one', newsEmptyText && /Add Worker URL/.test(newsEmptyText(false, { tried: 0, failed: 0 })));
+    ok('no Worker: asks for one', newsEmptyText && /Add a Worker URL in API Settings/.test(newsEmptyText(false, { tried: 0, failed: 0 })));
   }
 
   // ---- L-3: icon-only buttons have a name -------------------------------------

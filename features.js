@@ -102,11 +102,11 @@ function WatchlistView({ prices, priceHistory, theme, t, addToast }) {
         type: 'text', value: newSymbol,
         onChange: e => setNewSymbol(e.target.value),
         onKeyDown: e => e.key === 'Enter' && addItem(),
-        placeholder: __('wlSymbolPh', 'bitcoin, AAPL, AK-47 | Redline...'),
+        placeholder: __('wlSymbolPh', 'bitcoin, AAPL, AK-47 | Redline...'), 'aria-label': __('symbol', 'Symbol'),
         style: { ...inputStyle, flex: '1', minWidth: '160px' }
       }),
       React.createElement('select', {
-        value: newCat, onChange: e => setNewCat(e.target.value), style: inputStyle
+        value: newCat, onChange: e => setNewCat(e.target.value), style: inputStyle, 'aria-label': __('category', 'Category')
       },
         React.createElement('option', { value: 'crypto' }, __('crypto', 'Crypto')),
         React.createElement('option', { value: 'stocks' }, __('stocks', 'Stocks')),
@@ -115,14 +115,14 @@ function WatchlistView({ prices, priceHistory, theme, t, addToast }) {
       React.createElement('input', {
         type: 'number', value: newTarget,
         onChange: e => setNewTarget(e.target.value),
-        placeholder: __('wlTargetPh', 'Target price (opt.)'),
+        placeholder: __('wlTargetPh', 'Target price (opt.)'), 'aria-label': __('wlTargetPh', 'Target price (opt.)'),
         style: { ...inputStyle, width: '150px' }
       }),
       React.createElement('input', {
         type: 'text', value: newNote,
         onChange: e => setNewNote(e.target.value),
         onKeyDown: e => e.key === 'Enter' && addItem(),
-        placeholder: t.watchlistNote || 'Note / thesis (opt.)',
+        placeholder: t.watchlistNote || 'Note / thesis (opt.)', 'aria-label': t.watchlistNote || 'Note / thesis (opt.)',
         style: { ...inputStyle, width: '200px' }
       }),
       React.createElement('button', {

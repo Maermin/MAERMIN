@@ -330,7 +330,7 @@ function DCAAnalyzerView(props) {
       React.createElement('div', null,
         React.createElement('label', { style: { color: T.textSecondary, fontSize: '0.75rem', display: 'block', marginBottom: '0.25rem' } }, __('ivInvestAmount', 'Investment Amount')),
         React.createElement('input', {
-          type: 'number',
+          type: 'number', 'aria-label': __('ivInvestAmount', 'Investment Amount'),
           value: investAmount,
           onChange: function(e) { setInvestAmount(parseFloat(e.target.value) || 0); },
           style: {
@@ -346,7 +346,7 @@ function DCAAnalyzerView(props) {
       React.createElement('div', null,
         React.createElement('label', { style: { color: T.textSecondary, fontSize: '0.75rem', display: 'block', marginBottom: '0.25rem' } }, __('spFrequency', 'Frequency')),
         React.createElement('select', {
-          value: frequency,
+          value: frequency, 'aria-label': __('spFrequency', 'Frequency'),
           onChange: function(e) { setFrequency(e.target.value); },
           style: {
             background: T.inputBg,

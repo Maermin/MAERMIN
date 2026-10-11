@@ -422,7 +422,7 @@ an auth key; older apps), SEC-026 (old share records), SEC-027 (passkey user ver
 | 1 Dead code and hidden features | DEAD-002, 004–011, 014–017 (+ approved UNSURE items) | open |
 | 2 Bug fixes | BUG-012…039 | open |
 | 3 Visual and state display | VIS-001…019 | open |
-| 4 Usability | UX-016…032 | open |
+| 4 Usability | UX-016…032 | fixed in PR 4 (`fix/audit-usability`) |
 | 5 Security, app and Worker | SEC-008…016, 018, 019, 020…026, H-1…H-4 | open |
 | 6 crypto-vault.js, auth.js, storage.js | SEC-004…007, 017, 027, 028, DEAD-001, DEAD-003 | open |
 
@@ -617,6 +617,23 @@ test fails for the stated reason. Where no Node test is possible, the finding sa
 | UX-030 | low | News Feed | without a Worker "Refresh" does nothing silently; texts say "Settings" where others say "API Settings" | click-through | disable Refresh with the hint; one name | none |
 | UX-031 | medium | German fund taxation (`german-tax-view.js`) | known equity ETFs (demo VWCE.DE) default to "Not a fund / other (0 %)", so the 30 % Teilfreistellung is missing until the user classifies them; nothing prompts to | `tax-report-vwce-type.jpg` | prefill from fund data (`fundholdings` type) and flag unclassified funds in the data check | changes tax estimates (correct direction) |
 | UX-032 | low | header | the gear and the avatar open the same menu | click-through | one entry point, or split settings/account | none |
+
+**Status (Phase 2, branch `fix/audit-usability`, PR 4):** all fixed — UX-016…032. Notes:
+- UX-016: the connection test adds CoinGecko (day-cached search route) and a storage row. The storage row comes from a
+  new `storage` flag in the Worker's `?action=version` answer instead of a request that fails with 501 (which would put
+  an error in the console of every user without storage); an older Worker shows "update it to check". A rate-limited
+  source (429) is amber, not red: a red row hid "Save & Finish", so a temporary CoinGecko limit blocked the setup. The
+  flag reaches a deployed Worker only after a redeploy; no version bump (the field is additive; PR 5 bumps the version).
+- UX-019: manual booking lists the rows and asks; manual and automatic booking show an Undo toast. Undo removes the
+  rows and records them as skipped, so the catch-up does not book them again.
+- UX-022: a typed stock **name** (not ticker-shaped) asks "Save anyway / Pick a listing"; typed tickers ("AAPL") save as
+  before.
+- UX-023…027: re-run of the automated pass over every view: no unlabeled fields, no unnamed buttons, no target below
+  24 px, every chart `role="img"` with a summary, one `h1` per view (the view's name, visually hidden).
+- UX-031: the Tax view names known equity index ETFs (the look-through's fund list) that have no fund type, with
+  "Set as equity fund" / "Not now". Nothing is written unasked; the data check is not used for this because it checks
+  transaction rows, not tax settings.
+- UX-032: the avatar button is removed; the gear is the one entry point.
 
 ---
 

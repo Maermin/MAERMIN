@@ -195,6 +195,17 @@ function __(k, f, v) { return (typeof window !== 'undefined' && window.MaerminI1
 
     var records = GT.loadVapRecords();
 
+    // UX-031: funds the look-through knows as equity funds but the user has
+    // not classified yet - without a type they get no Teilfreistellung.
+    var sSugHidden = React.useState(false); var sugHidden = sSugHidden[0], setSugHidden = sSugHidden[1];
+    var suggestions = (LT && LT.knownFundType) ? rows.filter(function (r) { return !fundTypes[r.symbol] && LT.knownFundType(r.symbol); })
+      .map(function (r) { return { symbol: r.symbol, type: LT.knownFundType(r.symbol) }; }) : [];
+    function applySuggestions() {
+      var m = fundTypes;
+      suggestions.forEach(function (s) { m = GT.saveFundType(s.symbol, s.type); });
+      setFundTypes(m); changed();
+    }
+
     // Commodities default to sec. 23 private sales (physical metal); a
     // securitised commodity (ETC/ETF) is capital income - one select per
     // position, stored as "SYMBOL|class" in the sensitive overrides store.
@@ -331,6 +342,11 @@ function __(k, f, v) { return (typeof window !== 'undefined' && window.MaerminI1
 
       e('div', { style: { color: dim, fontSize: '0.72rem', margin: '0 0 0.5rem', lineHeight: 1.5 } },
         __('gtWorksheet', 'Worksheet for value year {y}. The Vorabpauschale is deemed received on the first working day of {next} (sec. 18 (3) InvStG), so a saved amount counts in the {next} tax computation.', { y: year, next: year + 1 })),
+      (suggestions.length && !sugHidden) ? e('div', { 'data-testid': 'fund-type-suggestion', role: 'status', style: { display: 'flex', alignItems: 'center', gap: '0.75rem', flexWrap: 'wrap', background: inputBg, border: '1px solid ' + border, borderRadius: '10px', padding: '0.65rem 0.85rem', margin: '0 0 0.75rem', fontSize: '0.8rem', color: text } },
+        e('span', { style: { flex: 1, minWidth: '220px', lineHeight: 1.5 } },
+          __('gtFundSuggest', '{list}: no fund type set, so no Teilfreistellung is applied. {n:It is a known equity fund|They are known equity funds} (Aktienfonds, 30 %).', { list: suggestions.map(function (s) { return s.symbol; }).join(', '), n: suggestions.length })),
+        e('button', { type: 'button', onClick: applySuggestions, style: { padding: '0.35rem 0.8rem', borderRadius: '7px', border: 'none', background: (theme.accentFill || theme.accent || '#7c6cff'), color: '#ffffff', fontWeight: 700, fontSize: '0.78rem', cursor: 'pointer' } }, __('gtFundSuggestApply', 'Set as equity fund')),
+        e('button', { type: 'button', onClick: function () { setSugHidden(true); }, style: { padding: '0.35rem 0.8rem', borderRadius: '7px', border: '1px solid ' + border, background: 'transparent', color: dim, fontSize: '0.78rem', cursor: 'pointer' } }, __('gtFundSuggestHide', 'Not now'))) : null,
       rows.length
         ? e('div', { style: { overflowX: 'auto' } },
             e('table', { style: { width: '100%', borderCollapse: 'collapse' } },

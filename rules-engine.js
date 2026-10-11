@@ -308,9 +308,9 @@ function __(k, f, v) { return (typeof window !== 'undefined' && window.MaerminI1
         }
 
         function field(child) { return e('div', { style: { display: 'flex', flexDirection: 'column', gap: '0.2rem' } }, child); }
-        function sel(value, onChange, opts, placeholder) {
+        function sel(value, onChange, opts, placeholder, label) {
           return e('select', {
-            value: value, onChange: function (ev) { onChange(ev.target.value); },
+            value: value, onChange: function (ev) { onChange(ev.target.value); }, 'aria-label': label,
             style: { padding: '0.4rem 0.5rem', borderRadius: '8px', border: '1px solid ' + inputBorder, background: inputBg, color: text, fontSize: '0.82rem' }
           }, (placeholder != null ? [e('option', { key: '_', value: '' }, placeholder)] : []).concat(
             opts.map(function (o) { return e('option', { key: o[0] != null ? o[0] : o, value: o[0] != null ? o[0] : o }, o[1] != null ? o[1] : o); })));
@@ -357,20 +357,20 @@ function __(k, f, v) { return (typeof window !== 'undefined' && window.MaerminI1
 
           e('div', { style: { display: 'flex', alignItems: 'flex-end', gap: '0.6rem', flexWrap: 'wrap', background: card, border: '1px solid ' + border, borderRadius: '14px', padding: '1rem', marginBottom: '1.25rem' } },
             field(sel(form.metric, function (v) { setF({ metric: v, target: '' }); },
-              Object.keys(API.METRICS).map(function (k) { return [k, API.metricLabel(k)]; }))),
+              Object.keys(API.METRICS).map(function (k) { return [k, API.metricLabel(k)]; }), null, __('rlMetricLabel', 'Metric'))),
             spec.needsTarget ? field(
               priceTarget
                 ? e(React.Fragment, null,
                     e('input', { value: form.target, list: 'maermin-rule-price-symbols', onChange: function (ev) { setF({ target: ev.target.value }); }, placeholder: t.rulesSymbol || 'symbol', 'aria-label': t.rulesSymbol || 'symbol', style: { width: '120px', padding: '0.4rem 0.5rem', borderRadius: '8px', border: '1px solid ' + inputBorder, background: inputBg, color: text, fontSize: '0.82rem' } }),
                     e('datalist', { id: 'maermin-rule-price-symbols' }, (props.symbols || []).map(function (sy) { return e('option', { key: sy, value: sy }); })))
               : targetOptions.length
-                ? sel(form.target, function (v) { setF({ target: v }); }, targetOptions, t.rulesPickTarget || 'target…')
-                : e('input', { value: form.target, onChange: function (ev) { setF({ target: ev.target.value }); }, placeholder: t.rulesTarget || 'target', style: { padding: '0.4rem 0.5rem', borderRadius: '8px', border: '1px solid ' + inputBorder, background: inputBg, color: text, fontSize: '0.82rem', width: '120px' } })
+                ? sel(form.target, function (v) { setF({ target: v }); }, targetOptions, t.rulesPickTarget || 'target…', __('rlTargetLabel', 'Target'))
+                : e('input', { value: form.target, onChange: function (ev) { setF({ target: ev.target.value }); }, placeholder: t.rulesTarget || 'target', 'aria-label': __('rlTargetLabel', 'Target'), style: { padding: '0.4rem 0.5rem', borderRadius: '8px', border: '1px solid ' + inputBorder, background: inputBg, color: text, fontSize: '0.82rem', width: '120px' } })
             ) : null,
-            field(sel(form.op, function (v) { setF({ op: v }); }, Object.keys(API.OPS).map(function (k) { return [k, API.OPS[k]]; }))),
+            field(sel(form.op, function (v) { setF({ op: v }); }, Object.keys(API.OPS).map(function (k) { return [k, API.OPS[k]]; }), null, __('rlConditionLabel', 'Condition'))),
             field(e('input', {
               type: 'number', value: form.threshold, onChange: function (ev) { setF({ threshold: ev.target.value }); },
-              placeholder: API.METRICS[form.metric].unit === '%' ? '%' : '0',
+              placeholder: API.METRICS[form.metric].unit === '%' ? '%' : '0', 'aria-label': __('rlThresholdLabel', 'Threshold'),
               style: { width: '90px', padding: '0.4rem 0.5rem', borderRadius: '8px', border: '1px solid ' + inputBorder, background: inputBg, color: text, fontSize: '0.82rem' }
             })),
             e('button', {

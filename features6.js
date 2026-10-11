@@ -743,6 +743,7 @@ function PortfolioHistoryChart({ portfolio, prices, transactions, apiKeys, theme
       );
     }
     return React.createElement('svg', {
+      role: 'img', 'aria-label': __('chAria', 'Portfolio value, {range}: from {a} to {b}', { range: periodLabel(period), a: `${formatPrice(chartData[0].value)} ${getCurrencySymbol()}`, b: `${formatPrice(chartData[chartData.length - 1].value)} ${getCurrencySymbol()}` }),
       ref: svgRef, viewBox: `0 0 ${W} ${H}`, width:'100%',
       style: { display:'block', overflow:'visible', cursor:'crosshair' },
       onMouseMove: handleMouseMove, onMouseLeave: () => setHoveredIdx(null)

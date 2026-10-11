@@ -378,9 +378,9 @@ async function runBuild(browser, label, dir) {
       const sections = await page.locator('nav.maermin-sidebar .mx-nav-section').allInnerTexts();
       ok('sidebar shows the six areas', sections.map((x) => x.trim().toUpperCase()).join() === 'PORTFOLIO,TRANSACTIONS,DIVIDENDS,ANALYSIS,TAXES,SETTINGS', sections.join(','));
       ok('a vault with transactions starts in Advanced', (await page.evaluate(RAW + '.get("maermin_ui_mode")')) === 'advanced' && (await page.locator('nav.maermin-sidebar [data-view="tags"]').count()) === 1);
-      await page.locator('.mx-avatar').click();
+      await page.locator('.mx-settings-btn').click();
       await page.locator('#mx-settings-panel [data-ui-mode="simple"]').click();
-      await page.locator('.mx-avatar').click();
+      await page.locator('.mx-settings-btn').click();
       await page.waitForTimeout(300);
       const simpleOk = (await page.locator('nav.maermin-sidebar [data-view="tags"]').count()) === 0 && (await page.locator('nav.maermin-sidebar .mx-mode-hint').count()) === 1
         && (await page.evaluate(RAW + '.get("maermin_ui_mode")')) === 'simple';
@@ -1064,7 +1064,7 @@ async function runBuild(browser, label, dir) {
       await fn();
       if (size.width < 900) { await page.setViewportSize(size); await page.waitForTimeout(300); }
     };
-    const avatar = page.locator('.mx-avatar');
+    const avatar = page.locator('.mx-settings-btn');
     const fromMenu = (item) => async () => { await avatar.click(); await page.locator('.mx-menu-item', { hasText: item }).click(); };
 
     await check({ name: 'Set up your data sources', focus: 'panel', back: '#main', open: async () => {} });

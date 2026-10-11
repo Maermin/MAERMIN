@@ -139,9 +139,11 @@ The Worker is **required** for stock prices, historical chart data, CS2 prices, 
 
 1. Click **Deploy to Cloudflare**, sign in (free account) and confirm. Cloudflare copies `cf-worker/` into a repository in your GitHub account, creates the KV namespace for sync and deploys the Worker.
 2. Copy the Worker URL shown at the end (`https://….workers.dev`).
-3. Paste it in MAERMIN → **API Settings** → Cloudflare Worker, or let the in-app **guided setup wizard** test and save it. The wizard's connection test checks each data source and the Worker version.
+3. Paste it in MAERMIN → **API Settings** → Cloudflare Worker, or let the in-app **guided setup wizard** test and save it. The wizard's connection test checks each data source (stock and crypto prices, symbol search, CS2 prices), the Worker version and whether the Worker has storage for sync and share links.
 
 **By hand (fallback):** [dash.cloudflare.com](https://dash.cloudflare.com) → **Workers & Pages** → **Create Worker** → paste [`cf-worker/worker.js`](cf-worker/worker.js) → **Deploy** (the wizard has a *Copy worker.js* button). Or run `npx wrangler deploy` in `cf-worker/` (wrangler 4.45 or later).
+
+**No storage:** encrypted sync and share links need a KV namespace bound to the Worker as `SYNC` (the Deploy button creates it). Without it everything else works, and the wizard's connection test shows the storage row in amber. To add it by hand: Cloudflare dashboard → **Storage & Databases → KV** → **Create namespace**, then your Worker → **Settings → Bindings** → **Add → KV namespace**, variable name `SYNC` → **Deploy**.
 
 **Updating:** the app asks the Worker for its version (`?action=version`). When the Worker is older than the release expects, the overview shows **Worker outdated → update**, and API Settings lists the steps: open your Worker in the Cloudflare dashboard → **Edit code** → paste the new `cf-worker/worker.js` → **Deploy**. If you used the button, you can instead update `worker.js` in the repository it created; Cloudflare redeploys on every push.
 

@@ -392,7 +392,7 @@ function RebalancingView({ portfolio, prices, theme, formatPrice, getCurrencySym
         __('rbNoSellHint', 'A class can only be sold down with the holdings that are not marked here. What cannot be sold is shown in the plan.')),
       React.createElement('div', { style: { display: 'flex', flexDirection: 'column', gap: '0.35rem' } },
         holdings.map(h => React.createElement('label', { key: h.cat + '|' + h.symbol, style: { display: 'flex', alignItems: 'center', gap: '0.6rem', minHeight: '28px', color: theme.text, fontSize: '0.84rem', cursor: 'pointer' } },
-          React.createElement('input', { type: 'checkbox', checked: noSellSet.has(h.symbol.toUpperCase()), onChange: () => toggleNoSell(h.symbol), 'data-nosell': h.symbol, style: { width: '18px', height: '18px', accentColor: theme.accent } }),
+          React.createElement('input', { type: 'checkbox', checked: noSellSet.has(h.symbol.toUpperCase()), onChange: () => toggleNoSell(h.symbol), 'data-nosell': h.symbol, style: { width: '24px', height: '24px', margin: 0, accentColor: theme.accent } }),
           React.createElement('span', { style: { flex: 1, minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis' } }, h.name, React.createElement('span', { style: { ...small, marginLeft: '0.4rem' } }, catLabels[h.cat])),
           React.createElement('span', { style: small }, money(h.value)))))
     ),
