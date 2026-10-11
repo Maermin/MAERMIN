@@ -39,8 +39,10 @@ function fakeFetch(routes) {
 
   // endpoints
   const eps = O.endpoints('https://x.workers.dev/');
-  ok('builds 3 endpoint probes', eps.length === 3);
-  ok('ids are the 3 data sources', eps.map(e => e.id).join(',') === 'yf,yfsearch,skinprices');
+  ok('builds 4 endpoint probes', eps.length === 4);
+  ok('ids are the 4 data sources (UX-016 adds crypto)', eps.map(e => e.id).join(',') === 'yf,yfsearch,skinprices,cg');
+  ok('every probe is a plain GET (no request that fails by design)', eps.every(e => !e.method && !e.body));
+  ok('crypto probe uses the day-cached cg search route', /action=cg&p=search&query=bitcoin/.test(eps[3].url));
   ok('skin price probe targets the price list', eps[2].url === 'https://x.workers.dev?action=skinprices');
   ok('yf probe targets AAPL', eps[0].url === 'https://x.workers.dev?action=yf&symbol=AAPL&interval=1d&range=5d');
 
@@ -52,6 +54,7 @@ function fakeFetch(routes) {
 
   // classify — warn (reachable, no data)
   ok('yf warn when prices empty', O.classify('yf', { status: 200, payload: { prices: [] } }).state === 'warn');
+  ok('cg ok when the search returns coins', O.classify('cg', { status: 200, payload: { coins: [{ id: 'bitcoin' }] } }).state === 'ok');
 
   // classify — fail paths
   ok('fail on non-2xx', O.classify('yf', { status: 500, payload: { error: 'x' } }).state === 'fail');
@@ -74,9 +77,16 @@ function fakeFetch(routes) {
     'action=yf&': { status: 200, body: { prices: [1] } },
     'action=yfsearch': { status: 200, body: [{ s: 'A' }] },
     'action=skinprices': { status: 200, body: { 'Fever Case': { last_24h: 0.89 } } },
-    'action=version': { status: 200, body: { version: O.EXPECTED_WORKER_VERSION } }
+    'action=cg': { status: 200, body: { coins: [{ id: 'bitcoin' }] } },
+    'action=version': { status: 200, body: { version: O.EXPECTED_WORKER_VERSION, storage: true } }
   }) });
-  ok('probeAll runs the 3 data probes + the version check', all.length === 4 && all.every(r => r.state === 'ok') && all[3].id === 'version');
+  ok('probeAll runs the 4 probes + storage + the version check', all.length === 6 && all.every(r => r.state === 'ok') && all[4].id === 'storage' && all[5].id === 'version');
+  // UX-016: storage as the version handshake reports it - never red, and the next step in plain words
+  const verNoStore = await O.probeAll('https://w.dev', { fetch: fakeFetch({ 'action=yf&': { status: 200, body: { prices: [1] } }, 'action=yfsearch': { status: 200, body: [{ s: 'A' }] }, 'action=skinprices': { status: 200, body: { a: 1 } }, 'action=cg': { status: 200, body: { coins: [1] } }, 'action=version': { status: 200, body: { version: O.EXPECTED_WORKER_VERSION, storage: false } } }) });
+  const st0 = verNoStore.find(r => r.id === 'storage');
+  ok('no storage → amber with the KV step', st0.state === 'warn' && /KV namespace named SYNC/.test(st0.message));
+  const verOld = await O.probeAll('https://w.dev', { fetch: fakeFetch({ 'action=yf&': { status: 200, body: { prices: [1] } }, 'action=yfsearch': { status: 200, body: [{ s: 'A' }] }, 'action=skinprices': { status: 200, body: { a: 1 } }, 'action=cg': { status: 200, body: { coins: [1] } }, 'action=version': { status: 200, body: { version: O.EXPECTED_WORKER_VERSION } } }) });
+  ok('a Worker that does not report storage → amber, asks for an update', verOld.find(r => r.id === 'storage').state === 'warn' && /Update it/.test(verOld.find(r => r.id === 'storage').message));
 
   // version handshake
   ok('compareVersions is numeric per part', O.compareVersions('2026.10.1', '2026.9.4') === 1 && O.compareVersions('2026.9.4', '2026.10.1') === -1 && O.compareVersions('2026.10', '2026.10.0') === 0);

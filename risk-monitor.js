@@ -295,7 +295,7 @@ function __(k, f, v) { return (typeof window !== 'undefined' && window.MaerminI1
           c.available ? I18N().pct(c.valuePct, 1) : '-'),
         e('td', { style: { padding: '0.45rem 0.5rem', textAlign: 'right' } },
           e('input', {
-            type: 'number', min: 1, max: 1000, value: settings[f.key],
+            type: 'number', min: 1, max: 1000, value: settings[f.key], 'aria-label': __('rmLimitAria', 'Limit for {rule} (%)', { rule: c.label }),
             onChange: function (ev) { commit(f.key, ev.target.value); },
             style: { width: '64px', background: inputBg, border: '1px solid ' + border, borderRadius: '6px', padding: '0.25rem 0.4rem', color: text, fontSize: '0.74rem', textAlign: 'right' }
           }),
@@ -320,7 +320,7 @@ function __(k, f, v) { return (typeof window !== 'undefined' && window.MaerminI1
         e('div', { style: { display: 'flex', alignItems: 'center', gap: '0.5rem' } },
           e('span', { style: { color: dim, fontSize: '0.74rem' } }, __('rmCooldown', 'Cooldown')),
           e('input', {
-            type: 'number', min: 1, max: 168, value: settings.cooldownHours,
+            type: 'number', min: 1, max: 168, value: settings.cooldownHours, 'aria-label': __('rmCooldownAria', 'Cooldown in hours'),
             onChange: function (ev) { commit('cooldownHours', ev.target.value); },
             style: { width: '52px', background: inputBg, border: '1px solid ' + border, borderRadius: '6px', padding: '0.25rem 0.4rem', color: text, fontSize: '0.74rem', textAlign: 'right' }
           }),

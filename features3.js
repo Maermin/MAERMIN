@@ -37,7 +37,7 @@ function calcCAGR(invested, currentValue, purchaseDateStr) {
 // keeps the math; this is just the surface. Reuses theme tokens + the clickable
 // helper, never adds a new tab.
 // ─────────────────────────────────────────────────────────────────────────────
-function CorporateActionsPanel({ category, symbol, theme, t = {}, workerUrl }) {
+function CorporateActionsPanel({ category, symbol, theme, t = {}, workerUrl, sinceDate }) {
   const CA = window.MaerminCorporateActions;
   const clickable = (window.MaerminUtils && window.MaerminUtils.clickable) || ((h) => ({ onClick: h, role: 'button', tabIndex: 0 }));
   const [rev, setRev] = useState(0);            // bump to re-read the store
@@ -87,7 +87,8 @@ function CorporateActionsPanel({ category, symbol, theme, t = {}, workerUrl }) {
   const runScan = () => {
     if (!workerBase) { setScan({ busy: false, msg: t.caNoWorker || 'Add a Worker URL in API Settings to scan, or enter splits manually.', preview: null }); return; }
     setScan({ busy: true, msg: '', preview: null });
-    CA.detectForSymbol(symbol, cat, null, (u) => fetch(u).then((r) => r.json()), { workerBase })
+    // UX-028: only splits on or after the first purchase are offered
+    CA.detectForSymbol(symbol, cat, sinceDate || null, (u) => fetch(u).then((r) => r.json()), { workerBase })
       .then((found) => {
         const existing = {};
         actions.forEach((a) => { existing[a.date] = true; });
@@ -376,7 +377,8 @@ function PositionDetailModal({ position, transactions, prices, theme, formatPric
       ),
 
       // Corporate actions (stock splits) for this holding
-      React.createElement(CorporateActionsPanel, { category: position.cat, symbol: position.sym, theme, t, workerUrl })
+      React.createElement(CorporateActionsPanel, { category: position.cat, symbol: position.sym, theme, t, workerUrl,
+        sinceDate: posTxs.filter(tx => tx.type === 'buy' && tx.date).map(tx => String(tx.date).slice(0, 10)).sort()[0] || null })
     )
   );
 }

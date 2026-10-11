@@ -230,7 +230,7 @@ function __(k, f, v) { return (typeof window !== 'undefined' && window.MaerminI1
             throw new Error(j.error);
           });
         }
-        if (r.status === 501) throw new Error('Worker has no KV storage bound (see docs/WORKER.md)');
+        if (r.status === 501) throw new Error(__('wkNoStorageShare', 'Your Worker has no storage, so share links are off. Redeploy it with the Deploy button, or add a KV namespace to it in the Cloudflare dashboard and bind it as SYNC.'));
         return r.json();
       });
     }
@@ -333,7 +333,7 @@ function __(k, f, v) { return (typeof window !== 'undefined' && window.MaerminI1
       e('div', { style: cardStyle },
         e('h3', { style: { color: text, fontSize: '0.95rem', fontWeight: 700, margin: '0 0 0.5rem' } }, __('shOpenShared', 'Open a shared snapshot')),
         e('div', { style: { display: 'flex', gap: '0.5rem', flexWrap: 'wrap' } },
-          e('input', { type: 'text', value: openInput, placeholder: __('shPastePh', 'Paste a share link or id'), onChange: function (ev) { setOpenInput(ev.target.value); }, style: { flex: 1, minWidth: '220px', background: inputBg, border: '1px solid ' + border, borderRadius: '8px', padding: '0.45rem 0.7rem', color: text, fontSize: '0.8rem' } }),
+          e('input', { type: 'text', value: openInput, placeholder: __('shPastePh', 'Paste a share link or id'), 'aria-label': __('shPastePh', 'Paste a share link or id'), onChange: function (ev) { setOpenInput(ev.target.value); }, style: { flex: 1, minWidth: '220px', background: inputBg, border: '1px solid ' + border, borderRadius: '8px', padding: '0.45rem 0.7rem', color: text, fontSize: '0.8rem' } }),
           e('button', { onClick: openShared, disabled: !workerBase, style: { padding: '0.45rem 1rem', borderRadius: '8px', border: 'none', cursor: 'pointer', fontWeight: 700, fontSize: '0.8rem', background: inputBg, color: text, opacity: workerBase ? 1 : 0.5 } }, __('shOpen', 'Open'))),
         theirs && theirs.error ? e('div', { style: { color: bad, fontSize: '0.78rem', marginTop: '0.5rem' } }, theirs.error) : null,
         theirs && theirs.snapshot ? e('div', { style: { marginTop: '0.7rem' } },

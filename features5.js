@@ -447,7 +447,7 @@ function CashflowChart({ transactions, priceHistory, portfolio, prices, theme, f
           color: isUp ? theme.success : theme.danger }
       }, `${isUp ? '+' : ''}${formatPrice(pnl)} (${window.MaerminI18n.pct(pnlPct, 1)})`)
     ),
-    React.createElement('svg', { viewBox: `0 0 ${W} ${H}`, width: '100%', style: { overflow: 'visible' } },
+    React.createElement('svg', { role: 'img', 'aria-label': __('cfAria', 'Invested and portfolio value over time: {inv} invested, value {val}', { inv: `${formatPrice(lastInv)} ${getCurrencySymbol()}`, val: `${formatPrice(lastVal)} ${getCurrencySymbol()}` }), viewBox: `0 0 ${W} ${H}`, width: '100%', style: { overflow: 'visible' } },
       // Grid
       [minV, (minV + maxV) / 2, maxV].map((v, i) =>
         React.createElement(React.Fragment, { key: i },

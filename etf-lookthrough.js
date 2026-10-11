@@ -207,6 +207,12 @@ function __(k, f, v) { return (typeof window !== 'undefined' && window.MaerminI1
     };
   }
 
+  // German fund type for a fund the look-through knows: every basket in
+  // FUND_ALIASES is an equity index fund (Aktienfonds, >= 51 % equities).
+  function knownFundType(symbol) {
+    return FUND_ALIASES[normalizeFundSymbol(symbol)] ? 'aktienfonds' : null;
+  }
+
   function isFundCandidate(symbol, name) {
     if (FUND_ALIASES[normalizeFundSymbol(symbol)]) return true;
     return FUND_NAME_RX.test(String(name || ''));
@@ -698,6 +704,7 @@ function __(k, f, v) { return (typeof window !== 'undefined' && window.MaerminI1
     holdingKey: holdingKey,
     fallbackHoldings: fallbackHoldings,
     isFundCandidate: isFundCandidate,
+    knownFundType: knownFundType,
     buildUrl: buildUrl,
     parseHoldingsResponse: parseHoldingsResponse,
     mergeFundData: mergeFundData,

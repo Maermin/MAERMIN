@@ -60,7 +60,9 @@ function __(k, f, v) { return (typeof window !== 'undefined' && window.MaerminI1
       .then(function (r) {
         return r.text().then(function (txt) {
           var payload; try { payload = JSON.parse(txt); } catch (e) { payload = null; }
-          return versionState({ status: r.status, payload: payload });
+          var vs = versionState({ status: r.status, payload: payload });
+          vs.storage = (payload && typeof payload.storage === 'boolean') ? payload.storage : null;
+          return vs;
         });
       }, function () { return versionState({ networkError: 'network' }); })
       .then(function (out) { if (timer) clearTimeout(timer); out.expected = EXPECTED_WORKER_VERSION; return out; });
@@ -84,7 +86,10 @@ function __(k, f, v) { return (typeof window !== 'undefined' && window.MaerminI1
       { id: 'yfsearch',     label: __('obEpSearch', 'Symbol search'),
         url: base + '?action=yfsearch&q=Apple&type=stock' },
       { id: 'skinprices',   label: __('obEpSkins', 'CS2 skin prices (Steam Market list)'),
-        url: base + '?action=skinprices' }
+        url: base + '?action=skinprices' },
+      // the search route is cached for a day at the Worker: rarely rate limited
+      { id: 'cg',           label: __('obEpCrypto', 'Crypto prices (CoinGecko)'),
+        url: base + '?action=cg&p=search&query=bitcoin' }
     ];
   }
 
@@ -97,6 +102,8 @@ function __(k, f, v) { return (typeof window !== 'undefined' && window.MaerminI1
       return { state: 'fail', message: __('obUnreachable', 'Could not reach the Worker — {why}. Check the URL is correct, deployed, and not blocked by CORS.', { why: outcome.networkError }) };
     }
     var status = outcome.status, p = outcome.payload;
+    // A rate-limited source means the Worker itself answered: amber, not red.
+    if (status === 429) return { state: 'warn', message: __('obNoData', 'Worker reachable, but the source returned no data right now (rate limit or a temporary upstream issue). The connection itself works.') };
     if (typeof status !== 'number' || status < 200 || status >= 300) {
       var emsg = (p && p.error) ? p.error : ('HTTP ' + status);
       return { state: 'fail', message: __('obRespError', 'Worker responded with an error: {msg}', { msg: emsg }) };
@@ -106,6 +113,7 @@ function __(k, f, v) { return (typeof window !== 'undefined' && window.MaerminI1
     var hasData;
     if (id === 'yf') hasData = !!(p && Array.isArray(p.prices) && p.prices.length);
     else if (id === 'skinprices') hasData = !!(p && typeof p === 'object' && !Array.isArray(p) && Object.keys(p).length > 0);
+    else if (id === 'cg') hasData = !!(p && Array.isArray(p.coins) && p.coins.length);
     else hasData = Array.isArray(p) && p.length > 0; // yfsearch returns an array
 
     if (hasData) return { state: 'ok', message: __('obConnected', 'Connected — live data received.') };
@@ -140,8 +148,18 @@ function __(k, f, v) { return (typeof window !== 'undefined' && window.MaerminI1
   }
 
   function probeAll(workerUrl, opts) {
+    var ver = checkWorkerVersion(workerUrl, opts);
     return Promise.all(endpoints(workerUrl).map(function (ep) { return probe(ep, opts); })
-      .concat([checkWorkerVersion(workerUrl, opts).then(versionRow)]));
+      .concat([ver.then(storageRow), ver.then(versionRow)]));
+  }
+
+  // UX-016: storage for sync / share links, as the version handshake reports
+  // it (no request that fails by design). Optional, so never red.
+  function storageRow(v) {
+    var row = { id: 'storage', label: __('obEpStorage', 'Storage for sync and share links (optional)') };
+    if (v && v.storage === true) return Object.assign(row, { state: 'ok', message: __('obStorageOk', 'Storage bound - encrypted sync and share links can be used.') });
+    if (v && v.storage === false) return Object.assign(row, { state: 'warn', message: __('obNoStorage', 'This Worker has no storage, so encrypted sync and share links are off. Everything else works. To turn them on, redeploy with the Deploy button or add a KV namespace named SYNC to the Worker.') });
+    return Object.assign(row, { state: 'warn', message: __('obStorageUnknown', 'This Worker does not report its storage yet. Update it to see whether sync and share links can be used.') });
   }
 
   // The version as a result row of the connection test. Outdated is a warning:

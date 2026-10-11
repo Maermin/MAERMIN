@@ -31,6 +31,10 @@ try {
   const body = await r.json();
   ok('?action=version → 200 { version, actions }', r.status === 200 && body.version === W.WORKER_VERSION && Array.isArray(body.actions) && body.actions.includes('yf'), r.status + ' ' + JSON.stringify(body));
   ok('no upstream request for the version', upstream === 0);
+  // UX-016: the handshake says whether sync / share storage is bound
+  ok('without a KV binding: storage false', body.storage === false, JSON.stringify(body.storage));
+  const r2 = await W.default.fetch(new Request('https://w.example.dev/?action=version', { headers: { Origin: 'http://localhost:8080' } }), { SYNC: {} }, {});
+  ok('with a SYNC binding: storage true', (await r2.json()).storage === true);
 } finally { globalThis.fetch = realFetch; }
 
 const toml = readFileSync(path.join(__dirname, '../cf-worker/wrangler.toml'), 'utf8');

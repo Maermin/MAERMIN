@@ -152,13 +152,15 @@
 
   // Label resolver: t[key] when translated, else the English fallback.
   function label(item, t) { return (t && item.key && t[item.key]) || item.label; }
+  // Name of a view for its h1 (UX-027); null for an unknown view.
+  function viewTitle(viewId, t) { var l = lookup(viewId); return l ? label(l.view, t) : null; }
 
   var api = {
     MODE_KEY: MODE_KEY, MODES: MODES, AREAS: AREAS, ALIASES: ALIASES,
     canonical: canonical, isKnown: isKnown, areaOf: areaOf, getArea: getArea,
     normalizeMode: normalizeMode, initialMode: initialMode,
     visibleEntries: visibleEntries, visibleTabs: visibleTabs, entryTarget: entryTarget,
-    firstView: firstView, tabsFor: tabsFor, entryActive: entryActive, label: label
+    firstView: firstView, tabsFor: tabsFor, entryActive: entryActive, label: label, viewTitle: viewTitle
   };
   if (typeof window !== 'undefined') window.MaerminNav = api;
   if (typeof module !== 'undefined' && module.exports) module.exports = api;

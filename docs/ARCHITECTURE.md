@@ -146,9 +146,14 @@ itself — it reuses `MaerminMetrics`).
 
 **First-run onboarding** (`onboarding.js` → `MaerminOnboarding`) is a view-layer
 module with a React `Wizard` plus dual-exported pure logic: `endpoints()` builds a
-cheap probe per data source, `classify()` maps each probe outcome to green/amber/red,
-and `probe()`/`probeAll()` run them with an injectable `fetch` (so the connection test
-is unit-tested under Node). The wizard offers a guided Worker deploy (one-click *Copy
+cheap GET probe per data source (Yahoo prices, symbol search, CS2 price list,
+CoinGecko through the day-cached `cg` search route), `classify()` maps each probe
+outcome to green/amber/red (a rate-limited source is amber: the Worker answered), and
+`probe()`/`probeAll()` run them with an injectable `fetch` (so the connection test
+is unit-tested under Node). `probeAll()` adds two rows from the `?action=version`
+handshake: the Worker version and the storage for sync and share links (`storage`
+flag of the handshake; amber with the KV step when unbound, amber "update the Worker"
+when an older Worker does not report it - no request that fails by design). The wizard offers a guided Worker deploy (one-click *Copy
 worker.js*), the live connection test, and a Demo-mode entry; `renderer.js` opens it on
 first run and from API Settings, and surfaces a recovery-code nudge for vaults created
 before recovery codes existed.

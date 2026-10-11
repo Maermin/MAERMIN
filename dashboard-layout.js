@@ -268,7 +268,13 @@ function __(k, f, v) { return (typeof window !== 'undefined' && window.MaerminI1
             __('dashSubtitleOrder', 'Show, hide and reorder the main Overview sections: drag a row by its handle, or use the arrow buttons. Changes are saved instantly and carried in your backup.')),
           e('div', { ref: listRef, 'data-testid': 'dash-order' }, rows),
           e('div', { role: 'status', 'aria-live': 'polite', style: { position: 'absolute', width: '1px', height: '1px', overflow: 'hidden', clipPath: 'inset(50%)', whiteSpace: 'nowrap' } }, said),
-          e('button', { onClick: function () { commit(API.reset()); }, style: { marginTop: '0.5rem', padding: '0.45rem 0.9rem', fontSize: '0.82rem', fontWeight: 700, cursor: 'pointer', borderRadius: '8px', border: '1px solid ' + border, background: 'transparent', color: text } },
+          // UX-020: the reset says what it did and offers Undo (the previous layout)
+          e('button', { onClick: function () {
+            var before = st;
+            commit(API.reset());
+            var UI = (typeof window !== 'undefined') && window.MaerminUI;
+            if (UI && UI.add) UI.add(__('dashResetDone', 'Overview layout reset to default'), 'success', 8000, { label: __('undo', 'Undo'), run: function () { commit(before); } });
+          }, style: { marginTop: '0.5rem', padding: '0.45rem 0.9rem', fontSize: '0.82rem', fontWeight: 700, cursor: 'pointer', borderRadius: '8px', border: '1px solid ' + border, background: 'transparent', color: text } },
             t.dashReset || 'Reset to default'));
       } catch (err) {
         return e('div', { style: { padding: '1.5rem', color: (props.theme && props.theme.danger) || '#ef4444' } }, __('dashError', 'Customize view error: {msg}', { msg: err && err.message }));

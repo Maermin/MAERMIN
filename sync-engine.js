@@ -405,6 +405,13 @@
     opts = opts || {};
     var endpoint = opts.endpoint;
     var fetchImpl = opts.fetchImpl || (typeof fetch !== 'undefined' ? fetch : null);
+    // 501 = the Worker has no storage bound: say what to do, not the binding name.
+    function noStorage(r) {
+      if (r.status !== 501) return null;
+      var e = new Error(__('wkNoStorage', 'Your Worker has no storage, so sync is off. Redeploy it with the Deploy button, or add a KV namespace to it in the Cloudflare dashboard and bind it as SYNC.'));
+      e.code = 'no-storage';
+      return e;
+    }
     function call(body) {
       return fetchImpl(endpoint + (endpoint.indexOf('?') > -1 ? '&' : '?') + 'action=sync', {
         method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body)
@@ -413,6 +420,7 @@
     return {
       get: function (account) {
         return call({ op: 'get', account: account }).then(function (r) {
+          if (noStorage(r)) throw noStorage(r);
           if (r.status !== 200) throw new Error('sync-http-' + r.status + (r.json && r.json.error ? ': ' + r.json.error : ''));
           if (r.json && r.json.blob) return { rev: r.json.rev, blob: r.json.blob, protected: r.json.protected };
           return null;
@@ -424,6 +432,7 @@
         return call(body).then(function (r) {
           if (r.status === 409) return { conflict: true, serverRev: r.json.serverRev, blob: r.json.blob };
           if (r.status === 403) return { unauthorized: true };
+          if (noStorage(r)) throw noStorage(r);
           if (r.status !== 200 || !r.json || typeof r.json.rev !== 'number') {
             throw new Error('sync-http-' + r.status + (r.json && r.json.error ? ': ' + r.json.error : ''));
           }

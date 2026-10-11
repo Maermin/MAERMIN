@@ -355,7 +355,7 @@ function __(k, f, v) { return (typeof window !== 'undefined' && window.MaerminI1
         e('input', {
           value: newName, onChange: function (ev) { setNewName(ev.target.value); },
           onKeyDown: function (ev) { if (ev.key === 'Enter' && newName.trim()) { mutate(addTag(st, newName)); setNewName(''); } },
-          placeholder: t.tagsNewPlaceholder || 'New tag name…',
+          placeholder: t.tagsNewPlaceholder || 'New tag name…', 'aria-label': t.tagsNewPlaceholder || 'New tag name…',
           style: { flex: 1, minWidth: '180px', maxWidth: '320px', padding: '0.5rem 0.75rem', borderRadius: '8px', border: '1px solid ' + inputBorder, background: inputBg, color: text, fontSize: '0.85rem' }
         }),
         btn(t.tagsAdd || 'Add tag', function () { if (newName.trim()) { mutate(addTag(st, newName)); setNewName(''); } }, 'solid')),

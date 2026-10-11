@@ -214,7 +214,7 @@ function __(k, f, v) { return (typeof window !== 'undefined' && window.MaerminI1
             e('input', {
               value: name, onChange: function (ev) { setName(ev.target.value); },
               onKeyDown: function (ev) { if (ev.key === 'Enter') addCurrent(); },
-              placeholder: t.catNewPlaceholder || 'New category, e.g. Real Estate…',
+              placeholder: t.catNewPlaceholder || 'New category, e.g. Real Estate…', 'aria-label': t.catNewPlaceholder || 'New category, e.g. Real Estate…',
               style: { flex: 1, minWidth: '200px', maxWidth: '340px', padding: '0.5rem 0.75rem', borderRadius: '8px', border: '1px solid ' + inputBorder, background: inputBg, color: text, fontSize: '0.85rem' }
             }),
             e('button', { onClick: addCurrent, style: { padding: '0.5rem 1rem', fontSize: '0.85rem', fontWeight: 800, cursor: 'pointer', borderRadius: '8px', border: 'none', background: accentFill, color: accentText } }, t.catAdd || 'Add category')),
@@ -223,7 +223,7 @@ function __(k, f, v) { return (typeof window !== 'undefined' && window.MaerminI1
             t.catEmpty || 'No custom categories yet. Add one above — it will appear in the Add-Transaction category picker.'),
 
           e('div', { style: { color: dim, fontSize: '0.72rem', marginTop: '1rem', lineHeight: 1.5 } },
-            t.catFootnote || 'Note: by-asset-class breakdowns (rebalancing-by-class, currency-by-class) currently cover the four base classes; custom-category value is included in totals and shown here and in Tags.'));
+            t.catFootnote || 'Rebalancing and the currency breakdown group by the four base classes (crypto, stocks, commodities, skins). Holdings in your own categories count in every total and appear here and in Tags.'));
       } catch (err) {
         return e('div', { style: { padding: '1.5rem', color: (props.theme && props.theme.danger) || '#ef4444' } }, __('ccError', 'Categories view error: ') + (err && err.message));
       }

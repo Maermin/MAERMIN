@@ -51,7 +51,8 @@ async function handle(request, env, ctx) {
 
     // Version handshake: no upstream call, so it is not rate limited.
     if (request.method === 'GET' && action === 'version') {
-      return res(JSON.stringify({ version: WORKER_VERSION, actions: WORKER_ACTIONS }), 200, request);
+      // storage: whether sync / share links can work (KV or Durable Object bound)
+      return res(JSON.stringify({ version: WORKER_VERSION, actions: WORKER_ACTIONS, storage: !!(env && (env.SYNC || env.SYNC_DO)) }), 200, request);
     }
 
     // ── Yahoo routes take market symbols only ────────────────────────────────

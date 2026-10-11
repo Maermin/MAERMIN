@@ -211,12 +211,12 @@ function __(k, f, v) { return (typeof window !== 'undefined' && window.MaerminI1
           (props.scopeLabel ? props.scopeLabel + ' — ' : '') + __('pjTitle', 'Wealth Projection')),
         e('div', { style: { display: 'flex', gap: '0.35rem', alignItems: 'center' } },
           horizons.map(hzBtn),
-          e('input', { type: 'number', value: custom, placeholder: __('pjYrPh', 'yr'), onChange: function (ev) { setCustom(ev.target.value); var v = parseFloat(ev.target.value); if (v > 0) setYears(v); },
+          e('input', { type: 'number', value: custom, placeholder: __('pjYrPh', 'yr'), 'aria-label': __('pjCustomYears', 'Custom number of years'), onChange: function (ev) { setCustom(ev.target.value); var v = parseFloat(ev.target.value); if (v > 0) setYears(v); },
             style: { width: '54px', padding: '0.3rem 0.4rem', borderRadius: '6px', border: '1px solid ' + (theme.cardBorder || '#333'), background: theme.inputBg || '#0f172a', color: theme.text || '#fff', fontSize: '0.78rem' } })
         )
       ),
       // chart
-      e('svg', { viewBox: '0 0 ' + W + ' ' + H, style: { width: '100%', height: 'auto', display: 'block' } },
+      e('svg', { role: 'img', 'aria-label': __('pjAria', 'Projection over {n} years: realistic {v}', { n: maxYear, v: fmt(realPts[realPts.length - 1].value) + (sym ? ' ' + sym : '') }), viewBox: '0 0 ' + W + ' ' + H, style: { width: '100%', height: 'auto', display: 'block' } },
         e('defs', null,
           e('linearGradient', { id: gridId, x1: '0', y1: '0', x2: '0', y2: '1' },
             e('stop', { offset: '0%', stopColor: theme.accent || '#8b7cff', stopOpacity: 0.22 }),

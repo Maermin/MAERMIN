@@ -287,14 +287,14 @@ function NewsFeedView({ portfolio, transactions, apiKeys, theme, formatPrice }) 
         React.createElement('h2', { style: { color: theme.text, fontSize: '1.35rem', fontWeight: '800', marginBottom: '0.125rem' } }, __('newsTitle', 'News Feed')),
         React.createElement('p', { style: { color: theme.textSecondary, fontSize: '0.8rem' } }, __('newsSubtitle', 'Latest news for your held positions'))
       ),
-      React.createElement('button', { onClick: fetchNews, disabled: loading, style: { padding: '0.5rem 1rem', background: loading ? theme.inputBg : `${theme.accent}18`, color: loading ? theme.textSecondary : theme.accent, border: `1px solid ${theme.accent}33`, borderRadius: '8px', cursor: loading ? 'not-allowed' : 'pointer', fontSize: '0.82rem', fontWeight: '600' } },
+      React.createElement('button', { onClick: fetchNews, disabled: loading || !hasWorker, title: hasWorker ? undefined : __('newsNeedWorker', 'Add a Worker URL in API Settings to load news.'), style: { padding: '0.5rem 1rem', background: (loading || !hasWorker) ? theme.inputBg : `${theme.accent}18`, color: (loading || !hasWorker) ? theme.textSecondary : theme.accent, border: `1px solid ${theme.accent}33`, borderRadius: '8px', cursor: (loading || !hasWorker) ? 'not-allowed' : 'pointer', fontSize: '0.82rem', fontWeight: '600' } },
         loading ? __('loadingDots', '◎ Loading...') : __('refreshBtn', '↻ Refresh')
       )
     ),
 
     // No worker warning
     !hasWorker && React.createElement('div', { style: { background: 'rgba(245,158,11,0.08)', border: '1px solid rgba(245,158,11,0.3)', borderRadius: '10px', padding: '0.875rem 1.25rem', marginBottom: '1.25rem', fontSize: '0.82rem', color: theme.text } },
-      __('newsWorkerHint', 'Add a Cloudflare Worker URL in Settings to load news. The Worker fetches Yahoo Finance RSS without CORS issues.')
+      __('newsWorkerHint', 'Add a Cloudflare Worker URL in API Settings to load news. The Worker fetches Yahoo Finance RSS without CORS issues.')
     ),
 
     // Symbol filter tabs
@@ -345,7 +345,7 @@ function NewsFeedView({ portfolio, transactions, apiKeys, theme, formatPrice }) 
 // What an empty News Feed says (FINDINGS M-14): a Worker that failed every
 // request is an error, not an empty feed.
 function newsEmptyText(hasWorker, req) {
-  if (!hasWorker) return __('newsNeedWorker', 'Add Worker URL to load news');
+  if (!hasWorker) return __('newsNeedWorker', 'Add a Worker URL in API Settings to load news.');
   if (req && req.tried > 0 && req.failed === req.tried) return __('newsAllFailed', 'News could not be loaded: your Worker did not answer ({failed} of {tried} requests failed). Check the Worker URL in API Settings or redeploy the Worker.', req);
   return __('newsNone', 'No news found for your positions');
 }
