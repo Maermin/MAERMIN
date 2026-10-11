@@ -93,7 +93,7 @@ function doNamespace(W, env) {
   for (let i = 0; i < 7; i++) codes.push((await publish(env2, '198.51.100.' + i, mixed)).status);
   ok('a global daily publish budget caps storage writes', codes.slice(0, 5).every((c) => c === 200) && codes[5] === 429 && env2.writes() === 5);
   // The sync route on the same Durable Object class is unaffected.
-  const s = await worker.fetch(new Request('https://w.example/?action=sync', { method: 'POST', body: JSON.stringify({ op: 'put', account: 'abcdef12', baseRev: 0, blob: 'b' }) }), env, ctx);
+  const s = await worker.fetch(new Request('https://w.example/?action=sync', { method: 'POST', body: JSON.stringify({ op: 'put', account: 'abcdef12', baseRev: 0, blob: 'b', auth: { key: 'a'.repeat(64) } }) }), env, ctx);
   ok('sync through SYNC_DO still works', s.status === 200 && (await s.json()).rev === 1);
 
   console.log('\n' + passed + ' passed, ' + failed + ' failed');

@@ -1752,7 +1752,7 @@ function InvestmentTracker() {
       const newHistory = { ...priceHistory };
       Object.entries(newPrices).forEach(([symbol, price]) => {
         if (typeof price === 'number' && !isNaN(price)) {
-          if (!newHistory[symbol]) newHistory[symbol] = [];
+          if (!Object.prototype.hasOwnProperty.call(newHistory, symbol)) newHistory[symbol] = [];
           newHistory[symbol].push({ timestamp, price });
           if (newHistory[symbol].length > 100) {
             newHistory[symbol] = newHistory[symbol].slice(-100);
@@ -5809,7 +5809,8 @@ buy,crypto,bitcoin,0.5,45000,2024-01-15,10`)
       try {
         const w = window.open('', '_blank'); if (!w) return;
         const esc = fileText.replace(/[&<>]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;' }[c]));
-        w.document.write('<title>MAERMIN Recovery Code</title><pre style="font:14px ui-monospace,Menlo,monospace;padding:24px;white-space:pre-wrap">' + esc + '</pre>');
+        w.document.write('<title>MAERMIN Recovery Code</title><pre id="rc">' + esc + '</pre>');
+        try { var pre = w.document.getElementById('rc'); pre.style.font = '14px ui-monospace,Menlo,monospace'; pre.style.padding = '24px'; pre.style.whiteSpace = 'pre-wrap'; } catch (e) {} // CSSOM: allowed without 'unsafe-inline'
         w.document.close(); w.focus(); w.print();
       } catch (e) {}
     };

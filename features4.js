@@ -559,7 +559,7 @@ function DividendForecastView({ transactions, portfolio, prices, metaVersion, th
   // DB, all keyed through the ticker-validation layer) so the forecast works
   // out of the box for recognised holdings. Requirement #4.
   const forecasts = useMemo(() => {
-    const bySymbol = {};
+    const bySymbol = Object.create(null); // keys are imported symbols (SEC-023)
     dividends.forEach(tx => {
       const sym = (tx.symbol || '').toLowerCase();
       if (!bySymbol[sym]) bySymbol[sym] = { sym: tx.symbol, payments: [] };

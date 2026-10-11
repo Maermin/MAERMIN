@@ -146,9 +146,15 @@ function __(k, f, v) { return (typeof window !== 'undefined' && window.MaerminI1
 
   // Parse ONE settlement text into a candidate transaction. Returns
   // { candidate|null, errors:[..] } — missing fields are reported, not guessed.
+  // Statement text is capped (whole document and each line) before any
+  // pattern runs, so a crafted file cannot stall the tab (SEC-022).
+  var MAX_TEXT = 200000, MAX_LINE = 1000;
+  function capText(text) {
+    return String(text || '').slice(0, MAX_TEXT).split(/\r?\n/).map(function (l) { return l.length > MAX_LINE ? l.slice(0, MAX_LINE) : l; }).join('\n');
+  }
   function parseStatement(text, brokerId) {
     var IM = mapping();
-    var t = String(text || '').replace(/ /g, ' ');
+    var t = capText(text).replace(/ /g, ' ');
     var errors = [];
 
     // Type: dividends first (their documents also contain the word "Stück").
@@ -184,9 +190,9 @@ function __(k, f, v) { return (typeof window !== 'undefined' && window.MaerminI1
 
     // Quantity: "2 Stk.", "Stück 10", "St. 10".
     var qtyM = firstMatch(t, [
-      /([\d.,]+)\s*(?:stk\.?|st(?:ü|ue)ck)\b/i,
-      /st(?:ü|ue)ck\s*:?\s+([\d.,]+)/i,
-      /\bst\.\s*([\d.,]+)/i
+      /([\d.,]{1,20})\s*(?:stk\.?|st(?:ü|ue)ck)\b/i,
+      /st(?:ü|ue)ck\s*:?\s+([\d.,]{1,20})/i,
+      /\bst\.\s*([\d.,]{1,20})/i
     ]);
     var quantity = qtyM ? Math.abs(num(IM, qtyM[1])) : NaN;
     if (!(quantity > 0)) errors.push(__('piNoQty', 'quantity not found'));
@@ -194,26 +200,26 @@ function __(k, f, v) { return (typeof window !== 'undefined' && window.MaerminI1
     // Price per share + currency. Order matters: the explicit execution-price
     // labels first, the bare Trade-Republic layout ("2 Stk. 80,46 EUR") last.
     var priceM = firstMatch(t, [
-      /ausf(?:ü|ue)hrungskurs\s*:?\s*([\d.,]+)\s*(EUR|USD)/i,
-      /zum kurs von\s*:?\s*([\d.,]+)\s*(EUR|USD)/i,
-      /\bkurs\b\s*:?\s*([\d.,]+)\s*(EUR|USD)/i,
-      /(?:stk\.?|st(?:ü|ue)ck)\s+([\d.,]+)\s*(EUR|USD)/i,
-      /dividende\s+je\s+st(?:ü|ue)ck\s*:?\s*([\d.,]+)\s*(EUR|USD)/i,
-      /(?:aussch(?:ü|ue)ttung|bruttobetrag)\s+je\s+anteil\s*:?\s*([\d.,]+)\s*(EUR|USD)/i
+      /ausf(?:ü|ue)hrungskurs\s*:?\s*([\d.,]{1,20})\s*(EUR|USD)/i,
+      /zum kurs von\s*:?\s*([\d.,]{1,20})\s*(EUR|USD)/i,
+      /\bkurs\b\s*:?\s*([\d.,]{1,20})\s*(EUR|USD)/i,
+      /(?:stk\.?|st(?:ü|ue)ck)\s+([\d.,]{1,20})\s*(EUR|USD)/i,
+      /dividende\s+je\s+st(?:ü|ue)ck\s*:?\s*([\d.,]{1,20})\s*(EUR|USD)/i,
+      /(?:aussch(?:ü|ue)ttung|bruttobetrag)\s+je\s+anteil\s*:?\s*([\d.,]{1,20})\s*(EUR|USD)/i
     ]);
     var price = priceM ? Math.abs(num(IM, priceM[1])) : NaN;
     var currency = priceM ? priceM[2].toUpperCase() : 'EUR';
 
     // Dividends often state only the gross total — derive per-share when needed.
     if (type === 'dividend' && !(price > 0) && quantity > 0) {
-      var grossM = t.match(/bruttobetrag\s*:?\s*([\d.,]+)\s*(EUR|USD)/i);
+      var grossM = t.match(/bruttobetrag\s*:?\s*([\d.,]{1,20})\s*(EUR|USD)/i);
       if (grossM) { price = Math.abs(num(IM, grossM[1])) / quantity; currency = grossM[2].toUpperCase(); }
     }
     if (!(price > 0)) errors.push(__('piNoPrice', 'price not found'));
 
     // Fees: every known fee label, summed.
     var fees = 0;
-    var feeRx = /(fremdkostenzuschlag|provision|orderentgelt|transaktionsentgelt|handelsentgelt|grundgeb(?:ü|ue)hr|ausgabeaufschlag|kosten des kreditinstituts)\s*:?\s*-?\s*([\d.,]+)\s*(?:EUR|USD)/gi;
+    var feeRx = /(fremdkostenzuschlag|provision|orderentgelt|transaktionsentgelt|handelsentgelt|grundgeb(?:ü|ue)hr|ausgabeaufschlag|kosten des kreditinstituts)\s*:?\s*-?\s*([\d.,]{1,20})\s*(?:EUR|USD)/gi;
     var feeM;
     while ((feeM = feeRx.exec(t)) !== null) fees += Math.abs(num(IM, feeM[2])) || 0;
 
@@ -248,6 +254,7 @@ function __(k, f, v) { return (typeof window !== 'undefined' && window.MaerminI1
 
   // Full pure pipeline for one document's text: detect broker, parse, report.
   function parseText(text) {
+    text = capText(text);
     var broker = detectBrokerFromText(text);
     var parsed = parseStatement(text, broker && broker.id);
     return {
