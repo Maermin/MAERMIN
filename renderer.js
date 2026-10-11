@@ -903,7 +903,7 @@ function InvestmentTracker() {
   //                        correlation matrix (display symbol) and risk metrics (lower-case)
   const dailyAnalytics = useMemo(() => {
     const VP = window.MaerminValuePath, CH = window.MaerminCloseHistory;
-    const none = { index: [], bySymbol: {}, byLower: {}, since: null };
+    const none = { index: [], bySymbol: {}, byLower: {}, perHolding: {}, partial: {}, since: null };
     if (!VP || !CH || !valuePath || valuePath.twr === null) return none;
     try {
       const keys = [], labels = {}, lower = {};
@@ -921,8 +921,18 @@ function InvestmentTracker() {
       // position has them - a partly covered book would understate risk and
       // drop holdings from the matrix under a "daily closes" label.
       const full = keys.length > 0 && keys.length === open;
+      // Per-holding views (FX attribution) take each holding's own closes, also
+      // when not every holding has them (VIS-005).
+      const perHolding = {};
+      keys.forEach((k) => {
+        const pts = closeSeriesEUR[k].closes.filter((c) => c[1] > 0).slice(-365).map((c) => ({ timestamp: c[0], price: c[1] }));
+        if (pts.length >= 2) perHolding[labels[k]] = pts;
+      });
       return {
         index,
+        perHolding,
+        // the holdings that have closes, on one date grid (correlation, labelled as partial)
+        partial: (!full && keys.length >= 2) ? VP.alignedCloses(closeSeriesEUR, keys, { max: 365, labels }) : {},
         bySymbol: full ? VP.alignedCloses(closeSeriesEUR, keys, { max: 365, labels }) : {},
         byLower: full ? VP.alignedCloses(closeSeriesEUR, keys, { max: 365, labels: lower }) : {},
         since: index.length ? index[0].d : null
@@ -1757,7 +1767,7 @@ function InvestmentTracker() {
       const newHistory = { ...priceHistory };
       Object.entries(newPrices).forEach(([symbol, price]) => {
         if (typeof price === 'number' && !isNaN(price)) {
-          if (!newHistory[symbol]) newHistory[symbol] = [];
+          if (!Object.prototype.hasOwnProperty.call(newHistory, symbol)) newHistory[symbol] = [];
           newHistory[symbol].push({ timestamp, price });
           if (newHistory[symbol].length > 100) {
             newHistory[symbol] = newHistory[symbol].slice(-100);
@@ -2968,7 +2978,7 @@ function InvestmentTracker() {
                 privacyMode, formatPrice, getCurrencySymbol
               })),
             React.createElement(window.MaerminPerformance.View, {
-              theme: currentTheme, t, formatPrice, getCurrencySymbol, workerUrl: apiKeys.cs2Worker
+              theme: currentTheme, t, formatPrice, getCurrencySymbol, workerUrl: apiKeys.cs2Worker, demo: demoMode
             })
           ) : renderAnalyticsPlaceholder(t.navPerformance || 'Performance');
 
@@ -3131,7 +3141,7 @@ function InvestmentTracker() {
             // FX attribution: split the EUR return into asset vs exchange-rate
             // parts (no new tab; the EUR/USD path comes via the existing yf route).
             window.MaerminFxAttribution && React.createElement(window.MaerminFxAttribution.Panel, {
-              portfolio, prices, priceHistory, transactions: activeTransactions,
+              portfolio, prices, priceHistory: { ...priceHistory, ...dailyAnalytics.perHolding }, transactions: activeTransactions,
               workerUrl: apiKeys.cs2Worker, theme: currentTheme, t, formatPrice
             })
           )
@@ -3153,7 +3163,7 @@ function InvestmentTracker() {
             // FX attribution fold-in: the currency dimension of attribution.
             window.MaerminFxAttribution && React.createElement('div', { style: { padding: '0 1.5rem 1.5rem' } },
               React.createElement(window.MaerminFxAttribution.Panel, {
-                portfolio, prices, priceHistory, transactions: activeTransactions,
+                portfolio, prices, priceHistory: { ...priceHistory, ...dailyAnalytics.perHolding }, transactions: activeTransactions,
                 workerUrl: apiKeys.cs2Worker, theme: currentTheme, t, formatPrice
               })
             )
@@ -3182,7 +3192,8 @@ function InvestmentTracker() {
 
       case 'trash':
         return window.MaerminTrash
-          ? React.createElement('div', null,
+          // VIS-011: the standard view padding
+          ? React.createElement('div', { style: { padding: '1.5rem' } },
               window.MaerminPreMigration && React.createElement(window.MaerminPreMigration.PreMigrationCard, { theme: currentTheme, addToast }),
               React.createElement(window.MaerminTrash.TrashView, { theme: currentTheme, addToast }))
           : renderAnalyticsPlaceholder(t.navTrash || 'Trash');
@@ -3208,12 +3219,14 @@ function InvestmentTracker() {
                 theme: currentTheme, t, formatPrice, getCurrencySymbol
               })),
           // Earnings calendar for held stocks (read-only, gated like Discovery).
+          // VIS-010: in the same content column as the cards above.
           window.MaerminEarnings && window.MaerminEarnings.Panel &&
-            React.createElement(window.MaerminEarnings.Panel, {
-              theme: currentTheme,
-              workerUrl: apiKeys.cs2Worker,
-              symbols: [...new Set(activeTransactions.filter(tx => tx.category === 'stocks').map(tx => (tx.symbol || '').toUpperCase()).filter(Boolean))]
-            })
+            React.createElement('div', { style: { padding: '0 1.5rem 1.5rem' } },
+              React.createElement(window.MaerminEarnings.Panel, {
+                theme: currentTheme,
+                workerUrl: apiKeys.cs2Worker,
+                symbols: [...new Set(activeTransactions.filter(tx => tx.category === 'stocks').map(tx => (tx.symbol || '').toUpperCase()).filter(Boolean))]
+              }))
         );
 
       case 'tax':
@@ -3238,7 +3251,7 @@ function InvestmentTracker() {
       case 'investment-analysis':
         return window.InvestmentViews && window.InvestmentViews.InvestmentAnalysisDashboard ?
           React.createElement(window.InvestmentViews.InvestmentAnalysisDashboard, {
-            portfolio, prices, priceHistory, metaVersion,
+            portfolio, prices, priceHistory, dailyCloses: dailyAnalytics.perHolding, metaVersion,
             theme: currentTheme, t, formatPrice, getCurrencySymbol, workerUrl: apiKeys.cs2Worker, exchangeRate
           }) : renderAnalyticsPlaceholder(t.navStrategy || 'Strategy Analysis');
 
@@ -3516,7 +3529,9 @@ function InvestmentTracker() {
     const pctStr = window.MaerminI18n.pct(stats.totalProfitPercent, 2, true);
 
     // Label names depend on mode
-    const labelReturn = isAllMode ? __('ovTotalReturn', 'Total Return') : __('ovPortfolioReturn', 'Portfolio Return');
+    // VIS-006: value minus the open cost basis - the unrealised part only
+    // (Returns → "Total return" also counts sales and dividends).
+    const labelReturn = __('ovUnrealisedGain', 'Unrealised gain');
 
     const statCard = (label, value, sub, color, onClick) =>
       React.createElement('div', {
@@ -3599,6 +3614,7 @@ function InvestmentTracker() {
           transactions:       overviewTransactions,
           apiKeys,
           exchangeRate,
+          fxAt,
           currentValue:       stats.totalValue,
           totalInvested:      stats.totalInvested,
           totalProfit:        stats.totalProfit,
@@ -3618,13 +3634,13 @@ function InvestmentTracker() {
         return React.createElement('div', {
           style: { display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(190px, 1fr))', gap: '1rem', marginBottom: '1.5rem' }
         },
-          statCard(t.invested || 'Invested', `${formatPrice(stats.totalInvested)} ${getCurrencySymbol()}`,
+          statCard(__('ovCostBasisOpen', 'Cost basis (open)'), `${formatPrice(stats.totalInvested)} ${getCurrencySymbol()}`,
             __('ovAcrossPositions', 'across {n} {n:position|positions}', { n: stats.totalPositions })),
           statCard(labelReturn,
             `${isUp ? '+' : ''}${formatPrice(stats.totalProfit)} ${getCurrencySymbol()}`,
             __('ovAllTime', '{pct} all time', { pct: pctStr }),
             isUp ? currentTheme.success : currentTheme.danger),
-          statCard(__('ovDividends12m', 'Dividends (12m)'),
+          statCard(__('ovDivExpected12m', 'Expected dividends (12m)'),
             (divOv && divOv.available) ? `${formatPrice(divOv.totalAnnual)} ${getCurrencySymbol()}` : '—',
             (divOv && divOv.available) ? __('perMonthYield', '{amount}/mo · {yield}', { amount: `${formatPrice(divOv.monthly)} ${getCurrencySymbol()}`, yield: window.MaerminI18n.pct(divOv.yield, 1) }) : (t.kpiDividendsNone || 'No dividend payers'),
             (divOv && divOv.available) ? currentTheme.success : undefined,
@@ -3801,7 +3817,7 @@ function InvestmentTracker() {
           ),
           // Phones: the table scrolls inside the card instead of being clipped by it.
           React.createElement('div', { role: 'region', tabIndex: 0, 'aria-label': showClosed ? __('ovPosClosedAria', 'Closed positions') : (t.positions || 'Positions'), style: { overflowX: 'auto', maxWidth: '100%' } },
-          showClosed ? closedTable : React.createElement('table', { style: { width: '100%', borderCollapse: 'collapse', fontVariantNumeric: 'tabular-nums' } },
+          showClosed ? closedTable : React.createElement('table', { className: 'mx-table-cards', style: { width: '100%', borderCollapse: 'collapse', fontVariantNumeric: 'tabular-nums' } },
             React.createElement('thead', null,
               React.createElement('tr', { style: { borderTop: `1px solid ${currentTheme.cardBorder}` } },
                 th(__('colAsset', 'Asset'), 'left', '0.7rem 1.5rem'),
@@ -3822,7 +3838,7 @@ function InvestmentTracker() {
                 'aria-label': __('ovPosDetails', '{name} details', { name: p.name }),
                 style: { borderTop: `1px solid ${currentTheme.cardBorder}`, cursor: 'pointer' }
               },
-                React.createElement('td', { style: { padding: '0.85rem 1.5rem' } },
+                React.createElement('td', { className: 'mx-card-lead', style: { padding: '0.85rem 1.5rem' } },
                   React.createElement('div', { style: { display: 'flex', alignItems: 'center', gap: '0.7rem' } },
                     React.createElement('div', { style: { width: '32px', height: '32px', borderRadius: '9px', background: `${p.color}22`, color: p.color, display: 'flex', alignItems: 'center', justifyContent: 'center', fontFamily: "'Geist', sans-serif", fontWeight: '700', fontSize: '0.78rem', flexShrink: 0 } }, glyph(p.sym)),
                     React.createElement('div', null,
@@ -3831,14 +3847,14 @@ function InvestmentTracker() {
                     )
                   )
                 ),
-                React.createElement('td', { style: { textAlign: 'right', padding: '0.85rem 0.75rem', fontFamily: "'Geist Mono', monospace", fontSize: '0.8rem', color: currentTheme.textSecondary } }, window.MaerminI18n.num(p.amount, { min: 0, max: 4 })),
-                React.createElement('td', { style: { textAlign: 'right', padding: '0.85rem 0.75rem', fontFamily: "'Geist', sans-serif", fontSize: '0.82rem', color: currentTheme.text } },
+                React.createElement('td', { 'data-label': __('colQty', 'Qty'), style: { textAlign: 'right', padding: '0.85rem 0.75rem', fontFamily: "'Geist Mono', monospace", fontSize: '0.8rem', color: currentTheme.textSecondary } }, window.MaerminI18n.num(p.amount, { min: 0, max: 4 })),
+                React.createElement('td', { 'data-label': t.price || 'Price', style: { textAlign: 'right', padding: '0.85rem 0.75rem', fontFamily: "'Geist', sans-serif", fontSize: '0.82rem', color: currentTheme.text } },
                   p.price > 0 ? money(p.price) : '—',
                   // Valued at cost because no quote has ever been fetched for it.
                   window.MaerminMarket.isCostFallback(p.sym) && React.createElement('div', { 'data-testid': 'no-price', title: __('noPriceTitle', 'No market price available yet — valued at cost basis.'), style: { fontSize: '0.62rem', color: gray } }, __('noPriceAtCost', 'no price · at cost'))
                 ),
-                React.createElement('td', { style: { textAlign: 'right', padding: '0.85rem 0.75rem', fontFamily: "'Geist', sans-serif", fontSize: '0.85rem', fontWeight: '600', color: currentTheme.text } }, money(p.value)),
-                React.createElement('td', { style: { padding: '0.85rem 1rem' } },
+                React.createElement('td', { 'data-label': __('colValue', 'Value'), style: { textAlign: 'right', padding: '0.85rem 0.75rem', fontFamily: "'Geist', sans-serif", fontSize: '0.85rem', fontWeight: '600', color: currentTheme.text } }, money(p.value)),
+                React.createElement('td', { 'data-label': __('colWeight', 'Weight'), style: { padding: '0.85rem 1rem' } },
                   React.createElement('div', { style: { display: 'flex', alignItems: 'center', gap: '0.5rem' } },
                     React.createElement('div', { style: { flex: 1, height: '5px', background: currentTheme.inputBg, borderRadius: '3px', overflow: 'hidden' } },
                       React.createElement('div', { style: { width: `${totalVal > 0 ? (p.value / totalVal * 100) : 0}%`, height: '100%', background: p.color, borderRadius: '3px' } })
@@ -3846,7 +3862,7 @@ function InvestmentTracker() {
                     React.createElement('span', { style: { fontSize: '0.72rem', color: gray, fontFamily: "'Geist', sans-serif" } }, window.MaerminI18n.pct(totalVal > 0 ? (p.value / totalVal * 100) : 0, 1))
                   )
                 ),
-                React.createElement('td', { style: { textAlign: 'right', padding: '0.85rem 1.5rem' } },
+                React.createElement('td', { 'data-label': __('colPnl', 'P&L'), style: { textAlign: 'right', padding: '0.85rem 1.5rem' } },
                   React.createElement('div', { style: { fontFamily: "'Geist', sans-serif", fontSize: '0.85rem', fontWeight: '600', color: p.pnl >= 0 ? green : red } }, `${p.pnl >= 0 ? '+' : ''}${money(p.pnl)}`),
                   React.createElement('div', { style: { fontSize: '0.72rem', color: p.pnl >= 0 ? green : red } }, fmtPct(p.pnlPct))
                 )
@@ -4117,7 +4133,9 @@ function InvestmentTracker() {
           // (available right after an import); else the refresh history.
           React.createElement(window.CorrelationMatrixView, Object.keys(dailyAnalytics.bySymbol).length >= 2
             ? { portfolio, priceHistory: dailyAnalytics.bySymbol, historySource: 'daily', t, theme: currentTheme, formatPrice }
-            : { portfolio, priceHistory, t, theme: currentTheme, formatPrice })
+            : Object.keys(dailyAnalytics.partial).length >= 2
+              ? { portfolio, priceHistory: dailyAnalytics.partial, historySource: 'partial', t, theme: currentTheme, formatPrice }
+              : { portfolio, priceHistory, t, theme: currentTheme, formatPrice })
           : renderAnalyticsPlaceholder(t.correlationMatrix || 'Correlation Matrix');
         case 'montecarlo': return React.createElement(React.Fragment, null,
           window.MonteCarloView
@@ -4142,7 +4160,7 @@ function InvestmentTracker() {
           window.RiskAnalyticsViewV2
             ? React.createElement(window.RiskAnalyticsViewV2, { portfolio, prices, transactions: activeTransactions, setActiveView, t, theme: currentTheme, formatPrice, getCurrencySymbol,
                 priceHistory: Object.keys(dailyAnalytics.byLower).length ? dailyAnalytics.byLower : priceHistory,
-                historySource: Object.keys(dailyAnalytics.byLower).length ? 'daily' : 'refresh' })
+                historySource: Object.keys(dailyAnalytics.byLower).length ? 'daily' : 'refresh', valueSeries: dailyAnalytics.index })
             : renderAnalyticsPlaceholder(t.navRiskCorrelation || 'Risk Analysis'),
           // Rolling volatility/return trajectory + Fama-French factor exposure —
           // folds the analytics engine into Risk (no new tab).
@@ -4392,7 +4410,7 @@ function InvestmentTracker() {
             },
               txSearch ? (t.noResults || 'No results for your search.') : (t.noTransactions || 'No transactions yet.')
             )
-          : React.createElement('table', { style: { width: '100%', borderCollapse: 'collapse', minWidth: '700px' } },
+          : React.createElement('table', { className: 'mx-table-cards', style: { width: '100%', borderCollapse: 'collapse', minWidth: '700px' } },
               React.createElement('thead', null,
                 React.createElement('tr', null,
                   ['date','type','symbol','qty','price','cur','total',''].map((h, i) =>
@@ -4422,8 +4440,8 @@ function InvestmentTracker() {
                       onMouseEnter: e => e.currentTarget.style.background = 'rgba(255,255,255,0.03)',
                       onMouseLeave: e => e.currentTarget.style.background = 'transparent'
                     },
-                      React.createElement('td', { style: { padding: '0.875rem 1rem', color: currentTheme.text, fontSize: '0.875rem' } }, tx.date),
-                      React.createElement('td', { style: { padding: '0.875rem 1rem' } },
+                      React.createElement('td', { className: 'mx-card-lead', style: { padding: '0.875rem 1rem', color: currentTheme.text, fontSize: '0.875rem' } }, tx.date),
+                      React.createElement('td', { className: 'mx-card-lead', style: { padding: '0.875rem 1rem' } },
                         React.createElement('span', {
                           style: {
                             padding: '0.2rem 0.5rem',
@@ -4437,21 +4455,22 @@ function InvestmentTracker() {
                           }
                         }, window.MaerminUtils.txTypeInfo(tx.type, t).label)
                       ),
-                      React.createElement('td', { style: { padding: '0.875rem 1rem' } },
+                      React.createElement('td', { className: 'mx-card-lead', style: { padding: '0.875rem 1rem' } },
                         React.createElement('div', { style: { color: currentTheme.text, fontWeight: '600', fontSize: '0.875rem' } }, tx.symbol),
                         React.createElement('div', { style: { color: currentTheme.textSecondary, fontSize: '0.75rem' } }, getCategoryDisplayName(tx.category))
                       ),
-                      React.createElement('td', { style: { padding: '0.875rem 1rem', color: currentTheme.text, textAlign: 'right', fontSize: '0.875rem' } }, window.MaerminI18n.num(tx.quantity, { min: 0, max: 8 })),
-                      React.createElement('td', { style: { padding: '0.875rem 1rem', color: currentTheme.text, textAlign: 'right', fontSize: '0.875rem' } },
-                        tx.price != null ? window.MaerminI18n.num(tx.price, 2) : ''
+                      React.createElement('td', { 'data-label': t.quantity || 'Qty', style: { padding: '0.875rem 1rem', color: currentTheme.text, textAlign: 'right', fontSize: '0.875rem' } }, window.MaerminI18n.num(tx.quantity, { min: 0, max: 8 })),
+                      React.createElement('td', { 'data-label': t.price || 'Price', style: { padding: '0.875rem 1rem', color: currentTheme.text, textAlign: 'right', fontSize: '0.875rem' } },
+                        tx.price != null ? (privacyMode ? '••••••' : window.MaerminI18n.num(tx.price, 2)) : ''
                       ),
-                      React.createElement('td', { style: { padding: '0.875rem 0.5rem', color: currentTheme.textSecondary, textAlign: 'center', fontSize: '0.75rem' } },
+                      React.createElement('td', { className: 'mx-hide-phone', style: { padding: '0.875rem 0.5rem', color: currentTheme.textSecondary, textAlign: 'center', fontSize: '0.75rem' } },
                         tx.currency || 'EUR'
                       ),
-                      React.createElement('td', { style: { padding: '0.875rem 1rem', color: currentTheme.text, textAlign: 'right', fontWeight: '600', fontSize: '0.875rem' } },
-                        window.MaerminI18n.num(tx.quantity * tx.price, 2)
+                      React.createElement('td', { 'data-label': t.total || 'Total', style: { padding: '0.875rem 1rem', color: currentTheme.text, textAlign: 'right', fontWeight: '600', fontSize: '0.875rem' } },
+                        // VIS-003 masked in Privacy Mode; VIS-015 the total names its currency (USD and EUR rows mix)
+                        privacyMode ? '••••••' : window.MaerminI18n.num(tx.quantity * tx.price, 2) + ' ' + (tx.currency || 'EUR')
                       ),
-                      React.createElement('td', { style: { padding: '0.5rem 0.75rem', textAlign: 'center' } },
+                      React.createElement('td', { className: 'mx-card-actions', style: { padding: '0.5rem 0.75rem', textAlign: 'center' } },
                         React.createElement('div', { style: { display: 'flex', gap: '0.375rem', justifyContent: 'center' } },
                           React.createElement('button', {
                             onClick: () => editTransaction(tx),
@@ -4696,7 +4715,7 @@ function InvestmentTracker() {
       // Sparerpauschbetrag headroom + loss-harvesting findings. Estimate only.
       taxJurisdiction === 'de' && window.MaerminTaxAdvisor && window.MaerminTaxAdvisor.Panel &&
         React.createElement(window.MaerminTaxAdvisor.Panel, {
-          transactions, prices, exchangeRate, fxAt, taxOwner,
+          transactions, prices, exchangeRate, fxAt, taxOwner, privacyMode,
           ...(() => {
             // Feed the advisor the three German loss pots from the SAME report
             // the KPIs use: direct shares, funds + other capital income, and
@@ -5817,7 +5836,8 @@ buy,crypto,bitcoin,0.5,45000,2024-01-15,10`)
       try {
         const w = window.open('', '_blank'); if (!w) return;
         const esc = fileText.replace(/[&<>]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;' }[c]));
-        w.document.write('<title>MAERMIN Recovery Code</title><pre style="font:14px ui-monospace,Menlo,monospace;padding:24px;white-space:pre-wrap">' + esc + '</pre>');
+        w.document.write('<title>MAERMIN Recovery Code</title><pre id="rc">' + esc + '</pre>');
+        try { var pre = w.document.getElementById('rc'); pre.style.font = '14px ui-monospace,Menlo,monospace'; pre.style.padding = '24px'; pre.style.whiteSpace = 'pre-wrap'; } catch (e) {} // CSSOM: allowed without 'unsafe-inline'
         w.document.close(); w.focus(); w.print();
       } catch (e) {}
     };
@@ -6035,7 +6055,6 @@ buy,crypto,bitcoin,0.5,45000,2024-01-15,10`)
       ),
 
       React.createElement('div', { className: 'mx-actions', ref: settingsRef },
-        React.createElement('div', { className: 'mx-live', title: __('appIsLive', 'App is live') }, React.createElement('i'), 'Live'),
 
         // Privacy toggle (mask all amounts)
         React.createElement('button', {

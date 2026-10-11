@@ -69,25 +69,30 @@
 
   function clear() { try { localStorage.removeItem(KEY); } catch (e) {} }
 
+  // An error as its type only ("TypeError"), never its message: messages can
+  // quote the data that failed to parse, and this log is kept in plain text.
+  function errorLabel(err) {
+    var n = err && typeof err === 'object' && typeof err.name === 'string' ? err.name : '';
+    return /^[A-Za-z]{1,40}$/.test(n) ? n : 'Error';
+  }
+
   // Wire global error capture exactly once. Guarded for headless/Node.
   var _installed = false;
   function install() {
     if (_installed || typeof window === 'undefined' || !window.addEventListener) return;
     _installed = true;
     window.addEventListener('error', function (ev) {
-      var msg = ev && ev.message ? ev.message : 'unknown error';
       var where = ev && ev.filename ? (' @ ' + String(ev.filename).split('/').pop() + ':' + ev.lineno) : '';
-      record(EVENTS.ERROR, msg + where, 'error');
+      record(EVENTS.ERROR, errorLabel(ev && ev.error) + where, 'error');
     });
     window.addEventListener('unhandledrejection', function (ev) {
-      var reason = ev && ev.reason ? (ev.reason.message || ev.reason) : 'unhandled rejection';
-      record(EVENTS.REJECTION, String(reason), 'error');
+      record(EVENTS.REJECTION, errorLabel(ev && ev.reason), 'error');
     });
   }
 
   var api = {
     KEY: KEY, MAX: MAX, EVENTS: EVENTS,
-    record: record, getEntries: getEntries, clear: clear, install: install
+    record: record, getEntries: getEntries, clear: clear, install: install, errorLabel: errorLabel
   };
   if (typeof window !== 'undefined') { window.MaerminAuditLog = api; install(); }
   if (typeof module !== 'undefined' && module.exports) module.exports = api;

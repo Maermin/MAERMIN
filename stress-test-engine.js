@@ -27,7 +27,7 @@ const HISTORICAL_SCENARIOS = {
     },
     recoveryMonths: 48,
     peakToTrough: -57,
-    get note() { return __('stScSkinsNote', 'CS:GO skins marketplace launched in August 2013. Skins are not affected in this historical scenario.'); }
+    get note() { return __('stScSkinsNote', 'The CS2 skins marketplace (then CS:GO) launched in August 2013. Skins are not affected in this historical scenario.'); }
   },
   
   '2020-covid-crash': {
@@ -73,7 +73,7 @@ const HISTORICAL_SCENARIOS = {
     },
     recoveryMonths: 84,
     peakToTrough: -78,
-    get note() { return __('stScSkinsNote', 'CS:GO skins marketplace launched in August 2013. Skins are not affected in this historical scenario.'); }
+    get note() { return __('stScSkinsNote', 'The CS2 skins marketplace (then CS:GO) launched in August 2013. Skins are not affected in this historical scenario.'); }
   },
   
   'crypto-winter-2022': {

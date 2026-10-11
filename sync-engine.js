@@ -126,6 +126,13 @@
     // re-fetchable market-data caches (encrypted at rest, kept per device)
     'maermin_price_meta', 'maermin_equity_meta_cache', 'maermin_dividend_cache',
     'maermin_marketcap_cache', 'maermin_symbol_suffix', 'maermin_div_notified'];
+  // SEC-019: the keys a snapshot may carry - encrypted data keys that are not
+  // device-local. Vault infrastructure (meta, at-rest flag), the Worker URL and
+  // everything else is never taken from a remote snapshot.
+  function syncableKey(k) {
+    if (LOCAL_ONLY_KEYS.indexOf(k) !== -1) return false;
+    return (Storage && typeof Storage.isSensitive === 'function') ? Storage.isSensitive(k) : true;
+  }
   function loadBase() {
     try { var b = JSON.parse(lsGet(BASE_KEY) || 'null'); return (b && typeof b === 'object') ? b : null; } catch (e) { return null; }
   }
@@ -307,10 +314,10 @@
 
     var keys = {};
     Object.keys(localData).forEach(function (k) { keys[k] = true; });
-    Object.keys(remoteData).forEach(function (k) { keys[k] = true; });
+    Object.keys(remoteData).forEach(function (k) { if (syncableKey(k)) keys[k] = true; });
 
     Object.keys(keys).forEach(function (k) {
-      var lv = localData[k], rv = remoteData[k];
+      var lv = localData[k], rv = syncableKey(k) ? remoteData[k] : undefined;
       if (lv === undefined) { mergedData[k] = rv; return; }
       if (rv === undefined) { mergedData[k] = lv; return; }
       if (lv === rv) { mergedData[k] = lv; return; }
@@ -346,9 +353,12 @@
   function applySnapshot(snapshot) {
     _appliedLocal = true;
     var data = (snapshot && snapshot.data) || {};
+    var dropped = [];
     Object.keys(data).forEach(function (k) {
+      if (!syncableKey(k)) { dropped.push(k); return; }
       try { localStorage.setItem(k, data[k]); } catch (e) {}
     });
+    if (dropped.length) _lastDropped = dropped;
     if (Storage && Storage.flush) Storage.flush();
   }
 
@@ -376,7 +386,7 @@
         return call({ op: 'get', account: account }).then(function (r) {
           if (noStorage(r)) throw noStorage(r);
           if (r.status !== 200) throw new Error('sync-http-' + r.status + (r.json && r.json.error ? ': ' + r.json.error : ''));
-          if (r.json && r.json.blob) return { rev: r.json.rev, blob: r.json.blob };
+          if (r.json && r.json.blob) return { rev: r.json.rev, blob: r.json.blob, protected: r.json.protected };
           return null;
         });
       },
@@ -399,6 +409,7 @@
   // ---- orchestration -------------------------------------------------------
   var _transport = null;
   var _syncing = false;
+  var _lastDropped = [];   // keys a remote snapshot carried but may not set (SEC-019)
   var _listeners = [];
   function onChange(cb) { if (typeof cb === 'function') _listeners.push(cb); }
   function emit(ev) { _listeners.forEach(function (cb) { try { cb(ev); } catch (e) {} }); }
@@ -458,7 +469,9 @@
             }
             var m = mergeSnapshots(localSnap, remoteSnap, loadBase());
             applySnapshot(m.merged);
-            return pushSnapshot(account, remote.rev, m.merged, m.conflicts);
+            // H-2: an account created before write-auth (protected === false;
+            // an older Worker does not say) is claimed with this write.
+            return pushSnapshot(account, remote.rev, m.merged, m.conflicts, remote.protected === false);
           });
         }
         return pipeline;
@@ -615,6 +628,7 @@
     accountId: accountId, enableAutoSync: enableAutoSync, onChange: onChange,
     syncOnStart: syncOnStart, scheduleSync: scheduleSync, statusOf: statusOf,
     // pure core (tested)
+    applySnapshot: applySnapshot, syncableKey: syncableKey, lastDropped: function () { return _lastDropped.slice(); },
     buildSnapshot: buildSnapshot, snapshotHash: snapshotHash, mergeSnapshots: mergeSnapshots, keyHashes: keyHashes, seedBase: seedBase, LEGACY_SYNC_KEYS: LEGACY_SYNC_KEYS,
     unionTransactions: unionTransactions, contentHash: contentHash,
     trackTxChanges: trackTxChanges, mergeTxMeta: mergeTxMeta, TX_META_KEY: TX_META_KEY,

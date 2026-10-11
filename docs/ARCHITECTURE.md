@@ -58,9 +58,16 @@ wait for the next load.
 | `crypto-vault.js` | `MaerminVault` | AES-256-GCM; PBKDF2-600k KDF (Argon2id only if a provider is registered via `registerKdf` — none is bundled); wrap-check (no password stored); HKDF sub-keys; idle auto-lock; WebAuthn-PRF passkeys; **printable recovery-code kit** — a second wrapping of the vault key (`enrollRecovery`/`unlockWithRecovery`), the code is shown once and never stored/transmitted |
 | `storage.js` | `MaerminStorage` | Transparent encryption-at-rest shim over `localStorage` for a fixed set of sensitive keys; reversible plaintext backup; portable **encrypted** backup export/import |
 | `auth.js` | `MaerminAuth` | Setup / unlock / lock UI; mount gate; change-password; one-time recovery-code reveal at setup + recovery-code unlock path |
-| `audit-log.js` | `MaerminAuditLog` | On-device event + error trail (non-sensitive, ring-buffered) |
+| `audit-log.js` | `MaerminAuditLog` | On-device event + error trail (non-sensitive, ring-buffered); errors are kept by type (`errorLabel`), never by message |
 | `migrations.js` | `MaerminMigrations` | Versioned, idempotent localStorage migrations |
+| `sync-engine.js` | `MaerminSync` | Opt-in encrypted sync: snapshot of the encrypted data keys minus device-local ones, three-way merge, write key + MAC per put; a remote snapshot may only set those same keys (`syncableKey`; vault meta, Worker URL and local keys are dropped and reported by `lastDropped`) |
 | `premigration-backup.js` | `MaerminPreMigration` | Encrypted copy of the data before a pending migration (one IndexedDB record `maermin_premigration_backup`, vault key, not synced, not in the backup); restore / delete in Settings → Trash |
+
+**Content-Security-Policy** (meta tag in `index.html`, the same list in `build.mjs`, `test/csp.test.js` keeps them
+equal): `default-src 'self'`, scripts from this site and the pinned CDN paths, `style-src 'self'` (no inline
+`<style>`: the lock screen and install toast styles are in `styles.css`; React and `style.cssText` use CSSOM, which
+the policy allows), images from the Steam CDN, Yahoo logos and CoinGecko, `connect-src` this site, the two rate
+services and `*.workers.dev`, `form-action`/`frame-src`/`object-src 'none'`.
 
 ---
 
@@ -108,7 +115,7 @@ conversion happens only at format time (`formatPrice`).
 | `recurring.js` | `MaerminRecurring` | Recurring liabilities (loans/mortgages) |
 | `portfolio-analytics.js` | `MaerminAnalytics` | Pure quant fed return series: benchmarks (α/β/Tracking Error/Information Ratio/R²), simulator (future value/FIRE/withdrawal), risk (max drawdown/rolling vol/Fama-French OLS). Monte Carlo is `monte-carlo-engine.js` only |
 | `close-history.js` | `MaerminCloseHistory` | Daily closes per holding back to its first trade: `need` → `plan` (full range or tail, at most every 6 h) → `sync` with an injectable `fetch` (Worker `yf` for stocks, commodities and crypto as Yahoo USD pairs, CoinGecko only as the crypto fallback; CS2 skins have no daily history) → compact store in the quote currency at `maermin_close_history` (sensitive, in the backup, excluded from sync). Also the one table of Yahoo symbol mappings shared with the live price refresh |
-| `value-path.js` | `MaerminValuePath` | Daily value path from transactions × EUR closes: chain-linked true TWR (held-yesterday link × trade/payout link), split-adjusted quantities, coverage report (missing / carried holdings); `fromValues` chain-links recorded snapshots (fallback); `index` = flow-neutral series for the analytics; `alignedCloses` = per-holding closes on one date grid |
+| `value-path.js` | `MaerminValuePath` | Daily value path from transactions × EUR closes: chain-linked true TWR (held-yesterday link × trade/payout link), split-adjusted quantities, coverage report (missing / carried holdings); `fromValues` chain-links recorded snapshots (fallback); `index` = flow-neutral series for the analytics; `alignedCloses` = per-holding closes on one date grid. In `renderer.js` (`dailyAnalytics`): the risk view takes the per-holding grid only when every open holding has closes, else the flow-neutral `index`; the correlation matrix takes the grid of the holdings that have closes (labelled as partial); FX attribution and the DCA comparison take each holding's own closes |
 | `returns-heatmap.js` | `MaerminReturnsHeatmap` | Monthly returns grid (Analysis → Returns): `fromSteps` compounds the TWR card's chain of period returns (value path points, `fromValues().steps` or `MaerminReturns.twrSteps`) into months, quarters and years; `cellColor` / `textOn` keep every printed figure at 4.5 : 1 in all themes |
 | `position-chart.js` | `MaerminPositionChart` | Position detail dialog: daily EUR closes since the first buy (`prepare` thins to ≤ 365 points) with a dashed average-cost line for open positions; closed positions show the price only |
 | `ai-prompt.js` | `MaerminAIPrompt` | Settings → Privacy: plain-text portfolio summary to paste into any AI assistant; nothing is sent. Redacted level = text built only from `MaerminShare.validateSnapshot()` output (weights and scores); full level (holdings, quantities, amounts) after a confirmation and never while "Hide amounts" is on; reads only listed position fields (no notes, journal, keys) |

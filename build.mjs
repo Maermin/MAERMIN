@@ -108,16 +108,20 @@ await writeFile(join(dist, 'boot.js'),
 // script tags with ONE local file (+ pinned CDN deps), script-src no longer
 // needs 'unsafe-inline' — the biggest XSS-hardening win of the build. connect-src
 // mirrors the data sources the app actually calls (renderer fetchPrices + Worker).
-const CSP = "default-src 'self' https:; " +
-  "script-src 'self' https://unpkg.com/react@18.3.1/umd/ https://unpkg.com/react-dom@18.3.1/umd/ " +
-  "https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/ https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.5.31/ https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/; " +
-  "style-src 'self' 'unsafe-inline'; " +
-  "font-src 'self' data:; " +
-  "img-src 'self' data: https: https://community.akamai.steamstatic.com; " +
-  "connect-src 'self' https://api.exchangerate-api.com " +
-  "https://open.er-api.com https://*.workers.dev " +
-  "https://cdnjs.cloudflare.com; " +
-  "worker-src 'self'; manifest-src 'self'; base-uri 'self'; object-src 'none'";
+const CSP = [
+  "default-src 'self'",
+  "script-src 'self' https://unpkg.com/react@18.3.1/umd/ https://unpkg.com/react-dom@18.3.1/umd/ https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/ https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.5.31/ https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/",
+  "style-src 'self'",
+  "font-src 'self' data:",
+  "img-src 'self' data: blob: https://community.akamai.steamstatic.com https://s.yimg.com https://coin-images.coingecko.com https://assets.coingecko.com",
+  "connect-src 'self' https://api.exchangerate-api.com https://open.er-api.com https://*.workers.dev",
+  "worker-src 'self'",
+  "manifest-src 'self'",
+  "base-uri 'self'",
+  "object-src 'none'",
+  "form-action 'none'",
+  "frame-src 'none'"
+].join('; ');
 
 // Production index.html: keep <head> (CDN deps + styles), single bundle script.
 const cdnTags = cdn.map((tag) => `  ${tag}`).join('\n');

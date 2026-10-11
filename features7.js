@@ -62,7 +62,10 @@ function PerformanceAttribution({ portfolio, prices, transactions, exchangeRate,
   );
 
   // Rows are sorted by contribution (pp of total return), best first.
-  const best = result.rows[0], worst = result.rows[result.rows.length - 1];
+  // VIS-007: a contributor only when it added, a detractor only when it took away.
+  const first = result.rows[0], last = result.rows[result.rows.length - 1];
+  const best = first && first.contributionPP > 0 ? first : null;
+  const worst = last && last.contributionPP < 0 ? last : null;
   const summary = (label, r) => React.createElement('div', { key: label, style: { background: theme.card, border: `1px solid ${theme.cardBorder}`, borderRadius: '16px', boxShadow: theme.shadow, padding: '1rem' } },
     React.createElement('div', { style: { color: theme.textSecondary, fontSize: '0.7rem', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: '0.25rem' } }, label),
     React.createElement('div', { style: { color: theme.text, fontWeight: '700', fontSize: '0.95rem', marginBottom: '0.125rem' } }, r ? r.name : '—'),
@@ -77,8 +80,8 @@ function PerformanceAttribution({ portfolio, prices, transactions, exchangeRate,
         __('attrSubtitle', 'Which positions drove your portfolio gains and losses'))),
 
     React.createElement('div', { style: { display: 'grid', gridTemplateColumns: 'repeat(auto-fit,minmax(160px,1fr))', gap: '1rem', marginBottom: '1.5rem' } },
-      summary(__('attrTopContrib', 'Top contributor'), best),
-      summary(__('attrTopDetract', 'Top detractor'), worst)
+      best && summary(__('attrTopContrib', 'Top contributor'), best),
+      worst && summary(__('attrTopDetract', 'Top detractor'), worst)
     ),
 
     React.createElement('div', { style: { background: theme.card, border: `1px solid ${theme.cardBorder}`, borderRadius: '16px', boxShadow: theme.shadow, padding: '1.25rem', marginBottom: '1.5rem' } },

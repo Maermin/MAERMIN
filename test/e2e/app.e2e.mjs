@@ -577,7 +577,7 @@ async function runBuild(browser, label, dir) {
       ok('FSA: a broker linked to Main Portfolio shows its 2025 income, used and left (490 / 490 / 110)', /490\.00[\s\S]*490\.00[\s\S]*110\.00/.test(row), row.replace(/\s+/g, ' '));
       await addBroker('Broker B', '500');
       const over = await panel.locator('[data-testid="fsa-over"]').innerText().catch(() => '');
-      ok('FSA: orders of 1,100 over the 1,000 allowance are flagged', /1,100\.00/.test(over) && /100\.00 more/.test(over), over);
+      ok('FSA: orders of 1,100 over the 1,000 allowance are flagged', /1,100\.00/.test(over) && /100\.00\s€ more/.test(over), over);
     }
 
     // P2-6: Anlage KAP lines for a portfolio at a broker without German withholding.
@@ -980,7 +980,7 @@ async function runBuild(browser, label, dir) {
     await page.waitForTimeout(1200);
     { const rb = await page.innerText('body');
       // 10 x 100 CHF + 20 CHF fee = 1,020 CHF x 1.06 = 1,081.20 EUR (today's rate would give 1,020.00)
-      ok('CHF buy is costed at the rate of its date: invested 1,081.20 €', /INVESTED\s*1,081\.20/i.test(rb), (rb.match(/INVESTED[\s\S]{0,40}/i) || [''])[0].replace(/\n/g, ' | ')); }
+      ok('CHF buy is costed at the rate of its date: total bought 1,081.20 €', /TOTAL BOUGHT\s*1,081\.20/i.test(rb), (rb.match(/TOTAL BOUGHT[\s\S]{0,40}/i) || [''])[0].replace(/\n/g, ' | ')); }
     // The price refresh for NESN.SW is still probing listings here (the fixture
     // has no quote for it), and a navigation click that coincides with one of
     // its re-renders can be lost: click until the view is active.

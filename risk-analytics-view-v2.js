@@ -43,6 +43,12 @@ function RiskAnalyticsViewV2(props) {
     return total;
   }, [portfolio, prices]);
   
+  var indexSeries = useMemo(function () {
+    var vs = props.historySource === 'daily' ? null : props.valueSeries;
+    if (!Array.isArray(vs) || typeof MIN_RISK_OBSERVATIONS === 'undefined' || vs.length <= MIN_RISK_OBSERVATIONS) return null;
+    return vs.map(function (p) { return p.v; });
+  }, [props.valueSeries, props.historySource]);
+
   // Calculate risk metrics
   useEffect(function() {
     if (typeof calculatePortfolioRiskMetrics !== 'undefined') {
@@ -61,13 +67,22 @@ function RiskAnalyticsViewV2(props) {
         });
       }
       
+      // VIS-005: without daily closes for every holding, the flow-neutral daily
+      // index of the whole portfolio (the value path) is the series - the same
+      // one the rolling panel below uses - instead of a few refresh prices.
+      var riskBook = portfolio, riskValue = portfolioValue;
+      if (indexSeries) {
+        convertedHistory = { __portfolio__: indexSeries };
+        riskBook = { stocks: [{ symbol: '__portfolio__', amount: 1, currentPrice: 1 }] };
+        riskValue = 1;
+      }
       // Too few observations: the engine returns zeros. Leave riskMetrics
       // null so the "needs history" state renders instead of fake values.
       if (typeof hasMeasurableRisk !== 'undefined' && !hasMeasurableRisk(convertedHistory)) {
         setRiskMetrics(null); setRecommendations([]);
         return;
       }
-      var metrics = calculatePortfolioRiskMetrics(portfolio, convertedHistory, portfolioValue);
+      var metrics = calculatePortfolioRiskMetrics(riskBook, convertedHistory, riskValue);
       setRiskMetrics(metrics);
       
       if (typeof generateRiskRecommendations !== 'undefined') {
@@ -75,7 +90,7 @@ function RiskAnalyticsViewV2(props) {
         setRecommendations(recs);
       }
     }
-  }, [portfolio, priceHistory, portfolioValue]);
+  }, [portfolio, priceHistory, portfolioValue, indexSeries]);
   
   var getRiskColor = function(level) {
     switch (level) {
@@ -168,8 +183,10 @@ function RiskAnalyticsViewV2(props) {
     return e('div', { style: { display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '1rem', flexWrap: 'wrap', marginBottom: '1.5rem' } },
       e('h2', { style: { color: theme.text, fontSize: '1.5rem', fontWeight: '600', margin: 0 } }, t.riskLevel || 'Risk Analytics'),
       // Source of the volatility / VaR / drawdown figures below.
-      e('div', { 'data-testid': 'risk-source', 'data-source': props.historySource || 'refresh', style: { color: theme.textSecondary, fontSize: '0.78rem' } },
-        props.historySource === 'daily'
+      e('div', { 'data-testid': 'risk-source', 'data-source': indexSeries ? 'index' : (props.historySource || 'refresh'), style: { color: theme.textSecondary, fontSize: '0.78rem' } },
+        indexSeries
+          ? __('rkBasedIndex', 'Based on the daily value of your portfolio ({n} daily returns)', { n: indexSeries.length - 1 })
+          : props.historySource === 'daily'
           ? __('rkBasedDaily', 'Based on daily closing prices ({n} daily returns)', { n: typeof riskObservations !== 'undefined' ? riskObservations(priceHistory) : 0 })
           : __('rkBasedRefresh', 'Based on the prices recorded on your refreshes')));
   }

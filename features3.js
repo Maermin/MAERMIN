@@ -293,7 +293,7 @@ function PositionDetailModal({ position, transactions, prices, theme, formatPric
             color: metrics.unrealizedPL >= 0 ? theme.success : theme.danger, big: true },
           { label: __('pdAvgCost', 'Avg Cost'),         value: `${formatPrice(metrics.avgCost)} ${getCurrencySymbol()}` },
           { label: __('pdCurrentPrice', 'Current Price'),    value: `${formatPrice(metrics.currentPrice)} ${getCurrencySymbol()}` },
-          { label: __('ovTotalReturn', 'Total Return'),     value: window.MaerminI18n.pct(metrics.unrealizedPct, 2, true),
+          { label: __('pdUnrealisedPct', 'Unrealised return'), value: window.MaerminI18n.pct(metrics.unrealizedPct, 2, true),
             color: metrics.unrealizedPct >= 0 ? theme.success : theme.danger },
           { label: __('pdCagr', 'CAGR (annualized)'), value: metrics.cagr !== null ? window.MaerminI18n.pct(metrics.cagr, 2, true) : '—',
             color: metrics.cagr !== null ? (metrics.cagr >= 0 ? theme.success : theme.danger) : theme.textSecondary },
