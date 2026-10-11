@@ -1,4 +1,4 @@
-// AUDIT (do not merge): value snapshots are dated with the UTC day. Between
+// Regression test, docs/AUDIT.md run 2026-10-09: value snapshots are dated with the UTC day. Between
 // 00:00 and 01:00/02:00 in Germany a snapshot of the new day overwrites the
 // PREVIOUS day's point, while the trades of that night are dated with the
 // local day (date input, utils.todayISO). The daily series then shows the new

@@ -82,12 +82,27 @@
   function isExecution(tx) {
     return !!(tx && tx.source === 'savings-plan' && tx.planId && tx.dueDate);
   }
+  // Done-keys per plan: the exact due date and, for month-based plans, the
+  // month. Releases before the 2026-10 fix computed schedules that start on the
+  // 29th-31st from the previous, clamped date (31 Jan → 28 Feb → 28 Mar …), so
+  // executions already booked carry e.g. dueDate 2025-03-28 where the schedule
+  // now says 2025-03-31. A month-based plan has exactly one occurrence per period
+  // month, so an execution in the same month counts as that occurrence — no
+  // second buy (AUDIT BUG-014).
+  var MONTH_BASED = { monthly: true, quarterly: true, semiannual: true, annual: true };
+  function monthKey(planId, iso) { return planId + '|m|' + String(iso || '').slice(0, 7); }
   function executionSet(transactions) {
     var set = {};
     (transactions || []).forEach(function (tx) {
-      if (isExecution(tx)) set[tx.planId + '|' + tx.dueDate] = true;
+      if (!isExecution(tx)) return;
+      set[tx.planId + '|' + tx.dueDate] = true;
+      set[monthKey(tx.planId, tx.dueDate)] = true;
     });
     return set;
+  }
+  function isDone(set, plan, dueDate) {
+    if (set[plan.id + '|' + dueDate]) return true;
+    return !!(MONTH_BASED[plan.frequency || 'monthly'] && set[monthKey(plan.id, dueDate)]);
   }
 
   // After a sync merge, two devices may each have booked the same due date
@@ -101,18 +116,18 @@
       var key = tx.planId + '|' + tx.dueDate;
       (byKey[key] || (byKey[key] = [])).push(tx);
     });
-    var removeIds = {};
+    var drop = [];
     Object.keys(byKey).forEach(function (key) {
       var list = byKey[key];
       if (list.length < 2) return;
       list.sort(function (a, b) { return String(a.id) < String(b.id) ? -1 : 1; });
-      list.slice(1).forEach(function (tx) { removeIds[tx.id] = true; });
+      drop = drop.concat(list.slice(1));
     });
-    var removed = Object.keys(removeIds).length;
-    if (!removed) return { transactions: transactions || [], removed: 0 };
+    // By row identity: two copies with the SAME id must leave one behind.
+    if (!drop.length) return { transactions: transactions || [], removed: 0 };
     return {
-      transactions: (transactions || []).filter(function (tx) { return !removeIds[tx.id]; }),
-      removed: removed
+      transactions: (transactions || []).filter(function (tx) { return drop.indexOf(tx) === -1; }),
+      removed: drop.length
     };
   }
 
@@ -146,9 +161,11 @@
       if (!plan || plan.active === false) return;
       if (!(num(plan.amount) > 0) || !plan.symbol) return;
       var skipped = {};
-      (Array.isArray(plan.skippedDates) ? plan.skippedDates : []).forEach(function (d) { skipped[d] = true; });
+      (Array.isArray(plan.skippedDates) ? plan.skippedDates : []).forEach(function (d) {
+        skipped[plan.id + '|' + d] = true; skipped[monthKey(plan.id, d)] = true;
+      });
       occurrences(plan, asOfISO).forEach(function (occ) {
-        if (!done[plan.id + '|' + occ.date] && !skipped[occ.date]) out.push({ plan: plan, dueDate: occ.date });
+        if (!isDone(done, plan, occ.date) && !isDone(skipped, plan, occ.date)) out.push({ plan: plan, dueDate: occ.date });
       });
     });
     return out;
@@ -214,16 +231,21 @@
     return /^\d{4}-\d{2}-\d{2}/.test(s) ? new Date(s).getTime() : NaN;
   }
 
+  // A recorded price counts as the fill of a due date only when it is at most
+  // MAX_PRICE_AGE_DAYS older (weekends, holidays, a few days without a
+  // refresh); older points fall through to the estimated path (AUDIT BUG-019).
+  var MAX_PRICE_AGE_DAYS = 7;
   function priceAtDate(history, prices, symbol, dueDateISO) {
     var sym = String(symbol || '');
     var series = (history || {})[sym] || (history || {})[sym.toLowerCase()] || (history || {})[sym.toUpperCase()];
     var cutoff = new Date(dueDateISO + 'T23:59:59Z').getTime();
+    var oldest = cutoff - (MAX_PRICE_AGE_DAYS + 1) * 86400000;
     var best = null, bestTs = -Infinity;
     (Array.isArray(series) ? series : []).forEach(function (h) {
       var ts = tsOf(h && h.timestamp);
       var p = num(h && h.price);
       if (isNaN(ts) || p == null || p <= 0) return;
-      if (ts <= cutoff && ts > bestTs) { bestTs = ts; best = p; }
+      if (ts <= cutoff && ts > oldest && ts > bestTs) { bestTs = ts; best = p; }
     });
     if (best != null) return best;
     // Live price only for executions due today (booking history at today's

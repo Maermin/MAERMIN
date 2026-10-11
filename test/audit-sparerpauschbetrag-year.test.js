@@ -1,4 +1,4 @@
-// AUDIT (do not merge): the tax report applies the 1,000 EUR Sparerpauschbetrag
+// Regression test, docs/AUDIT.md run 2026-10-09: the tax report applies the 1,000 EUR Sparerpauschbetrag
 // (the 2023+ value / the Freistellungsauftrag setting) to every year. Until
 // 2022 it was 801 EUR (1,602 EUR jointly), so a 2022 report understates tax.
 // Run: node test/audit-sparerpauschbetrag-year.test.js

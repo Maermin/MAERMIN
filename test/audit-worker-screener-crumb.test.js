@@ -3,7 +3,7 @@
 // handshake the quoteSummary routes already use, so Yahoo answers 401 and Discovery
 // shows "Could not load: Yahoo Finance returned 401" (seen against the test Worker,
 // version 2026.10.3 = this repo). The upstream below demands a crumb like Yahoo does.
-// FAILS on main @ 83a9976. Run: node test/audit-worker-screener-crumb.test.js
+// Failed on main @ 83a9976. Run: node test/audit-worker-screener-crumb.test.js
 'use strict';
 let passed = 0, failed = 0;
 function ok(name, cond, detail) {

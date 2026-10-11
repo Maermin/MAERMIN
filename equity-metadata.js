@@ -143,6 +143,8 @@
     // Not a ticker (e.g. a CS2 skin filed as a stock): Yahoo has no profile.
     var T = typeof window !== 'undefined' && window.MaerminTickers;
     if (T && T.isMarketSymbol && !T.isMarketSymbol(sym)) return Promise.resolve(null);
+    var NL = typeof window !== 'undefined' && window.MaerminCloseHistory && window.MaerminCloseHistory.noListing;
+    if (NL && NL.has(sym)) return Promise.resolve(null); // no Yahoo listing (AUDIT BUG-036)
     var url = base + '?action=profile&symbol=' + encodeURIComponent(sym);
     return fetch(url)
       .then(function (r) { if (!r.ok) throw new Error('http ' + r.status); return r.json(); })

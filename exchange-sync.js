@@ -259,16 +259,16 @@ function __(k, f, v) { return (typeof window !== 'undefined' && window.MaerminI1
       var k = externalKey(t);
       (byKey[k] || (byKey[k] = [])).push(t);
     });
-    var removeIds = {};
+    var drop = [];
     Object.keys(byKey).forEach(function (k) {
       var list = byKey[k];
       if (list.length < 2) return;
       list.sort(function (a, b) { return String(a.id) < String(b.id) ? -1 : 1; });
-      list.slice(1).forEach(function (t) { removeIds[t.id] = true; });
+      drop = drop.concat(list.slice(1));
     });
-    var removed = Object.keys(removeIds).length;
-    if (!removed) return { transactions: transactions || [], removed: 0 };
-    return { transactions: (transactions || []).filter(function (t) { return !(t && removeIds[t.id]); }), removed: removed };
+    // By row identity: two copies with the SAME id must leave one behind.
+    if (!drop.length) return { transactions: transactions || [], removed: 0 };
+    return { transactions: (transactions || []).filter(function (t) { return drop.indexOf(t) === -1; }), removed: drop.length };
   }
 
   // One sync per connection at a time (the button is disabled too, but the

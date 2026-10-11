@@ -1,4 +1,4 @@
-// AUDIT (do not merge): an interest catch-up over more than one 31 December
+// Regression test, docs/AUDIT.md run 2026-10-09: an interest catch-up over more than one 31 December
 // only splits at the FIRST year end; every later full year lands in one
 // posting dated (and taxed) in the last year. Also the night of 31 Dec is
 // booked into the next year.

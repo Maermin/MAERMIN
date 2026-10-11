@@ -128,12 +128,18 @@ function __(k, f, v) { return (typeof window !== 'undefined' && window.MaerminI1
       else s = s.replace(/,/g, '');                                        // US
     } else if (lastComma > -1) {
       const parts = s.split(',');
-      const decimalLike = parts.length === 2 && parts[1].length !== 3;
-      if (locale === 'de' || decimalLike) s = s.replace(/\./g, '').replace(',', '.');
+      // Two or more comma groups can only be thousands ("1,234,567"). One group:
+      // a fraction that is not 3 digits, or an integer part of "0"/empty, can only
+      // be a decimal ("0,125" never starts a thousands group). "1,234" stays
+      // ambiguous and follows the locale (default: thousands).
+      const decimalLike = parts.length === 2 && (parts[1].length !== 3 || /^0?$/.test(parts[0]));
+      if (parts.length > 2) s = s.replace(/,/g, '');
+      else if (locale === 'de' || decimalLike) s = s.replace(',', '.');
       else s = s.replace(/,/g, ''); // treat as thousands separator
     } else if (lastDot > -1) {
       const parts = s.split('.');
-      const thousandsLike = locale === 'de' && parts.length === 2 && parts[1].length === 3;
+      // Two or more dot groups are thousands ("1.234.567"); "1.234" with locale de too.
+      const thousandsLike = parts.length > 2 || (locale === 'de' && parts.length === 2 && parts[1].length === 3 && !/^0?$/.test(parts[0]));
       if (thousandsLike) s = s.replace(/\./g, '');
     }
     const n = parseFloat(s);
@@ -146,10 +152,21 @@ function __(k, f, v) { return (typeof window !== 'undefined' && window.MaerminI1
    * `DD/MM/YYYY`, `MM/DD/YYYY` (with optional time). `locale` disambiguates the
    * slash format ('de' → day-first, 'us' → month-first). → 'YYYY-MM-DD' | null
    */
-  function parseDate(value, locale) {
+  // A UTC timestamp (trailing Z / offset, or `utc` set because the column says
+  // "(UTC)") is booked on the user's LOCAL day, like the API sync does since
+  // BUG-004: Binance "2024-12-31 23:30:00" UTC is 1 Jan in Berlin (AUDIT BUG-027).
+  const ISO_TS = /^(\d{4})-(\d{2})-(\d{2})(?:[T ](\d{2}):(\d{2})(?::(\d{2}))?(?:\.\d+)?)?\s*(Z|[+-]\d{2}:?\d{2})?$/i;
+  function localDay(t) { const d = new Date(t); return iso(d.getFullYear(), d.getMonth() + 1, d.getDate()); }
+  function parseDate(value, locale, utc) {
     const raw = String(value == null ? '' : value).trim();
     if (!raw) return null;
     // ISO first (YYYY-MM-DD[...])
+    const ts = raw.match(ISO_TS);
+    if (ts && ts[4] != null && (ts[7] || utc)) {
+      const zone = ts[7] ? (/^z$/i.test(ts[7]) ? 'Z' : ts[7].replace(/^([+-]\d{2})(\d{2})$/, '$1:$2')) : 'Z';
+      const t = Date.parse(`${ts[1]}-${ts[2]}-${ts[3]}T${ts[4]}:${ts[5]}:${ts[6] || '00'}${zone}`);
+      if (!isNaN(t)) return localDay(t);
+    }
     let m = raw.match(/^(\d{4})-(\d{2})-(\d{2})/);
     if (m) return `${m[1]}-${m[2]}-${m[3]}`;
     // DD.MM.YYYY  (always day-first)
@@ -197,6 +214,23 @@ function __(k, f, v) { return (typeof window !== 'undefined' && window.MaerminI1
   }
 
   /** Normalise a symbol via MaerminTickers when available, else uppercase trim. */
+  // Exchange pairs in a crypto export ("BTCUSDT", "BTC/EUR", Kraken's legacy
+  // "XXBTZEUR") → { base, quote }. Same rules as exchange-sync.parsePair (H-1),
+  // with the wider quote list a trade-history CSV carries.
+  const PAIR_QUOTES = ['FDUSD', 'EURC', 'USDT', 'USDC', 'BUSD', 'TUSD', 'EUR', 'USD', 'GBP', 'DAI', 'BTC', 'ETH', 'BNB'];
+  const KRAKEN_ASSETS = { XBT: 'BTC', XXBT: 'BTC', XDG: 'DOGE', XXDG: 'DOGE', XETH: 'ETH' };
+  const KRAKEN_LEGACY = /^X([A-Z]{3})Z(EUR|USD|GBP|CAD|JPY|CHF)$/;
+  function splitCryptoPair(raw) {
+    const p = String(raw == null ? '' : raw).trim().toUpperCase().replace(/[\/\-_ ]/g, '');
+    const kraken = (b) => KRAKEN_ASSETS[b] || b;
+    const legacy = KRAKEN_LEGACY.exec(p);
+    if (legacy) return { base: kraken(legacy[1]), quote: legacy[2] };
+    for (const q of PAIR_QUOTES) {
+      if (p.length > q.length + 1 && p.slice(-q.length) === q) return { base: kraken(p.slice(0, -q.length)), quote: q };
+    }
+    return { base: kraken(p), quote: '' };
+  }
+
   function normalizeSymbol(raw, category) {
     const s = String(raw == null ? '' : raw).trim();
     if (!s) return '';
@@ -305,8 +339,19 @@ function __(k, f, v) { return (typeof window !== 'undefined' && window.MaerminI1
       const rawSym = String(get('symbol') == null ? '' : get('symbol')).trim();
       const isSkin = !!(T && T.looksLikeSkin && T.looksLikeSkin(rawSym));
       const rowCategory = isSkin ? 'skins' : category;
-      const symbol = isSkin ? (T.normalizeSkinName ? T.normalizeSkinName(rawSym) : rawSym) : normalizeSymbol(rawSym, category);
-      const date = parseDate(get('date'), locale);
+      // A crypto "Pair"/"Market" column (or Kraken's legacy pair shape) holds the
+      // pair, not the asset: book the base asset in the quote's currency.
+      const pairColumn = /pair|market/i.test(String(mapping.symbol || ''));
+      const pair = (!isSkin && rowCategory === 'crypto' && (pairColumn || KRAKEN_LEGACY.test(rawSym.toUpperCase())))
+        ? splitCryptoPair(rawSym) : null;
+      const symbol = isSkin ? (T.normalizeSkinName ? T.normalizeSkinName(rawSym) : rawSym)
+        : normalizeSymbol(pair && pair.quote ? pair.base : rawSym, category);
+      const pairCurrency = pair && pair.quote ? (ctFiat(pair.quote) || '') : null;
+      if (pair && pair.quote && !pairCurrency) {
+        errors.push({ row: rowNo, reason: __('imPairQuote', '{pair} is priced in {quote}, not in a currency — import it from a file with fiat prices', { pair: rawSym, quote: pair.quote }), raw: row });
+        return;
+      }
+      const date = parseDate(get('date'), locale, /utc/i.test(String(mapping.date || '')));
       const rawQty = parseNumber(get('quantity'), locale);
       const quantity = Math.abs(rawQty);
       const price = parseNumber(get('price'), locale);
@@ -337,7 +382,7 @@ function __(k, f, v) { return (typeof window !== 'undefined' && window.MaerminI1
         quantity,
         price: Math.abs(price),
         fees: isFinite(feeNum) ? Math.abs(feeNum) : 0,
-        currency: (String(get('currency') || opts.currency || 'EUR').trim().toUpperCase()).slice(0, 3) || 'EUR',
+        currency: (String(get('currency') || pairCurrency || opts.currency || 'EUR').trim().toUpperCase()).slice(0, 3) || 'EUR',
         date
       });
     });
@@ -421,6 +466,24 @@ function __(k, f, v) { return (typeof window !== 'undefined' && window.MaerminI1
     return b ? { id: b.id, name: b.name, category: b.category, score: null, confidence: 1, chosen: true } : null;
   }
 
+  // The file's number format when the values say so unambiguously: "1.234,56"
+  // or a comma with one or two decimals → 'de'; "1,234.56" or a dot with one or
+  // two decimals → 'us'. A ';' delimiter (German Excel) breaks a tie. Returns
+  // undefined when nothing decides it (parseNumber then uses its own rules).
+  const NUM_FIELDS = ['quantity', 'price', 'fee', 'total', 'amount'];
+  function inferLocale(rows, mapping, delimiter) {
+    let de = 0, us = 0;
+    const cols = NUM_FIELDS.map((f) => mapping && mapping[f]).filter(Boolean);
+    (rows || []).slice(0, 200).forEach((r) => cols.forEach((c) => {
+      const v = String(r[c] == null ? '' : r[c]).replace(/[^\d.,-]/g, '');
+      if (/\d\.\d{3},\d/.test(v) || /^-?\d*,\d{1,2}$/.test(v)) de++;
+      else if (/\d,\d{3}\.\d/.test(v) || /^-?\d*\.\d{1,2}$/.test(v)) us++;
+    }));
+    if (de > us) return 'de';
+    if (us > de) return 'us';
+    return delimiter === ';' ? 'de' : undefined;
+  }
+
   function preview(csvText, opts) {
     opts = opts || {};
     const { headers, rows } = parseCSV(csvText);
@@ -455,10 +518,12 @@ function __(k, f, v) { return (typeof window !== 'undefined' && window.MaerminI1
     }
     const category = opts.category || (broker && broker.category) || 'stocks';
     const mapping = opts.mapping || suggestMapping(headers, broker && broker.id);
-    const applied = applyMapping(rows, mapping, { category, locale: opts.locale, currency: opts.currency });
+    const firstLine = splitRecords(csvText)[0] || '';
+    const locale = opts.locale || inferLocale(rows, mapping, sniffDelimiter(firstLine));
+    const applied = applyMapping(rows, mapping, { category, locale, currency: opts.currency });
     const dup = findDuplicates(applied.transactions, opts.existing || []);
     return {
-      headers, rows, broker, category, mapping,
+      headers, rows, broker, category, mapping, locale,
       transactions: dup.marked,
       errors: applied.errors,
       duplicates: dup.duplicates.length,

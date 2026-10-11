@@ -77,6 +77,20 @@
   function num(x) { var n = typeof x === 'number' ? x : parseFloat(x); return isFinite(n) ? n : null; }
   function sig(x) { return Number(x.toPrecision(7)); }
 
+  // Symbols Yahoo has no listing for (every candidate answered 404), kept for
+  // the session: the price refresh, the history chart and the metadata
+  // fetches skip them instead of re-probing 8 exchange suffixes per chart range
+  // and re-asking profile/fundamentals/earnings - one holding typed as "Apple"
+  // cost ~70 Worker requests against a per-IP limit (AUDIT BUG-036). Only clean
+  // 404s mark a symbol; timeouts, 429 and 5xx do not.
+  var NO_LISTING_MS = 6 * 3600 * 1000;
+  var _noListing = {};
+  var noListing = {
+    mark: function (sym) { var k = String(sym || '').trim().toUpperCase(); if (k) _noListing[k] = Date.now(); },
+    has: function (sym) { var t = _noListing[String(sym || '').trim().toUpperCase()]; return !!(t && Date.now() - t < NO_LISTING_MS); },
+    clear: function (sym) { delete _noListing[String(sym || '').trim().toUpperCase()]; }
+  };
+
   function keyOf(category, symbol) {
     return String(category || 'crypto') + '|' + String(symbol || '').trim().toUpperCase();
   }
@@ -452,7 +466,7 @@
   var api = {
     KEY: KEY, SCHEMA: SCHEMA, REFRESH_MS: REFRESH_MS, MISS_MS: MISS_MS,
     YF_LEGACY: YF_LEGACY, YF_COMMODITY: YF_COMMODITY,
-    keyOf: keyOf, yfSymbol: yfSymbol, rangeFor: rangeFor,
+    keyOf: keyOf, yfSymbol: yfSymbol, rangeFor: rangeFor, noListing: noListing,
     normalize: normalize, load: load, save: save, closesOf: closesOf,
     ingestYahoo: ingestYahoo, ingestCoinGecko: ingestCoinGecko,
     mergeSeries: mergeSeries, need: need, plan: plan, sync: sync

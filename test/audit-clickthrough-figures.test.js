@@ -1,9 +1,9 @@
-// Audit 2026-10-09 (click-through, demo data): figures that disagree between views.
+// Regression test, docs/AUDIT.md run 2026-10-09 (click-through, demo data): figures that disagree between views.
 //   BUG-029  Portfolio Intelligence prints a class weight below 1 % as if it were a fraction
 //            (0.126 % of CS2 skins shown as "12.6 %").
 //   BUG-030  Share & Compare / AI summary compute the health score without the price
 //            history and transactions the Health view uses (45 vs 52 for the demo book).
-// These tests describe the correct behaviour and FAIL on main @ 83a9976.
+// They describe the correct behaviour (they failed on main @ 83a9976).
 // Run: node test/audit-clickthrough-figures.test.js
 'use strict';
 let passed = 0, failed = 0;

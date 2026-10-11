@@ -141,8 +141,17 @@
   // Reuses DividendDataService's per-symbol lookup (DB/cache/API) — same
   // shares*annualDividend basis as analyzePortfolioDividends, without the
   // heavy historical/forecast/calendar work or its console logging.
-  function computeExpectedAnnualDividends(portfolio, prices) {
+  // opts.exchangeRate: EUR per USD. The dividend service gives each payer's
+  // per-share dividend in ITS currency (USD for a US stock); it is converted to
+  // EUR here - it used to be added as EUR (AUDIT BUG-038: 11.52 "€" for
+  // 11.52 USD, while Yield on cost showed the converted 10.60 €).
+  function computeExpectedAnnualDividends(portfolio, prices, opts) {
     var empty = { available: false, totalAnnual: 0, monthly: 0, yield: 0, payers: 0 };
+    opts = opts || {};
+    var U = (typeof window !== 'undefined' && window.MaerminUtils) || null;
+    var FX = (typeof window !== 'undefined' && window.MaerminFxHistory) || null;
+    var rate = parseFloat(opts.exchangeRate) || (FX && FX.usdRates ? parseFloat(FX.usdRates().EUR) : 0) || 0;
+    var eur = function (amount, cur) { return (U && U.toEUR && cur && cur !== 'EUR') ? U.toEUR(amount, cur, rate) : amount; };
     var svc = (typeof window !== 'undefined') && window.DividendDataService;
     if (!svc || typeof svc.getPortfolioDividendData !== 'function') return empty;
     portfolio = portfolio || {};
@@ -158,7 +167,7 @@
         var price = prices[sym] || prices[sym.toLowerCase()] || s.currentPrice || s.purchasePrice || 0;
         totalValue += shares * price;
         var d = data[sym];
-        if (d && d.annualDividend > 0) { totalAnnual += shares * d.annualDividend; payers++; }
+        if (d && d.annualDividend > 0) { totalAnnual += eur(shares * d.annualDividend, d.currency || 'USD'); payers++; }
       });
       return {
         available: payers > 0,

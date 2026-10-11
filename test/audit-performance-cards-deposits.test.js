@@ -1,4 +1,4 @@
-// AUDIT (do not merge): the 1D…Max performance cards are raw value changes of
+// Regression test, docs/AUDIT.md run 2026-10-09: the 1D…Max performance cards are raw value changes of
 // the snapshot series, so every deposit (a savings-plan buy, a new position)
 // is shown as performance and compared with the benchmark. The module has no
 // way to take the external flows into account.

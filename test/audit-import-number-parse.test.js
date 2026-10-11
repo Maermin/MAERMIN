@@ -1,4 +1,4 @@
-// AUDIT (do not merge): CSV number parsing misreads German decimals with three
+// Regression test, docs/AUDIT.md run 2026-10-09: CSV number parsing misreads German decimals with three
 // fraction digits and German thousands with two or more groups.
 // Run: node test/audit-import-number-parse.test.js
 'use strict';

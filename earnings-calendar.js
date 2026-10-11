@@ -76,7 +76,9 @@ function __(k, f, v) { return (typeof window !== 'undefined' && window.MaerminI1
       if (!workerUrl || workerUrl.length < 5 || !symbols.length) return;
       var alive = true;
       setState({ loading: true, rows: [], unsupported: false, error: null });
-      var uniq = Array.from(new Set(symbols.map(function (s) { return String(s).toUpperCase(); }))).slice(0, 40);
+      var NL = window.MaerminCloseHistory && window.MaerminCloseHistory.noListing;
+      var uniq = Array.from(new Set(symbols.map(function (s) { return String(s).toUpperCase(); })))
+        .filter(function (s) { return !(NL && NL.has(s)); }).slice(0, 40); // no Yahoo listing (AUDIT BUG-036)
       Promise.all(uniq.map(function (sym) {
         return fetch(workerUrl + '?action=earnings&symbol=' + encodeURIComponent(sym))
           .then(function (r) {

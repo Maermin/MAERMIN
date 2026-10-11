@@ -1,4 +1,4 @@
-// AUDIT (do not merge): XIRR returns the Newton start value 10 % p.a. when all
+// Regression test, docs/AUDIT.md run 2026-10-09: XIRR returns the Newton start value 10 % p.a. when all
 // flows sit on one day and net to zero (every rate is a "root"). A buy dated
 // today valued at its purchase price (no quote yet, or price unchanged) shows
 // +10 % p.a.

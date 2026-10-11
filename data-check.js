@@ -13,6 +13,9 @@
 //   DQ-FX-TODAY-ONLY   no rate history at all        → refresh rates / API settings
 //   DQ-SKIN-MISFILED   CS2 items filed as stocks/crypto → move them (changes data:
 //                                                       confirmed first)
+//   DQ-CRYPTO-PAIR     a crypto row holds an exchange pair ("BTCUSDT", "XXBTZEUR")
+//                      as its symbol - imported before the 2026-10 fix (AUDIT
+//                      BUG-013); it gets no price → show those transactions
 //
 // The codes are part of the UI contract: never renumber or reuse one.
 //
@@ -31,7 +34,8 @@ function __(k, f, v) { return (typeof window !== 'undefined' && window.MaerminI1
 
   var CODES = {
     oversold: 'DQ-OVERSOLD', quantity: 'DQ-QUANTITY', fxUnknown: 'DQ-FX-UNKNOWN', fxUsdNearest: 'DQ-FX-USD-NEAREST',
-    fxNoDayRate: 'DQ-FX-NO-DAY-RATE', fxTodayOnly: 'DQ-FX-TODAY-ONLY', skinMisfiled: 'DQ-SKIN-MISFILED'
+    fxNoDayRate: 'DQ-FX-NO-DAY-RATE', fxTodayOnly: 'DQ-FX-TODAY-ONLY', skinMisfiled: 'DQ-SKIN-MISFILED',
+    cryptoPair: 'DQ-CRYPTO-PAIR'
   };
   var USD_LIKE = /^(USD|USDT|USDC|BUSD|FDUSD|TUSD|USDP|DAI)$/i;
 
@@ -58,6 +62,22 @@ function __(k, f, v) { return (typeof window !== 'undefined' && window.MaerminI1
     return { code: CODES.skinMisfiled, action: { type: 'move-skins', changesData: true } };
   }
 
+  // Crypto rows whose symbol is an exchange pair: a base of 2-10 letters plus a
+  // stablecoin/fiat quote (BTCUSDT, ETHEUR, SOL-USDC) or Kraken's legacy form.
+  var PAIR_RE = /^[A-Z0-9]{2,10}[-\/_]?(USDT|USDC|BUSD|FDUSD|TUSD|EUR|USD)$/;
+  var KRAKEN_RE = /^X[A-Z]{3}Z(EUR|USD|GBP|CAD|JPY|CHF)$/;
+  function cryptoPairs(transactions) {
+    var seen = {}, out = [];
+    (transactions || []).forEach(function (tx) {
+      if (!tx || tx.category !== 'crypto') return;
+      var s = String(tx.symbol || '').trim().toUpperCase();
+      if (!s || seen[s] || !(PAIR_RE.test(s) || KRAKEN_RE.test(s))) return;
+      seen[s] = true;
+      out.push({ symbol: tx.symbol, code: CODES.cryptoPair, action: { type: 'show-transactions', symbol: tx.symbol, changesData: false } });
+    });
+    return out;
+  }
+
   function actionLabel(action) {
     switch (action && action.type) {
       case 'show-transactions': return __('dcShowTx', 'Show transactions');
@@ -69,7 +89,7 @@ function __(k, f, v) { return (typeof window !== 'undefined' && window.MaerminI1
     }
   }
 
-  var api = { CODES: CODES, classify: classify, misfiled: misfiled, actionLabel: actionLabel };
+  var api = { CODES: CODES, classify: classify, misfiled: misfiled, cryptoPairs: cryptoPairs, actionLabel: actionLabel };
   if (typeof window !== 'undefined') window.MaerminDataCheck = api;
   if (typeof module !== 'undefined' && module.exports) module.exports = api;
 })();

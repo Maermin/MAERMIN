@@ -146,7 +146,9 @@ function __(k, f, v) { return (typeof window !== 'undefined' && window.MaerminI1
   }
 
   // ---- browser glue: gather inputs from the existing engines -------------------
-  function gatherInputs(portfolio, prices, transactions) {
+  // opts.priceHistory: the same input the Health view scores with, so the shared
+  // and the shown health score are one number (AUDIT BUG-030).
+  function gatherInputs(portfolio, prices, transactions, opts) {
     var w = (typeof window !== 'undefined') ? window : {};
     var inputs = { classValues: {} };
     portfolio = portfolio || {};
@@ -185,7 +187,7 @@ function __(k, f, v) { return (typeof window !== 'undefined' && window.MaerminI1
       var M = w.MaerminMetrics;
       var cur = M && M.computeCurrencyExposure(portfolio, prices, transactions);
       if (cur && cur.available) inputs.currencyRows = cur.rows.slice(0, 6);
-      var health = M && M.healthScore(portfolio, prices, {});
+      var health = M && M.healthScore(portfolio, prices, {}, { priceHistory: (opts && opts.priceHistory) || {}, transactions: transactions || [] });
       if (health && !health.empty) {
         inputs.healthScore = health.score;
         inputs.effectiveN = health.effectiveN;
@@ -209,7 +211,7 @@ function __(k, f, v) { return (typeof window !== 'undefined' && window.MaerminI1
 
     var snapshot = null;
     try {
-      var v = validateSnapshot(buildSnapshot(gatherInputs(props.portfolio, props.prices, props.transactions)));
+      var v = validateSnapshot(buildSnapshot(gatherInputs(props.portfolio, props.prices, props.transactions, { priceHistory: props.priceHistory })));
       snapshot = v.ok ? v.snapshot : null;
     } catch (err) { snapshot = null; }
 

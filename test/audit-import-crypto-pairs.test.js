@@ -1,4 +1,4 @@
-// AUDIT (do not merge): the import wizard's mapping pipeline (the one that is
+// Regression test, docs/AUDIT.md run 2026-10-09: the import wizard's mapping pipeline (the one that is
 // actually committed) books an exchange PAIR as the symbol and EUR as the
 // currency: Binance "BTCUSDT" → symbol BTCUSDT, priced in USDT but counted as
 // EUR; Kraken "XXBTZEUR" → symbol XXBTZEUR. Neither gets a price. The legacy

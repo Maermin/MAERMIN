@@ -114,7 +114,7 @@ function __(k, f, v) { return (typeof window !== 'undefined' && window.MaerminI1
   function build(level, inputs) {
     inputs = inputs || {};
     var S = Share();
-    var snapshot = S.buildSnapshot(S.gatherInputs(inputs.portfolio, inputs.prices, inputs.transactions));
+    var snapshot = S.buildSnapshot(S.gatherInputs(inputs.portfolio, inputs.prices, inputs.transactions, { priceHistory: inputs.priceHistory }));
     if (level === 'full') return fullText(positionsOf(inputs.portfolio, inputs.prices), snapshot);
     return snapshot ? redactedText(snapshot) : null;
   }

@@ -260,11 +260,15 @@ function __(k, f, v) { return (typeof window !== 'undefined' && window.MaerminI1
         var shares = parseFloat(s.amount) || 0;
         if (!d || !(d.annualDividend > 0) || shares <= 0) return;
         var price = prices[symbol] || prices[symbol.toLowerCase()] || s.currentPrice || s.purchasePrice || 0;
+        // Income in EUR (the service's dividend is in the payer's currency).
+        var U = typeof window !== 'undefined' && window.MaerminUtils;
+        var cur = d.currency || 'USD';
+        var income = (U && U.toEUR && cur !== 'EUR') ? U.toEUR(shares * d.annualDividend, cur, props.exchangeRate) : shares * d.annualDividend;
         payers.push({
           symbol: symbol,
           name: s.name || s.symbolName || symbol,
           shares: shares,
-          income: shares * d.annualDividend,
+          income: income,
           historyYield: price > 0 ? d.annualDividend / price : null,
           annualDividend: d.annualDividend,
           growthRate: num(d.growthRate),

@@ -99,6 +99,7 @@ function __(k, f, v) { return (typeof window !== 'undefined' && window.MaerminI1
     var missing = symbols
       .map(function (s) { return String(s).toUpperCase(); })
       .filter(isTicker)
+      .filter(function (s) { var NL = typeof window !== 'undefined' && window.MaerminCloseHistory && window.MaerminCloseHistory.noListing; return !(NL && NL.has(s)); })
       .filter(function (s) { var h = cache[s]; return !(h && (Date.now() - (h.ts || 0)) < CACHE_TTL); });
     if (!missing.length) return Promise.resolve(cache);
     var base = workerUrl.replace(/\/$/, '');

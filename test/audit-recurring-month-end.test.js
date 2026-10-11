@@ -1,4 +1,4 @@
-// AUDIT (do not merge): a schedule that starts on the 29th-31st drifts to the
+// Regression test, docs/AUDIT.md run 2026-10-09: a schedule that starts on the 29th-31st drifts to the
 // 28th for good after February (each step clamps from the previous, already
 // clamped date). Savings plans reuse this schedule, so they book on the wrong
 // days and get new (planId, dueDate) markers.
@@ -23,6 +23,17 @@ ok('Nov 30 quarterly → Feb 28, May 30, Aug 30', JSON.stringify(q) === JSON.str
 const plan = { id: 'p1', symbol: 'VWCE', amount: 100, frequency: 'monthly', startDate: '2025-01-31' };
 const occ = SP.occurrences(plan, '2025-04-30').map((o) => o.date);
 ok('savings plan on the 31st books on 31 Mar (not 28 Mar)', occ.indexOf('2025-03-31') > -1 && occ.indexOf('2025-03-28') === -1);
+
+// Migration path: executions booked by the old schedule (28 Mar, 28 Apr) must
+// not be booked again under the corrected dates (31 Mar, 30 Apr).
+const oldExec = (d) => ({ id: 'x' + d, type: 'buy', source: 'savings-plan', auto: true, planId: 'p1', dueDate: d, symbol: 'VWCE', quantity: 1, price: 100, date: d });
+const booked = ['2025-01-31', '2025-02-28', '2025-03-28', '2025-04-28'].map(oldExec);
+const pend = SP.pendingExecutions([plan], booked, '2025-04-30').map((p) => p.dueDate);
+ok('old-schedule executions count for their month (nothing re-booked)', pend.length === 0);
+const skippedOld = SP.pendingExecutions([Object.assign({}, plan, { skippedDates: ['2025-03-28'] })], booked.slice(0, 2), '2025-03-31').map((p) => p.dueDate);
+ok('an old skipped date still skips that month', skippedOld.length === 0);
+const nextMonth = SP.pendingExecutions([plan], booked, '2025-05-31').map((p) => p.dueDate);
+ok('the next month is due on the 31st', JSON.stringify(nextMonth) === JSON.stringify(['2025-05-31']));
 
 // summary(): an occurrence ON the as-of date is counted as paid AND as remaining.
 const loan = { id: 'l1', recurring: true, amount: 100, interval: 'monthly', startDate: '2026-01-01', endDate: '2026-12-01' };

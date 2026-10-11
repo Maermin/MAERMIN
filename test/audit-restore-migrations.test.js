@@ -1,4 +1,4 @@
-// AUDIT (do not merge): restoring an OLD full backup on a device whose schema
+// Regression test, docs/AUDIT.md run 2026-10-09: restoring an OLD full backup on a device whose schema
 // is already current keeps maermin_schema_version, so the migrations never run
 // on the restored data (transactions without ids, year-less price timestamps,
 // rows of deleted portfolios stay as they were).
@@ -32,6 +32,16 @@ MG.run(); // what the reload after a restore does
 const txs = JSON.parse(localStorage.getItem('transactions'));
 ok('restored rows got ids (migration 1 ran)', txs.every((t) => t.id != null && t.id !== ''));
 ok('restored rows got a category (migration 1 ran)', txs.every((t) => !!t.category));
+
+// A backup made by the current code survives restore + migrations unchanged.
+const current = JSON.stringify([{ id: 't1', type: 'buy', category: 'stocks', symbol: 'AAPL', quantity: 2, price: 150, currency: 'USD', date: '2024-05-02', portfolioId: 'default' }]);
+localStorage.setItem('transactions', current);
+const snap = B.snapshot();
+localStorage.setItem('transactions', '[]');
+B.restore(snap);
+ok('restore resets the schema so pending migrations run on the next load', MG.getVersion() === 0);
+MG.run();
+ok('a current backup comes back byte-identical after the migrations', localStorage.getItem('transactions') === current && MG.getVersion() === MG.LATEST);
 
 console.log('\n' + passed + ' passed, ' + failed + ' failed');
 process.exit(failed ? 1 : 0);

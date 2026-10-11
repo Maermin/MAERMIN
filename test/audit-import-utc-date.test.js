@@ -1,4 +1,4 @@
-// AUDIT (do not merge): the CSV import keeps the UTC calendar day of exchange
+// Regression test, docs/AUDIT.md run 2026-10-09: the CSV import keeps the UTC calendar day of exchange
 // timestamps (Binance "Date(UTC)", Coinbase "...Z"). The exchange API sync was
 // fixed to use the local day (BUG-004), the CSV import of the same trades was
 // not: a trade at 00:30 on 1 January in Berlin lands in the previous tax year,

@@ -472,7 +472,9 @@ function __(k, f, v) { return (typeof window !== 'undefined' && window.MaerminI1
     if (lq && lq.available && num(lq.illiquidPct) != null) {
       var ill = num(lq.illiquidPct);
       var clsTxt = (lq.classes || []).filter(function (c) { return num(c.pct) > 0; })
-        .map(function (c) { return I18N().category(c.cls) + ' ' + fmtPct(asPct(c.pct)); });
+        // c.pct is already a percent (gatherInputs): asPct() would read a
+        // weight under 1 % as a fraction (0.13 % → "12.6 %", AUDIT BUG-029).
+        .map(function (c) { return I18N().category(c.cls) + ' ' + fmtPct(num(c.pct)); });
       if (ill >= T.liquidityImportant) {
         push('liquidity', 'important', 'liq-important',
           __('piLiqTitle', '{pct} of your portfolio is in hard-to-sell assets', { pct: fmtPct(ill) }),
@@ -588,7 +590,7 @@ function __(k, f, v) { return (typeof window !== 'undefined' && window.MaerminI1
         M.ASSET_CLASSES.forEach(function (cls) {
           var v = (portfolio && portfolio[cls] || []).reduce(function (s, p) {
             var amt = parseFloat(p.amount) || 0;
-            var px = prices[(p.symbol || p.name || '').toUpperCase()] || prices[(p.symbol || p.name || '').toLowerCase()] || p.currentPrice || p.purchasePrice || 0;
+            var px = prices[p.symbol || p.name || ''] || prices[(p.symbol || p.name || '').toUpperCase()] || prices[(p.symbol || p.name || '').toLowerCase()] || p.currentPrice || p.purchasePrice || 0;
             return s + amt * px;
           }, 0);
           byClass[cls] = v; total += v;
@@ -611,7 +613,7 @@ function __(k, f, v) { return (typeof window !== 'undefined' && window.MaerminI1
         M.ASSET_CLASSES.forEach(function (cls) {
           var v = (portfolio && portfolio[cls] || []).reduce(function (s, p) {
             var amt = parseFloat(p.amount) || 0;
-            var px = prices[(p.symbol || p.name || '').toUpperCase()] || prices[(p.symbol || p.name || '').toLowerCase()] || p.currentPrice || p.purchasePrice || 0;
+            var px = prices[p.symbol || p.name || ''] || prices[(p.symbol || p.name || '').toUpperCase()] || prices[(p.symbol || p.name || '').toLowerCase()] || p.currentPrice || p.purchasePrice || 0;
             return s + amt * px;
           }, 0);
           acByClass[cls] = v; acTotal += v;
@@ -629,7 +631,7 @@ function __(k, f, v) { return (typeof window !== 'undefined' && window.MaerminI1
     // and weight them against the whole portfolio. Pure lookup (no network).
     try {
       var priceOfPos = function (p) {
-        return prices[(p.symbol || p.name || '').toUpperCase()] || prices[(p.symbol || p.name || '').toLowerCase()] || p.currentPrice || p.purchasePrice || 0;
+        return prices[p.symbol || p.name || ''] || prices[(p.symbol || p.name || '').toUpperCase()] || prices[(p.symbol || p.name || '').toLowerCase()] || p.currentPrice || p.purchasePrice || 0;
       };
       var levClasses = (M && M.ASSET_CLASSES) || ['crypto', 'stocks', 'skins', 'commodities'];
       var totalVal = 0, levHits = [];

@@ -1,4 +1,4 @@
-// AUDIT (do not merge): option trades (category 'options', price = premium PER
+// Regression test, docs/AUDIT.md run 2026-10-09: option trades (category 'options', price = premium PER
 // SHARE, quantity = contracts) go through the plain FIFO ledger in the tax
 // report: the contract size (100) is ignored, so a 300 EUR option gain is
 // reported as 3 EUR; a short option (sell to open, buy to close) is an

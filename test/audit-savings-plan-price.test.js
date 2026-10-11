@@ -1,4 +1,4 @@
-// AUDIT (do not merge): savings-plan executor
+// Regression test, docs/AUDIT.md run 2026-10-09: savings-plan executor
 //  (a) a recorded price of ANY age before the due date is taken as the exact
 //      fill (estimatedPrice false), so a back-dated execution can be booked at
 //      a price from years earlier and is never re-priced;

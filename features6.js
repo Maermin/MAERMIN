@@ -162,19 +162,30 @@ async function fetchYFHistory(symbol, period, workerUrl) {
   const symU   = symbol.toUpperCase();
   const mapped = YF_SYMBOL_MAP[symU];
 
-  // Build candidate list: mapped symbol first, then bare, then EU suffixes
+  // A symbol Yahoo has no listing for is not probed again this session (BUG-036).
+  const NL = window.MaerminCloseHistory && window.MaerminCloseHistory.noListing;
+  if (NL && NL.has(symU)) throw new Error('No listing for ' + symU);
+  // The suffix the price refresh already resolved, if any.
+  let known = null;
+  try { known = (JSON.parse(localStorage.getItem('maermin_symbol_suffix') || '{}') || {})[symU] || null; } catch (e) { known = null; }
+
+  // Build candidate list: mapped/known symbol first, then bare, then EU suffixes
   const candidates = mapped
     ? [mapped]
-    : symU.includes('.')
-      ? [symU]  // already has suffix — use as-is
-      : [symU, `${symU}.DE`, `${symU}.L`, `${symU}.PA`, `${symU}.AS`, `${symU}.ST`, `${symU}.CO`, `${symU}.MI`];
+    : known
+      ? [known]
+      : symU.includes('.')
+        ? [symU]  // already has suffix — use as-is
+        : [symU, `${symU}.DE`, `${symU}.L`, `${symU}.PA`, `${symU}.AS`, `${symU}.ST`, `${symU}.CO`, `${symU}.MI`];
 
   let lastError = 'No data';
+  let all404 = true;
 
   for (const sym of candidates) {
     const url = `${base}?action=yf&symbol=${encodeURIComponent(sym)}&interval=${period.yfInterval}&range=${period.yfRange}`;
     try {
       const res = await fetch(url, { signal: AbortSignal.timeout(20000) });
+      if (res.status !== 404) all404 = false;
       if (!res.ok) { lastError = `Worker YF ${res.status} for ${sym}`; continue; }
       const data = await res.json();
       if (data.error || !data.prices || data.prices.length === 0) {
@@ -185,8 +196,10 @@ async function fetchYFHistory(symbol, period, workerUrl) {
       return { prices: data.prices, currency: data.currency || 'USD', matchedSym: sym };
     } catch(e) {
       lastError = e.message;
+      all404 = false;
     }
   }
+  if (all404 && NL && !mapped) NL.mark(symU);
 
   throw new Error(lastError);
 }

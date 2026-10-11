@@ -1,4 +1,4 @@
-// AUDIT (do not merge): the Basiszins table has +0.045 % for 2021. The BMF
+// Regression test, docs/AUDIT.md run 2026-10-09: the Basiszins table has +0.045 % for 2021. The BMF
 // value (BMF-Schreiben of 6 Jan 2021) is -0.45 %, so no Vorabpauschale is due
 // for 2021 - the app computes one.
 // Run: node test/audit-basiszins-2021.test.js

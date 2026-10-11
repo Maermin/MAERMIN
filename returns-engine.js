@@ -42,6 +42,9 @@
     // keeps the exponents well-behaved even for unsorted cashflows).
     var t0 = Math.min.apply(null, times);
     var years = times.map(function (t) { return (t - t0) / MS_PER_YEAR; });
+    // All flows on one day: every rate solves NPV = 0, so there is no
+    // annualised return (it used to return the Newton start value, 10 %).
+    if (Math.max.apply(null, times) === t0) return null;
 
     function npv(rate) {
       var s = 0;

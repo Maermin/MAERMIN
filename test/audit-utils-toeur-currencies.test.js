@@ -1,4 +1,4 @@
-// AUDIT (do not merge): MaerminUtils.toEUR (and the options engine's mirror of
+// Regression test, docs/AUDIT.md run 2026-10-09: MaerminUtils.toEUR (and the options engine's mirror of
 // it) converts only USD; every other currency is returned unchanged, i.e.
 // counted as EUR. Option premiums in GBP/CHF/GBp and the "dividends received"
 // figure of Performance Attribution (features7.js) are off by the FX rate,

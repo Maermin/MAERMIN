@@ -48,7 +48,11 @@ function __(k, f, v) { return (typeof window !== 'undefined' && window.MaerminI1
     var last = new Date(Date.UTC(y, m + 1, 0)).getUTCDate();
     return new Date(Date.UTC(y, m, Math.min(day, last)));
   }
-  function todayISO() { return toISO(new Date()); }
+  // The user's local calendar day (the snapshots are dated by it too).
+  function todayISO() {
+    var d = new Date();
+    return d.getFullYear() + '-' + ('0' + (d.getMonth() + 1)).slice(-2) + '-' + ('0' + d.getDate()).slice(-2);
+  }
 
   // Defensive: accept any array, keep only {d,v} with a valid ISO date + finite
   // value, sorted ascending. (MaerminSnapshots already returns clean data, but a
@@ -85,7 +89,16 @@ function __(k, f, v) { return (typeof window !== 'undefined' && window.MaerminI1
   // Compute one period's change. Returns null only when the series is empty.
   // `partial` is true when the requested start predates the earliest snapshot
   // (the change is then measured from inception).
-  function computePeriod(series, periodId, asOfISO) {
+  function valuePathApi() {
+    if (typeof window !== 'undefined' && window.MaerminValuePath) return window.MaerminValuePath;
+    try { return typeof require === 'function' ? require('./value-path.js') : null; } catch (e) { return null; }
+  }
+
+  // opts.flows: [{ d, amount }] money put in (+) / taken out (-) in EUR, as
+  // MaerminValuePath.flowsOf builds them. With flows the card shows the
+  // time-weighted return (chain-linked like the TWR card) and the gain without
+  // the deposits - a savings-plan buy is not performance (AUDIT BUG-024).
+  function computePeriod(series, periodId, asOfISO, opts) {
     var s = cleanSeries(series);
     if (!s.length) return null;
     var period = null;
@@ -106,6 +119,18 @@ function __(k, f, v) { return (typeof window !== 'undefined' && window.MaerminI1
 
     var abs = end.v - start.v;
     var pct = start.v !== 0 ? (abs / start.v) * 100 : null;
+    var flows = opts && Array.isArray(opts.flows) ? opts.flows : null;
+    if (flows && end.d > start.d) {
+      var inWindow = flows.filter(function (f) { return f && f.d > start.d && f.d <= end.d; });
+      if (inWindow.length) {
+        var VP = valuePathApi();
+        var pts = s.filter(function (p) { return p.d >= start.d && p.d <= end.d; });
+        var tw = VP && VP.fromValues ? VP.fromValues(pts, inWindow) : null;
+        var net = inWindow.reduce(function (sum, f) { return sum + (Number(f.amount) || 0); }, 0);
+        abs = end.v - start.v - net;
+        pct = tw ? tw.twr * 100 : null; // snapshots and transactions disagree: no figure
+      }
+    }
     return {
       id: period.id, label: period.label,
       from: start.d, to: end.d,
@@ -118,10 +143,10 @@ function __(k, f, v) { return (typeof window !== 'undefined' && window.MaerminI1
 
   // All periods (display order). Periods with no usable data are omitted only if
   // the whole series is empty (then returns []).
-  function computeAll(series, asOfISO) {
+  function computeAll(series, asOfISO, opts) {
     var s = cleanSeries(series);
     if (!s.length) return [];
-    return PERIODS.map(function (p) { return computePeriod(s, p.id, asOfISO); })
+    return PERIODS.map(function (p) { return computePeriod(s, p.id, asOfISO, opts); })
                   .filter(Boolean);
   }
 
@@ -280,7 +305,10 @@ function __(k, f, v) { return (typeof window !== 'undefined' && window.MaerminI1
       var sym = props.getCurrencySymbol ? props.getCurrencySymbol() : '€';
 
       var series = props.series || seriesFromSnapshots(props.portfolioId);
-      var rows = computeAll(series, props.asOf);
+      var VPa = valuePathApi();
+      var flows = (VPa && VPa.flowsOf && Array.isArray(props.transactions))
+        ? VPa.flowsOf(props.transactions, { exchangeRate: props.exchangeRate, fxAt: props.fxAt }) : null;
+      var rows = computeAll(series, props.asOf, { flows: flows });
       var ext = dailyExtremes(series);
 
       function pctStr(p) { return (p == null) ? '—' : window.MaerminI18n.pct(p, 2, true); }

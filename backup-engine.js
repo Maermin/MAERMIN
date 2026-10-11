@@ -128,6 +128,8 @@
     };
   }
 
+  var SCHEMA_VERSION_KEY = 'maermin_schema_version'; // migrations.js VERSION_KEY
+
   function isFullBackup(obj) {
     return !!(obj && typeof obj === 'object' && obj.store && typeof obj.store === 'object');
   }
@@ -149,6 +151,11 @@
       if (typeof val !== 'string') return;
       try { dst.setItem(key, val); restored++; } catch (e) { /* keep going */ }
     });
+    // The restored data may be older than this device's schema: start the
+    // schema over so every (idempotent) migration runs on it at the next load,
+    // behind the pre-migration copy (AUDIT BUG-023). Kept the device's version
+    // before, so an old backup's rows never got ids, categories etc.
+    if (restored > 0) { try { dst.setItem(SCHEMA_VERSION_KEY, '0'); } catch (e) { /* non-fatal */ } }
     return restored;
   }
 
