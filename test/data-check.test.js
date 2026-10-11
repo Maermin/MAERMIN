@@ -10,7 +10,8 @@ const L = require('../ledger.js');
 console.log('codes are stable:');
 ok('the code list is exactly the documented one', JSON.stringify(DC.CODES) === JSON.stringify({
   oversold: 'DQ-OVERSOLD', quantity: 'DQ-QUANTITY', fxUnknown: 'DQ-FX-UNKNOWN', fxUsdNearest: 'DQ-FX-USD-NEAREST',
-  fxNoDayRate: 'DQ-FX-NO-DAY-RATE', fxTodayOnly: 'DQ-FX-TODAY-ONLY', skinMisfiled: 'DQ-SKIN-MISFILED' }));
+  fxNoDayRate: 'DQ-FX-NO-DAY-RATE', fxTodayOnly: 'DQ-FX-TODAY-ONLY', skinMisfiled: 'DQ-SKIN-MISFILED',
+  cryptoPair: 'DQ-CRYPTO-PAIR' }));
 ok('codes are unique', new Set(Object.values(DC.CODES)).size === Object.keys(DC.CODES).length);
 
 console.log('ledger findings carry the transaction:');
@@ -39,6 +40,14 @@ console.log('classify:');
   ok('only the skin move changes data', [cq, co, cf, usd, noW].every(c => c.action.changesData === false) && DC.misfiled([{ symbol: 'AK-47' }]).action.changesData === true);
   ok('misfiled skins → DQ-SKIN-MISFILED; none → null', DC.misfiled([{ symbol: 'x' }]).code === 'DQ-SKIN-MISFILED' && DC.misfiled([]) === null);
   ok('every action has a label', ['show-transactions', 'edit-transaction', 'refresh', 'open-api-settings', 'move-skins'].every(t => DC.actionLabel({ type: t }).length > 3));
+}
+
+// AUDIT BUG-013: crypto rows imported with the exchange pair as symbol.
+{
+  const pairs = DC.cryptoPairs([{ category: 'crypto', symbol: 'BTCUSDT' }, { category: 'crypto', symbol: 'BTCUSDT' }, { category: 'crypto', symbol: 'XXBTZEUR' },
+    { category: 'crypto', symbol: 'BTC' }, { category: 'crypto', symbol: 'bitcoin' }, { category: 'stocks', symbol: 'EURUSD' }]);
+  ok('DQ-CRYPTO-PAIR: pair symbols found once each, coins and stocks left alone', pairs.map(p => p.symbol).join() === 'BTCUSDT,XXBTZEUR' && pairs[0].code === 'DQ-CRYPTO-PAIR');
+  ok('DQ-CRYPTO-PAIR: the action shows the transactions and changes nothing', pairs[0].action.type === 'show-transactions' && pairs[0].action.changesData === false);
 }
 
 console.log('\n' + passed + ' passed, ' + failed + ' failed');

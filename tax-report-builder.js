@@ -72,9 +72,52 @@ function __(k, f, v) { return (typeof window !== 'undefined' && window.MaerminI1
     return require('./ledger.js');
   }
   // Disposals of the tax year from the ONE FIFO implementation (ledger.js).
+  function optionsApi() {
+    if (typeof window !== 'undefined' && window.MaerminOptions) return window.MaerminOptions;
+    try { return typeof require === 'function' ? require('./options-engine.js') : null; } catch (e) { return null; }
+  }
+  // Options (category 'options': quantity = contracts, price = premium per
+  // share) do not belong in the share FIFO - it ignored the contract size and
+  // lost short positions (AUDIT BUG-022). The options engine's signed book
+  // gives the realised premium per contract: a closed contract is realised on
+  // its last trade, one still open at expiry on the expiry day (expired
+  // worthless; an exercise is booked by the user as a closing trade).
+  function optionDisposals(transactions, year, rate, todayISO) {
+    var OE = optionsApi();
+    if (!OE || !OE.buildOptionPositions) return [];
+    var rows = (transactions || []).filter(function (tx) { return tx && tx.category === 'options'; });
+    if (!rows.length) return [];
+    var dates = {};
+    rows.forEach(function (tx) {
+      var k = OE.contractSymbol ? OE.contractSymbol(tx) : tx.symbol;
+      var d = String(tx.date || '').slice(0, 10);
+      var e = dates[k] || (dates[k] = { first: d, last: d });
+      if (d < e.first) e.first = d;
+      if (d > e.last) e.last = d;
+    });
+    var today = todayISO || new Date().toISOString().slice(0, 10);
+    var out = [];
+    OE.buildOptionPositions(rows, { exchangeRate: rate }).forEach(function (pos) {
+      var span = dates[pos.symbol] || {};
+      var date = pos.side === 'closed' ? span.last : (pos.expiry && pos.expiry < today ? pos.expiry : null);
+      if (!date) return; // still open: nothing realised yet
+      if (year && parseInt(date.slice(0, 4), 10) !== year) return;
+      var cost = pos.premiumPaidEUR + pos.feesEUR;
+      out.push({
+        symbol: String(pos.symbol || '').toUpperCase(), category: 'options', symbolName: '',
+        quantity: Math.abs(pos.netContracts) || pos.txCount,
+        acquisitionDate: span.first || date, disposalDate: date,
+        holdingPeriodDays: 0, longTerm: false,
+        proceeds: pos.premiumReceivedEUR, costBasis: cost, gain: pos.netPremiumEUR
+      });
+    });
+    return out;
+  }
+
   // Splits are applied by the caller (build), so the ledger must not re-apply.
   function fifo(transactions, year, rate, fxAt) {
-    var L = ledger().build(transactions, { exchangeRate: rate, fxAt: fxAt, applyCorporateActions: false });
+    var shares = (transactions || []).filter(function (tx) { return !(tx && tx.category === 'options'); });
+    var L = ledger().build(shares, { exchangeRate: rate, fxAt: fxAt, applyCorporateActions: false });
     var disposals = [];
     L.list.forEach(function (g) {
       var symbol = String(g.symbol || '').toUpperCase();
@@ -89,6 +132,7 @@ function __(k, f, v) { return (typeof window !== 'undefined' && window.MaerminI1
         });
       });
     });
+    disposals = disposals.concat(optionDisposals(transactions, year, rate));
     disposals.sort(function (a, b) { return a.disposalDate < b.disposalDate ? -1 : (a.disposalDate > b.disposalDate ? 1 : 0); });
     return disposals;
   }
@@ -358,7 +402,8 @@ function __(k, f, v) { return (typeof window !== 'undefined' && window.MaerminI1
           interestIncome: interestIncome,
           vorabpauschalen: vorabpauschalen,
           fundTypes: fundTypes,
-          sparerpauschbetrag: opts.sparerpauschbetrag,
+          sparerpauschbetrag: opts.sparerpauschbetrag != null ? opts.sparerpauschbetrag
+            : (GT.sparerpauschbetragFor ? GT.sparerpauschbetragFor(year, TS && TS.freistellungsauftrag) : undefined),
           kirchensteuerRate: kirchensteuerRate,
           settings: TS
         });

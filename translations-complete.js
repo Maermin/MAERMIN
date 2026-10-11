@@ -808,6 +808,8 @@ taSparer: 'Sparerpauschbetrag',
     skinRefreshToLoad: 'refresh prices to load them',
     skinMisfiled: '{n} CS2 {n:item is|items are} filed as {cat}',
     skinMisfiledHint: 'they get no price there. Move them to CS2 Skins to get their skin prices.',
+    dqCryptoPair: '{n} crypto {n:symbol is|symbols are} an exchange pair',
+    dqCryptoPairHint: 'they get no price. Edit each row: the coin as symbol (e.g. BTC) and the quote as currency (USDT/USDC count as USD).',
     skinLookingUp: 'Looking up market names…',
 
     // P2-2 tax header + transaction dialog (renderer.js)
@@ -2314,6 +2316,7 @@ taSparer: 'Sparerpauschbetrag',
 
     // P2-2 import row messages (import-mapping.js)
     imInvalid: 'invalid/missing: {list}',
+    imPairQuote: '{pair} is priced in {quote}, not in a currency — import it from a file with fiat prices',
     imUnknownType: 'unknown type "{type}" (map it or edit the file)',
     imNoRows: 'no data rows below the header line',
     imNotCt: 'not a CoinTracking trade list (expected the columns Type, Buy, Cur., Sell, Cur., Date)',
@@ -3293,6 +3296,8 @@ taSparer: 'Sparerpauschbetrag',
     skinRefreshToLoad: 'aktualisiere die Kurse, um sie zu laden',
     skinMisfiled: '{n} {n:CS2-Objekt ist|CS2-Objekte sind} als {cat} abgelegt',
     skinMisfiledHint: 'dort bekommen sie keinen Kurs. Verschiebe sie zu CS2-Skins, um ihre Skinpreise zu erhalten.',
+    dqCryptoPair: '{n} {n:Krypto-Symbol ist|Krypto-Symbole sind} ein Handelspaar',
+    dqCryptoPairHint: 'sie bekommen keinen Kurs. Bearbeite jede Zeile: den Coin als Symbol (z. B. BTC) und die Quote als Währung (USDT/USDC zählen als USD).',
     skinLookingUp: 'Suche Marktnamen …',
 
     // P2-2 tax header + transaction dialog (renderer.js)
@@ -4799,6 +4804,7 @@ taSparer: 'Sparerpauschbetrag',
 
     // P2-2 import row messages (import-mapping.js)
     imInvalid: 'ungültig/fehlt: {list}',
+    imPairQuote: '{pair} ist in {quote} notiert, nicht in einer Währung — importiere es aus einer Datei mit Fiat-Preisen',
     imUnknownType: 'unbekannte Art „{type}“ (zuordnen oder Datei bearbeiten)',
     imNoRows: 'keine Datenzeilen unter der Kopfzeile',
     imNotCt: 'keine CoinTracking-Handelsliste (erwartet werden die Spalten Type, Buy, Cur., Sell, Cur., Date)',

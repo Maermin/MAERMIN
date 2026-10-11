@@ -40,9 +40,9 @@ function __(k, f, v) { return (typeof window !== 'undefined' && window.MaerminI1
     return (typeof n === 'number' && isFinite(n)) ? n : null;
   }
   function toEUR(amount, currency, rate) {
-    var U = (typeof window !== 'undefined') && window.MaerminUtils;
+    var U = (typeof window !== 'undefined' && window.MaerminUtils) || null;
+    if (!U && typeof require === 'function') { try { U = require('./utils.js'); } catch (e) { U = null; } }
     if (U && U.toEUR) return U.toEUR(amount, currency, rate);
-    // Mirror of MaerminUtils.toEUR for the Node tests.
     var a = parseFloat(amount) || 0;
     return (currency === 'USD' && rate > 0) ? a * rate : a;
   }

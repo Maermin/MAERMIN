@@ -118,15 +118,20 @@
       }
       var cur = Object.assign({}, acc);
       var start = whole.fromDate;
+      // One segment per calendar year: [start, next 1 January) — the days of
+      // a year (31 December included) belong to that year, at every year
+      // boundary of the window, not only the first (AUDIT BUG-018).
       while (start < whole.toDate) {
-        var yearEnd = start.slice(0, 4) + '-12-31';
-        var segEnd = (!atMaturity && yearEnd > start && yearEnd < whole.toDate) ? yearEnd : whole.toDate;
+        var nextJan1 = (Number(start.slice(0, 4)) + 1) + '-01-01';
+        var segEnd = (!atMaturity && nextJan1 < whole.toDate) ? nextJan1 : whole.toDate;
         var r = accrue(Object.assign({}, cur, { lastAccrualDate: start }), segEnd);
         if (r.days > 0 && r.interest > 0) {
           total += r.interest;
+          // A segment that ends on 1 January is dated 31 December of its year.
+          var bookDate = (!atMaturity && segEnd.slice(5) === '01-01') ? (Number(segEnd.slice(0, 4)) - 1) + '-12-31' : segEnd;
           postings.push({
             accountId: str(acc.id), name: str(acc.name) || 'Interest',
-            date: segEnd, periodStart: start, periodEnd: segEnd, year: segEnd.slice(0, 4),
+            date: bookDate, periodStart: start, periodEnd: segEnd, year: bookDate.slice(0, 4),
             amount: r.interest, currency: str(acc.currency) || 'EUR'
           });
           cur.value = r.newBalance;
@@ -232,14 +237,14 @@
       var k = str(tx.accountId);
       (groups[k] || (groups[k] = [])).push(tx);
     });
-    var removeIds = {}, removedTxs = [], keptByAcc = {};
+    var removedTxs = [], keptByAcc = {};
     Object.keys(groups).forEach(function (accId) {
       var list = groups[accId].slice().sort(byId);
       // 1) exact repeats of one period: smallest id wins
       var seenPeriod = {}, uniq = [];
       list.forEach(function (tx) {
         var k = ymd(tx.periodStart) + '|' + ymd(tx.periodEnd);
-        if (seenPeriod[k]) { removeIds[tx.id] = true; removedTxs.push(tx); return; }
+        if (seenPeriod[k]) { removedTxs.push(tx); return; }
         seenPeriod[k] = true; uniq.push(tx);
       });
       // 2) the chain the merged account reflects
@@ -256,7 +261,7 @@
       uniq.filter(function (tx) { return !keptSet[tx.id]; })
         .sort(function (a, b) { return ymd(a.periodEnd) > ymd(b.periodEnd) ? -1 : (ymd(a.periodEnd) < ymd(b.periodEnd) ? 1 : byId(a, b)); })
         .forEach(function (tx) {
-          if (kept.some(function (k) { return overlaps(tx, k); })) { removeIds[tx.id] = true; removedTxs.push(tx); return; }
+          if (kept.some(function (k) { return overlaps(tx, k); })) { removedTxs.push(tx); return; }
           kept.push(tx); keptSet[tx.id] = true;
         });
       keptByAcc[accId] = kept;
@@ -282,17 +287,18 @@
     var keptKeys = {}, keptPostings = [];
     Object.keys(keptByAcc).forEach(function (accId) {
       keptByAcc[accId].forEach(function (tx) {
-        keptKeys[accId + '|' + ymd(tx.periodEnd)] = true;
-        keptPostings.push({ accountId: accId, date: ymd(tx.periodEnd), amount: num(tx.amount != null ? tx.amount : tx.price) });
+        keptKeys[accId + '|' + ymd(tx.date || tx.periodEnd)] = true;
+        keptPostings.push({ accountId: accId, date: ymd(tx.date || tx.periodEnd), amount: num(tx.amount != null ? tx.amount : tx.price) });
       });
     });
     var dropKeys = {};
-    removedTxs.forEach(function (tx) { var k = str(tx.accountId) + '|' + ymd(tx.periodEnd); if (!keptKeys[k]) dropKeys[k] = true; });
+    removedTxs.forEach(function (tx) { var k = str(tx.accountId) + '|' + ymd(tx.date || tx.periodEnd); if (!keptKeys[k]) dropKeys[k] = true; });
     l.entries = l.entries.filter(function (en) { return !dropKeys[en.accountId + '|' + en.date]; });
     l = appendLedger(l, keptPostings);
 
     return {
-      transactions: txs.filter(function (tx) { return !(tx && removeIds[tx.id]); }),
+      // By row identity: two copies with the SAME id must leave one behind.
+      transactions: txs.filter(function (tx) { return removedTxs.indexOf(tx) === -1; }),
       accounts: outAccounts, ledger: l, removed: removed, removedTxs: removedTxs
     };
   }

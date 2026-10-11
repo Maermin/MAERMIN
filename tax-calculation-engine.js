@@ -33,13 +33,24 @@ var GermanTax = (function () {
   };
 
   // BMF base rates (Basiszins) per year for the Basisertrag. Negative or zero
-  // rate (2022) means no Vorabpauschale accrues for that year. User overrides
+  // rate (2021: -0.45 %, BMF 6 Jan 2021; 2022) means no Vorabpauschale accrues for that year. User overrides
   // come on top; unknown future years fall back to the latest known value.
   var BASISZINS = {
-    2018: 0.0087, 2019: 0.0052, 2020: 0.0007, 2021: 0.00045,
+    2018: 0.0087, 2019: 0.0052, 2020: 0.0007, 2021: -0.0045,
     2022: -0.0005, 2023: 0.0255, 2024: 0.0229, 2025: 0.0253,
     2026: 0.0320 // BMF 13.01.2026 (IV C 1 - S 1980/00230/012/001)
   };
+
+  // Statutory Sparerpauschbetrag of a tax year (sec. 20 (9) EStG): 801 EUR up to
+  // 2022, 1,000 EUR from 2023; doubled for joint assessment. The configured
+  // Freistellungsauftrag can be lower (split across banks) but never more than
+  // the year allows. A configured value above the single amount means joint.
+  function sparerpauschbetragFor(year, configured) {
+    var single = (Number(year) || 0) <= 2022 ? 801 : 1000;
+    var conf = configured != null && isFinite(Number(configured)) ? Number(configured) : 1000;
+    var cap = conf > 1000 ? single * 2 : single;
+    return Math.max(0, Math.min(conf, cap));
+  }
 
   function teilfreistellungRate(fundType) {
     var statutory = TEILFREISTELLUNG[fundType] != null ? TEILFREISTELLUNG[fundType] : 0;
@@ -330,6 +341,7 @@ var GermanTax = (function () {
     teilfreistellungRate: teilfreistellungRate,
     applyTeilfreistellung: applyTeilfreistellung,
     basiszinsFor: basiszinsFor,
+    sparerpauschbetragFor: sparerpauschbetragFor,
     monthsFactorForPurchase: monthsFactorForPurchase,
     computeVorabpauschale: computeVorabpauschale,
     abgeltungsteuer: abgeltungsteuer,

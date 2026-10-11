@@ -212,7 +212,7 @@ function NetWorthView({ portfolioStats, portfolio, prices, theme, formatPrice, g
       startValue: netWorth,
       savingsPlans: (() => { try { return JSON.parse(localStorage.getItem('maermin_savings_plans') || '[]'); } catch { return []; } })(),
       dividendYield: (window.MaerminMetrics && portfolio)
-        ? ((window.MaerminMetrics.computeExpectedAnnualDividends(portfolio, prices || {}).yield || 0) / 100)
+        ? ((window.MaerminMetrics.computeExpectedAnnualDividends(portfolio, prices || {}, { exchangeRate: usdToEur }).yield || 0) / 100)
         : 0,
       liabilities: window.MaerminRecurring ? window.MaerminRecurring.loadFromAccounts() : [],
       theme, formatPrice, getCurrencySymbol,
@@ -348,28 +348,37 @@ function NetWorthView({ portfolioStats, portfolio, prices, theme, formatPrice, g
 
 // ─────────────────────────────────────────────────────────────────────────────
 // 3. CASHFLOW CHART
-// Shows two lines: cumulative invested (from transactions) vs portfolio value (from priceHistory)
-// Gap between lines = unrealized P&L at any point in time
+// Shows two lines: cumulative invested (from transactions, in EUR at each trade
+// date) vs portfolio value (the daily value path; per-refresh priceHistory only
+// as the fallback). Gap between lines = unrealized P&L at any point in time.
+// AUDIT BUG-034: the value line came from refresh points only, so with daily
+// closes but few refreshes it read 0 € / -100 %, and USD trades were added as EUR.
 // ─────────────────────────────────────────────────────────────────────────────
-function CashflowChart({ transactions, priceHistory, portfolio, prices, theme, formatPrice, getCurrencySymbol }) {
+function CashflowChart({ transactions, priceHistory, portfolio, prices, theme, formatPrice, getCurrencySymbol, valuePath, exchangeRate, fxAt }) {
   // Build cumulative invested timeline from transactions
   const investedSeries = useMemo(() => {
+    const FX = window.MaerminFxHistory, U = window.MaerminUtils;
+    const eur = (amt, tx) => (FX && FX.txToEUR) ? FX.txToEUR(amt, tx.currency || 'EUR', tx.date, exchangeRate, fxAt).value
+      : (U ? U.toEUR(amt, tx.currency || 'EUR', exchangeRate) : amt);
     const sorted = [...transactions]
-      .filter(tx => tx.type === 'buy' || tx.type === 'sell')
+      .filter(tx => (tx.type === 'buy' || tx.type === 'sell') && tx.category !== 'options')
       .sort((a, b) => new Date(a.date) - new Date(b.date));
 
     let cumulative = 0;
     const points = [];
     sorted.forEach(tx => {
-      const amount = (parseFloat(tx.quantity) || 0) * (parseFloat(tx.price) || 0);
+      const amount = eur((parseFloat(tx.quantity) || 0) * (parseFloat(tx.price) || 0), tx);
       cumulative += tx.type === 'buy' ? amount : -amount;
       points.push({ date: tx.date, value: Math.max(0, cumulative) });
     });
     return points;
-  }, [transactions]);
+  }, [transactions, exchangeRate, fxAt]);
 
-  // Build portfolio value timeline from priceHistory
+  // Build portfolio value timeline: the daily value path when there is one
   const valueSeries = useMemo(() => {
+    if (valuePath && Array.isArray(valuePath.points) && valuePath.points.length > 1) {
+      return valuePath.points.filter(p => p.v > 0).map(p => ({ date: p.d, value: p.v }));
+    }
     // Only datable points (ISO/epoch); sort chronologically, not as strings.
     const tsOf = (v) => (window.MaerminUtils && window.MaerminUtils.parseTimestamp) ? window.MaerminUtils.parseTimestamp(v) : new Date(v).getTime();
     const tsSet = new Set();
@@ -396,7 +405,7 @@ function CashflowChart({ transactions, priceHistory, portfolio, prices, theme, f
       });
       return { date: new Date(ts).toISOString().slice(0, 10), value };
     }).filter(d => d.value > 0);
-  }, [priceHistory, portfolio, prices]);
+  }, [priceHistory, portfolio, prices, valuePath]);
 
   if (investedSeries.length < 2 && valueSeries.length < 2) {
     return React.createElement(Card, { theme, style: { textAlign: 'center', padding: '3rem', marginBottom: '1.5rem' } },
@@ -490,12 +499,25 @@ function CashflowChart({ transactions, priceHistory, portfolio, prices, theme, f
 // 4. FEE ANALYZER
 // Total fees, fee rate, by year, by category, by exchange/broker
 // ─────────────────────────────────────────────────────────────────────────────
-function FeeAnalyzer({ transactions, theme, formatPrice, getCurrencySymbol }) {
+function FeeAnalyzer({ transactions, theme, formatPrice, getCurrencySymbol, exchangeRate, fxAt }) {
+  // Fees and trade values in EUR at the rate of the trade date: a USD trade
+  // was summed and shown as if its amounts were EUR (AUDIT BUG-033).
+  const eurOf = useMemo(() => {
+    const FX = window.MaerminFxHistory, U = window.MaerminUtils;
+    return (amount, tx) => {
+      const a = parseFloat(amount) || 0;
+      if (!a) return 0;
+      if (FX && FX.txToEUR) return FX.txToEUR(a, tx.currency || 'EUR', tx.date, exchangeRate, fxAt).value;
+      return U ? U.toEUR(a, tx.currency || 'EUR', exchangeRate) : a;
+    };
+  }, [exchangeRate, fxAt]);
+  const feeOf = (tx) => eurOf(tx.fees, tx);
+  const tradeOf = (tx) => eurOf((parseFloat(tx.quantity) || 0) * (parseFloat(tx.price) || 0), tx);
   const stats = useMemo(() => {
     const feeTxs = transactions.filter(tx => (parseFloat(tx.fees) || 0) > 0);
-    const totalFees    = feeTxs.reduce((s, tx) => s + (parseFloat(tx.fees) || 0), 0);
+    const totalFees    = feeTxs.reduce((s, tx) => s + feeOf(tx), 0);
     const totalInvested = transactions.filter(tx => tx.type === 'buy')
-      .reduce((s, tx) => s + (parseFloat(tx.quantity) || 0) * (parseFloat(tx.price) || 0), 0);
+      .reduce((s, tx) => s + tradeOf(tx), 0);
     const feeRate      = totalInvested > 0 ? (totalFees / totalInvested) * 100 : 0;
 
     // By year
@@ -503,7 +525,7 @@ function FeeAnalyzer({ transactions, theme, formatPrice, getCurrencySymbol }) {
     feeTxs.forEach(tx => {
       const y = (tx.date || '').substring(0, 4) || 'Unknown';
       if (!byYear[y]) byYear[y] = { fees: 0, count: 0 };
-      byYear[y].fees  += parseFloat(tx.fees) || 0;
+      byYear[y].fees  += feeOf(tx);
       byYear[y].count += 1;
     });
 
@@ -512,7 +534,7 @@ function FeeAnalyzer({ transactions, theme, formatPrice, getCurrencySymbol }) {
     feeTxs.forEach(tx => {
       const cat = tx.category || 'crypto';
       if (!byCategory[cat]) byCategory[cat] = 0;
-      byCategory[cat] += parseFloat(tx.fees) || 0;
+      byCategory[cat] += feeOf(tx);
     });
 
     // By exchange/broker (from tx.notes — first word)
@@ -521,14 +543,14 @@ function FeeAnalyzer({ transactions, theme, formatPrice, getCurrencySymbol }) {
       const note  = (tx.notes || '').trim();
       const broker = note.split(/[\s·]/)[0] || 'Unknown';
       if (!byBroker[broker]) byBroker[broker] = 0;
-      byBroker[broker] += parseFloat(tx.fees) || 0;
+      byBroker[broker] += feeOf(tx);
     });
 
     // Average fee per transaction
     const avgFee = feeTxs.length > 0 ? totalFees / feeTxs.length : 0;
 
     return { totalFees, totalInvested, feeRate, byYear, byCategory, byBroker, avgFee, txCount: feeTxs.length };
-  }, [transactions]);
+  }, [transactions, eurOf]);
 
   const CAT_COLORS = { crypto: '#f59e0b', stocks: '#3b82f6', skins: '#06b6d4', commodities: '#d97706' };
 
@@ -609,11 +631,11 @@ function FeeAnalyzer({ transactions, theme, formatPrice, getCurrencySymbol }) {
                 React.createElement('tbody', null,
                   [...transactions]
                     .filter(tx => (parseFloat(tx.fees) || 0) > 0)
-                    .sort((a, b) => (parseFloat(b.fees) || 0) - (parseFloat(a.fees) || 0))
+                    .sort((a, b) => feeOf(b) - feeOf(a))
                     .slice(0, 10)
                     .map((tx, i) => {
-                      const fee      = parseFloat(tx.fees) || 0;
-                      const trade    = (parseFloat(tx.quantity) || 0) * (parseFloat(tx.price) || 0);
+                      const fee      = feeOf(tx);
+                      const trade    = tradeOf(tx);
                       const feeRate  = trade > 0 ? window.MaerminI18n.pct(fee / trade * 100, 3) : '—';
                       return React.createElement('tr', { key: i, style: { borderBottom: `1px solid ${theme.cardBorder}` } },
                         React.createElement('td', { style: { padding: '0.5rem 0.75rem', color: theme.textSecondary } }, window.MaerminI18n.date(tx.date)),

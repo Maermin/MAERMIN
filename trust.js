@@ -71,7 +71,7 @@ function __(k, f, v) { return (typeof window !== 'undefined' && window.MaerminI1
             sec[1].map(function (line, j) { return e('li', { key: j }, line); })));
       }),
       // P4-5: copy a summary for an AI assistant (built here, never sent)
-      (typeof window !== 'undefined' && window.MaerminAIPrompt) ? e(window.MaerminAIPrompt.Panel, { theme: th, portfolio: props.portfolio, prices: props.prices, transactions: props.transactions, privacyMode: props.privacyMode }) : null,
+      (typeof window !== 'undefined' && window.MaerminAIPrompt) ? e(window.MaerminAIPrompt.Panel, { theme: th, portfolio: props.portfolio, prices: props.prices, transactions: props.transactions, priceHistory: props.priceHistory, privacyMode: props.privacyMode }) : null,
       e(Disclaimer, { theme: th, kind: 'invest', style: { marginTop: '0.5rem' } }));
   }
 

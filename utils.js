@@ -75,10 +75,21 @@ function __(k, f, v) { return (typeof window !== 'undefined' && window.MaerminI1
   // (skins, stocks, commodities, display) agrees and no rounding happens here —
   // values are kept full-precision and only rounded at DISPLAY time. CS2 skin
   // prices are delivered in USD and MUST go through toEUR on ingestion.
+  // Other currencies (GBP, GBp pence, CHF, …) go through the USD cross rates of
+  // MaerminFxHistory.quoteToEUR; they were returned unchanged, i.e. counted as
+  // EUR (AUDIT BUG-028). Only an amount whose currency no rate covers is still
+  // treated as canonical EUR.
+  function fxHistory() {
+    if (typeof window !== 'undefined' && window.MaerminFxHistory) return window.MaerminFxHistory;
+    try { return typeof require === 'function' ? require('./fx-history.js') : null; } catch (e) { return null; }
+  }
   function toEUR(amount, currency, usdToEur) {
     const a = parseFloat(amount) || 0;
     if (currency === 'USD' && usdToEur > 0) return a * usdToEur;
-    return a; // already EUR (or unknown → treated as canonical)
+    if (!currency || currency === 'EUR' || currency === 'USD') return a;
+    const FX = fxHistory();
+    const v = FX && FX.quoteToEUR ? FX.quoteToEUR(a, currency, usdToEur) : null;
+    return (v != null && isFinite(v)) ? v : a; // unknown currency → treated as canonical
   }
 
   // Accessibility: make a non-<button> element (div/span/tr/th used as a

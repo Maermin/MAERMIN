@@ -118,16 +118,16 @@
       var k = markerOf(tx.symbol, tx.divDate, tx.portfolioId);
       (byKey[k] || (byKey[k] = [])).push(tx);
     });
-    var removeIds = {};
+    var drop = [];
     Object.keys(byKey).forEach(function (k) {
       var list = byKey[k];
       if (list.length < 2) return;
       list.sort(function (a, b) { return String(a.id) < String(b.id) ? -1 : 1; });
-      list.slice(1).forEach(function (tx) { removeIds[tx.id] = true; });
+      drop = drop.concat(list.slice(1));
     });
-    var removed = Object.keys(removeIds).length;
-    if (!removed) return { transactions: transactions || [], removed: 0 };
-    return { transactions: (transactions || []).filter(function (tx) { return !(tx && removeIds[tx.id]); }), removed: removed };
+    // By row identity: two copies with the SAME id must leave one behind.
+    if (!drop.length) return { transactions: transactions || [], removed: 0 };
+    return { transactions: (transactions || []).filter(function (tx) { return drop.indexOf(tx) === -1; }), removed: drop.length };
   }
 
   // Re-scale a schedule row to the shares actually held on its date.

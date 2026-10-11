@@ -76,8 +76,10 @@ const GT = ENGINE.GermanTax;
   ok('default: long-term crypto exempt, stocks taxed', approx(def2.crypto.exemptLongTermGains, 5000) && approx(def2.gainsTaxable, 3000));
   const noExempt = withSettings({ cryptoExemption: false });
   ok('crypto exemption off taxes the long-term gain', approx(noExempt.crypto.netShortTermGains, 5000) && approx(noExempt.crypto.taxable, 5000) && noExempt.crypto.exemptLongTermGains === 0);
-  const higherAllowance = withSettings({ freistellungsauftrag: 3000 });
-  ok('higher allowance lowers taxable income', approx(higherAllowance.taxableIncome, 0));
+  const higherAllowance = withSettings({ freistellungsauftrag: 2000 });
+  ok('higher allowance (joint, 2,000) lowers taxable income', approx(higherAllowance.taxableIncome, 1000));
+  // The setting cannot exceed the statutory joint amount (sec. 20 (9) EStG).
+  ok('an allowance above 2,000 is capped at 2,000', approx(withSettings({ freistellungsauftrag: 3000 }).taxableIncome, 1000));
 
   // ---- integration: report builder threads settings + overrides ---------------
   const rep = REPORT.build([

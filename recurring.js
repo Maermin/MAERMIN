@@ -48,6 +48,15 @@ function __(k, f, v) { return (typeof window !== 'undefined' && window.MaerminI1
     var lastDay = new Date(Date.UTC(y, m + 1, 0)).getUTCDate();
     return new Date(Date.UTC(y, m, Math.min(day, lastDay)));
   }
+  // The i-th occurrence counted from the START date, so a schedule that starts
+  // on the 29th-31st clamps only in short months and comes back afterwards
+  // (Jan 31 → Feb 28 → Mar 31), instead of drifting to the 28th for good.
+  var MONTH_STEPS = { monthly: 1, quarterly: 3, semiannual: 6, annual: 12 };
+  var DAY_STEPS = { weekly: 7, biweekly: 14 };
+  function nthDate(start, interval, i) {
+    if (DAY_STEPS[interval]) return addDays(start, DAY_STEPS[interval] * i);
+    return addMonths(start, (MONTH_STEPS[interval] || 1) * i);
+  }
   function nextDate(d, interval) {
     switch (interval) {
       case 'weekly':     return addDays(d, 7);
@@ -78,8 +87,8 @@ function __(k, f, v) { return (typeof window !== 'undefined' && window.MaerminI1
       if (end && d > end) break;
       if (to && d > to) break;
       if (d >= from) out.push({ date: toISODate(d), amount: amount, liabilityId: liab.id, name: liab.name });
-      d = nextDate(d, liab.interval);
       i++;
+      d = nthDate(start, liab.interval, i);
     }
     return out;
   }
@@ -116,7 +125,8 @@ function __(k, f, v) { return (typeof window !== 'undefined' && window.MaerminI1
     liabs.forEach(function (l) {
       monthly += monthlyEquivalent(l);
       paid += paidToDate(l, asOf);
-      if (l.endDate) remaining += sumBetween(l, asOf, l.endDate);
+      // From the day after asOf: a payment ON asOf is already in paidToDate.
+      if (l.endDate) remaining += sumBetween(l, toISODate(addDays(parseDate(asOf), 1)), l.endDate);
     });
     return {
       count: liabs.length,

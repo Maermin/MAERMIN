@@ -1266,23 +1266,25 @@ function InvestmentTracker() {
       if (demoMode || !window.MaerminSnapshots) return;
       const byPid = {}; // portfolioId -> combined total
       let combined = 0;
-      const posMap = {};
-      transactions.forEach((tx) => {
-        const pid = tx.portfolioId || 'default';
-        const category = tx.category || 'crypto';
-        const key = pid + '|' + category + '-' + (tx.symbol || '').toLowerCase();
-        if (!posMap[key]) posMap[key] = { pid, symbol: tx.symbol, amount: 0 };
-        const qty = parseFloat(tx.quantity) || 0;
-        if (tx.type === 'buy') posMap[key].amount += qty;
-        else if (tx.type === 'sell') posMap[key].amount = Math.max(0, posMap[key].amount - qty);
-      });
-      Object.values(posMap).forEach((pos) => {
-        if (pos.amount <= 0.0001) return;
-        const sym = pos.symbol || '';
-        const pr = prices[sym] || prices[sym.toLowerCase()] || prices[sym.toUpperCase()] || 0;
-        const val = pos.amount * pr;
-        combined += val;
-        byPid[pos.pid] = (byPid[pos.pid] || 0) + val;
+      // The open quantities come from the one FIFO ledger (date-ordered, splits
+      // applied, same-day buys before sells) - summing raw rows in stored order
+      // clamped sells that were stored before their buy and ignored splits
+      // (AUDIT BUG-025).
+      const M = window.MaerminMetrics;
+      if (!M || !M.buildPositions) return;
+      const byPortfolio = {};
+      transactions.forEach((tx) => { const pid = tx.portfolioId || 'default'; (byPortfolio[pid] = byPortfolio[pid] || []).push(tx); });
+      Object.keys(byPortfolio).forEach((pid) => {
+        const grouped = M.buildPositions(byPortfolio[pid], { exchangeRate, fxAt });
+        Object.keys(grouped).forEach((cat) => (grouped[cat] || []).forEach((pos) => {
+          const amount = parseFloat(pos.amount) || 0;
+          if (amount <= 0.0001) return;
+          const sym = pos.symbol || pos.name || '';
+          const pr = prices[sym] || prices[sym.toLowerCase()] || prices[sym.toUpperCase()] || 0;
+          const val = amount * pr;
+          combined += val;
+          byPid[pid] = (byPid[pid] || 0) + val;
+        }));
       });
       const round = (v) => Math.round(v * 100) / 100;
       const recordIfChanged = (val, pid) => {
@@ -1308,7 +1310,7 @@ function InvestmentTracker() {
         }
       }
     } catch (e) { /* snapshots are best-effort; never break a render */ }
-  }, [transactions, prices, demoMode]);
+  }, [transactions, prices, demoMode, exchangeRate, fxAt]);
 
   // First run: open the guided setup wizard once when there's no Worker, no data
   // and we're not in demo mode. A flag keeps it from reappearing every load.
@@ -1572,6 +1574,8 @@ function InvestmentTracker() {
           (symsById[id] = symsById[id] || []).push(sym);
         });
         const ids = Object.keys(symsById).join(',');
+        const pricedIds = {};
+        let cgBusy = false;
         if (ids) {
           try {
             // CoinGecko through the Worker (?action=cg: cached, refusals answered
@@ -1586,13 +1590,40 @@ function InvestmentTracker() {
                 putFresh(id, eurPrice);
                 putFresh(id.toLowerCase(), eurPrice);
                 (symsById[id] || []).forEach(sym => { putFresh(sym, eurPrice); putFresh(sym.toLowerCase(), eurPrice); });
+                pricedIds[id] = true;
               });
               dbg('[PRICES] Crypto prices fetched:', Object.keys(data).length);
             }
           } catch (e) {
             if (!(e && e.noWorker)) console.error('[PRICES] CoinGecko error:', e);
-            if (e && e.rateLimited) addToast(__('cgRateLimited', 'CoinGecko is busy (rate limit) - crypto keeps its last prices, refresh again in a minute'), 'warning', 8000);
-            else if (e && e.noWorker && !window.__maerminCgHintShown && (window.__maerminCgHintShown = true)) addToast(__('cgNeedsWorker', 'Crypto prices come through your Worker - add its URL in API Settings'), 'warning', 8000);
+            if (e && e.rateLimited) cgBusy = true;
+            if (e && e.noWorker && !window.__maerminCgHintShown && (window.__maerminCgHintShown = true)) addToast(__('cgNeedsWorker', 'Crypto prices come through your Worker - add its URL in API Settings'), 'warning', 8000);
+          }
+          // Coins CoinGecko did not price this run (rate limit, unknown id): the
+          // Yahoo USD pair through the Worker, the source the daily crypto
+          // history already uses (AUDIT BUG-035).
+          const cgBase = (apiKeys.cs2Worker || '').trim().replace(/\/$/, '');
+          const pairOf = window.MaerminTickers && window.MaerminTickers.yahooCryptoSymbol;
+          const unpriced = Object.keys(symsById).filter(id => !pricedIds[id]);
+          if (cgBase.length > 5 && pairOf && unpriced.length) {
+            await Promise.all(unpriced.map(async (id) => {
+              const pair = pairOf((symsById[id] || [])[0] || id);
+              if (!pair) return;
+              try {
+                const r = await fetch(`${cgBase}?action=yf&symbol=${encodeURIComponent(pair)}&interval=1d&range=5d`, { signal: AbortSignal.timeout(8000) });
+                if (!r.ok) return;
+                const j = await r.json();
+                const last = j.prices && j.prices[j.prices.length - 1];
+                const eurPrice = last && last.price > 0 ? quoteEUR(last.price, j.currency || 'USD') : null;
+                if (!(eurPrice > 0)) return;
+                putFresh(id, eurPrice); putFresh(id.toLowerCase(), eurPrice);
+                (symsById[id] || []).forEach(sym => { putFresh(sym, eurPrice); putFresh(sym.toLowerCase(), eurPrice); });
+                pricedIds[id] = true;
+              } catch (e) { /* stays unpriced, reported below */ }
+            }));
+          }
+          if (cgBusy && Object.keys(symsById).some(id => !pricedIds[id])) {
+            addToast(__('cgRateLimited', 'CoinGecko is busy (rate limit) - crypto keeps its last prices, refresh again in a minute'), 'warning', 8000);
           }
         }
       }
@@ -1617,9 +1648,13 @@ function InvestmentTracker() {
         try { suffixCache = JSON.parse(localStorage.getItem('maermin_symbol_suffix') || '{}') || {}; } catch (e) {}
         let suffixDirty = false;
 
+        const noListing = window.MaerminCloseHistory && window.MaerminCloseHistory.noListing;
+        let lastYfStatus = 0;
         const fetchYfPrice = async (yfSym, ms) => {
+          lastYfStatus = 0;
           try {
             const res = await fetch(`${workerBase}?action=yf&symbol=${encodeURIComponent(yfSym)}&interval=1d&range=5d`, { signal: AbortSignal.timeout(ms) });
+            lastYfStatus = res.status;
             if (!res.ok) return null;
             const data = await res.json();
             const last = data.prices?.[data.prices.length - 1];
@@ -1632,12 +1667,13 @@ function InvestmentTracker() {
         const resolveStockYF = async (stock) => {
           const sym  = (stock.symbol || stock.name || '').toUpperCase();
           const symL = sym.toLowerCase();
-          if (!hasWorker || !isTicker(sym)) return { sym, symL, priceEUR: null };
+          if (!hasWorker || !isTicker(sym) || (noListing && noListing.has(sym))) return { sym, symL, priceEUR: null };
           const cached = !sym.includes('.') && (suffixCache[sym] || LEGACY_MAP[sym]);
           const primary = sym.includes('.') ? sym : (cached || sym);
           let priceEUR = null;
           try {
             priceEUR = await fetchYfPrice(primary, 8000);
+            let all404 = !priceEUR && lastYfStatus === 404;
             if (priceEUR) dbg('[PRICES] Stock (YF):', primary, '→', priceEUR.toFixed(2), 'EUR');
             // Only brute-force suffixes when nothing is known AND the bare symbol failed.
             if (!priceEUR && !sym.includes('.') && !cached) {
@@ -1648,8 +1684,10 @@ function InvestmentTracker() {
                   dbg('[PRICES] Stock (YF auto-suffix):', sym, '→', sym + suffix, '→', p.toFixed(2), 'EUR');
                   break;
                 }
+                if (lastYfStatus !== 404) all404 = false;
               }
             }
+            if (!priceEUR && all404 && noListing) noListing.mark(sym);
           } catch (e) {
             console.warn('[PRICES] YF stock failed for', sym, '—', e.message);
           }
@@ -2750,7 +2788,8 @@ function InvestmentTracker() {
         // ── Primary: Yahoo Finance fundamentals via Worker ─────────────────
         // action=fundamentals (Yahoo quoteSummary) gives the annual dividendRate,
         // the last single payment (→ frequency) and the ex-date.
-        if (hasWorker) {
+        const NLd = window.MaerminCloseHistory && window.MaerminCloseHistory.noListing;
+        if (hasWorker && !(NLd && NLd.has(qsym))) {
           try {
             const url  = `${workerBase}?action=fundamentals&symbol=${encodeURIComponent(qsym)}`;
             const res  = await fetch(url, { signal: AbortSignal.timeout(8000) });
@@ -2862,11 +2901,11 @@ function InvestmentTracker() {
       React.createElement('div', { style: { flex: 1, overflow: 'auto' } },
         tab === 'calendar' && window.MaerminFeatures2 ?
           React.createElement(window.MaerminFeatures2.DividendCalendarView, {
-            portfolio, prices, metaVersion, theme, t, addToast, events: divEvents, setEvents: setDivEvents, privacyMode
+            portfolio, prices, metaVersion, theme, t, addToast, events: divEvents, setEvents: setDivEvents, privacyMode, exchangeRate
           }) : null,
         tab === 'forecast' && window.MaerminFeatures4 ?
           React.createElement(window.MaerminFeatures4.DividendForecastView, {
-            transactions, portfolio, prices, metaVersion, theme, formatPrice, getCurrencySymbol
+            transactions, portfolio, prices, metaVersion, theme, formatPrice, getCurrencySymbol, exchangeRate, fxAt
           }) : null,
         // Dividend quality & safety fold-in (no new tab): per-payer safety
         // score, payout/streak/growth/coverage columns with a click-to-open
@@ -2874,7 +2913,7 @@ function InvestmentTracker() {
         // Gated on the Worker fundamentals route; degrades to history-only.
         window.MaerminDividendQuality && window.MaerminDividendQuality.QualityPanel ?
           React.createElement(window.MaerminDividendQuality.QualityPanel, {
-            portfolio, prices, workerUrl: apiKeys?.cs2Worker,
+            portfolio, prices, workerUrl: apiKeys?.cs2Worker, exchangeRate,
             theme, t, formatPrice, getCurrencySymbol
           }) : null
       )
@@ -2994,7 +3033,8 @@ function InvestmentTracker() {
                 privacyMode, formatPrice, getCurrencySymbol
               })),
             React.createElement(window.MaerminPerformance.View, {
-              theme: currentTheme, t, formatPrice, getCurrencySymbol, workerUrl: apiKeys.cs2Worker, demo: demoMode
+              theme: currentTheme, t, formatPrice, getCurrencySymbol, workerUrl: apiKeys.cs2Worker, demo: demoMode,
+              transactions, exchangeRate, fxAt
             })
           ) : renderAnalyticsPlaceholder(t.navPerformance || 'Performance');
 
@@ -3081,7 +3121,7 @@ function InvestmentTracker() {
       case 'share':
         return window.MaerminShare ?
           React.createElement(window.MaerminShare.View, {
-            portfolio, prices, transactions: activeTransactions,
+            portfolio, prices, transactions: activeTransactions, priceHistory,
             workerUrl: apiKeys.cs2Worker, theme: currentTheme, t
           }) : renderAnalyticsPlaceholder(t.navShare || 'Share & Compare');
 
@@ -3097,7 +3137,7 @@ function InvestmentTracker() {
             React.createElement('h2', { style: { color: currentTheme.text, fontSize: '1.5rem', fontWeight: '800', letterSpacing: '-0.02em', marginBottom: '1.5rem' } }, t.navCashflow || 'Cash Flow'),
             React.createElement(window.MaerminFeatures5.CashflowChart, {
               transactions: activeTransactions, priceHistory, portfolio, prices,
-              theme: currentTheme, formatPrice, getCurrencySymbol
+              theme: currentTheme, formatPrice, getCurrencySymbol, valuePath, exchangeRate, fxAt
             })
           ) : renderAnalyticsPlaceholder(t.navCashflow || 'Cash Flow');
 
@@ -3105,7 +3145,7 @@ function InvestmentTracker() {
         return window.MaerminFeatures5 ?
           React.createElement(React.Fragment, null,
             React.createElement(window.MaerminFeatures5.FeeAnalyzer, {
-              transactions: activeTransactions, theme: currentTheme, formatPrice, getCurrencySymbol
+              transactions: activeTransactions, theme: currentTheme, formatPrice, getCurrencySymbol, exchangeRate, fxAt
             }),
             // Ongoing costs (TER) fold-in: the recurring half of the cost of
             // investing, complementing the transaction fees above (no new tab).
@@ -3138,7 +3178,7 @@ function InvestmentTracker() {
             // the overview block, not here — referencing it crashed the page).
             startValue: portfolioStats.totalValue,
             dividendYield: (window.MaerminMetrics
-              ? (window.MaerminMetrics.computeExpectedAnnualDividends(portfolio, prices).yield || 0) / 100
+              ? (window.MaerminMetrics.computeExpectedAnnualDividends(portfolio, prices, { exchangeRate }).yield || 0) / 100
               : 0)
           }) : renderAnalyticsPlaceholder(t.navSavingsPlans || 'Savings Plans');
 
@@ -3203,7 +3243,7 @@ function InvestmentTracker() {
 
       case 'privacy':
         return window.MaerminTrust
-          ? React.createElement(window.MaerminTrust.PrivacyView, { theme: currentTheme, portfolio, prices, transactions: activeTransactions, privacyMode })
+          ? React.createElement(window.MaerminTrust.PrivacyView, { theme: currentTheme, portfolio, prices, transactions: activeTransactions, priceHistory, privacyMode })
           : renderAnalyticsPlaceholder(t.navPrivacy || 'Privacy');
 
       case 'trash':
@@ -3335,7 +3375,7 @@ function InvestmentTracker() {
     const sym = getCurrencySymbol();
     const nw      = M ? M.computeNetWorth(portfolioValue) : null;
     const fireM   = (M && nw) ? M.computeFireMetrics(nw.netWorth, fire) : null;
-    const divM    = M ? memoBy('kpiDiv', [portfolio, prices], () => M.computeExpectedAnnualDividends(portfolio, prices)) : null;
+    const divM    = M ? memoBy('kpiDiv', [portfolio, prices, exchangeRate], () => M.computeExpectedAnnualDividends(portfolio, prices, { exchangeRate })) : null;
     const healthM = M ? memoBy('kpiHealth', [portfolio, prices, t, priceHistory, transactions], () => M.healthScore(portfolio, prices, t, { priceHistory, transactions })) : null;
 
     const healthColor = (s) => s >= 70 ? theme.success : s >= 40 ? theme.warning : theme.danger;
@@ -3643,7 +3683,7 @@ function InvestmentTracker() {
       statCards: () => (
       (() => {
         const M = window.MaerminMetrics;
-        const divOv = M ? memoBy('ovDiv', [overviewPortfolio, prices], () => M.computeExpectedAnnualDividends(overviewPortfolio, prices)) : null;
+        const divOv = M ? memoBy('ovDiv', [overviewPortfolio, prices, exchangeRate], () => M.computeExpectedAnnualDividends(overviewPortfolio, prices, { exchangeRate })) : null;
         const healthOv = M ? memoBy('ovHealth', [overviewPortfolio, prices, t, priceHistory, overviewTransactions], () => M.healthScore(overviewPortfolio, prices, t, { priceHistory, transactions: overviewTransactions })) : null;
         const hColor = (s) => s >= 70 ? currentTheme.success : s >= 40 ? currentTheme.warning : currentTheme.danger;
         const hScore = healthOv && !healthOv.empty ? healthOv.score : null;
@@ -4072,6 +4112,7 @@ function InvestmentTracker() {
 
       // CS2 skins filed as stocks (see renderMisfiledSkins)
       !demoMode && renderMisfiledSkins(),
+      !demoMode && renderCryptoPairs(),
 
       // Recovery-kit nudge for vaults created before recovery codes existed
       showRecoveryNudge && React.createElement('div', { style: { background: 'rgba(245,158,11,0.06)', border: '1px solid rgba(245,158,11,0.25)', borderRadius: '10px', padding: '0.875rem 1.25rem', marginBottom: '1.25rem', display: 'flex', alignItems: 'center', gap: '1rem', flexWrap: 'wrap' } },
@@ -4325,6 +4366,26 @@ function InvestmentTracker() {
       }, skinRepairBusy ? __('skinLookingUp', 'Looking up market names…') : __('skinMoveBtn', 'Move to CS2 Skins')));
   };
 
+  // DQ-CRYPTO-PAIR: crypto rows imported with the exchange pair as symbol
+  // (before the 2026-10 import fix, AUDIT BUG-013) never get a price.
+  const renderCryptoPairs = () => {
+    const found = DC && DC.cryptoPairs ? DC.cryptoPairs(transactions) : [];
+    if (!found.length) return null;
+    return React.createElement('div', {
+      role: 'status', 'data-testid': 'crypto-pairs', 'data-dq-code': DC.CODES.cryptoPair,
+      style: { background: `${currentTheme.warning}14`, border: `1px solid ${currentTheme.warning}55`, borderRadius: '10px', padding: '0.75rem 0.9rem', marginBottom: '1rem', fontSize: '0.82rem', color: currentTheme.text, display: 'flex', flexWrap: 'wrap', gap: '0.75rem', alignItems: 'center', justifyContent: 'space-between' }
+    },
+      React.createElement('div', { style: { flex: '1 1 260px', lineHeight: 1.5 } },
+        React.createElement('code', { style: { fontSize: '0.7rem', color: currentTheme.textSecondary, marginRight: '0.4rem' } }, DC.CODES.cryptoPair),
+        React.createElement('strong', null, __('dqCryptoPair', '{n} crypto {n:symbol is|symbols are} an exchange pair', { n: found.length })),
+        React.createElement('div', { style: { color: currentTheme.textSecondary, fontSize: '0.78rem' } },
+          `${found.slice(0, 3).map(f => f.symbol).join(', ')}${found.length > 3 ? ' …' : ''} - ${__('dqCryptoPairHint', 'they get no price. Edit each row: the coin as symbol (e.g. BTC) and the quote as currency (USDT/USDC count as USD).')}`)),
+      React.createElement('button', {
+        onClick: () => setTxSearch(found[0].symbol),
+        style: { padding: '0.5rem 1rem', minHeight: '40px', background: (currentTheme.accentFill || currentTheme.accent), color: '#fff', border: 'none', borderRadius: '8px', cursor: 'pointer', fontWeight: '700', fontSize: '0.82rem' }
+      }, __('dcShowTx', 'Show transactions')));
+  };
+
   const renderTransactionsView = () => {
     // Filter by active portfolio first, then by search
     const filtered = transactions.filter(tx => {
@@ -4362,6 +4423,7 @@ function InvestmentTracker() {
 
     return React.createElement('div', { style: { padding: '1.5rem' } },
       renderMisfiledSkins(),
+      renderCryptoPairs(),
       renderLedgerIssues(),
       // Header row
       React.createElement('div', {
@@ -4610,6 +4672,7 @@ function InvestmentTracker() {
 
     return React.createElement('div', { style: { padding: '1.5rem' } },
       renderMisfiledSkins(),
+      renderCryptoPairs(),
       renderLedgerIssues(),
       React.createElement('div', {
         style: { display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem', flexWrap: 'wrap', gap: '0.5rem' }

@@ -550,59 +550,44 @@ function SavingsPlanView({ transactions, theme, formatPrice, getCurrencySymbol, 
 // 3. DIVIDEND FORECAST — 12-Monats-Prognose
 // Schaut auf historische Dividenden-Einträge und projiziert sie voraus
 // ─────────────────────────────────────────────────────────────────────────────
-function DividendForecastView({ transactions, portfolio, prices, metaVersion, theme, formatPrice, getCurrencySymbol }) {
+function DividendForecastView({ transactions, portfolio, prices, metaVersion, theme, formatPrice, getCurrencySymbol, exchangeRate, fxAt }) {
   const [forecastYears, setForecastYears] = React.useState(3);
 
   const dividends = useMemo(() =>
     transactions.filter(tx => tx.type === 'dividend' || (tx.notes || '').toLowerCase().includes('dividend')),
   [transactions]);
 
-  // Derive a per-symbol forward rate. Primary source = the user's own recorded
-  // dividend payments (most accurate). When there is no manual history, fall
-  // back to the automatic engine (DividendDataService: cache → API → built-in
-  // DB, all keyed through the ticker-validation layer) so the forecast works
-  // out of the box for recognised holdings. Requirement #4.
+  // Per-payer forward rate (dividend-forecast.js): the user's own payments of
+  // the last twelve months, in EUR at their dates. Payers without such history
+  // (none recorded, or only older ones) use the resolved per-share rate of the
+  // DividendDataService × the shares held (AUDIT BUG-032).
   const forecasts = useMemo(() => {
-    const bySymbol = Object.create(null); // keys are imported symbols (SEC-023)
-    dividends.forEach(tx => {
-      const sym = (tx.symbol || '').toLowerCase();
-      if (!bySymbol[sym]) bySymbol[sym] = { sym: tx.symbol, payments: [] };
-      bySymbol[sym].payments.push({ date: new Date(tx.date), amount: parseFloat(tx.quantity || 0) * parseFloat(tx.price || 0) });
-    });
-    const result = [];
-    Object.values(bySymbol).forEach(({ sym, payments }) => {
-      if (payments.length < 1) return;
-      payments.sort((a, b) => a.date - b.date);
-      const totalPaid = payments.reduce((s, p) => s + p.amount, 0);
-      const first = payments[0].date, last = payments[payments.length - 1].date;
-      const yearsFraction = Math.max(0.08, (last - first) / (365.25 * 86400000)) || 1;
-      const annualRate = totalPaid / yearsFraction;
-      const avgPerPayment = totalPaid / payments.length;
-      let frequency = 'annual';
-      if (payments.length >= 2) {
-        const avgGapDays = (last - first) / (payments.length - 1) / 86400000;
-        if (avgGapDays < 45)   frequency = 'monthly';
-        else if (avgGapDays < 100) frequency = 'quarterly';
-        else if (avgGapDays < 200) frequency = 'semi-annual';
-      }
-      result.push({ sym, annualRate, avgPerPayment, frequency, lastPayment: last, paymentsCount: payments.length, source: 'history' });
-    });
-
-    if (result.length === 0 && window.DividendDataService && portfolio && portfolio.stocks) {
-      // No manual history → project from current stock holdings × known dividend.
+    const FX = window.MaerminFxHistory, U = window.MaerminUtils;
+    const toEUR = (tx) => {
+      const amt = (parseFloat(tx.quantity) || 0) * (parseFloat(tx.price) || 0);
+      if (FX && FX.txToEUR) return FX.txToEUR(amt, tx.currency || 'EUR', tx.date, exchangeRate, fxAt).value;
+      return U ? U.toEUR(amt, tx.currency || 'EUR', exchangeRate) : amt;
+    };
+    const DF = window.MaerminDividendForecast;
+    const result = DF ? DF.forecastRates(dividends, { toEUR }).rates : [];
+    const covered = Object.create(null); // keys are imported symbols (SEC-023)
+    result.forEach(f => { covered[String(f.sym).toUpperCase()] = true; });
+    if (window.DividendDataService && portfolio && portfolio.stocks) {
       const data = window.DividendDataService.getPortfolioDividendData(portfolio, prices || {});
       (portfolio.stocks || []).forEach(s => {
         const sym = (s.symbol || s.name || '').toUpperCase();
+        if (covered[sym]) return;
         const shares = parseFloat(s.amount) || 0;
         const d = data[sym];
         if (!d || shares <= 0 || !(d.annualDividend > 0)) return;
-        const annualRate = shares * d.annualDividend;
+        const cur = d.currency || 'USD';
+        const annualRate = (U && cur !== 'EUR') ? U.toEUR(shares * d.annualDividend, cur, exchangeRate) : shares * d.annualDividend; // in EUR (BUG-038)
         const ppy = window.DividendDataService.getPaymentsPerYear(d.frequency);
-        result.push({ sym: s.symbol || s.name, annualRate, avgPerPayment: annualRate / ppy, frequency: d.frequency || 'quarterly', paymentsCount: ppy, source: 'estimated' });
+        result.push({ sym: s.symbol || s.name, annualRate, perPayment: annualRate / ppy, frequency: d.frequency || 'quarterly', paymentsPerYear: ppy, paymentsCount: ppy, source: 'estimated' });
       });
     }
     return result.sort((a, b) => b.annualRate - a.annualRate);
-  }, [dividends, portfolio, prices, metaVersion]);
+  }, [dividends, portfolio, prices, metaVersion, exchangeRate, fxAt]);
 
   const isEstimated = forecasts.length > 0 && forecasts.every(f => f.source === 'estimated');
 
@@ -616,10 +601,12 @@ function DividendForecastView({ transactions, portfolio, prices, metaVersion, th
       months.push({ date: d, year: d.getFullYear(), label: window.MaerminI18n.date(d, { month: 'short', year: '2-digit' }), amount: 0, items: [] });
     }
     forecasts.forEach(f => {
-      const paymentsPerYear = f.frequency === 'monthly' ? 12 : f.frequency === 'quarterly' ? 4 : f.frequency === 'semi-annual' ? 2 : 1;
-      const perPayment = f.annualRate / paymentsPerYear;
+      const paymentsPerYear = f.paymentsPerYear || (f.frequency === 'monthly' ? 12 : f.frequency === 'quarterly' ? 4 : f.frequency === 'semi-annual' ? 2 : 1);
+      const perPayment = f.perPayment != null ? f.perPayment : f.annualRate / paymentsPerYear;
       months.forEach((m, i) => {
-        const shouldPay = f.frequency === 'monthly' ? true
+        // History: the months the payer actually paid in. Estimated: evenly spread.
+        const shouldPay = Array.isArray(f.months) && f.months.length ? f.months.indexOf(m.date.getMonth()) > -1
+          : f.frequency === 'monthly' ? true
           : f.frequency === 'quarterly' ? i % 3 === 0
           : f.frequency === 'semi-annual' ? i % 6 === 0
           : i % 12 === 0;

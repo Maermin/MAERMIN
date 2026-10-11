@@ -557,6 +557,26 @@ before and after the commit point), passkey removal and the lock flush. Migratio
 
 ### 2. Bugs
 
+**Status (Phase 2, branch `fix/audit-bugs`, PR 2):** all fixed — BUG-012…038 (BUG-039 is fixed in PR 1). Each has a test that
+failed before the fix (`test/audit-*.test.js`, now regular regression tests, plus `test/dividend-forecast.test.js`,
+`test/dividend-calendar.test.js`, `test/dividend-income-eur.test.js`). Notes:
+- BUG-013 also adds the data-check code `DQ-CRYPTO-PAIR` for rows imported before the fix.
+- BUG-014 migration path: an execution already booked under the old drifted date (e.g. 28 Mar) counts for its month, so
+  nothing is booked twice; an old skipped date still skips its month (tested).
+- BUG-017: the setting is also capped at the statutory joint amount (2,000 €); an existing test that expected a 3,000 €
+  allowance to make 3,000 € tax-free was wrong and was corrected.
+- BUG-018: interest periods are half-open, `[1 Dec, 1 Jan)` booked on 31 Dec; two tests that expected the 31 Dec night in the
+  next year were corrected; the post-sync dedupe now keys the yearly ledger on the booking date.
+- BUG-019: an existing test priced a 1 April execution with a close from 16 March; the fixture got a recent close.
+- BUG-023 migration path: a restore sets the schema version to 0, so the migrations run behind the pre-migration copy;
+  a backup made by the current code comes back byte-identical (tested).
+- BUG-031 is a Worker change: it reaches a deployed Worker only after a redeploy.
+- BUG-032: the forecast logic moved into the pure module `dividend-forecast.js` (trailing twelve months, EUR at the
+  payment date); BUG-037 root cause: `freqLabel` was called but never defined (P2-2 translation commit 4bd31a1), so the
+  derived schedule always failed inside its try/catch.
+- BUG-036 measured against the test Worker: requests for a symbol with no listing fell from 70 to 11 over a refresh, all six
+  chart ranges, Dividends and Strategy.
+
 Tests: local branch `audit/failing-tests` (`b253f99`, `e9a9e75`). All 120 existing suites still pass with them; each audit
 test fails for the stated reason. Where no Node test is possible, the finding says why and names the e2e check to add.
 

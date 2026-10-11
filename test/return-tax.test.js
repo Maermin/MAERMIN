@@ -42,8 +42,8 @@ const M = require('../metrics.js');
   const run1 = I.runCatchUp({ accounts: [cash], transactions: [], asOf: '2026-01-15' });
   ok('M-3: an accrual across 31 Dec is split into two postings', run1.created.length === 2);
   const dec = run1.created.find((t) => t.date === '2025-12-31'), jan = run1.created.find((t) => t.date === '2026-01-15');
-  ok('M-3: December\'s interest is dated 2025-12-31 (taxed in 2025)', dec && dec.periodStart === '2025-12-01' && dec.periodEnd === '2025-12-31');
-  ok('M-3: January\'s interest starts where December ended', jan && jan.periodStart === '2025-12-31');
+  ok('M-3: December\'s interest is dated 2025-12-31 (taxed in 2025)', dec && dec.periodStart === '2025-12-01' && dec.periodEnd === '2026-01-01'); // half-open [1 Dec, 1 Jan): AUDIT BUG-018
+  ok('M-3: January\'s interest starts where December ended', jan && jan.periodStart === '2026-01-01');
   const whole = I.accrue(cash, '2026-01-15').interest;
   ok('M-3: the split books the same total (compounding continues)', near(dec.amount + jan.amount, whole, 1e-6) && near(run1.accounts[0].value, 10000 + whole, 1e-6));
   ok('M-3: the yearly ledger gets the right year', near(I.yearlyInterest(run1.ledger, 2025), dec.amount, 1e-9) && near(I.yearlyInterest(run1.ledger, 2026), jan.amount, 1e-9));

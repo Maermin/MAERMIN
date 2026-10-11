@@ -62,7 +62,8 @@ const PLAN = { id: 'p1', symbol: 'BTC', category: 'crypto', amount: 100, frequen
   const history = { BTC: [
     { timestamp: '2026-03-10T10:00:00Z', price: 48000 },
     { timestamp: '2026-03-14T10:00:00Z', price: 49500 },
-    { timestamp: '2026-03-16T10:00:00Z', price: 51000 }
+    { timestamp: '2026-03-16T10:00:00Z', price: 51000 },
+    { timestamp: '2026-03-30T10:00:00Z', price: 52000 }
   ] };
   ok('nearest close at or before the due date wins', E.priceAtDate(history, {}, 'BTC', '2026-03-15') === 49500);
   ok('no coverage and not today -> null (stays pending)', E.priceAtDate({}, { BTC: 50000 }, 'BTC', '2026-03-15') === null);
@@ -74,8 +75,10 @@ const PLAN = { id: 'p1', symbol: 'BTC', category: 'crypto', amount: 100, frequen
   // ---- runCatchUp: booking + idempotency over two runs --------------------------------
   const resolve = (plan, dueDate) => E.priceAtDate(history, {}, plan.symbol, dueDate);
   const run1 = E.runCatchUp([{ ...PLAN, startDate: '2026-03-01' }], [], resolve, '2026-04-01');
-  // Due: Mar 1 (no history yet -> pending), Apr 1 (after last close -> 51000).
-  ok('resolvable due dates are booked', run1.created.length === 1 && run1.created[0].dueDate === '2026-04-01' && approx(run1.created[0].quantity, 100 / 51000));
+  // Due: Mar 1 (no history yet -> pending), Apr 1 (close of Mar 30 -> 52000).
+  ok('resolvable due dates are booked', run1.created.length === 1 && run1.created[0].dueDate === '2026-04-01' && approx(run1.created[0].quantity, 100 / 52000));
+  // AUDIT BUG-019: a close more than a week before the due date is no fill.
+  ok('a close 16 days before the due date is not an exact fill', E.priceAtDate({ BTC: history.BTC.slice(0, 3) }, {}, 'BTC', '2026-04-01') === null);
   ok('unresolvable due dates stay pending with a reason', run1.pending.length === 1 && run1.pending[0].dueDate === '2026-03-01' && /price/.test(run1.pending[0].reason));
   const run2 = E.runCatchUp([{ ...PLAN, startDate: '2026-03-01' }], run1.transactions, resolve, '2026-04-01');
   ok('a second catch-up books nothing (idempotent)', run2.created.length === 0);

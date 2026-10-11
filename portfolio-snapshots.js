@@ -30,11 +30,13 @@
   var DEFAULT_CAP = 1825;      // ~5 years of daily points per portfolio
   var ALL = 'all';
 
+  // The user's LOCAL calendar day: a UTC day put a snapshot taken shortly after
+  // midnight in Europe onto the previous day and overwrote it (AUDIT BUG-026).
   function todayISO() {
     var d = new Date();
-    return d.getUTCFullYear() + '-' +
-      ('0' + (d.getUTCMonth() + 1)).slice(-2) + '-' +
-      ('0' + d.getUTCDate()).slice(-2);
+    return d.getFullYear() + '-' +
+      ('0' + (d.getMonth() + 1)).slice(-2) + '-' +
+      ('0' + d.getDate()).slice(-2);
   }
 
   function isISODate(s) { return typeof s === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(s); }

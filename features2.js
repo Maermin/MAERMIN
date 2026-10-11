@@ -1194,7 +1194,23 @@ function PositionNotesView({ portfolio, theme, t }) {
 // ─────────────────────────────────────────────────────────────────────────────
 // 5. DIVIDEND CALENDAR
 // ─────────────────────────────────────────────────────────────────────────────
-function DividendCalendarView({ portfolio, prices, metaVersion, theme, t, addToast, events: eventsProp, setEvents: setEventsProp, privacyMode }) {
+// Frequency of a derived payout in the UI language. It was called but never
+// defined (since the P2-2 translation change), so building the derived schedule
+// threw inside its try/catch and the calendar never showed a single auto-derived
+// payout - "Year: €0.00" for every holder (AUDIT BUG-037).
+function freqLabel(f) {
+  switch (String(f || '').toLowerCase().replace(/[^a-z]/g, '')) {
+    case 'weekly': return __('freqWeekly', 'Weekly');
+    case 'biweekly': return __('freqBiweekly', 'Bi-weekly');
+    case 'monthly': return __('freqMonthly', 'Monthly');
+    case 'quarterly': return __('freqQuarterly', 'Quarterly');
+    case 'semiannual': return __('freqSemiAnnual', 'Semi-annual');
+    case 'annual': case 'yearly': return __('freqAnnual', 'Annual');
+    default: return String(f || '');
+  }
+}
+
+function DividendCalendarView({ portfolio, prices, metaVersion, theme, t, addToast, events: eventsProp, setEvents: setEventsProp, privacyMode, exchangeRate }) {
   // Privacy Mode masks every amount, like the app's formatPrice.
   const amt = (text) => (privacyMode ? '••••••' : text);
   // Controlled when the parent passes events/setEvents (so auto-fetched payments
@@ -1274,8 +1290,10 @@ function DividendCalendarView({ portfolio, prices, metaVersion, theme, t, addToa
     return d.getFullYear() === year && d.getMonth() === month;
   });
 
-  const totalThisMonth = monthEvents.reduce((s, e) => s + (e.amount || 0), 0);
-  const totalYear = events.filter(e => new Date(e.date).getFullYear() === year).reduce((s,e)=>s+e.amount,0);
+  // Totals in EUR: derived payouts carry their own currency (USD for a US payer).
+  const eurOf = (e) => window.MaerminUtils ? window.MaerminUtils.toEUR(e.amount || 0, e.currency || 'EUR', exchangeRate) : (e.amount || 0);
+  const totalThisMonth = monthEvents.reduce((s, e) => s + eurOf(e), 0);
+  const totalYear = events.filter(e => new Date(e.date).getFullYear() === year).reduce((s, e) => s + eurOf(e), 0);
 
   const days = [];
   for (let i = 0; i < startDow; i++) days.push(null);
