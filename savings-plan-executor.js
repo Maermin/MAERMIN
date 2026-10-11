@@ -67,11 +67,6 @@
     }, plan.startDate, asOf);
   }
 
-  // Calendar-exact expected execution count (replaces the 30.44-day approx).
-  function expectedExecutions(plan, asOfISO) {
-    return occurrences(plan, asOfISO).length;
-  }
-
   function planStatus(plan, asOfISO) {
     if (plan && plan.active === false) return 'paused';
     if (plan && plan.endDate && plan.endDate < (asOfISO || todayISO())) return 'completed';
@@ -333,7 +328,6 @@
   var api = {
     PLANS_KEY: PLANS_KEY,
     occurrences: occurrences,
-    expectedExecutions: expectedExecutions,
     planStatus: planStatus,
     isExecution: isExecution,
     pendingExecutions: pendingExecutions,

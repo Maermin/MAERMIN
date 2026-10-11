@@ -280,7 +280,6 @@ function __(k, f, v) { return (typeof window !== 'undefined' && window.MaerminI1
     return true;
   }
   function endSync(connId) { delete _inFlight[connId]; }
-  function isSyncing(connId) { return !!_inFlight[connId]; }
 
   // ---- state (NO secrets) ---------------------------------------------------
   function normalizeConnection(c) {
@@ -486,7 +485,7 @@ function __(k, f, v) { return (typeof window !== 'undefined' && window.MaerminI1
     validateReadOnly: validateReadOnly, parsePair: parsePair, quoteCurrency: quoteCurrency,
     ADAPTERS: ADAPTERS, mapTrades: mapTrades, dedupe: dedupe, mergeSync: mergeSync,
     appendNew: appendNew, dedupeImported: dedupeImported,
-    beginSync: beginSync, endSync: endSync, isSyncing: isSyncing,
+    beginSync: beginSync, endSync: endSync,
     normalize: normalize, addConnection: addConnection, removeConnection: removeConnection,
     load: load, save: save,
     storeCredentials: storeCredentials, loadCredentials: loadCredentials, removeCredentials: removeCredentials,

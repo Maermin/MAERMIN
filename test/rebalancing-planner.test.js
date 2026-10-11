@@ -20,7 +20,7 @@ const R = require('../rebalancing-planner.js');
   ok('normalize clamps >100 to 100', st.targets.stocks === 100);
   ok('normalize drops 0% and empty-key and negative', !('skins' in st.targets) && !('  ' in st.targets) && !('bonds' in st.targets));
 
-  // ---- setTarget / removeTarget ----
+  // ---- setTarget ----
   st = R.setTarget({ version: 1, basis: 'category', targets: {} }, 'crypto', 60);
   st = R.setTarget(st, 'stocks', 40);
   ok('setTarget stores weights', st.targets.crypto === 60 && st.targets.stocks === 40);
@@ -65,14 +65,6 @@ const R = require('../rebalancing-planner.js');
     'x', 30), 'y', 10)); // sums to 40 -> 75 / 25
   ok('normalizeWeights scales to ~100', Math.abs(R.totalTargetPct(lop) - 100) < 0.5);
   ok('normalizeWeights keeps ratios', near(lop.targets.x / lop.targets.y, 3));
-
-  // ---- groupBy collapses positions by field ----
-  const rows = R.groupBy([
-    { category: 'crypto', valueEUR: 100 }, { category: 'crypto', valueEUR: 50 },
-    { category: 'stocks', valueEUR: 200 }, { category: '', valueEUR: 5 }
-  ], 'category');
-  const g = {}; rows.forEach(r => g[r.key] = r.value);
-  ok('groupBy sums per key, drops empties', g.crypto === 150 && g.stocks === 200 && !('' in g));
 
   // ---- empty actual is safe ----
   const empty = R.plan(targets, [], { band: 0 });

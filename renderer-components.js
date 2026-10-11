@@ -23,10 +23,6 @@ const formatPrice = (price, currency = 'EUR', exchangeRate = 1) => {
   return window.MaerminUtils.formatNumber(converted);
 };
 
-const formatPercent = window.MaerminUtils.formatPercentSigned;
-const formatDate = (dateStr) => window.MaerminUtils.formatDate(dateStr);
-const generateId = window.MaerminUtils.generateId;
-
 // ============================================================================
 // COMMAND PALETTE COMPONENT
 // ============================================================================
@@ -146,38 +142,17 @@ function CommandPalette({ isOpen, onClose, onExecute, commands, t }) {
 // KEYBOARD SHORTCUTS MODAL
 // ============================================================================
 
-function ShortcutsModal({ isOpen, onClose, t, theme }) {
+// The table is built from the same command list the key handler in renderer.js
+// reads, so it only ever shows shortcuts that work.
+function ShortcutsModal({ isOpen, onClose, t, theme, commands }) {
   if (!isOpen) return null;
 
-  const shortcuts = {
-    [t.navigation || 'Navigation']: [
-      { keys: ['Ctrl', 'K'], action: t.commandPalette || 'Command Palette' },
-      { keys: ['g', 'o'], action: t.goToOverview || 'Go to Overview' },
-      { keys: ['g', 'p'], action: t.goToPortfolio || 'Go to Portfolio' },
-      { keys: ['g', 'a'], action: t.goToAnalytics || 'Go to Analytics' },
-      { keys: ['g', 't'], action: t.goToTransactions || 'Go to Transactions' }
-    ],
-    [t.actions || 'Actions']: [
-      { keys: ['n'], action: t.addNew || 'Add Position' },
-      { keys: ['t'], action: t.addTransaction || 'Add Transaction' },
-      { keys: ['r'], action: t.refresh || 'Refresh Prices' },
-      { keys: ['i'], action: t.import || 'Import Data' },
-      { keys: ['b'], action: t.createBackup || 'Create Backup' },
-      { keys: ['p'], action: t.hideAmounts || 'Hide amounts (Privacy)' }
-    ],
-    [t.workspaces || 'Workspaces']: [
-      { keys: ['w', '1'], action: t.defaultWorkspace || 'Default' },
-      { keys: ['w', '2'], action: t.taxSeasonWorkspace || 'Tax Season' },
-      { keys: ['w', '3'], action: t.deepAnalysisWorkspace || 'Deep Analysis' },
-      { keys: ['w', 's'], action: t.saveWorkspace || 'Save Workspace' }
-    ],
-    [t.analytics || 'Analytics']: [
-      { keys: ['a', 'c'], action: t.correlationMatrix || 'Correlation Matrix' },
-      { keys: ['a', 'm'], action: t.monteCarloSimulation || 'Monte Carlo' },
-      { keys: ['a', 's'], action: t.stressTesting || 'Stress Testing' },
-      { keys: ['a', 'r'], action: t.riskLevel || 'Risk Analytics' }
-    ]
-  };
+  const shortcuts = {};
+  const add = (category, item) => { (shortcuts[category] = shortcuts[category] || []).push(item); };
+  add(t.navigation || 'Navigation', { keys: ['Ctrl', 'K'], action: t.commandPalette || 'Command Palette' });
+  (commands || []).forEach((c) => {
+    if (c.shortcut) add(c.category, { keys: c.shortcut.split(' '), action: c.label });
+  });
 
   return React.createElement(window.MaerminUI.Overlay, {
     className: 'command-palette-overlay',
@@ -237,7 +212,6 @@ function ToastContainer({ toasts, onRemove }) {
 
 function CorrelationMatrixView({ portfolio, priceHistory, historySource, t, theme, formatPrice }) {
   const [correlationData, setCorrelationData] = useState(null);
-  const [selectedPair, setSelectedPair] = useState(null);
 
   useEffect(() => {
     if (!window.CorrelationEngine || !priceHistory || Object.keys(priceHistory).length <= 1) return;
@@ -400,14 +374,8 @@ function CorrelationMatrixView({ portfolio, priceHistory, historySource, t, them
               textAlign: 'center',
               color: i === j ? theme.textSecondary : '#fff',
               fontSize: '0.75rem',
-              fontWeight: '500',
-              cursor: i !== j ? 'pointer' : 'default'
+              fontWeight: '500'
             },
-            onClick: () => i !== j && setSelectedPair({ 
-              asset1: rowSymbol, 
-              asset2: colSymbol, 
-              correlation: value 
-            }),
             title: `${rowSymbol} / ${colSymbol}: ${window.MaerminI18n.num(value, 2)}`
           }, i === j ? '-' : window.MaerminI18n.num(value, 2))
         })

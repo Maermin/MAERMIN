@@ -125,7 +125,6 @@ if (typeof window !== 'undefined') {
   window.DCAAnalyzerEngine = {
     compareDCAvsLumpSum
   };
-  console.log('[DCA] Dollar Cost Averaging Analyzer Engine loaded');
 }
 
 if (typeof module !== 'undefined' && module.exports) {

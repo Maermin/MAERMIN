@@ -34,8 +34,6 @@ function iso(days) { return new Date(NOW + days * 86400000).toISOString().split(
   ok('sorted soonest first', cal[0].symbol === 'MSFT' && cal[1].symbol === 'KO');
   ok('daysUntil computed', cal[0].daysUntil === 3);
 
-  ok('nextReport returns the soonest', E.nextReport(cal).symbol === 'MSFT');
-  ok('nextReport of empty is null', E.nextReport([]) === null);
   ok('empty input → empty calendar', E.buildCalendar([], { now: NOW }).length === 0);
 
   console.log(`\n  ${passed} passed, ${failed} failed`);

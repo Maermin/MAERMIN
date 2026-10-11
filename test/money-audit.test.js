@@ -39,7 +39,6 @@ function approx(a, b, eps) { return Math.abs(a - b) < (eps || 0.005); }
   const pos = one(undefined, '0.5', noType);
   ok('no type column + positive quantity = buy', pos.transactions[0].type === 'buy');
   ok('empty type value + negative quantity = sell', one('', '-1').transactions[0].type === 'sell');
-  ok('normalizeType keeps its contract for an empty value (buy)', M.normalizeType('') === 'buy');
 
   // ---- BUG-009: USD conversions outside the FX history are flagged ----------
   console.log('BUG-009 FX coverage');

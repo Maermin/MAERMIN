@@ -38,12 +38,9 @@ const Sim = require('../simulator-view.js');
   const survive = Sim.buildResults('withdraw', { startValue: 1000000, annualWithdrawal: 1000, annualReturn: 5, inflation: 2, years: 30 }, Analytics);
   ok('withdraw survives with modest spend', survive.survives === true && survive.depletedYear === null);
 
-  // Monte Carlo: success rate in [0,1], percentiles ordered, deterministic seed.
-  const mc1 = Sim.buildResults('montecarlo', { startValue: 100000, monthly: 500, annualReturn: 7, volatility: 15, years: 20, paths: 500 }, Analytics);
-  const mc2 = Sim.buildResults('montecarlo', { startValue: 100000, monthly: 500, annualReturn: 7, volatility: 15, years: 20, paths: 500 }, Analytics);
-  ok('mc success rate in [0,1]', mc1.successRate >= 0 && mc1.successRate <= 1);
-  ok('mc percentiles ordered p10 ≤ median ≤ p90', mc1.p10 <= mc1.median && mc1.median <= mc1.p90);
-  ok('mc deterministic for the same inputs', mc1.median === mc2.median && mc1.successRate === mc2.successRate);
+  // The simulator has no Monte-Carlo mode of its own: the Monte-Carlo view above
+  // it (monte-carlo-engine.js) is the one Monte-Carlo figure (DEAD-020).
+  ok('montecarlo mode removed', Sim.buildResults('montecarlo', { startValue: 1 }, Analytics) === null);
 
   // Guards.
   ok('null engine → null', Sim.buildResults('future', { startValue: 1 }, null) === null);

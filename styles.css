@@ -520,10 +520,6 @@ html[data-theme="contrast"] .mx-app::before { display: none; }
   background: var(--hover);
   border: 1px solid var(--border);
 }
-.mx-chev { color: var(--text-dim); transition: transform 0.2s var(--ease); }
-.mx-chev.is-open { transform: rotate(90deg); }
-.mx-hub-children { overflow: hidden; animation: hubIn 0.22s var(--ease); margin-bottom: 0.25rem; }
-@keyframes hubIn { from { opacity: 0; transform: translateY(-4px); } to { opacity: 1; transform: none; } }
 
 .mx-promo {
   margin-top: auto;
@@ -652,7 +648,6 @@ html[data-theme="contrast"] .mx-app::before { display: none; }
 }
 @keyframes sweep { from { transform: translateX(-100%); } to { transform: translateX(260%); } }
 @keyframes spin { to { transform: rotate(360deg); } }
-@keyframes pulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.55; } }
 
 #module-status {
   order: 5;

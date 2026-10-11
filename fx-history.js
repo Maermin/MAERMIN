@@ -273,7 +273,6 @@
       return _curRaw !== null;
     } catch (e) { return false; }
   }
-  function resetCurrencyCache() { _cur = null; _curRaw = null; }
 
   // EUR per 1 unit of `currency` on `dateISO` (last fixing on or before it, at
   // most CUR_MAX_GAP_DAYS earlier - weekends and holidays), or null when the
@@ -468,7 +467,6 @@
     currencyRateAt: currencyRateAt, ingestYahooCross: ingestYahooCross,
     currenciesNeeded: currenciesNeeded, planCurrencies: planCurrencies, syncCurrencies: syncCurrencies,
     loadCurrencies: loadCurrencies, saveCurrencies: saveCurrencies, normalizeCurrencies: normalizeCurrencies,
-    resetCurrencyCache: resetCurrencyCache,
     has: has
   };
   if (typeof window !== 'undefined') window.MaerminFxHistory = api;

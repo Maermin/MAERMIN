@@ -32,7 +32,6 @@ function __(k, f, v) { return (typeof window !== 'undefined' && window.MaerminI1
   function I18N() { return (typeof window !== 'undefined' && window.MaerminI18n) || require('./i18n.js'); }
   function Share() { return (typeof window !== 'undefined' && window.MaerminShare) || require('./share-snapshot.js'); }
 
-  var CLASS_ORDER = ['stocks', 'crypto', 'commodities', 'skins'];
   function num(x) { var n = typeof x === 'number' ? x : parseFloat(x); return isFinite(n) ? n : 0; }
   function pct(v) { return I18N().pct(v, 1); }
   function list(rows, labelOf) {

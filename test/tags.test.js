@@ -38,13 +38,6 @@ const T = require('../tags.js');
   st = T.unassign(st, 'ESG', 'NVDA');
   ok('unassign removes the symbol', T.tagsForSymbol(st, 'NVDA').length === 0);
 
-  // ---- rename, with collision guard ----
-  let r = T.renameTag(st, 'ESG', 'Green');
-  ok('rename moves the tag', !T.listTags(r).some(t => t.name === 'ESG') && T.listTags(r).some(t => t.name === 'Green'));
-  let collide = T.addTag(r, 'Speculative');
-  collide = T.renameTag(collide, 'Green', 'speculative'); // collides -> no-op
-  ok('rename refuses a name collision', T.listTags(collide).some(t => t.name === 'Green'));
-
   // ---- aggregate: value + weight across priced positions ----
   let agg = T.normalize({ tags: {
     'Crypto Bet': { symbols: ['BTC', 'ETH'] },

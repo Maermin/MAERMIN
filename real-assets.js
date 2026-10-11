@@ -226,15 +226,6 @@ function __(k, f, v) { return (typeof window !== 'undefined' && window.MaerminI1
     if (n) state.assets.push(n);
     return state;
   }
-  function updateAsset(state, id, patch) {
-    state = normalize(state);
-    state.assets = state.assets.map(function (a) {
-      if (a.id !== id) return a;
-      var merged = normalizeAsset(Object.assign({}, a, patch, { id: a.id }));
-      return merged || a;
-    });
-    return state;
-  }
   function removeAsset(state, id) {
     state = normalize(state);
     state.assets = state.assets.filter(function (a) { return a.id !== id; });
@@ -261,7 +252,7 @@ function __(k, f, v) { return (typeof window !== 'undefined' && window.MaerminI1
     annualIncome: annualIncome, annualCost: annualCost, netYield: netYield,
     cumulativeCashflow: cumulativeCashflow, totalReturn: totalReturn, valueSeries: valueSeries,
     aggregate: aggregate, describe: describe,
-    addAsset: addAsset, updateAsset: updateAsset, removeAsset: removeAsset,
+    addAsset: addAsset, removeAsset: removeAsset,
     load: load, save: save
   };
 

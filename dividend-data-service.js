@@ -757,6 +757,5 @@ var DividendDataService = {
 // Export
 window.DividendDataService = DividendDataService;
 
-console.log('[OK] Dividend Data Service v7.0 loaded (with API support)');
 
 })();

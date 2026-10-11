@@ -55,11 +55,6 @@ function __(k, f, v) { return (typeof window !== 'undefined' && window.MaerminI1
     return out;
   }
 
-  // PURE: the next report among the rows (closest upcoming), or null.
-  function nextReport(calendar) {
-    return (Array.isArray(calendar) && calendar.length) ? calendar[0] : null;
-  }
-
   // ---- React panel (browser only) ------------------------------------------
   function Panel(props) {
     if (typeof React === 'undefined') return null;
@@ -132,7 +127,7 @@ function __(k, f, v) { return (typeof window !== 'undefined' && window.MaerminI1
     ]);
   }
 
-  var api = { parseResponse: parseResponse, buildCalendar: buildCalendar, nextReport: nextReport, Panel: Panel };
+  var api = { parseResponse: parseResponse, buildCalendar: buildCalendar, Panel: Panel };
   if (typeof window !== 'undefined') window.MaerminEarnings = api;
   if (typeof module !== 'undefined' && module.exports) module.exports = api;
 })();

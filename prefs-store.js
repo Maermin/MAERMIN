@@ -69,15 +69,10 @@
   }
   function getState() { return _store ? _store.getState() : loadFrom(lsGet); }
   function subscribe(fn) { return _store ? _store.subscribe(fn) : function () {}; }
-  // For React components that want to re-render on a single pref:
-  function useValue(name) {
-    if (!_store || !Store || typeof Store.useStore !== 'function') return get(name);
-    return Store.useStore(_store, function (s) { return s[name]; });
-  }
 
   var api = {
     SPEC: SPEC, loadFrom: loadFrom,
-    get: get, set: set, getState: getState, subscribe: subscribe, useValue: useValue,
+    get: get, set: set, getState: getState, subscribe: subscribe,
     store: _store
   };
   if (typeof window !== 'undefined') window.MaerminPrefs = api;

@@ -25,11 +25,6 @@ function __(k, f, v) { return (typeof window !== 'undefined' && window.MaerminI1
     return I18n().num(value, decimals !== undefined ? decimals : 2);
   }
 
-  // EUR amount, e.g. 1234.5 -> "€1,234.50" (en) / "1.234,50 €" (de)
-  function formatCurrencyEUR(value, decimals) {
-    return I18n().money(value, 'EUR', decimals !== undefined ? decimals : 2);
-  }
-
   // Signed percent, e.g. 1.23 -> "+1.23%" (en) / "+1,23 %" (de)
   function formatPercentSigned(value) {
     return I18n().pct(value, 2, true);
@@ -95,11 +90,6 @@ function __(k, f, v) { return (typeof window !== 'undefined' && window.MaerminI1
     const FX = fxHistory();
     const v = FX && FX.quoteToEUR ? FX.quoteToEUR(a, currency, usdToEur) : null;
     return (v != null && isFinite(v)) ? v : a; // unknown currency → treated as canonical
-  }
-  function fromEUR(amountEUR, currency, usdToEur) {
-    const a = parseFloat(amountEUR) || 0;
-    if (currency === 'USD' && usdToEur > 0) return a / usdToEur;
-    return a;
   }
 
   // Accessibility: make a non-<button> element (div/span/tr/th used as a
@@ -313,14 +303,12 @@ function __(k, f, v) { return (typeof window !== 'undefined' && window.MaerminI1
     missingTxFields,
     txTypeInfo,
     formatNumber,
-    formatCurrencyEUR,
     formatPercentSigned,
     formatDate,
     generateId,
     clamp,
     upsertTransaction,
     toEUR,
-    fromEUR,
     clickable,
     confirmThen,
     onColor,

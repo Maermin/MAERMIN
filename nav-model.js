@@ -92,7 +92,6 @@
   function lookup(viewId) { return INDEX[canonical(viewId)] || null; }
   function isKnown(viewId) { return !!lookup(viewId); }
   function areaOf(viewId) { var l = lookup(viewId); return l ? l.area.id : null; }
-  function isAdvanced(viewId) { var l = lookup(viewId); return !!(l && l.view.advanced); }
   function getArea(areaId) {
     for (var i = 0; i < AREAS.length; i++) if (AREAS[i].id === areaId) return AREAS[i];
     return null;
@@ -156,7 +155,7 @@
 
   var api = {
     MODE_KEY: MODE_KEY, MODES: MODES, AREAS: AREAS, ALIASES: ALIASES,
-    canonical: canonical, isKnown: isKnown, areaOf: areaOf, isAdvanced: isAdvanced, getArea: getArea,
+    canonical: canonical, isKnown: isKnown, areaOf: areaOf, getArea: getArea,
     normalizeMode: normalizeMode, initialMode: initialMode,
     visibleEntries: visibleEntries, visibleTabs: visibleTabs, entryTarget: entryTarget,
     firstView: firstView, tabsFor: tabsFor, entryActive: entryActive, label: label

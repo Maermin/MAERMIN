@@ -8,10 +8,11 @@
 //
 //   Epic 5 Benchmarks : Alpha, Beta, Tracking Error, Information Ratio + presets
 //                       (MSCI World, FTSE All-World, S&P 500, Nasdaq 100, custom).
-//   Epic 6 Simulator  : future value, FIRE projection, retirement plan,
-//                       withdrawal simulation, Monte-Carlo success probability.
+//   Epic 6 Simulator  : future value, FIRE projection, withdrawal simulation.
+//                       (Monte Carlo lives in monte-carlo-engine.js.)
 //   Epic 7 Risk       : max drawdown, rolling returns, rolling volatility,
-//                       correlation matrix (heatmap), Fama-French OLS exposure.
+//                       Fama-French OLS exposure (the correlation matrix is
+//                       correlation-engine.js).
 //
 // All functions are pure and unit-tested in Node. UI stays in the views (these
 // numbers fold into the existing Returns / Monte-Carlo / Risk views).
@@ -92,12 +93,6 @@
   function annualizedVol(returns, periodsPerYear) {
     return stdSample(returns) * Math.sqrt(periodsPerYear || 252);
   }
-  function sharpe(returns, rf, periodsPerYear) {
-    var ppy = periodsPerYear || 252;
-    var ex = returns.map(function (x) { return x - (rf || 0); });
-    var sd = stdSample(returns);
-    return sd > 0 ? (mean(ex) / sd) * Math.sqrt(ppy) : 0;
-  }
 
   // ---- Epic 7: risk analytics ---------------------------------------------
   // Max drawdown from a value/price series. Returns the worst peak-to-trough.
@@ -129,23 +124,6 @@
       out.push(annualizedVol(returns.slice(i - window, i), periodsPerYear || 252));
     }
     return out;
-  }
-
-  function pearson(a, b) {
-    var n = Math.min(a.length, b.length); if (n < 2) return 0;
-    return covariancePop(a.slice(0, n), b.slice(0, n)) /
-      (Math.sqrt(variancePop(a.slice(0, n)) * variancePop(b.slice(0, n))) || 1e-12);
-  }
-  // Correlation matrix for a heatmap. seriesMap: { LABEL: returns[] }.
-  function correlationMatrix(seriesMap) {
-    var labels = Object.keys(seriesMap);
-    var matrix = labels.map(function (rk) {
-      return labels.map(function (ck) {
-        if (rk === ck) return 1;
-        return Math.round(pearson(seriesMap[rk], seriesMap[ck]) * 1000) / 1000;
-      });
-    });
-    return { labels: labels, matrix: matrix };
   }
 
   // ---- small linear algebra for factor regression -------------------------
@@ -256,93 +234,18 @@
     return { path: path, depletedYear: depletedYear, survives: depletedYear === null, endingBalance: path[path.length - 1] };
   }
 
-  // Retirement plan: accumulate to retirement, then test 4%-style withdrawal.
-  function retirementPlan(opts) {
-    opts = opts || {};
-    var yearsToRetire = Math.max(0, (opts.retireAge || 65) - (opts.currentAge || 30));
-    var atRetirement = futureValue(opts.currentValue || 0, opts.monthlyContribution || 0,
-      opts.realReturn != null ? opts.realReturn : 0.05, yearsToRetire);
-    var retirementYears = Math.max(1, (opts.lifeExpectancy || 90) - (opts.retireAge || 65));
-    var sim = withdrawalSimulation({
-      startValue: atRetirement,
-      annualWithdrawal: opts.annualSpending || 0,
-      annualReturn: opts.realReturnInRetirement != null ? opts.realReturnInRetirement : 0.04,
-      inflation: 0, // realReturn already real
-      years: retirementYears
-    });
-    var fireNumber = (opts.annualSpending || 0) / ((opts.withdrawalRate || 4) / 100);
-    return {
-      valueAtRetirement: atRetirement,
-      retirementYears: retirementYears,
-      survivesToLifeExpectancy: sim.survives,
-      depletedAtAge: sim.depletedYear ? (opts.retireAge || 65) + sim.depletedYear : null,
-      fireNumber: fireNumber,
-      surplusOrShortfall: atRetirement - fireNumber,
-      withdrawalPath: sim.path
-    };
-  }
-
-  // Seedable RNG (mulberry32) + Box-Muller normal — deterministic for tests.
-  function mulberry32(seed) {
-    return function () {
-      seed |= 0; seed = (seed + 0x6D2B79F5) | 0;
-      var t = Math.imul(seed ^ (seed >>> 15), 1 | seed);
-      t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t;
-      return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
-    };
-  }
-  function gaussian(rng) {
-    var u = 0, v = 0;
-    while (u === 0) u = rng();
-    while (v === 0) v = rng();
-    return Math.sqrt(-2 * Math.log(u)) * Math.cos(2 * Math.PI * v);
-  }
-
-  // Monte-Carlo projection of ending value + (optional) retirement success rate.
-  function monteCarlo(opts) {
-    opts = opts || {};
-    var paths = opts.paths || 2000;
-    var years = opts.years || 30;
-    var mean_ = opts.annualReturn != null ? opts.annualReturn : 0.07;
-    var vol = opts.volatility != null ? opts.volatility : 0.15;
-    var start = opts.startValue || 0;
-    var monthly = opts.monthlyContribution || 0;
-    var withdrawal = opts.annualWithdrawal || 0; // if >0, treat as retirement decumulation
-    var rng = mulberry32(opts.seed || 12345);
-    var endings = [];
-    var successes = 0;
-    for (var p = 0; p < paths; p++) {
-      var bal = start, survived = true;
-      for (var y = 0; y < years; y++) {
-        var yr = mean_ + vol * gaussian(rng);
-        bal = bal * (1 + yr) + monthly * 12 - withdrawal;
-        if (bal <= 0) { bal = 0; survived = false; break; }
-      }
-      if (survived && bal > 0) successes++;
-      endings.push(bal);
-    }
-    endings.sort(function (a, b) { return a - b; });
-    function pctile(q) { return endings[Math.min(endings.length - 1, Math.floor(q * endings.length))]; }
-    return {
-      paths: paths, years: years,
-      successRate: successes / paths,
-      p10: pctile(0.10), p25: pctile(0.25), median: pctile(0.50), p75: pctile(0.75), p90: pctile(0.90),
-      mean: mean(endings)
-    };
-  }
-
   var api = {
     // stats
     mean: mean, stdSample: stdSample, toReturns: toReturns,
     // benchmarks (Epic 5)
     BENCHMARKS: BENCHMARKS, benchmarkStats: benchmarkStats, cagr: cagr,
-    annualizedVol: annualizedVol, sharpe: sharpe,
+    annualizedVol: annualizedVol,
     // risk (Epic 7)
     maxDrawdown: maxDrawdown, rollingReturns: rollingReturns, rollingVolatility: rollingVolatility,
-    correlationMatrix: correlationMatrix, factorExposure: factorExposure, olsBeta: olsBeta,
+    factorExposure: factorExposure, olsBeta: olsBeta,
     // simulator (Epic 6)
     futureValue: futureValue, fireProjection: fireProjection,
-    withdrawalSimulation: withdrawalSimulation, retirementPlan: retirementPlan, monteCarlo: monteCarlo
+    withdrawalSimulation: withdrawalSimulation
   };
   if (typeof window !== 'undefined') window.MaerminAnalytics = api;
   if (typeof module !== 'undefined' && module.exports) module.exports = api;

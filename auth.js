@@ -404,7 +404,7 @@
     // A failed copy says so and selects the code for a manual copy (FINDINGS L-7).
     var copyFailed = function () {
       var msg = document.getElementById('rc-copy-msg');
-      if (msg) msg.textContent = tr('rcCopyFailed', 'Copy failed — select the code and copy it by hand.');
+      if (msg) msg.textContent = tr('rcCopyFailed', 'Copy failed. Select the code and copy it manually.');
       var el = document.getElementById('rc-code');
       try {
         var range = document.createRange(); range.selectNodeContents(el);

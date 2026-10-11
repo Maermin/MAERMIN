@@ -82,15 +82,6 @@ function __(k, f, v) { return (typeof window !== 'undefined' && window.MaerminI1
     if (n) state.rules.push(n);
     return state;
   }
-  function updateRule(state, id, patch) {
-    state = normalize(state);
-    state.rules = state.rules.map(function (r) {
-      if (r.id !== id) return r;
-      var merged = normalizeRule(Object.assign({}, r, patch, { id: r.id }));
-      return merged || r;
-    });
-    return state;
-  }
   function removeRule(state, id) {
     state = normalize(state);
     state.rules = state.rules.filter(function (r) { return r.id !== id; });
@@ -198,10 +189,6 @@ function __(k, f, v) { return (typeof window !== 'undefined' && window.MaerminI1
     return out;
   }
 
-  function activeCount(state, context) {
-    return evaluate(state, context).filter(function (x) { return x.triggered; }).length;
-  }
-
   // Convert legacy Price Alerts ({ id, symbol, condition:'above'|'below',
   // targetPrice, triggered }) into symbol_price rules. Pure. An alert that had
   // already fired was one-shot, so it arrives disabled (re-enable to re-arm)
@@ -254,10 +241,10 @@ function __(k, f, v) { return (typeof window !== 'undefined' && window.MaerminI1
   var api = {
     STORAGE_KEY: STORAGE_KEY, SCHEMA: SCHEMA, METRICS: METRICS, OPS: OPS,
     normalize: normalize,
-    addRule: addRule, updateRule: updateRule, removeRule: removeRule, toggleRule: toggleRule,
+    addRule: addRule, removeRule: removeRule, toggleRule: toggleRule,
     buildContext: buildContext, actualFor: actualFor, describe: describe, metricLabel: metricLabel, priceFor: priceFor,
     migrateLegacyAlerts: migrateLegacyAlerts, LEGACY_ALERTS_KEY: LEGACY_ALERTS_KEY,
-    evaluate: evaluate, activeCount: activeCount,
+    evaluate: evaluate,
     load: load, save: save
   };
 

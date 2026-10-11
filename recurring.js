@@ -110,16 +110,6 @@ function __(k, f, v) { return (typeof window !== 'undefined' && window.MaerminI1
     return (amount * spec.perYear) / 12;
   }
 
-  // Merged, date-sorted schedule across many liabilities.
-  function scheduleBetween(liabs, fromISO, toISO) {
-    var all = [];
-    (liabs || []).forEach(function (l) {
-      if (isRecurringLiability(l)) all = all.concat(expandOccurrences(l, fromISO, toISO));
-    });
-    all.sort(function (a, b) { return a.date < b.date ? -1 : a.date > b.date ? 1 : 0; });
-    return all;
-  }
-
   // Summary for the Net-Worth view: monthly debt service + what's been paid +
   // what's still scheduled. `liabs` defaults to recurring accounts in storage.
   function loadFromAccounts() {
@@ -155,7 +145,6 @@ function __(k, f, v) { return (typeof window !== 'undefined' && window.MaerminI1
     sumBetween: sumBetween,
     paidToDate: paidToDate,
     monthlyEquivalent: monthlyEquivalent,
-    scheduleBetween: scheduleBetween,
     loadFromAccounts: loadFromAccounts,
     summary: summary,
     _parseDate: parseDate, _toISODate: toISODate

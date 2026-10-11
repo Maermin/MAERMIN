@@ -28,7 +28,6 @@ const PLAN = { id: 'p1', symbol: 'BTC', category: 'crypto', amount: 100, frequen
   // Month-end clamping comes from recurring.js: Jan 31 -> Feb 28.
   const clamp = E.occurrences({ ...PLAN, startDate: '2026-01-31' }, '2026-03-05');
   ok('month-end start clamps to Feb 28 (recurring.js semantics)', clamp[1].date === '2026-02-28');
-  ok('expectedExecutions matches the schedule', E.expectedExecutions(PLAN, '2026-06-12') === 5);
 
   // ---- end date (task 6) ---------------------------------------------------------
   const ended = E.occurrences({ ...PLAN, endDate: '2026-03-31' }, '2026-06-12');

@@ -184,8 +184,7 @@
     fetchFromWorker: fetchFromWorker,
     prefetchPortfolio: prefetchPortfolio,
     countryName: countryName,
-    sectorName: sectorName,
-    _norm: norm
+    sectorName: sectorName
   };
   if (typeof window !== 'undefined') window.MaerminEquityMeta = api;
   if (typeof module !== 'undefined' && module.exports) module.exports = api;

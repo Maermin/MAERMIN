@@ -2,8 +2,8 @@
 // MAERMIN — Simulator panel  (window.MaerminSimulatorView)
 // ----------------------------------------------------------------------------
 // Folds the already-tested MaerminAnalytics simulator (Future Value, FIRE,
-// Withdrawal, Monte-Carlo success probability) into the existing Monte-Carlo
-// view. No new math lives here — `buildResults` maps the panel inputs onto the
+// Withdrawal) into the existing Monte-Carlo view, below the one Monte-Carlo
+// simulation (monte-carlo-engine.js). No new math lives here — `buildResults` maps the panel inputs onto the
 // engine, so it stays the single source of truth. `buildResults`/`defaults`
 // are pure + dual-exported for Node tests; the React panel is browser-only.
 // ============================================================================
@@ -15,8 +15,7 @@ function __(k, f, v) { return (typeof window !== 'undefined' && window.MaerminI1
   var MODES = [
     { id: 'future',     label: 'Future Value' },
     { id: 'fire',       label: 'FIRE' },
-    { id: 'withdraw',   label: 'Withdrawal' },
-    { id: 'montecarlo', label: 'Monte Carlo' }
+    { id: 'withdraw',   label: 'Withdrawal' }
   ];
 
   function defaults(startValue) {
@@ -24,8 +23,7 @@ function __(k, f, v) { return (typeof window !== 'undefined' && window.MaerminI1
       startValue: Math.max(0, Math.round(startValue || 0)),
       monthly: 500, annualReturn: 7, years: 20,
       annualExpenses: 24000, withdrawalRate: 4,
-      annualWithdrawal: 24000, inflation: 2,
-      volatility: 15, paths: 2000
+      annualWithdrawal: 24000, inflation: 2
     };
   }
 
@@ -52,14 +50,6 @@ function __(k, f, v) { return (typeof window !== 'undefined' && window.MaerminI1
         annualReturn: inp.annualReturn / 100, inflation: inp.inflation / 100, years: inp.years
       }));
     }
-    if (mode === 'montecarlo') {
-      return Object.assign({ mode: mode }, A.monteCarlo({
-        startValue: inp.startValue, monthlyContribution: inp.monthly,
-        annualReturn: inp.annualReturn / 100, volatility: inp.volatility / 100,
-        years: inp.years, annualWithdrawal: inp.annualWithdrawal || 0,
-        paths: inp.paths || 2000, seed: 12345
-      }));
-    }
     return null;
   }
 
@@ -67,8 +57,7 @@ function __(k, f, v) { return (typeof window !== 'undefined' && window.MaerminI1
   var FIELDS = {
     future:     [['startValue', __('simCurrentValue', 'Current value'), ''], ['monthly', __('simMonthlyContrib', 'Monthly contribution'), ''], ['annualReturn', __('simAnnualReturn', 'Annual return'), '%'], ['years', __('simYears', 'Years'), '']],
     fire:       [['startValue', __('simCurrentValue', 'Current value'), ''], ['monthly', __('simMonthlyContrib', 'Monthly contribution'), ''], ['annualReturn', __('simRealReturn', 'Real return'), '%'], ['annualExpenses', __('fireAnnualExpenses', 'Annual expenses'), ''], ['withdrawalRate', __('fireWithdrawalRate', 'Withdrawal rate'), '%']],
-    withdraw:   [['startValue', __('simStartValue', 'Start value'), ''], ['annualWithdrawal', __('simAnnualWithdrawal', 'Annual withdrawal'), ''], ['annualReturn', __('simAnnualReturn', 'Annual return'), '%'], ['inflation', __('simInflation', 'Inflation'), '%'], ['years', __('simYears', 'Years'), '']],
-    montecarlo: [['startValue', __('simStartValue', 'Start value'), ''], ['monthly', __('simMonthlyContrib', 'Monthly contribution'), ''], ['annualReturn', __('simMeanReturn', 'Mean return'), '%'], ['volatility', __('volatility', 'Volatility'), '%'], ['years', __('simYears', 'Years'), '']]
+    withdraw:   [['startValue', __('simStartValue', 'Start value'), ''], ['annualWithdrawal', __('simAnnualWithdrawal', 'Annual withdrawal'), ''], ['annualReturn', __('simAnnualReturn', 'Annual return'), '%'], ['inflation', __('simInflation', 'Inflation'), '%'], ['years', __('simYears', 'Years'), '']]
   };
 
   function Panel(props) {
@@ -132,13 +121,6 @@ function __(k, f, v) { return (typeof window !== 'undefined' && window.MaerminI1
           stat(__('simDepletesYear', 'Depletes in year'), res.depletedYear == null ? '—' : __('dcYear', 'Year {y}', { y: res.depletedYear }), res.depletedYear == null ? ok : bad),
           stat(__('simEndingBalance', 'Ending balance'), money(res.endingBalance), res.endingBalance > 0 ? ok : bad)
         ];
-      } else if (mode === 'montecarlo') {
-        cards = [
-          stat(__('simSuccessRate', 'Success rate'), window.MaerminI18n.pct(res.successRate * 100, 1), res.successRate >= 0.8 ? ok : (res.successRate >= 0.5 ? accent : bad)),
-          stat(__('simMedianEnding', 'Median ending'), money(res.median), accent),
-          stat(__('simP10', 'Pessimistic (P10)'), money(res.p10), bad),
-          stat(__('simP90', 'Optimistic (P90)'), money(res.p90), ok)
-        ];
       }
       return h('div', { style: { display: 'grid', gridTemplateColumns: 'repeat(auto-fit,minmax(150px,1fr))', gap: '0.6rem', marginTop: '1rem' } }, cards);
     }
@@ -147,12 +129,12 @@ function __(k, f, v) { return (typeof window !== 'undefined' && window.MaerminI1
       h('div', { style: { display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '0.5rem', marginBottom: '0.9rem' } },
         h('h3', { style: { color: text, fontSize: '1rem', fontWeight: '700', margin: 0 } }, __('simTitle', 'Planning simulator')),
         h('div', { style: { display: 'flex', gap: '0.3rem', flexWrap: 'wrap' } }, MODES.map(function (m) {
-          return h('button', { key: m.id, onClick: function () { setMode(m.id); }, style: { padding: '0.35rem 0.75rem', borderRadius: '8px', border: 'none', cursor: 'pointer', fontSize: '0.78rem', fontWeight: mode === m.id ? '700' : '500', background: mode === m.id ? accent : inputBg, color: mode === m.id ? '#ffffff' : dim } }, ({ future: __('simFuture', 'Future Value'), fire: 'FIRE', withdraw: __('simWithdraw', 'Withdrawal'), montecarlo: __('simMonteCarlo', 'Monte Carlo') })[m.id] || m.label);
+          return h('button', { key: m.id, onClick: function () { setMode(m.id); }, style: { padding: '0.35rem 0.75rem', borderRadius: '8px', border: 'none', cursor: 'pointer', fontSize: '0.78rem', fontWeight: mode === m.id ? '700' : '500', background: mode === m.id ? accent : inputBg, color: mode === m.id ? '#ffffff' : dim } }, ({ future: __('simFuture', 'Future Value'), fire: 'FIRE', withdraw: __('simWithdraw', 'Withdrawal') })[m.id] || m.label);
         }))
       ),
       h('div', { style: { display: 'grid', gridTemplateColumns: 'repeat(auto-fit,minmax(150px,1fr))', gap: '0.6rem' } }, (FIELDS[mode] || []).map(function (f) { return field(f[0], f[1], f[2]); })),
       results(),
-      h('div', { style: { color: dim, fontSize: '0.72rem', marginTop: '0.8rem', lineHeight: '1.5' } }, __('simFootnote', 'Projections are assumption-based estimates, not guarantees. Monte-Carlo uses a fixed seed for reproducibility.'))
+      h('div', { style: { color: dim, fontSize: '0.72rem', marginTop: '0.8rem', lineHeight: '1.5' } }, __('simFootnote', 'Projections are assumption-based estimates, not guarantees.'))
     );
   }
 
