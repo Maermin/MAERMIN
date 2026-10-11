@@ -107,15 +107,16 @@ await writeFile(join(dist, 'boot.js'),
 // Production Content-Security-Policy. Because the bundle replaces 70 inline-ish
 // script tags with ONE local file (+ pinned CDN deps), script-src no longer
 // needs 'unsafe-inline' — the biggest XSS-hardening win of the build. connect-src
-// mirrors the data sources the app actually calls (renderer fetchPrices + Worker).
+// mirrors the data sources the app actually calls (renderer fetchPrices + Worker,
+// plus the pinned pdf.js folder for the SRI-checked worker file; SEC-021).
 const CSP = [
   "default-src 'self'",
-  "script-src 'self' https://unpkg.com/react@18.3.1/umd/ https://unpkg.com/react-dom@18.3.1/umd/ https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/ https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.5.31/ https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/",
+  "script-src 'self' https://unpkg.com/react@18.3.1/umd/ https://unpkg.com/react-dom@18.3.1/umd/ https://cdnjs.cloudflare.com/ajax/libs/jspdf/4.2.1/ https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/5.0.8/ https://cdnjs.cloudflare.com/ajax/libs/pdf.js/4.10.38/",
   "style-src 'self'",
   "font-src 'self' data:",
   "img-src 'self' data: blob: https://community.akamai.steamstatic.com https://s.yimg.com https://coin-images.coingecko.com https://assets.coingecko.com",
-  "connect-src 'self' https://api.exchangerate-api.com https://open.er-api.com https://*.workers.dev",
-  "worker-src 'self'",
+  "connect-src 'self' https://api.exchangerate-api.com https://open.er-api.com https://*.workers.dev https://cdnjs.cloudflare.com/ajax/libs/pdf.js/4.10.38/",
+  "worker-src 'self' blob:",
   "manifest-src 'self'",
   "base-uri 'self'",
   "object-src 'none'",

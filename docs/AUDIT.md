@@ -423,7 +423,7 @@ an auth key; older apps), SEC-026 (old share records), SEC-027 (passkey user ver
 | 2 Bug fixes | BUG-012…039 | open |
 | 3 Visual and state display | VIS-001…021 | fixed in PR 3 (`fix/audit-visual`) |
 | 4 Usability | UX-016…032 | fixed in PR 4 (`fix/audit-usability`) |
-| 5 Security, app and Worker | SEC-008…016, 018, 019, 020…026, H-1…H-4 | fixed in PR 5 (`fix/audit-security`) except SEC-021 (deferred) and SEC-009 (default kept) |
+| 5 Security, app and Worker | SEC-008…016, 018, 019, 020…026, H-1…H-4 | fixed in PR 5 (`fix/audit-security`) except SEC-021 (follow-up PR `fix/audit-sec021`) and SEC-009 (default kept) |
 | 6 crypto-vault.js, auth.js, storage.js | SEC-004…007, 017, 027, 028, DEAD-001, DEAD-003 | fixed in PR 6 (`fix/audit-vault`) |
 
 ---
@@ -758,6 +758,12 @@ PR 2–4). Tests: `test/worker-security.test.js`, `test/security-app.test.js`, `
   (README). `frame-ancestors` cannot be set in a meta tag: README asks self-hosters to send it as a header.
 - SEC-023: the CSV-header crash did not reproduce on main; the two confirmed crashes (dividend forecast, Steam
   import) and the price-history map are fixed, and reserved names are never a symbol.
-- **SEC-021 deferred:** upgrading pdf.js and jsPDF means downloading new library builds to pin their SRI hashes and
-  comparing exported PDFs; the download needs the owner's go-ahead. Both known issues stay unreachable today
-  (`isEvalSupported:false`, no `'unsafe-eval'`, no `addImage`).
+- **SEC-021 (follow-up PR `fix/audit-sec021`, after the owner's go-ahead to download the builds):** jsPDF 4.2.1,
+  jspdf-autotable 5.0.8 and pdf.js 4.10.38, all from cdnjs with new SRI hashes (jsPDF hashes checked against the
+  ones cdnjs publishes, pdf.js files byte-identical to the npm package). pdf.js 4.10.38 was chosen over 5.x/6.x: those
+  builds call `Math.sumPrecise` and `Map#getOrInsertComputed` without a fallback, so only the newest browsers run
+  them; 4.10.38 needs `Promise.withResolvers` (Chrome 119, Safari 17.4, Firefox 121). pdf.js now parses in a Web Worker: the worker file is fetched with the SRI check and started from a
+  `blob:` URL (`worker-src 'self' blob:`, `connect-src` gains only the pinned pdf.js folder); the worker is
+  terminated after each file. Opened from disk (`file://`) a module worker cannot start, so there pdf.js keeps
+  its main-thread mode. A worker that fails to start now ends the import with an error instead of a spinner.
+  The tax-report PDF is identical to the one from main apart from the timestamp, producer and file ID.

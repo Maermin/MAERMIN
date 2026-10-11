@@ -229,9 +229,12 @@ BMF rates and stay plain. Labelled a helper computation, not tax advice.
 
 **Broker PDF import** (`pdf-import.js` → `MaerminPdfImport`) adds settlement-PDF
 parsing to the existing Broker Import wizard (no new tab, no second import engine):
-pdf.js extracts the text fully client-side (both CDN files version-pinned + SRI,
-lazy-loaded on first use; the worker file loads as a plain script so pdf.js runs its
-main-thread fallback — `worker-src` CSP untouched), a pure generic German-settlement
+pdf.js 4.10.38 extracts the text fully client-side (both CDN files version-pinned + SRI,
+lazy-loaded on first use). The library loads as a module script; the worker file is
+fetched with the same SRI check and runs as a Web Worker from a `blob:` URL, one per
+file, terminated afterwards (`worker-src 'self' blob:`, `connect-src` names only the
+pinned pdf.js folder). Opened from disk (`file://`) it loads as a module script and
+pdf.js runs on the main thread. A pure generic German-settlement
 parser with per-broker configs (Trade Republic, Scalable, ING, DKB, Comdirect) turns
 the text into candidate transactions, and `candidatesToCSV` feeds them into the
 existing `MaerminImportMapping` preview/commit flow — editable mapping, row errors and
