@@ -48,6 +48,42 @@
   // point at it (aria-describedby) and are marked aria-invalid while it shows.
   // Clearing first makes a repeated identical message ("Incorrect password")
   // announce again.
+  // SEC-005: new passwords need 12 characters (existing ones keep working);
+  // a hint rates what is typed. PBKDF2 makes each guess slow, length makes
+  // the number of guesses large.
+  var MIN_NEW_PASSWORD = 12;
+  function passwordStrength(pw) {
+    pw = String(pw || '');
+    if (!pw) return 0;
+    var classes = [/[a-z]/, /[A-Z]/, /[0-9]/, /[^A-Za-z0-9]/].filter(function (r) { return r.test(pw); }).length;
+    var repeats = /(.)\1{2,}/.test(pw) || /^(?:0123|1234|abcd|qwer|pass)/i.test(pw);
+    var score = 0;
+    if (pw.length >= MIN_NEW_PASSWORD) score++;
+    if (pw.length >= 16) score++;
+    if (classes >= 3) score++;
+    if (repeats) score = Math.max(0, score - 1);
+    return pw.length < MIN_NEW_PASSWORD ? 0 : Math.min(3, score); // 0 too short, 1 fair, 2 good, 3 strong
+  }
+  function strengthText(score) {
+    return [tr('authPwStrength0', 'Too short'), tr('authPwStrength1', 'Fair'), tr('authPwStrength2', 'Good'), tr('authPwStrength3', 'Strong')][score];
+  }
+  function wireStrength() {
+    var input = document.getElementById('auth-pw'), out = document.getElementById('auth-strength');
+    if (!input || !out) return;
+    input.addEventListener('input', function () {
+      var sc = passwordStrength(input.value);
+      out.textContent = input.value ? strengthText(sc) : '';
+      out.setAttribute('data-score', String(sc));
+    });
+  }
+  // SEC-006: say what switching off encryption at rest means, while it is off.
+  function wireAtRestWarning() {
+    var box = document.getElementById('auth-atrest'), warn = document.getElementById('auth-atrest-warn');
+    if (!box || !warn) return;
+    var upd = function () { warn.hidden = box.checked; };
+    box.addEventListener('change', upd); upd();
+  }
+
   function setError(msg) {
     var box = document.getElementById('auth-error');
     if (!box) return;
@@ -130,7 +166,8 @@
       <div class="auth-error" id="auth-error" role="alert"></div>
       <div class="auth-field">
         <label for="auth-pw">${tr('authAccessPw', 'Access password')}</label>
-        <input type="password" id="auth-pw" placeholder="${tr('authPwMinHint', 'At least 8 characters')}" autocomplete="new-password" autofocus />
+        <input type="password" id="auth-pw" placeholder="${tr('authPwMinHint12', 'At least 12 characters')}" autocomplete="new-password" autofocus aria-describedby="auth-strength" />
+        <div class="auth-strength" id="auth-strength" aria-live="polite"></div>
       </div>
       <div class="auth-field">
         <label for="auth-pw2">${tr('authConfirmPw', 'Confirm password')}</label>
@@ -138,6 +175,7 @@
       </div>
       <label class="auth-check"><input type="checkbox" id="auth-atrest" checked />
         <span>${tr('authAtRest', 'Encrypt my portfolio data at rest (AES-256). Recommended.')}</span></label>
+      <div class="auth-warn" id="auth-atrest-warn" role="status" hidden>${tr('authAtRestOffWarn', 'Without it your portfolio is stored readable in this browser; anyone with access to this device or a copy of its profile can read it. You can turn it on later in Security & sync.')}</div>
       <button class="auth-btn" id="auth-submit"><div class="spinner"></div><span class="btn-text">${tr('authCreateVault', 'Create vault →')}</span></button>
       <div class="auth-footer">${tr('authEncryptedWith', 'Encrypted locally with {kdf} + AES-256-GCM.').replace('{kdf}', Vault && Vault.availableKdfs().indexOf('argon2id') > -1 ? 'Argon2id' : 'PBKDF2')}<br>${tr('authStaysInBrowser', 'All data stays in your browser.')}</div>
     `;
@@ -203,7 +241,7 @@
       <div class="auth-error" id="auth-error" role="alert"></div>
       <div class="auth-field">
         <label for="auth-pw">${tr('authNewPwLabel', 'New password')}</label>
-        <input type="password" id="auth-pw" placeholder="${tr('authPwMinHint', 'At least 8 characters')}" autocomplete="new-password" autofocus />
+        <input type="password" id="auth-pw" placeholder="${tr('authPwMinHint12', 'At least 12 characters')}" autocomplete="new-password" autofocus />
       </div>
       <div class="auth-field">
         <label for="auth-pw2">${tr('authNewPwConfirm', 'Confirm new password')}</label>
@@ -242,7 +280,7 @@
     var pw = (document.getElementById('auth-pw').value || '');
     var pw2 = (document.getElementById('auth-pw2').value || '');
     var atRest = document.getElementById('auth-atrest').checked;
-    if (pw.length < 8) { setError(tr('authPwTooShort', 'Password must be at least 8 characters.')); return; }
+    if (pw.length < MIN_NEW_PASSWORD) { setError(tr('authPwTooShort12', 'Password must be at least 12 characters.')); return; }
     if (pw !== pw2) { setError(tr('authPwMismatch', 'Passwords do not match.')); return; }
     setError(''); setLoading(true);
 
@@ -285,7 +323,7 @@
   function handleNewPassword() {
     var pw = (document.getElementById('auth-pw').value || '');
     var pw2 = (document.getElementById('auth-pw2').value || '');
-    if (pw.length < 8) { setError(tr('authPwTooShort', 'Password must be at least 8 characters.')); return; }
+    if (pw.length < MIN_NEW_PASSWORD) { setError(tr('authPwTooShort12', 'Password must be at least 12 characters.')); return; }
     if (pw !== pw2) { setError(tr('authPwMismatch', 'Passwords do not match.')); return; }
     setError(''); setLoading(true);
     Vault.setPassword(pw)
@@ -410,6 +448,8 @@
       showScreen('unlock', { hasPasskey: m && m.hasPasskey, hasRecovery: m && m.hasRecovery });
     });
     if (mode === 'recovery-kit') wireRecoveryKit(opts.code);
+    if (mode === 'setup' || mode === 'new-password') wireStrength();
+    if (mode === 'setup') wireAtRestWarning();
   }
 
   // ─────────────────────────────────────────────────────────────────────────
@@ -430,11 +470,20 @@
       showScreen('unlock', { hasPasskey: meta.hasPasskey, hasRecovery: meta.hasRecovery });
     }
 
-    // Idle auto-lock → re-show the unlock screen (without reload, key already wiped).
+    // Idle auto-lock → the unlock screen right away, then - once the final
+    // encrypted save has finished - a reload: a fresh document is the only
+    // reliable way to drop decrypted data and caches from memory (SEC-028).
     Vault.onLock(function () {
       if (!_everUnlocked) return;
       var m = Vault.getMeta();
       showScreen('unlock', { hasPasskey: m && m.hasPasskey, hasRecovery: m && m.hasRecovery, locked: true });
+      setTimeout(function () {
+        var settled = (Vault.lockSettled ? Vault.lockSettled() : Promise.resolve());
+        settled.then(function () {
+          // Reload only while still locked (the user may have unlocked meanwhile).
+          if (!Vault.isUnlocked()) { try { sessionStorage.setItem('maermin_relocked', '1'); } catch (e) {} window.location.reload(); }
+        });
+      }, 0);
     });
   }
 
@@ -462,6 +511,36 @@
     },
     /** Enroll a platform passkey (Touch ID / Hello) for password-less unlock. */
     enrollPasskey: function (label) { return Vault.enrollPasskey(label); },
+    /** Remove the passkey from this vault (SEC-017). */
+    removePasskey: function () { var r = Vault.removePasskey(); if (r) audit('vault.passkey.remove', 'passkey removed'); return r; },
+    /** SEC-017: replace the data key. Everything is re-encrypted under a new
+     *  random key; old copies of the vault (backups, old profiles) and the
+     *  credentials that opened them (old password, recovery code, passkey) no
+     *  longer open anything written after this. The recovery code and passkey
+     *  are dropped (set them up again); sync moves to a new account. */
+    rotateKey: function (password) {
+      var EX = window.MaerminExchangeSync, PM = window.MaerminPreMigration, SY = window.MaerminSync;
+      var creds = {}, copy = null, syncOn = !!(SY && SY.isConfigured && SY.isConfigured());
+      return Promise.all([
+        EX && EX.exportAllCredentials ? EX.exportAllCredentials() : {},
+        PM && PM.load ? PM.load().catch(function () { return null; }) : null
+      ]).then(function (r) {
+        creds = r[0] || {}; copy = r[1];
+        return Vault.verifyPassword(password);
+      }).then(function (good) {
+        if (!good) throw new Error('bad-password');
+        return syncOn && SY.retireAccount ? SY.retireAccount() : null;
+      }).then(function () { return Vault.prepareRotation(password); })
+        .then(function (h) { return Storage && Storage.rekey ? Storage.rekey(h) : (h.commit(), h); })
+        .then(function () {
+          return Promise.all([
+            EX && EX.importAllCredentials ? EX.importAllCredentials(creds) : null,
+            copy && PM && PM.store ? PM.store(copy).catch(function () { return false; }) : null
+          ]);
+        })
+        .then(function () { audit('vault.key.rotate', 'data key replaced'); return syncOn && SY.startOverAfterRotation ? SY.startOverAfterRotation() : null; })
+        .then(function () { return true; });
+    },
     /** Generate (or rotate) the printable recovery kit — resolves with { code }.
      *  The caller must surface the one-time code; it is never recoverable after. */
     enrollRecovery: function (opts) { return Vault.enrollRecovery(opts); },

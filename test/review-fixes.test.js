@@ -39,7 +39,15 @@ const Vault = require('../crypto-vault.js');
 const Storage = require('../storage.js');
 const Sync = require('../sync-engine.js');
 const nativeGet = (k) => rawGet.call(localStorage, k);
-const FAST = { params: { iterations: 1000, hash: 'SHA-256' } };
+// Fast KDF for tests: weak PBKDF2 parameters are refused for real vaults
+// (SEC-004), so the tests register their own KDF in code.
+Vault.registerKdf('test-fast', {
+  defaultParams: () => ({ iterations: 1000 }),
+  validParams: (p) => p.iterations === 1000,
+  derive: (pw, salt, p) => crypto.subtle.importKey('raw', new TextEncoder().encode(pw), { name: 'PBKDF2' }, false, ['deriveBits'])
+    .then((k) => crypto.subtle.deriveBits({ name: 'PBKDF2', salt, iterations: p.iterations, hash: 'SHA-256' }, k, 256)).then((b) => new Uint8Array(b))
+});
+const FAST = { kdf: 'test-fast', params: { iterations: 1000 } };
 
 (async function run() {
   // ───────────────────────── at-rest encryption ─────────────────────────

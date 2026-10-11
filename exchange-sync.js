@@ -332,7 +332,8 @@ function __(k, f, v) { return (typeof window !== 'undefined' && window.MaerminI1
     if (typeof window === 'undefined' || !window.MaerminVault || !window.MaerminVault.isUnlocked()) {
       return Promise.reject(new Error('Vault locked — unlock to store exchange keys'));
     }
-    return window.MaerminVault.encryptJSON(creds).then(function (env) {
+    // bound to its connection (SEC-007): a credential copied to another id does not decrypt
+    return window.MaerminVault.encryptJSON(creds, 'exchange-cred:' + connId).then(function (env) {
       try { localStorage.setItem(VAULT_PREFIX + connId, JSON.stringify(env)); return true; }
       catch (e) { throw new Error('Failed to persist encrypted credentials'); }
     });
@@ -344,11 +345,11 @@ function __(k, f, v) { return (typeof window !== 'undefined' && window.MaerminI1
     var rawEnv;
     try { rawEnv = JSON.parse(localStorage.getItem(VAULT_PREFIX + connId) || 'null'); } catch (e) { rawEnv = null; }
     if (!rawEnv) return Promise.resolve(null);
-    return window.MaerminVault.decryptJSON(rawEnv);
+    return window.MaerminVault.decryptJSON(rawEnv, 'exchange-cred:' + connId);
   }
-  // Password change support: credentials are encrypted directly with the vault
-  // key (not via storage.js), so they must be decrypted with the OLD key and
-  // re-encrypted with the NEW one, or they become unreadable. Resolves
+  // Key rotation support (SEC-017): credentials are encrypted directly with the
+  // vault key (not via storage.js), so they are decrypted with the OLD key and
+  // re-encrypted with the NEW one, or they would become unreadable. Resolves
   // { connId: creds } for every stored connection (vault must be unlocked).
   function credentialIds() {
     var ids = [];
