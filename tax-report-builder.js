@@ -516,10 +516,10 @@ function __(k, f, v) { return (typeof window !== 'undefined' && window.MaerminI1
   // jsPDF + autotable are loaded lazily on the first export (they used to be
   // render-blocking <script>s in <head> for a feature most sessions never use).
   var JSPDF_CDN = [
-    { src: 'https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js',
-      integrity: 'sha384-JcnsjUPPylna1s1fvi1u12X5qjY5OL56iySh75FdtrwhO/SWXgMjoVqcKyIIWOLk' },
-    { src: 'https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.5.31/jspdf.plugin.autotable.min.js',
-      integrity: 'sha384-vuyrTV5nkscLp1knFvt+FIHfKKzmROBq5reruhMRslauj54mW+l2B8b6szMN6lCL' }
+    { src: 'https://cdnjs.cloudflare.com/ajax/libs/jspdf/4.2.1/jspdf.umd.min.js',
+      integrity: 'sha384-qovJwSBbRDPP5cEjCp8S0UP66wrvnjaa60XMOGzTNanrThcrGfXfnZkvgY8N1KT3' },
+    { src: 'https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/5.0.8/jspdf.plugin.autotable.min.js',
+      integrity: 'sha384-5jk55M0XWoAw7LyhlXJe19ErOr3doBAPzxw9vahPFbvolqWa2yDk4fhHa2zuYeOa' }
   ];
   function jsPdfReady() { return typeof jspdf !== 'undefined' || typeof jsPDF !== 'undefined'; }
   function exportPDF(report) {

@@ -20,7 +20,19 @@ ok("style-src has no 'unsafe-inline'", dirs['style-src'] && dirs['style-src'].in
 ok('img-src names its hosts (no bare https:)', dirs['img-src'] && dirs['img-src'].indexOf('https:') === -1);
 ok("form-action and frame-src are 'none'", (dirs['form-action'] || [])[0] === "'none'" && (dirs['frame-src'] || [])[0] === "'none'");
 ok("object-src 'none', base-uri 'self'", (dirs['object-src'] || [])[0] === "'none'" && (dirs['base-uri'] || [])[0] === "'self'");
-ok('connect-src has no CDN host', (dirs['connect-src'] || []).every((h) => h.indexOf('cdnjs') === -1));
+// SEC-021: the only CDN entry in connect-src is the pinned pdf.js folder (its
+// worker file is fetched with an SRI check and run from a blob: URL).
+ok('connect-src names no CDN host except the pinned pdf.js folder', (dirs['connect-src'] || []).every((h) => h.indexOf('cdnjs') === -1 || /^https:\/\/cdnjs\.cloudflare\.com\/ajax\/libs\/pdf\.js\/\d+\.\d+\.\d+\/$/.test(h)));
+ok("worker-src is 'self' blob: only", (dirs['worker-src'] || []).join(' ') === "'self' blob:");
+
+// every pinned CDN library is covered by script-src, and its SRI hash is sha384
+const pinned = ['pdf-import.js', 'tax-report-builder.js'].map((f) => readFileSync(path.join(root, f), 'utf8')).join('\n');
+const pdfDir = (pinned.match(/PDFJS_DIR = '([^']+)'/) || [])[1];
+const srcs = (pinned.match(/src: '(https:[^']+)'/g) || []).map((s) => s.slice(6, -1)).concat(pdfDir ? [pdfDir + 'pdf.min.mjs', pdfDir + 'pdf.worker.min.mjs'] : []);
+ok('pinned CDN libraries found', srcs.length === 4 && !!pdfDir, srcs.join(' '));
+ok('every pinned library is allowed by script-src', srcs.every((u) => (dirs['script-src'] || []).some((d) => d.endsWith('/') && u.startsWith(d))));
+ok('the pdf.js folder is the one connect-src allows', !!pdfDir && (dirs['connect-src'] || []).indexOf(pdfDir) !== -1);
+ok('every pinned library has a sha384 SRI hash', (pinned.match(/integrity: 'sha384-[A-Za-z0-9+/=]{64}'/g) || []).length === 4);
 
 // build.mjs builds the same policy
 const build = readFileSync(path.join(root, 'build.mjs'), 'utf8');

@@ -70,8 +70,8 @@ const LOCAL = {
 };
 const JSPDF_DIR = process.env.JSPDF_DIR || '';
 const JSPDF = {
-  'https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js': 'jspdf.umd.min.js',
-  'https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.5.31/jspdf.plugin.autotable.min.js': 'jspdf.plugin.autotable.min.js'
+  'https://cdnjs.cloudflare.com/ajax/libs/jspdf/4.2.1/jspdf.umd.min.js': 'jspdf.umd.min.js',
+  'https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/5.0.8/jspdf.plugin.autotable.min.js': 'jspdf.plugin.autotable.min.js'
 };
 const fetched = []; // market-data calls answered from fixtures
 

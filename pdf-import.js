@@ -37,36 +37,55 @@ function __(k, f, v) { return (typeof window !== 'undefined' && window.MaerminI1
   }
 
   // ---- pdf.js (pinned + SRI, lazy) ------------------------------------------
-  // pdf.worker.min.js is loaded as a NORMAL script: pdf.js detects the
-  // `pdfjsWorker` global and runs its fake-worker (main thread) path, which is
-  // plenty for statement-sized documents and keeps worker-src CSP untouched.
-  var PDFJS_CDN = [
-    { src: 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js',
-      integrity: 'sha384-/1qUCSGwTur9vjf/z9lmu/eCUYbpOTgSjmpbMQZ1/CtX2v/WcAIKqRv+U1DUCG6e' },
-    { src: 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js',
-      integrity: 'sha384-SnzOobpRMLXZ52iJvZm/C0fYw0OQemTXzTjIsdsfMcrCtCEe9qgzxTd3RSklO5x2' }
-  ];
+  // pdf.js ships as ES modules. The library is loaded as a module <script> with
+  // SRI and exposes `globalThis.pdfjsLib`. The parser runs in a real Web Worker
+  // (SEC-021): the worker file is fetched with the same SRI check, turned into a
+  // same-origin blob: URL and handed to pdf.js as a port, so a parser bug runs
+  // off the page that holds the unlocked data. CSP: the pinned folder is in
+  // script-src and connect-src, and worker-src allows blob:.
+  // index.html opened from disk (file://, origin "null") cannot start a module
+  // worker from a blob: URL; there the worker file is loaded as a module
+  // <script> (same SRI) and pdf.js runs it on the main thread, as before.
+  var PDFJS_DIR = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/4.10.38/';
+  var PDFJS_LIB = { src: PDFJS_DIR + 'pdf.min.mjs',
+    integrity: 'sha384-+0ti2moQlmLN7WZHE2RHIf5lV8hHxhxEalN0il3YZceG26fUPyOkR0hp9daxk1i7' };
+  var PDFJS_WORKER = { src: PDFJS_DIR + 'pdf.worker.min.mjs',
+    integrity: 'sha384-ToeVvShCxKc6CEvhHeMt0Q8A06pSPDbAlngO9nokrDmh914gk/pYd0N7D0a4Lz2o' };
   var _pdfjsPromise = null;
 
+  function loadModuleScript(lib) {
+    return new Promise(function (resolve, reject) {
+      var s = document.createElement('script');
+      s.type = 'module';
+      s.src = lib.src;
+      s.integrity = lib.integrity;
+      s.crossOrigin = 'anonymous';
+      s.onload = resolve;
+      s.onerror = function () { reject(new Error('Failed to load ' + lib.src)); };
+      document.head.appendChild(s);
+    });
+  }
+
+  function loadWorkerUrl(lib) {
+    return fetch(lib.src, { integrity: lib.integrity, mode: 'cors', credentials: 'omit' }).then(function (res) {
+      if (!res.ok) throw new Error('Failed to load ' + lib.src);
+      return res.blob();
+    }).then(function (blob) {
+      return URL.createObjectURL(new Blob([blob], { type: 'text/javascript' }));
+    });
+  }
+
+  // Resolves to { lib, workerUrl } (workerUrl null: main-thread fallback).
   function ensurePdfJs() {
     if (typeof window === 'undefined') return Promise.reject(new Error('browser only'));
-    if (window.pdfjsLib && window.pdfjsWorker) return Promise.resolve(window.pdfjsLib);
     if (_pdfjsPromise) return _pdfjsPromise;
-    _pdfjsPromise = PDFJS_CDN.reduce(function (chain, lib) {
-      return chain.then(function () {
-        return new Promise(function (resolve, reject) {
-          var s = document.createElement('script');
-          s.src = lib.src;
-          s.integrity = lib.integrity;
-          s.crossOrigin = 'anonymous';
-          s.onload = resolve;
-          s.onerror = function () { reject(new Error('Failed to load ' + lib.src)); };
-          document.head.appendChild(s);
-        });
-      });
-    }, Promise.resolve()).then(function () {
+    var inPage = !window.location || window.location.protocol === 'file:' || window.location.origin === 'null';
+    _pdfjsPromise = Promise.all([
+      window.pdfjsLib ? Promise.resolve() : loadModuleScript(PDFJS_LIB),
+      inPage ? (window.pdfjsWorker ? null : loadModuleScript(PDFJS_WORKER).then(function () { return null; })) : loadWorkerUrl(PDFJS_WORKER)
+    ]).then(function (r) {
       if (!window.pdfjsLib) throw new Error('pdf.js did not initialise');
-      return window.pdfjsLib;
+      return { lib: window.pdfjsLib, workerUrl: r[1] || null };
     }).catch(function (e) { _pdfjsPromise = null; throw e; });
     return _pdfjsPromise;
   }
@@ -75,8 +94,21 @@ function __(k, f, v) { return (typeof window !== 'undefined' && window.MaerminI1
   // positions (group items by their y coordinate, then sort by x) — the regex
   // layer below depends on values staying on one line as printed.
   function extractText(arrayBuffer) {
-    return ensurePdfJs().then(function (pdfjsLib) {
-      return pdfjsLib.getDocument({ data: arrayBuffer, isEvalSupported: false }).promise;
+    var worker = null, pdfWorker = null;
+    function cleanup() {
+      try { if (pdfWorker) pdfWorker.destroy(); } catch (e) { /* already gone */ }
+      if (worker) worker.terminate();
+    }
+    return ensurePdfJs().then(function (pdf) {
+      var opts = { data: arrayBuffer, isEvalSupported: false, verbosity: 0 }; // verbosity 0: errors only
+      if (!pdf.workerUrl) return pdf.lib.getDocument(opts).promise;
+      worker = new Worker(pdf.workerUrl, { type: 'module', name: 'pdf.js' });
+      opts.worker = pdfWorker = new pdf.lib.PDFWorker({ port: worker });
+      // pdf.js waits forever for a port that never starts; fail instead.
+      var failed = new Promise(function (resolve, reject) {
+        worker.addEventListener('error', function () { reject(new Error('pdf.js worker could not start')); });
+      });
+      return Promise.race([pdf.lib.getDocument(opts).promise, failed]);
     }).then(function (doc) {
       var pages = [];
       var chain = Promise.resolve();
@@ -101,7 +133,7 @@ function __(k, f, v) { return (typeof window !== 'undefined' && window.MaerminI1
         })(p);
       }
       return chain.then(function () { return pages.join('\n\n'); });
-    });
+    }).then(function (text) { cleanup(); return text; }, function (e) { cleanup(); throw e; });
   }
 
   // ---- pure layer: broker detection + statement parsing ----------------------
@@ -311,7 +343,8 @@ function __(k, f, v) { return (typeof window !== 'undefined' && window.MaerminI1
 
   var api = {
     PDF_BROKERS: PDF_BROKERS,
-    PDFJS_CDN: PDFJS_CDN,
+    PDFJS_LIB: PDFJS_LIB,
+    PDFJS_WORKER: PDFJS_WORKER,
     detectBrokerFromText: detectBrokerFromText,
     parseStatement: parseStatement,
     parseText: parseText,
