@@ -1526,3 +1526,12 @@ button, [role="button"], select { min-width: 24px; min-height: 24px; }
   button, [role="button"], select, input:not([type="checkbox"]):not([type="radio"]):not([type="hidden"]) { min-height: 32px; }
   button, [role="button"] { min-width: 32px; }
 }
+
+/* Lock screen: password strength hint (SEC-005) and the warning shown while
+   encryption at rest is switched off at setup (SEC-006). */
+#maermin-auth .auth-strength { min-height: 1.1em; margin-top: 0.35rem; font-size: 0.75rem; color: #8b94a7; }
+#maermin-auth .auth-strength[data-score="0"] { color: #f87171; }
+#maermin-auth .auth-strength[data-score="1"] { color: #fbbf24; }
+#maermin-auth .auth-strength[data-score="2"], #maermin-auth .auth-strength[data-score="3"] { color: #34d399; }
+#maermin-auth .auth-warn { margin: -0.25rem 0 0.9rem; padding: 0.55rem 0.7rem; border-radius: 10px; font-size: 0.76rem; line-height: 1.45; color: #fde68a; background: rgba(245, 158, 11, 0.10); border: 1px solid rgba(245, 158, 11, 0.35); }
+#maermin-auth .auth-warn[hidden] { display: none; }

@@ -187,6 +187,9 @@ function PasswordModal({ theme, t, onClose, addToast, restoreFocus }) {
   const [newPw, setNewPw]   = useState('');
   const [confPw, setConfPw] = useState('');
   const [busy, setBusy]     = useState(false);
+  // SEC-017: a password change keeps the data key; if the old password may be
+  // known to someone, the key itself has to change too.
+  const [rotateToo, setRotateToo] = useState(false);
   // Enter in a field bypasses the disabled button, so guard with a ref that
   // flips synchronously (FINDINGS M-8: two overlapping changes).
   const busyRef = React.useRef(false);
@@ -195,9 +198,10 @@ function PasswordModal({ theme, t, onClose, addToast, restoreFocus }) {
     if (busyRef.current) return;
     if (!curPw || !newPw || !confPw) return;
     if (newPw !== confPw) { addToast(t.passwordMismatch || 'Passwords do not match', 'error'); return; }
-    if (newPw.length < 8)  { addToast(t.passwordTooShort || 'Password must be at least 8 characters', 'warning'); return; }
+    if (newPw.length < 12) { addToast(__('passwordTooShort12', 'Password must be at least 12 characters'), 'warning'); return; }
     // MaerminAuth.changePassword re-wraps the vault's data key with the new
-    // password. Data, passkey, recovery code, auto-lock and sync stay valid.
+    // password (SEC-005: 12 characters for a new password). With "rotate" the
+    // data key itself is replaced afterwards (SEC-017).
     if (!window.MaerminAuth || typeof window.MaerminAuth.changePassword !== 'function') {
       addToast(__('pwChangeUnavailable', 'Password change is unavailable in this build'), 'error'); return;
     }
@@ -205,7 +209,12 @@ function PasswordModal({ theme, t, onClose, addToast, restoreFocus }) {
     setBusy(true);
     try {
       await window.MaerminAuth.changePassword(curPw, newPw);
-      addToast(t.passwordChangedKept || 'Password changed. Your recovery code, passkey and sync keep working.', 'success');
+      if (rotateToo && window.MaerminAuth.rotateKey) {
+        await window.MaerminAuth.rotateKey(newPw);
+        addToast(__('passwordChangedRotated', 'Password changed and encryption key replaced. Set up a new recovery code and passkey in Security & sync; other devices need this vault again.'), 'success');
+      } else {
+        addToast(__('passwordChangedOnly', 'Password changed. The encryption key is unchanged: your recovery code and passkey still open the vault, and so does the old password with an old backup. If the old password may be known, replace the key too.'), 'success');
+      }
       setCurPw(''); setNewPw(''); setConfPw('');
       onClose();
     } catch (e) {
@@ -242,6 +251,9 @@ function PasswordModal({ theme, t, onClose, addToast, restoreFocus }) {
       inp(curPw,  setCurPw,  t.currentPassword || 'Current Password'),
       inp(newPw,  setNewPw,  t.newPassword     || 'New Password'),
       inp(confPw, setConfPw, t.confirmPassword || 'Confirm Password'),
+      React.createElement('label', { style: { display: 'flex', gap: '0.5rem', alignItems: 'flex-start', color: theme.textSecondary, fontSize: '0.78rem', lineHeight: 1.45, margin: '0 0 0.9rem', cursor: 'pointer' } },
+        React.createElement('input', { type: 'checkbox', checked: rotateToo, onChange: (e) => setRotateToo(e.target.checked), style: { width: 18, height: 18, marginTop: 1, flexShrink: 0, accentColor: theme.accent } }),
+        __('pwRotateToo', 'Also replace the encryption key - do this if the old password may be known. Old backups, the recovery code and the passkey then no longer open new data.')),
       React.createElement('div', { style:{ display:'flex', gap:'0.75rem', marginTop:'0.25rem' } },
         React.createElement('button', {
           onClick: onClose,
@@ -937,6 +949,10 @@ function InvestmentTracker() {
   const setShowRecoveryKit = (v) => { const n = typeof v === 'function' ? v(showRecoveryKit) : v; n ? window.MaerminUI.openOverlay('recoveryKit') : window.MaerminUI.closeOverlay('recoveryKit'); };
   const [recoveryCode, setRecoveryCode] = useState('');
   const [recoveryBusy, setRecoveryBusy] = useState(false);
+  // SEC-017: "Replace encryption key" in Security & sync asks for the password inline.
+  const [rotateOpen, setRotateOpen] = useState(false);
+  const [rotatePw, setRotatePw] = useState('');
+  const [rotateBusy, setRotateBusy] = useState(false);
   const [recoverySaved, setRecoverySaved] = useState(false); // "I saved it" ticked in the code dialog
   // Security & Sync settings card
   const showSecurity = window.MaerminStore.useStore(window.MaerminUI.overlays, s => !!s.security);
@@ -5838,6 +5854,17 @@ buy,crypto,bitcoin,0.5,45000,2024-01-15,10`)
     );
   };
 
+  // SEC-006: while encryption at rest is off, every view says so (the setup
+  // screen let it be switched off without a lasting warning).
+  const renderAtRestBanner = () => {
+    const St = window.MaerminStorage, V = window.MaerminVault;
+    if (demoMode || !St || !V || !V.isUnlocked || !V.isUnlocked() || St.isEnabled()) return null;
+    const turnOn = () => St.enableAtRest().then(() => { addToast(__('atRestOn', 'Data encrypted at rest ✓'), 'success'); setSecurityRev((r) => r + 1); }, () => addToast(__('atRestFailed', 'Could not enable at-rest encryption'), 'error'));
+    return React.createElement('div', { role: 'status', 'data-testid': 'atrest-off-banner', style: { display: 'flex', alignItems: 'center', gap: '0.75rem', flexWrap: 'wrap', margin: '0.75rem 1.5rem 0', padding: '0.65rem 0.9rem', borderRadius: '10px', border: `1px solid ${currentTheme.warning}66`, background: `${currentTheme.warning}14`, color: currentTheme.text, fontSize: '0.82rem' } },
+      React.createElement('span', { style: { flex: 1, minWidth: '220px' } }, __('atRestOffBanner', 'Your portfolio is stored unencrypted in this browser. Anyone with access to this device or a copy of its profile can read it.')),
+      React.createElement('button', { type: 'button', onClick: turnOn, style: { padding: '0.4rem 0.85rem', borderRadius: '7px', border: 'none', background: currentTheme.accentFill || currentTheme.accent, color: '#ffffff', fontWeight: 700, fontSize: '0.8rem', cursor: 'pointer' } }, __('secEncryptNow', 'Encrypt now')));
+  };
+
   // ========== SECURITY & SYNC MODAL ==========
   const renderSecurityModal = () => {
     if (!showSecurity) return null;
@@ -5863,6 +5890,22 @@ buy,crypto,bitcoin,0.5,45000,2024-01-15,10`)
     const sectionTitle = (txt) => React.createElement('div', { style: { color: currentTheme.textSecondary, fontSize: '0.7rem', textTransform: 'uppercase', letterSpacing: '0.05em', margin: '1.1rem 0 0.3rem' } }, txt);
 
     const addPasskey = () => { if (!A || !A.enrollPasskey) return; A.enrollPasskey('MAERMIN').then((res) => { if (res && res.enrolled) { addToast(__('passkeyEnrolled', 'Passkey enrolled ✓'), 'success'); bump(); } else { addToast(__('passkeyNoPrf', 'This authenticator has no PRF support'), 'error'); } }, () => addToast(__('passkeyCancelled', 'Passkey enrollment cancelled'), 'error')); };
+    const removePasskey = () => {
+      if (!A || !A.removePasskey) return;
+      askConfirm({ title: __('passkeyRemoveTitle', 'Remove the passkey?'), message: __('passkeyRemoveMsg', 'It can no longer open this vault. A copy of the vault made before still opens with it - replace the encryption key if the device or key is lost.'), confirmLabel: __('passkeyRemove', 'Remove'), danger: true })
+        .then((yes) => { if (yes && A.removePasskey()) { addToast(__('passkeyRemoved', 'Passkey removed'), 'success'); bump(); } });
+    };
+    const rotateKey = () => {
+      if (!A || !A.rotateKey || !rotatePw || rotateBusy) return;
+      setRotateBusy(true);
+      A.rotateKey(rotatePw).then(() => {
+        setRotateBusy(false); setRotatePw(''); setRotateOpen(false);
+        addToast(__('keyRotated', 'Encryption key replaced. Set up a new recovery code (and passkey); other devices need this vault again.'), 'success'); bump();
+      }, (e) => {
+        setRotateBusy(false);
+        addToast(e && e.message === 'bad-password' ? (t.passwordWrong || 'Current password is incorrect') : __('keyRotateFailed', 'The key could not be replaced; nothing was changed.'), 'error');
+      });
+    };
     const enableAtRest = () => { if (window.MaerminStorage && window.MaerminStorage.enableAtRest) window.MaerminStorage.enableAtRest().then(() => { addToast(__('atRestOn', 'Data encrypted at rest ✓'), 'success'); bump(); }, () => addToast(__('atRestFailed', 'Could not enable at-rest encryption'), 'error')); };
     const setLock = (min) => { if (A && A.setAutoLock) { A.setAutoLock(min * 60000); addToast(__('autoLockSet', 'Auto-lock set to {n} min', { n: min }), 'success'); bump(); } };
     const runSync = () => { if (!S || !S.sync) return; setSyncBusy(true); S.sync().then((r) => { setSyncBusy(false); addToast(r && r.unchanged ? __('syncUpToDate', 'Already up to date') : __('syncDone', 'Synced ✓'), 'success'); bump(); }, (e) => { setSyncBusy(false); addToast(__('syncFailedMsg', 'Sync failed: {msg}', { msg: (e && e.message) || (t.error || 'Error') }), 'error'); bump(); }); };
@@ -5880,8 +5923,17 @@ buy,crypto,bitcoin,0.5,45000,2024-01-15,10`)
         row(__('secKdf', 'Key derivation'), badge(status.kdf === 'argon2id' ? 'Argon2id' : 'PBKDF2-600k', true)),
         row(__('secAutoLock', 'Auto-lock'), React.createElement('div', { style: { display: 'flex', gap: '0.3rem' } }, [1, 5, 15, 30].map((m) => React.createElement('button', { key: m, onClick: () => setLock(m), style: { padding: '0.3rem 0.5rem', background: lockMin === m ? (currentTheme.accentFill || currentTheme.accent) : currentTheme.inputBg, color: lockMin === m ? '#ffffff' : currentTheme.text, border: 'none', borderRadius: '5px', cursor: 'pointer', fontSize: '0.72rem', fontWeight: lockMin === m ? '700' : '500' } }, m + 'm')))),
         sectionTitle(__('secAccess', 'Access')),
-        row(__('secPasskey', 'Passkey unlock'), status.passkeySupported ? (status.hasPasskey ? badge(__('secEnrolled', 'Enrolled'), true) : smallBtn(__('secAddPasskey', 'Add passkey'), addPasskey)) : badge(__('secUnsupported', 'Unsupported'), false)),
+        row(__('secPasskey', 'Passkey unlock'), status.hasPasskey
+          ? React.createElement('div', { style: { display: 'flex', gap: '0.4rem', alignItems: 'center' } }, badge(__('secEnrolled', 'Enrolled'), true), smallBtn(__('passkeyRemove', 'Remove'), removePasskey))
+          : (status.passkeySupported ? smallBtn(__('secAddPasskey', 'Add passkey'), addPasskey) : badge(__('secUnsupported', 'Unsupported'), false))),
         row(__('secRecovery', 'Recovery code'), status.hasRecovery ? React.createElement('div', { style: { display: 'flex', gap: '0.4rem', alignItems: 'center' } }, badge(__('secActive', 'Active'), true), smallBtn(__('secRotate', 'Rotate'), createRecoveryKit, recoveryBusy)) : smallBtn(recoveryBusy ? __('creating', 'Creating…') : __('create', 'Create'), createRecoveryKit, recoveryBusy)),
+        row(__('secDataKey', 'Encryption key'), smallBtn(__('secReplaceKey', 'Replace'), () => setRotateOpen((o) => !o), rotateBusy)),
+        rotateOpen && React.createElement('div', { 'data-testid': 'rotate-key', style: { padding: '0.6rem 0 0.2rem' } },
+          React.createElement('p', { style: { color: currentTheme.textSecondary, fontSize: '0.76rem', lineHeight: 1.5, margin: '0 0 0.5rem' } },
+            __('secReplaceKeyHint', 'Re-encrypts everything under a new key. Use it when an old password, recovery code, passkey or a copy of this vault may be in other hands: none of them opens new data afterwards. The recovery code and passkey are removed (set them up again), and other synced devices need this vault again.')),
+          React.createElement('div', { style: { display: 'flex', gap: '0.5rem' } },
+            React.createElement('input', { type: 'password', value: rotatePw, onChange: (e) => setRotatePw(e.target.value), onKeyDown: (e) => e.key === 'Enter' && rotateKey(), placeholder: t.currentPassword || 'Current Password', 'aria-label': t.currentPassword || 'Current Password', autoComplete: 'current-password', style: { flex: 1, padding: '0.5rem', background: currentTheme.inputBg, border: `1px solid ${currentTheme.inputBorder}`, borderRadius: '6px', color: currentTheme.text, fontSize: '0.82rem' } }),
+            smallBtn(rotateBusy ? __('working', 'Working…') : __('secReplaceKeyNow', 'Replace key'), rotateKey, rotateBusy || !rotatePw))),
         sectionTitle(__('secCloudSync', 'Cloud sync (zero-knowledge)')),
         React.createElement('p', { style: { color: currentTheme.textSecondary, fontSize: '0.76rem', lineHeight: '1.5', margin: '0 0 0.4rem' } }, __('secCloudSyncHint', 'Your encrypted snapshot syncs via your own Worker. The server only ever sees ciphertext; the account id is derived from your vault.')),
         // The badge shows a failed last attempt instead of a green "Enabled" (FINDINGS H-6).
@@ -6255,7 +6307,7 @@ buy,crypto,bitcoin,0.5,45000,2024-01-15,10`)
       ),
 
       // Main content
-      React.createElement('main', { className: 'maermin-main', id: 'main', tabIndex: -1 }, renderAreaNav(), React.createElement(ViewErrorBoundary, { viewKey: activeView, theme: currentTheme }, renderView()))
+      React.createElement('main', { className: 'maermin-main', id: 'main', tabIndex: -1 }, renderAtRestBanner(), renderAreaNav(), React.createElement(ViewErrorBoundary, { viewKey: activeView, theme: currentTheme }, renderView()))
     ),
 
     // Mobile Bottom Navigation

@@ -81,9 +81,49 @@
     }
   };
 
+  // SEC-004: KDF name and parameters come from stored or imported meta, so
+  // they are checked before use: only registered KDFs (own entries, never an
+  // inherited name), PBKDF2 with 600k-10M iterations and SHA-256/512, Argon2id
+  // within sane bounds. Every vault ever created used PBKDF2 600k / SHA-256.
+  var PBKDF2_MIN = 600000, PBKDF2_MAX = 10000000;
+  function kdfImpl(name) { return (typeof name === 'string' && Object.prototype.hasOwnProperty.call(KDFS, name)) ? KDFS[name] : null; }
+  function isInt(x, lo, hi) { return typeof x === 'number' && Math.floor(x) === x && x >= lo && x <= hi; }
+  function validKdfParams(name, p) {
+    if (!p || typeof p !== 'object') return false;
+    // A KDF registered in code (registerKdf) may define its own parameter rule.
+    var impl = kdfImpl(name);
+    if (impl && name !== 'pbkdf2' && typeof impl.validParams === 'function') return !!impl.validParams(p);
+    if (name === 'pbkdf2') return isInt(p.iterations, PBKDF2_MIN, PBKDF2_MAX) && (p.hash === undefined || p.hash === 'SHA-256' || p.hash === 'SHA-512');
+    if (name === 'argon2id') return isInt(p.time, 1, 20) && isInt(p.mem, 16384, 4194304) && isInt(p.parallelism, 1, 16);
+    return false;
+  }
+  function checkedKdf(name, params) { var k = kdfImpl(name); return (k && validKdfParams(name, params)) ? k : null; }
+  function isB64(s, minLen) { return typeof s === 'string' && s.length >= (minLen || 1) && s.length <= 100000 && /^[A-Za-z0-9+/=.]+$/.test(s); }
+  // Structure check of a vault meta record (stored, or from an imported backup).
+  function validateMeta(m) {
+    if (!m || typeof m !== 'object' || Array.isArray(m)) return { ok: false, error: 'not-an-object' };
+    if (m.v !== 1 && m.v !== 2) return { ok: false, error: 'unknown-version' };
+    if (!checkedKdf(m.kdf, m.params)) return { ok: false, error: 'unsupported-kdf' };
+    if (!isB64(m.salt, 16) || !isB64(m.wrapCheck, 20)) return { ok: false, error: 'bad-salt-or-check' };
+    if (m.v === 2 && !isB64(m.pwWrap, 20)) return { ok: false, error: 'bad-password-wrap' };
+    // The recovery and passkey wraps are checked fully when they are used; a
+    // damaged one must never stop the password from opening the vault.
+    var opt = [m.recovery, m.recoveryPending, m.passkey];
+    for (var i = 0; i < opt.length; i++) {
+      if (opt[i] != null && (typeof opt[i] !== 'object' || typeof opt[i].wrappedKey !== 'string')) return { ok: false, error: 'bad-credential-wrap' };
+    }
+    return { ok: true };
+  }
+  // Run a KDF as a promise (an implementation that throws synchronously must
+  // not escape the promise chain - the unlock screen would never stop loading).
+  function derive(kdf, password, salt, params) {
+    return new Promise(function (resolve) { resolve(kdf.derive(password, salt, params)); });
+  }
+
   function registerKdf(name, impl) {
-    // impl: { defaultParams: ()=>obj, derive: (password,salt,params)=>Promise<Uint8Array(32)> }
-    if (!name || !impl || typeof impl.derive !== 'function') return;
+    // impl: { defaultParams: ()=>obj, derive: (password,salt,params)=>Promise<Uint8Array(32)>,
+    //         validParams?: (params)=>boolean }
+    if (!name || !impl || typeof impl.derive !== 'function' || name === '__proto__' || name === 'constructor') return;
     KDFS[name] = impl;
     DEFAULT_KDF = name; // prefer the strongest registered KDF for NEW vaults
   }
@@ -141,49 +181,67 @@
   }
 
   // ---- low-level AES-GCM ---------------------------------------------------
-  // Envelope string: "1." + b64(iv) + "." + b64(ciphertext). Versioned so the
-  // format can evolve without ambiguity.
-  function encryptWith(key, plaintextStr) {
+  // Envelope string: "<v>." + b64(iv) + "." + b64(ciphertext).
+  //   v1: no associated data (every record before PR 6; still read).
+  //   v2: the record's context (e.g. "rec:transactions") is authenticated as
+  //       AES-GCM associated data, so a record moved under another name - or
+  //       an old copy put back in its place under another name - fails to
+  //       decrypt instead of being accepted (SEC-007).
+  // opts.strict refuses v1 (for stores already migrated to v2).
+  function aadOf(context) { return utf8('maermin:' + String(context)); }
+  function encryptWith(key, plaintextStr, context) {
     var iv = getRandom(new Uint8Array(12));
-    return subtle.encrypt({ name: 'AES-GCM', iv: iv }, key, utf8(plaintextStr))
+    var alg = { name: 'AES-GCM', iv: iv };
+    if (context != null) alg.additionalData = aadOf(context);
+    return subtle.encrypt(alg, key, utf8(plaintextStr))
       .then(function (ct) {
-        return '1.' + b64encode(iv) + '.' + b64encode(new Uint8Array(ct));
+        return (context != null ? '2.' : '1.') + b64encode(iv) + '.' + b64encode(new Uint8Array(ct));
       });
   }
-  function decryptWith(key, envelope) {
+  function decryptWith(key, envelope, context, opts) {
     var parts = String(envelope).split('.');
-    if (parts.length !== 3 || parts[0] !== '1') {
+    if (parts.length !== 3 || (parts[0] !== '1' && parts[0] !== '2')) {
       return Promise.reject(new Error('bad-envelope'));
     }
-    var iv = b64decode(parts[1]);
-    var ct = b64decode(parts[2]);
-    return subtle.decrypt({ name: 'AES-GCM', iv: iv }, key, ct)
+    var alg = { name: 'AES-GCM', iv: b64decode(parts[1]) };
+    if (parts[0] === '2') {
+      if (context == null) return Promise.reject(new Error('bad-envelope'));
+      alg.additionalData = aadOf(context);
+    } else if (opts && opts.strict) {
+      return Promise.reject(new Error('legacy-envelope'));
+    }
+    return subtle.decrypt(alg, key, b64decode(parts[2]))
       .then(function (buf) { return fromUtf8(new Uint8Array(buf)); });
   }
+  function envelopeVersion(envelope) { var v = String(envelope || '').split('.')[0]; return v === '1' || v === '2' ? Number(v) : 0; }
 
   // ---- public crypto (use the unlocked in-memory key) ----------------------
-  function encrypt(plaintextStr) {
+  // context (optional): what the record is, bound as associated data (SEC-007).
+  function encrypt(plaintextStr, context) {
     if (!_key) return Promise.reject(new Error('locked'));
-    return encryptWith(_key, plaintextStr);
+    return encryptWith(_key, plaintextStr, context);
   }
-  function decrypt(envelope) {
+  function decrypt(envelope, context, opts) {
     if (!_key) return Promise.reject(new Error('locked'));
-    return decryptWith(_key, envelope);
+    return decryptWith(_key, envelope, context, opts);
   }
-  function encryptJSON(obj) { return encrypt(JSON.stringify(obj)); }
-  function decryptJSON(envelope) { return decrypt(envelope).then(function (s) { return JSON.parse(s); }); }
+  function encryptJSON(obj, context) { return encrypt(JSON.stringify(obj), context); }
+  function decryptJSON(envelope, context, opts) { return decrypt(envelope, context, opts).then(function (s) { return JSON.parse(s); }); }
 
   // Separate key for sync integrity (HMAC) / Drive blobs, derived from the raw
   // key so we never reuse the AES key directly for MAC. Available while unlocked.
-  function deriveSubKey(infoLabel, usages) {
-    if (!_rawKey) return Promise.reject(new Error('locked'));
-    return subtle.importKey('raw', _rawKey, { name: 'HKDF' }, false, ['deriveBits'])
+  function hkdf(raw, infoLabel, saltLabel) {
+    return subtle.importKey('raw', raw, { name: 'HKDF' }, false, ['deriveBits'])
       .then(function (hk) {
         return subtle.deriveBits({
           name: 'HKDF', hash: 'SHA-256',
-          salt: utf8('maermin-vault'), info: utf8(infoLabel)
+          salt: utf8(saltLabel || 'maermin-vault'), info: utf8(infoLabel)
         }, hk, 256);
       });
+  }
+  function deriveSubKey(infoLabel, usages) {
+    if (!_rawKey) return Promise.reject(new Error('locked'));
+    return hkdf(_rawKey, infoLabel);
   }
 
   // ---- lifecycle -----------------------------------------------------------
@@ -195,11 +253,12 @@
     if (!isSupported()) return Promise.reject(new Error('crypto-unsupported'));
     if (!password) return Promise.reject(new Error('empty-password'));
     var kdfName = opts.kdf || DEFAULT_KDF;
-    var kdf = KDFS[kdfName] || KDFS.pbkdf2;
-    var params = opts.params || kdf.defaultParams();
+    var params = opts.params || (kdfImpl(kdfName) ? kdfImpl(kdfName).defaultParams() : null);
+    var kdf = checkedKdf(kdfName, params);
+    if (!kdf) return Promise.reject(new Error('bad-kdf-params'));
     var salt = getRandom(new Uint8Array(16));
 
-    return kdf.derive(password, salt, params)
+    return derive(kdf, password, salt, params)
       .then(function (rawKey) { return importAesKey(rawKey).then(function (k) { return { rawKey: rawKey, key: k }; }); })
       .then(function (pair) {
         return encryptWith(pair.key, WRAP_CHECK_PLAINTEXT).then(function (wrapCheck) {
@@ -227,10 +286,11 @@
     if (!isSupported()) return Promise.reject(new Error('crypto-unsupported'));
     var meta = readMeta();
     if (!meta) return Promise.reject(new Error('no-vault'));
-    var kdf = KDFS[meta.kdf] || KDFS.pbkdf2;
+    if (!validateMeta(meta).ok) return Promise.reject(new Error('bad-vault-meta'));
+    var kdf = checkedKdf(meta.kdf, meta.params);
     var salt = b64decode(meta.salt);
 
-    return kdf.derive(password, salt, meta.params)
+    return derive(kdf, password, salt, meta.params)
       // v1: the password-derived key IS the data key. v2 (after a password
       // change): it only unwraps the data key stored in meta.pwWrap.
       .then(function (derived) {
@@ -265,11 +325,12 @@
     var meta = readMeta();
     if (!meta) return Promise.reject(new Error('no-vault'));
     var kdfName = opts.kdf || DEFAULT_KDF;
-    var kdf = KDFS[kdfName] || KDFS.pbkdf2;
-    var params = opts.params || kdf.defaultParams();
+    var params = opts.params || (kdfImpl(kdfName) ? kdfImpl(kdfName).defaultParams() : null);
+    var kdf = checkedKdf(kdfName, params);
+    if (!kdf) return Promise.reject(new Error('bad-kdf-params'));
     var salt = getRandom(new Uint8Array(16));
     var rawKey = _rawKey, dataKey = _key;
-    return kdf.derive(newPassword, salt, params)
+    return derive(kdf, newPassword, salt, params)
       .then(function (derived) { return importAesKey(derived); })
       .then(function (kek) { return encryptWith(kek, b64encode(rawKey)); })
       .then(function (pwWrap) {
@@ -293,13 +354,90 @@
     });
   }
 
+  // Check a password against the stored meta without touching the session.
+  function verifyPassword(password) {
+    var meta = readMeta();
+    if (!meta || !validateMeta(meta).ok) return Promise.resolve(false);
+    var kdf = checkedKdf(meta.kdf, meta.params);
+    return derive(kdf, password, b64decode(meta.salt), meta.params)
+      .then(function (derived) {
+        if (!meta.pwWrap) return derived;
+        return importAesKey(derived).then(function (kek) { return decryptWith(kek, meta.pwWrap); }).then(b64decode);
+      })
+      .then(importAesKey)
+      .then(function (k) { return decryptWith(k, meta.wrapCheck); })
+      .then(function (plain) { return plain === WRAP_CHECK_PLAINTEXT; }, function () { return false; });
+  }
+
+  // SEC-017: a NEW random data key, so credentials that ever wrapped the old
+  // one (an old password, recovery code or passkey, also in old copies of the
+  // meta) no longer open what is written from now on. prepareRotation() builds
+  // everything without changing the vault: the caller (storage.js) re-encrypts
+  // the data with handle.encrypt*, then handle.commit() writes the new meta in
+  // ONE localStorage write - the commit point - and switches the session to
+  // the new key. The new meta has the password wrap only: the recovery code and
+  // the passkey wrapped the old key and are dropped (the UI offers new ones).
+  function prepareRotation(password, opts) {
+    opts = opts || {};
+    if (!isSupported()) return Promise.reject(new Error('crypto-unsupported'));
+    if (!_rawKey || !_key) return Promise.reject(new Error('locked'));
+    var meta = readMeta();
+    if (!meta) return Promise.reject(new Error('no-vault'));
+    return verifyPassword(password).then(function (good) {
+      if (!good) throw new Error('bad-password');
+      var kdfName = opts.kdf || DEFAULT_KDF;
+      var params = kdfImpl(kdfName).defaultParams();
+      var kdf = checkedKdf(kdfName, params);
+      var salt = getRandom(new Uint8Array(16));
+      var newRaw = getRandom(new Uint8Array(32));
+      return Promise.all([importAesKey(newRaw), derive(kdf, password, salt, params).then(importAesKey)]).then(function (keys) {
+        var newKey = keys[0], kek = keys[1];
+        return Promise.all([encryptWith(kek, b64encode(newRaw)), encryptWith(newKey, WRAP_CHECK_PLAINTEXT)]).then(function (w) {
+          var next = {
+            v: 2, kdf: kdfName, params: params, salt: b64encode(salt), pwWrap: w[0], wrapCheck: w[1],
+            autoLockMs: meta.autoLockMs, createdAt: meta.createdAt, updatedAt: Date.now(), rotatedAt: Date.now()
+          };
+          var committed = false;
+          return {
+            encrypt: function (pt, context) { return encryptWith(newKey, pt, context); },
+            encryptJSON: function (obj, context) { return encryptWith(newKey, JSON.stringify(obj), context); },
+            decryptJSON: function (env, context) { return decryptWith(newKey, env, context).then(JSON.parse); },
+            deriveSubKey: function (label) { return hkdf(newRaw, label); },
+            commit: function () {
+              if (committed) return false;
+              if (!_key) throw new Error('locked');
+              writeMeta(next);
+              if (_rawKey && _rawKey.fill) _rawKey.fill(0);
+              _key = newKey; _rawKey = newRaw; _kdfName = kdfName; committed = true;
+              return true;
+            }
+          };
+        });
+      });
+    });
+  }
+
+  // SEC-017: remove the passkey (its wrap of the data key) from this vault.
+  function removePasskey() {
+    var m = readMeta();
+    if (!m || !m.passkey) return false;
+    delete m.passkey; m.updatedAt = Date.now(); writeMeta(m);
+    return true;
+  }
+
   function lock() {
     stopAutoLock();
     // Listeners run BEFORE the key is wiped so storage.js's final flush can
     // start its (synchronous) encrypt calls with the key still available.
-    fireLock();
+    _lockSettled = fireLock();
+    // SEC-028: overwrite the key bytes instead of only dropping the reference.
+    if (_rawKey && _rawKey.fill) _rawKey.fill(0);
     _key = null; _rawKey = null; _kdfName = null;
   }
+  // Resolves when the work started by the last lock (the final encrypted save)
+  // has finished - the app reloads after it for a clean memory (SEC-028).
+  var _lockSettled = Promise.resolve();
+  function lockSettled() { return _lockSettled; }
 
   // ---- idle auto-lock ------------------------------------------------------
   var _lockTimer = null;
@@ -308,7 +446,11 @@
   var _activityBound = false;
 
   function onLock(cb) { if (typeof cb === 'function') _lockListeners.push(cb); }
-  function fireLock() { _lockListeners.forEach(function (cb) { try { cb(); } catch (e) {} }); }
+  function fireLock() {
+    var pending = [];
+    _lockListeners.forEach(function (cb) { try { var r = cb(); if (r && typeof r.then === 'function') pending.push(r.then(null, function () {})); } catch (e) {} });
+    return Promise.all(pending);
+  }
 
   function touch() {
     if (!_key || !_autoLockMs) return;
@@ -360,17 +502,23 @@
         rp: { name: 'MAERMIN' },
         user: { id: userId, name: userLabel || 'maermin', displayName: userLabel || 'MAERMIN' },
         pubKeyCredParams: [{ type: 'public-key', alg: -7 }, { type: 'public-key', alg: -257 }],
-        authenticatorSelection: { residentKey: 'preferred', userVerification: 'preferred' },
+        // SEC-027: a passkey opens the whole vault, so it must verify the user
+        // (PIN / biometrics), not only their presence.
+        authenticatorSelection: { residentKey: 'preferred', userVerification: 'required' },
         extensions: { prf: { eval: { first: prfSalt } } }
       }
     }).then(function (cred) {
       var ext = cred.getClientExtensionResults ? cred.getClientExtensionResults() : {};
       var prf = ext && ext.prf && ext.prf.results && ext.prf.results.first;
       if (!prf) return { supported: false }; // authenticator has no PRF
-      // Wrap the raw vault key with a key derived from the PRF output.
-      return importAesKey(new Uint8Array(prf)).then(function (wrapKey) {
+      if (!userVerified(cred.response && cred.response.getAuthenticatorData ? cred.response.getAuthenticatorData() : null)) {
+        return { supported: true, enrolled: false, reason: 'no-user-verification' };
+      }
+      // Wrap the raw vault key with a key derived (HKDF) from the PRF output.
+      return passkeyWrapKey(new Uint8Array(prf), 2).then(function (wrapKey) {
         return encryptWith(wrapKey, b64encode(_rawKey)).then(function (wrapped) {
           meta.passkey = {
+            v: 2, uv: 'required',
             credId: b64encode(new Uint8Array(cred.rawId)),
             prfSalt: b64encode(prfSalt),
             wrappedKey: wrapped
@@ -388,18 +536,22 @@
     var meta = readMeta();
     if (!meta || !meta.passkey) return Promise.reject(new Error('no-passkey'));
     var pk = meta.passkey;
+    // An enrolment from before PR 6 keeps its mode: its PRF output depends on
+    // it, so requiring verification now would make it stop unlocking.
+    var v2 = pk.v === 2;
     return navigator.credentials.get({
       publicKey: {
         challenge: getRandom(new Uint8Array(32)),
         allowCredentials: [{ type: 'public-key', id: b64decode(pk.credId) }],
-        userVerification: 'preferred',
+        userVerification: v2 ? 'required' : 'preferred',
         extensions: { prf: { eval: { first: b64decode(pk.prfSalt) } } }
       }
     }).then(function (assertion) {
       var ext = assertion.getClientExtensionResults ? assertion.getClientExtensionResults() : {};
       var prf = ext && ext.prf && ext.prf.results && ext.prf.results.first;
       if (!prf) throw new Error('passkey-no-prf');
-      return importAesKey(new Uint8Array(prf)).then(function (wrapKey) {
+      if (v2 && !userVerified(assertion.response && assertion.response.authenticatorData)) throw new Error('passkey-no-uv');
+      return passkeyWrapKey(new Uint8Array(prf), v2 ? 2 : 1).then(function (wrapKey) {
         return decryptWith(wrapKey, pk.wrappedKey).then(function (rawB64) {
           var rawKey = b64decode(rawB64);
           return importAesKey(rawKey).then(function (k) {
@@ -410,6 +562,19 @@
         });
       });
     });
+  }
+
+  // UV flag of WebAuthn authenticator data (byte 32, bit 2). Unknown (no
+  // data) counts as verified: the browser enforced userVerification already.
+  function userVerified(authData) {
+    if (!authData) return true;
+    var b = new Uint8Array(authData);
+    return b.length > 32 ? !!(b[32] & 0x04) : true;
+  }
+  // v2: HKDF of the PRF output (domain separation); v1: the output as is.
+  function passkeyWrapKey(prf, v) {
+    if (v !== 2) return importAesKey(prf);
+    return hkdf(prf, 'passkey-wrap-v2', 'maermin-passkey').then(function (bits) { return importAesKey(new Uint8Array(bits)); });
   }
 
   // ---- recovery kit (alternative unlock) -----------------------------------
@@ -450,8 +615,9 @@
   }
 
   function deriveRecoveryWrapKey(code, salt, kdfName, params) {
-    var kdf = KDFS[kdfName] || KDFS.pbkdf2;
-    return kdf.derive(code, salt, params).then(function (raw) { return importAesKey(raw); });
+    var kdf = checkedKdf(kdfName, params);
+    if (!kdf) return Promise.reject(new Error('bad-kdf-params'));
+    return derive(kdf, code, salt, params).then(function (raw) { return importAesKey(raw); });
   }
 
   // Generate + store a recovery kit for the unlocked vault. Resolves with the
@@ -543,13 +709,18 @@
     unlock: unlock,
     changePassword: changePassword,
     setPassword: setPassword,
+    verifyPassword: verifyPassword,
+    prepareRotation: prepareRotation,
     lock: lock,
+    lockSettled: lockSettled,
     // crypto
     encrypt: encrypt,
     decrypt: decrypt,
     encryptJSON: encryptJSON,
     decryptJSON: decryptJSON,
     deriveSubKey: deriveSubKey,
+    envelopeVersion: envelopeVersion,
+    validateMeta: validateMeta,
     // auto-lock
     configureAutoLock: configureAutoLock,
     touch: touch,
@@ -558,6 +729,7 @@
     passkeySupported: passkeySupported,
     enrollPasskey: enrollPasskey,
     unlockWithPasskey: unlockWithPasskey,
+    removePasskey: removePasskey,
     // recovery kit (alternative unlock via printable code)
     enrollRecovery: enrollRecovery,
     confirmRecovery: confirmRecovery,

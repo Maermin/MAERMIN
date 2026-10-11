@@ -22,6 +22,8 @@
 // ============================================================================
 (function () {
   'use strict';
+  // Translation lookup (i18n.js): __('key', 'English fallback', { slot: value }).
+  function __(k, f, v) { return (typeof window !== 'undefined' && window.MaerminI18n ? window.MaerminI18n : require('./i18n.js')).t(k, f, v); }
 
   var Vault   = (typeof window !== 'undefined') && window.MaerminVault;
   var Storage = (typeof window !== 'undefined') && window.MaerminStorage;
@@ -183,7 +185,43 @@
     return Vault.encryptJSON(snapshot);
   }
   function decryptBlob(blob) {
-    return Vault.decryptJSON(blob);
+    return Vault.decryptJSON(blob).then(function (snap) {
+      // SEC-017: the account was retired by a key rotation on another device.
+      if (snap && snap.rotated) {
+        var e = new Error(__('syncRotated', 'This vault\'s encryption key was changed on another device, so sync stopped here. Restore that device\'s encrypted backup on this one, or set this device up again.'));
+        e.code = 'sync-rotated';
+        throw e;
+      }
+      return snap;
+    });
+  }
+
+  // ---- key rotation (SEC-017) ----------------------------------------------
+  // Before the data key changes: the old account (its id and write key come
+  // from the old key) gets a final "rotated" record with no data, so the old
+  // blob is gone and other devices stop with a message instead of syncing the
+  // old key on. After: the sync state starts over, so the next sync creates
+  // the new account and uploads the data under the new key.
+  function retireAccount() {
+    if (!_transport) return Promise.resolve(false);
+    return accountId().then(function (account) {
+      return _transport.get(account).then(function (remote) {
+        var rev = remote ? remote.rev : 0;
+        if (!remote) return false;
+        var marker = { v: 1, rotated: true, updatedAt: Date.now(), device: deviceId(), data: {} };
+        return encryptSnapshot(marker).then(function (blob) {
+          return buildAuth(account, rev, blob, false).then(function (auth) {
+            return _transport.put(account, rev, blob, auth).then(function (r) { return !!(r && r.ok); });
+          });
+        });
+      });
+    }).catch(function () { return false; });
+  }
+  function startOverAfterRotation() {
+    saveState({ rev: 0, lastHash: null, lastSyncAt: 0 });
+    try { lsSet(BASE_KEY, JSON.stringify({})); } catch (e) {}
+    setLastError(null);
+    return _transport ? sync().then(function () { return true; }, function () { return false; }) : Promise.resolve(false);
   }
 
   // ---- merge / conflict resolution ----------------------------------------
@@ -602,6 +640,7 @@
     // ops
     sync: sync, hasLocalChanges: hasLocalChanges, getState: loadState, deviceId: deviceId,
     accountId: accountId, enableAutoSync: enableAutoSync, onChange: onChange,
+    retireAccount: retireAccount, startOverAfterRotation: startOverAfterRotation,
     syncOnStart: syncOnStart, scheduleSync: scheduleSync, statusOf: statusOf,
     // pure core (tested)
     buildSnapshot: buildSnapshot, snapshotHash: snapshotHash, mergeSnapshots: mergeSnapshots, keyHashes: keyHashes, seedBase: seedBase, LEGACY_SYNC_KEYS: LEGACY_SYNC_KEYS,

@@ -424,7 +424,7 @@ an auth key; older apps), SEC-026 (old share records), SEC-027 (passkey user ver
 | 3 Visual and state display | VIS-001…021 | fixed in PR 3 (`fix/audit-visual`) |
 | 4 Usability | UX-016…032 | open |
 | 5 Security, app and Worker | SEC-008…016, 018, 019, 020…026, H-1…H-4 | open |
-| 6 crypto-vault.js, auth.js, storage.js | SEC-004…007, 017, 027, 028, DEAD-001, DEAD-003 | open |
+| 6 crypto-vault.js, auth.js, storage.js | SEC-004…007, 017, 027, 028, DEAD-001, DEAD-003 | fixed in PR 6 (`fix/audit-vault`) |
 
 ---
 
@@ -472,6 +472,29 @@ Advanced mode (14 views), option transactions (Options panel).
 
 #### DEAD-003 — `storage.rekey()` is never called (UNSURE)
 - **Location:** `storage.js:465-475, 579` · **Evidence:** only declaration/export/.d.ts; a password change re-wraps the data key, records stay. · **Change:** delete, or reuse for SEC-017 key rotation. · **Severity:** low · **Risk:** low · **PR 6**
+
+**Status (Phase 2, branch `fix/audit-vault`, PR 6) — vault, auth, storage:** fixed — SEC-004, SEC-005, SEC-006,
+SEC-007, SEC-017, SEC-027, SEC-028, DEAD-001 (`nativeRead`, `writeManifest` removed), DEAD-003 (`storage.rekey` now
+performs the rotation's data rewrite), `storage._setNative` removed. Tests: `test/vault-compat.test.js` opens vaults,
+a changed-password vault, a recovery code and an encrypted backup **made by the code before this PR**
+(`test/fixtures/vault-main-2026-10.json`, built with that code) — localStorage and IndexedDB paths — and checks they
+survive a save and reload; `test/vault-hardening.test.js` covers validation, record binding, rotation (also a crash
+before and after the commit point), passkey removal and the lock flush. Migration paths:
+- SEC-007: nothing is converted up front. Records written before stay readable (`1.` envelopes); the first save
+  after unlocking rewrites every record and the manifest in the bound format (`2.`, manifest v2), after which unbound
+  records are refused. An encrypted backup made before restores and is migrated the same way. A backup made after this
+  PR cannot be opened by an older app version (forward-only format). The sync blob keeps the `1.` format so devices
+  on an older app keep syncing.
+- SEC-004: every vault ever created used PBKDF2 600k / SHA-256, which passes; a meta outside the allowed range is
+  refused instead of used (no vault made by any release is affected).
+- SEC-005: the 12-character minimum applies to new passwords only; existing passwords keep unlocking.
+- SEC-027: passkeys enrolled before keep their mode (user verification "preferred", raw PRF output) — requiring
+  verification would change their PRF output and lock them out; new enrolments require verification and use HKDF.
+  The README no longer claims that a password change invalidates the recovery code.
+- SEC-017: rotation drops the recovery code and passkey (they wrapped the old key) and moves sync to a new account
+  after writing a "rotated" record to the old one; other devices stop with a message and need the vault again.
+- SEC-028: the idle lock shows the unlock screen at once and reloads the page after the final encrypted save
+  (`MaerminVault.lockSettled()`); unsaved form input is dropped, as the lock already hid it.
 
 #### DEAD-004 — Exported helpers no code or test calls
 - **Location:** `utils.js:29-31` `formatCurrencyEUR`; `exchange-sync.js:283` `isSyncing`, `:364-373` `exportAllCredentials`/`importAllCredentials`; `fx-history.js:276` `resetCurrencyCache`; `rebalancing-planner.js:74-78` `clearTargets`; `prefs-store.js:73-76` `useValue`; `nav-model.js:95` `isAdvanced`; `fx.js:317` `rescan`; unused test seams `storage._setNative`, `equity-metadata._norm`, `tax-report-builder._toBase`, `performance-cards._toISO`
