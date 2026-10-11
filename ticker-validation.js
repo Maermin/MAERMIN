@@ -97,17 +97,6 @@
     return { valid: true, normalized: normalizeForDividends(raw), reason: 'ok', exchange: p.exchange || 'US/Default' };
   }
 
-  // Validate a whole portfolio's stock symbols; surfaces what won't resolve.
-  function validatePortfolio(portfolio) {
-    var stocks = (portfolio && portfolio.stocks) || [];
-    var valid = [], invalid = [];
-    stocks.forEach(function (s) {
-      var v = validate(s.symbol || s.name, 'stocks');
-      (v.valid ? valid : invalid).push({ symbol: s.symbol || s.name, name: s.name, verdict: v });
-    });
-    return { valid: valid, invalid: invalid, total: stocks.length, unresolved: invalid.length };
-  }
-
   // ---- CS2 skin names --------------------------------------------------------
   // THE single normalising place for Steam market_hash_name lookups. Steam is
   // exact about the name: the "Souvenir " / "StatTrak™ " prefix with one
@@ -297,7 +286,6 @@
     isDividendEligible: isDividendEligible,
     normalizeSkinName: normalizeSkinName,
     validate: validate,
-    validatePortfolio: validatePortfolio
   };
   if (typeof window !== 'undefined') window.MaerminTickers = api;
   if (typeof module !== 'undefined' && module.exports) module.exports = api;

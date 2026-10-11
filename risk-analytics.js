@@ -377,22 +377,13 @@ function generateRiskRecommendations(riskMetrics, portfolio) {
   return recommendations;
 }
 
-// Export functions
+// Export what risk-analytics-view-v2.js and portfolio-health.js read.
 if (typeof window !== 'undefined') {
-  window.calculateVaR = calculateVaR;
-  window.calculateCVaR = calculateCVaR;
-  window.calculateSharpeRatio = calculateSharpeRatio;
-  window.calculateSortinoRatio = calculateSortinoRatio;
-  window.calculateMaxDrawdown = calculateMaxDrawdown;
   window.calculatePortfolioRiskMetrics = calculatePortfolioRiskMetrics;
   window.riskObservations = riskObservations;
   window.hasMeasurableRisk = hasMeasurableRisk;
   window.MIN_RISK_OBSERVATIONS = MIN_RISK_OBSERVATIONS;
-  window.calculateRiskScore = calculateRiskScore;
-  window.getRiskLevel = getRiskLevel;
   window.generateRiskRecommendations = generateRiskRecommendations;
-  
-  console.log('[RISK] Risk Analytics Module loaded');
 }
 
 if (typeof module !== 'undefined' && module.exports) {

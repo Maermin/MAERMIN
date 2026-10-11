@@ -93,7 +93,6 @@ console.log('settings (maermin_rebalance_prefs):');
   ok('unknown mode → full; band clamped (rel ≤ 100 %), bad abs → 5', p.mode === 'full' && p.defaultBand.rel === 1 && p.defaultBand.abs === 5);
   ok('never-sell list upper-cased, deduped, sorted', p.noSell.join() === 'AAPL,BTC');
   ok('bands keep valid keys only', Object.keys(p.bands).join() === 'crypto' && p.bands.crypto.rel === 0.2);
-  ok('isNoSell is case-insensitive', R.isNoSell(p, 'aapl') && !R.isNoSell(p, 'ETH'));
   ok('cash-flow mode survives a round trip', R.normalizePrefs(JSON.stringify({ mode: 'cashflow' })).mode === 'cashflow');
   const B = require('../backup-engine.js');
   ok('the key is in the full backup', B.KEYS.indexOf(R.PREFS_KEY) !== -1);

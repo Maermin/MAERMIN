@@ -719,22 +719,6 @@ function __(k, f, v) { return (typeof window !== 'undefined' && window.MaerminI1
     return analyzeFromInputs(gatherInputs(portfolio, prices, transactions, opts), opts);
   }
 
-  // ---- export helper: portable, redaction-safe finding list ------------------
-  // Findings are advice text (percentages + names), no amounts/quantities. Used
-  // by the Professional Reports feature and the View's "copy" affordance.
-  function toExport(report, meta) {
-    report = report || { findings: [], summary: {} };
-    return {
-      module: 'portfolio-intelligence',
-      version: 1,
-      generatedAt: (meta && meta.generatedAt) || new Date().toISOString(),
-      summary: report.summary,
-      findings: (report.findings || []).map(function (f) {
-        return { analysis: f.analysis, priority: f.priority, title: f.title, detail: f.detail, action: f.action };
-      })
-    };
-  }
-
   // ---- React View (browser only; one Tools surface) --------------------------
   function View(props) {
     var React = (typeof window !== 'undefined') ? window.React : null;
@@ -747,7 +731,6 @@ function __(k, f, v) { return (typeof window !== 'undefined' && window.MaerminI1
     var card = theme.card || theme.cardBg || '#10151f';
     var bad = theme.danger || theme.negative || '#ef4444';
     var warn = theme.warning || '#f59e0b';
-    var ok = theme.success || '#22c55e';
     var accent = theme.accent || '#7e22ce';
 
     var report = props.report || analyze(props.portfolio, props.prices, props.transactions, { lookThrough: props.lookThrough });
@@ -844,7 +827,6 @@ function __(k, f, v) { return (typeof window !== 'undefined' && window.MaerminI1
     analyzeFromInputs: analyzeFromInputs,
     gatherInputs: gatherInputs,
     analyze: analyze,
-    toExport: toExport,
     View: View
   };
   if (typeof window !== 'undefined') window.MaerminIntelligence = api;

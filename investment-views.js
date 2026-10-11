@@ -1221,6 +1221,5 @@ window.InvestmentViews = {
   goalProgress: goalProgress
 };
 
-console.log('[OK] Investment Views v7.1 loaded');
 
 })();

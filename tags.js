@@ -112,18 +112,6 @@ function __(k, f, v) { return (typeof window !== 'undefined' && window.MaerminI1
     return state;
   }
 
-  function renameTag(state, oldName, newName) {
-    state = normalize(state);
-    var hit = findName(state, oldName);
-    var clean = normName(newName);
-    if (!hit || !clean) return state;
-    if (keyOf(oldName) !== keyOf(clean) && findName(state, clean)) return state; // collision
-    var entry = state.tags[hit];
-    delete state.tags[hit];
-    state.tags[clean] = entry;
-    return state;
-  }
-
   function assign(state, name, symbol) {
     state = normalize(state);
     var clean = normName(name), sym = normSym(symbol);
@@ -392,7 +380,6 @@ function __(k, f, v) { return (typeof window !== 'undefined' && window.MaerminI1
     tagsForSymbol: tagsForSymbol,
     addTag: addTag,
     removeTag: removeTag,
-    renameTag: renameTag,
     assign: assign,
     unassign: unassign,
     aggregate: aggregate,

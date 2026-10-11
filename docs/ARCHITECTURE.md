@@ -106,7 +106,7 @@ conversion happens only at format time (`formatPrice`).
 | `tax-calculation-engine.js` | `TaxCalculationEngine.GermanTax` | The German computation only (the legacy jurisdiction engine was removed; reports come from `MaerminTaxReport`): pure German fund-taxation depth: Vorabpauschale (BMF Basiszins table + overrides, month pro-rating, sale credit), Teilfreistellung per fund type (symmetric on losses), statutory order Teilfreistellung -> Verrechnung -> Sparerpauschbetrag -> Abgeltungsteuer/Soli/Kirchensteuer (sec. 32d formula), crypto Freigrenze. Dual-exported, tested in `test/german-tax.test.js` |
 | `projection.js` | `MaerminProjection` | Multi-scenario wealth projection |
 | `recurring.js` | `MaerminRecurring` | Recurring liabilities (loans/mortgages) |
-| `portfolio-analytics.js` | `MaerminAnalytics` | Pure quant fed return series: benchmarks (α/β/Tracking Error/Information Ratio/R²), simulator (future value/FIRE/withdrawal/Monte-Carlo success), risk (max drawdown/rolling vol/Fama-French OLS) |
+| `portfolio-analytics.js` | `MaerminAnalytics` | Pure quant fed return series: benchmarks (α/β/Tracking Error/Information Ratio/R²), simulator (future value/FIRE/withdrawal), risk (max drawdown/rolling vol/Fama-French OLS). Monte Carlo is `monte-carlo-engine.js` only |
 | `close-history.js` | `MaerminCloseHistory` | Daily closes per holding back to its first trade: `need` → `plan` (full range or tail, at most every 6 h) → `sync` with an injectable `fetch` (Worker `yf` for stocks, commodities and crypto as Yahoo USD pairs, CoinGecko only as the crypto fallback; CS2 skins have no daily history) → compact store in the quote currency at `maermin_close_history` (sensitive, in the backup, excluded from sync). Also the one table of Yahoo symbol mappings shared with the live price refresh |
 | `value-path.js` | `MaerminValuePath` | Daily value path from transactions × EUR closes: chain-linked true TWR (held-yesterday link × trade/payout link), split-adjusted quantities, coverage report (missing / carried holdings); `fromValues` chain-links recorded snapshots (fallback); `index` = flow-neutral series for the analytics; `alignedCloses` = per-holding closes on one date grid |
 | `returns-heatmap.js` | `MaerminReturnsHeatmap` | Monthly returns grid (Analysis → Returns): `fromSteps` compounds the TWR card's chain of period returns (value path points, `fromValues().steps` or `MaerminReturns.twrSteps`) into months, quarters and years; `cellColor` / `textOn` keep every printed figure at 4.5 : 1 in all themes |
@@ -147,7 +147,8 @@ before recovery codes existed.
 
 **Analytics fold-in** (no new tabs): the `MaerminAnalytics` engine is surfaced through
 thin view modules — `simulator-view.js` (`MaerminSimulatorView`, Future Value/FIRE/
-Withdrawal/Monte-Carlo) folds into the **Monte-Carlo** analytics tab, and
+Withdrawal) folds into the **Monte-Carlo** analytics tab below the one Monte-Carlo
+simulation (`monte-carlo-engine.js`), and
 `analytics-views.js` (`MaerminAnalyticsViews`) adds a **benchmark overlay** (α/β/TE/IR/R²,
 fetching a proxy via the worker `yf` endpoint) to the **Returns** view plus a **rolling
 volatility/return** panel and a **Fama-French factor-exposure** panel (MKT/SMB/HML loadings
@@ -320,7 +321,7 @@ they add no `SENSITIVE_KEYS` and need no migration.
 - **Rebalancing Planner** (`rebalancing-planner.js` → `MaerminRebalance`, key
   `maermin_rebalance_targets`, in the backup) persists target weights by category **or** tag
   basis. The pure `plan(state, actual, {band})` is basis-agnostic — the caller passes the
-  current allocation as `[{key,value}]` (use `groupBy` for the category basis, or
+  current allocation as `[{key,value}]` (category values, or
   `MaerminTags.aggregate(...).rows` for the tag basis) — and returns per-bucket drift (in
   percentage points) plus the concrete buy(+)/sell(−) delta to reach target within a tolerance
   band, with a turnover/`balanced` summary. Node-tested in `test/rebalancing-planner.test.js`.

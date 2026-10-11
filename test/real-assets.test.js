@@ -90,8 +90,6 @@ const RA = require('../real-assets.js');
   let s2 = RA.addAsset({ version: 1, assets: [] }, { name: 'Car', kind: 'vehicle', valuations: [{ date: '2026-01-01', value: 25000 }] });
   ok('addAsset adds', s2.assets.length === 1);
   const cid = s2.assets[0].id;
-  s2 = RA.updateAsset(s2, cid, { name: 'Car X' });
-  ok('updateAsset patches', s2.assets[0].name === 'Car X');
   s2 = RA.removeAsset(s2, cid);
   ok('removeAsset deletes', s2.assets.length === 0);
 

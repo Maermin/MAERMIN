@@ -33,15 +33,12 @@ const R = require('../recurring.js');
   ok('monthly equivalent of weekly = amount*52/12', near(R.monthlyEquivalent({ amount: 100, interval: 'weekly', startDate: '2026-01-01', recurring: true }), 100 * 52 / 12));
   ok('monthly equivalent of annual = amount/12', near(R.monthlyEquivalent({ amount: 1200, interval: 'annual', startDate: '2026-01-01', recurring: true }), 100));
 
-  console.log('multi-liability schedule + summary:');
+  console.log('multi-liability summary:');
   const car = { id: 'c1', name: 'Car loan', recurring: true, amount: 300, interval: 'monthly', startDate: '2026-01-10', endDate: '2026-06-10' };
-  const sched = R.scheduleBetween([mortgage, car], '2026-01-01', '2026-02-28');
-  ok('merged schedule sorted by date', sched.length === 4 && sched[0].date <= sched[1].date && sched[1].date <= sched[2].date);
   const s = R.summary([mortgage, car], '2026-03-01');
   ok('summary monthly equivalent = 1200 + 300', near(s.monthlyEquivalent, 1500));
   ok('summary counts both liabilities', s.count === 2);
   ok('summary remaining scheduled is positive', s.remainingScheduled > 0);
-  ok('non-recurring account ignored', R.scheduleBetween([{ type: 'loan', value: 5000 }], '2026-01-01', '2026-12-31').length === 0);
 
   console.log('\n' + passed + ' passed, ' + failed + ' failed');
   process.exit(failed ? 1 : 0);

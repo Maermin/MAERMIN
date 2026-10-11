@@ -53,7 +53,6 @@ class ViewErrorBoundary extends React.Component {
 // root element gets data-theme / data-mode) — all other tokens are unchanged
 // in shape so existing call sites keep working.
 const ACCENT = '#8b7cff';       // electric violet — primary accent on dark
-const ACCENT_DEEP = '#6d5dfc';  // deeper violet for light surfaces / hovers
 const ON_ACCENT = '#ffffff';    // text on accent fills
 
 const themes = {
@@ -388,7 +387,6 @@ function InvestmentTracker() {
   );
   
   // UI State
-  const [activeTab, setActiveTab] = useState('crypto');
   // Restore the last active view across sessions; renderView's default case
   // falls back to Overview if a stored id no longer exists.
   // v12: persisted UI prefs now flow through MaerminPrefs (the first slice on the
@@ -3492,7 +3490,6 @@ function InvestmentTracker() {
     const pctStr = window.MaerminI18n.pct(stats.totalProfitPercent, 2, true);
 
     // Label names depend on mode
-    const labelValue  = isAllMode ? __('ovTotalValue', 'Total Value')  : __('ovPortfolioValue', 'Portfolio Value');
     const labelReturn = isAllMode ? __('ovTotalReturn', 'Total Return') : __('ovPortfolioReturn', 'Portfolio Return');
 
     const statCard = (label, value, sub, color, onClick) =>
@@ -6271,6 +6268,7 @@ buy,crypto,bitcoin,0.5,45000,2024-01-15,10`)
     window.ShortcutsModal && React.createElement(window.ShortcutsModal, {
       isOpen: showShortcuts,
       onClose: () => window.MaerminUI.closeOverlay('shortcuts'),
+      commands: commands,
       t: t,
       theme: currentTheme
     }),

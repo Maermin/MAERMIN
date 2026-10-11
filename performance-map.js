@@ -207,7 +207,6 @@ function __(k, f, v) { return (typeof window !== 'undefined' && window.MaerminI1
     function buildNodes(props, period) {
       var groups = props.positions || {};
       var prices = props.prices || {};
-      var rate = props.exchangeRate || props.usdToEur || 1;
       var periodPerf = props.periodPerf || (typeof window !== 'undefined' && window.MaerminMarketStore && window.MaerminMarketStore.periodChange) || null;
       var nodes = [];
       Object.keys(groups).forEach(function (cat) {

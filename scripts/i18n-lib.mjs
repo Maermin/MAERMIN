@@ -1,5 +1,4 @@
-// Shared helpers for the i18n guard (scripts/i18n-check.mjs) and the dev tool
-// that moves literals into translation keys (scripts/i18n-apply.mjs).
+// Shared helpers for the i18n guard (scripts/i18n-check.mjs).
 import { readFileSync, readdirSync } from 'node:fs';
 import { join, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';

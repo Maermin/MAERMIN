@@ -382,18 +382,6 @@ function parseDate(dateStr) {
     if (d) return d;
   }
 
-  // Try common formats
-  const formats = [
-    // ISO
-    /^\d{4}-\d{2}-\d{2}/,
-    // DD/MM/YYYY or DD.MM.YYYY
-    /^(\d{1,2})[\/\.](\d{1,2})[\/\.](\d{4})/,
-    // MM/DD/YYYY
-    /^(\d{1,2})\/(\d{1,2})\/(\d{4})/,
-    // YYYY/MM/DD
-    /^(\d{4})\/(\d{2})\/(\d{2})/
-  ];
-
   try {
     // Try native parsing first
     const parsed = new Date(dateStr);

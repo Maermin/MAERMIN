@@ -1,17 +1,11 @@
 // ============================================================================
-// MAERMIN — Yield-on-Cost trend + DRIP modelling  (window.MaerminDividendYoc)
+// MAERMIN — Yield on cost  (window.MaerminDividendYoc)
 // ----------------------------------------------------------------------------
-// Competitive-gap WI-6. MAERMIN had dividend quality/forecast but no yield-on-
-// cost over time and no reinvestment (DRIP) simulation — Snowball's core domain.
-// This is a derived, pure consumer of the existing transaction lots + the one
-// DividendDataService (per-share annual dividend); it persists nothing.
+// Competitive-gap WI-6. A derived, pure consumer of the existing transaction
+// lots + the one DividendDataService (per-share annual dividend); it persists
+// nothing.
 //
-//   yieldOnCost(input)   annualised dividend / FIFO cost basis (EUR), plus a
-//                        per-buy time series so the YoC trend is visible.
-//   dripSimulate(input)  hypothetical reinvestment of every distribution at the
-//                        price on its date, vs. taking the cash — end value and
-//                        share count compared. Clearly a SIMULATION: it never
-//                        books real transactions.
+//   yieldOnCost(input)   annualised dividend / FIFO cost basis (EUR).
 //
 // All amounts are EUR (the caller converts via MaerminUtils). Pure layer
 // Node-tested in test/dividend-yoc.test.js.
@@ -71,79 +65,9 @@ function __(k, f, v) { return (typeof window !== 'undefined' && window.MaerminI1
     };
   }
 
-  // YoC trend: one point per BUY (cumulative shares + cost basis), using the
-  // current annual DPS. Shows how YoC moves as the average cost evolves.
-  function yocSeries(input) {
-    input = input || {};
-    var annualDpsEUR = num(input.annualDpsEUR);
-    var buys = (input.buys || (input.lots || []).filter(function (l) { return l.type !== 'sell'; }))
-      .slice().sort(byDate);
-    var cumShares = 0, cumCost = 0, out = [];
-    buys.forEach(function (b) {
-      cumShares += num(b.shares);
-      cumCost += num(b.shares) * num(b.priceEUR);
-      out.push({
-        date: ymd(b.date), shares: cumShares, costBasisEUR: cumCost,
-        yocPct: cumCost > 0 ? (annualDpsEUR * cumShares / cumCost) * 100 : 0
-      });
-    });
-    return out;
-  }
-
-  // DRIP simulation. Reinvests each distribution at the price on its date and
-  // compares to taking the cash. NEVER books real transactions.
-  //   input = { buys: [{date, shares, priceEUR}],
-  //             dividends: [{date, dpsEUR}],
-  //             priceAt(dateISO) -> EUR price (for reinvest + valuation),
-  //             finalPrice? }
-  function dripSimulate(input) {
-    input = input || {};
-    var buys = (input.buys || []).slice().sort(byDate);
-    var dividends = (input.dividends || []).slice().sort(byDate);
-    var priceAt = typeof input.priceAt === 'function' ? input.priceAt : function () { return null; };
-
-    // Build a merged, date-ordered event timeline.
-    var events = [];
-    buys.forEach(function (b) { events.push({ date: ymd(b.date), kind: 'buy', shares: num(b.shares) }); });
-    dividends.forEach(function (d) { events.push({ date: ymd(d.date), kind: 'div', dps: num(d.dpsEUR) }); });
-    events.sort(function (a, b) {
-      if (a.date !== b.date) return a.date < b.date ? -1 : 1;
-      return a.kind === 'buy' ? -1 : 1; // a buy on the same day counts before its dividend
-    });
-
-    var lastDate = events.length ? events[events.length - 1].date : null;
-    var finalPrice = input.finalPrice != null ? num(input.finalPrice) : num(priceAt(lastDate));
-
-    // Baseline: dividends are taken as cash, shares only from buys.
-    var baseShares = 0, cashCollected = 0;
-    // DRIP: dividends buy more shares at the day's price.
-    var dripShares = 0, cashReinvested = 0;
-    events.forEach(function (ev) {
-      if (ev.kind === 'buy') { baseShares += ev.shares; dripShares += ev.shares; }
-      else {
-        cashCollected += baseShares * ev.dps;
-        var cash = dripShares * ev.dps;
-        var px = num(priceAt(ev.date));
-        if (px > 0) { dripShares += cash / px; cashReinvested += cash; }
-        else { cashCollected += cash; } // unpriced day -> can't reinvest, fall back to cash
-      }
-    });
-
-    var baseValue = baseShares * finalPrice;
-    var dripValue = dripShares * finalPrice;
-    return {
-      baseline: { shares: baseShares, value: baseValue, cashCollected: cashCollected },
-      drip: { shares: dripShares, value: dripValue, cashReinvested: cashReinvested },
-      extraShares: dripShares - baseShares,
-      extraValue: dripValue - baseValue,
-      finalPrice: finalPrice,
-      simulation: true
-    };
-  }
-
   var api = {
     netShares: netShares, costBasisFIFO: costBasisFIFO,
-    yieldOnCost: yieldOnCost, yocSeries: yocSeries, dripSimulate: dripSimulate
+    yieldOnCost: yieldOnCost
   };
 
   api.Panel = makePanel(api);
@@ -152,7 +76,7 @@ function __(k, f, v) { return (typeof window !== 'undefined' && window.MaerminI1
   if (typeof module !== 'undefined' && module.exports) module.exports = api;
 
   // --------------------------------------------------------------------------
-  // React view — a per-payer YoC table + a DRIP summary, folded into Dividends.
+  // React view — a per-payer YoC table, folded into Dividends.
   // --------------------------------------------------------------------------
   function makePanel(API) {
     return function Panel(props) {
@@ -205,7 +129,7 @@ function __(k, f, v) { return (typeof window !== 'undefined' && window.MaerminI1
 
         if (!rows.length) {
           return e('div', { style: { background: card, border: '1px solid ' + border, borderRadius: '14px', padding: '1.1rem', margin: '1rem 0' } },
-            e('div', { style: { color: text, fontWeight: 700, fontSize: '0.95rem', marginBottom: '0.2rem' } }, t.yocTitle || 'Yield on cost & DRIP'),
+            e('div', { style: { color: text, fontWeight: 700, fontSize: '0.95rem', marginBottom: '0.2rem' } }, t.yocTitle || 'Yield on cost'),
             e('div', { style: { color: dim, fontSize: '0.84rem' } }, t.yocEmpty || 'No dividend-paying stock positions to analyse yet.'));
         }
 
@@ -221,8 +145,8 @@ function __(k, f, v) { return (typeof window !== 'undefined' && window.MaerminI1
         });
 
         return e('div', { style: { background: card, border: '1px solid ' + border, borderRadius: '14px', padding: '1.1rem', margin: '1rem 0' } },
-          e('div', { style: { color: text, fontWeight: 700, fontSize: '0.95rem', marginBottom: '0.2rem' } }, t.yocTitle || 'Yield on cost & DRIP'),
-          e('div', { style: { color: dim, fontSize: '0.76rem', marginBottom: '0.8rem' } }, t.yocSubtitle || 'Annual dividend over your FIFO cost basis. DRIP figures are a simulation — no real transactions are booked.'),
+          e('div', { style: { color: text, fontWeight: 700, fontSize: '0.95rem', marginBottom: '0.2rem' } }, t.yocTitle || 'Yield on cost'),
+          e('div', { style: { color: dim, fontSize: '0.76rem', marginBottom: '0.8rem' } }, t.yocSubtitle || 'Annual dividend over your FIFO cost basis.'),
           header, body);
       } catch (err) {
         return e('div', { style: { padding: '0.75rem', color: (props.theme && props.theme.danger) || '#ef4444' } }, __('yocError', 'Yield-on-cost error: {msg}', { msg: err && err.message }));

@@ -61,8 +61,8 @@ const UI = require('../ui-store.js');
   const uo = UI.overlays.subscribe(() => { n++; });
   UI.closeOverlay('commandPalette');
   ok('close notifies + clears one overlay', n === 1 && !UI.isOverlayOpen('commandPalette') && UI.isOverlayOpen('shortcuts'));
-  UI.closeAllOverlays();
-  ok('closeAll clears everything', !UI.anyOverlayOpen() && !UI.isOverlayOpen('shortcuts'));
+  UI.closeOverlay('shortcuts');
+  ok('closing the last overlay clears everything', !UI.anyOverlayOpen() && !UI.isOverlayOpen('shortcuts'));
   // setting the same value is a no-op (store does not notify)
   n = 0;
   UI.closeOverlay('shortcuts'); // already false

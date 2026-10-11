@@ -66,12 +66,9 @@ interface MaerminAuthAPI {
 
 // ---- PWA -------------------------------------------------------------------
 interface MaerminPWAAPI {
-  on(type: 'update' | 'install' | 'sync', cb: (payload?: any) => void): void;
+  on(type: 'sync', cb: (payload?: any) => void): void;
   isStandalone(): boolean;
-  canInstall(): boolean;
   promptInstall(): Promise<{ outcome: string }>;
-  hasUpdate(): boolean;
-  applyUpdate(): void;
   notificationsSupported(): boolean;
   notificationPermission(): NotificationPermission;
   requestNotifications(): Promise<NotificationPermission>;
@@ -115,17 +112,13 @@ interface MaerminAnalyticsAPI {
   benchmarkStats(p: number[], b: number[], opts?: { rf?: number; periodsPerYear?: number }): { available: boolean; beta: number; alpha: number; trackingError: number; informationRatio: number; correlation: number; rSquared: number; periods: number };
   cagr(start: number, end: number, years: number): number;
   annualizedVol(returns: number[], periodsPerYear?: number): number;
-  sharpe(returns: number[], rf?: number, periodsPerYear?: number): number;
   maxDrawdown(series: number[]): { maxDrawdown: number; peakIndex: number; troughIndex: number; peak: number; trough: number };
   rollingReturns(returns: number[], window: number): number[];
   rollingVolatility(returns: number[], window: number, periodsPerYear?: number): number[];
-  correlationMatrix(seriesMap: Record<string, number[]>): { labels: string[]; matrix: number[][] };
   factorExposure(excess: number[], factors: number[][], names?: string[]): { available: boolean; alpha?: number; betas?: Record<string, number> };
   futureValue(principal: number, monthly: number, annualReturn: number, years: number): number;
   fireProjection(opts: any): any;
   withdrawalSimulation(opts: any): { path: number[]; depletedYear: number | null; survives: boolean; endingBalance: number };
-  retirementPlan(opts: any): any;
-  monteCarlo(opts: any): { successRate: number; p10: number; median: number; p90: number; mean: number };
 }
 
 declare global {

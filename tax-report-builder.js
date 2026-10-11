@@ -676,7 +676,7 @@ function __(k, f, v) { return (typeof window !== 'undefined' && window.MaerminI1
     setTimeout(function () { URL.revokeObjectURL(a.href); }, 1000);
   }
 
-  var api = { build: build, kpis: kpis, usEstimate: usEstimate, vapCreditForLot: vapCreditForLot, fifo: fifo, oneYearAnniversary: oneYearAnniversary, heldOverOneYear: heldOverOneYear, exportPDF: exportPDF, exportExcel: exportExcel, buildExcelWorkbook: buildExcelWorkbook, _toBase: toBase };
+  var api = { build: build, kpis: kpis, usEstimate: usEstimate, vapCreditForLot: vapCreditForLot, fifo: fifo, oneYearAnniversary: oneYearAnniversary, heldOverOneYear: heldOverOneYear, exportPDF: exportPDF, exportExcel: exportExcel, buildExcelWorkbook: buildExcelWorkbook };
   if (typeof window !== 'undefined') window.MaerminTaxReport = api;
   if (typeof module !== 'undefined' && module.exports) module.exports = api;
 })();
