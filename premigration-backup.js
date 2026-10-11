@@ -34,6 +34,7 @@ function __(k, f, v) { return (typeof window !== 'undefined' && window.MaerminI1
   var RECORD = 'maermin_premigration_backup';
   var FORMAT = 'maermin-premigration';
   var TIMEOUT_MS = 20000;
+  var CONTEXT = 'premigration'; // bound as associated data (SEC-007)
   // Keys a fresh vault may already hold: UI preferences, not user data. A
   // vault with nothing else gets no copy (there is nothing to lose).
   var PREF_KEYS = { theme: 1, currency: 1, privacyMode: 1, maermin_language: 1, maermin_ui_mode: 1 };
@@ -83,7 +84,7 @@ function __(k, f, v) { return (typeof window !== 'undefined' && window.MaerminI1
       if (!d.vault || (d.vault.isUnlocked && !d.vault.isUnlocked())) throw new Error('locked');
       var createdAt = new Date(opts.now || Date.now()).toISOString();
       var payload = { format: FORMAT, createdAt: createdAt, fromVersion: opts.fromVersion, toVersion: opts.toVersion, backup: snapshot };
-      return d.vault.encryptJSON(payload)
+      return d.vault.encryptJSON(payload, CONTEXT)
         .then(function (env) { return d.idb.set(RECORD, env); })
         .then(function () { return { taken: true, createdAt: createdAt }; });
     });
@@ -95,11 +96,18 @@ function __(k, f, v) { return (typeof window !== 'undefined' && window.MaerminI1
     if (!d.idb || (d.idb.isSupported && !d.idb.isSupported())) return Promise.resolve(null);
     return d.idb.get(RECORD).then(function (env) {
       if (env == null) return null;
-      return d.vault.decryptJSON(env).then(function (p) {
+      return d.vault.decryptJSON(env, CONTEXT).then(function (p) {
         if (!p || p.format !== FORMAT || !d.backup || !d.backup.isFullBackup(p.backup)) throw new Error('bad-copy');
         return p;
       });
     });
+  }
+  // Write a copy loaded with load() again under the current key (key rotation, SEC-017).
+  function store(payload, opts) {
+    var d = deps(opts);
+    if (!payload) return Promise.resolve(false);
+    if (!d.idb || !d.vault) return Promise.reject(new Error('no-indexeddb'));
+    return d.vault.encryptJSON(payload, CONTEXT).then(function (env) { return d.idb.set(RECORD, env); }).then(function () { return true; });
   }
 
   function info(opts) {
@@ -229,7 +237,7 @@ function __(k, f, v) { return (typeof window !== 'undefined' && window.MaerminI1
 
   var api = {
     RECORD: RECORD, FORMAT: FORMAT, PREF_KEYS: PREF_KEYS,
-    hasUserData: hasUserData, take: take, info: info, restore: restore, discard: discard,
+    hasUserData: hasUserData, take: take, load: load, store: store, info: info, restore: restore, discard: discard,
     guardedRun: guardedRun, status: status, blockedText: blockedText, PreMigrationCard: PreMigrationCard
   };
   if (typeof window !== 'undefined') window.MaerminPreMigration = api;

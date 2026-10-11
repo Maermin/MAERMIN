@@ -237,7 +237,10 @@ const buildDE = (txs, extra) => TR.build(txs, Object.assign({
   const Vault = require('../crypto-vault.js');
   globalThis.window.MaerminVault = Vault;
   const Storage = require('../storage.js');
-  await Vault.create('correct horse battery', { params: { iterations: 1000, hash: 'SHA-256' } });
+  Vault.registerKdf('test-fast', { defaultParams: () => ({ iterations: 1000 }), validParams: (p) => p.iterations === 1000,
+    derive: (pw, salt, p) => crypto.subtle.importKey('raw', new TextEncoder().encode(pw), { name: 'PBKDF2' }, false, ['deriveBits'])
+      .then((k) => crypto.subtle.deriveBits({ name: 'PBKDF2', salt, iterations: p.iterations, hash: 'SHA-256' }, k, 256)).then((b) => new Uint8Array(b)) });
+  await Vault.create('correct horse battery', { kdf: 'test-fast', params: { iterations: 1000 } });
   localStorage.setItem('transactions', '[]');
   await Storage.enableAtRest();
   // Simulate data written by an older build while this key was NOT sensitive.
