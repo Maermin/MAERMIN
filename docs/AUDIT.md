@@ -423,7 +423,7 @@ an auth key; older apps), SEC-026 (old share records), SEC-027 (passkey user ver
 | 2 Bug fixes | BUG-012…039 | open |
 | 3 Visual and state display | VIS-001…021 | fixed in PR 3 (`fix/audit-visual`) |
 | 4 Usability | UX-016…032 | open |
-| 5 Security, app and Worker | SEC-008…016, 018, 019, 020…026, H-1…H-4 | open |
+| 5 Security, app and Worker | SEC-008…016, 018, 019, 020…026, H-1…H-4 | fixed in PR 5 (`fix/audit-security`) except SEC-021 (deferred) and SEC-009 (default kept) |
 | 6 crypto-vault.js, auth.js, storage.js | SEC-004…007, 017, 027, 028, DEAD-001, DEAD-003 | fixed in PR 6 (`fix/audit-vault`) |
 
 ---
@@ -699,3 +699,28 @@ script is version-pinned with SRI, no secret reaches logs, URLs or the plaintext
 | H-1…H-4 | low | worker / audit log / hosting | see local file | hardening notes from 2026-10-04, still open | as described there | — | 5 |
 
 Worker items need a redeploy of the test Worker to take effect: SEC-008…016, SEC-018, SEC-024, SEC-026, BUG-031.
+
+**Status (Phase 2, branch `fix/audit-security`, PR 5):** fixed — SEC-008, 010…016, 018, 019, 020, 022…026,
+H-1…H-4. `WORKER_VERSION` / `EXPECTED_WORKER_VERSION` go to `2026.10.4` (this also carries the Worker changes of
+PR 2–4). Tests: `test/worker-security.test.js`, `test/security-app.test.js`, `test/csp.test.js`, SEC-019 in
+`test/sync.test.js`; four sync tests that created accounts without a write key now send one. Notes:
+- SEC-018 migration: the current app already registers a write key on its first push, so only **older apps** are
+  affected: creating a **new** sync account from one now gets `426` with an update hint. Existing accounts keep
+  working with every app version. Older open accounts (H-2) are claimed by the app's next write (key + matching MAC).
+- SEC-026: a share link whose stored record does not pass today's allowlist answers 404. Records written by the
+  current Worker pass unchanged.
+- SEC-009 (partly): `ALLOW_LOCALHOST` joins `ALLOW_NULL_ORIGIN` as an opt-out and the docs say when to use them;
+  the **default stays open**: `null` is the origin of `index.html` opened from disk, and switching it off would break
+  those users on their next redeploy. No app answer depends on a cookie, so an allowed origin reads public data only.
+- SEC-012: Yahoo `404` and `429` keep their status (the app reads them as "no listing" and "try later").
+- SEC-014: the check refuses HTML and short answers; the file's content type is not documented, so JSON is not
+  required.
+- SEC-020 / H-4: explicit policy in `index.html` and `build.mjs` (tested to match); the lock-screen and install-toast
+  styles moved into `styles.css`, so `style-src` has no `'unsafe-inline'`. `connect-src` keeps `https://*.workers.dev`
+  as a deliberate trade-off (every user's Worker has its own name); a custom-domain Worker needs a policy edit
+  (README). `frame-ancestors` cannot be set in a meta tag: README asks self-hosters to send it as a header.
+- SEC-023: the CSV-header crash did not reproduce on main; the two confirmed crashes (dividend forecast, Steam
+  import) and the price-history map are fixed, and reserved names are never a symbol.
+- **SEC-021 deferred:** upgrading pdf.js and jsPDF means downloading new library builds to pin their SRI hashes and
+  comparing exported PDFs; the download needs the owner's go-ahead. Both known issues stay unreachable today
+  (`isEvalSupported:false`, no `'unsafe-eval'`, no `addImage`).

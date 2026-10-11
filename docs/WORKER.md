@@ -9,11 +9,14 @@ Configure it in the app under **API Settings → Cloudflare Worker**.
 
 ## Cross-cutting behaviour
 
-- **CORS:** exact-origin allowlist (`https://maermin.github.io`, localhost, the desktop app's `null` origin) plus anything in the `ALLOWED_ORIGINS` variable (comma separated). Other browser origins get no `Access-Control-Allow-Origin`. `Vary: Origin`.
+- **CORS:** exact-origin allowlist (`https://maermin.github.io`, `http://localhost` / `http://127.0.0.1` on any port, and `null` — the origin of `index.html` opened from disk) plus anything in the `ALLOWED_ORIGINS` variable (comma separated). Other browser origins get no `Access-Control-Allow-Origin`. `Vary: Origin`. If you only use the hosted app, set `ALLOW_NULL_ORIGIN = "false"` and `ALLOW_LOCALHOST = "false"` under `[vars]`: then only your listed origins can read answers in a browser.
+- **Headers:** every answer carries `X-Content-Type-Options: nosniff`; JSON routes answer `application/json`, `news` answers `application/rss+xml`.
+- **Errors:** an upstream failure never echoes its internal text. Yahoo `404` (no listing) and `429` (try later) keep their status; anything else is `502 { "error": "… unavailable", "upstreamStatus": <n> }`. An unexpected failure inside the Worker is `500 { "error": "internal error" }` with CORS headers.
+- **Request bodies:** `POST` bodies must be a JSON object; the size is checked before parsing (sync 4.5 MB, share and broker relay 64 KB) → `413`.
 - **Sync storage:** bind the `SyncRoom` Durable Object as `SYNC_DO` (see `wrangler.toml`) for atomic revision checks; a KV namespace `SYNC` alone still works but is eventually consistent. Blobs over 4 MB are rejected with `413`.
 - **Share publishing:** throttled to 10 publishes per hour per IP.
-- **Rate limiting:** per-IP sliding window (default 120 req/min) → `429` when exceeded. The skin price list (`skinprices`) has its own 120 req/min budget, so a burst of stock or chart requests cannot block skin prices.
-- **Symbol check:** the Yahoo routes (`yf`, `fundamentals`, `profile`, `earnings`, `fundholdings`) only take market symbols (`AAPL`, `SAP.DE`, `BRK-B`, `^GDAXI`, `EURUSD=X`, `GC=F`, ISINs). Anything else — e.g. a CS2 item name like `AK-47 | Redline (Field-Tested)` — gets `400 {"error":"not a market symbol"}` straight away, without an upstream call and without counting against the rate limit.
+- **Rate limiting:** per-IP sliding window (default 120 req/min, keyed on Cloudflare's `CF-Connecting-IP` only) → `429` when exceeded. The skin price list (`skinprices`) has its own 120 req/min budget, so a burst of stock or chart requests cannot block skin prices.
+- **Symbol check:** the Yahoo routes (`yf`, `fundamentals`, `profile`, `earnings`, `fundholdings`, `news`) only take market symbols (`AAPL`, `SAP.DE`, `BRK-B`, `^GDAXI`, `EURUSD=X`, `GC=F`, ISINs). Anything else — e.g. a CS2 item name like `AK-47 | Redline (Field-Tested)` — gets `400 {"error":"not a market symbol"}` straight away, without an upstream call and without counting against the rate limit.
 - **Timeouts:** every upstream `fetch` is wrapped with an 8s abort.
 - **Caching:** Yahoo search/history responses are cached (`caches.default`, 5 min–1 h).
 
@@ -22,7 +25,9 @@ Configure it in the app under **API Settings → Cloudflare Worker**.
 ## Version
 
 ### `GET /?action=version`
-`200 { "version": "2026.10.1", "actions": ["yf", "yfsearch", …] }`. No upstream call and no rate limit.
+`200 { "version": "2026.10.4", "actions": ["yf", "yfsearch", …], "storage": true }`. No upstream call and no rate limit.
+`storage` says whether sync and share links can work (a KV namespace or the Durable Object is bound); the
+app's connection test shows it.
 `WORKER_VERSION` in `worker.js` and `EXPECTED_WORKER_VERSION` in `onboarding.js` name the same release
 (`test/worker-version.test.js` enforces it); bump both when the app starts to rely on a Worker change.
 The app checks the version once per Worker URL (and when API Settings opens or closes). An older Worker,
@@ -48,7 +53,7 @@ good answer (kept 2 days) is served with `X-Stale: 1`. Optional secret
 `?action=yf` remembers a symbol Yahoo does not know for 6 h (`404`, `cached: true`).
 
 ### `GET /?action=yfsearch&q=Apple&type=stock`
-Symbol search. `type` = `stock` (EQUITY/ETF/MUTUALFUND) or `crypto`. Returns
+Symbol search. `type` = `stock` (EQUITY/ETF/MUTUALFUND) or `crypto`; `q` at most 64 characters. Returns
 `[{symbol, name, exchange, type, score}]`.
 
 ### `GET /?action=screener&scrId=day_gainers&count=25`  /  `GET /?action=screener&symbols=KO,PG`
@@ -56,7 +61,10 @@ Discovery screener, two modes with one normalised output shape: `scrId=` proxies
 a Yahoo predefined screener (top movers / categories), `symbols=` is a batch
 quote (curated dividend universe). Returns `{ scrId, symbols, quotes: [{symbol,
 name, price, currency, changePercent, marketCap, dividendYield, type, exchange,
-volume}] }`. `dividendYield` is a fraction (0.025 = 2.5%). Cached 2 min.
+volume}] }`. `dividendYield` is a fraction (0.025 = 2.5%). Cached 2 min. `scrId` must be one of
+Yahoo's predefined screeners the app uses (`day_gainers`, `day_losers`, `most_actives`,
+`growth_technology_stocks`, `undervalued_growth_stocks`, `aggressive_small_caps`, and a few more); `symbols`
+takes at most 60 market symbols.
 
 ### `GET /?action=fundholdings&symbol=VWCE.DE`
 ETF/fund look-through. Proxies Yahoo Finance `quoteSummary` (modules
@@ -198,13 +206,27 @@ AES-256-GCM ciphertext blob.
 ```jsonc
 // get
 { "op": "get", "account": "<hex 8-64>" }
-// → { "rev": <n>, "blob": "<ciphertext|null>", "updatedAt": <ms> }
+// → { "rev": <n>, "blob": "<ciphertext|null>", "updatedAt": <ms>, "protected": <bool> }
 
 // put (optimistic concurrency)
-{ "op": "put", "account": "<hex>", "baseRev": <n>, "blob": "<ciphertext ≤4MB>" }
+{ "op": "put", "account": "<hex>", "baseRev": <n>, "blob": "<ciphertext ≤4MB>",
+  "auth": { "key": "<hex 64, first write only>", "mac": "<HMAC-SHA256 of account.baseRev.blob>" } }
 // → { "ok": true, "rev": <n+1> }
 // → 409 { "conflict": true, "serverRev": <n>, "blob": "<current>" }  // stale baseRev
+// → 403 { "error": "unauthorized" }                                   // MAC does not match the registered key
+// → 426 { "error": "sync needs a newer app …" }                       // new account without a write key
+// → 429 { "error": "too many new sync accounts …" }                   // creation limit
 ```
+
+**Write key.** A new account must register a write key (`auth.key`, derived from the vault key) with its
+first write; every later write carries a MAC made with it. Apps since the write-auth release do this. An
+older app gets `426` with an update hint instead of creating an account anyone could overwrite. An account
+created before write keys existed stays writable as before until the app claims it: its next write sends
+the key with a matching MAC (`get` reports `protected: false` for such accounts).
+
+**Limits.** New accounts are limited per client (5 per day; an IPv6 client is its /64) and per UTC day
+(`SYNC_DAILY_NEW_MAX`, default 200). With `SYNC_DO` the counters live in the `share` instance and hold
+across isolates; without it they apply per isolate. Existing accounts are not affected.
 
 ### `POST /?action=share`
 Privacy-preserving share snapshots + anonymous benchmark. Requires the same KV
@@ -221,7 +243,8 @@ no account, no PII, 90-day TTL.
 
 // get
 { "op": "get", "id": "<hex>" }
-// -> { "snapshot": {...}, "at": <ms> }
+// -> { "snapshot": {...}, "at": <ms> }   (served through the same allowlist; 404 if a stored
+//    record does not pass it, e.g. one written by an older Worker with a looser schema)
 
 // aggregate (anonymous benchmark)
 { "op": "aggregate" }
@@ -230,6 +253,9 @@ no account, no PII, 90-day TTL.
 
 The aggregate is a running count+sum of asset-class weights only - individual
 snapshots are never exposed through it.
+
+**Labels.** Sector and region rows are names (letters, spaces, `& , . ' ( ) / -`, no digits); currency rows
+are ISO codes (`USD`). The rows of each list add up to at most 100 %.
 
 **Limits.** Publishing is limited per client (10 per hour; an IPv6 client is
 its /64) and per UTC day (`SHARE_DAILY_MAX`, default 300, set it under `[vars]`
@@ -266,9 +292,18 @@ nothing outside the allowlist is ever reachable. Tested in
 ## Broker relay (optional)
 
 ### `POST /?action=brokerproxy`
-Relays a **client-signed** request to a whitelisted exchange host, to bypass the
-exchange's missing CORS headers. The API **secret never leaves the browser** —
-only the signature the client already computed is sent.
+Relays a read-only request to a whitelisted exchange endpoint, to bypass the
+exchange's missing CORS headers. What travels depends on the exchange:
+
+- **Binance** (and the signing exchanges once wired): the API **secret never leaves the
+  browser** — only the key id and the signature the client already computed are sent.
+- **Bitpanda**: there is no separate secret; the **API key itself** is the credential and
+  goes through the Worker as a header with each request. Use your own Worker and a
+  read-only key.
+
+The Worker relays exact read endpoints only (no sub-paths, encoded paths, ports or user
+info), forwards only the exchange's own authentication headers and does not follow
+redirects.
 
 ```jsonc
 { "method": "GET", "url": "https://api.binance.com/...", "headers": { ... }, "body": "" }

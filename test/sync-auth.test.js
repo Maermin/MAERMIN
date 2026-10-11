@@ -31,9 +31,18 @@ const KEY = 'ab'.repeat(32);        // 64 hex chars (32 bytes)
   const create = await W.authorizeSyncPut(null, ACCOUNT, 0, BLOB, { key: KEY });
   ok('creation with a valid key registers it', create.ok === true && create.authKey === KEY);
   const createNoKey = await W.authorizeSyncPut(null, ACCOUNT, 0, BLOB, {});
-  ok('creation without a key stays open (authKey null)', createNoKey.ok === true && createNoKey.authKey == null);
+  ok('SEC-018: creation without a key is refused with an update hint (426)', createNoKey.ok === false && createNoKey.status === 426 && /newer app/.test(createNoKey.error));
   const createBadKey = await W.authorizeSyncPut(null, ACCOUNT, 0, BLOB, { key: 'xyz' });
-  ok('creation with a malformed key does not register', createBadKey.ok === true && createBadKey.authKey == null);
+  ok('SEC-018: creation with a malformed key is refused', createBadKey.ok === false && createBadKey.status === 426);
+  // H-2: an older open account is claimed by a write that carries a key and a MAC made with it
+  const openRec = { rev: 3, blob: 'old' };
+  const claimMac = await W.syncMac(KEY, ACCOUNT + '.' + 3 + '.' + BLOB);
+  const claim = await W.authorizeSyncPut(openRec, ACCOUNT, 3, BLOB, { key: KEY, mac: claimMac });
+  ok('H-2: an open account is claimed by a key + matching MAC', claim.ok === true && claim.authKey === KEY);
+  const noClaim = await W.authorizeSyncPut(openRec, ACCOUNT, 3, BLOB, { key: KEY, mac: 'ab'.repeat(32) });
+  ok('H-2: a key with a wrong MAC does not claim (stays open)', noClaim.ok === true && noClaim.authKey == null);
+  const legacyOpen = await W.authorizeSyncPut(openRec, ACCOUNT, 3, BLOB, {});
+  ok('H-2: an older app still writes to its open account', legacyOpen.ok === true && legacyOpen.authKey == null);
 
   // ---- protected account: HMAC required -------------------------------------
   const current = { rev: 5, blob: 'old', authKey: KEY };

@@ -59,9 +59,16 @@ wait for the next load.
 | `storage.js` | `MaerminStorage` | Transparent encryption-at-rest shim over `localStorage` for a fixed set of sensitive keys; reversible plaintext backup; portable **encrypted** backup export/import (an imported meta is validated). Records are bound to their name (`rec:<key>`, `manifest`, `blob`); a v1 store is rewritten in that format on the first save, a v2 manifest refuses unbound records. `rekey(handle)` re-encrypts the store under a rotated key: staged copy (`maermin_vault_manifest:next` / `maermin_vault_data:next`) → meta commit → promote; the next unlock finishes or drops an interrupted rotation |
 | `auth.js` rotation | `MaerminAuth.rotateKey` | Orchestrates SEC-017: exchange credentials and the pre-migration copy are read under the old key, the old sync account gets a "rotated" record, `Storage.rekey` commits the new key, then credentials and copy are written under the new key and sync starts over on the new account |
 | `auth.js` | `MaerminAuth` | Setup / unlock / lock UI; mount gate; change-password; one-time recovery-code reveal at setup + recovery-code unlock path |
-| `audit-log.js` | `MaerminAuditLog` | On-device event + error trail (non-sensitive, ring-buffered) |
+| `audit-log.js` | `MaerminAuditLog` | On-device event + error trail (non-sensitive, ring-buffered); errors are kept by type (`errorLabel`), never by message |
 | `migrations.js` | `MaerminMigrations` | Versioned, idempotent localStorage migrations |
+| `sync-engine.js` | `MaerminSync` | Opt-in encrypted sync: snapshot of the encrypted data keys minus device-local ones, three-way merge, write key + MAC per put; a remote snapshot may only set those same keys (`syncableKey`; vault meta, Worker URL and local keys are dropped and reported by `lastDropped`) |
 | `premigration-backup.js` | `MaerminPreMigration` | Encrypted copy of the data before a pending migration (one IndexedDB record `maermin_premigration_backup`, vault key, not synced, not in the backup); restore / delete in Settings → Trash |
+
+**Content-Security-Policy** (meta tag in `index.html`, the same list in `build.mjs`, `test/csp.test.js` keeps them
+equal): `default-src 'self'`, scripts from this site and the pinned CDN paths, `style-src 'self'` (no inline
+`<style>`: the lock screen and install toast styles are in `styles.css`; React and `style.cssText` use CSSOM, which
+the policy allows), images from the Steam CDN, Yahoo logos and CoinGecko, `connect-src` this site, the two rate
+services and `*.workers.dev`, `form-action`/`frame-src`/`object-src 'none'`.
 
 ---
 
