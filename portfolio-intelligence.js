@@ -722,6 +722,30 @@ function __(k, f, v) { return (typeof window !== 'undefined' && window.MaerminI1
   }
 
   // ---- React View (browser only; one Tools surface) --------------------------
+  // VIS-008: the analysis id as a label in the UI language (was the raw id).
+  function analysisLabel(id) {
+    switch (id) {
+      case 'assetClass': return __('piAnAssetClass', 'Asset class');
+      case 'concentration': return __('piAnConcentration', 'Concentration');
+      case 'correlation': return __('piAnCorrelation', 'Correlation');
+      case 'country': return __('piAnCountry', 'Country');
+      case 'currency': return __('piAnCurrency', 'Currency');
+      case 'diversification': return __('piAnDiversification', 'Diversification');
+      case 'dividendTrap': return __('piAnDividendTrap', 'Dividend trap');
+      case 'hidden': return __('piAnHidden', 'Hidden exposure');
+      case 'incomeConcentration': return __('piAnIncomeConc', 'Income concentration');
+      case 'leverage': return __('piAnLeverage', 'Leverage');
+      case 'liquidity': return __('piAnLiquidity', 'Liquidity');
+      case 'mag7': return __('piAnMag7', 'Magnificent 7');
+      case 'sector': return __('piAnSector', 'Sector');
+      case 'semiconductor': return __('piAnSemis', 'Semiconductors');
+      case 'singleCompany': return __('piAnSingleCompany', 'Single company');
+      case 'styleDrift': return __('piAnStyleDrift', 'Style drift');
+      case 'yieldTrap': return __('piAnYieldTrap', 'Yield trap');
+      default: return String(id || '');
+    }
+  }
+
   function View(props) {
     var React = (typeof window !== 'undefined') ? window.React : null;
     if (!React) return null;
@@ -782,7 +806,7 @@ function __(k, f, v) { return (typeof window !== 'undefined' && window.MaerminI1
                 color: m.color
               }
             }, m.label),
-            e('span', { style: { color: dim, fontSize: '0.68rem', textTransform: 'uppercase', letterSpacing: '0.04em' } }, f.analysis)),
+            e('span', { style: { color: dim, fontSize: '0.68rem', textTransform: 'uppercase', letterSpacing: '0.04em' } }, analysisLabel(f.analysis))),
           e('div', { style: { color: text, fontWeight: 700, fontSize: '0.9rem', marginTop: '0.2rem', lineHeight: 1.4 } }, f.title),
           e('div', { style: { color: dim, fontSize: '0.82rem', marginTop: '0.2rem', lineHeight: 1.5 } }, f.detail),
           f.action ? e('div', { style: { color: text, fontSize: '0.8rem', marginTop: '0.3rem' } }, '→ ' + f.action) : null));

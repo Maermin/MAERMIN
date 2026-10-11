@@ -229,6 +229,8 @@ function __(k, f, v) { return (typeof window !== 'undefined' && window.MaerminI1
   function normalizeSymbol(raw, category) {
     const s = String(raw == null ? '' : raw).trim();
     if (!s) return '';
+    // Names of built-in object members are never a symbol (SEC-023).
+    if (/^(__proto__|constructor|prototype)$/i.test(s)) return '';
     const T = (typeof window !== 'undefined' && window.MaerminTickers) || null;
     if (T && typeof T.parseSymbol === 'function') {
       try { const p = T.parseSymbol(s); if (p && p.symbol) return p.symbol; } catch { /* fall through */ }

@@ -29,7 +29,11 @@
 // Translation lookup (i18n.js): __('key', 'English fallback', { slot: value }).
 function __(k, f, v) { return (typeof window !== 'undefined' && window.MaerminI18n ? window.MaerminI18n : require('./i18n.js')).t(k, f, v); }
   function I18N() { return (typeof window !== 'undefined' && window.MaerminI18n) || require('./i18n.js'); }
-  function EUR(v) { return I18N().money(Math.round(v || 0), 'EUR', 0); }
+  // Privacy Mode (VIS-004): the Panel sets MASKED while it renders, so the
+  // user's own amounts read "••••••"; the statutory limits (LIM) stay readable.
+  var MASKED = false;
+  function LIM(v) { return I18N().money(Math.round(v || 0), 'EUR', 0); }
+  function EUR(v) { return MASKED ? '••••••' : LIM(v); }
   function D8(iso) { return I18N().date(iso); }
 
   var PRIORITY_RANK = { critical: 0, important: 1, optimization: 2 };
@@ -152,14 +156,14 @@ function __(k, f, v) { return (typeof window !== 'undefined' && window.MaerminI1
     if (cryptoUsed >= cryptoLimit) {
       findings.push(finding('cryptoFreigrenze', 'critical',
         __('taFgExceeded', 'Crypto Freigrenze exceeded'),
-        __('taFgExceededDetail', 'Realised private sale gains of {used} this year reach the {limit} Freigrenze (only gains of less than {limit} are tax-free). Because it is a Freigrenze (not an allowance), the ENTIRE amount is taxable, not just the excess.', { used: EUR(cryptoUsed), limit: EUR(cryptoLimit) }),
+        __('taFgExceededDetail', 'Realised private sale gains of {used} this year reach the {limit} Freigrenze (only gains of less than {limit} are tax-free). Because it is a Freigrenze (not an allowance), the ENTIRE amount is taxable, not just the excess.', { used: EUR(cryptoUsed), limit: LIM(cryptoLimit) }),
         __('taFgExceededAction', 'Avoid further short-term crypto sales this year; defer additional realisations into next year if possible.'),
         { used: cryptoUsed, limit: cryptoLimit, remaining: cryptoRemaining }));
     } else if (cryptoUsed >= cryptoLimit * o.nearLimitPct) {
       findings.push(finding('cryptoFreigrenze', 'important',
         __('taFgNear', 'Crypto Freigrenze nearly used'),
-        __('taFgNearDetail', 'Realised private sale gains of {used} are close to the {limit} Freigrenze; only {left} of headroom remains.', { used: EUR(cryptoUsed), limit: EUR(cryptoLimit), left: EUR(cryptoRemaining) }),
-        __('taFgNearAction', 'Any sale that brings total gains to {limit} or more makes the whole sum taxable — keep further short-term realisations under {left}.', { limit: EUR(cryptoLimit), left: EUR(cryptoRemaining) }),
+        __('taFgNearDetail', 'Realised private sale gains of {used} are close to the {limit} Freigrenze; only {left} of headroom remains.', { used: EUR(cryptoUsed), limit: LIM(cryptoLimit), left: EUR(cryptoRemaining) }),
+        __('taFgNearAction', 'Any sale that brings total gains to {limit} or more makes the whole sum taxable — keep further short-term realisations under {left}.', { limit: LIM(cryptoLimit), left: EUR(cryptoRemaining) }),
         { used: cryptoUsed, limit: cryptoLimit, remaining: cryptoRemaining }));
     }
 
@@ -172,13 +176,13 @@ function __(k, f, v) { return (typeof window !== 'undefined' && window.MaerminI1
     if (spbRemaining > 0 && spbRemaining < spbLimit) {
       findings.push(finding('sparerHeadroom', 'optimization',
         __('taSpbHeadroom', 'Sparerpauschbetrag headroom'),
-        __('taSpbHeadroomDetail', '{used} of your {limit} Sparerpauschbetrag is used; {left} remains tax-free this year.', { used: EUR(spbUsed), limit: EUR(spbLimit), left: EUR(spbRemaining) }),
+        __('taSpbHeadroomDetail', '{used} of your {limit} Sparerpauschbetrag is used; {left} remains tax-free this year.', { used: EUR(spbUsed), limit: LIM(spbLimit), left: EUR(spbRemaining) }),
         __('taSpbHeadroomAction', 'You can still realise about {left} of capital income (gains, dividends, interest) tax-free this year.', { left: EUR(spbRemaining) }),
         { used: spbUsed, limit: spbLimit, remaining: spbRemaining }));
     } else if (spbRemaining <= 0) {
       findings.push(finding('sparerHeadroom', 'optimization',
         __('taSpbExhausted', 'Sparerpauschbetrag exhausted'),
-        __('taSpbExhaustedDetail', 'Your {limit} Sparerpauschbetrag is fully used this year.', { limit: EUR(spbLimit) }),
+        __('taSpbExhaustedDetail', 'Your {limit} Sparerpauschbetrag is fully used this year.', { limit: LIM(spbLimit) }),
         __('taSpbExhaustedAction', 'Further capital income this year is taxable at the Abgeltungsteuer rate; consider deferring optional realisations into next year.'),
         { used: spbUsed, limit: spbLimit, remaining: 0 }));
     }
@@ -327,6 +331,7 @@ function __(k, f, v) { return (typeof window !== 'undefined' && window.MaerminI1
       var React = (typeof window !== 'undefined') ? window.React : null;
       if (!React) return null;
       var e = React.createElement;
+      MASKED = !!props.privacyMode;
       try {
         var theme = props.theme || {};
         var t = props.t || ((typeof window !== 'undefined' && window.MaerminI18n) ? window.MaerminI18n.dict() : {});
@@ -365,18 +370,18 @@ function __(k, f, v) { return (typeof window !== 'undefined' && window.MaerminI1
             (t.taSubtitle || 'Forward-looking tax findings from your lots — an estimate, not tax advice.')),
           e('div', { style: { display: 'flex', gap: '0.6rem', flexWrap: 'wrap', marginBottom: '0.9rem' } },
             e('div', { style: { flex: '1 1 180px', background: theme.inputBg || '#0c1018', borderRadius: '10px', padding: '0.7rem' } },
-              e('div', { style: { color: dim, fontSize: '0.72rem' } }, __('taFgLabel', 'Crypto Freigrenze ({limit})', { limit: EUR(s.cryptoFreigrenze.limit) })),
+              e('div', { style: { color: dim, fontSize: '0.72rem' } }, __('taFgLabel', 'Crypto Freigrenze ({limit})', { limit: LIM(s.cryptoFreigrenze.limit) })),
               e('div', { style: { color: s.cryptoFreigrenze.exceeded ? COLORS.critical : text, fontWeight: 800, fontSize: '1.05rem' } }, __('taAmountLeft', '{x} left', { x: EUR(s.cryptoFreigrenze.remaining) }))),
             e('div', { style: { flex: '1 1 180px', background: theme.inputBg || '#0c1018', borderRadius: '10px', padding: '0.7rem' } },
               e('div', { style: { color: dim, fontSize: '0.72rem' } }, t.taSparer || 'Sparerpauschbetrag'),
-              e('div', { style: { color: text, fontWeight: 800, fontSize: '1.05rem' } }, __('taOfLeft', '{x} of {limit} left', { x: EUR(s.sparerpauschbetrag.remaining), limit: EUR(s.sparerpauschbetrag.limit) }))),
+              e('div', { style: { color: text, fontWeight: 800, fontSize: '1.05rem' } }, __('taOfLeft', '{x} of {limit} left', { x: EUR(s.sparerpauschbetrag.remaining), limit: LIM(s.sparerpauschbetrag.limit) }))),
             e('div', { style: { flex: '1 1 180px', background: theme.inputBg || '#0c1018', borderRadius: '10px', padding: '0.7rem' } },
               e('div', { style: { color: dim, fontSize: '0.72rem' } }, t.taCryptoLots || 'Crypto lots near tax-free'),
               e('div', { style: { color: text, fontWeight: 800, fontSize: '1.05rem' } }, s.cryptoLotsNearFree + ' / ' + s.cryptoLotsTracked))),
           cards.length ? cards : e('div', { style: { color: dim, fontSize: '0.84rem' } }, t.taNone || 'No tax actions flagged right now.'));
       } catch (err) {
         return e('div', { style: { padding: '0.75rem', color: (props.theme && props.theme.danger) || '#ef4444' } }, __('taError', 'Tax advisor error: {msg}', { msg: err && err.message }));
-      }
+      } finally { MASKED = false; }
     };
   }
 })();

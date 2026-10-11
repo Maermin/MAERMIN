@@ -26,12 +26,23 @@
 // Bump on every change to this file that the app relies on, and set
 // EXPECTED_WORKER_VERSION in onboarding.js to the same value (test/worker-version
 // enforces both). Format YYYY.M.N; compared numerically per part.
-export const WORKER_VERSION = '2026.10.3';
+export const WORKER_VERSION = '2026.10.4';
 export const WORKER_ACTIONS = ['yf', 'yfsearch', 'screener', 'fundholdings', 'fundamentals', 'earnings', 'profile',
   'news', 'skinprices', 'steaminv', 'cg', 'sync', 'share', 'mcp', 'brokerproxy', 'version'];
 
 export default {
+  // SEC-008: anything a route does not catch becomes a plain 500 with CORS
+  // headers (it used to surface as Cloudflare's own error page without them).
   async fetch(request, env, ctx) {
+    try {
+      return await handle(request, env, ctx);
+    } catch (e) {
+      return res(JSON.stringify({ error: 'internal error' }), 500, request);
+    }
+  },
+};
+
+async function handle(request, env, ctx) {
     const url    = new URL(request.url);
     const action = url.searchParams.get('action') || '';
     configureOrigins(env);
@@ -76,8 +87,9 @@ export default {
       if (!env || (!env.SYNC && !env.SYNC_DO)) {
         return res(JSON.stringify({ error: 'sync storage not configured (bind KV namespace SYNC or Durable Object SYNC_DO)' }), 501, request);
       }
-      let body;
-      try { body = await request.json(); } catch { return res(JSON.stringify({ error: 'bad json' }), 400, request); }
+      const read = await readJsonBody(request, SYNC_BODY_MAX);
+      if (!read.ok) return res(JSON.stringify({ error: read.error }), read.status, request);
+      const body = read.body;
       const account = typeof (body && body.account) === 'string' ? body.account : '';
       if (!/^[a-f0-9]{8,64}$/.test(account)) {
         return res(JSON.stringify({ error: 'invalid account' }), 400, request);
@@ -87,13 +99,15 @@ export default {
       // writing at the same time can both "win" and one update is lost.
       if (env.SYNC_DO) {
         const stub = env.SYNC_DO.get(env.SYNC_DO.idFromName(account));
-        const r = await stub.fetch('https://sync.internal/', { method: 'POST', body: JSON.stringify(body) });
+        const r = await stub.fetch('https://sync.internal/', { method: 'POST', body: JSON.stringify(body),
+          headers: { 'X-Client-Key': shareClientKey(request) } });
         return res(await r.text(), r.status, request);
       }
       const key = 'sync:' + account;
       const out = await handleSyncOp({
         get: () => env.SYNC.get(key, { type: 'json' }),
         put: (rec) => env.SYNC.put(key, JSON.stringify(rec)),
+        canCreate: async () => !isNewAccountLimited(shareClientKey(request), env),
       }, body);
       return res(JSON.stringify(out.body), out.status, request);
     }
@@ -111,8 +125,9 @@ export default {
       if (!env || !env.SYNC) {
         return res(JSON.stringify({ error: 'share storage not configured (bind KV namespace SYNC)' }), 501, request);
       }
-      let body;
-      try { body = await request.json(); } catch { return res(JSON.stringify({ error: 'bad json' }), 400, request); }
+      const read = await readJsonBody(request, SMALL_BODY_MAX);
+      if (!read.ok) return res(JSON.stringify({ error: read.error }), read.status, request);
+      const body = read.body;
 
       if (body.op === 'publish') {
         // Publishing writes to the namespace that sync uses, so it is limited
@@ -153,7 +168,11 @@ export default {
         if (!/^[a-f0-9]{10,32}$/.test(id)) return res(JSON.stringify({ error: 'invalid id' }), 400, request);
         const rec = await env.SYNC.get('share:' + id, { type: 'json' });
         if (!rec) return res(JSON.stringify({ error: 'not found' }), 404, request);
-        return res(JSON.stringify({ snapshot: rec.snapshot, at: rec.at }), 200, request);
+        // Served only through the same allowlist as publish and mcp: a record
+        // from an older, looser schema (or edited in KV) is not served.
+        const v = validateShareSnapshot(rec.snapshot);
+        if (!v.ok) return res(JSON.stringify({ error: 'not found' }), 404, request);
+        return res(JSON.stringify({ snapshot: v.snapshot, at: rec.at }), 200, request);
       }
 
       if (body.op === 'aggregate') {
@@ -198,6 +217,7 @@ export default {
       const q    = (url.searchParams.get('q') || '').trim();
       const type = url.searchParams.get('type') || 'stock'; // 'stock' | 'crypto'
       if (!q) return res(JSON.stringify([]), 200, request);
+      if (q.length > 64 || (type !== 'stock' && type !== 'crypto')) return res(JSON.stringify({ error: 'invalid query' }), 400, request);
 
       const cacheKey = new Request(`https://cache.maermin/yfsearch/${encodeURIComponent(type)}/${encodeURIComponent(q.toLowerCase())}`);
       const cache    = caches.default;
@@ -305,7 +325,7 @@ export default {
 
         if (!r.ok) {
           if (r.status === 404) rememberMissing();
-          return res(JSON.stringify({ error: `Yahoo Finance returned ${r.status}`, symbol }), r.status, request);
+          return upstreamError('Yahoo Finance', r.status, request, { symbol });
         }
 
         const data = await r.json();
@@ -351,7 +371,7 @@ export default {
         return res(payload, 200, request);
 
       } catch (e) {
-        return res(JSON.stringify({ error: e.message, symbol }), 502, request);
+        return upstreamError('Yahoo Finance', 0, request, { symbol });
       }
     }
 
@@ -370,6 +390,12 @@ export default {
       const count   = Math.min(50, Math.max(1, parseInt(url.searchParams.get('count'), 10) || 25));
       if (!scrId && !symbols) {
         return res(JSON.stringify({ error: 'scrId or symbols required' }), 400, request);
+      }
+      if (symbols) {
+        const list = symbols.split(',');
+        if (list.length > SCREENER_MAX_SYMBOLS || !list.every(isMarketSymbol)) return res(JSON.stringify({ error: 'invalid symbols' }), 400, request);
+      } else if (!SCREENER_IDS.has(scrId)) {
+        return res(JSON.stringify({ error: 'unknown screener' }), 400, request);
       }
 
       const cacheKey = new Request(
@@ -399,9 +425,7 @@ export default {
             headers: { ...yfHeaders, 'Cookie': session.cookie },
           });
         }
-        if (!r.ok) {
-          return res(JSON.stringify({ error: `Yahoo Finance returned ${r.status}` }), r.status, request);
-        }
+        if (!r.ok) return upstreamError('Yahoo Finance', r.status, request);
 
         const data = await r.json();
         const raw = symbols
@@ -410,7 +434,8 @@ export default {
 
         const quotes = raw.map(q => ({
           symbol:        q.symbol,
-          name:          q.shortName || q.longName || q.displayName || q.symbol,
+          // longName first: Yahoo cuts shortName at 30 characters ("… (REI") (VIS-019)
+          name:          q.longName || q.shortName || q.displayName || q.symbol,
           price:         numOrNull(q.regularMarketPrice),
           currency:      q.currency || 'USD',
           changePercent: numOrNull(q.regularMarketChangePercent),
@@ -431,7 +456,7 @@ export default {
         })));
         return res(payload, 200, request);
       } catch (e) {
-        return res(JSON.stringify({ error: e.message }), 502, request);
+        return upstreamError('Yahoo Finance', 0, request);
       }
     }
 
@@ -505,7 +530,7 @@ export default {
         })));
         return res(payload, 200, request);
       } catch (e) {
-        return res(JSON.stringify({ error: e.message, symbol }), 502, request);
+        return upstreamError('Yahoo Finance', e && e.upstreamStatus, request, { symbol });
       }
     }
 
@@ -563,7 +588,7 @@ export default {
         })));
         return res(payload, 200, request);
       } catch (e) {
-        return res(JSON.stringify({ error: e.message, symbol }), 502, request);
+        return upstreamError('Yahoo Finance', e && e.upstreamStatus, request, { symbol });
       }
     }
 
@@ -611,7 +636,7 @@ export default {
         })));
         return res(payload, 200, request);
       } catch (e) {
-        return res(JSON.stringify({ error: e.message, symbol }), 502, request);
+        return upstreamError('Yahoo Finance', e && e.upstreamStatus, request, { symbol });
       }
     }
 
@@ -649,7 +674,7 @@ export default {
         })));
         return res(payload, 200, request);
       } catch (e) {
-        return res(JSON.stringify({ error: e.message, symbol }), 502, request);
+        return upstreamError('Yahoo Finance', e && e.upstreamStatus, request, { symbol });
       }
     }
 
@@ -660,17 +685,17 @@ export default {
       const cacheKey = new Request(`https://cache.maermin/news/${encodeURIComponent(symbol)}`);
       const cache    = caches.default;
       const cached   = await cache.match(cacheKey);
-      if (cached) return res(await cached.text(), 200, request);
+      if (cached) return res(await cached.text(), 200, request, RSS_TYPE);
       try {
         const rssUrl = `https://feeds.finance.yahoo.com/rss/2.0/headline?s=${encodeURIComponent(symbol)}&region=US&lang=en-US`;
         const r = await fetchWithTimeout(rssUrl, { headers: { 'User-Agent': 'Mozilla/5.0', 'Accept': 'application/rss+xml,text/xml' } });
-        if (!r.ok) return res('<?xml version="1.0"?><rss><channel></channel></rss>', 200, request);
+        if (!r.ok) return res(EMPTY_RSS, 200, request, RSS_TYPE);
         const text = await r.text();
         ctx.waitUntil(cache.put(cacheKey, new Response(text, {
           headers: { 'Content-Type': 'text/xml', 'Cache-Control': 'public, max-age=900' }
         })));
-        return res(text, 200, request);
-      } catch(e) { return res('<?xml version="1.0"?><rss><channel></channel></rss>', 200, request); }
+        return res(text, 200, request, RSS_TYPE);
+      } catch(e) { return res(EMPTY_RSS, 200, request, RSS_TYPE); }
     }
 
     // ── CS2 skin prices (all items, one request) ─────────────────────────────
@@ -686,17 +711,26 @@ export default {
       const copy = skinPriceStore(env);
       const hit = await copy.get();
       if (hit && Date.now() - hit.fetchedAt < SKIN_PRICES_FRESH_MS) return passThrough(hit.response, request, false, hit.fetchedAt);
+      // Single flight (per isolate): while one refresh is in progress, others
+      // get the last copy (a stuck refresh stops counting after 30 s).
+      if (hit && _skinRefreshAt && Date.now() - _skinRefreshAt < SKIN_REFRESH_GUARD_MS) return passThrough(hit.response, request, true, hit.fetchedAt);
+      _skinRefreshAt = Date.now();
       try {
-        const r = await fetchWithTimeout(SKIN_PRICES_URL, { headers: { 'Accept': 'application/json',
-          'User-Agent': 'MAERMIN-Portfolio-Worker/1.0 (+https://github.com/Maermin/MAERMIN)' } }, 20000);
+        let r;
+        try {
+          r = await fetchWithTimeout(SKIN_PRICES_URL, { headers: { 'Accept': 'application/json',
+            'User-Agent': 'MAERMIN-Portfolio-Worker/1.0 (+https://github.com/Maermin/MAERMIN)' } }, 20000);
+        } finally { _skinRefreshAt = 0; }
         if (!r.ok || !r.body) throw new Error('price file ' + r.status);
+        // An HTML error page or a truncated answer must not replace the last good copy.
+        if (!plausiblePriceFile(r)) throw new Error('price file implausible');
         const [toClient, toStore] = r.body.tee();
         const fetchedAt = Date.now();
         ctx.waitUntil(copy.put(toStore, fetchedAt));
         return passThrough(new Response(toClient), request, false, fetchedAt);
       } catch (e) {
         if (hit) return passThrough(hit.response, request, true, hit.fetchedAt);
-        return res(JSON.stringify({ error: 'Skin prices unavailable: ' + (e && e.message) }), 502, request);
+        return res(JSON.stringify({ error: 'Skin prices unavailable' }), 502, request);
       }
     }
 
@@ -734,7 +768,7 @@ export default {
           return res(JSON.stringify({ error: 'unknown coin' }), 404, request);
         }
         if (r.status === 429) return serveStale(429, 'CoinGecko rate limit');
-        if (!r.ok) return serveStale(502, 'CoinGecko returned ' + r.status);
+        if (!r.ok) return serveStale(502, 'CoinGecko unavailable');
         const body = await r.text();
         ctx.waitUntil(Promise.all([
           cache.put(fresh, new Response(body, { headers: { 'Cache-Control': 'public, max-age=' + target.ttl } })),
@@ -742,7 +776,7 @@ export default {
         ]));
         return res(body, 200, request);
       } catch (e) {
-        return serveStale(502, 'CoinGecko unreachable: ' + (e && e.message));
+        return serveStale(502, 'CoinGecko unavailable');
       }
     }
 
@@ -771,7 +805,7 @@ export default {
           const r = await fetchWithTimeout('https://steamcommunity.com/inventory/' + id + '/730/2?l=english&count=2000' + (start ? '&start_assetid=' + start : ''), hdr, 15000);
           if (r.status === 403) return res(JSON.stringify({ error: 'inventory is private', steamid: id }), 403, request);
           if (r.status === 429) return res(JSON.stringify({ error: 'Steam rate limit', steamid: id }), 429, request);
-          if (!r.ok) return res(JSON.stringify({ error: 'Steam answered ' + r.status, steamid: id }), 502, request);
+          if (!r.ok) return res(JSON.stringify({ error: 'Steam unavailable', upstreamStatus: r.status, steamid: id }), 502, request);
           const page = await r.json();
           pages.push(page);
           if (!page || !page.more_items || !page.last_assetid) break;
@@ -779,7 +813,7 @@ export default {
         }
         return res(JSON.stringify({ steamid: id, items: parseSteamInventory(pages) }), 200, request);
       } catch (e) {
-        return res(JSON.stringify({ error: 'Steam unreachable: ' + (e && e.message) }), 502, request);
+        return res(JSON.stringify({ error: 'Steam unavailable' }), 502, request);
       }
     }
 
@@ -790,29 +824,35 @@ export default {
     // never transmitted — only the signature the client already computed. The
     // host whitelist keeps this from becoming an open SSRF proxy.
     if (request.method === 'POST' && action === 'brokerproxy') {
-      let spec;
-      try { spec = await request.json(); } catch { return res(JSON.stringify({ error: 'Invalid JSON body' }), 400, request); }
+      const read = await readJsonBody(request, SMALL_BODY_MAX);
+      if (!read.ok) return res(JSON.stringify({ error: read.error }), read.status, request);
+      const spec = read.body;
       let target;
       try { target = new URL(spec.url); } catch { return res(JSON.stringify({ error: 'Invalid url' }), 400, request); }
       const method = (spec.method || 'GET').toUpperCase();
       const verdict = brokerRelayAllowed(target, method);
       if (!verdict.ok) return res(JSON.stringify({ error: verdict.error }), 403, request);
+      if (spec.body != null && typeof spec.body !== 'string') return res(JSON.stringify({ error: 'Invalid body' }), 400, request);
       try {
-        const r = await fetchWithTimeout(target.toString(), {
+        // Rebuilt from origin + path + query (no port, user info or fragment),
+        // only the exchange's own auth headers, and no redirects: a redirect
+        // would leave the allowlist unchecked.
+        const r = await fetchWithTimeout(target.origin + target.pathname + target.search, {
           method,
-          headers: spec.headers || {},
+          headers: relayHeaders(target.hostname, spec.headers),
           body: method === 'GET' || method === 'HEAD' ? undefined : (spec.body || ''),
+          redirect: 'manual',
         });
+        if (r.status >= 300 && r.status < 400) return res(JSON.stringify({ status: r.status, ok: false, data: null, error: 'redirect refused' }), 200, request);
         const text = await r.text();
         return res(JSON.stringify({ status: r.status, ok: r.ok, data: safeJson(text) }), 200, request);
       } catch (e) {
-        return res(JSON.stringify({ error: 'Upstream fetch failed: ' + (e && e.message) }), 502, request);
+        return res(JSON.stringify({ error: 'Upstream unavailable' }), 502, request);
       }
     }
 
     return res(JSON.stringify({ error: 'Unknown action' }), 400, request);
-  },
-};
+}
 
 // ── Helpers ──────────────────────────────────────────────────────────────────
 
@@ -833,8 +873,12 @@ export function brokerRelayAllowed(target, method) {
   if (!policy) return { ok: false, error: 'Host not allowed' };
   const paths = policy[String(method || 'GET').toUpperCase()];
   if (!paths) return { ok: false, error: 'Method not allowed (read-only relay)' };
-  const path = target.pathname.replace(/\/+$/, '');
-  const ok = paths.some((p) => path === p || path.startsWith(p + '/'));
+  // SEC-010: exact endpoints only - no sub-paths, encoded characters, port or user info
+  if (target.port || target.username || target.password) return { ok: false, error: 'Host not allowed' };
+  const raw = target.pathname;
+  if (raw.indexOf('%') !== -1 || raw.indexOf('//') !== -1) return { ok: false, error: 'Endpoint not allowed (read-only relay)' };
+  const path = raw.length > 1 ? raw.replace(/\/$/, '') : raw;
+  const ok = paths.indexOf(path) !== -1;
   return ok ? { ok: true } : { ok: false, error: 'Endpoint not allowed (read-only relay)' };
 }
 
@@ -882,12 +926,21 @@ export async function authorizeSyncPut(current, account, baseRev, blob, auth) {
     }
     return { ok: true, authKey: registered };
   }
-  // No registered key. Register one ONLY at account creation (no current record)
-  // — never "upgrade" an existing open record, which an account-id knower could
-  // hijack. Legacy/open accounts stay open (backward compatible).
-  let authKey = null;
-  if (!current && typeof auth.key === 'string' && /^[a-f0-9]{64}$/.test(auth.key)) authKey = auth.key;
-  return { ok: true, authKey };
+  const validKey = typeof auth.key === 'string' && /^[a-f0-9]{64}$/.test(auth.key);
+  // SEC-018: a NEW account must register a write key (every app since the
+  // write-auth release sends one on its first push). An older app gets 426
+  // with an update hint instead of creating an account anyone could overwrite.
+  if (!current) {
+    if (!validKey) return { ok: false, status: 426, error: 'sync needs a newer app: update MAERMIN to create a sync account' };
+    return { ok: true, authKey: auth.key };
+  }
+  // H-2: an older OPEN account is claimed by the first write that carries a
+  // key AND a MAC made with that key; until then it stays open (backward compatible).
+  if (validKey && typeof auth.mac === 'string') {
+    const expected = await syncMac(auth.key, account + '.' + baseRev + '.' + blob);
+    if (timingSafeEqualHex(auth.mac, expected)) return { ok: true, authKey: auth.key };
+  }
+  return { ok: true, authKey: null };
 }
 
 // ── Sync operation (storage-agnostic) ──────────────────────────────────────
@@ -899,7 +952,9 @@ export async function handleSyncOp(store, body) {
   if (body.op === 'get') {
     const rec = await store.get();
     if (!rec) return { status: 200, body: { rev: 0, blob: null } };
-    return { status: 200, body: { rev: rec.rev, blob: rec.blob, updatedAt: rec.updatedAt } };
+    // protected: whether writes need the MAC; an app finding an older open
+    // account claims it with its key on the next write (H-2).
+    return { status: 200, body: { rev: rec.rev, blob: rec.blob, updatedAt: rec.updatedAt, protected: !!rec.authKey } };
   }
   if (body.op === 'put') {
     if (typeof body.blob !== 'string' || body.blob.length > 4_000_000) {
@@ -912,6 +967,11 @@ export async function handleSyncOp(store, body) {
     // carry a valid HMAC over `account.baseRev.blob`. Legacy accounts stay open.
     const authz = await authorizeSyncPut(current, account, baseRev, body.blob, body.auth);
     if (!authz.ok) return { status: authz.status, body: { error: authz.error } };
+    // SEC-018: creating accounts is limited per client and per day (a refused
+    // request above does not count).
+    if (!current && store.canCreate && !(await store.canCreate())) {
+      return { status: 429, body: { error: 'too many new sync accounts - try again later' } };
+    }
     const serverRev = current ? current.rev : 0;
     if (serverRev !== baseRev) {
       return { status: 409, body: { conflict: true, serverRev, blob: current ? current.blob : null } };
@@ -950,7 +1010,15 @@ export class SyncRoom {
       const storage = this.state.storage;
       const env = this.env;
       const key = 'sync:' + String(body && body.account || '');
+      const clientKey = request.headers.get('X-Client-Key') || 'anon';
       out = await handleSyncOp({
+        canCreate: async () => {
+          if (!env || !env.SYNC_DO) return true;
+          const room = env.SYNC_DO.get(env.SYNC_DO.idFromName('share'));
+          const r = await (await room.fetch('https://share.internal/share', { method: 'POST',
+            body: JSON.stringify({ op: 'newAccount', key: clientKey, dailyMax: env.SYNC_DAILY_NEW_MAX }) })).json();
+          return !!(r && r.ok);
+        },
         get: async () => {
           let rec = await storage.get('rec');
           if (!rec && env && env.SYNC) {
@@ -975,7 +1043,6 @@ const YF_RANGES = new Set(['1d', '5d', '1mo', '3mo', '6mo', '1y', '2y', '5y', '1
 // the object field by field so nothing outside the schema can ever be stored.
 function validateShareSnapshot(s) {
   const pct = (x) => (typeof x === 'number' && isFinite(x) && x >= 0 && x <= 100) ? Math.round(x * 10) / 10 : null;
-  const label = (x) => (typeof x === 'string' && x.length > 0 && x.length <= 40) ? x : null;
   if (!s || typeof s !== 'object' || Array.isArray(s)) return { ok: false, error: 'not an object' };
   if (s.v !== 1) return { ok: false, error: 'unknown version' };
   const out = { v: 1, assetClasses: {} };
@@ -994,12 +1061,15 @@ function validateShareSnapshot(s) {
     if (s[key] == null) continue;
     if (!Array.isArray(s[key]) || s[key].length > 8) return { ok: false, error: key + ' too long' };
     const rows = [];
+    let sum = 0;
     for (const row of s[key]) {
-      const name = label(row && row.name);
+      const name = shareLabel(key, row && row.name);
       const p = pct(row && row.pct);
       if (name === null || p === null) return { ok: false, error: 'bad ' + key + ' row' };
       rows.push({ name, pct: p });
+      sum += p;
     }
+    if (sum > 101) return { ok: false, error: key + ' add up to more than 100 %' };
     out[key] = rows;
   }
   if (s.metrics != null) {
@@ -1090,7 +1160,7 @@ async function fetchQuoteSummary(symbol, modules) {
       headers: { ...headers, 'Cookie': session.cookie },
     });
   }
-  if (!r.ok) throw new Error(`Yahoo Finance returned ${r.status}`);
+  if (!r.ok) { const err = new Error('upstream'); err.upstreamStatus = r.status; throw err; }
   return r.json();
 }
 
@@ -1106,7 +1176,96 @@ async function fetchWithTimeout(url, opts = {}, ms = 8000) {
 }
 
 // Routes whose `symbol` goes to Yahoo Finance.
-const SYMBOL_ROUTES = new Set(['yf', 'fundamentals', 'profile', 'earnings', 'fundholdings', 'dividends']);
+const SYMBOL_ROUTES = new Set(['yf', 'fundamentals', 'profile', 'earnings', 'fundholdings', 'dividends', 'news']);
+
+// ── Limits (SEC-011, SEC-014, SEC-018, SEC-024) ──────────────────────────────
+const SYNC_BODY_MAX = 4_500_000;   // a 4 MB blob plus its JSON envelope
+const SMALL_BODY_MAX = 64_000;     // share and broker relay bodies
+const SCREENER_MAX_SYMBOLS = 60;   // the app's curated dividend universe stays below this
+const SCREENER_IDS = new Set(['day_gainers', 'day_losers', 'most_actives', 'undervalued_growth_stocks',
+  'growth_technology_stocks', 'undervalued_large_caps', 'aggressive_small_caps', 'small_cap_gainers',
+  'top_mutual_funds', 'portfolio_anchors', 'solid_large_growth_funds', 'conservative_foreign_funds', 'high_yield_bond']);
+const STEAM_MAX_STACK = 1000;      // one asset's "amount"
+const STEAM_MAX_ITEMS = 10000;     // all items of an inventory
+const SKIN_REFRESH_GUARD_MS = 30000;
+let _skinRefreshAt = 0;
+const NEW_ACCOUNT_LIMIT = { windowMs: 86400000, max: 5, maxClients: 5000 };
+const SYNC_DAILY_NEW_MAX_DEFAULT = 200;
+const EMPTY_RSS = '<?xml version="1.0"?><rss><channel></channel></rss>';
+const RSS_TYPE = 'application/rss+xml; charset=utf-8';
+
+// A JSON object body of at most `max` bytes. The declared length is checked
+// before anything is read, the actual length before parsing.
+// -> { ok:true, body } | { ok:false, status, error }
+export async function readJsonBody(request, max) {
+  const declared = Number(request.headers.get('Content-Length'));
+  if (declared > max) return { ok: false, status: 413, error: 'body too large' };
+  let text;
+  try { text = await request.text(); } catch { return { ok: false, status: 400, error: 'bad body' }; }
+  if (text.length > max) return { ok: false, status: 413, error: 'body too large' };
+  let body;
+  try { body = JSON.parse(text); } catch { return { ok: false, status: 400, error: 'bad json' }; }
+  if (!body || typeof body !== 'object' || Array.isArray(body)) return { ok: false, status: 400, error: 'bad json' };
+  return { ok: true, body };
+}
+
+// The exchange's own authentication headers only (SEC-010): cookies, proxy
+// headers and anything else the client adds are not relayed. PURE.
+const RELAY_HEADERS = {
+  'api.binance.com': ['x-mbx-apikey'],
+  'api.bitpanda.com': ['x-api-key'],
+  'api.kraken.com': ['api-key', 'api-sign', 'content-type'],
+  'api.exchange.coinbase.com': ['cb-access-key', 'cb-access-sign', 'cb-access-timestamp', 'cb-access-passphrase'],
+  'api.coinbase.com': ['authorization'],
+};
+export function relayHeaders(host, headers) {
+  const allow = RELAY_HEADERS[host] || [];
+  const out = {};
+  if (!headers || typeof headers !== 'object') return out;
+  for (const k of Object.keys(headers)) {
+    const lk = k.toLowerCase();
+    const v = headers[k];
+    if (allow.indexOf(lk) !== -1 && typeof v === 'string' && v.length <= 2048 && !/[\r\n]/.test(v)) out[k] = v;
+  }
+  out.Accept = 'application/json';
+  return out;
+}
+
+// A skin price answer worth keeping: not an HTML page and not obviously
+// short. The ~4 MB file is streamed, so this is checked on the headers; the
+// app still parses defensively.
+export function plausiblePriceFile(r) {
+  const type = String(r.headers.get('Content-Type') || '').toLowerCase();
+  if (type.indexOf('html') !== -1) return false;
+  const len = r.headers.get('Content-Length');
+  if (len != null && Number(len) < 100000) return false;
+  return true;
+}
+
+// Share label rules (SEC-016): currencies are ISO codes; sectors and regions
+// are names - letters, spaces and a little punctuation, no digits or symbols
+// (an amount or a ticker with a number cannot pass). PURE.
+export function shareLabel(kind, x) {
+  if (typeof x !== 'string') return null;
+  const s = x.trim();
+  if (kind === 'currencies') return /^[A-Z]{3}$/.test(s) ? s : null;
+  return (s.length > 0 && s.length <= 40 && /^[\p{L}][\p{L} &,.'()\/-]*$/u.test(s)) ? s : null;
+}
+
+// New sync accounts per client and day without the Durable Object (per isolate).
+const _newAcctHits = new Map();
+const _newAcctBudget = { day: '', n: 0 };
+function isNewAccountLimited(clientKey, env) {
+  const now = Date.now();
+  if (hitAndCheck(_newAcctHits, clientKey, now, NEW_ACCOUNT_LIMIT)) return true;
+  const day = utcDay(now);
+  if (_newAcctBudget.day !== day) { _newAcctBudget.day = day; _newAcctBudget.n = 0; }
+  const max = Number(env && env.SYNC_DAILY_NEW_MAX) > 0 ? Number(env.SYNC_DAILY_NEW_MAX) : SYNC_DAILY_NEW_MAX_DEFAULT;
+  if (_newAcctBudget.n >= max) return true;
+  _newAcctBudget.n += 1;
+  return false;
+}
+export function resetSyncLimits() { _newAcctHits.clear(); _newAcctBudget.day = ''; _newAcctBudget.n = 0; _skinRefreshAt = 0; }
 
 // Could this be a Yahoo symbol (AAPL, SAP.DE, BRK-B, ^GDAXI, EURUSD=X, GC=F,
 // 0700.HK, an ISIN)? Spaces, "|", "★" or "™" mean a CS2 market name. PURE and
@@ -1178,8 +1337,8 @@ export function parseSteamInventory(pages) {
     p.assets.forEach((a) => {
       const d = desc[a.classid + '_' + (a.instanceid || '0')];
       if (!a || !d || !d.market_hash_name) return;
-      const n = Math.max(1, parseInt(a.amount, 10) || 1);
-      for (let i = 0; i < n; i++) out.push({ assetid: String(a.assetid) + (n > 1 ? '#' + i : ''), name: String(d.market_hash_name), marketable: d.marketable === 1 || d.marketable === true });
+      const n = Math.min(STEAM_MAX_STACK, Math.max(1, parseInt(a.amount, 10) || 1));
+      for (let i = 0; i < n && out.length < STEAM_MAX_ITEMS; i++) out.push({ assetid: String(a.assetid) + (n > 1 ? '#' + i : ''), name: String(d.market_hash_name), marketable: d.marketable === 1 || d.marketable === true });
     });
   });
   return out;
@@ -1190,13 +1349,15 @@ export function parseSteamInventory(pages) {
 const RATE_LIMIT = { windowMs: 60000, max: 120 };
 const _rlHits = new Map(); // ip|bucket -> number[] (timestamps)
 function isRateLimited(request, bucket) {
-  const ip = (request.headers.get('CF-Connecting-IP') || request.headers.get('X-Forwarded-For') || 'anon') + '|' + (bucket || 'default');
+  // CF-Connecting-IP only: a client-supplied X-Forwarded-For must not pick the bucket.
+  const ip = (request.headers.get('CF-Connecting-IP') || 'anon') + '|' + (bucket || 'default');
   const now = Date.now();
   const cutoff = now - RATE_LIMIT.windowMs;
   let arr = _rlHits.get(ip);
   if (!arr) { arr = []; _rlHits.set(ip, arr); }
   // drop timestamps outside the window
   while (arr.length && arr[0] < cutoff) arr.shift();
+  if (arr.length >= RATE_LIMIT.max) return true; // limited: not recorded, so the list stays bounded
   arr.push(now);
   // opportunistic cleanup so the map can't grow unbounded
   if (_rlHits.size > 5000) {
@@ -1271,6 +1432,20 @@ export function notePublishForTest(ip) { hitAndCheck(_pubHits, shareClientKey(ne
 //      { op:'aggregate' } -> { count, sums }
 async function shareRoomOp(storage, body, now) {
   if (body.op === 'aggregate') return (await storage.get('agg')) || { count: 0, sums: {} };
+  if (body.op === 'newAccount') {
+    const day = utcDay(now);
+    const b = (await storage.get('newAcct')) || { day, n: 0 };
+    if (b.day !== day) { b.day = day; b.n = 0; }
+    const max = Number(body.dailyMax) > 0 ? Number(body.dailyMax) : SYNC_DAILY_NEW_MAX_DEFAULT;
+    if (b.n >= max) return { limited: true, reason: 'daily' };
+    const hits = new Map(Object.entries((await storage.get('newAcctHits')) || {}));
+    const limited = hitAndCheck(hits, String(body.key), now, NEW_ACCOUNT_LIMIT);
+    await storage.put('newAcctHits', Object.fromEntries(hits));
+    if (limited) return { limited: true, reason: 'client' };
+    b.n += 1;
+    await storage.put('newAcct', b);
+    return { ok: true };
+  }
   if (body.op !== 'publish') return { error: 'unknown op' };
   const day = utcDay(now);
   const budget = (await storage.get('budget')) || { day, n: 0 };
@@ -1307,12 +1482,13 @@ async function shareRoomOp(storage, body, now) {
 // A request with NO Origin header (curl / same-origin) gets '*'. CORS only
 // gates what a browser may READ; write endpoints are protected server-side.
 const DEFAULT_ORIGINS = ['https://maermin.github.io'];
-let _originCfg = { list: DEFAULT_ORIGINS, allowNull: true };
+let _originCfg = { list: DEFAULT_ORIGINS, allowNull: true, allowLocal: true };
 export function configureOrigins(env) {
   const extra = String((env && env.ALLOWED_ORIGINS) || '').split(',').map((s) => s.trim().replace(/\/$/, '')).filter(Boolean);
   _originCfg = {
     list: DEFAULT_ORIGINS.concat(extra),
     allowNull: !(env && String(env.ALLOW_NULL_ORIGIN).toLowerCase() === 'false'),
+    allowLocal: !(env && String(env.ALLOW_LOCALHOST).toLowerCase() === 'false'),
   };
 }
 export function allowOrigin(request) {
@@ -1320,7 +1496,7 @@ export function allowOrigin(request) {
   if (!o) return '*';
   if (o === 'null') return _originCfg.allowNull ? 'null' : '';
   if (_originCfg.list.includes(o)) return o;
-  if (/^http:\/\/(localhost|127\.0\.0\.1)(:\d+)?$/i.test(o)) return o;
+  if (_originCfg.allowLocal && /^http:\/\/(localhost|127\.0\.0\.1)(:\d+)?$/i.test(o)) return o;
   return '';
 }
 
@@ -1369,13 +1545,14 @@ function passThrough(upstream, request, stale, fetchedAt) {
       'Access-Control-Expose-Headers': 'X-Fetched-At, X-Stale',
       'Vary':         'Origin',
       'Content-Type': 'application/json',
+      'X-Content-Type-Options': 'nosniff',
       'X-Fetched-At': String(fetchedAt || Date.now()),
       ...(stale ? { 'X-Stale': '1' } : {}),
     },
   });
 }
 
-function res(body, status, request) {
+function res(body, status, request, contentType) {
   const origin = allowOrigin(request);
   return new Response(body, {
     status,
@@ -1385,7 +1562,18 @@ function res(body, status, request) {
       'Access-Control-Allow-Methods': 'GET, POST, OPTIONS',
       'Access-Control-Allow-Headers': 'Content-Type',
       'Vary':         'Origin',
-      'Content-Type': 'application/json',
+      'Content-Type': contentType || 'application/json',
+      'X-Content-Type-Options': 'nosniff',
     },
   });
+}
+
+// SEC-012: an upstream failure without its internal error text. 404 (no
+// listing) and 429 (try later) keep their meaning for the app; anything else
+// is a 502 that names the upstream status in a field.
+function upstreamError(source, status, request, extra) {
+  const s = Number(status) || 0;
+  if (s === 404) return res(JSON.stringify({ error: 'No data from ' + source, ...(extra || {}) }), 404, request);
+  if (s === 429) return res(JSON.stringify({ error: source + ' rate limit', ...(extra || {}) }), 429, request);
+  return res(JSON.stringify({ error: source + ' unavailable', ...(s ? { upstreamStatus: s } : {}), ...(extra || {}) }), 502, request);
 }

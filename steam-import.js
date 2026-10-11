@@ -66,7 +66,7 @@ function __(k, f, v) { return (typeof window !== 'undefined' && window.MaerminI1
   // Items not imported yet, one row per name: { name, assetIds, qty, marketable }.
   function newRows(items, imported) {
     imported = imported || {};
-    var by = {}, order = [];
+    var by = Object.create(null), order = []; // item names are imported text (SEC-023)
     (items || []).forEach(function (it) {
       if (!it || imported[String(it.assetid)]) return;
       if (!by[it.name]) { by[it.name] = { name: it.name, assetIds: [], qty: 0, marketable: false }; order.push(it.name); }

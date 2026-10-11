@@ -170,7 +170,10 @@ function __(k, f, v) { return (typeof window !== 'undefined' && window.MaerminI1
 
         var nodes = props.nodes || buildNodes(props, period);
         var W = num(props.width) || 720, H = num(props.height) || 360;
-        var rects = API.layout(nodes, W, H, { down: theme.danger || '#ef4444', up: theme.success || '#22c55e', neutral: theme.textSecondary || '#6b7280', maxAbs: props.maxAbs || 10 });
+        // VIS-009: the colour band spans the largest move shown (at least 10 %),
+        // so +26 % and +142 % no longer get the same full green.
+        var spread = nodes.reduce(function (m, n) { var a = Math.abs(num(n.perf)); return a > m ? a : m; }, 0);
+        var rects = API.layout(nodes, W, H, { down: theme.danger || '#ef4444', up: theme.success || '#22c55e', neutral: theme.textSecondary || '#6b7280', maxAbs: props.maxAbs || Math.max(10, spread) });
 
         function periodBtn(pp) {
           var active = pp === period;

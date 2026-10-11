@@ -418,7 +418,9 @@ function __(k, f, v) { return (typeof window !== 'undefined' && window.MaerminI1
         hasData
           ? e('div', { style: { display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(140px, 1fr))', gap: '0.75rem', marginBottom: '1.5rem' } }, cardEls)
           : e('div', { style: { background: card, border: '1px solid ' + border, borderRadius: '14px', padding: '2rem', textAlign: 'center', color: dim, fontSize: '0.9rem' } },
-              t.perfEmpty || 'No value history yet. Snapshots are recorded once per day as you use the app — check back tomorrow to see your first period returns.'),
+              // VIS-009: the demo records no snapshots - say so instead of "check back tomorrow"
+              props.demo ? __('perfEmptyDemo', 'Period returns come from the daily snapshots recorded while you use the app with your own data; the demo records none.')
+                : (t.perfEmpty || 'No value history yet. Snapshots are recorded once per day as you use the app — check back tomorrow to see your first period returns.')),
 
         (hasData && ext) ? e('div', { style: { display: 'flex', gap: '0.75rem', flexWrap: 'wrap' } },
           e('div', { style: { flex: 1, minWidth: '200px', background: card, border: '1px solid ' + border, borderRadius: '14px', padding: '1rem' } },
@@ -435,8 +437,8 @@ function __(k, f, v) { return (typeof window !== 'undefined' && window.MaerminI1
         ddCard,
         goalSection,
 
-        e('div', { style: { color: dim, fontSize: '0.72rem', marginTop: '1rem', lineHeight: 1.5 } },
-          (t.perfFootnote || 'Periods marked ≈ are measured from your first snapshot because the full look-back is not yet covered.')));
+        hasData ? e('div', { style: { color: dim, fontSize: '0.72rem', marginTop: '1rem', lineHeight: 1.5 } },
+          (t.perfFootnote || 'Periods marked ≈ are measured from your first snapshot because the full look-back is not yet covered.')) : null);
     } catch (err) {
       return e('div', { style: { padding: '1.5rem', color: (props.theme && props.theme.danger) || '#ef4444' } },
         __('perfViewError', 'Performance view error: {msg}', { msg: err && err.message }));

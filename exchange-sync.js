@@ -419,6 +419,10 @@ function __(k, f, v) { return (typeof window !== 'undefined' && window.MaerminI1
     return pairs.slice(0, BINANCE_MAX_PAIRS);
   }
 
+  // Exchanges that sign requests with a secret kept in the browser; for the
+  // others (Bitpanda) the API key itself is the credential and is relayed.
+  function needsSecret(exchange) { return exchange !== 'bitpanda'; }
+
   function buildSignedRequest(exchange, creds) {
     var key = creds && creds.apiKey;
     if (exchange === 'binance') return binanceSigned(creds, '/api/v3/account', 'omitZeroBalances=true');
@@ -453,7 +457,7 @@ function __(k, f, v) { return (typeof window !== 'undefined' && window.MaerminI1
     }
     var credsRef;
     return loadCredentials(conn.id).then(function (creds) {
-      if (!creds || !creds.apiKey || !creds.apiSecret) throw new Error('No stored credentials for this connection');
+      if (!creds || !creds.apiKey || (needsSecret(conn.exchange) && !creds.apiSecret)) throw new Error('No stored credentials for this connection');
       credsRef = creds;
       return buildSignedRequest(conn.exchange, creds);
     }).then(relay).then(function (resp) {
@@ -479,7 +483,12 @@ function __(k, f, v) { return (typeof window !== 'undefined' && window.MaerminI1
     });
   }
 
+  function workerHost(url) {
+    try { return new URL(String(url || '')).host || __('exYourWorker', 'your Worker'); } catch (e) { return __('exYourWorker', 'your Worker'); }
+  }
+
   var api = {
+    needsSecret: needsSecret,
     STORAGE_KEY: STORAGE_KEY, VAULT_PREFIX: VAULT_PREFIX, SCHEMA: SCHEMA, EXCHANGES: EXCHANGES,
     buildSignedRequest: buildSignedRequest, syncConnection: syncConnection,
     validateReadOnly: validateReadOnly, parsePair: parsePair, quoteCurrency: quoteCurrency,
@@ -527,10 +536,11 @@ function __(k, f, v) { return (typeof window !== 'undefined' && window.MaerminI1
         function setF(p) { setForm(Object.assign({}, form, p)); }
 
         function addConn() {
-          if (!form.apiKey || !form.apiSecret) { setMsg(t.exNeedKeys || 'Enter a read-only API key and secret.'); return; }
+          var withSecret = API.needsSecret(form.exchange);
+          if (!form.apiKey || (withSecret && !form.apiSecret)) { setMsg(withSecret ? (t.exNeedKeys || 'Enter a read-only API key and secret.') : __('exNeedKey', 'Enter a read-only API key.')); return; }
           var next = API.addConnection(st, { exchange: form.exchange, label: form.label });
           var conn = API.normalize(next).connections.slice(-1)[0];
-          API.storeCredentials(conn.id, { apiKey: form.apiKey, apiSecret: form.apiSecret }).then(function () {
+          API.storeCredentials(conn.id, { apiKey: form.apiKey, apiSecret: withSecret ? form.apiSecret : '' }).then(function () {
             mutate(next);
             setForm({ exchange: 'binance', label: '', apiKey: '', apiSecret: '' });
             setMsg(t.exStored || 'Connection added. Keys encrypted in your vault.');
@@ -574,14 +584,19 @@ function __(k, f, v) { return (typeof window !== 'undefined' && window.MaerminI1
 
         return e('div', { style: { background: card, border: '1px solid ' + border, borderRadius: '14px', padding: '1.1rem', marginBottom: '1.25rem' } },
           e('div', { style: { color: text, fontWeight: 700, fontSize: '0.95rem', marginBottom: '0.2rem' } }, t.exTitle || 'Exchange sync (read-only)'),
-          e('div', { style: { color: dim, fontSize: '0.76rem', marginBottom: '0.9rem' } }, t.exSubtitle || 'Import crypto trades read-only. Use read-only API keys — keys are encrypted in your vault and never leave the device unencrypted.'),
+          e('div', { style: { color: dim, fontSize: '0.76rem', marginBottom: '0.9rem' } }, t.exSubtitle || 'Import crypto trades read-only. Use read-only API keys. Keys are stored encrypted in your vault; requests go to the exchange through your Worker.'),
           rows,
           e('div', { style: { display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(140px,1fr))', gap: '0.5rem', marginTop: '0.6rem' } },
             e('select', { value: form.exchange, onChange: function (ev) { setF({ exchange: ev.target.value }); }, style: { padding: '0.5rem', background: inputBg, border: '1px solid ' + inputBorder, borderRadius: '8px', color: text, fontSize: '0.82rem' } },
               Object.keys(API.EXCHANGES).map(function (k) { return e('option', { key: k, value: k }, API.EXCHANGES[k].label); })),
             e('input', { value: form.label, onChange: function (ev) { setF({ label: ev.target.value }); }, placeholder: t.exLabel || 'Label (optional)', style: { padding: '0.5rem', background: inputBg, border: '1px solid ' + inputBorder, borderRadius: '8px', color: text, fontSize: '0.82rem' } }),
-            e('input', { value: form.apiKey, onChange: function (ev) { setF({ apiKey: ev.target.value }); }, placeholder: t.exApiKey || 'API key (read-only)', style: { padding: '0.5rem', background: inputBg, border: '1px solid ' + inputBorder, borderRadius: '8px', color: text, fontSize: '0.82rem' } }),
-            e('input', { value: form.apiSecret, type: 'password', onChange: function (ev) { setF({ apiSecret: ev.target.value }); }, placeholder: t.exApiSecret || 'API secret', style: { padding: '0.5rem', background: inputBg, border: '1px solid ' + inputBorder, borderRadius: '8px', color: text, fontSize: '0.82rem' } })),
+            e('input', { value: form.apiKey, onChange: function (ev) { setF({ apiKey: ev.target.value }); }, placeholder: API.needsSecret(form.exchange) ? (t.exApiKey || 'API key (read-only)') : __('exApiKeyRelayed', 'API key (sent through your Worker)'), 'aria-label': API.needsSecret(form.exchange) ? (t.exApiKey || 'API key (read-only)') : __('exApiKeyRelayed', 'API key (sent through your Worker)'), style: { padding: '0.5rem', background: inputBg, border: '1px solid ' + inputBorder, borderRadius: '8px', color: text, fontSize: '0.82rem' } }),
+            API.needsSecret(form.exchange) ? e('input', { value: form.apiSecret, type: 'password', onChange: function (ev) { setF({ apiSecret: ev.target.value }); }, placeholder: t.exApiSecret || 'API secret', 'aria-label': t.exApiSecret || 'API secret', style: { padding: '0.5rem', background: inputBg, border: '1px solid ' + inputBorder, borderRadius: '8px', color: text, fontSize: '0.82rem' } }) : null),
+          // What leaves the browser, per exchange, and to which Worker.
+          e('div', { 'data-testid': 'ex-credential-note', style: { color: dim, fontSize: '0.74rem', marginTop: '0.45rem', lineHeight: 1.5 } },
+            API.needsSecret(form.exchange)
+              ? __('exSignedNote', 'The secret stays in this browser: only the key id and a signature go to {host}.', { host: workerHost(props.workerUrl) })
+              : __('exRelayedNote', 'This exchange has no separate secret: the API key itself goes to {host} with each request. Use your own Worker and a read-only key.', { host: workerHost(props.workerUrl) })),
           e('button', { onClick: addConn, style: { marginTop: '0.6rem', padding: '0.5rem 1rem', background: accent, color: '#ffffff', border: 'none', borderRadius: '8px', cursor: 'pointer', fontWeight: 700, fontSize: '0.82rem' } }, t.exAdd || 'Add connection'),
           msg ? e('div', { style: { color: dim, fontSize: '0.76rem', marginTop: '0.5rem' } }, msg) : null);
       } catch (err) {

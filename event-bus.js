@@ -46,7 +46,7 @@
       n++; // count every handler invoked, even if it throws (isolated below)
       try { snapshot[i](payload); }
       catch (e) {
-        try { if (typeof window !== 'undefined' && window.MaerminAuditLog) window.MaerminAuditLog.record('bus.error', event + ': ' + (e && e.message)); }
+        try { if (typeof window !== 'undefined' && window.MaerminAuditLog) window.MaerminAuditLog.record('bus.error', event + ': ' + window.MaerminAuditLog.errorLabel(e)); }
         catch (e2) {}
       }
     }

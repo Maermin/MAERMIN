@@ -40,7 +40,7 @@
     var today = ymd(opts.today) || (function () { var d = new Date(); return d.getFullYear() + '-' + ('0' + (d.getMonth() + 1)).slice(-2) + '-' + ('0' + d.getDate()).slice(-2); })();
     var since = addDaysISO(today, -365);
     var toEUR = typeof opts.toEUR === 'function' ? opts.toEUR : function (tx) { return num(tx.quantity) * num(tx.price); };
-    var bySym = {};
+    var bySym = Object.create(null); // keys are imported symbols (SEC-023)
     (dividendTxs || []).forEach(function (tx) {
       if (!tx || !tx.symbol) return;
       var d = ymd(tx.date); if (!d) return;

@@ -288,7 +288,7 @@ function __(k, f, v) { return (typeof window !== 'undefined' && window.MaerminI1
         return e('tr', { key: r.symbol, style: { borderTop: '1px solid ' + border } },
           e('td', { style: { padding: '0.55rem 0.6rem', textAlign: 'left' } },
             e('div', { style: { color: text, fontWeight: 700, fontSize: '0.85rem' } }, r.symbol),
-            e('div', { style: { color: dim, fontSize: '0.72rem', maxWidth: '220px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' } }, r.name)),
+            e('div', { title: r.name, style: { color: dim, fontSize: '0.72rem', maxWidth: '220px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' } }, r.name)),
           e('td', { style: { padding: '0.55rem 0.6rem', textAlign: 'left' } }, e('span', { style: { fontSize: '0.66rem', color: dim, border: '1px solid ' + border, borderRadius: '5px', padding: '0.1rem 0.35rem' } }, r.type)),
           e('td', { style: { padding: '0.55rem 0.6rem', textAlign: 'right', color: text, fontWeight: 600, fontSize: '0.82rem' } }, fmt(r.priceEUR != null ? r.priceEUR : r.price) + ' ' + sym),
           e('td', { style: { padding: '0.55rem 0.6rem', textAlign: 'right', color: chg == null ? dim : (chg >= 0 ? ok : bad), fontWeight: 600, fontSize: '0.82rem' } }, chg == null ? '—' : window.MaerminI18n.pct(chg, 2, true)),

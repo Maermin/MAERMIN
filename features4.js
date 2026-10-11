@@ -566,7 +566,7 @@ function DividendForecastView({ transactions, portfolio, prices, metaVersion, th
     };
     const DF = window.MaerminDividendForecast;
     const result = DF ? DF.forecastRates(dividends, { toEUR }).rates : [];
-    const covered = {};
+    const covered = Object.create(null); // keys are imported symbols (SEC-023)
     result.forEach(f => { covered[String(f.sym).toUpperCase()] = true; });
     if (window.DividendDataService && portfolio && portfolio.stocks) {
       const data = window.DividendDataService.getPortfolioDividendData(portfolio, prices || {});
