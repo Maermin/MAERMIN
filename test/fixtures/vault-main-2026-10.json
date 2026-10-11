@@ -1,0 +1,67 @@
+{
+ "createdWith": "origin/main (vault code before PR 6)",
+ "password": "main-fixture-password-2026",
+ "changedPassword": "main-fixture-password-2026-changed",
+ "data": {
+  "transactions": "[{\"id\":\"f1\",\"type\":\"buy\",\"category\":\"stocks\",\"symbol\":\"AAPL\",\"quantity\":3,\"price\":150,\"currency\":\"USD\",\"date\":\"2025-01-10\"},{\"id\":\"f2\",\"type\":\"buy\",\"category\":\"crypto\",\"symbol\":\"bitcoin\",\"quantity\":0.1,\"price\":40000,\"currency\":\"EUR\",\"date\":\"2025-02-01\"}]",
+  "apiKeys": "{\"cs2Worker\":\"https://example-worker.example.workers.dev\"}",
+  "maermin_kirchensteuer": "0.08"
+ },
+ "recoveryCode": "CWTP-ARTQ-GFUC-PRKK-2FHF-UPT6",
+ "blobVault": {
+  "localStorage": {
+   "maermin_vault_meta": "{\"v\":1,\"kdf\":\"pbkdf2\",\"params\":{\"iterations\":600000,\"hash\":\"SHA-256\"},\"salt\":\"dpVCKMwv9x4jSqP4AtKWcQ==\",\"wrapCheck\":\"1.wh21sd611p36NwrL.8YST0xfuZT/2UyBs/Mv5h/vY2X4McSaYxw6Fd2BMIRnoons=\",\"autoLockMs\":900000,\"createdAt\":1791737808585,\"updatedAt\":1791737808649,\"recovery\":{\"kdf\":\"pbkdf2\",\"params\":{\"iterations\":600000,\"hash\":\"SHA-256\"},\"salt\":\"IkllSJ7KoAU93zTBBWqDaw==\",\"wrappedKey\":\"1.ax99Aasa0Y/gnqoq.ROJrpqmNxRsfaMyBGqSJuZNKMz49VABge3SH2+zc1eLlDDonb1g1THCKaX4kDHIYnVOx3B7swydZetss\",\"createdAt\":1791737808649}}",
+   "maermin_vault_data": "1.OvRf84e9TDHHCNHS.RwLtKIcG4f0fu9d+Z3LvfdTM+/+Gq8x9i4YAvwAw4Vz9AEux5CNcMxuzEhbN/WcfNupFteIo53zkL1a5SXqskl9aG7fOLJiSsutJhwPswPoky9/eIG3NCIq2CBzBdIWU6nvvfk8fq/xEEyMJaPEPsUcipzIpxO0BF+6PnzBqpJtxiPG9+ifS/uebknL1yDmfpTAjSIQf9sGG5xnKH5LhdTcLR/DHDgcyi3IJPmjLfB86wdC7Xpf8y/8mRfgdQpI3nNsAsQLWRYk/vvPcIQZVh0a36qyy22alcO/2lA42IPrDfQaYSHLGhylN3ntSksn0YvrJr9QAz+Z1s9jwhXFRf9kZltzHK9XVnwzoY5TZuD3UTF8lPTgYSxSZrLMnFbeY1kB9av7akG/ciiDzfvnsToQ98KSbhXeWTsqqG0dScWoghSNc3nVuMJ13cAY7L69p6xs3FrKQ520sM7+0idpSWp5jJDN4oKJTpdlYtcGvdpwDpFvqYn2Q1EMKXEC6gdaOLYqzEWDGQgdLKVglZo8Sphu+Qb92m7K2cmjDFqDUidkwZc20hzjURC+Buq76x+wPzZUkBeeDuFPxUp8T5Wz57cGy1Q==",
+   "maermin_vault_atrest": "1",
+   "maermin_exchange_cred_c1": "1.pNb1IcyAKDEAlhH9.bL4wI9BP50nyfZf+ZQUETSqmWBYbDUEOSXGQf1Jbb10dFIczamkd6/z9lmzyy9KQBGJuEMW3UvM6rFjKwPaHoCX/yD82"
+  }
+ },
+ "backup": {
+  "format": "maermin-vault-backup",
+  "v": 1,
+  "exportedAt": 1791737808650,
+  "meta": {
+   "v": 1,
+   "kdf": "pbkdf2",
+   "params": {
+    "iterations": 600000,
+    "hash": "SHA-256"
+   },
+   "salt": "dpVCKMwv9x4jSqP4AtKWcQ==",
+   "wrapCheck": "1.wh21sd611p36NwrL.8YST0xfuZT/2UyBs/Mv5h/vY2X4McSaYxw6Fd2BMIRnoons=",
+   "autoLockMs": 900000,
+   "createdAt": 1791737808585,
+   "updatedAt": 1791737808649,
+   "recovery": {
+    "kdf": "pbkdf2",
+    "params": {
+     "iterations": 600000,
+     "hash": "SHA-256"
+    },
+    "salt": "IkllSJ7KoAU93zTBBWqDaw==",
+    "wrappedKey": "1.ax99Aasa0Y/gnqoq.ROJrpqmNxRsfaMyBGqSJuZNKMz49VABge3SH2+zc1eLlDDonb1g1THCKaX4kDHIYnVOx3B7swydZetss",
+    "createdAt": 1791737808649
+   }
+  },
+  "blob": "1.OvRf84e9TDHHCNHS.RwLtKIcG4f0fu9d+Z3LvfdTM+/+Gq8x9i4YAvwAw4Vz9AEux5CNcMxuzEhbN/WcfNupFteIo53zkL1a5SXqskl9aG7fOLJiSsutJhwPswPoky9/eIG3NCIq2CBzBdIWU6nvvfk8fq/xEEyMJaPEPsUcipzIpxO0BF+6PnzBqpJtxiPG9+ifS/uebknL1yDmfpTAjSIQf9sGG5xnKH5LhdTcLR/DHDgcyi3IJPmjLfB86wdC7Xpf8y/8mRfgdQpI3nNsAsQLWRYk/vvPcIQZVh0a36qyy22alcO/2lA42IPrDfQaYSHLGhylN3ntSksn0YvrJr9QAz+Z1s9jwhXFRf9kZltzHK9XVnwzoY5TZuD3UTF8lPTgYSxSZrLMnFbeY1kB9av7akG/ciiDzfvnsToQ98KSbhXeWTsqqG0dScWoghSNc3nVuMJ13cAY7L69p6xs3FrKQ520sM7+0idpSWp5jJDN4oKJTpdlYtcGvdpwDpFvqYn2Q1EMKXEC6gdaOLYqzEWDGQgdLKVglZo8Sphu+Qb92m7K2cmjDFqDUidkwZc20hzjURC+Buq76x+wPzZUkBeeDuFPxUp8T5Wz57cGy1Q=="
+ },
+ "perKeyVault": {
+  "localStorage": {
+   "maermin_vault_meta": "{\"v\":1,\"kdf\":\"pbkdf2\",\"params\":{\"iterations\":600000,\"hash\":\"SHA-256\"},\"salt\":\"ukczHDOB4oDTNIDDb7C/mA==\",\"wrapCheck\":\"1.CvLWSRzhpvIzvOWp.5kyL9i0i9Je7BYKzZefRDkbfkXNHpIJnc6wxHQNIop7NECQ=\",\"autoLockMs\":900000,\"createdAt\":1791737808709,\"updatedAt\":1791737808709}",
+   "maermin_vault_atrest": "1"
+  },
+  "idb": {
+   "r:ce336c2813c75d2f": "1.khuakEJh7WzJx2n7.kPqK8QYW8vw23+goxr2Oubcg1wDbaZ1dovmUrnHu508wUiQztGHzYJRrWBS87ojZrQ67+FpcygyJUcZVjzjrXfDTb5chT3X4xdQmzsCEV01tY6CXf9XzgV+Qq5ThsByp21TTlP2vvxjysdmkG9PQLiIflkUSaMEz0U275+E7jvfWBzzqZ3tzf6agWxm8deSe36BxDw2hEC84Lsh+1mVnj3odMA3G74qjT+Uke/U3W6UtFU35Z7xCn3I0yiM8kmPgR2LGyLdVk0MesWE1u7Iip8h5SvPI9cgpP6DVZmyfFSVxu+cD0xfIVQhpN+iUsNKNC5PiFbVWIA1gre/E/KqGjGVA7z0Bo5p7G19WBzNe",
+   "r:d4c65da4276e8b38": "1.SyFUwWYkuBVp6gi7.JPzP5omrTzSULCmqVAu9XIDlkIyd8Aq+vR9hPnpXzYhxaseWK1mCO+Q244gU785NpJcCAkRxXgbMDNOXAC730v9zHlvbd5JkIZ8=",
+   "r:3742b3f78c5b7fb8": "1.d5Scezw4LmfBpIu4.PEaRhHJJ5OdfK74YlrNWqCE5rHo=",
+   "maermin_vault_manifest": "1.r9jhXkCf1vLTX7vo.p6n6rJCllVZN0tCy861ih5WDBs1NQHe+jwK4AbEtowvQ0uCwJ2S3+th2POS8sZBVY/FECTSAjRm9qgDRCgU1YM+yPTtInHZgXtq8Hvny9jQLdBl777lNZQDbSRFmxsuJVWh1ZA1LIhQRLaVnIo7pz0/QnIiS5qEd3boG5XuXiNoCDrmoYfHIlz0="
+  }
+ },
+ "changedPasswordVault": {
+  "localStorage": {
+   "maermin_vault_meta": "{\"v\":2,\"kdf\":\"pbkdf2\",\"params\":{\"iterations\":600000,\"hash\":\"SHA-256\"},\"salt\":\"vXMt/cpnN/OJXSo6fZrOWw==\",\"wrapCheck\":\"1.181sAQaGAV7lltaf.o1WiBtJ1mNf6UnNpqXrvx6Eeo4w2vJv2SLlu6yBdxDmSBIc=\",\"autoLockMs\":900000,\"createdAt\":1791737808768,\"updatedAt\":1791737808827,\"pwWrap\":\"1.w83N7/nMqpvTE0Cq.1mFyQ4I1Rs7kyybuWkpN9+KKvXg2Yd2Vu8v2BhXFvzroBxISaeJiOpphMKT5teHjxDYYKWx7IOLXBR1D\"}",
+   "maermin_vault_data": "1.kKsw2oRgJEB5Bcvs.LX7QNHgB8EghXXRypUwd1OybOYQkVVfQ30pNLHfKPt/nMPt3d1WUYnQACM5YYDu6NIzsxzBAhNV2bo29jaS/yRTyauRNYAyZp7PcB1goNx8sDJFDT7ZijIzGyzdnG1j5SEY2w6OGUA2zYhpNlP5bwFv5dGFpAZHfB0n2xUJV0l1HduEmjyoE/ks5h5rDhIz8EFPEaPAownH+qdejfXBq0GCoSWAziJqjrhQHGKTWAlI5RyRLziqmmZbShNY1tAcj+EI0hu5LsCoMxPcfCYJzcF2HUxoXOjjEqXVYWmucuFLgJyZtoIuYWAabN8WWPxpqoIXlpp3l6Qp+1rP68ZLwt1suhZXSkyHXsFlEuJ9WdISyiMbZ0oMOGHDgWnIIguj/t23vmj3Mewgoror4334P7nQf1Hl/jt8C8JWpQeloYGaBMNkWdTh4Tj+bvIXxUtzJvPmNC14/R/I2wyHl5BmIjh4mw0O28jU6VojW5LhhJFWkmrpq7bTnlsgsvGSngQFEb4y9B4ntGavp+qKJEFtxxrcj7TBg15N6sS4X60JYFAfVnCdZlxBox5zMMr7pwbo+ZHGe7CFxHLRBujKdVOZaj1XW2Q==",
+   "maermin_vault_atrest": "1"
+  }
+ }
+}

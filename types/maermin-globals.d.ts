@@ -25,18 +25,31 @@ interface MaerminVaultAPI {
   create(password: string, opts?: { kdf?: string; params?: any; autoLockMs?: number }): Promise<boolean>;
   unlock(password: string): Promise<boolean>;
   changePassword(oldPw: string, newPw: string, opts?: any): Promise<boolean>;
+  verifyPassword(password: string): Promise<boolean>;
+  prepareRotation(password: string): Promise<MaerminRotationHandle>;
   lock(): void;
-  encrypt(plaintext: string): Promise<string>;
-  decrypt(envelope: string): Promise<string>;
-  encryptJSON(obj: any): Promise<string>;
-  decryptJSON(envelope: string): Promise<any>;
+  lockSettled(): Promise<any>;
+  encrypt(plaintext: string, context?: string): Promise<string>;
+  decrypt(envelope: string, context?: string, opts?: { strict?: boolean }): Promise<string>;
+  encryptJSON(obj: any, context?: string): Promise<string>;
+  decryptJSON(envelope: string, context?: string, opts?: { strict?: boolean }): Promise<any>;
   deriveSubKey(label: string): Promise<ArrayBuffer>;
+  envelopeVersion(envelope: string): number;
+  validateMeta(meta: any): { ok: boolean; error?: string };
   configureAutoLock(ms: number): void;
   touch(): void;
   onLock(cb: () => void): void;
   passkeySupported(): boolean;
-  enrollPasskey(label?: string): Promise<{ supported: boolean; enrolled?: boolean }>;
+  enrollPasskey(label?: string): Promise<{ supported: boolean; enrolled?: boolean; reason?: string }>;
   unlockWithPasskey(): Promise<boolean>;
+  removePasskey(): boolean;
+}
+/** A data-key rotation prepared by MaerminVault.prepareRotation (SEC-017). */
+interface MaerminRotationHandle {
+  encrypt(plaintext: string, context?: string): Promise<string>;
+  encryptJSON(obj: any, context?: string): Promise<string>;
+  deriveSubKey(label: string): Promise<ArrayBuffer>;
+  commit(): boolean;
 }
 
 interface MaerminStorageAPI {
@@ -48,7 +61,10 @@ interface MaerminStorageAPI {
   disableAtRest(): Promise<boolean>;
   resume(): Promise<boolean>;
   flush(): Promise<boolean>;
-  rekey(): Promise<boolean>;
+  /** Re-encrypt the store under a prepared rotation and commit it (SEC-017). */
+  rekey(handle: MaerminRotationHandle): Promise<MaerminRotationHandle>;
+  exportEncryptedBackup(): Promise<any>;
+  importEncryptedBackup(backup: any): Promise<boolean>;
   snapshotPlaintext(): Record<string, string>;
   restoreBackup(): boolean;
 }
@@ -59,7 +75,9 @@ interface MaerminAuthAPI {
   lock(): void;
   logout(): void;
   changePassword(oldPw: string, newPw: string): Promise<any>;
+  rotateKey(password: string): Promise<boolean>;
   enrollPasskey(label?: string): Promise<any>;
+  removePasskey(): boolean;
   setAutoLock(ms: number): void;
   getStatus(): { hasVault: boolean; unlocked: boolean; kdf?: string; autoLockMs?: number; hasPasskey: boolean; encryptedAtRest: boolean; passkeySupported: boolean };
 }

@@ -1615,3 +1615,12 @@ to{opacity:1;transform:translate(-50%,0)}
 #maermin-pwa-install button{border:none;cursor:pointer;border-radius:9px;font-weight:700;font-size:.82rem;padding:8px 12px}
 #maermin-pwa-install .mpwa-go{background:linear-gradient(135deg,#c3b8ff,#8b7cff 55%,#5b8cff);color:#ffffff}
 #maermin-pwa-install .mpwa-no{background:transparent;color:#8b94a7;padding:8px}
+
+/* Lock screen: password strength hint (SEC-005) and the warning shown while
+   encryption at rest is switched off at setup (SEC-006). */
+#maermin-auth .auth-strength { min-height: 1.1em; margin-top: 0.35rem; font-size: 0.75rem; color: #8b94a7; }
+#maermin-auth .auth-strength[data-score="0"] { color: #f87171; }
+#maermin-auth .auth-strength[data-score="1"] { color: #fbbf24; }
+#maermin-auth .auth-strength[data-score="2"], #maermin-auth .auth-strength[data-score="3"] { color: #34d399; }
+#maermin-auth .auth-warn { margin: -0.25rem 0 0.9rem; padding: 0.55rem 0.7rem; border-radius: 10px; font-size: 0.76rem; line-height: 1.45; color: #fde68a; background: rgba(245, 158, 11, 0.10); border: 1px solid rgba(245, 158, 11, 0.35); }
+#maermin-auth .auth-warn[hidden] { display: none; }

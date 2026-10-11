@@ -189,12 +189,12 @@
   function persist() {
     if (persistTimer) { clearTimeout(persistTimer); persistTimer = null; }
     if (!mem || !Vault || !Vault.isUnlocked()) return Promise.resolve(false);
-    if (persisting) { schedulePersist(); return Promise.resolve(false); }
+    if (persisting || rotating) { schedulePersist(); return Promise.resolve(false); }
     persisting = true;
     var IDB = idbBackend();
     var p = IDB
       ? persistPerKey(IDB)                                   // v12: per-key records
-      : Vault.encryptJSON(mem).then(function (env) { return blobSet(env); }); // blob (LS)
+      : Vault.encryptJSON(mem, CTX_BLOB).then(function (env) { return blobSet(env); }); // blob (LS)
     return p
       .then(function () { persisting = false; return true; })
       .catch(function () { persisting = false; return false; });
@@ -210,10 +210,14 @@
     if (IDB) {
       // v12: prefer per-key records; fall back to a Phase-1 blob and migrate it.
       return hydratePerKey(IDB).then(function (perKey) {
-        if (perKey) { mem = perKey; dirty = {}; installShim(); return true; }
+        if (perKey) {
+          mem = perKey; installShim();
+          if (_upgradePending) { _upgradePending = false; schedulePersist(); } else dirty = {};
+          return true;
+        }
         return blobGet().catch(function () { return null; }).then(function (env) {
           if (!env) { mem = {}; _manifest = {}; dirty = {}; installShim(); return true; }
-          return Vault.decryptJSON(env).then(function (obj) {
+          return Vault.decryptJSON(env, CTX_BLOB).then(function (obj) {
             mem = obj && typeof obj === 'object' ? obj : {};
             _manifest = {}; dirty = {};
             Object.keys(mem).forEach(function (k) { dirty[k] = true; });
@@ -225,17 +229,17 @@
         });
       }).catch(function () { mem = null; return false; });
     }
-    // No IndexedDB → the localStorage blob path (Phase 1, byte-identical).
-    return blobGet().catch(function () { return null; }).then(function (env) {
+    // No IndexedDB → the localStorage blob path.
+    return finishRotationBlob().then(function () { return blobGet(); }).catch(function () { return null; }).then(function (env) {
       if (!env) { mem = {}; installShim(); return true; } // empty vault
-      return Vault.decryptJSON(env)
-        .then(function (obj) { mem = obj && typeof obj === 'object' ? obj : {}; installShim(); return true; })
+      return Vault.decryptJSON(env, CTX_BLOB)
+        .then(function (obj) {
+          mem = obj && typeof obj === 'object' ? obj : {}; installShim();
+          if (Vault.envelopeVersion && Vault.envelopeVersion(env) < 2) schedulePersist(); // rewrite in the current format
+          return true;
+        })
         .catch(function () { mem = null; return false; }); // fail-safe: stay native
     });
-  }
-
-  function nativeRead(key) {
-    return (nativeGet || Storage.prototype.getItem).call(window.localStorage, key);
   }
 
   // ---- blob backend (IndexedDB for large vaults, localStorage fallback) ------
@@ -285,6 +289,16 @@
   // itself encrypted and record ids are random, so NO key name is exposed at
   // rest. Inert without IndexedDB (Node uses the blob path above).
   var MANIFEST_KEY = 'maermin_vault_manifest'; // IDB key of the encrypted name→id map
+  // SEC-007: each record is bound to what it is (AES-GCM associated data), so a
+  // record put under another name fails to decrypt. Manifest v2 = every record
+  // is in that format; older (v1) records are read until they are rewritten.
+  var CTX_BLOB = 'blob', CTX_MANIFEST = 'manifest';
+  function recCtx(name) { return 'rec:' + name; }
+  var MANIFEST_V = 2;
+  // SEC-017: a key rotation stages the new data next to the old one; the vault
+  // meta write is the commit point, and the next unlock finishes (or drops) it.
+  var MANIFEST_NEXT = MANIFEST_KEY + ':next', BLOB_NEXT = BLOB_KEY + ':next';
+  var rotating = false;
   function recId() {
     if (typeof crypto !== 'undefined' && crypto.getRandomValues) {
       var a = crypto.getRandomValues(new Uint8Array(8)), s = '';
@@ -294,9 +308,6 @@
     return 'r' + Math.random().toString(16).slice(2, 18);
   }
   function recKey(id) { return 'r:' + id; }
-  function writeManifest(IDB) {
-    return Vault.encryptJSON({ v: 1, map: _manifest || {} }).then(function (env) { return IDB.set(MANIFEST_KEY, env); });
-  }
   // Persist only the dirty keys as individual encrypted records + the manifest.
   function persistPerKey(IDB) {
     if (!_manifest) _manifest = {};
@@ -306,7 +317,7 @@
     var ops = names.map(function (name) {
       if (Object.prototype.hasOwnProperty.call(mem, name)) {
         if (!_manifest[name]) _manifest[name] = recId();
-        return Vault.encrypt(mem[name]).then(function (env) { return IDB.set(recKey(_manifest[name]), env); });
+        return Vault.encrypt(mem[name], recCtx(name)).then(function (env) { return IDB.set(recKey(_manifest[name]), env); });
       }
       var id = _manifest[name];           // removed key → drop its record + entry
       delete _manifest[name];
@@ -314,7 +325,7 @@
     });
     // Encrypt the manifest now (same tick as the records) so a lock() right
     // after this call cannot leave the batch without a readable manifest.
-    var manifestEnv = Vault.encryptJSON({ v: 1, map: _manifest });
+    var manifestEnv = Vault.encryptJSON({ v: MANIFEST_V, map: _manifest }, CTX_MANIFEST);
     return Promise.all(ops)
       .then(function () { return manifestEnv; })
       .then(function (env) { return IDB.set(MANIFEST_KEY, env); })
@@ -323,23 +334,47 @@
   // Read mem from the per-key records; resolves null when there is no manifest
   // yet (caller then tries the Phase-1 blob).
   function hydratePerKey(IDB) {
-    return IDB.get(MANIFEST_KEY).then(function (menv) {
+    return finishRotationIdb(IDB).then(function () { return IDB.get(MANIFEST_KEY); }).then(function (menv) {
       if (!menv) return null;
-      return Vault.decryptJSON(menv).then(function (obj) {
+      return Vault.decryptJSON(menv, CTX_MANIFEST).then(function (obj) {
         var map = (obj && obj.map) || {};
+        var strict = obj && obj.v >= MANIFEST_V;
         return Promise.all(Object.keys(map).map(function (name) {
           return IDB.get(recKey(map[name])).then(function (env) {
             if (!env) return null;
-            return Vault.decrypt(env).then(function (plain) { return { name: name, value: plain }; }, function () { return null; });
+            return Vault.decrypt(env, recCtx(name), { strict: strict }).then(function (plain) { return { name: name, value: plain }; }, function () { return null; });
           });
         })).then(function (rows) {
           var out = {};
           rows.forEach(function (r) { if (r) out[r.name] = r.value; });
           _manifest = map;
+          // An older store: rewrite every record (and the manifest) in the
+          // current format on the next save.
+          if (!strict) { Object.keys(out).forEach(function (k) { dirty[k] = true; }); _upgradePending = true; }
           return out;
         });
       }, function () { throw new Error('manifest-undecryptable'); }); // never fall back to an empty vault
     });
+  }
+  var _upgradePending = false;
+  // A staged rotation (SEC-017) the last session did not finish: if the staged
+  // manifest opens with the current key, the rotation was committed - make it
+  // the manifest. If not, it was never committed - drop it.
+  function finishRotationIdb(IDB) {
+    return IDB.get(MANIFEST_NEXT).then(function (next) {
+      if (!next) return;
+      return Vault.decryptJSON(next, CTX_MANIFEST).then(
+        function () { return IDB.set(MANIFEST_KEY, next).then(function () { return IDB.del(MANIFEST_NEXT); }); },
+        function () { return IDB.del(MANIFEST_NEXT); });
+    }, function () {});
+  }
+  function finishRotationBlob() {
+    var next = (nativeGet || Storage.prototype.getItem).call(window.localStorage, BLOB_NEXT);
+    if (!next) return Promise.resolve();
+    var drop = function () { try { (nativeRemove || Storage.prototype.removeItem).call(window.localStorage, BLOB_NEXT); } catch (e) {} };
+    return Vault.decryptJSON(next, CTX_BLOB).then(
+      function () { lsBlobWrite(next); drop(); },
+      function () { drop(); });
   }
   // Remove every per-key record + the manifest (disable / restore).
   function perKeyClear(IDB) {
@@ -381,7 +416,7 @@
       Object.keys(mem).forEach(function (k) { dirty[k] = true; });
       writeP = persistPerKey(IDB).then(function () { return blobDel(); }); // no stale blob
     } else {
-      writeP = Vault.encryptJSON(mem).then(function (env) { return blobSet(env); });
+      writeP = Vault.encryptJSON(mem, CTX_BLOB).then(function (env) { return blobSet(env); });
     }
     return writeP.then(function () {
       SENSITIVE_KEYS.forEach(function (k) {
@@ -462,16 +497,58 @@
     return p;
   }
 
-  // Re-encrypt under a new key after changePassword (mem already holds plaintext).
-  // The blob path re-encrypts everything anyway; the per-key path must mark ALL
-  // keys dirty so every record is rewritten under the new key (not just the ones
-  // edited this session) — otherwise old-key records would fail to decrypt next
-  // unlock.
-  function rekey() {
-    if (idbBackend() && mem) { Object.keys(mem).forEach(function (k) { dirty[k] = true; }); }
-    // Wait out an in-flight persist so this call really writes under the new key.
-    var wait = function () { return persisting ? new Promise(function (r) { setTimeout(r, 50); }).then(wait) : persist(); };
-    return wait();
+  // SEC-017: re-encrypt the whole store under a NEW data key (see
+  // MaerminVault.prepareRotation). Crash-safe in this order:
+  //   1. the data under the new key is STAGED next to the current data
+  //      (per-key: new random record ids + MANIFEST_NEXT; blob: BLOB_NEXT);
+  //   2. handle.commit() writes the vault meta - the one commit point;
+  //   3. the staged copy becomes the current one, old records are deleted.
+  // A crash before 2 leaves the old vault (the staged copy is dropped on the
+  // next unlock); a crash after 2 is finished on the next unlock (hydrate).
+  // Edits made meanwhile stay dirty and are saved under the new key after.
+  // Resolves with the handle (already committed).
+  function rekey(handle) {
+    if (!handle || typeof handle.commit !== 'function') return Promise.reject(new Error('no-rotation'));
+    var wait = function () { return persisting ? new Promise(function (r) { setTimeout(r, 50); }).then(wait) : Promise.resolve(); };
+    return wait().then(function () {
+      rotating = true;
+      var IDB = idbBackend();
+      var snapshot = mem ? Object.assign({}, mem) : null;
+      var staged;
+      if (snapshot && IDB) {
+        var newMap = {};
+        staged = Promise.all(Object.keys(snapshot).map(function (name) {
+          var id = recId(); newMap[name] = id;
+          return handle.encrypt(snapshot[name], recCtx(name)).then(function (env) { return IDB.set(recKey(id), env); });
+        })).then(function () { return handle.encryptJSON({ v: MANIFEST_V, map: newMap }, CTX_MANIFEST); })
+          .then(function (env) { return IDB.set(MANIFEST_NEXT, env).then(function () { return { kind: 'idb', map: newMap, env: env }; }); });
+      } else if (snapshot) {
+        staged = handle.encryptJSON(snapshot, CTX_BLOB).then(function (env) {
+          (nativeSet || Storage.prototype.setItem).call(window.localStorage, BLOB_NEXT, env);
+          return { kind: 'blob', env: env };
+        });
+      } else staged = Promise.resolve({ kind: 'none' });
+      return staged.then(function (st) {
+        handle.commit();                                   // <- commit point
+        var oldMap = _manifest || {};
+        var done;
+        if (st.kind === 'idb') {
+          done = IDB.set(MANIFEST_KEY, st.env).then(function () { return IDB.del(MANIFEST_NEXT); }).then(function () {
+            _manifest = st.map;
+            return Promise.all(Object.keys(oldMap).map(function (n) { return IDB.del(recKey(oldMap[n])); }));
+          }).then(function () { return blobDel(); });
+        } else if (st.kind === 'blob') {
+          lsBlobWrite(st.env);
+          try { (nativeRemove || Storage.prototype.removeItem).call(window.localStorage, BLOB_NEXT); } catch (e) {}
+          done = Promise.resolve();
+        } else done = Promise.resolve();
+        return done.then(function () {
+          rotating = false;
+          if (Object.keys(dirty).length) schedulePersist();
+          return handle;
+        });
+      }, function (e) { rotating = false; throw e; });
+    });
   }
 
   // Export the current decrypted snapshot (for sync-engine.js to wrap+upload).
@@ -526,7 +603,7 @@
     return blobGet().then(function (existingBlob) {
       var blobP;
       if (existingBlob) blobP = Promise.resolve(existingBlob);
-      else if (Vault && Vault.isUnlocked()) blobP = Vault.encryptJSON(snapshotPlaintext());
+      else if (Vault && Vault.isUnlocked()) blobP = Vault.encryptJSON(snapshotPlaintext(), CTX_BLOB);
       else return Promise.reject(new Error('locked'));
       return blobP.then(function (blob) {
         var meta;
@@ -540,6 +617,9 @@
     if (!obj || obj.format !== 'maermin-vault-backup' || !obj.meta || typeof obj.blob !== 'string') {
       return Promise.reject(new Error('bad-backup'));
     }
+    // SEC-004: only a meta the vault can safely use replaces the current one.
+    if (Vault && Vault.validateMeta && !Vault.validateMeta(obj.meta).ok) return Promise.reject(new Error('bad-backup'));
+    if (!Vault || !Vault.envelopeVersion || !Vault.envelopeVersion(obj.blob)) return Promise.reject(new Error('bad-backup'));
     var ls = window.localStorage;
     uninstallShim(); mem = null;
     (nativeSet || Storage.prototype.setItem).call(ls, metaKeyName(), JSON.stringify(obj.meta));
@@ -584,9 +664,7 @@
     importEncryptedBackup: importEncryptedBackup,
     BLOB_KEY: BLOB_KEY,
     BACKUP_KEY: BACKUP_KEY,
-    ATREST_FLAG: ATREST_FLAG,
-    // test seam: allow tests to inject native fns without a real Storage proto
-    _setNative: function (g, s, r) { nativeGet = g; nativeSet = s; nativeRemove = r; }
+    ATREST_FLAG: ATREST_FLAG
   };
 
   if (typeof window !== 'undefined') window.MaerminStorage = api;
