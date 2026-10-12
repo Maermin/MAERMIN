@@ -6,7 +6,7 @@
 
 Crypto · Stocks · ETFs · CS2 Skins · Commodities
 
-[![Live Demo](https://img.shields.io/badge/Live%20Demo-maermin.github.io-8b5cf6?style=for-the-badge&logo=github&logoColor=white)](https://maermin.github.io/MAERMIN/)
+[![Live Demo](https://img.shields.io/badge/Live%20Demo-maermin.github.io-8b5cf6?style=for-the-badge&logo=github&logoColor=white)](https://maermin.github.io/MAERMIN/?demo)
 [![Version](https://img.shields.io/badge/Version-11.0.0-3b82f6?style=for-the-badge)](#changelog)
 [![License](https://img.shields.io/badge/License-MIT-22c55e?style=for-the-badge)](LICENSE)
 [![No MAERMIN account](https://img.shields.io/badge/MAERMIN%20Account-not%20needed-f59e0b?style=for-the-badge)](#privacy--security)
@@ -131,6 +131,12 @@ re-open it anytime from **API Settings → Guided setup**, or pick **Demo mode**
 a sample portfolio before any setup. The demo brings its own made-up daily prices, so the
 value chart, TWR, the monthly returns grid, closed positions and the withholding-tax table
 all work without a Worker; leaving the demo shows your own (untouched) data again.
+
+**Try it without installing anything:** [maermin.github.io/MAERMIN/?demo](https://maermin.github.io/MAERMIN/?demo)
+opens the demo straight away — no password, no vault, no setup. That tab keeps everything
+in memory: it never reads or writes your browser's storage (an existing vault on the same
+site stays untouched), and all of it is gone when you close or reload it. **Exit demo**
+opens the normal app.
 
 ### 2 — Deploy your Cloudflare Worker
 The Worker is **required** for stock prices, historical chart data, CS2 prices, and symbol search. It's free and takes ~2 minutes.
@@ -277,6 +283,6 @@ MIT — see [LICENSE](LICENSE)
 
 <div align="center">
 
-[Live Demo](https://maermin.github.io/MAERMIN/) · [Report a Bug](https://github.com/maermin/MAERMIN/issues)
+[Live Demo](https://maermin.github.io/MAERMIN/?demo) · [Report a Bug](https://github.com/maermin/MAERMIN/issues)
 
 </div>
