@@ -382,6 +382,14 @@
               e('div', { style: { fontSize: '0.7rem', color: theme.textSecondary, marginTop: '2px' } }, t.healthOutOf100 || 'out of 100'))),
           e('div', { style: { marginTop: '0.6rem', display: 'inline-block', padding: '0.2rem 0.9rem', borderRadius: '9999px', background: `${col}22`, color: col, fontWeight: 700, fontSize: '0.95rem' } },
             (t.healthGrade || 'Grade') + ' ' + h.grade)),
+        // P5-1.6: the score in one plain sentence (rules in verdicts.js).
+        window.MaerminVerdicts && (function () {
+          const v = window.MaerminVerdicts.health(h.score);
+          if (!v) return null;
+          return e('div', { 'data-testid': 'verdict-health', 'data-level': v.level, style: { flexBasis: '100%', order: 3, color: theme.text, fontSize: '0.88rem', lineHeight: 1.5 } },
+            e('span', { style: { color: col, fontWeight: 700 } }, v.text),
+            e('span', { style: { color: theme.textSecondary, fontSize: '0.75rem' } }, ' ' + window.MaerminVerdicts.disclaimer()));
+        })(),
         e('div', { style: { flex: 1, minWidth: '240px' } },
           bar(t.healthDiversification || 'Diversification', h.subScores.diversification, meta('diversification')),
           bar(t.healthRiskCat || 'Risk', h.subScores.risk, meta('risk')),

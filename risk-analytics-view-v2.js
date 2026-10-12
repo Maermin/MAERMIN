@@ -193,6 +193,14 @@ function RiskAnalyticsViewV2(props) {
           : __('rkBasedRefresh', 'Based on the prices recorded on your refreshes')));
   }
 
+  // P5-1.6: one plain sentence under a key figure (rules in verdicts.js).
+  var V = typeof window !== 'undefined' ? window.MaerminVerdicts : null;
+  function verdictLine(r, id) {
+    if (!r) return null;
+    var c = { good: theme.success, warn: theme.warning, bad: theme.danger }[r.level] || theme.textSecondary;
+    return React.createElement('div', { 'data-testid': 'verdict-' + id, 'data-level': r.level, style: { color: c, fontSize: '0.78rem', lineHeight: 1.45, marginTop: '0.4rem' } }, r.text);
+  }
+
   if (!riskMetrics) {
     // No usable price history yet — still show the structural dimensions.
     return React.createElement('div', { style: { padding: '1.5rem' } },
@@ -263,7 +271,8 @@ function RiskAnalyticsViewV2(props) {
         ),
         React.createElement('div', { style: { color: theme.text, fontSize: '1.5rem', fontWeight: '800', letterSpacing: '-0.02em' } },
           window.MaerminI18n.pct(riskMetrics.volatility, 1)
-        )
+        ),
+        V && verdictLine(V.volatility(riskMetrics.volatility), 'volatility')
       ),
       
       // VaR
@@ -319,7 +328,8 @@ function RiskAnalyticsViewV2(props) {
             fontSize: '1.5rem',
             fontWeight: '700'
           }
-        }, window.MaerminI18n.num(riskMetrics.sharpeRatio, 2))
+        }, window.MaerminI18n.num(riskMetrics.sharpeRatio, 2)),
+        V && verdictLine(V.sharpe(riskMetrics.sharpeRatio), 'sharpe')
       ),
       
       // Sortino Ratio
@@ -336,7 +346,8 @@ function RiskAnalyticsViewV2(props) {
         ),
         React.createElement('div', { style: { color: theme.text, fontSize: '1.5rem', fontWeight: '800', letterSpacing: '-0.02em' } },
           isFinite(riskMetrics.sortinoRatio) ? window.MaerminI18n.num(riskMetrics.sortinoRatio, 2) : __('healthNotAvailable', 'n/a')
-        )
+        ),
+        V && verdictLine(V.sortino(riskMetrics.sortinoRatio), 'sortino')
       ),
       
       // Max Drawdown
@@ -353,9 +364,11 @@ function RiskAnalyticsViewV2(props) {
         ),
         React.createElement('div', { style: { color: theme.danger || '#ef4444', fontSize: '1.5rem', fontWeight: '800', letterSpacing: '-0.02em' } },
           '-' + window.MaerminI18n.pct(riskMetrics.maxDrawdownPercent, 1)
-        )
+        ),
+        V && verdictLine(V.drawdown(riskMetrics.maxDrawdownPercent), 'drawdown')
       )
     ),
+    V && React.createElement('div', { 'data-testid': 'verdict-note', style: { color: theme.textSecondary, fontSize: '0.72rem', margin: '-0.75rem 0 1.5rem' } }, V.disclaimer()),
     
     // Recommendations
     recommendations.length > 0 && React.createElement('div', {
