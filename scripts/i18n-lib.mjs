@@ -13,7 +13,7 @@ export const DICT_FILE = 'translations-complete.js';
 // Files that hold no UI text of their own: data tables, dev/boot shims,
 // workers and the dictionary itself.
 export const NOT_UI = new Set([
-  DICT_FILE, 'i18n.js', 'equity-metadata.js', 'demo-data.js', 'dev-boot.js', 'icons.js',
+  DICT_FILE, 'i18n.js', 'equity-metadata.js', 'fund-holdings-import.js', 'demo-data.js', 'dev-boot.js', 'icons.js',
   'service-worker.js', 'compute.worker.js', 'compute.worker.harness.js', 'loader-status.js'
 ]);
 // Files whose literals are English fallbacks of keys the guard already checks.

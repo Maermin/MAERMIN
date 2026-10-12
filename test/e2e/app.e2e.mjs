@@ -811,7 +811,7 @@ async function runBuild(browser, label, dir) {
     let brokerOv = '', rows = 0, before = null, after = null;
     // P5-1.8: Worker-only views run on in-page sample data; nothing may reach the network
     const sampleReqs = []; page.on('request', (r) => { if (/maermin\.invalid/.test(r.url())) sampleReqs.push(r.url()); });
-    const fixtures = {}; let dqText = '', va = null, br = null;
+    const fixtures = {}; let dqText = '', va = null, br = null, lt = null;
     try {
       await unlock(page, base);
       await page.keyboard.press('Escape');
@@ -853,6 +853,20 @@ async function runBuild(browser, label, dir) {
         if (f) { f.click(); await wait(1200); }
         return { acc, price, fund: f ? read() : null };
       });
+      // P5-2.3: import a (made-up) holdings file for the demo's world ETF, then export the look-through
+      await openView(page, 'health');
+      await page.locator('[data-testid="lt-input-VWCE"]').waitFor({ state: 'attached', timeout: 10000 });
+      const ltCsv = ['Sample Fund Holdings as of,"Oct 10, 2026"', '', 'Ticker,Name,Sector,Asset Class,Weight (%),Location,Currency',
+        'AAPL,APPLE INC,Information Technology,Equity,40,United States,USD', 'NVDA,NVIDIA CORP,Information Technology,Equity,30,United States,USD',
+        'SAP,SAP SE,Information Technology,Equity,20,Germany,EUR', '7203,TOYOTA MOTOR CORP,Consumer Discretionary,Equity,9.5,Japan,JPY',
+        'EUR,EUR CASH,Cash and/or Derivatives,Cash,0.5,Germany,EUR'].join('\n');
+      const storedBefore = await page.evaluate(() => localStorage.getItem('maermin_fund_holdings'));
+      await page.locator('[data-testid="lt-input-VWCE"]').setInputFiles({ name: 'sample_holdings.csv', mimeType: 'text/csv', buffer: Buffer.from(ltCsv) });
+      await page.waitForTimeout(1200);
+      lt = { src: await page.locator('[data-testid="lt-src-VWCE"]').innerText().catch(() => ''), card: await page.locator('[data-testid="lt-files"]').innerText().catch(() => ''),
+        table: await page.locator('[data-testid="lt-files"]').locator('xpath=ancestor::div[.//table][1]').locator('table').first().innerText().catch(() => ''), storedAfter: await page.evaluate(() => localStorage.getItem('maermin_fund_holdings')), storedBefore };
+      const [dl] = await Promise.all([page.waitForEvent('download', { timeout: 8000 }).catch(() => null), page.locator('[data-testid="lt-export"]').click().catch(() => null)]);
+      if (dl) { lt.file = dl.suggestedFilename(); const chunks = []; for await (const c of await dl.createReadStream()) chunks.push(c); lt.csv = Buffer.concat(chunks).toString('utf8'); }
       for (const id of ['news', 'discovery', 'performance', 'dividends']) {
         await openView(page, id);
         await page.waitForTimeout(id === 'news' ? 2000 : 1200);
@@ -902,6 +916,9 @@ async function runBuild(browser, label, dir) {
       { const gap = (r) => { const parts = Object.keys(r).filter((k) => k !== 'start' && k !== 'end').reduce((s, k) => s + r[k], 0); return Math.abs(parts - (r.end - r.start)); };
         ok('P5-2.1: Returns shows profit by source; the parts add up to end − start (Max and 1M)', !!va && va.max.start === 0 && va.max.end > 0 && gap(va.max) < 0.1 && va.m1.start > 0 && gap(va.m1) < 0.1 && !('residual' in va.max) && /Biggest driver:/.test(va.biggest),
           err || JSON.stringify(va)); }
+      ok('P5-2.3: a holdings file imported for VWCE: source line, holdings via VWCE in the effective exposure', !!lt && /your file .*4 holdings/.test(lt.src) && /4 holdings imported for VWCE/.test(lt.card) && /NVIDIA CORP[^\n]*via VWCE/i.test(lt.table), err || JSON.stringify(lt).slice(0, 300));
+      ok('P5-2.3: the demo keeps the imported file in memory only', !!lt && lt.storedAfter === lt.storedBefore, err || String(lt && lt.storedAfter).slice(0, 80));
+      ok('P5-2.3: look-through exports as CSV', !!lt && lt.file === 'maermin-look-through.csv' && /^Security,Key,Effective weight %/.test(lt.csv || '') && /NVIDIA/.test(lt.csv || ''), err || JSON.stringify(lt && { file: lt.file, csv: (lt.csv || '').slice(0, 80) }));
       { const sums = (r) => r && Math.abs(r.own - r.bench - r.diff) < 0.02;
         ok('P5-2.2: same money in MSCI World (EUNL.DE, reinvested) vs your portfolio, with a verdict; own end = profit-by-source end', !!br && sums(br.acc) && Math.abs(br.acc.own - va.max.end) < 0.01 && br.acc.bench > 0 && /MSCI World/.test(br.acc.verdict) && /EUNL\.DE/.test(br.acc.text), err || JSON.stringify(br && br.acc).slice(0, 300));
         ok('P5-2.2: price only (URTH) differs from reinvested and says the dividends are left out', !!br && sums(br.price) && br.price.bench !== br.acc.bench && /Price only \(URTH\)/.test(br.price.text), err || JSON.stringify(br && br.price).slice(0, 300));

@@ -192,6 +192,30 @@ function __(k, f, v) { return (typeof window !== 'undefined' && window.MaerminI1
     return s || String(name || '').trim().toUpperCase();
   }
 
+  // P5-2.3: one security across funds whose files name it differently - by
+  // ticker, else the ticker another file gives its ISIN or its name, else
+  // ISIN, else name. Names compare without legal-form suffixes.
+  var NAME_SUFFIX = /\b(INC|INCORPORATED|CORP|CORPORATION|CO|COMPANY|LTD|LIMITED|PLC|SE|AG|SA|NV|N V|AB|ASA|SPA|S P A|OYJ|HOLDINGS?|GROUP|CLASS [A-C]|CL [A-C]|REG|REGISTERED|ORD|ADR|SHS|SHARES)\b/g;
+  function nameKey(name) {
+    return String(name || '').toUpperCase().replace(/[^A-Z0-9 ]/g, ' ').replace(NAME_SUFFIX, ' ').replace(/\s+/g, ' ').trim();
+  }
+  function keyResolver(holdingsBySymbol) {
+    var byIsin = {}, byName = {};
+    Object.keys(holdingsBySymbol || {}).forEach(function (f) {
+      ((holdingsBySymbol[f] && holdingsBySymbol[f].holdings) || []).forEach(function (h) {
+        if (!h || !h.symbol) return;
+        if (h.isin && !byIsin[h.isin]) byIsin[h.isin] = h.symbol;
+        var n = nameKey(h.name);
+        if (n && !byName[n]) byName[n] = h.symbol;
+      });
+    });
+    return function (h) {
+      var sym = h.symbol || (h.isin && byIsin[h.isin]) || byName[nameKey(h.name)] || null;
+      if (sym) return holdingKey(sym, h.name);
+      return h.isin || nameKey(h.name) || holdingKey(null, h.name);
+    };
+  }
+
   function fallbackHoldings(symbol) {
     var basketId = FUND_ALIASES[normalizeFundSymbol(symbol)];
     if (!basketId) return null;
@@ -318,13 +342,19 @@ function __(k, f, v) { return (typeof window !== 'undefined' && window.MaerminI1
     var exposure = {};   // key → effective exposure accumulator
     var sectors = {};    // sector → weight
     var countries = {};  // country → weight
+    var currencies = {}; // currency → weight (file currencies, else from the country)
     var coveredValue = 0;
+    var keyOf = keyResolver(holdingsBySymbol);
+    var UNKNOWN = 'Unknown'; // currency bucket (shown through I18N like the sectors)
+    function curOfCountry(c) { return c === 'Other' ? UNKNOWN : (COUNTRY_CURRENCY[c] || 'Other'); }
+    function addCountry(c, w, withCurrency) { addTo(countries, c, w); if (withCurrency) addTo(currencies, curOfCountry(c), w); }
 
     // cls: the asset class the weight comes from (a fund's holdings count as
     // stocks), so checks about companies can leave out coins, skins and gold.
     function addExposure(key, name, weight, via, cls) {
       if (!exposure[key]) exposure[key] = { key: key, name: name, directWeight: 0, fundedWeight: 0, via: [], classes: [] };
-      if (!exposure[key].name && name) exposure[key].name = name;
+      // a directly held security keeps its own name (files spell it in capitals)
+      if (name && (!exposure[key].name || !via)) exposure[key].name = name;
       if (cls && exposure[key].classes.indexOf(cls) === -1) exposure[key].classes.push(cls);
       if (via) {
         exposure[key].fundedWeight += weight;
@@ -345,7 +375,7 @@ function __(k, f, v) { return (typeof window !== 'undefined' && window.MaerminI1
         addExposure(holdingKey(row.symbol, row.name), row.name || row.symbol, weight, null, row.cls);
         var meta = (row.cls === 'stocks' || row.cls === 'commodities') ? getMeta(row.symbol) : null;
         addTo(sectors, (meta && meta.sector) || 'Other', weight);
-        addTo(countries, (meta && meta.country) || 'Other', weight);
+        addCountry((meta && meta.country) || 'Other', weight, true);
         return;
       }
 
@@ -354,7 +384,7 @@ function __(k, f, v) { return (typeof window !== 'undefined' && window.MaerminI1
       var holdingCoverage = 0;
       (fund.holdings || []).forEach(function (h) {
         holdingCoverage += h.weight;
-        addExposure(holdingKey(h.symbol, h.name), h.name || h.symbol, weight * h.weight, normalizeFundSymbol(row.symbol), 'stocks');
+        addExposure(keyOf(h), h.name || h.symbol, weight * h.weight, normalizeFundSymbol(row.symbol), 'stocks');
       });
       holdingCoverage = Math.min(1, holdingCoverage);
       coveredValue += row.valueEUR * holdingCoverage;
@@ -368,16 +398,22 @@ function __(k, f, v) { return (typeof window !== 'undefined' && window.MaerminI1
       // Country look-through: explicit fund country split when available
       // (static fallback carries one); otherwise resolve the disclosed top
       // holdings via metadata and leave the rest as Other.
-      var countrySum = 0;
+      var countrySum = 0, ownCur = !!(fund.currencies && fund.currencies.length);
       if (fund.countries && fund.countries.length) {
-        fund.countries.forEach(function (c) { countrySum += c.weight; addTo(countries, c.country, weight * c.weight); });
+        fund.countries.forEach(function (c) { countrySum += c.weight; addCountry(c.country, weight * c.weight, !ownCur); });
       } else {
         (fund.holdings || []).forEach(function (h) {
           var m = h.symbol ? getMeta(h.symbol) : null;
-          if (m && m.country && m.country !== 'Other') { countrySum += h.weight; addTo(countries, m.country, weight * h.weight); }
+          if (m && m.country && m.country !== 'Other') { countrySum += h.weight; addCountry(m.country, weight * h.weight, !ownCur); }
         });
       }
-      if (countrySum < 1) addTo(countries, 'Other', weight * (1 - Math.min(1, countrySum)));
+      if (countrySum < 1) addCountry('Other', weight * (1 - Math.min(1, countrySum)), !ownCur);
+      // P5-2.3: a holdings file names each holding's currency
+      if (ownCur) {
+        var curSum = 0;
+        fund.currencies.forEach(function (c) { curSum += c.weight; addTo(currencies, c.currency, weight * c.weight); });
+        if (curSum < 1) addTo(currencies, UNKNOWN, weight * (1 - Math.min(1, curSum)));
+      }
 
       funds.push({
         symbol: normalizeFundSymbol(row.symbol),
@@ -387,7 +423,10 @@ function __(k, f, v) { return (typeof window !== 'undefined' && window.MaerminI1
         ter: fund.ter != null ? fund.ter : null,
         holdingCount: (fund.holdings || []).length,
         coverage: holdingCoverage,
-        source: fund.source || 'worker'
+        source: fund.source || 'worker',
+        asOf: fund.asOf || null,
+        provider: fund.provider || null,
+        fileCount: fund.fileCount || null
       });
     });
 
@@ -414,12 +453,9 @@ function __(k, f, v) { return (typeof window !== 'undefined' && window.MaerminI1
     var sectorExposure = toRows(sectors, 'sector');
     var countryExposure = toRows(countries, 'country');
 
-    // Currency approximation from the country split.
-    var curMap = {};
-    countryExposure.forEach(function (c) {
-      addTo(curMap, c.country === 'Other' ? 'Unknown' : (COUNTRY_CURRENCY[c.country] || 'Other'), c.weight);
-    });
-    var currencyExposure = toRows(curMap, 'currency');
+    // Currencies: from the holdings files where imported, else approximated
+    // from the country split (accumulated per position above).
+    var currencyExposure = toRows(currencies, 'currency');
 
     // Pairwise fund overlap: sum of min(weight in A, weight in B) over the
     // disclosed holdings — the standard "overlap %" approximation.
@@ -428,10 +464,10 @@ function __(k, f, v) { return (typeof window !== 'undefined' && window.MaerminI1
       for (var j = i + 1; j < funds.length; j++) {
         var fa = holdingsBySymbol[funds[i].symbol], fb = holdingsBySymbol[funds[j].symbol];
         var wa = {}, shared = [];
-        (fa.holdings || []).forEach(function (h) { wa[holdingKey(h.symbol, h.name)] = h.weight; });
+        (fa.holdings || []).forEach(function (h) { var ka = keyOf(h); wa[ka] = (wa[ka] || 0) + h.weight; });
         var overlap = 0;
         (fb.holdings || []).forEach(function (h) {
-          var k = holdingKey(h.symbol, h.name);
+          var k = keyOf(h);
           if (wa[k] != null) {
             var m = Math.min(wa[k], h.weight);
             overlap += m;
@@ -491,9 +527,14 @@ function __(k, f, v) { return (typeof window !== 'undefined' && window.MaerminI1
     var base = String(workerBase || '').trim().replace(/\/+$/, '');
     var unsupported = false;
     var results = {};
+    // P5-2.3: imported holdings files ({ ROOT: fundData }) win over Worker
+    // and snapshot; default = the stored files (MaerminFundFiles)
+    var FF = (typeof window !== 'undefined' && window.MaerminFundFiles) || null;
+    var files = opts.files || (FF && FF.fundDataMap ? FF.fundDataMap() : {});
     var jobs = (symbols || []).map(function (symbol) {
       var root = normalizeFundSymbol(symbol);
       if (!root) return Promise.resolve();
+      if (files[root]) return Promise.resolve(); // P5-2.3: the user's holdings file
       if (_fetchCache[root]) {
         if (_fetchCache[root].unsupported) unsupported = true;
         if (_fetchCache[root].fund) results[root] = _fetchCache[root].fund;
@@ -521,7 +562,7 @@ function __(k, f, v) { return (typeof window !== 'undefined' && window.MaerminI1
       var merged = {};
       (symbols || []).forEach(function (symbol) {
         var root = normalizeFundSymbol(symbol);
-        var data = mergeFundData(results[root] || null, fallbackHoldings(symbol));
+        var data = files[root] || mergeFundData(results[root] || null, fallbackHoldings(symbol));
         if (data) merged[root] = data;
       });
       return { holdings: merged, unsupported: unsupported };
@@ -554,6 +595,10 @@ function __(k, f, v) { return (typeof window !== 'undefined' && window.MaerminI1
 
     var sState = React.useState({ loading: false, unsupported: false, holdings: null });
     var state = sState[0], setState = sState[1];
+    // P5-2.3: imported holdings files; rev bumps re-run the load after an import
+    var FF = (typeof window !== 'undefined') && window.MaerminFundFiles;
+    var sRev = React.useState(0), filesRev = sRev[0], setFilesRev = sRev[1];
+    var sMsg = React.useState(null), fileMsg = sMsg[0], setFileMsg = sMsg[1];
 
     React.useEffect(function () {
       if (!candidates.length) { setState({ loading: false, unsupported: false, holdings: {} }); return; }
@@ -568,7 +613,7 @@ function __(k, f, v) { return (typeof window !== 'undefined' && window.MaerminI1
           setState({ loading: false, unsupported: out.unsupported, holdings: out.holdings });
         });
       return function () { cancelled = true; if (timer) clearTimeout(timer); if (ctrl) ctrl.abort(); };
-    }, [candidateKey, workerBase]);
+    }, [candidateKey, workerBase, filesRev]);
 
     var meta = (typeof window !== 'undefined') && window.MaerminEquityMeta;
     var result = null;
@@ -596,6 +641,71 @@ function __(k, f, v) { return (typeof window !== 'undefined' && window.MaerminI1
       return e('div', { style: { color: dim, fontSize: '0.72rem', textTransform: 'uppercase', letterSpacing: '0.05em', margin: '1rem 0 0.5rem', fontWeight: 700 } }, label);
     }
 
+    // ---- P5-2.3: holdings files per fund (import / remove) and CSV export ----
+    var FILE_ERR = {
+      'no-header': __('ltFileNoHeader', 'No holdings table found - the file needs a name and a weight column.'),
+      'no-rows': __('ltFileNoRows', 'The file has a holdings header but no holdings below it.'),
+      'weights': __('ltFileWeights', 'The weights in the file do not add up to a fund (about 100 %).'),
+      'old-xls': __('ltFileOldXls', 'Old Excel 97 format - open it and save it as .xlsx or .csv, then import again.'),
+      'no-inflate': __('ltFileNoInflate', 'This browser cannot open .xlsx files - save the file as .csv and import that.')
+    };
+    function importFile(root, file) {
+      if (!FF || !file) return;
+      setFileMsg(null);
+      var reader = file.arrayBuffer ? file.arrayBuffer() : Promise.reject(new Error('read'));
+      reader.then(function (buf) { return FF.readTable(file.name, new Uint8Array(buf)); })
+        .then(function (rows) {
+          var parsed = FF.parseTable(rows, file.name);
+          if (!parsed.ok) { setFileMsg({ root: root, bad: true, text: FILE_ERR[parsed.error] || FILE_ERR['no-header'] }); return; }
+          if (!FF.put(root, FF.toRecord(parsed, { fileName: file.name }))) { setFileMsg({ root: root, bad: true, text: __('ltFileSaveFailed', 'The file could not be saved on this device (storage full?).') }); return; }
+          setFileMsg({ root: root, bad: false, text: __('ltFileImported', '{n} holdings imported for {fund}.', { n: parsed.count, fund: root }) });
+          setFilesRev(function (x) { return x + 1; });
+        })
+        .catch(function (err) { setFileMsg({ root: root, bad: true, text: FILE_ERR[err && err.message] || FILE_ERR['no-header'] }); });
+    }
+    function removeFile(root) { if (!FF) return; FF.remove(root); setFileMsg(null); setFilesRev(function (x) { return x + 1; }); }
+    function exportCsv() {
+      if (!FF || !result) return;
+      var blob = new Blob([FF.exportCsv(result)], { type: 'text/csv;charset=utf-8' });
+      var a = document.createElement('a');
+      a.href = URL.createObjectURL(blob); a.download = 'maermin-look-through.csv';
+      document.body.appendChild(a); a.click(); a.remove();
+      setTimeout(function () { URL.revokeObjectURL(a.href); }, 1000);
+    }
+    function sourceText(f) {
+      if (!f) return __('ltSrcNone', 'no holdings data');
+      if (f.source === 'file') return __('ltSrcFileOf', 'your file{date} - {n} holdings', { date: f.asOf ? ' ' + (window.MaerminI18n.date ? window.MaerminI18n.date(f.asOf) : f.asOf) : '', n: f.fileCount || f.holdingCount });
+      if (f.source === 'worker') return __('ltSrcYahooTop', 'Yahoo top {n}', { n: f.holdingCount });
+      return __('ltSrcSnapshotShort', 'built-in snapshot (top 10)');
+    }
+    function filesSection() {
+      if (!FF || !candidates.length) return null;
+      var byRoot = {};
+      ((result && result.funds) || []).forEach(function (f) { byRoot[f.symbol] = f; });
+      var btn = { position: 'relative', padding: '0.3rem 0.65rem', borderRadius: '8px', border: '1px solid ' + border, background: 'transparent', color: text, fontSize: '0.74rem', fontWeight: 600, cursor: 'pointer' };
+      return e('div', { 'data-testid': 'lt-files' },
+        sectionTitle(__('ltFilesTitle', 'Holdings files')),
+        e('div', { style: { color: dim, fontSize: '0.74rem', lineHeight: 1.5, marginBottom: '0.5rem' } },
+          __('ltFilesHint', 'For the full look-through, download the holdings file (CSV or Excel) from your fund provider\'s fund page and import it here. The file is read on this device and never sent anywhere.')),
+        candidates.map(function (c) {
+          var root = normalizeFundSymbol(c.symbol), f = byRoot[root], own = f && f.source === 'file';
+          var msg = fileMsg && fileMsg.root === root ? fileMsg : null;
+          return e('div', { key: root, 'data-testid': 'lt-file-' + root, style: { borderTop: '1px solid ' + border, padding: '0.45rem 0' } },
+            e('div', { style: { display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: '0.5rem', justifyContent: 'space-between' } },
+              e('div', { style: { minWidth: 0 } },
+                e('span', { style: { color: text, fontSize: '0.82rem', fontWeight: 600 } }, root),
+                e('span', { 'data-testid': 'lt-src-' + root, style: { color: own ? (theme.success || '#22c55e') : dim, fontSize: '0.72rem', marginLeft: '0.5rem' } }, sourceText(f))),
+              e('div', { style: { display: 'flex', gap: '0.35rem' } },
+                e('label', { style: btn },
+                  own ? __('ltFileReplace', 'Replace file') : __('ltFileImport', 'Import holdings file'),
+                  e('input', { type: 'file', 'data-testid': 'lt-input-' + root, accept: '.csv,.txt,.xlsx,.xls,.xml', 'aria-label': __('ltFileImportFor', 'Import holdings file for {fund}', { fund: root }),
+                    style: { position: 'absolute', width: '1px', height: '1px', opacity: 0, overflow: 'hidden' },
+                    onChange: function (ev) { var fl = ev.target.files && ev.target.files[0]; ev.target.value = ''; importFile(root, fl); } })),
+                own ? e('button', { type: 'button', style: btn, onClick: function () { removeFile(root); } }, __('ltFileRemove', 'Remove')) : null)),
+            msg ? e('div', { role: 'status', style: { color: msg.bad ? bad : (theme.success || '#22c55e'), fontSize: '0.72rem', marginTop: '0.25rem' } }, msg.text) : null);
+        }));
+    }
+
     var body;
     var fundCount = result ? result.funds.length : 0;
 
@@ -605,8 +715,9 @@ function __(k, f, v) { return (typeof window !== 'undefined' && window.MaerminI1
     } else if (state.loading) {
       body = e('div', { style: { color: dim, fontSize: '0.85rem', padding: '0.5rem 0' } }, __('ltResolving', 'Resolving fund holdings...'));
     } else if (!result || !result.available || !fundCount) {
-      body = e('div', { style: { color: dim, fontSize: '0.85rem', padding: '0.5rem 0' } },
-        __('ltNoData', 'No holdings data available for your fund positions yet. Live data needs the latest Worker (action=fundholdings); a built-in snapshot covers the most common index ETFs.'));
+      body = e('div', null, e('div', { style: { color: dim, fontSize: '0.85rem', padding: '0.5rem 0' } },
+        __('ltNoData', 'No holdings data available for your fund positions yet. Live data needs the latest Worker (action=fundholdings); a built-in snapshot covers the most common index ETFs.')),
+        mode !== 'risk' ? filesSection() : null);
     } else {
       var parts = [];
 
@@ -678,12 +789,20 @@ function __(k, f, v) { return (typeof window !== 'undefined' && window.MaerminI1
         }
       }
 
+      if (mode !== 'risk') parts.push(filesSection());
+
       // Footer: coverage + sources + approximation disclaimer
+      var allFiles = result.funds.length > 0 && result.funds.every(function (f) { return f.source === 'file'; });
       var sources = result.funds.some(function (f) { return f.source === 'worker'; })
         ? (result.funds.some(function (f) { return f.source === 'fallback'; }) ? __('ltSrcBoth', 'live Worker data + built-in snapshot') : __('ltSrcWorker', 'live Worker data'))
         : __('ltSrcSnapshot', 'built-in snapshot (approximate)');
+      if (result.funds.some(function (f) { return f.source === 'file'; })) sources = allFiles ? __('ltSrcFiles', 'your holdings files') : __('ltSrcFilesPlus', 'your holdings files + {src}', { src: sources });
       parts.push(e('div', { style: { color: dim, fontSize: '0.7rem', marginTop: '0.9rem', lineHeight: 1.5 } },
-        __('ltFooter', '{n} {n:fund|funds} resolved, {pct} of portfolio value mapped to disclosed holdings. Source: {src}. Holdings are approximations (top holdings only) and not investment advice.', { n: fundCount, pct: pct(result.coverage), src: sources })));
+        allFiles ? __('ltFooterFiles', '{n} {n:fund|funds} resolved from your holdings files, {pct} of portfolio value mapped to named holdings. Not investment advice.', { n: fundCount, pct: pct(result.coverage) })
+          : __('ltFooter', '{n} {n:fund|funds} resolved, {pct} of portfolio value mapped to disclosed holdings. Source: {src}. Holdings are approximations (top holdings only) and not investment advice.', { n: fundCount, pct: pct(result.coverage), src: sources })));
+      if (mode !== 'risk' && FF) parts.push(e('div', { style: { marginTop: '0.6rem' } },
+        e('button', { type: 'button', 'data-testid': 'lt-export', onClick: exportCsv, style: { padding: '0.35rem 0.75rem', borderRadius: '8px', border: '1px solid ' + border, background: 'transparent', color: text, fontSize: '0.75rem', fontWeight: 600, cursor: 'pointer' } },
+          __('ltExportCsv', 'Export look-through (CSV)'))));
 
       if (state.unsupported) {
         parts.push(e('div', { style: { color: warn, fontSize: '0.74rem', marginTop: '0.5rem', lineHeight: 1.5 } },
@@ -706,6 +825,7 @@ function __(k, f, v) { return (typeof window !== 'undefined' && window.MaerminI1
     COUNTRY_CURRENCY: COUNTRY_CURRENCY,
     normalizeFundSymbol: normalizeFundSymbol,
     holdingKey: holdingKey,
+    nameKey: nameKey,
     fallbackHoldings: fallbackHoldings,
     isFundCandidate: isFundCandidate,
     knownFundType: knownFundType,
