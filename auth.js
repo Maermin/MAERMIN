@@ -153,7 +153,9 @@
   function overlayShell(innerHtml) {
     var el = document.createElement('div');
     el.id = 'maermin-auth';
-    el.innerHTML = '<div class="auth-card">' + innerHtml + '</div>';
+    // A <form>, so the browser and password managers see the password fields
+    // as a login form. It never navigates: showScreen handles its submit event.
+    el.innerHTML = '<form class="auth-card" novalidate>' + innerHtml + '</form>';
     return el;
   }
 
@@ -431,13 +433,11 @@
     // One submit at a time: the handlers disable the button while they run,
     // and Enter must respect that too (FINDINGS M-8: setup and unlock could
     // run twice in parallel).
+    // The submit button and Enter in a field both arrive as the form's submit
+    // event (Enter does nothing while the button is disabled).
     var submitBtn = document.getElementById('auth-submit');
     function submitOnce() { if (!submitBtn.disabled) onSubmit(); }
-    submitBtn.addEventListener('click', submitOnce);
-    var fields = overlay.querySelectorAll('input[type="password"], #auth-rc');
-    fields.forEach(function (f) {
-      f.addEventListener('keydown', function (e) { if (e.key === 'Enter') submitOnce(); });
-    });
+    overlay.querySelector('form').addEventListener('submit', function (e) { e.preventDefault(); submitOnce(); });
     var pk = document.getElementById('auth-passkey');
     if (pk) pk.addEventListener('click', handlePasskey);
     var rc = document.getElementById('auth-recovery');

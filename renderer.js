@@ -1605,12 +1605,14 @@ function InvestmentTracker() {
           const cgBase = (apiKeys.cs2Worker || '').trim().replace(/\/$/, '');
           const pairOf = window.MaerminTickers && window.MaerminTickers.yahooCryptoSymbol;
           const unpriced = Object.keys(symsById).filter(id => !pricedIds[id]);
+          const cryptoNL = window.MaerminCloseHistory && window.MaerminCloseHistory.noListing;
           if (cgBase.length > 5 && pairOf && unpriced.length) {
             await Promise.all(unpriced.map(async (id) => {
               const pair = pairOf((symsById[id] || [])[0] || id);
-              if (!pair) return;
+              if (!pair || (cryptoNL && cryptoNL.has(pair))) return;
               try {
                 const r = await fetch(`${cgBase}?action=yf&symbol=${encodeURIComponent(pair)}&interval=1d&range=5d`, { signal: AbortSignal.timeout(8000) });
+                if (r.status === 404 && cryptoNL) cryptoNL.mark(pair);
                 if (!r.ok) return;
                 const j = await r.json();
                 const last = j.prices && j.prices[j.prices.length - 1];

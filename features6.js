@@ -225,10 +225,13 @@ async function fetchCryptoHistory(coinId, period) {
 // live one - Yahoo filed the ticker under another coin.
 async function fetchYahooCryptoHistory(sym, period, workerUrl, livePrice, usdToEur) {
   const pair = window.MaerminTickers.yahooCryptoSymbol(sym);
-  if (!pair) return null;
+  // A pair Yahoo answered 404 for is not asked again (BUG-036): CoinGecko instead.
+  const NL = window.MaerminCloseHistory && window.MaerminCloseHistory.noListing;
+  if (!pair || (NL && NL.has(pair))) return null;
   try {
     const base = workerUrl.replace(/\/$/, '');
     const res = await fetch(`${base}?action=yf&symbol=${encodeURIComponent(pair)}&interval=${period.yfInterval}&range=${period.yfRange}`, { signal: AbortSignal.timeout(20000) });
+    if (res.status === 404 && NL) NL.mark(pair);
     if (!res.ok) return null;
     const data = await res.json();
     if (data.error || !data.prices || data.prices.length < 2) return null;
