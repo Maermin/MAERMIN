@@ -4404,7 +4404,7 @@ function InvestmentTracker() {
           : renderAnalyticsPlaceholder(t.stressTesting || 'Stress Test');
         case 'risk': return React.createElement(React.Fragment, null,
           window.RiskAnalyticsViewV2
-            ? React.createElement(window.RiskAnalyticsViewV2, { portfolio, prices, transactions: activeTransactions, setActiveView, t, theme: currentTheme, formatPrice, getCurrencySymbol,
+            ? React.createElement(window.RiskAnalyticsViewV2, { portfolio, prices, portfolioValueEUR: portfolioStats.totalValue, transactions: activeTransactions, setActiveView, t, theme: currentTheme, formatPrice, getCurrencySymbol,
                 priceHistory: Object.keys(dailyAnalytics.byLower).length ? dailyAnalytics.byLower : priceHistory,
                 historySource: Object.keys(dailyAnalytics.byLower).length ? 'daily' : 'refresh', valueSeries: dailyAnalytics.index })
             : renderAnalyticsPlaceholder(t.navRiskCorrelation || 'Risk Analysis'),
