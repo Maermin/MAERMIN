@@ -320,9 +320,12 @@ function __(k, f, v) { return (typeof window !== 'undefined' && window.MaerminI1
     var countries = {};  // country → weight
     var coveredValue = 0;
 
-    function addExposure(key, name, weight, via) {
-      if (!exposure[key]) exposure[key] = { key: key, name: name, directWeight: 0, fundedWeight: 0, via: [] };
+    // cls: the asset class the weight comes from (a fund's holdings count as
+    // stocks), so checks about companies can leave out coins, skins and gold.
+    function addExposure(key, name, weight, via, cls) {
+      if (!exposure[key]) exposure[key] = { key: key, name: name, directWeight: 0, fundedWeight: 0, via: [], classes: [] };
       if (!exposure[key].name && name) exposure[key].name = name;
+      if (cls && exposure[key].classes.indexOf(cls) === -1) exposure[key].classes.push(cls);
       if (via) {
         exposure[key].fundedWeight += weight;
         exposure[key].via.push({ fund: via, weight: weight });
@@ -339,7 +342,7 @@ function __(k, f, v) { return (typeof window !== 'undefined' && window.MaerminI1
       if (!fund) {
         // Direct position: full weight is "covered" (we know exactly what it is).
         coveredValue += row.valueEUR;
-        addExposure(holdingKey(row.symbol, row.name), row.name || row.symbol, weight, null);
+        addExposure(holdingKey(row.symbol, row.name), row.name || row.symbol, weight, null, row.cls);
         var meta = (row.cls === 'stocks' || row.cls === 'commodities') ? getMeta(row.symbol) : null;
         addTo(sectors, (meta && meta.sector) || 'Other', weight);
         addTo(countries, (meta && meta.country) || 'Other', weight);
@@ -351,7 +354,7 @@ function __(k, f, v) { return (typeof window !== 'undefined' && window.MaerminI1
       var holdingCoverage = 0;
       (fund.holdings || []).forEach(function (h) {
         holdingCoverage += h.weight;
-        addExposure(holdingKey(h.symbol, h.name), h.name || h.symbol, weight * h.weight, normalizeFundSymbol(row.symbol));
+        addExposure(holdingKey(h.symbol, h.name), h.name || h.symbol, weight * h.weight, normalizeFundSymbol(row.symbol), 'stocks');
       });
       holdingCoverage = Math.min(1, holdingCoverage);
       coveredValue += row.valueEUR * holdingCoverage;
@@ -393,6 +396,7 @@ function __(k, f, v) { return (typeof window !== 'undefined' && window.MaerminI1
       var x = exposure[k];
       return {
         key: x.key, name: x.name,
+        classes: x.classes,
         directWeight: x.directWeight,
         fundedWeight: x.fundedWeight,
         effectiveWeight: x.directWeight + x.fundedWeight,

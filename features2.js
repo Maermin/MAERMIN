@@ -188,7 +188,7 @@ function ReturnsView({ transactions, portfolio, prices, priceHistory, theme, for
     ),
 
     stats && React.createElement('div', { style: { display: 'grid', gridTemplateColumns: 'repeat(auto-fit,minmax(160px,1fr))', gap: '1rem', marginBottom: '1.5rem' } },
-      card(__('retTotalBought', 'Total bought'), `${formatPrice(stats.invested)} ${getCurrencySymbol()}`, __('retTotalDeposited', 'Total deposited'), theme.text),
+      card(__('retTotalBought', 'Total bought'), `${formatPrice(stats.invested)} ${getCurrencySymbol()}`, __('retTotalBoughtSub', 'All purchases, incl. fees'), theme.text),
       card(__('retCurrentValue', 'Current Value'), `${formatPrice(stats.currentValue)} ${getCurrencySymbol()}`, __('retOpenPositions', 'Open positions'), theme.text),
       card(__('retProceeds', 'Proceeds received'), `${formatPrice(stats.received)} ${getCurrencySymbol()}`, __('retRealizedSub', 'Sales + dividends/interest'), theme.text),
       card(__('retTotalFees', 'Total Fees'), `${formatPrice(stats.totalFees)} ${getCurrencySymbol()}`, __('retAllTx', 'All transactions'), '#ef4444')
@@ -221,27 +221,28 @@ function ReturnsView({ transactions, portfolio, prices, priceHistory, theme, for
 // ─────────────────────────────────────────────────────────────────────────────
 // 2. REBALANCING TOOL
 // ─────────────────────────────────────────────────────────────────────────────
-const DEFAULT_TARGETS = { crypto: 35, stocks: 45, skins: 10, commodities: 10 };
-
 // P4-4: the asset-class rebalancing runs on MaerminRebalance.plan(): a
 // tolerance band per target (share of the target with a floor in percentage
 // points), an "invest only" mode that plans buys from new money without
 // selling, and holdings marked "never sell". Targets stay in maermin_targets;
 // mode, bands and the never-sell list in maermin_rebalance_prefs.
+// P5-1.1 (F2): no default targets (MaerminMetrics.loadTargets). Until the user
+// sets some, the view asks for them and plans nothing; targets are saved only
+// when the user changes them.
 function RebalancingView({ portfolio, prices, theme, formatPrice, getCurrencySymbol, t, setActiveView }) {
   const RB = window.MaerminRebalance;
+  const M = window.MaerminMetrics;
   const CATS = ['crypto', 'stocks', 'skins', 'commodities'];
-  const [targets, setTargets] = useState(() => {
-    try { return JSON.parse(localStorage.getItem('maermin_targets') || JSON.stringify(DEFAULT_TARGETS)); }
-    catch { return DEFAULT_TARGETS; }
+  const [targets, setTargetsState] = useState(() => M.loadTargets());
+  const setTargets = (update) => setTargetsState(prev => {
+    const next = typeof update === 'function' ? update(prev) : update;
+    try { localStorage.setItem(M.REBAL_TARGETS_KEY, JSON.stringify(next)); } catch (e) { /* storage full: keep in memory */ }
+    return next;
   });
+  const [editing, setEditing] = useState(false);
   const [investAmount, setInvestAmount] = useState('');
   const [prefs, setPrefsState] = useState(() => RB.loadPrefs());
   const setPrefs = (next) => { const n = RB.normalizePrefs(next); RB.savePrefs(n); setPrefsState(n); };
-
-  useEffect(() => {
-    localStorage.setItem('maermin_targets', JSON.stringify(targets));
-  }, [targets]);
 
   const totalTarget = Object.values(targets).reduce((s, v) => s + v, 0);
   const I = window.MaerminI18n;
@@ -276,6 +277,12 @@ function RebalancingView({ portfolio, prices, theme, formatPrice, getCurrencySym
       { mode: prefs.mode, contribution: invest, defaultBand: prefs.defaultBand, bands: prefs.bands });
   }, [holdings, targets, prefs, invest]);
   const rowOf = {}; result.rows.forEach(r => { rowOf[r.key] = r; });
+  const noTargets = !M.hasTargets(targets);
+  const useCurrent = () => {
+    const values = {};
+    holdings.forEach(h => { values[h.cat] = (values[h.cat] || 0) + h.value; });
+    setTargets(M.targetsFromAllocation(values));
+  };
 
   const catColors = { crypto: '#8b7cff', stocks: '#3b82f6', skins: '#06b6d4', commodities: '#fb7185' };
   const catLabels = { crypto: I.category('crypto'), stocks: I.category('stocks'), skins: I.category('skins'), commodities: I.category('commodities') };
@@ -329,8 +336,25 @@ function RebalancingView({ portfolio, prices, theme, formatPrice, getCurrencySym
       style: { display: 'inline-flex', alignItems: 'center', gap: '0.4rem', marginBottom: '1.25rem', padding: '0.5rem 0.85rem', background: 'transparent', color: theme.accent, border: `1px solid ${theme.accent}55`, borderRadius: '8px', cursor: 'pointer', fontSize: '0.8rem', fontWeight: '600' }
     }, '⛯ ', (t.rebalanceByTagHint || 'Rebalance by tag instead → Tags view')) : null,
 
+    // No targets yet: nothing to plan until the user sets them.
+    noTargets && !editing && React.createElement('div', { 'data-testid': 'rb-no-targets', style: card },
+      React.createElement('div', { style: { color: theme.text, fontWeight: 700, marginBottom: '0.4rem' } }, __('rbNoTargetsTitle', 'No target allocation yet')),
+      React.createElement('p', { style: { ...small, fontSize: '0.85rem', margin: '0 0 1rem', lineHeight: 1.55 } },
+        __('rbNoTargetsText', 'Rebalancing compares your holdings with target weights that you choose. Nothing is suggested until you set them.')),
+      React.createElement('div', { style: { display: 'flex', gap: '0.5rem', flexWrap: 'wrap' } },
+        holdings.length > 0 && React.createElement('button', {
+          type: 'button', 'data-rb-use-current': true, onClick: useCurrent,
+          style: { padding: '0.55rem 1rem', fontSize: '0.85rem', fontWeight: 600, borderRadius: '8px', cursor: 'pointer', border: 'none',
+            background: theme.accentFill || theme.accent, color: '#ffffff' }
+        }, __('rbUseCurrent', 'Use my current allocation')),
+        React.createElement('button', {
+          type: 'button', 'data-rb-set-targets': true, onClick: () => setEditing(true),
+          style: { padding: '0.55rem 1rem', fontSize: '0.85rem', fontWeight: 600, borderRadius: '8px', cursor: 'pointer',
+            background: 'transparent', color: theme.text, border: `1px solid ${theme.cardBorder}` }
+        }, __('rbSetTargets', 'Set targets')))),
+
     // Mode + new money
-    React.createElement('div', { style: card },
+    !noTargets && React.createElement('div', { style: card },
       React.createElement('div', { role: 'group', 'aria-label': __('rbModeAria', 'How to rebalance'), style: { display: 'flex', gap: '0.5rem', flexWrap: 'wrap', marginBottom: '0.6rem' } },
         modeBtn('full', __('rbModeFull', 'Buy and sell')), modeBtn('cashflow', __('rbModeCash', 'Invest only (no sales)'))),
       React.createElement('p', { style: { ...small, margin: '0 0 0.9rem', lineHeight: 1.5 } }, cashflow
@@ -347,7 +371,7 @@ function RebalancingView({ portfolio, prices, theme, formatPrice, getCurrencySym
     ),
 
     // Target allocation + tolerance per target
-    React.createElement('div', { style: card },
+    (!noTargets || editing) && React.createElement('div', { style: card },
       React.createElement('div', { style: { display: 'flex', justifyContent: 'space-between', marginBottom: '0.75rem', gap: '0.5rem', flexWrap: 'wrap' } },
         React.createElement('span', { style: { color: theme.text, fontWeight: '700' } }, t.targetAllocation || 'Target Allocation'),
         React.createElement('span', {
@@ -385,7 +409,7 @@ function RebalancingView({ portfolio, prices, theme, formatPrice, getCurrencySym
     ),
 
     // Never sell
-    holdings.length > 0 && React.createElement('details', { 'data-testid': 'rb-nosell', style: { ...card, padding: '1rem 1.5rem' } },
+    !noTargets && holdings.length > 0 && React.createElement('details', { 'data-testid': 'rb-nosell', style: { ...card, padding: '1rem 1.5rem' } },
       React.createElement('summary', { style: { cursor: 'pointer', color: theme.text, fontWeight: 700, fontSize: '0.9rem', minHeight: '24px' } },
         __('rbNoSellTitle', 'Holdings you never sell ({n})', { n: prefs.noSell.filter(s => holdings.some(h => h.symbol.toUpperCase() === s)).length })),
       React.createElement('p', { style: { ...small, margin: '0.5rem 0 0.75rem', lineHeight: 1.5 } },
@@ -398,7 +422,7 @@ function RebalancingView({ portfolio, prices, theme, formatPrice, getCurrencySym
     ),
 
     // Results table
-    totalValue > 0 && React.createElement('div', {
+    totalValue > 0 && !noTargets && React.createElement('div', {
       'data-testid': 'rb-plan', style: { background: theme.card, borderRadius: '16px', border: `1px solid ${theme.cardBorder}`, boxShadow: theme.shadow, overflow: 'hidden' }
     },
       React.createElement('div', { style: { padding: '1rem 1.25rem', borderBottom: `1px solid ${theme.cardBorder}` } },
@@ -425,7 +449,8 @@ function RebalancingView({ portfolio, prices, theme, formatPrice, getCurrencySym
         React.createElement('tbody', null,
           CATS.map(cat => {
             const r = rowOf[cat];
-            if (!r) return null;
+            // Only classes the user holds or has a target for.
+            if (!r || (!(r.actualValue > 0.005) && !(r.targetPct > 0))) return null;
             const tone = r.action === 'buy' ? theme.success : r.action === 'sell' ? theme.danger : (r.blockedSell > 0.005 ? theme.warning : theme.success);
             return React.createElement('tr', { key: cat, 'data-rb-row': cat, 'data-action': r.action },
               React.createElement('td', { style: { padding: '1rem', fontWeight: '700', color: catColors[cat] } }, catLabels[cat]),

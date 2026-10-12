@@ -160,7 +160,9 @@ function RiskAnalyticsViewV2(props) {
                   window.MaerminI18n.pct(r.currentPct, 0) + ' / ' + window.MaerminI18n.pct(r.targetPct, 0) + ' ',
                   e('span', { style: { color: driftColor(r.drift), fontWeight: 700 } }, window.MaerminI18n.pct(r.drift, 0, true))));
             }))
-          : noData
+          : drift.reason === 'no-targets'
+            ? e('div', { style: { color: theme.textSecondary, fontSize: '0.85rem' } }, __('rbNoTargetsShort', 'No targets set'))
+            : noData
       ]),
       box([
         head(t.riskCurrency || 'Currency exposure', null),

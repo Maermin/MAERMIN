@@ -86,6 +86,17 @@ function __(k, f, v) { return (typeof window !== 'undefined' && window.MaerminI1
   // these get flagged when one dominates (a fully-invested equity book is fine).
   var VOLATILE_CLASSES = { crypto: 1, skins: 1 };
 
+  // P5-1.1 (F1): coins, skins and commodities are not companies. A row whose
+  // weight comes only from these classes never counts for the single-company
+  // check (crypto and skins are covered by the asset-class check). Rows
+  // without class information (older inputs) still count.
+  var NON_COMPANY_CLASSES = { crypto: 1, skins: 1, commodities: 1 };
+  function isCompanyRow(x) {
+    var cls = x && x.classes;
+    if (!cls || !cls.length) return true;
+    return cls.some(function (c) { return !NON_COMPANY_CLASSES[String(c).toLowerCase()]; });
+  }
+
   // The "Magnificent 7". Matched against effective-exposure KEYS (uppercased
   // symbols from the look-through). GOOG/GOOGL both map to Alphabet.
   var MAG7 = { AAPL: 1, MSFT: 1, NVDA: 1, GOOGL: 1, GOOG: 1, AMZN: 1, META: 1, TSLA: 1 };
@@ -180,21 +191,31 @@ function __(k, f, v) { return (typeof window !== 'undefined' && window.MaerminI1
 
     // 1) Single company risk (effective, look-through) -------------------------
     var eff = (inputs.effectiveExposure || []).filter(function (x) { return isRealLabel(x.name || x.key); });
-    var topEff = eff[0];
+    var topEff = eff.filter(isCompanyRow)[0];
     if (topEff) {
       var effPct = asPct(topEff.effectiveWeight);
       var name = topEff.name || topEff.key;
       var via = topEff.funds || (topEff.via ? topEff.via.map(function (v) { return v.fund; }) : []);
       var viaTxt = via && via.length ? ' ' + __('piViaTxt', '(held directly and through {list})', { list: via.join(', ') }) : '';
+      // Held only directly: no fund holds it, so no look-through wording.
+      var direct = !(num(topEff.fundedWeight) > 0) && !(via && via.length);
       if (effPct != null && effPct >= T.singleCompanyCritical) {
         push('singleCompany', 'critical', 'sc-critical',
-          __('piScCritTitle', 'Your portfolio carries {pct} effective {name} exposure across ETFs and single stocks', { pct: fmtPct(effPct), name: name }),
-          __('piScCritDetail', 'A single company above {limit} — counting what your ETFs hold — drives most of your idiosyncratic risk.', { limit: fmtPct(T.singleCompanyCritical) }),
+          direct
+            ? __('piScCritTitleDirect', '{name} alone is {pct} of your portfolio', { pct: fmtPct(effPct), name: name })
+            : __('piScCritTitle', 'Your portfolio carries {pct} effective {name} exposure across ETFs and single stocks', { pct: fmtPct(effPct), name: name }),
+          direct
+            ? __('piScCritDetailDirect', 'A single company above {limit} drives most of your idiosyncratic risk.', { limit: fmtPct(T.singleCompanyCritical) })
+            : __('piScCritDetail', 'A single company above {limit} — counting what your ETFs hold — drives most of your idiosyncratic risk.', { limit: fmtPct(T.singleCompanyCritical) }),
           __('piScCritAction', 'Trim {name} toward a {cap} cap or add uncorrelated holdings.', { name: name + viaTxt, cap: I18N().pct(20, 0) + '–' + fmtPct(25) }), effPct);
       } else if (effPct != null && effPct >= T.singleCompanyImportant) {
         push('singleCompany', 'important', 'sc-important',
-          __('piScImpTitle', 'Effective {name} exposure is {pct} across funds and direct holdings', { name: name, pct: fmtPct(effPct) }),
-          __('piScImpDetail', 'Above {limit} in one company increases concentration risk you may not see in the position list.', { limit: fmtPct(T.singleCompanyImportant) }),
+          direct
+            ? __('advIsOfPortfolio', '{name} is {pct} of your portfolio', { name: name, pct: fmtPct(effPct) })
+            : __('piScImpTitle', 'Effective {name} exposure is {pct} across funds and direct holdings', { name: name, pct: fmtPct(effPct) }),
+          direct
+            ? __('piScImpDetailDirect', 'Above {limit} in one company ties a large part of your portfolio to how that company does.', { limit: fmtPct(T.singleCompanyImportant) })
+            : __('piScImpDetail', 'Above {limit} in one company increases concentration risk you may not see in the position list.', { limit: fmtPct(T.singleCompanyImportant) }),
           __('piScImpAction', 'Watch this effective weight; rebalance if it keeps growing.'), effPct);
       }
     }
@@ -511,7 +532,8 @@ function __(k, f, v) { return (typeof window !== 'undefined' && window.MaerminI1
 
     // Direct (non-look-through) concentration fallback: only when we have NO
     // effective exposure data, so the engine still says something useful offline.
-    if (!eff.length && inputs.directConcentration && inputs.directConcentration.available) {
+    if (!eff.length && inputs.directConcentration && inputs.directConcentration.available &&
+        isCompanyRow({ classes: inputs.directConcentration.topCls ? [inputs.directConcentration.topCls] : null })) {
       var dc = asPct(inputs.directConcentration.maxWeight);
       var dl = inputs.directConcentration.topLabel || __('advTopPosition', 'Top position');
       if (dc != null && dc >= T.singleCompanyImportant) {
@@ -565,10 +587,13 @@ function __(k, f, v) { return (typeof window !== 'undefined' && window.MaerminI1
       if (M && M.computeConcentration) {
         var conc = M.computeConcentration(portfolio, prices);
         if (conc && conc.available) {
-          var top = conc.top && conc.top[0];
-          inputs.directConcentration = {
-            available: true, maxWeight: conc.maxWeight,
-            topLabel: top ? (top.label || top.symbol || top.name) : __('advTopPosition', 'Top position')
+          // F1: the largest company, not the largest holding (a coin or gold bar
+          // on top would otherwise be reported as a company).
+          var top = (conc.top || []).filter(function (x) { return isCompanyRow({ classes: x && x.cls ? [x.cls] : null }); })[0];
+          if (top || !(conc.top && conc.top.length)) inputs.directConcentration = {
+            available: true, maxWeight: top && top.weight != null ? top.weight : conc.maxWeight,
+            topLabel: top ? (top.label || top.symbol || top.name) : __('advTopPosition', 'Top position'),
+            topCls: top ? top.cls : null
           };
         }
       }

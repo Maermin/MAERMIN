@@ -376,8 +376,26 @@ async function runBuild(browser, label, dir) {
     // the six areas; Simple hides niche tools and the switch persists.
     {
       const sections = await page.locator('nav.maermin-sidebar .mx-nav-section').allInnerTexts();
-      ok('sidebar shows the six areas', sections.map((x) => x.trim().toUpperCase()).join() === 'PORTFOLIO,TRANSACTIONS,DIVIDENDS,ANALYSIS,TAXES,SETTINGS', sections.join(','));
+      ok('sidebar shows the six areas', sections.map((x) => x.trim().toUpperCase()).join() === 'PORTFOLIO,TRANSACTIONS,DIVIDENDS,TAXES,ANALYSIS,SETTINGS', sections.join(','));
       ok('a vault with transactions starts in Advanced', (await page.evaluate(RAW + '.get("maermin_ui_mode")')) === 'advanced' && (await page.locator('nav.maermin-sidebar [data-view="tags"]').count()) === 1);
+      // P5-1.1 (F4): Tax & FIFO is visible at 1440 × 900 in Advanced mode
+      // without scrolling the sidebar.
+      {
+        const size = page.viewportSize();
+        await page.setViewportSize({ width: 1440, height: 900 });
+        await page.waitForTimeout(300);
+        const pos = await page.evaluate(() => {
+          const nav = document.querySelector('nav.maermin-sidebar');
+          const tax = nav && nav.querySelector('[data-view="tax"]');
+          if (!nav || !tax) return null;
+          nav.scrollTop = 0;
+          const n = nav.getBoundingClientRect(), r = tax.getBoundingClientRect();
+          return { bottom: Math.round(r.bottom), navBottom: Math.round(Math.min(n.bottom, window.innerHeight)), top: Math.round(r.top) };
+        });
+        ok('F4: Tax & FIFO is in view at 1440 × 900 without scrolling the sidebar', !!pos && pos.top >= 0 && pos.bottom <= pos.navBottom, JSON.stringify(pos));
+        await page.setViewportSize(size);
+        await page.waitForTimeout(300);
+      }
       await page.locator('.mx-settings-btn').click();
       await page.locator('#mx-settings-panel [data-ui-mode="simple"]').click();
       await page.locator('.mx-settings-btn').click();
@@ -639,8 +657,30 @@ async function runBuild(browser, label, dir) {
       ok('Steam import: pasted inventory -> one buy of 2 × AK-47 at 12.50 € with both asset ids', !!booked && booked.length === 1 && booked[0].quantity === 2 && booked[0].price === 12.5 && booked[0].category === 'skins' && booked[0].steamAssetIds.join() === 's1,s2', JSON.stringify(booked));
       ok('Steam import: a re-import offers only the item not imported before', /^1 new item \(1 name\)/.test(again) && (await panel.locator('tr[data-steam-item]').count()) === 1, again);
     }
+    // P5-1.1 (F2): no default targets. The old app-wide default (as older
+    // builds saved it) reads as "no targets": no plan, no skins to buy.
+    {
+      let empty = 0, plan = -1, kept = '', current = '', targets = null, err = '';
+      try {
+        await page.evaluate(() => localStorage.setItem('maermin_targets', JSON.stringify({ crypto: 35, stocks: 45, skins: 10, commodities: 10 })));
+        await openView(page, 'overview'); await page.waitForTimeout(200);
+        await openView(page, 'rebalancing');
+        await page.waitForTimeout(400);
+        empty = await page.locator('[data-testid="rb-no-targets"]').count();
+        plan = await page.locator('[data-testid="rb-plan"]').count();
+        kept = await page.evaluate(() => localStorage.getItem('maermin_targets'));
+        await page.locator('[data-rb-use-current]').click();
+        await page.waitForTimeout(300);
+        current = await page.locator('[data-testid="rb-summary"]').innerText();
+        targets = await page.evaluate(() => JSON.parse(localStorage.getItem('maermin_targets') || 'null'));
+      } catch (e) { err = e.message.split('\n')[0]; }
+      ok('F2: the old default reads as no targets - no plan, stored value untouched', empty === 1 && plan === 0 && /"skins":10/.test(kept), err || `empty=${empty} plan=${plan} kept=${kept}`);
+      ok('F2: "Use my current allocation" saves targets that add up to 100 with nothing to trade', !!targets && Object.values(targets).reduce((s, v) => s + v, 0) === 100 && /^Nothing to buy or sell/.test(current), err || JSON.stringify(targets) + ' | ' + current);
+    }
     // P4-4: Rebalancing - never-sell holding, then invest only
     {
+      await page.evaluate(() => localStorage.setItem('maermin_targets', JSON.stringify({ crypto: 30, stocks: 50, skins: 10, commodities: 10 })));
+      await openView(page, 'overview'); await page.waitForTimeout(200);
       await openView(page, 'rebalancing');
       await page.waitForTimeout(400);
       let crypto = null, blocked = '', after = null, summary = '';
@@ -760,6 +800,7 @@ async function runBuild(browser, label, dir) {
     await createVault(page, base);
     await page.evaluate(() => { localStorage.setItem('maermin_demo', '1'); localStorage.setItem('maermin_ui_mode', 'advanced'); localStorage.setItem('maermin_onboarded', '1'); });
     let chart = 0, twr = '', cells = 0, closed = '', stored = 'x', err = '';
+    let returnsText = '', intelText = '', rbEmpty = 0, rbPlan = -1;
     try {
       await unlock(page, base);
       await page.keyboard.press('Escape');
@@ -772,7 +813,18 @@ async function runBuild(browser, label, dir) {
       twr = await page.getByText('TWR', { exact: true }).first().locator('xpath=..').innerText();
       cells = await page.locator('[data-r]').count();
       stored = await page.evaluate(() => localStorage.getItem('maermin_close_history'));
+      returnsText = await page.locator('main').innerText();
+      await openView(page, 'intelligence');
+      await page.waitForTimeout(800);
+      intelText = await page.locator('main').innerText();
+      await openView(page, 'rebalancing');
+      await page.waitForTimeout(400);
+      rbEmpty = await page.locator('[data-testid="rb-no-targets"]').count();
+      rbPlan = await page.locator('[data-testid="rb-plan"]').count();
     } catch (e) { err = e.message.split('\n')[0]; }
+    ok('F1: demo Intelligence does not call Bitcoin or Ethereum a company', !!intelText && !/(Bitcoin|Ethereum|BTC|ETH)[^\n]{0,60}(exposure|alone is|of your portfolio)/.test(intelText), err || (intelText.match(/[^\n]*(Bitcoin|BTC)[^\n]*/) || ['none'])[0]);
+    ok('F2: demo Rebalancing asks for targets and proposes no trades', rbEmpty === 1 && rbPlan === 0, err || `empty=${rbEmpty} plan=${rbPlan}`);
+    ok('F3: the "Total bought" card no longer says deposited', /All purchases, incl\. fees/.test(returnsText) && !/Total deposited/i.test(returnsText), err || returnsText.slice(0, 120));
     ok('P4-9: demo draws the value chart without a Worker', chart > 0, err || String(chart));
     ok('P4-9: demo TWR is a figure, the monthly grid is filled', /[+-]\d/.test(twr) && cells > 12, err || twr.replace(/\s+/g, ' ') + ' | cells ' + cells);
     ok('P4-9: demo shows a closed position', /\(1\)/.test(closed), err || closed);
@@ -1152,7 +1204,7 @@ async function runBuild(browser, label, dir) {
       const bad = [];
       try {
         const areas = await page.locator('.mx-bottom-nav [data-area]').evaluateAll((els) => els.map((e) => e.dataset.area));
-        if (areas.join() !== 'portfolio,transactions,dividends,analysis,taxes,settings') bad.push('dock: ' + areas.join());
+        if (areas.join() !== 'portfolio,transactions,dividends,taxes,analysis,settings') bad.push('dock: ' + areas.join());
         await page.locator('.mx-bottom-nav [data-area="analysis"]').click();
         await page.waitForTimeout(300);
         if (!(await page.locator('.mx-bottom-nav [data-area="analysis"][aria-current="page"]').count())) bad.push('analysis not current');
