@@ -48,6 +48,17 @@
     return v('warn', __('vdBenchBehind', 'Over this period your portfolio did {pp} percentage points worse than {bench}.', { pp: d, bench: n }));
   }
 
+  // P5-2.2: own money-weighted return vs the same money in an index (fractions
+  // a year), diffEUR = own end value − index end value. Same ±1 pp band.
+  function replay(ownXirr, benchXirr, diffEUR, name) {
+    if (!fin(ownXirr) || !fin(benchXirr) || !fin(diffEUR)) return null;
+    var n = name || __('perfBenchmark', 'Benchmark');
+    var pp = (ownXirr - benchXirr) * 100, d = I18N().num(Math.abs(pp), 1), amt = I18N().money(Math.abs(diffEUR));
+    if (Math.abs(pp) < BENCH_LEVEL_PP) return v('neutral', __('vdReplayLevel', 'With the same money in and out, {bench} would have done about as well as your portfolio (within one percentage point a year).', { bench: n }));
+    if (pp > 0) return v('good', __('vdReplayAhead', 'Your portfolio ended {amount} ahead of the same money in {bench} - about {pp} percentage points a year better.', { amount: amt, pp: d, bench: n }));
+    return v('warn', __('vdReplayBehind', 'The same money in {bench} would have left you {amount} better off - about {pp} percentage points a year more.', { amount: amt, pp: d, bench: n }));
+  }
+
   function ratio(x, kind) {
     if (!fin(x)) return null;
     var name = kind === 'sortino' ? __('rkSortino', 'Sortino Ratio') : __('rkSharpe', 'Sharpe Ratio');
@@ -107,7 +118,7 @@
 
   var api = {
     THRESHOLDS: { VOL: VOL, DD: DD, RATIO: RATIO, BENCH_LEVEL_PP: BENCH_LEVEL_PP, HEALTH: HEALTH, DIV: DIV },
-    benchmark: benchmark, sharpe: sharpe, sortino: sortino, volatility: volatility,
+    benchmark: benchmark, replay: replay, sharpe: sharpe, sortino: sortino, volatility: volatility,
     drawdown: drawdown, health: health, dividendSafety: dividendSafety,
     cumulativeDiffPp: cumulativeDiffPp, disclaimer: disclaimer
   };

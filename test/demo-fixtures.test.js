@@ -37,6 +37,15 @@ const TODAY = '2026-10-12';
     ok(sym + ': 5 years of weekday closes, ascending, positive', b.prices.length > 1200 && b.prices.every((p, i, a) => p.price > 0 && (i === 0 || p.date > a[i - 1].date)));
   }
 
+  // P5-2.2: accumulating EUR listings for "dividends reinvested"
+  for (const sym of ['EUNL.DE', 'VWCE.DE', 'SXR8.DE', 'SXRV.DE']) {
+    const b = F.respond(F.BASE + '?action=yf&symbol=' + encodeURIComponent(sym) + '&interval=1d&range=10y', TODAY).body;
+    ok(sym + ': EUR closes, ascending, positive', b.currency === 'EUR' && b.prices.length > 1200 && b.prices.every((p, i, a) => p.price > 0 && (i === 0 || p.date > a[i - 1].date)));
+  }
+  { const s = D.closeHistory(TODAY).series[['stocks', 'VWCE.DE'].join('|')];
+    const v = F.respond(F.BASE + '?action=yf&symbol=VWCE.DE&interval=1d&range=1y', TODAY).body.prices;
+    ok('VWCE.DE is the demo\'s own fund: its sample closes are the demo closes', !!s && Math.abs(v[v.length - 1].price - s.p[s.p.length - 1]) < 0.01, v[v.length - 1].price + ' vs ' + (s && s.p[s.p.length - 1])); }
+
   console.log('discovery:');
   const g = Disc.parseResponse(F.respond(Disc.buildUrl(F.BASE, { scrId: 'day_gainers', count: 25 }), TODAY).body);
   ok('gainers parse with the view\'s parser, all up, sorted', g.ok && g.rows.length > 0 && g.rows.every((r, i, a) => r.changePercent > 0 && (i === 0 || r.changePercent <= a[i - 1].changePercent)));

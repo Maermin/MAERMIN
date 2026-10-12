@@ -23,7 +23,8 @@
 //               clearings: { portfolioId: MaerminLedger.clearingBalance(...) } }
 //   Result = { start, end, startValue, endValue, change, profit, cash,
 //              parts: { moneyIn, moneyOut, income, realized, unrealized, fx, fees, taxes, residual },
-//              detail: { dividends, interest, withholding, tradeFees }, missing: [{ key, symbol, category }] }
+//              detail: { dividends, interest, withholding, tradeFees }, missing: [{ key, symbol, category }],
+//              flows: [{ d, amount }] money in (+) / out (−) per day, oldest first }
 //   periodStart(period, today, transactions?)  '1M' | '3M' | 'YTD' | '1Y' | 'MAX'
 //   biggest(parts) → { key, amount } the largest profit source (signed) | null
 //
@@ -104,6 +105,10 @@ function __(k, f, v) { return (typeof window !== 'undefined' && window.MaerminI1
 
     var parts = { moneyIn: 0, moneyOut: 0, income: 0, realized: 0, unrealized: 0, fx: 0, fees: 0, taxes: 0, residual: 0 };
     var detail = { dividends: 0, interest: 0, withholding: 0, tradeFees: 0 };
+    // money in (+) / out (−) per day, for the benchmark replay (P5-2.2)
+    var flowDay = {};
+    var moveIn = function (d, a) { parts.moneyIn += a; flowDay[d] = (flowDay[d] || 0) + a; };
+    var moveOut = function (d, a) { parts.moneyOut += a; flowDay[d] = (flowDay[d] || 0) - a; };
 
     // ---- which holdings are measured -----------------------------------------
     var meta = {}, covered = {}, missing = [];
@@ -126,10 +131,10 @@ function __(k, f, v) { return (typeof window !== 'undefined' && window.MaerminI1
         var a = num(tx.amount);
         if (!(a > 0)) return;
         var eur = toEUR(a, tx), t = tx.type;
-        if (t === 'fee' || t === 'interest_charge') { parts.fees += eur; if (!own) parts.moneyIn += eur; }
-        else if (t === 'fee_refund') { parts.fees -= eur; if (!own) parts.moneyOut += eur; }
-        else if (t === 'tax') { parts.taxes += eur; if (!own) parts.moneyIn += eur; }
-        else if (t === 'tax_refund') { parts.taxes -= eur; if (!own) parts.moneyOut += eur; }
+        if (t === 'fee' || t === 'interest_charge') { parts.fees += eur; if (!own) moveIn(d, eur); }
+        else if (t === 'fee_refund') { parts.fees -= eur; if (!own) moveOut(d, eur); }
+        else if (t === 'tax') { parts.taxes += eur; if (!own) moveIn(d, eur); }
+        else if (t === 'tax_refund') { parts.taxes -= eur; if (!own) moveOut(d, eur); }
         // deposits, withdrawals, transfers: only a clearing account sees them (below)
         return;
       }
@@ -140,7 +145,7 @@ function __(k, f, v) { return (typeof window !== 'undefined' && window.MaerminI1
       detail[tx.type === 'dividend' ? 'dividends' : 'interest'] += gross;
       parts.taxes += wht; detail.withholding += wht;
       parts.fees += fee;
-      if (!own) parts.moneyOut += gross - wht - fee;
+      if (!own) moveOut(d, gross - wht - fee);
     });
 
     // ---- clearing accounts: money in / out and the cash at both ends ----------
@@ -155,7 +160,7 @@ function __(k, f, v) { return (typeof window !== 'undefined' && window.MaerminI1
         cash1 += e.amount;
         if (!inPeriod(e.d)) return;
         if (e.kind === 'external' || (e.kind === 'trade' && e.key && !covered[normKey(e.key)])) {
-          if (e.amount >= 0) parts.moneyIn += e.amount; else parts.moneyOut -= e.amount;
+          if (e.amount >= 0) moveIn(e.d, e.amount); else moveOut(e.d, -e.amount);
         }
       });
     });
@@ -218,7 +223,7 @@ function __(k, f, v) { return (typeof window !== 'undefined' && window.MaerminI1
           if (!counts) return;
           market += tr.qty * (p - tr.unit);
           parts.fees += tr.fee; detail.tradeFees += tr.fee;
-          if (!tr.own || gift) parts.moneyIn += tr.qty * tr.unit + (tr.own ? 0 : tr.fee);
+          if (!tr.own || gift) moveIn(d, tr.qty * tr.unit + (tr.own ? 0 : tr.fee));
           return;
         }
         var sold = Math.min(tr.qty, held);
@@ -228,7 +233,7 @@ function __(k, f, v) { return (typeof window !== 'undefined' && window.MaerminI1
         if (!counts) return;
         market += sold * (tr.unit - p);
         parts.fees += fee; detail.tradeFees += fee;
-        if (!tr.own || gift) parts.moneyOut += sold * tr.unit - (tr.own ? 0 : fee);
+        if (!tr.own || gift) moveOut(d, sold * tr.unit - (tr.own ? 0 : fee));
       });
     });
     if (v0 === null) v0 = valueNow();
@@ -250,7 +255,8 @@ function __(k, f, v) { return (typeof window !== 'undefined' && window.MaerminI1
     parts.residual = change - explained;
     if (Math.abs(parts.residual) < 1e-7) parts.residual = 0;
     return { start: start, end: end, startValue: startValue, endValue: endValue, change: change,
-      profit: change - parts.moneyIn + parts.moneyOut, cash: anyCash, parts: parts, detail: detail, missing: missing };
+      profit: change - parts.moneyIn + parts.moneyOut, cash: anyCash, parts: parts, detail: detail, missing: missing,
+      flows: Object.keys(flowDay).sort().filter(function (d) { return Math.abs(flowDay[d]) > 1e-9; }).map(function (d) { return { d: d, amount: flowDay[d] }; }) };
   }
 
   // Exclusive start day of a period ending today. Month steps keep the month

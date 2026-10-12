@@ -69,21 +69,30 @@ function __(k, f, v) { return (typeof window !== 'undefined' && window.MaerminI1
     while (lo < hi) { var mid = (lo + hi + 1) >> 1; if (w.d[mid] <= n) lo = mid; else hi = mid - 1; }
     return w.p[lo];
   }
+  // P5-2.2: accumulating EUR listings of the same indices (total return),
+  // levelled on the demo world ETF in EUR; VWCE.DE is the demo's own fund.
+  var BENCH_EUR = { 'EUNL.DE': [104, 0.005], 'VWCE.DE': [0, 0], 'SXR8.DE': [590, 0.025], 'SXRV.DE': [1080, 0.055] };
+  function eurLevel(sym, n, today) {
+    var b = BENCH_EUR[sym], w = worldPath(today);
+    if (!b[0]) return worldAt(w, n);
+    var x = n - today;
+    return b[0] * (worldAt(w, n) / worldAt(w, today)) * Math.exp(b[1] * x / 365 + 0.003 * Math.sin(x / (8 + hash(sym) % 5)));
+  }
   function benchLevel(sym, n, today) {
     var b = BENCH[sym], h = hash(sym), x = n - today, w = worldPath(today);
     var usd = (worldAt(w, n) / fxRate(n, today)) / (worldAt(w, today) / fxRate(today, today));
     return b[0] * usd * Math.exp(b[1] * x / 365 + 0.004 * Math.sin(x / (9 + h % 7)));
   }
   // A few days more than the range, so a period start on a weekend is covered.
-  var RANGE_DAYS = { '5d': 10, '1mo': 35, '3mo': 96, '6mo': 187, '1y': 372, '2y': 737, '5y': 1833, max: 1833 };
+  var RANGE_DAYS = { '5d': 10, '1mo': 35, '3mo': 96, '6mo': 187, '1y': 372, '2y': 737, '5y': 1833, '10y': 1833, max: 1833 };
   function yfSeries(sym, range, todayIso) {
     var t = dayNo(todayIso || todayISO()), days = RANGE_DAYS[range] || 366, prices = [];
     for (var n = t - days; n <= t; n++) {
       if (weekend(n)) continue;
-      var p = sym === 'EURUSD=X' ? 1 / fxRate(n, t) : benchLevel(sym, n, t);
+      var p = sym === 'EURUSD=X' ? 1 / fxRate(n, t) : BENCH_EUR[sym] ? eurLevel(sym, n, t) : benchLevel(sym, n, t);
       prices.push({ date: iso(n), price: r(p, 4) });
     }
-    return { symbol: sym, currency: 'USD', sample: true, prices: prices };
+    return { symbol: sym, currency: BENCH_EUR[sym] ? 'EUR' : 'USD', sample: true, prices: prices };
   }
 
   // ---- Discovery: fictional companies --------------------------------------
@@ -158,7 +167,7 @@ function __(k, f, v) { return (typeof window !== 'undefined' && window.MaerminI1
   function respond(url, todayIso) {
     if (!isDemoUrl(url)) return { status: 404, type: 'json', body: { error: 'not-demo-url' } };
     var q = query(url);
-    if (q.action === 'yf' && (q.symbol === 'EURUSD=X' || BENCH[q.symbol])) return { status: 200, type: 'json', body: yfSeries(q.symbol, q.range, todayIso) };
+    if (q.action === 'yf' && (q.symbol === 'EURUSD=X' || BENCH[q.symbol] || BENCH_EUR[q.symbol])) return { status: 200, type: 'json', body: yfSeries(q.symbol, q.range, todayIso) };
     if (q.action === 'screener') return { status: 200, type: 'json', body: screener(q, todayIso) };
     if (q.action === 'news' && q.symbol) return { status: 200, type: 'xml', body: news(q.symbol, todayIso) };
     if (q.action === 'earnings' && q.symbol) return { status: 200, type: 'json', body: earnings(q.symbol.toUpperCase(), todayIso) };

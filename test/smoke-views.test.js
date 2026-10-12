@@ -116,6 +116,7 @@ const VIEW_MODULES = [
   { file: '../pdf-import.js',       ns: 'MaerminPdfImport',       comps: ['parseText', 'parseStatement', 'detectBrokerFromText', 'candidatesToCSV', 'parseFiles', 'ensurePdfJs'] },
   { file: '../fx-attribution.js',   ns: 'MaerminFxAttribution',   comps: ['Panel', 'decompose', 'attribute', 'invertSeries', 'currencyOfPositions', 'rowsFromPortfolio'] },
   { file: '../value-attribution.js', ns: 'MaerminValueAttribution', comps: ['Panel', 'compute', 'periodStart', 'biggest'] },
+  { file: '../benchmark-replay.js', ns: 'MaerminBenchmarkReplay', comps: ['Panel', 'replay', 'toEurCloses', 'rangeFor', 'symbolOf'] },
   { file: '../backtester.js',       ns: 'MaerminBacktester',      comps: ['Panel', 'backtest', 'run', 'summarize', 'normalizeWeights', 'alignSeries'] },
   { file: '../share-snapshot.js',   ns: 'MaerminShare',           comps: ['View', 'buildSnapshot', 'validateSnapshot', 'compare', 'parseShareId', 'gatherInputs'] },
   { file: '../savings-plan-executor.js', ns: 'MaerminSavingsExecutor', comps: ['occurrences', 'planStatus', 'pendingExecutions', 'dedupeExecutions', 'buildTransaction', 'priceAtDate', 'runCatchUp'] },
@@ -256,6 +257,10 @@ const MUST_RENDER = [
   // so the card lists them as not measured; empty data -> the empty note.
   ['MaerminValueAttribution', 'Panel', { ...baseProps, series: {}, today: '2026-01-02' }],
   ['MaerminValueAttribution', 'Panel', { ...emptyProps, transactions: [], series: {} }],
+  // Same money in an index (P5-2.2): no worker URL -> the note; a held fund
+  // without closes -> the no-history note. No fetch fires (hooks stubbed).
+  ['MaerminBenchmarkReplay', 'Panel', { ...baseProps, series: {}, today: '2026-01-02' }],
+  ['MaerminBenchmarkReplay', 'Panel', { ...baseProps, series: {}, today: '2026-01-02', funds: [{ key: 'stocks|VWCE.DE', symbol: 'VWCE.DE' }] }],
   // Backtester panel: pre-run render (form only, hooks stubbed, no fetch).
   ['MaerminBacktester', 'Panel', baseProps],
   // Share view: no worker URL in baseProps -> gated publish; representative

@@ -811,7 +811,7 @@ async function runBuild(browser, label, dir) {
     let brokerOv = '', rows = 0, before = null, after = null;
     // P5-1.8: Worker-only views run on in-page sample data; nothing may reach the network
     const sampleReqs = []; page.on('request', (r) => { if (/maermin\.invalid/.test(r.url())) sampleReqs.push(r.url()); });
-    const fixtures = {}; let dqText = '', va = null;
+    const fixtures = {}; let dqText = '', va = null, br = null;
     try {
       await unlock(page, base);
       await page.keyboard.press('Escape');
@@ -837,6 +837,21 @@ async function runBuild(browser, label, dir) {
         const max = read();
         el.querySelector('[data-testid="va-period-1M"]').click(); await new Promise((r) => setTimeout(r, 300));
         return { max, m1: read(), biggest: (el.querySelector('[data-testid="va-biggest"]') || {}).innerText || '' };
+      });
+      // P5-2.2: the same money in MSCI World (dividends reinvested, then price only) and in a held fund
+      br = await page.evaluate(async () => {
+        const wait = (ms) => new Promise((r) => setTimeout(r, ms));
+        const card = () => document.querySelector('[data-testid="benchmark-replay"]');
+        const num = (s) => { const m = String(s || '').replace(/−/g, '-').match(/[+-]?[\d,]+\.\d\d/); return m ? parseFloat(m[0].replace(/,/g, '')) : NaN; };
+        const tile = (k) => { const t = card() && card().querySelector('[data-testid="br-' + k + '"]'); return t ? t.innerText : ''; };
+        for (let i = 0; i < 20 && !tile('bench'); i++) await wait(250);
+        const read = () => ({ own: num(tile('own')), bench: num(tile('bench')), diff: num(tile('diff')), verdict: (card().querySelector('[data-testid="verdict-replay"]') || {}).innerText || '', text: card().innerText });
+        const acc = read();
+        card().querySelector('[data-testid="br-reinvest"]').click(); await wait(1200);
+        const price = read();
+        const f = card().querySelector('[data-testid^="br-fund-"]');
+        if (f) { f.click(); await wait(1200); }
+        return { acc, price, fund: f ? read() : null };
       });
       for (const id of ['news', 'discovery', 'performance', 'dividends']) {
         await openView(page, id);
@@ -887,6 +902,10 @@ async function runBuild(browser, label, dir) {
       { const gap = (r) => { const parts = Object.keys(r).filter((k) => k !== 'start' && k !== 'end').reduce((s, k) => s + r[k], 0); return Math.abs(parts - (r.end - r.start)); };
         ok('P5-2.1: Returns shows profit by source; the parts add up to end − start (Max and 1M)', !!va && va.max.start === 0 && va.max.end > 0 && gap(va.max) < 0.1 && va.m1.start > 0 && gap(va.m1) < 0.1 && !('residual' in va.max) && /Biggest driver:/.test(va.biggest),
           err || JSON.stringify(va)); }
+      { const sums = (r) => r && Math.abs(r.own - r.bench - r.diff) < 0.02;
+        ok('P5-2.2: same money in MSCI World (EUNL.DE, reinvested) vs your portfolio, with a verdict; own end = profit-by-source end', !!br && sums(br.acc) && Math.abs(br.acc.own - va.max.end) < 0.01 && br.acc.bench > 0 && /MSCI World/.test(br.acc.verdict) && /EUNL\.DE/.test(br.acc.text), err || JSON.stringify(br && br.acc).slice(0, 300));
+        ok('P5-2.2: price only (URTH) differs from reinvested and says the dividends are left out', !!br && sums(br.price) && br.price.bench !== br.acc.bench && /Price only \(URTH\)/.test(br.price.text), err || JSON.stringify(br && br.price).slice(0, 300));
+        ok('P5-2.2: a held fund can be the comparison', !!br && !!br.fund && sums(br.fund) && /Same money in VWCE\.DE/i.test(br.fund.text), err || JSON.stringify(br && br.fund).slice(0, 300)); }
       ok('P5-1.8: the demo has dated USD rates, the Tax Report shows no data check', /Tax Report/.test(dqText) && !/Data check:/.test(dqText), err || (dqText.match(/Data check[^\n]*/) || [''])[0]); }
     ok('P5-1.7: demo has 300+ rows and a broker portfolio with a clearing account', rows >= 300 && /Cash \(clearing account\)/i.test(brokerOv), err || rows + ' | ' + brokerOv.slice(0, 160).replace(/\n/g, ' | '));
     ok('P5-1.7: switching demo portfolios writes nothing to the user\'s storage', !!before && JSON.stringify(before) === JSON.stringify(after), err || JSON.stringify([before, after]).slice(0, 200));
