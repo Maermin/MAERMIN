@@ -83,6 +83,14 @@ function RiskAnalyticsViewV2(props) {
         return;
       }
       var metrics = calculatePortfolioRiskMetrics(riskBook, convertedHistory, riskValue);
+      // On the index path the engine works on a value of 1: VaR/CVaR are then
+      // per euro - scale them to the portfolio (the Overview's value in EUR).
+      if (indexSeries && typeof scaleRiskMoney !== 'undefined') {
+        metrics = scaleRiskMoney(metrics, props.portfolioValueEUR > 0 ? props.portfolioValueEUR : portfolioValue);
+        // ...and the distribution / recommendations describe the real holdings,
+        // not the one synthetic index position.
+        if (typeof bookWeights !== 'undefined') metrics.weights = bookWeights(portfolio, prices);
+      }
       setRiskMetrics(metrics);
       
       if (typeof generateRiskRecommendations !== 'undefined') {
@@ -90,7 +98,7 @@ function RiskAnalyticsViewV2(props) {
         setRecommendations(recs);
       }
     }
-  }, [portfolio, priceHistory, portfolioValue, indexSeries]);
+  }, [portfolio, priceHistory, portfolioValue, indexSeries, props.portfolioValueEUR]);
   
   var getRiskColor = function(level) {
     switch (level) {

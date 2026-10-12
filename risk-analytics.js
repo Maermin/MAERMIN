@@ -211,6 +211,44 @@ function hasMeasurableRisk(priceHistory) { return riskObservations(priceHistory)
 /**
  * Calculate comprehensive risk metrics for portfolio
  */
+// The money figures (VaR, CVaR, absolute drawdown) for a portfolio worth
+// `valueEUR`, when the metrics were computed for a value of 1 - the daily value
+// index path of the Risk view (VIS-005). Percentages and ratios stay. A copy;
+// without a usable value the metrics come back unchanged.
+function scaleRiskMoney(metrics, valueEUR) {
+  if (!metrics || !(valueEUR > 0) || !isFinite(valueEUR)) return metrics;
+  var out = {};
+  Object.keys(metrics).forEach(function (k) { out[k] = metrics[k]; });
+  ['var95', 'cvar95', 'maxDrawdown'].forEach(function (k) { if (typeof out[k] === 'number') out[k] = out[k] * valueEUR; });
+  return out;
+}
+
+// Value share of each holding of the real book ({ category: [positions] },
+// every asset class), keyed by lower-case symbol like the engine's weights.
+// Price: the live price (prices[symbol] as written, lower or upper case), else the position's
+// current price, else its purchase price. Used on the index path, where the
+// engine's own weights describe the one synthetic index position.
+function bookWeights(portfolio, prices) {
+  var vals = {}, total = 0;
+  Object.keys(portfolio || {}).forEach(function (cat) {
+    var list = portfolio[cat];
+    if (!Array.isArray(list)) return;
+    list.forEach(function (pos) {
+      var raw = String((pos && (pos.symbol || pos.name)) || ''), sym = raw.toLowerCase();
+      if (!sym) return;
+      var live = prices ? (prices[raw] || prices[sym] || prices[raw.toUpperCase()]) : 0;
+      var px = live || pos.currentPrice || pos.purchasePrice || 0;
+      var v = (Number(pos.amount) || 0) * px;
+      if (!(v > 0)) return;
+      vals[sym] = (vals[sym] || 0) + v;
+      total += v;
+    });
+  });
+  var out = {};
+  if (total > 0) Object.keys(vals).forEach(function (s) { out[s] = vals[s] / total; });
+  return out;
+}
+
 function calculatePortfolioRiskMetrics(portfolio, priceHistory, portfolioValue) {
   var combinedHistory = [];
   var weights = {};
@@ -384,6 +422,8 @@ if (typeof window !== 'undefined') {
   window.hasMeasurableRisk = hasMeasurableRisk;
   window.MIN_RISK_OBSERVATIONS = MIN_RISK_OBSERVATIONS;
   window.generateRiskRecommendations = generateRiskRecommendations;
+  window.scaleRiskMoney = scaleRiskMoney;
+  window.bookWeights = bookWeights;
 }
 
 if (typeof module !== 'undefined' && module.exports) {
@@ -394,6 +434,8 @@ if (typeof module !== 'undefined' && module.exports) {
     calculateSortinoRatio: calculateSortinoRatio,
     calculateMaxDrawdown: calculateMaxDrawdown,
     calculatePortfolioRiskMetrics: calculatePortfolioRiskMetrics,
+    scaleRiskMoney: scaleRiskMoney,
+    bookWeights: bookWeights,
     riskObservations: riskObservations,
     hasMeasurableRisk: hasMeasurableRisk,
     MIN_RISK_OBSERVATIONS: MIN_RISK_OBSERVATIONS,

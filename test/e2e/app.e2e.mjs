@@ -1252,6 +1252,12 @@ async function runBuild(browser, label, dir) {
     await page.waitForTimeout(800);
     { const rb = await page.innerText('body');
       ok('risk metrics and rolling volatility from daily data', /Sharpe Ratio/.test(rb) && (await page.locator('[data-testid="risk-source"][data-source="daily"]').count()) === 1 && /daily time-weighted returns since/.test(rb), (rb.match(/Rolling volatility[\s\S]{0,200}/) || [''])[0].replace(/\n/g, ' | ')); }
+    // VaR/CVaR are in EUR of the portfolio on the daily-index path (were 0.01 EUR)
+    { const rb = await page.innerText('main');
+      const m = rb.match(/VaR \(95%, 1-day\)\s*\n\s*([\d,.]+)/);
+      const val = m ? parseFloat(m[1].replace(/,/g, '')) : NaN;
+      ok('Risk view names real holdings, never the index placeholder', !/__PORTFOLIO__/i.test(rb), (rb.match(/[^\n]*__PORTFOLIO__[^\n]*/i) || [''])[0]);
+      ok('VaR (95 %, 1 day) is a euro amount of the portfolio, not per euro', val > 1, m ? m[0].replace(/\n/g, ' | ') : 'no VaR card'); }
     // P5-1.6: a plain sentence under volatility, Sharpe and drawdown, plus the no-advice note
     { const got = {};
       for (const id of ['volatility', 'sharpe', 'drawdown']) got[id] = await page.locator('[data-testid="verdict-' + id + '"]').getAttribute('data-level').catch(() => null);
