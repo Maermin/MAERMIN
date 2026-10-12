@@ -12,6 +12,10 @@ var useState = React.useState;
 var useEffect = React.useEffect;
 var useMemo = React.useMemo;
 
+// P5-1.2: two columns on wide screens, one on phones (a fixed '1fr 1fr' grid
+// overflowed at 375 px: Sectors, Countries, Currencies, Liquidity).
+var TWO_COL = 'repeat(auto-fit, minmax(min(100%, 280px), 1fr))';
+
 // Theme tokens for every view in this file (FINDINGS H-8: the views were
 // hard-coded light-on-dark, white on white in the light theme). The
 // dashboard provides the app theme; the defaults are the former dark
@@ -461,7 +465,7 @@ function SectorAllocationView(props) {
       style: { marginBottom: '1rem', padding: '0.625rem 0.875rem', background: 'rgba(139,124,255,0.10)', border: '1px solid rgba(139,124,255,0.25)', borderRadius: '8px', color: 'rgba(255,255,255,0.75)', fontSize: '0.8rem' }
     }, __('ivUnclassified', '~{pct} of equities are unclassified. Add your Worker URL in Settings → API to auto-fetch sector & country for every holding.', { pct: window.MaerminI18n.pct(sectorData.unknownPct, 0) })),
 
-    sectorData.sectors.length > 0 ? React.createElement('div', { style: { display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem' } },
+    sectorData.sectors.length > 0 ? React.createElement('div', { style: { display: 'grid', gridTemplateColumns: TWO_COL, gap: '1rem' } },
       React.createElement(AnalysisCard, {
         title: __('ivSectorBreakdown', 'Sector Breakdown'),
         badge: __('ivNSectors', '{n} {n:Sector|Sectors}', { n: sectorData.sectorCount })
@@ -568,7 +572,7 @@ function CountryAllocationView(props) {
   return React.createElement('div', { style: { padding: '1rem' } },
     React.createElement('h2', { style: { color: T.text, marginBottom: '1rem' } }, __('ivCountryAlloc', 'Country / Region Allocation')),
 
-    data.rows.length > 0 ? React.createElement('div', { style: { display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem' } },
+    data.rows.length > 0 ? React.createElement('div', { style: { display: 'grid', gridTemplateColumns: TWO_COL, gap: '1rem' } },
       React.createElement(AnalysisCard, { title: __('ivGeoBreakdown', 'Geographic Breakdown'), badge: __('ivNRegions', '{n} {n:Region|Regions}', { n: data.count }) },
         data.rows.map(function(row, i) {
           return React.createElement('div', { key: row.name, style: { marginBottom: '0.75rem' } },
@@ -684,7 +688,7 @@ function CurrencyExposureView(props) {
       )
     ),
     
-    React.createElement('div', { style: { display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem' } },
+    React.createElement('div', { style: { display: 'grid', gridTemplateColumns: TWO_COL, gap: '1rem' } },
       React.createElement(AnalysisCard, {
         title: __('ivCurBreakdown', 'Currency Breakdown'),
         badge: __('ivForeignPct', '{pct} foreign', { pct: window.MaerminI18n.pct(currencyData.foreignExposure, 1) }),
@@ -833,7 +837,7 @@ function LiquidityAnalysisView(props) {
   return React.createElement('div', { style: { padding: '1rem' } },
     React.createElement('h2', { style: { color: T.text, marginBottom: '1rem' } }, __('ivLiqAnalysis', 'Liquidity Analysis')),
     
-    React.createElement('div', { style: { display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem' } },
+    React.createElement('div', { style: { display: 'grid', gridTemplateColumns: TWO_COL, gap: '1rem' } },
       React.createElement(AnalysisCard, {
         title: __('ivPortLiq', 'Portfolio Liquidity'),
         badge: liqRating(liquidityData.portfolioLiquidityRating),
@@ -984,7 +988,7 @@ function GoalInvestingView(props) {
     ),
     
     showAddGoal && React.createElement(AnalysisCard, { title: __('glCreateNew', 'Create New Goal') },
-      React.createElement('div', { style: { display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: '1rem' } },
+      React.createElement('div', { style: { display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(min(100%, 200px), 1fr))', gap: '1rem' } },
         React.createElement('div', null,
           React.createElement('label', { style: { color: T.textSecondary, fontSize: '0.75rem', display: 'block', marginBottom: '0.25rem' } }, __('glName', 'Goal Name')),
           React.createElement('input', {

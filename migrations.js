@@ -93,19 +93,16 @@
         // Older builds deleted a portfolio without touching its rows, which
         // then showed in no portfolio. Without a saved list there is no way
         // to tell an orphan from a live portfolio, so do nothing.
+        // P5-1.2: the same rule also runs after every sync (rehomeOrphans).
         var portfolios = readJSON('maermin_portfolios', null);
-        if (!Array.isArray(portfolios) || portfolios.length === 0) return;
-        var known = { 'default': true };
-        portfolios.forEach(function (p) { if (p && p.id != null) known[String(p.id)] = true; });
-        function orphan(pid) { return pid != null && pid !== '' && !known[String(pid)]; }
         var txs = readJSON('transactions', null);
         if (Array.isArray(txs)) {
-          var t = movePortfolioRows(txs, orphan, 'default');
+          var t = rehomeOrphans(txs, portfolios);
           if (t.moved) writeJSON('transactions', t.items);
         }
         var plans = readJSON('maermin_savings_plans', null);
         if (Array.isArray(plans)) {
-          var p = movePortfolioRows(plans, orphan, 'default');
+          var p = rehomeOrphans(plans, portfolios);
           if (p.moved) writeJSON('maermin_savings_plans', p.items);
         }
       }
@@ -144,6 +141,19 @@
       return next;
     });
     return { items: moved ? out : list, moved: moved };
+  }
+
+  // Rows (transactions or savings plans) whose portfolio is not in the saved
+  // list move to Main, keeping `movedFrom`. Another device can add a row to a
+  // portfolio deleted here; it arrives by sync, so this runs after every sync
+  // as well as in migration v5. Without a saved list there is no way to tell
+  // an orphan from a live portfolio: nothing moves. Pure; { items, moved }.
+  function rehomeOrphans(rows, portfolios) {
+    var list = Array.isArray(rows) ? rows : [];
+    if (!Array.isArray(portfolios) || portfolios.length === 0) return { items: list, moved: 0 };
+    var known = { 'default': true };
+    portfolios.forEach(function (p) { if (p && p.id != null) known[String(p.id)] = true; });
+    return movePortfolioRows(list, function (pid) { return pid != null && pid !== '' && !known[String(pid)]; }, 'default');
   }
 
   // Older builds stamped live price points with
@@ -229,6 +239,7 @@
     MIGRATIONS: MIGRATIONS,
     repairPriceTimestamps: repairPriceTimestamps,
     movePortfolioRows: movePortfolioRows,
+    rehomeOrphans: rehomeOrphans,
     getVersion: getVersion,
     setVersion: setVersion,
     pending: pending,

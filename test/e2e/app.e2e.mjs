@@ -416,21 +416,26 @@ async function runBuild(browser, label, dir) {
       ok('"Show all tools" switches back to Advanced (Attribution tab back)', tabsAdv === 'returns,performance,attribution' && (await page.evaluate(RAW + '.get("maermin_ui_mode")')) === 'advanced', tabsAdv);
     }
 
-    const crashedIn = [];
+    const crashedIn = [], nested = [];
     for (const id of VIEWS) {
       const before = errors.length;
       try { await openView(page, id); } catch (e) { crashedIn.push(id + ': ' + e.message); continue; }
       await page.waitForTimeout(150);
       if (!(await isOpen(page, id))) crashedIn.push(id + ': not active after click');
       if (errors.length > before) crashedIn.push(id + ': ' + errors.slice(before).join(' | '));
+      // P5-1.2: no control inside another control (a role="button" card held inputs and buttons).
+      const n = await page.evaluate(() => [...document.querySelectorAll('main [role="button"], main button')]
+        .filter((el) => el.querySelector('button, input, select, textarea, a[href], [role="button"]')).map((el) => (el.getAttribute('aria-label') || el.innerText || el.tagName).slice(0, 40)));
+      if (n.length) nested.push(id + ': ' + n.join(', '));
     }
     ok('every sidebar view renders without an error (' + VIEWS.length + ' views)', crashedIn.length === 0, crashedIn.join(' || '));
+    ok('P5-1.2: no view nests a control inside a button', nested.length === 0, nested.join(' || '));
 
     // M-10: a space typed while renaming a portfolio stays in the name.
     {
       await openView(page, 'portfolios');
       await page.getByRole('button', { name: /Rename portfolio/ }).first().click();
-      const field = page.locator('main input[aria-label="Portfolio name"]'); // inside a role=button card, so not a separate textbox role
+      const field = page.locator('main input[aria-label="Portfolio name"]');
       await field.fill('');
       await field.type('Trade Republic');
       const typed = await field.inputValue();
@@ -830,6 +835,75 @@ async function runBuild(browser, label, dir) {
     ok('P4-9: demo shows a closed position', /\(1\)/.test(closed), err || closed);
     ok('P4-9: the sample closes are never stored', stored === null, err || String(stored).slice(0, 60));
     ok('no page errors in the demo session', errors.length === 0, errors.join(' | '));
+    await context.close();
+  }
+
+  // P5-1.2: the Strategy sections fit a 375 px phone (two-column cards overflowed)
+  {
+    const context = await browser.newContext({ serviceWorkers: 'block', viewport: { width: 375, height: 812 }, hasTouch: true, isMobile: true });
+    await wire(context, external);
+    const page = await context.newPage();
+    const errors = watch(page);
+    await createVault(page, base);
+    await page.evaluate(() => { localStorage.setItem('maermin_demo', '1'); localStorage.setItem('maermin_ui_mode', 'advanced'); localStorage.setItem('maermin_onboarded', '1'); });
+    const wide = []; let sections = 0, err = '';
+    try {
+      await unlock(page, base, 'main.maermin-main');
+      await page.keyboard.press('Escape');
+      await page.waitForTimeout(1000);
+      await page.evaluate(() => document.querySelector('nav.maermin-sidebar [data-view="investment-analysis"]').click());
+      await page.waitForTimeout(800);
+      const bar = 'main div[style*="border-bottom"][style*="flex-wrap"] > button';
+      sections = await page.locator(bar).count();
+      for (let i = 0; i < sections; i++) {
+        const btn = page.locator(bar).nth(i);
+        const label = (await btn.innerText()).trim();
+        await btn.click();
+        await page.waitForTimeout(500);
+        const over = await page.evaluate(() => {
+          const vw = document.documentElement.clientWidth;
+          return [...document.querySelectorAll('main *')].filter((el) => {
+            const b = el.getBoundingClientRect();
+            if (!b.width || b.right <= vw + 1) return false;
+            for (let p = el.parentElement; p && p.tagName !== 'MAIN'; p = p.parentElement) { const ox = getComputedStyle(p).overflowX; if (ox === 'auto' || ox === 'scroll' || ox === 'hidden') return false; }
+            return true;
+          }).length;
+        });
+        if (over) wide.push(label + ': ' + over);
+      }
+    } catch (e) { err = e.message.split('\n')[0]; }
+    ok('P5-1.2: every Strategy section fits a 375 px screen', !err && sections >= 6 && wide.length === 0, err || `sections=${sections} ${wide.join(', ')}`);
+    ok('no page errors in the 375 px session', errors.length === 0, errors.join(' | '));
+    await context.close();
+  }
+
+  // P5-1.2: a row synced in for a portfolio deleted on this device moves to Main
+  {
+    const context = await browser.newContext({ serviceWorkers: 'block' });
+    await wire(context, external);
+    const page = await context.newPage();
+    const errors = watch(page);
+    await createVault(page, base);
+    await page.evaluate(() => {
+      localStorage.setItem('maermin_onboarded', '1');
+      localStorage.setItem('maermin_schema_version', String(window.MaerminMigrations.LATEST)); // past v5: the post-sync check must do the move
+      localStorage.setItem('maermin_portfolios', JSON.stringify([{ id: 'default', name: 'Main Portfolio', color: '#8b7cff' }]));
+      localStorage.setItem('transactions', JSON.stringify([
+        { id: 'o1', type: 'buy', category: 'stocks', symbol: 'AAPL', quantity: 1, price: 100, currency: 'EUR', date: '2026-01-02', portfolioId: 'default' },
+        { id: 'o2', type: 'buy', category: 'crypto', symbol: 'BTC', quantity: 1, price: 100, currency: 'EUR', date: '2026-01-03', portfolioId: 'pf_gone' }]));
+    });
+    await page.waitForTimeout(1500); // let the encrypted writes finish before the reload
+    let moved = null, toast = '', err = '', all = '';
+    try {
+      await unlock(page, base);
+      await page.waitForTimeout(1200);
+      all = await page.evaluate(() => localStorage.getItem('transactions'));
+      moved = JSON.parse(all || '[]').find((x) => x.id === 'o2');
+      toast = await page.getByText(/from deleted portfolios moved to/).first().innerText({ timeout: 5000 }).catch(() => 'no toast');
+    } catch (e) { err = e.message.split('\n')[0]; }
+    ok('P5-1.2: an orphaned row moves to Main and remembers its portfolio', !!moved && moved.portfolioId === 'default' && moved.movedFrom === 'pf_gone', err || String(all).slice(0, 300));
+    ok('P5-1.2: the move is announced', /1 entry from deleted portfolios moved to Main Portfolio/.test(toast), err || toast);
+    ok('no page errors in the orphan session', errors.length === 0, errors.join(' | '));
     await context.close();
   }
 

@@ -18,6 +18,9 @@ const O = require('../onboarding.js');
 console.log('worker version handshake:');
 ok('worker and app name the same version', W.WORKER_VERSION === O.EXPECTED_WORKER_VERSION, W.WORKER_VERSION + ' vs ' + O.EXPECTED_WORKER_VERSION);
 ok('version format YYYY.M.N', /^\d{4}\.\d{1,2}\.\d+$/.test(W.WORKER_VERSION));
+// P5-1.2: the example answer in docs/WORKER.md names the current version too.
+const docVersions = [...readFileSync(path.join(__dirname, '../docs/WORKER.md'), 'utf8').matchAll(/"version":\s*"([\d.]+)"/g)].map((m) => m[1]);
+ok('docs/WORKER.md shows the current version', docVersions.length > 0 && docVersions.every((v) => v === W.WORKER_VERSION), docVersions.join(',') + ' vs ' + W.WORKER_VERSION);
 
 const src = readFileSync(path.join(__dirname, '../cf-worker/worker.js'), 'utf8');
 const routes = [...new Set([...src.matchAll(/action === '([a-z]+)'/g)].map((m) => m[1]))].sort();

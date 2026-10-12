@@ -118,18 +118,21 @@ function PortfolioManagerView({ portfolios, activePortfolioId, transactions, pri
     // Portfolio Cards
     React.createElement('div', { style: { display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))', gap: '1rem', marginBottom: '1.5rem' } },
       portfolioStats.map(p =>
+        // P5-1.2: the card is a plain container (it was a role="button" holding
+        // the rename input and the action buttons). The portfolio name is the
+        // switch button; a click elsewhere on the card still switches (mouse
+        // convenience; keyboard and screen readers use the button).
         React.createElement('div', {
           key: p.id,
-          ...window.MaerminUtils.clickable(() => setActivePortfolioId(p.id)),
-          'aria-label': __('pfSwitchTo', 'Switch to portfolio {name}', { name: p.name || p.id }),
-          'aria-pressed': activePortfolioId === p.id,
+          'data-pf-card': p.id,
+          onClick: (e) => { if (!/^(BUTTON|INPUT)$/.test(e.target.tagName)) setActivePortfolioId(p.id); },
           style: {
             background: theme.card, border: `2px solid ${activePortfolioId === p.id ? p.color : theme.cardBorder}`,
             borderRadius: '12px', padding: '1.25rem', cursor: 'pointer', transition: 'all 0.15s'
           }
         },
-          React.createElement('div', { style: { display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '0.75rem' } },
-            React.createElement('div', { style: { display: 'flex', alignItems: 'center', gap: '0.625rem' } },
+          React.createElement('div', { style: { display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: '0.5rem', marginBottom: '0.75rem' } },
+            React.createElement('div', { style: { display: 'flex', alignItems: 'center', gap: '0.625rem', minWidth: 0 } },
               React.createElement('div', { style: { width: 12, height: 12, borderRadius: '50%', background: p.color, flexShrink: 0 } }),
               editId === p.id
                 ? React.createElement('input', {
@@ -141,16 +144,25 @@ function PortfolioManagerView({ portfolios, activePortfolioId, transactions, pri
                     style: { background: theme.inputBg, border: `1px solid ${theme.inputBorder}`, borderRadius: '6px', color: theme.text, padding: '0.25rem 0.5rem', fontSize: '0.9rem', fontWeight: '700', width: '140px' },
                     onClick: e => e.stopPropagation()
                   })
-                : React.createElement('span', { style: { color: theme.text, fontWeight: '700', fontSize: '0.95rem' } }, p.name)
+                : React.createElement('button', {
+                    type: 'button', 'data-pf-switch': p.id,
+                    onClick: () => setActivePortfolioId(p.id),
+                    'aria-label': __('pfSwitchTo', 'Switch to portfolio {name}', { name: p.name || p.id }),
+                    'aria-pressed': activePortfolioId === p.id,
+                    style: { background: 'none', border: 'none', padding: '0.15rem 0', minHeight: '24px', cursor: 'pointer', textAlign: 'left',
+                      color: theme.text, fontWeight: '700', fontSize: '0.95rem', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }
+                  }, p.name)
             ),
-            React.createElement('div', { style: { display: 'flex', gap: '0.375rem' } },
+            React.createElement('div', { style: { display: 'flex', gap: '0.375rem', flexShrink: 0 } },
               React.createElement('button', {
+                type: 'button',
                 onClick: e => { e.stopPropagation(); setEditId(p.id); setEditName(p.name); },
                 'aria-label': ((t && t.pfRenameAria) || 'Rename portfolio {name}').replace('{name}', p.name),
                 title: (t && t.pfRename) || 'Rename',
-                style: { background: 'none', border: 'none', color: theme.textSecondary, cursor: 'pointer', fontSize: '0.8rem', padding: '0.25rem' }
+                style: { background: 'none', border: 'none', color: theme.textSecondary, cursor: 'pointer', fontSize: '0.8rem', padding: '0.25rem', minWidth: '24px', minHeight: '24px' }
               }, '✎'),
               p.id !== 'default' && React.createElement('button', {
+                type: 'button',
                 onClick: e => {
                   e.stopPropagation();
                   const tt = t || {};
@@ -166,7 +178,7 @@ function PortfolioManagerView({ portfolios, activePortfolioId, transactions, pri
                   }).then(yes => { if (yes) removePortfolio(p.id); });
                 },
                 'aria-label': ((t && t.pfDeleteAria) || 'Delete portfolio {name}').replace('{name}', p.name),
-                style: { background: 'none', border: 'none', color: theme.danger || '#ef4444', cursor: 'pointer', fontSize: '0.8rem', padding: '0.25rem' }
+                style: { background: 'none', border: 'none', color: theme.danger || '#ef4444', cursor: 'pointer', fontSize: '0.8rem', padding: '0.25rem', minWidth: '24px', minHeight: '24px' }
               }, '×')
             )
           ),
