@@ -2,7 +2,7 @@
   "text": {
     "advisor.js": 15,
     "anlage-kap.js": 1,
-    "audit-log.js": 2,
+    "audit-log.js": 1,
     "auth.js": 8,
     "close-history.js": 2,
     "compute-client.js": 2,
@@ -33,7 +33,7 @@
     "performance-map.js": 2,
     "portfolio-analytics.js": 3,
     "portfolio-health.js": 4,
-    "pwa.js": 2,
+    "pwa.js": 1,
     "renderer-components.js": 4,
     "renderer.js": 9,
     "risk-analytics-view-v2.js": 1,
@@ -42,8 +42,7 @@
     "share-snapshot.js": 9,
     "simulator-view.js": 2,
     "tax-report-builder.js": 12,
-    "ticker-validation.js": 49,
-    "utils.js": 4
+    "ticker-validation.js": 49
   },
   "locale": {
     "dividend-data-service.js": 1,

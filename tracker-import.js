@@ -29,8 +29,11 @@
 //                                                go to the note, not the cost basis)
 //   dividend                                   → dividend (gross = net + taxes + fees,
 //                                                foreign tax → withholdingTax)
-//   everything else (cash, interest, fees, taxes, transfers between own accounts,
-//   outbound delivery) → not booked, each row listed with the reason.
+//   deposit, withdrawal, fees, fee refund, taxes, tax refund, interest charge
+//                                              → cash rows (P5-1.3; amount > 0,
+//                                                category 'cashflow', no symbol)
+//   interest on cash, transfers between own accounts, outbound delivery
+//                                              → not booked, each row listed with the reason.
 // File contents are data: no cell is ever evaluated or followed.
 //
 //   detect(headers)        → { id: 'pp'|'parqet'|'pp-language', name } | null
@@ -72,6 +75,28 @@ function __(k, f, v) { return (typeof window !== 'undefined' && window.MaerminI1
     fees: 'cash', 'gebühren': 'cash', 'fees refund': 'cash', 'gebührenerstattung': 'cash',
     taxes: 'cash', steuern: 'cash', 'tax refund': 'cash', 'steuerrückerstattung': 'cash'
   };
+
+  // P5-1.3: cash rows booked as cash-flow types (ledger.js CASH_TYPES). Interest
+  // on cash waits for the clearing account (P5-1.4); a transfer between own
+  // accounts is not booked: the file does not say which portfolio it went to.
+  var PP_CASH = {
+    deposit: 'deposit', einlage: 'deposit', removal: 'withdrawal', withdrawal: 'withdrawal', entnahme: 'withdrawal',
+    fees: 'fee', 'gebühren': 'fee', 'fees refund': 'fee_refund', 'gebührenerstattung': 'fee_refund',
+    taxes: 'tax', steuern: 'tax', 'tax refund': 'tax_refund', 'steuerrückerstattung': 'tax_refund',
+    'interest charge': 'interest_charge', zinsbelastung: 'interest_charge'
+  };
+  var PARQET_CASH = { deposit: 'deposit', withdrawal: 'withdrawal', fee: 'fee', tax: 'tax', feerefund: 'fee_refund', taxrefund: 'tax_refund' };
+
+  // One cash row; amount > 0, the sign is in the type. A security named in the
+  // row goes into the note only (a cash row never makes a position).
+  function bookCash(type, o, out, rowNo, raw, source) {
+    if (!o.date || !(o.amount > 0)) {
+      out.errors.push({ row: rowNo, reason: __('imInvalid', 'invalid/missing: {list}', { list: !o.date ? 'date' : 'value' }), raw: raw });
+      return;
+    }
+    var notes = [source, o.label, o.security, o.note].filter(function (x) { return String(x || '').trim(); }).join(' · ');
+    out.transactions.push({ type: type, category: 'cashflow', amount: r6(o.amount), currency: o.currency, date: o.date, notes: notes });
+  }
 
   var PARQET_HEAD = ['datetime', 'date', 'price', 'shares', 'amount', 'tax', 'fee', 'type', 'assettype', 'identifier', 'currency'];
   var PARQET_KIND = { buy: 'buy', sell: 'sell', dividend: 'dividend', transferin: 'inbound', transferout: 'outbound', interest: 'interest',
@@ -169,6 +194,12 @@ function __(k, f, v) { return (typeof window !== 'undefined' && window.MaerminI1
       out.stats.total++;
       var at = function (k) { return String(row[headers[PP_COL[k]]] == null ? '' : row[headers[PP_COL[k]]]).trim(); };
       var label = at('type');
+      var cashType = PP_CASH[lc(label)];
+      if (cashType) {
+        bookCash(cashType, { date: M.parseDate(at('date')), amount: Math.abs(num(at('value'))), currency: (at('currency') || 'EUR').toUpperCase().slice(0, 3),
+          label: label, security: at('name'), note: at('note') }, out, rowNo, row, PP_NAME);
+        return;
+      }
       var kind = PP_KIND[lc(label)];
       if (kind !== 'buy' && kind !== 'sell' && kind !== 'dividend' && kind !== 'inbound') {
         out.errors.push({ row: rowNo, reason: notBooked(kind, label), raw: row });
@@ -207,6 +238,15 @@ function __(k, f, v) { return (typeof window !== 'undefined' && window.MaerminI1
       var at = function (k) { return key[k] && row[key[k]] != null ? String(row[key[k]]).trim() : ''; };
       var n = function (k) { var v = M.parseNumber(at(k)); return isFinite(v) ? Math.abs(v) : 0; };
       var label = at('type');
+      var cashType = PARQET_CASH[lc(label)];
+      if (cashType) {
+        // "amount" carries deposits, withdrawals and refunds; a fee or tax row
+        // may carry its value in the fee / tax column instead.
+        var amt = n('amount') || (cashType === 'fee' ? n('fee') : cashType === 'tax' ? n('tax') : 0);
+        bookCash(cashType, { date: M.parseDate(at('date'), 'de') || M.parseDate(at('datetime')), amount: amt, currency: (at('currency') || 'EUR').toUpperCase().slice(0, 3),
+          label: label, security: at('holdingname') }, out, rowNo, row, PARQET_NAME);
+        return;
+      }
       var kind = PARQET_KIND[lc(label)];
       if (kind !== 'buy' && kind !== 'sell' && kind !== 'dividend' && kind !== 'inbound') {
         out.errors.push({ row: rowNo, reason: notBooked(kind, label), raw: row });

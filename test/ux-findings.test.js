@@ -103,7 +103,7 @@ const read = (f) => fs.readFileSync(path.join(__dirname, '..', f), 'utf8');
     // Inside fetchPrices every toast goes through notify / sideNote, or is a
     // once-per-session hint, or is guarded by !silent.
     {
-      const src = read('renderer.js');
+      const src = read('renderer.js').replace(/\r\n/g, '\n'); // CRLF in a Windows checkout
       const s = src.indexOf('const fetchPrices = async');
       const body = src.slice(s, src.indexOf('\n  };\n', s));
       const bare = body.split('\n').filter((l) => /addToast\(/.test(l) && !/n\.show && message|if \(!silent\)|__maerminCgHintShown|sideNote = /.test(l));

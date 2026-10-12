@@ -79,7 +79,16 @@ Transactions are the source of truth:
 ```
 transaction = { id, type(buy|sell|dividend|interest|…), category(crypto|stocks|skins|commodities),
                 symbol, symbolName?, quantity, price, fees?, currency(EUR|USD), date, portfolioId, notes? }
+
+cash row    = { id, type(deposit|withdrawal|transfer_in|transfer_out|fee|fee_refund|tax|tax_refund|interest_charge),
+                category: 'cashflow', amount (> 0), currency, date, portfolioId, notes?,
+                transferId? + counterPortfolioId? (a transfer is a pair, one row per portfolio) }
 ```
+
+Cash rows (P5-1.3) never create positions or lots. `MaerminLedger.cashFlows` gives their
+signed EUR amounts (sign = effect on the portfolio's cash); fees, taxes, refunds and interest
+charges are XIRR flows, deposits, withdrawals and transfers wait for the clearing account (P5-1.4).
+The dialog saves them through `MaerminUtils.upsertCash` (a transfer pair is edited and deleted as one).
 
 Everything else is **derived** from transactions (single source of truth in
 `metrics.js`):

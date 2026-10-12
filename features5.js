@@ -511,10 +511,12 @@ function FeeAnalyzer({ transactions, theme, formatPrice, getCurrencySymbol, exch
       return U ? U.toEUR(a, tx.currency || 'EUR', exchangeRate) : a;
     };
   }, [exchangeRate, fxAt]);
-  const feeOf = (tx) => eurOf(tx.fees, tx);
+  // P5-1.3: a stand-alone fee booking counts with its amount, a fee refund
+  // against it (category "Account").
+  const feeOf = (tx) => tx.type === 'fee' ? eurOf(tx.amount, tx) : tx.type === 'fee_refund' ? -eurOf(tx.amount, tx) : eurOf(tx.fees, tx);
   const tradeOf = (tx) => eurOf((parseFloat(tx.quantity) || 0) * (parseFloat(tx.price) || 0), tx);
   const stats = useMemo(() => {
-    const feeTxs = transactions.filter(tx => (parseFloat(tx.fees) || 0) > 0);
+    const feeTxs = transactions.filter(tx => (parseFloat(tx.fees) || 0) > 0 || ((tx.type === 'fee' || tx.type === 'fee_refund') && (parseFloat(tx.amount) || 0) > 0));
     const totalFees    = feeTxs.reduce((s, tx) => s + feeOf(tx), 0);
     const totalInvested = transactions.filter(tx => tx.type === 'buy')
       .reduce((s, tx) => s + tradeOf(tx), 0);

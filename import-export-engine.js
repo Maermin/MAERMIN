@@ -628,17 +628,24 @@ function exportToCSV(transactions, options = {}) {
     'Date', 'Type', 'Symbol', 'Category', 'Quantity', 'Price', 'Total', 'Fees', 'Currency'
   ];
 
-  const rows = transactions.map(tx => [
-    tx.date || '',
-    tx.type || '',
-    tx.symbol || '',
-    tx.category || '',
-    tx.quantity || '',
-    tx.price || '',
-    ((tx.quantity || 0) * (tx.price || 0)).toFixed(2),
-    tx.fees || '',
-    tx.currency || ''
-  ]);
+  // P5-1.3: a cash booking has no quantity or price; its Total is the amount,
+  // negative when it takes cash (fee, tax, withdrawal, ...). A transfer keeps
+  // only one side here - the JSON backup is the full restore.
+  const L = (typeof window !== 'undefined' && window.MaerminLedger) || require('./ledger.js');
+  const rows = transactions.map(tx => {
+    const cash = L.isCash(tx);
+    return [
+      tx.date || '',
+      tx.type || '',
+      tx.symbol || '',
+      tx.category || '',
+      cash ? '' : (tx.quantity || ''),
+      cash ? '' : (tx.price || ''),
+      cash ? (L.CASH_TYPES[tx.type].sign * (Number(tx.amount) || 0)).toFixed(2) : ((tx.quantity || 0) * (tx.price || 0)).toFixed(2),
+      tx.fees || '',
+      tx.currency || ''
+    ];
+  });
 
   const csvContent = [
     headers.map(csvCell).join(','),

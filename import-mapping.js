@@ -89,6 +89,17 @@ function __(k, f, v) { return (typeof window !== 'undefined' && window.MaerminI1
   // a substring, 's' turned "Savings plan", "Purchase" or "Deposit" into sells.
   const BUY_WORDS  = ['buy', 'kauf', 'purchase', 'deposit', 'einzahlung', 'long', 'b', 'acquisition', 'sparplan', 'savings plan', 'savingsplan'];
   const SELL_WORDS = ['sell', 'verkauf', 'sale', 'withdrawal', 'auszahlung', 'short', 's', 'disposal'];
+  // P5-1.3: cash bookings - only for rows that name no security (a "deposit"
+  // of a coin stays a buy, a "withdrawal" of a coin a sell, as before).
+  const CASH_WORDS = {
+    deposit: 'deposit', einzahlung: 'deposit', einlage: 'deposit',
+    withdrawal: 'withdrawal', auszahlung: 'withdrawal', entnahme: 'withdrawal', removal: 'withdrawal',
+    fee: 'fee', fees: 'fee', 'gebühr': 'fee', 'gebühren': 'fee', 'fee refund': 'fee_refund', 'gebührenerstattung': 'fee_refund',
+    tax: 'tax', taxes: 'tax', steuer: 'tax', steuern: 'tax', 'tax refund': 'tax_refund', steuererstattung: 'tax_refund', 'steuerrückerstattung': 'tax_refund',
+    'interest charge': 'interest_charge', zinsbelastung: 'interest_charge', sollzinsen: 'interest_charge',
+    // MAERMIN's own CSV export
+    fee_refund: 'fee_refund', tax_refund: 'tax_refund', interest_charge: 'interest_charge'
+  };
   const DIV_WORDS  = ['dividend', 'dividende', 'distribution', 'ausschüttung', 'interest', 'zinsen', 'staking', 'reward'];
 
   // --- helpers ---------------------------------------------------------------
@@ -352,6 +363,23 @@ function __(k, f, v) { return (typeof window !== 'undefined' && window.MaerminI1
       const rawQty = parseNumber(get('quantity'), locale);
       const quantity = Math.abs(rawQty);
       const price = parseNumber(get('price'), locale);
+      const cashType = !symbol ? CASH_WORDS[lc(get('type'))] : null;
+      if (cashType) {
+        // The amount sits in the quantity column ("Amount", "Betrag"), times
+        // the price when the file has one.
+        // A Total / Amount / Betrag column (MAERMIN's own export) wins.
+        const totalHeader = Object.keys(row || {}).find((h) => /^(total|amount|betrag)$/i.test(String(h).trim()) && h !== mapping.quantity);
+        const total = totalHeader ? parseNumber(row[totalHeader], locale) : NaN;
+        const amount = isFinite(total) && total !== 0 ? Math.abs(total)
+          : isFinite(rawQty) && rawQty !== 0 ? Math.abs(rawQty) * (isFinite(price) && price > 0 ? price : 1) : (isFinite(price) ? Math.abs(price) : NaN);
+        if (!date || !(amount > 0)) {
+          errors.push({ row: rowNo, reason: __('imInvalid', 'invalid/missing: {list}', { list: !date ? 'date' : 'quantity' }), raw: row });
+          return;
+        }
+        transactions.push({ category: 'cashflow', type: cashType, amount: Math.round(amount * 1e6) / 1e6, date,
+          currency: (String(get('currency') || opts.currency || 'EUR').trim().toUpperCase()).slice(0, 3) || 'EUR' });
+        return;
+      }
       const missing = [];
       if (!symbol) missing.push('symbol');
       if (!date) missing.push('date');
@@ -428,7 +456,8 @@ function __(k, f, v) { return (typeof window !== 'undefined' && window.MaerminI1
 
   /** Stable identity key for duplicate detection. */
   function dupKey(tx) {
-    return [tx.date, tx.type, lc(tx.symbol), round(tx.quantity), round(tx.price)].join('|');
+    // P5-1.3: a cash row (no quantity, no price) is told apart by its amount.
+    return [tx.date, tx.type, lc(tx.symbol), round(tx.quantity), round(tx.price), round(tx.amount)].join('|');
   }
   function round(n) { return Math.round((Number(n) || 0) * 1e6) / 1e6; }
 

@@ -265,7 +265,7 @@ function __(k, f, v) { return (typeof window !== 'undefined' && window.MaerminI1
     // Currency conversion details — every non-base transaction in the year.
     var currencyConversions = txs.filter(function (tx) { return tx.currency && tx.currency !== base && inYear(tx.date); })
       .map(function (tx) {
-        var orig = num(tx.quantity) * num(tx.price);
+        var orig = ledger().isCash(tx) ? num(tx.amount) : num(tx.quantity) * num(tx.price);
         // The rate actually applied to THIS currency on that date (the USD
         // rate was printed for every currency, e.g. next to a CHF trade).
         var baseAmount = toBase(orig, tx.currency, rate, tx.date, fxAt);
@@ -273,6 +273,14 @@ function __(k, f, v) { return (typeof window !== 'undefined' && window.MaerminI1
         return { date: ymd(tx.date), symbol: (tx.symbol || '').toUpperCase(), currency: tx.currency,
           originalAmount: orig, rate: txRate, baseAmount: baseAmount };
       });
+
+    // P5-1.3: cash bookings of the year (EUR at each date), for information:
+    // taxes already paid or refunded, stand-alone fees and interest charges.
+    // They do not change the computed tax (Germany: costs are not deductible,
+    // § 20 (9) EStG; withheld tax is credited by the tax office, not here).
+    var cashYear = ledger().cashFlows(txs, { exchangeRate: rate, fxAt: fxAt }).byYear[String(year)] || {};
+    var cashBookings = {};
+    ['tax', 'tax_refund', 'fee', 'fee_refund', 'interest_charge'].forEach(function (k) { cashBookings[k] = Math.round((cashYear[k] || 0) * 100) / 100; });
 
     // Transaction summary — counts by type in the year.
     var txSummary = {};
@@ -467,7 +475,8 @@ function __(k, f, v) { return (typeof window !== 'undefined' && window.MaerminI1
         totalTaxableIncome: totalGains + totalLosses + dividendIncome + interestIncome,
         estimatedTaxLiability: taxLiability,
         jurisdictionDetail: summaryExtra,
-        germanDetail: germanDetail
+        germanDetail: germanDetail,
+        cashBookings: cashBookings
       },
       realizedGains: realizedGains,
       realizedLosses: realizedLosses,

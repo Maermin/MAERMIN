@@ -144,16 +144,22 @@ function ReturnsView({ transactions, portfolio, prices, priceHistory, theme, for
   // Simple holding period stats — every amount in EUR.
   const stats = useMemo(() => {
     if (!transactions.length) return null;
-    const invested = -flows.filter(f => f.amount < 0).reduce((s, f) => s + f.amount, 0);
-    const received = flows.filter(f => f.amount > 0).reduce((s, f) => s + f.amount, 0) - (currentValue > 0 ? currentValue : 0);
-    const totalFees = transactions.reduce((s, tx) => {
+    // P5-1.3: stand-alone fees, taxes, refunds and interest charges (flows
+    // with a `type`) are neither purchases nor proceeds; they count in the
+    // total return (like XIRR) and fees net of refunds in Total Fees.
+    const trade = flows.filter(f => !f.type), cashF = flows.filter(f => f.type);
+    const invested = -trade.filter(f => f.amount < 0).reduce((s, f) => s + f.amount, 0);
+    const received = trade.filter(f => f.amount > 0).reduce((s, f) => s + f.amount, 0) - (currentValue > 0 ? currentValue : 0);
+    const netCash = cashF.reduce((s, f) => s + f.amount, 0);
+    const cashFees = -cashF.filter(f => f.type === 'fee' || f.type === 'fee_refund').reduce((s, f) => s + f.amount, 0);
+    const totalFees = cashFees + transactions.reduce((s, tx) => {
       const f = parseFloat(tx.fees) || 0;
       const FXH = window.MaerminFxHistory;
       if (FXH && FXH.txToEUR) return s + FXH.txToEUR(f, tx.currency, tx.date, exchangeRate, fxAt).value;
       const r = tx.currency === 'USD' ? ((fxAt && fxAt(tx.date)) || exchangeRate || 1) : 1;
       return s + f * r;
     }, 0);
-    const totalReturn = currentValue + received - invested;
+    const totalReturn = currentValue + received - invested + netCash;
     const totalReturnPct = invested > 0 ? totalReturn / invested : 0;
     const dates = transactions.map(tx => new Date(tx.date)).sort((a,b)=>a-b);
     const holdingDays = dates.length > 0 ? Math.floor((new Date() - dates[0]) / (24*3600*1000)) : 0;
@@ -919,11 +925,11 @@ function BrokerImportWizard({ theme, t, addToast, onImport, existing, workerUrl 
         selectedBroker === 'portfolioPerformance'
           ? React.createElement('div', null,
               React.createElement('div', null, __('biPpStep1', '1. In Portfolio Performance open the CSV export (window "Export CSV", German "CSV exportieren").')),
-              React.createElement('div', null, __('biPpStep2', '2. Choose "Securities Account Transactions" (Depotumsätze) for purchases and sales, and "Account Transactions" (Kontoumsätze) for dividends.')),
+              React.createElement('div', null, __('biPpStep2', '2. Choose "Securities Account Transactions" (Depotumsätze) for purchases and sales, and "Account Transactions" (Kontoumsätze) for dividends, deposits, withdrawals, fees and taxes.')),
               React.createElement('div', null, __('biPpStep3', '3. Upload each file here. The program language must be English or German. A purchase in both files is recognised as a duplicate.')))
           : React.createElement('div', null,
               React.createElement('div', null, __('biPqStep1', '1. In Parqet open Activities and choose Export (CSV).')),
-              React.createElement('div', null, __('biPqStep2', '2. Upload the file here. Securities and crypto are imported; cash bookings are listed, not booked.')))
+              React.createElement('div', null, __('biPqStep2', '2. Upload the file here. Securities, crypto, deposits, withdrawals, fees and taxes are imported; other cash bookings are listed, not booked.')))
       ),
       exchangeSyncSupported && React.createElement('p', { style: { color: theme.textSecondary, fontSize: '0.78rem', lineHeight: '1.6', marginBottom: '1rem' } },
         __('biPreferLive', 'Prefer a live import? Use Exchange sync below with a read-only API key (stored encrypted in your vault).')),
@@ -986,7 +992,7 @@ function BrokerImportWizard({ theme, t, addToast, onImport, existing, workerUrl 
               ? React.createElement('div', { style: { color: theme.text, fontWeight: '700', marginBottom: '0.3rem' } }, __('biTrackerHow', 'How {name} rows are booked', { name: mp.broker ? mp.broker.name : '' }))
               : React.createElement('div', { style: { color: theme.text, fontWeight: '700', marginBottom: '0.3rem' } }, __('biCtHow', 'How CoinTracking rows are booked')),
             mp.format
-              ? React.createElement('div', null, __('biTrackerRules', 'Purchases and inbound deliveries become buys at their price before fees (taxes on a purchase count as costs). Sales become sells; tax withheld on a sale goes to the note, not into the cost basis. Dividends are booked gross with the foreign tax as withholding tax. Cash bookings, interest, transfers between your own accounts and outbound deliveries are not booked; the skipped list says why.'))
+              ? React.createElement('div', null, __('biTrackerRules', 'Purchases and inbound deliveries become buys at their price before fees (taxes on a purchase count as costs). Sales become sells; tax withheld on a sale goes to the note, not into the cost basis. Dividends are booked gross with the foreign tax as withholding tax. Deposits, withdrawals, fees, taxes, refunds and interest charges become cash bookings. Interest on cash, transfers between your own accounts and outbound deliveries are not booked; the skipped list says why.'))
               : React.createElement('div', null, __('biCtRules', 'Trades become buys and sells (a coin-to-coin trade is a sale plus a purchase at the recorded value). Income, staking, mining and airdrops are buys at their market value. Deposits and withdrawals between your own wallets are not booked') + (mp.stats.transfers ? ' ' + __('biInThisFile', '({n} in this file)', { n: mp.stats.transfers }) : '') + __('biCtRulesEnd', '; the skipped list says why each row was left out.')),
             (mp.warnings || []).length > 0 && React.createElement('ul', { role: 'status', style: { margin: '0.5rem 0 0', paddingLeft: '1.1rem', color: theme.warning } },
               mp.warnings.slice(0, 8).map((w, i) => React.createElement('li', { key: i }, w)),
@@ -1096,14 +1102,15 @@ function BrokerImportWizard({ theme, t, addToast, onImport, existing, workerUrl 
                   React.createElement('tr', { key: i, style: { opacity: tx.duplicate ? 0.45 : 1 } },
                     React.createElement('td', { style: { padding: '0.5rem 0.875rem', color: theme.text } }, tx.date ? window.MaerminI18n.date(tx.date) : '—'),
                     React.createElement('td', { style: { padding: '0.5rem 0.875rem' } },
-                      React.createElement('span', { style: { padding: '0.125rem 0.375rem', borderRadius: '3px', fontSize: '0.7rem', fontWeight: '700', background: tx.type === 'buy' ? 'rgba(34,197,94,0.15)' : tx.type === 'sell' ? 'rgba(239,68,68,0.15)' : 'rgba(139,124,255,0.15)', color: tx.type === 'buy' ? '#22c55e' : tx.type === 'sell' ? '#ef4444' : theme.accent } }, (tx.type || '').toUpperCase())
+                      React.createElement('span', { style: { padding: '0.125rem 0.375rem', borderRadius: '3px', fontSize: '0.7rem', fontWeight: '700', background: tx.type === 'buy' ? 'rgba(34,197,94,0.15)' : tx.type === 'sell' ? 'rgba(239,68,68,0.15)' : 'rgba(139,124,255,0.15)', color: tx.type === 'buy' ? '#22c55e' : tx.type === 'sell' ? '#ef4444' : theme.accent } }, window.MaerminUtils.txTypeInfo(tx.type, t).label.toUpperCase())
                     ),
                     React.createElement('td', { style: { padding: '0.5rem 0.875rem', color: tx.unresolvedIsin ? '#ef4444' : theme.text, fontWeight: '600' } },
                       tx.symbol || '—',
                       (tx.isin && !tx.unresolvedIsin) && React.createElement('div', { style: { color: theme.textSecondary, fontWeight: '400', fontSize: '0.68rem', fontFamily: 'monospace' } }, tx.isin),
                       tx.unresolvedIsin && React.createElement('div', { style: { fontWeight: '400', fontSize: '0.68rem' } }, __('biNoTicker', 'no ticker'))),
                     React.createElement('td', { style: { padding: '0.5rem 0.875rem', color: theme.text, textAlign: 'right' } }, (typeof tx.quantity === 'number' ? window.MaerminI18n.num(tx.quantity, 4) : '—')),
-                    React.createElement('td', { style: { padding: '0.5rem 0.875rem', color: theme.text, textAlign: 'right' } }, (typeof tx.price === 'number' ? window.MaerminI18n.num(tx.price, 2) : '—')),
+                    // P5-1.3: a cash row shows its amount in the price column
+                    React.createElement('td', { style: { padding: '0.5rem 0.875rem', color: theme.text, textAlign: 'right' } }, (typeof tx.price === 'number' ? window.MaerminI18n.num(tx.price, 2) : typeof tx.amount === 'number' ? window.MaerminI18n.num(tx.amount, 2) + ' ' + (tx.currency || 'EUR') : '—')),
                     React.createElement('td', { style: { padding: '0.5rem 0.875rem', color: theme.textSecondary, textAlign: 'right' } }, window.MaerminI18n.num(typeof tx.fees === 'number' ? tx.fees : 0, 2)),
                     React.createElement('td', { style: { padding: '0.5rem 0.875rem', textAlign: 'right' } }, tx.duplicate ? React.createElement('span', { style: { color: '#f59e0b', fontSize: '0.68rem', fontWeight: '700' } }, 'DUP') : '')
                   )

@@ -234,7 +234,105 @@
     return out.sort(function (a, b) { return a.closed < b.closed ? 1 : a.closed > b.closed ? -1 : 0; });
   }
 
+  // ---- P5-1.3: cash-flow bookings ------------------------------------------
+  // Rows { type, category: 'cashflow', amount (> 0), currency, date,
+  // portfolioId, notes?, symbol? (display only) }; a transfer between
+  // portfolios is a pair sharing `transferId`, each with `counterPortfolioId`.
+  // They never create positions or lots. sign = effect on the portfolio's
+  // cash. flow = counts as an investment flow for XIRR and total return:
+  // fees, taxes, refunds and interest charges do; deposits, withdrawals and
+  // transfers only move cash and wait for the clearing account (P5-1.4).
+  // Fees and taxes recorded on a trade stay on the trade (no double count).
+  var CASH_TYPES = {
+    deposit:         { sign: 1,  flow: false },
+    withdrawal:      { sign: -1, flow: false },
+    transfer_in:     { sign: 1,  flow: false },
+    transfer_out:    { sign: -1, flow: false },
+    fee:             { sign: -1, flow: true },
+    fee_refund:      { sign: 1,  flow: true },
+    tax:             { sign: -1, flow: true },
+    tax_refund:      { sign: 1,  flow: true },
+    interest_charge: { sign: -1, flow: true }
+  };
+  function isCash(tx) { return !!(tx && Object.prototype.hasOwnProperty.call(CASH_TYPES, tx.type)); }
+  function isTransfer(tx) { return !!tx && (tx.type === 'transfer_in' || tx.type === 'transfer_out'); }
+
+  // Missing or wrong fields of a cash row, in form order.
+  function validateCash(tx) {
+    var out = [];
+    if (!isCash(tx)) return ['type'];
+    var a = parseFloat(tx.amount);
+    if (!(isFinite(a) && a > 0)) out.push('amount');
+    if (!ymd(tx.date)) out.push('date');
+    if (isTransfer(tx)) {
+      if (!tx.transferId) out.push('transferId');
+      if (!tx.counterPortfolioId || String(tx.counterPortfolioId) === String(tx.portfolioId || 'default')) out.push('counterPortfolioId');
+    }
+    return out;
+  }
+
+  // The two rows of a transfer. o = { amount, currency, date, fromPortfolioId,
+  // toPortfolioId, notes? }; newId() makes ids. null when both sides match.
+  function transferPair(o, newId) {
+    o = o || {};
+    var from = String(o.fromPortfolioId || 'default'), to = String(o.toPortfolioId || 'default');
+    if (from === to) return null;
+    var id = typeof newId === 'function' ? newId : function () { return 'tx_' + Date.now().toString(36) + Math.random().toString(36).slice(2, 8); };
+    var tid = 'tr_' + id();
+    var base = { category: 'cashflow', amount: num(o.amount), currency: o.currency || 'EUR', date: o.date, transferId: tid };
+    if (o.notes) base.notes = o.notes;
+    return [
+      Object.assign({ id: id(), type: 'transfer_out', portfolioId: from, counterPortfolioId: to }, base),
+      Object.assign({ id: id(), type: 'transfer_in', portfolioId: to, counterPortfolioId: from }, base)
+    ];
+  }
+  // The other half of a transfer row in `transactions`, or null.
+  function pairOf(transactions, tx) {
+    if (!isTransfer(tx) || !tx.transferId) return null;
+    var list = transactions || [];
+    for (var i = 0; i < list.length; i++) {
+      var o = list[i];
+      if (o && o !== tx && o.transferId === tx.transferId && isTransfer(o) && o.id !== tx.id) return o;
+    }
+    return null;
+  }
+
+  // cashFlows(transactions, { exchangeRate, fxAt, usdRates, portfolioId })
+  //   → { rows: [{ id, type, date, portfolioId, amountEUR, signedEUR, flow,
+  //                transferId, counterPortfolioId, symbol }],
+  //       byType: { type: EUR }, byYear: { 'YYYY': { type: EUR } },
+  //       issues: [{ kind: 'cash-amount', txId, type, date } | currency issues] }
+  function cashFlows(transactions, opts) {
+    opts = opts || {};
+    var rate = num(opts.exchangeRate);
+    var fxAt = typeof opts.fxAt === 'function' ? opts.fxAt : null;
+    var ctx = { usdRates: opts.usdRates, currencyIssues: [], seen: {} };
+    var rows = [], byType = {}, byYear = {}, bad = [];
+    (transactions || []).forEach(function (tx) {
+      if (!isCash(tx)) return;
+      if (opts.portfolioId && String(tx.portfolioId || 'default') !== String(opts.portfolioId)) return;
+      var a = parseFloat(tx.amount);
+      if (!(isFinite(a) && a > 0)) { bad.push({ kind: 'cash-amount', severity: 'warning', txId: tx.id != null ? tx.id : null, type: tx.type, date: ymd(tx.date) }); return; }
+      var def = CASH_TYPES[tx.type];
+      var eur = toEUR(a, tx, rate, fxAt, ctx);
+      var y = ymd(tx.date).slice(0, 4);
+      rows.push({ id: tx.id, type: tx.type, date: ymd(tx.date), portfolioId: tx.portfolioId || 'default', amountEUR: eur, signedEUR: def.sign * eur,
+        flow: def.flow, transferId: tx.transferId || null, counterPortfolioId: tx.counterPortfolioId || null, symbol: tx.symbol || '' });
+      byType[tx.type] = (byType[tx.type] || 0) + eur;
+      if (y) { var yy = byYear[y] || (byYear[y] = {}); yy[tx.type] = (yy[tx.type] || 0) + eur; }
+    });
+    rows.sort(function (a, b) { return a.date < b.date ? -1 : a.date > b.date ? 1 : 0; });
+    return { rows: rows, byType: byType, byYear: byYear, issues: bad.concat(issues([], ctx.currencyIssues, [])) };
+  }
+
   var api = {
+    CASH_TYPES: CASH_TYPES,
+    isCash: isCash,
+    isTransfer: isTransfer,
+    validateCash: validateCash,
+    transferPair: transferPair,
+    pairOf: pairOf,
+    cashFlows: cashFlows,
     build: build,
     closedPositions: closedPositions,
     group: group,
