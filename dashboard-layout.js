@@ -29,9 +29,12 @@ function __(k, f, v) { return (typeof window !== 'undefined' && window.MaerminI1
   // and 1:1 with real sections so every toggle in the Customize view does
   // something. The renderer may pass its own list to normalize().
   var DEFAULT_WIDGETS = [
-    { id: 'valueChart', label: 'Value History Chart', key: 'dashWValueChart' },
-    { id: 'statCards',  label: 'Stat Cards (Invested · Return · Dividends · Health)', key: 'dashWStatCards' },
-    { id: 'allocation', label: 'Allocation · Top Performers · Positions', key: 'dashWAllocation' }
+    // label() resolves in the current language (P5-1.5: getters, like utils.txTypeInfo)
+    { id: 'valueChart', key: 'dashWValueChart', label: function () { return __('dashWValueChart', 'Value History Chart'); } },
+    { id: 'statCards', key: 'dashWStatCards', label: function () { return __('dashWStatCards', 'Stat Cards (Invested · Return · Dividends · Health)'); } },
+    // P5-1.5: return figures (MaerminReturnFigures), same as Analysis → Returns
+    { id: 'returnFigures', key: 'dashWReturnFigures', label: function () { return __('dashWReturnFigures', 'Returns (XIRR · TWR · Realized · Dividends · Taxes · Fees · Net return)'); } },
+    { id: 'allocation', key: 'dashWAllocation', label: function () { return __('dashWAllocation', 'Allocation · Top Performers · Positions'); } }
   ];
 
   function defaultIds() { return DEFAULT_WIDGETS.map(function (w) { return w.id; }); }
@@ -188,7 +191,7 @@ function __(k, f, v) { return (typeof window !== 'undefined' && window.MaerminI1
         var st = s0[0], setSt = s0[1];
         function commit(next) { API.save(next); setSt(API.normalize(next)); }
 
-        var byId = {}; API.DEFAULT_WIDGETS.forEach(function (w) { byId[w.id] = w.key ? __(w.key, w.label) : w.label; });
+        var byId = {}; API.DEFAULT_WIDGETS.forEach(function (w) { byId[w.id] = w.label(); });
 
         // P4-7: reorder - "move up / move down" buttons (keyboard; focus stays on
         // the moved row's button) and a drag handle on pointer events (touch and
