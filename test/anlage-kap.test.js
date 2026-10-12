@@ -25,10 +25,12 @@ const rows = K.map({
   fundTypes: { VWCE: 'aktienfonds', MIX: 'mischfonds' },
   fundSymbols: { VWCE: true, MIX: true, XFUND: true }
 });
-ok('KAP 19 = gains 580 + dividends 100 + interest 25 - other losses 50 (share loss not included)', line(rows, 'KAP', 19) === 655, JSON.stringify(rows));
+ok('KAP 19 = gains 580 + dividends 100 + interest 25 - other losses 50 - share losses 200 (line 23 is part of 19)', line(rows, 'KAP', 19) === 455, JSON.stringify(rows));
 ok('KAP 20 = share gains 500', line(rows, 'KAP', 20) === 500);
 ok('KAP 22 = other losses 50', line(rows, 'KAP', 22) === 50);
-ok('KAP 23 = share losses 200', line(rows, 'KAP', 23) === 200);
+ok('KAP 23 = share losses 200 (contained in line 19)', line(rows, 'KAP', 23) === 200);
+const neg = K.map({ disposals: [{ symbol: 'SAP', gain: -300, pot: 'shares' }, { symbol: 'BOND1', gain: -20, pot: 'other' }], dividends: [{ symbol: 'KO', gross: 40 }] });
+ok('KAP 19 may be negative: 40 - 300 - 20 = -280; 22 = 20, 23 = 300', line(neg, 'KAP', 19) === -280 && line(neg, 'KAP', 22) === 20 && line(neg, 'KAP', 23) === 300, JSON.stringify(neg));
 ok('KAP 41 = withholding capped at 15 % of the gross (30 -> 15)', line(rows, 'KAP', 41) === 15);
 ok('KAP-INV 4 / 8: distributions per fund type, untyped fund = other', line(rows, 'KAP-INV', 4) === 60 && line(rows, 'KAP-INV', 8) === 10);
 ok('KAP-INV 9: Vorabpauschale of equity funds', line(rows, 'KAP-INV', 9) === 15);
