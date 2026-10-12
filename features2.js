@@ -88,7 +88,7 @@ function ReturnsHeatmap({ steps, source, theme }) {
       __('rhPartialNote', '* part of the month or year only (the history starts or ends inside it).')));
 }
 
-function ReturnsView({ transactions, portfolio, prices, priceHistory, theme, formatPrice, getCurrencySymbol, t, fxAt, exchangeRate, valuePath, historyPending, portfolioId, hasWorker }) {
+function ReturnsView({ transactions, portfolio, prices, priceHistory, theme, formatPrice, getCurrencySymbol, t, fxAt, exchangeRate, valuePath, historyPending, portfolioId, hasWorker, clearing }) {
   const R = (typeof window !== 'undefined') ? window.MaerminReturns : null;
   // Current EUR value over EVERY class in the book (custom categories too),
   // using the same price lookup as MaerminMetrics.
@@ -110,7 +110,11 @@ function ReturnsView({ transactions, portfolio, prices, priceHistory, theme, for
     ? R.buildCashflows(transactions, { rate: exchangeRate, fxAt, currentValueEUR: currentValue, today: window.MaerminUtils.todayISO() })
     : [], [transactions, exchangeRate, fxAt, currentValue]);
 
-  const xirrResult = useMemo(() => (transactions.length ? calcXIRR(flows) : null), [flows, transactions.length]);
+  // P5-1.4: with a clearing account only money in and out of the account
+  // counts for XIRR; the end value is securities + cash.
+  const xirrFlows = useMemo(() => (clearing && R && R.clearingCashflows)
+    ? R.clearingCashflows(clearing, currentValue, window.MaerminUtils.todayISO()) : flows, [clearing, flows, currentValue]);
+  const xirrResult = useMemo(() => (transactions.length ? calcXIRR(xirrFlows) : null), [xirrFlows, transactions.length]);
 
   // TWR, best source first:
   //   1. the daily value path (transactions × daily closes) - from the first trade
@@ -140,6 +144,8 @@ function ReturnsView({ transactions, portfolio, prices, priceHistory, theme, for
     : twrInfo.source === 'snapshots' ? __('retSnapshotsSince', 'From daily value snapshots since {date}', { date: since })
     : twrInfo.source === 'refresh' ? __('retFromRefreshes', 'From your price refreshes')
     : __('retNoHistory', 'No price history yet');
+  // P5-1.4: say when the cash of the clearing account is part of the figure
+  const twrSubCash = twrSub + (twrInfo.source === 'daily' && valuePath && valuePath.cash ? ' · ' + __('retInclCash', 'incl. cash account') : '');
 
   // Simple holding period stats — every amount in EUR.
   const stats = useMemo(() => {
@@ -186,9 +192,9 @@ function ReturnsView({ transactions, portfolio, prices, priceHistory, theme, for
 
     // Main KPIs
     React.createElement('div', { style: { display: 'grid', gridTemplateColumns: 'repeat(auto-fit,minmax(180px,1fr))', gap: '1rem', marginBottom: '1.5rem' } },
-      card(__('retXirr', 'XIRR (annualized)'), xirrResult !== null ? fmtPct(xirrResult) : '—', __('retXirrSub', 'Money-weighted return p.a.'), xirrResult !== null ? color(xirrResult) : theme.textSecondary),
+      card(__('retXirr', 'XIRR (annualized)'), xirrResult !== null ? fmtPct(xirrResult) : '—', clearing ? __('retXirrSubCash', 'Money-weighted p.a., from deposits and withdrawals') : __('retXirrSub', 'Money-weighted return p.a.'), xirrResult !== null ? color(xirrResult) : theme.textSecondary),
       React.createElement('div', { 'data-testid': 'twr-card', 'data-source': twrInfo.source, style: { display: 'contents' } },
-        card('TWR', twrResult !== null ? fmtPct(twrResult) : '—', twrSub, twrResult !== null ? color(twrResult) : theme.textSecondary)),
+        card('TWR', twrResult !== null ? fmtPct(twrResult) : '—', twrSubCash, twrResult !== null ? color(twrResult) : theme.textSecondary)),
       stats && card(__('ovTotalReturn', 'Total Return'), fmtPct(stats.totalReturnPct), `${formatPrice(stats.totalReturn)} ${getCurrencySymbol()}`, color(stats.totalReturnPct)),
       stats && card(__('holdingPeriod', 'Holding Period'), __('retDays', '{n} d', { n: stats.holdingDays }), __('retSinceFirst', 'Since first transaction'), theme.text)
     ),

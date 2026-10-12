@@ -325,7 +325,94 @@
     return { rows: rows, byType: byType, byYear: byYear, issues: bad.concat(issues([], ctx.currencyIssues, [])) };
   }
 
+  // ---- P5-1.4: clearing account (Verrechnungskonto) per portfolio -----------
+  // clearingBalance(transactions, portfolioId, { opening, openingDate,
+  //   exchangeRate, fxAt, usdRates })
+  //   → { balanceEUR, series: [{ d, balance }] (end of day, oldest first),
+  //       external: [{ d, amount }] (+ into the account: opening, deposit,
+  //                  transfer in; − withdrawal, transfer out),
+  //       events: [{ d, amount, kind: 'external'|'trade'|'income'|'cost', type, txId }],
+  //       firstNegative: { d, balance } | null, minBalance }
+  // The account is in EUR; other currencies convert at the rate of their date
+  // (the same rule as the ledger). Buy −(gross + fees), sell +(gross − fees),
+  // dividend / interest +(gross − withholding − fees), cash bookings by their
+  // sign. Interest of a Net-Worth account (source 'interest-accrual' or
+  // category 'cash') and options are not part of it.
+  function payoutGross(tx) {
+    var g = num(tx.quantity) * num(tx.price);
+    return g || num(tx.amount);
+  }
+  function clearingBalance(transactions, portfolioId, opts) {
+    opts = opts || {};
+    var rate = num(opts.exchangeRate);
+    var fxAt = typeof opts.fxAt === 'function' ? opts.fxAt : null;
+    var ctx = { usdRates: opts.usdRates, currencyIssues: [], seen: {} };
+    var pid = String(portfolioId || 'default');
+    var events = [];
+    (transactions || []).forEach(function (tx) {
+      if (!tx || String(tx.portfolioId || 'default') !== pid || !ymd(tx.date)) return;
+      if (tx.category === 'options' || tx.category === 'cash' || tx.source === 'interest-accrual') return;
+      var d = ymd(tx.date), eur = function (a) { return toEUR(a, tx, rate, fxAt, ctx); };
+      if (isCash(tx)) {
+        var a = parseFloat(tx.amount);
+        if (!(isFinite(a) && a > 0)) return;
+        var def = CASH_TYPES[tx.type];
+        events.push({ d: d, amount: def.sign * eur(a), kind: def.flow ? (def.sign > 0 ? 'income' : 'cost') : 'external', type: tx.type, txId: tx.id });
+        return;
+      }
+      var q = num(tx.quantity), fees = Math.max(0, num(tx.fees));
+      // key: the holding a trade or payout belongs to (value-path.js keeps the
+      // cash of holdings without price history out of the return)
+      var key = keyOf(tx);
+      if (tx.type === 'buy' && q > 0) events.push({ d: d, amount: -eur(q * num(tx.price) + fees), kind: 'trade', type: 'buy', txId: tx.id, key: key });
+      else if (tx.type === 'sell' && q > 0) events.push({ d: d, amount: eur(q * num(tx.price) - fees), kind: 'trade', type: 'sell', txId: tx.id, key: key });
+      else if (tx.type === 'dividend' || tx.type === 'interest') {
+        var net = payoutGross(tx) - Math.max(0, num(tx.withholdingTax)) - fees;
+        if (net) events.push({ d: d, amount: eur(net), kind: 'income', type: tx.type, txId: tx.id, key: key });
+      }
+    });
+    var opening = num(opts.opening);
+    if (opening) {
+      var first = events.reduce(function (m, e) { return !m || e.d < m ? e.d : m; }, '');
+      events.push({ d: ymd(opts.openingDate) || first || ymd(new Date()), amount: opening, kind: 'external', type: 'opening', txId: null });
+    }
+    events.sort(function (a, b) { return a.d < b.d ? -1 : a.d > b.d ? 1 : 0; });
+    var byDay = {}, days = [];
+    events.forEach(function (e) { if (!(e.d in byDay)) { byDay[e.d] = 0; days.push(e.d); } byDay[e.d] += e.amount; });
+    var bal = 0, series = [], firstNegative = null, minBalance = 0;
+    days.forEach(function (d) {
+      bal += byDay[d];
+      if (Math.abs(bal) < 1e-9) bal = 0;
+      series.push({ d: d, balance: bal });
+      if (bal < -0.005 && !firstNegative) firstNegative = { d: d, balance: bal };
+      if (bal < minBalance) minBalance = bal;
+    });
+    var external = {};
+    events.forEach(function (e) { if (e.kind === 'external') external[e.d] = (external[e.d] || 0) + e.amount; });
+    return {
+      balanceEUR: bal, series: series, events: events, firstNegative: firstNegative, minBalance: minBalance,
+      external: Object.keys(external).sort().map(function (d) { return { d: d, amount: external[d] }; }),
+      issues: issues([], ctx.currencyIssues, [])
+    };
+  }
+  // Deposits that keep a clearing account at or above zero: one per day the
+  // end-of-day balance would drop below zero, rounded up to the cent.
+  function missingDeposits(clearing) {
+    var out = [], added = 0;
+    ((clearing && clearing.series) || []).forEach(function (p) {
+      var b = p.balance + added;
+      if (b < -0.005) {
+        var amt = Math.ceil(-b * 100 - 1e-6) / 100;
+        out.push({ d: p.d, amount: amt });
+        added += amt;
+      }
+    });
+    return out;
+  }
+
   var api = {
+    clearingBalance: clearingBalance,
+    missingDeposits: missingDeposits,
     CASH_TYPES: CASH_TYPES,
     isCash: isCash,
     isTransfer: isTransfer,

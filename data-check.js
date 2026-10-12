@@ -16,6 +16,8 @@
 //   DQ-CRYPTO-PAIR     a crypto row holds an exchange pair ("BTCUSDT", "XXBTZEUR")
 //                      as its symbol - imported before the 2026-10 fix (AUDIT
 //                      BUG-013); it gets no price → show those transactions
+//   DQ-CASH-NEGATIVE   a portfolio's clearing account goes below zero (P5-1.4)
+//                      → book the missing deposits (changes data: confirmed first)
 //
 // The codes are part of the UI contract: never renumber or reuse one.
 //
@@ -23,7 +25,8 @@
 //   misfiled(found)                                → { code, action } | null
 //   actionLabel(action)                            → button text
 // action = { type: 'show-transactions'|'edit-transaction'|'refresh'|
-//            'open-api-settings'|'move-skins', symbol?, txId?, changesData }
+//            'open-api-settings'|'move-skins'|'book-deposits', symbol?, txId?,
+//            portfolioId?, changesData }
 //
 // Pure + dual-exported; tested in test/data-check.test.js.
 // ============================================================================
@@ -35,7 +38,7 @@ function __(k, f, v) { return (typeof window !== 'undefined' && window.MaerminI1
   var CODES = {
     oversold: 'DQ-OVERSOLD', quantity: 'DQ-QUANTITY', fxUnknown: 'DQ-FX-UNKNOWN', fxUsdNearest: 'DQ-FX-USD-NEAREST',
     fxNoDayRate: 'DQ-FX-NO-DAY-RATE', fxTodayOnly: 'DQ-FX-TODAY-ONLY', skinMisfiled: 'DQ-SKIN-MISFILED',
-    cryptoPair: 'DQ-CRYPTO-PAIR'
+    cryptoPair: 'DQ-CRYPTO-PAIR', cashNegative: 'DQ-CASH-NEGATIVE'
   };
   var USD_LIKE = /^(USD|USDT|USDC|BUSD|FDUSD|TUSD|USDP|DAI)$/i;
 
@@ -49,6 +52,7 @@ function __(k, f, v) { return (typeof window !== 'undefined' && window.MaerminI1
   function classify(issue, opts) {
     opts = opts || {};
     issue = issue || {};
+    if (issue.kind === 'cash-negative') return { code: CODES.cashNegative, action: { type: 'book-deposits', portfolioId: issue.portfolioId || 'default', changesData: true } };
     if (issue.kind === 'oversold') return { code: CODES.oversold, action: { type: 'show-transactions', symbol: issue.symbol || '', changesData: false } };
     if (issue.kind === 'quantity') return { code: CODES.quantity, action: edit(issue) };
     if (issue.status === 'unknown') return { code: CODES.fxUnknown, action: edit(issue) };
@@ -85,6 +89,7 @@ function __(k, f, v) { return (typeof window !== 'undefined' && window.MaerminI1
       case 'refresh': return __('dcRefresh', 'Load rates now');
       case 'open-api-settings': return __('dcApiSettings', 'Add a Worker');
       case 'move-skins': return __('skinMoveBtn', 'Move to CS2 Skins');
+      case 'book-deposits': return __('dcBookDeposits', 'Book the missing deposits');
       default: return '';
     }
   }

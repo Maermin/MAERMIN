@@ -377,10 +377,36 @@ function InvestmentTracker() {
   // Data checks from the one FIFO ledger: sells without enough open units and
   // transaction currencies without an exact EUR conversion. Both skew cost
   // basis and tax, so they are listed on the Transactions and Tax views.
+  // P5-1.4: the clearing account of every portfolio that has it switched on.
+  const clearingByPf = useMemo(() => {
+    const L = window.MaerminLedger, out = {};
+    if (!L || !L.clearingBalance) return out;
+    (portfolios || []).forEach((p) => {
+      const c = p && p.clearing;
+      if (!c || !c.enabled) return;
+      try { out[p.id] = L.clearingBalance(transactions, p.id, { opening: c.openingBalance, openingDate: c.openingDate, exchangeRate, fxAt }); } catch (e) {}
+    });
+    return out;
+  }, [portfolios, transactions, exchangeRate, fxAt]);
+  // Sum of the clearing balances (EUR) of the given portfolio ids (all when 'all').
+  const cashOf = (which) => {
+    const ids = which === 'all' ? Object.keys(clearingByPf) : [which];
+    return ids.some(id => clearingByPf[id]) ? ids.reduce((s, id) => s + (clearingByPf[id] ? clearingByPf[id].balanceEUR : 0), 0) : null;
+  };
+
   const ledgerIssues = useMemo(() => {
     const L = window.MaerminLedger;
-    try { return L ? (L.build(transactions, { exchangeRate, fxAt }).issues || []) : []; } catch (e) { return []; }
-  }, [transactions, exchangeRate, fxAt, corpActionsRev]);
+    let list = [];
+    try { list = L ? (L.build(transactions, { exchangeRate, fxAt }).issues || []) : []; } catch (e) { list = []; }
+    // P5-1.4: a clearing account below zero (DQ-CASH-NEGATIVE)
+    Object.keys(clearingByPf).forEach((id) => {
+      const c = clearingByPf[id];
+      if (!c.firstNegative) return;
+      const pf = (portfolios || []).find(p => p.id === id) || {};
+      list.push({ kind: 'cash-negative', severity: 'info', portfolioId: id, portfolioName: pf.name || id, date: c.firstNegative.d, balance: c.minBalance });
+    });
+    return list;
+  }, [transactions, exchangeRate, fxAt, corpActionsRev, clearingByPf, portfolios]);
 
   // Transactions filtered to the active portfolio
   const activeTransactions = useMemo(() =>
@@ -930,9 +956,10 @@ function InvestmentTracker() {
         const k = CH.keyOf(a.category, a.symbol);
         (splits[k] = splits[k] || []).push({ date: a.date, num: a.num, den: a.den });
       });
-      return VP.build(activeTransactions, closeSeriesEUR, { today: window.MaerminUtils.todayISO(), exchangeRate, fxAt, live, splits });
+      // P5-1.4: with a clearing account the daily value includes its cash
+      return VP.build(activeTransactions, closeSeriesEUR, { today: window.MaerminUtils.todayISO(), exchangeRate, fxAt, live, splits, clearing: clearingByPf[activePortfolioId] || null });
     } catch (e) { console.warn('[HISTORY] value path failed:', e && e.message); return null; }
-  }, [activeTransactions, closeSeriesEUR, fetchedPrices, exchangeRate, fxAt, corpActionsRev, demoMode]);
+  }, [activeTransactions, closeSeriesEUR, fetchedPrices, exchangeRate, fxAt, corpActionsRev, demoMode, clearingByPf, activePortfolioId]);
 
   // Inputs for the analytics views, all from the same daily closes:
   //   index   flow-neutral TWR index [{ d, v }] (≤ 3 years) - benchmark, rolling risk, factors
@@ -3215,7 +3242,8 @@ function InvestmentTracker() {
       case 'net-worth':
         return window.MaerminFeatures5 ?
           React.createElement(window.MaerminFeatures5.NetWorthView, {
-            portfolioStats, portfolio, prices, theme: currentTheme, formatPrice, getCurrencySymbol, t, usdToEur: exchangeRate
+            portfolioStats, portfolio, prices, theme: currentTheme, formatPrice, getCurrencySymbol, t, usdToEur: exchangeRate,
+            cashEUR: cashOf(activePortfolioId) || 0
           }) : renderAnalyticsPlaceholder(t.navNetWorth || 'Net Worth');
 
       case 'cashflow':
@@ -3252,7 +3280,8 @@ function InvestmentTracker() {
             setActivePortfolioId,
             addPortfolio: portfolioHook?.addPortfolio,
             removePortfolio: removePortfolioMovingRows,
-            renamePortfolio: portfolioHook?.renamePortfolio
+            renamePortfolio: portfolioHook?.renamePortfolio,
+            setClearing: portfolioHook?.setClearing, clearing: clearingByPf
           }) : renderAnalyticsPlaceholder(t.navPortfolios || 'Portfolios');
 
       case 'savings-plans':
@@ -3274,6 +3303,7 @@ function InvestmentTracker() {
           React.createElement(window.MaerminFeatures2.ReturnsView, {
             transactions: activeTransactions, portfolio, prices, priceHistory, fxAt, exchangeRate,
             valuePath, historyPending: closePending, portfolioId: activePortfolioId, hasWorker: (apiKeys.cs2Worker || '').trim().length > 5,
+            clearing: clearingByPf[activePortfolioId] || null,
             theme: currentTheme, formatPrice, getCurrencySymbol, t
           }),
           // Benchmark overlay (α/β/TE/IR/R²) — folds the analytics engine into Returns.
@@ -3668,6 +3698,7 @@ function InvestmentTracker() {
     }, [overviewMode, transactions, prices, exchangeRate, fxAt, corpActionsRev]);
 
     const stats  = isAllMode ? allPortfoliosStats : singleStats || allPortfoliosStats;
+    const ovCash = cashOf(isAllMode ? 'all' : overviewMode); // P5-1.4: null without a clearing account
     const isUp   = stats.totalProfit >= 0;
     const pctStr = window.MaerminI18n.pct(stats.totalProfitPercent, 2, true);
 
@@ -3779,6 +3810,10 @@ function InvestmentTracker() {
         },
           statCard(__('ovCostBasisOpen', 'Cost basis (open)'), `${formatPrice(stats.totalInvested)} ${getCurrencySymbol()}`,
             __('ovAcrossPositions', 'across {n} {n:position|positions}', { n: stats.totalPositions })),
+          // P5-1.4: the clearing account(s) of this view, with the total incl. cash
+          ovCash !== null && statCard(__('ovCash', 'Cash (clearing account)'), `${formatPrice(ovCash)} ${getCurrencySymbol()}`,
+            __('ovTotalInclCash', 'Total incl. cash: {amount}', { amount: `${formatPrice(stats.totalValue + ovCash)} ${getCurrencySymbol()}` }),
+            ovCash < 0 ? currentTheme.danger : undefined, () => setActiveView('portfolios')),
           statCard(labelReturn,
             `${isUp ? '+' : ''}${formatPrice(stats.totalProfit)} ${getCurrencySymbol()}`,
             __('ovAllTime', '{pct} all time', { pct: pctStr }),
@@ -4177,7 +4212,7 @@ function InvestmentTracker() {
           portfolio: overviewPortfolio,
           prices, priceHistory,
           transactions: overviewTransactions,
-          portfolioValue: stats.totalValue,
+          portfolioValue: stats.totalValue + (ovCash || 0),
           theme: currentTheme, t, formatPrice, getCurrencySymbol, setActiveView
         }),
 
@@ -4355,6 +4390,27 @@ function InvestmentTracker() {
     }
     if (action.type === 'refresh') { fetchPrices(); return; }
     if (action.type === 'open-api-settings') { setShowApiSettings(true); return; }
+    // P5-1.4: deposits that keep the clearing account at zero, after a confirmation
+    if (action.type === 'book-deposits') {
+      const L = window.MaerminLedger, c = clearingByPf[action.portfolioId];
+      const list = (L && c) ? L.missingDeposits(c) : [];
+      if (!list.length) return;
+      const total = list.reduce((s, x) => s + x.amount, 0);
+      const pf = (portfolios || []).find(p => p.id === action.portfolioId) || {};
+      window.MaerminUtils.confirmThen({
+        title: __('cashBookTitle', 'Book {n} {n:deposit|deposits}?', { n: list.length }),
+        message: __('cashBookMsg', '{n} {n:deposit|deposits} of together {amount} are added to "{name}", each on the day the clearing account would go below zero, so it never does. You can edit or delete them like any transaction.', { n: list.length, amount: window.MaerminI18n.money(total, 'EUR'), name: pf.name || action.portfolioId }),
+        confirmLabel: __('dcBookDeposits', 'Book the missing deposits'),
+        cancelLabel: t.cancel || 'Cancel',
+        danger: false
+      }, () => {
+        const stamp = Date.now();
+        const rows = list.map((x, i) => ({ id: 'dep_' + stamp + '_' + i, type: 'deposit', category: 'cashflow', amount: x.amount, currency: 'EUR', date: x.d, portfolioId: action.portfolioId, notes: __('cashBookNote', 'Added by the data check') }));
+        setTransactions(prev => prev.concat(rows));
+        addToast(__('cashBooked', '{n} {n:deposit|deposits} booked', { n: rows.length }), 'success');
+      });
+      return;
+    }
     if (action.type === 'move-skins') {
       const T = window.MaerminTickers;
       repairMisfiledSkins(T && T.findMisfiledSkins ? T.findMisfiledSkins(transactions) : []);
@@ -4368,6 +4424,7 @@ function InvestmentTracker() {
     const line = (i) => {
       const sym = i.symbol || __('issueATx', 'A transaction');
       const eg = i.symbol || __('issueATxLower', 'a transaction');
+      if (i.kind === 'cash-negative') return __('issueCashNegative', '{name}: the clearing account goes below zero on {date} (lowest {amount}). Deposits are missing - book them, or set an opening balance.', { name: i.portfolioName, date: window.MaerminI18n.date(i.date), amount: window.MaerminI18n.money(i.balance, 'EUR') });
       if (i.kind === 'oversold') return __('issueOversold', '{sym} ({cat}): {qty} more {qty1:unit|units} sold than bought. The excess has no cost basis and is left out of realised gains - add the missing buy or transfer.', { sym, cat: i.category, qty: window.MaerminI18n.num(i.qty, { min: 0, max: 8 }), qty1: +i.qty.toFixed(8) });
       if (i.kind === 'quantity') return __('issueQuantity', '{sym} ({cat}), {type} on {date}: quantity "{qty}" is not a positive number, so the trade is left out. Edit it (a sell needs a positive quantity).', { sym, cat: i.category, type: i.type, date: i.date ? window.MaerminI18n.date(i.date) : __('unknownDate', 'an unknown date'), qty: i.qty });
       if (i.status === 'unknown') return __('issueNoRate', '{sym} in {cur}: no exchange rate, so the amounts are counted as EUR. Change the transaction currency.', { sym, cur: i.currency });
