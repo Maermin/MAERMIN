@@ -83,14 +83,17 @@ function __(k, f, v) { return (typeof window !== 'undefined' && window.MaerminI1
       return function () { cancelled = true; if (timer) clearTimeout(timer); };
     }, [sel, workerBase, dated ? (dated.length > 260 ? (dated.length > 520 ? 3 : 2) : 1) : 0]);
 
-    var stats = null;
+    var stats = null, diffPp = null;
     if (bench && series.length >= 3 && bench.series.length >= 3) {
       // Dated on both sides: pair the returns by calendar day (a book with crypto
       // has weekend points the benchmark lacks). Otherwise trailing windows.
       var byDate = dated ? D.alignByDate([dated, bench.dated]) : [];
       var al = byDate.length === 2 ? { a: D.toReturns(byDate[0]), b: D.toReturns(byDate[1]) } : D.alignedReturns(series, bench.series);
       stats = A.benchmarkStats(al.a, al.b, { periodsPerYear: 252 });
+      // P5-1.6: cumulative difference over the same compared returns.
+      if (window.MaerminVerdicts) diffPp = window.MaerminVerdicts.cumulativeDiffPp(al.a, al.b);
     }
+    var verdict = window.MaerminVerdicts && stats && stats.available ? window.MaerminVerdicts.benchmark(diffPp, bench ? bench.label : '') : null;
 
     var pct = function (x) { return window.MaerminI18n.pct(x * 100, 1); };
     var tile = function (label, value, color) {
@@ -106,6 +109,7 @@ function __(k, f, v) { return (typeof window !== 'undefined' && window.MaerminI1
     else if (err) body = note(React, bad, __('avBenchFailed', 'Could not load benchmark: {msg}', { msg: err }));
     else if (!stats || !stats.available) body = note(React, dim, __('avNotEnoughBench', 'Not enough overlapping history to compute benchmark stats yet.'));
     else body = e('div', null,
+      verdict && e('div', { 'data-testid': 'verdict-benchmark', 'data-level': verdict.level, style: { color: verdict.level === 'good' ? ok : verdict.level === 'neutral' ? text : (verdict.level === 'warn' ? theme.warning || '#f59e0b' : bad), fontSize: '0.85rem', fontWeight: 600, marginBottom: '0.7rem', lineHeight: 1.45 } }, verdict.text),
       e('div', { style: { display: 'flex', flexWrap: 'wrap', gap: '0.6rem' } },
         tile(__('avAlphaAnn', 'Alpha (ann.)'), pct(stats.alpha), stats.alpha >= 0 ? ok : bad),
         tile('Beta', window.MaerminI18n.num(stats.beta, 2), text),
@@ -115,7 +119,7 @@ function __(k, f, v) { return (typeof window !== 'undefined' && window.MaerminI1
         tile(__('avCorrelation', 'Correlation'), window.MaerminI18n.num(stats.correlation, 2), text)
       ),
       e('div', { style: { color: dim, fontSize: '0.72rem', marginTop: '0.7rem', lineHeight: '1.5' } },
-        (dated ? __('avEstDaily', 'Estimated from {n} daily returns since {date} vs {bench} ({proxy}).', { n: stats.periods, date: window.MaerminI18n.date(dated[0].d), bench: bench ? bench.label : '', proxy: preset ? preset.proxy : '' }) : __('avEstPoints', 'Estimated from {n} overlapping price points vs {bench} ({proxy}).', { n: stats.periods, bench: bench ? bench.label : '', proxy: preset ? preset.proxy : '' })) + ' ' + __('avCapmNote', 'Alpha/beta are CAPM estimates from available history, not guarantees.'))
+        (dated ? __('avEstDaily', 'Estimated from {n} daily returns since {date} vs {bench} ({proxy}).', { n: stats.periods, date: window.MaerminI18n.date(dated[0].d), bench: bench ? bench.label : '', proxy: preset ? preset.proxy : '' }) : __('avEstPoints', 'Estimated from {n} overlapping price points vs {bench} ({proxy}).', { n: stats.periods, bench: bench ? bench.label : '', proxy: preset ? preset.proxy : '' })) + ' ' + __('avCapmNote', 'Alpha/beta are CAPM estimates from available history, not guarantees.') + (verdict ? ' ' + window.MaerminVerdicts.disclaimer() : ''))
     );
 
     return e('div', { style: { background: card, border: '1px solid ' + border, borderRadius: '14px', padding: '1.25rem', marginTop: '1.25rem' } },

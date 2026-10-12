@@ -1139,6 +1139,9 @@ async function runBuild(browser, label, dir) {
     ok('closes came through the Worker route ?action=yf (5-year range for both holdings)', ['VWCE.DE', 'AAPL'].every((x) => workerState.requests.includes('/?action=yf&symbol=' + x + '&interval=1d&range=5y')), workerState.requests.join(' '));
     await page.waitForTimeout(2500); // benchmark fetch
     { const rb = await page.innerText('body'); ok('benchmark comparison is computed from daily returns', /Alpha \(ann\.\)/i.test(rb) && /daily returns since/.test(rb), (rb.match(/Benchmark comparison[\s\S]{0,200}/) || [''])[0].replace(/\n/g, ' | ')); }
+    // P5-1.6: one plain sentence above the benchmark tiles
+    { const v = await page.locator('[data-testid="verdict-benchmark"]').innerText().catch(() => '');
+      ok('P5-1.6: benchmark verdict in plain words', /Over this period your portfolio (did [\d.]+ percentage points (better|worse) than|moved roughly in line with)/.test(v), v); }
 
     await openView(page, 'analytics');
     await page.waitForTimeout(800);
@@ -1147,6 +1150,15 @@ async function runBuild(browser, label, dir) {
     await page.waitForTimeout(800);
     { const rb = await page.innerText('body');
       ok('risk metrics and rolling volatility from daily data', /Sharpe Ratio/.test(rb) && (await page.locator('[data-testid="risk-source"][data-source="daily"]').count()) === 1 && /daily time-weighted returns since/.test(rb), (rb.match(/Rolling volatility[\s\S]{0,200}/) || [''])[0].replace(/\n/g, ' | ')); }
+    // P5-1.6: a plain sentence under volatility, Sharpe and drawdown, plus the no-advice note
+    { const got = {};
+      for (const id of ['volatility', 'sharpe', 'drawdown']) got[id] = await page.locator('[data-testid="verdict-' + id + '"]').getAttribute('data-level').catch(() => null);
+      const note = await page.locator('[data-testid="verdict-note"]').innerText().catch(() => '');
+      ok('P5-1.6: risk cards carry a verdict and the no-advice note', Object.values(got).every((l) => ['good', 'neutral', 'warn', 'bad'].includes(l)) && /not investment advice/.test(note), JSON.stringify(got) + ' ' + note); }
+    await openView(page, 'health');
+    await page.waitForTimeout(400);
+    { const v = await page.locator('[data-testid="verdict-health"]').innerText().catch(() => '');
+      ok('P5-1.6: health score explained in one sentence', v.length > 20 && /not investment advice/.test(v), v); }
 
     const st = await page.evaluate(`(() => { const R = ${RAW}; const h = JSON.parse(localStorage.getItem('maermin_close_history') || '{}');
       return { keys: Object.keys(h.series || {}).sort(), raw: R.get('maermin_close_history'), leak: R.keys().filter((k) => /stocks\\|(VWCE|AAPL)/.test(R.get(k) || '')) }; })()`);

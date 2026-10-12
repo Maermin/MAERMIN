@@ -356,6 +356,11 @@ function __(k, f, v) { return (typeof window !== 'undefined' && window.MaerminI1
         kpi(__('dqlScored', 'Payers scored'), String(rows.filter(function (r) { return r.q.score != null; }).length) + ' / ' + payers.length),
         kpi(__('dqlAtRisk', 'Income at cut risk'), I18N().pct(health.incomeAtRiskPct > 0 ? health.incomeAtRiskPct : 0, 0),
           health.incomeAtRiskPct > 25 ? bad : (health.incomeAtRiskPct > 0 ? warn : good))));
+      // P5-1.6: dividend safety in one plain sentence (rules in verdicts.js).
+      var VD = typeof window !== 'undefined' ? window.MaerminVerdicts : null;
+      var verdict = VD && health.available ? VD.dividendSafety(health.score, health.incomeAtRiskPct) : null;
+      if (verdict) parts.push(e('div', { key: 'verdict', 'data-testid': 'verdict-dividends', 'data-level': verdict.level, style: { color: ({ good: good, warn: warn, bad: bad })[verdict.level] || text, fontSize: '0.85rem', lineHeight: 1.5, marginBottom: '0.9rem' } },
+        verdict.text, e('span', { style: { color: dim, fontSize: '0.72rem' } }, ' ' + VD.disclaimer())));
 
       var header = [__('position', 'Position'), __('dqlIncomePa', 'Income p.a.'), __('dqlPayout', 'Payout'), __('dqlStreakCol', 'Streak'), __('dqlGrowth', 'Growth'), __('dqlCoverage', 'Coverage'), __('dqlScore', 'Score')];
       parts.push(e('div', { style: { overflowX: 'auto' } },
