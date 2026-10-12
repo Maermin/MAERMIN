@@ -74,6 +74,8 @@
     // ongoing-cost (TER) overrides + risk-monitor thresholds
     'maermin_ter_overrides',
     'maermin_risk_monitor',
+    // fund holdings files the user imported for the look-through (P5-2.3)
+    'maermin_fund_holdings',
     // deleted auto-dividends (so a restore doesn't re-book them)
     'maermin_div_skipped',
     // daily EUR rates of the non-EUR/USD currencies traded (fx-history.js): with

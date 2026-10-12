@@ -85,6 +85,7 @@
     'maermin_trash',              // deleted records (transactions, plans, accounts …) for 30 days
     'maermin_fsa',                // Freistellungsaufträge: broker names + amounts
     'maermin_ter_overrides',      // held fund symbols
+    'maermin_fund_holdings',      // imported fund holdings files per held fund (fund-holdings-import.js, P5-2.3)
     'maermin_tax_owner',          // taxpayer name + TAX ID
     'maermin_fmp_api_key',        // legacy: FMP integration removed; kept so an old stored key stays encrypted
     'maermin_fx_currencies',      // daily EUR rates of the currencies traded (fx-history.js): which, and since when; device-local, not synced
