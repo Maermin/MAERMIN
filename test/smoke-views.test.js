@@ -115,6 +115,7 @@ const VIEW_MODULES = [
   { file: '../german-tax-view.js',  ns: 'MaerminGermanTaxView',   comps: ['Panel', 'SettingsPanel', 'priceAt', 'qtyAt', 'prefillRow'] },
   { file: '../pdf-import.js',       ns: 'MaerminPdfImport',       comps: ['parseText', 'parseStatement', 'detectBrokerFromText', 'candidatesToCSV', 'parseFiles', 'ensurePdfJs'] },
   { file: '../fx-attribution.js',   ns: 'MaerminFxAttribution',   comps: ['Panel', 'decompose', 'attribute', 'invertSeries', 'currencyOfPositions', 'rowsFromPortfolio'] },
+  { file: '../value-attribution.js', ns: 'MaerminValueAttribution', comps: ['Panel', 'compute', 'periodStart', 'biggest'] },
   { file: '../backtester.js',       ns: 'MaerminBacktester',      comps: ['Panel', 'backtest', 'run', 'summarize', 'normalizeWeights', 'alignSeries'] },
   { file: '../share-snapshot.js',   ns: 'MaerminShare',           comps: ['View', 'buildSnapshot', 'validateSnapshot', 'compare', 'parseShareId', 'gatherInputs'] },
   { file: '../savings-plan-executor.js', ns: 'MaerminSavingsExecutor', comps: ['occurrences', 'planStatus', 'pendingExecutions', 'dedupeExecutions', 'buildTransaction', 'priceAtDate', 'runCatchUp'] },
@@ -251,6 +252,10 @@ const MUST_RENDER = [
   // FX attribution panel: no worker URL in baseProps -> gated note path; the
   // representative data exercises the row building from priceHistory.
   ['MaerminFxAttribution', 'Panel', baseProps],
+  // Profit by source (P5-2.1): no close series -> the trades are not priced,
+  // so the card lists them as not measured; empty data -> the empty note.
+  ['MaerminValueAttribution', 'Panel', { ...baseProps, series: {}, today: '2026-01-02' }],
+  ['MaerminValueAttribution', 'Panel', { ...emptyProps, transactions: [], series: {} }],
   // Backtester panel: pre-run render (form only, hooks stubbed, no fetch).
   ['MaerminBacktester', 'Panel', baseProps],
   // Share view: no worker URL in baseProps -> gated publish; representative
