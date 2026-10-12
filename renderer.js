@@ -983,6 +983,24 @@ function InvestmentTracker() {
       return VP.build(txs, closeSeriesEUR, { today: window.MaerminUtils.todayISO(), exchangeRate, fxAt, live: pathInputs.live, splits: pathInputs.splits, clearing: clearing || null });
     } catch (e) { console.warn('[HISTORY] value path failed:', e && e.message); return null; }
   };
+  // P5-2.2: held funds with a daily close history (replay targets). A fund =
+  // the user's fund-type classification, else the look-through heuristic.
+  const heldFunds = useMemo(() => {
+    const CH = window.MaerminCloseHistory, LT = window.MaerminLookThrough;
+    const GT = window.TaxCalculationEngine && window.TaxCalculationEngine.GermanTax;
+    if (!CH) return [];
+    let types = {};
+    try { types = (GT && GT.loadFundTypes) ? GT.loadFundTypes() : {}; } catch (e) {}
+    const seen = {}, out = [];
+    activeTransactions.forEach((tx) => {
+      if (!tx || tx.category !== 'stocks' || tx.type !== 'buy') return;
+      const sym = String(tx.symbol || '').toUpperCase(), k = CH.keyOf('stocks', sym);
+      if (!sym || seen[k] || !closeSeriesEUR[k]) return;
+      seen[k] = true;
+      if ((types[sym] && types[sym] !== 'none') || (LT && LT.isFundCandidate && LT.isFundCandidate(sym, tx.symbolName || tx.name))) out.push({ key: k, symbol: sym });
+    });
+    return out;
+  }, [activeTransactions, closeSeriesEUR, demoMode]);
   // P5-2.1: the active portfolio's clearing account for the attribution card
   const returnsClearings = useMemo(() => (clearingByPf[activePortfolioId] ? { [activePortfolioId]: clearingByPf[activePortfolioId] } : null),
     [clearingByPf, activePortfolioId]);
@@ -3351,6 +3369,11 @@ function InvestmentTracker() {
             window.MaerminValueAttribution && React.createElement(window.MaerminValueAttribution.Panel, {
               transactions: activeTransactions, series: closeSeriesEUR, live: pathInputs.live, splits: pathInputs.splits,
               clearings: returnsClearings, exchangeRate, fxAt, theme: currentTheme, formatPrice
+            }),
+            // P5-2.2: the same money in and out replayed into an index or a held fund
+            window.MaerminBenchmarkReplay && React.createElement(window.MaerminBenchmarkReplay.Panel, {
+              transactions: activeTransactions, series: closeSeriesEUR, live: pathInputs.live, splits: pathInputs.splits,
+              clearings: returnsClearings, exchangeRate, fxAt, workerUrl: viewWorkerUrl, funds: heldFunds, theme: currentTheme
             }),
             React.createElement(window.MaerminAnalyticsViews.BenchmarkPanel, {
               portfolio, priceHistory, valueSeries: dailyAnalytics.index, workerUrl: viewWorkerUrl, theme: currentTheme, t, formatPrice

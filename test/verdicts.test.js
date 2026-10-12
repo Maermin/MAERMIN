@@ -24,6 +24,11 @@ const lv = (r) => r && r.level;
   ok('−0.99 pp → neutral', lv(V.benchmark(-0.99, 'MSCI World')) === 'neutral');
   ok('+1 pp → good', lv(V.benchmark(1, 'MSCI World')) === 'good');
   ok('−1 pp → warn', lv(V.benchmark(-1, 'MSCI World')) === 'warn');
+  // P5-2.2: same money in an index (XIRR fractions a year, € difference)
+  ok('replay: within ±1 pp a year → neutral', lv(V.replay(0.072, 0.065, 150, 'MSCI World')) === 'neutral');
+  ok('replay: 2 pp a year ahead → good, names the amount', lv(V.replay(0.09, 0.07, 1234.5, 'MSCI World')) === 'good' && /1,234\.50/.test(V.replay(0.09, 0.07, 1234.5, 'MSCI World').text) && /2\.0 percentage points/.test(V.replay(0.09, 0.07, 1234.5, 'MSCI World').text));
+  ok('replay: behind → warn', lv(V.replay(0.04, 0.07, -800, 'S&P 500')) === 'warn' && /S&P 500/.test(V.replay(0.04, 0.07, -800, 'S&P 500').text));
+  ok('replay: no money-weighted return → no sentence', V.replay(null, 0.07, 10, 'X') === null);
   const b = V.benchmark(-3.24, 'MSCI World');
   ok('text names the benchmark and the gap', /3\.2 percentage points worse than MSCI World/.test(b.text), b.text);
 
