@@ -86,6 +86,40 @@ const M = require('../import-mapping.js');
   ok('commit excludes duplicates by default', committed.transactions.length === 1 && committed.skipped === 1);
   ok('committed tx has no duplicate flag', !('duplicate' in committed.transactions[0]));
 
+  // P5-1.3: cash words book cash rows only when the row names no security.
+  {
+    const csv = ['Date,Type,Symbol,Amount,Price,Currency',
+      '2026-01-02,Deposit,,1000,,EUR',
+      '2026-01-03,Einzahlung,BTC,0.5,40000,EUR',
+      '2026-01-04,Gebühr,,4.5,,EUR',
+      '2026-01-05,Steuer,,-12,,EUR',
+      '2026-01-06,Auszahlung,,200,,USD',
+      '2026-01-07,Withdrawal,ETH,1,3000,EUR',
+      '2026-01-08,Deposit,,0,,EUR'].join('\n');
+    const q = M.quickCSV(csv, { category: 'crypto' });
+    const on = (d) => q.transactions.find((x) => x.date === d) || {};
+    ok('P5-1.3: a deposit without a security is a cash deposit', on('2026-01-02').type === 'deposit' && on('2026-01-02').amount === 1000 && on('2026-01-02').category === 'cashflow' && !on('2026-01-02').symbol);
+    ok('P5-1.3: a deposit WITH a coin stays a buy (coin transfer-in, as before)', on('2026-01-03').type === 'buy' && on('2026-01-03').symbol);
+    ok('P5-1.3: fee and tax rows (German words, negative sign) become cash rows', on('2026-01-04').type === 'fee' && on('2026-01-04').amount === 4.5 && on('2026-01-05').type === 'tax' && on('2026-01-05').amount === 12);
+    ok('P5-1.3: withdrawal without a security keeps its currency', on('2026-01-06').type === 'withdrawal' && on('2026-01-06').currency === 'USD');
+    ok('P5-1.3: a withdrawal WITH a coin stays a sell', on('2026-01-07').type === 'sell');
+    ok('P5-1.3: a zero cash amount is an error, not a row', !q.transactions.some((x) => x.date === '2026-01-08') && q.errors.length === 1);
+    ok('P5-1.3: an unknown type without a symbol is still "symbol missing"', M.quickCSV('Date,Type,Symbol,Amount,Price\n2026-01-09,Split,,1,1').errors.length === 1);
+
+    // Round trip through MAERMIN's own CSV export (spreadsheet, not the full backup)
+    const IE = require('../import-export-engine.js');
+    const own = [
+      { id: 'a', type: 'fee_refund', category: 'cashflow', amount: 2.5, currency: 'EUR', date: '2026-02-01' },
+      { id: 'b', type: 'interest_charge', category: 'cashflow', amount: 1.2, currency: 'USD', date: '2026-02-02' },
+      { id: 'c', type: 'buy', category: 'stocks', symbol: 'AAPL', quantity: 2, price: 100, fees: 1, currency: 'EUR', date: '2026-02-03' }];
+    const out = IE.exportToCSV(own);
+    ok('P5-1.3: the export writes the cash amount as the total', /"fee_refund".*"2\.50"/.test(out) && /"interest_charge".*"-1\.20"/.test(out), out);
+    const back = M.quickCSV(out, { category: 'stocks' });
+    const bt = (d) => back.transactions.find((x) => x.date === d) || {};
+    ok('P5-1.3: cash rows come back with type and amount', bt('2026-02-01').type === 'fee_refund' && bt('2026-02-01').amount === 2.5 && bt('2026-02-02').type === 'interest_charge' && bt('2026-02-02').amount === 1.2 && bt('2026-02-02').currency === 'USD', JSON.stringify(back));
+    ok('P5-1.3: the trade comes back unchanged', bt('2026-02-03').type === 'buy' && bt('2026-02-03').quantity === 2 && bt('2026-02-03').price === 100);
+  }
+
   console.log('\n' + passed + ' passed, ' + failed + ' failed');
   process.exit(failed ? 1 : 0);
 })();

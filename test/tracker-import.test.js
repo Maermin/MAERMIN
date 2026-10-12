@@ -47,9 +47,39 @@ const s1 = byDate(de, '2024-06-03');
 ok('sale: gross = 520 + 5 fee + 15 tax = 540 → price 108; tax not in the fees', s1 && s1.type === 'sell' && near(s1.price, 108) && near(s1.fees, 5) && /15/.test(s1.notes), JSON.stringify(s1));
 const in1 = byDate(de, '2024-07-01');
 ok('inbound delivery booked as a purchase at its value', in1 && in1.type === 'buy' && near(in1.price, 500) && in1.quantity === 3 && /Einlieferung/.test(in1.notes));
-ok('deposit, interest, outbound delivery and transfer are listed, not booked', de.errors.length === 4 && de.transactions.length === 6 && de.stats.total === 10, JSON.stringify(de.errors.map(e => e.reason)));
+// P5-1.3: the deposit is booked as a cash row; interest on cash (until the
+// clearing account, P5-1.4), outbound delivery and the transfer (the file does
+// not say which portfolio it went to) stay listed.
+const dep = byDate(de, '2024-01-15');
+ok('P5-1.3: "Einlage" becomes a deposit of 5,000 EUR (cash row, no security)', dep && dep.type === 'deposit' && dep.category === 'cashflow' && dep.amount === 5000 && dep.currency === 'EUR' && !dep.symbol, JSON.stringify(dep));
+ok('interest, outbound delivery and transfer are listed, not booked', de.errors.length === 3 && de.transactions.length === 7 && de.stats.total === 10, JSON.stringify(de.errors.map(e => e.reason)));
 ok('every skipped row names its reason', de.errors.every(e => e.row > 0 && e.reason.length > 10));
 ok('a warning explains the withholding assumption', de.warnings.length === 1);
+
+// P5-1.3: every PP cash type
+const PP_CASH = [
+  'Date,Type,Value,Transaction Currency,Gross Amount,Currency Gross Amount,Exchange Rate,Fees,Taxes,Shares,ISIN,WKN,Ticker Symbol,Security Name,Note',
+  '2024-02-01T00:00,Deposit,"1,000.00",EUR,,,,,,,,,,,',
+  '2024-02-02T00:00,Removal,-200.00,EUR,,,,,,,,,,,',
+  '2024-02-03T00:00,Fees,-4.90,EUR,,,,,,,,,,,Depot fee',
+  '2024-02-04T00:00,Fees Refund,2.00,EUR,,,,,,,,,,,',
+  '2024-02-05T00:00,Taxes,-12.30,EUR,,,,,,,IE00B4L5Y983,,,iShares Core MSCI World,Vorabpauschale',
+  '2024-02-06T00:00,Tax Refund,7.10,USD,,,,,,,,,,,',
+  '2024-02-07T00:00,Interest Charge,-1.15,EUR,,,,,,,,,,,',
+  '2024-02-08T00:00,Interest,0.80,EUR,,,,,,,,,,,',
+  '2024-02-09T00:00,Transfer (Outbound),-50.00,EUR,,,,,,,,,,,',
+  '2024-02-10T00:00,Fees,0.00,EUR,,,,,,,,,,,'
+].join('\n');
+const pc5 = TI.parse(PP_CASH);
+const typeOn = (d) => (byDate(pc5, d) || {}).type, amtOn = (d) => (byDate(pc5, d) || {}).amount;
+ok('P5-1.3 PP: deposit, removal, fees, fee refund, taxes, tax refund, interest charge', typeOn('2024-02-01') === 'deposit' && typeOn('2024-02-02') === 'withdrawal' && typeOn('2024-02-03') === 'fee'
+  && typeOn('2024-02-04') === 'fee_refund' && typeOn('2024-02-05') === 'tax' && typeOn('2024-02-06') === 'tax_refund' && typeOn('2024-02-07') === 'interest_charge', JSON.stringify(pc5.transactions.map(t => t.type)));
+ok('P5-1.3 PP: amounts are positive, the sign is in the type', amtOn('2024-02-01') === 1000 && amtOn('2024-02-02') === 200 && amtOn('2024-02-03') === 4.9 && amtOn('2024-02-07') === 1.15);
+ok('P5-1.3 PP: currency kept (USD tax refund)', byDate(pc5, '2024-02-06').currency === 'USD');
+const taxRow = byDate(pc5, '2024-02-05');
+ok('P5-1.3 PP: a tax on a security keeps the security in the note only (no symbol, no position)', !taxRow.symbol && /iShares Core MSCI World/.test(taxRow.notes) && /Vorabpauschale/.test(taxRow.notes));
+ok('P5-1.3 PP: interest on cash and the transfer stay listed with a reason; a zero fee is invalid', pc5.errors.length === 3 && pc5.transactions.length === 7, JSON.stringify(pc5.errors.map(e => e.reason)));
+ok('P5-1.3 PP: every cash row is a valid ledger cash row', pc5.transactions.every(t => require('../ledger.js').validateCash(t).length === 0));
 
 // ── Portfolio Performance, English: ',' delimiter, "1,004.99" quoted ──────────
 const PP_EN = [
@@ -77,6 +107,11 @@ const PQ = [
   '2024-03-01T09:00:00.000Z;01.03.2024;10:00:00;40000;0.05;2000;0;2;;Buy;demo;Crypto;BTC;;;EUR;;;Bitcoin;;;',
   '2024-04-01T09:00:00.000Z;01.04.2024;11:00:00;110;4;440;12;1;38;Sell;demo;Security;US0378331005;865985;;EUR;;;Apple Inc.;;;12000000',
   '2024-04-02T09:00:00.000Z;02.04.2024;11:00:00;1;500;500;0;0;;Deposit;demo;Cash;;;;EUR;;;;;;',
+  '2024-04-05T09:00:00.000Z;05.04.2024;11:00:00;1;80;80;0;0;;Withdrawal;demo;Cash;;;;EUR;;;;;;',
+  '2024-04-06T09:00:00.000Z;06.04.2024;11:00:00;;;0;0;3.5;;Fee;demo;Cash;;;;EUR;;;;;;',
+  '2024-04-07T09:00:00.000Z;07.04.2024;11:00:00;;;0;6.2;0;;Tax;demo;Cash;;;;EUR;;;;;;',
+  '2024-04-08T09:00:00.000Z;08.04.2024;11:00:00;1;1.5;1.5;0;0;;FeeRefund;demo;Cash;;;;EUR;;;;;;',
+  '2024-04-09T09:00:00.000Z;09.04.2024;11:00:00;1;2.5;2.5;0;0;;TaxRefund;demo;Cash;;;;EUR;;;;;;',
   '2024-04-03T09:00:00.000Z;03.04.2024;11:00:00;1;1;1;0;0;;Split;demo;Security;US0378331005;;;EUR;;;;;;'
 ].join('\n');
 console.log('Parqet:');
@@ -91,17 +126,24 @@ const pc = byDate(pq, '2024-03-01');
 ok('crypto: CoinGecko id, crypto category', pc && pc.category === 'crypto' && pc.symbol === 'bitcoin' && near(pc.price, 40000));
 const ps = byDate(pq, '2024-04-01');
 ok('sale: tax stays out of the fees; realised gains ignored (recomputed by FIFO)', ps && ps.type === 'sell' && near(ps.fees, 1) && near(ps.price, 110) && /12/.test(ps.notes));
-ok('deposit and unknown type listed, not booked', pq.errors.length === 2 && /Deposit/.test(pq.errors[0].reason) && /Split/.test(pq.errors[1].reason));
+const pqT = (d) => byDate(pq, d) || {};
+ok('P5-1.3 Parqet: deposit and withdrawal from "amount"', pqT('2024-04-02').type === 'deposit' && pqT('2024-04-02').amount === 500 && pqT('2024-04-05').type === 'withdrawal' && pqT('2024-04-05').amount === 80);
+ok('P5-1.3 Parqet: a fee or tax with no amount takes the fee / tax column', pqT('2024-04-06').type === 'fee' && pqT('2024-04-06').amount === 3.5 && pqT('2024-04-07').type === 'tax' && pqT('2024-04-07').amount === 6.2);
+ok('P5-1.3 Parqet: refunds', pqT('2024-04-08').type === 'fee_refund' && pqT('2024-04-09').type === 'tax_refund' && pqT('2024-04-09').amount === 2.5);
+ok('unknown type listed, not booked', pq.errors.length === 1 && /Split/.test(pq.errors[0].reason), JSON.stringify(pq.errors.map(e => e.reason)));
 
 // ── Wizard pipeline (import-mapping preview) ─────────────────────────────────
 console.log('wizard preview:');
 const prev = M.preview(PP_DE, { broker: 'degiro', existing: [] });
-ok('exact PP header wins over a picked broker; fixed format, no column mapping', prev.fixedFormat && prev.format === 'pp' && prev.broker.name === 'Portfolio Performance' && prev.transactions.length === 6);
+ok('exact PP header wins over a picked broker; fixed format, no column mapping', prev.fixedFormat && prev.format === 'pp' && prev.broker.name === 'Portfolio Performance' && prev.transactions.length === 7);
 const again = M.preview(PP_DE, { existing: M.commit(prev).transactions });
-ok('re-importing the same file marks every row as a duplicate', again.duplicates === 6, String(again.duplicates));
+ok('re-importing the same file marks every row as a duplicate (cash rows too)', again.duplicates === 7, String(again.duplicates));
+const cashA = { type: 'deposit', category: 'cashflow', amount: 100, currency: 'EUR', date: '2024-01-01' };
+ok('P5-1.3: two deposits on one day with different amounts are not duplicates', M.findDuplicates([Object.assign({}, cashA, { amount: 200 })], [cashA]).duplicates.length === 0);
+ok('P5-1.3: the same deposit again is a duplicate', M.findDuplicates([Object.assign({}, cashA)], [cashA]).duplicates.length === 1);
 ok('ISINs go to the existing ISIN → ticker step', M.collectIsins(prev.transactions).length === 3);
 const quick = M.quickCSV(PQ, {});
-ok('quick import reads Parqet too', quick.transactions.length === 4);
+ok('quick import reads Parqet too (4 trades, 6 cash rows)', quick.transactions.length === 10, String(quick.transactions.length));
 
 // ── Money: what the tax report and the ledger make of it ─────────────────────
 console.log('money:');

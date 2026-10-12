@@ -69,6 +69,54 @@ function __(k, f, v) { return (typeof window !== 'undefined' && window.MaerminI1
     return { transactions: list.concat([Object.assign({ id }, data)]), updated: false, created: true, found: true };
   }
 
+  // P5-1.3: save a cash booking from the transaction dialog. form = { type,
+  // amount, currency, date, notes, portfolioId, counterPortfolioId? }. A
+  // transfer is entered from either side (transfer_out: portfolioId → counter;
+  // transfer_in: counter → portfolioId) and stored as a pair (ledger.js).
+  // Editing one half updates both (ids and transferId kept); a transfer
+  // edited into another type drops its other half, and the other way round
+  // gains one. A trade edited into a cash type loses its trade fields.
+  // → { transactions, error? ('amount' | 'date' | 'counterPortfolioId') }. Pure.
+  const TRADE_FIELDS = ['symbol', 'symbolName', 'symbolLogoUrl', 'skinIconUrl', 'quantity', 'price', 'fees', 'withholdingTax',
+    'underlying', 'optionType', 'strike', 'expiry', 'contractSize', 'transferId', 'counterPortfolioId'];
+  function upsertCash(transactions, form, editingId, newIdFn) {
+    const L = (typeof window !== 'undefined' && window.MaerminLedger) || require('./ledger.js');
+    const list = Array.isArray(transactions) ? transactions : [];
+    const newId = typeof newIdFn === 'function' ? newIdFn : generateId;
+    const f = form || {};
+    const isTr = f.type === 'transfer_out' || f.type === 'transfer_in';
+    const here = String(f.portfolioId || 'default');
+    const from = f.type === 'transfer_in' ? String(f.counterPortfolioId || '') : here;
+    const to = f.type === 'transfer_in' ? here : String(f.counterPortfolioId || '');
+    const plain = { category: 'cashflow', amount: Number(f.amount), currency: f.currency || 'EUR', date: f.date, notes: f.notes || '' };
+    const probe = isTr ? Object.assign({ type: 'transfer_out', portfolioId: from, counterPortfolioId: to, transferId: 'x' }, plain)
+      : Object.assign({ type: f.type, portfolioId: here }, plain);
+    const bad = L.validateCash(probe);
+    if (bad.length) return { transactions: list, error: bad[0] === 'transferId' ? 'counterPortfolioId' : bad[0] };
+
+    const clean = (row) => { const o = Object.assign({}, row); TRADE_FIELDS.forEach((k) => { delete o[k]; }); return o; };
+    const editing = editingId !== null && editingId !== undefined && editingId !== '';
+    const old = editing ? list.find((tx) => tx && tx.id === editingId) : null;
+    if (editing && !old) return { transactions: list };
+    const partner = old ? L.pairOf(list, old) : null;
+
+    if (!isTr) {
+      const row = Object.assign(old ? clean(old) : { id: newId() }, plain, { type: f.type, portfolioId: here });
+      if (!old) return { transactions: list.concat([row]) };
+      return { transactions: list.filter((tx) => tx !== partner).map((tx) => (tx === old ? row : tx)) };
+    }
+    if (!old) return { transactions: list.concat(L.transferPair(Object.assign({ fromPortfolioId: from, toPortfolioId: to }, plain), newId)) };
+    // Edit into a transfer: keep the edited row's id on its new side; the other
+    // side keeps the partner's id or gets a new one.
+    const tid = (partner && old.transferId) || ('tr_' + newId());
+    const outOld = old.type === 'transfer_in' && partner ? partner : old;
+    const inOld = outOld === old ? partner : old;
+    const outRow = Object.assign(clean(outOld), plain, { type: 'transfer_out', portfolioId: from, counterPortfolioId: to, transferId: tid });
+    const inRow = Object.assign(inOld ? clean(inOld) : { id: newId() }, plain, { type: 'transfer_in', portfolioId: to, counterPortfolioId: from, transferId: tid });
+    const next = list.map((tx) => (tx === outOld ? outRow : tx === inOld ? inRow : tx));
+    return { transactions: inOld ? next : next.concat([inRow]) };
+  }
+
   // ── Currency conversion ────────────────────────────────────────────────
   // The app's canonical internal currency is EUR; `usdToEur` is the live rate
   // (1 USD = usdToEur EUR). These centralise the conversion so every call site
@@ -234,10 +282,20 @@ function __(k, f, v) { return (typeof window !== 'undefined' && window.MaerminI1
   // read "SELL". tone: 'in' (money into an asset), 'out' (disposal),
   // 'income' (dividend/interest) or 'neutral' (anything unknown).
   const TX_TYPES = {
-    buy:      { key: 'buy',           label: 'Buy',      tone: 'in' },
-    sell:     { key: 'sell',          label: 'Sell',     tone: 'out' },
-    dividend: { key: 'txDividend',    label: 'Dividend', tone: 'income' },
-    interest: { key: 'txInterest',    label: 'Interest', tone: 'income' }
+    buy:      { key: 'buy',        label: () => __('buy', 'Buy'),             tone: 'in' },
+    sell:     { key: 'sell',       label: () => __('sell', 'Sell'),           tone: 'out' },
+    dividend: { key: 'txDividend', label: () => __('txDividend', 'Dividend'), tone: 'income' },
+    interest: { key: 'txInterest', label: () => __('txInterest', 'Interest'), tone: 'income' },
+    // P5-1.3: cash bookings (ledger.js CASH_TYPES); green adds cash, red takes it.
+    deposit:         { key: 'txDeposit',        label: () => __('txDeposit', 'Deposit'),                tone: 'in' },
+    withdrawal:      { key: 'txWithdrawal',     label: () => __('txWithdrawal', 'Withdrawal'),          tone: 'out' },
+    transfer_in:     { key: 'txTransferIn',     label: () => __('txTransferIn', 'Transfer in'),         tone: 'in' },
+    transfer_out:    { key: 'txTransferOut',    label: () => __('txTransferOut', 'Transfer out'),       tone: 'out' },
+    fee:             { key: 'txFee',            label: () => __('txFee', 'Fee'),                        tone: 'out' },
+    fee_refund:      { key: 'txFeeRefund',      label: () => __('txFeeRefund', 'Fee refund'),           tone: 'in' },
+    tax:             { key: 'txTax',            label: () => __('txTax', 'Tax'),                        tone: 'out' },
+    tax_refund:      { key: 'txTaxRefund',      label: () => __('txTaxRefund', 'Tax refund'),           tone: 'in' },
+    interest_charge: { key: 'txInterestCharge', label: () => __('txInterestCharge', 'Interest charge'), tone: 'out' }
   };
   const TX_TONES = {
     in:      { color: '#22c55e', background: 'rgba(34,197,94,0.15)' },
@@ -249,7 +307,7 @@ function __(k, f, v) { return (typeof window !== 'undefined' && window.MaerminI1
     const raw = String(type == null ? '' : type).trim();
     const def = TX_TYPES[raw.toLowerCase()];
     const tone = def ? def.tone : 'neutral';
-    const label = def ? ((t && t[def.key]) || __(def.key, def.label))
+    const label = def ? ((t && t[def.key]) || def.label())
       : (raw ? raw.charAt(0).toUpperCase() + raw.slice(1) : '—');
     return { label, tone, color: TX_TONES[tone].color, background: TX_TONES[tone].background };
   }
@@ -308,6 +366,7 @@ function __(k, f, v) { return (typeof window !== 'undefined' && window.MaerminI1
     generateId,
     clamp,
     upsertTransaction,
+    upsertCash,
     toEUR,
     clickable,
     confirmThen,

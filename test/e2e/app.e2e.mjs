@@ -775,7 +775,7 @@ async function runBuild(browser, label, dir) {
         '2024-01-16T09:30;Kauf;-1.004,99;EUR;;;;4,99;;10;IE00B4L5Y983;A0RPWH;EUNL.DE;iShares Core MSCI World;',
         '2024-03-15T00:00;Dividende;8,50;EUR;11,55;USD;1,0870;;1,59;5;US0378331005;865985;AAPL;Apple Inc.;',
         '2024-06-03T14:00;Verkauf;520,00;EUR;;;;5,00;15,00;5;IE00B4L5Y983;A0RPWH;EUNL.DE;iShares Core MSCI World;'].join('\r\n');
-      let howto = '', info = '', chips = '', toast = '', err = '';
+      let howto = '', info = '', chips = '', toast = '', err = '', deposit = null;
       try {
         await openView(page, 'data');
         await page.getByRole('button', { name: /Broker Import/ }).click();
@@ -784,13 +784,15 @@ async function runBuild(browser, label, dir) {
         await page.locator('input[type="file"][accept*=".pdf"]').setInputFiles({ name: 'Depotumsaetze.csv', mimeType: 'text/csv', buffer: Buffer.from(PP, 'utf8') });
         info = await page.locator('[data-testid="tracker-info"]').innerText();
         chips = await page.locator('[data-testid="tracker-info"]').locator('xpath=preceding-sibling::div[1]').innerText();
-        await page.getByRole('button', { name: /Import 3/ }).click();
-        toast = await page.getByText(/3 transactions imported/).first().innerText();
+        await page.getByRole('button', { name: /Import 4/ }).click();
+        toast = await page.getByText(/4 transactions imported/).first().innerText();
+        deposit = await page.evaluate(() => JSON.parse(localStorage.getItem('transactions') || '[]').find((x) => x.date === '2024-01-15' && x.type === 'deposit'));
       } catch (e) { err = e.message.split('\n')[0]; }
       ok('P4-8: the PP tile explains the export (Depotumsätze / Kontoumsätze)', /Securities Account Transactions/.test(howto) && /Kontoumsätze/.test(howto), err || howto);
       ok('P4-8: file read as Portfolio Performance, booking rules shown, no column mapping', /How Portfolio Performance rows are booked/.test(info), err || info);
-      ok('P4-8: 3 valid rows, the deposit skipped', /Detected: Portfolio Performance/.test(chips) && /3 valid/.test(chips) && /1 skipped/.test(chips), err || chips);
-      ok('P4-8: import books the 3 rows', /3 transactions imported/.test(toast), err || toast);
+      ok('P4-8 / P5-1.3: 4 valid rows (the deposit is a cash booking now), none skipped', /Detected: Portfolio Performance/.test(chips) && /4 valid/.test(chips) && !/skipped/.test(chips), err || chips);
+      ok('P4-8: import books the 4 rows', /4 transactions imported/.test(toast), err || toast);
+      ok('P5-1.3: the PP deposit is stored as a cash row of 5,000 EUR', !!deposit && deposit.amount === 5000 && deposit.category === 'cashflow', err || JSON.stringify(deposit));
     }
     ok('no page errors in the session', errors.length === 0, errors.join(' | '));
     await context.close();
@@ -874,6 +876,60 @@ async function runBuild(browser, label, dir) {
     } catch (e) { err = e.message.split('\n')[0]; }
     ok('P5-1.2: every Strategy section fits a 375 px screen', !err && sections >= 6 && wide.length === 0, err || `sections=${sections} ${wide.join(', ')}`);
     ok('no page errors in the 375 px session', errors.length === 0, errors.join(' | '));
+    await context.close();
+  }
+
+  // P5-1.3: cash bookings in the transaction dialog - a deposit, a transfer pair, delete + Undo
+  {
+    const context = await browser.newContext({ serviceWorkers: 'block' });
+    await wire(context, external);
+    const page = await context.newPage();
+    const errors = watch(page);
+    await createVault(page, base);
+    await page.evaluate(() => {
+      localStorage.setItem('maermin_onboarded', '1');
+      localStorage.setItem('maermin_ui_mode', 'advanced');
+      localStorage.setItem('maermin_schema_version', String(window.MaerminMigrations.LATEST));
+      localStorage.setItem('maermin_portfolios', JSON.stringify([{ id: 'default', name: 'Main Portfolio', color: '#8b7cff' }, { id: 'pf_b', name: 'Broker B', color: '#3b82f6' }]));
+      localStorage.setItem('transactions', JSON.stringify([{ id: 'c1', type: 'buy', category: 'stocks', symbol: 'AAPL', quantity: 1, price: 100, currency: 'EUR', date: '2026-01-02', portfolioId: 'default' }]));
+    });
+    await page.waitForTimeout(1500); // let the encrypted writes finish before the reload
+    const stored = () => page.evaluate(() => JSON.parse(localStorage.getItem('transactions') || '[]'));
+    const dlg = page.locator('[aria-labelledby="dlg-transaction"]');
+    const book = async (type, amount, counter) => {
+      await page.getByRole('button', { name: /Add Transaction/ }).first().click();
+      await dlg.waitFor({ timeout: 5000 });
+      await dlg.locator('[data-tx-mode="cash"]').click();
+      await dlg.locator('#tx-cash-type').selectOption(type);
+      if (counter) await dlg.locator('#tx-cash-counter').selectOption(counter);
+      await dlg.locator('#tx-amount').fill(amount);
+      await dlg.locator('[data-tx-save]').click();
+      await page.waitForTimeout(400);
+    };
+    let dep = null, pair = [], rowText = '', afterDelete = -1, afterUndo = -1, err = '';
+    try {
+      await unlock(page, base);
+      await page.keyboard.press('Escape');
+      await openView(page, 'transactions');
+      await book('deposit', '1000,50');
+      dep = (await stored()).find((x) => x.type === 'deposit');
+      await book('transfer_out', '250', 'pf_b');
+      pair = (await stored()).filter((x) => x.transferId);
+      rowText = await page.locator('main tr', { hasText: 'Transfer out' }).first().innerText();
+      await page.locator('button[aria-label^="Delete: Transfer out"]').first().click();
+      await page.locator('tr', { hasText: 'Delete this transaction?' }).getByRole('button', { name: 'Delete', exact: true }).click();
+      await page.waitForTimeout(400);
+      afterDelete = (await stored()).filter((x) => x.transferId).length;
+      await page.locator('[data-testid="toast-action"]', { hasText: 'Undo' }).first().click();
+      await page.waitForTimeout(400);
+      afterUndo = (await stored()).filter((x) => x.transferId).length;
+    } catch (e) { err = e.message.split('\n')[0]; }
+    ok('P5-1.3: a deposit booked in the dialog (German-style "1000,50") is a cash row', !!dep && dep.amount === 1000.5 && dep.category === 'cashflow' && dep.portfolioId === 'default' && !dep.symbol, err || JSON.stringify(dep));
+    ok('P5-1.3: a transfer books both halves with one transferId', pair.length === 2 && pair[0].transferId === pair[1].transferId
+      && pair.some((x) => x.type === 'transfer_out' && x.portfolioId === 'default') && pair.some((x) => x.type === 'transfer_in' && x.portfolioId === 'pf_b'), err || JSON.stringify(pair));
+    ok('P5-1.3: the list names the other portfolio and the signed amount', /→ Broker B/.test(rowText) && /−250\.00/.test(rowText), err || rowText.replace(/\n/g, ' | '));
+    ok('P5-1.3: deleting one half deletes both; Undo brings both back', afterDelete === 0 && afterUndo === 2, err || `afterDelete=${afterDelete} afterUndo=${afterUndo}`);
+    ok('no page errors in the cash session', errors.length === 0, errors.join(' | '));
     await context.close();
   }
 

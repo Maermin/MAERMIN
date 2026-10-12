@@ -205,6 +205,8 @@
       var r = (fxAt && fxAt(tx.date)) || rate;
       return r > 0 ? amount * r : amount;
     }
+    var Lg = (typeof window !== 'undefined' && window.MaerminLedger) ? window.MaerminLedger
+      : (function () { try { return require('./ledger.js'); } catch (e) { return null; } })();
     var flows = [];
     (transactions || []).forEach(function (tx) {
       if (!tx || !tx.date) return;
@@ -213,6 +215,16 @@
       // bookings) is not portfolio income: the account balance is not part of
       // the terminal value, so counting it inflated XIRR (FINDINGS M-1).
       if (tx.source === 'interest-accrual' || tx.category === 'cash') return;
+      // P5-1.3: stand-alone fees, taxes, refunds and interest charges are
+      // flows (sign = effect on the portfolio's cash); deposits, withdrawals
+      // and transfers wait for the clearing account (P5-1.4). They belong to
+      // no asset class, so an asset-class filter leaves them out.
+      if (Lg && Lg.isCash(tx)) {
+        var def = Lg.CASH_TYPES[tx.type], a = Number(tx.amount);
+        if (cats || !def.flow || !(a > 0)) return;
+        flows.push({ date: tx.date, amount: def.sign * eur(a, tx), type: tx.type });
+        return;
+      }
       if (cats && cats.indexOf(tx.category || 'crypto') === -1) return;
       var gross = (Number(tx.quantity) || 0) * (Number(tx.price) || 0);
       var fees = Number(tx.fees) || 0;

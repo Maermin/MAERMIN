@@ -1078,6 +1078,9 @@ function InvestmentTracker() {
   const getCurrencySymbol = () => currency === 'EUR' ? '€' : '$';
 
   // Category display names
+  // P5-1.3: cash bookings in the transactions list.
+  const isCashRow = (tx) => !!(window.MaerminLedger && window.MaerminLedger.isCash(tx));
+  const portfolioName = (id) => ((portfolios || []).find(p => p.id === id) || {}).name || String(id || '');
   const getCategoryDisplayName = (category) => {
     const displayNames = { crypto: t.crypto || 'Crypto', stocks: t.stocks || 'Stocks', skins: t.cs2Skins || 'CS2 Skins', commodities: __('catCommodities', 'Commodities'), options: __('catOptions', 'Options') };
     if (displayNames[category]) return displayNames[category];
@@ -2144,7 +2147,35 @@ function InvestmentTracker() {
 
   // ========== ADD TRANSACTION ==========
   
+  // P5-1.3: a cash booking (or a transfer pair) through MaerminUtils.upsertCash.
+  const saveCash = () => {
+    const form = {
+      type: newTransaction.type,
+      amount: window.MaerminUtils.parseDecimal(newTransaction.amount),
+      currency: newTransaction.currency || 'EUR',
+      date: newTransaction.date,
+      notes: newTransaction.notes || '',
+      portfolioId: newTransaction.targetPortfolioId || activePortfolioId,
+      counterPortfolioId: newTransaction.counterPortfolioId || ''
+    };
+    const res = window.MaerminUtils.upsertCash(transactions, form, editingTransactionId);
+    if (res.error) {
+      const msg = { amount: __('txAmountInvalid', 'Enter an amount greater than 0'), date: __('txDateMissing', 'Enter a date'),
+        counterPortfolioId: __('txTransferPick', 'Pick the other portfolio of the transfer') }[res.error] || (t.error || 'Error');
+      addToast(msg, 'error');
+      const el = document.getElementById(res.error === 'amount' ? 'tx-amount' : res.error === 'date' ? 'tx-date' : 'tx-cash-counter');
+      if (el && el.focus) el.focus();
+      return;
+    }
+    setTransactions(() => res.transactions);
+    addToast(editingTransactionId ? (t.transactionUpdated || 'Transaction updated') : (t.transactionAdded || 'Transaction added'), 'success');
+    setNewTransaction({ type: 'buy', category: 'crypto', symbol: '', quantity: '', price: '', date: window.MaerminUtils.todayISO(), fees: '', notes: '', currency: currency });
+    setEditingTransactionId(null);
+    setShowTransactionModal(false);
+  };
+
   const saveTransaction = (opts) => {
+    if (window.MaerminLedger && window.MaerminLedger.isCash(newTransaction)) { saveCash(); return; }
     const isOption = newTransaction.category === 'options';
     // UX-022: a typed stock NAME (not a ticker) has no listing - it would never
     // get a price. Ask before saving it.
@@ -2279,6 +2310,26 @@ function InvestmentTracker() {
 
   // Start editing a transaction
   const editTransaction = (tx) => {
+    // P5-1.3: a cash row opens in Cash mode; a transfer always shows as "from
+    // this portfolio to the other", whichever half was clicked.
+    if (window.MaerminLedger && window.MaerminLedger.isCash(tx)) {
+      const tin = tx.type === 'transfer_in';
+      setNewTransaction(txInitialRef.current = {
+        type: tin ? 'transfer_out' : tx.type,
+        category: 'cashflow',
+        amount: tx.amount != null ? String(tx.amount) : '',
+        currency: tx.currency || 'EUR',
+        date: tx.date || window.MaerminUtils.todayISO(),
+        notes: tx.notes || '',
+        targetPortfolioId: tin ? (tx.counterPortfolioId || activePortfolioId) : (tx.portfolioId || activePortfolioId),
+        counterPortfolioId: tin ? (tx.portfolioId || '') : (tx.counterPortfolioId || ''),
+        symbol: '', quantity: '', price: '', fees: ''
+      });
+      setEditingTransactionId(tx.id);
+      setTxMissing([]);
+      setShowTransactionModal(true);
+      return;
+    }
     setNewTransaction(txInitialRef.current = {
       type: tx.type || 'buy',
       category: tx.category || 'crypto',
@@ -2307,13 +2358,19 @@ function InvestmentTracker() {
   };
 
   // Delete a transaction: it goes to the trash (P2-4) and the toast offers Undo.
+  // P5-1.3: a transfer goes with its other half (one trash entry, one Undo).
   const deleteTransaction = (txId) => {
     const tx = transactions.find(x => x.id === txId);
-    setTransactions(prev => prev.filter(x => x.id !== txId));
+    const pair = tx && window.MaerminLedger ? window.MaerminLedger.pairOf(transactions, tx) : null;
+    const gone = new Set([txId].concat(pair ? [pair.id] : []));
+    setTransactions(prev => prev.filter(x => !gone.has(x.id)));
     const TR = window.MaerminTrash;
     if (!tx || !TR) { addToast(t.transactionDeleted || 'Transaction deleted', 'success'); return; }
-    const label = [window.MaerminUtils.txTypeInfo(tx.type).label, tx.quantity != null ? window.MaerminI18n.num(tx.quantity, { min: 0, max: 8 }) : '', tx.symbol, '·', tx.date ? window.MaerminI18n.date(tx.date) : ''].filter(Boolean).join(' ');
-    TR.toastUndo(t.transactionDeleted || 'Transaction deleted', TR.put('transaction', label, tx));
+    const I = window.MaerminI18n;
+    const amountTxt = window.MaerminLedger && window.MaerminLedger.isCash(tx) ? I.num(parseFloat(tx.amount) || 0, 2) + ' ' + (tx.currency || 'EUR')
+      : (tx.quantity != null ? I.num(tx.quantity, { min: 0, max: 8 }) : '');
+    const label = [window.MaerminUtils.txTypeInfo(tx.type).label, amountTxt, tx.symbol, '·', tx.date ? I.date(tx.date) : ''].filter(Boolean).join(' ');
+    TR.toastUndo(t.transactionDeleted || 'Transaction deleted', TR.put('transaction', label, pair ? [tx, pair] : tx));
   };
 
   // Restore handlers for the records held in React state (trash.js).
@@ -2321,7 +2378,7 @@ function InvestmentTracker() {
     const TR = window.MaerminTrash;
     if (!TR) return;
     const offTx = TR.register('transaction', (tx) => {
-      setTransactions(prev => TR.restoreInto(prev, [tx]).items);
+      setTransactions(prev => TR.restoreInto(prev, Array.isArray(tx) ? tx : [tx]).items); // a transfer pair is one entry
       return true;
     });
     const offPf = TR.register('portfolio', (pf) => {
@@ -4436,7 +4493,7 @@ function InvestmentTracker() {
       switch (txSortBy) {
         case 'date-asc':  return new Date(a.date) - new Date(b.date);
         case 'date-desc': return new Date(b.date) - new Date(a.date);
-        case 'amount-desc': return (b.quantity * b.price) - (a.quantity * a.price);
+        case 'amount-desc': { const v = (x) => isCashRow(x) ? (parseFloat(x.amount) || 0) : (parseFloat(x.quantity) || 0) * (parseFloat(x.price) || 0); return v(b) - v(a); }
         case 'symbol': return (a.symbol || '').localeCompare(b.symbol || '');
         default: return new Date(b.date) - new Date(a.date);
       }
@@ -4563,20 +4620,24 @@ function InvestmentTracker() {
                           }
                         }, window.MaerminUtils.txTypeInfo(tx.type, t).label)
                       ),
+                      // P5-1.3: a cash row names the other portfolio of a transfer (or its note) and shows its signed amount.
                       React.createElement('td', { className: 'mx-card-lead', style: { padding: '0.875rem 1rem' } },
-                        React.createElement('div', { style: { color: currentTheme.text, fontWeight: '600', fontSize: '0.875rem' } }, tx.symbol),
-                        React.createElement('div', { style: { color: currentTheme.textSecondary, fontSize: '0.75rem' } }, getCategoryDisplayName(tx.category))
+                        React.createElement('div', { style: { color: currentTheme.text, fontWeight: '600', fontSize: '0.875rem' } },
+                          isCashRow(tx) ? (tx.counterPortfolioId ? (tx.type === 'transfer_out' ? '→ ' : '← ') + portfolioName(tx.counterPortfolioId) : (tx.notes || '')) : tx.symbol),
+                        React.createElement('div', { style: { color: currentTheme.textSecondary, fontSize: '0.75rem' } }, isCashRow(tx) ? window.MaerminI18n.category('cashflow') : getCategoryDisplayName(tx.category))
                       ),
-                      React.createElement('td', { 'data-label': t.quantity || 'Qty', style: { padding: '0.875rem 1rem', color: currentTheme.text, textAlign: 'right', fontSize: '0.875rem' } }, window.MaerminI18n.num(tx.quantity, { min: 0, max: 8 })),
+                      React.createElement('td', { 'data-label': t.quantity || 'Qty', style: { padding: '0.875rem 1rem', color: currentTheme.text, textAlign: 'right', fontSize: '0.875rem' } }, isCashRow(tx) ? '' : window.MaerminI18n.num(tx.quantity, { min: 0, max: 8 })),
                       React.createElement('td', { 'data-label': t.price || 'Price', style: { padding: '0.875rem 1rem', color: currentTheme.text, textAlign: 'right', fontSize: '0.875rem' } },
-                        tx.price != null ? (privacyMode ? '••••••' : window.MaerminI18n.num(tx.price, 2)) : ''
+                        !isCashRow(tx) && tx.price != null ? (privacyMode ? '••••••' : window.MaerminI18n.num(tx.price, 2)) : ''
                       ),
                       React.createElement('td', { className: 'mx-hide-phone', style: { padding: '0.875rem 0.5rem', color: currentTheme.textSecondary, textAlign: 'center', fontSize: '0.75rem' } },
                         tx.currency || 'EUR'
                       ),
                       React.createElement('td', { 'data-label': t.total || 'Total', style: { padding: '0.875rem 1rem', color: currentTheme.text, textAlign: 'right', fontWeight: '600', fontSize: '0.875rem' } },
                         // VIS-003 masked in Privacy Mode; VIS-015 the total names its currency (USD and EUR rows mix)
-                        privacyMode ? '••••••' : window.MaerminI18n.num(tx.quantity * tx.price, 2) + ' ' + (tx.currency || 'EUR')
+                        privacyMode ? '••••••' : (isCashRow(tx)
+                          ? (window.MaerminLedger.CASH_TYPES[tx.type].sign > 0 ? '+' : '−') + window.MaerminI18n.num(parseFloat(tx.amount) || 0, 2)
+                          : window.MaerminI18n.num(tx.quantity * tx.price, 2)) + ' ' + (tx.currency || 'EUR')
                       ),
                       React.createElement('td', { className: 'mx-card-actions', style: { padding: '0.5rem 0.75rem', textAlign: 'center' } },
                         React.createElement('div', { style: { display: 'flex', gap: '0.375rem', justifyContent: 'center' } },
@@ -4880,6 +4941,19 @@ function InvestmentTracker() {
         theme: currentTheme, year: currentYear, dividends: (taxReport && taxReport.dividends) || [],
         formatMoney: (v) => privacyMode ? '••••••' : window.MaerminI18n.money(v, 'EUR')
       }),
+      // P5-1.3: cash bookings of the year, for information (not part of the computed tax)
+      (() => {
+        const cb = taxReport && taxReport.summary && taxReport.summary.cashBookings;
+        const keys = cb ? ['tax', 'tax_refund', 'fee', 'fee_refund', 'interest_charge'].filter(k => cb[k] > 0) : [];
+        if (!keys.length) return null;
+        return React.createElement('div', { 'data-testid': 'tax-cash-bookings', style: { background: currentTheme.card, border: `1px solid ${currentTheme.cardBorder}`, borderRadius: '16px', padding: '1.25rem 1.5rem', marginTop: '1rem' } },
+          React.createElement('div', { style: { color: currentTheme.text, fontWeight: 700, marginBottom: '0.35rem' } }, __('taxCashTitle', 'Cash bookings {year}', { year: currentYear })),
+          React.createElement('p', { style: { color: currentTheme.textSecondary, fontSize: '0.8rem', margin: '0 0 0.75rem', lineHeight: 1.5 } },
+            __('taxCashNote', 'For information. Taxes already paid or refunded, stand-alone fees and interest charges you booked. They do not change the tax computed above.')),
+          keys.map(k => React.createElement('div', { key: k, 'data-tax-cash': k, style: { display: 'flex', justifyContent: 'space-between', gap: '1rem', padding: '0.3rem 0', fontSize: '0.875rem', borderTop: `1px solid ${currentTheme.cardBorder}` } },
+            React.createElement('span', { style: { color: currentTheme.textSecondary } }, window.MaerminUtils.txTypeInfo(k, t).label),
+            React.createElement('span', { style: { color: currentTheme.text, fontWeight: 600 } }, privacyMode ? '••••••' : window.MaerminI18n.money(cb[k], 'EUR')))));
+      })(),
       // Editable tax parameters (Task 8): rate, Soli, church tax, allowance,
       // crypto exemption, Teilfreistellung overrides. Engine + exports read them.
       taxJurisdiction === 'de' && window.MaerminGermanTaxView && window.MaerminGermanTaxView.SettingsPanel &&
@@ -4969,6 +5043,52 @@ function InvestmentTracker() {
     const shownMissing = txMissing.filter(f => emptyNow.includes(f));
     const fieldNames = { symbol: t.symbol || 'Symbol', quantity: t.quantity || 'Quantity', price: t.pricePerUnit || 'Price per Unit' };
     const invalidProps = (f) => shownMissing.includes(f) ? { 'aria-invalid': true, 'aria-describedby': 'tx-missing' } : {};
+
+    // P5-1.3: cash bookings (deposit, withdrawal, transfer, fee, tax, refunds,
+    // interest charge) replace the trade fields with type, amount, currency,
+    // date, note and - for a transfer - the other portfolio.
+    const isCashTx = !!(window.MaerminLedger && window.MaerminLedger.isCash(newTransaction));
+    const fieldStyle = { width: '100%', padding: '0.75rem', background: currentTheme.inputBg, border: `1px solid ${currentTheme.inputBorder}`, borderRadius: '8px', color: currentTheme.text };
+    const fieldLabel = (id, text) => React.createElement('label', { htmlFor: id, style: { display: 'block', color: currentTheme.textSecondary, marginBottom: '0.5rem', fontSize: '0.875rem' } }, text);
+    const setTx = (patch) => setNewTransaction(prev => ({ ...prev, ...patch }));
+    const renderCashFields = () => {
+      const UT = window.MaerminUtils;
+      const isTr = newTransaction.type === 'transfer_out' || newTransaction.type === 'transfer_in';
+      const here = newTransaction.targetPortfolioId || activePortfolioId;
+      const others = portfolios.filter(p => p.id !== here);
+      const kinds = ['deposit', 'withdrawal', 'transfer_out', 'fee', 'fee_refund', 'tax', 'tax_refund', 'interest_charge'];
+      const kindLabel = (k) => k === 'transfer_out' ? __('txTransfer', 'Transfer to another portfolio') : UT.txTypeInfo(k, t).label;
+      return React.createElement('div', { 'data-testid': 'tx-cash' },
+        React.createElement('div', { style: { marginBottom: '1rem' } },
+          fieldLabel('tx-cash-type', __('txCashType', 'Booking')),
+          React.createElement('select', { id: 'tx-cash-type', value: newTransaction.type === 'transfer_in' ? 'transfer_out' : newTransaction.type,
+            onChange: (e) => setTx({ type: e.target.value, counterPortfolioId: e.target.value === 'transfer_out' ? (newTransaction.counterPortfolioId || (others[0] || {}).id || '') : newTransaction.counterPortfolioId }),
+            style: { ...fieldStyle, cursor: 'pointer' } },
+            kinds.map(k => React.createElement('option', { key: k, value: k }, kindLabel(k))))),
+        isTr && React.createElement('div', { style: { marginBottom: '1rem' } },
+          fieldLabel('tx-cash-counter', __('txTransferTo', 'To portfolio')),
+          others.length
+            ? React.createElement('select', { id: 'tx-cash-counter', value: newTransaction.counterPortfolioId || '', onChange: (e) => setTx({ counterPortfolioId: e.target.value }), style: { ...fieldStyle, cursor: 'pointer' } },
+                React.createElement('option', { value: '' }, '—'),
+                others.map(p => React.createElement('option', { key: p.id, value: p.id }, p.name)))
+            : React.createElement('div', { role: 'note', style: { color: currentTheme.textSecondary, fontSize: '0.85rem' } }, __('txTransferNeedsTwo', 'Create a second portfolio first (Portfolio → Portfolios).'))),
+        React.createElement('div', { style: { display: 'flex', gap: '0.75rem', marginBottom: '1rem' } },
+          React.createElement('div', { style: { flex: 2 } },
+            fieldLabel('tx-amount', __('txAmount', 'Amount')),
+            React.createElement('input', { id: 'tx-amount', type: 'text', inputMode: 'decimal', value: newTransaction.amount == null ? '' : newTransaction.amount,
+              onChange: (e) => setTx({ amount: e.target.value }), placeholder: window.MaerminI18n.num(0, { min: 2, max: 2 }), style: fieldStyle })),
+          React.createElement('div', { style: { flex: 1 } },
+            fieldLabel('tx-cash-currency', t.currency || 'Currency'),
+            React.createElement('select', { id: 'tx-cash-currency', value: newTransaction.currency || 'EUR', onChange: (e) => setTx({ currency: e.target.value }), style: { ...fieldStyle, cursor: 'pointer' } },
+              ['EUR', 'USD'].map(c => React.createElement('option', { key: c, value: c }, c))))),
+        React.createElement('div', { style: { marginBottom: '1rem' } },
+          fieldLabel('tx-date', t.date || 'Date'),
+          React.createElement('input', { id: 'tx-date', type: 'date', value: newTransaction.date, onChange: (e) => setTx({ date: e.target.value }), style: fieldStyle })),
+        React.createElement('div', { style: { marginBottom: '1.5rem' } },
+          fieldLabel('tx-notes', t.notesOptional || 'Notes (optional)'),
+          React.createElement('input', { id: 'tx-notes', type: 'text', value: newTransaction.notes || '', onChange: (e) => setTx({ notes: e.target.value }), placeholder: t.notesPlaceholder || 'Optional notes...', style: fieldStyle }))
+      );
+    };
 
     const closeModal = () => {
       setShowTransactionModal(false);
@@ -5087,10 +5207,19 @@ function InvestmentTracker() {
                   fontWeight: '600'
                 }
               }, type === 'buy' ? (t.buy || 'Buy') : (t.sell || 'Sell'))
-            )
+            ),
+            // P5-1.3: a cash booking instead of a trade
+            React.createElement('button', {
+              key: 'cash', type: 'button', 'data-tx-mode': 'cash',
+              'aria-pressed': isCashTx,
+              onClick: () => setNewTransaction(prev => window.MaerminLedger.isCash(prev) ? prev : ({ ...prev, type: 'deposit', amount: prev.amount || '' })),
+              style: { flex: 1, padding: '0.5rem', background: isCashTx ? (currentTheme.accentFill || currentTheme.accent) : currentTheme.inputBg,
+                color: isCashTx ? '#ffffff' : currentTheme.text, border: 'none', borderRadius: '6px', cursor: 'pointer', fontSize: '0.875rem', fontWeight: '600' }
+            }, __('txCash', 'Cash'))
           )
         ),
-        
+
+        isCashTx ? renderCashFields() : React.createElement(React.Fragment, null,
         // Category selector
         React.createElement('div', { style: { marginBottom: '1rem' } },
           React.createElement('label', {
@@ -5505,7 +5634,8 @@ function InvestmentTracker() {
         shownMissing.length ? React.createElement('div', {
           id: 'tx-missing', role: 'alert',
           style: { color: currentTheme.danger, fontSize: '0.85rem', fontWeight: 600, marginBottom: '0.75rem' }
-        }, `${t.fillInFields || 'Please fill in'}: ${shownMissing.map(f => fieldNames[f]).join(', ')}`) : null,
+        }, `${t.fillInFields || 'Please fill in'}: ${shownMissing.map(f => fieldNames[f]).join(', ')}`) : null
+        ),
 
         // Buttons: stay in view while the form scrolls (the save button was
         // below the fold on a 900 px tall window).
@@ -5523,19 +5653,21 @@ function InvestmentTracker() {
             }
           }, t.cancel || 'Cancel'),
           React.createElement('button', {
-            onClick: saveTransaction,
+            onClick: () => saveTransaction(),
+            'data-tx-save': true,
             style: {
               flex: 1,
               padding: '0.75rem',
-              background: newTransaction.type === 'buy' ? currentTheme.success : currentTheme.danger,
-              color: window.MaerminUtils.onColor(newTransaction.type === 'buy' ? currentTheme.success : currentTheme.danger),
+              background: isCashTx ? (currentTheme.accentFill || currentTheme.accent) : newTransaction.type === 'buy' ? currentTheme.success : currentTheme.danger,
+              color: isCashTx ? '#ffffff' : window.MaerminUtils.onColor(newTransaction.type === 'buy' ? currentTheme.success : currentTheme.danger),
               border: 'none',
               borderRadius: '8px',
               cursor: 'pointer',
               fontWeight: '600'
             }
-          }, isEditing 
+          }, isEditing
             ? (t.saveChanges || 'Save Changes')
+            : isCashTx ? __('txAddBooking', 'Add booking')
             : (newTransaction.type === 'buy' ? (t.addBuy || 'Add Buy') : (t.addSell || 'Add Sell')))
         )
       )
