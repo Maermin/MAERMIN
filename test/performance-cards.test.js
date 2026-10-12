@@ -118,6 +118,28 @@ const P = require('../performance-cards.js');
   ok('compare: relative +5pp', near(cmp.rel, 5));
   ok('compare null without benchmark data', P.compareBenchmark([{ d: '2026-01-01', v: 1000 }], [], '1M') === null);
 
+  // P5-1.8: a buy or a sale is not a gain or a loss. Best/worst day, the
+  // drawdown, the growth rate of the goal ETA and the benchmark row take the
+  // same flows as the period cards (value path rule: flows at the end of the day).
+  console.log('flows (buys and sales are not performance):');
+  const fs_ = [{ d: '2026-01-01', v: 1000 }, { d: '2026-01-02', v: 2020 }, { d: '2026-01-03', v: 1990 }, { d: '2026-01-04', v: 1500 }, { d: '2026-01-05', v: 1545 }];
+  const fl = [{ d: '2026-01-02', amount: 1000 }, { d: '2026-01-04', amount: -500 }];
+  const fx = P.dailyExtremes(fs_, fl);
+  ok('best day: +3 % (45 of 1,500) on day 5; the buy day counts +2 %, not +102 %', fx && fx.best.date === '2026-01-05' && near(fx.best.pct, 3) && near(fx.best.abs, 45));
+  ok('worst day: −1.49 % (−30 of 2,020), the sale day is +0.5 %, not −25 %', fx && fx.worst.date === '2026-01-03' && near(fx.worst.pct, -30 / 2020 * 100));
+  const fxRaw = P.dailyExtremes(fs_);
+  ok('without flows the old raw moves stay (snapshots of a book without transactions)', near(fxRaw.best.pct, 102));
+  const fdd = P.drawdownStats(fs_, fl);
+  ok('drawdown: the sale is not a fall; max −1.49 % on day 3', fdd && near(fdd.maxDd, -30 / 2020 * 100) && fdd.troughDate === '2026-01-03');
+  const fdds = P.drawdownSeries(fs_, fl);
+  ok('underwater series has one point per day and recovers after the sale day', fdds.length === 5 && fdds[4].dd === 0);
+  const fcg = P.cagrFromSeries([{ d: '2025-01-01', v: 1000 }, { d: '2026-01-01', v: 2100 }], [{ d: '2026-01-01', amount: 1000 }]);
+  ok('growth rate for the goal ETA without the deposit: +10 % a year, not +110 %', fcg !== null && Math.abs(fcg - 10) < 0.05);
+  const fbmk = [{ date: '2026-01-01', price: 100 }, { date: '2026-01-05', price: 101 }];
+  const frow = P.compareBenchmark(fs_, fbmk, 'MAX', '2026-01-05', { flows: fl });
+  const fcard = P.computePeriod(fs_, 'MAX', '2026-01-05', { flows: fl });
+  ok('benchmark row uses the same flow-neutral return as the period card', frow && fcard && near(frow.port, fcard.pct) && near(frow.rel, fcard.pct - 1));
+
   console.log('\n' + passed + ' passed, ' + failed + ' failed');
   process.exit(failed ? 1 : 0);
 })();

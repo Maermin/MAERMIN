@@ -98,7 +98,7 @@ function __(k, f, v) { return (typeof window !== 'undefined' && window.MaerminI1
     var card = function (children) {
       return h('div', { style: { background: th.card || '#10151f', border: '1px solid ' + (th.cardBorder || 'rgba(255,255,255,0.07)'), borderRadius: '14px', padding: '1.25rem', marginTop: '1rem' } }, children);
     };
-    var title = h('div', { style: { fontWeight: 800, color: th.text || '#e9edf4', marginBottom: '0.75rem' } }, __('ecTitle', 'Earnings Calendar'));
+    var title = h('div', { style: { fontWeight: 800, color: th.text || '#e9edf4', marginBottom: '0.75rem' } }, __('ecTitle', 'Earnings Calendar'), ' ', window.MaerminDemoFixtures && window.MaerminDemoFixtures.badge(React, th, workerUrl));
 
     if (!workerUrl || workerUrl.length < 5) {
       return card([title, h('div', { key: 'm', style: { fontSize: '0.8rem', color: th.textSecondary || '#8b94a7' } }, __('ecNeedWorker', 'Add a Worker URL in API Settings to see upcoming earnings dates for your holdings.'))]);

@@ -83,6 +83,12 @@
     for (let i = 0; i < text.length; i++) { h ^= text.charCodeAt(i); h = Math.imul(h, 16777619); }
     return function () { h = Math.imul(h ^ (h >>> 15), 2246822507); h = Math.imul(h ^ (h >>> 13), 3266489909); h ^= h >>> 16; return (h >>> 0) / 4294967296; };
   }
+  // The shared market move of a day (log return), the same for every series.
+  const _shock = {};
+  function marketShock(day) {
+    if (_shock[day] === undefined) _shock[day] = (seeded('market|' + day)() - 0.5) * 0.02;
+    return _shock[day];
+  }
   function closeHistory(todayISO) {
     const today = dayNo(todayISO);
     const bySym = {};
@@ -104,13 +110,17 @@
       const rnd = seeded(k);
       const weekdaysOnly = k.indexOf('crypto|') !== 0;
       const vol = weekdaysOnly ? 0.025 : 0.05;
+      // P5-1.8: a shared market move per day, so the holdings (and the sample
+      // benchmark built from the world ETF) move together like real markets.
+      // [own-noise share, market beta] by kind; funds are mostly market.
+      const kind = FUND_TYPES[e.sym] ? [0.25, 1] : k.indexOf('crypto|') === 0 ? [1, 1.4] : k.indexOf('commodities|') === 0 ? [0.6, 0.15] : [0.8, 1];
       const d = [], p = [];
       for (let i = 0; i + 1 < anchors.length; i++) {
         const [d0, p0] = anchors[i], [d1, p1] = anchors[i + 1];
         // Brownian bridge: a random walk with its drift removed, so it is 0 at
         // both anchors and wanders in between.
         const n = Math.max(1, d1 - d0), walk = [0];
-        for (let x = 1; x <= n; x++) walk.push(walk[x - 1] + (rnd() - 0.5) * vol);
+        for (let x = 1; x <= n; x++) walk.push(walk[x - 1] + (rnd() - 0.5) * vol * kind[0] + kind[1] * marketShock(d0 + x));
         const last = i + 2 === anchors.length;
         for (let x = 0; x <= n; x++) {
           if (x === n && !last) break;                 // the next segment starts here
@@ -270,7 +280,21 @@
     return undefined;
   }
 
-  const api = { FLAG, SETTINGS, BROKER, isActive, enable, disable, getTransactions, getPrices, getPortfolios, store, closeHistory };
+  // P5-1.8: fictional companies for Discovery in the demo (demo-fixtures.js):
+  // [symbol, name, kind]. Made up on purpose, so no sample price sits next to
+  // a real ticker.
+  const SAMPLE_COMPANIES = [
+    ['NWTX', 'Northwind Systems (sample)', 'tech'], ['BLUQ', 'Bluequay Robotics (sample)', 'tech'],
+    ['CDRV', 'Cedar Valley Foods (sample)', 'div'], ['HLMN', 'Hallmoor Utilities (sample)', 'div'],
+    ['ORBL', 'Orbital Freight (sample)', 'small'], ['PNCL', 'Pinnacle Health (sample)', 'growth'],
+    ['QRTZ', 'Quartzline Chips (sample)', 'tech'], ['RVNS', 'Ravenstone Energy (sample)', 'div'],
+    ['SLTE', 'Slate & Co. Retail (sample)', 'small'], ['TDLW', 'Tidewell Water (sample)', 'div'],
+    ['VRDA', 'Verdant Mobility (sample)', 'growth'], ['WLLO', 'Willow Software (sample)', 'tech'],
+    ['XNTH', 'Xanthe Biotech (sample)', 'small'], ['YRRW', 'Yarrow Insurance (sample)', 'div'],
+    ['ZPHR', 'Zephyr Aerospace (sample)', 'growth']
+  ];
+
+  const api = { FLAG, SETTINGS, BROKER, SAMPLE_COMPANIES, isActive, enable, disable, getTransactions, getPrices, getPortfolios, store, closeHistory };
   if (typeof window !== 'undefined') window.MaerminDemo = api;
   if (typeof module !== 'undefined' && module.exports) module.exports = api;
 })();

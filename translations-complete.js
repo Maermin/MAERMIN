@@ -2684,6 +2684,15 @@ taSparer: 'Sparerpauschbetrag',
     // P5-1.7 richer demo
     demoPfMain: 'Main depot',
     demoPfBroker: 'Savings plan broker',
+    // P5-1.8 demo fixtures
+    dfxBadge: 'Sample data',
+    dfxTitle: 'Made-up demo data - not real market data',
+    dfxNews1: 'Sample headline: {sym} in the quarterly reporting season',
+    dfxNews2: 'Sample headline: analysts discuss {sym}',
+    dfxNews3: 'Sample headline: what moved {sym} this week',
+    dfxNewsBody1: 'Made-up demo text. Real headlines appear once a Worker is set up.',
+    dfxNewsBody2: 'Made-up demo text, not news about this company.',
+    dfxNewsBody3: 'Made-up demo text for the demo portfolio.',
 
     // P5-1.6 plain-language verdicts
     vdNoAdvice: 'Rules of thumb for orientation, not investment advice.',
@@ -5244,6 +5253,15 @@ taSparer: 'Sparerpauschbetrag',
     // P5-1.7 richer demo
     demoPfMain: 'Hauptdepot',
     demoPfBroker: 'Sparplan-Broker',
+    // P5-1.8 demo fixtures
+    dfxBadge: 'Beispieldaten',
+    dfxTitle: 'Erfundene Demodaten - keine echten Marktdaten',
+    dfxNews1: 'Beispielmeldung: {sym} in der Quartalsberichtssaison',
+    dfxNews2: 'Beispielmeldung: Analysten diskutieren {sym}',
+    dfxNews3: 'Beispielmeldung: Was {sym} diese Woche bewegt hat',
+    dfxNewsBody1: 'Erfundener Demotext. Echte Meldungen erscheinen, sobald ein Worker eingerichtet ist.',
+    dfxNewsBody2: 'Erfundener Demotext, keine Nachricht über dieses Unternehmen.',
+    dfxNewsBody3: 'Erfundener Demotext für das Demoportfolio.',
 
     // P5-1.6 plain-language verdicts
     vdNoAdvice: 'Faustregeln zur Orientierung, keine Anlageberatung.',
