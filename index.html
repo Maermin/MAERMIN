@@ -31,6 +31,9 @@
 
   <!-- Security foundation: vault + encrypted storage load BEFORE auth, which
        drives them. Auth gates the app mount (renderer awaits whenUnlocked()). -->
+  <!-- P5-1.9: ?demo opens the demo without a vault. Loaded first: it swaps
+       the storage for in-memory stores before anything reads it. -->
+  <script src="public-demo.js"></script>
   <script src="audit-log.js"></script>
   <script src="event-bus.js"></script>
   <script src="crypto-vault.js"></script>

@@ -2001,6 +2001,10 @@ function InvestmentTracker() {
     addToast(__('demoOn', 'Demo mode on — exploring sample data'), 'info');
   };
   const exitDemo = () => {
+    // P5-1.9: the public demo link runs on in-memory storage - leaving it opens
+    // the normal app (vault screen) at the same address without ?demo.
+    const PD = window.MaerminPublicDemo;
+    if (PD && PD.active) { window.location.assign(PD.exitUrl(window.location)); return; }
     if (window.MaerminDemo) window.MaerminDemo.disable();
     setDemoMode(false);
     const saved = localStorage.getItem('transactions');

@@ -883,6 +883,71 @@ async function runBuild(browser, label, dir) {
     await context.close();
   }
 
+  // P5-1.9: the public demo link opens the demo without a vault and never
+  // touches the visitor's real storage - neither in a fresh browser nor next
+  // to an existing vault.
+  {
+    const context = await browser.newContext({ serviceWorkers: 'block' });
+    await wire(context, external);
+    const page = await context.newPage();
+    const errors = watch(page);
+    let pwFields = -1, banner = '', positions = 0, realKeys = null, exitTo = '', vaultScreen = 0, err = '';
+    try {
+      await page.goto(base + '/index.html?demo');
+      await page.locator('nav.maermin-sidebar').waitFor({ timeout: 30000 });
+      await page.keyboard.press('Escape');
+      await page.waitForTimeout(1500);
+      pwFields = await page.locator('input[type=password]').count();
+      banner = await page.locator('main').innerText();
+      positions = await page.evaluate(() => (window.MaerminDemo ? window.MaerminDemo.getTransactions().length : 0));
+      await openView(page, 'transactions');
+      await page.waitForTimeout(500);
+      // A second tab of the same browser without ?demo sees the real storage.
+      const plain = await context.newPage();
+      await plain.goto(base + '/index.html');
+      await plain.locator('input[type=password]').first().waitFor({ timeout: 15000 });
+      realKeys = await plain.evaluate(() => Object.keys(localStorage).filter((k) => !/^maermin_(theme|lang|language|prefs)/.test(k)));
+      await plain.close();
+      await openView(page, 'overview');
+      await page.waitForTimeout(800);
+      await page.getByRole('button', { name: 'Exit demo', exact: true }).first().click();
+      await page.waitForURL((u) => !/demo/.test(u.search), { timeout: 10000 });
+      exitTo = page.url();
+      vaultScreen = await page.locator('input[type=password]').count();
+    } catch (e) { err = e.message.split('\n')[0]; }
+    ok('P5-1.9: ?demo opens the demo without a password', pwFields === 0 && /sample data/i.test(banner) && positions >= 300, err || pwFields + ' | ' + banner.slice(0, 80));
+    ok('P5-1.9: the demo tab writes nothing to the real storage', Array.isArray(realKeys) && !realKeys.some((k) => /transactions|maermin_demo|maermin_portfolios|maermin_onboarded|apiKeys/.test(k)), err || JSON.stringify(realKeys));
+    ok('P5-1.9: Exit demo opens the normal app (vault screen) without ?demo', /\/index\.html$/.test(exitTo) && vaultScreen > 0, err || exitTo + ' | ' + vaultScreen);
+    ok('no page errors in the public demo', errors.length === 0, errors.join(' | '));
+    await context.close();
+  }
+  {
+    const context = await browser.newContext({ serviceWorkers: 'block' });
+    await wire(context, external);
+    const page = await context.newPage();
+    await createVault(page, base);
+    await page.waitForTimeout(1500);
+    const snap = () => page.evaluate(() => JSON.stringify(Object.keys(localStorage).sort().map((k) => [k, localStorage.getItem(k)])));
+    let before = '', after = '', inDemo = -1, unlocked = false, err = '';
+    try {
+      await page.goto(base + '/index.html');
+      await page.locator('input[type=password]').first().waitFor({ timeout: 15000 });
+      before = await snap();
+      await page.goto(base + '/index.html?demo');
+      await page.locator('nav.maermin-sidebar').waitFor({ timeout: 30000 });
+      await page.waitForTimeout(1500);
+      inDemo = await page.locator('input[type=password]').count();
+      await page.goto(base + '/index.html');
+      await page.locator('input[type=password]').first().waitFor({ timeout: 15000 });
+      after = await snap();
+      await unlock(page, base);
+      unlocked = true;
+    } catch (e) { err = e.message.split('\n')[0]; }
+    ok('P5-1.9: next to an existing vault ?demo still opens without a password', inDemo === 0, err || String(inDemo));
+    ok('P5-1.9: the vault and its storage are byte-for-byte unchanged and still unlock', !!before && before === after && unlocked, err || 'changed: ' + (before !== after));
+    await context.close();
+  }
+
   // P5-1.2: the Strategy sections fit a 375 px phone (two-column cards overflowed)
   {
     const context = await browser.newContext({ serviceWorkers: 'block', viewport: { width: 375, height: 812 }, hasTouch: true, isMobile: true });

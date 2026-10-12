@@ -456,6 +456,9 @@
   // Init
   // ─────────────────────────────────────────────────────────────────────────
   function init() {
+    // P5-1.9: the public demo link (?demo) runs on in-memory storage with
+    // made-up data only - there is no vault to open, so the app mounts directly.
+    if (window.MaerminPublicDemo && window.MaerminPublicDemo.active) { finishUnlock(); return; }
     if (!Vault || !Vault.isSupported()) {
       // No WebCrypto → cannot secure the vault. Fail closed with a message.
       var el = overlayShell('<div class="auth-logo"><h1>MAERMIN</h1></div><div class="auth-sub">' + tr('authNoCryptoApi', 'This browser does not support the Web Crypto API required to unlock your vault. Please use a modern browser.') + '</div>');
