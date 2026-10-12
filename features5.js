@@ -41,7 +41,7 @@ function KpiCard({ theme, label, value, sub, color, badge }) {
 // 2. NET WORTH DASHBOARD
 // Adds cash accounts, property, and liabilities to the portfolio value
 // ─────────────────────────────────────────────────────────────────────────────
-function NetWorthView({ portfolioStats, portfolio, prices, theme, formatPrice, getCurrencySymbol, t, usdToEur }) {
+function NetWorthView({ portfolioStats, portfolio, prices, theme, formatPrice, getCurrencySymbol, t, usdToEur, cashEUR }) {
   t = t || ((typeof window !== 'undefined' && window.MaerminI18n) ? window.MaerminI18n.dict() : {});
   const rate = usdToEur || (prices && prices.usdToEur) || 1;
   const [accounts, setAccounts] = useState(() => {
@@ -75,7 +75,8 @@ function NetWorthView({ portfolioStats, portfolio, prices, theme, formatPrice, g
 
   // Net worth comes from the shared metric (single source of truth — see metrics.js),
   // with an inline fallback if that module hasn't loaded.
-  const portfolioValue   = portfolioStats.totalValue;
+  // P5-1.4: the portfolio's clearing account counts with the investments
+  const portfolioValue   = portfolioStats.totalValue + (Number(cashEUR) || 0);
   // Gross EUR value of tracked real assets (WI-1) — financing stays a liability
   // account, so only the gross value flows in (no double-count). raVersion forces
   // a recompute when the panel edits the store.

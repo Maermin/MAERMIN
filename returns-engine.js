@@ -239,7 +239,18 @@
     return flows;
   }
 
-  var api = { xirr: xirr, twr: twr, twrSteps: twrSteps, buildCashflows: buildCashflows };
+  // P5-1.4: XIRR flows of a portfolio with a clearing account: only money in
+  // and out of the account counts (deposit = −, withdrawal / transfer out = +
+  // from the investor's view), the end value is securities + cash.
+  // clearing = MaerminLedger.clearingBalance(...).
+  function clearingCashflows(clearing, securitiesValueEUR, today) {
+    var flows = ((clearing && clearing.external) || []).map(function (e) { return { date: e.d, amount: -e.amount }; });
+    var end = (Number(securitiesValueEUR) || 0) + ((clearing && clearing.balanceEUR) || 0);
+    if (end) flows.push({ date: today || new Date().toISOString().slice(0, 10), amount: end });
+    return flows;
+  }
+
+  var api = { xirr: xirr, twr: twr, twrSteps: twrSteps, buildCashflows: buildCashflows, clearingCashflows: clearingCashflows };
   if (typeof window !== 'undefined') window.MaerminReturns = api;
   if (typeof module !== 'undefined' && module.exports) module.exports = api;
 })();

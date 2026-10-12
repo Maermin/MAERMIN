@@ -11,7 +11,7 @@ console.log('codes are stable:');
 ok('the code list is exactly the documented one', JSON.stringify(DC.CODES) === JSON.stringify({
   oversold: 'DQ-OVERSOLD', quantity: 'DQ-QUANTITY', fxUnknown: 'DQ-FX-UNKNOWN', fxUsdNearest: 'DQ-FX-USD-NEAREST',
   fxNoDayRate: 'DQ-FX-NO-DAY-RATE', fxTodayOnly: 'DQ-FX-TODAY-ONLY', skinMisfiled: 'DQ-SKIN-MISFILED',
-  cryptoPair: 'DQ-CRYPTO-PAIR' }));
+  cryptoPair: 'DQ-CRYPTO-PAIR', cashNegative: 'DQ-CASH-NEGATIVE' }));
 ok('codes are unique', new Set(Object.values(DC.CODES)).size === Object.keys(DC.CODES).length);
 
 console.log('ledger findings carry the transaction:');
@@ -48,6 +48,16 @@ console.log('classify:');
     { category: 'crypto', symbol: 'BTC' }, { category: 'crypto', symbol: 'bitcoin' }, { category: 'stocks', symbol: 'EURUSD' }]);
   ok('DQ-CRYPTO-PAIR: pair symbols found once each, coins and stocks left alone', pairs.map(p => p.symbol).join() === 'BTCUSDT,XXBTZEUR' && pairs[0].code === 'DQ-CRYPTO-PAIR');
   ok('DQ-CRYPTO-PAIR: the action shows the transactions and changes nothing', pairs[0].action.type === 'show-transactions' && pairs[0].action.changesData === false);
+}
+
+// P5-1.4: a clearing account below zero
+{
+  const DC = require('../data-check.js');
+  const c = DC.classify({ kind: 'cash-negative', severity: 'warning', portfolioId: 'p1', date: '2025-01-05', balance: -150 });
+  ok('DQ-CASH-NEGATIVE: code', c.code === 'DQ-CASH-NEGATIVE' && DC.CODES.cashNegative === 'DQ-CASH-NEGATIVE');
+  ok('DQ-CASH-NEGATIVE: the action books the missing deposits of that portfolio and changes data', c.action.type === 'book-deposits' && c.action.portfolioId === 'p1' && c.action.changesData === true);
+  ok('DQ-CASH-NEGATIVE: the action has a label', /deposit/i.test(DC.actionLabel(c.action)));
+  ok('older codes keep their names', DC.CODES.oversold === 'DQ-OVERSOLD' && DC.CODES.cryptoPair === 'DQ-CRYPTO-PAIR');
 }
 
 console.log('\n' + passed + ' passed, ' + failed + ' failed');

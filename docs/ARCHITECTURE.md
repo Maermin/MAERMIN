@@ -90,6 +90,12 @@ signed EUR amounts (sign = effect on the portfolio's cash); fees, taxes, refunds
 charges are XIRR flows, deposits, withdrawals and transfers wait for the clearing account (P5-1.4).
 The dialog saves them through `MaerminUtils.upsertCash` (a transfer pair is edited and deleted as one).
 
+A portfolio can keep a clearing account (P5-1.4, `portfolio.clearing = { enabled, openingBalance, openingDate }`
+in `maermin_portfolios`). `MaerminLedger.clearingBalance` derives its EUR balance from the bookings (buys,
+sells, payouts, cash rows); with it on, XIRR uses only deposits and withdrawals (`MaerminReturns.clearingCashflows`),
+the daily value path adds the cash to the value (`build(…, { clearing })`), the overview and Net Worth show the
+cash, and a balance below zero is the data-check finding `DQ-CASH-NEGATIVE` (action: book the missing deposits).
+
 Everything else is **derived** from transactions (single source of truth in
 `metrics.js`):
 

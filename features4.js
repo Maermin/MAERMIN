@@ -88,11 +88,16 @@ function usePortfolios() {
     setPortfolios(prev => prev.map(p => p.id === id ? { ...p, name } : p));
   };
 
-  return { portfolios, activePortfolioId, setActivePortfolioId, addPortfolio, removePortfolio, restorePortfolio, renamePortfolio };
+  // P5-1.4: optional clearing account { enabled, openingBalance, openingDate }.
+  const setClearing = (id, patch) => {
+    setPortfolios(prev => prev.map(p => p.id === id ? { ...p, clearing: { enabled: false, openingBalance: 0, openingDate: '', ...(p.clearing || {}), ...patch } } : p));
+  };
+
+  return { portfolios, activePortfolioId, setActivePortfolioId, addPortfolio, removePortfolio, restorePortfolio, renamePortfolio, setClearing };
 }
 
 function PortfolioManagerView({ portfolios, activePortfolioId, transactions, prices, exchangeRate, fxAt, corpActionsRev, theme, t, formatPrice, getCurrencySymbol,
-  setActivePortfolioId, addPortfolio, removePortfolio, renamePortfolio }) {
+  setActivePortfolioId, addPortfolio, removePortfolio, renamePortfolio, setClearing, clearing }) {
 
   const [newName, setNewName]   = useState('');
   const [newColor, setNewColor] = useState('#3b82f6');
@@ -112,6 +117,32 @@ function PortfolioManagerView({ portfolios, activePortfolioId, transactions, pri
     return portfolios.map(p => ({ ...p, ...(byId[p.id] || { value: 0, invested: 0, txCount: 0, pnl: 0, pnlPct: 0 }) }));
   }, [portfolios, transactions, prices, exchangeRate, fxAt, corpActionsRev]);
 
+  // P5-1.4: the clearing account of a card. The balance follows from the
+  // bookings (MaerminLedger.clearingBalance); the user sets only the switch and
+  // an optional opening balance.
+  const renderClearing = (p) => {
+    const cfg = p.clearing || {};
+    const c = clearing && clearing[p.id];
+    const small = { color: theme.textSecondary, fontSize: '0.75rem', lineHeight: 1.5 };
+    const field = { padding: '0.35rem 0.5rem', background: theme.inputBg, border: `1px solid ${theme.inputBorder}`, borderRadius: '6px', color: theme.text, fontSize: '0.8rem' };
+    return React.createElement('div', { 'data-pf-clearing': p.id, style: { marginTop: '0.85rem', paddingTop: '0.75rem', borderTop: `1px solid ${theme.cardBorder}` } },
+      React.createElement('label', { style: { display: 'flex', alignItems: 'center', gap: '0.5rem', color: theme.text, fontSize: '0.82rem', fontWeight: 600, cursor: 'pointer', minHeight: '24px' } },
+        React.createElement('input', { type: 'checkbox', checked: !!cfg.enabled, 'data-pf-clearing-toggle': p.id, onChange: (e) => setClearing(p.id, { enabled: e.target.checked }), style: { width: '20px', height: '20px', margin: 0, accentColor: theme.accent } }),
+        __('pfClearing', 'Clearing account')),
+      cfg.enabled && c && React.createElement('div', { 'data-pf-cash': p.id, style: { color: c.balanceEUR < 0 ? theme.danger : theme.text, fontSize: '1rem', fontWeight: 700, margin: '0.4rem 0 0.2rem' } },
+        __('pfCashBalance', 'Cash: {amount}', { amount: `${formatPrice(c.balanceEUR)} ${getCurrencySymbol()}` })),
+      cfg.enabled && React.createElement('div', { style: { display: 'flex', gap: '0.5rem', flexWrap: 'wrap', alignItems: 'center', marginTop: '0.4rem' } },
+        React.createElement('input', { key: 'ob:' + (cfg.openingBalance || 0), type: 'text', inputMode: 'decimal', 'aria-label': __('pfOpeningBalance', 'Opening balance (EUR)'), placeholder: __('pfOpeningBalance', 'Opening balance (EUR)'),
+          defaultValue: cfg.openingBalance ? window.MaerminI18n.num(cfg.openingBalance, { min: 0, max: 2 }) : '', style: { ...field, width: '9.5rem' },
+          onBlur: (e) => { const v = window.MaerminUtils.parseDecimal(e.target.value); setClearing(p.id, { openingBalance: isFinite(v) ? v : 0 }); },
+          onKeyDown: (e) => { if (e.key === 'Enter') e.target.blur(); } }),
+        React.createElement('input', { type: 'date', 'aria-label': __('pfOpeningDate', 'Date of the opening balance'), value: cfg.openingDate || '', style: field,
+          onChange: (e) => setClearing(p.id, { openingDate: e.target.value }) })),
+      cfg.enabled && React.createElement('p', { style: { ...small, margin: '0.45rem 0 0' } },
+        __('pfClearingHint', 'Book deposits and withdrawals to this portfolio; trades, dividends, fees and taxes move the balance. Returns then count the cash too. If you also keep this cash as an account under Net Worth, remove it there so it is not counted twice.'))
+    );
+  };
+
   return React.createElement('div', { style: { padding: '1.5rem' } },
     React.createElement('h2', { style: { color: theme.text, fontSize: '1.5rem', fontWeight: '800', letterSpacing: '-0.02em', marginBottom: '1.5rem' } }, __('pfManager', 'Portfolio Manager')),
 
@@ -125,7 +156,7 @@ function PortfolioManagerView({ portfolios, activePortfolioId, transactions, pri
         React.createElement('div', {
           key: p.id,
           'data-pf-card': p.id,
-          onClick: (e) => { if (!/^(BUTTON|INPUT)$/.test(e.target.tagName)) setActivePortfolioId(p.id); },
+          onClick: (e) => { if (!/^(BUTTON|INPUT|SUMMARY|LABEL|SELECT)$/.test(e.target.tagName) && !e.target.closest('[data-pf-clearing]')) setActivePortfolioId(p.id); },
           style: {
             background: theme.card, border: `2px solid ${activePortfolioId === p.id ? p.color : theme.cardBorder}`,
             borderRadius: '12px', padding: '1.25rem', cursor: 'pointer', transition: 'all 0.15s'
@@ -190,7 +221,9 @@ function PortfolioManagerView({ portfolios, activePortfolioId, transactions, pri
               `${p.pnl >= 0 ? '+' : ''}${formatPrice(p.pnl)} (${window.MaerminI18n.pct(p.pnlPct, 1)})`
             ),
             React.createElement('span', { style: { color: theme.textSecondary } }, __('pfTxCount', '{n} {n:transaction|transactions}', { n: p.txCount }))
-          )
+          ),
+          // P5-1.4: optional clearing account (Verrechnungskonto)
+          setClearing && renderClearing(p)
         )
       )
     ),

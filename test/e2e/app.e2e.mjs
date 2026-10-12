@@ -933,6 +933,65 @@ async function runBuild(browser, label, dir) {
     await context.close();
   }
 
+  // P5-1.4: clearing account - switch on, negative balance found, missing deposits booked
+  {
+    const context = await browser.newContext({ serviceWorkers: 'block' });
+    await wire(context, external);
+    const page = await context.newPage();
+    const errors = watch(page);
+    await createVault(page, base);
+    await page.evaluate(() => {
+      localStorage.setItem('maermin_onboarded', '1');
+      localStorage.setItem('maermin_ui_mode', 'advanced');
+      localStorage.setItem('maermin_schema_version', String(window.MaerminMigrations.LATEST));
+      localStorage.setItem('maermin_portfolios', JSON.stringify([{ id: 'default', name: 'Main Portfolio', color: '#8b7cff' }]));
+      localStorage.setItem('transactions', JSON.stringify([
+        { id: 'k1', type: 'buy', category: 'stocks', symbol: 'AAPL', quantity: 10, price: 100, fees: 1, currency: 'EUR', date: '2026-01-05', portfolioId: 'default' },
+        { id: 'k2', type: 'deposit', category: 'cashflow', amount: 500, currency: 'EUR', date: '2026-01-02', portfolioId: 'default' }]));
+    });
+    await page.waitForTimeout(1500); // let the encrypted writes finish before the reload
+    let cashText = '', finding = 0, dlgText = '', deposits = [], after = '', findingAfter = -1, ovCard = '', saved = null, returnsTxt = '', err = '';
+    try {
+      await unlock(page, base);
+      await page.keyboard.press('Escape');
+      await openView(page, 'portfolios');
+      await page.locator('[data-pf-clearing-toggle="default"]').check();
+      await page.waitForTimeout(400);
+      cashText = await page.locator('[data-pf-cash="default"]').innerText();
+      saved = await page.evaluate(() => (JSON.parse(localStorage.getItem('maermin_portfolios') || '[]')[0] || {}).clearing);
+      await openView(page, 'transactions');
+      await page.locator('[data-testid="ledger-issues"] summary').first().click();
+      finding = await page.locator('li[data-dq-code="DQ-CASH-NEGATIVE"]').count();
+      await page.locator('li[data-dq-code="DQ-CASH-NEGATIVE"] [data-dq-action="book-deposits"]').click();
+      const dlg = page.locator('[aria-labelledby="dlg-confirm"]');
+      await dlg.waitFor({ timeout: 5000 });
+      dlgText = await dlg.innerText();
+      await dlg.getByRole('button', { name: 'Book the missing deposits' }).click();
+      await page.waitForTimeout(500);
+      deposits = (await page.evaluate(() => JSON.parse(localStorage.getItem('transactions') || '[]'))).filter((x) => x.type === 'deposit');
+      findingAfter = await page.locator('li[data-dq-code="DQ-CASH-NEGATIVE"]').count();
+      await openView(page, 'portfolios');
+      after = await page.locator('[data-pf-cash="default"]').innerText();
+      await openView(page, 'overview');
+      await page.getByText('Cash (clearing account)').first().waitFor({ timeout: 8000 }).catch(() => {});
+      ovCard = await page.locator('body').innerText();
+      await openView(page, 'returns');
+      await page.getByText(/from deposits and withdrawals/).first().waitFor({ timeout: 5000 }).catch(() => {});
+      returnsTxt = await page.locator('main').innerText();
+    } catch (e) { err = e.message.split('\n')[0]; }
+    ok('P5-1.4: Returns: XIRR is taken from deposits and withdrawals', /from deposits and withdrawals/i.test(returnsTxt), err || returnsTxt.slice(0, 300));
+    ok('P5-1.4: switching the clearing account on is saved with the portfolio', !!saved && saved.enabled === true, err || JSON.stringify(saved));
+    ok('P5-1.4: the card shows the balance (500 in, 1,001 out = -501.00)', /-501\.00/.test(cashText), err || cashText);
+    ok('P5-1.4: the data check lists DQ-CASH-NEGATIVE', finding === 1, err || String(finding));
+    ok('P5-1.4: "book the missing deposits" asks first and names the amount', /501\.00/.test(dlgText), err || dlgText.replace(/\n/g, ' | '));
+    ok('P5-1.4: one deposit of 501.00 on the day of the buy is booked', deposits.length === 2 && deposits.some((d) => d.amount === 501 && d.date === '2026-01-05'), err || JSON.stringify(deposits));
+    ok('P5-1.4: the balance is 0 and the finding is gone', /\b0\.00/.test(after) && findingAfter === 0, err || `${after} / ${findingAfter}`);
+    // labels are upper-cased by CSS, so innerText is too
+    ok('P5-1.4: the overview shows the cash card with the total incl. cash', /Cash \(clearing account\)/i.test(ovCard) && /Total incl\. cash: 1,001\.00/i.test(ovCard), err || (ovCard.match(/Cost basis[\s\S]{0,300}/i) || [ovCard.slice(-300)])[0].split('\n').join(' | '));
+    ok('no page errors in the clearing session', errors.length === 0, errors.join(' | '));
+    await context.close();
+  }
+
   // P5-1.2: a row synced in for a portfolio deleted on this device moves to Main
   {
     const context = await browser.newContext({ serviceWorkers: 'block' });

@@ -122,6 +122,25 @@
     if (!tradeDays.length) return out;
     var start = tradeDays[0];
 
+    // ---- P5-1.4: clearing account ------------------------------------------
+    // opts.clearing = MaerminLedger.clearingBalance(...) of the same rows. The
+    // day's value is securities at the close + cash at the end of the day;
+    // deposits, withdrawals, transfers and the opening balance are external
+    // flows at the start of the day. The cash of a trade or payout of a
+    // holding without price history counts as an external flow too: that
+    // holding is not measured, so its trade stays neutral (like before).
+    var clr = opts.clearing && Array.isArray(opts.clearing.events) ? opts.clearing : null;
+    var cashDay = {};
+    if (clr) {
+      clr.events.forEach(function (e) {
+        if (!e || !e.d || e.d > today) return;
+        var c = cashDay[e.d] || (cashDay[e.d] = { ext: 0, internal: 0 });
+        if (e.kind === 'external' || (e.key && !covered[e.key])) c.ext += e.amount; else c.internal += e.amount;
+      });
+      Object.keys(cashDay).forEach(function (d) { if (d < start) start = d; });
+      out.cash = true;
+    }
+
     // ---- date grid: every close, every event, today ------------------------
     var grid = {}, ptr = {}, price = {}, tradePx = {}, qty = {};
     Object.keys(covered).forEach(function (k) {
@@ -129,10 +148,11 @@
       series[k].closes.forEach(function (c) { if (c[0] >= start && c[0] <= today) grid[c[0]] = true; });
     });
     Object.keys(byDay).forEach(function (d) { if (d >= start) grid[d] = true; });
+    Object.keys(cashDay).forEach(function (d) { if (d >= start) grid[d] = true; });
     Object.keys(covered).forEach(function (k) { if (live[k] > 0) grid[today] = true; });
     var dates = Object.keys(grid).sort();
 
-    var growth = 1, prev = 0, carriedUntil = {};
+    var growth = 1, prev = 0, carriedUntil = {}, cashBal = 0, prevTotal = 0;
     function px(k) { return price[k] > 0 ? price[k] : (tradePx[k] || 0); }
     dates.forEach(function (d) {
       // closes up to and including d (forward-fill)
@@ -175,9 +195,20 @@
         value += qty[k] * px(k);
         if (!(price[k] > 0)) { carried = true; carriedUntil[k] = d; }
       });
+      var flow = inflow - outflow;
+      if (clr) {
+        var cd = cashDay[d] || { ext: 0, internal: 0 };
+        cashBal += cd.ext + cd.internal;
+        var total = value + cashBal, denom = prevTotal + cd.ext;
+        r = denom > EPS ? total / denom - 1 : 0;
+        flow = cd.ext;
+        prevTotal = total;
+        value = total;
+      }
       growth *= (1 + r);
-      out.points.push({ d: d, v: value, flow: inflow - outflow, r: r, idx: growth, carried: carried });
-      prev = value;
+      out.points.push({ d: d, v: value, flow: flow, r: r, idx: growth, carried: carried });
+      // link A of the next day compares securities with securities
+      prev = clr ? total - cashBal : value;
     });
 
     Object.keys(carriedUntil).forEach(function (k) { out.carried.push({ key: k, symbol: meta[k].symbol, until: carriedUntil[k] }); });
