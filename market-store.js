@@ -129,6 +129,17 @@
     if (key === 'ok') return { key: key, show: false };
     return { key: key, show: key !== opts.lastKey };
   }
+  // P5-1.2: notices besides the summary (CoinGecko rate limit, CS2 list,
+  // CS2 partial match) can come several per refresh, so each key is kept in
+  // `shown` (a Set the caller clears after a clean refresh). An automatic
+  // refresh shows a key once; a refresh the user started always shows it.
+  function sideNotice(key, opts) {
+    opts = opts || {};
+    var shown = opts.shown;
+    var show = !opts.silent || !(shown && shown.has(key));
+    if (shown) shown.add(key);
+    return { key: key, show: show };
+  }
   function summaryKey(sum) {
     if (!sum || sum.outcome === 'all' || sum.outcome === 'empty') return 'ok';
     return sum.outcome + ':' + (sum.total - sum.fetched);
@@ -137,7 +148,7 @@
   var api = {
     store: store,
     getState: getState, get: get, set: set, subscribe: subscribe,
-    mergePrices: mergePrices, refreshSummary: refreshSummary, refreshNotice: refreshNotice, summaryKey: summaryKey,
+    mergePrices: mergePrices, refreshSummary: refreshSummary, refreshNotice: refreshNotice, sideNotice: sideNotice, summaryKey: summaryKey,
     lastKnownPrices: lastKnownPrices, effectivePrices: effectivePrices,
     setCostKeys: setCostKeys, isCostFallback: isCostFallback
   };

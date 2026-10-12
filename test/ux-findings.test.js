@@ -86,6 +86,29 @@ const read = (f) => fs.readFileSync(path.join(__dirname, '..', f), 'utf8');
     ok('a refresh the user started always reports', N('ok', {}).show && N('partial:1', { lastKey: 'partial:1' }).show);
     ok('summary keys', Market.summaryKey({ outcome: 'all', total: 3, fetched: 3 }) === 'ok' && Market.summaryKey({ outcome: 'partial', total: 3, fetched: 2 }) === 'partial:1');
     ok('M-11: the timer refresh runs silent', /fn\(\{ silent: true \}\)/.test(read('renderer.js')));
+    // P5-1.2: side notices (CoinGecko rate limit, CS2 list, CS2 partial match)
+    // can come several per refresh, so each key is remembered on its own.
+    const S = Market.sideNotice;
+    ok('P5-1.2: sideNotice is exported', typeof S === 'function');
+    if (typeof S === 'function') {
+      const shown = new Set();
+      ok('P5-1.2: a side notice shows the first time', S('cg-rate', { silent: true, shown }).show);
+      ok('P5-1.2: a second side notice in the same refresh also shows', S('cs2-partial:3', { silent: true, shown }).show);
+      ok('P5-1.2: the next automatic refresh repeats neither', !S('cg-rate', { silent: true, shown }).show && !S('cs2-partial:3', { silent: true, shown }).show);
+      ok('P5-1.2: a changed count shows again', S('cs2-partial:2', { silent: true, shown }).show);
+      ok('P5-1.2: a refresh the user started always shows', S('cg-rate', { shown }).show);
+      shown.clear();
+      ok('P5-1.2: after a clean refresh (cleared) a problem shows again', S('cg-rate', { silent: true, shown }).show);
+    }
+    // Inside fetchPrices every toast goes through notify / sideNote, or is a
+    // once-per-session hint, or is guarded by !silent.
+    {
+      const src = read('renderer.js');
+      const s = src.indexOf('const fetchPrices = async');
+      const body = src.slice(s, src.indexOf('\n  };\n', s));
+      const bare = body.split('\n').filter((l) => /addToast\(/.test(l) && !/n\.show && message|if \(!silent\)|__maerminCgHintShown|sideNote = /.test(l));
+      ok('P5-1.2: no unguarded toast left in fetchPrices', bare.length === 0, bare.map((l) => l.trim().slice(0, 80)).join(' | '));
+    }
   }
 
   // ---- M-12: currency and privacy in VaR and Strategy -------------------------

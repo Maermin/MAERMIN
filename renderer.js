@@ -532,6 +532,31 @@ function InvestmentTracker() {
     } catch (e) { console.warn('[DEDUPE] post-sync dedupe failed:', e); }
   }, [transactions, demoMode, startupSynced]);
 
+  // P5-1.2: a row another device added to a portfolio deleted here arrives by
+  // sync after migration v5 ran; move it to Main (with movedFrom, so a trash
+  // restore of the portfolio takes it back). A sync that changes local data
+  // remounts the app, so the portfolio list and the rows come from the same
+  // pull. Like v5, nothing moves when no portfolio list was saved before this
+  // mount (usePortfolios saves its default list on mount).
+  const [hadSavedPortfolios] = useState(() => { try { return localStorage.getItem('maermin_portfolios') !== null; } catch (e) { return false; } });
+  useEffect(() => {
+    const MG = window.MaerminMigrations;
+    if (demoMode || !startupSynced || !hadSavedPortfolios || !portfolioHook || !MG || !MG.rehomeOrphans) return;
+    try {
+      const list = portfolioHook.portfolios;
+      let moved = MG.rehomeOrphans(transactions, list).moved;
+      const plans = JSON.parse(localStorage.getItem('maermin_savings_plans') || '[]');
+      const p = MG.rehomeOrphans(plans, list);
+      if (p.moved) localStorage.setItem('maermin_savings_plans', JSON.stringify(p.items));
+      if (moved) setTransactions(prev => MG.rehomeOrphans(prev, list).items);
+      moved += p.moved;
+      if (moved) {
+        const main = (list.find(x => x.id === 'default') || {}).name || '';
+        addToast(__('pfOrphansMoved', '{n} {n:entry|entries} from deleted portfolios moved to {main}', { n: moved, main }), 'info');
+      }
+    } catch (e) { console.warn('[PORTFOLIO] re-homing orphan rows failed:', e); }
+  }, [transactions, demoMode, startupSynced, portfolioHook && portfolioHook.portfolios]);
+
   const savingsCatchUp = React.useRef({ pendingToasted: false });
   useEffect(() => {
     const EX = window.MaerminSavingsExecutor;
@@ -1458,13 +1483,16 @@ function InvestmentTracker() {
   // opts.silent: an automatic refresh (see AUTO PRICE REFRESH) - it reports a
   // problem once, and again only when it changes (FINDINGS M-11).
   const autoNoticeRef = useRef('ok');
+  const sideNoticeRef = useRef(new Set()); // P5-1.2: side notices shown since the last clean refresh
   const fetchPrices = async (opts) => {
     const silent = !!(opts && opts.silent);
     const notify = (key, message, type) => {
       const n = window.MaerminMarket.refreshNotice(key, { silent, lastKey: autoNoticeRef.current });
       if (silent || key === 'ok') autoNoticeRef.current = key;
+      if (key === 'ok') sideNoticeRef.current.clear();
       if (n.show && message) addToast(message, type);
     };
+    const sideNote = (key, message, type, ms) => { if (window.MaerminMarket.sideNotice(key, { silent, shown: sideNoticeRef.current }).show) addToast(message, type, ms); };
     // Demo mode: re-apply offline sample prices, never hit the network.
     if (demoMode && window.MaerminDemo) {
       setPrices(window.MaerminDemo.getPrices());
@@ -1625,7 +1653,7 @@ function InvestmentTracker() {
             }));
           }
           if (cgBusy && Object.keys(symsById).some(id => !pricedIds[id])) {
-            addToast(__('cgRateLimited', 'CoinGecko is busy (rate limit) - crypto keeps its last prices, refresh again in a minute'), 'warning', 8000);
+            sideNote('cg-rate', __('cgRateLimited', 'CoinGecko is busy (rate limit) - crypto keeps its last prices, refresh again in a minute'), 'warning', 8000);
           }
         }
       }
@@ -1762,7 +1790,7 @@ function InvestmentTracker() {
           const index = await SKP.load(workerUrl);
           const names = pricePortfolio.skins.map(s => (s.symbol || s.name || '').trim()).filter(Boolean);
           if (!index) {
-            addToast(__('cs2ListFailed', 'CS2: the skin price list could not be loaded - skins keep their last prices'), 'warning');
+            sideNote('cs2-list', __('cs2ListFailed', 'CS2: the skin price list could not be loaded - skins keep their last prices'), 'warning');
           } else {
             let matched = 0;
             names.forEach(skinName => {
@@ -1776,7 +1804,7 @@ function InvestmentTracker() {
               matched++;
             });
             dbg('[PRICES] CS2 matched:', matched, '/', names.length);
-            if (matched < names.length) addToast(__('cs2PartialMatch', 'CS2: {found}/{total} prices found — check the skin names match the Steam Market name exactly', { found: matched, total: names.length }), 'info');
+            if (matched < names.length) sideNote('cs2-partial:' + (names.length - matched), __('cs2PartialMatch', 'CS2: {found}/{total} prices found — check the skin names match the Steam Market name exactly', { found: matched, total: names.length }), 'info');
           }
         }
       }
