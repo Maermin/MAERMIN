@@ -956,26 +956,36 @@ function InvestmentTracker() {
   // where one was fetched (else the last close); quantities are adjusted with
   // the recorded splits only, exactly like the positions list.
   // P5-1.5: one builder for the active portfolio's path and the Overview's.
-  const buildValuePath = (txs, clearing) => {
-    const VP = window.MaerminValuePath, CH = window.MaerminCloseHistory;
-    if (!VP || !CH || !Object.keys(closeSeriesEUR).length) return null;
+  // Today's quotes and the recorded splits per series key - the value path and
+  // the value-change attribution (P5-2.1) read the same ones.
+  const pathInputs = useMemo(() => {
+    const CH = window.MaerminCloseHistory, live = {}, splits = {};
+    if (!CH) return { live, splits };
+    Object.keys(closeSeriesEUR).forEach((k) => {
+      const sym = k.slice(k.indexOf('|') + 1);
+      const p = fetchedPrices[sym] > 0 ? fetchedPrices[sym] : fetchedPrices[sym.toLowerCase()];
+      if (p > 0) live[k] = p;
+    });
+    const CA = window.MaerminCorporateActions;
     try {
-      const live = {};
-      Object.keys(closeSeriesEUR).forEach((k) => {
-        const sym = k.slice(k.indexOf('|') + 1);
-        const p = fetchedPrices[sym] > 0 ? fetchedPrices[sym] : fetchedPrices[sym.toLowerCase()];
-        if (p > 0) live[k] = p;
-      });
-      const splits = {};
-      const CA = window.MaerminCorporateActions;
       ((CA && CA.load && CA.load().actions) || []).forEach((a) => {
         const k = CH.keyOf(a.category, a.symbol);
         (splits[k] = splits[k] || []).push({ date: a.date, num: a.num, den: a.den });
       });
+    } catch (e) {}
+    return { live, splits };
+  }, [closeSeriesEUR, fetchedPrices, corpActionsRev]);
+  const buildValuePath = (txs, clearing) => {
+    const VP = window.MaerminValuePath, CH = window.MaerminCloseHistory;
+    if (!VP || !CH || !Object.keys(closeSeriesEUR).length) return null;
+    try {
       // P5-1.4: with a clearing account the daily value includes its cash
-      return VP.build(txs, closeSeriesEUR, { today: window.MaerminUtils.todayISO(), exchangeRate, fxAt, live, splits, clearing: clearing || null });
+      return VP.build(txs, closeSeriesEUR, { today: window.MaerminUtils.todayISO(), exchangeRate, fxAt, live: pathInputs.live, splits: pathInputs.splits, clearing: clearing || null });
     } catch (e) { console.warn('[HISTORY] value path failed:', e && e.message); return null; }
   };
+  // P5-2.1: the active portfolio's clearing account for the attribution card
+  const returnsClearings = useMemo(() => (clearingByPf[activePortfolioId] ? { [activePortfolioId]: clearingByPf[activePortfolioId] } : null),
+    [clearingByPf, activePortfolioId]);
   const valuePath = useMemo(() => buildValuePath(activeTransactions, clearingByPf[activePortfolioId]),
     [activeTransactions, closeSeriesEUR, fetchedPrices, exchangeRate, fxAt, corpActionsRev, demoMode, clearingByPf, activePortfolioId]);
   // P5-1.8: the demo records no snapshots - period returns read the daily value
@@ -3337,6 +3347,11 @@ function InvestmentTracker() {
           }),
           // Benchmark overlay (α/β/TE/IR/R²) — folds the analytics engine into Returns.
           window.MaerminAnalyticsViews && React.createElement('div', { style: { padding: '0 1.5rem 1.5rem' } },
+            // P5-2.1: profit by source over the same daily closes as the value path
+            window.MaerminValueAttribution && React.createElement(window.MaerminValueAttribution.Panel, {
+              transactions: activeTransactions, series: closeSeriesEUR, live: pathInputs.live, splits: pathInputs.splits,
+              clearings: returnsClearings, exchangeRate, fxAt, theme: currentTheme, formatPrice
+            }),
             React.createElement(window.MaerminAnalyticsViews.BenchmarkPanel, {
               portfolio, priceHistory, valueSeries: dailyAnalytics.index, workerUrl: viewWorkerUrl, theme: currentTheme, t, formatPrice
             }),

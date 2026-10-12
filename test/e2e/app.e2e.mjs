@@ -811,7 +811,7 @@ async function runBuild(browser, label, dir) {
     let brokerOv = '', rows = 0, before = null, after = null;
     // P5-1.8: Worker-only views run on in-page sample data; nothing may reach the network
     const sampleReqs = []; page.on('request', (r) => { if (/maermin\.invalid/.test(r.url())) sampleReqs.push(r.url()); });
-    const fixtures = {}; let dqText = '';
+    const fixtures = {}; let dqText = '', va = null;
     try {
       await unlock(page, base);
       await page.keyboard.press('Escape');
@@ -827,6 +827,17 @@ async function runBuild(browser, label, dir) {
       returnsText = await page.locator('main').innerText();
       await page.waitForTimeout(1200);
       fixtures.returns = { badges: await page.locator('main [data-testid="sample-data"]').count(), text: await page.locator('main').innerText() };
+      // P5-2.1: profit by source, read for Max and 1M
+      va = await page.evaluate(async () => {
+        const el = document.querySelector('[data-testid="value-attribution"]');
+        if (!el) return null;
+        const num = (s) => { const m = String(s).replace(/−/g, '-').match(/[+-]?[\d,]+\.\d\d/); return m ? parseFloat(m[0].replace(/,/g, '')) : NaN; };
+        const read = () => { const rows = {}; el.querySelectorAll('[data-testid^="va-row-"]').forEach((r) => { rows[r.getAttribute('data-testid').slice(7)] = num(r.innerText.split('\n').pop()); }); return rows; };
+        el.querySelector('[data-testid="va-period-MAX"]').click(); await new Promise((r) => setTimeout(r, 300));
+        const max = read();
+        el.querySelector('[data-testid="va-period-1M"]').click(); await new Promise((r) => setTimeout(r, 300));
+        return { max, m1: read(), biggest: (el.querySelector('[data-testid="va-biggest"]') || {}).innerText || '' };
+      });
       for (const id of ['news', 'discovery', 'performance', 'dividends']) {
         await openView(page, id);
         await page.waitForTimeout(id === 'news' ? 2000 : 1200);
@@ -873,6 +884,9 @@ async function runBuild(browser, label, dir) {
       ok('P5-1.8: Performance shows period returns in the demo, labelled', !!f.performance && f.performance.badges > 0 && !/the demo records none/.test(f.performance.text), err || sum('performance'));
       ok('P5-1.8: Earnings calendar lists dates in the demo, labelled', !!f.dividends && f.dividends.badges > 0 && !/Add a Worker URL in API Settings to see upcoming earnings/.test(f.dividends.text), err || sum('dividends'));
       ok('P5-1.8: no request to the sample URL reaches the network', sampleReqs.length === 0, sampleReqs.slice(0, 3).join(' '));
+      { const gap = (r) => { const parts = Object.keys(r).filter((k) => k !== 'start' && k !== 'end').reduce((s, k) => s + r[k], 0); return Math.abs(parts - (r.end - r.start)); };
+        ok('P5-2.1: Returns shows profit by source; the parts add up to end − start (Max and 1M)', !!va && va.max.start === 0 && va.max.end > 0 && gap(va.max) < 0.1 && va.m1.start > 0 && gap(va.m1) < 0.1 && !('residual' in va.max) && /Biggest driver:/.test(va.biggest),
+          err || JSON.stringify(va)); }
       ok('P5-1.8: the demo has dated USD rates, the Tax Report shows no data check', /Tax Report/.test(dqText) && !/Data check:/.test(dqText), err || (dqText.match(/Data check[^\n]*/) || [''])[0]); }
     ok('P5-1.7: demo has 300+ rows and a broker portfolio with a clearing account', rows >= 300 && /Cash \(clearing account\)/i.test(brokerOv), err || rows + ' | ' + brokerOv.slice(0, 160).replace(/\n/g, ' | '));
     ok('P5-1.7: switching demo portfolios writes nothing to the user\'s storage', !!before && JSON.stringify(before) === JSON.stringify(after), err || JSON.stringify([before, after]).slice(0, 200));
