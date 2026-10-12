@@ -410,7 +410,26 @@
     return out;
   }
 
+  // P5-1.5: several clearing accounts as one (the "All portfolios" view): all
+  // events, external flows summed per day (a transfer between two of them
+  // cancels out), balances added.
+  function mergeClearings(list) {
+    var events = [], ext = {}, bal = 0;
+    (list || []).forEach(function (c) {
+      if (!c) return;
+      bal += c.balanceEUR || 0;
+      events = events.concat(c.events || []);
+      (c.external || []).forEach(function (e) { ext[e.d] = (ext[e.d] || 0) + e.amount; });
+    });
+    events.sort(function (a, b) { return a.d < b.d ? -1 : a.d > b.d ? 1 : 0; });
+    return {
+      balanceEUR: bal, events: events,
+      external: Object.keys(ext).sort().filter(function (d) { return Math.abs(ext[d]) > 1e-9; }).map(function (d) { return { d: d, amount: ext[d] }; })
+    };
+  }
+
   var api = {
+    mergeClearings: mergeClearings,
     clearingBalance: clearingBalance,
     missingDeposits: missingDeposits,
     CASH_TYPES: CASH_TYPES,

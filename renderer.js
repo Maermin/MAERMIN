@@ -940,7 +940,8 @@ function InvestmentTracker() {
   // Value path of the ACTIVE portfolio. Today is valued at this session's quote
   // where one was fetched (else the last close); quantities are adjusted with
   // the recorded splits only, exactly like the positions list.
-  const valuePath = useMemo(() => {
+  // P5-1.5: one builder for the active portfolio's path and the Overview's.
+  const buildValuePath = (txs, clearing) => {
     const VP = window.MaerminValuePath, CH = window.MaerminCloseHistory;
     if (!VP || !CH || !Object.keys(closeSeriesEUR).length) return null;
     try {
@@ -957,9 +958,11 @@ function InvestmentTracker() {
         (splits[k] = splits[k] || []).push({ date: a.date, num: a.num, den: a.den });
       });
       // P5-1.4: with a clearing account the daily value includes its cash
-      return VP.build(activeTransactions, closeSeriesEUR, { today: window.MaerminUtils.todayISO(), exchangeRate, fxAt, live, splits, clearing: clearingByPf[activePortfolioId] || null });
+      return VP.build(txs, closeSeriesEUR, { today: window.MaerminUtils.todayISO(), exchangeRate, fxAt, live, splits, clearing: clearing || null });
     } catch (e) { console.warn('[HISTORY] value path failed:', e && e.message); return null; }
-  }, [activeTransactions, closeSeriesEUR, fetchedPrices, exchangeRate, fxAt, corpActionsRev, demoMode, clearingByPf, activePortfolioId]);
+  };
+  const valuePath = useMemo(() => buildValuePath(activeTransactions, clearingByPf[activePortfolioId]),
+    [activeTransactions, closeSeriesEUR, fetchedPrices, exchangeRate, fxAt, corpActionsRev, demoMode, clearingByPf, activePortfolioId]);
 
   // Inputs for the analytics views, all from the same daily closes:
   //   index   flow-neutral TWR index [{ d, v }] (≤ 3 years) - benchmark, rolling risk, factors
@@ -3778,6 +3781,23 @@ function InvestmentTracker() {
       return Q.summarize(items);
     })();
 
+    // P5-1.5: return figures of this view (one module with Analysis → Returns).
+    // TWR: the active portfolio's path when the view is that portfolio, else a
+    // path for the view; it includes cash only when every portfolio in the view
+    // keeps a clearing account (P5-1.4).
+    const ovFigures = () => memoBy('ovFigures', [overviewTransactions, stats.totalValue, clearingByPf, closeSeriesEUR, fetchedPrices, exchangeRate, fxAt, corpActionsRev, overviewMode, activePortfolioId, valuePath], () => {
+      const RF = window.MaerminReturnFigures, L = window.MaerminLedger;
+      if (!RF) return null;
+      const ids = isAllMode ? (portfolios || []).map(p => p.id) : [overviewMode];
+      const clearings = {};
+      ids.forEach(id => { if (clearingByPf[id]) clearings[id] = clearingByPf[id]; });
+      const allIn = ids.length > 0 && ids.every(id => clearingByPf[id]);
+      const path = (!isAllMode && overviewMode === activePortfolioId) ? valuePath
+        : buildValuePath(overviewTransactions, allIn && L ? (ids.length === 1 ? clearingByPf[ids[0]] : L.mergeClearings(ids.map(id => clearingByPf[id]))) : null);
+      return RF.compute(overviewTransactions, { securitiesValueEUR: stats.totalValue, exchangeRate, fxAt, today: window.MaerminUtils.todayISO(),
+        valuePath: path, clearings: Object.keys(clearings).length ? clearings : null });
+    });
+
     // P4-7: the Overview sections as thunks, rendered in the saved order.
     const ovSections = {
       valueChart: () => (
@@ -3831,6 +3851,26 @@ function InvestmentTracker() {
         );
       })()
       ),
+      returnFigures: () => {
+        const f = ovFigures();
+        if (!f || !overviewTransactions.length) return null;
+        const I = window.MaerminI18n, cur = getCurrencySymbol();
+        const money = (v) => v === null ? '—' : `${formatPrice(v)} ${cur}`;
+        const pct = (v) => v === null ? '—' : I.pct(v * 100, 2, true);
+        const tone = (v) => v === null ? undefined : v > 0 ? currentTheme.success : v < 0 ? currentTheme.danger : undefined;
+        const go = () => setActiveView('returns');
+        return React.createElement('div', { 'data-testid': 'ov-returns', style: { marginBottom: '1.5rem' } },
+          React.createElement('div', { style: { color: currentTheme.text, fontWeight: 700, fontSize: '0.95rem', margin: '0 0 0.75rem' } }, __('ovReturnsTitle', 'Returns')),
+          React.createElement('div', { style: { display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(min(100%, 220px), 1fr))', gap: '1rem' } },
+            statCard(__('retXirr', 'XIRR (annualized)'), pct(f.xirr), f.cash !== null ? __('retXirrSubCash', 'Money-weighted p.a., from deposits and withdrawals') : __('retXirrSub', 'Money-weighted return p.a.'), tone(f.xirr), go),
+            statCard('TWR', pct(f.twr), f.twr === null ? __('retNoHistory', 'No price history yet')
+              : [f.twrAnnualized !== null ? __('retPa', '{pct} p.a.', { pct: I.pct(f.twrAnnualized * 100, 2, true) }) : '', f.twrCash ? __('retInclCash', 'incl. cash account') : ''].filter(Boolean).join(' · '), tone(f.twr), go),
+            statCard(__('ovRealized', 'Realized gains'), money(f.realized), __('ovRealizedSub', 'From sales (FIFO)'), tone(f.realized), go),
+            statCard(__('ovDividendsReceived', 'Dividends received'), money(f.dividendsNet), __('ovDividendsGross', '{amount} gross', { amount: money(f.dividendsGross) }), undefined, go),
+            statCard(__('ovTaxes', 'Taxes'), money(f.taxes), __('ovTaxesSub', 'Withholding + tax bookings − refunds'), undefined, go),
+            statCard(__('retTotalFees', 'Total Fees'), money(f.fees), __('ovFeesSub', 'Trade fees + fee bookings'), undefined, go),
+            statCard(__('ovNetReturn', 'Net return'), money(f.netReturn), f.netReturnPct === null ? '' : pct(f.netReturnPct), tone(f.netReturn), go)));
+      },
       allocation: () => (
       stats.totalPositions > 0 && (() => {
         const CLASS = {
@@ -4261,6 +4301,7 @@ function InvestmentTracker() {
 
       // ── Allocation + Top performers + Positions (mockup-exact, real data) ──
       ovSlot(2),
+      ovSlot(3),
 
       // Options book (no new tab): tracked separately from the shared positions
       // engine — buildPositions ignores the 'options' category by design. The

@@ -713,8 +713,8 @@ async function runBuild(browser, label, dir) {
       let a = '', b = '', c = '', said = '', focusOk = false, err = '';
       try {
         await openView(page, 'customize');
-        await page.getByRole('button', { name: 'Move Allocation · Top Performers · Positions up' }).click();
-        await page.getByRole('button', { name: 'Move Allocation · Top Performers · Positions up' }).click();
+        // P5-1.5: four sections (Returns sits third), so three steps to the top
+        for (let i = 0; i < 3; i++) await page.getByRole('button', { name: 'Move Allocation · Top Performers · Positions up' }).click();
         await page.waitForTimeout(150); // focus is restored after the re-render
         said = await page.locator('main [role="status"][aria-live="polite"]').last().innerText();
         focusOk = await page.evaluate(() => (document.activeElement && document.activeElement.getAttribute('data-dash-id')) === 'allocation');
@@ -739,9 +739,9 @@ async function runBuild(browser, label, dir) {
         await openView(page, 'customize');
         await page.getByRole('button', { name: 'Reset to default' }).click();
       } catch (e) { err = e.message.split('\n')[0]; }
-      ok('P4-7: "Move up" twice puts Allocation first on the Overview, focus stays, position announced', a === 'allocation,valueChart,statCards' && focusOk && /position 1 of 3/.test(said), err || a + ' | ' + said + ' | focus ' + focusOk);
-      ok('P4-7: ArrowDown on a drag handle moves that section', b === 'allocation,statCards,valueChart', err || b);
-      ok('P4-7: dragging a handle (pointer) moves the section to the top', c === 'statCards,allocation,valueChart', err || c);
+      ok('P4-7: "Move up" puts Allocation first on the Overview, focus stays, position announced', a === 'allocation,valueChart,statCards,returnFigures' && focusOk && /position 1 of 4/.test(said), err || a + ' | ' + said + ' | focus ' + focusOk);
+      ok('P4-7: ArrowDown on a drag handle moves that section', b === 'allocation,statCards,valueChart,returnFigures', err || b);
+      ok('P4-7: dragging a handle (pointer) moves the section to the top', c === 'statCards,allocation,valueChart,returnFigures', err || c);
     }
     // P4-3: foreign withholding tax by country (German tax view), from dividend calendar entries
     {
@@ -807,7 +807,7 @@ async function runBuild(browser, label, dir) {
     await createVault(page, base);
     await page.evaluate(() => { localStorage.setItem('maermin_demo', '1'); localStorage.setItem('maermin_ui_mode', 'advanced'); localStorage.setItem('maermin_onboarded', '1'); });
     let chart = 0, twr = '', cells = 0, closed = '', stored = 'x', err = '';
-    let returnsText = '', intelText = '', rbEmpty = 0, rbPlan = -1;
+    let returnsText = '', intelText = '', rbEmpty = 0, rbPlan = -1, ovReturns = '';
     try {
       await unlock(page, base);
       await page.keyboard.press('Escape');
@@ -821,6 +821,11 @@ async function runBuild(browser, label, dir) {
       cells = await page.locator('[data-r]').count();
       stored = await page.evaluate(() => localStorage.getItem('maermin_close_history'));
       returnsText = await page.locator('main').innerText();
+      // P5-1.5: the Overview's Returns section
+      await openView(page, 'overview');
+      await page.locator('[data-testid="ov-returns"]').waitFor({ timeout: 8000 });
+      await page.waitForTimeout(1500); // figures count up when they appear
+      ovReturns = await page.locator('[data-testid="ov-returns"]').innerText();
       await openView(page, 'intelligence');
       await page.waitForTimeout(800);
       intelText = await page.locator('main').innerText();
@@ -831,6 +836,7 @@ async function runBuild(browser, label, dir) {
     } catch (e) { err = e.message.split('\n')[0]; }
     ok('F1: demo Intelligence does not call Bitcoin or Ethereum a company', !!intelText && !/(Bitcoin|Ethereum|BTC|ETH)[^\n]{0,60}(exposure|alone is|of your portfolio)/.test(intelText), err || (intelText.match(/[^\n]*(Bitcoin|BTC)[^\n]*/) || ['none'])[0]);
     ok('F2: demo Rebalancing asks for targets and proposes no trades', rbEmpty === 1 && rbPlan === 0, err || `empty=${rbEmpty} plan=${rbPlan}`);
+    ok('P5-1.5: demo Overview shows the Returns section with seven figures', ['XIRR', 'TWR', 'Realized gains', 'Dividends received', 'Taxes', 'Total Fees', 'Net return'].every((w) => new RegExp(w, 'i').test(ovReturns)) && (ovReturns.match(/[+-]?\d[\d,]*\.\d\d/g) || []).length >= 6, err || ovReturns.split('\n').join(' | '));
     ok('F3: the "Total bought" card no longer says deposited', /All purchases, incl\. fees/.test(returnsText) && !/Total deposited/i.test(returnsText), err || returnsText.slice(0, 120));
     ok('P4-9: demo draws the value chart without a Worker', chart > 0, err || String(chart));
     ok('P4-9: demo TWR is a figure, the monthly grid is filled', /[+-]\d/.test(twr) && cells > 12, err || twr.replace(/\s+/g, ' ') + ' | cells ' + cells);

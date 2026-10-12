@@ -105,16 +105,14 @@ function ReturnsView({ transactions, portfolio, prices, priceHistory, theme, for
     return v;
   }, [portfolio, prices]);
 
-  // All cash flows in EUR at the rate of their own date (see MaerminReturns.buildCashflows).
-  const flows = useMemo(() => (R && R.buildCashflows)
-    ? R.buildCashflows(transactions, { rate: exchangeRate, fxAt, currentValueEUR: currentValue, today: window.MaerminUtils.todayISO() })
-    : [], [transactions, exchangeRate, fxAt, currentValue]);
-
-  // P5-1.4: with a clearing account only money in and out of the account
-  // counts for XIRR; the end value is securities + cash.
-  const xirrFlows = useMemo(() => (clearing && R && R.clearingCashflows)
-    ? R.clearingCashflows(clearing, currentValue, window.MaerminUtils.todayISO()) : flows, [clearing, flows, currentValue]);
-  const xirrResult = useMemo(() => (transactions.length ? calcXIRR(xirrFlows) : null), [xirrFlows, transactions.length]);
+  // P5-1.5: XIRR, total return, purchases, proceeds and fees come from the one
+  // module the Overview uses too (MaerminReturnFigures), so both always agree.
+  // With a clearing account (P5-1.4) XIRR counts deposits and withdrawals.
+  const figs = useMemo(() => window.MaerminReturnFigures.compute(transactions, {
+    securitiesValueEUR: currentValue, exchangeRate, fxAt, today: window.MaerminUtils.todayISO(),
+    clearings: clearing ? { [portfolioId || 'default']: clearing } : null
+  }), [transactions, currentValue, exchangeRate, fxAt, clearing, portfolioId]);
+  const xirrResult = transactions.length ? figs.xirr : null;
 
   // TWR, best source first:
   //   1. the daily value path (transactions × daily closes) - from the first trade
@@ -147,30 +145,14 @@ function ReturnsView({ transactions, portfolio, prices, priceHistory, theme, for
   // P5-1.4: say when the cash of the clearing account is part of the figure
   const twrSubCash = twrSub + (twrInfo.source === 'daily' && valuePath && valuePath.cash ? ' · ' + __('retInclCash', 'incl. cash account') : '');
 
-  // Simple holding period stats — every amount in EUR.
+  // Simple holding period stats — every amount in EUR (P5-1.5: from figs).
   const stats = useMemo(() => {
     if (!transactions.length) return null;
-    // P5-1.3: stand-alone fees, taxes, refunds and interest charges (flows
-    // with a `type`) are neither purchases nor proceeds; they count in the
-    // total return (like XIRR) and fees net of refunds in Total Fees.
-    const trade = flows.filter(f => !f.type), cashF = flows.filter(f => f.type);
-    const invested = -trade.filter(f => f.amount < 0).reduce((s, f) => s + f.amount, 0);
-    const received = trade.filter(f => f.amount > 0).reduce((s, f) => s + f.amount, 0) - (currentValue > 0 ? currentValue : 0);
-    const netCash = cashF.reduce((s, f) => s + f.amount, 0);
-    const cashFees = -cashF.filter(f => f.type === 'fee' || f.type === 'fee_refund').reduce((s, f) => s + f.amount, 0);
-    const totalFees = cashFees + transactions.reduce((s, tx) => {
-      const f = parseFloat(tx.fees) || 0;
-      const FXH = window.MaerminFxHistory;
-      if (FXH && FXH.txToEUR) return s + FXH.txToEUR(f, tx.currency, tx.date, exchangeRate, fxAt).value;
-      const r = tx.currency === 'USD' ? ((fxAt && fxAt(tx.date)) || exchangeRate || 1) : 1;
-      return s + f * r;
-    }, 0);
-    const totalReturn = currentValue + received - invested + netCash;
-    const totalReturnPct = invested > 0 ? totalReturn / invested : 0;
     const dates = transactions.map(tx => new Date(tx.date)).sort((a,b)=>a-b);
     const holdingDays = dates.length > 0 ? Math.floor((new Date() - dates[0]) / (24*3600*1000)) : 0;
-    return { invested, received, currentValue, totalReturn, totalReturnPct, totalFees, holdingDays };
-  }, [transactions, flows, currentValue, fxAt, exchangeRate]);
+    return { invested: figs.invested, received: figs.proceeds, currentValue, totalReturn: figs.netReturn,
+      totalReturnPct: figs.netReturnPct === null ? 0 : figs.netReturnPct, totalFees: figs.fees, holdingDays };
+  }, [transactions, figs, currentValue]);
 
   const card = (label, value, sub, color) =>
     React.createElement('div', {
