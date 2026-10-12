@@ -194,6 +194,13 @@ const L = require('../etf-lookthrough.js');
   const noFunds = L.analyze([{ symbol: 'AAPL', name: 'Apple', cls: 'stocks', valueEUR: 100 }], {}, { getMeta });
   ok('analyze without funds still exposes direct positions', noFunds.available === true && noFunds.funds.length === 0 && noFunds.effectiveExposure[0].key === 'AAPL');
   ok('analyze without funds has full coverage', approx(noFunds.coverage, 1));
+  // P5-1.1 (F1): each exposure row says which asset classes it comes from.
+  ok('exposure of a direct stock carries its class', noFunds.effectiveExposure[0].classes.join() === 'stocks');
+  const withBtc = L.analyze([{ symbol: 'BTC', name: 'Bitcoin', cls: 'crypto', valueEUR: 100 }], {}, { getMeta });
+  ok('exposure of a direct coin carries crypto', withBtc.effectiveExposure[0].classes.join() === 'crypto');
+  const aaplCls = r.effectiveExposure.find((x) => x.key === 'AAPL').classes;
+  ok('fund constituents count as stocks', aaplCls.join() === 'stocks');
+  ok('a class is listed once', r.effectiveExposure.find((x) => x.key === 'NVDA').classes.join() === 'stocks');
   ok('analyze without funds finds no hidden concentration', noFunds.hiddenConcentrations.length === 0);
   const thresholded = L.analyze(aRows, holdingsMap, { getMeta, concentrationThreshold: 0.5 });
   ok('analyze respects a custom concentration threshold', thresholded.hiddenConcentrations.length === 0);

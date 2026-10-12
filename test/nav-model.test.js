@@ -16,8 +16,8 @@ const N = require('../nav-model.js');
 const ids = (list) => list.map((x) => x.id);
 
 // --- areas ---
-ok('six areas in plan order',
-  ids(N.AREAS).join() === 'portfolio,transactions,dividends,analysis,taxes,settings');
+ok('six areas, Taxes before Analysis (P5-1.1 F4)',
+  ids(N.AREAS).join() === 'portfolio,transactions,dividends,taxes,analysis,settings');
 
 // Every view the renderer can show belongs to exactly one area.
 const renderer = fs.readFileSync(path.join(__dirname, '..', 'renderer.js'), 'utf8');

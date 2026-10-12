@@ -39,6 +39,34 @@ function byAnalysis(report, a) { return report.findings.filter((f) => f.analysis
   ok('Other/Unknown buckets are ignored', byAnalysis(
     I.analyzeFromInputs({ effectiveExposure: [{ name: 'Other', effectiveWeight: 0.9 }] }), 'singleCompany').length === 0);
 
+  // P5-1.1 (F1): crypto, skins and commodities are not companies.
+  const btc = I.analyzeFromInputs({ effectiveExposure: [
+    { key: 'BTC', name: 'Bitcoin', classes: ['crypto'], effectiveWeight: 0.52, directWeight: 0.52, fundedWeight: 0, via: [] }
+  ] });
+  ok('F1: Bitcoin is never a single-company finding', byAnalysis(btc, 'singleCompany').length === 0);
+  ok('F1: gold and a skin are never single-company findings', byAnalysis(I.analyzeFromInputs({ effectiveExposure: [
+    { key: 'GOLD', name: 'Gold', classes: ['commodities'], effectiveWeight: 0.4, directWeight: 0.4, fundedWeight: 0 },
+    { key: 'AWP', name: 'AWP | Dragon Lore', classes: ['skins'], effectiveWeight: 0.3, directWeight: 0.3, fundedWeight: 0 }
+  ] }), 'singleCompany').length === 0);
+  const btcThenAapl = I.analyzeFromInputs({ effectiveExposure: [
+    { key: 'BTC', name: 'Bitcoin', classes: ['crypto'], effectiveWeight: 0.5, directWeight: 0.5, fundedWeight: 0 },
+    { key: 'AAPL', name: 'Apple', classes: ['stocks'], effectiveWeight: 0.31, directWeight: 0.31, fundedWeight: 0, via: [] }
+  ] });
+  const aaplF = byAnalysis(btcThenAapl, 'singleCompany')[0];
+  ok('F1: the largest company after crypto is checked', aaplF && aaplF.id === 'sc-critical' && /Apple/.test(aaplF.title));
+  ok('F1: a directly held company is not described as held "across ETFs"', aaplF && !/ETF|fund/i.test(aaplF.title) && !/ETF/i.test(aaplF.detail));
+  const aaplImp = byId(I.analyzeFromInputs({ effectiveExposure: [
+    { key: 'AAPL', name: 'Apple', classes: ['stocks'], effectiveWeight: 0.22, directWeight: 0.22, fundedWeight: 0 }
+  ] }), 'sc-important');
+  ok('F1: direct-only important finding has no fund wording', aaplImp && !/fund|ETF/i.test(aaplImp.title));
+  ok('F1: a company also held through funds keeps the look-through wording', /ETF/.test(scF.title));
+  ok('F1: fallback skips a crypto top position', byAnalysis(I.analyzeFromInputs({
+    directConcentration: { available: true, maxWeight: 0.6, topLabel: 'Bitcoin', topCls: 'crypto' }
+  }), 'singleCompany').length === 0);
+  ok('F1: fallback still flags a stock top position', byAnalysis(I.analyzeFromInputs({
+    directConcentration: { available: true, maxWeight: 0.6, topLabel: 'Apple', topCls: 'stocks' }
+  }), 'singleCompany').length === 1);
+
   // ---- 2) hidden concentration ----------------------------------------------
   const hid = I.analyzeFromInputs({
     hiddenConcentrations: [{ name: 'Nvidia', effectiveWeight: 0.14, directWeight: 0.01, fundedWeight: 0.13, funds: ['VWCE'] }]

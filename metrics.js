@@ -224,15 +224,49 @@
 
   // Rebalancing drift vs the targets RebalancingView stores (same localStorage key).
   var REBAL_TARGETS_KEY = 'maermin_targets';
-  var DEFAULT_TARGETS = { crypto: 35, stocks: 45, skins: 10, commodities: 10 };
+  // P5-1.1 (F2): no app-wide default. Older builds gave every user the targets
+  // below and saved them the first time Rebalancing opened, so a stored copy of
+  // exactly these numbers reads as "no targets" (the stored value is left alone:
+  // the key syncs, and an older device could write it back at any time).
+  var DEFAULT_TARGETS = {};
+  var LEGACY_DEFAULT_TARGETS = { crypto: 35, stocks: 45, skins: 10, commodities: 10 };
+  function isLegacyDefault(t) {
+    var keys = Object.keys(t);
+    return keys.length === 4 && keys.every(function (k) { return LEGACY_DEFAULT_TARGETS[k] === t[k]; });
+  }
+  // Class → percentage, finite and ≥ 0 only; {} for the old default.
+  function normalizeTargets(raw) {
+    var out = {};
+    if (!raw || typeof raw !== 'object' || Array.isArray(raw)) return out;
+    Object.keys(raw).forEach(function (k) {
+      var v = raw[k];
+      if (typeof v === 'number' && isFinite(v) && v >= 0) out[k] = v;
+    });
+    return isLegacyDefault(out) ? {} : out;
+  }
+  function hasTargets(t) {
+    return !!t && Object.keys(t).some(function (k) { return t[k] > 0; });
+  }
   function loadTargets() {
-    try {
-      var saved = JSON.parse(localStorage.getItem(REBAL_TARGETS_KEY) || 'null');
-      return saved && typeof saved === 'object' ? Object.assign({}, DEFAULT_TARGETS, saved) : Object.assign({}, DEFAULT_TARGETS);
-    } catch (e) { return Object.assign({}, DEFAULT_TARGETS); }
+    try { return normalizeTargets(JSON.parse(localStorage.getItem(REBAL_TARGETS_KEY) || 'null')); }
+    catch (e) { return {}; }
+  }
+  // Targets equal to today's weights of the classes held (whole percents that
+  // add up to 100, largest remainder). values: { cls: EUR value }.
+  function targetsFromAllocation(values) {
+    var keys = Object.keys(values || {}).filter(function (k) { return values[k] > 0; });
+    var total = keys.reduce(function (s, k) { return s + values[k]; }, 0);
+    if (total <= 0) return {};
+    var rows = keys.map(function (k) { var exact = values[k] / total * 100; return { k: k, v: Math.floor(exact), rest: exact - Math.floor(exact) }; });
+    var left = 100 - rows.reduce(function (s, r) { return s + r.v; }, 0);
+    rows.slice().sort(function (a, b) { return b.rest - a.rest; }).slice(0, left).forEach(function (r) { r.v += 1; });
+    var out = {};
+    rows.forEach(function (r) { out[r.k] = r.v; });
+    return out;
   }
   function computeRebalancingDrift(portfolio, prices, targets) {
-    targets = targets || loadTargets();
+    targets = targets ? normalizeTargets(targets) : loadTargets();
+    if (!hasTargets(targets)) return { available: false, reason: 'no-targets', rows: [], maxDrift: 0 };
     var classes = allClasses();
     var values = {}, total = 0;
     classes.forEach(function (c) { values[c] = classValue(portfolio, prices, c); total += values[c]; });
@@ -518,6 +552,10 @@
     computeExpectedAnnualDividends: computeExpectedAnnualDividends,
     healthScore: healthScore,
     REBAL_TARGETS_KEY: REBAL_TARGETS_KEY,
+    DEFAULT_TARGETS: DEFAULT_TARGETS,
+    normalizeTargets: normalizeTargets,
+    hasTargets: hasTargets,
+    targetsFromAllocation: targetsFromAllocation,
     loadTargets: loadTargets,
     computeConcentration: computeConcentration,
     computeRebalancingDrift: computeRebalancingDrift,

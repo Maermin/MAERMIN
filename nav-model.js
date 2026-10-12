@@ -2,7 +2,7 @@
 // MAERMIN — Navigation model  (window.MaerminNav)
 // ----------------------------------------------------------------------------
 // One source of truth for where every view lives (PLAN P2-1):
-//   Portfolio · Transactions · Dividends · Analysis · Taxes · Settings
+//   Portfolio · Transactions · Dividends · Taxes · Analysis · Settings
 // The sidebar, the mobile dock and the in-page tab strip all render from this.
 //
 // - An area holds entries. An entry is one view, or a group of views shown as
@@ -42,6 +42,11 @@
     { id: 'dividends', key: 'navAreaDividends', label: 'Dividends', icon: 'dividends', entries: [
       v('dividends', 'navDividends', 'Dividends')
     ] },
+    // P5-1.1 (F4): Taxes before Analysis, so Tax & FIFO is visible without
+    // scrolling the desktop sidebar (25 entries in Advanced mode).
+    { id: 'taxes', key: 'navAreaTaxes', label: 'Taxes', icon: 'tax', entries: [
+      v('tax', 'navTaxFifo', 'Tax & FIFO')
+    ] },
     { id: 'analysis', key: 'navAreaAnalysis', label: 'Analysis', icon: 'hub-analytics', entries: [
       { id: 'grp-returns', key: 'navGroupReturns', label: 'Returns', tabs: [
         v('returns', 'navReturns', 'Returns & XIRR'),
@@ -57,9 +62,6 @@
       v('fees', 'navFees', 'Fee Analyzer', true),
       v('discovery', 'navDiscovery', 'Discovery', true),
       v('news', 'navNewsFeed', 'News Feed', true)
-    ] },
-    { id: 'taxes', key: 'navAreaTaxes', label: 'Taxes', icon: 'tax', entries: [
-      v('tax', 'navTaxFifo', 'Tax & FIFO')
     ] },
     { id: 'settings', key: 'navAreaSettings', label: 'Settings', shortKey: 'navAreaSettingsShort', short: 'Settings', icon: 'settings', entries: [
       v('customize', 'navCustomize', 'Customize Overview'),
