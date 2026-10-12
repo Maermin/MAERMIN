@@ -126,7 +126,151 @@
     return { v: 1, series, miss: {} };
   }
 
-  const api = { FLAG, SETTINGS, isActive, enable, disable, getTransactions, getPrices, closeHistory };
+  // ── P5-1.7: the richer book ───────────────────────────────────────────────
+  // Two portfolios (the second with a clearing account), 30+ positions, three
+  // years of monthly savings-plan buys, a dozen-plus dividend payers, an
+  // accumulating fund with Vorabpauschale records, one taxed sale with its tax
+  // booking and a crypto lot past the one-year mark. All made up and
+  // deterministic: fixed dates, prices from a smooth path per symbol. The
+  // hand-written rows above stay as they are.
+  const BROKER = 'demo-broker';
+  const T0 = '2023-01-02', END = '2026-10-01';
+  const FX = SETTINGS.exchangeRate;
+  const r2 = (x) => Math.round(x * 100) / 100;
+  const r4 = (x) => Math.round(x * 10000) / 10000;
+  const iso = (n) => new Date(n * DAY).toISOString().slice(0, 10);
+  const weekday = (s) => { let n = dayNo(s); while ([0, 6].indexOf(new Date(n * DAY).getUTCDay()) !== -1) n++; return iso(n); };
+  const addDays = (s, k) => iso(dayNo(s) + k);
+  // Log-linear from p0 (T0) to p1 (END) with a wobble that is 0 at both ends.
+  function pathPrice(p0, p1, date, k) {
+    const f = (dayNo(date) - dayNo(T0)) / (dayNo(END) - dayNo(T0));
+    return r2(Math.exp(Math.log(p0) + (Math.log(p1) - Math.log(p0)) * f + 0.07 * Math.sin(Math.PI * f * k)));
+  }
+  // [symbol, name, currency, price at T0, price at END, dividend per share]
+  // Dividend schedule by country: us = quarterly (Feb/May/Aug/Nov) with 15 %
+  // US withholding; de = yearly in May, no foreign tax; nl / fr = yearly in
+  // May with 15 % / 12.8 % foreign withholding.
+  const STOCKS = [
+    ['MSFT', 'Microsoft Corp.', 'USD', 245, 430, 0.75, 'us'],
+    ['NVDA', 'NVIDIA Corp.', 'USD', 15, 180, 0, ''],
+    ['AMZN', 'Amazon.com Inc.', 'USD', 85, 220, 0, ''],
+    ['GOOGL', 'Alphabet Inc. (A)', 'USD', 89, 240, 0, ''],
+    ['JNJ', 'Johnson & Johnson', 'USD', 176, 190, 1.24, 'us'],
+    ['KO', 'The Coca-Cola Co.', 'USD', 63, 70, 0.49, 'us'],
+    ['PG', 'Procter & Gamble Co.', 'USD', 151, 160, 0.99, 'us'],
+    ['PEP', 'PepsiCo Inc.', 'USD', 180, 150, 1.3, 'us'],
+    ['JPM', 'JPMorgan Chase & Co.', 'USD', 134, 300, 1.15, 'us'],
+    ['O', 'Realty Income Corp.', 'USD', 63, 58, 0.78, 'us'],
+    ['V', 'Visa Inc. (A)', 'USD', 208, 340, 0.52, 'us'],
+    ['XOM', 'Exxon Mobil Corp.', 'USD', 110, 115, 0.96, 'us'],
+    ['MCD', 'McDonald’s Corp.', 'USD', 264, 300, 1.67, 'us'],
+    ['HD', 'The Home Depot Inc.', 'USD', 316, 400, 2.2, 'us'],
+    ['SAP.DE', 'SAP SE', 'EUR', 100, 240, 2.2, 'de'],
+    ['ALV.DE', 'Allianz SE', 'EUR', 201, 350, 13.8, 'de'],
+    ['SIE.DE', 'Siemens AG', 'EUR', 130, 230, 4.7, 'de'],
+    ['MUV2.DE', 'Munich Re', 'EUR', 304, 540, 15, 'de'],
+    ['BAS.DE', 'BASF SE', 'EUR', 47, 44, 3.4, 'de'],
+    ['DTE.DE', 'Deutsche Telekom AG', 'EUR', 18.6, 30, 0.77, 'de'],
+    ['ASML.AS', 'ASML Holding N.V.', 'EUR', 512, 690, 6.1, 'nl'],
+    ['OR.PA', 'L’Oréal S.A.', 'EUR', 335, 370, 6.6, 'fr'],
+    ['AIR.PA', 'Airbus SE', 'EUR', 111, 200, 0, '']
+  ];
+  const WHT = { us: 0.15, de: 0, nl: 0.15, fr: 0.128 };
+  // Savings-plan funds of the broker portfolio (both accumulating).
+  const PLAN = [['VWCE.DE', 'Vanguard FTSE All-World', 96, 132, 250], ['IS3N.DE', 'iShares Core MSCI EM IMI', 27, 36, 100]];
+  const FUND_TYPES = { 'VWCE.DE': 'aktienfonds', 'IS3N.DE': 'aktienfonds' };
+  // Confirmed Vorabpauschalen per value year (EUR), as the Tax view stores them.
+  const VAP_RECORDS = { 'VWCE.DE': { 2023: 21.4, 2024: 74.9, 2025: 118.6 }, 'IS3N.DE': { 2024: 9.8, 2025: 21.3 } };
+
+  (function richerBook() {
+    const rows = [];
+    const add = (o) => { rows.push(o.category === 'cashflow' ? o : Object.assign({ fees: 0 }, o)); };
+    const held = {};   // symbol -> [[date, +/-qty]]
+    const book = (sym, date, q) => { (held[sym] = held[sym] || []).push([date, q]); };
+    const qtyAt = (sym, date) => (held[sym] || []).reduce((s, [d, q]) => (d < date ? s + q : s), 0);
+
+    STOCKS.forEach(([sym, name, cur, p0, p1], i) => {
+      const k = 2 + (i % 4);
+      const date = weekday(addDays('2023-01-16', 9 * i));
+      const price = pathPrice(p0, p1, date, k);
+      const qty = Math.max(1, Math.round(2500 / (price * (cur === 'USD' ? FX : 1))));
+      add({ id: 'demo-b-' + sym, category: 'stocks', type: 'buy', symbol: sym, symbolName: name, quantity: qty, price, fees: 1, currency: cur, date });
+      book(sym, date, qty);
+      if (i % 3 === 0) {
+        const d2 = weekday(addDays('2024-02-05', 11 * i));
+        const q2 = Math.ceil(qty / 2);
+        add({ id: 'demo-b2-' + sym, category: 'stocks', type: 'buy', symbol: sym, symbolName: name, quantity: q2, price: pathPrice(p0, p1, d2, k), fees: 1, currency: cur, date: d2 });
+        book(sym, d2, q2);
+      }
+      PRICES[sym] = r2(p1 * (cur === 'USD' ? FX : 1));
+    });
+
+    // The taxed sale: part of the NVDA position in May 2026, with the
+    // Abgeltungsteuer + Soli the bank withheld booked on the same day.
+    const nv = STOCKS[1], sellDate = '2026-05-14', sellQty = 60;
+    const sellPx = pathPrice(nv[3], nv[4], sellDate, 3);
+    const buyPx = rows.find((t) => t.id === 'demo-b-NVDA').price;
+    add({ id: 'demo-s-NVDA', category: 'stocks', type: 'sell', symbol: 'NVDA', symbolName: nv[1], quantity: sellQty, price: sellPx, fees: 1, currency: 'USD', date: sellDate });
+    book('NVDA', sellDate, -sellQty);
+    const gainEUR = (sellQty * (sellPx - buyPx) - 2) * FX;
+    add({ id: 'demo-tax-NVDA', category: 'cashflow', type: 'tax', amount: r2(Math.max(0, gainEUR - 1000) * 0.26375), currency: 'EUR', date: sellDate, notes: 'Abgeltungsteuer + Soli (NVDA)' });
+
+    // Dividends from the first payout date after the buy up to END.
+    STOCKS.forEach(([sym, name, cur, , , dps, kind]) => {
+      if (!dps) return;
+      for (let y = 2023; y <= 2026; y++) {
+        const months = kind === 'us' ? [2, 5, 8, 11] : [5];
+        months.forEach((m) => {
+          const date = weekday(y + '-' + String(m).padStart(2, '0') + (kind === 'us' ? '-15' : '-12'));
+          if (date > END) return;
+          const qty = qtyAt(sym, date);
+          if (!(qty > 0)) return;
+          add({ id: 'demo-d-' + sym + '-' + date, category: 'stocks', type: 'dividend', symbol: sym, symbolName: name, quantity: qty, price: dps, withholdingTax: r2(qty * dps * WHT[kind]), currency: cur, date });
+        });
+      }
+    });
+
+    // Crypto: a second, younger BTC lot (the 2023 lot is past one year) and SOL.
+    add({ id: 'demo-c-btc2', category: 'crypto', type: 'buy', symbol: 'BTC', symbolName: 'Bitcoin', quantity: 0.04, price: 78000, fees: 2.5, currency: 'EUR', date: '2026-03-16' });
+    add({ id: 'demo-c-sol', category: 'crypto', type: 'buy', symbol: 'SOL', symbolName: 'Solana', quantity: 25, price: 40, fees: 1.5, currency: 'EUR', date: '2023-11-06' });
+    PRICES.SOL = 150;
+
+    // Savings plan at the broker: a 400 EUR deposit on the first weekday of
+    // each month, the two fund buys the next weekday (Oct 2023 - Sep 2026).
+    for (let n = 0; n < 36; n++) {
+      const y = 2023 + Math.floor((9 + n) / 12), m = ((9 + n) % 12) + 1;
+      const d1 = weekday(y + '-' + String(m).padStart(2, '0') + '-01');
+      const d2 = weekday(addDays(d1, 1));
+      add({ id: 'demo-dep-' + d1, category: 'cashflow', type: 'deposit', amount: 400, currency: 'EUR', date: d1, portfolioId: BROKER, notes: '' });
+      PLAN.forEach(([sym, name, p0, p1, eur], j) => {
+        const price = pathPrice(p0, p1, d2, 2 + j);
+        add({ id: 'demo-sp-' + sym + '-' + d2, category: 'stocks', type: 'buy', symbol: sym, symbolName: name, quantity: r4(eur / price), price, currency: 'EUR', date: d2, portfolioId: BROKER });
+      });
+    }
+    PRICES['IS3N.DE'] = 36;
+
+    rows.sort((a, b) => (a.date < b.date ? -1 : a.date > b.date ? 1 : 0)).forEach((t) => TRANSACTIONS.push(t));
+  })();
+
+  // The demo's two portfolios: kept in memory by the renderer while the demo
+  // is on, so the user's own portfolio list is never read or written. The
+  // renderer translates the names (this file is outside the i18n scan).
+  function getPortfolios() {
+    return [
+      { id: 'default', name: 'Main depot', color: '#8b7cff', icon: '◆' },
+      { id: BROKER, name: 'Savings plan broker', color: '#22c55e', icon: '◆', clearing: { enabled: true, openingBalance: 0, openingDate: '' } }
+    ];
+  }
+  // Tax settings the demo brings along (fund types, Vorabpauschale records).
+  // The tax engine's loaders return these while the demo is on; its savers
+  // then write nothing. undefined = not a demo store.
+  function store(key) {
+    if (key === 'maermin_fund_types') return Object.assign({}, FUND_TYPES);
+    if (key === 'maermin_vap_records') return JSON.parse(JSON.stringify(VAP_RECORDS));
+    return undefined;
+  }
+
+  const api = { FLAG, SETTINGS, BROKER, isActive, enable, disable, getTransactions, getPrices, getPortfolios, store, closeHistory };
   if (typeof window !== 'undefined') window.MaerminDemo = api;
   if (typeof module !== 'undefined' && module.exports) module.exports = api;
 })();

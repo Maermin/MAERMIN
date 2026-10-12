@@ -276,7 +276,19 @@ function InvestmentTracker() {
   // ========== STATE MANAGEMENT ==========
   
   // Multi-Portfolio
-  const portfolioHook = window.MaerminFeatures4 ? window.MaerminFeatures4.usePortfolios() : null;
+  // Demo mode: when on, the app runs entirely on offline sample data; the user's
+  // real transactions/prices are neither read nor written.
+  const [demoMode, setDemoMode] = useState(() => !!(window.MaerminDemo && window.MaerminDemo.isActive()));
+  const savedPortfolioHook = window.MaerminFeatures4 ? window.MaerminFeatures4.usePortfolios() : null;
+  // P5-1.7: the demo's two portfolios live in memory only - the saved list,
+  // the active portfolio and the clearing settings of the user stay untouched.
+  const [demoPortfolioId, setDemoPortfolioId] = useState('default');
+  const demoPortfolios = useMemo(() => (demoMode && window.MaerminDemo && window.MaerminDemo.getPortfolios) ? window.MaerminDemo.getPortfolios().map((p) => Object.assign({}, p, { name: p.id === 'default' ? __('demoPfMain', 'Main depot') : __('demoPfBroker', 'Savings plan broker') })) : null, [demoMode]);
+  const portfolioHook = (demoPortfolios && savedPortfolioHook) ? Object.assign({}, savedPortfolioHook, {
+    portfolios: demoPortfolios, activePortfolioId: demoPortfolios.some((p) => p.id === demoPortfolioId) ? demoPortfolioId : 'default',
+    setActivePortfolioId: setDemoPortfolioId, addPortfolio: () => null, removePortfolio: () => {}, restorePortfolio: () => {},
+    renamePortfolio: () => {}, setClearing: () => {}
+  }) : savedPortfolioHook;
   const portfolios       = portfolioHook?.portfolios       || [{ id: 'default', name: 'Main Portfolio', color: '#8b7cff' }];
   const activePortfolioId = portfolioHook?.activePortfolioId || 'default';
   const setActivePortfolioId = portfolioHook?.setActivePortfolioId || (() => {});
@@ -289,9 +301,6 @@ function InvestmentTracker() {
     const saved = localStorage.getItem('transactions');
     return window.MaerminUtils.safeParse(saved, []) || [];
   });
-  // Demo mode: when on, the app runs entirely on offline sample data; the user's
-  // real transactions/prices are neither read nor written.
-  const [demoMode, setDemoMode] = useState(() => !!(window.MaerminDemo && window.MaerminDemo.isActive()));
   // v12: market data (prices, priceHistory, worker status, loading, lastRefresh)
   // lives in MaerminMarket (MaerminStore). Read each slice via useStore; the
   // setX shims delegate to the store and — crucially for the hot async fetch

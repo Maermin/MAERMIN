@@ -808,6 +808,7 @@ async function runBuild(browser, label, dir) {
     await page.evaluate(() => { localStorage.setItem('maermin_demo', '1'); localStorage.setItem('maermin_ui_mode', 'advanced'); localStorage.setItem('maermin_onboarded', '1'); });
     let chart = 0, twr = '', cells = 0, closed = '', stored = 'x', err = '';
     let returnsText = '', intelText = '', rbEmpty = 0, rbPlan = -1, ovReturns = '';
+    let brokerOv = '', rows = 0, before = null, after = null;
     try {
       await unlock(page, base);
       await page.keyboard.press('Escape');
@@ -826,6 +827,18 @@ async function runBuild(browser, label, dir) {
       await page.locator('[data-testid="ov-returns"]').waitFor({ timeout: 8000 });
       await page.waitForTimeout(1500); // figures count up when they appear
       ovReturns = await page.locator('[data-testid="ov-returns"]').innerText();
+      // P5-1.7: two portfolios in memory; the broker's clearing account shows its cash
+      const keys = ['maermin_portfolios', 'maermin_active_portfolio', 'maermin_fund_types', 'maermin_vap_records', 'transactions'];
+      before = await page.evaluate((ks) => ks.map((k) => localStorage.getItem(k)), keys);
+      await page.getByRole('button', { name: 'Savings plan broker' }).first().click();
+      await page.waitForTimeout(1500);
+      brokerOv = await page.locator('main').innerText();
+      await openView(page, 'transactions');
+      await page.waitForTimeout(800);
+      rows = await page.evaluate(() => (window.MaerminDemo ? window.MaerminDemo.getTransactions().length : 0));
+      await openView(page, 'overview');
+      await page.getByRole('button', { name: 'All Portfolios' }).first().click();
+      after = await page.evaluate((ks) => ks.map((k) => localStorage.getItem(k)), keys);
       await openView(page, 'intelligence');
       await page.waitForTimeout(800);
       intelText = await page.locator('main').innerText();
@@ -839,6 +852,8 @@ async function runBuild(browser, label, dir) {
     ok('P5-1.5: demo Overview shows the Returns section with seven figures', ['XIRR', 'TWR', 'Realized gains', 'Dividends received', 'Taxes', 'Total Fees', 'Net return'].every((w) => new RegExp(w, 'i').test(ovReturns)) && (ovReturns.match(/[+-]?\d[\d,]*\.\d\d/g) || []).length >= 6, err || ovReturns.split('\n').join(' | '));
     ok('F3: the "Total bought" card no longer says deposited', /All purchases, incl\. fees/.test(returnsText) && !/Total deposited/i.test(returnsText), err || returnsText.slice(0, 120));
     ok('P4-9: demo draws the value chart without a Worker', chart > 0, err || String(chart));
+    ok('P5-1.7: demo has 300+ rows and a broker portfolio with a clearing account', rows >= 300 && /Cash \(clearing account\)/i.test(brokerOv), err || rows + ' | ' + brokerOv.slice(0, 160).replace(/\n/g, ' | '));
+    ok('P5-1.7: switching demo portfolios writes nothing to the user\'s storage', !!before && JSON.stringify(before) === JSON.stringify(after), err || JSON.stringify([before, after]).slice(0, 200));
     ok('P4-9: demo TWR is a figure, the monthly grid is filled', /[+-]\d/.test(twr) && cells > 12, err || twr.replace(/\s+/g, ' ') + ' | cells ' + cells);
     ok('P4-9: demo shows a closed position', /\(1\)/.test(closed), err || closed);
     ok('P4-9: the sample closes are never stored', stored === null, err || String(stored).slice(0, 60));

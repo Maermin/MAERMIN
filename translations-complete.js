@@ -2681,6 +2681,10 @@ taSparer: 'Sparerpauschbetrag',
     // Phase 3 Basiszins label
     gtBasiszinsAria: 'Basiszins {y} in percent',
 
+    // P5-1.7 richer demo
+    demoPfMain: 'Main depot',
+    demoPfBroker: 'Savings plan broker',
+
     // P5-1.6 plain-language verdicts
     vdNoAdvice: 'Rules of thumb for orientation, not investment advice.',
     vdBenchLevel: 'Over this period your portfolio moved roughly in line with {bench}.',
@@ -5236,6 +5240,10 @@ taSparer: 'Sparerpauschbetrag',
 
     // Phase 3 Basiszins label
     gtBasiszinsAria: 'Basiszins {y} in Prozent',
+
+    // P5-1.7 richer demo
+    demoPfMain: 'Hauptdepot',
+    demoPfBroker: 'Sparplan-Broker',
 
     // P5-1.6 plain-language verdicts
     vdNoAdvice: 'Faustregeln zur Orientierung, keine Anlageberatung.',
