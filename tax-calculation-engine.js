@@ -277,13 +277,22 @@ var GermanTax = (function () {
   var VAP_RECORDS_KEY = 'maermin_vap_records';
   var BASISZINS_KEY = 'maermin_basiszins_overrides';
 
+  // Demo mode (P5-1.7) brings its own fund types and Vorabpauschale records:
+  // served from MaerminDemo.store() and never written to the user's storage.
+  function demoStore(key) {
+    var D = typeof window !== 'undefined' && window.MaerminDemo;
+    return D && D.store && D.isActive() ? D.store(key) : undefined;
+  }
   function readJson(key, fallback) {
+    var demo = demoStore(key);
+    if (demo !== undefined) return demo;
     try {
       var v = JSON.parse(localStorage.getItem(key) || 'null');
       return (v && typeof v === 'object') ? v : fallback;
     } catch (e) { return fallback; }
   }
   function writeJson(key, obj) {
+    if (demoStore(key) !== undefined) return obj;
     try { localStorage.setItem(key, JSON.stringify(obj)); } catch (e) { /* non-fatal */ }
     return obj;
   }
