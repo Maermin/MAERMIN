@@ -1,19 +1,19 @@
 # MAERMIN — Implementation Plan
 
-**Status:** scope confirmed 2026-10-05; Phase 4 scope confirmed 2026-10-09. Work proceeds one PR per package; the owner merges.
+**Status:** scope confirmed 2026-10-05; Phase 4 scope confirmed 2026-10-09; Phase 5 (v12 "Atlas") scope confirmed 2026-10-12. Work proceeds one PR per package; the owner merges.
 **Basis:** [`FINDINGS.md`](FINDINGS.md) (audit 2026-10-05), an i18n audit of `main` @ `0d0fdbd` (summarised in P2-2), and the owner interview of 2026-10-05.
 **Previous plan:** the 2026-10-03 plan (WP-1 … WP-12) is done; see this file's git history. Its WP-16 (importers) is deferred below.
 
 ## Decisions
 
 - **Audience:** public users. Market: DACH **and** international, UI in German and English.
-- **Tax systems:** German and US only. No new tax engines; the tax view says plainly which systems are supported.
-- **Market data:** bring-your-own Cloudflare Worker stays. No shared hosted Worker.
+- **Tax systems:** German and US only. No new tax engines; the tax view says plainly which systems are supported. *Superseded for Phase 5: Austria and Switzerland are added; UK follows later.*
+- **Market data:** bring-your-own Cloudflare Worker stays. No shared hosted Worker. *Superseded for Phase 5: an owner-hosted Worker for market data only, used as a fallback when no own Worker is set.*
 - **Order:** stabilize first (Phase 1: wrong money/tax figures, data loss, security), then improve (Phase 2).
 - **Navigation:** 5–6 areas plus a Simple/Advanced mode. Nothing is deleted.
 - **Legal:** in-app disclaimer + privacy page. No Impressum in this plan (the owner checks § 5 DDG separately).
 
-**Deferred:** broker importers for Trade Republic, Scalable Capital, Consorsbank (old WP-16); a shared hosted Worker; AT/CH/UK tax systems; the remaining Medium/Low findings that are not listed in a package below stay in `FINDINGS.md`.
+**Deferred:** broker importers for Trade Republic, Scalable Capital, Consorsbank (old WP-16); a shared hosted Worker; AT/CH/UK tax systems (*Phase 5 brings the importers, a price-only shared Worker and AT/CH back into scope; see "Decisions reversed for Atlas"*); the remaining Medium/Low findings that are not listed in a package below stay in `FINDINGS.md`.
 
 **Effort:** S ≤ ½ day · M 1–3 days · L > 3 days.
 
@@ -195,6 +195,166 @@ Scope settled with the owner on 2026-10-09 from a competitor review (Parqet, Wea
 - P2-3 Worker deploy button + version check: README, wizard and API Settings link the button to `cf-worker/`; `wrangler.toml` binds KV without an id; `WORKER_VERSION` = `EXPECTED_WORKER_VERSION` = `2026.10.3`. Gap: the example answer in `docs/WORKER.md` (Version) still shows `2026.10.1`.
 - P2-2 Full DE/EN translation: `npm run check` reports 2,300 keys in en and de, all uses resolve; e2e scenario 8 passes (German browser, 29 views, German number formats). No gap found.
 
+## Phase 5 — v12 "Atlas"
+
+**Atlas — the whole map of your wealth.** Scope settled with the owner on 2026-10-12 from the October 2026 competitor review ([`docs/COMPETITOR-REVIEW-2026-10.md`](docs/COMPETITOR-REVIEW-2026-10.md): vendor pages, live demos of Parqet, Ghostfolio, DivvyDiary and Snowball, the source code of Portfolio Performance, Wealthfolio and Ghostfolio, read-only checks of getquin and CoinTracking, and a local click-through of MAERMIN v11). Goal: every finding of that review that fits MAERMIN ships in one major release, v12.0.0 "Atlas".
+
+**Shape.** One release, five milestones, merged package by package. The agent stops after each milestone for the owner's approval. House rules, the gate and the rollback note from Phase 4 apply unchanged: each package starts with a plan (files, public API, tests, storage keys, translation keys, mismatches with this text) that the owner approves before code is written; one PR per package; money and tax changes test-first; every new UI string in `en` and `de`.
+
+**Decisions reversed for Atlas (owner, 2026-10-12).** These replace the matching lines under "Decisions" and "Deferred" above:
+- Broker importers are back in scope (eight DACH PDF importers, P5-3.2/3.3).
+- A shared, owner-hosted Worker is allowed for **market data only** (prices, FX, symbol search; P5-3.1). Sync, share, exchange relay, FinTS and every route that sees user data stay on the user's own Worker.
+- Account aggregation is in scope through **FinTS on the user's own Worker** and **bring-your-own-key** SnapTrade / GoCardless (P5-3.4/3.5). No MAERMIN server, no shared API secret.
+- An MCP server over full portfolio data is in scope **only as a local process** that decrypts on the user's machine (P5-5.2). The Worker still only ever sees ciphertext; `?action=mcp` stays redacted.
+- Austria and Switzerland join Germany and the US as tax systems (P5-4.9/4.10). UK follows in the next release.
+- Budget and spending tracking and per-stock research pages are in scope (P5-5.3/5.4).
+
+**Still out of scope:** native iOS/Android apps and widgets, community features (profiles, comments, public portfolios, cloning), UK tax, new UI languages beyond DE/EN, an add-on/plugin system, a public third-party API, any MCP or AI route where a server sees plaintext.
+
+**Owner tasks outside the code** (the agent lists them in the milestone report when they block): register a FinTS product ID with the Deutsche Kreditwirtschaft (P5-3.4); run the shared price Worker under the owner's Cloudflare account (P5-3.1); publish the `maermin-mcp` npm package (P5-5.2); provide or approve sources for AT/CH tax rules (P5-4.9/4.10).
+
+### Milestone overview
+
+| Milestone | Packages | Theme |
+|---|---|---|
+| M1 Atlas · Foundation | P5-1.1 … P5-1.9 | Fixes, first impression, cash-flow ledger |
+| M2 Atlas · Insight | P5-2.1 … P5-2.10 | Analysis depth |
+| M3 Atlas · Connect | P5-3.1 … P5-3.11 | Data in: importers, FinTS, wallets, reconciliation |
+| M4 Atlas · Tax | P5-4.1 … P5-4.11 | German and crypto tax depth, AT and CH |
+| M5 Atlas · Platform | P5-5.1 … P5-5.9 | Push, local MCP, budget, research, events, release |
+
+Review item ids in brackets (F, D, N, Tier) refer to `docs/COMPETITOR-REVIEW-2026-10.md`; "REVIEW #n" refers to `docs/REVIEW-2026-09.md` § 8.
+
+### M1 Atlas · Foundation
+
+| Order | Package | Review items | Effort |
+|---|---|---|---|
+| 1 | P5-1.1 Quick fixes | F1–F4 | S |
+| 2 | P5-1.2 Open items from Phases 1–4 | PLAN open notes | S–M |
+| 3 | P5-1.3 Cash-flow transaction types | Tier 1 #1 | L |
+| 4 | P5-1.4 Clearing account per portfolio | Tier 1 #1, REVIEW #14 | L |
+| 5 | P5-1.5 Return figures on the overview | D3 | S |
+| 6 | P5-1.6 Plain-language verdicts | D4 | S–M |
+| 7 | P5-1.7 Richer demo | D1 | M |
+| 8 | P5-1.8 Demo fixtures for Worker-only views | D2 | S–M |
+| 9 | P5-1.9 Public demo link | D5 | S |
+
+- **P5-1.1 Quick fixes.** F1: Portfolio Intelligence's single-company check (`portfolio-intelligence.js`) must not treat crypto as a company and must not say "across ETFs and single stocks" when no fund holds it; crypto concentration stays covered by the volatile-class check. F2: `DEFAULT_TARGETS` (`features2.js`, `metrics.js`) must not give every user 10 % CS2 skins; default to no targets or to the classes the user holds. F3: the Returns card "Total bought" must not be labelled "Total deposited". F4: Tax & FIFO must be visible without scrolling the desktop sidebar at 900 px height in Advanced mode (reorder areas or group the settings views).
+- **P5-1.2 Open items.** M-11 (silent auto-refresh); a row added on another device to a deleted portfolio becomes an orphan after sync; two-column cards overflow at 375 px; the portfolio rename input sits inside a `role="button"` card; `docs/WORKER.md` version example; Anlage KAP line numbers re-checked against the official 2025 forms if reachable.
+- **P5-1.3 Cash-flow transaction types.** New types: deposit, withdrawal, transfer in/out (between portfolios, paired), fee, fee refund, tax, tax refund, interest charge. One ledger (`ledger.js`) stays the single source; migrations keep existing data unchanged; editor, CSV/PDF/tracker importers and the Portfolio Performance import map the new types (PP's deposit and removal rows are no longer skipped). Returns and the tax report read them; nothing double-counts the existing fee and tax fields on trades.
+- **P5-1.4 Clearing account.** Optional cash account per portfolio (Verrechnungskonto) whose balance follows from trades, dividends, interest and the new cash flows. TWR and XIRR use real external flows when a clearing account exists and fall back to today's behaviour when not. Negative balance shows a data-check finding.
+- **P5-1.5 Overview figures.** XIRR, TWR, realized gains, dividends received, taxes, fees and net return as overview cards (reorderable in Customize Overview).
+- **P5-1.6 Verdicts.** One plain sentence next to key figures: benchmark difference, Sharpe/Sortino, volatility, drawdown, health score, dividend safety. Rules and thresholds in one pure module with tests; texts in `en` and `de`; "no advice" wording.
+- **P5-1.7 Richer demo.** At least 30 positions, two portfolios, three years of savings-plan buys, ten or more dividend payers, an accumulating fund with Vorabpauschale, one taxed sale, a clearing account, a crypto lot past the one-year mark. Made-up data, deterministic.
+- **P5-1.8 Demo fixtures.** In demo mode only: bundled sample data for news, discovery, FX attribution and period returns, so no view is empty without a Worker. Never stored, clearly labelled as sample data.
+- **P5-1.9 Public demo link.** A URL parameter or path on GitHub Pages that opens straight into demo mode without creating a vault; the README links it.
+
+### M2 Atlas · Insight
+
+| Order | Package | Review items | Effort |
+|---|---|---|---|
+| 1 | P5-2.1 Value-change attribution | Tier 1 #2, WF, Snowball | M |
+| 2 | P5-2.2 Benchmark replay of own cash flows | Tier 1 #3 | M |
+| 3 | P5-2.3 Full ETF look-through | Tier 1 #4 | M–L |
+| 4 | P5-2.4 Heatmap drill-down and filters | Tier 1 #5 | S–M |
+| 5 | P5-2.5 Dividends depth | Tier 1 #6, N3, N4, N22 | M–L |
+| 6 | P5-2.6 Per-holding IRR, trade ranking, capital flow | N1, N2, N5 | M |
+| 7 | P5-2.7 Investment timeline and saving streaks | N6 | S |
+| 8 | P5-2.8 New checks and allocation views | N7, N8 | S–M |
+| 9 | P5-2.9 Real (inflation-adjusted) returns | N9 | M |
+| 10 | P5-2.10 Taxonomies | N10, Tier 3 #19 | M |
+
+- **P5-2.1** Decompose value change per period into contributions, withdrawals, income (dividends, interest), realized gains, unrealized change, FX effect, fees, taxes and a residual; "profit by source" chart. Needs P5-1.3.
+- **P5-2.2** Replay the user's own buys and sells into a chosen benchmark (MSCI World, FTSE All-World, S&P 500, Nasdaq 100, any held fund), optionally with dividends reinvested; show the difference in plain language (P5-1.6).
+- **P5-2.3** Full fund holdings from issuer holdings files through the Worker (cached, allowlisted), synthetic ETFs mapped to a physical twin, sector/industry/country/currency from the underlying companies, CSV export. Keep the top-10 fallback. Check each issuer's terms before adding it.
+- **P5-2.4** Click a month, quarter or year for start/end value, return and number of activities; filter by asset class, category, tag or holding; per-holding heatmap in the position dialog.
+- **P5-2.5** Forecast 24 months ahead; payout CAGR 3/5 years and year-over-year growth per payment; dividend matrix security × year back to the first dividend; backtested yield and growth on current holdings; gross/net switch for dividends and returns.
+- **P5-2.6** IRR per holding and per category/tag; best and worst closed trades with holding period and return; capital-flow table (net buys and sells per month and year with average).
+- **P5-2.7** Investment timeline per month/year and saving streaks (current and longest months in a row with a buy).
+- **P5-2.8** Intelligence checks for emergency fund (from net-worth cash accounts) and buying power; allocation by ETF provider and by broker/portfolio.
+- **P5-2.9** Real returns using HICP (Eurostat, through the Worker, cached), shown next to nominal TWR/XIRR.
+- **P5-2.10** Hierarchical taxonomies on top of tags and custom categories with templates (asset classes, GICS sectors, MSCI regions, Kommer), JSON import/export, usable in allocation and rebalancing.
+
+### M3 Atlas · Connect
+
+| Order | Package | Review items | Effort |
+|---|---|---|---|
+| 1 | P5-3.1 Shared price Worker (fallback) | decision 2026-10-12 | M |
+| 2 | P5-3.2 PDF importers, batch A | Tier 3 #16 | L |
+| 3 | P5-3.3 PDF importers, batch B | Tier 3 #16 | L |
+| 4 | P5-3.4 FinTS through the user's Worker | decision 2026-10-12 | L+ |
+| 5 | P5-3.5 Bring-your-own-key aggregators | decision 2026-10-12 | L |
+| 6 | P5-3.6 Crypto wallets by public address | N20 | M–L |
+| 7 | P5-3.7 Reconciliation and data health | N11, N15, N23 | M |
+| 8 | P5-3.8 More exchange syncs | matrix gap | M |
+| 9 | P5-3.9 Bonds | Tier 1 #8 | M |
+| 10 | P5-3.10 More corporate actions | Tier 1 #9 | M |
+| 11 | P5-3.11 Alternative asset templates | N21 | S |
+
+- **P5-3.1** A second Worker deployment (same code, a `PRICE_ONLY` mode) that serves only market-data routes (`yf`, `yfsearch`, `cg`, FX, fundamentals, holdings, earnings, profile, steam prices) and refuses sync, share, MCP, broker relay, FinTS and Steam inventory. Rate-limited per IP, kill switch, no request logging beyond the cache. The app uses it only when no own Worker is set; an own Worker always wins. Settings → Privacy and the README state who runs it and what it sees (symbols, not amounts).
+- **P5-3.2** On-device PDF parsers with editable preview: flatex, Consorsbank, DEGIRO, onvista bank. Buy, sell, dividend, tax and fee documents.
+- **P5-3.3** Baader Bank (incl. Scalable documents not yet covered), Smartbroker+, Sparkasse/Deka (DekaBank depot), Postbank; dividend and tax documents of Trade Republic and Scalable. Fixtures are made up from public layouts; never commit real statements.
+- **P5-3.4** FinTS/HBCI: the browser builds the dialog, the user's Worker relays to the bank's FinTS URL (allowlist from the public bank list). Accounts, transactions and depot statements (HKWPD). PIN and TAN never stored; credentials optional in the encrypted vault (bank login name only). Decoupled TAN / pushTAN flows. Needs the owner's FinTS product ID (configuration, not in the repo).
+- **P5-3.5** SnapTrade (brokers) and GoCardless Bank Account Data (banks) with the user's own API keys stored only in the encrypted vault and used from the user's Worker. Read-only scopes; idempotent merge like exchange sync.
+- **P5-3.6** Read-only tracking of public addresses (BTC, ETH and major L2s, SOL, others as feasible) through explorer APIs via the Worker; no keys, no signing. Balances and, where available, transactions.
+- **P5-3.7** Reported vs computed balance per account and asset (exchange sync, FinTS, aggregators, wallets) with status colours; data-health checks: stale prices, missing FX, negative cash or holdings, broken transfer pairs, failed syncs with a fix hint. Extends `data-check.js` (stable `DQ-*` codes).
+- **P5-3.8** Add read-only sync for further exchanges with public APIs (candidates: Bitvavo, Bybit, KuCoin, Bitget), same relay and dedupe rules.
+- **P5-3.9** Bond asset type: nominal, coupon, frequency, maturity, accrued interest, coupons as income (reuse `interest-engine.js`), tax report support.
+- **P5-3.10** Spin-off, merger, ISIN change and symbol change on top of splits (`corporate-actions.js`), applied to lots and the tax FIFO.
+- **P5-3.11** Templates for art, P2P loans, life insurance, vehicles, startups, collectibles on top of custom categories and real assets.
+
+### M4 Atlas · Tax
+
+| Order | Package | Review items | Effort |
+|---|---|---|---|
+| 1 | P5-4.1 Loss carry-forward | Tier 2 #10, REVIEW #4 | M |
+| 2 | P5-4.2 Sell simulator | Tier 2 #11, N17, REVIEW #9 | S–M |
+| 3 | P5-4.3 Vorabpauschale forecast | Tier 2 #12, REVIEW #6 | S |
+| 4 | P5-4.4 Allowance harvesting plan | Tier 2 #13, REVIEW #5 | S–M |
+| 5 | P5-4.5 Crypto tax-free calendar | N16 | S |
+| 6 | P5-4.6 Cost-basis methods and per-wallet basis | Tier 1 (cost basis), N13, N18 | M |
+| 7 | P5-4.7 Jahressteuerbescheinigung reconciliation | Tier 2 #14, REVIEW #3 | M |
+| 8 | P5-4.8 Statements and audit exports | Tier 2 #15, N19, REVIEW #13 | M |
+| 9 | P5-4.9 Austria | decision 2026-10-12 | L |
+| 10 | P5-4.10 Switzerland | decision 2026-10-12 | L |
+| 11 | P5-4.11 US contribution limits | Tier 1 #6 (contribution limits) | S–M |
+
+- **P5-4.1** Loss carry-forward per pot (shares, other, § 23 private sales) across years and per depot; feeds Anlage KAP and the tax advisor.
+- **P5-4.2** "If I sell X today": lots consumed, gain, taxable vs tax-free part, Freigrenze and allowance effect, best date for crypto; stocks and funds with Teilfreistellung.
+- **P5-4.3** Expected Vorabpauschale per fund for the coming January and the cash needed on the clearing account; reminder in December.
+- **P5-4.4** December plan: which lots to sell and rebuy to use the remaining Sparerpauschbetrag, with Teilfreistellung and fees.
+- **P5-4.5** Per coin the amount that becomes tax-free today and in 1, 3, 6, 9 and 12 months.
+- **P5-4.6** Display methods average cost, LIFO, HIFO (and moving average for securities) next to FIFO; per-wallet cost basis option for crypto. German and Austrian tax keep their legal method; the method in use is always shown.
+- **P5-4.7** Parse the annual tax certificate of supported banks (PDF) and diff it against MAERMIN's figures per line.
+- **P5-4.8** Password-protected statement of assets (Vermögensaufstellung) PDF; roll-forward/audit report; DATEV-style accounting export; source-of-funds trace for crypto withdrawals.
+- **P5-4.9** Austria: KESt 27.5 %, special rules for funds (ausschüttungsgleiche Erträge), crypto since 2022 rules, loss offset within the year; tax report and disclaimer. Sources cited in code comments; owner approves sources before code.
+- **P5-4.10** Switzerland: private capital gains tax-free, dividend and interest income, withholding tax 35 % reclaim, wealth-tax statement (Wertschriftenverzeichnis) per year-end; sources as above.
+- **P5-4.11** US: contribution limits for IRA, Roth IRA and 401(k) per year with remaining room.
+
+### M5 Atlas · Platform
+
+| Order | Package | Review items | Effort |
+|---|---|---|---|
+| 1 | P5-5.1 Web push | Tier 3 #17 | M |
+| 2 | P5-5.2 Local MCP server | decision 2026-10-12 | L |
+| 3 | P5-5.3 Budget and spending | decision 2026-10-12 | L |
+| 4 | P5-5.4 Research pages | decision 2026-10-12, PP charts | L |
+| 5 | P5-5.5 Event feed and ICS export | N12, Tier 1 #7, Tier 3 #11 | M |
+| 6 | P5-5.6 Serverless sync transports | Tier 3 #20, REVIEW #10 | M |
+| 7 | P5-5.7 Saving goals with glide path | Tier 3 #18 | S–M |
+| 8 | P5-5.8 Positioning and README | N14 | S |
+| 9 | P5-5.9 Release v12.0.0 "Atlas" | — | S |
+
+- **P5-5.1** Web push (VAPID) through the user's Worker for alert rules, risk monitor, dividends and tax reminders; payloads carry no amounts or symbols unless the user opts in; works with the app closed.
+- **P5-5.2** `mcp/` folder with a Node package `maermin-mcp` (stdio MCP server). Reads an encrypted vault backup or the sync blob, decrypts locally with the password (reusing `crypto-vault.js`), never opens network connections except to read the user's own sync blob when asked. Read-only tools: positions, transactions, performance, dividends, tax summary, allocation; scopes chosen at start; amounts optional. Setup guide for Claude Desktop / Claude Code.
+- **P5-5.3** Budget and spending from FinTS / aggregator transactions and CSV bank exports: categories with rules, splits, budgets per month, cash-flow Sankey, recurring payments. New keys are sensitive.
+- **P5-5.4** Per-security page: key figures, dividends, earnings, analyst ratings and targets where the data source allows, price chart with SMA/EMA/MACD/Bollinger, the user's own position and journal. Data through the Worker; check licence terms of each source.
+- **P5-5.5** One dated event feed for held and watched symbols: ex-dates, pay dates, earnings, splits, savings-plan dates, tax dates, selected macro dates; ICS export of the same events.
+- **P5-5.6** Sync the encrypted blob through a local file (File System Access) or WebDAV/Nextcloud, same format and HMAC as the Worker sync.
+- **P5-5.7** Saving goals with target date, glide path and on-track status, linked to portfolios or tags.
+- **P5-5.8** README, landing text and comparison table updated for Atlas; say plainly that Vorabpauschale, Anlage KAP and Sparerpauschbetrag tools are built in.
+- **P5-5.9** RELEASE.md section v12.0.0 "Atlas", version 12.0.0 in package.json, header badge, service-worker cache name, migration notes, release workflow run by the owner.
+
 ## Progress
 
 Updated in each package's PR. After a context reset: read this table and `git log`, then continue with the first package that is not merged.
@@ -232,3 +392,53 @@ Gate note: `npm run test:e2e` needs a Chromium. On a machine without the Playwri
 | P4-8 Import from Portfolio Performance / Parqet | merged | `claude/affectionate-brahmagupta-raixir` | https://github.com/Maermin/MAERMIN/pull/111 | Owner decision 2026-10-09: no files from the owner; find the formats from the vendors' own material. Portfolio Performance: layout from the exporter's source (`CSVExporter.java`, labels in `messages*.properties` / `model/labels*.properties`, repo master 2026-10-09), English and German exports read, other languages recognised and refused with the fix. Parqet: header and row shapes from an export published in a public converter repo (ModnarUser/parqet_to_pp_converter, `src/Sample.csv`, 2024-04-08); parqet.com itself was unreachable. `tracker-import.js` (`window.MaerminTrackerImport`): `detect(headers)` (exact header match), `parse(text)`; called from `import-mapping.js` `preview()` (wins over a picked broker) and `quickCSV()`, so the wizard's preview, ISIN → ticker step and duplicate check apply. Booked: buy, sell, dividend (gross, foreign tax → `withholdingTax`; taxes on a German ISIN only in the note), inbound delivery / TransferIn as buy; every other row listed with its reason. Wizard tiles Portfolio Performance and Parqet with export steps. No storage key. Test fixtures are made up. |
 | Release v11.0.0 | merged | `claude/affectionate-brahmagupta-raixir` | https://github.com/Maermin/MAERMIN/pull/112 | Owner request 2026-10-09: release everything on main as v11 and make the code say v11. Most of it already did (package.json 11.0.0, title, README badge, file headers). Changed: header badge `v10` → `v11`, service-worker cache `maermin-v9` → `maermin-v11` (old caches are dropped on activate, the shell is fetched again once), RELEASE.md Unreleased (Phase 4) folded into v11.0.0 dated 2026-10-09, README changelog row. Comments such as "New in v10" or "v12: per-key records" name when a feature or storage format came in and stay. Merge commit `11f28b6`. The tag `MAERMIN_v11` could not be pushed from the build environment (the git proxy refuses tag pushes) and no release API is available: Owner asked on 2026-10-09 to do the release from here: `.github/workflows/release.yml` (manual `workflow_dispatch`, `contents: write`) creates tag + GitHub release on the commit it runs on, notes = the RELEASE.md section; P4-9 notes folded into v11.0.0 too, so `MAERMIN_v11` is cut from main after this PR. |
 | P4-9 README and demo | merged | `claude/affectionate-brahmagupta-raixir` | https://github.com/Maermin/MAERMIN/pull/113 | **Privacy claims** checked against the code (every network call, storage, sync, share, exchange relay): corrected in README and Settings → Privacy (EN + DE) where not exact — badges "No Server · 100 % Local" / "No Account Required", "never leaves your device", "stored in localStorage", "encrypted" (at-rest encryption is optional, default on; some settings stay plaintext), sync storage (Durable Object, KV fallback), exchange relay (API key travels in the request header; Bitpanda unsigned), React "on every start" (service-worker cache), Worker contacts and stored data (CoinGecko, per-IP share counter, caches up to 30 days), share panel "no IP-derived data". Also two app texts that said crypto works without a Worker (it does not since the CoinGecko-via-Worker fix). **Comparison table** in the README from REPORT.md § 4, each competitor cell as stated on the linked pages on 2026-10-03; MAERMIN column for v11.0. **Screenshots** (`docs/screenshots/`, demo data). **Demo**: `MaerminDemo.closeHistory(today)` = made-up deterministic daily closes (Brownian bridge through every demo trade price, ending at the demo price), used in memory only in demo mode, so value chart, TWR, monthly grid and risk figures work without a Worker; demo dividend fixed (quantity × price, 15 % withholding; it was `cashAmount`, which no report read), a fully closed position (TSLA), no CS2 Worker banner in demo. |
+| P5-1.1 Quick fixes | planned | | | |
+| P5-1.2 Open items from Phases 1–4 | planned | | | |
+| P5-1.3 Cash-flow transaction types | planned | | | |
+| P5-1.4 Clearing account per portfolio | planned | | | |
+| P5-1.5 Return figures on the overview | planned | | | |
+| P5-1.6 Plain-language verdicts | planned | | | |
+| P5-1.7 Richer demo | planned | | | |
+| P5-1.8 Demo fixtures for Worker-only views | planned | | | |
+| P5-1.9 Public demo link | planned | | | |
+| P5-2.1 Value-change attribution | planned | | | |
+| P5-2.2 Benchmark replay of own cash flows | planned | | | |
+| P5-2.3 Full ETF look-through | planned | | | |
+| P5-2.4 Heatmap drill-down and filters | planned | | | |
+| P5-2.5 Dividends depth | planned | | | |
+| P5-2.6 Per-holding IRR, trade ranking, capital flow | planned | | | |
+| P5-2.7 Investment timeline and saving streaks | planned | | | |
+| P5-2.8 New checks and allocation views | planned | | | |
+| P5-2.9 Real (inflation-adjusted) returns | planned | | | |
+| P5-2.10 Taxonomies | planned | | | |
+| P5-3.1 Shared price Worker (fallback) | planned | | | |
+| P5-3.2 PDF importers, batch A | planned | | | |
+| P5-3.3 PDF importers, batch B | planned | | | |
+| P5-3.4 FinTS through the user's Worker | planned | | | |
+| P5-3.5 Bring-your-own-key aggregators | planned | | | |
+| P5-3.6 Crypto wallets by public address | planned | | | |
+| P5-3.7 Reconciliation and data health | planned | | | |
+| P5-3.8 More exchange syncs | planned | | | |
+| P5-3.9 Bonds | planned | | | |
+| P5-3.10 More corporate actions | planned | | | |
+| P5-3.11 Alternative asset templates | planned | | | |
+| P5-4.1 Loss carry-forward | planned | | | |
+| P5-4.2 Sell simulator | planned | | | |
+| P5-4.3 Vorabpauschale forecast | planned | | | |
+| P5-4.4 Allowance harvesting plan | planned | | | |
+| P5-4.5 Crypto tax-free calendar | planned | | | |
+| P5-4.6 Cost-basis methods and per-wallet basis | planned | | | |
+| P5-4.7 Jahressteuerbescheinigung reconciliation | planned | | | |
+| P5-4.8 Statements and audit exports | planned | | | |
+| P5-4.9 Austria | planned | | | |
+| P5-4.10 Switzerland | planned | | | |
+| P5-4.11 US contribution limits | planned | | | |
+| P5-5.1 Web push | planned | | | |
+| P5-5.2 Local MCP server | planned | | | |
+| P5-5.3 Budget and spending | planned | | | |
+| P5-5.4 Research pages | planned | | | |
+| P5-5.5 Event feed and ICS export | planned | | | |
+| P5-5.6 Serverless sync transports | planned | | | |
+| P5-5.7 Saving goals with glide path | planned | | | |
+| P5-5.8 Positioning and README | planned | | | |
+| P5-5.9 Release v12.0.0 "Atlas" | planned | | | |

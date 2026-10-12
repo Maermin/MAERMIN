@@ -66,6 +66,22 @@ Risk / Health views (no new tabs), plus a Settings card exposing
 
 ---
 
+## Next — v12 "Atlas" (PLAN.md Phase 5, scope confirmed 2026-10-12)
+
+*Atlas — the whole map of your wealth.* One major release in five milestones, built from the October 2026 competitor review ([docs/COMPETITOR-REVIEW-2026-10.md](docs/COMPETITOR-REVIEW-2026-10.md)). Packages, order and decisions live in [PLAN.md](PLAN.md) → Phase 5; the agent brief is [docs/ATLAS-AGENT-PROMPT.md](docs/ATLAS-AGENT-PROMPT.md).
+
+| Milestone | Highlights |
+|---|---|
+| **M1 Foundation** | Quick fixes from the hands-on review, cash-flow transaction types (deposit, withdrawal, transfer, fee, tax), clearing account per portfolio, return figures on the overview, plain-language verdicts, richer demo, public demo link |
+| **M2 Insight** | Value-change attribution, benchmark replay of the user's own cash flows, full ETF look-through, heatmap drill-down, 24-month dividend forecast and dividend matrix, per-holding IRR, trade ranking, real returns, taxonomies |
+| **M3 Connect** | Owner-hosted price-only Worker as fallback, eight DACH PDF importers, FinTS through the user's own Worker, bring-your-own-key SnapTrade/GoCardless, crypto wallets by address, balance reconciliation, bonds, more corporate actions |
+| **M4 Tax** | Loss carry-forward, sell simulator, Vorabpauschale forecast, allowance harvesting, crypto tax-free calendar, more cost-basis views, tax-certificate reconciliation, audit exports, Austria and Switzerland |
+| **M5 Platform** | Web push, local MCP server (`maermin-mcp`, decrypts on the user's machine), budget and spending, research pages, event feed with ICS export, serverless sync, saving goals, release v12.0.0 |
+
+Still out of scope for Atlas: native apps, community features, UK tax, new UI languages, an add-on system, a public third-party API.
+
+---
+
 ## Deferred — with rationale (these break "client-side + no new tabs")
 
 | Epic | Why deferred | What it needs first |
