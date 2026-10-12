@@ -7,11 +7,13 @@
 // Steuerbescheinigung.
 //
 //   Anlage KAP (direct securities, no funds)
-//     19  foreign capital income: dividends + interest + gains, minus losses
-//         other than share losses (those are not included)
+//     19  foreign capital income: dividends + interest + gains, minus all
+//         losses incl. share losses (may be negative)
 //     20  of which gains from selling shares
 //     22  losses included in 19, without share losses
-//     23  share losses, not included in 19
+//     23  share losses included in 19 (owner decision 2026-10-12, P5-1.2:
+//         the form's "in Zeile 19 enthaltene" wording; line 23 only breaks
+//         them out so the Finanzamt can restrict their offset)
 //     41  creditable foreign withholding tax (max 15 % of each gross payout)
 //   Anlage KAP-INV (investment funds, amounts BEFORE Teilfreistellung)
 //      4-8   distributions        } Aktienfonds, Mischfonds, Immobilienfonds,
@@ -60,7 +62,7 @@ function __(k, f, v) { return (typeof window !== 'undefined' && window.MaerminI1
       var g = num(d.gain) - Math.max(0, num(d.vapCredit));
       if (isFund(d.symbol)) { var t = typeOf(d.symbol); gain[t] = (gain[t] || 0) + g; return; }
       if (g >= 0) { z19 += g; if (d.pot === 'shares') z20 += g; }
-      else if (d.pot === 'shares') z23 += -g;
+      else if (d.pot === 'shares') { z19 += g; z23 += -g; }
       else { z19 += g; z22 += -g; }
     });
     (inputs.dividends || []).forEach(function (d) {
@@ -76,10 +78,10 @@ function __(k, f, v) { return (typeof window !== 'undefined' && window.MaerminI1
 
     var rows = [];
     var push = function (form, line, label, amount) { amount = r2(amount); if (amount !== 0) rows.push({ form: form, line: line, label: label, amount: amount }); };
-    push('KAP', 19, __('kapL19', 'Foreign capital income (without funds), share losses not included'), z19);
+    push('KAP', 19, __('kapL19', 'Foreign capital income (without funds), share losses included'), z19);
     push('KAP', 20, __('kapL20', 'of which gains from selling shares'), z20);
     push('KAP', 22, __('kapL22', 'losses included in line 19, without share losses'), z22);
-    push('KAP', 23, __('kapL23', 'losses from selling shares, not included in line 19'), z23);
+    push('KAP', 23, __('kapL23', 'losses from selling shares included in line 19'), z23);
     push('KAP', 41, __('kapL41', 'creditable foreign withholding tax'), z41);
     FUND_ORDER.forEach(function (t) { push('KAP-INV', INV_DIST[t], __('kapInvDist', 'Distributions of {type}', { type: fundLabel(t) }), dist[t] || 0); });
     FUND_ORDER.forEach(function (t) { push('KAP-INV', INV_VAP[t], __('kapInvVap', 'Vorabpauschale of {type}', { type: fundLabel(t) }), vap[t] || 0); });
