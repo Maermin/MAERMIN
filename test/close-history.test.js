@@ -170,6 +170,14 @@ const json = (o, status) => ({ ok: (status || 200) < 400, status: status || 200,
     const r3 = await CH.sync({ transactions: [tx('crypto', 'ODD', '2025-05-20')], workerBase: 'https://w.example', now: NOW, chunkDelayMs: 0, yahooCrypto: T.yahooCryptoSymbol, priceOf: () => 0.3,
       cgGet: async () => { const e = new Error('busy'); e.status = 429; throw e; }, fetch: fetchFn });
     ok('CoinGecko busy on the fallback: "try later", not "no history"', r3.skipped.includes('crypto|ODD') && r3.failed.length === 0 && !r3.store.miss['crypto|ODD'], r3);
+    ok('a pair Yahoo answered 404 for is remembered', CH.noListing.has('GONEX-USD'));
+    const calls4 = [];
+    await CH.sync({ transactions: [tx('crypto', 'GONEX', '2025-05-20')], workerBase: 'https://w.example', now: NOW, chunkDelayMs: 0, cryptoDelayMs: 0, yahooCrypto: T.yahooCryptoSymbol,
+      fetch: async (u) => { calls4.push(u); return fetchFn(u); } });
+    ok('... and not asked again: straight to CoinGecko', !calls4.some((u) => /action=yf/.test(u)) && calls4.some((u) => /coins\/gonex\//.test(u)), calls4);
+    CH.noListing.clear('GONEX-USD');
+    ok('renamed coins map to the pair Yahoo lists', T.yahooCryptoSymbol('zelcash') === 'FLUX-USD' && T.yahooCryptoSymbol('starknet') === 'STRK-USD'
+      && T.yahooCryptoSymbol('polygon-ecosystem-token') === 'POL28321-USD' && T.coinGeckoId('FLUX') === 'zelcash');
   }
 
   console.log('real Worker code, synthetic Yahoo upstream:');

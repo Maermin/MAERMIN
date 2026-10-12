@@ -82,13 +82,25 @@
   // fetches skip them instead of re-probing 8 exchange suffixes per chart range
   // and re-asking profile/fundamentals/earnings - one holding typed as "Apple"
   // cost ~70 Worker requests against a per-IP limit (AUDIT BUG-036). Only clean
-  // 404s mark a symbol; timeouts, 429 and 5xx do not.
+  // 404s mark a symbol; timeouts, 429 and 5xx do not. Kept in localStorage
+  // too, so a reload does not re-probe every unlisted coin pair ("ZELCASH-USD")
+  // on each refresh and chart build.
   var NO_LISTING_MS = 6 * 3600 * 1000;
+  var NO_LISTING_KEY = 'maermin_no_listing';
   var _noListing = {};
+  function lsNoListing() { try { return typeof localStorage !== 'undefined' ? localStorage : null; } catch (e) { return null; } }
+  (function () {
+    var ls = lsNoListing(); if (!ls) return;
+    try {
+      var saved = JSON.parse(ls.getItem(NO_LISTING_KEY) || '{}') || {}, t0 = Date.now();
+      Object.keys(saved).forEach(function (k) { if (t0 - saved[k] < NO_LISTING_MS) _noListing[k] = saved[k]; });
+    } catch (e) {}
+  })();
+  function saveNoListing() { var ls = lsNoListing(); if (ls) { try { ls.setItem(NO_LISTING_KEY, JSON.stringify(_noListing)); } catch (e) {} } }
   var noListing = {
-    mark: function (sym) { var k = String(sym || '').trim().toUpperCase(); if (k) _noListing[k] = Date.now(); },
+    mark: function (sym) { var k = String(sym || '').trim().toUpperCase(); if (k) { _noListing[k] = Date.now(); saveNoListing(); } },
     has: function (sym) { var t = _noListing[String(sym || '').trim().toUpperCase()]; return !!(t && Date.now() - t < NO_LISTING_MS); },
-    clear: function (sym) { delete _noListing[String(sym || '').trim().toUpperCase()]; }
+    clear: function (sym) { var k = String(sym || '').trim().toUpperCase(); if (_noListing[k]) { delete _noListing[k]; saveNoListing(); } }
   };
 
   function keyOf(category, symbol) {
@@ -326,10 +338,14 @@
       // of CoinGecko's few-calls-a-minute limit); CoinGecko when Yahoo does not
       // know the coin or files the ticker under another one.
       var pair = o.workerBase && o.yahooCrypto ? o.yahooCrypto(job.symbol) : '';
-      if (!pair) return fetchCoinGecko(job, o);
+      if (!pair || noListing.has(pair)) return fetchCoinGecko(job, o);
       var live = o.priceOf ? o.priceOf(job.symbol) : 0;
       return getJson(o.fetch, o.workerBase + '?action=yf&symbol=' + encodeURIComponent(pair) + '&interval=1d&range=' + rangeFor(job.from, today), o.timeoutMs)
-        .then(function (j) { return ingestYahoo(j, { at: o.now, sym: pair }); }, function (e) { if (e && e.status === 429) throw e; return null; })
+        .then(function (j) { return ingestYahoo(j, { at: o.now, sym: pair }); }, function (e) {
+          if (e && e.status === 429) throw e;
+          if (e && e.status === 404) noListing.mark(pair); // Yahoo has no such pair: CoinGecko from now on
+          return null;
+        })
         .then(function (s) {
           if (plausible(s, live)) return s;
           return fetchCoinGecko(job, o).catch(function (e) {

@@ -180,7 +180,7 @@
   var COINGECKO_IDS = {
     BTC: 'bitcoin', ETH: 'ethereum', SOL: 'solana', ADA: 'cardano', XRP: 'ripple', DOGE: 'dogecoin',
     DOT: 'polkadot', LTC: 'litecoin', BCH: 'bitcoin-cash', LINK: 'chainlink', MATIC: 'matic-network',
-    POL: 'polygon-ecosystem-token', AVAX: 'avalanche-2', BNB: 'binancecoin', TRX: 'tron', UNI: 'uniswap',
+    POL: 'polygon-ecosystem-token', FLUX: 'zelcash', STRK: 'starknet', AVAX: 'avalanche-2', BNB: 'binancecoin', TRX: 'tron', UNI: 'uniswap',
     ATOM: 'cosmos', ETC: 'ethereum-classic', XLM: 'stellar', ALGO: 'algorand', VET: 'vechain',
     ICP: 'internet-computer', FIL: 'filecoin', EGLD: 'elrond-erd-2', THETA: 'theta-token', EOS: 'eos',
     XMR: 'monero', NEO: 'neo', DASH: 'dash', ZEC: 'zcash', AAVE: 'aave', COMP: 'compound-governance-token',
@@ -217,7 +217,8 @@
   // against the live one: a wrong match falls back to CoinGecko.
   var YAHOO_CRYPTO = {
     UNI: 'UNI7083', GRT: 'GRT6719', APT: 'APT21794', SUI: 'SUI20947', ARB: 'ARB11841',
-    TAO: 'TAO22974', PEPE: 'PEPE24478', TON: 'TON11419', STX: 'STX4847', IMX: 'IMX10603', XBT: 'BTC'
+    TAO: 'TAO22974', PEPE: 'PEPE24478', TON: 'TON11419', STX: 'STX4847', IMX: 'IMX10603', XBT: 'BTC',
+    POL: 'POL28321'
   };
   var GECKO_TICKER = null;
   /** Stored crypto symbol or CoinGecko id -> Yahoo pair ("BTC" / "bitcoin" -> "BTC-USD"; USD pairs cover far more coins than EUR), or '' when unknown. */
