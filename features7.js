@@ -284,7 +284,7 @@ function NewsFeedView({ portfolio, transactions, apiKeys, theme, formatPrice }) 
     // Header
     React.createElement('div', { style: { display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '1.25rem', flexWrap: 'wrap', gap: '0.75rem' } },
       React.createElement('div', null,
-        React.createElement('h2', { style: { color: theme.text, fontSize: '1.35rem', fontWeight: '800', marginBottom: '0.125rem' } }, __('newsTitle', 'News Feed')),
+        React.createElement('h2', { style: { color: theme.text, fontSize: '1.35rem', fontWeight: '800', marginBottom: '0.125rem' } }, __('newsTitle', 'News Feed'), ' ', window.MaerminDemoFixtures && window.MaerminDemoFixtures.badge(React, theme, workerBase)),
         React.createElement('p', { style: { color: theme.textSecondary, fontSize: '0.8rem' } }, __('newsSubtitle', 'Latest news for your held positions'))
       ),
       React.createElement('button', { onClick: fetchNews, disabled: loading || !hasWorker, title: hasWorker ? undefined : __('newsNeedWorker', 'Add a Worker URL in API Settings to load news.'), style: { padding: '0.5rem 1rem', background: (loading || !hasWorker) ? theme.inputBg : `${theme.accent}18`, color: (loading || !hasWorker) ? theme.textSecondary : theme.accent, border: `1px solid ${theme.accent}33`, borderRadius: '8px', cursor: (loading || !hasWorker) ? 'not-allowed' : 'pointer', fontSize: '0.82rem', fontWeight: '600' } },

@@ -352,9 +352,13 @@ function InvestmentTracker() {
     return v;
   };
 
+  // P5-1.8: in the demo the Worker-only views get the reserved sample URL
+  // (answered in the page by MaerminDemoFixtures, never sent anywhere), and the
+  // FX resolver gets the demo's EUR/USD history in memory.
+  const DFX = window.MaerminDemoFixtures;
   const fxAt = useMemo(
-    () => (window.MaerminFxHistory ? window.MaerminFxHistory.fxResolver(exchangeRate) : null),
-    [exchangeRate, fxHistVersion]
+    () => (window.MaerminFxHistory ? window.MaerminFxHistory.fxResolver(exchangeRate, demoMode && DFX ? DFX.fxHistory() : undefined) : null),
+    [exchangeRate, fxHistVersion, demoMode]
   );
 
   // Bumped when a corporate action (split) is added/removed, so buildPositions
@@ -743,6 +747,8 @@ function InvestmentTracker() {
   });
   // CoinGecko goes through the Worker: the client builds its URLs from it.
   if (window.MaerminCoinGecko && window.MaerminCoinGecko.setBase) window.MaerminCoinGecko.setBase(apiKeys.cs2Worker);
+  // P5-1.8: the Worker URL the Worker-only views get (the sample URL in the demo).
+  const viewWorkerUrl = demoMode && DFX ? DFX.BASE : apiKeys.cs2Worker;
 
   // Fetch a historical price series for each savings-plan symbol (crypto via
   // CoinGecko market_chart in EUR; stocks via the YF Worker, converted to EUR at
@@ -972,6 +978,13 @@ function InvestmentTracker() {
   };
   const valuePath = useMemo(() => buildValuePath(activeTransactions, clearingByPf[activePortfolioId]),
     [activeTransactions, closeSeriesEUR, fetchedPrices, exchangeRate, fxAt, corpActionsRev, demoMode, clearingByPf, activePortfolioId]);
+  // P5-1.8: the demo records no snapshots - period returns read the daily value
+  // of all demo portfolios instead (securities only, like the snapshots).
+  const demoPeriodSeries = useMemo(() => {
+    if (!demoMode) return null;
+    const vp = buildValuePath(transactions);
+    return vp && vp.points && vp.points.length ? vp.points.map(p => ({ d: p.d, v: p.v })) : null;
+  }, [demoMode, transactions, closeSeriesEUR, fetchedPrices, exchangeRate, fxAt, corpActionsRev]);
 
   // Inputs for the analytics views, all from the same daily closes:
   //   index   flow-neutral TWR index [{ d, v }] (≤ 3 years) - benchmark, rolling risk, factors
@@ -3159,8 +3172,8 @@ function InvestmentTracker() {
                 privacyMode, formatPrice, getCurrencySymbol
               })),
             React.createElement(window.MaerminPerformance.View, {
-              theme: currentTheme, t, formatPrice, getCurrencySymbol, workerUrl: apiKeys.cs2Worker, demo: demoMode,
-              transactions, exchangeRate, fxAt
+              theme: currentTheme, t, formatPrice, getCurrencySymbol, workerUrl: viewWorkerUrl, demo: demoMode,
+              series: demoPeriodSeries || undefined, transactions, exchangeRate, fxAt
             })
           ) : renderAnalyticsPlaceholder(t.navPerformance || 'Performance');
 
@@ -3237,7 +3250,7 @@ function InvestmentTracker() {
       case 'discovery':
         return window.MaerminDiscovery ?
           React.createElement(window.MaerminDiscovery.View, {
-            workerUrl: apiKeys.cs2Worker, usdToEur: exchangeRate,
+            workerUrl: viewWorkerUrl, usdToEur: exchangeRate,
             theme: currentTheme, t, formatPrice, getCurrencySymbol
           }) : renderAnalyticsPlaceholder(t.navDiscovery || 'Discovery');
 
@@ -3321,13 +3334,13 @@ function InvestmentTracker() {
           // Benchmark overlay (α/β/TE/IR/R²) — folds the analytics engine into Returns.
           window.MaerminAnalyticsViews && React.createElement('div', { style: { padding: '0 1.5rem 1.5rem' } },
             React.createElement(window.MaerminAnalyticsViews.BenchmarkPanel, {
-              portfolio, priceHistory, valueSeries: dailyAnalytics.index, workerUrl: apiKeys.cs2Worker, theme: currentTheme, t, formatPrice
+              portfolio, priceHistory, valueSeries: dailyAnalytics.index, workerUrl: viewWorkerUrl, theme: currentTheme, t, formatPrice
             }),
             // FX attribution: split the EUR return into asset vs exchange-rate
             // parts (no new tab; the EUR/USD path comes via the existing yf route).
             window.MaerminFxAttribution && React.createElement(window.MaerminFxAttribution.Panel, {
               portfolio, prices, priceHistory: { ...priceHistory, ...dailyAnalytics.perHolding }, transactions: activeTransactions,
-              workerUrl: apiKeys.cs2Worker, theme: currentTheme, t, formatPrice
+              workerUrl: viewWorkerUrl, theme: currentTheme, t, formatPrice
             })
           )
         ) : renderAnalyticsPlaceholder(t.navReturns || 'Returns');
@@ -3349,7 +3362,7 @@ function InvestmentTracker() {
             window.MaerminFxAttribution && React.createElement('div', { style: { padding: '0 1.5rem 1.5rem' } },
               React.createElement(window.MaerminFxAttribution.Panel, {
                 portfolio, prices, priceHistory: { ...priceHistory, ...dailyAnalytics.perHolding }, transactions: activeTransactions,
-                workerUrl: apiKeys.cs2Worker, theme: currentTheme, t, formatPrice
+                workerUrl: viewWorkerUrl, theme: currentTheme, t, formatPrice
               })
             )
           ) : renderAnalyticsPlaceholder(t.navAttribution || 'Attribution');
@@ -3357,7 +3370,7 @@ function InvestmentTracker() {
       case 'news':
         return window.MaerminFeatures7 ?
           React.createElement(window.MaerminFeatures7.NewsFeedView, {
-            portfolio, transactions: activeTransactions, apiKeys,
+            portfolio, transactions: activeTransactions, apiKeys: demoMode && DFX ? { ...apiKeys, cs2Worker: DFX.BASE } : apiKeys,
             theme: currentTheme, formatPrice, getCurrencySymbol
           }) : renderAnalyticsPlaceholder(t.navNewsFeed || 'News Feed');
 
@@ -3409,7 +3422,7 @@ function InvestmentTracker() {
             React.createElement('div', { style: { padding: '0 1.5rem 1.5rem' } },
               React.createElement(window.MaerminEarnings.Panel, {
                 theme: currentTheme,
-                workerUrl: apiKeys.cs2Worker,
+                workerUrl: viewWorkerUrl,
                 symbols: [...new Set(activeTransactions.filter(tx => tx.category === 'stocks').map(tx => (tx.symbol || '').toUpperCase()).filter(Boolean))]
               }))
         );

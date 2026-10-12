@@ -311,7 +311,7 @@ function __(k, f, v) { return (typeof window !== 'undefined' && window.MaerminI1
 
     return e('div', { style: { padding: '1.25rem 1.5rem' } },
       e('div', { style: { display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '0.6rem', marginBottom: '0.3rem' } },
-        e('h2', { style: { color: text, fontSize: '1.35rem', fontWeight: 800, margin: 0 } }, t.navDiscovery || 'Discovery'),
+        e('h2', { style: { color: text, fontSize: '1.35rem', fontWeight: 800, margin: 0 } }, t.navDiscovery || 'Discovery', ' ', window.MaerminDemoFixtures && window.MaerminDemoFixtures.badge(React, theme, workerBase)),
         e('input', { type: 'text', value: query, onChange: function (ev) { setQuery(ev.target.value); }, placeholder: __('dsFilterPh', 'Filter symbol / name…'), 'aria-label': __('dsFilterPh', 'Filter symbol / name…'), style: { background: inputBg, border: '1px solid ' + border, borderRadius: '8px', padding: '0.45rem 0.7rem', color: text, fontSize: '0.82rem', minWidth: '180px' } })),
       e('div', { style: { color: dim, fontSize: '0.82rem', marginBottom: '0.9rem' } }, __('dsIntro', 'Read-only screener for ETFs, stocks & crypto. Discover, then add via the usual flow — Discovery never touches your holdings.')),
       e('div', { style: { display: 'flex', gap: '0.4rem', flexWrap: 'wrap', marginBottom: '0.7rem' } }, TABS.map(function (x) { return pill(tab === x.id, x.label, function () { setTab(x.id); }, x.id); })),

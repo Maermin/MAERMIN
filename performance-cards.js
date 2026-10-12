@@ -150,27 +150,55 @@ function __(k, f, v) { return (typeof window !== 'undefined' && window.MaerminI1
                   .filter(Boolean);
   }
 
+  // Day-over-day moves without the money put in or taken out (P5-1.8): a buy
+  // or a sale is not a gain or a loss. flows = [{ d, amount }] as for the
+  // period cards; the value path's rule applies (flows at the end of the day,
+  // MaerminValuePath.fromValues). Without flows - or when the snapshots and the
+  // transactions do not describe the same book - the raw moves are used.
+  // -> [{ d, r, abs }] (r as a fraction, abs in EUR), or [] for < 2 points.
+  function neutralSteps(series, flows) {
+    var s = cleanSeries(series), out = [];
+    if (s.length < 2) return out;
+    var fl = Array.isArray(flows) ? flows.filter(function (f) { return f && /^\d{4}-\d{2}-\d{2}$/.test(f.d) && isFinite(f.amount); }) : [];
+    var VP = fl.length ? valuePathApi() : null;
+    var tw = VP && VP.fromValues ? VP.fromValues(s, fl) : null;
+    var flowIn = function (from, to) { return fl.reduce(function (sum, f) { return f.d > from && f.d <= to ? sum + Number(f.amount) : sum; }, 0); };
+    if (tw && tw.steps) {
+      var at = {};
+      for (var k = 1; k < s.length; k++) at[s[k].d] = s[k].v - s[k - 1].v - flowIn(s[k - 1].d, s[k].d);
+      return tw.steps.map(function (st) { return { d: st.d, r: st.r, abs: at[st.d] }; });
+    }
+    for (var i = 1; i < s.length; i++) {
+      if (s[i - 1].v === 0) continue;
+      out.push({ d: s[i].d, r: s[i].v / s[i - 1].v - 1, abs: s[i].v - s[i - 1].v });
+    }
+    return out;
+  }
+  // The series as a flow-neutral index on the scale of its first value.
+  function neutralIndex(series, flows) {
+    var s = cleanSeries(series);
+    if (!s.length) return [];
+    var v = s[0].v, out = [{ d: s[0].d, v: v }];
+    neutralSteps(s, flows).forEach(function (st) { v = v * (1 + st.r); out.push({ d: st.d, v: v }); });
+    return out;
+  }
+
   // Quick "best/worst single day" over the series — a cheap insight the value
   // history makes free. Returns { best, worst } day-over-day moves or null.
-  function dailyExtremes(series) {
-    var s = cleanSeries(series);
-    if (s.length < 2) return null;
+  function dailyExtremes(series, flows) {
     var best = null, worst = null;
-    for (var i = 1; i < s.length; i++) {
-      var prev = s[i - 1].v, cur = s[i].v;
-      if (prev === 0) continue;
-      var pct = ((cur - prev) / prev) * 100;
-      var move = { date: s[i].d, abs: cur - prev, pct: pct };
-      if (!best || pct > best.pct) best = move;
-      if (!worst || pct < worst.pct) worst = move;
-    }
+    neutralSteps(series, flows).forEach(function (st) {
+      var move = { date: st.d, abs: st.abs, pct: st.r * 100 };
+      if (!best || move.pct > best.pct) best = move;
+      if (!worst || move.pct < worst.pct) worst = move;
+    });
     return (best || worst) ? { best: best, worst: worst } : null;
   }
 
   // ---- #2 Drawdown / underwater (snapshot-derived) -------------------------
   // Per-point drawdown from the running peak: [{ d, dd }] with dd <= 0 (percent).
-  function drawdownSeries(series) {
-    var s = cleanSeries(series);
+  function drawdownSeries(series, flows) {
+    var s = neutralIndex(series, flows);
     var peak = -Infinity, out = [];
     for (var i = 0; i < s.length; i++) {
       if (s[i].v > peak) peak = s[i].v;
@@ -179,8 +207,8 @@ function __(k, f, v) { return (typeof window !== 'undefined' && window.MaerminI1
     return out;
   }
   // Worst peak-to-trough drawdown + recovery info + the current drawdown.
-  function drawdownStats(series) {
-    var s = cleanSeries(series);
+  function drawdownStats(series, flows) {
+    var s = neutralIndex(series, flows);
     if (s.length < 2) return null;
     var peak = s[0].v, peakDate = s[0].d;
     var maxDd = 0, ddPeakDate = s[0].d, ddPeakVal = s[0].v, troughDate = s[0].d;
@@ -204,8 +232,8 @@ function __(k, f, v) { return (typeof window !== 'undefined' && window.MaerminI1
 
   // ---- #3 Goal ETA (snapshot-derived CAGR + contributions) -----------------
   // Annualised return (%) from the first to the last snapshot, or null.
-  function cagrFromSeries(series) {
-    var s = cleanSeries(series);
+  function cagrFromSeries(series, flows) {
+    var s = neutralIndex(series, flows);
     if (s.length < 2 || s[0].v <= 0) return null;
     var days = (Date.parse(s[s.length - 1].d) - Date.parse(s[0].d)) / 86400000;
     if (days < 1) return null;
@@ -240,10 +268,10 @@ function __(k, f, v) { return (typeof window !== 'undefined' && window.MaerminI1
   }
   // Portfolio vs benchmark return over one period (same from/to dates). Returns
   // { label, port, bench, rel } in percent (bench/rel null if not coverable).
-  function compareBenchmark(series, benchPoints, periodId, asOf) {
+  function compareBenchmark(series, benchPoints, periodId, asOf, opts) {
     var s = cleanSeries(series);
     if (!s.length || !Array.isArray(benchPoints) || !benchPoints.length) return null;
-    var pr = computePeriod(s, periodId, asOf);
+    var pr = computePeriod(s, periodId, asOf, opts);
     if (!pr) return null;
     var bStart = priceAsOf(benchPoints, pr.from), bEnd = priceAsOf(benchPoints, pr.to);
     if (!bStart || !bEnd || bStart.price <= 0) return { id: pr.id, label: pr.label, port: pr.pct, bench: null, rel: null, partial: pr.partial };
@@ -309,7 +337,7 @@ function __(k, f, v) { return (typeof window !== 'undefined' && window.MaerminI1
       var flows = (VPa && VPa.flowsOf && Array.isArray(props.transactions))
         ? VPa.flowsOf(props.transactions, { exchangeRate: props.exchangeRate, fxAt: props.fxAt }) : null;
       var rows = computeAll(series, props.asOf, { flows: flows });
-      var ext = dailyExtremes(series);
+      var ext = dailyExtremes(series, flows);
 
       function pctStr(p) { return (p == null) ? '—' : window.MaerminI18n.pct(p, 2, true); }
       // Period chips: 1M 3M 6M YTD 1Y Max in the UI language.
@@ -335,8 +363,8 @@ function __(k, f, v) { return (typeof window !== 'undefined' && window.MaerminI1
       var hasData = rows.length > 0;
 
       // ---- #2 drawdown / underwater card ----
-      var ddStat = drawdownStats(series);
-      var ddSer = drawdownSeries(series);
+      var ddStat = drawdownStats(series, flows);
+      var ddSer = drawdownSeries(series, flows);
       var ddCard = (hasData && ddStat) ? (function () {
         var minDd = Math.min.apply(null, ddSer.map(function (p) { return p.dd; }).concat([0]));
         var n = ddSer.length;
@@ -366,7 +394,7 @@ function __(k, f, v) { return (typeof window !== 'undefined' && window.MaerminI1
       var goals = [];
       try { goals = JSON.parse((typeof localStorage !== 'undefined' && localStorage.getItem('investmentGoals')) || '[]') || []; } catch (e2) { goals = []; }
       var currentValue = series.length ? series[series.length - 1].v : 0;
-      var assumedReturn = cagrFromSeries(series);
+      var assumedReturn = cagrFromSeries(series, flows);
       var goalSection = (hasData && goals.length) ? e('div', { style: { marginBottom: '1.5rem' } },
         e('div', { style: { color: text, fontSize: '0.92rem', fontWeight: 700, marginBottom: '0.8rem' } }, t.perfGoalsTitle || 'Goal projection'),
         e('div', { style: { display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(240px, 1fr))', gap: '0.75rem' } },
@@ -388,7 +416,7 @@ function __(k, f, v) { return (typeof window !== 'undefined' && window.MaerminI1
           (t.perfGoalAssume || 'Assumes your historical return') + (assumedReturn != null ? ' (' + __('perfPerYr', '{pct}/yr', { pct: window.MaerminI18n.pct(assumedReturn, 1) }) + ')' : '') + (t.perfGoalPlusContrib || ' plus your monthly contribution.'))) : null;
 
       // ---- #1 benchmark comparison ----
-      var benchRows = (benchData && benchData.length) ? PERIODS.filter(function (p) { return ['1M', '3M', '6M', '1Y'].indexOf(p.id) !== -1; }).map(function (p) { return compareBenchmark(series, benchData, p.id, props.asOf); }).filter(Boolean) : [];
+      var benchRows = (benchData && benchData.length) ? PERIODS.filter(function (p) { return ['1M', '3M', '6M', '1Y'].indexOf(p.id) !== -1; }).map(function (p) { return compareBenchmark(series, benchData, p.id, props.asOf, { flows: flows }); }).filter(Boolean) : [];
       var benchSection = (hasData && benches.length) ? e('div', { style: { marginBottom: '1.5rem' } },
         e('div', { style: { display: 'flex', alignItems: 'center', gap: '0.5rem', flexWrap: 'wrap', marginBottom: '0.8rem' } },
           e('div', { style: { color: text, fontSize: '0.92rem', fontWeight: 700, marginRight: '0.3rem' } }, t.perfBenchTitle || 'vs. Benchmark'),
@@ -411,7 +439,7 @@ function __(k, f, v) { return (typeof window !== 'undefined' && window.MaerminI1
 
       return e('div', { style: { padding: '1.5rem' } },
         e('h2', { style: { color: text, fontSize: '1.5rem', fontWeight: 800, letterSpacing: '-0.02em', margin: '0 0 0.35rem' } },
-          t.navPerformance || 'Performance'),
+          t.navPerformance || 'Performance', ' ', props.demo && window.MaerminDemoFixtures && window.MaerminDemoFixtures.badge(React, theme, workerBase)),
         e('p', { style: { color: dim, fontSize: '0.88rem', margin: '0 0 1.25rem', lineHeight: 1.5, maxWidth: '60ch' } },
           t.perfSubtitle || 'Real period returns derived entirely from your on-device value history — no external API. A new daily point is recorded automatically while you use the app.'),
 

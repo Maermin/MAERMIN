@@ -224,7 +224,9 @@ function __(k, f, v) { return (typeof window !== 'undefined' && window.MaerminI1
   }
 
   // ---- React Panel (browser only; folds into Returns + Attribution) ----------
-  var _fxCache = null; // session cache of the fetched EUR-per-USD series
+  // Session cache of the fetched EUR-per-USD series, per Worker URL (the demo's
+  // sample series must never stand in for a real Worker's, P5-1.8).
+  var _fxCache = {};
 
   function Panel(props) {
     var React = (typeof window !== 'undefined') ? window.React : null;
@@ -238,14 +240,15 @@ function __(k, f, v) { return (typeof window !== 'undefined' && window.MaerminI1
     var good = theme.success || '#22c55e', bad = theme.danger || theme.negative || '#ef4444';
     var workerBase = String(props.workerUrl || '').trim().replace(/\/+$/, '');
 
-    var sFx = React.useState(_fxCache);
+    var sFx = React.useState(_fxCache[workerBase] || null);
     var fx = sFx[0], setFx = sFx[1];
     var sLoad = React.useState(false); var loading = sLoad[0], setLoading = sLoad[1];
     var sErr = React.useState(null); var err = sErr[0], setErr = sErr[1];
 
     React.useEffect(function () {
-      if (!workerBase || _fxCache) return;
-      var cancelled = false; setLoading(true); setErr(null);
+      if (!workerBase) return;
+      if (_fxCache[workerBase]) { setFx(_fxCache[workerBase]); return; }
+      var cancelled = false; setFx(null); setLoading(true); setErr(null);
       var url = workerBase + '?action=yf&symbol=' + encodeURIComponent('EURUSD=X') + '&interval=1d&range=1y';
       var ctrl = (typeof AbortController !== 'undefined') ? new AbortController() : null;
       var timer = ctrl ? setTimeout(function () { ctrl.abort(); }, 12000) : null;
@@ -255,8 +258,8 @@ function __(k, f, v) { return (typeof window !== 'undefined' && window.MaerminI1
           if (cancelled) return;
           if (!j || j.error || !Array.isArray(j.prices)) { setErr((j && j.error) || 'No FX data'); }
           else {
-            _fxCache = datedFx(j); // dated EUR-per-USD bars, aligned to positions by day (M-5)
-            setFx(_fxCache);
+            _fxCache[workerBase] = datedFx(j); // dated EUR-per-USD bars, aligned to positions by day (M-5)
+            setFx(_fxCache[workerBase]);
           }
           setLoading(false);
         })
@@ -326,7 +329,7 @@ function __(k, f, v) { return (typeof window !== 'undefined' && window.MaerminI1
     }
 
     return e('div', { style: { background: card, border: '1px solid ' + border, borderRadius: '14px', padding: '1.25rem', marginTop: '1rem' } },
-      e('h3', { style: { color: text, fontSize: '1rem', fontWeight: 700, margin: '0 0 0.9rem' } }, t.fxAttributionTitle || 'Currency attribution (FX)'),
+      e('h3', { style: { color: text, fontSize: '1rem', fontWeight: 700, margin: '0 0 0.9rem' } }, t.fxAttributionTitle || 'Currency attribution (FX)', ' ', window.MaerminDemoFixtures && window.MaerminDemoFixtures.badge(React, theme, workerBase)),
       body);
   }
 

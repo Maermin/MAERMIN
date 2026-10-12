@@ -809,6 +809,9 @@ async function runBuild(browser, label, dir) {
     let chart = 0, twr = '', cells = 0, closed = '', stored = 'x', err = '';
     let returnsText = '', intelText = '', rbEmpty = 0, rbPlan = -1, ovReturns = '';
     let brokerOv = '', rows = 0, before = null, after = null;
+    // P5-1.8: Worker-only views run on in-page sample data; nothing may reach the network
+    const sampleReqs = []; page.on('request', (r) => { if (/maermin\.invalid/.test(r.url())) sampleReqs.push(r.url()); });
+    const fixtures = {}; let dqText = '';
     try {
       await unlock(page, base);
       await page.keyboard.press('Escape');
@@ -822,6 +825,17 @@ async function runBuild(browser, label, dir) {
       cells = await page.locator('[data-r]').count();
       stored = await page.evaluate(() => localStorage.getItem('maermin_close_history'));
       returnsText = await page.locator('main').innerText();
+      await page.waitForTimeout(1200);
+      fixtures.returns = { badges: await page.locator('main [data-testid="sample-data"]').count(), text: await page.locator('main').innerText() };
+      for (const id of ['news', 'discovery', 'performance', 'dividends']) {
+        await openView(page, id);
+        await page.waitForTimeout(id === 'news' ? 2000 : 1200);
+        fixtures[id] = { badges: await page.locator('main [data-testid="sample-data"]').count(), text: await page.locator('main').innerText() };
+      }
+      await openView(page, 'tax');
+      await page.getByRole('button', { name: /^Tax Report$/ }).first().click();
+      await page.waitForTimeout(1200);
+      dqText = await page.locator('main').innerText();
       // P5-1.5: the Overview's Returns section
       await openView(page, 'overview');
       await page.locator('[data-testid="ov-returns"]').waitFor({ timeout: 8000 });
@@ -852,6 +866,14 @@ async function runBuild(browser, label, dir) {
     ok('P5-1.5: demo Overview shows the Returns section with seven figures', ['XIRR', 'TWR', 'Realized gains', 'Dividends received', 'Taxes', 'Total Fees', 'Net return'].every((w) => new RegExp(w, 'i').test(ovReturns)) && (ovReturns.match(/[+-]?\d[\d,]*\.\d\d/g) || []).length >= 6, err || ovReturns.split('\n').join(' | '));
     ok('F3: the "Total bought" card no longer says deposited', /All purchases, incl\. fees/.test(returnsText) && !/Total deposited/i.test(returnsText), err || returnsText.slice(0, 120));
     ok('P4-9: demo draws the value chart without a Worker', chart > 0, err || String(chart));
+    { const f = fixtures, sum = (k) => f[k] ? f[k].badges + ' ' + f[k].text.slice(0, 120).replace(/\n/g, ' | ') : 'missing';
+      ok('P5-1.8: News shows sample headlines, labelled', !!f.news && f.news.badges > 0 && /Sample headline:/.test(f.news.text), err || sum('news'));
+      ok('P5-1.8: Discovery lists fictional sample companies, labelled', !!f.discovery && f.discovery.badges > 0 && /\(sample\)/.test(f.discovery.text), err || sum('discovery'));
+      ok('P5-1.8: Returns: benchmark and FX attribution run on sample data, labelled', !!f.returns && f.returns.badges >= 2 && /Alpha \(ann\.\)/i.test(f.returns.text), err || sum('returns'));
+      ok('P5-1.8: Performance shows period returns in the demo, labelled', !!f.performance && f.performance.badges > 0 && !/the demo records none/.test(f.performance.text), err || sum('performance'));
+      ok('P5-1.8: Earnings calendar lists dates in the demo, labelled', !!f.dividends && f.dividends.badges > 0 && !/Add a Worker URL in API Settings to see upcoming earnings/.test(f.dividends.text), err || sum('dividends'));
+      ok('P5-1.8: no request to the sample URL reaches the network', sampleReqs.length === 0, sampleReqs.slice(0, 3).join(' '));
+      ok('P5-1.8: the demo has dated USD rates, the Tax Report shows no data check', /Tax Report/.test(dqText) && !/Data check:/.test(dqText), err || (dqText.match(/Data check[^\n]*/) || [''])[0]); }
     ok('P5-1.7: demo has 300+ rows and a broker portfolio with a clearing account', rows >= 300 && /Cash \(clearing account\)/i.test(brokerOv), err || rows + ' | ' + brokerOv.slice(0, 160).replace(/\n/g, ' | '));
     ok('P5-1.7: switching demo portfolios writes nothing to the user\'s storage', !!before && JSON.stringify(before) === JSON.stringify(after), err || JSON.stringify([before, after]).slice(0, 200));
     ok('P4-9: demo TWR is a figure, the monthly grid is filled', /[+-]\d/.test(twr) && cells > 12, err || twr.replace(/\s+/g, ' ') + ' | cells ' + cells);
