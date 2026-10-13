@@ -400,7 +400,7 @@ function __(k, f, v) { return (typeof window !== 'undefined' && window.MaerminI1
       }
       if (!type) type = rawQty < 0 ? 'sell' : 'buy';
       const feeNum = parseNumber(get('fee'), locale);
-      transactions.push({
+      const tx = {
         category: rowCategory,
         type,
         symbol,
@@ -409,7 +409,12 @@ function __(k, f, v) { return (typeof window !== 'undefined' && window.MaerminI1
         fees: isFinite(feeNum) ? Math.abs(feeNum) : 0,
         currency: (String(get('currency') || pairCurrency || opts.currency || 'EUR').trim().toUpperCase()).slice(0, 3) || 'EUR',
         date
-      });
+      };
+      // P5-3.2: a WithholdingTax / Quellensteuer column (PDF import) - on dividends only
+      const whtHeader = type === 'dividend' ? Object.keys(row || {}).find((h) => /^(withholding ?tax|quellensteuer)$/i.test(String(h).trim())) : null;
+      const whtNum = whtHeader ? parseNumber(row[whtHeader], locale) : NaN;
+      if (isFinite(whtNum) && whtNum !== 0) tx.withholdingTax = Math.abs(whtNum);
+      transactions.push(tx);
     });
     return { transactions, errors, stats: { total: (rows || []).length, ok: transactions.length, failed: errors.length } };
   }

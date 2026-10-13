@@ -265,8 +265,11 @@ fetched with the same SRI check and runs as a Web Worker from a `blob:` URL, one
 file, terminated afterwards (`worker-src 'self' blob:`, `connect-src` names only the
 pinned pdf.js folder). Opened from disk (`file://`) it loads as a module script and
 pdf.js runs on the main thread. A pure generic German-settlement
-parser with per-broker configs (Trade Republic, Scalable, ING, DKB, Comdirect) turns
-the text into candidate transactions, and `candidatesToCSV` feeds them into the
+parser with per-broker configs (Trade Republic, Scalable, ING, DKB, Comdirect; P5-3.2
+flatex, Consorsbank, DEGIRO, onvista bank) turns the text into candidate transactions
+(several settlements per PDF; DEGIRO Transaktionsübersicht / Kontoauszug tables row by
+row; taxes withheld as dividend `withholdingTax` or a `tax` / `tax_refund` cash row;
+tax and fee documents as one cash row), and `candidatesToCSV` feeds them into the
 existing `MaerminImportMapping` preview/commit flow — editable mapping, row errors and
 duplicate detection come for free. Number/date parsing is reused from that module.
 Parsers are best-effort against frozen text fixtures (`test/pdf-import.test.js`);
