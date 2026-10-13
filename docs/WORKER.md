@@ -25,7 +25,7 @@ Configure it in the app under **API Settings → Cloudflare Worker**.
 ## Version
 
 ### `GET /?action=version`
-`200 { "version": "2026.10.9", "actions": ["yf", "yfsearch", …], "storage": true }`. No upstream call and no rate limit.
+`200 { "version": "2026.10.10", "actions": ["yf", "yfsearch", …], "storage": true }`. No upstream call and no rate limit.
 `storage` says whether sync and share links can work (a KV namespace or the Durable Object is bound); the
 app's connection test shows it.
 `WORKER_VERSION` in `worker.js` and `EXPECTED_WORKER_VERSION` in `onboarding.js` name the same release
@@ -342,6 +342,19 @@ so a repeat sync never double-books. Read-only keys only — write/trade/withdra
 scopes are rejected client-side before any request is signed.
 
 ---
+
+## More exchanges in the broker relay (P5-3.8)
+
+Read endpoints only, signed in the browser (the API secret never passes):
+
+| Host | GET | Signature headers |
+|---|---|---|
+| `api.bitvavo.com` | `/v2/balance`, `/v2/trades` | `Bitvavo-Access-Key / -Signature / -Timestamp / -Window` |
+| `api.bybit.com` | `/v5/user/query-api` (read-only check), `/v5/execution/list` | `X-BAPI-API-KEY / -TIMESTAMP / -RECV-WINDOW / -SIGN` |
+| `api.kucoin.com` | `/api/v1/fills` | `KC-API-KEY / -SIGN / -TIMESTAMP / -PASSPHRASE / -KEY-VERSION` |
+| `api.bitget.com` | `/api/v2/spot/account/assets`, `/api/v2/spot/trade/fills` | `ACCESS-KEY / -SIGN / -TIMESTAMP / -PASSPHRASE`, `locale` |
+
+No order, withdrawal or transfer endpoint. Version 2026.10.10.
 
 ## Public crypto addresses (P5-3.6)
 

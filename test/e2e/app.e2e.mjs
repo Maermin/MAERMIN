@@ -93,6 +93,8 @@ const fintsBank = requireE2E('../fints-bank-sim.js').createBank();
 const aggSim = requireE2E('../aggregator-sim.js');
 // P5-3.6: synthetic block explorers behind the Worker's wallet route
 const walletSim = requireE2E('../wallet-sim.js');
+// P5-3.8: synthetic Bitvavo / Bybit / KuCoin / Bitget behind the broker relay
+const exchangeSim = requireE2E('../exchange-sim.js');
 const workerState = { down: false, oldVersion: false, upstream: [], requests: [] };
 const iso = (d) => d.toISOString().slice(0, 10);
 const WEEKDAYS = (() => { // every weekday of the last three years, up to today
@@ -127,6 +129,7 @@ const divOf = (sym, i) => (sym === 'AAPL' && i % 63 === 20 ? Number((0.24 + 0.01
       return new Response(JSON.stringify({ version: '2.0', class: 'dataset', updated: '2026-10-02T11:00:00+0200', value, dimension: { time: { category: { index } } } }), { status: 200, headers: { 'Content-Type': 'application/json' } });
     }
     if (/^https:\/\/(bankaccountdata\.gocardless\.com|api\.snaptrade\.com)\//.test(u)) return aggSim.upstream(u, init || {});
+    if (/^https:\/\/api\.(bitvavo|bybit|kucoin|bitget)\.com\//.test(u)) return exchangeSim.upstream(u, init || {});
     if (/^https:\/\/(mempool\.space|[a-z]+\.blockscout\.com|api\.mainnet-beta\.solana\.com)\//.test(u)) return walletSim.upstream(u, init || {});
     if (/^https:\/\/fints\.dkb\.de\//.test(u)) return new Response(FINTS.toB64(fintsBank.handle(FINTS.fromB64(init.body))), { status: 200, headers: { 'Content-Type': 'text/plain' } });
     const m = u.match(/query1\.finance\.yahoo\.com\/v8\/finance\/chart\/([^?]+)/);
@@ -1743,6 +1746,25 @@ async function runBuild(browser, label, dir) {
       ok('P5-3.6: balances 1 BTC and 1.5 ETH, USDC 2,500 as a token', /^1 BTC\|1\.5 ETH$/.test(natives) && /2,500 USDC/.test(tokens), err || natives + ' / ' + tokens);
       ok('P5-3.6: all wallets compared with MAERMIN, nothing booked', /BTC/.test(cmp) && /not in MAERMIN/.test(cmp) && after === before, err || cmp.replace(/\n/g, ' | ') + ' ' + before + '->' + after);
       ok('P5-3.6: the stored list holds balances, no transactions', /"address":"bc1q/.test(stored) && stored.indexOf('"txs"') < 0, err || stored.slice(0, 160));
+    }
+    // P5-3.8: a Bitvavo connection (signed in the browser, relayed by the real
+    // Worker to the synthetic exchange); KuCoin asks for a passphrase
+    {
+      let err = '', pass = 0, booked = '', msg = '';
+      try {
+        await page.locator('[data-testid="ex-exchange"]').selectOption('kucoin');
+        pass = await page.locator('[data-testid="ex-passphrase"]').count();
+        await page.locator('[data-testid="ex-exchange"]').selectOption('bitvavo');
+        await page.getByPlaceholder('API key (read-only)').fill(exchangeSim.KEYS.apiKey);
+        await page.getByPlaceholder('API secret').fill(exchangeSim.KEYS.apiSecret);
+        await page.getByRole('button', { name: 'Add connection' }).click();
+        await page.getByRole('button', { name: 'Sync now' }).first().click();
+        await page.waitForFunction(() => JSON.parse(localStorage.getItem('transactions') || '[]').some((x) => x.exchange === 'bitvavo'), null, { timeout: 15000 });
+        booked = await page.evaluate(() => JSON.parse(localStorage.getItem('transactions') || '[]').filter((x) => x.exchange === 'bitvavo').map((x) => x.type + ' ' + x.quantity + ' ' + x.symbol + ' @' + x.price + ' ' + x.currency + ' fee ' + x.fees).join());
+      } catch (e) { err = String(e.message).split('\n')[0]; }
+      ok('P5-3.8: KuCoin asks for the API passphrase', pass === 1, err || String(pass));
+      ok('P5-3.8: Bitvavo sync imports the trade (0.5 BTC at 60,000 EUR, fee 15)', booked === 'buy 0.5 BTC @60000 EUR fee 15', err || booked);
+      ok('P5-3.8: every request carried a valid signature', exchangeSim.state.badSig === 0, String(exchangeSim.state.badSig));
     }
     // P5-3.7: the Transactions view compares what the sources reported (the
     // FinTS bank and depot, the wallets above) with MAERMIN, and the Data check
