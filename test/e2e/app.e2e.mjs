@@ -1248,6 +1248,59 @@ async function runBuild(browser, label, dir) {
     await context.close();
   }
 
+  // P5-3.10: a merger recorded in the position dialog moves the lots to the
+  // new symbol (ratio, cost and dates kept) and books the cash part
+  {
+    const context = await browser.newContext({ serviceWorkers: 'block' });
+    await wire(context, external);
+    const page = await context.newPage();
+    const errors = watch(page);
+    await createVault(page, base);
+    await page.evaluate(() => {
+      localStorage.setItem('maermin_onboarded', '1');
+      localStorage.setItem('maermin_ui_mode', 'advanced');
+      localStorage.setItem('maermin_schema_version', String(window.MaerminMigrations.LATEST));
+      localStorage.setItem('transactions', JSON.stringify([
+        { id: 'm1', type: 'buy', category: 'stocks', symbol: 'OLDCO', symbolName: 'Old Co', quantity: 100, price: 20, fees: 0, currency: 'EUR', date: '2024-03-01', portfolioId: 'default' }]));
+    });
+    await page.waitForTimeout(1500);
+    let rows = '', stored = null, err = '', pos = '', listed = 0;
+    try {
+      await unlock(page, base);
+      await page.keyboard.press('Escape');
+      await openView(page, 'overview');
+      await page.locator('tr[aria-label="Old Co details"]').first().click();
+      const dlg = page.locator('[aria-labelledby="dlg-position"]');
+      await dlg.waitFor({ timeout: 5000 });
+      const ce = dlg.locator('[data-testid="ce-panel"]');
+      await ce.locator('[data-testid="ce-kind"]').selectOption('merger');
+      await ce.locator('[data-testid="ce-date"]').fill('2025-06-02');
+      await ce.locator('[data-testid="ce-newSymbol"]').fill('newco');
+      await ce.locator('[data-testid="ce-newName"]').fill('New Co');
+      await ce.locator('[data-testid="ce-num"]').fill('3');
+      await ce.locator('[data-testid="ce-den"]').fill('2');
+      await ce.locator('[data-testid="ce-cash"]').fill('1,50');
+      await ce.locator('[data-testid="ce-add"]').click();
+      listed = await ce.locator('[data-testid="ce-row"]').count();
+      rows = (await ce.innerText()).replace(/\n/g, ' | ');
+      stored = await page.evaluate(() => JSON.parse(localStorage.getItem('maermin_corporate_events') || '{}'));
+      await page.keyboard.press('Escape');
+      await page.waitForTimeout(600);
+      pos = (await page.locator('tr[aria-label="New Co details"]').first().innerText().catch(() => '')).replace(/\n/g, ' | ');
+    } catch (e) { err = e.message.split('\n')[0]; }
+    const ev = stored && stored.events && stored.events[0];
+    ok('P5-3.10: the merger is listed in the position dialog', listed === 1 && /OLDCO -> NEWCO: 3 new for 2 old/.test(rows) && /1\.5 cash per old share/.test(rows), err || rows);
+    ok('P5-3.10: stored in maermin_corporate_events (ratio, German "1,50" cash)', !!ev && ev.kind === 'merger' && ev.newSymbol === 'NEWCO' && ev.num === 3 && ev.den === 2 && ev.cashPerShare === 1.5, err || JSON.stringify(stored));
+    ok('P5-3.10: the Overview shows 150 New Co at the old cost (2,000.00)', /150/.test(pos) && /2,000\.00/.test(pos), err || pos);
+    const income = await page.evaluate(() => {
+      const t = window.MaerminCorporateActions.adjust(JSON.parse(localStorage.getItem('transactions') || '[]'));
+      return t.filter((x) => x.source === 'corporate-action').map((x) => x.type + ' ' + x.symbol + ' ' + x.quantity * x.price).join();
+    }).catch(() => '');
+    ok('P5-3.10: the cash part is a dividend of the new symbol (100 x 1.50)', income === 'dividend NEWCO 150', income);
+    ok('no page errors in the corporate-actions session', errors.length === 0, errors.join(' | '));
+    await context.close();
+  }
+
   // P5-3.9: a bond bought in the dialog (nominal, price in %, terms, accrued
   // interest), its coupon booked on its date, the manual price in the panel
   {
@@ -1949,7 +2002,10 @@ async function runBuild(browser, label, dir) {
       const n = (await info(name)).stops;
       await page.evaluate(() => window.__dlg.reset());
       let left = 0;
-      for (const key of ['Tab', 'Shift+Tab']) for (let i = 0; i < n + 2; i++) { await press(key); if (!(await page.evaluate((x) => window.__dlg.seen(x), name))) left++; }
+      // A date input takes three Tab stops (month, day, year) but counts as one
+      // control, so each one needs two more presses.
+      const dates = await page.evaluate((x) => Array.from(document.querySelectorAll('[role="dialog"] input[type="date"]')).filter((el) => el.getClientRects().length > 0).length, name);
+      for (const key of ['Tab', 'Shift+Tab']) for (let i = 0; i < n + 2 + 2 * dates; i++) { await press(key); if (!(await page.evaluate((x) => window.__dlg.seen(x), name))) left++; }
       return { left, stops: n, visited: await page.evaluate(() => window.__dlg.visited()) };
     };
     // d: { name, open, focus: 'field' | 'panel', back: locator | '#main' }
