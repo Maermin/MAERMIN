@@ -170,7 +170,7 @@ function CorporateActionsPanel({ category, symbol, theme, t = {}, workerUrl, sin
   );
 }
 
-function PositionDetailModal({ position, transactions, prices, theme, formatPrice, getCurrencySymbol, onClose, t = {}, workerUrl, closeSeries }) {
+function PositionDetailModal({ position, transactions, prices, theme, formatPrice, getCurrencySymbol, onClose, t = {}, workerUrl, closeSeries, buildPath }) {
   if (!position) return null;
 
   // Filter transactions for this position
@@ -212,6 +212,13 @@ function PositionDetailModal({ position, transactions, prices, theme, formatPric
 
     return { totalBought, totalSold, totalInvested, totalFees, avgCost, currentPrice, currentValue, unrealizedPL, unrealizedPct, cagr, firstBuyDate };
   }, [posTxs, prices, position]);
+
+  // P5-2.4: this holding's own daily value path → its monthly returns heatmap
+  const posPath = useMemo(() => {
+    if (!buildPath || !closeSeries || !posTxs.length) return null;
+    const p = buildPath(posTxs);
+    return p && p.points && p.points.length > 1 ? p : null;
+  }, [posTxs, closeSeries]);
 
   // V7 investment journal — structured per-position notes (thesis, target,
   // notes, reviews) in maermin_journal. Integrated here instead of a separate
@@ -272,6 +279,14 @@ function PositionDetailModal({ position, transactions, prices, theme, formatPric
       window.MaerminPositionChart && React.createElement(window.MaerminPositionChart.View, {
         series: closeSeries, avgCost: position.avgPrice, closed: !!position.closed || !(position.amount > 0), firstDate: metrics.firstBuyDate,
         theme, formatPrice, getCurrencySymbol }),
+
+      // P5-2.4: monthly returns of this holding, with the same drill-down
+      posPath && window.MaerminFeatures2 && window.MaerminFeatures2.ReturnsHeatmap && React.createElement('div', { style: { padding: '1rem 1.5rem', borderBottom: `1px solid ${theme.modalBorder}` } },
+        React.createElement(window.MaerminFeatures2.ReturnsHeatmap, {
+          steps: posPath.points.map(p => ({ d: p.d, r: p.r })), points: posPath.points, transactions: posTxs, source: 'daily',
+          theme, formatPrice, getCurrencySymbol, testid: 'pos-heatmap', flat: true,
+          title: __('rhdHoldingTitle', 'Monthly returns of this holding'),
+          note: __('rhdHoldingNote', 'Time-weighted, from the daily closing prices: buys and sales do not count as gains, fees and payouts do.') })),
 
       // Key metrics grid
       React.createElement('div', {

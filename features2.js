@@ -41,55 +41,110 @@ function calcTWR(priceHistory, portfolio, transactions) {
 // first; Jan-Dec, then the compounded quarters and year. Each cell prints its
 // figure, so colour is never the only signal (colour-blind theme). On a phone
 // the table scrolls inside its card, with the year column fixed.
-function ReturnsHeatmap({ steps, source, theme }) {
+// P5-2.4: every cell with a figure is a button; it opens the period's detail
+// (start / end value, money in / out, gain, return, activities) from the same
+// points as the cell (heatmap-drilldown.js). `controls` = the filter above the
+// table, `note` replaces the source line (position dialog), `flat` drops the
+// card frame.
+function ReturnsHeatmap({ steps, points, transactions, source, theme, formatPrice, getCurrencySymbol, controls, note, testid, title, flat }) {
   const H = (typeof window !== 'undefined') ? window.MaerminReturnsHeatmap : null;
+  const D = (typeof window !== 'undefined') ? window.MaerminHeatmapDrill : null;
   const grid = useMemo(() => (H && steps && steps.length) ? H.fromSteps(steps) : null, [H, steps]);
+  const [sel, setSel] = useState(null); // { kind: 'm' | 'q' | 'y', year, idx }
+  const det = useMemo(() => {
+    if (!sel || !D) return null;
+    const range = D.periodOf(sel.kind, sel.year, sel.idx);
+    return range ? D.detail(points && points.length ? points : steps, transactions, range) : null;
+  }, [sel, D, points, steps, transactions]);
   if (!H || source === 'none') return null;
+  const tid = testid || 'returns-heatmap';
   const I = window.MaerminI18n;
   const months = I.monthNames('short');
   const monthsLong = I.monthNames('long');
   const fmt = (r) => I.pct(r * 100, 1, true);
+  const money = (v) => (formatPrice ? formatPrice(v) : I.num(v, 2)) + (getCurrencySymbol ? ' ' + getCurrencySymbol() : '');
+  const signed = (v) => (v > 0 ? '+' : v < 0 ? '−' : '') + money(Math.abs(v));
+  const periodLabel = (p) => p.kind === 'm' ? monthsLong[p.idx] + ' ' + p.year
+    : p.kind === 'q' ? __('rhQuarter', 'Q{n}', { n: p.idx + 1 }) + ' ' + p.year : String(p.year);
+  const same = (a, b) => !!a && !!b && a.kind === b.kind && a.year === b.year && a.idx === b.idx;
   const cellStyle = { padding: '0.4rem 0.45rem', textAlign: 'right', fontSize: '0.76rem', fontVariantNumeric: 'tabular-nums', whiteSpace: 'nowrap', borderRadius: '5px' };
   const headStyle = { padding: '0.35rem 0.45rem', textAlign: 'right', fontSize: '0.7rem', fontWeight: 600, color: theme.textSecondary, textTransform: 'uppercase', letterSpacing: '0.04em', whiteSpace: 'nowrap' };
-  const cell = (r, label, maxAbs, key, partial, strong) => {
+  const cell = (r, label, maxAbs, key, partial, strong, pick) => {
     if (r === null || r === undefined) {
       return React.createElement('td', { key, 'aria-label': __('rhCellNone', '{label}: no data', { label }), style: { ...cellStyle, background: 'transparent', color: theme.textSecondary } }, '—');
     }
     const bg = H.cellColor(r, { up: theme.success, down: theme.danger, base: theme.card, maxAbs });
     const text = fmt(r) + (partial ? '*' : '');
+    const on = same(sel, pick);
+    const toggle = () => setSel(on ? null : pick);
     return React.createElement('td', {
-      key, 'data-r': r, 'data-kind': key, title: label + ': ' + fmt(r) + (partial ? ' (' + __('rhPartial', 'part of the month') + ')' : ''),
+      key, 'data-r': r, 'data-kind': key, 'data-cell': pick.kind + '-' + pick.year + '-' + pick.idx,
+      title: label + ': ' + fmt(r) + (partial ? ' (' + __('rhPartial', 'part of the month') + ')' : ''),
       'aria-label': __('rhCellAria', '{label}: {pct}', { label, pct: fmt(r) }) + (partial ? ', ' + __('rhPartial', 'part of the month') : ''),
-      style: { ...cellStyle, background: bg, color: H.textOn(bg), fontWeight: strong ? 700 : 500 }
+      role: 'button', tabIndex: 0, 'aria-pressed': on, onClick: toggle,
+      onKeyDown: (e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); toggle(); } },
+      style: { ...cellStyle, background: bg, color: H.textOn(bg), fontWeight: strong ? 700 : 500, cursor: 'pointer', boxShadow: on ? `inset 0 0 0 2px ${theme.text}` : 'none' }
     }, text);
   };
-  const srcNote = source === 'daily' ? __('rhSrcDaily', 'From the daily closing prices, like the TWR above.')
+  const srcNote = note || (source === 'daily' ? __('rhSrcDaily', 'From the daily closing prices, like the TWR above.')
     : source === 'snapshots' ? __('rhSrcSnapshots', 'From the daily value snapshots, like the TWR above. A period that spans several months counts in the month it ends in.')
-    : __('rhSrcRefresh', 'From your price refreshes, like the TWR above. Months without a refresh show —; a period that spans several months counts in the month it ends in.');
-  return React.createElement('div', { 'data-testid': 'returns-heatmap', style: { background: theme.card, borderRadius: '16px', boxShadow: theme.shadow, border: `1px solid ${theme.cardBorder}`, padding: '1.25rem', marginBottom: '1.5rem', minWidth: 0 } },
-    React.createElement('h3', { style: { color: theme.text, fontSize: '1rem', fontWeight: 700, margin: '0 0 0.25rem' } }, __('rhTitle', 'Monthly returns')),
-    React.createElement('p', { style: { color: theme.textSecondary, fontSize: '0.8rem', margin: '0 0 0.85rem', lineHeight: 1.5 } },
-      srcNote + ' ' + __('rhCompound', 'Quarters and years are compounded, not added up.')),
+    : __('rhSrcRefresh', 'From your price refreshes, like the TWR above. Months without a refresh show —; a period that spans several months counts in the month it ends in.'));
+  const stat = (key, label, value, sub, color, extra) => React.createElement('div', { key, 'data-stat': key, ...(extra || {}), style: { minWidth: 0 } },
+    React.createElement('div', { style: { color: theme.textSecondary, fontSize: '0.68rem', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '0.2rem' } }, label),
+    React.createElement('div', { style: { color: color || theme.text, fontWeight: 700, fontSize: '0.92rem', fontVariantNumeric: 'tabular-nums' } }, value),
+    sub && React.createElement('div', { style: { color: theme.textSecondary, fontSize: '0.72rem', marginTop: '0.15rem' } }, sub));
+  const tone = (v) => v > 0 ? theme.success : v < 0 ? theme.danger : theme.text;
+  const detailView = () => {
+    if (!det) return null;
+    const b = det.byType;
+    const kinds = [b.buy && __('rhdBuys', '{n} {n:buy|buys}', { n: b.buy }), b.sell && __('rhdSells', '{n} {n:sale|sales}', { n: b.sell }),
+      b.income && __('rhdPayouts', '{n} {n:payout|payouts}', { n: b.income }), b.other && __('rhdOther', '{n} other')].filter(Boolean).join(' · ');
+    const hasValues = det.endValue !== null;
+    return React.createElement('div', { 'data-testid': tid + '-detail', role: 'region', 'aria-live': 'polite', 'aria-label': periodLabel(sel),
+      style: { marginTop: '0.75rem', padding: '0.85rem 1rem', borderRadius: '12px', border: `1px solid ${theme.cardBorder}`, background: theme.inputBg || 'transparent' } },
+      React.createElement('div', { style: { display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '0.5rem', marginBottom: '0.65rem' } },
+        React.createElement('strong', { style: { color: theme.text, fontSize: '0.9rem' } }, periodLabel(sel)),
+        React.createElement('button', { onClick: () => setSel(null), 'aria-label': __('close', 'Close'),
+          style: { background: 'none', border: `1px solid ${theme.cardBorder}`, borderRadius: '8px', color: theme.textSecondary, cursor: 'pointer', padding: '0.2rem 0.6rem', fontSize: '0.85rem' } }, '×')),
+      React.createElement('div', { style: { display: 'grid', gridTemplateColumns: 'repeat(auto-fit,minmax(120px,1fr))', gap: '0.75rem' } },
+        hasValues && stat('start', __('rhdStart', 'Start value'), money(det.startValue), det.startsInside ? __('rhdStartsInside', 'nothing held before') : null),
+        hasValues && stat('end', __('rhdEnd', 'End value'), money(det.endValue), det.last ? I.date(det.last) : null),
+        hasValues && stat('flow', __('rhdFlow', 'Money in / out'), signed(det.netFlow), null, theme.text),
+        hasValues && stat('gain', __('rhdGain', 'Gain'), signed(det.gain), null, tone(det.gain)),
+        stat('ret', __('rhdReturn', 'Return (TWR)'), det.ret === null ? '—' : fmt(det.ret), null, det.ret === null ? theme.textSecondary : tone(det.ret), { 'data-r': det.ret === null ? '' : det.ret }),
+        stat('acts', __('rhdActivities', 'Activities'), String(det.activities), kinds || null, theme.text, { 'data-n': det.activities })),
+      !hasValues && React.createElement('div', { style: { color: theme.textSecondary, fontSize: '0.74rem', marginTop: '0.6rem' } },
+        __('rhdNoValues', 'Start and end values need the daily closing prices.')));
+  };
+  const frame = flat ? { minWidth: 0 } : { background: theme.card, borderRadius: '16px', boxShadow: theme.shadow, border: `1px solid ${theme.cardBorder}`, padding: '1.25rem', marginBottom: '1.5rem', minWidth: 0 };
+  return React.createElement('div', { 'data-testid': tid, style: frame },
+    React.createElement('div', { style: { display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: '0.75rem', flexWrap: 'wrap', marginBottom: '0.25rem' } },
+      React.createElement('h3', { style: { color: theme.text, fontSize: '1rem', fontWeight: 700, margin: 0 } }, title || __('rhTitle', 'Monthly returns')),
+      controls || null),
+    React.createElement('p', { style: { color: theme.textSecondary, fontSize: '0.8rem', margin: '0.25rem 0 0.85rem', lineHeight: 1.5 } },
+      srcNote + ' ' + __('rhCompound', 'Quarters and years are compounded, not added up.') + (grid ? ' ' + __('rhdHint', 'Select a cell for its details.') : '')),
     !grid
       ? React.createElement('div', { style: { color: theme.textSecondary, fontSize: '0.85rem', padding: '0.75rem 0' } }, __('rhEmpty', 'Not enough history yet for monthly returns.'))
       : React.createElement('div', { role: 'region', tabIndex: 0, 'aria-label': __('rhScrollAria', 'Monthly returns table, scrolls sideways'), style: { overflowX: 'auto', maxWidth: '100%' } },
           React.createElement('table', { style: { borderCollapse: 'separate', borderSpacing: '3px', minWidth: '100%' } },
             React.createElement('thead', null, React.createElement('tr', null,
-              React.createElement('th', { scope: 'col', style: { ...headStyle, textAlign: 'left', position: 'sticky', left: 0, background: theme.card } }, __('rhYear', 'Year')),
+              React.createElement('th', { scope: 'col', style: { ...headStyle, textAlign: 'left', position: 'sticky', left: 0, background: flat ? theme.modalBg || theme.card : theme.card } }, __('rhYear', 'Year')),
               months.map((m, i) => React.createElement('th', { key: 'm' + i, scope: 'col', abbr: monthsLong[i], style: headStyle }, m)),
               [1, 2, 3, 4].map((q) => React.createElement('th', { key: 'q' + q, scope: 'col', style: headStyle }, __('rhQuarter', 'Q{n}', { n: q }))),
               React.createElement('th', { scope: 'col', style: headStyle }, __('rhTotal', 'Year')))),
             React.createElement('tbody', null, grid.years.map((Y) => React.createElement('tr', { key: Y.year },
-              React.createElement('th', { scope: 'row', style: { ...headStyle, textAlign: 'left', color: theme.text, position: 'sticky', left: 0, background: theme.card } }, String(Y.year)),
-              Y.months.map((r, i) => cell(r, monthsLong[i] + ' ' + Y.year, 0.1, 'm' + i, !!Y.partial[i])),
-              Y.quarters.map((r, q) => cell(r, __('rhQuarter', 'Q{n}', { n: q + 1 }) + ' ' + Y.year, 0.2, 'q' + q)),
-              cell(Y.total, String(Y.year), 0.3, 'y', Object.keys(Y.partial).length > 0, true)))))),
+              React.createElement('th', { scope: 'row', style: { ...headStyle, textAlign: 'left', color: theme.text, position: 'sticky', left: 0, background: flat ? theme.modalBg || theme.card : theme.card } }, String(Y.year)),
+              Y.months.map((r, i) => cell(r, monthsLong[i] + ' ' + Y.year, 0.1, 'm' + i, !!Y.partial[i], false, { kind: 'm', year: Y.year, idx: i })),
+              Y.quarters.map((r, q) => cell(r, __('rhQuarter', 'Q{n}', { n: q + 1 }) + ' ' + Y.year, 0.2, 'q' + q, false, false, { kind: 'q', year: Y.year, idx: q })),
+              cell(Y.total, String(Y.year), 0.3, 'y', Object.keys(Y.partial).length > 0, true, { kind: 'y', year: Y.year, idx: 0 })))))),
     grid && grid.years.some((Y) => Object.keys(Y.partial).length) && React.createElement('div', { style: { color: theme.textSecondary, fontSize: '0.74rem', marginTop: '0.5rem' } },
-      __('rhPartialNote', '* part of the month or year only (the history starts or ends inside it).')));
+      __('rhPartialNote', '* part of the month or year only (the history starts or ends inside it).')),
+    detailView());
 }
 
-function ReturnsView({ transactions, portfolio, prices, priceHistory, theme, formatPrice, getCurrencySymbol, t, fxAt, exchangeRate, valuePath, historyPending, portfolioId, hasWorker, clearing }) {
+function ReturnsView({ transactions, portfolio, prices, priceHistory, theme, formatPrice, getCurrencySymbol, t, fxAt, exchangeRate, valuePath, historyPending, portfolioId, hasWorker, clearing, buildPath }) {
   const R = (typeof window !== 'undefined') ? window.MaerminReturns : null;
+  const D = (typeof window !== 'undefined') ? window.MaerminHeatmapDrill : null;
   // Current EUR value over EVERY class in the book (custom categories too),
   // using the same price lookup as MaerminMetrics.
   const currentValue = useMemo(() => {
@@ -121,13 +176,26 @@ function ReturnsView({ transactions, portfolio, prices, priceHistory, theme, for
   const twrInfo = useMemo(() => {
     const VP = window.MaerminValuePath, SN = window.MaerminSnapshots;
     // steps: the chain of period returns behind the figure (monthly heatmap).
+    // points: the same chain with values and flows (P5-2.4 drill-down).
     if (valuePath && valuePath.twr !== null) return { source: 'daily', value: valuePath.twr, annualized: valuePath.annualized, since: valuePath.start, missing: valuePath.missing || [],
-      steps: (valuePath.points || []).map(p => ({ d: p.d, r: p.r })) };
+      steps: (valuePath.points || []).map(p => ({ d: p.d, r: p.r })), points: valuePath.points || [] };
     if (VP && SN && transactions.length) {
       try {
         const pts = SN.seriesFor(SN.load(), portfolioId || SN.ALL);
-        const r = VP.fromValues(pts, VP.flowsOf(transactions, { exchangeRate, fxAt }));
-        if (r) return { source: 'snapshots', value: r.twr, annualized: r.annualized, since: r.start, missing: [], steps: r.steps || [] };
+        const flows = VP.flowsOf(transactions, { exchangeRate, fxAt });
+        const r = VP.fromValues(pts, flows);
+        if (r) {
+          // a snapshot carries the flows since the one before (fromValues books them at the end)
+          const rOf = {}; (r.steps || []).forEach(s => { rOf[s.d] = s.r; });
+          let prev = '';
+          const points = pts.map(p => {
+            const d = String(p.d).slice(0, 10);
+            const flow = flows.reduce((a, f) => a + (f.d > prev && f.d <= d ? f.amount : 0), 0);
+            prev = d;
+            return { d, v: p.v, flow, r: rOf[d] !== undefined ? rOf[d] : null };
+          });
+          return { source: 'snapshots', value: r.twr, annualized: r.annualized, since: r.start, missing: [], steps: r.steps || [], points };
+        }
       } catch (e) { /* fall through */ }
     }
     const legacy = (R && R.twrSteps) ? R.twrSteps(priceHistory, portfolio, transactions) : null;
@@ -135,6 +203,35 @@ function ReturnsView({ transactions, portfolio, prices, priceHistory, theme, for
     const plain = calcTWR(priceHistory, portfolio, transactions);
     return { source: plain !== null ? 'refresh' : 'none', value: plain, annualized: null, since: null, missing: [], steps: [] };
   }, [valuePath, priceHistory, portfolio, transactions, portfolioId, exchangeRate, fxAt, R]);
+  // P5-2.4: heatmap filter (asset class / category, tag, holding). The filtered
+  // path is the same daily value path over that subset of transactions, without
+  // the cash account. Only with daily closes.
+  const [hmFilter, setHmFilter] = useState('all');
+  useEffect(() => { setHmFilter('all'); }, [portfolioId]);
+  const tagsState = useMemo(() => { try { return window.MaerminTags ? window.MaerminTags.load() : null; } catch (e) { return null; } }, [transactions]);
+  const hmOptions = useMemo(() => D ? D.options(transactions.filter(tx => tx && tx.category !== 'cashflow'), tagsState) : null, [D, transactions, tagsState]);
+  const hmFiltered = useMemo(() => {
+    if (!D || !buildPath || hmFilter === 'all' || twrInfo.source !== 'daily') return null;
+    const i = hmFilter.indexOf(':');
+    const txs = D.filterTransactions(transactions, { kind: hmFilter.slice(0, i), value: hmFilter.slice(i + 1) }, tagsState);
+    const p = txs.length ? buildPath(txs) : null;
+    const pts = (p && p.points) || [];
+    return { txs, points: pts, steps: pts.map(x => ({ d: x.d, r: x.r })) };
+    // buildPath is a new function on every render; valuePath changes with its inputs
+  }, [D, hmFilter, transactions, tagsState, valuePath, twrInfo.source]);
+  const hmControls = (D && buildPath && hmOptions && twrInfo.source === 'daily' && (hmOptions.classes.length + hmOptions.tags.length + hmOptions.holdings.length) > 1)
+    ? React.createElement('select', {
+        'data-testid': 'rh-filter', 'aria-label': __('rhdFilterAria', 'Show the monthly returns of'), value: hmFilter, onChange: e => setHmFilter(e.target.value),
+        style: { padding: '0.4rem 0.6rem', background: theme.inputBg, border: `1px solid ${theme.inputBorder || theme.cardBorder}`, borderRadius: '8px', color: theme.text, fontSize: '0.8rem', maxWidth: '100%' }
+      },
+        React.createElement('option', { value: 'all' }, __('rhdAll', 'Whole portfolio')),
+        React.createElement('optgroup', { label: __('rhdClasses', 'Asset class / category') },
+          hmOptions.classes.map(c => React.createElement('option', { key: c, value: 'class:' + c }, window.MaerminI18n.category(c)))),
+        hmOptions.tags.length > 0 && React.createElement('optgroup', { label: __('rhdTags', 'Tags') },
+          hmOptions.tags.map(n => React.createElement('option', { key: n, value: 'tag:' + n }, n))),
+        React.createElement('optgroup', { label: __('rhdHoldings', 'Holdings') },
+          hmOptions.holdings.map(h => React.createElement('option', { key: h.key, value: 'holding:' + h.key }, h.symbol + ' (' + window.MaerminI18n.category(h.category) + ')'))))
+    : null;
   const twrResult = twrInfo.value;
   const since = twrInfo.since ? window.MaerminI18n.date(twrInfo.since) : '';
   const twrSub = twrInfo.source === 'daily'
@@ -189,7 +286,11 @@ function ReturnsView({ transactions, portfolio, prices, priceHistory, theme, for
     ),
 
     // P4-1: month × year grid of the same chain of returns
-    React.createElement(ReturnsHeatmap, { steps: twrInfo.steps, source: twrInfo.source, theme }),
+    // P5-2.4: cells open the period's detail; the filter narrows to a subset
+    React.createElement(ReturnsHeatmap, hmFiltered
+      ? { steps: hmFiltered.steps, points: hmFiltered.points, transactions: hmFiltered.txs, source: 'daily', theme, formatPrice, getCurrencySymbol, controls: hmControls,
+          note: __('rhdFilterNote', 'Only the selected holdings, from the same daily closing prices; the cash account is left out.') }
+      : { steps: twrInfo.steps, points: twrInfo.points, transactions, source: twrInfo.source, theme, formatPrice, getCurrencySymbol, controls: hmControls }),
 
     // Explanation
     React.createElement('div', {
@@ -1464,6 +1565,7 @@ function MobileBottomNav({ activeView, setActiveView, theme, uiMode, t }) {
 if (typeof window !== 'undefined') {
   window.MaerminFeatures2 = {
     ReturnsView,
+    ReturnsHeatmap,
     RebalancingView,
     BrokerImportWizard,
     PositionNotesView,
