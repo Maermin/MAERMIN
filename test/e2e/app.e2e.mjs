@@ -679,6 +679,33 @@ async function runBuild(browser, label, dir) {
       ok('P5-4.1: the opening balance is stored per year and pot', !!stored && stored.opening && stored.opening['2025'] && stored.opening['2025'].other === 200, err || JSON.stringify(stored));
     }
 
+    // P5-4.2: sell simulator. 5 VWCE.DE bought at 110 in 2024, sold at 150 on
+    // 2025-06-01: one lot, gain 200; with the AAPL gain of 490 the year stays
+    // under the 1,000 allowance, so 200 of it is used and no extra tax.
+    {
+      const ss = page.locator('[data-testid="sell-sim-panel"]');
+      let over = '', result = '', stored = null, n0 = null, err = '';
+      try {
+        await ss.waitFor({ timeout: 5000 });
+        n0 = await page.evaluate(() => JSON.parse(localStorage.getItem('transactions') || '[]').length);
+        await ss.locator('[data-testid="ss-holding"]').selectOption('stocks|VWCE.DE');
+        await ss.locator('[data-testid="ss-qty"]').fill('6');
+        await ss.locator('[data-testid="ss-price"]').fill('150');
+        await ss.locator('[data-testid="ss-date"]').fill('2025-06-01');
+        await ss.locator('[data-testid="ss-run"]').click();
+        over = await ss.locator('[data-testid="ss-error"]').innerText();
+        await ss.locator('[data-testid="ss-qty"]').fill('5');
+        await ss.locator('[data-testid="ss-run"]').click();
+        await page.waitForTimeout(300);
+        result = await ss.locator('[data-testid="ss-result"]').innerText();
+        stored = await page.evaluate(() => JSON.parse(localStorage.getItem('transactions') || '[]').length);
+      } catch (e) { err = e.message.split('\n')[0]; }
+      ok('P5-4.2: selling more than held is refused', /You hold only 5/.test(over), err || over);
+      ok('P5-4.2: one lot from 2024, gain 200, 200 of the allowance used, no extra tax',
+        /2024/.test(result) && /Gain\s*200\.00/.test(result) && /Sparerpauschbetrag used[^\n]*\n?\s*200\.00/.test(result) && /Extra tax this year\s*0\.00/.test(result), err || result.replace(/\s+/g, ' '));
+      ok('P5-4.2: the simulation books nothing', n0 > 0 && stored === n0, err || n0 + ' -> ' + stored);
+    }
+
     let pdf = null;
     try {
       const [download] = await Promise.all([
