@@ -37,7 +37,7 @@ import { WALLET_CHAINS, validAddress, walletSnapshot } from './wallets.js';
 // Bump on every change to this file that the app relies on, and set
 // EXPECTED_WORKER_VERSION in onboarding.js to the same value (test/worker-version
 // enforces both). Format YYYY.M.N; compared numerically per part.
-export const WORKER_VERSION = '2026.10.9';
+export const WORKER_VERSION = '2026.10.10';
 export const WORKER_ACTIONS = ['yf', 'yfsearch', 'screener', 'fundholdings', 'fundamentals', 'earnings', 'profile',
   'news', 'skinprices', 'steaminv', 'cg', 'hicp', 'sync', 'share', 'mcp', 'brokerproxy', 'fints', 'fintsbanks', 'wallet', 'version'];
 // P5-3.1: the routes a shared price Worker (PRICE_ONLY=1) serves - market data only
@@ -999,6 +999,12 @@ const BROKER_RELAY_POLICY = {
   'api.kraken.com':            { POST: ['/0/private/TradesHistory', '/0/private/Ledgers', '/0/private/Balance'] },
   'api.exchange.coinbase.com': { GET: ['/fills', '/accounts'] },
   'api.coinbase.com':          { GET: ['/api/v3/brokerage/orders/historical/fills', '/api/v3/brokerage/accounts', '/v2/accounts'] },
+  // P5-3.8 more read-only exchange syncs (exchange-more.js): balances / assets
+  // and trade history only.
+  'api.bitvavo.com':           { GET: ['/v2/balance', '/v2/trades'] },
+  'api.bybit.com':             { GET: ['/v5/user/query-api', '/v5/execution/list'] },
+  'api.kucoin.com':            { GET: ['/api/v1/fills'] },
+  'api.bitget.com':            { GET: ['/api/v2/spot/account/assets', '/api/v2/spot/trade/fills'] },
   // P5-3.5 bring-your-own-key aggregators (the user's own API keys). Read
   // endpoints only, plus what linking needs: a token, a bank link
   // (GoCardless requisition) and a read-only connection portal (SnapTrade).
@@ -1367,6 +1373,10 @@ const RELAY_HEADERS = {
   'api.kraken.com': ['api-key', 'api-sign', 'content-type'],
   'api.exchange.coinbase.com': ['cb-access-key', 'cb-access-sign', 'cb-access-timestamp', 'cb-access-passphrase'],
   'api.coinbase.com': ['authorization'],
+  'api.bitvavo.com': ['bitvavo-access-key', 'bitvavo-access-signature', 'bitvavo-access-timestamp', 'bitvavo-access-window'],
+  'api.bybit.com': ['x-bapi-api-key', 'x-bapi-timestamp', 'x-bapi-recv-window', 'x-bapi-sign'],
+  'api.kucoin.com': ['kc-api-key', 'kc-api-sign', 'kc-api-timestamp', 'kc-api-passphrase', 'kc-api-key-version'],
+  'api.bitget.com': ['access-key', 'access-sign', 'access-timestamp', 'access-passphrase', 'locale'],
   'bankaccountdata.gocardless.com': ['authorization', 'content-type'],
   'api.snaptrade.com': ['signature', 'content-type'],
 };

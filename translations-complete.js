@@ -3196,6 +3196,12 @@ taSparer: 'Sparerpauschbetrag',
     issueReconCrypto: 'Crypto wallets: {n} {n:coin differs|coins differ} from MAERMIN.',
     dcOpenReconcile: 'Show the comparison',
 
+    // P5-3.8 more exchange syncs
+    exNotReadOnly: '{name}: this API key is not read-only - create a read-only key',
+    exNeedPassphrase: 'Enter the API passphrase too.',
+    exPassphrase: 'API passphrase',
+    exFeeNote: 'Fee paid in {asset}: {qty} (not in the cost basis - add it as fee if you want it counted)',
+
     // CoinGecko via Worker
     cgNeedsWorker: 'Crypto prices come through your Worker - add its URL in API Settings'
   },
@@ -6238,6 +6244,12 @@ taSparer: 'Sparerpauschbetrag',
     issueReconDepot: '{source}: {n} {n:Position weicht|Positionen weichen} von MAERMIN ab.',
     issueReconCrypto: 'Krypto-Wallets: {n} {n:Coin weicht|Coins weichen} von MAERMIN ab.',
     dcOpenReconcile: 'Abgleich zeigen',
+
+    // P5-3.8 more exchange syncs
+    exNotReadOnly: '{name}: dieser API-Schlüssel ist nicht nur lesend - lege einen Nur-Lese-Schlüssel an',
+    exNeedPassphrase: 'Gib auch die API-Passphrase ein.',
+    exPassphrase: 'API-Passphrase',
+    exFeeNote: 'Gebühr in {asset} bezahlt: {qty} (nicht in den Anschaffungskosten - erfasse sie als Gebühr, wenn sie zählen soll)',
 
     // CoinGecko via Worker
     cgNeedsWorker: 'Kryptokurse kommen über deinen Worker – trage seine URL in den API-Einstellungen ein'

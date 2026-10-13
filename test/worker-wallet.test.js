@@ -51,7 +51,7 @@ function ok(name, cond, detail) { cond ? (passed++, console.log('  ✓ ' + name)
   const before = sim.calls.length;
   const again = await call('action=wallet&chain=btc&address=' + sim.BTC);
   ok('a repeat within two minutes is served from the cache', again.status === 200 && again.body.native.amount === 1 && sim.calls.length === before);
-  ok('version 2026.10.9 lists wallet', W.WORKER_VERSION === '2026.10.9' && W.WORKER_ACTIONS.indexOf('wallet') > -1);
+  ok('version lists wallet', /^2026\.10\.\d+$/.test(W.WORKER_VERSION) && W.WORKER_ACTIONS.indexOf('wallet') > -1);
   const po = await call('action=wallet&chain=btc&address=' + sim.BTC, { PRICE_ONLY: '1' });
   ok('the shared price Worker refuses it (403)', po.status === 403);
 
