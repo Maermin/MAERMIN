@@ -80,7 +80,7 @@ State of `main` after P5-2.10, 2026-10-13. All screenshots are from the demo (`?
 
 ## Owner tasks
 
-1. **Redeploy the Worker.** It went from 2026.10.4 to 2026.10.6:
+1. **Redeploy the Worker.** Done by the owner on 2026-10-13. It went from 2026.10.4 to 2026.10.6:
    - 2026.10.5 sends dividend events on the `yf` route, used by the dividend backtest.
    - 2026.10.6 adds `?action=hicp`, used for real returns.
    - Until the redeploy, the app shows "redeploy your Worker" hints in those two places; everything else works.
