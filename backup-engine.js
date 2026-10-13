@@ -68,6 +68,8 @@
     'maermin_wallets',
     // which portfolio each bank account is compared with (P5-3.7)
     'maermin_reconcile',
+    // bond terms and manual quotes (P5-3.9)
+    'maermin_bonds',
     // reusable CSV import presets (see import-mapping.js — saved column mappings)
     'maermin_import_presets',
     // German fund taxation + tax settings (tax-settings.js, tax-calculation-

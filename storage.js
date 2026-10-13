@@ -84,6 +84,7 @@
     'maermin_reconcile',          // which portfolio each bank account is compared with (reconcile.js, P5-3.7)
     'maermin_wallets',            // watched public crypto addresses and their last balances (crypto-wallets.js, P5-3.6)
     'maermin_aggregators',        // GoCardless / SnapTrade connection metadata and last balances (aggregators.js, P5-3.5); the keys themselves are vault-encrypted apart, never synced
+    'maermin_bonds',              // bond terms and manual quotes of held bonds (bonds.js, P5-3.9)
     'maermin_bank_sync',          // FinTS bank connections: bank code, login name if kept, last balances and depot (bank-sync.js, P5-3.4); never PIN or TAN
     'maermin_custom_categories',
     'maermin_trash',              // deleted records (transactions, plans, accounts …) for 30 days

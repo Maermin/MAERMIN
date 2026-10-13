@@ -21,7 +21,7 @@ function PerformanceAttribution({ portfolio, prices, transactions, exchangeRate,
   // Priced positions exactly like the Overview table: value = amount × price,
   // invested = FIFO EUR cost basis (totalCostEUR) with the legacy fallback.
   const positions = useMemo(() => {
-    const cats = ['crypto', 'stocks', 'skins', 'commodities']
+    const cats = ['crypto', 'stocks', 'skins', 'commodities', 'bonds'] // P5-3.9: bonds
       .concat(window.MaerminCategories ? window.MaerminCategories.ids() : []);
     const out = [];
     cats.forEach(cat => {

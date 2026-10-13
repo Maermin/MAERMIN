@@ -1248,6 +1248,64 @@ async function runBuild(browser, label, dir) {
     await context.close();
   }
 
+  // P5-3.9: a bond bought in the dialog (nominal, price in %, terms, accrued
+  // interest), its coupon booked on its date, the manual price in the panel
+  {
+    const context = await browser.newContext({ serviceWorkers: 'block' });
+    await wire(context, external);
+    const page = await context.newPage();
+    const errors = watch(page);
+    await createVault(page, base);
+    await page.evaluate(() => {
+      localStorage.setItem('maermin_onboarded', '1');
+      localStorage.setItem('maermin_ui_mode', 'advanced');
+      localStorage.setItem('maermin_schema_version', String(window.MaerminMigrations.LATEST));
+      localStorage.setItem('transactions', JSON.stringify([]));
+    });
+    await page.waitForTimeout(1500);
+    const stored = () => page.evaluate(() => JSON.parse(localStorage.getItem('transactions') || '[]'));
+    const dlg = page.locator('[aria-labelledby="dlg-transaction"]');
+    let accrued = '', buy = null, coupon = null, terms = null, panel = '', priced = null, err = '';
+    try {
+      await unlock(page, base);
+      await page.keyboard.press('Escape');
+      await openView(page, 'transactions');
+      await page.getByRole('button', { name: /Add Transaction/ }).first().click();
+      await dlg.waitFor({ timeout: 5000 });
+      await dlg.getByRole('button', { name: 'Bonds', exact: true }).click();
+      await dlg.locator('input[aria-label="Symbol"]').fill('DE0001102499');
+      await dlg.locator('#tx-quantity').fill('10000');
+      await dlg.locator('#tx-price').fill('98.5');
+      await dlg.locator('#tx-date').fill('2026-03-01');
+      await dlg.locator('[data-testid="bond-coupon"]').fill('2');
+      await dlg.locator('[data-testid="bond-maturity"]').fill('2030-06-15');
+      await dlg.locator('[data-testid="bond-propose"]').click();
+      accrued = await dlg.locator('[data-testid="bond-accrued"]').inputValue();
+      await dlg.locator('[data-tx-save]').click();
+      await page.waitForFunction(() => JSON.parse(localStorage.getItem('transactions') || '[]').some((x) => x.source === 'bond-coupon'), null, { timeout: 8000 });
+      const all = await stored();
+      buy = all.find((x) => x.type === 'buy' && x.category === 'bonds');
+      coupon = all.find((x) => x.source === 'bond-coupon' && x.date === '2026-06-15');
+      terms = await page.evaluate(() => JSON.parse(localStorage.getItem('maermin_bonds') || '{}'));
+      await openView(page, 'overview');
+      const p = page.locator('[data-testid="bonds-panel"]');
+      await p.waitFor({ timeout: 8000 });
+      await p.locator('[data-testid="bond-price"]').fill('101');
+      await p.locator('[data-testid="bond-price"]').press('Tab');
+      await page.waitForTimeout(400);
+      panel = (await p.innerText()).replace(/\n/g, ' | ');
+      priced = await page.evaluate(() => JSON.parse(localStorage.getItem('maermin_bonds') || '{}'));
+    } catch (e) { err = e.message.split('\n')[0]; }
+    ok('P5-3.9: the dialog proposes the accrued interest (10,000 nominal, 2 %, 259 days = 141.92)', accrued === '141.92', err || accrued);
+    ok('P5-3.9: the buy stores nominal, price as a fraction of it and the accrued interest',
+      !!buy && buy.quantity === 10000 && Math.abs(buy.price - 0.985) < 1e-12 && buy.accruedInterest === 141.92 && buy.symbol === 'DE0001102499', err || JSON.stringify(buy));
+    ok('P5-3.9: the terms typed in the dialog are stored', !!(terms.bonds && terms.bonds.DE0001102499 && terms.bonds.DE0001102499.coupon === 2 && terms.bonds.DE0001102499.maturity === '2030-06-15'), err || JSON.stringify(terms));
+    ok('P5-3.9: the coupon of 15 June 2026 is booked as interest (200)', !!coupon && coupon.type === 'interest' && coupon.amount === 200, err || JSON.stringify(coupon));
+    ok('P5-3.9: the Bonds panel lists the bond and keeps the manual price', /DE0001102499/.test(panel) && /10,000/.test(panel) && priced.bonds && priced.bonds.DE0001102499.price === 101, err || panel);
+    ok('no page errors in the bonds session', errors.length === 0, errors.join(' | '));
+    await context.close();
+  }
+
   // P5-1.4: clearing account - switch on, negative balance found, missing deposits booked
   {
     const context = await browser.newContext({ serviceWorkers: 'block' });
