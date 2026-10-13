@@ -37,6 +37,11 @@ function __(k, f, v) { return (typeof window !== 'undefined' && window.MaerminI1
     vehicle:      { get label() { return __('raVehicle', 'Vehicle'); }, icon: '◐' },
     watch:        { get label() { return __('raWatch', 'Watch'); }, icon: '◍' },
     collectible:  { get label() { return __('raCollectible', 'Collectible'); }, icon: '◇' },
+    // P5-3.11: alternative assets (see TEMPLATES below)
+    art:            { get label() { return __('raArt', 'Art'); }, icon: '◈' },
+    p2p_loan:       { get label() { return __('raP2p', 'P2P loans'); }, icon: '⇄' },
+    life_insurance: { get label() { return __('raLifeIns', 'Life insurance'); }, icon: '☂' },
+    startup:        { get label() { return __('raStartup', 'Startup stake'); }, icon: '△' },
     other:        { get label() { return __('secOther', 'Other'); }, icon: '◌' }
   };
 
@@ -46,12 +51,135 @@ function __(k, f, v) { return (typeof window !== 'undefined' && window.MaerminI1
     rental_income: { get label() { return __('raRental', 'Rental income'); }, sign: 1,  income: true },
     running_cost:  { get label() { return __('raRunning', 'Running cost'); }, sign: -1, income: false },
     renovation:    { get label() { return __('raRenovation', 'Renovation'); }, sign: -1, income: false },
+    // P5-3.11: interest of a P2P loan, premium of a life insurance
+    interest_income: { get label() { return __('raInterestIncome', 'Interest income'); }, sign: 1, income: true },
+    premium:       { get label() { return __('raPremium', 'Premium'); }, sign: -1, income: false },
     other:         { get label() { return __('secOther', 'Other'); }, sign: 1,  income: false }
   };
 
   function num(v) { var n = parseFloat(v); return isFinite(n) ? n : 0; }
   function str(v) { return String(v == null ? '' : v).trim(); }
   function uid() { return 'ra' + Date.now().toString(36) + Math.random().toString(36).slice(2, 7); }
+  // "12.500" / "12,500" / "7,5" / "7.5" -> number (NaN when empty)
+  function amount(v) {
+    if (typeof v === 'number') return v;
+    var s = str(v).replace(/\s|%|€/g, '');
+    if (!s) return NaN;
+    var c = s.lastIndexOf(','), d = s.lastIndexOf('.');
+    if (c !== -1 && d !== -1) s = c > d ? s.replace(/\./g, '').replace(',', '.') : s.replace(/,/g, '');
+    else if (c !== -1) s = /^\d{1,3}(,\d{3})+$/.test(s) ? s.replace(/,/g, '') : s.replace(',', '.');
+    else if (/^\d{1,3}(\.\d{3})+$/.test(s)) s = s.replace(/\./g, '');
+    return parseFloat(s);
+  }
+  function isoDate(v) { var s = str(v).slice(0, 10); return /^\d{4}-\d{2}-\d{2}$/.test(s) ? s : ''; }
+  function addMonths(iso, n) {
+    var y = Number(iso.slice(0, 4)), m = Number(iso.slice(5, 7)) - 1 + n, d = Number(iso.slice(8, 10));
+    y += Math.floor(m / 12); m = ((m % 12) + 12) % 12;
+    var last = new Date(Date.UTC(y, m + 1, 0)).getUTCDate();
+    return y + '-' + String(m + 1).padStart(2, '0') + '-' + String(Math.min(d, last)).padStart(2, '0');
+  }
+
+  // ---- P5-3.11: templates for alternative assets ------------------------------------
+  // Each template fills the existing model (valuations, cost, cash flows) and
+  // keeps its own fields in asset.details (only the listed keys survive).
+  // fields: { key, type: 'text'|'number'|'date', req? }
+  var TEMPLATES = [
+    { id: 'art', kind: 'art', details: ['appraisalDate'],
+      fields: [{ key: 'name', type: 'text', req: true }, { key: 'appraisal', type: 'number', req: true }, { key: 'appraisalDate', type: 'date' },
+        { key: 'purchasePrice', type: 'number' }, { key: 'purchaseDate', type: 'date' }, { key: 'insuranceYear', type: 'number' }] },
+    { id: 'p2p_loan', kind: 'p2p_loan', details: ['platform', 'ratePct', 'termMonths', 'maturity'],
+      fields: [{ key: 'name', type: 'text', req: true }, { key: 'platform', type: 'text' }, { key: 'principal', type: 'number', req: true },
+        { key: 'ratePct', type: 'number' }, { key: 'startDate', type: 'date' }, { key: 'termMonths', type: 'number' }] },
+    { id: 'life_insurance', kind: 'life_insurance', details: ['maturity', 'guaranteedPct'],
+      fields: [{ key: 'name', type: 'text', req: true }, { key: 'surrenderValue', type: 'number', req: true }, { key: 'valueDate', type: 'date' },
+        { key: 'premiumMonthly', type: 'number' }, { key: 'maturity', type: 'date' }, { key: 'guaranteedPct', type: 'number' }] },
+    { id: 'vehicle', kind: 'vehicle', details: ['depreciationPct'],
+      fields: [{ key: 'name', type: 'text', req: true }, { key: 'purchasePrice', type: 'number', req: true }, { key: 'purchaseDate', type: 'date' },
+        { key: 'depreciationPct', type: 'number' }] },
+    { id: 'startup', kind: 'startup', details: ['shares', 'roundPrice', 'roundDate'],
+      fields: [{ key: 'name', type: 'text', req: true }, { key: 'shares', type: 'number', req: true }, { key: 'roundPrice', type: 'number', req: true },
+        { key: 'roundDate', type: 'date' }, { key: 'invested', type: 'number' }, { key: 'investDate', type: 'date' }] },
+    { id: 'collectible', kind: 'collectible', details: ['estimateDate'],
+      fields: [{ key: 'name', type: 'text', req: true }, { key: 'estimate', type: 'number', req: true }, { key: 'estimateDate', type: 'date' },
+        { key: 'purchasePrice', type: 'number' }, { key: 'purchaseDate', type: 'date' }, { key: 'insuranceYear', type: 'number' }] }
+  ];
+  var TEMPLATE_BY_KIND = {};
+  TEMPLATES.forEach(function (t0) { TEMPLATE_BY_KIND[t0.kind] = t0; });
+  function fieldLabel(key) {
+    return ({
+      name: __('raName', 'Name'), appraisal: __('raTplAppraisal', 'Appraised value'), appraisalDate: __('raTplAppraisalDate', 'Appraisal date'),
+      purchasePrice: __('raCost', 'Purchase price'), purchaseDate: __('raTplPurchaseDate', 'Purchase date'), insuranceYear: __('raTplInsurance', 'Insurance / year'),
+      platform: __('raTplPlatform', 'Platform'), principal: __('raTplPrincipal', 'Outstanding principal'), ratePct: __('raTplRate', 'Interest % p.a.'),
+      startDate: __('raTplStart', 'Start date'), termMonths: __('raTplTerm', 'Term (months)'), surrenderValue: __('raTplSurrender', 'Surrender value'),
+      valueDate: __('raTplValueDate', 'Value date'), premiumMonthly: __('raTplPremium', 'Premium / month'), maturity: __('raTplMaturity', 'Maturity'),
+      guaranteedPct: __('raTplGuaranteed', 'Guaranteed rate %'), depreciationPct: __('raTplDepreciation', 'Depreciation % / year'),
+      shares: __('raTplShares', 'Shares'), roundPrice: __('raTplRoundPrice', 'Price per share (last round)'), roundDate: __('raTplRoundDate', 'Round date'),
+      invested: __('raTplInvested', 'Amount invested'), investDate: __('raTplInvestDate', 'Investment date'),
+      estimate: __('raTplEstimate', 'Estimated value'), estimateDate: __('raTplEstimateDate', 'Estimate date')
+    })[key] || key;
+  }
+  function templateLabel(id) {
+    return ({ art: __('raArt', 'Art'), p2p_loan: __('raP2p', 'P2P loans'), life_insurance: __('raLifeIns', 'Life insurance'),
+      vehicle: __('raVehicle', 'Vehicle'), startup: __('raStartup', 'Startup stake'), collectible: __('raCollectible', 'Collectible') })[id] || id;
+  }
+
+  // Build an asset from a template form (text values as typed). null when
+  // the template is unknown or a required field is missing.
+  function fromTemplate(id, form, today) {
+    var tpl = TEMPLATES.filter(function (t0) { return t0.id === id; })[0];
+    form = form || {};
+    today = isoDate(today) || new Date().toISOString().slice(0, 10);
+    if (!tpl || !str(form.name)) return null;
+    var n = function (k) { return amount(form[k]); }, d = function (k, dflt) { return isoDate(form[k]) || dflt; };
+    var bad = tpl.fields.some(function (f) { return f.req && f.type === 'number' && !(n(f.key) > 0); });
+    if (bad) return null;
+    var vals = [], flows = [], details = {}, cost = 0;
+    var purchase = function () {
+      if (n('purchasePrice') > 0) { cost = n('purchasePrice'); vals.push({ date: d('purchaseDate', today), value: cost }); }
+    };
+    var insurance = function () {
+      if (n('insuranceYear') > 0) flows.push({ date: today, type: 'running_cost', amount: n('insuranceYear'), recurring: true, intervalMonths: 12 });
+    };
+    if (id === 'art') {
+      purchase(); vals.push({ date: d('appraisalDate', today), value: n('appraisal') }); insurance();
+      details.appraisalDate = d('appraisalDate', today);
+    } else if (id === 'collectible') {
+      purchase(); vals.push({ date: d('estimateDate', today), value: n('estimate') }); insurance();
+      details.estimateDate = d('estimateDate', today);
+    } else if (id === 'p2p_loan') {
+      var start = d('startDate', today), rate = n('ratePct') > 0 ? n('ratePct') : 0, term = Math.round(n('termMonths'));
+      cost = n('principal'); vals.push({ date: start, value: cost });
+      if (rate > 0) flows.push({ date: start, type: 'interest_income', amount: Math.round(cost * rate / 100 / 12 * 100) / 100, recurring: true, intervalMonths: 1 });
+      details.platform = str(form.platform); details.ratePct = rate;
+      if (term > 0) { details.termMonths = term; details.maturity = addMonths(start, term); }
+    } else if (id === 'life_insurance') {
+      vals.push({ date: d('valueDate', today), value: n('surrenderValue') });
+      if (n('premiumMonthly') > 0) flows.push({ date: today, type: 'premium', amount: n('premiumMonthly'), recurring: true, intervalMonths: 1 });
+      if (isoDate(form.maturity)) details.maturity = isoDate(form.maturity);
+      if (n('guaranteedPct') >= 0) details.guaranteedPct = n('guaranteedPct');
+    } else if (id === 'vehicle') {
+      purchase();
+      if (n('depreciationPct') > 0 && n('depreciationPct') < 100) details.depreciationPct = n('depreciationPct') / 100;
+    } else if (id === 'startup') {
+      if (n('invested') > 0) { cost = n('invested'); vals.push({ date: d('investDate', today), value: cost }); }
+      vals.push({ date: d('roundDate', today), value: Math.round(n('shares') * n('roundPrice') * 100) / 100 });
+      details.shares = n('shares'); details.roundPrice = n('roundPrice'); details.roundDate = d('roundDate', today);
+    }
+    return normalizeAsset({ name: form.name, kind: tpl.kind, currency: form.currency, valuations: vals, acquisitionCost: cost,
+      cashflows: flows, details: details, note: form.note });
+  }
+  function cleanDetails(kind, raw) {
+    var tpl = TEMPLATE_BY_KIND[kind];
+    if (!tpl || !raw || typeof raw !== 'object') return undefined;
+    var out = {}, any = false;
+    tpl.details.forEach(function (k) {
+      var v = raw[k];
+      if (v == null || v === '') return;
+      out[k] = (typeof v === 'number' || k === 'platform' || /Date$|^maturity$/.test(k)) ? v : str(v);
+      any = true;
+    });
+    return any ? out : undefined;
+  }
 
   function normValuation(v) {
     if (!v || typeof v !== 'object') return null;
@@ -84,7 +212,7 @@ function __(k, f, v) { return (typeof window !== 'undefined' && window.MaerminI1
       .sort(function (x, y) { return x.date < y.date ? -1 : (x.date > y.date ? 1 : 0); });
     var cashflows = (Array.isArray(a.cashflows) ? a.cashflows : [])
       .map(normCashflow).filter(Boolean);
-    return {
+    var out = {
       id: a.id ? str(a.id) : uid(),
       name: name,
       kind: kind,
@@ -97,6 +225,9 @@ function __(k, f, v) { return (typeof window !== 'undefined' && window.MaerminI1
       imageDataUrl: typeof a.imageDataUrl === 'string' ? a.imageDataUrl : null,
       note: str(a.note)
     };
+    var details = cleanDetails(kind, a.details);
+    if (details) out.details = details;
+    return out;
   }
 
   function normalize(raw) {
@@ -111,10 +242,22 @@ function __(k, f, v) { return (typeof window !== 'undefined' && window.MaerminI1
 
   // ---- pure compute ---------------------------------------------------------
 
-  // Current (latest) valuation of an asset, in EUR.
-  function currentValue(asset, usdToEur) {
+  // Current (latest) valuation of an asset, in EUR. P5-3.11: an asset with a
+  // yearly depreciation (vehicle template) loses that share per year from its
+  // latest valuation on or before asOf (default today); a newer manual
+  // valuation is the new base.
+  function currentValue(asset, usdToEur, asOf) {
     if (!asset || !asset.valuations || !asset.valuations.length) return 0;
     var latest = asset.valuations[asset.valuations.length - 1];
+    var dep = asset.details && num(asset.details.depreciationPct);
+    if (dep > 0 && dep < 1) {
+      var day = isoDate(asOf) || new Date().toISOString().slice(0, 10);
+      var base = null;
+      asset.valuations.forEach(function (v) { if (v.date <= day) base = v; });
+      base = base || asset.valuations[0];
+      var years = Math.max(0, (Date.parse(day + 'T00:00:00Z') - Date.parse(base.date + 'T00:00:00Z')) / 864e5 / 365);
+      return toEUR(base.value * Math.pow(1 - dep, years), asset.currency, usdToEur);
+    }
     return toEUR(latest.value, asset.currency, usdToEur);
   }
 
@@ -247,6 +390,7 @@ function __(k, f, v) { return (typeof window !== 'undefined' && window.MaerminI1
 
   var api = {
     STORAGE_KEY: STORAGE_KEY, SCHEMA: SCHEMA, KINDS: KINDS, CASHFLOW_TYPES: CASHFLOW_TYPES,
+    TEMPLATES: TEMPLATES, fromTemplate: fromTemplate, fieldLabel: fieldLabel, templateLabel: templateLabel,
     normalize: normalize,
     currentValue: currentValue, financingBalance: financingBalance, netValue: netValue,
     annualIncome: annualIncome, annualCost: annualCost, netYield: netYield,
@@ -287,7 +431,8 @@ function __(k, f, v) { return (typeof window !== 'undefined' && window.MaerminI1
         var st = s0[0], setSt = s0[1];
         var sa = useState(false); var showAdd = sa[0], setShowAdd = sa[1];
         var blank = { name: '', kind: 'real_estate', currency: 'EUR', value: '', acquisitionCost: '',
-          acquisitionFees: '', financingAccountId: '', rentMonthly: '', costMonthly: '', note: '' };
+          acquisitionFees: '', financingAccountId: '', rentMonthly: '', costMonthly: '', note: '', template: '' };
+        var er = useState(''); var tplError = er[0], setTplError = er[1];
         var f0 = useState(function () { return Object.assign({}, blank); });
         var form = f0[0], setForm = f0[1];
 
@@ -296,8 +441,16 @@ function __(k, f, v) { return (typeof window !== 'undefined' && window.MaerminI1
         function setF(patch) { setForm(Object.assign({}, form, patch)); }
 
         function addCurrent() {
-          if (!form.name) return;
           var today = (window.MaerminUtils && window.MaerminUtils.todayISO) ? window.MaerminUtils.todayISO() : new Date().toISOString().slice(0, 10);
+          // P5-3.11: a template builds the asset from its own fields
+          if (form.template) {
+            var built = API.fromTemplate(form.template, form, today);
+            if (!built) { setTplError(__('raTplMissing', 'Fill in the name and the fields marked *.')); return; }
+            mutate(API.addAsset(st, built));
+            setTplError(''); setForm(Object.assign({}, blank)); setShowAdd(false);
+            return;
+          }
+          if (!form.name) return;
           var cashflows = [];
           if (parseFloat(form.rentMonthly) > 0) cashflows.push({ date: today, type: 'rental_income', amount: parseFloat(form.rentMonthly), recurring: true, intervalMonths: 1 });
           if (parseFloat(form.costMonthly) > 0) cashflows.push({ date: today, type: 'running_cost', amount: parseFloat(form.costMonthly), recurring: true, intervalMonths: 1 });
@@ -371,6 +524,20 @@ function __(k, f, v) { return (typeof window !== 'undefined' && window.MaerminI1
               style: { padding: '0.45rem 0.9rem', background: accent, color: '#ffffff', border: 'none', borderRadius: '8px', cursor: 'pointer', fontWeight: 700, fontSize: '0.82rem' } }, t.raAdd || '+ Add Asset')),
 
           showAdd ? e('div', { style: { padding: '0.85rem', background: inputBg, borderRadius: '10px', marginBottom: '0.85rem' } },
+            // P5-3.11: start from a template (art, P2P loans, life insurance, vehicles, startups, collectibles)
+            e('div', { style: { marginBottom: '0.6rem' } }, label(__('raTemplate', 'Template')),
+              e('select', { value: form.template, 'data-testid': 'ra-template', onChange: function (ev) { setTplError(''); setF({ template: ev.target.value }); },
+                style: { padding: '0.55rem 0.7rem', background: inputBg, border: '1px solid ' + inputBorder, borderRadius: '8px', color: text, fontSize: '0.85rem', width: '100%', maxWidth: '320px' } },
+                [e('option', { key: '_', value: '' }, __('raTplGeneric', 'Property, watch or other (free form)'))].concat(
+                  API.TEMPLATES.map(function (tp) { return e('option', { key: tp.id, value: tp.id }, API.templateLabel(tp.id)); })))),
+            form.template ? e('div', { style: { display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(150px, 1fr))', gap: '0.6rem' } },
+              API.TEMPLATES.filter(function (tp) { return tp.id === form.template; })[0].fields.map(function (f) {
+                return e('div', { key: f.key }, label(API.fieldLabel(f.key) + (f.req ? ' *' : '')),
+                  inp(f.key, { type: f.type === 'date' ? 'date' : 'text', inputMode: f.type === 'number' ? 'decimal' : undefined, 'data-testid': 'ra-f-' + f.key }));
+              }).concat([e('div', { key: '_cur' }, label(t.raCurrency || 'Currency'),
+                e('select', { value: form.currency, onChange: function (ev) { setF({ currency: ev.target.value }); },
+                  style: { padding: '0.55rem 0.7rem', background: inputBg, border: '1px solid ' + inputBorder, borderRadius: '8px', color: text, fontSize: '0.85rem', width: '100%' } },
+                  ['EUR', 'USD'].map(function (c) { return e('option', { key: c, value: c }, c); })))])) :
             e('div', { style: { display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(150px, 1fr))', gap: '0.6rem' } },
               e('div', null, label(t.raName || 'Name'), inp('name', { placeholder: __('raNamePh', 'e.g. Apartment Berlin') })),
               e('div', null, label(t.raKind || 'Kind'),
@@ -391,8 +558,9 @@ function __(k, f, v) { return (typeof window !== 'undefined' && window.MaerminI1
                   style: { padding: '0.55rem 0.7rem', background: inputBg, border: '1px solid ' + inputBorder, borderRadius: '8px', color: text, fontSize: '0.85rem', width: '100%' } },
                   [e('option', { key: '_', value: '' }, t.raNoFinancing || 'None')].concat(
                     liabilityAccounts.map(function (a) { return e('option', { key: a.id, value: a.id }, a.name); }))))),
+            tplError ? e('div', { style: { color: (props.theme && props.theme.warning) || '#f59e0b', fontSize: '0.78rem', marginTop: '0.5rem' } }, tplError) : null,
             e('div', { style: { display: 'flex', gap: '0.5rem', marginTop: '0.75rem' } },
-              e('button', { onClick: addCurrent, style: { padding: '0.5rem 1rem', background: accent, color: '#ffffff', border: 'none', borderRadius: '8px', cursor: 'pointer', fontWeight: 700, fontSize: '0.82rem' } }, t.raSave || 'Add'),
+              e('button', { onClick: addCurrent, 'data-testid': 'ra-add', style: { padding: '0.5rem 1rem', background: accent, color: '#ffffff', border: 'none', borderRadius: '8px', cursor: 'pointer', fontWeight: 700, fontSize: '0.82rem' } }, t.raSave || 'Add'),
               e('button', { onClick: function () { setShowAdd(false); }, style: { padding: '0.5rem 1rem', background: inputBg, color: text, border: '1px solid ' + inputBorder, borderRadius: '8px', cursor: 'pointer', fontSize: '0.82rem' } }, t.raCancel || 'Cancel'))) : null,
 
           st.assets.length ? e('div', null, rows)
