@@ -235,6 +235,8 @@ function __(k, f, v) { return (typeof window !== 'undefined' && window.MaerminI1
     var bal = a.balance && num(a.balance.amount) !== null ? { amount: num(a.balance.amount), currency: str(a.balance.currency) || 'EUR', date: str(a.balance.date) || null } : null;
     return { id: str(a.id).slice(0, 64), iban: str(a.iban).slice(0, 34), name: str(a.name).slice(0, 80), institution: str(a.institution).slice(0, 80), currency: str(a.currency) || 'EUR', balance: bal, importBookings: !!a.importBookings };
   }
+  // P5-3.7: the last failed sync of a provider (the Data check names it)
+  function cleanErr(x) { return x && str(x.message) ? { date: str(x.date).slice(0, 10) || null, message: str(x.message).slice(0, 200) } : null; }
   function normalize(raw) {
     var o = raw;
     if (typeof raw === 'string') { try { o = JSON.parse(raw); } catch (e) { o = null; } }
@@ -243,8 +245,8 @@ function __(k, f, v) { return (typeof window !== 'undefined' && window.MaerminI1
     return {
       version: 1,
       gocardless: { connected: !!gc.connected, requisitionId: /^[0-9a-f-]{36}$/.test(str(gc.requisitionId)) ? str(gc.requisitionId) : '', institutionId: str(gc.institutionId).slice(0, 80), institutionName: str(gc.institutionName).slice(0, 80),
-        lastSync: str(gc.lastSync) || null, accounts: (Array.isArray(gc.accounts) ? gc.accounts : []).map(cleanAcc).filter(Boolean).slice(0, 30) },
-      snaptrade: { connected: !!st.connected, registered: !!st.registered, lastSync: str(st.lastSync) || null, accounts: (Array.isArray(st.accounts) ? st.accounts : []).map(cleanAcc).filter(Boolean).slice(0, 30) }
+        lastSync: str(gc.lastSync) || null, lastError: cleanErr(gc.lastError), accounts: (Array.isArray(gc.accounts) ? gc.accounts : []).map(cleanAcc).filter(Boolean).slice(0, 30) },
+      snaptrade: { connected: !!st.connected, registered: !!st.registered, lastSync: str(st.lastSync) || null, lastError: cleanErr(st.lastError), accounts: (Array.isArray(st.accounts) ? st.accounts : []).map(cleanAcc).filter(Boolean).slice(0, 30) }
     };
   }
   var _demo = null;
@@ -315,6 +317,13 @@ function __(k, f, v) { return (typeof window !== 'undefined' && window.MaerminI1
     var today = function () { return (W.MaerminUtils && W.MaerminUtils.todayISO) ? W.MaerminUtils.todayISO() : new Date().toISOString().slice(0, 10); };
     function mutate(next) { save(next); setSt(normalize(next)); }
     function relay() { return makeRelay(props.workerUrl); }
+    // a failed sync is remembered for the Data check (P5-3.7); a pending bank approval is not a failure
+    function failed(provider) {
+      return function (err) {
+        if (!(err && err.code === 'pending')) { var n = normalize(load()); n[provider] = Object.assign({}, n[provider], { lastError: { date: today(), message: (err && err.message) || String(err) } }); mutate(n); }
+        fail(err);
+      };
+    }
     function fail(err) {
       setBusy('');
       var c = err && err.code;
@@ -363,11 +372,11 @@ function __(k, f, v) { return (typeof window !== 'undefined' && window.MaerminI1
       }).then(function (accs) {
         var ticks = {}; st.gocardless.accounts.forEach(function (a) { ticks[a.id] = a.importBookings; });
         var n = normalize(st);
-        n.gocardless = Object.assign({}, n.gocardless, { connected: true, lastSync: today(), accounts: accs.map(function (a) { return { id: a.id, iban: a.iban, name: a.name, currency: a.currency, balance: a.balance, importBookings: !!ticks[a.id] }; }) });
+        n.gocardless = Object.assign({}, n.gocardless, { connected: true, lastSync: today(), lastError: null, accounts: accs.map(function (a) { return { id: a.id, iban: a.iban, name: a.name, currency: a.currency, balance: a.balance, importBookings: !!ticks[a.id] }; }) });
         mutate(n);
         setResults(function (prev) { var o = Object.assign({}, prev); accs.forEach(function (a) { o['gc:' + a.id] = a.rows; }); return o; });
         setBusy(''); setMsg(__('agSynced', 'Sync finished.'));
-      }, fail);
+      }, failed('gocardless'));
     }
     // SnapTrade
     function stCreds() {
@@ -392,11 +401,11 @@ function __(k, f, v) { return (typeof window !== 'undefined' && window.MaerminI1
       var end = today(), start = (BS ? BS.sinceDate(end, 365 * 5) : '2020-01-01');
       stCreds().then(function (c) { return stFetch(c, relay(), { startDate: start, endDate: end }); }).then(function (res) {
         var n = normalize(st);
-        n.snaptrade = Object.assign({}, n.snaptrade, { connected: res.accounts.length > 0, lastSync: today(), accounts: res.accounts.map(function (a) { return { id: a.id, name: a.name + (a.number ? ' …' + a.number : ''), institution: a.institution, balance: a.balance }; }) });
+        n.snaptrade = Object.assign({}, n.snaptrade, { connected: res.accounts.length > 0, lastSync: today(), lastError: null, accounts: res.accounts.map(function (a) { return { id: a.id, name: a.name + (a.number ? ' …' + a.number : ''), institution: a.institution, balance: a.balance }; }) });
         mutate(n);
         setResults(function (prev) { return Object.assign({}, prev, { st: res }); });
         setBusy(''); setMsg(res.accounts.length ? __('agSynced', 'Sync finished.') : __('agStNone', 'No broker connected yet: press "Connect broker" first.'));
-      }, fail);
+      }, failed('snaptrade'));
     }
 
     var card0 = function (testid, title, body) { return e('div', { 'data-testid': testid, style: { padding: '0.8rem', border: '1px solid ' + border, borderRadius: '10px', marginBottom: '0.7rem' } }, e('div', { style: { color: text, fontWeight: 700, fontSize: '0.86rem', marginBottom: '0.3rem' } }, title), body); };

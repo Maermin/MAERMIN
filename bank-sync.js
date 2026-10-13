@@ -51,6 +51,8 @@ function __(k, f, v) { return (typeof window !== 'undefined' && window.MaerminI1
       rememberLogin: remember, login: remember ? str(c.login).slice(0, 60) : '',
       systemId: str(c.systemId).slice(0, 60), secFunc: /^9\d\d$/.test(str(c.secFunc)) ? str(c.secFunc) : '', methodName: str(c.methodName).slice(0, 60),
       lastSync: str(c.lastSync) || null,
+      // P5-3.7: the last failed sync (the Data check names it), cleared by a good one
+      lastError: c.lastError && str(c.lastError.message) ? { date: str(c.lastError.date).slice(0, 10) || null, message: str(c.lastError.message).slice(0, 200) } : null,
       accounts: (Array.isArray(c.accounts) ? c.accounts : []).map(cleanAccount).filter(Boolean).slice(0, 50)
     };
   }
@@ -72,7 +74,7 @@ function __(k, f, v) { return (typeof window !== 'undefined' && window.MaerminI1
   function applyResult(conn, result, today) {
     var ticks = {};
     (conn.accounts || []).forEach(function (a) { ticks[a.accountNo] = a.importBookings; });
-    return Object.assign({}, conn, { lastSync: today, accounts: (result.accounts || []).map(function (a) { return cleanAccount(Object.assign({}, a, { importBookings: !!ticks[a.accountNo] })); }).filter(Boolean) });
+    return Object.assign({}, conn, { lastSync: today, lastError: null, accounts: (result.accounts || []).map(function (a) { return cleanAccount(Object.assign({}, a, { importBookings: !!ticks[a.accountNo] })); }).filter(Boolean) });
   }
 
   // ---- transactions → cash bookings -------------------------------------------
@@ -247,6 +249,7 @@ function __(k, f, v) { return (typeof window !== 'undefined' && window.MaerminI1
       var fail = function (err) {
         setRun(null);
         setMsg(__('bsFailed', 'Bank sync failed: {msg}', { msg: errorText(err) }));
+        if (!(err && err.code === 'cancelled')) mutate(updateConnection(load(), c.id, { lastError: { date: new Date().toISOString().slice(0, 10), message: errorText(err) } }));
       };
       setRun(Object.assign({}, run, { step: 'busy', status: __('bsConnecting', 'Connecting to the bank…') }));
       var ready = c.systemId && c.secFunc ? Promise.resolve(cfg) : FINTS.synchronize(cfg, transport).then(function (s) {

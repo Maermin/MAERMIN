@@ -44,6 +44,8 @@ function __(k, f, v) { return (typeof window !== 'undefined' && window.MaerminI1
     if (!w || typeof w !== 'object' || CHAIN_IDS.indexOf(w.chain) < 0 || !validAddress(w.chain, w.address)) return null;
     var nat = w.native && str(w.native.symbol) ? { symbol: str(w.native.symbol).toUpperCase().slice(0, 12), amount: num(w.native.amount) } : null;
     return { id: str(w.id) || uid(), chain: w.chain, address: str(w.address), label: str(w.label).slice(0, 60), lastSync: str(w.lastSync) || null,
+      // P5-3.7: the last failed read (the Data check names it)
+      lastError: w.lastError && str(w.lastError.message) ? { date: str(w.lastError.date).slice(0, 10) || null, message: str(w.lastError.message).slice(0, 200) } : null,
       native: nat, tokens: (Array.isArray(w.tokens) ? w.tokens : []).slice(0, 50).map(function (t) {
         return { symbol: str(t.symbol).toUpperCase().slice(0, 16), name: str(t.name).slice(0, 60), amount: num(t.amount), contract: str(t.contract).slice(0, 64) };
       }).filter(function (t) { return t.symbol && t.amount > 0; }) };
@@ -65,7 +67,12 @@ function __(k, f, v) { return (typeof window !== 'undefined' && window.MaerminI1
   function removeWallet(state, id) { state = normalize(state); state.wallets = state.wallets.filter(function (w) { return w.id !== id; }); return state; }
   function applySnapshot(state, id, snap, today) {
     state = normalize(state);
-    state.wallets = state.wallets.map(function (w) { return w.id === id ? cleanWallet(Object.assign({}, w, { native: snap.native, tokens: snap.tokens, lastSync: today })) || w : w; });
+    state.wallets = state.wallets.map(function (w) { return w.id === id ? cleanWallet(Object.assign({}, w, { native: snap.native, tokens: snap.tokens, lastSync: today, lastError: null })) || w : w; });
+    return state;
+  }
+  function applyError(state, id, message, today) {
+    state = normalize(state);
+    state.wallets = state.wallets.map(function (w) { return w.id === id ? cleanWallet(Object.assign({}, w, { lastError: { date: today, message: message } })) || w : w; });
     return state;
   }
 
@@ -118,7 +125,7 @@ function __(k, f, v) { return (typeof window !== 'undefined' && window.MaerminI1
 
   var api = {
     STORAGE_KEY: STORAGE_KEY, CHAIN_IDS: CHAIN_IDS, chainName: chainName, validAddress: validAddress,
-    normalize: normalize, addWallet: addWallet, removeWallet: removeWallet, applySnapshot: applySnapshot,
+    normalize: normalize, addWallet: addWallet, removeWallet: removeWallet, applySnapshot: applySnapshot, applyError: applyError,
     totals: totals, heldCrypto: heldCrypto, compare: compare, load: load, save: save, fetchSnapshot: fetchSnapshot
   };
 
@@ -155,7 +162,7 @@ function __(k, f, v) { return (typeof window !== 'undefined' && window.MaerminI1
       list.reduce(function (p, w) {
         return p.then(function () {
           return fetchSnapshot(props.workerUrl, w).then(function (snap) { next = applySnapshot(next, w.id, snap, today); recent[w.id] = snap.txs || []; },
-            function (err) { errs.push((w.label || chainName(w.chain)) + ': ' + err.message); });
+            function (err) { errs.push((w.label || chainName(w.chain)) + ': ' + err.message); next = applyError(next, w.id, err.message, today); });
         });
       }, Promise.resolve()).then(function () {
         mutate(next);

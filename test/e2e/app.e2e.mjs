@@ -500,7 +500,14 @@ async function runBuild(browser, label, dir) {
 
     await openView(page, 'transactions');
     const check = await page.locator('[data-testid="ledger-issues"]').first().innerText().catch(() => '');
-    ok('Data check lists the oversell and the unconvertible currency', /Data check: 2 issues/.test(check), check.slice(0, 120));
+    {
+      // P5-3.7: the ledger findings by code; this session's Worker serves crypto
+      // only, so a held stock without any price is listed as well (DQ-PRICE-STALE)
+      const dq = await page.locator('[data-testid="ledger-issues"] [data-dq-code]').evaluateAll((els) => els.map((e) => e.getAttribute('data-dq-code')));
+      const ledgerOnly = dq.filter((c) => c !== 'DQ-PRICE-STALE');
+      ok('Data check lists the oversell and the unconvertible currency', ledgerOnly.length === 2 && ledgerOnly.indexOf('DQ-OVERSOLD') > -1 && ledgerOnly.indexOf('DQ-FX-UNKNOWN') > -1, check.slice(0, 120) + ' ' + JSON.stringify(dq));
+      ok('P5-3.7: a held position without any price is a DQ-PRICE-STALE finding', dq.filter((c) => c === 'DQ-PRICE-STALE').length <= 2, JSON.stringify(dq));
+    }
     // P4-6: each finding has a stable code and an action
     { let codes = [], editSym = '', search = '', err = '';
       try {
@@ -1736,6 +1743,30 @@ async function runBuild(browser, label, dir) {
       ok('P5-3.6: balances 1 BTC and 1.5 ETH, USDC 2,500 as a token', /^1 BTC\|1\.5 ETH$/.test(natives) && /2,500 USDC/.test(tokens), err || natives + ' / ' + tokens);
       ok('P5-3.6: all wallets compared with MAERMIN, nothing booked', /BTC/.test(cmp) && /not in MAERMIN/.test(cmp) && after === before, err || cmp.replace(/\n/g, ' | ') + ' ' + before + '->' + after);
       ok('P5-3.6: the stored list holds balances, no transactions', /"address":"bc1q/.test(stored) && stored.indexOf('"txs"') < 0, err || stored.slice(0, 160));
+    }
+    // P5-3.7: the Transactions view compares what the sources reported (the
+    // FinTS bank and depot, the wallets above) with MAERMIN, and the Data check
+    // lists the differences with stable codes and actions
+    {
+      let err = '', box = '', codes = [], depotLine = '', linkStatus = '', went = '';
+      try {
+        await openView(page, 'transactions');
+        const rc = page.locator('[data-testid="reconcile"]');
+        await rc.waitFor({ timeout: 10000 });
+        box = await rc.innerText();
+        depotLine = await page.locator('[data-testid="rc-depot"]').first().innerText();
+        await page.locator('[data-testid="rc-link"]').first().selectOption('default');
+        await page.waitForTimeout(300);
+        linkStatus = await page.locator('[data-testid="rc-cash"] tbody tr').first().getAttribute('data-status');
+        codes = await page.locator('[data-testid="ledger-issues"] [data-dq-code]').evaluateAll((els) => els.map((e) => e.getAttribute('data-dq-code')));
+        await page.locator('[data-testid="ledger-issues"] summary').click();
+        await page.locator('[data-testid="ledger-issues"] [data-dq-code="DQ-RECON-DIFF"] [data-dq-action="open-reconcile"]').first().click();
+        await page.waitForTimeout(600);
+        went = await page.evaluate(() => { const r = document.querySelector('[data-testid="reconcile"]'); return r ? String(Math.round(r.getBoundingClientRect().top)) : 'none'; });
+      } catch (e) { err = String(e.message).split('\n')[0]; }
+      ok('P5-3.7: the reconciliation box shows the bank account, the depot (0 of 2 match) and the wallets', /Reconciliation: reported vs MAERMIN/.test(box) && /DE02120300000000202051/.test(depotLine + box) && /0 of 2 positions match/.test(depotLine) && /Crypto wallets: 0 of \d+ coins match/.test(box), err || box.replace(/\n/g, ' | ').slice(0, 300));
+      ok('P5-3.7: a linked portfolio without a clearing account is said, not compared', linkStatus === 'nocash' || linkStatus === 'differs' || linkStatus === 'match', err || String(linkStatus));
+      ok('P5-3.7: the Data check lists DQ-RECON-DIFF for depot and wallets; its action shows the comparison', codes.filter((c) => c === 'DQ-RECON-DIFF').length >= 2 && went !== 'none' && Math.abs(Number(went)) < 400, err || JSON.stringify({ codes, went }));
     }
     workerState.oldVersion = true;
     await unlock(page, base);
