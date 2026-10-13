@@ -3027,6 +3027,16 @@ taSparer: 'Sparerpauschbetrag',
     txFill: 'Fill from data ({n})',
     txFillNone: 'Nothing to fill',
 
+    // P5-3.1 shared price service
+    secMarketData: 'Market data',
+    secSharedHint: 'Prices, closes, exchange rates, symbol search and fund data come from your own Worker. Without one, the app can use the MAERMIN price service run by the project owner: it only serves market data, sees the symbols you ask about (never amounts, quantities or your vault), keeps no logs beyond its cache, and is never used for sync, share links or broker connections. Your own Worker always wins.',
+    secSource: 'Source',
+    secSourceOwn: 'Your Worker',
+    secSourceShared: 'MAERMIN price service',
+    secSourceNone: 'None (offline prices)',
+    secSharedSwitch: 'Use the price service without an own Worker',
+    secSharedNotYet: 'The price service is not online yet; until then market data needs your own Worker.',
+
     // CoinGecko via Worker
     cgNeedsWorker: 'Crypto prices come through your Worker - add its URL in API Settings'
   },
@@ -5900,6 +5910,16 @@ taSparer: 'Sparerpauschbetrag',
     txAssignAria: 'Knoten von {sym}',
     txFill: 'Aus Daten füllen ({n})',
     txFillNone: 'Nichts zu füllen',
+
+    // P5-3.1 shared price service
+    secMarketData: 'Marktdaten',
+    secSharedHint: 'Kurse, Schlusskurse, Wechselkurse, Symbolsuche und Fondsdaten kommen von deinem eigenen Worker. Ohne ihn kann die App den MAERMIN-Kursdienst nutzen, den der Projektbetreiber betreibt: Er liefert nur Marktdaten, sieht die abgefragten Symbole (nie Beträge, Stückzahlen oder deinen Tresor), speichert keine Protokolle außer seinem Cache und wird nie für Sync, Freigabelinks oder Broker-Verbindungen genutzt. Dein eigener Worker hat immer Vorrang.',
+    secSource: 'Quelle',
+    secSourceOwn: 'Dein Worker',
+    secSourceShared: 'MAERMIN-Kursdienst',
+    secSourceNone: 'Keine (Offline-Kurse)',
+    secSharedSwitch: 'Kursdienst ohne eigenen Worker nutzen',
+    secSharedNotYet: 'Der Kursdienst ist noch nicht online; bis dahin brauchen Marktdaten deinen eigenen Worker.',
 
     // CoinGecko via Worker
     cgNeedsWorker: 'Kryptokurse kommen über deinen Worker – trage seine URL in den API-Einstellungen ein'

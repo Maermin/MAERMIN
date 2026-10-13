@@ -42,7 +42,9 @@
     // Returns and dividends before ('gross') or after ('net') taxes and fees (P5-2.5)
     grossNet:   { key: 'maermin_gross_net',   def: 'net' },
     // Region of the consumer prices for real returns (P5-2.9); '' = from the language
-    hicpGeo:    { key: 'maermin_hicp_geo',    def: '' }
+    hicpGeo:    { key: 'maermin_hicp_geo',    def: '' },
+    // Shared price service without an own Worker (P5-3.1): 'on' | 'off'
+    sharedPrices: { key: 'maermin_shared_prices', def: 'on' }
   };
 
   function lsGet(k) { try { return (typeof localStorage !== 'undefined') ? localStorage.getItem(k) : null; } catch (e) { return null; } }
