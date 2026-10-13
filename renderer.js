@@ -6843,6 +6843,29 @@ buy,crypto,bitcoin,0.5,45000,2024-01-15,10`)
               )
             );
           })(),
+          // P5-3.10: symbol / ISIN changes, mergers, spin-offs - global list
+          (function () {
+            var CA = window.MaerminCorporateActions;
+            if (!CA || !CA.eventsFor) return null;
+            var all = CA.eventsFor();
+            if (!all.length) return null;
+            var removeOne = function (ev) {
+              askConfirm({ title: __('ceRemoveTitle', 'Remove this corporate action?'), message: CA.describeEvent(ev), confirmLabel: t.caRemove || 'Remove', danger: true })
+                .then(function (yes) { if (!yes) return; CA.removeEvent(ev.id); setCorpActionsRev(function (n) { return n + 1; }); });
+            };
+            return React.createElement('div', { key: 'ce-' + corpActionsRev, style: { marginBottom: '1rem' } },
+              React.createElement('label', { style: { color: currentTheme.textSecondary, fontSize: '0.7rem', textTransform: 'uppercase', letterSpacing: '0.05em' } }, __('ceTitle', 'Other corporate actions')),
+              React.createElement('div', { style: { display: 'flex', flexDirection: 'column', gap: '1px', marginTop: '0.5rem', maxHeight: '140px', overflow: 'auto' } },
+                all.map(function (ev) {
+                  return React.createElement('div', { key: ev.id, style: { display: 'grid', gridTemplateColumns: '1fr auto auto', gap: '0.4rem', alignItems: 'center', padding: '0.3rem 0', borderBottom: '1px solid ' + currentTheme.cardBorder, fontSize: '0.76rem' } },
+                    React.createElement('span', { style: { color: currentTheme.text, fontWeight: 600, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' } }, CA.describeEvent(ev)),
+                    React.createElement('span', { style: { color: currentTheme.textSecondary } }, ev.date),
+                    React.createElement('span', Object.assign({}, ((window.MaerminUtils && window.MaerminUtils.clickable) ? window.MaerminUtils.clickable(function () { removeOne(ev); }) : { onClick: function () { removeOne(ev); } }), { style: { color: currentTheme.danger || '#ef4444', cursor: 'pointer' }, 'aria-label': (t.caRemove || 'Remove') + ' ' + ev.symbol }), '×')
+                  );
+                })
+              )
+            );
+          })(),
           React.createElement('div', { className: 'mx-divider' }),
           menuItem('key', t.changePassword || 'Change Password', () => { setShowSettings(false); setShowPasswordModal(true); }),
           menuItem('data', t.apiSettings || 'API Settings', () => { setShowSettings(false); setShowApiSettings(true); }),

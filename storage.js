@@ -79,6 +79,7 @@
     'maermin_rebalance_targets',  // allocation targets
     'maermin_rebalance_prefs',    // never-sell holdings (symbols) + tolerance bands (P4-4)
     'maermin_corporate_actions',  // held symbols + splits
+    'maermin_corporate_events',   // symbol / ISIN changes, mergers, spin-offs of held symbols (P5-3.10)
     'maermin_import_presets',     // broker column mappings
     'maermin_exchange_sync',      // exchange connection metadata
     'maermin_reconcile',          // which portfolio each bank account is compared with (reconcile.js, P5-3.7)

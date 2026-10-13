@@ -393,7 +393,10 @@ function PositionDetailModal({ position, transactions, prices, theme, formatPric
 
       // Corporate actions (stock splits) for this holding
       React.createElement(CorporateActionsPanel, { category: position.cat, symbol: position.sym, theme, t, workerUrl,
-        sinceDate: posTxs.filter(tx => tx.type === 'buy' && tx.date).map(tx => String(tx.date).slice(0, 10)).sort()[0] || null })
+        sinceDate: posTxs.filter(tx => tx.type === 'buy' && tx.date).map(tx => String(tx.date).slice(0, 10)).sort()[0] || null }),
+      // P5-3.10: symbol / ISIN change, merger, spin-off
+      window.MaerminCorporateActions && window.MaerminCorporateActions.EventsPanel &&
+        React.createElement(window.MaerminCorporateActions.EventsPanel, { category: position.cat, symbol: position.sym, theme })
     )
   );
 }
