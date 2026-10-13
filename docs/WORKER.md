@@ -25,7 +25,7 @@ Configure it in the app under **API Settings → Cloudflare Worker**.
 ## Version
 
 ### `GET /?action=version`
-`200 { "version": "2026.10.6", "actions": ["yf", "yfsearch", …], "storage": true }`. No upstream call and no rate limit.
+`200 { "version": "2026.10.7", "actions": ["yf", "yfsearch", …], "storage": true }`. No upstream call and no rate limit.
 `storage` says whether sync and share links can work (a KV namespace or the Durable Object is bound); the
 app's connection test shows it.
 `WORKER_VERSION` in `worker.js` and `EXPECTED_WORKER_VERSION` in `onboarding.js` name the same release
@@ -342,6 +342,25 @@ so a repeat sync never double-books. Read-only keys only — write/trade/withdra
 scopes are rejected client-side before any request is signed.
 
 ---
+
+## Bank sync over FinTS (optional, P5-3.4)
+
+`GET /?action=fintsbanks` → `{ banks, extraHosts, productId, productVersion }`: the FinTS servers this
+Worker relays to (`cf-worker/fints-banks.js`) and the FinTS product id it is configured with.
+
+`POST /?action=fints` `{ url, msg }` → `200 { status, msg }`: relays one FinTS message to the bank.
+The browser (`fints.js`) builds every message itself - FinTS PIN/TAN puts the PIN and TAN inside the
+message, so they pass through the Worker in memory for that one request; the Worker stores and logs
+nothing. `msg` must be base64 (≤ 256 KB), `url` an https address of a listed bank: exact hosts
+(Atruvia fints1 / fints2, DKB, comdirect, ING, Postbank, Consorsbank, Commerzbank) or the Sparkassen
+pattern `banking-*.s-fints-pt-*.de`. Anything else → `403 { error: "Bank not allowed" }`; a
+redirect from the bank is refused, not followed. The shared price Worker (`PRICE_ONLY`) refuses both.
+
+| Variable | Effect |
+|---|---|
+| `FINTS_PRODUCT_ID` | The MAERMIN FinTS product id (registered with the Deutsche Kreditwirtschaft by the project owner). Without it the app shows "needs product id" and does not sync. Not stored in the repo. |
+| `FINTS_PRODUCT_VERSION` | Product version sent with it (default `1`). |
+| `FINTS_EXTRA_HOSTS` | More bank hosts, comma-separated exact host names (e.g. a bank not in the list). |
 
 ## Deploy
 

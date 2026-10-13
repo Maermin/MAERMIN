@@ -83,6 +83,12 @@ const fetched = []; // market-data calls answered from fixtures
 // screen can be checked against values computed here.
 const WORKER_URL = 'https://maermin-e2e.workers.dev';
 const workerMod = await import('../../cf-worker/worker.js');
+// P5-3.4: a FinTS product id for the real Worker, and the synthetic bank behind
+// fints.dkb.de (test/fints-bank-sim.js) that the Worker relays to
+const workerEnv = { FINTS_PRODUCT_ID: 'E2E-PRODUCT' };
+const requireE2E = createRequire(import.meta.url);
+const FINTS = requireE2E('../../fints.js');
+const fintsBank = requireE2E('../fints-bank-sim.js').createBank();
 const workerState = { down: false, oldVersion: false, upstream: [], requests: [] };
 const iso = (d) => d.toISOString().slice(0, 10);
 const WEEKDAYS = (() => { // every weekday of the last three years, up to today
@@ -116,6 +122,7 @@ const divOf = (sym, i) => (sym === 'AAPL' && i % 63 === 20 ? Number((0.24 + 0.01
       HICP_MONTHS.forEach((x, i) => { index[x[0]] = i; value[i] = x[1]; });
       return new Response(JSON.stringify({ version: '2.0', class: 'dataset', updated: '2026-10-02T11:00:00+0200', value, dimension: { time: { category: { index } } } }), { status: 200, headers: { 'Content-Type': 'application/json' } });
     }
+    if (/^https:\/\/fints\.dkb\.de\//.test(u)) return new Response(FINTS.toB64(fintsBank.handle(FINTS.fromB64(init.body))), { status: 200, headers: { 'Content-Type': 'text/plain' } });
     const m = u.match(/query1\.finance\.yahoo\.com\/v8\/finance\/chart\/([^?]+)/);
     if (!m) return realFetch(input, init);
     const sym = decodeURIComponent(m[1]);
@@ -133,7 +140,7 @@ async function answerFromWorker(route) {
   workerState.requests.push(rq.url().slice(WORKER_URL.length));
   // A Worker from before the version route (P2-3) answers like any unknown action.
   if (workerState.oldVersion && /[?&]action=version\b/.test(rq.url())) return route.fulfill({ status: 400, headers: { 'access-control-allow-origin': '*', 'content-type': 'application/json' }, body: JSON.stringify({ error: 'Unknown action' }) });
-  const res = await workerMod.default.fetch(new Request(rq.url(), { method: rq.method(), headers: { Origin: new URL(rq.headers().origin || rq.headers().referer || 'http://127.0.0.1').origin }, body: rq.method() === 'GET' ? undefined : rq.postData() }), {}, { waitUntil() {} });
+  const res = await workerMod.default.fetch(new Request(rq.url(), { method: rq.method(), headers: { Origin: new URL(rq.headers().origin || rq.headers().referer || 'http://127.0.0.1').origin }, body: rq.method() === 'GET' ? undefined : rq.postData() }), workerEnv, { waitUntil() {} });
   const headers = {}; res.headers.forEach((v, k) => { headers[k] = v; });
   headers['access-control-allow-origin'] = '*';
   return route.fulfill({ status: res.status, headers, body: await res.text() });
@@ -1613,6 +1620,43 @@ async function runBuild(browser, label, dir) {
     workerState.down = false;
     // Next session with a Worker from before the version route: one notice
     // that leads to the update steps in API Settings.
+    // P5-3.4: bank sync over FinTS - the browser builds the messages, the real
+    // Worker relays them to the synthetic bank; pushTAN is confirmed "in the app"
+    {
+      let err = '', methods = '', bal = '', depot = '', booked = null, stored = '', listed = 0;
+      try {
+        await unlock(page, base);
+        await openView(page, 'data');
+        await page.getByRole('button', { name: /Broker Import/ }).click();
+        const panel = page.locator('[data-testid="bank-sync"]');
+        await panel.waitFor({ timeout: 8000 });
+        await page.locator('[data-testid="bs-bank"] option[value="dkb"]').waitFor({ state: 'attached', timeout: 8000 });
+        listed = await page.locator('[data-testid="bs-bank"] option').count();
+        await page.locator('[data-testid="bs-bank"]').selectOption('dkb');
+        await page.locator('[data-testid="bs-blz"]').fill('12030000');
+        await page.locator('[data-testid="bs-add"]').click();
+        await page.locator('[data-testid="bs-sync"]').click();
+        await page.locator('[data-testid="bs-connection"] input[aria-label="Login name"]').fill('demo-user');
+        await page.locator('[data-testid="bs-pin"]').fill('4711');
+        await page.locator('[data-testid="bs-start"]').click();
+        await page.locator('[data-testid="bs-method"]').first().waitFor({ timeout: 10000 });
+        methods = (await page.locator('[data-testid="bs-method"]').allInnerTexts()).join('|');
+        await page.locator('[data-testid="bs-method"]', { hasText: 'pushTAN' }).click();
+        await page.locator('[data-testid="bs-balance"]').first().waitFor({ timeout: 30000 });
+        bal = await page.locator('[data-testid="bs-balance"]').first().innerText();
+        depot = await page.locator('[data-testid="bs-depot"]').innerText();
+        await page.locator('[data-testid="bs-import-tick"]').check();
+        await page.locator('[data-testid="bs-import"]').click();
+        await page.waitForTimeout(800);
+        booked = await page.evaluate(() => JSON.parse(localStorage.getItem('transactions') || '[]').filter((x) => x.source === 'fints').map((x) => x.type).join(','));
+        stored = await page.evaluate(() => localStorage.getItem('maermin_bank_sync') || '');
+      } catch (e) { err = String(e.message).split('\n')[0]; }
+      ok('P5-3.4: bank list from the Worker, the TAN methods the bank offers', listed >= 9 && /pushTAN 2\.0/.test(methods) && /SMS-TAN/.test(methods), err || listed + ' ' + methods);
+      ok('P5-3.4: pushTAN confirmed in the app -> balance 2,420.10 EUR', /2,420\.10 EUR/.test(bal), err || bal);
+      ok('P5-3.4: depot statement compared with MAERMIN', /not in MAERMIN/.test(depot) && /DE0005933931/.test(depot), err || depot);
+      ok('P5-3.4: the four bank transactions booked as cash rows', booked === 'withdrawal,deposit,fee,tax', err || booked);
+      ok('P5-3.4: the stored connection holds no PIN, no transactions and no login name', !!stored && stored.indexOf('4711') < 0 && stored.indexOf('Miete') < 0 && /"login":""/.test(stored), err || stored.slice(0, 200));
+    }
     workerState.oldVersion = true;
     await unlock(page, base);
     await openView(page, 'overview');

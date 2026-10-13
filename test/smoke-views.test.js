@@ -79,7 +79,7 @@ const engines = [
   '../recurring.js', '../equity-metadata.js', '../portfolio-health.js',
   '../data-quality.js', '../portfolio-analytics.js', '../analytics-data.js',
   '../tax-settings.js', '../tax-calculation-engine.js', '../tax-report-builder.js',
-  '../attribution.js', '../returns-engine.js', '../return-figures.js', '../verdicts.js', '../fund-holdings-import.js', '../returns-heatmap.js', '../heatmap-drilldown.js', '../dividend-history.js', '../holding-returns.js', '../investment-timeline.js', '../allocation-groups.js', '../real-returns.js', '../taxonomies.js', '../shared-worker.js',
+  '../attribution.js', '../returns-engine.js', '../return-figures.js', '../verdicts.js', '../fund-holdings-import.js', '../returns-heatmap.js', '../heatmap-drilldown.js', '../dividend-history.js', '../holding-returns.js', '../investment-timeline.js', '../allocation-groups.js', '../real-returns.js', '../taxonomies.js', '../shared-worker.js', '../fints.js', '../bank-sync.js',
 ];
 console.log('engine preload:');
 for (const e of engines) {

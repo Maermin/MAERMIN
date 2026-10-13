@@ -2970,6 +2970,19 @@ function InvestmentTracker() {
             if (window.MaerminAuditLog) window.MaerminAuditLog.record('data.import', `${txs.length} exchange trade(s) imported`);
             addToast(__('exTradesImported', '{n} exchange {n:trade|trades} imported', { n: txs.length }), 'success');
           }
+        }),
+
+      // Bank sync over FinTS (P5-3.4): balances, transactions and depot
+      // statements through the user's own Worker; PIN and TAN never stored.
+      section === 'broker' && window.MaerminBankSync && window.MaerminBankSync.Panel &&
+        React.createElement(window.MaerminBankSync.Panel, {
+          theme, workerUrl: apiKeys.cs2Worker, existing: transactions, portfolioId: activePortfolioId, formatAmount: (v, cur) => privacyMode ? '••••••' : window.MaerminI18n.num(v, 2, language) + ' ' + cur,
+          onImport: (rows) => {
+            const withIds = rows.map((r) => ({ ...r, id: window.MaerminUtils.generateId(), portfolioId: activePortfolioId }));
+            setTransactions(prev => window.MaerminExchangeSync ? window.MaerminExchangeSync.appendNew(prev, withIds) : prev.concat(withIds));
+            if (window.MaerminAuditLog) window.MaerminAuditLog.record('data.import', `${rows.length} bank booking(s) imported`);
+            addToast(__('bsImported', '{n} bank {n:booking|bookings} imported', { n: rows.length }), 'success');
+          }
         })
     );
   };
