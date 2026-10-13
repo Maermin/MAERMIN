@@ -266,7 +266,8 @@ file, terminated afterwards (`worker-src 'self' blob:`, `connect-src` names only
 pinned pdf.js folder). Opened from disk (`file://`) it loads as a module script and
 pdf.js runs on the main thread. A pure generic German-settlement
 parser with per-broker configs (Trade Republic, Scalable, ING, DKB, Comdirect; P5-3.2
-flatex, Consorsbank, DEGIRO, onvista bank) turns the text into candidate transactions
+flatex, Consorsbank, DEGIRO, onvista bank; P5-3.3 Baader Bank, Smartbroker+, Sparkasse /
+Deka, Postbank, Trade Republic and Scalable dividend and tax documents) turns the text into candidate transactions
 (several settlements per PDF; DEGIRO Transaktionsübersicht / Kontoauszug tables row by
 row; taxes withheld as dividend `withholdingTax` or a `tax` / `tax_refund` cash row;
 tax and fee documents as one cash row), and `candidatesToCSV` feeds them into the

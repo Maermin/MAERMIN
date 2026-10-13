@@ -156,12 +156,19 @@ function __(k, f, v) { return (typeof window !== 'undefined' && window.MaerminI1
   // detection and decided there (a DEGIRO table means DEGIRO).
   var BATCH_A = { 'flatex': ['flatex'], 'DEGIRO': ['degiro'], 'Consorsbank': ['consorsbank', 'consors'], 'onvista bank': ['onvista'] };
   Object.keys(BATCH_A).forEach(function (name) { PDF_BROKERS.push({ id: BATCH_A[name][0], name: name, detect: BATCH_A[name] }); });
+  // P5-3.3. Scalable documents are issued by Baader: Scalable is listed first
+  // and wins the tie. A Sparkasse depot is held at DekaBank; "Sparkasse" alone
+  // counts only on a securities document (an account statement stays unknown).
+  var BATCH_B = { 'Baader Bank': ['baader bank'], 'Smartbroker+': ['smartbroker'], 'Sparkasse / Deka': ['deka'], 'Postbank': ['postbank'] };
+  Object.keys(BATCH_B).forEach(function (name) { PDF_BROKERS.push({ id: BATCH_B[name][0].split(' ')[0], name: name, detect: BATCH_B[name] }); });
+  var SECURITIES_RX = /wertpapier|depot|dividend|ertrag|anteile|aussch(?:ü|ue)ttung/i;
   var DEGIRO_TABLE_RX = /transaktions(?:ü|ue)bersicht|kontoauszug/i;
 
   function detectBrokerFromText(text) {
     var full = String(text || '').toLowerCase();
     var t = full.replace(/flatexdegiro/g, ' ');
     if (full !== t && t.indexOf('flatex') < 0 && t.indexOf('degiro') < 0) t += DEGIRO_TABLE_RX.test(full) ? ' degiro' : ' flatex';
+    if (t.indexOf('sparkasse') > -1 && t.indexOf('deka') < 0 && SECURITIES_RX.test(full)) t += ' deka';
     var best = null;
     PDF_BROKERS.forEach(function (b) {
       var hits = b.detect.filter(function (d) { return t.indexOf(d) > -1; });
@@ -221,7 +228,13 @@ function __(k, f, v) { return (typeof window !== 'undefined' && window.MaerminI1
         .replace(/st(ü|ue)ck\s+[\d.,]+/i, '').replace(/[\d.,]+\s*(stk\.?|st\.)/i, '')
         .replace(/isin\s*\(?wkn\)?\s*:?/i, '').replace(/isin\s*:?/i, '')
         .replace(/wertpapier-?bezeichnung\s*:?/i, '').replace(/[():]/g, '')
-        .replace(/^nr\.?\s*\d+\s*/i, '').replace(/^bestand\s+[\d.,]+\s*st(?:ü|ue)ck\s*/i, '').trim();
+        .replace(/^nr\.?\s*\d+\s*/i, '').replace(/^bestand\s+[\d.,]+\s*(?:st(?:ü|ue)ck|anteile)\s*/i, '')
+        .replace(/^nominale\s*/i, '').replace(/\s+/g, ' ').trim();
+      // Baader / Scalable: "Nominale ISIN: ..." above "STK 12 <name> [EUR 105,32]"
+      if (!symbolName) {
+        var stkName = t.match(/^STK\s+[\d.,]+\s+(.+?)(?:\s+(?:EUR|USD)\s+[\d.,]+)?\s*$/m);
+        if (stkName && /[a-z]/i.test(stkName[1]) && !/^(EUR|USD)\b/.test(stkName[1])) symbolName = stkName[1].trim();
+      }
       // Trade-Republic-style layouts print the security name on its OWN line
       // above the ISIN line — fall back to it when the prefix carried nothing.
       if (!symbolName && idx > 0) {
@@ -235,10 +248,12 @@ function __(k, f, v) { return (typeof window !== 'undefined' && window.MaerminI1
     // Quantity: "2 Stk.", "Stück 10", "St. 10".
     var qtyM = firstMatch(t, [
       /(?:^|[^A-Za-z0-9.,])([\d.,]{1,20})[ \t]*(?:stk\.?|st(?:ü|ue)ck)\b/im,
-      /st(?:ü|ue)ck\s*:?\s+([\d.,]{1,20})/i,
+      /(?<!(?:pro|je)\s+)st(?:ü|ue)ck\s*:?\s+([\d.,]{1,20})/i,   // not "Ertrag pro Stück 0,25"
       /\bst\.\s*([\d.,]{1,20})/i,
       /([\d.,]{1,20})\s+st\.\s/i,          // flatex "Ausgeführt : 12 St."
-      /\bstk\.?\s+([\d.,]{1,20})/i          // onvista "STK 8,000"
+      /\bstk\.?\s+([\d.,]{1,20})/i,         // onvista "STK 8,000"
+      /\banteile\s*:?\s+([\d.,]{1,20})/i,   // Deka "Anteile 0,7843"
+      /([\d.,]{1,20})\s+anteile\b/i         // "Bestand 15,0000 Anteile"
     ]);
     var quantity = qtyM ? Math.abs(num(IM, qtyM[1])) : NaN;
     if (!(quantity > 0)) errors.push(__('piNoQty', 'quantity not found'));
@@ -252,14 +267,23 @@ function __(k, f, v) { return (typeof window !== 'undefined' && window.MaerminI1
       /(?:stk\.?|st(?:ü|ue)ck)\s+([\d.,]{1,20})\s*(EUR|USD)/i,
       /dividende\s+je\s+st(?:ü|ue)ck\s*:?\s*([\d.,]{1,20})\s*(EUR|USD)/i,
       /(?:aussch(?:ü|ue)ttung|bruttobetrag)\s+je\s+anteil\s*:?\s*([\d.,]{1,20})\s*(EUR|USD)/i,
-      /dividende\s+pro\s+st(?:ü|ue)ck\s*:?\s*([\d.,]{1,20})\s*(EUR|USD)/i
+      /dividende\s+pro\s+st(?:ü|ue)ck\s*:?\s*([\d.,]{1,20})\s*(EUR|USD)/i,
+      // P5-3.3: "Ertrag pro Stück", "Ausschüttung pro Anteil", Deka "Abrechnungspreis"
+      /(?:ertrag|aussch(?:ü|ue)ttung|dividende)\s+(?:je|pro)\s+(?:st(?:ü|ue)ck|anteil)\s*:?\s*([\d.,]{1,20})\s*(EUR|USD)/i,
+      /(?:abrechnungs|anteil|ausgabe|r(?:ü|ue)cknahme)preis\s*:?\s*([\d.,]{1,20})\s*(EUR|USD)/i
     ]);
     var price = priceM ? Math.abs(num(IM, priceM[1])) : NaN;
     var currency = priceM ? priceM[2].toUpperCase() : 'EUR';
-    // onvista: "STK 8,000 EUR 230,15" - the currency before the price
-    // (upper-case STK without a dot: Trade Republic's "2 Stk. 80,46 EUR 160,92 EUR" is price then total)
-    var stkM = t.match(/\bSTK\s+[\d.,]{1,20}\s+(EUR|USD)\s+([\d.,]{1,20})/);
+    // onvista "STK 8,000 EUR 230,15", Baader "STK 12 <name> EUR 105,32": the
+    // currency before the price, on the STK line (upper-case STK without a dot:
+    // Trade Republic's "2 Stk. 80,46 EUR 160,92 EUR" is price then total)
+    var stkM = t.match(/^STK\s+[\d.,]{1,20}\s+(?:[^\n]*?\s)?(EUR|USD)\s+([\d.,]{1,20})\s*$/m) || t.match(/\bSTK\s+[\d.,]{1,20}\s+(EUR|USD)\s+([\d.,]{1,20})/);
     if (stkM) { price = Math.abs(num(IM, stkM[2])); currency = stkM[1].toUpperCase(); }
+    // Postbank: "Kurs EUR 280,40"
+    if (!(price > 0)) {
+      var kursM = t.match(/\bkurs\b\s*:?\s*(EUR|USD)\s+([\d.,]{1,20})/i);
+      if (kursM) { price = Math.abs(num(IM, kursM[2])); currency = kursM[1].toUpperCase(); }
+    }
 
     // Dividends often state only the gross total — derive per-share when needed.
     if (type === 'dividend' && !(price > 0) && quantity > 0) {
@@ -280,7 +304,7 @@ function __(k, f, v) { return (typeof window !== 'undefined' && window.MaerminI1
 
     // Date: the trade-date labels, then any German date as a fallback.
     var dateM = firstMatch(t, [
-      /(?:schlusstag(?:\s*\/\s*-?zeit)?|handelstag(?:\s*\/\s*-?zeit)?|ausf(?:ü|ue)hrungstag|gesch(?:ä|ae)ftstag|zahltag|datum)\s*:?\s*(\d{1,2}\.\d{1,2}\.\d{2,4})/i,
+      /(?:schlusstag(?:\s*\/\s*-?zeit)?|handelstag(?:\s*\/\s*-?zeit)?|ausf(?:ü|ue)hrungstag|gesch(?:ä|ae)ftstag|abrechnungstag|zahltag|datum)\s*:?\s*(\d{1,2}\.\d{1,2}\.\d{2,4})/i,
       /\bam\s+(\d{1,2}\.\d{1,2}\.\d{4})/i,
       /(\d{1,2}\.\d{1,2}\.\d{4})/
     ]);
@@ -291,13 +315,15 @@ function __(k, f, v) { return (typeof window !== 'undefined' && window.MaerminI1
       return { candidate: null, errors: errors };
     }
     // P5-3.2: taxes withheld - on a dividend they are its withholding tax, next
-    // to a trade a tax (or tax refund) row of the same day.
-    var tx = taxesOf(t, currency, IM);
+    // to a trade a tax (or tax refund) row of the same day, in the currency the
+    // tax was charged in (P5-3.3: German tax on a USD sale stays EUR).
+    var taxCur = type === 'dividend' ? currency : (taxCurrencyOf(t) || currency);
+    var tx = taxesOf(t, taxCur, IM);
     tx.errors.forEach(function (e) { errors.push(e); });
     var extra = [];
     if (type !== 'dividend') {
-      if (tx.paid > 0) extra.push(cashRow('tax', tx.paid, currency, date, brokerId));
-      if (tx.refunded > 0) extra.push(cashRow('tax_refund', tx.refunded, currency, date, brokerId));
+      if (tx.paid > 0) extra.push(cashRow('tax', tx.paid, taxCur, date, brokerId));
+      if (tx.refunded > 0) extra.push(cashRow('tax_refund', tx.refunded, taxCur, date, brokerId));
     }
     return {
       extra: extra,
@@ -366,7 +392,16 @@ function __(k, f, v) { return (typeof window !== 'undefined' && window.MaerminI1
   // document decides, so a settlement that mentions such words stays a trade.
   var TAX_DOC_RX = /steuerausgleich|steuerkorrektur|ausgleichsrechnung|vorabpauschale|steuerliche\s+(?:korrektur|abrechnung)|nachbelastung|steuererstattung/i;
   var FEE_DOC_RX = /depotentgelt|depotgeb(?:ü|ue)hr|kontof(?:ü|ue)hrungs(?:entgelt|geb(?:ü|ue)hr)|\brechnung\b/i;
-  var TOTAL_RX = /^(rechnungsbetrag|gesamtbetrag|endbetrag|summe|betrag zu ihren (?:lasten|gunsten)|ausmachender betrag)\b/i;
+  var TOTAL_RX = /^(rechnungsbetrag|gesamtbetrag|gesamt|endbetrag|summe|betrag zu ihren (?:lasten|gunsten)|zu (?:lasten|gunsten) konto|ausmachender betrag)\b/i;
+  // P5-3.3: whether a tax document credits or charges the account
+  var CREDIT_RX = /zu (?:ihren )?gunsten|erstattung|gutschrift/i;
+  var DEBIT_RX = /zu (?:ihren )?lasten|belastung/i;
+  // The currency of the first tax line (a sale's tax row keeps it).
+  function taxCurrencyOf(t) {
+    var line = t.split('\n').map(function (l) { return l.trim(); }).filter(function (l) { return TAX_LINE_RX.test(l) && !TAX_INFO_RX.test(l); })[0];
+    var a = line ? lineAmount(null, line) : null;
+    return a && a.currency;
+  }
   function docKind(t) {
     var head = t.split('\n').slice(0, 5).join('\n');
     if (/wertpapierabrechnung|dividendengutschrift|ertragsgutschrift/i.test(head) && !TAX_DOC_RX.test(head)) return 'trade';
@@ -391,8 +426,12 @@ function __(k, f, v) { return (typeof window !== 'undefined' && window.MaerminI1
     if (kind === 'tax') {
       var tx = taxesOf(t, currency, IM);
       tx.errors.forEach(function (e) { errors.push(e); });
-      var refund = /zu ihren gunsten|erstattung/i.test(t) && !(tx.paid > 0);
-      var amount = total ? total.value : (refund ? tx.refunded : tx.paid);
+      // A credit wording without a debit wording is a refund (Steuerausgleich,
+      // Trade Republic's credited Steuerkorrektur); else lines marked "Erstattung"
+      // and nothing charged.
+      var refund = CREDIT_RX.test(t) && !DEBIT_RX.test(t) ? true
+        : DEBIT_RX.test(t) ? false : (tx.refunded > 0 && !(tx.paid > 0));
+      var amount = total ? total.value : (refund ? (tx.refunded || tx.paid) : tx.paid);
       if (!(amount > 0)) errors.push(__('piNoAmount', 'amount not found'));
       else if (date) rows.push(cashRow(refund ? 'tax_refund' : 'tax', amount, currency, date, brokerId));
     } else {
