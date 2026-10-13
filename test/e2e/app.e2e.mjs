@@ -811,6 +811,7 @@ async function runBuild(browser, label, dir) {
       ok('P4-8: import books the 4 rows', /4 transactions imported/.test(toast), err || toast);
       ok('P5-1.3: the PP deposit is stored as a cash row of 5,000 EUR', !!deposit && deposit.amount === 5000 && deposit.category === 'cashflow', err || JSON.stringify(deposit));
       ok('P5-3.2: the import names the new PDF brokers and document kinds', /flatex, Consorsbank, DEGIRO, onvista bank/.test(pdfHint) && /tax and fee documents/.test(pdfHint), err || pdfHint);
+      ok('P5-3.3: and the batch B brokers', /Baader Bank, Smartbroker\+, Sparkasse \/ Deka, Postbank/.test(pdfHint), err || pdfHint);
     }
     // P5-3.2: the bundled PDF parser reads a made-up flatex sale (taxes withheld
     // -> a tax row) and a Consorsbank dividend (withholding), and the mapping
@@ -824,10 +825,15 @@ async function runBuild(browser, label, dir) {
         const div = P.parseText(['Consorsbank', 'Dividendengutschrift', 'Bestand 20 Stück MICROSOFT CORP. US5949181045', 'Dividende pro Stück 0,83 USD',
           'Quellensteuer 15 % USD 2,49 USD', 'Zahltag 13.06.2025'].join('\n'));
         const prev = IM.preview(P.candidatesToCSV(sell.candidates.concat(div.candidates)), { existing: [] });
+        // P5-3.3: a Scalable dividend issued by Baader (made up)
+        const sc = P.parseText(['Baader Bank AG', 'Scalable Capital GmbH', 'Dividende', 'Nominale ISIN: US0378331005 WKN: 865985', 'STK 10 Apple Inc.',
+          'Zahltag: 15.05.2025', 'Ertrag pro Stück 0,25 USD', 'US-Quellensteuer 15 % USD -0,38 USD'].join('\n'));
         return { brokers: [sell.broker && sell.broker.id, div.broker && div.broker.id], types: prev.transactions.map((x) => x.type).join(','),
-          tax: (prev.transactions.find((x) => x.type === 'tax') || {}).amount, wht: (prev.transactions.find((x) => x.type === 'dividend') || {}).withholdingTax, errors: prev.errors.length };
+          tax: (prev.transactions.find((x) => x.type === 'tax') || {}).amount, wht: (prev.transactions.find((x) => x.type === 'dividend') || {}).withholdingTax, errors: prev.errors.length,
+          sc: sc.broker && sc.broker.id + ':' + (sc.candidates[0] || {}).quantity + 'x' + (sc.candidates[0] || {}).price + '-' + (sc.candidates[0] || {}).withholdingTax };
       });
       ok('P5-3.2: bundled parser + mapping: flatex sale with a tax row of 47.68, Consorsbank dividend with 2.49 withholding', r.brokers.join() === 'flatex,consorsbank' && r.types === 'sell,tax,dividend' && Math.abs(r.tax - 47.68) < 1e-9 && Math.abs(r.wht - 2.49) < 1e-9 && r.errors === 0, JSON.stringify(r));
+      ok('P5-3.3: bundled parser reads a Scalable dividend issued by Baader (10 x 0.25 USD, 0.38 withholding)', r.sc === 'scalable:10x0.25-0.38', r.sc);
     }
     ok('no page errors in the session', errors.length === 0, errors.join(' | '));
     await context.close();
