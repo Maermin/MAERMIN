@@ -791,12 +791,13 @@ async function runBuild(browser, label, dir) {
         '2024-01-16T09:30;Kauf;-1.004,99;EUR;;;;4,99;;10;IE00B4L5Y983;A0RPWH;EUNL.DE;iShares Core MSCI World;',
         '2024-03-15T00:00;Dividende;8,50;EUR;11,55;USD;1,0870;;1,59;5;US0378331005;865985;AAPL;Apple Inc.;',
         '2024-06-03T14:00;Verkauf;520,00;EUR;;;;5,00;15,00;5;IE00B4L5Y983;A0RPWH;EUNL.DE;iShares Core MSCI World;'].join('\r\n');
-      let howto = '', info = '', chips = '', toast = '', err = '', deposit = null;
+      let howto = '', info = '', chips = '', toast = '', err = '', deposit = null, pdfHint = '';
       try {
         await openView(page, 'data');
         await page.getByRole('button', { name: /Broker Import/ }).click();
         await page.getByRole('button', { name: 'Select broker Portfolio Performance' }).click();
         howto = await page.locator('[data-testid="tracker-howto"]').innerText();
+        pdfHint = await page.getByText(/^PDF statements:/).first().innerText();
         await page.locator('input[type="file"][accept*=".pdf"]').setInputFiles({ name: 'Depotumsaetze.csv', mimeType: 'text/csv', buffer: Buffer.from(PP, 'utf8') });
         info = await page.locator('[data-testid="tracker-info"]').innerText();
         chips = await page.locator('[data-testid="tracker-info"]').locator('xpath=preceding-sibling::div[1]').innerText();
@@ -809,6 +810,24 @@ async function runBuild(browser, label, dir) {
       ok('P4-8 / P5-1.3: 4 valid rows (the deposit is a cash booking now), none skipped', /Detected: Portfolio Performance/.test(chips) && /4 valid/.test(chips) && !/skipped/.test(chips), err || chips);
       ok('P4-8: import books the 4 rows', /4 transactions imported/.test(toast), err || toast);
       ok('P5-1.3: the PP deposit is stored as a cash row of 5,000 EUR', !!deposit && deposit.amount === 5000 && deposit.category === 'cashflow', err || JSON.stringify(deposit));
+      ok('P5-3.2: the import names the new PDF brokers and document kinds', /flatex, Consorsbank, DEGIRO, onvista bank/.test(pdfHint) && /tax and fee documents/.test(pdfHint), err || pdfHint);
+    }
+    // P5-3.2: the bundled PDF parser reads a made-up flatex sale (taxes withheld
+    // -> a tax row) and a Consorsbank dividend (withholding), and the mapping
+    // flow keeps both (pdf.js itself is browser-only and needs the CDN)
+    {
+      const r = await page.evaluate(() => {
+        const P = window.MaerminPdfImport, IM = window.MaerminImportMapping;
+        const sell = P.parseText(['flatexDEGIRO Bank AG · www.flatex.de', 'Wertpapierabrechnung Verkauf', 'Nr.1 Apple Inc. (US0378331005/865985)',
+          'Ausgeführt : 5 St. Kurswert : 1.050,00 EUR', 'Kurs : 210,00 EUR Provision : 5,90 EUR', 'Schlusstag : 10.03.2025',
+          'Kapitalertragsteuer : -45,20 EUR', 'Solidaritätszuschlag : -2,48 EUR'].join('\n'));
+        const div = P.parseText(['Consorsbank', 'Dividendengutschrift', 'Bestand 20 Stück MICROSOFT CORP. US5949181045', 'Dividende pro Stück 0,83 USD',
+          'Quellensteuer 15 % USD 2,49 USD', 'Zahltag 13.06.2025'].join('\n'));
+        const prev = IM.preview(P.candidatesToCSV(sell.candidates.concat(div.candidates)), { existing: [] });
+        return { brokers: [sell.broker && sell.broker.id, div.broker && div.broker.id], types: prev.transactions.map((x) => x.type).join(','),
+          tax: (prev.transactions.find((x) => x.type === 'tax') || {}).amount, wht: (prev.transactions.find((x) => x.type === 'dividend') || {}).withholdingTax, errors: prev.errors.length };
+      });
+      ok('P5-3.2: bundled parser + mapping: flatex sale with a tax row of 47.68, Consorsbank dividend with 2.49 withholding', r.brokers.join() === 'flatex,consorsbank' && r.types === 'sell,tax,dividend' && Math.abs(r.tax - 47.68) < 1e-9 && Math.abs(r.wht - 2.49) < 1e-9 && r.errors === 0, JSON.stringify(r));
     }
     ok('no page errors in the session', errors.length === 0, errors.join(' | '));
     await context.close();

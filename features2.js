@@ -871,7 +871,8 @@ function BrokerImportWizard({ theme, t, addToast, onImport, existing, workerUrl 
     reader.readAsText(file, 'UTF-8');
   };
 
-  // PDF statements (Trade Republic, Scalable, ING, DKB, Comdirect): extract +
+  // PDF statements (Trade Republic, Scalable, ING, DKB, Comdirect; P5-3.2 flatex,
+  // Consorsbank, DEGIRO, onvista bank - incl. tax and fee documents): extract +
   // parse fully client-side via MaerminPdfImport, then feed the candidates as
   // CSV into the SAME mapping preview flow below — one import pipeline, with
   // the editable preview as the safety net for layout drift. Several PDFs can
@@ -1098,7 +1099,7 @@ function BrokerImportWizard({ theme, t, addToast, onImport, existing, workerUrl 
         React.createElement('div', { style: { fontSize: '2rem', marginBottom: '0.5rem', opacity: 0.4 } }, '↑'),
         React.createElement('div', { style: { color: theme.text, fontWeight: '600', marginBottom: '0.25rem' } }, pdfBusy ? __('biReadingPdf', 'Reading PDF statement(s)...') : __('biDragHere', 'Drag CSV or PDF statement(s) here')),
         React.createElement('div', { style: { color: theme.textSecondary, fontSize: '0.875rem' } }, `${__('biOrClick', 'Or click')} · ${selectedBrokerObj?.name || ''} · ${selectedBrokerObj ? (selectedBrokerObj.hintKey ? __(selectedBrokerObj.hintKey, selectedBrokerObj.hint) : selectedBrokerObj.hint) : ''}`),
-        React.createElement('div', { style: { color: theme.textSecondary, fontSize: '0.75rem', marginTop: '0.3rem' } }, __('biPdfSupported', 'PDF settlement statements: Trade Republic, Scalable, ING, DKB, Comdirect - parsed on this device, the file never leaves it.')),
+        React.createElement('div', { style: { color: theme.textSecondary, fontSize: '0.75rem', marginTop: '0.3rem' } }, __('biPdfSupported', 'PDF statements: Trade Republic, Scalable, ING, DKB, Comdirect, flatex, Consorsbank, DEGIRO, onvista bank - trades, dividends, tax and fee documents; parsed on this device, the file never leaves it.')),
         React.createElement('input', { type: 'file', accept: '.csv,.txt,.json,.pdf', multiple: true, ref: fileRef, style: { display: 'none' }, onChange: e => handleFiles(e.target.files) })
       ),
       React.createElement('p', { style: { color: theme.textSecondary, fontSize: '0.8rem', lineHeight: '1.6' } }, __('biLocalOnly', 'All data stays local. Nothing is uploaded.')),
