@@ -116,7 +116,8 @@ function __(k, f, v) { return (typeof window !== 'undefined' && window.MaerminI1
       if (!ids.length || !window.MaerminTaxReport) return [];
       var subset = txs.filter(function (tx) { return ids.indexOf(String(tx.portfolioId || 'default')) > -1; });
       try {
-        var rep = window.MaerminTaxReport.build(subset, { year: props.year, jurisdiction: 'de', baseCurrency: 'EUR', exchangeRate: props.exchangeRate, fxAt: props.fxAt });
+        // Per year (P5-4.1): the tax office applies the loss carry-forward itself.
+        var rep = window.MaerminTaxReport.build(subset, { year: props.year, jurisdiction: 'de', baseCurrency: 'EUR', exchangeRate: props.exchangeRate, fxAt: props.fxAt, lossCarry: false });
         var g = rep && rep.summary && rep.summary.germanDetail;
         return g && g.kapInputs ? map(g.kapInputs) : [];
       } catch (err) { return []; }

@@ -157,6 +157,26 @@ var GermanTax = (function () {
   //     sparerpauschbetrag? (default 1000),
   //     kirchensteuerRate? (default 0)
   //   }
+  function pos(v) { var n = parseFloat(v); return isFinite(n) && n > 0 ? n : 0; }
+
+  // P5-4.1: private sales (sec. 23 EStG) of one year against the losses
+  // carried from earlier years. The Freigrenze (sec. 23 (3) EStG) is checked
+  // FIRST, on the year's own net gain (BFH 11.1.2005, IX R 27/04, BStBl II
+  // 2005, 433): a gain below it is tax-free and the carried losses are kept.
+  // At or above it the whole gain is taxable and the carried losses reduce it
+  // (sec. 23 (3) with sec. 10d EStG); the Freigrenze is not checked again, so
+  // what is left stays taxable. A net loss of the year is added to the carry.
+  // The carry-back into the previous year (sec. 10d (1)) is not modelled.
+  // -> { taxable, used, carryOut }
+  function privateSalesWithCarry(netGain, freigrenze, carryIn) {
+    var gain = Math.round(parseFloat(netGain) * 100) / 100 || 0;
+    var carry = pos(carryIn);
+    if (gain < 0) return { taxable: 0, used: 0, carryOut: carry - gain };
+    if (gain < freigrenze) return { taxable: 0, used: 0, carryOut: carry };
+    var used = Math.min(carry, gain);
+    return { taxable: gain - used, used: used, carryOut: carry - used };
+  }
+
   function computeGermanTaxDetailed(input) {
     input = input || {};
     var fundTypes = input.fundTypes || {};
@@ -208,11 +228,29 @@ var GermanTax = (function () {
 
     var interest = Math.max(0, num(input.interestIncome));
 
-    // Verrechnung: share losses enter only up to the share gains (above);
-    // loss carry-forward into later years is not modelled.
+    // Verrechnung: share losses enter only up to the share gains (above).
     var netted = gainsTaxable + lossesTaxable + dividendsTaxable + vapTaxable + interest;
-    var afterAllowance = Math.max(0, netted - spb);
-    var spbUsed = Math.max(0, Math.min(spb, netted));
+
+    // P5-4.1 loss carry-forward (sec. 20 (6) EStG):
+    // carryIn holds the losses brought into this year, as positive amounts.
+    // Carried share losses offset only what is left of this year's share
+    // gains, and they go first (as banks do), so a loss of the 'other' pot
+    // stays free for every kind of income. Carried other losses then offset
+    // all remaining capital income. Both come BEFORE the Sparerpauschbetrag
+    // (sec. 20 (9)), even when the income is below it. What is left, plus
+    // this year's unused losses, is carryOut.
+    var cIn = { shares: pos(input.carryIn && input.carryIn.shares), other: pos(input.carryIn && input.carryIn.other) };
+    var useShares = Math.min(cIn.shares, Math.max(0, shareGains + shareLosses));
+    var afterShares = netted - useShares;
+    var useOther = Math.min(cIn.other, Math.max(0, afterShares));
+    var incomeAfterCarry = afterShares - useOther;
+    var carryOut = {
+      shares: shareLossCarried + cIn.shares - useShares,
+      other: cIn.other - useOther + Math.max(0, -incomeAfterCarry)
+    };
+    incomeAfterCarry = Math.max(0, incomeAfterCarry);
+    var afterAllowance = Math.max(0, incomeAfterCarry - spb);
+    var spbUsed = Math.max(0, Math.min(spb, incomeAfterCarry));
     // Tax: prefer the central settings resolver (honours a custom Abgeltung
     // rate + the Soli toggle); fall back to the statutory helper otherwise.
     var taxes;
@@ -259,6 +297,10 @@ var GermanTax = (function () {
       interestIncome: interest,
       teilfreistellungExempt: exemptTotal,
       nettedIncome: netted,
+      carryIn: cIn,
+      carryUsed: { shares: useShares, other: useOther },
+      carryOut: carryOut,
+      incomeAfterCarry: incomeAfterCarry,
       sparerpauschbetrag: spb,
       sparerpauschbetragUsed: spbUsed,
       taxableIncome: afterAllowance,
@@ -355,6 +397,7 @@ var GermanTax = (function () {
     computeVorabpauschale: computeVorabpauschale,
     abgeltungsteuer: abgeltungsteuer,
     computeGermanTaxDetailed: computeGermanTaxDetailed,
+    privateSalesWithCarry: privateSalesWithCarry,
     FUND_TYPES_KEY: FUND_TYPES_KEY,
     VAP_RECORDS_KEY: VAP_RECORDS_KEY,
     BASISZINS_KEY: BASISZINS_KEY,

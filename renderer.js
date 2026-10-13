@@ -5128,7 +5128,7 @@ function InvestmentTracker() {
     // few stores directly, so their raw strings are part of the key - saving a
     // fund type, a Vorabpauschale record or a tax setting still rebuilds it.
     const storeKey = ['maermin_fund_types', 'maermin_vap_records', 'maermin_basiszins_overrides', 'maermin_kirchensteuer',
-      'maermin_tax_settings', 'maermin_tax_overrides', 'maermin_divevents', 'maermin_corporate_actions', 'maermin_fx_usd_rates']
+      'maermin_tax_settings', 'maermin_tax_overrides', 'maermin_divevents', 'maermin_corporate_actions', 'maermin_corporate_events', 'maermin_fx_usd_rates', 'maermin_loss_carry']
       .map(k => { try { return localStorage.getItem(k) || ''; } catch (e) { return ''; } }).join('\u0001');
     let taxReport = null;
     try {
@@ -5308,6 +5308,13 @@ function InvestmentTracker() {
           theme: currentTheme, t, formatPrice, getCurrencySymbol,
           onChange: () => setTaxSettingsRev(r => r + 1)
         }),
+      // P5-4.1: loss carry-forward per pot, from the same report, with the
+      // opening balances from the last assessment and a per-portfolio view.
+      taxJurisdiction === 'de' && window.MaerminLossCarry && React.createElement(window.MaerminLossCarry.Panel, {
+        theme: currentTheme, report: taxReport, transactions, portfolios, year: currentYear, exchangeRate, fxAt,
+        formatMoney: (v) => privacyMode ? '••••••' : window.MaerminI18n.money(v, 'EUR'),
+        onChange: () => setTaxSettingsRev(r => r + 1)
+      }),
       // Freistellungsaufträge per broker (P2-6): orders vs the allowance, and
       // the headroom left at each broker from its portfolios' income.
       taxJurisdiction === 'de' && window.MaerminFSA && React.createElement(window.MaerminFSA.Panel, {

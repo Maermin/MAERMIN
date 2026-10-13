@@ -103,7 +103,7 @@ function __(k, f, v) { return (typeof window !== 'undefined' && window.MaerminI1
         if (memo[key] === undefined) {
           var subset = txs.filter(function (tx) { return b.portfolioIds.indexOf(String(tx.portfolioId || 'default')) > -1; });
           var rep = null;
-          try { rep = TR.build(subset, { year: props.year, jurisdiction: 'de', baseCurrency: 'EUR', exchangeRate: props.exchangeRate, fxAt: props.fxAt }); } catch (err) { rep = null; }
+          try { rep = TR.build(subset, { year: props.year, jurisdiction: 'de', baseCurrency: 'EUR', exchangeRate: props.exchangeRate, fxAt: props.fxAt, lossCarry: false }); } catch (err) { rep = null; }
           var g = rep && rep.summary && rep.summary.germanDetail;
           memo[key] = g ? num(g.nettedIncome) : null;
         }

@@ -71,6 +71,10 @@ function __(k, f, v) { return (typeof window !== 'undefined' && window.MaerminI1
     if (typeof window !== 'undefined' && window.MaerminLedger) return window.MaerminLedger;
     return require('./ledger.js');
   }
+  function lossCarryMod() {
+    if (typeof window !== 'undefined' && window.MaerminLossCarry) return window.MaerminLossCarry;
+    try { return typeof require === 'function' ? require('./loss-carry.js') : null; } catch (e) { return null; }
+  }
   // Disposals of the tax year from the ONE FIFO implementation (ledger.js).
   function optionsApi() {
     if (typeof window !== 'undefined' && window.MaerminOptions) return window.MaerminOptions;
@@ -415,7 +419,16 @@ function __(k, f, v) { return (typeof window !== 'undefined' && window.MaerminI1
         }).filter(Boolean).concat(accruedInterest.map(function (r) {
           return { symbol: r.symbol, gain: r.amount, vapCredit: 0, pot: 'other', accrued: true };
         }));
+        // P5-4.1 loss carry-forward: an explicit carryIn wins (the year chain
+        // passes it); otherwise the earlier years are run first (loss-carry.js),
+        // unless the caller turns it off (lossCarry: false - Anlage KAP and the
+        // per-broker allowance stay per year).
+        var LC = lossCarryMod();
+        var carryIn = { shares: 0, other: 0, private: 0 };
+        if (opts.carryIn != null) carryIn = LC ? LC.pots(opts.carryIn) : carryIn;
+        else if (opts.lossCarry !== false && LC) carryIn = LC.chain(transactions, opts, build).carryIn;
         var capital = GT.computeGermanTaxDetailed({
+          carryIn: { shares: carryIn.shares, other: carryIn.other },
           disposals: capitalDisposals,
           dividends: dividends.map(function (d) { return { symbol: d.symbol, gross: d.gross, withholding: d.withholding }; }),
           interestIncome: interestIncome,
@@ -449,7 +462,10 @@ function __(k, f, v) { return (typeof window !== 'undefined' && window.MaerminI1
         // 999.9999999999999 and fell under the Freigrenze (FINDINGS L-1).
         cryptoShort = Math.round(cryptoShort * 100) / 100;
         cryptoExempt = Math.round(cryptoExempt * 100) / 100;
-        var cryptoTaxable = cryptoShort >= freigrenze ? cryptoShort : 0;
+        // Freigrenze first, then the carried sec. 23 losses (engine helper).
+        var priv = GT.privateSalesWithCarry ? GT.privateSalesWithCarry(cryptoShort, freigrenze, carryIn.private)
+          : { taxable: cryptoShort >= freigrenze ? cryptoShort : 0, used: 0, carryOut: carryIn.private };
+        var cryptoTaxable = priv.taxable;
         var cryptoRate = TS && TS.abgeltungRate != null ? TS.abgeltungRate : 0.25;
         var cryptoTax = cryptoTaxable * cryptoRate;
         // The inputs of the capital block, for the Anlage KAP / KAP-INV
@@ -461,7 +477,11 @@ function __(k, f, v) { return (typeof window !== 'undefined' && window.MaerminI1
           fundSymbols: (function () { var m = {}; capitalDisposals.concat(dividends).concat(vorabpauschalen).forEach(function (x) { if (x && isFund(x.symbol)) m[x.symbol] = true; }); return m; })()
         };
         germanDetail = Object.assign({}, capital, {
-          crypto: { netShortTermGains: cryptoShort, exemptLongTermGains: cryptoExempt, freigrenze: freigrenze, taxable: cryptoTaxable, estimatedTax: cryptoTax },
+          crypto: { netShortTermGains: cryptoShort, exemptLongTermGains: cryptoExempt, freigrenze: freigrenze, taxable: cryptoTaxable, estimatedTax: cryptoTax,
+            carryIn: carryIn.private, carryUsed: priv.used },
+          carryIn: carryIn,
+          carryUsed: { shares: (capital.carryUsed || {}).shares || 0, other: (capital.carryUsed || {}).other || 0, private: priv.used },
+          carryOut: { shares: (capital.carryOut || {}).shares || 0, other: (capital.carryOut || {}).other || 0, private: priv.carryOut },
           totalTax: capital.totalTax + cryptoTax
         });
         taxLiability = germanDetail.totalTax;
@@ -511,6 +531,20 @@ function __(k, f, v) { return (typeof window !== 'undefined' && window.MaerminI1
   function d8(iso) { return iso ? I18N().date(iso) : ''; }
   function cls(c) { return I18N().category(c); }
 
+  // P5-4.1: the loss carry-forward rows (PDF + Excel), only when there is any.
+  // Losses are shown negative; value(v) formats for the PDF or passes the
+  // number through for Excel.
+  function carryRows(g, value) {
+    var cin = g.carryIn || {}, cout = g.carryOut || {};
+    var pots = ['shares', 'other', 'private'];
+    if (pots.every(function (k) { return !(cin[k] > 0) && !(cout[k] > 0); })) return [];
+    var LC = lossCarryMod();
+    var label = function (k) { return LC ? LC.potLabel(k) : k; };
+    return pots.map(function (k) { return [__('trCarryIn', 'Losses brought forward: {pot}', { pot: label(k) }), value(-(cin[k] || 0))]; })
+      .concat(pots.map(function (k) { return [__('trCarryOut', 'Carried to next year: {pot}', { pot: label(k) }), value(-(cout[k] || 0))]; }))
+      .concat([[__('trCarryKap', 'Anlage KAP stays per year; the tax office applies the carry-forward itself.'), '']]);
+  }
+
   // Shared row set for the German fund-taxation section (PDF + Excel).
   function germanDetailRows(g, cur) {
     return [
@@ -531,7 +565,7 @@ function __(k, f, v) { return (typeof window !== 'undefined' && window.MaerminI1
       [__('trPrivLong', 'Private sales (sec. 23) tax-exempt long-term gains'), money(g.crypto.exemptLongTermGains, cur)],
       [__('trPrivTaxFlat', 'Private sales (sec. 23) estimated tax (flat-rate estimate)'), money(g.crypto.estimatedTax, cur)],
       [__('trTotalTax', 'Total estimated tax'), money(g.totalTax, cur)]
-    ];
+    ].concat(carryRows(g, function (v) { return money(v, cur); }));
   }
 
   // ---- PDF export ----------------------------------------------------------
@@ -711,7 +745,7 @@ function __(k, f, v) { return (typeof window !== 'undefined' && window.MaerminI1
           [__('trPrivLong', 'Private sales (sec. 23) tax-exempt long-term gains'), num(g.crypto.exemptLongTermGains)],
           [__('trPrivTax', 'Private sales (sec. 23) estimated tax'), num(g.crypto.estimatedTax)],
           [__('trTotalTax', 'Total estimated tax'), num(g.totalTax)]
-        ] });
+        ].concat(carryRows(g, function (v) { return v; })) });
     }
 
     var lotHead = [__('symbol', 'Symbol'), __('trClass', 'Class'), __('colQty', 'Qty'), __('trAcquired', 'Acquired'), __('trDisposed', 'Disposed'), __('trHolding', 'Holding (days)'), __('trLongTerm', 'Long-term'), __('trProceeds', 'Proceeds'), __('trCostBasis', 'Cost Basis'), __('trGainLoss', 'Gain/Loss')];
