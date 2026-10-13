@@ -25,7 +25,7 @@ Configure it in the app under **API Settings → Cloudflare Worker**.
 ## Version
 
 ### `GET /?action=version`
-`200 { "version": "2026.10.4", "actions": ["yf", "yfsearch", …], "storage": true }`. No upstream call and no rate limit.
+`200 { "version": "2026.10.5", "actions": ["yf", "yfsearch", …], "storage": true }`. No upstream call and no rate limit.
 `storage` says whether sync and share links can work (a KV namespace or the Durable Object is bound); the
 app's connection test shows it.
 `WORKER_VERSION` in `worker.js` and `EXPECTED_WORKER_VERSION` in `onboarding.js` name the same release
@@ -39,6 +39,8 @@ or one from before this route (it answers `400 Unknown action`), shows "Worker o
 
 ### `GET /?action=yf&symbol=AAPL&interval=1d&range=1y`
 Yahoo Finance historical candles. `interval` ∈ `1m…1mo`, `range` ∈ `1d…max`.
+`200 { symbol, currency, exchangeTz, prices: [{ ts, date, price }], splits: [{ date, numerator, denominator }], dividends: [{ date, amount }] }`.
+`dividends` (since 2026.10.5) are the per-share payments in the listing currency, oldest first; the app's dividend backtest (Dividends → History) asks for `interval=1mo&range=10y`.
 
 ### `GET /?action=cg&p=<endpoint>&…`
 CoinGecko, so the browser never calls it (CoinGecko limits per IP and answers a

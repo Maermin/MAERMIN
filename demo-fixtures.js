@@ -95,6 +95,58 @@ function __(k, f, v) { return (typeof window !== 'undefined' && window.MaerminI1
     return { symbol: sym, currency: BENCH_EUR[sym] ? 'EUR' : 'USD', sample: true, prices: prices };
   }
 
+  // ---- P5-2.5: ten years of monthly closes and dividends of a demo stock ----
+  // For the dividend backtest (Dividends → History; ?action=yf&interval=1mo).
+  // Closes follow the demo's own daily closes and drift back 7 % a year before
+  // them; dividends repeat the demo's recorded payments, and before the first
+  // recorded year they shrink by 5 % a year. Made up like the rest.
+  var _closes = { today: null, series: null };
+  function demoSeries(today) {
+    if (_closes.today !== today) {
+      var DEMO = (typeof window !== 'undefined' && window.MaerminDemo) || require('./demo-data.js');
+      _closes = { today: today, series: DEMO.closeHistory ? DEMO.closeHistory(iso(today)).series : {} };
+    }
+    return _closes.series;
+  }
+  function yfMonthly(sym, todayIso) {
+    var DEMO = (typeof window !== 'undefined' && window.MaerminDemo) || require('./demo-data.js');
+    var txs = (DEMO.getTransactions ? DEMO.getTransactions() : []).filter(function (x) { return x.category === 'stocks' && String(x.symbol).toUpperCase() === sym; });
+    if (!txs.length) return null;
+    var t = dayNo(todayIso || todayISO()), y0 = parseInt(iso(t).slice(0, 4), 10), m0 = parseInt(iso(t).slice(5, 7), 10);
+    var hs = demoSeries(t)['stocks|' + sym];
+    var closeAt = function (n) {
+      if (!hs || !hs.d.length) return 50 * Math.exp(-0.07 * (t - n) / 365);
+      if (n < hs.d[0]) return hs.p[0] * Math.exp(-0.07 * (hs.d[0] - n) / 365);
+      var lo = 0, hi = hs.d.length - 1;
+      while (lo < hi) { var mid = (lo + hi + 1) >> 1; if (hs.d[mid] <= n) lo = mid; else hi = mid - 1; }
+      return hs.p[lo];
+    };
+    var prices = [];
+    for (var k = 0; k <= 120; k++) {
+      var y = y0 - 10 + Math.floor((m0 - 1 + k) / 12), m = (m0 - 1 + k) % 12 + 1;
+      var first = y + '-' + String(m).padStart(2, '0') + '-01';
+      if (first > iso(t)) break;
+      var endN = Math.min(t, dayNo(m === 12 ? (y + 1) + '-01-01' : y + '-' + String(m + 1).padStart(2, '0') + '-01') - 1);
+      prices.push({ date: first, price: r(closeAt(endN), 4) });
+    }
+    var divs = txs.filter(function (x) { return x.type === 'dividend'; }).sort(function (a, b) { return a.date < b.date ? -1 : 1; });
+    var dividends = [];
+    if (divs.length) {
+      var byYear = {}, months = {};
+      divs.forEach(function (x) { byYear[x.date.slice(0, 4)] = x.price; months[x.date.slice(5)] = true; });
+      var firstY = parseInt(divs[0].date.slice(0, 4), 10), dps0 = divs[0].price;
+      for (var yy = y0 - 10; yy <= y0; yy++) {
+        Object.keys(months).sort().forEach(function (md) {
+          var d = yy + '-' + md;
+          if (d > iso(t)) return;
+          var dps = byYear[yy] !== undefined ? byYear[yy] : yy < firstY ? dps0 * Math.pow(1.05, yy - firstY) : divs[divs.length - 1].price;
+          dividends.push({ date: d, amount: r(dps, 4) });
+        });
+      }
+    }
+    return { symbol: sym, currency: txs[0].currency || 'EUR', sample: true, prices: prices, splits: [], dividends: dividends };
+  }
+
   // ---- Discovery: fictional companies --------------------------------------
   // The list lives with the other made-up demo data (demo-data.js).
   var DEMO = (typeof window !== 'undefined' && window.MaerminDemo) || require('./demo-data.js');
@@ -167,6 +219,10 @@ function __(k, f, v) { return (typeof window !== 'undefined' && window.MaerminI1
   function respond(url, todayIso) {
     if (!isDemoUrl(url)) return { status: 404, type: 'json', body: { error: 'not-demo-url' } };
     var q = query(url);
+    if (q.action === 'yf' && q.interval === '1mo' && q.symbol) {
+      var mo = yfMonthly(q.symbol.toUpperCase(), todayIso);
+      if (mo) return { status: 200, type: 'json', body: mo };
+    }
     if (q.action === 'yf' && (q.symbol === 'EURUSD=X' || BENCH[q.symbol] || BENCH_EUR[q.symbol])) return { status: 200, type: 'json', body: yfSeries(q.symbol, q.range, todayIso) };
     if (q.action === 'screener') return { status: 200, type: 'json', body: screener(q, todayIso) };
     if (q.action === 'news' && q.symbol) return { status: 200, type: 'xml', body: news(q.symbol, todayIso) };

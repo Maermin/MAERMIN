@@ -10,7 +10,10 @@
 //     series: { 'category|SYMBOL': { closes: [[iso, eur]…] } }
 //     opts:   { today, exchangeRate, fxAt, usdRates,
 //               live:   { key: eur }            today's quote (replaces today's close)
-//               splits: { key: [{ date, num, den }] }   the RECORDED corporate actions }
+//               splits: { key: [{ date, num, den }] }   the RECORDED corporate actions
+//               gross:  true → taxes and fees count as money taken out, not
+//                       as a loss (P5-2.5; withholding, trade fees, tax and
+//                       fee bookings and their refunds) }
 //   Quantities are split-adjusted with the recorded actions only - the same rule
 //   as the positions list and the ledger. Splits a data source reports are not
 //   applied on their own: whether a trade was entered in pre- or post-split
@@ -42,6 +45,8 @@
   'use strict';
 
   var EPS = 1e-9;
+  // cash bookings that are money in / out when returns are gross (P5-2.5)
+  var GROSS_EXTERNAL = { tax: true, tax_refund: true, fee: true, fee_refund: true };
   var DAY = 86400000;
 
   function num(v) { var n = parseFloat(v); return isFinite(n) ? n : 0; }
@@ -109,13 +114,13 @@
       if (!covered[k]) return;
       var d = ymd(tx.date); if (d > today) return;
       var f = factor(k, d), q = num(tx.quantity);
-      day(d).trades.push({ k: k, buy: tx.type === 'buy', qty: q * f, unit: toEUR(tx.price, tx, opts) / f, fee: Math.max(0, toEUR(tx.fees, tx, opts)) });
+      day(d).trades.push({ k: k, buy: tx.type === 'buy', qty: q * f, unit: toEUR(tx.price, tx, opts) / f, fee: opts.gross ? 0 : Math.max(0, toEUR(tx.fees, tx, opts)) });
     });
     income.forEach(function (tx) {
       if (!covered[keyOf(tx)]) return;
       var d = ymd(tx.date); if (d > today) return;
       var gross = num(tx.quantity) * num(tx.price);
-      var amt = (gross || num(tx.amount)) - num(tx.withholdingTax);
+      var amt = (gross || num(tx.amount)) - (opts.gross ? 0 : num(tx.withholdingTax));
       if (amt > 0) day(d).payout += toEUR(amt, tx, opts);
     });
     var tradeDays = Object.keys(byDay).filter(function (d) { return byDay[d].trades.length; }).sort();
@@ -134,8 +139,13 @@
     if (clr) {
       clr.events.forEach(function (e) {
         if (!e || !e.d || e.d > today) return;
-        var c = cashDay[e.d] || (cashDay[e.d] = { ext: 0, internal: 0 });
-        if (e.kind === 'external' || (e.key && !covered[e.key])) c.ext += e.amount; else c.internal += e.amount;
+        var c = cashDay[e.d] || (cashDay[e.d] = { ext: 0, internal: 0, out: 0 });
+        if (e.kind === 'external' || (e.key && !covered[e.key])) { c.ext += e.amount; return; }
+        c.internal += e.amount;
+        // P5-2.5 gross: tax and fee bookings and the fees / withholding inside a
+        // trade or payout are money taken out at the end of the day, not a loss
+        if (opts.gross && GROSS_EXTERNAL[e.type]) c.out -= e.amount;
+        else if (opts.gross && e.cost > 0) c.out += e.cost;
       });
       Object.keys(cashDay).forEach(function (d) { if (d < start) start = d; });
       out.cash = true;
@@ -197,11 +207,11 @@
       });
       var flow = inflow - outflow;
       if (clr) {
-        var cd = cashDay[d] || { ext: 0, internal: 0 };
+        var cd = cashDay[d] || { ext: 0, internal: 0, out: 0 };
         cashBal += cd.ext + cd.internal;
         var total = value + cashBal, denom = prevTotal + cd.ext;
-        r = denom > EPS ? total / denom - 1 : 0;
-        flow = cd.ext;
+        r = denom > EPS ? (total + cd.out) / denom - 1 : 0;
+        flow = cd.ext - cd.out;
         prevTotal = total;
         value = total;
       }

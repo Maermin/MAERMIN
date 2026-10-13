@@ -142,7 +142,24 @@ function ReturnsHeatmap({ steps, points, transactions, source, theme, formatPric
     detailView());
 }
 
-function ReturnsView({ transactions, portfolio, prices, priceHistory, theme, formatPrice, getCurrencySymbol, t, fxAt, exchangeRate, valuePath, historyPending, portfolioId, hasWorker, clearing, buildPath }) {
+// P5-2.5: gross / net switch (Analysis → Returns and Dividends). Net = after
+// taxes and fees (the default); gross = taxes and fees count as money taken
+// out instead of as a loss. The choice is the prefs-store key grossNet.
+function GrossNetSwitch({ value, onChange, theme, testid }) {
+  const v = value === 'gross' ? 'gross' : 'net';
+  const btn = (id, label, title) => React.createElement('button', {
+    key: id, type: 'button', 'data-basis': id, 'aria-pressed': v === id, title, onClick: () => onChange && onChange(id),
+    style: { minHeight: '32px', padding: '0.3rem 0.75rem', border: 'none', borderRadius: '6px', cursor: 'pointer', fontSize: '0.78rem', fontWeight: v === id ? 700 : 500,
+      background: v === id ? (theme.accentFill || theme.accent) : 'transparent', color: v === id ? '#fff' : theme.textSecondary }
+  }, label);
+  return React.createElement('div', { role: 'group', 'data-testid': testid || 'gross-net', 'aria-label': __('gnAria', 'Taxes and fees'),
+    style: { display: 'inline-flex', gap: '0.15rem', background: theme.inputBg, borderRadius: '8px', padding: '0.2rem', flexShrink: 0 } },
+    btn('net', __('gnNet', 'Net'), __('gnNetTitle', 'After taxes and fees')),
+    btn('gross', __('gnGross', 'Gross'), __('gnGrossTitle', 'Before taxes and fees')));
+}
+
+function ReturnsView({ transactions, portfolio, prices, priceHistory, theme, formatPrice, getCurrencySymbol, t, fxAt, exchangeRate, valuePath, historyPending, portfolioId, hasWorker, clearing, buildPath, grossNet, setGrossNet }) {
+  const gross = grossNet === 'gross';
   const R = (typeof window !== 'undefined') ? window.MaerminReturns : null;
   const D = (typeof window !== 'undefined') ? window.MaerminHeatmapDrill : null;
   // Current EUR value over EVERY class in the book (custom categories too),
@@ -165,8 +182,8 @@ function ReturnsView({ transactions, portfolio, prices, priceHistory, theme, for
   // With a clearing account (P5-1.4) XIRR counts deposits and withdrawals.
   const figs = useMemo(() => window.MaerminReturnFigures.compute(transactions, {
     securitiesValueEUR: currentValue, exchangeRate, fxAt, today: window.MaerminUtils.todayISO(),
-    clearings: clearing ? { [portfolioId || 'default']: clearing } : null
-  }), [transactions, currentValue, exchangeRate, fxAt, clearing, portfolioId]);
+    clearings: clearing ? { [portfolioId || 'default']: clearing } : null, gross
+  }), [transactions, currentValue, exchangeRate, fxAt, clearing, portfolioId, gross]);
   const xirrResult = transactions.length ? figs.xirr : null;
 
   // TWR, best source first:
@@ -240,7 +257,8 @@ function ReturnsView({ transactions, portfolio, prices, priceHistory, theme, for
     : twrInfo.source === 'refresh' ? __('retFromRefreshes', 'From your price refreshes')
     : __('retNoHistory', 'No price history yet');
   // P5-1.4: say when the cash of the clearing account is part of the figure
-  const twrSubCash = twrSub + (twrInfo.source === 'daily' && valuePath && valuePath.cash ? ' · ' + __('retInclCash', 'incl. cash account') : '');
+  const twrSubCash = twrSub + (twrInfo.source === 'daily' && valuePath && valuePath.cash ? ' · ' + __('retInclCash', 'incl. cash account') : '')
+    + (gross && twrInfo.source !== 'daily' && twrInfo.source !== 'none' ? ' · ' + __('gnTwrNetOnly', 'after taxes and fees') : '');
 
   // Simple holding period stats — every amount in EUR (P5-1.5: from figs).
   const stats = useMemo(() => {
@@ -264,7 +282,11 @@ function ReturnsView({ transactions, portfolio, prices, priceHistory, theme, for
   const color  = v => v > 0 ? theme.success : v < 0 ? theme.danger : theme.text;
 
   return React.createElement('div', { style: { padding: '1.5rem' } },
-    React.createElement('h2', { style: { color: theme.text, fontSize: '1.5rem', fontWeight: '800', letterSpacing: '-0.02em', marginBottom: '0.5rem' } }, (t.returnAnalysis || 'Return Analysis')),
+    React.createElement('div', { style: { display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '0.75rem', flexWrap: 'wrap', marginBottom: '0.5rem' } },
+      React.createElement('h2', { style: { color: theme.text, fontSize: '1.5rem', fontWeight: '800', letterSpacing: '-0.02em', margin: 0 } }, (t.returnAnalysis || 'Return Analysis')),
+      setGrossNet && React.createElement(GrossNetSwitch, { value: grossNet, onChange: setGrossNet, theme, testid: 'returns-gross-net' })),
+    gross && React.createElement('p', { 'data-testid': 'gross-note', style: { color: theme.textSecondary, fontSize: '0.8rem', margin: '0 0 0.5rem' } },
+      __('gnReturnsNote', 'Gross: withholding tax, tax bookings and fees count as money taken out, not as a loss.')),
     React.createElement('p', { style: { color: theme.textSecondary, fontSize: '0.875rem', marginBottom: '1.5rem', lineHeight: '1.6' } },
       t.returnsHint || 'XIRR (Money-Weighted Return) accounts for the timing and size of your cash flows. TWR shows portfolio performance independent of cash flows.'
     ),
@@ -274,7 +296,8 @@ function ReturnsView({ transactions, portfolio, prices, priceHistory, theme, for
       card(__('retXirr', 'XIRR (annualized)'), xirrResult !== null ? fmtPct(xirrResult) : '—', clearing ? __('retXirrSubCash', 'Money-weighted p.a., from deposits and withdrawals') : __('retXirrSub', 'Money-weighted return p.a.'), xirrResult !== null ? color(xirrResult) : theme.textSecondary),
       React.createElement('div', { 'data-testid': 'twr-card', 'data-source': twrInfo.source, style: { display: 'contents' } },
         card('TWR', twrResult !== null ? fmtPct(twrResult) : '—', twrSubCash, twrResult !== null ? color(twrResult) : theme.textSecondary)),
-      stats && card(__('ovTotalReturn', 'Total Return'), fmtPct(stats.totalReturnPct), `${formatPrice(stats.totalReturn)} ${getCurrencySymbol()}`, color(stats.totalReturnPct)),
+      stats && React.createElement('div', { 'data-testid': 'total-return-card', 'data-v': stats.totalReturn, style: { display: 'contents' } },
+        card(__('ovTotalReturn', 'Total Return'), fmtPct(stats.totalReturnPct), `${formatPrice(stats.totalReturn)} ${getCurrencySymbol()}` + (gross ? ' · ' + __('gnBeforeShort', 'before taxes and fees') : ''), color(stats.totalReturnPct))),
       stats && card(__('holdingPeriod', 'Holding Period'), __('retDays', '{n} d', { n: stats.holdingDays }), __('retSinceFirst', 'Since first transaction'), theme.text)
     ),
 
@@ -1566,6 +1589,7 @@ if (typeof window !== 'undefined') {
   window.MaerminFeatures2 = {
     ReturnsView,
     ReturnsHeatmap,
+    GrossNetSwitch,
     RebalancingView,
     BrokerImportWizard,
     PositionNotesView,

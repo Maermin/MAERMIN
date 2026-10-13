@@ -7,8 +7,9 @@
 // cash bookings, clearing accounts). Every amount is EUR.
 //
 //   compute(transactions, { securitiesValueEUR, exchangeRate, fxAt, today,
-//                           valuePath?, clearings?: { portfolioId: clearing } })
-//   → { xirr, twr, twrAnnualized, twrSince, twrCash,
+//                           valuePath?, clearings?: { portfolioId: clearing },
+//                           gross? })
+//   → { basis ('net' | 'gross'), xirr, twr, twrAnnualized, twrSince, twrCash,
 //       realized        realised FIFO gain of the sales (options left out)
 //       dividendsGross  dividends before withholding
 //       dividendsNet    dividends after foreign withholding
@@ -25,6 +26,11 @@
 // securities plus the clearing cash. TWR comes from the value path the caller
 // built for the same view (null when there is none).
 //
+// gross (P5-2.5): taxes and fees count as money taken out instead of as a
+// loss - each one is a flow back to the investor on its date in the XIRR, and
+// the net return adds them back. The caller builds the value path with the
+// same option.
+//
 // Pure + dual-exported; tested in test/return-figures.test.js.
 // ============================================================================
 (function () {
@@ -40,7 +46,7 @@
     var R = W.MaerminReturns || req(function () { return require('./returns-engine.js'); });
     var F = W.MaerminFxHistory || req(function () { return require('./fx-history.js'); });
     var txs = Array.isArray(transactions) ? transactions : [];
-    var out = { xirr: null, twr: null, twrAnnualized: null, twrSince: null, twrCash: false, realized: null, dividendsGross: null, dividendsNet: null,
+    var out = { basis: opts.gross ? 'gross' : 'net', xirr: null, twr: null, twrAnnualized: null, twrSince: null, twrCash: false, realized: null, dividendsGross: null, dividendsNet: null,
       taxes: null, fees: null, invested: null, proceeds: null, netReturn: null, netReturnPct: null, cash: null };
     if (!txs.length || !L || !R) return out;
     var rate = num(opts.exchangeRate), fxAt = typeof opts.fxAt === 'function' ? opts.fxAt : null;
@@ -85,6 +91,19 @@
       if (value + cash) xirrFlows.push({ date: today, amount: value + cash });
       out.cash = cash;
     }
+    if (opts.gross) {
+      var back = {};
+      txs.forEach(function (tx) {
+        var d = tx && String(tx.date || '').slice(0, 10);
+        if (!d || d > today || tx.category === 'options') return;
+        var c = eur(Math.max(0, num(tx.fees)), tx);
+        if (tx.type === 'dividend' || tx.type === 'interest') c += eur(Math.max(0, num(tx.withholdingTax)), tx);
+        if (tx.type === 'tax' || tx.type === 'fee') c += eur(Math.abs(num(tx.amount)), tx);
+        if (tx.type === 'tax_refund' || tx.type === 'fee_refund') c -= eur(Math.abs(num(tx.amount)), tx);
+        if (c) back[d] = (back[d] || 0) + c;
+      });
+      Object.keys(back).forEach(function (d) { if (Math.abs(back[d]) > 1e-9) xirrFlows.push({ date: d, amount: back[d] }); });
+    }
     out.xirr = R.xirr(xirrFlows);
 
     // TWR from the caller's value path
@@ -112,6 +131,10 @@
     out.dividendsNet = gross - wht;
     var cb = L.cashFlows(txs, { exchangeRate: rate, fxAt: fxAt }).byType;
     out.taxes = wht + (cb.tax || 0) - (cb.tax_refund || 0);
+    if (opts.gross) {
+      out.netReturn += out.taxes + out.fees;
+      out.netReturnPct = out.invested > 0 ? out.netReturn / out.invested : null;
+    }
     return out;
   }
 

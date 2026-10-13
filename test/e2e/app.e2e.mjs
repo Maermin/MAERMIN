@@ -95,6 +95,8 @@ const SYNTH = { // close of day i
 };
 const synthFor = (sym) => SYNTH[sym] || { currency: 'USD', px: (i) => 80 * Math.pow(1.0003, i) * (1 + 0.012 * Math.sin(i / 4 + sym.length)) };
 const closeOf = (sym, i) => Number(synthFor(sym).px(i).toFixed(4));
+// P5-2.5: AAPL pays a dividend every 63rd weekday, one cent more each year
+const divOf = (sym, i) => (sym === 'AAPL' && i % 63 === 20 ? Number((0.24 + 0.01 * Math.floor(i / 252)).toFixed(4)) : 0);
 {
   const cacheMap = new Map();
   globalThis.caches = { default: {
@@ -109,7 +111,9 @@ const closeOf = (sym, i) => Number(synthFor(sym).px(i).toFixed(4));
     workerState.upstream.push(sym);
     return new Response(JSON.stringify({ chart: { result: [{ meta: { currency: synthFor(sym).currency, exchangeTimezoneName: 'UTC' },
       timestamp: WEEKDAYS.map((d) => Math.floor(Date.parse(d + 'T16:00:00Z') / 1000)),
-      indicators: { quote: [{ close: WEEKDAYS.map((_, i) => closeOf(sym, i)) }] } }] } }), { status: 200, headers: { 'Content-Type': 'application/json' } });
+      indicators: { quote: [{ close: WEEKDAYS.map((_, i) => closeOf(sym, i)) }] },
+      events: { dividends: Object.fromEntries(WEEKDAYS.map((d, i) => [i, d]).filter(([i]) => divOf(sym, i) > 0)
+        .map(([i, d]) => { const ts = Math.floor(Date.parse(d + 'T16:00:00Z') / 1000); return [ts, { date: ts, amount: divOf(sym, i) }]; })) } }] } }), { status: 200, headers: { 'Content-Type': 'application/json' } });
   };
 }
 async function answerFromWorker(route) {
@@ -812,7 +816,7 @@ async function runBuild(browser, label, dir) {
     let brokerOv = '', rows = 0, before = null, after = null;
     // P5-1.8: Worker-only views run on in-page sample data; nothing may reach the network
     const sampleReqs = []; page.on('request', (r) => { if (/maermin\.invalid/.test(r.url())) sampleReqs.push(r.url()); });
-    const fixtures = {}; let dqText = '', va = null, br = null, lt = null;
+    const fixtures = {}; let dqText = '', va = null, br = null, lt = null, dh = null;
     try {
       await unlock(page, base);
       await page.keyboard.press('Escape');
@@ -873,6 +877,36 @@ async function runBuild(browser, label, dir) {
         await page.waitForTimeout(id === 'news' ? 2000 : 1200);
         fixtures[id] = { badges: await page.locator('main [data-testid="sample-data"]').count(), text: await page.locator('main').innerText() };
       }
+      // P5-2.5: Dividends → History (matrix gross / net, growth, backtest) and the forecast months
+      await page.getByRole('button', { name: /^History$/ }).first().click();
+      await page.locator('[data-testid="div-backtest"] [data-stat="income"]').waitFor({ timeout: 15000 }).catch(() => {});
+      const mxRead = () => page.evaluate(() => {
+        const t = document.querySelector('[data-testid="div-matrix"]');
+        const rows = Array.from(t.querySelectorAll('tbody tr[data-sym]')).map((r) => parseFloat(r.querySelector('td[data-total]').getAttribute('data-total')));
+        const yearTot = Array.from(t.querySelectorAll('tr[data-row="total"] td[data-y]')).map((td) => parseFloat(td.getAttribute('data-v')));
+        return { rows, years: Array.from(t.querySelectorAll('thead th')).map((th) => th.textContent), grand: parseFloat(t.querySelector('tr[data-row="total"] td[data-total]').getAttribute('data-total')), yearSum: yearTot.reduce((a, b) => a + b, 0) };
+      });
+      dh = { net: await mxRead() };
+      await page.locator('[data-testid="div-gross-net"] [data-basis="gross"]').click();
+      await page.waitForTimeout(500);
+      dh.gross = await mxRead();
+      await page.locator('[data-testid="div-gross-net"] [data-basis="net"]').click();
+      dh.growthRows = await page.locator('[data-testid="div-growth"] tbody tr').count();
+      dh.bt5 = await page.locator('[data-testid="div-backtest"] tbody tr').count();
+      dh.btBadge = await page.locator('[data-testid="div-backtest"] [data-testid="sample-data"]').count();
+      await page.locator('[data-testid="bt-years-10"]').click();
+      await page.waitForTimeout(400);
+      dh.bt10 = await page.locator('[data-testid="div-backtest"] tbody tr').count();
+      await page.getByRole('button', { name: /^Forecast$/ }).first().click();
+      await page.waitForTimeout(800);
+      dh.months = await page.locator('[data-testid="df-months"] button[data-month]').count();
+      await page.locator('[data-testid="df-months"] button[data-month="1"]').click();
+      dh.month = await page.evaluate(() => {
+        const d = document.querySelector('[data-testid="df-month-detail"]');
+        const items = Array.from(d.querySelectorAll('[data-sym]')).length;
+        const v = d.querySelector('[data-v]');
+        return { total: v ? parseFloat(v.getAttribute('data-v')) : NaN, items, text: d.innerText.slice(0, 160) };
+      });
       await openView(page, 'tax');
       await page.getByRole('button', { name: /^Tax Report$/ }).first().click();
       await page.waitForTimeout(1200);
@@ -917,6 +951,11 @@ async function runBuild(browser, label, dir) {
       { const gap = (r) => { const parts = Object.keys(r).filter((k) => k !== 'start' && k !== 'end').reduce((s, k) => s + r[k], 0); return Math.abs(parts - (r.end - r.start)); };
         ok('P5-2.1: Returns shows profit by source; the parts add up to end − start (Max and 1M)', !!va && va.max.start === 0 && va.max.end > 0 && gap(va.max) < 0.1 && va.m1.start > 0 && gap(va.m1) < 0.1 && !('residual' in va.max) && /Biggest driver:/.test(va.biggest),
           err || JSON.stringify(va)); }
+      { const n = dh && dh.net, g = dh && dh.gross, sum = (a) => a.reduce((x, y) => x + y, 0);
+        ok('P5-2.5: dividend matrix: rows and years add up to the total, back to 2023; gross is above net', !!n && Math.abs(sum(n.rows) - n.grand) < 1e-6 && Math.abs(n.yearSum - n.grand) < 1e-6 && n.years.includes('2023') && g.grand > n.grand + 1,
+          err || JSON.stringify(dh && { net: n && n.grand, gross: g && g.grand, years: n && n.years }));
+        ok('P5-2.5: growth per payer, and the backtest on sample data: 5 then 10 years', !!dh && dh.growthRows >= 10 && dh.bt5 === 5 && dh.bt10 > 5 && dh.btBadge === 1, err || JSON.stringify(dh && { g: dh.growthRows, b5: dh.bt5, b10: dh.bt10, badge: dh.btBadge }));
+        ok('P5-2.5: the forecast has 24 months; a month lists its payments', !!dh && dh.months === 24 && dh.month.total > 0 && dh.month.items > 0, err || JSON.stringify(dh && { m: dh.months, month: dh.month })); }
       ok('P5-2.3: a holdings file imported for VWCE: source line, holdings via VWCE in the effective exposure', !!lt && /your file .*4 holdings/.test(lt.src) && /4 holdings imported for VWCE/.test(lt.card) && /NVIDIA CORP[^\n]*via VWCE/i.test(lt.table), err || JSON.stringify(lt).slice(0, 300));
       ok('P5-2.3: the demo keeps the imported file in memory only', !!lt && lt.storedAfter === lt.storedBefore, err || String(lt && lt.storedAfter).slice(0, 80));
       ok('P5-2.3: look-through exports as CSV', !!lt && lt.file === 'maermin-look-through.csv' && /^Security,Key,Effective weight %/.test(lt.csv || '') && /NVIDIA/.test(lt.csv || ''), err || JSON.stringify(lt && { file: lt.file, csv: (lt.csv || '').slice(0, 80) }));
@@ -1324,6 +1363,33 @@ async function runBuild(browser, label, dir) {
       ok('P5-2.4: the position dialog has the holding\'s own monthly returns (= its price change) with drill-down', pm.length > 0 && Math.abs(prodP - want) < 1e-9 && /Activities/i.test(pd), pm.length + ' | ' + prodP + ' vs ' + want + ' | ' + pd.replace(/\n/g, ' | ').slice(0, 200));
       await page.keyboard.press('Escape');
       await page.waitForTimeout(300);
+      await openView(page, 'returns'); }
+    // P5-2.5: gross / net - a book without taxes or fees has the same TWR either way
+    { await page.locator('[data-testid="returns-gross-net"] [data-basis="gross"]').click().catch(() => {});
+      await page.waitForTimeout(500);
+      const g = await settledText(page.locator('[data-testid="twr-card"]')).catch(() => '');
+      const note = await page.locator('[data-testid="gross-note"]').count();
+      const pref = await page.evaluate(() => localStorage.getItem('maermin_gross_net'));
+      await page.locator('[data-testid="returns-gross-net"] [data-basis="net"]').click().catch(() => {});
+      await page.waitForTimeout(500);
+      ok('P5-2.5: gross switch on Returns: a note, the choice saved, the same TWR without taxes or fees', g.includes(want) && note === 1 && pref === 'gross', g.replace(/\n/g, ' | ') + ' | note ' + note + ' | ' + pref); }
+    // P5-2.5: Dividends → History backtests today's 40 VWCE.DE + 5 AAPL over the Worker's dividends
+    { await openView(page, 'dividends');
+      await page.getByRole('button', { name: /^History$/ }).first().click().catch(() => {});
+      const Y = new Date().getFullYear() - 1;
+      const row = page.locator('[data-testid="div-backtest"] tr[data-y="' + Y + '"]');
+      await row.waitFor({ timeout: 15000 }).catch(() => {});
+      const income = parseFloat(await row.locator('td[data-k="income"]').getAttribute('data-v').catch(() => 'NaN'));
+      const yieldTxt = await row.locator('td[data-k="yield"]').innerText().catch(() => '');
+      let wantInc = 0, iEnd = -1;
+      WEEKDAYS.forEach((d, i) => { if (d.slice(0, 4) === String(Y)) wantInc += 5 * divOf('AAPL', i) * 0.9; if (d <= (Y - 1) + '-12-31') iEnd = i; });
+      const start = iEnd < 0 ? null : 40 * closeOf('VWCE.DE', iEnd) + 5 * closeOf('AAPL', iEnd) * 0.9;
+      const wantYield = start ? (wantInc / start * 100).toFixed(2) + '%' : '–';
+      ok('P5-2.5: backtest ' + Y + ': income = 5 AAPL x the dividends paid that year (' + wantInc.toFixed(2) + ' EUR), yield on the value at the start ' + wantYield,
+        Math.abs(income - wantInc) < 1e-6 && yieldTxt === wantYield, income + ' vs ' + wantInc + ' | ' + yieldTxt + ' vs ' + wantYield);
+      ok('P5-2.5: the backtest asked the Worker for ten years of monthly data, symbols only', ['VWCE.DE', 'AAPL'].every((x) => workerState.requests.includes('/?action=yf&symbol=' + x + '&interval=1mo&range=10y')), workerState.requests.filter((u) => /1mo/.test(u)).join(' '));
+      const empty = await page.locator('[data-testid="div-matrix"]').innerText().catch(() => '');
+      ok('P5-2.5: without recorded dividends the matrix says so', /No dividends recorded yet/.test(empty), empty.slice(0, 120));
       await openView(page, 'returns'); }
     ok('closes came through the Worker route ?action=yf (5-year range for both holdings)', ['VWCE.DE', 'AAPL'].every((x) => workerState.requests.includes('/?action=yf&symbol=' + x + '&interval=1d&range=5y')), workerState.requests.join(' '));
     await page.waitForTimeout(2500); // benchmark fetch

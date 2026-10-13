@@ -331,7 +331,8 @@
   //   → { balanceEUR, series: [{ d, balance }] (end of day, oldest first),
   //       external: [{ d, amount }] (+ into the account: opening, deposit,
   //                  transfer in; − withdrawal, transfer out),
-  //       events: [{ d, amount, kind: 'external'|'trade'|'income'|'cost', type, txId }],
+  //       events: [{ d, amount, kind: 'external'|'trade'|'income'|'cost', type, txId,
+  //                  key?, cost? (fees + withholding inside the amount) }],
   //       firstNegative: { d, balance } | null, minBalance }
   // The account is in EUR; other currencies convert at the rate of their date
   // (the same rule as the ledger). Buy −(gross + fees), sell +(gross − fees),
@@ -364,11 +365,13 @@
       // key: the holding a trade or payout belongs to (value-path.js keeps the
       // cash of holdings without price history out of the return)
       var key = keyOf(tx);
-      if (tx.type === 'buy' && q > 0) events.push({ d: d, amount: -eur(q * num(tx.price) + fees), kind: 'trade', type: 'buy', txId: tx.id, key: key });
-      else if (tx.type === 'sell' && q > 0) events.push({ d: d, amount: eur(q * num(tx.price) - fees), kind: 'trade', type: 'sell', txId: tx.id, key: key });
+      // cost: the fees and withholding tax inside the amount (P5-2.5 gross returns)
+      if (tx.type === 'buy' && q > 0) events.push({ d: d, amount: -eur(q * num(tx.price) + fees), kind: 'trade', type: 'buy', txId: tx.id, key: key, cost: eur(fees) });
+      else if (tx.type === 'sell' && q > 0) events.push({ d: d, amount: eur(q * num(tx.price) - fees), kind: 'trade', type: 'sell', txId: tx.id, key: key, cost: eur(fees) });
       else if (tx.type === 'dividend' || tx.type === 'interest') {
-        var net = payoutGross(tx) - Math.max(0, num(tx.withholdingTax)) - fees;
-        if (net) events.push({ d: d, amount: eur(net), kind: 'income', type: tx.type, txId: tx.id, key: key });
+        var wht = Math.max(0, num(tx.withholdingTax));
+        var net = payoutGross(tx) - wht - fees;
+        if (net) events.push({ d: d, amount: eur(net), kind: 'income', type: tx.type, txId: tx.id, key: key, cost: eur(wht + fees) });
       }
     });
     var opening = num(opts.opening);

@@ -37,7 +37,7 @@ function __(k, f, v) { return (typeof window !== 'undefined' && window.MaerminI1
   var CONTEXT = 'premigration'; // bound as associated data (SEC-007)
   // Keys a fresh vault may already hold: UI preferences, not user data. A
   // vault with nothing else gets no copy (there is nothing to lose).
-  var PREF_KEYS = { theme: 1, currency: 1, privacyMode: 1, maermin_language: 1, maermin_ui_mode: 1 };
+  var PREF_KEYS = { theme: 1, currency: 1, privacyMode: 1, maermin_language: 1, maermin_ui_mode: 1, maermin_gross_net: 1 };
 
   var _status = { state: 'none' }; // 'none' | 'taken' | 'empty' | 'blocked' | 'current'
 

@@ -90,6 +90,8 @@
     'maermin_language',
     // Simple/Advanced navigation mode (nav-model.js)
     'maermin_ui_mode',
+    // returns and dividends gross or net of taxes and fees (prefs-store.js, P5-2.5)
+    'maermin_gross_net',
     // deleted records kept 30 days for restore (trash.js)
     'maermin_trash',
     // Freistellungsaufträge per broker (fsa.js)
