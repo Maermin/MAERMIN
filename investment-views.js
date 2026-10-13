@@ -1151,6 +1151,8 @@ function InvestmentAnalysisDashboard(props) {
     { id: 'liquidity',label: __('kpiLiquidity', 'Liquidity'),        desc: __('ivTabLiqDesc', 'Position Liquidity Score') },
     { id: 'goals',    label: __('ivTabGoals', 'Goals'),            desc: __('ivTabGoalsDesc', 'Track savings goals') }
   ];
+  // P5-2.8: allocation by ETF provider and by broker / portfolio (allocation-groups.js)
+  if (typeof props.renderProviders === 'function') sections.splice(5, 0, { id: 'providers', label: __('ivTabProviders', 'Providers & brokers'), desc: __('ivTabProvidersDesc', 'Funds by provider, value by broker') });
 
   var tabStyle = function(id) {
     var active = activeSection === id;
@@ -1179,6 +1181,7 @@ function InvestmentAnalysisDashboard(props) {
         : React.createElement('div', { style: { padding: '1.5rem', color: theme.textSecondary } }, __('ivMcapUnavailable', 'Market-cap module unavailable'));
       case 'liquidity':return React.createElement(LiquidityAnalysisView, { portfolio: portfolio });
       case 'goals':    return React.createElement(GoalInvestingView, { portfolioValue: portfolioValue });
+      case 'providers': return typeof props.renderProviders === 'function' ? props.renderProviders() : null;
       default:         return React.createElement(DCAAnalyzerView, { portfolio: portfolio, priceHistory: dcaHistory });
     }
   };

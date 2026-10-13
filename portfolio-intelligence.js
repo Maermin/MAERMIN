@@ -79,7 +79,12 @@ function __(k, f, v) { return (typeof window !== 'undefined' && window.MaerminI1
     // EFFECTIVE number of holdings (1/HHI on look-through weights) is far below
     // the nominal count. Only evaluated once you hold enough names that real
     // diversification is plausible (else the top-holdings check already covers it).
-    divMinHoldings: 10, divEffectiveImportant: 8, divEffectiveOptimize: 15
+    divMinHoldings: 10, divEffectiveImportant: 8, divEffectiveOptimize: 15,
+    // P5-2.8: emergency fund in MONTHS of expenses (cash + current accounts of
+    // Net Worth / the monthly expenses of the FIRE settings), and uninvested
+    // cash in the portfolios' cash accounts as a PERCENT of cash + securities.
+    emergencyImportant: 3, emergencyOptimize: 6,
+    idleCashOptimize: 20
   };
 
   // Asset classes that swing far harder than a diversified equity book; only
@@ -176,6 +181,8 @@ function __(k, f, v) { return (typeof window !== 'undefined' && window.MaerminI1
   //                        incomeAtRiskPct(%)|null, traps:[{symbol,yield,growth,cutRisk}] }
   //   liquidity          { available, illiquidPct(%), classes:[{cls, pct}] }
   //   coverage           look-through coverage fraction (for the data-quality note)
+  //   emergency          { available, liquidEUR, monthlyExpenses, timeDepositEUR }   (P5-2.8)
+  //   buyingPower        { available, cashEUR, investedEUR, overdrawn:[{name, balance}] }
   function analyzeFromInputs(inputs, opts) {
     inputs = inputs || {};
     var T = mergeThresholds(opts);
@@ -530,6 +537,46 @@ function __(k, f, v) { return (typeof window !== 'undefined' && window.MaerminI1
       }
     }
 
+    // 12) P5-2.8 emergency fund ------------------------------------------------
+    var em = inputs.emergency;
+    if (em && em.available && num(em.monthlyExpenses) > 0) {
+      var months = (num(em.liquidEUR) || 0) / num(em.monthlyExpenses);
+      var monthsTxt = I18N().num(Math.round(months * 10) / 10, { min: 0, max: 1 });
+      if (months < T.emergencyImportant) {
+        push('emergency', 'important', 'emergency-important',
+          __('piEmTitle', 'Your cash covers {n} months of expenses', { n: monthsTxt }),
+          __('piEmDetail', 'Cash and current accounts in Net Worth against your monthly expenses from the FIRE settings. Under {min} months, an unexpected bill can force a sale at a bad moment.', { min: T.emergencyImportant }),
+          __('piEmAction', 'Build a buffer of {min} to {max} months in an instant-access account before investing more.', { min: T.emergencyImportant, max: T.emergencyOptimize }), months);
+      } else if (months < T.emergencyOptimize) {
+        push('emergency', 'optimization', 'emergency-optimize',
+          __('piEmOptTitle', 'Your cash covers {n} months of expenses', { n: monthsTxt }),
+          __('piEmOptDetail', 'A workable buffer; {max} months is the usual comfortable level, more with an irregular income.', { max: T.emergencyOptimize }),
+          __('piEmOptAction', 'Top up the buffer from new savings until it reaches about {max} months.', { max: T.emergencyOptimize }), months);
+      }
+    }
+
+    // 13) P5-2.8 buying power: cash accounts of the portfolios ------------------
+    var bp = inputs.buyingPower;
+    if (bp && bp.available) {
+      var od = (bp.overdrawn || []).filter(function (o) { return num(o.balance) < 0; });
+      if (od.length) {
+        var odTxt = od.map(function (o) { return o.name + ' ' + I18N().num(num(o.balance), 2) + ' €'; }).join(', ');
+        push('buyingPower', 'critical', 'buying-overdrawn',
+          __('piBpNegTitle', 'Cash account overdrawn: {list}', { list: odTxt }),
+          __('piBpNegDetail', 'The cash account of a portfolio is below zero: buys, fees or taxes were booked without the money for them, or a deposit is missing.'),
+          __('piBpNegAction', 'Book the missing deposit (Portfolios offers it) or check the bookings of that account.'), 100);
+      } else {
+        var cash = num(bp.cashEUR) || 0, inv = num(bp.investedEUR) || 0;
+        var idle = cash + inv > 0 ? cash / (cash + inv) * 100 : 0;
+        if (cash > 0 && idle >= T.idleCashOptimize) {
+          push('buyingPower', 'optimization', 'buying-idle',
+            __('piBpIdleTitle', '{pct} of your portfolio is uninvested cash', { pct: fmtPct(idle) }),
+            __('piBpIdleDetail', '{amount} € waits in the cash accounts of your portfolios: buying power, but it earns little there.', { amount: I18N().num(cash, 2) }),
+            __('piBpIdleAction', 'Invest it according to your plan, or move what you keep as a buffer to an interest-bearing account.'), idle);
+        }
+      }
+    }
+
     // Direct (non-look-through) concentration fallback: only when we have NO
     // effective exposure data, so the engine still says something useful offline.
     if (!eff.length && inputs.directConcentration && inputs.directConcentration.available &&
@@ -739,7 +786,45 @@ function __(k, f, v) { return (typeof window !== 'undefined' && window.MaerminI1
       }
     } catch (e) {}
 
+    // P5-2.8: the cash checks from what the caller passes (Net Worth accounts,
+    // FIRE settings, the portfolios with their cash accounts)
+    try {
+      if (opts.accounts || opts.fire) inputs.emergency = emergencyInputs(opts.accounts, opts.fire, { exchangeRate: opts.exchangeRate });
+      if (opts.portfolios) inputs.buyingPower = buyingPowerInputs(opts.portfolios);
+    } catch (e) {}
+
     return inputs;
+  }
+
+  // P5-2.8: inputs of the two cash checks (pure, Node-tested).
+  //   accounts: Net Worth rows { type, value, currency }; fire: { annualExpenses }
+  var LIQUID_TYPES = { cash: 1, checking: 1 };
+  function emergencyInputs(accounts, fire, opts) {
+    opts = opts || {};
+    var rate = num(opts.exchangeRate) || 0;
+    var liquid = 0, td = 0, any = false;
+    (accounts || []).forEach(function (a) {
+      if (!a) return;
+      var v = num(a.value) || 0;
+      if (a.currency === 'USD' && rate > 0) v *= rate;
+      if (LIQUID_TYPES[a.type]) { liquid += v; any = true; }
+      else if (a.type === 'time_deposit') { td += v; any = true; }
+    });
+    var monthly = (num(fire && fire.annualExpenses) || 0) / 12;
+    return { available: monthly > 0 && any, liquidEUR: liquid, timeDepositEUR: td, monthlyExpenses: monthly };
+  }
+  //   portfolios: [{ name, value (securities EUR), cash (clearing balance EUR, undefined = no account) }]
+  function buyingPowerInputs(portfolios) {
+    var cash = 0, inv = 0, any = false, od = [];
+    (portfolios || []).forEach(function (p) {
+      if (!p) return;
+      inv += num(p.value) || 0;
+      if (typeof p.cash !== 'number' || !isFinite(p.cash)) return;
+      any = true;
+      cash += p.cash;
+      if (p.cash < -0.005) od.push({ name: p.name, balance: p.cash });
+    });
+    return { available: any, cashEUR: cash, investedEUR: inv, overdrawn: od };
   }
 
   function analyze(portfolio, prices, transactions, opts) {
@@ -757,6 +842,8 @@ function __(k, f, v) { return (typeof window !== 'undefined' && window.MaerminI1
       case 'currency': return __('piAnCurrency', 'Currency');
       case 'diversification': return __('piAnDiversification', 'Diversification');
       case 'dividendTrap': return __('piAnDividendTrap', 'Dividend trap');
+      case 'emergency': return __('piAnEmergency', 'Emergency fund');
+      case 'buyingPower': return __('piAnBuyingPower', 'Buying power');
       case 'hidden': return __('piAnHidden', 'Hidden exposure');
       case 'incomeConcentration': return __('piAnIncomeConc', 'Income concentration');
       case 'leverage': return __('piAnLeverage', 'Leverage');
@@ -784,7 +871,8 @@ function __(k, f, v) { return (typeof window !== 'undefined' && window.MaerminI1
     var warn = theme.warning || '#f59e0b';
     var accent = theme.accent || '#7e22ce';
 
-    var report = props.report || analyze(props.portfolio, props.prices, props.transactions, { lookThrough: props.lookThrough });
+    var report = props.report || analyze(props.portfolio, props.prices, props.transactions, { lookThrough: props.lookThrough,
+      accounts: props.accounts, fire: props.fire, portfolios: props.portfolios, exchangeRate: props.exchangeRate });
     var findings = report.findings || [];
     var summary = report.summary || {};
 
@@ -877,6 +965,8 @@ function __(k, f, v) { return (typeof window !== 'undefined' && window.MaerminI1
     leverageOf: leverageOf,
     analyzeFromInputs: analyzeFromInputs,
     gatherInputs: gatherInputs,
+    emergencyInputs: emergencyInputs,
+    buyingPowerInputs: buyingPowerInputs,
     analyze: analyze,
     View: View
   };
