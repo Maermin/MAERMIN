@@ -463,6 +463,9 @@ function InvestmentTracker() {
   // P5-2.5: returns and dividends before ('gross') or after ('net') taxes and fees
   const [grossNet, setGrossNetState] = useState(() => (window.MaerminPrefs.get('grossNet') === 'gross' ? 'gross' : 'net'));
   const setGrossNet = (v) => { const n = v === 'gross' ? 'gross' : 'net'; setGrossNetState(n); window.MaerminPrefs.set('grossNet', n); };
+  // P5-2.9: region of the consumer prices for real returns ('' = from the language)
+  const [hicpGeo, setHicpGeoState] = useState(() => window.MaerminPrefs.get('hicpGeo') || '');
+  const setHicpGeo = (g) => { setHicpGeoState(g); window.MaerminPrefs.set('hicpGeo', g); };
   
   // v6.0 State
   // v12: command-palette + shortcuts open-states live in MaerminUI.overlays
@@ -3416,6 +3419,7 @@ function InvestmentTracker() {
             valuePath: returnsPath, historyPending: closePending, portfolioId: activePortfolioId, hasWorker: (apiKeys.cs2Worker || '').trim().length > 5,
             clearing: clearingByPf[activePortfolioId] || null, buildPath: (txs, clr) => buildValuePath(txs, clr, { gross: grossNet === 'gross' }),
             grossNet, setGrossNet,
+            workerUrl: viewWorkerUrl, hicpGeo, setHicpGeo, // P5-2.9 real returns
             theme: currentTheme, formatPrice, getCurrencySymbol, t
           }),
           // Benchmark overlay (α/β/TE/IR/R²) — folds the analytics engine into Returns.

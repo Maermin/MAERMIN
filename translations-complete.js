@@ -2944,6 +2944,19 @@ taSparer: 'Sparerpauschbetrag',
     piBpIdleDetail: '{amount} € waits in the cash accounts of your portfolios: buying power, but it earns little there.',
     piBpIdleAction: 'Invest it according to your plan, or move what you keep as a buffer to an interest-bearing account.',
 
+    // P5-2.9 real returns
+    rrInflation: 'Inflation',
+    rrRegion: 'Region of the consumer prices',
+    rrEuroArea: 'Euro area',
+    rrRealPa: 'real {pct} p.a.',
+    rrReal: 'real {pct}',
+    rrInflSub: 'Prices since {date}',
+    rrSource: 'Eurostat HICP up to {month}',
+    rrNeedWorker: 'Consumer prices come through your Worker - add its URL in API Settings.',
+    rrOutdated: 'Your Worker does not send consumer prices yet. Redeploy it with the current version.',
+    rrLoading: 'Loading consumer prices…',
+    rrUnavailable: 'Consumer prices are not available right now.',
+
     // CoinGecko via Worker
     cgNeedsWorker: 'Crypto prices come through your Worker - add its URL in API Settings'
   },
@@ -5734,6 +5747,19 @@ taSparer: 'Sparerpauschbetrag',
     piBpIdleTitle: '{pct} deines Portfolios sind nicht investiertes Guthaben',
     piBpIdleDetail: '{amount} € warten auf den Verrechnungskonten deiner Portfolios: Kaufkraft, aber dort bringen sie wenig.',
     piBpIdleAction: 'Investiere es nach deinem Plan oder lege den Teil, den du als Puffer hältst, auf ein verzinstes Konto.',
+
+    // P5-2.9 real returns
+    rrInflation: 'Inflation',
+    rrRegion: 'Region der Verbraucherpreise',
+    rrEuroArea: 'Euroraum',
+    rrRealPa: 'real {pct} p. a.',
+    rrReal: 'real {pct}',
+    rrInflSub: 'Preise seit {date}',
+    rrSource: 'Eurostat HVPI bis {month}',
+    rrNeedWorker: 'Verbraucherpreise kommen über deinen Worker - trage seine URL in den API-Einstellungen ein.',
+    rrOutdated: 'Dein Worker sendet noch keine Verbraucherpreise. Stelle ihn mit der aktuellen Version neu bereit.',
+    rrLoading: 'Verbraucherpreise werden geladen…',
+    rrUnavailable: 'Verbraucherpreise sind gerade nicht verfügbar.',
 
     // CoinGecko via Worker
     cgNeedsWorker: 'Kryptokurse kommen über deinen Worker – trage seine URL in den API-Einstellungen ein'

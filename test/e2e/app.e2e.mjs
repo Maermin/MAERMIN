@@ -98,6 +98,9 @@ const SYNTH = { // close of day i
 const synthFor = (sym) => SYNTH[sym] || { currency: 'USD', px: (i) => 80 * Math.pow(1.0003, i) * (1 + 0.012 * Math.sin(i / 4 + sym.length)) };
 const closeOf = (sym, i) => Number(synthFor(sym).px(i).toFixed(4));
 // P5-2.5: AAPL pays a dividend every 63rd weekday, one cent more each year
+// P5-2.9: consumer prices, 2015-01 = 100, +0.2 % a month (the Worker's Eurostat upstream)
+const HICP_MONTHS = (() => { const out = [], end = new Date(); for (let y = 2015, m = 1, i = 0; y < end.getUTCFullYear() || (y === end.getUTCFullYear() && m <= end.getUTCMonth()); i++) { out.push([y + '-' + String(m).padStart(2, '0'), Number((100 * Math.pow(1.002, i)).toFixed(2))]); m++; if (m > 12) { m = 1; y++; } } return out; })();
+const hicpAt = (iso) => { const ym = iso.slice(0, 7); let v = null; HICP_MONTHS.forEach((x) => { if (x[0] <= ym) v = x[1]; }); return v; };
 const divOf = (sym, i) => (sym === 'AAPL' && i % 63 === 20 ? Number((0.24 + 0.01 * Math.floor(i / 252)).toFixed(4)) : 0);
 {
   const cacheMap = new Map();
@@ -107,6 +110,12 @@ const divOf = (sym, i) => (sym === 'AAPL' && i % 63 === 20 ? Number((0.24 + 0.01
   const realFetch = globalThis.fetch;
   globalThis.fetch = async (input, init) => {
     const u = String(input && input.url ? input.url : input);
+    if (/ec\.europa\.eu\/eurostat\/api\/dissemination\/statistics\/1\.0\/data\/prc_hicp_minr/.test(u)) {
+      workerState.upstream.push('eurostat');
+      const index = {}, value = {};
+      HICP_MONTHS.forEach((x, i) => { index[x[0]] = i; value[i] = x[1]; });
+      return new Response(JSON.stringify({ version: '2.0', class: 'dataset', updated: '2026-10-02T11:00:00+0200', value, dimension: { time: { category: { index } } } }), { status: 200, headers: { 'Content-Type': 'application/json' } });
+    }
     const m = u.match(/query1\.finance\.yahoo\.com\/v8\/finance\/chart\/([^?]+)/);
     if (!m) return realFetch(input, init);
     const sym = decodeURIComponent(m[1]);
@@ -1400,6 +1409,18 @@ async function runBuild(browser, label, dir) {
       await page.keyboard.press('Escape');
       await page.waitForTimeout(300);
       await openView(page, 'returns'); }
+    // P5-2.9: real TWR = (1 + TWR) / (1 + inflation since the first trade) - 1, inflation from the Worker's HICP
+    { const inf = page.locator('[data-testid="inflation-card"][data-state="ready"]');
+      await inf.waitFor({ timeout: 15000 }).catch(() => {});
+      const infV = parseFloat(await inf.getAttribute('data-v').catch(() => 'NaN'));
+      const realT = parseFloat(await page.locator('[data-testid="twr-card"]').getAttribute('data-real').catch(() => 'NaN'));
+      const today = await page.evaluate(() => window.MaerminUtils.todayISO());
+      const wantInf = hicpAt(today) / hicpAt(WEEKDAYS[0]) - 1;
+      const wantReal = (1 + expected / 100) / (1 + wantInf) - 1;
+      const txt = await inf.innerText().catch(() => '');
+      ok('P5-2.9: inflation since the first trade from the Worker\'s HICP (' + (wantInf * 100).toFixed(2) + ' %), real TWR ' + (wantReal * 100).toFixed(2) + ' %',
+        Math.abs(infV - wantInf) < 1e-9 && Math.abs(realT - wantReal) < 1e-9 && /Eurostat HICP up to/.test(txt) && workerState.requests.some((r) => /action=hicp&geo=EA/.test(r)),
+        infV + ' vs ' + wantInf + ' | ' + realT + ' vs ' + wantReal + ' | ' + txt.replace(/\n/g, ' ').slice(-120)); }
     // P5-2.5: gross / net - a book without taxes or fees has the same TWR either way
     { await page.locator('[data-testid="returns-gross-net"] [data-basis="gross"]').click().catch(() => {});
       await page.waitForTimeout(500);

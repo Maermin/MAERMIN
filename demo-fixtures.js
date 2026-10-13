@@ -147,6 +147,21 @@ function __(k, f, v) { return (typeof window !== 'undefined' && window.MaerminI1
     return { symbol: sym, currency: txs[0].currency || 'EUR', sample: true, prices: prices, splits: [], dividends: dividends };
   }
 
+  // ---- P5-2.9: consumer prices (HICP shape of the Worker), made up ----------
+  // 2015 = 100, about 2.5 % a year with a bump in 2022, published up to last month.
+  function hicp(geo, todayIso) {
+    var t = (todayIso || todayISO()), y1 = parseInt(t.slice(0, 4), 10), m1 = parseInt(t.slice(5, 7), 10) - 1;
+    var months = [], v = 100;
+    for (var y = 2015; y <= y1; y++) {
+      for (var m = 1; m <= 12; m++) {
+        if (y === y1 && m > m1) break;
+        months.push([y + '-' + String(m).padStart(2, '0'), r(v, 2)]);
+        v *= 1 + (y === 2022 ? 0.0075 : y === 2023 ? 0.004 : 0.002) + 0.0005 * Math.sin(m + hash(geo) % 7);
+      }
+    }
+    return { geo: geo, base: '2015=100', updated: t, source: 'sample', sample: true, months: months };
+  }
+
   // ---- Discovery: fictional companies --------------------------------------
   // The list lives with the other made-up demo data (demo-data.js).
   var DEMO = (typeof window !== 'undefined' && window.MaerminDemo) || require('./demo-data.js');
@@ -224,6 +239,7 @@ function __(k, f, v) { return (typeof window !== 'undefined' && window.MaerminI1
       if (mo) return { status: 200, type: 'json', body: mo };
     }
     if (q.action === 'yf' && (q.symbol === 'EURUSD=X' || BENCH[q.symbol] || BENCH_EUR[q.symbol])) return { status: 200, type: 'json', body: yfSeries(q.symbol, q.range, todayIso) };
+    if (q.action === 'hicp' && q.geo) return { status: 200, type: 'json', body: hicp(q.geo, todayIso) };
     if (q.action === 'screener') return { status: 200, type: 'json', body: screener(q, todayIso) };
     if (q.action === 'news' && q.symbol) return { status: 200, type: 'xml', body: news(q.symbol, todayIso) };
     if (q.action === 'earnings' && q.symbol) return { status: 200, type: 'json', body: earnings(q.symbol.toUpperCase(), todayIso) };

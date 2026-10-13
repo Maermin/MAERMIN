@@ -14,6 +14,9 @@
  *                                                 ratio, EPS, dividend rate/yield
  *   GET  /?action=skinprices                    → CS2 Steam Market prices, all items (USD,
  *                                                 CSGO Trader's daily price file)
+ *   GET  /?action=hicp&geo=DE                   → consumer prices (Eurostat HICP, all items,
+ *                                                 index 2015 = 100, monthly) of one euro-area
+ *                                                 region: { geo, base, updated, months: [[YYYY-MM, v]] }
  *   GET  /?action=version                       → { version, actions }: the app compares
  *                                                 it with the version it expects
  *   GET  /?action=cg&p=simple/price&ids=bitcoin&vs_currencies=eur,usd
@@ -26,9 +29,9 @@
 // Bump on every change to this file that the app relies on, and set
 // EXPECTED_WORKER_VERSION in onboarding.js to the same value (test/worker-version
 // enforces both). Format YYYY.M.N; compared numerically per part.
-export const WORKER_VERSION = '2026.10.5';
+export const WORKER_VERSION = '2026.10.6';
 export const WORKER_ACTIONS = ['yf', 'yfsearch', 'screener', 'fundholdings', 'fundamentals', 'earnings', 'profile',
-  'news', 'skinprices', 'steaminv', 'cg', 'sync', 'share', 'mcp', 'brokerproxy', 'version'];
+  'news', 'skinprices', 'steaminv', 'cg', 'hicp', 'sync', 'share', 'mcp', 'brokerproxy', 'version'];
 
 export default {
   // SEC-008: anything a route does not catch becomes a plain 500 with CORS
@@ -707,6 +710,42 @@ async function handle(request, env, ctx) {
       } catch(e) { return res(EMPTY_RSS, 200, request, RSS_TYPE); }
     }
 
+    // ── Consumer prices (P5-2.9) ─────────────────────────────────────────────
+    // GET /?action=hicp&geo=DE → Eurostat's HICP, dataset prc_hicp_minr (the
+    // successor of prc_hicp_midx, discontinued after 2025-12): all items
+    // (coicop18=TOTAL), index 2015 = 100, monthly from 1996. Only the region
+    // code is sent; the region is allowlisted (euro area and its members), so
+    // nothing else reaches the upstream URL. Public data, cached a day.
+    if (request.method === 'GET' && action === 'hicp') {
+      const geo = url.searchParams.get('geo') || '';
+      if (!HICP_GEOS.has(geo)) return res(JSON.stringify({ error: 'unknown region' }), 400, request);
+      const cacheKey = new Request(`https://cache.maermin/hicp/${geo}`);
+      const cache = caches.default;
+      const cached = await cache.match(cacheKey);
+      if (cached) return res(await cached.text(), 200, request);
+      try {
+        const r = await fetchWithTimeout('https://ec.europa.eu/eurostat/api/dissemination/statistics/1.0/data/prc_hicp_minr' +
+          `?format=JSON&lang=EN&geo=${geo}&unit=I15&coicop18=TOTAL`, { headers: { Accept: 'application/json' } }, 15000);
+        if (!r.ok) return upstreamError('Eurostat', r.status, request, { geo });
+        const j = await r.json();
+        const index = j?.dimension?.time?.category?.index || {};
+        const values = j?.value || {};
+        const months = Object.keys(index)
+          .map(m => [m, numOrNull(values[index[m]])])
+          .filter(m => /^\d{4}-\d{2}$/.test(m[0]) && m[1] > 0)
+          .sort((a, b) => (a[0] < b[0] ? -1 : 1));
+        if (!months.length) return upstreamError('Eurostat', 404, request, { geo });
+        const payload = JSON.stringify({ geo, base: '2015=100', updated: String(j.updated || '').slice(0, 10) || null,
+          source: 'Eurostat prc_hicp_minr', months });
+        ctx.waitUntil(cache.put(cacheKey, new Response(payload, {
+          headers: { 'Content-Type': 'application/json', 'Cache-Control': 'public, max-age=86400' }
+        })));
+        return res(payload, 200, request);
+      } catch (e) {
+        return upstreamError('Eurostat', 0, request, { geo });
+      }
+    }
+
     // ── CS2 skin prices (all items, one request) ─────────────────────────────
     // GET /?action=skinprices → CSGO Trader's daily Steam Market price file:
     // { "<market_hash_name>": { last_24h, last_7d, last_30d, last_90d }, ... } (USD)
@@ -1183,6 +1222,9 @@ async function fetchWithTimeout(url, opts = {}, ms = 8000) {
     clearTimeout(timer);
   }
 }
+
+// P5-2.9: regions of the HICP route (Eurostat codes: the euro area and its members)
+const HICP_GEOS = new Set(['EA', 'DE', 'AT', 'BE', 'CY', 'EE', 'ES', 'FI', 'FR', 'EL', 'HR', 'IE', 'IT', 'LT', 'LU', 'LV', 'MT', 'NL', 'PT', 'SI', 'SK']);
 
 // Routes whose `symbol` goes to Yahoo Finance.
 const SYMBOL_ROUTES = new Set(['yf', 'fundamentals', 'profile', 'earnings', 'fundholdings', 'dividends', 'news']);

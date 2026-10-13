@@ -158,8 +158,12 @@ function GrossNetSwitch({ value, onChange, theme, testid }) {
     btn('gross', __('gnGross', 'Gross'), __('gnGrossTitle', 'Before taxes and fees')));
 }
 
-function ReturnsView({ transactions, portfolio, prices, priceHistory, theme, formatPrice, getCurrencySymbol, t, fxAt, exchangeRate, valuePath, historyPending, portfolioId, hasWorker, clearing, buildPath, grossNet, setGrossNet }) {
+function ReturnsView({ transactions, portfolio, prices, priceHistory, theme, formatPrice, getCurrencySymbol, t, fxAt, exchangeRate, valuePath, historyPending, portfolioId, hasWorker, clearing, buildPath, grossNet, setGrossNet, workerUrl, hicpGeo, setHicpGeo }) {
   const gross = grossNet === 'gross';
+  // P5-2.9: consumer prices (Eurostat HICP through the Worker) for the real figures
+  const RRm = window.MaerminRealReturns;
+  const geo = hicpGeo || (RRm ? RRm.defaultGeo(window.MaerminI18n.lang()) : 'EA');
+  const hicp = RRm ? RRm.useHicp(workerUrl, geo) : { state: 'none', series: null };
   const R = (typeof window !== 'undefined') ? window.MaerminReturns : null;
   const D = (typeof window !== 'undefined') ? window.MaerminHeatmapDrill : null;
   // Current EUR value over EVERY class in the book (custom categories too),
@@ -250,6 +254,22 @@ function ReturnsView({ transactions, portfolio, prices, priceHistory, theme, for
           hmOptions.holdings.map(h => React.createElement('option', { key: h.key, value: 'holding:' + h.key }, h.symbol + ' (' + window.MaerminI18n.category(h.category) + ')'))))
     : null;
   const twrResult = twrInfo.value;
+  // P5-2.9: real (after inflation) XIRR, TWR and the inflation over the same period
+  const todayISO = window.MaerminUtils.todayISO();
+  const firstTx = useMemo(() => transactions.reduce((m, tx) => { const d = String(tx && tx.date || '').slice(0, 10); return d && (!m || d < m) ? d : m; }, ''), [transactions]);
+  const real = useMemo(() => {
+    if (!RRm || !hicp.series) return null;
+    const start = twrInfo.since || firstTx;
+    return {
+      xirr: figs.xirr !== null && figs.xirrFlows ? RRm.realXirr(figs.xirrFlows, hicp.series, window.MaerminReturns.xirr) : null,
+      twr: twrInfo.value !== null && twrInfo.since ? RRm.realTwr(twrInfo.value, twrInfo.since, todayISO, hicp.series) : null,
+      inflation: start ? RRm.inflation(hicp.series, start, todayISO) : null
+    };
+  }, [RRm, hicp.series, figs, twrInfo, firstTx, todayISO]);
+  const regionName = (g) => {
+    if (g === 'EA') return __('rrEuroArea', 'Euro area');
+    try { return new Intl.DisplayNames([window.MaerminI18n.lang()], { type: 'region' }).of(g === 'EL' ? 'GR' : g); } catch (e) { return g; }
+  };
   const since = twrInfo.since ? window.MaerminI18n.date(twrInfo.since) : '';
   const twrSub = twrInfo.source === 'daily'
     ? (__('retTwrSince', 'Time-weighted, since {date}', { date: since }) + (twrInfo.annualized !== null ? ' · ' + __('retPa', '{pct} p.a.', { pct: window.MaerminI18n.pct(twrInfo.annualized * 100, 2, true) }) : ''))
@@ -293,12 +313,36 @@ function ReturnsView({ transactions, portfolio, prices, priceHistory, theme, for
 
     // Main KPIs
     React.createElement('div', { style: { display: 'grid', gridTemplateColumns: 'repeat(auto-fit,minmax(180px,1fr))', gap: '1rem', marginBottom: '1.5rem' } },
-      card(__('retXirr', 'XIRR (annualized)'), xirrResult !== null ? fmtPct(xirrResult) : '—', clearing ? __('retXirrSubCash', 'Money-weighted p.a., from deposits and withdrawals') : __('retXirrSub', 'Money-weighted return p.a.'), xirrResult !== null ? color(xirrResult) : theme.textSecondary),
-      React.createElement('div', { 'data-testid': 'twr-card', 'data-source': twrInfo.source, style: { display: 'contents' } },
-        card('TWR', twrResult !== null ? fmtPct(twrResult) : '—', twrSubCash, twrResult !== null ? color(twrResult) : theme.textSecondary)),
+      React.createElement('div', { 'data-testid': 'xirr-card', 'data-real': real && real.xirr !== null ? real.xirr : '', style: { display: 'contents' } },
+        card(__('retXirr', 'XIRR (annualized)'), xirrResult !== null ? fmtPct(xirrResult) : '—', (clearing ? __('retXirrSubCash', 'Money-weighted p.a., from deposits and withdrawals') : __('retXirrSub', 'Money-weighted return p.a.'))
+          + (real && real.xirr !== null ? ' · ' + __('rrRealPa', 'real {pct} p.a.', { pct: fmtPct(real.xirr) }) : ''), xirrResult !== null ? color(xirrResult) : theme.textSecondary)),
+      React.createElement('div', { 'data-testid': 'twr-card', 'data-source': twrInfo.source, 'data-real': real && real.twr ? real.twr.real : '', style: { display: 'contents' } },
+        card('TWR', twrResult !== null ? fmtPct(twrResult) : '—', twrSubCash
+          + (real && real.twr ? ' · ' + __('rrReal', 'real {pct}', { pct: fmtPct(real.twr.real) }) + (real.twr.realAnnualized !== null ? ' (' + __('retPa', '{pct} p.a.', { pct: fmtPct(real.twr.realAnnualized) }) + ')' : '') : ''),
+          twrResult !== null ? color(twrResult) : theme.textSecondary)),
       stats && React.createElement('div', { 'data-testid': 'total-return-card', 'data-v': stats.totalReturn, style: { display: 'contents' } },
         card(__('ovTotalReturn', 'Total Return'), fmtPct(stats.totalReturnPct), `${formatPrice(stats.totalReturn)} ${getCurrencySymbol()}` + (gross ? ' · ' + __('gnBeforeShort', 'before taxes and fees') : ''), color(stats.totalReturnPct))),
-      stats && card(__('holdingPeriod', 'Holding Period'), __('retDays', '{n} d', { n: stats.holdingDays }), __('retSinceFirst', 'Since first transaction'), theme.text)
+      stats && card(__('holdingPeriod', 'Holding Period'), __('retDays', '{n} d', { n: stats.holdingDays }), __('retSinceFirst', 'Since first transaction'), theme.text),
+      // P5-2.9: inflation over the same period, with the region
+      RRm && React.createElement('div', { 'data-testid': 'inflation-card', 'data-state': hicp.state, 'data-v': real && real.inflation ? real.inflation.total : '',
+        style: { background: theme.card, borderRadius: '16px', boxShadow: theme.shadow, border: `1px solid ${theme.cardBorder}`, padding: '1.25rem', minWidth: 0 } },
+        React.createElement('div', { style: { display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '0.5rem', marginBottom: '0.375rem' } },
+          React.createElement('div', { style: { color: theme.textSecondary, fontSize: '0.8rem', textTransform: 'uppercase', letterSpacing: '0.05em' } }, __('rrInflation', 'Inflation')),
+          setHicpGeo && React.createElement('select', { 'data-testid': 'hicp-geo', 'aria-label': __('rrRegion', 'Region of the consumer prices'), value: geo, onChange: (e) => setHicpGeo(e.target.value),
+            style: { padding: '0.2rem 0.35rem', background: theme.inputBg, border: `1px solid ${theme.inputBorder || theme.cardBorder}`, borderRadius: '6px', color: theme.text, fontSize: '0.75rem', maxWidth: '9rem' } },
+            RRm.GEOS.map((g) => React.createElement('option', { key: g, value: g }, regionName(g))))),
+        React.createElement('div', { style: { color: real && real.inflation ? theme.text : theme.textSecondary, fontSize: '1.75rem', fontWeight: '800', letterSpacing: '-0.02em' } },
+          real && real.inflation ? fmtPct(real.inflation.total) : (hicp.state === 'loading' ? '…' : '—')),
+        React.createElement('div', { style: { color: theme.textSecondary, fontSize: '0.8rem', marginTop: '0.25rem', lineHeight: 1.5 } },
+          real && real.inflation
+            ? __('rrInflSub', 'Prices since {date}', { date: window.MaerminI18n.date(twrInfo.since || firstTx) })
+              + (real.inflation.annualized !== null ? ' · ' + __('retPa', '{pct} p.a.', { pct: fmtPct(real.inflation.annualized) }) : '')
+              + ' · ' + __('rrSource', 'Eurostat HICP up to {month}', { month: real.inflation.to })
+            : hicp.state === 'none' ? __('rrNeedWorker', 'Consumer prices come through your Worker - add its URL in API Settings.')
+            : hicp.state === 'outdated' ? __('rrOutdated', 'Your Worker does not send consumer prices yet. Redeploy it with the current version.')
+            : hicp.state === 'loading' ? __('rrLoading', 'Loading consumer prices…')
+            : __('rrUnavailable', 'Consumer prices are not available right now.')),
+        window.MaerminDemoFixtures && window.MaerminDemoFixtures.badge ? window.MaerminDemoFixtures.badge(React, theme, workerUrl) : null)
     ),
 
     stats && React.createElement('div', { style: { display: 'grid', gridTemplateColumns: 'repeat(auto-fit,minmax(160px,1fr))', gap: '1rem', marginBottom: '1.5rem' } },

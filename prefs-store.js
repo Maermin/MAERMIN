@@ -40,7 +40,9 @@
     // renderer derives it from the vault (MaerminNav.initialMode) and saves it.
     uiMode:     { key: 'maermin_ui_mode',     def: '' },
     // Returns and dividends before ('gross') or after ('net') taxes and fees (P5-2.5)
-    grossNet:   { key: 'maermin_gross_net',   def: 'net' }
+    grossNet:   { key: 'maermin_gross_net',   def: 'net' },
+    // Region of the consumer prices for real returns (P5-2.9); '' = from the language
+    hicpGeo:    { key: 'maermin_hicp_geo',    def: '' }
   };
 
   function lsGet(k) { try { return (typeof localStorage !== 'undefined') ? localStorage.getItem(k) : null; } catch (e) { return null; } }
