@@ -152,7 +152,7 @@
   // (custom-categories.js) keep the name the user gave them.
   function category(cat) {
     var k = { crypto: ['crypto', 'Crypto'], stocks: ['stocks', 'Stocks'], skins: ['cs2Skins', 'CS2 Skins'],
-      commodities: ['catCommodities', 'Commodities'], options: ['catOptions', 'Options'], cashflow: ['catCashflow', 'Account'] }[cat];
+      commodities: ['catCommodities', 'Commodities'], options: ['catOptions', 'Options'], bonds: ['catBonds', 'Bonds'], cashflow: ['catCashflow', 'Account'] }[cat];
     if (k) return t(k[0], k[1]);
     try { if (typeof window !== 'undefined' && window.MaerminCategories) return window.MaerminCategories.label(cat); } catch (e) {}
     return cat;

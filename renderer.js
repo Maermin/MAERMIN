@@ -380,9 +380,17 @@ function InvestmentTracker() {
   // session's quote, else the last known price from the persisted history
   // (badged stale by the data-quality layer), else the position's cost basis
   // (labelled "no price"). See MaerminMarket.effectivePrices.
+  // P5-3.9: manual bond quotes (bonds.js, price in % -> per unit of nominal
+  // in EUR); bumped when the Bonds panel or the form changes the terms.
+  const [bondsRev, setBondsRev] = useState(0);
+  const bondPrices = useMemo(() => {
+    const B = window.MaerminBonds;
+    if (!B || demoMode) return null;
+    try { return B.priceMap(B.load(), (v, cur) => window.MaerminUtils.toEUR(v, cur, exchangeRate)); } catch (e) { return null; }
+  }, [bondsRev, exchangeRate, demoMode]);
   const priceView = useMemo(
-    () => window.MaerminMarket.effectivePrices(fetchedPrices, demoMode ? null : priceHistory, allPortfoliosPortfolio),
-    [fetchedPrices, priceHistory, allPortfoliosPortfolio, demoMode]
+    () => window.MaerminMarket.effectivePrices(bondPrices && Object.keys(bondPrices).length ? { ...fetchedPrices, ...bondPrices } : fetchedPrices, demoMode ? null : priceHistory, allPortfoliosPortfolio),
+    [fetchedPrices, bondPrices, priceHistory, allPortfoliosPortfolio, demoMode]
   );
   const prices = priceView.prices;
   window.MaerminMarket.setCostKeys(priceView.costKeys);
@@ -676,6 +684,22 @@ function InvestmentTracker() {
       }
     } catch (e) { console.warn('[INTEREST] catch-up failed:', e); }
   }, [transactions, activePortfolioId, demoMode, startupSynced]);
+
+  // P5-3.9: bond coupons and redemptions (bonds.js), booked on their dates
+  // for the nominal held; idempotent per (portfolio, bond, date).
+  useEffect(() => {
+    const B = window.MaerminBonds, IN = window.MaerminInterest;
+    if (!B || demoMode || !startupSynced) return;
+    try {
+      if (!transactions.some(tx => tx && tx.category === 'bonds')) return;
+      const out = B.catchUp({ transactions, bonds: B.load(), asOf: window.MaerminUtils.todayISO(), ledger: IN ? IN.loadLedger() : undefined });
+      if (out.created.length) {
+        if (IN && out.postings.length) IN.saveLedger(out.ledger);
+        setTransactions(prev => prev.concat(out.created));
+        addToast(__('bondBookedToast', '{n} bond booking(s) added (coupons, redemption)', { n: out.created.length }), 'success');
+      }
+    } catch (e) { console.warn('[BONDS] catch-up failed:', e); }
+  }, [transactions, bondsRev, demoMode, startupSynced]);
 
   // v10.x: dividend auto-booking (opt-in, maermin_div_autobook). When enabled,
   // every dividend whose PAY date has passed is booked as a `type:'dividend'`
@@ -1230,7 +1254,7 @@ function InvestmentTracker() {
   const isCashRow = (tx) => !!(window.MaerminLedger && window.MaerminLedger.isCash(tx));
   const portfolioName = (id) => ((portfolios || []).find(p => p.id === id) || {}).name || String(id || '');
   const getCategoryDisplayName = (category) => {
-    const displayNames = { crypto: t.crypto || 'Crypto', stocks: t.stocks || 'Stocks', skins: t.cs2Skins || 'CS2 Skins', commodities: __('catCommodities', 'Commodities'), options: __('catOptions', 'Options') };
+    const displayNames = { crypto: t.crypto || 'Crypto', stocks: t.stocks || 'Stocks', skins: t.cs2Skins || 'CS2 Skins', commodities: __('catCommodities', 'Commodities'), options: __('catOptions', 'Options'), bonds: __('catBonds', 'Bonds') };
     if (displayNames[category]) return displayNames[category];
     // v10.x: resolve user-defined custom categories (custom-categories.js).
     if (window.MaerminCategories) { try { return window.MaerminCategories.label(category); } catch (e) {} }
@@ -2389,7 +2413,9 @@ function InvestmentTracker() {
     // Locale-tolerant parsing ("1,5" = 1.5) + hard validation: a NaN quantity or
     // price would silently corrupt every downstream metric.
     const qty = window.MaerminUtils.parseDecimal(newTransaction.quantity);
-    const price = window.MaerminUtils.parseDecimal(newTransaction.price);
+    // P5-3.9: a bond's price is entered in % of the nominal
+    const isBond = newTransaction.category === 'bonds' && !!window.MaerminBonds && (newTransaction.type === 'buy' || newTransaction.type === 'sell');
+    const price = window.MaerminUtils.parseDecimal(newTransaction.price) / (isBond ? 100 : 1);
     const fees = window.MaerminUtils.parseDecimal(newTransaction.fees);
     // P4-3: foreign tax withheld on a dividend (in the payout currency)
     const wht = window.MaerminUtils.parseDecimal(newTransaction.withholdingTax);
@@ -2411,8 +2437,16 @@ function InvestmentTracker() {
       portfolioId: newTransaction.targetPortfolioId || activePortfolioId,
       ...(newTransaction.skinIconUrl ? { skinIconUrl: newTransaction.skinIconUrl } : {}),
       ...(newTransaction.type === 'dividend' ? { withholdingTax: (isNaN(wht) || wht < 0) ? 0 : wht } : {}),
-      ...(optionFields || {})
+      ...(optionFields || {}),
+      ...(isBond ? window.MaerminBonds.txExtras(newTransaction) : {})
     };
+    if (isBond) {
+      const terms = window.MaerminBonds.termsFromForm(newTransaction, newTransaction.symbolName || '');
+      if (terms && !window.MaerminBonds.termsOf(window.MaerminBonds.load(), effectiveSymbol)) {
+        window.MaerminBonds.save(window.MaerminBonds.setTerms(window.MaerminBonds.load(), effectiveSymbol, terms));
+        setBondsRev(v => v + 1);
+      }
+    }
     
     // Single tested code path for both edit (UPDATE in place) and add (CREATE).
     // Guarantees that editing never spawns a duplicate record. See
@@ -2444,7 +2478,7 @@ function InvestmentTracker() {
       type: 'buy',
       // Start on the category entered last here (it was always Crypto).
       category: window.MaerminUtils.defaultTxCategory(transactions, activePortfolioId,
-        ['crypto', 'stocks', 'skins', 'commodities', 'options'].concat(window.MaerminCategories ? window.MaerminCategories.ids() : [])),
+        ['crypto', 'stocks', 'skins', 'commodities', 'options', 'bonds'].concat(window.MaerminCategories ? window.MaerminCategories.ids() : [])),
       symbol: '',
       quantity: '',
       price: '',
@@ -2500,6 +2534,8 @@ function InvestmentTracker() {
       strike: tx.strike?.toString() || '',
       expiry: tx.expiry || '',
       contractSize: tx.contractSize?.toString() || '',
+      // P5-3.9: bonds show the price in % and their accrued interest
+      ...(tx.category === 'bonds' && (tx.type === 'buy' || tx.type === 'sell') && window.MaerminBonds ? window.MaerminBonds.toForm(tx) : {}),
     });
     setEditingTransactionId(tx.id);
     setTxMissing([]);
@@ -4078,7 +4114,7 @@ function InvestmentTracker() {
         // v10.x: include user-defined custom categories (custom-categories.js) so
         // they show in the Overview donut + legend. catMeta resolves label/colour.
         const customCatIds = window.MaerminCategories ? window.MaerminCategories.ids() : [];
-        const catList = ['crypto', 'stocks', 'commodities', 'skins'].concat(customCatIds);
+        const catList = ['crypto', 'stocks', 'commodities', 'skins', 'bonds'].concat(customCatIds); // P5-3.9: bonds
         const catMeta = (cat) => CLASS[cat] || (window.MaerminCategories
           ? { label: window.MaerminCategories.label(cat), color: window.MaerminCategories.color(cat) }
           : { label: cat, color: '#8b94a7' });
@@ -4263,7 +4299,7 @@ function InvestmentTracker() {
                 ),
                 React.createElement('td', { 'data-label': __('colQty', 'Qty'), style: { textAlign: 'right', padding: '0.85rem 0.75rem', fontFamily: "'Geist Mono', monospace", fontSize: '0.8rem', color: currentTheme.textSecondary } }, window.MaerminI18n.num(p.amount, { min: 0, max: 4 })),
                 React.createElement('td', { 'data-label': t.price || 'Price', style: { textAlign: 'right', padding: '0.85rem 0.75rem', fontFamily: "'Geist', sans-serif", fontSize: '0.82rem', color: currentTheme.text } },
-                  p.price > 0 ? money(p.price) : '—',
+                  p.price > 0 ? (p.cat === 'bonds' ? window.MaerminI18n.num(p.price * 100, 2) + ' %' : money(p.price)) : '—', // P5-3.9: a bond's price in % of nominal
                   // Valued at cost because no quote has ever been fetched for it.
                   window.MaerminMarket.isCostFallback(p.sym) && React.createElement('div', { 'data-testid': 'no-price', title: __('noPriceTitle', 'No market price available yet — valued at cost basis.'), style: { fontSize: '0.62rem', color: gray } }, __('noPriceAtCost', 'no price · at cost'))
                 ),
@@ -4503,6 +4539,14 @@ function InvestmentTracker() {
       // Options book (no new tab): tracked separately from the shared positions
       // engine — buildPositions ignores the 'options' category by design. The
       // panel renders nothing when no option transactions exist.
+      // P5-3.9: bonds - terms, manual price, next coupon, accrued interest, yield
+      window.MaerminBonds && portfolio && (portfolio.bonds || []).length > 0 &&
+        React.createElement('div', { style: { marginTop: '1.5rem' } },
+          React.createElement(window.MaerminBonds.Panel, {
+            theme: currentTheme, positions: portfolio.bonds, today: window.MaerminUtils.todayISO(),
+            formatMoney: (v, cur) => window.MaerminI18n.money(v, cur || 'EUR'), onChange: () => setBondsRev(v => v + 1)
+          })
+        ),
       window.MaerminOptions && window.MaerminOptions.Panel &&
         React.createElement('div', { style: { marginTop: '1.5rem' } },
           React.createElement(window.MaerminOptions.Panel, {
@@ -5570,7 +5614,7 @@ function InvestmentTracker() {
           }, t.category || 'Category'),
           // Equal columns that wrap to a new row instead of squeezing the labels.
           React.createElement('div', { role: 'group', 'aria-labelledby': 'tx-category-label', style: { display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(110px, 1fr))', gap: '0.5rem' } },
-            ['crypto', 'stocks', 'skins', 'commodities', 'options']
+            ['crypto', 'stocks', 'skins', 'commodities', 'options', 'bonds']
               .concat(window.MaerminCategories ? window.MaerminCategories.ids() : []).map(cat =>
               React.createElement('button', {
                 key: cat,
@@ -5747,7 +5791,7 @@ function InvestmentTracker() {
           React.createElement('label', {
             htmlFor: 'tx-quantity',
             style: { display: 'block', color: currentTheme.textSecondary, marginBottom: '0.5rem', fontSize: '0.875rem' }
-          }, t.quantity || 'Quantity'),
+          }, newTransaction.category === 'bonds' && newTransaction.type !== 'dividend' && newTransaction.type !== 'interest' ? __('bondNominal', 'Nominal value') : (t.quantity || 'Quantity')),
           React.createElement('input', {
             id: 'tx-quantity',
             ...invalidProps('quantity'),
@@ -5772,7 +5816,7 @@ function InvestmentTracker() {
           React.createElement('label', {
             htmlFor: 'tx-price',
             style: { display: 'block', color: currentTheme.textSecondary, marginBottom: '0.5rem', fontSize: '0.875rem' }
-          }, t.pricePerUnit || 'Price per Unit'),
+          }, newTransaction.category === 'bonds' && newTransaction.type !== 'dividend' && newTransaction.type !== 'interest' ? __('bondPricePct', 'Price in % of nominal') : (t.pricePerUnit || 'Price per Unit')),
           React.createElement('input', {
             id: 'tx-price',
             ...invalidProps('price'),
@@ -5837,6 +5881,12 @@ function InvestmentTracker() {
             }
           })
         ),
+
+        // P5-3.9: bond terms (when unknown) and accrued interest
+        newTransaction.category === 'bonds' && (newTransaction.type === 'buy' || newTransaction.type === 'sell') && window.MaerminBonds && React.createElement(window.MaerminBonds.FormFields, {
+          theme: currentTheme, form: newTransaction, currency,
+          onChange: (patch) => setNewTransaction(prev => ({ ...prev, ...patch }))
+        }),
 
         // P4-3: foreign withholding tax on a dividend
         newTransaction.type === 'dividend' && React.createElement('div', { style: { marginBottom: '1rem' } },

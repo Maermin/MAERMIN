@@ -205,7 +205,7 @@
   // categories (custom-categories.js). Pure in Node (no window → just the four),
   // so existing tests are unaffected.
   function allClasses() {
-    var base = ['crypto', 'stocks', 'skins', 'commodities'];
+    var base = ['crypto', 'stocks', 'skins', 'commodities', 'bonds'];
     var extra = (typeof window !== 'undefined' && window.MaerminCategories && window.MaerminCategories.ids) ? window.MaerminCategories.ids() : [];
     (extra || []).forEach(function (c) { if (c && base.indexOf(c) === -1) base.push(c); });
     return base;
@@ -457,6 +457,9 @@
     var extraCats = opts.categories ||
       ((typeof window !== 'undefined' && window.MaerminCategories && window.MaerminCategories.ids) ? window.MaerminCategories.ids() : []);
     (extraCats || []).forEach(function (c) { if (c && !result[c]) result[c] = []; });
+    // P5-3.9: bonds (bonds.js) are a built-in bucket, present only when bond
+    // transactions exist (quantity = nominal, price = fraction of nominal).
+    if ((transactions || []).some(function (tx) { return tx && tx.category === 'bonds'; }) && !result.bonds) result.bonds = [];
     // Group every transaction by category+symbol, then FIFO-match each group so
     // the remaining position carries a real lot-based cost basis.
     var groups = {};

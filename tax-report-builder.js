@@ -257,6 +257,15 @@ function __(k, f, v) { return (typeof window !== 'undefined' && window.MaerminI1
     });
     var interestIncome = interest.reduce(function (s, i) { return s + i.amount; }, 0);
 
+    // P5-3.9: accrued interest of bond trades (bonds.js) - paid on a purchase
+    // is negative capital income of that year, received on a sale positive;
+    // both sit in the 'other' pot like the bond's gain or loss.
+    var BD = (typeof window !== 'undefined' && window.MaerminBonds) || (typeof require === 'function' ? require('./bonds.js') : null);
+    var accruedInterest = (BD ? BD.accruedRows(txs, year) : []).map(function (r) {
+      return { symbol: r.symbol, date: r.date, type: r.type, amount: toBase(r.amount, r.currency, rate, r.date, fxAt) };
+    });
+    var accruedInterestNet = accruedInterest.reduce(function (s, r) { return s + r.amount; }, 0);
+
     // Foreign tax — dividends/income in a non-base currency carry foreign tax
     // (withholding on foreign payers). We surface the withholding on USD payers.
     var foreignTax = dividends.filter(function (d) { return d.currency && d.currency !== base; })
@@ -403,7 +412,9 @@ function __(k, f, v) { return (typeof window !== 'undefined' && window.MaerminI1
             return { symbol: sym, gain: override, vapCredit: 0, overridden: true, pot: potOf(d) };
           }
           return { symbol: sym, gain: d.gain, vapCredit: vapCreditForLot(txs, vapRecords, d), pot: potOf(d) };
-        }).filter(Boolean);
+        }).filter(Boolean).concat(accruedInterest.map(function (r) {
+          return { symbol: r.symbol, gain: r.amount, vapCredit: 0, pot: 'other', accrued: true };
+        }));
         var capital = GT.computeGermanTaxDetailed({
           disposals: capitalDisposals,
           dividends: dividends.map(function (d) { return { symbol: d.symbol, gross: d.gross, withholding: d.withholding }; }),
@@ -472,7 +483,8 @@ function __(k, f, v) { return (typeof window !== 'undefined' && window.MaerminI1
         interestIncome: interestIncome,
         withholdingTax: withholdingTax,
         foreignTax: foreignTax,
-        totalTaxableIncome: totalGains + totalLosses + dividendIncome + interestIncome,
+        accruedInterestNet: accruedInterestNet,
+        totalTaxableIncome: totalGains + totalLosses + dividendIncome + interestIncome + accruedInterestNet,
         estimatedTaxLiability: taxLiability,
         jurisdictionDetail: summaryExtra,
         germanDetail: germanDetail,
@@ -482,6 +494,7 @@ function __(k, f, v) { return (typeof window !== 'undefined' && window.MaerminI1
       realizedLosses: realizedLosses,
       dividends: dividends,
       interest: interest,
+      accruedInterest: accruedInterest,
       currencyConversions: currencyConversions,
       transactionSummary: txSummary,
       openPositions: openPositions,
@@ -574,6 +587,7 @@ function __(k, f, v) { return (typeof window !== 'undefined' && window.MaerminI1
       [__('trNetRealized', 'Net Realized'), money(s.netRealized, cur)],
       [__('trDividendIncome', 'Dividend Income'), money(s.dividendIncome, cur)],
       [__('trInterestIncome', 'Interest Income'), money(s.interestIncome, cur)],
+      [__('trAccruedNet', 'Accrued interest of bonds (net)'), money(s.accruedInterestNet || 0, cur)],
       [__('trWhtPaid', 'Withholding Tax Paid'), money(s.withholdingTax, cur)],
       [__('trForeignPaid', 'Foreign Tax Paid'), money(s.foreignTax, cur)],
       [__('trTotalTaxable', 'Total Taxable Income'), money(s.totalTaxableIncome, cur)],
@@ -596,6 +610,7 @@ function __(k, f, v) { return (typeof window !== 'undefined' && window.MaerminI1
     if (report.realizedGains.length) { doc.addPage(); y = table(__('trSec2', '2. Realized Capital Gains'), lotHead, lots(report.realizedGains), 20); }
     if (report.realizedLosses.length) { y = table(__('trSec3', '3. Realized Capital Losses'), lotHead, lots(report.realizedLosses), y); }
     if (report.dividends.length) { doc.addPage(); y = table(__('trSec4', '4. Dividend Income'), [__('symbol', 'Symbol'), __('date', 'Date'), __('trGross', 'Gross'), __('trWithholding', 'Withholding'), __('trCur', 'Cur')], report.dividends.map(function (d) { return [d.symbol, d8(d.date), money(d.gross, ''), money(d.withholding, ''), d.currency]; }), 20); }
+    if ((report.accruedInterest || []).length) { y = table(__('trSecAccrued', 'Accrued interest of bonds (paid negative, received positive)'), [__('symbol', 'Symbol'), __('date', 'Date'), __('amount', 'Amount')], report.accruedInterest.map(function (i) { return [i.symbol, d8(i.date), money(i.amount, '')]; }), y); }
     if (report.interest.length) { y = table(__('trSec5', '5. Interest Income'), [__('trSource', 'Source'), __('date', 'Date'), __('amount', 'Amount')], report.interest.map(function (i) { return [i.source, d8(i.date), money(i.amount, '')]; }), y); }
     if (report.currencyConversions.length) { doc.addPage(); y = table(__('trSec8', '8. Currency Conversion Details'), [__('date', 'Date'), __('symbol', 'Symbol'), __('trCur', 'Cur'), __('trOriginal', 'Original'), __('rate', 'Rate'), __('trBase', 'Base')], report.currencyConversions.map(function (c) { return [d8(c.date), c.symbol, c.currency, I18N().num(c.originalAmount, 2), (c.rate >= 0.1 ? I18N().num(c.rate, 4) : I18N().num(Number(c.rate.toPrecision(4)), { min: 0, max: 10 })), money(c.baseAmount, '')]; }), 20); }
     var txRows = Object.keys(report.transactionSummary).map(function (k) { return [(typeof window !== 'undefined' && window.MaerminUtils) ? window.MaerminUtils.txTypeInfo(k).label : k, String(report.transactionSummary[k])]; });
@@ -668,7 +683,7 @@ function __(k, f, v) { return (typeof window !== 'undefined' && window.MaerminI1
     var sm = [
       [__('realizedGains', 'Realized Gains'), num(s.realizedGains)], [__('trRealizedLosses', 'Realized Losses'), num(s.realizedLosses)],
       [__('trNetRealized', 'Net Realized'), num(s.netRealized)], [__('trDividendIncome', 'Dividend Income'), num(s.dividendIncome)],
-      [__('trInterestIncome', 'Interest Income'), num(s.interestIncome)], [__('trWht', 'Withholding Tax'), num(s.withholdingTax)],
+      [__('trInterestIncome', 'Interest Income'), num(s.interestIncome)], [__('trAccruedNet', 'Accrued interest of bonds (net)'), num(s.accruedInterestNet || 0)], [__('trWht', 'Withholding Tax'), num(s.withholdingTax)],
       [__('trForeign', 'Foreign Tax'), num(s.foreignTax)], [__('trTotalTaxable', 'Total Taxable Income'), num(s.totalTaxableIncome)],
       [__('trEstLiability', 'Estimated Tax Liability'), num(s.estimatedTaxLiability)]
     ];
@@ -706,6 +721,7 @@ function __(k, f, v) { return (typeof window !== 'undefined' && window.MaerminI1
     if (report.realizedGains.length) sheets.push({ name: __('realizedGains', 'Realized Gains'), columns: lotCols, headers: lotHead, rows: lotRows(report.realizedGains), money: lotMoney, number: [false, false, true, false, false, true, false, true, true, true] });
     if (report.realizedLosses.length) sheets.push({ name: __('trRealizedLosses', 'Realized Losses'), columns: lotCols, headers: lotHead, rows: lotRows(report.realizedLosses), money: lotMoney, number: [false, false, true, false, false, true, false, true, true, true] });
     if (report.dividends.length) sheets.push({ name: __('trSheetDividends', 'Dividends'), columns: [110, 95, 100, 100, 80], headers: [__('symbol', 'Symbol'), __('date', 'Date'), __('trGross', 'Gross'), __('trWithholding', 'Withholding'), __('currency', 'Currency')], rows: report.dividends.map(function (d) { return [d.symbol, d.date, num(d.gross), num(d.withholding), d.currency]; }), money: [false, false, true, true, false] });
+    if ((report.accruedInterest || []).length) sheets.push({ name: __('trSheetAccrued', 'Accrued interest'), columns: [120, 95, 100], headers: [__('symbol', 'Symbol'), __('date', 'Date'), __('amount', 'Amount')], rows: report.accruedInterest.map(function (i) { return [i.symbol, i.date, num(i.amount)]; }), money: [false, false, true] });
     if (report.interest.length) sheets.push({ name: __('trSheetInterest', 'Interest'), columns: [200, 95, 100], headers: [__('trSource', 'Source'), __('date', 'Date'), __('amount', 'Amount')], rows: report.interest.map(function (i) { return [i.source, i.date, num(i.amount)]; }), money: [false, false, true] });
     if (report.currencyConversions.length) sheets.push({ name: __('trSheetFx', 'FX Conversions'), columns: [95, 110, 80, 100, 90, 100], headers: [__('date', 'Date'), __('symbol', 'Symbol'), __('currency', 'Currency'), __('trOriginal', 'Original'), __('rate', 'Rate'), __('trBaseCur', 'Base ({cur})', { cur: cur })], rows: report.currencyConversions.map(function (c) { return [c.date, c.symbol, c.currency, num(c.originalAmount), num(c.rate), num(c.baseAmount)]; }), money: [false, false, false, true, false, true], number: [false, false, false, true, true, true] });
     if (report.openPositions.length) sheets.push({ name: __('trSheetOpen', 'Open Positions'), columns: [110, 90, 80, 100, 100, 100], headers: [__('symbol', 'Symbol'), __('trClass', 'Class'), __('colQty', 'Qty'), __('trCostBasis', 'Cost Basis'), __('trMarketValue', 'Market Value'), __('healthUnrealized', 'Unrealized')], rows: report.openPositions.map(function (p) { return [p.symbol, cls(p.category), p.quantity, p.costBasis, p.marketValue, p.unrealized]; }), money: [false, false, false, true, true, true], number: [false, false, true, true, true, true] });

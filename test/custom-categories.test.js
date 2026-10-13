@@ -49,7 +49,11 @@ const EMPTY = { version: 1, categories: [] };
   const all = C.all(s2);
   ok('all merges built-ins first', all[0].id === 'crypto' && all[0].custom === false);
   ok('all includes custom flagged', all.some(c => c.id === 'p2p_loans' && c.custom === true));
-  ok('all length = 4 builtins + 2 custom', all.length === 6);
+  ok('all length = 5 builtins (bonds since P5-3.9) + 2 custom', all.length === 7);
+  ok('a custom category can no longer be named Bonds', C.add(s2, 'Bonds').categories.length === 2);
+  const legacy = C.normalize({ categories: [{ id: 'bonds', label: 'My bonds' }] });
+  ok('a custom Bonds category from before P5-3.9 stays stored but is not listed twice',
+    legacy.categories.length === 1 && C.ids(legacy).length === 0 && C.all(legacy).filter(c => c.id === 'bonds').length === 1);
   ok('label resolves custom', C.label('real_estate', s2) === 'Real Estate');
   ok('label resolves built-in', C.label('crypto', s2) === 'Crypto');
   ok('label falls back to id', C.label('unknown_x', s2) === 'unknown_x');

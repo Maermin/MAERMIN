@@ -366,8 +366,10 @@
       // cash of holdings without price history out of the return)
       var key = keyOf(tx);
       // cost: the fees and withholding tax inside the amount (P5-2.5 gross returns)
-      if (tx.type === 'buy' && q > 0) events.push({ d: d, amount: -eur(q * num(tx.price) + fees), kind: 'trade', type: 'buy', txId: tx.id, key: key, cost: eur(fees) });
-      else if (tx.type === 'sell' && q > 0) events.push({ d: d, amount: eur(q * num(tx.price) - fees), kind: 'trade', type: 'sell', txId: tx.id, key: key, cost: eur(fees) });
+      // P5-3.9: accrued interest of a bond trade is paid on a buy, received on a sale
+      var acc = tx.category === 'bonds' ? Math.max(0, num(tx.accruedInterest)) : 0;
+      if (tx.type === 'buy' && q > 0) events.push({ d: d, amount: -eur(q * num(tx.price) + fees + acc), kind: 'trade', type: 'buy', txId: tx.id, key: key, cost: eur(fees) });
+      else if (tx.type === 'sell' && q > 0) events.push({ d: d, amount: eur(q * num(tx.price) - fees + acc), kind: 'trade', type: 'sell', txId: tx.id, key: key, cost: eur(fees) });
       else if (tx.type === 'dividend' || tx.type === 'interest') {
         var wht = Math.max(0, num(tx.withholdingTax));
         var net = payoutGross(tx) - wht - fees;
