@@ -1159,6 +1159,24 @@ function InvestmentTracker() {
   // Bumped when async equity metadata (sector/country) is backfilled, so the
   // Strategy tab recomputes even if the user is already on it.
   const [metaVersion, setMetaVersion] = useState(0);
+  // P5-2.10: the active portfolio's holdings with what "fill from data" reads
+  const taxonomyHoldings = useMemo(() => {
+    const EM = window.MaerminEquityMeta, GT = window.TaxCalculationEngine && window.TaxCalculationEngine.GermanTax;
+    let types = {};
+    try { types = (GT && GT.loadFundTypes) ? GT.loadFundTypes() : {}; } catch (e) {}
+    const out = [];
+    Object.keys(portfolio || {}).forEach((cat) => {
+      if (!Array.isArray(portfolio[cat])) return;
+      portfolio[cat].forEach((pos) => {
+        const s = pos.symbol || pos.name || '', S = s.toUpperCase();
+        const px = prices[s] || prices[s.toLowerCase()] || prices[S] || pos.purchasePrice || 0;
+        const meta = cat === 'stocks' && EM && EM.getMeta ? EM.getMeta(S) : {};
+        out.push({ symbol: S, name: pos.symbolName || pos.name || '', category: cat, value: (parseFloat(pos.amount) || 0) * px,
+          fundType: types[S] || '', sector: meta.sector || '', country: meta.country || '' });
+      });
+    });
+    return out;
+  }, [portfolio, prices, metaVersion, demoMode]);
 
   // Security log viewer modal (reads window.MaerminAuditLog).
   const showAuditLog = window.MaerminStore.useStore(window.MaerminUI.overlays, s => !!s.auditLog);
@@ -3560,6 +3578,11 @@ function InvestmentTracker() {
             // P5-2.8: Providers & brokers section
             renderProviders: window.MaerminAllocationGroups ? () => React.createElement(window.MaerminAllocationGroups.Panel, {
               positions: providerPositions, portfolios: pfAllocation, theme: currentTheme, formatPrice, getCurrencySymbol
+            }) : null,
+            // P5-2.10: Taxonomies section (sector / country / fund type for "fill from data")
+            renderTaxonomies: window.MaerminTaxonomies ? () => React.createElement(window.MaerminTaxonomies.Panel, {
+              holdings: taxonomyHoldings, noSell: window.MaerminRebalance && window.MaerminRebalance.loadPrefs ? window.MaerminRebalance.loadPrefs().noSell : [],
+              theme: currentTheme, formatPrice, getCurrencySymbol
             }) : null
           }) : renderAnalyticsPlaceholder(t.navStrategy || 'Strategy Analysis');
 

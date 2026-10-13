@@ -827,7 +827,7 @@ async function runBuild(browser, label, dir) {
     let brokerOv = '', rows = 0, before = null, after = null;
     // P5-1.8: Worker-only views run on in-page sample data; nothing may reach the network
     const sampleReqs = []; page.on('request', (r) => { if (/maermin\.invalid/.test(r.url())) sampleReqs.push(r.url()); });
-    const fixtures = {}; let dqText = '', va = null, br = null, lt = null, dh = null, hrd = null, agd = null;
+    const fixtures = {}; let dqText = '', va = null, br = null, lt = null, dh = null, hrd = null, agd = null, txd = null;
     try {
       await unlock(page, base);
       await page.keyboard.press('Escape');
@@ -896,6 +896,28 @@ async function runBuild(browser, label, dir) {
         const rows = (id) => Array.from(document.querySelectorAll('[data-testid="' + id + '"] [data-key]')).map((d) => ({ key: d.getAttribute('data-key'), v: parseFloat(d.getAttribute('data-v')), pct: parseFloat(d.getAttribute('data-pct')) }));
         return { providers: rows('ag-provider-bars'), brokers: rows('ag-broker-bars') };
       });
+      // P5-2.10: Strategy → Taxonomies - Kommer template, fill from data, export and import again
+      await page.getByRole('button', { name: /^Taxonomies$/ }).first().click().catch(() => {});
+      await page.locator('[data-testid="tx-template"]').selectOption('kommer').catch(() => {});
+      await page.locator('[data-testid="tx-create"]').click().catch(() => {});
+      const fillTxt = await page.locator('[data-testid="tx-fill"]').innerText().catch(() => '');
+      await page.locator('[data-testid="tx-fill"]').click().catch(() => {});
+      await page.waitForTimeout(400);
+      txd = await page.evaluate(() => {
+        const row = (id) => document.querySelector('[data-testid="tx-tree"] tr[data-node="' + id + '"]');
+        const v = (id) => parseFloat(row(id) ? row(id).getAttribute('data-v') : 'NaN');
+        const act = row('emerging') && row('emerging').querySelector('[data-action]');
+        return { dev: v('developed'), em: v('emerging'), un: v('unassigned'), action: act ? act.getAttribute('data-action') : null, stored: localStorage.getItem('maermin_taxonomies') };
+      });
+      txd.fill = fillTxt;
+      const [txDl] = await Promise.all([page.waitForEvent('download', { timeout: 8000 }).catch(() => null), page.locator('[data-testid="tx-export"]').click().catch(() => null)]);
+      if (txDl) {
+        const chunks = []; for await (const c of await txDl.createReadStream()) chunks.push(c);
+        txd.json = Buffer.concat(chunks).toString('utf8');
+        await page.locator('[data-testid="tx-file"]').setInputFiles({ name: 'kommer.json', mimeType: 'application/json', buffer: Buffer.from(txd.json) });
+        await page.waitForTimeout(600);
+        txd.options = await page.locator('[data-testid="tx-select"] option').count();
+      }
       // P5-2.6: per holding on Analysis → Returns
       await openView(page, 'returns');
       await page.locator('[data-testid="holding-returns"]').waitFor({ timeout: 10000 }).catch(() => {});
@@ -991,6 +1013,11 @@ async function runBuild(browser, label, dir) {
           err || JSON.stringify(dh && { net: n && n.grand, gross: g && g.grand, years: n && n.years }));
         ok('P5-2.5: growth per payer, and the backtest on sample data: 5 then 10 years', !!dh && dh.growthRows >= 10 && dh.bt5 === 5 && dh.bt10 > 5 && dh.btBadge === 1, err || JSON.stringify(dh && { g: dh.growthRows, b5: dh.bt5, b10: dh.bt10, badge: dh.btBadge }));
         ok('P5-2.5: the forecast has 24 months; a month lists its payments', !!dh && dh.months === 24 && dh.month.total > 0 && dh.month.items > 0, err || JSON.stringify(dh && { m: dh.months, month: dh.month })); }
+      { const x = txd, json = (() => { try { return JSON.parse(x.json); } catch (e) { return null; } })();
+        ok('P5-2.10: demo taxonomy from the Kommer template: filled from data, the nodes and "not assigned" add up, emerging below 30 % gets a buy', !!x && /Fill from data \(\d+\)/.test(x.fill) && x.dev > 0 && x.un >= 0 && x.action === 'buy',
+          err || JSON.stringify(x && { fill: x.fill, dev: x.dev, em: x.em, un: x.un, action: x.action }));
+        ok('P5-2.10: exported as JSON and imported again; the demo keeps it in memory only', !!json && json.format === 'maermin-taxonomy' && json.taxonomy.nodes[0].target === 70 && x.options === 2 && x.stored === null,
+          err || JSON.stringify(x && { options: x.options, stored: x.stored, json: (x.json || '').slice(0, 80) })); }
       { const a = agd, sum = (l) => l.reduce((x, r) => x + r.pct, 0);
         ok('P5-2.8: demo funds by provider (Vanguard) and value by broker: two portfolios, shares add up to 100 %', !!a && a.providers.length > 0 && a.providers[0].key === 'Vanguard' && Math.abs(sum(a.providers) - 100) < 1e-6
           && a.brokers.length === 2 && Math.abs(sum(a.brokers) - 100) < 1e-6 && a.brokers.some((b) => b.key === 'demo-broker'), err || JSON.stringify(a)); }
@@ -1479,6 +1506,20 @@ async function runBuild(browser, label, dir) {
         Math.abs(cell - want0) < 1e-6 && /\b1 month\b/.test(longest) && ratio.includes(buyMonths + ' / ' + months) && /bought .*sold .*net/.test(det),
         cell + ' vs ' + want0 + ' | ' + longest.replace(/\n/g, ' ') + ' | ' + ratio.replace(/\n/g, ' ') + ' | ' + det);
       await openView(page, 'returns'); }
+    // P5-2.10: a taxonomy in a real vault: both holdings are equity; the assignment is not stored in plain text
+    { await openView(page, 'investment-analysis');
+      await page.getByRole('button', { name: /^Taxonomies$/ }).first().click().catch(() => {});
+      await page.locator('[data-testid="tx-template"]').selectOption('asset-classes').catch(() => {});
+      await page.locator('[data-testid="tx-create"]').click().catch(() => {});
+      await page.locator('[data-testid="tx-fill"]').click().catch(() => {});
+      await page.waitForTimeout(1500);
+      const r = await page.evaluate(() => {
+        const row = (id) => document.querySelector('[data-testid="tx-tree"] tr[data-node="' + id + '"]');
+        const raw = Object.keys(localStorage).map((k) => localStorage.getItem(k) || '').join('|');
+        return { eq: parseFloat(row('equity') ? row('equity').getAttribute('data-pct') : 'NaN'), un: parseFloat(row('unassigned') ? row('unassigned').getAttribute('data-v') : 'NaN'),
+          plain: /maermin-taxonomy|"assign":\{"(VWCE|AAPL)/.test(raw) || /"VWCE\.DE":"equity"/.test(raw) };
+      });
+      ok('P5-2.10: asset classes filled from data: everything is equity, nothing left; the vault keeps it encrypted', Math.abs(r.eq - 100) < 1e-9 && r.un === 0 && r.plain === false, JSON.stringify(r)); }
     // P5-2.8: Intelligence - 3,000 EUR cash against 2,000 EUR a month = 1.5 months, important
     { await openView(page, 'intelligence');
       await page.waitForTimeout(1200);

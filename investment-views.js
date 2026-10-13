@@ -1153,6 +1153,8 @@ function InvestmentAnalysisDashboard(props) {
   ];
   // P5-2.8: allocation by ETF provider and by broker / portfolio (allocation-groups.js)
   if (typeof props.renderProviders === 'function') sections.splice(5, 0, { id: 'providers', label: __('ivTabProviders', 'Providers & brokers'), desc: __('ivTabProvidersDesc', 'Funds by provider, value by broker') });
+  // P5-2.10: user-defined classification trees (taxonomies.js)
+  if (typeof props.renderTaxonomies === 'function') sections.splice(6, 0, { id: 'taxonomies', label: __('ivTabTaxonomies', 'Taxonomies'), desc: __('ivTabTaxonomiesDesc', 'Your own classification trees') });
 
   var tabStyle = function(id) {
     var active = activeSection === id;
@@ -1182,6 +1184,7 @@ function InvestmentAnalysisDashboard(props) {
       case 'liquidity':return React.createElement(LiquidityAnalysisView, { portfolio: portfolio });
       case 'goals':    return React.createElement(GoalInvestingView, { portfolioValue: portfolioValue });
       case 'providers': return typeof props.renderProviders === 'function' ? props.renderProviders() : null;
+      case 'taxonomies': return typeof props.renderTaxonomies === 'function' ? props.renderTaxonomies() : null;
       default:         return React.createElement(DCAAnalyzerView, { portfolio: portfolio, priceHistory: dcaHistory });
     }
   };
