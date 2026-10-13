@@ -5315,6 +5315,11 @@ function InvestmentTracker() {
         formatMoney: (v) => privacyMode ? '••••••' : window.MaerminI18n.money(v, 'EUR'),
         onChange: () => setTaxSettingsRev(r => r + 1)
       }),
+      // P5-4.2: "if I sell X": lots, gain and the extra tax through the same report.
+      taxJurisdiction === 'de' && window.MaerminSellSim && React.createElement(window.MaerminSellSim.Panel, {
+        theme: currentTheme, transactions, prices, exchangeRate, fxAt,
+        formatMoney: (v) => privacyMode ? '••••••' : window.MaerminI18n.money(v, 'EUR')
+      }),
       // Freistellungsaufträge per broker (P2-6): orders vs the allowance, and
       // the headroom left at each broker from its portfolios' income.
       taxJurisdiction === 'de' && window.MaerminFSA && React.createElement(window.MaerminFSA.Panel, {
