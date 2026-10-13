@@ -89,6 +89,8 @@ const workerEnv = { FINTS_PRODUCT_ID: 'E2E-PRODUCT' };
 const requireE2E = createRequire(import.meta.url);
 const FINTS = requireE2E('../../fints.js');
 const fintsBank = requireE2E('../fints-bank-sim.js').createBank();
+// P5-3.5: synthetic GoCardless and SnapTrade behind the Worker's broker relay
+const aggSim = requireE2E('../aggregator-sim.js');
 const workerState = { down: false, oldVersion: false, upstream: [], requests: [] };
 const iso = (d) => d.toISOString().slice(0, 10);
 const WEEKDAYS = (() => { // every weekday of the last three years, up to today
@@ -122,6 +124,7 @@ const divOf = (sym, i) => (sym === 'AAPL' && i % 63 === 20 ? Number((0.24 + 0.01
       HICP_MONTHS.forEach((x, i) => { index[x[0]] = i; value[i] = x[1]; });
       return new Response(JSON.stringify({ version: '2.0', class: 'dataset', updated: '2026-10-02T11:00:00+0200', value, dimension: { time: { category: { index } } } }), { status: 200, headers: { 'Content-Type': 'application/json' } });
     }
+    if (/^https:\/\/(bankaccountdata\.gocardless\.com|api\.snaptrade\.com)\//.test(u)) return aggSim.upstream(u, init || {});
     if (/^https:\/\/fints\.dkb\.de\//.test(u)) return new Response(FINTS.toB64(fintsBank.handle(FINTS.fromB64(init.body))), { status: 200, headers: { 'Content-Type': 'text/plain' } });
     const m = u.match(/query1\.finance\.yahoo\.com\/v8\/finance\/chart\/([^?]+)/);
     if (!m) return realFetch(input, init);
@@ -1656,6 +1659,49 @@ async function runBuild(browser, label, dir) {
       ok('P5-3.4: depot statement compared with MAERMIN', /not in MAERMIN/.test(depot) && /DE0005933931/.test(depot), err || depot);
       ok('P5-3.4: the four bank transactions booked as cash rows', booked === 'withdrawal,deposit,fee,tax', err || booked);
       ok('P5-3.4: the stored connection holds no PIN, no transactions and no login name', !!stored && stored.indexOf('4711') < 0 && stored.indexOf('Miete') < 0 && /"login":""/.test(stored), err || stored.slice(0, 200));
+    }
+    // P5-3.5: GoCardless and SnapTrade with the user's own keys, through the
+    // real Worker relay to synthetic upstreams; links open in a new tab (stubbed)
+    {
+      let err = '', gcBal = '', gcBooked = '', stText = '', stBooked = '', opened = [], rawGc = '', rawSt = '', meta = '';
+      try {
+        await page.evaluate(() => { window.__opened = []; window.open = (u) => { window.__opened.push(u); return null; }; });
+        const panel = page.locator('[data-testid="aggregators"]');
+        await panel.waitFor({ timeout: 8000 });
+        await page.locator('[data-testid="ag-gc-id"]').fill('sid-123');
+        await page.locator('[data-testid="ag-gc-key"]').fill('skey-456');
+        await page.locator('[data-testid="ag-gc-save"]').click();
+        await page.locator('[data-testid="ag-gc-banks"]').click();
+        await page.locator('[data-testid="ag-gc-search"]').fill('DKB');
+        await page.locator('[data-testid="ag-gc-inst"]', { hasText: 'DKB' }).click();
+        await page.locator('[data-testid="ag-gc-sync"]').click();
+        await page.locator('[data-testid="ag-gc-balance"]').first().waitFor({ timeout: 15000 });
+        gcBal = await page.locator('[data-testid="ag-gc-balance"]').first().innerText();
+        await page.locator('[data-testid="ag-gc-tick"]').check();
+        await page.locator('[data-testid="ag-gc-import"]').click();
+        await page.locator('[data-testid="ag-st-client"]').fill('MAERMIN-TEST');
+        await page.locator('[data-testid="ag-st-key"]').fill('ck-secret-789');
+        await page.locator('[data-testid="ag-st-save"]').click();
+        await page.locator('[data-testid="ag-st-connect"]').click();
+        await page.waitForFunction(() => window.__opened.length >= 2, null, { timeout: 15000 });
+        await page.locator('[data-testid="ag-st-sync"]').click();
+        await page.locator('[data-testid="ag-st-positions"]').waitFor({ timeout: 15000 });
+        stText = await page.locator('[data-testid="ag-snaptrade"]').innerText();
+        await page.locator('[data-testid="ag-st-import"]').click();
+        await page.waitForTimeout(800);
+        const res = await page.evaluate(() => {
+          const txs = JSON.parse(localStorage.getItem('transactions') || '[]');
+          return { gc: txs.filter((x) => x.source === 'gocardless').map((x) => x.type).join(), st: txs.filter((x) => x.source === 'snaptrade').map((x) => x.type).join(),
+            opened: window.__opened, meta: localStorage.getItem('maermin_aggregators') || '' };
+        });
+        res.rawGc = (await page.evaluate(RAW + ".get('maermin_agg_cred_gocardless')")) || '';
+        res.rawSt = (await page.evaluate(RAW + ".get('maermin_agg_cred_snaptrade')")) || '';
+        gcBooked = res.gc; stBooked = res.st; opened = res.opened; rawGc = res.rawGc; rawSt = res.rawSt; meta = res.meta;
+      } catch (e) { err = String(e.message).split('\n')[0]; }
+      ok('P5-3.5: GoCardless - bank link opened, balance 1,500.00 EUR after the sync', /ob\.gocardless\.com/.test(opened[0] || '') && /1,500\.00 EUR/.test(gcBal), err || JSON.stringify({ opened, gcBal }));
+      ok('P5-3.5: GoCardless - rent, salary and account fee booked; the securities purchase left out', gcBooked === 'withdrawal,deposit,fee', err || gcBooked);
+      ok('P5-3.5: SnapTrade - read-only portal opened, positions compared, activities imported once', /snaptrade\.com/.test(opened[1] || '') && /AAPL/.test(stText) && /not in MAERMIN|matches/.test(stText) && stBooked === 'buy,dividend,deposit,fee,sell', err || JSON.stringify({ stBooked, stText: stText.slice(0, 200) }));
+      ok('P5-3.5: the API keys are vault-encrypted at rest, the metadata holds none', !!rawGc && rawGc.indexOf('skey-456') < 0 && !!rawSt && rawSt.indexOf('ck-secret-789') < 0 && rawSt.indexOf('user-secret-1') < 0 && meta.indexOf('skey') < 0 && meta.indexOf('ACCESS') < 0, err || meta.slice(0, 200));
     }
     workerState.oldVersion = true;
     await unlock(page, base);

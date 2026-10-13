@@ -2983,6 +2983,20 @@ function InvestmentTracker() {
             if (window.MaerminAuditLog) window.MaerminAuditLog.record('data.import', `${rows.length} bank booking(s) imported`);
             addToast(__('bsImported', '{n} bank {n:booking|bookings} imported', { n: rows.length }), 'success');
           }
+        }),
+
+      // Bring-your-own-key aggregators (P5-3.5): GoCardless Bank Account Data
+      // and SnapTrade with the user's own keys (vault only), read-only.
+      section === 'broker' && window.MaerminAggregators && window.MaerminAggregators.Panel &&
+        React.createElement(window.MaerminAggregators.Panel, {
+          theme, workerUrl: apiKeys.cs2Worker, existing: transactions, portfolioId: activePortfolioId,
+          formatAmount: (v, cur) => privacyMode ? '••••••' : window.MaerminI18n.num(v, 2, language) + ' ' + cur,
+          onImport: (rows) => {
+            const withIds = rows.map((r) => ({ ...r, id: window.MaerminUtils.generateId(), portfolioId: activePortfolioId }));
+            setTransactions(prev => window.MaerminExchangeSync ? window.MaerminExchangeSync.appendNew(prev, withIds) : prev.concat(withIds));
+            if (window.MaerminAuditLog) window.MaerminAuditLog.record('data.import', `${rows.length} aggregator row(s) imported`);
+            addToast(__('agImported', '{n} {n:row|rows} imported', { n: rows.length }), 'success');
+          }
         })
     );
   };

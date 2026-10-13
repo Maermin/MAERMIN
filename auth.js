@@ -522,13 +522,15 @@
      *  longer open anything written after this. The recovery code and passkey
      *  are dropped (set them up again); sync moves to a new account. */
     rotateKey: function (password) {
-      var EX = window.MaerminExchangeSync, PM = window.MaerminPreMigration, SY = window.MaerminSync;
-      var creds = {}, copy = null, syncOn = !!(SY && SY.isConfigured && SY.isConfigured());
+      var EX = window.MaerminExchangeSync, PM = window.MaerminPreMigration, SY = window.MaerminSync, AG = window.MaerminAggregators;
+      var creds = {}, aggCreds = {}, copy = null, syncOn = !!(SY && SY.isConfigured && SY.isConfigured());
       return Promise.all([
         EX && EX.exportAllCredentials ? EX.exportAllCredentials() : {},
-        PM && PM.load ? PM.load().catch(function () { return null; }) : null
+        PM && PM.load ? PM.load().catch(function () { return null; }) : null,
+        // P5-3.5: the aggregator API keys are vault-encrypted like the exchange keys
+        AG && AG.exportAllCredentials ? AG.exportAllCredentials() : {}
       ]).then(function (r) {
-        creds = r[0] || {}; copy = r[1];
+        creds = r[0] || {}; copy = r[1]; aggCreds = r[2] || {};
         return Vault.verifyPassword(password);
       }).then(function (good) {
         if (!good) throw new Error('bad-password');
@@ -538,6 +540,7 @@
         .then(function () {
           return Promise.all([
             EX && EX.importAllCredentials ? EX.importAllCredentials(creds) : null,
+            AG && AG.importAllCredentials ? AG.importAllCredentials(aggCreds) : null,
             copy && PM && PM.store ? PM.store(copy).catch(function () { return false; }) : null
           ]);
         })

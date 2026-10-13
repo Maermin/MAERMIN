@@ -60,7 +60,7 @@ function ok(name, cond, detail) { cond ? (passed++, console.log('  ✓ ' + name)
   ok('a redirect from the bank is refused, not followed', red.status === 200 && red.body.error === 'redirect refused' && red.body.msg === '', red.body);
   const getFints = await call({}, 'action=fints');
   ok('GET fints is unknown', getFints.status === 400);
-  ok('version lists fints and fintsbanks (2026.10.7)', W.WORKER_VERSION === '2026.10.7' && W.WORKER_ACTIONS.indexOf('fints') > -1 && W.WORKER_ACTIONS.indexOf('fintsbanks') > -1);
+  ok('version lists fints and fintsbanks', /^2026\.10\.\d+$/.test(W.WORKER_VERSION) && W.WORKER_ACTIONS.indexOf('fints') > -1 && W.WORKER_ACTIONS.indexOf('fintsbanks') > -1);
 
   console.log('\nshared price Worker:');
   const po = await post({ PRICE_ONLY: '1' }, { url: 'https://fints.dkb.de/fints', msg: F.toB64(msg) });

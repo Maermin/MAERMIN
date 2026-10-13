@@ -25,7 +25,7 @@ Configure it in the app under **API Settings → Cloudflare Worker**.
 ## Version
 
 ### `GET /?action=version`
-`200 { "version": "2026.10.7", "actions": ["yf", "yfsearch", …], "storage": true }`. No upstream call and no rate limit.
+`200 { "version": "2026.10.8", "actions": ["yf", "yfsearch", …], "storage": true }`. No upstream call and no rate limit.
 `storage` says whether sync and share links can work (a KV namespace or the Durable Object is bound); the
 app's connection test shows it.
 `WORKER_VERSION` in `worker.js` and `EXPECTED_WORKER_VERSION` in `onboarding.js` name the same release
@@ -342,6 +342,20 @@ so a repeat sync never double-books. Read-only keys only — write/trade/withdra
 scopes are rejected client-side before any request is signed.
 
 ---
+
+## Aggregators with your own keys (optional, P5-3.5)
+
+The broker relay (`action=brokerproxy`) also serves two account aggregators, with exact read
+endpoints only (`BROKER_RELAY_POLICY`):
+
+| Host | Allowed |
+|---|---|
+| `bankaccountdata.gocardless.com` | POST `/api/v2/token/new`, `/token/refresh`, `/requisitions` (a bank link); GET `/api/v2/institutions`, `/requisitions/<id>`, `/accounts/<id>/details`, `/balances`, `/transactions` |
+| `api.snaptrade.com` | POST `/api/v1/snapTrade/registerUser`, `/snapTrade/login` (the read-only connection portal); GET `/api/v1/accounts`, `/activities`, `/accounts/<id>/positions`, `/balances` |
+
+No trading, payment or delete endpoint. GoCardless: the user's secret id / key pass through the
+Worker to fetch a short-lived token (as with Bitpanda's API key). SnapTrade: requests are signed in
+the browser; only the signature passes (header `Signature`). Nothing is stored. Version 2026.10.8.
 
 ## Bank sync over FinTS (optional, P5-3.4)
 
