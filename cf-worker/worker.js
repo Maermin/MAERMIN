@@ -32,6 +32,11 @@
 export const WORKER_VERSION = '2026.10.6';
 export const WORKER_ACTIONS = ['yf', 'yfsearch', 'screener', 'fundholdings', 'fundamentals', 'earnings', 'profile',
   'news', 'skinprices', 'steaminv', 'cg', 'hicp', 'sync', 'share', 'mcp', 'brokerproxy', 'version'];
+// P5-3.1: the routes a shared price Worker (PRICE_ONLY=1) serves - market data only
+export const PRICE_ONLY_ACTIONS = ['yf', 'yfsearch', 'screener', 'fundholdings', 'fundamentals', 'earnings', 'profile',
+  'news', 'skinprices', 'cg', 'hicp', 'version'];
+const PRICE_ONLY_SET = new Set(PRICE_ONLY_ACTIONS);
+export function isPriceOnly(env) { return String((env && env.PRICE_ONLY) || '') === '1'; }
 
 export default {
   // SEC-008: anything a route does not catch becomes a plain 500 with CORS
@@ -52,10 +57,29 @@ async function handle(request, env, ctx) {
 
     if (request.method === 'OPTIONS') return res(null, 204, request);
 
+    // ── P5-3.1 shared price Worker ───────────────────────────────────────────
+    // The same code deployed with PRICE_ONLY=1 serves market data only: every
+    // route that sees user data (sync, share, MCP, broker relay, Steam
+    // inventory, later FinTS / aggregators) is refused before anything else
+    // runs. Its own per-IP limit (PRICE_ONLY_RPM, default 60 a minute) and a
+    // kill switch (PRICE_ONLY_OFF=1 → 503). Nothing is logged; only the edge
+    // cache keeps answers. The app uses it only when no own Worker is set.
+    if (isPriceOnly(env)) {
+      const paused = String(env.PRICE_ONLY_OFF || '') === '1';
+      if (request.method === 'GET' && action === 'version') {
+        return res(JSON.stringify({ version: WORKER_VERSION, actions: PRICE_ONLY_ACTIONS, storage: false, priceOnly: true, paused }), 200, request);
+      }
+      if (paused) return res(JSON.stringify({ error: 'shared price service paused' }), 503, request);
+      if (!PRICE_ONLY_SET.has(action)) return res(JSON.stringify({ error: 'not available on the shared price service' }), 403, request);
+      if (isRateLimited(request, 'shared', Number(env.PRICE_ONLY_RPM) > 0 ? Number(env.PRICE_ONLY_RPM) : 60)) {
+        return res(JSON.stringify({ error: 'rate limited — slow down' }), 429, request);
+      }
+    }
+
     // Version handshake: no upstream call, so it is not rate limited.
     if (request.method === 'GET' && action === 'version') {
       // storage: whether sync / share links can work (KV or Durable Object bound)
-      return res(JSON.stringify({ version: WORKER_VERSION, actions: WORKER_ACTIONS, storage: !!(env && (env.SYNC || env.SYNC_DO)) }), 200, request);
+      return res(JSON.stringify({ version: WORKER_VERSION, actions: WORKER_ACTIONS, storage: !!(env && (env.SYNC || env.SYNC_DO)), priceOnly: false }), 200, request);
     }
 
     // ── Yahoo routes take market symbols only ────────────────────────────────
@@ -1399,7 +1423,7 @@ export function parseSteamInventory(pages) {
 // IP and budget. Best-effort: isolates don't share memory, but this still caps bursts.
 const RATE_LIMIT = { windowMs: 60000, max: 120 };
 const _rlHits = new Map(); // ip|bucket -> number[] (timestamps)
-function isRateLimited(request, bucket) {
+function isRateLimited(request, bucket, max) {
   // CF-Connecting-IP only: a client-supplied X-Forwarded-For must not pick the bucket.
   const ip = (request.headers.get('CF-Connecting-IP') || 'anon') + '|' + (bucket || 'default');
   const now = Date.now();
@@ -1408,7 +1432,7 @@ function isRateLimited(request, bucket) {
   if (!arr) { arr = []; _rlHits.set(ip, arr); }
   // drop timestamps outside the window
   while (arr.length && arr[0] < cutoff) arr.shift();
-  if (arr.length >= RATE_LIMIT.max) return true; // limited: not recorded, so the list stays bounded
+  if (arr.length >= (max > 0 ? max : RATE_LIMIT.max)) return true; // limited: not recorded, so the list stays bounded
   arr.push(now);
   // opportunistic cleanup so the map can't grow unbounded
   if (_rlHits.size > 5000) {

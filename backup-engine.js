@@ -96,6 +96,8 @@
     'maermin_gross_net',
     // region of the consumer prices for real returns (prefs-store.js, P5-2.9)
     'maermin_hicp_geo',
+    // use the shared price service without an own Worker (prefs-store.js, P5-3.1)
+    'maermin_shared_prices',
     // deleted records kept 30 days for restore (trash.js)
     'maermin_trash',
     // Freistellungsaufträge per broker (fsa.js)

@@ -1802,6 +1802,23 @@ async function runBuild(browser, label, dir) {
       } catch (e) { bad.push(String(e.message).split('\n')[0]); }
       ok(tag + 'Your recovery code: modal over Security & sync, not closed by Escape or a click beside it, focus returns to the dialog underneath', bad.length === 0, bad.join('; '));
     }
+    // P5-3.1: Security & sync explains where market data comes from; the shared price service can be switched off
+    {
+      let info = '', saved = null, err = '';
+      try {
+        await fromMenu('Security & sync')();
+        const box = page.locator('[data-testid="shared-prices-info"]');
+        await box.waitFor({ timeout: 5000 });
+        info = await box.locator('xpath=..').innerText();
+        const toggle = page.locator('[data-testid="shared-prices-toggle"]');
+        if (await toggle.isChecked()) await toggle.click();
+        saved = await page.evaluate(() => localStorage.getItem('maermin_shared_prices'));
+        await page.locator('[data-testid="shared-prices-toggle"]').click();
+        await press('Escape');
+      } catch (e) { err = String(e.message).split('\n')[0]; }
+      ok(tag + 'P5-3.1: Security & sync names the market-data source and what the shared price service sees; its switch is saved', !err && /never amounts, quantities or your vault/.test(info) && /Your Worker|None \(offline prices\)|MAERMIN price service/.test(info) && saved === 'off',
+        err || info.replace(/\n/g, ' | ').slice(0, 200) + ' | ' + saved);
+    }
     // P2-1: the phone dock has one button per area; an area's views are chips.
     if (page.viewportSize().width < 900) {
       const bad = [];

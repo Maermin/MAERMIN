@@ -763,10 +763,19 @@ function InvestmentTracker() {
   const [apiKeys, setApiKeys] = useState(() => {
     try { return JSON.parse(localStorage.getItem('apiKeys') || '{}'); } catch { return {}; }
   });
+  // P5-3.1: the Worker for MARKET DATA - the own Worker, else the shared price
+  // Worker (market data only; switchable in Settings → Privacy). User data
+  // (sync, share, MCP, broker relay, Steam inventory) keeps apiKeys.cs2Worker.
+  const [sharedPrices, setSharedPricesState] = useState(() => window.MaerminPrefs.get('sharedPrices'));
+  const setSharedPrices = (on) => { const v = on ? 'on' : 'off'; setSharedPricesState(v); window.MaerminPrefs.set('sharedPrices', v); };
+  const SWm = window.MaerminSharedWorker;
+  const marketWorker = SWm ? SWm.marketBase(apiKeys.cs2Worker, { enabled: SWm.enabledFrom(sharedPrices) }) : (apiKeys.cs2Worker || '');
+  const usingSharedPrices = !!(SWm && marketWorker && SWm.isShared(marketWorker));
+  const marketApiKeys = useMemo(() => ({ ...apiKeys, cs2Worker: marketWorker }), [apiKeys, marketWorker]);
   // CoinGecko goes through the Worker: the client builds its URLs from it.
-  if (window.MaerminCoinGecko && window.MaerminCoinGecko.setBase) window.MaerminCoinGecko.setBase(apiKeys.cs2Worker);
+  if (window.MaerminCoinGecko && window.MaerminCoinGecko.setBase) window.MaerminCoinGecko.setBase(marketWorker);
   // P5-1.8: the Worker URL the Worker-only views get (the sample URL in the demo).
-  const viewWorkerUrl = demoMode && DFX ? DFX.BASE : apiKeys.cs2Worker;
+  const viewWorkerUrl = demoMode && DFX ? DFX.BASE : marketWorker;
 
   // Fetch a historical price series for each savings-plan symbol (crypto via
   // CoinGecko market_chart in EUR; stocks via the YF Worker, converted to EUR at
@@ -802,7 +811,7 @@ function InvestmentTracker() {
     (async () => {
       const histAdd = {}, priceAdd = {};
       const nowSec = Math.floor(Date.now() / 1000);
-      const workerBase = (apiKeys.cs2Worker || '').trim().replace(/\/$/, '');
+      const workerBase = (marketWorker || '').trim().replace(/\/$/, '');
       for (const s of syms) {
         try {
           let series = null;
@@ -866,7 +875,7 @@ function InvestmentTracker() {
     if (!FXH || !FXH.syncCurrencies || demoMode) return;
     const needed = FXH.currenciesNeeded(transactions);
     const curs = Object.keys(needed);
-    const rawBase = (apiKeys.cs2Worker || '').trim().replace(/\/$/, '');
+    const rawBase = (marketWorker || '').trim().replace(/\/$/, '');
     if (!curs.length || rawBase.length <= 5) return;
     const sig = rawBase + '#' + curs.sort().map(c => c + ':' + needed[c]).join('|');
     const st = curSyncRef.current;
@@ -880,7 +889,7 @@ function InvestmentTracker() {
       if (!FXH.saveCurrencies(res.store)) console.warn('[FX] could not persist the currency history - kept for this session');
       setFxHistVersion(v => v + 1); // new resolver identity -> positions, ledger, tax report recompute
     }).catch(() => { curSyncRef.current.busy = false; });
-  }, [transactions, apiKeys.cs2Worker, demoMode, lastRefresh, curTick]);
+  }, [transactions, marketWorker, demoMode, lastRefresh, curTick]);
   // ── Daily close history → value path (TWR from day one) ───────────────────
   // priceHistory only has one point per refresh, so TWR, rolling volatility and
   // correlation stayed empty for days after an import. MaerminCloseHistory keeps
@@ -906,7 +915,7 @@ function InvestmentTracker() {
     const need = CH.need(transactions);
     const keys = Object.keys(need);
     if (!keys.length) return;
-    const rawBase = (apiKeys.cs2Worker || '').trim().replace(/\/$/, '');
+    const rawBase = (marketWorker || '').trim().replace(/\/$/, '');
     const workerBase = rawBase.length > 5 ? rawBase : '';
     const sig = workerBase + '#' + keys.map(k => k + ':' + need[k].first).sort().join('|');
     const st = closeSyncRef.current;
@@ -942,7 +951,7 @@ function InvestmentTracker() {
       closeStoreRef.current = res.store;
       setCloseHistory(res.store);
     }).catch(() => { closeSyncRef.current.busy = false; });
-  }, [transactions, apiKeys.cs2Worker, demoMode, lastRefresh, closeTick]);
+  }, [transactions, marketWorker, demoMode, lastRefresh, closeTick]);
 
   // Stored closes are in the quote currency; convert each to EUR at the rate of
   // its day: USD from the daily USD history, CHF / GBp & co. from the currency
@@ -1578,7 +1587,7 @@ function InvestmentTracker() {
   useEffect(() => {
     if (portfolio.stocks && portfolio.stocks.length) {
       if (window.DividendDataService) {
-        window.DividendDataService.prefetchPortfolio(portfolio, { workerUrl: apiKeys.cs2Worker })
+        window.DividendDataService.prefetchPortfolio(portfolio, { workerUrl: marketWorker })
           .then((n) => { if (n > 0) setMetaVersion(v => v + 1); }) // refresh Dividend Forecast once data lands
           .catch(() => {});
       }
@@ -1588,12 +1597,12 @@ function InvestmentTracker() {
       if (window.MaerminEquityMeta) {
         // Resolve sector/country through the Worker (Yahoo assetProfile); static
         // map otherwise.
-        window.MaerminEquityMeta.prefetchPortfolio(portfolio, { workerUrl: apiKeys.cs2Worker })
+        window.MaerminEquityMeta.prefetchPortfolio(portfolio, { workerUrl: marketWorker })
           .then((n) => { if (n > 0) setMetaVersion(v => v + 1); }) // refresh Strategy views once metadata lands
           .catch(() => {});
       }
     }
-  }, [portfolio, apiKeys.cs2Worker]);
+  }, [portfolio, marketWorker]);
 
   // Dividend reminders — heads-up before an upcoming pay date lands. Derived from
   // the ONE DividendDataService schedule; deduped per symbol@date so it never
@@ -1708,7 +1717,7 @@ function InvestmentTracker() {
         const FXH = window.MaerminFxHistory;
         if (FXH) {
           FXH.merge({ [window.MaerminUtils.todayISO()]: usdToEur });
-          const wBase = (apiKeys.cs2Worker || '').trim().replace(/\/$/, '');
+          const wBase = (marketWorker || '').trim().replace(/\/$/, '');
           if (wBase.length > 5 && !fxSeriesFetched.current) {
             fxSeriesFetched.current = true;
             // Incremental: the full daily history (~20 years) is downloaded once;
@@ -1772,7 +1781,7 @@ function InvestmentTracker() {
           // Coins CoinGecko did not price this run (rate limit, unknown id): the
           // Yahoo USD pair through the Worker, the source the daily crypto
           // history already uses (AUDIT BUG-035).
-          const cgBase = (apiKeys.cs2Worker || '').trim().replace(/\/$/, '');
+          const cgBase = (marketWorker || '').trim().replace(/\/$/, '');
           const pairOf = window.MaerminTickers && window.MaerminTickers.yahooCryptoSymbol;
           const unpriced = Object.keys(symsById).filter(id => !pricedIds[id]);
           const cryptoNL = window.MaerminCloseHistory && window.MaerminCloseHistory.noListing;
@@ -1810,7 +1819,7 @@ function InvestmentTracker() {
       // suffixes), every one a 404, and the flood hit the Worker's rate limit.
       const isTicker = window.MaerminTickers?.isMarketSymbol || (() => true);
       if (pricePortfolio.stocks && pricePortfolio.stocks.length > 0) {
-        const workerBase = (apiKeys.cs2Worker || '').trim().replace(/\/$/, '');
+        const workerBase = (marketWorker || '').trim().replace(/\/$/, '');
         const hasWorker  = workerBase.length > 5;
         // Known legacy symbols without an exchange suffix.
         // (shared with the daily close history, so quote and history read the same listing)
@@ -1881,7 +1890,7 @@ function InvestmentTracker() {
 
       // ── Commodity Prices: Yahoo Finance futures via the Worker ─────────────
       if (pricePortfolio.commodities && pricePortfolio.commodities.length > 0) {
-        const workerBase = (apiKeys.cs2Worker || '').trim().replace(/\/$/, '');
+        const workerBase = (marketWorker || '').trim().replace(/\/$/, '');
         const hasWorker  = workerBase.length > 5;
 
         // Yahoo Finance Futures symbols for commodities
@@ -1923,7 +1932,7 @@ function InvestmentTracker() {
       // Market price file through the Worker (MaerminSkinPrices). Prices are
       // stored under the ORIGINAL stored symbol so positions keep resolving.
       if (pricePortfolio.skins && pricePortfolio.skins.length > 0) {
-        const workerUrl = (apiKeys.cs2Worker || '').trim();
+        const workerUrl = (marketWorker || '').trim();
         const SKP = window.MaerminSkinPrices;
         if (!workerUrl) {
           console.warn('[PRICES] No Worker URL — add it in API Settings');
@@ -3399,7 +3408,7 @@ function InvestmentTracker() {
             // Reuses the X-Ray fund-data plumbing; gated + degrading like it.
             window.MaerminCostAnalysis && window.MaerminCostAnalysis.OngoingCostsPanel &&
               React.createElement(window.MaerminCostAnalysis.OngoingCostsPanel, {
-                portfolio, prices, workerUrl: apiKeys.cs2Worker,
+                portfolio, prices, workerUrl: marketWorker,
                 theme: currentTheme, t, formatPrice, getCurrencySymbol
               })
           ) : renderAnalyticsPlaceholder(t.navFees || 'Fee Analyzer');
@@ -3434,7 +3443,7 @@ function InvestmentTracker() {
         return window.MaerminFeatures2 ? React.createElement('div', null,
           React.createElement(window.MaerminFeatures2.ReturnsView, {
             transactions: activeTransactions, portfolio, prices, priceHistory, fxAt, exchangeRate,
-            valuePath: returnsPath, historyPending: closePending, portfolioId: activePortfolioId, hasWorker: (apiKeys.cs2Worker || '').trim().length > 5,
+            valuePath: returnsPath, historyPending: closePending, portfolioId: activePortfolioId, hasWorker: (marketWorker || '').trim().length > 5,
             clearing: clearingByPf[activePortfolioId] || null, buildPath: (txs, clr) => buildValuePath(txs, clr, { gross: grossNet === 'gross' }),
             grossNet, setGrossNet,
             workerUrl: viewWorkerUrl, hicpGeo, setHicpGeo, // P5-2.9 real returns
@@ -3529,7 +3538,7 @@ function InvestmentTracker() {
       case 'dividends':
         return React.createElement(React.Fragment, null,
           React.createElement(StableViews.DividendsCombinedView, {
-            portfolio, prices, transactions: activeTransactions, apiKeys,
+            portfolio, prices, transactions: activeTransactions, apiKeys: marketApiKeys,
             theme: currentTheme, t, addToast, formatPrice, getCurrencySymbol,
             divAutoBook, toggleDivAutoBook, onBookDividends: () => bookDividends(true)
           }),
@@ -3574,7 +3583,7 @@ function InvestmentTracker() {
         return window.InvestmentViews && window.InvestmentViews.InvestmentAnalysisDashboard ?
           React.createElement(window.InvestmentViews.InvestmentAnalysisDashboard, {
             portfolio, prices, priceHistory, dailyCloses: dailyAnalytics.perHolding, metaVersion,
-            theme: currentTheme, t, formatPrice, getCurrencySymbol, workerUrl: apiKeys.cs2Worker, exchangeRate,
+            theme: currentTheme, t, formatPrice, getCurrencySymbol, workerUrl: marketWorker, exchangeRate,
             // P5-2.8: Providers & brokers section
             renderProviders: window.MaerminAllocationGroups ? () => React.createElement(window.MaerminAllocationGroups.Panel, {
               positions: providerPositions, portfolios: pfAllocation, theme: currentTheme, formatPrice, getCurrencySymbol
@@ -3599,7 +3608,7 @@ function InvestmentTracker() {
           // fallback; hands its result up for the advisor below.
           window.MaerminLookThrough && window.MaerminLookThrough.Panel && React.createElement('div', { style: { padding: '0 1.5rem 0' } },
             React.createElement(window.MaerminLookThrough.Panel, {
-              portfolio, prices, workerUrl: apiKeys.cs2Worker, mode: 'overview',
+              portfolio, prices, workerUrl: marketWorker, mode: 'overview',
               theme: currentTheme, t, formatPrice, getCurrencySymbol,
               onResult: setLookThroughResult
             })
@@ -3961,7 +3970,7 @@ function InvestmentTracker() {
           portfolio:          overviewPortfolio,
           prices,
           transactions:       overviewTransactions,
-          apiKeys,
+          apiKeys: marketApiKeys,
           exchangeRate,
           fxAt,
           currentValue:       stats.totalValue,
@@ -4263,7 +4272,7 @@ function InvestmentTracker() {
             React.createElement(window.MaerminFeatures3.PositionDetailModal, {
               position: positionDetail, transactions: overviewTransactions, prices,
               theme: currentTheme, formatPrice, getCurrencySymbol, t,
-              workerUrl: apiKeys.cs2Worker,
+              workerUrl: marketWorker,
               closeSeries: window.MaerminCloseHistory ? closeSeriesEUR[window.MaerminCloseHistory.keyOf(positionDetail.cat, positionDetail.sym)] : null,
               buildPath: buildValuePath, // P5-2.4: the holding's own monthly returns
               // A split may have been added/removed inside the modal — re-run
@@ -4418,7 +4427,7 @@ function InvestmentTracker() {
         React.createElement('div', null),
 
       // CS2 banner
-      !demoMode && portfolio.skins && portfolio.skins.length > 0 && !(apiKeys.cs2Worker||'').trim() &&
+      !demoMode && portfolio.skins && portfolio.skins.length > 0 && !(marketWorker||'').trim() &&
         React.createElement('div', { style: { background: 'rgba(245,158,11,0.06)', border: '1px solid rgba(245,158,11,0.25)', borderRadius: '10px', padding: '0.875rem 1.25rem', marginBottom: '1.25rem', display: 'flex', alignItems: 'center', gap: '1rem', flexWrap: 'wrap' } },
           React.createElement('span', { style: { fontSize: '1.25rem' } }, '!'),
           React.createElement('div', { style: { flex: 1, minWidth: '200px' } },
@@ -4525,7 +4534,7 @@ function InvestmentTracker() {
           // Allocation backtester (what-if): backtest a target allocation
           // against real history vs benchmark presets and the actual portfolio.
           window.MaerminBacktester && React.createElement(window.MaerminBacktester.Panel, {
-            portfolio, priceHistory, workerUrl: apiKeys.cs2Worker,
+            portfolio, priceHistory, workerUrl: marketWorker,
             theme: currentTheme, t, formatPrice, getCurrencySymbol
           })
         );
@@ -4542,11 +4551,11 @@ function InvestmentTracker() {
           // folds the analytics engine into Risk (no new tab).
           window.MaerminAnalyticsViews && React.createElement('div', { style: { padding: '0 1.5rem 1.5rem' } },
             React.createElement(window.MaerminAnalyticsViews.RollingRiskPanel, { portfolio, priceHistory, valueSeries: dailyAnalytics.index, theme: currentTheme, t }),
-            window.MaerminAnalyticsViews.FactorExposurePanel && React.createElement(window.MaerminAnalyticsViews.FactorExposurePanel, { portfolio, priceHistory, valueSeries: dailyAnalytics.index, workerUrl: apiKeys.cs2Worker, theme: currentTheme, t }),
+            window.MaerminAnalyticsViews.FactorExposurePanel && React.createElement(window.MaerminAnalyticsViews.FactorExposurePanel, { portfolio, priceHistory, valueSeries: dailyAnalytics.index, workerUrl: marketWorker, theme: currentTheme, t }),
             // ETF look-through, risk slice: fund overlap matrix + hidden
             // concentration findings — folds into Risk (no new tab).
             window.MaerminLookThrough && window.MaerminLookThrough.Panel && React.createElement(window.MaerminLookThrough.Panel, {
-              portfolio, prices, workerUrl: apiKeys.cs2Worker, mode: 'risk',
+              portfolio, prices, workerUrl: marketWorker, mode: 'risk',
               theme: currentTheme, t, formatPrice, getCurrencySymbol
             })
           )
@@ -4570,7 +4579,7 @@ function InvestmentTracker() {
   // P4-6: what a Data check action does. Only 'move-skins' changes data and it
   // asks first (repairMisfiledSkins); the others open the place to fix it.
   const DC = window.MaerminDataCheck;
-  const hasWorker = (apiKeys.cs2Worker || '').trim().length > 5;
+  const hasWorker = (marketWorker || '').trim().length > 5;
   const runDataAction = (action) => {
     if (!action) return;
     if (action.type === 'edit-transaction') {
@@ -4670,7 +4679,7 @@ function InvestmentTracker() {
     if (!ok) return;
     setSkinRepairBusy(true);
     const nameMap = {};
-    const base = (apiKeys.cs2Worker || '').trim().replace(/\/$/, '');
+    const base = (marketWorker || '').trim().replace(/\/$/, '');
     if (base.length > 5) {
       // Exact names from the skin price list (one request for every item).
       const SKP = window.MaerminSkinPrices;
@@ -5516,7 +5525,7 @@ function InvestmentTracker() {
             newTransaction.category === 'skins' && window.MaerminFeatures3?.CS2SkinPicker
               ? React.createElement('div', null,
                   React.createElement(window.MaerminFeatures3.CS2SkinPicker, {
-                    workerUrl: apiKeys.cs2Worker, theme: currentTheme,
+                    workerUrl: marketWorker, theme: currentTheme,
                     selectedName: newTransaction.symbol,
                     onSelect: ({ name, price, image }) => {
                       // Skin search prices are USD: store full precision (no
@@ -5546,7 +5555,7 @@ function InvestmentTracker() {
             : (newTransaction.category === 'stocks' || newTransaction.category === 'crypto') && window.MaerminFeatures3?.SymbolPicker
               ? React.createElement(window.MaerminFeatures3.SymbolPicker, {
                   category: newTransaction.category,
-                  workerUrl: apiKeys.cs2Worker,
+                  workerUrl: marketWorker,
                   theme: currentTheme,
                   selectedSymbol: newTransaction.symbol,
                   selectedName: newTransaction.symbolName || '',
@@ -5855,7 +5864,7 @@ function InvestmentTracker() {
             const d = newTransaction.date || window.MaerminUtils.todayISO();
             const res = FXH.txToEUR(1, cur, d, exchangeRate, fxAt);
             const show = (v) => (v >= 0.1 ? window.MaerminI18n.num(v, 4) : window.MaerminI18n.num(Number(v.toPrecision(4)), { min: 0, max: 10 }));
-            const hasW = (apiKeys.cs2Worker || '').trim().length > 5;
+            const hasW = (marketWorker || '').trim().length > 5;
             return React.createElement('div', { 'data-testid': 'tx-currency-hint', style: { color: currentTheme.textSecondary, fontSize: '0.78rem', marginTop: '0.4rem', lineHeight: 1.5 } },
               res.status === 'exact' ? __('fxHintExact', '1 {cur} = {rate} EUR on {date} (rate of the trade date).', { cur, rate: show(res.value), date: window.MaerminI18n.date(d) })
                 : res.status === 'approx' ? (FXH.hasHistory(cur)
@@ -6419,7 +6428,8 @@ buy,crypto,bitcoin,0.5,45000,2024-01-15,10`)
     const doEnableSync = () => { if (!workerUrl) { addToast(__('syncNeedWorker', 'Add a Worker URL in API Settings first'), 'error'); return; } if (!S) return; S.configure({ provider: 'worker', endpoint: workerUrl }); if (S.enableAutoSync) S.enableAutoSync(); runSync(); };
     const syncOn = !!((S && S.isConfigured && S.isConfigured()) || (syncCfg && syncCfg.provider));
 
-    return React.createElement(window.MaerminUI.Overlay, { onClose: () => setShowSecurity(false), restoreFocus: focusAccountButton, style: { position: 'fixed', inset: 0, zIndex: 9050, background: 'rgba(3,6,12,0.72)', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '1.5rem' } },
+    // focusField: false - an overview: open on the panel, not on the market-data switch (P5-3.1)
+    return React.createElement(window.MaerminUI.Overlay, { onClose: () => setShowSecurity(false), focusField: false, restoreFocus: focusAccountButton, style: { position: 'fixed', inset: 0, zIndex: 9050, background: 'rgba(3,6,12,0.72)', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '1.5rem' } },
       React.createElement('div', { ...window.MaerminUI.dialogProps('dlg-security'), style: { background: currentTheme.modalBg || currentTheme.cardBg || '#141a25', border: `1px solid ${currentTheme.cardBorder}`, borderRadius: '16px', padding: '1.75rem', width: '100%', maxWidth: '500px', maxHeight: '88vh', overflowY: 'auto', boxShadow: '0 30px 70px -20px rgba(0,0,0,0.7)' } },
         React.createElement('div', { style: { display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.25rem' } },
           React.createElement('h3', { id: 'dlg-security', style: { color: currentTheme.text, fontSize: '1.15rem', fontWeight: '700', margin: 0 } }, __('securitySync', 'Security & sync')),
@@ -6456,7 +6466,17 @@ buy,crypto,bitcoin,0.5,45000,2024-01-15,10`)
           syncOn ? smallBtn(syncBusy ? __('syncing', 'Syncing…') : __('syncNow', 'Sync now'), runSync, syncBusy) : null,
           syncOn ? null : smallBtn(syncBusy ? '…' : __('syncEnable', 'Enable & sync'), doEnableSync, syncBusy || !workerUrl)
         ),
-        !workerUrl && React.createElement('div', { style: { color: currentTheme.warning, fontSize: '0.74rem', marginTop: '0.4rem' } }, __('syncNeedWorkerHint', 'Add a Worker URL in API Settings to enable sync.'))
+        !workerUrl && React.createElement('div', { style: { color: currentTheme.warning, fontSize: '0.74rem', marginTop: '0.4rem' } }, __('syncNeedWorkerHint', 'Add a Worker URL in API Settings to enable sync.')),
+        // P5-3.1: where market data comes from, and the shared price service switch
+        sectionTitle(__('secMarketData', 'Market data')),
+        React.createElement('p', { 'data-testid': 'shared-prices-info', style: { color: currentTheme.textSecondary, fontSize: '0.76rem', lineHeight: '1.5', margin: '0 0 0.4rem' } },
+          __('secSharedHint', 'Prices, closes, exchange rates, symbol search and fund data come from your own Worker. Without one, the app can use the MAERMIN price service run by the project owner: it only serves market data, sees the symbols you ask about (never amounts, quantities or your vault), keeps no logs beyond its cache, and is never used for sync, share links or broker connections. Your own Worker always wins.')),
+        row(__('secSource', 'Source'), badge(workerUrl ? __('secSourceOwn', 'Your Worker') : usingSharedPrices ? __('secSourceShared', 'MAERMIN price service') : __('secSourceNone', 'None (offline prices)'), !!(workerUrl || usingSharedPrices))),
+        row(__('secSharedSwitch', 'Use the price service without an own Worker'), React.createElement('label', { style: { display: 'inline-flex', alignItems: 'center', gap: '0.4rem', cursor: 'pointer' } },
+          React.createElement('input', { type: 'checkbox', 'data-testid': 'shared-prices-toggle', checked: (window.MaerminSharedWorker ? window.MaerminSharedWorker.enabledFrom(sharedPrices) : false),
+            onChange: (e) => setSharedPrices(e.target.checked), style: { width: '22px', height: '22px', margin: 0, accentColor: currentTheme.accent } }))),
+        window.MaerminSharedWorker && !window.MaerminSharedWorker.SHARED_URL && React.createElement('div', { style: { color: currentTheme.textSecondary, fontSize: '0.72rem', marginTop: '0.3rem' } },
+          __('secSharedNotYet', 'The price service is not online yet; until then market data needs your own Worker.'))
       )
     );
   };

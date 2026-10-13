@@ -353,3 +353,20 @@ repository redeploy.
 **By hand:** Cloudflare Dashboard → Workers → Create → paste `cf-worker/worker.js` → Deploy. For sync,
 create a KV namespace and bind it as `SYNC`. Or `npx wrangler deploy` in `cf-worker/` (wrangler ≥ 4.45
 provisions the KV namespace itself). No secrets/env vars are required for market data.
+
+## Shared price Worker (`PRICE_ONLY`, P5-3.1)
+
+The project owner can run the same code a second time as a **market-data-only** service, used by the
+app only when a user has no Worker of their own (an own Worker always wins; users can switch it off
+in Security & sync → Market data).
+
+| Variable | Effect |
+|---|---|
+| `PRICE_ONLY = "1"` | Serves only `yf`, `yfsearch`, `screener`, `fundholdings`, `fundamentals`, `earnings`, `profile`, `news`, `skinprices`, `cg`, `hicp` and `version`. Every other route (`sync`, `share`, `mcp`, `brokerproxy`, `steaminv`, later FinTS / aggregators) answers `403 { error: "not available on the shared price service" }` before anything runs. `version` reports `priceOnly: true` and only these actions. |
+| `PRICE_ONLY_RPM = "60"` | Requests per IP and minute (default 60), on top of the general limit. |
+| `PRICE_ONLY_OFF = "1"` | Kill switch: every route answers `503 { error: "shared price service paused" }`; `version` says `paused: true`. |
+
+Deploy it without the `SYNC` KV namespace and the Durable Object (no storage is needed). It logs
+nothing; Cloudflare's edge cache keeps the market answers as on any Worker. It sees the symbols,
+search terms and region codes the app asks about - never amounts, quantities or the vault. After
+deploying, the owner sets its URL as `SHARED_URL` in `shared-worker.js`.

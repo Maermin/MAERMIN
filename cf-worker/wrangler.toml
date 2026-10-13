@@ -36,3 +36,8 @@ ALLOW_NULL_ORIGIN = "true"
 # New sync accounts per UTC day (each client at most 5). Default 200.
 # SYNC_DAILY_NEW_MAX = "200"
 # ALLOW_LOCALHOST = "true"
+# P5-3.1 shared price Worker only (see docs/WORKER.md): market data only,
+# refuses sync / share / MCP / broker relay / Steam inventory.
+# PRICE_ONLY = "1"
+# PRICE_ONLY_RPM = "60"
+# PRICE_ONLY_OFF = "1"   # kill switch
