@@ -99,19 +99,20 @@ function __(k, f, v) { return (typeof window !== 'undefined' && window.MaerminI1
       if (!r || !(Math.abs(r.amount) > 0) || !/^\d{4}-\d{2}-\d{2}$/.test(r.date || '')) return;
       var type = classify(r);
       if (!type) { skipped++; return; }
-      var base = [account.iban || account.accountNo, r.date, r.amount.toFixed(2), r.purpose, r.name].join('|');
+      // a row with the provider's own id (P5-3.5 GoCardless) keeps it; FinTS rows have none
+      var base = r.id ? 'id|' + r.id : [account.iban || account.accountNo, r.date, r.amount.toFixed(2), r.purpose, r.name].join('|');
       seen[base] = (seen[base] || 0) + 1;
       var note = [r.name, r.purpose || r.bookingText].filter(Boolean).join(' - ').slice(0, 140);
       out.push({ category: 'cashflow', type: type, amount: Math.round(Math.abs(r.amount) * 100) / 100, currency: r.currency || account.currency || 'EUR', date: r.date,
-        notes: note, source: 'fints', externalId: fnv(base) + '-' + seen[base], portfolioId: opts.portfolioId || undefined });
+        notes: note, source: opts.source || 'fints', externalId: fnv(base) + '-' + seen[base], portfolioId: opts.portfolioId || undefined });
     });
     return { rows: out, skipped: skipped };
   }
   // New bookings only (a repeat sync of the same days books nothing twice).
   function newOnly(candidates, existing) {
     var have = {};
-    (existing || []).forEach(function (t) { if (t && t.source === 'fints' && t.externalId) have[t.externalId] = true; });
-    return (candidates || []).filter(function (c) { return !have[c.externalId]; });
+    (existing || []).forEach(function (t) { if (t && t.source && t.externalId) have[t.source + '|' + t.externalId] = true; });
+    return (candidates || []).filter(function (c) { return !have[c.source + '|' + c.externalId]; });
   }
 
   // ---- depot statement vs MAERMIN -------------------------------------------------
@@ -339,7 +340,7 @@ function __(k, f, v) { return (typeof window !== 'undefined' && window.MaerminI1
       e('div', { style: { color: text, fontWeight: 700, fontSize: '0.95rem', marginBottom: '0.2rem' } }, __('bsTitle', 'Bank sync (FinTS)')),
       e('div', { 'data-testid': 'bs-privacy', style: { color: dim, fontSize: '0.76rem', marginBottom: '0.8rem', lineHeight: 1.5 } },
         __('bsSubtitle', 'Balances, transactions and depot statements straight from your bank. This browser builds every FinTS message; your own Worker only passes it to the bank. The PIN and TANs are never stored, the login name only if you tick it.')),
-      info && info.error ? e('div', { style: { color: warn, fontSize: '0.76rem', marginBottom: '0.6rem' } }, __('bsOutdated', 'Your Worker does not offer bank sync yet: redeploy it (version 2026.10.7 or later).')) : null,
+      info && info.error ? e('div', { style: { color: warn, fontSize: '0.76rem', marginBottom: '0.6rem' } }, __('bsOutdated', 'Your Worker does not offer bank sync yet: redeploy it (version 2026.10.8 or later).')) : null,
       info && !info.error && !info.productId ? e('div', { 'data-testid': 'bs-no-product', style: { color: warn, fontSize: '0.76rem', marginBottom: '0.6rem' } }, __('bsNoProduct', 'Bank sync needs the MAERMIN FinTS product id in your Worker (FINTS_PRODUCT_ID).')) : null,
       connRows,
       e('div', { style: { display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(150px,1fr))', gap: '0.5rem', marginTop: '0.4rem' } },

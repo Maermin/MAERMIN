@@ -34,7 +34,7 @@ import { FINTS_BANKS, fintsUrlAllowed, extraHosts } from './fints-banks.js';
 // Bump on every change to this file that the app relies on, and set
 // EXPECTED_WORKER_VERSION in onboarding.js to the same value (test/worker-version
 // enforces both). Format YYYY.M.N; compared numerically per part.
-export const WORKER_VERSION = '2026.10.7';
+export const WORKER_VERSION = '2026.10.8';
 export const WORKER_ACTIONS = ['yf', 'yfsearch', 'screener', 'fundholdings', 'fundamentals', 'earnings', 'profile',
   'news', 'skinprices', 'steaminv', 'cg', 'hicp', 'sync', 'share', 'mcp', 'brokerproxy', 'fints', 'fintsbanks', 'version'];
 // P5-3.1: the routes a shared price Worker (PRICE_ONLY=1) serves - market data only
@@ -969,6 +969,18 @@ const BROKER_RELAY_POLICY = {
   'api.kraken.com':            { POST: ['/0/private/TradesHistory', '/0/private/Ledgers', '/0/private/Balance'] },
   'api.exchange.coinbase.com': { GET: ['/fills', '/accounts'] },
   'api.coinbase.com':          { GET: ['/api/v3/brokerage/orders/historical/fills', '/api/v3/brokerage/accounts', '/v2/accounts'] },
+  // P5-3.5 bring-your-own-key aggregators (the user's own API keys). Read
+  // endpoints only, plus what linking needs: a token, a bank link
+  // (GoCardless requisition) and a read-only connection portal (SnapTrade).
+  // No trading, payment or delete endpoint is listed.
+  'bankaccountdata.gocardless.com': {
+    POST: ['/api/v2/token/new', '/api/v2/token/refresh', '/api/v2/requisitions'],
+    GET: ['/api/v2/institutions', /^\/api\/v2\/requisitions\/[0-9a-f-]{36}$/, /^\/api\/v2\/accounts\/[0-9a-f-]{36}\/(details|balances|transactions)$/],
+  },
+  'api.snaptrade.com': {
+    POST: ['/api/v1/snapTrade/registerUser', '/api/v1/snapTrade/login'],
+    GET: ['/api/v1/accounts', '/api/v1/activities', /^\/api\/v1\/accounts\/[0-9a-f-]{36}\/(positions|balances)$/],
+  },
 };
 export function brokerRelayAllowed(target, method) {
   if (!target || target.protocol !== 'https:') return { ok: false, error: 'Host not allowed' };
@@ -981,7 +993,8 @@ export function brokerRelayAllowed(target, method) {
   const raw = target.pathname;
   if (raw.indexOf('%') !== -1 || raw.indexOf('//') !== -1) return { ok: false, error: 'Endpoint not allowed (read-only relay)' };
   const path = raw.length > 1 ? raw.replace(/\/$/, '') : raw;
-  const ok = paths.indexOf(path) !== -1;
+  // exact endpoints, or a pattern for one id segment (P5-3.5)
+  const ok = paths.some((p) => (typeof p === 'string' ? p === path : p.test(path)));
   return ok ? { ok: true } : { ok: false, error: 'Endpoint not allowed (read-only relay)' };
 }
 
@@ -1324,6 +1337,8 @@ const RELAY_HEADERS = {
   'api.kraken.com': ['api-key', 'api-sign', 'content-type'],
   'api.exchange.coinbase.com': ['cb-access-key', 'cb-access-sign', 'cb-access-timestamp', 'cb-access-passphrase'],
   'api.coinbase.com': ['authorization'],
+  'bankaccountdata.gocardless.com': ['authorization', 'content-type'],
+  'api.snaptrade.com': ['signature', 'content-type'],
 };
 export function relayHeaders(host, headers) {
   const allow = RELAY_HEADERS[host] || [];

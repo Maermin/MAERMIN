@@ -62,6 +62,8 @@
     'maermin_exchange_sync',
     // FinTS bank connections and their last balances / depot (P5-3.4); no PIN or TAN
     'maermin_bank_sync',
+    // GoCardless / SnapTrade connection metadata (P5-3.5); the API keys are never in a backup
+    'maermin_aggregators',
     // reusable CSV import presets (see import-mapping.js — saved column mappings)
     'maermin_import_presets',
     // German fund taxation + tax settings (tax-settings.js, tax-calculation-

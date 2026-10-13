@@ -81,6 +81,7 @@
     'maermin_corporate_actions',  // held symbols + splits
     'maermin_import_presets',     // broker column mappings
     'maermin_exchange_sync',      // exchange connection metadata
+    'maermin_aggregators',        // GoCardless / SnapTrade connection metadata and last balances (aggregators.js, P5-3.5); the keys themselves are vault-encrypted apart, never synced
     'maermin_bank_sync',          // FinTS bank connections: bank code, login name if kept, last balances and depot (bank-sync.js, P5-3.4); never PIN or TAN
     'maermin_custom_categories',
     'maermin_trash',              // deleted records (transactions, plans, accounts …) for 30 days
