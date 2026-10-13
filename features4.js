@@ -595,8 +595,11 @@ function SavingsPlanView({ transactions, theme, formatPrice, getCurrencySymbol, 
 // 3. DIVIDEND FORECAST — 12-Monats-Prognose
 // Schaut auf historische Dividenden-Einträge und projiziert sie voraus
 // ─────────────────────────────────────────────────────────────────────────────
-function DividendForecastView({ transactions, portfolio, prices, metaVersion, theme, formatPrice, getCurrencySymbol, exchangeRate, fxAt }) {
-  const [forecastYears, setForecastYears] = React.useState(3);
+function DividendForecastView({ transactions, portfolio, prices, metaVersion, theme, formatPrice, getCurrencySymbol, exchangeRate, fxAt, basis }) {
+  // P5-2.5: 24 months by default; a month opens its payments
+  const [forecastYears, setForecastYears] = React.useState(2);
+  const [selMonth, setSelMonth] = React.useState(null);
+  const DH = window.MaerminDividendHistory;
 
   const dividends = useMemo(() =>
     transactions.filter(tx => tx.type === 'dividend' || (tx.notes || '').toLowerCase().includes('dividend')),
@@ -609,7 +612,8 @@ function DividendForecastView({ transactions, portfolio, prices, metaVersion, th
   const forecasts = useMemo(() => {
     const FX = window.MaerminFxHistory, U = window.MaerminUtils;
     const toEUR = (tx) => {
-      const amt = (parseFloat(tx.quantity) || 0) * (parseFloat(tx.price) || 0);
+      // P5-2.5: gross or net of withholding tax, like the switch says
+      const amt = DH ? DH.amountOf(tx, basis) : (parseFloat(tx.quantity) || 0) * (parseFloat(tx.price) || 0);
       if (FX && FX.txToEUR) return FX.txToEUR(amt, tx.currency || 'EUR', tx.date, exchangeRate, fxAt).value;
       return U ? U.toEUR(amt, tx.currency || 'EUR', exchangeRate) : amt;
     };
@@ -632,34 +636,22 @@ function DividendForecastView({ transactions, portfolio, prices, metaVersion, th
       });
     }
     return result.sort((a, b) => b.annualRate - a.annualRate);
-  }, [dividends, portfolio, prices, metaVersion, exchangeRate, fxAt]);
+  }, [dividends, portfolio, prices, metaVersion, exchangeRate, fxAt, basis]);
 
   const isEstimated = forecasts.length > 0 && forecasts.every(f => f.source === 'estimated');
 
   // Build multi-year monthly forecast
+  // History: the months the payer actually paid in. Estimated: evenly spread
+  // (MaerminDividendHistory.months, Node-tested).
   const monthlyForecast = useMemo(() => {
-    const months = [];
-    const now = new Date();
-    const totalMonths = forecastYears * 12;
-    for (let i = 0; i < totalMonths; i++) {
-      const d = new Date(now.getFullYear(), now.getMonth() + i, 1);
-      months.push({ date: d, year: d.getFullYear(), label: window.MaerminI18n.date(d, { month: 'short', year: '2-digit' }), amount: 0, items: [] });
-    }
-    forecasts.forEach(f => {
-      const paymentsPerYear = f.paymentsPerYear || (f.frequency === 'monthly' ? 12 : f.frequency === 'quarterly' ? 4 : f.frequency === 'semi-annual' ? 2 : 1);
-      const perPayment = f.perPayment != null ? f.perPayment : f.annualRate / paymentsPerYear;
-      months.forEach((m, i) => {
-        // History: the months the payer actually paid in. Estimated: evenly spread.
-        const shouldPay = Array.isArray(f.months) && f.months.length ? f.months.indexOf(m.date.getMonth()) > -1
-          : f.frequency === 'monthly' ? true
-          : f.frequency === 'quarterly' ? i % 3 === 0
-          : f.frequency === 'semi-annual' ? i % 6 === 0
-          : i % 12 === 0;
-        if (shouldPay) { m.amount += perPayment; m.items.push({ sym: f.sym, amount: perPayment }); }
-      });
+    if (!DH) return [];
+    return DH.months(forecasts, { today: window.MaerminUtils.todayISO(), months: forecastYears * 12 }).map(m => {
+      const d = new Date(m.y, m.m, 1);
+      return { date: d, year: m.y, label: window.MaerminI18n.date(d, { month: 'short', year: '2-digit' }), amount: m.amount, items: m.items };
     });
-    return months;
   }, [forecasts, forecastYears]);
+  const shownMonths = monthlyForecast.slice(0, Math.min(forecastYears * 12, 24));
+  const sel = selMonth !== null && shownMonths[selMonth] ? shownMonths[selMonth] : null;
 
   // Group by year for summary
   const byYear = useMemo(() => {
@@ -693,7 +685,8 @@ function DividendForecastView({ transactions, portfolio, prices, metaVersion, th
       React.createElement('div', null,
         React.createElement('h2', { style: { color: theme.text, fontSize: '1.5rem', fontWeight: '800', letterSpacing: '-0.02em', marginBottom: '0.25rem' } }, __('dfTitle', 'Dividend Forecast')),
         React.createElement('p', { style: { color: theme.textSecondary, fontSize: '0.8rem' } },
-          isEstimated ? __('dfEstimated', 'Estimated from current holdings × known dividend rates') : __('dfProjected', 'Projected from your recorded dividend frequency and amount'))
+          (isEstimated ? __('dfEstimated', 'Estimated from current holdings × known dividend rates') : __('dfProjected', 'Projected from your recorded dividend frequency and amount'))
+            + ' · ' + (basis === 'gross' ? __('dhGrossNote', 'Before withholding tax.') : __('dhNetNote', 'After withholding tax.')))
       ),
       // Year range toggle
       React.createElement('div', { style: { display: 'flex', background: theme.inputBg, borderRadius: '8px', padding: '0.2rem', gap: '0.15rem' } },
@@ -738,25 +731,46 @@ function DividendForecastView({ transactions, portfolio, prices, metaVersion, th
       React.createElement('div', { style: { color: theme.text, fontWeight: '700', fontSize: '0.9rem', marginBottom: '1rem' } },
         forecastYears <= 2 ? __('dfMonthly', 'Monthly Breakdown') : __('dfMonthly24', 'Monthly Breakdown (first 24 months)')
       ),
-      React.createElement('div', { style: { display: 'flex', gap: '0.25rem', alignItems: 'flex-end', height: 120, minWidth: Math.min(forecastYears * 12, 24) * 36 } },
-        monthlyForecast.slice(0, Math.min(forecastYears * 12, 24)).map((m, i) => {
-          const isNewYear = i > 0 && m.year !== monthlyForecast[i-1].year;
-          return React.createElement('div', { key: i, style: { flex: '0 0 32px', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '0.2rem' } },
-            isNewYear && React.createElement('div', { style: { position: 'absolute', width: 1, height: 100, background: 'rgba(255,255,255,0.1)', marginTop: -4 } }),
+      React.createElement('div', { 'data-testid': 'df-months', style: { display: 'flex', gap: '0.25rem', alignItems: 'flex-end', height: 132, minWidth: shownMonths.length * 36 } },
+        shownMonths.map((m, i) => {
+          const on = selMonth === i;
+          // P5-2.5: each month is a button that lists its payments below
+          return React.createElement('button', {
+            key: i, type: 'button', 'data-month': i, 'aria-pressed': on, onClick: () => setSelMonth(on ? null : i),
+            'aria-label': __('dfMonthAria', '{month}: {amount}', { month: window.MaerminI18n.date(m.date, { month: 'long', year: 'numeric' }), amount: `${formatPrice(m.amount)} ${getCurrencySymbol()}` }),
+            title: `${m.label}: ${formatPrice(m.amount)} ${getCurrencySymbol()}`,
+            style: { flex: '0 0 32px', height: '100%', display: 'flex', flexDirection: 'column', justifyContent: 'flex-end', alignItems: 'center', gap: '0.2rem', padding: 0, border: 'none', background: on ? `${theme.accent}14` : 'transparent', borderRadius: '6px', cursor: 'pointer' }
+          },
             React.createElement('div', {
-              title: `${m.label}: ${formatPrice(m.amount)} ${getCurrencySymbol()}`,
               style: {
-                width: '100%', background: `${theme.accent}cc`, borderRadius: '3px 3px 0 0',
+                width: '100%', background: on ? theme.accent : `${theme.accent}cc`, borderRadius: '3px 3px 0 0',
                 height: `${Math.max(m.amount > 0 ? 8 : 0, Math.round(m.amount / maxMonth * 90))}px`,
-                transition: 'height 0.3s', cursor: 'default',
+                transition: 'height 0.3s',
                 opacity: m.year === new Date().getFullYear() ? 1 : 0.7
               }
             }),
-            React.createElement('div', { style: { color: theme.textSecondary, fontSize: '0.5rem', textAlign: 'center', whiteSpace: 'nowrap', transform: 'rotate(-45deg)', transformOrigin: 'top center', marginTop: '0.25rem' } },
+            React.createElement('div', { style: { color: on ? theme.text : theme.textSecondary, fontSize: '0.6rem', textAlign: 'center', whiteSpace: 'nowrap', fontWeight: on ? 700 : 400 } },
               window.MaerminI18n.date(m.date, { month: 'short' })
-            )
+            ),
+            React.createElement('div', { style: { color: theme.textSecondary, fontSize: '0.55rem', whiteSpace: 'nowrap' } }, String(m.year).slice(2))
           );
         })
+      ),
+      React.createElement('div', { 'data-testid': 'df-month-detail', style: { marginTop: '0.75rem', borderTop: `1px solid ${theme.cardBorder}`, paddingTop: '0.75rem' } },
+        !sel
+          ? React.createElement('div', { style: { color: theme.textSecondary, fontSize: '0.8rem' } }, __('dfMonthHint', 'Select a month for its payments.'))
+          : React.createElement('div', null,
+              React.createElement('div', { style: { display: 'flex', justifyContent: 'space-between', gap: '0.5rem', flexWrap: 'wrap', marginBottom: '0.5rem' } },
+                React.createElement('strong', { style: { color: theme.text, fontSize: '0.9rem' } }, window.MaerminI18n.date(sel.date, { month: 'long', year: 'numeric' })),
+                React.createElement('strong', { 'data-v': sel.amount, style: { color: theme.success, fontSize: '0.9rem' } }, `${formatPrice(sel.amount)} ${getCurrencySymbol()}`)),
+              sel.items.length === 0
+                ? React.createElement('div', { style: { color: theme.textSecondary, fontSize: '0.8rem' } }, __('dfMonthNone', 'No payment expected this month.'))
+                : sel.items.slice().sort((a, b) => b.amount - a.amount).map((it, j) =>
+                    React.createElement('div', { key: j, 'data-sym': it.sym, style: { display: 'flex', justifyContent: 'space-between', gap: '0.5rem', padding: '0.35rem 0', fontSize: '0.82rem', borderTop: j ? `1px solid ${theme.cardBorder}` : 'none' } },
+                      React.createElement('span', { style: { color: theme.text, fontWeight: 600 } }, it.sym,
+                        React.createElement('span', { style: { color: theme.textSecondary, fontWeight: 400, marginLeft: '0.5rem', fontSize: '0.72rem' } },
+                          it.source === 'estimated' ? __('dfSrcEstimated', 'estimated, before tax') : __('dfSrcHistory', 'from your last 12 months'))),
+                      React.createElement('span', { style: { color: theme.text, fontVariantNumeric: 'tabular-nums' } }, `${formatPrice(it.amount)} ${getCurrencySymbol()}`))))
       )
     ),
 

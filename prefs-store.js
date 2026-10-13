@@ -38,7 +38,9 @@
     currency:   { key: 'currency',            def: 'EUR' },
     // Simple/Advanced navigation (nav-model.js). '' = not chosen yet: the
     // renderer derives it from the vault (MaerminNav.initialMode) and saves it.
-    uiMode:     { key: 'maermin_ui_mode',     def: '' }
+    uiMode:     { key: 'maermin_ui_mode',     def: '' },
+    // Returns and dividends before ('gross') or after ('net') taxes and fees (P5-2.5)
+    grossNet:   { key: 'maermin_gross_net',   def: 'net' }
   };
 
   function lsGet(k) { try { return (typeof localStorage !== 'undefined') ? localStorage.getItem(k) : null; } catch (e) { return null; } }

@@ -26,7 +26,7 @@
 // Bump on every change to this file that the app relies on, and set
 // EXPECTED_WORKER_VERSION in onboarding.js to the same value (test/worker-version
 // enforces both). Format YYYY.M.N; compared numerically per part.
-export const WORKER_VERSION = '2026.10.4';
+export const WORKER_VERSION = '2026.10.5';
 export const WORKER_ACTIONS = ['yf', 'yfsearch', 'screener', 'fundholdings', 'fundamentals', 'earnings', 'profile',
   'news', 'skinprices', 'steaminv', 'cg', 'sync', 'share', 'mcp', 'brokerproxy', 'version'];
 
@@ -290,9 +290,9 @@ async function handle(request, env, ctx) {
         return res(JSON.stringify({ error: 'invalid interval or range' }), 400, request);
       }
 
-      // Cache key: symbol+interval+range
+      // Cache key: symbol+interval+range (yf2: the payload with dividends, P5-2.5)
       const cacheKey = new Request(
-        `https://cache.maermin/yf/${encodeURIComponent(symbol)}/${interval}/${range}`
+        `https://cache.maermin/yf2/${encodeURIComponent(symbol)}/${interval}/${range}`
       );
       const cache = caches.default;
 
@@ -362,7 +362,15 @@ async function handle(request, env, ctx) {
         })).filter(s => s.date && s.numerator > 0 && s.denominator > 0)
           .sort((a, b) => (a.date < b.date ? -1 : 1));
 
-        const payload = JSON.stringify({ symbol, currency, exchangeTz: exchTz, prices, splits });
+        // P5-2.5: dividend events (requested with events=div above) for the
+        // dividend backtest, per share in the listing currency, oldest first.
+        const dividends = Object.values(result.events?.dividends || {}).map(v => ({
+          date: v.date != null ? new Date(v.date * 1000).toISOString().split('T')[0] : null,
+          amount: numOrNull(v.amount),
+        })).filter(v => v.date && v.amount > 0)
+          .sort((a, b) => (a.date < b.date ? -1 : 1));
+
+        const payload = JSON.stringify({ symbol, currency, exchangeTz: exchTz, prices, splits, dividends });
 
         // Cache
         ctx.waitUntil(cache.put(cacheKey, new Response(payload, {

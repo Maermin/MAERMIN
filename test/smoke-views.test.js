@@ -79,7 +79,7 @@ const engines = [
   '../recurring.js', '../equity-metadata.js', '../portfolio-health.js',
   '../data-quality.js', '../portfolio-analytics.js', '../analytics-data.js',
   '../tax-settings.js', '../tax-calculation-engine.js', '../tax-report-builder.js',
-  '../attribution.js', '../returns-engine.js', '../return-figures.js', '../verdicts.js', '../fund-holdings-import.js', '../returns-heatmap.js', '../heatmap-drilldown.js',
+  '../attribution.js', '../returns-engine.js', '../return-figures.js', '../verdicts.js', '../fund-holdings-import.js', '../returns-heatmap.js', '../heatmap-drilldown.js', '../dividend-history.js',
 ];
 console.log('engine preload:');
 for (const e of engines) {
@@ -92,7 +92,7 @@ for (const e of engines) {
 // ---------------------------------------------------------------------------
 const VIEW_MODULES = [
   { file: '../features.js',         ns: 'MaerminFeatures',  comps: ['Sparkline', 'WatchlistView'] },
-  { file: '../features2.js',        ns: 'MaerminFeatures2', comps: ['ReturnsView', 'ReturnsHeatmap', 'RebalancingView', 'BrokerImportWizard', 'PositionNotesView', 'DividendCalendarView', 'MobileBottomNav', 'calcXIRR', 'calcTWR'] },
+  { file: '../features2.js',        ns: 'MaerminFeatures2', comps: ['ReturnsView', 'ReturnsHeatmap', 'GrossNetSwitch', 'RebalancingView', 'BrokerImportWizard', 'PositionNotesView', 'DividendCalendarView', 'MobileBottomNav', 'calcXIRR', 'calcTWR'] },
   { file: '../features3.js',        ns: 'MaerminFeatures3', comps: ['PositionDetailModal', 'CS2SkinPicker', 'SymbolPicker'] },
   { file: '../features4.js',        ns: 'MaerminFeatures4', comps: ['usePortfolios', 'PortfolioManagerView', 'SavingsPlanView', 'DividendForecastView', 'FIFOView', 'calcFIFO'] },
   { file: '../features5.js',        ns: 'MaerminFeatures5', comps: ['NetWorthView', 'CashflowChart', 'FeeAnalyzer'] },
@@ -116,6 +116,7 @@ const VIEW_MODULES = [
   { file: '../pdf-import.js',       ns: 'MaerminPdfImport',       comps: ['parseText', 'parseStatement', 'detectBrokerFromText', 'candidatesToCSV', 'parseFiles', 'ensurePdfJs'] },
   { file: '../fx-attribution.js',   ns: 'MaerminFxAttribution',   comps: ['Panel', 'decompose', 'attribute', 'invertSeries', 'currencyOfPositions', 'rowsFromPortfolio'] },
   { file: '../value-attribution.js', ns: 'MaerminValueAttribution', comps: ['Panel', 'compute', 'periodStart', 'biggest'] },
+  { file: '../dividend-history.js', ns: 'MaerminDividendHistory', comps: ['View', 'matrix', 'growth', 'months', 'backtest', 'amountOf'] },
   { file: '../benchmark-replay.js', ns: 'MaerminBenchmarkReplay', comps: ['Panel', 'replay', 'toEurCloses', 'rangeFor', 'symbolOf'] },
   { file: '../backtester.js',       ns: 'MaerminBacktester',      comps: ['Panel', 'backtest', 'run', 'summarize', 'normalizeWeights', 'alignSeries'] },
   { file: '../share-snapshot.js',   ns: 'MaerminShare',           comps: ['View', 'buildSnapshot', 'validateSnapshot', 'compare', 'parseShareId', 'gatherInputs'] },

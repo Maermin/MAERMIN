@@ -448,6 +448,9 @@ function InvestmentTracker() {
   const [theme, setTheme] = useState(() => window.MaerminPrefs.get('theme'));
   const [language, setLanguage] = useState(() => window.MaerminPrefs.get('language'));
   useEffect(() => { window.MaerminPrefs.set('language', language); }, [language]);
+  // P5-2.5: returns and dividends before ('gross') or after ('net') taxes and fees
+  const [grossNet, setGrossNetState] = useState(() => (window.MaerminPrefs.get('grossNet') === 'gross' ? 'gross' : 'net'));
+  const setGrossNet = (v) => { const n = v === 'gross' ? 'gross' : 'net'; setGrossNetState(n); window.MaerminPrefs.set('grossNet', n); };
   
   // v6.0 State
   // v12: command-palette + shortcuts open-states live in MaerminUI.overlays
@@ -975,12 +978,13 @@ function InvestmentTracker() {
     } catch (e) {}
     return { live, splits };
   }, [closeSeriesEUR, fetchedPrices, corpActionsRev]);
-  const buildValuePath = (txs, clearing) => {
+  const buildValuePath = (txs, clearing, extra) => {
     const VP = window.MaerminValuePath, CH = window.MaerminCloseHistory;
     if (!VP || !CH || !Object.keys(closeSeriesEUR).length) return null;
     try {
       // P5-1.4: with a clearing account the daily value includes its cash
-      return VP.build(txs, closeSeriesEUR, { today: window.MaerminUtils.todayISO(), exchangeRate, fxAt, live: pathInputs.live, splits: pathInputs.splits, clearing: clearing || null });
+      // P5-2.5: extra.gross = taxes and fees as money taken out (Analysis → Returns)
+      return VP.build(txs, closeSeriesEUR, { today: window.MaerminUtils.todayISO(), exchangeRate, fxAt, live: pathInputs.live, splits: pathInputs.splits, clearing: clearing || null, gross: !!(extra && extra.gross) });
     } catch (e) { console.warn('[HISTORY] value path failed:', e && e.message); return null; }
   };
   // P5-2.2: held funds with a daily close history (replay targets). A fund =
@@ -1006,6 +1010,10 @@ function InvestmentTracker() {
     [clearingByPf, activePortfolioId]);
   const valuePath = useMemo(() => buildValuePath(activeTransactions, clearingByPf[activePortfolioId]),
     [activeTransactions, closeSeriesEUR, fetchedPrices, exchangeRate, fxAt, corpActionsRev, demoMode, clearingByPf, activePortfolioId]);
+  // P5-2.5: Analysis → Returns follows the gross / net switch; every other
+  // view (risk, analytics, Overview) keeps the net path above.
+  const returnsPath = useMemo(() => (grossNet === 'gross' ? buildValuePath(activeTransactions, clearingByPf[activePortfolioId], { gross: true }) : valuePath),
+    [grossNet, valuePath, activeTransactions, closeSeriesEUR, fetchedPrices, exchangeRate, fxAt, corpActionsRev, demoMode, clearingByPf, activePortfolioId]);
   // P5-1.8: the demo records no snapshots - period returns read the daily value
   // of all demo portfolios instead (securities only, like the snapshots).
   const demoPeriodSeries = useMemo(() => {
@@ -3032,6 +3040,7 @@ function InvestmentTracker() {
     const tabs = [
       { id: 'calendar', label: __('divTabCalendar', 'Calendar') },
       { id: 'forecast', label: __('divTabForecast', 'Forecast') },
+      { id: 'history', label: __('divTabHistory', 'History') },
     ];
 
     const tabBtn = (id, label) => React.createElement('button', {
@@ -3049,7 +3058,10 @@ function InvestmentTracker() {
       React.createElement('div', {
         style: { display: 'flex', gap: '0.375rem', padding: '1rem 1.5rem', borderBottom: `1px solid ${theme.cardBorder}`, alignItems: 'center', flexWrap: 'wrap' }
       },
-        React.createElement('div', { style: { display: 'flex', gap: '0.375rem' } }, tabs.map(tb => tabBtn(tb.id, tb.label))),
+        React.createElement('div', { style: { display: 'flex', gap: '0.375rem', flexWrap: 'wrap' } }, tabs.map(tb => tabBtn(tb.id, tb.label))),
+        // P5-2.5: amounts before or after withholding tax (the same choice as Analysis → Returns)
+        tab !== 'calendar' && window.MaerminFeatures2 && window.MaerminFeatures2.GrossNetSwitch
+          ? React.createElement(window.MaerminFeatures2.GrossNetSwitch, { value: grossNet, onChange: setGrossNet, theme, testid: 'div-gross-net' }) : null,
         React.createElement('div', { style: { flex: 1 } }),
         React.createElement('button', {
           onClick: fetchDividends, disabled: fetching,
@@ -3076,7 +3088,11 @@ function InvestmentTracker() {
           }) : null,
         tab === 'forecast' && window.MaerminFeatures4 ?
           React.createElement(window.MaerminFeatures4.DividendForecastView, {
-            transactions, portfolio, prices, metaVersion, theme, formatPrice, getCurrencySymbol, exchangeRate, fxAt
+            transactions, portfolio, prices, metaVersion, theme, formatPrice, getCurrencySymbol, exchangeRate, fxAt, basis: grossNet
+          }) : null,
+        tab === 'history' && window.MaerminDividendHistory ?
+          React.createElement(window.MaerminDividendHistory.View, {
+            transactions, portfolio, exchangeRate, fxAt, basis: grossNet, workerUrl: viewWorkerUrl, theme, formatPrice, getCurrencySymbol
           }) : null,
         // Dividend quality & safety fold-in (no new tab): per-payer safety
         // score, payout/streak/growth/coverage columns with a click-to-open
@@ -3359,8 +3375,9 @@ function InvestmentTracker() {
         return window.MaerminFeatures2 ? React.createElement('div', null,
           React.createElement(window.MaerminFeatures2.ReturnsView, {
             transactions: activeTransactions, portfolio, prices, priceHistory, fxAt, exchangeRate,
-            valuePath, historyPending: closePending, portfolioId: activePortfolioId, hasWorker: (apiKeys.cs2Worker || '').trim().length > 5,
-            clearing: clearingByPf[activePortfolioId] || null, buildPath: buildValuePath,
+            valuePath: returnsPath, historyPending: closePending, portfolioId: activePortfolioId, hasWorker: (apiKeys.cs2Worker || '').trim().length > 5,
+            clearing: clearingByPf[activePortfolioId] || null, buildPath: (txs, clr) => buildValuePath(txs, clr, { gross: grossNet === 'gross' }),
+            grossNet, setGrossNet,
             theme: currentTheme, formatPrice, getCurrencySymbol, t
           }),
           // Benchmark overlay (α/β/TE/IR/R²) — folds the analytics engine into Returns.

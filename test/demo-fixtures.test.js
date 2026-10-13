@@ -80,6 +80,13 @@ const TODAY = '2026-10-12';
   const again = win.fetch; F.installFetch(win);
   ok('installing twice does not wrap twice', win.fetch === again);
 
+  // P5-2.5: ten years of monthly closes and dividends for the dividend backtest
+  const mo = F.respond(F.BASE + '?action=yf&symbol=AAPL&interval=1mo&range=10y', TODAY);
+  ok('a demo stock has monthly closes for ten years', mo.status === 200 && mo.body.prices.length === 121 && mo.body.prices.every((p) => p.price > 0 && /-01$/.test(p.date)), mo.body.prices && mo.body.prices.length);
+  ok('... and its dividends, oldest first, matching the recorded ones', mo.body.dividends.length > 5 && mo.body.dividends.some((d) => d.date === '2024-05-16' && d.amount === 0.95)
+    && mo.body.dividends.every((d, i, a) => !i || a[i - 1].date <= d.date), JSON.stringify(mo.body.dividends.slice(-3)));
+  ok('a symbol outside the demo still gets a local 404', F.respond(F.BASE + '?action=yf&symbol=ZZZZ&interval=1mo&range=10y', TODAY).status === 404);
+
   console.log('\n' + passed + ' passed, ' + failed + ' failed');
   process.exit(failed ? 1 : 0);
 })();
