@@ -76,6 +76,8 @@
     'maermin_risk_monitor',
     // fund holdings files the user imported for the look-through (P5-2.3)
     'maermin_fund_holdings',
+    // classification trees with their assigned holdings (P5-2.10)
+    'maermin_taxonomies',
     // deleted auto-dividends (so a restore doesn't re-book them)
     'maermin_div_skipped',
     // daily EUR rates of the non-EUR/USD currencies traded (fx-history.js): with
