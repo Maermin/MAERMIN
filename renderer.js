@@ -3382,6 +3382,11 @@ function InvestmentTracker() {
           }),
           // Benchmark overlay (α/β/TE/IR/R²) — folds the analytics engine into Returns.
           window.MaerminAnalyticsViews && React.createElement('div', { style: { padding: '0 1.5rem 1.5rem' } },
+            // P5-2.6: IRR per holding / class / tag, best and worst sales, capital flow
+            window.MaerminHoldingReturns && React.createElement(window.MaerminHoldingReturns.Panel, {
+              transactions: activeTransactions, portfolio, prices, exchangeRate, fxAt, basis: grossNet,
+              theme: currentTheme, formatPrice, getCurrencySymbol
+            }),
             // P5-2.1: profit by source over the same daily closes as the value path
             window.MaerminValueAttribution && React.createElement(window.MaerminValueAttribution.Panel, {
               transactions: activeTransactions, series: closeSeriesEUR, live: pathInputs.live, splits: pathInputs.splits,

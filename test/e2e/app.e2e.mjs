@@ -37,6 +37,8 @@ import { fileURLToPath } from 'node:url';
 // English UI dates (MaerminI18n 'short' style): 2026-10-05 -> 10/05/2026.
 const usDate = (iso) => iso.slice(5, 7) + '/' + iso.slice(8, 10) + '/' + iso.slice(0, 4);
 import { chromium } from 'playwright-core';
+import { createRequire } from 'node:module';
+const Returns = createRequire(import.meta.url)('../../returns-engine.js'); // P5-2.6: XIRR by hand
 
 const root = join(dirname(fileURLToPath(import.meta.url)), '..', '..');
 const PASSWORD = 'Correct-Horse-9!';
@@ -816,7 +818,7 @@ async function runBuild(browser, label, dir) {
     let brokerOv = '', rows = 0, before = null, after = null;
     // P5-1.8: Worker-only views run on in-page sample data; nothing may reach the network
     const sampleReqs = []; page.on('request', (r) => { if (/maermin\.invalid/.test(r.url())) sampleReqs.push(r.url()); });
-    const fixtures = {}; let dqText = '', va = null, br = null, lt = null, dh = null;
+    const fixtures = {}; let dqText = '', va = null, br = null, lt = null, dh = null, hrd = null;
     try {
       await unlock(page, base);
       await page.keyboard.press('Escape');
@@ -877,6 +879,22 @@ async function runBuild(browser, label, dir) {
         await page.waitForTimeout(id === 'news' ? 2000 : 1200);
         fixtures[id] = { badges: await page.locator('main [data-testid="sample-data"]').count(), text: await page.locator('main').innerText() };
       }
+      // P5-2.6: per holding on Analysis → Returns
+      await openView(page, 'returns');
+      await page.locator('[data-testid="holding-returns"]').waitFor({ timeout: 10000 }).catch(() => {});
+      await page.locator('[data-testid="hr-by-class"]').click().catch(() => {});
+      hrd = await page.evaluate(() => {
+        const q = (s) => document.querySelector(s);
+        const classes = Array.from(document.querySelectorAll('[data-testid="hr-irr"] tbody tr')).map((tr) => tr.getAttribute('data-key'));
+        const best = Array.from(document.querySelectorAll('[data-testid="hr-best"] [data-ret]')).map((d) => parseFloat(d.getAttribute('data-ret')));
+        const years = Array.from(document.querySelectorAll('[data-testid="hr-capital"] tr[data-y] td[data-k="net"]')).map((td) => parseFloat(td.getAttribute('data-v')));
+        const avg = q('[data-testid="hr-cf-avg"]');
+        return { classes, best, years, avg: avg ? parseFloat(avg.getAttribute('data-v')) : NaN, avgText: avg ? avg.innerText : '' };
+      });
+      await page.locator('[data-testid="hr-cf-month"]').click().catch(() => {});
+      hrd.months = await page.locator('[data-testid="hr-capital"] tr[data-ym]').count();
+      await openView(page, 'dividends');
+      await page.waitForTimeout(800);
       // P5-2.5: Dividends → History (matrix gross / net, growth, backtest) and the forecast months
       await page.getByRole('button', { name: /^History$/ }).first().click();
       await page.locator('[data-testid="div-backtest"] [data-stat="income"]').waitFor({ timeout: 15000 }).catch(() => {});
@@ -956,6 +974,10 @@ async function runBuild(browser, label, dir) {
           err || JSON.stringify(dh && { net: n && n.grand, gross: g && g.grand, years: n && n.years }));
         ok('P5-2.5: growth per payer, and the backtest on sample data: 5 then 10 years', !!dh && dh.growthRows >= 10 && dh.bt5 === 5 && dh.bt10 > 5 && dh.btBadge === 1, err || JSON.stringify(dh && { g: dh.growthRows, b5: dh.bt5, b10: dh.bt10, badge: dh.btBadge }));
         ok('P5-2.5: the forecast has 24 months; a month lists its payments', !!dh && dh.months === 24 && dh.month.total > 0 && dh.month.items > 0, err || JSON.stringify(dh && { m: dh.months, month: dh.month })); }
+      { const h = hrd, m = h && (h.avgText.match(/over (\d+) months/) || [])[1];
+        ok('P5-2.6: demo per holding: IRR by asset class, best sales ranked, capital flow per year adds up to the monthly average', !!h && h.classes.length >= 3 && h.classes.every((k) => /^class:/.test(k))
+          && h.best.length > 0 && h.best.every((r, i, a) => !i || a[i - 1] >= r) && !!m && Math.abs(h.years.reduce((a, b) => a + b, 0) / Number(m) - h.avg) < 1e-6 && h.months === Number(m),
+          err || JSON.stringify(h).slice(0, 300)); }
       ok('P5-2.3: a holdings file imported for VWCE: source line, holdings via VWCE in the effective exposure', !!lt && /your file .*4 holdings/.test(lt.src) && /4 holdings imported for VWCE/.test(lt.card) && /NVIDIA CORP[^\n]*via VWCE/i.test(lt.table), err || JSON.stringify(lt).slice(0, 300));
       ok('P5-2.3: the demo keeps the imported file in memory only', !!lt && lt.storedAfter === lt.storedBefore, err || String(lt && lt.storedAfter).slice(0, 80));
       ok('P5-2.3: look-through exports as CSV', !!lt && lt.file === 'maermin-look-through.csv' && /^Security,Key,Effective weight %/.test(lt.csv || '') && /NVIDIA/.test(lt.csv || ''), err || JSON.stringify(lt && { file: lt.file, csv: (lt.csv || '').slice(0, 80) }));
@@ -1391,6 +1413,20 @@ async function runBuild(browser, label, dir) {
       const empty = await page.locator('[data-testid="div-matrix"]').innerText().catch(() => '');
       ok('P5-2.5: without recorded dividends the matrix says so', /No dividends recorded yet/.test(empty), empty.slice(0, 120));
       await openView(page, 'returns'); }
+    // P5-2.6: per holding - VWCE.DE's IRR = XIRR of its two buys and its value now; capital flow = all buys
+    { const hr = page.locator('[data-testid="holding-returns"]');
+      await hr.waitFor({ timeout: 10000 }).catch(() => {});
+      const row = hr.locator('[data-testid="hr-irr"] tr[data-key="stocks|VWCE.DE"]');
+      const got = parseFloat(await row.locator('td[data-k="irr"]').getAttribute('data-v').catch(() => 'NaN'));
+      const value = parseFloat(await row.getAttribute('data-value').catch(() => 'NaN'));
+      const invested = parseFloat(await row.getAttribute('data-invested').catch(() => 'NaN'));
+      const today = await page.evaluate(() => window.MaerminUtils.todayISO());
+      const wantIrr = Returns.xirr([{ date: WEEKDAYS[0], amount: -10 * closeOf('VWCE.DE', 0) }, { date: WEEKDAYS[mid], amount: -30 * closeOf('VWCE.DE', mid) }, { date: today, amount: value }]);
+      ok('P5-2.6: VWCE.DE IRR = XIRR of its buys and its value now (' + (wantIrr * 100).toFixed(2) + ' %)', Math.abs(got - wantIrr) < 1e-9 && Math.abs(invested - (10 * closeOf('VWCE.DE', 0) + 30 * closeOf('VWCE.DE', mid))) < 1e-6 && value > 0, got + ' vs ' + wantIrr + ' | ' + invested + ' | ' + value);
+      const net = await hr.locator('[data-testid="hr-capital"] tr[data-y] td[data-k="net"]').evaluateAll((tds) => tds.reduce((a, td) => a + parseFloat(td.getAttribute('data-v')), 0)).catch(() => NaN);
+      const bought = 10 * closeOf('VWCE.DE', 0) + 5 * closeOf('AAPL', 0) * 0.9 + 30 * closeOf('VWCE.DE', mid);
+      const trades = await hr.locator('[data-testid="hr-trades"]').innerText().catch(() => '');
+      ok('P5-2.6: capital flow: the years add up to every buy (' + bought.toFixed(2) + ' EUR); no sales yet', Math.abs(net - bought) < 1e-6 && /No sales yet/.test(trades), net + ' vs ' + bought + ' | ' + trades.slice(0, 80)); }
     ok('closes came through the Worker route ?action=yf (5-year range for both holdings)', ['VWCE.DE', 'AAPL'].every((x) => workerState.requests.includes('/?action=yf&symbol=' + x + '&interval=1d&range=5y')), workerState.requests.join(' '));
     await page.waitForTimeout(2500); // benchmark fetch
     { const rb = await page.innerText('body'); ok('benchmark comparison is computed from daily returns', /Alpha \(ann\.\)/i.test(rb) && /daily returns since/.test(rb), (rb.match(/Benchmark comparison[\s\S]{0,200}/) || [''])[0].replace(/\n/g, ' | ')); }
