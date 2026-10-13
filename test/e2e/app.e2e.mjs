@@ -1427,6 +1427,23 @@ async function runBuild(browser, label, dir) {
       const bought = 10 * closeOf('VWCE.DE', 0) + 5 * closeOf('AAPL', 0) * 0.9 + 30 * closeOf('VWCE.DE', mid);
       const trades = await hr.locator('[data-testid="hr-trades"]').innerText().catch(() => '');
       ok('P5-2.6: capital flow: the years add up to every buy (' + bought.toFixed(2) + ' EUR); no sales yet', Math.abs(net - bought) < 1e-6 && /No sales yet/.test(trades), net + ' vs ' + bought + ' | ' + trades.slice(0, 80)); }
+    // P5-2.7: Cash Flow - the first month bought both holdings; two single months make no streak longer than 1
+    { await openView(page, 'cashflow');
+      const it = page.locator('[data-testid="invest-timeline"]');
+      await it.waitFor({ timeout: 10000 }).catch(() => {});
+      const ym = WEEKDAYS[0].slice(0, 7), ymMid = WEEKDAYS[mid].slice(0, 7);
+      const cell = parseFloat(await it.locator('button[data-ym="' + ym + '"]').getAttribute('data-buys').catch(() => 'NaN'));
+      const want0 = 10 * closeOf('VWCE.DE', 0) + 5 * closeOf('AAPL', 0) * 0.9;
+      const longest = await it.locator('[data-stat="longest"]').innerText().catch(() => '');
+      const ratio = await it.locator('[data-stat="ratio"]').innerText().catch(() => '');
+      const months = new Set(WEEKDAYS.map((d) => d.slice(0, 7))).size;
+      const buyMonths = ym === ymMid ? 1 : 2;
+      await it.locator('button[data-ym="' + ymMid + '"]').click().catch(() => {});
+      const det = await it.locator('[data-testid="it-detail"]').innerText().catch(() => '');
+      ok('P5-2.7: investment calendar: ' + ym + ' bought ' + want0.toFixed(2) + ' EUR; longest streak 1 month; ' + buyMonths + ' of ' + months + ' months with a buy; a month opens its amounts',
+        Math.abs(cell - want0) < 1e-6 && /\b1 month\b/.test(longest) && ratio.includes(buyMonths + ' / ' + months) && /bought .*sold .*net/.test(det),
+        cell + ' vs ' + want0 + ' | ' + longest.replace(/\n/g, ' ') + ' | ' + ratio.replace(/\n/g, ' ') + ' | ' + det);
+      await openView(page, 'returns'); }
     ok('closes came through the Worker route ?action=yf (5-year range for both holdings)', ['VWCE.DE', 'AAPL'].every((x) => workerState.requests.includes('/?action=yf&symbol=' + x + '&interval=1d&range=5y')), workerState.requests.join(' '));
     await page.waitForTimeout(2500); // benchmark fetch
     { const rb = await page.innerText('body'); ok('benchmark comparison is computed from daily returns', /Alpha \(ann\.\)/i.test(rb) && /daily returns since/.test(rb), (rb.match(/Benchmark comparison[\s\S]{0,200}/) || [''])[0].replace(/\n/g, ' | ')); }
