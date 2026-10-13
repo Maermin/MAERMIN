@@ -41,3 +41,7 @@ ALLOW_NULL_ORIGIN = "true"
 # PRICE_ONLY = "1"
 # PRICE_ONLY_RPM = "60"
 # PRICE_ONLY_OFF = "1"   # kill switch
+# P5-3.4 bank sync over FinTS (see docs/WORKER.md)
+# FINTS_PRODUCT_ID = ""       # the MAERMIN FinTS product id; never commit a real one here
+# FINTS_PRODUCT_VERSION = "1"
+# FINTS_EXTRA_HOSTS = ""      # extra bank hosts, comma-separated

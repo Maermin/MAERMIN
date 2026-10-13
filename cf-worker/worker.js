@@ -24,14 +24,19 @@
  *                                                 the browser never calls CoinGecko itself
  *   GET  /?action=steaminv&profile=<id|url>     → CS2 items of a PUBLIC Steam inventory:
  *                                                 { steamid, items: [{ assetid, name, marketable }] }
+ *   GET  /?action=fintsbanks                    → the FinTS servers this Worker relays to and
+ *                                                 whether a FinTS product id is configured
+ *   POST /?action=fints  { url, msg }           → relays one FinTS message (base64, built in the
+ *                                                 browser) to an allowed bank: { status, msg }
  */
+import { FINTS_BANKS, fintsUrlAllowed, extraHosts } from './fints-banks.js';
 
 // Bump on every change to this file that the app relies on, and set
 // EXPECTED_WORKER_VERSION in onboarding.js to the same value (test/worker-version
 // enforces both). Format YYYY.M.N; compared numerically per part.
-export const WORKER_VERSION = '2026.10.6';
+export const WORKER_VERSION = '2026.10.7';
 export const WORKER_ACTIONS = ['yf', 'yfsearch', 'screener', 'fundholdings', 'fundamentals', 'earnings', 'profile',
-  'news', 'skinprices', 'steaminv', 'cg', 'hicp', 'sync', 'share', 'mcp', 'brokerproxy', 'version'];
+  'news', 'skinprices', 'steaminv', 'cg', 'hicp', 'sync', 'share', 'mcp', 'brokerproxy', 'fints', 'fintsbanks', 'version'];
 // P5-3.1: the routes a shared price Worker (PRICE_ONLY=1) serves - market data only
 export const PRICE_ONLY_ACTIONS = ['yf', 'yfsearch', 'screener', 'fundholdings', 'fundamentals', 'earnings', 'profile',
   'news', 'skinprices', 'cg', 'hicp', 'version'];
@@ -889,6 +894,32 @@ async function handle(request, env, ctx) {
       }
     }
 
+    // ── FinTS relay (P5-3.4) ─────────────────────────────────────────────────
+    // The browser builds every FinTS message (PIN and TAN inside, as FinTS
+    // PIN/TAN requires); this Worker only forwards the base64 text to a bank
+    // from cf-worker/fints-banks.js (or FINTS_EXTRA_HOSTS) and returns the
+    // answer. Nothing is stored or logged; no redirects are followed.
+    if (request.method === 'GET' && action === 'fintsbanks') {
+      const productId = String((env && env.FINTS_PRODUCT_ID) || '');
+      return res(JSON.stringify({ banks: FINTS_BANKS, extraHosts: extraHosts(env), productId, productVersion: String((env && env.FINTS_PRODUCT_VERSION) || '1') }), 200, request);
+    }
+    if (request.method === 'POST' && action === 'fints') {
+      const read = await readJsonBody(request, FINTS_BODY_MAX);
+      if (!read.ok) return res(JSON.stringify({ error: read.error }), read.status, request);
+      const spec = read.body || {};
+      const verdict = fintsUrlAllowed(spec.url, env);
+      if (!verdict.ok) return res(JSON.stringify({ error: verdict.error }), 403, request);
+      if (typeof spec.msg !== 'string' || !spec.msg || !/^[A-Za-z0-9+/]+=*$/.test(spec.msg)) return res(JSON.stringify({ error: 'Invalid message' }), 400, request);
+      try {
+        const r = await fetchWithTimeout(verdict.url, { method: 'POST', headers: { 'Content-Type': 'text/plain' }, body: spec.msg, redirect: 'manual' }, 30000);
+        if (r.status >= 300 && r.status < 400) return res(JSON.stringify({ status: r.status, msg: '', error: 'redirect refused' }), 200, request);
+        const text = (await r.text()).replace(/\s+/g, '');
+        return res(JSON.stringify({ status: r.status, msg: /^[A-Za-z0-9+/]*=*$/.test(text) ? text : '' }), 200, request);
+      } catch (e) {
+        return res(JSON.stringify({ error: 'Bank unavailable' }), 502, request);
+      }
+    }
+
     // ── Broker proxy ─────────────────────────────────────────────────────────
     // POST /?action=brokerproxy  body: { method, url, headers, body }
     // Relays a CLIENT-SIGNED request to a whitelisted exchange host so the
@@ -1256,6 +1287,7 @@ const SYMBOL_ROUTES = new Set(['yf', 'fundamentals', 'profile', 'earnings', 'fun
 // ── Limits (SEC-011, SEC-014, SEC-018, SEC-024) ──────────────────────────────
 const SYNC_BODY_MAX = 4_500_000;   // a 4 MB blob plus its JSON envelope
 const SMALL_BODY_MAX = 64_000;     // share and broker relay bodies
+const FINTS_BODY_MAX = 256_000;    // one FinTS message (base64) in a small JSON envelope
 const SCREENER_MAX_SYMBOLS = 60;   // the app's curated dividend universe stays below this
 const SCREENER_IDS = new Set(['day_gainers', 'day_losers', 'most_actives', 'undervalued_growth_stocks',
   'growth_technology_stocks', 'undervalued_large_caps', 'aggressive_small_caps', 'small_cap_gainers',
