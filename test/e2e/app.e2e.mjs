@@ -1248,6 +1248,50 @@ async function runBuild(browser, label, dir) {
     await context.close();
   }
 
+  // P5-3.11: a P2P loan added from its template in Net Worth (principal,
+  // rate, term -> value, monthly interest income, maturity)
+  {
+    const context = await browser.newContext({ serviceWorkers: 'block' });
+    await wire(context, external);
+    const page = await context.newPage();
+    const errors = watch(page);
+    await createVault(page, base);
+    await page.evaluate(() => {
+      localStorage.setItem('maermin_onboarded', '1');
+      localStorage.setItem('maermin_ui_mode', 'advanced');
+      localStorage.setItem('maermin_schema_version', String(window.MaerminMigrations.LATEST));
+      localStorage.setItem('transactions', JSON.stringify([]));
+    });
+    await page.waitForTimeout(1500);
+    let asset = null, row = '', err = '', refused = '';
+    try {
+      await unlock(page, base);
+      await page.keyboard.press('Escape');
+      await openView(page, 'net-worth');
+      await page.getByRole('button', { name: /Add Asset/ }).first().click();
+      await page.locator('[data-testid="ra-template"]').selectOption('p2p_loan');
+      await page.locator('[data-testid="ra-add"]').click();
+      refused = await page.getByText('Fill in the name and the fields marked *.').count().then(String);
+      await page.locator('[data-testid="ra-f-name"]').fill('Loan book');
+      await page.locator('[data-testid="ra-f-platform"]').fill('Platform X');
+      await page.locator('[data-testid="ra-f-principal"]').fill('5.000');
+      await page.locator('[data-testid="ra-f-ratePct"]').fill('7,5');
+      await page.locator('[data-testid="ra-f-startDate"]').fill('2026-01-01');
+      await page.locator('[data-testid="ra-f-termMonths"]').fill('36');
+      await page.locator('[data-testid="ra-add"]').click();
+      await page.waitForTimeout(500);
+      asset = await page.evaluate(() => (JSON.parse(localStorage.getItem('maermin_real_assets') || '{}').assets || [])[0] || null);
+      row = (await page.getByText('Loan book').first().locator('xpath=../../..').innerText().catch(() => '')).replace(/\n/g, ' | ');
+    } catch (e) { err = e.message.split('\n')[0]; }
+    ok('P5-3.11: the template refuses an empty form', refused === '1', err || refused);
+    ok('P5-3.11: the P2P loan is stored with its kind, value, income and details',
+      !!asset && asset.kind === 'p2p_loan' && asset.valuations[0].value === 5000 && asset.cashflows[0].type === 'interest_income' && asset.cashflows[0].amount === 31.25
+      && asset.details.platform === 'Platform X' && asset.details.maturity === '2029-01-01', err || JSON.stringify(asset));
+    ok('P5-3.11: the row shows P2P loans, a 7.5 % yield and 5,000.00', /P2P loans/.test(row) && /7\.5\s?%/.test(row) && /5,000\.00/.test(row), err || row);
+    ok('no page errors in the asset-template session', errors.length === 0, errors.join(' | '));
+    await context.close();
+  }
+
   // P5-3.10: a merger recorded in the position dialog moves the lots to the
   // new symbol (ratio, cost and dates kept) and books the cash part
   {
