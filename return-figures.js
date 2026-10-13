@@ -18,7 +18,8 @@
 //       invested        purchases incl. fees
 //       proceeds        sales after fees + dividends / interest received
 //       netReturn, netReturnPct   value + proceeds − invested + cash bookings
-//       cash            balance of the clearing accounts (null without one) }
+//       cash            balance of the clearing accounts (null without one),
+//       xirrFlows       the flows behind xirr (P5-2.9 real XIRR) }
 //   Every figure is null without transactions.
 //
 // XIRR: a portfolio with a clearing account contributes its deposits and
@@ -105,6 +106,7 @@
       Object.keys(back).forEach(function (d) { if (Math.abs(back[d]) > 1e-9) xirrFlows.push({ date: d, amount: back[d] }); });
     }
     out.xirr = R.xirr(xirrFlows);
+    out.xirrFlows = xirrFlows; // P5-2.9: the real XIRR deflates the same flows
 
     // TWR from the caller's value path
     var vp = opts.valuePath;

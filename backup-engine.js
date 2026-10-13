@@ -92,6 +92,8 @@
     'maermin_ui_mode',
     // returns and dividends gross or net of taxes and fees (prefs-store.js, P5-2.5)
     'maermin_gross_net',
+    // region of the consumer prices for real returns (prefs-store.js, P5-2.9)
+    'maermin_hicp_geo',
     // deleted records kept 30 days for restore (trash.js)
     'maermin_trash',
     // Freistellungsaufträge per broker (fsa.js)

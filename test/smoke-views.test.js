@@ -79,7 +79,7 @@ const engines = [
   '../recurring.js', '../equity-metadata.js', '../portfolio-health.js',
   '../data-quality.js', '../portfolio-analytics.js', '../analytics-data.js',
   '../tax-settings.js', '../tax-calculation-engine.js', '../tax-report-builder.js',
-  '../attribution.js', '../returns-engine.js', '../return-figures.js', '../verdicts.js', '../fund-holdings-import.js', '../returns-heatmap.js', '../heatmap-drilldown.js', '../dividend-history.js', '../holding-returns.js', '../investment-timeline.js', '../allocation-groups.js',
+  '../attribution.js', '../returns-engine.js', '../return-figures.js', '../verdicts.js', '../fund-holdings-import.js', '../returns-heatmap.js', '../heatmap-drilldown.js', '../dividend-history.js', '../holding-returns.js', '../investment-timeline.js', '../allocation-groups.js', '../real-returns.js',
 ];
 console.log('engine preload:');
 for (const e of engines) {
@@ -120,6 +120,7 @@ const VIEW_MODULES = [
   { file: '../holding-returns.js',   ns: 'MaerminHoldingReturns', comps: ['Panel', 'flowsOf', 'irr', 'irrBy', 'trades', 'capitalFlow'] },
   { file: '../investment-timeline.js', ns: 'MaerminInvestTimeline', comps: ['Panel', 'calendar', 'streaks'] },
   { file: '../allocation-groups.js', ns: 'MaerminAllocationGroups', comps: ['Panel', 'providerOf', 'byProvider', 'byPortfolio'] },
+  { file: '../real-returns.js',     ns: 'MaerminRealReturns', comps: ['parse', 'indexAt', 'inflation', 'realTwr', 'realXirr', 'load', 'useHicp', 'defaultGeo'] },
   { file: '../benchmark-replay.js', ns: 'MaerminBenchmarkReplay', comps: ['Panel', 'replay', 'toEurCloses', 'rangeFor', 'symbolOf'] },
   { file: '../backtester.js',       ns: 'MaerminBacktester',      comps: ['Panel', 'backtest', 'run', 'summarize', 'normalizeWeights', 'alignSeries'] },
   { file: '../share-snapshot.js',   ns: 'MaerminShare',           comps: ['View', 'buildSnapshot', 'validateSnapshot', 'compare', 'parseShareId', 'gatherInputs'] },
