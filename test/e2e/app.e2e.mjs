@@ -818,7 +818,7 @@ async function runBuild(browser, label, dir) {
     let brokerOv = '', rows = 0, before = null, after = null;
     // P5-1.8: Worker-only views run on in-page sample data; nothing may reach the network
     const sampleReqs = []; page.on('request', (r) => { if (/maermin\.invalid/.test(r.url())) sampleReqs.push(r.url()); });
-    const fixtures = {}; let dqText = '', va = null, br = null, lt = null, dh = null, hrd = null;
+    const fixtures = {}; let dqText = '', va = null, br = null, lt = null, dh = null, hrd = null, agd = null;
     try {
       await unlock(page, base);
       await page.keyboard.press('Escape');
@@ -879,6 +879,14 @@ async function runBuild(browser, label, dir) {
         await page.waitForTimeout(id === 'news' ? 2000 : 1200);
         fixtures[id] = { badges: await page.locator('main [data-testid="sample-data"]').count(), text: await page.locator('main').innerText() };
       }
+      // P5-2.8: Strategy → Providers & brokers
+      await openView(page, 'investment-analysis');
+      await page.getByRole('button', { name: /Providers & brokers/ }).first().click().catch(() => {});
+      await page.locator('[data-testid="allocation-groups"]').waitFor({ timeout: 8000 }).catch(() => {});
+      agd = await page.evaluate(() => {
+        const rows = (id) => Array.from(document.querySelectorAll('[data-testid="' + id + '"] [data-key]')).map((d) => ({ key: d.getAttribute('data-key'), v: parseFloat(d.getAttribute('data-v')), pct: parseFloat(d.getAttribute('data-pct')) }));
+        return { providers: rows('ag-provider-bars'), brokers: rows('ag-broker-bars') };
+      });
       // P5-2.6: per holding on Analysis → Returns
       await openView(page, 'returns');
       await page.locator('[data-testid="holding-returns"]').waitFor({ timeout: 10000 }).catch(() => {});
@@ -974,6 +982,9 @@ async function runBuild(browser, label, dir) {
           err || JSON.stringify(dh && { net: n && n.grand, gross: g && g.grand, years: n && n.years }));
         ok('P5-2.5: growth per payer, and the backtest on sample data: 5 then 10 years', !!dh && dh.growthRows >= 10 && dh.bt5 === 5 && dh.bt10 > 5 && dh.btBadge === 1, err || JSON.stringify(dh && { g: dh.growthRows, b5: dh.bt5, b10: dh.bt10, badge: dh.btBadge }));
         ok('P5-2.5: the forecast has 24 months; a month lists its payments', !!dh && dh.months === 24 && dh.month.total > 0 && dh.month.items > 0, err || JSON.stringify(dh && { m: dh.months, month: dh.month })); }
+      { const a = agd, sum = (l) => l.reduce((x, r) => x + r.pct, 0);
+        ok('P5-2.8: demo funds by provider (Vanguard) and value by broker: two portfolios, shares add up to 100 %', !!a && a.providers.length > 0 && a.providers[0].key === 'Vanguard' && Math.abs(sum(a.providers) - 100) < 1e-6
+          && a.brokers.length === 2 && Math.abs(sum(a.brokers) - 100) < 1e-6 && a.brokers.some((b) => b.key === 'demo-broker'), err || JSON.stringify(a)); }
       { const h = hrd, m = h && (h.avgText.match(/over (\d+) months/) || [])[1];
         ok('P5-2.6: demo per holding: IRR by asset class, best sales ranked, capital flow per year adds up to the monthly average', !!h && h.classes.length >= 3 && h.classes.every((k) => /^class:/.test(k))
           && h.best.length > 0 && h.best.every((r, i, a) => !i || a[i - 1] >= r) && !!m && Math.abs(h.years.reduce((a, b) => a + b, 0) / Number(m) - h.avg) < 1e-6 && h.months === Number(m),
@@ -1327,6 +1338,9 @@ async function runBuild(browser, label, dir) {
     await page.evaluate(({ txs, worker }) => {
       localStorage.setItem('transactions', JSON.stringify(txs));
       localStorage.setItem('apiKeys', JSON.stringify({ cs2Worker: worker }));
+      // P5-2.8: 3,000 EUR on a savings account, 24,000 EUR expenses a year = 1.5 months
+      localStorage.setItem('maermin_networth_accounts', JSON.stringify([{ id: 'nw1', name: 'Tagesgeld', type: 'cash', value: 3000, currency: 'EUR' }]));
+      localStorage.setItem('maermin_fire_settings', JSON.stringify({ annualExpenses: 24000, withdrawalRate: 4 }));
     }, { txs: book, worker: WORKER_URL });
     await page.waitForTimeout(1500);
     await unlock(page, base);
@@ -1443,6 +1457,12 @@ async function runBuild(browser, label, dir) {
       ok('P5-2.7: investment calendar: ' + ym + ' bought ' + want0.toFixed(2) + ' EUR; longest streak 1 month; ' + buyMonths + ' of ' + months + ' months with a buy; a month opens its amounts',
         Math.abs(cell - want0) < 1e-6 && /\b1 month\b/.test(longest) && ratio.includes(buyMonths + ' / ' + months) && /bought .*sold .*net/.test(det),
         cell + ' vs ' + want0 + ' | ' + longest.replace(/\n/g, ' ') + ' | ' + ratio.replace(/\n/g, ' ') + ' | ' + det);
+      await openView(page, 'returns'); }
+    // P5-2.8: Intelligence - 3,000 EUR cash against 2,000 EUR a month = 1.5 months, important
+    { await openView(page, 'intelligence');
+      await page.waitForTimeout(1200);
+      const pi = await page.locator('main').innerText().catch(() => '');
+      ok('P5-2.8: emergency fund check: 1.5 months of expenses, flagged important', /Your cash covers 1\.5 months of expenses/.test(pi) && /Emergency fund/i.test(pi), (pi.match(/[^\n]*months of expenses[^\n]*/) || [pi.slice(0, 160)])[0]);
       await openView(page, 'returns'); }
     ok('closes came through the Worker route ?action=yf (5-year range for both holdings)', ['VWCE.DE', 'AAPL'].every((x) => workerState.requests.includes('/?action=yf&symbol=' + x + '&interval=1d&range=5y')), workerState.requests.join(' '));
     await page.waitForTimeout(2500); // benchmark fetch

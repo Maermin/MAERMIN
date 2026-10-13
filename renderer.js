@@ -401,6 +401,18 @@ function InvestmentTracker() {
     });
     return out;
   }, [portfolios, transactions, exchangeRate, fxAt]);
+  // P5-2.8: every portfolio's securities value (the Portfolios view's numbers)
+  // and the balance of its cash account - buying power and allocation by broker
+  const pfAllocation = useMemo(() => {
+    const M = window.MaerminMetrics;
+    if (!M || !M.computePortfolioTotals) return [];
+    try {
+      return M.computePortfolioTotals(portfolios || [], transactions, prices, { exchangeRate, fxAt }).map((tot) => {
+        const p = (portfolios || []).find((x) => x.id === tot.id) || {};
+        return { id: tot.id, name: p.name || tot.id, value: tot.value, cash: clearingByPf[tot.id] ? clearingByPf[tot.id].balanceEUR : undefined };
+      });
+    } catch (e) { return []; }
+  }, [portfolios, transactions, prices, exchangeRate, fxAt, clearingByPf]);
   // Sum of the clearing balances (EUR) of the given portfolio ids (all when 'all').
   const cashOf = (which) => {
     const ids = which === 'all' ? Object.keys(clearingByPf) : [which];
@@ -1005,6 +1017,24 @@ function InvestmentTracker() {
     });
     return out;
   }, [activeTransactions, closeSeriesEUR, demoMode]);
+  // P5-2.8: the active portfolio's positions with a fund flag (fund type, else
+  // the look-through heuristic) for the allocation by ETF provider
+  const providerPositions = useMemo(() => {
+    const LT = window.MaerminLookThrough, GT = window.TaxCalculationEngine && window.TaxCalculationEngine.GermanTax;
+    let types = {};
+    try { types = (GT && GT.loadFundTypes) ? GT.loadFundTypes() : {}; } catch (e) {}
+    const out = [];
+    Object.keys(portfolio || {}).forEach((cat) => {
+      if (!Array.isArray(portfolio[cat])) return;
+      portfolio[cat].forEach((pos) => {
+        const s = pos.symbol || pos.name || '', S = s.toUpperCase(), name = pos.symbolName || pos.name || '';
+        const px = prices[s] || prices[s.toLowerCase()] || prices[S] || pos.purchasePrice || 0;
+        const fund = cat === 'stocks' && ((types[S] && types[S] !== 'none') || !!(LT && LT.isFundCandidate && LT.isFundCandidate(S, name)));
+        out.push({ symbol: S, name, value: (parseFloat(pos.amount) || 0) * px, fund });
+      });
+    });
+    return out;
+  }, [portfolio, prices, demoMode]);
   // P5-2.1: the active portfolio's clearing account for the attribution card
   const returnsClearings = useMemo(() => (clearingByPf[activePortfolioId] ? { [activePortfolioId]: clearingByPf[activePortfolioId] } : null),
     [clearingByPf, activePortfolioId]);
@@ -3205,7 +3235,11 @@ function InvestmentTracker() {
             window.MaerminTrust && React.createElement(window.MaerminTrust.Disclaimer, { theme: currentTheme, kind: 'invest', style: { margin: '1rem 1.5rem 0' } }),
             React.createElement(window.MaerminIntelligence.View, {
               portfolio, prices, transactions: activeTransactions,
-              lookThrough: lookThroughResult, theme: currentTheme, t
+              lookThrough: lookThroughResult, theme: currentTheme, t,
+              // P5-2.8: emergency fund (Net Worth accounts, FIRE expenses) and buying power
+              accounts: window.MaerminMetrics ? window.MaerminMetrics.loadAccounts() : [],
+              fire: window.MaerminMetrics ? window.MaerminMetrics.loadFireSettings() : null,
+              portfolios: pfAllocation, exchangeRate
             })) : renderAnalyticsPlaceholder(t.intelTitle || 'Portfolio Intelligence');
 
       // v10.x: snapshot-powered performance cards (1D…Max), derived 100% from the
@@ -3518,7 +3552,11 @@ function InvestmentTracker() {
         return window.InvestmentViews && window.InvestmentViews.InvestmentAnalysisDashboard ?
           React.createElement(window.InvestmentViews.InvestmentAnalysisDashboard, {
             portfolio, prices, priceHistory, dailyCloses: dailyAnalytics.perHolding, metaVersion,
-            theme: currentTheme, t, formatPrice, getCurrencySymbol, workerUrl: apiKeys.cs2Worker, exchangeRate
+            theme: currentTheme, t, formatPrice, getCurrencySymbol, workerUrl: apiKeys.cs2Worker, exchangeRate,
+            // P5-2.8: Providers & brokers section
+            renderProviders: window.MaerminAllocationGroups ? () => React.createElement(window.MaerminAllocationGroups.Panel, {
+              positions: providerPositions, portfolios: pfAllocation, theme: currentTheme, formatPrice, getCurrencySymbol
+            }) : null
           }) : renderAnalyticsPlaceholder(t.navStrategy || 'Strategy Analysis');
 
       case 'health':
