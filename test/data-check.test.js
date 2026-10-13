@@ -11,7 +11,15 @@ console.log('codes are stable:');
 ok('the code list is exactly the documented one', JSON.stringify(DC.CODES) === JSON.stringify({
   oversold: 'DQ-OVERSOLD', quantity: 'DQ-QUANTITY', fxUnknown: 'DQ-FX-UNKNOWN', fxUsdNearest: 'DQ-FX-USD-NEAREST',
   fxNoDayRate: 'DQ-FX-NO-DAY-RATE', fxTodayOnly: 'DQ-FX-TODAY-ONLY', skinMisfiled: 'DQ-SKIN-MISFILED',
-  cryptoPair: 'DQ-CRYPTO-PAIR', cashNegative: 'DQ-CASH-NEGATIVE' }));
+  cryptoPair: 'DQ-CRYPTO-PAIR', cashNegative: 'DQ-CASH-NEGATIVE',
+  priceStale: 'DQ-PRICE-STALE', transferBroken: 'DQ-TRANSFER-BROKEN', syncStale: 'DQ-SYNC-STALE', syncFailed: 'DQ-SYNC-FAILED', reconDiff: 'DQ-RECON-DIFF' }));
+// P5-3.7: the reconciliation and health findings and their actions
+ok('P5-3.7: stale price -> load rates / add a Worker', DC.classify({ kind: 'price-stale' }, { hasWorker: true }).code === 'DQ-PRICE-STALE' && DC.classify({ kind: 'price-stale' }, { hasWorker: true }).action.type === 'refresh' && DC.classify({ kind: 'price-stale' }, {}).action.type === 'open-api-settings');
+ok('P5-3.7: broken transfer -> edit that row', DC.classify({ kind: 'transfer-broken', txId: 't9' }).code === 'DQ-TRANSFER-BROKEN' && DC.classify({ kind: 'transfer-broken', txId: 't9' }).action.txId === 't9');
+ok('P5-3.7: stale / failed sync -> open the import, recon difference -> the comparison; none changes data',
+  DC.classify({ kind: 'sync-stale' }).action.type === 'open-import' && DC.classify({ kind: 'sync-failed' }).code === 'DQ-SYNC-FAILED' &&
+  DC.classify({ kind: 'recon-diff' }).action.type === 'open-reconcile' && ['sync-stale', 'sync-failed', 'recon-diff'].every((k) => DC.classify({ kind: k }).action.changesData === false));
+ok('P5-3.7: every new action has a button label', DC.actionLabel({ type: 'open-import' }) && DC.actionLabel({ type: 'open-reconcile' }));
 ok('codes are unique', new Set(Object.values(DC.CODES)).size === Object.keys(DC.CODES).length);
 
 console.log('ledger findings carry the transaction:');

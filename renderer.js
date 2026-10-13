@@ -419,7 +419,7 @@ function InvestmentTracker() {
     return ids.some(id => clearingByPf[id]) ? ids.reduce((s, id) => s + (clearingByPf[id] ? clearingByPf[id].balanceEUR : 0), 0) : null;
   };
 
-  const ledgerIssues = useMemo(() => {
+  const ledgerIssuesBase = useMemo(() => {
     const L = window.MaerminLedger;
     let list = [];
     try { list = L ? (L.build(transactions, { exchangeRate, fxAt }).issues || []) : []; } catch (e) { list = []; }
@@ -4627,6 +4627,13 @@ function InvestmentTracker() {
       return;
     }
     if (action.type === 'refresh') { fetchPrices(); return; }
+    // P5-3.7: a sync source → the import; a difference → the Reconciliation box
+    if (action.type === 'open-import') { setActiveView('broker-import'); return; }
+    if (action.type === 'open-reconcile') {
+      setActiveView('transactions');
+      setTimeout(() => { const el = document.querySelector('[data-testid="reconcile"]'); if (el) el.scrollIntoView({ behavior: 'smooth', block: 'start' }); }, 120);
+      return;
+    }
     if (action.type === 'open-api-settings') { setShowApiSettings(true); return; }
     // P5-1.4: deposits that keep the clearing account at zero, after a confirmation
     if (action.type === 'book-deposits') {
@@ -4655,13 +4662,49 @@ function InvestmentTracker() {
     }
   };
 
+  // P5-3.7: health findings next to the ledger's - stale prices, broken
+  // transfers, stale or failed syncs, reconciliation differences (reconcile.js).
+  const healthIssues = () => {
+    const RC = window.MaerminReconcile;
+    if (!RC || demoMode) return [];
+    try {
+      const states = RC.currentStates();
+      const src = RC.collect(states);
+      const today = new Date().toISOString().slice(0, 10);
+      const Q = window.MaerminDataQuality, meta = Q ? Q.readMeta() : {};
+      const priceItems = [];
+      // without a Worker every price is "stale" - that is the Worker notice's job, not one finding per holding
+      if (hasWorker) ['crypto', 'stocks', 'commodities'].forEach((cls) => {
+        (allPortfoliosPortfolio[cls] || []).forEach((p) => {
+          const sym = p.symbol;
+          const e = meta[sym] || meta[String(sym).toUpperCase()] || meta[String(sym).toLowerCase()] || {};
+          const px = window.MaerminMarket && window.MaerminMarket.isCostFallback(sym) ? null : (prices[sym] != null ? prices[sym] : (prices[String(sym).toUpperCase()] != null ? prices[String(sym).toUpperCase()] : prices[String(sym).toLowerCase()]));
+          priceItems.push({ symbol: sym, price: px, fetchedAt: e.at || null });
+        });
+      });
+      return RC.health({ transactions, syncs: src.syncs, priceItems,
+        cash: RC.cashRows(src.cash, RC.load().links, clearingByPf, today), depots: RC.depotRows(src.depots, transactions), crypto: RC.cryptoRows(states.wallets, transactions) });
+    } catch (e) { return []; }
+  };
+
   // Collapsible "Data check" box for ledgerIssues (null when there is none).
   const renderLedgerIssues = () => {
+    const ledgerIssues = ledgerIssuesBase.concat(healthIssues());
     if (!ledgerIssues.length) return null;
     const warnings = ledgerIssues.filter(i => i.severity === 'warning').length;
     const line = (i) => {
       const sym = i.symbol || __('issueATx', 'A transaction');
       const eg = i.symbol || __('issueATxLower', 'a transaction');
+      if (i.kind === 'price-stale') return i.missing ? __('issuePriceMissing', '{sym}: no price yet - load prices, or check the symbol.', { sym }) : __('issuePriceStale', '{sym}: the price is {n} {n:day|days} old.', { sym, n: i.days });
+      if (i.kind === 'transfer-broken') return i.reason === 'missing'
+        ? __('issueTransferMissing', 'A transfer of {amount} on {date} has no other half in the other portfolio - book it, or delete this row.', { amount: window.MaerminI18n.money(i.amount, 'EUR'), date: window.MaerminI18n.date(i.date) })
+        : __('issueTransferDiffers', 'The two halves of the transfer on {date} do not match (amount, currency, date or direction).', { date: window.MaerminI18n.date(i.date) });
+      if (i.kind === 'sync-stale') return __('issueSyncStale', '{source}: last synced {n} {n:day|days} ago.', { source: i.source, n: i.days });
+      if (i.kind === 'sync-failed') return __('issueSyncFailed', '{source}: the last sync failed on {date} ({msg}).', { source: i.source, date: i.date ? window.MaerminI18n.date(i.date) : '?', msg: i.message });
+      if (i.kind === 'recon-diff') return i.what === 'cash'
+        ? __('issueReconCash', '{source}: the bank balance differs from the clearing account by {diff}.', { source: i.source, diff: window.MaerminI18n.money(i.diff, 'EUR') })
+        : i.what === 'depot' ? __('issueReconDepot', '{source}: {n} {n:position differs|positions differ} from MAERMIN.', { source: i.source, n: i.count })
+        : __('issueReconCrypto', 'Crypto wallets: {n} {n:coin differs|coins differ} from MAERMIN.', { n: i.count });
       if (i.kind === 'cash-negative') return __('issueCashNegative', '{name}: the clearing account goes below zero on {date} (lowest {amount}). Deposits are missing - book them, or set an opening balance.', { name: i.portfolioName, date: window.MaerminI18n.date(i.date), amount: window.MaerminI18n.money(i.balance, 'EUR') });
       if (i.kind === 'oversold') return __('issueOversold', '{sym} ({cat}): {qty} more {qty1:unit|units} sold than bought. The excess has no cost basis and is left out of realised gains - add the missing buy or transfer.', { sym, cat: i.category, qty: window.MaerminI18n.num(i.qty, { min: 0, max: 8 }), qty1: +i.qty.toFixed(8) });
       if (i.kind === 'quantity') return __('issueQuantity', '{sym} ({cat}), {type} on {date}: quantity "{qty}" is not a positive number, so the trade is left out. Edit it (a sell needs a positive quantity).', { sym, cat: i.category, type: i.type, date: i.date ? window.MaerminI18n.date(i.date) : __('unknownDate', 'an unknown date'), qty: i.qty });
@@ -4807,6 +4850,10 @@ function InvestmentTracker() {
       renderMisfiledSkins(),
       renderCryptoPairs(),
       renderLedgerIssues(),
+      // P5-3.7: what banks, depots and wallets report vs MAERMIN
+      window.MaerminReconcile && !demoMode && React.createElement(window.MaerminReconcile.Panel, {
+        theme: currentTheme, transactions, portfolios, clearingByPf, onOpenImport: () => setActiveView('broker-import')
+      }),
       // Header row
       React.createElement('div', {
         style: { display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem', flexWrap: 'wrap', gap: '0.75rem' }

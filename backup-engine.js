@@ -66,6 +66,8 @@
     'maermin_aggregators',
     // watched public crypto addresses and their last balances (P5-3.6)
     'maermin_wallets',
+    // which portfolio each bank account is compared with (P5-3.7)
+    'maermin_reconcile',
     // reusable CSV import presets (see import-mapping.js — saved column mappings)
     'maermin_import_presets',
     // German fund taxation + tax settings (tax-settings.js, tax-calculation-

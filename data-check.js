@@ -18,6 +18,16 @@
 //                      BUG-013); it gets no price → show those transactions
 //   DQ-CASH-NEGATIVE   a portfolio's clearing account goes below zero (P5-1.4)
 //                      → book the missing deposits (changes data: confirmed first)
+//   P5-3.7 (reconcile.js finds them):
+//   DQ-PRICE-STALE     a held position's price is older than 3 days or missing
+//                      → load prices now / add a Worker
+//   DQ-TRANSFER-BROKEN a transfer whose other half is missing or different
+//                      → edit that transaction
+//   DQ-SYNC-STALE      a bank, depot, aggregator, exchange or wallet not synced
+//                      for 30 days → open the import
+//   DQ-SYNC-FAILED     the last sync of a source failed → open the import
+//   DQ-RECON-DIFF      a reported balance or quantity differs from MAERMIN's
+//                      → show the comparison (Reconciliation, Transactions view)
 //
 // The codes are part of the UI contract: never renumber or reuse one.
 //
@@ -25,7 +35,8 @@
 //   misfiled(found)                                → { code, action } | null
 //   actionLabel(action)                            → button text
 // action = { type: 'show-transactions'|'edit-transaction'|'refresh'|
-//            'open-api-settings'|'move-skins'|'book-deposits', symbol?, txId?,
+//            'open-api-settings'|'move-skins'|'book-deposits'|'open-import'|
+//            'open-reconcile', symbol?, txId?,
 //            portfolioId?, changesData }
 //
 // Pure + dual-exported; tested in test/data-check.test.js.
@@ -38,7 +49,8 @@ function __(k, f, v) { return (typeof window !== 'undefined' && window.MaerminI1
   var CODES = {
     oversold: 'DQ-OVERSOLD', quantity: 'DQ-QUANTITY', fxUnknown: 'DQ-FX-UNKNOWN', fxUsdNearest: 'DQ-FX-USD-NEAREST',
     fxNoDayRate: 'DQ-FX-NO-DAY-RATE', fxTodayOnly: 'DQ-FX-TODAY-ONLY', skinMisfiled: 'DQ-SKIN-MISFILED',
-    cryptoPair: 'DQ-CRYPTO-PAIR', cashNegative: 'DQ-CASH-NEGATIVE'
+    cryptoPair: 'DQ-CRYPTO-PAIR', cashNegative: 'DQ-CASH-NEGATIVE',
+    priceStale: 'DQ-PRICE-STALE', transferBroken: 'DQ-TRANSFER-BROKEN', syncStale: 'DQ-SYNC-STALE', syncFailed: 'DQ-SYNC-FAILED', reconDiff: 'DQ-RECON-DIFF'
   };
   var USD_LIKE = /^(USD|USDT|USDC|BUSD|FDUSD|TUSD|USDP|DAI)$/i;
 
@@ -52,6 +64,11 @@ function __(k, f, v) { return (typeof window !== 'undefined' && window.MaerminI1
   function classify(issue, opts) {
     opts = opts || {};
     issue = issue || {};
+    if (issue.kind === 'price-stale') return { code: CODES.priceStale, action: rates(opts) };
+    if (issue.kind === 'transfer-broken') return { code: CODES.transferBroken, action: edit(issue) };
+    if (issue.kind === 'sync-stale') return { code: CODES.syncStale, action: { type: 'open-import', changesData: false } };
+    if (issue.kind === 'sync-failed') return { code: CODES.syncFailed, action: { type: 'open-import', changesData: false } };
+    if (issue.kind === 'recon-diff') return { code: CODES.reconDiff, action: { type: 'open-reconcile', changesData: false } };
     if (issue.kind === 'cash-negative') return { code: CODES.cashNegative, action: { type: 'book-deposits', portfolioId: issue.portfolioId || 'default', changesData: true } };
     if (issue.kind === 'oversold') return { code: CODES.oversold, action: { type: 'show-transactions', symbol: issue.symbol || '', changesData: false } };
     if (issue.kind === 'quantity') return { code: CODES.quantity, action: edit(issue) };
@@ -90,6 +107,8 @@ function __(k, f, v) { return (typeof window !== 'undefined' && window.MaerminI1
       case 'open-api-settings': return __('dcApiSettings', 'Add a Worker');
       case 'move-skins': return __('skinMoveBtn', 'Move to CS2 Skins');
       case 'book-deposits': return __('dcBookDeposits', 'Book the missing deposits');
+      case 'open-import': return __('dcOpenImport', 'Open the import');
+      case 'open-reconcile': return __('dcOpenReconcile', 'Show the comparison');
       default: return '';
     }
   }
