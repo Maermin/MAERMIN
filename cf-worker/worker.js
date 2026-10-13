@@ -28,15 +28,18 @@
  *                                                 whether a FinTS product id is configured
  *   POST /?action=fints  { url, msg }           → relays one FinTS message (base64, built in the
  *                                                 browser) to an allowed bank: { status, msg }
+ *   GET  /?action=wallet&chain=btc&address=…    → balance (+ tokens, recent transactions) of a
+ *                                                 public crypto address (cf-worker/wallets.js)
  */
 import { FINTS_BANKS, fintsUrlAllowed, extraHosts } from './fints-banks.js';
+import { WALLET_CHAINS, validAddress, walletSnapshot } from './wallets.js';
 
 // Bump on every change to this file that the app relies on, and set
 // EXPECTED_WORKER_VERSION in onboarding.js to the same value (test/worker-version
 // enforces both). Format YYYY.M.N; compared numerically per part.
-export const WORKER_VERSION = '2026.10.8';
+export const WORKER_VERSION = '2026.10.9';
 export const WORKER_ACTIONS = ['yf', 'yfsearch', 'screener', 'fundholdings', 'fundamentals', 'earnings', 'profile',
-  'news', 'skinprices', 'steaminv', 'cg', 'hicp', 'sync', 'share', 'mcp', 'brokerproxy', 'fints', 'fintsbanks', 'version'];
+  'news', 'skinprices', 'steaminv', 'cg', 'hicp', 'sync', 'share', 'mcp', 'brokerproxy', 'fints', 'fintsbanks', 'wallet', 'version'];
 // P5-3.1: the routes a shared price Worker (PRICE_ONLY=1) serves - market data only
 export const PRICE_ONLY_ACTIONS = ['yf', 'yfsearch', 'screener', 'fundholdings', 'fundamentals', 'earnings', 'profile',
   'news', 'skinprices', 'cg', 'hicp', 'version'];
@@ -891,6 +894,33 @@ async function handle(request, env, ctx) {
         return res(JSON.stringify({ steamid: id, items: parseSteamInventory(pages) }), 200, request);
       } catch (e) {
         return res(JSON.stringify({ error: 'Steam unavailable' }), 502, request);
+      }
+    }
+
+    // ── Public crypto addresses (P5-3.6) ────────────────────────────────────
+    // GET /?action=wallet&chain=<btc|eth|arb|op|base|polygon|sol>&address=<public address>
+    // Read-only explorer data, no keys; cached two minutes per address.
+    if (request.method === 'GET' && action === 'wallet') {
+      const chain = url.searchParams.get('chain') || '';
+      const address = (url.searchParams.get('address') || '').trim();
+      if (!WALLET_CHAINS[chain]) return res(JSON.stringify({ error: 'unknown chain' }), 400, request);
+      if (!validAddress(chain, address)) return res(JSON.stringify({ error: 'invalid address' }), 400, request);
+      const cacheKey = new Request(`https://cache.maermin/wallet/${chain}/${address}`);
+      const cache = caches.default;
+      const cached = await cache.match(cacheKey);
+      if (cached) return res(await cached.text(), 200, request);
+      const fetchJson = async (u, init) => {
+        const r = await fetchWithTimeout(u, Object.assign({ headers: { Accept: 'application/json' } }, init || {}), 12000);
+        if (!r.ok) return { __status: r.status };
+        try { return await r.json(); } catch { return { __status: 502 }; }
+      };
+      try {
+        const snap = await walletSnapshot(chain, address, fetchJson);
+        const payload = JSON.stringify(Object.assign(snap, { updated: new Date().toISOString() }));
+        ctx.waitUntil(cache.put(cacheKey, new Response(payload, { headers: { 'Content-Type': 'application/json', 'Cache-Control': 'public, max-age=120' } })));
+        return res(payload, 200, request);
+      } catch (e) {
+        return upstreamError(WALLET_CHAINS[chain].name + ' explorer', e && e.status || 0, request, { chain });
       }
     }
 

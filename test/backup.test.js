@@ -50,6 +50,7 @@ const Backup = require('../backup-engine.js');
   ok('keys cover the taxonomies (P5-2.10)', Backup.KEYS.indexOf('maermin_taxonomies') !== -1);
   ok('keys cover the shared price service switch (P5-3.1)', Backup.KEYS.indexOf('maermin_shared_prices') !== -1);
   ok('keys cover the bank connections (P5-3.4)', Backup.KEYS.indexOf('maermin_bank_sync') !== -1);
+  ok('keys cover the watched crypto addresses (P5-3.6)', Backup.KEYS.indexOf('maermin_wallets') !== -1);
   ok('keys cover the aggregator metadata, never the aggregator API keys (P5-3.5)', Backup.KEYS.indexOf('maermin_aggregators') !== -1 && !Backup.KEYS.some((k) => /agg_cred/.test(k)));
   ok('keys cover the inflation region (P5-2.9), not the re-fetchable HICP cache', Backup.KEYS.indexOf('maermin_hicp_geo') !== -1 && Backup.KEYS.indexOf('maermin_hicp_cache') === -1);
 

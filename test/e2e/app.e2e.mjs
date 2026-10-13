@@ -91,6 +91,8 @@ const FINTS = requireE2E('../../fints.js');
 const fintsBank = requireE2E('../fints-bank-sim.js').createBank();
 // P5-3.5: synthetic GoCardless and SnapTrade behind the Worker's broker relay
 const aggSim = requireE2E('../aggregator-sim.js');
+// P5-3.6: synthetic block explorers behind the Worker's wallet route
+const walletSim = requireE2E('../wallet-sim.js');
 const workerState = { down: false, oldVersion: false, upstream: [], requests: [] };
 const iso = (d) => d.toISOString().slice(0, 10);
 const WEEKDAYS = (() => { // every weekday of the last three years, up to today
@@ -125,6 +127,7 @@ const divOf = (sym, i) => (sym === 'AAPL' && i % 63 === 20 ? Number((0.24 + 0.01
       return new Response(JSON.stringify({ version: '2.0', class: 'dataset', updated: '2026-10-02T11:00:00+0200', value, dimension: { time: { category: { index } } } }), { status: 200, headers: { 'Content-Type': 'application/json' } });
     }
     if (/^https:\/\/(bankaccountdata\.gocardless\.com|api\.snaptrade\.com)\//.test(u)) return aggSim.upstream(u, init || {});
+    if (/^https:\/\/(mempool\.space|[a-z]+\.blockscout\.com|api\.mainnet-beta\.solana\.com)\//.test(u)) return walletSim.upstream(u, init || {});
     if (/^https:\/\/fints\.dkb\.de\//.test(u)) return new Response(FINTS.toB64(fintsBank.handle(FINTS.fromB64(init.body))), { status: 200, headers: { 'Content-Type': 'text/plain' } });
     const m = u.match(/query1\.finance\.yahoo\.com\/v8\/finance\/chart\/([^?]+)/);
     if (!m) return realFetch(input, init);
@@ -1702,6 +1705,37 @@ async function runBuild(browser, label, dir) {
       ok('P5-3.5: GoCardless - rent, salary and account fee booked; the securities purchase left out', gcBooked === 'withdrawal,deposit,fee', err || gcBooked);
       ok('P5-3.5: SnapTrade - read-only portal opened, positions compared, activities imported once', /snaptrade\.com/.test(opened[1] || '') && /AAPL/.test(stText) && /not in MAERMIN|matches/.test(stText) && stBooked === 'buy,dividend,deposit,fee,sell', err || JSON.stringify({ stBooked, stText: stText.slice(0, 200) }));
       ok('P5-3.5: the API keys are vault-encrypted at rest, the metadata holds none', !!rawGc && rawGc.indexOf('skey-456') < 0 && !!rawSt && rawSt.indexOf('ck-secret-789') < 0 && rawSt.indexOf('user-secret-1') < 0 && meta.indexOf('skey') < 0 && meta.indexOf('ACCESS') < 0, err || meta.slice(0, 200));
+    }
+    // P5-3.6: watch public addresses (Bitcoin, Ethereum) through the real
+    // Worker and synthetic explorers; balances compared, nothing booked
+    {
+      let err = '', natives = '', tokens = '', cmp = '', invalid = '', stored = '', before = 0, after = 0;
+      try {
+        const panel = page.locator('[data-testid="wallets"]');
+        await panel.waitFor({ timeout: 8000 });
+        before = await page.evaluate(() => JSON.parse(localStorage.getItem('transactions') || '[]').length);
+        await page.locator('[data-testid="wl-chain"]').selectOption('eth');
+        await page.locator('[data-testid="wl-address"]').fill('bc1qnotanethaddress');
+        await page.locator('[data-testid="wl-add"]').click();
+        invalid = await page.locator('[data-testid="wl-msg"]').innerText();
+        await page.locator('[data-testid="wl-chain"]').selectOption('btc');
+        await page.locator('[data-testid="wl-address"]').fill(walletSim.BTC);
+        await page.locator('[data-testid="wl-add"]').click();
+        await page.locator('[data-testid="wl-native"]').first().waitFor({ timeout: 15000 });
+        await page.locator('[data-testid="wl-chain"]').selectOption('eth');
+        await page.locator('[data-testid="wl-address"]').fill(walletSim.EVM);
+        await page.locator('[data-testid="wl-add"]').click();
+        await page.locator('[data-testid="wl-native"]').nth(1).waitFor({ timeout: 15000 });
+        natives = (await page.locator('[data-testid="wl-native"]').allInnerTexts()).join('|');
+        tokens = await page.locator('[data-testid="wl-tokens"]').innerText();
+        cmp = await page.locator('[data-testid="wl-compare"]').innerText();
+        after = await page.evaluate(() => JSON.parse(localStorage.getItem('transactions') || '[]').length);
+        stored = await page.evaluate(() => localStorage.getItem('maermin_wallets') || '');
+      } catch (e) { err = String(e.message).split('\n')[0]; }
+      ok('P5-3.6: a Bitcoin address on Ethereum is refused', /not a valid Ethereum address/.test(invalid), err || invalid);
+      ok('P5-3.6: balances 1 BTC and 1.5 ETH, USDC 2,500 as a token', /^1 BTC\|1\.5 ETH$/.test(natives) && /2,500 USDC/.test(tokens), err || natives + ' / ' + tokens);
+      ok('P5-3.6: all wallets compared with MAERMIN, nothing booked', /BTC/.test(cmp) && /not in MAERMIN/.test(cmp) && after === before, err || cmp.replace(/\n/g, ' | ') + ' ' + before + '->' + after);
+      ok('P5-3.6: the stored list holds balances, no transactions', /"address":"bc1q/.test(stored) && stored.indexOf('"txs"') < 0, err || stored.slice(0, 160));
     }
     workerState.oldVersion = true;
     await unlock(page, base);

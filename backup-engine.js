@@ -64,6 +64,8 @@
     'maermin_bank_sync',
     // GoCardless / SnapTrade connection metadata (P5-3.5); the API keys are never in a backup
     'maermin_aggregators',
+    // watched public crypto addresses and their last balances (P5-3.6)
+    'maermin_wallets',
     // reusable CSV import presets (see import-mapping.js — saved column mappings)
     'maermin_import_presets',
     // German fund taxation + tax settings (tax-settings.js, tax-calculation-
