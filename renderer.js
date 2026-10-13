@@ -3326,6 +3326,10 @@ function InvestmentTracker() {
             React.createElement(window.MaerminFeatures5.CashflowChart, {
               transactions: activeTransactions, priceHistory, portfolio, prices,
               theme: currentTheme, formatPrice, getCurrencySymbol, valuePath, exchangeRate, fxAt
+            }),
+            // P5-2.7: money bought per month and the saving streaks
+            window.MaerminInvestTimeline && React.createElement(window.MaerminInvestTimeline.Panel, {
+              transactions: activeTransactions, exchangeRate, fxAt, theme: currentTheme, formatPrice, getCurrencySymbol
             })
           ) : renderAnalyticsPlaceholder(t.navCashflow || 'Cash Flow');
 

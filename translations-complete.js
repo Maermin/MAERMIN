@@ -2900,6 +2900,23 @@ taSparer: 'Sparerpauschbetrag',
     hrNet: 'Net invested',
     hrAvgMonth: 'Per month',
 
+    // P5-2.7 investment calendar, saving streaks
+    itTitle: 'Investment calendar',
+    itSub: 'Money bought per month (incl. fees) and your saving streaks: months in a row with at least one buy, savings-plan runs included.',
+    itMonths: '{n} {n:month|months}',
+    itCurrent: 'Current streak',
+    itOpen: 'this month still open',
+    itNoStreak: 'no buy last month',
+    itLongest: 'Longest streak',
+    itBuyMonths: 'Months with a buy',
+    itThisYear: 'This year',
+    itThisYearSub: 'months with a buy so far',
+    itBoughtAria: 'bought {amount}',
+    itNoBuy: 'no buy',
+    itYearTotal: 'Bought',
+    itDetail: 'bought {buys}, sold {sells}, net {net}',
+    itHint: 'Select a month for its amounts. Darker = more bought.',
+
     // CoinGecko via Worker
     cgNeedsWorker: 'Crypto prices come through your Worker - add its URL in API Settings'
   },
@@ -5646,6 +5663,23 @@ taSparer: 'Sparerpauschbetrag',
     hrSells: 'Verkauft',
     hrNet: 'Netto investiert',
     hrAvgMonth: 'Pro Monat',
+
+    // P5-2.7 investment calendar, saving streaks
+    itTitle: 'Investitionskalender',
+    itSub: 'Pro Monat gekauftes Geld (mit Gebühren) und deine Sparserien: Monate in Folge mit mindestens einem Kauf, Sparplan-Ausführungen eingeschlossen.',
+    itMonths: '{n} {n:Monat|Monate}',
+    itCurrent: 'Aktuelle Serie',
+    itOpen: 'dieser Monat noch offen',
+    itNoStreak: 'kein Kauf im letzten Monat',
+    itLongest: 'Längste Serie',
+    itBuyMonths: 'Monate mit Kauf',
+    itThisYear: 'Dieses Jahr',
+    itThisYearSub: 'Monate mit Kauf bisher',
+    itBoughtAria: '{amount} gekauft',
+    itNoBuy: 'kein Kauf',
+    itYearTotal: 'Gekauft',
+    itDetail: 'gekauft {buys}, verkauft {sells}, netto {net}',
+    itHint: 'Einen Monat auswählen für seine Beträge. Dunkler = mehr gekauft.',
 
     // CoinGecko via Worker
     cgNeedsWorker: 'Kryptokurse kommen über deinen Worker – trage seine URL in den API-Einstellungen ein'
