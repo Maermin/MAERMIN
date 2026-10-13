@@ -3360,7 +3360,7 @@ function InvestmentTracker() {
           React.createElement(window.MaerminFeatures2.ReturnsView, {
             transactions: activeTransactions, portfolio, prices, priceHistory, fxAt, exchangeRate,
             valuePath, historyPending: closePending, portfolioId: activePortfolioId, hasWorker: (apiKeys.cs2Worker || '').trim().length > 5,
-            clearing: clearingByPf[activePortfolioId] || null,
+            clearing: clearingByPf[activePortfolioId] || null, buildPath: buildValuePath,
             theme: currentTheme, formatPrice, getCurrencySymbol, t
           }),
           // Benchmark overlay (α/β/TE/IR/R²) — folds the analytics engine into Returns.
@@ -4174,6 +4174,7 @@ function InvestmentTracker() {
               theme: currentTheme, formatPrice, getCurrencySymbol, t,
               workerUrl: apiKeys.cs2Worker,
               closeSeries: window.MaerminCloseHistory ? closeSeriesEUR[window.MaerminCloseHistory.keyOf(positionDetail.cat, positionDetail.sym)] : null,
+              buildPath: buildValuePath, // P5-2.4: the holding's own monthly returns
               // A split may have been added/removed inside the modal — re-run
               // the positions overlay so values and cost basis update.
               onClose: () => { setPositionDetail(null); setCorpActionsRev(n => n + 1); }

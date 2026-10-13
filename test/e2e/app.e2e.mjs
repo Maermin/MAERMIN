@@ -366,6 +366,7 @@ async function runBuild(browser, label, dir) {
       await dlg.waitFor({ timeout: 5000 }).catch(() => {});
       const dt = await dlg.innerText().catch(() => '');
       ok('P4-2: the dialog of a closed position shows realized figures and no average-cost line', /Realized P&L/i.test(dt) && /\+490\.00/.test(dt) && (await page.locator('[data-testid="avg-cost-line"]').count()) === 0, dt.slice(0, 200).replace(/\n/g, ' | '));
+      ok('P5-2.4: without daily closes the position dialog shows no heatmap', (await dlg.locator('[data-testid="pos-heatmap"]').count()) === 0);
       await page.keyboard.press('Escape');
       await page.waitForTimeout(300);
       await page.locator('[data-pos-tab="open"]').click();
@@ -1288,6 +1289,42 @@ async function runBuild(browser, label, dir) {
       const yearsSpanned = new Set(WEEKDAYS.map((d) => d.slice(0, 4))).size;
       ok('P4-1: monthly returns heatmap, one row per year of history', !!hm && hm.rows === yearsSpanned && /Monthly returns/.test(hm.text), JSON.stringify(hm && { rows: hm.rows, yearsSpanned }));
       ok('P4-1: product of the year totals and of the months = the TWR card', Math.abs(prodY * 100 - expected) < 1e-6 && Math.abs(prodM * 100 - expected) < 1e-6, prodY * 100 + ' / ' + prodM * 100 + ' vs ' + expected); }
+    // P5-2.4: a click on the newest year opens its detail; the filter narrows to one holding
+    { const yCell = page.locator('[data-testid="returns-heatmap"] tbody tr').first().locator('td[data-kind="y"]');
+      const cellR = parseFloat(await yCell.getAttribute('data-r').catch(() => 'NaN'));
+      const year = await page.locator('[data-testid="returns-heatmap"] tbody tr').first().locator('th').innerText().catch(() => '');
+      await yCell.click().catch(() => {});
+      const det = page.locator('[data-testid="returns-heatmap-detail"]');
+      await det.waitFor({ timeout: 5000 }).catch(() => {});
+      const dt = await det.innerText().catch(() => '');
+      const detR = parseFloat(await det.locator('[data-stat="ret"]').getAttribute('data-r').catch(() => 'NaN'));
+      const n = parseInt(await det.locator('[data-stat="acts"]').getAttribute('data-n').catch(() => '-1'), 10);
+      const endEUR = 40 * eur('VWCE.DE', N - 1) + 5 * eur('AAPL', N - 1);
+      const endTxt = endEUR.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+      ok('P5-2.4: the year\'s detail has the cell\'s return, its activities and the end value ' + endTxt, Math.abs(detR - cellR) < 1e-9 && n === book.filter((t) => t.date.slice(0, 4) === year).length && dt.includes(endTxt) && /Start value/i.test(dt), JSON.stringify({ cellR, detR, n, year, dt: dt.replace(/\n/g, ' | ').slice(0, 300) }));
+      await page.locator('[data-testid="rh-filter"]').selectOption('holding:stocks|VWCE.DE').catch(() => {});
+      await page.waitForTimeout(800);
+      const f = await page.evaluate(() => {
+        const root = document.querySelector('[data-testid="returns-heatmap"]');
+        const ys = Array.from(root.querySelectorAll('td[data-kind="y"]')).map((td) => parseFloat(td.getAttribute('data-r')));
+        return { prod: ys.reduce((g, r) => g * (1 + r), 1) - 1, text: root.innerText };
+      });
+      const want = closeOf('VWCE.DE', N - 1) / closeOf('VWCE.DE', 0) - 1;
+      ok('P5-2.4: filtered to VWCE.DE the years compound to its own price change, with a note', Math.abs(f.prod - want) < 1e-9 && /Only the selected holdings/.test(f.text), f.prod + ' vs ' + want);
+      await page.locator('[data-testid="rh-filter"]').selectOption('all').catch(() => {});
+      // the position dialog: VWCE.DE's own heatmap; its months compound to its price change
+      await openView(page, 'overview');
+      await page.locator('tr[role="button"]', { hasText: 'VWCE.DE' }).first().click().catch(() => {});
+      const ph = page.locator('[data-testid="pos-heatmap"]');
+      await ph.waitFor({ timeout: 10000 }).catch(() => {});
+      const pm = await ph.evaluate((el) => Array.from(el.querySelectorAll('td[data-kind^="m"]')).map((td) => parseFloat(td.getAttribute('data-r')))).catch(() => []);
+      const prodP = pm.reduce((g, r) => g * (1 + r), 1) - 1;
+      await ph.locator('td[data-kind="y"]').first().click().catch(() => {});
+      const pd = await page.locator('[data-testid="pos-heatmap-detail"]').innerText().catch(() => '');
+      ok('P5-2.4: the position dialog has the holding\'s own monthly returns (= its price change) with drill-down', pm.length > 0 && Math.abs(prodP - want) < 1e-9 && /Activities/i.test(pd), pm.length + ' | ' + prodP + ' vs ' + want + ' | ' + pd.replace(/\n/g, ' | ').slice(0, 200));
+      await page.keyboard.press('Escape');
+      await page.waitForTimeout(300);
+      await openView(page, 'returns'); }
     ok('closes came through the Worker route ?action=yf (5-year range for both holdings)', ['VWCE.DE', 'AAPL'].every((x) => workerState.requests.includes('/?action=yf&symbol=' + x + '&interval=1d&range=5y')), workerState.requests.join(' '));
     await page.waitForTimeout(2500); // benchmark fetch
     { const rb = await page.innerText('body'); ok('benchmark comparison is computed from daily returns', /Alpha \(ann\.\)/i.test(rb) && /daily returns since/.test(rb), (rb.match(/Benchmark comparison[\s\S]{0,200}/) || [''])[0].replace(/\n/g, ' | ')); }
