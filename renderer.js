@@ -2972,6 +2972,11 @@ function InvestmentTracker() {
           }
         }),
 
+      // Crypto wallets by public address (P5-3.6): read-only balances through
+      // the user's own Worker, compared with MAERMIN; nothing booked automatically.
+      section === 'broker' && window.MaerminWallets && window.MaerminWallets.Panel &&
+        React.createElement(window.MaerminWallets.Panel, { theme, workerUrl: apiKeys.cs2Worker, existing: transactions }),
+
       // Bank sync over FinTS (P5-3.4): balances, transactions and depot
       // statements through the user's own Worker; PIN and TAN never stored.
       section === 'broker' && window.MaerminBankSync && window.MaerminBankSync.Panel &&

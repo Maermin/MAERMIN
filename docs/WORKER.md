@@ -25,7 +25,7 @@ Configure it in the app under **API Settings → Cloudflare Worker**.
 ## Version
 
 ### `GET /?action=version`
-`200 { "version": "2026.10.8", "actions": ["yf", "yfsearch", …], "storage": true }`. No upstream call and no rate limit.
+`200 { "version": "2026.10.9", "actions": ["yf", "yfsearch", …], "storage": true }`. No upstream call and no rate limit.
 `storage` says whether sync and share links can work (a KV namespace or the Durable Object is bound); the
 app's connection test shows it.
 `WORKER_VERSION` in `worker.js` and `EXPECTED_WORKER_VERSION` in `onboarding.js` name the same release
@@ -342,6 +342,22 @@ so a repeat sync never double-books. Read-only keys only — write/trade/withdra
 scopes are rejected client-side before any request is signed.
 
 ---
+
+## Public crypto addresses (P5-3.6)
+
+`GET /?action=wallet&chain=<btc|eth|arb|op|base|polygon|sol>&address=<public address>` →
+`200 { chain, address, native: { symbol, amount }, tokens: [{ symbol, name, amount, contract }],
+txs: [{ hash, date, direction, amount, symbol, fee }], source, updated }`.
+
+| Chain | Explorer (no key) | Data |
+|---|---|---|
+| `btc` | mempool.space | balance, last 25 transactions (net per transaction, fee when sent) |
+| `eth`, `arb`, `op`, `base`, `polygon` | Blockscout (`<chain>.blockscout.com`) | native balance, ERC-20 balances (≤ 50; NFTs, zero and non-ASCII symbols left out), last 50 transactions |
+| `sol` | Solana public RPC | SOL balance |
+
+The address is checked per chain before any call (`400 invalid address`); a never-used EVM address
+is a zero balance. Answers are cached two minutes per address. Read-only: no key, no signing. The
+explorers see the address and the Worker, not the user. The shared price Worker refuses the route.
 
 ## Aggregators with your own keys (optional, P5-3.5)
 
