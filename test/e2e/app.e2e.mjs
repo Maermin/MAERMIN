@@ -656,6 +656,29 @@ async function runBuild(browser, label, dir) {
       ok('Anlage KAP: line 19 and 20 carry the AAPL gain of 490, with the "check the line numbers" note', /490\.00/.test(l19) && /490\.00/.test(l20) && /Check them against the form/.test(note), l19 + ' | ' + l20);
     }
 
+    // P5-4.1: loss carry-forward. No earlier losses in the fixture; an opening
+    // balance of 200 in the other pot from the assessment is brought into 2025
+    // and used against the AAPL share gain of 490, so nothing is carried on.
+    {
+      const lc = page.locator('[data-testid="loss-carry-panel"]');
+      let before = '', row = '', stored = null, err = '';
+      try {
+        await lc.waitFor({ timeout: 5000 });
+        before = await lc.locator('[data-testid="lc-row-shares"]').innerText();
+        await lc.locator('[data-testid="lc-open-other"]').fill('200');
+        await lc.locator('[data-testid="lc-open-other"]').press('Enter');
+        await page.waitForTimeout(500);
+        row = await lc.locator('[data-testid="lc-row-other"]').innerText();
+        stored = await page.evaluate(() => JSON.parse(localStorage.getItem('maermin_loss_carry') || 'null'));
+        await lc.locator('[data-testid="lc-open-other"]').fill('');
+        await lc.locator('[data-testid="lc-open-other"]').press('Enter');
+        await page.waitForTimeout(300);
+      } catch (e) { err = e.message.split('\n')[0]; }
+      ok('P5-4.1: the loss carry-forward panel shows the pots with nothing carried', /Shares/.test(before) && !/[1-9]\d*\.\d\d/.test(before.replace(/0\.00/g, '')), err || before.replace(/\s+/g, ' '));
+      ok('P5-4.1: an opening balance of 200 is brought forward, used in 2025 and not carried on', /200\.00[\s\S]*200\.00[\s\S]*0\.00/.test(row), err || row.replace(/\s+/g, ' '));
+      ok('P5-4.1: the opening balance is stored per year and pot', !!stored && stored.opening && stored.opening['2025'] && stored.opening['2025'].other === 200, err || JSON.stringify(stored));
+    }
+
     let pdf = null;
     try {
       const [download] = await Promise.all([

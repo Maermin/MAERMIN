@@ -383,6 +383,7 @@ function __(k, f, v) { return (typeof window !== 'undefined' && window.MaerminI1
         line(__('gtLossesAfterTf', 'Deductible losses after Teilfreistellung'), amt(detail.lossesTaxable), detail.lossesTaxable < 0 ? bad : text),
         detail.shareLossCarried > 0 ? line(__('gtShareLossCarried', 'Share losses not offset (only against share gains)'), amt(detail.shareLossCarried), dim) : null,
         line(__('gtFundDistributions', 'Taxable fund distributions'), amt(detail.dividendsTaxable)),
+        detail.carryUsed && (detail.carryUsed.shares + detail.carryUsed.other) > 0 ? line(__('gtCarryUsed', 'Loss carry-forward used'), '-' + amt(detail.carryUsed.shares + detail.carryUsed.other), good) : null,
         line(__('gtVapLine', 'Vorabpauschale {prev} (taxed in {y})', { prev: year - 1, y: year }), amt(detail.vorabpauschaleTaxable)),
         detail.vapCreditTotal > 0 ? line(__('gtCreditedVap', 'Credited prior Vorabpauschalen'), '-' + amt(detail.vapCreditTotal), good) : null,
         line(__('gtTfExempt', 'Teilfreistellung exempt'), amt(detail.teilfreistellungExempt), good),

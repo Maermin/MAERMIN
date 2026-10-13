@@ -272,10 +272,14 @@ function __(k, f, v) { return (typeof window !== 'undefined' && window.MaerminI1
       otherG += num(report.summary && report.summary.dividendIncome) + num(report.summary && report.summary.interestIncome);
     }
     var g = report && report.summary && report.summary.germanDetail;
+    // P5-4.1: losses carried from earlier years already offset this year's
+    // gains of their pot, so only what they leave is open to harvesting.
+    var cin = (g && g.carryIn) || {};
     return {
-      realizedStockGainsYTD: stockG,
-      realizedOtherGainsYTD: otherG,
-      realizedCryptoGainsYTD: g && g.crypto ? g.crypto.netShortTermGains : 0,
+      realizedStockGainsYTD: stockG - num(cin.shares),
+      realizedOtherGainsYTD: otherG - num(cin.other),
+      realizedCryptoGainsYTD: (g && g.crypto ? g.crypto.netShortTermGains : 0) - num(cin.private),
+      carriedLosses: { shares: num(cin.shares), other: num(cin.other), private: num(cin.private) },
       sparerpauschbetrag: g ? num(g.sparerpauschbetrag) : null,
       sparerpauschbetragUsed: g ? g.sparerpauschbetragUsed : 0
     };

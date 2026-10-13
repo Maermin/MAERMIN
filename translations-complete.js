@@ -3308,6 +3308,29 @@ taSparer: 'Sparerpauschbetrag',
     raTemplate: 'Template',
     raTplGeneric: 'Property, watch or other (free form)',
 
+    // P5-4.1 loss carry-forward
+    lcPotShares: 'Shares',
+    lcPotOther: 'Other capital income',
+    lcPotPrivate: 'Private sales (sec. 23)',
+    lcTitle: 'Loss carry-forward {y}',
+    lcIntro: 'Losses an earlier year could not use, computed from your transactions for all portfolios together. Share losses only offset share gains, private-sale losses only private-sale gains. Carried losses are used before the Sparerpauschbetrag; a private-sale gain below the Freigrenze stays tax-free and leaves them untouched.',
+    lcPot: 'Pot',
+    lcBroughtForward: 'Brought forward',
+    lcUsed: 'Used in {y}',
+    lcCarried: 'Carried to {y}',
+    lcOpening: 'From your assessment',
+    lcOpeningOf: 'Losses brought into {y} from your assessment: {pot}',
+    lcOpeningHint: 'From your assessment: the remaining loss carry-forward on your last Verlustfeststellungsbescheid, or a bank\'s Verlustbescheinigung, entered in the year it is brought into. It is added to what MAERMIN computes.',
+    lcKapNote: 'Anlage KAP stays per year: the tax office applies the carry-forward itself from its loss assessment.',
+    lcHideBreakdown: 'Hide per portfolio',
+    lcShowBreakdown: 'Per portfolio, as each bank would keep it',
+    trCarryIn: 'Losses brought forward: {pot}',
+    trCarryOut: 'Carried to next year: {pot}',
+    trCarryKap: 'Anlage KAP stays per year; the tax office applies the carry-forward itself.',
+
+    // P5-4.1 loss carry-forward
+    gtCarryUsed: 'Loss carry-forward used',
+
     // CoinGecko via Worker
     cgNeedsWorker: 'Crypto prices come through your Worker - add its URL in API Settings'
   },
@@ -6462,6 +6485,29 @@ taSparer: 'Sparerpauschbetrag',
     raTplMissing: 'Bitte Name und die mit * markierten Felder ausfüllen.',
     raTemplate: 'Vorlage',
     raTplGeneric: 'Immobilie, Uhr oder Sonstiges (frei)',
+
+    // P5-4.1 loss carry-forward
+    lcPotShares: 'Aktien',
+    lcPotOther: 'Sonstige Kapitalerträge',
+    lcPotPrivate: 'Private Veräußerungen (§ 23)',
+    lcTitle: 'Verlustvortrag {y}',
+    lcIntro: 'Verluste, die ein früheres Jahr nicht nutzen konnte, berechnet aus deinen Transaktionen für alle Portfolios zusammen. Aktienverluste mindern nur Aktiengewinne, Verluste aus privaten Veräußerungen nur solche Gewinne. Vorgetragene Verluste werden vor dem Sparerpauschbetrag verrechnet; ein Gewinn aus privaten Veräußerungen unter der Freigrenze bleibt steuerfrei und lässt sie unberührt.',
+    lcPot: 'Topf',
+    lcBroughtForward: 'Vorgetragen',
+    lcUsed: 'Genutzt {y}',
+    lcCarried: 'Vortrag nach {y}',
+    lcOpening: 'Laut Bescheid',
+    lcOpeningOf: 'In {y} vorgetragene Verluste laut Bescheid: {pot}',
+    lcOpeningHint: 'Laut Bescheid: der verbleibende Verlustvortrag aus deinem letzten Verlustfeststellungsbescheid oder der Verlustbescheinigung einer Bank, eingetragen in dem Jahr, in das er vorgetragen wird. Er kommt zu dem hinzu, was MAERMIN berechnet.',
+    lcKapNote: 'Die Anlage KAP bleibt pro Jahr: Das Finanzamt verrechnet den Verlustvortrag selbst aus seiner Verlustfeststellung.',
+    lcHideBreakdown: 'Pro Portfolio ausblenden',
+    lcShowBreakdown: 'Pro Portfolio, wie es jede Bank führen würde',
+    trCarryIn: 'Verlustvortrag aus dem Vorjahr: {pot}',
+    trCarryOut: 'Vortrag ins nächste Jahr: {pot}',
+    trCarryKap: 'Die Anlage KAP bleibt pro Jahr; das Finanzamt verrechnet den Verlustvortrag selbst.',
+
+    // P5-4.1 loss carry-forward
+    gtCarryUsed: 'Genutzter Verlustvortrag',
 
     // CoinGecko via Worker
     cgNeedsWorker: 'Kryptokurse kommen über deinen Worker – trage seine URL in den API-Einstellungen ein'
