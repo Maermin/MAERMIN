@@ -5355,6 +5355,12 @@ function InvestmentTracker() {
         theme: currentTheme, transactions, prices, priceHistory, exchangeRate, portfolios, rev: taxSettingsRev,
         formatMoney: (v) => privacyMode ? '••••••' : window.MaerminI18n.money(v, 'EUR')
       }),
+      // P5-4.4: December plan - sell and buy back to use the rest of the
+      // Sparerpauschbetrag, checked through the same report.
+      taxJurisdiction === 'de' && window.MaerminHarvest && React.createElement(window.MaerminHarvest.Panel, {
+        theme: currentTheme, transactions, prices, exchangeRate, fxAt, rev: taxSettingsRev,
+        formatMoney: (v) => privacyMode ? '••••••' : window.MaerminI18n.money(v, 'EUR')
+      }),
       // P5-4.2: "if I sell X": lots, gain and the extra tax through the same report.
       taxJurisdiction === 'de' && window.MaerminSellSim && React.createElement(window.MaerminSellSim.Panel, {
         theme: currentTheme, transactions, prices, exchangeRate, fxAt,
