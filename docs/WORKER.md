@@ -25,7 +25,7 @@ Configure it in the app under **API Settings → Cloudflare Worker**.
 ## Version
 
 ### `GET /?action=version`
-`200 { "version": "2026.10.10", "actions": ["yf", "yfsearch", …], "storage": true }`. No upstream call and no rate limit.
+`200 { "version": "2026.10.11", "actions": ["yf", "yfsearch", …], "storage": true }`. No upstream call and no rate limit.
 `storage` says whether sync and share links can work (a KV namespace or the Durable Object is bound); the
 app's connection test shows it.
 `WORKER_VERSION` in `worker.js` and `EXPECTED_WORKER_VERSION` in `onboarding.js` name the same release
@@ -404,6 +404,35 @@ redirect from the bank is refused, not followed. The shared price Worker (`PRICE
 | `FINTS_PRODUCT_ID` | The MAERMIN FinTS product id (registered with the Deutsche Kreditwirtschaft by the project owner). Without it the app shows "needs product id" and does not sync. Not stored in the repo. |
 | `FINTS_PRODUCT_VERSION` | Product version sent with it (default `1`). |
 | `FINTS_EXTRA_HOSTS` | More bank hosts, comma-separated exact host names (e.g. a bank not in the list). |
+
+## Web push (optional, P5-5.1)
+
+Reminders that reach a closed app. Needs the `SYNC` KV namespace and the cron trigger in `wrangler.toml` (`*/15 * * * *`); redeploy to get both.
+
+- **The browser encrypts every message** to its own push subscription (RFC 8291, `push-crypto.js`). The Worker stores and forwards ciphertext only; it can't read a reminder.
+- **VAPID:** the Worker creates its key pair on first use and keeps it in KV (`push:vapid`). Optional `VAPID_SUBJECT` (a `mailto:` or `https:` URL) for the JWT's `sub`; the default is the repository URL.
+- **Endpoints:** only the browser vendors' push services (Google FCM, Mozilla, Microsoft WNS, Apple).
+
+### `POST /?action=push`
+
+| Body | Answer |
+|---|---|
+| `{ op: 'key' }` | `{ publicKey }`: the VAPID key to subscribe with |
+| `{ op: 'set', box, token, key, endpoint, messages: [{ at, body, ttl?, urgency? }], prices?: [{ kind, symbol, op, threshold, body }] }` | `{ ok, messages, prices }`. Replaces the device's box. `body` is the aes128gcm ciphertext (base64url). A subscription made with another key gets 409 `resubscribe`. |
+| `{ op: 'test', box, token, body }` | `{ ok, status }`: sends one message now |
+| `{ op: 'delete', box, token }` | `{ ok }` |
+
+- **Limits:** 100 messages and 20 price rules per box, 4 KB per message, send times at most 400 days ahead.
+- **Token:** `box` is a random id. `token` is a random secret, stored only as a SHA-256 hash, and only it can replace or delete the box. New boxes count against the daily budget for new sync accounts (`SYNC_DAILY_NEW_MAX`).
+- **Cron, every 15 minutes:**
+  - sends due messages once;
+  - drops a message that missed its TTL;
+  - deletes a box whose push service answers 404 or 410 (the subscription is gone).
+- **Opt-in price rules:** when the user switches them on, a price rule carries its `symbol` (a Yahoo symbol, or a CoinGecko id for `kind: 'coingecko'`), `op` and `threshold`.
+  - The Worker checks the price every 15 minutes: Yahoo's regular market price in the quote currency, or CoinGecko's EUR price.
+  - When the rule is reached, the Worker sends the prepared message once and removes the rule.
+  - The Worker sees that symbol and threshold, never a quantity or a value.
+- **Shared price Worker:** a `PRICE_ONLY` deployment refuses `push` and runs no cron.
 
 ## Deploy
 

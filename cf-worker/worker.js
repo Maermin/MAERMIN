@@ -30,16 +30,20 @@
  *                                                 browser) to an allowed bank: { status, msg }
  *   GET  /?action=wallet&chain=btc&address=…    → balance (+ tokens, recent transactions) of a
  *                                                 public crypto address (cf-worker/wallets.js)
+ *   POST /?action=push  { op, … }               → Web Push relay: stores messages the browser
+ *                                                 encrypted itself and sends them on the cron
+ *                                                 trigger (cf-worker/push.js)
  */
 import { FINTS_BANKS, fintsUrlAllowed, extraHosts } from './fints-banks.js';
 import { WALLET_CHAINS, validAddress, walletSnapshot } from './wallets.js';
+import { handlePush, runPushCron } from './push.js';
 
 // Bump on every change to this file that the app relies on, and set
 // EXPECTED_WORKER_VERSION in onboarding.js to the same value (test/worker-version
 // enforces both). Format YYYY.M.N; compared numerically per part.
-export const WORKER_VERSION = '2026.10.10';
+export const WORKER_VERSION = '2026.10.11';
 export const WORKER_ACTIONS = ['yf', 'yfsearch', 'screener', 'fundholdings', 'fundamentals', 'earnings', 'profile',
-  'news', 'skinprices', 'steaminv', 'cg', 'hicp', 'sync', 'share', 'mcp', 'brokerproxy', 'fints', 'fintsbanks', 'wallet', 'version'];
+  'news', 'skinprices', 'steaminv', 'cg', 'hicp', 'sync', 'share', 'mcp', 'brokerproxy', 'fints', 'fintsbanks', 'wallet', 'push', 'version'];
 // P5-3.1: the routes a shared price Worker (PRICE_ONLY=1) serves - market data only
 export const PRICE_ONLY_ACTIONS = ['yf', 'yfsearch', 'screener', 'fundholdings', 'fundamentals', 'earnings', 'profile',
   'news', 'skinprices', 'cg', 'hicp', 'version'];
@@ -56,7 +60,35 @@ export default {
       return res(JSON.stringify({ error: 'internal error' }), 500, request);
     }
   },
+  // P5-5.1: the cron trigger (wrangler.toml [triggers]) delivers due push
+  // messages and checks the opt-in price rules. Not on the shared price Worker.
+  async scheduled(event, env, ctx) {
+    if (isPriceOnly(env) || !env || !env.SYNC) return;
+    ctx.waitUntil(runPushCron(env, Date.now(), { price: (kind, symbol) => pushPrice(env, kind, symbol) }));
+  },
 };
+
+// The current price for a push price rule: Yahoo's regular market price in the
+// quote currency, or CoinGecko's EUR price (the units the app's rules use).
+export async function pushPrice(env, kind, symbol) {
+  if (kind === 'coingecko') {
+    const headers = { 'Accept': 'application/json', 'User-Agent': 'MAERMIN-Portfolio-Worker/1.0 (+https://github.com/Maermin/MAERMIN)' };
+    if (env && env.COINGECKO_API_KEY) headers['x-cg-demo-api-key'] = env.COINGECKO_API_KEY;
+    const r = await fetchWithTimeout(CG_BASE + 'simple/price?ids=' + encodeURIComponent(symbol) + '&vs_currencies=eur', { headers }, 12000);
+    if (!r.ok) return null;
+    const j = await r.json();
+    const v = j && j[symbol] && j[symbol].eur;
+    return typeof v === 'number' && isFinite(v) ? v : null;
+  }
+  if (!isMarketSymbol(symbol)) return null;
+  const r = await fetchWithTimeout('https://query1.finance.yahoo.com/v8/finance/chart/' + encodeURIComponent(symbol) + '?interval=1d&range=1d', {
+    headers: { 'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36', 'Accept': 'application/json', 'Referer': 'https://finance.yahoo.com/' }
+  });
+  if (!r.ok) return null;
+  const j = await r.json();
+  const v = j && j.chart && j.chart.result && j.chart.result[0] && j.chart.result[0].meta && j.chart.result[0].meta.regularMarketPrice;
+  return typeof v === 'number' && isFinite(v) ? v : null;
+}
 
 async function handle(request, env, ctx) {
     const url    = new URL(request.url);
@@ -145,6 +177,17 @@ async function handle(request, env, ctx) {
         put: (rec) => env.SYNC.put(key, JSON.stringify(rec)),
         canCreate: async () => !isNewAccountLimited(shareClientKey(request), env),
       }, body);
+      return res(JSON.stringify(out.body), out.status, request);
+    }
+
+    // ── P5-5.1 Web Push relay (cf-worker/push.js) ────────────────────────────
+    // Only ciphertext the browser encrypted to its own subscription, the push
+    // endpoint (a browser vendor's push service) and send times are stored.
+    if (request.method === 'POST' && action === 'push') {
+      if (!env || !env.SYNC) return res(JSON.stringify({ error: 'push storage not configured (bind KV namespace SYNC)' }), 501, request);
+      const read = await readJsonBody(request, 600000);
+      if (!read.ok) return res(JSON.stringify({ error: read.error }), read.status, request);
+      const out = await handlePush(env, read.body || {}, Date.now(), async () => !isNewAccountLimited(shareClientKey(request), env));
       return res(JSON.stringify(out.body), out.status, request);
     }
 

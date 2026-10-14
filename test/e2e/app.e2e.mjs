@@ -574,7 +574,7 @@ async function runBuild(browser, label, dir) {
       const taxNote = await page.locator('main [data-testid="disclaimer"]').first().innerText().catch(() => '');
       ok('disclaimer on Tax, Health (advisor) and Intelligence', missing.length === 0, missing.join(', '));
       await openView(page, 'tax');
-      ok('Tax view names the supported tax rules', /German and US tax rules/.test(await page.locator('main [data-testid="disclaimer"][data-kind="tax"]').first().innerText().catch(() => '')), taxNote);
+      ok('Tax view names the supported tax rules', /German, Austrian, Swiss and US tax rules/.test(await page.locator('main [data-testid="disclaimer"][data-kind="tax"]').first().innerText().catch(() => '')), taxNote);
       await openView(page, 'privacy');
       const pv = await page.locator('[data-testid="privacy-view"]').innerText().catch(() => '');
       ok('Settings → Privacy lists what stays local and what goes where', ['Stays on this device', 'Your Cloudflare Worker', 'CoinGecko', 'Cloud sync', 'Share & Compare'].every((x) => pv.includes(x)), pv.slice(0, 160));
@@ -2410,6 +2410,21 @@ async function runBuild(browser, label, dir) {
       } catch (e) { err = String(e.message).split('\n')[0]; }
       ok(tag + 'P5-3.1: Security & sync names the market-data source and what the shared price service sees; its switch is saved', !err && /never amounts, quantities or your vault/.test(info) && /Your Worker|None \(offline prices\)|MAERMIN price service/.test(info) && saved === 'off',
         err || info.replace(/\n/g, ' | ').slice(0, 200) + ' | ' + saved);
+    }
+    // P5-5.1: Security & sync offers push reminders, says they are encrypted on
+    // the device, and names the opt-in price rules; the service worker shows pushes.
+    {
+      let text = '', swPush = false, err = '';
+      try {
+        await fromMenu('Security & sync')();
+        const panel = page.locator('[data-testid="push-panel"]');
+        await panel.waitFor({ timeout: 5000 });
+        text = await panel.innerText();
+        await press('Escape');
+        swPush = await page.evaluate(() => fetch('service-worker.js').then((r) => r.text()).then((t) => /addEventListener\('push'/.test(t)).catch(() => false));
+      } catch (e) { err = String(e.message).split('\n')[0]; }
+      ok(tag + 'P5-5.1: Security & sync has push reminders, encrypted on the device; the service worker handles push', !err && /encrypted on this device/.test(text) && /Push notifications on this device/.test(text) && swPush,
+        err || text.replace(/\n/g, ' | ').slice(0, 200) + ' | sw ' + swPush);
     }
     // P2-1: the phone dock has one button per area; an area's views are chips.
     if (page.viewportSize().width < 900) {
