@@ -5396,6 +5396,10 @@ function InvestmentTracker() {
         formatMoney: (v) => privacyMode ? '••••••' : window.MaerminI18n.money(v, 'EUR'),
         onChange: () => setTaxSettingsRev(r => r + 1)
       }),
+      // P5-4.11: US - IRA / Roth IRA / 401(k) contributions against the IRS limits.
+      taxJurisdiction === 'us' && window.MaerminUSContrib && React.createElement(window.MaerminUSContrib.Panel, {
+        theme: currentTheme, transactions, portfolios, exchangeRate, year: currentYear, privacy: privacyMode
+      }),
       // P5-4.10: Switzerland - the Wertschriftenverzeichnis, DA-1 and the KS 36 check.
       taxJurisdiction === 'ch' && window.MaerminCHTax && React.createElement(window.MaerminCHTax.Panel, {
         theme: currentTheme, report: taxReport, year: currentYear, privacy: privacyMode,

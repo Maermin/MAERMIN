@@ -862,6 +862,28 @@ async function runBuild(browser, label, dir) {
     }
 
 
+    // P5-4.11: US contribution limits. With the US tax system the Tax view shows
+    // the retirement panel; marking a portfolio as a Roth IRA adds the IRA limit.
+    {
+      let text = '', bar = '', err = '';
+      try {
+        const sel = page.locator('select', { has: page.locator('option[value="us"]') }).first();
+        await sel.selectOption('us');
+        const ucp = page.locator('[data-testid="us-contrib-panel"]');
+        await ucp.waitFor({ timeout: 5000 });
+        text = await ucp.innerText();
+        const typeSel = ucp.locator('[data-testid^="uc-pf-"] select').first();
+        await typeSel.selectOption('roth-ira');
+        await page.locator('[data-testid="uc-ira"]').waitFor({ timeout: 5000 });
+        bar = await page.locator('[data-testid="uc-ira"]').innerText();
+        await typeSel.selectOption('');
+        await sel.selectOption('de');
+        await page.waitForTimeout(400);
+      } catch (e) { err = e.message.split('\n')[0]; }
+      ok('P5-4.11: the US tax system shows the retirement contributions panel with its sources', /Retirement contributions/i.test(text) && /Notice 2025-67/.test(text), err || text.slice(0, 300));
+      ok('P5-4.11: a portfolio marked as Roth IRA shows the IRA limit of the selected year and the 15 April deadline', /of 7,[05]00\.00/.test(bar) && /04\/15\/20\d\d/.test(bar), err || bar);
+    }
+
     let pdf = null;
     try {
       const [download] = await Promise.all([
