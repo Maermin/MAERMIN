@@ -1570,6 +1570,9 @@ function InvestmentTracker() {
           window.MaerminSync.configure({ provider: 'worker', endpoint });
           if (window.MaerminSync.enableAutoSync) window.MaerminSync.enableAutoSync();
         }
+      } else if (cfg && (cfg.provider === 'file' || cfg.provider === 'webdav') && window.MaerminSync.rearm) {
+        // P5-5.6: a file needs its access permission still granted
+        window.MaerminSync.rearm().then((yes) => { if (yes && window.MaerminSync.enableAutoSync) window.MaerminSync.enableAutoSync(); }, () => {});
       }
     } catch (e) {}
   }, []); // run once on mount
@@ -6757,6 +6760,17 @@ buy,crypto,bitcoin,0.5,45000,2024-01-15,10`)
     const runSync = () => { if (!S || !S.sync) return; setSyncBusy(true); S.sync().then((r) => { setSyncBusy(false); addToast(r && r.unchanged ? __('syncUpToDate', 'Already up to date') : __('syncDone', 'Synced ✓'), 'success'); bump(); }, (e) => { setSyncBusy(false); addToast(__('syncFailedMsg', 'Sync failed: {msg}', { msg: (e && e.message) || (t.error || 'Error') }), 'error'); bump(); }); };
     const doEnableSync = () => { if (!workerUrl) { addToast(__('syncNeedWorker', 'Add a Worker URL in API Settings first'), 'error'); return; } if (!S) return; S.configure({ provider: 'worker', endpoint: workerUrl }); if (S.enableAutoSync) S.enableAutoSync(); runSync(); };
     const syncOn = !!((S && S.isConfigured && S.isConfigured()) || (syncCfg && syncCfg.provider));
+    // P5-5.6: connect a destination, stop syncing, allow a stored file again
+    const TRs = window.MaerminSyncTransports;
+    const connectSync = (cfg) => { if (!S) return; S.configure(cfg); if (S.enableAutoSync) S.enableAutoSync(); runSync(); bump(); };
+    const stopSync = () => { if (!S || !S.disconnect) return; S.disconnect(); addToast(__('stStopped', 'Sync stopped on this device. The encrypted copy at the destination stays.'), 'success'); bump(); };
+    const reconnectFile = () => {
+      if (!TRs || !S) return;
+      TRs.loadHandle().then((h) => TRs.permitted(h, true).then((yes) => {
+        if (!h || !yes) { addToast(TRs.messageFor('file-permission'), 'error'); return; }
+        S.configure({ provider: 'file', handle: h, endpoint: h.name }); runSync(); bump();
+      })).catch(() => addToast(TRs.messageFor('file-permission'), 'error'));
+    };
 
     // focusField: false - an overview: open on the panel, not on the market-data switch (P5-3.1)
     return React.createElement(window.MaerminUI.Overlay, { onClose: () => setShowSecurity(false), focusField: false, restoreFocus: focusAccountButton, style: { position: 'fixed', inset: 0, zIndex: 9050, background: 'rgba(3,6,12,0.72)', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '1.5rem' } },
@@ -6782,7 +6796,7 @@ buy,crypto,bitcoin,0.5,45000,2024-01-15,10`)
             React.createElement('input', { type: 'password', value: rotatePw, onChange: (e) => setRotatePw(e.target.value), onKeyDown: (e) => e.key === 'Enter' && rotateKey(), placeholder: t.currentPassword || 'Current Password', 'aria-label': t.currentPassword || 'Current Password', autoComplete: 'current-password', style: { flex: 1, padding: '0.5rem', background: currentTheme.inputBg, border: `1px solid ${currentTheme.inputBorder}`, borderRadius: '6px', color: currentTheme.text, fontSize: '0.82rem' } }),
             smallBtn(rotateBusy ? __('working', 'Working…') : __('secReplaceKeyNow', 'Replace key'), rotateKey, rotateBusy || !rotatePw))),
         sectionTitle(__('secCloudSync', 'Cloud sync (zero-knowledge)')),
-        React.createElement('p', { style: { color: currentTheme.textSecondary, fontSize: '0.76rem', lineHeight: '1.5', margin: '0 0 0.4rem' } }, __('secCloudSyncHint', 'Your encrypted snapshot syncs via your own Worker. The server only ever sees ciphertext; the account id is derived from your vault.')),
+        React.createElement('p', { style: { color: currentTheme.textSecondary, fontSize: '0.76rem', lineHeight: '1.5', margin: '0 0 0.4rem' } }, __('secCloudSyncHint2', 'Your encrypted snapshot syncs through your own Worker, a file or a WebDAV folder. Each of them only ever sees ciphertext; the account id is derived from your vault.')),
         // The badge shows a failed last attempt instead of a green "Enabled" (FINDINGS H-6).
         row(__('secStatus', 'Status'), !syncOn ? badge(__('secNotEnabled', 'Not enabled'), false) : (() => {
           const st = (S && S.statusOf) ? S.statusOf(syncState) : { state: syncState && syncState.lastSyncAt ? 'ok' : 'never' };
@@ -6792,11 +6806,16 @@ buy,crypto,bitcoin,0.5,45000,2024-01-15,10`)
           }
           return badge(__('syncEnabledLast', 'Enabled · last {ago}', { ago: fmtAgo(syncState && syncState.lastSyncAt) }), true);
         })()),
-        React.createElement('div', { style: { display: 'flex', gap: '0.5rem', marginTop: '0.7rem' } },
+        // P5-5.6: the destination - your Worker, a local file or a WebDAV folder
+        syncOn && TRs ? row(__('stDest', 'Destination'), React.createElement('span', { 'data-testid': 'sync-dest-name', style: { color: currentTheme.text, fontSize: '0.78rem' } }, TRs.describe(syncCfg))) : null,
+        React.createElement('div', { style: { display: 'flex', gap: '0.5rem', marginTop: '0.7rem', flexWrap: 'wrap' } },
           syncOn ? smallBtn(syncBusy ? __('syncing', 'Syncing…') : __('syncNow', 'Sync now'), runSync, syncBusy) : null,
-          syncOn ? null : smallBtn(syncBusy ? '…' : __('syncEnable', 'Enable & sync'), doEnableSync, syncBusy || !workerUrl)
+          syncOn && TRs && syncCfg && syncCfg.provider === 'file' && !(S && S.isConfigured()) ? smallBtn(__('stReconnect', 'Allow file access'), reconnectFile, syncBusy) : null,
+          syncOn && TRs ? smallBtn(__('stStop', 'Stop syncing here'), stopSync, syncBusy) : null,
+          syncOn || TRs ? null : smallBtn(syncBusy ? '…' : __('syncEnable', 'Enable & sync'), doEnableSync, syncBusy || !workerUrl)
         ),
-        !workerUrl && React.createElement('div', { style: { color: currentTheme.warning, fontSize: '0.74rem', marginTop: '0.4rem' } }, __('syncNeedWorkerHint', 'Add a Worker URL in API Settings to enable sync.')),
+        !syncOn && TRs ? React.createElement(TRs.Panel, { theme: currentTheme, workerUrl, busy: syncBusy, onConnect: connectSync }) : null,
+        !TRs && !workerUrl && React.createElement('div', { style: { color: currentTheme.warning, fontSize: '0.74rem', marginTop: '0.4rem' } }, __('syncNeedWorkerHint', 'Add a Worker URL in API Settings to enable sync.')),
         // P5-3.1: where market data comes from, and the shared price service switch
         sectionTitle(__('secMarketData', 'Market data')),
         React.createElement('p', { 'data-testid': 'shared-prices-info', style: { color: currentTheme.textSecondary, fontSize: '0.76rem', lineHeight: '1.5', margin: '0 0 0.4rem' } },

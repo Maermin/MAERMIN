@@ -18,7 +18,7 @@ const VERSION = '0.1.0';
 const PROTOCOLS = ['2025-06-18', '2025-03-26', '2024-11-05'];
 const TOOLS = ['overview', 'positions', 'transactions', 'performance', 'dividends', 'tax_summary', 'allocation'];
 // Never handed to a tool: credentials, connection metadata, device state, PII.
-const DROP = new Set(['apiKeys', 'maermin_fmp_api_key', 'maermin_push', 'maermin_sync_base', 'maermin_exchange_sync',
+const DROP = new Set(['apiKeys', 'maermin_webdav', 'maermin_fmp_api_key', 'maermin_push', 'maermin_sync_base', 'maermin_exchange_sync',
   'maermin_bank_sync', 'maermin_aggregators', 'maermin_wallets', 'maermin_tax_owner', 'maermin_trash', 'maermin_tax_certs']);
 
 // The app's modules: vendored into mcp/app/ for the npm package, else the

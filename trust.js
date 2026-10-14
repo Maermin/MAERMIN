@@ -49,6 +49,7 @@ function __(k, f, v) { return (typeof window !== 'undefined' && window.MaerminI1
         __('pvDirect4', 'Logos and pictures load from Yahoo, CoinGecko and the Steam CDN, so those services see which ones you view.')]],
       [__('pvOptTitle', 'Only if you turn it on'), [
         __('pvSync', 'Cloud sync: your Worker stores your data encrypted on your device, under an anonymous account id. It cannot read it.'),
+        __('pvSyncFile', 'Sync through a file or WebDAV: the same encrypted copy goes to a file you pick or to your WebDAV folder, signed with a key from your vault. That storage sees ciphertext only. The WebDAV login stays on this device, encrypted.'),
         __('pvShare', 'Share & Compare: a redacted snapshot (percentages and scores, no amounts or quantities) is stored by your Worker for 90 days, plus an anonymous aggregate for the comparison.'),
         __('pvExchange', 'Exchange connections: your Worker relays each request to the exchange. The API key travels with every request (Binance: the request is signed in your browser and the secret stays here). Keys are stored encrypted in your vault.'),
         __('pvSteam', 'Steam inventory import: your Worker asks Steam for the inventory of the profile you enter. The profile is not stored.'),
