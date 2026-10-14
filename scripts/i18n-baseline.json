@@ -40,6 +40,7 @@
     "savings-plan-executor.js": 4,
     "share-snapshot.js": 9,
     "simulator-view.js": 2,
+    "statements.js": 1,
     "tax-report-builder.js": 12,
     "ticker-validation.js": 49
   },

@@ -17,7 +17,9 @@ export const NOT_UI = new Set([
   'service-worker.js', 'compute.worker.js', 'compute.worker.harness.js', 'loader-status.js',
   // FinTS protocol syntax (segments, codes); its errors carry codes that
   // bank-sync.js turns into translated messages (P5-3.4)
-  'fints.js'
+  'fints.js',
+  // PDF file syntax for the AES-256 security handler (P5-4.8); no UI text
+  'pdf-aes.js'
 ]);
 // Files whose literals are English fallbacks of keys the guard already checks.
 export const SCAN_SKIP = new Set(['nav-model.js']);
