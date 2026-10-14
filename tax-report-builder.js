@@ -217,6 +217,17 @@ function __(k, f, v) { return (typeof window !== 'undefined' && window.MaerminI1
         labels: { shortTerm: __('atPool', 'Income at 27.5 %'), longTerm: __('atAlt', 'Crypto Altvermögen, tax-free') }
       };
     }
+    // Switzerland (P5-4.10): no tax amount (cantonal); the cards show the
+    // year-end wealth and the VST to reclaim, converted back to the base currency.
+    var ch = report.summary.swissDetail;
+    if (ch) {
+      var back = function (v) { return ch.chfPerEur > 0 ? v / ch.chfPerEur : 0; };
+      return {
+        realizedGains: report.summary.netRealized, shortTerm: back(ch.totals.valueCHF), longTerm: back(ch.totals.vstClaim),
+        taxLiability: 0, taxFree: report.summary.netRealized,
+        labels: { shortTerm: __('chValue', 'Securities and crypto at year-end (wealth)'), longTerm: __('chVst', 'Verrechnungssteuer to reclaim (35 % of A)') }
+      };
+    }
     return {
       realizedGains: report.summary.netRealized,
       shortTerm: st,
@@ -256,6 +267,17 @@ function __(k, f, v) { return (typeof window !== 'undefined' && window.MaerminI1
         austrianDetail = ATm.compute(txs, { year: year, exchangeRate: rate, fxAt: fxAt, funds: opts.atFunds || ATm.loadFunds(),
           priceHistory: opts.priceHistory || (typeof window !== 'undefined' && window.MaerminMarket && window.MaerminMarket.get ? window.MaerminMarket.get('priceHistory') : null) || {} });
         disposals = austrianDetail.disposals;
+      }
+    }
+    // P5-4.10: Switzerland - the Wertschriftenverzeichnis in CHF; no tax amount.
+    var swissDetail = null;
+    if (jurisdiction === 'ch') {
+      var CHm = (typeof window !== 'undefined' && window.MaerminCHTax) || (typeof require === 'function' ? require('./ch-tax.js') : null);
+      if (CHm) {
+        var chSt = opts.chSettings || CHm.loadSettings();
+        swissDetail = CHm.compute(txs, { year: year, exchangeRate: rate, fxAt: fxAt, chfPerEur: opts.chfPerEur, today: opts.today, countryOf: opts.countryOf,
+          funds: opts.chFunds || chSt.funds, settings: chSt,
+          priceHistory: opts.priceHistory || (typeof window !== 'undefined' && window.MaerminMarket && window.MaerminMarket.get ? window.MaerminMarket.get('priceHistory') : null) || {} });
       }
     }
     var realizedGains = disposals.filter(function (d) { return d.gain >= 0; });
@@ -548,6 +570,7 @@ function __(k, f, v) { return (typeof window !== 'undefined' && window.MaerminI1
         jurisdictionDetail: summaryExtra,
         germanDetail: germanDetail,
         austrianDetail: austrianDetail,
+        swissDetail: swissDetail,
         cashBookings: cashBookings
       },
       realizedGains: realizedGains,
@@ -645,7 +668,7 @@ function __(k, f, v) { return (typeof window !== 'undefined' && window.MaerminI1
     doc.setTextColor(255, 255, 255); doc.setFontSize(22); doc.setFont('helvetica', 'bold');
     doc.text(__('trTitle', 'Tax Report {y}', { y: report.meta.year }), 14, 22);
     doc.setFontSize(11); doc.setFont('helvetica', 'normal');
-    doc.text('MAERMIN Portfolio Tracker · ' + (report.meta.jurisdiction === 'de' ? __('germany', 'Germany') : report.meta.jurisdiction === 'at' ? __('austria', 'Austria') : __('usa', 'USA')) + ' · ' + (report.meta.method === 'moving-average' ? __('trMovingAverage', 'moving average') : 'FIFO'), 14, 31);
+    doc.text('MAERMIN Portfolio Tracker · ' + (report.meta.jurisdiction === 'de' ? __('germany', 'Germany') : report.meta.jurisdiction === 'at' ? __('austria', 'Austria') : report.meta.jurisdiction === 'ch' ? __('switzerland', 'Switzerland') : __('usa', 'USA')) + ' · ' + (report.meta.method === 'moving-average' ? __('trMovingAverage', 'moving average') : 'FIFO'), 14, 31);
 
     var owner = report.meta.owner || {};
     doc.setTextColor(30, 41, 59); doc.setFontSize(10);
@@ -690,6 +713,12 @@ function __(k, f, v) { return (typeof window !== 'undefined' && window.MaerminI1
     if (s.austrianDetail && window.MaerminATTax) {
       y = table(__('trSecAt', '1a. Austria: tax on capital income'), ['Item', __('amount', 'Amount')],
         window.MaerminATTax.reportRows(s.austrianDetail, function (v) { return money(v, cur); }), y);
+    }
+
+    // Swiss Wertschriftenverzeichnis (jurisdiction 'ch', P5-4.10), in CHF.
+    if (s.swissDetail && window.MaerminCHTax) {
+      y = table(__('trSecCh', '1a. Switzerland: Wertschriftenverzeichnis (CHF)'), [__('trItem', 'Item'), __('amount', 'Amount')],
+        window.MaerminCHTax.reportRows(s.swissDetail, function (v) { return money(v, 'CHF'); }), y);
     }
 
     function lots(rows) {
@@ -764,7 +793,7 @@ function __(k, f, v) { return (typeof window !== 'undefined' && window.MaerminI1
     var sheets = [];
 
     var summaryRows = [
-      [__('trTaxYear', 'Tax year'), report.meta.year], [__('jurisdiction', 'Jurisdiction'), (report.meta.jurisdiction === 'de' ? __('germany', 'Germany') : report.meta.jurisdiction === 'at' ? __('austria', 'Austria') : __('usa', 'USA'))],
+      [__('trTaxYear', 'Tax year'), report.meta.year], [__('jurisdiction', 'Jurisdiction'), (report.meta.jurisdiction === 'de' ? __('germany', 'Germany') : report.meta.jurisdiction === 'at' ? __('austria', 'Austria') : report.meta.jurisdiction === 'ch' ? __('switzerland', 'Switzerland') : __('usa', 'USA'))],
       [__('trMethod', 'Method'), report.meta.method || 'FIFO'], [__('trBaseCurrency', 'Base currency'), cur]
     ];
     if (owner.name) summaryRows.push([__('trTaxpayer', 'Taxpayer'), owner.name]);
@@ -784,6 +813,11 @@ function __(k, f, v) { return (typeof window !== 'undefined' && window.MaerminI1
       var ATx = (typeof window !== 'undefined' && window.MaerminATTax) || require('./at-tax.js');
       sheets.push({ name: __('trSheetAustria', 'Austrian Tax'), columns: [320, 120], headers: [__('trItem', 'Item'), __('trAmountCur', 'Amount ({cur})', { cur: cur })],
         money: [false, true], rows: ATx.reportRows(s.austrianDetail, function (v) { return num(v); }) });
+    }
+    if (s.swissDetail) {
+      var CHx = (typeof window !== 'undefined' && window.MaerminCHTax) || require('./ch-tax.js');
+      sheets.push({ name: __('trSheetSwiss', 'Swiss Statement'), columns: [320, 120], headers: [__('trItem', 'Item'), __('trAmountCur', 'Amount ({cur})', { cur: 'CHF' })],
+        money: [false, true], rows: CHx.reportRows(s.swissDetail, function (v) { return num(v); }) });
     }
     if (s.germanDetail) {
       var g = s.germanDetail;

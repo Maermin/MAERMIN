@@ -842,6 +842,26 @@ async function runBuild(browser, label, dir) {
     }
 
 
+    // P5-4.10: Switzerland. Switching the tax system shows the Wertschriftenverzeichnis
+    // (CHF, columns A/B, KS 36) and the KPI labels; switching back restores Germany.
+    {
+      let text = '', kpi = '', back = false, err = '';
+      try {
+        const sel = page.locator('select', { has: page.locator('option[value="ch"]') }).first();
+        await sel.selectOption('ch');
+        const chp = page.locator('[data-testid="ch-panel"]');
+        await chp.waitFor({ timeout: 5000 });
+        text = await chp.innerText();
+        kpi = await page.innerText('main');
+        await sel.selectOption('de');
+        await page.waitForTimeout(400);
+        back = (await page.locator('[data-testid="ch-panel"]').count()) === 0;
+      } catch (e) { err = e.message.split('\n')[0]; }
+      ok('P5-4.10: Switzerland shows the Wertschriftenverzeichnis (wealth, columns A/B, VST, KS 36, sources)', /Switzerland: Wertschriftenverzeichnis/i.test(text) && /at year-end \(wealth\)/i.test(text) && /column A/i.test(text) && /Verrechnungssteuer to reclaim/i.test(text) && /Kreisschreiben 36/i.test(text) && /Art\. 16 Abs\. 3/.test(text), err || text.slice(0, 300));
+      ok('P5-4.10: the KPI cards use the Swiss labels; back to Germany the panel is gone', /Securities and crypto at year-end/i.test(kpi) && /Verrechnungssteuer to reclaim/i.test(kpi) && back, err || String(back));
+    }
+
+
     let pdf = null;
     try {
       const [download] = await Promise.all([

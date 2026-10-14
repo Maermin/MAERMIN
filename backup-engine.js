@@ -58,6 +58,7 @@
     'maermin_loss_carry',
     'maermin_tax_certs',
     'maermin_at_funds',
+    'maermin_ch_settings',
     'maermin_datev_accounts',
     // competitive-gap stores (see real-assets.js — property/valuables with cashflows;
     // interest-engine.js — per-year accrued-interest ledger for cash/time deposits)

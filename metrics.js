@@ -339,6 +339,8 @@
       if (opts.jurisdiction === 'us') r = longTerm ? US_LONG_RATE : US_SHORT_RATE;
       // Austria (P5-4.9): 27.5 %; crypto bought before 1.3.2021 stays free
       // (§ 124b Z 384 EStG); other private sales (§ 31) only within a year.
+      // Switzerland (P5-4.10): private capital gains are tax-free (Art. 16 Abs. 3 DBG).
+      else if (opts.jurisdiction === 'ch') r = 0;
       else if (opts.jurisdiction === 'at') r = cls === 'crypto' ? (String(lot.date || '').slice(0, 10) < '2021-03-01' ? 0 : 0.275) : (privateSale && cls !== 'crypto' && longTerm ? 0 : 0.275);
       else if (privateSale) r = (longTerm && exemptOn) ? 0 : (settings.abgeltungRate != null ? settings.abgeltungRate : DE_PRIVATE_RATE);
       else r = deSecurities;
