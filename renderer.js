@@ -5361,6 +5361,11 @@ function InvestmentTracker() {
         theme: currentTheme, transactions, prices, exchangeRate, fxAt, rev: taxSettingsRev,
         formatMoney: (v) => privacyMode ? '••••••' : window.MaerminI18n.money(v, 'EUR')
       }),
+      // P5-4.5: per coin what is tax-free today and in 1-12 months.
+      taxJurisdiction === 'de' && window.MaerminCryptoCalendar && React.createElement(window.MaerminCryptoCalendar.Panel, {
+        theme: currentTheme, transactions, prices, exchangeRate, fxAt, rev: taxSettingsRev,
+        formatMoney: (v) => privacyMode ? '••••••' : window.MaerminI18n.money(v, 'EUR')
+      }),
       // P5-4.2: "if I sell X": lots, gain and the extra tax through the same report.
       taxJurisdiction === 'de' && window.MaerminSellSim && React.createElement(window.MaerminSellSim.Panel, {
         theme: currentTheme, transactions, prices, exchangeRate, fxAt,
