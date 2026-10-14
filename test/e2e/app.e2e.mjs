@@ -222,7 +222,10 @@ const FX_FIXTURE = {
 async function answerFromFxWorker(route) {
   const rq = route.request();
   fxCalls.push(decodeURIComponent(rq.url().slice(FX_WORKER.length)));
-  const res = await fxWorker.default.fetch(new Request(rq.url(), { method: rq.method(), body: rq.method() === 'GET' ? undefined : rq.postData() }), {}, { waitUntil() {} });
+  // Own client IP (TEST-NET-3): the Worker module is shared with the other
+  // scenarios, and its per-IP rate limit (120 a minute) would otherwise count
+  // their requests too and answer this one with 429.
+  const res = await fxWorker.default.fetch(new Request(rq.url(), { method: rq.method(), headers: { 'CF-Connecting-IP': '203.0.113.6' }, body: rq.method() === 'GET' ? undefined : rq.postData() }), {}, { waitUntil() {} });
   return route.fulfill({ status: res.status, headers: { 'access-control-allow-origin': '*', 'content-type': 'application/json' }, body: await res.text() });
 }
 
@@ -705,6 +708,24 @@ async function runBuild(browser, label, dir) {
         /2024/.test(result) && /Gain\s*200\.00/.test(result) && /Sparerpauschbetrag used[^\n]*\n?\s*200\.00/.test(result) && /Extra tax this year\s*0\.00/.test(result), err || result.replace(/\s+/g, ' '));
       ok('P5-4.2: the simulation books nothing', n0 > 0 && stored === n0, err || n0 + ' -> ' + stored);
     }
+
+    // P5-4.3: Vorabpauschale forecast. VWCE.DE is a held fund; the seed has no
+    // price for it on 1 January, so it is listed and left out of the total.
+    {
+      const vf = page.locator('[data-testid="vap-forecast-panel"]');
+      let text = '', row = '', cash = '', err = '';
+      try {
+        await vf.waitFor({ timeout: 5000 });
+        text = await vf.innerText();
+        row = await vf.locator('[data-testid="vf-row-VWCE.DE"]').innerText();
+        cash = await vf.locator('[data-testid="vf-cash"]').innerText();
+      } catch (e) { err = e.message.split('\n')[0]; }
+      const yr = String(new Date().getMonth() === 0 ? new Date().getFullYear() - 1 : new Date().getFullYear());
+      ok('P5-4.3: the forecast panel names the value year and the Basiszins', text.indexOf('Vorabpauschale forecast ' + yr) >= 0 && /Basiszins/.test(text), err || text.slice(0, 200));
+      ok('P5-4.3: a held fund without a 1 January price is listed and left out', /no price on 1 January/.test(row), err || row);
+      ok('P5-4.3: the cash needed on the first working day of January', /Cash needed on/.test(cash) && /0\.00/.test(cash), err || cash);
+    }
+
 
     let pdf = null;
     try {

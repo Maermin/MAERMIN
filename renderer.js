@@ -1652,6 +1652,40 @@ function InvestmentTracker() {
     } catch (e) {}
   }, [portfolio, metaVersion, demoMode]);
 
+  // P5-4.3: Vorabpauschale reminder - once a year in December, when tax on
+  // the coming January's Vorabpauschale is expected: how much cash to keep on
+  // the clearing account. Toast always; a desktop notification only when the
+  // user already granted permission. German jurisdiction only, not in demo mode.
+  useEffect(() => {
+    try {
+      const VF = window.MaerminVapForecast, GT = window.TaxCalculationEngine && window.TaxCalculationEngine.GermanTax;
+      if (demoMode || taxJurisdiction !== 'de' || !VF || !GT || !window.MaerminGermanTaxView) return;
+      const today = new Date().toISOString().slice(0, 10);
+      if (today.slice(5, 7) !== '12') return;
+      const state = VF.loadReminded();
+      if (state[today.slice(0, 4)]) return;
+      const TS = window.MaerminTaxSettings;
+      const s = TS ? TS.load() : null;
+      const LT = window.MaerminLookThrough;
+      const fc = VF.forecast(transactions, {
+        asOf: today, priceHistory, prices, exchangeRate,
+        fundTypes: GT.loadFundTypes(), vapRecords: GT.loadVapRecords(), basiszinsOverrides: GT.loadBasiszinsOverrides(),
+        freistellungsauftrag: s ? s.freistellungsauftrag : 1000, kirchensteuer: s ? s.kirchensteuer : GT.loadKirchensteuerRate(),
+        isFund: (sym, name) => !!(LT && LT.isFundCandidate && LT.isFundCandidate(sym, name))
+      });
+      if (!VF.reminderDue(fc, state, today)) return;
+      const msg = VF.reminderText(fc, { formatMoney: (v) => window.MaerminI18n.money(v, 'EUR') });
+      addToast(msg, 'info');
+      try {
+        const canNotify = typeof Notification !== 'undefined' && Notification.permission === 'granted';
+        if (canNotify && window.MaerminPWA && window.MaerminPWA.notify) {
+          window.MaerminPWA.notify(__('vfReminderTitle', 'Vorabpauschale in January'), { body: msg });
+        }
+      } catch (e) {}
+      VF.saveReminded(VF.markReminded(state, fc.year));
+    } catch (e) {}
+  }, [transactions, prices, demoMode, taxJurisdiction]);
+
   // ========== API FUNCTIONS ==========
   
   const priceRefreshRef = useRef(false); // a refresh is running (see fetchPrices)
@@ -5314,6 +5348,12 @@ function InvestmentTracker() {
         theme: currentTheme, report: taxReport, transactions, portfolios, year: currentYear, exchangeRate, fxAt,
         formatMoney: (v) => privacyMode ? '••••••' : window.MaerminI18n.money(v, 'EUR'),
         onChange: () => setTaxSettingsRev(r => r + 1)
+      }),
+      // P5-4.3: the Vorabpauschale expected for the coming January and the
+      // cash needed on the clearing account.
+      taxJurisdiction === 'de' && window.MaerminVapForecast && React.createElement(window.MaerminVapForecast.Panel, {
+        theme: currentTheme, transactions, prices, priceHistory, exchangeRate, portfolios, rev: taxSettingsRev,
+        formatMoney: (v) => privacyMode ? '••••••' : window.MaerminI18n.money(v, 'EUR')
       }),
       // P5-4.2: "if I sell X": lots, gain and the extra tax through the same report.
       taxJurisdiction === 'de' && window.MaerminSellSim && React.createElement(window.MaerminSellSim.Panel, {
