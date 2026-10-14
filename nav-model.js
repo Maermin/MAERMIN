@@ -29,6 +29,7 @@
       v('overview', 'navOverview', 'Overview'),
       v('portfolios', 'navPortfolios', 'Portfolios'),
       v('net-worth', 'navNetWorth', 'Net Worth'),
+      v('budget', 'navBudget', 'Budget', true),
       v('watchlist', 'navWatchlist', 'Watchlist'),
       v('rebalancing', 'navRebalancing', 'Rebalancing', true)
     ] },

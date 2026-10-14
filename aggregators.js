@@ -454,7 +454,12 @@ function __(k, f, v) { return (typeof window !== 'undefined' && window.MaerminI1
                 var n = normalize(st); n.gocardless.accounts = n.gocardless.accounts.map(function (x) { return x.id === a.id ? Object.assign({}, x, { importBookings: ev.target.checked }) : x; }); mutate(n);
               } }), __('bsImportTick', 'Book this account\'s transactions as cash bookings')),
             e('span', null, __('agNewN', '{n} new {n:booking|bookings}', { n: fresh.length }) + (book.skipped ? ' · ' + __('bsSkippedSec', '{n} securities {n:booking|bookings} left to the depot / PDF import', { n: book.skipped }) : '')),
-            a.importBookings && fresh.length ? e('button', { 'data-testid': 'ag-gc-import', style: btn(true), onClick: function () { if (props.onImport) props.onImport(fresh); } }, __('bsImportN', 'Import {n}', { n: fresh.length })) : null) : null));
+            a.importBookings && fresh.length ? e('button', { 'data-testid': 'ag-gc-import', style: btn(true), onClick: function () { if (props.onImport) props.onImport(fresh); } }, __('bsImportN', 'Import {n}', { n: fresh.length })) : null,
+            // P5-5.3: every booking of the account into the Budget
+            typeof window !== 'undefined' && window.MaerminBudget && rows.length ? e('button', { 'data-testid': 'ag-gc-budget', style: btn(false), onClick: function () {
+              var n = window.MaerminBudget.addBankRows({ iban: a.iban, accountNo: a.id, currency: a.currency }, rows, 'gocardless');
+              if (props.addToast) props.addToast(__('bgAddedFromBank', '{n} bookings added to the Budget', { n: n }), 'success');
+            } }, __('bgAddToBudget', 'Add to Budget')) : null) : null));
       });
     }
 

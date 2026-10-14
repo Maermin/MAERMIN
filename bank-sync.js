@@ -290,7 +290,12 @@ function __(k, f, v) { return (typeof window !== 'undefined' && window.MaerminI1
               __('bsImportTick', 'Book this account\'s transactions as cash bookings')),
             e('span', null, __('bsBookingsN', '{n} new {n:booking|bookings} since {date}', { n: fresh.length, date: sinceDate((c.lastSync || '').slice(0, 10) || new Date().toISOString().slice(0, 10)) }) +
               (book.skipped ? ' · ' + __('bsSkippedSec', '{n} securities {n:booking|bookings} left to the depot / PDF import', { n: book.skipped }) : '')),
-            a.importBookings && fresh.length ? e('button', { 'data-testid': 'bs-import', style: btn(true), onClick: function () { if (props.onImport) props.onImport(fresh); } }, __('bsImportN', 'Import {n}', { n: fresh.length })) : null) : null,
+            a.importBookings && fresh.length ? e('button', { 'data-testid': 'bs-import', style: btn(true), onClick: function () { if (props.onImport) props.onImport(fresh); } }, __('bsImportN', 'Import {n}', { n: fresh.length })) : null,
+            // P5-5.3: every booking of the account (not only the cash ones) into the Budget
+            W.MaerminBudget && fetched.transactions && fetched.transactions.length ? e('button', { 'data-testid': 'bs-budget', style: btn(false), onClick: function () {
+              var n = W.MaerminBudget.addBankRows(a, fetched.transactions, 'fints');
+              if (props.addToast) props.addToast(__('bgAddedFromBank', '{n} bookings added to the Budget', { n: n }), 'success');
+            } }, __('bgAddToBudget', 'Add to Budget')) : null) : null,
           diff ? e('div', { 'data-testid': 'bs-depot', style: { marginTop: '0.4rem', overflowX: 'auto' } },
             e('div', { style: { color: dim, fontSize: '0.72rem', marginBottom: '0.25rem' } }, __('bsDepotAsOf', 'Depot statement of {date}: bank vs MAERMIN', { date: a.positionsDate || '' })),
             e('table', { style: { width: '100%', borderCollapse: 'collapse', fontSize: '0.74rem', color: text } },
