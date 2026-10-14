@@ -2347,6 +2347,29 @@ async function runBuild(browser, label, dir) {
       ok('P5-5.6: a copy changed without the key is refused and not overwritten', !err && refused && putsAfter === putsBefore, err || putsBefore + ' -> ' + putsAfter);
       ok('P5-5.6: the app password is in no plain config key', !err && leaked === false, err);
     }
+    // P5-5.7: a saving goal linked to the portfolio starts its glide path at
+    // today's value: on track, the chart and the risk glide line are shown,
+    // and the stored goal keeps its link and start.
+    {
+      let card = null, stored = null, err = '';
+      try {
+        await openView(page, 'investment-analysis');
+        await page.getByRole('button', { name: /^Goals$/ }).first().click();
+        await page.getByRole('button', { name: '+ Add Goal' }).click();
+        await page.locator('[data-testid="goal-name"]').fill('E2E house');
+        await page.locator('[data-testid="goal-target"]').fill('500000');
+        await page.locator('[data-testid="goal-link"]').selectOption('portfolio:default');
+        await page.locator('[data-testid="goal-return"]').fill('4');
+        await page.locator('[data-testid="goal-create"]').click();
+        const c = page.locator('[data-testid="goal-card"]').last();
+        await c.waitFor({ timeout: 8000 });
+        card = { state: await c.getAttribute('data-state'), chart: await c.locator('[data-testid="goal-chart"]').count(), risk: await c.locator('[data-testid="goal-risk"]').innerText().catch(() => ''), text: await c.innerText() };
+        stored = await page.evaluate(() => (JSON.parse(localStorage.getItem('investmentGoals') || '[]') || []).filter((g) => g.name === 'E2E house')[0] || null);
+      } catch (e) { err = e.message.split('\n')[0]; }
+      ok('P5-5.7: a goal linked to the portfolio is on track on day one, with its glide path chart', !err && card && card.state === 'on-track' && card.chart === 1 && /Portfolio Main Portfolio/.test(card.text), err || JSON.stringify(card).slice(0, 300));
+      ok('P5-5.7: the risk glide line compares the suggested and the actual share', !err && card && /90 ?%/.test(card.risk) && /100 ?%/.test(card.risk), err || (card && card.risk));
+      ok('P5-5.7: the stored goal keeps the link, the start value and the return', !err && stored && stored.link && stored.link.type === 'portfolio' && stored.link.ids[0] === 'default' && stored.startValue > 0 && stored.expectedReturn === 0.04, err || JSON.stringify(stored));
+    }
     ok('no page errors in the value-history session', errors.length === 0, errors.join(' | '));
     await context.close();
   }

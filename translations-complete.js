@@ -3951,6 +3951,23 @@ taSparer: 'Sparerpauschbetrag',
     stReconnect: 'Allow file access',
     stStop: 'Stop syncing here',
 
+    // P5-5.7 Saving goals with glide path
+    glAhead: 'Ahead',
+    glReached: 'Reached',
+    glMissed: 'Date passed',
+    glPathLabel: 'Planned path to the target and today\'s value',
+    glPlannedToday: 'Planned for today',
+    glNeeded: 'Needed a month from now',
+    glProjected: 'At this pace on the date',
+    glReturnShort: 'Expected return',
+    glRiskLine: 'Glide path for risk: about {s} in shares and other risky assets now, falling towards the date. The linked holdings have {a}.',
+    glRiskHigh: 'Consider moving some into bonds or cash as the date comes closer.',
+    glLinkedPf: 'Portfolio {name}',
+    glLinkedTag: 'Tag {name}',
+    glLinkTo: 'Money for this goal',
+    glLinkManual: 'An amount I type in',
+    glReturn: 'Expected return (% a year)',
+
     // CoinGecko via Worker
     cgNeedsWorker: 'Crypto prices come through your Worker - add its URL in API Settings'
   },
@@ -7748,6 +7765,23 @@ taSparer: 'Sparerpauschbetrag',
     stDest: 'Ziel',
     stReconnect: 'Dateizugriff erlauben',
     stStop: 'Hier nicht mehr synchronisieren',
+
+    // P5-5.7 Saving goals with glide path
+    glAhead: 'Voraus',
+    glReached: 'Erreicht',
+    glMissed: 'Termin vorbei',
+    glPathLabel: 'Geplanter Weg zum Ziel und heutiger Wert',
+    glPlannedToday: 'Geplant für heute',
+    glNeeded: 'Nötig pro Monat ab jetzt',
+    glProjected: 'In diesem Tempo am Termin',
+    glReturnShort: 'Erwartete Rendite',
+    glRiskLine: 'Gleitpfad fürs Risiko: jetzt etwa {s} in Aktien und anderen riskanten Anlagen, zum Termin hin weniger. Die verknüpften Bestände haben {a}.',
+    glRiskHigh: 'Erwäge, einen Teil in Anleihen oder Cash umzuschichten, je näher der Termin rückt.',
+    glLinkedPf: 'Portfolio {name}',
+    glLinkedTag: 'Tag {name}',
+    glLinkTo: 'Geld für dieses Ziel',
+    glLinkManual: 'Ein Betrag, den ich eintrage',
+    glReturn: 'Erwartete Rendite (% pro Jahr)',
 
     // CoinGecko via Worker
     cgNeedsWorker: 'Kryptokurse kommen über deinen Worker – trage seine URL in den API-Einstellungen ein'
