@@ -289,6 +289,11 @@ var GermanTax = (function () {
       withholdingCredit: withholdingCredit,
       gainsTaxable: gainsTaxable,
       lossesTaxable: lossesTaxable,
+      // P5-4.7: the pots before netting (after Teilfreistellung), for the
+      // reconciliation with the bank's tax certificate.
+      shareGains: shareGains,
+      shareLosses: shareLosses,
+      otherLosses: otherLosses,
       shareLossCarried: shareLossCarried,
       dividendsTaxable: dividendsTaxable,
       vorabpauschaleGross: vapGross,
