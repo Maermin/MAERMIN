@@ -3681,6 +3681,9 @@ taSparer: 'Sparerpauschbetrag',
     ucEmployerHint: 'Employer contributions included in the deposits (they do not count against your limit)',
     ucNote: 'Limits from IRS Notice 2024-80 and Notice 2025-67 (§ 402(g), § 414(v), § 219(b)(5), § 408A(c)(3) IRC); the Roth reduction per Publication 590-A. Not modelled: the overall § 415(c) limit, the IRA cap at your earned income, the traditional IRA deduction phase-out. Not tax advice.',
 
+    // P5-5.2 Local MCP server
+    pvMcp: 'Local MCP server (maermin-mcp, a separate program you install yourself): it reads an encrypted backup on your computer with your password, so an AI assistant there can answer questions about your portfolio. It sends nothing; with --sync it only fetches your encrypted sync data from your own Worker. Amounts only if you start it with --amounts.',
+
     // P5-5.1 Web push
     pvPush: 'Push notifications: each reminder is encrypted on your device and your Worker only stores the ciphertext and the send time. If you also let it check price rules while the app is closed, it sees each rule\'s symbol and threshold, never amounts or quantities.',
     wpDivTitle: 'Dividend day',
@@ -7250,6 +7253,9 @@ taSparer: 'Sparerpauschbetrag',
     ucEmployer: 'Arbeitgeber {y}',
     ucEmployerHint: 'In den Einzahlungen enthaltene Arbeitgeberbeiträge (sie zählen nicht gegen deine Grenze)',
     ucNote: 'Grenzen laut IRS Notice 2024-80 und Notice 2025-67 (§ 402(g), § 414(v), § 219(b)(5), § 408A(c)(3) IRC); Roth-Kürzung nach Publication 590-A. Nicht abgebildet: die Gesamtgrenze nach § 415(c), die IRA-Grenze bis zum Arbeitseinkommen, der Abzugs-Phase-out des traditionellen IRA. Keine Steuerberatung.',
+
+    // P5-5.2 Local MCP server
+    pvMcp: 'Lokaler MCP-Server (maermin-mcp, ein eigenes Programm, das du selbst installierst): Er liest ein verschlüsseltes Backup auf deinem Computer mit deinem Passwort, damit ein KI-Assistent dort Fragen zu deinem Portfolio beantworten kann. Er sendet nichts; mit --sync holt er nur deine verschlüsselten Sync-Daten von deinem eigenen Worker. Beträge nur, wenn du ihn mit --amounts startest.',
 
     // P5-5.1 Web push
     pvPush: 'Push-Benachrichtigungen: Jede Erinnerung wird auf deinem Gerät verschlüsselt; dein Worker speichert nur den Chiffretext und den Sendezeitpunkt. Lässt du ihn auch Preisregeln prüfen, während die App geschlossen ist, sieht er Symbol und Schwelle jeder Regel, nie Beträge oder Stückzahlen.',

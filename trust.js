@@ -52,7 +52,8 @@ function __(k, f, v) { return (typeof window !== 'undefined' && window.MaerminI1
         __('pvShare', 'Share & Compare: a redacted snapshot (percentages and scores, no amounts or quantities) is stored by your Worker for 90 days, plus an anonymous aggregate for the comparison.'),
         __('pvExchange', 'Exchange connections: your Worker relays each request to the exchange. The API key travels with every request (Binance: the request is signed in your browser and the secret stays here). Keys are stored encrypted in your vault.'),
         __('pvSteam', 'Steam inventory import: your Worker asks Steam for the inventory of the profile you enter. The profile is not stored.'),
-        __('pvPush', 'Push notifications: each reminder is encrypted on your device and your Worker only stores the ciphertext and the send time. If you also let it check price rules while the app is closed, it sees each rule\'s symbol and threshold, never amounts or quantities.')]]
+        __('pvPush', 'Push notifications: each reminder is encrypted on your device and your Worker only stores the ciphertext and the send time. If you also let it check price rules while the app is closed, it sees each rule\'s symbol and threshold, never amounts or quantities.'),
+        __('pvMcp', 'Local MCP server (maermin-mcp, a separate program you install yourself): it reads an encrypted backup on your computer with your password, so an AI assistant there can answer questions about your portfolio. It sends nothing; with --sync it only fetches your encrypted sync data from your own Worker. Amounts only if you start it with --amounts.')]]
     ];
   }
 

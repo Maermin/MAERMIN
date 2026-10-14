@@ -26,3 +26,6 @@ Thumbs.db
 
 # Local, unreleased security audit findings
 docs/AUDIT.security.local.md
+
+# P5-5.2: vendored app modules of the maermin-mcp package (npm pack)
+mcp/app/
