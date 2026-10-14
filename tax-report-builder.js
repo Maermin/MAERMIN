@@ -596,6 +596,15 @@ function __(k, f, v) { return (typeof window !== 'undefined' && window.MaerminI1
       integrity: 'sha384-5jk55M0XWoAw7LyhlXJe19ErOr3doBAPzxw9vahPFbvolqWa2yDk4fhHa2zuYeOa' }
   ];
   function jsPdfReady() { return typeof jspdf !== 'undefined' || typeof jsPDF !== 'undefined'; }
+  // P5-4.8: the same pinned, SRI-checked jsPDF for other PDFs (statements).
+  // Resolves to the jsPDF constructor.
+  function loadJsPdf() {
+    var ctor = function () { return (typeof jsPDF !== 'undefined') ? jsPDF : jspdf.jsPDF; };
+    if (jsPdfReady()) return Promise.resolve(ctor());
+    var U = (typeof window !== 'undefined') && window.MaerminUtils;
+    if (!U || !U.loadScripts) return Promise.reject(new Error(__('trPdfMissing', 'PDF library not loaded.')));
+    return U.loadScripts(JSPDF_CDN).then(ctor, function () { throw new Error(__('trPdfOffline', 'PDF library could not be loaded (offline?).')); });
+  }
   function exportPDF(report) {
     if (!jsPdfReady()) {
       var U = (typeof window !== 'undefined') && window.MaerminUtils;
@@ -798,7 +807,7 @@ function __(k, f, v) { return (typeof window !== 'undefined' && window.MaerminI1
     setTimeout(function () { URL.revokeObjectURL(a.href); }, 1000);
   }
 
-  var api = { build: build, kpis: kpis, usEstimate: usEstimate, vapCreditForLot: vapCreditForLot, fifo: fifo, cryptoPerWallet: cryptoPerWallet, methodLabel: methodLabel, oneYearAnniversary: oneYearAnniversary, heldOverOneYear: heldOverOneYear, exportPDF: exportPDF, exportExcel: exportExcel, buildExcelWorkbook: buildExcelWorkbook };
+  var api = { build: build, kpis: kpis, usEstimate: usEstimate, vapCreditForLot: vapCreditForLot, fifo: fifo, cryptoPerWallet: cryptoPerWallet, methodLabel: methodLabel, oneYearAnniversary: oneYearAnniversary, heldOverOneYear: heldOverOneYear, exportPDF: exportPDF, loadJsPdf: loadJsPdf, exportExcel: exportExcel, buildExcelWorkbook: buildExcelWorkbook };
   if (typeof window !== 'undefined') window.MaerminTaxReport = api;
   if (typeof module !== 'undefined' && module.exports) module.exports = api;
 })();

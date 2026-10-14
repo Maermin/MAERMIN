@@ -800,6 +800,28 @@ async function runBuild(browser, label, dir) {
     }
 
 
+    // P5-4.8: statements and exports. The roll-forward CSV downloads with its
+    // header and adds up; the AES-256 encryptor runs on the browser's WebCrypto.
+    {
+      const sp = page.locator('[data-testid="statements-panel"]');
+      let csv = '', enc = null, err = '';
+      try {
+        await sp.waitFor({ timeout: 5000 });
+        const [dl] = await Promise.all([page.waitForEvent('download', { timeout: 10000 }), sp.locator('[data-testid="st-rf-csv"]').click()]);
+        const p = await dl.path();
+        csv = p ? (await import('node:fs')).readFileSync(p, 'utf8') : '';
+        enc = await page.evaluate(async () => {
+          const src = '%PDF-1.3\n1 0 obj\n<< /Type /Catalog /Pages 2 0 R >>\nendobj\n2 0 obj\n<< /Type /Pages /Kids [] /Count 0 >>\nendobj\n3 0 obj\n<< /Title (Test) >>\nendobj\nxref\n0 4\n0000000000 65535 f \ntrailer\n<< /Size 4 /Root 1 0 R /Info 3 0 R >>\nstartxref\n0\n%%EOF';
+          const out = await window.MaerminPdfAes.encryptPdf(new TextEncoder().encode(src), { userPassword: 'pw' });
+          const s = new TextDecoder('latin1').decode(out);
+          return { head: s.slice(0, 8), aes: /\/CFM \/AESV3/.test(s), plain: s.indexOf('(Test)') >= 0 };
+        });
+      } catch (e) { err = e.message.split('\n')[0]; }
+      ok('P5-4.8: the roll-forward CSV downloads with its header', /Category;Symbol;Opening quantity/.test(csv), err || csv.slice(0, 120));
+      ok('P5-4.8: AES-256 PDF encryption runs in the browser (PDF 2.0, AESV3, no plaintext)', !!enc && enc.head === '%PDF-2.0' && enc.aes && !enc.plain, err || JSON.stringify(enc));
+    }
+
+
     let pdf = null;
     try {
       const [download] = await Promise.all([

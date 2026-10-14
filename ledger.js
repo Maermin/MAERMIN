@@ -27,10 +27,10 @@
 //                         perWallet: ['crypto'] })   (P5-4.6; defaults: FIFO, pooled)
 //     → { groups: { key: Group }, list: Group[], issues: Issue[] }
 //   Group = { key, category, symbol, symbolName, symbolLogoUrl,
-//             openLots:  [{ qty, unitCostEUR, date }],      oldest first
+//             openLots:  [{ qty, unitCostEUR, date, txId }], oldest first
 //             disposals: [{ qty, acquisitionDate, disposalDate, unitCostEUR,
 //                           unitProceedsEUR, costBasis, proceeds, gain,
-//                           holdingPeriodDays, longTerm }],
+//                           holdingPeriodDays, longTerm, acquisitionTxId, disposalTxId }],
 //             openQty, openCostEUR, realizedGain, proceedsEUR, oversold }
 //
 // Pure + dual-exported; tested in test/ledger.test.js.
@@ -125,7 +125,7 @@
       }
       if (tx.type === 'buy') {
         var fee = toEUR(tx.fees, tx, rate, fxAt, ctx);
-        open.push({ qty: qty, unitCostEUR: toEUR(tx.price, tx, rate, fxAt, ctx) + (fee > 0 ? fee / qty : 0), date: tx.date });
+        open.push({ qty: qty, unitCostEUR: toEUR(tx.price, tx, rate, fxAt, ctx) + (fee > 0 ? fee / qty : 0), date: tx.date, txId: tx.id != null ? tx.id : null });
         return;
       }
       if (tx.type !== 'sell') return;
@@ -142,7 +142,7 @@
         var at = nextLot(open, method);
         var lot = open[at];
         var used = Math.min(remaining, lot.qty);
-        matches.push({ used: used, lot: avg != null ? { date: lot.date, unitCostEUR: avg } : lot });
+        matches.push({ used: used, lot: avg != null ? { date: lot.date, unitCostEUR: avg, txId: lot.txId } : lot });
         lot.qty -= used;
         remaining -= used;
         if (lot.qty <= 1e-9) open.splice(at, 1);
@@ -160,7 +160,9 @@
           unitCostEUR: m.lot.unitCostEUR, unitProceedsEUR: unitProceeds,
           costBasis: cost, proceeds: proceeds, gain: proceeds - cost,
           holdingPeriodDays: Math.floor((ts(tx.date) - ts(m.lot.date)) / 86400000),
-          longTerm: heldOverOneYear(m.lot.date, tx.date)
+          longTerm: heldOverOneYear(m.lot.date, tx.date),
+          // P5-4.8: which buy the units came from and which sale took them
+          acquisitionTxId: m.lot.txId != null ? m.lot.txId : null, disposalTxId: tx.id != null ? tx.id : null
         });
       });
     });
