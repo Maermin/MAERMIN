@@ -118,10 +118,26 @@ function __(k, f, v) { return (typeof window !== 'undefined' && window.MaerminI1
     return out;
   }
 
+  // P5-4.6: crypto FIFO per wallet (portfolio) - the BMF's wallet-based view
+  // (6.3.2025) - when the German tax setting cryptoPerWallet is on (or
+  // opts.cryptoPerWallet says so). Pooled across portfolios otherwise.
+  function cryptoPerWallet(opts) {
+    opts = opts || {};
+    if ((opts.jurisdiction || 'de') !== 'de') return false;
+    if (opts.cryptoPerWallet != null) return !!opts.cryptoPerWallet;
+    var TSmod = opts.taxSettingsModule || (typeof window !== 'undefined' && window.MaerminTaxSettings) || null;
+    var TS = opts.taxSettings || (TSmod && TSmod.load && TSmod.load()) || null;
+    return !!(TS && TS.cryptoPerWallet);
+  }
+  function methodLabel(m) {
+    return m === 'fifo-wallet' ? __('trMethodWallet', 'Crypto: FIFO per wallet (portfolio), BMF 6.3.2025')
+      : __('trMethodPooled', 'Crypto: FIFO across all wallets');
+  }
+
   // Splits are applied by the caller (build), so the ledger must not re-apply.
-  function fifo(transactions, year, rate, fxAt) {
+  function fifo(transactions, year, rate, fxAt, perWallet) {
     var shares = (transactions || []).filter(function (tx) { return !(tx && tx.category === 'options'); });
-    var L = ledger().build(shares, { exchangeRate: rate, fxAt: fxAt, applyCorporateActions: false });
+    var L = ledger().build(shares, { exchangeRate: rate, fxAt: fxAt, applyCorporateActions: false, perWallet: perWallet ? ['crypto'] : undefined });
     var disposals = [];
     L.list.forEach(function (g) {
       var symbol = String(g.symbol || '').toUpperCase();
@@ -219,7 +235,8 @@ function __(k, f, v) { return (typeof window !== 'undefined' && window.MaerminI1
     // west of UTC (dates are stored as UTC 'YYYY-MM-DD').
     var inYear = function (d) { return parseInt(ymd(d).slice(0, 4), 10) === year; };
 
-    var disposals = fifo(txs, year, rate, fxAt);
+    var perWallet = cryptoPerWallet(opts);
+    var disposals = fifo(txs, year, rate, fxAt, perWallet);
     var realizedGains = disposals.filter(function (d) { return d.gain >= 0; });
     var realizedLosses = disposals.filter(function (d) { return d.gain < 0; });
     var totalGains = realizedGains.reduce(function (s, d) { return s + d.gain; }, 0);
@@ -478,7 +495,7 @@ function __(k, f, v) { return (typeof window !== 'undefined' && window.MaerminI1
         };
         germanDetail = Object.assign({}, capital, {
           crypto: { netShortTermGains: cryptoShort, exemptLongTermGains: cryptoExempt, freigrenze: freigrenze, taxable: cryptoTaxable, estimatedTax: cryptoTax,
-            carryIn: carryIn.private, carryUsed: priv.used },
+            carryIn: carryIn.private, carryUsed: priv.used, method: perWallet ? 'fifo-wallet' : 'fifo' },
           carryIn: carryIn,
           carryUsed: { shares: (capital.carryUsed || {}).shares || 0, other: (capital.carryUsed || {}).other || 0, private: priv.used },
           carryOut: { shares: (capital.carryOut || {}).shares || 0, other: (capital.carryOut || {}).other || 0, private: priv.carryOut },
@@ -535,14 +552,15 @@ function __(k, f, v) { return (typeof window !== 'undefined' && window.MaerminI1
   // Losses are shown negative; value(v) formats for the PDF or passes the
   // number through for Excel.
   function carryRows(g, value) {
+    var method = g.crypto && g.crypto.method ? [[methodLabel(g.crypto.method), '']] : [];
     var cin = g.carryIn || {}, cout = g.carryOut || {};
     var pots = ['shares', 'other', 'private'];
-    if (pots.every(function (k) { return !(cin[k] > 0) && !(cout[k] > 0); })) return [];
+    if (pots.every(function (k) { return !(cin[k] > 0) && !(cout[k] > 0); })) return method;
     var LC = lossCarryMod();
     var label = function (k) { return LC ? LC.potLabel(k) : k; };
     return pots.map(function (k) { return [__('trCarryIn', 'Losses brought forward: {pot}', { pot: label(k) }), value(-(cin[k] || 0))]; })
       .concat(pots.map(function (k) { return [__('trCarryOut', 'Carried to next year: {pot}', { pot: label(k) }), value(-(cout[k] || 0))]; }))
-      .concat([[__('trCarryKap', 'Anlage KAP stays per year; the tax office applies the carry-forward itself.'), '']]);
+      .concat([[__('trCarryKap', 'Anlage KAP stays per year; the tax office applies the carry-forward itself.'), '']]).concat(method);
   }
 
   // Shared row set for the German fund-taxation section (PDF + Excel).
@@ -780,7 +798,7 @@ function __(k, f, v) { return (typeof window !== 'undefined' && window.MaerminI1
     setTimeout(function () { URL.revokeObjectURL(a.href); }, 1000);
   }
 
-  var api = { build: build, kpis: kpis, usEstimate: usEstimate, vapCreditForLot: vapCreditForLot, fifo: fifo, oneYearAnniversary: oneYearAnniversary, heldOverOneYear: heldOverOneYear, exportPDF: exportPDF, exportExcel: exportExcel, buildExcelWorkbook: buildExcelWorkbook };
+  var api = { build: build, kpis: kpis, usEstimate: usEstimate, vapCreditForLot: vapCreditForLot, fifo: fifo, cryptoPerWallet: cryptoPerWallet, methodLabel: methodLabel, oneYearAnniversary: oneYearAnniversary, heldOverOneYear: heldOverOneYear, exportPDF: exportPDF, exportExcel: exportExcel, buildExcelWorkbook: buildExcelWorkbook };
   if (typeof window !== 'undefined') window.MaerminTaxReport = api;
   if (typeof module !== 'undefined' && module.exports) module.exports = api;
 })();

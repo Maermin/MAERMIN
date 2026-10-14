@@ -96,7 +96,7 @@ function __(k, f, v) { return (typeof window !== 'undefined' && window.MaerminI1
     var rate = opts.usdToEur || 1;
     // Open crypto lots from the ONE ledger (ledger.js): fees in the cost
     // basis, per-date FX when opts.fxAt is given, splits applied.
-    var L = ledger().build(Array.isArray(transactions) ? transactions : [], { exchangeRate: rate, fxAt: opts.fxAt, categories: ['crypto'] });
+    var L = ledger().build(Array.isArray(transactions) ? transactions : [], { exchangeRate: rate, fxAt: opts.fxAt, categories: ['crypto'], perWallet: opts.perWallet ? ['crypto'] : undefined });
     var lots = [];
     L.list.forEach(function (g) {
       var sym = str(g.symbol).toUpperCase();
@@ -300,7 +300,10 @@ function __(k, f, v) { return (typeof window !== 'undefined' && window.MaerminI1
       // price maps are stored in their native currency; crypto on this app is EUR
       return num(p);
     }
-    var cryptoLots = buildCryptoLots(transactions, priceEUR, { usdToEur: rate, fxAt: opts.fxAt });
+    // P5-4.6: crypto FIFO per wallet when the German tax setting is on.
+    var perWallet = opts.perWallet;
+    if (perWallet == null) { try { var TSm = typeof window !== 'undefined' && window.MaerminTaxSettings; perWallet = !!(TSm && TSm.load().cryptoPerWallet); } catch (e) { perWallet = false; } }
+    var cryptoLots = buildCryptoLots(transactions, priceEUR, { usdToEur: rate, fxAt: opts.fxAt, perWallet: perWallet });
     var taxData = opts.taxData || {};
     return {
       today: (typeof window !== 'undefined' && window.MaerminUtils) ? window.MaerminUtils.todayISO() : new Date().toISOString().slice(0, 10),

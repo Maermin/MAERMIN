@@ -104,7 +104,10 @@ Everything else is **derived** from transactions (single source of truth in
   fees in the cost basis, sell fees pro-rated, USD legs at the FX rate of their
   date, splits applied, same-day buys before sells, oversells reported. The
   positions list, tax report, FIFO tab, Realized vs Unrealized, the tax
-  advisor's crypto lots and yield-on-cost all read from it.
+  advisor's crypto lots and yield-on-cost all read from it. Since P5-4.6 it
+  also takes `method` ('lifo', 'hifo', 'average'; only the comparison panel
+  uses them) and `perWallet: ['crypto']` (FIFO per coin and portfolio, the
+  German tax setting `cryptoPerWallet`).
 - `MaerminMetrics.buildPositions(transactions, {exchangeRate, fxAt})` → grouped
   `{crypto,stocks,skins,commodities}` with the EUR cost basis of the open FIFO
   lots (via the ledger).
@@ -129,6 +132,7 @@ conversion happens only at format time (`formatPrice`).
 | `vap-forecast.js` | `MaerminVapForecast` | Vorabpauschale forecast (P5-4.3): `forecast` per held fund for the value year (worksheet prefill from german-tax-view.js, live price for 31 December, saved amounts win), tax and cash needed with and without the next year's allowance, per portfolio; `firstWorkingDay`, `valueYear`; December reminder (`reminderDue`, `reminderText`, `maermin_vap_reminded` with years only); the Tax view panel |
 | `harvest-plan.js` | `MaerminHarvest` | Allowance harvesting plan (P5-4.4): `plan` = sell-and-buy-back legs that use the rest of the Sparerpauschbetrag (FIFO lots, Teilfreistellung, fees), checked through the tax report with the legs added (allowance and carry-forward used, extra tax 0); the Tax view panel. Stores nothing |
 | `crypto-calendar.js` | `MaerminCryptoCalendar` | Crypto tax-free calendar (P5-4.5): `calendar` = per coin the quantity, value and gain tax-free today and in 1-12 months from the FIFO open lots (one-year rule, `freeDate` from sell-simulator.js), next date, totals; `addMonths`; the Tax view panel. Stores nothing |
+| `cost-methods.js` | `MaerminCostMethods` | Cost-basis methods (P5-4.6): `compare` = per holding cost basis, realised gain of the year and open gain under FIFO, LIFO, HIFO and moving average, from ledger.js `method`; FIFO marked as the tax report's method; the Tax view panel. Stores nothing |
 | `loss-carry.js` | `MaerminLossCarry` | Loss carry-forward (P5-4.1): `chain` runs the report year by year from the first transaction, `breakdown` per portfolio; opening balances per year and pot from the last assessment in `maermin_loss_carry`; the Tax view panel |
 | `tax-settings.js` | `MaerminTaxSettings` | User-editable tax parameters (Abgeltung rate, Soli toggle, church tax, Freistellungsauftrag, crypto exemption, Teilfreistellung overrides) + per-position manual taxable overrides (sensitive). Pure `sanitize`/`computeAbgeltung`/`teilfreistellungRate`/`positionOverride`; the engine reads these and falls back to statutory defaults. Tested in `test/tax-settings.test.js` |
 | `tax-calculation-engine.js` | `TaxCalculationEngine.GermanTax` | The German computation only (the legacy jurisdiction engine was removed; reports come from `MaerminTaxReport`): pure German fund-taxation depth: Vorabpauschale (BMF Basiszins table + overrides, month pro-rating, sale credit), Teilfreistellung per fund type (symmetric on losses), statutory order Teilfreistellung -> Verrechnung -> Sparerpauschbetrag -> Abgeltungsteuer/Soli/Kirchensteuer (sec. 32d formula), crypto Freigrenze. Dual-exported, tested in `test/german-tax.test.js` |
