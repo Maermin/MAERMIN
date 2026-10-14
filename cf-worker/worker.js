@@ -44,7 +44,7 @@ import { handlePush, runPushCron } from './push.js';
 // Bump on every change to this file that the app relies on, and set
 // EXPECTED_WORKER_VERSION in onboarding.js to the same value (test/worker-version
 // enforces both). Format YYYY.M.N; compared numerically per part.
-export const WORKER_VERSION = '2026.10.12';
+export const WORKER_VERSION = '2026.10.14';
 export const WORKER_ACTIONS = ['yf', 'yfsearch', 'screener', 'fundholdings', 'fundamentals', 'earnings', 'profile',
   'news', 'skinprices', 'steaminv', 'cg', 'hicp', 'sync', 'share', 'mcp', 'brokerproxy', 'fints', 'fintsbanks', 'wallet', 'push', 'research', 'version'];
 // P5-3.1: the routes a shared price Worker (PRICE_ONLY=1) serves - market data only
@@ -743,6 +743,9 @@ async function handle(request, env, ctx) {
           epsLow: raw(earn.earningsLow),
           epsHigh: raw(earn.earningsHigh),
           revenueEstimate: raw(earn.revenueAverage),
+          // P5-5.5: the event feed's ex-dividend and pay dates (same module)
+          exDividendDate: isoDate(ce.exDividendDate),
+          dividendDate: isoDate(ce.dividendDate),
         });
         ctx.waitUntil(cache.put(cacheKey, new Response(payload, {
           headers: { 'Content-Type': 'application/json', 'Cache-Control': 'public, max-age=21600' }

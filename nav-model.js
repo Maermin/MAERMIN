@@ -31,6 +31,7 @@
       v('net-worth', 'navNetWorth', 'Net Worth'),
       v('budget', 'navBudget', 'Budget', true),
       v('watchlist', 'navWatchlist', 'Watchlist'),
+      v('events', 'navEvents', 'Events'),
       v('rebalancing', 'navRebalancing', 'Rebalancing', true)
     ] },
     { id: 'transactions', key: 'navAreaTransactions', label: 'Transactions', shortKey: 'navAreaTransactionsShort', short: 'Trades', icon: 'transactions', entries: [
