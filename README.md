@@ -2,9 +2,9 @@
 
 # MAERMIN
 
-**Professional Multi-Asset Portfolio Tracker**
+**Private multi-asset portfolio tracker with the tax tools built in**
 
-Crypto · Stocks · ETFs · CS2 Skins · Commodities
+Stocks · ETFs · Bonds · Crypto · CS2 Skins · Real assets · Budget
 
 [![Live Demo](https://img.shields.io/badge/Live%20Demo-maermin.github.io-8b5cf6?style=for-the-badge&logo=github&logoColor=white)](https://maermin.github.io/MAERMIN/?demo)
 [![Version](https://img.shields.io/badge/Version-11.0.0-3b82f6?style=for-the-badge)](#changelog)
@@ -14,7 +14,7 @@ Crypto · Stocks · ETFs · CS2 Skins · Commodities
 
 <br>
 
-> **All your assets in one place. Runs in your browser, prices through your own free Cloudflare Worker. No signup. No tracking.**
+> **All your assets in one place. Runs in your browser, encrypted, prices through your own free Cloudflare Worker. No signup. No tracking.**
 
 </div>
 
@@ -23,6 +23,10 @@ Crypto · Stocks · ETFs · CS2 Skins · Commodities
 ## What is MAERMIN?
 
 MAERMIN is a **client-side** investment tracker that runs in your browser with no installation. Your data is stored in this browser (`localStorage` and IndexedDB). Market data comes through your own Cloudflare Worker, which receives only the symbols you hold — no amounts, no quantities. Sync and sharing are opt-in; what leaves the device is listed under [Privacy & Security](#privacy--security). Access is protected by an **encrypted vault**: an access password derives an AES-256-GCM key (PBKDF2-600k; Argon2id only if a provider is registered — none is bundled) via `crypto-vault.js`; the password is never stored, and sensitive data can be encrypted at rest. Optional passkey unlock (WebAuthn) and an idle auto-lock are built in.
+
+**Built in for investors in Germany:** the Vorabpauschale per fund (with the forecast for January), Anlage KAP / KAP-INV figures for brokers that withhold no German tax, and the Sparerpauschbetrag with Freistellungsaufträge per broker - next to FIFO, Teilfreistellung, loss pots and the crypto holding period. Austria, Switzerland and the US have their own rules too (see [Tax](#tax)). No extra tool and no subscription; estimates, not tax advice.
+
+Since v12 "Atlas": sync without a server (a file or a WebDAV/Nextcloud folder, or your Worker), end-to-end encrypted push reminders, a local MCP server for AI assistants on your computer, a budget from bank exports, research pages, an event calendar and saving goals with a glide path.
 
 Built with React (via CDN) and vanilla JavaScript. No build step required for development, no framework to install. Works offline after the first load (PWA), with the last loaded prices. A local audit log records security events and uncaught errors on-device.
 
@@ -44,23 +48,28 @@ No MAERMIN account  ·  No MAERMIN server  ·  No ads  ·  No remote telemetry  
 | **Withholding tax by country** | **Phone (German)** |
 | <img src="docs/screenshots/withholding-tax.png" alt="Foreign withholding tax by country" width="440"> | <img src="docs/screenshots/phone-overview-de.jpg" alt="Overview on a phone, German" width="220"> |
 
-All pictures show the built-in demo (Demo mode, made-up data), v11.0.
+| **Research page** | **Events and calendar export** |
+| <img src="docs/screenshots/atlas-p5-5.4/desktop-en-chart.jpg" alt="Research page with chart, Bollinger bands and MACD (made-up data)" width="440"> | <img src="docs/screenshots/atlas-p5-5.5/desktop-en-feed.jpg" alt="Event feed with earnings, ex-dates, savings plans and rate decisions (made-up data)" width="440"> |
+| **Budget and spending** | **Saving goal with glide path** |
+| <img src="docs/screenshots/atlas-p5-5.3/desktop-en-budget.jpg" alt="Budget with cash-flow Sankey (made-up data)" width="440"> | <img src="docs/screenshots/atlas-p5-5.7/desktop-en-goals.jpg" alt="Saving goal linked to a portfolio, with its glide path (made-up data)" width="440"> |
+
+The first pictures show the built-in demo (Demo mode, made-up data, v11.0); the v12 pictures use made-up sample data and mocked market data.
 
 ---
 
 ## How MAERMIN compares
 
-What the other products say about themselves, read on **3 October 2026** from the pages linked below; "n/s" = not stated there. MAERMIN's column describes v11.0.
+What the other products say about themselves, read on **3 October 2026** from the pages linked below; "n/s" = not stated there. MAERMIN's column describes v12.0 "Atlas".
 
 | | MAERMIN | Parqet | getquin | Portfolio Performance | Ghostfolio | Wealthfolio |
 |---|---|---|---|---|---|---|
 | Where your data lives | This browser, encrypted vault | Provider cloud | Provider cloud | Local file | Your server (self-host) or hosted | On your device |
 | Price | Free, MIT | Free; Plus €11.99/mo; Investor €29.99/mo | n/s | Free, EPL | AGPL; Premium price n/s | Free; paid Connect |
 | Live prices without setup | No — needs your own free Cloudflare Worker (about 5 minutes; the demo works without) | Yes | Yes | Yes (desktop app) | Hosted: yes; self-host needs Postgres + Redis | Yes |
-| File import | ~15 CSV formats incl. Portfolio Performance and Parqet, PDF statements of 5 banks/brokers | 50+ brokers, PDF/CSV | PDF + manual | PDF from 90+ banks/brokers | Import/export | CSV |
-| German tax | FIFO, Vorabpauschale, Teilfreistellung, Anlage KAP, withholding by country | Tax dashboard (Plus) | n/s | Taxes recorded | n/s | n/s |
-| Device sync | End-to-end encrypted, through your own Worker | Cloud | Cloud | File-based | Server | Paid encrypted sync |
-| Mobile | PWA | iOS / Android | iOS / Android | iOS / Android | PWA | iOS / Android |
+| File import | ~15 CSV formats incl. Portfolio Performance and Parqet, PDF statements of 13 banks/brokers, bank CSV for the budget | 50+ brokers, PDF/CSV | PDF + manual | PDF from 90+ banks/brokers | Import/export | CSV |
+| Tax | Germany: FIFO, Vorabpauschale, Teilfreistellung, Anlage KAP, Sparerpauschbetrag with Freistellungsaufträge, withholding by country; also Austria, Switzerland, US | Tax dashboard (Plus) | n/s | Taxes recorded | n/s | n/s |
+| Device sync | End-to-end encrypted: your own Worker, a file (Syncthing, Dropbox, NAS) or WebDAV/Nextcloud | Cloud | Cloud | File-based | Server | Paid encrypted sync |
+| Mobile | PWA, push reminders through your Worker | iOS / Android | iOS / Android | iOS / Android | PWA | iOS / Android |
 
 Sources (read 2026-10-03): [Parqet pricing](https://parqet.com/pricing) · [Parqet review, etf.capital](https://etf.capital/parqet-app/) · [getquin](https://www.getquin.com/) · [getquin review, etf.capital](https://etf.capital/getquin-app/) · [Portfolio Performance](https://www.portfolio-performance.info/en/) · [its PDF import manual](https://help.portfolio-performance.info/en/reference/file/import/pdf-import/) · [Ghostfolio README](https://github.com/ghostfolio/ghostfolio) · [Wealthfolio](https://wealthfolio.app/). Prices and features change; check the linked pages before you decide.
 
@@ -82,6 +91,9 @@ Sources (read 2026-10-03): [Parqet pricing](https://parqet.com/pricing) · [Parq
 | **Options** | Track long/short calls and puts (underlying, strike, expiry, premium, contract size) — signed book with net premium, moneyness, intrinsic value and estimated P&L on the Overview; kept separate from the share positions |
 | **Dividends** | Calendar view, 12-month forecast, auto-fetch from Yahoo Finance · quality & safety scoring per payer (payout ratio, growth streak, dividend growth, coverage, cut-risk flag) with an aggregated portfolio dividend-health value · **yield-on-cost** per payer over the FIFO cost basis |
 | **Trade Journal** | Investment thesis and notes per position |
+| **Budget & spending** | Bank CSV exports (Sparkasse, ING, DKB, N26 and generic) or bank sync: categories with rules, split bookings, monthly budgets, a cash-flow Sankey and recurring payments - a ledger of its own, apart from your investments |
+| **Events** | One dated feed for what you hold and watch: earnings, ex-dividend and pay dates, splits, savings-plan dates, tax dates and ECB/Fed decisions · export as an .ics calendar (without amounts unless you choose) |
+| **Saving goals** | Target amount and date, linked to a portfolio or a tag or an amount you enter · glide path with expected return, ahead / on track / behind, the monthly amount needed from here, and a risk glide that lowers the share of risky assets towards the date |
 
 ### Analysis
 | Feature | Description |
@@ -100,7 +112,23 @@ Sources (read 2026-10-03): [Parqet pricing](https://parqet.com/pricing) · [Parq
 | **Corporate Actions** | Stock splits and reverse splits applied to historical lots so quantities, prices, position value, P&L, CAGR, the value chart and FIFO cost basis stay correct across a split · **symbol and ISIN changes, mergers (share exchange, optional cash) and spin-offs (cost share as on the bank statement)** keep lots, cost and purchase dates for the tax FIFO · add manually (ratio New:Old) per holding or auto-detect splits via the Worker · managed in the position detail modal, with a global list in Settings · carried in the full-vault backup |
 | **Steam inventory import** | Data → Steam inventory: the CS2 items of a public inventory (SteamID64, profile URL or custom URL name, through your Worker — or paste the inventory JSON) become buys in an editable preview, prices pre-filled with today's Steam Market price · a re-import only offers items not imported before (asset ids) · never books sales |
 | **Trash & Undo** | Deleted transactions, portfolios, savings plans, net-worth accounts, goals, rules and real assets go to a trash for 30 days · every delete toast offers **Undo** · Settings → Trash restores or deletes for good · encrypted, synced and in the full backup; a restore never creates a duplicate |
-| **Tax & FIFO** | Saving goals linked to portfolios or tags, with a glide path, an on-track status and a risk glide towards the date · Sync without a server: the same encrypted copy through a file (Syncthing, Dropbox, NAS) or a WebDAV/Nextcloud folder, signed with a key from your vault · Events: one dated feed of earnings, ex-dates and payments, splits, savings plans, tax dates and ECB/Fed decisions, exportable as an .ics calendar · Research page per security: key figures, analyst ratings and targets, EPS surprises, chart with SMA/EMA/MACD/Bollinger, your own position and journal · Budget and spending from bank CSV exports or bank sync: categories with rules, splits, monthly budgets, cash-flow Sankey, recurring payments · Local MCP server `maermin-mcp` for AI assistants on your computer (reads your encrypted backup locally; see [mcp/README.md](mcp/README.md)) · Web push reminders through your own Worker (end-to-end encrypted: dividend days, Vorabpauschale, crypto tax-free dates, IRA deadline; opt-in price rules) · US retirement contribution limits: IRA, Roth IRA (with the MAGI phase-out) and 401(k) per year, catch-up from 50 and at 60-63, room left and deadlines · Swiss Wertschriftenverzeichnis: year-end values in CHF, income columns A/B, 35 % Verrechnungssteuer claim, DA-1 foreign withholding, accumulating funds, KS 36 check for private asset management · Austrian tax law: KESt 27.5 % / 25 % on bank interest, moving average cost without fees, crypto Neu-/Altvermögen and swaps, fund income (Meldefonds / Nichtmeldefonds), loss offset within the year, 15 % withholding credit · German tax law: 1-year crypto exemption with Freigrenze, Vorabpauschale per accumulating fund (BMF base rates, month pro-rating, sale credit), Teilfreistellung by fund type, Sparerpauschbetrag, Soli and optional church tax in the statutory order · US tax law (short/long-term gains) · editable tax settings (rate, Soli, church tax, allowance, crypto exemption, Teilfreistellung) · multi-sheet Excel + PDF export · **tax advisor** (estimate): crypto §23 EStG tax-free countdown per lot, 1.000 EUR Freigrenze buffer, Sparerpauschbetrag headroom, loss-harvesting with the stock vs other pots kept separate, ranked Critical/Important/Optimization · **sell simulator** ("if I sell X": FIFO lots, gain, taxable vs tax-free part, extra tax, allowance and Freigrenze effect, best date for a tax-free crypto sale) · **statements and exports** (statement of assets as an AES-256 password-protected PDF, cost roll-forward, DATEV-style bookings, source-of-funds trace for crypto sales) · **Jahressteuerbescheinigung check** (the bank's annual tax certificate, read on the device from the PDF or entered, against MAERMIN line by line) · **cost-basis methods** (FIFO, LIFO, HIFO and average cost side by side; optional crypto FIFO per wallet as in the BMF letter of 6.3.2025) · **crypto tax-free calendar** (per coin what is tax-free today and in 1, 3, 6, 9 and 12 months) · **December plan** (which lots to sell and buy back to use the rest of the Sparerpauschbetrag, with Teilfreistellung, fees and the later tax avoided) · **Vorabpauschale forecast** (expected amount per fund for the coming January, the tax and the cash to keep on each clearing account, December reminder) · **loss carry-forward** across years in the three German pots (shares, other capital income, § 23 private sales; Freigrenze checked first, carried losses before the allowance), with opening balances from your last assessment and a per-portfolio view · **foreign withholding tax by country** (gross, withheld, creditable at most 15 %, excess to reclaim abroad; estimate) |
+| **Research** | One page per security: key figures, analyst ratings and price targets, EPS surprises, company profile, a price chart with SMA/EMA/MACD/Bollinger, and your own position and journal next to it |
+
+### Tax
+| Country | What is built in (estimates, not tax advice) |
+|---------|-------------|
+| **Germany** | FIFO per depot · **Vorabpauschale** per accumulating fund (BMF base rates, month pro-rating, credit on sale) with a **forecast** of the January amount and the cash to keep on each clearing account · Teilfreistellung by fund type · **Sparerpauschbetrag** and **Freistellungsaufträge per broker** (how much each order has used) · **Anlage KAP / KAP-INV** figures for brokers without German tax withholding · Soli and optional church tax in the statutory order · the three loss pots with carry-forward across years · 1-year crypto exemption with the 1,000 EUR Freigrenze and a tax-free calendar per coin · tax advisor and sell simulator · December plan for the rest of the allowance · Jahressteuerbescheinigung check · foreign withholding tax by country · cost-basis methods side by side · statements (password-protected PDF, DATEV-style bookings) |
+| **Austria** | KESt 27.5 % (25 % on bank interest), moving average cost without fees, crypto old and new holdings and swaps, fund income (Meldefonds / Nichtmeldefonds), loss offset within the year, 15 % withholding credit |
+| **Switzerland** | Wertschriftenverzeichnis: year-end values in CHF, income columns A/B, the 35 % Verrechnungssteuer claim, DA-1 foreign withholding, accumulating funds, KS 36 check for private asset management |
+| **USA** | Short- and long-term gains · contribution limits for IRA, Roth IRA (with the MAGI phase-out) and 401(k), catch-up from 50 and at 60-63, room left and deadlines |
+| **Reports** | Editable tax settings, multi-sheet Excel and PDF export of the tax report |
+
+### Sync, reminders and AI
+| Feature | Description |
+|---------|-------------|
+| **Encrypted sync** | Opt-in, end-to-end encrypted: through your own Worker, a file (e.g. in a Syncthing, Dropbox or NAS folder) or a WebDAV/Nextcloud folder · every copy is signed with a key from your vault and checked on each read |
+| **Push reminders** | Dividend days, Vorabpauschale, crypto tax-free dates and the IRA deadline, end-to-end encrypted through your Worker · optional price rules checked while the app is closed |
+| **Local MCP server** | `maermin-mcp` lets an AI assistant on your computer answer questions about your portfolio from your encrypted backup - locally, nothing is uploaded ([mcp/README.md](mcp/README.md)) |
 
 ### Tools
 | Feature | Description |
