@@ -82,6 +82,7 @@
     'maermin_corporate_events',   // symbol / ISIN changes, mergers, spin-offs of held symbols (P5-3.10)
     'maermin_loss_carry',         // opening loss carry-forward balances per year and pot (P5-4.1)
     'maermin_tax_certs',          // the banks' annual tax certificates: income, losses, taxes withheld (P5-4.7)
+    'maermin_at_funds',           // Austrian fund settings: held fund symbols, reported fund income (P5-4.9)
     'maermin_import_presets',     // broker column mappings
     'maermin_exchange_sync',      // exchange connection metadata
     'maermin_reconcile',          // which portfolio each bank account is compared with (reconcile.js, P5-3.7)

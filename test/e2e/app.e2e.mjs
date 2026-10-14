@@ -822,6 +822,26 @@ async function runBuild(browser, label, dir) {
     }
 
 
+    // P5-4.9: Austria. Switching the tax system shows the Austrian computation
+    // (27.5 %, moving average) and the KPI labels; switching back restores Germany.
+    {
+      let text = '', kpi = '', back = false, err = '';
+      try {
+        const sel = page.locator('select', { has: page.locator('option[value="at"]') }).first();
+        await sel.selectOption('at');
+        const atp = page.locator('[data-testid="at-panel"]');
+        await atp.waitFor({ timeout: 5000 });
+        text = await atp.innerText();
+        kpi = await page.innerText('main');
+        await sel.selectOption('de');
+        await page.waitForTimeout(400);
+        back = (await page.locator('[data-testid="at-panel"]').count()) === 0;
+      } catch (e) { err = e.message.split('\n')[0]; }
+      ok('P5-4.9: Austria shows its computation (27.5 %, estimated tax, fund inputs, sources)', /Austria: tax on capital income/.test(text) && /Estimated tax/.test(text) && /Income at 27\.5 %/.test(text) && /§ 27a/.test(text), err || text.slice(0, 300));
+      ok('P5-4.9: the KPI cards use the Austrian labels; back to Germany the panel is gone', /Income at 27\.5 %/.test(kpi) && /Crypto Altvermögen, tax-free/.test(kpi) && back, err || String(back));
+    }
+
+
     let pdf = null;
     try {
       const [download] = await Promise.all([

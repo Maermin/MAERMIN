@@ -207,6 +207,16 @@ function __(k, f, v) { return (typeof window !== 'undefined' && window.MaerminI1
       if (d.longTerm) lt += d.gain; else st += d.gain;
     });
     var g = report.summary.germanDetail;
+    // Austria (P5-4.9): no short/long-term split; the cards show the taxable
+    // realised result, the income at 27.5 % and the tax-free Altvermögen.
+    var at = report.summary.austrianDetail;
+    if (at) {
+      return {
+        realizedGains: at.gains + at.losses, shortTerm: at.pool27, longTerm: at.altvermoegenExempt,
+        taxLiability: at.tax, taxFree: at.altvermoegenExempt,
+        labels: { shortTerm: __('atPool', 'Income at 27.5 %'), longTerm: __('atAlt', 'Crypto Altvermögen, tax-free') }
+      };
+    }
     return {
       realizedGains: report.summary.netRealized,
       shortTerm: st,
@@ -237,6 +247,17 @@ function __(k, f, v) { return (typeof window !== 'undefined' && window.MaerminI1
 
     var perWallet = cryptoPerWallet(opts);
     var disposals = fifo(txs, year, rate, fxAt, perWallet);
+    // P5-4.9: Austria has its own cost rule (moving average per depot and
+    // wallet, no fees, crypto swaps not realised) - its disposals replace FIFO.
+    var austrianDetail = null;
+    if (jurisdiction === 'at') {
+      var ATm = (typeof window !== 'undefined' && window.MaerminATTax) || (typeof require === 'function' ? require('./at-tax.js') : null);
+      if (ATm) {
+        austrianDetail = ATm.compute(txs, { year: year, exchangeRate: rate, fxAt: fxAt, funds: opts.atFunds || ATm.loadFunds(),
+          priceHistory: opts.priceHistory || (typeof window !== 'undefined' && window.MaerminMarket && window.MaerminMarket.get ? window.MaerminMarket.get('priceHistory') : null) || {} });
+        disposals = austrianDetail.disposals;
+      }
+    }
     var realizedGains = disposals.filter(function (d) { return d.gain >= 0; });
     var realizedLosses = disposals.filter(function (d) { return d.gain < 0; });
     var totalGains = realizedGains.reduce(function (s, d) { return s + d.gain; }, 0);
@@ -346,6 +367,7 @@ function __(k, f, v) { return (typeof window !== 'undefined' && window.MaerminI1
       summaryExtra = usEstimate(disposals);
       taxLiability = summaryExtra.totalTax;
     }
+    if (austrianDetail) taxLiability = austrianDetail.tax;
 
     // ---- German fund taxation detail (Vorabpauschale + Teilfreistellung) ----
     // Statutory order via TaxCalculationEngine.GermanTax: Teilfreistellung ->
@@ -509,7 +531,7 @@ function __(k, f, v) { return (typeof window !== 'undefined' && window.MaerminI1
       meta: {
         generatedAt: new Date().toISOString(),
         year: year, jurisdiction: jurisdiction, baseCurrency: base,
-        method: 'FIFO',
+        method: austrianDetail ? 'moving-average' : 'FIFO',
         owner: opts.owner || {}
       },
       summary: {
@@ -525,6 +547,7 @@ function __(k, f, v) { return (typeof window !== 'undefined' && window.MaerminI1
         estimatedTaxLiability: taxLiability,
         jurisdictionDetail: summaryExtra,
         germanDetail: germanDetail,
+        austrianDetail: austrianDetail,
         cashBookings: cashBookings
       },
       realizedGains: realizedGains,
@@ -622,7 +645,7 @@ function __(k, f, v) { return (typeof window !== 'undefined' && window.MaerminI1
     doc.setTextColor(255, 255, 255); doc.setFontSize(22); doc.setFont('helvetica', 'bold');
     doc.text(__('trTitle', 'Tax Report {y}', { y: report.meta.year }), 14, 22);
     doc.setFontSize(11); doc.setFont('helvetica', 'normal');
-    doc.text('MAERMIN Portfolio Tracker · ' + (report.meta.jurisdiction === 'de' ? __('germany', 'Germany') : __('usa', 'USA')) + ' · FIFO', 14, 31);
+    doc.text('MAERMIN Portfolio Tracker · ' + (report.meta.jurisdiction === 'de' ? __('germany', 'Germany') : report.meta.jurisdiction === 'at' ? __('austria', 'Austria') : __('usa', 'USA')) + ' · ' + (report.meta.method === 'moving-average' ? __('trMovingAverage', 'moving average') : 'FIFO'), 14, 31);
 
     var owner = report.meta.owner || {};
     doc.setTextColor(30, 41, 59); doc.setFontSize(10);
@@ -663,8 +686,14 @@ function __(k, f, v) { return (typeof window !== 'undefined' && window.MaerminI1
       doc.text(__('trHelperNote', 'Helper computation under InvStG/EStG rules (simplified loss netting; private sales at flat-rate estimate). Not tax advice.'), 14, y - 4);
     }
 
+    // Austrian computation (jurisdiction 'at', P5-4.9).
+    if (s.austrianDetail && window.MaerminATTax) {
+      y = table(__('trSecAt', '1a. Austria: tax on capital income'), ['Item', __('amount', 'Amount')],
+        window.MaerminATTax.reportRows(s.austrianDetail, function (v) { return money(v, cur); }), y);
+    }
+
     function lots(rows) {
-      return rows.map(function (d) { return [d.symbol, cls(d.category), I18N().num(d.quantity, 4), d8(d.acquisitionDate), d8(d.disposalDate), __('trHeldDays', '{n} d', { n: d.holdingPeriodDays }) + (d.longTerm ? ' ' + __('trLongTermShort', '(LT)') : ''), money(d.proceeds, ''), money(d.costBasis, ''), money(d.gain, '')]; });
+      return rows.map(function (d) { return [d.symbol, cls(d.category), I18N().num(d.quantity, 4), d.acquisitionDate ? d8(d.acquisitionDate) : '–', d8(d.disposalDate), (d.holdingPeriodDays == null ? '–' : __('trHeldDays', '{n} d', { n: d.holdingPeriodDays })) + (d.longTerm ? ' ' + __('trLongTermShort', '(LT)') : ''), money(d.proceeds, ''), money(d.costBasis, ''), money(d.gain, '')]; });
     }
     var lotHead = [__('symbol', 'Symbol'), __('trClass', 'Class'), __('colQty', 'Qty'), __('trAcquired', 'Acquired'), __('trDisposed', 'Disposed'), __('trHeld', 'Held'), __('trProceeds', 'Proceeds'), __('trCost', 'Cost'), __('trGainLoss', 'Gain/Loss')];
 
@@ -735,7 +764,7 @@ function __(k, f, v) { return (typeof window !== 'undefined' && window.MaerminI1
     var sheets = [];
 
     var summaryRows = [
-      [__('trTaxYear', 'Tax year'), report.meta.year], [__('jurisdiction', 'Jurisdiction'), report.meta.jurisdiction === 'de' ? __('germany', 'Germany') : __('usa', 'USA')],
+      [__('trTaxYear', 'Tax year'), report.meta.year], [__('jurisdiction', 'Jurisdiction'), (report.meta.jurisdiction === 'de' ? __('germany', 'Germany') : report.meta.jurisdiction === 'at' ? __('austria', 'Austria') : __('usa', 'USA'))],
       [__('trMethod', 'Method'), report.meta.method || 'FIFO'], [__('trBaseCurrency', 'Base currency'), cur]
     ];
     if (owner.name) summaryRows.push([__('trTaxpayer', 'Taxpayer'), owner.name]);
@@ -751,6 +780,11 @@ function __(k, f, v) { return (typeof window !== 'undefined' && window.MaerminI1
     sheets.push({ name: __('trSheetSummary', 'Summary'), columns: [200, 120], headers: [__('trItem', 'Item'), __('trAmountCur', 'Amount ({cur})', { cur: cur })],
       rows: summaryRows.concat(sm), money: [false, true] });
 
+    if (s.austrianDetail) {
+      var ATx = (typeof window !== 'undefined' && window.MaerminATTax) || require('./at-tax.js');
+      sheets.push({ name: __('trSheetAustria', 'Austrian Tax'), columns: [320, 120], headers: [__('trItem', 'Item'), __('trAmountCur', 'Amount ({cur})', { cur: cur })],
+        money: [false, true], rows: ATx.reportRows(s.austrianDetail, function (v) { return num(v); }) });
+    }
     if (s.germanDetail) {
       var g = s.germanDetail;
       sheets.push({ name: __('trSheetGerman', 'German Tax'), columns: [320, 120], headers: [__('trItem', 'Item'), __('trAmountCur', 'Amount ({cur})', { cur: cur })],

@@ -3305,7 +3305,9 @@ function InvestmentTracker() {
         React.createElement('h2', { style: { color: theme.text, fontSize: '1.5rem', fontWeight: 700, marginBottom: '0.4rem' } }, t.taxHarvestTitle || 'Tax-loss harvesting'),
         React.createElement('p', { style: { color: theme.textSecondary, fontSize: '0.85rem', marginBottom: '1.25rem' } }, taxJurisdiction === 'us'
           ? (t.taxHarvestSubtitleUs || 'Positions at an unrealised loss you could realise to offset gains. Estimated at 24 % for lots held up to a year and 15 % for longer - not tax advice.')
-          : (t.taxHarvestSubtitle || 'Positions at an unrealised loss you could realise to offset gains. Estimated at the German flat rate — not tax advice.')),
+          : taxJurisdiction === 'at'
+            ? __('taxHarvestSubtitleAt', 'Positions at an unrealised loss you could realise to offset this year\'s gains (Austria: losses offset only within the same year). Estimated at 27.5 % - not tax advice.')
+            : (t.taxHarvestSubtitle || 'Positions at an unrealised loss you could realise to offset gains. Estimated at the German flat rate — not tax advice.')),
         !h.available
           ? React.createElement('div', { style: { color: theme.textSecondary } }, t.taxHarvestNone || 'No positions are currently at an unrealised loss.')
           : React.createElement('div', null,
@@ -5162,7 +5164,7 @@ function InvestmentTracker() {
     // few stores directly, so their raw strings are part of the key - saving a
     // fund type, a Vorabpauschale record or a tax setting still rebuilds it.
     const storeKey = ['maermin_fund_types', 'maermin_vap_records', 'maermin_basiszins_overrides', 'maermin_kirchensteuer',
-      'maermin_tax_settings', 'maermin_tax_overrides', 'maermin_divevents', 'maermin_corporate_actions', 'maermin_corporate_events', 'maermin_fx_usd_rates', 'maermin_loss_carry']
+      'maermin_tax_settings', 'maermin_tax_overrides', 'maermin_divevents', 'maermin_corporate_actions', 'maermin_corporate_events', 'maermin_fx_usd_rates', 'maermin_loss_carry', 'maermin_at_funds']
       .map(k => { try { return localStorage.getItem(k) || ''; } catch (e) { return ''; } }).join('\u0001');
     let taxReport = null;
     try {
@@ -5202,6 +5204,7 @@ function InvestmentTracker() {
             style: inputStyle, 'aria-label': __('taxRulesLabel', 'Tax rules'), title: __('taxRulesLabel', 'Tax rules')
           },
             React.createElement('option', { value: 'de' }, t.germany || 'Germany'),
+            React.createElement('option', { value: 'at' }, __('austria', 'Austria')),
             React.createElement('option', { value: 'us' }, t.usa || 'USA')
           ),
           window.MaerminTaxReport && React.createElement('button', {
@@ -5261,7 +5264,7 @@ function InvestmentTracker() {
           }
         },
           React.createElement('div', { style: { color: currentTheme.textSecondary, fontSize: '0.875rem' } },
-            t.shortTermGains || 'Short-term'
+            (taxData.labels && taxData.labels.shortTerm) || t.shortTermGains || 'Short-term'
           ),
           React.createElement('div', { style: { color: currentTheme.text, fontSize: '1.5rem', fontWeight: '800', letterSpacing: '-0.02em' } },
             `${formatPrice(taxData.shortTerm || 0)} ${getCurrencySymbol()}`
@@ -5277,7 +5280,7 @@ function InvestmentTracker() {
           }
         },
           React.createElement('div', { style: { color: currentTheme.textSecondary, fontSize: '0.875rem' } },
-            t.longTermGains || 'Long-term'
+            (taxData.labels && taxData.labels.longTerm) || t.longTermGains || 'Long-term'
           ),
           React.createElement('div', { style: { color: currentTheme.text, fontSize: '1.5rem', fontWeight: '800', letterSpacing: '-0.02em' } },
             `${formatPrice(taxData.longTerm || 0)} ${getCurrencySymbol()}`
@@ -5383,6 +5386,12 @@ function InvestmentTracker() {
         allowance: (() => { const TSm = window.MaerminTaxSettings; try { return TSm ? TSm.load().freistellungsauftrag : 1000; } catch (e) { return 1000; } })(),
         // Orders are EUR amounts: shown in EUR whatever the display currency.
         formatMoney: (v) => privacyMode ? '••••••' : window.MaerminI18n.money(v, 'EUR')
+      }),
+      // P5-4.9: Austria - the computation under § 27a EStG and the fund inputs.
+      taxJurisdiction === 'at' && window.MaerminATTax && React.createElement(window.MaerminATTax.Panel, {
+        theme: currentTheme, report: taxReport, transactions, year: currentYear,
+        formatMoney: (v) => privacyMode ? '••••••' : window.MaerminI18n.money(v, 'EUR'),
+        onChange: () => setTaxSettingsRev(r => r + 1)
       }),
       // P5-4.8: statement of assets (optionally AES-256 protected), cost
       // roll-forward, DATEV-style bookings and the crypto source-of-funds trace.
