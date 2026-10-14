@@ -3305,6 +3305,8 @@ function InvestmentTracker() {
         React.createElement('h2', { style: { color: theme.text, fontSize: '1.5rem', fontWeight: 700, marginBottom: '0.4rem' } }, t.taxHarvestTitle || 'Tax-loss harvesting'),
         React.createElement('p', { style: { color: theme.textSecondary, fontSize: '0.85rem', marginBottom: '1.25rem' } }, taxJurisdiction === 'us'
           ? (t.taxHarvestSubtitleUs || 'Positions at an unrealised loss you could realise to offset gains. Estimated at 24 % for lots held up to a year and 15 % for longer - not tax advice.')
+          : taxJurisdiction === 'ch'
+            ? __('taxHarvestSubtitleCh', 'Positions at an unrealised loss. In Switzerland private capital gains are tax-free and losses are not deductible, so selling saves no tax.')
           : taxJurisdiction === 'at'
             ? __('taxHarvestSubtitleAt', 'Positions at an unrealised loss you could realise to offset this year\'s gains (Austria: losses offset only within the same year). Estimated at 27.5 % - not tax advice.')
             : (t.taxHarvestSubtitle || 'Positions at an unrealised loss you could realise to offset gains. Estimated at the German flat rate — not tax advice.')),
@@ -5164,7 +5166,7 @@ function InvestmentTracker() {
     // few stores directly, so their raw strings are part of the key - saving a
     // fund type, a Vorabpauschale record or a tax setting still rebuilds it.
     const storeKey = ['maermin_fund_types', 'maermin_vap_records', 'maermin_basiszins_overrides', 'maermin_kirchensteuer',
-      'maermin_tax_settings', 'maermin_tax_overrides', 'maermin_divevents', 'maermin_corporate_actions', 'maermin_corporate_events', 'maermin_fx_usd_rates', 'maermin_loss_carry', 'maermin_at_funds']
+      'maermin_tax_settings', 'maermin_tax_overrides', 'maermin_divevents', 'maermin_corporate_actions', 'maermin_corporate_events', 'maermin_fx_usd_rates', 'maermin_loss_carry', 'maermin_at_funds', 'maermin_ch_settings']
       .map(k => { try { return localStorage.getItem(k) || ''; } catch (e) { return ''; } }).join('\u0001');
     let taxReport = null;
     try {
@@ -5205,6 +5207,7 @@ function InvestmentTracker() {
           },
             React.createElement('option', { value: 'de' }, t.germany || 'Germany'),
             React.createElement('option', { value: 'at' }, __('austria', 'Austria')),
+            React.createElement('option', { value: 'ch' }, __('switzerland', 'Switzerland')),
             React.createElement('option', { value: 'us' }, t.usa || 'USA')
           ),
           window.MaerminTaxReport && React.createElement('button', {
@@ -5391,6 +5394,11 @@ function InvestmentTracker() {
       taxJurisdiction === 'at' && window.MaerminATTax && React.createElement(window.MaerminATTax.Panel, {
         theme: currentTheme, report: taxReport, transactions, year: currentYear,
         formatMoney: (v) => privacyMode ? '••••••' : window.MaerminI18n.money(v, 'EUR'),
+        onChange: () => setTaxSettingsRev(r => r + 1)
+      }),
+      // P5-4.10: Switzerland - the Wertschriftenverzeichnis, DA-1 and the KS 36 check.
+      taxJurisdiction === 'ch' && window.MaerminCHTax && React.createElement(window.MaerminCHTax.Panel, {
+        theme: currentTheme, report: taxReport, year: currentYear, privacy: privacyMode,
         onChange: () => setTaxSettingsRev(r => r + 1)
       }),
       // P5-4.8: statement of assets (optionally AES-256 protected), cost
