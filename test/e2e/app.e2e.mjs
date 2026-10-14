@@ -727,6 +727,23 @@ async function runBuild(browser, label, dir) {
     }
 
 
+    // P5-4.4: December plan. The panel shows the allowance left this year; the
+    // seed's only share/fund holding (VWCE.DE) is not at a gain, so there is
+    // nothing to harvest.
+    {
+      const hv = page.locator('[data-testid="harvest-panel"]');
+      let text = '', left = '', tax = '', err = '';
+      try {
+        await hv.waitFor({ timeout: 5000 });
+        text = await hv.innerText();
+        left = await hv.locator('[data-testid="hv-left"]').innerText();
+        if (await hv.locator('[data-testid="hv-result"]').count()) tax = await hv.locator('[data-testid="hv-tax"]').innerText();
+      } catch (e) { err = e.message.split('\n')[0]; }
+      ok('P5-4.4: the December plan shows the Sparerpauschbetrag left this year', /December plan/.test(text) && /Sparerpauschbetrag left this year\s*[\d,.]+/.test(left), err || left);
+      ok('P5-4.4: no share or fund lot at a gain: nothing to harvest, no plan', !tax && /No share or fund lot is at a gain/.test(text), err || (tax + ' | ' + text.slice(-300)));
+    }
+
+
     let pdf = null;
     try {
       const [download] = await Promise.all([
