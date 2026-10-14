@@ -222,7 +222,10 @@ const FX_FIXTURE = {
 async function answerFromFxWorker(route) {
   const rq = route.request();
   fxCalls.push(decodeURIComponent(rq.url().slice(FX_WORKER.length)));
-  const res = await fxWorker.default.fetch(new Request(rq.url(), { method: rq.method(), body: rq.method() === 'GET' ? undefined : rq.postData() }), {}, { waitUntil() {} });
+  // Own client IP (TEST-NET-3): the Worker module is shared with the other
+  // scenarios, and its per-IP rate limit (120 a minute) would otherwise count
+  // their requests too and answer this one with 429.
+  const res = await fxWorker.default.fetch(new Request(rq.url(), { method: rq.method(), headers: { 'CF-Connecting-IP': '203.0.113.6' }, body: rq.method() === 'GET' ? undefined : rq.postData() }), {}, { waitUntil() {} });
   return route.fulfill({ status: res.status, headers: { 'access-control-allow-origin': '*', 'content-type': 'application/json' }, body: await res.text() });
 }
 
