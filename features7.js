@@ -1,5 +1,5 @@
 // ============================================================================
-// MAERMIN v11.0 — Features 7: Performance Attribution, Realized P&L, News Feed
+// MAERMIN v12.0 — Features 7: Performance Attribution, Realized P&L, News Feed
 // ============================================================================
 (function () {
 'use strict';

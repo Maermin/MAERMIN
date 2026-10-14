@@ -1,5 +1,5 @@
 // ============================================================================
-// MAERMIN v11.0 - Main Application
+// MAERMIN v12.0 - Main Application
 // Professional Multi-Asset Portfolio Tracker with Advanced Investment Analytics
 // ============================================================================
 
@@ -7308,7 +7308,7 @@ function __maerminMount() {
     __maerminBindLifecycle();
     __maerminStartSync();
     __maerminRender();
-    dbg('[MAERMIN v11.0] Application initialized');
+    dbg('[MAERMIN v12.0] Application initialized');
   };
   // Bring saved data up to the current schema BEFORE the app reads it (runs
   // post-unlock, so encrypted data is already hydrated and readable). A

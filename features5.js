@@ -1,5 +1,5 @@
 // ============================================================================
-// MAERMIN v11.0 — Professional Analytics Features
+// MAERMIN v12.0 — Professional Analytics Features
 // 1. Net Worth Dashboard          — Vermögen inkl. Cash, Immobilien, Schulden
 // 2. Cashflow Chart               — Investiert vs. Portfoliowert über Zeit
 // 3. Fee Analyzer                 — fee analysis total, per year, per asset

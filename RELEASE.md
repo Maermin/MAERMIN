@@ -4,6 +4,39 @@
 
 _Nothing yet._
 
+## [v12.0.0] "Atlas" — 15 October 2026
+
+> **Major release** · No new data migration (schema stays at v6) · Backup format unchanged: v11 backups restore, new data (budget, taxonomies, goal links, sync destination) is added to it · **Re-deploy `cf-worker/worker.js`** (Worker 2026.10.14: HICP, research, earnings dates, wallets, FinTS, aggregators and push routes; the app shows a hint when the Worker is older)
+
+### Highlights
+
+- **Why did my portfolio change?** Value-change attribution (contributions, price, FX, income, costs), a benchmark replay of your own cash flows, per-holding IRR and real returns after inflation.
+- **Full ETF look-through** from the provider's holdings file, taxonomies, heatmap drill-down and a deeper dividend history.
+- **More ways in:** PDF statements of 13 banks and brokers, FinTS through your own Worker, aggregators with your own API keys, crypto wallets by public address, Bitvavo, Bybit, KuCoin and Bitget, a reconciliation of reported against computed figures.
+- **New assets and events:** bonds (nominal, clean price, accrued interest, maturity), symbol and ISIN changes, mergers and spin-offs, templates for art, P2P loans and other real assets, cash-flow transactions and a clearing account per portfolio.
+- **Tax:** loss carry-forward across years, a sell simulator, the Vorabpauschale forecast for January, an allowance harvesting plan for December, a crypto tax-free calendar, cost-basis methods side by side and optional per-wallet FIFO, a Jahressteuerbescheinigung check, password-protected statements and DATEV-style exports. New: **Austria** (KESt), **Switzerland** (Wertschriftenverzeichnis) and **US** contribution limits.
+- **Reach and AI:** end-to-end encrypted push reminders through your Worker, a **local MCP server** (`maermin-mcp`) for AI assistants on your computer, plain-language verdicts and a richer public demo.
+- **New areas:** a budget from bank exports, research pages per security, an event feed with calendar export, serverless sync through a file or WebDAV/Nextcloud, and saving goals with a glide path.
+
+### Upgrading from v11
+
+- **Nothing to migrate.** Your data opens as it is; v11 backups restore in v12.
+- **Re-deploy the Worker** (`cf-worker/worker.js`, version 2026.10.14) for real returns, research, earnings and ex-dates in the event feed, wallets, FinTS, aggregators and push reminders. The app keeps working with an older Worker; those views say what is missing.
+- **Push reminders** need the `SYNC` KV namespace and the cron trigger from `wrangler.toml` on your Worker; it creates its push keys itself ([docs/WORKER.md](docs/WORKER.md)).
+- **WebDAV sync on a self-built copy:** the security policy allows only its fixed list of hosts. Build with `MAERMIN_CONNECT_SRC=https://your-dav-host` to add yours; the published app reaches WebDAV hosts on `*.workers.dev` only.
+- **The local MCP server** is a separate npm package (`maermin-mcp`); see [mcp/README.md](mcp/README.md).
+- The offline cache is renamed (`maermin-v12`); the first start after the update loads the app once from the network.
+
+### Phase 5 "Atlas" (2026-10-12 to 2026-10-15)
+
+- **M1 Foundations (P5-1.1 to 1.9):** quick fixes and open items from Phases 1-4; cash-flow transaction types (deposit, withdrawal, transfer, fee, tax, interest); a clearing account per portfolio; return figures on the overview; plain-language verdicts; a richer demo with fixtures for the Worker-only views; a public demo link (`?demo`).
+- **M2 Analysis (P5-2.1 to 2.10):** value-change attribution; benchmark replay of own cash flows; full ETF look-through from the provider's file; heatmap drill-down and filters; dividend history; per-holding IRR, trade ranking and capital flow; investment timeline and saving streaks; new checks and allocation views; real (inflation-adjusted) returns; taxonomies.
+- **M3 Data (P5-3.1 to 3.11):** a shared, market-data-only price Worker as a fallback; PDF importers for flatex, Consorsbank, DEGIRO, onvista, Baader, Smartbroker+, Sparkasse/DekaBank and Postbank; FinTS through your Worker; bring-your-own-key aggregators; crypto wallets by public address; reconciliation and data health; four more exchanges; bonds; more corporate actions; alternative asset templates.
+- **M4 Tax (P5-4.1 to 4.11):** loss carry-forward; sell simulator; Vorabpauschale forecast; allowance harvesting plan; crypto tax-free calendar; cost-basis methods and per-wallet basis; Jahressteuerbescheinigung check; statements and audit exports (AES-256 PDF password); Austria; Switzerland; US contribution limits.
+- **M5 Reach (P5-5.1 to 5.9):** web push; local MCP server; budget and spending; research pages; event feed and ICS export; serverless sync transports; saving goals with a glide path; README and positioning; this release.
+
+Every figure for tax is an estimate, not tax advice. The Progress table in [PLAN.md](PLAN.md) links the pull request of each package.
+
 ## [v11.0.0] — 9 October 2026
 
 > **Major release** · Stabilised for public use · One automatic migration (schema v4: year-less price timestamps are repaired) · Backup format unchanged (v10 backups restore) · **Re-deploy `cf-worker/worker.js`** (CoinGecko, share and broker routes changed)
