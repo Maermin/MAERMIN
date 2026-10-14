@@ -885,6 +885,85 @@ function LiquidityAnalysisView(props) {
 }
 
 // ============================================================================
+// GOAL CARD WITH GLIDE PATH (P5-5.7)
+// ============================================================================
+
+function goalStateLabel(state) {
+  switch (state) {
+    case 'ahead': return __('glAhead', 'Ahead');
+    case 'on-track': return __('glOnTrack', 'On Track');
+    case 'behind': return __('glBehind', 'Behind');
+    case 'reached': return __('glReached', 'Reached');
+    case 'missed': return __('glMissed', 'Date passed');
+    default: return __('glNoTarget', 'No target');
+  }
+}
+
+// The planned path (line) and today's money (dot); a dashed line at the target.
+function GoalPathChart(props) {
+  var T = useT();
+  var path = props.path || [];
+  if (path.length < 2) return null;
+  // Drawn at about its on-screen size, so the labels keep their size on a
+  // phone and on a wide screen.
+  var narrow = typeof window !== 'undefined' && window.matchMedia && window.matchMedia('(max-width: 640px)').matches;
+  var Wd = narrow ? 340 : 1100, H = narrow ? 140 : 190, padL = 4, padR = 8, padT = 10, padB = 20;
+  var t0 = Date.parse(path[0].date), t1 = Date.parse(path[path.length - 1].date);
+  var max = Math.max(props.target || 0, props.value || 0, path[path.length - 1].value) * 1.05 || 1;
+  var x = function (d) { return padL + (Date.parse(d) - t0) / Math.max(1, t1 - t0) * (Wd - padL - padR); };
+  var y = function (v) { return padT + (1 - v / max) * (H - padT - padB); };
+  var line = path.map(function (p, i) { return (i ? 'L' : 'M') + x(p.date).toFixed(1) + ' ' + y(p.value).toFixed(1); }).join(' ');
+  var today = props.asOf;
+  var showDot = today >= path[0].date && today <= path[path.length - 1].date;
+  var dotColor = props.state === 'behind' ? (T.warning || '#f59e0b') : (T.success || '#22c55e');
+  return React.createElement('svg', { 'data-testid': 'goal-chart', viewBox: '0 0 ' + Wd + ' ' + H, role: 'img', 'aria-label': __('glPathLabel', 'Planned path to the target and today\'s value'), style: { width: '100%', height: 'auto', display: 'block', margin: '0.75rem 0 0.25rem' } },
+    React.createElement('line', { x1: padL, x2: Wd - padR, y1: y(props.target), y2: y(props.target), stroke: T.textSecondary, strokeDasharray: '4 4', strokeWidth: 1, opacity: 0.6 }),
+    React.createElement('path', { d: line, fill: 'none', stroke: T.accent || '#8b7cff', strokeWidth: 2 }),
+    showDot ? React.createElement('circle', { cx: x(today), cy: y(props.value), r: 5, fill: dotColor, stroke: T.card || '#000', strokeWidth: 2 }) : null,
+    React.createElement('text', { x: padL, y: H - 4, fill: T.textSecondary, fontSize: 12 }, window.MaerminI18n.date(path[0].date)),
+    React.createElement('text', { x: Wd - padR, y: H - 4, fill: T.textSecondary, fontSize: 12, textAnchor: 'end' }, window.MaerminI18n.date(path[path.length - 1].date)));
+}
+
+function GoalPathCard(props) {
+  var money = useMoney();
+  var T = useT();
+  var GP = window.MaerminGoalPath;
+  var goal = GP.normalizeGoal(props.goal);
+  var asOf = new Date().toISOString().slice(0, 10);
+  var lv = GP.linkedValue(goal, props.ctx);
+  var st = GP.status(goal, lv.value, { asOf: asOf });
+  var path = GP.glidePath(goal);
+  var badgeType = st.state === 'ahead' || st.state === 'on-track' || st.state === 'reached' ? 'positive' : st.state === 'invalid' ? 'neutral' : 'warning';
+  var suggested = lv.linked ? GP.equityGlide(goal, asOf) : null;
+  var actual = lv.linked ? GP.riskShare(lv.positions) : null;
+  var cell = function (label, value, tid) {
+    return React.createElement('div', { 'data-testid': tid },
+      React.createElement('div', { style: { color: T.textSecondary, fontSize: '0.75rem' } }, label),
+      React.createElement('div', { style: { color: T.text } }, value));
+  };
+  var pct = function (v) { return v == null ? '–' : window.MaerminI18n.pct(v, 0); };
+  return React.createElement(AnalysisCard, { title: props.goal.name, badge: goalStateLabel(st.state), badgeType: badgeType },
+    React.createElement('div', { 'data-testid': 'goal-card', 'data-state': st.state },
+      React.createElement('div', { style: { display: 'flex', justifyContent: 'space-between', marginBottom: '0.5rem', gap: '0.5rem', flexWrap: 'wrap' } },
+        React.createElement('span', { style: { color: T.textSecondary } }, money(lv.value) + ' / ' + money(goal.targetAmount) + (lv.linked ? ' · ' + props.linkLabel(goal.link) : '')),
+        React.createElement('span', { style: { color: T.accent, fontWeight: '600' } }, window.MaerminI18n.pct(st.progressPercent, 1))),
+      React.createElement(ProgressBar, { value: st.progressPercent, color: badgeType === 'warning' ? 'red' : 'green' }),
+      React.createElement(GoalPathChart, { path: path, target: goal.targetAmount, value: lv.value, asOf: asOf, state: st.state }),
+      React.createElement('div', { style: { display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(140px, 1fr))', gap: '0.75rem', marginTop: '0.75rem' } },
+        cell(__('glTargetDate', 'Target Date'), window.MaerminI18n.date(goal.targetDate)),
+        cell(__('freqMonthly', 'Monthly'), money(goal.monthlyContribution)),
+        cell(__('glPlannedToday', 'Planned for today'), st.planned == null ? '–' : money(st.planned), 'goal-planned'),
+        cell(__('glNeeded', 'Needed a month from now'), st.requiredMonthly == null ? '–' : money(st.requiredMonthly), 'goal-needed'),
+        cell(__('glProjected', 'At this pace on the date'), st.projected == null ? '–' : money(st.projected), 'goal-projected'),
+        cell(__('glReturnShort', 'Expected return'), window.MaerminI18n.pct(goal.expectedReturn * 100, 1))),
+      suggested != null ? React.createElement('div', { 'data-testid': 'goal-risk', style: { marginTop: '0.75rem', padding: '0.6rem 0.75rem', borderRadius: '10px', background: T.inputBg, color: T.textSecondary, fontSize: '0.8rem', lineHeight: 1.5 } },
+        __('glRiskLine', 'Glide path for risk: about {s} in shares and other risky assets now, falling towards the date. The linked holdings have {a}.', { s: pct(suggested), a: pct(actual) }),
+        actual != null && actual > suggested + 10 ? React.createElement('span', { style: { color: T.warning || '#f59e0b' } }, ' ' + __('glRiskHigh', 'Consider moving some into bonds or cash as the date comes closer.')) : null) : null,
+      React.createElement('div', { style: { display: 'flex', justifyContent: 'flex-end', marginTop: '0.75rem' } },
+        React.createElement('button', { onClick: props.onDelete, style: { background: 'rgba(239,68,68,0.2)', color: '#ef4444', border: 'none', padding: '0.25rem 0.75rem', borderRadius: '4px', cursor: 'pointer', fontSize: '0.75rem' } }, __('delete', 'Delete')))));
+}
+
+// ============================================================================
 // GOAL INVESTING VIEW
 // ============================================================================
 
@@ -909,16 +988,36 @@ function GoalInvestingView(props) {
   var showAddGoal = _showAddGoal[0];
   var setShowAddGoal = _showAddGoal[1];
   
-  var _newGoal = useState({
+  var blankGoal = {
     name: '',
     type: 'retirement',
     targetAmount: 100000,
     currentAmount: 0,
     targetDate: '2035-01-01',
-    monthlyContribution: 500
-  });
+    monthlyContribution: 500,
+    link: '',            // P5-5.7: '' (amount typed in) | 'portfolio:<id>' | 'tag:<name>'
+    expectedReturn: 5    // % a year
+  };
+  var _newGoal = useState(blankGoal);
   var newGoal = _newGoal[0];
   var setNewGoal = _newGoal[1];
+
+  // P5-5.7: a goal's money comes from its portfolios or tags when linked
+  var GP = (typeof window !== 'undefined') && window.MaerminGoalPath;
+  var tagsState = (function () { try { return window.MaerminTags ? window.MaerminTags.load() : null; } catch (e) { return null; } })();
+  var tagNames = tagsState && tagsState.tags ? Object.keys(tagsState.tags).sort() : [];
+  var portfolios = props.portfolios || [];
+  var ctx = { transactions: props.transactions || [], prices: props.prices || {}, tagsState: tagsState };
+  var linkOf = function (s) {
+    var m = /^(portfolio|tag):(.+)$/.exec(String(s || ''));
+    return m ? { type: m[1], ids: [m[2]] } : null;
+  };
+  var linkLabel = function (link) {
+    if (!link) return '';
+    var id = link.ids[0];
+    if (link.type === 'portfolio') { var p = portfolios.filter(function (x) { return x.id === id; })[0]; return __('glLinkedPf', 'Portfolio {name}', { name: p ? p.name : id }); }
+    return __('glLinkedTag', 'Tag {name}', { name: id });
+  };
   
   // Save goals to localStorage
   useEffect(function() {
@@ -931,6 +1030,8 @@ function GoalInvestingView(props) {
   var addGoal = function() {
     if (!newGoal.name || !(newGoal.targetAmount > 0)) return;
     
+    var link = linkOf(newGoal.link);
+    var now = new Date().toISOString();
     var goal = {
       id: Date.now().toString(),
       name: newGoal.name,
@@ -939,19 +1040,17 @@ function GoalInvestingView(props) {
       currentAmount: newGoal.currentAmount,
       targetDate: newGoal.targetDate,
       monthlyContribution: newGoal.monthlyContribution,
-      createdAt: new Date().toISOString()
+      createdAt: now,
+      // P5-5.7: the glide path starts today at today's money
+      link: link,
+      expectedReturn: (Number(newGoal.expectedReturn) || 0) / 100,
+      startDate: now.slice(0, 10),
+      startValue: link && GP ? GP.linkedValue({ link: link }, ctx).value : newGoal.currentAmount
     };
-    
+
     setGoals(goals.concat([goal]));
     setShowAddGoal(false);
-    setNewGoal({
-      name: '',
-      type: 'retirement',
-      targetAmount: 100000,
-      currentAmount: 0,
-      targetDate: '2035-01-01',
-      monthlyContribution: 500
-    });
+    setNewGoal(blankGoal);
   };
   
   var deleteGoal = function(goalId) {
@@ -992,6 +1091,7 @@ function GoalInvestingView(props) {
         React.createElement('div', null,
           React.createElement('label', { style: { color: T.textSecondary, fontSize: '0.75rem', display: 'block', marginBottom: '0.25rem' } }, __('glName', 'Goal Name')),
           React.createElement('input', {
+            'data-testid': 'goal-name',
             type: 'text',
             value: newGoal.name,
             onChange: function(e) { setNewGoal(Object.assign({}, newGoal, { name: e.target.value })); },
@@ -1014,18 +1114,42 @@ function GoalInvestingView(props) {
         React.createElement('div', null,
           React.createElement('label', { style: { color: T.textSecondary, fontSize: '0.75rem', display: 'block', marginBottom: '0.25rem' } }, __('glTargetAmount', 'Target Amount (EUR)')),
           React.createElement('input', {
+            'data-testid': 'goal-target',
             type: 'number',
             value: newGoal.targetAmount,
             onChange: function(e) { setNewGoal(Object.assign({}, newGoal, { targetAmount: parseFloat(e.target.value) || 0 })); },
             style: { width: '100%', background: T.inputBg, border: '1px solid ' + T.inputBorder, borderRadius: '6px', padding: '0.5rem', color: T.text }
           })
         ),
-        React.createElement('div', null,
+        GP && React.createElement('div', null,
+          React.createElement('label', { style: { color: T.textSecondary, fontSize: '0.75rem', display: 'block', marginBottom: '0.25rem' } }, __('glLinkTo', 'Money for this goal')),
+          React.createElement('select', {
+            'data-testid': 'goal-link',
+            value: newGoal.link,
+            onChange: function(e) { setNewGoal(Object.assign({}, newGoal, { link: e.target.value })); },
+            style: { width: '100%', background: T.inputBg, border: '1px solid ' + T.inputBorder, borderRadius: '6px', padding: '0.5rem', color: T.text }
+          },
+            React.createElement('option', { value: '' }, __('glLinkManual', 'An amount I type in')),
+            portfolios.map(function (p) { return React.createElement('option', { key: 'p' + p.id, value: 'portfolio:' + p.id }, __('glLinkedPf', 'Portfolio {name}', { name: p.name || p.id })); }),
+            tagNames.map(function (n) { return React.createElement('option', { key: 't' + n, value: 'tag:' + n }, __('glLinkedTag', 'Tag {name}', { name: n })); })
+          )
+        ),
+        !newGoal.link && React.createElement('div', null,
           React.createElement('label', { style: { color: T.textSecondary, fontSize: '0.75rem', display: 'block', marginBottom: '0.25rem' } }, __('glCurrentSaved', 'Current Saved')),
           React.createElement('input', {
             type: 'number',
             value: newGoal.currentAmount,
             onChange: function(e) { setNewGoal(Object.assign({}, newGoal, { currentAmount: parseFloat(e.target.value) || 0 })); },
+            style: { width: '100%', background: T.inputBg, border: '1px solid ' + T.inputBorder, borderRadius: '6px', padding: '0.5rem', color: T.text }
+          })
+        ),
+        GP && React.createElement('div', null,
+          React.createElement('label', { style: { color: T.textSecondary, fontSize: '0.75rem', display: 'block', marginBottom: '0.25rem' } }, __('glReturn', 'Expected return (% a year)')),
+          React.createElement('input', {
+            'data-testid': 'goal-return',
+            type: 'number', step: '0.5', min: '-10', max: '20',
+            value: newGoal.expectedReturn,
+            onChange: function(e) { setNewGoal(Object.assign({}, newGoal, { expectedReturn: parseFloat(e.target.value) || 0 })); },
             style: { width: '100%', background: T.inputBg, border: '1px solid ' + T.inputBorder, borderRadius: '6px', padding: '0.5rem', color: T.text }
           })
         ),
@@ -1054,6 +1178,7 @@ function GoalInvestingView(props) {
           style: { background: T.cardBorder, color: T.text, border: 'none', padding: '0.5rem 1rem', borderRadius: '6px', cursor: 'pointer' }
         }, __('cancel', 'Cancel')),
         React.createElement('button', {
+          'data-testid': 'goal-create',
           onClick: addGoal,
           disabled: !newGoal.name || !(newGoal.targetAmount > 0),
           title: !(newGoal.targetAmount > 0) ? __('glEnterTarget', 'Enter a target amount above 0') : undefined,
@@ -1063,6 +1188,13 @@ function GoalInvestingView(props) {
     ),
     
     goals.map(function(goal) {
+      if (GP) {
+        return React.createElement(GoalPathCard, { key: goal.id, goal: goal, ctx: ctx, linkLabel: linkLabel,
+          onDelete: function () {
+            var U = (typeof window !== 'undefined') && window.MaerminUtils;
+            if (U && U.confirmThen) U.confirmThen({ title: __('glDeleteTitle', 'Delete the goal "{name}"?', { name: goal.name }), confirmLabel: __('delete', 'Delete') }, function() { deleteGoal(goal.id); });
+          } });
+      }
       var progress = calculateProgress(goal);
       
       return React.createElement(AnalysisCard, {
@@ -1182,7 +1314,7 @@ function InvestmentAnalysisDashboard(props) {
         ? React.createElement(window.MaerminMarketCap.Panel, { portfolio: portfolio, prices: prices, theme: theme, t: props.t, formatPrice: props.formatPrice, workerUrl: props.workerUrl, exchangeRate: props.exchangeRate })
         : React.createElement('div', { style: { padding: '1.5rem', color: theme.textSecondary } }, __('ivMcapUnavailable', 'Market-cap module unavailable'));
       case 'liquidity':return React.createElement(LiquidityAnalysisView, { portfolio: portfolio });
-      case 'goals':    return React.createElement(GoalInvestingView, { portfolioValue: portfolioValue });
+      case 'goals':    return React.createElement(GoalInvestingView, { portfolioValue: portfolioValue, transactions: props.transactions, prices: prices, portfolios: props.portfolios });
       case 'providers': return typeof props.renderProviders === 'function' ? props.renderProviders() : null;
       case 'taxonomies': return typeof props.renderTaxonomies === 'function' ? props.renderTaxonomies() : null;
       default:         return React.createElement(DCAAnalyzerView, { portfolio: portfolio, priceHistory: dcaHistory });

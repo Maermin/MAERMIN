@@ -61,6 +61,7 @@ wait for the next load.
 | `auth.js` | `MaerminAuth` | Setup / unlock / lock UI; mount gate; change-password; one-time recovery-code reveal at setup + recovery-code unlock path |
 | `audit-log.js` | `MaerminAuditLog` | On-device event + error trail (non-sensitive, ring-buffered); errors are kept by type (`errorLabel`), never by message |
 | `migrations.js` | `MaerminMigrations` | Versioned, idempotent localStorage migrations |
+| `goal-path.js` | `MaerminGoalPath` | Saving goals (P5-5.7): `linkedValue` (portfolio or tag), `fv` / `requiredMonthly`, `glidePath`, `status` (ahead / on track / behind), `equityGlide` and `riskShare`; used by the Goals card in `investment-views.js` |
 | `sync-transports.js` | `MaerminSyncTransports` | Serverless sync destinations (P5-5.6): `FileTransport` (File System Access) and `WebDavTransport` (ETag-conditional writes) over one `maermin-sync.json` record with the Worker's write MAC, checked on every read; the destination picker `Panel` |
 | `sync-engine.js` | `MaerminSync` | Opt-in encrypted sync: snapshot of the encrypted data keys minus device-local ones, three-way merge, write key + MAC per put; a remote snapshot may only set those same keys (`syncableKey`; vault meta, Worker URL and local keys are dropped and reported by `lastDropped`) |
 | `premigration-backup.js` | `MaerminPreMigration` | Encrypted copy of the data before a pending migration (one IndexedDB record `maermin_premigration_backup`, vault key, not synced, not in the backup); restore / delete in Settings → Trash |

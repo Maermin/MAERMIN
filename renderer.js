@@ -3792,6 +3792,8 @@ function InvestmentTracker() {
           React.createElement(window.InvestmentViews.InvestmentAnalysisDashboard, {
             portfolio, prices, priceHistory, dailyCloses: dailyAnalytics.perHolding, metaVersion,
             theme: currentTheme, t, formatPrice, getCurrencySymbol, workerUrl: marketWorker, exchangeRate,
+            // P5-5.7: goals linked to portfolios or tags
+            transactions, portfolios,
             // P5-2.8: Providers & brokers section
             renderProviders: window.MaerminAllocationGroups ? () => React.createElement(window.MaerminAllocationGroups.Panel, {
               positions: providerPositions, portfolios: pfAllocation, theme: currentTheme, formatPrice, getCurrencySymbol
