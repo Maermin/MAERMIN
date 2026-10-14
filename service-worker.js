@@ -145,6 +145,22 @@ function cacheFirst(req) {
   });
 }
 
+// ---- web push (P5-5.1) --------------------------------------------------------
+// The browser decrypts the message (it was encrypted to this subscription in
+// the app, web-push.js); the payload is { title, body, tag, url }. Shown even
+// with every MAERMIN tab closed.
+self.addEventListener('push', function (event) {
+  var data = {};
+  try { data = event.data ? event.data.json() : {}; } catch (e) { data = { body: event.data ? event.data.text() : '' }; }
+  var title = typeof data.title === 'string' && data.title ? data.title.slice(0, 120) : 'MAERMIN';
+  event.waitUntil(self.registration.showNotification(title, {
+    body: typeof data.body === 'string' ? data.body.slice(0, 400) : '',
+    tag: typeof data.tag === 'string' ? data.tag.slice(0, 80) : 'maermin',
+    icon: 'icon.svg', badge: 'icon.svg',
+    data: { url: './' }
+  }));
+});
+
 // ---- notification clicks (local notifications from MaerminPWA.notify) -----
 self.addEventListener('notificationclick', function (event) {
   event.notification.close();

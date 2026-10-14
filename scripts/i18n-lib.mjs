@@ -19,7 +19,9 @@ export const NOT_UI = new Set([
   // bank-sync.js turns into translated messages (P5-3.4)
   'fints.js',
   // PDF file syntax for the AES-256 security handler (P5-4.8); no UI text
-  'pdf-aes.js'
+  'pdf-aes.js',
+  // Web Push message encryption (P5-5.1): protocol labels, no UI text
+  'push-crypto.js'
 ]);
 // Files whose literals are English fallbacks of keys the guard already checks.
 export const SCAN_SKIP = new Set(['nav-model.js']);

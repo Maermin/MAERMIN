@@ -16,7 +16,7 @@ function __(k, f, v) { return (typeof window !== 'undefined' && window.MaerminI1
   // kind: 'tax' (also names the supported tax rules) | 'invest'
   function disclaimerText(kind) {
     var base = __('trustNoAdvice', 'No tax or investment advice — estimates only.');
-    if (kind === 'tax') return base + ' ' + __('trustTaxRules', 'Only German and US tax rules are supported. Check the figures against your tax documents or with a tax adviser.');
+    if (kind === 'tax') return base + ' ' + __('trustTaxRules', 'German, Austrian, Swiss and US tax rules are supported. Check the figures against your tax documents or with a tax adviser.');
     return base + ' ' + __('trustInvest', 'The findings are rules of thumb applied to your data, not a recommendation to buy or sell.');
   }
 
@@ -51,7 +51,8 @@ function __(k, f, v) { return (typeof window !== 'undefined' && window.MaerminI1
         __('pvSync', 'Cloud sync: your Worker stores your data encrypted on your device, under an anonymous account id. It cannot read it.'),
         __('pvShare', 'Share & Compare: a redacted snapshot (percentages and scores, no amounts or quantities) is stored by your Worker for 90 days, plus an anonymous aggregate for the comparison.'),
         __('pvExchange', 'Exchange connections: your Worker relays each request to the exchange. The API key travels with every request (Binance: the request is signed in your browser and the secret stays here). Keys are stored encrypted in your vault.'),
-        __('pvSteam', 'Steam inventory import: your Worker asks Steam for the inventory of the profile you enter. The profile is not stored.')]]
+        __('pvSteam', 'Steam inventory import: your Worker asks Steam for the inventory of the profile you enter. The profile is not stored.'),
+        __('pvPush', 'Push notifications: each reminder is encrypted on your device and your Worker only stores the ciphertext and the send time. If you also let it check price rules while the app is closed, it sees each rule\'s symbol and threshold, never amounts or quantities.')]]
     ];
   }
 

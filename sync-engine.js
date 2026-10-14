@@ -125,7 +125,9 @@
   var LOCAL_ONLY_KEYS = [BASE_KEY, 'maermin_close_history', 'maermin_fx_currencies',
     // re-fetchable market-data caches (encrypted at rest, kept per device)
     'maermin_price_meta', 'maermin_equity_meta_cache', 'maermin_dividend_cache',
-    'maermin_marketcap_cache', 'maermin_symbol_suffix', 'maermin_div_notified'];
+    'maermin_marketcap_cache', 'maermin_symbol_suffix', 'maermin_div_notified',
+    // P5-5.1: the push subscription belongs to this browser
+    'maermin_push'];
   // SEC-019: the keys a snapshot may carry - encrypted data keys that are not
   // device-local. Vault infrastructure (meta, at-rest flag), the Worker URL and
   // everything else is never taken from a remote snapshot.

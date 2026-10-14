@@ -22,6 +22,12 @@ class_name = "SyncRoom"
 tag = "v1"
 new_sqlite_classes = ["SyncRoom"]
 
+# P5-5.1 Web push: deliver due reminders (and the opt-in price rules) every
+# 15 minutes. Uses the SYNC KV namespace; the messages are encrypted in the
+# browser, this Worker only relays ciphertext.
+[triggers]
+crons = ["*/15 * * * *"]
+
 # CORS: exact origins allowed to read responses (the official app and
 # localhost are built in). Add your own domain(s), comma separated.
 # "null" is the origin of index.html opened from disk; set ALLOW_NULL_ORIGIN
@@ -29,6 +35,8 @@ new_sqlite_classes = ["SyncRoom"]
 [vars]
 # ALLOWED_ORIGINS = "https://portfolio.example.com"
 ALLOW_NULL_ORIGIN = "true"
+# P5-5.1 Web push: the VAPID "sub" claim (a mailto: or https: URL); default the repo URL.
+# VAPID_SUBJECT = "mailto:you@example.com"
 # Optional: a free CoinGecko demo key raises the crypto price limit:
 #   npx wrangler secret put COINGECKO_API_KEY
 # Share snapshots per UTC day (each costs one KV write). Default 300.

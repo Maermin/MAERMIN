@@ -1686,6 +1686,67 @@ function InvestmentTracker() {
     } catch (e) {}
   }, [transactions, prices, demoMode, taxJurisdiction]);
 
+  // P5-5.1: what the push reminders are planned from. Read fresh each time
+  // (a ref keeps the latest props), so the effect below and the Settings panel
+  // send the same plan.
+  const pushInputRef = useRef(null);
+  pushInputRef.current = { transactions, portfolio, prices, priceHistory, exchangeRate, taxJurisdiction };
+  const pushCtx = () => {
+    const cur = pushInputRef.current || {};
+    const today = new Date().toISOString().slice(0, 10);
+    const input = { today, dividends: [], vap: null, crypto: [], ira: null };
+    try {
+      if (window.DividendDataService) input.dividends = window.DividendDataService.buildPaymentSchedule(cur.portfolio, { months: 4, back: 0 })
+        .map((p) => ({ symbol: p.symbol, date: p.date, amount: p.amount, currency: p.currency }));
+    } catch (e) {}
+    try {
+      const VF = window.MaerminVapForecast, GT = window.TaxCalculationEngine && window.TaxCalculationEngine.GermanTax;
+      if (cur.taxJurisdiction === 'de' && VF && GT) {
+        const TS = window.MaerminTaxSettings; const s = TS ? TS.load() : null; const LT = window.MaerminLookThrough;
+        const fc = VF.forecast(cur.transactions, { asOf: today, priceHistory: cur.priceHistory, prices: cur.prices, exchangeRate: cur.exchangeRate,
+          fundTypes: GT.loadFundTypes(), vapRecords: GT.loadVapRecords(), basiszinsOverrides: GT.loadBasiszinsOverrides(),
+          freistellungsauftrag: s ? s.freistellungsauftrag : 1000, kirchensteuer: s ? s.kirchensteuer : GT.loadKirchensteuerRate(),
+          isFund: (sym, name) => !!(LT && LT.isFundCandidate && LT.isFundCandidate(sym, name)) });
+        if (fc) input.vap = { year: fc.year, tax: fc.totals.taxWithoutAllowance };
+      }
+    } catch (e) {}
+    try {
+      const CC = window.MaerminCryptoCalendar;
+      if (cur.taxJurisdiction === 'de' && CC) {
+        const TS = window.MaerminTaxSettings; const ts = TS ? TS.load() : {};
+        const cal = CC.calendar(cur.transactions, { today, prices: cur.prices, cryptoExemption: ts.cryptoExemption !== false, perWallet: ts.cryptoPerWallet ? ["crypto"] : undefined });
+        (cal.coins || []).forEach((c) => (c.lots || []).forEach((l) => { if (!l.free && l.freeOn) input.crypto.push({ symbol: c.symbol, date: l.freeOn, quantity: l.quantity }); }));
+      }
+    } catch (e) {}
+    try {
+      const UC = window.MaerminUSContrib;
+      if (cur.taxJurisdiction === 'us' && UC) {
+        const y = new Date().getFullYear(), year = today.slice(5) <= '04-15' ? y - 1 : y;
+        const r = UC.compute(cur.transactions, UC.loadSettings(), { year, exchangeRate: cur.exchangeRate });
+        if (r.accounts.some((a) => a.type !== '401k')) input.ira = { year, remaining: r.ira.remaining };
+      }
+    } catch (e) {}
+    const cryptoSyms = new Set((cur.transactions || []).filter((tx) => tx.category === 'crypto').map((tx) => String(tx.symbol || '').toUpperCase()));
+    return {
+      input,
+      rulesState: window.MaerminRules ? window.MaerminRules.load() : null,
+      isCrypto: (s) => cryptoSyms.has(s),
+      coinId: (s) => (window.MaerminTickers && window.MaerminTickers.coinGeckoId ? window.MaerminTickers.coinGeckoId(s) : null),
+      money: (v, c) => window.MaerminI18n.money(v, c || 'EUR'),
+      describe: (rule) => (window.MaerminRules ? window.MaerminRules.describe(rule) : '')
+    };
+  };
+  // Re-plan the push reminders a few seconds after the data settles; syncNow
+  // itself skips the upload when nothing changed (and re-sends every 12 h).
+  useEffect(() => {
+    if (demoMode || !window.MaerminPush || !(apiKeys.cs2Worker || '').trim()) return;
+    if (!window.MaerminPush.load().enabled) return;
+    const id = setTimeout(() => {
+      window.MaerminPush.syncNow(Object.assign(pushCtx(), { workerUrl: (apiKeys.cs2Worker || '').trim() })).catch(() => {});
+    }, 5000);
+    return () => clearTimeout(id);
+  }, [transactions, prices, demoMode, taxJurisdiction, apiKeys.cs2Worker]);
+
   // ========== API FUNCTIONS ==========
   
   const priceRefreshRef = useRef(false); // a refresh is running (see fetchPrices)
@@ -6705,7 +6766,10 @@ buy,crypto,bitcoin,0.5,45000,2024-01-15,10`)
           React.createElement('input', { type: 'checkbox', 'data-testid': 'shared-prices-toggle', checked: (window.MaerminSharedWorker ? window.MaerminSharedWorker.enabledFrom(sharedPrices) : false),
             onChange: (e) => setSharedPrices(e.target.checked), style: { width: '22px', height: '22px', margin: 0, accentColor: currentTheme.accent } }))),
         window.MaerminSharedWorker && !window.MaerminSharedWorker.SHARED_URL && React.createElement('div', { style: { color: currentTheme.textSecondary, fontSize: '0.72rem', marginTop: '0.3rem' } },
-          __('secSharedNotYet', 'The price service is not online yet; until then market data needs your own Worker.'))
+          __('secSharedNotYet', 'The price service is not online yet; until then market data needs your own Worker.')),
+        // P5-5.1: web push reminders through the user's own Worker
+        window.MaerminPush && sectionTitle(__('secPush', 'Push notifications')),
+        window.MaerminPush && React.createElement(window.MaerminPush.Panel, { theme: currentTheme, workerUrl: (apiKeys.cs2Worker || '').trim(), getCtx: pushCtx, addToast })
       )
     );
   };
