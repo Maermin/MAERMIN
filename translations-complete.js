@@ -3408,6 +3408,19 @@ taSparer: 'Sparerpauschbetrag',
     hvSkipped: 'Without a current price: {list}',
     hvNote: 'Estimate at today\'s prices; prices move until the order is filled, so leave a little room. Shares and funds only; crypto falls under the private-sale rules. Not tax advice.',
 
+    // P5-4.5 crypto tax-free calendar
+    ccToday: 'Today',
+    ccInMonths: 'In {n} mo.',
+    ccTitle: 'Crypto tax-free calendar',
+    ccIntro: 'How much of each coin can be sold tax-free (held for more than a year) today and in the coming months. A sale takes the oldest lots first (FIFO), so the tax-free part is also the part that is sold first.',
+    ccOff: 'The one-year rule for crypto is switched off in your tax settings, so nothing counts as tax-free.',
+    ccEmpty: 'No crypto held.',
+    ccCoin: 'Coin',
+    ccHeld: 'Held',
+    ccNext: 'Next',
+    ccTotal: 'Value tax-free',
+    ccNote: 'Values at today\'s price. A coin is tax-free from the day after the anniversary of its purchase. Gains of coins held for one year or less count towards the 1,000 EUR Freigrenze. Not tax advice.',
+
     // CoinGecko via Worker
     cgNeedsWorker: 'Crypto prices come through your Worker - add its URL in API Settings'
   },
@@ -6662,6 +6675,19 @@ taSparer: 'Sparerpauschbetrag',
     hvFeesExceed: 'Die Gebühren sind höher als die vermiedene Steuer: lohnt sich nicht.',
     hvSkipped: 'Ohne aktuellen Kurs: {list}',
     hvNote: 'Schätzung zu heutigen Kursen; bis zur Ausführung bewegen sich die Kurse, lass also etwas Luft. Nur Aktien und Fonds; Krypto fällt unter die Regeln für private Veräußerungen. Keine Steuerberatung.',
+
+    // P5-4.5 crypto tax-free calendar
+    ccToday: 'Heute',
+    ccInMonths: 'In {n} Mon.',
+    ccTitle: 'Krypto-Steuerfrei-Kalender',
+    ccIntro: 'Wie viel von jedem Coin heute und in den kommenden Monaten steuerfrei verkauft werden kann (länger als ein Jahr gehalten). Ein Verkauf nimmt die ältesten Lots zuerst (FIFO), der steuerfreie Teil wird also auch zuerst verkauft.',
+    ccOff: 'Die Ein-Jahres-Regel für Krypto ist in deinen Steuereinstellungen ausgeschaltet, daher gilt nichts als steuerfrei.',
+    ccEmpty: 'Keine Kryptowerte im Bestand.',
+    ccCoin: 'Coin',
+    ccHeld: 'Bestand',
+    ccNext: 'Nächster',
+    ccTotal: 'Steuerfreier Wert',
+    ccNote: 'Werte zum heutigen Kurs. Ein Coin ist ab dem Tag nach dem Jahrestag seines Kaufs steuerfrei. Gewinne aus Coins, die höchstens ein Jahr gehalten wurden, zählen zur Freigrenze von 1.000 EUR. Keine Steuerberatung.',
 
     // CoinGecko via Worker
     cgNeedsWorker: 'Kryptokurse kommen über deinen Worker – trage seine URL in den API-Einstellungen ein'

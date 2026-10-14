@@ -744,6 +744,21 @@ async function runBuild(browser, label, dir) {
     }
 
 
+    // P5-4.5: crypto tax-free calendar. The seed's ETH (1, bought 2024-02-01)
+    // has been held for more than a year: all of it is tax-free today.
+    {
+      const cc = page.locator('[data-testid="crypto-calendar-panel"]');
+      let text = '', today = '', err = '';
+      try {
+        await cc.waitFor({ timeout: 5000 });
+        text = await cc.innerText();
+        today = await cc.locator('[data-testid="cc-ETH-0"]').innerText();
+      } catch (e) { err = e.message.split('\n')[0]; }
+      ok('P5-4.5: the calendar has the columns today to 12 months', /Today/i.test(text) && /In 12 mo\./i.test(text), err || text.slice(0, 200));
+      ok('P5-4.5: ETH bought in 2024 is tax-free today (1)', /^1\b/.test(today.trim()), err || today);
+    }
+
+
     let pdf = null;
     try {
       const [download] = await Promise.all([
