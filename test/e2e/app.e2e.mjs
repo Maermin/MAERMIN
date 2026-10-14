@@ -910,6 +910,9 @@ async function runBuild(browser, label, dir) {
         txAfter = await page.evaluate(() => JSON.parse(localStorage.getItem('transactions') || '[]').length);
         await page.evaluate(() => localStorage.removeItem('maermin_budget'));
       } catch (e) { err = e.message.split('\n')[0]; }
+      // Back to the Tax view: the PDF export check below clicks its button.
+      await openView(page, 'tax').catch(() => {});
+      await page.waitForTimeout(400);
       ok('P5-5.3: a bank CSV becomes the month\'s income, expenses, savings and Sankey', !err && /September 2026/.test(text) && /3,000\.00/.test(text) && /960\.00/.test(text) && /400\.00/.test(text) && /Groceries/.test(text) && /Housing/.test(text), err || text.replace(/\n/g, ' | ').slice(0, 400));
       ok('P5-5.3: importing the same export again adds nothing; the portfolio transactions are untouched', again === 4 && txBefore === txAfter, { again, txBefore, txAfter });
     }
