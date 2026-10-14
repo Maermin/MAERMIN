@@ -1,0 +1,15 @@
+{
+  "name": "maermin-mcp",
+  "version": "0.1.0",
+  "description": "Local, read-only MCP server over your MAERMIN portfolio vault. Decrypts on your machine; no server sees your data.",
+  "license": "MIT",
+  "bin": { "maermin-mcp": "bin/maermin-mcp.js" },
+  "main": "lib/index.js",
+  "files": ["bin/", "lib/", "app/", "README.md"],
+  "engines": { "node": ">=18" },
+  "scripts": {
+    "prepack": "node scripts/vendor.mjs"
+  },
+  "keywords": ["mcp", "model-context-protocol", "portfolio", "maermin", "local"],
+  "repository": { "type": "git", "url": "https://github.com/Maermin/MAERMIN.git", "directory": "mcp" }
+}

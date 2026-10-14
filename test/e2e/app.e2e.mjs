@@ -578,6 +578,7 @@ async function runBuild(browser, label, dir) {
       await openView(page, 'privacy');
       const pv = await page.locator('[data-testid="privacy-view"]').innerText().catch(() => '');
       ok('Settings → Privacy lists what stays local and what goes where', ['Stays on this device', 'Your Cloudflare Worker', 'CoinGecko', 'Cloud sync', 'Share & Compare'].every((x) => pv.includes(x)), pv.slice(0, 160));
+      ok('P5-5.1/5.2: Privacy names web push and the local MCP server', /Push notifications: each reminder is encrypted on your device/.test(pv) && /Local MCP server \(maermin-mcp/.test(pv) && /--amounts/.test(pv), pv.slice(-400));
       // P4-5: summary for an AI assistant - redacted by default, full only after a confirmation, never with Privacy Mode
       { let red = '', full = '', priv = null, err = '';
         try {
