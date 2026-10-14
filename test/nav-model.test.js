@@ -53,8 +53,8 @@ ok('junk stored mode is ignored', N.initialMode('expert', 0) === 'simple');
 // --- visibility ---
 const simpleAnalysis = ids(N.visibleEntries('analysis', 'simple', 'overview'));
 ok('simple analysis shows only the two groups', simpleAnalysis.join() === 'grp-returns,grp-health');
-ok('advanced analysis shows strategy, fees, discovery, news',
-  ids(N.visibleEntries('analysis', 'advanced', 'overview')).join() === 'grp-returns,grp-health,investment-analysis,fees,discovery,news');
+ok('advanced analysis shows research (P5-5.4), strategy, fees, discovery, news',
+  ids(N.visibleEntries('analysis', 'advanced', 'overview')).join() === 'grp-returns,grp-health,research,investment-analysis,fees,discovery,news');
 ok('simple settings shows Customize, Trash and Privacy', ids(N.visibleEntries('settings', 'simple', 'overview')).join() === 'customize,trash,privacy');
 ok('an open advanced view stays visible in simple mode',
   ids(N.visibleEntries('settings', 'simple', 'tags')).indexOf('tags') > -1);

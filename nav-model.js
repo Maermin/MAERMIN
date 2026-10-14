@@ -59,6 +59,7 @@
         v('intelligence', 'intelTitle', 'Portfolio Intelligence', true),
         v('analytics', 'navRiskCorrelation', 'Risk & Correlation', true)
       ] },
+      v('research', 'navResearch', 'Research', true),
       v('investment-analysis', 'navStrategy', 'Strategy', true),
       v('fees', 'navFees', 'Fee Analyzer', true),
       v('discovery', 'navDiscovery', 'Discovery', true),

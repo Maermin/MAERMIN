@@ -95,7 +95,9 @@ const aggSim = requireE2E('../aggregator-sim.js');
 const walletSim = requireE2E('../wallet-sim.js');
 // P5-3.8: synthetic Bitvavo / Bybit / KuCoin / Bitget behind the broker relay
 const exchangeSim = requireE2E('../exchange-sim.js');
-const workerState = { down: false, oldVersion: false, upstream: [], requests: [] };
+// ip: an own client IP (TEST-NET-3) for a check that must not share the
+// Worker's per-IP rate limit (120 a minute) with the calls before it.
+const workerState = { down: false, oldVersion: false, upstream: [], requests: [], ip: null };
 const iso = (d) => d.toISOString().slice(0, 10);
 const WEEKDAYS = (() => { // every weekday of the last three years, up to today
   const out = [], end = new Date(), d = new Date(Date.UTC(end.getUTCFullYear() - 3, end.getUTCMonth(), end.getUTCDate()));
@@ -132,6 +134,18 @@ const divOf = (sym, i) => (sym === 'AAPL' && i % 63 === 20 ? Number((0.24 + 0.01
     if (/^https:\/\/api\.(bitvavo|bybit|kucoin|bitget)\.com\//.test(u)) return exchangeSim.upstream(u, init || {});
     if (/^https:\/\/(mempool\.space|[a-z]+\.blockscout\.com|api\.mainnet-beta\.solana\.com)\//.test(u)) return walletSim.upstream(u, init || {});
     if (/^https:\/\/fints\.dkb\.de\//.test(u)) return new Response(FINTS.toB64(fintsBank.handle(FINTS.fromB64(init.body))), { status: 200, headers: { 'Content-Type': 'text/plain' } });
+    // P5-5.4: the research route's quoteSummary (only that module set: other
+    // quoteSummary routes keep their behaviour in this harness)
+    if (/query1\.finance\.yahoo\.com\/v10\/finance\/quoteSummary\//.test(u) && /recommendationTrend/.test(decodeURIComponent(u))) {
+      const qs = decodeURIComponent(u.match(/quoteSummary\/([^?]+)/)[1]);
+      workerState.upstream.push('research:' + qs);
+      return new Response(JSON.stringify({ quoteSummary: { result: [{ price: { shortName: qs + ' Sample Corp', currency: 'USD', regularMarketPrice: { raw: 100 } },
+        summaryDetail: { trailingPE: { raw: 20 }, marketCap: { raw: 5e11 } },
+        financialData: { numberOfAnalystOpinions: { raw: 10 }, targetMeanPrice: { raw: 120 }, targetLowPrice: { raw: 90 }, targetHighPrice: { raw: 150 }, recommendationKey: 'buy' },
+        recommendationTrend: { trend: [{ period: '0m', strongBuy: 3, buy: 4, hold: 2, sell: 1, strongSell: 0 }] },
+        earnings: { earningsChart: { quarterly: [{ date: '2Q2026', actual: { raw: 1.1 }, estimate: { raw: 1.0 } }] } },
+        assetProfile: { sector: 'Technology', country: 'United States', longBusinessSummary: 'Synthetic company for the end-to-end test.' } }] } }), { status: 200, headers: { 'Content-Type': 'application/json' } });
+    }
     const m = u.match(/query1\.finance\.yahoo\.com\/v8\/finance\/chart\/([^?]+)/);
     if (!m) return realFetch(input, init);
     const sym = decodeURIComponent(m[1]);
@@ -149,7 +163,7 @@ async function answerFromWorker(route) {
   workerState.requests.push(rq.url().slice(WORKER_URL.length));
   // A Worker from before the version route (P2-3) answers like any unknown action.
   if (workerState.oldVersion && /[?&]action=version\b/.test(rq.url())) return route.fulfill({ status: 400, headers: { 'access-control-allow-origin': '*', 'content-type': 'application/json' }, body: JSON.stringify({ error: 'Unknown action' }) });
-  const res = await workerMod.default.fetch(new Request(rq.url(), { method: rq.method(), headers: { Origin: new URL(rq.headers().origin || rq.headers().referer || 'http://127.0.0.1').origin }, body: rq.method() === 'GET' ? undefined : rq.postData() }), workerEnv, { waitUntil() {} });
+  const res = await workerMod.default.fetch(new Request(rq.url(), { method: rq.method(), headers: Object.assign({ Origin: new URL(rq.headers().origin || rq.headers().referer || 'http://127.0.0.1').origin }, workerState.ip ? { 'CF-Connecting-IP': workerState.ip } : {}), body: rq.method() === 'GET' ? undefined : rq.postData() }), workerEnv, { waitUntil() {} });
   const headers = {}; res.headers.forEach((v, k) => { headers[k] = v; });
   headers['access-control-allow-origin'] = '*';
   return route.fulfill({ status: res.status, headers, body: await res.text() });
@@ -916,7 +930,6 @@ async function runBuild(browser, label, dir) {
       ok('P5-5.3: a bank CSV becomes the month\'s income, expenses, savings and Sankey', !err && /September 2026/.test(text) && /3,000\.00/.test(text) && /960\.00/.test(text) && /400\.00/.test(text) && /Groceries/.test(text) && /Housing/.test(text), err || text.replace(/\n/g, ' | ').slice(0, 400));
       ok('P5-5.3: importing the same export again adds nothing; the portfolio transactions are untouched', again === 4 && txBefore === txAfter, { again, txBefore, txAfter });
     }
-
 
     let pdf = null;
     try {
@@ -2222,6 +2235,28 @@ async function runBuild(browser, label, dir) {
       }
     }
     workerState.oldVersion = false;
+    // P5-5.4: Research page (this session talks to the real Worker code). Key
+    // figures, analysts and EPS come through the research route, the chart
+    // through yf; MACD can be switched on.
+    {
+      let text = '', macd = false, err = '';
+      workerState.ip = '203.0.113.54';
+      try {
+        await openView(page, 'research');
+        await page.locator('[data-testid="rs-symbol"]').fill('AAPL');
+        await page.locator('[data-testid="rs-go"]').click();
+        await page.locator('[data-testid="rs-analysts"]').waitFor({ timeout: 15000 });
+        await page.locator('[data-testid="rs-chart"]').waitFor({ timeout: 15000 });
+        await page.locator('[data-testid="rs-ind-macd"]').click();
+        macd = (await page.locator('[data-testid="rs-macd"]').count()) === 1;
+        text = await page.locator('[data-testid="research-view"]').innerText();
+      } catch (e) {
+        err = e.message.split('\n')[0] + ' | worker: ' + workerState.requests.filter((r) => /research|symbol=AAPL/.test(r)).join(', ');
+        err += ' | view: ' + (await page.locator('[data-testid="research-view"]').innerText().catch(() => '')).replace(/\s+/g, ' ').slice(0, 300);
+      }
+      workerState.ip = null;
+      ok('P5-5.4: the research page shows key figures, analysts (10, mean target +20 %), EPS and the profile; MACD switches on', !err && /AAPL Sample Corp/.test(text) && /10 analysts/.test(text) && /\+20\.0 %/.test(text) && /beat/.test(text) && /Synthetic company/.test(text) && macd, err || text.replace(/\n/g, ' | ').slice(0, 400));
+    }
     ok('no page errors in the value-history session', errors.length === 0, errors.join(' | '));
     await context.close();
   }

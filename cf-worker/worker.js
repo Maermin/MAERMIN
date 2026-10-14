@@ -10,6 +10,9 @@
  *                                                 sector weights, expense ratio (TER)
  *   GET  /?action=profile&symbol=AAPL          → equity sector / industry / country
  *                                                 (Strategy tab Sector & Country allocation)
+ *   GET  /?action=research&symbol=AAPL         → research page: valuation, financials,
+ *                                                 analyst ratings and targets, EPS actual vs
+ *                                                 estimate, company profile (P5-5.4)
  *   GET  /?action=fundamentals&symbol=KO       → dividend-safety fundamentals: payout
  *                                                 ratio, EPS, dividend rate/yield
  *   GET  /?action=skinprices                    → CS2 Steam Market prices, all items (USD,
@@ -41,12 +44,12 @@ import { handlePush, runPushCron } from './push.js';
 // Bump on every change to this file that the app relies on, and set
 // EXPECTED_WORKER_VERSION in onboarding.js to the same value (test/worker-version
 // enforces both). Format YYYY.M.N; compared numerically per part.
-export const WORKER_VERSION = '2026.10.11';
+export const WORKER_VERSION = '2026.10.12';
 export const WORKER_ACTIONS = ['yf', 'yfsearch', 'screener', 'fundholdings', 'fundamentals', 'earnings', 'profile',
-  'news', 'skinprices', 'steaminv', 'cg', 'hicp', 'sync', 'share', 'mcp', 'brokerproxy', 'fints', 'fintsbanks', 'wallet', 'push', 'version'];
+  'news', 'skinprices', 'steaminv', 'cg', 'hicp', 'sync', 'share', 'mcp', 'brokerproxy', 'fints', 'fintsbanks', 'wallet', 'push', 'research', 'version'];
 // P5-3.1: the routes a shared price Worker (PRICE_ONLY=1) serves - market data only
 export const PRICE_ONLY_ACTIONS = ['yf', 'yfsearch', 'screener', 'fundholdings', 'fundamentals', 'earnings', 'profile',
-  'news', 'skinprices', 'cg', 'hicp', 'version'];
+  'news', 'skinprices', 'cg', 'hicp', 'research', 'version'];
 const PRICE_ONLY_SET = new Set(PRICE_ONLY_ACTIONS);
 export function isPriceOnly(env) { return String((env && env.PRICE_ONLY) || '') === '1'; }
 
@@ -629,6 +632,29 @@ async function handle(request, env, ctx) {
     // 0.62 = 62%; Yahoo reports fiveYearAvgDividendYield in percent, so it is
     // divided by 100 here). Nulls mean Yahoo has no value — the client then
     // falls back to its history-based heuristic. Cached 6h.
+    // ── P5-5.4 research page ─────────────────────────────────────────────────
+    // GET /?action=research&symbol=AAPL: one quoteSummary call (valuation,
+    // financials, analyst ratings and targets, EPS actual vs estimate, profile),
+    // cached 6 h. Market data only: the symbol, never a quantity or value.
+    if (request.method === 'GET' && action === 'research') {
+      const symbol = (url.searchParams.get('symbol') || '').trim();
+      if (!symbol) return res(JSON.stringify({ error: 'symbol required' }), 400, request);
+      const cacheKey = new Request('https://cache.maermin/research/' + encodeURIComponent(symbol));
+      const cache = caches.default;
+      const cached = await cache.match(cacheKey);
+      if (cached) return res(await cached.text(), 200, request);
+      try {
+        const data = await fetchQuoteSummary(symbol, 'price,summaryDetail,defaultKeyStatistics,financialData,recommendationTrend,earnings,assetProfile');
+        const r0 = data?.quoteSummary?.result?.[0];
+        if (!r0) return res(JSON.stringify({ error: 'No data from Yahoo Finance', symbol }), 404, request);
+        const payload = JSON.stringify(researchPayload(symbol, r0));
+        ctx.waitUntil(cache.put(cacheKey, new Response(payload, { headers: { 'Content-Type': 'application/json', 'Cache-Control': 'public, max-age=21600' } })));
+        return res(payload, 200, request);
+      } catch (e) {
+        return upstreamError('Yahoo Finance', e && e.upstreamStatus, request, { symbol });
+      }
+    }
+
     if (request.method === 'GET' && action === 'fundamentals') {
       const symbol = (url.searchParams.get('symbol') || '').trim();
       if (!symbol) return res(JSON.stringify({ error: 'symbol required' }), 400, request);
@@ -1082,6 +1108,29 @@ function safeJson(text) { try { return JSON.parse(text); } catch { return text; 
 
 function numOrNull(x) { const n = typeof x === 'number' ? x : parseFloat(x); return Number.isFinite(n) ? n : null; }
 
+// P5-5.4: the research page's fields from one quoteSummary result.
+export function researchPayload(symbol, r0) {
+  const raw = (x) => numOrNull(x?.raw ?? x);
+  const price = r0.price || {}, sd = r0.summaryDetail || {}, ks = r0.defaultKeyStatistics || {}, fd = r0.financialData || {}, ap = r0.assetProfile || {};
+  const trend = (r0.recommendationTrend?.trend || []).slice(0, 4).map((t) => ({ period: String(t.period || ''), strongBuy: raw(t.strongBuy) || 0, buy: raw(t.buy) || 0, hold: raw(t.hold) || 0, sell: raw(t.sell) || 0, strongSell: raw(t.strongSell) || 0 }));
+  const earnings = (r0.earnings?.earningsChart?.quarterly || []).slice(-8).map((q) => ({ quarter: String(q.date || ''), actual: raw(q.actual), estimate: raw(q.estimate) }));
+  const summary = typeof ap.longBusinessSummary === 'string' ? ap.longBusinessSummary.slice(0, 600) + (ap.longBusinessSummary.length > 600 ? '…' : '') : '';
+  return {
+    symbol, name: price.shortName || price.longName || symbol, currency: price.currency || sd.currency || null, price: raw(price.regularMarketPrice),
+    valuation: { marketCap: raw(sd.marketCap), trailingPE: raw(sd.trailingPE), forwardPE: raw(sd.forwardPE), peg: raw(ks.pegRatio), priceToBook: raw(ks.priceToBook),
+      priceToSales: raw(sd.priceToSalesTrailing12Months), beta: raw(sd.beta), high52: raw(sd.fiftyTwoWeekHigh), low52: raw(sd.fiftyTwoWeekLow),
+      dividendYield: raw(sd.dividendYield), payoutRatio: raw(sd.payoutRatio) },
+    financials: { revenue: raw(fd.totalRevenue), revenueGrowth: raw(fd.revenueGrowth), grossMargins: raw(fd.grossMargins), operatingMargins: raw(fd.operatingMargins),
+      profitMargins: raw(fd.profitMargins), returnOnEquity: raw(fd.returnOnEquity), debtToEquity: raw(fd.debtToEquity), freeCashflow: raw(fd.freeCashflow) },
+    analysts: { count: raw(fd.numberOfAnalystOpinions), recommendationKey: typeof fd.recommendationKey === 'string' ? fd.recommendationKey : null, recommendationMean: raw(fd.recommendationMean),
+      targetMean: raw(fd.targetMeanPrice), targetMedian: raw(fd.targetMedianPrice), targetHigh: raw(fd.targetHighPrice), targetLow: raw(fd.targetLowPrice), trend },
+    earnings,
+    profile: { sector: ap.sector || null, industry: ap.industry || null, country: ap.country || null, website: typeof ap.website === 'string' && /^https?:\/\//.test(ap.website) ? ap.website : null,
+      employees: raw(ap.fullTimeEmployees), summary },
+    source: 'Yahoo Finance', fetchedAt: new Date().toISOString()
+  };
+}
+
 // ── Sync write-authorization (HMAC) ─────────────────────────────────────────
 // PURE + exported for the Node harness (test/sync-auth.test.js). See the put
 // handler above for the threat model. authKey is hex(HKDF(vaultKey,'sync-auth')).
@@ -1374,7 +1423,7 @@ async function fetchWithTimeout(url, opts = {}, ms = 8000) {
 const HICP_GEOS = new Set(['EA', 'DE', 'AT', 'BE', 'CY', 'EE', 'ES', 'FI', 'FR', 'EL', 'HR', 'IE', 'IT', 'LT', 'LU', 'LV', 'MT', 'NL', 'PT', 'SI', 'SK']);
 
 // Routes whose `symbol` goes to Yahoo Finance.
-const SYMBOL_ROUTES = new Set(['yf', 'fundamentals', 'profile', 'earnings', 'fundholdings', 'dividends', 'news']);
+const SYMBOL_ROUTES = new Set(['yf', 'fundamentals', 'profile', 'earnings', 'fundholdings', 'dividends', 'news', 'research']);
 
 // ── Limits (SEC-011, SEC-014, SEC-018, SEC-024) ──────────────────────────────
 const SYNC_BODY_MAX = 4_500_000;   // a 4 MB blob plus its JSON envelope

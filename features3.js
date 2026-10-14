@@ -170,7 +170,7 @@ function CorporateActionsPanel({ category, symbol, theme, t = {}, workerUrl, sin
   );
 }
 
-function PositionDetailModal({ position, transactions, prices, theme, formatPrice, getCurrencySymbol, onClose, t = {}, workerUrl, closeSeries, buildPath }) {
+function PositionDetailModal({ position, transactions, prices, theme, formatPrice, getCurrencySymbol, onClose, t = {}, workerUrl, closeSeries, buildPath, onResearch }) {
   if (!position) return null;
 
   // Filter transactions for this position
@@ -268,11 +268,17 @@ function PositionDetailModal({ position, transactions, prices, theme, formatPric
             )
           )
         ),
-        React.createElement('button', {
-          onClick: onClose,
-          'aria-label': __('close', 'Close'),
-          style: { background: 'none', border: `1px solid ${theme.cardBorder}`, borderRadius: '8px', color: theme.textSecondary, cursor: 'pointer', padding: '0.4rem 0.75rem', fontSize: '0.875rem' }
-        }, '×')
+        React.createElement('div', { style: { display: 'flex', gap: '0.4rem' } },
+          // P5-5.4: the Research page for this symbol
+          onResearch && React.createElement('button', {
+            onClick: onResearch, 'data-testid': 'pd-research',
+            style: { background: 'none', border: `1px solid ${theme.cardBorder}`, borderRadius: '8px', color: theme.text, cursor: 'pointer', padding: '0.4rem 0.75rem', fontSize: '0.8rem', fontWeight: 600 }
+          }, __('pdResearch', 'Research')),
+          React.createElement('button', {
+            onClick: onClose,
+            'aria-label': __('close', 'Close'),
+            style: { background: 'none', border: `1px solid ${theme.cardBorder}`, borderRadius: '8px', color: theme.textSecondary, cursor: 'pointer', padding: '0.4rem 0.75rem', fontSize: '0.875rem' }
+          }, '×'))
       ),
 
       // P4-2: daily price since the first buy, with the average cost for an open position
