@@ -146,6 +146,13 @@ const divOf = (sym, i) => (sym === 'AAPL' && i % 63 === 20 ? Number((0.24 + 0.01
         earnings: { earningsChart: { quarterly: [{ date: '2Q2026', actual: { raw: 1.1 }, estimate: { raw: 1.0 } }] } },
         assetProfile: { sector: 'Technology', country: 'United States', longBusinessSummary: 'Synthetic company for the end-to-end test.' } }] } }), { status: 200, headers: { 'Content-Type': 'application/json' } });
     }
+    // P5-5.5: the earnings route's calendarEvents for AAPL (dates relative to today)
+    if (/query1\.finance\.yahoo\.com\/v10\/finance\/quoteSummary\/AAPL\?/.test(u) && /modules=calendarEvents/.test(decodeURIComponent(u))) {
+      workerState.upstream.push('calendar:AAPL');
+      const at = (n) => ({ raw: Math.floor(Date.now() / 86400000 + n) * 86400 });
+      return new Response(JSON.stringify({ quoteSummary: { result: [{ price: { shortName: 'Apple', currency: 'USD' },
+        calendarEvents: { earnings: { earningsDate: [at(10)], earningsAverage: { raw: 1.75 } }, exDividendDate: at(20), dividendDate: at(24) } }] } }), { status: 200, headers: { 'Content-Type': 'application/json' } });
+    }
     const m = u.match(/query1\.finance\.yahoo\.com\/v8\/finance\/chart\/([^?]+)/);
     if (!m) return realFetch(input, init);
     const sym = decodeURIComponent(m[1]);
@@ -2256,6 +2263,28 @@ async function runBuild(browser, label, dir) {
       }
       workerState.ip = null;
       ok('P5-5.4: the research page shows key figures, analysts (10, mean target +20 %), EPS and the profile; MACD switches on', !err && /AAPL Sample Corp/.test(text) && /10 analysts/.test(text) && /\+20\.0 %/.test(text) && /beat/.test(text) && /Synthetic company/.test(text) && macd, err || text.replace(/\n/g, ' | ').slice(0, 400));
+    }
+    // P5-5.5: the event feed lists AAPL's earnings and ex-date (Worker earnings
+    // route); the type chips filter; the ICS file has the events but no amounts.
+    {
+      let rows = [], afterFilter = [], ics = '', err = '';
+      workerState.ip = '203.0.113.55';
+      try {
+        await openView(page, 'events');
+        await page.locator('[data-testid="evf-row"][data-kind="exdiv"]').first().waitFor({ timeout: 30000 });
+        rows = await page.locator('[data-testid="evf-row"]').allInnerTexts();
+        await page.locator('[data-testid="evf-kind-earnings"]').click();
+        afterFilter = await page.locator('[data-testid="evf-row"][data-kind="earnings"]').allInnerTexts();
+        await page.locator('[data-testid="evf-kind-earnings"]').click();
+        const [dl] = await Promise.all([page.waitForEvent('download', { timeout: 10000 }), page.locator('[data-testid="evf-ics"]').click()]);
+        const p = await dl.path();
+        ics = p ? (await import('node:fs')).readFileSync(p, 'utf8') : '';
+      } catch (e) { err = e.message.split('\n')[0]; }
+      workerState.ip = null;
+      const all = rows.join(' | ');
+      ok('P5-5.5: the event feed shows AAPL earnings, ex-date and payment from the Worker', !err && /AAPL earnings/.test(all) && /AAPL ex-dividend/.test(all) && /AAPL dividend payment/.test(all), err || all.slice(0, 400));
+      ok('P5-5.5: switching a type off hides its rows', !err && afterFilter.length === 0, afterFilter);
+      ok('P5-5.5: the ICS export has the events (RFC 5545) and leaves amounts out by default', /^BEGIN:VCALENDAR\r\n/.test(ics) && /SUMMARY:AAPL earnings/.test(ics) && /DTSTART;VALUE=DATE:\d{8}/.test(ics) && !/Consensus EPS/.test(ics) && /END:VCALENDAR\r\n$/.test(ics), ics.slice(0, 300));
     }
     ok('no page errors in the value-history session', errors.length === 0, errors.join(' | '));
     await context.close();

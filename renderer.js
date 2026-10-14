@@ -3559,6 +3559,22 @@ function InvestmentTracker() {
             })()
           }) : renderAnalyticsPlaceholder(__('navResearch', 'Research'));
 
+      // P5-5.5: one dated event feed for held and watched symbols, with ICS export
+      case 'events':
+        return window.MaerminEventFeed ?
+          React.createElement(window.MaerminEventFeed.View, (() => {
+            const read = (k, d) => { try { return JSON.parse(localStorage.getItem(k) || d); } catch (e) { return JSON.parse(d); } };
+            const CA = window.MaerminCorporateActions;
+            return {
+              theme: currentTheme, workerUrl: marketWorker, privacy: privacyMode,
+              held: ((portfolio && portfolio.stocks) || []).filter((s) => (parseFloat(s.amount) || 0) > 0).map((s) => s.symbol).filter(Boolean),
+              watched: (read('maermin_watchlist', '[]') || []).map((w) => w && w.symbol).filter(Boolean),
+              input: Object.assign({}, pushCtx().input, { jurisdiction: taxJurisdiction }),
+              plans: read('maermin_savings_plans', '[]') || [],
+              splits: CA && CA.load ? (CA.load().actions || []) : []
+            };
+          })()) : renderAnalyticsPlaceholder(__('navEvents', 'Events'));
+
       // P5-5.3: budget and spending (a separate ledger of bank bookings)
       case 'budget':
         return window.MaerminBudget ?

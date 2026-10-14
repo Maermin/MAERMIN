@@ -25,7 +25,7 @@ Configure it in the app under **API Settings → Cloudflare Worker**.
 ## Version
 
 ### `GET /?action=version`
-`200 { "version": "2026.10.12", "actions": ["yf", "yfsearch", …], "storage": true }`. No upstream call and no rate limit.
+`200 { "version": "2026.10.14", "actions": ["yf", "yfsearch", …], "storage": true }`. No upstream call and no rate limit.
 `storage` says whether sync and share links can work (a KV namespace or the Durable Object is bound); the
 app's connection test shows it.
 `WORKER_VERSION` in `worker.js` and `EXPECTED_WORKER_VERSION` in `onboarding.js` name the same release
@@ -173,7 +173,7 @@ Yahoo's "Financial Services"→"Financials", "United States"→"USA", etc.
 
 ### `GET /?action=earnings&symbol=AAPL`
 Next earnings date and consensus estimates for the **Earnings Calendar** in the
-Dividends view. Proxies Yahoo Finance `quoteSummary` (`calendarEvents`,
+Dividends view, plus the ex-dividend and pay dates for the **Events** feed (P5-5.5, Worker 2026.10.14). Proxies Yahoo Finance `quoteSummary` (`calendarEvents`,
 `price`), same cookie+crumb retry as the other `quoteSummary` routes:
 
 ```jsonc
@@ -185,7 +185,9 @@ Dividends view. Proxies Yahoo Finance `quoteSummary` (`calendarEvents`,
   "earningsDateEnd": null,           // set when Yahoo only gives a date range
   "isEstimate": false,               // true for a range = not yet confirmed
   "epsEstimate": 1.78, "epsLow": 1.70, "epsHigh": 1.85,
-  "revenueEstimate": 101200000000    // in `currency`
+  "revenueEstimate": 101200000000,   // in `currency`
+  "exDividendDate": "2026-11-09",    // P5-5.5; null when Yahoo has none
+  "dividendDate": "2026-11-13"       // P5-5.5; the next pay date, or null
 }
 ```
 
