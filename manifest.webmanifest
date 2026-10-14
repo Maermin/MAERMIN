@@ -1,7 +1,7 @@
 {
   "name": "MAERMIN — Professional Portfolio Tracker",
   "short_name": "MAERMIN",
-  "description": "Multi-asset portfolio tracker: crypto, stocks, commodities & CS2 items with advanced analytics — fully client-side and encrypted.",
+  "description": "Private multi-asset portfolio tracker with German, Austrian, Swiss and US tax tools built in - runs in your browser, encrypted, no account.",
   "id": "/",
   "start_url": ".",
   "scope": ".",
