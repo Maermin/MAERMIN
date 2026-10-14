@@ -1179,6 +1179,8 @@ function InvestmentTracker() {
   const [taxSettingsRev, setTaxSettingsRev] = useState(0);
   // Overview row → position detail modal (transactions, CAGR, splits, journal).
   const [positionDetail, setPositionDetail] = useState(null);
+  // P5-5.4: the symbol shown on the Research page
+  const [researchSymbol, setResearchSymbol] = useState('');
   // P4-2: Overview positions table shows open or fully sold (closed) positions.
   const [posTab, setPosTab] = useState('open');
   const [taxOwner, setTaxOwner] = useState(() => {
@@ -3543,6 +3545,20 @@ function InvestmentTracker() {
             workerUrl: apiKeys.cs2Worker, theme: currentTheme, t
           }) : renderAnalyticsPlaceholder(t.navShare || 'Share & Compare');
 
+      // P5-5.4: research page per security
+      case 'research':
+        return window.MaerminResearch ?
+          React.createElement(window.MaerminResearch.View, {
+            theme: currentTheme, transactions, symbol: researchSymbol, onSymbol: setResearchSymbol, workerUrl: marketWorker,
+            exchangeRate, fxAt, privacy: privacyMode,
+            positions: window.MaerminTags ? window.MaerminTags.pricedPositions(transactions, prices) : [],
+            symbols: (() => {
+              const s = new Set(transactions.filter((tx) => tx.symbol && (tx.category === 'stocks' || tx.category === 'bonds')).map((tx) => String(tx.symbol).toUpperCase()));
+              try { (JSON.parse(localStorage.getItem('maermin_watchlist') || '[]') || []).forEach((w) => { if (w && w.symbol) s.add(String(w.symbol).toUpperCase()); }); } catch (e) {}
+              return Array.from(s).sort();
+            })()
+          }) : renderAnalyticsPlaceholder(__('navResearch', 'Research'));
+
       // P5-5.3: budget and spending (a separate ledger of bank bookings)
       case 'budget':
         return window.MaerminBudget ?
@@ -4446,6 +4462,8 @@ function InvestmentTracker() {
               position: positionDetail, transactions: overviewTransactions, prices,
               theme: currentTheme, formatPrice, getCurrencySymbol, t,
               workerUrl: marketWorker,
+              // P5-5.4: open the Research page for this position
+              onResearch: window.MaerminResearch && positionDetail.cat !== 'crypto' && positionDetail.cat !== 'skins' ? () => { setResearchSymbol(String(positionDetail.sym || '').toUpperCase()); setPositionDetail(null); setActiveView('research'); } : null,
               closeSeries: window.MaerminCloseHistory ? closeSeriesEUR[window.MaerminCloseHistory.keyOf(positionDetail.cat, positionDetail.sym)] : null,
               buildPath: buildValuePath, // P5-2.4: the holding's own monthly returns
               // A split may have been added/removed inside the modal — re-run

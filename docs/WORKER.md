@@ -25,7 +25,7 @@ Configure it in the app under **API Settings → Cloudflare Worker**.
 ## Version
 
 ### `GET /?action=version`
-`200 { "version": "2026.10.11", "actions": ["yf", "yfsearch", …], "storage": true }`. No upstream call and no rate limit.
+`200 { "version": "2026.10.12", "actions": ["yf", "yfsearch", …], "storage": true }`. No upstream call and no rate limit.
 `storage` says whether sync and share links can work (a KV namespace or the Durable Object is bound); the
 app's connection test shows it.
 `WORKER_VERSION` in `worker.js` and `EXPECTED_WORKER_VERSION` in `onboarding.js` name the same release
@@ -97,6 +97,25 @@ Holdings change slowly → cached 24 h. quoteSummary occasionally demands Yahoo'
 cookie+crumb handshake; the Worker retries once with a cached session. The
 client degrades to a built-in snapshot of common ETFs when this route is
 missing (older Worker → `400 {"error":"Unknown action"}`).
+
+### `GET /?action=research&symbol=AAPL` (P5-5.4)
+
+The research page in one call: Yahoo Finance quoteSummary with the modules `price`, `summaryDetail`, `defaultKeyStatistics`, `financialData`, `recommendationTrend`, `earnings` and `assetProfile`. Cached for 6 hours. It is market data only (a symbol in, public figures out), so the shared price Worker serves it too.
+
+```json
+{ "symbol": "AAPL", "name": "Apple Inc.", "currency": "USD", "price": 250,
+  "valuation": { "marketCap": 3.8e12, "trailingPE": 38.2, "forwardPE": 31.5, "peg": 2.4, "priceToBook": 55, "priceToSales": 9.1, "beta": 1.2, "high52": 260, "low52": 170, "dividendYield": 0.004, "payoutRatio": 0.15 },
+  "financials": { "revenue": 4.0e11, "revenueGrowth": 0.06, "grossMargins": 0.46, "operatingMargins": 0.31, "profitMargins": 0.25, "returnOnEquity": 1.5, "debtToEquity": 150, "freeCashflow": 1.0e11 },
+  "analysts": { "count": 41, "recommendationKey": "buy", "recommendationMean": 2.0, "targetMean": 270, "targetMedian": 275, "targetHigh": 320, "targetLow": 200,
+    "trend": [{ "period": "0m", "strongBuy": 12, "buy": 20, "hold": 8, "sell": 1, "strongSell": 0 }] },
+  "earnings": [{ "quarter": "4Q2025", "actual": 2.4, "estimate": 2.35 }],
+  "profile": { "sector": "Technology", "industry": "Consumer Electronics", "country": "United States", "website": "https://www.apple.com", "employees": 164000, "summary": "… (at most 600 characters)" },
+  "source": "Yahoo Finance", "fetchedAt": "…" }
+```
+
+- A missing value is `null`.
+- An unknown symbol gets 404, and a CS2 item name gets 400 without an upstream call.
+- **Licence:** Yahoo Finance data is for personal use. The app says so under the page and doesn't redistribute it.
 
 ### `GET /?action=fundamentals&symbol=KO`
 Dividend-safety fundamentals. Proxies Yahoo Finance `quoteSummary` (modules
