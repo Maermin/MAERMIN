@@ -1,5 +1,5 @@
 // ============================================================================
-// MAERMIN v11.0 — Real Historical Portfolio Chart
+// MAERMIN v12.0 — Real Historical Portfolio Chart
 //
 // Primary data source: Yahoo Finance via Cloudflare Worker
 //   → ALL global exchanges: XETRA, London, NASDAQ, Copenhagen, etc.

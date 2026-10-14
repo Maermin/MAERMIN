@@ -298,7 +298,8 @@ See [RELEASE.md](RELEASE.md) for full release notes.
 
 | Version | Date | Highlights |
 |---------|------|------------|
-| **v11.0** | Oct 2026 | One FIFO ledger · Value history from day one · Trade-date FX · Anlage KAP · Full German UI · Simple/Advanced mode · Trash & undo · Steam import · Returns heatmap · Closed positions · Withholding tax by country · PP & Parqet import |
+| **v12.0 "Atlas"** | Oct 2026 | Value-change attribution · Benchmark replay · Full ETF look-through · Bonds · 13 PDF banks, FinTS, wallets, more exchanges · Loss carry-forward · Sell simulator · Vorabpauschale forecast · Austria, Switzerland, US limits · Push reminders · Local MCP server · Budget · Research · Events · Serverless sync · Saving goals |
+| v11.0 | Oct 2026 | One FIFO ledger · Value history from day one · Trade-date FX · Anlage KAP · Full German UI · Simple/Advanced mode · Trash & undo · Steam import · Returns heatmap · Closed positions · Withholding tax by country · PP & Parqet import |
 | v10.0 | June 2026 | New dark-fintech UI · Portfolio Value Snapshots · Smart Tags · Custom Dashboard Layout · Portfolio Intelligence |
 | v9.0 | March 2026 | Real historical chart · Symbol Picker · P&L calculation fix · Yahoo Finance primary |
 | v8.3 | Feb 2026 | CS2 skin picker · Historical chart v1 · Multi-portfolio |

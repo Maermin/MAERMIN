@@ -1,5 +1,5 @@
 // ============================================================================
-// MAERMIN v11.0 — Advanced Portfolio Features
+// MAERMIN v12.0 — Advanced Portfolio Features
 // 1. Position Detail Modal    — click any position for full breakdown
 // 2. CAGR per Position        — annualized return column in positions table
 // 3. CS2 Skin Picker / Symbol Picker
