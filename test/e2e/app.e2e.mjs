@@ -759,6 +759,23 @@ async function runBuild(browser, label, dir) {
     }
 
 
+    // P5-4.6: cost-basis methods. The comparison lists the four methods with
+    // FIFO marked as the tax report's method; the German detail names the
+    // crypto method (pooled FIFO by default).
+    {
+      const cm = page.locator('[data-testid="cost-methods-panel"]');
+      let text = '', legal = '', body = '', err = '';
+      try {
+        await cm.waitFor({ timeout: 5000 });
+        text = await cm.innerText();
+        legal = await cm.locator('[data-testid="cm-legal"]').innerText();
+        body = await page.innerText('main');
+      } catch (e) { err = e.message.split('\n')[0]; }
+      ok('P5-4.6: FIFO, LIFO, HIFO and average cost side by side, FIFO used in the tax report', /FIFO/.test(text) && /LIFO/.test(text) && /HIFO/i.test(text) && /Average cost/i.test(text) && /used in your tax report/.test(legal), err || text.slice(0, 300));
+      ok('P5-4.6: the German detail names the crypto method (FIFO across all wallets by default)', /Crypto cost basis\s*FIFO across all wallets/.test(body), err || (body.match(/Crypto cost basis[^\n]*\n?[^\n]*/) || [''])[0]);
+    }
+
+
     let pdf = null;
     try {
       const [download] = await Promise.all([

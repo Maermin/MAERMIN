@@ -9,7 +9,7 @@
 //   Global knobs (NON-sensitive - rates/flags only, no holdings):
 //     maermin_tax_settings = {
 //       abgeltungRate, soli (bool),
-//       freistellungsauftrag, cryptoExemption (bool),
+//       freistellungsauftrag, cryptoExemption (bool), cryptoPerWallet (bool),
 //       teilfreistellung: { fundType: rate }   // per-fund-type overrides
 //     }
 //   The church-tax rate (0|0.08|0.09) is part of the settings object but is
@@ -37,6 +37,7 @@
     kirchensteuer: 0,            // 0 | 0.08 | 0.09
     freistellungsauftrag: 1000,  // Sparerpauschbetrag (EUR), single 2023+
     cryptoExemption: true,       // 1-year private-sale exemption for crypto
+    cryptoPerWallet: false,      // FIFO per wallet (portfolio) for crypto, BMF 6.3.2025 (P5-4.6)
     teilfreistellung: {}         // per-fund-type rate overrides (fraction)
   };
 
@@ -54,6 +55,7 @@
       kirchensteuer: (raw.kirchensteuer === 0.08 || raw.kirchensteuer === 0.09) ? raw.kirchensteuer : 0,
       freistellungsauftrag: numOr(raw.freistellungsauftrag, DEFAULTS.freistellungsauftrag),
       cryptoExemption: raw.cryptoExemption != null ? !!raw.cryptoExemption : DEFAULTS.cryptoExemption,
+      cryptoPerWallet: raw.cryptoPerWallet != null ? !!raw.cryptoPerWallet : DEFAULTS.cryptoPerWallet,
       teilfreistellung: {}
     };
     // Rate sanity: 0..0.5 for Abgeltung, allowance 0..100000.

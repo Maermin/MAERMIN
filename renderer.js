@@ -5366,9 +5366,14 @@ function InvestmentTracker() {
         theme: currentTheme, transactions, prices, exchangeRate, fxAt, rev: taxSettingsRev,
         formatMoney: (v) => privacyMode ? '••••••' : window.MaerminI18n.money(v, 'EUR')
       }),
+      // P5-4.6: cost basis and gains under FIFO, LIFO, HIFO and average cost.
+      taxJurisdiction === 'de' && window.MaerminCostMethods && React.createElement(window.MaerminCostMethods.Panel, {
+        theme: currentTheme, transactions, prices, exchangeRate, fxAt, year: currentYear, rev: taxSettingsRev,
+        formatMoney: (v) => privacyMode ? '••••••' : window.MaerminI18n.money(v, 'EUR')
+      }),
       // P5-4.2: "if I sell X": lots, gain and the extra tax through the same report.
       taxJurisdiction === 'de' && window.MaerminSellSim && React.createElement(window.MaerminSellSim.Panel, {
-        theme: currentTheme, transactions, prices, exchangeRate, fxAt,
+        theme: currentTheme, transactions, prices, exchangeRate, fxAt, portfolios, rev: taxSettingsRev,
         formatMoney: (v) => privacyMode ? '••••••' : window.MaerminI18n.money(v, 'EUR')
       }),
       // Freistellungsaufträge per broker (P2-6): orders vs the allowance, and

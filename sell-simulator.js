@@ -44,9 +44,20 @@ function __(k, f, v) { return (typeof window !== 'undefined' && window.MaerminI1
     return ann.toISOString().slice(0, 10);
   }
 
+  // P5-4.6: crypto FIFO per wallet (portfolio) when the German tax setting is
+  // on - the same switch the report reads.
+  function perWalletOn(opts) {
+    var R = (typeof window !== 'undefined' && window.MaerminTaxReport) || require('./tax-report-builder.js');
+    return !!(R.cryptoPerWallet && R.cryptoPerWallet(Object.assign({ jurisdiction: 'de' }, opts || {})));
+  }
+  // Select key of a holding: category|SYMBOL, plus |portfolioId per wallet.
+  function holdingKey(x) { return x.category + '|' + x.symbol + (x.portfolioId != null ? '|' + x.portfolioId : ''); }
+
   // Open positions (as of asOf, when given): [{ category, symbol, symbolName,
-  // quantity, currency }] - currency of the latest trade, for the price field.
-  function holdings(transactions, asOf) {
+  // quantity, currency, portfolioId? }] - currency of the latest trade, for the
+  // price field. With o.perWallet crypto is listed per portfolio.
+  function holdings(transactions, asOf, o) {
+    var perWallet = !!(o && o.perWallet);
     var txs = (transactions || []).filter(function (tx) {
       return tx && tx.category !== 'options' && (!asOf || ymd(tx.date) <= asOf);
     });
@@ -55,10 +66,12 @@ function __(k, f, v) { return (typeof window !== 'undefined' && window.MaerminI1
       if (tx.type !== 'buy' && tx.type !== 'sell') return;
       cur[(tx.category || 'crypto') + '|' + String(tx.symbol || tx.name || '').toUpperCase()] = tx.currency || 'EUR';
     });
-    return ledger().build(txs, { exchangeRate: 1 }).list.filter(function (g) { return g.openQty > 1e-9; }).map(function (g) {
-      return { category: g.category, symbol: String(g.symbol || '').toUpperCase(), symbolName: g.symbolName || '', quantity: g.openQty,
+    return ledger().build(txs, { exchangeRate: 1, perWallet: perWallet ? ['crypto'] : undefined }).list.filter(function (g) { return g.openQty > 1e-9; }).map(function (g) {
+      var h = { category: g.category, symbol: String(g.symbol || '').toUpperCase(), symbolName: g.symbolName || '', quantity: g.openQty,
         currency: cur[g.category + '|' + String(g.symbol || '').toUpperCase()] || 'EUR' };
-    }).sort(function (a, b) { return a.symbol < b.symbol ? -1 : a.symbol > b.symbol ? 1 : 0; });
+      if (g.wallet != null) h.portfolioId = g.wallet;
+      return h;
+    }).sort(function (a, b) { return a.symbol < b.symbol ? -1 : a.symbol > b.symbol ? 1 : (String(a.portfolioId || '') < String(b.portfolioId || '') ? -1 : 1); });
   }
 
   // plan: { category, symbol, quantity, price (per unit, in currency),
@@ -80,10 +93,14 @@ function __(k, f, v) { return (typeof window !== 'undefined' && window.MaerminI1
     // The consumed lots from the same FIFO the report uses (ledger.js): the
     // sale goes last on its date, so it takes what is left after every
     // earlier trade.
+    // Per wallet (crypto, P5-4.6): only the lots of the selling portfolio.
+    var wallet = cat === 'crypto' && perWalletOn(opts) ? String(plan.portfolioId || '') : null;
     var mine = txs.filter(function (tx) {
-      return tx && (tx.category || 'crypto') === cat && String(tx.symbol || tx.name || '').toUpperCase() === sym && ymd(tx.date) <= date;
+      return tx && (tx.category || 'crypto') === cat && String(tx.symbol || tx.name || '').toUpperCase() === sym && ymd(tx.date) <= date &&
+        (wallet == null || String(tx.portfolioId || '') === wallet);
     });
     var simTx = { id: SIM_ID, type: 'sell', category: cat, symbol: sym, quantity: qty, price: price, currency: plan.currency || 'EUR', date: date };
+    if (plan.portfolioId != null) simTx.portfolioId = plan.portfolioId;
     var L = ledger();
     var lopts = { exchangeRate: num(opts && opts.exchangeRate) || 1, fxAt: opts && opts.fxAt };
     var g0 = L.build(mine, lopts).list[0];
@@ -145,12 +162,14 @@ function __(k, f, v) { return (typeof window !== 'undefined' && window.MaerminI1
     var I18N = window.MaerminI18n;
     var today = props.today || new Date().toISOString().slice(0, 10);
     var txs = props.transactions || [];
-    var list = useMemo(function () { return holdings(txs, today); }, [txs, today]);
+    var perWallet = perWalletOn({});
+    var list = useMemo(function () { return holdings(txs, today, { perWallet: perWallet }); }, [txs, today, perWallet]);
+    var pfName = function (id) { var p = (props.portfolios || []).filter(function (x) { return x && x.id === id; })[0]; return p ? p.name : (id || '–'); };
     var s0 = useState(''); var pick = s0[0], setPick = s0[1];
     var s1 = useState({ quantity: '', price: '', date: today }); var form = s1[0], setForm = s1[1];
     var s2 = useState(null); var res = s2[0], setRes = s2[1];
 
-    var h = list.filter(function (x) { return x.category + '|' + x.symbol === pick; })[0] || null;
+    var h = list.filter(function (x) { return holdingKey(x) === pick; })[0] || null;
     function priceOf(x) {
       var p = props.prices || {};
       var v = p[x.symbol] != null ? p[x.symbol] : p[x.symbol.toLowerCase()];
@@ -158,7 +177,7 @@ function __(k, f, v) { return (typeof window !== 'undefined' && window.MaerminI1
     }
     function choose(key) {
       setPick(key); setRes(null);
-      var x = list.filter(function (y) { return y.category + '|' + y.symbol === key; })[0];
+      var x = list.filter(function (y) { return holdingKey(y) === key; })[0];
       if (x) setForm({ quantity: String(Math.round(x.quantity * 1e8) / 1e8), price: priceOf(x), date: form.date || today });
     }
     function parse(v) { var U = window.MaerminUtils; return U && U.parseDecimal ? U.parseDecimal(v) : parseFloat(v); }
@@ -166,7 +185,7 @@ function __(k, f, v) { return (typeof window !== 'undefined' && window.MaerminI1
       if (!h) return;
       var r = null;
       try {
-        r = simulate(txs, { category: h.category, symbol: h.symbol, quantity: parse(form.quantity), price: parse(form.price), currency: h.currency, date: form.date },
+        r = simulate(txs, { category: h.category, symbol: h.symbol, quantity: parse(form.quantity), price: parse(form.price), currency: h.currency, date: form.date, portfolioId: h.portfolioId },
           { baseCurrency: 'EUR', exchangeRate: props.exchangeRate, fxAt: props.fxAt });
       } catch (err) { r = { error: 'noTax' }; }
       setRes(r);
@@ -193,7 +212,7 @@ function __(k, f, v) { return (typeof window !== 'undefined' && window.MaerminI1
         e('div', null, e('label', { style: label, htmlFor: 'ss-holding' }, __('ssHolding', 'Holding')),
           e('select', { id: 'ss-holding', 'data-testid': 'ss-holding', value: pick, onChange: function (ev) { choose(ev.target.value); }, style: input },
             e('option', { value: '' }, __('ssPick', 'Choose…')),
-            list.map(function (x) { return e('option', { key: x.category + '|' + x.symbol, value: x.category + '|' + x.symbol }, x.symbol + ' (' + I18N.num(x.quantity, { min: 0, max: 8 }) + ')'); }))),
+            list.map(function (x) { return e('option', { key: holdingKey(x), value: holdingKey(x) }, x.symbol + (x.portfolioId != null ? ' · ' + pfName(x.portfolioId) : '') + ' (' + I18N.num(x.quantity, { min: 0, max: 8 }) + ')'); }))),
         e('div', null, e('label', { style: label, htmlFor: 'ss-qty' }, __('ssQuantity', 'Quantity')),
           e('input', { id: 'ss-qty', 'data-testid': 'ss-qty', inputMode: 'decimal', value: form.quantity, onChange: set('quantity'), style: input })),
         e('div', null, e('label', { style: label, htmlFor: 'ss-price' }, __('ssPrice', 'Price per unit ({cur})', { cur: h ? h.currency : 'EUR' })),

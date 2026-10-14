@@ -40,7 +40,7 @@ function __(k, f, v) { return (typeof window !== 'undefined' && window.MaerminI1
   }
 
   // opts: { today, prices: { SYM: EUR }, priceEUR(sym), exchangeRate, fxAt,
-  //         cryptoExemption (default true) }
+  //         cryptoExemption (default true), perWallet (FIFO per portfolio) }
   // -> { exemption, horizons: [{ months, date }],
   //      coins: [{ symbol, held, price, buckets: [{ months, date, quantity, value, gain }],
   //               next: { date, quantity } | null, lots: [{ acquisitionDate, quantity, unitCostEUR, freeOn, free }] }],
@@ -57,12 +57,20 @@ function __(k, f, v) { return (typeof window !== 'undefined' && window.MaerminI1
       return isFinite(v) && v > 0 ? v : null;
     }
     var txs = (transactions || []).filter(function (tx) { return tx && tx.category === 'crypto' && ymd(tx.date) <= today; });
-    var groups = ledger().build(txs, { exchangeRate: num(opts.exchangeRate) || 1, fxAt: opts.fxAt, categories: ['crypto'] }).list;
+    // Per wallet (P5-4.6): FIFO runs per portfolio, the lots are then summed
+    // per coin again.
+    var built = ledger().build(txs, { exchangeRate: num(opts.exchangeRate) || 1, fxAt: opts.fxAt, categories: ['crypto'], perWallet: opts.perWallet ? ['crypto'] : undefined }).list;
+    var bySym = {}, groups = [];
+    built.forEach(function (g) {
+      var sym = String(g.symbol || '').toUpperCase();
+      if (!bySym[sym]) { bySym[sym] = { symbol: g.symbol, symbolName: g.symbolName, openLots: [] }; groups.push(bySym[sym]); }
+      bySym[sym].openLots = bySym[sym].openLots.concat(g.openLots || []);
+    });
 
     var coins = [];
     groups.forEach(function (g) {
       var sym = String(g.symbol || '').toUpperCase();
-      var lots = (g.openLots || []).filter(function (l) { return l.qty > EPS; }).map(function (l) {
+      var lots = (g.openLots || []).filter(function (l) { return l.qty > EPS; }).sort(function (a, b) { return ymd(a.date) < ymd(b.date) ? -1 : ymd(a.date) > ymd(b.date) ? 1 : 0; }).map(function (l) {
         var on = freeDate(l.date);
         return { acquisitionDate: ymd(l.date), quantity: l.qty, unitCostEUR: l.unitCostEUR, freeOn: on, free: exemption && on <= today };
       });
@@ -111,7 +119,7 @@ function __(k, f, v) { return (typeof window !== 'undefined' && window.MaerminI1
       try {
         // Crypto prices in the app's price map are EUR (as in tax-advisor.js).
         return calendar(props.transactions || [], { today: today, exchangeRate: props.exchangeRate, fxAt: props.fxAt,
-          cryptoExemption: s ? s.cryptoExemption !== false : true, prices: props.prices || {} });
+          cryptoExemption: s ? s.cryptoExemption !== false : true, perWallet: !!(s && s.cryptoPerWallet), prices: props.prices || {} });
       } catch (err) { return null; }
     }, [props.transactions, props.prices, props.exchangeRate, props.fxAt, props.rev, today]);
     if (!res) return null;

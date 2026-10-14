@@ -390,6 +390,7 @@ function __(k, f, v) { return (typeof window !== 'undefined' && window.MaerminI1
         line(__('gtSpbUsed', 'Sparerpauschbetrag used'), amt(detail.sparerpauschbetragUsed), good),
         line(__('gtTaxableIncome', 'Taxable capital income'), amt(detail.taxableIncome)),
         line(__('gtAbgSoli', 'Abgeltungsteuer + Soli') + (detail.kirchensteuer > 0 ? ' + ' + __('gtKirchensteuer', 'Kirchensteuer') : ''), amt(detail.abgeltungsteuer + detail.soli + detail.kirchensteuer), warn),
+        detail.crypto && detail.crypto.method ? line(__('gtCryptoMethod', 'Crypto cost basis'), detail.crypto.method === 'fifo-wallet' ? __('gtFifoWallet', 'FIFO per wallet') : __('gtFifoPooled', 'FIFO across all wallets')) : null,
         detail.crypto && detail.crypto.netShortTermGains !== 0 ? line(__('gtPrivateSales', 'Private sales (sec. 23) net short-term (Freigrenze {limit})', { limit: amt(detail.crypto.freigrenze) }), amt(detail.crypto.netShortTermGains) + ' → ' + __('gtTax', 'tax') + ' ' + amt(detail.crypto.estimatedTax)) : null,
         line(__('gtTotalTax', 'Total estimated tax {y}', { y: year }), amt(detail.totalTax), warn)),
 
@@ -457,6 +458,8 @@ function __(k, f, v) { return (typeof window !== 'undefined' && window.MaerminI1
           numInput('fsa', s.freistellungsauftrag, 0, 'Freistellungsauftrag', function (v) { update({ freistellungsauftrag: v != null ? v : 1000 }); }),
           e('span', { style: { color: dim, fontSize: '0.76rem', marginLeft: '0.25rem' } }, 'EUR')), __('gtSpbHint', 'Sparerpauschbetrag, default 1000')),
         row(__('gtCryptoExempt', 'Crypto 1-year exemption'), toggle(s.cryptoExemption, function () { update({ cryptoExemption: !s.cryptoExemption }); }), __('gtCryptoExemptHint', 'Private-sale rule (sec. 23 EStG)')),
+        // P5-4.6: the BMF's wallet-based FIFO for crypto; a portfolio is a wallet.
+        row(__('gtCryptoWallet', 'Crypto FIFO per wallet'), e('span', { 'data-testid': 'gt-crypto-wallet' }, toggle(!!s.cryptoPerWallet, function () { update({ cryptoPerWallet: !s.cryptoPerWallet }); })), __('gtCryptoWalletHint', 'BMF 6.3.2025: FIFO within each wallet; each portfolio counts as one wallet. Off: FIFO across all portfolios')),
         e('div', { style: { color: dim, fontSize: '0.72rem', textTransform: 'uppercase', letterSpacing: '0.05em', fontWeight: 700, margin: '0.8rem 0 0.3rem' } }, __('gtTfOverrides', 'Teilfreistellung overrides')),
         TF_TYPES.map(function (tf) {
           var ovVal = (s.teilfreistellung && s.teilfreistellung[tf[0]] != null) ? s.teilfreistellung[tf[0]] : tf[2];

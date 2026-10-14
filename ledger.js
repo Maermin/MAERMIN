@@ -22,7 +22,9 @@
 //                 sale is still short-term, 29 Feb → 28 Feb)
 //
 //   closedPositions(build)  fully sold positions with cost, proceeds, realised P&L
-//   build(transactions, { exchangeRate, fxAt, applyCorporateActions = true })
+//   build(transactions, { exchangeRate, fxAt, applyCorporateActions = true,
+//                         method = 'fifo'|'lifo'|'hifo'|'average',
+//                         perWallet: ['crypto'] })   (P5-4.6; defaults: FIFO, pooled)
 //     → { groups: { key: Group }, list: Group[], issues: Issue[] }
 //   Group = { key, category, symbol, symbolName, symbolLogoUrl,
 //             openLots:  [{ qty, unitCostEUR, date }],      oldest first
@@ -87,8 +89,23 @@
     return null;
   }
 
-  // FIFO over ONE group's transactions (any order). Returns the Group body.
-  function runGroup(txs, rate, fxAt, ctx) {
+  // Which open lot a sale takes next (P5-4.6). 'fifo' (the default and the
+  // tax report's method): the oldest; 'lifo': the newest; 'hifo': the one with
+  // the highest unit cost. 'average' takes the lots in FIFO order (for the
+  // holding period) but at the moving average cost of everything open.
+  function nextLot(open, method) {
+    if (method === 'lifo') return open.length - 1;
+    if (method === 'hifo') {
+      var best = 0;
+      for (var i = 1; i < open.length; i++) if (open[i].unitCostEUR > open[best].unitCostEUR + 1e-12) best = i;
+      return best;
+    }
+    return 0;
+  }
+
+  // FIFO (or opts.method) over ONE group's transactions (any order). Returns
+  // the Group body.
+  function runGroup(txs, rate, fxAt, ctx, method) {
     var sorted = (txs || []).slice().sort(function (a, b) {
       return (ts(a.date) - ts(b.date)) || ((a.type === 'buy' ? 0 : 1) - (b.type === 'buy' ? 0 : 1));
     });
@@ -115,14 +132,23 @@
       var unitProceeds = toEUR(tx.price, tx, rate, fxAt, ctx);
       var sellFee = Math.max(0, toEUR(tx.fees, tx, rate, fxAt, ctx));
       var remaining = qty, matches = [];
+      var avg = null;
+      if (method === 'average' && open.length) {
+        var oq = 0, oc = 0;
+        open.forEach(function (l) { oq += l.qty; oc += l.qty * l.unitCostEUR; });
+        avg = oq > 0 ? oc / oq : 0;
+      }
       while (remaining > 1e-9 && open.length) {
-        var lot = open[0];
+        var at = nextLot(open, method);
+        var lot = open[at];
         var used = Math.min(remaining, lot.qty);
-        matches.push({ used: used, lot: lot });
+        matches.push({ used: used, lot: avg != null ? { date: lot.date, unitCostEUR: avg } : lot });
         lot.qty -= used;
         remaining -= used;
-        if (lot.qty <= 1e-9) open.shift();
+        if (lot.qty <= 1e-9) open.splice(at, 1);
       }
+      // Moving average: what is left keeps the average it was sold at.
+      if (avg != null) open.forEach(function (l) { l.unitCostEUR = avg; });
       if (remaining > 1e-9) oversold += remaining;
       var matched = matches.reduce(function (s, m) { return s + m.used; }, 0);
       matches.forEach(function (m) {
@@ -158,20 +184,26 @@
     var txs = transactions || [];
     var CA = opts.applyCorporateActions === false ? null : corporateActions();
     if (CA && CA.adjust) txs = CA.adjust(txs);
+    // P5-4.6: categories kept per wallet (portfolio) instead of pooled - the
+    // BMF's wallet-based view for crypto (6.3.2025). Each such group carries
+    // its `wallet` (the portfolioId, '' for none).
+    var perWallet = Array.isArray(opts.perWallet) ? opts.perWallet : [];
     var byKey = {}, meta = {};
     txs.forEach(function (tx) {
       if (!tx || (tx.type !== 'buy' && tx.type !== 'sell')) return;
       if (opts.categories && opts.categories.indexOf(tx.category || 'crypto') === -1) return;
-      var k = keyOf(tx);
+      var wallet = perWallet.indexOf(tx.category || 'crypto') !== -1 ? String(tx.portfolioId || '') : null;
+      var k = keyOf(tx) + (wallet != null ? '|w:' + wallet : '');
       (byKey[k] || (byKey[k] = [])).push(tx);
       var m = meta[k] || (meta[k] = { category: tx.category || 'crypto', symbol: tx.symbol || tx.name || '', symbolName: '', symbolLogoUrl: '' });
+      if (wallet != null) m.wallet = wallet;
       if (!m.symbolName && tx.symbolName) m.symbolName = tx.symbolName;
       if (!m.symbolLogoUrl && tx.symbolLogoUrl) m.symbolLogoUrl = tx.symbolLogoUrl;
     });
     var groups = {}, list = [];
     var ctx = { usdRates: opts.usdRates, currencyIssues: [], quantityIssues: [], seen: {} };
     Object.keys(byKey).forEach(function (k) {
-      var g = Object.assign({ key: k }, meta[k], runGroup(byKey[k], rate, fxAt, ctx));
+      var g = Object.assign({ key: k }, meta[k], runGroup(byKey[k], rate, fxAt, ctx, opts.method));
       groups[k] = g;
       list.push(g);
     });
