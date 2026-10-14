@@ -885,6 +885,39 @@ async function runBuild(browser, label, dir) {
       ok('P5-4.11: a portfolio marked as Roth IRA shows the IRA limit of the selected year and the 15 April deadline', /of 7,[05]00\.00/.test(bar) && /04\/15\/20\d\d/.test(bar), err || bar);
     }
 
+    // P5-5.3: Budget. A Sparkasse CSV export is imported into the separate
+    // budget ledger: income, expenses, savings, the cash-flow Sankey and the
+    // categories appear; importing it again adds nothing; the portfolio
+    // transactions are untouched.
+    {
+      let text = '', again = '', txBefore = -1, txAfter = -2, err = '';
+      const csv = ['"Auftragskonto";"Buchungstag";"Valutadatum";"Buchungstext";"Verwendungszweck";"Beguenstigter/Zahlungspflichtiger";"Betrag";"Waehrung"',
+        '"DE1";"01.09.26";"01.09.26";"LOHN";"Gehalt September";"Muster GmbH";"3.000,00";"EUR"',
+        '"DE1";"02.09.26";"02.09.26";"LASTSCHRIFT";"Miete September";"Hausverwaltung";"-900,00";"EUR"',
+        '"DE1";"03.09.26";"03.09.26";"KARTENZAHLUNG";"REWE SAGT DANKE";"REWE Markt GmbH";"-60,00";"EUR"',
+        '"DE1";"10.09.26";"10.09.26";"UEBERWEISUNG";"Sparplan";"Trade Republic";"-400,00";"EUR"'].join('\r\n');
+      try {
+        txBefore = await page.evaluate(() => JSON.parse(localStorage.getItem('transactions') || '[]').length);
+        await openView(page, 'budget');
+        const view = page.locator('[data-testid="budget-view"]');
+        await view.waitFor({ timeout: 5000 });
+        await page.locator('[data-testid="bg-csv"]').setInputFiles({ name: 'Umsaetze.csv', mimeType: 'text/csv', buffer: Buffer.from(csv, 'utf8') });
+        await page.locator('[data-testid="bg-sankey"]').waitFor({ timeout: 5000 });
+        text = await view.innerText();
+        await page.locator('[data-testid="bg-csv"]').setInputFiles({ name: 'Umsaetze.csv', mimeType: 'text/csv', buffer: Buffer.from(csv, 'utf8') });
+        await page.waitForTimeout(600);
+        again = await page.evaluate(() => JSON.parse(localStorage.getItem('maermin_budget') || '{}').txs.length);
+        txAfter = await page.evaluate(() => JSON.parse(localStorage.getItem('transactions') || '[]').length);
+        await page.evaluate(() => localStorage.removeItem('maermin_budget'));
+      } catch (e) { err = e.message.split('\n')[0]; }
+      // Back to the Tax view: the PDF export check below clicks its button.
+      await openView(page, 'tax').catch(() => {});
+      await page.waitForTimeout(400);
+      ok('P5-5.3: a bank CSV becomes the month\'s income, expenses, savings and Sankey', !err && /September 2026/.test(text) && /3,000\.00/.test(text) && /960\.00/.test(text) && /400\.00/.test(text) && /Groceries/.test(text) && /Housing/.test(text), err || text.replace(/\n/g, ' | ').slice(0, 400));
+      ok('P5-5.3: importing the same export again adds nothing; the portfolio transactions are untouched', again === 4 && txBefore === txAfter, { again, txBefore, txAfter });
+    }
+
+
     let pdf = null;
     try {
       const [download] = await Promise.all([

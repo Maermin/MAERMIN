@@ -3112,7 +3112,7 @@ function InvestmentTracker() {
       // statements through the user's own Worker; PIN and TAN never stored.
       section === 'broker' && window.MaerminBankSync && window.MaerminBankSync.Panel &&
         React.createElement(window.MaerminBankSync.Panel, {
-          theme, workerUrl: apiKeys.cs2Worker, existing: transactions, portfolioId: activePortfolioId, formatAmount: (v, cur) => privacyMode ? '••••••' : window.MaerminI18n.num(v, 2, language) + ' ' + cur,
+          theme, workerUrl: apiKeys.cs2Worker, existing: transactions, portfolioId: activePortfolioId, addToast, formatAmount: (v, cur) => privacyMode ? '••••••' : window.MaerminI18n.num(v, 2, language) + ' ' + cur,
           onImport: (rows) => {
             const withIds = rows.map((r) => ({ ...r, id: window.MaerminUtils.generateId(), portfolioId: activePortfolioId }));
             setTransactions(prev => window.MaerminExchangeSync ? window.MaerminExchangeSync.appendNew(prev, withIds) : prev.concat(withIds));
@@ -3125,7 +3125,7 @@ function InvestmentTracker() {
       // and SnapTrade with the user's own keys (vault only), read-only.
       section === 'broker' && window.MaerminAggregators && window.MaerminAggregators.Panel &&
         React.createElement(window.MaerminAggregators.Panel, {
-          theme, workerUrl: apiKeys.cs2Worker, existing: transactions, portfolioId: activePortfolioId,
+          theme, workerUrl: apiKeys.cs2Worker, existing: transactions, portfolioId: activePortfolioId, addToast,
           formatAmount: (v, cur) => privacyMode ? '••••••' : window.MaerminI18n.num(v, 2, language) + ' ' + cur,
           onImport: (rows) => {
             const withIds = rows.map((r) => ({ ...r, id: window.MaerminUtils.generateId(), portfolioId: activePortfolioId }));
@@ -3542,6 +3542,12 @@ function InvestmentTracker() {
             portfolio, prices, transactions: activeTransactions, priceHistory,
             workerUrl: apiKeys.cs2Worker, theme: currentTheme, t
           }) : renderAnalyticsPlaceholder(t.navShare || 'Share & Compare');
+
+      // P5-5.3: budget and spending (a separate ledger of bank bookings)
+      case 'budget':
+        return window.MaerminBudget ?
+          React.createElement(window.MaerminBudget.View, { theme: currentTheme, privacy: privacyMode, addToast })
+          : renderAnalyticsPlaceholder(__('navBudget', 'Budget'));
 
       case 'net-worth':
         return window.MaerminFeatures5 ?
