@@ -2286,6 +2286,67 @@ async function runBuild(browser, label, dir) {
       ok('P5-5.5: switching a type off hides its rows', !err && afterFilter.length === 0, afterFilter);
       ok('P5-5.5: the ICS export has the events (RFC 5545) and leaves amounts out by default', /^BEGIN:VCALENDAR\r\n/.test(ics) && /SUMMARY:AAPL earnings/.test(ics) && /DTSTART;VALUE=DATE:\d{8}/.test(ics) && !/Consensus EPS/.test(ics) && /END:VCALENDAR\r\n$/.test(ics), ics.slice(0, 300));
     }
+    // P5-5.6: sync through a WebDAV folder (an in-memory server with CORS) on a
+    // host the site's security policy allows (*.workers.dev). The copy there is
+    // a MAERMIN sync record - ciphertext and a MAC; a copy changed without the
+    // vault key is refused and not overwritten. A host the policy does not name
+    // gets its own message.
+    {
+      const DAV = 'https://dav-e2e.workers.dev/remote.php/dav/files/e2e/MAERMIN', FILE = DAV + '/maermin-sync.json';
+      const dav = { files: {}, n: 0, puts: 0 };
+      const cors = { 'Access-Control-Allow-Origin': '*', 'Access-Control-Expose-Headers': 'ETag', 'Access-Control-Allow-Headers': 'Authorization, Content-Type, If-Match, If-None-Match', 'Access-Control-Allow-Methods': 'GET, PUT, OPTIONS' };
+      const login = 'Basic ' + Buffer.from('e2e:app-pass-77').toString('base64');
+      await page.route('https://dav-e2e.workers.dev/**', async (route) => {
+        const rq = route.request(), m = rq.method(), u = rq.url(), h = rq.headers();
+        if (m === 'OPTIONS') return route.fulfill({ status: 204, headers: cors });
+        if ((h.authorization || '') !== login) return route.fulfill({ status: 401, headers: cors });
+        const cur = dav.files[u];
+        if (m === 'GET') return cur ? route.fulfill({ status: 200, headers: Object.assign({ ETag: cur.etag, 'Content-Type': 'application/json' }, cors), body: cur.body }) : route.fulfill({ status: 404, headers: cors });
+        if (m === 'PUT') {
+          if (h['if-none-match'] === '*' && cur) return route.fulfill({ status: 412, headers: cors });
+          if (h['if-match'] && (!cur || cur.etag !== h['if-match'])) return route.fulfill({ status: 412, headers: cors });
+          dav.files[u] = { body: rq.postData(), etag: '"d' + (++dav.n) + '"' }; dav.puts++;
+          return route.fulfill({ status: cur ? 204 : 201, headers: cors });
+        }
+        return route.fulfill({ status: 405, headers: cors });
+      });
+      let policy = false, rec = null, dest = '', refused = false, putsBefore = -1, putsAfter = -1, leaked = true, err = '';
+      const connect = async (url) => {
+        await page.locator('[data-testid="sync-dest-webdav"]').click();
+        await page.locator('[data-testid="sync-webdav-url"]').fill(url);
+        await page.locator('[data-testid="sync-webdav-user"]').fill('e2e');
+        await page.locator('[data-testid="sync-webdav-pass"]').fill('app-pass-77');
+        await page.locator('[data-testid="sync-webdav-connect"]').click();
+      };
+      try {
+        await page.locator('.mx-settings-btn').click();
+        await page.locator('.mx-menu-item', { hasText: 'Security & sync' }).click();
+        await connect('https://dav.e2e.test/remote.php/dav/files/e2e/MAERMIN');
+        await page.locator('[role="status"]', { hasText: 'security policy' }).waitFor({ timeout: 10000 });
+        policy = true;
+        await page.getByRole('button', { name: 'Stop syncing here' }).click();
+        await connect(DAV);
+        await page.waitForFunction(() => { try { return (JSON.parse(localStorage.getItem('maermin_sync_state') || '{}').lastSyncAt || 0) > 0; } catch (e) { return false; } }, null, { timeout: 15000 });
+        await page.locator('[data-testid="sync-dest-name"]').waitFor({ timeout: 5000 });
+        dest = await page.locator('[data-testid="sync-dest-name"]').innerText();
+        rec = JSON.parse(dav.files[FILE].body);
+        // someone without the key changes the copy: the next sync refuses it
+        putsBefore = dav.puts;
+        const j = JSON.parse(dav.files[FILE].body); j.blob = j.blob.slice(0, -6) + 'AAAAAA';
+        dav.files[FILE] = { body: JSON.stringify(j), etag: '"x1"' };
+        await page.getByRole('button', { name: 'Sync now' }).first().click();
+        await page.locator('[role="status"]', { hasText: 'changed without your key' }).waitFor({ timeout: 10000 });
+        refused = true; putsAfter = dav.puts;
+        leaked = await page.evaluate(() => ['maermin_sync_config', 'maermin_sync_state', 'apiKeys'].some((k) => (localStorage.getItem(k) || '').indexOf('app-pass-77') >= 0));
+        await page.getByRole('button', { name: 'Stop syncing here' }).click();
+        await page.keyboard.press('Escape');
+      } catch (e) { err = e.message.split('\n')[0]; }
+      await page.unroute('https://dav-e2e.workers.dev/**');
+      ok('P5-5.6: a WebDAV host the security policy does not name gets that message', policy, err);
+      ok('P5-5.6: WebDAV sync uploads a MAERMIN sync record - ciphertext only, with a MAC', !err && rec && rec.format === 'maermin-sync' && rec.rev >= 1 && /^[0-9a-f]{64}$/.test(rec.mac) && !/VWCE|AAPL/.test(rec.blob) && /dav-e2e\.workers\.dev/.test(dest), err || JSON.stringify(rec || {}).slice(0, 200));
+      ok('P5-5.6: a copy changed without the key is refused and not overwritten', !err && refused && putsAfter === putsBefore, err || putsBefore + ' -> ' + putsAfter);
+      ok('P5-5.6: the app password is in no plain config key', !err && leaked === false, err);
+    }
     ok('no page errors in the value-history session', errors.length === 0, errors.join(' | '));
     await context.close();
   }

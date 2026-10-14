@@ -109,6 +109,15 @@ await writeFile(join(dist, 'boot.js'),
 // needs 'unsafe-inline' — the biggest XSS-hardening win of the build. connect-src
 // mirrors the data sources the app actually calls (renderer fetchPrices + Worker,
 // plus the pinned pdf.js folder for the SRI-checked worker file; SEC-021).
+// MAERMIN_CONNECT_SRC adds named https origins for a self-built copy, e.g. a
+// WebDAV sync folder (P5-5.6) or a Worker on a custom domain:
+//   MAERMIN_CONNECT_SRC="https://cloud.example.org https://worker.example.org" npm run build:web
+// Anything that is not a plain https origin is refused, so the list cannot
+// widen the policy to every host.
+const CONNECT_EXTRA = (process.env.MAERMIN_CONNECT_SRC || '').split(/[\s,]+/).filter(Boolean);
+CONNECT_EXTRA.forEach((o) => {
+  if (!/^https:\/\/(\*\.)?[a-z0-9-]+(\.[a-z0-9-]+)+(:\d{1,5})?$/i.test(o)) throw new Error('MAERMIN_CONNECT_SRC: not a plain https origin: ' + o);
+});
 const CSP = [
   "default-src 'self'",
   "script-src 'self' https://unpkg.com/react@18.3.1/umd/ https://unpkg.com/react-dom@18.3.1/umd/ https://cdnjs.cloudflare.com/ajax/libs/jspdf/4.2.1/ https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/5.0.8/ https://cdnjs.cloudflare.com/ajax/libs/pdf.js/4.10.38/",
@@ -123,6 +132,8 @@ const CSP = [
   "form-action 'none'",
   "frame-src 'none'"
 ].join('; ');
+// the extra origins go at the end of connect-src
+const CSP_OUT = CONNECT_EXTRA.length ? CSP.replace(/(connect-src [^;]*)/, (m) => m + ' ' + CONNECT_EXTRA.join(' ')) : CSP;
 
 // Production index.html: keep <head> (CDN deps + styles), single bundle script.
 const cdnTags = cdn.map((tag) => `  ${tag}`).join('\n');
@@ -131,7 +142,7 @@ const prodHtml = `<!DOCTYPE html>
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
-  <meta http-equiv="Content-Security-Policy" content="${CSP}">
+  <meta http-equiv="Content-Security-Policy" content="${CSP_OUT}">
   <title>MAERMIN v11.0 - Professional Portfolio Tracker</title>
   <link rel="manifest" href="manifest.webmanifest">
   <meta name="theme-color" content="#10151f">

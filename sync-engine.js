@@ -127,7 +127,9 @@
     'maermin_price_meta', 'maermin_equity_meta_cache', 'maermin_dividend_cache',
     'maermin_marketcap_cache', 'maermin_symbol_suffix', 'maermin_div_notified',
     // P5-5.1: the push subscription belongs to this browser
-    'maermin_push'];
+    'maermin_push',
+    // P5-5.6: the WebDAV login belongs to this device
+    'maermin_webdav'];
   // SEC-019: the keys a snapshot may carry - encrypted data keys that are not
   // device-local. Vault infrastructure (meta, at-rest flag), the Worker URL and
   // everything else is never taken from a remote snapshot.
@@ -452,12 +454,71 @@
   function onChange(cb) { if (typeof cb === 'function') _listeners.push(cb); }
   function emit(ev) { _listeners.forEach(function (cb) { try { cb(ev); } catch (e) {} }); }
 
+  // P5-5.6: the MAC check a serverless transport runs on every read - the one
+  // the Worker runs on every write (see buildAuth).
+  function verifyMac(account, baseRev, blob, mac) {
+    return authKeyHex().then(function (ak) {
+      if (!ak || !mac) return false;
+      return syncMac(ak, account, baseRev, blob).then(function (m) { return !!m && m === mac; });
+    }, function () { return false; });
+  }
+  function transports() {
+    if (typeof window !== 'undefined' && window.MaerminSyncTransports) return window.MaerminSyncTransports;
+    try { return require('./sync-transports.js'); } catch (e) { return null; }
+  }
   function configure(cfg) {
     cfg = cfg || {};
+    var T = transports();
     if (cfg.provider === 'worker') _transport = WorkerTransport(cfg);
+    // P5-5.6: no server - a local file (File System Access) or a WebDAV folder
+    else if (cfg.provider === 'file' && T && cfg.handle) _transport = T.FileTransport({ handle: cfg.handle, verify: verifyMac });
+    else if (cfg.provider === 'webdav' && T) _transport = T.WebDavTransport({ url: cfg.endpoint, username: cfg.username, password: cfg.password, fetchImpl: cfg.fetchImpl, verify: verifyMac });
     else if (cfg.transport) _transport = cfg.transport; // injected (tests / custom)
-    if (cfg.provider) lsSet(CONFIG_KEY, JSON.stringify({ provider: cfg.provider, endpoint: cfg.endpoint || null }));
+    if (cfg.provider) {
+      var prev = getConfig();
+      var endpoint = cfg.endpoint || null;
+      // Another destination may hold an older copy of this vault. Without a
+      // last-synced hash and merge base the first sync merges (transactions
+      // united, newer local values kept) instead of taking that copy as-is.
+      if (prev && (prev.provider !== cfg.provider || (prev.endpoint || null) !== endpoint)) {
+        var st = loadState(); st.rev = 0; st.lastHash = null; delete st.lastError; saveState(st);
+        saveBase({});
+      }
+      lsSet(CONFIG_KEY, JSON.stringify({ provider: cfg.provider, endpoint: endpoint }));
+    }
     return _transport;
+  }
+  // Stop syncing on this device: forget the destination and the WebDAV login.
+  // The copy at the destination stays where it is.
+  function disconnect() {
+    _transport = null;
+    try { localStorage.removeItem(CONFIG_KEY); localStorage.removeItem('maermin_webdav'); } catch (e) {}
+    var T = transports();
+    if (T && typeof window !== 'undefined' && window.MaerminIDB) window.MaerminIDB.del(T.HANDLE_KEY).catch(function () {});
+  }
+  // Re-arm a saved file or WebDAV destination after a reload (the Worker one
+  // re-arms synchronously in syncOnStart). A file needs its access permission
+  // still granted; otherwise the user reconnects it in Security & sync.
+  function rearm() {
+    if (isConfigured()) return Promise.resolve(true);
+    var cfg = getConfig(), T = transports();
+    if (!cfg || !T) return Promise.resolve(false);
+    if (cfg.provider === 'webdav') {
+      var d = T.loadDav();
+      if (!d || !d.url) return Promise.resolve(false);
+      configure({ provider: 'webdav', endpoint: d.url, username: d.username, password: d.password });
+      return Promise.resolve(true);
+    }
+    if (cfg.provider === 'file') {
+      return T.loadHandle().then(function (h) {
+        return T.permitted(h, false).then(function (yes) {
+          if (!h || !yes) { setLastError(T.messageFor('file-permission')); return false; }
+          configure({ provider: 'file', handle: h, endpoint: cfg.endpoint });
+          return true;
+        });
+      }).catch(function () { return false; });
+    }
+    return Promise.resolve(false);
   }
   function isConfigured() { return !!_transport; }
   function getConfig() { try { return JSON.parse(lsGet(CONFIG_KEY) || 'null'); } catch (e) { return null; } }
@@ -572,7 +633,11 @@
       var endpoint = cfg && cfg.provider === 'worker' ? (cfg.endpoint || opts.endpoint) : null;
       if (endpoint) configure({ provider: 'worker', endpoint: endpoint });
     }
-    if (!isConfigured() || !Vault || !Vault.isUnlocked()) return Promise.resolve({ ran: false });
+    if (!Vault || !Vault.isUnlocked()) return Promise.resolve({ ran: false });
+    return rearm().then(function () { return startupRun(opts); }, function () { return { ran: false }; });
+  }
+  function startupRun(opts) {
+    if (!isConfigured()) return Promise.resolve({ ran: false });
     var ms = typeof opts.timeoutMs === 'number' ? opts.timeoutMs : 8000;
     var timer = null;
     var run = sync().then(
@@ -658,7 +723,7 @@
 
   var api = {
     // config
-    configure: configure, isConfigured: isConfigured, getConfig: getConfig,
+    configure: configure, isConfigured: isConfigured, getConfig: getConfig, disconnect: disconnect, rearm: rearm, verifyMac: verifyMac,
     // transports (exported for custom wiring / tests)
     WorkerTransport: WorkerTransport,
     // ops
