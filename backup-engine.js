@@ -56,6 +56,7 @@
     // symbol / ISIN changes, mergers and spin-offs (P5-3.10)
     'maermin_corporate_events',
     'maermin_loss_carry',
+    'maermin_tax_certs',
     // competitive-gap stores (see real-assets.js — property/valuables with cashflows;
     // interest-engine.js — per-year accrued-interest ledger for cash/time deposits)
     'maermin_real_assets',

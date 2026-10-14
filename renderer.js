@@ -5384,6 +5384,11 @@ function InvestmentTracker() {
         // Orders are EUR amounts: shown in EUR whatever the display currency.
         formatMoney: (v) => privacyMode ? '••••••' : window.MaerminI18n.money(v, 'EUR')
       }),
+      // P5-4.7: the bank's Jahressteuerbescheinigung against MAERMIN, per line.
+      taxJurisdiction === 'de' && window.MaerminTaxCert && React.createElement(window.MaerminTaxCert.Panel, {
+        theme: currentTheme, transactions, portfolios, year: currentYear, exchangeRate, fxAt, rev: taxSettingsRev,
+        formatMoney: (v) => privacyMode ? '••••••' : window.MaerminI18n.money(v, 'EUR')
+      }),
       // Anlage KAP / KAP-INV lines for portfolios at a broker without German
       // withholding (P2-6).
       taxJurisdiction === 'de' && window.MaerminAnlageKap && React.createElement(window.MaerminAnlageKap.Panel, {

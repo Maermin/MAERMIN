@@ -776,6 +776,30 @@ async function runBuild(browser, label, dir) {
     }
 
 
+    // P5-4.7: tax certificate. Entered by hand (no PDF in the test): a
+    // Kapitalertragsteuer of 9,999 cannot match MAERMIN, so the line is
+    // flagged; the certificate is stored and then deleted again.
+    {
+      const tc = page.locator('[data-testid="tax-cert-panel"]');
+      let summary = '', row = '', stored = null, after = null, err = '';
+      try {
+        await tc.waitFor({ timeout: 5000 });
+        await tc.locator('[data-testid="tc-add"]').click();
+        await tc.locator('[data-testid="tc-v-kest"]').fill('9999');
+        await tc.locator('[data-testid="tc-save"]').click();
+        await page.waitForTimeout(300);
+        summary = await tc.locator('[data-testid="tc-summary"]').first().innerText();
+        row = await tc.locator('[data-testid="tc-row-kest"]').first().innerText();
+        stored = await page.evaluate(() => { try { return JSON.parse(localStorage.getItem('maermin_tax_certs') || 'null'); } catch (e) { return null; } });
+        await tc.locator('button', { hasText: 'Delete' }).first().click();
+        await page.waitForTimeout(300);
+        after = await tc.locator('[data-testid="tc-cert"]').count();
+      } catch (e) { err = e.message.split('\n')[0]; }
+      ok('P5-4.7: a certificate entered by hand is compared line by line; the KapESt line differs', /differ/.test(summary) && /9,999\.00/.test(row), err || (summary + ' | ' + row));
+      ok('P5-4.7: the certificate is stored and can be deleted', !!stored && stored.certs.length === 1 && stored.certs[0].values.kest === 9999 && after === 0, err || JSON.stringify(stored) + ' ' + after);
+    }
+
+
     let pdf = null;
     try {
       const [download] = await Promise.all([
