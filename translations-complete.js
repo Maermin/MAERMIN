@@ -3687,7 +3687,7 @@ taSparer: 'Sparerpauschbetrag',
     pvSyncFile: 'Sync through a file or WebDAV: the same encrypted copy goes to a file you pick or to your WebDAV folder, signed with a key from your vault. That storage sees ciphertext only. The WebDAV login stays on this device, encrypted.',
 
     // P5-5.1 Web push
-    pvPush: 'Push notifications: each reminder is encrypted on your device and your Worker only stores the ciphertext and the send time. If you also let it check price rules while the app is closed, it sees each rule\'s symbol and threshold, never amounts or quantities.',
+    pvPush: 'Push notifications: each reminder is encrypted on your device and your Worker only stores the ciphertext and the send time. Send times follow your expected dividend pay dates, so they can hint at which payers you hold. If you also let it check price rules while the app is closed, it sees each rule\'s symbol and threshold, never amounts or quantities.',
     wpDivTitle: 'Dividend day',
     wpDivDetail: 'Expected today: {list}',
     wpDivOne: 'A dividend is expected today.',
@@ -7504,7 +7504,7 @@ taSparer: 'Sparerpauschbetrag',
     pvSyncFile: 'Sync über eine Datei oder WebDAV: Dieselbe verschlüsselte Kopie geht in eine Datei deiner Wahl oder in deinen WebDAV-Ordner, signiert mit einem Schlüssel aus deinem Tresor. Dieser Speicher sieht nur Geheimtext. Die WebDAV-Anmeldung bleibt verschlüsselt auf diesem Gerät.',
 
     // P5-5.1 Web push
-    pvPush: 'Push-Benachrichtigungen: Jede Erinnerung wird auf deinem Gerät verschlüsselt; dein Worker speichert nur den Chiffretext und den Sendezeitpunkt. Lässt du ihn auch Preisregeln prüfen, während die App geschlossen ist, sieht er Symbol und Schwelle jeder Regel, nie Beträge oder Stückzahlen.',
+    pvPush: 'Push-Benachrichtigungen: Jede Erinnerung wird auf deinem Gerät verschlüsselt; dein Worker speichert nur den Chiffretext und den Sendezeitpunkt. Die Sendezeitpunkte folgen deinen erwarteten Dividendenterminen und können so verraten, welche Zahler du hältst. Lässt du ihn auch Preisregeln prüfen, während die App geschlossen ist, sieht er Symbol und Schwelle jeder Regel, nie Beträge oder Stückzahlen.',
     wpDivTitle: 'Dividendentag',
     wpDivDetail: 'Heute erwartet: {list}',
     wpDivOne: 'Heute wird eine Dividende erwartet.',

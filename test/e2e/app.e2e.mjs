@@ -2385,7 +2385,7 @@ async function runBuild(browser, label, dir) {
         }
         return route.fulfill({ status: 405, headers: cors });
       });
-      let policy = false, rec = null, dest = '', refused = false, putsBefore = -1, putsAfter = -1, leaked = true, err = '';
+      let policy = false, rec = null, dest = '', refused = false, putsBefore = -1, putsAfter = -1, leaked = true, atRest = null, err = '';
       const connect = async (url) => {
         await page.locator('[data-testid="sync-dest-webdav"]').click();
         await page.locator('[data-testid="sync-webdav-url"]').fill(url);
@@ -2404,6 +2404,8 @@ async function runBuild(browser, label, dir) {
         await page.waitForFunction(() => { try { return (JSON.parse(localStorage.getItem('maermin_sync_state') || '{}').lastSyncAt || 0) > 0; } catch (e) { return false; } }, null, { timeout: 15000 });
         await page.locator('[data-testid="sync-dest-name"]').waitFor({ timeout: 5000 });
         dest = await page.locator('[data-testid="sync-dest-name"]').innerText();
+        // the destination (server host, account name) is encrypted at rest: not among the plain keys, yet readable unlocked
+        atRest = await page.evaluate(() => ({ plain: Object.keys(localStorage).indexOf('maermin_sync_config') !== -1, readable: /dav-e2e/.test(localStorage.getItem('maermin_sync_config') || '') }));
         rec = JSON.parse(dav.files[FILE].body);
         // ciphertext only: version + base64 parts. Plaintext JSON would carry quotes and braces; a symbol
         // name is no test, since random base64 can spell AAPL
@@ -2423,6 +2425,7 @@ async function runBuild(browser, label, dir) {
       ok('P5-5.6: WebDAV sync uploads a MAERMIN sync record - ciphertext only, with a MAC', !err && rec && rec.format === 'maermin-sync' && rec.rev >= 1 && /^[0-9a-f]{64}$/.test(rec.mac) && /^[0-9]+(\.[A-Za-z0-9+/=]+)+$/.test(rec.blob) && /dav-e2e\.workers\.dev/.test(dest), err || JSON.stringify(rec || {}).slice(0, 200));
       ok('P5-5.6: a copy changed without the key is refused and not overwritten', !err && refused && putsAfter === putsBefore, err || putsBefore + ' -> ' + putsAfter);
       ok('P5-5.6: the app password is in no plain config key', !err && leaked === false, err);
+      ok('hardening: the sync destination is encrypted at rest and readable while unlocked', !err && atRest && atRest.plain === false && atRest.readable === true, err || JSON.stringify(atRest));
     }
     // P5-5.7: a saving goal linked to the portfolio starts its glide path at
     // today's value: on track, the chart and the risk glide line are shown,

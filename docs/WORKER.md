@@ -430,7 +430,7 @@ redirect from the bank is refused, not followed. The shared price Worker (`PRICE
 
 Reminders that reach a closed app. Needs the `SYNC` KV namespace and the cron trigger in `wrangler.toml` (`*/15 * * * *`); redeploy to get both.
 
-- **The browser encrypts every message** to its own push subscription (RFC 8291, `push-crypto.js`). The Worker stores and forwards ciphertext only; it can't read a reminder.
+- **The browser encrypts every message** to its own push subscription (RFC 8291, `push-crypto.js`). The Worker stores and forwards ciphertext only; it can't read a reminder. It does see when each message is due: dividend reminders go out at 09:00 on each expected pay date, so the send times can hint at which payers are held.
 - **VAPID:** the Worker creates its key pair on first use and keeps it in KV (`push:vapid`). Optional `VAPID_SUBJECT` (a `mailto:` or `https:` URL) for the JWT's `sub`; the default is the repository URL.
 - **Endpoints:** only the browser vendors' push services (Google FCM, Mozilla, Microsoft WNS, Apple).
 
