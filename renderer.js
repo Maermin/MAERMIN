@@ -287,7 +287,7 @@ function InvestmentTracker() {
   const portfolioHook = (demoPortfolios && savedPortfolioHook) ? Object.assign({}, savedPortfolioHook, {
     portfolios: demoPortfolios, activePortfolioId: demoPortfolios.some((p) => p.id === demoPortfolioId) ? demoPortfolioId : 'default',
     setActivePortfolioId: setDemoPortfolioId, addPortfolio: () => null, removePortfolio: () => {}, restorePortfolio: () => {},
-    renamePortfolio: () => {}, setClearing: () => {}
+    renamePortfolio: () => {}, setClearing: () => {}, setSeparateDepot: () => {}
   }) : savedPortfolioHook;
   const portfolios       = portfolioHook?.portfolios       || [{ id: 'default', name: 'Main Portfolio', color: '#8b7cff' }];
   const activePortfolioId = portfolioHook?.activePortfolioId || 'default';
@@ -3630,7 +3630,8 @@ function InvestmentTracker() {
             addPortfolio: portfolioHook?.addPortfolio,
             removePortfolio: removePortfolioMovingRows,
             renamePortfolio: portfolioHook?.renamePortfolio,
-            setClearing: portfolioHook?.setClearing, clearing: clearingByPf
+            setClearing: portfolioHook?.setClearing, clearing: clearingByPf,
+            setSeparateDepot: portfolioHook?.setSeparateDepot
           }) : renderAnalyticsPlaceholder(t.navPortfolios || 'Portfolios');
 
       case 'savings-plans':
@@ -5265,7 +5266,9 @@ function InvestmentTracker() {
     // to come from the legacy engine: no FX, crypto taxed like capital income).
     const buildReport = () => window.MaerminTaxReport && window.MaerminTaxReport.build(transactions, {
       year: currentYear, jurisdiction: taxJurisdiction, baseCurrency: 'EUR',
-      exchangeRate, fxAt, owner: taxOwner, portfolio, prices
+      exchangeRate, fxAt, owner: taxOwner, portfolio, prices,
+      // M-15: portfolios marked as a separate depot (the demo's own list in demo mode)
+      portfolios: (portfolioHook && portfolioHook.portfolios) || undefined
     });
     // Memoised: the report (FIFO over every transaction + German detail) used
     // to be rebuilt on EVERY render of the app. Besides the props it reads a
@@ -5276,7 +5279,7 @@ function InvestmentTracker() {
       .map(k => { try { return localStorage.getItem(k) || ''; } catch (e) { return ''; } }).join('\u0001');
     let taxReport = null;
     try {
-      taxReport = memoBy('taxReport', [transactions, currentYear, taxJurisdiction, exchangeRate, fxAt, taxOwner, portfolio, prices, taxSettingsRev, storeKey], buildReport);
+      taxReport = memoBy('taxReport', [transactions, currentYear, taxJurisdiction, exchangeRate, fxAt, taxOwner, portfolio, prices, taxSettingsRev, storeKey, portfolioHook && portfolioHook.portfolios], buildReport);
     } catch (e) { console.warn('[TAX] report build failed:', e); }
     const taxData = (window.MaerminTaxReport && window.MaerminTaxReport.kpis)
       ? window.MaerminTaxReport.kpis(taxReport)

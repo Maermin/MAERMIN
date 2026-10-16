@@ -502,6 +502,23 @@ async function runBuild(browser, label, dir) {
       await field.fill('Main Portfolio');
       await field.press('Enter');
     }
+    // FINDINGS M-15: the "separate depot" switch is stored on the portfolio and
+    // stays on after leaving the view; switched off again it leaves no field
+    // behind. (No reload here: the checks below need this session's state.)
+    {
+      await openView(page, 'portfolios');
+      const toggle = page.locator('main [data-pf-depot-toggle="default"]');
+      await toggle.check();
+      await page.waitForTimeout(300);
+      const stored = await page.evaluate(() => JSON.parse(localStorage.getItem('maermin_portfolios') || '[]').filter((p) => p.id === 'default').map((p) => p.separateDepot)[0]);
+      await openView(page, 'overview');
+      await openView(page, 'portfolios');
+      const after = await page.locator('main [data-pf-depot-toggle="default"]').isChecked().catch(() => null);
+      await page.locator('main [data-pf-depot-toggle="default"]').uncheck();
+      await page.waitForTimeout(300);
+      const cleared = await page.evaluate(() => JSON.parse(localStorage.getItem('maermin_portfolios') || '[]').filter((p) => p.id === 'default').map((p) => 'separateDepot' in p)[0]);
+      ok('M-15: the separate-depot switch is saved, stays on and clears', stored === true && after === true && cleared === false, JSON.stringify({ stored, after, cleared }));
+    }
 
     // Empty analytics states: a portfolio without price history must say so,
     // not spin forever or print invented / zero figures.

@@ -24,7 +24,8 @@
 //   closedPositions(build)  fully sold positions with cost, proceeds, realised P&L
 //   build(transactions, { exchangeRate, fxAt, applyCorporateActions = true,
 //                         method = 'fifo'|'lifo'|'hifo'|'average',
-//                         perWallet: ['crypto'] })   (P5-4.6; defaults: FIFO, pooled)
+//                         perWallet: ['crypto'],     (P5-4.6; defaults: FIFO, pooled)
+//                         depots: [portfolioId] })   (M-15: own FIFO pool per marked depot, not crypto)
 //     → { groups: { key: Group }, list: Group[], issues: Issue[] }
 //   Group = { key, category, symbol, symbolName, symbolLogoUrl,
 //             openLots:  [{ qty, unitCostEUR, date, txId }], oldest first
@@ -190,15 +191,25 @@
     // BMF's wallet-based view for crypto (6.3.2025). Each such group carries
     // its `wallet` (the portfolioId, '' for none).
     var perWallet = Array.isArray(opts.perWallet) ? opts.perWallet : [];
+    // FINDINGS M-15: portfolios marked as a separate depot keep their own
+    // FIFO pool for everything but crypto (§ 20 Abs. 4 S. 7 EStG: FIFO per
+    // depot); the other portfolios share the common pool. Each such group
+    // carries its `depot` (the portfolioId, 'default' for none).
+    var depots = {};
+    (Array.isArray(opts.depots) ? opts.depots : []).forEach(function (id) { depots[String(id)] = true; });
     var byKey = {}, meta = {};
     txs.forEach(function (tx) {
       if (!tx || (tx.type !== 'buy' && tx.type !== 'sell')) return;
       if (opts.categories && opts.categories.indexOf(tx.category || 'crypto') === -1) return;
-      var wallet = perWallet.indexOf(tx.category || 'crypto') !== -1 ? String(tx.portfolioId || '') : null;
-      var k = keyOf(tx) + (wallet != null ? '|w:' + wallet : '');
+      var cat = tx.category || 'crypto';
+      var wallet = perWallet.indexOf(cat) !== -1 ? String(tx.portfolioId || '') : null;
+      var pid = String(tx.portfolioId || 'default');
+      var depot = (wallet == null && cat !== 'crypto' && depots[pid]) ? pid : null;
+      var k = keyOf(tx) + (wallet != null ? '|w:' + wallet : '') + (depot != null ? '|d:' + depot : '');
       (byKey[k] || (byKey[k] = [])).push(tx);
-      var m = meta[k] || (meta[k] = { category: tx.category || 'crypto', symbol: tx.symbol || tx.name || '', symbolName: '', symbolLogoUrl: '' });
+      var m = meta[k] || (meta[k] = { category: cat, symbol: tx.symbol || tx.name || '', symbolName: '', symbolLogoUrl: '' });
       if (wallet != null) m.wallet = wallet;
+      if (depot != null) m.depot = depot;
       if (!m.symbolName && tx.symbolName) m.symbolName = tx.symbolName;
       if (!m.symbolLogoUrl && tx.symbolLogoUrl) m.symbolLogoUrl = tx.symbolLogoUrl;
     });
@@ -210,6 +221,13 @@
       list.push(g);
     });
     return { groups: groups, list: list, issues: issues(list, ctx.currencyIssues, ctx.quantityIssues) };
+  }
+
+  // The ids of the portfolios marked as a separate depot (`separateDepot` on a
+  // maermin_portfolios entry) - the `depots` option of build().
+  function depotsOf(portfolios) {
+    return (Array.isArray(portfolios) ? portfolios : []).filter(function (p) { return p && p.id != null && p.separateDepot === true; })
+      .map(function (p) { return String(p.id); });
   }
 
   // Data-quality findings of a build: buy/sell rows without a positive
@@ -479,6 +497,7 @@
     pairOf: pairOf,
     cashFlows: cashFlows,
     build: build,
+    depotsOf: depotsOf,
     closedPositions: closedPositions,
     group: group,
     keyOf: keyOf,

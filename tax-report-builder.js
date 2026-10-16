@@ -129,15 +129,37 @@ function __(k, f, v) { return (typeof window !== 'undefined' && window.MaerminI1
     var TS = opts.taxSettings || (TSmod && TSmod.load && TSmod.load()) || null;
     return !!(TS && TS.cryptoPerWallet);
   }
+  // FINDINGS M-15: portfolios marked as a separate depot keep their own FIFO
+  // pool for shares and funds (§ 20 Abs. 4 S. 7 EStG). German law, so only for
+  // the German report; opt-in per portfolio, nothing marked = pooled as before.
+  function separateDepots(opts) {
+    opts = opts || {};
+    if ((opts.jurisdiction || 'de') !== 'de') return [];
+    if (Array.isArray(opts.separateDepots)) return opts.separateDepots.map(String);
+    return ledger().depotsOf ? ledger().depotsOf(portfolioList(opts)) : [];
+  }
+  function portfolioList(opts) {
+    if (opts && Array.isArray(opts.portfolios)) return opts.portfolios;
+    try { var v = (typeof localStorage !== 'undefined') ? JSON.parse(localStorage.getItem('maermin_portfolios') || '[]') : []; return Array.isArray(v) ? v : []; } catch (e) { return []; }
+  }
+  function depotLabel(ids, portfolios) {
+    if (!ids || !ids.length) return '';
+    var names = ids.map(function (id) {
+      var p = (portfolios || []).filter(function (x) { return x && String(x.id) === String(id); })[0];
+      return (p && p.name) || id;
+    });
+    return __('trMethodDepots', 'Shares and funds: FIFO per depot for {names}; the other portfolios are one depot', { names: names.join(', ') });
+  }
   function methodLabel(m) {
     return m === 'fifo-wallet' ? __('trMethodWallet', 'Crypto: FIFO per wallet (portfolio), BMF 6.3.2025')
       : __('trMethodPooled', 'Crypto: FIFO across all wallets');
   }
 
   // Splits are applied by the caller (build), so the ledger must not re-apply.
-  function fifo(transactions, year, rate, fxAt, perWallet) {
+  function fifo(transactions, year, rate, fxAt, perWallet, depots) {
     var shares = (transactions || []).filter(function (tx) { return !(tx && tx.category === 'options'); });
-    var L = ledger().build(shares, { exchangeRate: rate, fxAt: fxAt, applyCorporateActions: false, perWallet: perWallet ? ['crypto'] : undefined });
+    var L = ledger().build(shares, { exchangeRate: rate, fxAt: fxAt, applyCorporateActions: false, perWallet: perWallet ? ['crypto'] : undefined,
+      depots: depots && depots.length ? depots : undefined });
     var disposals = [];
     L.list.forEach(function (g) {
       var symbol = String(g.symbol || '').toUpperCase();
@@ -257,7 +279,8 @@ function __(k, f, v) { return (typeof window !== 'undefined' && window.MaerminI1
     var inYear = function (d) { return parseInt(ymd(d).slice(0, 4), 10) === year; };
 
     var perWallet = cryptoPerWallet(opts);
-    var disposals = fifo(txs, year, rate, fxAt, perWallet);
+    var depots = separateDepots(opts);
+    var disposals = fifo(txs, year, rate, fxAt, perWallet, depots);
     // P5-4.9: Austria has its own cost rule (moving average per depot and
     // wallet, no fees, crypto swaps not realised) - its disposals replace FIFO.
     var austrianDetail = null;
@@ -540,6 +563,7 @@ function __(k, f, v) { return (typeof window !== 'undefined' && window.MaerminI1
         germanDetail = Object.assign({}, capital, {
           crypto: { netShortTermGains: cryptoShort, exemptLongTermGains: cryptoExempt, freigrenze: freigrenze, taxable: cryptoTaxable, estimatedTax: cryptoTax,
             carryIn: carryIn.private, carryUsed: priv.used, method: perWallet ? 'fifo-wallet' : 'fifo' },
+          depotsLabel: depotLabel(depots, portfolioList(opts)),
           carryIn: carryIn,
           carryUsed: { shares: (capital.carryUsed || {}).shares || 0, other: (capital.carryUsed || {}).other || 0, private: priv.used },
           carryOut: { shares: (capital.carryOut || {}).shares || 0, other: (capital.carryOut || {}).other || 0, private: priv.carryOut },
@@ -554,6 +578,7 @@ function __(k, f, v) { return (typeof window !== 'undefined' && window.MaerminI1
         generatedAt: new Date().toISOString(),
         year: year, jurisdiction: jurisdiction, baseCurrency: base,
         method: austrianDetail ? 'moving-average' : 'FIFO',
+        separateDepots: austrianDetail ? [] : depots,
         owner: opts.owner || {}
       },
       summary: {
@@ -598,7 +623,7 @@ function __(k, f, v) { return (typeof window !== 'undefined' && window.MaerminI1
   // Losses are shown negative; value(v) formats for the PDF or passes the
   // number through for Excel.
   function carryRows(g, value) {
-    var method = g.crypto && g.crypto.method ? [[methodLabel(g.crypto.method), '']] : [];
+    var method = (g.depotsLabel ? [[g.depotsLabel, '']] : []).concat(g.crypto && g.crypto.method ? [[methodLabel(g.crypto.method), '']] : []);
     var cin = g.carryIn || {}, cout = g.carryOut || {};
     var pots = ['shares', 'other', 'private'];
     if (pots.every(function (k) { return !(cin[k] > 0) && !(cout[k] > 0); })) return method;
@@ -875,7 +900,7 @@ function __(k, f, v) { return (typeof window !== 'undefined' && window.MaerminI1
     setTimeout(function () { URL.revokeObjectURL(a.href); }, 1000);
   }
 
-  var api = { build: build, kpis: kpis, usEstimate: usEstimate, vapCreditForLot: vapCreditForLot, fifo: fifo, cryptoPerWallet: cryptoPerWallet, methodLabel: methodLabel, oneYearAnniversary: oneYearAnniversary, heldOverOneYear: heldOverOneYear, exportPDF: exportPDF, loadJsPdf: loadJsPdf, exportExcel: exportExcel, buildExcelWorkbook: buildExcelWorkbook };
+  var api = { build: build, kpis: kpis, usEstimate: usEstimate, vapCreditForLot: vapCreditForLot, fifo: fifo, cryptoPerWallet: cryptoPerWallet, separateDepots: separateDepots, depotLabel: depotLabel, methodLabel: methodLabel, oneYearAnniversary: oneYearAnniversary, heldOverOneYear: heldOverOneYear, exportPDF: exportPDF, loadJsPdf: loadJsPdf, exportExcel: exportExcel, buildExcelWorkbook: buildExcelWorkbook };
   if (typeof window !== 'undefined') window.MaerminTaxReport = api;
   if (typeof module !== 'undefined' && module.exports) module.exports = api;
 })();
