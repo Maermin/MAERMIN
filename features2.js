@@ -56,6 +56,20 @@ function ReturnsHeatmap({ steps, points, transactions, source, theme, formatPric
     const range = D.periodOf(sel.kind, sel.year, sel.idx);
     return range ? D.detail(points && points.length ? points : steps, transactions, range) : null;
   }, [sel, D, points, steps, transactions]);
+  // cleanup V-5: in narrow places (position detail, phones) the grid is cut
+  // after a few months with no sign that it scrolls; fade the cut edge while
+  // more columns are hidden.
+  const scrollRef = useRef(null);
+  const [moreRight, setMoreRight] = useState(false);
+  useEffect(() => {
+    const el = scrollRef.current;
+    if (!el) return undefined;
+    const check = () => setMoreRight(el.scrollLeft + el.clientWidth < el.scrollWidth - 2);
+    check();
+    el.addEventListener('scroll', check, { passive: true });
+    window.addEventListener('resize', check, { passive: true });
+    return () => { el.removeEventListener('scroll', check); window.removeEventListener('resize', check); };
+  }, [grid]);
   if (!H || source === 'none') return null;
   const tid = testid || 'returns-heatmap';
   const I = window.MaerminI18n;
@@ -125,7 +139,8 @@ function ReturnsHeatmap({ steps, points, transactions, source, theme, formatPric
       srcNote + ' ' + __('rhCompound', 'Quarters and years are compounded, not added up.') + (grid ? ' ' + __('rhdHint', 'Select a cell for its details.') : '')),
     !grid
       ? React.createElement('div', { style: { color: theme.textSecondary, fontSize: '0.85rem', padding: '0.75rem 0' } }, __('rhEmpty', 'Not enough history yet for monthly returns.'))
-      : React.createElement('div', { role: 'region', tabIndex: 0, 'aria-label': __('rhScrollAria', 'Monthly returns table, scrolls sideways'), style: { overflowX: 'auto', maxWidth: '100%' } },
+      : React.createElement('div', { ref: scrollRef, role: 'region', tabIndex: 0, 'aria-label': __('rhScrollAria', 'Monthly returns table, scrolls sideways'), 'data-more': moreRight ? 'right' : undefined,
+          style: { overflowX: 'auto', maxWidth: '100%', ...(moreRight ? { WebkitMaskImage: 'linear-gradient(90deg, #000 calc(100% - 48px), transparent)', maskImage: 'linear-gradient(90deg, #000 calc(100% - 48px), transparent)' } : null) } },
           React.createElement('table', { style: { borderCollapse: 'separate', borderSpacing: '3px', minWidth: '100%' } },
             React.createElement('thead', null, React.createElement('tr', null,
               React.createElement('th', { scope: 'col', style: { ...headStyle, textAlign: 'left', position: 'sticky', left: 0, background: flat ? theme.modalBg || theme.card : theme.card } }, __('rhYear', 'Year')),
@@ -1616,7 +1631,7 @@ function MobileBottomNav({ activeView, setActiveView, theme, uiMode, t }) {
         key: area.id,
         type: 'button',
         className: active ? 'is-active' : '',
-        'aria-current': active ? 'page' : undefined,
+        'aria-current': active ? 'true' : undefined, // cleanup V-7: the area holds the page; the view chip is the "page"
         'data-area': area.id,
         title: Nav.label(area, tt),
         onClick: () => { if (!active) setActiveView(Nav.firstView(area.id, uiMode || 'advanced')); }

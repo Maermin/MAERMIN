@@ -245,7 +245,7 @@ function __(k, f, v) { return (typeof window !== 'undefined' && window.MaerminI1
 
     // ---- presentational bits ----
     function pill(active, label, onClick, key) {
-      return e('button', { key: key || label, onClick: onClick, style: { padding: '0.4rem 0.85rem', borderRadius: '8px', border: 'none', cursor: 'pointer', fontSize: '0.8rem', fontWeight: active ? '700' : '500', background: active ? accent : inputBg, color: active ? '#ffffff' : dim } }, label);
+      return e('button', { key: key || label, type: 'button', 'aria-pressed': !!active, onClick: onClick, style: { padding: '0.4rem 0.85rem', borderRadius: '8px', border: 'none', cursor: 'pointer', fontSize: '0.8rem', fontWeight: active ? '700' : '500', background: active ? accent : inputBg, color: active ? '#ffffff' : dim } }, label);
     }
     function compactMoney(v) {
       if (v == null) return '—';

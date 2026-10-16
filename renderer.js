@@ -4373,7 +4373,7 @@ function InvestmentTracker() {
                   const color = catMeta(c.category).color, up = c.gain >= 0;
                   return React.createElement('tr', {
                     key: c.key, 'data-closed-key': c.key,
-                    ...window.MaerminUtils.clickable(() => setPositionDetail({ sym: c.symbol, cat: c.category, amount: 0, avgPrice: 0, closed: true, closedRow: c })),
+                    ...window.MaerminUtils.clickable(() => setPositionDetail({ sym: c.symbol, name: c.name, cat: c.category, amount: 0, avgPrice: 0, closed: true, closedRow: c })),
                     'aria-label': __('ovPosDetails', '{name} details', { name: c.symbolName || c.symbol }),
                     style: { borderTop: `1px solid ${currentTheme.cardBorder}`, cursor: 'pointer' }
                   },
@@ -4424,7 +4424,7 @@ function InvestmentTracker() {
               positions.map(p => React.createElement('tr', {
                 key: p.cat + p.sym,
                 ...window.MaerminUtils.clickable(() => setPositionDetail({
-                  sym: p.sym, cat: p.cat, amount: p.amount,
+                  sym: p.sym, name: p.name, cat: p.cat, amount: p.amount,
                   avgPrice: p.amount > 0 ? p.cost / p.amount : 0
                 })),
                 'aria-label': __('ovPosDetails', '{name} details', { name: p.name }),
@@ -6538,7 +6538,7 @@ buy,crypto,bitcoin,0.5,45000,2024-01-15,10`)
             React.createElement('div', null, '4. ' + __('apiStep4', 'Paste the Worker URL below'))
           ),
           React.createElement('label', { style: { display: 'block', color: currentTheme.textSecondary, fontSize: '0.72rem', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '0.375rem' } },
-            __('apiWorkerLabel', 'Worker URL — used for CS2 prices, portfolio history chart & CS2 price history')
+            __('apiWorkerLabel', 'Worker URL — live prices, symbol search, research, sync, share links and reminders')
           ),
           React.createElement('input', {
             type: 'text',
@@ -6944,7 +6944,7 @@ buy,crypto,bitcoin,0.5,45000,2024-01-15,10`)
       React.createElement('div', { className: 'mx-brand' },
         Logo({ size: 32 }),
         React.createElement('h1', { className: 'mx-brand-name' }, 'MAERMIN'),
-        React.createElement('span', { className: 'mx-brand-tag' }, 'v11')
+        React.createElement('span', { className: 'mx-brand-tag', 'data-testid': 'brand-version' }, 'v' + String((window.MaerminBackup && window.MaerminBackup.VERSION) || '').split('.')[0])
       ),
 
       // Command search

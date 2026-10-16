@@ -140,7 +140,7 @@ function CorporateActionsPanel({ category, symbol, theme, t = {}, workerUrl, sin
     scan.preview && React.createElement('div', { style: { background: theme.inputBg, borderRadius: '10px', padding: '0.75rem', marginBottom: '0.75rem' } },
       React.createElement('div', { style: { color: theme.text, fontWeight: 600, fontSize: '0.8rem', marginBottom: '0.5rem' } }, t.caPreview || 'Detected splits — review, edit or skip, then confirm:'),
       scan.preview.map((p, i) => React.createElement('div', { key: i, style: { display: 'grid', gridTemplateColumns: '1.3fr 0.6fr 0.6fr auto', gap: '0.4rem', alignItems: 'center', marginBottom: '0.4rem', opacity: p.skip ? 0.45 : 1 } },
-        React.createElement('input', { type: 'date', value: p.date, onChange: (e) => patchPreview(i, { date: e.target.value }), style: input }),
+        React.createElement('input', { type: 'date', 'aria-label': t.caDate || 'Date', value: p.date, onChange: (e) => patchPreview(i, { date: e.target.value }), style: input }),
         React.createElement('input', { type: 'number', min: '1', value: p.num, onChange: (e) => patchPreview(i, { num: e.target.value }), style: input, 'aria-label': 'numerator' }),
         React.createElement('input', { type: 'number', min: '1', value: p.den, onChange: (e) => patchPreview(i, { den: e.target.value }), style: input, 'aria-label': 'denominator' }),
         React.createElement('span', Object.assign({}, clickable(() => patchPreview(i, { skip: !p.skip })), { style: { color: theme.textSecondary, cursor: 'pointer', fontSize: '0.76rem' } }), p.skip ? (t.caKeep || 'Keep') : (t.caSkip || 'Skip'))
@@ -154,14 +154,14 @@ function CorporateActionsPanel({ category, symbol, theme, t = {}, workerUrl, sin
     // Manual add
     React.createElement('div', { style: { display: 'grid', gridTemplateColumns: '1.3fr 0.6fr 0.6fr', gap: '0.5rem', alignItems: 'end' } },
       React.createElement('div', null, React.createElement('label', { style: label }, t.caDate || 'Date'),
-        React.createElement('input', { type: 'date', value: form.date, onChange: (e) => setForm({ ...form, date: e.target.value }), style: input })),
+        React.createElement('input', { type: 'date', 'aria-label': t.caDate || 'Date', value: form.date, onChange: (e) => setForm({ ...form, date: e.target.value }), style: input })),
       React.createElement('div', null, React.createElement('label', { style: label }, t.caNum || 'New'),
-        React.createElement('input', { type: 'number', min: '1', placeholder: '10', value: form.num, onChange: (e) => setForm({ ...form, num: e.target.value }), style: input })),
+        React.createElement('input', { type: 'number', 'aria-label': t.caNum || 'New', min: '1', placeholder: '10', value: form.num, onChange: (e) => setForm({ ...form, num: e.target.value }), style: input })),
       React.createElement('div', null, React.createElement('label', { style: label }, t.caDen || 'Old'),
-        React.createElement('input', { type: 'number', min: '1', placeholder: '1', value: form.den, onChange: (e) => setForm({ ...form, den: e.target.value }), style: input }))
+        React.createElement('input', { type: 'number', 'aria-label': t.caDen || 'Old', min: '1', placeholder: '1', value: form.den, onChange: (e) => setForm({ ...form, den: e.target.value }), style: input }))
     ),
     React.createElement('div', { style: { display: 'flex', gap: '0.5rem', marginTop: '0.5rem' } },
-      React.createElement('input', { placeholder: t.caNotePh || 'Note (optional)', value: form.note, onChange: (e) => setForm({ ...form, note: e.target.value }), style: { ...input, flex: 1 } }),
+      React.createElement('input', { 'aria-label': t.caNotePh || 'Note (optional)', placeholder: t.caNotePh || 'Note (optional)', value: form.note, onChange: (e) => setForm({ ...form, note: e.target.value }), style: { ...input, flex: 1 } }),
       React.createElement('button', { onClick: addManual, style: btn(theme.accentFill || theme.accent, '#ffffff') }, t.caAdd || 'Add split')
     ),
     scan.msg && React.createElement('div', { style: { color: theme.warning || '#f59e0b', fontSize: '0.76rem', marginTop: '0.5rem' } }, scan.msg),
@@ -256,7 +256,10 @@ function PositionDetailModal({ position, transactions, prices, theme, formatPric
         style: { padding: '1.25rem 1.5rem', borderBottom: `1px solid ${theme.modalBorder}`, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }
       },
         React.createElement('div', null,
-          React.createElement('div', { id: 'dlg-position', style: { color: theme.text, fontWeight: '800', fontSize: '1.25rem' } }, position.sym),
+          // cleanup V-5: the name first ("Bitcoin"), the symbol after it, as in the positions table
+          React.createElement('div', { id: 'dlg-position', 'data-testid': 'pos-title', style: { color: theme.text, fontWeight: '800', fontSize: '1.25rem' } },
+            position.name && position.name !== position.sym ? position.name : position.sym,
+            position.name && position.name !== position.sym && React.createElement('span', { style: { color: theme.textSecondary, fontWeight: '600', fontSize: '0.85rem', marginLeft: '0.5rem' } }, position.sym)),
           React.createElement('div', { style: { display: 'flex', gap: '0.5rem', marginTop: '0.25rem', alignItems: 'center' } },
             React.createElement('span', {
               style: { fontSize: '0.65rem', fontWeight: '700', padding: '0.15rem 0.4rem', borderRadius: '4px',
@@ -376,18 +379,18 @@ function PositionDetailModal({ position, transactions, prices, theme, formatPric
         React.createElement('div', { style: { display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.75rem', marginBottom: '0.75rem' } },
           React.createElement('div', null,
             React.createElement('label', { style: jLabel }, t.journalThesis || 'Investment thesis'),
-            React.createElement('textarea', { value: j.thesis, onChange: e => saveJournal({ thesis: e.target.value }), placeholder: t.journalThesisPh || 'Why do you hold this?', style: { ...jInput, minHeight: '52px', resize: 'vertical' } })
+            React.createElement('textarea', { 'aria-label': t.journalThesis || 'Investment thesis', value: j.thesis, onChange: e => saveJournal({ thesis: e.target.value }), placeholder: t.journalThesisPh || 'Why do you hold this?', style: { ...jInput, minHeight: '52px', resize: 'vertical' } })
           ),
           React.createElement('div', null,
             React.createElement('label', { style: jLabel }, t.journalTarget || 'Target / exit'),
-            React.createElement('textarea', { value: j.target, onChange: e => saveJournal({ target: e.target.value }), placeholder: t.journalTargetPh || 'Price target, exit plan...', style: { ...jInput, minHeight: '52px', resize: 'vertical' } })
+            React.createElement('textarea', { 'aria-label': t.journalTarget || 'Target / exit', value: j.target, onChange: e => saveJournal({ target: e.target.value }), placeholder: t.journalTargetPh || 'Price target, exit plan...', style: { ...jInput, minHeight: '52px', resize: 'vertical' } })
           )
         ),
         React.createElement('label', { style: jLabel }, t.journalNotes || 'Notes'),
-        React.createElement('textarea', { value: j.notes, onChange: e => saveJournal({ notes: e.target.value }), placeholder: t.journalNotesPh || 'Free notes...', style: { ...jInput, minHeight: '60px', resize: 'vertical', marginBottom: '0.75rem' } }),
+        React.createElement('textarea', { 'aria-label': t.journalNotes || 'Notes', value: j.notes, onChange: e => saveJournal({ notes: e.target.value }), placeholder: t.journalNotesPh || 'Free notes...', style: { ...jInput, minHeight: '60px', resize: 'vertical', marginBottom: '0.75rem' } }),
         React.createElement('label', { style: jLabel }, t.journalReviews || 'Reviews'),
         React.createElement('div', { style: { display: 'flex', gap: '0.5rem', marginBottom: '0.5rem' } },
-          React.createElement('input', { value: reviewDraft, onChange: e => setReviewDraft(e.target.value), onKeyDown: e => { if (e.key === 'Enter') addReview(); }, placeholder: t.journalAddReview || 'Add a dated review...', style: { ...jInput, flex: 1 } }),
+          React.createElement('input', { 'aria-label': t.journalAddReview || 'Add a dated review...', value: reviewDraft, onChange: e => setReviewDraft(e.target.value), onKeyDown: e => { if (e.key === 'Enter') addReview(); }, placeholder: t.journalAddReview || 'Add a dated review...', style: { ...jInput, flex: 1 } }),
           React.createElement('button', { onClick: addReview, style: { padding: '0.5rem 0.9rem', background: (theme.accentFill || theme.accent), color: '#ffffff', border: 'none', borderRadius: '8px', cursor: 'pointer', fontWeight: 600, fontSize: '0.82rem' } }, '+')
         ),
         (j.reviews || []).length > 0 && React.createElement('div', { style: { display: 'flex', flexDirection: 'column', gap: '0.4rem' } },
