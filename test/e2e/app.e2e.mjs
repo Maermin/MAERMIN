@@ -2381,6 +2381,8 @@ async function runBuild(browser, label, dir) {
         await page.locator('[data-testid="sync-dest-name"]').waitFor({ timeout: 5000 });
         dest = await page.locator('[data-testid="sync-dest-name"]').innerText();
         rec = JSON.parse(dav.files[FILE].body);
+        // ciphertext only: version + base64 parts. Plaintext JSON would carry quotes and braces; a symbol
+        // name is no test, since random base64 can spell AAPL
         // someone without the key changes the copy: the next sync refuses it
         putsBefore = dav.puts;
         const j = JSON.parse(dav.files[FILE].body); j.blob = j.blob.slice(0, -6) + 'AAAAAA';
@@ -2394,7 +2396,7 @@ async function runBuild(browser, label, dir) {
       } catch (e) { err = e.message.split('\n')[0]; }
       await page.unroute('https://dav-e2e.workers.dev/**');
       ok('P5-5.6: a WebDAV host the security policy does not name gets that message', policy, err);
-      ok('P5-5.6: WebDAV sync uploads a MAERMIN sync record - ciphertext only, with a MAC', !err && rec && rec.format === 'maermin-sync' && rec.rev >= 1 && /^[0-9a-f]{64}$/.test(rec.mac) && !/VWCE|AAPL/.test(rec.blob) && /dav-e2e\.workers\.dev/.test(dest), err || JSON.stringify(rec || {}).slice(0, 200));
+      ok('P5-5.6: WebDAV sync uploads a MAERMIN sync record - ciphertext only, with a MAC', !err && rec && rec.format === 'maermin-sync' && rec.rev >= 1 && /^[0-9a-f]{64}$/.test(rec.mac) && /^[0-9]+(\.[A-Za-z0-9+/=]+)+$/.test(rec.blob) && /dav-e2e\.workers\.dev/.test(dest), err || JSON.stringify(rec || {}).slice(0, 200));
       ok('P5-5.6: a copy changed without the key is refused and not overwritten', !err && refused && putsAfter === putsBefore, err || putsBefore + ' -> ' + putsAfter);
       ok('P5-5.6: the app password is in no plain config key', !err && leaked === false, err);
     }
