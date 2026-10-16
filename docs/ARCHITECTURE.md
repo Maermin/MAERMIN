@@ -102,7 +102,9 @@ Everything else is **derived** from transactions (single source of truth in
 `metrics.js`):
 
 - `MaerminLedger.build(transactions, {exchangeRate, fxAt})` (`ledger.js`) — the
-  ONE FIFO implementation: open lots and disposals per category + symbol, buy
+  ONE FIFO implementation: open lots and disposals per category + symbol (per
+  portfolio for crypto with `perWallet`, and for shares and funds of the
+  portfolios marked `separateDepot` with `depots`, M-15), buy
   fees in the cost basis, sell fees pro-rated, USD legs at the FX rate of their
   date, splits applied, same-day buys before sells, oversells reported. The
   positions list, tax report, FIFO tab, Realized vs Unrealized, the tax

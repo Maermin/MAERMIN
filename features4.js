@@ -93,11 +93,22 @@ function usePortfolios() {
     setPortfolios(prev => prev.map(p => p.id === id ? { ...p, clearing: { enabled: false, openingBalance: 0, openingDate: '', ...(p.clearing || {}), ...patch } } : p));
   };
 
-  return { portfolios, activePortfolioId, setActivePortfolioId, addPortfolio, removePortfolio, restorePortfolio, renamePortfolio, setClearing };
+  // FINDINGS M-15: optional `separateDepot` - the German tax report keeps this
+  // portfolio's shares and funds in their own FIFO pool. Unset = pooled.
+  const setSeparateDepot = (id, on) => {
+    setPortfolios(prev => prev.map(p => {
+      if (p.id !== id) return p;
+      const next = { ...p };
+      if (on) next.separateDepot = true; else delete next.separateDepot;
+      return next;
+    }));
+  };
+
+  return { portfolios, activePortfolioId, setActivePortfolioId, addPortfolio, removePortfolio, restorePortfolio, renamePortfolio, setClearing, setSeparateDepot };
 }
 
 function PortfolioManagerView({ portfolios, activePortfolioId, transactions, prices, exchangeRate, fxAt, corpActionsRev, theme, t, formatPrice, getCurrencySymbol,
-  setActivePortfolioId, addPortfolio, removePortfolio, renamePortfolio, setClearing, clearing }) {
+  setActivePortfolioId, addPortfolio, removePortfolio, renamePortfolio, setClearing, clearing, setSeparateDepot }) {
 
   const [newName, setNewName]   = useState('');
   const [newColor, setNewColor] = useState('#3b82f6');
@@ -142,6 +153,14 @@ function PortfolioManagerView({ portfolios, activePortfolioId, transactions, pri
         __('pfClearingHint', 'Book deposits and withdrawals to this portfolio; trades, dividends, fees and taxes move the balance. Returns then count the cash too. If you also keep this cash as an account under Net Worth, remove it there so it is not counted twice.'))
     );
   };
+
+  // FINDINGS M-15: the depot switch of a card (§ 20 Abs. 4 S. 7 EStG).
+  const renderDepot = (p) => React.createElement('div', { 'data-pf-depot': p.id, style: { marginTop: '0.6rem' } },
+    React.createElement('label', { style: { display: 'flex', alignItems: 'center', gap: '0.5rem', color: theme.text, fontSize: '0.82rem', fontWeight: 600, cursor: 'pointer', minHeight: '24px' } },
+      React.createElement('input', { type: 'checkbox', checked: p.separateDepot === true, 'data-pf-depot-toggle': p.id, onChange: (e) => setSeparateDepot(p.id, e.target.checked), style: { width: '20px', height: '20px', margin: 0, accentColor: theme.accent } }),
+      __('pfSeparateDepot', 'Separate depot for German tax')),
+    p.separateDepot === true && React.createElement('p', { style: { color: theme.textSecondary, fontSize: '0.75rem', lineHeight: 1.5, margin: '0.35rem 0 0' } },
+      __('pfSeparateDepotHint', 'A sale of shares or funds here uses only the lots bought in this portfolio (FIFO per depot). Portfolios without the switch count as one depot. Crypto follows its own setting in the tax settings.')));
 
   return React.createElement('div', { style: { padding: '1.5rem' } },
     React.createElement('h2', { style: { color: theme.text, fontSize: '1.5rem', fontWeight: '800', letterSpacing: '-0.02em', marginBottom: '1.5rem' } }, __('pfManager', 'Portfolio Manager')),
@@ -223,7 +242,8 @@ function PortfolioManagerView({ portfolios, activePortfolioId, transactions, pri
             React.createElement('span', { style: { color: theme.textSecondary } }, __('pfTxCount', '{n} {n:transaction|transactions}', { n: p.txCount }))
           ),
           // P5-1.4: optional clearing account (Verrechnungskonto)
-          setClearing && renderClearing(p)
+          setClearing && renderClearing(p),
+          setSeparateDepot && renderDepot(p)
         )
       )
     ),
