@@ -301,7 +301,7 @@ function NewsFeedView({ portfolio, transactions, apiKeys, theme, formatPrice }) 
     heldSymbols.length > 0 && React.createElement('div', { style: { display: 'flex', gap: '0.375rem', marginBottom: '1.25rem', flexWrap: 'wrap' } },
       [{ sym: 'all', name: __('all', 'All') }, ...heldSymbols].map(({ sym, name }) =>
         React.createElement('button', {
-          key: sym,
+          key: sym, type: 'button', 'aria-pressed': filter === sym,
           onClick: () => setFilter(sym),
           style: {
             padding: '0.3rem 0.75rem', border: 'none', borderRadius: '6px', cursor: 'pointer',

@@ -694,7 +694,7 @@ function __(k, f, v) { return (typeof window !== 'undefined' && window.MaerminI1
             e('div', { style: { display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: '0.5rem', justifyContent: 'space-between' } },
               e('div', { style: { minWidth: 0 } },
                 e('span', { style: { color: text, fontSize: '0.82rem', fontWeight: 600 } }, root),
-                e('span', { 'data-testid': 'lt-src-' + root, style: { color: own ? (theme.success || '#22c55e') : dim, fontSize: '0.72rem', marginLeft: '0.5rem' } }, sourceText(f))),
+                e('span', { 'data-testid': 'lt-src-' + root, style: { color: own ? (theme.success || 'var(--success)') : dim, fontSize: '0.72rem', marginLeft: '0.5rem' } }, sourceText(f))),
               e('div', { style: { display: 'flex', gap: '0.35rem' } },
                 e('label', { style: btn },
                   own ? __('ltFileReplace', 'Replace file') : __('ltFileImport', 'Import holdings file'),
@@ -702,7 +702,7 @@ function __(k, f, v) { return (typeof window !== 'undefined' && window.MaerminI1
                     style: { position: 'absolute', width: '1px', height: '1px', opacity: 0, overflow: 'hidden' },
                     onChange: function (ev) { var fl = ev.target.files && ev.target.files[0]; ev.target.value = ''; importFile(root, fl); } })),
                 own ? e('button', { type: 'button', style: btn, onClick: function () { removeFile(root); } }, __('ltFileRemove', 'Remove')) : null)),
-            msg ? e('div', { role: 'status', style: { color: msg.bad ? bad : (theme.success || '#22c55e'), fontSize: '0.72rem', marginTop: '0.25rem' } }, msg.text) : null);
+            msg ? e('div', { role: 'status', style: { color: msg.bad ? bad : (theme.success || 'var(--success)'), fontSize: '0.72rem', marginTop: '0.25rem' } }, msg.text) : null);
         }));
     }
 

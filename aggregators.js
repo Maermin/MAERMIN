@@ -419,9 +419,7 @@ function __(k, f, v) { return (typeof window !== 'undefined' && window.MaerminI1
     };
 
     if (!props.workerUrl || demo) {
-      return e('div', { 'data-testid': 'aggregators', style: { background: card, border: '1px solid ' + border, borderRadius: '14px', padding: '1.1rem', marginBottom: '1.25rem' } },
-        e('div', { style: { color: text, fontWeight: 700, fontSize: '0.95rem', marginBottom: '0.2rem' } }, __('agTitle', 'Aggregators with your own API keys')),
-        e('div', { style: { color: dim, fontSize: '0.76rem' } }, demo ? __('agDemo', 'Not available in the demo.') : __('agNeedWorker', 'Goes through your own Worker: add its URL in API Settings.')));
+      return e(window.MaerminUI.EmptyState, { testid: 'aggregators', kind: demo ? 'demo' : 'worker', title: __('agTitle', 'Aggregators with your own API keys'), text: demo ? __('agDemo', 'Not available in the demo.') : __('agNeedWorker', 'Goes through your own Worker: add its URL in API Settings.') });
     }
 
     // GoCardless body

@@ -387,7 +387,7 @@ function __(k, f, v) { return (typeof window !== 'undefined' && window.MaerminI1
               e('div', { style: { color: text, fontWeight: 800, fontSize: '1.05rem' } }, s.cryptoLotsNearFree + ' / ' + s.cryptoLotsTracked))),
           cards.length ? cards : e('div', { style: { color: dim, fontSize: '0.84rem' } }, t.taNone || 'No tax actions flagged right now.'));
       } catch (err) {
-        return e('div', { style: { padding: '0.75rem', color: (props.theme && props.theme.danger) || '#ef4444' } }, __('taError', 'Tax advisor error: {msg}', { msg: err && err.message }));
+        return e('div', { style: { padding: '0.75rem', color: (props.theme && props.theme.danger) || 'var(--danger)' } }, __('taError', 'Tax advisor error: {msg}', { msg: err && err.message }));
       } finally { MASKED = false; }
     };
   }

@@ -2853,6 +2853,61 @@ async function runBuild(browser, label, dir) {
     await context.close();
   }
 
+  // cleanup 6b: the light theme in the demo - text reads at WCAG AA on the
+  // views 6b touched (type badges, correlation figures, symbol tiles, fee
+  // amounts, strategy results), option groups say which option is on, and
+  // the Worker-gated cards share one empty state.
+  {
+    const context = await browser.newContext({ serviceWorkers: 'block', viewport: { width: 1366, height: 900 } });
+    await wire(context, external);
+    const page = await context.newPage();
+    const errors = watch(page);
+    await createVault(page, base);
+    await page.evaluate(() => { localStorage.setItem('maermin_demo', '1'); localStorage.setItem('maermin_ui_mode', 'advanced'); localStorage.setItem('maermin_onboarded', '1'); localStorage.setItem('theme', 'white'); localStorage.setItem('maermin_fx', 'off'); });
+    const low = {}; let tabs = null, empties = null, tiles = null, err = '';
+    const SCAN = () => {
+      const rgb = (c) => { const srgb = /^color\(srgb/.test(c); const m = (c.replace(/^color\(srgb/, '').match(/[\d.]+/g) || []).map(Number); return { c: srgb ? m.slice(0, 3).map((v) => v * 255) : m.slice(0, 3), a: m[3] == null ? 1 : m[3] }; };
+      const lum = (c) => { const f = (v) => { v /= 255; return v <= 0.03928 ? v / 12.92 : Math.pow((v + 0.055) / 1.055, 2.4); }; return 0.2126 * f(c[0]) + 0.7152 * f(c[1]) + 0.0722 * f(c[2]); };
+      const bgAt = (el) => { const layers = []; for (let e = el; e; e = e.parentElement) { const st = getComputedStyle(e); if (/gradient/.test(st.backgroundImage)) return null; const b = rgb(st.backgroundColor); if (b.a > 0) layers.push(b); if (b.a >= 0.99) break; } let base = [255, 255, 255]; for (let i = layers.length - 1; i >= 0; i--) { const l = layers[i]; base = l.c.map((v, k) => v * l.a + base[k] * (1 - l.a)); } return base; };
+      const out = []; const seen = new Set();
+      const w = document.createTreeWalker(document.querySelector('main'), NodeFilter.SHOW_TEXT);
+      for (let n = w.nextNode(); n; n = w.nextNode()) {
+        const el = n.parentElement; if (!n.textContent.trim() || !el || seen.has(el)) continue; seen.add(el);
+        if (!el.getClientRects().length || el.closest('svg, [aria-hidden="true"], button:disabled')) continue;
+        const st = getComputedStyle(el); const bg = bgAt(el); if (!bg) continue;
+        let op = 1; for (let e = el; e && e !== document.body; e = e.parentElement) op *= +getComputedStyle(e).opacity;
+        const fg = rgb(st.color); const c = fg.c.map((v, k) => (v * fg.a + bg[k] * (1 - fg.a)) * op + bg[k] * (1 - op));
+        const L1 = lum(c), L2 = lum(bg), cr = (Math.max(L1, L2) + 0.05) / (Math.min(L1, L2) + 0.05);
+        const size = parseFloat(st.fontSize), need = (size >= 24 || (size >= 18.66 && +st.fontWeight >= 700)) ? 3 : 4.5;
+        if (cr < need) out.push(n.textContent.trim().slice(0, 20) + ' ' + cr.toFixed(2));
+      }
+      return out;
+    };
+    try {
+      await unlock(page, base);
+      await page.keyboard.press('Escape');
+      await page.waitForTimeout(1500);
+      for (const id of ['overview', 'transactions', 'analytics', 'fees', 'investment-analysis', 'net-worth']) {
+        await openView(page, id);
+        await page.waitForTimeout(1500);
+        const r = await page.evaluate(SCAN);
+        if (r.length) low[id] = r.slice(0, 6).concat(r.length > 6 ? ['+' + (r.length - 6)] : []);
+      }
+      await openView(page, 'data');
+      await page.getByRole('button', { name: /Broker Import/ }).first().click();
+      await page.waitForTimeout(800);
+      tabs = await page.locator('main [role="group"][aria-label="Data Management"] button').evaluateAll((bs) => bs.map((b) => b.innerText.trim() + '=' + b.getAttribute('aria-pressed')));
+      empties = await page.evaluate(() => ['wallets', 'bank-sync', 'aggregators'].map((id) => { const el = document.querySelector('[data-testid="' + id + '"]'); return id + ':' + (el ? el.className + '/' + el.getAttribute('data-kind') : 'none'); }));
+      tiles = await page.evaluate(() => ['Portfolio Performance', 'Parqet', 'Scalable Capital'].map((n) => { const b = document.querySelector('[aria-label="Select broker ' + n + '"] div[aria-hidden="true"]'); return b ? b.innerText + '|' + getComputedStyle(b).backgroundColor : 'none'; }));
+      ok('cleanup 6b: the Data Management section tabs are one pill row, one option pressed', Array.isArray(tabs) && tabs.length >= 3 && tabs.filter((t) => /=true$/.test(t)).length === 1 && tabs.includes('Broker Import=true') && !tabs.some((t) => /[↓↑◁◆]/.test(t)), err || JSON.stringify(tabs));
+      ok('cleanup U-2: the Worker-gated cards share one empty state (demo)', Array.isArray(empties) && empties.every((x) => /:mx-empty\/demo$/.test(x)), err || JSON.stringify(empties));
+      ok('cleanup V-6: brokers without a logo get distinct initial tiles (PP, PA, SC)', Array.isArray(tiles) && tiles.map((t) => t.split('|')[0]).join() === 'PP,PA,SC' && new Set(tiles.map((t) => t.split('|')[1])).size === 3, err || JSON.stringify(tiles));
+    } catch (e) { err = e.message.split('\n')[0]; }
+    ok('cleanup V-1 / V-2: light-theme text reads at WCAG AA on the views 6b touched', !err && Object.keys(low).length === 0, err || JSON.stringify(low));
+    ok('no page errors in the light-theme session', errors.length === 0, errors.join(' | '));
+    await context.close();
+  }
+
   const unexpected = [...new Set(external)].filter((u) => !/open\.er-api\.com|api\.exchangerate-api\.com|fonts\.googleapis\.com|fonts\.gstatic\.com/.test(u));
   ok('no unexpected external requests', unexpected.length === 0, unexpected.join(', '));
   server.close();

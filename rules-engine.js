@@ -388,7 +388,7 @@ function __(k, f, v) { return (typeof window !== 'undefined' && window.MaerminI1
             : e('div', { style: { background: card, border: '1px solid ' + border, borderRadius: '14px', padding: '2rem', textAlign: 'center', color: dim, fontSize: '0.9rem' } },
                 t.rulesEmpty || 'No rules yet. Add one above — e.g. a symbol weight above 30% to catch concentration.'));
       } catch (err) {
-        return e('div', { style: { padding: '1.5rem', color: (props.theme && props.theme.danger) || '#ef4444' } }, __('rlViewError', 'Rules view error: ') + (err && err.message));
+        return e('div', { style: { padding: '1.5rem', color: (props.theme && props.theme.danger) || 'var(--danger)' } }, __('rlViewError', 'Rules view error: ') + (err && err.message));
       }
     };
   }

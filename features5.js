@@ -192,7 +192,7 @@ function NetWorthView({ portfolioStats, portfolio, prices, theme, formatPrice, g
           React.createElement('div', { key: i, style: { display: 'flex', alignItems: 'center', gap: '0.375rem', fontSize: '0.78rem' } },
             React.createElement('div', { style: { width: 8, height: 8, borderRadius: '50%', background: s.color } }),
             React.createElement('span', { style: { color: theme.textSecondary } }, s.label),
-            React.createElement('span', { style: { color: s.value >= 0 ? theme.text : '#ef4444', fontWeight: '600' } }, `${formatPrice(Math.abs(s.value))} ${getCurrencySymbol()}`)
+            React.createElement('span', { style: { color: s.value >= 0 ? theme.text : 'var(--danger)', fontWeight: '600' } }, `${formatPrice(Math.abs(s.value))} ${getCurrencySymbol()}`)
           )
         )
       )
@@ -585,7 +585,7 @@ function FeeAnalyzer({ transactions, theme, formatPrice, getCurrencySymbol, exch
                 React.createElement('div', { key: year },
                   React.createElement('div', { style: { display: 'flex', justifyContent: 'space-between', fontSize: '0.82rem', marginBottom: '0.25rem' } },
                     React.createElement('span', { style: { color: theme.text, fontWeight: '600' } }, year),
-                    React.createElement('span', { style: { color: '#ef4444', fontWeight: '700' } }, `${formatPrice(data.fees)} ${getCurrencySymbol()}`)
+                    React.createElement('span', { style: { color: 'var(--danger)', fontWeight: '700' } }, `${formatPrice(data.fees)} ${getCurrencySymbol()}`)
                   ),
                   React.createElement('div', { style: { height: 6, background: theme.inputBg, borderRadius: 3, overflow: 'hidden' } },
                     React.createElement('div', { style: { height: '100%', width: `${data.fees / maxYear * 100}%`, background: '#ef4444', opacity: 0.7, borderRadius: 3 } })
@@ -607,7 +607,7 @@ function FeeAnalyzer({ transactions, theme, formatPrice, getCurrencySymbol, exch
                     React.createElement('span', { style: { color: theme.text, fontWeight: '600' } }, window.MaerminI18n.category(cat)),
                     React.createElement('div', { style: { display: 'flex', gap: '0.5rem' } },
                       React.createElement('span', { style: { color: theme.textSecondary } }, window.MaerminI18n.pct(pct, 1)),
-                      React.createElement('span', { style: { color, fontWeight: '700' } }, `${formatPrice(fees)} ${getCurrencySymbol()}`)
+                      React.createElement('span', { style: { color: theme.text, fontWeight: '700' } }, `${formatPrice(fees)} ${getCurrencySymbol()}`)
                     )
                   ),
                   React.createElement('div', { style: { height: 6, background: theme.inputBg, borderRadius: 3, overflow: 'hidden' } },
@@ -647,7 +647,7 @@ function FeeAnalyzer({ transactions, theme, formatPrice, getCurrencySymbol, exch
                           React.createElement('span', { style: { color: tx.type === 'buy' ? theme.success : tx.type === 'sell' ? theme.danger : window.MaerminUtils.txTypeInfo(tx.type).color, fontWeight: '600', fontSize: '0.72rem' } }, window.MaerminUtils.txTypeInfo(tx.type).label.toUpperCase())
                         ),
                         React.createElement('td', { style: { padding: '0.5rem 0.75rem', textAlign: 'right', color: theme.textSecondary } }, `${formatPrice(trade)} ${getCurrencySymbol()}`),
-                        React.createElement('td', { style: { padding: '0.5rem 0.75rem', textAlign: 'right', color: '#ef4444', fontWeight: '700' } }, `${formatPrice(fee)} ${getCurrencySymbol()}`),
+                        React.createElement('td', { style: { padding: '0.5rem 0.75rem', textAlign: 'right', color: 'var(--danger)', fontWeight: '700' } }, `${formatPrice(fee)} ${getCurrencySymbol()}`),
                         React.createElement('td', { style: { padding: '0.5rem 0.75rem', textAlign: 'right', color: theme.textSecondary } }, feeRate)
                       );
                     })

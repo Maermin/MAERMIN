@@ -421,7 +421,7 @@ function __(k, f, v) { return (typeof window !== 'undefined' && window.MaerminI1
         e('div', { style: { display: 'flex', alignItems: 'center', gap: '0.5rem', flexWrap: 'wrap', marginBottom: '0.8rem' } },
           e('div', { style: { color: text, fontSize: '0.92rem', fontWeight: 700, marginRight: '0.3rem' } }, t.perfBenchTitle || 'vs. Benchmark'),
           benches.map(function (b) {
-            return e('button', { key: b.key, type: 'button', onClick: function () { setBenchKey(b.key); },
+            return e('button', { key: b.key, type: 'button', 'aria-pressed': benchKey === b.key, onClick: function () { setBenchKey(b.key); },
               style: { font: 'inherit', cursor: 'pointer', padding: '0.25rem 0.6rem', borderRadius: '999px', fontSize: '0.74rem', fontWeight: 700, border: '1px solid ' + (benchKey === b.key ? (theme.accent || '#8b7cff') : border), background: benchKey === b.key ? ((theme.accentFill || theme.accent) || '#8b7cff') : 'transparent', color: benchKey === b.key ? (theme.accentText || '#ffffff') : dim } }, b.label);
           })),
         !workerBase ? e('div', { style: { background: card, border: '1px solid ' + border, borderRadius: '14px', padding: '1rem', color: dim, fontSize: '0.85rem' } }, t.perfBenchNoWorker || 'Add a Worker URL in API Settings to compare against an index.')
@@ -468,7 +468,7 @@ function __(k, f, v) { return (typeof window !== 'undefined' && window.MaerminI1
         hasData ? e('div', { style: { color: dim, fontSize: '0.72rem', marginTop: '1rem', lineHeight: 1.5 } },
           (t.perfFootnote || 'Periods marked ≈ are measured from your first snapshot because the full look-back is not yet covered.')) : null);
     } catch (err) {
-      return e('div', { style: { padding: '1.5rem', color: (props.theme && props.theme.danger) || '#ef4444' } },
+      return e('div', { style: { padding: '1.5rem', color: (props.theme && props.theme.danger) || 'var(--danger)' } },
         __('perfViewError', 'Performance view error: {msg}', { msg: err && err.message }));
     }
   }

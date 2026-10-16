@@ -153,7 +153,7 @@ function RiskAnalyticsViewV2(props) {
         conc.available
           ? e('div', { key: 'c' },
               e('div', { style: { display: 'flex', alignItems: 'baseline', gap: '0.5rem' } },
-                e('span', { style: { fontSize: '1.6rem', fontWeight: 800, color: conc.maxWeight > 0.3 ? (theme.danger || '#ef4444') : theme.text } }, window.MaerminI18n.pct(conc.maxWeight * 100, 0)),
+                e('span', { style: { fontSize: '1.6rem', fontWeight: 800, color: conc.maxWeight > 0.3 ? (theme.danger || 'var(--danger)') : theme.text } }, window.MaerminI18n.pct(conc.maxWeight * 100, 0)),
                 e('span', { style: { color: theme.textSecondary, fontSize: '0.8rem' } }, t.riskLargestPosition || 'largest position')),
               e('div', { style: { color: theme.textSecondary, fontSize: '0.8rem', marginTop: '0.35rem' } }, window.MaerminI18n.num(conc.effectiveN || 0, 1) + ' ' + (t.healthEffectivePositions || 'effective positions')))
           : noData
@@ -250,7 +250,7 @@ function RiskAnalyticsViewV2(props) {
           padding: '0.25rem 1rem',
           borderRadius: '2rem',
           background: getRiskColor(riskMetrics.riskLevel),
-          color: '#fff',
+          color: window.MaerminUtils.onColor(getRiskColor(riskMetrics.riskLevel)), // white on the dark theme green was 1.77:1
           fontWeight: '600'
         }
       }, getRiskLabel(riskMetrics.riskLevel))
@@ -295,7 +295,7 @@ function RiskAnalyticsViewV2(props) {
         React.createElement('div', { style: { color: theme.textSecondary, fontSize: '0.875rem' } },
           __('rkVar', 'VaR (95%, 1-day)')
         ),
-        React.createElement('div', { style: { color: theme.danger || '#ef4444', fontSize: '1.5rem', fontWeight: '800', letterSpacing: '-0.02em' } },
+        React.createElement('div', { style: { color: theme.danger || 'var(--danger)', fontSize: '1.5rem', fontWeight: '800', letterSpacing: '-0.02em' } },
           formatPrice(riskMetrics.var95) + ' ' + currencyLabel
         )
       ),
@@ -312,7 +312,7 @@ function RiskAnalyticsViewV2(props) {
         React.createElement('div', { style: { color: theme.textSecondary, fontSize: '0.875rem' } },
           'CVaR (' + window.MaerminI18n.pct(95, 0) + ')'
         ),
-        React.createElement('div', { style: { color: theme.danger || '#ef4444', fontSize: '1.5rem', fontWeight: '800', letterSpacing: '-0.02em' } },
+        React.createElement('div', { style: { color: theme.danger || 'var(--danger)', fontSize: '1.5rem', fontWeight: '800', letterSpacing: '-0.02em' } },
           formatPrice(riskMetrics.cvar95) + ' ' + currencyLabel
         )
       ),
@@ -370,7 +370,7 @@ function RiskAnalyticsViewV2(props) {
         React.createElement('div', { style: { color: theme.textSecondary, fontSize: '0.875rem' } },
           __('rkMaxDd', 'Max Drawdown')
         ),
-        React.createElement('div', { style: { color: theme.danger || '#ef4444', fontSize: '1.5rem', fontWeight: '800', letterSpacing: '-0.02em' } },
+        React.createElement('div', { style: { color: theme.danger || 'var(--danger)', fontSize: '1.5rem', fontWeight: '800', letterSpacing: '-0.02em' } },
           '-' + window.MaerminI18n.pct(riskMetrics.maxDrawdownPercent, 1)
         ),
         V && verdictLine(V.drawdown(riskMetrics.maxDrawdownPercent), 'drawdown')

@@ -343,7 +343,7 @@
         onMouseLeave: clickable ? (ev) => { ev.currentTarget.style.background = 'transparent'; } : undefined,
       },
         e('div', { style: { display: 'flex', justifyContent: 'space-between', marginBottom: '0.3rem', fontSize: '0.8rem', color: theme.textSecondary } },
-          e('span', null, label, clickable ? e('span', { style: { opacity: 0.5, marginLeft: '0.35rem' } }, '›') : null),
+          e('span', null, label, clickable ? e('span', { 'aria-hidden': 'true', style: { marginLeft: '0.35rem' } }, '›') : null),
           e('span', { style: { color: available ? theme.text : theme.textSecondary, fontWeight: 600 } }, available ? (value + ' / 100') : (t.healthNotAvailable || 'n/a'))),
         e('div', { style: { height: '8px', background: 'rgba(255,255,255,0.08)', borderRadius: '4px', overflow: 'hidden' } },
           e('div', { style: { height: '100%', width: (available ? value : 0) + '%', background: scoreColor(value, theme), borderRadius: '4px', transition: 'width 0.4s ease' } }))

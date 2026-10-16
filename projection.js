@@ -198,11 +198,7 @@ function __(k, f, v) { return (typeof window !== 'undefined' && window.MaerminI1
 
     var horizons = [1, 3, 5, 10];
     function hzBtn(yr) {
-      return e('button', { key: yr, onClick: function () { setYears(yr); setCustom(''); },
-        style: { padding: '0.3rem 0.7rem', borderRadius: '6px', border: '1px solid ' + (theme.cardBorder || '#333'),
-          background: years === yr && !custom ? ((theme.accentFill || theme.accent) || '#8b7cff') : 'transparent',
-          color: years === yr && !custom ? '#ffffff' : (theme.textSecondary || '#888'),
-          cursor: 'pointer', fontSize: '0.78rem', fontWeight: years === yr ? 700 : 400 } }, __('pjYears', '{n}y', { n: yr }));
+      return e('button', window.MaerminUI.pillProps(years === yr && !custom, { key: yr, onClick: function () { setYears(yr); setCustom(''); } }), __('pjYears', '{n}y', { n: yr }));
     }
 
     return e('div', { style: { background: theme.card || '#10151f', border: '1px solid ' + (theme.cardBorder || 'rgba(255,255,255,0.08)'), borderRadius: '14px', padding: '1.25rem', marginBottom: '1.5rem' } },
@@ -210,7 +206,7 @@ function __(k, f, v) { return (typeof window !== 'undefined' && window.MaerminI1
         e('div', { style: { color: theme.text || '#e9edf4', fontWeight: 800, fontSize: '1rem' } },
           (props.scopeLabel ? props.scopeLabel + ' — ' : '') + __('pjTitle', 'Wealth Projection')),
         e('div', { style: { display: 'flex', gap: '0.35rem', alignItems: 'center' } },
-          horizons.map(hzBtn),
+          e('div', { className: 'mx-pills', role: 'group', 'aria-label': __('pjHorizon', 'Horizon') }, horizons.map(hzBtn)),
           e('input', { type: 'number', value: custom, placeholder: __('pjYrPh', 'yr'), 'aria-label': __('pjCustomYears', 'Custom number of years'), onChange: function (ev) { setCustom(ev.target.value); var v = parseFloat(ev.target.value); if (v > 0) setYears(v); },
             style: { width: '54px', padding: '0.3rem 0.4rem', borderRadius: '6px', border: '1px solid ' + (theme.cardBorder || '#333'), background: theme.inputBg || '#0f172a', color: theme.text || '#fff', fontSize: '0.78rem' } })
         )
@@ -268,7 +264,7 @@ function __(k, f, v) { return (typeof window !== 'undefined' && window.MaerminI1
             e('div', { style: { color: row[2], fontWeight: 700 } }, fmt(Math.abs(row[1])) + ' ' + sym));
         })
       ),
-      e('div', { style: { color: theme.textSecondary || '#888', fontSize: '0.68rem', marginTop: '0.6rem', opacity: 0.8 } },
+      e('div', { style: { color: theme.textSecondary || '#888', fontSize: '0.68rem', marginTop: '0.6rem' } },
         __('pjFootnote', 'Projection over {n}y. Returns are assumptions ({rates} p.a.), not guarantees.', { n: window.MaerminI18n.num(Math.round(years * 10) / 10, { min: 0, max: 1 }), rates: window.MaerminI18n.pct(3, 0) + '/' + window.MaerminI18n.pct(6, 0) + '/' + window.MaerminI18n.pct(9, 0) }))
     );
   }

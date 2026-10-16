@@ -181,6 +181,19 @@ function __(k, f, v) { return (typeof window !== 'undefined' && window.MaerminI1
   // Text colour for a filled surface: white when it reaches WCAG AA (4.5:1)
   // on `bg`, else near-black. Bright fills (success green, warning amber,
   // the dark-theme accents) get dark text. Non-hex colours keep white.
+  // Text colour for a component that takes a colour prop: the fixed semantic
+  // hexes (Tailwind green/red/amber/blue/slate) become the theme's own, which
+  // read at WCAG AA in every theme. Other colours pass through.
+  const INK = {
+    '#22c55e': 'var(--success)', '#16a34a': 'var(--success)',
+    '#ef4444': 'var(--danger)', '#dc2626': 'var(--danger)',
+    '#f59e0b': 'var(--warning)', '#d97706': 'var(--warning)', '#eab308': 'var(--warning)',
+    '#3b82f6': 'var(--info)', '#94a3b8': 'var(--text-dim)'
+  };
+  function ink(c) {
+    return (typeof c === 'string' && INK[c.trim().toLowerCase()]) || c;
+  }
+
   function onColor(bg) {
     const m = String(bg || '').trim().match(/^#([0-9a-f]{3}|[0-9a-f]{6})$/i);
     if (!m) return '#ffffff';
@@ -293,10 +306,11 @@ function __(k, f, v) { return (typeof window !== 'undefined' && window.MaerminI1
     interest_charge: { key: 'txInterestCharge', label: () => __('txInterestCharge', 'Interest charge'), tone: 'out' }
   };
   const TX_TONES = {
-    in:      { color: '#22c55e', background: 'rgba(34,197,94,0.15)' },
-    out:     { color: '#ef4444', background: 'rgba(239,68,68,0.15)' },
-    income:  { color: '#3b82f6', background: 'rgba(59,130,246,0.15)' },
-    neutral: { color: '#94a3b8', background: 'rgba(148,163,184,0.15)' }
+    // theme colours (styles.css), AA on the card and on their own tint in every theme
+    in:      { color: 'var(--success)', background: 'color-mix(in srgb, var(--success) 12%, transparent)' },
+    out:     { color: 'var(--danger)', background: 'color-mix(in srgb, var(--danger) 12%, transparent)' },
+    income:  { color: 'var(--info)', background: 'color-mix(in srgb, var(--info) 12%, transparent)' },
+    neutral: { color: 'var(--text-dim)', background: 'color-mix(in srgb, var(--text-dim) 12%, transparent)' }
   };
   function txTypeInfo(type, t) {
     const raw = String(type == null ? '' : type).trim();
@@ -365,6 +379,7 @@ function __(k, f, v) { return (typeof window !== 'undefined' && window.MaerminI1
     clickable,
     confirmThen,
     onColor,
+    ink,
     safeParse,
     parseDecimal,
     todayISO,

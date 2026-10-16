@@ -289,8 +289,18 @@
     return out;
   }
 
+  // One look for "nothing here yet / not available / needs your Worker":
+  // a title, one sentence, and optionally one next action.
+  function EmptyState(props) {
+    var e = React.createElement;
+    return e('div', { className: 'mx-empty', 'data-testid': props.testid, 'data-kind': props.kind || 'empty', role: props.role },
+      props.title ? e('div', { className: 'mx-empty-title' }, props.title) : null,
+      props.text ? e('div', { className: 'mx-empty-text' }, props.text) : null,
+      props.action ? e('button', btnProps('secondary', { onClick: props.action.onClick }), props.action.label) : null);
+  }
+
   var api = {
-    tokens: tokens, btnProps: btnProps, pillProps: pillProps,
+    tokens: tokens, btnProps: btnProps, pillProps: pillProps, EmptyState: EmptyState,
     toasts: toasts,
     add: add, dismiss: dismiss, clear: clear, items: items,
     reduceAdd: reduceAdd, reduceDismiss: reduceDismiss,

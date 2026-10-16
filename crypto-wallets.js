@@ -182,9 +182,7 @@ function __(k, f, v) { return (typeof window !== 'undefined' && window.MaerminI1
     }
 
     if (!props.workerUrl || demo) {
-      return e('div', { 'data-testid': 'wallets', style: { background: card, border: '1px solid ' + border, borderRadius: '14px', padding: '1.1rem', marginBottom: '1.25rem' } },
-        e('div', { style: { color: text, fontWeight: 700, fontSize: '0.95rem', marginBottom: '0.2rem' } }, __('wlTitle', 'Crypto wallets (read-only)')),
-        e('div', { style: { color: dim, fontSize: '0.76rem' } }, demo ? __('wlDemo', 'Not available in the demo.') : __('wlNeedWorker', 'Goes through your own Worker: add its URL in API Settings.')));
+      return e(window.MaerminUI.EmptyState, { testid: 'wallets', kind: demo ? 'demo' : 'worker', title: __('wlTitle', 'Crypto wallets (read-only)'), text: demo ? __('wlDemo', 'Not available in the demo.') : __('wlNeedWorker', 'Goes through your own Worker: add its URL in API Settings.') });
     }
 
     var rows = st.wallets.map(function (w) {

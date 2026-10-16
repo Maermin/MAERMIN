@@ -197,7 +197,7 @@ function __(k, f, v) { return (typeof window !== 'undefined' && window.MaerminI1
     var I = window.MaerminI18n;
     function btn(label, onClick, danger, aria) {
       return e('button', { type: 'button', onClick: onClick, 'aria-label': aria, style: { padding: '0.35rem 0.75rem', borderRadius: '7px', cursor: 'pointer', fontSize: '0.78rem', fontWeight: 600,
-        background: 'transparent', color: danger ? (th.danger || '#ef4444') : (th.accent || '#8b7cff'), border: '1px solid ' + (danger ? (th.danger || '#ef4444') + '66' : border) } }, label);
+        background: 'transparent', color: danger ? (th.danger || 'var(--danger)') : (th.accent || '#8b7cff'), border: '1px solid ' + (danger ? (th.danger || '#ef4444') + '66' : border) } }, label);
     }
     function confirmPurge(title, run) {
       window.MaerminUtils.confirmThen({ title: title, message: __('trashPurgeMsg', 'This cannot be undone.'), confirmLabel: __('trashPurge', 'Delete forever'), cancelLabel: __('cancel', 'Cancel') }, run);

@@ -278,7 +278,7 @@ function __(k, f, v) { return (typeof window !== 'undefined' && window.MaerminI1
         e('input', { 'data-testid': 'sync-webdav-pass', type: 'password', value: pass, autoComplete: 'new-password', placeholder: __('stDavPass', 'App password'), 'aria-label': __('stDavPass', 'App password'), style: input, onChange: function (ev) { setPass(ev.target.value); }, onKeyDown: function (ev) { if (ev.key === 'Enter') connectDav(); } }),
         e('button', { 'data-testid': 'sync-webdav-connect', style: btn, disabled: props.busy, onClick: connectDav }, __('stDavConnect', 'Connect & sync')),
         note(__('stDavStored', 'The login stays on this device, encrypted with your vault. It is not synced and not in backups.'))) : null,
-      problem ? e('div', { role: 'alert', 'data-testid': 'sync-dest-problem', style: { color: th.danger || '#ef4444', fontSize: '0.76rem', marginTop: '0.35rem' } }, problem) : null);
+      problem ? e('div', { role: 'alert', 'data-testid': 'sync-dest-problem', style: { color: th.danger || 'var(--danger)', fontSize: '0.76rem', marginTop: '0.35rem' } }, problem) : null);
   }
   // A short name for the destination in the status row.
   function describe(cfg) {

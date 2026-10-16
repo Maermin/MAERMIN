@@ -177,8 +177,7 @@ function __(k, f, v) { return (typeof window !== 'undefined' && window.MaerminI1
 
         function periodBtn(pp) {
           var active = pp === period;
-          return e('button', { key: pp, onClick: function () { setPeriod(pp); },
-            style: { padding: '0.25rem 0.6rem', fontSize: '0.72rem', fontWeight: 700, cursor: 'pointer', borderRadius: '7px', border: '1px solid ' + border, background: active ? ((theme.accentFill || theme.accent) || '#8b7cff') : 'transparent', color: active ? '#ffffff' : text } }, pp === 'Total' ? __('pmTotal', 'Total') : pp === 'YTD' ? __('perfYtd', 'YTD') : pp.replace(/Y$/, __('chUnitY', 'Y')).replace(/D$/, __('chUnitD', 'D')));
+          return e('button', window.MaerminUI.pillProps(active, { key: pp, onClick: function () { setPeriod(pp); } }), pp === 'Total' ? __('pmTotal', 'Total') : pp === 'YTD' ? __('perfYtd', 'YTD') : pp.replace(/Y$/, __('chUnitY', 'Y')).replace(/D$/, __('chUnitD', 'D')));
         }
 
         var svg = e('svg', { viewBox: '0 0 ' + W + ' ' + H, width: '100%', style: { display: 'block', borderRadius: '10px', background: theme.inputBg || '#0c1018' }, role: 'img', 'aria-label': t.pmTitle || 'Performance map' },
@@ -197,10 +196,10 @@ function __(k, f, v) { return (typeof window !== 'undefined' && window.MaerminI1
             e('div', null,
               e('div', { style: { color: text, fontWeight: 700, fontSize: '0.95rem' } }, t.pmTitle || 'Performance Map'),
               e('div', { style: { color: dim, fontSize: '0.76rem' } }, t.pmSubtitle || 'Area = weight, colour = performance')),
-            e('div', { style: { display: 'flex', gap: '0.3rem', flexWrap: 'wrap' } }, PERIODS.map(periodBtn))),
+            e('div', { className: 'mx-pills', role: 'group', 'aria-label': __('vaPeriod', 'Period') }, PERIODS.map(periodBtn))),
           rects.length ? svg : e('div', { style: { color: dim, fontSize: '0.84rem', padding: '1rem 0' } }, t.pmEmpty || 'No priced positions to map yet.'));
       } catch (err) {
-        return e('div', { style: { padding: '0.75rem', color: (props.theme && props.theme.danger) || '#ef4444' } }, __('pmError', 'Performance map error: {msg}', { msg: err && err.message }));
+        return e('div', { style: { padding: '0.75rem', color: (props.theme && props.theme.danger) || 'var(--danger)' } }, __('pmError', 'Performance map error: {msg}', { msg: err && err.message }));
       }
     };
 

@@ -558,7 +558,7 @@ function __(k, f, v) { return (typeof window !== 'undefined' && window.MaerminI1
                   style: { padding: '0.55rem 0.7rem', background: inputBg, border: '1px solid ' + inputBorder, borderRadius: '8px', color: text, fontSize: '0.85rem', width: '100%' } },
                   [e('option', { key: '_', value: '' }, t.raNoFinancing || 'None')].concat(
                     liabilityAccounts.map(function (a) { return e('option', { key: a.id, value: a.id }, a.name); }))))),
-            tplError ? e('div', { style: { color: (props.theme && props.theme.warning) || '#f59e0b', fontSize: '0.78rem', marginTop: '0.5rem' } }, tplError) : null,
+            tplError ? e('div', { style: { color: (props.theme && props.theme.warning) || 'var(--warning)', fontSize: '0.78rem', marginTop: '0.5rem' } }, tplError) : null,
             e('div', { style: { display: 'flex', gap: '0.5rem', marginTop: '0.75rem' } },
               e('button', { onClick: addCurrent, 'data-testid': 'ra-add', style: { padding: '0.5rem 1rem', background: accent, color: '#ffffff', border: 'none', borderRadius: '8px', cursor: 'pointer', fontWeight: 700, fontSize: '0.82rem' } }, t.raSave || 'Add'),
               e('button', { onClick: function () { setShowAdd(false); }, style: { padding: '0.5rem 1rem', background: inputBg, color: text, border: '1px solid ' + inputBorder, borderRadius: '8px', cursor: 'pointer', fontSize: '0.82rem' } }, t.raCancel || 'Cancel'))) : null,
@@ -567,7 +567,7 @@ function __(k, f, v) { return (typeof window !== 'undefined' && window.MaerminI1
             : (showAdd ? null : e('div', { style: { color: dim, fontSize: '0.84rem', padding: '0.5rem 0' } },
                 t.raEmpty || 'No real assets yet. Add a property, vehicle or valuable to track its value, financing and rental cashflows.')));
       } catch (err) {
-        return e('div', { style: { padding: '0.75rem', color: (props.theme && props.theme.danger) || '#ef4444' } }, __('raError', 'Real assets error: ') + (err && err.message));
+        return e('div', { style: { padding: '0.75rem', color: (props.theme && props.theme.danger) || 'var(--danger)' } }, __('raError', 'Real assets error: ') + (err && err.message));
       }
     };
   }

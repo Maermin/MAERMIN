@@ -480,7 +480,7 @@ function __(k, f, v) { return (typeof window !== 'undefined' && window.MaerminI1
           e('span', { style: { color: dim } }, ev.date),
           e('span', { style: { color: text, fontWeight: 600 } }, describeEvent(ev)),
           e('button', { type: 'button', onClick: function () { remove(ev); }, 'aria-label': __('caRemove', 'Remove') + ' ' + ev.date,
-            style: { background: 'transparent', border: 'none', color: th.danger || '#ef4444', cursor: 'pointer', fontSize: '0.78rem' } }, __('caRemove', 'Remove')));
+            style: { background: 'transparent', border: 'none', color: th.danger || 'var(--danger)', cursor: 'pointer', fontSize: '0.78rem' } }, __('caRemove', 'Remove')));
       })) : e('div', { style: { color: dim, fontSize: '0.8rem', marginBottom: '0.75rem' } }, __('ceNone', 'No symbol or ISIN change, merger or spin-off recorded.')),
       e('div', { style: { display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(130px, 1fr))', gap: '0.5rem', alignItems: 'end' } },
         e('div', null, e('label', { style: label }, __('ceKind', 'Kind')),
@@ -495,7 +495,7 @@ function __(k, f, v) { return (typeof window !== 'undefined' && window.MaerminI1
         form.kind === 'spinoff' && field('pct', __('ceCostPct', 'Share of the cost, %'), { type: 'text', inputMode: 'decimal' }),
         e('button', { type: 'button', onClick: add, 'data-testid': 'ce-add', style: { padding: '0.5rem 0.8rem', background: th.accentFill || th.accent || '#3b82f6', color: '#fff', border: 'none', borderRadius: '8px', cursor: 'pointer', fontWeight: 600, fontSize: '0.8rem' } },
           __('ceAdd', 'Add action'))),
-      msg && e('div', { style: { color: th.warning || '#f59e0b', fontSize: '0.76rem', marginTop: '0.5rem' } }, msg),
+      msg && e('div', { style: { color: th.warning || 'var(--warning)', fontSize: '0.76rem', marginTop: '0.5rem' } }, msg),
       e('div', { style: { color: dim, fontSize: '0.72rem', marginTop: '0.5rem', lineHeight: 1.5 } },
         form.kind === 'merger' ? __('ceHintMerger', 'Your shares before the date become shares of the new company; cost and purchase dates carry over (tax-neutral exchange). A cash part is booked as capital income on the date.')
           : form.kind === 'spinoff' ? __('ceHintSpinoff', 'Shares of the new company are added with the purchase dates of your shares and the given share of their cost (it is on your bank\'s statement); your shares keep the rest.')
