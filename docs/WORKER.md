@@ -462,7 +462,9 @@ GitHub account, creates the `SYNC` KV namespace (the binding in `wrangler.toml` 
 provisioned automatically) and the `SyncRoom` Durable Object, and deploys. Later pushes to that
 repository redeploy.
 
-**By hand:** Cloudflare Dashboard → Workers → Create → paste `cf-worker/worker.js` → Deploy. For sync,
+**By hand:** Cloudflare Dashboard → Workers → Create → paste `cf-worker/worker.single.js` → Deploy. That
+file is generated (`npm run build:worker`) and holds `worker.js` with the files it imports (`fints-banks.js`,
+`wallets.js`, `push.js`); `worker.js` alone does not start in the dashboard editor. For sync,
 create a KV namespace and bind it as `SYNC`. Or `npx wrangler deploy` in `cf-worker/` (wrangler ≥ 4.45
 provisions the KV namespace itself). No secrets/env vars are required for market data.
 

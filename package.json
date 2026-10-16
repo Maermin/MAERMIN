@@ -6,6 +6,7 @@
   "license": "MIT",
   "scripts": {
     "build:web": "node build.mjs",
+    "build:worker": "node scripts/build-worker-single.mjs",
     "check": "node scripts/check.mjs",
     "test": "node test/run-all.mjs",
     "test:e2e": "node test/e2e/app.e2e.mjs",

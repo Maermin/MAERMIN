@@ -94,6 +94,10 @@ await mkdir(join(dist, 'data'), { recursive: true });
 for (const file of await readdir(join(root, 'data'))) {
   await copyFile(join(root, 'data', file), join(dist, 'data', file));
 }
+// The single-file Worker (npm run build:worker) for the setup wizard's
+// "Copy worker.js": a self-hosted dist/ answers it from its own origin.
+await mkdir(join(dist, 'cf-worker'), { recursive: true });
+await copyFile(join(root, 'cf-worker', 'worker.single.js'), join(dist, 'cf-worker', 'worker.single.js'));
 
 // The loading-screen teardown lived in an inline <script>. Ship it as an
 // external file so prod can run under a STRICT CSP with NO 'unsafe-inline' for
