@@ -30,7 +30,7 @@
 
   var STATE_KEY  = 'maermin_sync_state';   // { rev, lastHash, lastSyncAt }
   var DEVICE_KEY = 'maermin_device_id';
-  var CONFIG_KEY = 'maermin_sync_config';  // { provider, endpoint } (non-secret)
+  var CONFIG_KEY = 'maermin_sync_config';  // { provider, endpoint } (encrypted, device-local)
 
   // ---- small utils ---------------------------------------------------------
   function lsGet(k) { try { return localStorage.getItem(k); } catch (e) { return null; } }
@@ -129,7 +129,9 @@
     // P5-5.1: the push subscription belongs to this browser
     'maermin_push',
     // P5-5.6: the WebDAV login belongs to this device
-    'maermin_webdav'];
+    'maermin_webdav',
+    // where this device syncs to, and its unlisted-symbol cache
+    'maermin_sync_config', 'maermin_no_listing'];
   // SEC-019: the keys a snapshot may carry - encrypted data keys that are not
   // device-local. Vault infrastructure (meta, at-rest flag), the Worker URL and
   // everything else is never taken from a remote snapshot.

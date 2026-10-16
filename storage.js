@@ -113,7 +113,11 @@
     'maermin_dividend_cache',     // dividend data per symbol (dividend-data-service.js)
     'maermin_marketcap_cache',    // market cap per symbol (market-cap.js)
     'maermin_symbol_suffix',      // resolved exchange suffixes (renderer.js)
-    'maermin_div_notified'        // dividend reminders sent, symbol@date (dividend-reminder.js)
+    'maermin_div_notified',       // dividend reminders sent, symbol@date (dividend-reminder.js)
+    'maermin_no_listing',         // symbols with no listing, skipped for 6 h (close-history.js); typed holding names
+    // The sync destination: the Worker URL or the WebDAV folder (server host
+    // and account name). Device-local, not synced or backed up.
+    'maermin_sync_config'
   ];
   var sensitiveSet = {};
   SENSITIVE_KEYS.forEach(function (k) { sensitiveSet[k] = true; });

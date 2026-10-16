@@ -84,23 +84,34 @@
   // cost ~70 Worker requests against a per-IP limit (AUDIT BUG-036). Only clean
   // 404s mark a symbol; timeouts, 429 and 5xx do not. Kept in localStorage
   // too, so a reload does not re-probe every unlisted coin pair ("ZELCASH-USD")
-  // on each refresh and chart build.
+  // on each refresh and chart build. The key is encrypted at rest (typed
+  // holding names), so it is read on first use once the vault is open, not
+  // when this script loads; marks made before that are merged in.
   var NO_LISTING_MS = 6 * 3600 * 1000;
   var NO_LISTING_KEY = 'maermin_no_listing';
-  var _noListing = {};
+  var _noListing = {}, _noListingRead = false;
   function lsNoListing() { try { return typeof localStorage !== 'undefined' ? localStorage : null; } catch (e) { return null; } }
-  (function () {
+  function vaultOpen() {
+    var w = (typeof window !== 'undefined') ? window : {}, V = w.MaerminVault, St = w.MaerminStorage;
+    if (St && typeof St.isEnabled === 'function' && !St.isEnabled()) return true; // no encryption at rest
+    return !V || typeof V.isUnlocked !== 'function' || V.isUnlocked();
+  }
+  // Locked again: forget the marks in memory; they are read again after the next unlock.
+  try { if (typeof window !== 'undefined' && window.MaerminVault && window.MaerminVault.onLock) window.MaerminVault.onLock(function () { _noListing = {}; _noListingRead = false; }); } catch (e) {}
+  function readNoListing() {
+    if (_noListingRead || !vaultOpen()) return;
+    _noListingRead = true;
     var ls = lsNoListing(); if (!ls) return;
     try {
       var saved = JSON.parse(ls.getItem(NO_LISTING_KEY) || '{}') || {}, t0 = Date.now();
-      Object.keys(saved).forEach(function (k) { if (t0 - saved[k] < NO_LISTING_MS) _noListing[k] = saved[k]; });
+      Object.keys(saved).forEach(function (k) { if (t0 - saved[k] < NO_LISTING_MS && !(_noListing[k] > saved[k])) _noListing[k] = saved[k]; });
     } catch (e) {}
-  })();
-  function saveNoListing() { var ls = lsNoListing(); if (ls) { try { ls.setItem(NO_LISTING_KEY, JSON.stringify(_noListing)); } catch (e) {} } }
+  }
+  function saveNoListing() { var ls = lsNoListing(); if (ls && _noListingRead) { try { ls.setItem(NO_LISTING_KEY, JSON.stringify(_noListing)); } catch (e) {} } }
   var noListing = {
-    mark: function (sym) { var k = String(sym || '').trim().toUpperCase(); if (k) { _noListing[k] = Date.now(); saveNoListing(); } },
-    has: function (sym) { var t = _noListing[String(sym || '').trim().toUpperCase()]; return !!(t && Date.now() - t < NO_LISTING_MS); },
-    clear: function (sym) { var k = String(sym || '').trim().toUpperCase(); if (_noListing[k]) { delete _noListing[k]; saveNoListing(); } }
+    mark: function (sym) { readNoListing(); var k = String(sym || '').trim().toUpperCase(); if (k) { _noListing[k] = Date.now(); saveNoListing(); } },
+    has: function (sym) { readNoListing(); var t = _noListing[String(sym || '').trim().toUpperCase()]; return !!(t && Date.now() - t < NO_LISTING_MS); },
+    clear: function (sym) { readNoListing(); var k = String(sym || '').trim().toUpperCase(); if (_noListing[k]) { delete _noListing[k]; saveNoListing(); } }
   };
 
   function keyOf(category, symbol) {

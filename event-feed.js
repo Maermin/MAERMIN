@@ -171,7 +171,7 @@ function __(k, f, v) { return (typeof window !== 'undefined' && window.MaerminI1
   }
 
   // ---- ICS (RFC 5545) -------------------------------------------------------------
-  function icsEscape(s) { return String(s == null ? '' : s).replace(/\\/g, '\\\\').replace(/;/g, '\\;').replace(/,/g, '\\,').replace(/\r?\n/g, '\\n'); }
+  function icsEscape(s) { return String(s == null ? '' : s).replace(/\\/g, '\\\\').replace(/;/g, '\\;').replace(/,/g, '\\,').replace(/\r\n|\r|\n/g, '\\n'); }
   function utf8Len(ch) { var c = ch.codePointAt(0); return c < 0x80 ? 1 : c < 0x800 ? 2 : c < 0x10000 ? 3 : 4; }
   // Lines longer than 75 octets continue on the next line after one space;
   // characters are never split.

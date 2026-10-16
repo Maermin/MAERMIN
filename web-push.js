@@ -10,6 +10,9 @@
 // Every message is encrypted here to this browser's push subscription
 // (push-crypto.js, RFC 8291): the Worker and the push service carry only
 // ciphertext. The lock screen shows generic text unless "details" is on.
+// Each message's send time (`at`) travels in clear: dividend reminders follow
+// the expected pay dates, so the Worker can infer roughly which payers are
+// held. The Privacy page and docs/WORKER.md say so.
 // Weight, value and drawdown rules and the risk monitor need the whole
 // portfolio, so they keep notifying only while the app is open.
 //
