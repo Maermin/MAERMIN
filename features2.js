@@ -681,7 +681,6 @@ function parseByBroker(text, brokerId) {
 // Inline SVG/PNG data-URIs der Broker-Logos — keine externe Abhängigkeit
 const BROKER_LOGOS = {
   cointracking: `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100"><rect width="100" height="100" rx="18" fill="#1a73e8"/><text x="50" y="68" font-size="52" font-weight="900" font-family="Arial,sans-serif" fill="white" text-anchor="middle">CT</text></svg>`,
-  getquin:      `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100"><rect width="100" height="100" rx="18" fill="#00c805"/><text x="50" y="68" font-size="52" font-weight="900" font-family="Arial,sans-serif" fill="white" text-anchor="middle">gq</text></svg>`,
   degiro:       `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100"><rect width="100" height="100" rx="18" fill="#ff6600"/><text x="50" y="68" font-size="42" font-weight="900" font-family="Arial,sans-serif" fill="white" text-anchor="middle">DE</text></svg>`,
   tradeRepublic:`<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100"><rect width="100" height="100" rx="18" fill="#111"/><text x="50" y="68" font-size="52" font-weight="900" font-family="Arial,sans-serif" fill="white" text-anchor="middle">TR</text></svg>`,
   interactiveBrokers:`<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100"><rect width="100" height="100" rx="18" fill="#d40000"/><text x="50" y="68" font-size="52" font-weight="900" font-family="Arial,sans-serif" fill="white" text-anchor="middle">IB</text></svg>`,
@@ -720,7 +719,6 @@ const BROKERS = [
   { id: 'cointracking',       name: 'CoinTracking',        hint: 'CSV Full Export',              category: CAT_TRACKER },
   { id: 'portfolioPerformance', name: 'Portfolio Performance', hint: '', hintKey: 'bhPpCsv', category: CAT_TRACKER },
   { id: 'parqet',             name: 'Parqet',               hint: '', hintKey: 'bhParqetCsv', category: CAT_TRACKER },
-  { id: 'getquin',            name: 'getquin',              hint: 'No CSV export available', hintKey: 'bhNoExport', category: CAT_TRACKER, noExport: true },
   { id: 'degiro',             name: 'DEGIRO',               hint: 'Transactions.csv',             category: 'Broker' },
   { id: 'tradeRepublic',      name: 'Trade Republic',       hint: 'Transaction history CSV', hintKey: 'bhTxHistory', category: 'Broker' },
   { id: 'scalable',           name: 'Scalable Capital',     hint: 'Transaction report CSV', hintKey: 'bhTxReport', category: 'Broker' },
@@ -931,7 +929,7 @@ function BrokerImportWizard({ theme, t, addToast, onImport, existing, workerUrl 
   };
 
   useEffect(() => {
-    if (!rawData || !selectedBroker || selectedBroker === 'getquin') return;
+    if (!rawData || !selectedBroker) return;
     try {
       const txs = parseByBroker(rawData, selectedBroker);
       // No toast when this legacy parser finds nothing: the mapping preview
@@ -1024,42 +1022,18 @@ function BrokerImportWizard({ theme, t, addToast, onImport, existing, workerUrl 
                   background: selectedBroker === b.id ? `${theme.accent}22` : theme.card,
                   border: `1px solid ${selectedBroker === b.id ? theme.accent : theme.cardBorder}`,
                   borderRadius: '10px', padding: '0.875rem', cursor: 'pointer',
-                  display: 'flex', alignItems: 'center', gap: '0.75rem', transition: 'all 0.15s',
-                  opacity: b.noExport ? 0.75 : 1
+                  display: 'flex', alignItems: 'center', gap: '0.75rem', transition: 'all 0.15s'
                 }
               },
                 React.createElement(BrokerLogo, { brokerId: b.id, name: b.name, size: 36 }),
                 React.createElement('div', null,
                   React.createElement('div', { style: { color: theme.text, fontWeight: '600', fontSize: '0.875rem' } }, b.name),
-                  React.createElement('div', { style: { color: b.noExport ? theme.warning : theme.textSecondary, fontSize: '0.7rem', marginTop: '0.125rem' } }, b.hintKey ? __(b.hintKey, b.hint) : b.hint)
+                  React.createElement('div', { style: { color: theme.textSecondary, fontSize: '0.7rem', marginTop: '0.125rem' } }, b.hintKey ? __(b.hintKey, b.hint) : b.hint)
                 )
               )
             )
           )
         )
-      )
-    ),
-
-    // ── Step 1: getquin info OR file upload ──────────────────────────────────
-    step === 1 && selectedBroker === 'getquin' && React.createElement('div', null,
-      React.createElement('div', {
-        style: { background: 'rgba(245,158,11,0.08)', border: '1px solid rgba(245,158,11,0.3)', borderRadius: '16px', padding: '1.5rem', marginBottom: '1.5rem' }
-      },
-        
-        React.createElement('h3', { style: { color: theme.text, fontWeight: '700', marginBottom: '0.75rem' } }, __('biGetquinTitle', 'getquin has no CSV export')),
-        React.createElement('p', { style: { color: theme.textSecondary, fontSize: '0.875rem', lineHeight: '1.7', marginBottom: '1rem' } },
-          __('biGetquinBody', 'getquin does not let you export your transactions. Once the data is in there, it is "locked in" — that is a deliberate design decision by the app.')
-        ),
-        React.createElement('div', { style: { color: theme.text, fontSize: '0.875rem', fontWeight: '600', marginBottom: '0.5rem' } }, __('biYourOptions', 'Your options:')),
-        React.createElement('div', { style: { color: theme.textSecondary, fontSize: '0.8rem', lineHeight: '2' } },
-          React.createElement('div', null, __('biOpt1', '① Enter transactions manually in MAERMIN (+ Symbol key, or Add Transaction)')),
-          React.createElement('div', null, __('biOpt2', '② Export the original broker CSV and import it here (e.g. DEGIRO, Trade Republic, Coinbase)')),
-          React.createElement('div', null, __('biOpt3', '③ Take a screenshot of your getquin positions and enter them manually'))
-        )
-      ),
-      React.createElement('div', { style: { display: 'flex', gap: '0.5rem' } },
-        btn(__('back', '← Back'), reset),
-        btn(__('biAddManually', 'Add manually'), () => { addToast && addToast(__('biUsePlusTx', 'Use "+ Transaction" to enter positions manually'), 'info'); reset(); })
       )
     ),
 
@@ -1092,7 +1066,7 @@ function BrokerImportWizard({ theme, t, addToast, onImport, existing, workerUrl 
     ),
 
     // ── Step 1: Generic file upload ──────────────────────────────────────────
-    step === 1 && selectedBroker !== 'getquin' && selectedBroker !== 'cointracking' && React.createElement('div', null,
+    step === 1 && selectedBroker !== 'cointracking' && React.createElement('div', null,
       (selectedBroker === 'portfolioPerformance' || selectedBroker === 'parqet') && React.createElement('div', { 'data-testid': 'tracker-howto', style: { background: theme.card, border: `1px solid ${theme.cardBorder}`, borderRadius: '10px', padding: '1rem', marginBottom: '1rem', fontSize: '0.8rem', color: theme.textSecondary, lineHeight: '1.8' } },
         React.createElement('div', { style: { color: theme.text, fontWeight: '700', marginBottom: '0.375rem' } }, __('biTrackerInstr', 'How to export:')),
         selectedBroker === 'portfolioPerformance'

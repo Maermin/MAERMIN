@@ -25,11 +25,6 @@ function __(k, f, v) { return (typeof window !== 'undefined' && window.MaerminI1
     return I18n().num(value, decimals !== undefined ? decimals : 2);
   }
 
-  // Signed percent, e.g. 1.23 -> "+1.23%" (en) / "+1,23 %" (de)
-  function formatPercentSigned(value) {
-    return I18n().pct(value, 2, true);
-  }
-
   // Calendar date, e.g. "2024-03-01" -> "03/01/2024" (en) / "01.03.2024" (de)
   function formatDate(dateStr) {
     return I18n().date(dateStr, 'short');
@@ -361,7 +356,6 @@ function __(k, f, v) { return (typeof window !== 'undefined' && window.MaerminI1
     missingTxFields,
     txTypeInfo,
     formatNumber,
-    formatPercentSigned,
     formatDate,
     generateId,
     clamp,
