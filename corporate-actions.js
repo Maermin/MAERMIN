@@ -453,7 +453,7 @@ function __(k, f, v) { return (typeof window !== 'undefined' && window.MaerminI1
     var label = { display: 'block', color: dim, fontSize: '0.68rem', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '0.25rem' };
     var set = function (k) { return function (ev) { var o = Object.assign({}, form); o[k] = ev.target.value; setForm(o); }; };
     var field = function (k, lbl, attrs) {
-      return e('div', { key: k }, e('label', { style: label }, lbl), e('input', Object.assign({ value: form[k], onChange: set(k), style: input, 'data-testid': 'ce-' + k }, attrs || {})));
+      return e('div', { key: k }, e('label', { style: label }, lbl), e('input', Object.assign({ value: form[k], onChange: set(k), style: input, 'aria-label': lbl, 'data-testid': 'ce-' + k }, attrs || {})));
     };
     var ratio = form.kind === 'merger' || form.kind === 'spinoff';
     var add = function () {
@@ -484,7 +484,7 @@ function __(k, f, v) { return (typeof window !== 'undefined' && window.MaerminI1
       })) : e('div', { style: { color: dim, fontSize: '0.8rem', marginBottom: '0.75rem' } }, __('ceNone', 'No symbol or ISIN change, merger or spin-off recorded.')),
       e('div', { style: { display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(130px, 1fr))', gap: '0.5rem', alignItems: 'end' } },
         e('div', null, e('label', { style: label }, __('ceKind', 'Kind')),
-          e('select', { value: form.kind, onChange: set('kind'), style: input, 'data-testid': 'ce-kind' },
+          e('select', { value: form.kind, onChange: set('kind'), style: input, 'aria-label': __('ceKind', 'Kind'), 'data-testid': 'ce-kind' },
             ['symbol_change', 'isin_change', 'merger', 'spinoff'].map(function (k) { return e('option', { key: k, value: k }, kindLabel(k)); }))),
         field('date', __('caDate', 'Date'), { type: 'date' }),
         field('newSymbol', form.kind === 'isin_change' ? __('ceNewIsin', 'New ISIN') : form.kind === 'spinoff' ? __('ceChildSymbol', 'New company symbol') : __('ceNewSymbol', 'New symbol'), { type: 'text' }),

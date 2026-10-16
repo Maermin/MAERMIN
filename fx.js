@@ -64,6 +64,32 @@
     for (var p = el.parentElement; p; p = p.parentElement) if (isCard(p)) return p;
     return null;
   }
+  function accentFilled(s) {
+    var bg = parseRGB(s.backgroundColor) || null;
+    if (!bg && s.background && s.background.indexOf('gradient') > -1 && ACC) {
+      // gradient fills that start with the accent
+      bg = parseRGB(s.background);
+    }
+    return !!(bg && bg.a > 0.85 && (near(bg, ACC) || near(bg, ACC_FILL)));
+  }
+  // cleanup B-2: a pill or tab drawn without aria-pressed is accent-filled only
+  // while selected. Tagged once, it kept the .mx-primary gradient (!important)
+  // after another option was picked, so two options looked selected. Tagged
+  // buttons are watched; one that stops being accent-filled is a toggle and
+  // loses the class for good.
+  var primaryWatch = null;
+  function watchPrimary(el) {
+    if (typeof MutationObserver === 'undefined') return;
+    if (!primaryWatch) primaryWatch = new MutationObserver(function (muts) {
+      for (var i = 0; i < muts.length; i++) {
+        var b = muts[i].target;
+        if (b.__mxToggle || !b.classList.contains('mx-primary') || accentFilled(b.style)) continue;
+        b.__mxToggle = 1;
+        b.classList.remove('mx-primary');
+      }
+    });
+    primaryWatch.observe(el, { attributes: true, attributeFilter: ['style'] });
+  }
   function classify(el, ops) {
     if (el.nodeType !== 1 || el.__mxSeen) return;
     var s = el.style;
@@ -74,12 +100,7 @@
       // Toggle / tab buttons are accent-filled only while selected; a button is
       // tagged once, so the gradient stuck to the option selected first.
       if (el.hasAttribute('aria-pressed') || el.hasAttribute('aria-selected') || el.getAttribute('role') === 'tab') { el.__mxSeen = 1; return; }
-      var bg = parseRGB(s.backgroundColor) || null;
-      if (!bg && s.background && s.background.indexOf('gradient') > -1 && ACC) {
-        // gradient fills that start with the accent
-        bg = parseRGB(s.background);
-      }
-      if (!(bg && bg.a > 0.85 && (near(bg, ACC) || near(bg, ACC_FILL)))) { el.__mxSeen = 1; return; }
+      if (!accentFilled(s)) { el.__mxSeen = 1; return; }
       // Not laid out yet (hidden tab, mounting): leave unseen; settle() retries.
       if (!el.offsetWidth) { deferred.push(el); return; }
       el.__mxSeen = 1;
@@ -105,6 +126,7 @@
     for (var i = 0; i < ops.length; i++) {
       var o = ops[i];
       o[0].classList.add(o[1]);
+      if (o[1] === 'mx-primary') watchPrimary(o[0]);
       if (o[1] === 'mx-card') {
         if (o[2]) o[0].classList.add('mx-card-lg');
         queueReveal(o[0]);

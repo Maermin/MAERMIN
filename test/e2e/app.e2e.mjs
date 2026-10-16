@@ -1154,14 +1154,37 @@ async function runBuild(browser, label, dir) {
     await page.evaluate(() => { localStorage.setItem('maermin_demo', '1'); localStorage.setItem('maermin_ui_mode', 'advanced'); localStorage.setItem('maermin_onboarded', '1'); });
     let chart = 0, twr = '', cells = 0, closed = '', stored = 'x', err = '';
     let returnsText = '', intelText = '', rbEmpty = 0, rbPlan = -1, ovReturns = '';
-    let brokerOv = '', rows = 0, before = null, after = null;
+    let brokerOv = '', rows = 0, before = null, after = null, pills = null;
     // P5-1.8: Worker-only views run on in-page sample data; nothing may reach the network
     const sampleReqs = []; page.on('request', (r) => { if (/maermin\.invalid/.test(r.url())) sampleReqs.push(r.url()); });
     const fixtures = {}; let dqText = '', va = null, br = null, lt = null, dh = null, hrd = null, agd = null, txd = null;
+    // cleanup B-5: count value-tick flashes (motion.js) while the demo starts
+    await page.addInitScript(() => {
+      window.__ticks = [];
+      new MutationObserver((muts) => muts.forEach((m) => {
+        const el = m.target;
+        if (el.classList && (el.classList.contains('mx-tick-up') || el.classList.contains('mx-tick-down')) && el.closest('.maermin-main')) window.__ticks.push(el.textContent.trim().slice(0, 20));
+      })).observe(document, { subtree: true, attributes: true, attributeFilter: ['class'] });
+    });
+    let startTicks = null, posDlg = null;
     try {
       await unlock(page, base);
       await page.keyboard.press('Escape');
       await page.waitForTimeout(1500);
+      startTicks = await page.evaluate(() => window.__ticks.slice());
+      // cleanup V-5 / U-4: the position detail names the holding, fades the
+      // cut edge of its monthly grid and labels every field
+      await page.locator('main table tbody tr').filter({ hasText: 'Bitcoin' }).first().click();
+      await page.locator('[data-testid="pos-title"]').waitFor({ timeout: 8000 }).catch(() => {});
+      await page.waitForTimeout(1200);
+      posDlg = await page.evaluate(() => {
+        const d = [...document.querySelectorAll('[role=dialog]')].pop();
+        const t = document.querySelector('[data-testid="pos-title"]');
+        const unnamed = d ? [...d.querySelectorAll('input, select, textarea')].filter((i) => i.getClientRects().length && !(i.getAttribute('aria-label') || (i.labels && i.labels.length) || i.title)).map((i) => i.outerHTML.slice(0, 60)) : ['no dialog'];
+        return { title: t ? t.innerText : '', more: !!document.querySelector('[data-testid="pos-heatmap"] [data-more="right"]'), unnamed };
+      });
+      await page.keyboard.press('Escape');
+      await page.waitForTimeout(400);
       chart = await page.locator('main svg path').count();
       await page.locator('[data-pos-tab="closed"]').click();
       closed = await page.locator('[data-pos-tab="closed"]').innerText();
@@ -1218,6 +1241,28 @@ async function runBuild(browser, label, dir) {
         await page.waitForTimeout(id === 'news' ? 2000 : 1200);
         fixtures[id] = { badges: await page.locator('main [data-testid="sample-data"]').count(), text: await page.locator('main').innerText() };
       }
+      // cleanup B-2: after picking another option exactly one option of the
+      // group looks and reads as selected (fx.js used to keep the first
+      // option's primary gradient).
+      const pickAndLook = async (view, labels, pick) => {
+        await openView(page, view);
+        await page.waitForTimeout(1200);
+        await page.locator('main button[aria-pressed]').filter({ hasText: new RegExp('^' + pick + '$') }).last().click();
+        await page.mouse.move(1, 1);
+        await page.waitForTimeout(900);
+        return page.evaluate(([labels, pick]) => {
+          const bs = [...document.querySelectorAll('main button[aria-pressed]')].filter((b) => labels.includes(b.innerText.trim()) && b.offsetParent);
+          const group = bs.filter((b) => b.parentElement === bs.find((x) => x.innerText.trim() === pick && x.getAttribute('aria-pressed') === 'true').parentElement);
+          const sig = (b) => { const s = getComputedStyle(b); return s.backgroundImage + '|' + s.backgroundColor; };
+          const count = {}; group.forEach((b) => { count[sig(b)] = (count[sig(b)] || 0) + 1; });
+          const common = Object.keys(count).sort((a, b) => count[b] - count[a])[0];
+          return { looks: group.filter((b) => sig(b) !== common).map((b) => b.innerText.trim()), pressed: group.filter((b) => b.getAttribute('aria-pressed') === 'true').map((b) => b.innerText.trim()) };
+        }, [labels, pick]).catch((e) => ({ error: String(e.message).split('\n')[0] }));
+      };
+      pills = {
+        discovery: await pickAndLook('discovery', ['Top Movers', 'Screener', 'Dividends'], 'Dividends'),
+        bench: await pickAndLook('returns', ['MSCI World', 'FTSE All-World', 'S&P 500'], 'FTSE All-World')
+      };
       // P5-2.8: Strategy → Providers & brokers
       await openView(page, 'investment-analysis');
       await page.getByRole('button', { name: /Providers & brokers/ }).first().click().catch(() => {});
@@ -1367,6 +1412,12 @@ async function runBuild(browser, label, dir) {
     ok('P5-1.7: switching demo portfolios writes nothing to the user\'s storage', !!before && JSON.stringify(before) === JSON.stringify(after), err || JSON.stringify([before, after]).slice(0, 200));
     ok('P4-9: demo TWR is a figure, the monthly grid is filled', /[+-]\d/.test(twr) && cells > 12, err || twr.replace(/\s+/g, ' ') + ' | cells ' + cells);
     ok('P4-9: demo shows a closed position', /\(1\)/.test(closed), err || closed);
+    ok('cleanup V-5: the position detail is titled "Bitcoin BTC" and fades the cut edge of its monthly grid', !!posDlg && /^Bitcoin\s*BTC$/.test(posDlg.title.trim()) && posDlg.more, err || JSON.stringify(posDlg));
+    ok('cleanup U-4: every field in the position detail has a label', !!posDlg && posDlg.unnamed.length === 0, err || JSON.stringify(posDlg && posDlg.unnamed));
+    ok('cleanup B-5: no value ticks flash while the demo Overview starts', Array.isArray(startTicks) && startTicks.length === 0, err || JSON.stringify(startTicks));
+    { const one = (r, pick) => !!r && !r.error && r.looks.length === 1 && r.looks[0] === pick && r.pressed.length === 1 && r.pressed[0] === pick;
+      ok('cleanup B-2: Discovery shows one selected tab after picking Dividends', one(pills && pills.discovery, 'Dividends'), err || JSON.stringify(pills && pills.discovery));
+      ok('cleanup B-2: the benchmark selector shows one selected benchmark after picking FTSE All-World', one(pills && pills.bench, 'FTSE All-World'), err || JSON.stringify(pills && pills.bench)); }
     ok('P4-9: the sample closes are never stored', stored === null, err || String(stored).slice(0, 60));
     ok('no page errors in the demo session', errors.length === 0, errors.join(' | '));
     await context.close();
@@ -2337,6 +2388,8 @@ async function runBuild(browser, label, dir) {
         await page.locator('[data-testid="sync-dest-name"]').waitFor({ timeout: 5000 });
         dest = await page.locator('[data-testid="sync-dest-name"]').innerText();
         rec = JSON.parse(dav.files[FILE].body);
+        // ciphertext only: version + base64 parts. Plaintext JSON would carry quotes and braces; a symbol
+        // name is no test, since random base64 can spell AAPL
         // someone without the key changes the copy: the next sync refuses it
         putsBefore = dav.puts;
         const j = JSON.parse(dav.files[FILE].body); j.blob = j.blob.slice(0, -6) + 'AAAAAA';
@@ -2350,7 +2403,7 @@ async function runBuild(browser, label, dir) {
       } catch (e) { err = e.message.split('\n')[0]; }
       await page.unroute('https://dav-e2e.workers.dev/**');
       ok('P5-5.6: a WebDAV host the security policy does not name gets that message', policy, err);
-      ok('P5-5.6: WebDAV sync uploads a MAERMIN sync record - ciphertext only, with a MAC', !err && rec && rec.format === 'maermin-sync' && rec.rev >= 1 && /^[0-9a-f]{64}$/.test(rec.mac) && !/VWCE|AAPL/.test(rec.blob) && /dav-e2e\.workers\.dev/.test(dest), err || JSON.stringify(rec || {}).slice(0, 200));
+      ok('P5-5.6: WebDAV sync uploads a MAERMIN sync record - ciphertext only, with a MAC', !err && rec && rec.format === 'maermin-sync' && rec.rev >= 1 && /^[0-9a-f]{64}$/.test(rec.mac) && /^[0-9]+(\.[A-Za-z0-9+/=]+)+$/.test(rec.blob) && /dav-e2e\.workers\.dev/.test(dest), err || JSON.stringify(rec || {}).slice(0, 200));
       ok('P5-5.6: a copy changed without the key is refused and not overwritten', !err && refused && putsAfter === putsBefore, err || putsBefore + ' -> ' + putsAfter);
       ok('P5-5.6: the app password is in no plain config key', !err && leaked === false, err);
     }
@@ -2623,7 +2676,9 @@ async function runBuild(browser, label, dir) {
         if (areas.join() !== 'portfolio,transactions,dividends,taxes,analysis,settings') bad.push('dock: ' + areas.join());
         await page.locator('.mx-bottom-nav [data-area="analysis"]').click();
         await page.waitForTimeout(300);
-        if (!(await page.locator('.mx-bottom-nav [data-area="analysis"][aria-current="page"]').count())) bad.push('analysis not current');
+        if (!(await page.locator('.mx-bottom-nav [data-area="analysis"][aria-current="true"]').count())) bad.push('analysis not current');
+        // cleanup V-7: the dock area holds the page, it is not the page itself
+        if (await page.locator('.mx-bottom-nav [aria-current="page"]').count()) bad.push('dock area says aria-current=page');
         const chips = await page.locator('main .mx-area-entries [data-area-entry]').evaluateAll((els) => els.filter((e) => e.getClientRects().length).map((e) => e.dataset.areaEntry));
         if (chips.join() !== 'grp-returns,grp-health') bad.push('chips: ' + chips.join());
         await page.locator('main .mx-area-entries [data-area-entry="grp-health"]').click();

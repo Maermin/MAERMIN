@@ -87,7 +87,15 @@
   }
 
   // ---- value change handling ----------------------------------------------
+  // cleanup B-5: while a view mounts its figures settle (sample prices, FX,
+  // the value path) - that is not "a price moved". Ticks then flashed a red ▼
+  // on "+4.88 %" next to a green gain and covered the cents of the total.
+  // No ticks during start-up and for a moment after a view is (re)placed.
+  var quietUntil = 0;
+  function quiet(ms) { quietUntil = Math.max(quietUntil, performance.now() + ms); }
+  quiet(3000);
   function onText(node, oldVal) {
+    if (performance.now() < quietUntil) return;
     // Our own animation frames (count-up in fx.js, decode here) are tagged via
     // __mxLast; any record whose old OR new value is one of them is ours.
     if ((node.__mxOwnUntil || 0) > performance.now()) return;
@@ -264,7 +272,7 @@
         if (!navDirty && (inSidebar(m.target) || m.target === rootEl)) navDirty = true;
         for (var j = 0; j < m.addedNodes.length; j++) {
           var n = m.addedNodes[j];
-          if (n.nodeType === 1) pend.push(n);
+          if (n.nodeType === 1) { pend.push(n); if (m.target.classList && m.target.classList.contains('maermin-main')) quiet(1500); }
           else if (n.nodeType === 3 && on && m.removedNodes.length === 1 && m.removedNodes[0].nodeType === 3) onText(n, m.removedNodes[0].nodeValue);
         }
       }

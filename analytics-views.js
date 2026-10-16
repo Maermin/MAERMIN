@@ -126,7 +126,7 @@ function __(k, f, v) { return (typeof window !== 'undefined' && window.MaerminI1
       e('div', { style: { display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '0.5rem', marginBottom: '0.9rem' } },
         e('h3', { style: { color: text, fontSize: '1rem', fontWeight: '700', margin: 0 } }, __('avBenchTitle', 'Benchmark comparison'), ' ', window.MaerminDemoFixtures && window.MaerminDemoFixtures.badge(React, theme, workerBase)),
         e('div', { style: { display: 'flex', gap: '0.3rem', flexWrap: 'wrap' } }, presets.map(function (b) {
-          return e('button', { key: b.key, onClick: function () { setSel(b.key); }, style: { padding: '0.35rem 0.7rem', borderRadius: '8px', border: 'none', cursor: 'pointer', fontSize: '0.76rem', fontWeight: sel === b.key ? '700' : '500', background: sel === b.key ? accent : inputBg, color: sel === b.key ? '#ffffff' : dim } }, b.label);
+          return e('button', { key: b.key, type: 'button', 'aria-pressed': sel === b.key, onClick: function () { setSel(b.key); }, style: { padding: '0.35rem 0.7rem', borderRadius: '8px', border: 'none', cursor: 'pointer', fontSize: '0.76rem', fontWeight: sel === b.key ? '700' : '500', background: sel === b.key ? accent : inputBg, color: sel === b.key ? '#ffffff' : dim } }, b.label);
         }))
       ),
       body

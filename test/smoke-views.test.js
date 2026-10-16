@@ -98,7 +98,7 @@ const VIEW_MODULES = [
   { file: '../features5.js',        ns: 'MaerminFeatures5', comps: ['NetWorthView', 'CashflowChart', 'FeeAnalyzer'] },
   { file: '../features6.js',        ns: 'MaerminFeatures6', comps: ['PortfolioHistoryChart'] },
   { file: '../features7.js',        ns: 'MaerminFeatures7', comps: ['PerformanceAttribution', 'RealizedUnrealizedView', 'NewsFeedView'] },
-  { file: '../investment-views.js', ns: 'InvestmentViews',  comps: ['DCAAnalyzerView', 'SectorAllocationView', 'CountryAllocationView', 'CurrencyExposureView', 'LiquidityAnalysisView', 'GoalInvestingView', 'InvestmentAnalysisDashboard', 'AnalysisCard', 'MetricGrid', 'DataTable', 'ProgressBar', 'TabBar'] },
+  { file: '../investment-views.js', ns: 'InvestmentViews',  comps: ['DCAAnalyzerView', 'SectorAllocationView', 'CountryAllocationView', 'CurrencyExposureView', 'LiquidityAnalysisView', 'GoalInvestingView', 'InvestmentAnalysisDashboard', 'AnalysisCard', 'MetricGrid', 'DataTable', 'ProgressBar'] },
   { file: '../portfolio-health.js', ns: 'PortfolioHealth',  comps: ['HealthView', 'computeHealth'] },
   // Analytics fold-in panels + first-run onboarding (engine surfaced in existing views).
   { file: '../analytics-views.js',  ns: 'MaerminAnalyticsViews', comps: ['BenchmarkPanel', 'RollingRiskPanel', 'FactorExposurePanel'] },
@@ -213,7 +213,7 @@ const MUST_RENDER = [
   ['MaerminProjection', 'Panel', baseProps],
   // Leaf chart / data / card components. Prop-bag components take baseProps so
   // they also get the empty-data variant for free; the two with bespoke props
-  // (DataTable, TabBar) follow the AnalysisCard/MetricGrid pattern above.
+  // (DataTable) follows the AnalysisCard/MetricGrid pattern above.
   ['MaerminFeatures6', 'PortfolioHistoryChart', baseProps],
   ['MaerminFeatures7', 'PerformanceAttribution', baseProps],
   ['MaerminFeatures7', 'NewsFeedView', baseProps],
@@ -224,7 +224,6 @@ const MUST_RENDER = [
   ['InvestmentViews', 'CurrencyExposureView', baseProps],
   ['InvestmentViews', 'LiquidityAnalysisView', baseProps],
   ['InvestmentViews', 'DataTable', { headers: ['A', 'B'], rows: [['1', '2']], theme }],
-  ['InvestmentViews', 'TabBar', { tabs: [{ id: 'x', label: 'X' }], active: 'x', onChange: noop, theme }],
   // Analytics fold-in panels: gate the no-worker / short-history note paths and the
   // engine-backed render. Hooks are stubbed (no fetch fires), so these exercise the
   // synchronous render body against representative + empty data.

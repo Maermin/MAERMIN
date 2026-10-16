@@ -223,42 +223,6 @@ function ProgressBar(props) {
   );
 }
 
-function TabBar(props) {
-  var T = useT();
-  var tabs = props.tabs || [];
-  var active = props.active;
-  var onChange = props.onChange;
-  
-  return React.createElement('div', { 
-    style: {
-      display: 'flex',
-      gap: '0.25rem',
-      padding: '0.25rem',
-      background: T.inputBg,
-      borderRadius: '8px',
-      marginBottom: '1rem',
-      flexWrap: 'wrap'
-    }
-  },
-    tabs.map(function(tab) {
-      var isActive = active === tab.id;
-      return React.createElement('button', {
-        key: tab.id,
-        onClick: function() { onChange(tab.id); },
-        style: {
-          padding: '0.5rem 1rem',
-          background: isActive ? T.accentSoft : 'transparent',
-          border: 'none',
-          color: isActive ? T.text : T.textSecondary,
-          cursor: 'pointer',
-          borderRadius: '6px',
-          fontSize: '0.875rem',
-          transition: 'all 0.2s'
-        }
-      }, tab.label);
-    })
-  );
-}
 
 // ============================================================================
 // DCA ANALYZER VIEW
@@ -268,10 +232,6 @@ function DCAAnalyzerView(props) {
   var T = useT();
   var portfolio = props.portfolio || {};
   var priceHistory = props.priceHistory || {};
-  
-  var _activeTab = useState('comparison');
-  var activeTab = _activeTab[0];
-  var setActiveTab = _activeTab[1];
   
   var _investAmount = useState(10000);
   var investAmount = _investAmount[0];
@@ -285,23 +245,46 @@ function DCAAnalyzerView(props) {
   var analysis = _analysis[0];
   var setAnalysis = _analysis[1];
   
-  // Convert priceHistory object to array for first asset
+  // cleanup B-3 (FINDINGS M-4): the user picks the holding (default: the
+  // largest one with prices) instead of whichever key came first, and the
+  // engine gets dated points so purchases fall on calendar dates.
+  var holdings = useMemo(function() {
+    var value = {};
+    ['crypto', 'stocks', 'skins', 'commodities'].forEach(function(cat) {
+      (portfolio[cat] || []).forEach(function(pos) {
+        var s = pos.symbol || pos.name || '';
+        var p = Number(props.prices && (props.prices[s.toLowerCase()] || props.prices[s])) || Number(pos.purchasePrice) || 0;
+        value[s] = (value[s] || 0) + (Number(pos.amount) || 0) * p;
+      });
+    });
+    return Object.keys(priceHistory).filter(function(k) { return Array.isArray(priceHistory[k]) && priceHistory[k].length > 1; })
+      .sort(function(a, b) { return (value[b] || 0) - (value[a] || 0) || (a < b ? -1 : 1); });
+  }, [priceHistory, portfolio, props.prices]);
+  var _sym = useState('');
+  var sym = holdings.indexOf(_sym[0]) !== -1 ? _sym[0] : (holdings[0] || '');
+  var setSym = _sym[1];
   var priceArray = useMemo(function() {
-    var keys = Object.keys(priceHistory);
-    if (keys.length === 0) return [];
-    var firstKey = keys[0];
-    var history = priceHistory[firstKey];
+    var history = sym ? priceHistory[sym] : null;
     if (!Array.isArray(history)) return [];
-    return history.map(function(h) { return h.price || h; });
-  }, [priceHistory]);
-  
+    return history.map(function(h) {
+      if (h && typeof h === 'object') return { timestamp: h.timestamp != null ? h.timestamp : h.date, price: Number(h.price) };
+      return { timestamp: null, price: Number(h) };
+    }).filter(function(h) { return h.price > 0 && h.timestamp != null; });
+  }, [priceHistory, sym]);
+  var _short = useState(null);
+  var shortInfo = _short[0], setShortInfo = _short[1];
+
   useEffect(function() {
-    if (window.DCAAnalyzerEngine && priceArray.length > 30) {
+    setShortInfo(null);
+    if (window.DCAAnalyzerEngine && priceArray.length > 1) {
       var result = window.DCAAnalyzerEngine.compareDCAvsLumpSum(investAmount, priceArray, {
         dcaPeriods: 12,
         dcaFrequency: frequency
       });
-      if (result && !result.error) {
+      if (result && result.error) {
+        setShortInfo({ need: Math.max(1, Math.round((result.neededDays || 0) / 30.44)), have: Math.max(0, Math.round((result.haveDays || 0) / 30.44)) });
+        setAnalysis(null);
+      } else if (result) {
         setAnalysis({
           winner: result.comparison.winner,
           dcaReturn: result.dca.return,
@@ -321,16 +304,18 @@ function DCAAnalyzerView(props) {
     }
   }, [investAmount, frequency, priceArray]);
   
-  var tabs = [
-    { id: 'comparison', label: __('ivDcaVsLump', 'DCA vs Lump Sum') },
-    { id: 'schedule', label: __('ivDcaSchedule', 'DCA Schedule') },
-    { id: 'projection', label: __('ivProjection', 'Projection') }
-  ];
-  
   return React.createElement('div', { style: { padding: '1rem' } },
     React.createElement('h2', { style: { color: T.text, marginBottom: '1rem' } }, __('ivDcaTitle', 'DCA Strategy Analyzer')),
     
     React.createElement('div', { style: { display: 'flex', gap: '1rem', marginBottom: '1rem', flexWrap: 'wrap' } },
+      holdings.length > 0 && React.createElement('div', null,
+        React.createElement('label', { htmlFor: 'dca-holding', style: { color: T.textSecondary, fontSize: '0.75rem', display: 'block', marginBottom: '0.25rem' } }, __('ivDcaHolding', 'Holding')),
+        React.createElement('select', {
+          id: 'dca-holding', 'data-testid': 'dca-holding', value: sym,
+          onChange: function(e) { setSym(e.target.value); },
+          style: { background: T.inputBg, border: '1px solid ' + T.inputBorder, borderRadius: '6px', padding: '0.5rem', color: T.text, maxWidth: '220px' }
+        }, holdings.map(function(k) { return React.createElement('option', { key: k, value: k }, k); }))
+      ),
       React.createElement('div', null,
         React.createElement('label', { style: { color: T.textSecondary, fontSize: '0.75rem', display: 'block', marginBottom: '0.25rem' } }, __('ivInvestAmount', 'Investment Amount')),
         React.createElement('input', {
@@ -368,12 +353,12 @@ function DCAAnalyzerView(props) {
       )
     ),
     
-    React.createElement(TabBar, { tabs: tabs, active: activeTab, onChange: setActiveTab }),
-    
     !analysis && React.createElement('div', {
       'data-testid': 'dca-empty',
       style: { background: T.card, border: '1px solid ' + T.cardBorder, borderRadius: '10px', padding: '1.25rem', color: T.textSecondary, fontSize: '0.875rem', lineHeight: 1.6 }
-    }, __('ivDcaEmpty', 'Not enough price history for a DCA vs lump-sum comparison yet. It needs more than 30 recorded price points for a holding; you have {n}. A point is recorded on every price refresh.', { n: priceArray.length })),
+    }, shortInfo
+      ? __('ivDcaShort', 'Not enough price history for {sym}: 12 purchases ({freq}) span {need} months, its prices cover {have}. Pick a shorter frequency or another holding.', { sym: sym, freq: window.MaerminI18n.freq(frequency), need: shortInfo.need, have: shortInfo.have })
+      : __('ivDcaNoData', 'No price history for a holding yet. Daily prices come through your Worker; without one, a point is recorded on every price refresh.')),
 
     analysis && React.createElement(AnalysisCard, {
       title: __('ivStratComp', 'Strategy Comparison'),
@@ -1359,7 +1344,6 @@ window.InvestmentViews = {
   MetricGrid: MetricGrid,
   DataTable: DataTable,
   ProgressBar: ProgressBar,
-  TabBar: TabBar,
   ThemeContext: ThemeCtx,
   MoneyContext: MoneyCtx,
   goalProgress: goalProgress
