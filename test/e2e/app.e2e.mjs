@@ -1113,10 +1113,11 @@ async function runBuild(browser, label, dir) {
         '2024-01-16T09:30;Kauf;-1.004,99;EUR;;;;4,99;;10;IE00B4L5Y983;A0RPWH;EUNL.DE;iShares Core MSCI World;',
         '2024-03-15T00:00;Dividende;8,50;EUR;11,55;USD;1,0870;;1,59;5;US0378331005;865985;AAPL;Apple Inc.;',
         '2024-06-03T14:00;Verkauf;520,00;EUR;;;;5,00;15,00;5;IE00B4L5Y983;A0RPWH;EUNL.DE;iShares Core MSCI World;'].join('\r\n');
-      let howto = '', info = '', chips = '', toast = '', err = '', deposit = null, pdfHint = '';
+      let howto = '', info = '', chips = '', toast = '', err = '', deposit = null, pdfHint = '', tiles = [];
       try {
         await openView(page, 'data');
         await page.getByRole('button', { name: /Broker Import/ }).click();
+        tiles = await page.getByRole('button', { name: /^Select broker / }).evaluateAll((els) => els.map((e) => e.getAttribute('aria-label').replace('Select broker ', '')));
         await page.getByRole('button', { name: 'Select broker Portfolio Performance' }).click();
         howto = await page.locator('[data-testid="tracker-howto"]').innerText();
         pdfHint = await page.getByText(/^PDF statements:/).first().innerText();
@@ -1127,6 +1128,7 @@ async function runBuild(browser, label, dir) {
         toast = await page.getByText(/4 transactions imported/).first().innerText();
         deposit = await page.evaluate(() => JSON.parse(localStorage.getItem('transactions') || '[]').find((x) => x.date === '2024-01-15' && x.type === 'deposit'));
       } catch (e) { err = e.message.split('\n')[0]; }
+      ok('cleanup D-4: the import wizard has no getquin tile, the other trackers stay', tiles.length > 5 && !tiles.some((n) => /getquin/i.test(n)) && tiles.includes('Parqet') && tiles.includes('CoinTracking'), err || tiles.join(', '));
       ok('P4-8: the PP tile explains the export (Depotumsätze / Kontoumsätze)', /Securities Account Transactions/.test(howto) && /Kontoumsätze/.test(howto), err || howto);
       ok('P4-8: file read as Portfolio Performance, booking rules shown, no column mapping', /How Portfolio Performance rows are booked/.test(info), err || info);
       ok('P4-8 / P5-1.3: 4 valid rows (the deposit is a cash booking now), none skipped', /Detected: Portfolio Performance/.test(chips) && /4 valid/.test(chips) && !/skipped/.test(chips), err || chips);

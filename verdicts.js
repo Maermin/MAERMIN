@@ -117,7 +117,6 @@
   function disclaimer() { return __('vdNoAdvice', 'Rules of thumb for orientation, not investment advice.'); }
 
   var api = {
-    THRESHOLDS: { VOL: VOL, DD: DD, RATIO: RATIO, BENCH_LEVEL_PP: BENCH_LEVEL_PP, HEALTH: HEALTH, DIV: DIV },
     benchmark: benchmark, replay: replay, sharpe: sharpe, sortino: sortino, volatility: volatility,
     drawdown: drawdown, health: health, dividendSafety: dividendSafety,
     cumulativeDiffPp: cumulativeDiffPp, disclaimer: disclaimer
