@@ -1275,13 +1275,28 @@ async function runBuild(browser, label, dir) {
           const sig = (b) => { const s = getComputedStyle(b); return s.backgroundImage + '|' + s.backgroundColor; };
           const count = {}; group.forEach((b) => { count[sig(b)] = (count[sig(b)] || 0) + 1; });
           const common = Object.keys(count).sort((a, b) => count[b] - count[a])[0];
-          return { looks: group.filter((b) => sig(b) !== common).map((b) => b.innerText.trim()), pressed: group.filter((b) => b.getAttribute('aria-pressed') === 'true').map((b) => b.innerText.trim()) };
+          // cleanup V-2: text contrast of the selected option on what is behind it
+          const rgb = (c) => { const m = (c.match(/[\d.]+/g) || []).map(Number); return { c: m.slice(0, 3), a: m[3] == null ? 1 : m[3] }; };
+          const lum = (c) => { const f = (v) => { v /= 255; return v <= 0.03928 ? v / 12.92 : Math.pow((v + 0.055) / 1.055, 2.4); }; return 0.2126 * f(c[0]) + 0.7152 * f(c[1]) + 0.0722 * f(c[2]); };
+          const under = (el) => { for (let e = el; e; e = e.parentElement) { const b = rgb(getComputedStyle(e).backgroundColor); if (b.a > 0.9) return b.c; } return [255, 255, 255]; };
+          const sel = group.find((b) => b.getAttribute('aria-pressed') === 'true');
+          let contrast = 0;
+          if (sel) { const s = getComputedStyle(sel); const bg = rgb(s.backgroundColor), base = under(sel.parentElement); const c = bg.c.map((v, i) => v * bg.a + base[i] * (1 - bg.a)); const L1 = lum(rgb(s.color).c), L2 = lum(c); contrast = (Math.max(L1, L2) + 0.05) / (Math.min(L1, L2) + 0.05); }
+          return { looks: group.filter((b) => sig(b) !== common).map((b) => b.innerText.trim()), pressed: group.filter((b) => b.getAttribute('aria-pressed') === 'true').map((b) => b.innerText.trim()), contrast: Math.round(contrast * 100) / 100 };
         }, [labels, pick]).catch((e) => ({ error: String(e.message).split('\n')[0] }));
       };
       pills = {
         discovery: await pickAndLook('discovery', ['Top Movers', 'Screener', 'Dividends'], 'Dividends'),
         bench: await pickAndLook('returns', ['MSCI World', 'FTSE All-World', 'S&P 500'], 'FTSE All-World')
       };
+      // cleanup V-3: each KPI figure stays on one line, its currency included
+      await openView(page, 'overview');
+      await page.waitForTimeout(1200);
+      pills.kpi = await page.evaluate(() => [...document.querySelectorAll('main .mx-kpi-value')].filter((el) => el.offsetParent).map((el) => {
+        const r = document.createRange(); r.selectNodeContents(el);
+        const tops = new Set([...r.getClientRects()].filter((x) => x.width > 0).map((x) => Math.round(x.top)));
+        return { text: el.innerText.trim(), lines: tops.size };
+      }));
       // P5-2.8: Strategy → Providers & brokers
       await openView(page, 'investment-analysis');
       await page.getByRole('button', { name: /Providers & brokers/ }).first().click().catch(() => {});
@@ -1436,7 +1451,9 @@ async function runBuild(browser, label, dir) {
     ok('cleanup B-5: no value ticks flash while the demo Overview starts', Array.isArray(startTicks) && startTicks.length === 0, err || JSON.stringify(startTicks));
     { const one = (r, pick) => !!r && !r.error && r.looks.length === 1 && r.looks[0] === pick && r.pressed.length === 1 && r.pressed[0] === pick;
       ok('cleanup B-2: Discovery shows one selected tab after picking Dividends', one(pills && pills.discovery, 'Dividends'), err || JSON.stringify(pills && pills.discovery));
-      ok('cleanup B-2: the benchmark selector shows one selected benchmark after picking FTSE All-World', one(pills && pills.bench, 'FTSE All-World'), err || JSON.stringify(pills && pills.bench)); }
+      ok('cleanup B-2: the benchmark selector shows one selected benchmark after picking FTSE All-World', one(pills && pills.bench, 'FTSE All-World'), err || JSON.stringify(pills && pills.bench));
+      ok('cleanup V-2: the selected option reads at WCAG AA (Discovery, benchmarks)', !!pills && pills.discovery.contrast >= 4.5 && pills.bench.contrast >= 4.5, err || JSON.stringify([pills && pills.discovery.contrast, pills && pills.bench.contrast]));
+      ok('cleanup V-3: every Overview KPI figure stays on one line', !!pills && Array.isArray(pills.kpi) && pills.kpi.length >= 4 && pills.kpi.every((k) => k.lines === 1), err || JSON.stringify(pills && pills.kpi)); }
     ok('P4-9: the sample closes are never stored', stored === null, err || String(stored).slice(0, 60));
     ok('no page errors in the demo session', errors.length === 0, errors.join(' | '));
     await context.close();
@@ -2710,6 +2727,10 @@ async function runBuild(browser, label, dir) {
         if (overflow > 1) bad.push('page scrolls sideways by ' + overflow + 'px');
       } catch (e) { bad.push(String(e.message).split('\n')[0]); }
       ok(tag + 'dock shows the six areas and the area views as chips', bad.length === 0, bad.join('; '));
+      // cleanup U-1: on a touch screen every visible control is at least 44 px high
+      const small = await page.evaluate(() => [...document.querySelectorAll('button, [role="button"], select, input:not([type="checkbox"]):not([type="radio"]):not([type="hidden"])')]
+        .filter((e) => e.getClientRects().length && e.getBoundingClientRect().height < 43.5).map((e) => (e.getAttribute('aria-label') || e.innerText || e.tagName).trim().slice(0, 24) + ' ' + Math.round(e.getBoundingClientRect().height)));
+      ok(tag + 'cleanup U-1: touch targets are at least 44 px high', small.length === 0, small.join(' | '));
     }
     ok(tag + 'no page errors in the dialog session', errors.length === 0, errors.join(' | '));
     await context.close();

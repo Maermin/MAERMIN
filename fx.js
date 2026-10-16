@@ -7,6 +7,7 @@
 //
 //   .mx-card        elevated surface → cursor spotlight, glow border, reveal
 //   .mx-primary     accent-filled button → shine sweep + glow
+//   .mx-selected    accent-filled toggle (the selected option) → soft selected look
 //   .mx-reveal/.is-in  staggered entrance when scrolled into view
 //   .mx-count       big figures animate (count-up) on first appearance
 //
@@ -77,18 +78,32 @@
   // after another option was picked, so two options looked selected. Tagged
   // buttons are watched; one that stops being accent-filled is a toggle and
   // loses the class for good.
+  // A toggle (aria-pressed / aria-selected / role="tab", or a tagged button that
+  // turned out to be one) that draws the inline accent fill while selected gets
+  // .mx-selected instead: the shared selected look (styles.css), never the
+  // filled-primary gradient.
   var primaryWatch = null;
+  function syncToggle(b) {
+    var on = accentFilled(b.style);
+    if (on !== b.classList.contains('mx-selected')) b.classList.toggle('mx-selected', on);
+  }
   function watchPrimary(el) {
     if (typeof MutationObserver === 'undefined') return;
     if (!primaryWatch) primaryWatch = new MutationObserver(function (muts) {
       for (var i = 0; i < muts.length; i++) {
         var b = muts[i].target;
-        if (b.__mxToggle || !b.classList.contains('mx-primary') || accentFilled(b.style)) continue;
+        if (b.__mxToggle) { syncToggle(b); continue; }
+        if (!b.classList.contains('mx-primary') || accentFilled(b.style)) continue;
         b.__mxToggle = 1;
         b.classList.remove('mx-primary');
       }
     });
     primaryWatch.observe(el, { attributes: true, attributeFilter: ['style'] });
+  }
+  function watchToggle(el) {
+    el.__mxToggle = 1;
+    syncToggle(el);
+    watchPrimary(el);
   }
   function classify(el, ops) {
     if (el.nodeType !== 1 || el.__mxSeen) return;
@@ -99,7 +114,7 @@
     if (tag === 'BUTTON') {
       // Toggle / tab buttons are accent-filled only while selected; a button is
       // tagged once, so the gradient stuck to the option selected first.
-      if (el.hasAttribute('aria-pressed') || el.hasAttribute('aria-selected') || el.getAttribute('role') === 'tab') { el.__mxSeen = 1; return; }
+      if (el.hasAttribute('aria-pressed') || el.hasAttribute('aria-selected') || el.getAttribute('role') === 'tab') { el.__mxSeen = 1; ops.push([el, 'toggle']); return; }
       if (!accentFilled(s)) { el.__mxSeen = 1; return; }
       // Not laid out yet (hidden tab, mounting): leave unseen; settle() retries.
       if (!el.offsetWidth) { deferred.push(el); return; }
@@ -125,6 +140,7 @@
   function applyOps(ops) {
     for (var i = 0; i < ops.length; i++) {
       var o = ops[i];
+      if (o[1] === 'toggle') { watchToggle(o[0]); continue; }
       o[0].classList.add(o[1]);
       if (o[1] === 'mx-primary') watchPrimary(o[0]);
       if (o[1] === 'mx-card') {

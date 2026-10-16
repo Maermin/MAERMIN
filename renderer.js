@@ -4085,9 +4085,11 @@ function InvestmentTracker() {
     // (Returns → "Total return" also counts sales and dividends).
     const labelReturn = __('ovUnrealisedGain', 'Unrealised gain');
 
+    // A clickable card is a button for the keyboard too; the figure uses the
+    // shared KPI size and keeps the amount and its currency on one line.
     const statCard = (label, value, sub, color, onClick) =>
       React.createElement('div', {
-        onClick,
+        ...(onClick ? window.MaerminUtils.clickable(onClick) : {}),
         style: {
           background: currentTheme.card, padding: '1.35rem', borderRadius: '16px',
           border: `1px solid ${currentTheme.cardBorder}`,
@@ -4099,7 +4101,7 @@ function InvestmentTracker() {
         onMouseLeave: onClick ? e => { e.currentTarget.style.borderColor = currentTheme.cardBorder; e.currentTarget.style.transform = 'translateY(0)'; } : undefined
       },
         React.createElement('div', { style: { color: currentTheme.textSecondary, fontSize: '0.72rem', fontWeight: '600', textTransform: 'uppercase', letterSpacing: '0.07em', marginBottom: '0.4rem' } }, label),
-        React.createElement('div', { style: { color: color || currentTheme.text, fontSize: '1.85rem', fontWeight: '800', letterSpacing: '-0.025em', lineHeight: 1 } }, value),
+        React.createElement('div', { className: 'mx-kpi-value', style: { color: color || currentTheme.text } }, value),
         sub && React.createElement('div', { style: { color: currentTheme.textSecondary, fontSize: '0.78rem', marginTop: '0.4rem' } }, sub)
       );
 

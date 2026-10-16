@@ -257,7 +257,40 @@
       }));
   }
 
+  // ---- design tokens and shared component props ---------------------------
+  // Mirror of the styles.css :root tokens for inline styles. Literal px/rem,
+  // not var(): fx.js measures inline paddings and radii to find cards.
+  var tokens = {
+    space: { 1: '4px', 2: '8px', 3: '12px', 4: '16px', 5: '24px', 6: '32px' },
+    text: { xs: '0.75rem', sm: '0.8125rem', md: '0.9375rem', lg: '1.125rem', xl: '1.5rem', kpi: 'var(--text-kpi)' },
+    radius: { sm: '10px', md: '12px', lg: '16px', xl: '22px' },
+    control: { h: '36px', touch: '44px' }
+  };
+  function cls(base, extra) { return extra ? base + ' ' + extra : base; }
+  // A button: variant 'primary' (filled accent, one per view), 'secondary'
+  // (outline), 'danger' (red outline; confirm dialogs fill it), 'ghost'.
+  function btnProps(variant, extra) {
+    extra = extra || {};
+    var v = /^(primary|secondary|danger|ghost)$/.test(variant) ? variant : 'secondary';
+    var out = {};
+    for (var k in extra) if (Object.prototype.hasOwnProperty.call(extra, k)) out[k] = extra[k];
+    out.type = extra.type || 'button';
+    out.className = cls('mx-btn mx-btn-' + v, extra.className);
+    return out;
+  }
+  // One option of a pill row (wrap the row in .mx-pills).
+  function pillProps(active, extra) {
+    extra = extra || {};
+    var out = {};
+    for (var k in extra) if (Object.prototype.hasOwnProperty.call(extra, k)) out[k] = extra[k];
+    out.type = 'button';
+    out['aria-pressed'] = !!active;
+    out.className = cls('mx-pill', extra.className);
+    return out;
+  }
+
   var api = {
+    tokens: tokens, btnProps: btnProps, pillProps: pillProps,
     toasts: toasts,
     add: add, dismiss: dismiss, clear: clear, items: items,
     reduceAdd: reduceAdd, reduceDismiss: reduceDismiss,
