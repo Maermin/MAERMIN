@@ -2238,6 +2238,13 @@ async function runBuild(browser, label, dir) {
         const note = page.locator('[data-testid="worker-version-note"]');
         let txt = ''; try { await note.waitFor({ timeout: 5000 }); txt = await note.innerText(); } catch (e) { /* missing */ }
         ok('the notice opens API Settings with the expected version and the update steps', txt.includes(workerMod.WORKER_VERSION) && (await page.locator('a[href^="https://deploy.workers.cloudflare.com/"]').count()) > 0, txt);
+        // cleanup B-1: the by-hand update pastes the one-file Worker; worker.js
+        // alone imports its sibling files and cannot start in the dashboard editor.
+        const fileLink = await page.locator('[data-testid="api-worker-file"]').first().innerText().catch(() => '');
+        const copied = await page.evaluate(() => window.MaerminOnboarding.fetchWorkerSource()
+          .then((src) => ({ single: window.MaerminOnboarding.isSingleFile(src), version: (/WORKER_VERSION = ["']([\d.]+)/.exec(src) || [])[1] || '' }))
+          .catch((e) => ({ error: String(e && e.message) })));
+        ok('cleanup B-1: update steps name worker.single.js and the copy source is one file of this version', fileLink === 'cf-worker/worker.single.js' && copied.single === true && copied.version === workerMod.WORKER_VERSION, fileLink + ' ' + JSON.stringify(copied));
         await page.keyboard.press('Escape');
       }
     }

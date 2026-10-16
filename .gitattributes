@@ -1,3 +1,6 @@
 # P5-5.2: the npm bin of maermin-mcp must keep LF line endings, or its
 # "#!/usr/bin/env node" line breaks on Linux and macOS when published from Windows.
 mcp/bin/* text eol=lf
+
+# The generated single-file Worker (npm run build:worker) is compared byte for byte in a test.
+cf-worker/worker.single.js text eol=lf

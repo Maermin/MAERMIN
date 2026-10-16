@@ -28,6 +28,9 @@ No dev server is needed — open `index.html` directly, or serve the folder.
 - **Integrate, don't accrete:** prefer extending an existing view/card over
   adding a new tab.
 - **EUR is canonical** internally; convert USD on ingestion, round only at display.
+- **Worker:** after changing any `cf-worker/*.js`, run `npm run build:worker` and commit the regenerated
+  `cf-worker/worker.single.js` (the one-file Worker users paste into the Cloudflare editor;
+  `test/worker-single.test.js` fails when it is out of date).
 - **Security:** never store the password or secrets; keep sensitive keys in
   `storage.js`'s `SENSITIVE_KEYS`; don't add remote telemetry.
 

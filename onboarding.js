@@ -17,7 +17,10 @@
 // Translation lookup (i18n.js): __('key', 'English fallback', { slot: value }).
 function __(k, f, v) { return (typeof window !== 'undefined' && window.MaerminI18n ? window.MaerminI18n : require('./i18n.js')).t(k, f, v); }
 
-  var GITHUB_WORKER_URL = 'https://github.com/Maermin/MAERMIN/blob/main/cf-worker/worker.js';
+  // The one-file Worker for the Cloudflare editor (scripts/build-worker-single.mjs):
+  // worker.js itself imports three more files, so pasted alone it cannot start.
+  var WORKER_FILE = 'cf-worker/worker.single.js';
+  var GITHUB_WORKER_URL = 'https://github.com/Maermin/MAERMIN/blob/main/' + WORKER_FILE;
   // One-click deploy: Cloudflare copies cf-worker/ into the user's GitHub,
   // creates the KV namespace and deploys (Workers Builds).
   var DEPLOY_URL = 'https://deploy.workers.cloudflare.com/?url=https://github.com/Maermin/MAERMIN/tree/main/cf-worker';
@@ -173,19 +176,24 @@ function __(k, f, v) { return (typeof window !== 'undefined' && window.MaerminI1
     return Object.assign(row, { state: 'fail', message: __('obVersionUnknown', 'Could not read the Worker version.') });
   }
 
-  // ---- impure: fetch the bundled worker.js text for the copy button -------
+  // A source that still imports a sibling file ("from './push.js'") is the
+  // multi-file worker.js, which the Cloudflare editor cannot run on its own.
+  var SIBLING_IMPORT = new RegExp('\\bfrom\\s*[\'"]\\.\\.?/|\\bimport\\s*\\(\\s*[\'"]\\.\\.?/');
+  function isSingleFile(src) { return typeof src === 'string' && src.length > 0 && !SIBLING_IMPORT.test(src); }
+
+  // ---- impure: fetch the single-file Worker text for the copy button -------
   function fetchWorkerSource(opts) {
     opts = opts || {};
     var doFetch = opts.fetch || (typeof fetch !== 'undefined' ? fetch : null);
     if (!doFetch) return Promise.reject(new Error('no-fetch'));
-    var paths = opts.paths || ['cf-worker/worker.js', './cf-worker/worker.js'];
+    var paths = opts.paths || [WORKER_FILE, './' + WORKER_FILE];
     var i = 0;
     function tryNext() {
       if (i >= paths.length) return Promise.reject(new Error('worker-src-unavailable'));
       var path = paths[i++];
       return doFetch(path).then(function (r) {
         if (!r.ok) return tryNext();
-        return r.text();
+        return r.text().then(function (src) { return isSingleFile(src) ? src : tryNext(); });
       }, tryNext);
     }
     return tryNext();
@@ -207,7 +215,7 @@ function __(k, f, v) { return (typeof window !== 'undefined' && window.MaerminI1
     var sUrl = React.useState(props.workerUrl || ''); var url = sUrl[0], setUrl = sUrl[1];
     var sBusy = React.useState(false); var busy = sBusy[0], setBusy = sBusy[1];
     var sResults = React.useState(null); var results = sResults[0], setResults = sResults[1];
-    var sCopy = React.useState(null); var copyLbl = sCopy[0] || __('obCopyWorker', 'Copy worker.js'), setCopyLbl = sCopy[1];
+    var sCopy = React.useState(null); var copyLbl = sCopy[0] || __('obCopyWorker', 'Copy the Worker (one file)'), setCopyLbl = sCopy[1];
 
     // Results belong to the URL they were taken for: editing the URL clears
     // them, and a test still running for an older URL is ignored (FINDINGS L-6).
@@ -269,7 +277,7 @@ function __(k, f, v) { return (typeof window !== 'undefined' && window.MaerminI1
           h('summary', { style: { cursor: 'pointer', color: text } }, __('obManual', 'Or set it up by hand (copy and paste)')),
           h('ol', { style: { lineHeight: '1.7', paddingLeft: '1.2rem', margin: '0.5rem 0' } },
             h('li', null, __('obOpen', 'Open') + ' ', h('a', { href: 'https://dash.cloudflare.com', target: '_blank', rel: 'noopener noreferrer', style: { color: accent } }, 'dash.cloudflare.com'), ' → ' + __('obCreateWorker', 'Workers & Pages → Create Worker.')),
-            h('li', null, __('obReplaceWith', 'Replace the default code with') + ' ', h('b', null, 'worker.js'), ' ' + __('obCopyBelow', '(copy below).')),
+            h('li', null, __('obReplaceWith', 'Replace the default code with') + ' ', h('b', null, 'worker.single.js'), ' ' + __('obCopyBelow', '(copy below).')),
             h('li', null, __('obSaveDeploy', 'Save and Deploy, then copy your Worker URL.'))
           ),
           h('div', { style: { display: 'flex', gap: '0.5rem' } },
@@ -343,6 +351,8 @@ function __(k, f, v) { return (typeof window !== 'undefined' && window.MaerminI1
     versionRow: versionRow,
     Wizard: Wizard,
     GITHUB_WORKER_URL: GITHUB_WORKER_URL,
+    WORKER_FILE: WORKER_FILE,
+    isSingleFile: isSingleFile,
     DEPLOY_URL: DEPLOY_URL,
     EXPECTED_WORKER_VERSION: EXPECTED_WORKER_VERSION
   };
