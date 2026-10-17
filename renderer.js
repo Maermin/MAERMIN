@@ -4430,12 +4430,6 @@ function InvestmentTracker() {
 
     return React.createElement('div', { style: { padding: '1.5rem' } },
 
-      // ── Demo-mode banner ─────────────────────────────────────────────────
-      demoMode && React.createElement('div', {
-        style: { display: 'flex', alignItems: 'center', gap: '0.6rem', flexWrap: 'wrap', padding: '0.6rem 0.9rem', marginBottom: '1rem', borderRadius: '10px', background: `${window.MaerminTokens.alpha((currentTheme.accentFill || currentTheme.accent), 0x14)}`, border: `1px solid ${window.MaerminTokens.alpha(currentTheme.accent, 0x55)}`, color: currentTheme.text, fontSize: 'var(--text-sm)' } },
-        React.createElement('span', null, __('demoBanner', '★ You are exploring MAERMIN with sample data — your real data is untouched. Changes made in demo mode are not saved.')),
-        React.createElement('button', { onClick: exitDemo, style: { marginLeft: 'auto', minHeight: '40px', padding: '0.45rem 0.9rem', background: (currentTheme.accentFill || currentTheme.accent), color: 'var(--on-accent)', border: 'none', borderRadius: '8px', cursor: 'pointer', fontWeight: '700', fontSize: 'var(--text-sm)' } }, __('demoExitUseMine', 'Exit demo & use my data'))
-      ),
 
       // ── Header ──────────────────────────────────────────────────────────
       React.createElement('div', {
@@ -4483,7 +4477,7 @@ function InvestmentTracker() {
           // Demo toggle — instant value for first-run users; hidden once the
           // vault has its own transactions (Phase 3: clutter on phones).
           demoMode
-            ? React.createElement('button', { onClick: exitDemo, style: { minHeight: '40px', padding: '0.5rem 0.9rem', background: currentTheme.inputBg, color: currentTheme.text, border: `1px solid ${currentTheme.cardBorder}`, borderRadius: '8px', cursor: 'pointer', fontSize: 'var(--text-base)' } }, __('demoExit', 'Exit demo'))
+            ? null
             : transactions.length > 0 ? null : React.createElement('button', { onClick: enterDemo, title: __('demoTryTitle', 'Load sample data to explore the app instantly — no setup'), style: { minHeight: '40px', padding: '0.5rem 0.9rem', background: currentTheme.inputBg, color: currentTheme.text, border: `1px solid ${currentTheme.cardBorder}`, borderRadius: '8px', cursor: 'pointer', fontSize: 'var(--text-base)' } }, __('demoTry', '★ Try demo')),
           React.createElement('button', { onClick: () => openTransactionModal(), style: { padding: '0.5rem 1rem', background: (currentTheme.accentFill || currentTheme.accent), color: 'var(--on-accent)', border: 'none', borderRadius: '8px', cursor: 'pointer', fontWeight: '600', fontSize: 'var(--text-base)' } }, __('addShort', '+ Add')),
           React.createElement('button', { onClick: () => setShowImportModal(true), style: { padding: '0.5rem 1rem', background: currentTheme.inputBg, color: currentTheme.text, border: `1px solid ${currentTheme.cardBorder}`, borderRadius: '8px', cursor: 'pointer', fontSize: 'var(--text-base)' } }, __('importBtn', '↑ Import')),
@@ -6822,6 +6816,12 @@ buy,crypto,bitcoin,0.5,45000,2024-01-15,10`)
   };
   const MORE_AREAS = ['taxes', 'analysis', 'settings'];
 
+  // R2.3: one demo banner for every view, with the one way out (it was a
+  // banner plus a second "Exit demo" button, both on the Overview only).
+  const renderDemoBanner = () => demoMode && React.createElement('div', { className: 'ui-demo-banner', 'data-testid': 'demo-banner' },
+    React.createElement('span', null, __('demoBanner', '★ You are exploring MAERMIN with sample data — your real data is untouched. Changes made in demo mode are not saved.')),
+    React.createElement(window.MaerminComponents.Button, { variant: 'secondary', size: 'sm', onClick: exitDemo }, __('demoExit', 'Exit demo')));
+
   const renderRail = () => {
     const Nav = window.MaerminNav, C = window.MaerminComponents;
     const current = Nav.areaOf(activeView) || 'portfolio';
@@ -7116,7 +7116,7 @@ buy,crypto,bitcoin,0.5,45000,2024-01-15,10`)
             menuItem('logout', t.logout || 'Logout', () => { if (window.MaerminAuth) window.MaerminAuth.logout(); }, true)
           )),
         React.createElement('main', { className: 'maermin-main', id: 'main', tabIndex: -1 },
-          renderAtRestBanner(), renderAreaNav(), React.createElement(ViewErrorBoundary, { viewKey: activeView, theme: currentTheme }, renderView()))
+          renderDemoBanner(), renderAtRestBanner(), renderAreaNav(), React.createElement(ViewErrorBoundary, { viewKey: activeView, theme: currentTheme }, renderView()))
       )
     ),
     renderDock(),

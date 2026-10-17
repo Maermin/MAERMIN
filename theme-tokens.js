@@ -84,7 +84,22 @@
     return 'color-mix(in srgb, ' + s + ' ' + pct + '%, transparent)';
   }
 
-  var api = { NAMES: NAMES, DARK: DARK, token: token, resolve: resolve, isVar: isVar, alpha: alpha };
+  // R2.3: before the vault opens, <html> still says data-theme="dark". The lock
+  // screen follows the saved theme instead ('theme' is a plain preference,
+  // not a vault key); the app sets the same attributes again once it runs.
+  var THEME_IDS = ['dark', 'white', 'purple', 'contrast', 'cb'];
+  function applySavedTheme(doc, storage) {
+    try {
+      var th = storage && storage.getItem('theme');
+      if (!doc || THEME_IDS.indexOf(th) < 0) return null;
+      doc.documentElement.setAttribute('data-theme', th);
+      doc.documentElement.setAttribute('data-mode', th === 'white' ? 'light' : 'dark');
+      return th;
+    } catch (e) { return null; }
+  }
+  if (typeof document !== 'undefined' && typeof window !== 'undefined') applySavedTheme(document, window.localStorage);
+
+  var api = { NAMES: NAMES, DARK: DARK, THEME_IDS: THEME_IDS, token: token, resolve: resolve, isVar: isVar, alpha: alpha, applySavedTheme: applySavedTheme };
   if (typeof window !== 'undefined') window.MaerminTokens = api;
   if (typeof module !== 'undefined' && module.exports) module.exports = api;
 })();
