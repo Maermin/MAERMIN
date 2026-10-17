@@ -269,7 +269,7 @@ async function createVault(page, base) {
   // The recovery-code screen itself (the setup text also mentions "recovery code").
   await page.locator('#rc-code').waitFor({ timeout: 30000 });
 }
-async function unlock(page, base, ready = 'nav.maermin-sidebar') { // phone layout: pass a selector that is visible there
+async function unlock(page, base, ready = 'nav.ui-rail') { // phone layout: pass a selector that is visible there
   await page.goto(base + '/index.html');
   const pw = page.locator('input[type=password]').first();
   await pw.waitFor({ timeout: 15000 });
@@ -296,21 +296,33 @@ async function rerender(page) {
   await page.evaluate(() => window.MaerminUI.closeOverlay('commandPalette'));
   await page.waitForTimeout(300);
 }
-// Click a sidebar entry (data-view). A view inside a merged page (P2-1) is
-// reached through its group entry (data-views) and then its tab (data-tab).
+// R2.1: the rail opens an area; its views are page tabs in the header
+// (data-view, or data-views for a merged page whose own tabs are data-tab in
+// main). On phones the rail is hidden; a click from script still works.
+const pageTab = (id) => 'header.ui-pagehead [data-view="' + id + '"], header.ui-pagehead [data-views~="' + id + '"]';
 async function openView(page, id) {
-  const entry = page.locator('nav.maermin-sidebar [data-view="' + id + '"]');
-  if (await entry.count()) { await entry.first().click(); return; }
-  const group = page.locator('nav.maermin-sidebar [data-views~="' + id + '"]');
-  if (!(await group.count())) throw new Error('no sidebar entry for ' + id);
-  await group.first().click();
-  const tab = page.locator('main .mx-area-tabs [data-tab="' + id + '"]');
-  if (await tab.count()) await tab.first().click();
+  let tab = page.locator(pageTab(id));
+  if (!(await tab.count())) {
+    const area = await page.evaluate((v) => window.MaerminNav.areaOf(v), id);
+    if (!area) throw new Error('no area for ' + id);
+    await page.evaluate((a) => document.querySelector('nav.ui-rail [data-area="' + a + '"]').click(), area);
+    await page.waitForTimeout(150);
+    tab = page.locator(pageTab(id));
+  }
+  if (await tab.count()) {
+    if ((await tab.first().getAttribute('aria-selected')) !== 'true' || (await tab.first().getAttribute('data-views'))) await tab.first().click();
+  } else if (!(await page.evaluate((v) => window.MaerminNav.firstView(window.MaerminNav.areaOf(v), 'advanced') === v || window.MaerminNav.visibleEntries(window.MaerminNav.areaOf(v), 'advanced', v).length === 1, id))) {
+    throw new Error('no page tab for ' + id);
+  }
+  const sub = page.locator('main .mx-area-tabs [data-tab="' + id + '"]');
+  if (await sub.count()) await sub.first().click();
 }
-// The sidebar marks the open view (or its group) and, on a merged page, the tab.
+// The page tab of the open view (or its merged page) is selected and, on a
+// merged page, its own tab too. An area with one view has no page tabs.
 async function isOpen(page, id) {
-  if (await page.locator('nav.maermin-sidebar [data-view="' + id + '"][aria-current="page"]').count()) return true;
-  if (!(await page.locator('nav.maermin-sidebar [data-views~="' + id + '"][aria-current="page"]').count())) return false;
+  const tab = page.locator(pageTab(id));
+  if (!(await tab.count())) return (await page.evaluate((v) => window.MaerminNav.areaOf(v), id)) === (await page.evaluate(() => { const a = document.querySelector('nav.ui-rail [aria-current="true"]'); return a && a.dataset.area; }));
+  if ((await tab.first().getAttribute('aria-selected')) !== 'true') return false;
   const tabs = page.locator('main .mx-area-tabs [data-tab]');
   return !(await tabs.count()) || (await page.locator('main .mx-area-tabs [data-tab="' + id + '"][aria-current="page"]').count()) > 0;
 }
@@ -431,42 +443,35 @@ async function runBuild(browser, label, dir) {
     // P2-1: a vault that already holds transactions opens in Advanced, with
     // the six areas; Simple hides niche tools and the switch persists.
     {
-      const sections = await page.locator('nav.maermin-sidebar .mx-nav-section').allInnerTexts();
-      ok('sidebar shows the six areas', sections.map((x) => x.trim().toUpperCase()).join() === 'PORTFOLIO,TRANSACTIONS,DIVIDENDS,TAXES,ANALYSIS,SETTINGS', sections.join(','));
-      ok('a vault with transactions starts in Advanced', (await page.evaluate(RAW + '.get("maermin_ui_mode")')) === 'advanced' && (await page.locator('nav.maermin-sidebar [data-view="tags"]').count()) === 1);
-      // P5-1.1 (F4): Tax & FIFO is visible at 1440 × 900 in Advanced mode
-      // without scrolling the sidebar.
+      const sections = await page.locator('nav.ui-rail [data-area]').allInnerTexts();
+      ok('rail shows the six areas (B-1 labels)', sections.map((x) => x.trim()).join() === 'Home,Activity,Income,Tax,Insight,Settings', sections.join(','));
+      await openView(page, 'customize');
+      ok('a vault with transactions starts in Advanced', (await page.evaluate(RAW + '.get("maermin_ui_mode")')) === 'advanced' && (await page.locator(pageTab('tags')).count()) === 1);
+      // P5-1.1 (F4), now R2.1: every area, Tax included, is in view at 1440 × 900.
       {
         const size = page.viewportSize();
         await page.setViewportSize({ width: 1440, height: 900 });
         await page.waitForTimeout(300);
-        const pos = await page.evaluate(() => {
-          const nav = document.querySelector('nav.maermin-sidebar');
-          const tax = nav && nav.querySelector('[data-view="tax"]');
-          if (!nav || !tax) return null;
-          nav.scrollTop = 0;
-          const n = nav.getBoundingClientRect(), r = tax.getBoundingClientRect();
-          return { bottom: Math.round(r.bottom), navBottom: Math.round(Math.min(n.bottom, window.innerHeight)), top: Math.round(r.top) };
-        });
-        ok('F4: Tax & FIFO is in view at 1440 × 900 without scrolling the sidebar', !!pos && pos.top >= 0 && pos.bottom <= pos.navBottom, JSON.stringify(pos));
+        const pos = await page.evaluate(() => [...document.querySelectorAll('nav.ui-rail [data-area]')].map((b) => { const r = b.getBoundingClientRect(); return b.dataset.area + ':' + (r.top >= 0 && r.bottom <= window.innerHeight); }));
+        ok('F4: all six areas, Tax included, are in view at 1440 × 900', pos.length === 6 && pos.every((p) => p.endsWith(':true')), pos.join());
         await page.setViewportSize(size);
         await page.waitForTimeout(300);
       }
-      await page.locator('.mx-settings-btn').click();
+      await page.locator('.ui-settings-btn').click();
       await page.locator('#mx-settings-panel [data-ui-mode="simple"]').click();
-      await page.locator('.mx-settings-btn').click();
+      await page.locator('.ui-settings-btn').click();
       await page.waitForTimeout(300);
-      const simpleOk = (await page.locator('nav.maermin-sidebar [data-view="tags"]').count()) === 0 && (await page.locator('nav.maermin-sidebar .mx-mode-hint').count()) === 1
+      const simpleOk = (await page.locator(pageTab('tags')).count()) === 0 && (await page.locator('header.ui-pagehead .mx-mode-hint').count()) === 1
         && (await page.evaluate(RAW + '.get("maermin_ui_mode")')) === 'simple';
       ok('Simple hides niche tools, says so and is saved', simpleOk);
       await page.keyboard.press('g'); await page.keyboard.press('u'); // Alerts & Rules: hidden in Simple, the shortcut still works
       await page.waitForTimeout(300);
-      ok('a hidden view stays reachable by shortcut and shows in its area', (await page.locator('nav.maermin-sidebar [data-view="rules"][aria-current="page"]').count()) === 1);
+      ok('a hidden view stays reachable by shortcut and shows in its area', (await page.locator('header.ui-pagehead [data-view="rules"][aria-selected="true"]').count()) === 1);
       await openView(page, 'returns');
       await page.waitForTimeout(200);
       const tabs = (await page.locator('main .mx-area-tabs [data-tab]').evaluateAll((els) => els.map((e) => e.dataset.tab))).join();
       ok('Simple shows Returns + Performance as tabs (no Attribution)', tabs === 'returns,performance', tabs);
-      await page.locator('nav.maermin-sidebar .mx-mode-hint [data-ui-mode="advanced"]').click();
+      await page.locator('header.ui-pagehead .mx-mode-hint [data-ui-mode="advanced"]').click();
       await page.waitForTimeout(200);
       const tabsAdv = (await page.locator('main .mx-area-tabs [data-tab]').evaluateAll((els) => els.map((e) => e.dataset.tab))).join();
       ok('"Show all tools" switches back to Advanced (Attribution tab back)', tabsAdv === 'returns,performance,attribution' && (await page.evaluate(RAW + '.get("maermin_ui_mode")')) === 'advanced', tabsAdv);
@@ -1479,7 +1484,7 @@ async function runBuild(browser, label, dir) {
     let pwFields = -1, banner = '', positions = 0, realKeys = null, exitTo = '', vaultScreen = 0, err = '';
     try {
       await page.goto(base + '/index.html?demo');
-      await page.locator('nav.maermin-sidebar').waitFor({ timeout: 30000 });
+      await page.locator('nav.ui-rail').waitFor({ timeout: 30000 });
       await page.keyboard.press('Escape');
       await page.waitForTimeout(1500);
       pwFields = await page.locator('input[type=password]').count();
@@ -1519,7 +1524,7 @@ async function runBuild(browser, label, dir) {
       await page.locator('input[type=password]').first().waitFor({ timeout: 15000 });
       before = await snap();
       await page.goto(base + '/index.html?demo');
-      await page.locator('nav.maermin-sidebar').waitFor({ timeout: 30000 });
+      await page.locator('nav.ui-rail').waitFor({ timeout: 30000 });
       await page.waitForTimeout(1500);
       inDemo = await page.locator('input[type=password]').count();
       await page.goto(base + '/index.html');
@@ -1546,7 +1551,7 @@ async function runBuild(browser, label, dir) {
       await unlock(page, base, 'main.maermin-main');
       await page.keyboard.press('Escape');
       await page.waitForTimeout(1000);
-      await page.evaluate(() => document.querySelector('nav.maermin-sidebar [data-view="investment-analysis"]').click());
+      await openView(page, 'investment-analysis');
       await page.waitForTimeout(800);
       const bar = 'main div[style*="border-bottom"][style*="flex-wrap"] > button';
       sections = await page.locator(bar).count();
@@ -2422,7 +2427,7 @@ async function runBuild(browser, label, dir) {
         await page.locator('[data-testid="sync-webdav-connect"]').click();
       };
       try {
-        await page.locator('.mx-settings-btn').click();
+        await page.locator('.ui-settings-btn').click();
         await page.locator('.mx-menu-item', { hasText: 'Security & sync' }).click();
         await connect('https://dav.e2e.test/remote.php/dav/files/e2e/MAERMIN');
         await page.locator('[role="status"]', { hasText: 'security policy' }).waitFor({ timeout: 10000 });
@@ -2601,7 +2606,7 @@ async function runBuild(browser, label, dir) {
       await fn();
       if (size.width < 900) { await page.setViewportSize(size); await page.waitForTimeout(300); }
     };
-    const avatar = page.locator('.mx-settings-btn');
+    const avatar = page.locator('.ui-settings-btn');
     const fromMenu = (item) => async () => { await avatar.click(); await page.locator('.mx-menu-item', { hasText: item }).click(); };
 
     await check({ name: 'Set up your data sources', focus: 'panel', back: '#main', open: async () => {} });
@@ -2638,7 +2643,7 @@ async function runBuild(browser, label, dir) {
     await check({ name: 'Change Password', focus: 'field', back: avatar, open: fromMenu('Change Password') });
     await check({ name: 'Security log', focus: 'panel', back: avatar, open: fromMenu('Security log') });
     await check({ name: 'Security & sync', focus: 'panel', back: avatar, open: fromMenu('Security & sync') });
-    const search = page.locator('.mx-search');
+    const search = page.locator('.ui-search');
     await check({ name: 'Search commands...', focus: 'field', back: search, open: () => search.click() });
     await check({ name: 'Keyboard Shortcuts', focus: 'panel', back: avatar, open: async () => { await avatar.focus(); await page.keyboard.press('?'); } });
     await wide(() => openView(page, 'savings-plans'));
@@ -2716,26 +2721,32 @@ async function runBuild(browser, label, dir) {
       ok(tag + 'P5-5.1: Security & sync has push reminders, encrypted on the device; the service worker handles push', !err && /encrypted on this device/.test(text) && /Push notifications on this device/.test(text) && swPush,
         err || text.replace(/\n/g, ' | ').slice(0, 200) + ' | sw ' + swPush);
     }
-    // P2-1: the phone dock has one button per area; an area's views are chips.
-    if (page.viewportSize().width < 900) {
+    // R2.1 (B-2): the phone dock is Home · Activity · Add · Income · More; Tax,
+    // Insight and Settings open from "More"; an area's views are page tabs.
+    if (page.viewportSize().width < 768) {
       const bad = [];
       try {
-        const areas = await page.locator('.mx-bottom-nav [data-area]').evaluateAll((els) => els.map((e) => e.dataset.area));
-        if (areas.join() !== 'portfolio,transactions,dividends,taxes,analysis,settings') bad.push('dock: ' + areas.join());
-        await page.locator('.mx-bottom-nav [data-area="analysis"]').click();
+        const slots = await page.locator('nav.ui-dock [data-area]').evaluateAll((els) => els.map((e) => e.dataset.area));
+        if (slots.join() !== 'portfolio,transactions,add,dividends,more') bad.push('dock: ' + slots.join());
+        await page.locator('nav.ui-dock [data-area="more"]').click();
+        await page.locator('[data-testid="more-nav"] [data-area="analysis"]').click();
         await page.waitForTimeout(300);
-        if (!(await page.locator('.mx-bottom-nav [data-area="analysis"][aria-current="true"]').count())) bad.push('analysis not current');
-        // cleanup V-7: the dock area holds the page, it is not the page itself
-        if (await page.locator('.mx-bottom-nav [aria-current="page"]').count()) bad.push('dock area says aria-current=page');
-        const chips = await page.locator('main .mx-area-entries [data-area-entry]').evaluateAll((els) => els.filter((e) => e.getClientRects().length).map((e) => e.dataset.areaEntry));
-        if (chips.join() !== 'grp-returns,grp-health') bad.push('chips: ' + chips.join());
-        await page.locator('main .mx-area-entries [data-area-entry="grp-health"]').click();
+        if (!(await page.locator('nav.ui-dock [data-area="more"][aria-current="true"]').count())) bad.push('More not current in Insight');
+        if (await page.locator('nav.ui-dock [aria-current="page"]').count()) bad.push('dock slot says aria-current=page');
+        const tabs = await page.locator('header.ui-pagehead [role="tab"]').evaluateAll((els) => els.map((e) => e.dataset.tab));
+        if (tabs.join() !== 'grp-returns,grp-health') bad.push('page tabs: ' + tabs.join());
+        await page.locator('header.ui-pagehead [data-tab="grp-health"]').click();
         await page.waitForTimeout(300);
-        if (!(await page.locator('main .mx-area-entries [data-area-entry="grp-health"][aria-current="page"]').count())) bad.push('health chip not current');
+        if (!(await page.locator('header.ui-pagehead [data-tab="grp-health"][aria-selected="true"]').count())) bad.push('health tab not selected');
+        await page.locator('nav.ui-dock [data-area="add"]').click();
+        await page.waitForTimeout(300);
+        if (!(await page.getByRole('dialog', { name: /Add Transaction/ }).count())) bad.push('Add does not open the transaction dialog');
+        await press('Escape');
+        await page.waitForTimeout(300);
         const overflow = await page.evaluate(() => document.documentElement.scrollWidth - window.innerWidth);
         if (overflow > 1) bad.push('page scrolls sideways by ' + overflow + 'px');
       } catch (e) { bad.push(String(e.message).split('\n')[0]); }
-      ok(tag + 'dock shows the six areas and the area views as chips', bad.length === 0, bad.join('; '));
+      ok(tag + 'B-2: dock Home · Activity · Add · Income · More; More reaches Insight; Add opens the dialog; views are page tabs', bad.length === 0, bad.join('; '));
       // cleanup U-1: on a touch screen every visible control is at least 44 px high
       const small = await page.evaluate(() => [...document.querySelectorAll('button, [role="button"], select, input:not([type="checkbox"]):not([type="radio"]):not([type="hidden"])')]
         .filter((e) => e.getClientRects().length && e.getBoundingClientRect().height < 43.5).map((e) => (e.getAttribute('aria-label') || e.innerText || e.tagName).trim().slice(0, 24) + ' ' + Math.round(e.getBoundingClientRect().height)));
@@ -2774,9 +2785,10 @@ async function runBuild(browser, label, dir) {
       const lines = (await page.locator('main').innerText()).split('\n').map((s) => s.trim()).filter((s) => EN.test(s));
       for (const l of new Set(lines)) hits.push(id + ': ' + l.slice(0, 100));
     }
-    const side = (await page.locator('nav.maermin-sidebar').innerText()).split('\n').filter((s) => EN.test(s));
-    for (const l of side) hits.push('sidebar: ' + l);
-    ok('German browser: no English UI words in ' + VIEWS.length + ' views and the sidebar', hits.length === 0, hits.slice(0, 12).join(' | '));
+    await openView(page, 'overview');
+    const side = (await page.locator('nav.ui-rail').innerText() + '\n' + await page.locator('header.ui-pagehead').innerText()).split('\n').filter((s) => EN.test(s));
+    for (const l of side) hits.push('rail/header: ' + l);
+    ok('German browser: no English UI words in ' + VIEWS.length + ' views, the rail and the page header', hits.length === 0, hits.slice(0, 12).join(' | '));
     await openView(page, 'overview');
     await page.waitForTimeout(800);
     { const body = await settledText(page.locator('main'));

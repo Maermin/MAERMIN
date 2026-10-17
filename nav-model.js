@@ -2,8 +2,9 @@
 // MAERMIN — Navigation model  (window.MaerminNav)
 // ----------------------------------------------------------------------------
 // One source of truth for where every view lives (PLAN P2-1):
-//   Portfolio · Transactions · Dividends · Taxes · Analysis · Settings
-// The sidebar, the mobile dock and the in-page tab strip all render from this.
+//   Home · Activity · Income · Tax · Insight · Settings (labels: Phase 6 B-1;
+//   the area ids stay portfolio / transactions / dividends / taxes / analysis)
+// The rail, the phone dock and the page tabs all render from this.
 //
 // - An area holds entries. An entry is one view, or a group of views shown as
 //   tabs of one page (e.g. Returns + Performance + Attribution).
@@ -25,7 +26,7 @@
   function v(id, key, label, advanced) { return { id: id, key: key, label: label, advanced: !!advanced }; }
 
   var AREAS = [
-    { id: 'portfolio', key: 'navAreaPortfolio', label: 'Portfolio', icon: 'portfolios', entries: [
+    { id: 'portfolio', key: 'navAreaHome', label: 'Home', icon: 'portfolios', entries: [
       v('overview', 'navOverview', 'Overview'),
       v('portfolios', 'navPortfolios', 'Portfolios'),
       v('net-worth', 'navNetWorth', 'Net Worth'),
@@ -34,22 +35,22 @@
       v('events', 'navEvents', 'Events'),
       v('rebalancing', 'navRebalancing', 'Rebalancing', true)
     ] },
-    { id: 'transactions', key: 'navAreaTransactions', label: 'Transactions', shortKey: 'navAreaTransactionsShort', short: 'Trades', icon: 'transactions', entries: [
+    { id: 'transactions', key: 'navAreaActivity', label: 'Activity', icon: 'transactions', entries: [
       v('transactions', 'navTransactions', 'Transactions'),
       v('savings-plans', 'navSavingsPlans', 'Savings Plans'),
       v('data', 'navImportExport', 'Import / Export'),
       v('cashflow', 'navCashflow', 'Cash Flow', true),
       v('journal', 'navJournal', 'Journal', true)
     ] },
-    { id: 'dividends', key: 'navAreaDividends', label: 'Dividends', icon: 'dividends', entries: [
+    { id: 'dividends', key: 'navAreaIncome', label: 'Income', icon: 'dividends', entries: [
       v('dividends', 'navDividends', 'Dividends')
     ] },
     // P5-1.1 (F4): Taxes before Analysis, so Tax & FIFO is visible without
     // scrolling the desktop sidebar (25 entries in Advanced mode).
-    { id: 'taxes', key: 'navAreaTaxes', label: 'Taxes', icon: 'tax', entries: [
+    { id: 'taxes', key: 'navAreaTax', label: 'Tax', icon: 'tax', entries: [
       v('tax', 'navTaxFifo', 'Tax & FIFO')
     ] },
-    { id: 'analysis', key: 'navAreaAnalysis', label: 'Analysis', icon: 'hub-analytics', entries: [
+    { id: 'analysis', key: 'navAreaInsight', label: 'Insight', icon: 'hub-analytics', entries: [
       { id: 'grp-returns', key: 'navGroupReturns', label: 'Returns', tabs: [
         v('returns', 'navReturns', 'Returns & XIRR'),
         v('performance', 'navPerformance', 'Performance'),
@@ -66,7 +67,7 @@
       v('discovery', 'navDiscovery', 'Discovery', true),
       v('news', 'navNewsFeed', 'News Feed', true)
     ] },
-    { id: 'settings', key: 'navAreaSettings', label: 'Settings', shortKey: 'navAreaSettingsShort', short: 'Settings', icon: 'settings', entries: [
+    { id: 'settings', key: 'navAreaSettings', label: 'Settings', icon: 'settings', entries: [
       v('customize', 'navCustomize', 'Customize Overview'),
       v('categories', 'navCategories', 'Categories', true),
       v('tags', 'navTags', 'Tags', true),

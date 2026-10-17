@@ -1186,6 +1186,8 @@ function rovingKeys(e, index, count, select) {
 }
 
 // PageTabs: the views of an area (underline). One row only, never nested.
+// A tab may carry extra attributes (the shell puts data-view / data-views on them).
+const tabAttrs = (tab) => tab.attrs || {};
 function PageTabs(props) {
   const tabs = props.tabs || [];
   const idx = Math.max(0, tabs.findIndex((t) => t.id === props.value));
@@ -1194,7 +1196,7 @@ function PageTabs(props) {
     tabs.map((t, i) => h('button', {
       key: t.id, type: 'button', role: 'tab', id: t.tabId, 'data-tab': t.id,
       'aria-selected': i === idx, 'aria-controls': t.panelId, tabIndex: i === idx ? 0 : -1,
-      className: 'ui-tab', onClick: () => props.onChange && props.onChange(t.id),
+      className: 'ui-tab', onClick: () => props.onChange && props.onChange(t.id), ...tabAttrs(t),
       onKeyDown: (e) => rovingKeys(e, i, tabs.length, (n) => props.onChange && props.onChange(tabs[n].id))
     }, t.label)));
 }
@@ -1410,6 +1412,49 @@ function ChartFrame(props) {
 }
 
 Object.assign(Components, { useNarrow, EmptyState, Skeleton, RowMenu, Table, Modal, ChartFrame });
+
+// ---- R2.1: app shell — Rail, PageHeader, Dock (DESIGN-SYSTEM § 4, § 9) ----
+const shellIcon = (name, size) => (window.MaerminIcon ? window.MaerminIcon(name, { size }) : null);
+
+// Rail (desktop): the areas, Settings at the foot. items: { id, label, icon, active, foot }.
+// An area holds the page, so the active item is aria-current="true", not "page".
+function Rail(props) {
+  const items = props.items || [];
+  const item = (it) => h('button', {
+    key: it.id, type: 'button', 'data-area': it.id, className: cx('ui-rail__item', it.active && 'is-active'),
+    'aria-current': it.active ? 'true' : undefined, onClick: () => props.onSelect && props.onSelect(it.id)
+  }, shellIcon(it.icon, 22), h('span', { className: 'ui-rail__label' }, it.label));
+  return h('nav', { className: cx('ui-rail', props.className), 'aria-label': props.label },
+    props.brand ? h('div', { className: 'ui-rail__brand' }, props.brand) : null,
+    items.filter((it) => !it.foot).map(item),
+    h('div', { className: 'ui-rail__spacer', 'aria-hidden': 'true' }),
+    items.filter((it) => it.foot).map(item));
+}
+
+// PageHeader: title, portfolio scope, actions, then one row of page tabs.
+// On phones the same header is the top bar (brand shows, the title stays).
+function PageHeader(props) {
+  return h('header', { className: cx('ui-pagehead', props.className) },
+    h('div', { className: 'ui-pagehead__row' },
+      props.brand ? h('div', { className: 'ui-pagehead__brand' }, props.brand) : null,
+      h('h1', { className: 'ui-pagehead__title' }, props.title),
+      props.scope ? h('div', { className: 'ui-pagehead__scope' }, props.scope) : null,
+      h('div', { className: 'ui-pagehead__actions', ref: props.actionsRef }, props.actions)),
+    props.tabs ? h('div', { className: 'ui-pagehead__tabs' }, props.tabs) : null);
+}
+
+// Dock (phone): five slots, the middle one is Add. items: { id, label, icon, active, add, onClick }.
+function Dock(props) {
+  return h('nav', { className: cx('ui-dock', props.className), 'aria-label': props.label },
+    (props.items || []).map((it) => h('button', {
+      key: it.id, type: 'button', 'data-area': it.id,
+      className: cx('ui-dock__item', it.add && 'ui-dock__add', it.active && 'is-active'),
+      'aria-current': it.active ? 'true' : undefined, 'aria-label': it.add ? it.label : undefined,
+      'aria-haspopup': it.haspopup, 'aria-expanded': it.expanded, title: it.add ? it.label : undefined, onClick: it.onClick
+    }, shellIcon(it.icon, it.add ? 26 : 22), it.add ? null : h('span', { className: 'ui-dock__label' }, it.label))));
+}
+
+Object.assign(Components, { Rail, PageHeader, Dock });
 
 // Export components
 if (typeof window !== 'undefined') {

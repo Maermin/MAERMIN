@@ -132,7 +132,7 @@ async function main() {
   await page.goto(base + '/index.html');
   await page.locator('input[type=password]').first().fill(PASSWORD);
   await page.locator('#auth-submit').click();
-  await page.locator('nav.maermin-sidebar').waitFor({ timeout: 30000 });
+  await page.locator('nav.ui-rail').waitFor({ timeout: 30000 });
   await page.waitForTimeout(2500); // let entrance animations + count-ups finish
   // close anything modal (onboarding, tips)
   for (let i = 0; i < 3; i++) await page.keyboard.press('Escape');
@@ -159,7 +159,10 @@ async function main() {
   if (!ONLY.length || ONLY.includes('navigate')) results.push(await measure(browser, page, 'navigate', async () => {
     const views = ['transactions', 'dividends', 'net-worth', 'overview', 'portfolios', 'journal', 'overview', 'transactions'];
     for (const v of views) {
-      const b = page.locator('nav.maermin-sidebar [data-view="' + v + '"]');
+      // R2.1: rail area, then the page tab
+      const area = await page.evaluate((x) => window.MaerminNav.areaOf(x), v);
+      await page.locator('nav.ui-rail [data-area="' + area + '"]').click();
+      const b = page.locator('header.ui-pagehead [data-view="' + v + '"]');
       if (await b.count()) await b.first().click();
       await page.waitForTimeout(900);
     }
