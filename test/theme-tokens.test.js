@@ -106,5 +106,14 @@ if (m) {
     /purple: themeOf\('purple', 'dark'\)/.test(src) && /contrast: themeOf\('contrast', 'dark'\)/.test(src) && /cb: themeOf\('cb', 'dark'\)/.test(src));
 }
 
+// R2.3: the lock screen follows the saved theme before the app runs
+{
+  const run = (saved) => { const attrs = {}; const doc = { documentElement: { setAttribute: (k, v) => { attrs[k] = v; } } }; return { r: T.applySavedTheme(doc, { getItem: () => saved }), attrs }; };
+  const w = run('white'), c = run('contrast'), bad = run('<img>'), none = run(null);
+  ok('lock screen: a saved theme sets data-theme and data-mode', w.attrs['data-theme'] === 'white' && w.attrs['data-mode'] === 'light' && c.attrs['data-theme'] === 'contrast' && c.attrs['data-mode'] === 'dark');
+  ok('lock screen: an unknown or missing value changes nothing', bad.r === null && !Object.keys(bad.attrs).length && none.r === null && !Object.keys(none.attrs).length);
+  ok('lock screen: the ids are the five theme ids', T.THEME_IDS.join() === 'dark,white,purple,contrast,cb');
+}
+
 console.log('\n' + (failed ? failed + ' failed' : 'all passed'));
 process.exit(failed ? 1 : 0);
