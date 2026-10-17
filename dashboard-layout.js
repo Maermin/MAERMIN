@@ -242,7 +242,7 @@ function __(k, f, v) { return (typeof window !== 'undefined' && window.MaerminI1
         function iconBtn(label, dir, id, disabled) {
           return e('button', { type: 'button', 'data-dash-move': dir, 'data-dash-id': id, disabled: disabled, 'aria-label': label, title: label,
             onClick: function () { moveBy(id, dir); },
-            style: { width: '40px', height: '40px', flexShrink: 0, fontSize: '1rem', lineHeight: 1, cursor: disabled ? 'default' : 'pointer', borderRadius: '10px',
+            style: { width: '40px', height: '40px', flexShrink: 0, fontSize: 'var(--text-body)', lineHeight: 1, cursor: disabled ? 'default' : 'pointer', borderRadius: '10px',
               border: '1px solid ' + border, background: 'transparent', color: disabled ? border : text, opacity: disabled ? 0.45 : 1 } }, dir === 'up' ? '↑' : '↓');
         }
 
@@ -252,22 +252,22 @@ function __(k, f, v) { return (typeof window !== 'undefined' && window.MaerminI1
             e('button', { type: 'button', 'data-dash-handle': id, 'aria-label': __('dashDragAria', 'Drag {name} to a new place (or use the arrow buttons)', { name: name }),
               onPointerDown: function (ev) { onPointerDown(ev, id); }, onPointerMove: onPointerMove, onPointerUp: onPointerUp, onPointerCancel: onPointerUp,
               onKeyDown: function (ev) { if (ev.key === 'ArrowUp' && k > 0) { ev.preventDefault(); moveBy(id, 'up'); } else if (ev.key === 'ArrowDown' && k < order.length - 1) { ev.preventDefault(); moveBy(id, 'down'); } },
-              style: { width: '40px', height: '40px', flexShrink: 0, cursor: dragging ? 'grabbing' : 'grab', touchAction: 'none', borderRadius: '10px', border: '1px solid ' + border, background: 'transparent', color: dim, fontSize: '1.1rem' } }, '⠿'),
+              style: { width: '40px', height: '40px', flexShrink: 0, cursor: dragging ? 'grabbing' : 'grab', touchAction: 'none', borderRadius: '10px', border: '1px solid ' + border, background: 'transparent', color: dim, fontSize: 'var(--text-lg)' } }, '⠿'),
             e('button', {
               type: 'button',
               onClick: function () { commit(API.toggle(st, id)); },
               title: visible ? (t.dashHide || 'Hide') : (t.dashShow || 'Show'),
               'aria-pressed': visible, 'aria-label': __('dashShowAria', 'Show {name}', { name: name }),
-              style: { width: '44px', minHeight: '32px', flexShrink: 0, padding: '0.3rem 0', fontSize: '0.74rem', fontWeight: 800, cursor: 'pointer', borderRadius: '999px', border: '1px solid ' + (visible ? accent : border), background: visible ? accentFill : 'transparent', color: visible ? accentText : dim } },
+              style: { width: '44px', minHeight: '32px', flexShrink: 0, padding: '0.3rem 0', fontSize: 'var(--text-xs)', fontWeight: 800, cursor: 'pointer', borderRadius: '999px', border: '1px solid ' + (visible ? accent : border), background: visible ? accentFill : 'transparent', color: visible ? accentText : dim } },
               visible ? __('secOn', 'On') : __('dashOff', 'Off')),
-            e('div', { style: { flex: 1, minWidth: 0, color: visible ? text : dim, fontSize: '0.88rem', fontWeight: 600 } }, name),
+            e('div', { style: { flex: 1, minWidth: 0, color: visible ? text : dim, fontSize: 'var(--text-base)', fontWeight: 600 } }, name),
             iconBtn(__('dashUpAria', 'Move {name} up', { name: name }), 'up', id, k === 0 || !!drag),
             iconBtn(__('dashDownAria', 'Move {name} down', { name: name }), 'down', id, k === order.length - 1 || !!drag));
         });
 
         return e('div', { style: { padding: '1.5rem', position: 'relative' } },
-          e('h2', { style: { color: text, fontSize: '1.5rem', fontWeight: 800, letterSpacing: '-0.02em', margin: '0 0 0.35rem' } }, t.navCustomize || 'Customize Overview'),
-          e('p', { style: { color: dim, fontSize: '0.88rem', margin: '0 0 1.25rem', lineHeight: 1.5, maxWidth: '60ch' } },
+          e('h2', { style: { color: text, fontSize: 'var(--text-xl)', fontWeight: 800, letterSpacing: '-0.02em', margin: '0 0 0.35rem' } }, t.navCustomize || 'Customize Overview'),
+          e('p', { style: { color: dim, fontSize: 'var(--text-base)', margin: '0 0 1.25rem', lineHeight: 1.5, maxWidth: '60ch' } },
             __('dashSubtitleOrder', 'Show, hide and reorder the main Overview sections: drag a row by its handle, or use the arrow buttons. Changes are saved instantly and carried in your backup.')),
           e('div', { ref: listRef, 'data-testid': 'dash-order' }, rows),
           e('div', { role: 'status', 'aria-live': 'polite', style: { position: 'absolute', width: '1px', height: '1px', overflow: 'hidden', clipPath: 'inset(50%)', whiteSpace: 'nowrap' } }, said),
@@ -277,7 +277,7 @@ function __(k, f, v) { return (typeof window !== 'undefined' && window.MaerminI1
             commit(API.reset());
             var UI = (typeof window !== 'undefined') && window.MaerminUI;
             if (UI && UI.add) UI.add(__('dashResetDone', 'Overview layout reset to default'), 'success', 8000, { label: __('undo', 'Undo'), run: function () { commit(before); } });
-          }, style: { marginTop: '0.5rem', padding: '0.45rem 0.9rem', fontSize: '0.82rem', fontWeight: 700, cursor: 'pointer', borderRadius: '8px', border: '1px solid ' + border, background: 'transparent', color: text } },
+          }, style: { marginTop: '0.5rem', padding: '0.45rem 0.9rem', fontSize: 'var(--text-sm)', fontWeight: 700, cursor: 'pointer', borderRadius: '8px', border: '1px solid ' + border, background: 'transparent', color: text } },
             t.dashReset || 'Reset to default'));
       } catch (err) {
         return e('div', { style: { padding: '1.5rem', color: (props.theme && props.theme.danger) || 'var(--danger)' } }, __('dashError', 'Customize view error: {msg}', { msg: err && err.message }));

@@ -263,13 +263,13 @@ function __(k, f, v) { return (typeof window !== 'undefined' && window.MaerminI1
       }
 
       return e('tr', { key: r.symbol, style: { borderTop: '1px solid ' + border } },
-        e('td', { style: { padding: '0.4rem 0.45rem', color: text, fontSize: '0.8rem', fontWeight: 600 } }, r.symbol,
-          e('div', { style: { color: dim, fontWeight: 400, fontSize: '0.68rem' } }, pre.shares > 0 ? __('gtShares', '{n} shares', { n: I18N.num(pre.shares, { min: 0, max: 6 }) }) : '')),
+        e('td', { style: { padding: '0.4rem 0.45rem', color: text, fontSize: 'var(--text-sm)', fontWeight: 600 } }, r.symbol,
+          e('div', { style: { color: dim, fontWeight: 400, fontSize: 'var(--text-2xs)' } }, pre.shares > 0 ? __('gtShares', '{n} shares', { n: I18N.num(pre.shares, { min: 0, max: 6 }) }) : '')),
         e('td', { style: { padding: '0.4rem 0.45rem' } },
           e('select', {
             value: type,
             onChange: function (ev) { setFundTypes(GT.saveFundType(r.symbol, ev.target.value)); changed(); },
-            style: { background: inputBg, border: '1px solid ' + border, borderRadius: '6px', padding: '0.3rem 0.4rem', color: text, fontSize: '0.74rem' }
+            style: { background: inputBg, border: '1px solid ' + border, borderRadius: '6px', padding: '0.3rem 0.4rem', color: text, fontSize: 'var(--text-xs)' }
           },
             e('option', { value: 'none' }, __('gtNotFund', 'Not a fund / other') + ' (' + I18N.pct(0, 0) + ')'),
             e('option', { value: 'aktienfonds' }, __('gtEquityFund', 'Equity fund') + ' (' + I18N.pct(30, 0) + ')'),
@@ -279,14 +279,14 @@ function __(k, f, v) { return (typeof window !== 'undefined' && window.MaerminI1
         inputCell('valueStart', valueStart),
         inputCell('valueEnd', valueEnd),
         inputCell('distributions', distributions, '0'),
-        e('td', { style: { padding: '0.4rem 0.45rem', textAlign: 'right', color: dim, fontSize: '0.76rem' } }, (pre.monthsFactor * 12).toFixed(0) + '/12'),
-        e('td', { style: { padding: '0.4rem 0.45rem', textAlign: 'right', color: vap ? text : dim, fontSize: '0.78rem', fontWeight: 700 } }, vap ? amt(vap.vorabpauschale) : '-'),
-        e('td', { style: { padding: '0.4rem 0.45rem', textAlign: 'right', color: taxable != null ? text : dim, fontSize: '0.76rem' } }, taxable != null ? amt(taxable) : '-'),
+        e('td', { style: { padding: '0.4rem 0.45rem', textAlign: 'right', color: dim, fontSize: 'var(--text-xs)' } }, (pre.monthsFactor * 12).toFixed(0) + '/12'),
+        e('td', { style: { padding: '0.4rem 0.45rem', textAlign: 'right', color: vap ? text : dim, fontSize: 'var(--text-xs)', fontWeight: 700 } }, vap ? amt(vap.vorabpauschale) : '-'),
+        e('td', { style: { padding: '0.4rem 0.45rem', textAlign: 'right', color: taxable != null ? text : dim, fontSize: 'var(--text-xs)' } }, taxable != null ? amt(taxable) : '-'),
         e('td', { style: { padding: '0.4rem 0.45rem', textAlign: 'right' } },
           e('button', {
             disabled: !vap,
             onClick: function () { if (vap) { GT.saveVapRecord(r.symbol, year, vap.vorabpauschale); setSavedTick(savedTick + 1); changed(); } },
-            style: { padding: '0.3rem 0.7rem', borderRadius: '6px', border: 'none', cursor: vap ? 'pointer' : 'default', fontSize: '0.72rem', fontWeight: 700, background: savedAmt != null ? 'color-mix(in srgb, var(--success) 15%, transparent)' : ((theme.accentFill || theme.accent) || '#8b7cff'), color: savedAmt != null ? good : '#ffffff', opacity: vap ? 1 : 0.5 }
+            style: { padding: '0.3rem 0.7rem', borderRadius: '6px', border: 'none', cursor: vap ? 'pointer' : 'default', fontSize: 'var(--text-xs)', fontWeight: 700, background: savedAmt != null ? 'color-mix(in srgb, var(--success) 15%, transparent)' : ((theme.accentFill || theme.accent) || '#8b7cff'), color: savedAmt != null ? good : '#ffffff', opacity: vap ? 1 : 0.5 }
           }, savedAmt != null ? __('gtSavedAmt', 'Saved {amount}', { amount: amt(savedAmt) }) : __('save', 'Save'))));
     });
 
@@ -304,17 +304,17 @@ function __(k, f, v) { return (typeof window !== 'undefined' && window.MaerminI1
     } catch (err) { detail = null; }
 
     function line(label, value, color) {
-      return e('div', { key: label, style: { display: 'flex', justifyContent: 'space-between', padding: '0.25rem 0', fontSize: '0.8rem' } },
+      return e('div', { key: label, style: { display: 'flex', justifyContent: 'space-between', padding: '0.25rem 0', fontSize: 'var(--text-sm)' } },
         e('span', { style: { color: dim } }, label),
         e('span', { style: { color: color || text, fontWeight: 600 } }, value));
     }
 
     return e('div', { style: { background: card, border: '1px solid ' + border, borderRadius: '14px', padding: '1.25rem', marginTop: '1.25rem' } },
       e('div', { style: { display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '0.6rem', marginBottom: '0.9rem' } },
-        e('h3', { style: { color: text, fontSize: '1rem', fontWeight: 700, margin: 0 } },
+        e('h3', { style: { color: text, fontSize: 'var(--text-body)', fontWeight: 700, margin: 0 } },
           (t.germanFundTaxTitle || 'German fund taxation') + ' ' + year),
         e('div', { style: { display: 'flex', alignItems: 'center', gap: '0.6rem', flexWrap: 'wrap' } },
-          e('span', { style: { color: dim, fontSize: '0.74rem' } }, __('gtBasiszins', 'Basiszins {y}', { y: year })),
+          e('span', { style: { color: dim, fontSize: 'var(--text-xs)' } }, __('gtBasiszins', 'Basiszins {y}', { y: year })),
           // Committed on blur / Enter: re-formatting on every keystroke made the
           // field impossible to edit ("3," parsed as nothing and reset it).
           e('input', {
@@ -327,58 +327,58 @@ function __(k, f, v) { return (typeof window !== 'undefined' && window.MaerminI1
               setOverrides(GT.saveBasiszinsOverride(year, isFinite(pct) ? pct / 100 : null)); changed();
             },
             onKeyDown: function (ev) { if (ev.key === 'Enter') ev.target.blur(); },
-            style: { width: '70px', background: inputBg, border: '1px solid ' + border, borderRadius: '6px', padding: '0.3rem 0.45rem', color: text, fontSize: '0.76rem', textAlign: 'right' }
+            style: { width: '70px', background: inputBg, border: '1px solid ' + border, borderRadius: '6px', padding: '0.3rem 0.45rem', color: text, fontSize: 'var(--text-xs)', textAlign: 'right' }
           }),
-          e('span', { style: { color: dim, fontSize: '0.74rem' } }, '%  ' + __('gtChurchTax', 'Church tax')),
+          e('span', { style: { color: dim, fontSize: 'var(--text-xs)' } }, '%  ' + __('gtChurchTax', 'Church tax')),
           e('select', {
             'aria-label': __('gtChurchTax', 'Church tax'),
             value: String(kist),
             onChange: function (ev) { setKist(GT.saveKirchensteuerRate(parseFloat(ev.target.value))); changed(); },
-            style: { background: inputBg, border: '1px solid ' + border, borderRadius: '6px', padding: '0.3rem 0.4rem', color: text, fontSize: '0.74rem' }
+            style: { background: inputBg, border: '1px solid ' + border, borderRadius: '6px', padding: '0.3rem 0.4rem', color: text, fontSize: 'var(--text-xs)' }
           },
             e('option', { value: '0' }, __('gtNone', 'none')),
             e('option', { value: '0.08' }, I18N.pct(8, 0)),
             e('option', { value: '0.09' }, I18N.pct(9, 0))))),
 
-      e('div', { style: { color: dim, fontSize: '0.72rem', margin: '0 0 0.5rem', lineHeight: 1.5 } },
+      e('div', { style: { color: dim, fontSize: 'var(--text-xs)', margin: '0 0 0.5rem', lineHeight: 1.5 } },
         __('gtWorksheet', 'Worksheet for value year {y}. The Vorabpauschale is deemed received on the first working day of {next} (sec. 18 (3) InvStG), so a saved amount counts in the {next} tax computation.', { y: year, next: year + 1 })),
-      (suggestions.length && !sugHidden) ? e('div', { 'data-testid': 'fund-type-suggestion', role: 'status', style: { display: 'flex', alignItems: 'center', gap: '0.75rem', flexWrap: 'wrap', background: inputBg, border: '1px solid ' + border, borderRadius: '10px', padding: '0.65rem 0.85rem', margin: '0 0 0.75rem', fontSize: '0.8rem', color: text } },
+      (suggestions.length && !sugHidden) ? e('div', { 'data-testid': 'fund-type-suggestion', role: 'status', style: { display: 'flex', alignItems: 'center', gap: '0.75rem', flexWrap: 'wrap', background: inputBg, border: '1px solid ' + border, borderRadius: '10px', padding: '0.65rem 0.85rem', margin: '0 0 0.75rem', fontSize: 'var(--text-sm)', color: text } },
         e('span', { style: { flex: 1, minWidth: '220px', lineHeight: 1.5 } },
           __('gtFundSuggest', '{list}: no fund type set, so no Teilfreistellung is applied. {n:It is a known equity fund|They are known equity funds} (Aktienfonds, 30 %).', { list: suggestions.map(function (s) { return s.symbol; }).join(', '), n: suggestions.length })),
-        e('button', { type: 'button', onClick: applySuggestions, style: { padding: '0.35rem 0.8rem', borderRadius: '7px', border: 'none', background: (theme.accentFill || theme.accent || '#7c6cff'), color: '#ffffff', fontWeight: 700, fontSize: '0.78rem', cursor: 'pointer' } }, __('gtFundSuggestApply', 'Set as equity fund')),
-        e('button', { type: 'button', onClick: function () { setSugHidden(true); }, style: { padding: '0.35rem 0.8rem', borderRadius: '7px', border: '1px solid ' + border, background: 'transparent', color: dim, fontSize: '0.78rem', cursor: 'pointer' } }, __('gtFundSuggestHide', 'Not now'))) : null,
+        e('button', { type: 'button', onClick: applySuggestions, style: { padding: '0.35rem 0.8rem', borderRadius: '7px', border: 'none', background: (theme.accentFill || theme.accent || '#7c6cff'), color: '#ffffff', fontWeight: 700, fontSize: 'var(--text-xs)', cursor: 'pointer' } }, __('gtFundSuggestApply', 'Set as equity fund')),
+        e('button', { type: 'button', onClick: function () { setSugHidden(true); }, style: { padding: '0.35rem 0.8rem', borderRadius: '7px', border: '1px solid ' + border, background: 'transparent', color: dim, fontSize: 'var(--text-xs)', cursor: 'pointer' } }, __('gtFundSuggestHide', 'Not now'))) : null,
       rows.length
         ? e('div', { style: { overflowX: 'auto' } },
             e('table', { style: { width: '100%', borderCollapse: 'collapse' } },
               e('thead', null, e('tr', null,
                 [__('gtFund', 'Fund'), __('gtTypeTf', 'Type (Teilfreistellung)'), __('gtValueJan1', 'Value Jan 1'), __('gtValueDec31', 'Value Dec 31'), __('gtDistributions', 'Distributions'), __('gtMonths', 'Months'), 'Vorabpauschale', __('gtTaxableAfterTf', 'Taxable after TF'), ''].map(function (h, i) {
-                  return e('th', { key: h || 'x', style: { textAlign: i < 2 ? 'left' : 'right', padding: '0.4rem 0.45rem', color: dim, fontSize: '0.66rem', textTransform: 'uppercase', letterSpacing: '0.04em' } }, h);
+                  return e('th', { key: h || 'x', style: { textAlign: i < 2 ? 'left' : 'right', padding: '0.4rem 0.45rem', color: dim, fontSize: 'var(--text-2xs)', textTransform: 'uppercase', letterSpacing: '0.04em' } }, h);
                 }))),
               e('tbody', null, tableRows)))
-        : e('div', { style: { color: dim, fontSize: '0.82rem', padding: '0.4rem 0' } },
+        : e('div', { style: { color: dim, fontSize: 'var(--text-sm)', padding: '0.4rem 0' } },
             __('gtNoFunds', 'No fund positions detected. Classify a position by adding it to your portfolio; ETFs and funds are picked up automatically.')),
 
-      e('div', { style: { color: dim, fontSize: '0.7rem', marginTop: '0.6rem', lineHeight: 1.5 } },
+      e('div', { style: { color: dim, fontSize: 'var(--text-2xs)', marginTop: '0.6rem', lineHeight: 1.5 } },
         __('gtPrefillHint', 'Values prefill from your local price history at the year boundaries (shares held at year end x per-share price) and are editable. Save a Vorabpauschale so a later sale credits it against the gain.')),
 
       (commodityRows.length && TSm && TSm.saveTaxClass) ? e('div', { style: { marginTop: '1rem' } },
-        e('div', { style: { color: dim, fontSize: '0.72rem', textTransform: 'uppercase', letterSpacing: '0.05em', fontWeight: 700, marginBottom: '0.3rem' } }, __('gtCommodities', 'Commodities: tax treatment')),
+        e('div', { style: { color: dim, fontSize: 'var(--text-xs)', textTransform: 'uppercase', letterSpacing: '0.05em', fontWeight: 700, marginBottom: '0.3rem' } }, __('gtCommodities', 'Commodities: tax treatment')),
         commodityRows.map(function (r) {
           var cls = (TSm.taxClassOf && TSm.taxClassOf(classOverrides, r.symbol)) || 'private';
           return e('div', { key: r.symbol, style: { display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '0.6rem', padding: '0.3rem 0', borderTop: '1px solid ' + border } },
-            e('span', { style: { color: text, fontSize: '0.8rem', fontWeight: 600 } }, r.symbol),
+            e('span', { style: { color: text, fontSize: 'var(--text-sm)', fontWeight: 600 } }, r.symbol),
             e('select', {
               value: cls,
               'aria-label': __('gtTaxTreatmentOf', 'Tax treatment of {sym}', { sym: r.symbol }),
               onChange: function (ev) { TSm.saveTaxClass(r.symbol, ev.target.value === 'capital' ? 'capital' : null); setClassTick(function (n) { return n + 1; }); changed(); },
-              style: { background: inputBg, border: '1px solid ' + border, borderRadius: '6px', padding: '0.3rem 0.4rem', color: text, fontSize: '0.74rem' }
+              style: { background: inputBg, border: '1px solid ' + border, borderRadius: '6px', padding: '0.3rem 0.4rem', color: text, fontSize: 'var(--text-xs)' }
             },
               e('option', { value: 'private' }, __('gtPhysical', 'Physical - private sale (sec. 23, tax-free after 1 year)')),
               e('option', { value: 'capital' }, __('gtSecurity', 'Security, e.g. ETC/ETF - capital income (sec. 20)'))));
         })) : null,
 
       detail && e('div', { style: { marginTop: '1rem', borderTop: '1px solid ' + border, paddingTop: '0.8rem' } },
-        e('div', { style: { color: dim, fontSize: '0.72rem', textTransform: 'uppercase', letterSpacing: '0.05em', fontWeight: 700, marginBottom: '0.4rem' } }, __('gtComputation', 'Computation (statutory order)')),
+        e('div', { style: { color: dim, fontSize: 'var(--text-xs)', textTransform: 'uppercase', letterSpacing: '0.05em', fontWeight: 700, marginBottom: '0.4rem' } }, __('gtComputation', 'Computation (statutory order)')),
         line(__('gtGainsAfterTf', 'Taxable gains after Teilfreistellung'), amt(detail.gainsTaxable)),
         line(__('gtLossesAfterTf', 'Deductible losses after Teilfreistellung'), amt(detail.lossesTaxable), detail.lossesTaxable < 0 ? bad : text),
         detail.shareLossCarried > 0 ? line(__('gtShareLossCarried', 'Share losses not offset (only against share gains)'), amt(detail.shareLossCarried), dim) : null,
@@ -394,7 +394,7 @@ function __(k, f, v) { return (typeof window !== 'undefined' && window.MaerminI1
         detail.crypto && detail.crypto.netShortTermGains !== 0 ? line(__('gtPrivateSales', 'Private sales (sec. 23) net short-term (Freigrenze {limit})', { limit: amt(detail.crypto.freigrenze) }), amt(detail.crypto.netShortTermGains) + ' → ' + __('gtTax', 'tax') + ' ' + amt(detail.crypto.estimatedTax)) : null,
         line(__('gtTotalTax', 'Total estimated tax {y}', { y: year }), amt(detail.totalTax), warn)),
 
-      e('div', { style: { color: dim, fontSize: '0.7rem', marginTop: '0.8rem', lineHeight: 1.5 } },
+      e('div', { style: { color: dim, fontSize: 'var(--text-2xs)', marginTop: '0.8rem', lineHeight: 1.5 } },
         __('gtDisclaimer', 'Helper computation under InvStG/EStG rules with simplified loss netting; private sales (crypto, skins, physical commodities) use a flat-rate estimate. All inputs stay on this device (encrypted at rest). Not tax advice - verify with your tax advisor.')));
   }
 
@@ -432,12 +432,12 @@ function __(k, f, v) { return (typeof window !== 'undefined' && window.MaerminI1
     function row(label, control, hint) {
       return e('div', { style: { display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '0.8rem', padding: '0.4rem 0', borderTop: '1px solid ' + border } },
         e('div', null,
-          e('div', { style: { color: text, fontSize: '0.82rem' } }, label),
-          hint ? e('div', { style: { color: dim, fontSize: '0.7rem' } }, hint) : null),
+          e('div', { style: { color: text, fontSize: 'var(--text-sm)' } }, label),
+          hint ? e('div', { style: { color: dim, fontSize: 'var(--text-2xs)' } }, hint) : null),
         control);
     }
     function toggle(on, onClick) {
-      return e('button', { onClick: onClick, style: { padding: '0.3rem 0.8rem', borderRadius: '6px', border: 'none', cursor: 'pointer', fontSize: '0.74rem', fontWeight: 700, background: on ? (theme.success || 'var(--success)') : inputBg, color: on ? '#08130a' : dim } }, on ? __('secOn', 'On') : __('dashOff', 'Off'));
+      return e('button', { onClick: onClick, style: { padding: '0.3rem 0.8rem', borderRadius: '6px', border: 'none', cursor: 'pointer', fontSize: 'var(--text-xs)', fontWeight: 700, background: on ? (theme.success || 'var(--success)') : inputBg, color: on ? '#08130a' : dim } }, on ? __('secOn', 'On') : __('dashOff', 'Off'));
     }
 
     var TF_TYPES = [['aktienfonds', __('gtEquityFund', 'Equity fund'), 0.30], ['mischfonds', __('gtMixedFund', 'Mixed fund'), 0.15], ['immobilienfonds', __('gtRealEstateFund', 'Real-estate fund'), 0.60], ['auslandsimmobilienfonds', __('gtForeignReFund', 'Foreign RE fund'), 0.80]];
@@ -445,22 +445,22 @@ function __(k, f, v) { return (typeof window !== 'undefined' && window.MaerminI1
     return e('div', { style: { background: card, border: '1px solid ' + border, borderRadius: '14px', padding: '1.1rem 1.25rem', marginTop: '1.25rem' } },
       // Re-read on open: the church tax can also change in the fund-tax panel.
       e('div', { style: { display: 'flex', justifyContent: 'space-between', alignItems: 'center', cursor: 'pointer' }, onClick: function () { if (!open) setS(TS.load()); setOpen(!open); } },
-        e('h3', { style: { color: text, fontSize: '1rem', fontWeight: 700, margin: 0 } }, t.taxSettingsTitle || 'Tax settings (overrides)'),
-        e('span', { style: { color: accent, fontSize: '0.8rem' } }, open ? __('hide', 'Hide') : __('edit', 'Edit'))),
+        e('h3', { style: { color: text, fontSize: 'var(--text-body)', fontWeight: 700, margin: 0 } }, t.taxSettingsTitle || 'Tax settings (overrides)'),
+        e('span', { style: { color: accent, fontSize: 'var(--text-sm)' } }, open ? __('hide', 'Hide') : __('edit', 'Edit'))),
       open ? e('div', { style: { marginTop: '0.6rem' } },
         row(__('gtAbgRate', 'Abgeltungsteuer rate'), e('div', null,
           numInput('abg', s.abgeltungRate * 100, { min: 0, max: 2 }, __('gtAbgRate', 'Abgeltungsteuer rate'), function (v) { update({ abgeltungRate: v != null ? v / 100 : 0.25 }); }),
-          e('span', { style: { color: dim, fontSize: '0.76rem', marginLeft: '0.25rem' } }, '%')), __('gtDefaultPct', 'Default {pct}', { pct: window.MaerminI18n.pct(25, 0) })),
+          e('span', { style: { color: dim, fontSize: 'var(--text-xs)', marginLeft: '0.25rem' } }, '%')), __('gtDefaultPct', 'Default {pct}', { pct: window.MaerminI18n.pct(25, 0) })),
         row('Solidaritätszuschlag', toggle(s.soli, function () { update({ soli: !s.soli }); }), __('gtSoliHint', '{pct} of the tax', { pct: window.MaerminI18n.pct(5.5, 1) })),
-        row('Kirchensteuer', e('select', { value: String(s.kirchensteuer), onChange: function (ev) { update({ kirchensteuer: parseFloat(ev.target.value) }); }, style: { background: inputBg, border: '1px solid ' + border, borderRadius: '6px', padding: '0.3rem 0.4rem', color: text, fontSize: '0.76rem' } },
+        row('Kirchensteuer', e('select', { value: String(s.kirchensteuer), onChange: function (ev) { update({ kirchensteuer: parseFloat(ev.target.value) }); }, style: { background: inputBg, border: '1px solid ' + border, borderRadius: '6px', padding: '0.3rem 0.4rem', color: text, fontSize: 'var(--text-xs)' } },
           e('option', { value: '0' }, __('none', 'None')), e('option', { value: '0.08' }, window.MaerminI18n.pct(8, 0)), e('option', { value: '0.09' }, window.MaerminI18n.pct(9, 0)))),
         row('Freistellungsauftrag', e('div', null,
           numInput('fsa', s.freistellungsauftrag, 0, 'Freistellungsauftrag', function (v) { update({ freistellungsauftrag: v != null ? v : 1000 }); }),
-          e('span', { style: { color: dim, fontSize: '0.76rem', marginLeft: '0.25rem' } }, 'EUR')), __('gtSpbHint', 'Sparerpauschbetrag, default 1000')),
+          e('span', { style: { color: dim, fontSize: 'var(--text-xs)', marginLeft: '0.25rem' } }, 'EUR')), __('gtSpbHint', 'Sparerpauschbetrag, default 1000')),
         row(__('gtCryptoExempt', 'Crypto 1-year exemption'), toggle(s.cryptoExemption, function () { update({ cryptoExemption: !s.cryptoExemption }); }), __('gtCryptoExemptHint', 'Private-sale rule (sec. 23 EStG)')),
         // P5-4.6: the BMF's wallet-based FIFO for crypto; a portfolio is a wallet.
         row(__('gtCryptoWallet', 'Crypto FIFO per wallet'), e('span', { 'data-testid': 'gt-crypto-wallet' }, toggle(!!s.cryptoPerWallet, function () { update({ cryptoPerWallet: !s.cryptoPerWallet }); })), __('gtCryptoWalletHint', 'BMF 6.3.2025: FIFO within each wallet; each portfolio counts as one wallet. Off: FIFO across all portfolios')),
-        e('div', { style: { color: dim, fontSize: '0.72rem', textTransform: 'uppercase', letterSpacing: '0.05em', fontWeight: 700, margin: '0.8rem 0 0.3rem' } }, __('gtTfOverrides', 'Teilfreistellung overrides')),
+        e('div', { style: { color: dim, fontSize: 'var(--text-xs)', textTransform: 'uppercase', letterSpacing: '0.05em', fontWeight: 700, margin: '0.8rem 0 0.3rem' } }, __('gtTfOverrides', 'Teilfreistellung overrides')),
         TF_TYPES.map(function (tf) {
           var ovVal = (s.teilfreistellung && s.teilfreistellung[tf[0]] != null) ? s.teilfreistellung[tf[0]] : tf[2];
           return row(tf[1], e('div', null,
@@ -469,7 +469,7 @@ function __(k, f, v) { return (typeof window !== 'undefined' && window.MaerminI1
               if (v != null && Math.abs(v / 100 - tf[2]) > 1e-9) map[tf[0]] = v / 100; else delete map[tf[0]];
               update({ teilfreistellung: map });
             }),
-            e('span', { style: { color: dim, fontSize: '0.76rem', marginLeft: '0.25rem' } }, '%')), __('gtDefaultPct', 'Default {pct}', { pct: window.MaerminI18n.pct(tf[2] * 100, 0) }));
+            e('span', { style: { color: dim, fontSize: 'var(--text-xs)', marginLeft: '0.25rem' } }, '%')), __('gtDefaultPct', 'Default {pct}', { pct: window.MaerminI18n.pct(tf[2] * 100, 0) }));
         }),
         e('button', { onClick: function () {
           window.MaerminUtils.confirmThen({
@@ -477,8 +477,8 @@ function __(k, f, v) { return (typeof window !== 'undefined' && window.MaerminI1
             message: t.taxResetMessage || 'Your rates, church tax and Teilfreistellung overrides are replaced by the defaults.',
             confirmLabel: t.taxReset || 'Reset', cancelLabel: t.cancel || 'Cancel'
           }, function () { setS(TS.reset()); if (props.onChange) props.onChange(); });
-        }, style: { marginTop: '0.7rem', padding: '0.35rem 0.8rem', borderRadius: '6px', border: '1px solid ' + border, background: inputBg, color: dim, cursor: 'pointer', fontSize: '0.74rem' } }, __('gtResetDefaults', 'Reset to defaults')),
-        e('div', { style: { color: dim, fontSize: '0.7rem', marginTop: '0.6rem', lineHeight: 1.5 } }, __('gtOverridesNote', 'Overrides are stored on this device and feed the tax computation and the PDF/Excel export. Defaults apply where unset. Not tax advice.'))
+        }, style: { marginTop: '0.7rem', padding: '0.35rem 0.8rem', borderRadius: '6px', border: '1px solid ' + border, background: inputBg, color: dim, cursor: 'pointer', fontSize: 'var(--text-xs)' } }, __('gtResetDefaults', 'Reset to defaults')),
+        e('div', { style: { color: dim, fontSize: 'var(--text-2xs)', marginTop: '0.6rem', lineHeight: 1.5 } }, __('gtOverridesNote', 'Overrides are stored on this device and feed the tax computation and the PDF/Excel export. Defaults apply where unset. Not tax advice.'))
       ) : null);
   }
 

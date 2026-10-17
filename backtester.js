@@ -225,8 +225,8 @@ function __(k, f, v) { return (typeof window !== 'undefined' && window.MaerminI1
       if (!m) return null;
       return e('div', { key: label, style: { borderTop: '1px solid ' + border, padding: '0.6rem 0' } },
         e('div', { style: { display: 'flex', justifyContent: 'space-between', flexWrap: 'wrap', gap: '0.4rem', marginBottom: '0.3rem' } },
-          e('span', { style: { color: color, fontWeight: 700, fontSize: '0.84rem' } }, label),
-          e('span', { style: { color: text, fontSize: '0.8rem' } },
+          e('span', { style: { color: color, fontWeight: 700, fontSize: 'var(--text-sm)' } }, label),
+          e('span', { style: { color: text, fontSize: 'var(--text-sm)' } },
             fmt(m.endValue) + ' ' + sym + '  ', e('span', { style: { color: dim } }, 'CAGR '), e('span', { style: { color: m.cagr >= 0 ? good : bad, fontWeight: 600 } }, pct(m.cagr)),
             e('span', { style: { color: dim } }, '  ' + __('btMaxDd', 'max DD') + ' '), e('span', { style: { color: bad, fontWeight: 600 } }, '-' + window.MaerminI18n.pct(m.maxDrawdown * 100, 1)),
             e('span', { style: { color: dim } }, '  ' + __('btVol', 'vol') + ' '), e('span', { style: { color: text, fontWeight: 600 } }, window.MaerminI18n.pct(m.volatility * 100, 1)))),
@@ -237,16 +237,16 @@ function __(k, f, v) { return (typeof window !== 'undefined' && window.MaerminI1
     var presets = (A && A.BENCHMARKS) || [];
 
     return e('div', { style: { background: card, border: '1px solid ' + border, borderRadius: '14px', padding: '1.25rem', margin: '1rem 1.5rem 1.5rem' } },
-      e('h3', { style: { color: text, fontSize: '1rem', fontWeight: 700, margin: '0 0 0.5rem' } }, t.backtesterTitle || 'Allocation backtester (what-if)'),
-      e('div', { style: { color: dim, fontSize: '0.78rem', marginBottom: '0.8rem' } }, __('btIntro', 'What would this allocation have become over real history? Symbols are Yahoo tickers (URTH, VWCE.DE, ^GSPC, BTC-USD, ...). Weights normalise automatically.')),
+      e('h3', { style: { color: text, fontSize: 'var(--text-body)', fontWeight: 700, margin: '0 0 0.5rem' } }, t.backtesterTitle || 'Allocation backtester (what-if)'),
+      e('div', { style: { color: dim, fontSize: 'var(--text-xs)', marginBottom: '0.8rem' } }, __('btIntro', 'What would this allocation have become over real history? Symbols are Yahoo tickers (URTH, VWCE.DE, ^GSPC, BTC-USD, ...). Weights normalise automatically.')),
       rows.map(function (r, i) {
         return e('div', { key: i, style: { display: 'flex', gap: '0.4rem', marginBottom: '0.4rem', alignItems: 'center' } },
           e('input', { type: 'text', value: r.symbol, placeholder: __('symbol', 'Symbol'), onChange: function (ev) { setRow(i, 'symbol', ev.target.value); }, style: Object.assign({ width: '130px' }, inputStyle) }),
           e('input', { type: 'text', value: r.weight, placeholder: __('btWeightPct', 'Weight %'), onChange: function (ev) { setRow(i, 'weight', ev.target.value); }, style: Object.assign({ width: '80px', textAlign: 'right' }, inputStyle) }),
-          rows.length > 1 ? e('button', { onClick: function () { removeRow(i); }, style: { background: 'none', border: 'none', color: dim, cursor: 'pointer', fontSize: '0.9rem' } }, 'x') : null);
+          rows.length > 1 ? e('button', { onClick: function () { removeRow(i); }, style: { background: 'none', border: 'none', color: dim, cursor: 'pointer', fontSize: 'var(--text-base)' } }, 'x') : null);
       }),
       e('div', { style: { display: 'flex', gap: '0.5rem', flexWrap: 'wrap', alignItems: 'center', margin: '0.6rem 0 0.9rem' } },
-        e('button', { onClick: addRow, style: { padding: '0.3rem 0.7rem', borderRadius: '6px', border: '1px solid ' + border, background: inputBg, color: dim, cursor: 'pointer', fontSize: '0.74rem' } }, __('btAddAsset', '+ asset')),
+        e('button', { onClick: addRow, style: { padding: '0.3rem 0.7rem', borderRadius: '6px', border: '1px solid ' + border, background: inputBg, color: dim, cursor: 'pointer', fontSize: 'var(--text-xs)' } }, __('btAddAsset', '+ asset')),
         e('select', { value: range, onChange: function (ev) { setRange(ev.target.value); }, style: inputStyle },
           ['1y', '2y', '5y', '10y', 'max'].map(function (r2) { return e('option', { key: r2, value: r2 }, r2); })),
         e('select', { value: rebal, onChange: function (ev) { setRebal(ev.target.value); }, style: inputStyle },
@@ -254,13 +254,13 @@ function __(k, f, v) { return (typeof window !== 'undefined' && window.MaerminI1
         e('input', { type: 'text', value: initial, onChange: function (ev) { setInitial(ev.target.value); }, title: __('btStartCapital', 'Starting capital'), style: Object.assign({ width: '90px', textAlign: 'right' }, inputStyle) }),
         e('select', { value: bench, onChange: function (ev) { setBench(ev.target.value); }, style: inputStyle },
           presets.map(function (b) { return e('option', { key: b.key, value: b.key }, __('btVs', 'vs {name}', { name: b.label })); })),
-        e('button', { onClick: runBacktest, disabled: busy, style: { padding: '0.4rem 1rem', borderRadius: '8px', border: 'none', cursor: busy ? 'default' : 'pointer', fontWeight: 700, fontSize: '0.8rem', background: accent, color: '#ffffff', opacity: busy ? 0.6 : 1 } }, busy ? __('btRunning', 'Running...') : __('btRun', 'Run backtest'))),
-      out && out.error ? e('div', { style: { color: bad, fontSize: '0.8rem' } }, out.error) : null,
+        e('button', { onClick: runBacktest, disabled: busy, style: { padding: '0.4rem 1rem', borderRadius: '8px', border: 'none', cursor: busy ? 'default' : 'pointer', fontWeight: 700, fontSize: 'var(--text-sm)', background: accent, color: '#ffffff', opacity: busy ? 0.6 : 1 } }, busy ? __('btRunning', 'Running...') : __('btRun', 'Run backtest'))),
+      out && out.error ? e('div', { style: { color: bad, fontSize: 'var(--text-sm)' } }, out.error) : null,
       out && out.strategy ? e('div', null,
         metricRow(__('btYourAlloc', 'Your allocation') + (out.strategy.rebalances ? ' (' + __('btRebalances', '{n} {n:rebalance|rebalances}', { n: out.strategy.rebalances }) + ')' : ''), out.strategy.metrics, accent, out.strategy.path),
         out.benchmark ? metricRow(out.preset.label + ' (' + out.preset.proxy + ')', out.benchmark.metrics, dim, out.benchmark.path) : null,
         out.actual ? metricRow(__('btActual', 'Your actual portfolio (rescaled)'), out.actual.metrics, good, out.actual.path) : null,
-        e('div', { style: { color: dim, fontSize: '0.7rem', marginTop: '0.7rem', lineHeight: 1.5 } },
+        e('div', { style: { color: dim, fontSize: 'var(--text-2xs)', marginTop: '0.7rem', lineHeight: 1.5 } },
           __('btFootnote', 'Backtest over the common history of all symbols ({days} trading days, {years} years), prices as delivered by Yahoo Finance. Past performance is not indicative of future results.', { days: out.strategy.metrics.periods, years: window.MaerminI18n.num(out.strategy.metrics.years, 1) }))) : null);
   }
 

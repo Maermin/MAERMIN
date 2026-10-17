@@ -289,18 +289,18 @@ function __(k, f, v) { return (typeof window !== 'undefined' && window.MaerminI1
       var statusColor = !c.available ? dim : (c.breached ? (c.valuePct >= c.thresholdPct * 1.5 ? bad : warn) : good);
       var statusText = !c.available ? __('dqNoData', 'no data') : (c.breached ? __('rmBreach', 'BREACH') : 'ok');
       return e('tr', { key: f.rule, style: { borderTop: '1px solid ' + border } },
-        e('td', { style: { padding: '0.45rem 0.5rem', color: text, fontSize: '0.8rem' } }, c.label,
-          c.detail ? e('span', { style: { color: dim, fontSize: '0.7rem' } }, '  ' + c.detail) : null),
-        e('td', { style: { padding: '0.45rem 0.5rem', textAlign: 'right', color: c.available ? text : dim, fontSize: '0.78rem', fontWeight: 600 } },
+        e('td', { style: { padding: '0.45rem 0.5rem', color: text, fontSize: 'var(--text-sm)' } }, c.label,
+          c.detail ? e('span', { style: { color: dim, fontSize: 'var(--text-2xs)' } }, '  ' + c.detail) : null),
+        e('td', { style: { padding: '0.45rem 0.5rem', textAlign: 'right', color: c.available ? text : dim, fontSize: 'var(--text-xs)', fontWeight: 600 } },
           c.available ? I18N().pct(c.valuePct, 1) : '-'),
         e('td', { style: { padding: '0.45rem 0.5rem', textAlign: 'right' } },
           e('input', {
             type: 'number', min: 1, max: 1000, value: settings[f.key], 'aria-label': __('rmLimitAria', 'Limit for {rule} (%)', { rule: c.label }),
             onChange: function (ev) { commit(f.key, ev.target.value); },
-            style: { width: '64px', background: inputBg, border: '1px solid ' + border, borderRadius: '6px', padding: '0.25rem 0.4rem', color: text, fontSize: '0.74rem', textAlign: 'right' }
+            style: { width: '64px', background: inputBg, border: '1px solid ' + border, borderRadius: '6px', padding: '0.25rem 0.4rem', color: text, fontSize: 'var(--text-xs)', textAlign: 'right' }
           }),
-          e('span', { style: { color: dim, fontSize: '0.72rem', marginLeft: '0.25rem' } }, '%')),
-        e('td', { style: { padding: '0.45rem 0.5rem', textAlign: 'right', color: statusColor, fontSize: '0.74rem', fontWeight: 700 } }, statusText));
+          e('span', { style: { color: dim, fontSize: 'var(--text-xs)', marginLeft: '0.25rem' } }, '%')),
+        e('td', { style: { padding: '0.45rem 0.5rem', textAlign: 'right', color: statusColor, fontSize: 'var(--text-xs)', fontWeight: 700 } }, statusText));
     });
 
     var pwa = (typeof window !== 'undefined') && window.MaerminPWA;
@@ -316,26 +316,26 @@ function __(k, f, v) { return (typeof window !== 'undefined' && window.MaerminI1
 
     return e('div', { style: { background: card, border: '1px solid ' + border, borderRadius: '14px', padding: '1.25rem', margin: '0 1.5rem 1.5rem' } },
       e('div', { style: { display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '0.5rem', marginBottom: '0.9rem' } },
-        e('h3', { style: { color: text, fontSize: '1rem', fontWeight: 700, margin: 0 } }, t.riskMonitorTitle || 'Risk & drift monitor'),
+        e('h3', { style: { color: text, fontSize: 'var(--text-body)', fontWeight: 700, margin: 0 } }, t.riskMonitorTitle || 'Risk & drift monitor'),
         e('div', { style: { display: 'flex', alignItems: 'center', gap: '0.5rem' } },
-          e('span', { style: { color: dim, fontSize: '0.74rem' } }, __('rmCooldown', 'Cooldown')),
+          e('span', { style: { color: dim, fontSize: 'var(--text-xs)' } }, __('rmCooldown', 'Cooldown')),
           e('input', {
             type: 'number', min: 1, max: 168, value: settings.cooldownHours, 'aria-label': __('rmCooldownAria', 'Cooldown in hours'),
             onChange: function (ev) { commit('cooldownHours', ev.target.value); },
-            style: { width: '52px', background: inputBg, border: '1px solid ' + border, borderRadius: '6px', padding: '0.25rem 0.4rem', color: text, fontSize: '0.74rem', textAlign: 'right' }
+            style: { width: '52px', background: inputBg, border: '1px solid ' + border, borderRadius: '6px', padding: '0.25rem 0.4rem', color: text, fontSize: 'var(--text-xs)', textAlign: 'right' }
           }),
-          e('span', { style: { color: dim, fontSize: '0.74rem' } }, 'h'),
+          e('span', { style: { color: dim, fontSize: 'var(--text-xs)' } }, 'h'),
           e('button', {
             onClick: toggleNotify,
-            style: { padding: '0.35rem 0.8rem', borderRadius: '8px', border: 'none', cursor: 'pointer', fontSize: '0.76rem', fontWeight: 700, background: settings.notify ? good : inputBg, color: settings.notify ? '#08130a' : dim }
+            style: { padding: '0.35rem 0.8rem', borderRadius: '8px', border: 'none', cursor: 'pointer', fontSize: 'var(--text-xs)', fontWeight: 700, background: settings.notify ? good : inputBg, color: settings.notify ? '#08130a' : dim }
           }, settings.notify ? __('rmNotifyOn', 'Notifications on') : __('rmNotifyOff', 'Notifications off')))),
       e('div', { style: { overflowX: 'auto' } },
         e('table', { style: { width: '100%', borderCollapse: 'collapse' } },
           e('thead', null, e('tr', null, [__('rmRule', 'Rule'), __('rbCurrent', 'Current'), __('rmLimit', 'Limit'), __('secStatus', 'Status')].map(function (h, i) {
-            return e('th', { key: h, style: { textAlign: i === 0 ? 'left' : 'right', padding: '0.4rem 0.5rem', color: dim, fontSize: '0.68rem', textTransform: 'uppercase', letterSpacing: '0.04em' } }, h);
+            return e('th', { key: h, style: { textAlign: i === 0 ? 'left' : 'right', padding: '0.4rem 0.5rem', color: dim, fontSize: 'var(--text-2xs)', textTransform: 'uppercase', letterSpacing: '0.04em' } }, h);
           }))),
           e('tbody', null, rows))),
-      e('div', { style: { color: dim, fontSize: '0.7rem', marginTop: '0.7rem', lineHeight: 1.5 } },
+      e('div', { style: { color: dim, fontSize: 'var(--text-2xs)', marginTop: '0.7rem', lineHeight: 1.5 } },
         __('rmFootnote', 'Structural rules evaluated on every price refresh while the app is open. The look-through rule needs fund data (open Health once to resolve it); drawdown and volatility need a short portfolio price history. Notifications are local on this device.')));
   }
 

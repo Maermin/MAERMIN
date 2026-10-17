@@ -195,9 +195,9 @@ function __(k, f, v) { return (typeof window !== 'undefined' && window.MaerminI1
     var setLink = function (key, pf) { var n = normalize(links); if (pf) n.links[key] = pf; else delete n.links[key]; save(n); setLinks(n); };
     var th = { padding: '0.3rem 0.4rem', textAlign: 'left', color: dim, fontWeight: 600, fontSize: '0.72rem' };
     var td = { padding: '0.35rem 0.4rem', borderTop: '1px solid ' + border, verticalAlign: 'top' };
-    return e('div', { 'data-testid': 'reconcile', style: { background: inputBg, border: '1px solid ' + border, borderRadius: '10px', padding: '0.7rem 0.9rem', marginBottom: '1rem', fontSize: '0.8rem', color: text } },
+    return e('div', { 'data-testid': 'reconcile', style: { background: inputBg, border: '1px solid ' + border, borderRadius: '10px', padding: '0.7rem 0.9rem', marginBottom: '1rem', fontSize: 'var(--text-sm)', color: text } },
       e('div', { style: { fontWeight: 700, marginBottom: '0.15rem' } }, __('reconTitle', 'Reconciliation: reported vs MAERMIN')),
-      e('div', { style: { color: dim, fontSize: '0.74rem', marginBottom: '0.5rem' } }, __('reconSubtitle', 'What your banks, depots and wallets last reported, next to what MAERMIN computes from your transactions. Differences are not fixed automatically: book the missing transactions.')),
+      e('div', { style: { color: dim, fontSize: 'var(--text-xs)', marginBottom: '0.5rem' } }, __('reconSubtitle', 'What your banks, depots and wallets last reported, next to what MAERMIN computes from your transactions. Differences are not fixed automatically: book the missing transactions.')),
       cash.length ? e('div', { style: { overflowX: 'auto' } }, e('table', { 'data-testid': 'rc-cash', style: { width: '100%', borderCollapse: 'collapse' } },
         e('thead', null, e('tr', null, e('th', { style: th }, __('reconAccount', 'Account')), e('th', { style: th }, __('reconReported', 'Reported')), e('th', { style: th }, __('reconPortfolio', 'Portfolio')), e('th', { style: th }, __('reconStatus', 'MAERMIN')))),
         e('tbody', null, cash.map(function (r) {
@@ -205,7 +205,7 @@ function __(k, f, v) { return (typeof window !== 'undefined' && window.MaerminI1
             e('td', { style: td }, r.label),
             e('td', { style: td }, money(r.reported.amount) + (r.reported.currency !== 'EUR' ? ' (' + r.reported.currency + ')' : '') + (r.reported.date ? ' · ' + r.reported.date : '')),
             e('td', { style: td }, e('select', { 'data-testid': 'rc-link', 'aria-label': __('reconLinkLabel', 'Portfolio for {account}', { account: r.label }), value: r.portfolioId || '', onChange: function (ev) { setLink(r.key, ev.target.value); },
-              style: { background: inputBg, color: text, border: '1px solid ' + border, borderRadius: '6px', padding: '0.2rem 0.3rem', fontSize: '0.74rem', maxWidth: '12rem' } },
+              style: { background: inputBg, color: text, border: '1px solid ' + border, borderRadius: '6px', padding: '0.2rem 0.3rem', fontSize: 'var(--text-xs)', maxWidth: '12rem' } },
               e('option', { value: '' }, __('reconNone', '—')),
               (props.portfolios || []).map(function (p) { return e('option', { key: p.id, value: p.id }, p.name || p.id); }))),
             e('td', { style: Object.assign({}, td, { color: colour(r.status) }) }, r.computed != null ? money(r.computed) + ' · ' : '', statusText(r)));
@@ -216,7 +216,7 @@ function __(k, f, v) { return (typeof window !== 'undefined' && window.MaerminI1
       }),
       crypto.length ? e('div', { 'data-testid': 'rc-crypto', style: { marginTop: '0.45rem', color: colour(crypto.every(function (c) { return c.status === 'match'; }) ? 'match' : 'differs') } },
         __('reconCryptoLine', 'Crypto wallets: {m} of {n} coins match', { m: crypto.filter(function (c) { return c.status === 'match'; }).length, n: crypto.length })) : null,
-      props.onOpenImport ? e('button', { type: 'button', onClick: props.onOpenImport, style: { marginTop: '0.5rem', padding: '0.25rem 0.7rem', fontSize: '0.74rem', fontWeight: 600, borderRadius: '6px', cursor: 'pointer', background: 'transparent', color: theme.accent || '#8b7cff', border: '1px solid ' + (theme.accent || '#8b7cff') + '55' } }, __('dcOpenImport', 'Open the import')) : null);
+      props.onOpenImport ? e('button', { type: 'button', onClick: props.onOpenImport, style: { marginTop: '0.5rem', padding: '0.25rem 0.7rem', fontSize: 'var(--text-xs)', fontWeight: 600, borderRadius: '6px', cursor: 'pointer', background: 'transparent', color: theme.accent || '#8b7cff', border: '1px solid ' + (theme.accent || '#8b7cff') + '55' } }, __('dcOpenImport', 'Open the import')) : null);
   }
   api.Panel = Panel;
 

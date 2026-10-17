@@ -236,8 +236,8 @@
       return e('section', { 'data-testid': testid, style: { background: theme.card, border: '1px solid ' + border, borderRadius: '14px', padding: '1.1rem', marginBottom: '1rem', minWidth: 0 } },
         e('div', { style: { display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: '0.75rem', flexWrap: 'wrap', marginBottom: '0.75rem' } },
           e('div', { style: { minWidth: 0, flex: '1 1 240px' } },
-            e('h3', { style: { color: text, fontWeight: 700, fontSize: '0.95rem', margin: 0 } }, title),
-            sub && e('div', { style: { color: dim, fontSize: '0.78rem', marginTop: '0.2rem', lineHeight: 1.5 } }, sub)),
+            e('h3', { style: { color: text, fontWeight: 700, fontSize: 'var(--text-md)', margin: 0 } }, title),
+            sub && e('div', { style: { color: dim, fontSize: 'var(--text-xs)', marginTop: '0.2rem', lineHeight: 1.5 } }, sub)),
           right || null),
         body);
     };
@@ -246,17 +246,17 @@
         items.map(function (it) {
           var on = value === it[0];
           return e('button', { key: it[0], type: 'button', 'data-testid': prefix + it[0], 'aria-pressed': on, onClick: function () { set(it[0]); },
-            style: { minHeight: '32px', padding: '0.3rem 0.7rem', border: 'none', borderRadius: '6px', cursor: 'pointer', fontSize: '0.78rem', fontWeight: on ? 700 : 500,
+            style: { minHeight: '32px', padding: '0.3rem 0.7rem', border: 'none', borderRadius: '6px', cursor: 'pointer', fontSize: 'var(--text-xs)', fontWeight: on ? 700 : 500,
               background: on ? (theme.accentFill || theme.accent) : 'transparent', color: on ? '#fff' : dim } }, it[1]);
         }));
     };
     var th = function (label, i, left) {
-      return e('th', { key: i, scope: 'col', style: { padding: '0.45rem 0.6rem', textAlign: left ? 'left' : 'right', color: dim, fontWeight: 600, fontSize: '0.7rem', textTransform: 'uppercase', letterSpacing: '0.04em', whiteSpace: 'nowrap', borderBottom: '1px solid ' + border, position: left ? 'sticky' : undefined, left: left ? 0 : undefined, background: left ? theme.card : undefined } }, label);
+      return e('th', { key: i, scope: 'col', style: { padding: '0.45rem 0.6rem', textAlign: left ? 'left' : 'right', color: dim, fontWeight: 600, fontSize: 'var(--text-2xs)', textTransform: 'uppercase', letterSpacing: '0.04em', whiteSpace: 'nowrap', borderBottom: '1px solid ' + border, position: left ? 'sticky' : undefined, left: left ? 0 : undefined, background: left ? theme.card : undefined } }, label);
     };
     var tdS = function (extra) { return Object.assign({ padding: '0.45rem 0.6rem', textAlign: 'right', whiteSpace: 'nowrap', borderBottom: '1px solid ' + border, fontVariantNumeric: 'tabular-nums' }, extra || {}); };
     var head = function (label) { return e('th', { scope: 'row', style: tdS({ textAlign: 'left', color: text, fontWeight: 700, position: 'sticky', left: 0, background: theme.card }) }, label); };
-    var table = function (cols, rows) { return e('div', { style: { overflowX: 'auto', maxWidth: '100%' } }, e('table', { style: { borderCollapse: 'collapse', width: '100%', fontSize: '0.82rem' } }, e('thead', null, e('tr', null, cols)), e('tbody', null, rows))); };
-    var muted = function (msg) { return e('div', { style: { color: dim, fontSize: '0.85rem' } }, msg); };
+    var table = function (cols, rows) { return e('div', { style: { overflowX: 'auto', maxWidth: '100%' } }, e('table', { style: { borderCollapse: 'collapse', width: '100%', fontSize: 'var(--text-sm)' } }, e('thead', null, e('tr', null, cols)), e('tbody', null, rows))); };
+    var muted = function (msg) { return e('div', { style: { color: dim, fontSize: 'var(--text-base)' } }, msg); };
 
     // ---- IRR ----
     var list = by === 'holding' ? holdings : by === 'class' ? groups.classes : groups.tags;
@@ -270,7 +270,7 @@
           list.map(function (r) {
             var key = by === 'holding' ? r.key : by + ':' + r.name;
             return e('tr', { key: key, 'data-key': key, 'data-value': r.value, 'data-invested': r.invested },
-              head(e('span', null, nameOf(r), by === 'holding' && !r.open ? e('span', { style: { color: dim, fontWeight: 400, fontSize: '0.72rem' } }, __('hrClosed', '(closed)')) : null)),
+              head(e('span', null, nameOf(r), by === 'holding' && !r.open ? e('span', { style: { color: dim, fontWeight: 400, fontSize: 'var(--text-xs)' } }, __('hrClosed', '(closed)')) : null)),
               e('td', { 'data-k': 'irr', 'data-v': r.irr === null ? '' : r.irr, style: tdS({ color: tone(r.irr || 0), fontWeight: 700 }) }, pct(r.irr) + (r.short && r.irr !== null ? '*' : '')),
               e('td', { style: tdS({ color: text }) }, money(r.invested)),
               e('td', { style: tdS({ color: dim }) }, money(r.returned)),
@@ -278,21 +278,21 @@
           }));
     var irrCard = card('hr-irr', __('hrIrrTitle', 'Return per holding (IRR)'),
       __('hrIrrSub', 'Money-weighted per year: buys, sales and dividends on their dates, and the value today.') + ' ' + (basis === 'gross' ? __('gnGrossTitle', 'Before taxes and fees') : __('gnNetTitle', 'After taxes and fees')) + '.',
-      e('div', null, irrBody, anyShort && e('div', { style: { color: dim, fontSize: '0.74rem', marginTop: '0.5rem' } }, __('hrShortNote', '* held less than a year: the return is scaled to a year.'))),
+      e('div', null, irrBody, anyShort && e('div', { style: { color: dim, fontSize: 'var(--text-xs)', marginTop: '0.5rem' } }, __('hrShortNote', '* held less than a year: the return is scaled to a year.'))),
       seg(__('hrByAria', 'Group by'), [['holding', __('hrByHolding', 'Holdings')], ['class', __('hrByClass', 'Classes')], ['tag', __('hrByTag', 'Tags')]], by, setBy, 'hr-by-'));
 
     // ---- trades ----
     var tradeList = function (testid, title, rows, none) {
       return e('div', { 'data-testid': testid, style: { flex: '1 1 280px', minWidth: 0 } },
-        e('div', { style: { color: dim, fontSize: '0.72rem', textTransform: 'uppercase', letterSpacing: '0.04em', fontWeight: 600, marginBottom: '0.35rem' } }, title),
+        e('div', { style: { color: dim, fontSize: 'var(--text-xs)', textTransform: 'uppercase', letterSpacing: '0.04em', fontWeight: 600, marginBottom: '0.35rem' } }, title),
         !rows.length ? muted(none) : rows.map(function (t, i) {
-          return e('div', { key: t.key + t.date, 'data-key': t.key, 'data-date': t.date, 'data-ret': t.ret, style: { display: 'flex', justifyContent: 'space-between', gap: '0.5rem', padding: '0.45rem 0', borderTop: i ? '1px solid ' + border : 'none', fontSize: '0.82rem' } },
+          return e('div', { key: t.key + t.date, 'data-key': t.key, 'data-date': t.date, 'data-ret': t.ret, style: { display: 'flex', justifyContent: 'space-between', gap: '0.5rem', padding: '0.45rem 0', borderTop: i ? '1px solid ' + border : 'none', fontSize: 'var(--text-sm)' } },
             e('div', { style: { minWidth: 0 } },
               e('div', { style: { color: text, fontWeight: 700 } }, t.symbol),
-              e('div', { style: { color: dim, fontSize: '0.72rem' } }, __('hrSoldHeld', 'sold {date} · held {n} {n:day|days}', { date: I.date(t.date), n: t.days }))),
+              e('div', { style: { color: dim, fontSize: 'var(--text-xs)' } }, __('hrSoldHeld', 'sold {date} · held {n} {n:day|days}', { date: I.date(t.date), n: t.days }))),
             e('div', { style: { textAlign: 'right', whiteSpace: 'nowrap' } },
               e('div', { style: { color: tone(t.gain), fontWeight: 700 } }, pct(t.ret)),
-              e('div', { style: { color: dim, fontSize: '0.72rem' } }, (t.gain >= 0 ? '+' : '') + money(t.gain) + (t.annualized !== null ? ' · ' + __('retPa', '{pct} p.a.', { pct: I.pct(t.annualized * 100, 1, true) }) : ''))));
+              e('div', { style: { color: dim, fontSize: 'var(--text-xs)' } }, (t.gain >= 0 ? '+' : '') + money(t.gain) + (t.annualized !== null ? ' · ' + __('retPa', '{pct} p.a.', { pct: I.pct(t.annualized * 100, 1, true) }) : ''))));
         }));
     };
     var tradesCard = card('hr-trades', __('hrTradesTitle', 'Best and worst sales'),
@@ -319,13 +319,13 @@
     var cfCard = card('hr-capital', __('hrCfTitle', 'Capital flow'),
       __('hrCfSub', 'Money put into and taken out of holdings: buys incl. fees, sales after fees. Dividends and cash bookings are not included.'),
       !cf.months.length ? muted(__('hrNone', 'No holdings yet.')) : e('div', null,
-        e('div', { 'data-testid': 'hr-cf-avg', 'data-v': cf.total.avg, style: { color: text, fontSize: '0.85rem', marginBottom: '0.6rem' } },
+        e('div', { 'data-testid': 'hr-cf-avg', 'data-v': cf.total.avg, style: { color: text, fontSize: 'var(--text-base)', marginBottom: '0.6rem' } },
           __('hrCfAvg', 'On average {amount} net invested per month over {n} {n:month|months}.', { amount: money(cf.total.avg), n: cf.total.months })),
         e('div', { style: { maxHeight: cfBy === 'month' ? '420px' : undefined, overflowY: cfBy === 'month' ? 'auto' : undefined } }, table(cfCols, cfRows))),
       seg(__('hrCfAria', 'Show per'), [['year', __('hrPerYear', 'Year')], ['month', __('hrPerMonth', 'Month')]], cfBy, setCfBy, 'hr-cf-'));
 
     return e('div', { 'data-testid': 'holding-returns', style: { marginTop: '1.5rem' } },
-      e('h3', { style: { color: text, fontSize: '1.15rem', fontWeight: 800, margin: '0 0 0.75rem' } }, __('hrTitle', 'Per holding')),
+      e('h3', { style: { color: text, fontSize: 'var(--text-lg)', fontWeight: 800, margin: '0 0 0.75rem' } }, __('hrTitle', 'Per holding')),
       irrCard, tradesCard, cfCard);
   }
 })();

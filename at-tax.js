@@ -247,15 +247,15 @@ function __(k, f, v) { return (typeof window !== 'undefined' && window.MaerminI1
     var s1 = useState(''); var newSym = s1[0], setNewSym = s1[1];
     function update(next) { setFunds(saveFunds(next)); if (props.onChange) props.onChange(); }
     function line(lbl, val, tid, color, strong) {
-      return e('div', { 'data-testid': tid, style: { display: 'flex', justifyContent: 'space-between', gap: '0.75rem', padding: '0.3rem 0', borderTop: '1px solid ' + border, fontSize: '0.82rem' } },
+      return e('div', { 'data-testid': tid, style: { display: 'flex', justifyContent: 'space-between', gap: '0.75rem', padding: '0.3rem 0', borderTop: '1px solid ' + border, fontSize: 'var(--text-sm)' } },
         e('span', { style: { color: dim } }, lbl), e('span', { style: { color: color || text, fontWeight: strong ? 800 : 700 } }, val));
     }
     var input = { boxSizing: 'border-box', padding: '0.35rem 0.5rem', background: th.inputBg, border: '1px solid ' + (th.inputBorder || border), borderRadius: '8px', color: text, fontSize: '0.8rem', fontFamily: 'inherit' };
     var btn = { padding: '0.35rem 0.8rem', borderRadius: '8px', border: '1px solid ' + border, background: th.inputBg, color: text, cursor: 'pointer', fontSize: '0.76rem', fontWeight: 600 };
     var syms = Object.keys(funds).sort();
     return e('div', { 'data-testid': 'at-panel', style: { background: th.card || th.cardBg, border: '1px solid ' + border, borderRadius: '14px', padding: '1.25rem', margin: '1.5rem 0 0' } },
-      e('h3', { style: { color: text, fontSize: '1.05rem', fontWeight: 700, margin: '0 0 0.35rem' } }, __('atTitle', 'Austria: tax on capital income {y}', { y: year })),
-      e('p', { style: { color: dim, fontSize: '0.8rem', margin: '0 0 0.6rem', lineHeight: 1.5 } },
+      e('h3', { style: { color: text, fontSize: 'var(--text-body)', fontWeight: 700, margin: '0 0 0.35rem' } }, __('atTitle', 'Austria: tax on capital income {y}', { y: year })),
+      e('p', { style: { color: dim, fontSize: 'var(--text-sm)', margin: '0 0 0.6rem', lineHeight: 1.5 } },
         __('atIntro', '27.5 % on gains, dividends, interest on securities, fund income and crypto; 25 % on bank interest. Cost is the moving average per depot (crypto: per wallet) without fees; losses offset only within the year.')),
       d ? e('div', null,
         line(__('atGains', 'Realised gains (moving average, no fees)'), money(d.gains), 'at-gains'),
@@ -270,29 +270,29 @@ function __(k, f, v) { return (typeof window !== 'undefined' && window.MaerminI1
         d.withholdingCredit ? line(__('atCredit', 'Foreign withholding credited (max. 15 %)'), '-' + money(d.withholdingCredit), 'at-credit', good) : null,
         d.bankInterest ? line(__('atBank', 'Bank interest at 25 %'), money(d.bankInterest), 'at-bank') : null,
         line(__('atTotal', 'Estimated tax'), money(d.tax), 'at-total', warn, true),
-        d.swaps.length ? e('div', { style: { color: dim, fontSize: '0.74rem', marginTop: '0.4rem' } }, __('atSwaps', 'Crypto swaps this year (not taxed, cost carried over): {list}', { list: d.swaps.map(function (s) { return s.from + ' → ' + s.to; }).join(', ') })) : null)
-        : e('div', { style: { color: dim, fontSize: '0.8rem' } }, __('atNoReport', 'Open the Tax Report to see the computation.')),
+        d.swaps.length ? e('div', { style: { color: dim, fontSize: 'var(--text-xs)', marginTop: '0.4rem' } }, __('atSwaps', 'Crypto swaps this year (not taxed, cost carried over): {list}', { list: d.swaps.map(function (s) { return s.from + ' → ' + s.to; }).join(', ') })) : null)
+        : e('div', { style: { color: dim, fontSize: 'var(--text-sm)' } }, __('atNoReport', 'Open the Tax Report to see the computation.')),
       e('div', { style: { borderTop: '1px solid ' + border, marginTop: '0.75rem', paddingTop: '0.6rem' } },
-        e('div', { style: { color: text, fontWeight: 700, fontSize: '0.86rem', marginBottom: '0.3rem' } }, __('atFundsTitle', 'Funds')),
-        e('div', { style: { color: dim, fontSize: '0.74rem', marginBottom: '0.5rem', lineHeight: 1.5 } },
+        e('div', { style: { color: text, fontWeight: 700, fontSize: 'var(--text-base)', marginBottom: '0.3rem' } }, __('atFundsTitle', 'Funds')),
+        e('div', { style: { color: dim, fontSize: 'var(--text-xs)', marginBottom: '0.5rem', lineHeight: 1.5 } },
           __('atFundsHint', 'Meldefonds: enter the ausschüttungsgleiche Erträge of {y} for your whole holding from the OeKB (profitweb.at). Nichtmeldefonds: 90 % of the year\'s price gain, at least 10 % of the last price, counted on 31 December.', { y: year })),
         syms.map(function (sym) {
           var f = funds[sym], row = (d && d.funds || []).filter(function (x) { return x.symbol === sym; })[0];
           return e('div', { key: sym, 'data-testid': 'at-fund-' + sym, style: { display: 'flex', gap: '0.5rem', alignItems: 'center', flexWrap: 'wrap', padding: '0.3rem 0', borderTop: '1px solid ' + border } },
-            e('span', { style: { color: text, fontWeight: 700, minWidth: '90px', fontSize: '0.8rem' } }, sym),
+            e('span', { style: { color: text, fontWeight: 700, minWidth: '90px', fontSize: 'var(--text-sm)' } }, sym),
             e('select', { value: f.type, style: input, 'aria-label': __('atFundType', 'Fund type'), onChange: function (ev) { var n = Object.assign({}, funds); n[sym] = Object.assign({}, f, { type: ev.target.value }); update(n); } },
               e('option', { value: 'melde' }, __('atMelde', 'Meldefonds')), e('option', { value: 'nichtmelde' }, __('atNichtmelde', 'Nichtmeldefonds'))),
             f.type === 'melde' ? e('input', { 'data-testid': 'at-age-' + sym, inputMode: 'decimal', placeholder: __('atAgePlaceholder', 'EUR {y}', { y: year }), style: Object.assign({}, input, { width: '120px' }),
               defaultValue: f.age[String(year)] != null ? String(f.age[String(year)]) : '',
               onBlur: function (ev) { var v = parseFloat(String(ev.target.value).replace(',', '.')); var n = Object.assign({}, funds); var age = Object.assign({}, f.age); if (isFinite(v)) age[String(year)] = v; else delete age[String(year)]; n[sym] = Object.assign({}, f, { age: age }); update(n); } }) : null,
-            row ? e('span', { style: { color: row.missing || row.pending ? warn : dim, fontSize: '0.74rem' } },
+            row ? e('span', { style: { color: row.missing || row.pending ? warn : dim, fontSize: 'var(--text-xs)' } },
               row.pending ? __('atPending', 'counted on 31 December') : row.missing ? __('atMissing', 'no figure for {y}', { y: year }) : money(row.amount)) : null,
             e('button', { style: btn, onClick: function () { var n = Object.assign({}, funds); delete n[sym]; update(n); } }, __('atRemove', 'Remove')));
         }),
         e('div', { style: { display: 'flex', gap: '0.5rem', marginTop: '0.5rem' } },
           e('input', { 'data-testid': 'at-new-fund', value: newSym, placeholder: __('atFundSymbol', 'Fund symbol, e.g. VWCE.DE'), style: Object.assign({}, input, { flex: '1 1 160px' }), onChange: function (ev) { setNewSym(ev.target.value); } }),
           e('button', { 'data-testid': 'at-add-fund', style: btn, onClick: function () { var s = newSym.trim().toUpperCase(); if (!s) return; var n = Object.assign({}, funds); n[s] = n[s] || { type: 'melde', age: {} }; update(n); setNewSym(''); } }, __('atAddFund', 'Add fund')))),
-      e('div', { style: { color: dim, fontSize: '0.7rem', marginTop: '0.6rem', lineHeight: 1.5 } },
+      e('div', { style: { color: dim, fontSize: 'var(--text-2xs)', marginTop: '0.6rem', lineHeight: 1.5 } },
         __('atNote', 'Estimate for the tax return (Veranlagung); your Austrian bank withholds the KESt itself. Sources: § 27, § 27a, § 27b, § 124b Z 384 EStG 1988; § 186 InvFG 2011; EStR 2000. Not modelled: derivatives, private sales (§ 31), regular taxation option. Not tax advice.')));
   }
 

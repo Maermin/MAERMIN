@@ -89,26 +89,26 @@ function __(k, f, v) { return (typeof window !== 'undefined' && window.MaerminI1
     }
     function field(key, label, suffix) {
       return h('div', { key: key, style: { display: 'flex', flexDirection: 'column', gap: '0.25rem' } },
-        h('label', { style: { color: dim, fontSize: '0.7rem', textTransform: 'uppercase', letterSpacing: '0.04em' } }, label + (suffix ? ' (' + suffix + ')' : '')),
+        h('label', { style: { color: dim, fontSize: 'var(--text-2xs)', textTransform: 'uppercase', letterSpacing: '0.04em' } }, label + (suffix ? ' (' + suffix + ')' : '')),
         h('input', { type: 'number', value: inputs[key], onChange: function (e) { setField(key, e.target.value); },
-          style: { padding: '0.5rem 0.6rem', background: inputBg, border: '1px solid ' + border, borderRadius: '8px', color: text, fontSize: '0.85rem', width: '100%', boxSizing: 'border-box' } })
+          style: { padding: '0.5rem 0.6rem', background: inputBg, border: '1px solid ' + border, borderRadius: '8px', color: text, fontSize: 'var(--text-base)', width: '100%', boxSizing: 'border-box' } })
       );
     }
     function stat(label, value, color) {
       return h('div', { style: { background: inputBg, border: '1px solid ' + border, borderRadius: '10px', padding: '0.8rem 1rem' } },
-        h('div', { style: { color: dim, fontSize: '0.72rem', textTransform: 'uppercase', letterSpacing: '0.04em' } }, label),
-        h('div', { style: { color: color || text, fontSize: '1.05rem', fontWeight: '700', marginTop: '0.2rem' } }, value)
+        h('div', { style: { color: dim, fontSize: 'var(--text-xs)', textTransform: 'uppercase', letterSpacing: '0.04em' } }, label),
+        h('div', { style: { color: color || text, fontSize: 'var(--text-body)', fontWeight: '700', marginTop: '0.2rem' } }, value)
       );
     }
 
     function results() {
-      if (!window.MaerminAnalytics) return h('div', { style: { color: dim, fontSize: '0.85rem' } }, __('simEngineMissing', 'Analytics engine unavailable.'));
+      if (!window.MaerminAnalytics) return h('div', { style: { color: dim, fontSize: 'var(--text-base)' } }, __('simEngineMissing', 'Analytics engine unavailable.'));
       if (!res) return null;
       var cards = [];
       if (mode === 'future') {
         cards = [stat(__('simProjected', 'Projected value'), money(res.projected), accent), stat(__('simTotalContrib', 'Total contributions'), money(res.contributions)), stat(__('simGrowth', 'Investment growth'), money(res.growth), ok)];
       } else if (mode === 'fire') {
-        if (!res.configured) return h('div', { style: { color: dim, fontSize: '0.85rem' } }, __('simNeedExpenses', 'Enter your annual expenses to compute your FIRE number.'));
+        if (!res.configured) return h('div', { style: { color: dim, fontSize: 'var(--text-base)' } }, __('simNeedExpenses', 'Enter your annual expenses to compute your FIRE number.'));
         cards = [
           stat(__('simFireNumber', 'FIRE number'), money(res.fireNumber), accent),
           stat(__('simProgress', 'Progress'), window.MaerminI18n.pct(res.currentProgress || 0, 1), res.currentProgress >= 100 ? ok : text),
@@ -127,14 +127,14 @@ function __(k, f, v) { return (typeof window !== 'undefined' && window.MaerminI1
 
     return h('div', { style: { background: theme.card || theme.cardBg || 'transparent', border: '1px solid ' + border, borderRadius: '14px', padding: '1.25rem', margin: '1rem 1.5rem' } },
       h('div', { style: { display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '0.5rem', marginBottom: '0.9rem' } },
-        h('h3', { style: { color: text, fontSize: '1rem', fontWeight: '700', margin: 0 } }, __('simTitle', 'Planning simulator')),
+        h('h3', { style: { color: text, fontSize: 'var(--text-body)', fontWeight: '700', margin: 0 } }, __('simTitle', 'Planning simulator')),
         h('div', { style: { display: 'flex', gap: '0.3rem', flexWrap: 'wrap' } }, MODES.map(function (m) {
-          return h('button', { key: m.id, onClick: function () { setMode(m.id); }, style: { padding: '0.35rem 0.75rem', borderRadius: '8px', border: 'none', cursor: 'pointer', fontSize: '0.78rem', fontWeight: mode === m.id ? '700' : '500', background: mode === m.id ? accent : inputBg, color: mode === m.id ? '#ffffff' : dim } }, ({ future: __('simFuture', 'Future Value'), fire: 'FIRE', withdraw: __('simWithdraw', 'Withdrawal') })[m.id] || m.label);
+          return h('button', { key: m.id, onClick: function () { setMode(m.id); }, style: { padding: '0.35rem 0.75rem', borderRadius: '8px', border: 'none', cursor: 'pointer', fontSize: 'var(--text-xs)', fontWeight: mode === m.id ? '700' : '500', background: mode === m.id ? accent : inputBg, color: mode === m.id ? '#ffffff' : dim } }, ({ future: __('simFuture', 'Future Value'), fire: 'FIRE', withdraw: __('simWithdraw', 'Withdrawal') })[m.id] || m.label);
         }))
       ),
       h('div', { style: { display: 'grid', gridTemplateColumns: 'repeat(auto-fit,minmax(150px,1fr))', gap: '0.6rem' } }, (FIELDS[mode] || []).map(function (f) { return field(f[0], f[1], f[2]); })),
       results(),
-      h('div', { style: { color: dim, fontSize: '0.72rem', marginTop: '0.8rem', lineHeight: '1.5' } }, __('simFootnote', 'Projections are assumption-based estimates, not guarantees.'))
+      h('div', { style: { color: dim, fontSize: 'var(--text-xs)', marginTop: '0.8rem', lineHeight: '1.5' } }, __('simFootnote', 'Projections are assumption-based estimates, not guarantees.'))
     );
   }
 

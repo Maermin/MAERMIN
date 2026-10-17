@@ -172,8 +172,8 @@ function __(k, f, v) { return (typeof window !== 'undefined' && window.MaerminI1
     (props.portfolios || []).forEach(function (p) { names[String(p.id)] = p.name; });
 
     return e('div', { 'data-testid': 'loss-carry-panel', style: { background: th.card || th.cardBg, border: '1px solid ' + border, borderRadius: '14px', padding: '1.25rem', margin: '1.5rem 0 0' } },
-      e('h3', { style: { color: text, fontSize: '1.05rem', fontWeight: 700, margin: '0 0 0.35rem' } }, __('lcTitle', 'Loss carry-forward {y}', { y: year })),
-      e('p', { style: { color: dim, fontSize: '0.8rem', margin: '0 0 0.75rem', lineHeight: 1.5 } },
+      e('h3', { style: { color: text, fontSize: 'var(--text-body)', fontWeight: 700, margin: '0 0 0.35rem' } }, __('lcTitle', 'Loss carry-forward {y}', { y: year })),
+      e('p', { style: { color: dim, fontSize: 'var(--text-sm)', margin: '0 0 0.75rem', lineHeight: 1.5 } },
         __('lcIntro', 'Losses an earlier year could not use, computed from your transactions for all portfolios together. Share losses only offset share gains, private-sale losses only private-sale gains. Carried losses are used before the Sparerpauschbetrag; a private-sale gain below the Freigrenze stays tax-free and leaves them untouched.')),
       e('div', { style: { overflowX: 'auto' } },
         e('table', { style: { width: '100%', borderCollapse: 'collapse' } },
@@ -197,13 +197,13 @@ function __(k, f, v) { return (typeof window !== 'undefined' && window.MaerminI1
                 style: inp
               })));
           })))),
-      e('p', { style: { color: dim, fontSize: '0.72rem', margin: '0.6rem 0 0', lineHeight: 1.5 } },
+      e('p', { style: { color: dim, fontSize: 'var(--text-xs)', margin: '0.6rem 0 0', lineHeight: 1.5 } },
         __('lcOpeningHint', 'From your assessment: the remaining loss carry-forward on your last Verlustfeststellungsbescheid, or a bank\'s Verlustbescheinigung, entered in the year it is brought into. It is added to what MAERMIN computes.')),
-      e('p', { role: 'note', style: { color: dim, fontSize: '0.72rem', margin: '0.35rem 0 0', lineHeight: 1.5 } },
+      e('p', { role: 'note', style: { color: dim, fontSize: 'var(--text-xs)', margin: '0.35rem 0 0', lineHeight: 1.5 } },
         __('lcKapNote', 'Anlage KAP stays per year: the tax office applies the carry-forward itself from its loss assessment.')),
       (props.portfolios || []).length > 1 ? e('div', { style: { marginTop: '0.75rem' } },
         e('button', { type: 'button', 'data-testid': 'lc-breakdown', 'aria-expanded': showBd, onClick: function () { setShowBd(!showBd); },
-          style: { padding: '0.35rem 0.8rem', borderRadius: '7px', border: '1px solid ' + border, background: 'transparent', color: text, fontSize: '0.78rem', cursor: 'pointer' } },
+          style: { padding: '0.35rem 0.8rem', borderRadius: '7px', border: '1px solid ' + border, background: 'transparent', color: text, fontSize: 'var(--text-xs)', cursor: 'pointer' } },
           showBd ? __('lcHideBreakdown', 'Hide per portfolio') : __('lcShowBreakdown', 'Per portfolio, as each bank would keep it')),
         showBd ? e('table', { style: { width: '100%', borderCollapse: 'collapse', marginTop: '0.5rem' } },
           e('thead', null, e('tr', null,

@@ -134,7 +134,7 @@ function __(k, f, v) { return (typeof window !== 'undefined' && window.MaerminI1
   function Chart(props) {
     var React = W.React, e = React.createElement;
     var th = props.theme || {}, pts = props.points || [], on = props.on || {};
-    if (pts.length < 2) return e('div', { style: { color: th.textSecondary, fontSize: '0.8rem', padding: '1rem 0' } }, __('rsNoChart', 'No price history for this range.'));
+    if (pts.length < 2) return e('div', { style: { color: th.textSecondary, fontSize: 'var(--text-sm)', padding: '1rem 0' } }, __('rsNoChart', 'No price history for this range.'));
     var closes = pts.map(function (p) { return p.price; });
     var lines = [{ id: 'close', v: closes, c: th.accent || '#8b7cff', w: 1.6 }];
     if (on.sma50) lines.push({ id: 'sma50', v: sma(closes, 50), c: '#f59e0b', w: 1.2 });
@@ -222,13 +222,13 @@ function __(k, f, v) { return (typeof window !== 'undefined' && window.MaerminI1
     var card = { background: th.card || th.cardBg, border: '1px solid ' + border, borderRadius: '14px', padding: '1rem 1.25rem', marginBottom: '1rem' };
     var input = { boxSizing: 'border-box', padding: '0.45rem 0.6rem', background: th.inputBg, border: '1px solid ' + (th.inputBorder || border), borderRadius: '8px', color: text, fontSize: '0.85rem', fontFamily: 'inherit' };
     var btn = function (active) { return { padding: '0.35rem 0.7rem', borderRadius: '8px', border: '1px solid ' + (active ? (th.accent || '#8b7cff') : border), background: active ? (th.accentFill || th.accent || '#8b7cff') : th.inputBg, color: active ? '#fff' : text, cursor: 'pointer', fontSize: '0.76rem', fontWeight: 600 }; };
-    var h3 = function (t) { return e('h3', { style: { color: text, fontSize: '1rem', fontWeight: 700, margin: '0 0 0.6rem' } }, t); };
+    var h3 = function (t) { return e('h3', { style: { color: text, fontSize: 'var(--text-body)', fontWeight: 700, margin: '0 0 0.6rem' } }, t); };
     var d = data.state === 'ok' ? data.d : null;
     var cur = d && d.currency ? d.currency : '';
     var priceTxt = function (v) { return v == null ? '–' : I.num(v, 2) + (cur ? ' ' + cur : ''); };
     var pct = function (v, sign) { return v == null ? '–' : (sign && v > 0 ? '+' : '') + I.num(v * 100, 1) + ' %'; };
     var big = function (v) { if (v == null) return '–'; var a = Math.abs(v); return a >= 1e12 ? I.num(v / 1e12, 2) + ' T' : a >= 1e9 ? I.num(v / 1e9, 2) + ' B' : a >= 1e6 ? I.num(v / 1e6, 1) + ' M' : I.num(v, 0); };
-    var cell = function (lbl, val, tid) { return e('div', { key: lbl, 'data-testid': tid, style: { padding: '0.45rem 0', borderTop: '1px solid ' + border } }, e('div', { style: { color: dim, fontSize: '0.72rem' } }, lbl), e('div', { style: { color: text, fontWeight: 700, fontSize: '0.9rem' } }, val)); };
+    var cell = function (lbl, val, tid) { return e('div', { key: lbl, 'data-testid': tid, style: { padding: '0.45rem 0', borderTop: '1px solid ' + border } }, e('div', { style: { color: dim, fontSize: 'var(--text-xs)' } }, lbl), e('div', { style: { color: text, fontWeight: 700, fontSize: 'var(--text-base)' } }, val)); };
     var grid = { display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(150px, 1fr))', columnGap: '1rem' };
 
     // own data
@@ -244,7 +244,7 @@ function __(k, f, v) { return (typeof window !== 'undefined' && window.MaerminI1
     var go = function () { var s = draft.trim().toUpperCase(); if (s && props.onSymbol) props.onSymbol(s); };
     return e('div', { 'data-testid': 'research-view', style: { padding: '1.5rem' } },
       e('div', { style: { display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '0.75rem', flexWrap: 'wrap', marginBottom: '0.75rem' } },
-        e('h2', { style: { color: text, fontSize: '1.5rem', fontWeight: 700, margin: 0 } }, d ? d.name + ' · ' + sym : (sym || __('rsTitle', 'Research'))),
+        e('h2', { style: { color: text, fontSize: 'var(--text-xl)', fontWeight: 700, margin: 0 } }, d ? d.name + ' · ' + sym : (sym || __('rsTitle', 'Research'))),
         e('div', { style: { display: 'flex', gap: '0.4rem' } },
           e('input', { 'data-testid': 'rs-symbol', list: 'rs-symbols', value: draft, placeholder: __('rsSymbolPh', 'Symbol, e.g. AAPL or SAP.DE'), 'aria-label': __('rsSymbol', 'Symbol'), style: Object.assign({}, input, { width: '220px' }),
             onChange: function (ev) { setDraft(ev.target.value); }, onKeyDown: function (ev) { if (ev.key === 'Enter') go(); } }),
@@ -254,15 +254,15 @@ function __(k, f, v) { return (typeof window !== 'undefined' && window.MaerminI1
       !sym ? e('div', { style: Object.assign({}, card, { color: dim, fontSize: '0.85rem' }) }, __('rsPick', 'Pick a symbol: one you hold, one on your watchlist, or any other.')) : null,
       sym && base ? e('div', { style: card },
         e('div', { style: { display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', flexWrap: 'wrap', gap: '0.5rem', marginBottom: '0.5rem' } },
-          e('div', { 'data-testid': 'rs-price', style: { color: text, fontSize: '1.4rem', fontWeight: 800 } }, priceTxt(d && d.price != null ? d.price : lastClose)),
+          e('div', { 'data-testid': 'rs-price', style: { color: text, fontSize: 'var(--text-title-lg)', fontWeight: 800 } }, priceTxt(d && d.price != null ? d.price : lastClose)),
           e('div', { style: { display: 'flex', gap: '0.3rem', flexWrap: 'wrap' } },
             ['6mo', '1y', '5y'].map(function (r) { return e('button', { key: r, style: btn(range === r), onClick: function () { setRange(r); } }, r === '6mo' ? __('rs6m', '6 M') : r === '1y' ? __('rs1y', '1 Y') : __('rs5y', '5 Y')); }))),
-        series.state === 'loading' ? e('div', { style: { color: dim, fontSize: '0.8rem' } }, __('rsLoading', 'Loading…')) : e(Chart, { points: series.points, theme: th, on: on }),
+        series.state === 'loading' ? e('div', { style: { color: dim, fontSize: 'var(--text-sm)' } }, __('rsLoading', 'Loading…')) : e(Chart, { points: series.points, theme: th, on: on }),
         e('div', { style: { display: 'flex', gap: '0.3rem', flexWrap: 'wrap', marginTop: '0.5rem' } },
           [['sma50', __('rsSma50', 'SMA 50')], ['sma200', __('rsSma200', 'SMA 200')], ['ema20', __('rsEma20', 'EMA 20')], ['bb', __('rsBollinger', 'Bollinger (20, 2)')], ['macd', 'MACD']].map(function (x) {
             return e('button', { key: x[0], 'data-testid': 'rs-ind-' + x[0], 'aria-pressed': on[x[0]] ? 'true' : 'false', style: btn(!!on[x[0]]), onClick: function () { var n = Object.assign({}, on); n[x[0]] = !n[x[0]]; setOn(n); } }, x[1]);
           }))) : null,
-      data.state === 'loading' ? e('div', { style: { color: dim, fontSize: '0.8rem', marginBottom: '1rem' } }, __('rsLoading', 'Loading…')) : null,
+      data.state === 'loading' ? e('div', { style: { color: dim, fontSize: 'var(--text-sm)', marginBottom: '1rem' } }, __('rsLoading', 'Loading…')) : null,
       data.state === 'old' ? e('div', { style: Object.assign({}, card, { color: warn, fontSize: '0.8rem' }) }, __('rsOldWorker', 'Your Worker is older than 2026.10.12: redeploy it for key figures and analyst data. The chart works already.')) : null,
       data.state === 'none' ? e('div', { style: Object.assign({}, card, { color: dim, fontSize: '0.8rem' }) }, __('rsNoData', 'No key figures for this symbol (funds, crypto and some exchanges have none).')) : null,
       pos ? e('div', { 'data-testid': 'rs-position', style: card }, h3(__('rsYourPosition', 'Your position')),
@@ -274,12 +274,12 @@ function __(k, f, v) { return (typeof window !== 'undefined' && window.MaerminI1
           cell(__('rsRealized', 'Realised'), money(pos.realizedEUR)),
           cell(__('rsDividends', 'Dividends received'), money(pos.dividendsEUR)),
           cell(__('rsSince', 'First buy'), pos.since ? I.date(pos.since) : '–')),
-        pos.trades.length ? e('div', { style: { marginTop: '0.5rem', fontSize: '0.76rem', color: dim } }, pos.trades.slice(0, 5).map(function (t, i) {
+        pos.trades.length ? e('div', { style: { marginTop: '0.5rem', fontSize: 'var(--text-xs)', color: dim } }, pos.trades.slice(0, 5).map(function (t, i) {
           return e('div', { key: i }, I.date(t.date) + ' · ' + (t.type === 'buy' ? __('rsBuy', 'Buy') : __('rsSell', 'Sell')) + ' ' + (props.privacy ? '••' : I.num(t.quantity, 4) + ' × ' + I.num(t.price, 2) + ' ' + t.currency));
         })) : null) : null,
       journal.length ? e('div', { 'data-testid': 'rs-journal', style: card }, h3(__('rsJournal', 'Your journal')),
         journal.map(function (j) {
-          return e('div', { key: j.key, style: { fontSize: '0.82rem', color: text, lineHeight: 1.5 } },
+          return e('div', { key: j.key, style: { fontSize: 'var(--text-sm)', color: text, lineHeight: 1.5 } },
             j.thesis ? e('div', null, e('b', null, __('rsThesis', 'Thesis') + ': '), j.thesis) : null,
             j.target ? e('div', null, e('b', null, __('rsTarget', 'Target') + ': '), j.target) : null,
             j.notes ? e('div', null, j.notes) : null,
@@ -306,27 +306,27 @@ function __(k, f, v) { return (typeof window !== 'undefined' && window.MaerminI1
           cell(__('rsDebtEquity', 'Debt / equity'), d.financials.debtToEquity == null ? '–' : I.num(d.financials.debtToEquity / 100, 2)),
           cell(__('rsFcf', 'Free cash flow'), big(d.financials.freeCashflow)))) : null,
       av ? e('div', { 'data-testid': 'rs-analysts', style: card }, h3(__('rsAnalysts', 'Analysts')),
-        e('div', { style: { color: dim, fontSize: '0.8rem', marginBottom: '0.5rem' } }, __('rsAnalystsLine', '{n} analysts · mean target {t} · {u} from today\'s price', { n: av.count, t: priceTxt(av.targetMean), u: pct(av.upside, true) })),
+        e('div', { style: { color: dim, fontSize: 'var(--text-sm)', marginBottom: '0.5rem' } }, __('rsAnalystsLine', '{n} analysts · mean target {t} · {u} from today\'s price', { n: av.count, t: priceTxt(av.targetMean), u: pct(av.upside, true) })),
         av.shares ? e('div', { style: { display: 'flex', height: '14px', borderRadius: '7px', overflow: 'hidden', marginBottom: '0.3rem' } },
           [['strongBuy', '#16a34a'], ['buy', '#22c55e'], ['hold', '#f59e0b'], ['sell', '#f97316'], ['strongSell', '#ef4444']].map(function (x) { return e('div', { key: x[0], title: x[0], style: { width: (av.shares[x[0]] * 100) + '%', background: x[1] } }); })) : null,
-        av.shares ? e('div', { style: { display: 'flex', justifyContent: 'space-between', color: dim, fontSize: '0.72rem', flexWrap: 'wrap', gap: '0.4rem' } },
+        av.shares ? e('div', { style: { display: 'flex', justifyContent: 'space-between', color: dim, fontSize: 'var(--text-xs)', flexWrap: 'wrap', gap: '0.4rem' } },
           e('span', null, __('rsBuyShare', 'Buy {p}', { p: pct(av.shares.strongBuy + av.shares.buy) })), e('span', null, __('rsHoldShare', 'Hold {p}', { p: pct(av.shares.hold) })), e('span', null, __('rsSellShare', 'Sell {p}', { p: pct(av.shares.sell + av.shares.strongSell) }))) : null,
         av.pricePos != null ? e('div', { style: { marginTop: '0.7rem' } },
           e('div', { style: { position: 'relative', height: '6px', background: th.inputBg || 'rgba(255,255,255,0.08)', borderRadius: '3px' } },
             e('div', { title: __('rsToday', 'Today'), style: { position: 'absolute', left: 'calc(' + (av.pricePos * 100) + '% - 5px)', top: '-4px', width: '10px', height: '14px', borderRadius: '3px', background: th.accent || '#8b7cff' } })),
-          e('div', { style: { display: 'flex', justifyContent: 'space-between', color: dim, fontSize: '0.72rem', marginTop: '0.3rem' } },
+          e('div', { style: { display: 'flex', justifyContent: 'space-between', color: dim, fontSize: 'var(--text-xs)', marginTop: '0.3rem' } },
             e('span', null, __('rsLow', 'Low {v}', { v: priceTxt(av.targetLow) })), e('span', null, __('rsHigh', 'High {v}', { v: priceTxt(av.targetHigh) })))) : null) : null,
       eps.length ? e('div', { 'data-testid': 'rs-eps', style: card }, h3(__('rsEps', 'Earnings per share: actual vs estimate')),
         eps.map(function (q) {
-          return e('div', { key: q.quarter, style: { display: 'flex', justifyContent: 'space-between', gap: '0.5rem', borderTop: '1px solid ' + border, padding: '0.3rem 0', fontSize: '0.8rem' } },
+          return e('div', { key: q.quarter, style: { display: 'flex', justifyContent: 'space-between', gap: '0.5rem', borderTop: '1px solid ' + border, padding: '0.3rem 0', fontSize: 'var(--text-sm)' } },
             e('span', { style: { color: dim, minWidth: '4.5rem' } }, q.quarter),
             e('span', { style: { color: text } }, I.num(q.actual, 2) + ' / ' + I.num(q.estimate, 2)),
             e('span', { style: { color: q.beat ? good : bad, fontWeight: 700 } }, (q.beat ? __('rsBeat', 'beat') : __('rsMiss', 'miss')) + ' ' + pct(q.surprise, true)));
         })) : null,
       d && (d.profile.summary || d.profile.sector) ? e('div', { 'data-testid': 'rs-profile', style: card }, h3(__('rsProfile', 'Company')),
-        e('div', { style: { color: dim, fontSize: '0.78rem', marginBottom: '0.4rem' } }, [d.profile.sector, d.profile.industry, d.profile.country].filter(Boolean).join(' · ')),
-        d.profile.summary ? e('p', { style: { color: text, fontSize: '0.82rem', lineHeight: 1.55, margin: 0 } }, d.profile.summary) : null) : null,
-      d ? e('div', { style: { color: dim, fontSize: '0.7rem', lineHeight: 1.5 } },
+        e('div', { style: { color: dim, fontSize: 'var(--text-xs)', marginBottom: '0.4rem' } }, [d.profile.sector, d.profile.industry, d.profile.country].filter(Boolean).join(' · ')),
+        d.profile.summary ? e('p', { style: { color: text, fontSize: 'var(--text-sm)', lineHeight: 1.55, margin: 0 } }, d.profile.summary) : null) : null,
+      d ? e('div', { style: { color: dim, fontSize: 'var(--text-2xs)', lineHeight: 1.5 } },
         __('rsSource', 'Market data: {src} through your Worker, cached up to 6 hours, for personal use. Your position and journal are computed on this device. Not investment advice.', { src: d.source || 'Yahoo Finance' })) : null);
   }
 

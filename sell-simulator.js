@@ -222,7 +222,7 @@ function __(k, f, v) { return (typeof window !== 'undefined' && window.MaerminI1
     var cell = { padding: '0.35rem 0.5rem', borderTop: '1px solid ' + border, fontSize: '0.78rem', color: text, textAlign: 'right' };
     var head = { padding: '0.3rem 0.5rem', color: dim, fontSize: '0.64rem', textTransform: 'uppercase', letterSpacing: '0.04em', textAlign: 'right' };
     function line(lbl, val, color, tid) {
-      return e('div', { 'data-testid': tid, style: { display: 'flex', justifyContent: 'space-between', gap: '0.75rem', padding: '0.3rem 0', borderTop: '1px solid ' + border, fontSize: '0.82rem' } },
+      return e('div', { 'data-testid': tid, style: { display: 'flex', justifyContent: 'space-between', gap: '0.75rem', padding: '0.3rem 0', borderTop: '1px solid ' + border, fontSize: 'var(--text-sm)' } },
         e('span', { style: { color: dim } }, lbl), e('span', { style: { color: color || text, fontWeight: 700 } }, val));
     }
     var errText = res && res.error ? (res.error === 'oversold' ? __('ssOversold', 'You hold only {q}.', { q: I18N.num(res.held, { min: 0, max: 8 }) })
@@ -231,8 +231,8 @@ function __(k, f, v) { return (typeof window !== 'undefined' && window.MaerminI1
       : __('ssInvalid', 'Enter a quantity above 0, a price and a date.')) : '';
 
     return e('div', { 'data-testid': 'sell-sim-panel', style: { background: th.card || th.cardBg, border: '1px solid ' + border, borderRadius: '14px', padding: '1.25rem', margin: '1.5rem 0 0' } },
-      e('h3', { style: { color: text, fontSize: '1.05rem', fontWeight: 700, margin: '0 0 0.35rem' } }, __('ssTitle', 'Sell simulator')),
-      e('p', { style: { color: dim, fontSize: '0.8rem', margin: '0 0 0.75rem', lineHeight: 1.5 } },
+      e('h3', { style: { color: text, fontSize: 'var(--text-body)', fontWeight: 700, margin: '0 0 0.35rem' } }, __('ssTitle', 'Sell simulator')),
+      e('p', { style: { color: dim, fontSize: 'var(--text-sm)', margin: '0 0 0.75rem', lineHeight: 1.5 } },
         __('ssIntro', 'What a sale would do to this year\'s tax: the lots it uses (FIFO), the gain and the extra tax, with Teilfreistellung, loss pots, the Freigrenze and the Sparerpauschbetrag as in the tax report. Nothing is booked.')),
       e('div', { style: { display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(150px, 1fr))', gap: '0.6rem', alignItems: 'end' } },
         e('div', null, e('label', { style: label, htmlFor: 'ss-holding' }, __('ssHolding', 'Holding')),
@@ -246,9 +246,9 @@ function __(k, f, v) { return (typeof window !== 'undefined' && window.MaerminI1
         e('div', null, e('label', { style: label, htmlFor: 'ss-date' }, __('ssDate', 'Sale date')),
           e('input', { id: 'ss-date', 'data-testid': 'ss-date', type: 'date', value: form.date, onChange: set('date'), style: input })),
         e('button', { type: 'button', 'data-testid': 'ss-run', disabled: !h, onClick: run,
-          style: { padding: '0.5rem 0.9rem', borderRadius: '8px', border: 'none', background: th.accentFill || th.accent || '#7c6cff', color: '#ffffff', fontWeight: 700, fontSize: '0.82rem', cursor: h ? 'pointer' : 'default', opacity: h ? 1 : 0.5 } },
+          style: { padding: '0.5rem 0.9rem', borderRadius: '8px', border: 'none', background: th.accentFill || th.accent || '#7c6cff', color: '#ffffff', fontWeight: 700, fontSize: 'var(--text-sm)', cursor: h ? 'pointer' : 'default', opacity: h ? 1 : 0.5 } },
           __('ssRun', 'Simulate'))),
-      errText ? e('div', { role: 'alert', 'data-testid': 'ss-error', style: { color: warn, fontSize: '0.8rem', marginTop: '0.6rem' } }, errText) : null,
+      errText ? e('div', { role: 'alert', 'data-testid': 'ss-error', style: { color: warn, fontSize: 'var(--text-sm)', marginTop: '0.6rem' } }, errText) : null,
       res && !res.error ? e('div', { 'data-testid': 'ss-result', style: { marginTop: '0.9rem' } },
         e('div', { style: { overflowX: 'auto' } },
           e('table', { style: { width: '100%', borderCollapse: 'collapse' } },
@@ -275,11 +275,11 @@ function __(k, f, v) { return (typeof window !== 'undefined' && window.MaerminI1
           res.kind === 'capital' ? line(__('ssAllowance', 'Sparerpauschbetrag used ({left} left before)', { left: money(res.allowanceLeftBefore) }), money(res.allowanceUsed), null, 'ss-allowance') : null,
           (res.carryUsed.shares + res.carryUsed.other + res.carryUsed.private) > 0.005 ? line(__('ssCarry', 'Loss carry-forward used'), money(res.carryUsed.shares + res.carryUsed.other + res.carryUsed.private), good, 'ss-carry') : null,
           line(__('ssTaxDelta', 'Extra tax this year'), money(res.taxDelta), res.taxDelta > 0.005 ? warn : good, 'ss-tax')),
-        res.kind === 'private' && res.freigrenze.crosses ? e('div', { role: 'note', 'data-testid': 'ss-freigrenze', style: { color: warn, fontSize: '0.78rem', marginTop: '0.5rem', lineHeight: 1.5 } },
+        res.kind === 'private' && res.freigrenze.crosses ? e('div', { role: 'note', 'data-testid': 'ss-freigrenze', style: { color: warn, fontSize: 'var(--text-xs)', marginTop: '0.5rem', lineHeight: 1.5 } },
           __('ssCrosses', 'This sale lifts this year\'s private-sale gains to {after}, at or above the {limit} Freigrenze: then all of them are taxable, not just this sale.', { after: money(res.freigrenze.after), limit: money(res.freigrenze.limit) })) : null,
-        res.kind === 'private' && res.bestDate ? e('div', { 'data-testid': 'ss-best', style: { color: text, fontSize: '0.8rem', marginTop: '0.5rem' } },
+        res.kind === 'private' && res.bestDate ? e('div', { 'data-testid': 'ss-best', style: { color: text, fontSize: 'var(--text-sm)', marginTop: '0.5rem' } },
           __('ssBestDate', 'Sold on or after {date}, this whole sale would be tax-free (all its lots held over one year).', { date: I18N.date(res.bestDate) })) : null,
-        e('div', { style: { color: dim, fontSize: '0.7rem', marginTop: '0.6rem', lineHeight: 1.5 } },
+        e('div', { style: { color: dim, fontSize: 'var(--text-2xs)', marginTop: '0.6rem', lineHeight: 1.5 } },
           __('ssNote', 'Estimate for the year of the sale date; private sales at the flat-rate estimate. Not tax advice.'))) : null);
   }
 

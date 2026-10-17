@@ -281,25 +281,25 @@
       return e('section', { 'data-testid': testid, style: { background: theme.card, border: '1px solid ' + border, borderRadius: '14px', padding: '1.1rem', marginBottom: '1rem', minWidth: 0 } },
         e('div', { style: { display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: '0.75rem', flexWrap: 'wrap', marginBottom: '0.75rem' } },
           e('div', { style: { minWidth: 0, flex: '1 1 240px' } },
-            e('h3', { style: { color: text, fontWeight: 700, fontSize: '0.95rem', margin: 0 } }, title),
-            sub && e('div', { style: { color: dim, fontSize: '0.78rem', marginTop: '0.2rem', lineHeight: 1.5 } }, sub)),
+            e('h3', { style: { color: text, fontWeight: 700, fontSize: 'var(--text-md)', margin: 0 } }, title),
+            sub && e('div', { style: { color: dim, fontSize: 'var(--text-xs)', marginTop: '0.2rem', lineHeight: 1.5 } }, sub)),
           right || null),
         body);
     };
     var th = function (label, i, left) {
-      return e('th', { key: i, scope: 'col', style: { padding: '0.45rem 0.6rem', textAlign: left ? 'left' : 'right', color: dim, fontWeight: 600, fontSize: '0.7rem', textTransform: 'uppercase', letterSpacing: '0.04em', whiteSpace: 'nowrap', borderBottom: '1px solid ' + border, position: left ? 'sticky' : undefined, left: left ? 0 : undefined, background: left ? theme.card : undefined } }, label);
+      return e('th', { key: i, scope: 'col', style: { padding: '0.45rem 0.6rem', textAlign: left ? 'left' : 'right', color: dim, fontWeight: 600, fontSize: 'var(--text-2xs)', textTransform: 'uppercase', letterSpacing: '0.04em', whiteSpace: 'nowrap', borderBottom: '1px solid ' + border, position: left ? 'sticky' : undefined, left: left ? 0 : undefined, background: left ? theme.card : undefined } }, label);
     };
     var tdS = function (extra) { return Object.assign({ padding: '0.45rem 0.6rem', textAlign: 'right', whiteSpace: 'nowrap', borderBottom: '1px solid ' + border, fontVariantNumeric: 'tabular-nums' }, extra || {}); };
     var symCell = function (label, bold) { return e('th', { scope: 'row', style: tdS({ textAlign: 'left', color: text, fontWeight: bold ? 800 : 700, position: 'sticky', left: 0, background: theme.card }) }, label); };
     var scroll = function (table) { return e('div', { style: { overflowX: 'auto', maxWidth: '100%' } }, table); };
     var basisNote = basis === 'gross' ? __('dhGrossNote', 'Before withholding tax.') : __('dhNetNote', 'After withholding tax.');
-    var muted = function (msg) { return e('div', { style: { color: dim, fontSize: '0.85rem' } }, msg); };
+    var muted = function (msg) { return e('div', { style: { color: dim, fontSize: 'var(--text-base)' } }, msg); };
 
     // ---- matrix ----
     var yearsDesc = mx.years.slice().reverse();
     var matrixBody = !mx.rows.length
       ? muted(__('dhEmpty', 'No dividends recorded yet. Book received dividends (or import them) to see them by year.'))
-      : scroll(e('table', { style: { borderCollapse: 'collapse', width: '100%', fontSize: '0.82rem' } },
+      : scroll(e('table', { style: { borderCollapse: 'collapse', width: '100%', fontSize: 'var(--text-sm)' } },
           e('thead', null, e('tr', null, [th(__('dhSecurity', 'Security'), 's', true)].concat(yearsDesc.map(function (y) { return th(String(y), y); }), [th(__('dhTotal', 'Total'), 't')]))),
           e('tbody', null,
             mx.rows.map(function (r) {
@@ -316,7 +316,7 @@
     var dv = function (v) { return v === null || v === undefined ? '' : v; };
     var growthBody = !payers.length
       ? muted(__('dhGrowthEmpty', 'Growth needs dividends booked with shares and an amount per share.'))
-      : scroll(e('table', { style: { borderCollapse: 'collapse', width: '100%', fontSize: '0.82rem' } },
+      : scroll(e('table', { style: { borderCollapse: 'collapse', width: '100%', fontSize: 'var(--text-sm)' } },
           e('thead', null, e('tr', null, th(__('dhSecurity', 'Security'), 0, true), th(__('dhLastPayment', 'Last payment'), 1), th(__('dhPerShare', 'Per share'), 2), th(__('dhYoy', 'vs. a year before'), 3), th(__('dhCagr', 'CAGR {n}Y', { n: 3 }), 4), th(__('dhCagr', 'CAGR {n}Y', { n: 5 }), 5))),
           e('tbody', null, payers.map(function (p) {
             var l = p.last || {};
@@ -331,7 +331,7 @@
     // ---- backtest ----
     var yrBtn = function (n) {
       return e('button', { key: n, type: 'button', 'data-testid': 'bt-years-' + n, 'aria-pressed': years === n, onClick: function () { setYears(n); },
-        style: { minHeight: '32px', padding: '0.3rem 0.7rem', border: 'none', borderRadius: '6px', cursor: 'pointer', fontSize: '0.78rem', fontWeight: years === n ? 700 : 500,
+        style: { minHeight: '32px', padding: '0.3rem 0.7rem', border: 'none', borderRadius: '6px', cursor: 'pointer', fontSize: 'var(--text-xs)', fontWeight: years === n ? 700 : 500,
           background: years === n ? (theme.accentFill || theme.accent) : 'transparent', color: years === n ? '#fff' : dim } }, __('dhYears', '{n} years', { n: n }));
     };
     var DFX = window.MaerminDemoFixtures;
@@ -347,15 +347,15 @@
       var lastY = bt.years[bt.years.length - 1];
       var stat = function (k) {
         return e('div', { key: k[3], 'data-stat': k[3], style: { background: theme.inputBg, borderRadius: '10px', padding: '0.6rem 0.75rem' } },
-          e('div', { style: { color: dim, fontSize: '0.7rem', textTransform: 'uppercase', letterSpacing: '0.04em' } }, k[0]),
-          e('div', { style: { color: k[2], fontWeight: 800, fontSize: '1.05rem', marginTop: '0.15rem' } }, k[1]));
+          e('div', { style: { color: dim, fontSize: 'var(--text-2xs)', textTransform: 'uppercase', letterSpacing: '0.04em' } }, k[0]),
+          e('div', { style: { color: k[2], fontWeight: 800, fontSize: 'var(--text-body)', marginTop: '0.15rem' } }, k[1]));
       };
       btBody = e('div', null,
         e('div', { style: { display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(140px, 1fr))', gap: '0.6rem', marginBottom: '0.8rem' } },
           [[__('dhBtIncome', 'Income {y}', { y: lastY.y }), fmt(lastY.income) + ' ' + cur, text, 'income'],
            [__('dhBtYield', 'Yield {y}', { y: lastY.y }), lastY.yield === null ? '–' : I.pct(lastY.yield * 100, 2), text, 'yield'],
            [__('dhBtCagr', 'Growth p.a.'), pct(bt.cagr), tone(bt.cagr || 0), 'cagr']].map(stat)),
-        scroll(e('table', { style: { borderCollapse: 'collapse', width: '100%', fontSize: '0.82rem' } },
+        scroll(e('table', { style: { borderCollapse: 'collapse', width: '100%', fontSize: 'var(--text-sm)' } },
           e('thead', null, e('tr', null, th(__('dhYear', 'Year'), 0, true), th(__('dhBtIncomeCol', 'Income'), 1), th(__('dhBtStartValue', 'Value at start'), 2), th(__('dhBtYieldCol', 'Yield'), 3), th(__('dhYoy', 'vs. a year before'), 4))),
           e('tbody', null, bt.years.slice().reverse().map(function (r) {
             return e('tr', { key: r.y, 'data-y': r.y }, symCell(String(r.y)),
@@ -364,12 +364,12 @@
               e('td', { 'data-k': 'yield', style: tdS({ color: text }) }, r.yield === null ? '–' : I.pct(r.yield * 100, 2)),
               e('td', { 'data-k': 'growth', style: tdS({ color: tone(r.growth || 0) }) }, pct(r.growth)));
           })))),
-        bt.missing.length > 0 && e('div', { style: { color: dim, fontSize: '0.76rem', marginTop: '0.6rem' } }, __('dhBtMissing', 'Not included (no market history): {list}.', { list: bt.missing.join(', ') })));
+        bt.missing.length > 0 && e('div', { style: { color: dim, fontSize: 'var(--text-xs)', marginTop: '0.6rem' } }, __('dhBtMissing', 'Not included (no market history): {list}.', { list: bt.missing.join(', ') })));
     }
 
     return e('div', { style: { padding: '1.5rem' }, 'data-testid': 'dividend-history' },
-      e('h2', { style: { color: text, fontSize: '1.5rem', fontWeight: 800, letterSpacing: '-0.02em', margin: '0 0 0.25rem' } }, __('dhTitle', 'Dividend history')),
-      e('p', { style: { color: dim, fontSize: '0.82rem', margin: '0 0 1.25rem' } }, __('dhSubtitle', 'Your dividends by security and year, their growth, and what today\'s holdings would have paid in past years.')),
+      e('h2', { style: { color: text, fontSize: 'var(--text-xl)', fontWeight: 800, letterSpacing: '-0.02em', margin: '0 0 0.25rem' } }, __('dhTitle', 'Dividend history')),
+      e('p', { style: { color: dim, fontSize: 'var(--text-sm)', margin: '0 0 1.25rem' } }, __('dhSubtitle', 'Your dividends by security and year, their growth, and what today\'s holdings would have paid in past years.')),
       card('div-matrix', __('dhMatrixTitle', 'Dividends by security and year'), __('dhMatrixSub', 'In {cur}, since your first dividend.', { cur: cur }) + ' ' + basisNote, matrixBody),
       card('div-growth', __('dhGrowthTitle', 'Dividend growth'), __('dhGrowthSub', 'Per share, before tax: each payer\'s latest payment against the one a year before, and the growth per year over the last 3 and 5 complete years.'), growthBody),
       card('div-backtest', __('dhBtTitle', 'Backtest of today\'s holdings'), __('dhBtSub', 'Your current shares as if held through each past year: the dividends they would have paid (before tax) and the yield on their value at the start of the year. Market data through your Worker; only symbols are sent.'), btBody, btRight));

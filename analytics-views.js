@@ -33,7 +33,7 @@ function __(k, f, v) { return (typeof window !== 'undefined' && window.MaerminI1
   }
 
   function note(React, dim, txt) {
-    return React.createElement('div', { style: { color: dim, fontSize: '0.78rem', lineHeight: '1.5' } }, txt);
+    return React.createElement('div', { style: { color: dim, fontSize: 'var(--text-xs)', lineHeight: '1.5' } }, txt);
   }
 
   // ---- Benchmark overlay (Returns view) -----------------------------------
@@ -98,8 +98,8 @@ function __(k, f, v) { return (typeof window !== 'undefined' && window.MaerminI1
     var pct = function (x) { return window.MaerminI18n.pct(x * 100, 1); };
     var tile = function (label, value, color) {
       return e('div', { key: label, style: { background: inputBg, border: '1px solid ' + border, borderRadius: '10px', padding: '0.7rem 0.9rem', minWidth: '110px' } },
-        e('div', { style: { color: dim, fontSize: '0.68rem', textTransform: 'uppercase', letterSpacing: '0.04em' } }, label),
-        e('div', { style: { color: color || text, fontSize: '1.1rem', fontWeight: '700', marginTop: '0.15rem' } }, value));
+        e('div', { style: { color: dim, fontSize: 'var(--text-2xs)', textTransform: 'uppercase', letterSpacing: '0.04em' } }, label),
+        e('div', { style: { color: color || text, fontSize: 'var(--text-lg)', fontWeight: '700', marginTop: '0.15rem' } }, value));
     };
 
     var body;
@@ -109,7 +109,7 @@ function __(k, f, v) { return (typeof window !== 'undefined' && window.MaerminI1
     else if (err) body = note(React, bad, __('avBenchFailed', 'Could not load benchmark: {msg}', { msg: err }));
     else if (!stats || !stats.available) body = note(React, dim, __('avNotEnoughBench', 'Not enough overlapping history to compute benchmark stats yet.'));
     else body = e('div', null,
-      verdict && e('div', { 'data-testid': 'verdict-benchmark', 'data-level': verdict.level, style: { color: verdict.level === 'good' ? ok : verdict.level === 'neutral' ? text : (verdict.level === 'warn' ? theme.warning || 'var(--warning)' : bad), fontSize: '0.85rem', fontWeight: 600, marginBottom: '0.7rem', lineHeight: 1.45 } }, verdict.text),
+      verdict && e('div', { 'data-testid': 'verdict-benchmark', 'data-level': verdict.level, style: { color: verdict.level === 'good' ? ok : verdict.level === 'neutral' ? text : (verdict.level === 'warn' ? theme.warning || 'var(--warning)' : bad), fontSize: 'var(--text-base)', fontWeight: 600, marginBottom: '0.7rem', lineHeight: 1.45 } }, verdict.text),
       e('div', { style: { display: 'flex', flexWrap: 'wrap', gap: '0.6rem' } },
         tile(__('avAlphaAnn', 'Alpha (ann.)'), pct(stats.alpha), stats.alpha >= 0 ? ok : bad),
         tile('Beta', window.MaerminI18n.num(stats.beta, 2), text),
@@ -118,15 +118,15 @@ function __(k, f, v) { return (typeof window !== 'undefined' && window.MaerminI1
         tile('R²', pct(stats.rSquared), text),
         tile(__('avCorrelation', 'Correlation'), window.MaerminI18n.num(stats.correlation, 2), text)
       ),
-      e('div', { style: { color: dim, fontSize: '0.72rem', marginTop: '0.7rem', lineHeight: '1.5' } },
+      e('div', { style: { color: dim, fontSize: 'var(--text-xs)', marginTop: '0.7rem', lineHeight: '1.5' } },
         (dated ? __('avEstDaily', 'Estimated from {n} daily returns since {date} vs {bench} ({proxy}).', { n: stats.periods, date: window.MaerminI18n.date(dated[0].d), bench: bench ? bench.label : '', proxy: preset ? preset.proxy : '' }) : __('avEstPoints', 'Estimated from {n} overlapping price points vs {bench} ({proxy}).', { n: stats.periods, bench: bench ? bench.label : '', proxy: preset ? preset.proxy : '' })) + ' ' + __('avCapmNote', 'Alpha/beta are CAPM estimates from available history, not guarantees.') + (verdict ? ' ' + window.MaerminVerdicts.disclaimer() : ''))
     );
 
     return e('div', { style: { background: card, border: '1px solid ' + border, borderRadius: '14px', padding: '1.25rem', marginTop: '1.25rem' } },
       e('div', { style: { display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '0.5rem', marginBottom: '0.9rem' } },
-        e('h3', { style: { color: text, fontSize: '1rem', fontWeight: '700', margin: 0 } }, __('avBenchTitle', 'Benchmark comparison'), ' ', window.MaerminDemoFixtures && window.MaerminDemoFixtures.badge(React, theme, workerBase)),
+        e('h3', { style: { color: text, fontSize: 'var(--text-body)', fontWeight: '700', margin: 0 } }, __('avBenchTitle', 'Benchmark comparison'), ' ', window.MaerminDemoFixtures && window.MaerminDemoFixtures.badge(React, theme, workerBase)),
         e('div', { style: { display: 'flex', gap: '0.3rem', flexWrap: 'wrap' } }, presets.map(function (b) {
-          return e('button', { key: b.key, type: 'button', 'aria-pressed': sel === b.key, onClick: function () { setSel(b.key); }, style: { padding: '0.35rem 0.7rem', borderRadius: '8px', border: 'none', cursor: 'pointer', fontSize: '0.76rem', fontWeight: sel === b.key ? '700' : '500', background: sel === b.key ? accent : inputBg, color: sel === b.key ? '#ffffff' : dim } }, b.label);
+          return e('button', { key: b.key, type: 'button', 'aria-pressed': sel === b.key, onClick: function () { setSel(b.key); }, style: { padding: '0.35rem 0.7rem', borderRadius: '8px', border: 'none', cursor: 'pointer', fontSize: 'var(--text-xs)', fontWeight: sel === b.key ? '700' : '500', background: sel === b.key ? accent : inputBg, color: sel === b.key ? '#ffffff' : dim } }, b.label);
         }))
       ),
       body
@@ -164,24 +164,24 @@ function __(k, f, v) { return (typeof window !== 'undefined' && window.MaerminI1
       inner = e('div', null,
         e('div', { style: { display: 'flex', gap: '1.5rem', flexWrap: 'wrap' } },
           e('div', { style: { flex: 1, minWidth: '240px' } },
-            e('div', { style: { color: dim, fontSize: '0.72rem', textTransform: 'uppercase', letterSpacing: '0.04em', marginBottom: '0.3rem' } }, __('avRollVol', '{n}-pt rolling volatility (annualised)', { n: win })),
+            e('div', { style: { color: dim, fontSize: 'var(--text-xs)', textTransform: 'uppercase', letterSpacing: '0.04em', marginBottom: '0.3rem' } }, __('avRollVol', '{n}-pt rolling volatility (annualised)', { n: win })),
             sparkline(React, rvol, accent),
-            e('div', { style: { color: text, fontSize: '1rem', fontWeight: '700', marginTop: '0.3rem' } }, window.MaerminI18n.pct(curVol * 100, 1))
+            e('div', { style: { color: text, fontSize: 'var(--text-body)', fontWeight: '700', marginTop: '0.3rem' } }, window.MaerminI18n.pct(curVol * 100, 1))
           ),
           e('div', { style: { flex: 1, minWidth: '240px' } },
-            e('div', { style: { color: dim, fontSize: '0.72rem', textTransform: 'uppercase', letterSpacing: '0.04em', marginBottom: '0.3rem' } }, __('avRollRet', '{n}-pt rolling return', { n: win })),
+            e('div', { style: { color: dim, fontSize: 'var(--text-xs)', textTransform: 'uppercase', letterSpacing: '0.04em', marginBottom: '0.3rem' } }, __('avRollRet', '{n}-pt rolling return', { n: win })),
             sparkline(React, rret, curRet >= 0 ? ok : (theme.danger || '#ef4444')),
-            e('div', { style: { color: curRet >= 0 ? ok : (theme.danger || 'var(--danger)'), fontSize: '1rem', fontWeight: '700', marginTop: '0.3rem' } }, window.MaerminI18n.pct(curRet * 100, 1))
+            e('div', { style: { color: curRet >= 0 ? ok : (theme.danger || 'var(--danger)'), fontSize: 'var(--text-body)', fontWeight: '700', marginTop: '0.3rem' } }, window.MaerminI18n.pct(curRet * 100, 1))
           )
         ),
-        e('div', { 'data-testid': 'rolling-source', style: { color: dim, fontSize: '0.72rem', marginTop: '0.7rem' } }, dated
+        e('div', { 'data-testid': 'rolling-source', style: { color: dim, fontSize: 'var(--text-xs)', marginTop: '0.7rem' } }, dated
           ? __('avRollDaily', 'Computed from {n} daily time-weighted returns since {date} (deposits and withdrawals excluded).', { n: returns.length, date: window.MaerminI18n.date(dated[0].d) })
           : __('avRollPath', 'Computed from your portfolio value path over the available price history.'))
       );
     }
 
     return e('div', { style: { background: card, border: '1px solid ' + border, borderRadius: '14px', padding: '1.25rem', marginTop: '1rem' } },
-      e('h3', { style: { color: text, fontSize: '1rem', fontWeight: '700', margin: '0 0 0.9rem' } }, __('avRollTitle', 'Rolling volatility & returns')),
+      e('h3', { style: { color: text, fontSize: 'var(--text-body)', fontWeight: '700', margin: '0 0 0.9rem' } }, __('avRollTitle', 'Rolling volatility & returns')),
       inner
     );
   }
@@ -261,8 +261,8 @@ function __(k, f, v) { return (typeof window !== 'undefined' && window.MaerminI1
     var pct = function (x) { return window.MaerminI18n.pct(x * 100, 1); };
     var tile = function (label, value, color) {
       return e('div', { key: label, style: { background: inputBg, border: '1px solid ' + border, borderRadius: '10px', padding: '0.7rem 0.9rem', minWidth: '110px' } },
-        e('div', { style: { color: dim, fontSize: '0.68rem', textTransform: 'uppercase', letterSpacing: '0.04em' } }, label),
-        e('div', { style: { color: color || text, fontSize: '1.1rem', fontWeight: '700', marginTop: '0.15rem' } }, value));
+        e('div', { style: { color: dim, fontSize: 'var(--text-2xs)', textTransform: 'uppercase', letterSpacing: '0.04em' } }, label),
+        e('div', { style: { color: color || text, fontSize: 'var(--text-lg)', fontWeight: '700', marginTop: '0.15rem' } }, value));
     };
 
     var body;
@@ -282,15 +282,15 @@ function __(k, f, v) { return (typeof window !== 'undefined' && window.MaerminI1
           tile(__('avHml', 'Value (HML) β'), window.MaerminI18n.num(b.HML != null ? b.HML : 0, 2), text),
           tile(__('avAlphaAnn', 'Alpha (ann.)'), pct(alphaAnn), alphaAnn >= 0 ? ok : bad)
         ),
-        e('div', { style: { color: dim, fontSize: '0.74rem', marginTop: '0.7rem', lineHeight: '1.55' } },
+        e('div', { style: { color: dim, fontSize: 'var(--text-xs)', marginTop: '0.7rem', lineHeight: '1.55' } },
           __('avReadsAs', 'Reads as a {size} / {style} tilt, market beta {beta}.', { size: tilt(b.SMB || 0, __('avSmallCap', 'small-cap'), __('avLargeCap', 'large-cap')), style: tilt(b.HML || 0, __('avValue', 'value'), __('avGrowth', 'growth')), beta: window.MaerminI18n.num(b.MKT != null ? b.MKT : 0, 2) }) + ' '),
-        e('div', { style: { color: dim, fontSize: '0.72rem', marginTop: '0.3rem', lineHeight: '1.5' } },
+        e('div', { style: { color: dim, fontSize: 'var(--text-xs)', marginTop: '0.3rem', lineHeight: '1.5' } },
           __('avFactorNote', 'Estimated from {n} overlapping daily returns regressed on ETF proxies (VTI; IWM−IWB; IWD−IWF). A statistical estimate from limited history, not a precise factor loading.', { n: periods }))
       );
     }
 
     return e('div', { style: { background: card, border: '1px solid ' + border, borderRadius: '14px', padding: '1.25rem', marginTop: '1rem' } },
-      e('h3', { style: { color: text, fontSize: '1rem', fontWeight: '700', margin: '0 0 0.9rem' } }, __('avFactorTitle', 'Factor exposure (Fama-French)')),
+      e('h3', { style: { color: text, fontSize: 'var(--text-body)', fontWeight: '700', margin: '0 0 0.9rem' } }, __('avFactorTitle', 'Factor exposure (Fama-French)')),
       body
     );
   }

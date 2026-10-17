@@ -340,13 +340,13 @@ function __(k, f, v) { return (typeof window !== 'undefined' && window.MaerminI1
 
     function kpi(label, value, color) {
       return e('div', { key: label, style: { background: inputBg, border: '1px solid ' + border, borderRadius: '10px', padding: '0.7rem 0.9rem', minWidth: '130px' } },
-        e('div', { style: { color: dim, fontSize: '0.68rem', textTransform: 'uppercase', letterSpacing: '0.04em' } }, label),
-        e('div', { style: { color: color || text, fontSize: '1.1rem', fontWeight: '700', marginTop: '0.15rem' } }, value));
+        e('div', { style: { color: dim, fontSize: 'var(--text-2xs)', textTransform: 'uppercase', letterSpacing: '0.04em' } }, label),
+        e('div', { style: { color: color || text, fontSize: 'var(--text-lg)', fontWeight: '700', marginTop: '0.15rem' } }, value));
     }
 
     var body;
     if (!payers.length) {
-      body = e('div', { style: { color: dim, fontSize: '0.85rem', padding: '0.5rem 0' } },
+      body = e('div', { style: { color: dim, fontSize: 'var(--text-base)', padding: '0.5rem 0' } },
         __('dqlNone', 'No dividend-paying positions detected yet. Quality scoring starts once a holding has dividend data.'));
     } else {
       var parts = [];
@@ -359,14 +359,14 @@ function __(k, f, v) { return (typeof window !== 'undefined' && window.MaerminI1
       // P5-1.6: dividend safety in one plain sentence (rules in verdicts.js).
       var VD = typeof window !== 'undefined' ? window.MaerminVerdicts : null;
       var verdict = VD && health.available ? VD.dividendSafety(health.score, health.incomeAtRiskPct) : null;
-      if (verdict) parts.push(e('div', { key: 'verdict', 'data-testid': 'verdict-dividends', 'data-level': verdict.level, style: { color: ({ good: good, warn: warn, bad: bad })[verdict.level] || text, fontSize: '0.85rem', lineHeight: 1.5, marginBottom: '0.9rem' } },
-        verdict.text, e('span', { style: { color: dim, fontSize: '0.72rem' } }, ' ' + VD.disclaimer())));
+      if (verdict) parts.push(e('div', { key: 'verdict', 'data-testid': 'verdict-dividends', 'data-level': verdict.level, style: { color: ({ good: good, warn: warn, bad: bad })[verdict.level] || text, fontSize: 'var(--text-base)', lineHeight: 1.5, marginBottom: '0.9rem' } },
+        verdict.text, e('span', { style: { color: dim, fontSize: 'var(--text-xs)' } }, ' ' + VD.disclaimer())));
 
       var header = [__('position', 'Position'), __('dqlIncomePa', 'Income p.a.'), __('dqlPayout', 'Payout'), __('dqlStreakCol', 'Streak'), __('dqlGrowth', 'Growth'), __('dqlCoverage', 'Coverage'), __('dqlScore', 'Score')];
       parts.push(e('div', { style: { overflowX: 'auto' } },
         e('table', { style: { width: '100%', borderCollapse: 'collapse' } },
           e('thead', null, e('tr', null, header.map(function (h, i) {
-            return e('th', { key: h, style: { textAlign: i === 0 ? 'left' : 'right', padding: '0.4rem 0.5rem', color: dim, fontSize: '0.68rem', textTransform: 'uppercase', letterSpacing: '0.04em' } }, h);
+            return e('th', { key: h, style: { textAlign: i === 0 ? 'left' : 'right', padding: '0.4rem 0.5rem', color: dim, fontSize: 'var(--text-2xs)', textTransform: 'uppercase', letterSpacing: '0.04em' } }, h);
           }))),
           e('tbody', null, rows.map(function (r) {
             var p = r.payer, q = r.q, m = q.metrics;
@@ -376,44 +376,44 @@ function __(k, f, v) { return (typeof window !== 'undefined' && window.MaerminI1
               onClick: function () { setOpen(function (o) { var c = {}; for (var k in o) c[k] = o[k]; c[p.symbol] = !c[p.symbol]; return c; }); },
               style: { borderTop: '1px solid ' + border, cursor: 'pointer' }
             },
-              e('td', { style: { padding: '0.45rem 0.5rem', color: text, fontSize: '0.8rem', fontWeight: 600 } },
+              e('td', { style: { padding: '0.45rem 0.5rem', color: text, fontSize: 'var(--text-sm)', fontWeight: 600 } },
                 p.symbol,
-                q.cutRisk ? e('span', { style: { marginLeft: '0.45rem', fontSize: '0.64rem', padding: '0.08rem 0.4rem', borderRadius: '4px', background: 'color-mix(in srgb, var(--danger) 16%, transparent)', color: bad, fontWeight: 700 } }, __('dqlCutRisk', 'CUT RISK')) : null),
-              e('td', { style: { padding: '0.45rem 0.5rem', textAlign: 'right', color: text, fontSize: '0.78rem' } }, fmt(p.income) + ' ' + sym),
-              e('td', { style: { padding: '0.45rem 0.5rem', textAlign: 'right', color: m.payoutRatio != null && m.payoutRatio > 0.8 ? warn : dim, fontSize: '0.78rem' } }, pctTxt(m.payoutRatio)),
-              e('td', { style: { padding: '0.45rem 0.5rem', textAlign: 'right', color: dim, fontSize: '0.78rem' } }, m.streakYears != null ? __('pjYears', '{n}y', { n: m.streakYears }) : '-'),
-              e('td', { style: { padding: '0.45rem 0.5rem', textAlign: 'right', color: m.growth != null ? (m.growth >= 0 ? good : bad) : dim, fontSize: '0.78rem' } }, m.growth != null ? I18N().pct(m.growth * 100, 1, true) : '-'),
-              e('td', { style: { padding: '0.45rem 0.5rem', textAlign: 'right', color: dim, fontSize: '0.78rem' } }, m.coverage != null ? I18N().num(m.coverage, 1) + '×' : '-'),
+                q.cutRisk ? e('span', { style: { marginLeft: '0.45rem', fontSize: 'var(--text-3xs)', padding: '0.08rem 0.4rem', borderRadius: '4px', background: 'color-mix(in srgb, var(--danger) 16%, transparent)', color: bad, fontWeight: 700 } }, __('dqlCutRisk', 'CUT RISK')) : null),
+              e('td', { style: { padding: '0.45rem 0.5rem', textAlign: 'right', color: text, fontSize: 'var(--text-xs)' } }, fmt(p.income) + ' ' + sym),
+              e('td', { style: { padding: '0.45rem 0.5rem', textAlign: 'right', color: m.payoutRatio != null && m.payoutRatio > 0.8 ? warn : dim, fontSize: 'var(--text-xs)' } }, pctTxt(m.payoutRatio)),
+              e('td', { style: { padding: '0.45rem 0.5rem', textAlign: 'right', color: dim, fontSize: 'var(--text-xs)' } }, m.streakYears != null ? __('pjYears', '{n}y', { n: m.streakYears }) : '-'),
+              e('td', { style: { padding: '0.45rem 0.5rem', textAlign: 'right', color: m.growth != null ? (m.growth >= 0 ? good : bad) : dim, fontSize: 'var(--text-xs)' } }, m.growth != null ? I18N().pct(m.growth * 100, 1, true) : '-'),
+              e('td', { style: { padding: '0.45rem 0.5rem', textAlign: 'right', color: dim, fontSize: 'var(--text-xs)' } }, m.coverage != null ? I18N().num(m.coverage, 1) + '×' : '-'),
               e('td', { style: { padding: '0.45rem 0.5rem', textAlign: 'right' } },
-                e('span', { style: { color: ratingColor[q.rating], fontWeight: 800, fontSize: '0.82rem' } },
+                e('span', { style: { color: ratingColor[q.rating], fontWeight: 800, fontSize: 'var(--text-sm)' } },
                   q.score != null ? String(q.score) : '-'),
-                e('span', { style: { color: dim, fontSize: '0.68rem', marginLeft: '0.3rem' } }, ratingLabel(q.rating))));
+                e('span', { style: { color: dim, fontSize: 'var(--text-2xs)', marginLeft: '0.3rem' } }, ratingLabel(q.rating))));
             if (!isOpen) return mainRow;
             var detail = e('tr', { key: p.symbol + '-detail' },
               e('td', { colSpan: header.length, style: { padding: '0.2rem 0.5rem 0.7rem', background: inputBg } },
-                e('div', { style: { color: dim, fontSize: '0.74rem', lineHeight: 1.6 } },
+                e('div', { style: { color: dim, fontSize: 'var(--text-xs)', lineHeight: 1.6 } },
                   (q.reasons.length ? q.reasons.join(' ') : __('dqlNoFindings', 'No notable findings.')) + ' ' +
                   (r.hasFundamentals ? __('dqlBasedLive', 'Based on live fundamentals + dividend history.') : __('dqlBasedHistory', 'Based on dividend history only (no fundamentals available).')))));
             return [mainRow, detail];
           })))));
 
       if (state.loading) {
-        parts.push(e('div', { style: { color: dim, fontSize: '0.74rem', marginTop: '0.5rem' } }, __('dqlLoading', 'Loading fundamentals...')));
+        parts.push(e('div', { style: { color: dim, fontSize: 'var(--text-xs)', marginTop: '0.5rem' } }, __('dqlLoading', 'Loading fundamentals...')));
       }
       if (state.unsupported) {
-        parts.push(e('div', { style: { color: warn, fontSize: '0.74rem', marginTop: '0.6rem', lineHeight: 1.5 } },
+        parts.push(e('div', { style: { color: warn, fontSize: 'var(--text-xs)', marginTop: '0.6rem', lineHeight: 1.5 } },
           __('dqlUnsupported', 'Your Worker does not support fundamentals yet. Re-deploy the latest cf-worker/worker.js (action=fundamentals) for payout/earnings data; until then scores use dividend history only.')));
       } else if (!workerBase) {
-        parts.push(e('div', { style: { color: dim, fontSize: '0.74rem', marginTop: '0.6rem', lineHeight: 1.5 } },
+        parts.push(e('div', { style: { color: dim, fontSize: 'var(--text-xs)', marginTop: '0.6rem', lineHeight: 1.5 } },
           __('dqlNeedWorker', 'Add a Worker URL in API Settings to include payout/earnings data; scores currently use dividend history only.')));
       }
-      parts.push(e('div', { style: { color: dim, fontSize: '0.7rem', marginTop: '0.6rem', lineHeight: 1.5 } },
+      parts.push(e('div', { style: { color: dim, fontSize: 'var(--text-2xs)', marginTop: '0.6rem', lineHeight: 1.5 } },
         __('dqlDisclaimer', 'The safety score is a heuristic from payout ratio, growth streak, dividend growth and yield level - higher is safer. Click a row for the reasoning. Not investment advice.')));
       body = e('div', null, parts);
     }
 
     return e('div', { style: { background: card, border: '1px solid ' + border, borderRadius: '14px', padding: '1.25rem', margin: '1rem 1.5rem 1.5rem' } },
-      e('h3', { style: { color: text, fontSize: '1rem', fontWeight: 700, margin: '0 0 0.9rem' } }, t.dividendQualityTitle || 'Dividend quality & safety'),
+      e('h3', { style: { color: text, fontSize: 'var(--text-body)', fontWeight: 700, margin: '0 0 0.9rem' } }, t.dividendQualityTitle || 'Dividend quality & safety'),
       body
     );
   }

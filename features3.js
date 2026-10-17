@@ -114,23 +114,23 @@ function CorporateActionsPanel({ category, symbol, theme, t = {}, workerUrl, sin
 
   return React.createElement('div', { style: { padding: '1.25rem 1.5rem', borderTop: `1px solid ${theme.modalBorder}` } },
     React.createElement('div', { style: { display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.75rem' } },
-      React.createElement('div', { style: { color: theme.text, fontWeight: '700', fontSize: '0.875rem' } }, t.caTitle || 'Corporate actions (splits)'),
+      React.createElement('div', { style: { color: theme.text, fontWeight: '700', fontSize: 'var(--text-base)' } }, t.caTitle || 'Corporate actions (splits)'),
       React.createElement('button', { onClick: runScan, disabled: scan.busy, style: { ...btn(theme.inputBg, theme.text), opacity: scan.busy ? 0.6 : 1 } },
         scan.busy ? (t.caScanning || 'Scanning…') : (t.caScan || 'Scan for splits'))
     ),
 
     // Existing actions
     actions.length === 0
-      ? React.createElement('div', { style: { color: theme.textSecondary, fontSize: '0.8rem', marginBottom: '0.75rem' } }, t.caNone || 'No splits recorded for this holding.')
+      ? React.createElement('div', { style: { color: theme.textSecondary, fontSize: 'var(--text-sm)', marginBottom: '0.75rem' } }, t.caNone || 'No splits recorded for this holding.')
       : React.createElement('div', { style: { display: 'flex', flexDirection: 'column', gap: '1px', marginBottom: '0.75rem' } },
           actions.map((a) => React.createElement('div', {
             key: a.id,
-            style: { display: 'grid', gridTemplateColumns: '1fr 1fr auto', gap: '0.5rem', alignItems: 'center', padding: '0.5rem 0', borderBottom: `1px solid ${theme.cardBorder}`, fontSize: '0.82rem' }
+            style: { display: 'grid', gridTemplateColumns: '1fr 1fr auto', gap: '0.5rem', alignItems: 'center', padding: '0.5rem 0', borderBottom: `1px solid ${theme.cardBorder}`, fontSize: 'var(--text-sm)' }
           },
             React.createElement('span', { style: { color: theme.textSecondary } }, a.date),
             React.createElement('span', { style: { color: theme.text, fontWeight: 600 } }, ratioText(a) + (a.source === 'auto' ? ' · ' + (t.caAuto || 'auto') : '')),
             React.createElement('span', Object.assign({}, clickable(() => removeAction(a)), {
-              style: { color: theme.danger || 'var(--danger)', cursor: 'pointer', fontSize: '0.78rem', justifySelf: 'end' },
+              style: { color: theme.danger || 'var(--danger)', cursor: 'pointer', fontSize: 'var(--text-xs)', justifySelf: 'end' },
               'aria-label': (t.caRemove || 'Remove') + ' ' + a.date
             }), t.caRemove || 'Remove')
           ))
@@ -138,12 +138,12 @@ function CorporateActionsPanel({ category, symbol, theme, t = {}, workerUrl, sin
 
     // Scan preview (editable, write only on confirm)
     scan.preview && React.createElement('div', { style: { background: theme.inputBg, borderRadius: '10px', padding: '0.75rem', marginBottom: '0.75rem' } },
-      React.createElement('div', { style: { color: theme.text, fontWeight: 600, fontSize: '0.8rem', marginBottom: '0.5rem' } }, t.caPreview || 'Detected splits — review, edit or skip, then confirm:'),
+      React.createElement('div', { style: { color: theme.text, fontWeight: 600, fontSize: 'var(--text-sm)', marginBottom: '0.5rem' } }, t.caPreview || 'Detected splits — review, edit or skip, then confirm:'),
       scan.preview.map((p, i) => React.createElement('div', { key: i, style: { display: 'grid', gridTemplateColumns: '1.3fr 0.6fr 0.6fr auto', gap: '0.4rem', alignItems: 'center', marginBottom: '0.4rem', opacity: p.skip ? 0.45 : 1 } },
         React.createElement('input', { type: 'date', 'aria-label': t.caDate || 'Date', value: p.date, onChange: (e) => patchPreview(i, { date: e.target.value }), style: input }),
         React.createElement('input', { type: 'number', min: '1', value: p.num, onChange: (e) => patchPreview(i, { num: e.target.value }), style: input, 'aria-label': 'numerator' }),
         React.createElement('input', { type: 'number', min: '1', value: p.den, onChange: (e) => patchPreview(i, { den: e.target.value }), style: input, 'aria-label': 'denominator' }),
-        React.createElement('span', Object.assign({}, clickable(() => patchPreview(i, { skip: !p.skip })), { style: { color: theme.textSecondary, cursor: 'pointer', fontSize: '0.76rem' } }), p.skip ? (t.caKeep || 'Keep') : (t.caSkip || 'Skip'))
+        React.createElement('span', Object.assign({}, clickable(() => patchPreview(i, { skip: !p.skip })), { style: { color: theme.textSecondary, cursor: 'pointer', fontSize: 'var(--text-xs)' } }), p.skip ? (t.caKeep || 'Keep') : (t.caSkip || 'Skip'))
       )),
       React.createElement('div', { style: { display: 'flex', gap: '0.5rem', marginTop: '0.5rem' } },
         React.createElement('button', { onClick: confirmPreview, style: btn(theme.success || '#22c55e', '#08130b') }, t.caConfirm || 'Add selected'),
@@ -164,8 +164,8 @@ function CorporateActionsPanel({ category, symbol, theme, t = {}, workerUrl, sin
       React.createElement('input', { 'aria-label': t.caNotePh || 'Note (optional)', placeholder: t.caNotePh || 'Note (optional)', value: form.note, onChange: (e) => setForm({ ...form, note: e.target.value }), style: { ...input, flex: 1 } }),
       React.createElement('button', { onClick: addManual, style: btn(theme.accentFill || theme.accent, '#ffffff') }, t.caAdd || 'Add split')
     ),
-    scan.msg && React.createElement('div', { style: { color: theme.warning || 'var(--warning)', fontSize: '0.76rem', marginTop: '0.5rem' } }, scan.msg),
-    React.createElement('div', { style: { color: theme.textSecondary, fontSize: '0.72rem', marginTop: '0.5rem' } },
+    scan.msg && React.createElement('div', { style: { color: theme.warning || 'var(--warning)', fontSize: 'var(--text-xs)', marginTop: '0.5rem' } }, scan.msg),
+    React.createElement('div', { style: { color: theme.textSecondary, fontSize: 'var(--text-xs)', marginTop: '0.5rem' } },
       t.caHint || 'Ratio New:Old — e.g. 10:1 forward, 1:10 reverse. Splits apply to lots before the date.')
   );
 }
@@ -257,16 +257,16 @@ function PositionDetailModal({ position, transactions, prices, theme, formatPric
       },
         React.createElement('div', null,
           // cleanup V-5: the name first ("Bitcoin"), the symbol after it, as in the positions table
-          React.createElement('div', { id: 'dlg-position', 'data-testid': 'pos-title', style: { color: theme.text, fontWeight: '800', fontSize: '1.25rem' } },
+          React.createElement('div', { id: 'dlg-position', 'data-testid': 'pos-title', style: { color: theme.text, fontWeight: '800', fontSize: 'var(--text-title)' } },
             position.name && position.name !== position.sym ? position.name : position.sym,
-            position.name && position.name !== position.sym && React.createElement('span', { style: { color: theme.textSecondary, fontWeight: '600', fontSize: '0.85rem', marginLeft: '0.5rem' } }, position.sym)),
+            position.name && position.name !== position.sym && React.createElement('span', { style: { color: theme.textSecondary, fontWeight: '600', fontSize: 'var(--text-base)', marginLeft: '0.5rem' } }, position.sym)),
           React.createElement('div', { style: { display: 'flex', gap: '0.5rem', marginTop: '0.25rem', alignItems: 'center' } },
             React.createElement('span', {
-              style: { fontSize: '0.65rem', fontWeight: '700', padding: '0.15rem 0.4rem', borderRadius: '4px',
+              style: { fontSize: 'var(--text-3xs)', fontWeight: '700', padding: '0.15rem 0.4rem', borderRadius: '4px',
                 background: position.cat === 'crypto' ? 'color-mix(in srgb, var(--warning) 15%, transparent)' : position.cat === 'stocks' ? 'color-mix(in srgb, var(--info) 15%, transparent)' : 'rgba(6,182,212,0.15)',
                 color: position.cat === 'crypto' ? 'var(--warning)' : position.cat === 'stocks' ? 'var(--info)' : '#06b6d4' }
             }, window.MaerminI18n.category(position.cat).toUpperCase()),
-            React.createElement('span', { style: { color: theme.textSecondary, fontSize: '0.8rem' } },
+            React.createElement('span', { style: { color: theme.textSecondary, fontSize: 'var(--text-sm)' } },
               metrics.firstBuyDate ? __('pdSince', 'Since {date}', { date: window.MaerminI18n.date(metrics.firstBuyDate) }) : ''
             )
           )
@@ -275,12 +275,12 @@ function PositionDetailModal({ position, transactions, prices, theme, formatPric
           // P5-5.4: the Research page for this symbol
           onResearch && React.createElement('button', {
             onClick: onResearch, 'data-testid': 'pd-research',
-            style: { background: 'none', border: `1px solid ${theme.cardBorder}`, borderRadius: '8px', color: theme.text, cursor: 'pointer', padding: '0.4rem 0.75rem', fontSize: '0.8rem', fontWeight: 600 }
+            style: { background: 'none', border: `1px solid ${theme.cardBorder}`, borderRadius: '8px', color: theme.text, cursor: 'pointer', padding: '0.4rem 0.75rem', fontSize: 'var(--text-sm)', fontWeight: 600 }
           }, __('pdResearch', 'Research')),
           React.createElement('button', {
             onClick: onClose,
             'aria-label': __('close', 'Close'),
-            style: { background: 'none', border: `1px solid ${theme.cardBorder}`, borderRadius: '8px', color: theme.textSecondary, cursor: 'pointer', padding: '0.4rem 0.75rem', fontSize: '0.875rem' }
+            style: { background: 'none', border: `1px solid ${theme.cardBorder}`, borderRadius: '8px', color: theme.textSecondary, cursor: 'pointer', padding: '0.4rem 0.75rem', fontSize: 'var(--text-base)' }
           }, '×'))
       ),
 
@@ -328,7 +328,7 @@ function PositionDetailModal({ position, transactions, prices, theme, formatPric
             key: i,
             style: { background: theme.modalBg, padding: '0.875rem 1.25rem' }
           },
-            React.createElement('div', { style: { color: theme.textSecondary, fontSize: '0.72rem', marginBottom: '0.25rem', textTransform: 'uppercase', letterSpacing: '0.05em' } }, m.label),
+            React.createElement('div', { style: { color: theme.textSecondary, fontSize: 'var(--text-xs)', marginBottom: '0.25rem', textTransform: 'uppercase', letterSpacing: '0.05em' } }, m.label),
             React.createElement('div', { style: { color: m.color || theme.text, fontWeight: m.big ? '800' : '700', fontSize: m.big ? '1.1rem' : '0.9rem' } }, m.value)
           )
         )
@@ -336,11 +336,11 @@ function PositionDetailModal({ position, transactions, prices, theme, formatPric
 
       // Transaction history
       React.createElement('div', { style: { padding: '1.25rem 1.5rem' } },
-        React.createElement('div', { style: { color: theme.text, fontWeight: '700', fontSize: '0.875rem', marginBottom: '0.75rem' } },
+        React.createElement('div', { style: { color: theme.text, fontWeight: '700', fontSize: 'var(--text-base)', marginBottom: '0.75rem' } },
           __('pdTxHistory', 'Transaction History ({n})', { n: posTxs.length })
         ),
         posTxs.length === 0
-          ? React.createElement('div', { style: { color: theme.textSecondary, fontSize: '0.8rem', textAlign: 'center', padding: '1rem' } }, __('noTransactionsFound', 'No transactions found'))
+          ? React.createElement('div', { style: { color: theme.textSecondary, fontSize: 'var(--text-sm)', textAlign: 'center', padding: '1rem' } }, __('noTransactionsFound', 'No transactions found'))
           : React.createElement('div', { style: { display: 'flex', flexDirection: 'column', gap: '1px' } },
               posTxs.map((tx, i) => {
                 const qty = parseFloat(tx.quantity) || 0;
@@ -353,7 +353,7 @@ function PositionDetailModal({ position, transactions, prices, theme, formatPric
                     display: 'grid', gridTemplateColumns: '70px 1fr 1fr 1fr',
                     gap: '0.5rem', padding: '0.6rem 0',
                     borderBottom: `1px solid ${theme.cardBorder}`,
-                    fontSize: '0.8rem', alignItems: 'center'
+                    fontSize: 'var(--text-sm)', alignItems: 'center'
                   }
                 },
                   React.createElement('span', {
@@ -375,7 +375,7 @@ function PositionDetailModal({ position, transactions, prices, theme, formatPric
 
       // Investment journal (V7): thesis, target, notes, dated reviews
       React.createElement('div', { style: { padding: '1.25rem 1.5rem', borderTop: `1px solid ${theme.modalBorder}` } },
-        React.createElement('div', { style: { color: theme.text, fontWeight: '700', fontSize: '0.875rem', marginBottom: '0.75rem' } }, t.journalTitle || 'Investment journal'),
+        React.createElement('div', { style: { color: theme.text, fontWeight: '700', fontSize: 'var(--text-base)', marginBottom: '0.75rem' } }, t.journalTitle || 'Investment journal'),
         React.createElement('div', { style: { display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.75rem', marginBottom: '0.75rem' } },
           React.createElement('div', null,
             React.createElement('label', { style: jLabel }, t.journalThesis || 'Investment thesis'),
@@ -391,10 +391,10 @@ function PositionDetailModal({ position, transactions, prices, theme, formatPric
         React.createElement('label', { style: jLabel }, t.journalReviews || 'Reviews'),
         React.createElement('div', { style: { display: 'flex', gap: '0.5rem', marginBottom: '0.5rem' } },
           React.createElement('input', { 'aria-label': t.journalAddReview || 'Add a dated review...', value: reviewDraft, onChange: e => setReviewDraft(e.target.value), onKeyDown: e => { if (e.key === 'Enter') addReview(); }, placeholder: t.journalAddReview || 'Add a dated review...', style: { ...jInput, flex: 1 } }),
-          React.createElement('button', { onClick: addReview, style: { padding: '0.5rem 0.9rem', background: (theme.accentFill || theme.accent), color: '#ffffff', border: 'none', borderRadius: '8px', cursor: 'pointer', fontWeight: 600, fontSize: '0.82rem' } }, '+')
+          React.createElement('button', { onClick: addReview, style: { padding: '0.5rem 0.9rem', background: (theme.accentFill || theme.accent), color: '#ffffff', border: 'none', borderRadius: '8px', cursor: 'pointer', fontWeight: 600, fontSize: 'var(--text-sm)' } }, '+')
         ),
         (j.reviews || []).length > 0 && React.createElement('div', { style: { display: 'flex', flexDirection: 'column', gap: '0.4rem' } },
-          j.reviews.map((rv, i) => React.createElement('div', { key: i, style: { fontSize: '0.8rem', borderLeft: `2px solid ${theme.cardBorder}`, paddingLeft: '0.6rem' } },
+          j.reviews.map((rv, i) => React.createElement('div', { key: i, style: { fontSize: 'var(--text-sm)', borderLeft: `2px solid ${theme.cardBorder}`, paddingLeft: '0.6rem' } },
             React.createElement('span', { style: { color: theme.textSecondary, fontWeight: 600, marginRight: '0.4rem' } }, rv.date),
             React.createElement('span', { style: { color: theme.text } }, rv.text)))
         )
@@ -474,18 +474,18 @@ function CS2SkinPicker({ workerUrl, theme, onSelect, selectedName }) {
         style: {
           width: '100%', padding: '0.75rem 2.5rem 0.75rem 0.75rem',
           background: theme.inputBg, border: `1px solid ${theme.inputBorder}`,
-          borderRadius: '8px', color: theme.text, fontSize: '0.875rem',
+          borderRadius: '8px', color: theme.text, fontSize: 'var(--text-base)',
           boxSizing: 'border-box'
         }
       }),
       loading && React.createElement('div', {
-        style: { position: 'absolute', right: '0.75rem', top: '50%', transform: 'translateY(-50%)', color: theme.textSecondary, fontSize: '0.75rem' }
+        style: { position: 'absolute', right: '0.75rem', top: '50%', transform: 'translateY(-50%)', color: theme.textSecondary, fontSize: 'var(--text-xs)' }
       }, '...')
     ),
 
     // Error
     error && React.createElement('div', {
-      style: { fontSize: '0.75rem', color: theme.danger || 'var(--danger)', marginTop: '0.25rem', padding: '0 0.25rem' }
+      style: { fontSize: 'var(--text-xs)', color: theme.danger || 'var(--danger)', marginTop: '0.25rem', padding: '0 0.25rem' }
     }, error),
 
     // Results dropdown
@@ -503,11 +503,11 @@ function CS2SkinPicker({ workerUrl, theme, onSelect, selectedName }) {
       React.createElement('div', {
         style: { padding: '0.625rem 0.875rem', borderBottom: `1px solid ${theme.cardBorder}`, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }
       },
-        React.createElement('span', { style: { color: theme.textSecondary, fontSize: '0.72rem' } }, __('ssResults', '{n} {n:result|results} — click to select', { n: results.length })),
+        React.createElement('span', { style: { color: theme.textSecondary, fontSize: 'var(--text-xs)' } }, __('ssResults', '{n} {n:result|results} — click to select', { n: results.length })),
         React.createElement('button', {
           onClick: () => setOpen(false),
           'aria-label': __('close', 'Close'),
-          style: { background: 'none', border: 'none', color: theme.textSecondary, cursor: 'pointer', fontSize: '1rem', lineHeight: 1, padding: '0 0.25rem' }
+          style: { background: 'none', border: 'none', color: theme.textSecondary, cursor: 'pointer', fontSize: 'var(--text-body)', lineHeight: 1, padding: '0 0.25rem' }
         }, '×')
       ),
 
@@ -536,20 +536,20 @@ function CS2SkinPicker({ workerUrl, theme, onSelect, selectedName }) {
                 })
               : React.createElement('div', {
                   style: { width: '100%', aspectRatio: '330/192', background: 'rgba(6,182,212,0.08)', borderRadius: '6px', display: 'flex', alignItems: 'center', justifyContent: 'center' }
-                }, React.createElement('span', { style: { color: 'rgba(6,182,212,0.4)', fontSize: '0.7rem' } }, __('ssNoImage', 'No image'))),
+                }, React.createElement('span', { style: { color: 'rgba(6,182,212,0.4)', fontSize: 'var(--text-2xs)' } }, __('ssNoImage', 'No image'))),
 
             // Name
             React.createElement('div', {
-              style: { color: theme.text, fontSize: '0.72rem', fontWeight: '600', lineHeight: '1.3', wordBreak: 'break-word' }
+              style: { color: theme.text, fontSize: 'var(--text-xs)', fontWeight: '600', lineHeight: '1.3', wordBreak: 'break-word' }
             }, item.name),
 
             // Wear + Price row
             React.createElement('div', { style: { display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '0.25rem' } },
               item.wear && React.createElement('span', {
-                style: { fontSize: '0.65rem', color: theme.textSecondary, background: 'rgba(255,255,255,0.05)', padding: '0.1rem 0.3rem', borderRadius: '3px' }
+                style: { fontSize: 'var(--text-3xs)', color: theme.textSecondary, background: 'rgba(255,255,255,0.05)', padding: '0.1rem 0.3rem', borderRadius: '3px' }
               }, item.wear),
               item.price && React.createElement('span', {
-                style: { fontSize: '0.75rem', fontWeight: '700', color: 'var(--success)' }
+                style: { fontSize: 'var(--text-xs)', fontWeight: '700', color: 'var(--success)' }
               }, window.MaerminI18n.money(item.price, 'USD')) // skin prices are USD (Steam Market price list)
             )
           )
@@ -750,24 +750,24 @@ function SymbolPicker({ category, workerUrl, theme, onSelect, selectedSymbol, se
           style: {
             width: '100%', padding: '0.75rem 2.5rem 0.75rem 0.875rem',
             background: theme.inputBg, border: `1px solid ${selected ? theme.accent : theme.inputBorder}`,
-            borderRadius: '8px', color: theme.text, fontSize: '0.875rem', boxSizing: 'border-box',
+            borderRadius: '8px', color: theme.text, fontSize: 'var(--text-base)', boxSizing: 'border-box',
             transition: 'border-color 0.15s'
           }
         }),
         loading && React.createElement('div', {
-          style: { position: 'absolute', right: '0.75rem', top: '50%', transform: 'translateY(-50%)', color: theme.textSecondary, fontSize: '0.8rem' }
+          style: { position: 'absolute', right: '0.75rem', top: '50%', transform: 'translateY(-50%)', color: theme.textSecondary, fontSize: 'var(--text-sm)' }
         }, '◎')
       ),
       selected && React.createElement('button', {
         onClick: clear,
         title: __('clearSelection', 'Clear selection'), 'aria-label': __('clearSelection', 'Clear selection'),
-        style: { padding: '0.5rem', background: 'color-mix(in srgb, var(--danger) 10%, transparent)', border: '1px solid color-mix(in srgb, var(--danger) 20%, transparent)', borderRadius: '6px', color: 'var(--danger)', cursor: 'pointer', fontSize: '0.875rem', lineHeight: 1 }
+        style: { padding: '0.5rem', background: 'color-mix(in srgb, var(--danger) 10%, transparent)', border: '1px solid color-mix(in srgb, var(--danger) 20%, transparent)', borderRadius: '6px', color: 'var(--danger)', cursor: 'pointer', fontSize: 'var(--text-base)', lineHeight: 1 }
       }, '×')
     ),
 
     // ── Typed, not picked: say what will be saved ─────────────────────────
     !selected && query.trim() && React.createElement('div', {
-      style: { marginTop: '0.4rem', fontSize: '0.72rem', color: theme.textSecondary }
+      style: { marginTop: '0.4rem', fontSize: 'var(--text-xs)', color: theme.textSecondary }
     }, isCrypto ? __('spkTypedCoin', 'Saved as typed: {sym} — pick a suggestion for the exact coin.', { sym: typedSymbol(query) }) : __('spkTypedListing', 'Saved as typed: {sym} — pick a suggestion for the exact listing.', { sym: typedSymbol(query) })),
 
     // ── Selected Preview ──────────────────────────────────────────────────
@@ -780,7 +780,7 @@ function SymbolPicker({ category, workerUrl, theme, onSelect, selectedSymbol, se
       },
         React.createElement('span', {
           style: {
-            fontSize: '0.6rem', fontWeight: '800', position: 'absolute',
+            fontSize: 'var(--text-3xs)', fontWeight: '800', position: 'absolute',
             color: (['var(--info)','#8b7cff','#06b6d4','var(--warning)','var(--success)','var(--danger)'])[((selected.ticker||selected.symbol||'A').charCodeAt(0)) % 6]
           }
         }, (selected.ticker || selected.symbol || '').replace(/\..+$/, '').slice(0, 3)),
@@ -793,19 +793,19 @@ function SymbolPicker({ category, workerUrl, theme, onSelect, selectedSymbol, se
       React.createElement('div', { style: { flex: 1, minWidth: 0 } },
         // Name + type badge
         React.createElement('div', { style: { display: 'flex', alignItems: 'center', gap: '0.375rem', flexWrap: 'wrap', marginBottom: '0.25rem' } },
-          React.createElement('span', { style: { color: theme.text, fontWeight: '700', fontSize: '0.875rem' } }, selected.name),
-          React.createElement('span', { style: { fontSize: '0.62rem', padding: '0.1rem 0.35rem', borderRadius: '3px', background: `${TYPE_COLOR[selected.type] || theme.accent}20`, color: TYPE_COLOR[selected.type] || theme.accent, fontWeight: '700' } }, typeLabel(selected.type)),
-          selected.exchange && React.createElement('span', { style: { fontSize: '0.65rem', color: theme.textSecondary } }, selected.exchange)
+          React.createElement('span', { style: { color: theme.text, fontWeight: '700', fontSize: 'var(--text-base)' } }, selected.name),
+          React.createElement('span', { style: { fontSize: 'var(--text-3xs)', padding: '0.1rem 0.35rem', borderRadius: '3px', background: `${TYPE_COLOR[selected.type] || theme.accent}20`, color: TYPE_COLOR[selected.type] || theme.accent, fontWeight: '700' } }, typeLabel(selected.type)),
+          selected.exchange && React.createElement('span', { style: { fontSize: 'var(--text-3xs)', color: theme.textSecondary } }, selected.exchange)
         ),
         // The exact symbol that will be saved — most important part
         React.createElement('div', {
           style: { display: 'flex', alignItems: 'center', gap: '0.375rem', padding: '0.25rem 0.5rem', background: 'color-mix(in srgb, var(--success) 10%, transparent)', border: '1px solid color-mix(in srgb, var(--success) 25%, transparent)', borderRadius: '5px', width: 'fit-content' }
         },
-          React.createElement('span', { style: { color: 'var(--success)', fontSize: '0.7rem' } }, '✓'),
-          React.createElement('span', { style: { color: 'var(--success)', fontWeight: '700', fontSize: '0.8rem', fontFamily: 'monospace', letterSpacing: '0.03em' } },
+          React.createElement('span', { style: { color: 'var(--success)', fontSize: 'var(--text-2xs)' } }, '✓'),
+          React.createElement('span', { style: { color: 'var(--success)', fontWeight: '700', fontSize: 'var(--text-sm)', fontFamily: 'monospace', letterSpacing: '0.03em' } },
             isCrypto ? selected.symbol : selected.symbol  // exact YF symbol or CoinGecko ID
           ),
-          React.createElement('span', { style: { color: 'color-mix(in srgb, var(--success) 60%, transparent)', fontSize: '0.65rem' } },
+          React.createElement('span', { style: { color: 'color-mix(in srgb, var(--success) 60%, transparent)', fontSize: 'var(--text-3xs)' } },
             isCrypto ? '· ' + __('spkCgId', 'CoinGecko ID') : '· ' + __('spkYfSymbol', 'Yahoo Finance symbol')
           )
         )
@@ -814,7 +814,7 @@ function SymbolPicker({ category, workerUrl, theme, onSelect, selectedSymbol, se
 
     // ── Error ─────────────────────────────────────────────────────────────
     error && React.createElement('div', {
-      style: { fontSize: '0.75rem', color: 'var(--danger)', marginTop: '0.25rem', padding: '0 0.25rem' }
+      style: { fontSize: 'var(--text-xs)', color: 'var(--danger)', marginTop: '0.25rem', padding: '0 0.25rem' }
     }, error),
 
     // ── Results Dropdown ──────────────────────────────────────────────────
@@ -832,13 +832,13 @@ function SymbolPicker({ category, workerUrl, theme, onSelect, selectedSymbol, se
       React.createElement('div', {
         style: { padding: '0.5rem 0.875rem', borderBottom: `1px solid ${theme.cardBorder}`, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }
       },
-        React.createElement('span', { style: { color: theme.textSecondary, fontSize: '0.7rem' } },
+        React.createElement('span', { style: { color: theme.textSecondary, fontSize: 'var(--text-2xs)' } },
           __('spkResults', '{n} {n:result|results} · click to select', { n: results.length })
         ),
         React.createElement('button', {
           onClick: () => setOpen(false),
           'aria-label': __('close', 'Close'),
-          style: { background: 'none', border: 'none', color: theme.textSecondary, cursor: 'pointer', fontSize: '1rem', padding: '0 0.25rem', lineHeight: 1 }
+          style: { background: 'none', border: 'none', color: theme.textSecondary, cursor: 'pointer', fontSize: 'var(--text-body)', padding: '0 0.25rem', lineHeight: 1 }
         }, '×')
       ),
 
@@ -864,7 +864,7 @@ function SymbolPicker({ category, workerUrl, theme, onSelect, selectedSymbol, se
               // Letter avatar (always there as base layer)
               React.createElement('span', {
                 style: {
-                  fontSize: '0.6rem', fontWeight: '800', position: 'absolute',
+                  fontSize: 'var(--text-3xs)', fontWeight: '800', position: 'absolute',
                   color: (['var(--info)','#8b7cff','#06b6d4','var(--warning)','var(--success)','var(--danger)'])[((item.ticker||item.symbol||'A').charCodeAt(0)) % 6]
                 }
               }, (item.ticker || item.symbol || '').replace(/\..+$/, '').slice(0, 3)),
@@ -879,19 +879,19 @@ function SymbolPicker({ category, workerUrl, theme, onSelect, selectedSymbol, se
             // Info
             React.createElement('div', { style: { flex: 1, minWidth: 0 } },
               React.createElement('div', { style: { display: 'flex', alignItems: 'center', gap: '0.375rem', flexWrap: 'wrap' } },
-                React.createElement('span', { style: { color: theme.text, fontWeight: '700', fontSize: '0.875rem' } }, item.ticker || item.symbol),
+                React.createElement('span', { style: { color: theme.text, fontWeight: '700', fontSize: 'var(--text-base)' } }, item.ticker || item.symbol),
                 React.createElement('span', {
-                  style: { fontSize: '0.6rem', padding: '0.1rem 0.3rem', borderRadius: '3px', background: `${TYPE_COLOR[item.type] || 'var(--info)'}20`, color: TYPE_COLOR[item.type] || 'var(--info)', fontWeight: '600' }
+                  style: { fontSize: 'var(--text-3xs)', padding: '0.1rem 0.3rem', borderRadius: '3px', background: `${TYPE_COLOR[item.type] || 'var(--info)'}20`, color: TYPE_COLOR[item.type] || 'var(--info)', fontWeight: '600' }
                 }, typeLabel(item.type)),
-                item.exchange && React.createElement('span', { style: { fontSize: '0.65rem', color: theme.textSecondary } }, item.exchange)
+                item.exchange && React.createElement('span', { style: { fontSize: 'var(--text-3xs)', color: theme.textSecondary } }, item.exchange)
               ),
               React.createElement('div', {
-                style: { color: theme.textSecondary, fontSize: '0.78rem', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', marginTop: '0.1rem' }
+                style: { color: theme.textSecondary, fontSize: 'var(--text-xs)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', marginTop: '0.1rem' }
               }, item.name)
             ),
 
             // Arrow
-            React.createElement('span', { style: { color: theme.textSecondary, fontSize: '0.8rem', opacity: 0.5 } }, '→')
+            React.createElement('span', { style: { color: theme.textSecondary, fontSize: 'var(--text-sm)', opacity: 0.5 } }, '→')
           )
         )
       )

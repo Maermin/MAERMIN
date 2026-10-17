@@ -190,19 +190,19 @@ function __(k, f, v) { return (typeof window !== 'undefined' && window.MaerminI1
       return e('div', { key: w.id, 'data-testid': 'wl-wallet', style: { padding: '0.6rem 0.75rem', background: inputBg, borderRadius: '8px', marginBottom: '0.45rem' } },
         e('div', { style: { display: 'flex', justifyContent: 'space-between', gap: '0.5rem', flexWrap: 'wrap', alignItems: 'center' } },
           e('div', { style: { minWidth: 0 } },
-            e('div', { style: { color: text, fontWeight: 600, fontSize: '0.82rem' } }, (w.label ? w.label + ' · ' : '') + chainName(w.chain)),
-            e('div', { style: { color: dim, fontSize: '0.7rem', wordBreak: 'break-all' } }, w.address)),
+            e('div', { style: { color: text, fontWeight: 600, fontSize: 'var(--text-sm)' } }, (w.label ? w.label + ' · ' : '') + chainName(w.chain)),
+            e('div', { style: { color: dim, fontSize: 'var(--text-2xs)', wordBreak: 'break-all' } }, w.address)),
           e('div', { style: { display: 'flex', gap: '0.4rem', alignItems: 'center' } },
-            w.native ? e('span', { 'data-testid': 'wl-native', style: { color: text, fontWeight: 700, fontSize: '0.84rem' } }, fmt(w.native.amount) + ' ' + w.native.symbol) : null,
+            w.native ? e('span', { 'data-testid': 'wl-native', style: { color: text, fontWeight: 700, fontSize: 'var(--text-sm)' } }, fmt(w.native.amount) + ' ' + w.native.symbol) : null,
             e('button', { style: btn(false), onClick: function () {
               W.MaerminUtils.confirmThen({ title: __('wlRemoveTitle', 'Stop watching this address?'), message: __('wlRemoveMsg', 'Only the entry here is removed; nothing in your portfolio changes.'), confirmLabel: __('wlRemove', 'Remove'), cancelLabel: __('cancel', 'Cancel') },
                 function () { mutate(removeWallet(st, w.id)); });
             } }, __('wlRemove', 'Remove')))),
-        w.tokens.length ? e('div', { 'data-testid': 'wl-tokens', style: { color: dim, fontSize: '0.74rem', marginTop: '0.3rem' } }, w.tokens.map(function (k) { return fmt(k.amount) + ' ' + k.symbol; }).join(' · ')) : null,
-        e('div', { style: { color: dim, fontSize: '0.68rem', marginTop: '0.25rem' } }, w.lastSync ? __('wlAsOf', 'as of {date}', { date: w.lastSync }) : __('wlNotYet', 'not read yet')),
+        w.tokens.length ? e('div', { 'data-testid': 'wl-tokens', style: { color: dim, fontSize: 'var(--text-xs)', marginTop: '0.3rem' } }, w.tokens.map(function (k) { return fmt(k.amount) + ' ' + k.symbol; }).join(' · ')) : null,
+        e('div', { style: { color: dim, fontSize: 'var(--text-2xs)', marginTop: '0.25rem' } }, w.lastSync ? __('wlAsOf', 'as of {date}', { date: w.lastSync }) : __('wlNotYet', 'not read yet')),
         recent && recent.length ? e('details', { style: { marginTop: '0.3rem' } },
-          e('summary', { style: { color: dim, fontSize: '0.72rem', cursor: 'pointer' } }, __('wlRecent', 'Recent movements ({n})', { n: recent.length })),
-          e('table', { 'data-testid': 'wl-txs', style: { width: '100%', borderCollapse: 'collapse', fontSize: '0.72rem', color: text, marginTop: '0.25rem' } }, e('tbody', null, recent.slice(0, 15).map(function (t) {
+          e('summary', { style: { color: dim, fontSize: 'var(--text-xs)', cursor: 'pointer' } }, __('wlRecent', 'Recent movements ({n})', { n: recent.length })),
+          e('table', { 'data-testid': 'wl-txs', style: { width: '100%', borderCollapse: 'collapse', fontSize: 'var(--text-xs)', color: text, marginTop: '0.25rem' } }, e('tbody', null, recent.slice(0, 15).map(function (t) {
             return e('tr', { key: t.hash, style: { borderTop: '1px solid ' + border } },
               e('td', { style: { padding: '0.2rem 0.3rem' } }, t.date || '…'),
               e('td', { style: { padding: '0.2rem 0.3rem', color: t.direction === 'in' ? good : t.direction === 'out' ? warn : dim } }, t.direction === 'in' ? __('wlIn', 'in') : t.direction === 'out' ? __('wlOut', 'out') : __('wlSelf', 'to itself')),
@@ -213,14 +213,14 @@ function __(k, f, v) { return (typeof window !== 'undefined' && window.MaerminI1
     var cmp = compare(st, props.existing);
     return e('div', { 'data-testid': 'wallets', style: { background: card, border: '1px solid ' + border, borderRadius: '14px', padding: '1.1rem', marginBottom: '1.25rem' } },
       e('div', { style: { display: 'flex', justifyContent: 'space-between', gap: '0.5rem', flexWrap: 'wrap', alignItems: 'center', marginBottom: '0.2rem' } },
-        e('div', { style: { color: text, fontWeight: 700, fontSize: '0.95rem' } }, __('wlTitle', 'Crypto wallets (read-only)')),
+        e('div', { style: { color: text, fontWeight: 700, fontSize: 'var(--text-md)' } }, __('wlTitle', 'Crypto wallets (read-only)')),
         st.wallets.length ? e('button', { 'data-testid': 'wl-refresh', style: btn(true), disabled: busy, onClick: function () { refresh(null); } }, busy ? __('wlBusy', 'Reading…') : __('wlRefresh', 'Update balances')) : null),
-      e('div', { style: { color: dim, fontSize: '0.76rem', marginBottom: '0.8rem', lineHeight: 1.5 } },
+      e('div', { style: { color: dim, fontSize: 'var(--text-xs)', marginBottom: '0.8rem', lineHeight: 1.5 } },
         __('wlSubtitle', 'Watch public addresses on Bitcoin, Ethereum, Arbitrum, Optimism, Base, Polygon and Solana. No keys: an address can only be read. The block explorers see the address and your Worker, not you. Balances are compared with MAERMIN; nothing is booked automatically - a transfer is not a trade.')),
       rows,
       cmp.length ? e('div', { 'data-testid': 'wl-compare', style: { marginTop: '0.4rem', overflowX: 'auto' } },
-        e('div', { style: { color: dim, fontSize: '0.72rem', marginBottom: '0.25rem' } }, __('wlCompare', 'All wallets together vs MAERMIN')),
-        e('table', { style: { width: '100%', borderCollapse: 'collapse', fontSize: '0.76rem', color: text } }, e('tbody', null, cmp.map(function (c) {
+        e('div', { style: { color: dim, fontSize: 'var(--text-xs)', marginBottom: '0.25rem' } }, __('wlCompare', 'All wallets together vs MAERMIN')),
+        e('table', { style: { width: '100%', borderCollapse: 'collapse', fontSize: 'var(--text-xs)', color: text } }, e('tbody', null, cmp.map(function (c) {
           return e('tr', { key: c.symbol, style: { borderTop: '1px solid ' + border } },
             e('td', { style: { padding: '0.25rem 0.3rem', fontWeight: 600 } }, c.symbol),
             e('td', { style: { padding: '0.25rem 0.3rem', textAlign: 'right' } }, fmt(c.wallets)),
@@ -232,9 +232,9 @@ function __(k, f, v) { return (typeof window !== 'undefined' && window.MaerminI1
           CHAIN_IDS.map(function (c) { return e('option', { key: c, value: c }, chainName(c)); })),
         e('input', { 'data-testid': 'wl-address', 'aria-label': __('wlAddress', 'Public address'), placeholder: __('wlAddress', 'Public address'), autoComplete: 'off', spellCheck: false, value: form.address, onChange: function (ev) { setForm(Object.assign({}, form, { address: ev.target.value.trim() })); }, style: Object.assign({}, inputStyle, { gridColumn: '1 / -1' }) }),
         e('input', { 'aria-label': __('wlLabel', 'Name (optional)'), placeholder: __('wlLabel', 'Name (optional)'), value: form.label, onChange: function (ev) { setForm(Object.assign({}, form, { label: ev.target.value })); }, style: inputStyle })),
-      e('div', { style: { color: dim, fontSize: '0.7rem', marginTop: '0.3rem' } }, __('wlNoKeys', 'Only ever a public address - never a seed phrase or private key.')),
+      e('div', { style: { color: dim, fontSize: 'var(--text-2xs)', marginTop: '0.3rem' } }, __('wlNoKeys', 'Only ever a public address - never a seed phrase or private key.')),
       e('div', null, e('button', { 'data-testid': 'wl-add', style: Object.assign(btn(true), { marginTop: '0.55rem' }), disabled: busy, onClick: add }, __('wlAdd', 'Watch address'))),
-      msg ? e('div', { 'data-testid': 'wl-msg', role: 'status', style: { color: dim, fontSize: '0.76rem', marginTop: '0.5rem' } }, msg) : null);
+      msg ? e('div', { 'data-testid': 'wl-msg', role: 'status', style: { color: dim, fontSize: 'var(--text-xs)', marginTop: '0.5rem' } }, msg) : null);
   }
   api.Panel = Panel;
 

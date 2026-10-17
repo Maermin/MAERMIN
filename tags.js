@@ -272,7 +272,7 @@ function __(k, f, v) { return (typeof window !== 'undefined' && window.MaerminI1
       return e('button', {
         onClick: onClick,
         style: {
-          padding: '0.35rem 0.7rem', fontSize: '0.78rem', fontWeight: 700, cursor: 'pointer',
+          padding: '0.35rem 0.7rem', fontSize: 'var(--text-xs)', fontWeight: 700, cursor: 'pointer',
           borderRadius: '8px', border: '1px solid ' + (solid ? accent : inputBorder),
           background: solid ? accentFill : 'transparent', color: solid ? accentText : text
         }
@@ -293,14 +293,14 @@ function __(k, f, v) { return (typeof window !== 'undefined' && window.MaerminI1
           title: t.tagsUnassign || 'Click to remove',
           'aria-label': (t.tagsRemoveSymbol || 'Remove') + ' ' + s,
           onClick: function () { mutate(unassign(st, tag.name, s)); },
-          style: { font: 'inherit', cursor: 'pointer', display: 'inline-flex', alignItems: 'center', gap: '0.3rem', padding: '0.2rem 0.55rem', borderRadius: '999px', border: '1px solid ' + border, background: 'rgba(255,255,255,0.03)', color: text, fontSize: '0.78rem' }
+          style: { font: 'inherit', cursor: 'pointer', display: 'inline-flex', alignItems: 'center', gap: '0.3rem', padding: '0.2rem 0.55rem', borderRadius: '999px', border: '1px solid ' + border, background: 'rgba(255,255,255,0.03)', color: text, fontSize: 'var(--text-xs)' }
         }, s, e('span', { 'aria-hidden': 'true', style: { color: dim } }, '×'));
       });
 
       var addSelect = untagged.length ? e('select', {
         value: '',
         onChange: function (ev) { if (ev.target.value) mutate(assign(st, tag.name, ev.target.value)); },
-        style: { padding: '0.2rem 0.4rem', borderRadius: '8px', border: '1px solid ' + inputBorder, background: inputBg, color: text, fontSize: '0.78rem' }
+        style: { padding: '0.2rem 0.4rem', borderRadius: '8px', border: '1px solid ' + inputBorder, background: inputBg, color: text, fontSize: 'var(--text-xs)' }
       },
         [e('option', { key: '_', value: '' }, t.tagsAddSymbol || '+ symbol')].concat(
           untagged.map(function (s) { return e('option', { key: s, value: s }, s); }))) : null;
@@ -311,22 +311,22 @@ function __(k, f, v) { return (typeof window !== 'undefined' && window.MaerminI1
       },
         e('div', { style: { display: 'flex', alignItems: 'center', gap: '0.6rem', marginBottom: '0.6rem', flexWrap: 'wrap' } },
           dot(tag.color),
-          e('span', { style: { color: text, fontWeight: 800, fontSize: '0.95rem' } }, tag.name),
-          e('span', { style: { color: dim, fontSize: '0.78rem' } }, fmt(row.value) + ' ' + sym + ' · ' + window.MaerminI18n.pct(row.weightPct, 1)),
+          e('span', { style: { color: text, fontWeight: 800, fontSize: 'var(--text-md)' } }, tag.name),
+          e('span', { style: { color: dim, fontSize: 'var(--text-xs)' } }, fmt(row.value) + ' ' + sym + ' · ' + window.MaerminI18n.pct(row.weightPct, 1)),
           (function () {
             var perf = tagPerf(tag.name);
             return (perf && perf.pct != null)
-              ? e('span', { title: (perf.partial ? (t.tagsSinceStart || 'since first record') : __('tg30d', '30d')), style: { color: perf.pct >= 0 ? up : down, fontSize: '0.74rem', fontWeight: 700 } },
+              ? e('span', { title: (perf.partial ? (t.tagsSinceStart || 'since first record') : __('tg30d', '30d')), style: { color: perf.pct >= 0 ? up : down, fontSize: 'var(--text-xs)', fontWeight: 700 } },
                   window.MaerminI18n.pct(perf.pct, 1, true) + ' · ' + (perf.partial ? '∗' : __('tg30d', '30d')))
               : null;
           })(),
           e('span', { style: { flex: 1 } }),
-          Reb ? e('label', { style: { color: dim, fontSize: '0.72rem', display: 'inline-flex', alignItems: 'center', gap: '0.3rem' } },
+          Reb ? e('label', { style: { color: dim, fontSize: 'var(--text-xs)', display: 'inline-flex', alignItems: 'center', gap: '0.3rem' } },
             (t.tagsTarget || 'Target'),
             e('input', {
               type: 'number', min: 0, max: 100, value: targetPct || '',
               onChange: function (ev) { setTarget(tag.name, ev.target.value); },
-              placeholder: '0', style: { width: '56px', padding: '0.2rem 0.35rem', borderRadius: '6px', border: '1px solid ' + inputBorder, background: inputBg, color: text, fontSize: '0.78rem' }
+              placeholder: '0', style: { width: '56px', padding: '0.2rem 0.35rem', borderRadius: '6px', border: '1px solid ' + inputBorder, background: inputBg, color: text, fontSize: 'var(--text-xs)' }
             }), '%') : null,
           btn(t.tagsDelete || 'Delete', function () {
             window.MaerminUtils.confirmThen({
@@ -336,9 +336,9 @@ function __(k, f, v) { return (typeof window !== 'undefined' && window.MaerminI1
             }, function () { mutate(removeTag(st, tag.name)); });
           })),
         e('div', { style: { display: 'flex', alignItems: 'center', gap: '0.4rem', flexWrap: 'wrap' } },
-          chips.length ? chips : e('span', { style: { color: dim, fontSize: '0.78rem' } }, t.tagsNoSymbols || 'No symbols yet'),
+          chips.length ? chips : e('span', { style: { color: dim, fontSize: 'var(--text-xs)' } }, t.tagsNoSymbols || 'No symbols yet'),
           addSelect),
-        (Reb && targetPct > 0) ? e('div', { style: { marginTop: '0.6rem', fontSize: '0.78rem', color: Math.abs(driftPp) < 0.05 ? dim : (driftPp > 0 ? down : up) } },
+        (Reb && targetPct > 0) ? e('div', { style: { marginTop: '0.6rem', fontSize: 'var(--text-xs)', color: Math.abs(driftPp) < 0.05 ? dim : (driftPp > 0 ? down : up) } },
           (Math.abs(driftPp) < 0.05
             ? (t.tagsOnTarget || 'On target')
             : (driftPp > 0
@@ -347,8 +347,8 @@ function __(k, f, v) { return (typeof window !== 'undefined' && window.MaerminI1
     });
 
     return e('div', { style: { padding: '1.5rem' } },
-      e('h2', { style: { color: text, fontSize: '1.5rem', fontWeight: 800, letterSpacing: '-0.02em', margin: '0 0 0.35rem' } }, t.navTags || 'Tags'),
-      e('p', { style: { color: dim, fontSize: '0.88rem', margin: '0 0 1.25rem', lineHeight: 1.5, maxWidth: '60ch' } },
+      e('h2', { style: { color: text, fontSize: 'var(--text-xl)', fontWeight: 800, letterSpacing: '-0.02em', margin: '0 0 0.35rem' } }, t.navTags || 'Tags'),
+      e('p', { style: { color: dim, fontSize: 'var(--text-base)', margin: '0 0 1.25rem', lineHeight: 1.5, maxWidth: '60ch' } },
         t.tagsSubtitle || 'Cross-cutting labels on your holdings — group by your own thesis (high-conviction, income, speculative…), see value & weight per tag, and optionally set target weights.'),
 
       e('div', { style: { display: 'flex', gap: '0.5rem', marginBottom: '1.25rem', flexWrap: 'wrap' } },
@@ -356,14 +356,14 @@ function __(k, f, v) { return (typeof window !== 'undefined' && window.MaerminI1
           value: newName, onChange: function (ev) { setNewName(ev.target.value); },
           onKeyDown: function (ev) { if (ev.key === 'Enter' && newName.trim()) { mutate(addTag(st, newName)); setNewName(''); } },
           placeholder: t.tagsNewPlaceholder || 'New tag name…', 'aria-label': t.tagsNewPlaceholder || 'New tag name…',
-          style: { flex: 1, minWidth: '180px', maxWidth: '320px', padding: '0.5rem 0.75rem', borderRadius: '8px', border: '1px solid ' + inputBorder, background: inputBg, color: text, fontSize: '0.85rem' }
+          style: { flex: 1, minWidth: '180px', maxWidth: '320px', padding: '0.5rem 0.75rem', borderRadius: '8px', border: '1px solid ' + inputBorder, background: inputBg, color: text, fontSize: 'var(--text-base)' }
         }),
         btn(t.tagsAdd || 'Add tag', function () { if (newName.trim()) { mutate(addTag(st, newName)); setNewName(''); } }, 'solid')),
 
-      tagCards.length ? tagCards : e('div', { style: { background: card, border: '1px solid ' + border, borderRadius: '14px', padding: '2rem', textAlign: 'center', color: dim, fontSize: '0.9rem' } },
+      tagCards.length ? tagCards : e('div', { style: { background: card, border: '1px solid ' + border, borderRadius: '14px', padding: '2rem', textAlign: 'center', color: dim, fontSize: 'var(--text-base)' } },
         t.tagsEmpty || 'No tags yet. Create one above, then assign holdings to it.'),
 
-      agg.total > 0 ? e('div', { style: { color: dim, fontSize: '0.72rem', marginTop: '1rem', lineHeight: 1.5 } },
+      agg.total > 0 ? e('div', { style: { color: dim, fontSize: 'var(--text-xs)', marginTop: '1rem', lineHeight: 1.5 } },
         (t.tagsFootnote || 'Weights are share of total holdings value (untagged value is included in the base). Tags carry into your backup.')) : null);
   }
 

@@ -80,17 +80,17 @@ function __(k, f, v) { return (typeof window !== 'undefined' && window.MaerminI1
 
     return h('div', { style: { background: th.card || '#10151f', border: '1px solid ' + (th.cardBorder || 'rgba(255,255,255,0.07)'), borderRadius: '14px', padding: '1.25rem', marginTop: '1rem' } },
       h('div', { style: { fontWeight: 800, color: th.text || '#e9edf4', marginBottom: '0.25rem' } }, __('rtaTitle', 'Return Attribution')),
-      h('div', { style: { fontSize: '0.78rem', color: th.textSecondary || '#8b94a7', marginBottom: '0.9rem' } },
+      h('div', { style: { fontSize: 'var(--text-xs)', color: th.textSecondary || '#8b94a7', marginBottom: '0.9rem' } },
         __('rtaSubtitle', 'Contribution of each holding to the total return ({pct}).', { pct: pct(result.totalReturnPct) })),
       h('div', { role: 'list' }, top.map(function (r) {
         return h('div', { key: r.symbol, role: 'listitem', style: { display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '0.4rem 0', borderBottom: '1px solid ' + (th.cardBorder || 'rgba(255,255,255,0.05)') } },
           h('div', { style: { minWidth: 0 } },
             h('div', { style: { fontWeight: 700, color: th.text || '#e9edf4' } }, r.symbol),
-            h('div', { style: { fontSize: '0.72rem', color: th.textSecondary || '#8b94a7' } }, __('rtaOfValue', '{pct} of value', { pct: I.pct(r.weightPct, 1) }) + ' · ' + pct(r.returnPct))
+            h('div', { style: { fontSize: 'var(--text-xs)', color: th.textSecondary || '#8b94a7' } }, __('rtaOfValue', '{pct} of value', { pct: I.pct(r.weightPct, 1) }) + ' · ' + pct(r.returnPct))
           ),
           h('div', { style: { textAlign: 'right' } },
             h('div', { style: { fontWeight: 700, color: col(r.contributionPP) } }, pp(r.contributionPP)),
-            h('div', { style: { fontSize: '0.72rem', color: col(r.gain) } }, fmt(r.gain))
+            h('div', { style: { fontSize: 'var(--text-xs)', color: col(r.gain) } }, fmt(r.gain))
           )
         );
       }))

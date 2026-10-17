@@ -474,14 +474,14 @@ function __(k, f, v) { return (typeof window !== 'undefined' && window.MaerminI1
       ask.then(function (yes) { if (!yes) return; removeEvent(ev.id); setRev(rev + 1); if (props.onChange) props.onChange(); });
     };
     return e('div', { 'data-testid': 'ce-panel', style: { padding: '1.25rem 1.5rem', borderTop: '1px solid ' + (th.modalBorder || border) } },
-      e('div', { style: { color: text, fontWeight: 700, fontSize: '0.875rem', marginBottom: '0.75rem' } }, __('ceTitle', 'Other corporate actions')),
+      e('div', { style: { color: text, fontWeight: 700, fontSize: 'var(--text-base)', marginBottom: '0.75rem' } }, __('ceTitle', 'Other corporate actions')),
       list.length ? e('div', { style: { display: 'flex', flexDirection: 'column', gap: '1px', marginBottom: '0.75rem' } }, list.map(function (ev) {
-        return e('div', { key: ev.id, 'data-testid': 'ce-row', style: { display: 'grid', gridTemplateColumns: 'auto 1fr auto', gap: '0.6rem', alignItems: 'center', padding: '0.5rem 0', borderBottom: '1px solid ' + border, fontSize: '0.82rem' } },
+        return e('div', { key: ev.id, 'data-testid': 'ce-row', style: { display: 'grid', gridTemplateColumns: 'auto 1fr auto', gap: '0.6rem', alignItems: 'center', padding: '0.5rem 0', borderBottom: '1px solid ' + border, fontSize: 'var(--text-sm)' } },
           e('span', { style: { color: dim } }, ev.date),
           e('span', { style: { color: text, fontWeight: 600 } }, describeEvent(ev)),
           e('button', { type: 'button', onClick: function () { remove(ev); }, 'aria-label': __('caRemove', 'Remove') + ' ' + ev.date,
-            style: { background: 'transparent', border: 'none', color: th.danger || 'var(--danger)', cursor: 'pointer', fontSize: '0.78rem' } }, __('caRemove', 'Remove')));
-      })) : e('div', { style: { color: dim, fontSize: '0.8rem', marginBottom: '0.75rem' } }, __('ceNone', 'No symbol or ISIN change, merger or spin-off recorded.')),
+            style: { background: 'transparent', border: 'none', color: th.danger || 'var(--danger)', cursor: 'pointer', fontSize: 'var(--text-xs)' } }, __('caRemove', 'Remove')));
+      })) : e('div', { style: { color: dim, fontSize: 'var(--text-sm)', marginBottom: '0.75rem' } }, __('ceNone', 'No symbol or ISIN change, merger or spin-off recorded.')),
       e('div', { style: { display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(130px, 1fr))', gap: '0.5rem', alignItems: 'end' } },
         e('div', null, e('label', { style: label }, __('ceKind', 'Kind')),
           e('select', { value: form.kind, onChange: set('kind'), style: input, 'aria-label': __('ceKind', 'Kind'), 'data-testid': 'ce-kind' },
@@ -493,10 +493,10 @@ function __(k, f, v) { return (typeof window !== 'undefined' && window.MaerminI1
         ratio && field('den', form.kind === 'spinoff' ? __('ceSpinDen', 'per held shares') : __('ceMergeDen', 'per old shares'), { type: 'text', inputMode: 'decimal' }),
         form.kind === 'merger' && field('cash', __('ceCash', 'Cash per old share (optional)'), { type: 'text', inputMode: 'decimal' }),
         form.kind === 'spinoff' && field('pct', __('ceCostPct', 'Share of the cost, %'), { type: 'text', inputMode: 'decimal' }),
-        e('button', { type: 'button', onClick: add, 'data-testid': 'ce-add', style: { padding: '0.5rem 0.8rem', background: th.accentFill || th.accent || 'var(--info)', color: '#fff', border: 'none', borderRadius: '8px', cursor: 'pointer', fontWeight: 600, fontSize: '0.8rem' } },
+        e('button', { type: 'button', onClick: add, 'data-testid': 'ce-add', style: { padding: '0.5rem 0.8rem', background: th.accentFill || th.accent || 'var(--info)', color: '#fff', border: 'none', borderRadius: '8px', cursor: 'pointer', fontWeight: 600, fontSize: 'var(--text-sm)' } },
           __('ceAdd', 'Add action'))),
-      msg && e('div', { style: { color: th.warning || 'var(--warning)', fontSize: '0.76rem', marginTop: '0.5rem' } }, msg),
-      e('div', { style: { color: dim, fontSize: '0.72rem', marginTop: '0.5rem', lineHeight: 1.5 } },
+      msg && e('div', { style: { color: th.warning || 'var(--warning)', fontSize: 'var(--text-xs)', marginTop: '0.5rem' } }, msg),
+      e('div', { style: { color: dim, fontSize: 'var(--text-xs)', marginTop: '0.5rem', lineHeight: 1.5 } },
         form.kind === 'merger' ? __('ceHintMerger', 'Your shares before the date become shares of the new company; cost and purchase dates carry over (tax-neutral exchange). A cash part is booked as capital income on the date.')
           : form.kind === 'spinoff' ? __('ceHintSpinoff', 'Shares of the new company are added with the purchase dates of your shares and the given share of their cost (it is on your bank\'s statement); your shares keep the rest.')
           : __('ceHintRename', 'All bookings before the date move to the new symbol; quantities, cost and dates stay.')));

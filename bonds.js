@@ -369,9 +369,9 @@ function __(k, f, v) { return (typeof window !== 'undefined' && window.MaerminI1
     var set = function (k) { return function (ev) { var o = {}; o[k] = ev.target.value; props.onChange(o); }; };
     var trade = form.type === 'buy' || form.type === 'sell';
     return e('div', { 'data-testid': 'bond-fields', style: { marginBottom: '1rem' } },
-      e('div', { style: { color: c.dim, fontSize: '0.75rem', marginBottom: '0.6rem', lineHeight: 1.5 } },
+      e('div', { style: { color: c.dim, fontSize: 'var(--text-xs)', marginBottom: '0.6rem', lineHeight: 1.5 } },
         __('bondFormHint', 'Quantity = nominal value, price in % of the nominal (e.g. 98.5). Coupons and the redemption at maturity are booked automatically.')),
-      known ? e('div', { style: { color: c.dim, fontSize: '0.78rem', marginBottom: '0.6rem' } },
+      known ? e('div', { style: { color: c.dim, fontSize: 'var(--text-xs)', marginBottom: '0.6rem' } },
         __('bondKnownTerms', '{coupon} % {freq}, matures {date}', { coupon: fmtNum(known.coupon, 3), freq: freqLabel(known.frequency), date: fmtDate(known.maturity) }))
         : e('div', { style: { display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(120px, 1fr))', gap: '0.5rem', marginBottom: '0.6rem' } },
           e('input', { type: 'text', inputMode: 'decimal', value: form.bondCoupon || '', onChange: set('bondCoupon'), placeholder: __('bondCouponPh', 'Coupon % p.a.'), 'aria-label': __('bondCoupon', 'Coupon (% p.a.)'), 'data-testid': 'bond-coupon', style: inp }),
@@ -384,9 +384,9 @@ function __(k, f, v) { return (typeof window !== 'undefined' && window.MaerminI1
         e('button', { type: 'button', 'data-testid': 'bond-propose', onClick: function () {
           var v = proposeAccrued(load(), form);
           if (v != null) props.onChange({ accruedInterest: String(v) });
-        }, style: { padding: '0.6rem 0.8rem', background: c.input, border: '1px solid ' + c.inputBorder, borderRadius: '8px', color: c.text, cursor: 'pointer', fontSize: '0.8rem', whiteSpace: 'nowrap' } },
+        }, style: { padding: '0.6rem 0.8rem', background: c.input, border: '1px solid ' + c.inputBorder, borderRadius: '8px', color: c.text, cursor: 'pointer', fontSize: 'var(--text-sm)', whiteSpace: 'nowrap' } },
           __('bondPropose', 'Calculate'))),
-      trade && e('div', { style: { color: c.dim, fontSize: '0.72rem', marginTop: '0.35rem' } },
+      trade && e('div', { style: { color: c.dim, fontSize: 'var(--text-xs)', marginTop: '0.35rem' } },
         form.type === 'buy' ? __('bondAccruedBuy', 'Paid to the seller on top of the price; negative capital income this year.')
           : __('bondAccruedSell', 'Received from the buyer on top of the price; capital income this year.')));
   }
@@ -421,7 +421,7 @@ function __(k, f, v) { return (typeof window !== 'undefined' && window.MaerminI1
       var nextC = bt ? schedule(bt, today, bt.maturity)[0] : null;
       var y = bt && bt.price ? ytm(bt, bt.price, today) : null;
       rows.push(e('tr', { key: sym, 'data-testid': 'bond-row' },
-        e('td', { style: cell }, e('div', { style: { fontWeight: 600 } }, name), e('div', { style: { color: c.dim, fontSize: '0.72rem' } }, sym)),
+        e('td', { style: cell }, e('div', { style: { fontWeight: 600 } }, name), e('div', { style: { color: c.dim, fontSize: 'var(--text-xs)' } }, sym)),
         e('td', { style: cell }, fmtNum(nominal, 0)),
         e('td', { style: cell }, bt ? fmtNum(bt.coupon, 3) + ' % · ' + freqLabel(bt.frequency) : e('span', { style: { color: c.warn } }, __('bondNoTerms', 'Terms missing: no coupons'))),
         e('td', { style: cell }, bt ? fmtDate(bt.maturity) : '-'),
@@ -432,33 +432,33 @@ function __(k, f, v) { return (typeof window !== 'undefined' && window.MaerminI1
           onBlur: function (ev) { var v = ev.target.value; if (String(v) !== String(bt.price || '')) commit(setPrice(load(), sym, v, today)); } }) : '-'),
         e('td', { style: cell }, y != null ? fmtNum(y * 100, 2) + ' %' : '-'),
         e('td', { style: cell }, e('button', { type: 'button', 'data-testid': 'bond-terms', onClick: function () { editing === sym ? setEditing(null) : openTerms(sym, bt, name); },
-          style: { padding: '0.35rem 0.65rem', background: 'transparent', border: '1px solid ' + c.inputBorder, borderRadius: '6px', color: c.text, cursor: 'pointer', fontSize: '0.75rem' } },
+          style: { padding: '0.35rem 0.65rem', background: 'transparent', border: '1px solid ' + c.inputBorder, borderRadius: '6px', color: c.text, cursor: 'pointer', fontSize: 'var(--text-xs)' } },
           bt ? __('bondEditTerms', 'Terms') : __('bondAddTerms', 'Add terms')))));
       if (editing === sym) {
         var setD = function (k) { return function (ev) { var o = Object.assign({}, draft); o[k] = ev.target.value; setDraft(o); }; };
         var valid = cleanTerms({ coupon: parseAmount(draft.coupon), maturity: draft.maturity });
         rows.push(e('tr', { key: sym + '-edit' }, e('td', { colSpan: 9, style: Object.assign({}, cell, { whiteSpace: 'normal' }) },
           e('div', { style: { display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(130px, 1fr))', gap: '0.5rem', alignItems: 'end' } },
-            e('label', { style: { color: c.dim, fontSize: '0.72rem' } }, __('bondCoupon', 'Coupon (% p.a.)'), e('input', { type: 'text', inputMode: 'decimal', value: draft.coupon, onChange: setD('coupon'), 'data-testid': 'bond-t-coupon', style: Object.assign({ width: '100%', display: 'block', marginTop: '0.2rem' }, inp) })),
-            e('label', { style: { color: c.dim, fontSize: '0.72rem' } }, __('bondFrequency', 'Coupon frequency'), e('select', { value: draft.frequency, onChange: setD('frequency'), style: Object.assign({ width: '100%', display: 'block', marginTop: '0.2rem' }, inp) },
+            e('label', { style: { color: c.dim, fontSize: 'var(--text-xs)' } }, __('bondCoupon', 'Coupon (% p.a.)'), e('input', { type: 'text', inputMode: 'decimal', value: draft.coupon, onChange: setD('coupon'), 'data-testid': 'bond-t-coupon', style: Object.assign({ width: '100%', display: 'block', marginTop: '0.2rem' }, inp) })),
+            e('label', { style: { color: c.dim, fontSize: 'var(--text-xs)' } }, __('bondFrequency', 'Coupon frequency'), e('select', { value: draft.frequency, onChange: setD('frequency'), style: Object.assign({ width: '100%', display: 'block', marginTop: '0.2rem' }, inp) },
               FREQUENCIES.map(function (f) { return e('option', { key: f, value: String(f) }, freqLabel(f)); }))),
-            e('label', { style: { color: c.dim, fontSize: '0.72rem' } }, __('bondMaturity', 'Maturity'), e('input', { type: 'date', value: draft.maturity, onChange: setD('maturity'), 'data-testid': 'bond-t-maturity', style: Object.assign({ width: '100%', display: 'block', marginTop: '0.2rem' }, inp) })),
-            e('label', { style: { color: c.dim, fontSize: '0.72rem' } }, __('bondIssueDate', 'Issue date (optional)'), e('input', { type: 'date', value: draft.issueDate, onChange: setD('issueDate'), style: Object.assign({ width: '100%', display: 'block', marginTop: '0.2rem' }, inp) })),
-            e('label', { style: { color: c.dim, fontSize: '0.72rem' } }, __('bondDayCount', 'Day count'), e('select', { value: draft.dayCount, onChange: setD('dayCount'), style: Object.assign({ width: '100%', display: 'block', marginTop: '0.2rem' }, inp) },
+            e('label', { style: { color: c.dim, fontSize: 'var(--text-xs)' } }, __('bondMaturity', 'Maturity'), e('input', { type: 'date', value: draft.maturity, onChange: setD('maturity'), 'data-testid': 'bond-t-maturity', style: Object.assign({ width: '100%', display: 'block', marginTop: '0.2rem' }, inp) })),
+            e('label', { style: { color: c.dim, fontSize: 'var(--text-xs)' } }, __('bondIssueDate', 'Issue date (optional)'), e('input', { type: 'date', value: draft.issueDate, onChange: setD('issueDate'), style: Object.assign({ width: '100%', display: 'block', marginTop: '0.2rem' }, inp) })),
+            e('label', { style: { color: c.dim, fontSize: 'var(--text-xs)' } }, __('bondDayCount', 'Day count'), e('select', { value: draft.dayCount, onChange: setD('dayCount'), style: Object.assign({ width: '100%', display: 'block', marginTop: '0.2rem' }, inp) },
               DAY_COUNTS.map(function (dc) { return e('option', { key: dc, value: dc }, dc === 'act/act' ? __('bondActAct', 'act/act (ICMA)') : dc === '30/360' ? __('bond30360', '30E/360') : dc); }))),
-            e('label', { style: { color: c.dim, fontSize: '0.72rem' } }, __('currency', 'Currency'), e('select', { value: draft.currency, onChange: setD('currency'), style: Object.assign({ width: '100%', display: 'block', marginTop: '0.2rem' }, inp) },
+            e('label', { style: { color: c.dim, fontSize: 'var(--text-xs)' } }, __('currency', 'Currency'), e('select', { value: draft.currency, onChange: setD('currency'), style: Object.assign({ width: '100%', display: 'block', marginTop: '0.2rem' }, inp) },
               ['EUR', 'USD', 'CHF', 'GBP'].map(function (cur) { return e('option', { key: cur, value: cur }, cur); }))),
             e('button', { type: 'button', disabled: !valid, 'data-testid': 'bond-t-save', onClick: function () {
               commit(setTerms(load(), sym, { name: draft.name, coupon: parseAmount(draft.coupon), frequency: draft.frequency, maturity: draft.maturity, issueDate: draft.issueDate, dayCount: draft.dayCount, currency: draft.currency }));
               setEditing(null);
-            }, style: { padding: '0.5rem 0.9rem', background: valid ? c.accent : c.input, border: 'none', borderRadius: '8px', color: '#fff', cursor: valid ? 'pointer' : 'default', fontWeight: 600, fontSize: '0.8rem' } },
+            }, style: { padding: '0.5rem 0.9rem', background: valid ? c.accent : c.input, border: 'none', borderRadius: '8px', color: '#fff', cursor: valid ? 'pointer' : 'default', fontWeight: 600, fontSize: 'var(--text-sm)' } },
               __('save', 'Save'))))));
       }
     });
     return e('div', { 'data-testid': 'bonds-panel', style: { border: '1px solid ' + c.border, borderRadius: '14px', padding: '1rem 1.1rem', background: c.card } },
       e('div', { style: { display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', flexWrap: 'wrap', gap: '0.5rem', marginBottom: '0.6rem' } },
-        e('h3', { style: { margin: 0, color: c.text, fontSize: '1rem' } }, __('bondsTitle', 'Bonds')),
-        e('span', { style: { color: c.dim, fontSize: '0.75rem' } }, __('bondsHint', 'Prices are entered by hand in % of the nominal. Coupons and the redemption are booked on their dates; the yield is for information.'))),
+        e('h3', { style: { margin: 0, color: c.text, fontSize: 'var(--text-body)' } }, __('bondsTitle', 'Bonds')),
+        e('span', { style: { color: c.dim, fontSize: 'var(--text-xs)' } }, __('bondsHint', 'Prices are entered by hand in % of the nominal. Coupons and the redemption are booked on their dates; the yield is for information.'))),
       e('div', { style: { overflowX: 'auto' } },
         e('table', { style: { width: '100%', borderCollapse: 'collapse' } },
           e('thead', null, e('tr', null, [__('bondColBond', 'Bond'), __('bondColNominal', 'Nominal'), __('bondColCoupon', 'Coupon'), __('bondColMaturity', 'Maturity'),
