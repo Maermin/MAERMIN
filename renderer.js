@@ -3357,6 +3357,10 @@ function InvestmentTracker() {
   };
 
   const renderView = () => {
+    // R1.2: the hidden component gallery (?gallery, also with ?demo). Not a view in nav-model.js.
+    if (window.MaerminGallery && window.MaerminGallery.isOn(window.location.search)) {
+      return React.createElement(window.MaerminGallery.View, { themeName: theme, setTheme });
+    }
     switch (activeView) {
       // P5: the one sanctioned new surface — read-only asset discovery. Gated on
       // a Worker URL; the View itself degrades gracefully if the deployed Worker

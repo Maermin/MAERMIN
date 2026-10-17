@@ -23,7 +23,9 @@ export const NOT_UI = new Set([
   // Web Push message encryption (P5-5.1): protocol labels, no UI text
   'push-crypto.js',
   // CSS colour syntax for the design-token bridge (R1.1); no UI text
-  'theme-tokens.js'
+  'theme-tokens.js',
+  // the hidden component gallery (?gallery): a developer review page in English, never shown to users
+  'component-gallery.js'
 ]);
 // Files whose literals are English fallbacks of keys the guard already checks.
 export const SCAN_SKIP = new Set(['nav-model.js']);
