@@ -2113,7 +2113,10 @@ function InvestmentTracker() {
         });
       }
 
-      setPrices(newPrices);
+      // Merge onto the current prices: newPrices copied them before the network
+      // wait, so a quote the symbol loader added meanwhile would be lost by a
+      // plain set. This run's quotes still win.
+      setPrices(prev => ({ ...prev, ...newPrices }));
       // Stamp when each symbol was fetched so the data-quality layer can flag
       // stale/failed quotes (feeds the per-position freshness badges). Only keys
       // fetched in this run are stamped: carried and older quotes keep their
