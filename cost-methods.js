@@ -7,7 +7,8 @@
 // (ledger.js, opts.method), so fees, FX and splits are handled the same way.
 //
 // Display only: positions and the tax report keep FIFO, the legal method in
-// Germany (crypto per wallet when the tax setting says so, BMF 6.3.2025). The
+// Germany (crypto per wallet when the tax setting says so, BMF 6.3.2025;
+// shares and funds per depot for the portfolios marked as one, M-15). The
 // panel marks that column "used in your tax report". The total of realised
 // plus unrealised gain is the same under every method; the methods only move
 // gain between years.
@@ -44,8 +45,10 @@ function __(k, f, v) { return (typeof window !== 'undefined' && window.MaerminI1
     return null;
   }
 
-  // opts: { year, prices, exchangeRate, fxAt, perWallet, jurisdiction }
-  // -> { legal, methods, perWallet, rows: [{ category, symbol, openQty, price,
+  // opts: { year, prices, exchangeRate, fxAt, perWallet, depots, jurisdiction }
+  //   depots: ids of the portfolios with their own FIFO pool (ledger.js);
+  //   a holding's row still sums all of its pools.
+  // -> { legal, methods, perWallet, depots, rows: [{ category, symbol, openQty, price,
   //      byMethod: { m: { openCost, unrealized, realized } } }], totals }
   function compare(transactions, opts) {
     opts = opts || {};
@@ -54,9 +57,11 @@ function __(k, f, v) { return (typeof window !== 'undefined' && window.MaerminI1
     var txs = (transactions || []).filter(function (tx) { return tx && CATEGORIES.indexOf(tx.category || 'crypto') !== -1; });
     var cur = {};
     txs.forEach(function (tx) { if (tx.type === 'buy' || tx.type === 'sell') cur[(tx.category || 'crypto') + '|' + String(tx.symbol || '').toUpperCase()] = tx.currency || 'EUR'; });
+    var depots = Array.isArray(opts.depots) ? opts.depots.map(String) : [];
     var rows = {}, order = [];
     METHODS.forEach(function (m) {
-      ledger().build(txs, { exchangeRate: rate, fxAt: opts.fxAt, method: m, perWallet: opts.perWallet ? ['crypto'] : undefined }).list.forEach(function (g) {
+      ledger().build(txs, { exchangeRate: rate, fxAt: opts.fxAt, method: m, perWallet: opts.perWallet ? ['crypto'] : undefined,
+        depots: depots.length ? depots : undefined }).list.forEach(function (g) {
         var sym = String(g.symbol || '').toUpperCase();
         var k = g.category + '|' + sym;
         var row = rows[k];
@@ -83,7 +88,7 @@ function __(k, f, v) { return (typeof window !== 'undefined' && window.MaerminI1
       var t = totals[m] = { openCost: 0, realized: 0, unrealized: 0 };
       out.forEach(function (r) { var b = r.byMethod[m]; t.openCost += b.openCost; t.realized += b.realized; if (b.unrealized != null) t.unrealized += b.unrealized; });
     });
-    return { legal: 'fifo', methods: METHODS.slice(), perWallet: !!opts.perWallet, year: year, rows: out, totals: totals };
+    return { legal: 'fifo', methods: METHODS.slice(), perWallet: !!opts.perWallet, depots: depots, year: year, rows: out, totals: totals };
   }
 
   function methodName(m) {
@@ -91,7 +96,7 @@ function __(k, f, v) { return (typeof window !== 'undefined' && window.MaerminI1
   }
 
   // ---- panel (Tax view) -------------------------------------------------------
-  // props: { theme, transactions, prices, exchangeRate, fxAt, year, formatMoney, rev }
+  // props: { theme, transactions, prices, exchangeRate, fxAt, year, portfolios, formatMoney, rev }
   function Panel(props) {
     var React = (typeof window !== 'undefined') ? window.React : null;
     if (!React) return null;
@@ -101,13 +106,17 @@ function __(k, f, v) { return (typeof window !== 'undefined' && window.MaerminI1
     var good = th.success || '#22c55e', bad = th.danger || '#ef4444', accent = th.accent || th.primary || '#8b7cff';
     var money = props.formatMoney || function (v) { return window.MaerminI18n.money(v, 'EUR'); };
     var year = props.year || new Date().getFullYear();
+    // The depots the German report keeps apart (M-15), so FIFO here matches it.
+    var R = window.MaerminTaxReport;
+    var depots = R && R.separateDepots ? R.separateDepots({ jurisdiction: 'de', portfolios: props.portfolios }) : [];
+    var depotKey = depots.join('\u0001');
     var res = useMemo(function () {
       var TS = window.MaerminTaxSettings, s = null;
       try { s = TS ? TS.load() : null; } catch (err) { s = null; }
       try {
-        return compare(props.transactions || [], { year: year, prices: props.prices || {}, exchangeRate: props.exchangeRate, fxAt: props.fxAt, perWallet: !!(s && s.cryptoPerWallet) });
+        return compare(props.transactions || [], { year: year, prices: props.prices || {}, exchangeRate: props.exchangeRate, fxAt: props.fxAt, perWallet: !!(s && s.cryptoPerWallet), depots: depots });
       } catch (err) { return null; }
-    }, [props.transactions, props.prices, props.exchangeRate, props.fxAt, props.rev, year]);
+    }, [props.transactions, props.prices, props.exchangeRate, props.fxAt, props.rev, year, depotKey]);
     if (!res) return null;
     var cell = { padding: '0.35rem 0.5rem', borderTop: '1px solid ' + border, fontSize: '0.78rem', color: text, textAlign: 'right', whiteSpace: 'nowrap', verticalAlign: 'top' };
     var head = { padding: '0.3rem 0.5rem', color: dim, fontSize: '0.64rem', textTransform: 'uppercase', letterSpacing: '0.04em', textAlign: 'right', whiteSpace: 'nowrap', verticalAlign: 'bottom' };
@@ -122,7 +131,8 @@ function __(k, f, v) { return (typeof window !== 'undefined' && window.MaerminI1
       e('h3', { style: { color: text, fontSize: '1.05rem', fontWeight: 700, margin: '0 0 0.35rem' } }, __('cmTitle', 'Cost-basis methods')),
       e('p', { style: { color: dim, fontSize: '0.8rem', margin: '0 0 0.75rem', lineHeight: 1.5 } },
         __('cmIntro', 'Realised gain in {y} and the open (unrealised) gain under each method. Together they are the same under every method; the method only moves gain between years. Your tax report uses FIFO.', { y: year }),
-        res.perWallet ? ' ' + __('cmWallet', 'Crypto: FIFO per wallet (portfolio), as set in the tax settings.') : ''),
+        res.perWallet ? ' ' + __('cmWallet', 'Crypto: FIFO per wallet (portfolio), as set in the tax settings.') : '',
+        res.depots.length && R && R.depotLabel ? ' ' + R.depotLabel(res.depots, props.portfolios) + '.' : ''),
       !res.rows.length ? e('div', { 'data-testid': 'cm-empty', style: { color: dim, fontSize: '0.82rem' } }, __('cmEmpty', 'No holdings or sales to compare.')) :
       e('div', { style: { overflowX: 'auto' } },
         e('table', { 'data-testid': 'cm-table', style: { width: '100%', borderCollapse: 'collapse' } },
