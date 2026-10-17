@@ -5125,11 +5125,11 @@ function InvestmentTracker() {
             React.createElement('option', { value: 'us' }, t.usa || 'USA')
           ),
           window.MaerminTaxReport && React.createElement('button', {
-            onClick: () => { const r = buildReport(); if (r) window.MaerminTaxReport.exportPDF(r); },
+            onClick: () => { const r = getTaxReport(currentYear); if (r) window.MaerminTaxReport.exportPDF(r); },
             style: { padding: '0.5rem 1rem', background: (currentTheme.accentFill || currentTheme.accent), color: 'var(--on-accent)', border: 'none', borderRadius: '8px', cursor: 'pointer', fontWeight: 600 }
           }, t.exportPdf || 'Export PDF'),
           window.MaerminTaxReport && React.createElement('button', {
-            onClick: () => { const r = buildReport(); if (r) window.MaerminTaxReport.exportExcel(r); },
+            onClick: () => { const r = getTaxReport(currentYear); if (r) window.MaerminTaxReport.exportExcel(r); },
             style: { padding: '0.5rem 1rem', background: 'color-mix(in srgb, var(--success) 15%, transparent)', color: currentTheme.success, border: '1px solid color-mix(in srgb, var(--success) 30%, transparent)', borderRadius: '8px', cursor: 'pointer', fontWeight: 600 }
           }, t.exportExcel || 'Export Excel')
         )
