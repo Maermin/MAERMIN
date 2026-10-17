@@ -24,10 +24,9 @@ function __(k, f, v) { return (typeof window !== 'undefined' && window.MaerminI1
     var React = (typeof window !== 'undefined') ? window.React : null;
     if (!React) return null;
     var th = props.theme || {};
-    return React.createElement('div', { role: 'note', 'data-testid': 'disclaimer', 'data-kind': props.kind || 'invest',
-      style: Object.assign({ display: 'flex', gap: '0.6rem', alignItems: 'flex-start', padding: '0.65rem 0.9rem', borderRadius: '10px', fontSize: '0.8rem', lineHeight: 1.5,
-        color: th.textSecondary || '#9aa4b2', background: (th.warning || '#f59e0b') + '12', border: '1px solid ' + (th.warning || '#f59e0b') + '44' }, props.style || {}) },
-      React.createElement('span', { 'aria-hidden': 'true', style: { color: th.warning || 'var(--warning)', fontWeight: 800 } }, '!'),
+    // R4.2: the shared note look (.ui-disclaimer); a caller may still add spacing
+    return React.createElement('div', { role: 'note', 'data-testid': 'disclaimer', 'data-kind': props.kind || 'invest', className: 'ui-disclaimer', style: props.style || undefined },
+      React.createElement('span', { 'aria-hidden': 'true', className: 'ui-disclaimer__mark' }, '!'),
       React.createElement('span', null, disclaimerText(props.kind)));
   }
 

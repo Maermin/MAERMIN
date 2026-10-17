@@ -305,24 +305,19 @@
     );
     const e = React.createElement;
 
-    const cardStyle = {
-      background: theme.card || 'rgba(255,255,255,0.05)',
-      border: `1px solid ${theme.cardBorder || 'rgba(255,255,255,0.1)'}`,
-      borderRadius: '16px', padding: '1.5rem', marginBottom: '1rem',
-      boxShadow: theme.shadow || '0 18px 40px -16px rgba(0,0,0,0.6)',
-    };
+    // R4.2: the score as the answer (ring + grade + one sentence), sub-scores
+    // as meters that open their analysis, the figures as Stat tiles.
+    const UIC = window.MaerminComponents;
+    const I = window.MaerminI18n;
+    const toneOf = (s) => s >= 70 ? 'gain' : s >= 40 ? 'warning' : 'loss';
 
     if (h.empty) {
-      return e('div', { style: { padding: '1rem' } },
-        e('h2', { style: { color: theme.text, marginBottom: '0.5rem' } }, t.healthTitle || 'Portfolio Health'),
-        e('div', { style: cardStyle },
-          e('p', { style: { color: theme.textSecondary } },
-            t.healthEmpty || 'Add some positions and refresh prices to see your portfolio health score.'))
-      );
+      return e('div', { className: 'ui-view', 'data-testid': 'health-view' },
+        e(UIC.Card, { className: 'ui-card--pad' },
+          e('p', { className: 'ui-muted' }, t.healthEmpty || 'Add some positions and refresh prices to see your portfolio health score.')));
     }
 
-    const col = scoreColor(h.score, theme);
-
+    const tone = toneOf(h.score);
     const meta = (k) => (h.subMeta || []).find((s) => s.key === k) || {};
 
     // A sub-score row. Clickable when it maps to an existing analysis view
@@ -331,104 +326,66 @@
       opts = opts || {};
       const available = opts.available !== false;
       const clickable = !!(opts.view && setActiveView);
-      return e('div', {
-        key: label,
-        onClick: clickable ? () => setActiveView(opts.view) : undefined,
-        title: clickable ? (t.healthOpenView || 'Open analysis') : undefined,
-        style: {
-          marginBottom: '0.35rem', padding: '0.45rem 0.5rem', borderRadius: '8px',
-          cursor: clickable ? 'pointer' : 'default', transition: 'background 0.12s',
-        },
-        onMouseEnter: clickable ? (ev) => { ev.currentTarget.style.background = 'rgba(255,255,255,0.05)'; } : undefined,
-        onMouseLeave: clickable ? (ev) => { ev.currentTarget.style.background = 'transparent'; } : undefined,
-      },
-        e('div', { style: { display: 'flex', justifyContent: 'space-between', marginBottom: '0.3rem', fontSize: 'var(--text-sm)', color: theme.textSecondary } },
-          e('span', null, label, clickable ? e('span', { 'aria-hidden': 'true', style: { marginLeft: '0.35rem' } }, '›') : null),
-          e('span', { style: { color: available ? theme.text : theme.textSecondary, fontWeight: 600 } }, available ? (value + ' / 100') : (t.healthNotAvailable || 'n/a'))),
-        e('div', { style: { height: '8px', background: 'rgba(255,255,255,0.08)', borderRadius: '4px', overflow: 'hidden' } },
-          e('div', { style: { height: '100%', width: (available ? value : 0) + '%', background: scoreColor(value, theme), borderRadius: '4px', transition: 'width 0.4s ease' } }))
-      );
+      const inner = [
+        e('span', { key: 'l', className: 'ui-meters__label' },
+          e('span', null, label, clickable ? e('span', { 'aria-hidden': 'true' }, ' ›') : null),
+          e('b', { className: 'num' }, available ? (value + ' / 100') : (t.healthNotAvailable || 'n/a'))),
+        e('span', { key: 'm', className: 'ui-meter', 'aria-hidden': 'true' },
+          e('span', { className: 'ui-meter__fill', 'data-tone': toneOf(value), style: { width: (available ? value : 0) + '%' } }))
+      ];
+      return e('li', { key: label },
+        clickable ? e('button', { type: 'button', className: 'ui-meters__btn', title: t.healthOpenView || 'Open analysis', onClick: () => setActiveView(opts.view) }, inner) : inner);
     };
 
-    const metric = (label, value) => e('div', { key: label, style: { textAlign: 'center', padding: '1rem 0.85rem', background: theme.surface2 || 'rgba(0,0,0,0.18)', border: `1px solid ${theme.cardBorder || 'rgba(255,255,255,0.08)'}`, borderRadius: '12px' } },
-      e('div', { style: { fontSize: 'var(--text-title-lg)', fontWeight: 800, color: theme.text, letterSpacing: '-0.02em' } }, value),
-      e('div', { style: { fontSize: 'var(--text-2xs)', color: theme.textSecondary, marginTop: '0.3rem', textTransform: 'uppercase', letterSpacing: '0.06em' } }, label)
-    );
+    const metric = (label, value) => e(UIC.Stat, { key: label, className: 'ui-tile', label, value });
+    const verdict = window.MaerminVerdicts ? window.MaerminVerdicts.health(h.score) : null;
 
-    return e('div', { style: { padding: '1rem' } },
-      e('div', { style: { display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: '1rem', flexWrap: 'wrap', marginBottom: '1.25rem' } },
-        e('div', null,
-          e('h2', { style: { color: theme.text, marginBottom: '0.25rem', fontSize: 'var(--text-title-lg)', fontWeight: 700 } }, t.healthTitle || 'Portfolio Health'),
-          e('p', { style: { color: theme.textSecondary, fontSize: 'var(--text-base)', margin: 0 } },
-            t.healthSubtitle || 'A structural check of diversification and concentration — independent of market direction.'))),
+    return e('div', { className: 'ui-view', 'data-testid': 'health-view' },
+      e('p', { className: 'ui-view__lead' },
+        t.healthSubtitle || 'A structural check of diversification and concentration — independent of market direction.'),
 
       // Score hero + sub-score bars
-      e('div', { style: { ...cardStyle, display: 'flex', gap: '2rem', flexWrap: 'wrap', alignItems: 'center' } },
-        e('div', { style: { textAlign: 'center', minWidth: '160px', flex: '0 0 auto' } },
-          e('div', {
-            style: {
-              width: '130px', height: '130px', borderRadius: '50%', margin: '0 auto',
-              display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center',
-              background: `conic-gradient(${col} ${h.score * 3.6}deg, rgba(255,255,255,0.08) 0deg)`,
-            }
-          },
-            e('div', {
-              style: {
-                width: '104px', height: '104px', borderRadius: '50%', background: theme.card || '#10151f',
-                display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center',
-              }
-            },
-              e('div', { style: { fontSize: '2.2rem', fontWeight: 800, color: col, lineHeight: 1 } }, h.score),
-              e('div', { style: { fontSize: 'var(--text-2xs)', color: theme.textSecondary, marginTop: '2px' } }, t.healthOutOf100 || 'out of 100'))),
-          e('div', { style: { marginTop: '0.6rem', display: 'inline-block', padding: '0.2rem 0.9rem', borderRadius: '9999px', background: `${window.MaerminTokens.alpha(col, 0x22)}`, color: col, fontWeight: 700, fontSize: 'var(--text-md)' } },
-            (t.healthGrade || 'Grade') + ' ' + h.grade)),
+      e(UIC.Card, { variant: 'hero', 'data-testid': 'health-score' },
+        e('div', { className: 'ui-health' },
+          e('div', { className: 'ui-health__score' },
+            e('div', { className: 'ui-ring', 'data-tone': tone, style: { background: `conic-gradient(var(--${tone}) ${h.score * 3.6}deg, var(--surface-2) 0deg)` } },
+              e('div', { className: 'ui-ring__inner' },
+                e('b', { className: ['num', 'tone-' + tone].join(' ') }, h.score),
+                e('span', null, t.healthOutOf100 || 'out of 100'))),
+            e(UIC.Badge, { tone }, (t.healthGrade || 'Grade') + ' ' + h.grade)),
+          e('ul', { className: ['ui-meters', 'ui-health__bars'].join(' ') },
+            bar(t.healthDiversification || 'Diversification', h.subScores.diversification, meta('diversification')),
+            bar(t.healthRiskCat || 'Risk', h.subScores.risk, meta('risk')),
+            bar(t.healthLiquidityCat || 'Liquidity', h.subScores.liquidity, meta('liquidity')),
+            bar(t.healthTaxCat || 'Tax efficiency', h.subScores.tax, meta('tax')))),
         // P5-1.6: the score in one plain sentence (rules in verdicts.js).
-        window.MaerminVerdicts && (function () {
-          const v = window.MaerminVerdicts.health(h.score);
-          if (!v) return null;
-          return e('div', { 'data-testid': 'verdict-health', 'data-level': v.level, style: { flexBasis: '100%', order: 3, color: theme.text, fontSize: 'var(--text-base)', lineHeight: 1.5 } },
-            e('span', { style: { color: col, fontWeight: 700 } }, v.text),
-            e('span', { style: { color: theme.textSecondary, fontSize: 'var(--text-xs)' } }, ' ' + window.MaerminVerdicts.disclaimer()));
-        })(),
-        e('div', { style: { flex: 1, minWidth: '240px' } },
-          bar(t.healthDiversification || 'Diversification', h.subScores.diversification, meta('diversification')),
-          bar(t.healthRiskCat || 'Risk', h.subScores.risk, meta('risk')),
-          bar(t.healthLiquidityCat || 'Liquidity', h.subScores.liquidity, meta('liquidity')),
-          bar(t.healthTaxCat || 'Tax efficiency', h.subScores.tax, meta('tax')))
-      ),
+        verdict ? e('p', { 'data-testid': 'verdict-health', 'data-level': verdict.level, className: 'ui-health__verdict' },
+          e('span', { className: 'ui-verdict' }, verdict.text),
+          e('span', { className: 'ui-note' }, ' ' + window.MaerminVerdicts.disclaimer())) : null),
 
       // Key metrics
-      e('div', { style: { ...cardStyle } },
-        e('div', { style: { display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(120px, 1fr))', gap: '0.75rem' } },
-          metric(t.healthHoldings || 'Holdings', String(h.positionCount)),
-          metric(t.healthEffectivePositions || 'Effective positions', h.effectiveN.toFixed(1)),
-          metric(t.healthLargestPosition || 'Largest position', window.MaerminI18n.pct(h.maxWeight * 100, 0)),
-          metric(t.healthAssetClasses || 'Asset classes', String(h.classCount)),
-          metric(t.healthUnrealized || 'Unrealized', window.MaerminI18n.pct(h.unrealizedPct, 1, true)))
-      ),
+      e('div', { className: 'ui-tiles', 'data-testid': 'health-metrics' },
+        metric(t.healthHoldings || 'Holdings', String(h.positionCount)),
+        metric(t.healthEffectivePositions || 'Effective positions', I.num(h.effectiveN, 1)),
+        metric(t.healthLargestPosition || 'Largest position', I.pct(h.maxWeight * 100, 0)),
+        metric(t.healthAssetClasses || 'Asset classes', String(h.classCount)),
+        e(UIC.Stat, { key: 'u', className: 'ui-tile', label: t.healthUnrealized || 'Unrealized', value: I.pct(h.unrealizedPct, 1, true), tone: UIC.toneOf(h.unrealizedPct) })),
 
-      // Recommendations
-      e('div', { style: cardStyle },
-        e('h3', { style: { color: theme.text, fontSize: 'var(--text-body)', fontWeight: 600, marginBottom: '0.75rem' } }, t.recommendations || 'Recommendations'),
-        h.recommendations.map((r, i) =>
-          e('div', { key: i, style: { display: 'flex', gap: '0.6rem', alignItems: 'flex-start', padding: '0.5rem 0', color: theme.textSecondary, fontSize: 'var(--text-base)', borderBottom: i < h.recommendations.length - 1 ? `1px solid ${theme.cardBorder || 'rgba(255,255,255,0.08)'}` : 'none' } },
-            e('span', { style: { color: col, fontWeight: 700 } }, '→'),
-            e('span', null, r)))
-      ),
+      e('div', { className: 'ui-grid-2' },
+        // Recommendations
+        e(UIC.Card, { title: t.recommendations || 'Recommendations', headingLevel: 'h3', 'data-testid': 'health-recs' },
+          e('ul', { className: 'ui-findings' }, h.recommendations.map((r, i) =>
+            e('li', { key: i, className: 'ui-finding' }, e('span', { 'aria-hidden': 'true', className: 'ui-finding__mark' }, '→'), e('p', null, r))))),
 
-      // Top holdings by weight
-      e('div', { style: cardStyle },
-        e('h3', { style: { color: theme.text, fontSize: 'var(--text-body)', fontWeight: 600, marginBottom: '0.75rem' } }, t.healthLargestHoldings || 'Largest holdings'),
-        h.top.map((p) =>
-          e('div', { key: p.symbol + p.cls, style: { marginBottom: '0.7rem' } },
-            e('div', { style: { display: 'flex', justifyContent: 'space-between', marginBottom: '0.25rem', fontSize: 'var(--text-sm)' } },
-              e('span', { style: { color: theme.text, fontWeight: 600 } }, p.symbol,
-                e('span', { style: { color: theme.textSecondary, fontWeight: 400, marginLeft: '0.4rem', fontSize: 'var(--text-xs)' } }, classLabel(p.cls, t))),
-              e('span', { style: { color: theme.textSecondary } }, `${formatPrice(p.value)} ${sym} · ${window.MaerminI18n.pct(p.weight * 100, 1)}`)),
-            e('div', { style: { height: '6px', background: 'rgba(255,255,255,0.08)', borderRadius: '3px', overflow: 'hidden' } },
-              e('div', { style: { height: '100%', width: (p.weight * 100) + '%', background: p.weight > 0.3 ? 'var(--warning)' : (theme.accent || '#8b7cff'), borderRadius: '3px' } }))))
-      )
-    );
+        // Top holdings by weight
+        e(UIC.Card, { title: t.healthLargestHoldings || 'Largest holdings', headingLevel: 'h3', 'data-testid': 'health-top' },
+          e('ul', { className: 'ui-meters' }, h.top.map((p) =>
+            e('li', { key: p.symbol + p.cls },
+              e('span', { className: 'ui-meters__label' },
+                e('span', null, e('b', null, p.symbol), ' ', e('span', { className: 'ui-muted' }, classLabel(p.cls, t))),
+                e('span', { className: 'num' }, `${formatPrice(p.value)} ${sym} · ${I.pct(p.weight * 100, 1)}`)),
+              e('span', { className: 'ui-meter', 'aria-hidden': 'true' },
+                e('span', { className: 'ui-meter__fill', 'data-tone': p.weight > 0.3 ? 'warning' : 'accent', style: { width: (p.weight * 100) + '%' } }))))))));
   }
 
   if (typeof window !== 'undefined') {

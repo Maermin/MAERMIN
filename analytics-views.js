@@ -28,12 +28,14 @@ function __(k, f, v) { return (typeof window !== 'undefined' && window.MaerminI1
       var y = ht - ((v - min) / span) * ht;
       return x.toFixed(1) + ',' + y.toFixed(1);
     }).join(' ');
-    return React.createElement('svg', { viewBox: '0 0 ' + w + ' ' + ht, preserveAspectRatio: 'none', style: { width: '100%', height: ht + 'px', display: 'block' } },
-      React.createElement('polyline', { points: pts, fill: 'none', stroke: color, strokeWidth: '2', strokeLinejoin: 'round', strokeLinecap: 'round' }));
+    return React.createElement('svg', { viewBox: '0 0 ' + w + ' ' + ht, preserveAspectRatio: 'none', className: 'ui-spark__svg', 'aria-hidden': 'true', style: { height: ht + 'px' } },
+      React.createElement('polyline', { points: pts, fill: 'none', style: { stroke: color }, strokeWidth: '2', strokeLinejoin: 'round', strokeLinecap: 'round' }));
   }
 
+  // R4.2: a muted line; an error colour (danger / loss) reads as an error.
   function note(React, dim, txt) {
-    return React.createElement('div', { style: { color: dim, fontSize: 'var(--text-xs)', lineHeight: '1.5' } }, txt);
+    var err = /danger|loss/.test(String(dim || ''));
+    return React.createElement('p', { className: ['ui-muted', err ? 'is-error' : ''].join(' ').trim() }, txt);
   }
 
   // ---- Benchmark overlay (Returns view) -----------------------------------
@@ -44,10 +46,7 @@ function __(k, f, v) { return (typeof window !== 'undefined' && window.MaerminI1
     if (!D || !A) return null;
     var e = React.createElement;
     var theme = props.theme || {};
-    var text = theme.text || '#e6edf3', dim = theme.textSecondary || '#9aa4b2', accent = theme.accent || '#8b7cff';
-    var border = theme.cardBorder || 'rgba(255,255,255,0.1)', inputBg = theme.inputBg || '#0f172a';
-    var ok = theme.success || '#22c55e', bad = theme.danger || '#ef4444';
-    var card = theme.card || theme.cardBg || 'transparent';
+    var dim = 'var(--text-dim)', bad = 'var(--loss)';
     var workerBase = (props.workerUrl || '').trim().replace(/\/$/, '');
     // Daily TWR index of the book ([{ d, v }], from the value path) when there is
     // one; else the value series derived from the refresh history.
@@ -138,9 +137,8 @@ function __(k, f, v) { return (typeof window !== 'undefined' && window.MaerminI1
     if (!D || !A) return null;
     var e = React.createElement;
     var theme = props.theme || {};
-    var text = theme.text || '#e6edf3', dim = theme.textSecondary || '#9aa4b2', accent = theme.accent || '#8b7cff';
-    var border = theme.cardBorder || 'rgba(255,255,255,0.1)', card = theme.card || theme.cardBg || 'transparent';
-    var ok = theme.success || '#22c55e';
+    var dim = 'var(--text-dim)';
+    var UIC = window.MaerminComponents;
 
     // Daily TWR index from the value path when available (deposits do not show
     // up as returns); else the value series from the refresh history.
@@ -158,29 +156,22 @@ function __(k, f, v) { return (typeof window !== 'undefined' && window.MaerminI1
       var rret = A.rollingReturns(returns, win);
       var curVol = rvol.length ? rvol[rvol.length - 1] : 0;
       var curRet = rret.length ? rret[rret.length - 1] : 0;
+      // R4.2: two charts on the shared chart look; the latest figure as a Stat
       inner = e('div', null,
-        e('div', { style: { display: 'flex', gap: '1.5rem', flexWrap: 'wrap' } },
-          e('div', { style: { flex: 1, minWidth: '240px' } },
-            e('div', { style: { color: dim, fontSize: 'var(--text-xs)', textTransform: 'uppercase', letterSpacing: '0.04em', marginBottom: '0.3rem' } }, __('avRollVol', '{n}-pt rolling volatility (annualised)', { n: win })),
-            sparkline(React, rvol, accent),
-            e('div', { style: { color: text, fontSize: 'var(--text-body)', fontWeight: '700', marginTop: '0.3rem' } }, window.MaerminI18n.pct(curVol * 100, 1))
-          ),
-          e('div', { style: { flex: 1, minWidth: '240px' } },
-            e('div', { style: { color: dim, fontSize: 'var(--text-xs)', textTransform: 'uppercase', letterSpacing: '0.04em', marginBottom: '0.3rem' } }, __('avRollRet', '{n}-pt rolling return', { n: win })),
-            sparkline(React, rret, curRet >= 0 ? ok : (theme.danger || '#ef4444')),
-            e('div', { style: { color: curRet >= 0 ? ok : (theme.danger || 'var(--danger)'), fontSize: 'var(--text-body)', fontWeight: '700', marginTop: '0.3rem' } }, window.MaerminI18n.pct(curRet * 100, 1))
-          )
-        ),
-        e('div', { 'data-testid': 'rolling-source', style: { color: dim, fontSize: 'var(--text-xs)', marginTop: '0.7rem' } }, dated
+        e('div', { className: 'ui-grid-2' },
+          e('div', { className: 'ui-spark', 'data-series': '1' },
+            e(UIC.Stat, { label: __('avRollVol', '{n}-pt rolling volatility (annualised)', { n: win }), value: window.MaerminI18n.pct(curVol * 100, 1) }),
+            sparkline(React, rvol, 'var(--chart-1)')),
+          e('div', { className: 'ui-spark' },
+            e(UIC.Stat, { label: __('avRollRet', '{n}-pt rolling return', { n: win }), value: window.MaerminI18n.pct(curRet * 100, 1, true), tone: UIC.toneOf(curRet) }),
+            sparkline(React, rret, curRet >= 0 ? 'var(--gain)' : 'var(--loss)'))),
+        e('p', { 'data-testid': 'rolling-source', className: 'ui-note' }, dated
           ? __('avRollDaily', 'Computed from {n} daily time-weighted returns since {date} (deposits and withdrawals excluded).', { n: returns.length, date: window.MaerminI18n.date(dated[0].d) })
           : __('avRollPath', 'Computed from your portfolio value path over the available price history.'))
       );
     }
 
-    return e('div', { style: { background: card, border: '1px solid ' + border, borderRadius: '14px', padding: '1.25rem', marginTop: '1rem' } },
-      e('h3', { style: { color: text, fontSize: 'var(--text-body)', fontWeight: '700', margin: '0 0 0.9rem' } }, __('avRollTitle', 'Rolling volatility & returns')),
-      inner
-    );
+    return e(UIC.Card, { title: __('avRollTitle', 'Rolling volatility & returns'), headingLevel: 'h3', 'data-testid': 'rolling-risk', className: 'ui-chart' }, inner);
   }
 
   // ---- Fama-French factor exposure (Risk view) ----------------------------
@@ -202,10 +193,8 @@ function __(k, f, v) { return (typeof window !== 'undefined' && window.MaerminI1
     if (!D || !A || !D.alignReturns) return null;
     var e = React.createElement;
     var theme = props.theme || {};
-    var text = theme.text || '#e6edf3', dim = theme.textSecondary || '#9aa4b2';
-    var border = theme.cardBorder || 'rgba(255,255,255,0.1)', inputBg = theme.inputBg || '#0f172a';
-    var ok = theme.success || '#22c55e', bad = theme.danger || '#ef4444';
-    var card = theme.card || theme.cardBg || 'transparent';
+    var dim = 'var(--text-dim)', bad = 'var(--loss)';
+    var UIC = window.MaerminComponents;
     var workerBase = (props.workerUrl || '').trim().replace(/\/$/, '');
     var dated = (Array.isArray(props.valueSeries) && props.valueSeries.length > FACTOR_MIN_PERIODS) ? props.valueSeries : null;
     var series = dated ? dated.map(function (p) { return p.v; }) : D.buildValueSeries(props.portfolio, props.priceHistory);
@@ -256,10 +245,8 @@ function __(k, f, v) { return (typeof window !== 'undefined' && window.MaerminI1
     }
 
     var pct = function (x) { return window.MaerminI18n.pct(x * 100, 1); };
-    var tile = function (label, value, color) {
-      return e('div', { key: label, style: { background: inputBg, border: '1px solid ' + border, borderRadius: '10px', padding: '0.7rem 0.9rem', minWidth: '110px' } },
-        e('div', { style: { color: dim, fontSize: 'var(--text-2xs)', textTransform: 'uppercase', letterSpacing: '0.04em' } }, label),
-        e('div', { style: { color: color || text, fontSize: 'var(--text-lg)', fontWeight: '700', marginTop: '0.15rem' } }, value));
+    var tile = function (label, value, tone) {
+      return e(UIC.Stat, { key: label, className: 'ui-tile', label: label, value: value, tone: tone || null });
     };
 
     var body;
@@ -273,23 +260,20 @@ function __(k, f, v) { return (typeof window !== 'undefined' && window.MaerminI1
       var alphaAnn = result.alpha > -1 ? (Math.pow(1 + result.alpha, 252) - 1) : 0;
       var tilt = function (beta, hi, lo) { return beta > 0.05 ? hi : (beta < -0.05 ? lo : __('avNeutral', 'neutral')); };
       body = e('div', null,
-        e('div', { style: { display: 'flex', flexWrap: 'wrap', gap: '0.6rem' } },
-          tile(__('avMkt', 'Market (MKT) β'), window.MaerminI18n.num(b.MKT != null ? b.MKT : 0, 2), text),
-          tile(__('avSmb', 'Size (SMB) β'), window.MaerminI18n.num(b.SMB != null ? b.SMB : 0, 2), text),
-          tile(__('avHml', 'Value (HML) β'), window.MaerminI18n.num(b.HML != null ? b.HML : 0, 2), text),
-          tile(__('avAlphaAnn', 'Alpha (ann.)'), pct(alphaAnn), alphaAnn >= 0 ? ok : bad)
+        e('div', { className: 'ui-tiles' },
+          tile(__('avMkt', 'Market (MKT) β'), window.MaerminI18n.num(b.MKT != null ? b.MKT : 0, 2)),
+          tile(__('avSmb', 'Size (SMB) β'), window.MaerminI18n.num(b.SMB != null ? b.SMB : 0, 2)),
+          tile(__('avHml', 'Value (HML) β'), window.MaerminI18n.num(b.HML != null ? b.HML : 0, 2)),
+          tile(__('avAlphaAnn', 'Alpha (ann.)'), (alphaAnn > 0 ? '+' : '') + pct(alphaAnn), UIC.toneOf(alphaAnn))
         ),
-        e('div', { style: { color: dim, fontSize: 'var(--text-xs)', marginTop: '0.7rem', lineHeight: '1.55' } },
+        e('p', { className: 'ui-note' },
           __('avReadsAs', 'Reads as a {size} / {style} tilt, market beta {beta}.', { size: tilt(b.SMB || 0, __('avSmallCap', 'small-cap'), __('avLargeCap', 'large-cap')), style: tilt(b.HML || 0, __('avValue', 'value'), __('avGrowth', 'growth')), beta: window.MaerminI18n.num(b.MKT != null ? b.MKT : 0, 2) }) + ' '),
-        e('div', { style: { color: dim, fontSize: 'var(--text-xs)', marginTop: '0.3rem', lineHeight: '1.5' } },
+        e('p', { className: 'ui-note' },
           __('avFactorNote', 'Estimated from {n} overlapping daily returns regressed on ETF proxies (VTI; IWM−IWB; IWD−IWF). A statistical estimate from limited history, not a precise factor loading.', { n: periods }))
       );
     }
 
-    return e('div', { style: { background: card, border: '1px solid ' + border, borderRadius: '14px', padding: '1.25rem', marginTop: '1rem' } },
-      e('h3', { style: { color: text, fontSize: 'var(--text-body)', fontWeight: '700', margin: '0 0 0.9rem' } }, __('avFactorTitle', 'Factor exposure (Fama-French)')),
-      body
-    );
+    return e(UIC.Card, { title: __('avFactorTitle', 'Factor exposure (Fama-French)'), headingLevel: 'h3', 'data-testid': 'factor-exposure' }, body);
   }
 
   var api = { BenchmarkPanel: BenchmarkPanel, RollingRiskPanel: RollingRiskPanel, FactorExposurePanel: FactorExposurePanel };

@@ -864,12 +864,9 @@ function __(k, f, v) { return (typeof window !== 'undefined' && window.MaerminI1
     var e = React.createElement;
     var theme = props.theme || {};
     var t = props.t || ((typeof window !== 'undefined' && window.MaerminI18n) ? window.MaerminI18n.dict() : {});
-    var text = theme.text || '#e9edf4', dim = theme.textSecondary || '#8b94a7';
-    var border = theme.cardBorder || 'rgba(255,255,255,0.08)';
-    var card = theme.card || theme.cardBg || '#10151f';
-    var bad = theme.danger || theme.negative || '#ef4444';
-    var warn = theme.warning || '#f59e0b';
-    var accent = theme.accent || '#7e22ce';
+    // R4.2: counts per priority as answer tiles, the findings on the shared
+    // findings list inside a Card; the disclaimer under the lead.
+    var UIC = window.MaerminComponents;
 
     var report = props.report || analyze(props.portfolio, props.prices, props.transactions, { lookThrough: props.lookThrough,
       accounts: props.accounts, fire: props.fire, portfolios: props.portfolios, exchangeRate: props.exchangeRate });
@@ -877,77 +874,48 @@ function __(k, f, v) { return (typeof window !== 'undefined' && window.MaerminI1
     var summary = report.summary || {};
 
     var META = {
-      critical: { color: bad, icon: '✗', label: t.intelCritical || 'Critical' },
-      important: { color: warn, icon: '!', label: t.intelImportant || 'Important' },
-      optimization: { color: accent, icon: '◇', label: t.intelOptimize || 'Optimization' }
+      critical: { sev: 'critical', tone: 'loss', icon: '✗', label: t.intelCritical || 'Critical' },
+      important: { sev: 'warning', tone: 'warning', icon: '!', label: t.intelImportant || 'Important' },
+      optimization: { sev: 'opportunity', tone: null, icon: '◇', label: t.intelOptimize || 'Optimization' }
     };
 
-    function chip(priority) {
+    function tile(priority) {
       var m = META[priority];
       var n = summary[priority] || 0;
-      return e('div', {
-        key: priority,
-        style: {
-          display: 'flex', alignItems: 'center', gap: '0.4rem', padding: '0.4rem 0.75rem',
-          borderRadius: '999px', border: '1px solid ' + border,
-          background: 'rgba(255,255,255,0.02)'
-        }
-      },
-        e('span', { 'aria-hidden': 'true', style: { color: m.color, fontWeight: 800 } }, m.icon),
-        e('span', { style: { color: text, fontWeight: 700, fontSize: 'var(--text-base)' } }, n),
-        e('span', { style: { color: dim, fontSize: 'var(--text-xs)' } }, m.label));
+      return e(UIC.Card, { key: priority, variant: 'answer', className: 'ui-ov-tile', role: 'listitem', 'data-testid': 'intel-count-' + priority },
+        e(UIC.Stat, { label: e(React.Fragment, null, e('span', { 'aria-hidden': 'true' }, m.icon + ' '), m.label), value: String(n), tone: n ? m.tone : null }));
     }
 
-    var rows = findings.map(function (f, i) {
+    var rows = e('ul', { className: 'ui-findings', 'aria-label': t.intelFindings || 'Portfolio findings' }, findings.map(function (f, i) {
       var m = META[f.priority] || META.optimization;
-      return e('div', {
-        key: f.id || i, role: 'listitem',
-        style: {
-          display: 'flex', gap: '0.8rem', padding: '0.9rem 0',
-          borderBottom: '1px solid ' + border
-        }
-      },
-        e('div', {
-          'aria-hidden': 'true',
-          style: { fontSize: 'var(--text-body)', fontWeight: 800, color: m.color, lineHeight: 1.3, minWidth: '1.2rem', textAlign: 'center' }
-        }, m.icon),
-        e('div', { style: { flex: 1, minWidth: 0 } },
-          e('div', { style: { display: 'flex', alignItems: 'baseline', gap: '0.5rem', flexWrap: 'wrap' } },
-            e('span', {
-              style: {
-                fontSize: 'var(--text-2xs)', fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.05em',
-                color: m.color
-              }
-            }, m.label),
-            e('span', { style: { color: dim, fontSize: 'var(--text-2xs)', textTransform: 'uppercase', letterSpacing: '0.04em' } }, analysisLabel(f.analysis))),
-          e('div', { style: { color: text, fontWeight: 700, fontSize: 'var(--text-base)', marginTop: '0.2rem', lineHeight: 1.4 } }, f.title),
-          e('div', { style: { color: dim, fontSize: 'var(--text-sm)', marginTop: '0.2rem', lineHeight: 1.5 } }, f.detail),
-          f.action ? e('div', { style: { color: text, fontSize: 'var(--text-sm)', marginTop: '0.3rem' } }, '→ ' + f.action) : null));
-    });
+      return e('li', { key: f.id || i, className: 'ui-finding', 'data-severity': m.sev },
+        e('span', { className: 'ui-finding__mark', 'aria-hidden': 'true' }, m.icon),
+        e('div', { className: 'ui-finding__body' },
+          e('div', { className: 'ui-finding__kicker' }, e('b', null, m.label), e('span', null, analysisLabel(f.analysis))),
+          e('b', { className: ['ui-finding__title', 'is-plain'].join(' ') }, f.title),
+          e('p', null, f.detail),
+          f.action ? e('p', { className: 'ui-finding__action' }, '→ ' + f.action) : null));
+    }));
 
     var hasLook = !!(props.lookThrough && props.lookThrough.available);
 
-    return e('div', { style: { padding: '1.5rem' } },
-      e('h2', {
-        style: { color: text, fontSize: 'var(--text-xl)', fontWeight: 800, letterSpacing: '-0.02em', margin: '0 0 0.35rem' }
-      }, t.intelTitle || 'Portfolio Intelligence'),
-      e('p', { style: { color: dim, fontSize: 'var(--text-base)', margin: '0 0 1.25rem', lineHeight: 1.5, maxWidth: '60ch' } },
+    return e('div', { className: 'ui-view', 'data-testid': 'intelligence-view' },
+      e('p', { className: 'ui-view__lead' },
         t.intelSubtitle || 'Automatic detection of structural risks across ten dimensions, with concrete, data-grounded recommendations ranked by priority.'),
+      props.disclaimer || null,
 
-      e('div', { style: { display: 'flex', gap: '0.6rem', flexWrap: 'wrap', marginBottom: '1.25rem' }, role: 'list', 'aria-label': t.intelPriorities || 'Findings by priority' },
-        chip('critical'), chip('important'), chip('optimization')),
+      e('div', { className: 'ui-ov-tiles', role: 'list', 'aria-label': t.intelPriorities || 'Findings by priority' },
+        tile('critical'), tile('important'), tile('optimization')),
 
-      e('div', {
-        style: { background: card, border: '1px solid ' + border, borderRadius: '14px', padding: '1.25rem' }
-      },
+      e(UIC.Card, { title: t.intelFindings || 'Portfolio findings', headingLevel: 'h3', 'data-testid': 'intel-findings' },
         findings.length
-          ? e('div', { role: 'list', 'aria-label': t.intelFindings || 'Portfolio findings' }, rows)
-          : e('div', { style: { color: dim, fontSize: 'var(--text-base)', padding: '1rem 0', textAlign: 'center' } },
+          ? rows
+          : e('p', { className: 'ui-muted' },
               hasLook
                 ? (t.intelClean || 'No structural problems detected across the ten checks. Nice work.')
                 : (t.intelNoData || 'Add holdings — and open the Health view once to load ETF look-through — to surface effective exposures.'))),
 
-      e('div', { style: { color: dim, fontSize: 'var(--text-xs)', marginTop: '0.9rem', lineHeight: 1.5 } },
+      e('p', { className: 'ui-note' },
         (hasLook && summary.coverage != null
           ? __('piCoverage', 'Look-through covers {pct} of value.', { pct: I18N().pct(Math.round(summary.coverage * 100), 0) }) + ' '
           : __('piOpenHealth', 'Open the Health view once to load fund look-through for full effective-exposure analysis.') + ' ') +

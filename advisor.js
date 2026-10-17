@@ -249,38 +249,24 @@ function __(k, f, v) { return (typeof window !== 'undefined' && window.MaerminI1
     var report = props.report || analyzePortfolio(props.portfolio, props.prices, props.transactions, t, props.extras, { formatMoney: props.formatMoney });
     var findings = report.findings || [];
 
-    var colorFor = {
-      critical: theme.danger || '#ef4444', warning: theme.warning || '#f59e0b',
-      opportunity: theme.accent || '#8b7cff', info: theme.textSecondary || '#8b94a7', good: theme.success || '#22c55e'
-    };
+    // R4.2: the shared findings list (mark + title in the severity tone, the
+    // detail and the next step dimmed) inside the shared Card.
+    var UIC = window.MaerminComponents;
     var iconFor = { critical: '✗', warning: '!', opportunity: '◇', info: 'i', good: '✓' };
 
-    var rows = findings.map(function (f, i) {
-      return e('div', { key: f.id || i, style: {
-        display: 'flex', gap: '0.7rem', padding: '0.75rem 0',
-        borderBottom: '1px solid ' + (theme.cardBorder || 'rgba(255,255,255,0.06)')
-      } },
-        e('div', { style: { fontSize: 'var(--text-lg)', lineHeight: 1.2, fontWeight: 800, color: colorFor[f.severity] || (theme.textSecondary || '#8b94a7') } }, iconFor[f.severity] || '•'),
-        e('div', { style: { flex: 1 } },
-          e('div', { style: { color: colorFor[f.severity], fontWeight: 700, fontSize: 'var(--text-base)' } }, f.title),
-          e('div', { style: { color: theme.textSecondary || '#8b94a7', fontSize: 'var(--text-sm)', marginTop: '0.15rem', lineHeight: 1.5 } }, f.detail),
-          f.action && e('div', { style: { color: theme.text || '#e9edf4', fontSize: 'var(--text-xs)', marginTop: '0.3rem' } }, '→ ' + f.action)
-        )
-      );
-    });
+    var rows = e('ul', { className: 'ui-findings' }, findings.map(function (f, i) {
+      return e('li', { key: f.id || i, className: 'ui-finding', 'data-severity': f.severity || 'info' },
+        e('span', { className: 'ui-finding__mark', 'aria-hidden': 'true' }, iconFor[f.severity] || '•'),
+        e('div', { className: 'ui-finding__body' },
+          e('b', { className: 'ui-finding__title' }, f.title),
+          e('p', null, f.detail),
+          f.action ? e('p', { className: 'ui-finding__action' }, '→ ' + f.action) : null));
+    }));
 
-    return e('div', { style: {
-      background: theme.card || '#10151f', border: '1px solid ' + (theme.cardBorder || 'rgba(255,255,255,0.08)'),
-      borderRadius: '14px', padding: '1.25rem'
-    } },
-      e('div', { style: { display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.5rem' } },
-        e('div', { style: { color: theme.text || '#e9edf4', fontWeight: 800, fontSize: 'var(--text-body)' } },
-          (t.advisorTitle || 'Portfolio Advisor'))
-      ),
+    return e(UIC.Card, { title: t.advisorTitle || 'Portfolio Advisor', headingLevel: 'h3', 'data-testid': 'advisor' },
       findings.length
         ? rows
-        : e('div', { style: { color: theme.textSecondary, fontSize: 'var(--text-base)', padding: '0.5rem 0' } },
-            t.advisorEmpty || 'Add holdings to get personalised recommendations.')
+        : e('p', { className: 'ui-muted' }, t.advisorEmpty || 'Add holdings to get personalised recommendations.')
     );
   }
 
