@@ -2334,6 +2334,7 @@ html[data-theme="contrast"] .ui-map__tile { border: 1px solid var(--border-stron
    or dialog below 1100 px).
    ========================================================================== */
 .ui-tx__tools { display: flex; gap: var(--space-2); flex-wrap: wrap; align-items: center; }
+.ui-tx__tools .ui-input { width: auto; }
 .ui-tx__search { width: 220px; max-width: 100%; }
 .ui-chips { display: flex; gap: var(--space-2); flex-wrap: wrap; }
 .ui-tx__layout { display: grid; grid-template-columns: minmax(0, 1fr); gap: var(--space-5); align-items: start; }
