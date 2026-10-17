@@ -1278,12 +1278,14 @@ async function runBuild(browser, label, dir) {
       const pickAndLook = async (view, labels, pick) => {
         await openView(page, view);
         await page.waitForTimeout(1200);
-        await page.locator('main button[aria-pressed]').filter({ hasText: new RegExp('^' + pick + '$') }).last().click();
+        await page.locator('main button[aria-pressed], main button[role="radio"]').filter({ hasText: new RegExp('^' + pick + '$') }).last().click();
         await page.mouse.move(1, 1);
         await page.waitForTimeout(900);
         return page.evaluate(([labels, pick]) => {
-          const bs = [...document.querySelectorAll('main button[aria-pressed]')].filter((b) => labels.includes(b.innerText.trim()) && b.offsetParent);
-          const group = bs.filter((b) => b.parentElement === bs.find((x) => x.innerText.trim() === pick && x.getAttribute('aria-pressed') === 'true').parentElement);
+          // R4.1: a Segmented option (role radio, aria-checked) counts like a pressed pill
+          const on = (b) => b.getAttribute('aria-pressed') === 'true' || b.getAttribute('aria-checked') === 'true';
+          const bs = [...document.querySelectorAll('main button[aria-pressed], main button[role="radio"]')].filter((b) => labels.includes(b.innerText.trim()) && b.offsetParent);
+          const group = bs.filter((b) => b.parentElement === bs.find((x) => x.innerText.trim() === pick && on(x)).parentElement);
           const sig = (b) => { const s = getComputedStyle(b); return s.backgroundImage + '|' + s.backgroundColor; };
           const count = {}; group.forEach((b) => { count[sig(b)] = (count[sig(b)] || 0) + 1; });
           const common = Object.keys(count).sort((a, b) => count[b] - count[a])[0];
@@ -1291,10 +1293,10 @@ async function runBuild(browser, label, dir) {
           const rgb = (c) => { const m = (c.match(/[\d.]+/g) || []).map(Number); return { c: m.slice(0, 3), a: m[3] == null ? 1 : m[3] }; };
           const lum = (c) => { const f = (v) => { v /= 255; return v <= 0.03928 ? v / 12.92 : Math.pow((v + 0.055) / 1.055, 2.4); }; return 0.2126 * f(c[0]) + 0.7152 * f(c[1]) + 0.0722 * f(c[2]); };
           const under = (el) => { for (let e = el; e; e = e.parentElement) { const b = rgb(getComputedStyle(e).backgroundColor); if (b.a > 0.9) return b.c; } return [255, 255, 255]; };
-          const sel = group.find((b) => b.getAttribute('aria-pressed') === 'true');
+          const sel = group.find(on);
           let contrast = 0;
           if (sel) { const s = getComputedStyle(sel); const bg = rgb(s.backgroundColor), base = under(sel.parentElement); const c = bg.c.map((v, i) => v * bg.a + base[i] * (1 - bg.a)); const L1 = lum(rgb(s.color).c), L2 = lum(c); contrast = (Math.max(L1, L2) + 0.05) / (Math.min(L1, L2) + 0.05); }
-          return { looks: group.filter((b) => sig(b) !== common).map((b) => b.innerText.trim()), pressed: group.filter((b) => b.getAttribute('aria-pressed') === 'true').map((b) => b.innerText.trim()), contrast: Math.round(contrast * 100) / 100 };
+          return { looks: group.filter((b) => sig(b) !== common).map((b) => b.innerText.trim()), pressed: group.filter(on).map((b) => b.innerText.trim()), contrast: Math.round(contrast * 100) / 100 };
         }, [labels, pick]).catch((e) => ({ error: String(e.message).split('\n')[0] }));
       };
       pills = {
@@ -2052,6 +2054,29 @@ async function runBuild(browser, label, dir) {
       await page.locator('[data-testid="returns-gross-net"] [data-basis="net"]').click().catch(() => {});
       await page.waitForTimeout(500);
       ok('P5-2.5: gross switch on Returns: a note, the choice saved, the same TWR without taxes or fees', g.includes(want) && note === 1 && pref === 'gross', g.replace(/\n/g, ' | ') + ' | note ' + note + ' | ' + pref); }
+    // R4.1: Returns answers first (XIRR, TWR, total return, inflation on answer tiles), the heatmap
+    // has a word legend, "Profit by source" is a waterfall (each bar starts where the one before
+    // ended) and the Performance map lists its holdings with "Show as table".
+    { await openView(page, 'returns');
+      await page.locator('[data-testid="value-attribution"] .ui-wf__bar').first().waitFor({ timeout: 10000 }).catch(() => {});
+      const r41 = await page.evaluate(() => {
+        const tiles = [...document.querySelectorAll('[data-testid="returns-answer"] > .ui-card .ui-stat__label')].map((el) => el.innerText.trim());
+        const legend = (document.querySelector('[data-testid="returns-heatmap"] .ui-chart__legend') || {}).innerText || '';
+        const bars = [...document.querySelectorAll('[data-testid="value-attribution"] .ui-wf__track')].filter((t) => t.querySelector('.ui-wf__bar'))
+          .map((t) => { const T = t.getBoundingClientRect(), B = t.querySelector('.ui-wf__bar').getBoundingClientRect(); return { l: (B.left - T.left) / T.width, r: (B.right - T.left) / T.width }; });
+        // consecutive bars share an edge: one ends where the next starts (±1.5 % for the minimum width)
+        const chained = bars.every((b, k) => k === 0 || [bars[k - 1].l, bars[k - 1].r].some((e) => Math.abs(e - b.l) < 0.015 || Math.abs(e - b.r) < 0.015));
+        return { tiles, legend, bars: bars.length, chained };
+      });
+      await openView(page, 'performance');
+      const pm = page.locator('[data-testid="performance-map"]');
+      await pm.waitFor({ timeout: 10000 }).catch(() => {});
+      const mapTiles = await pm.locator('.ui-map__tile').count();
+      await pm.getByRole('button', { name: 'Show as table' }).click().catch(() => {});
+      const tableRows = await pm.locator('tbody tr').count();
+      ok('R4.1: Returns answers on four tiles, the heatmap legend is in words, profit by source is a chained waterfall, the Performance map shows as a table',
+        r41.tiles.join('|') === 'XIRR (annualized)|TWR|Total Return|Inflation' && /loss/.test(r41.legend) && /gain/.test(r41.legend) && r41.bars >= 1 && r41.chained && mapTiles >= 1 && tableRows === mapTiles,
+        JSON.stringify(r41) + ' | map ' + mapTiles + ' / table ' + tableRows); }
     // P5-2.5: Dividends → History backtests today's 40 VWCE.DE + 5 AAPL over the Worker's dividends
     { await openView(page, 'dividends');
       await page.getByRole('radio', { name: /^History$/ }).first().click().catch(() => {});

@@ -14,7 +14,7 @@ const { useState, useEffect, useMemo, useCallback, useRef } = React;
 // tested engine (window.MaerminAttribution.compute) fed the same FIFO/EUR cost
 // basis the Overview uses — this view adds the return decomposition on top.
 // ───────────────────────────────────────────────────────────────────────────
-function PerformanceAttribution({ portfolio, prices, transactions, exchangeRate, theme, formatPrice, getCurrencySymbol, t = {} }) {
+function PerformanceAttribution({ portfolio, prices, transactions, exchangeRate, theme, formatPrice, getCurrencySymbol, t = {}, extra }) {
   const Green = theme.success, Red = theme.danger;
   const A = window.MaerminAttribution;
 
@@ -56,49 +56,52 @@ function PerformanceAttribution({ portfolio, prices, transactions, exchangeRate,
   const taxable = Math.max(0, grossReturn - ((taxSettings && taxSettings.freistellungsauftrag) || 0));
   const estTax = TS ? TS.computeAbgeltung(taxable, taxSettings).total : 0;
   const netReturn = grossReturn - estTax;
-  const decompItem = (label, value, color) => React.createElement('div', { key: label },
-    React.createElement('div', { style: { color: theme.textSecondary, fontSize: 'var(--text-2xs)', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '0.2rem' } }, label),
-    React.createElement('div', { style: { color, fontWeight: 800, fontSize: 'var(--text-body)' } }, `${value >= 0 ? '+' : ''}${formatPrice(value)} ${getCurrencySymbol()}`)
-  );
+  // R4.1: the decomposition as a waterfall (price + dividends = gross, − tax =
+  // net), the drivers as answer tiles, the table on the shared Table.
+  const UIC = window.MaerminComponents;
+  const I = window.MaerminI18n;
+  const signedMoney = (v) => (v > 0 ? '+' : v < 0 ? '−' : '') + `${formatPrice(Math.abs(v))} ${getCurrencySymbol()}`;
+  const steps = [
+    { key: 'price', label: t.attrPriceReturn || 'Price appreciation', a: priceGain },
+    { key: 'div', label: t.attrDividends || 'Dividends', a: dividendsReceived },
+    { key: 'gross', label: t.attrGross || 'Gross return', total: grossReturn },
+    { key: 'tax', label: t.attrTaxEffect || 'Est. tax on gains', a: -estTax },
+    { key: 'net', label: t.attrNet || 'Net return', total: netReturn }
+  ];
+  let run = 0, lo = 0, hi = 0;
+  steps.forEach(s => { if (s.total === undefined) { s.from = run; run += s.a; s.to = run; } else { s.from = 0; s.to = s.total; } lo = Math.min(lo, s.from, s.to); hi = Math.max(hi, s.from, s.to); });
+  const span = (hi - lo) || 1;
+  const wfRow = (s) => {
+    const v = s.total === undefined ? s.a : s.total;
+    const tone = s.total === undefined ? (s.a >= 0 ? 'gain' : 'loss') : 'total';
+    return React.createElement('li', { key: s.key, 'data-attr': s.key, className: ['ui-wf__row', s.total === undefined ? '' : 'is-total'].join(' ').trim() },
+      React.createElement('span', { className: 'ui-wf__label' }, s.label),
+      React.createElement('span', { className: 'ui-wf__track', 'aria-hidden': 'true' },
+        React.createElement('span', { className: 'ui-wf__bar', 'data-tone': tone, style: { left: ((Math.min(s.from, s.to) - lo) / span * 100) + '%', width: Math.max(0.6, Math.abs(s.to - s.from) / span * 100) + '%' } })),
+      React.createElement('span', { className: ['ui-wf__value', 'num', 'tone-' + (s.total === undefined ? tone : UIC.toneOf(v))].join(' ') }, signedMoney(v)));
+  };
 
   // Rows are sorted by contribution (pp of total return), best first.
   // VIS-007: a contributor only when it added, a detractor only when it took away.
   const first = result.rows[0], last = result.rows[result.rows.length - 1];
   const best = first && first.contributionPP > 0 ? first : null;
   const worst = last && last.contributionPP < 0 ? last : null;
-  const summary = (label, r) => React.createElement('div', { key: label, style: { background: theme.card, border: `1px solid ${theme.cardBorder}`, borderRadius: '16px', boxShadow: theme.shadow, padding: '1rem' } },
-    React.createElement('div', { style: { color: theme.textSecondary, fontSize: 'var(--text-2xs)', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: '0.25rem' } }, label),
-    React.createElement('div', { style: { color: theme.text, fontWeight: '700', fontSize: 'var(--text-md)', marginBottom: '0.125rem' } }, r ? r.name : '—'),
-    React.createElement('div', { style: { color: r && r.contributionPP >= 0 ? Green : Red, fontWeight: '700', fontSize: 'var(--text-lg)' } },
-      r ? __('ppValue', '{v} pp', { v: (r.contributionPP >= 0 ? '+' : '') + window.MaerminI18n.num(r.contributionPP, 2) }) : '—')
-  );
+  const pp = (r) => __('ppValue', '{v} pp', { v: (r.contributionPP >= 0 ? '+' : '') + I.num(r.contributionPP, 2) });
+  const summary = (label, r, testid) => React.createElement(UIC.Card, { key: label, variant: 'answer', className: 'ui-ov-tile', 'data-testid': testid },
+    React.createElement(UIC.Stat, { label, value: pp(r), tone: UIC.toneOf(r.contributionPP), sub: r.name }));
 
-  return React.createElement('div', { style: { padding: '1.5rem' } },
-    React.createElement('div', { style: { marginBottom: '1.5rem' } },
-      React.createElement('h2', { style: { color: theme.text, fontSize: 'var(--text-title-lg)', fontWeight: '800', marginBottom: '0.25rem' } }, t.attributionTitle || 'Performance Attribution'),
-      React.createElement('p', { style: { color: theme.textSecondary, fontSize: 'var(--text-sm)', margin: 0 } },
-        __('attrSubtitle', 'Which positions drove your portfolio gains and losses'))),
-
-    React.createElement('div', { style: { display: 'grid', gridTemplateColumns: 'repeat(auto-fit,minmax(160px,1fr))', gap: '1rem', marginBottom: '1.5rem' } },
-      best && summary(__('attrTopContrib', 'Top contributor'), best),
-      worst && summary(__('attrTopDetract', 'Top detractor'), worst)
-    ),
-
-    React.createElement('div', { style: { background: theme.card, border: `1px solid ${theme.cardBorder}`, borderRadius: '16px', boxShadow: theme.shadow, padding: '1.25rem', marginBottom: '1.5rem' } },
-      React.createElement('div', { style: { color: theme.text, fontWeight: 700, fontSize: 'var(--text-md)', marginBottom: '0.875rem' } }, t.attrDecomposition || 'Return decomposition'),
-      React.createElement('div', { style: { display: 'grid', gridTemplateColumns: 'repeat(auto-fit,minmax(130px,1fr))', gap: '1rem' } },
-        decompItem(t.attrPriceReturn || 'Price appreciation', priceGain, priceGain >= 0 ? Green : Red),
-        decompItem(t.attrDividends || 'Dividends', dividendsReceived, Green),
-        decompItem(t.attrGross || 'Gross return', grossReturn, grossReturn >= 0 ? Green : Red),
-        decompItem(t.attrTaxEffect || 'Est. tax on gains', -estTax, Red),
-        decompItem(t.attrNet || 'Net return', netReturn, netReturn >= 0 ? Green : Red)
-      ),
-      React.createElement('div', { style: { color: theme.textSecondary, fontSize: 'var(--text-xs)', marginTop: '0.75rem' } },
-        t.attrTaxNote || 'Tax estimated with your tax settings (rate, Soli, church tax, allowance) as if all gains were realised now — illustrative, not tax advice.')
-    ),
-
+  return React.createElement('div', { className: 'ui-view', 'data-testid': 'attribution-view' },
+    React.createElement('p', { className: 'ui-view__lead' }, __('attrSubtitle', 'Which positions drove your portfolio gains and losses')),
+    (best || worst) && React.createElement('div', { className: 'ui-ov-tiles' },
+      best && summary(__('attrTopContrib', 'Top contributor'), best, 'attr-top'),
+      worst && summary(__('attrTopDetract', 'Top detractor'), worst, 'attr-bottom')),
+    React.createElement(UIC.Card, { title: t.attrDecomposition || 'Return decomposition', headingLevel: 'h3', 'data-testid': 'attr-decomposition', className: 'ui-chart' },
+      React.createElement('ol', { className: 'ui-wf', 'aria-label': t.attrDecomposition || 'Return decomposition' }, steps.map(wfRow)),
+      React.createElement('p', { className: 'ui-note' },
+        t.attrTaxNote || 'Tax estimated with your tax settings (rate, Soli, church tax, allowance) as if all gains were realised now — illustrative, not tax advice.')),
     // Per-position contribution table — the shared engine's own panel.
-    React.createElement(A.Panel, { positions, theme, formatPrice, limit: result.rows.length })
+    React.createElement(A.Panel, { positions, theme, formatPrice, limit: result.rows.length }),
+    extra || null
   );
 }
 

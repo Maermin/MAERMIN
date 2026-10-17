@@ -160,46 +160,43 @@ function __(k, f, v) { return (typeof window !== 'undefined' && window.MaerminI1
       try {
         var theme = props.theme || {};
         var t = props.t || ((typeof window !== 'undefined' && window.MaerminI18n) ? window.MaerminI18n.dict() : {});
-        var text = theme.text || '#e9edf4', dim = theme.textSecondary || '#8b94a7';
-        var border = theme.cardBorder || 'rgba(255,255,255,0.08)';
-        var card = theme.card || '#10151f';
         var privacy = !!props.privacyMode;
         var fmt = props.formatPrice || function (n) { return window.MaerminI18n.num(n, 2); };
         var sym = props.getCurrencySymbol ? props.getCurrencySymbol() : '';
 
         var PERIODS = ['Total', '1D', '1W', '1M', 'YTD', '1Y'];
         var p0 = useState('Total'); var period = p0[0], setPeriod = p0[1];
+        var UIC = window.MaerminComponents, I = window.MaerminI18n;
 
         var nodes = props.nodes || buildNodes(props, period);
-        var W = num(props.width) || 720, H = num(props.height) || 360;
-        // VIS-009: the colour band spans the largest move shown (at least 10 %),
-        // so +26 % and +142 % no longer get the same full green.
-        var spread = nodes.reduce(function (m, n) { var a = Math.abs(num(n.perf)); return a > m ? a : m; }, 0);
-        var rects = API.layout(nodes, W, H, { down: theme.danger || '#ef4444', up: theme.success || '#22c55e', neutral: theme.textSecondary || '#6b7280', maxAbs: props.maxAbs || Math.max(10, spread) });
+        // R4.1: the Overview's holdings map (area = weight, colour = move on the
+        // gain / loss scale, always with ▲ / ▼); "Show as table" lists every holding.
+        var total = nodes.reduce(function (s, n) { return s + num(n.value); }, 0) || 1;
+        var amount = function (v) { return privacy ? '•••' : (fmt(v) + ' ' + sym); };
+        var items = nodes.map(function (n) {
+          var perf = num(n.perf);
+          return { key: n.key, label: n.label, value: num(n.value), pct: perf, pctText: I.pct(Math.abs(perf), 1),
+            weight: num(n.value) / total, title: n.label + ' · ' + I.pct(num(n.value) / total * 100, 1) + ' · ' + amount(n.value) + ' · ' + I.pct(perf, 1, true) };
+        });
+        var periodLabel = function (pp) { return pp === 'Total' ? __('pmTotal', 'Total') : pp === 'YTD' ? __('perfYtd', 'YTD') : pp.replace(/Y$/, __('chUnitY', 'Y')).replace(/D$/, __('chUnitD', 'D')); };
+        var periods = e(UIC.Segmented, { label: __('vaPeriod', 'Period'), value: period, size: 'sm', onChange: setPeriod,
+          options: PERIODS.map(function (pp) { return { value: pp, label: periodLabel(pp) }; }) });
+        var byValue = items.slice().sort(function (a, b) { return b.value - a.value; });
 
-        function periodBtn(pp) {
-          var active = pp === period;
-          return e('button', window.MaerminUI.pillProps(active, { key: pp, onClick: function () { setPeriod(pp); } }), pp === 'Total' ? __('pmTotal', 'Total') : pp === 'YTD' ? __('perfYtd', 'YTD') : pp.replace(/Y$/, __('chUnitY', 'Y')).replace(/D$/, __('chUnitD', 'D')));
-        }
-
-        var svg = e('svg', { viewBox: '0 0 ' + W + ' ' + H, width: '100%', style: { display: 'block', borderRadius: '10px', background: theme.inputBg || '#0c1018' }, role: 'img', 'aria-label': t.pmTitle || 'Performance map' },
-          rects.map(function (r) {
-            var showText = r.w > 46 && r.h > 22;
-            return e('g', { key: r.key },
-              e('rect', { x: r.x, y: r.y, width: Math.max(0, r.w - 1), height: Math.max(0, r.h - 1), fill: r.color, rx: 3,
-                role: 'listitem', 'aria-label': r.label + ' ' + window.MaerminI18n.pct(r.weight * 100, 1) + ' ' + window.MaerminI18n.pct(r.perf, 1, true) },
-                e('title', null, r.label + '  ·  ' + (privacy ? '•••' : (fmt(r.value) + ' ' + sym)) + '  ·  ' + window.MaerminI18n.pct(r.perf, 1, true))),
-              showText ? e('text', { x: r.x + 6, y: r.y + 16, fill: '#0b0e14', style: { fontSize: 'var(--text-2xs)', fontWeight: 800, pointerEvents: 'none' } }, r.label) : null,
-              showText ? e('text', { x: r.x + 6, y: r.y + 30, fill: 'rgba(11,14,20,0.8)', style: { fontSize: 'var(--text-3xs)', fontWeight: 600, pointerEvents: 'none' } }, window.MaerminI18n.pct(r.perf, 1, true)) : null);
-          }));
-
-        return e('div', { style: { background: card, border: '1px solid ' + border, borderRadius: '14px', padding: '1.1rem', marginBottom: '1.5rem' } },
-          e('div', { style: { display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '0.5rem', marginBottom: '0.7rem' } },
-            e('div', null,
-              e('div', { style: { color: text, fontWeight: 700, fontSize: 'var(--text-md)' } }, t.pmTitle || 'Performance Map'),
-              e('div', { style: { color: dim, fontSize: 'var(--text-xs)' } }, t.pmSubtitle || 'Area = weight, colour = performance')),
-            e('div', { className: 'mx-pills', role: 'group', 'aria-label': __('vaPeriod', 'Period') }, PERIODS.map(periodBtn))),
-          rects.length ? svg : e('div', { style: { color: dim, fontSize: 'var(--text-sm)', padding: '1rem 0' } }, t.pmEmpty || 'No priced positions to map yet.'));
+        return e(UIC.ChartFrame, {
+            'data-testid': 'performance-map', action: periods, className: 'ui-pm', title: t.pmTitle || 'Performance Map', subtitle: t.pmSubtitle || 'Area = weight, colour = performance',
+            legend: [{ series: 'gain', label: __('pmLegendUp', '▲ up') }, { series: 'loss', label: __('pmLegendDown', '▼ down') }],
+            table: items.length ? {
+              layout: 'auto', rows: byValue, rowKey: function (r) { return r.key; },
+              columns: [
+                { key: 'label', label: __('hrHolding', 'Holding'), phone: 'title' },
+                { key: 'weight', label: __('colWeight', 'Weight'), align: 'right', phone: 'meta', render: function (r) { return I.pct(r.weight * 100, 1); } },
+                { key: 'pct', label: __('pmMove', 'Move'), align: 'right', phone: 'value', render: function (r) { return e(UIC.ToneChip, { value: r.pct, text: I.pct(r.pct, 1, true) }); } }
+              ]
+            } : null
+          },
+          items.length ? e(UIC.HoldingsMap, { items: items, label: t.pmTitle || 'Performance map', className: 'ui-pm__map' })
+            : e('p', { className: 'ui-muted' }, t.pmEmpty || 'No priced positions to map yet.'));
       } catch (err) {
         return e('div', { style: { padding: '0.75rem', color: (props.theme && props.theme.danger) || 'var(--danger)' } }, __('pmError', 'Performance map error: {msg}', { msg: err && err.message }));
       }

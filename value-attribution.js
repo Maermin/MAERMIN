@@ -311,11 +311,6 @@ function __(k, f, v) { return (typeof window !== 'undefined' && window.MaerminI1
     var React = (typeof window !== 'undefined') ? window.React : null;
     if (!React) return null;
     var e = React.createElement;
-    var theme = props.theme || {};
-    var text = theme.text || '#e6edf3', dim = theme.textSecondary || '#9aa4b2';
-    var border = theme.cardBorder || 'rgba(255,255,255,0.1)';
-    var inputBg = theme.inputBg || '#0f172a', card = theme.card || theme.cardBg || '#10151f';
-    var good = theme.success || '#22c55e', bad = theme.danger || theme.negative || '#ef4444', accent = theme.accent || '#3b82f6';
     var I18N = window.MaerminI18n;
     var money = function (v) { return I18N && I18N.money ? I18N.money(v) : (props.formatPrice ? props.formatPrice(v) : (Math.round(v * 100) / 100).toFixed(2) + ' €'); };
     var sP = React.useState('YTD'), period = sP[0], setPeriod = sP[1];
@@ -327,57 +322,54 @@ function __(k, f, v) { return (typeof window !== 'undefined' && window.MaerminI1
       } catch (err) { return null; }
     }, [props.transactions, props.series, props.clearings, props.live, props.splits, props.exchangeRate, props.fxAt, period, today]);
 
-    var chip = function (p) {
-      var on = p === period;
-      return e('button', { key: p, type: 'button', 'data-testid': 'va-period-' + p, 'aria-pressed': on, onClick: function () { setPeriod(p); },
-        style: { padding: '0.3rem 0.7rem', borderRadius: '999px', border: '1px solid ' + (on ? accent : border), background: on ? accent : 'transparent',
-          color: on ? '#fff' : dim, fontSize: 'var(--text-xs)', fontWeight: 600, cursor: 'pointer' } },
-        p === 'MAX' ? __('vaMax', 'Max') : p === 'YTD' ? __('vaYtd', 'YTD') : p);
-    };
+    // R4.1: periods on the shared Segmented; the parts as a waterfall from the
+    // start value to the end value (each bar starts where the one before ended).
+    var UIC = window.MaerminComponents;
+    var periods = e(UIC.Segmented, { label: __('vaPeriod', 'Period'), value: period, size: 'sm', onChange: setPeriod,
+      options: PERIODS.map(function (p) { return { value: p, label: p === 'MAX' ? __('vaMax', 'Max') : p === 'YTD' ? __('vaYtd', 'YTD') : p, attrs: { 'data-testid': 'va-period-' + p } }; }) });
 
     var body;
     if (!res) {
-      body = e('div', { style: { color: dim, fontSize: 'var(--text-base)' } }, __('vaEmpty', 'Add transactions to see where your profit came from.'));
+      body = e('p', { className: 'ui-muted' }, __('vaEmpty', 'Add transactions to see where your profit came from.'));
     } else {
       // zero rows are left out; the residual only shows from 50 cents (rounding)
       var list = PARTS.filter(function (k) { return Math.abs(res.parts[k]) >= (k === 'residual' ? 0.5 : 0.005); });
-      // bars compare the parts with each other (the start and end values are far larger)
-      var max = Math.max.apply(null, list.map(function (k) { return Math.abs(res.parts[k]); }).concat([1]));
-      var bar = function (amount, color) {
-        return e('div', { style: { flex: '1 1 auto', minWidth: '60px', height: '10px', background: inputBg, borderRadius: '5px', overflow: 'hidden' } },
-          e('div', { style: { width: Math.max(1, Math.min(100, Math.abs(amount) / max * 100)) + '%', height: '100%', background: color, borderRadius: '5px' } }));
-      };
-      var row = function (key, label, amount, color, strong) {
-        return e('div', { key: key, 'data-testid': 'va-row-' + key, style: { display: 'flex', alignItems: 'center', gap: '0.6rem', padding: '0.3rem 0', borderTop: strong && key === 'end' ? '1px solid ' + border : 'none' } },
-          e('span', { style: { flex: '0 0 42%', color: strong ? text : dim, fontSize: 'var(--text-sm)', fontWeight: strong ? 700 : 500 } }, label),
-          strong ? e('div', { style: { flex: '1 1 auto', minWidth: '60px' } }) : bar(amount, color),
-          e('span', { style: { flex: '0 0 auto', minWidth: '88px', textAlign: 'right', color: strong ? text : color, fontSize: 'var(--text-sm)', fontWeight: 700, fontVariantNumeric: 'tabular-nums' } },
-            (strong || amount === 0 ? '' : amount > 0 ? '+' : '−') + money(strong ? amount : Math.abs(amount))));
+      var steps = [], run = 0, lo = 0, hi = 0;
+      list.forEach(function (k) { var a = signed(res.parts, k); steps.push({ k: k, a: a, from: run, to: run + a }); run += a; lo = Math.min(lo, run); hi = Math.max(hi, run); });
+      var span = (hi - lo) || 1;
+      var toneOf = function (k, a) { return k === 'residual' ? 'rest' : (k === 'moneyIn' || k === 'moneyOut') ? 'flow' : (a >= 0 ? 'gain' : 'loss'); };
+      var amount = function (a) { return (a === 0 ? '' : a > 0 ? '+' : '−') + money(Math.abs(a)); };
+      var row = function (key, label, value, step) {
+        var bar = step ? e('span', { className: 'ui-wf__track', 'aria-hidden': 'true' },
+          e('span', { className: 'ui-wf__bar', 'data-tone': toneOf(key, step.a),
+            style: { left: ((Math.min(step.from, step.to) - lo) / span * 100) + '%', width: Math.max(0.6, Math.abs(step.a) / span * 100) + '%' } })) : e('span', { className: ['ui-wf__track', 'is-total'].join(' '), 'aria-hidden': 'true' });
+        return e('li', { key: key, 'data-testid': 'va-row-' + key, className: ['ui-wf__row', step ? '' : 'is-total'].join(' ').trim() },
+          e('span', { className: 'ui-wf__label' }, label),
+          bar,
+          e('span', { className: ['ui-wf__value', 'num', step ? 'tone-' + toneOf(key, step.a) : ''].join(' ').trim() }, step ? amount(step.a) : money(value)));
       };
       var top = biggest(res.parts);
       body = e('div', null,
-        row('start', __('vaStart', 'Value at the start'), res.startValue, dim, true),
-        list.map(function (k) {
-          var a = signed(res.parts, k);
-          return row(k, labelOf(k), a, k === 'residual' ? dim : (k === 'moneyIn' || k === 'moneyOut') ? accent : (a >= 0 ? good : bad), false);
-        }),
-        row('end', __('vaEnd', 'Value at the end'), res.endValue, dim, true),
-        e('div', { 'data-testid': 'va-profit', style: { display: 'flex', flexWrap: 'wrap', gap: '0.4rem 1rem', marginTop: '0.7rem', fontSize: 'var(--text-base)', color: text } },
-          e('span', { style: { fontWeight: 700 } }, __('vaProfit', 'Profit in this period: {amount}', { amount: (res.profit < 0 ? '−' : '+') + money(Math.abs(res.profit)) })),
-          top ? e('span', { 'data-testid': 'va-biggest', style: { color: dim } }, __('vaBiggest', 'Biggest driver: {source} ({amount}).',
+        e('ol', { className: 'ui-wf', 'aria-label': __('vaTitle', 'Profit by source') },
+          row('start', __('vaStart', 'Value at the start'), res.startValue, null),
+          steps.map(function (s) { return row(s.k, labelOf(s.k), s.a, s); }),
+          row('end', __('vaEnd', 'Value at the end'), res.endValue, null)),
+        e('ul', { className: 'ui-chart__legend' },
+          e('li', null, e('span', { className: 'ui-chart__swatch', 'data-series': 'gain', 'aria-hidden': 'true' }), __('vaLegendGain', '+ added value')),
+          e('li', null, e('span', { className: 'ui-chart__swatch', 'data-series': 'loss', 'aria-hidden': 'true' }), __('vaLegendLoss', '− took value')),
+          e('li', null, e('span', { className: 'ui-chart__swatch', 'data-series': '1', 'aria-hidden': 'true' }), __('vaLegendFlow', 'money in / out'))),
+        e('p', { 'data-testid': 'va-profit', className: 'ui-wf__sum' },
+          e('b', null, __('vaProfit', 'Profit in this period: {amount}', { amount: (res.profit < 0 ? '−' : '+') + money(Math.abs(res.profit)) })), ' ',
+          top ? e('span', { 'data-testid': 'va-biggest' }, __('vaBiggest', 'Biggest driver: {source} ({amount}).',
             { source: labelOf(top.key), amount: (top.amount < 0 ? '−' : '+') + money(Math.abs(top.amount)) })) : null),
-        res.missing.length ? e('div', { style: { color: dim, fontSize: 'var(--text-xs)', marginTop: '0.5rem' } },
+        res.missing.length ? e('p', { className: 'ui-note' },
           __('vaMissing', 'Not priced, so not measured: {list}.', { list: res.missing.map(function (m) { return m.symbol; }).join(', ') })) : null,
-        e('div', { style: { color: dim, fontSize: 'var(--text-2xs)', marginTop: '0.6rem', lineHeight: 1.5 } },
+        e('p', { className: 'ui-note' },
           res.cash ? __('vaNoteCash', 'Money in and out = deposits, withdrawals and transfers of the clearing account. Gains are shown before fees; fees and taxes count when they were paid. Realized gains follow the FIFO ledger; the currency effect is taken out of the unrealized gains.')
             : __('vaNoteNoCash', 'Without a clearing account, purchases count as money in and sales and payouts as money out. Gains are shown before fees; fees and taxes count when they were paid. Realized gains follow the FIFO ledger; the currency effect is taken out of the unrealized gains.')));
     }
 
-    return e('div', { 'data-testid': 'value-attribution', style: { background: card, border: '1px solid ' + border, borderRadius: '14px', padding: '1.25rem', marginTop: '1rem' } },
-      e('div', { style: { display: 'flex', flexWrap: 'wrap', alignItems: 'center', justifyContent: 'space-between', gap: '0.6rem', marginBottom: '0.9rem' } },
-        e('h3', { style: { color: text, fontSize: 'var(--text-body)', fontWeight: 700, margin: 0 } }, __('vaTitle', 'Profit by source')),
-        e('div', { role: 'group', 'aria-label': __('vaPeriod', 'Period'), style: { display: 'flex', flexWrap: 'wrap', gap: '0.35rem' } }, PERIODS.map(chip))),
-      body);
+    return e(UIC.Card, { 'data-testid': 'value-attribution', title: __('vaTitle', 'Profit by source'), headingLevel: 'h3', action: periods, className: 'ui-chart' }, body);
   }
 
   var api = { compute: compute, periodStart: periodStart, biggest: biggest, PARTS: PARTS, PERIODS: PERIODS, Panel: Panel };

@@ -81,13 +81,16 @@ function ReturnsHeatmap({ steps, points, transactions, source, theme, formatPric
   const periodLabel = (p) => p.kind === 'm' ? monthsLong[p.idx] + ' ' + p.year
     : p.kind === 'q' ? __('rhQuarter', 'Q{n}', { n: p.idx + 1 }) + ' ' + p.year : String(p.year);
   const same = (a, b) => !!a && !!b && a.kind === b.kind && a.year === b.year && a.idx === b.idx;
-  const cellStyle = { padding: '0.4rem 0.45rem', textAlign: 'right', fontSize: '0.76rem', fontVariantNumeric: 'tabular-nums', whiteSpace: 'nowrap', borderRadius: '5px' };
-  const headStyle = { padding: '0.35rem 0.45rem', textAlign: 'right', fontSize: '0.7rem', fontWeight: 600, color: theme.textSecondary, textTransform: 'uppercase', letterSpacing: '0.04em', whiteSpace: 'nowrap' };
+  // R4.1: a diverging scale on the theme's own gain / loss colours (resolved,
+  // so the figure's contrast can be checked); the cell base is the surface.
+  const T = window.MaerminTokens;
+  const hexOf = (v, fb) => { const r = T && T.resolve ? T.resolve(v) : v; return /^#[0-9a-f]{3,6}$/i.test(String(r || '').trim()) ? String(r).trim() : fb; };
+  const scale = { up: hexOf('var(--gain)', '#22c55e'), down: hexOf('var(--loss)', '#ef4444'), base: hexOf(flat ? 'var(--surface-raised, var(--surface))' : 'var(--surface)', '#10151f') };
   const cell = (r, label, maxAbs, key, partial, strong, pick) => {
     if (r === null || r === undefined) {
-      return React.createElement('td', { key, 'aria-label': __('rhCellNone', '{label}: no data', { label }), style: { ...cellStyle, background: 'transparent', color: theme.textSecondary } }, '—');
+      return React.createElement('td', { key, 'aria-label': __('rhCellNone', '{label}: no data', { label }), className: ['ui-heat__cell', 'is-empty'].join(' ') }, '—');
     }
-    const bg = H.cellColor(r, { up: theme.success, down: theme.danger, base: theme.card, maxAbs });
+    const bg = H.cellColor(r, { up: scale.up, down: scale.down, base: scale.base, maxAbs });
     const text = fmt(r) + (partial ? '*' : '');
     const on = same(sel, pick);
     const toggle = () => setSel(on ? null : pick);
@@ -97,64 +100,69 @@ function ReturnsHeatmap({ steps, points, transactions, source, theme, formatPric
       'aria-label': __('rhCellAria', '{label}: {pct}', { label, pct: fmt(r) }) + (partial ? ', ' + __('rhPartial', 'part of the month') : ''),
       role: 'button', tabIndex: 0, 'aria-pressed': on, onClick: toggle,
       onKeyDown: (e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); toggle(); } },
-      style: { ...cellStyle, background: bg, color: H.textOn(bg), fontWeight: strong ? 700 : 500, cursor: 'pointer', boxShadow: on ? `inset 0 0 0 2px ${theme.text}` : 'none' }
+      className: ['ui-heat__cell', strong ? 'is-strong' : '', on ? 'is-on' : ''].join(' ').trim(),
+      style: { background: bg, color: H.textOn(bg) }
     }, text);
   };
   const srcNote = note || (source === 'daily' ? __('rhSrcDaily', 'From the daily closing prices, like the TWR above.')
     : source === 'snapshots' ? __('rhSrcSnapshots', 'From the daily value snapshots, like the TWR above. A period that spans several months counts in the month it ends in.')
     : __('rhSrcRefresh', 'From your price refreshes, like the TWR above. Months without a refresh show —; a period that spans several months counts in the month it ends in.'));
-  const stat = (key, label, value, sub, color, extra) => React.createElement('div', { key, 'data-stat': key, ...(extra || {}), style: { minWidth: 0 } },
-    React.createElement('div', { style: { color: theme.textSecondary, fontSize: 'var(--text-2xs)', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '0.2rem' } }, label),
-    React.createElement('div', { style: { color: color || theme.text, fontWeight: 700, fontSize: 'var(--text-md)', fontVariantNumeric: 'tabular-nums' } }, value),
-    sub && React.createElement('div', { style: { color: theme.textSecondary, fontSize: 'var(--text-xs)', marginTop: '0.15rem' } }, sub));
-  const tone = (v) => v > 0 ? theme.success : v < 0 ? theme.danger : theme.text;
+  const UIC = window.MaerminComponents;
+  const stat = (key, label, value, sub, tone, extra) => React.createElement(UIC.Stat, Object.assign({ key, 'data-stat': key, className: 'ui-tile', label, value, sub, tone }, extra || {}));
+  const toneOf = (v) => UIC.toneOf(v);
   const detailView = () => {
     if (!det) return null;
     const b = det.byType;
     const kinds = [b.buy && __('rhdBuys', '{n} {n:buy|buys}', { n: b.buy }), b.sell && __('rhdSells', '{n} {n:sale|sales}', { n: b.sell }),
       b.income && __('rhdPayouts', '{n} {n:payout|payouts}', { n: b.income }), b.other && __('rhdOther', '{n} other')].filter(Boolean).join(' · ');
     const hasValues = det.endValue !== null;
-    return React.createElement('div', { 'data-testid': tid + '-detail', role: 'region', 'aria-live': 'polite', 'aria-label': periodLabel(sel),
-      style: { marginTop: '0.75rem', padding: '0.85rem 1rem', borderRadius: '12px', border: `1px solid ${theme.cardBorder}`, background: theme.inputBg || 'transparent' } },
-      React.createElement('div', { style: { display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '0.5rem', marginBottom: '0.65rem' } },
-        React.createElement('strong', { style: { color: theme.text, fontSize: 'var(--text-base)' } }, periodLabel(sel)),
-        React.createElement('button', { onClick: () => setSel(null), 'aria-label': __('close', 'Close'),
-          style: { background: 'none', border: `1px solid ${theme.cardBorder}`, borderRadius: '8px', color: theme.textSecondary, cursor: 'pointer', padding: '0.2rem 0.6rem', fontSize: 'var(--text-base)' } }, '×')),
-      React.createElement('div', { style: { display: 'grid', gridTemplateColumns: 'repeat(auto-fit,minmax(120px,1fr))', gap: '0.75rem' } },
+    return React.createElement('div', { 'data-testid': tid + '-detail', role: 'region', 'aria-live': 'polite', 'aria-label': periodLabel(sel), className: 'ui-heat__detail' },
+      React.createElement('div', { className: 'ui-heat__detail-head' },
+        React.createElement('strong', null, periodLabel(sel)),
+        React.createElement(UIC.IconButton, { size: 'sm', label: __('close', 'Close'), onClick: () => setSel(null), icon: React.createElement('span', { 'aria-hidden': 'true' }, '×') })),
+      React.createElement('div', { className: 'ui-tiles' },
         hasValues && stat('start', __('rhdStart', 'Start value'), money(det.startValue), det.startsInside ? __('rhdStartsInside', 'nothing held before') : null),
         hasValues && stat('end', __('rhdEnd', 'End value'), money(det.endValue), det.last ? I.date(det.last) : null),
-        hasValues && stat('flow', __('rhdFlow', 'Money in / out'), signed(det.netFlow), null, theme.text),
-        hasValues && stat('gain', __('rhdGain', 'Gain'), signed(det.gain), null, tone(det.gain)),
-        stat('ret', __('rhdReturn', 'Return (TWR)'), det.ret === null ? '—' : fmt(det.ret), null, det.ret === null ? theme.textSecondary : tone(det.ret), { 'data-r': det.ret === null ? '' : det.ret }),
-        stat('acts', __('rhdActivities', 'Activities'), String(det.activities), kinds || null, theme.text, { 'data-n': det.activities })),
-      !hasValues && React.createElement('div', { style: { color: theme.textSecondary, fontSize: 'var(--text-xs)', marginTop: '0.6rem' } },
-        __('rhdNoValues', 'Start and end values need the daily closing prices.')));
+        hasValues && stat('flow', __('rhdFlow', 'Money in / out'), signed(det.netFlow), null, null),
+        hasValues && stat('gain', __('rhdGain', 'Gain'), signed(det.gain), null, toneOf(det.gain)),
+        stat('ret', __('rhdReturn', 'Return (TWR)'), det.ret === null ? '—' : fmt(det.ret), null, det.ret === null ? null : toneOf(det.ret), { 'data-r': det.ret === null ? '' : det.ret }),
+        stat('acts', __('rhdActivities', 'Activities'), String(det.activities), kinds || null, null, { 'data-n': det.activities })),
+      !hasValues && React.createElement('p', { className: 'ui-note' }, __('rhdNoValues', 'Start and end values need the daily closing prices.')));
   };
-  const frame = flat ? { minWidth: 0 } : { background: theme.card, borderRadius: '16px', boxShadow: theme.shadow, border: `1px solid ${theme.cardBorder}`, padding: '1.25rem', marginBottom: '1.5rem', minWidth: 0 };
-  return React.createElement('div', { 'data-testid': tid, style: frame },
-    React.createElement('div', { style: { display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: '0.75rem', flexWrap: 'wrap', marginBottom: '0.25rem' } },
-      React.createElement('h3', { style: { color: theme.text, fontSize: 'var(--text-body)', fontWeight: 700, margin: 0 } }, title || __('rhTitle', 'Monthly returns')),
-      controls || null),
-    React.createElement('p', { style: { color: theme.textSecondary, fontSize: 'var(--text-sm)', margin: '0.25rem 0 0.85rem', lineHeight: 1.5 } },
+  const stickyBg = flat ? { background: theme.modalBg || theme.card } : null;
+  const body = [
+    React.createElement('p', { key: 'src', className: 'ui-heat__src' },
       srcNote + ' ' + __('rhCompound', 'Quarters and years are compounded, not added up.') + (grid ? ' ' + __('rhdHint', 'Select a cell for its details.') : '')),
     !grid
-      ? React.createElement('div', { style: { color: theme.textSecondary, fontSize: 'var(--text-base)', padding: '0.75rem 0' } }, __('rhEmpty', 'Not enough history yet for monthly returns.'))
-      : React.createElement('div', { ref: scrollRef, role: 'region', tabIndex: 0, 'aria-label': __('rhScrollAria', 'Monthly returns table, scrolls sideways'), 'data-more': moreRight ? 'right' : undefined,
-          style: { overflowX: 'auto', maxWidth: '100%', ...(moreRight ? { WebkitMaskImage: 'linear-gradient(90deg, #000 calc(100% - 48px), transparent)', maskImage: 'linear-gradient(90deg, #000 calc(100% - 48px), transparent)' } : null) } },
-          React.createElement('table', { style: { borderCollapse: 'separate', borderSpacing: '3px', minWidth: '100%' } },
+      ? React.createElement('p', { key: 'empty', className: 'ui-muted' }, __('rhEmpty', 'Not enough history yet for monthly returns.'))
+      : React.createElement('div', { key: 'grid', ref: scrollRef, role: 'region', tabIndex: 0, 'aria-label': __('rhScrollAria', 'Monthly returns table, scrolls sideways'), 'data-more': moreRight ? 'right' : undefined,
+          className: ['ui-heat__scroll', moreRight ? 'has-more' : ''].join(' ').trim() },
+          React.createElement('table', { className: 'ui-heat' },
             React.createElement('thead', null, React.createElement('tr', null,
-              React.createElement('th', { scope: 'col', style: { ...headStyle, textAlign: 'left', position: 'sticky', left: 0, background: flat ? theme.modalBg || theme.card : theme.card } }, __('rhYear', 'Year')),
-              months.map((m, i) => React.createElement('th', { key: 'm' + i, scope: 'col', abbr: monthsLong[i], style: headStyle }, m)),
-              [1, 2, 3, 4].map((q) => React.createElement('th', { key: 'q' + q, scope: 'col', style: headStyle }, __('rhQuarter', 'Q{n}', { n: q }))),
-              React.createElement('th', { scope: 'col', style: headStyle }, __('rhTotal', 'Year')))),
+              React.createElement('th', { scope: 'col', className: 'ui-heat__year', style: stickyBg }, __('rhYear', 'Year')),
+              months.map((m, i) => React.createElement('th', { key: 'm' + i, scope: 'col', abbr: monthsLong[i] }, m)),
+              [1, 2, 3, 4].map((q) => React.createElement('th', { key: 'q' + q, scope: 'col' }, __('rhQuarter', 'Q{n}', { n: q }))),
+              React.createElement('th', { scope: 'col' }, __('rhTotal', 'Year')))),
             React.createElement('tbody', null, grid.years.map((Y) => React.createElement('tr', { key: Y.year },
-              React.createElement('th', { scope: 'row', style: { ...headStyle, textAlign: 'left', color: theme.text, position: 'sticky', left: 0, background: flat ? theme.modalBg || theme.card : theme.card } }, String(Y.year)),
+              React.createElement('th', { scope: 'row', className: 'ui-heat__year', style: stickyBg }, String(Y.year)),
               Y.months.map((r, i) => cell(r, monthsLong[i] + ' ' + Y.year, 0.1, 'm' + i, !!Y.partial[i], false, { kind: 'm', year: Y.year, idx: i })),
               Y.quarters.map((r, q) => cell(r, __('rhQuarter', 'Q{n}', { n: q + 1 }) + ' ' + Y.year, 0.2, 'q' + q, false, false, { kind: 'q', year: Y.year, idx: q })),
               cell(Y.total, String(Y.year), 0.3, 'y', Object.keys(Y.partial).length > 0, true, { kind: 'y', year: Y.year, idx: 0 })))))),
-    grid && grid.years.some((Y) => Object.keys(Y.partial).length) && React.createElement('div', { style: { color: theme.textSecondary, fontSize: 'var(--text-xs)', marginTop: '0.5rem' } },
-      __('rhPartialNote', '* part of the month or year only (the history starts or ends inside it).')),
-    detailView());
+    grid ? React.createElement('ul', { key: 'legend', className: 'ui-chart__legend' },
+      React.createElement('li', null, React.createElement('span', { className: 'ui-chart__swatch', 'data-series': 'loss', 'aria-hidden': 'true' }), __('rhLegendLoss', '− loss')),
+      React.createElement('li', null, React.createElement('span', { className: 'ui-chart__swatch', 'data-series': 'gain', 'aria-hidden': 'true' }), __('rhLegendGain', '+ gain')),
+      React.createElement('li', null, __('rhLegendScale', 'stronger colour = larger move'))) : null,
+    grid && grid.years.some((Y) => Object.keys(Y.partial).length) ? React.createElement('p', { key: 'partial', className: 'ui-note' },
+      __('rhPartialNote', '* part of the month or year only (the history starts or ends inside it).')) : null,
+    React.createElement(React.Fragment, { key: 'det' }, detailView())
+  ];
+  if (flat) {
+    return React.createElement('div', { 'data-testid': tid, className: 'ui-heat-flat' },
+      React.createElement('div', { className: 'ui-heat-flat__head' },
+        React.createElement('h3', { className: 'ui-card__title' }, title || __('rhTitle', 'Monthly returns')), controls || null),
+      body);
+  }
+  return React.createElement(UIC.Card, { 'data-testid': tid, title: title || __('rhTitle', 'Monthly returns'), headingLevel: 'h3', action: controls || null }, body);
 }
 
 // P5-2.5: gross / net switch (Analysis → Returns and Dividends). Net = after
@@ -162,18 +170,18 @@ function ReturnsHeatmap({ steps, points, transactions, source, theme, formatPric
 // out instead of as a loss. The choice is the prefs-store key grossNet.
 function GrossNetSwitch({ value, onChange, theme, testid }) {
   const v = value === 'gross' ? 'gross' : 'net';
-  const btn = (id, label, title) => React.createElement('button', {
-    key: id, type: 'button', 'data-basis': id, 'aria-pressed': v === id, title, onClick: () => onChange && onChange(id),
-    style: { minHeight: '32px', padding: '0.3rem 0.75rem', border: 'none', borderRadius: '6px', cursor: 'pointer', fontSize: 'var(--text-xs)', fontWeight: v === id ? 700 : 500,
-      background: v === id ? (theme.accentFill || theme.accent) : 'transparent', color: v === id ? 'var(--on-accent)' : theme.textSecondary }
-  }, label);
-  return React.createElement('div', { role: 'group', 'data-testid': testid || 'gross-net', 'aria-label': __('gnAria', 'Taxes and fees'),
-    style: { display: 'inline-flex', gap: '0.15rem', background: theme.inputBg, borderRadius: '8px', padding: '0.2rem', flexShrink: 0 } },
-    btn('net', __('gnNet', 'Net'), __('gnNetTitle', 'After taxes and fees')),
-    btn('gross', __('gnGross', 'Gross'), __('gnGrossTitle', 'Before taxes and fees')));
+  // R4.1: the shared Segmented; data-basis stays on each option
+  return React.createElement(window.MaerminComponents.Segmented, {
+    label: __('gnAria', 'Taxes and fees'), value: v, size: 'sm', 'data-testid': testid || 'gross-net', className: 'ui-gross-net',
+    onChange: (id) => onChange && onChange(id),
+    options: [
+      { value: 'net', label: __('gnNet', 'Net'), attrs: { 'data-basis': 'net', title: __('gnNetTitle', 'After taxes and fees') } },
+      { value: 'gross', label: __('gnGross', 'Gross'), attrs: { 'data-basis': 'gross', title: __('gnGrossTitle', 'Before taxes and fees') } }
+    ]
+  });
 }
 
-function ReturnsView({ transactions, portfolio, prices, priceHistory, theme, formatPrice, getCurrencySymbol, t, fxAt, exchangeRate, valuePath, historyPending, portfolioId, hasWorker, clearings, buildPath, grossNet, setGrossNet, workerUrl, hicpGeo, setHicpGeo }) {
+function ReturnsView({ transactions, portfolio, prices, priceHistory, theme, formatPrice, getCurrencySymbol, t, fxAt, exchangeRate, valuePath, historyPending, portfolioId, hasWorker, clearings, buildPath, grossNet, setGrossNet, workerUrl, hicpGeo, setHicpGeo, panels }) {
   const gross = grossNet === 'gross';
   // P5-2.9: consumer prices (Eurostat HICP through the Worker) for the real figures
   const RRm = window.MaerminRealReturns;
@@ -248,7 +256,7 @@ function ReturnsView({ transactions, portfolio, prices, priceHistory, theme, for
   const hmControls = (D && buildPath && hmOptions && twrInfo.source === 'daily' && (hmOptions.classes.length + hmOptions.tags.length + hmOptions.holdings.length) > 1)
     ? React.createElement('select', {
         'data-testid': 'rh-filter', 'aria-label': __('rhdFilterAria', 'Show the monthly returns of'), value: hmFilter, onChange: e => setHmFilter(e.target.value),
-        style: { padding: '0.4rem 0.6rem', background: theme.inputBg, border: `1px solid ${theme.inputBorder || theme.cardBorder}`, borderRadius: '8px', color: theme.text, fontSize: 'var(--text-sm)', maxWidth: '100%' }
+        className: ['ui-input', 'ui-select', 'ui-input--sm', 'ui-heat__filter'].join(' ')
       },
         React.createElement('option', { value: 'all' }, __('rhdAll', 'Whole portfolio')),
         React.createElement('optgroup', { label: __('rhdClasses', 'Asset class / category') },
@@ -294,68 +302,57 @@ function ReturnsView({ transactions, portfolio, prices, priceHistory, theme, for
       totalReturnPct: figs.netReturnPct === null ? 0 : figs.netReturnPct, totalFees: figs.fees, holdingDays };
   }, [transactions, figs, currentValue]);
 
-  const card = (label, value, sub, color) =>
-    React.createElement('div', {
-      style: { background: theme.card, borderRadius: '16px', boxShadow: theme.shadow, border: `1px solid ${theme.cardBorder}`, padding: '1.25rem' }
-    },
-      React.createElement('div', { style: { color: theme.textSecondary, fontSize: 'var(--text-sm)', marginBottom: '0.375rem', textTransform: 'uppercase', letterSpacing: '0.05em' } }, label),
-      React.createElement('div', { style: { color: color || theme.text, fontSize: '1.75rem', fontWeight: '800', letterSpacing: '-0.02em' } }, value),
-      sub && React.createElement('div', { style: { color: theme.textSecondary, fontSize: 'var(--text-sm)', marginTop: '0.25rem' } }, sub)
-    );
-
+  const UIC = window.MaerminComponents;
   const fmtPct = v => v !== null ? window.MaerminI18n.pct(v * 100, 2, true) : '—';
-  const color  = v => v > 0 ? theme.success : v < 0 ? theme.danger : theme.text;
+  const money = v => `${formatPrice(v)} ${getCurrencySymbol()}`;
+  // R4.1: the answer tiles (Card + Stat) and the money behind them as smaller tiles
+  const tile = (testid, attrs, label, value, sub, tone, extra) => React.createElement(UIC.Card, Object.assign({ variant: 'answer', className: 'ui-ov-tile', 'data-testid': testid }, attrs || {}),
+    React.createElement(UIC.Stat, { label, value: React.createElement('span', { className: 'mx-kpi-value' }, value), sub, tone }), extra || null);
+  const small = (key, label, value, sub) => React.createElement(UIC.Stat, { key, 'data-stat': key, className: 'ui-tile', label, value: React.createElement('span', { className: 'mx-kpi-value' }, value), sub });
+  const inflSub = real && real.inflation
+    ? __('rrInflSub', 'Prices since {date}', { date: window.MaerminI18n.date(twrInfo.since || firstTx) })
+      + (real.inflation.annualized !== null ? ' · ' + __('retPa', '{pct} p.a.', { pct: fmtPct(real.inflation.annualized) }) : '')
+      + ' · ' + __('rrSource', 'Eurostat HICP up to {month}', { month: real.inflation.to })
+    : hicp.state === 'none' ? __('rrNeedWorker', 'Consumer prices come through your Worker - add its URL in API Settings.')
+    : hicp.state === 'outdated' ? __('rrOutdated', 'Your Worker does not send consumer prices yet. Redeploy it with the current version.')
+    : hicp.state === 'loading' ? __('rrLoading', 'Loading consumer prices…')
+    : __('rrUnavailable', 'Consumer prices are not available right now.');
 
-  return React.createElement('div', { style: { padding: '1.5rem' } },
-    React.createElement('div', { style: { display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '0.75rem', flexWrap: 'wrap', marginBottom: '0.5rem' } },
-      React.createElement('h2', { style: { color: theme.text, fontSize: 'var(--text-xl)', fontWeight: '800', letterSpacing: '-0.02em', margin: 0 } }, (t.returnAnalysis || 'Return Analysis')),
+  return React.createElement('div', { className: 'ui-view', 'data-testid': 'returns-view' },
+    React.createElement('div', { className: 'ui-view__bar' },
+      React.createElement('p', { className: 'ui-view__lead' },
+        t.returnsHint || 'XIRR (Money-Weighted Return) accounts for the timing and size of your cash flows. TWR shows portfolio performance independent of cash flows.'),
       setGrossNet && React.createElement(GrossNetSwitch, { value: grossNet, onChange: setGrossNet, theme, testid: 'returns-gross-net' })),
-    gross && React.createElement('p', { 'data-testid': 'gross-note', style: { color: theme.textSecondary, fontSize: 'var(--text-sm)', margin: '0 0 0.5rem' } },
+    gross && React.createElement('p', { 'data-testid': 'gross-note', className: 'ui-note ui-note--flush' },
       __('gnReturnsNote', 'Gross: withholding tax, tax bookings and fees count as money taken out, not as a loss.')),
-    React.createElement('p', { style: { color: theme.textSecondary, fontSize: 'var(--text-base)', marginBottom: '1.5rem', lineHeight: '1.6' } },
-      t.returnsHint || 'XIRR (Money-Weighted Return) accounts for the timing and size of your cash flows. TWR shows portfolio performance independent of cash flows.'
-    ),
 
-    // Main KPIs
-    React.createElement('div', { style: { display: 'grid', gridTemplateColumns: 'repeat(auto-fit,minmax(180px,1fr))', gap: '1rem', marginBottom: '1.5rem' } },
-      React.createElement('div', { 'data-testid': 'xirr-card', 'data-real': real && real.xirr !== null ? real.xirr : '', style: { display: 'contents' } },
-        card(__('retXirr', 'XIRR (annualized)'), xirrResult !== null ? fmtPct(xirrResult) : '—', (clearings ? __('retXirrSubCash', 'Money-weighted p.a., from deposits and withdrawals') : __('retXirrSub', 'Money-weighted return p.a.'))
-          + (real && real.xirr !== null ? ' · ' + __('rrRealPa', 'real {pct} p.a.', { pct: fmtPct(real.xirr) }) : ''), xirrResult !== null ? color(xirrResult) : theme.textSecondary)),
-      React.createElement('div', { 'data-testid': 'twr-card', 'data-source': twrInfo.source, 'data-real': real && real.twr ? real.twr.real : '', style: { display: 'contents' } },
-        card('TWR', twrResult !== null ? fmtPct(twrResult) : '—', twrSubCash
-          + (real && real.twr ? ' · ' + __('rrReal', 'real {pct}', { pct: fmtPct(real.twr.real) }) + (real.twr.realAnnualized !== null ? ' (' + __('retPa', '{pct} p.a.', { pct: fmtPct(real.twr.realAnnualized) }) + ')' : '') : ''),
-          twrResult !== null ? color(twrResult) : theme.textSecondary)),
-      stats && React.createElement('div', { 'data-testid': 'total-return-card', 'data-v': stats.totalReturn, style: { display: 'contents' } },
-        card(__('ovTotalReturn', 'Total Return'), fmtPct(stats.totalReturnPct), `${formatPrice(stats.totalReturn)} ${getCurrencySymbol()}` + (gross ? ' · ' + __('gnBeforeShort', 'before taxes and fees') : ''), color(stats.totalReturnPct))),
-      stats && card(__('holdingPeriod', 'Holding Period'), __('retDays', '{n} d', { n: stats.holdingDays }), __('retSinceFirst', 'Since first transaction'), theme.text),
+    // The answer: XIRR, TWR, total return, inflation over the same period
+    React.createElement('div', { className: 'ui-ov-tiles', 'data-testid': 'returns-answer' },
+      tile('xirr-card', { 'data-real': real && real.xirr !== null ? real.xirr : '' }, __('retXirr', 'XIRR (annualized)'), xirrResult !== null ? fmtPct(xirrResult) : '—',
+        (clearings ? __('retXirrSubCash', 'Money-weighted p.a., from deposits and withdrawals') : __('retXirrSub', 'Money-weighted return p.a.'))
+          + (real && real.xirr !== null ? ' · ' + __('rrRealPa', 'real {pct} p.a.', { pct: fmtPct(real.xirr) }) : ''), xirrResult !== null ? UIC.toneOf(xirrResult) : null),
+      tile('twr-card', { 'data-source': twrInfo.source, 'data-real': real && real.twr ? real.twr.real : '' }, 'TWR', twrResult !== null ? fmtPct(twrResult) : '—',
+        twrSubCash + (real && real.twr ? ' · ' + __('rrReal', 'real {pct}', { pct: fmtPct(real.twr.real) }) + (real.twr.realAnnualized !== null ? ' (' + __('retPa', '{pct} p.a.', { pct: fmtPct(real.twr.realAnnualized) }) + ')' : '') : ''),
+        twrResult !== null ? UIC.toneOf(twrResult) : null),
+      stats && tile('total-return-card', { 'data-v': stats.totalReturn }, __('ovTotalReturn', 'Total Return'), fmtPct(stats.totalReturnPct),
+        (stats.totalReturn > 0 ? '+' : stats.totalReturn < 0 ? '−' : '') + money(Math.abs(stats.totalReturn)) + (gross ? ' · ' + __('gnBeforeShort', 'before taxes and fees') : ''), UIC.toneOf(stats.totalReturnPct)),
       // P5-2.9: inflation over the same period, with the region
-      RRm && React.createElement('div', { 'data-testid': 'inflation-card', 'data-state': hicp.state, 'data-v': real && real.inflation ? real.inflation.total : '',
-        style: { background: theme.card, borderRadius: '16px', boxShadow: theme.shadow, border: `1px solid ${theme.cardBorder}`, padding: '1.25rem', minWidth: 0 } },
-        React.createElement('div', { style: { display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '0.5rem', marginBottom: '0.375rem' } },
-          React.createElement('div', { style: { color: theme.textSecondary, fontSize: 'var(--text-sm)', textTransform: 'uppercase', letterSpacing: '0.05em' } }, __('rrInflation', 'Inflation')),
-          setHicpGeo && React.createElement('select', { 'data-testid': 'hicp-geo', 'aria-label': __('rrRegion', 'Region of the consumer prices'), value: geo, onChange: (e) => setHicpGeo(e.target.value),
-            style: { padding: '0.2rem 0.35rem', background: theme.inputBg, border: `1px solid ${theme.inputBorder || theme.cardBorder}`, borderRadius: '6px', color: theme.text, fontSize: 'var(--text-xs)', maxWidth: '9rem' } },
-            RRm.GEOS.map((g) => React.createElement('option', { key: g, value: g }, regionName(g))))),
-        React.createElement('div', { style: { color: real && real.inflation ? theme.text : theme.textSecondary, fontSize: '1.75rem', fontWeight: '800', letterSpacing: '-0.02em' } },
-          real && real.inflation ? fmtPct(real.inflation.total) : (hicp.state === 'loading' ? '…' : '—')),
-        React.createElement('div', { style: { color: theme.textSecondary, fontSize: 'var(--text-sm)', marginTop: '0.25rem', lineHeight: 1.5 } },
-          real && real.inflation
-            ? __('rrInflSub', 'Prices since {date}', { date: window.MaerminI18n.date(twrInfo.since || firstTx) })
-              + (real.inflation.annualized !== null ? ' · ' + __('retPa', '{pct} p.a.', { pct: fmtPct(real.inflation.annualized) }) : '')
-              + ' · ' + __('rrSource', 'Eurostat HICP up to {month}', { month: real.inflation.to })
-            : hicp.state === 'none' ? __('rrNeedWorker', 'Consumer prices come through your Worker - add its URL in API Settings.')
-            : hicp.state === 'outdated' ? __('rrOutdated', 'Your Worker does not send consumer prices yet. Redeploy it with the current version.')
-            : hicp.state === 'loading' ? __('rrLoading', 'Loading consumer prices…')
-            : __('rrUnavailable', 'Consumer prices are not available right now.')),
-        window.MaerminDemoFixtures && window.MaerminDemoFixtures.badge ? window.MaerminDemoFixtures.badge(React, theme, workerUrl) : null)
+      RRm && tile('inflation-card', { 'data-state': hicp.state, 'data-v': real && real.inflation ? real.inflation.total : '' }, __('rrInflation', 'Inflation'),
+        real && real.inflation ? fmtPct(real.inflation.total) : (hicp.state === 'loading' ? '…' : '—'), inflSub, null,
+        React.createElement('div', { className: 'ui-ret-infl' },
+          setHicpGeo && React.createElement(UIC.Select, { 'data-testid': 'hicp-geo', 'aria-label': __('rrRegion', 'Region of the consumer prices'), value: geo, className: 'ui-input--sm',
+            onChange: (e) => setHicpGeo(e.target.value), options: RRm.GEOS.map((g) => ({ value: g, label: regionName(g) })) }),
+          window.MaerminDemoFixtures && window.MaerminDemoFixtures.badge ? window.MaerminDemoFixtures.badge(React, theme, workerUrl) : null))
     ),
 
-    stats && React.createElement('div', { style: { display: 'grid', gridTemplateColumns: 'repeat(auto-fit,minmax(160px,1fr))', gap: '1rem', marginBottom: '1.5rem' } },
-      card(__('retTotalBought', 'Total bought'), `${formatPrice(stats.invested)} ${getCurrencySymbol()}`, __('retTotalBoughtSub', 'All purchases, incl. fees'), theme.text),
-      card(__('retCurrentValue', 'Current Value'), `${formatPrice(stats.currentValue)} ${getCurrencySymbol()}`, __('retOpenPositions', 'Open positions'), theme.text),
-      card(__('retProceeds', 'Proceeds received'), `${formatPrice(stats.received)} ${getCurrencySymbol()}`, __('retRealizedSub', 'Sales + dividends/interest'), theme.text),
-      card(__('retTotalFees', 'Total Fees'), `${formatPrice(stats.totalFees)} ${getCurrencySymbol()}`, __('retAllTx', 'All transactions'), '#ef4444')
-    ),
+    // The money behind the figures
+    stats && React.createElement(UIC.Card, { title: __('retMoneyTitle', 'Money in and out'), headingLevel: 'h3', 'data-testid': 'returns-money' },
+      React.createElement('div', { className: 'ui-tiles' },
+        small('bought', __('retTotalBought', 'Total bought'), money(stats.invested), __('retTotalBoughtSub', 'All purchases, incl. fees')),
+        small('value', __('retCurrentValue', 'Current Value'), money(stats.currentValue), __('retOpenPositions', 'Open positions')),
+        small('proceeds', __('retProceeds', 'Proceeds received'), money(stats.received), __('retRealizedSub', 'Sales + dividends/interest')),
+        small('fees', __('retTotalFees', 'Total Fees'), money(stats.totalFees), __('retAllTx', 'All transactions')),
+        small('held', __('holdingPeriod', 'Holding Period'), __('retDays', '{n} d', { n: stats.holdingDays }), __('retSinceFirst', 'Since first transaction')))),
 
     // P4-1: month × year grid of the same chain of returns
     // P5-2.4: cells open the period's detail; the filter narrows to a subset
@@ -365,10 +362,8 @@ function ReturnsView({ transactions, portfolio, prices, priceHistory, theme, for
       : { steps: twrInfo.steps, points: twrInfo.points, transactions, source: twrInfo.source, theme, formatPrice, getCurrencySymbol, controls: hmControls }),
 
     // Explanation
-    React.createElement('div', {
-      style: { background: 'color-mix(in srgb, var(--info) 6%, transparent)', border: '1px solid color-mix(in srgb, var(--info) 20%, transparent)', borderRadius: '10px', padding: '1rem', fontSize: 'var(--text-sm)', color: theme.textSecondary, lineHeight: '1.7' }
-    },
-      React.createElement('strong', { style: { color: theme.text } }, __('retNote', 'Note:') + ' '),
+    React.createElement('div', { className: 'ui-callout', 'data-testid': 'returns-note' },
+      React.createElement('strong', null, __('retNote', 'Note:') + ' '),
       twrInfo.source === 'daily'
         ? (__('retNoteDaily', 'TWR is built from your transactions and the daily closing prices since {date}: deposits and withdrawals do not count, fees and dividends do.', { date: since })
           + (twrInfo.missing.length ? ' ' + (historyPending > 0
@@ -381,7 +376,8 @@ function ReturnsView({ transactions, portfolio, prices, priceHistory, theme, for
               ? __('retNoteNotLoaded', 'Daily closing prices for your holdings have not been loaded yet (offline, or the symbols were not found).')
               : __('retNoteNeedWorker', 'Daily closing prices for stocks, ETFs, commodities and skins are loaded through your Worker - add its URL in API Settings.'))
             + ' ' + __('retNoteUntil', 'Until then TWR uses your price refreshes and needs refreshes on several days.') + ' ' + __('retXirrNeeds', 'XIRR needs at least one buy and the current portfolio value.'))
-    )
+    ),
+    panels || null
   );
 }
 

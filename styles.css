@@ -2393,3 +2393,125 @@ html[data-theme="contrast"] .ui-map__tile { border: 1px solid var(--border-stron
 .ui-tax-summary { display: flex; flex-direction: column; gap: var(--space-3); padding: 0 var(--space-7); }
 .ui-tax__tools { display: flex; gap: var(--space-2); flex-wrap: wrap; align-items: center; padding: 0 var(--space-7) var(--space-3); border-bottom: 1px solid var(--border); }
 @media (max-width: 767px) { .ui-tax-summary, .ui-tax__tools { padding-left: var(--space-4); padding-right: var(--space-4); } }
+
+/* ============================================================================
+   R4.1 Returns, Performance, Attribution (PLAN Phase 6). Shared pieces for the
+   analysis panels: small Stat tiles, a verdict line, compact tables, a
+   waterfall and the returns heatmap on the gain / loss scale.
+   ========================================================================== */
+.ui-stack { display: flex; flex-direction: column; gap: var(--space-5); min-width: 0; }
+.ui-section-title { margin: var(--space-3) 0 0; font-size: var(--type-title); font-weight: 600; color: var(--text); letter-spacing: -0.01em; }
+.ui-tiles { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 150px), 1fr)); gap: var(--space-3); }
+.ui-tile { background: var(--surface-2); border-radius: var(--radius-sm); padding: var(--space-3) var(--space-4); min-width: 0; }
+.ui-tile .ui-stat__label, .ui-tile .ui-stat__sub { font-size: var(--type-caption); }
+.ui-tile .ui-stat__value { font-size: var(--type-heading); }
+.ui-verdict { margin: 0 0 var(--space-3); font-size: var(--type-body); font-weight: 600; line-height: 1.45; color: var(--text); }
+.ui-verdict[data-level="good"] { color: var(--gain); }
+.ui-verdict[data-level="warn"] { color: var(--warning); }
+.ui-verdict[data-level="bad"] { color: var(--loss); }
+.ui-muted { margin: 0; color: var(--text-dim); font-size: var(--type-body); line-height: 1.5; }
+.ui-muted.is-error { color: var(--loss); }
+.ui-note--flush { margin: 0; }
+.ui-sublabel { margin: var(--space-4) 0 var(--space-2); font-size: var(--type-caption); font-weight: 600; color: var(--text-dim); text-transform: uppercase; letter-spacing: 0.05em; }
+.ui-panel-tools { display: flex; gap: var(--space-3); flex-wrap: wrap; align-items: center; margin-bottom: var(--space-4); }
+.ui-check.is-disabled { opacity: 0.6; cursor: default; }
+.ui-chart__actions { display: inline-flex; gap: var(--space-2); align-items: center; flex-wrap: wrap; justify-content: flex-end; }
+.ui-card__head { flex-wrap: wrap; }
+.ui-card__action { max-width: 100%; }
+/* a title keeps room for itself; the control drops below it when both do not fit */
+.ui-card__head .ui-card__titles { flex: 1 1 220px; }
+.ui-callout { padding: var(--space-4); border-radius: var(--radius-sm); background: color-mix(in srgb, var(--info) 8%, var(--surface)); border: 1px solid color-mix(in srgb, var(--info) 24%, transparent); color: var(--text-dim); font-size: var(--type-body); line-height: 1.6; }
+.ui-callout strong { color: var(--text); }
+.ui-card--table .ui-card__body { padding: var(--space-3) 0 0; }
+.ui-card--table .ui-plist { padding: 0 var(--space-4) var(--space-3); }
+
+/* compact tables inside panels; the first column stays put when it scrolls */
+.ui-table--dense { font-size: var(--type-body); }
+.ui-table--dense th, .ui-table--dense td { height: 36px; padding: 0 var(--space-3); }
+.ui-table--dense th.is-right, .ui-table--dense td { text-align: right; font-variant-numeric: tabular-nums; }
+.ui-table th.is-sticky { position: sticky; left: 0; z-index: 2; text-align: left; background: var(--surface); color: var(--text); font-weight: 600; }
+.ui-table thead th.is-sticky { background: var(--surface-2); color: var(--text-dim); font-weight: 500; }
+.ui-table td.is-strong { font-weight: 700; }
+.ui-table .tone-gain { color: var(--gain); }
+.ui-table .tone-loss { color: var(--loss); }
+.ui-hr-lead { margin: 0 0 var(--space-3); color: var(--text); font-size: var(--type-body); }
+.ui-hr-scroll { max-height: 420px; overflow-y: auto; }
+.ui-hr-trades { flex: 1 1 280px; min-width: 0; }
+.ui-hr-card .ui-card__body > div:has(> .ui-hr-trades) { display: flex; gap: var(--space-5); flex-wrap: wrap; }
+.ui-hr-trades .ui-sublabel { margin-top: 0; }
+
+/* a list of label / figure rows */
+.ui-rows { list-style: none; margin: 0; padding: 0; }
+.ui-rows__row { display: flex; justify-content: space-between; align-items: center; gap: var(--space-3); padding: var(--space-2) 0; border-top: 1px solid var(--border); font-size: var(--type-body); }
+.ui-rows__row:first-child { border-top: 0; }
+.ui-rows__main { min-width: 0; display: flex; flex-direction: column; }
+.ui-rows__main b { color: var(--text); font-weight: 600; }
+.ui-rows__main span { color: var(--text-dim); font-size: var(--type-caption); }
+.ui-rows__side { display: flex; flex-direction: column; align-items: flex-end; gap: 2px; text-align: right; color: var(--text-dim); font-size: var(--type-caption); white-space: nowrap; }
+.ui-rows__side b.tone-gain { color: var(--gain); }
+.ui-rows__side b.tone-loss { color: var(--loss); }
+
+/* waterfall: each bar starts where the previous one ended */
+.ui-wf { list-style: none; margin: 0; padding: 0; display: grid; gap: var(--space-1); }
+.ui-wf__row { display: grid; grid-template-columns: minmax(0, 38%) minmax(60px, 1fr) auto; align-items: center; gap: var(--space-3); min-height: 30px; font-size: var(--type-body); }
+.ui-wf__row.is-total { font-weight: 600; }
+.ui-wf__row.is-total + .ui-wf__row:not(.is-total), .ui-wf__row:not(.is-total) + .ui-wf__row.is-total { border-top: 1px solid var(--border); padding-top: var(--space-1); }
+.ui-wf__label { color: var(--text-dim); min-width: 0; overflow-wrap: anywhere; }
+.ui-wf__row.is-total .ui-wf__label { color: var(--text); }
+.ui-wf__track { position: relative; height: 12px; border-radius: 4px; background: var(--surface-2); }
+.ui-wf__track.is-total { background: none; }
+.ui-wf__bar { position: absolute; top: 0; bottom: 0; border-radius: 4px; background: var(--neutral); }
+.ui-wf__bar[data-tone="gain"] { background: var(--gain); }
+.ui-wf__bar[data-tone="loss"] { background: var(--loss); }
+.ui-wf__bar[data-tone="flow"] { background: var(--chart-1); }
+.ui-wf__bar[data-tone="total"] { background: var(--text-faint); }
+.ui-wf__value { min-width: 96px; text-align: right; color: var(--text); font-weight: 600; white-space: nowrap; }
+.ui-wf__value.tone-gain { color: var(--gain); }
+.ui-wf__value.tone-loss { color: var(--loss); }
+.ui-wf__value.tone-flow, .ui-wf__value.tone-rest { color: var(--text-dim); }
+.ui-wf__sum { margin: var(--space-3) 0 0; display: flex; flex-wrap: wrap; gap: var(--space-1) var(--space-4); color: var(--text-dim); font-size: var(--type-body); }
+.ui-wf__sum b { color: var(--text); }
+
+/* returns heatmap: diverging scale, the figure printed in every cell */
+.ui-heat__src { margin: 0 0 var(--space-3); color: var(--text-dim); font-size: var(--type-body); line-height: 1.5; }
+.ui-heat__scroll { overflow-x: auto; max-width: 100%; }
+.ui-heat__scroll.has-more { -webkit-mask-image: linear-gradient(90deg, #000 calc(100% - 48px), transparent); mask-image: linear-gradient(90deg, #000 calc(100% - 48px), transparent); }
+.ui-heat { border-collapse: separate; border-spacing: 3px; min-width: 100%; }
+.ui-heat th { padding: var(--space-1) var(--space-2); text-align: right; font-size: var(--type-caption); font-weight: 600; color: var(--text-dim); white-space: nowrap; }
+.ui-heat th.ui-heat__year { text-align: left; position: sticky; left: 0; z-index: 1; background: var(--surface); }
+.ui-heat tbody th.ui-heat__year { color: var(--text); }
+.ui-heat__cell { padding: 6px 7px; text-align: right; font-size: var(--type-caption); font-variant-numeric: tabular-nums; white-space: nowrap; border-radius: 5px; font-weight: 500; cursor: pointer; }
+.ui-heat__cell.is-empty { background: transparent; color: var(--text-faint); cursor: default; }
+.ui-heat__cell.is-strong { font-weight: 700; }
+.ui-heat__cell.is-on { box-shadow: inset 0 0 0 2px var(--text); }
+.ui-heat__detail { margin-top: var(--space-4); padding: var(--space-4); border-radius: var(--radius-sm); border: 1px solid var(--border-strong); background: var(--surface-2); }
+.ui-heat__detail .ui-tile { background: var(--surface); }
+.ui-heat__detail-head { display: flex; justify-content: space-between; align-items: center; gap: var(--space-2); margin-bottom: var(--space-3); color: var(--text); }
+.ui-heat-flat__head { display: flex; justify-content: space-between; align-items: center; gap: var(--space-3); flex-wrap: wrap; margin-bottom: var(--space-2); }
+.ui-heat__filter { max-width: 100%; }
+.ui-ret-infl { display: flex; gap: var(--space-2); align-items: center; flex-wrap: wrap; padding: 0 var(--space-5) var(--space-4); }
+.ui-ret-infl .ui-field { margin: 0; }
+
+/* Performance */
+.ui-perf-tiles { display: grid; grid-template-columns: repeat(auto-fill, minmax(min(100%, 150px), 1fr)); gap: var(--space-3); }
+.ui-perf-tile .ui-card__body { padding: var(--space-4); }
+.ui-perf-tile .ui-stat__value { font-size: var(--type-title); }
+.ui-perf-tile__partial { color: var(--text-faint); }
+.ui-perf-dd { width: 100%; height: 80px; display: block; margin-bottom: var(--space-4); }
+.ui-perf-dd__base { stroke: var(--border-strong); stroke-width: 1; }
+.ui-perf-dd__area { fill: color-mix(in srgb, var(--loss) 22%, transparent); stroke: var(--loss); stroke-width: 1; }
+.ui-perf-goals { display: grid; grid-template-columns: repeat(auto-fill, minmax(min(100%, 240px), 1fr)); gap: var(--space-3); }
+.ui-perf-goal__name { display: block; color: var(--text); }
+.ui-perf-goal__meta { color: var(--text-dim); font-size: var(--type-caption); margin-top: 2px; }
+.ui-perf-goal__track { height: 7px; border-radius: var(--radius-pill); background: var(--surface); margin: var(--space-2) 0; overflow: hidden; }
+.ui-perf-goal__track > span { display: block; height: 100%; background: var(--gain); }
+.ui-perf-goal__eta { color: var(--text); font-size: var(--type-body); font-weight: 600; }
+.ui-perf-goal__eta.tone-gain { color: var(--gain); }
+.ui-pm .ui-map { height: 380px; }
+
+@media (max-width: 767px) {
+  .ui-wf__row { grid-template-columns: minmax(0, 1fr) auto; }
+  .ui-wf__track { grid-column: 1 / -1; grid-row: 2; height: 8px; }
+  .ui-ret-infl { padding: 0 var(--space-4) var(--space-4); }
+  .ui-pm .ui-map { height: 240px; }
+}
