@@ -131,10 +131,6 @@ function __(k, f, v) { return (typeof window !== 'undefined' && window.MaerminI1
     if (!React || !VA) return null;
     var e = React.createElement;
     var theme = props.theme || {};
-    var text = theme.text || '#e6edf3', dim = theme.textSecondary || '#9aa4b2';
-    var border = theme.cardBorder || 'rgba(255,255,255,0.1)';
-    var inputBg = theme.inputBg || '#0f172a', card = theme.card || theme.cardBg || '#10151f';
-    var good = theme.success || '#22c55e', bad = theme.danger || theme.negative || '#ef4444', warn = theme.warning || '#f59e0b', accent = theme.accent || '#3b82f6';
     var I18N = window.MaerminI18n;
     var money = function (v) { return I18N && I18N.money ? I18N.money(v) : (Math.round(v * 100) / 100).toFixed(2) + ' €'; };
     var pct = function (x) { return x == null ? '—' : I18N.pct(x * 100, 1); };
@@ -194,59 +190,49 @@ function __(k, f, v) { return (typeof window !== 'undefined' && window.MaerminI1
     var verdict = res && res.available && window.MaerminVerdicts && window.MaerminVerdicts.replay
       ? window.MaerminVerdicts.replay(res.ownXirr, res.benchXirr, res.diff, label) : null;
 
-    var chip = function (key, text_, on, onClick, testid) {
-      return e('button', { key: key, type: 'button', 'data-testid': testid, 'aria-pressed': on, onClick: onClick,
-        style: { padding: '0.3rem 0.7rem', borderRadius: '999px', border: '1px solid ' + (on ? accent : border), background: on ? accent : 'transparent',
-          color: on ? '#fff' : dim, fontSize: 'var(--text-xs)', fontWeight: 600, cursor: 'pointer' } }, text_);
+    // R4.1: shared Segmented, Stat tiles and the verdict line
+    var UIC = window.MaerminComponents;
+    var tile = function (key, title, value, sub, tone) {
+      return e(UIC.Stat, { key: key, 'data-testid': 'br-' + key, className: 'ui-tile', label: title, value: value, sub: sub, tone: tone || null });
     };
-    var tile = function (key, title, value, sub, color) {
-      return e('div', { key: key, 'data-testid': 'br-' + key, style: { flex: '1 1 150px', background: inputBg, border: '1px solid ' + border, borderRadius: '10px', padding: '0.7rem 0.9rem' } },
-        e('div', { style: { color: dim, fontSize: 'var(--text-2xs)', textTransform: 'uppercase', letterSpacing: '0.04em' } }, title),
-        e('div', { style: { color: color || text, fontSize: 'var(--text-lg)', fontWeight: 700, marginTop: '0.15rem', fontVariantNumeric: 'tabular-nums' } }, value),
-        sub ? e('div', { style: { color: dim, fontSize: 'var(--text-xs)', marginTop: '0.15rem' } }, sub) : null);
-    };
-    var noteEl = function (msg, color) { return e('div', { style: { color: color || dim, fontSize: 'var(--text-base)' } }, msg); };
+    var noteEl = function (msg, isErr) { return e('p', { className: ['ui-muted', isErr ? 'is-error' : ''].join(' ').trim() }, msg); };
 
     var body;
     if (!att) body = noteEl(__('vaEmpty', 'Add transactions to see where your profit came from.'));
     else if (!fund && !workerBase) body = window.MaerminUtils.workerNote(__('brNeedWorker', 'Add a Worker URL in API Settings to replay your money into an index.'));
     else if (url && loading) body = noteEl(__('avLoadingBench', 'Loading {name}…', { name: label }));
-    else if (!fund && err) body = noteEl(__('avBenchFailed', 'Could not load benchmark: {msg}', { msg: err }), bad);
+    else if (!fund && err) body = noteEl(__('avBenchFailed', 'Could not load benchmark: {msg}', { msg: err }), true);
     else if (!res || !res.available) body = noteEl(res && res.from ? __('brTooEarly', 'The {name} history starts on {date} - pick a shorter period.', { name: label, date: I18N.date ? I18N.date(res.from) : res.from })
       : __('brNoData', 'No price history for {name} yet.', { name: label }));
     else {
       var lead = res.diff >= 0;
       body = e('div', null,
-        verdict ? e('div', { 'data-testid': 'verdict-replay', 'data-level': verdict.level, style: { color: verdict.level === 'good' ? good : verdict.level === 'neutral' ? text : verdict.level === 'warn' ? warn : bad,
-          fontSize: 'var(--text-base)', fontWeight: 600, marginBottom: '0.7rem', lineHeight: 1.45 } }, verdict.text) : null,
-        e('div', { style: { display: 'flex', flexWrap: 'wrap', gap: '0.6rem' } },
+        verdict ? e('p', { 'data-testid': 'verdict-replay', 'data-level': verdict.level, className: 'ui-verdict' }, verdict.text) : null,
+        e('div', { className: 'ui-tiles' },
           tile('own', __('brOwn', 'Your portfolio'), money(res.ownEnd), __('brXirr', '{pct} a year (money-weighted)', { pct: pct(res.ownXirr) })),
           tile('bench', __('brBench', 'Same money in {name}', { name: label }), money(res.benchEnd), __('brXirr', '{pct} a year (money-weighted)', { pct: pct(res.benchXirr) })),
-          tile('diff', __('brDiff', 'Difference'), (lead ? '+' : '−') + money(Math.abs(res.diff)), lead ? __('brAhead', 'your portfolio is ahead') : __('brBehind', 'your portfolio is behind'), lead ? good : bad)),
-        res.shortfall > 0.5 ? e('div', { style: { color: dim, fontSize: 'var(--text-xs)', marginTop: '0.5rem' } },
+          tile('diff', __('brDiff', 'Difference'), (lead ? '+' : '−') + money(Math.abs(res.diff)), lead ? __('brAhead', 'your portfolio is ahead') : __('brBehind', 'your portfolio is behind'), lead ? 'gain' : 'loss')),
+        res.shortfall > 0.5 ? e('p', { className: 'ui-note' },
           __('brShortfall', 'You took out {amount} more than the index holding was worth at the time; that part is left out.', { amount: money(res.shortfall) })) : null,
-        att.missing && att.missing.length ? e('div', { style: { color: dim, fontSize: 'var(--text-xs)', marginTop: '0.4rem' } },
+        att.missing && att.missing.length ? e('p', { className: 'ui-note' },
           __('vaMissing', 'Not priced, so not measured: {list}.', { list: att.missing.map(function (m) { return m.symbol; }).join(', ') })) : null);
     }
 
-    var periodChips = VA.PERIODS.map(function (p) {
-      return chip(p, p === 'MAX' ? __('vaMax', 'Max') : p === 'YTD' ? __('vaYtd', 'YTD') : p, p === period, function () { setPeriod(p); }, 'br-period-' + p);
-    });
-    var benchChips = PRESETS.map(function (p) { return chip(p.key, labelOf(p.key), sel === p.key, function () { setSel(p.key); }, 'br-bench-' + p.key); })
-      .concat(funds.map(function (f) { return chip('fund:' + f.key, f.symbol, sel === 'fund:' + f.key, function () { setSel('fund:' + f.key); }, 'br-fund-' + f.symbol); }));
+    var periods = e(UIC.Segmented, { label: __('vaPeriod', 'Period'), value: period, size: 'sm', onChange: setPeriod,
+      options: VA.PERIODS.map(function (p) { return { value: p, label: p === 'MAX' ? __('vaMax', 'Max') : p === 'YTD' ? __('vaYtd', 'YTD') : p, attrs: { 'data-testid': 'br-period-' + p } }; }) });
+    var benches = e(UIC.Segmented, { label: __('brChoose', 'Index or fund'), value: sel, size: 'sm', onChange: setSel,
+      options: PRESETS.map(function (p) { return { value: p.key, label: labelOf(p.key), attrs: { 'data-testid': 'br-bench-' + p.key } }; })
+        .concat(funds.map(function (f) { return { value: 'fund:' + f.key, label: f.symbol, attrs: { 'data-testid': 'br-fund-' + f.symbol } }; })) });
 
-    return e('div', { 'data-testid': 'benchmark-replay', style: { background: card, border: '1px solid ' + border, borderRadius: '14px', padding: '1.25rem', marginTop: '1rem' } },
-      e('div', { style: { display: 'flex', flexWrap: 'wrap', alignItems: 'center', justifyContent: 'space-between', gap: '0.6rem', marginBottom: '0.7rem' } },
-        e('h3', { style: { color: text, fontSize: 'var(--text-body)', fontWeight: 700, margin: 0 } }, __('brTitle', 'Same money in an index'), ' ',
-          symbol && window.MaerminDemoFixtures ? window.MaerminDemoFixtures.badge(React, theme, workerBase) : null),
-        e('div', { role: 'group', 'aria-label': __('vaPeriod', 'Period'), style: { display: 'flex', flexWrap: 'wrap', gap: '0.35rem' } }, periodChips)),
-      e('div', { style: { display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: '0.35rem', marginBottom: '0.9rem' } },
-        e('div', { role: 'group', 'aria-label': __('brChoose', 'Index or fund'), style: { display: 'flex', flexWrap: 'wrap', gap: '0.35rem' } }, benchChips),
-        e('label', { style: { display: 'flex', alignItems: 'center', gap: '0.35rem', color: fund ? dim : text, fontSize: 'var(--text-xs)', marginLeft: '0.4rem', opacity: fund ? 0.6 : 1 } },
+    return e(UIC.Card, { 'data-testid': 'benchmark-replay', headingLevel: 'h3', action: periods,
+      title: e(React.Fragment, null, __('brTitle', 'Same money in an index'), ' ', symbol && window.MaerminDemoFixtures ? window.MaerminDemoFixtures.badge(React, theme, workerBase) : null) },
+      e('div', { className: 'ui-panel-tools' },
+        benches,
+        e('label', { className: ['ui-check', fund ? 'is-disabled' : ''].join(' ').trim() },
           e('input', { type: 'checkbox', 'data-testid': 'br-reinvest', checked: fund ? false : reinvest, disabled: !!fund, onChange: function (ev) { setReinvest(!!ev.target.checked); } }),
           __('brReinvest', 'Dividends reinvested'))),
       body,
-      e('div', { style: { color: dim, fontSize: 'var(--text-2xs)', marginTop: '0.7rem', lineHeight: 1.5 } },
+      e('p', { className: 'ui-note' },
         fund ? __('brNoteFund', 'Your start value and every euro in and out (as in "Profit by source") bought or sold {name} at that day\'s close. A distributing fund is compared without its payouts.', { name: label })
           : reinvest ? __('brNoteAcc', 'Your start value and every euro in and out (as in "Profit by source") bought or sold the index at that day\'s close. Dividends reinvested: an accumulating fund on the index ({symbol}, after its costs).', { symbol: symbol })
             : __('brNotePrice', 'Your start value and every euro in and out (as in "Profit by source") bought or sold the index at that day\'s close. Price only ({symbol}): the index\'s dividends are left out, which flatters your portfolio.', { symbol: symbol })));

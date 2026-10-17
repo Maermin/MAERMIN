@@ -73,28 +73,25 @@ function __(k, f, v) { return (typeof window !== 'undefined' && window.MaerminI1
     var I = window.MaerminI18n;
     var pct = function (n) { return I.pct(n, 2, true); };
     var pp = function (n) { return __('ppValue', '{v} pp', { v: (n >= 0 ? '+' : '') + I.num(n, 2) }); };
-    var col = function (n) { return n >= 0 ? (th.success || '#34d399') : (th.danger || '#f87171'); };
     // limit: rows shown (default 8 for the Overview; the Attribution view shows all).
     var limit = (props && props.limit) || 8;
     var top = result.rows.slice(0, limit);
+    // R4.1: the shared Card and Table (phone rows); every figure carries its sign.
+    var UIC = window.MaerminComponents;
+    var signedMoney = function (n) { return (n > 0 ? '+' : n < 0 ? '−' : '') + fmt(Math.abs(n)); };
 
-    return h('div', { style: { background: th.card || '#10151f', border: '1px solid ' + (th.cardBorder || 'rgba(255,255,255,0.07)'), borderRadius: '14px', padding: '1.25rem', marginTop: '1rem' } },
-      h('div', { style: { fontWeight: 800, color: th.text || '#e9edf4', marginBottom: '0.25rem' } }, __('rtaTitle', 'Return Attribution')),
-      h('div', { style: { fontSize: 'var(--text-xs)', color: th.textSecondary || '#8b94a7', marginBottom: '0.9rem' } },
-        __('rtaSubtitle', 'Contribution of each holding to the total return ({pct}).', { pct: pct(result.totalReturnPct) })),
-      h('div', { role: 'list' }, top.map(function (r) {
-        return h('div', { key: r.symbol, role: 'listitem', style: { display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '0.4rem 0', borderBottom: '1px solid ' + (th.cardBorder || 'rgba(255,255,255,0.05)') } },
-          h('div', { style: { minWidth: 0 } },
-            h('div', { style: { fontWeight: 700, color: th.text || '#e9edf4' } }, r.symbol),
-            h('div', { style: { fontSize: 'var(--text-xs)', color: th.textSecondary || '#8b94a7' } }, __('rtaOfValue', '{pct} of value', { pct: I.pct(r.weightPct, 1) }) + ' · ' + pct(r.returnPct))
-          ),
-          h('div', { style: { textAlign: 'right' } },
-            h('div', { style: { fontWeight: 700, color: col(r.contributionPP) } }, pp(r.contributionPP)),
-            h('div', { style: { fontSize: 'var(--text-xs)', color: col(r.gain) } }, fmt(r.gain))
-          )
-        );
-      }))
-    );
+    return h(UIC.Card, { 'data-testid': 'return-attribution', title: __('rtaTitle', 'Return Attribution'), headingLevel: 'h3', className: 'ui-card--table',
+      subtitle: __('rtaSubtitle', 'Contribution of each holding to the total return ({pct}).', { pct: pct(result.totalReturnPct) }) },
+      h(UIC.Table, {
+        caption: __('rtaTitle', 'Return Attribution'), rows: top, rowKey: function (r) { return r.symbol; },
+        columns: [
+          { key: 'symbol', label: __('position', 'Position'), phone: 'title' },
+          { key: 'weight', label: __('colWeight', 'Weight'), align: 'right', phone: 'meta', render: function (r) { return I.pct(r.weightPct, 1); } },
+          { key: 'ret', label: __('rtaReturn', 'Return'), align: 'right', priority: 2, phone: 'meta', render: function (r) { return pct(r.returnPct); } },
+          { key: 'pp', label: __('rtaContribution', 'Contribution'), align: 'right', phone: 'value', render: function (r) { return h(UIC.ToneChip, { value: r.contributionPP, text: pp(r.contributionPP) }); } },
+          { key: 'gain', label: __('rtaGain', 'Gain'), align: 'right', phone: 'sub', render: function (r) { return signedMoney(r.gain); } }
+        ]
+      }));
   }
 
   var api = { compute: compute, Panel: Panel };

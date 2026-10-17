@@ -3391,18 +3391,15 @@ function InvestmentTracker() {
       // on-device value history — no API. Defaults to the combined 'all' series.
       case 'performance':
         return window.MaerminPerformance ?
-          React.createElement('div', null,
-            // Performance Map treemap (WI-4): area = weight, colour = performance.
-            window.MaerminPerformanceMap && React.createElement('div', { style: { padding: '1.5rem 1.5rem 0' } },
-              React.createElement(window.MaerminPerformanceMap.Panel, {
-                theme: currentTheme, t, positions: portfolio, prices, exchangeRate,
-                privacyMode, formatPrice, getCurrencySymbol
-              })),
-            React.createElement(window.MaerminPerformance.View, {
-              theme: currentTheme, t, formatPrice, getCurrencySymbol, workerUrl: viewWorkerUrl, demo: demoMode,
-              series: demoPeriodSeries || undefined, transactions, exchangeRate, fxAt
+          React.createElement(window.MaerminPerformance.View, {
+            theme: currentTheme, t, formatPrice, getCurrencySymbol, workerUrl: viewWorkerUrl, demo: demoMode,
+            series: demoPeriodSeries || undefined, transactions, exchangeRate, fxAt,
+            // Performance Map (WI-4): area = weight, colour = performance (R4.1: the holdings map, inside the view)
+            map: window.MaerminPerformanceMap && React.createElement(window.MaerminPerformanceMap.Panel, {
+              theme: currentTheme, t, positions: portfolio, prices, exchangeRate,
+              privacyMode, formatPrice, getCurrencySymbol
             })
-          ) : renderAnalyticsPlaceholder(t.navPerformance || 'Performance');
+          }) : renderAnalyticsPlaceholder(t.navPerformance || 'Performance');
 
       // v10.x: Customize Overview — show/hide/reorder the main Overview sections
       // (MaerminDashboard). renderOverview reads visibleSet() each render.
@@ -3594,17 +3591,16 @@ function InvestmentTracker() {
           }) : renderAnalyticsPlaceholder(t.navSavingsPlans || 'Savings Plans');
 
       case 'returns':
-        return window.MaerminFeatures2 ? React.createElement('div', null,
-          React.createElement(window.MaerminFeatures2.ReturnsView, {
+        return window.MaerminFeatures2 ? React.createElement(window.MaerminFeatures2.ReturnsView, {
             transactions: activeTransactions, portfolio, prices, priceHistory, fxAt, exchangeRate,
             valuePath: returnsPath, historyPending: closePending, portfolioId: activePortfolioId, hasWorker: (marketWorker || '').trim().length > 5,
             clearings: returnsClearings, buildPath: (txs, clr) => buildValuePath(txs, clr, { gross: grossNet === 'gross' }),
             grossNet, setGrossNet,
             workerUrl: viewWorkerUrl, hicpGeo, setHicpGeo, // P5-2.9 real returns
-            theme: currentTheme, formatPrice, getCurrencySymbol, t
-          }),
+            theme: currentTheme, formatPrice, getCurrencySymbol, t,
+          // R4.1: the panels sit in the view's own frame, below the heatmap
           // Benchmark overlay (α/β/TE/IR/R²) — folds the analytics engine into Returns.
-          window.MaerminAnalyticsViews && React.createElement('div', { style: { padding: '0 1.5rem 1.5rem' } },
+          panels: window.MaerminAnalyticsViews && React.createElement(React.Fragment, null,
             // P5-2.6: IRR per holding / class / tag, best and worst sales, capital flow
             window.MaerminHoldingReturns && React.createElement(window.MaerminHoldingReturns.Panel, {
               transactions: activeTransactions, portfolio, prices, exchangeRate, fxAt, basis: grossNet,
@@ -3630,7 +3626,7 @@ function InvestmentTracker() {
               workerUrl: viewWorkerUrl, theme: currentTheme, t, formatPrice
             })
           )
-        ) : renderAnalyticsPlaceholder(t.navReturns || 'Returns');
+        }) : renderAnalyticsPlaceholder(t.navReturns || 'Returns');
 
       case 'rebalancing':
         return window.MaerminFeatures2 ?
@@ -3640,19 +3636,15 @@ function InvestmentTracker() {
 
       case 'attribution':
         return window.MaerminFeatures7 ?
-          React.createElement(React.Fragment, null,
-            React.createElement(window.MaerminFeatures7.PerformanceAttribution, {
-              portfolio, prices, transactions: activeTransactions, exchangeRate,
-              theme: currentTheme, formatPrice, getCurrencySymbol, t
-            }),
-            // FX attribution fold-in: the currency dimension of attribution.
-            window.MaerminFxAttribution && React.createElement('div', { style: { padding: '0 1.5rem 1.5rem' } },
-              React.createElement(window.MaerminFxAttribution.Panel, {
-                portfolio, prices, priceHistory: { ...priceHistory, ...dailyAnalytics.perHolding }, transactions: activeTransactions,
-                workerUrl: viewWorkerUrl, theme: currentTheme, t, formatPrice
-              })
-            )
-          ) : renderAnalyticsPlaceholder(t.navAttribution || 'Attribution');
+          React.createElement(window.MaerminFeatures7.PerformanceAttribution, {
+            portfolio, prices, transactions: activeTransactions, exchangeRate,
+            theme: currentTheme, formatPrice, getCurrencySymbol, t,
+            // FX attribution fold-in: the currency dimension of attribution (R4.1: inside the view frame).
+            extra: window.MaerminFxAttribution && React.createElement(window.MaerminFxAttribution.Panel, {
+              portfolio, prices, priceHistory: { ...priceHistory, ...dailyAnalytics.perHolding }, transactions: activeTransactions,
+              workerUrl: viewWorkerUrl, theme: currentTheme, t, formatPrice
+            })
+          }) : renderAnalyticsPlaceholder(t.navAttribution || 'Attribution');
 
       case 'news':
         return window.MaerminFeatures7 ?

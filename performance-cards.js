@@ -325,10 +325,6 @@ function __(k, f, v) { return (typeof window !== 'undefined' && window.MaerminI1
     try {
       var theme = props.theme || {};
       var t = props.t || ((typeof window !== 'undefined' && window.MaerminI18n) ? window.MaerminI18n.dict() : {});
-      var text = theme.text || '#e9edf4', dim = theme.textSecondary || '#8b94a7';
-      var border = theme.cardBorder || 'rgba(255,255,255,0.08)';
-      var card = theme.card || '#10151f';
-      var up = theme.success || '#22c55e', down = theme.danger || '#ef4444';
       var fmt = props.formatPrice || function (n) { return window.MaerminI18n.num(n, 2); };
       var sym = props.getCurrencySymbol ? props.getCurrencySymbol() : '€';
 
@@ -342,22 +338,17 @@ function __(k, f, v) { return (typeof window !== 'undefined' && window.MaerminI1
       function pctStr(p) { return (p == null) ? '—' : window.MaerminI18n.pct(p, 2, true); }
       // Period chips: 1M 3M 6M YTD 1Y Max in the UI language.
       function periodLabel(l) { return l === 'Max' ? __('chMax', 'Max') : l === 'YTD' ? __('perfYtd', 'YTD') : l.replace(/Y$/, __('chUnitY', 'Y')).replace(/M$/, __('chUnitM', 'M')); }
-      function moveColor(v) { return v > 0 ? up : v < 0 ? down : dim; }
 
+      // R4.1: period cards as Stat tiles, the shared Card, Segmented, Table and
+      // ChartFrame; every move carries its sign.
+      var UIC = window.MaerminComponents, I = window.MaerminI18n;
+      var signedMoney = function (v) { return (v > 0 ? '+' : v < 0 ? '−' : '') + fmt(Math.abs(v)) + ' ' + sym; };
       var cardEls = rows.map(function (r) {
-        return e('div', {
-          key: r.id,
-          style: {
-            background: card, border: '1px solid ' + border, borderRadius: '14px',
-            padding: '0.95rem 1.05rem', minWidth: 0
-          }
-        },
-          e('div', { style: { display: 'flex', alignItems: 'center', gap: '0.4rem' } },
-            e('span', { style: { color: dim, fontSize: 'var(--text-2xs)', fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.06em' } }, periodLabel(r.label)),
-            r.partial ? e('span', { title: t.perfPartial || 'Since inception (history shorter than this period)', style: { color: dim, fontSize: 'var(--text-3xs)', border: '1px solid ' + border, borderRadius: '999px', padding: '0.05rem 0.35rem' } }, '≈') : null),
-          e('div', { style: { color: moveColor(r.abs), fontSize: 'var(--text-lg)', fontWeight: 800, marginTop: '0.35rem', letterSpacing: '-0.01em' } }, pctStr(r.pct)),
-          e('div', { style: { color: dim, fontSize: 'var(--text-xs)', marginTop: '0.15rem' } },
-            (r.abs >= 0 ? '+' : '−') + fmt(Math.abs(r.abs)) + ' ' + sym));
+        return e(UIC.Card, { key: r.id, variant: 'answer', className: 'ui-perf-tile', 'data-period': r.id },
+          e(UIC.Stat, {
+            label: e(React.Fragment, null, periodLabel(r.label), r.partial ? e('span', { className: 'ui-perf-tile__partial', title: t.perfPartial || 'Since inception (history shorter than this period)' }, ' ≈') : null),
+            value: pctStr(r.pct), tone: UIC.toneOf(r.abs), sub: signedMoney(r.abs)
+          }));
       });
 
       var hasData = rows.length > 0;
@@ -374,20 +365,16 @@ function __(k, f, v) { return (typeof window !== 'undefined' && window.MaerminI1
           return x.toFixed(1) + ',' + y.toFixed(1);
         });
         var areaPath = 'M0,0 L' + pts.join(' L') + ' L300,0 Z';
-        function stat(label, val, color) {
-          return e('div', { style: { flex: 1, minWidth: '110px' } },
-            e('div', { style: { color: dim, fontSize: 'var(--text-2xs)', fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.06em' } }, label),
-            e('div', { style: { color: color || text, fontSize: 'var(--text-body)', fontWeight: 800, marginTop: '0.25rem' } }, val));
-        }
-        return e('div', { style: { background: card, border: '1px solid ' + border, borderRadius: '14px', padding: '1.1rem 1.25rem', marginBottom: '1.5rem' } },
-          e('div', { style: { color: text, fontSize: 'var(--text-md)', fontWeight: 700, marginBottom: '0.8rem' } }, t.perfDrawdownTitle || 'Drawdown (underwater)'),
-          e('svg', { viewBox: '0 0 300 80', preserveAspectRatio: 'none', style: { width: '100%', height: '80px', display: 'block', marginBottom: '0.8rem' } },
-            e('line', { x1: 0, y1: 0, x2: 300, y2: 0, stroke: border, strokeWidth: 1 }),
-            e('path', { d: areaPath, fill: down, fillOpacity: 0.22, stroke: down, strokeWidth: 1 })),
-          e('div', { style: { display: 'flex', gap: '1rem', flexWrap: 'wrap' } },
-            stat(t.perfMaxDrawdown || 'Max drawdown', window.MaerminI18n.pct(ddStat.maxDd, 1), down),
-            stat(t.perfCurrentDd || 'Current', window.MaerminI18n.pct(ddStat.currentDd, 1), ddStat.currentDd < -0.05 ? down : up),
-            stat(t.perfRecovery || 'Status', ddStat.recovered ? (t.perfRecovered || 'Recovered') : (t.perfUnderwater || 'Underwater'), ddStat.recovered ? up : down)));
+        return e(UIC.ChartFrame, { 'data-testid': 'perf-drawdown', title: t.perfDrawdownTitle || 'Drawdown (underwater)',
+          summary: (t.perfMaxDrawdown || 'Max drawdown') + ' ' + I.pct(ddStat.maxDd, 1),
+          legend: [{ series: 'loss', label: __('perfDdLegend', 'below the last high') }] },
+          e('svg', { viewBox: '0 0 300 80', preserveAspectRatio: 'none', className: 'ui-perf-dd', 'aria-hidden': 'true' },
+            e('line', { x1: 0, y1: 0, x2: 300, y2: 0, className: 'ui-perf-dd__base' }),
+            e('path', { d: areaPath, className: 'ui-perf-dd__area' })),
+          e('div', { className: 'ui-tiles' },
+            e(UIC.Stat, { className: 'ui-tile', label: t.perfMaxDrawdown || 'Max drawdown', value: I.pct(ddStat.maxDd, 1), tone: ddStat.maxDd < 0 ? 'loss' : null }),
+            e(UIC.Stat, { className: 'ui-tile', label: t.perfCurrentDd || 'Current', value: I.pct(ddStat.currentDd, 1), tone: ddStat.currentDd < -0.05 ? 'loss' : null }),
+            e(UIC.Stat, { className: 'ui-tile', label: t.perfRecovery || 'Status', value: ddStat.recovered ? '▲ ' + (t.perfRecovered || 'Recovered') : '▼ ' + (t.perfUnderwater || 'Underwater'), tone: ddStat.recovered ? 'gain' : 'loss' })));
       })() : null;
 
       // ---- #3 goal projection (snapshot CAGR + contributions) ----
@@ -395,77 +382,66 @@ function __(k, f, v) { return (typeof window !== 'undefined' && window.MaerminI1
       try { goals = JSON.parse((typeof localStorage !== 'undefined' && localStorage.getItem('investmentGoals')) || '[]') || []; } catch (e2) { goals = []; }
       var currentValue = series.length ? series[series.length - 1].v : 0;
       var assumedReturn = cagrFromSeries(series, flows);
-      var goalSection = (hasData && goals.length) ? e('div', { style: { marginBottom: '1.5rem' } },
-        e('div', { style: { color: text, fontSize: 'var(--text-md)', fontWeight: 700, marginBottom: '0.8rem' } }, t.perfGoalsTitle || 'Goal projection'),
-        e('div', { style: { display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(240px, 1fr))', gap: '0.75rem' } },
+      var goalSection = (hasData && goals.length) ? e(UIC.Card, { title: t.perfGoalsTitle || 'Goal projection', headingLevel: 'h3', 'data-testid': 'perf-goals',
+          subtitle: (t.perfGoalAssume || 'Assumes your historical return') + (assumedReturn != null ? ' (' + __('perfPerYr', '{pct}/yr', { pct: I.pct(assumedReturn, 1) }) + ')' : '') + (t.perfGoalPlusContrib || ' plus your monthly contribution.') },
+        e('div', { className: 'ui-perf-goals' },
           goals.slice(0, 4).map(function (g, gi) {
             var target = parseFloat(g.targetAmount) || 0;
             var eta = goalEta({ current: currentValue, target: target, monthly: parseFloat(g.monthlyContribution) || 0, annualReturnPct: assumedReturn });
             var prog = target > 0 ? Math.min(100, (currentValue / target) * 100) : 0;
-            return e('div', { key: g.id || gi, style: { background: card, border: '1px solid ' + border, borderRadius: '14px', padding: '1rem' } },
-              e('div', { style: { color: text, fontWeight: 700, fontSize: 'var(--text-base)' } }, g.name || (t.perfGoal || 'Goal')),
-              e('div', { style: { color: dim, fontSize: 'var(--text-xs)', marginTop: '0.15rem' } }, fmt(currentValue) + ' / ' + fmt(target) + ' ' + sym),
-              e('div', { style: { height: '7px', borderRadius: '999px', background: theme.inputBg || '#0c1018', margin: '0.5rem 0', overflow: 'hidden' } },
-                e('div', { style: { width: prog.toFixed(0) + '%', height: '100%', background: up } })), // CSS width
-              e('div', { style: { color: eta.alreadyReached ? up : text, fontSize: 'var(--text-sm)', fontWeight: 600 } },
+            return e('div', { key: g.id || gi, className: 'ui-tile' },
+              e('b', { className: 'ui-perf-goal__name' }, g.name || (t.perfGoal || 'Goal')),
+              e('div', { className: ['ui-perf-goal__meta', 'num'].join(' ') }, fmt(currentValue) + ' / ' + fmt(target) + ' ' + sym),
+              e('div', { className: 'ui-perf-goal__track', role: 'progressbar', 'aria-valuemin': 0, 'aria-valuemax': 100, 'aria-valuenow': Math.round(prog) },
+                e('span', { style: { width: prog.toFixed(0) + '%' } })), // CSS width
+              e('div', { className: ['ui-perf-goal__eta', eta.alreadyReached ? 'tone-gain' : ''].join(' ').trim() },
                 eta.alreadyReached ? (t.perfGoalReached || '✓ Reached')
-                  : eta.reachable ? ((t.perfGoalEta || 'On track — ') + window.MaerminI18n.date(eta.etaISO, 'medium'))
+                  : eta.reachable ? ((t.perfGoalEta || 'On track — ') + I.date(eta.etaISO, 'medium'))
                   : (t.perfGoalUnreachable || 'Not reachable at the current pace')));
-          })),
-        e('div', { style: { color: dim, fontSize: 'var(--text-xs)', marginTop: '0.6rem' } },
-          (t.perfGoalAssume || 'Assumes your historical return') + (assumedReturn != null ? ' (' + __('perfPerYr', '{pct}/yr', { pct: window.MaerminI18n.pct(assumedReturn, 1) }) + ')' : '') + (t.perfGoalPlusContrib || ' plus your monthly contribution.'))) : null;
+          }))) : null;
 
       // ---- #1 benchmark comparison ----
       var benchRows = (benchData && benchData.length) ? PERIODS.filter(function (p) { return ['1M', '3M', '6M', '1Y'].indexOf(p.id) !== -1; }).map(function (p) { return compareBenchmark(series, benchData, p.id, props.asOf, { flows: flows }); }).filter(Boolean) : [];
-      var benchSection = (hasData && benches.length) ? e('div', { style: { marginBottom: '1.5rem' } },
-        e('div', { style: { display: 'flex', alignItems: 'center', gap: '0.5rem', flexWrap: 'wrap', marginBottom: '0.8rem' } },
-          e('div', { style: { color: text, fontSize: 'var(--text-md)', fontWeight: 700, marginRight: '0.3rem' } }, t.perfBenchTitle || 'vs. Benchmark'),
-          benches.map(function (b) {
-            return e('button', { key: b.key, type: 'button', 'aria-pressed': benchKey === b.key, onClick: function () { setBenchKey(b.key); },
-              style: { font: 'inherit', cursor: 'pointer', padding: '0.25rem 0.6rem', borderRadius: '999px', fontSize: 'var(--text-xs)', fontWeight: 700, border: '1px solid ' + (benchKey === b.key ? (theme.accent || '#8b7cff') : border), background: benchKey === b.key ? ((theme.accentFill || theme.accent) || '#8b7cff') : 'transparent', color: benchKey === b.key ? (theme.accentText || '#ffffff') : dim } }, b.label);
-          })),
+      var benchLabel = benchPreset ? benchPreset.label : __('perfBenchmark', 'Benchmark');
+      var benchSection = (hasData && benches.length) ? e(UIC.Card, { title: t.perfBenchTitle || 'vs. Benchmark', headingLevel: 'h3', 'data-testid': 'perf-bench',
+          action: e(UIC.Segmented, { label: __('perfBenchmark', 'Benchmark'), value: benchKey, size: 'sm', onChange: setBenchKey,
+            options: benches.map(function (b) { return { value: b.key, label: b.label }; }) }) },
         !workerBase ? window.MaerminUtils.emptyState({ kind: 'worker', text: t.perfBenchNoWorker || 'Add a Worker URL in API Settings to compare against an index.', action: window.MaerminUI && window.MaerminUI.workerAction ? window.MaerminUI.workerAction() : undefined })
-          : benchLoading ? e('div', { style: { color: dim, fontSize: 'var(--text-base)' } }, (t.loading || 'Loading') + ' …')
-          : benchRows.length ? e('div', { style: { background: card, border: '1px solid ' + border, borderRadius: '14px', overflow: 'hidden' } },
-              benchRows.map(function (r, ri) {
-                return e('div', { key: r.id, style: { display: 'flex', alignItems: 'center', gap: '0.5rem', padding: '0.6rem 1rem', borderTop: ri ? '1px solid ' + border : 'none' } },
-                  e('span', { style: { color: dim, fontSize: 'var(--text-xs)', fontWeight: 800, width: '40px' } }, periodLabel(r.label)),
-                  e('span', { title: t.perfBenchYou || 'You', style: { color: moveColor(r.port), fontWeight: 700, fontSize: 'var(--text-base)', width: '74px', textAlign: 'right' } }, pctStr(r.port)),
-                  e('span', { title: benchPreset ? benchPreset.label : __('perfBenchmark', 'Benchmark'), style: { color: dim, fontSize: 'var(--text-xs)', width: '66px', textAlign: 'right' } }, r.bench == null ? '—' : pctStr(r.bench)),
-                  e('span', { style: { flex: 1 } }),
-                  r.rel == null ? null : e('span', { style: { color: r.rel >= 0 ? up : down, fontWeight: 800, fontSize: 'var(--text-sm)' } }, __('ppValue', '{v} pp', { v: (r.rel >= 0 ? '+' : '') + window.MaerminI18n.num(r.rel, 1) })));
-              }))
-          : e('div', { style: { color: dim, fontSize: 'var(--text-base)' } }, t.perfBenchNoData || 'No benchmark data available yet.')) : null;
+          : benchLoading ? e('p', { className: 'ui-muted' }, (t.loading || 'Loading') + ' …')
+          : benchRows.length ? e(UIC.Table, {
+              caption: t.perfBenchTitle || 'vs. Benchmark', rows: benchRows, rowKey: function (r) { return r.id; },
+              columns: [
+                { key: 'label', label: __('vaPeriod', 'Period'), phone: 'title', render: function (r) { return periodLabel(r.label); } },
+                { key: 'port', label: t.perfBenchYou || 'You', align: 'right', phone: 'value', render: function (r) { return e(UIC.ToneChip, { value: r.port || 0, text: pctStr(r.port) }); } },
+                { key: 'bench', label: benchLabel, align: 'right', phone: 'meta', render: function (r) { return r.bench == null ? '—' : pctStr(r.bench); } },
+                { key: 'rel', label: __('perfBenchDiff', 'Difference'), align: 'right', phone: 'sub', render: function (r) { return r.rel == null ? '—' : e(UIC.ToneChip, { value: r.rel, text: __('ppValue', '{v} pp', { v: (r.rel >= 0 ? '+' : '') + I.num(r.rel, 1) }) }); } }
+              ]
+            })
+          : e('p', { className: 'ui-muted' }, t.perfBenchNoData || 'No benchmark data available yet.')) : null;
 
-      return e('div', { style: { padding: '1.5rem' } },
-        e('h2', { style: { color: text, fontSize: 'var(--text-xl)', fontWeight: 800, letterSpacing: '-0.02em', margin: '0 0 0.35rem' } },
-          t.navPerformance || 'Performance', ' ', props.demo && window.MaerminDemoFixtures && window.MaerminDemoFixtures.badge(React, theme, workerBase)),
-        e('p', { style: { color: dim, fontSize: 'var(--text-base)', margin: '0 0 1.25rem', lineHeight: 1.5, maxWidth: '60ch' } },
-          t.perfSubtitle || 'Real period returns derived entirely from your on-device value history — no external API. A new daily point is recorded automatically while you use the app.'),
+      var dayTile = function (key, label, d) {
+        return e(UIC.Card, { variant: 'answer', className: 'ui-ov-tile', 'data-testid': 'perf-' + key },
+          e(UIC.Stat, { label: label, value: d ? pctStr(d.pct) : '—', tone: d ? UIC.toneOf(d.pct) : null, sub: d ? I.date(d.date) : '' }));
+      };
 
+      return e('div', { className: 'ui-view', 'data-testid': 'performance-view' },
+        e('div', { className: 'ui-view__bar' },
+          e('p', { className: 'ui-view__lead' },
+            t.perfSubtitle || 'Real period returns derived entirely from your on-device value history — no external API. A new daily point is recorded automatically while you use the app.'),
+          props.demo && window.MaerminDemoFixtures ? window.MaerminDemoFixtures.badge(React, theme, workerBase) : null),
+        props.map || null,
         hasData
-          ? e('div', { style: { display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(140px, 1fr))', gap: '0.75rem', marginBottom: '1.5rem' } }, cardEls)
-          : e('div', { style: { background: card, border: '1px solid ' + border, borderRadius: '14px', padding: '2rem', textAlign: 'center', color: dim, fontSize: 'var(--text-base)' } },
+          ? e('div', { className: 'ui-perf-tiles', 'data-testid': 'perf-periods' }, cardEls)
+          : e(UIC.Card, { className: 'ui-card--pad', 'data-testid': 'perf-empty' }, e('p', { className: 'ui-muted' },
               // VIS-009: the demo records no snapshots - say so instead of "check back tomorrow"
               props.demo ? __('perfEmptyDemo', 'Period returns come from the daily snapshots recorded while you use the app with your own data; the demo records none.')
-                : (t.perfEmpty || 'No value history yet. Snapshots are recorded once per day as you use the app — check back tomorrow to see your first period returns.')),
-
-        (hasData && ext) ? e('div', { style: { display: 'flex', gap: '0.75rem', flexWrap: 'wrap' } },
-          e('div', { style: { flex: 1, minWidth: '200px', background: card, border: '1px solid ' + border, borderRadius: '14px', padding: '1rem' } },
-            e('div', { style: { color: dim, fontSize: 'var(--text-2xs)', fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.06em' } }, t.perfBestDay || 'Best day'),
-            e('div', { style: { color: up, fontSize: 'var(--text-body)', fontWeight: 800, marginTop: '0.3rem' } }, ext.best ? pctStr(ext.best.pct) : '—'),
-            e('div', { style: { color: dim, fontSize: 'var(--text-xs)', marginTop: '0.1rem' } }, ext.best ? ext.best.date : '')),
-          e('div', { style: { flex: 1, minWidth: '200px', background: card, border: '1px solid ' + border, borderRadius: '14px', padding: '1rem' } },
-            e('div', { style: { color: dim, fontSize: 'var(--text-2xs)', fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.06em' } }, t.perfWorstDay || 'Worst day'),
-            e('div', { style: { color: down, fontSize: 'var(--text-body)', fontWeight: 800, marginTop: '0.3rem' } }, ext.worst ? pctStr(ext.worst.pct) : '—'),
-            e('div', { style: { color: dim, fontSize: 'var(--text-xs)', marginTop: '0.1rem' } }, ext.worst ? ext.worst.date : ''))) : null,
-
-        (hasData && ext) ? e('div', { style: { height: '1.5rem' } }) : null,
+                : (t.perfEmpty || 'No value history yet. Snapshots are recorded once per day as you use the app — check back tomorrow to see your first period returns.'))),
+        (hasData && ext) ? e('div', { className: 'ui-ov-tiles' },
+          dayTile('best', t.perfBestDay || 'Best day', ext.best), dayTile('worst', t.perfWorstDay || 'Worst day', ext.worst)) : null,
         benchSection,
         ddCard,
         goalSection,
-
-        hasData ? e('div', { style: { color: dim, fontSize: 'var(--text-xs)', marginTop: '1rem', lineHeight: 1.5 } },
+        hasData ? e('p', { className: 'ui-note' },
           (t.perfFootnote || 'Periods marked ≈ are measured from your first snapshot because the full look-back is not yet covered.')) : null);
     } catch (err) {
       return e('div', { style: { padding: '1.5rem', color: (props.theme && props.theme.danger) || 'var(--danger)' } },

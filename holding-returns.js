@@ -229,35 +229,27 @@
     var cf = React.useMemo(function () { return capitalFlow(txs, { toEUR: toEUR, today: today }); }, [txs, props.exchangeRate, props.fxAt]);
 
     if (!holdings.length && !cf.months.length) return null;
-    var text = theme.text, dim = theme.textSecondary, border = theme.cardBorder || 'rgba(127,127,127,0.2)';
-    var tone = function (v) { return v > 1e-9 ? theme.success : v < -1e-9 ? theme.danger : dim; };
+    // R4.1: the shared Card, Segmented and table look; colours are tokens.
+    var UIC = W.MaerminComponents;
+    var text = 'var(--text)', dim = 'var(--text-dim)';
+    var tone = function (v) { return v > 1e-9 ? 'var(--gain)' : v < -1e-9 ? 'var(--loss)' : dim; };
     var pct = function (v) { return v === null || v === undefined ? '–' : I.pct(v * 100, 1, true); };
     var money = function (v) { return fmt(v) + ' ' + cur; };
     var card = function (testid, title, sub, body, right) {
-      return e('section', { 'data-testid': testid, style: { background: theme.card, border: '1px solid ' + border, borderRadius: '14px', padding: '1.1rem', marginBottom: '1rem', minWidth: 0 } },
-        e('div', { style: { display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: '0.75rem', flexWrap: 'wrap', marginBottom: '0.75rem' } },
-          e('div', { style: { minWidth: 0, flex: '1 1 240px' } },
-            e('h3', { style: { color: text, fontWeight: 700, fontSize: 'var(--text-md)', margin: 0 } }, title),
-            sub && e('div', { style: { color: dim, fontSize: 'var(--text-xs)', marginTop: '0.2rem', lineHeight: 1.5 } }, sub)),
-          right || null),
-        body);
+      return e(UIC.Card, { 'data-testid': testid, title: title, subtitle: sub, headingLevel: 'h3', action: right || null, className: 'ui-hr-card' }, body);
     };
     var seg = function (label, items, value, set, prefix) {
-      return e('div', { role: 'group', 'aria-label': label, style: { display: 'flex', gap: '0.15rem', background: theme.inputBg, borderRadius: '8px', padding: '0.2rem', flexWrap: 'wrap' } },
-        items.map(function (it) {
-          var on = value === it[0];
-          return e('button', { key: it[0], type: 'button', 'data-testid': prefix + it[0], 'aria-pressed': on, onClick: function () { set(it[0]); },
-            style: { minHeight: '32px', padding: '0.3rem 0.7rem', border: 'none', borderRadius: '6px', cursor: 'pointer', fontSize: 'var(--text-xs)', fontWeight: on ? 700 : 500,
-              background: on ? (theme.accentFill || theme.accent) : 'transparent', color: on ? 'var(--on-accent)' : dim } }, it[1]);
-        }));
+      return e(UIC.Segmented, { label: label, value: value, size: 'sm', onChange: set,
+        options: items.map(function (it) { return { value: it[0], label: it[1], attrs: { 'data-testid': prefix + it[0] } }; }) });
     };
     var th = function (label, i, left) {
-      return e('th', { key: i, scope: 'col', style: { padding: '0.45rem 0.6rem', textAlign: left ? 'left' : 'right', color: dim, fontWeight: 600, fontSize: 'var(--text-2xs)', textTransform: 'uppercase', letterSpacing: '0.04em', whiteSpace: 'nowrap', borderBottom: '1px solid ' + border, position: left ? 'sticky' : undefined, left: left ? 0 : undefined, background: left ? theme.card : undefined } }, label);
+      return e('th', { key: i, scope: 'col', className: left ? 'is-sticky' : 'is-right' }, label);
     };
-    var tdS = function (extra) { return Object.assign({ padding: '0.45rem 0.6rem', textAlign: 'right', whiteSpace: 'nowrap', borderBottom: '1px solid ' + border, fontVariantNumeric: 'tabular-nums' }, extra || {}); };
-    var head = function (label) { return e('th', { scope: 'row', style: tdS({ textAlign: 'left', color: text, fontWeight: 700, position: 'sticky', left: 0, background: theme.card }) }, label); };
-    var table = function (cols, rows) { return e('div', { style: { overflowX: 'auto', maxWidth: '100%' } }, e('table', { style: { borderCollapse: 'collapse', width: '100%', fontSize: 'var(--text-sm)' } }, e('thead', null, e('tr', null, cols)), e('tbody', null, rows))); };
-    var muted = function (msg) { return e('div', { style: { color: dim, fontSize: 'var(--text-base)' } }, msg); };
+    // cells take only their tone; layout comes from .ui-table--dense
+    var tdS = function (extra) { var o = {}; if (extra && extra.color && extra.color !== text) o.color = extra.color; if (extra && extra.fontWeight) o.fontWeight = extra.fontWeight; return o; };
+    var head = function (label) { return e('th', { scope: 'row', className: 'is-sticky' }, label); };
+    var table = function (cols, rows) { return e('div', { className: 'ui-table-wrap' }, e('table', { className: ['ui-table', 'ui-table--dense'].join(' ') }, e('thead', null, e('tr', null, cols)), e('tbody', null, rows))); };
+    var muted = function (msg) { return e('p', { className: 'ui-muted' }, msg); };
 
     // ---- IRR ----
     var list = by === 'holding' ? holdings : by === 'class' ? groups.classes : groups.tags;
@@ -284,17 +276,17 @@
 
     // ---- trades ----
     var tradeList = function (testid, title, rows, none) {
-      return e('div', { 'data-testid': testid, style: { flex: '1 1 280px', minWidth: 0 } },
-        e('div', { style: { color: dim, fontSize: 'var(--text-xs)', textTransform: 'uppercase', letterSpacing: '0.04em', fontWeight: 600, marginBottom: '0.35rem' } }, title),
-        !rows.length ? muted(none) : rows.map(function (t, i) {
-          return e('div', { key: t.key + t.date, 'data-key': t.key, 'data-date': t.date, 'data-ret': t.ret, style: { display: 'flex', justifyContent: 'space-between', gap: '0.5rem', padding: '0.45rem 0', borderTop: i ? '1px solid ' + border : 'none', fontSize: 'var(--text-sm)' } },
-            e('div', { style: { minWidth: 0 } },
-              e('div', { style: { color: text, fontWeight: 700 } }, t.symbol),
-              e('div', { style: { color: dim, fontSize: 'var(--text-xs)' } }, __('hrSoldHeld', 'sold {date} · held {n} {n:day|days}', { date: I.date(t.date), n: t.days }))),
-            e('div', { style: { textAlign: 'right', whiteSpace: 'nowrap' } },
-              e('div', { style: { color: tone(t.gain), fontWeight: 700 } }, pct(t.ret)),
-              e('div', { style: { color: dim, fontSize: 'var(--text-xs)' } }, (t.gain >= 0 ? '+' : '') + money(t.gain) + (t.annualized !== null ? ' · ' + __('retPa', '{pct} p.a.', { pct: I.pct(t.annualized * 100, 1, true) }) : ''))));
-        }));
+      return e('div', { 'data-testid': testid, className: 'ui-hr-trades' },
+        e('h4', { className: 'ui-sublabel' }, title),
+        !rows.length ? muted(none) : e('ul', { className: 'ui-rows' }, rows.map(function (t) {
+          return e('li', { key: t.key + t.date, 'data-key': t.key, 'data-date': t.date, 'data-ret': t.ret, className: 'ui-rows__row' },
+            e('div', { className: 'ui-rows__main' },
+              e('b', null, t.symbol),
+              e('span', null, __('hrSoldHeld', 'sold {date} · held {n} {n:day|days}', { date: I.date(t.date), n: t.days }))),
+            e('div', { className: ['ui-rows__side', 'num'].join(' ') },
+              e(UIC.ToneChip, { value: t.gain, text: pct(t.ret) }),
+              e('span', null, (t.gain >= 0 ? '+' : '') + money(t.gain) + (t.annualized !== null ? ' · ' + __('retPa', '{pct} p.a.', { pct: I.pct(t.annualized * 100, 1, true) }) : ''))));
+        })));
     };
     var tradesCard = card('hr-trades', __('hrTradesTitle', 'Best and worst sales'),
       __('hrTradesSub', 'Each sale against the cost of the lots it sold (first in, first out, fees included); holding period weighted by quantity.'),
@@ -306,27 +298,27 @@
       ? cf.years.slice().reverse().map(function (r) {
           return e('tr', { key: r.y, 'data-y': r.y }, head(String(r.y)),
             e('td', { style: tdS({ color: text }) }, money(r.buys)), e('td', { style: tdS({ color: text }) }, money(r.sells)),
-            e('td', { 'data-k': 'net', 'data-v': r.net, style: tdS({ color: tone(r.net), fontWeight: 700 }) }, money(r.net)),
+            e('td', { 'data-k': 'net', 'data-v': r.net, style: tdS({ fontWeight: 700 }) }, money(r.net)),
             e('td', { 'data-k': 'avg', 'data-v': r.avg, style: tdS({ color: dim }) }, money(r.avg)));
         })
       : cf.months.slice().reverse().map(function (r) {
           var d = new Date(parseInt(r.ym.slice(0, 4), 10), parseInt(r.ym.slice(5, 7), 10) - 1, 1);
           return e('tr', { key: r.ym, 'data-ym': r.ym }, head(I.date(d, { month: 'short', year: 'numeric' })),
             e('td', { style: tdS({ color: r.buys ? text : dim }) }, r.buys ? money(r.buys) : '–'), e('td', { style: tdS({ color: r.sells ? text : dim }) }, r.sells ? money(r.sells) : '–'),
-            e('td', { 'data-k': 'net', 'data-v': r.net, style: tdS({ color: tone(r.net), fontWeight: 700 }) }, money(r.net)));
+            e('td', { 'data-k': 'net', 'data-v': r.net, style: tdS({ fontWeight: 700 }) }, money(r.net)));
         });
     var cfCols = [th(cfBy === 'year' ? __('dhYear', 'Year') : __('hrMonth', 'Month'), 0, true), th(__('hrBuys', 'Bought'), 1), th(__('hrSells', 'Sold'), 2), th(__('hrNet', 'Net invested'), 3)]
       .concat(cfBy === 'year' ? [th(__('hrAvgMonth', 'Per month'), 4)] : []);
     var cfCard = card('hr-capital', __('hrCfTitle', 'Capital flow'),
       __('hrCfSub', 'Money put into and taken out of holdings: buys incl. fees, sales after fees. Dividends and cash bookings are not included.'),
       !cf.months.length ? muted(__('hrNone', 'No holdings yet.')) : e('div', null,
-        e('div', { 'data-testid': 'hr-cf-avg', 'data-v': cf.total.avg, style: { color: text, fontSize: 'var(--text-base)', marginBottom: '0.6rem' } },
+        e('p', { 'data-testid': 'hr-cf-avg', 'data-v': cf.total.avg, className: 'ui-hr-lead' },
           __('hrCfAvg', 'On average {amount} net invested per month over {n} {n:month|months}.', { amount: money(cf.total.avg), n: cf.total.months })),
-        e('div', { style: { maxHeight: cfBy === 'month' ? '420px' : undefined, overflowY: cfBy === 'month' ? 'auto' : undefined } }, table(cfCols, cfRows))),
+        e('div', { className: cfBy === 'month' ? 'ui-hr-scroll' : undefined }, table(cfCols, cfRows))),
       seg(__('hrCfAria', 'Show per'), [['year', __('hrPerYear', 'Year')], ['month', __('hrPerMonth', 'Month')]], cfBy, setCfBy, 'hr-cf-'));
 
-    return e('div', { 'data-testid': 'holding-returns', style: { marginTop: '1.5rem' } },
-      e('h3', { style: { color: text, fontSize: 'var(--text-lg)', fontWeight: 800, margin: '0 0 0.75rem' } }, __('hrTitle', 'Per holding')),
+    return e('section', { 'data-testid': 'holding-returns', className: 'ui-stack', 'aria-labelledby': 'hr-heading' },
+      e('h2', { id: 'hr-heading', className: 'ui-section-title' }, __('hrTitle', 'Per holding')),
       irrCard, tradesCard, cfCard);
   }
 })();

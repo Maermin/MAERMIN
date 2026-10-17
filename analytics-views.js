@@ -95,11 +95,11 @@ function __(k, f, v) { return (typeof window !== 'undefined' && window.MaerminI1
     }
     var verdict = window.MaerminVerdicts && stats && stats.available ? window.MaerminVerdicts.benchmark(diffPp, bench ? bench.label : '') : null;
 
+    // R4.1: shared Card, Segmented and Stat tiles
+    var UIC = window.MaerminComponents;
     var pct = function (x) { return window.MaerminI18n.pct(x * 100, 1); };
-    var tile = function (label, value, color) {
-      return e('div', { key: label, style: { background: inputBg, border: '1px solid ' + border, borderRadius: '10px', padding: '0.7rem 0.9rem', minWidth: '110px' } },
-        e('div', { style: { color: dim, fontSize: 'var(--text-2xs)', textTransform: 'uppercase', letterSpacing: '0.04em' } }, label),
-        e('div', { style: { color: color || text, fontSize: 'var(--text-lg)', fontWeight: '700', marginTop: '0.15rem' } }, value));
+    var tile = function (label, value, tone) {
+      return e(UIC.Stat, { key: label, className: 'ui-tile', label: label, value: value, tone: tone || null });
     };
 
     var body;
@@ -109,26 +109,23 @@ function __(k, f, v) { return (typeof window !== 'undefined' && window.MaerminI1
     else if (err) body = note(React, bad, __('avBenchFailed', 'Could not load benchmark: {msg}', { msg: err }));
     else if (!stats || !stats.available) body = note(React, dim, __('avNotEnoughBench', 'Not enough overlapping history to compute benchmark stats yet.'));
     else body = e('div', null,
-      verdict && e('div', { 'data-testid': 'verdict-benchmark', 'data-level': verdict.level, style: { color: verdict.level === 'good' ? ok : verdict.level === 'neutral' ? text : (verdict.level === 'warn' ? theme.warning || 'var(--warning)' : bad), fontSize: 'var(--text-base)', fontWeight: 600, marginBottom: '0.7rem', lineHeight: 1.45 } }, verdict.text),
-      e('div', { style: { display: 'flex', flexWrap: 'wrap', gap: '0.6rem' } },
-        tile(__('avAlphaAnn', 'Alpha (ann.)'), pct(stats.alpha), stats.alpha >= 0 ? ok : bad),
-        tile('Beta', window.MaerminI18n.num(stats.beta, 2), text),
-        tile(__('avTrackingError', 'Tracking error'), pct(stats.trackingError), text),
-        tile(__('avInfoRatio', 'Information ratio'), window.MaerminI18n.num(stats.informationRatio, 2), stats.informationRatio >= 0 ? ok : bad),
-        tile('R²', pct(stats.rSquared), text),
-        tile(__('avCorrelation', 'Correlation'), window.MaerminI18n.num(stats.correlation, 2), text)
+      verdict && e('p', { 'data-testid': 'verdict-benchmark', 'data-level': verdict.level, className: 'ui-verdict' }, verdict.text),
+      e('div', { className: 'ui-tiles' },
+        tile(__('avAlphaAnn', 'Alpha (ann.)'), (stats.alpha > 0 ? '+' : '') + pct(stats.alpha), UIC.toneOf(stats.alpha)),
+        tile('Beta', window.MaerminI18n.num(stats.beta, 2)),
+        tile(__('avTrackingError', 'Tracking error'), pct(stats.trackingError)),
+        tile(__('avInfoRatio', 'Information ratio'), (stats.informationRatio > 0 ? '+' : '') + window.MaerminI18n.num(stats.informationRatio, 2), UIC.toneOf(stats.informationRatio)),
+        tile('R²', pct(stats.rSquared)),
+        tile(__('avCorrelation', 'Correlation'), window.MaerminI18n.num(stats.correlation, 2))
       ),
-      e('div', { style: { color: dim, fontSize: 'var(--text-xs)', marginTop: '0.7rem', lineHeight: '1.5' } },
+      e('p', { className: 'ui-note' },
         (dated ? __('avEstDaily', 'Estimated from {n} daily returns since {date} vs {bench} ({proxy}).', { n: stats.periods, date: window.MaerminI18n.date(dated[0].d), bench: bench ? bench.label : '', proxy: preset ? preset.proxy : '' }) : __('avEstPoints', 'Estimated from {n} overlapping price points vs {bench} ({proxy}).', { n: stats.periods, bench: bench ? bench.label : '', proxy: preset ? preset.proxy : '' })) + ' ' + __('avCapmNote', 'Alpha/beta are CAPM estimates from available history, not guarantees.') + (verdict ? ' ' + window.MaerminVerdicts.disclaimer() : ''))
     );
 
-    return e('div', { style: { background: card, border: '1px solid ' + border, borderRadius: '14px', padding: '1.25rem', marginTop: '1.25rem' } },
-      e('div', { style: { display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '0.5rem', marginBottom: '0.9rem' } },
-        e('h3', { style: { color: text, fontSize: 'var(--text-body)', fontWeight: '700', margin: 0 } }, __('avBenchTitle', 'Benchmark comparison'), ' ', window.MaerminDemoFixtures && window.MaerminDemoFixtures.badge(React, theme, workerBase)),
-        e('div', { style: { display: 'flex', gap: '0.3rem', flexWrap: 'wrap' } }, presets.map(function (b) {
-          return e('button', { key: b.key, type: 'button', 'aria-pressed': sel === b.key, onClick: function () { setSel(b.key); }, style: { padding: '0.35rem 0.7rem', borderRadius: '8px', border: 'none', cursor: 'pointer', fontSize: 'var(--text-xs)', fontWeight: sel === b.key ? '700' : '500', background: sel === b.key ? accent : inputBg, color: sel === b.key ? '#ffffff' : dim } }, b.label);
-        }))
-      ),
+    return e(UIC.Card, { 'data-testid': 'benchmark-panel', headingLevel: 'h3',
+      title: e(React.Fragment, null, __('avBenchTitle', 'Benchmark comparison'), ' ', window.MaerminDemoFixtures && window.MaerminDemoFixtures.badge(React, theme, workerBase)),
+      action: e(UIC.Segmented, { label: __('perfBenchmark', 'Benchmark'), value: sel, size: 'sm', onChange: setSel,
+        options: presets.map(function (b) { return { value: b.key, label: b.label, attrs: { 'data-bench': b.key } }; }) }) },
       body
     );
   }

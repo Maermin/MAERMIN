@@ -1405,7 +1405,9 @@ function ChartFrame(props) {
   const [asTable, setAsTable] = React.useState(false);
   const canTable = !!(props.table && props.table.columns && props.table.rows);
   return h(Card, { title: props.title, subtitle: props.subtitle, className: cx('ui-chart', props.className), 'data-testid': props['data-testid'],
-    action: canTable ? h(Button, { variant: 'quiet', size: 'sm', 'aria-pressed': asTable, onClick: () => setAsTable(!asTable) }, asTable ? __('uiHideTable', 'Show chart') : __('uiShowTable', 'Show as table')) : props.action },
+    // R4.1: the view's own control (periods) and the table switch side by side
+    action: canTable ? h('div', { className: 'ui-chart__actions' }, props.action || null,
+      h(Button, { variant: 'quiet', size: 'sm', 'aria-pressed': asTable, onClick: () => setAsTable(!asTable) }, asTable ? __('uiHideTable', 'Show chart') : __('uiShowTable', 'Show as table'))) : props.action },
   asTable ? h(Table, Object.assign({ caption: props.title, layout: 'table' }, props.table)) : h('div', { className: 'ui-chart__plot', role: props.summary ? 'img' : undefined, 'aria-label': props.summary }, props.children),
   Array.isArray(props.legend) && props.legend.length ? h('ul', { className: 'ui-chart__legend' },
     props.legend.map((l, i) => h('li', { key: i }, h('span', { className: 'ui-chart__swatch', 'data-series': l.series || i + 1, 'aria-hidden': 'true' }), l.label, l.value != null ? h('b', { className: 'num' }, l.value) : null))) : null,
