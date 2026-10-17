@@ -4013,25 +4013,14 @@ function InvestmentTracker() {
     // (Returns → "Total return" also counts sales and dividends).
     const labelReturn = __('ovUnrealisedGain', 'Unrealised gain');
 
-    // A clickable card is a button for the keyboard too; the figure uses the
-    // shared KPI size and keeps the amount and its currency on one line.
+    // R3.1: an answer tile is the shared Stat on a card (a link for the
+    // keyboard when it leads somewhere); the figure keeps its currency on one line.
+    const UIC = window.MaerminComponents;
+    const cxs = (...parts) => parts.filter(Boolean).join(" ");
+    const toneName = (color) => color === currentTheme.success ? 'gain' : color === currentTheme.danger ? 'loss' : color === currentTheme.warning ? 'warning' : null;
     const statCard = (label, value, sub, color, onClick) =>
-      React.createElement('div', {
-        ...(onClick ? window.MaerminUtils.clickable(onClick) : {}),
-        style: {
-          background: currentTheme.card, padding: '1.35rem', borderRadius: '16px',
-          border: `1px solid ${currentTheme.cardBorder}`,
-          boxShadow: currentTheme.shadow,
-          cursor: onClick ? 'pointer' : 'default',
-          transition: 'border-color 0.16s, transform 0.16s'
-        },
-        onMouseEnter: onClick ? e => { e.currentTarget.style.borderColor = `${window.MaerminTokens.alpha(currentTheme.accent, 0x66)}`; e.currentTarget.style.transform = 'translateY(-2px)'; } : undefined,
-        onMouseLeave: onClick ? e => { e.currentTarget.style.borderColor = currentTheme.cardBorder; e.currentTarget.style.transform = 'translateY(0)'; } : undefined
-      },
-        React.createElement('div', { style: { color: currentTheme.textSecondary, fontSize: 'var(--text-xs)', fontWeight: '600', textTransform: 'uppercase', letterSpacing: '0.07em', marginBottom: '0.4rem' } }, label),
-        React.createElement('div', { className: 'mx-kpi-value', style: { color: color || currentTheme.text } }, value),
-        sub && React.createElement('div', { style: { color: currentTheme.textSecondary, fontSize: 'var(--text-xs)', marginTop: '0.4rem' } }, sub)
-      );
+      React.createElement(UIC.Card, { variant: 'answer', className: 'ui-ov-tile' },
+        React.createElement(UIC.Stat, { label, value: React.createElement('span', { className: 'mx-kpi-value' }, value), sub, tone: toneName(color), onClick }));
 
     // Transactions and portfolio for chart — filtered by mode
     const overviewTransactions = isAllMode
@@ -4046,10 +4035,9 @@ function InvestmentTracker() {
 
     // Worker status → the header's green/red dot + a plain-language explanation
     // (never a silent failure when prices can't be fetched).
-    const wsColor = demoMode ? '#8a93a3'
-      : !workerStatus ? '#8a93a3'
-      : workerStatus.ok ? '#22c55e'
-      : workerStatus.reachable ? '#f59e0b' : '#ef4444';
+    const wsState = demoMode || !workerStatus ? 'idle'
+      : workerStatus.ok ? 'ok'
+      : workerStatus.reachable ? 'warn' : 'bad';
     const wsLabel = demoMode ? __('wsDemo', 'Demo')
       : !workerStatus ? __('wsChecking', 'Worker…')
       : workerStatus.ok ? __('wsLive', 'Live')
@@ -4100,6 +4088,47 @@ function InvestmentTracker() {
         valuePath: path, clearings: vc.clearings });
     });
 
+    // R3.1: the open positions of this view (category colours from the chart
+    // tokens), shared by the holdings map and the allocation section.
+    const ovListData = () => {
+      const CLASS = {
+        crypto:      { label: t.crypto || 'Crypto',        color: 'var(--chart-1)' },
+        stocks:      { label: __('catStocksEtfs', 'Stocks & ETFs'), color: 'var(--chart-2)' },
+        commodities: { label: __('catCommodities', 'Commodities'),   color: 'var(--chart-3)' },
+        skins:       { label: t.cs2Skins || 'CS2 Skins',     color: 'var(--chart-4)' },
+      };
+      // v10.x: include user-defined custom categories (custom-categories.js) so
+      // they show in the Overview donut + legend. catMeta resolves label/colour.
+      const customCatIds = window.MaerminCategories ? window.MaerminCategories.ids() : [];
+      const catList = ['crypto', 'stocks', 'commodities', 'skins', 'bonds'].concat(customCatIds); // P5-3.9: bonds
+      const catMeta = (cat) => CLASS[cat] || (window.MaerminCategories
+        ? { label: window.MaerminCategories.label(cat), color: window.MaerminCategories.color(cat) }
+        : { label: cat, color: 'var(--text-dim)' });
+      // Theme tokens, not fixed dark-theme colours: on the light theme the
+      // fixed green read 1.9:1 and the grey 3:1 (Phase 3 contrast pass).
+      const green = currentTheme.success, red = currentTheme.danger, gray = currentTheme.textSecondary;
+      const glyph = s => (s || '').replace(/[^A-Za-z0-9]/g, '').slice(0, 4).toUpperCase();
+      // Letters on a category tile: the pastel category colours read only on dark (2.2:1 on light)
+      const tileInk = c => currentTheme.mode === 'light' ? currentTheme.text : c;
+      const money = v => `${formatPrice(v)} ${getCurrencySymbol()}`;
+      const fmtPct = n => window.MaerminI18n.pct(n, 2, true);
+      const pxv = p => {
+        const sym = (p.symbol || p.name || '');
+        return prices[sym] ?? prices[sym.toLowerCase()] ?? prices[sym.toUpperCase()] ?? p.currentPrice ?? 0;
+      };
+      const list = [];
+      catList.forEach(cat =>
+        (overviewPortfolio[cat] || []).forEach(p => {
+          const price = pxv(p), amount = p.amount || 0, value = amount * price;
+          const cost = p.totalCostEUR != null ? p.totalCostEUR : (p.purchasePrice || 0) * amount;
+          const pnl = value - cost, pnlPct = cost > 0 ? pnl / cost * 100 : 0;
+          list.push({ cat, sym: (p.symbol || p.name || ''), name: p.symbolName || p.name || (p.symbol || ''), amount, price, value, cost, pnl, pnlPct, color: catMeta(cat).color });
+        })
+      );
+      const totalVal = list.reduce((s, p) => s + p.value, 0) || stats.totalValue || 0;
+      return { CLASS, catList, catMeta, green, red, gray, glyph, tileInk, money, fmtPct, pxv, list, totalVal };
+    };
+
     // P4-7: the Overview sections as thunks, rendered in the saved order.
     const ovSections = {
       valueChart: () => (
@@ -4127,9 +4156,7 @@ function InvestmentTracker() {
         const healthOv = M ? memoBy('ovHealth', [overviewPortfolio, prices, t, priceHistory, overviewTransactions], () => M.healthScore(overviewPortfolio, prices, t, { priceHistory, transactions: overviewTransactions })) : null;
         const hColor = (s) => s >= 70 ? currentTheme.success : s >= 40 ? currentTheme.warning : currentTheme.danger;
         const hScore = healthOv && !healthOv.empty ? healthOv.score : null;
-        return React.createElement('div', {
-          style: { display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(190px, 1fr))', gap: '1rem', marginBottom: '1.5rem' }
-        },
+        return React.createElement('div', { className: 'ui-ov-tiles' },
           statCard(__('ovCostBasisOpen', 'Cost basis (open)'), `${formatPrice(stats.totalInvested)} ${getCurrencySymbol()}`,
             __('ovAcrossPositions', 'across {n} {n:position|positions}', { n: stats.totalPositions })),
           // P5-1.4: the clearing account(s) of this view, with the total incl. cash
@@ -4161,9 +4188,11 @@ function InvestmentTracker() {
         const pct = (v) => v === null ? '—' : I.pct(v * 100, 2, true);
         const tone = (v) => v === null ? undefined : v > 0 ? currentTheme.success : v < 0 ? currentTheme.danger : undefined;
         const go = () => setActiveView('returns');
-        return React.createElement('div', { 'data-testid': 'ov-returns', style: { marginBottom: '1.5rem' } },
-          React.createElement('div', { style: { color: currentTheme.text, fontWeight: 700, fontSize: 'var(--text-md)', margin: '0 0 0.75rem' } }, __('ovReturnsTitle', 'Returns')),
-          React.createElement('div', { style: { display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(min(100%, 220px), 1fr))', gap: '1rem' } },
+        return React.createElement('section', { 'data-testid': 'ov-returns', className: 'ui-ov-block' },
+          React.createElement('div', { className: 'ui-ov-block__head' },
+            React.createElement('h2', { className: 'ui-ov-block__title' }, __('ovReturnsTitle', 'Returns')),
+            React.createElement(UIC.Button, { variant: 'quiet', size: 'sm', onClick: go }, __('ovToReturns', 'Returns →'))),
+          React.createElement('div', { className: 'ui-ov-tiles' },
             statCard(__('retXirr', 'XIRR (annualized)'), pct(f.xirr), f.cash !== null ? __('retXirrSubCash', 'Money-weighted p.a., from deposits and withdrawals') : __('retXirrSub', 'Money-weighted return p.a.'), tone(f.xirr), go),
             statCard('TWR', pct(f.twr), f.twr === null ? __('retNoHistory', 'No price history yet')
               : [f.twrAnnualized !== null ? __('retPa', '{pct} p.a.', { pct: I.pct(f.twrAnnualized * 100, 2, true) }) : '', f.twrCash ? __('retInclCash', 'incl. cash account') : ''].filter(Boolean).join(' · '), tone(f.twr), go),
@@ -4173,43 +4202,88 @@ function InvestmentTracker() {
             statCard(__('retTotalFees', 'Total Fees'), money(f.fees), __('ovFeesSub', 'Trade fees + fee bookings'), undefined, go),
             statCard(__('ovNetReturn', 'Net return'), money(f.netReturn), f.netReturnPct === null ? '' : pct(f.netReturnPct), tone(f.netReturn), go)));
       },
+      // Phase 6 B-4: what the total is made of - money still invested, the
+      // unrealised gain (or loss) and cash, adding up to the total.
+      composition: () => {
+        if (!stats.totalPositions && !(ovCash > 0)) return null;
+        const cur = getCurrencySymbol();
+        const money = (v) => `${formatPrice(v)} ${cur}`;
+        const cash = ovCash || 0, inv = stats.totalInvested || 0, gain = stats.totalProfit || 0;
+        const sec = stats.totalValue || 0, total = sec + cash;
+        const segs = (gain >= 0
+          ? [{ k: 'inv', v: inv, cls: 'is-cost', label: __('ovMadeInvested', 'Still invested') }, { k: 'gain', v: gain, cls: 'is-gain', label: __('ovUnrealisedGain', 'Unrealised gain') }]
+          : [{ k: 'sec', v: sec, cls: 'is-cost', label: __('ovMadeSecurities', 'Securities') }])
+          .concat(cash > 0 ? [{ k: 'cash', v: cash, cls: 'is-cash', label: __('ovMadeCash', 'Cash') }] : [])
+          .filter((x) => x.v > 0);
+        const legend = [
+          { k: 'inv', cls: 'is-cost', label: __('ovMadeInvested', 'Still invested'), v: money(inv) },
+          { k: 'gain', cls: gain >= 0 ? 'is-gain' : 'is-loss', label: gain >= 0 ? __('ovUnrealisedGain', 'Unrealised gain') : __('ovMadeLoss', 'Unrealised loss'),
+            v: (gain > 0 ? '+' : '') + money(gain), tone: gain > 0 ? 'tone-gain' : gain < 0 ? 'tone-loss' : '' }
+        ].concat(ovCash !== null ? [{ k: 'cash', cls: 'is-cash', label: __('ovMadeCash', 'Cash'), v: money(cash) }] : []);
+        return React.createElement(UIC.Card, { title: __('ovMadeOf', 'What it is made of'), className: 'ui-ov-made', 'data-testid': 'ov-made' },
+          React.createElement('div', { className: 'ui-made', role: 'img', 'aria-label': segs.map((x) => x.label + ' ' + money(x.v)).join(', ') },
+            segs.map((x) => React.createElement('span', { key: x.k, className: 'ui-made__seg ' + x.cls, style: { flexGrow: x.v } },
+              total > 0 && x.v / total > 0.2 ? React.createElement('span', { className: 'num' }, money(x.v)) : null))),
+          React.createElement('ul', { className: 'ui-made__legend' },
+            legend.map((l) => React.createElement('li', { key: l.k },
+              React.createElement('span', { className: 'ui-made__dot ' + l.cls, 'aria-hidden': 'true' }),
+              React.createElement('span', null, l.label),
+              React.createElement('b', { className: 'num ' + (l.tone || '') }, l.v)))),
+          React.createElement('div', { className: 'ui-made__eq' },
+            React.createElement('span', null, ovCash !== null
+              ? __('ovMadeEq', 'Securities {sec} + cash {cash}', { sec: money(sec), cash: money(cash) })
+              : __('ovMadeEqNoCash', 'Securities (no clearing account)')),
+            React.createElement('b', { className: 'num' }, '= ' + money(total))));
+      },
+      // B-4: the next five dated events from local data only (dividend schedule,
+      // savings plans, splits, tax dates) - no extra network call on the Overview.
+      nextUp: () => {
+        const EF = window.MaerminEventFeed;
+        if (!EF || !EF.build) return null;
+        const I = window.MaerminI18n;
+        const list = memoBy('ovNext', [overviewPortfolio, transactions, prices, privacyMode, taxJurisdiction, language], () => {
+          const read = (k, d) => { try { return JSON.parse(localStorage.getItem(k) || d); } catch (e) { return JSON.parse(d); } };
+          const CA = window.MaerminCorporateActions;
+          const inp = pushCtx().input || {};
+          const held = ((overviewPortfolio && overviewPortfolio.stocks) || []).filter((x) => (parseFloat(x.amount) || 0) > 0).map((x) => x.symbol).filter(Boolean);
+          try {
+            return EF.build({ today: window.MaerminUtils.todayISO(), held, watched: [], earnings: [], dividends: inp.dividends, splits: CA && CA.load ? (CA.load().actions || []) : [],
+              plans: read('maermin_savings_plans', '[]') || [], vap: inp.vap, crypto: inp.crypto, ira: inp.ira, jurisdiction: taxJurisdiction },
+              { days: 120, amounts: !privacyMode, money: (v, c) => I.money(v, c || 'EUR'), num: (v, d) => I.num(v, d), date: (d) => I.date(d) }).slice(0, 5);
+          } catch (e) { return []; }
+        });
+        return React.createElement(UIC.Card, {
+          title: __('ovNextUp', 'Next up'), className: 'ui-ov-next', 'data-testid': 'ov-next',
+          action: React.createElement(UIC.Button, { variant: 'quiet', size: 'sm', onClick: () => setActiveView('events') }, __('ovToEvents', 'Events →'))
+        },
+          list.length
+            ? React.createElement('ul', { className: 'ui-next' }, list.map((ev) => React.createElement('li', { key: ev.uid },
+                React.createElement('span', { className: cxs('ui-next__date', 'num') }, I.date(ev.date)),
+                React.createElement('span', { className: 'ui-next__text' },
+                  React.createElement('span', null, ev.title),
+                  ev.detail ? React.createElement('span', { className: 'ui-next__detail' }, ev.detail) : null))))
+            : React.createElement('p', { className: 'ui-muted' }, __('ovNextNone', 'Nothing in the next 120 days.')));
+      },
+      // B-4: the holdings map - area = value, colour = return since purchase.
+      holdingsMap: () => {
+        const d = ovListData();
+        const items = d.list.filter((p) => p.value > 0).map((p) => ({
+          key: p.cat + '|' + p.sym, label: d.glyph(p.sym) || p.name, value: p.value, p,
+          pct: p.cost > 0 ? p.pnlPct : null, pctText: p.cost > 0 ? window.MaerminI18n.pct(Math.abs(p.pnlPct), 1) : null,
+          title: p.name + ' · ' + d.money(p.value) + (p.cost > 0 ? ' · ' + d.fmtPct(p.pnlPct) : '')
+        }));
+        if (items.length < 2) return null;
+        return React.createElement(UIC.Card, {
+          title: __('ovHoldingsMap', 'Holdings map'), subtitle: __('ovMapLegend', 'Area = value · colour = return since purchase'), className: 'ui-ov-map', 'data-testid': 'ov-map'
+        },
+          React.createElement(UIC.HoldingsMap, {
+            label: __('ovHoldingsMap', 'Holdings map'), items,
+            onPick: (it) => setPositionDetail({ sym: it.p.sym, name: it.p.name, cat: it.p.cat, amount: it.p.amount, avgPrice: it.p.amount > 0 ? it.p.cost / it.p.amount : 0 })
+          }));
+      },
       allocation: () => (
       stats.totalPositions > 0 && (() => {
-        const CLASS = {
-          crypto:      { label: t.crypto || 'Crypto',        color: '#8b7cff' },
-          stocks:      { label: __('catStocksEtfs', 'Stocks & ETFs'), color: '#6ea8ff' },
-          commodities: { label: __('catCommodities', 'Commodities'),   color: '#b98cff' },
-          skins:       { label: t.cs2Skins || 'CS2 Skins',     color: '#5fd0c5' },
-        };
-        // v10.x: include user-defined custom categories (custom-categories.js) so
-        // they show in the Overview donut + legend. catMeta resolves label/colour.
-        const customCatIds = window.MaerminCategories ? window.MaerminCategories.ids() : [];
-        const catList = ['crypto', 'stocks', 'commodities', 'skins', 'bonds'].concat(customCatIds); // P5-3.9: bonds
-        const catMeta = (cat) => CLASS[cat] || (window.MaerminCategories
-          ? { label: window.MaerminCategories.label(cat), color: window.MaerminCategories.color(cat) }
-          : { label: cat, color: '#8b94a7' });
-        // Theme tokens, not fixed dark-theme colours: on the light theme the
-        // fixed green read 1.9:1 and the grey 3:1 (Phase 3 contrast pass).
-        const green = currentTheme.success, red = currentTheme.danger, gray = currentTheme.textSecondary;
-        const glyph = s => (s || '').replace(/[^A-Za-z0-9]/g, '').slice(0, 4).toUpperCase();
-        // Letters on a category tile: the pastel category colours read only on dark (2.2:1 on light)
-        const tileInk = c => currentTheme.mode === 'light' ? currentTheme.text : c;
-        const money = v => `${formatPrice(v)} ${getCurrencySymbol()}`;
-        const fmtPct = n => window.MaerminI18n.pct(n, 2, true);
-        const pxv = p => {
-          const sym = (p.symbol || p.name || '');
-          return prices[sym] ?? prices[sym.toLowerCase()] ?? prices[sym.toUpperCase()] ?? p.currentPrice ?? 0;
-        };
-        const list = [];
-        catList.forEach(cat =>
-          (overviewPortfolio[cat] || []).forEach(p => {
-            const price = pxv(p), amount = p.amount || 0, value = amount * price;
-            const cost = p.totalCostEUR != null ? p.totalCostEUR : (p.purchasePrice || 0) * amount;
-            const pnl = value - cost, pnlPct = cost > 0 ? pnl / cost * 100 : 0;
-            list.push({ cat, sym: (p.symbol || p.name || ''), name: p.symbolName || p.name || (p.symbol || ''), amount, price, value, cost, pnl, pnlPct, color: catMeta(cat).color });
-          })
-        );
-        const totalVal = list.reduce((s, p) => s + p.value, 0) || stats.totalValue || 0;
+        const { catList, catMeta, green, red, gray, glyph, tileInk, money, fmtPct, list, totalVal } = ovListData();
 
         // Allocation by asset class → donut + legend
         const classes = catList.map(c => {
@@ -4225,54 +4299,47 @@ function InvestmentTracker() {
 
         const performers = [...list].filter(p => p.cost > 0).sort((a, b) => b.pnlPct - a.pnlPct).slice(0, 4);
         const positions = [...list].sort((a, b) => b.value - a.value);
+        // R3.1: holdings as the shared asset cell (tile + name + symbol)
+        const avatar = (sym, color) => React.createElement('span', { className: 'ui-asset__av', 'aria-hidden': 'true', style: { background: window.MaerminTokens.alpha(color, 0x22), color: tileInk(color) } }, glyph(sym));
+        const asset = (name, sym, color, sub) => React.createElement('span', { className: 'ui-asset' }, avatar(sym, color),
+          React.createElement('span', { className: 'ui-asset__text' },
+            React.createElement('span', { className: 'ui-asset__name' }, name),
+            sub ? React.createElement('span', { className: 'ui-asset__sub' }, sub) : null));
+        const toneCls = (v) => v > 0 ? 'tone-gain' : v < 0 ? 'tone-loss' : '';
+        const signedMoney = (v) => `${v >= 0 ? '+' : ''}${money(v)}`;
 
-        const sectionTitle = txt => React.createElement('div', { style: { fontSize: 'var(--text-md)', fontWeight: '600', marginBottom: '1.1rem', color: currentTheme.text } }, txt);
-
-        const allocCard = React.createElement('div', { style: { background: currentTheme.card, border: `1px solid ${currentTheme.cardBorder}`, borderRadius: '16px', padding: '1.4rem 1.5rem' } },
-          sectionTitle(__('ovAllocByClass', 'Allocation by asset class')),
-          // Wraps on narrow screens: the legend moves below the donut.
-          React.createElement('div', { style: { display: 'flex', alignItems: 'center', gap: '1.6rem', flexWrap: 'wrap', justifyContent: 'center' } },
-            React.createElement('div', { style: { position: 'relative', width: '160px', height: '160px', flexShrink: 0 } },
-              React.createElement('svg', { role: 'img', 'aria-label': __('ovAllocAria', 'Allocation: {list}', { list: classes.map(ct => ct.label + ' ' + window.MaerminI18n.pct(ct.pct, 1)).join(', ') }), width: 160, height: 160, viewBox: '0 0 180 180', style: { transform: 'rotate(-90deg)' } },
-                React.createElement('circle', { cx: 90, cy: 90, r: 70, fill: 'none', stroke: currentTheme.inputBg, strokeWidth: 18 }),
+        const allocCard = React.createElement(UIC.Card, { title: __('ovAllocByClass', 'Allocation by asset class'), className: 'ui-ov-alloc' },
+          React.createElement('div', { className: 'ui-donut' },
+            React.createElement('div', { className: 'ui-donut__chart' },
+              React.createElement('svg', { role: 'img', 'aria-label': __('ovAllocAria', 'Allocation: {list}', { list: classes.map(ct => ct.label + ' ' + window.MaerminI18n.pct(ct.pct, 1)).join(', ') }), width: 160, height: 160, viewBox: '0 0 180 180', className: 'ui-donut__svg' },
+                React.createElement('circle', { cx: 90, cy: 90, r: 70, fill: 'none', stroke: 'var(--surface-2)', strokeWidth: 18 }),
                 ...donutSegs
               ),
-              React.createElement('div', { style: { position: 'absolute', inset: 0, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center' } },
-                React.createElement('div', { style: { fontFamily: "'Geist', sans-serif", fontSize: 'var(--text-xl)', fontWeight: '700', lineHeight: 1, color: currentTheme.text } }, String(stats.totalPositions)),
-                React.createElement('div', { style: { fontSize: 'var(--text-3xs)', color: gray, textTransform: 'uppercase', letterSpacing: '0.08em', marginTop: '0.15rem' } }, 'positions')
-              )
+              React.createElement('div', { className: 'ui-donut__center' },
+                React.createElement('b', { className: 'num' }, String(stats.totalPositions)),
+                React.createElement('span', null, __('ovPositionsWord', 'positions')))
             ),
-            React.createElement('div', { style: { flex: '1 1 200px', minWidth: 0, display: 'flex', flexDirection: 'column', gap: '0.7rem' } },
-              ...classes.map(ct => React.createElement('div', { key: ct.c, style: { display: 'flex', alignItems: 'center', gap: '0.6rem' } },
-                React.createElement('span', { style: { width: '9px', height: '9px', borderRadius: '3px', background: ct.color, flexShrink: 0 } }),
-                React.createElement('span', { style: { flex: 1, fontSize: 'var(--text-sm)', color: currentTheme.text } }, ct.label),
-                React.createElement('span', { style: { fontFamily: "'Geist', sans-serif", fontSize: 'var(--text-sm)', fontWeight: '600', color: currentTheme.text } }, window.MaerminI18n.pct(ct.pct, 1)),
-                React.createElement('span', { style: { fontSize: 'var(--text-xs)', color: gray, width: '78px', textAlign: 'right' } }, money(ct.value))
+            React.createElement('ul', { className: 'ui-donut__legend' },
+              ...classes.map(ct => React.createElement('li', { key: ct.c },
+                React.createElement('span', { className: 'ui-swatch', 'aria-hidden': 'true', style: { background: ct.color } }),
+                React.createElement('span', { className: 'ui-donut__label' }, ct.label),
+                React.createElement('b', { className: 'num' }, window.MaerminI18n.pct(ct.pct, 1)),
+                React.createElement('span', { className: cxs('num', 'ui-donut__money') }, money(ct.value))
               ))
             )
           )
         );
 
-        const perfCard = React.createElement('div', { style: { background: currentTheme.card, border: `1px solid ${currentTheme.cardBorder}`, borderRadius: '16px', padding: '1.4rem 1.5rem' } },
-          sectionTitle(__('ovTopPerformers', 'Top performers')),
-          React.createElement('div', { style: { display: 'flex', flexDirection: 'column', gap: '0.55rem' } },
-            performers.length
-              ? performers.map(p => React.createElement('div', { key: p.cat + p.sym, style: { display: 'flex', alignItems: 'center', gap: '0.8rem', padding: '0.5rem 0.1rem' } },
-                  React.createElement('div', { style: { width: '34px', height: '34px', borderRadius: '9px', background: `${window.MaerminTokens.alpha(p.color, 0x22)}`, color: tileInk(p.color), display: 'flex', alignItems: 'center', justifyContent: 'center', fontFamily: "'Geist', sans-serif", fontWeight: '700', fontSize: 'var(--text-xs)', flexShrink: 0 } }, glyph(p.sym)),
-                  React.createElement('div', { style: { flex: 1, minWidth: 0 } },
-                    React.createElement('div', { style: { fontSize: 'var(--text-sm)', fontWeight: '600', color: currentTheme.text, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' } }, p.name),
-                    React.createElement('div', { style: { fontSize: 'var(--text-xs)', color: gray, fontFamily: "'Geist Mono', monospace" } }, glyph(p.sym))
-                  ),
-                  React.createElement('div', { style: { textAlign: 'right' } },
-                    React.createElement('div', { style: { fontFamily: "'Geist', sans-serif", fontSize: 'var(--text-base)', fontWeight: '600', color: p.pnlPct >= 0 ? green : red } }, fmtPct(p.pnlPct)),
-                    React.createElement('div', { style: { fontSize: 'var(--text-xs)', color: gray } }, money(p.value))
-                  )
-                ))
-              : React.createElement('div', { style: { fontSize: 'var(--text-sm)', color: gray } }, __('ovNoPriced', 'No priced positions yet — refresh prices to populate.'))
-          )
+        const perfCard = React.createElement(UIC.Card, { title: __('ovTopPerformers', 'Top performers'), className: 'ui-ov-perf' },
+          performers.length
+            ? React.createElement('ul', { className: 'ui-rank' },
+                performers.map(p => React.createElement('li', { key: p.cat + p.sym },
+                  asset(p.name, p.sym, p.color, glyph(p.sym)),
+                  React.createElement('span', { className: 'ui-rank__side' },
+                    React.createElement('b', { className: 'num ' + toneCls(p.pnlPct) }, (p.pnlPct >= 0 ? '▲ ' : '▼ ') + fmtPct(p.pnlPct)),
+                    React.createElement('span', { className: 'num' }, money(p.value))))))
+            : React.createElement('p', { className: 'ui-muted' }, __('ovNoPriced', 'No priced positions yet — refresh prices to populate.'))
         );
-
-        const th = (label, align, pad, width) => React.createElement('th', { key: label, style: { textAlign: align, padding: pad, fontSize: 'var(--text-2xs)', fontWeight: '600', textTransform: 'uppercase', letterSpacing: '0.06em', color: gray, width } }, label);
 
         // P4-2: fully sold positions from the one FIFO ledger (same cost basis
         // as the tax report and the FIFO tab), for the transactions shown here.
@@ -4281,117 +4348,57 @@ function InvestmentTracker() {
           try { return L && L.closedPositions ? L.closedPositions(L.build(overviewTransactions, { exchangeRate, fxAt, perPortfolio: true })) : []; } catch (e) { return []; }
         });
         const showClosed = posTab === 'closed';
-        const tabBtn = (id, label) => React.createElement('button', {
-          type: 'button', 'aria-pressed': posTab === id, 'data-pos-tab': id, onClick: () => setPosTab(id),
-          style: { padding: '0.3rem 0.7rem', fontSize: 'var(--text-xs)', fontWeight: 600, borderRadius: '7px', cursor: 'pointer', minHeight: '24px',
-            background: posTab === id ? (currentTheme.accentFill || currentTheme.accent) : 'transparent', color: posTab === id ? '#ffffff' : currentTheme.textSecondary,
-            border: `1px solid ${posTab === id ? 'transparent' : currentTheme.cardBorder}` }
-        }, label);
-        const closedTable = React.createElement('table', { 'data-testid': 'closed-positions', style: { width: '100%', borderCollapse: 'collapse', fontVariantNumeric: 'tabular-nums' } },
-          React.createElement('thead', null,
-            React.createElement('tr', { style: { borderTop: `1px solid ${currentTheme.cardBorder}` } },
-              th(__('colAsset', 'Asset'), 'left', '0.7rem 1.5rem'),
-              th(__('colDisposedCost', 'Cost basis sold'), 'right', '0.7rem 0.75rem'),
-              th(__('colProceeds', 'Proceeds'), 'right', '0.7rem 0.75rem'),
-              th(__('colRealizedPnl', 'Realized P&L'), 'right', '0.7rem 1.5rem')
-            )
-          ),
-          React.createElement('tbody', null,
-            closedRows.length === 0
-              ? React.createElement('tr', null, React.createElement('td', { colSpan: 4, style: { padding: '1.25rem 1.5rem', fontSize: 'var(--text-sm)', color: gray } }, __('ovNoClosed', 'No closed positions yet. A position appears here once it is sold completely.')))
-              : closedRows.map(c => {
-                  const color = catMeta(c.category).color, up = c.gain >= 0;
-                  return React.createElement('tr', {
-                    key: c.key, 'data-closed-key': c.key,
-                    ...window.MaerminUtils.clickable(() => setPositionDetail({ sym: c.symbol, name: c.name, cat: c.category, amount: 0, avgPrice: 0, closed: true, closedRow: c })),
-                    'aria-label': __('ovPosDetails', '{name} details', { name: c.symbolName || c.symbol }),
-                    style: { borderTop: `1px solid ${currentTheme.cardBorder}`, cursor: 'pointer' }
-                  },
-                    React.createElement('td', { style: { padding: '0.85rem 1.5rem' } },
-                      React.createElement('div', { style: { display: 'flex', alignItems: 'center', gap: '0.7rem' } },
-                        React.createElement('div', { style: { width: '32px', height: '32px', borderRadius: '9px', background: `${window.MaerminTokens.alpha(color, 0x22)}`, color: tileInk(color), display: 'flex', alignItems: 'center', justifyContent: 'center', fontFamily: "'Geist', sans-serif", fontWeight: '700', fontSize: 'var(--text-xs)', flexShrink: 0 } }, glyph(c.symbol)),
-                        React.createElement('div', null,
-                          React.createElement('div', { style: { fontSize: 'var(--text-base)', fontWeight: '600', color: currentTheme.text } }, c.symbolName || c.symbol),
-                          React.createElement('div', { style: { fontSize: 'var(--text-2xs)', color: gray } }, __('ovClosedOn', 'sold {date}', { date: window.MaerminI18n.date(c.closed) }))
-                        )
-                      )
-                    ),
-                    React.createElement('td', { style: { textAlign: 'right', padding: '0.85rem 0.75rem', fontFamily: "'Geist', sans-serif", fontSize: 'var(--text-sm)', color: currentTheme.text } }, money(c.cost)),
-                    React.createElement('td', { style: { textAlign: 'right', padding: '0.85rem 0.75rem', fontFamily: "'Geist', sans-serif", fontSize: 'var(--text-sm)', color: currentTheme.text } }, money(c.proceeds)),
-                    React.createElement('td', { style: { textAlign: 'right', padding: '0.85rem 1.5rem' } },
-                      React.createElement('div', { style: { fontFamily: "'Geist', sans-serif", fontSize: 'var(--text-base)', fontWeight: '600', color: up ? green : red } }, `${up ? '+' : ''}${money(c.gain)}`),
-                      React.createElement('div', { style: { fontSize: 'var(--text-xs)', color: up ? green : red } }, c.ret === null ? '—' : fmtPct(c.ret * 100))
-                    )
-                  );
-                })
-          )
-        );
-
-        const positionsCard = React.createElement('div', { style: { background: currentTheme.card, border: `1px solid ${currentTheme.cardBorder}`, borderRadius: '16px', overflow: 'hidden', marginBottom: '1.5rem' } },
-          React.createElement('div', { style: { display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '0.75rem', flexWrap: 'wrap', padding: '1.25rem 1.5rem 0.9rem' } },
-            React.createElement('div', { style: { display: 'flex', alignItems: 'center', gap: '0.75rem', flexWrap: 'wrap' } },
-              React.createElement('div', { style: { fontSize: 'var(--text-md)', fontWeight: '600', color: currentTheme.text } }, t.positions || 'Positions'),
-              React.createElement('div', { role: 'group', 'aria-label': __('ovPosShow', 'Show positions'), style: { display: 'flex', gap: '0.3rem' } },
-                tabBtn('open', __('ovPosOpen', 'Open')),
-                tabBtn('closed', __('ovPosClosed', 'Closed ({n})', { n: closedRows.length })))
-            ),
-            React.createElement('div', { onClick: () => setActiveView('transactions'), style: { fontSize: 'var(--text-xs)', color: gray, cursor: 'pointer' } }, __('ovViewAll', 'View all →'))
-          ),
-          // Phones: the table scrolls inside the card instead of being clipped by it.
-          React.createElement('div', { role: 'region', tabIndex: 0, 'aria-label': showClosed ? __('ovPosClosedAria', 'Closed positions') : (t.positions || 'Positions'), style: { overflowX: 'auto', maxWidth: '100%' } },
-          showClosed ? closedTable : React.createElement('table', { className: 'mx-table-cards', style: { width: '100%', borderCollapse: 'collapse', fontVariantNumeric: 'tabular-nums' } },
-            React.createElement('thead', null,
-              React.createElement('tr', { style: { borderTop: `1px solid ${currentTheme.cardBorder}` } },
-                th(__('colAsset', 'Asset'), 'left', '0.7rem 1.5rem'),
-                th(__('colQty', 'Qty'), 'right', '0.7rem 0.75rem'),
-                th(t.price || 'Price', 'right', '0.7rem 0.75rem'),
-                th(__('colValue', 'Value'), 'right', '0.7rem 0.75rem'),
-                th(__('colWeight', 'Weight'), 'left', '0.7rem 1rem', '120px'),
-                th(__('colPnl', 'P&L'), 'right', '0.7rem 1.5rem')
-              )
-            ),
-            React.createElement('tbody', null,
-              positions.map(p => React.createElement('tr', {
-                key: p.cat + p.sym,
-                ...window.MaerminUtils.clickable(() => setPositionDetail({
-                  sym: p.sym, name: p.name, cat: p.cat, amount: p.amount,
-                  avgPrice: p.amount > 0 ? p.cost / p.amount : 0
-                })),
-                'aria-label': __('ovPosDetails', '{name} details', { name: p.name }),
-                style: { borderTop: `1px solid ${currentTheme.cardBorder}`, cursor: 'pointer' }
-              },
-                React.createElement('td', { className: 'mx-card-lead', style: { padding: '0.85rem 1.5rem' } },
-                  React.createElement('div', { style: { display: 'flex', alignItems: 'center', gap: '0.7rem' } },
-                    React.createElement('div', { style: { width: '32px', height: '32px', borderRadius: '9px', background: `${window.MaerminTokens.alpha(p.color, 0x22)}`, color: tileInk(p.color), display: 'flex', alignItems: 'center', justifyContent: 'center', fontFamily: "'Geist', sans-serif", fontWeight: '700', fontSize: 'var(--text-xs)', flexShrink: 0 } }, glyph(p.sym)),
-                    React.createElement('div', null,
-                      React.createElement('div', { style: { fontSize: 'var(--text-base)', fontWeight: '600', color: currentTheme.text } }, p.name),
-                      React.createElement('div', { style: { fontSize: 'var(--text-2xs)', color: gray, fontFamily: "'Geist Mono', monospace" } }, glyph(p.sym))
-                    )
-                  )
-                ),
-                React.createElement('td', { 'data-label': __('colQty', 'Qty'), style: { textAlign: 'right', padding: '0.85rem 0.75rem', fontFamily: "'Geist Mono', monospace", fontSize: 'var(--text-sm)', color: currentTheme.textSecondary } }, window.MaerminI18n.num(p.amount, { min: 0, max: 4 })),
-                React.createElement('td', { 'data-label': t.price || 'Price', style: { textAlign: 'right', padding: '0.85rem 0.75rem', fontFamily: "'Geist', sans-serif", fontSize: 'var(--text-sm)', color: currentTheme.text } },
-                  p.price > 0 ? (p.cat === 'bonds' ? window.MaerminI18n.num(p.price * 100, 2) + ' %' : money(p.price)) : '—', // P5-3.9: a bond's price in % of nominal
-                  // Valued at cost because no quote has ever been fetched for it.
-                  window.MaerminMarket.isCostFallback(p.sym) && React.createElement('div', { 'data-testid': 'no-price', title: __('noPriceTitle', 'No market price available yet — valued at cost basis.'), style: { fontSize: 'var(--text-3xs)', color: gray } }, __('noPriceAtCost', 'no price · at cost'))
-                ),
-                React.createElement('td', { 'data-label': __('colValue', 'Value'), style: { textAlign: 'right', padding: '0.85rem 0.75rem', fontFamily: "'Geist', sans-serif", fontSize: 'var(--text-base)', fontWeight: '600', color: currentTheme.text } }, money(p.value)),
-                React.createElement('td', { 'data-label': __('colWeight', 'Weight'), style: { padding: '0.85rem 1rem' } },
-                  React.createElement('div', { style: { display: 'flex', alignItems: 'center', gap: '0.5rem' } },
-                    React.createElement('div', { style: { flex: 1, height: '5px', background: currentTheme.inputBg, borderRadius: '3px', overflow: 'hidden' } },
-                      React.createElement('div', { style: { width: `${totalVal > 0 ? (p.value / totalVal * 100) : 0}%`, height: '100%', background: p.color, borderRadius: '3px' } })
-                    ),
-                    React.createElement('span', { style: { fontSize: 'var(--text-xs)', color: gray, fontFamily: "'Geist', sans-serif" } }, window.MaerminI18n.pct(totalVal > 0 ? (p.value / totalVal * 100) : 0, 1))
-                  )
-                ),
-                React.createElement('td', { 'data-label': __('colPnl', 'P&L'), style: { textAlign: 'right', padding: '0.85rem 1.5rem' } },
-                  React.createElement('div', { style: { fontFamily: "'Geist', sans-serif", fontSize: 'var(--text-base)', fontWeight: '600', color: p.pnl >= 0 ? green : red } }, `${p.pnl >= 0 ? '+' : ''}${money(p.pnl)}`),
-                  React.createElement('div', { style: { fontSize: 'var(--text-xs)', color: p.pnl >= 0 ? green : red } }, fmtPct(p.pnlPct))
-                )
-              ))
-            )
-          ))
-        );
+        const openDetail = (p) => setPositionDetail({ sym: p.sym, name: p.name, cat: p.cat, amount: p.amount, avgPrice: p.amount > 0 ? p.cost / p.amount : 0 });
+        const openCols = [
+          { key: 'asset', label: __('colAsset', 'Asset'), phone: 'title', render: (p) => asset(p.name, p.sym, p.color, glyph(p.sym)) },
+          { key: 'qty', label: __('colQty', 'Qty'), align: 'right', priority: 2, phone: 'meta', render: (p) => window.MaerminI18n.num(p.amount, p.amount % 1 === 0 ? 0 : 4) },
+          { key: 'price', label: t.price || 'Price', align: 'right', priority: 2, render: (p) => React.createElement(React.Fragment, null,
+              p.price > 0 ? (p.cat === 'bonds' ? window.MaerminI18n.num(p.price * 100, 2) + ' %' : money(p.price)) : '—', // P5-3.9: a bond's price in % of nominal
+              // Valued at cost because no quote has ever been fetched for it.
+              window.MaerminMarket.isCostFallback(p.sym) && React.createElement('span', { className: 'ui-cell-note', 'data-testid': 'no-price', title: __('noPriceTitle', 'No market price available yet — valued at cost basis.') }, __('noPriceAtCost', 'no price · at cost'))) },
+          { key: 'value', label: __('colValue', 'Value'), align: 'right', phone: 'value', render: (p) => money(p.value) },
+          { key: 'weight', label: __('colWeight', 'Weight'), priority: 3, render: (p) => {
+              const w = totalVal > 0 ? (p.value / totalVal * 100) : 0;
+              return React.createElement('span', { className: 'ui-weight' },
+                React.createElement('span', { className: 'ui-weight__bar', 'aria-hidden': 'true' }, React.createElement('span', { style: { width: w + '%', background: p.color } })),
+                React.createElement('span', { className: 'num' }, window.MaerminI18n.pct(w, 1)));
+            } },
+          { key: 'pnl', label: __('colPnl', 'P&L'), align: 'right', phone: 'sub', render: (p) => React.createElement('span', { className: 'ui-pnl ' + toneCls(p.pnl) },
+              React.createElement('b', null, signedMoney(p.pnl)), React.createElement('span', null, (p.pnl >= 0 ? '▲ ' : '▼ ') + fmtPct(p.pnlPct))) }
+        ];
+        const closedCols = [
+          { key: 'asset', label: __('colAsset', 'Asset'), phone: 'title', render: (c) => asset(c.symbolName || c.symbol, c.symbol, catMeta(c.category).color, __('ovClosedOn', 'sold {date}', { date: window.MaerminI18n.date(c.closed) })) },
+          { key: 'cost', label: __('colDisposedCost', 'Cost basis sold'), align: 'right', priority: 2, phone: 'meta', render: (c) => money(c.cost) },
+          { key: 'proceeds', label: __('colProceeds', 'Proceeds'), align: 'right', phone: 'value', render: (c) => money(c.proceeds) },
+          { key: 'gain', label: __('colRealizedPnl', 'Realized P&L'), align: 'right', phone: 'sub', render: (c) => React.createElement('span', { className: 'ui-pnl ' + toneCls(c.gain) },
+              React.createElement('b', null, signedMoney(c.gain)), React.createElement('span', null, c.ret === null ? '—' : (c.ret >= 0 ? '▲ ' : '▼ ') + fmtPct(c.ret * 100))) }
+        ];
+        const posTable = showClosed
+          ? React.createElement(UIC.Table, {
+              'data-testid': 'closed-positions', caption: __('ovPosClosedAria', 'Closed positions'), columns: closedCols, rows: closedRows,
+              rowKey: (c) => c.key,
+              rowProps: (c) => Object.assign({ 'data-closed-key': c.key, 'aria-label': __('ovPosDetails', '{name} details', { name: c.symbolName || c.symbol }) },
+                window.MaerminUtils.clickable(() => setPositionDetail({ sym: c.symbol, name: c.name, cat: c.category, amount: 0, avgPrice: 0, closed: true, closedRow: c }))),
+              empty: React.createElement('p', { className: 'ui-muted ui-pad' }, __('ovNoClosed', 'No closed positions yet. A position appears here once it is sold completely.'))
+            })
+          : React.createElement(UIC.Table, {
+              'data-testid': 'open-positions', caption: t.positions || 'Positions', columns: openCols, rows: positions,
+              rowKey: (p) => p.cat + '|' + p.sym,
+              rowProps: (p) => Object.assign({ 'aria-label': __('ovPosDetails', '{name} details', { name: p.name }) }, window.MaerminUtils.clickable(() => openDetail(p)))
+            });
+        const positionsCard = React.createElement(UIC.Card, {
+          variant: 'plain', className: 'ui-ov-positions',
+          title: t.positions || 'Positions',
+          action: React.createElement('div', { className: 'ui-ov-positions__tools' },
+            React.createElement(UIC.Segmented, {
+              size: 'sm', label: __('ovPosShow', 'Show positions'), value: posTab, onChange: setPosTab,
+              options: [
+                { value: 'open', label: __('ovPosOpen', 'Open'), attrs: { 'data-pos-tab': 'open' } },
+                { value: 'closed', label: __('ovPosClosed', 'Closed ({n})', { n: closedRows.length }), attrs: { 'data-pos-tab': 'closed' } }
+              ]
+            }),
+            React.createElement(UIC.Button, { variant: 'quiet', size: 'sm', onClick: () => setActiveView('transactions') }, __('ovViewAll', 'View all →')))
+        }, posTable);
 
         // Return attribution: which holdings drove the total return (reuses the
         // already-computed `list` with per-position value + cost — no recompute).
@@ -4405,162 +4412,72 @@ function InvestmentTracker() {
         return React.createElement(React.Fragment, null,
           // Two columns where they fit, one on phones ('1fr 1fr' could not shrink
           // below the allocation card's content and pushed the page 390px wide).
-          React.createElement('div', { style: { display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(min(100%, 320px), 1fr))', gap: '1rem', marginBottom: '1.25rem' } }, allocCard, perfCard),
+          React.createElement('div', { className: 'ui-ov-pair' }, allocCard, perfCard),
           positionsCard,
-          attributionPanel,
-          positionDetail && window.MaerminFeatures3 && window.MaerminFeatures3.PositionDetailModal &&
-            React.createElement(window.MaerminFeatures3.PositionDetailModal, {
-              position: positionDetail, transactions: overviewTransactions, prices,
-              theme: currentTheme, formatPrice, getCurrencySymbol, t,
-              workerUrl: marketWorker,
-              // P5-5.4: open the Research page for this position
-              onResearch: window.MaerminResearch && positionDetail.cat !== 'crypto' && positionDetail.cat !== 'skins' ? () => { setResearchSymbol(String(positionDetail.sym || '').toUpperCase()); setPositionDetail(null); setActiveView('research'); } : null,
-              closeSeries: window.MaerminCloseHistory ? closeSeriesEUR[window.MaerminCloseHistory.keyOf(positionDetail.cat, positionDetail.sym)] : null,
-              buildPath: buildValuePath, // P5-2.4: the holding's own monthly returns
-              // A split may have been added/removed inside the modal — re-run
-              // the positions overlay so values and cost basis update.
-              onClose: () => { setPositionDetail(null); setCorpActionsRev(n => n + 1); }
-            })
+          attributionPanel
+
         );
       })()
       )
     };
+    // The position dialog (opened from the positions table and the holdings map).
+    const renderPositionModal = () => (
+      positionDetail && window.MaerminFeatures3 && window.MaerminFeatures3.PositionDetailModal &&
+        React.createElement(window.MaerminFeatures3.PositionDetailModal, {
+          position: positionDetail, transactions: overviewTransactions, prices,
+          theme: currentTheme, formatPrice, getCurrencySymbol, t,
+          workerUrl: marketWorker,
+          // P5-5.4: open the Research page for this position
+          onResearch: window.MaerminResearch && positionDetail.cat !== 'crypto' && positionDetail.cat !== 'skins' ? () => { setResearchSymbol(String(positionDetail.sym || '').toUpperCase()); setPositionDetail(null); setActiveView('research'); } : null,
+          closeSeries: window.MaerminCloseHistory ? closeSeriesEUR[window.MaerminCloseHistory.keyOf(positionDetail.cat, positionDetail.sym)] : null,
+          buildPath: buildValuePath, // P5-2.4: the holding's own monthly returns
+          // A split may have been added/removed inside the modal — re-run
+          // the positions overlay so values and cost basis update.
+          onClose: () => { setPositionDetail(null); setCorpActionsRev(n => n + 1); }
+        })
+    );
     const ovOrder = window.MaerminDashboard ? window.MaerminDashboard.sectionOrder(window.MaerminDashboard.load(), Object.keys(ovSections)) : Object.keys(ovSections);
     const ovSlot = (i) => { const id = ovOrder[i]; if (!id || !dashVis(id)) return null; const el = ovSections[id](); return el ? React.createElement('div', { key: 'ov-' + id, 'data-ov-section': id }, el) : null; };
 
-    return React.createElement('div', { style: { padding: '1.5rem' } },
-
-
-      // ── Header ──────────────────────────────────────────────────────────
-      React.createElement('div', {
-        style: { display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '1.25rem', flexWrap: 'wrap', gap: '0.75rem' }
-      },
-        React.createElement('div', null,
-          React.createElement('h2', { style: { color: currentTheme.text, fontSize: 'var(--text-title-lg)', fontWeight: '800', marginBottom: '0.125rem' } }, t.navOverview || 'Overview'),
-          React.createElement('div', { style: { color: currentTheme.textSecondary, fontSize: 'var(--text-xs)' } },
-            isAllMode
-              ? `${__('ovAllCombined', 'All {n} {n:portfolio|portfolios} combined', { n: portfolios.length })} · ${lastRefresh ? __('ovLastRefresh', 'Last refresh {time}', { time: window.MaerminI18n.date(lastRefresh, 'time') }) : __('ovRefreshToUpdate', 'Refresh to update')}`
-              : `${selectedPortfolio?.name || t.portfolio || 'Portfolio'} · ${lastRefresh ? __('ovLastRefresh', 'Last refresh {time}', { time: window.MaerminI18n.date(lastRefresh, 'time') }) : __('ovRefreshToUpdate', 'Refresh to update')}`
-          )
-        ),
-        React.createElement('div', { style: { display: 'flex', gap: '0.5rem', flexWrap: 'wrap', alignItems: 'center' } },
-          // Worker status indicator — click opens API settings.
-          React.createElement('div', {
-            onClick: () => setShowApiSettings(true), title: wsTitle,
-            style: { display: 'flex', alignItems: 'center', gap: '0.4rem', minHeight: '40px', padding: '0.5rem 0.7rem', background: currentTheme.inputBg, border: `1px solid ${currentTheme.cardBorder}`, borderRadius: '8px', cursor: 'pointer', fontSize: 'var(--text-xs)', color: currentTheme.textSecondary }
-          },
-            React.createElement('span', { style: { width: 9, height: 9, borderRadius: '50%', background: wsColor, flexShrink: 0, boxShadow: `0 0 6px ${wsColor}` } }),
-            wsLabel
-          ),
+    return React.createElement('div', { className: 'ui-ov' },
+      // R3.1: the view's toolbar. Title, portfolio scope and Add Transaction are
+      // in the page header (R2.1); here: freshness, price service, FX, Import, Refresh.
+      React.createElement('div', { className: 'ui-ov-toolbar', 'data-testid': 'ov-toolbar' },
+        React.createElement('span', { className: 'ui-ov-toolbar__meta' },
+          isAllMode
+            ? `${__('ovAllCombined', 'All {n} {n:portfolio|portfolios} combined', { n: portfolios.length })} · ${lastRefresh ? __('ovLastRefresh', 'Last refresh {time}', { time: window.MaerminI18n.date(lastRefresh, 'time') }) : __('ovRefreshToUpdate', 'Refresh to update')}`
+            : `${selectedPortfolio?.name || t.portfolio || 'Portfolio'} · ${lastRefresh ? __('ovLastRefresh', 'Last refresh {time}', { time: window.MaerminI18n.date(lastRefresh, 'time') }) : __('ovRefreshToUpdate', 'Refresh to update')}`),
+        React.createElement('div', { className: 'ui-ov-toolbar__actions' },
+          // Price service status - opens API settings.
+          React.createElement('button', { type: 'button', className: 'ui-status', 'data-state': wsState, onClick: () => setShowApiSettings(true), title: wsTitle },
+            React.createElement('span', { className: 'ui-status__dot', 'aria-hidden': 'true' }), wsLabel),
           // Outdated Worker: one notice that leads to the update steps.
           !demoMode && workerVersion && workerVersion.state === 'outdated' && React.createElement('button', {
-            type: 'button', 'data-testid': 'worker-outdated', onClick: () => setShowApiSettings(true),
-            title: __('wvOutdatedTitle', 'Your Worker is older than this app expects ({e}). Some features may fail until you update it.', { e: workerVersion.expected }),
-            style: { display: 'flex', alignItems: 'center', gap: '0.4rem', minHeight: '40px', padding: '0.5rem 0.7rem', background: `${window.MaerminTokens.alpha(currentTheme.warning, 0x14)}`, border: `1px solid ${window.MaerminTokens.alpha(currentTheme.warning, 0x55)}`, borderRadius: '8px', cursor: 'pointer', color: currentTheme.warning, fontSize: 'var(--text-xs)', fontWeight: '600' }
+            type: 'button', className: 'ui-status', 'data-state': 'warn', 'data-testid': 'worker-outdated', onClick: () => setShowApiSettings(true),
+            title: __('wvOutdatedTitle', 'Your Worker is older than this app expects ({e}). Some features may fail until you update it.', { e: workerVersion.expected })
           }, __('wvOutdated', 'Worker outdated → update')),
-          // Data-health chip — only appears when something is stale/missing.
+          // Data health - only when something is stale or missing.
           dqHealth && (dqHealth.stale + dqHealth.missing) > 0 && React.createElement('button', {
-            type: 'button', onClick: () => fetchPrices(), title: [
+            type: 'button', className: 'ui-status', 'data-state': 'warn', onClick: () => fetchPrices(), title: [
               dqHealth.stale ? __('dqPricesStale', '{n} {n:price|prices} stale', { n: dqHealth.stale }) : '',
               dqHealth.missing ? __('dqPricesMissing', '{n} {n:price|prices} missing', { n: dqHealth.missing }) : ''
-            ].filter(Boolean).join(' · ') + ' — ' + __('dqClickRefresh', 'click to refresh prices'),
-            style: { display: 'flex', alignItems: 'center', gap: '0.4rem', minHeight: '40px', padding: '0.5rem 0.7rem', background: `${window.MaerminTokens.alpha(currentTheme.warning, 0x14)}`, border: `1px solid ${window.MaerminTokens.alpha(currentTheme.warning, 0x55)}`, borderRadius: '8px', cursor: 'pointer', fontSize: 'var(--text-xs)', color: currentTheme.warning, fontWeight: '600', fontFamily: 'inherit' }
+            ].filter(Boolean).join(' · ') + ' — ' + __('dqClickRefresh', 'click to refresh prices')
           },
-            React.createElement('span', { style: { fontWeight: '800' }, 'aria-hidden': 'true' }, '!'),
+            React.createElement('span', { 'aria-hidden': 'true' }, '!'),
             dqHealth.stale ? __('dqStaleChip', '{n} stale', { n: dqHealth.stale + dqHealth.missing }) : __('dqMissingChip', '{n} missing', { n: dqHealth.missing })
           ),
-          // FX transparency chip — shows the USD→EUR rate, source + age on hover.
-          fxInfo && fxInfo.rate && React.createElement('div', {
-            title: __('fxChipTitle', 'FX: {label} (source: {source})', { label: fxInfo.label, source: fxInfo.source }),
-            style: { display: 'flex', alignItems: 'center', minHeight: '40px', padding: '0.5rem 0.7rem', background: currentTheme.inputBg, border: `1px solid ${currentTheme.cardBorder}`, borderRadius: '8px', fontSize: 'var(--text-xs)', color: currentTheme.textSecondary }
+          // FX transparency - the USD→EUR rate, source and age on hover.
+          fxInfo && fxInfo.rate && React.createElement('span', {
+            className: 'ui-status num', title: __('fxChipTitle', 'FX: {label} (source: {source})', { label: fxInfo.label, source: fxInfo.source })
           }, `$→€ ${window.MaerminI18n.num(fxInfo.rate, 3)}`),
-          // Demo toggle — instant value for first-run users; hidden once the
-          // vault has its own transactions (Phase 3: clutter on phones).
-          demoMode
-            ? null
-            : transactions.length > 0 ? null : React.createElement('button', { onClick: enterDemo, title: __('demoTryTitle', 'Load sample data to explore the app instantly — no setup'), style: { minHeight: '40px', padding: '0.5rem 0.9rem', background: currentTheme.inputBg, color: currentTheme.text, border: `1px solid ${currentTheme.cardBorder}`, borderRadius: '8px', cursor: 'pointer', fontSize: 'var(--text-base)' } }, __('demoTry', '★ Try demo')),
-          React.createElement('button', { onClick: () => openTransactionModal(), style: { padding: '0.5rem 1rem', background: (currentTheme.accentFill || currentTheme.accent), color: 'var(--on-accent)', border: 'none', borderRadius: '8px', cursor: 'pointer', fontWeight: '600', fontSize: 'var(--text-base)' } }, __('addShort', '+ Add')),
-          React.createElement('button', { onClick: () => setShowImportModal(true), style: { padding: '0.5rem 1rem', background: currentTheme.inputBg, color: currentTheme.text, border: `1px solid ${currentTheme.cardBorder}`, borderRadius: '8px', cursor: 'pointer', fontSize: 'var(--text-base)' } }, __('importBtn', '↑ Import')),
-          React.createElement('button', { onClick: fetchPrices, disabled: loading, style: { padding: '0.5rem 1rem', background: loading ? currentTheme.inputBg : `${window.MaerminTokens.alpha(currentTheme.accent, 0x18)}`, color: loading ? currentTheme.textSecondary : currentTheme.accent, border: `1px solid ${window.MaerminTokens.alpha(currentTheme.accent, 0x33)}`, borderRadius: '8px', cursor: loading ? 'not-allowed' : 'pointer', fontSize: 'var(--text-base)', fontWeight: '600', display: 'flex', alignItems: 'center', gap: '0.375rem' } }, loading ? __('refreshing', '◎ Refreshing...') : __('refreshPrices', '↻ Refresh prices'))
+          // Sample data for a first run (hidden once the vault has its own transactions).
+          !demoMode && transactions.length === 0 && React.createElement(UIC.Button, { size: 'sm', onClick: enterDemo, title: __('demoTryTitle', 'Load sample data to explore the app instantly — no setup') }, __('demoTry', '★ Try demo')),
+          React.createElement(UIC.Button, { size: 'sm', onClick: () => setShowImportModal(true) }, __('importBtn', '↑ Import')),
+          React.createElement(UIC.Button, { size: 'sm', onClick: fetchPrices, disabled: loading }, loading ? __('refreshing', '◎ Refreshing...') : __('refreshPrices', '↻ Refresh prices')),
+          portfolios.length > 1 && React.createElement(UIC.Button, { size: 'sm', variant: 'quiet', onClick: () => setActiveView('portfolios') }, __('managePortfolios', 'Manage portfolios →'))
         )
       ),
 
-      // ── Portfolio selector tabs ──────────────────────────────────────────
-      React.createElement('div', {
-        role: 'group', 'aria-label': __('ovShowPortfolio', 'Show portfolio'),
-        style: { display: 'flex', gap: '0.375rem', marginBottom: '1.5rem', flexWrap: 'wrap', alignItems: 'center' }
-      },
-        // All Portfolios tab
-        React.createElement('button', {
-          'aria-pressed': overviewMode === 'all',
-          onClick: () => setActivePortfolioId(window.MaerminMetrics.ALL_PORTFOLIOS),
-          style: {
-            display: 'flex', alignItems: 'center', gap: '0.4rem',
-            padding: '0.375rem 0.875rem',
-            background: overviewMode === 'all' ? `${window.MaerminTokens.alpha(currentTheme.accent, 0x20)}` : currentTheme.inputBg,
-            border: `1px solid ${overviewMode === 'all' ? currentTheme.accent : currentTheme.cardBorder}`,
-            borderRadius: '8px', cursor: 'pointer', transition: 'all 0.1s',
-            fontSize: 'var(--text-sm)', fontWeight: overviewMode === 'all' ? '700' : '400',
-            color: overviewMode === 'all' ? currentTheme.accent : currentTheme.text
-          }
-        },
-          React.createElement('span', { style: { fontSize: 'var(--text-2xs)' } }, '◈'),
-          __('allPortfolios', 'All Portfolios')
-        ),
-        // Divider
-        React.createElement('div', { style: { width: 1, height: 20, background: currentTheme.cardBorder, margin: '0 0.125rem' } }),
-        // Individual portfolio tabs
-        ...portfolios.map(p =>
-          React.createElement('button', {
-            key: p.id,
-            'aria-pressed': overviewMode === p.id,
-            onClick: () => setActivePortfolioId(p.id),
-            style: {
-              display: 'flex', alignItems: 'center', gap: '0.4rem',
-              padding: '0.375rem 0.875rem',
-              background: overviewMode === p.id ? `${window.MaerminTokens.alpha(p.color, 0x18)}` : currentTheme.inputBg,
-              border: `1px solid ${overviewMode === p.id ? p.color : currentTheme.cardBorder}`,
-              borderRadius: '8px', cursor: 'pointer', transition: 'all 0.1s',
-              fontSize: 'var(--text-sm)', fontWeight: overviewMode === p.id ? '700' : '400',
-              color: currentTheme.text
-            }
-          },
-            React.createElement('div', { style: { width: 7, height: 7, borderRadius: '50%', background: p.color, flexShrink: 0 } }),
-            p.name
-          )
-        ),
-        React.createElement('button', {
-          onClick: () => setActiveView('portfolios'),
-          style: { fontSize: 'var(--text-xs)', color: currentTheme.textSecondary, background: 'none', border: 'none', cursor: 'pointer', marginLeft: 'auto', padding: '0 0.25rem' }
-        }, __('managePortfolios', 'Manage portfolios →'))
-      ),
-
-      // ── Hero: total portfolio value ─────────────────────────────────────
-      // The history chart already combines the big value, the all-time return
-      // and the 1H…Max timeframe tabs — so it IS the hero. Rendered first.
-      // ── The three main sections, in the order set in Customize Overview (P4-7).
-      //    Default: value chart (the hero), stat cards, allocation; the notices
-      //    below stay between the second and the third section.
-      ovSlot(0),
-
-      // ── Stats cards (mockup parity: Invested · Total Return · Dividends · Health) ──
-      ovSlot(1),
-
-      // ── KPI strip removed: Dividends + Health now live in the stat cards above
-      //    (Net Worth / FIRE remain reachable from their own sidebar views).
-      false &&
-        React.createElement(StableViews.DashboardKpiStrip, {
-          portfolio: overviewPortfolio,
-          prices, priceHistory,
-          transactions: overviewTransactions,
-          portfolioValue: stats.totalValue + (ovCash || 0),
-          theme: currentTheme, t, formatPrice, getCurrencySymbol, setActiveView
-        }),
-
-      // ── Chart ────────────────────────────────────────────────────────────
-      // (Portfolio value chart moved up to the Overview hero slot — see above)
-      false &&
-        React.createElement('div', null),
 
       // CS2 banner
       !demoMode && portfolio.skins && portfolio.skins.length > 0 && !(marketWorker||'').trim() &&
@@ -4600,9 +4517,10 @@ function InvestmentTracker() {
         )
       ),
 
-      // ── Allocation + Top performers + Positions (mockup-exact, real data) ──
-      ovSlot(2),
-      ovSlot(3),
+      // The sections, in the order set in Customize Overview (P4-7). B-4: the hero
+      // and "What it is made of" sit side by side when they follow each other.
+      React.createElement('div', { className: 'ui-ov-grid' }, ovOrder.map((id, i) => ovSlot(i))),
+      renderPositionModal(),
 
       // Options book (no new tab): tracked separately from the shared positions
       // engine — buildPositions ignores the 'options' category by design. The

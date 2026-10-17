@@ -22,7 +22,11 @@ ok('unknown saved ids are dropped, new sections go to the end', D.sectionOrder({
 ok('a stored string survives (as saved in localStorage)', D.sectionOrder(JSON.stringify(dragged), KNOWN).join() === 'statCards,allocation,valueChart');
 // P5-1.5: a fourth section, "Returns"
 const FOUR = ['valueChart', 'statCards', 'returnFigures', 'allocation'];
-ok('P5-1.5: the built-in list has the Returns section after the stat cards', D.DEFAULT_WIDGETS.map(w => w.id).join() === FOUR.join());
+// Phase 6 B-4: "What it is made of" after the chart, "Next up" after the
+// stat cards, the holdings map before the allocation.
+const SEVEN = ['valueChart', 'composition', 'statCards', 'nextUp', 'returnFigures', 'holdingsMap', 'allocation'];
+ok('B-4: the built-in list adds composition, Next up and the holdings map around the four sections', D.DEFAULT_WIDGETS.map(w => w.id).join() === SEVEN.join());
+ok('B-4: a layout saved before keeps its order; the three new sections are appended, visible', D.sectionOrder({ version: 1, widgets: FOUR.map(id => ({ id, visible: true })) }, SEVEN).join() === FOUR.concat(['composition', 'nextUp', 'holdingsMap']).join());
 ok('P5-1.5: a new user gets chart, stat cards, Returns, allocation', D.sectionOrder(null, FOUR).join() === FOUR.join());
 const old = { version: 1, widgets: [{ id: 'allocation', visible: true }, { id: 'valueChart', visible: true }, { id: 'statCards', visible: false }] };
 ok('P5-1.5: a layout saved before keeps its order; Returns is appended', D.sectionOrder(old, FOUR).join() === 'allocation,valueChart,statCards,returnFigures');

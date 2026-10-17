@@ -1339,7 +1339,8 @@ function Table(props) {
       rows.map((r, i) => r.__group
         ? h('li', { key: 'g' + i, className: 'ui-plist__group' }, h('span', null, r.__group), r.__summary ? h('span', { className: 'num' }, r.__summary) : null)
         : h('li', {
-          key: keyOf(r, i), className: cx('ui-plist__row', props.onRowClick && 'is-clickable', sel && sel.has(keyOf(r, i)) && 'is-selected'),
+          ...(props.rowProps ? props.rowProps(r) : {}),
+          key: keyOf(r, i), className: cx('ui-plist__row', (props.onRowClick || props.rowProps) && 'is-clickable', sel && sel.has(keyOf(r, i)) && 'is-selected'),
           onClick: props.onRowClick ? () => props.onRowClick(r) : undefined,
           tabIndex: props.onRowClick ? 0 : undefined,
           onKeyDown: props.onRowClick ? (e) => { if (e.key === 'Enter') props.onRowClick(r); } : undefined
@@ -1372,7 +1373,8 @@ function Table(props) {
     }
     const k = keyOf(r, i);
     return h('tr', {
-      key: k, className: cx(props.onRowClick && 'is-clickable', sel && sel.has(k) && 'is-selected'),
+      ...(props.rowProps ? props.rowProps(r) : {}),
+      key: k, className: cx((props.onRowClick || props.rowProps) && 'is-clickable', sel && sel.has(k) && 'is-selected'),
       onClick: props.onRowClick ? () => props.onRowClick(r) : undefined
     },
     selectable ? h('td', { className: 'ui-table__check' }, h('input', { type: 'checkbox', 'aria-label': __('uiSelectRow', 'Select row'), checked: !!(sel && sel.has(k)), onClick: (e) => e.stopPropagation(), onChange: (e) => props.onSelect(k, e.target.checked) })) : null,
@@ -1473,7 +1475,45 @@ function SectionSwitch(props) {
   return wrap(h(Segmented, { label: props.label, value: props.value, onChange: props.onChange, options: opts }));
 }
 
-Object.assign(Components, { Rail, PageHeader, Dock, SectionSwitch });
+// ---- R3.1: holdings map (B-4) -------------------------------------------
+
+// Pack positions into columns: the largest first, each into the lightest
+// column. A column's width and a tile's height follow value, so area ~ value.
+function mapColumns(items, n) {
+  const list = (items || []).filter((it) => it && it.value > 0).slice().sort((a, b) => b.value - a.value);
+  const cols = [];
+  for (let i = 0; i < Math.max(1, Math.min(n || 1, list.length)); i++) cols.push({ sum: 0, items: [] });
+  list.forEach((it) => { let k = 0; cols.forEach((c, j) => { if (c.sum < cols[k].sum) k = j; }); cols[k].items.push(it); cols[k].sum += it.value; });
+  return cols.filter((c) => c.items.length);
+}
+
+// Tile tone: the return since purchase on a log scale, gain or loss tint.
+function mapTint(pct) {
+  if (typeof pct !== 'number' || !isFinite(pct)) return 'var(--surface-2)';
+  const a = Math.min(Math.log10(1 + Math.abs(pct)) / 3, 1);
+  return 'color-mix(in srgb, var(--' + (pct >= 0 ? 'gain' : 'loss') + ') ' + Math.round(14 + a * 46) + '%, var(--surface))';
+}
+
+// HoldingsMap: area = value, colour = return since purchase (always with ▲ / ▼).
+// items: { key, label, title, value, pct, pctText }. onPick(item) opens a holding.
+function HoldingsMap(props) {
+  const narrow = useNarrow();
+  // Phones show the largest holdings only; the table below lists every one.
+  const items = narrow && props.items ? props.items.slice().sort((x, y) => y.value - x.value).slice(0, props.phoneMax || 12) : props.items;
+  const cols = mapColumns(items, narrow ? 2 : (props.columns || 4));
+  if (!cols.length) return props.empty || null;
+  return h('div', { className: cx('ui-map', props.className), 'data-testid': props['data-testid'], role: 'group', 'aria-label': props.label },
+    cols.map((c, ci) => h('div', { key: ci, className: 'ui-map__col', style: { flexGrow: c.sum } },
+      c.items.map((it) => h('button', {
+        key: it.key, type: 'button', className: 'ui-map__tile', 'data-map-key': it.key,
+        style: { flexGrow: it.value, background: mapTint(it.pct) }, title: it.title,
+        'aria-label': it.title, onClick: props.onPick ? () => props.onPick(it) : undefined
+      },
+      h('b', null, it.label),
+      it.pctText ? h('span', { className: 'num' }, (it.pct >= 0 ? '▲ ' : '▼ ') + it.pctText) : null)))));
+}
+
+Object.assign(Components, { Rail, PageHeader, Dock, SectionSwitch, HoldingsMap, mapColumns, mapTint });
 
 // Export components
 if (typeof window !== 'undefined') {
