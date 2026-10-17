@@ -260,11 +260,11 @@ function __(k, f, v) { return (typeof window !== 'undefined' && window.MaerminI1
         display: 'flex', gap: '0.7rem', padding: '0.75rem 0',
         borderBottom: '1px solid ' + (theme.cardBorder || 'rgba(255,255,255,0.06)')
       } },
-        e('div', { style: { fontSize: '1.1rem', lineHeight: 1.2, fontWeight: 800, color: colorFor[f.severity] || (theme.textSecondary || '#8b94a7') } }, iconFor[f.severity] || '•'),
+        e('div', { style: { fontSize: 'var(--text-lg)', lineHeight: 1.2, fontWeight: 800, color: colorFor[f.severity] || (theme.textSecondary || '#8b94a7') } }, iconFor[f.severity] || '•'),
         e('div', { style: { flex: 1 } },
-          e('div', { style: { color: colorFor[f.severity], fontWeight: 700, fontSize: '0.86rem' } }, f.title),
-          e('div', { style: { color: theme.textSecondary || '#8b94a7', fontSize: '0.8rem', marginTop: '0.15rem', lineHeight: 1.5 } }, f.detail),
-          f.action && e('div', { style: { color: theme.text || '#e9edf4', fontSize: '0.78rem', marginTop: '0.3rem' } }, '→ ' + f.action)
+          e('div', { style: { color: colorFor[f.severity], fontWeight: 700, fontSize: 'var(--text-base)' } }, f.title),
+          e('div', { style: { color: theme.textSecondary || '#8b94a7', fontSize: 'var(--text-sm)', marginTop: '0.15rem', lineHeight: 1.5 } }, f.detail),
+          f.action && e('div', { style: { color: theme.text || '#e9edf4', fontSize: 'var(--text-xs)', marginTop: '0.3rem' } }, '→ ' + f.action)
         )
       );
     });
@@ -274,12 +274,12 @@ function __(k, f, v) { return (typeof window !== 'undefined' && window.MaerminI1
       borderRadius: '14px', padding: '1.25rem'
     } },
       e('div', { style: { display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.5rem' } },
-        e('div', { style: { color: theme.text || '#e9edf4', fontWeight: 800, fontSize: '1rem' } },
+        e('div', { style: { color: theme.text || '#e9edf4', fontWeight: 800, fontSize: 'var(--text-body)' } },
           (t.advisorTitle || 'Portfolio Advisor'))
       ),
       findings.length
         ? rows
-        : e('div', { style: { color: theme.textSecondary, fontSize: '0.85rem', padding: '0.5rem 0' } },
+        : e('div', { style: { color: theme.textSecondary, fontSize: 'var(--text-base)', padding: '0.5rem 0' } },
             t.advisorEmpty || 'Add holdings to get personalised recommendations.')
     );
   }

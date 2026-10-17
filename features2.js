@@ -104,9 +104,9 @@ function ReturnsHeatmap({ steps, points, transactions, source, theme, formatPric
     : source === 'snapshots' ? __('rhSrcSnapshots', 'From the daily value snapshots, like the TWR above. A period that spans several months counts in the month it ends in.')
     : __('rhSrcRefresh', 'From your price refreshes, like the TWR above. Months without a refresh show —; a period that spans several months counts in the month it ends in.'));
   const stat = (key, label, value, sub, color, extra) => React.createElement('div', { key, 'data-stat': key, ...(extra || {}), style: { minWidth: 0 } },
-    React.createElement('div', { style: { color: theme.textSecondary, fontSize: '0.68rem', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '0.2rem' } }, label),
-    React.createElement('div', { style: { color: color || theme.text, fontWeight: 700, fontSize: '0.92rem', fontVariantNumeric: 'tabular-nums' } }, value),
-    sub && React.createElement('div', { style: { color: theme.textSecondary, fontSize: '0.72rem', marginTop: '0.15rem' } }, sub));
+    React.createElement('div', { style: { color: theme.textSecondary, fontSize: 'var(--text-2xs)', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '0.2rem' } }, label),
+    React.createElement('div', { style: { color: color || theme.text, fontWeight: 700, fontSize: 'var(--text-md)', fontVariantNumeric: 'tabular-nums' } }, value),
+    sub && React.createElement('div', { style: { color: theme.textSecondary, fontSize: 'var(--text-xs)', marginTop: '0.15rem' } }, sub));
   const tone = (v) => v > 0 ? theme.success : v < 0 ? theme.danger : theme.text;
   const detailView = () => {
     if (!det) return null;
@@ -117,9 +117,9 @@ function ReturnsHeatmap({ steps, points, transactions, source, theme, formatPric
     return React.createElement('div', { 'data-testid': tid + '-detail', role: 'region', 'aria-live': 'polite', 'aria-label': periodLabel(sel),
       style: { marginTop: '0.75rem', padding: '0.85rem 1rem', borderRadius: '12px', border: `1px solid ${theme.cardBorder}`, background: theme.inputBg || 'transparent' } },
       React.createElement('div', { style: { display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '0.5rem', marginBottom: '0.65rem' } },
-        React.createElement('strong', { style: { color: theme.text, fontSize: '0.9rem' } }, periodLabel(sel)),
+        React.createElement('strong', { style: { color: theme.text, fontSize: 'var(--text-base)' } }, periodLabel(sel)),
         React.createElement('button', { onClick: () => setSel(null), 'aria-label': __('close', 'Close'),
-          style: { background: 'none', border: `1px solid ${theme.cardBorder}`, borderRadius: '8px', color: theme.textSecondary, cursor: 'pointer', padding: '0.2rem 0.6rem', fontSize: '0.85rem' } }, '×')),
+          style: { background: 'none', border: `1px solid ${theme.cardBorder}`, borderRadius: '8px', color: theme.textSecondary, cursor: 'pointer', padding: '0.2rem 0.6rem', fontSize: 'var(--text-base)' } }, '×')),
       React.createElement('div', { style: { display: 'grid', gridTemplateColumns: 'repeat(auto-fit,minmax(120px,1fr))', gap: '0.75rem' } },
         hasValues && stat('start', __('rhdStart', 'Start value'), money(det.startValue), det.startsInside ? __('rhdStartsInside', 'nothing held before') : null),
         hasValues && stat('end', __('rhdEnd', 'End value'), money(det.endValue), det.last ? I.date(det.last) : null),
@@ -127,18 +127,18 @@ function ReturnsHeatmap({ steps, points, transactions, source, theme, formatPric
         hasValues && stat('gain', __('rhdGain', 'Gain'), signed(det.gain), null, tone(det.gain)),
         stat('ret', __('rhdReturn', 'Return (TWR)'), det.ret === null ? '—' : fmt(det.ret), null, det.ret === null ? theme.textSecondary : tone(det.ret), { 'data-r': det.ret === null ? '' : det.ret }),
         stat('acts', __('rhdActivities', 'Activities'), String(det.activities), kinds || null, theme.text, { 'data-n': det.activities })),
-      !hasValues && React.createElement('div', { style: { color: theme.textSecondary, fontSize: '0.74rem', marginTop: '0.6rem' } },
+      !hasValues && React.createElement('div', { style: { color: theme.textSecondary, fontSize: 'var(--text-xs)', marginTop: '0.6rem' } },
         __('rhdNoValues', 'Start and end values need the daily closing prices.')));
   };
   const frame = flat ? { minWidth: 0 } : { background: theme.card, borderRadius: '16px', boxShadow: theme.shadow, border: `1px solid ${theme.cardBorder}`, padding: '1.25rem', marginBottom: '1.5rem', minWidth: 0 };
   return React.createElement('div', { 'data-testid': tid, style: frame },
     React.createElement('div', { style: { display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: '0.75rem', flexWrap: 'wrap', marginBottom: '0.25rem' } },
-      React.createElement('h3', { style: { color: theme.text, fontSize: '1rem', fontWeight: 700, margin: 0 } }, title || __('rhTitle', 'Monthly returns')),
+      React.createElement('h3', { style: { color: theme.text, fontSize: 'var(--text-body)', fontWeight: 700, margin: 0 } }, title || __('rhTitle', 'Monthly returns')),
       controls || null),
-    React.createElement('p', { style: { color: theme.textSecondary, fontSize: '0.8rem', margin: '0.25rem 0 0.85rem', lineHeight: 1.5 } },
+    React.createElement('p', { style: { color: theme.textSecondary, fontSize: 'var(--text-sm)', margin: '0.25rem 0 0.85rem', lineHeight: 1.5 } },
       srcNote + ' ' + __('rhCompound', 'Quarters and years are compounded, not added up.') + (grid ? ' ' + __('rhdHint', 'Select a cell for its details.') : '')),
     !grid
-      ? React.createElement('div', { style: { color: theme.textSecondary, fontSize: '0.85rem', padding: '0.75rem 0' } }, __('rhEmpty', 'Not enough history yet for monthly returns.'))
+      ? React.createElement('div', { style: { color: theme.textSecondary, fontSize: 'var(--text-base)', padding: '0.75rem 0' } }, __('rhEmpty', 'Not enough history yet for monthly returns.'))
       : React.createElement('div', { ref: scrollRef, role: 'region', tabIndex: 0, 'aria-label': __('rhScrollAria', 'Monthly returns table, scrolls sideways'), 'data-more': moreRight ? 'right' : undefined,
           style: { overflowX: 'auto', maxWidth: '100%', ...(moreRight ? { WebkitMaskImage: 'linear-gradient(90deg, #000 calc(100% - 48px), transparent)', maskImage: 'linear-gradient(90deg, #000 calc(100% - 48px), transparent)' } : null) } },
           React.createElement('table', { style: { borderCollapse: 'separate', borderSpacing: '3px', minWidth: '100%' } },
@@ -152,7 +152,7 @@ function ReturnsHeatmap({ steps, points, transactions, source, theme, formatPric
               Y.months.map((r, i) => cell(r, monthsLong[i] + ' ' + Y.year, 0.1, 'm' + i, !!Y.partial[i], false, { kind: 'm', year: Y.year, idx: i })),
               Y.quarters.map((r, q) => cell(r, __('rhQuarter', 'Q{n}', { n: q + 1 }) + ' ' + Y.year, 0.2, 'q' + q, false, false, { kind: 'q', year: Y.year, idx: q })),
               cell(Y.total, String(Y.year), 0.3, 'y', Object.keys(Y.partial).length > 0, true, { kind: 'y', year: Y.year, idx: 0 })))))),
-    grid && grid.years.some((Y) => Object.keys(Y.partial).length) && React.createElement('div', { style: { color: theme.textSecondary, fontSize: '0.74rem', marginTop: '0.5rem' } },
+    grid && grid.years.some((Y) => Object.keys(Y.partial).length) && React.createElement('div', { style: { color: theme.textSecondary, fontSize: 'var(--text-xs)', marginTop: '0.5rem' } },
       __('rhPartialNote', '* part of the month or year only (the history starts or ends inside it).')),
     detailView());
 }
@@ -164,7 +164,7 @@ function GrossNetSwitch({ value, onChange, theme, testid }) {
   const v = value === 'gross' ? 'gross' : 'net';
   const btn = (id, label, title) => React.createElement('button', {
     key: id, type: 'button', 'data-basis': id, 'aria-pressed': v === id, title, onClick: () => onChange && onChange(id),
-    style: { minHeight: '32px', padding: '0.3rem 0.75rem', border: 'none', borderRadius: '6px', cursor: 'pointer', fontSize: '0.78rem', fontWeight: v === id ? 700 : 500,
+    style: { minHeight: '32px', padding: '0.3rem 0.75rem', border: 'none', borderRadius: '6px', cursor: 'pointer', fontSize: 'var(--text-xs)', fontWeight: v === id ? 700 : 500,
       background: v === id ? (theme.accentFill || theme.accent) : 'transparent', color: v === id ? '#fff' : theme.textSecondary }
   }, label);
   return React.createElement('div', { role: 'group', 'data-testid': testid || 'gross-net', 'aria-label': __('gnAria', 'Taxes and fees'),
@@ -258,7 +258,7 @@ function ReturnsView({ transactions, portfolio, prices, priceHistory, theme, for
   const hmControls = (D && buildPath && hmOptions && twrInfo.source === 'daily' && (hmOptions.classes.length + hmOptions.tags.length + hmOptions.holdings.length) > 1)
     ? React.createElement('select', {
         'data-testid': 'rh-filter', 'aria-label': __('rhdFilterAria', 'Show the monthly returns of'), value: hmFilter, onChange: e => setHmFilter(e.target.value),
-        style: { padding: '0.4rem 0.6rem', background: theme.inputBg, border: `1px solid ${theme.inputBorder || theme.cardBorder}`, borderRadius: '8px', color: theme.text, fontSize: '0.8rem', maxWidth: '100%' }
+        style: { padding: '0.4rem 0.6rem', background: theme.inputBg, border: `1px solid ${theme.inputBorder || theme.cardBorder}`, borderRadius: '8px', color: theme.text, fontSize: 'var(--text-sm)', maxWidth: '100%' }
       },
         React.createElement('option', { value: 'all' }, __('rhdAll', 'Whole portfolio')),
         React.createElement('optgroup', { label: __('rhdClasses', 'Asset class / category') },
@@ -308,9 +308,9 @@ function ReturnsView({ transactions, portfolio, prices, priceHistory, theme, for
     React.createElement('div', {
       style: { background: theme.card, borderRadius: '16px', boxShadow: theme.shadow, border: `1px solid ${theme.cardBorder}`, padding: '1.25rem' }
     },
-      React.createElement('div', { style: { color: theme.textSecondary, fontSize: '0.8rem', marginBottom: '0.375rem', textTransform: 'uppercase', letterSpacing: '0.05em' } }, label),
+      React.createElement('div', { style: { color: theme.textSecondary, fontSize: 'var(--text-sm)', marginBottom: '0.375rem', textTransform: 'uppercase', letterSpacing: '0.05em' } }, label),
       React.createElement('div', { style: { color: color || theme.text, fontSize: '1.75rem', fontWeight: '800', letterSpacing: '-0.02em' } }, value),
-      sub && React.createElement('div', { style: { color: theme.textSecondary, fontSize: '0.8rem', marginTop: '0.25rem' } }, sub)
+      sub && React.createElement('div', { style: { color: theme.textSecondary, fontSize: 'var(--text-sm)', marginTop: '0.25rem' } }, sub)
     );
 
   const fmtPct = v => v !== null ? window.MaerminI18n.pct(v * 100, 2, true) : '—';
@@ -318,11 +318,11 @@ function ReturnsView({ transactions, portfolio, prices, priceHistory, theme, for
 
   return React.createElement('div', { style: { padding: '1.5rem' } },
     React.createElement('div', { style: { display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '0.75rem', flexWrap: 'wrap', marginBottom: '0.5rem' } },
-      React.createElement('h2', { style: { color: theme.text, fontSize: '1.5rem', fontWeight: '800', letterSpacing: '-0.02em', margin: 0 } }, (t.returnAnalysis || 'Return Analysis')),
+      React.createElement('h2', { style: { color: theme.text, fontSize: 'var(--text-xl)', fontWeight: '800', letterSpacing: '-0.02em', margin: 0 } }, (t.returnAnalysis || 'Return Analysis')),
       setGrossNet && React.createElement(GrossNetSwitch, { value: grossNet, onChange: setGrossNet, theme, testid: 'returns-gross-net' })),
-    gross && React.createElement('p', { 'data-testid': 'gross-note', style: { color: theme.textSecondary, fontSize: '0.8rem', margin: '0 0 0.5rem' } },
+    gross && React.createElement('p', { 'data-testid': 'gross-note', style: { color: theme.textSecondary, fontSize: 'var(--text-sm)', margin: '0 0 0.5rem' } },
       __('gnReturnsNote', 'Gross: withholding tax, tax bookings and fees count as money taken out, not as a loss.')),
-    React.createElement('p', { style: { color: theme.textSecondary, fontSize: '0.875rem', marginBottom: '1.5rem', lineHeight: '1.6' } },
+    React.createElement('p', { style: { color: theme.textSecondary, fontSize: 'var(--text-base)', marginBottom: '1.5rem', lineHeight: '1.6' } },
       t.returnsHint || 'XIRR (Money-Weighted Return) accounts for the timing and size of your cash flows. TWR shows portfolio performance independent of cash flows.'
     ),
 
@@ -342,13 +342,13 @@ function ReturnsView({ transactions, portfolio, prices, priceHistory, theme, for
       RRm && React.createElement('div', { 'data-testid': 'inflation-card', 'data-state': hicp.state, 'data-v': real && real.inflation ? real.inflation.total : '',
         style: { background: theme.card, borderRadius: '16px', boxShadow: theme.shadow, border: `1px solid ${theme.cardBorder}`, padding: '1.25rem', minWidth: 0 } },
         React.createElement('div', { style: { display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '0.5rem', marginBottom: '0.375rem' } },
-          React.createElement('div', { style: { color: theme.textSecondary, fontSize: '0.8rem', textTransform: 'uppercase', letterSpacing: '0.05em' } }, __('rrInflation', 'Inflation')),
+          React.createElement('div', { style: { color: theme.textSecondary, fontSize: 'var(--text-sm)', textTransform: 'uppercase', letterSpacing: '0.05em' } }, __('rrInflation', 'Inflation')),
           setHicpGeo && React.createElement('select', { 'data-testid': 'hicp-geo', 'aria-label': __('rrRegion', 'Region of the consumer prices'), value: geo, onChange: (e) => setHicpGeo(e.target.value),
-            style: { padding: '0.2rem 0.35rem', background: theme.inputBg, border: `1px solid ${theme.inputBorder || theme.cardBorder}`, borderRadius: '6px', color: theme.text, fontSize: '0.75rem', maxWidth: '9rem' } },
+            style: { padding: '0.2rem 0.35rem', background: theme.inputBg, border: `1px solid ${theme.inputBorder || theme.cardBorder}`, borderRadius: '6px', color: theme.text, fontSize: 'var(--text-xs)', maxWidth: '9rem' } },
             RRm.GEOS.map((g) => React.createElement('option', { key: g, value: g }, regionName(g))))),
         React.createElement('div', { style: { color: real && real.inflation ? theme.text : theme.textSecondary, fontSize: '1.75rem', fontWeight: '800', letterSpacing: '-0.02em' } },
           real && real.inflation ? fmtPct(real.inflation.total) : (hicp.state === 'loading' ? '…' : '—')),
-        React.createElement('div', { style: { color: theme.textSecondary, fontSize: '0.8rem', marginTop: '0.25rem', lineHeight: 1.5 } },
+        React.createElement('div', { style: { color: theme.textSecondary, fontSize: 'var(--text-sm)', marginTop: '0.25rem', lineHeight: 1.5 } },
           real && real.inflation
             ? __('rrInflSub', 'Prices since {date}', { date: window.MaerminI18n.date(twrInfo.since || firstTx) })
               + (real.inflation.annualized !== null ? ' · ' + __('retPa', '{pct} p.a.', { pct: fmtPct(real.inflation.annualized) }) : '')
@@ -376,7 +376,7 @@ function ReturnsView({ transactions, portfolio, prices, priceHistory, theme, for
 
     // Explanation
     React.createElement('div', {
-      style: { background: 'color-mix(in srgb, var(--info) 6%, transparent)', border: '1px solid color-mix(in srgb, var(--info) 20%, transparent)', borderRadius: '10px', padding: '1rem', fontSize: '0.8rem', color: theme.textSecondary, lineHeight: '1.7' }
+      style: { background: 'color-mix(in srgb, var(--info) 6%, transparent)', border: '1px solid color-mix(in srgb, var(--info) 20%, transparent)', borderRadius: '10px', padding: '1rem', fontSize: 'var(--text-sm)', color: theme.textSecondary, lineHeight: '1.7' }
     },
       React.createElement('strong', { style: { color: theme.text } }, __('retNote', 'Note:') + ' '),
       twrInfo.source === 'daily'
@@ -490,7 +490,7 @@ function RebalancingView({ portfolio, prices, theme, formatPrice, getCurrencySym
   };
   const modeBtn = (id, label) => React.createElement('button', {
     type: 'button', 'aria-pressed': prefs.mode === id, 'data-rb-mode': id, onClick: () => setPrefs({ ...prefs, mode: id }),
-    style: { padding: '0.45rem 0.85rem', fontSize: '0.8rem', fontWeight: 600, borderRadius: '8px', cursor: 'pointer',
+    style: { padding: '0.45rem 0.85rem', fontSize: 'var(--text-sm)', fontWeight: 600, borderRadius: '8px', cursor: 'pointer',
       background: prefs.mode === id ? (theme.accentFill || theme.accent) : 'transparent', color: prefs.mode === id ? '#ffffff' : theme.text,
       border: `1px solid ${prefs.mode === id ? 'transparent' : theme.cardBorder}` }
   }, label);
@@ -505,12 +505,12 @@ function RebalancingView({ portfolio, prices, theme, formatPrice, getCurrencySym
 
   return React.createElement('div', { style: { padding: '1.5rem' } },
     React.createElement('div', { style: { display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '1rem', flexWrap: 'wrap', marginBottom: '1.5rem' } },
-      React.createElement('h2', { style: { color: theme.text, fontSize: '1.5rem', fontWeight: '800', letterSpacing: '-0.02em', margin: 0 } }, (t.rebalancing || 'Rebalancing'))),
+      React.createElement('h2', { style: { color: theme.text, fontSize: 'var(--text-xl)', fontWeight: '800', letterSpacing: '-0.02em', margin: 0 } }, (t.rebalancing || 'Rebalancing'))),
 
     // This view rebalances by ASSET CLASS. Tag-based target weights live in the Tags view.
     (setActiveView && window.MaerminTags) ? React.createElement('button', {
       onClick: () => setActiveView('tags'),
-      style: { display: 'inline-flex', alignItems: 'center', gap: '0.4rem', marginBottom: '1.25rem', padding: '0.5rem 0.85rem', background: 'transparent', color: theme.accent, border: `1px solid ${theme.accent}55`, borderRadius: '8px', cursor: 'pointer', fontSize: '0.8rem', fontWeight: '600' }
+      style: { display: 'inline-flex', alignItems: 'center', gap: '0.4rem', marginBottom: '1.25rem', padding: '0.5rem 0.85rem', background: 'transparent', color: theme.accent, border: `1px solid ${theme.accent}55`, borderRadius: '8px', cursor: 'pointer', fontSize: 'var(--text-sm)', fontWeight: '600' }
     }, '⛯ ', (t.rebalanceByTagHint || 'Rebalance by tag instead → Tags view')) : null,
 
     // No targets yet: nothing to plan until the user sets them.
@@ -537,7 +537,7 @@ function RebalancingView({ portfolio, prices, theme, formatPrice, getCurrencySym
         id: 'rb-invest', type: 'text', inputMode: 'decimal', value: investAmount,
         onChange: e => setInvestAmount(e.target.value),
         placeholder: I.num(0, { min: 2, max: 2 }),
-        style: { width: '200px', padding: '0.5rem 0.75rem', background: theme.inputBg, border: `1px solid ${theme.inputBorder}`, borderRadius: '8px', color: theme.text, fontSize: '0.875rem' }
+        style: { width: '200px', padding: '0.5rem 0.75rem', background: theme.inputBg, border: `1px solid ${theme.inputBorder}`, borderRadius: '8px', color: theme.text, fontSize: 'var(--text-base)' }
       })
     ),
 
@@ -546,7 +546,7 @@ function RebalancingView({ portfolio, prices, theme, formatPrice, getCurrencySym
       React.createElement('div', { style: { display: 'flex', justifyContent: 'space-between', marginBottom: '0.75rem', gap: '0.5rem', flexWrap: 'wrap' } },
         React.createElement('span', { style: { color: theme.text, fontWeight: '700' } }, t.targetAllocation || 'Target Allocation'),
         React.createElement('span', {
-          style: { fontSize: '0.8rem', color: totalTarget === 100 ? theme.success : theme.danger, fontWeight: '600' }
+          style: { fontSize: 'var(--text-sm)', color: totalTarget === 100 ? theme.success : theme.danger, fontWeight: '600' }
         }, `${I.pct(totalTarget, 0)} ${totalTarget === 100 ? '✓' : '≠ ' + I.pct(100, 0)}`)
       ),
       !cashflow && React.createElement('div', { 'data-testid': 'rb-default-band', style: { ...small, display: 'flex', alignItems: 'center', gap: '0.4rem', flexWrap: 'wrap', marginBottom: '1rem', lineHeight: 1.8 } },
@@ -559,7 +559,7 @@ function RebalancingView({ portfolio, prices, theme, formatPrice, getCurrencySym
         const own = !!prefs.bands[cat];
         return React.createElement('div', { key: cat, style: { marginBottom: '1rem' } },
           React.createElement('div', { style: { display: 'flex', justifyContent: 'space-between', marginBottom: '0.375rem' } },
-            React.createElement('label', { htmlFor: 'rb-t-' + cat, style: { color: catColors[cat], fontWeight: '600', fontSize: '0.875rem' } }, catLabels[cat]),
+            React.createElement('label', { htmlFor: 'rb-t-' + cat, style: { color: catColors[cat], fontWeight: '600', fontSize: 'var(--text-base)' } }, catLabels[cat]),
             React.createElement('span', { style: { color: theme.text, fontWeight: '700' } }, I.pct(targets[cat] || 0, 0))
           ),
           React.createElement('input', {
@@ -574,19 +574,19 @@ function RebalancingView({ portfolio, prices, theme, formatPrice, getCurrencySym
               NumField({ id: 'rb-rel-' + cat, value: bandOf(cat).rel * 100, label: __('rbBandRelFor', 'Tolerance for {name} as a share of the target, in percent', { name: catLabels[cat] }), suffix: __('rbBandRelSuffix', '% of the target,'), onCommit: (v) => setBand(cat, { rel: Math.min(v, 100) / 100 }) }),
               __('rbBandAtLeast', 'at least'),
               NumField({ id: 'rb-abs-' + cat, value: bandOf(cat).abs, label: __('rbBandAbsFor', 'Minimum tolerance for {name} in percentage points', { name: catLabels[cat] }), suffix: __('rbBandAbsSuffix', 'pp'), onCommit: (v) => setBand(cat, { abs: Math.min(v, 100) }) }),
-              own && React.createElement('button', { type: 'button', onClick: () => resetBand(cat), style: { background: 'transparent', border: `1px solid ${theme.cardBorder}`, color: theme.textSecondary, borderRadius: '7px', padding: '0.2rem 0.55rem', cursor: 'pointer', fontSize: '0.75rem', minHeight: '24px' } }, __('rbBandUseDefault', 'Use the default'))))
+              own && React.createElement('button', { type: 'button', onClick: () => resetBand(cat), style: { background: 'transparent', border: `1px solid ${theme.cardBorder}`, color: theme.textSecondary, borderRadius: '7px', padding: '0.2rem 0.55rem', cursor: 'pointer', fontSize: 'var(--text-xs)', minHeight: '24px' } }, __('rbBandUseDefault', 'Use the default'))))
         );
       })
     ),
 
     // Never sell
     !noTargets && holdings.length > 0 && React.createElement('details', { 'data-testid': 'rb-nosell', style: { ...card, padding: '1rem 1.5rem' } },
-      React.createElement('summary', { style: { cursor: 'pointer', color: theme.text, fontWeight: 700, fontSize: '0.9rem', minHeight: '24px' } },
+      React.createElement('summary', { style: { cursor: 'pointer', color: theme.text, fontWeight: 700, fontSize: 'var(--text-base)', minHeight: '24px' } },
         __('rbNoSellTitle', 'Holdings you never sell ({n})', { n: prefs.noSell.filter(s => holdings.some(h => h.symbol.toUpperCase() === s)).length })),
       React.createElement('p', { style: { ...small, margin: '0.5rem 0 0.75rem', lineHeight: 1.5 } },
         __('rbNoSellHint', 'A class can only be sold down with the holdings that are not marked here. What cannot be sold is shown in the plan.')),
       React.createElement('div', { style: { display: 'flex', flexDirection: 'column', gap: '0.35rem' } },
-        holdings.map(h => React.createElement('label', { key: h.cat + '|' + h.symbol, style: { display: 'flex', alignItems: 'center', gap: '0.6rem', minHeight: '28px', color: theme.text, fontSize: '0.84rem', cursor: 'pointer' } },
+        holdings.map(h => React.createElement('label', { key: h.cat + '|' + h.symbol, style: { display: 'flex', alignItems: 'center', gap: '0.6rem', minHeight: '28px', color: theme.text, fontSize: 'var(--text-sm)', cursor: 'pointer' } },
           React.createElement('input', { type: 'checkbox', checked: noSellSet.has(h.symbol.toUpperCase()), onChange: () => toggleNoSell(h.symbol), 'data-nosell': h.symbol, style: { width: '24px', height: '24px', margin: 0, accentColor: theme.accent } }),
           React.createElement('span', { style: { flex: 1, minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis' } }, h.name, React.createElement('span', { style: { ...small, marginLeft: '0.4rem' } }, catLabels[h.cat])),
           React.createElement('span', { style: small }, money(h.value)))))
@@ -597,7 +597,7 @@ function RebalancingView({ portfolio, prices, theme, formatPrice, getCurrencySym
       'data-testid': 'rb-plan', style: { background: theme.card, borderRadius: '16px', border: `1px solid ${theme.cardBorder}`, boxShadow: theme.shadow, overflow: 'hidden' }
     },
       React.createElement('div', { style: { padding: '1rem 1.25rem', borderBottom: `1px solid ${theme.cardBorder}` } },
-        React.createElement('span', { style: { color: theme.text, fontWeight: '700', fontSize: '0.9rem' } }, t.rebalancingPlan || 'Rebalancing Plan'),
+        React.createElement('span', { style: { color: theme.text, fontWeight: '700', fontSize: 'var(--text-base)' } }, t.rebalancingPlan || 'Rebalancing Plan'),
         React.createElement('div', { 'data-testid': 'rb-summary', style: { ...small, marginTop: '0.3rem', lineHeight: 1.5 } },
           [(result.summary.toBuy > 0.005 || result.summary.toSell > 0.005) ? __('rbSumBuy', 'Buy {amt}', { amt: money(result.summary.toBuy) }) : __('rbSumNothing', 'Nothing to buy or sell'),
            !cashflow && result.summary.toSell > 0.005 && __('rbSumSell', 'sell {amt}', { amt: money(result.summary.toSell) }),
@@ -612,7 +612,7 @@ function RebalancingView({ portfolio, prices, theme, formatPrice, getCurrencySym
             [__('category', 'Category'), __('rbCurrent', 'Current'), __('rbCurrentPct', 'Current %'), __('rbTargetPct', 'Target %'), __('targetValue', 'Target Value'), __('action', 'Action')].map((h, i) =>
               React.createElement('th', {
                 key: i,
-                style: { padding: '0.75rem 1rem', textAlign: i === 0 ? 'left' : 'right', color: theme.textSecondary, borderBottom: `1px solid ${theme.cardBorder}`, fontSize: '0.75rem', fontWeight: '600', textTransform: 'uppercase' }
+                style: { padding: '0.75rem 1rem', textAlign: i === 0 ? 'left' : 'right', color: theme.textSecondary, borderBottom: `1px solid ${theme.cardBorder}`, fontSize: 'var(--text-xs)', fontWeight: '600', textTransform: 'uppercase' }
               }, h)
             )
           )
@@ -631,13 +631,13 @@ function RebalancingView({ portfolio, prices, theme, formatPrice, getCurrencySym
                   React.createElement('div', { style: { width: 40, height: 4, background: theme.inputBg, borderRadius: 2, overflow: 'hidden' } },
                     React.createElement('div', { style: { height: '100%', width: `${Math.min(100, r.actualPct)}%`, background: catColors[cat], borderRadius: 2 } })
                   ),
-                  React.createElement('span', { style: { color: theme.textSecondary, fontSize: '0.875rem', minWidth: '3rem', textAlign: 'right' } }, I.pct(r.actualPct, 1))
+                  React.createElement('span', { style: { color: theme.textSecondary, fontSize: 'var(--text-base)', minWidth: '3rem', textAlign: 'right' } }, I.pct(r.actualPct, 1))
                 )
               ),
               React.createElement('td', { style: { padding: '1rem', color: theme.text, textAlign: 'right', fontWeight: '600' } }, I.pct(r.targetPct, 0)),
               React.createElement('td', { style: { padding: '1rem', color: theme.text, textAlign: 'right' } }, money(r.targetValue)),
               React.createElement('td', { style: { padding: '1rem', textAlign: 'right' } },
-                React.createElement('span', { style: { padding: '0.25rem 0.75rem', borderRadius: '6px', fontWeight: '700', fontSize: '0.8rem', whiteSpace: 'nowrap', border: `1px solid ${tone}55`, color: tone } }, actionLabel(r)),
+                React.createElement('span', { style: { padding: '0.25rem 0.75rem', borderRadius: '6px', fontWeight: '700', fontSize: 'var(--text-sm)', whiteSpace: 'nowrap', border: `1px solid ${tone}55`, color: tone } }, actionLabel(r)),
                 r.blockedSell > 0.005 && r.action !== 'hold' && React.createElement('div', { style: { ...small, marginTop: '0.25rem' } },
                   __('rbBlockedRow', '{amt} not sold (never-sell holdings)', { amt: money(r.blockedSell) })))
             );
@@ -961,7 +961,7 @@ function BrokerImportWizard({ theme, t, addToast, onImport, existing, workerUrl,
       style: {
         padding: '0.625rem 1.25rem', border: 'none', borderRadius: '8px',
         cursor: disabled ? 'not-allowed' : 'pointer',
-        fontWeight: '600', fontSize: '0.875rem', opacity: disabled ? 0.5 : 1,
+        fontWeight: '600', fontSize: 'var(--text-base)', opacity: disabled ? 0.5 : 1,
         background: primary ? (theme.accentFill || theme.accent) : theme.inputBg,
         color: primary ? '#fff' : theme.text
       }
@@ -978,7 +978,7 @@ function BrokerImportWizard({ theme, t, addToast, onImport, existing, workerUrl,
     const rep = (FXH && FXH.currencyReport) ? FXH.currencyReport(txs) : [];
     if (!rep.length) return null;
     const bad = rep.some(r => r.status === 'unknown');
-    return React.createElement('div', { role: 'status', style: { background: bad ? 'color-mix(in srgb, var(--danger) 6%, transparent)' : 'color-mix(in srgb, var(--warning) 8%, transparent)', border: `1px solid ${bad ? 'color-mix(in srgb, var(--danger) 30%, transparent)' : 'color-mix(in srgb, var(--warning) 30%, transparent)'}`, borderRadius: '8px', padding: '0.6rem 0.8rem', marginBottom: '0.9rem', fontSize: '0.78rem', color: theme.text, lineHeight: 1.6 } },
+    return React.createElement('div', { role: 'status', style: { background: bad ? 'color-mix(in srgb, var(--danger) 6%, transparent)' : 'color-mix(in srgb, var(--warning) 8%, transparent)', border: `1px solid ${bad ? 'color-mix(in srgb, var(--danger) 30%, transparent)' : 'color-mix(in srgb, var(--warning) 30%, transparent)'}`, borderRadius: '8px', padding: '0.6rem 0.8rem', marginBottom: '0.9rem', fontSize: 'var(--text-xs)', color: theme.text, lineHeight: 1.6 } },
       rep.map(r => React.createElement('div', { key: r.currency },
         React.createElement('strong', null, __('biCurRows', '{n} {n:row|rows} in {cur}:', { n: r.count, cur: r.currency }) + ' '),
         r.status === 'unknown'
@@ -994,7 +994,7 @@ function BrokerImportWizard({ theme, t, addToast, onImport, existing, workerUrl,
   // embedded: inside Data Management, which names the section already (no
   // second heading, no second padding)
   return React.createElement('div', { style: { padding: embedded ? 0 : '1.5rem' } },
-    !embedded && React.createElement('h2', { style: { color: theme.text, fontSize: '1.5rem', fontWeight: '800', letterSpacing: '-0.02em', marginBottom: '1.25rem' } },
+    !embedded && React.createElement('h2', { style: { color: theme.text, fontSize: 'var(--text-xl)', fontWeight: '800', letterSpacing: '-0.02em', marginBottom: '1.25rem' } },
       (t.brokerImport || 'Import')
     ),
 
@@ -1002,7 +1002,7 @@ function BrokerImportWizard({ theme, t, addToast, onImport, existing, workerUrl,
     React.createElement('div', { style: { display: 'flex', gap: '0', marginBottom: '2rem', borderRadius: '10px', overflow: 'hidden', border: `1px solid ${theme.cardBorder}` } },
       steps.map((s, i) =>
         React.createElement('div', { key: i, style: {
-          flex: 1, padding: '0.625rem', textAlign: 'center', fontSize: '0.8rem',
+          flex: 1, padding: '0.625rem', textAlign: 'center', fontSize: 'var(--text-sm)',
           fontWeight: i === step ? '700' : '400',
           background: i === step ? (theme.accentFill || theme.accent) : i < step ? 'rgba(139,124,255,0.15)' : theme.card,
           color: i === step ? '#ffffff' : i < step ? theme.accent : theme.textSecondary,
@@ -1015,7 +1015,7 @@ function BrokerImportWizard({ theme, t, addToast, onImport, existing, workerUrl,
     step === 0 && React.createElement('div', null,
       categories.map(cat =>
         React.createElement('div', { key: cat, style: { marginBottom: '1.25rem' } },
-          React.createElement('div', { style: { color: theme.textSecondary, fontSize: '0.68rem', fontWeight: '700', letterSpacing: '0.1em', textTransform: 'uppercase', marginBottom: '0.5rem', paddingLeft: '0.25rem' } }, ({ 'Portfolio Tracker': __('biCatTracker', 'Portfolio Tracker'), Broker: __('biCatBroker', 'Broker'), Crypto: __('crypto', 'Crypto'), Other: __('biCatOther', 'Other') })[cat] || cat),
+          React.createElement('div', { style: { color: theme.textSecondary, fontSize: 'var(--text-2xs)', fontWeight: '700', letterSpacing: '0.1em', textTransform: 'uppercase', marginBottom: '0.5rem', paddingLeft: '0.25rem' } }, ({ 'Portfolio Tracker': __('biCatTracker', 'Portfolio Tracker'), Broker: __('biCatBroker', 'Broker'), Crypto: __('crypto', 'Crypto'), Other: __('biCatOther', 'Other') })[cat] || cat),
           React.createElement('div', { style: { display: 'grid', gridTemplateColumns: 'repeat(auto-fill,minmax(200px,1fr))', gap: '0.625rem' } },
             BROKERS.filter(b => b.category === cat).map(b =>
               React.createElement('div', {
@@ -1031,8 +1031,8 @@ function BrokerImportWizard({ theme, t, addToast, onImport, existing, workerUrl,
               },
                 React.createElement(BrokerLogo, { brokerId: b.id, name: b.name, size: 36 }),
                 React.createElement('div', null,
-                  React.createElement('div', { style: { color: theme.text, fontWeight: '600', fontSize: '0.875rem' } }, b.name),
-                  React.createElement('div', { style: { color: theme.textSecondary, fontSize: '0.7rem', marginTop: '0.125rem' } }, b.hintKey ? __(b.hintKey, b.hint) : b.hint)
+                  React.createElement('div', { style: { color: theme.text, fontWeight: '600', fontSize: 'var(--text-base)' } }, b.name),
+                  React.createElement('div', { style: { color: theme.textSecondary, fontSize: 'var(--text-2xs)', marginTop: '0.125rem' } }, b.hintKey ? __(b.hintKey, b.hint) : b.hint)
                 )
               )
             )
@@ -1044,14 +1044,14 @@ function BrokerImportWizard({ theme, t, addToast, onImport, existing, workerUrl,
     // ── Step 1: CoinTracking info + file upload ──────────────────────────────
     step === 1 && selectedBroker === 'cointracking' && React.createElement('div', null,
       React.createElement('div', {
-        style: { background: 'color-mix(in srgb, var(--success) 6%, transparent)', border: '1px solid color-mix(in srgb, var(--success) 20%, transparent)', borderRadius: '10px', padding: '1rem', marginBottom: '1rem', fontSize: '0.8rem', color: theme.textSecondary, lineHeight: '1.8' }
+        style: { background: 'color-mix(in srgb, var(--success) 6%, transparent)', border: '1px solid color-mix(in srgb, var(--success) 20%, transparent)', borderRadius: '10px', padding: '1rem', marginBottom: '1rem', fontSize: 'var(--text-sm)', color: theme.textSecondary, lineHeight: '1.8' }
       },
         React.createElement('div', { style: { color: theme.text, fontWeight: '700', marginBottom: '0.375rem' } }, __('biCtInstr', 'CoinTracking export instructions:')),
         React.createElement('div', null, '1. ' + __('biCtStep1', 'In CoinTracking:') + ' ', React.createElement('b', { style: { color: theme.text } }, 'Reports → All Transactions')),
         React.createElement('div', null, '2. ' + __('biCtStep2', 'Top right:') + ' ', React.createElement('b', { style: { color: theme.text } }, '"Export" → "CSV (Full Export)"')),
         React.createElement('div', null, __('biCtStep3', '3. Upload the downloaded file here')),
-        React.createElement('div', { style: { marginTop: '0.5rem', color: theme.accent, fontSize: '0.75rem' } }, __('biCtBooked', '✓ Booked: Trade, Income, Staking, Mining, Airdrop, Gift/Tip, Interest, Spend · English and German exports')),
-        React.createElement('div', { style: { color: theme.textSecondary, fontSize: '0.75rem' } }, __('biCtFull', 'Use the full export: its "value in EUR" columns price coin-to-coin trades and rewards. Deposits and withdrawals are transfers and are not booked.'))
+        React.createElement('div', { style: { marginTop: '0.5rem', color: theme.accent, fontSize: 'var(--text-xs)' } }, __('biCtBooked', '✓ Booked: Trade, Income, Staking, Mining, Airdrop, Gift/Tip, Interest, Spend · English and German exports')),
+        React.createElement('div', { style: { color: theme.textSecondary, fontSize: 'var(--text-xs)' } }, __('biCtFull', 'Use the full export: its "value in EUR" columns price coin-to-coin trades and rewards. Deposits and withdrawals are transfers and are not booked.'))
       ),
       React.createElement('div', {
         onDrop: handleDrop, onDragOver: e => e.preventDefault(),
@@ -1059,9 +1059,9 @@ function BrokerImportWizard({ theme, t, addToast, onImport, existing, workerUrl,
         'aria-label': __('biChooseCsv', 'Choose CSV file to import'),
         style: { border: `2px dashed ${theme.cardBorder}`, borderRadius: '16px', padding: '2.5rem', textAlign: 'center', cursor: 'pointer', marginBottom: '1rem' }
       },
-        React.createElement('div', { style: { fontSize: '2rem', marginBottom: '0.5rem', opacity: 0.4 } }, '↑'),
+        React.createElement('div', { style: { fontSize: 'var(--text-2xl)', marginBottom: '0.5rem', opacity: 0.4 } }, '↑'),
         React.createElement('div', { style: { color: theme.text, fontWeight: '600', marginBottom: '0.25rem' } }, __('biDropCt', 'Drop CoinTracking CSV here')),
-        React.createElement('div', { style: { color: theme.textSecondary, fontSize: '0.8rem' } }, __('biOrClickSelect', 'or click to select')),
+        React.createElement('div', { style: { color: theme.textSecondary, fontSize: 'var(--text-sm)' } }, __('biOrClickSelect', 'or click to select')),
         React.createElement('input', { type: 'file', accept: '.csv,.txt', ref: fileRef, style: { display: 'none' }, onChange: e => handleFile(e.target.files[0]) })
       ),
       React.createElement('div', { style: { display: 'flex', gap: '0.5rem' } },
@@ -1071,7 +1071,7 @@ function BrokerImportWizard({ theme, t, addToast, onImport, existing, workerUrl,
 
     // ── Step 1: Generic file upload ──────────────────────────────────────────
     step === 1 && selectedBroker !== 'cointracking' && React.createElement('div', null,
-      (selectedBroker === 'portfolioPerformance' || selectedBroker === 'parqet') && React.createElement('div', { 'data-testid': 'tracker-howto', style: { background: theme.card, border: `1px solid ${theme.cardBorder}`, borderRadius: '10px', padding: '1rem', marginBottom: '1rem', fontSize: '0.8rem', color: theme.textSecondary, lineHeight: '1.8' } },
+      (selectedBroker === 'portfolioPerformance' || selectedBroker === 'parqet') && React.createElement('div', { 'data-testid': 'tracker-howto', style: { background: theme.card, border: `1px solid ${theme.cardBorder}`, borderRadius: '10px', padding: '1rem', marginBottom: '1rem', fontSize: 'var(--text-sm)', color: theme.textSecondary, lineHeight: '1.8' } },
         React.createElement('div', { style: { color: theme.text, fontWeight: '700', marginBottom: '0.375rem' } }, __('biTrackerInstr', 'How to export:')),
         selectedBroker === 'portfolioPerformance'
           ? React.createElement('div', null,
@@ -1082,7 +1082,7 @@ function BrokerImportWizard({ theme, t, addToast, onImport, existing, workerUrl,
               React.createElement('div', null, __('biPqStep1', '1. In Parqet open Activities and choose Export (CSV).')),
               React.createElement('div', null, __('biPqStep2', '2. Upload the file here. Securities, crypto, deposits, withdrawals, fees and taxes are imported; other cash bookings are listed, not booked.')))
       ),
-      exchangeSyncSupported && React.createElement('p', { style: { color: theme.textSecondary, fontSize: '0.78rem', lineHeight: '1.6', marginBottom: '1rem' } },
+      exchangeSyncSupported && React.createElement('p', { style: { color: theme.textSecondary, fontSize: 'var(--text-xs)', lineHeight: '1.6', marginBottom: '1rem' } },
         __('biPreferLive', 'Prefer a live import? Use Exchange sync below with a read-only API key (stored encrypted in your vault).')),
       React.createElement('div', {
         onDrop: handleDrop, onDragOver: e => e.preventDefault(),
@@ -1090,13 +1090,13 @@ function BrokerImportWizard({ theme, t, addToast, onImport, existing, workerUrl,
         'aria-label': __('biChooseCsv', 'Choose CSV file to import'),
         style: { border: `2px dashed ${theme.cardBorder}`, borderRadius: '16px', padding: '3rem', textAlign: 'center', cursor: 'pointer', marginBottom: '1rem' }
       },
-        React.createElement('div', { style: { fontSize: '2rem', marginBottom: '0.5rem', opacity: 0.4 } }, '↑'),
+        React.createElement('div', { style: { fontSize: 'var(--text-2xl)', marginBottom: '0.5rem', opacity: 0.4 } }, '↑'),
         React.createElement('div', { style: { color: theme.text, fontWeight: '600', marginBottom: '0.25rem' } }, pdfBusy ? __('biReadingPdf', 'Reading PDF statement(s)...') : __('biDragHere', 'Drag CSV or PDF statement(s) here')),
-        React.createElement('div', { style: { color: theme.textSecondary, fontSize: '0.875rem' } }, `${__('biOrClick', 'Or click')} · ${selectedBrokerObj?.name || ''} · ${selectedBrokerObj ? (selectedBrokerObj.hintKey ? __(selectedBrokerObj.hintKey, selectedBrokerObj.hint) : selectedBrokerObj.hint) : ''}`),
-        React.createElement('div', { style: { color: theme.textSecondary, fontSize: '0.75rem', marginTop: '0.3rem' } }, __('biPdfSupported', 'PDF statements: Trade Republic, Scalable, ING, DKB, Comdirect, flatex, Consorsbank, DEGIRO, onvista bank, Baader Bank, Smartbroker+, Sparkasse / Deka, Postbank - trades, dividends, tax and fee documents; parsed on this device, the file never leaves it.')),
+        React.createElement('div', { style: { color: theme.textSecondary, fontSize: 'var(--text-base)' } }, `${__('biOrClick', 'Or click')} · ${selectedBrokerObj?.name || ''} · ${selectedBrokerObj ? (selectedBrokerObj.hintKey ? __(selectedBrokerObj.hintKey, selectedBrokerObj.hint) : selectedBrokerObj.hint) : ''}`),
+        React.createElement('div', { style: { color: theme.textSecondary, fontSize: 'var(--text-xs)', marginTop: '0.3rem' } }, __('biPdfSupported', 'PDF statements: Trade Republic, Scalable, ING, DKB, Comdirect, flatex, Consorsbank, DEGIRO, onvista bank, Baader Bank, Smartbroker+, Sparkasse / Deka, Postbank - trades, dividends, tax and fee documents; parsed on this device, the file never leaves it.')),
         React.createElement('input', { type: 'file', accept: '.csv,.txt,.json,.pdf', multiple: true, ref: fileRef, style: { display: 'none' }, onChange: e => handleFiles(e.target.files) })
       ),
-      React.createElement('p', { style: { color: theme.textSecondary, fontSize: '0.8rem', lineHeight: '1.6' } }, __('biLocalOnly', 'All data stays local. Nothing is uploaded.')),
+      React.createElement('p', { style: { color: theme.textSecondary, fontSize: 'var(--text-sm)', lineHeight: '1.6' } }, __('biLocalOnly', 'All data stays local. Nothing is uploaded.')),
       React.createElement('div', { style: { display: 'flex', gap: '0.5rem', marginTop: '1rem' } },
         btn(__('back', '← Back'), () => setStep(0)),
         btn(__('biPasteText', 'Paste text'), () => { setRawData(' '); setStep(2); })
@@ -1106,7 +1106,7 @@ function BrokerImportWizard({ theme, t, addToast, onImport, existing, workerUrl,
     // ── Step 2: Preview & mapping ────────────────────────────────────────────
     step === 2 && React.createElement('div', null,
       (!mp && parsed.length > 0) && currencyNotice(parsed),
-      fileName && React.createElement('div', { style: { marginBottom: '1rem', color: theme.textSecondary, fontSize: '0.875rem' } }, `${fileName}`),
+      fileName && React.createElement('div', { style: { marginBottom: '1rem', color: theme.textSecondary, fontSize: 'var(--text-base)' } }, `${fileName}`),
 
       // Paste fallback when there is no data yet (or the mapping module is absent).
       (!mp && parsed.length === 0) && React.createElement('div', null,
@@ -1115,7 +1115,7 @@ function BrokerImportWizard({ theme, t, addToast, onImport, existing, workerUrl,
           value: rawData === ' ' ? '' : rawData,
           onChange: e => setRawData(e.target.value),
           placeholder: __('biPasteCsvPh', 'Paste CSV content...'),
-          style: { width: '100%', height: '150px', padding: '0.75rem', background: theme.inputBg, border: `1px solid ${theme.inputBorder}`, borderRadius: '8px', color: theme.text, fontFamily: 'monospace', fontSize: '0.8rem', resize: 'vertical', marginBottom: '0.75rem' }
+          style: { width: '100%', height: '150px', padding: '0.75rem', background: theme.inputBg, border: `1px solid ${theme.inputBorder}`, borderRadius: '8px', color: theme.text, fontFamily: 'monospace', fontSize: 'var(--text-sm)', resize: 'vertical', marginBottom: '0.75rem' }
         })
       ),
 
@@ -1129,7 +1129,7 @@ function BrokerImportWizard({ theme, t, addToast, onImport, existing, workerUrl,
         });
         return React.createElement('div', null,
           // Summary chips: broker + counts.
-          React.createElement('div', { style: { display: 'flex', flexWrap: 'wrap', gap: '0.5rem', alignItems: 'center', marginBottom: '0.9rem', fontSize: '0.8rem' } },
+          React.createElement('div', { style: { display: 'flex', flexWrap: 'wrap', gap: '0.5rem', alignItems: 'center', marginBottom: '0.9rem', fontSize: 'var(--text-sm)' } },
             mp.broker && React.createElement('span', { style: { padding: '0.25rem 0.6rem', borderRadius: '20px', background: `${theme.accent}1e`, color: theme.accent, fontWeight: '700' } }, mp.broker.chosen ? __('biColsDetected', '{name} (columns detected)', { name: mp.broker.name }) : __('biDetected', 'Detected: {name}', { name: mp.broker.name })),
             React.createElement('span', { style: { padding: '0.25rem 0.6rem', borderRadius: '20px', background: 'color-mix(in srgb, var(--success) 15%, transparent)', color: theme.success, fontWeight: '700' } }, __('biValid', '✓ {n} valid', { n: mp.stats.ok })),
             mp.errors.length > 0 && React.createElement('span', { ...window.MaerminUtils.clickable(() => setShowErrors(v => !v)), 'aria-label': __('biToggleErrors', 'Toggle error details'), style: { padding: '0.25rem 0.6rem', borderRadius: '20px', background: 'color-mix(in srgb, var(--danger) 15%, transparent)', color: 'var(--danger)', fontWeight: '700', cursor: 'pointer' } }, `${__('biSkipped', '✗ {n} skipped', { n: mp.errors.length })} ${showErrors ? '▲' : '▼'}`),
@@ -1138,7 +1138,7 @@ function BrokerImportWizard({ theme, t, addToast, onImport, existing, workerUrl,
 
           // Fixed-format files (CoinTracking) are read by their own parser: say
           // how rows are booked and list what needs a look instead of a mapping.
-          mp.fixedFormat && React.createElement('div', { 'data-testid': mp.format ? 'tracker-info' : 'ct-info', style: { background: theme.card, border: `1px solid ${theme.cardBorder}`, borderRadius: '10px', padding: '0.9rem', marginBottom: '0.9rem', fontSize: '0.78rem', color: theme.textSecondary, lineHeight: 1.6 } },
+          mp.fixedFormat && React.createElement('div', { 'data-testid': mp.format ? 'tracker-info' : 'ct-info', style: { background: theme.card, border: `1px solid ${theme.cardBorder}`, borderRadius: '10px', padding: '0.9rem', marginBottom: '0.9rem', fontSize: 'var(--text-xs)', color: theme.textSecondary, lineHeight: 1.6 } },
             mp.format
               ? React.createElement('div', { style: { color: theme.text, fontWeight: '700', marginBottom: '0.3rem' } }, __('biTrackerHow', 'How {name} rows are booked', { name: mp.broker ? mp.broker.name : '' }))
               : React.createElement('div', { style: { color: theme.text, fontWeight: '700', marginBottom: '0.3rem' } }, __('biCtHow', 'How CoinTracking rows are booked')),
@@ -1152,11 +1152,11 @@ function BrokerImportWizard({ theme, t, addToast, onImport, existing, workerUrl,
 
           // Editable column → field mapping.
           !mp.fixedFormat && React.createElement('div', { style: { background: theme.card, border: `1px solid ${theme.cardBorder}`, borderRadius: '10px', padding: '0.9rem', marginBottom: '0.9rem' } },
-            React.createElement('div', { style: { color: theme.textSecondary, fontSize: '0.72rem', fontWeight: '700', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: '0.6rem' } }, __('biColMapping', 'Column mapping (edit if a column is wrong)')),
+            React.createElement('div', { style: { color: theme.textSecondary, fontSize: 'var(--text-xs)', fontWeight: '700', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: '0.6rem' } }, __('biColMapping', 'Column mapping (edit if a column is wrong)')),
             React.createElement('div', { style: { display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(150px, 1fr))', gap: '0.6rem' } },
               (window.MaerminImportMapping.FIELDS).map(field =>
                 React.createElement('label', { key: field, style: { display: 'block' } },
-                  React.createElement('span', { style: { display: 'block', color: theme.textSecondary, fontSize: '0.7rem', marginBottom: '0.2rem' } },
+                  React.createElement('span', { style: { display: 'block', color: theme.textSecondary, fontSize: 'var(--text-2xs)', marginBottom: '0.2rem' } },
                     fieldLabel(field) + (window.MaerminImportMapping.REQUIRED.indexOf(field) !== -1 ? ' *' : '')),
                   React.createElement('select', {
                     value: (mapping && mapping[field]) || '',
@@ -1169,43 +1169,43 @@ function BrokerImportWizard({ theme, t, addToast, onImport, existing, workerUrl,
                 )
               )
             ),
-            reqMissing.length > 0 && React.createElement('div', { style: { color: 'var(--danger)', fontSize: '0.74rem', marginTop: '0.5rem' } }, __('biMapRequired', 'Map the required field(s): {list}', { list: reqMissing.map(fieldLabel).join(', ') })),
+            reqMissing.length > 0 && React.createElement('div', { style: { color: 'var(--danger)', fontSize: 'var(--text-xs)', marginTop: '0.5rem' } }, __('biMapRequired', 'Map the required field(s): {list}', { list: reqMissing.map(fieldLabel).join(', ') })),
 
             // Reusable mapping presets (WI-8): load a saved mapping for this
             // broker, save the current one, or delete a preset.
             React.createElement('div', { style: { display: 'flex', flexWrap: 'wrap', gap: '0.5rem', alignItems: 'center', marginTop: '0.7rem', paddingTop: '0.7rem', borderTop: `1px solid ${theme.cardBorder}` } },
-              React.createElement('span', { style: { color: theme.textSecondary, fontSize: '0.72rem', fontWeight: '700' } }, t.presetLabel || 'Mapping preset'),
+              React.createElement('span', { style: { color: theme.textSecondary, fontSize: 'var(--text-xs)', fontWeight: '700' } }, t.presetLabel || 'Mapping preset'),
               React.createElement('select', {
                 value: selectedPreset, onChange: e => applyPresetById(e.target.value),
-                style: { padding: '0.35rem 0.5rem', background: theme.inputBg, border: `1px solid ${theme.inputBorder}`, borderRadius: '6px', color: theme.text, fontSize: '0.78rem' }
+                style: { padding: '0.35rem 0.5rem', background: theme.inputBg, border: `1px solid ${theme.inputBorder}`, borderRadius: '6px', color: theme.text, fontSize: 'var(--text-xs)' }
               },
                 React.createElement('option', { value: '' }, t.presetLoad || 'Load preset…'),
                 presets.map(p => React.createElement('option', { key: p.id, value: p.id }, p.name))
               ),
               React.createElement('button', { onClick: saveCurrentPreset,
-                style: { padding: '0.35rem 0.7rem', background: (theme.accentFill || theme.accent), color: '#ffffff', border: 'none', borderRadius: '6px', cursor: 'pointer', fontSize: '0.76rem', fontWeight: '700' } }, t.presetSave || 'Save preset'),
+                style: { padding: '0.35rem 0.7rem', background: (theme.accentFill || theme.accent), color: '#ffffff', border: 'none', borderRadius: '6px', cursor: 'pointer', fontSize: 'var(--text-xs)', fontWeight: '700' } }, t.presetSave || 'Save preset'),
               selectedPreset && React.createElement('button', { onClick: deleteSelectedPreset,
-                style: { padding: '0.35rem 0.7rem', background: 'none', color: theme.textSecondary, border: `1px solid ${theme.inputBorder}`, borderRadius: '6px', cursor: 'pointer', fontSize: '0.76rem' } }, t.presetDelete || 'Delete')
+                style: { padding: '0.35rem 0.7rem', background: 'none', color: theme.textSecondary, border: `1px solid ${theme.inputBorder}`, borderRadius: '6px', cursor: 'pointer', fontSize: 'var(--text-xs)' } }, t.presetDelete || 'Delete')
             )
           ),
 
           // ISIN → ticker: one row per ISIN with the proposed listing, editable.
           isinList.length > 0 && React.createElement('div', { 'data-testid': 'isin-map', style: { background: theme.card, border: `1px solid ${theme.cardBorder}`, borderRadius: '10px', padding: '0.9rem', marginBottom: '0.9rem' } },
-            React.createElement('div', { style: { color: theme.textSecondary, fontSize: '0.72rem', fontWeight: '700', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: '0.3rem' } }, __('biIsinTicker', 'ISIN → ticker')),
-            React.createElement('div', { style: { color: theme.textSecondary, fontSize: '0.76rem', lineHeight: 1.5, marginBottom: '0.6rem' } },
+            React.createElement('div', { style: { color: theme.textSecondary, fontSize: 'var(--text-xs)', fontWeight: '700', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: '0.3rem' } }, __('biIsinTicker', 'ISIN → ticker')),
+            React.createElement('div', { style: { color: theme.textSecondary, fontSize: 'var(--text-xs)', lineHeight: 1.5, marginBottom: '0.6rem' } },
               isinBusy ? __('biLookingUp', 'Looking up listings…')
                 : __('biIsinHint', 'Prices are fetched per listing, so each ISIN needs a ticker. Proposed: the listing in the trade currency. Change it if it is not the one you hold.')),
             isinList.map(x => {
               const pick = isinPicks[x.isin] || {};
               const cands = isinCands[x.isin] || [];
               const inCands = cands.some(c => String(c.symbol).toUpperCase() === pick.symbol);
-              return React.createElement('div', { key: x.isin, style: { display: 'grid', gridTemplateColumns: 'minmax(120px, 150px) minmax(140px, 1fr) minmax(110px, 140px)', gap: '0.5rem', alignItems: 'center', marginBottom: '0.4rem', fontSize: '0.78rem' } },
+              return React.createElement('div', { key: x.isin, style: { display: 'grid', gridTemplateColumns: 'minmax(120px, 150px) minmax(140px, 1fr) minmax(110px, 140px)', gap: '0.5rem', alignItems: 'center', marginBottom: '0.4rem', fontSize: 'var(--text-xs)' } },
                 React.createElement('span', { style: { color: theme.text, fontFamily: 'monospace' } }, x.isin, React.createElement('span', { style: { color: theme.textSecondary } }, ' · ' + x.currency)),
                 React.createElement('select', {
                   'aria-label': __('biListingFor', 'Listing for {isin}', { isin: x.isin }), value: inCands ? pick.symbol : '',
                   onChange: e => { const c = cands.find(k => String(k.symbol).toUpperCase() === e.target.value); if (c) setIsinTicker(x.isin, c.symbol, c.name); },
                   disabled: !cands.length,
-                  style: { padding: '0.4rem 0.5rem', minHeight: '40px', background: theme.inputBg, border: `1px solid ${theme.inputBorder}`, borderRadius: '6px', color: theme.text, fontSize: '0.78rem', width: '100%' }
+                  style: { padding: '0.4rem 0.5rem', minHeight: '40px', background: theme.inputBg, border: `1px solid ${theme.inputBorder}`, borderRadius: '6px', color: theme.text, fontSize: 'var(--text-xs)', width: '100%' }
                 },
                   React.createElement('option', { value: '' }, cands.length ? ((pick.symbol && !inCands) ? __('biOther', 'other: {sym}', { sym: pick.symbol }) : __('biChooseListing', '— choose a listing —')) : (isinBusy ? __('biSearching', 'searching…') : (workerUrl ? __('biNoListing', 'no listing found') : __('biNeedsWorker', 'needs a Worker URL')))),
                   cands.map(c => React.createElement('option', { key: c.symbol, value: String(c.symbol).toUpperCase() }, `${c.symbol} — ${c.name || ''}${c.exchange ? ' (' + c.exchange + ')' : ''}`))
@@ -1213,12 +1213,12 @@ function BrokerImportWizard({ theme, t, addToast, onImport, existing, workerUrl,
                 React.createElement('input', {
                   'aria-label': __('biTickerFor', 'Ticker for {isin}', { isin: x.isin }), placeholder: __('biTickerPh', 'ticker'), value: pick.symbol || '',
                   onChange: e => setIsinTicker(x.isin, e.target.value, ''),
-                  style: { padding: '0.4rem 0.5rem', minHeight: '40px', background: theme.inputBg, border: `1px solid ${pick.symbol ? theme.inputBorder : 'var(--danger)'}`, borderRadius: '6px', color: theme.text, fontSize: '0.78rem', width: '100%', boxSizing: 'border-box' }
+                  style: { padding: '0.4rem 0.5rem', minHeight: '40px', background: theme.inputBg, border: `1px solid ${pick.symbol ? theme.inputBorder : 'var(--danger)'}`, borderRadius: '6px', color: theme.text, fontSize: 'var(--text-xs)', width: '100%', boxSizing: 'border-box' }
                 }),
-                pick.currencyMismatch && React.createElement('span', { style: { gridColumn: '1 / -1', color: 'var(--warning)', fontSize: '0.72rem' } }, __('biCurMismatch', 'No {cur} listing found — {sym} is quoted in another currency. Its price is converted, so P&L will include the exchange-rate move.', { cur: x.currency, sym: pick.symbol }))
+                pick.currencyMismatch && React.createElement('span', { style: { gridColumn: '1 / -1', color: 'var(--warning)', fontSize: 'var(--text-xs)' } }, __('biCurMismatch', 'No {cur} listing found — {sym} is quoted in another currency. Its price is converted, so P&L will include the exchange-rate move.', { cur: x.currency, sym: pick.symbol }))
               );
             }),
-            (!isinBusy && mp.stats.isinUnresolved > 0) && React.createElement('div', { role: 'status', 'data-testid': 'isin-unresolved', style: { color: 'var(--danger)', fontSize: '0.76rem', marginTop: '0.4rem' } },
+            (!isinBusy && mp.stats.isinUnresolved > 0) && React.createElement('div', { role: 'status', 'data-testid': 'isin-unresolved', style: { color: 'var(--danger)', fontSize: 'var(--text-xs)', marginTop: '0.4rem' } },
               __('biIsinUnresolved', '{n} {n:row has|rows have} no ticker yet. They would be imported under their ISIN and stay without a price — enter a ticker above.', { n: mp.stats.isinUnresolved }))
           ),
 
@@ -1226,21 +1226,21 @@ function BrokerImportWizard({ theme, t, addToast, onImport, existing, workerUrl,
           currencyNotice(mp.transactions),
 
           // Row-accurate error report.
-          showErrors && mp.errors.length > 0 && React.createElement('div', { style: { background: 'color-mix(in srgb, var(--danger) 6%, transparent)', border: '1px solid color-mix(in srgb, var(--danger) 25%, transparent)', borderRadius: '8px', padding: '0.6rem 0.8rem', marginBottom: '0.9rem', maxHeight: '160px', overflow: 'auto', fontSize: '0.76rem' } },
+          showErrors && mp.errors.length > 0 && React.createElement('div', { style: { background: 'color-mix(in srgb, var(--danger) 6%, transparent)', border: '1px solid color-mix(in srgb, var(--danger) 25%, transparent)', borderRadius: '8px', padding: '0.6rem 0.8rem', marginBottom: '0.9rem', maxHeight: '160px', overflow: 'auto', fontSize: 'var(--text-xs)' } },
             mp.errors.slice(0, 50).map((er, i) => React.createElement('div', { key: i, style: { color: theme.textSecondary, lineHeight: '1.7' } },
               React.createElement('span', { style: { color: 'var(--danger)', fontWeight: '700' } }, __('importRowLabel', 'Row {row}:', { row: er.row }) + ' '), er.reason)),
             mp.errors.length > 50 && React.createElement('div', { style: { color: theme.textSecondary } }, __('andNMore', '… and {n} more', { n: mp.errors.length - 50 }))
           ),
 
           // Duplicate handling toggle.
-          (mp.stats.duplicates > 0) && React.createElement('label', { style: { display: 'flex', alignItems: 'center', gap: '0.5rem', marginBottom: '0.9rem', fontSize: '0.82rem', color: theme.text, cursor: 'pointer' } },
+          (mp.stats.duplicates > 0) && React.createElement('label', { style: { display: 'flex', alignItems: 'center', gap: '0.5rem', marginBottom: '0.9rem', fontSize: 'var(--text-sm)', color: theme.text, cursor: 'pointer' } },
             React.createElement('input', { type: 'checkbox', checked: includeDupes, onChange: e => setIncludeDupes(e.target.checked) }),
             __('biImportDupes', 'Import the {n} {n:duplicate|duplicates} too (already in your portfolio)', { n: mp.stats.duplicates })
           ),
 
           // Preview table — duplicates greyed + flagged.
           React.createElement('div', { style: { background: theme.card, borderRadius: '10px', border: `1px solid ${theme.cardBorder}`, overflow: 'auto', maxHeight: '300px' } },
-            React.createElement('table', { style: { width: '100%', borderCollapse: 'collapse', minWidth: '560px', fontSize: '0.8rem' } },
+            React.createElement('table', { style: { width: '100%', borderCollapse: 'collapse', minWidth: '560px', fontSize: 'var(--text-sm)' } },
               React.createElement('thead', null,
                 React.createElement('tr', null,
                   [__('date', 'Date'), __('type', 'Type'), __('symbol', 'Symbol'), __('quantity', 'Quantity'), __('price', 'Price'), __('fees', 'Fees'), ''].map((h, i) =>
@@ -1253,23 +1253,23 @@ function BrokerImportWizard({ theme, t, addToast, onImport, existing, workerUrl,
                   React.createElement('tr', { key: i, style: { opacity: tx.duplicate ? 0.45 : 1 } },
                     React.createElement('td', { style: { padding: '0.5rem 0.875rem', color: theme.text } }, tx.date ? window.MaerminI18n.date(tx.date) : '—'),
                     React.createElement('td', { style: { padding: '0.5rem 0.875rem' } },
-                      React.createElement('span', { style: { padding: '0.125rem 0.375rem', borderRadius: '3px', fontSize: '0.7rem', fontWeight: '700', background: window.MaerminUtils.txTypeInfo(tx.type).background, color: window.MaerminUtils.txTypeInfo(tx.type).color } }, window.MaerminUtils.txTypeInfo(tx.type, t).label.toUpperCase())
+                      React.createElement('span', { style: { padding: '0.125rem 0.375rem', borderRadius: '3px', fontSize: 'var(--text-2xs)', fontWeight: '700', background: window.MaerminUtils.txTypeInfo(tx.type).background, color: window.MaerminUtils.txTypeInfo(tx.type).color } }, window.MaerminUtils.txTypeInfo(tx.type, t).label.toUpperCase())
                     ),
                     React.createElement('td', { style: { padding: '0.5rem 0.875rem', color: tx.unresolvedIsin ? theme.danger : theme.text, fontWeight: '600' } },
                       tx.symbol || '—',
-                      (tx.isin && !tx.unresolvedIsin) && React.createElement('div', { style: { color: theme.textSecondary, fontWeight: '400', fontSize: '0.68rem', fontFamily: 'monospace' } }, tx.isin),
-                      tx.unresolvedIsin && React.createElement('div', { style: { fontWeight: '400', fontSize: '0.68rem' } }, __('biNoTicker', 'no ticker'))),
+                      (tx.isin && !tx.unresolvedIsin) && React.createElement('div', { style: { color: theme.textSecondary, fontWeight: '400', fontSize: 'var(--text-2xs)', fontFamily: 'monospace' } }, tx.isin),
+                      tx.unresolvedIsin && React.createElement('div', { style: { fontWeight: '400', fontSize: 'var(--text-2xs)' } }, __('biNoTicker', 'no ticker'))),
                     React.createElement('td', { style: { padding: '0.5rem 0.875rem', color: theme.text, textAlign: 'right' } }, (typeof tx.quantity === 'number' ? window.MaerminI18n.num(tx.quantity, 4) : '—')),
                     // P5-1.3: a cash row shows its amount in the price column
                     React.createElement('td', { style: { padding: '0.5rem 0.875rem', color: theme.text, textAlign: 'right' } }, (typeof tx.price === 'number' ? window.MaerminI18n.num(tx.price, 2) : typeof tx.amount === 'number' ? window.MaerminI18n.num(tx.amount, 2) + ' ' + (tx.currency || 'EUR') : '—')),
                     React.createElement('td', { style: { padding: '0.5rem 0.875rem', color: theme.textSecondary, textAlign: 'right' } }, window.MaerminI18n.num(typeof tx.fees === 'number' ? tx.fees : 0, 2)),
-                    React.createElement('td', { style: { padding: '0.5rem 0.875rem', textAlign: 'right' } }, tx.duplicate ? React.createElement('span', { style: { color: 'var(--warning)', fontSize: '0.68rem', fontWeight: '700' } }, 'DUP') : '')
+                    React.createElement('td', { style: { padding: '0.5rem 0.875rem', textAlign: 'right' } }, tx.duplicate ? React.createElement('span', { style: { color: 'var(--warning)', fontSize: 'var(--text-2xs)', fontWeight: '700' } }, 'DUP') : '')
                   )
                 )
               )
             )
           ),
-          mp.transactions.length > 20 && React.createElement('div', { style: { color: theme.textSecondary, fontSize: '0.8rem', marginTop: '0.5rem' } }, __('andNMore', '… and {n} more', { n: mp.transactions.length - 20 }))
+          mp.transactions.length > 20 && React.createElement('div', { style: { color: theme.textSecondary, fontSize: 'var(--text-sm)', marginTop: '0.5rem' } }, __('andNMore', '… and {n} more', { n: mp.transactions.length - 20 }))
         );
       })(),
 
@@ -1283,8 +1283,8 @@ function BrokerImportWizard({ theme, t, addToast, onImport, existing, workerUrl,
 
     // ── Step 3: Done ─────────────────────────────────────────────────────────
     step === 3 && React.createElement('div', { style: { textAlign: 'center', padding: '3rem' } },
-      React.createElement('div', { style: { fontSize: '2rem', marginBottom: '1rem', color: 'var(--success)' } }, '✓'),
-      React.createElement('h3', { style: { color: theme.text, fontSize: '1.25rem', fontWeight: '700', marginBottom: '0.5rem' } }, __('biSuccess', 'Import successful!')),
+      React.createElement('div', { style: { fontSize: 'var(--text-2xl)', marginBottom: '1rem', color: 'var(--success)' } }, '✓'),
+      React.createElement('h3', { style: { color: theme.text, fontSize: 'var(--text-title)', fontWeight: '700', marginBottom: '0.5rem' } }, __('biSuccess', 'Import successful!')),
       React.createElement('p', { style: { color: theme.textSecondary, marginBottom: '1.5rem' } }, __('biAddedN', '{n} {n:transaction was|transactions were} added.', { n: importedCount })),
       btn(__('biStartNew', 'Start a new import'), reset, true)
     )
@@ -1322,8 +1322,8 @@ function PositionNotesView({ portfolio, theme, t }) {
   const noteCount = Object.keys(notes).filter(k => notes[k]?.text).length;
 
   return React.createElement('div', { style: { padding: '1.5rem' } },
-    React.createElement('h2', { style: { color: theme.text, fontSize: '1.5rem', fontWeight: '800', letterSpacing: '-0.02em', marginBottom: '0.5rem' } }, (t.tradeJournal || 'Trade Journal')),
-    React.createElement('p', { style: { color: theme.textSecondary, fontSize: '0.875rem', marginBottom: '1.5rem' } }, __('jnNotesCount', '{n} of {total} positions have notes', { n: noteCount, total: allPositions.length })),
+    React.createElement('h2', { style: { color: theme.text, fontSize: 'var(--text-xl)', fontWeight: '800', letterSpacing: '-0.02em', marginBottom: '0.5rem' } }, (t.tradeJournal || 'Trade Journal')),
+    React.createElement('p', { style: { color: theme.textSecondary, fontSize: 'var(--text-base)', marginBottom: '1.5rem' } }, __('jnNotesCount', '{n} of {total} positions have notes', { n: noteCount, total: allPositions.length })),
 
     allPositions.length === 0
       ? React.createElement('div', { style: { padding: '3rem', textAlign: 'center', color: theme.textSecondary, background: theme.card, borderRadius: '16px', boxShadow: theme.shadow, border: `1px solid ${theme.cardBorder}` } },
@@ -1343,10 +1343,10 @@ function PositionNotesView({ portfolio, theme, t }) {
             },
               React.createElement('div', { style: { display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.625rem' } },
                 React.createElement('div', null,
-                  React.createElement('span', { style: { color: theme.text, fontWeight: '700', fontSize: '0.9rem' } }, p.sym),
-                  React.createElement('span', { style: { color: theme.textSecondary, fontSize: '0.75rem', marginLeft: '0.5rem' } }, p.cat)
+                  React.createElement('span', { style: { color: theme.text, fontWeight: '700', fontSize: 'var(--text-base)' } }, p.sym),
+                  React.createElement('span', { style: { color: theme.textSecondary, fontSize: 'var(--text-xs)', marginLeft: '0.5rem' } }, p.cat)
                 ),
-                note?.updatedAt && React.createElement('span', { style: { color: theme.textSecondary, fontSize: '0.7rem' } },
+                note?.updatedAt && React.createElement('span', { style: { color: theme.textSecondary, fontSize: 'var(--text-2xs)' } },
                   window.MaerminI18n.date(note.updatedAt)
                 )
               ),
@@ -1356,17 +1356,17 @@ function PositionNotesView({ portfolio, theme, t }) {
                       value: draft, autoFocus: true,
                       onChange: e => setDraft(e.target.value),
                       placeholder: __('jnThesisPh', 'Investment thesis, target price, risks, strategy...'),
-                      style: { width: '100%', height: '120px', padding: '0.625rem', background: theme.inputBg, border: `1px solid ${theme.inputBorder}`, borderRadius: '6px', color: theme.text, fontSize: '0.8rem', resize: 'vertical', marginBottom: '0.5rem', lineHeight: '1.5' }
+                      style: { width: '100%', height: '120px', padding: '0.625rem', background: theme.inputBg, border: `1px solid ${theme.inputBorder}`, borderRadius: '6px', color: theme.text, fontSize: 'var(--text-sm)', resize: 'vertical', marginBottom: '0.5rem', lineHeight: '1.5' }
                     }),
                     React.createElement('div', { style: { display: 'flex', gap: '0.375rem' } },
-                      React.createElement('button', { onClick: save, style: { padding: '0.375rem 0.875rem', background: (theme.accentFill || theme.accent), color: '#ffffff', border: 'none', borderRadius: '6px', cursor: 'pointer', fontSize: '0.8rem', fontWeight: '600' } }, __('save', 'Save')),
-                      React.createElement('button', { onClick: () => { setActive(null); setDraft(''); }, style: { padding: '0.375rem 0.875rem', background: theme.inputBg, color: theme.text, border: `1px solid ${theme.cardBorder}`, borderRadius: '6px', cursor: 'pointer', fontSize: '0.8rem' } }, __('cancel', 'Cancel'))
+                      React.createElement('button', { onClick: save, style: { padding: '0.375rem 0.875rem', background: (theme.accentFill || theme.accent), color: '#ffffff', border: 'none', borderRadius: '6px', cursor: 'pointer', fontSize: 'var(--text-sm)', fontWeight: '600' } }, __('save', 'Save')),
+                      React.createElement('button', { onClick: () => { setActive(null); setDraft(''); }, style: { padding: '0.375rem 0.875rem', background: theme.inputBg, color: theme.text, border: `1px solid ${theme.cardBorder}`, borderRadius: '6px', cursor: 'pointer', fontSize: 'var(--text-sm)' } }, __('cancel', 'Cancel'))
                     )
                   )
                 : React.createElement('div', {
                     ...window.MaerminUtils.clickable(() => { setActive(p.key); setDraft(note?.text || ''); }),
                     'aria-label': note?.text ? __('jnEditNote', 'Edit note') : __('jnAddNote', 'Add note'),
-                    style: { cursor: 'pointer', minHeight: '60px', padding: '0.5rem', background: theme.inputBg, borderRadius: '6px', fontSize: '0.8rem', color: note?.text ? theme.text : theme.textSecondary, lineHeight: '1.5', whiteSpace: 'pre-wrap' }
+                    style: { cursor: 'pointer', minHeight: '60px', padding: '0.5rem', background: theme.inputBg, borderRadius: '6px', fontSize: 'var(--text-sm)', color: note?.text ? theme.text : theme.textSecondary, lineHeight: '1.5', whiteSpace: 'pre-wrap' }
                   }, note?.text || __('jnAddNotePh', '+ Add note...'))
             );
           })
@@ -1489,15 +1489,15 @@ function DividendCalendarView({ portfolio, prices, metaVersion, theme, t, addToa
 
   const inp = (field, placeholder, type='text', opts) =>
     React.createElement('input', { type, value: form[field], placeholder, ...opts, onChange: e => setForm(p=>({...p,[field]:e.target.value})),
-      style: { flex: 1, padding: '0.5rem 0.75rem', background: theme.inputBg, border: `1px solid ${theme.inputBorder}`, borderRadius: '6px', color: theme.text, fontSize: '0.875rem' }
+      style: { flex: 1, padding: '0.5rem 0.75rem', background: theme.inputBg, border: `1px solid ${theme.inputBorder}`, borderRadius: '6px', color: theme.text, fontSize: 'var(--text-base)' }
     });
 
   return React.createElement('div', { style: { padding: '1.5rem' } },
     // Header
     React.createElement('div', { style: { display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.5rem', flexWrap: 'wrap', gap: '0.75rem' } },
       React.createElement('div', null,
-        React.createElement('h2', { style: { color: theme.text, fontSize: '1.5rem', fontWeight: '800', letterSpacing: '-0.02em' } }, (t.dividendCalendar || 'Dividend Calendar')),
-        React.createElement('div', { style: { color: theme.textSecondary, fontSize: '0.85rem', marginTop: '0.25rem' } },
+        React.createElement('h2', { style: { color: theme.text, fontSize: 'var(--text-xl)', fontWeight: '800', letterSpacing: '-0.02em' } }, (t.dividendCalendar || 'Dividend Calendar')),
+        React.createElement('div', { style: { color: theme.textSecondary, fontSize: 'var(--text-base)', marginTop: '0.25rem' } },
           `${monthNames[month]} ${year}: ${amt(window.MaerminI18n.money(totalThisMonth, 'EUR'))} · ${__('dcYear', 'Year {y}', { y: year })}: ${amt(window.MaerminI18n.money(totalYear, 'EUR'))}`
         )
       ),
@@ -1528,7 +1528,7 @@ function DividendCalendarView({ portfolio, prices, metaVersion, theme, t, addToa
       // Weekdays header
       React.createElement('div', { style: { display: 'grid', gridTemplateColumns: 'repeat(7,1fr)' } },
         window.MaerminI18n.weekdayNames('short').map(d =>
-          React.createElement('div', { key: d, style: { padding: '0.625rem', textAlign: 'center', color: theme.textSecondary, fontSize: '0.75rem', fontWeight: '600', borderBottom: `1px solid ${theme.cardBorder}` } }, d)
+          React.createElement('div', { key: d, style: { padding: '0.625rem', textAlign: 'center', color: theme.textSecondary, fontSize: 'var(--text-xs)', fontWeight: '600', borderBottom: `1px solid ${theme.cardBorder}` } }, d)
         )
       ),
       // Days
@@ -1544,7 +1544,7 @@ function DividendCalendarView({ portfolio, prices, metaVersion, theme, t, addToa
               background: isToday ? 'rgba(139,124,255,0.08)' : 'transparent'
             }
           },
-            d && React.createElement('div', { style: { fontSize: '0.75rem', fontWeight: isToday ? '700' : '400', color: isToday ? theme.accent : theme.text, marginBottom: '0.25rem' } }, d),
+            d && React.createElement('div', { style: { fontSize: 'var(--text-xs)', fontWeight: isToday ? '700' : '400', color: isToday ? theme.accent : theme.text, marginBottom: '0.25rem' } }, d),
             evs.map(e =>
               React.createElement('div', Object.assign({
                 key: e.id,
@@ -1553,7 +1553,7 @@ function DividendCalendarView({ portfolio, prices, metaVersion, theme, t, addToa
                 style: {
                   background: e.past ? 'color-mix(in srgb, var(--text-dim) 12%, transparent)' : (e.derived ? 'color-mix(in srgb, var(--info) 14%, transparent)' : 'color-mix(in srgb, var(--success) 15%, transparent)'),
                   color: e.past ? theme.textSecondary : (e.derived ? theme.accent : theme.success),
-                  fontSize: '0.65rem', fontWeight: '600', padding: '0.15rem 0.3rem', borderRadius: '3px', marginBottom: '0.15rem',
+                  fontSize: 'var(--text-3xs)', fontWeight: '600', padding: '0.15rem 0.3rem', borderRadius: '3px', marginBottom: '0.15rem',
                   overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
                   cursor: e.derived ? 'default' : 'pointer',
                   borderLeft: e.past ? '2px solid color-mix(in srgb, var(--text-dim) 50%, transparent)' : (e.derived ? '2px solid color-mix(in srgb, var(--info) 60%, transparent)' : 'none')
@@ -1575,12 +1575,12 @@ function DividendCalendarView({ portfolio, prices, metaVersion, theme, t, addToa
     // Upcoming list
     events.filter(e => new Date(e.date) >= today).sort((a,b)=>new Date(a.date)-new Date(b.date)).slice(0,5).length > 0 &&
     React.createElement('div', { style: { marginTop: '1rem' } },
-      React.createElement('div', { style: { color: theme.text, fontWeight: '700', fontSize: '0.9rem', marginBottom: '0.5rem' } }, __('dcUpcoming', 'Upcoming dividends')),
+      React.createElement('div', { style: { color: theme.text, fontWeight: '700', fontSize: 'var(--text-base)', marginBottom: '0.5rem' } }, __('dcUpcoming', 'Upcoming dividends')),
       events.filter(e => new Date(e.date) >= today).sort((a,b)=>new Date(a.date)-new Date(b.date)).slice(0,60).map(e =>
         React.createElement('div', { key: e.id, style: { display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '0.625rem 0.75rem', background: theme.card, borderRadius: '6px', marginBottom: '0.375rem', border: `1px solid ${theme.cardBorder}` } },
-          React.createElement('span', { style: { color: theme.text, fontWeight: '600', fontSize: '0.875rem', minWidth: '64px' } }, e.symbol),
-          React.createElement('span', { style: { color: theme.textSecondary, fontSize: '0.875rem' } }, window.MaerminI18n.date(e.date)),
-          React.createElement('span', { style: { color: e.derived ? theme.accent : theme.success, fontWeight: '700', fontSize: '0.875rem' } }, amt('+' + window.MaerminI18n.money(e.amount, e.currency || 'EUR')))
+          React.createElement('span', { style: { color: theme.text, fontWeight: '600', fontSize: 'var(--text-base)', minWidth: '64px' } }, e.symbol),
+          React.createElement('span', { style: { color: theme.textSecondary, fontSize: 'var(--text-base)' } }, window.MaerminI18n.date(e.date)),
+          React.createElement('span', { style: { color: e.derived ? theme.accent : theme.success, fontWeight: '700', fontSize: 'var(--text-base)' } }, amt('+' + window.MaerminI18n.money(e.amount, e.currency || 'EUR')))
         )
       )
     )

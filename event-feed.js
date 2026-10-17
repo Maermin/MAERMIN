@@ -295,35 +295,35 @@ function __(k, f, v) { return (typeof window !== 'undefined' && window.MaerminI1
 
     return e('div', { 'data-testid': 'events-view', style: { padding: '1.5rem' } },
       e('div', { style: { display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '0.75rem', flexWrap: 'wrap', marginBottom: '0.5rem' } },
-        e('h2', { style: { color: text, fontSize: '1.5rem', fontWeight: 700, margin: 0 } }, __('evfTitle', 'Events')),
+        e('h2', { style: { color: text, fontSize: 'var(--text-xl)', fontWeight: 700, margin: 0 } }, __('evfTitle', 'Events')),
         e('div', { style: { display: 'flex', gap: '0.5rem', alignItems: 'center', flexWrap: 'wrap' } },
-          e('label', { style: { color: dim, fontSize: '0.78rem', display: 'flex', gap: '0.3rem', alignItems: 'center' } },
+          e('label', { style: { color: dim, fontSize: 'var(--text-xs)', display: 'flex', gap: '0.3rem', alignItems: 'center' } },
             e('input', { type: 'checkbox', 'data-testid': 'evf-ics-amounts', checked: icsAmounts, disabled: !!props.privacy, onChange: function (ev) { setIcsAmounts(ev.target.checked); } }),
             __('evfIcsAmounts', 'Amounts in the file')),
           e('button', { 'data-testid': 'evf-ics', style: chip(true), onClick: download, disabled: !list.length }, __('evfIcs', 'Export calendar (.ics)')))),
-      e('p', { style: { color: dim, fontSize: '0.82rem', margin: '0 0 0.9rem', maxWidth: '60rem' } },
+      e('p', { style: { color: dim, fontSize: 'var(--text-sm)', margin: '0 0 0.9rem', maxWidth: '60rem' } },
         __('evfIntro', 'The next 120 days for what you hold and watch: earnings, ex-dates and payments, splits, savings plans, tax dates and central-bank decisions. The calendar file stays on this device until you import it somewhere; amounts are left out unless you tick the box.')),
       e('div', { style: { display: 'flex', gap: '0.35rem', flexWrap: 'wrap', marginBottom: '1rem' } },
         KINDS.map(function (k) { return e('button', { key: k, 'data-testid': 'evf-kind-' + k, 'aria-pressed': on[k] ? 'true' : 'false', style: chip(on[k]), onClick: function () { var n = Object.assign({}, on); n[k] = !n[k]; setOn(n); } }, kindLabel(k)); }),
         watched.length ? e('button', { 'data-testid': 'evf-watched', 'aria-pressed': withWatched ? 'true' : 'false', style: chip(withWatched), onClick: function () { setWithWatched(!withWatched); } }, __('evfWatched', 'Watchlist')) : null),
       load.state === 'noworker' ? e('div', { style: Object.assign({}, card, { color: warn, fontSize: '0.82rem' }) }, __('evfNoWorker', 'Earnings, ex-dates and pay dates come through your Worker (API Settings). Everything else is shown without one.')) : null,
       load.state === 'old' ? e('div', { style: Object.assign({}, card, { color: warn, fontSize: '0.82rem' }) }, __('evfOldWorker', 'Your Worker has no earnings route yet. Redeploy it (API Settings) for earnings and ex-dates.')) : null,
-      load.state === 'loading' ? e('div', { 'data-testid': 'evf-loading', style: { color: dim, fontSize: '0.8rem', marginBottom: '0.75rem' } }, __('evfLoading', 'Loading dates for {n} symbols…', { n: syms.length })) : null,
+      load.state === 'loading' ? e('div', { 'data-testid': 'evf-loading', style: { color: dim, fontSize: 'var(--text-sm)', marginBottom: '0.75rem' } }, __('evfLoading', 'Loading dates for {n} symbols…', { n: syms.length })) : null,
       !list.length && load.state !== 'loading' ? e('div', { style: Object.assign({}, card, { color: dim, fontSize: '0.85rem' }) }, __('evfEmpty', 'Nothing in the next 120 days for the selected types.')) : null,
       months.map(function (m) {
         return e('div', { key: m, style: card },
-          e('h3', { style: { color: text, fontSize: '1rem', fontWeight: 700, margin: '0 0 0.4rem' } }, monthName(m)),
+          e('h3', { style: { color: text, fontSize: 'var(--text-body)', fontWeight: 700, margin: '0 0 0.4rem' } }, monthName(m)),
           byMonth[m].map(function (ev) {
             return e('div', { key: ev.uid, 'data-testid': 'evf-row', 'data-kind': ev.kind, style: { display: 'grid', gridTemplateColumns: 'minmax(6.5rem, auto) 1fr', gap: '0.75rem', padding: '0.5rem 0', borderTop: '1px solid ' + border } },
-              e('div', { style: { color: dim, fontSize: '0.8rem', fontVariantNumeric: 'tabular-nums' } }, dayLabel(ev.date)),
+              e('div', { style: { color: dim, fontSize: 'var(--text-sm)', fontVariantNumeric: 'tabular-nums' } }, dayLabel(ev.date)),
               e('div', null,
-                e('div', { style: { color: text, fontWeight: 600, fontSize: '0.88rem' } },
+                e('div', { style: { color: text, fontWeight: 600, fontSize: 'var(--text-base)' } },
                   ev.title,
-                  ev.watched ? e('span', { style: { marginLeft: '0.4rem', color: dim, fontSize: '0.7rem', border: '1px solid ' + border, borderRadius: '6px', padding: '0 0.3rem' } }, __('evfWatchedTag', 'watched')) : null),
-                e('div', { style: { color: dim, fontSize: '0.76rem' } }, [kindLabel(ev.kind), ev.detail].filter(Boolean).join(' · '))));
+                  ev.watched ? e('span', { style: { marginLeft: '0.4rem', color: dim, fontSize: 'var(--text-2xs)', border: '1px solid ' + border, borderRadius: '6px', padding: '0 0.3rem' } }, __('evfWatchedTag', 'watched')) : null),
+                e('div', { style: { color: dim, fontSize: 'var(--text-xs)' } }, [kindLabel(ev.kind), ev.detail].filter(Boolean).join(' · '))));
           }));
       }),
-      e('p', { style: { color: dim, fontSize: '0.72rem', margin: '0.5rem 0 0' } },
+      e('p', { style: { color: dim, fontSize: 'var(--text-xs)', margin: '0.5rem 0 0' } },
         __('evfSource', 'Dates: Yahoo Finance (personal use), your dividend schedule and savings plans, the ECB and Fed meeting calendars. Expected dates can move.')));
   }
 

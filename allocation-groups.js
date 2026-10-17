@@ -118,21 +118,21 @@
       return e('div', { 'data-testid': testid },
         rows.map(function (r, i) {
           return e('div', { key: r.key, 'data-key': r.key, 'data-v': r.value, 'data-pct': r.pct, style: { padding: '0.5rem 0', borderTop: i ? '1px solid ' + border : 'none' } },
-            e('div', { style: { display: 'flex', justifyContent: 'space-between', gap: '0.75rem', fontSize: '0.85rem', marginBottom: '0.3rem' } },
+            e('div', { style: { display: 'flex', justifyContent: 'space-between', gap: '0.75rem', fontSize: 'var(--text-base)', marginBottom: '0.3rem' } },
               e('span', { style: { color: text, fontWeight: 600, minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis' } }, r.label,
-                r.sub ? e('span', { style: { color: dim, fontWeight: 400, fontSize: '0.74rem', marginLeft: '0.4rem' } }, r.sub) : null),
+                r.sub ? e('span', { style: { color: dim, fontWeight: 400, fontSize: 'var(--text-xs)', marginLeft: '0.4rem' } }, r.sub) : null),
               e('span', { style: { color: text, whiteSpace: 'nowrap', fontVariantNumeric: 'tabular-nums' } }, I.pct(r.pct, 1),
-                e('span', { style: { color: dim, marginLeft: '0.5rem', fontSize: '0.78rem' } }, money(r.value)))),
+                e('span', { style: { color: dim, marginLeft: '0.5rem', fontSize: 'var(--text-xs)' } }, money(r.value)))),
             e('div', { 'aria-hidden': true, style: { height: '6px', background: theme.inputBg, borderRadius: '3px', overflow: 'hidden' } },
               e('div', { style: { width: Math.max(0, Math.min(100, r.pct)) + '%', height: '100%', background: COLORS[i % COLORS.length], borderRadius: '3px' } })));
         }));
     };
     var card = function (testid, title, sub, body) {
       return e('section', { 'data-testid': testid, style: { background: theme.card, border: '1px solid ' + border, borderRadius: '14px', padding: '1.1rem', marginBottom: '1rem', minWidth: 0 } },
-        e('h3', { style: { color: text, fontWeight: 700, fontSize: '0.95rem', margin: 0 } }, title),
-        e('div', { style: { color: dim, fontSize: '0.78rem', margin: '0.2rem 0 0.75rem', lineHeight: 1.5 } }, sub), body);
+        e('h3', { style: { color: text, fontWeight: 700, fontSize: 'var(--text-md)', margin: 0 } }, title),
+        e('div', { style: { color: dim, fontSize: 'var(--text-xs)', margin: '0.2rem 0 0.75rem', lineHeight: 1.5 } }, sub), body);
     };
-    var muted = function (msg) { return e('div', { style: { color: dim, fontSize: '0.85rem' } }, msg); };
+    var muted = function (msg) { return e('div', { style: { color: dim, fontSize: 'var(--text-base)' } }, msg); };
 
     var provRows = prov.providers.map(function (p) {
       return { key: p.name || 'other', label: p.name || __('agOtherProviders', 'Other providers'), sub: __('agFunds', '{n} {n:fund|funds}', { n: p.holdings.length }), value: p.value, pct: p.pctFunds };

@@ -158,8 +158,8 @@ function __(k, f, v) { return (typeof window !== 'undefined' && window.MaerminI1
     var chosen = rows ? rows.filter(function (r) { return r.include; }) : [];
 
     return e('div', { 'data-testid': 'steam-import', style: { background: th.card || th.cardBg, border: '1px solid ' + border, borderRadius: '12px', padding: '1.5rem' } },
-      e('h3', { style: { color: text, fontSize: '1.05rem', fontWeight: 700, margin: '0 0 0.35rem' } }, __('stTitle', 'Steam inventory (CS2)')),
-      e('p', { style: { color: dim, fontSize: '0.82rem', margin: '0 0 1rem', lineHeight: 1.55 } },
+      e('h3', { style: { color: text, fontSize: 'var(--text-body)', fontWeight: 700, margin: '0 0 0.35rem' } }, __('stTitle', 'Steam inventory (CS2)')),
+      e('p', { style: { color: dim, fontSize: 'var(--text-sm)', margin: '0 0 1rem', lineHeight: 1.55 } },
         __('stIntro', 'Imports the CS2 items of a public Steam inventory as purchases. You check every row before anything is booked; a later import only offers items not imported before, and nothing is ever sold.')),
       e('div', { style: { display: 'flex', gap: '0.5rem', flexWrap: 'wrap' } },
         e('input', { type: 'text', value: profile, spellCheck: false, 'aria-label': __('stProfile', 'Steam profile'),
@@ -169,8 +169,8 @@ function __(k, f, v) { return (typeof window !== 'undefined' && window.MaerminI1
         e('button', { type: 'button', onClick: load, disabled: busy || !profile.trim(), 'aria-busy': busy ? 'true' : undefined, style: btn(true, busy || !profile.trim()) },
           busy ? __('stLoading', 'Loading…') : __('stLoad', 'Load inventory')),
         e('button', { type: 'button', onClick: function () { setShowPaste(!showPaste); }, 'aria-expanded': showPaste ? 'true' : 'false', style: btn(false, false) }, __('stPasteToggle', 'Paste instead'))),
-      msg && e('div', { role: 'status', 'data-testid': 'steam-msg', style: { color: rows && rows.length ? text : warn, fontSize: '0.82rem', marginTop: '0.75rem' } }, msg),
-      showPaste && e('div', { style: { marginTop: '0.9rem', color: dim, fontSize: '0.8rem', lineHeight: 1.6 } },
+      msg && e('div', { role: 'status', 'data-testid': 'steam-msg', style: { color: rows && rows.length ? text : warn, fontSize: 'var(--text-sm)', marginTop: '0.75rem' } }, msg),
+      showPaste && e('div', { style: { marginTop: '0.9rem', color: dim, fontSize: 'var(--text-sm)', lineHeight: 1.6 } },
         e('div', null, id64
           ? [__('stPasteOpen', 'Open'), ' ', e('a', { key: 'a', href: inventoryUrl(id64), target: '_blank', rel: 'noopener noreferrer', style: { color: accent } }, __('stPasteLink', 'your inventory as JSON')), ' ', __('stPasteCopy', 'while signed in to Steam, select everything, copy it and paste it here.')]
           : __('stPasteNeedId', 'Enter your SteamID64 (17 digits, in your profile URL) above to get the link to your inventory JSON.')),
@@ -178,7 +178,7 @@ function __(k, f, v) { return (typeof window !== 'undefined' && window.MaerminI1
           placeholder: '{"assets":[…],"descriptions":[…]}', style: Object.assign({}, inp, { width: '100%', boxSizing: 'border-box', marginTop: '0.5rem', fontFamily: 'monospace', fontSize: '0.75rem' }) }),
         e('button', { type: 'button', onClick: function () { preview(itemsFrom(pasted)); }, disabled: !pasted.trim(), style: Object.assign(btn(true, !pasted.trim()), { marginTop: '0.5rem' }) }, __('stReadPasted', 'Read pasted inventory'))),
       rows && rows.length > 0 && e('div', { style: { marginTop: '1rem', overflowX: 'auto' } },
-        e('table', { style: { width: '100%', borderCollapse: 'collapse', fontSize: '0.82rem', color: text } },
+        e('table', { style: { width: '100%', borderCollapse: 'collapse', fontSize: 'var(--text-sm)', color: text } },
           e('thead', null, e('tr', { style: { color: dim, textAlign: 'left' } },
             ['', __('stItem', 'Item'), __('stQty', 'Qty'), __('stPrice', 'Price per item (EUR)'), __('stDate', 'Purchase date')].map(function (h, i) {
               return e('th', { key: i, style: { padding: '0.4rem 0.5rem', fontWeight: 600, borderBottom: '1px solid ' + border } }, h);
@@ -186,7 +186,7 @@ function __(k, f, v) { return (typeof window !== 'undefined' && window.MaerminI1
           e('tbody', null, rows.map(function (r, i) {
             return e('tr', { key: r.name, 'data-steam-item': r.name, style: { borderBottom: '1px solid ' + border, opacity: r.include ? 1 : 0.6 } },
               e('td', { style: { padding: '0.35rem 0.5rem' } }, e('input', { type: 'checkbox', checked: !!r.include, 'aria-label': __('stInclude', 'Import {name}', { name: r.name }), onChange: function () { edit(i, { include: !r.include }); } })),
-              e('td', { style: { padding: '0.35rem 0.5rem' } }, r.name, r.marketable ? null : e('span', { style: { color: dim, fontSize: '0.72rem' } }, ' · ' + __('stNotMarketable', 'not marketable'))),
+              e('td', { style: { padding: '0.35rem 0.5rem' } }, r.name, r.marketable ? null : e('span', { style: { color: dim, fontSize: 'var(--text-xs)' } }, ' · ' + __('stNotMarketable', 'not marketable'))),
               e('td', { style: { padding: '0.35rem 0.5rem', textAlign: 'right' } }, I ? I.num(r.qty, 0) : r.qty),
               e('td', { style: { padding: '0.35rem 0.5rem' } }, e('input', { type: 'text', inputMode: 'decimal', defaultValue: r.price ? (I ? I.num(r.price, 2) : r.price) : '', placeholder: '0',
                 'aria-label': __('stPriceAria', 'Price per item for {name}', { name: r.name }),
@@ -196,7 +196,7 @@ function __(k, f, v) { return (typeof window !== 'undefined' && window.MaerminI1
                 onChange: function (ev) { edit(i, { date: ev.target.value }); }, style: Object.assign({}, inp, { padding: '0.3rem 0.5rem' }) })));
           }))),
         e('div', { style: { display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '1rem', flexWrap: 'wrap', marginTop: '0.9rem' } },
-          e('span', { style: { color: dim, fontSize: '0.8rem' } }, __('stPriceHint', 'Prices are today\'s Steam Market prices; change them to what you paid.')),
+          e('span', { style: { color: dim, fontSize: 'var(--text-sm)' } }, __('stPriceHint', 'Prices are today\'s Steam Market prices; change them to what you paid.')),
           e('button', { type: 'button', 'data-testid': 'steam-do-import', onClick: doImport, disabled: !chosen.length, style: btn(true, !chosen.length) },
             __('stImportBtn', 'Import {n} {n:row|rows}', { n: chosen.length })))));
   }

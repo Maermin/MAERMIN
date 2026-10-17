@@ -331,13 +331,13 @@ function __(k, f, v) { return (typeof window !== 'undefined' && window.MaerminI1
       var on = p === period;
       return e('button', { key: p, type: 'button', 'data-testid': 'va-period-' + p, 'aria-pressed': on, onClick: function () { setPeriod(p); },
         style: { padding: '0.3rem 0.7rem', borderRadius: '999px', border: '1px solid ' + (on ? accent : border), background: on ? accent : 'transparent',
-          color: on ? '#fff' : dim, fontSize: '0.75rem', fontWeight: 600, cursor: 'pointer' } },
+          color: on ? '#fff' : dim, fontSize: 'var(--text-xs)', fontWeight: 600, cursor: 'pointer' } },
         p === 'MAX' ? __('vaMax', 'Max') : p === 'YTD' ? __('vaYtd', 'YTD') : p);
     };
 
     var body;
     if (!res) {
-      body = e('div', { style: { color: dim, fontSize: '0.85rem' } }, __('vaEmpty', 'Add transactions to see where your profit came from.'));
+      body = e('div', { style: { color: dim, fontSize: 'var(--text-base)' } }, __('vaEmpty', 'Add transactions to see where your profit came from.'));
     } else {
       // zero rows are left out; the residual only shows from 50 cents (rounding)
       var list = PARTS.filter(function (k) { return Math.abs(res.parts[k]) >= (k === 'residual' ? 0.5 : 0.005); });
@@ -349,9 +349,9 @@ function __(k, f, v) { return (typeof window !== 'undefined' && window.MaerminI1
       };
       var row = function (key, label, amount, color, strong) {
         return e('div', { key: key, 'data-testid': 'va-row-' + key, style: { display: 'flex', alignItems: 'center', gap: '0.6rem', padding: '0.3rem 0', borderTop: strong && key === 'end' ? '1px solid ' + border : 'none' } },
-          e('span', { style: { flex: '0 0 42%', color: strong ? text : dim, fontSize: '0.8rem', fontWeight: strong ? 700 : 500 } }, label),
+          e('span', { style: { flex: '0 0 42%', color: strong ? text : dim, fontSize: 'var(--text-sm)', fontWeight: strong ? 700 : 500 } }, label),
           strong ? e('div', { style: { flex: '1 1 auto', minWidth: '60px' } }) : bar(amount, color),
-          e('span', { style: { flex: '0 0 auto', minWidth: '88px', textAlign: 'right', color: strong ? text : color, fontSize: '0.8rem', fontWeight: 700, fontVariantNumeric: 'tabular-nums' } },
+          e('span', { style: { flex: '0 0 auto', minWidth: '88px', textAlign: 'right', color: strong ? text : color, fontSize: 'var(--text-sm)', fontWeight: 700, fontVariantNumeric: 'tabular-nums' } },
             (strong || amount === 0 ? '' : amount > 0 ? '+' : '−') + money(strong ? amount : Math.abs(amount))));
       };
       var top = biggest(res.parts);
@@ -362,20 +362,20 @@ function __(k, f, v) { return (typeof window !== 'undefined' && window.MaerminI1
           return row(k, labelOf(k), a, k === 'residual' ? dim : (k === 'moneyIn' || k === 'moneyOut') ? accent : (a >= 0 ? good : bad), false);
         }),
         row('end', __('vaEnd', 'Value at the end'), res.endValue, dim, true),
-        e('div', { 'data-testid': 'va-profit', style: { display: 'flex', flexWrap: 'wrap', gap: '0.4rem 1rem', marginTop: '0.7rem', fontSize: '0.85rem', color: text } },
+        e('div', { 'data-testid': 'va-profit', style: { display: 'flex', flexWrap: 'wrap', gap: '0.4rem 1rem', marginTop: '0.7rem', fontSize: 'var(--text-base)', color: text } },
           e('span', { style: { fontWeight: 700 } }, __('vaProfit', 'Profit in this period: {amount}', { amount: (res.profit < 0 ? '−' : '+') + money(Math.abs(res.profit)) })),
           top ? e('span', { 'data-testid': 'va-biggest', style: { color: dim } }, __('vaBiggest', 'Biggest driver: {source} ({amount}).',
             { source: labelOf(top.key), amount: (top.amount < 0 ? '−' : '+') + money(Math.abs(top.amount)) })) : null),
-        res.missing.length ? e('div', { style: { color: dim, fontSize: '0.72rem', marginTop: '0.5rem' } },
+        res.missing.length ? e('div', { style: { color: dim, fontSize: 'var(--text-xs)', marginTop: '0.5rem' } },
           __('vaMissing', 'Not priced, so not measured: {list}.', { list: res.missing.map(function (m) { return m.symbol; }).join(', ') })) : null,
-        e('div', { style: { color: dim, fontSize: '0.7rem', marginTop: '0.6rem', lineHeight: 1.5 } },
+        e('div', { style: { color: dim, fontSize: 'var(--text-2xs)', marginTop: '0.6rem', lineHeight: 1.5 } },
           res.cash ? __('vaNoteCash', 'Money in and out = deposits, withdrawals and transfers of the clearing account. Gains are shown before fees; fees and taxes count when they were paid. Realized gains follow the FIFO ledger; the currency effect is taken out of the unrealized gains.')
             : __('vaNoteNoCash', 'Without a clearing account, purchases count as money in and sales and payouts as money out. Gains are shown before fees; fees and taxes count when they were paid. Realized gains follow the FIFO ledger; the currency effect is taken out of the unrealized gains.')));
     }
 
     return e('div', { 'data-testid': 'value-attribution', style: { background: card, border: '1px solid ' + border, borderRadius: '14px', padding: '1.25rem', marginTop: '1rem' } },
       e('div', { style: { display: 'flex', flexWrap: 'wrap', alignItems: 'center', justifyContent: 'space-between', gap: '0.6rem', marginBottom: '0.9rem' } },
-        e('h3', { style: { color: text, fontSize: '1rem', fontWeight: 700, margin: 0 } }, __('vaTitle', 'Profit by source')),
+        e('h3', { style: { color: text, fontSize: 'var(--text-body)', fontWeight: 700, margin: 0 } }, __('vaTitle', 'Profit by source')),
         e('div', { role: 'group', 'aria-label': __('vaPeriod', 'Period'), style: { display: 'flex', flexWrap: 'wrap', gap: '0.35rem' } }, PERIODS.map(chip))),
       body);
   }

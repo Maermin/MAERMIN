@@ -129,15 +129,15 @@ function __(k, f, v) { return (typeof window !== 'undefined' && window.MaerminI1
 
         if (!rows.length) {
           return e('div', { style: { background: card, border: '1px solid ' + border, borderRadius: '14px', padding: '1.1rem', margin: '1rem 0' } },
-            e('div', { style: { color: text, fontWeight: 700, fontSize: '0.95rem', marginBottom: '0.2rem' } }, t.yocTitle || 'Yield on cost'),
-            e('div', { style: { color: dim, fontSize: '0.84rem' } }, t.yocEmpty || 'No dividend-paying stock positions to analyse yet.'));
+            e('div', { style: { color: text, fontWeight: 700, fontSize: 'var(--text-md)', marginBottom: '0.2rem' } }, t.yocTitle || 'Yield on cost'),
+            e('div', { style: { color: dim, fontSize: 'var(--text-sm)' } }, t.yocEmpty || 'No dividend-paying stock positions to analyse yet.'));
         }
 
-        var header = e('div', { style: { display: 'grid', gridTemplateColumns: '1.4fr 1fr 1fr 1fr', gap: '0.5rem', padding: '0 0.4rem 0.4rem', color: dim, fontSize: '0.72rem', textTransform: 'uppercase' } },
+        var header = e('div', { style: { display: 'grid', gridTemplateColumns: '1.4fr 1fr 1fr 1fr', gap: '0.5rem', padding: '0 0.4rem 0.4rem', color: dim, fontSize: 'var(--text-xs)', textTransform: 'uppercase' } },
           e('span', null, t.yocSymbol || 'Symbol'), e('span', { style: { textAlign: 'right' } }, t.yocCost || 'Cost basis'),
           e('span', { style: { textAlign: 'right' } }, t.yocIncome || 'Annual income'), e('span', { style: { textAlign: 'right' } }, t.yocYoc || 'YoC'));
         var body = rows.map(function (r) {
-          return e('div', { key: r.symbol, style: { display: 'grid', gridTemplateColumns: '1.4fr 1fr 1fr 1fr', gap: '0.5rem', padding: '0.5rem 0.4rem', borderTop: '1px solid ' + border, fontSize: '0.84rem' } },
+          return e('div', { key: r.symbol, style: { display: 'grid', gridTemplateColumns: '1.4fr 1fr 1fr 1fr', gap: '0.5rem', padding: '0.5rem 0.4rem', borderTop: '1px solid ' + border, fontSize: 'var(--text-sm)' } },
             e('span', { style: { color: text, fontWeight: 600 } }, r.symbol),
             e('span', { style: { color: dim, textAlign: 'right' } }, fmt(r.yoc.costBasisEUR) + ' ' + sym),
             e('span', { style: { color: dim, textAlign: 'right' } }, fmt(r.yoc.annualDividendEUR) + ' ' + sym),
@@ -145,8 +145,8 @@ function __(k, f, v) { return (typeof window !== 'undefined' && window.MaerminI1
         });
 
         return e('div', { style: { background: card, border: '1px solid ' + border, borderRadius: '14px', padding: '1.1rem', margin: '1rem 0' } },
-          e('div', { style: { color: text, fontWeight: 700, fontSize: '0.95rem', marginBottom: '0.2rem' } }, t.yocTitle || 'Yield on cost'),
-          e('div', { style: { color: dim, fontSize: '0.76rem', marginBottom: '0.8rem' } }, t.yocSubtitle || 'Annual dividend over your FIFO cost basis.'),
+          e('div', { style: { color: text, fontWeight: 700, fontSize: 'var(--text-md)', marginBottom: '0.2rem' } }, t.yocTitle || 'Yield on cost'),
+          e('div', { style: { color: dim, fontSize: 'var(--text-xs)', marginBottom: '0.8rem' } }, t.yocSubtitle || 'Annual dividend over your FIFO cost basis.'),
           header, body);
       } catch (err) {
         return e('div', { style: { padding: '0.75rem', color: (props.theme && props.theme.danger) || 'var(--danger)' } }, __('yocError', 'Yield-on-cost error: {msg}', { msg: err && err.message }));

@@ -408,7 +408,7 @@ function __(k, f, v) { return (typeof window !== 'undefined' && window.MaerminI1
       }, failed('snaptrade'));
     }
 
-    var card0 = function (testid, title, body) { return e('div', { 'data-testid': testid, style: { padding: '0.8rem', border: '1px solid ' + border, borderRadius: '10px', marginBottom: '0.7rem' } }, e('div', { style: { color: text, fontWeight: 700, fontSize: '0.86rem', marginBottom: '0.3rem' } }, title), body); };
+    var card0 = function (testid, title, body) { return e('div', { 'data-testid': testid, style: { padding: '0.8rem', border: '1px solid ' + border, borderRadius: '10px', marginBottom: '0.7rem' } }, e('div', { style: { color: text, fontWeight: 700, fontSize: 'var(--text-base)', marginBottom: '0.3rem' } }, title), body); };
     var amount = function (b) { return b ? (props.formatAmount ? props.formatAmount(b.amount, b.currency) : b.amount.toFixed(2) + ' ' + b.currency) + (b.date ? ' · ' + b.date : '') : ''; };
     var keyForm = function (provider) {
       var gc = provider === 'gocardless';
@@ -425,14 +425,14 @@ function __(k, f, v) { return (typeof window !== 'undefined' && window.MaerminI1
     // GoCardless body
     var gcState = st.gocardless;
     var gcBody = [];
-    gcBody.push(e('div', { key: 'n', style: { color: dim, fontSize: '0.74rem', lineHeight: 1.5 } }, __('agGcNote', 'Banks across Europe through PSD2, with your own GoCardless Bank Account Data keys (free plan available). The secret key goes through your own Worker to fetch a short-lived token; GoCardless sees your bank data as your data processor.')));
+    gcBody.push(e('div', { key: 'n', style: { color: dim, fontSize: 'var(--text-xs)', lineHeight: 1.5 } }, __('agGcNote', 'Banks across Europe through PSD2, with your own GoCardless Bank Account Data keys (free plan available). The secret key goes through your own Worker to fetch a short-lived token; GoCardless sees your bank data as your data processor.')));
     if (!have.gocardless) gcBody.push(e('div', { key: 'k' }, keyForm('gocardless')));
     else {
       gcBody.push(e('div', { key: 'a', style: { display: 'flex', gap: '0.4rem', flexWrap: 'wrap', marginTop: '0.45rem' } },
         e('button', { 'data-testid': 'ag-gc-banks', style: btn(!gcState.requisitionId), disabled: !!busy, onClick: gcLoadBanks }, gcState.requisitionId ? __('agGcOther', 'Link another bank') : __('agGcLink', 'Link a bank')),
         gcState.requisitionId ? e('button', { 'data-testid': 'ag-gc-sync', style: btn(true), disabled: !!busy, onClick: gcSync }, busy === 'gc' ? __('agBusy', 'Working…') : __('agSync', 'Sync')) : null,
         e('button', { style: btn(false), onClick: function () { forget('gocardless'); } }, __('agForget', 'Remove'))));
-      if (gcState.institutionName) gcBody.push(e('div', { key: 'i', style: { color: dim, fontSize: '0.72rem', marginTop: '0.3rem' } }, gcState.institutionName + ' · ' + (gcState.lastSync ? __('agLastSync', 'last sync {date}', { date: gcState.lastSync }) : __('agNotYet', 'waiting for your approval at the bank'))));
+      if (gcState.institutionName) gcBody.push(e('div', { key: 'i', style: { color: dim, fontSize: 'var(--text-xs)', marginTop: '0.3rem' } }, gcState.institutionName + ' · ' + (gcState.lastSync ? __('agLastSync', 'last sync {date}', { date: gcState.lastSync }) : __('agNotYet', 'waiting for your approval at the bank'))));
       if (insts) {
         var shown = insts.filter(function (i) { return !instQuery || i.name.toLowerCase().indexOf(instQuery.toLowerCase()) > -1; }).slice(0, 12);
         gcBody.push(e('div', { key: 'l', style: { marginTop: '0.45rem' } },
@@ -444,9 +444,9 @@ function __(k, f, v) { return (typeof window !== 'undefined' && window.MaerminI1
         var book = rows && BS ? BS.toBookings({ iban: a.iban, accountNo: a.id, currency: a.currency }, rows, { source: 'gocardless', portfolioId: props.portfolioId }) : null;
         var fresh = book ? BS.newOnly(book.rows, props.existing) : [];
         gcBody.push(e('div', { key: a.id, 'data-testid': 'ag-gc-account', style: { padding: '0.5rem 0.65rem', background: inputBg, borderRadius: '8px', marginTop: '0.4rem' } },
-          e('div', { style: { display: 'flex', justifyContent: 'space-between', gap: '0.5rem', flexWrap: 'wrap', color: text, fontSize: '0.8rem', fontWeight: 600 } },
+          e('div', { style: { display: 'flex', justifyContent: 'space-between', gap: '0.5rem', flexWrap: 'wrap', color: text, fontSize: 'var(--text-sm)', fontWeight: 600 } },
             e('span', null, (a.name || __('agAccount', 'Account')) + (a.iban ? ' · ' + a.iban : '')), e('span', { 'data-testid': 'ag-gc-balance' }, amount(a.balance))),
-          book ? e('div', { style: { display: 'flex', alignItems: 'center', gap: '0.5rem', flexWrap: 'wrap', marginTop: '0.3rem', color: dim, fontSize: '0.74rem' } },
+          book ? e('div', { style: { display: 'flex', alignItems: 'center', gap: '0.5rem', flexWrap: 'wrap', marginTop: '0.3rem', color: dim, fontSize: 'var(--text-xs)' } },
             e('label', { style: { display: 'inline-flex', alignItems: 'center', gap: '0.35rem', cursor: 'pointer' } },
               e('input', { type: 'checkbox', 'data-testid': 'ag-gc-tick', checked: a.importBookings, onChange: function (ev) {
                 var n = normalize(st); n.gocardless.accounts = n.gocardless.accounts.map(function (x) { return x.id === a.id ? Object.assign({}, x, { importBookings: ev.target.checked }) : x; }); mutate(n);
@@ -464,23 +464,23 @@ function __(k, f, v) { return (typeof window !== 'undefined' && window.MaerminI1
     // SnapTrade body
     var stState = st.snaptrade, stRes = results.st;
     var stBody = [];
-    stBody.push(e('div', { key: 'n', style: { color: dim, fontSize: '0.74rem', lineHeight: 1.5 } }, __('agStNote', 'Brokers through SnapTrade, with your own SnapTrade keys (read-only connections; free for a few connections). Requests are signed in this browser - the consumer key never leaves it; SnapTrade sees the connected accounts\' data.')));
+    stBody.push(e('div', { key: 'n', style: { color: dim, fontSize: 'var(--text-xs)', lineHeight: 1.5 } }, __('agStNote', 'Brokers through SnapTrade, with your own SnapTrade keys (read-only connections; free for a few connections). Requests are signed in this browser - the consumer key never leaves it; SnapTrade sees the connected accounts\' data.')));
     if (!have.snaptrade) stBody.push(e('div', { key: 'k' }, keyForm('snaptrade')));
     else {
       stBody.push(e('div', { key: 'a', style: { display: 'flex', gap: '0.4rem', flexWrap: 'wrap', marginTop: '0.45rem' } },
         e('button', { 'data-testid': 'ag-st-connect', style: btn(!stState.connected), disabled: !!busy, onClick: stConnect }, __('agStConnect', 'Connect broker')),
         e('button', { 'data-testid': 'ag-st-sync', style: btn(true), disabled: !!busy, onClick: stSync }, busy === 'st' ? __('agBusy', 'Working…') : __('agSync', 'Sync')),
         e('button', { style: btn(false), onClick: function () { forget('snaptrade'); } }, __('agForget', 'Remove'))));
-      if (stState.lastSync) stBody.push(e('div', { key: 'i', style: { color: dim, fontSize: '0.72rem', marginTop: '0.3rem' } }, __('agLastSync', 'last sync {date}', { date: stState.lastSync })));
+      if (stState.lastSync) stBody.push(e('div', { key: 'i', style: { color: dim, fontSize: 'var(--text-xs)', marginTop: '0.3rem' } }, __('agLastSync', 'last sync {date}', { date: stState.lastSync })));
       stState.accounts.forEach(function (a) {
         var live = stRes && stRes.accounts.filter(function (x) { return x.id === a.id; })[0];
         var diff = live ? positionsDiff(live.positions, props.existing) : null;
         stBody.push(e('div', { key: a.id, 'data-testid': 'ag-st-account', style: { padding: '0.5rem 0.65rem', background: inputBg, borderRadius: '8px', marginTop: '0.4rem' } },
-          e('div', { style: { display: 'flex', justifyContent: 'space-between', gap: '0.5rem', flexWrap: 'wrap', color: text, fontSize: '0.8rem', fontWeight: 600 } },
+          e('div', { style: { display: 'flex', justifyContent: 'space-between', gap: '0.5rem', flexWrap: 'wrap', color: text, fontSize: 'var(--text-sm)', fontWeight: 600 } },
             e('span', null, (a.institution ? a.institution + ' · ' : '') + a.name), e('span', null, amount(a.balance))),
-          diff && diff.length ? e('table', { 'data-testid': 'ag-st-positions', style: { width: '100%', borderCollapse: 'collapse', fontSize: '0.74rem', color: text, marginTop: '0.3rem' } }, e('tbody', null, diff.map(function (d) {
+          diff && diff.length ? e('table', { 'data-testid': 'ag-st-positions', style: { width: '100%', borderCollapse: 'collapse', fontSize: 'var(--text-xs)', color: text, marginTop: '0.3rem' } }, e('tbody', null, diff.map(function (d) {
             return e('tr', { key: d.symbol, style: { borderTop: '1px solid ' + border } },
-              e('td', { style: { padding: '0.25rem 0.3rem' } }, d.symbol, e('div', { style: { color: dim, fontSize: '0.68rem' } }, d.name)),
+              e('td', { style: { padding: '0.25rem 0.3rem' } }, d.symbol, e('div', { style: { color: dim, fontSize: 'var(--text-2xs)' } }, d.name)),
               e('td', { style: { padding: '0.25rem 0.3rem', textAlign: 'right' } }, String(d.broker)),
               e('td', { style: { padding: '0.25rem 0.3rem', textAlign: 'right', color: d.status === 'match' ? good : warn } },
                 d.status === 'missing' ? __('bsNotInMaermin', 'not in MAERMIN') : d.status === 'match' ? __('bsMatches', 'matches') : __('bsDiffers', 'MAERMIN {q} ({d})', { q: d.maermin, d: (d.diff > 0 ? '+' : '') + d.diff })));
@@ -490,18 +490,18 @@ function __(k, f, v) { return (typeof window !== 'undefined' && window.MaerminI1
         var mapped = mapActivities(stRes.activities, { portfolioId: props.portfolioId });
         var fresh = BS ? BS.newOnly(mapped.transactions, props.existing) : mapped.transactions;
         var skippedN = Object.keys(mapped.skipped).reduce(function (s, k) { return s + mapped.skipped[k]; }, 0);
-        stBody.push(e('div', { key: 'x', style: { display: 'flex', alignItems: 'center', gap: '0.5rem', flexWrap: 'wrap', marginTop: '0.45rem', color: dim, fontSize: '0.74rem' } },
+        stBody.push(e('div', { key: 'x', style: { display: 'flex', alignItems: 'center', gap: '0.5rem', flexWrap: 'wrap', marginTop: '0.45rem', color: dim, fontSize: 'var(--text-xs)' } },
           e('span', { 'data-testid': 'ag-st-activities' }, __('agStActivities', '{n} new {n:activity|activities} (trades, payouts, cash)', { n: fresh.length }) + (skippedN ? ' · ' + __('agStSkipped', '{n} of other kinds not booked ({list})', { n: skippedN, list: Object.keys(mapped.skipped).join(', ') }) : '')),
           fresh.length ? e('button', { 'data-testid': 'ag-st-import', style: btn(true), onClick: function () { if (props.onImport) props.onImport(fresh); } }, __('bsImportN', 'Import {n}', { n: fresh.length })) : null));
       }
     }
 
     return e('div', { 'data-testid': 'aggregators', style: { background: card, border: '1px solid ' + border, borderRadius: '14px', padding: '1.1rem', marginBottom: '1.25rem' } },
-      e('div', { style: { color: text, fontWeight: 700, fontSize: '0.95rem', marginBottom: '0.2rem' } }, __('agTitle', 'Aggregators with your own API keys')),
-      e('div', { style: { color: dim, fontSize: '0.76rem', marginBottom: '0.8rem', lineHeight: 1.5 } }, __('agSubtitle', 'For banks and brokers without FinTS. You create the API keys at the provider; they are kept only in your vault (encrypted, never in a backup or sync) and used through your own Worker. Read-only.')),
+      e('div', { style: { color: text, fontWeight: 700, fontSize: 'var(--text-md)', marginBottom: '0.2rem' } }, __('agTitle', 'Aggregators with your own API keys')),
+      e('div', { style: { color: dim, fontSize: 'var(--text-xs)', marginBottom: '0.8rem', lineHeight: 1.5 } }, __('agSubtitle', 'For banks and brokers without FinTS. You create the API keys at the provider; they are kept only in your vault (encrypted, never in a backup or sync) and used through your own Worker. Read-only.')),
       card0('ag-gocardless', BRAND_NAMES[0], gcBody),
       card0('ag-snaptrade', BRAND_NAMES[1], stBody),
-      msg ? e('div', { 'data-testid': 'ag-msg', role: 'status', style: { color: dim, fontSize: '0.76rem', marginTop: '0.3rem' } }, msg) : null);
+      msg ? e('div', { 'data-testid': 'ag-msg', role: 'status', style: { color: dim, fontSize: 'var(--text-xs)', marginTop: '0.3rem' } }, msg) : null);
   }
   api.Panel = Panel;
 

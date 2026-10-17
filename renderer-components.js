@@ -293,11 +293,11 @@ function CorrelationMatrixView({ portfolio, priceHistory, historySource, t, them
     },
       React.createElement('div', null,
         React.createElement('h2', {
-          style: { color: theme.text, fontSize: '1.5rem', fontWeight: '600' }
+          style: { color: theme.text, fontSize: 'var(--text-xl)', fontWeight: '600' }
         }, t.correlationMatrix || 'Correlation Matrix'),
         // Where the numbers come from: daily closes (available from the first
         // trade) or the points recorded on each manual refresh.
-        React.createElement('div', { 'data-testid': 'correlation-source', 'data-source': historySource || 'refresh', style: { color: theme.textSecondary, fontSize: '0.78rem', marginTop: '0.25rem' } },
+        React.createElement('div', { 'data-testid': 'correlation-source', 'data-source': historySource || 'refresh', style: { color: theme.textSecondary, fontSize: 'var(--text-xs)', marginTop: '0.25rem' } },
           historySource === 'daily'
             ? __('corrDaily', 'Daily closing prices, {n} daily returns up to today', { n: Math.max(0, ((Object.values(priceHistory || {})[0] || []).length - 1)) })
             : historySource === 'partial'
@@ -318,7 +318,7 @@ function CorrelationMatrixView({ portfolio, priceHistory, historySource, t, them
           style: {
             marginLeft: '0.5rem',
             fontWeight: '700',
-            fontSize: '1.25rem',
+            fontSize: 'var(--text-title)',
             color: score.score >= 60 ? theme.success : score.score >= 40 ? theme.warning : theme.danger
           }
         }, `${window.MaerminI18n.num(score.score, 0)}/100`)
@@ -352,7 +352,7 @@ function CorrelationMatrixView({ portfolio, priceHistory, historySource, t, them
             textAlign: 'center',
             fontWeight: '600',
             color: theme.text,
-            fontSize: '0.75rem'
+            fontSize: 'var(--text-xs)'
           }
         }, symbol.substring(0, 6))
       ),
@@ -366,7 +366,7 @@ function CorrelationMatrixView({ portfolio, priceHistory, historySource, t, them
             padding: '0.5rem',
             fontWeight: '600',
             color: theme.text,
-            fontSize: '0.75rem',
+            fontSize: 'var(--text-xs)',
             display: 'flex',
             alignItems: 'center'
           }
@@ -382,7 +382,7 @@ function CorrelationMatrixView({ portfolio, priceHistory, historySource, t, them
               textAlign: 'center',
               // black or white, whichever reads on the cell colour (white on amber was 2.15:1)
               color: i === j ? theme.textSecondary : window.MaerminUtils.onColor(getCorrelationColor(value)),
-              fontSize: '0.75rem',
+              fontSize: 'var(--text-xs)',
               fontWeight: '500'
             },
             title: `${rowSymbol} / ${colSymbol}: ${window.MaerminI18n.num(value, 2)}`
@@ -409,7 +409,7 @@ function CorrelationMatrixView({ portfolio, priceHistory, historySource, t, them
         }
       },
         React.createElement('h3', {
-          style: { color: theme.text, marginBottom: '1rem', fontSize: '1rem' }
+          style: { color: theme.text, marginBottom: '1rem', fontSize: 'var(--text-body)' }
         }, t.mostCorrelatedPairs || 'Most Correlated'),
         extremes.mostCorrelated.slice(0, 5).map((pair, idx) =>
           React.createElement('div', {
@@ -441,7 +441,7 @@ function CorrelationMatrixView({ portfolio, priceHistory, historySource, t, them
         }
       },
         React.createElement('h3', {
-          style: { color: theme.text, marginBottom: '1rem', fontSize: '1rem' }
+          style: { color: theme.text, marginBottom: '1rem', fontSize: 'var(--text-body)' }
         }, t.leastCorrelatedPairs || 'Least Correlated'),
         extremes.leastCorrelated.slice(0, 5).map((pair, idx) =>
           React.createElement('div', {
@@ -527,7 +527,7 @@ function MonteCarloView({ portfolio, prices, t, theme, currency, formatPrice }) 
       style: { display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '1rem', flexWrap: 'wrap', marginBottom: '1.5rem' }
     },
       React.createElement('h2', {
-        style: { color: theme.text, fontSize: '1.5rem', fontWeight: '600', margin: 0 }
+        style: { color: theme.text, fontSize: 'var(--text-xl)', fontWeight: '600', margin: 0 }
       }, t.monteCarloSimulation || 'Monte Carlo Simulation')),
 
     // Configuration
@@ -546,7 +546,7 @@ function MonteCarloView({ portfolio, prices, t, theme, currency, formatPrice }) 
       // Iterations
       React.createElement('div', null,
         React.createElement('label', {
-          style: { display: 'block', color: theme.textSecondary, marginBottom: '0.5rem', fontSize: '0.875rem' }
+          style: { display: 'block', color: theme.textSecondary, marginBottom: '0.5rem', fontSize: 'var(--text-base)' }
         }, t.iterations || 'Iterations'),
         React.createElement('select', {
           value: config.iterations,
@@ -570,7 +570,7 @@ function MonteCarloView({ portfolio, prices, t, theme, currency, formatPrice }) 
       // Years
       React.createElement('div', null,
         React.createElement('label', {
-          style: { display: 'block', color: theme.textSecondary, marginBottom: '0.5rem', fontSize: '0.875rem' }
+          style: { display: 'block', color: theme.textSecondary, marginBottom: '0.5rem', fontSize: 'var(--text-base)' }
         }, t.projectionYears || 'Projection Years'),
         React.createElement('input', {
           type: 'number',
@@ -592,7 +592,7 @@ function MonteCarloView({ portfolio, prices, t, theme, currency, formatPrice }) 
       // Monthly contribution
       React.createElement('div', null,
         React.createElement('label', {
-          style: { display: 'block', color: theme.textSecondary, marginBottom: '0.5rem', fontSize: '0.875rem' }
+          style: { display: 'block', color: theme.textSecondary, marginBottom: '0.5rem', fontSize: 'var(--text-base)' }
         }, t.monthlyContribution || 'Monthly Contribution'),
         React.createElement('input', {
           type: 'number',
@@ -651,10 +651,10 @@ function MonteCarloView({ portfolio, prices, t, theme, currency, formatPrice }) 
             border: `1px solid ${theme.cardBorder}`
           }
         },
-          React.createElement('div', { style: { color: theme.textSecondary, fontSize: '0.875rem' } },
+          React.createElement('div', { style: { color: theme.textSecondary, fontSize: 'var(--text-base)' } },
             t.portfolioValue || 'Initial Value'
           ),
-          React.createElement('div', { style: { color: theme.text, fontSize: '1.5rem', fontWeight: '800', letterSpacing: '-0.02em' } },
+          React.createElement('div', { style: { color: theme.text, fontSize: 'var(--text-xl)', fontWeight: '800', letterSpacing: '-0.02em' } },
             `${formatPrice(results.initialValue)} ${currencySymbol}`
           )
         ),
@@ -668,10 +668,10 @@ function MonteCarloView({ portfolio, prices, t, theme, currency, formatPrice }) 
             border: `1px solid ${theme.cardBorder}`
           }
         },
-          React.createElement('div', { style: { color: theme.textSecondary, fontSize: '0.875rem' } },
+          React.createElement('div', { style: { color: theme.textSecondary, fontSize: 'var(--text-base)' } },
             t.medianOutcome || 'Median (50th)'
           ),
-          React.createElement('div', { style: { color: theme.text, fontSize: '1.5rem', fontWeight: '800', letterSpacing: '-0.02em' } },
+          React.createElement('div', { style: { color: theme.text, fontSize: 'var(--text-xl)', fontWeight: '800', letterSpacing: '-0.02em' } },
             `${formatPrice(results.percentiles[50])} ${currencySymbol}`
           )
         ),
@@ -685,10 +685,10 @@ function MonteCarloView({ portfolio, prices, t, theme, currency, formatPrice }) 
             border: `1px solid ${theme.cardBorder}`
           }
         },
-          React.createElement('div', { style: { color: theme.textSecondary, fontSize: '0.875rem' } },
+          React.createElement('div', { style: { color: theme.textSecondary, fontSize: 'var(--text-base)' } },
             `${t.bestCase || 'Best Case'} (${__('mcP95', '95th')})`
           ),
-          React.createElement('div', { style: { color: theme.success, fontSize: '1.5rem', fontWeight: '800', letterSpacing: '-0.02em' } },
+          React.createElement('div', { style: { color: theme.success, fontSize: 'var(--text-xl)', fontWeight: '800', letterSpacing: '-0.02em' } },
             `${formatPrice(results.percentiles[95])} ${currencySymbol}`
           )
         ),
@@ -702,10 +702,10 @@ function MonteCarloView({ portfolio, prices, t, theme, currency, formatPrice }) 
             border: `1px solid ${theme.cardBorder}`
           }
         },
-          React.createElement('div', { style: { color: theme.textSecondary, fontSize: '0.875rem' } },
+          React.createElement('div', { style: { color: theme.textSecondary, fontSize: 'var(--text-base)' } },
             `${t.worstCase || 'Worst Case'} (${__('mcP5', '5th')})`
           ),
-          React.createElement('div', { style: { color: theme.danger, fontSize: '1.5rem', fontWeight: '800', letterSpacing: '-0.02em' } },
+          React.createElement('div', { style: { color: theme.danger, fontSize: 'var(--text-xl)', fontWeight: '800', letterSpacing: '-0.02em' } },
             `${formatPrice(results.percentiles[5])} ${currencySymbol}`
           )
         )
@@ -718,12 +718,12 @@ function MonteCarloView({ portfolio, prices, t, theme, currency, formatPrice }) 
         React.createElement('div', { style: { display: 'flex', flexDirection: 'column', alignItems: 'center', minWidth: '120px' } },
           React.createElement('div', { style: { fontSize: '2.5rem', fontWeight: 800, color: results.fireTarget.probability >= 75 ? theme.success : results.fireTarget.probability >= 40 ? theme.warning : theme.danger } },
             window.MaerminI18n.pct(results.fireTarget.probability, 0)),
-          React.createElement('div', { style: { color: theme.textSecondary, fontSize: '0.8rem' } }, t.fireProbability || 'FIRE probability')
+          React.createElement('div', { style: { color: theme.textSecondary, fontSize: 'var(--text-sm)' } }, t.fireProbability || 'FIRE probability')
         ),
         React.createElement('div', { style: { flex: 1, minWidth: '200px' } },
           React.createElement('div', { style: { color: theme.text, fontWeight: 600, marginBottom: '0.25rem' } },
             `${t.kpiFireTarget || 'Target'}: ${formatPrice(results.fireTarget.value)} ${currencySymbol}`),
-          React.createElement('div', { style: { color: theme.textSecondary, fontSize: '0.85rem' } },
+          React.createElement('div', { style: { color: theme.textSecondary, fontSize: 'var(--text-base)' } },
             results.fireTarget.reachedYear
               ? window.MaerminI18n.fill(t.fireMedianReaches || 'Median path reaches FIRE in year {y}', { y: results.fireTarget.reachedYear })
               : window.MaerminI18n.fill(t.fireMedianMisses || 'Median path does not reach FIRE within {n} years', { n: results.years }))
@@ -732,7 +732,7 @@ function MonteCarloView({ portfolio, prices, t, theme, currency, formatPrice }) 
 
       // FIRE hint when not configured
       !results.fireTarget && React.createElement('div', {
-        style: { background: theme.inputBg, padding: '0.75rem 1rem', borderRadius: '10px', border: `1px dashed ${theme.cardBorder}`, marginBottom: '1.5rem', color: theme.textSecondary, fontSize: '0.82rem' }
+        style: { background: theme.inputBg, padding: '0.75rem 1rem', borderRadius: '10px', border: `1px dashed ${theme.cardBorder}`, marginBottom: '1.5rem', color: theme.textSecondary, fontSize: 'var(--text-sm)' }
       }, t.fireConfigureHint || 'Set your annual expenses on the dashboard FIRE tile to see your FIRE probability here.'),
 
       // Goal probabilities
@@ -746,7 +746,7 @@ function MonteCarloView({ portfolio, prices, t, theme, currency, formatPrice }) 
         }
       },
         React.createElement('h3', {
-          style: { color: theme.text, marginBottom: '1rem', fontSize: '1rem' }
+          style: { color: theme.text, marginBottom: '1rem', fontSize: 'var(--text-body)' }
         }, t.goalProbability || 'Goal Probabilities'),
         React.createElement('div', {
           style: { display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(150px, 1fr))', gap: '1rem' }
@@ -762,9 +762,9 @@ function MonteCarloView({ portfolio, prices, t, theme, currency, formatPrice }) 
               }
             },
               React.createElement('div', {
-                style: { fontSize: '2rem', fontWeight: '700', color: theme.accent }
+                style: { fontSize: 'var(--text-2xl)', fontWeight: '700', color: theme.accent }
               }, window.MaerminI18n.pct(goal.probability, 0)),
-              React.createElement('div', { style: { color: theme.textSecondary, fontSize: '0.875rem' } },
+              React.createElement('div', { style: { color: theme.textSecondary, fontSize: 'var(--text-base)' } },
                 goal.label
               )
             )
@@ -782,7 +782,7 @@ function MonteCarloView({ portfolio, prices, t, theme, currency, formatPrice }) 
         }
       },
         React.createElement('h3', {
-          style: { color: theme.text, marginBottom: '1rem', fontSize: '1rem' }
+          style: { color: theme.text, marginBottom: '1rem', fontSize: 'var(--text-body)' }
         }, t.probabilityCones || 'Percentile Distribution'),
         React.createElement('table', {
           style: { width: '100%', borderCollapse: 'collapse' }
@@ -856,7 +856,7 @@ function StressTestView({ portfolio, prices, t, theme, currency, formatPrice }) 
       }
     },
       React.createElement('h2', {
-        style: { color: theme.text, fontSize: '1.5rem', fontWeight: '600' }
+        style: { color: theme.text, fontSize: 'var(--text-xl)', fontWeight: '600' }
       }, t.stressTesting || 'Stress Testing'),
       React.createElement('button', {
         onClick: runComparison,
@@ -898,13 +898,13 @@ function StressTestView({ portfolio, prices, t, theme, currency, formatPrice }) 
           }
         },
           React.createElement('h3', {
-            style: { color: theme.text, fontSize: '1rem', marginBottom: '0.5rem' }
+            style: { color: theme.text, fontSize: 'var(--text-body)', marginBottom: '0.5rem' }
           }, scenario.name),
           React.createElement('p', {
-            style: { color: theme.textSecondary, fontSize: '0.875rem', marginBottom: '0.5rem' }
+            style: { color: theme.textSecondary, fontSize: 'var(--text-base)', marginBottom: '0.5rem' }
           }, scenario.description),
           scenario.note && React.createElement('p', {
-            style: { color: theme.warning, fontSize: '0.75rem', marginBottom: '0.75rem', fontStyle: 'italic' }
+            style: { color: theme.warning, fontSize: 'var(--text-xs)', marginBottom: '0.75rem', fontStyle: 'italic' }
           }, scenario.note),
           React.createElement('div', {
             style: { display: 'flex', gap: '0.5rem', flexWrap: 'wrap' }
@@ -915,7 +915,7 @@ function StressTestView({ portfolio, prices, t, theme, currency, formatPrice }) 
                 style: {
                   padding: '0.25rem 0.5rem',
                   borderRadius: '4px',
-                  fontSize: '0.75rem',
+                  fontSize: 'var(--text-xs)',
                   fontWeight: '600',
                   background: impact < 0 ? 'color-mix(in srgb, var(--danger) 20%, transparent)' : 'color-mix(in srgb, var(--success) 20%, transparent)',
                   color: impact < 0 ? theme.danger : theme.success
@@ -937,7 +937,7 @@ function StressTestView({ portfolio, prices, t, theme, currency, formatPrice }) 
       }
     },
       React.createElement('h3', {
-        style: { color: theme.text, marginBottom: '1rem', fontSize: '1.125rem' }
+        style: { color: theme.text, marginBottom: '1rem', fontSize: 'var(--text-lg)' }
       }, `${t.scenarioImpact || 'Scenario Impact'}: ${results.scenario}`),
 
       // Impact summary
@@ -952,40 +952,40 @@ function StressTestView({ portfolio, prices, t, theme, currency, formatPrice }) 
         React.createElement('div', {
           style: { padding: '1rem', background: theme.inputBg, borderRadius: '8px' }
         },
-          React.createElement('div', { style: { color: theme.textSecondary, fontSize: '0.875rem' } },
+          React.createElement('div', { style: { color: theme.textSecondary, fontSize: 'var(--text-base)' } },
             t.portfolioValue || 'Original Value'
           ),
-          React.createElement('div', { style: { color: theme.text, fontSize: '1.25rem', fontWeight: '700' } },
+          React.createElement('div', { style: { color: theme.text, fontSize: 'var(--text-title)', fontWeight: '700' } },
             `${formatPrice(results.originalValue)} ${currencySymbol}`
           )
         ),
         React.createElement('div', {
           style: { padding: '1rem', background: theme.inputBg, borderRadius: '8px' }
         },
-          React.createElement('div', { style: { color: theme.textSecondary, fontSize: '0.875rem' } },
+          React.createElement('div', { style: { color: theme.textSecondary, fontSize: 'var(--text-base)' } },
             t.portfolioStressed || 'Stressed Value'
           ),
-          React.createElement('div', { style: { color: theme.danger, fontSize: '1.25rem', fontWeight: '700' } },
+          React.createElement('div', { style: { color: theme.danger, fontSize: 'var(--text-title)', fontWeight: '700' } },
             `${formatPrice(results.stressedValue)} ${currencySymbol}`
           )
         ),
         React.createElement('div', {
           style: { padding: '1rem', background: theme.inputBg, borderRadius: '8px' }
         },
-          React.createElement('div', { style: { color: theme.textSecondary, fontSize: '0.875rem' } },
+          React.createElement('div', { style: { color: theme.textSecondary, fontSize: 'var(--text-base)' } },
             t.potentialLoss || 'Potential Loss'
           ),
-          React.createElement('div', { style: { color: theme.danger, fontSize: '1.25rem', fontWeight: '700' } },
+          React.createElement('div', { style: { color: theme.danger, fontSize: 'var(--text-title)', fontWeight: '700' } },
             `-${formatPrice(results.totalLoss)} ${currencySymbol} (-${window.MaerminI18n.pct(results.lossPercent, 1)})`
           )
         ),
         React.createElement('div', {
           style: { padding: '1rem', background: theme.inputBg, borderRadius: '8px' }
         },
-          React.createElement('div', { style: { color: theme.textSecondary, fontSize: '0.875rem' } },
+          React.createElement('div', { style: { color: theme.textSecondary, fontSize: 'var(--text-base)' } },
             t.recoveryTime || 'Recovery Time'
           ),
-          React.createElement('div', { style: { color: theme.text, fontSize: '1.25rem', fontWeight: '700' } },
+          React.createElement('div', { style: { color: theme.text, fontSize: 'var(--text-title)', fontWeight: '700' } },
             `${results.recoveryEstimate.months} ${t.months || 'months'}`
           )
         )
@@ -993,7 +993,7 @@ function StressTestView({ portfolio, prices, t, theme, currency, formatPrice }) 
 
       // Category breakdown
       React.createElement('h4', {
-        style: { color: theme.text, marginBottom: '0.75rem', fontSize: '1rem' }
+        style: { color: theme.text, marginBottom: '0.75rem', fontSize: 'var(--text-body)' }
       }, t.distribution || 'Category Breakdown'),
       React.createElement('table', {
         style: { width: '100%', borderCollapse: 'collapse' }
@@ -1036,7 +1036,7 @@ function StressTestView({ portfolio, prices, t, theme, currency, formatPrice }) 
       }
     },
       React.createElement('h3', {
-        style: { color: theme.text, marginBottom: '1rem', fontSize: '1.125rem' }
+        style: { color: theme.text, marginBottom: '1rem', fontSize: 'var(--text-lg)' }
       }, t.historicalScenarios || 'All Scenarios Comparison'),
       React.createElement('table', {
         style: { width: '100%', borderCollapse: 'collapse' }

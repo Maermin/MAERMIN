@@ -203,12 +203,12 @@ function __(k, f, v) { return (typeof window !== 'undefined' && window.MaerminI1
 
     return e('div', { style: { background: theme.card || '#10151f', border: '1px solid ' + (theme.cardBorder || 'rgba(255,255,255,0.08)'), borderRadius: '14px', padding: '1.25rem', marginBottom: '1.5rem' } },
       e('div', { style: { display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.75rem', flexWrap: 'wrap', gap: '0.5rem' } },
-        e('div', { style: { color: theme.text || '#e9edf4', fontWeight: 800, fontSize: '1rem' } },
+        e('div', { style: { color: theme.text || '#e9edf4', fontWeight: 800, fontSize: 'var(--text-body)' } },
           (props.scopeLabel ? props.scopeLabel + ' — ' : '') + __('pjTitle', 'Wealth Projection')),
         e('div', { style: { display: 'flex', gap: '0.35rem', alignItems: 'center' } },
           e('div', { className: 'mx-pills', role: 'group', 'aria-label': __('pjHorizon', 'Horizon') }, horizons.map(hzBtn)),
           e('input', { type: 'number', value: custom, placeholder: __('pjYrPh', 'yr'), 'aria-label': __('pjCustomYears', 'Custom number of years'), onChange: function (ev) { setCustom(ev.target.value); var v = parseFloat(ev.target.value); if (v > 0) setYears(v); },
-            style: { width: '54px', padding: '0.3rem 0.4rem', borderRadius: '6px', border: '1px solid ' + (theme.cardBorder || '#333'), background: theme.inputBg || '#0f172a', color: theme.text || '#fff', fontSize: '0.78rem' } })
+            style: { width: '54px', padding: '0.3rem 0.4rem', borderRadius: '6px', border: '1px solid ' + (theme.cardBorder || '#333'), background: theme.inputBg || '#0f172a', color: theme.text || '#fff', fontSize: 'var(--text-xs)' } })
         )
       ),
       // chart
@@ -246,7 +246,7 @@ function __(k, f, v) { return (typeof window !== 'undefined' && window.MaerminI1
       // legend + end values
       e('div', { style: { display: 'flex', gap: '1rem', flexWrap: 'wrap', marginTop: '0.75rem' } },
         SCN.map(function (s) {
-          return e('div', { key: s.key, style: { display: 'flex', alignItems: 'center', gap: '0.4rem', fontSize: '0.8rem' } },
+          return e('div', { key: s.key, style: { display: 'flex', alignItems: 'center', gap: '0.4rem', fontSize: 'var(--text-sm)' } },
             e('div', { style: { width: 10, height: 3, background: s.color } }),
             e('span', { style: { color: theme.textSecondary || '#888' } }, s.label),
             e('span', { style: { color: theme.text || '#fff', fontWeight: 700 } }, fmt(proj.scenarios[s.key].endValue) + ' ' + sym)
@@ -254,7 +254,7 @@ function __(k, f, v) { return (typeof window !== 'undefined' && window.MaerminI1
         })
       ),
       // cashflow breakdown
-      e('div', { style: { display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(130px, 1fr))', gap: '0.5rem', marginTop: '0.9rem', fontSize: '0.76rem' } },
+      e('div', { style: { display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(130px, 1fr))', gap: '0.5rem', marginTop: '0.9rem', fontSize: 'var(--text-xs)' } },
         [[__('pjContributions', 'Contributions'), proj.scenarios.realistic.totalContributions, theme.success || '#22c55e'],
          [__('attrDividends', 'Dividends'), proj.scenarios.realistic.totalDividends, theme.accent || '#8b7cff'],
          [__('pjDebtService', 'Debt service'), -proj.scenarios.realistic.totalLiabilityPayments, theme.danger || '#ef4444']
@@ -264,7 +264,7 @@ function __(k, f, v) { return (typeof window !== 'undefined' && window.MaerminI1
             e('div', { style: { color: row[2], fontWeight: 700 } }, fmt(Math.abs(row[1])) + ' ' + sym));
         })
       ),
-      e('div', { style: { color: theme.textSecondary || '#888', fontSize: '0.68rem', marginTop: '0.6rem' } },
+      e('div', { style: { color: theme.textSecondary || '#888', fontSize: 'var(--text-2xs)', marginTop: '0.6rem' } },
         __('pjFootnote', 'Projection over {n}y. Returns are assumptions ({rates} p.a.), not guarantees.', { n: window.MaerminI18n.num(Math.round(years * 10) / 10, { min: 0, max: 1 }), rates: window.MaerminI18n.pct(3, 0) + '/' + window.MaerminI18n.pct(6, 0) + '/' + window.MaerminI18n.pct(9, 0) }))
     );
   }

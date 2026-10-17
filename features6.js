@@ -698,20 +698,20 @@ function PortfolioHistoryChart({ portfolio, prices, transactions, apiKeys, theme
       },
         React.createElement('span', { 'data-testid': 'hero-int', style: { fontSize: 'clamp(2rem, 4.2vw, 2.9rem)', fontWeight: '700', letterSpacing: '-0.03em', color: theme.text } }, intPart),
         decPart && React.createElement('span', { 'data-testid': 'hero-dec', style: { fontSize: 'clamp(1.2rem, 2.6vw, 1.7rem)', fontWeight: '600', letterSpacing: '-0.02em', color: GREY } }, decPart),
-        React.createElement('span', { style: { fontSize: '1.2rem', fontWeight: '600', color: GREY, marginLeft: '0.4rem' } }, getCurrencySymbol())
+        React.createElement('span', { style: { fontSize: 'var(--text-title)', fontWeight: '600', color: GREY, marginLeft: '0.4rem' } }, getCurrencySymbol())
       ),
       // Return chip + pct + "all time"
       React.createElement('div', {
         style: { display: 'flex', alignItems: 'center', gap: '0.6rem', flexWrap: 'wrap', marginTop: '0.6rem' }
       },
         React.createElement('span', {
-          style: { display: 'inline-flex', alignItems: 'center', gap: '0.35rem', padding: '0.28rem 0.6rem', borderRadius: '8px', background: `${deltaCol}22`, color: deltaCol, fontWeight: '700', fontSize: '0.92rem' }
+          style: { display: 'inline-flex', alignItems: 'center', gap: '0.35rem', padding: '0.28rem 0.6rem', borderRadius: '8px', background: `${deltaCol}22`, color: deltaCol, fontWeight: '700', fontSize: 'var(--text-md)' }
         },
-          React.createElement('span', { style: { fontSize: '0.65rem' } }, up ? '▲' : '▼'),
+          React.createElement('span', { style: { fontSize: 'var(--text-3xs)' } }, up ? '▲' : '▼'),
           `${sign}${formatPrice(Math.abs(eur))} ${getCurrencySymbol()}`
         ),
-        React.createElement('span', { style: { color: deltaCol, fontWeight: '700', fontSize: '0.92rem' } }, `${sign}${window.MaerminI18n.pct(pct, 2)}`),
-        React.createElement('span', { style: { color: GREY, fontSize: '0.8rem' } }, rangeStat ? __('chInRange', 'in {range}', { range: periodLabel(period) }) : __('chAllTime', 'all time'))
+        React.createElement('span', { style: { color: deltaCol, fontWeight: '700', fontSize: 'var(--text-md)' } }, `${sign}${window.MaerminI18n.pct(pct, 2)}`),
+        React.createElement('span', { style: { color: GREY, fontSize: 'var(--text-sm)' } }, rangeStat ? __('chInRange', 'in {range}', { range: periodLabel(period) }) : __('chAllTime', 'all time'))
       )
     );
   };
@@ -722,7 +722,7 @@ function PortfolioHistoryChart({ portfolio, prices, transactions, apiKeys, theme
     return React.createElement('div', { style: { display:'flex', alignItems:'baseline', gap:'0.5rem', marginTop:'0.25rem' } },
       React.createElement('span', { style: { fontSize:'1.85rem', fontWeight:'800', letterSpacing:'-0.03em', color: theme.text } },
         `${formatPrice(hovered.value)} ${getCurrencySymbol()}`),
-      React.createElement('span', { style: { fontSize:'0.78rem', color: GREY } }, hovered.date)
+      React.createElement('span', { style: { fontSize:'var(--text-xs)', color: GREY } }, hovered.date)
     );
   };
 
@@ -809,12 +809,12 @@ function PortfolioHistoryChart({ portfolio, prices, transactions, apiKeys, theme
         React.createElement('div', {
           style: { display: 'flex', alignItems: 'center', gap: '0.5rem', marginBottom: '0.1rem', flexWrap: 'wrap' }
         },
-          React.createElement('span', { style: { fontSize:'0.68rem', fontWeight:'700', color: theme.textSecondary, textTransform:'uppercase', letterSpacing:'0.06em' } },
+          React.createElement('span', { style: { fontSize:'var(--text-2xs)', fontWeight:'700', color: theme.textSecondary, textTransform:'uppercase', letterSpacing:'0.06em' } },
             __('chTotalValue', 'Total Portfolio Value')
           ),
           ...dataSources.map((src, i) =>
             React.createElement('span', { key:i, style:{
-              fontSize:'0.58rem', padding:'0.12rem 0.35rem', borderRadius:'3px',
+              fontSize:'var(--text-3xs)', padding:'0.12rem 0.35rem', borderRadius:'3px',
               background:'rgba(255,255,255,0.06)', color: theme.textSecondary, letterSpacing:'0.04em'
             }}, src)
           )
@@ -837,16 +837,16 @@ function PortfolioHistoryChart({ portfolio, prices, transactions, apiKeys, theme
     React.createElement('div', { style: { position:'relative' } },
       loading && React.createElement('div', {
         style: { position:'absolute', inset:0, display:'flex', alignItems:'center', justifyContent:'center', background:'rgba(0,0,0,0.22)', zIndex:2, borderRadius:'0 0 16px 16px' }
-      }, React.createElement('span', { style: { color: theme.textSecondary, fontSize:'0.875rem' } }, __('loadingDots', '◎ Loading...'))),
+      }, React.createElement('span', { style: { color: theme.textSecondary, fontSize:'var(--text-base)' } }, __('loadingDots', '◎ Loading...'))),
 
       error && !loading && React.createElement('div', {
-        style: { padding:'2rem', textAlign:'center', color: theme.textSecondary, fontSize:'0.875rem' }
+        style: { padding:'2rem', textAlign:'center', color: theme.textSecondary, fontSize:'var(--text-base)' }
       }, __('chError', 'Chart error: {msg}', { msg: error })),
 
       !error && !computed && !loading && React.createElement('div', {
-        style: { padding:'3rem 2rem', textAlign:'center', color: theme.textSecondary, fontSize:'0.875rem' }
+        style: { padding:'3rem 2rem', textAlign:'center', color: theme.textSecondary, fontSize:'var(--text-base)' }
       },
-        React.createElement('div', { style: { fontSize:'2rem', opacity:0.15, marginBottom:'0.5rem' } }, '↗'),
+        React.createElement('div', { style: { fontSize:'var(--text-2xl)', opacity:0.15, marginBottom:'0.5rem' } }, '↗'),
         hasWorker ? __('chAuto', 'Chart loads automatically — select a period above')
           : React.createElement('span', null,
               __('chAddA', 'Add a') + ' ', React.createElement('strong', null, 'Cloudflare Worker URL'),

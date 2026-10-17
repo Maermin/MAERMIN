@@ -254,7 +254,7 @@ function __(k, f, v) { return (typeof window !== 'undefined' && window.MaerminI1
     var cell = { padding: '0.35rem 0.5rem', borderTop: '1px solid ' + border, fontSize: '0.78rem', color: text, textAlign: 'right', whiteSpace: 'nowrap' };
     var head = { padding: '0.3rem 0.5rem', color: dim, fontSize: '0.64rem', textTransform: 'uppercase', letterSpacing: '0.04em', textAlign: 'right', whiteSpace: 'nowrap' };
     function line(lbl, val, tid, color) {
-      return e('div', { 'data-testid': tid, style: { display: 'flex', justifyContent: 'space-between', gap: '0.75rem', padding: '0.3rem 0', borderTop: '1px solid ' + border, fontSize: '0.82rem' } },
+      return e('div', { 'data-testid': tid, style: { display: 'flex', justifyContent: 'space-between', gap: '0.75rem', padding: '0.3rem 0', borderTop: '1px solid ' + border, fontSize: 'var(--text-sm)' } },
         e('span', { style: { color: dim } }, lbl), e('span', { style: { color: color || text, fontWeight: 700 } }, val));
     }
     var qty = function (v) { return I18N.num(v, { min: 0, max: 8 }); };
@@ -263,8 +263,8 @@ function __(k, f, v) { return (typeof window !== 'undefined' && window.MaerminI1
       : res.status === 'noTax' ? __('hvNoTax', 'The tax computation is not available.') : '';
 
     return e('div', { 'data-testid': 'harvest-panel', style: { background: th.card || th.cardBg, border: '1px solid ' + border, borderRadius: '14px', padding: '1.25rem', margin: '1.5rem 0 0' } },
-      e('h3', { style: { color: text, fontSize: '1.05rem', fontWeight: 700, margin: '0 0 0.35rem' } }, __('hvTitle', 'December plan: use the Sparerpauschbetrag')),
-      e('p', { style: { color: dim, fontSize: '0.8rem', margin: '0 0 0.75rem', lineHeight: 1.5 } },
+      e('h3', { style: { color: text, fontSize: 'var(--text-body)', fontWeight: 700, margin: '0 0 0.35rem' } }, __('hvTitle', 'December plan: use the Sparerpauschbetrag')),
+      e('p', { style: { color: dim, fontSize: 'var(--text-sm)', margin: '0 0 0.75rem', lineHeight: 1.5 } },
         __('hvIntro', 'Sell these lots and buy them back the same day: the gain stays within this year\'s allowance and the buy-back raises your cost basis, so the same gain is not taxed later. Checked through the tax report (FIFO, Teilfreistellung, loss pots, carry-forward). Nothing is booked.')),
       e('div', { style: { display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(150px, 1fr))', gap: '0.6rem', maxWidth: '420px' } },
         e('div', null, e('label', { style: label, htmlFor: 'hv-fee' }, __('hvFeeFixed', 'Fee per order (EUR)')),
@@ -273,7 +273,7 @@ function __(k, f, v) { return (typeof window !== 'undefined' && window.MaerminI1
           e('input', { id: 'hv-fee-pct', 'data-testid': 'hv-fee-pct', inputMode: 'decimal', value: feePct, onChange: function (ev) { setFeePct(ev.target.value); }, style: input }))),
       e('div', { style: { marginTop: '0.75rem' } },
         line(__('hvLeft', 'Sparerpauschbetrag left this year'), money(res.allowanceLeft || 0), 'hv-left')),
-      msg ? e('div', { 'data-testid': 'hv-msg', style: { color: dim, fontSize: '0.82rem', marginTop: '0.5rem' } }, msg) :
+      msg ? e('div', { 'data-testid': 'hv-msg', style: { color: dim, fontSize: 'var(--text-sm)', marginTop: '0.5rem' } }, msg) :
       e('div', { 'data-testid': 'hv-result' },
         e('div', { style: { overflowX: 'auto', marginTop: '0.5rem' } },
           e('table', { style: { width: '100%', borderCollapse: 'collapse' } },
@@ -296,9 +296,9 @@ function __(k, f, v) { return (typeof window !== 'undefined' && window.MaerminI1
           line(__('hvFeesTotal', 'Fees (sell and buy back)'), money(res.fees), 'hv-fees'),
           line(__('hvSaved', 'Later tax avoided'), money(res.taxSaved), 'hv-saved'),
           line(__('hvNet', 'Net benefit'), money(res.netBenefit), 'hv-net', res.netBenefit >= 0 ? good : warn)),
-        res.feesExceed ? e('div', { 'data-testid': 'hv-fees-exceed', style: { color: warn, fontSize: '0.8rem', marginTop: '0.5rem' } }, __('hvFeesExceed', 'The fees are higher than the tax it avoids: not worth it.')) : null),
-      res.skipped && res.skipped.length ? e('div', { style: { color: dim, fontSize: '0.72rem', marginTop: '0.5rem' } }, __('hvSkipped', 'Without a current price: {list}', { list: res.skipped.join(', ') })) : null,
-      e('div', { style: { color: dim, fontSize: '0.7rem', marginTop: '0.6rem', lineHeight: 1.5 } },
+        res.feesExceed ? e('div', { 'data-testid': 'hv-fees-exceed', style: { color: warn, fontSize: 'var(--text-sm)', marginTop: '0.5rem' } }, __('hvFeesExceed', 'The fees are higher than the tax it avoids: not worth it.')) : null),
+      res.skipped && res.skipped.length ? e('div', { style: { color: dim, fontSize: 'var(--text-xs)', marginTop: '0.5rem' } }, __('hvSkipped', 'Without a current price: {list}', { list: res.skipped.join(', ') })) : null,
+      e('div', { style: { color: dim, fontSize: 'var(--text-2xs)', marginTop: '0.6rem', lineHeight: 1.5 } },
         __('hvNote', 'Estimate at today\'s prices; prices move until the order is filled, so leave a little room. Shares and funds only; crypto falls under the private-sale rules. Not tax advice.')));
   }
 

@@ -229,7 +229,7 @@ function __(k, f, v) { return (typeof window !== 'undefined' && window.MaerminI1
     var chip = function (on) { return { padding: '0.3rem 0.65rem', borderRadius: '999px', border: '1px solid ' + (on ? accent : border), background: on ? (th.accentFill || accent) : th.inputBg, color: on ? '#fff' : text, cursor: 'pointer', fontSize: '0.74rem', fontWeight: 600 }; };
     var btn = { padding: '0.4rem 0.8rem', borderRadius: '8px', border: '1px solid ' + accent, background: th.accentFill || accent, color: '#fff', cursor: 'pointer', fontSize: '0.78rem', fontWeight: 600 };
     var input = { boxSizing: 'border-box', width: '100%', padding: '0.45rem 0.6rem', background: th.inputBg, border: '1px solid ' + (th.inputBorder || border), borderRadius: '8px', color: text, fontSize: '0.8rem', fontFamily: 'inherit', marginBottom: '0.4rem' };
-    var note = function (t, color) { return e('p', { style: { color: color || dim, fontSize: '0.74rem', lineHeight: 1.5, margin: '0.3rem 0 0.5rem' } }, t); };
+    var note = function (t, color) { return e('p', { style: { color: color || dim, fontSize: 'var(--text-xs)', lineHeight: 1.5, margin: '0.3rem 0 0.5rem' } }, t); };
 
     function pickFile(create) {
       setProblem('');
@@ -254,7 +254,7 @@ function __(k, f, v) { return (typeof window !== 'undefined' && window.MaerminI1
     }
 
     return e('div', { 'data-testid': 'sync-dest', style: { margin: '0.3rem 0 0.2rem' } },
-      e('div', { style: { color: dim, fontSize: '0.74rem', marginBottom: '0.35rem' } }, __('stWhere', 'Where the encrypted copy goes')),
+      e('div', { style: { color: dim, fontSize: 'var(--text-xs)', marginBottom: '0.35rem' } }, __('stWhere', 'Where the encrypted copy goes')),
       e('div', { style: { display: 'flex', gap: '0.35rem', flexWrap: 'wrap', marginBottom: '0.4rem' } },
         e('button', { 'data-testid': 'sync-dest-worker', 'aria-pressed': mode === 'worker' ? 'true' : 'false', style: chip(mode === 'worker'), onClick: function () { setMode('worker'); } }, __('stWorker', 'Your Worker')),
         e('button', { 'data-testid': 'sync-dest-file', 'aria-pressed': mode === 'file' ? 'true' : 'false', style: chip(mode === 'file'), onClick: function () { setMode('file'); } }, __('stFile', 'File (Syncthing, Dropbox, NAS)')),
@@ -278,7 +278,7 @@ function __(k, f, v) { return (typeof window !== 'undefined' && window.MaerminI1
         e('input', { 'data-testid': 'sync-webdav-pass', type: 'password', value: pass, autoComplete: 'new-password', placeholder: __('stDavPass', 'App password'), 'aria-label': __('stDavPass', 'App password'), style: input, onChange: function (ev) { setPass(ev.target.value); }, onKeyDown: function (ev) { if (ev.key === 'Enter') connectDav(); } }),
         e('button', { 'data-testid': 'sync-webdav-connect', style: btn, disabled: props.busy, onClick: connectDav }, __('stDavConnect', 'Connect & sync')),
         note(__('stDavStored', 'The login stays on this device, encrypted with your vault. It is not synced and not in backups.'))) : null,
-      problem ? e('div', { role: 'alert', 'data-testid': 'sync-dest-problem', style: { color: th.danger || 'var(--danger)', fontSize: '0.76rem', marginTop: '0.35rem' } }, problem) : null);
+      problem ? e('div', { role: 'alert', 'data-testid': 'sync-dest-problem', style: { color: th.danger || 'var(--danger)', fontSize: 'var(--text-xs)', marginTop: '0.35rem' } }, problem) : null);
   }
   // A short name for the destination in the status row.
   function describe(cfg) {

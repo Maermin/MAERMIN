@@ -64,13 +64,13 @@ function __(k, f, v) { return (typeof window !== 'undefined' && window.MaerminI1
     var e = React.createElement, th = props.theme || {};
     var text = th.text || '#e6edf3', dim = th.textSecondary || '#9aa4b2', border = th.cardBorder || 'rgba(255,255,255,0.1)';
     return e('div', { 'data-testid': 'privacy-view', style: { background: th.card || th.cardBg, border: '1px solid ' + border, borderRadius: '14px', padding: '1.25rem', maxWidth: '52rem' } },
-      e('h2', { style: { color: text, fontSize: '1.2rem', fontWeight: 800, margin: '0 0 0.4rem' } }, __('pvTitle', 'Privacy')),
-      e('p', { style: { color: dim, fontSize: '0.85rem', margin: '0 0 1rem', lineHeight: 1.55 } },
+      e('h2', { style: { color: text, fontSize: 'var(--text-title)', fontWeight: 800, margin: '0 0 0.4rem' } }, __('pvTitle', 'Privacy')),
+      e('p', { style: { color: dim, fontSize: 'var(--text-base)', margin: '0 0 1rem', lineHeight: 1.55 } },
         __('pvIntro', 'MAERMIN has no server of its own. Apart from loading the app itself (from GitHub Pages or wherever you host it), this page lists everything that leaves your device and where it goes.')),
       privacySections().map(function (sec, i) {
         return e('section', { key: i, style: { borderTop: '1px solid ' + border, padding: '0.85rem 0' } },
-          e('h3', { style: { color: text, fontSize: '0.95rem', fontWeight: 700, margin: '0 0 0.4rem' } }, sec[0]),
-          e('ul', { style: { margin: 0, paddingLeft: '1.1rem', color: dim, fontSize: '0.84rem', lineHeight: 1.6 } },
+          e('h3', { style: { color: text, fontSize: 'var(--text-md)', fontWeight: 700, margin: '0 0 0.4rem' } }, sec[0]),
+          e('ul', { style: { margin: 0, paddingLeft: '1.1rem', color: dim, fontSize: 'var(--text-sm)', lineHeight: 1.6 } },
             sec[1].map(function (line, j) { return e('li', { key: j }, line); })));
       }),
       // P4-5: copy a summary for an AI assistant (built here, never sent)

@@ -215,6 +215,8 @@
       var el = els[i];
       if (el.__mxCounted || el.childNodes.length !== 1 || el.firstChild.nodeType !== 3) continue;
       var fs = px(el.style.fontSize);
+      // a type-scale token (var(--text-…)): only the computed size says how big
+      if (!fs && el.style.fontSize.indexOf('var(') === 0) fs = parseFloat(getComputedStyle(el).fontSize) || 0;
       if (fs >= 26) { el.classList.add('mx-figure'); countUp(el); }
     }
   }

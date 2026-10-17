@@ -187,17 +187,17 @@ function __(k, f, v) { return (typeof window !== 'undefined' && window.MaerminI1
               e('rect', { x: r.x, y: r.y, width: Math.max(0, r.w - 1), height: Math.max(0, r.h - 1), fill: r.color, rx: 3,
                 role: 'listitem', 'aria-label': r.label + ' ' + window.MaerminI18n.pct(r.weight * 100, 1) + ' ' + window.MaerminI18n.pct(r.perf, 1, true) },
                 e('title', null, r.label + '  ·  ' + (privacy ? '•••' : (fmt(r.value) + ' ' + sym)) + '  ·  ' + window.MaerminI18n.pct(r.perf, 1, true))),
-              showText ? e('text', { x: r.x + 6, y: r.y + 16, fill: '#0b0e14', style: { fontSize: '11px', fontWeight: 800, pointerEvents: 'none' } }, r.label) : null,
-              showText ? e('text', { x: r.x + 6, y: r.y + 30, fill: 'rgba(11,14,20,0.8)', style: { fontSize: '10px', fontWeight: 600, pointerEvents: 'none' } }, window.MaerminI18n.pct(r.perf, 1, true)) : null);
+              showText ? e('text', { x: r.x + 6, y: r.y + 16, fill: '#0b0e14', style: { fontSize: 'var(--text-2xs)', fontWeight: 800, pointerEvents: 'none' } }, r.label) : null,
+              showText ? e('text', { x: r.x + 6, y: r.y + 30, fill: 'rgba(11,14,20,0.8)', style: { fontSize: 'var(--text-3xs)', fontWeight: 600, pointerEvents: 'none' } }, window.MaerminI18n.pct(r.perf, 1, true)) : null);
           }));
 
         return e('div', { style: { background: card, border: '1px solid ' + border, borderRadius: '14px', padding: '1.1rem', marginBottom: '1.5rem' } },
           e('div', { style: { display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '0.5rem', marginBottom: '0.7rem' } },
             e('div', null,
-              e('div', { style: { color: text, fontWeight: 700, fontSize: '0.95rem' } }, t.pmTitle || 'Performance Map'),
-              e('div', { style: { color: dim, fontSize: '0.76rem' } }, t.pmSubtitle || 'Area = weight, colour = performance')),
+              e('div', { style: { color: text, fontWeight: 700, fontSize: 'var(--text-md)' } }, t.pmTitle || 'Performance Map'),
+              e('div', { style: { color: dim, fontSize: 'var(--text-xs)' } }, t.pmSubtitle || 'Area = weight, colour = performance')),
             e('div', { className: 'mx-pills', role: 'group', 'aria-label': __('vaPeriod', 'Period') }, PERIODS.map(periodBtn))),
-          rects.length ? svg : e('div', { style: { color: dim, fontSize: '0.84rem', padding: '1rem 0' } }, t.pmEmpty || 'No priced positions to map yet.'));
+          rects.length ? svg : e('div', { style: { color: dim, fontSize: 'var(--text-sm)', padding: '1rem 0' } }, t.pmEmpty || 'No priced positions to map yet.'));
       } catch (err) {
         return e('div', { style: { padding: '0.75rem', color: (props.theme && props.theme.danger) || 'var(--danger)' } }, __('pmError', 'Performance map error: {msg}', { msg: err && err.message }));
       }

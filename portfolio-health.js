@@ -342,7 +342,7 @@
         onMouseEnter: clickable ? (ev) => { ev.currentTarget.style.background = 'rgba(255,255,255,0.05)'; } : undefined,
         onMouseLeave: clickable ? (ev) => { ev.currentTarget.style.background = 'transparent'; } : undefined,
       },
-        e('div', { style: { display: 'flex', justifyContent: 'space-between', marginBottom: '0.3rem', fontSize: '0.8rem', color: theme.textSecondary } },
+        e('div', { style: { display: 'flex', justifyContent: 'space-between', marginBottom: '0.3rem', fontSize: 'var(--text-sm)', color: theme.textSecondary } },
           e('span', null, label, clickable ? e('span', { 'aria-hidden': 'true', style: { marginLeft: '0.35rem' } }, '›') : null),
           e('span', { style: { color: available ? theme.text : theme.textSecondary, fontWeight: 600 } }, available ? (value + ' / 100') : (t.healthNotAvailable || 'n/a'))),
         e('div', { style: { height: '8px', background: 'rgba(255,255,255,0.08)', borderRadius: '4px', overflow: 'hidden' } },
@@ -351,15 +351,15 @@
     };
 
     const metric = (label, value) => e('div', { key: label, style: { textAlign: 'center', padding: '1rem 0.85rem', background: theme.surface2 || 'rgba(0,0,0,0.18)', border: `1px solid ${theme.cardBorder || 'rgba(255,255,255,0.08)'}`, borderRadius: '12px' } },
-      e('div', { style: { fontSize: '1.35rem', fontWeight: 800, color: theme.text, letterSpacing: '-0.02em' } }, value),
-      e('div', { style: { fontSize: '0.66rem', color: theme.textSecondary, marginTop: '0.3rem', textTransform: 'uppercase', letterSpacing: '0.06em' } }, label)
+      e('div', { style: { fontSize: 'var(--text-title-lg)', fontWeight: 800, color: theme.text, letterSpacing: '-0.02em' } }, value),
+      e('div', { style: { fontSize: 'var(--text-2xs)', color: theme.textSecondary, marginTop: '0.3rem', textTransform: 'uppercase', letterSpacing: '0.06em' } }, label)
     );
 
     return e('div', { style: { padding: '1rem' } },
       e('div', { style: { display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: '1rem', flexWrap: 'wrap', marginBottom: '1.25rem' } },
         e('div', null,
-          e('h2', { style: { color: theme.text, marginBottom: '0.25rem', fontSize: '1.4rem', fontWeight: 700 } }, t.healthTitle || 'Portfolio Health'),
-          e('p', { style: { color: theme.textSecondary, fontSize: '0.85rem', margin: 0 } },
+          e('h2', { style: { color: theme.text, marginBottom: '0.25rem', fontSize: 'var(--text-title-lg)', fontWeight: 700 } }, t.healthTitle || 'Portfolio Health'),
+          e('p', { style: { color: theme.textSecondary, fontSize: 'var(--text-base)', margin: 0 } },
             t.healthSubtitle || 'A structural check of diversification and concentration — independent of market direction.'))),
 
       // Score hero + sub-score bars
@@ -379,16 +379,16 @@
               }
             },
               e('div', { style: { fontSize: '2.2rem', fontWeight: 800, color: col, lineHeight: 1 } }, h.score),
-              e('div', { style: { fontSize: '0.7rem', color: theme.textSecondary, marginTop: '2px' } }, t.healthOutOf100 || 'out of 100'))),
-          e('div', { style: { marginTop: '0.6rem', display: 'inline-block', padding: '0.2rem 0.9rem', borderRadius: '9999px', background: `${col}22`, color: col, fontWeight: 700, fontSize: '0.95rem' } },
+              e('div', { style: { fontSize: 'var(--text-2xs)', color: theme.textSecondary, marginTop: '2px' } }, t.healthOutOf100 || 'out of 100'))),
+          e('div', { style: { marginTop: '0.6rem', display: 'inline-block', padding: '0.2rem 0.9rem', borderRadius: '9999px', background: `${col}22`, color: col, fontWeight: 700, fontSize: 'var(--text-md)' } },
             (t.healthGrade || 'Grade') + ' ' + h.grade)),
         // P5-1.6: the score in one plain sentence (rules in verdicts.js).
         window.MaerminVerdicts && (function () {
           const v = window.MaerminVerdicts.health(h.score);
           if (!v) return null;
-          return e('div', { 'data-testid': 'verdict-health', 'data-level': v.level, style: { flexBasis: '100%', order: 3, color: theme.text, fontSize: '0.88rem', lineHeight: 1.5 } },
+          return e('div', { 'data-testid': 'verdict-health', 'data-level': v.level, style: { flexBasis: '100%', order: 3, color: theme.text, fontSize: 'var(--text-base)', lineHeight: 1.5 } },
             e('span', { style: { color: col, fontWeight: 700 } }, v.text),
-            e('span', { style: { color: theme.textSecondary, fontSize: '0.75rem' } }, ' ' + window.MaerminVerdicts.disclaimer()));
+            e('span', { style: { color: theme.textSecondary, fontSize: 'var(--text-xs)' } }, ' ' + window.MaerminVerdicts.disclaimer()));
         })(),
         e('div', { style: { flex: 1, minWidth: '240px' } },
           bar(t.healthDiversification || 'Diversification', h.subScores.diversification, meta('diversification')),
@@ -409,21 +409,21 @@
 
       // Recommendations
       e('div', { style: cardStyle },
-        e('h3', { style: { color: theme.text, fontSize: '1rem', fontWeight: 600, marginBottom: '0.75rem' } }, t.recommendations || 'Recommendations'),
+        e('h3', { style: { color: theme.text, fontSize: 'var(--text-body)', fontWeight: 600, marginBottom: '0.75rem' } }, t.recommendations || 'Recommendations'),
         h.recommendations.map((r, i) =>
-          e('div', { key: i, style: { display: 'flex', gap: '0.6rem', alignItems: 'flex-start', padding: '0.5rem 0', color: theme.textSecondary, fontSize: '0.875rem', borderBottom: i < h.recommendations.length - 1 ? `1px solid ${theme.cardBorder || 'rgba(255,255,255,0.08)'}` : 'none' } },
+          e('div', { key: i, style: { display: 'flex', gap: '0.6rem', alignItems: 'flex-start', padding: '0.5rem 0', color: theme.textSecondary, fontSize: 'var(--text-base)', borderBottom: i < h.recommendations.length - 1 ? `1px solid ${theme.cardBorder || 'rgba(255,255,255,0.08)'}` : 'none' } },
             e('span', { style: { color: col, fontWeight: 700 } }, '→'),
             e('span', null, r)))
       ),
 
       // Top holdings by weight
       e('div', { style: cardStyle },
-        e('h3', { style: { color: theme.text, fontSize: '1rem', fontWeight: 600, marginBottom: '0.75rem' } }, t.healthLargestHoldings || 'Largest holdings'),
+        e('h3', { style: { color: theme.text, fontSize: 'var(--text-body)', fontWeight: 600, marginBottom: '0.75rem' } }, t.healthLargestHoldings || 'Largest holdings'),
         h.top.map((p) =>
           e('div', { key: p.symbol + p.cls, style: { marginBottom: '0.7rem' } },
-            e('div', { style: { display: 'flex', justifyContent: 'space-between', marginBottom: '0.25rem', fontSize: '0.82rem' } },
+            e('div', { style: { display: 'flex', justifyContent: 'space-between', marginBottom: '0.25rem', fontSize: 'var(--text-sm)' } },
               e('span', { style: { color: theme.text, fontWeight: 600 } }, p.symbol,
-                e('span', { style: { color: theme.textSecondary, fontWeight: 400, marginLeft: '0.4rem', fontSize: '0.72rem' } }, classLabel(p.cls, t))),
+                e('span', { style: { color: theme.textSecondary, fontWeight: 400, marginLeft: '0.4rem', fontSize: 'var(--text-xs)' } }, classLabel(p.cls, t))),
               e('span', { style: { color: theme.textSecondary } }, `${formatPrice(p.value)} ${sym} · ${window.MaerminI18n.pct(p.weight * 100, 1)}`)),
             e('div', { style: { height: '6px', background: 'rgba(255,255,255,0.08)', borderRadius: '3px', overflow: 'hidden' } },
               e('div', { style: { height: '100%', width: (p.weight * 100) + '%', background: p.weight > 0.3 ? 'var(--warning)' : (theme.accent || '#8b7cff'), borderRadius: '3px' } }))))

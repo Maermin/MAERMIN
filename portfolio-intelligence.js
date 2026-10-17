@@ -894,8 +894,8 @@ function __(k, f, v) { return (typeof window !== 'undefined' && window.MaerminI1
         }
       },
         e('span', { 'aria-hidden': 'true', style: { color: m.color, fontWeight: 800 } }, m.icon),
-        e('span', { style: { color: text, fontWeight: 700, fontSize: '0.85rem' } }, n),
-        e('span', { style: { color: dim, fontSize: '0.78rem' } }, m.label));
+        e('span', { style: { color: text, fontWeight: 700, fontSize: 'var(--text-base)' } }, n),
+        e('span', { style: { color: dim, fontSize: 'var(--text-xs)' } }, m.label));
     }
 
     var rows = findings.map(function (f, i) {
@@ -909,29 +909,29 @@ function __(k, f, v) { return (typeof window !== 'undefined' && window.MaerminI1
       },
         e('div', {
           'aria-hidden': 'true',
-          style: { fontSize: '1.05rem', fontWeight: 800, color: m.color, lineHeight: 1.3, minWidth: '1.2rem', textAlign: 'center' }
+          style: { fontSize: 'var(--text-body)', fontWeight: 800, color: m.color, lineHeight: 1.3, minWidth: '1.2rem', textAlign: 'center' }
         }, m.icon),
         e('div', { style: { flex: 1, minWidth: 0 } },
           e('div', { style: { display: 'flex', alignItems: 'baseline', gap: '0.5rem', flexWrap: 'wrap' } },
             e('span', {
               style: {
-                fontSize: '0.68rem', fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.05em',
+                fontSize: 'var(--text-2xs)', fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.05em',
                 color: m.color
               }
             }, m.label),
-            e('span', { style: { color: dim, fontSize: '0.68rem', textTransform: 'uppercase', letterSpacing: '0.04em' } }, analysisLabel(f.analysis))),
-          e('div', { style: { color: text, fontWeight: 700, fontSize: '0.9rem', marginTop: '0.2rem', lineHeight: 1.4 } }, f.title),
-          e('div', { style: { color: dim, fontSize: '0.82rem', marginTop: '0.2rem', lineHeight: 1.5 } }, f.detail),
-          f.action ? e('div', { style: { color: text, fontSize: '0.8rem', marginTop: '0.3rem' } }, '→ ' + f.action) : null));
+            e('span', { style: { color: dim, fontSize: 'var(--text-2xs)', textTransform: 'uppercase', letterSpacing: '0.04em' } }, analysisLabel(f.analysis))),
+          e('div', { style: { color: text, fontWeight: 700, fontSize: 'var(--text-base)', marginTop: '0.2rem', lineHeight: 1.4 } }, f.title),
+          e('div', { style: { color: dim, fontSize: 'var(--text-sm)', marginTop: '0.2rem', lineHeight: 1.5 } }, f.detail),
+          f.action ? e('div', { style: { color: text, fontSize: 'var(--text-sm)', marginTop: '0.3rem' } }, '→ ' + f.action) : null));
     });
 
     var hasLook = !!(props.lookThrough && props.lookThrough.available);
 
     return e('div', { style: { padding: '1.5rem' } },
       e('h2', {
-        style: { color: text, fontSize: '1.5rem', fontWeight: 800, letterSpacing: '-0.02em', margin: '0 0 0.35rem' }
+        style: { color: text, fontSize: 'var(--text-xl)', fontWeight: 800, letterSpacing: '-0.02em', margin: '0 0 0.35rem' }
       }, t.intelTitle || 'Portfolio Intelligence'),
-      e('p', { style: { color: dim, fontSize: '0.88rem', margin: '0 0 1.25rem', lineHeight: 1.5, maxWidth: '60ch' } },
+      e('p', { style: { color: dim, fontSize: 'var(--text-base)', margin: '0 0 1.25rem', lineHeight: 1.5, maxWidth: '60ch' } },
         t.intelSubtitle || 'Automatic detection of structural risks across ten dimensions, with concrete, data-grounded recommendations ranked by priority.'),
 
       e('div', { style: { display: 'flex', gap: '0.6rem', flexWrap: 'wrap', marginBottom: '1.25rem' }, role: 'list', 'aria-label': t.intelPriorities || 'Findings by priority' },
@@ -942,12 +942,12 @@ function __(k, f, v) { return (typeof window !== 'undefined' && window.MaerminI1
       },
         findings.length
           ? e('div', { role: 'list', 'aria-label': t.intelFindings || 'Portfolio findings' }, rows)
-          : e('div', { style: { color: dim, fontSize: '0.9rem', padding: '1rem 0', textAlign: 'center' } },
+          : e('div', { style: { color: dim, fontSize: 'var(--text-base)', padding: '1rem 0', textAlign: 'center' } },
               hasLook
                 ? (t.intelClean || 'No structural problems detected across the ten checks. Nice work.')
                 : (t.intelNoData || 'Add holdings — and open the Health view once to load ETF look-through — to surface effective exposures.'))),
 
-      e('div', { style: { color: dim, fontSize: '0.72rem', marginTop: '0.9rem', lineHeight: 1.5 } },
+      e('div', { style: { color: dim, fontSize: 'var(--text-xs)', marginTop: '0.9rem', lineHeight: 1.5 } },
         (hasLook && summary.coverage != null
           ? __('piCoverage', 'Look-through covers {pct} of value.', { pct: I18N().pct(Math.round(summary.coverage * 100), 0) }) + ' '
           : __('piOpenHealth', 'Open the Health view once to load fund look-through for full effective-exposure analysis.') + ' ') +

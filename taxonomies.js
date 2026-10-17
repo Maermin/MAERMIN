@@ -337,19 +337,19 @@
 
     var text = theme.text, dim = theme.textSecondary, border = theme.cardBorder || 'rgba(127,127,127,0.2)';
     var btn = function (label, onClick, extra) {
-      return e('button', Object.assign({ type: 'button', onClick: onClick, style: { minHeight: '32px', padding: '0.35rem 0.75rem', background: theme.inputBg, border: '1px solid ' + border, borderRadius: '8px', color: text, cursor: 'pointer', fontSize: '0.8rem', fontWeight: 600 } }, extra || {}), label);
+      return e('button', Object.assign({ type: 'button', onClick: onClick, style: { minHeight: '32px', padding: '0.35rem 0.75rem', background: theme.inputBg, border: '1px solid ' + border, borderRadius: '8px', color: text, cursor: 'pointer', fontSize: 'var(--text-sm)', fontWeight: 600 } }, extra || {}), label);
     };
     var iconBtn = function (label, aria, onClick, testid) {
       return e('button', { type: 'button', 'aria-label': aria, title: aria, 'data-testid': testid, onClick: onClick,
-        style: { minWidth: '28px', minHeight: '28px', background: 'transparent', border: 'none', color: dim, cursor: 'pointer', fontSize: '0.95rem', padding: '0 0.25rem' } }, label);
+        style: { minWidth: '28px', minHeight: '28px', background: 'transparent', border: 'none', color: dim, cursor: 'pointer', fontSize: 'var(--text-md)', padding: '0 0.25rem' } }, label);
     };
     var selectStyle = { padding: '0.4rem 0.55rem', background: theme.inputBg, border: '1px solid ' + (theme.inputBorder || border), borderRadius: '8px', color: text, fontSize: '0.8rem', maxWidth: '100%' };
     var card = function (testid, title, sub, body, right) {
       return e('section', { 'data-testid': testid, style: { background: theme.card, border: '1px solid ' + border, borderRadius: '14px', padding: '1.1rem', marginBottom: '1rem', minWidth: 0 } },
         e('div', { style: { display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: '0.75rem', flexWrap: 'wrap', marginBottom: '0.75rem' } },
           e('div', { style: { minWidth: 0, flex: '1 1 240px' } },
-            e('h3', { style: { color: text, fontWeight: 700, fontSize: '0.95rem', margin: 0 } }, title),
-            sub && e('div', { style: { color: dim, fontSize: '0.78rem', marginTop: '0.2rem', lineHeight: 1.5 } }, sub)),
+            e('h3', { style: { color: text, fontWeight: 700, fontSize: 'var(--text-md)', margin: 0 } }, title),
+            sub && e('div', { style: { color: dim, fontSize: 'var(--text-xs)', marginTop: '0.2rem', lineHeight: 1.5 } }, sub)),
           right || null),
         body);
     };
@@ -404,18 +404,18 @@
 
     if (!tax) {
       return e('div', { 'data-testid': 'taxonomies', style: { padding: '1.5rem' } },
-        card('tx-intro', __('txTitle', 'Taxonomies'), __('txIntro', 'Your own classification trees on top of asset classes, categories and tags - for example asset classes, GICS sectors, MSCI regions or the Kommer world portfolio. Start from a template or import a JSON file.'), e('div', null, toolbar, msg && e('div', { style: { color: dim, fontSize: '0.8rem', marginTop: '0.5rem' } }, msg))));
+        card('tx-intro', __('txTitle', 'Taxonomies'), __('txIntro', 'Your own classification trees on top of asset classes, categories and tags - for example asset classes, GICS sectors, MSCI regions or the Kommer world portfolio. Start from a template or import a JSON file.'), e('div', null, toolbar, msg && e('div', { style: { color: dim, fontSize: 'var(--text-sm)', marginTop: '0.5rem' } }, msg))));
     }
 
     // ---- tree ----
-    var th = function (label, i, left) { return e('th', { key: i, scope: 'col', style: { padding: '0.45rem 0.5rem', textAlign: left ? 'left' : 'right', color: dim, fontWeight: 600, fontSize: '0.7rem', textTransform: 'uppercase', letterSpacing: '0.04em', whiteSpace: 'nowrap', borderBottom: '1px solid ' + border } }, label); };
+    var th = function (label, i, left) { return e('th', { key: i, scope: 'col', style: { padding: '0.45rem 0.5rem', textAlign: left ? 'left' : 'right', color: dim, fontWeight: 600, fontSize: 'var(--text-2xs)', textTransform: 'uppercase', letterSpacing: '0.04em', whiteSpace: 'nowrap', borderBottom: '1px solid ' + border } }, label); };
     var tdS = function (x) { return Object.assign({ padding: '0.4rem 0.5rem', textAlign: 'right', whiteSpace: 'nowrap', borderBottom: '1px solid ' + border, fontVariantNumeric: 'tabular-nums', fontSize: '0.82rem' }, x || {}); };
     var targetInput = function (r) {
       return e('input', { key: r.id + ':' + r.target, type: 'text', inputMode: 'decimal', 'data-testid': 'tx-target-' + r.id, 'aria-label': __('txTargetAria', 'Target for {name} in %', { name: r.name }),
         defaultValue: r.target == null ? '' : I.num(r.target, { min: 0, max: 2 }),
         onBlur: function (ev) { var raw = ev.target.value.trim(); var v = raw === '' ? null : (U && U.parseDecimal ? U.parseDecimal(raw) : parseFloat(raw)); if (raw === '' || isFinite(v)) update(setTarget(tax, r.id, raw === '' ? null : v)); },
         onKeyDown: function (ev) { if (ev.key === 'Enter') ev.target.blur(); },
-        style: { width: '4.2rem', padding: '0.25rem 0.4rem', background: theme.inputBg, border: '1px solid ' + (theme.inputBorder || border), borderRadius: '6px', color: text, fontSize: '0.8rem', textAlign: 'right' } });
+        style: { width: '4.2rem', padding: '0.25rem 0.4rem', background: theme.inputBg, border: '1px solid ' + (theme.inputBorder || border), borderRadius: '6px', color: text, fontSize: 'var(--text-sm)', textAlign: 'right' } });
     };
     var actionOf = function (r) {
       var p = planned && r.depth === 0 ? planned.rows[r.id] : null;
@@ -450,7 +450,7 @@
           e('tbody', null, treeRows))),
       e('div', { style: { display: 'flex', gap: '0.5rem', flexWrap: 'wrap', alignItems: 'center', marginTop: '0.6rem' } },
         btn(__('txAddTop', '+ Top-level node'), function () { var n = prompt1(__('txNodePrompt', 'Name of the new node'), ''); if (n) update(addNode(tax, null, n)); }, { 'data-testid': 'tx-add-top' }),
-        sumT != null && e('span', { 'data-testid': 'tx-target-sum', style: { color: Math.abs(sumT - 100) < 0.01 ? dim : theme.danger, fontSize: '0.78rem' } },
+        sumT != null && e('span', { 'data-testid': 'tx-target-sum', style: { color: Math.abs(sumT - 100) < 0.01 ? dim : theme.danger, fontSize: 'var(--text-xs)' } },
           __('txTargetSum', 'Targets add up to {pct}.', { pct: I.pct(sumT, 1) }) + (Math.abs(sumT - 100) < 0.01 ? '' : ' ' + __('txTargetSumHint', 'Set them to 100 % for a full plan.')))));
 
     // ---- assignments ----
@@ -462,7 +462,7 @@
       var k = sym(h.symbol);
       return e('tr', { key: k, 'data-symbol': k },
         e('th', { scope: 'row', style: tdS({ textAlign: 'left', color: text, fontWeight: 600, maxWidth: '14rem', overflow: 'hidden', textOverflow: 'ellipsis' }) }, h.symbol,
-          h.name && h.name !== h.symbol ? e('span', { style: { color: dim, fontWeight: 400, fontSize: '0.72rem', marginLeft: '0.4rem' } }, h.name) : null),
+          h.name && h.name !== h.symbol ? e('span', { style: { color: dim, fontWeight: 400, fontSize: 'var(--text-xs)', marginLeft: '0.4rem' } }, h.name) : null),
         e('td', { style: tdS({ color: dim }) }, money(h.value)),
         e('td', { style: tdS({ textAlign: 'left' }) },
           e('select', { 'data-testid': 'tx-assign-' + k, 'aria-label': __('txAssignAria', 'Node of {sym}', { sym: h.symbol }), value: tax.assign[k] || '', onChange: function (ev) { update(assign(tax, k, ev.target.value || null)); }, style: selectStyle },
@@ -483,7 +483,7 @@
     return e('div', { 'data-testid': 'taxonomies', style: { padding: '1.5rem' } },
       card('tx-tree', tax.name, (tax.template ? __('txFromTemplate', 'From the template "{name}".', { name: templateName(tax.template) }) + ' ' : '')
         + __('txTreeSub', 'Values at today\'s prices; a node adds up everything below it. Targets on the top level feed the rebalancing plan (tolerance ±5 percentage points).'),
-        e('div', null, e('div', { style: { marginBottom: '0.8rem' } }, toolbar), msg && e('div', { style: { color: dim, fontSize: '0.8rem', marginBottom: '0.5rem' } }, msg), tree)),
+        e('div', null, e('div', { style: { marginBottom: '0.8rem' } }, toolbar), msg && e('div', { style: { color: dim, fontSize: 'var(--text-sm)', marginBottom: '0.5rem' } }, msg), tree)),
       assignCard);
   }
 

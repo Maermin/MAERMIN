@@ -266,7 +266,7 @@ function __(k, f, v) { return (typeof window !== 'undefined' && window.MaerminI1
     if (!React || !isDemoUrl(String(workerUrl || '').trim())) return null;
     theme = theme || {};
     return React.createElement('span', { 'data-testid': 'sample-data', title: __('dfxTitle', 'Made-up demo data - not real market data'),
-      style: { display: 'inline-block', padding: '0.1rem 0.5rem', borderRadius: '6px', fontSize: '0.68rem', fontWeight: 600, verticalAlign: 'middle',
+      style: { display: 'inline-block', padding: '0.1rem 0.5rem', borderRadius: '6px', fontSize: 'var(--text-2xs)', fontWeight: 600, verticalAlign: 'middle',
         color: theme.textSecondary || '#9aa4b2', background: theme.inputBg || 'rgba(255,255,255,0.06)', border: '1px solid ' + (theme.cardBorder || 'rgba(255,255,255,0.12)') } },
       __('dfxBadge', 'Sample data'));
   }

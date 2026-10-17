@@ -353,10 +353,10 @@ function __(k, f, v) { return (typeof window !== 'undefined' && window.MaerminI1
           }
         },
           e('div', { style: { display: 'flex', alignItems: 'center', gap: '0.4rem' } },
-            e('span', { style: { color: dim, fontSize: '0.7rem', fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.06em' } }, periodLabel(r.label)),
-            r.partial ? e('span', { title: t.perfPartial || 'Since inception (history shorter than this period)', style: { color: dim, fontSize: '0.62rem', border: '1px solid ' + border, borderRadius: '999px', padding: '0.05rem 0.35rem' } }, '≈') : null),
-          e('div', { style: { color: moveColor(r.abs), fontSize: '1.15rem', fontWeight: 800, marginTop: '0.35rem', letterSpacing: '-0.01em' } }, pctStr(r.pct)),
-          e('div', { style: { color: dim, fontSize: '0.78rem', marginTop: '0.15rem' } },
+            e('span', { style: { color: dim, fontSize: 'var(--text-2xs)', fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.06em' } }, periodLabel(r.label)),
+            r.partial ? e('span', { title: t.perfPartial || 'Since inception (history shorter than this period)', style: { color: dim, fontSize: 'var(--text-3xs)', border: '1px solid ' + border, borderRadius: '999px', padding: '0.05rem 0.35rem' } }, '≈') : null),
+          e('div', { style: { color: moveColor(r.abs), fontSize: 'var(--text-lg)', fontWeight: 800, marginTop: '0.35rem', letterSpacing: '-0.01em' } }, pctStr(r.pct)),
+          e('div', { style: { color: dim, fontSize: 'var(--text-xs)', marginTop: '0.15rem' } },
             (r.abs >= 0 ? '+' : '−') + fmt(Math.abs(r.abs)) + ' ' + sym));
       });
 
@@ -376,11 +376,11 @@ function __(k, f, v) { return (typeof window !== 'undefined' && window.MaerminI1
         var areaPath = 'M0,0 L' + pts.join(' L') + ' L300,0 Z';
         function stat(label, val, color) {
           return e('div', { style: { flex: 1, minWidth: '110px' } },
-            e('div', { style: { color: dim, fontSize: '0.7rem', fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.06em' } }, label),
-            e('div', { style: { color: color || text, fontSize: '1.05rem', fontWeight: 800, marginTop: '0.25rem' } }, val));
+            e('div', { style: { color: dim, fontSize: 'var(--text-2xs)', fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.06em' } }, label),
+            e('div', { style: { color: color || text, fontSize: 'var(--text-body)', fontWeight: 800, marginTop: '0.25rem' } }, val));
         }
         return e('div', { style: { background: card, border: '1px solid ' + border, borderRadius: '14px', padding: '1.1rem 1.25rem', marginBottom: '1.5rem' } },
-          e('div', { style: { color: text, fontSize: '0.92rem', fontWeight: 700, marginBottom: '0.8rem' } }, t.perfDrawdownTitle || 'Drawdown (underwater)'),
+          e('div', { style: { color: text, fontSize: 'var(--text-md)', fontWeight: 700, marginBottom: '0.8rem' } }, t.perfDrawdownTitle || 'Drawdown (underwater)'),
           e('svg', { viewBox: '0 0 300 80', preserveAspectRatio: 'none', style: { width: '100%', height: '80px', display: 'block', marginBottom: '0.8rem' } },
             e('line', { x1: 0, y1: 0, x2: 300, y2: 0, stroke: border, strokeWidth: 1 }),
             e('path', { d: areaPath, fill: down, fillOpacity: 0.22, stroke: down, strokeWidth: 1 })),
@@ -396,76 +396,76 @@ function __(k, f, v) { return (typeof window !== 'undefined' && window.MaerminI1
       var currentValue = series.length ? series[series.length - 1].v : 0;
       var assumedReturn = cagrFromSeries(series, flows);
       var goalSection = (hasData && goals.length) ? e('div', { style: { marginBottom: '1.5rem' } },
-        e('div', { style: { color: text, fontSize: '0.92rem', fontWeight: 700, marginBottom: '0.8rem' } }, t.perfGoalsTitle || 'Goal projection'),
+        e('div', { style: { color: text, fontSize: 'var(--text-md)', fontWeight: 700, marginBottom: '0.8rem' } }, t.perfGoalsTitle || 'Goal projection'),
         e('div', { style: { display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(240px, 1fr))', gap: '0.75rem' } },
           goals.slice(0, 4).map(function (g, gi) {
             var target = parseFloat(g.targetAmount) || 0;
             var eta = goalEta({ current: currentValue, target: target, monthly: parseFloat(g.monthlyContribution) || 0, annualReturnPct: assumedReturn });
             var prog = target > 0 ? Math.min(100, (currentValue / target) * 100) : 0;
             return e('div', { key: g.id || gi, style: { background: card, border: '1px solid ' + border, borderRadius: '14px', padding: '1rem' } },
-              e('div', { style: { color: text, fontWeight: 700, fontSize: '0.88rem' } }, g.name || (t.perfGoal || 'Goal')),
-              e('div', { style: { color: dim, fontSize: '0.76rem', marginTop: '0.15rem' } }, fmt(currentValue) + ' / ' + fmt(target) + ' ' + sym),
+              e('div', { style: { color: text, fontWeight: 700, fontSize: 'var(--text-base)' } }, g.name || (t.perfGoal || 'Goal')),
+              e('div', { style: { color: dim, fontSize: 'var(--text-xs)', marginTop: '0.15rem' } }, fmt(currentValue) + ' / ' + fmt(target) + ' ' + sym),
               e('div', { style: { height: '7px', borderRadius: '999px', background: theme.inputBg || '#0c1018', margin: '0.5rem 0', overflow: 'hidden' } },
                 e('div', { style: { width: prog.toFixed(0) + '%', height: '100%', background: up } })), // CSS width
-              e('div', { style: { color: eta.alreadyReached ? up : text, fontSize: '0.82rem', fontWeight: 600 } },
+              e('div', { style: { color: eta.alreadyReached ? up : text, fontSize: 'var(--text-sm)', fontWeight: 600 } },
                 eta.alreadyReached ? (t.perfGoalReached || '✓ Reached')
                   : eta.reachable ? ((t.perfGoalEta || 'On track — ') + window.MaerminI18n.date(eta.etaISO, 'medium'))
                   : (t.perfGoalUnreachable || 'Not reachable at the current pace')));
           })),
-        e('div', { style: { color: dim, fontSize: '0.72rem', marginTop: '0.6rem' } },
+        e('div', { style: { color: dim, fontSize: 'var(--text-xs)', marginTop: '0.6rem' } },
           (t.perfGoalAssume || 'Assumes your historical return') + (assumedReturn != null ? ' (' + __('perfPerYr', '{pct}/yr', { pct: window.MaerminI18n.pct(assumedReturn, 1) }) + ')' : '') + (t.perfGoalPlusContrib || ' plus your monthly contribution.'))) : null;
 
       // ---- #1 benchmark comparison ----
       var benchRows = (benchData && benchData.length) ? PERIODS.filter(function (p) { return ['1M', '3M', '6M', '1Y'].indexOf(p.id) !== -1; }).map(function (p) { return compareBenchmark(series, benchData, p.id, props.asOf, { flows: flows }); }).filter(Boolean) : [];
       var benchSection = (hasData && benches.length) ? e('div', { style: { marginBottom: '1.5rem' } },
         e('div', { style: { display: 'flex', alignItems: 'center', gap: '0.5rem', flexWrap: 'wrap', marginBottom: '0.8rem' } },
-          e('div', { style: { color: text, fontSize: '0.92rem', fontWeight: 700, marginRight: '0.3rem' } }, t.perfBenchTitle || 'vs. Benchmark'),
+          e('div', { style: { color: text, fontSize: 'var(--text-md)', fontWeight: 700, marginRight: '0.3rem' } }, t.perfBenchTitle || 'vs. Benchmark'),
           benches.map(function (b) {
             return e('button', { key: b.key, type: 'button', 'aria-pressed': benchKey === b.key, onClick: function () { setBenchKey(b.key); },
-              style: { font: 'inherit', cursor: 'pointer', padding: '0.25rem 0.6rem', borderRadius: '999px', fontSize: '0.74rem', fontWeight: 700, border: '1px solid ' + (benchKey === b.key ? (theme.accent || '#8b7cff') : border), background: benchKey === b.key ? ((theme.accentFill || theme.accent) || '#8b7cff') : 'transparent', color: benchKey === b.key ? (theme.accentText || '#ffffff') : dim } }, b.label);
+              style: { font: 'inherit', cursor: 'pointer', padding: '0.25rem 0.6rem', borderRadius: '999px', fontSize: 'var(--text-xs)', fontWeight: 700, border: '1px solid ' + (benchKey === b.key ? (theme.accent || '#8b7cff') : border), background: benchKey === b.key ? ((theme.accentFill || theme.accent) || '#8b7cff') : 'transparent', color: benchKey === b.key ? (theme.accentText || '#ffffff') : dim } }, b.label);
           })),
         !workerBase ? window.MaerminUtils.emptyState({ kind: 'worker', text: t.perfBenchNoWorker || 'Add a Worker URL in API Settings to compare against an index.', action: window.MaerminUI && window.MaerminUI.workerAction ? window.MaerminUI.workerAction() : undefined })
-          : benchLoading ? e('div', { style: { color: dim, fontSize: '0.85rem' } }, (t.loading || 'Loading') + ' …')
+          : benchLoading ? e('div', { style: { color: dim, fontSize: 'var(--text-base)' } }, (t.loading || 'Loading') + ' …')
           : benchRows.length ? e('div', { style: { background: card, border: '1px solid ' + border, borderRadius: '14px', overflow: 'hidden' } },
               benchRows.map(function (r, ri) {
                 return e('div', { key: r.id, style: { display: 'flex', alignItems: 'center', gap: '0.5rem', padding: '0.6rem 1rem', borderTop: ri ? '1px solid ' + border : 'none' } },
-                  e('span', { style: { color: dim, fontSize: '0.72rem', fontWeight: 800, width: '40px' } }, periodLabel(r.label)),
-                  e('span', { title: t.perfBenchYou || 'You', style: { color: moveColor(r.port), fontWeight: 700, fontSize: '0.85rem', width: '74px', textAlign: 'right' } }, pctStr(r.port)),
-                  e('span', { title: benchPreset ? benchPreset.label : __('perfBenchmark', 'Benchmark'), style: { color: dim, fontSize: '0.78rem', width: '66px', textAlign: 'right' } }, r.bench == null ? '—' : pctStr(r.bench)),
+                  e('span', { style: { color: dim, fontSize: 'var(--text-xs)', fontWeight: 800, width: '40px' } }, periodLabel(r.label)),
+                  e('span', { title: t.perfBenchYou || 'You', style: { color: moveColor(r.port), fontWeight: 700, fontSize: 'var(--text-base)', width: '74px', textAlign: 'right' } }, pctStr(r.port)),
+                  e('span', { title: benchPreset ? benchPreset.label : __('perfBenchmark', 'Benchmark'), style: { color: dim, fontSize: 'var(--text-xs)', width: '66px', textAlign: 'right' } }, r.bench == null ? '—' : pctStr(r.bench)),
                   e('span', { style: { flex: 1 } }),
-                  r.rel == null ? null : e('span', { style: { color: r.rel >= 0 ? up : down, fontWeight: 800, fontSize: '0.82rem' } }, __('ppValue', '{v} pp', { v: (r.rel >= 0 ? '+' : '') + window.MaerminI18n.num(r.rel, 1) })));
+                  r.rel == null ? null : e('span', { style: { color: r.rel >= 0 ? up : down, fontWeight: 800, fontSize: 'var(--text-sm)' } }, __('ppValue', '{v} pp', { v: (r.rel >= 0 ? '+' : '') + window.MaerminI18n.num(r.rel, 1) })));
               }))
-          : e('div', { style: { color: dim, fontSize: '0.85rem' } }, t.perfBenchNoData || 'No benchmark data available yet.')) : null;
+          : e('div', { style: { color: dim, fontSize: 'var(--text-base)' } }, t.perfBenchNoData || 'No benchmark data available yet.')) : null;
 
       return e('div', { style: { padding: '1.5rem' } },
-        e('h2', { style: { color: text, fontSize: '1.5rem', fontWeight: 800, letterSpacing: '-0.02em', margin: '0 0 0.35rem' } },
+        e('h2', { style: { color: text, fontSize: 'var(--text-xl)', fontWeight: 800, letterSpacing: '-0.02em', margin: '0 0 0.35rem' } },
           t.navPerformance || 'Performance', ' ', props.demo && window.MaerminDemoFixtures && window.MaerminDemoFixtures.badge(React, theme, workerBase)),
-        e('p', { style: { color: dim, fontSize: '0.88rem', margin: '0 0 1.25rem', lineHeight: 1.5, maxWidth: '60ch' } },
+        e('p', { style: { color: dim, fontSize: 'var(--text-base)', margin: '0 0 1.25rem', lineHeight: 1.5, maxWidth: '60ch' } },
           t.perfSubtitle || 'Real period returns derived entirely from your on-device value history — no external API. A new daily point is recorded automatically while you use the app.'),
 
         hasData
           ? e('div', { style: { display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(140px, 1fr))', gap: '0.75rem', marginBottom: '1.5rem' } }, cardEls)
-          : e('div', { style: { background: card, border: '1px solid ' + border, borderRadius: '14px', padding: '2rem', textAlign: 'center', color: dim, fontSize: '0.9rem' } },
+          : e('div', { style: { background: card, border: '1px solid ' + border, borderRadius: '14px', padding: '2rem', textAlign: 'center', color: dim, fontSize: 'var(--text-base)' } },
               // VIS-009: the demo records no snapshots - say so instead of "check back tomorrow"
               props.demo ? __('perfEmptyDemo', 'Period returns come from the daily snapshots recorded while you use the app with your own data; the demo records none.')
                 : (t.perfEmpty || 'No value history yet. Snapshots are recorded once per day as you use the app — check back tomorrow to see your first period returns.')),
 
         (hasData && ext) ? e('div', { style: { display: 'flex', gap: '0.75rem', flexWrap: 'wrap' } },
           e('div', { style: { flex: 1, minWidth: '200px', background: card, border: '1px solid ' + border, borderRadius: '14px', padding: '1rem' } },
-            e('div', { style: { color: dim, fontSize: '0.7rem', fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.06em' } }, t.perfBestDay || 'Best day'),
-            e('div', { style: { color: up, fontSize: '1.05rem', fontWeight: 800, marginTop: '0.3rem' } }, ext.best ? pctStr(ext.best.pct) : '—'),
-            e('div', { style: { color: dim, fontSize: '0.78rem', marginTop: '0.1rem' } }, ext.best ? ext.best.date : '')),
+            e('div', { style: { color: dim, fontSize: 'var(--text-2xs)', fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.06em' } }, t.perfBestDay || 'Best day'),
+            e('div', { style: { color: up, fontSize: 'var(--text-body)', fontWeight: 800, marginTop: '0.3rem' } }, ext.best ? pctStr(ext.best.pct) : '—'),
+            e('div', { style: { color: dim, fontSize: 'var(--text-xs)', marginTop: '0.1rem' } }, ext.best ? ext.best.date : '')),
           e('div', { style: { flex: 1, minWidth: '200px', background: card, border: '1px solid ' + border, borderRadius: '14px', padding: '1rem' } },
-            e('div', { style: { color: dim, fontSize: '0.7rem', fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.06em' } }, t.perfWorstDay || 'Worst day'),
-            e('div', { style: { color: down, fontSize: '1.05rem', fontWeight: 800, marginTop: '0.3rem' } }, ext.worst ? pctStr(ext.worst.pct) : '—'),
-            e('div', { style: { color: dim, fontSize: '0.78rem', marginTop: '0.1rem' } }, ext.worst ? ext.worst.date : ''))) : null,
+            e('div', { style: { color: dim, fontSize: 'var(--text-2xs)', fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.06em' } }, t.perfWorstDay || 'Worst day'),
+            e('div', { style: { color: down, fontSize: 'var(--text-body)', fontWeight: 800, marginTop: '0.3rem' } }, ext.worst ? pctStr(ext.worst.pct) : '—'),
+            e('div', { style: { color: dim, fontSize: 'var(--text-xs)', marginTop: '0.1rem' } }, ext.worst ? ext.worst.date : ''))) : null,
 
         (hasData && ext) ? e('div', { style: { height: '1.5rem' } }) : null,
         benchSection,
         ddCard,
         goalSection,
 
-        hasData ? e('div', { style: { color: dim, fontSize: '0.72rem', marginTop: '1rem', lineHeight: 1.5 } },
+        hasData ? e('div', { style: { color: dim, fontSize: 'var(--text-xs)', marginTop: '1rem', lineHeight: 1.5 } },
           (t.perfFootnote || 'Periods marked ≈ are measured from your first snapshot because the full look-back is not yet covered.')) : null);
     } catch (err) {
       return e('div', { style: { padding: '1.5rem', color: (props.theme && props.theme.danger) || 'var(--danger)' } },

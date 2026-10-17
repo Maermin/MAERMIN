@@ -180,7 +180,7 @@ function __(k, f, v) { return (typeof window !== 'undefined' && window.MaerminI1
         function dot(c) { return e('span', { 'aria-hidden': 'true', style: { display: 'inline-block', width: '0.75rem', height: '0.75rem', borderRadius: '4px', background: c, flexShrink: 0 } }); }
 
         var builtinRow = API.BUILTINS.map(function (b) {
-          return e('span', { key: b.id, style: { display: 'inline-flex', alignItems: 'center', gap: '0.4rem', padding: '0.3rem 0.6rem', borderRadius: '999px', border: '1px solid ' + border, color: dim, fontSize: '0.78rem' } },
+          return e('span', { key: b.id, style: { display: 'inline-flex', alignItems: 'center', gap: '0.4rem', padding: '0.3rem 0.6rem', borderRadius: '999px', border: '1px solid ' + border, color: dim, fontSize: 'var(--text-xs)' } },
             dot(b.color), b.label);
         });
 
@@ -194,9 +194,9 @@ function __(k, f, v) { return (typeof window !== 'undefined' && window.MaerminI1
             e('input', {
               value: c.label,
               onChange: function (ev) { mutate(API.rename(st, c.id, ev.target.value)); },
-              style: { flex: 1, minWidth: 0, padding: '0.35rem 0.5rem', borderRadius: '8px', border: '1px solid ' + inputBorder, background: inputBg, color: text, fontSize: '0.85rem', fontWeight: 700 }
+              style: { flex: 1, minWidth: 0, padding: '0.35rem 0.5rem', borderRadius: '8px', border: '1px solid ' + inputBorder, background: inputBg, color: text, fontSize: 'var(--text-base)', fontWeight: 700 }
             }),
-            e('code', { style: { color: dim, fontSize: '0.72rem' } }, c.id),
+            e('code', { style: { color: dim, fontSize: 'var(--text-xs)' } }, c.id),
             e('button', {
               onClick: function () {
                 window.MaerminUtils.confirmThen({
@@ -204,13 +204,13 @@ function __(k, f, v) { return (typeof window !== 'undefined' && window.MaerminI1
                   confirmLabel: t.catDelete || 'Delete', cancelLabel: t.cancel || 'Cancel'
                 }, function () { mutate(API.remove(st, c.id)); });
               },
-              style: { padding: '0.3rem 0.6rem', fontSize: '0.74rem', fontWeight: 700, cursor: 'pointer', borderRadius: '8px', border: '1px solid ' + inputBorder, background: 'transparent', color: text }
+              style: { padding: '0.3rem 0.6rem', fontSize: 'var(--text-xs)', fontWeight: 700, cursor: 'pointer', borderRadius: '8px', border: '1px solid ' + inputBorder, background: 'transparent', color: text }
             }, t.catDelete || 'Delete'));
         });
 
         return e('div', { style: { padding: '1.5rem' } },
-          e('h2', { style: { color: text, fontSize: '1.5rem', fontWeight: 800, letterSpacing: '-0.02em', margin: '0 0 0.35rem' } }, t.navCategories || 'Categories'),
-          e('p', { style: { color: dim, fontSize: '0.88rem', margin: '0 0 1.25rem', lineHeight: 1.5, maxWidth: '62ch' } },
+          e('h2', { style: { color: text, fontSize: 'var(--text-xl)', fontWeight: 800, letterSpacing: '-0.02em', margin: '0 0 0.35rem' } }, t.navCategories || 'Categories'),
+          e('p', { style: { color: dim, fontSize: 'var(--text-base)', margin: '0 0 1.25rem', lineHeight: 1.5, maxWidth: '62ch' } },
             t.catSubtitle || 'Define your own asset categories beyond the four built-ins. Custom categories are priced and counted in your totals; they appear when adding a transaction. Carried in your backup.'),
 
           e('div', { style: { display: 'flex', gap: '0.4rem', flexWrap: 'wrap', marginBottom: '1.25rem' } }, builtinRow),
@@ -220,14 +220,14 @@ function __(k, f, v) { return (typeof window !== 'undefined' && window.MaerminI1
               value: name, onChange: function (ev) { setName(ev.target.value); },
               onKeyDown: function (ev) { if (ev.key === 'Enter') addCurrent(); },
               placeholder: t.catNewPlaceholder || 'New category, e.g. Real Estate…', 'aria-label': t.catNewPlaceholder || 'New category, e.g. Real Estate…',
-              style: { flex: 1, minWidth: '200px', maxWidth: '340px', padding: '0.5rem 0.75rem', borderRadius: '8px', border: '1px solid ' + inputBorder, background: inputBg, color: text, fontSize: '0.85rem' }
+              style: { flex: 1, minWidth: '200px', maxWidth: '340px', padding: '0.5rem 0.75rem', borderRadius: '8px', border: '1px solid ' + inputBorder, background: inputBg, color: text, fontSize: 'var(--text-base)' }
             }),
-            e('button', { onClick: addCurrent, style: { padding: '0.5rem 1rem', fontSize: '0.85rem', fontWeight: 800, cursor: 'pointer', borderRadius: '8px', border: 'none', background: accentFill, color: accentText } }, t.catAdd || 'Add category')),
+            e('button', { onClick: addCurrent, style: { padding: '0.5rem 1rem', fontSize: 'var(--text-base)', fontWeight: 800, cursor: 'pointer', borderRadius: '8px', border: 'none', background: accentFill, color: accentText } }, t.catAdd || 'Add category')),
 
-          customRows.length ? customRows : e('div', { style: { background: card, border: '1px solid ' + border, borderRadius: '14px', padding: '2rem', textAlign: 'center', color: dim, fontSize: '0.9rem' } },
+          customRows.length ? customRows : e('div', { style: { background: card, border: '1px solid ' + border, borderRadius: '14px', padding: '2rem', textAlign: 'center', color: dim, fontSize: 'var(--text-base)' } },
             t.catEmpty || 'No custom categories yet. Add one above — it will appear in the Add-Transaction category picker.'),
 
-          e('div', { style: { color: dim, fontSize: '0.72rem', marginTop: '1rem', lineHeight: 1.5 } },
+          e('div', { style: { color: dim, fontSize: 'var(--text-xs)', marginTop: '1rem', lineHeight: 1.5 } },
             t.catFootnote || 'Rebalancing and the currency breakdown group by the four base classes (crypto, stocks, commodities, skins). Holdings in your own categories count in every total and appear here and in Tags.'));
       } catch (err) {
         return e('div', { style: { padding: '1.5rem', color: (props.theme && props.theme.danger) || 'var(--danger)' } }, __('ccError', 'Categories view error: ') + (err && err.message));

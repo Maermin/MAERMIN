@@ -587,38 +587,38 @@ function __(k, f, v) { return (typeof window !== 'undefined' && window.MaerminI1
         var rows = st.connections.map(function (c) {
           return e('div', { key: c.id, style: { display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '0.6rem 0.75rem', background: inputBg, borderRadius: '8px', marginBottom: '0.5rem' } },
             e('div', null,
-              e('div', { style: { color: text, fontWeight: 600, fontSize: '0.85rem' } }, c.label),
-              e('div', { style: { color: dim, fontSize: '0.72rem' } }, (API.EXCHANGES[c.exchange] || {}).label + (c.lastSync ? '  ·  ' + (t.exLastSync || 'last sync') + ' ' + c.lastSync : '  ·  ' + (t.exNeverSynced || 'never synced')))),
+              e('div', { style: { color: text, fontWeight: 600, fontSize: 'var(--text-base)' } }, c.label),
+              e('div', { style: { color: dim, fontSize: 'var(--text-xs)' } }, (API.EXCHANGES[c.exchange] || {}).label + (c.lastSync ? '  ·  ' + (t.exLastSync || 'last sync') + ' ' + c.lastSync : '  ·  ' + (t.exNeverSynced || 'never synced')))),
             e('div', { style: { display: 'flex', gap: '0.4rem' } },
-              e('button', { onClick: function () { syncConn(c); }, disabled: !!busy[c.id], 'aria-busy': busy[c.id] ? 'true' : 'false', style: { background: accent, border: 'none', color: '#ffffff', cursor: busy[c.id] ? 'wait' : 'pointer', opacity: busy[c.id] ? 0.6 : 1, borderRadius: '7px', padding: '0.25rem 0.7rem', fontSize: '0.74rem', fontWeight: 700 } }, busy[c.id] ? ((t.exSyncing || 'Syncing') + '…') : (t.exSyncNow || 'Sync now')),
+              e('button', { onClick: function () { syncConn(c); }, disabled: !!busy[c.id], 'aria-busy': busy[c.id] ? 'true' : 'false', style: { background: accent, border: 'none', color: '#ffffff', cursor: busy[c.id] ? 'wait' : 'pointer', opacity: busy[c.id] ? 0.6 : 1, borderRadius: '7px', padding: '0.25rem 0.7rem', fontSize: 'var(--text-xs)', fontWeight: 700 } }, busy[c.id] ? ((t.exSyncing || 'Syncing') + '…') : (t.exSyncNow || 'Sync now')),
               e('button', { onClick: function () {
                 window.MaerminUtils.confirmThen({
                   title: (t.exRemoveTitle || 'Remove the connection "{name}"?').replace('{name}', c.label),
                   message: t.exRemoveMessage || 'Its stored API keys are deleted from this vault. Trades already imported stay.',
                   confirmLabel: t.exRemove || 'Remove', cancelLabel: t.cancel || 'Cancel'
                 }, function () { removeConn(c.id); });
-              }, style: { background: 'none', border: '1px solid ' + inputBorder, color: dim, cursor: 'pointer', borderRadius: '7px', padding: '0.25rem 0.6rem', fontSize: '0.74rem' } }, t.exRemove || 'Remove')));
+              }, style: { background: 'none', border: '1px solid ' + inputBorder, color: dim, cursor: 'pointer', borderRadius: '7px', padding: '0.25rem 0.6rem', fontSize: 'var(--text-xs)' } }, t.exRemove || 'Remove')));
         });
 
         return e('div', { style: { background: card, border: '1px solid ' + border, borderRadius: '14px', padding: '1.1rem', marginBottom: '1.25rem' } },
-          e('div', { style: { color: text, fontWeight: 700, fontSize: '0.95rem', marginBottom: '0.2rem' } }, t.exTitle || 'Exchange sync (read-only)'),
-          e('div', { style: { color: dim, fontSize: '0.76rem', marginBottom: '0.9rem' } }, t.exSubtitle || 'Import crypto trades read-only. Use read-only API keys. Keys are stored encrypted in your vault; requests go to the exchange through your Worker.'),
+          e('div', { style: { color: text, fontWeight: 700, fontSize: 'var(--text-md)', marginBottom: '0.2rem' } }, t.exTitle || 'Exchange sync (read-only)'),
+          e('div', { style: { color: dim, fontSize: 'var(--text-xs)', marginBottom: '0.9rem' } }, t.exSubtitle || 'Import crypto trades read-only. Use read-only API keys. Keys are stored encrypted in your vault; requests go to the exchange through your Worker.'),
           rows,
           e('div', { style: { display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(140px,1fr))', gap: '0.5rem', marginTop: '0.6rem' } },
-            e('select', { 'data-testid': 'ex-exchange', value: form.exchange, onChange: function (ev) { setF({ exchange: ev.target.value }); }, style: { padding: '0.5rem', background: inputBg, border: '1px solid ' + inputBorder, borderRadius: '8px', color: text, fontSize: '0.82rem' } },
+            e('select', { 'data-testid': 'ex-exchange', value: form.exchange, onChange: function (ev) { setF({ exchange: ev.target.value }); }, style: { padding: '0.5rem', background: inputBg, border: '1px solid ' + inputBorder, borderRadius: '8px', color: text, fontSize: 'var(--text-sm)' } },
               Object.keys(API.EXCHANGES).map(function (k) { return e('option', { key: k, value: k }, API.EXCHANGES[k].label); })),
-            e('input', { value: form.label, onChange: function (ev) { setF({ label: ev.target.value }); }, placeholder: t.exLabel || 'Label (optional)', style: { padding: '0.5rem', background: inputBg, border: '1px solid ' + inputBorder, borderRadius: '8px', color: text, fontSize: '0.82rem' } }),
-            e('input', { value: form.apiKey, onChange: function (ev) { setF({ apiKey: ev.target.value }); }, placeholder: API.needsSecret(form.exchange) ? (t.exApiKey || 'API key (read-only)') : __('exApiKeyRelayed', 'API key (sent through your Worker)'), 'aria-label': API.needsSecret(form.exchange) ? (t.exApiKey || 'API key (read-only)') : __('exApiKeyRelayed', 'API key (sent through your Worker)'), style: { padding: '0.5rem', background: inputBg, border: '1px solid ' + inputBorder, borderRadius: '8px', color: text, fontSize: '0.82rem' } }),
-            API.needsSecret(form.exchange) ? e('input', { value: form.apiSecret, type: 'password', onChange: function (ev) { setF({ apiSecret: ev.target.value }); }, placeholder: t.exApiSecret || 'API secret', 'aria-label': t.exApiSecret || 'API secret', style: { padding: '0.5rem', background: inputBg, border: '1px solid ' + inputBorder, borderRadius: '8px', color: text, fontSize: '0.82rem' } }) : null,
+            e('input', { value: form.label, onChange: function (ev) { setF({ label: ev.target.value }); }, placeholder: t.exLabel || 'Label (optional)', style: { padding: '0.5rem', background: inputBg, border: '1px solid ' + inputBorder, borderRadius: '8px', color: text, fontSize: 'var(--text-sm)' } }),
+            e('input', { value: form.apiKey, onChange: function (ev) { setF({ apiKey: ev.target.value }); }, placeholder: API.needsSecret(form.exchange) ? (t.exApiKey || 'API key (read-only)') : __('exApiKeyRelayed', 'API key (sent through your Worker)'), 'aria-label': API.needsSecret(form.exchange) ? (t.exApiKey || 'API key (read-only)') : __('exApiKeyRelayed', 'API key (sent through your Worker)'), style: { padding: '0.5rem', background: inputBg, border: '1px solid ' + inputBorder, borderRadius: '8px', color: text, fontSize: 'var(--text-sm)' } }),
+            API.needsSecret(form.exchange) ? e('input', { value: form.apiSecret, type: 'password', onChange: function (ev) { setF({ apiSecret: ev.target.value }); }, placeholder: t.exApiSecret || 'API secret', 'aria-label': t.exApiSecret || 'API secret', style: { padding: '0.5rem', background: inputBg, border: '1px solid ' + inputBorder, borderRadius: '8px', color: text, fontSize: 'var(--text-sm)' } }) : null,
             // P5-3.8: KuCoin and Bitget keys come with a passphrase
-            API.needsPassphrase(form.exchange) ? e('input', { 'data-testid': 'ex-passphrase', value: form.passphrase, type: 'password', autoComplete: 'off', onChange: function (ev) { setF({ passphrase: ev.target.value }); }, placeholder: __('exPassphrase', 'API passphrase'), 'aria-label': __('exPassphrase', 'API passphrase'), style: { padding: '0.5rem', background: inputBg, border: '1px solid ' + inputBorder, borderRadius: '8px', color: text, fontSize: '0.82rem' } }) : null),
+            API.needsPassphrase(form.exchange) ? e('input', { 'data-testid': 'ex-passphrase', value: form.passphrase, type: 'password', autoComplete: 'off', onChange: function (ev) { setF({ passphrase: ev.target.value }); }, placeholder: __('exPassphrase', 'API passphrase'), 'aria-label': __('exPassphrase', 'API passphrase'), style: { padding: '0.5rem', background: inputBg, border: '1px solid ' + inputBorder, borderRadius: '8px', color: text, fontSize: 'var(--text-sm)' } }) : null),
           // What leaves the browser, per exchange, and to which Worker.
-          e('div', { 'data-testid': 'ex-credential-note', style: { color: dim, fontSize: '0.74rem', marginTop: '0.45rem', lineHeight: 1.5 } },
+          e('div', { 'data-testid': 'ex-credential-note', style: { color: dim, fontSize: 'var(--text-xs)', marginTop: '0.45rem', lineHeight: 1.5 } },
             API.needsSecret(form.exchange)
               ? __('exSignedNote', 'The secret stays in this browser: only the key id and a signature go to {host}.', { host: workerHost(props.workerUrl) })
               : __('exRelayedNote', 'This exchange has no separate secret: the API key itself goes to {host} with each request. Use your own Worker and a read-only key.', { host: workerHost(props.workerUrl) })),
-          e('button', { onClick: addConn, style: { marginTop: '0.6rem', padding: '0.5rem 1rem', background: accent, color: '#ffffff', border: 'none', borderRadius: '8px', cursor: 'pointer', fontWeight: 700, fontSize: '0.82rem' } }, t.exAdd || 'Add connection'),
-          msg ? e('div', { style: { color: dim, fontSize: '0.76rem', marginTop: '0.5rem' } }, msg) : null);
+          e('button', { onClick: addConn, style: { marginTop: '0.6rem', padding: '0.5rem 1rem', background: accent, color: '#ffffff', border: 'none', borderRadius: '8px', cursor: 'pointer', fontWeight: 700, fontSize: 'var(--text-sm)' } }, t.exAdd || 'Add connection'),
+          msg ? e('div', { style: { color: dim, fontSize: 'var(--text-xs)', marginTop: '0.5rem' } }, msg) : null);
       } catch (err) {
         return e('div', { style: { padding: '0.75rem', color: (props.theme && props.theme.danger) || 'var(--danger)' } }, __('exError', 'Exchange sync error: ') + (err && err.message));
       }

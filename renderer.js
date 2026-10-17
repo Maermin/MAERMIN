@@ -32,12 +32,12 @@ class ViewErrorBoundary extends React.Component {
     const th = this.props.theme || {};
     return React.createElement('div', { style: { padding: '2rem' } },
       React.createElement('div', { style: { maxWidth: 520, margin: '2rem auto', textAlign: 'center', background: th.card || '#141a25', border: `1px solid ${th.cardBorder || 'rgba(255,255,255,0.08)'}`, borderRadius: '14px', padding: '2rem' } },
-        React.createElement('div', { style: { fontSize: '2rem', marginBottom: '0.5rem', fontWeight: '700' } }, '!'),
-        React.createElement('div', { style: { color: th.text || '#e9edf4', fontWeight: 800, fontSize: '1.05rem', marginBottom: '0.5rem' } }, __('errViewTitle', 'This view hit an error')),
-        React.createElement('div', { style: { color: th.textSecondary || '#8b94a7', fontSize: '0.85rem', marginBottom: '1.25rem' } }, __('errViewBody', 'Your data is safe. Try this view again or switch to another.')),
-        React.createElement('div', { style: { color: th.textSecondary || '#8b94a7', fontSize: '0.72rem', fontFamily: 'ui-monospace,monospace', marginBottom: '1.25rem', wordBreak: 'break-word', opacity: 0.8 } }, String(this.state.error && this.state.error.message || this.state.error)),
+        React.createElement('div', { style: { fontSize: 'var(--text-2xl)', marginBottom: '0.5rem', fontWeight: '700' } }, '!'),
+        React.createElement('div', { style: { color: th.text || '#e9edf4', fontWeight: 800, fontSize: 'var(--text-body)', marginBottom: '0.5rem' } }, __('errViewTitle', 'This view hit an error')),
+        React.createElement('div', { style: { color: th.textSecondary || '#8b94a7', fontSize: 'var(--text-base)', marginBottom: '1.25rem' } }, __('errViewBody', 'Your data is safe. Try this view again or switch to another.')),
+        React.createElement('div', { style: { color: th.textSecondary || '#8b94a7', fontSize: 'var(--text-xs)', fontFamily: 'ui-monospace,monospace', marginBottom: '1.25rem', wordBreak: 'break-word', opacity: 0.8 } }, String(this.state.error && this.state.error.message || this.state.error)),
         React.createElement('button', { onClick: () => this.setState({ error: null }),
-          style: { padding: '0.5rem 1.1rem', background: (th.accentFill || th.accent) || '#8b7cff', color: '#ffffff', border: 'none', borderRadius: '8px', cursor: 'pointer', fontWeight: 700, fontSize: '0.85rem' } }, __('retry', 'Retry'))
+          style: { padding: '0.5rem 1.1rem', background: (th.accentFill || th.accent) || '#8b7cff', color: '#ffffff', border: 'none', borderRadius: '8px', cursor: 'pointer', fontWeight: 700, fontSize: 'var(--text-base)' } }, __('retry', 'Retry'))
       )
     );
   }
@@ -233,7 +233,7 @@ function PasswordModal({ theme, t, onClose, addToast, restoreFocus }) {
       style: {
         width: '100%', padding: '0.75rem', marginBottom: '0.75rem',
         background: theme.inputBg, border: `1px solid ${theme.inputBorder}`,
-        borderRadius: '8px', color: theme.text, fontSize: '0.875rem'
+        borderRadius: '8px', color: theme.text, fontSize: 'var(--text-base)'
       }
     });
 
@@ -245,13 +245,13 @@ function PasswordModal({ theme, t, onClose, addToast, restoreFocus }) {
       ...window.MaerminUI.dialogProps('dlg-password'),
       style: { background: theme.modalBg, border:`1px solid ${theme.modalBorder}`, borderRadius:'16px', padding:'2rem', width:'380px', maxWidth:'90vw', boxShadow:'0 25px 50px -12px rgba(0,0,0,0.5)' }
     },
-      React.createElement('h2', { id: 'dlg-password', style:{ color:theme.text, fontSize:'1.25rem', fontWeight:'700', marginBottom:'1.25rem' } },
+      React.createElement('h2', { id: 'dlg-password', style:{ color:theme.text, fontSize:'var(--text-title)', fontWeight:'700', marginBottom:'1.25rem' } },
         (t.changePassword || 'Change Password')
       ),
       inp(curPw,  setCurPw,  t.currentPassword || 'Current Password'),
       inp(newPw,  setNewPw,  t.newPassword     || 'New Password'),
       inp(confPw, setConfPw, t.confirmPassword || 'Confirm Password'),
-      React.createElement('label', { style: { display: 'flex', gap: '0.5rem', alignItems: 'flex-start', color: theme.textSecondary, fontSize: '0.78rem', lineHeight: 1.45, margin: '0 0 0.9rem', cursor: 'pointer' } },
+      React.createElement('label', { style: { display: 'flex', gap: '0.5rem', alignItems: 'flex-start', color: theme.textSecondary, fontSize: 'var(--text-xs)', lineHeight: 1.45, margin: '0 0 0.9rem', cursor: 'pointer' } },
         React.createElement('input', { type: 'checkbox', checked: rotateToo, onChange: (e) => setRotateToo(e.target.checked), style: { width: 18, height: 18, marginTop: 1, flexShrink: 0, accentColor: theme.accent } }),
         __('pwRotateToo', 'Also replace the encryption key - do this if the old password may be known. Old backups, the recovery code and the passkey then no longer open new data.')),
       React.createElement('div', { style:{ display:'flex', gap:'0.75rem', marginTop:'0.25rem' } },
@@ -2985,8 +2985,8 @@ function InvestmentTracker() {
     const tabBtn = (id, label) => React.createElement('button', window.MaerminUI.pillProps(section === id, { onClick: () => setSection(id), style: { fontSize: 'var(--text-sm)', minHeight: '32px' } }), label);
 
     return React.createElement('div', { style: { padding: '1.5rem' } },
-      React.createElement('h2', { style: { color: theme.text, fontSize: '1.35rem', fontWeight: '800', marginBottom: '0.25rem' } }, t.dataManagement || 'Data Management'),
-      React.createElement('p', { style: { color: theme.textSecondary, fontSize: '0.85rem', marginBottom: '1.5rem' } },
+      React.createElement('h2', { style: { color: theme.text, fontSize: 'var(--text-title-lg)', fontWeight: '800', marginBottom: '0.25rem' } }, t.dataManagement || 'Data Management'),
+      React.createElement('p', { style: { color: theme.textSecondary, fontSize: 'var(--text-base)', marginBottom: '1.5rem' } },
         __('dmIntro', 'Export, import, backup your data or use the Broker Import Wizard to import from supported brokers.')
       ),
 
@@ -3011,38 +3011,38 @@ function InvestmentTracker() {
       // ── Export & Backup ──────────────────────────────────────────────────
       section === 'export' && React.createElement('div', { style: { background: theme.card, border: `1px solid ${theme.cardBorder}`, borderRadius: '12px', padding: '1.5rem' } },
         React.createElement('div', { style: { color: theme.text, fontWeight: '700', marginBottom: '0.375rem' } }, __('dmExportBackup', 'Export & Backup')),
-        React.createElement('p', { style: { color: theme.textSecondary, fontSize: '0.8rem', marginBottom: '1.25rem' } },
+        React.createElement('p', { style: { color: theme.textSecondary, fontSize: 'var(--text-sm)', marginBottom: '1.25rem' } },
           __('dmTxInDb', '{n} {n:transaction|transactions} in database.', { n: transactions.length })
         ),
         React.createElement('div', { style: { display: 'flex', gap: '0.75rem', flexWrap: 'wrap' } },
           React.createElement('button', {
             onClick: createBackup,
-            style: { padding: '0.625rem 1.25rem', background: theme.accentFill, color: '#ffffff', border: 'none', borderRadius: '8px', cursor: 'pointer', fontWeight: '600', fontSize: '0.875rem', display: 'flex', alignItems: 'center', gap: '0.5rem' }
+            style: { padding: '0.625rem 1.25rem', background: theme.accentFill, color: '#ffffff', border: 'none', borderRadius: '8px', cursor: 'pointer', fontWeight: '600', fontSize: 'var(--text-base)', display: 'flex', alignItems: 'center', gap: '0.5rem' }
           }, __('dmJsonBackup', '↓ JSON Backup'),
-            React.createElement('span', { style: { fontSize: '0.72rem', opacity: 0.8, fontWeight: '400' } }, __('dmFullRestore', '— full restore'))
+            React.createElement('span', { style: { fontSize: 'var(--text-xs)', opacity: 0.8, fontWeight: '400' } }, __('dmFullRestore', '— full restore'))
           ),
           React.createElement('button', {
             onClick: exportData,
-            style: { padding: '0.625rem 1.25rem', background: theme.inputBg, color: theme.text, border: `1px solid ${theme.cardBorder}`, borderRadius: '8px', cursor: 'pointer', fontSize: '0.875rem', display: 'flex', alignItems: 'center', gap: '0.5rem' }
+            style: { padding: '0.625rem 1.25rem', background: theme.inputBg, color: theme.text, border: `1px solid ${theme.cardBorder}`, borderRadius: '8px', cursor: 'pointer', fontSize: 'var(--text-base)', display: 'flex', alignItems: 'center', gap: '0.5rem' }
           }, __('dmExportCsv', '↑ Export CSV'),
-            React.createElement('span', { style: { fontSize: '0.72rem', color: theme.textSecondary, fontWeight: '400' } }, __('dmSpreadsheet', '— spreadsheet'))
+            React.createElement('span', { style: { fontSize: 'var(--text-xs)', color: theme.textSecondary, fontWeight: '400' } }, __('dmSpreadsheet', '— spreadsheet'))
           ),
           // Phase 3: restoring used to mean opening the file and pasting it
           // into Manual Import. Same confirm-and-restore path as pasting.
           React.createElement('button', {
             type: 'button', 'data-testid': 'restore-from-file', disabled: importing,
             onClick: () => pickTextFile('.json,application/json', (txt) => handleImport(txt)),
-            style: { padding: '0.625rem 1.25rem', background: theme.inputBg, color: theme.text, border: `1px solid ${theme.cardBorder}`, borderRadius: '8px', cursor: 'pointer', fontSize: '0.875rem' }
+            style: { padding: '0.625rem 1.25rem', background: theme.inputBg, color: theme.text, border: `1px solid ${theme.cardBorder}`, borderRadius: '8px', cursor: 'pointer', fontSize: 'var(--text-base)' }
           }, __('dmRestoreFile', '↺ Restore from file…'))
         ),
-        React.createElement('p', { style: { color: theme.textSecondary, fontSize: '0.76rem', margin: '0.9rem 0 0', lineHeight: 1.5 } },
+        React.createElement('p', { style: { color: theme.textSecondary, fontSize: 'var(--text-xs)', margin: '0.9rem 0 0', lineHeight: 1.5 } },
           __('dmBackupHint', 'The JSON backup is not encrypted. For an encrypted copy use the account menu → Backup vault (encrypted).'))
       ),
 
       // ── Manual Import ────────────────────────────────────────────────────
       section === 'import' && React.createElement('div', { style: { background: theme.card, border: `1px solid ${theme.cardBorder}`, borderRadius: '12px', padding: '1.5rem' } },
         React.createElement('div', { style: { color: theme.text, fontWeight: '700', marginBottom: '0.375rem' } }, __('dmManualImport', 'Manual Import')),
-        React.createElement('p', { style: { color: theme.textSecondary, fontSize: '0.8rem', marginBottom: '1rem' } },
+        React.createElement('p', { style: { color: theme.textSecondary, fontSize: 'var(--text-sm)', marginBottom: '1rem' } },
           __('dmManualHint', 'Paste a JSON backup or CSV export. A full JSON backup restores all your data and reloads; a CSV/transaction list is added without replacing existing data.')
         ),
         React.createElement('textarea', {
@@ -3051,20 +3051,20 @@ function InvestmentTracker() {
           'aria-label': __('dmManualImport', 'Manual Import'),
           placeholder: '[{"type":"buy","category":"crypto","symbol":"bitcoin","quantity":0.5,"price":45000,"date":"2024-01-15"}]',
           rows: 7,
-          style: { width: '100%', boxSizing: 'border-box', padding: '0.75rem', background: theme.inputBg, border: `1px solid ${theme.inputBorder}`, borderRadius: '8px', color: theme.text, fontSize: '0.8rem', fontFamily: 'monospace', resize: 'vertical', marginBottom: '0.875rem' }
+          style: { width: '100%', boxSizing: 'border-box', padding: '0.75rem', background: theme.inputBg, border: `1px solid ${theme.inputBorder}`, borderRadius: '8px', color: theme.text, fontSize: 'var(--text-sm)', fontFamily: 'monospace', resize: 'vertical', marginBottom: '0.875rem' }
         }),
         React.createElement('div', { style: { display: 'flex', gap: '0.75rem', alignItems: 'center' } },
           React.createElement('button', {
             onClick: handleImport, disabled: importing || !importText.trim(),
-            style: { padding: '0.625rem 1.25rem', background: importing || !importText.trim() ? theme.inputBg : theme.accentFill, color: importing || !importText.trim() ? theme.textSecondary : '#fff', border: 'none', borderRadius: '8px', cursor: importing || !importText.trim() ? 'not-allowed' : 'pointer', fontWeight: '600', fontSize: '0.875rem' }
+            style: { padding: '0.625rem 1.25rem', background: importing || !importText.trim() ? theme.inputBg : theme.accentFill, color: importing || !importText.trim() ? theme.textSecondary : '#fff', border: 'none', borderRadius: '8px', cursor: importing || !importText.trim() ? 'not-allowed' : 'pointer', fontWeight: '600', fontSize: 'var(--text-base)' }
           }, importing ? __('importing', '◎ Importing...') : __('importBtn', '↑ Import')),
           React.createElement('button', {
             type: 'button', onClick: () => pickTextFile('.json,.csv,application/json,text/csv', setImportText),
-            style: { padding: '0.625rem 1rem', background: theme.inputBg, color: theme.text, border: `1px solid ${theme.cardBorder}`, borderRadius: '8px', cursor: 'pointer', fontSize: '0.85rem' }
+            style: { padding: '0.625rem 1rem', background: theme.inputBg, color: theme.text, border: `1px solid ${theme.cardBorder}`, borderRadius: '8px', cursor: 'pointer', fontSize: 'var(--text-base)' }
           }, __('dmChooseFile', 'Choose file…')),
           importText.trim() && React.createElement('button', {
             onClick: () => setImportText(''),
-            style: { padding: '0.625rem 1rem', background: 'none', color: theme.textSecondary, border: 'none', cursor: 'pointer', fontSize: '0.85rem' }
+            style: { padding: '0.625rem 1rem', background: 'none', color: theme.textSecondary, border: 'none', cursor: 'pointer', fontSize: 'var(--text-base)' }
           }, __('clearBtn', '✕ Clear'))
         )
       ),
@@ -3266,7 +3266,7 @@ function InvestmentTracker() {
       'aria-pressed': tab === id, onClick: () => setTab(id),
       style: {
         padding: '0.5rem 1.25rem', border: 'none', borderRadius: '8px', cursor: 'pointer',
-        fontSize: '0.875rem', fontWeight: tab === id ? '600' : '400',
+        fontSize: 'var(--text-base)', fontWeight: tab === id ? '600' : '400',
         background: tab === id ? (theme.accentFill || theme.accent) : theme.inputBg,
         color: tab === id ? '#fff' : theme.text, transition: 'all 0.15s'
       }
@@ -3284,17 +3284,17 @@ function InvestmentTracker() {
         React.createElement('div', { style: { flex: 1 } }),
         React.createElement('button', {
           onClick: fetchDividends, disabled: fetching,
-          style: { padding: '0.45rem 1rem', background: fetching ? theme.inputBg : 'color-mix(in srgb, var(--success) 15%, transparent)', border: '1px solid color-mix(in srgb, var(--success) 30%, transparent)', borderRadius: '8px', color: fetching ? theme.textSecondary : theme.success, cursor: fetching ? 'not-allowed' : 'pointer', fontSize: '0.8rem', fontWeight: '600' }
+          style: { padding: '0.45rem 1rem', background: fetching ? theme.inputBg : 'color-mix(in srgb, var(--success) 15%, transparent)', border: '1px solid color-mix(in srgb, var(--success) 30%, transparent)', borderRadius: '8px', color: fetching ? theme.textSecondary : theme.success, cursor: fetching ? 'not-allowed' : 'pointer', fontSize: 'var(--text-sm)', fontWeight: '600' }
         }, fetching ? __('fetching', 'Fetching...') : __('divAutoFetch', '↓ Auto-fetch dividends')),
         // v10.x: book received dividends as transactions (in the payout currency)
         onBookDividends ? React.createElement('button', {
           onClick: () => onBookDividends(),
           title: t.divBookHint || 'Create a transaction for each dividend whose pay date has passed (estimated, in its payout currency)',
-          style: { padding: '0.45rem 1rem', background: theme.inputBg, border: `1px solid ${theme.cardBorder}`, borderRadius: '8px', color: theme.text, cursor: 'pointer', fontSize: '0.8rem', fontWeight: '600' }
+          style: { padding: '0.45rem 1rem', background: theme.inputBg, border: `1px solid ${theme.cardBorder}`, borderRadius: '8px', color: theme.text, cursor: 'pointer', fontSize: 'var(--text-sm)', fontWeight: '600' }
         }, t.divBookNow || '＋ Book received dividends') : null,
         toggleDivAutoBook ? React.createElement('label', {
           title: t.divAutoHint || 'Automatically book each dividend as a transaction (in its payout currency) once its pay date passes',
-          style: { display: 'inline-flex', alignItems: 'center', gap: '0.4rem', fontSize: '0.78rem', color: theme.textSecondary, cursor: 'pointer', userSelect: 'none' }
+          style: { display: 'inline-flex', alignItems: 'center', gap: '0.4rem', fontSize: 'var(--text-xs)', color: theme.textSecondary, cursor: 'pointer', userSelect: 'none' }
         },
           React.createElement('input', { type: 'checkbox', checked: !!divAutoBook, onChange: () => toggleDivAutoBook(), style: { width: '24px', height: '24px', margin: 0, accentColor: theme.accent, cursor: 'pointer' } }),
           (t.divAutoLabel || 'Auto-book')) : null
@@ -3339,7 +3339,7 @@ function InvestmentTracker() {
       'aria-pressed': tab === id, onClick: () => setTab(id),
       style: {
         padding: '0.5rem 1.25rem', border: 'none', borderRadius: '8px', cursor: 'pointer',
-        fontSize: '0.875rem', fontWeight: tab === id ? '600' : '400',
+        fontSize: 'var(--text-base)', fontWeight: tab === id ? '600' : '400',
         background: tab === id ? (theme.accentFill || theme.accent) : theme.inputBg,
         color: tab === id ? '#fff' : theme.text, transition: 'all 0.15s'
       }
@@ -3356,11 +3356,11 @@ function InvestmentTracker() {
       }) : { available: false, rows: [] };
       const sym = getCurrencySymbol();
       const sumCard = (label, value, color) => React.createElement('div', { style: { background: theme.card, border: `1px solid ${theme.cardBorder}`, borderRadius: '12px', padding: '1rem 1.25rem' } },
-        React.createElement('div', { style: { color: theme.textSecondary, fontSize: '0.72rem', textTransform: 'uppercase', letterSpacing: '0.05em' } }, label),
-        React.createElement('div', { style: { color, fontSize: '1.4rem', fontWeight: 800 } }, `${formatPrice(value)} ${sym}`));
+        React.createElement('div', { style: { color: theme.textSecondary, fontSize: 'var(--text-xs)', textTransform: 'uppercase', letterSpacing: '0.05em' } }, label),
+        React.createElement('div', { style: { color, fontSize: 'var(--text-title-lg)', fontWeight: 800 } }, `${formatPrice(value)} ${sym}`));
       return React.createElement('div', { style: { padding: '1.5rem' } },
-        React.createElement('h2', { style: { color: theme.text, fontSize: '1.5rem', fontWeight: 700, marginBottom: '0.4rem' } }, t.taxHarvestTitle || 'Tax-loss harvesting'),
-        React.createElement('p', { style: { color: theme.textSecondary, fontSize: '0.85rem', marginBottom: '1.25rem' } }, taxJurisdiction === 'us'
+        React.createElement('h2', { style: { color: theme.text, fontSize: 'var(--text-xl)', fontWeight: 700, marginBottom: '0.4rem' } }, t.taxHarvestTitle || 'Tax-loss harvesting'),
+        React.createElement('p', { style: { color: theme.textSecondary, fontSize: 'var(--text-base)', marginBottom: '1.25rem' } }, taxJurisdiction === 'us'
           ? (t.taxHarvestSubtitleUs || 'Positions at an unrealised loss you could realise to offset gains. Estimated at 24 % for lots held up to a year and 15 % for longer - not tax advice.')
           : taxJurisdiction === 'ch'
             ? __('taxHarvestSubtitleCh', 'Positions at an unrealised loss. In Switzerland private capital gains are tax-free and losses are not deductible, so selling saves no tax.')
@@ -3378,11 +3378,11 @@ function InvestmentTracker() {
                 React.createElement('div', { key: i, style: { display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '0.75rem 1rem', background: theme.card, border: `1px solid ${theme.cardBorder}`, borderRadius: '10px', marginBottom: '0.5rem' } },
                   React.createElement('div', null,
                     React.createElement('span', { style: { color: theme.text, fontWeight: 600 } }, r.symbol),
-                    r.washSale && React.createElement('span', { style: { marginLeft: '0.5rem', fontSize: '0.7rem', padding: '0.1rem 0.5rem', borderRadius: '4px', background: 'color-mix(in srgb, var(--warning) 20%, transparent)', color: theme.warning } }, t.taxHarvestWashSale || 'wash-sale risk')
+                    r.washSale && React.createElement('span', { style: { marginLeft: '0.5rem', fontSize: 'var(--text-2xs)', padding: '0.1rem 0.5rem', borderRadius: '4px', background: 'color-mix(in srgb, var(--warning) 20%, transparent)', color: theme.warning } }, t.taxHarvestWashSale || 'wash-sale risk')
                   ),
                   React.createElement('div', { style: { textAlign: 'right' } },
                     React.createElement('div', { style: { color: theme.danger, fontWeight: 700 } }, `${formatPrice(r.unrealizedLoss)} ${sym}`),
-                    !r.washSale && React.createElement('div', { style: { color: theme.success, fontSize: '0.78rem' } }, `${t.taxHarvestSaves || 'saves'} ~${formatPrice(r.taxSavings)} ${sym}`)
+                    !r.washSale && React.createElement('div', { style: { color: theme.success, fontSize: 'var(--text-xs)' } }, `${t.taxHarvestSaves || 'saves'} ~${formatPrice(r.taxSavings)} ${sym}`)
                   )
                 )
               )
@@ -3585,7 +3585,7 @@ function InvestmentTracker() {
       case 'cashflow':
         return window.MaerminFeatures5 ?
           React.createElement('div', { style: { padding: '1.5rem' } },
-            React.createElement('h2', { style: { color: currentTheme.text, fontSize: '1.5rem', fontWeight: '800', letterSpacing: '-0.02em', marginBottom: '1.5rem' } }, t.navCashflow || 'Cash Flow'),
+            React.createElement('h2', { style: { color: currentTheme.text, fontSize: 'var(--text-xl)', fontWeight: '800', letterSpacing: '-0.02em', marginBottom: '1.5rem' } }, t.navCashflow || 'Cash Flow'),
             React.createElement(window.MaerminFeatures5.CashflowChart, {
               transactions: activeTransactions, priceHistory, portfolio, prices,
               theme: currentTheme, formatPrice, getCurrencySymbol, valuePath, exchangeRate, fxAt
@@ -3884,14 +3884,14 @@ function InvestmentTracker() {
       onMouseLeave: opts.onClick ? e => { e.currentTarget.style.borderColor = theme.cardBorder; e.currentTarget.style.transform = 'translateY(0)'; } : undefined
     },
       React.createElement('div', { style: { display: 'flex', alignItems: 'center', justifyContent: 'space-between' } },
-        React.createElement('span', { style: { color: theme.textSecondary, fontSize: '0.68rem', fontWeight: '600', textTransform: 'uppercase', letterSpacing: '0.07em' } }, opts.label),
-        opts.badge || (opts.onClick && React.createElement('span', { style: { color: theme.accent, fontSize: '0.85rem', opacity: 0.7 } }, '→'))
+        React.createElement('span', { style: { color: theme.textSecondary, fontSize: 'var(--text-2xs)', fontWeight: '600', textTransform: 'uppercase', letterSpacing: '0.07em' } }, opts.label),
+        opts.badge || (opts.onClick && React.createElement('span', { style: { color: theme.accent, fontSize: 'var(--text-base)', opacity: 0.7 } }, '→'))
       ),
       React.createElement('div', { style: { display: 'flex', alignItems: 'center', gap: '0.7rem' } },
         opts.ring,
         React.createElement('div', null,
-          React.createElement('div', { style: { color: opts.color || theme.text, fontSize: '1.5rem', fontWeight: '800', letterSpacing: '-0.025em', lineHeight: 1.05 } }, opts.value),
-          opts.sub && React.createElement('div', { style: { color: theme.textSecondary, fontSize: '0.74rem', marginTop: '0.2rem' } }, opts.sub)
+          React.createElement('div', { style: { color: opts.color || theme.text, fontSize: 'var(--text-xl)', fontWeight: '800', letterSpacing: '-0.025em', lineHeight: 1.05 } }, opts.value),
+          opts.sub && React.createElement('div', { style: { color: theme.textSecondary, fontSize: 'var(--text-xs)', marginTop: '0.2rem' } }, opts.sub)
         )
       )
     );
@@ -3972,7 +3972,7 @@ function InvestmentTracker() {
       editFire && React.createElement('div', {
         style: { marginTop: '0.75rem', background: theme.card, border: `1px solid ${theme.accent}44`, borderRadius: '12px', padding: '1rem 1.1rem' }
       },
-        React.createElement('div', { style: { color: theme.text, fontWeight: '700', fontSize: '0.85rem', marginBottom: '0.75rem' } }, t.fireSetupTitle || 'FIRE planning'),
+        React.createElement('div', { style: { color: theme.text, fontWeight: '700', fontSize: 'var(--text-base)', marginBottom: '0.75rem' } }, t.fireSetupTitle || 'FIRE planning'),
         React.createElement('div', { style: { display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(150px, 1fr))', gap: '0.75rem', alignItems: 'end' } },
           React.createElement('div', null,
             React.createElement('label', { style: labelStyle }, `${t.fireAnnualExpenses || 'Annual expenses'} (${sym})`),
@@ -3992,17 +3992,17 @@ function InvestmentTracker() {
           ),
           React.createElement('button', {
             onClick: () => { if (M) M.saveFireSettings(fire); setEditFire(false); },
-            style: { padding: '0.55rem 1.1rem', background: (theme.accentFill || theme.accent), color: '#ffffff', border: 'none', borderRadius: '8px', cursor: 'pointer', fontWeight: '700', fontSize: '0.85rem' }
+            style: { padding: '0.55rem 1.1rem', background: (theme.accentFill || theme.accent), color: '#ffffff', border: 'none', borderRadius: '8px', cursor: 'pointer', fontWeight: '700', fontSize: 'var(--text-base)' }
           }, t.save || 'Save')
         ),
-        fireM && fireM.configured && React.createElement('div', { style: { color: theme.textSecondary, fontSize: '0.78rem', marginTop: '0.75rem' } },
+        fireM && fireM.configured && React.createElement('div', { style: { color: theme.textSecondary, fontSize: 'var(--text-xs)', marginTop: '0.75rem' } },
           `${t.fireMonthlyPassive || 'Passive income at current net worth'}: ${__('perMonthYield', '{amount}/mo · {yield}', { amount: `${formatPrice(fireM.monthlyPassiveIncome)} ${sym}`, yield: window.MaerminI18n.pct(fireM.coveredExpenseRatio, 0) })} ${t.fireOfExpenses || 'of expenses'}`
         ),
 
         // Coast-FIRE — the amount needed today so growth alone reaches FIRE by the
         // target year. Pure what-if; reuses the FIRE number already computed above.
         fireM && fireM.configured && window.MaerminFireExtras && React.createElement('div', { style: { marginTop: '0.9rem', borderTop: `1px solid ${theme.cardBorder}`, paddingTop: '0.85rem' } },
-          React.createElement('div', { style: { color: theme.text, fontWeight: '700', fontSize: '0.82rem', marginBottom: '0.6rem' } }, t.coastFireTitle || 'Coast-FIRE'),
+          React.createElement('div', { style: { color: theme.text, fontWeight: '700', fontSize: 'var(--text-sm)', marginBottom: '0.6rem' } }, t.coastFireTitle || 'Coast-FIRE'),
           React.createElement('div', { style: { display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(150px, 1fr))', gap: '0.75rem', marginBottom: '0.7rem' } },
             React.createElement('div', null,
               React.createElement('label', { style: labelStyle }, t.coastYears || 'Years to retirement'),
@@ -4018,7 +4018,7 @@ function InvestmentTracker() {
           (() => {
             const coast = window.MaerminFireExtras.coastFire({ fireNumber: fireM.fireNumber, currentNetWorth: nw.netWorth, realReturn, yearsToRetirement: retireYears });
             const reached = coast.coastReached;
-            return React.createElement('div', { style: { fontSize: '0.78rem', color: theme.textSecondary } },
+            return React.createElement('div', { style: { fontSize: 'var(--text-xs)', color: theme.textSecondary } },
               React.createElement('div', null,
                 `${t.coastNumber || 'Coast number (needed today)'}: `,
                 React.createElement('span', { style: { color: theme.text, fontWeight: '700' } }, `${formatPrice(coast.coastNumber)} ${sym}`),
@@ -4091,9 +4091,9 @@ function InvestmentTracker() {
         onMouseEnter: onClick ? e => { e.currentTarget.style.borderColor = `${currentTheme.accent}66`; e.currentTarget.style.transform = 'translateY(-2px)'; } : undefined,
         onMouseLeave: onClick ? e => { e.currentTarget.style.borderColor = currentTheme.cardBorder; e.currentTarget.style.transform = 'translateY(0)'; } : undefined
       },
-        React.createElement('div', { style: { color: currentTheme.textSecondary, fontSize: '0.72rem', fontWeight: '600', textTransform: 'uppercase', letterSpacing: '0.07em', marginBottom: '0.4rem' } }, label),
+        React.createElement('div', { style: { color: currentTheme.textSecondary, fontSize: 'var(--text-xs)', fontWeight: '600', textTransform: 'uppercase', letterSpacing: '0.07em', marginBottom: '0.4rem' } }, label),
         React.createElement('div', { className: 'mx-kpi-value', style: { color: color || currentTheme.text } }, value),
-        sub && React.createElement('div', { style: { color: currentTheme.textSecondary, fontSize: '0.78rem', marginTop: '0.4rem' } }, sub)
+        sub && React.createElement('div', { style: { color: currentTheme.textSecondary, fontSize: 'var(--text-xs)', marginTop: '0.4rem' } }, sub)
       );
 
     // Transactions and portfolio for chart — filtered by mode
@@ -4228,7 +4228,7 @@ function InvestmentTracker() {
         const tone = (v) => v === null ? undefined : v > 0 ? currentTheme.success : v < 0 ? currentTheme.danger : undefined;
         const go = () => setActiveView('returns');
         return React.createElement('div', { 'data-testid': 'ov-returns', style: { marginBottom: '1.5rem' } },
-          React.createElement('div', { style: { color: currentTheme.text, fontWeight: 700, fontSize: '0.95rem', margin: '0 0 0.75rem' } }, __('ovReturnsTitle', 'Returns')),
+          React.createElement('div', { style: { color: currentTheme.text, fontWeight: 700, fontSize: 'var(--text-md)', margin: '0 0 0.75rem' } }, __('ovReturnsTitle', 'Returns')),
           React.createElement('div', { style: { display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(min(100%, 220px), 1fr))', gap: '1rem' } },
             statCard(__('retXirr', 'XIRR (annualized)'), pct(f.xirr), f.cash !== null ? __('retXirrSubCash', 'Money-weighted p.a., from deposits and withdrawals') : __('retXirrSub', 'Money-weighted return p.a.'), tone(f.xirr), go),
             statCard('TWR', pct(f.twr), f.twr === null ? __('retNoHistory', 'No price history yet')
@@ -4292,7 +4292,7 @@ function InvestmentTracker() {
         const performers = [...list].filter(p => p.cost > 0).sort((a, b) => b.pnlPct - a.pnlPct).slice(0, 4);
         const positions = [...list].sort((a, b) => b.value - a.value);
 
-        const sectionTitle = txt => React.createElement('div', { style: { fontSize: '0.92rem', fontWeight: '600', marginBottom: '1.1rem', color: currentTheme.text } }, txt);
+        const sectionTitle = txt => React.createElement('div', { style: { fontSize: 'var(--text-md)', fontWeight: '600', marginBottom: '1.1rem', color: currentTheme.text } }, txt);
 
         const allocCard = React.createElement('div', { style: { background: currentTheme.card, border: `1px solid ${currentTheme.cardBorder}`, borderRadius: '16px', padding: '1.4rem 1.5rem' } },
           sectionTitle(__('ovAllocByClass', 'Allocation by asset class')),
@@ -4304,16 +4304,16 @@ function InvestmentTracker() {
                 ...donutSegs
               ),
               React.createElement('div', { style: { position: 'absolute', inset: 0, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center' } },
-                React.createElement('div', { style: { fontFamily: "'Geist', sans-serif", fontSize: '1.5rem', fontWeight: '700', lineHeight: 1, color: currentTheme.text } }, String(stats.totalPositions)),
-                React.createElement('div', { style: { fontSize: '0.62rem', color: gray, textTransform: 'uppercase', letterSpacing: '0.08em', marginTop: '0.15rem' } }, 'positions')
+                React.createElement('div', { style: { fontFamily: "'Geist', sans-serif", fontSize: 'var(--text-xl)', fontWeight: '700', lineHeight: 1, color: currentTheme.text } }, String(stats.totalPositions)),
+                React.createElement('div', { style: { fontSize: 'var(--text-3xs)', color: gray, textTransform: 'uppercase', letterSpacing: '0.08em', marginTop: '0.15rem' } }, 'positions')
               )
             ),
             React.createElement('div', { style: { flex: '1 1 200px', minWidth: 0, display: 'flex', flexDirection: 'column', gap: '0.7rem' } },
               ...classes.map(ct => React.createElement('div', { key: ct.c, style: { display: 'flex', alignItems: 'center', gap: '0.6rem' } },
                 React.createElement('span', { style: { width: '9px', height: '9px', borderRadius: '3px', background: ct.color, flexShrink: 0 } }),
-                React.createElement('span', { style: { flex: 1, fontSize: '0.82rem', color: currentTheme.text } }, ct.label),
-                React.createElement('span', { style: { fontFamily: "'Geist', sans-serif", fontSize: '0.84rem', fontWeight: '600', color: currentTheme.text } }, window.MaerminI18n.pct(ct.pct, 1)),
-                React.createElement('span', { style: { fontSize: '0.76rem', color: gray, width: '78px', textAlign: 'right' } }, money(ct.value))
+                React.createElement('span', { style: { flex: 1, fontSize: 'var(--text-sm)', color: currentTheme.text } }, ct.label),
+                React.createElement('span', { style: { fontFamily: "'Geist', sans-serif", fontSize: 'var(--text-sm)', fontWeight: '600', color: currentTheme.text } }, window.MaerminI18n.pct(ct.pct, 1)),
+                React.createElement('span', { style: { fontSize: 'var(--text-xs)', color: gray, width: '78px', textAlign: 'right' } }, money(ct.value))
               ))
             )
           )
@@ -4324,21 +4324,21 @@ function InvestmentTracker() {
           React.createElement('div', { style: { display: 'flex', flexDirection: 'column', gap: '0.55rem' } },
             performers.length
               ? performers.map(p => React.createElement('div', { key: p.cat + p.sym, style: { display: 'flex', alignItems: 'center', gap: '0.8rem', padding: '0.5rem 0.1rem' } },
-                  React.createElement('div', { style: { width: '34px', height: '34px', borderRadius: '9px', background: `${p.color}22`, color: tileInk(p.color), display: 'flex', alignItems: 'center', justifyContent: 'center', fontFamily: "'Geist', sans-serif", fontWeight: '700', fontSize: '0.78rem', flexShrink: 0 } }, glyph(p.sym)),
+                  React.createElement('div', { style: { width: '34px', height: '34px', borderRadius: '9px', background: `${p.color}22`, color: tileInk(p.color), display: 'flex', alignItems: 'center', justifyContent: 'center', fontFamily: "'Geist', sans-serif", fontWeight: '700', fontSize: 'var(--text-xs)', flexShrink: 0 } }, glyph(p.sym)),
                   React.createElement('div', { style: { flex: 1, minWidth: 0 } },
-                    React.createElement('div', { style: { fontSize: '0.84rem', fontWeight: '600', color: currentTheme.text, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' } }, p.name),
-                    React.createElement('div', { style: { fontSize: '0.72rem', color: gray, fontFamily: "'Geist Mono', monospace" } }, glyph(p.sym))
+                    React.createElement('div', { style: { fontSize: 'var(--text-sm)', fontWeight: '600', color: currentTheme.text, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' } }, p.name),
+                    React.createElement('div', { style: { fontSize: 'var(--text-xs)', color: gray, fontFamily: "'Geist Mono', monospace" } }, glyph(p.sym))
                   ),
                   React.createElement('div', { style: { textAlign: 'right' } },
-                    React.createElement('div', { style: { fontFamily: "'Geist', sans-serif", fontSize: '0.88rem', fontWeight: '600', color: p.pnlPct >= 0 ? green : red } }, fmtPct(p.pnlPct)),
-                    React.createElement('div', { style: { fontSize: '0.72rem', color: gray } }, money(p.value))
+                    React.createElement('div', { style: { fontFamily: "'Geist', sans-serif", fontSize: 'var(--text-base)', fontWeight: '600', color: p.pnlPct >= 0 ? green : red } }, fmtPct(p.pnlPct)),
+                    React.createElement('div', { style: { fontSize: 'var(--text-xs)', color: gray } }, money(p.value))
                   )
                 ))
-              : React.createElement('div', { style: { fontSize: '0.8rem', color: gray } }, __('ovNoPriced', 'No priced positions yet — refresh prices to populate.'))
+              : React.createElement('div', { style: { fontSize: 'var(--text-sm)', color: gray } }, __('ovNoPriced', 'No priced positions yet — refresh prices to populate.'))
           )
         );
 
-        const th = (label, align, pad, width) => React.createElement('th', { key: label, style: { textAlign: align, padding: pad, fontSize: '0.66rem', fontWeight: '600', textTransform: 'uppercase', letterSpacing: '0.06em', color: gray, width } }, label);
+        const th = (label, align, pad, width) => React.createElement('th', { key: label, style: { textAlign: align, padding: pad, fontSize: 'var(--text-2xs)', fontWeight: '600', textTransform: 'uppercase', letterSpacing: '0.06em', color: gray, width } }, label);
 
         // P4-2: fully sold positions from the one FIFO ledger (same cost basis
         // as the tax report and the FIFO tab), for the transactions shown here.
@@ -4349,7 +4349,7 @@ function InvestmentTracker() {
         const showClosed = posTab === 'closed';
         const tabBtn = (id, label) => React.createElement('button', {
           type: 'button', 'aria-pressed': posTab === id, 'data-pos-tab': id, onClick: () => setPosTab(id),
-          style: { padding: '0.3rem 0.7rem', fontSize: '0.74rem', fontWeight: 600, borderRadius: '7px', cursor: 'pointer', minHeight: '24px',
+          style: { padding: '0.3rem 0.7rem', fontSize: 'var(--text-xs)', fontWeight: 600, borderRadius: '7px', cursor: 'pointer', minHeight: '24px',
             background: posTab === id ? (currentTheme.accentFill || currentTheme.accent) : 'transparent', color: posTab === id ? '#ffffff' : currentTheme.textSecondary,
             border: `1px solid ${posTab === id ? 'transparent' : currentTheme.cardBorder}` }
         }, label);
@@ -4364,7 +4364,7 @@ function InvestmentTracker() {
           ),
           React.createElement('tbody', null,
             closedRows.length === 0
-              ? React.createElement('tr', null, React.createElement('td', { colSpan: 4, style: { padding: '1.25rem 1.5rem', fontSize: '0.82rem', color: gray } }, __('ovNoClosed', 'No closed positions yet. A position appears here once it is sold completely.')))
+              ? React.createElement('tr', null, React.createElement('td', { colSpan: 4, style: { padding: '1.25rem 1.5rem', fontSize: 'var(--text-sm)', color: gray } }, __('ovNoClosed', 'No closed positions yet. A position appears here once it is sold completely.')))
               : closedRows.map(c => {
                   const color = catMeta(c.category).color, up = c.gain >= 0;
                   return React.createElement('tr', {
@@ -4375,18 +4375,18 @@ function InvestmentTracker() {
                   },
                     React.createElement('td', { style: { padding: '0.85rem 1.5rem' } },
                       React.createElement('div', { style: { display: 'flex', alignItems: 'center', gap: '0.7rem' } },
-                        React.createElement('div', { style: { width: '32px', height: '32px', borderRadius: '9px', background: `${color}22`, color: tileInk(color), display: 'flex', alignItems: 'center', justifyContent: 'center', fontFamily: "'Geist', sans-serif", fontWeight: '700', fontSize: '0.78rem', flexShrink: 0 } }, glyph(c.symbol)),
+                        React.createElement('div', { style: { width: '32px', height: '32px', borderRadius: '9px', background: `${color}22`, color: tileInk(color), display: 'flex', alignItems: 'center', justifyContent: 'center', fontFamily: "'Geist', sans-serif", fontWeight: '700', fontSize: 'var(--text-xs)', flexShrink: 0 } }, glyph(c.symbol)),
                         React.createElement('div', null,
-                          React.createElement('div', { style: { fontSize: '0.85rem', fontWeight: '600', color: currentTheme.text } }, c.symbolName || c.symbol),
-                          React.createElement('div', { style: { fontSize: '0.7rem', color: gray } }, __('ovClosedOn', 'sold {date}', { date: window.MaerminI18n.date(c.closed) }))
+                          React.createElement('div', { style: { fontSize: 'var(--text-base)', fontWeight: '600', color: currentTheme.text } }, c.symbolName || c.symbol),
+                          React.createElement('div', { style: { fontSize: 'var(--text-2xs)', color: gray } }, __('ovClosedOn', 'sold {date}', { date: window.MaerminI18n.date(c.closed) }))
                         )
                       )
                     ),
-                    React.createElement('td', { style: { textAlign: 'right', padding: '0.85rem 0.75rem', fontFamily: "'Geist', sans-serif", fontSize: '0.82rem', color: currentTheme.text } }, money(c.cost)),
-                    React.createElement('td', { style: { textAlign: 'right', padding: '0.85rem 0.75rem', fontFamily: "'Geist', sans-serif", fontSize: '0.82rem', color: currentTheme.text } }, money(c.proceeds)),
+                    React.createElement('td', { style: { textAlign: 'right', padding: '0.85rem 0.75rem', fontFamily: "'Geist', sans-serif", fontSize: 'var(--text-sm)', color: currentTheme.text } }, money(c.cost)),
+                    React.createElement('td', { style: { textAlign: 'right', padding: '0.85rem 0.75rem', fontFamily: "'Geist', sans-serif", fontSize: 'var(--text-sm)', color: currentTheme.text } }, money(c.proceeds)),
                     React.createElement('td', { style: { textAlign: 'right', padding: '0.85rem 1.5rem' } },
-                      React.createElement('div', { style: { fontFamily: "'Geist', sans-serif", fontSize: '0.85rem', fontWeight: '600', color: up ? green : red } }, `${up ? '+' : ''}${money(c.gain)}`),
-                      React.createElement('div', { style: { fontSize: '0.72rem', color: up ? green : red } }, c.ret === null ? '—' : fmtPct(c.ret * 100))
+                      React.createElement('div', { style: { fontFamily: "'Geist', sans-serif", fontSize: 'var(--text-base)', fontWeight: '600', color: up ? green : red } }, `${up ? '+' : ''}${money(c.gain)}`),
+                      React.createElement('div', { style: { fontSize: 'var(--text-xs)', color: up ? green : red } }, c.ret === null ? '—' : fmtPct(c.ret * 100))
                     )
                   );
                 })
@@ -4396,12 +4396,12 @@ function InvestmentTracker() {
         const positionsCard = React.createElement('div', { style: { background: currentTheme.card, border: `1px solid ${currentTheme.cardBorder}`, borderRadius: '16px', overflow: 'hidden', marginBottom: '1.5rem' } },
           React.createElement('div', { style: { display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '0.75rem', flexWrap: 'wrap', padding: '1.25rem 1.5rem 0.9rem' } },
             React.createElement('div', { style: { display: 'flex', alignItems: 'center', gap: '0.75rem', flexWrap: 'wrap' } },
-              React.createElement('div', { style: { fontSize: '0.92rem', fontWeight: '600', color: currentTheme.text } }, t.positions || 'Positions'),
+              React.createElement('div', { style: { fontSize: 'var(--text-md)', fontWeight: '600', color: currentTheme.text } }, t.positions || 'Positions'),
               React.createElement('div', { role: 'group', 'aria-label': __('ovPosShow', 'Show positions'), style: { display: 'flex', gap: '0.3rem' } },
                 tabBtn('open', __('ovPosOpen', 'Open')),
                 tabBtn('closed', __('ovPosClosed', 'Closed ({n})', { n: closedRows.length })))
             ),
-            React.createElement('div', { onClick: () => setActiveView('transactions'), style: { fontSize: '0.76rem', color: gray, cursor: 'pointer' } }, __('ovViewAll', 'View all →'))
+            React.createElement('div', { onClick: () => setActiveView('transactions'), style: { fontSize: 'var(--text-xs)', color: gray, cursor: 'pointer' } }, __('ovViewAll', 'View all →'))
           ),
           // Phones: the table scrolls inside the card instead of being clipped by it.
           React.createElement('div', { role: 'region', tabIndex: 0, 'aria-label': showClosed ? __('ovPosClosedAria', 'Closed positions') : (t.positions || 'Positions'), style: { overflowX: 'auto', maxWidth: '100%' } },
@@ -4428,31 +4428,31 @@ function InvestmentTracker() {
               },
                 React.createElement('td', { className: 'mx-card-lead', style: { padding: '0.85rem 1.5rem' } },
                   React.createElement('div', { style: { display: 'flex', alignItems: 'center', gap: '0.7rem' } },
-                    React.createElement('div', { style: { width: '32px', height: '32px', borderRadius: '9px', background: `${p.color}22`, color: tileInk(p.color), display: 'flex', alignItems: 'center', justifyContent: 'center', fontFamily: "'Geist', sans-serif", fontWeight: '700', fontSize: '0.78rem', flexShrink: 0 } }, glyph(p.sym)),
+                    React.createElement('div', { style: { width: '32px', height: '32px', borderRadius: '9px', background: `${p.color}22`, color: tileInk(p.color), display: 'flex', alignItems: 'center', justifyContent: 'center', fontFamily: "'Geist', sans-serif", fontWeight: '700', fontSize: 'var(--text-xs)', flexShrink: 0 } }, glyph(p.sym)),
                     React.createElement('div', null,
-                      React.createElement('div', { style: { fontSize: '0.85rem', fontWeight: '600', color: currentTheme.text } }, p.name),
-                      React.createElement('div', { style: { fontSize: '0.7rem', color: gray, fontFamily: "'Geist Mono', monospace" } }, glyph(p.sym))
+                      React.createElement('div', { style: { fontSize: 'var(--text-base)', fontWeight: '600', color: currentTheme.text } }, p.name),
+                      React.createElement('div', { style: { fontSize: 'var(--text-2xs)', color: gray, fontFamily: "'Geist Mono', monospace" } }, glyph(p.sym))
                     )
                   )
                 ),
-                React.createElement('td', { 'data-label': __('colQty', 'Qty'), style: { textAlign: 'right', padding: '0.85rem 0.75rem', fontFamily: "'Geist Mono', monospace", fontSize: '0.8rem', color: currentTheme.textSecondary } }, window.MaerminI18n.num(p.amount, { min: 0, max: 4 })),
-                React.createElement('td', { 'data-label': t.price || 'Price', style: { textAlign: 'right', padding: '0.85rem 0.75rem', fontFamily: "'Geist', sans-serif", fontSize: '0.82rem', color: currentTheme.text } },
+                React.createElement('td', { 'data-label': __('colQty', 'Qty'), style: { textAlign: 'right', padding: '0.85rem 0.75rem', fontFamily: "'Geist Mono', monospace", fontSize: 'var(--text-sm)', color: currentTheme.textSecondary } }, window.MaerminI18n.num(p.amount, { min: 0, max: 4 })),
+                React.createElement('td', { 'data-label': t.price || 'Price', style: { textAlign: 'right', padding: '0.85rem 0.75rem', fontFamily: "'Geist', sans-serif", fontSize: 'var(--text-sm)', color: currentTheme.text } },
                   p.price > 0 ? (p.cat === 'bonds' ? window.MaerminI18n.num(p.price * 100, 2) + ' %' : money(p.price)) : '—', // P5-3.9: a bond's price in % of nominal
                   // Valued at cost because no quote has ever been fetched for it.
-                  window.MaerminMarket.isCostFallback(p.sym) && React.createElement('div', { 'data-testid': 'no-price', title: __('noPriceTitle', 'No market price available yet — valued at cost basis.'), style: { fontSize: '0.62rem', color: gray } }, __('noPriceAtCost', 'no price · at cost'))
+                  window.MaerminMarket.isCostFallback(p.sym) && React.createElement('div', { 'data-testid': 'no-price', title: __('noPriceTitle', 'No market price available yet — valued at cost basis.'), style: { fontSize: 'var(--text-3xs)', color: gray } }, __('noPriceAtCost', 'no price · at cost'))
                 ),
-                React.createElement('td', { 'data-label': __('colValue', 'Value'), style: { textAlign: 'right', padding: '0.85rem 0.75rem', fontFamily: "'Geist', sans-serif", fontSize: '0.85rem', fontWeight: '600', color: currentTheme.text } }, money(p.value)),
+                React.createElement('td', { 'data-label': __('colValue', 'Value'), style: { textAlign: 'right', padding: '0.85rem 0.75rem', fontFamily: "'Geist', sans-serif", fontSize: 'var(--text-base)', fontWeight: '600', color: currentTheme.text } }, money(p.value)),
                 React.createElement('td', { 'data-label': __('colWeight', 'Weight'), style: { padding: '0.85rem 1rem' } },
                   React.createElement('div', { style: { display: 'flex', alignItems: 'center', gap: '0.5rem' } },
                     React.createElement('div', { style: { flex: 1, height: '5px', background: currentTheme.inputBg, borderRadius: '3px', overflow: 'hidden' } },
                       React.createElement('div', { style: { width: `${totalVal > 0 ? (p.value / totalVal * 100) : 0}%`, height: '100%', background: p.color, borderRadius: '3px' } })
                     ),
-                    React.createElement('span', { style: { fontSize: '0.72rem', color: gray, fontFamily: "'Geist', sans-serif" } }, window.MaerminI18n.pct(totalVal > 0 ? (p.value / totalVal * 100) : 0, 1))
+                    React.createElement('span', { style: { fontSize: 'var(--text-xs)', color: gray, fontFamily: "'Geist', sans-serif" } }, window.MaerminI18n.pct(totalVal > 0 ? (p.value / totalVal * 100) : 0, 1))
                   )
                 ),
                 React.createElement('td', { 'data-label': __('colPnl', 'P&L'), style: { textAlign: 'right', padding: '0.85rem 1.5rem' } },
-                  React.createElement('div', { style: { fontFamily: "'Geist', sans-serif", fontSize: '0.85rem', fontWeight: '600', color: p.pnl >= 0 ? green : red } }, `${p.pnl >= 0 ? '+' : ''}${money(p.pnl)}`),
-                  React.createElement('div', { style: { fontSize: '0.72rem', color: p.pnl >= 0 ? green : red } }, fmtPct(p.pnlPct))
+                  React.createElement('div', { style: { fontFamily: "'Geist', sans-serif", fontSize: 'var(--text-base)', fontWeight: '600', color: p.pnl >= 0 ? green : red } }, `${p.pnl >= 0 ? '+' : ''}${money(p.pnl)}`),
+                  React.createElement('div', { style: { fontSize: 'var(--text-xs)', color: p.pnl >= 0 ? green : red } }, fmtPct(p.pnlPct))
                 )
               ))
             )
@@ -4498,9 +4498,9 @@ function InvestmentTracker() {
 
       // ── Demo-mode banner ─────────────────────────────────────────────────
       demoMode && React.createElement('div', {
-        style: { display: 'flex', alignItems: 'center', gap: '0.6rem', flexWrap: 'wrap', padding: '0.6rem 0.9rem', marginBottom: '1rem', borderRadius: '10px', background: `${(currentTheme.accentFill || currentTheme.accent)}14`, border: `1px solid ${currentTheme.accent}55`, color: currentTheme.text, fontSize: '0.82rem' } },
+        style: { display: 'flex', alignItems: 'center', gap: '0.6rem', flexWrap: 'wrap', padding: '0.6rem 0.9rem', marginBottom: '1rem', borderRadius: '10px', background: `${(currentTheme.accentFill || currentTheme.accent)}14`, border: `1px solid ${currentTheme.accent}55`, color: currentTheme.text, fontSize: 'var(--text-sm)' } },
         React.createElement('span', null, __('demoBanner', '★ You are exploring MAERMIN with sample data — your real data is untouched. Changes made in demo mode are not saved.')),
-        React.createElement('button', { onClick: exitDemo, style: { marginLeft: 'auto', minHeight: '40px', padding: '0.45rem 0.9rem', background: (currentTheme.accentFill || currentTheme.accent), color: '#ffffff', border: 'none', borderRadius: '8px', cursor: 'pointer', fontWeight: '700', fontSize: '0.8rem' } }, __('demoExitUseMine', 'Exit demo & use my data'))
+        React.createElement('button', { onClick: exitDemo, style: { marginLeft: 'auto', minHeight: '40px', padding: '0.45rem 0.9rem', background: (currentTheme.accentFill || currentTheme.accent), color: '#ffffff', border: 'none', borderRadius: '8px', cursor: 'pointer', fontWeight: '700', fontSize: 'var(--text-sm)' } }, __('demoExitUseMine', 'Exit demo & use my data'))
       ),
 
       // ── Header ──────────────────────────────────────────────────────────
@@ -4508,8 +4508,8 @@ function InvestmentTracker() {
         style: { display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '1.25rem', flexWrap: 'wrap', gap: '0.75rem' }
       },
         React.createElement('div', null,
-          React.createElement('h2', { style: { color: currentTheme.text, fontSize: '1.35rem', fontWeight: '800', marginBottom: '0.125rem' } }, t.navOverview || 'Overview'),
-          React.createElement('div', { style: { color: currentTheme.textSecondary, fontSize: '0.72rem' } },
+          React.createElement('h2', { style: { color: currentTheme.text, fontSize: 'var(--text-title-lg)', fontWeight: '800', marginBottom: '0.125rem' } }, t.navOverview || 'Overview'),
+          React.createElement('div', { style: { color: currentTheme.textSecondary, fontSize: 'var(--text-xs)' } },
             isAllMode
               ? `${__('ovAllCombined', 'All {n} {n:portfolio|portfolios} combined', { n: portfolios.length })} · ${lastRefresh ? __('ovLastRefresh', 'Last refresh {time}', { time: window.MaerminI18n.date(lastRefresh, 'time') }) : __('ovRefreshToUpdate', 'Refresh to update')}`
               : `${selectedPortfolio?.name || t.portfolio || 'Portfolio'} · ${lastRefresh ? __('ovLastRefresh', 'Last refresh {time}', { time: window.MaerminI18n.date(lastRefresh, 'time') }) : __('ovRefreshToUpdate', 'Refresh to update')}`
@@ -4519,7 +4519,7 @@ function InvestmentTracker() {
           // Worker status indicator — click opens API settings.
           React.createElement('div', {
             onClick: () => setShowApiSettings(true), title: wsTitle,
-            style: { display: 'flex', alignItems: 'center', gap: '0.4rem', minHeight: '40px', padding: '0.5rem 0.7rem', background: currentTheme.inputBg, border: `1px solid ${currentTheme.cardBorder}`, borderRadius: '8px', cursor: 'pointer', fontSize: '0.78rem', color: currentTheme.textSecondary }
+            style: { display: 'flex', alignItems: 'center', gap: '0.4rem', minHeight: '40px', padding: '0.5rem 0.7rem', background: currentTheme.inputBg, border: `1px solid ${currentTheme.cardBorder}`, borderRadius: '8px', cursor: 'pointer', fontSize: 'var(--text-xs)', color: currentTheme.textSecondary }
           },
             React.createElement('span', { style: { width: 9, height: 9, borderRadius: '50%', background: wsColor, flexShrink: 0, boxShadow: `0 0 6px ${wsColor}` } }),
             wsLabel
@@ -4528,7 +4528,7 @@ function InvestmentTracker() {
           !demoMode && workerVersion && workerVersion.state === 'outdated' && React.createElement('button', {
             type: 'button', 'data-testid': 'worker-outdated', onClick: () => setShowApiSettings(true),
             title: __('wvOutdatedTitle', 'Your Worker is older than this app expects ({e}). Some features may fail until you update it.', { e: workerVersion.expected }),
-            style: { display: 'flex', alignItems: 'center', gap: '0.4rem', minHeight: '40px', padding: '0.5rem 0.7rem', background: `${currentTheme.warning}14`, border: `1px solid ${currentTheme.warning}55`, borderRadius: '8px', cursor: 'pointer', color: currentTheme.warning, fontSize: '0.78rem', fontWeight: '600' }
+            style: { display: 'flex', alignItems: 'center', gap: '0.4rem', minHeight: '40px', padding: '0.5rem 0.7rem', background: `${currentTheme.warning}14`, border: `1px solid ${currentTheme.warning}55`, borderRadius: '8px', cursor: 'pointer', color: currentTheme.warning, fontSize: 'var(--text-xs)', fontWeight: '600' }
           }, __('wvOutdated', 'Worker outdated → update')),
           // Data-health chip — only appears when something is stale/missing.
           dqHealth && (dqHealth.stale + dqHealth.missing) > 0 && React.createElement('button', {
@@ -4536,7 +4536,7 @@ function InvestmentTracker() {
               dqHealth.stale ? __('dqPricesStale', '{n} {n:price|prices} stale', { n: dqHealth.stale }) : '',
               dqHealth.missing ? __('dqPricesMissing', '{n} {n:price|prices} missing', { n: dqHealth.missing }) : ''
             ].filter(Boolean).join(' · ') + ' — ' + __('dqClickRefresh', 'click to refresh prices'),
-            style: { display: 'flex', alignItems: 'center', gap: '0.4rem', minHeight: '40px', padding: '0.5rem 0.7rem', background: `${currentTheme.warning}14`, border: `1px solid ${currentTheme.warning}55`, borderRadius: '8px', cursor: 'pointer', fontSize: '0.78rem', color: currentTheme.warning, fontWeight: '600', fontFamily: 'inherit' }
+            style: { display: 'flex', alignItems: 'center', gap: '0.4rem', minHeight: '40px', padding: '0.5rem 0.7rem', background: `${currentTheme.warning}14`, border: `1px solid ${currentTheme.warning}55`, borderRadius: '8px', cursor: 'pointer', fontSize: 'var(--text-xs)', color: currentTheme.warning, fontWeight: '600', fontFamily: 'inherit' }
           },
             React.createElement('span', { style: { fontWeight: '800' }, 'aria-hidden': 'true' }, '!'),
             dqHealth.stale ? __('dqStaleChip', '{n} stale', { n: dqHealth.stale + dqHealth.missing }) : __('dqMissingChip', '{n} missing', { n: dqHealth.missing })
@@ -4544,16 +4544,16 @@ function InvestmentTracker() {
           // FX transparency chip — shows the USD→EUR rate, source + age on hover.
           fxInfo && fxInfo.rate && React.createElement('div', {
             title: __('fxChipTitle', 'FX: {label} (source: {source})', { label: fxInfo.label, source: fxInfo.source }),
-            style: { display: 'flex', alignItems: 'center', minHeight: '40px', padding: '0.5rem 0.7rem', background: currentTheme.inputBg, border: `1px solid ${currentTheme.cardBorder}`, borderRadius: '8px', fontSize: '0.78rem', color: currentTheme.textSecondary }
+            style: { display: 'flex', alignItems: 'center', minHeight: '40px', padding: '0.5rem 0.7rem', background: currentTheme.inputBg, border: `1px solid ${currentTheme.cardBorder}`, borderRadius: '8px', fontSize: 'var(--text-xs)', color: currentTheme.textSecondary }
           }, `$→€ ${window.MaerminI18n.num(fxInfo.rate, 3)}`),
           // Demo toggle — instant value for first-run users; hidden once the
           // vault has its own transactions (Phase 3: clutter on phones).
           demoMode
-            ? React.createElement('button', { onClick: exitDemo, style: { minHeight: '40px', padding: '0.5rem 0.9rem', background: currentTheme.inputBg, color: currentTheme.text, border: `1px solid ${currentTheme.cardBorder}`, borderRadius: '8px', cursor: 'pointer', fontSize: '0.85rem' } }, __('demoExit', 'Exit demo'))
-            : transactions.length > 0 ? null : React.createElement('button', { onClick: enterDemo, title: __('demoTryTitle', 'Load sample data to explore the app instantly — no setup'), style: { minHeight: '40px', padding: '0.5rem 0.9rem', background: currentTheme.inputBg, color: currentTheme.text, border: `1px solid ${currentTheme.cardBorder}`, borderRadius: '8px', cursor: 'pointer', fontSize: '0.85rem' } }, __('demoTry', '★ Try demo')),
-          React.createElement('button', { onClick: () => openTransactionModal(), style: { padding: '0.5rem 1rem', background: (currentTheme.accentFill || currentTheme.accent), color: '#ffffff', border: 'none', borderRadius: '8px', cursor: 'pointer', fontWeight: '600', fontSize: '0.85rem' } }, __('addShort', '+ Add')),
-          React.createElement('button', { onClick: () => setShowImportModal(true), style: { padding: '0.5rem 1rem', background: currentTheme.inputBg, color: currentTheme.text, border: `1px solid ${currentTheme.cardBorder}`, borderRadius: '8px', cursor: 'pointer', fontSize: '0.85rem' } }, __('importBtn', '↑ Import')),
-          React.createElement('button', { onClick: fetchPrices, disabled: loading, style: { padding: '0.5rem 1rem', background: loading ? currentTheme.inputBg : `${currentTheme.accent}18`, color: loading ? currentTheme.textSecondary : currentTheme.accent, border: `1px solid ${currentTheme.accent}33`, borderRadius: '8px', cursor: loading ? 'not-allowed' : 'pointer', fontSize: '0.85rem', fontWeight: '600', display: 'flex', alignItems: 'center', gap: '0.375rem' } }, loading ? __('refreshing', '◎ Refreshing...') : __('refreshPrices', '↻ Refresh prices'))
+            ? React.createElement('button', { onClick: exitDemo, style: { minHeight: '40px', padding: '0.5rem 0.9rem', background: currentTheme.inputBg, color: currentTheme.text, border: `1px solid ${currentTheme.cardBorder}`, borderRadius: '8px', cursor: 'pointer', fontSize: 'var(--text-base)' } }, __('demoExit', 'Exit demo'))
+            : transactions.length > 0 ? null : React.createElement('button', { onClick: enterDemo, title: __('demoTryTitle', 'Load sample data to explore the app instantly — no setup'), style: { minHeight: '40px', padding: '0.5rem 0.9rem', background: currentTheme.inputBg, color: currentTheme.text, border: `1px solid ${currentTheme.cardBorder}`, borderRadius: '8px', cursor: 'pointer', fontSize: 'var(--text-base)' } }, __('demoTry', '★ Try demo')),
+          React.createElement('button', { onClick: () => openTransactionModal(), style: { padding: '0.5rem 1rem', background: (currentTheme.accentFill || currentTheme.accent), color: '#ffffff', border: 'none', borderRadius: '8px', cursor: 'pointer', fontWeight: '600', fontSize: 'var(--text-base)' } }, __('addShort', '+ Add')),
+          React.createElement('button', { onClick: () => setShowImportModal(true), style: { padding: '0.5rem 1rem', background: currentTheme.inputBg, color: currentTheme.text, border: `1px solid ${currentTheme.cardBorder}`, borderRadius: '8px', cursor: 'pointer', fontSize: 'var(--text-base)' } }, __('importBtn', '↑ Import')),
+          React.createElement('button', { onClick: fetchPrices, disabled: loading, style: { padding: '0.5rem 1rem', background: loading ? currentTheme.inputBg : `${currentTheme.accent}18`, color: loading ? currentTheme.textSecondary : currentTheme.accent, border: `1px solid ${currentTheme.accent}33`, borderRadius: '8px', cursor: loading ? 'not-allowed' : 'pointer', fontSize: 'var(--text-base)', fontWeight: '600', display: 'flex', alignItems: 'center', gap: '0.375rem' } }, loading ? __('refreshing', '◎ Refreshing...') : __('refreshPrices', '↻ Refresh prices'))
         )
       ),
 
@@ -4572,11 +4572,11 @@ function InvestmentTracker() {
             background: overviewMode === 'all' ? `${currentTheme.accent}20` : currentTheme.inputBg,
             border: `1px solid ${overviewMode === 'all' ? currentTheme.accent : currentTheme.cardBorder}`,
             borderRadius: '8px', cursor: 'pointer', transition: 'all 0.1s',
-            fontSize: '0.8rem', fontWeight: overviewMode === 'all' ? '700' : '400',
+            fontSize: 'var(--text-sm)', fontWeight: overviewMode === 'all' ? '700' : '400',
             color: overviewMode === 'all' ? currentTheme.accent : currentTheme.text
           }
         },
-          React.createElement('span', { style: { fontSize: '0.7rem' } }, '◈'),
+          React.createElement('span', { style: { fontSize: 'var(--text-2xs)' } }, '◈'),
           __('allPortfolios', 'All Portfolios')
         ),
         // Divider
@@ -4593,7 +4593,7 @@ function InvestmentTracker() {
               background: overviewMode === p.id ? `${p.color}18` : currentTheme.inputBg,
               border: `1px solid ${overviewMode === p.id ? p.color : currentTheme.cardBorder}`,
               borderRadius: '8px', cursor: 'pointer', transition: 'all 0.1s',
-              fontSize: '0.8rem', fontWeight: overviewMode === p.id ? '700' : '400',
+              fontSize: 'var(--text-sm)', fontWeight: overviewMode === p.id ? '700' : '400',
               color: currentTheme.text
             }
           },
@@ -4603,7 +4603,7 @@ function InvestmentTracker() {
         ),
         React.createElement('button', {
           onClick: () => setActiveView('portfolios'),
-          style: { fontSize: '0.72rem', color: currentTheme.textSecondary, background: 'none', border: 'none', cursor: 'pointer', marginLeft: 'auto', padding: '0 0.25rem' }
+          style: { fontSize: 'var(--text-xs)', color: currentTheme.textSecondary, background: 'none', border: 'none', cursor: 'pointer', marginLeft: 'auto', padding: '0 0.25rem' }
         }, __('managePortfolios', 'Manage portfolios →'))
       ),
 
@@ -4637,12 +4637,12 @@ function InvestmentTracker() {
       // CS2 banner
       !demoMode && portfolio.skins && portfolio.skins.length > 0 && !(marketWorker||'').trim() &&
         React.createElement('div', { style: { background: 'color-mix(in srgb, var(--warning) 6%, transparent)', border: '1px solid color-mix(in srgb, var(--warning) 25%, transparent)', borderRadius: '10px', padding: '0.875rem 1.25rem', marginBottom: '1.25rem', display: 'flex', alignItems: 'center', gap: '1rem', flexWrap: 'wrap' } },
-          React.createElement('span', { style: { fontSize: '1.25rem' } }, '!'),
+          React.createElement('span', { style: { fontSize: 'var(--text-title)' } }, '!'),
           React.createElement('div', { style: { flex: 1, minWidth: '200px' } },
-            React.createElement('div', { style: { color: currentTheme.text, fontWeight: '600', fontSize: '0.875rem' } }, __('cs2WorkerNeeded', 'CS2 skin prices need a Cloudflare Worker URL')),
-            React.createElement('div', { style: { color: currentTheme.textSecondary, fontSize: '0.8rem', marginTop: '0.125rem' } }, __('cs2WorkerDeploy', 'Deploy the worker.js and paste the URL in API Settings.'))
+            React.createElement('div', { style: { color: currentTheme.text, fontWeight: '600', fontSize: 'var(--text-base)' } }, __('cs2WorkerNeeded', 'CS2 skin prices need a Cloudflare Worker URL')),
+            React.createElement('div', { style: { color: currentTheme.textSecondary, fontSize: 'var(--text-sm)', marginTop: '0.125rem' } }, __('cs2WorkerDeploy', 'Deploy the worker.js and paste the URL in API Settings.'))
           ),
-          React.createElement('button', { onClick: () => setShowApiSettings(true), style: { padding: '0.5rem 1rem', background: currentTheme.warning, color: '#1a1a1a', border: 'none', borderRadius: '6px', cursor: 'pointer', fontWeight: '700', fontSize: '0.8rem' } }, __('addWorkerUrl', 'Add Worker URL →'))
+          React.createElement('button', { onClick: () => setShowApiSettings(true), style: { padding: '0.5rem 1rem', background: currentTheme.warning, color: '#1a1a1a', border: 'none', borderRadius: '6px', cursor: 'pointer', fontWeight: '700', fontSize: 'var(--text-sm)' } }, __('addWorkerUrl', 'Add Worker URL →'))
         ),
 
       // CS2 skins filed as stocks (see renderMisfiledSkins)
@@ -4651,24 +4651,24 @@ function InvestmentTracker() {
 
       // Recovery-kit nudge for vaults created before recovery codes existed
       showRecoveryNudge && React.createElement('div', { style: { background: 'color-mix(in srgb, var(--warning) 6%, transparent)', border: '1px solid color-mix(in srgb, var(--warning) 25%, transparent)', borderRadius: '10px', padding: '0.875rem 1.25rem', marginBottom: '1.25rem', display: 'flex', alignItems: 'center', gap: '1rem', flexWrap: 'wrap' } },
-        React.createElement('span', { style: { fontSize: '1.25rem', color: currentTheme.warning, fontWeight: '700' } }, '!'),
+        React.createElement('span', { style: { fontSize: 'var(--text-title)', color: currentTheme.warning, fontWeight: '700' } }, '!'),
         React.createElement('div', { style: { flex: 1, minWidth: '220px' } },
-          React.createElement('div', { style: { color: currentTheme.text, fontWeight: '600', fontSize: '0.875rem' } }, __('rcNudgeTitle', 'Add a recovery code')),
-          React.createElement('div', { style: { color: currentTheme.textSecondary, fontSize: '0.8rem', marginTop: '0.125rem' } }, __('rcNudgeBody', 'Your vault has no recovery code. Without one, a forgotten password cannot be reset — generate a printable code now.'))
+          React.createElement('div', { style: { color: currentTheme.text, fontWeight: '600', fontSize: 'var(--text-base)' } }, __('rcNudgeTitle', 'Add a recovery code')),
+          React.createElement('div', { style: { color: currentTheme.textSecondary, fontSize: 'var(--text-sm)', marginTop: '0.125rem' } }, __('rcNudgeBody', 'Your vault has no recovery code. Without one, a forgotten password cannot be reset — generate a printable code now.'))
         ),
-        React.createElement('button', { onClick: createRecoveryKit, disabled: recoveryBusy, style: { padding: '0.5rem 1rem', background: (currentTheme.accentFill || currentTheme.accent), color: '#ffffff', border: 'none', borderRadius: '6px', cursor: recoveryBusy ? 'wait' : 'pointer', fontWeight: '700', fontSize: '0.8rem' } }, recoveryBusy ? __('creating', 'Creating…') : __('rcCreate', 'Create recovery code')),
-        React.createElement('button', { onClick: dismissRecoveryNudge, style: { padding: '0.5rem 0.75rem', background: 'transparent', color: currentTheme.textSecondary, border: `1px solid ${currentTheme.cardBorder}`, borderRadius: '6px', cursor: 'pointer', fontSize: '0.8rem' } }, __('dismiss', 'Dismiss'))
+        React.createElement('button', { onClick: createRecoveryKit, disabled: recoveryBusy, style: { padding: '0.5rem 1rem', background: (currentTheme.accentFill || currentTheme.accent), color: '#ffffff', border: 'none', borderRadius: '6px', cursor: recoveryBusy ? 'wait' : 'pointer', fontWeight: '700', fontSize: 'var(--text-sm)' } }, recoveryBusy ? __('creating', 'Creating…') : __('rcCreate', 'Create recovery code')),
+        React.createElement('button', { onClick: dismissRecoveryNudge, style: { padding: '0.5rem 0.75rem', background: 'transparent', color: currentTheme.textSecondary, border: `1px solid ${currentTheme.cardBorder}`, borderRadius: '6px', cursor: 'pointer', fontSize: 'var(--text-sm)' } }, __('dismiss', 'Dismiss'))
       ),
 
       // Onboarding
       stats.totalPositions === 0 && React.createElement('div', { style: { background: 'linear-gradient(135deg,color-mix(in srgb, var(--info) 10%, transparent),rgba(139,124,255,0.1))', border: '1px solid rgba(139,124,255,0.3)', borderRadius: '12px', padding: '2rem', marginBottom: '2rem', textAlign: 'center' } },
-        React.createElement('div', { style: { fontSize: '2rem', marginBottom: '0.75rem', color: 'rgba(139,124,255,0.5)', fontWeight: '300' } }, '↗'),
-        React.createElement('h3', { style: { color: currentTheme.text, fontSize: '1.125rem', fontWeight: '600', marginBottom: '0.5rem' } }, t.welcomeTitle || 'Welcome to MAERMIN'),
-        React.createElement('p', { style: { color: currentTheme.textSecondary, fontSize: '0.875rem', marginBottom: '1rem', lineHeight: '1.6' } }, t.welcomeHint || 'Start by adding your first transaction.'),
+        React.createElement('div', { style: { fontSize: 'var(--text-2xl)', marginBottom: '0.75rem', color: 'rgba(139,124,255,0.5)', fontWeight: '300' } }, '↗'),
+        React.createElement('h3', { style: { color: currentTheme.text, fontSize: 'var(--text-lg)', fontWeight: '600', marginBottom: '0.5rem' } }, t.welcomeTitle || 'Welcome to MAERMIN'),
+        React.createElement('p', { style: { color: currentTheme.textSecondary, fontSize: 'var(--text-base)', marginBottom: '1rem', lineHeight: '1.6' } }, t.welcomeHint || 'Start by adding your first transaction.'),
         React.createElement('div', { style: { display: 'flex', gap: '0.75rem', justifyContent: 'center', flexWrap: 'wrap' } },
-          window.MaerminOnboarding && window.MaerminOnboarding.Wizard && React.createElement('button', { onClick: openOnboarding, style: { padding: '0.625rem 1.25rem', background: (currentTheme.accentFill || currentTheme.accent), color: '#ffffff', border: 'none', borderRadius: '8px', cursor: 'pointer', fontWeight: '700', fontSize: '0.875rem' } }, __('guidedSetup', 'Guided setup')),
-          React.createElement('button', { onClick: () => openTransactionModal(), style: { padding: '0.625rem 1.25rem', background: currentTheme.inputBg, color: currentTheme.text, border: `1px solid ${currentTheme.cardBorder}`, borderRadius: '8px', cursor: 'pointer', fontWeight: '600', fontSize: '0.875rem' } }, '+ ' + (t.addTransaction || 'Add Transaction')),
-          React.createElement('button', { onClick: () => setShowImportModal(true), style: { padding: '0.625rem 1.25rem', background: currentTheme.inputBg, color: currentTheme.text, border: `1px solid ${currentTheme.cardBorder}`, borderRadius: '8px', cursor: 'pointer', fontSize: '0.875rem' } }, t.importData || 'Import Data')
+          window.MaerminOnboarding && window.MaerminOnboarding.Wizard && React.createElement('button', { onClick: openOnboarding, style: { padding: '0.625rem 1.25rem', background: (currentTheme.accentFill || currentTheme.accent), color: '#ffffff', border: 'none', borderRadius: '8px', cursor: 'pointer', fontWeight: '700', fontSize: 'var(--text-base)' } }, __('guidedSetup', 'Guided setup')),
+          React.createElement('button', { onClick: () => openTransactionModal(), style: { padding: '0.625rem 1.25rem', background: currentTheme.inputBg, color: currentTheme.text, border: `1px solid ${currentTheme.cardBorder}`, borderRadius: '8px', cursor: 'pointer', fontWeight: '600', fontSize: 'var(--text-base)' } }, '+ ' + (t.addTransaction || 'Add Transaction')),
+          React.createElement('button', { onClick: () => setShowImportModal(true), style: { padding: '0.625rem 1.25rem', background: currentTheme.inputBg, color: currentTheme.text, border: `1px solid ${currentTheme.cardBorder}`, borderRadius: '8px', cursor: 'pointer', fontSize: 'var(--text-base)' } }, t.importData || 'Import Data')
         )
       ),
 
@@ -4721,7 +4721,7 @@ function InvestmentTracker() {
       'aria-pressed': analyticsTab === id, onClick: () => setAnalyticsTab(id),
       style: {
         padding: '0.5rem 1.1rem', border: 'none', borderRadius: '10px', cursor: 'pointer',
-        fontWeight: analyticsTab === id ? '650' : '450', fontSize: '0.875rem',
+        fontWeight: analyticsTab === id ? '650' : '450', fontSize: 'var(--text-base)',
         background: analyticsTab === id ? (currentTheme.accentFill || currentTheme.accent) : currentTheme.inputBg,
         color: analyticsTab === id ? currentTheme.accentText : currentTheme.textSecondary, transition: 'all 0.15s'
       }
@@ -4900,7 +4900,7 @@ function InvestmentTracker() {
     };
     return React.createElement('details', {
       'data-testid': 'ledger-issues',
-      style: { background: warnings ? 'color-mix(in srgb, var(--warning) 8%, transparent)' : currentTheme.inputBg, border: `1px solid ${warnings ? 'color-mix(in srgb, var(--warning) 35%, transparent)' : currentTheme.inputBorder}`, borderRadius: '10px', padding: '0.6rem 0.9rem', marginBottom: '1rem', fontSize: '0.82rem', color: currentTheme.text }
+      style: { background: warnings ? 'color-mix(in srgb, var(--warning) 8%, transparent)' : currentTheme.inputBg, border: `1px solid ${warnings ? 'color-mix(in srgb, var(--warning) 35%, transparent)' : currentTheme.inputBorder}`, borderRadius: '10px', padding: '0.6rem 0.9rem', marginBottom: '1rem', fontSize: 'var(--text-sm)', color: currentTheme.text }
     },
       React.createElement('summary', { style: { cursor: 'pointer', fontWeight: 700 } },
         __('issueSummary', 'Data check: {n} {n:issue|issues}', { n: ledgerIssues.length }) + (warnings ? ' ' + __('issueSummaryWarn', '({n} affect cost basis or tax)', { n: warnings }) : '')),
@@ -4910,9 +4910,9 @@ function InvestmentTracker() {
           const c = DC ? DC.classify(i, { hasWorker, hasHistory: (cur) => !!(window.MaerminFxHistory && window.MaerminFxHistory.hasHistory && window.MaerminFxHistory.hasHistory(cur)) }) : null;
           return React.createElement('li', { key: k, 'data-dq-code': c ? c.code : undefined, style: { marginBottom: '0.35rem' } }, line(i),
             c && React.createElement('span', { style: { display: 'inline-flex', alignItems: 'center', gap: '0.5rem', marginLeft: '0.5rem', flexWrap: 'wrap', verticalAlign: 'middle' } },
-              React.createElement('code', { style: { fontSize: '0.7rem', color: currentTheme.textSecondary } }, c.code),
+              React.createElement('code', { style: { fontSize: 'var(--text-2xs)', color: currentTheme.textSecondary } }, c.code),
               React.createElement('button', { type: 'button', 'data-dq-action': c.action.type, 'aria-label': DC.actionLabel(c.action) || c.code, onClick: () => runDataAction(c.action),
-                style: { padding: '0.2rem 0.6rem', minHeight: '24px', fontSize: '0.75rem', fontWeight: 600, borderRadius: '6px', cursor: 'pointer', background: 'transparent', color: currentTheme.accent, border: `1px solid ${currentTheme.accent}55` } },
+                style: { padding: '0.2rem 0.6rem', minHeight: '24px', fontSize: 'var(--text-xs)', fontWeight: 600, borderRadius: '6px', cursor: 'pointer', background: 'transparent', color: currentTheme.accent, border: `1px solid ${currentTheme.accent}55` } },
                 DC.actionLabel(c.action))));
         }),
         ledgerIssues.length > 20 && React.createElement('li', { key: 'more' }, __('andNMore', '… and {n} more', { n: ledgerIssues.length - 20 }))));
@@ -4962,16 +4962,16 @@ function InvestmentTracker() {
     if (!found.length) return null;
     return React.createElement('div', {
       role: 'status', 'data-testid': 'misfiled-skins', 'data-dq-code': DC ? DC.CODES.skinMisfiled : undefined,
-      style: { background: `${currentTheme.warning}14`, border: `1px solid ${currentTheme.warning}55`, borderRadius: '10px', padding: '0.75rem 0.9rem', marginBottom: '1rem', fontSize: '0.82rem', color: currentTheme.text, display: 'flex', flexWrap: 'wrap', gap: '0.75rem', alignItems: 'center', justifyContent: 'space-between' }
+      style: { background: `${currentTheme.warning}14`, border: `1px solid ${currentTheme.warning}55`, borderRadius: '10px', padding: '0.75rem 0.9rem', marginBottom: '1rem', fontSize: 'var(--text-sm)', color: currentTheme.text, display: 'flex', flexWrap: 'wrap', gap: '0.75rem', alignItems: 'center', justifyContent: 'space-between' }
     },
       React.createElement('div', { style: { flex: '1 1 260px', lineHeight: 1.5 } },
-        DC && React.createElement('code', { style: { fontSize: '0.7rem', color: currentTheme.textSecondary, marginRight: '0.4rem' } }, DC.CODES.skinMisfiled),
+        DC && React.createElement('code', { style: { fontSize: 'var(--text-2xs)', color: currentTheme.textSecondary, marginRight: '0.4rem' } }, DC.CODES.skinMisfiled),
         React.createElement('strong', null, __('skinMisfiled', '{n} CS2 {n:item is|items are} filed as {cat}', { n: found.length, cat: found.some(f => f.category === 'stocks') ? (t.stocks || 'Stocks') : (t.crypto || 'Crypto') })),
-        React.createElement('div', { style: { color: currentTheme.textSecondary, fontSize: '0.78rem' } },
+        React.createElement('div', { style: { color: currentTheme.textSecondary, fontSize: 'var(--text-xs)' } },
           `${found.slice(0, 3).map(f => f.symbol).join(', ')}${found.length > 3 ? ' …' : ''} - ${__('skinMisfiledHint', 'they get no price there. Move them to CS2 Skins to get their skin prices.')}`)),
       React.createElement('button', {
         onClick: () => repairMisfiledSkins(found), disabled: skinRepairBusy,
-        style: { padding: '0.5rem 1rem', minHeight: '40px', background: (currentTheme.accentFill || currentTheme.accent), color: '#fff', border: 'none', borderRadius: '8px', cursor: skinRepairBusy ? 'wait' : 'pointer', fontWeight: '700', fontSize: '0.82rem' }
+        style: { padding: '0.5rem 1rem', minHeight: '40px', background: (currentTheme.accentFill || currentTheme.accent), color: '#fff', border: 'none', borderRadius: '8px', cursor: skinRepairBusy ? 'wait' : 'pointer', fontWeight: '700', fontSize: 'var(--text-sm)' }
       }, skinRepairBusy ? __('skinLookingUp', 'Looking up market names…') : __('skinMoveBtn', 'Move to CS2 Skins')));
   };
 
@@ -4982,16 +4982,16 @@ function InvestmentTracker() {
     if (!found.length) return null;
     return React.createElement('div', {
       role: 'status', 'data-testid': 'crypto-pairs', 'data-dq-code': DC.CODES.cryptoPair,
-      style: { background: `${currentTheme.warning}14`, border: `1px solid ${currentTheme.warning}55`, borderRadius: '10px', padding: '0.75rem 0.9rem', marginBottom: '1rem', fontSize: '0.82rem', color: currentTheme.text, display: 'flex', flexWrap: 'wrap', gap: '0.75rem', alignItems: 'center', justifyContent: 'space-between' }
+      style: { background: `${currentTheme.warning}14`, border: `1px solid ${currentTheme.warning}55`, borderRadius: '10px', padding: '0.75rem 0.9rem', marginBottom: '1rem', fontSize: 'var(--text-sm)', color: currentTheme.text, display: 'flex', flexWrap: 'wrap', gap: '0.75rem', alignItems: 'center', justifyContent: 'space-between' }
     },
       React.createElement('div', { style: { flex: '1 1 260px', lineHeight: 1.5 } },
-        React.createElement('code', { style: { fontSize: '0.7rem', color: currentTheme.textSecondary, marginRight: '0.4rem' } }, DC.CODES.cryptoPair),
+        React.createElement('code', { style: { fontSize: 'var(--text-2xs)', color: currentTheme.textSecondary, marginRight: '0.4rem' } }, DC.CODES.cryptoPair),
         React.createElement('strong', null, __('dqCryptoPair', '{n} crypto {n:symbol is|symbols are} an exchange pair', { n: found.length })),
-        React.createElement('div', { style: { color: currentTheme.textSecondary, fontSize: '0.78rem' } },
+        React.createElement('div', { style: { color: currentTheme.textSecondary, fontSize: 'var(--text-xs)' } },
           `${found.slice(0, 3).map(f => f.symbol).join(', ')}${found.length > 3 ? ' …' : ''} - ${__('dqCryptoPairHint', 'they get no price. Edit each row: the coin as symbol (e.g. BTC) and the quote as currency (USDT/USDC count as USD).')}`)),
       React.createElement('button', {
         onClick: () => setTxSearch(found[0].symbol),
-        style: { padding: '0.5rem 1rem', minHeight: '40px', background: (currentTheme.accentFill || currentTheme.accent), color: '#fff', border: 'none', borderRadius: '8px', cursor: 'pointer', fontWeight: '700', fontSize: '0.82rem' }
+        style: { padding: '0.5rem 1rem', minHeight: '40px', background: (currentTheme.accentFill || currentTheme.accent), color: '#fff', border: 'none', borderRadius: '8px', cursor: 'pointer', fontWeight: '700', fontSize: 'var(--text-sm)' }
       }, __('dcShowTx', 'Show transactions')));
   };
 
@@ -5043,7 +5043,7 @@ function InvestmentTracker() {
         style: { display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem', flexWrap: 'wrap', gap: '0.75rem' }
       },
         React.createElement('h2', {
-          style: { color: currentTheme.text, fontSize: '1.5rem', fontWeight: '800', letterSpacing: '-0.02em' }
+          style: { color: currentTheme.text, fontSize: 'var(--text-xl)', fontWeight: '800', letterSpacing: '-0.02em' }
         }, `${t.transactions || 'Transactions'} (${filtered.length}${filtered.length !== totalAll ? '/' + totalAll : ''})`),
         React.createElement('div', { style: { display: 'flex', gap: '0.5rem', flexWrap: 'wrap', alignItems: 'center' } },
           // Search
@@ -5076,7 +5076,7 @@ function InvestmentTracker() {
               borderRadius: '10px',
               cursor: 'pointer',
               fontWeight: '700',
-              fontSize: '0.875rem',
+              fontSize: 'var(--text-base)',
               boxShadow: '0 6px 16px -6px rgba(139,124,255,0.5)'
             }
           }, '+ ' + (t.addTransaction || 'Add'))
@@ -5112,7 +5112,7 @@ function InvestmentTracker() {
                         padding: '0.875rem 1rem',
                         color: currentTheme.textSecondary,
                         borderBottom: `1px solid ${currentTheme.cardBorder}`,
-                        fontSize: '0.8rem',
+                        fontSize: 'var(--text-sm)',
                         fontWeight: '600',
                         textTransform: 'uppercase',
                         letterSpacing: '0.05em'
@@ -5131,13 +5131,13 @@ function InvestmentTracker() {
                       onMouseEnter: e => e.currentTarget.style.background = 'rgba(255,255,255,0.03)',
                       onMouseLeave: e => e.currentTarget.style.background = 'transparent'
                     },
-                      React.createElement('td', { className: 'mx-card-lead', style: { padding: '0.875rem 1rem', color: currentTheme.text, fontSize: '0.875rem' } }, tx.date),
+                      React.createElement('td', { className: 'mx-card-lead', style: { padding: '0.875rem 1rem', color: currentTheme.text, fontSize: 'var(--text-base)' } }, tx.date),
                       React.createElement('td', { className: 'mx-card-lead', style: { padding: '0.875rem 1rem' } },
                         React.createElement('span', {
                           style: {
                             padding: '0.2rem 0.5rem',
                             borderRadius: '4px',
-                            fontSize: '0.7rem',
+                            fontSize: 'var(--text-2xs)',
                             fontWeight: '700',
                             textTransform: 'uppercase',
                             letterSpacing: '0.05em',
@@ -5148,18 +5148,18 @@ function InvestmentTracker() {
                       ),
                       // P5-1.3: a cash row names the other portfolio of a transfer (or its note) and shows its signed amount.
                       React.createElement('td', { className: 'mx-card-lead', style: { padding: '0.875rem 1rem' } },
-                        React.createElement('div', { style: { color: currentTheme.text, fontWeight: '600', fontSize: '0.875rem' } },
+                        React.createElement('div', { style: { color: currentTheme.text, fontWeight: '600', fontSize: 'var(--text-base)' } },
                           isCashRow(tx) ? (tx.counterPortfolioId ? (tx.type === 'transfer_out' ? '→ ' : '← ') + portfolioName(tx.counterPortfolioId) : (tx.notes || '')) : tx.symbol),
-                        React.createElement('div', { style: { color: currentTheme.textSecondary, fontSize: '0.75rem' } }, isCashRow(tx) ? window.MaerminI18n.category('cashflow') : getCategoryDisplayName(tx.category))
+                        React.createElement('div', { style: { color: currentTheme.textSecondary, fontSize: 'var(--text-xs)' } }, isCashRow(tx) ? window.MaerminI18n.category('cashflow') : getCategoryDisplayName(tx.category))
                       ),
-                      React.createElement('td', { 'data-label': t.quantity || 'Qty', style: { padding: '0.875rem 1rem', color: currentTheme.text, textAlign: 'right', fontSize: '0.875rem' } }, isCashRow(tx) ? '' : window.MaerminI18n.num(tx.quantity, { min: 0, max: 8 })),
-                      React.createElement('td', { 'data-label': t.price || 'Price', style: { padding: '0.875rem 1rem', color: currentTheme.text, textAlign: 'right', fontSize: '0.875rem' } },
+                      React.createElement('td', { 'data-label': t.quantity || 'Qty', style: { padding: '0.875rem 1rem', color: currentTheme.text, textAlign: 'right', fontSize: 'var(--text-base)' } }, isCashRow(tx) ? '' : window.MaerminI18n.num(tx.quantity, { min: 0, max: 8 })),
+                      React.createElement('td', { 'data-label': t.price || 'Price', style: { padding: '0.875rem 1rem', color: currentTheme.text, textAlign: 'right', fontSize: 'var(--text-base)' } },
                         !isCashRow(tx) && tx.price != null ? (privacyMode ? '••••••' : window.MaerminI18n.num(tx.price, 2)) : ''
                       ),
-                      React.createElement('td', { className: 'mx-hide-phone', style: { padding: '0.875rem 0.5rem', color: currentTheme.textSecondary, textAlign: 'center', fontSize: '0.75rem' } },
+                      React.createElement('td', { className: 'mx-hide-phone', style: { padding: '0.875rem 0.5rem', color: currentTheme.textSecondary, textAlign: 'center', fontSize: 'var(--text-xs)' } },
                         tx.currency || 'EUR'
                       ),
-                      React.createElement('td', { 'data-label': t.total || 'Total', style: { padding: '0.875rem 1rem', color: currentTheme.text, textAlign: 'right', fontWeight: '600', fontSize: '0.875rem' } },
+                      React.createElement('td', { 'data-label': t.total || 'Total', style: { padding: '0.875rem 1rem', color: currentTheme.text, textAlign: 'right', fontWeight: '600', fontSize: 'var(--text-base)' } },
                         // VIS-003 masked in Privacy Mode; VIS-015 the total names its currency (USD and EUR rows mix)
                         privacyMode ? '••••••' : (isCashRow(tx)
                           ? (window.MaerminLedger.CASH_TYPES[tx.type].sign > 0 ? '+' : '−') + window.MaerminI18n.num(parseFloat(tx.amount) || 0, 2)
@@ -5179,7 +5179,7 @@ function InvestmentTracker() {
                               border: `1px solid ${currentTheme.accent}40`,
                               borderRadius: '7px',
                               cursor: 'pointer',
-                              fontSize: '0.75rem',
+                              fontSize: 'var(--text-xs)',
                               fontWeight: '600'
                             }
                           }, '✎'),
@@ -5194,7 +5194,7 @@ function InvestmentTracker() {
                               border: `1px solid rgba(239,68,68,0.25)`,
                               borderRadius: '4px',
                               cursor: 'pointer',
-                              fontSize: '0.75rem'
+                              fontSize: 'var(--text-xs)'
                             }
                           }, '×')
                         )
@@ -5212,7 +5212,7 @@ function InvestmentTracker() {
                         }
                       },
                         React.createElement('div', { style: { display: 'flex', alignItems: 'center', gap: '1rem' } },
-                          React.createElement('span', { style: { color: currentTheme.danger, fontSize: '0.875rem', fontWeight: '500' } },
+                          React.createElement('span', { style: { color: currentTheme.danger, fontSize: 'var(--text-base)', fontWeight: '500' } },
                             t.confirmDelete || 'Delete this transaction?'
                           ),
                           React.createElement('button', {
@@ -5224,7 +5224,7 @@ function InvestmentTracker() {
                               border: 'none',
                               borderRadius: '4px',
                               cursor: 'pointer',
-                              fontSize: '0.8rem',
+                              fontSize: 'var(--text-sm)',
                               fontWeight: '600'
                             }
                           }, t.delete || 'Delete'),
@@ -5237,7 +5237,7 @@ function InvestmentTracker() {
                               border: `1px solid ${currentTheme.cardBorder}`,
                               borderRadius: '4px',
                               cursor: 'pointer',
-                              fontSize: '0.8rem'
+                              fontSize: 'var(--text-sm)'
                             }
                           }, t.cancel || 'Cancel')
                         )
@@ -5297,7 +5297,7 @@ function InvestmentTracker() {
         style: { display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem', flexWrap: 'wrap', gap: '0.5rem' }
       },
         React.createElement('h2', {
-          style: { color: currentTheme.text, fontSize: '1.5rem', fontWeight: '600' }
+          style: { color: currentTheme.text, fontSize: 'var(--text-xl)', fontWeight: '600' }
         }, t.taxReport || 'Tax Report'),
         React.createElement('div', { style: { display: 'flex', gap: '0.5rem', flexWrap: 'wrap' } },
           React.createElement('select', {
@@ -5350,13 +5350,13 @@ function InvestmentTracker() {
             border: `1px solid ${currentTheme.cardBorder}`
           }
         },
-          React.createElement('div', { style: { color: currentTheme.textSecondary, fontSize: '0.875rem' } },
+          React.createElement('div', { style: { color: currentTheme.textSecondary, fontSize: 'var(--text-base)' } },
             t.realizedGains || 'Realized Gains'
           ),
           React.createElement('div', {
             style: {
               color: taxData.realizedGains >= 0 ? currentTheme.success : currentTheme.danger,
-              fontSize: '1.5rem',
+              fontSize: 'var(--text-xl)',
               fontWeight: '700'
             }
           }, `${formatPrice(taxData.realizedGains)} ${getCurrencySymbol()}`)
@@ -5370,10 +5370,10 @@ function InvestmentTracker() {
             border: `1px solid ${currentTheme.cardBorder}`
           }
         },
-          React.createElement('div', { style: { color: currentTheme.textSecondary, fontSize: '0.875rem' } },
+          React.createElement('div', { style: { color: currentTheme.textSecondary, fontSize: 'var(--text-base)' } },
             (taxData.labels && taxData.labels.shortTerm) || t.shortTermGains || 'Short-term'
           ),
-          React.createElement('div', { style: { color: currentTheme.text, fontSize: '1.5rem', fontWeight: '800', letterSpacing: '-0.02em' } },
+          React.createElement('div', { style: { color: currentTheme.text, fontSize: 'var(--text-xl)', fontWeight: '800', letterSpacing: '-0.02em' } },
             `${formatPrice(taxData.shortTerm || 0)} ${getCurrencySymbol()}`
           )
         ),
@@ -5386,10 +5386,10 @@ function InvestmentTracker() {
             border: `1px solid ${currentTheme.cardBorder}`
           }
         },
-          React.createElement('div', { style: { color: currentTheme.textSecondary, fontSize: '0.875rem' } },
+          React.createElement('div', { style: { color: currentTheme.textSecondary, fontSize: 'var(--text-base)' } },
             (taxData.labels && taxData.labels.longTerm) || t.longTermGains || 'Long-term'
           ),
-          React.createElement('div', { style: { color: currentTheme.text, fontSize: '1.5rem', fontWeight: '800', letterSpacing: '-0.02em' } },
+          React.createElement('div', { style: { color: currentTheme.text, fontSize: 'var(--text-xl)', fontWeight: '800', letterSpacing: '-0.02em' } },
             `${formatPrice(taxData.longTerm || 0)} ${getCurrencySymbol()}`
           )
         ),
@@ -5402,10 +5402,10 @@ function InvestmentTracker() {
             border: `1px solid ${currentTheme.cardBorder}`
           }
         },
-          React.createElement('div', { style: { color: currentTheme.textSecondary, fontSize: '0.875rem' } },
+          React.createElement('div', { style: { color: currentTheme.textSecondary, fontSize: 'var(--text-base)' } },
             t.taxLiability || 'Est. Tax'
           ),
-          React.createElement('div', { style: { color: currentTheme.warning, fontSize: '1.5rem', fontWeight: '800', letterSpacing: '-0.02em' } },
+          React.createElement('div', { style: { color: currentTheme.warning, fontSize: 'var(--text-xl)', fontWeight: '800', letterSpacing: '-0.02em' } },
             `${formatPrice(taxData.taxLiability || 0)} ${getCurrencySymbol()}`
           )
         )
@@ -5538,9 +5538,9 @@ function InvestmentTracker() {
         if (!keys.length) return null;
         return React.createElement('div', { 'data-testid': 'tax-cash-bookings', style: { background: currentTheme.card, border: `1px solid ${currentTheme.cardBorder}`, borderRadius: '16px', padding: '1.25rem 1.5rem', marginTop: '1rem' } },
           React.createElement('div', { style: { color: currentTheme.text, fontWeight: 700, marginBottom: '0.35rem' } }, __('taxCashTitle', 'Cash bookings {year}', { year: currentYear })),
-          React.createElement('p', { style: { color: currentTheme.textSecondary, fontSize: '0.8rem', margin: '0 0 0.75rem', lineHeight: 1.5 } },
+          React.createElement('p', { style: { color: currentTheme.textSecondary, fontSize: 'var(--text-sm)', margin: '0 0 0.75rem', lineHeight: 1.5 } },
             __('taxCashNote', 'For information. Taxes already paid or refunded, stand-alone fees and interest charges you booked. They do not change the tax computed above.')),
-          keys.map(k => React.createElement('div', { key: k, 'data-tax-cash': k, style: { display: 'flex', justifyContent: 'space-between', gap: '1rem', padding: '0.3rem 0', fontSize: '0.875rem', borderTop: `1px solid ${currentTheme.cardBorder}` } },
+          keys.map(k => React.createElement('div', { key: k, 'data-tax-cash': k, style: { display: 'flex', justifyContent: 'space-between', gap: '1rem', padding: '0.3rem 0', fontSize: 'var(--text-base)', borderTop: `1px solid ${currentTheme.cardBorder}` } },
             React.createElement('span', { style: { color: currentTheme.textSecondary } }, window.MaerminUtils.txTypeInfo(k, t).label),
             React.createElement('span', { style: { color: currentTheme.text, fontWeight: 600 } }, privacyMode ? '••••••' : window.MaerminI18n.money(cb[k], 'EUR')))));
       })(),
@@ -5559,9 +5559,9 @@ function InvestmentTracker() {
     return React.createElement('div', {
       style: { padding: '3rem', textAlign: 'center', color: currentTheme.textSecondary }
     },
-      React.createElement('div', { style: { fontSize: '2rem', marginBottom: '0.75rem', color: 'color-mix(in srgb, var(--warning) 70%, transparent)', fontWeight: '300' } }, '!'),
+      React.createElement('div', { style: { fontSize: 'var(--text-2xl)', marginBottom: '0.75rem', color: 'color-mix(in srgb, var(--warning) 70%, transparent)', fontWeight: '300' } }, '!'),
       React.createElement('div', { style: { fontWeight: '600', marginBottom: '0.5rem', color: currentTheme.text } }, name),
-      React.createElement('div', { style: { fontSize: '0.875rem' } },
+      React.createElement('div', { style: { fontSize: 'var(--text-base)' } },
         t.moduleNotLoaded || 'Module not loaded. Check the browser console for errors.'
       )
     );
@@ -5594,28 +5594,28 @@ function InvestmentTracker() {
         style: { background: th.card, border: `1px solid ${th.cardBorder}`, borderRadius: '14px', width: '100%', maxWidth: 640, maxHeight: '80vh', display: 'flex', flexDirection: 'column' }
       },
         React.createElement('div', { style: { display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '1.1rem 1.25rem', borderBottom: `1px solid ${th.cardBorder}` } },
-          React.createElement('div', { id: 'dlg-audit-log', style: { color: th.text, fontWeight: 800, fontSize: '1rem' } }, (t.securityLog || 'Security log')),
+          React.createElement('div', { id: 'dlg-audit-log', style: { color: th.text, fontWeight: 800, fontSize: 'var(--text-body)' } }, (t.securityLog || 'Security log')),
           React.createElement('div', { style: { display: 'flex', gap: '0.5rem' } },
             React.createElement('button', { onClick: () => window.MaerminUtils.confirmThen({
                 title: t.auditClearTitle || 'Clear the security log?',
                 message: t.auditClearMessage || 'All recorded security events on this device are deleted.',
                 confirmLabel: t.clear || 'Clear', cancelLabel: t.cancel || 'Cancel'
               }, () => { if (window.MaerminAuditLog) { window.MaerminAuditLog.clear(); setShowAuditLog(false); setTimeout(() => setShowAuditLog(true), 0); } }),
-              style: { padding: '0.35rem 0.7rem', background: 'transparent', border: `1px solid ${th.cardBorder}`, borderRadius: '7px', color: th.textSecondary, cursor: 'pointer', fontSize: '0.75rem' } }, t.clear || 'Clear'),
+              style: { padding: '0.35rem 0.7rem', background: 'transparent', border: `1px solid ${th.cardBorder}`, borderRadius: '7px', color: th.textSecondary, cursor: 'pointer', fontSize: 'var(--text-xs)' } }, t.clear || 'Clear'),
             React.createElement('button', { onClick: () => setShowAuditLog(false), 'aria-label': t.close || 'Close',
-              style: { padding: '0.35rem 0.7rem', background: 'transparent', border: `1px solid ${th.cardBorder}`, borderRadius: '7px', color: th.textSecondary, cursor: 'pointer', fontSize: '0.75rem' } }, '✕')
+              style: { padding: '0.35rem 0.7rem', background: 'transparent', border: `1px solid ${th.cardBorder}`, borderRadius: '7px', color: th.textSecondary, cursor: 'pointer', fontSize: 'var(--text-xs)' } }, '✕')
           )
         ),
         React.createElement('div', { style: { padding: '0.5rem 0.75rem', overflow: 'auto' } },
           entries.length === 0
-            ? React.createElement('div', { style: { color: th.textSecondary, padding: '2rem', textAlign: 'center', fontSize: '0.85rem' } }, t.securityLogEmpty || 'No events recorded yet.')
-            : entries.map((e, i) => React.createElement('div', { key: i, style: { display: 'flex', gap: '0.75rem', padding: '0.5rem 0.5rem', borderBottom: `1px solid ${th.cardBorder}33`, fontSize: '0.78rem', alignItems: 'baseline' } },
+            ? React.createElement('div', { style: { color: th.textSecondary, padding: '2rem', textAlign: 'center', fontSize: 'var(--text-base)' } }, t.securityLogEmpty || 'No events recorded yet.')
+            : entries.map((e, i) => React.createElement('div', { key: i, style: { display: 'flex', gap: '0.75rem', padding: '0.5rem 0.5rem', borderBottom: `1px solid ${th.cardBorder}33`, fontSize: 'var(--text-xs)', alignItems: 'baseline' } },
                 React.createElement('span', { style: { color: th.textSecondary, fontFamily: 'ui-monospace,monospace', whiteSpace: 'nowrap', opacity: 0.8 } }, window.MaerminI18n.date(e.t, 'dateTime')),
                 React.createElement('span', { style: { color: levelColor(e.level), fontWeight: 600, whiteSpace: 'nowrap' } }, e.type),
                 React.createElement('span', { style: { color: th.text, flex: 1, wordBreak: 'break-word' } }, e.detail)
               ))
         ),
-        React.createElement('div', { style: { padding: '0.6rem 1.25rem', borderTop: `1px solid ${th.cardBorder}`, color: th.textSecondary, fontSize: '0.7rem' } },
+        React.createElement('div', { style: { padding: '0.6rem 1.25rem', borderTop: `1px solid ${th.cardBorder}`, color: th.textSecondary, fontSize: 'var(--text-2xs)' } },
           (t.securityLogNote || 'Stored locally on this device only. Non-sensitive event metadata — no amounts or secrets.'))
       )
     );
@@ -5639,7 +5639,7 @@ function InvestmentTracker() {
     // date, note and - for a transfer - the other portfolio.
     const isCashTx = !!(window.MaerminLedger && window.MaerminLedger.isCash(newTransaction));
     const fieldStyle = { width: '100%', padding: '0.75rem', background: currentTheme.inputBg, border: `1px solid ${currentTheme.inputBorder}`, borderRadius: '8px', color: currentTheme.text };
-    const fieldLabel = (id, text) => React.createElement('label', { htmlFor: id, style: { display: 'block', color: currentTheme.textSecondary, marginBottom: '0.5rem', fontSize: '0.875rem' } }, text);
+    const fieldLabel = (id, text) => React.createElement('label', { htmlFor: id, style: { display: 'block', color: currentTheme.textSecondary, marginBottom: '0.5rem', fontSize: 'var(--text-base)' } }, text);
     const setTx = (patch) => setNewTransaction(prev => ({ ...prev, ...patch }));
     const renderCashFields = () => {
       const UT = window.MaerminUtils;
@@ -5661,7 +5661,7 @@ function InvestmentTracker() {
             ? React.createElement('select', { id: 'tx-cash-counter', value: newTransaction.counterPortfolioId || '', onChange: (e) => setTx({ counterPortfolioId: e.target.value }), style: { ...fieldStyle, cursor: 'pointer' } },
                 React.createElement('option', { value: '' }, '—'),
                 others.map(p => React.createElement('option', { key: p.id, value: p.id }, p.name)))
-            : React.createElement('div', { role: 'note', style: { color: currentTheme.textSecondary, fontSize: '0.85rem' } }, __('txTransferNeedsTwo', 'Create a second portfolio first (Portfolio → Portfolios).'))),
+            : React.createElement('div', { role: 'note', style: { color: currentTheme.textSecondary, fontSize: 'var(--text-base)' } }, __('txTransferNeedsTwo', 'Create a second portfolio first (Portfolio → Portfolios).'))),
         React.createElement('div', { style: { display: 'flex', gap: '0.75rem', marginBottom: '1rem' } },
           React.createElement('div', { style: { flex: 2 } },
             fieldLabel('tx-amount', __('txAmount', 'Amount')),
@@ -5745,14 +5745,14 @@ function InvestmentTracker() {
         React.createElement('div', { style: { display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: '1rem', marginBottom: '1.5rem' } },
           React.createElement('h2', {
             id: 'dlg-transaction',
-            style: { color: currentTheme.text, margin: 0, fontSize: '1.5rem', fontWeight: '800', letterSpacing: '-0.02em' }
+            style: { color: currentTheme.text, margin: 0, fontSize: 'var(--text-xl)', fontWeight: '800', letterSpacing: '-0.02em' }
           }, isEditing ? (t.editTransaction || 'Edit Transaction') : (t.addTransaction || 'Add Transaction')),
           React.createElement('button', { type: 'button', onClick: requestClose, 'aria-label': t.close || 'Close',
-            style: { width: 36, height: 36, flexShrink: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'transparent', border: `1px solid ${currentTheme.cardBorder}`, borderRadius: '8px', color: currentTheme.textSecondary, cursor: 'pointer', fontSize: '1.25rem', lineHeight: 1 } }, '×')),
+            style: { width: 36, height: 36, flexShrink: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'transparent', border: `1px solid ${currentTheme.cardBorder}`, borderRadius: '8px', color: currentTheme.textSecondary, cursor: 'pointer', fontSize: 'var(--text-title)', lineHeight: 1 } }, '×')),
         
         // Portfolio selector — always shown as a select dropdown
         React.createElement('div', { style: { marginBottom: '1rem' } },
-          React.createElement('label', { htmlFor: 'tx-portfolio', style: { display: 'block', color: currentTheme.textSecondary, marginBottom: '0.5rem', fontSize: '0.875rem' } }, t.portfolio || 'Portfolio'),
+          React.createElement('label', { htmlFor: 'tx-portfolio', style: { display: 'block', color: currentTheme.textSecondary, marginBottom: '0.5rem', fontSize: 'var(--text-base)' } }, t.portfolio || 'Portfolio'),
           React.createElement('select', {
             id: 'tx-portfolio',
             value: newTransaction.targetPortfolioId || activePortfolioId,
@@ -5762,7 +5762,7 @@ function InvestmentTracker() {
               background: currentTheme.inputBg,
               border: `1px solid ${currentTheme.inputBorder}`,
               borderRadius: '8px', color: currentTheme.text,
-              fontSize: '0.875rem', cursor: 'pointer'
+              fontSize: 'var(--text-base)', cursor: 'pointer'
             }
           },
             portfolios.map(p =>
@@ -5775,7 +5775,7 @@ function InvestmentTracker() {
         React.createElement('div', { style: { marginBottom: '1rem' } },
           React.createElement('label', {
             id: 'tx-type-label',
-            style: { display: 'block', color: currentTheme.textSecondary, marginBottom: '0.5rem', fontSize: '0.875rem' }
+            style: { display: 'block', color: currentTheme.textSecondary, marginBottom: '0.5rem', fontSize: 'var(--text-base)' }
           }, t.type || 'Type'),
           React.createElement('div', { role: 'group', 'aria-labelledby': 'tx-type-label', style: { display: 'flex', gap: '0.5rem' } },
             ['buy', 'sell'].map(type =>
@@ -5793,7 +5793,7 @@ function InvestmentTracker() {
                   border: 'none',
                   borderRadius: '6px',
                   cursor: 'pointer',
-                  fontSize: '0.875rem',
+                  fontSize: 'var(--text-base)',
                   fontWeight: '600'
                 }
               }, type === 'buy' ? (t.buy || 'Buy') : (t.sell || 'Sell'))
@@ -5804,7 +5804,7 @@ function InvestmentTracker() {
               'aria-pressed': isCashTx,
               onClick: () => setNewTransaction(prev => window.MaerminLedger.isCash(prev) ? prev : ({ ...prev, type: 'deposit', amount: prev.amount || '' })),
               style: { flex: 1, padding: '0.5rem', background: isCashTx ? (currentTheme.accentFill || currentTheme.accent) : currentTheme.inputBg,
-                color: isCashTx ? '#ffffff' : currentTheme.text, border: 'none', borderRadius: '6px', cursor: 'pointer', fontSize: '0.875rem', fontWeight: '600' }
+                color: isCashTx ? '#ffffff' : currentTheme.text, border: 'none', borderRadius: '6px', cursor: 'pointer', fontSize: 'var(--text-base)', fontWeight: '600' }
             }, __('txCash', 'Cash'))
           )
         ),
@@ -5814,7 +5814,7 @@ function InvestmentTracker() {
         React.createElement('div', { style: { marginBottom: '1rem' } },
           React.createElement('label', {
             id: 'tx-category-label',
-            style: { display: 'block', color: currentTheme.textSecondary, marginBottom: '0.5rem', fontSize: '0.875rem' }
+            style: { display: 'block', color: currentTheme.textSecondary, marginBottom: '0.5rem', fontSize: 'var(--text-base)' }
           }, t.category || 'Category'),
           // Equal columns that wrap to a new row instead of squeezing the labels.
           React.createElement('div', { role: 'group', 'aria-labelledby': 'tx-category-label', style: { display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(110px, 1fr))', gap: '0.5rem' } },
@@ -5831,7 +5831,7 @@ function InvestmentTracker() {
                   border: 'none',
                   borderRadius: '6px',
                   cursor: 'pointer',
-                  fontSize: '0.875rem',
+                  fontSize: 'var(--text-base)',
                   fontWeight: newTransaction.category === cat ? '600' : '400',
                   whiteSpace: 'nowrap',
                   overflow: 'hidden',
@@ -5845,7 +5845,7 @@ function InvestmentTracker() {
           // Symbol / Skin / Commodity Picker
           React.createElement('div', { style: { marginBottom: '1rem' } },
             React.createElement('label', {
-              style: { display: 'block', color: currentTheme.textSecondary, marginBottom: '0.5rem', fontSize: '0.875rem' }
+              style: { display: 'block', color: currentTheme.textSecondary, marginBottom: '0.5rem', fontSize: 'var(--text-base)' }
             }, t.symbol || 'Symbol'),
 
             // CS2 Skin Picker
@@ -5870,10 +5870,10 @@ function InvestmentTracker() {
                     newTransaction.skinIconUrl
                       ? React.createElement('img', { src: newTransaction.skinIconUrl, alt: newTransaction.symbol, style: { width: 80, height: 47, objectFit: 'contain', borderRadius: '6px', background: 'rgba(0,0,0,0.2)' } })
                       : React.createElement('div', { style: { width: 80, height: 47, background: 'rgba(6,182,212,0.1)', borderRadius: '6px', display: 'flex', alignItems: 'center', justifyContent: 'center' } },
-                          React.createElement('span', { style: { color: 'rgba(6,182,212,0.5)', fontSize: '0.7rem' } }, 'CS2')),
+                          React.createElement('span', { style: { color: 'rgba(6,182,212,0.5)', fontSize: 'var(--text-2xs)' } }, 'CS2')),
                     React.createElement('div', null,
-                      React.createElement('div', { style: { color: currentTheme.text, fontWeight: '600', fontSize: '0.8rem' } }, newTransaction.symbol),
-                      newTransaction.price && React.createElement('div', { style: { color: currentTheme.success, fontSize: '0.75rem', marginTop: '0.125rem' } }, window.MaerminI18n.money(parseFloat(newTransaction.price), 'USD', 2))
+                      React.createElement('div', { style: { color: currentTheme.text, fontWeight: '600', fontSize: 'var(--text-sm)' } }, newTransaction.symbol),
+                      newTransaction.price && React.createElement('div', { style: { color: currentTheme.success, fontSize: 'var(--text-xs)', marginTop: '0.125rem' } }, window.MaerminI18n.money(parseFloat(newTransaction.price), 'USD', 2))
                     )
                   )
                 )
@@ -5909,7 +5909,7 @@ function InvestmentTracker() {
                     type: 'text', value: newTransaction.underlying || '',
                     onChange: e => setNewTransaction(prev => ({ ...prev, underlying: e.target.value.toUpperCase() })),
                     placeholder: __('underlyingPh', 'Underlying symbol: AAPL, SAP.DE...'), 'aria-label': __('underlyingAria', 'Underlying symbol'),
-                    style: { width: '100%', padding: '0.625rem 0.875rem', background: currentTheme.inputBg, border: `1px solid ${currentTheme.inputBorder}`, borderRadius: '8px', color: currentTheme.text, fontSize: '0.875rem', boxSizing: 'border-box', marginBottom: '0.625rem' }
+                    style: { width: '100%', padding: '0.625rem 0.875rem', background: currentTheme.inputBg, border: `1px solid ${currentTheme.inputBorder}`, borderRadius: '8px', color: currentTheme.text, fontSize: 'var(--text-base)', boxSizing: 'border-box', marginBottom: '0.625rem' }
                   }),
                   React.createElement('div', { style: { display: 'flex', gap: '0.5rem', marginBottom: '0.625rem' } },
                     ['call', 'put'].map(ot => React.createElement('button', {
@@ -5917,7 +5917,7 @@ function InvestmentTracker() {
                       'aria-pressed': (newTransaction.optionType || 'call') === ot,
                       onClick: () => setNewTransaction(prev => ({ ...prev, optionType: ot })),
                       style: {
-                        flex: 1, padding: '0.5rem', border: 'none', borderRadius: '6px', cursor: 'pointer', fontSize: '0.875rem', fontWeight: '600',
+                        flex: 1, padding: '0.5rem', border: 'none', borderRadius: '6px', cursor: 'pointer', fontSize: 'var(--text-base)', fontWeight: '600',
                         background: (newTransaction.optionType || 'call') === ot ? (ot === 'call' ? 'var(--success)' : 'var(--danger)') : currentTheme.inputBg,
                         color: (newTransaction.optionType || 'call') === ot ? '#fff' : currentTheme.text
                       }
@@ -5927,21 +5927,21 @@ function InvestmentTracker() {
                       type: 'number', value: newTransaction.strike || '', min: 0, step: 'any',
                       onChange: e => setNewTransaction(prev => ({ ...prev, strike: e.target.value })),
                       placeholder: __('strikePh', 'Strike'), 'aria-label': __('strikeAria', 'Strike price'),
-                      style: { flex: 1, padding: '0.625rem 0.875rem', background: currentTheme.inputBg, border: `1px solid ${currentTheme.inputBorder}`, borderRadius: '8px', color: currentTheme.text, fontSize: '0.875rem', minWidth: 0 }
+                      style: { flex: 1, padding: '0.625rem 0.875rem', background: currentTheme.inputBg, border: `1px solid ${currentTheme.inputBorder}`, borderRadius: '8px', color: currentTheme.text, fontSize: 'var(--text-base)', minWidth: 0 }
                     }),
                     React.createElement('input', {
                       type: 'date', value: newTransaction.expiry || '',
                       onChange: e => setNewTransaction(prev => ({ ...prev, expiry: e.target.value })),
                       title: __('expiryDate', 'Expiry date'), 'aria-label': __('expiryDate', 'Expiry date'),
-                      style: { flex: 1, padding: '0.625rem 0.875rem', background: currentTheme.inputBg, border: `1px solid ${currentTheme.inputBorder}`, borderRadius: '8px', color: currentTheme.text, fontSize: '0.875rem', minWidth: 0 }
+                      style: { flex: 1, padding: '0.625rem 0.875rem', background: currentTheme.inputBg, border: `1px solid ${currentTheme.inputBorder}`, borderRadius: '8px', color: currentTheme.text, fontSize: 'var(--text-base)', minWidth: 0 }
                     }),
                     React.createElement('input', {
                       type: 'number', value: newTransaction.contractSize || '', min: 1,
                       onChange: e => setNewTransaction(prev => ({ ...prev, contractSize: e.target.value })),
                       placeholder: __('sizePh', 'Size (100)'), 'aria-label': __('contractSize', 'Contract size'), title: __('contractSizeTitle', 'Contract size (shares per contract, default 100)'),
-                      style: { width: '90px', padding: '0.625rem 0.875rem', background: currentTheme.inputBg, border: `1px solid ${currentTheme.inputBorder}`, borderRadius: '8px', color: currentTheme.text, fontSize: '0.875rem' }
+                      style: { width: '90px', padding: '0.625rem 0.875rem', background: currentTheme.inputBg, border: `1px solid ${currentTheme.inputBorder}`, borderRadius: '8px', color: currentTheme.text, fontSize: 'var(--text-base)' }
                     })),
-                  React.createElement('div', { style: { color: currentTheme.textSecondary, fontSize: '0.72rem', marginTop: '0.5rem', lineHeight: 1.5 } },
+                  React.createElement('div', { style: { color: currentTheme.textSecondary, fontSize: 'var(--text-xs)', marginTop: '0.5rem', lineHeight: 1.5 } },
                     __('optHint', 'Quantity = number of contracts, price = premium per share. Buy = long / close a short, sell = write (short) / close a long.'))
                 )
             : newTransaction.category === 'commodities'
@@ -5965,7 +5965,7 @@ function InvestmentTracker() {
                       onClick: () => setNewTransaction(prev => ({ ...prev, symbol: c.sym, notes: prev.notes || `${c.label} (${c.unit})` })),
                       style: {
                         padding: '0.35rem 0.75rem', border: `1px solid ${newTransaction.symbol === c.sym ? c.color : currentTheme.cardBorder}`,
-                        borderRadius: '6px', cursor: 'pointer', fontSize: '0.75rem', fontWeight: '600',
+                        borderRadius: '6px', cursor: 'pointer', fontSize: 'var(--text-xs)', fontWeight: '600',
                         background: newTransaction.symbol === c.sym ? `${c.color}22` : currentTheme.inputBg,
                         color: newTransaction.symbol === c.sym ? c.color : currentTheme.textSecondary,
                         display: 'flex', alignItems: 'center', gap: '0.25rem'
@@ -5977,7 +5977,7 @@ function InvestmentTracker() {
                     type: 'text', value: newTransaction.symbol,
                     onChange: e => setNewTransaction(prev => ({ ...prev, symbol: e.target.value.toUpperCase() })),
                     placeholder: __('cmdEtfPh', 'or enter ETF symbol: GLD, SLV, IAU...'), 'aria-label': t.symbol || 'Symbol',
-                    style: { width: '100%', padding: '0.625rem 0.875rem', background: currentTheme.inputBg, border: `1px solid ${currentTheme.inputBorder}`, borderRadius: '8px', color: currentTheme.text, fontSize: '0.875rem', boxSizing: 'border-box' }
+                    style: { width: '100%', padding: '0.625rem 0.875rem', background: currentTheme.inputBg, border: `1px solid ${currentTheme.inputBorder}`, borderRadius: '8px', color: currentTheme.text, fontSize: 'var(--text-base)', boxSizing: 'border-box' }
                   })
                 )
 
@@ -5994,7 +5994,7 @@ function InvestmentTracker() {
         React.createElement('div', { style: { marginBottom: '1rem' } },
           React.createElement('label', {
             htmlFor: 'tx-quantity',
-            style: { display: 'block', color: currentTheme.textSecondary, marginBottom: '0.5rem', fontSize: '0.875rem' }
+            style: { display: 'block', color: currentTheme.textSecondary, marginBottom: '0.5rem', fontSize: 'var(--text-base)' }
           }, newTransaction.category === 'bonds' && newTransaction.type !== 'dividend' && newTransaction.type !== 'interest' ? __('bondNominal', 'Nominal value') : (t.quantity || 'Quantity')),
           React.createElement('input', {
             id: 'tx-quantity',
@@ -6019,7 +6019,7 @@ function InvestmentTracker() {
         React.createElement('div', { style: { marginBottom: '1rem' } },
           React.createElement('label', {
             htmlFor: 'tx-price',
-            style: { display: 'block', color: currentTheme.textSecondary, marginBottom: '0.5rem', fontSize: '0.875rem' }
+            style: { display: 'block', color: currentTheme.textSecondary, marginBottom: '0.5rem', fontSize: 'var(--text-base)' }
           }, newTransaction.category === 'bonds' && newTransaction.type !== 'dividend' && newTransaction.type !== 'interest' ? __('bondPricePct', 'Price in % of nominal') : (t.pricePerUnit || 'Price per Unit')),
           React.createElement('input', {
             id: 'tx-price',
@@ -6044,7 +6044,7 @@ function InvestmentTracker() {
         React.createElement('div', { style: { marginBottom: '1rem' } },
           React.createElement('label', {
             htmlFor: 'tx-date',
-            style: { display: 'block', color: currentTheme.textSecondary, marginBottom: '0.5rem', fontSize: '0.875rem' }
+            style: { display: 'block', color: currentTheme.textSecondary, marginBottom: '0.5rem', fontSize: 'var(--text-base)' }
           }, t.date || 'Date'),
           React.createElement('input', {
             id: 'tx-date',
@@ -6066,7 +6066,7 @@ function InvestmentTracker() {
         React.createElement('div', { style: { marginBottom: '1rem' } },
           React.createElement('label', {
             htmlFor: 'tx-fees',
-            style: { display: 'block', color: currentTheme.textSecondary, marginBottom: '0.5rem', fontSize: '0.875rem' }
+            style: { display: 'block', color: currentTheme.textSecondary, marginBottom: '0.5rem', fontSize: 'var(--text-base)' }
           }, t.feesOptional || 'Fees (optional)'),
           React.createElement('input', {
             id: 'tx-fees',
@@ -6096,7 +6096,7 @@ function InvestmentTracker() {
         newTransaction.type === 'dividend' && React.createElement('div', { style: { marginBottom: '1rem' } },
           React.createElement('label', {
             htmlFor: 'tx-wht',
-            style: { display: 'block', color: currentTheme.textSecondary, marginBottom: '0.5rem', fontSize: '0.875rem' }
+            style: { display: 'block', color: currentTheme.textSecondary, marginBottom: '0.5rem', fontSize: 'var(--text-base)' }
           }, __('txWhtLabel', 'Withholding tax (optional, in {cur})', { cur: newTransaction.currency || currency })),
           React.createElement('input', {
             id: 'tx-wht',
@@ -6114,7 +6114,7 @@ function InvestmentTracker() {
               color: currentTheme.text
             }
           }),
-          React.createElement('div', { id: 'tx-wht-hint', style: { color: currentTheme.textSecondary, fontSize: '0.75rem', marginTop: '0.3rem' } },
+          React.createElement('div', { id: 'tx-wht-hint', style: { color: currentTheme.textSecondary, fontSize: 'var(--text-xs)', marginTop: '0.3rem' } },
             __('txWhtHint', 'Tax the source country kept before paying out. The German tax view credits up to 15 % of the gross dividend.'))
         ),
         
@@ -6122,7 +6122,7 @@ function InvestmentTracker() {
         React.createElement('div', { style: { marginBottom: '1.5rem' } },
           React.createElement('label', {
             htmlFor: 'tx-notes',
-            style: { display: 'block', color: currentTheme.textSecondary, marginBottom: '0.5rem', fontSize: '0.875rem' }
+            style: { display: 'block', color: currentTheme.textSecondary, marginBottom: '0.5rem', fontSize: 'var(--text-base)' }
           }, t.notesOptional || 'Notes (optional)'),
           React.createElement('input', {
             id: 'tx-notes',
@@ -6145,7 +6145,7 @@ function InvestmentTracker() {
         React.createElement('div', { style: { marginBottom: '1rem' } },
           React.createElement('label', {
             id: 'tx-currency-label',
-            style: { display: 'block', color: currentTheme.textSecondary, marginBottom: '0.5rem', fontSize: '0.875rem' }
+            style: { display: 'block', color: currentTheme.textSecondary, marginBottom: '0.5rem', fontSize: 'var(--text-base)' }
           }, t.currency || 'Currency'),
           React.createElement('div', { role: 'group', 'aria-labelledby': 'tx-currency-label', style: { display: 'flex', gap: '0.5rem' } },
             ['EUR', 'USD'].map(cur =>
@@ -6161,7 +6161,7 @@ function InvestmentTracker() {
                   border: 'none',
                   borderRadius: '6px',
                   cursor: 'pointer',
-                  fontSize: '0.875rem',
+                  fontSize: 'var(--text-base)',
                   fontWeight: '600'
                 }
               }, cur)
@@ -6179,7 +6179,7 @@ function InvestmentTracker() {
                 value: other ? cur : '',
                 onChange: (e) => { if (e.target.value) setNewTransaction(prev => ({ ...prev, currency: e.target.value })); },
                 style: {
-                  flex: 1, padding: '0.5rem', borderRadius: '6px', cursor: 'pointer', fontSize: '0.875rem', fontWeight: '600',
+                  flex: 1, padding: '0.5rem', borderRadius: '6px', cursor: 'pointer', fontSize: 'var(--text-base)', fontWeight: '600',
                   background: other ? (currentTheme.accentFill || currentTheme.accent) : currentTheme.inputBg, color: other ? '#fff' : currentTheme.text,
                   border: 'none'
                 }
@@ -6198,7 +6198,7 @@ function InvestmentTracker() {
             const res = FXH.txToEUR(1, cur, d, exchangeRate, fxAt);
             const show = (v) => (v >= 0.1 ? window.MaerminI18n.num(v, 4) : window.MaerminI18n.num(Number(v.toPrecision(4)), { min: 0, max: 10 }));
             const hasW = (marketWorker || '').trim().length > 5;
-            return React.createElement('div', { 'data-testid': 'tx-currency-hint', style: { color: currentTheme.textSecondary, fontSize: '0.78rem', marginTop: '0.4rem', lineHeight: 1.5 } },
+            return React.createElement('div', { 'data-testid': 'tx-currency-hint', style: { color: currentTheme.textSecondary, fontSize: 'var(--text-xs)', marginTop: '0.4rem', lineHeight: 1.5 } },
               res.status === 'exact' ? __('fxHintExact', '1 {cur} = {rate} EUR on {date} (rate of the trade date).', { cur, rate: show(res.value), date: window.MaerminI18n.date(d) })
                 : res.status === 'approx' ? (FXH.hasHistory(cur)
                     ? (hasW ? __('fxHintLater', "The {cur} rate of the trade date is loaded after saving. Today's rate until then: 1 {cur} ≈ {rate} EUR.", { cur, rate: show(res.value) })
@@ -6218,10 +6218,10 @@ function InvestmentTracker() {
             textAlign: 'center'
           }
         },
-          React.createElement('div', { style: { color: currentTheme.textSecondary, fontSize: '0.875rem' } },
+          React.createElement('div', { style: { color: currentTheme.textSecondary, fontSize: 'var(--text-base)' } },
             t.total || 'Total'
           ),
-          React.createElement('div', { style: { color: currentTheme.text, fontSize: '1.5rem', fontWeight: '800', letterSpacing: '-0.02em' } },
+          React.createElement('div', { style: { color: currentTheme.text, fontSize: 'var(--text-xl)', fontWeight: '800', letterSpacing: '-0.02em' } },
             `${window.MaerminI18n.num((window.MaerminUtils.parseDecimal(newTransaction.quantity) || 0) * (window.MaerminUtils.parseDecimal(newTransaction.price) || 0), 2)} ${newTransaction.currency || 'EUR'}`
           )
         ),
@@ -6229,7 +6229,7 @@ function InvestmentTracker() {
         // Which required fields are still empty after a save attempt.
         shownMissing.length ? React.createElement('div', {
           id: 'tx-missing', role: 'alert',
-          style: { color: currentTheme.danger, fontSize: '0.85rem', fontWeight: 600, marginBottom: '0.75rem' }
+          style: { color: currentTheme.danger, fontSize: 'var(--text-base)', fontWeight: 600, marginBottom: '0.75rem' }
         }, `${t.fillInFields || 'Please fill in'}: ${shownMissing.map(f => fieldNames[f]).join(', ')}`) : null
         ),
 
@@ -6307,11 +6307,11 @@ function InvestmentTracker() {
       },
         React.createElement('h2', {
           id: 'dlg-import',
-          style: { color: currentTheme.text, marginBottom: '1rem', fontSize: '1.5rem', fontWeight: '800', letterSpacing: '-0.02em' }
+          style: { color: currentTheme.text, marginBottom: '1rem', fontSize: 'var(--text-xl)', fontWeight: '800', letterSpacing: '-0.02em' }
         }, t.importData || 'Import Data'),
         
         React.createElement('p', {
-          style: { color: currentTheme.textSecondary, marginBottom: '1.5rem', fontSize: '0.875rem' }
+          style: { color: currentTheme.textSecondary, marginBottom: '1.5rem', fontSize: 'var(--text-base)' }
         }, t.importInstructions || 'Paste your transaction data in JSON or CSV format. Supported formats: JSON array, CSV with headers (type, category, symbol, quantity, price, date, fees)'),
         
         // Format examples
@@ -6319,7 +6319,7 @@ function InvestmentTracker() {
           style: { marginBottom: '1rem' }
         },
           React.createElement('details', {
-            style: { color: currentTheme.textSecondary, fontSize: '0.75rem' }
+            style: { color: currentTheme.textSecondary, fontSize: 'var(--text-xs)' }
           },
             React.createElement('summary', {
               style: { cursor: 'pointer', marginBottom: '0.5rem' }
@@ -6330,7 +6330,7 @@ function InvestmentTracker() {
                 padding: '0.75rem',
                 borderRadius: '6px',
                 overflow: 'auto',
-                fontSize: '0.7rem'
+                fontSize: 'var(--text-2xs)'
               }
             }, `JSON:
 [{"type":"buy","category":"crypto","symbol":"bitcoin","quantity":0.5,"price":45000,"date":"2024-01-15"}]
@@ -6355,7 +6355,7 @@ buy,crypto,bitcoin,0.5,45000,2024-01-15,10`)
             borderRadius: '8px',
             color: currentTheme.text,
             fontFamily: 'monospace',
-            fontSize: '0.875rem',
+            fontSize: 'var(--text-base)',
             resize: 'vertical',
             marginBottom: '1.5rem'
           }
@@ -6466,11 +6466,11 @@ buy,crypto,bitcoin,0.5,45000,2024-01-15,10`)
       },
         React.createElement('h2', {
           id: 'dlg-api-settings',
-          style: { color: currentTheme.text, marginBottom: '1.5rem', fontSize: '1.5rem', fontWeight: '800', letterSpacing: '-0.02em' }
+          style: { color: currentTheme.text, marginBottom: '1.5rem', fontSize: 'var(--text-xl)', fontWeight: '800', letterSpacing: '-0.02em' }
         }, t.apiSettings || 'API Settings'),
         
         React.createElement('p', {
-          style: { color: currentTheme.textSecondary, marginBottom: '1.5rem', fontSize: '0.875rem', lineHeight: '1.5' }
+          style: { color: currentTheme.textSecondary, marginBottom: '1.5rem', fontSize: 'var(--text-base)', lineHeight: '1.5' }
         }, __('apiIntro', 'Live prices come through your Cloudflare Worker. Exchange rates need no key.')),
 
         // ── Cloudflare Worker (CS2 + Yahoo Finance Historical Data) ─────────
@@ -6479,37 +6479,37 @@ buy,crypto,bitcoin,0.5,45000,2024-01-15,10`)
         },
           React.createElement('div', { style: { display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.625rem' } },
             React.createElement('div', null,
-              React.createElement('h3', { style: { color: currentTheme.text, fontSize: '1rem', fontWeight: '700' } }, 'Cloudflare Worker'),
+              React.createElement('h3', { style: { color: currentTheme.text, fontSize: 'var(--text-body)', fontWeight: '700' } }, 'Cloudflare Worker'),
               React.createElement('div', { style: { display: 'flex', gap: '0.375rem', marginTop: '0.25rem', flexWrap: 'wrap' } },
-                React.createElement('span', { style: { fontSize: '0.68rem', padding: '0.15rem 0.4rem', borderRadius: '3px', background: 'color-mix(in srgb, var(--success) 12%, transparent)', color: 'var(--success)', fontWeight: '700' } }, __('apiFreeNoKey', 'Free · No API key')),
-                React.createElement('span', { style: { fontSize: '0.68rem', padding: '0.15rem 0.4rem', borderRadius: '3px', background: 'rgba(6,182,212,0.12)', color: '#06b6d4', fontWeight: '700' } }, __('apiCs2Prices', 'CS2 Skin Prices')),
-                React.createElement('span', { style: { fontSize: '0.68rem', padding: '0.15rem 0.4rem', borderRadius: '3px', background: 'color-mix(in srgb, var(--info) 12%, transparent)', color: 'var(--info)', fontWeight: '700' } }, __('apiYahooChart', 'Yahoo Finance Chart Data')),
+                React.createElement('span', { style: { fontSize: 'var(--text-2xs)', padding: '0.15rem 0.4rem', borderRadius: '3px', background: 'color-mix(in srgb, var(--success) 12%, transparent)', color: 'var(--success)', fontWeight: '700' } }, __('apiFreeNoKey', 'Free · No API key')),
+                React.createElement('span', { style: { fontSize: 'var(--text-2xs)', padding: '0.15rem 0.4rem', borderRadius: '3px', background: 'rgba(6,182,212,0.12)', color: '#06b6d4', fontWeight: '700' } }, __('apiCs2Prices', 'CS2 Skin Prices')),
+                React.createElement('span', { style: { fontSize: 'var(--text-2xs)', padding: '0.15rem 0.4rem', borderRadius: '3px', background: 'color-mix(in srgb, var(--info) 12%, transparent)', color: 'var(--info)', fontWeight: '700' } }, __('apiYahooChart', 'Yahoo Finance Chart Data')),
               )
             ),
             React.createElement('span', {
-              style: { fontSize: '0.75rem', padding: '0.25rem 0.5rem', borderRadius: '4px', fontWeight: '600',
+              style: { fontSize: 'var(--text-xs)', padding: '0.25rem 0.5rem', borderRadius: '4px', fontWeight: '600',
                 background: (apiKeys.cs2Worker||'').trim().length > 5 ? 'color-mix(in srgb, var(--success) 18%, transparent)' : 'color-mix(in srgb, var(--warning) 15%, transparent)',
                 color: (apiKeys.cs2Worker||'').trim().length > 5 ? currentTheme.success : currentTheme.warning }
             }, (apiKeys.cs2Worker||'').trim().length > 5 ? __('apiConfigured', '✓ Configured') : __('apiNotConfigured', 'Not configured'))
           ),
-          React.createElement('p', { style: { color: currentTheme.textSecondary, fontSize: '0.8rem', marginBottom: '0.875rem', lineHeight: '1.6' } },
+          React.createElement('p', { style: { color: currentTheme.textSecondary, fontSize: 'var(--text-sm)', marginBottom: '0.875rem', lineHeight: '1.6' } },
             __('apiWorkerIntro', 'One Worker URL for all live data: stock, ETF and commodity prices and history (Yahoo Finance), crypto prices (CoinGecko), CS2 skin prices (daily Steam Market list), symbol search, dividends, earnings and news - plus encrypted sync and share links when the Worker has storage. No API key needed.')
           ),
           // Three-column feature overview
           React.createElement('div', { style: { display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '0.5rem', marginBottom: '0.875rem' } },
-            React.createElement('div', { style: { background: 'rgba(6,182,212,0.06)', border: '1px solid rgba(6,182,212,0.15)', borderRadius: '6px', padding: '0.625rem 0.75rem', fontSize: '0.72rem', color: currentTheme.textSecondary, lineHeight: '1.6' } },
+            React.createElement('div', { style: { background: 'rgba(6,182,212,0.06)', border: '1px solid rgba(6,182,212,0.15)', borderRadius: '6px', padding: '0.625rem 0.75rem', fontSize: 'var(--text-xs)', color: currentTheme.textSecondary, lineHeight: '1.6' } },
               React.createElement('div', { style: { color: '#06b6d4', fontWeight: '700', marginBottom: '0.25rem' } }, __('apiCs2Prices', 'CS2 Skin Prices')),
               React.createElement('div', null, __('apiSteamDaily', '→ Steam Market price list (daily)')),
               React.createElement('div', null, __('apiSearchImages', '→ Search with images')),
               React.createElement('div', null, __('apiOneRequest', '→ One request for all skins'))
             ),
-            React.createElement('div', { style: { background: 'color-mix(in srgb, var(--info) 6%, transparent)', border: '1px solid color-mix(in srgb, var(--info) 15%, transparent)', borderRadius: '6px', padding: '0.625rem 0.75rem', fontSize: '0.72rem', color: currentTheme.textSecondary, lineHeight: '1.6' } },
+            React.createElement('div', { style: { background: 'color-mix(in srgb, var(--info) 6%, transparent)', border: '1px solid color-mix(in srgb, var(--info) 15%, transparent)', borderRadius: '6px', padding: '0.625rem 0.75rem', fontSize: 'var(--text-xs)', color: currentTheme.textSecondary, lineHeight: '1.6' } },
               React.createElement('div', { style: { color: 'var(--info)', fontWeight: '700', marginBottom: '0.25rem' } }, __('apiHistoryChart', 'Portfolio History Chart')),
               React.createElement('div', null, '→ Yahoo Finance'),
               React.createElement('div', null, __('apiExchanges', '→ NYSE, XETRA, London…')),
               React.createElement('div', null, __('apiPeriods', '→ 1H to Max periods'))
             ),
-            React.createElement('div', { style: { background: 'rgba(139,124,255,0.06)', border: '1px solid rgba(139,124,255,0.15)', borderRadius: '6px', padding: '0.625rem 0.75rem', fontSize: '0.72rem', color: currentTheme.textSecondary, lineHeight: '1.6' } },
+            React.createElement('div', { style: { background: 'rgba(139,124,255,0.06)', border: '1px solid rgba(139,124,255,0.15)', borderRadius: '6px', padding: '0.625rem 0.75rem', fontSize: 'var(--text-xs)', color: currentTheme.textSecondary, lineHeight: '1.6' } },
               React.createElement('div', { style: { color: '#8b7cff', fontWeight: '700', marginBottom: '0.25rem' } }, __('apiCs2History', 'CS2 Price History')),
               React.createElement('div', null, __('apiAverages', '→ 24 h / 7 / 30 / 90-day averages')),
               React.createElement('div', null, __('apiPerSkin', '→ Per skin over time')),
@@ -6517,7 +6517,7 @@ buy,crypto,bitcoin,0.5,45000,2024-01-15,10`)
             )
           ),
           React.createElement('div', {
-            style: { background: currentTheme.inputBg, borderRadius: '8px', padding: '0.875rem', marginBottom: '0.875rem', fontSize: '0.78rem', color: currentTheme.textSecondary, lineHeight: '1.8' }
+            style: { background: currentTheme.inputBg, borderRadius: '8px', padding: '0.875rem', marginBottom: '0.875rem', fontSize: 'var(--text-xs)', color: currentTheme.textSecondary, lineHeight: '1.8' }
           },
             workerVersion && workerVersion.state === 'outdated' && React.createElement('div', { 'data-testid': 'worker-version-note', style: { color: currentTheme.warning, fontWeight: '600', marginBottom: '0.5rem' } },
               workerVersion.version
@@ -6535,7 +6535,7 @@ buy,crypto,bitcoin,0.5,45000,2024-01-15,10`)
             React.createElement('div', null, '3. ' + __('apiStep3', 'Save and Deploy — no secrets needed')),
             React.createElement('div', null, '4. ' + __('apiStep4', 'Paste the Worker URL below'))
           ),
-          React.createElement('label', { style: { display: 'block', color: currentTheme.textSecondary, fontSize: '0.72rem', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '0.375rem' } },
+          React.createElement('label', { style: { display: 'block', color: currentTheme.textSecondary, fontSize: 'var(--text-xs)', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '0.375rem' } },
             __('apiWorkerLabel', 'Worker URL — live prices, symbol search, research, sync, share links and reminders')
           ),
           React.createElement('input', {
@@ -6543,11 +6543,11 @@ buy,crypto,bitcoin,0.5,45000,2024-01-15,10`)
             value: apiKeys.cs2Worker || '',
             onChange: e => setApiKeys(prev => ({ ...prev, cs2Worker: e.target.value })),
             placeholder: 'https://your-worker-name.your-subdomain.workers.dev',
-            style: { width: '100%', padding: '0.75rem', background: currentTheme.inputBg, border: `1px solid ${currentTheme.inputBorder}`, borderRadius: '6px', color: currentTheme.text, fontSize: '0.8rem', fontFamily: 'monospace' }
+            style: { width: '100%', padding: '0.75rem', background: currentTheme.inputBg, border: `1px solid ${currentTheme.inputBorder}`, borderRadius: '6px', color: currentTheme.text, fontSize: 'var(--text-sm)', fontFamily: 'monospace' }
           }),
           window.MaerminOnboarding && window.MaerminOnboarding.Wizard && React.createElement('button', {
             onClick: () => { setShowApiSettings(false); openOnboarding(); },
-            style: { marginTop: '0.625rem', padding: '0.5rem 0.9rem', background: 'transparent', color: currentTheme.accent, border: `1px solid ${currentTheme.accent}`, borderRadius: '6px', cursor: 'pointer', fontWeight: '600', fontSize: '0.8rem' }
+            style: { marginTop: '0.625rem', padding: '0.5rem 0.9rem', background: 'transparent', color: currentTheme.accent, border: `1px solid ${currentTheme.accent}`, borderRadius: '6px', cursor: 'pointer', fontWeight: '600', fontSize: 'var(--text-sm)' }
           }, __('apiGuided', 'Guided setup & connection test'))
         ),
 
@@ -6564,11 +6564,11 @@ buy,crypto,bitcoin,0.5,45000,2024-01-15,10`)
             style: { display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.75rem' }
           },
             React.createElement('h3', {
-              style: { color: currentTheme.text, fontSize: '1rem', fontWeight: '600' }
+              style: { color: currentTheme.text, fontSize: 'var(--text-body)', fontWeight: '600' }
             }, 'CoinGecko'),
             React.createElement('span', {
               style: { 
-                fontSize: '0.75rem', 
+                fontSize: 'var(--text-xs)', 
                 padding: '0.25rem 0.5rem',
                 background: 'color-mix(in srgb, var(--success) 20%, transparent)',
                 color: currentTheme.success,
@@ -6577,7 +6577,7 @@ buy,crypto,bitcoin,0.5,45000,2024-01-15,10`)
             }, t.publicApi || 'Public API')
           ),
           React.createElement('p', {
-            style: { color: currentTheme.textSecondary, fontSize: '0.8rem' }
+            style: { color: currentTheme.textSecondary, fontSize: 'var(--text-sm)' }
           }, t.coingeckoInfo || 'Crypto prices come from CoinGecko through your Worker, which caches them. No API key needed; an optional CoinGecko demo key on the Worker (COINGECKO_API_KEY) raises the limit.')
         ),
         
@@ -6594,11 +6594,11 @@ buy,crypto,bitcoin,0.5,45000,2024-01-15,10`)
             style: { display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.75rem' }
           },
             React.createElement('h3', {
-              style: { color: currentTheme.text, fontSize: '1rem', fontWeight: '600' }
+              style: { color: currentTheme.text, fontSize: 'var(--text-body)', fontWeight: '600' }
             }, t.exchangeRate || 'Exchange Rate'),
             React.createElement('span', {
               style: { 
-                fontSize: '0.75rem', 
+                fontSize: 'var(--text-xs)', 
                 padding: '0.25rem 0.5rem',
                 background: 'color-mix(in srgb, var(--success) 20%, transparent)',
                 color: currentTheme.success,
@@ -6607,7 +6607,7 @@ buy,crypto,bitcoin,0.5,45000,2024-01-15,10`)
             }, 'ExchangeRate-API')
           ),
           React.createElement('p', {
-            style: { color: currentTheme.textSecondary, fontSize: '0.8rem', marginBottom: '0.5rem' }
+            style: { color: currentTheme.textSecondary, fontSize: 'var(--text-sm)', marginBottom: '0.5rem' }
           }, t.exchangeRateInfo || 'Prices quoted in USD or another currency (US stocks, CS2 skins) are converted to EUR with daily exchange rates.'),
           React.createElement('div', {
             style: { 
@@ -6685,19 +6685,19 @@ buy,crypto,bitcoin,0.5,45000,2024-01-15,10`)
         navigator.clipboard.writeText(code).then(() => addToast(t.rcCopied || 'Recovery code copied', 'success'), failed);
       } catch (e) { failed(); }
     };
-    const altBtn = (label, onClick) => React.createElement('button', { onClick, style: { flex: 1, padding: '0.6rem', background: 'transparent', color: currentTheme.text, border: `1px solid ${currentTheme.cardBorder}`, borderRadius: '8px', cursor: 'pointer', fontSize: '0.82rem' } }, label);
+    const altBtn = (label, onClick) => React.createElement('button', { onClick, style: { flex: 1, padding: '0.6rem', background: 'transparent', color: currentTheme.text, border: `1px solid ${currentTheme.cardBorder}`, borderRadius: '8px', cursor: 'pointer', fontSize: 'var(--text-sm)' } }, label);
     // focusField: false - open on the panel so the code is read first, not the checkbox.
     return React.createElement(window.MaerminUI.Overlay, { dismissable: false, focusField: false, restoreFocus: focusAccountButton, style: { position: 'fixed', inset: 0, zIndex: 9100, background: 'rgba(3,6,12,0.72)', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '1.5rem' } },
       React.createElement('div', { ...window.MaerminUI.dialogProps('dlg-recovery'), style: { background: currentTheme.modalBg || currentTheme.cardBg || '#141a25', border: `1px solid ${currentTheme.cardBorder}`, borderRadius: '16px', padding: '1.75rem', width: '100%', maxWidth: '460px', boxShadow: '0 30px 70px -20px rgba(0,0,0,0.7)' } },
-        React.createElement('h3', { id: 'dlg-recovery', style: { color: currentTheme.text, fontSize: '1.15rem', fontWeight: '700', margin: '0 0 0.5rem' } }, t.rcTitle || 'Your recovery code'),
-        React.createElement('p', { style: { color: currentTheme.textSecondary, fontSize: '0.85rem', lineHeight: '1.55', margin: '0 0 1rem' } }, t.rcIntro || 'Save this now — it can unlock your vault if you forget your password. It is shown once and never stored in readable form. Anyone with it can open your vault.'),
-        React.createElement('div', { style: { fontFamily: 'ui-monospace,Menlo,monospace', fontSize: '1.05rem', letterSpacing: '0.05em', color: currentTheme.accent, background: currentTheme.inputBg, border: `1px solid ${currentTheme.cardBorder}`, borderRadius: '10px', padding: '1rem', textAlign: 'center', wordBreak: 'break-all', userSelect: 'all', marginBottom: '0.9rem' } }, code),
+        React.createElement('h3', { id: 'dlg-recovery', style: { color: currentTheme.text, fontSize: 'var(--text-lg)', fontWeight: '700', margin: '0 0 0.5rem' } }, t.rcTitle || 'Your recovery code'),
+        React.createElement('p', { style: { color: currentTheme.textSecondary, fontSize: 'var(--text-base)', lineHeight: '1.55', margin: '0 0 1rem' } }, t.rcIntro || 'Save this now — it can unlock your vault if you forget your password. It is shown once and never stored in readable form. Anyone with it can open your vault.'),
+        React.createElement('div', { style: { fontFamily: 'ui-monospace,Menlo,monospace', fontSize: 'var(--text-body)', letterSpacing: '0.05em', color: currentTheme.accent, background: currentTheme.inputBg, border: `1px solid ${currentTheme.cardBorder}`, borderRadius: '10px', padding: '1rem', textAlign: 'center', wordBreak: 'break-all', userSelect: 'all', marginBottom: '0.9rem' } }, code),
         React.createElement('div', { style: { display: 'flex', gap: '0.5rem', marginBottom: '1rem' } }, doCopy && altBtn(t.rcCopy || 'Copy', doCopy), altBtn(t.rcDownload || 'Download', doDownload), altBtn(t.rcPrint || 'Print', doPrint)),
-        React.createElement('label', { style: { display: 'flex', gap: '0.55rem', alignItems: 'flex-start', color: currentTheme.text, fontSize: '0.84rem', lineHeight: '1.45', marginBottom: '0.9rem', cursor: 'pointer' } },
+        React.createElement('label', { style: { display: 'flex', gap: '0.55rem', alignItems: 'flex-start', color: currentTheme.text, fontSize: 'var(--text-sm)', lineHeight: '1.45', marginBottom: '0.9rem', cursor: 'pointer' } },
           React.createElement('input', { type: 'checkbox', checked: recoverySaved, onChange: (e) => setRecoverySaved(e.target.checked), style: { marginTop: '0.2rem', accentColor: currentTheme.accent } }),
           React.createElement('span', null, t.rcSavedCheck || 'I\'ve saved this recovery code somewhere safe and private.')),
-        React.createElement('button', { onClick: () => finishRecoveryKit(true), disabled: !recoverySaved, style: { width: '100%', padding: '0.7rem', background: (currentTheme.accentFill || currentTheme.accent), color: '#ffffff', border: 'none', borderRadius: '8px', cursor: recoverySaved ? 'pointer' : 'not-allowed', opacity: recoverySaved ? 1 : 0.5, fontWeight: '700', fontSize: '0.9rem' } }, t.rcDone || 'Done — I\'ve saved it'),
-        React.createElement('button', { onClick: () => finishRecoveryKit(false), style: { width: '100%', marginTop: '0.5rem', padding: '0.55rem', background: 'transparent', color: currentTheme.textSecondary, border: 'none', cursor: 'pointer', fontSize: '0.8rem' } },
+        React.createElement('button', { onClick: () => finishRecoveryKit(true), disabled: !recoverySaved, style: { width: '100%', padding: '0.7rem', background: (currentTheme.accentFill || currentTheme.accent), color: '#ffffff', border: 'none', borderRadius: '8px', cursor: recoverySaved ? 'pointer' : 'not-allowed', opacity: recoverySaved ? 1 : 0.5, fontWeight: '700', fontSize: 'var(--text-base)' } }, t.rcDone || 'Done — I\'ve saved it'),
+        React.createElement('button', { onClick: () => finishRecoveryKit(false), style: { width: '100%', marginTop: '0.5rem', padding: '0.55rem', background: 'transparent', color: currentTheme.textSecondary, border: 'none', cursor: 'pointer', fontSize: 'var(--text-sm)' } },
           (window.MaerminAuth && window.MaerminAuth.getStatus && window.MaerminAuth.getStatus().hasRecovery) ? (t.rcKeepOld || 'Cancel — keep my current code') : (t.rcNotNow || 'Not now'))
       )
     );
@@ -6709,9 +6709,9 @@ buy,crypto,bitcoin,0.5,45000,2024-01-15,10`)
     const St = window.MaerminStorage, V = window.MaerminVault;
     if (demoMode || !St || !V || !V.isUnlocked || !V.isUnlocked() || St.isEnabled()) return null;
     const turnOn = () => St.enableAtRest().then(() => { addToast(__('atRestOn', 'Data encrypted at rest ✓'), 'success'); setSecurityRev((r) => r + 1); }, () => addToast(__('atRestFailed', 'Could not enable at-rest encryption'), 'error'));
-    return React.createElement('div', { role: 'status', 'data-testid': 'atrest-off-banner', style: { display: 'flex', alignItems: 'center', gap: '0.75rem', flexWrap: 'wrap', margin: '0.75rem 1.5rem 0', padding: '0.65rem 0.9rem', borderRadius: '10px', border: `1px solid ${currentTheme.warning}66`, background: `${currentTheme.warning}14`, color: currentTheme.text, fontSize: '0.82rem' } },
+    return React.createElement('div', { role: 'status', 'data-testid': 'atrest-off-banner', style: { display: 'flex', alignItems: 'center', gap: '0.75rem', flexWrap: 'wrap', margin: '0.75rem 1.5rem 0', padding: '0.65rem 0.9rem', borderRadius: '10px', border: `1px solid ${currentTheme.warning}66`, background: `${currentTheme.warning}14`, color: currentTheme.text, fontSize: 'var(--text-sm)' } },
       React.createElement('span', { style: { flex: 1, minWidth: '220px' } }, __('atRestOffBanner', 'Your portfolio is stored unencrypted in this browser. Anyone with access to this device or a copy of its profile can read it.')),
-      React.createElement('button', { type: 'button', onClick: turnOn, style: { padding: '0.4rem 0.85rem', borderRadius: '7px', border: 'none', background: currentTheme.accentFill || currentTheme.accent, color: '#ffffff', fontWeight: 700, fontSize: '0.8rem', cursor: 'pointer' } }, __('secEncryptNow', 'Encrypt now')));
+      React.createElement('button', { type: 'button', onClick: turnOn, style: { padding: '0.4rem 0.85rem', borderRadius: '7px', border: 'none', background: currentTheme.accentFill || currentTheme.accent, color: '#ffffff', fontWeight: 700, fontSize: 'var(--text-sm)', cursor: 'pointer' } }, __('secEncryptNow', 'Encrypt now')));
   };
 
   // ========== SECURITY & SYNC MODAL ==========
@@ -6733,10 +6733,10 @@ buy,crypto,bitcoin,0.5,45000,2024-01-15,10`)
       if (s < 86400) return __('agoHours', '{n} h ago', { n: Math.floor(s / 3600) });
       return __('agoDays', '{n} d ago', { n: Math.floor(s / 86400) });
     };
-    const badge = (txt, good) => React.createElement('span', { style: { fontSize: '0.7rem', padding: '0.15rem 0.5rem', borderRadius: '4px', background: good ? 'color-mix(in srgb, var(--success) 18%, transparent)' : 'rgba(255,255,255,0.06)', color: good ? currentTheme.success : currentTheme.textSecondary, fontWeight: '700' } }, txt);
-    const smallBtn = (label, onClick, disabled) => React.createElement('button', { onClick, disabled, style: { padding: '0.4rem 0.8rem', background: 'transparent', color: currentTheme.accent, border: `1px solid ${currentTheme.accent}`, borderRadius: '6px', cursor: disabled ? 'wait' : 'pointer', fontSize: '0.78rem', fontWeight: '600', opacity: disabled ? 0.6 : 1 } }, label);
-    const row = (label, control) => React.createElement('div', { style: { display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '1rem', padding: '0.55rem 0', borderBottom: `1px solid ${currentTheme.cardBorder}` } }, React.createElement('span', { style: { color: currentTheme.text, fontSize: '0.85rem' } }, label), control);
-    const sectionTitle = (txt) => React.createElement('div', { style: { color: currentTheme.textSecondary, fontSize: '0.7rem', textTransform: 'uppercase', letterSpacing: '0.05em', margin: '1.1rem 0 0.3rem' } }, txt);
+    const badge = (txt, good) => React.createElement('span', { style: { fontSize: 'var(--text-2xs)', padding: '0.15rem 0.5rem', borderRadius: '4px', background: good ? 'color-mix(in srgb, var(--success) 18%, transparent)' : 'rgba(255,255,255,0.06)', color: good ? currentTheme.success : currentTheme.textSecondary, fontWeight: '700' } }, txt);
+    const smallBtn = (label, onClick, disabled) => React.createElement('button', { onClick, disabled, style: { padding: '0.4rem 0.8rem', background: 'transparent', color: currentTheme.accent, border: `1px solid ${currentTheme.accent}`, borderRadius: '6px', cursor: disabled ? 'wait' : 'pointer', fontSize: 'var(--text-xs)', fontWeight: '600', opacity: disabled ? 0.6 : 1 } }, label);
+    const row = (label, control) => React.createElement('div', { style: { display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '1rem', padding: '0.55rem 0', borderBottom: `1px solid ${currentTheme.cardBorder}` } }, React.createElement('span', { style: { color: currentTheme.text, fontSize: 'var(--text-base)' } }, label), control);
+    const sectionTitle = (txt) => React.createElement('div', { style: { color: currentTheme.textSecondary, fontSize: 'var(--text-2xs)', textTransform: 'uppercase', letterSpacing: '0.05em', margin: '1.1rem 0 0.3rem' } }, txt);
 
     const addPasskey = () => { if (!A || !A.enrollPasskey) return; A.enrollPasskey('MAERMIN').then((res) => { if (res && res.enrolled) { addToast(__('passkeyEnrolled', 'Passkey enrolled ✓'), 'success'); bump(); } else { addToast(__('passkeyNoPrf', 'This authenticator has no PRF support'), 'error'); } }, () => addToast(__('passkeyCancelled', 'Passkey enrollment cancelled'), 'error')); };
     const removePasskey = () => {
@@ -6776,13 +6776,13 @@ buy,crypto,bitcoin,0.5,45000,2024-01-15,10`)
     return React.createElement(window.MaerminUI.Overlay, { onClose: () => setShowSecurity(false), focusField: false, restoreFocus: focusAccountButton, style: { position: 'fixed', inset: 0, zIndex: 9050, background: 'rgba(3,6,12,0.72)', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '1.5rem' } },
       React.createElement('div', { ...window.MaerminUI.dialogProps('dlg-security'), style: { background: currentTheme.modalBg || currentTheme.cardBg || '#141a25', border: `1px solid ${currentTheme.cardBorder}`, borderRadius: '16px', padding: '1.75rem', width: '100%', maxWidth: '500px', maxHeight: '88vh', overflowY: 'auto', boxShadow: '0 30px 70px -20px rgba(0,0,0,0.7)' } },
         React.createElement('div', { style: { display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.25rem' } },
-          React.createElement('h3', { id: 'dlg-security', style: { color: currentTheme.text, fontSize: '1.15rem', fontWeight: '700', margin: 0 } }, __('securitySync', 'Security & sync')),
-          React.createElement('button', { onClick: () => setShowSecurity(false), 'aria-label': t.close || 'Close', style: { background: 'none', border: 'none', color: currentTheme.textSecondary, fontSize: '1.4rem', cursor: 'pointer', lineHeight: 1 } }, '×')
+          React.createElement('h3', { id: 'dlg-security', style: { color: currentTheme.text, fontSize: 'var(--text-lg)', fontWeight: '700', margin: 0 } }, __('securitySync', 'Security & sync')),
+          React.createElement('button', { onClick: () => setShowSecurity(false), 'aria-label': t.close || 'Close', style: { background: 'none', border: 'none', color: currentTheme.textSecondary, fontSize: 'var(--text-title-lg)', cursor: 'pointer', lineHeight: 1 } }, '×')
         ),
         sectionTitle(__('secVault', 'Vault')),
         row(__('secAtRest', 'Encryption at rest'), status.encryptedAtRest ? badge(__('secOn', 'On'), true) : smallBtn(__('secEncryptNow', 'Encrypt now'), enableAtRest)),
         row(__('secKdf', 'Key derivation'), badge(status.kdf === 'argon2id' ? 'Argon2id' : 'PBKDF2-600k', true)),
-        row(__('secAutoLock', 'Auto-lock'), React.createElement('div', { style: { display: 'flex', gap: '0.3rem' } }, [1, 5, 15, 30].map((m) => React.createElement('button', { key: m, onClick: () => setLock(m), style: { padding: '0.3rem 0.5rem', background: lockMin === m ? (currentTheme.accentFill || currentTheme.accent) : currentTheme.inputBg, color: lockMin === m ? '#ffffff' : currentTheme.text, border: 'none', borderRadius: '5px', cursor: 'pointer', fontSize: '0.72rem', fontWeight: lockMin === m ? '700' : '500' } }, m + 'm')))),
+        row(__('secAutoLock', 'Auto-lock'), React.createElement('div', { style: { display: 'flex', gap: '0.3rem' } }, [1, 5, 15, 30].map((m) => React.createElement('button', { key: m, onClick: () => setLock(m), style: { padding: '0.3rem 0.5rem', background: lockMin === m ? (currentTheme.accentFill || currentTheme.accent) : currentTheme.inputBg, color: lockMin === m ? '#ffffff' : currentTheme.text, border: 'none', borderRadius: '5px', cursor: 'pointer', fontSize: 'var(--text-xs)', fontWeight: lockMin === m ? '700' : '500' } }, m + 'm')))),
         sectionTitle(__('secAccess', 'Access')),
         row(__('secPasskey', 'Passkey unlock'), status.hasPasskey
           ? React.createElement('div', { style: { display: 'flex', gap: '0.4rem', alignItems: 'center' } }, badge(__('secEnrolled', 'Enrolled'), true), smallBtn(__('passkeyRemove', 'Remove'), removePasskey))
@@ -6790,24 +6790,24 @@ buy,crypto,bitcoin,0.5,45000,2024-01-15,10`)
         row(__('secRecovery', 'Recovery code'), status.hasRecovery ? React.createElement('div', { style: { display: 'flex', gap: '0.4rem', alignItems: 'center' } }, badge(__('secActive', 'Active'), true), smallBtn(__('secRotate', 'Rotate'), createRecoveryKit, recoveryBusy)) : smallBtn(recoveryBusy ? __('creating', 'Creating…') : __('create', 'Create'), createRecoveryKit, recoveryBusy)),
         row(__('secDataKey', 'Encryption key'), smallBtn(__('secReplaceKey', 'Replace'), () => setRotateOpen((o) => !o), rotateBusy)),
         rotateOpen && React.createElement('div', { 'data-testid': 'rotate-key', style: { padding: '0.6rem 0 0.2rem' } },
-          React.createElement('p', { style: { color: currentTheme.textSecondary, fontSize: '0.76rem', lineHeight: 1.5, margin: '0 0 0.5rem' } },
+          React.createElement('p', { style: { color: currentTheme.textSecondary, fontSize: 'var(--text-xs)', lineHeight: 1.5, margin: '0 0 0.5rem' } },
             __('secReplaceKeyHint', 'Re-encrypts everything under a new key. Use it when an old password, recovery code, passkey or a copy of this vault may be in other hands: none of them opens new data afterwards. The recovery code and passkey are removed (set them up again), and other synced devices need this vault again.')),
           React.createElement('div', { style: { display: 'flex', gap: '0.5rem' } },
-            React.createElement('input', { type: 'password', value: rotatePw, onChange: (e) => setRotatePw(e.target.value), onKeyDown: (e) => e.key === 'Enter' && rotateKey(), placeholder: t.currentPassword || 'Current Password', 'aria-label': t.currentPassword || 'Current Password', autoComplete: 'current-password', style: { flex: 1, padding: '0.5rem', background: currentTheme.inputBg, border: `1px solid ${currentTheme.inputBorder}`, borderRadius: '6px', color: currentTheme.text, fontSize: '0.82rem' } }),
+            React.createElement('input', { type: 'password', value: rotatePw, onChange: (e) => setRotatePw(e.target.value), onKeyDown: (e) => e.key === 'Enter' && rotateKey(), placeholder: t.currentPassword || 'Current Password', 'aria-label': t.currentPassword || 'Current Password', autoComplete: 'current-password', style: { flex: 1, padding: '0.5rem', background: currentTheme.inputBg, border: `1px solid ${currentTheme.inputBorder}`, borderRadius: '6px', color: currentTheme.text, fontSize: 'var(--text-sm)' } }),
             smallBtn(rotateBusy ? __('working', 'Working…') : __('secReplaceKeyNow', 'Replace key'), rotateKey, rotateBusy || !rotatePw))),
         sectionTitle(__('secCloudSync', 'Cloud sync (zero-knowledge)')),
-        React.createElement('p', { style: { color: currentTheme.textSecondary, fontSize: '0.76rem', lineHeight: '1.5', margin: '0 0 0.4rem' } }, __('secCloudSyncHint2', 'Your encrypted snapshot syncs through your own Worker, a file or a WebDAV folder. Each of them only ever sees ciphertext; the account id is derived from your vault.')),
+        React.createElement('p', { style: { color: currentTheme.textSecondary, fontSize: 'var(--text-xs)', lineHeight: '1.5', margin: '0 0 0.4rem' } }, __('secCloudSyncHint2', 'Your encrypted snapshot syncs through your own Worker, a file or a WebDAV folder. Each of them only ever sees ciphertext; the account id is derived from your vault.')),
         // The badge shows a failed last attempt instead of a green "Enabled" (FINDINGS H-6).
         row(__('secStatus', 'Status'), !syncOn ? badge(__('secNotEnabled', 'Not enabled'), false) : (() => {
           const st = (S && S.statusOf) ? S.statusOf(syncState) : { state: syncState && syncState.lastSyncAt ? 'ok' : 'never' };
           if (st.state === 'error') {
-            return React.createElement('span', { role: 'status', title: st.message, style: { fontSize: '0.7rem', padding: '0.15rem 0.5rem', borderRadius: '4px', background: 'color-mix(in srgb, var(--danger) 16%, transparent)', color: currentTheme.danger, fontWeight: '700', maxWidth: '16rem', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', display: 'inline-block' } },
+            return React.createElement('span', { role: 'status', title: st.message, style: { fontSize: 'var(--text-2xs)', padding: '0.15rem 0.5rem', borderRadius: '4px', background: 'color-mix(in srgb, var(--danger) 16%, transparent)', color: currentTheme.danger, fontWeight: '700', maxWidth: '16rem', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', display: 'inline-block' } },
               (t.syncErrorBadge || 'Sync failed {ago}: {error}').replace('{ago}', fmtAgo(st.at)).replace('{error}', st.message));
           }
           return badge(__('syncEnabledLast', 'Enabled · last {ago}', { ago: fmtAgo(syncState && syncState.lastSyncAt) }), true);
         })()),
         // P5-5.6: the destination - your Worker, a local file or a WebDAV folder
-        syncOn && TRs ? row(__('stDest', 'Destination'), React.createElement('span', { 'data-testid': 'sync-dest-name', style: { color: currentTheme.text, fontSize: '0.78rem' } }, TRs.describe(syncCfg))) : null,
+        syncOn && TRs ? row(__('stDest', 'Destination'), React.createElement('span', { 'data-testid': 'sync-dest-name', style: { color: currentTheme.text, fontSize: 'var(--text-xs)' } }, TRs.describe(syncCfg))) : null,
         React.createElement('div', { style: { display: 'flex', gap: '0.5rem', marginTop: '0.7rem', flexWrap: 'wrap' } },
           syncOn ? smallBtn(syncBusy ? __('syncing', 'Syncing…') : __('syncNow', 'Sync now'), runSync, syncBusy) : null,
           syncOn && TRs && syncCfg && syncCfg.provider === 'file' && !(S && S.isConfigured()) ? smallBtn(__('stReconnect', 'Allow file access'), reconnectFile, syncBusy) : null,
@@ -6815,16 +6815,16 @@ buy,crypto,bitcoin,0.5,45000,2024-01-15,10`)
           syncOn || TRs ? null : smallBtn(syncBusy ? '…' : __('syncEnable', 'Enable & sync'), doEnableSync, syncBusy || !workerUrl)
         ),
         !syncOn && TRs ? React.createElement(TRs.Panel, { theme: currentTheme, workerUrl, busy: syncBusy, onConnect: connectSync }) : null,
-        !TRs && !workerUrl && React.createElement('div', { style: { color: currentTheme.warning, fontSize: '0.74rem', marginTop: '0.4rem' } }, __('syncNeedWorkerHint', 'Add a Worker URL in API Settings to enable sync.')),
+        !TRs && !workerUrl && React.createElement('div', { style: { color: currentTheme.warning, fontSize: 'var(--text-xs)', marginTop: '0.4rem' } }, __('syncNeedWorkerHint', 'Add a Worker URL in API Settings to enable sync.')),
         // P5-3.1: where market data comes from, and the shared price service switch
         sectionTitle(__('secMarketData', 'Market data')),
-        React.createElement('p', { 'data-testid': 'shared-prices-info', style: { color: currentTheme.textSecondary, fontSize: '0.76rem', lineHeight: '1.5', margin: '0 0 0.4rem' } },
+        React.createElement('p', { 'data-testid': 'shared-prices-info', style: { color: currentTheme.textSecondary, fontSize: 'var(--text-xs)', lineHeight: '1.5', margin: '0 0 0.4rem' } },
           __('secSharedHint', 'Prices, closes, exchange rates, symbol search and fund data come from your own Worker. Without one, the app can use the MAERMIN price service run by the project owner: it only serves market data, sees the symbols you ask about (never amounts, quantities or your vault), keeps no logs beyond its cache, and is never used for sync, share links or broker connections. Your own Worker always wins.')),
         row(__('secSource', 'Source'), badge(workerUrl ? __('secSourceOwn', 'Your Worker') : usingSharedPrices ? __('secSourceShared', 'MAERMIN price service') : __('secSourceNone', 'None (offline prices)'), !!(workerUrl || usingSharedPrices))),
         row(__('secSharedSwitch', 'Use the price service without an own Worker'), React.createElement('label', { style: { display: 'inline-flex', alignItems: 'center', gap: '0.4rem', cursor: 'pointer' } },
           React.createElement('input', { type: 'checkbox', 'data-testid': 'shared-prices-toggle', checked: (window.MaerminSharedWorker ? window.MaerminSharedWorker.enabledFrom(sharedPrices) : false),
             onChange: (e) => setSharedPrices(e.target.checked), style: { width: '22px', height: '22px', margin: 0, accentColor: currentTheme.accent } }))),
-        window.MaerminSharedWorker && !window.MaerminSharedWorker.SHARED_URL && React.createElement('div', { style: { color: currentTheme.textSecondary, fontSize: '0.72rem', marginTop: '0.3rem' } },
+        window.MaerminSharedWorker && !window.MaerminSharedWorker.SHARED_URL && React.createElement('div', { style: { color: currentTheme.textSecondary, fontSize: 'var(--text-xs)', marginTop: '0.3rem' } },
           __('secSharedNotYet', 'The price service is not online yet; until then market data needs your own Worker.')),
         // P5-5.1: web push reminders through the user's own Worker
         window.MaerminPush && sectionTitle(__('secPush', 'Push notifications')),
@@ -6990,7 +6990,7 @@ buy,crypto,bitcoin,0.5,45000,2024-01-15,10`)
             React.createElement('div', { className: 'mx-seg' },
               themeChoices.map(([th, lbl, sw]) => segBtn(th, theme === th, (e) => switchTheme(th, e), [
                 React.createElement('span', { key: 's', className: 'mx-swatch', style: { background: sw } }),
-                React.createElement('span', { key: 'l', style: { fontSize: '0.64rem' } }, lbl)
+                React.createElement('span', { key: 'l', style: { fontSize: 'var(--text-3xs)' } }, lbl)
               ], { title: lbl }))
             )
           ),
@@ -7054,10 +7054,10 @@ buy,crypto,bitcoin,0.5,45000,2024-01-15,10`)
                 .then(function (yes) { if (!yes) return; CA.remove(a.id); setCorpActionsRev(function (n) { return n + 1; }); });
             };
             return React.createElement('div', { key: 'corp-' + corpActionsRev, style: { marginBottom: '1rem' } },
-              React.createElement('label', { style: { color: currentTheme.textSecondary, fontSize: '0.7rem', textTransform: 'uppercase', letterSpacing: '0.05em' } }, t.caTitle || 'Corporate actions (splits)'),
+              React.createElement('label', { style: { color: currentTheme.textSecondary, fontSize: 'var(--text-2xs)', textTransform: 'uppercase', letterSpacing: '0.05em' } }, t.caTitle || 'Corporate actions (splits)'),
               React.createElement('div', { style: { display: 'flex', flexDirection: 'column', gap: '1px', marginTop: '0.5rem', maxHeight: '140px', overflow: 'auto' } },
                 all.map(function (a) {
-                  return React.createElement('div', { key: a.id, style: { display: 'grid', gridTemplateColumns: '1fr auto auto', gap: '0.4rem', alignItems: 'center', padding: '0.3rem 0', borderBottom: '1px solid ' + currentTheme.cardBorder, fontSize: '0.76rem' } },
+                  return React.createElement('div', { key: a.id, style: { display: 'grid', gridTemplateColumns: '1fr auto auto', gap: '0.4rem', alignItems: 'center', padding: '0.3rem 0', borderBottom: '1px solid ' + currentTheme.cardBorder, fontSize: 'var(--text-xs)' } },
                     React.createElement('span', { style: { color: currentTheme.text, fontWeight: 600, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' } }, a.symbol + ' ' + a.num + ':' + a.den),
                     React.createElement('span', { style: { color: currentTheme.textSecondary } }, a.date),
                     React.createElement('span', Object.assign({}, ((window.MaerminUtils && window.MaerminUtils.clickable) ? window.MaerminUtils.clickable(function () { removeOne(a); }) : { onClick: function () { removeOne(a); } }), { style: { color: currentTheme.danger || 'var(--danger)', cursor: 'pointer' }, 'aria-label': (t.caRemove || 'Remove') + ' ' + a.symbol }), '×')
@@ -7077,10 +7077,10 @@ buy,crypto,bitcoin,0.5,45000,2024-01-15,10`)
                 .then(function (yes) { if (!yes) return; CA.removeEvent(ev.id); setCorpActionsRev(function (n) { return n + 1; }); });
             };
             return React.createElement('div', { key: 'ce-' + corpActionsRev, style: { marginBottom: '1rem' } },
-              React.createElement('label', { style: { color: currentTheme.textSecondary, fontSize: '0.7rem', textTransform: 'uppercase', letterSpacing: '0.05em' } }, __('ceTitle', 'Other corporate actions')),
+              React.createElement('label', { style: { color: currentTheme.textSecondary, fontSize: 'var(--text-2xs)', textTransform: 'uppercase', letterSpacing: '0.05em' } }, __('ceTitle', 'Other corporate actions')),
               React.createElement('div', { style: { display: 'flex', flexDirection: 'column', gap: '1px', marginTop: '0.5rem', maxHeight: '140px', overflow: 'auto' } },
                 all.map(function (ev) {
-                  return React.createElement('div', { key: ev.id, style: { display: 'grid', gridTemplateColumns: '1fr auto auto', gap: '0.4rem', alignItems: 'center', padding: '0.3rem 0', borderBottom: '1px solid ' + currentTheme.cardBorder, fontSize: '0.76rem' } },
+                  return React.createElement('div', { key: ev.id, style: { display: 'grid', gridTemplateColumns: '1fr auto auto', gap: '0.4rem', alignItems: 'center', padding: '0.3rem 0', borderBottom: '1px solid ' + currentTheme.cardBorder, fontSize: 'var(--text-xs)' } },
                     React.createElement('span', { style: { color: currentTheme.text, fontWeight: 600, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' } }, CA.describeEvent(ev)),
                     React.createElement('span', { style: { color: currentTheme.textSecondary } }, ev.date),
                     React.createElement('span', Object.assign({}, ((window.MaerminUtils && window.MaerminUtils.clickable) ? window.MaerminUtils.clickable(function () { removeOne(ev); }) : { onClick: function () { removeOne(ev); } }), { style: { color: currentTheme.danger || 'var(--danger)', cursor: 'pointer' }, 'aria-label': (t.caRemove || 'Remove') + ' ' + ev.symbol }), '×')

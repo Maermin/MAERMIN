@@ -86,13 +86,13 @@ function AnalysisCard(props) {
       }
     },
       React.createElement('span', {
-        style: { fontSize: '1.1rem', fontWeight: '650', letterSpacing: '-0.01em', color: T.text }
+        style: { fontSize: 'var(--text-lg)', fontWeight: '650', letterSpacing: '-0.01em', color: T.text }
       }, title),
       badge && React.createElement('span', { 
         style: {
           padding: '0.25rem 0.75rem',
           borderRadius: '9999px',
-          fontSize: '0.75rem',
+          fontSize: 'var(--text-xs)',
           fontWeight: '600',
           background: badgeType === 'positive' ? 'color-mix(in srgb, var(--success) 20%, transparent)' : 
                      badgeType === 'negative' ? 'color-mix(in srgb, var(--danger) 20%, transparent)' :
@@ -130,11 +130,11 @@ function MetricGrid(props) {
         }
       },
         React.createElement('div', {
-          style: { fontSize: '1.5rem', fontWeight: '800', letterSpacing: '-0.02em', color: ((window.MaerminUtils && window.MaerminUtils.ink) ? window.MaerminUtils.ink(m.color) : m.color) || T.text }
+          style: { fontSize: 'var(--text-xl)', fontWeight: '800', letterSpacing: '-0.02em', color: ((window.MaerminUtils && window.MaerminUtils.ink) ? window.MaerminUtils.ink(m.color) : m.color) || T.text }
         }, m.value),
         React.createElement('div', {
           style: {
-            fontSize: '0.72rem',
+            fontSize: 'var(--text-xs)',
             color: T.textSecondary,
             marginTop: '0.3rem',
             textTransform: 'uppercase',
@@ -165,7 +165,7 @@ function DataTable(props) {
               borderBottom: '1px solid ' + T.cardBorder,
               color: T.accent,
               fontWeight: '600',
-              fontSize: '0.75rem',
+              fontSize: 'var(--text-xs)',
               textTransform: 'uppercase',
               letterSpacing: '0.05em'
             }
@@ -309,7 +309,7 @@ function DCAAnalyzerView(props) {
     
     React.createElement('div', { style: { display: 'flex', gap: '1rem', marginBottom: '1rem', flexWrap: 'wrap' } },
       holdings.length > 0 && React.createElement('div', null,
-        React.createElement('label', { htmlFor: 'dca-holding', style: { color: T.textSecondary, fontSize: '0.75rem', display: 'block', marginBottom: '0.25rem' } }, __('ivDcaHolding', 'Holding')),
+        React.createElement('label', { htmlFor: 'dca-holding', style: { color: T.textSecondary, fontSize: 'var(--text-xs)', display: 'block', marginBottom: '0.25rem' } }, __('ivDcaHolding', 'Holding')),
         React.createElement('select', {
           id: 'dca-holding', 'data-testid': 'dca-holding', value: sym,
           onChange: function(e) { setSym(e.target.value); },
@@ -317,7 +317,7 @@ function DCAAnalyzerView(props) {
         }, holdings.map(function(k) { return React.createElement('option', { key: k, value: k }, k); }))
       ),
       React.createElement('div', null,
-        React.createElement('label', { style: { color: T.textSecondary, fontSize: '0.75rem', display: 'block', marginBottom: '0.25rem' } }, __('ivInvestAmount', 'Investment Amount')),
+        React.createElement('label', { style: { color: T.textSecondary, fontSize: 'var(--text-xs)', display: 'block', marginBottom: '0.25rem' } }, __('ivInvestAmount', 'Investment Amount')),
         React.createElement('input', {
           type: 'number', 'aria-label': __('ivInvestAmount', 'Investment Amount'),
           value: investAmount,
@@ -333,7 +333,7 @@ function DCAAnalyzerView(props) {
         })
       ),
       React.createElement('div', null,
-        React.createElement('label', { style: { color: T.textSecondary, fontSize: '0.75rem', display: 'block', marginBottom: '0.25rem' } }, __('spFrequency', 'Frequency')),
+        React.createElement('label', { style: { color: T.textSecondary, fontSize: 'var(--text-xs)', display: 'block', marginBottom: '0.25rem' } }, __('spFrequency', 'Frequency')),
         React.createElement('select', {
           value: frequency, 'aria-label': __('spFrequency', 'Frequency'),
           onChange: function(e) { setFrequency(e.target.value); },
@@ -371,7 +371,7 @@ function DCAAnalyzerView(props) {
         ]
       }),
       React.createElement('p', {
-        style: { marginTop: '1rem', color: T.textSecondary, fontSize: '0.875rem' }
+        style: { marginTop: '1rem', color: T.textSecondary, fontSize: 'var(--text-base)' }
       }, analysis.interpretation || '')
     )
   );
@@ -444,7 +444,7 @@ function SectorAllocationView(props) {
     // Coverage hint: if a meaningful share is still unclassified, point the user
     // to the Worker URL that backfills sector/country for every holding.
     sectorData.unknownPct > 15 && React.createElement('div', {
-      style: { marginBottom: '1rem', padding: '0.625rem 0.875rem', background: 'rgba(139,124,255,0.10)', border: '1px solid rgba(139,124,255,0.25)', borderRadius: '8px', color: 'rgba(255,255,255,0.75)', fontSize: '0.8rem' }
+      style: { marginBottom: '1rem', padding: '0.625rem 0.875rem', background: 'rgba(139,124,255,0.10)', border: '1px solid rgba(139,124,255,0.25)', borderRadius: '8px', color: 'rgba(255,255,255,0.75)', fontSize: 'var(--text-sm)' }
     }, __('ivUnclassified', '~{pct} of equities are unclassified. Add your Worker URL in Settings → API to auto-fetch sector & country for every holding.', { pct: window.MaerminI18n.pct(sectorData.unknownPct, 0) })),
 
     sectorData.sectors.length > 0 ? React.createElement('div', { style: { display: 'grid', gridTemplateColumns: TWO_COL, gap: '1rem' } },
@@ -460,7 +460,7 @@ function SectorAllocationView(props) {
             React.createElement('div', { 
               style: { display: 'flex', justifyContent: 'space-between', marginBottom: '0.25rem' }
             },
-              React.createElement('span', { style: { color: T.text, fontSize: '0.875rem' } }, window.MaerminI18n.sector(sector.name)),
+              React.createElement('span', { style: { color: T.text, fontSize: 'var(--text-base)' } }, window.MaerminI18n.sector(sector.name)),
               React.createElement('span', { style: { color: sectorColors[sector.name] || '#8b7cff' } }, 
                 window.MaerminI18n.pct(sector.weight, 1)
               )
@@ -498,7 +498,7 @@ function SectorAllocationView(props) {
           style: { marginTop: '1rem', padding: '0.75rem', background: 'color-mix(in srgb, var(--danger) 10%, transparent)', borderRadius: '8px' }
         },
           React.createElement('div', { style: { color: 'var(--danger)', fontWeight: '600', marginBottom: '0.5rem' } }, __('ivConcWarning', 'Concentration Warning')),
-          React.createElement('div', { style: { color: T.textSecondary, fontSize: '0.875rem' } }, 
+          React.createElement('div', { style: { color: T.textSecondary, fontSize: 'var(--text-base)' } }, 
             __('ivSectorWarn', 'Over {pct} in {name}. Consider diversifying.', { pct: window.MaerminI18n.pct(50, 0), name: window.MaerminI18n.sector(sectorData.sectors[0].name) })
           )
         )
@@ -559,7 +559,7 @@ function CountryAllocationView(props) {
         data.rows.map(function(row, i) {
           return React.createElement('div', { key: row.name, style: { marginBottom: '0.75rem' } },
             React.createElement('div', { style: { display: 'flex', justifyContent: 'space-between', marginBottom: '0.25rem' } },
-              React.createElement('span', { style: { color: T.text, fontSize: '0.875rem' } }, window.MaerminI18n.country(row.name)),
+              React.createElement('span', { style: { color: T.text, fontSize: 'var(--text-base)' } }, window.MaerminI18n.country(row.name)),
               React.createElement('span', { style: { color: colorFor(i) } }, window.MaerminI18n.pct(row.weight, 1))),
             React.createElement('div', { style: { height: '8px', background: T.cardBorder, borderRadius: '4px', overflow: 'hidden' } },
               React.createElement('div', { style: { height: '100%', width: row.weight + '%', background: colorFor(i), borderRadius: '4px' } })));
@@ -578,7 +578,7 @@ function CountryAllocationView(props) {
         ] }),
         data.rows[0] && data.rows[0].weight > 60 && React.createElement('div', { style: { marginTop: '1rem', padding: '0.75rem', background: 'color-mix(in srgb, var(--danger) 10%, transparent)', borderRadius: '8px' } },
           React.createElement('div', { style: { color: 'var(--danger)', fontWeight: '600', marginBottom: '0.5rem' } }, __('ivConcWarning', 'Concentration Warning')),
-          React.createElement('div', { style: { color: T.textSecondary, fontSize: '0.875rem' } }, __('ivCountryWarn', 'Over {pct} in {name}. Consider geographic diversification.', { pct: window.MaerminI18n.pct(60, 0), name: window.MaerminI18n.country(data.rows[0].name) })))
+          React.createElement('div', { style: { color: T.textSecondary, fontSize: 'var(--text-base)' } }, __('ivCountryWarn', 'Over {pct} in {name}. Consider geographic diversification.', { pct: window.MaerminI18n.pct(60, 0), name: window.MaerminI18n.country(data.rows[0].name) })))
       )
     ) : React.createElement('div', { style: { color: T.textSecondary, padding: '2rem', textAlign: 'center' } }, __('ivNoCountryData', 'Add positions to analyze country allocation'))
   );
@@ -653,7 +653,7 @@ function CurrencyExposureView(props) {
     React.createElement('h2', { style: { color: T.text, marginBottom: '1rem' } }, __('ivCurrencyExposure', 'Currency Exposure')),
     
     React.createElement('div', { style: { marginBottom: '1rem' } },
-      React.createElement('label', { style: { color: T.textSecondary, fontSize: '0.75rem', marginRight: '0.5rem' } }, __('ivBaseCurrency', 'Base Currency:')),
+      React.createElement('label', { style: { color: T.textSecondary, fontSize: 'var(--text-xs)', marginRight: '0.5rem' } }, __('ivBaseCurrency', 'Base Currency:')),
       React.createElement('select', {
         value: baseCurrency,
         onChange: function(e) { setBaseCurrency(e.target.value); },
@@ -853,10 +853,10 @@ function LiquidityAnalysisView(props) {
             React.createElement('span', { style: { color: T.text } }, pos.symbol),
             React.createElement('div', { style: { display: 'flex', gap: '1rem', alignItems: 'center' } },
               React.createElement('span', { 
-                style: { color: getLiquidityColor(pos.liquidityScore), fontSize: '0.875rem' } 
+                style: { color: getLiquidityColor(pos.liquidityScore), fontSize: 'var(--text-base)' } 
               }, window.MaerminI18n.num(pos.liquidityScore, 0) + '/100'),
               React.createElement('span', { 
-                style: { color: T.textSecondary, fontSize: '0.75rem' } 
+                style: { color: T.textSecondary, fontSize: 'var(--text-xs)' } 
               }, liqRating(pos.liquidityRating))
             )
           );
@@ -920,7 +920,7 @@ function GoalPathCard(props) {
   var actual = lv.linked ? GP.riskShare(lv.positions) : null;
   var cell = function (label, value, tid) {
     return React.createElement('div', { 'data-testid': tid },
-      React.createElement('div', { style: { color: T.textSecondary, fontSize: '0.75rem' } }, label),
+      React.createElement('div', { style: { color: T.textSecondary, fontSize: 'var(--text-xs)' } }, label),
       React.createElement('div', { style: { color: T.text } }, value));
   };
   var pct = function (v) { return v == null ? '–' : window.MaerminI18n.pct(v, 0); };
@@ -938,11 +938,11 @@ function GoalPathCard(props) {
         cell(__('glNeeded', 'Needed a month from now'), st.requiredMonthly == null ? '–' : money(st.requiredMonthly), 'goal-needed'),
         cell(__('glProjected', 'At this pace on the date'), st.projected == null ? '–' : money(st.projected), 'goal-projected'),
         cell(__('glReturnShort', 'Expected return'), window.MaerminI18n.pct(goal.expectedReturn * 100, 1))),
-      suggested != null ? React.createElement('div', { 'data-testid': 'goal-risk', style: { marginTop: '0.75rem', padding: '0.6rem 0.75rem', borderRadius: '10px', background: T.inputBg, color: T.textSecondary, fontSize: '0.8rem', lineHeight: 1.5 } },
+      suggested != null ? React.createElement('div', { 'data-testid': 'goal-risk', style: { marginTop: '0.75rem', padding: '0.6rem 0.75rem', borderRadius: '10px', background: T.inputBg, color: T.textSecondary, fontSize: 'var(--text-sm)', lineHeight: 1.5 } },
         __('glRiskLine', 'Glide path for risk: about {s} in shares and other risky assets now, falling towards the date. The linked holdings have {a}.', { s: pct(suggested), a: pct(actual) }),
         actual != null && actual > suggested + 10 ? React.createElement('span', { style: { color: T.warning || 'var(--warning)' } }, ' ' + __('glRiskHigh', 'Consider moving some into bonds or cash as the date comes closer.')) : null) : null,
       React.createElement('div', { style: { display: 'flex', justifyContent: 'flex-end', marginTop: '0.75rem' } },
-        React.createElement('button', { onClick: props.onDelete, style: { background: 'color-mix(in srgb, var(--danger) 20%, transparent)', color: 'var(--danger)', border: 'none', padding: '0.25rem 0.75rem', borderRadius: '4px', cursor: 'pointer', fontSize: '0.75rem' } }, __('delete', 'Delete')))));
+        React.createElement('button', { onClick: props.onDelete, style: { background: 'color-mix(in srgb, var(--danger) 20%, transparent)', color: 'var(--danger)', border: 'none', padding: '0.25rem 0.75rem', borderRadius: '4px', cursor: 'pointer', fontSize: 'var(--text-xs)' } }, __('delete', 'Delete')))));
 }
 
 // ============================================================================
@@ -1071,7 +1071,7 @@ function GoalInvestingView(props) {
     showAddGoal && React.createElement(AnalysisCard, { title: __('glCreateNew', 'Create New Goal') },
       React.createElement('div', { style: { display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(min(100%, 200px), 1fr))', gap: '1rem' } },
         React.createElement('div', null,
-          React.createElement('label', { style: { color: T.textSecondary, fontSize: '0.75rem', display: 'block', marginBottom: '0.25rem' } }, __('glName', 'Goal Name')),
+          React.createElement('label', { style: { color: T.textSecondary, fontSize: 'var(--text-xs)', display: 'block', marginBottom: '0.25rem' } }, __('glName', 'Goal Name')),
           React.createElement('input', {
             'data-testid': 'goal-name',
             type: 'text',
@@ -1082,7 +1082,7 @@ function GoalInvestingView(props) {
           })
         ),
         React.createElement('div', null,
-          React.createElement('label', { style: { color: T.textSecondary, fontSize: '0.75rem', display: 'block', marginBottom: '0.25rem' } }, __('glType', 'Goal Type')),
+          React.createElement('label', { style: { color: T.textSecondary, fontSize: 'var(--text-xs)', display: 'block', marginBottom: '0.25rem' } }, __('glType', 'Goal Type')),
           React.createElement('select', {
             value: newGoal.type,
             onChange: function(e) { setNewGoal(Object.assign({}, newGoal, { type: e.target.value })); },
@@ -1094,7 +1094,7 @@ function GoalInvestingView(props) {
           )
         ),
         React.createElement('div', null,
-          React.createElement('label', { style: { color: T.textSecondary, fontSize: '0.75rem', display: 'block', marginBottom: '0.25rem' } }, __('glTargetAmount', 'Target Amount (EUR)')),
+          React.createElement('label', { style: { color: T.textSecondary, fontSize: 'var(--text-xs)', display: 'block', marginBottom: '0.25rem' } }, __('glTargetAmount', 'Target Amount (EUR)')),
           React.createElement('input', {
             'data-testid': 'goal-target',
             type: 'number',
@@ -1104,7 +1104,7 @@ function GoalInvestingView(props) {
           })
         ),
         GP && React.createElement('div', null,
-          React.createElement('label', { style: { color: T.textSecondary, fontSize: '0.75rem', display: 'block', marginBottom: '0.25rem' } }, __('glLinkTo', 'Money for this goal')),
+          React.createElement('label', { style: { color: T.textSecondary, fontSize: 'var(--text-xs)', display: 'block', marginBottom: '0.25rem' } }, __('glLinkTo', 'Money for this goal')),
           React.createElement('select', {
             'data-testid': 'goal-link',
             value: newGoal.link,
@@ -1117,7 +1117,7 @@ function GoalInvestingView(props) {
           )
         ),
         !newGoal.link && React.createElement('div', null,
-          React.createElement('label', { style: { color: T.textSecondary, fontSize: '0.75rem', display: 'block', marginBottom: '0.25rem' } }, __('glCurrentSaved', 'Current Saved')),
+          React.createElement('label', { style: { color: T.textSecondary, fontSize: 'var(--text-xs)', display: 'block', marginBottom: '0.25rem' } }, __('glCurrentSaved', 'Current Saved')),
           React.createElement('input', {
             type: 'number',
             value: newGoal.currentAmount,
@@ -1126,7 +1126,7 @@ function GoalInvestingView(props) {
           })
         ),
         GP && React.createElement('div', null,
-          React.createElement('label', { style: { color: T.textSecondary, fontSize: '0.75rem', display: 'block', marginBottom: '0.25rem' } }, __('glReturn', 'Expected return (% a year)')),
+          React.createElement('label', { style: { color: T.textSecondary, fontSize: 'var(--text-xs)', display: 'block', marginBottom: '0.25rem' } }, __('glReturn', 'Expected return (% a year)')),
           React.createElement('input', {
             'data-testid': 'goal-return',
             type: 'number', step: '0.5', min: '-10', max: '20',
@@ -1136,7 +1136,7 @@ function GoalInvestingView(props) {
           })
         ),
         React.createElement('div', null,
-          React.createElement('label', { style: { color: T.textSecondary, fontSize: '0.75rem', display: 'block', marginBottom: '0.25rem' } }, __('glTargetDate', 'Target Date')),
+          React.createElement('label', { style: { color: T.textSecondary, fontSize: 'var(--text-xs)', display: 'block', marginBottom: '0.25rem' } }, __('glTargetDate', 'Target Date')),
           React.createElement('input', {
             type: 'date',
             value: newGoal.targetDate,
@@ -1145,7 +1145,7 @@ function GoalInvestingView(props) {
           })
         ),
         React.createElement('div', null,
-          React.createElement('label', { style: { color: T.textSecondary, fontSize: '0.75rem', display: 'block', marginBottom: '0.25rem' } }, __('monthlyContribution', 'Monthly Contribution')),
+          React.createElement('label', { style: { color: T.textSecondary, fontSize: 'var(--text-xs)', display: 'block', marginBottom: '0.25rem' } }, __('monthlyContribution', 'Monthly Contribution')),
           React.createElement('input', {
             type: 'number',
             value: newGoal.monthlyContribution,
@@ -1199,15 +1199,15 @@ function GoalInvestingView(props) {
         }),
         React.createElement('div', { style: { display: 'flex', justifyContent: 'space-between', marginTop: '1rem', flexWrap: 'wrap', gap: '0.5rem' } },
           React.createElement('div', null,
-            React.createElement('div', { style: { color: T.textSecondary, fontSize: '0.75rem' } }, __('glTargetDate', 'Target Date')),
+            React.createElement('div', { style: { color: T.textSecondary, fontSize: 'var(--text-xs)' } }, __('glTargetDate', 'Target Date')),
             React.createElement('div', { style: { color: T.text } }, window.MaerminI18n.date(goal.targetDate))
           ),
           React.createElement('div', null,
-            React.createElement('div', { style: { color: T.textSecondary, fontSize: '0.75rem' } }, __('freqMonthly', 'Monthly')),
+            React.createElement('div', { style: { color: T.textSecondary, fontSize: 'var(--text-xs)' } }, __('freqMonthly', 'Monthly')),
             React.createElement('div', { style: { color: T.text } }, money(goal.monthlyContribution))
           ),
           React.createElement('div', null,
-            React.createElement('div', { style: { color: T.textSecondary, fontSize: '0.75rem' } }, __('glRemaining', 'Remaining')),
+            React.createElement('div', { style: { color: T.textSecondary, fontSize: 'var(--text-xs)' } }, __('glRemaining', 'Remaining')),
             React.createElement('div', { style: { color: T.text } }, money(Math.max(0, goal.targetAmount - goal.currentAmount)))
           ),
           React.createElement('button', {
@@ -1215,7 +1215,7 @@ function GoalInvestingView(props) {
               var U = (typeof window !== 'undefined') && window.MaerminUtils;
               if (U && U.confirmThen) U.confirmThen({ title: __('glDeleteTitle', 'Delete the goal "{name}"?', { name: goal.name }), confirmLabel: __('delete', 'Delete') }, function() { deleteGoal(goal.id); });
             },
-            style: { background: 'color-mix(in srgb, var(--danger) 20%, transparent)', color: 'var(--danger)', border: 'none', padding: '0.25rem 0.75rem', borderRadius: '4px', cursor: 'pointer', fontSize: '0.75rem' }
+            style: { background: 'color-mix(in srgb, var(--danger) 20%, transparent)', color: 'var(--danger)', border: 'none', padding: '0.25rem 0.75rem', borderRadius: '4px', cursor: 'pointer', fontSize: 'var(--text-xs)' }
           }, __('delete', 'Delete'))
         )
       );

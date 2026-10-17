@@ -361,31 +361,31 @@ function __(k, f, v) { return (typeof window !== 'undefined' && window.MaerminI1
         var s = res.summary;
 
         function chip(p) {
-          return e('span', { style: { display: 'inline-block', padding: '0.1rem 0.5rem', borderRadius: '999px', fontSize: '0.68rem', fontWeight: 800, color: '#0b0e14', background: COLORS[p] } }, LABELS[p]);
+          return e('span', { style: { display: 'inline-block', padding: '0.1rem 0.5rem', borderRadius: '999px', fontSize: 'var(--text-2xs)', fontWeight: 800, color: '#0b0e14', background: COLORS[p] } }, LABELS[p]);
         }
         var cards = res.findings.map(function (f) {
           return e('div', { key: f.id, style: { border: '1px solid ' + border, borderLeft: '3px solid ' + COLORS[f.priority], borderRadius: '10px', background: card, padding: '0.8rem 0.9rem', marginBottom: '0.6rem' } },
             e('div', { style: { display: 'flex', alignItems: 'center', gap: '0.5rem', marginBottom: '0.3rem' } }, chip(f.priority),
-              e('span', { style: { color: text, fontWeight: 700, fontSize: '0.9rem' } }, f.title)),
-            e('div', { style: { color: dim, fontSize: '0.8rem', lineHeight: 1.45, marginBottom: '0.35rem' } }, f.detail),
-            e('div', { style: { color: text, fontSize: '0.8rem', lineHeight: 1.45 } }, '→ ' + f.recommendation));
+              e('span', { style: { color: text, fontWeight: 700, fontSize: 'var(--text-base)' } }, f.title)),
+            e('div', { style: { color: dim, fontSize: 'var(--text-sm)', lineHeight: 1.45, marginBottom: '0.35rem' } }, f.detail),
+            e('div', { style: { color: text, fontSize: 'var(--text-sm)', lineHeight: 1.45 } }, '→ ' + f.recommendation));
         });
 
         return e('div', { style: { background: card, border: '1px solid ' + border, borderRadius: '14px', padding: '1.1rem', marginBottom: '1.5rem' } },
-          e('div', { style: { color: text, fontWeight: 800, fontSize: '1.05rem', marginBottom: '0.2rem' } }, t.taTitle || 'Tax Advisor'),
-          e('div', { style: { color: dim, fontSize: '0.78rem', marginBottom: '0.9rem' } },
+          e('div', { style: { color: text, fontWeight: 800, fontSize: 'var(--text-body)', marginBottom: '0.2rem' } }, t.taTitle || 'Tax Advisor'),
+          e('div', { style: { color: dim, fontSize: 'var(--text-xs)', marginBottom: '0.9rem' } },
             (t.taSubtitle || 'Forward-looking tax findings from your lots — an estimate, not tax advice.')),
           e('div', { style: { display: 'flex', gap: '0.6rem', flexWrap: 'wrap', marginBottom: '0.9rem' } },
             e('div', { style: { flex: '1 1 180px', background: theme.inputBg || '#0c1018', borderRadius: '10px', padding: '0.7rem' } },
-              e('div', { style: { color: dim, fontSize: '0.72rem' } }, __('taFgLabel', 'Crypto Freigrenze ({limit})', { limit: LIM(s.cryptoFreigrenze.limit) })),
-              e('div', { style: { color: s.cryptoFreigrenze.exceeded ? COLORS.critical : text, fontWeight: 800, fontSize: '1.05rem' } }, __('taAmountLeft', '{x} left', { x: EUR(s.cryptoFreigrenze.remaining) }))),
+              e('div', { style: { color: dim, fontSize: 'var(--text-xs)' } }, __('taFgLabel', 'Crypto Freigrenze ({limit})', { limit: LIM(s.cryptoFreigrenze.limit) })),
+              e('div', { style: { color: s.cryptoFreigrenze.exceeded ? COLORS.critical : text, fontWeight: 800, fontSize: 'var(--text-body)' } }, __('taAmountLeft', '{x} left', { x: EUR(s.cryptoFreigrenze.remaining) }))),
             e('div', { style: { flex: '1 1 180px', background: theme.inputBg || '#0c1018', borderRadius: '10px', padding: '0.7rem' } },
-              e('div', { style: { color: dim, fontSize: '0.72rem' } }, t.taSparer || 'Sparerpauschbetrag'),
-              e('div', { style: { color: text, fontWeight: 800, fontSize: '1.05rem' } }, __('taOfLeft', '{x} of {limit} left', { x: EUR(s.sparerpauschbetrag.remaining), limit: LIM(s.sparerpauschbetrag.limit) }))),
+              e('div', { style: { color: dim, fontSize: 'var(--text-xs)' } }, t.taSparer || 'Sparerpauschbetrag'),
+              e('div', { style: { color: text, fontWeight: 800, fontSize: 'var(--text-body)' } }, __('taOfLeft', '{x} of {limit} left', { x: EUR(s.sparerpauschbetrag.remaining), limit: LIM(s.sparerpauschbetrag.limit) }))),
             e('div', { style: { flex: '1 1 180px', background: theme.inputBg || '#0c1018', borderRadius: '10px', padding: '0.7rem' } },
-              e('div', { style: { color: dim, fontSize: '0.72rem' } }, t.taCryptoLots || 'Crypto lots near tax-free'),
-              e('div', { style: { color: text, fontWeight: 800, fontSize: '1.05rem' } }, s.cryptoLotsNearFree + ' / ' + s.cryptoLotsTracked))),
-          cards.length ? cards : e('div', { style: { color: dim, fontSize: '0.84rem' } }, t.taNone || 'No tax actions flagged right now.'));
+              e('div', { style: { color: dim, fontSize: 'var(--text-xs)' } }, t.taCryptoLots || 'Crypto lots near tax-free'),
+              e('div', { style: { color: text, fontWeight: 800, fontSize: 'var(--text-body)' } }, s.cryptoLotsNearFree + ' / ' + s.cryptoLotsTracked))),
+          cards.length ? cards : e('div', { style: { color: dim, fontSize: 'var(--text-sm)' } }, t.taNone || 'No tax actions flagged right now.'));
       } catch (err) {
         return e('div', { style: { padding: '0.75rem', color: (props.theme && props.theme.danger) || 'var(--danger)' } }, __('taError', 'Tax advisor error: {msg}', { msg: err && err.message }));
       } finally { MASKED = false; }

@@ -57,8 +57,8 @@ function PerformanceAttribution({ portfolio, prices, transactions, exchangeRate,
   const estTax = TS ? TS.computeAbgeltung(taxable, taxSettings).total : 0;
   const netReturn = grossReturn - estTax;
   const decompItem = (label, value, color) => React.createElement('div', { key: label },
-    React.createElement('div', { style: { color: theme.textSecondary, fontSize: '0.68rem', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '0.2rem' } }, label),
-    React.createElement('div', { style: { color, fontWeight: 800, fontSize: '1.05rem' } }, `${value >= 0 ? '+' : ''}${formatPrice(value)} ${getCurrencySymbol()}`)
+    React.createElement('div', { style: { color: theme.textSecondary, fontSize: 'var(--text-2xs)', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '0.2rem' } }, label),
+    React.createElement('div', { style: { color, fontWeight: 800, fontSize: 'var(--text-body)' } }, `${value >= 0 ? '+' : ''}${formatPrice(value)} ${getCurrencySymbol()}`)
   );
 
   // Rows are sorted by contribution (pp of total return), best first.
@@ -67,16 +67,16 @@ function PerformanceAttribution({ portfolio, prices, transactions, exchangeRate,
   const best = first && first.contributionPP > 0 ? first : null;
   const worst = last && last.contributionPP < 0 ? last : null;
   const summary = (label, r) => React.createElement('div', { key: label, style: { background: theme.card, border: `1px solid ${theme.cardBorder}`, borderRadius: '16px', boxShadow: theme.shadow, padding: '1rem' } },
-    React.createElement('div', { style: { color: theme.textSecondary, fontSize: '0.7rem', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: '0.25rem' } }, label),
-    React.createElement('div', { style: { color: theme.text, fontWeight: '700', fontSize: '0.95rem', marginBottom: '0.125rem' } }, r ? r.name : '—'),
-    React.createElement('div', { style: { color: r && r.contributionPP >= 0 ? Green : Red, fontWeight: '700', fontSize: '1.1rem' } },
+    React.createElement('div', { style: { color: theme.textSecondary, fontSize: 'var(--text-2xs)', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: '0.25rem' } }, label),
+    React.createElement('div', { style: { color: theme.text, fontWeight: '700', fontSize: 'var(--text-md)', marginBottom: '0.125rem' } }, r ? r.name : '—'),
+    React.createElement('div', { style: { color: r && r.contributionPP >= 0 ? Green : Red, fontWeight: '700', fontSize: 'var(--text-lg)' } },
       r ? __('ppValue', '{v} pp', { v: (r.contributionPP >= 0 ? '+' : '') + window.MaerminI18n.num(r.contributionPP, 2) }) : '—')
   );
 
   return React.createElement('div', { style: { padding: '1.5rem' } },
     React.createElement('div', { style: { marginBottom: '1.5rem' } },
-      React.createElement('h2', { style: { color: theme.text, fontSize: '1.35rem', fontWeight: '800', marginBottom: '0.25rem' } }, t.attributionTitle || 'Performance Attribution'),
-      React.createElement('p', { style: { color: theme.textSecondary, fontSize: '0.82rem', margin: 0 } },
+      React.createElement('h2', { style: { color: theme.text, fontSize: 'var(--text-title-lg)', fontWeight: '800', marginBottom: '0.25rem' } }, t.attributionTitle || 'Performance Attribution'),
+      React.createElement('p', { style: { color: theme.textSecondary, fontSize: 'var(--text-sm)', margin: 0 } },
         __('attrSubtitle', 'Which positions drove your portfolio gains and losses'))),
 
     React.createElement('div', { style: { display: 'grid', gridTemplateColumns: 'repeat(auto-fit,minmax(160px,1fr))', gap: '1rem', marginBottom: '1.5rem' } },
@@ -85,7 +85,7 @@ function PerformanceAttribution({ portfolio, prices, transactions, exchangeRate,
     ),
 
     React.createElement('div', { style: { background: theme.card, border: `1px solid ${theme.cardBorder}`, borderRadius: '16px', boxShadow: theme.shadow, padding: '1.25rem', marginBottom: '1.5rem' } },
-      React.createElement('div', { style: { color: theme.text, fontWeight: 700, fontSize: '0.95rem', marginBottom: '0.875rem' } }, t.attrDecomposition || 'Return decomposition'),
+      React.createElement('div', { style: { color: theme.text, fontWeight: 700, fontSize: 'var(--text-md)', marginBottom: '0.875rem' } }, t.attrDecomposition || 'Return decomposition'),
       React.createElement('div', { style: { display: 'grid', gridTemplateColumns: 'repeat(auto-fit,minmax(130px,1fr))', gap: '1rem' } },
         decompItem(t.attrPriceReturn || 'Price appreciation', priceGain, priceGain >= 0 ? Green : Red),
         decompItem(t.attrDividends || 'Dividends', dividendsReceived, Green),
@@ -93,7 +93,7 @@ function PerformanceAttribution({ portfolio, prices, transactions, exchangeRate,
         decompItem(t.attrTaxEffect || 'Est. tax on gains', -estTax, Red),
         decompItem(t.attrNet || 'Net return', netReturn, netReturn >= 0 ? Green : Red)
       ),
-      React.createElement('div', { style: { color: theme.textSecondary, fontSize: '0.72rem', marginTop: '0.75rem' } },
+      React.createElement('div', { style: { color: theme.textSecondary, fontSize: 'var(--text-xs)', marginTop: '0.75rem' } },
         t.attrTaxNote || 'Tax estimated with your tax settings (rate, Soli, church tax, allowance) as if all gains were realised now — illustrative, not tax advice.')
     ),
 
@@ -150,16 +150,16 @@ function RealizedUnrealizedView({ transactions, portfolio, prices, theme, format
 
   const statCard = (label, value, sub, color) =>
     React.createElement('div', { style: { background: theme.card, border: `1px solid ${theme.cardBorder}`, borderRadius: '16px', boxShadow: theme.shadow, padding: '1.25rem' } },
-      React.createElement('div', { style: { color: theme.textSecondary, fontSize: '0.7rem', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: '0.375rem' } }, label),
+      React.createElement('div', { style: { color: theme.textSecondary, fontSize: 'var(--text-2xs)', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: '0.375rem' } }, label),
       React.createElement('div', { style: { color: color || theme.text, fontSize: '1.6rem', fontWeight: '800', letterSpacing: '-0.02em', lineHeight: 1 } }, value),
-      sub && React.createElement('div', { style: { color: theme.textSecondary, fontSize: '0.75rem', marginTop: '0.375rem' } }, sub)
+      sub && React.createElement('div', { style: { color: theme.textSecondary, fontSize: 'var(--text-xs)', marginTop: '0.375rem' } }, sub)
     );
 
   const { results, totalRealized, totalUnrealized } = analysis;
 
   return React.createElement('div', { style: { padding: '1.5rem' } },
-    React.createElement('h2', { style: { color: theme.text, fontSize: '1.35rem', fontWeight: '800', marginBottom: '0.25rem' } }, __('ruTitle', 'Realized & Unrealized P&L')),
-    React.createElement('p', { style: { color: theme.textSecondary, fontSize: '0.82rem', marginBottom: '1.5rem' } },
+    React.createElement('h2', { style: { color: theme.text, fontSize: 'var(--text-title-lg)', fontWeight: '800', marginBottom: '0.25rem' } }, __('ruTitle', 'Realized & Unrealized P&L')),
+    React.createElement('p', { style: { color: theme.textSecondary, fontSize: 'var(--text-sm)', marginBottom: '1.5rem' } },
       __('ruSubtitle', 'FIFO-based breakdown of locked-in gains/losses vs open positions')),
 
     React.createElement('div', { style: { display: 'grid', gridTemplateColumns: 'repeat(auto-fit,minmax(180px,1fr))', gap: '1rem', marginBottom: '1.5rem' } },
@@ -170,11 +170,11 @@ function RealizedUnrealizedView({ transactions, portfolio, prices, theme, format
 
     // Table
     React.createElement('div', { style: { background: theme.card, border: `1px solid ${theme.cardBorder}`, borderRadius: '16px', boxShadow: theme.shadow, overflow: 'auto' } },
-      React.createElement('table', { style: { width: '100%', borderCollapse: 'collapse', fontSize: '0.82rem' } },
+      React.createElement('table', { style: { width: '100%', borderCollapse: 'collapse', fontSize: 'var(--text-sm)' } },
         React.createElement('thead', null,
           React.createElement('tr', { style: { borderBottom: `1px solid ${theme.cardBorder}` } },
             [__('position', 'Position'), __('fifoRealizedPnl', 'Realized P&L'), __('pdUnrealized', 'Unrealized P&L'), __('ruTotalPnl', 'Total P&L')].map((h, hi) =>
-              React.createElement('th', { key: h, style: { padding: '0.75rem 1rem', textAlign: hi === 0 ? 'left' : 'right', color: theme.textSecondary, fontWeight: '600', fontSize: '0.7rem', textTransform: 'uppercase', letterSpacing: '0.05em' } }, h)
+              React.createElement('th', { key: h, style: { padding: '0.75rem 1rem', textAlign: hi === 0 ? 'left' : 'right', color: theme.textSecondary, fontWeight: '600', fontSize: 'var(--text-2xs)', textTransform: 'uppercase', letterSpacing: '0.05em' } }, h)
             )
           )
         ),
@@ -183,7 +183,7 @@ function RealizedUnrealizedView({ transactions, portfolio, prices, theme, format
             React.createElement('tr', { key: e.sym, style: { borderBottom: i < results.length-1 ? `1px solid ${theme.cardBorder}` : 'none' } },
               React.createElement('td', { style: { padding: '0.75rem 1rem' } },
                 React.createElement('div', { style: { fontWeight: '600', color: theme.text } }, e.name),
-                React.createElement('div', { style: { fontSize: '0.7rem', color: theme.textSecondary } }, e.category)
+                React.createElement('div', { style: { fontSize: 'var(--text-2xs)', color: theme.textSecondary } }, e.category)
               ),
               React.createElement('td', { style: { padding: '0.75rem 1rem', textAlign: 'right', color: e.realizedPnL >= 0 ? Green : Red, fontWeight: '600' } },
                 e.hasSells ? `${e.realizedPnL >= 0 ? '+' : ''}${formatPrice(e.realizedPnL)}` : React.createElement('span', { style: { color: theme.textSecondary } }, '—')
@@ -284,10 +284,10 @@ function NewsFeedView({ portfolio, transactions, apiKeys, theme, formatPrice }) 
     // Header
     React.createElement('div', { style: { display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '1.25rem', flexWrap: 'wrap', gap: '0.75rem' } },
       React.createElement('div', null,
-        React.createElement('h2', { style: { color: theme.text, fontSize: '1.35rem', fontWeight: '800', marginBottom: '0.125rem' } }, __('newsTitle', 'News Feed'), ' ', window.MaerminDemoFixtures && window.MaerminDemoFixtures.badge(React, theme, workerBase)),
-        React.createElement('p', { style: { color: theme.textSecondary, fontSize: '0.8rem' } }, __('newsSubtitle', 'Latest news for your held positions'))
+        React.createElement('h2', { style: { color: theme.text, fontSize: 'var(--text-title-lg)', fontWeight: '800', marginBottom: '0.125rem' } }, __('newsTitle', 'News Feed'), ' ', window.MaerminDemoFixtures && window.MaerminDemoFixtures.badge(React, theme, workerBase)),
+        React.createElement('p', { style: { color: theme.textSecondary, fontSize: 'var(--text-sm)' } }, __('newsSubtitle', 'Latest news for your held positions'))
       ),
-      React.createElement('button', { onClick: fetchNews, disabled: loading || !hasWorker, title: hasWorker ? undefined : __('newsNeedWorker', 'Add a Worker URL in API Settings to load news.'), style: { padding: '0.5rem 1rem', background: (loading || !hasWorker) ? theme.inputBg : `${theme.accent}18`, color: (loading || !hasWorker) ? theme.textSecondary : theme.accent, border: `1px solid ${theme.accent}33`, borderRadius: '8px', cursor: (loading || !hasWorker) ? 'not-allowed' : 'pointer', fontSize: '0.82rem', fontWeight: '600' } },
+      React.createElement('button', { onClick: fetchNews, disabled: loading || !hasWorker, title: hasWorker ? undefined : __('newsNeedWorker', 'Add a Worker URL in API Settings to load news.'), style: { padding: '0.5rem 1rem', background: (loading || !hasWorker) ? theme.inputBg : `${theme.accent}18`, color: (loading || !hasWorker) ? theme.textSecondary : theme.accent, border: `1px solid ${theme.accent}33`, borderRadius: '8px', cursor: (loading || !hasWorker) ? 'not-allowed' : 'pointer', fontSize: 'var(--text-sm)', fontWeight: '600' } },
         loading ? __('loadingDots', '◎ Loading...') : __('refreshBtn', '↻ Refresh')
       )
     ),
@@ -307,7 +307,7 @@ function NewsFeedView({ portfolio, transactions, apiKeys, theme, formatPrice }) 
           onClick: () => setFilter(sym),
           style: {
             padding: '0.3rem 0.75rem', border: 'none', borderRadius: '6px', cursor: 'pointer',
-            fontSize: '0.78rem', fontWeight: filter === sym ? '700' : '400',
+            fontSize: 'var(--text-xs)', fontWeight: filter === sym ? '700' : '400',
             background: filter === sym ? (theme.accentFill || theme.accent) : theme.inputBg,
             color: filter === sym ? '#fff' : theme.textSecondary
           }
@@ -326,17 +326,17 @@ function NewsFeedView({ portfolio, transactions, apiKeys, theme, formatPrice }) 
               onMouseLeave: e => e.currentTarget.style.borderColor = theme.cardBorder
             },
               React.createElement('div', { style: { display: 'flex', alignItems: 'center', gap: '0.5rem', marginBottom: '0.375rem' } },
-                React.createElement('span', { style: { fontSize: '0.65rem', padding: '0.1rem 0.35rem', background: `${theme.accent}18`, color: theme.accent, borderRadius: '3px', fontWeight: '700' } }, item.sym),
-                React.createElement('span', { style: { color: theme.textSecondary, fontSize: '0.72rem' } },
+                React.createElement('span', { style: { fontSize: 'var(--text-3xs)', padding: '0.1rem 0.35rem', background: `${theme.accent}18`, color: theme.accent, borderRadius: '3px', fontWeight: '700' } }, item.sym),
+                React.createElement('span', { style: { color: theme.textSecondary, fontSize: 'var(--text-xs)' } },
                   item.pubDate instanceof Date && !isNaN(item.pubDate) ? window.MaerminI18n.date(item.pubDate, 'medium') : ''
                 )
               ),
-              React.createElement('div', { style: { color: theme.text, fontWeight: '600', fontSize: '0.9rem', lineHeight: 1.4 } }, item.title)
+              React.createElement('div', { style: { color: theme.text, fontWeight: '600', fontSize: 'var(--text-base)', lineHeight: 1.4 } }, item.title)
             )
           )
         )
       : !loading && window.MaerminUtils.emptyState({ testid: 'news-status', text: newsEmptyText(hasWorker, requests) }),
-    news.length > 0 && requests.failed > 0 && React.createElement('div', { style: { marginTop: '0.75rem', color: theme.textSecondary, fontSize: '0.78rem' } },
+    news.length > 0 && requests.failed > 0 && React.createElement('div', { style: { marginTop: '0.75rem', color: theme.textSecondary, fontSize: 'var(--text-xs)' } },
       newsPartialText(requests))
   );
 }

@@ -221,8 +221,8 @@
         'aria-describedby': s.message ? 'dlg-confirm-msg' : undefined,
         style: { background: theme.modalBg || '#111827', border: '1px solid ' + (theme.modalBorder || 'rgba(255,255,255,0.1)'), borderRadius: '16px', padding: '1.5rem', width: '420px', maxWidth: '90vw', boxShadow: '0 25px 50px -12px rgba(0,0,0,0.5)' }
       }),
-        e('h2', { id: 'dlg-confirm', style: { color: theme.text || '#e6edf3', fontSize: '1.15rem', fontWeight: 700, margin: '0 0 0.6rem' } }, s.title),
-        s.message ? e('p', { id: 'dlg-confirm-msg', style: { color: theme.textSecondary || '#9aa4b2', fontSize: '0.88rem', lineHeight: 1.5, margin: '0 0 1.1rem', whiteSpace: 'pre-line' } }, s.message) : null,
+        e('h2', { id: 'dlg-confirm', style: { color: theme.text || '#e6edf3', fontSize: 'var(--text-lg)', fontWeight: 700, margin: '0 0 0.6rem' } }, s.title),
+        s.message ? e('p', { id: 'dlg-confirm-msg', style: { color: theme.textSecondary || '#9aa4b2', fontSize: 'var(--text-base)', lineHeight: 1.5, margin: '0 0 1.1rem', whiteSpace: 'pre-line' } }, s.message) : null,
         e('div', { style: { display: 'flex', gap: '0.75rem' } },
           e('button', { type: 'button', onClick: function () { answerConfirm(false); },
             style: Object.assign({}, btn, { background: theme.inputBg || '#0f172a', color: theme.text || '#e6edf3', border: '1px solid ' + (theme.cardBorder || 'rgba(255,255,255,0.1)') }) }, s.cancelLabel),
@@ -263,7 +263,7 @@
   // not var(): fx.js measures inline paddings and radii to find cards.
   var tokens = {
     space: { 1: '4px', 2: '8px', 3: '12px', 4: '16px', 5: '24px', 6: '32px' },
-    text: { xs: '0.75rem', sm: '0.8125rem', md: '0.9375rem', lg: '1.125rem', xl: '1.5rem', kpi: 'var(--text-kpi)' },
+    text: { '3xs': '0.625rem', '2xs': '0.6875rem', xs: '0.75rem', sm: '0.8125rem', base: '0.875rem', md: '0.9375rem', body: '1rem', lg: '1.125rem', title: '1.25rem', titleLg: '1.375rem', xl: '1.5rem', '2xl': '2rem', kpi: 'var(--text-kpi)' },
     radius: { sm: '10px', md: '12px', lg: '16px', xl: '22px' },
     control: { h: '36px', touch: '44px' }
   };

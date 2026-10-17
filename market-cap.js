@@ -171,7 +171,7 @@ function __(k, f, v) { return (typeof window !== 'undefined' && window.MaerminI1
 
         var bars = agg.buckets.map(function (b) {
           return e('div', { key: b.key, style: { marginBottom: '0.6rem' } },
-            e('div', { style: { display: 'flex', justifyContent: 'space-between', fontSize: '0.8rem', marginBottom: '0.25rem' } },
+            e('div', { style: { display: 'flex', justifyContent: 'space-between', fontSize: 'var(--text-sm)', marginBottom: '0.25rem' } },
               e('span', { style: { color: text, fontWeight: 600 } }, API.LABELS[b.key] === 'Large cap' ? (t.mcLarge || 'Large cap') : API.LABELS[b.key] === 'Mid cap' ? (t.mcMid || 'Mid cap') : API.LABELS[b.key] === 'Small cap' ? (t.mcSmall || 'Small cap') : (t.mcUnknown || 'Unknown')),
               e('span', { style: { color: dim } }, window.MaerminI18n.pct(b.weight, 1) + '  ·  ' + fmt(b.value))),
             e('div', { style: { height: 8, borderRadius: 6, background: theme.inputBg || '#0c1018', overflow: 'hidden' } },
@@ -179,9 +179,9 @@ function __(k, f, v) { return (typeof window !== 'undefined' && window.MaerminI1
         });
 
         return e('div', { style: { background: card, border: '1px solid ' + border, borderRadius: '14px', padding: '1.1rem', margin: '1rem 1.5rem' } },
-          e('div', { style: { color: text, fontWeight: 700, fontSize: '0.95rem', marginBottom: '0.2rem' } }, t.mcTitle || 'Company size'),
-          e('div', { style: { color: dim, fontSize: '0.76rem', marginBottom: '0.9rem' } }, t.mcSubtitle || 'Equity allocation by market-cap size (EUR-normalised)'),
-          agg.total > 0 ? bars : e('div', { style: { color: dim, fontSize: '0.84rem' } }, t.mcEmpty || 'No equity positions to size yet.'));
+          e('div', { style: { color: text, fontWeight: 700, fontSize: 'var(--text-md)', marginBottom: '0.2rem' } }, t.mcTitle || 'Company size'),
+          e('div', { style: { color: dim, fontSize: 'var(--text-xs)', marginBottom: '0.9rem' } }, t.mcSubtitle || 'Equity allocation by market-cap size (EUR-normalised)'),
+          agg.total > 0 ? bars : e('div', { style: { color: dim, fontSize: 'var(--text-sm)' } }, t.mcEmpty || 'No equity positions to size yet.'));
       } catch (err) {
         return e('div', { style: { padding: '0.75rem', color: (props.theme && props.theme.danger) || 'var(--danger)' } }, __('mcError', 'Market cap error: ') + (err && err.message));
       }

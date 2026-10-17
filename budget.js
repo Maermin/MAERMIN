@@ -401,7 +401,7 @@ function __(k, f, v) { return (typeof window !== 'undefined' && window.MaerminI1
     var svg = e('svg', { key: 'svg', 'data-testid': 'bg-sankey', viewBox: '0 0 ' + W + ' ' + H, role: 'img', 'aria-label': __('bgSankeyLabel', 'Cash flow of the month'), style: { width: '100%', maxWidth: W + 'px', height: 'auto', display: 'block' } }, parts);
     if (!narrow) return svg;
     return e('div', null, svg, e('div', { style: { display: 'grid', gap: '0.2rem', marginTop: '0.5rem' } }, legend.map(function (x, i) {
-      return e('div', { key: i, style: { display: 'flex', alignItems: 'center', gap: '0.4rem', fontSize: '0.76rem', color: th.text || '#e6edf3' } },
+      return e('div', { key: i, style: { display: 'flex', alignItems: 'center', gap: '0.4rem', fontSize: 'var(--text-xs)', color: th.text || '#e6edf3' } },
         e('span', { style: { width: '10px', height: '10px', borderRadius: '2px', background: x.c, flex: '0 0 auto' } }), e('span', { style: { flex: 1 } }, x.n), e('span', { style: { fontWeight: 700 } }, money(x.v)));
     })));
   }
@@ -429,8 +429,8 @@ function __(k, f, v) { return (typeof window !== 'undefined' && window.MaerminI1
     var card = { background: th.card || th.cardBg, border: '1px solid ' + border, borderRadius: '14px', padding: '1rem 1.25rem', marginBottom: '1rem' };
     var input = { boxSizing: 'border-box', padding: '0.35rem 0.5rem', background: th.inputBg, border: '1px solid ' + (th.inputBorder || border), borderRadius: '8px', color: text, fontSize: '0.8rem', fontFamily: 'inherit' };
     var btn = { padding: '0.4rem 0.8rem', borderRadius: '8px', border: '1px solid ' + border, background: th.inputBg, color: text, cursor: 'pointer', fontSize: '0.78rem', fontWeight: 600 };
-    var h3 = function (t) { return e('h3', { style: { color: text, fontSize: '1rem', fontWeight: 700, margin: '0 0 0.6rem' } }, t); };
-    var kpi = function (lbl, val, color, tid) { return e('div', { 'data-testid': tid, style: Object.assign({}, card, { marginBottom: 0, flex: '1 1 150px' }) }, e('div', { style: { color: dim, fontSize: '0.75rem' } }, lbl), e('div', { style: { color: color || text, fontSize: '1.3rem', fontWeight: 800 } }, val)); };
+    var h3 = function (t) { return e('h3', { style: { color: text, fontSize: 'var(--text-body)', fontWeight: 700, margin: '0 0 0.6rem' } }, t); };
+    var kpi = function (lbl, val, color, tid) { return e('div', { 'data-testid': tid, style: Object.assign({}, card, { marginBottom: 0, flex: '1 1 150px' }) }, e('div', { style: { color: dim, fontSize: 'var(--text-xs)' } }, lbl), e('div', { style: { color: color || text, fontSize: 'var(--text-title)', fontWeight: 800 } }, val)); };
     function shift(n) { var d = new Date(Date.UTC(+month.slice(0, 4), +month.slice(5, 7) - 1 + n, 1)); setMonth(d.toISOString().slice(0, 7)); }
     function onFile(ev) {
       var f = ev.target.files && ev.target.files[0];
@@ -451,14 +451,14 @@ function __(k, f, v) { return (typeof window !== 'undefined' && window.MaerminI1
     var catOptions = function () { return cats.map(function (c) { return e('option', { key: c.id, value: c.id }, catName(c)); }); };
     return e('div', { 'data-testid': 'budget-view', style: { padding: '1.5rem' } },
       e('div', { style: { display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '0.5rem', marginBottom: '0.5rem' } },
-        e('h2', { style: { color: text, fontSize: '1.5rem', fontWeight: 700, margin: 0 } }, __('bgTitle', 'Budget')),
+        e('h2', { style: { color: text, fontSize: 'var(--text-xl)', fontWeight: 700, margin: 0 } }, __('bgTitle', 'Budget')),
         e('div', { style: { display: 'flex', gap: '0.5rem', alignItems: 'center', flexWrap: 'wrap' } },
           e('button', { style: btn, 'aria-label': __('bgPrevMonth', 'Previous month'), onClick: function () { shift(-1); } }, '‹'),
           e('span', { 'data-testid': 'bg-month', style: { color: text, fontWeight: 700, minWidth: '7rem', textAlign: 'center' } }, window.MaerminI18n.date(month + '-01', 'monthLong')),
           e('button', { style: btn, 'aria-label': __('bgNextMonth', 'Next month'), onClick: function () { shift(1); } }, '›'),
           e('label', { style: Object.assign({}, btn, { background: th.accentFill || th.accent, color: '#fff', border: 'none' }) }, __('bgImportCsv', 'Import bank CSV'),
             e('input', { type: 'file', accept: '.csv,text/csv', 'data-testid': 'bg-csv', onChange: onFile, style: { display: 'none' } })))),
-      e('p', { style: { color: dim, fontSize: '0.8rem', margin: '0 0 1rem', lineHeight: 1.5 } },
+      e('p', { style: { color: dim, fontSize: 'var(--text-sm)', margin: '0 0 1rem', lineHeight: 1.5 } },
         __('bgIntro', 'Spending from your bank accounts, separate from your portfolio. Import a CSV export from online banking (Sparkasse, ING, DKB, N26, …) or add the transactions of a bank sync. Everything stays encrypted on this device.')),
       e('div', { style: { display: 'flex', gap: '0.75rem', flexWrap: 'wrap', marginBottom: '1rem' } },
         kpi(__('bgIncome', 'Income'), money(m.income), good, 'bg-income'),
@@ -471,7 +471,7 @@ function __(k, f, v) { return (typeof window !== 'undefined' && window.MaerminI1
         m.byCategory.map(function (c) {
           var pct = c.budget ? Math.min(100, c.spent / c.budget * 100) : 0;
           return e('div', { key: c.id, 'data-testid': 'bg-cat-' + c.id, style: { padding: '0.35rem 0', borderTop: '1px solid ' + border } },
-            e('div', { style: { display: 'flex', justifyContent: 'space-between', gap: '0.5rem', alignItems: 'center', fontSize: '0.82rem', flexWrap: 'wrap' } },
+            e('div', { style: { display: 'flex', justifyContent: 'space-between', gap: '0.5rem', alignItems: 'center', fontSize: 'var(--text-sm)', flexWrap: 'wrap' } },
               e('span', { style: { color: text, fontWeight: 600 } }, c.name),
               e('span', { style: { display: 'flex', gap: '0.5rem', alignItems: 'center' } },
                 e('span', { style: { color: c.over ? bad : text, fontWeight: 700 } }, money(c.spent) + (c.budget ? ' / ' + money(c.budget) : '')),
@@ -484,11 +484,11 @@ function __(k, f, v) { return (typeof window !== 'undefined' && window.MaerminI1
         monthTx.map(function (t) {
           var cid = categoryOf(st, t);
           return e('div', { key: t.id, 'data-testid': 'bg-tx', style: { borderTop: '1px solid ' + border, padding: '0.35rem 0' } },
-            e('div', { style: { display: 'flex', gap: '0.5rem', alignItems: 'center', flexWrap: 'wrap', fontSize: '0.8rem' } },
+            e('div', { style: { display: 'flex', gap: '0.5rem', alignItems: 'center', flexWrap: 'wrap', fontSize: 'var(--text-sm)' } },
               e('span', { style: { color: dim, minWidth: '5.5rem' } }, window.MaerminI18n.date(t.date)),
               e('span', { style: { color: text, flex: '1 1 160px', minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }, title: t.purpose }, t.name ? t.name : t.purpose),
               e('span', { style: { color: t.amount < 0 ? text : good, fontWeight: 700, minWidth: '6rem', textAlign: 'right' } }, money(t.amount)),
-              t.splits ? e('span', { style: { color: dim, fontSize: '0.74rem' } }, __('bgSplitN', 'split in {n}', { n: t.splits.length }))
+              t.splits ? e('span', { style: { color: dim, fontSize: 'var(--text-xs)' } }, __('bgSplitN', 'split in {n}', { n: t.splits.length }))
                 : e('select', { value: cid, style: input, 'aria-label': __('bgCategory', 'Category'), onChange: function (ev) { commit(setCategory(st, t.id, ev.target.value)); } }, catOptions()),
               e('button', { style: btn, onClick: function () { setSplitFor(t.id); setParts(t.splits ? t.splits.map(function (p) { return Object.assign({}, p); }) : [{ category: cid, amount: t.amount }, { category: 'uncategorized', amount: 0 }]); } }, __('bgSplit', 'Split'))),
             splitFor === t.id ? e('div', { style: { padding: '0.4rem 0 0.2rem 1rem' } },
@@ -507,16 +507,16 @@ function __(k, f, v) { return (typeof window !== 'undefined' && window.MaerminI1
                 e('button', { style: btn, onClick: function () { setSplitFor(null); } }, __('bgCancel', 'Cancel')))) : null);
         })) : null,
       rec.length ? e('div', { 'data-testid': 'bg-recurring', style: card }, h3(__('bgRecurring', 'Recurring payments')),
-        e('div', { style: { color: dim, fontSize: '0.78rem', marginBottom: '0.4rem' } }, __('bgRecurringTotal', 'About {v} a month', { v: money(recurringMonthly(rec)) })),
+        e('div', { style: { color: dim, fontSize: 'var(--text-xs)', marginBottom: '0.4rem' } }, __('bgRecurringTotal', 'About {v} a month', { v: money(recurringMonthly(rec)) })),
         rec.map(function (x) {
-          return e('div', { key: x.key, style: { display: 'flex', justifyContent: 'space-between', gap: '0.5rem', borderTop: '1px solid ' + border, padding: '0.3rem 0', fontSize: '0.8rem', flexWrap: 'wrap' } },
+          return e('div', { key: x.key, style: { display: 'flex', justifyContent: 'space-between', gap: '0.5rem', borderTop: '1px solid ' + border, padding: '0.3rem 0', fontSize: 'var(--text-sm)', flexWrap: 'wrap' } },
             e('span', { style: { color: text } }, x.name),
             e('span', { style: { color: dim } }, (x.cadence === 'monthly' ? __('bgMonthly', 'monthly') : x.cadence === 'quarterly' ? __('bgQuarterly', 'quarterly') : __('bgYearly', 'yearly')) + ' · ' + money(x.amount) + ' · ' + __('bgNext', 'next {d}', { d: window.MaerminI18n.date(x.next) })));
         })) : null,
       e('div', { style: card }, h3(__('bgRules', 'Rules')),
-        e('div', { style: { color: dim, fontSize: '0.76rem', marginBottom: '0.4rem' } }, __('bgRulesHint', 'A booking whose payee or purpose contains the text gets the category. Your rules come before the built-in ones; a category you pick by hand wins over both.')),
+        e('div', { style: { color: dim, fontSize: 'var(--text-xs)', marginBottom: '0.4rem' } }, __('bgRulesHint', 'A booking whose payee or purpose contains the text gets the category. Your rules come before the built-in ones; a category you pick by hand wins over both.')),
         st.rules.map(function (r) {
-          return e('div', { key: r.id, style: { display: 'flex', justifyContent: 'space-between', gap: '0.5rem', borderTop: '1px solid ' + border, padding: '0.3rem 0', fontSize: '0.8rem' } },
+          return e('div', { key: r.id, style: { display: 'flex', justifyContent: 'space-between', gap: '0.5rem', borderTop: '1px solid ' + border, padding: '0.3rem 0', fontSize: 'var(--text-sm)' } },
             e('span', { style: { color: text } }, '"' + r.contains + '" → ' + catName(catById(st, r.category))),
             e('button', { style: btn, onClick: function () { commit(removeRule(st, r.id)); } }, __('bgRemove', 'Remove')));
         }),

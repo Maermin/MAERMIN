@@ -155,11 +155,11 @@ function __(k, f, v) { return (typeof window !== 'undefined' && window.MaerminI1
       return out.join(' · ');
     }
     return e('div', { 'data-testid': 'wht-panel', style: { background: th.card, border: '1px solid ' + border, borderRadius: '14px', padding: '1.25rem', marginTop: '1.5rem' } },
-      e('h3', { style: { color: th.text, fontSize: '1.05rem', fontWeight: 700, margin: '0 0 0.35rem' } }, __('whtTitle', 'Foreign withholding tax by country {y} (estimate)', { y: props.year })),
-      e('p', { style: { color: dim, fontSize: '0.8rem', margin: '0 0 0.75rem', lineHeight: 1.55 } },
+      e('h3', { style: { color: th.text, fontSize: 'var(--text-body)', fontWeight: 700, margin: '0 0 0.35rem' } }, __('whtTitle', 'Foreign withholding tax by country {y} (estimate)', { y: props.year })),
+      e('p', { style: { color: dim, fontSize: 'var(--text-sm)', margin: '0 0 0.75rem', lineHeight: 1.55 } },
         __('whtIntro', 'Creditable = at most 15 % of each gross payout (§ 32d (5) EStG); the tax calculation then limits the credit to the German tax on your dividends. The excess can only be reclaimed from the source country. Rates come from secondary summaries of the BZSt table (as of 1 January 2026), compiled on {date} and not checked against the original - check them before you file.', { date: I.date(SOURCE_DATE) })),
       !data.rows.length
-        ? e('div', { style: { color: dim, fontSize: '0.85rem', padding: '0.5rem 0' } }, __('whtNone', 'No foreign dividends in this year.'))
+        ? e('div', { style: { color: dim, fontSize: 'var(--text-base)', padding: '0.5rem 0' } }, __('whtNone', 'No foreign dividends in this year.'))
         : e('div', { role: 'region', tabIndex: 0, 'aria-label': __('whtTitleShort', 'Foreign withholding tax by country'), style: { overflowX: 'auto' } },
             e('table', { style: { width: '100%', borderCollapse: 'collapse', fontVariantNumeric: 'tabular-nums' } },
               e('thead', null, e('tr', null,
@@ -172,7 +172,7 @@ function __(k, f, v) { return (typeof window !== 'undefined' && window.MaerminI1
                 data.rows.map(function (r) {
                   return e('tr', { key: r.code, 'data-wht-country': r.code },
                     e('th', { scope: 'row', style: Object.assign({}, cell, { textAlign: 'left', fontWeight: 600, whiteSpace: 'normal', minWidth: '11rem' }) }, label(r),
-                      e('div', { style: { color: dim, fontSize: '0.72rem', fontWeight: 400, marginTop: '0.15rem' } }, note(r))),
+                      e('div', { style: { color: dim, fontSize: 'var(--text-xs)', fontWeight: 400, marginTop: '0.15rem' } }, note(r))),
                     e('td', { style: cell }, money(r.gross)),
                     e('td', { style: cell }, money(r.withheld)),
                     e('td', { style: cell }, money(r.creditable)),
@@ -184,9 +184,9 @@ function __(k, f, v) { return (typeof window !== 'undefined' && window.MaerminI1
                   e('td', { style: Object.assign({}, cell, { fontWeight: 700 }) }, money(data.total.withheld)),
                   e('td', { style: Object.assign({}, cell, { fontWeight: 700 }) }, money(data.total.creditable)),
                   e('td', { style: Object.assign({}, cell, { fontWeight: 700 }) }, money(data.total.excess)))))),
-      data.domestic.count ? e('p', { style: { color: dim, fontSize: '0.76rem', margin: '0.6rem 0 0' } },
+      data.domestic.count ? e('p', { style: { color: dim, fontSize: 'var(--text-xs)', margin: '0.6rem 0 0' } },
         __('whtDomestic', '{n} {n:payout|payouts} from German companies ({amt}) are not listed: their tax is German Kapitalertragsteuer, not foreign tax.', { n: data.domestic.count, amt: money(data.domestic.gross) })) : null,
-      e('p', { style: { color: dim, fontSize: '0.76rem', margin: '0.6rem 0 0' } },
+      e('p', { style: { color: dim, fontSize: 'var(--text-xs)', margin: '0.6rem 0 0' } },
         __('whtHowTo', 'Withholding is entered per dividend in the transaction dialog ("Withholding tax"). Dividends booked automatically for US shares assume 15 %.')));
   }
 

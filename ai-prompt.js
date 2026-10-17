@@ -132,7 +132,7 @@ function __(k, f, v) { return (typeof window !== 'undefined' && window.MaerminI1
     function btn(id, label, onClick) {
       var on = shown === id;
       return e('button', { type: 'button', 'data-ai-level': id, 'aria-pressed': on, onClick: onClick,
-        style: { padding: '0.45rem 0.85rem', fontSize: '0.8rem', fontWeight: 600, borderRadius: '8px', cursor: 'pointer', minHeight: '32px',
+        style: { padding: '0.45rem 0.85rem', fontSize: 'var(--text-sm)', fontWeight: 600, borderRadius: '8px', cursor: 'pointer', minHeight: '32px',
           background: on ? (th.accentFill || th.accent) : 'transparent', color: on ? '#ffffff' : th.text, border: '1px solid ' + (on ? 'transparent' : border) } }, label);
     }
     function askFull() {
@@ -150,22 +150,22 @@ function __(k, f, v) { return (typeof window !== 'undefined' && window.MaerminI1
       setCopied(__('aiCopyFailed', 'Copy did not work - select the text and copy it yourself.'));
     }
     return e('section', { 'data-testid': 'ai-export', style: { borderTop: '1px solid ' + border, padding: '0.85rem 0' } },
-      e('h3', { style: { color: th.text, fontSize: '0.95rem', fontWeight: 700, margin: '0 0 0.4rem' } }, __('aiTitle', 'Summary for an AI assistant')),
-      e('p', { style: { color: dim, fontSize: '0.84rem', margin: '0 0 0.6rem', lineHeight: 1.55 } },
+      e('h3', { style: { color: th.text, fontSize: 'var(--text-md)', fontWeight: 700, margin: '0 0 0.4rem' } }, __('aiTitle', 'Summary for an AI assistant')),
+      e('p', { style: { color: dim, fontSize: 'var(--text-sm)', margin: '0 0 0.6rem', lineHeight: 1.55 } },
         __('aiIntro', 'Builds a text about your portfolio that you can copy and paste into any AI assistant. Nothing is sent from here: the text only leaves this device when you paste it somewhere. Journal notes and API keys are never part of it.')),
       e('div', { role: 'group', 'aria-label': __('aiLevelAria', 'What the summary contains'), style: { display: 'flex', gap: '0.5rem', flexWrap: 'wrap', marginBottom: '0.6rem' } },
         btn('redacted', __('aiRedacted', 'Without amounts (percentages only)'), function () { setCopied(''); setLevel('redacted'); }),
         privacy ? null : btn('full', __('aiFull', 'With holdings and amounts…'), askFull)),
-      privacy ? e('p', { 'data-testid': 'ai-privacy-note', style: { color: dim, fontSize: '0.8rem', margin: '0 0 0.6rem' } },
+      privacy ? e('p', { 'data-testid': 'ai-privacy-note', style: { color: dim, fontSize: 'var(--text-sm)', margin: '0 0 0.6rem' } },
         __('aiPrivacyOnly', '"Hide amounts" is on, so only the summary without amounts is offered.')) : null,
-      shown && !text ? e('p', { style: { color: dim, fontSize: '0.82rem', margin: 0 } }, __('aiEmpty', 'There is nothing to summarise yet: add transactions first.')) : null,
+      shown && !text ? e('p', { style: { color: dim, fontSize: 'var(--text-sm)', margin: 0 } }, __('aiEmpty', 'There is nothing to summarise yet: add transactions first.')) : null,
       text ? e('div', null,
         e('textarea', { readOnly: true, value: text, 'aria-label': __('aiTextAria', 'Summary text'), 'data-testid': 'ai-text', rows: Math.min(18, text.split('\n').length + 1),
           onFocus: function (ev) { ev.target.select(); },
-          style: { width: '100%', boxSizing: 'border-box', padding: '0.6rem 0.75rem', background: th.inputBg, color: th.text, border: '1px solid ' + (th.inputBorder || border), borderRadius: '8px', fontSize: '0.8rem', fontFamily: 'ui-monospace, Menlo, monospace', lineHeight: 1.5, resize: 'vertical' } }),
+          style: { width: '100%', boxSizing: 'border-box', padding: '0.6rem 0.75rem', background: th.inputBg, color: th.text, border: '1px solid ' + (th.inputBorder || border), borderRadius: '8px', fontSize: 'var(--text-sm)', fontFamily: 'ui-monospace, Menlo, monospace', lineHeight: 1.5, resize: 'vertical' } }),
         e('div', { style: { display: 'flex', alignItems: 'center', gap: '0.75rem', flexWrap: 'wrap', marginTop: '0.4rem' } },
-          e('button', { type: 'button', 'data-testid': 'ai-copy', onClick: copy, style: { padding: '0.45rem 0.9rem', fontSize: '0.8rem', fontWeight: 700, borderRadius: '8px', cursor: 'pointer', minHeight: '32px', background: th.accentFill || th.accent, color: '#ffffff', border: 'none' } }, __('aiCopy', 'Copy text')),
-          copied ? e('span', { role: 'status', style: { color: dim, fontSize: '0.8rem' } }, copied) : null)) : null);
+          e('button', { type: 'button', 'data-testid': 'ai-copy', onClick: copy, style: { padding: '0.45rem 0.9rem', fontSize: 'var(--text-sm)', fontWeight: 700, borderRadius: '8px', cursor: 'pointer', minHeight: '32px', background: th.accentFill || th.accent, color: '#ffffff', border: 'none' } }, __('aiCopy', 'Copy text')),
+          copied ? e('span', { role: 'status', style: { color: dim, fontSize: 'var(--text-sm)' } }, copied) : null)) : null);
   }
 
   var api = { redactedText: redactedText, positionsOf: positionsOf, fullText: fullText, build: build, Panel: Panel };

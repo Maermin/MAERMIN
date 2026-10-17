@@ -187,7 +187,7 @@ function __(k, f, v) { return (typeof window !== 'undefined' && window.MaerminI1
     var I = window.MaerminI18n;
     var toast = props.addToast || function () {};
     function btn(label, onClick, danger) {
-      return e('button', { type: 'button', onClick: onClick, disabled: busy, style: { padding: '0.35rem 0.75rem', borderRadius: '7px', cursor: busy ? 'default' : 'pointer', fontSize: '0.78rem', fontWeight: 600,
+      return e('button', { type: 'button', onClick: onClick, disabled: busy, style: { padding: '0.35rem 0.75rem', borderRadius: '7px', cursor: busy ? 'default' : 'pointer', fontSize: 'var(--text-xs)', fontWeight: 600,
         background: 'transparent', color: danger ? th.danger : th.accent, border: '1px solid ' + (danger ? th.danger + '66' : border) } }, label);
     }
     function doDiscard() {
@@ -219,19 +219,19 @@ function __(k, f, v) { return (typeof window !== 'undefined' && window.MaerminI1
     }
     var body;
     if (copy && copy.unreadable) {
-      body = [e('p', { key: 'p', style: { color: dim, fontSize: '0.82rem', margin: '0 0 0.75rem', lineHeight: 1.5 } },
+      body = [e('p', { key: 'p', style: { color: dim, fontSize: 'var(--text-sm)', margin: '0 0 0.75rem', lineHeight: 1.5 } },
         __('pmbUnreadable', 'There is a copy from before an update, but it cannot be read with this vault (for example after an encrypted backup from another vault was restored).')),
         e('div', { key: 'b', style: { display: 'flex', gap: '0.5rem', flexWrap: 'wrap' } }, btn(__('pmbDiscard', 'Delete copy'), doDiscard, true))];
     } else if (copy) {
-      body = [e('p', { key: 'p', style: { color: dim, fontSize: '0.82rem', margin: '0 0 0.75rem', lineHeight: 1.5 } },
+      body = [e('p', { key: 'p', style: { color: dim, fontSize: 'var(--text-sm)', margin: '0 0 0.75rem', lineHeight: 1.5 } },
         __('pmbSub', 'Saved on {date}, before your data was updated to a new format: {count} transactions. It stays on this device, encrypted, and is not synced or part of a backup. The next update replaces it.',
           { date: I.date(copy.createdAt, 'dateTime'), count: copy.transactionCount == null ? '?' : copy.transactionCount })),
         e('div', { key: 'b', style: { display: 'flex', gap: '0.5rem', flexWrap: 'wrap' } },
           btn(__('pmbRestore', 'Restore copy'), doRestore, false), btn(__('pmbDiscard', 'Delete copy'), doDiscard, true))];
     } else body = [];
     return e('div', { 'data-testid': 'premigration-card', style: { background: th.card, border: '1px solid ' + border, borderRadius: '14px', padding: '1.25rem', marginBottom: '1rem' } },
-      e('h3', { style: { color: text, fontSize: '1rem', fontWeight: 700, margin: '0 0 0.4rem' } }, __('pmbTitle', 'Copy from before the last update')),
-      s.state === 'blocked' ? e('p', { role: 'status', style: { color: th.warning, fontSize: '0.82rem', margin: '0 0 0.75rem', lineHeight: 1.5 } }, blockedText(s)) : null,
+      e('h3', { style: { color: text, fontSize: 'var(--text-body)', fontWeight: 700, margin: '0 0 0.4rem' } }, __('pmbTitle', 'Copy from before the last update')),
+      s.state === 'blocked' ? e('p', { role: 'status', style: { color: th.warning, fontSize: 'var(--text-sm)', margin: '0 0 0.75rem', lineHeight: 1.5 } }, blockedText(s)) : null,
       body);
   }
 

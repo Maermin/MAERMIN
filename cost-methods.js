@@ -125,11 +125,11 @@ function __(k, f, v) { return (typeof window !== 'undefined' && window.MaerminI1
     function pair(b, tid) {
       return e('td', { 'data-testid': tid, style: cell },
         e('div', { style: { color: col(b.realized), fontWeight: 700 } }, signed(b.realized)),
-        e('div', { style: { color: dim, fontSize: '0.68rem' } }, __('cmUnrealShort', 'open {v}', { v: signed(b.unrealized) })));
+        e('div', { style: { color: dim, fontSize: 'var(--text-2xs)' } }, __('cmUnrealShort', 'open {v}', { v: signed(b.unrealized) })));
     }
     return e('div', { 'data-testid': 'cost-methods-panel', style: { background: th.card || th.cardBg, border: '1px solid ' + border, borderRadius: '14px', padding: '1.25rem', margin: '1.5rem 0 0' } },
-      e('h3', { style: { color: text, fontSize: '1.05rem', fontWeight: 700, margin: '0 0 0.35rem' } }, __('cmTitle', 'Cost-basis methods')),
-      e('p', { style: { color: dim, fontSize: '0.8rem', margin: '0 0 0.75rem', lineHeight: 1.5 } },
+      e('h3', { style: { color: text, fontSize: 'var(--text-body)', fontWeight: 700, margin: '0 0 0.35rem' } }, __('cmTitle', 'Cost-basis methods')),
+      e('p', { style: { color: dim, fontSize: 'var(--text-sm)', margin: '0 0 0.75rem', lineHeight: 1.5 } },
         __('cmIntro', 'Realised gain in {y} and the open (unrealised) gain under each method. Together they are the same under every method; the method only moves gain between years. Your tax report uses FIFO.', { y: year }),
         res.perWallet ? ' ' + __('cmWallet', 'Crypto: FIFO per wallet (portfolio), as set in the tax settings.') : '',
         res.depots.length && R && R.depotLabel ? ' ' + R.depotLabel(res.depots, props.portfolios) + '.' : ''),
@@ -140,19 +140,19 @@ function __(k, f, v) { return (typeof window !== 'undefined' && window.MaerminI1
             e('th', { style: Object.assign({}, head, { textAlign: 'left' }) }, __('cmHolding', 'Holding')),
             res.methods.map(function (m) {
               return e('th', { key: m, style: Object.assign({}, head, m === res.legal ? { color: accent } : null) }, methodName(m),
-                m === res.legal ? e('div', { 'data-testid': 'cm-legal', style: { fontSize: '0.6rem', textTransform: 'none', letterSpacing: 0 } }, __('cmUsed', 'used in your tax report')) : null);
+                m === res.legal ? e('div', { 'data-testid': 'cm-legal', style: { fontSize: 'var(--text-3xs)', textTransform: 'none', letterSpacing: 0 } }, __('cmUsed', 'used in your tax report')) : null);
             }))),
           e('tbody', null,
             res.rows.map(function (r) {
               return e('tr', { key: r.category + '|' + r.symbol, 'data-testid': 'cm-row-' + r.symbol },
                 e('td', { style: Object.assign({}, cell, { textAlign: 'left', fontWeight: 700 }) }, r.symbol,
-                  e('div', { style: { color: dim, fontSize: '0.68rem', fontWeight: 400 } }, __('cmCost', 'cost {v}', { v: money(r.byMethod.fifo.openCost) }))),
+                  e('div', { style: { color: dim, fontSize: 'var(--text-2xs)', fontWeight: 400 } }, __('cmCost', 'cost {v}', { v: money(r.byMethod.fifo.openCost) }))),
                 res.methods.map(function (m) { return pair(r.byMethod[m], 'cm-' + r.symbol + '-' + m); }));
             }),
             e('tr', { 'data-testid': 'cm-total' },
               e('td', { style: Object.assign({}, cell, { textAlign: 'left', color: dim }) }, __('cmTotal', 'Total')),
               res.methods.map(function (m) { return pair(res.totals[m], 'cm-total-' + m); }))))),
-      e('div', { style: { color: dim, fontSize: '0.7rem', marginTop: '0.6rem', lineHeight: 1.5 } },
+      e('div', { style: { color: dim, fontSize: 'var(--text-2xs)', marginTop: '0.6rem', lineHeight: 1.5 } },
         __('cmNote', 'Bold: realised in {y}; below: open gain at today\'s price. The tax report uses FIFO. For crypto the BMF (6.3.2025) also accepts the average method for the value, and the FG Nürnberg (22.1.2025) allowed LIFO in one case; ask your tax adviser before using another method. Not tax advice.', { y: year })));
   }
 

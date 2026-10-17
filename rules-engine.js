@@ -311,7 +311,7 @@ function __(k, f, v) { return (typeof window !== 'undefined' && window.MaerminI1
         function sel(value, onChange, opts, placeholder, label) {
           return e('select', {
             value: value, onChange: function (ev) { onChange(ev.target.value); }, 'aria-label': label,
-            style: { padding: '0.4rem 0.5rem', borderRadius: '8px', border: '1px solid ' + inputBorder, background: inputBg, color: text, fontSize: '0.82rem' }
+            style: { padding: '0.4rem 0.5rem', borderRadius: '8px', border: '1px solid ' + inputBorder, background: inputBg, color: text, fontSize: 'var(--text-sm)' }
           }, (placeholder != null ? [e('option', { key: '_', value: '' }, placeholder)] : []).concat(
             opts.map(function (o) { return e('option', { key: o[0] != null ? o[0] : o, value: o[0] != null ? o[0] : o }, o[1] != null ? o[1] : o); })));
         }
@@ -327,14 +327,14 @@ function __(k, f, v) { return (typeof window !== 'undefined' && window.MaerminI1
               background: res.triggered ? 'color-mix(in srgb, var(--danger) 6%, transparent)' : card, marginBottom: '0.6rem'
             }
           },
-            e('span', { 'aria-hidden': 'true', title: res.triggered ? __('rlTriggered', 'Triggered') : 'OK', style: { color: res.triggered ? down : up, fontWeight: 800, fontSize: '1rem' } }, res.triggered ? '●' : '○'),
+            e('span', { 'aria-hidden': 'true', title: res.triggered ? __('rlTriggered', 'Triggered') : 'OK', style: { color: res.triggered ? down : up, fontWeight: 800, fontSize: 'var(--text-body)' } }, res.triggered ? '●' : '○'),
             e('div', { style: { flex: 1, minWidth: 0 } },
-              e('div', { style: { color: text, fontWeight: 700, fontSize: '0.9rem' } }, r.name || API.describe(r)),
-              e('div', { style: { color: dim, fontSize: '0.76rem', marginTop: '0.1rem' } },
+              e('div', { style: { color: text, fontWeight: 700, fontSize: 'var(--text-base)' } }, r.name || API.describe(r)),
+              e('div', { style: { color: dim, fontSize: 'var(--text-xs)', marginTop: '0.1rem' } },
                 API.describe(r) + '  ·  ' + (t.rulesNow || 'now') + ' ' + actStr)),
             e('button', {
               onClick: function () { mutate(API.toggleRule(st, r.id)); },
-              style: { padding: '0.3rem 0.6rem', fontSize: '0.74rem', fontWeight: 700, cursor: 'pointer', borderRadius: '8px', border: '1px solid ' + inputBorder, background: 'transparent', color: r.enabled ? text : dim }
+              style: { padding: '0.3rem 0.6rem', fontSize: 'var(--text-xs)', fontWeight: 700, cursor: 'pointer', borderRadius: '8px', border: '1px solid ' + inputBorder, background: 'transparent', color: r.enabled ? text : dim }
             }, r.enabled ? (t.rulesOn || 'On') : (t.rulesOff || 'Off')),
             e('button', {
               onClick: function () {
@@ -346,13 +346,13 @@ function __(k, f, v) { return (typeof window !== 'undefined' && window.MaerminI1
                   if (window.MaerminTrash) window.MaerminTrash.trashed('rule', r.name || API.describe(r), r);
                 });
               },
-              style: { padding: '0.3rem 0.6rem', fontSize: '0.74rem', fontWeight: 700, cursor: 'pointer', borderRadius: '8px', border: '1px solid ' + inputBorder, background: 'transparent', color: text }
+              style: { padding: '0.3rem 0.6rem', fontSize: 'var(--text-xs)', fontWeight: 700, cursor: 'pointer', borderRadius: '8px', border: '1px solid ' + inputBorder, background: 'transparent', color: text }
             }, t.rulesDelete || 'Delete'));
         });
 
         return e('div', { style: { padding: '1.5rem' } },
-          e('h2', { style: { color: text, fontSize: '1.5rem', fontWeight: 800, letterSpacing: '-0.02em', margin: '0 0 0.35rem' } }, t.navRules || 'Alerts & Rules'),
-          e('p', { style: { color: dim, fontSize: '0.88rem', margin: '0 0 1.25rem', lineHeight: 1.5, maxWidth: '62ch' } },
+          e('h2', { style: { color: text, fontSize: 'var(--text-xl)', fontWeight: 800, letterSpacing: '-0.02em', margin: '0 0 0.35rem' } }, t.navRules || 'Alerts & Rules'),
+          e('p', { style: { color: dim, fontSize: 'var(--text-base)', margin: '0 0 1.25rem', lineHeight: 1.5, maxWidth: '62ch' } },
             t.rulesSubtitle || 'Local "warn me when…" rules on prices, concentration, allocation and drawdown — evaluated on every price refresh against your live portfolio. Rules carry into your backup.'),
 
           e('div', { style: { display: 'flex', alignItems: 'flex-end', gap: '0.6rem', flexWrap: 'wrap', background: card, border: '1px solid ' + border, borderRadius: '14px', padding: '1rem', marginBottom: '1.25rem' } },
@@ -361,31 +361,31 @@ function __(k, f, v) { return (typeof window !== 'undefined' && window.MaerminI1
             spec.needsTarget ? field(
               priceTarget
                 ? e(React.Fragment, null,
-                    e('input', { value: form.target, list: 'maermin-rule-price-symbols', onChange: function (ev) { setF({ target: ev.target.value }); }, placeholder: t.rulesSymbol || 'symbol', 'aria-label': t.rulesSymbol || 'symbol', style: { width: '120px', padding: '0.4rem 0.5rem', borderRadius: '8px', border: '1px solid ' + inputBorder, background: inputBg, color: text, fontSize: '0.82rem' } }),
+                    e('input', { value: form.target, list: 'maermin-rule-price-symbols', onChange: function (ev) { setF({ target: ev.target.value }); }, placeholder: t.rulesSymbol || 'symbol', 'aria-label': t.rulesSymbol || 'symbol', style: { width: '120px', padding: '0.4rem 0.5rem', borderRadius: '8px', border: '1px solid ' + inputBorder, background: inputBg, color: text, fontSize: 'var(--text-sm)' } }),
                     e('datalist', { id: 'maermin-rule-price-symbols' }, (props.symbols || []).map(function (sy) { return e('option', { key: sy, value: sy }); })))
               : targetOptions.length
                 ? sel(form.target, function (v) { setF({ target: v }); }, targetOptions, t.rulesPickTarget || 'target…', __('rlTargetLabel', 'Target'))
-                : e('input', { value: form.target, onChange: function (ev) { setF({ target: ev.target.value }); }, placeholder: t.rulesTarget || 'target', 'aria-label': __('rlTargetLabel', 'Target'), style: { padding: '0.4rem 0.5rem', borderRadius: '8px', border: '1px solid ' + inputBorder, background: inputBg, color: text, fontSize: '0.82rem', width: '120px' } })
+                : e('input', { value: form.target, onChange: function (ev) { setF({ target: ev.target.value }); }, placeholder: t.rulesTarget || 'target', 'aria-label': __('rlTargetLabel', 'Target'), style: { padding: '0.4rem 0.5rem', borderRadius: '8px', border: '1px solid ' + inputBorder, background: inputBg, color: text, fontSize: 'var(--text-sm)', width: '120px' } })
             ) : null,
             field(sel(form.op, function (v) { setF({ op: v }); }, Object.keys(API.OPS).map(function (k) { return [k, API.OPS[k]]; }), null, __('rlConditionLabel', 'Condition'))),
             field(e('input', {
               type: 'number', value: form.threshold, onChange: function (ev) { setF({ threshold: ev.target.value }); },
               placeholder: API.METRICS[form.metric].unit === '%' ? '%' : '0', 'aria-label': __('rlThresholdLabel', 'Threshold'),
-              style: { width: '90px', padding: '0.4rem 0.5rem', borderRadius: '8px', border: '1px solid ' + inputBorder, background: inputBg, color: text, fontSize: '0.82rem' }
+              style: { width: '90px', padding: '0.4rem 0.5rem', borderRadius: '8px', border: '1px solid ' + inputBorder, background: inputBg, color: text, fontSize: 'var(--text-sm)' }
             })),
             e('button', {
               onClick: addCurrent,
-              style: { padding: '0.45rem 0.9rem', fontSize: '0.82rem', fontWeight: 800, cursor: 'pointer', borderRadius: '8px', border: 'none', background: accentFill, color: accentText }
+              style: { padding: '0.45rem 0.9rem', fontSize: 'var(--text-sm)', fontWeight: 800, cursor: 'pointer', borderRadius: '8px', border: 'none', background: accentFill, color: accentText }
             }, t.rulesAdd || 'Add rule')),
 
           results.length
             ? e('div', null,
-                e('div', { style: { color: dim, fontSize: '0.78rem', marginBottom: '0.6rem' } },
+                e('div', { style: { color: dim, fontSize: 'var(--text-xs)', marginBottom: '0.6rem' } },
                   triggered
                     ? (triggered + ' ' + (t.rulesTriggered || 'rule(s) currently triggered'))
                     : (t.rulesAllClear || 'All rules within limits')),
                 ruleRows)
-            : e('div', { style: { background: card, border: '1px solid ' + border, borderRadius: '14px', padding: '2rem', textAlign: 'center', color: dim, fontSize: '0.9rem' } },
+            : e('div', { style: { background: card, border: '1px solid ' + border, borderRadius: '14px', padding: '2rem', textAlign: 'center', color: dim, fontSize: 'var(--text-base)' } },
                 t.rulesEmpty || 'No rules yet. Add one above — e.g. a symbol weight above 30% to catch concentration.'));
       } catch (err) {
         return e('div', { style: { padding: '1.5rem', color: (props.theme && props.theme.danger) || 'var(--danger)' } }, __('rlViewError', 'Rules view error: ') + (err && err.message));

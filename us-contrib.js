@@ -162,7 +162,7 @@ function __(k, f, v) { return (typeof window !== 'undefined' && window.MaerminI1
     function bar(tid, title, used, limit, extra) {
       var pct = limit > 0 ? Math.min(100, used / limit * 100) : 0, over = used > limit;
       return e('div', { 'data-testid': tid, style: { padding: '0.6rem 0', borderTop: '1px solid ' + border } },
-        e('div', { style: { display: 'flex', justifyContent: 'space-between', gap: '0.75rem', fontSize: '0.84rem', flexWrap: 'wrap' } },
+        e('div', { style: { display: 'flex', justifyContent: 'space-between', gap: '0.75rem', fontSize: 'var(--text-sm)', flexWrap: 'wrap' } },
           e('span', { style: { color: text, fontWeight: 700 } }, title),
           e('span', { style: { color: over ? bad : text, fontWeight: 700 } }, __('ucUsedOf', '{used} of {limit}', { used: money(used), limit: money(limit) }))),
         e('div', { style: { height: '8px', borderRadius: '4px', background: th.inputBg || 'rgba(255,255,255,0.08)', margin: '0.35rem 0', overflow: 'hidden' } },
@@ -172,12 +172,12 @@ function __(k, f, v) { return (typeof window !== 'undefined' && window.MaerminI1
     var ira = r.ira, k = r.k401, pfs = props.portfolios || [];
     var hasIra = r.accounts.some(function (a) { return a.type !== '401k'; }), hasK = r.accounts.some(function (a) { return a.type === '401k'; });
     return e('div', { 'data-testid': 'us-contrib-panel', style: { background: th.card || th.cardBg, border: '1px solid ' + border, borderRadius: '14px', padding: '1.25rem', margin: '1.5rem 0 0' } },
-      e('h3', { style: { color: text, fontSize: '1.05rem', fontWeight: 700, margin: '0 0 0.35rem' } }, __('ucTitle', 'Retirement contributions {y}', { y: year })),
-      e('p', { style: { color: dim, fontSize: '0.8rem', margin: '0 0 0.6rem', lineHeight: 1.5 } },
+      e('h3', { style: { color: text, fontSize: 'var(--text-body)', fontWeight: 700, margin: '0 0 0.35rem' } }, __('ucTitle', 'Retirement contributions {y}', { y: year })),
+      e('p', { style: { color: dim, fontSize: 'var(--text-sm)', margin: '0 0 0.6rem', lineHeight: 1.5 } },
         __('ucIntro', 'Mark which portfolios are an IRA, a Roth IRA or a 401(k). Their deposits count as contributions against the IRS limits of the year; rollovers (transfers in) do not.')),
-      r.limits.estimated ? e('div', { 'data-testid': 'uc-estimated', style: { color: warn, fontSize: '0.76rem', marginBottom: '0.4rem' } }, __('ucEstimated', 'The IRS has not published the limits for {y} yet: the {s} amounts are shown.', { y: year, s: r.limits.sourceYear })) : null,
+      r.limits.estimated ? e('div', { 'data-testid': 'uc-estimated', style: { color: warn, fontSize: 'var(--text-xs)', marginBottom: '0.4rem' } }, __('ucEstimated', 'The IRS has not published the limits for {y} yet: the {s} amounts are shown.', { y: year, s: r.limits.sourceYear })) : null,
       hasIra ? bar('uc-ira', __('ucIra', 'IRA (traditional and Roth together)'), ira.contributed, ira.limit,
-        e('div', { style: { color: dim, fontSize: '0.74rem', lineHeight: 1.5 } },
+        e('div', { style: { color: dim, fontSize: 'var(--text-xs)', lineHeight: 1.5 } },
           ira.excess > 0 ? e('div', { style: { color: bad } }, __('ucIraExcess', 'Excess contribution of {v}: withdraw it with its earnings by the filing deadline, or a 6 % excise tax applies each year.', { v: money(ira.excess) })) : null,
           e('div', null, __('ucRemaining', 'Room left: {v} · deadline {d}', { v: money(ira.remaining), d: window.MaerminI18n.date(ira.deadline) })),
           r.accounts.some(function (a) { return a.type === 'roth-ira'; }) ? e('div', { 'data-testid': 'uc-roth' },
@@ -185,11 +185,11 @@ function __(k, f, v) { return (typeof window !== 'undefined' && window.MaerminI1
               : __('ucRoth', 'Roth IRA limit at MAGI {m}: {l}; room left {v}', { m: money(ira.roth.magi), l: money(ira.roth.limit), v: money(ira.roth.remaining) }),
             ira.roth.excess > 0 ? e('span', { style: { color: bad } }, ' · ' + __('ucRothExcess', 'over the Roth limit by {v}', { v: money(ira.roth.excess) })) : null) : null)) : null,
       hasK ? bar('uc-401k', __('ucK401', '401(k) employee deferrals'), k.contributed, k.limit,
-        e('div', { style: { color: dim, fontSize: '0.74rem', lineHeight: 1.5 } },
+        e('div', { style: { color: dim, fontSize: 'var(--text-xs)', lineHeight: 1.5 } },
           k.excess > 0 ? e('div', { style: { color: bad } }, __('ucKExcess', 'Excess deferral of {v}: ask the plan to return it by 15 April, or it is taxed twice.', { v: money(k.excess) })) : null,
           e('div', null, __('ucRemainingK', 'Room left: {v} · through payroll by {d}', { v: money(k.remaining), d: window.MaerminI18n.date(k.deadline) })),
           k.catchUp ? e('div', null, __('ucCatchUp', 'Includes a catch-up of {v}.', { v: money(k.catchUp) })) : null)) : null,
-      !hasIra && !hasK ? e('div', { style: { color: dim, fontSize: '0.8rem', padding: '0.4rem 0' } }, __('ucNone', 'No portfolio is marked as a retirement account yet.')) : null,
+      !hasIra && !hasK ? e('div', { style: { color: dim, fontSize: 'var(--text-sm)', padding: '0.4rem 0' } }, __('ucNone', 'No portfolio is marked as a retirement account yet.')) : null,
       e('div', { style: { borderTop: '1px solid ' + border, marginTop: '0.6rem', paddingTop: '0.6rem', display: 'flex', gap: '0.5rem', flexWrap: 'wrap', alignItems: 'center' } },
         e('label', { style: lbl }, __('ucBirthYear', 'Birth year')),
         e('input', { 'data-testid': 'uc-birth', inputMode: 'numeric', style: Object.assign({}, input, { width: '80px' }), defaultValue: st.birthYear || '',
@@ -204,12 +204,12 @@ function __(k, f, v) { return (typeof window !== 'undefined' && window.MaerminI1
         pfs.map(function (p) {
           var type = st.accounts[p.id] || '', acc = r.accounts.filter(function (a) { return a.portfolioId === p.id; })[0];
           return e('div', { key: p.id, 'data-testid': 'uc-pf-' + p.id, style: { display: 'flex', gap: '0.5rem', alignItems: 'center', flexWrap: 'wrap', padding: '0.3rem 0', borderTop: '1px solid ' + border } },
-            e('span', { style: { color: text, fontWeight: 700, minWidth: '120px', fontSize: '0.8rem' } }, p.name || p.id),
+            e('span', { style: { color: text, fontWeight: 700, minWidth: '120px', fontSize: 'var(--text-sm)' } }, p.name || p.id),
             e('select', { style: input, value: type, 'aria-label': __('ucAccountType', 'Account type'),
               onChange: function (ev) { var a = Object.assign({}, st.accounts); if (ev.target.value) a[p.id] = ev.target.value; else delete a[p.id]; update(Object.assign({}, st, { accounts: a })); } },
               e('option', { value: '' }, __('ucTaxable', 'Taxable account')), e('option', { value: 'ira' }, __('ucTypeIra', 'Traditional IRA')),
               e('option', { value: 'roth-ira' }, __('ucTypeRoth', 'Roth IRA')), e('option', { value: '401k' }, '401(k)')),
-            acc ? e('span', { style: { color: dim, fontSize: '0.74rem' } }, __('ucDeposits', 'deposits {y}: {v}', { y: year, v: money(acc.deposits) })) : null,
+            acc ? e('span', { style: { color: dim, fontSize: 'var(--text-xs)' } }, __('ucDeposits', 'deposits {y}: {v}', { y: year, v: money(acc.deposits) })) : null,
             type === 'ira' || type === 'roth-ira' ? e('input', { key: 'pr' + p.id + Y, inputMode: 'decimal', style: Object.assign({}, input, { width: '140px' }),
               title: __('ucPriorHint', 'Deposited between 1 January and 15 April {n}, designated for {y}', { n: year + 1, y: year }),
               placeholder: __('ucPrior', 'for {y} in {n}', { y: year, n: year + 1 }), defaultValue: (st.priorYear[p.id] || {})[Y] || '',
@@ -218,7 +218,7 @@ function __(k, f, v) { return (typeof window !== 'undefined' && window.MaerminI1
               placeholder: __('ucEmployer', 'employer {y}', { y: year }), title: __('ucEmployerHint', 'Employer contributions included in the deposits (they do not count against your limit)'),
               defaultValue: (st.employer[p.id] || {})[Y] || '', onBlur: function (ev) { setAmount('employer', p.id, parse(ev.target.value)); } }) : null);
         })),
-      e('div', { style: { color: dim, fontSize: '0.7rem', marginTop: '0.6rem', lineHeight: 1.5 } },
+      e('div', { style: { color: dim, fontSize: 'var(--text-2xs)', marginTop: '0.6rem', lineHeight: 1.5 } },
         __('ucNote', 'Limits from IRS Notice 2024-80 and Notice 2025-67 (§ 402(g), § 414(v), § 219(b)(5), § 408A(c)(3) IRC); the Roth reduction per Publication 590-A. Not modelled: the overall § 415(c) limit, the IRA cap at your earned income, the traditional IRA deduction phase-out. Not tax advice.')));
   }
 

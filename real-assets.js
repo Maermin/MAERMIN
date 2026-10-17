@@ -472,12 +472,12 @@ function __(k, f, v) { return (typeof window !== 'undefined' && window.MaerminI1
           return a && (a.type === 'loan' || a.type === 'credit' || a.type === 'other_liability');
         });
 
-        function label(s) { return e('label', { style: { display: 'block', color: dim, fontSize: '0.7rem', marginBottom: '0.25rem', textTransform: 'uppercase' } }, s); }
+        function label(s) { return e('label', { style: { display: 'block', color: dim, fontSize: 'var(--text-2xs)', marginBottom: '0.25rem', textTransform: 'uppercase' } }, s); }
         function inp(field, p) {
           p = p || {};
           return e('input', Object.assign({
             value: form[field], onChange: function (ev) { setF((function () { var o = {}; o[field] = ev.target.value; return o; })()); },
-            style: { padding: '0.55rem 0.7rem', background: inputBg, border: '1px solid ' + inputBorder, borderRadius: '8px', color: text, fontSize: '0.85rem', width: '100%', boxSizing: 'border-box' }
+            style: { padding: '0.55rem 0.7rem', background: inputBg, border: '1px solid ' + inputBorder, borderRadius: '8px', color: text, fontSize: 'var(--text-base)', width: '100%', boxSizing: 'border-box' }
           }, p));
         }
 
@@ -489,16 +489,16 @@ function __(k, f, v) { return (typeof window !== 'undefined' && window.MaerminI1
           var tr = API.totalReturn(a, rate);
           return e('div', { key: a.id, style: { display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '0.75rem', background: inputBg, borderRadius: '8px', marginBottom: '0.5rem' } },
             e('div', { style: { display: 'flex', alignItems: 'center', gap: '0.6rem', minWidth: 0 } },
-              e('span', { style: { color: accent, fontSize: '0.95rem' } }, k.icon),
+              e('span', { style: { color: accent, fontSize: 'var(--text-md)' } }, k.icon),
               e('div', { style: { minWidth: 0 } },
-                e('div', { style: { color: text, fontWeight: 600, fontSize: '0.875rem' } }, a.name),
-                e('div', { style: { color: dim, fontSize: '0.72rem' } },
+                e('div', { style: { color: text, fontWeight: 600, fontSize: 'var(--text-base)' } }, a.name),
+                e('div', { style: { color: dim, fontSize: 'var(--text-xs)' } },
                   k.label + (ny ? '  ·  ' + (t.raNetYield || 'Net yield') + ' ' + window.MaerminI18n.pct(ny * 100, 1) : '') +
                   '  ·  ' + (t.raTotalReturn || 'Total return') + ' ' + window.MaerminI18n.pct(tr.percent, 1, true)))),
             e('div', { style: { display: 'flex', alignItems: 'center', gap: '0.75rem' } },
               e('div', { style: { textAlign: 'right' } },
-                e('div', { style: { color: up, fontWeight: 700, fontSize: '0.9rem' } }, fmt(nv) + ' ' + sym),
-                a.financingAccountId ? e('div', { style: { color: dim, fontSize: '0.7rem' } }, (t.raGross || 'Gross') + ' ' + fmt(cv) + ' ' + sym) : null),
+                e('div', { style: { color: up, fontWeight: 700, fontSize: 'var(--text-base)' } }, fmt(nv) + ' ' + sym),
+                a.financingAccountId ? e('div', { style: { color: dim, fontSize: 'var(--text-2xs)' } }, (t.raGross || 'Gross') + ' ' + fmt(cv) + ' ' + sym) : null),
               e('button', { onClick: function () {
                   window.MaerminUtils.confirmThen({
                     title: (t.raRemoveTitle || 'Remove "{name}"?').replace('{name}', a.name),
@@ -510,24 +510,24 @@ function __(k, f, v) { return (typeof window !== 'undefined' && window.MaerminI1
                   });
                 },
                 'aria-label': (t.raRemoveAria || 'Remove {name}').replace('{name}', a.name),
-                style: { background: 'none', border: 'none', color: dim, cursor: 'pointer', fontSize: '0.9rem', padding: '0.25rem' } }, '×')));
+                style: { background: 'none', border: 'none', color: dim, cursor: 'pointer', fontSize: 'var(--text-base)', padding: '0.25rem' } }, '×')));
         });
 
         return e('div', { style: { background: card, border: '1px solid ' + border, borderRadius: '14px', padding: '1.1rem', marginBottom: '1.5rem' } },
           e('div', { style: { display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.6rem', flexWrap: 'wrap', gap: '0.5rem' } },
             e('div', null,
-              e('div', { style: { color: text, fontWeight: 700, fontSize: '0.95rem' } }, t.raTitle || 'Real Assets & Property'),
-              e('div', { style: { color: dim, fontSize: '0.76rem' } },
+              e('div', { style: { color: text, fontWeight: 700, fontSize: 'var(--text-md)' } }, t.raTitle || 'Real Assets & Property'),
+              e('div', { style: { color: dim, fontSize: 'var(--text-xs)' } },
                 agg.count + ' ' + (t.raAssets || 'assets') + '  ·  ' + (t.raNet || 'net') + ' ' + fmt(agg.netValue) + ' ' + sym +
                 (agg.annualIncome ? '  ·  ' + (t.raIncomePa || 'income p.a.') + ' ' + fmt(agg.annualIncome) + ' ' + sym : ''))),
             e('button', { onClick: function () { setShowAdd(!showAdd); },
-              style: { padding: '0.45rem 0.9rem', background: accent, color: '#ffffff', border: 'none', borderRadius: '8px', cursor: 'pointer', fontWeight: 700, fontSize: '0.82rem' } }, t.raAdd || '+ Add Asset')),
+              style: { padding: '0.45rem 0.9rem', background: accent, color: '#ffffff', border: 'none', borderRadius: '8px', cursor: 'pointer', fontWeight: 700, fontSize: 'var(--text-sm)' } }, t.raAdd || '+ Add Asset')),
 
           showAdd ? e('div', { style: { padding: '0.85rem', background: inputBg, borderRadius: '10px', marginBottom: '0.85rem' } },
             // P5-3.11: start from a template (art, P2P loans, life insurance, vehicles, startups, collectibles)
             e('div', { style: { marginBottom: '0.6rem' } }, label(__('raTemplate', 'Template')),
               e('select', { value: form.template, 'data-testid': 'ra-template', onChange: function (ev) { setTplError(''); setF({ template: ev.target.value }); },
-                style: { padding: '0.55rem 0.7rem', background: inputBg, border: '1px solid ' + inputBorder, borderRadius: '8px', color: text, fontSize: '0.85rem', width: '100%', maxWidth: '320px' } },
+                style: { padding: '0.55rem 0.7rem', background: inputBg, border: '1px solid ' + inputBorder, borderRadius: '8px', color: text, fontSize: 'var(--text-base)', width: '100%', maxWidth: '320px' } },
                 [e('option', { key: '_', value: '' }, __('raTplGeneric', 'Property, watch or other (free form)'))].concat(
                   API.TEMPLATES.map(function (tp) { return e('option', { key: tp.id, value: tp.id }, API.templateLabel(tp.id)); })))),
             form.template ? e('div', { style: { display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(150px, 1fr))', gap: '0.6rem' } },
@@ -536,17 +536,17 @@ function __(k, f, v) { return (typeof window !== 'undefined' && window.MaerminI1
                   inp(f.key, { type: f.type === 'date' ? 'date' : 'text', inputMode: f.type === 'number' ? 'decimal' : undefined, 'data-testid': 'ra-f-' + f.key }));
               }).concat([e('div', { key: '_cur' }, label(t.raCurrency || 'Currency'),
                 e('select', { value: form.currency, onChange: function (ev) { setF({ currency: ev.target.value }); },
-                  style: { padding: '0.55rem 0.7rem', background: inputBg, border: '1px solid ' + inputBorder, borderRadius: '8px', color: text, fontSize: '0.85rem', width: '100%' } },
+                  style: { padding: '0.55rem 0.7rem', background: inputBg, border: '1px solid ' + inputBorder, borderRadius: '8px', color: text, fontSize: 'var(--text-base)', width: '100%' } },
                   ['EUR', 'USD'].map(function (c) { return e('option', { key: c, value: c }, c); })))])) :
             e('div', { style: { display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(150px, 1fr))', gap: '0.6rem' } },
               e('div', null, label(t.raName || 'Name'), inp('name', { placeholder: __('raNamePh', 'e.g. Apartment Berlin') })),
               e('div', null, label(t.raKind || 'Kind'),
                 e('select', { value: form.kind, onChange: function (ev) { setF({ kind: ev.target.value }); },
-                  style: { padding: '0.55rem 0.7rem', background: inputBg, border: '1px solid ' + inputBorder, borderRadius: '8px', color: text, fontSize: '0.85rem', width: '100%' } },
+                  style: { padding: '0.55rem 0.7rem', background: inputBg, border: '1px solid ' + inputBorder, borderRadius: '8px', color: text, fontSize: 'var(--text-base)', width: '100%' } },
                   Object.keys(API.KINDS).map(function (kk) { return e('option', { key: kk, value: kk }, API.KINDS[kk].label); }))),
               e('div', null, label(t.raCurrency || 'Currency'),
                 e('select', { value: form.currency, onChange: function (ev) { setF({ currency: ev.target.value }); },
-                  style: { padding: '0.55rem 0.7rem', background: inputBg, border: '1px solid ' + inputBorder, borderRadius: '8px', color: text, fontSize: '0.85rem', width: '100%' } },
+                  style: { padding: '0.55rem 0.7rem', background: inputBg, border: '1px solid ' + inputBorder, borderRadius: '8px', color: text, fontSize: 'var(--text-base)', width: '100%' } },
                   ['EUR', 'USD'].map(function (c) { return e('option', { key: c, value: c }, c); }))),
               e('div', null, label((t.raValue || 'Current value')), inp('value', { type: 'number', placeholder: '350000' })),
               e('div', null, label(t.raCost || 'Purchase price'), inp('acquisitionCost', { type: 'number', placeholder: '300000' })),
@@ -555,16 +555,16 @@ function __(k, f, v) { return (typeof window !== 'undefined' && window.MaerminI1
               e('div', null, label(t.raRunCost || 'Cost / month'), inp('costMonthly', { type: 'number', placeholder: '250' })),
               e('div', null, label(t.raFinancing || 'Financing (liability)'),
                 e('select', { value: form.financingAccountId, onChange: function (ev) { setF({ financingAccountId: ev.target.value }); },
-                  style: { padding: '0.55rem 0.7rem', background: inputBg, border: '1px solid ' + inputBorder, borderRadius: '8px', color: text, fontSize: '0.85rem', width: '100%' } },
+                  style: { padding: '0.55rem 0.7rem', background: inputBg, border: '1px solid ' + inputBorder, borderRadius: '8px', color: text, fontSize: 'var(--text-base)', width: '100%' } },
                   [e('option', { key: '_', value: '' }, t.raNoFinancing || 'None')].concat(
                     liabilityAccounts.map(function (a) { return e('option', { key: a.id, value: a.id }, a.name); }))))),
-            tplError ? e('div', { style: { color: (props.theme && props.theme.warning) || 'var(--warning)', fontSize: '0.78rem', marginTop: '0.5rem' } }, tplError) : null,
+            tplError ? e('div', { style: { color: (props.theme && props.theme.warning) || 'var(--warning)', fontSize: 'var(--text-xs)', marginTop: '0.5rem' } }, tplError) : null,
             e('div', { style: { display: 'flex', gap: '0.5rem', marginTop: '0.75rem' } },
-              e('button', { onClick: addCurrent, 'data-testid': 'ra-add', style: { padding: '0.5rem 1rem', background: accent, color: '#ffffff', border: 'none', borderRadius: '8px', cursor: 'pointer', fontWeight: 700, fontSize: '0.82rem' } }, t.raSave || 'Add'),
-              e('button', { onClick: function () { setShowAdd(false); }, style: { padding: '0.5rem 1rem', background: inputBg, color: text, border: '1px solid ' + inputBorder, borderRadius: '8px', cursor: 'pointer', fontSize: '0.82rem' } }, t.raCancel || 'Cancel'))) : null,
+              e('button', { onClick: addCurrent, 'data-testid': 'ra-add', style: { padding: '0.5rem 1rem', background: accent, color: '#ffffff', border: 'none', borderRadius: '8px', cursor: 'pointer', fontWeight: 700, fontSize: 'var(--text-sm)' } }, t.raSave || 'Add'),
+              e('button', { onClick: function () { setShowAdd(false); }, style: { padding: '0.5rem 1rem', background: inputBg, color: text, border: '1px solid ' + inputBorder, borderRadius: '8px', cursor: 'pointer', fontSize: 'var(--text-sm)' } }, t.raCancel || 'Cancel'))) : null,
 
           st.assets.length ? e('div', null, rows)
-            : (showAdd ? null : e('div', { style: { color: dim, fontSize: '0.84rem', padding: '0.5rem 0' } },
+            : (showAdd ? null : e('div', { style: { color: dim, fontSize: 'var(--text-sm)', padding: '0.5rem 0' } },
                 t.raEmpty || 'No real assets yet. Add a property, vehicle or valuable to track its value, financing and rental cashflows.')));
       } catch (err) {
         return e('div', { style: { padding: '0.75rem', color: (props.theme && props.theme.danger) || 'var(--danger)' } }, __('raError', 'Real assets error: ') + (err && err.message));

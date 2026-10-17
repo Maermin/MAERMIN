@@ -196,7 +196,7 @@ function __(k, f, v) { return (typeof window !== 'undefined' && window.MaerminI1
     var items = list();
     var I = window.MaerminI18n;
     function btn(label, onClick, danger, aria) {
-      return e('button', { type: 'button', onClick: onClick, 'aria-label': aria, style: { padding: '0.35rem 0.75rem', borderRadius: '7px', cursor: 'pointer', fontSize: '0.78rem', fontWeight: 600,
+      return e('button', { type: 'button', onClick: onClick, 'aria-label': aria, style: { padding: '0.35rem 0.75rem', borderRadius: '7px', cursor: 'pointer', fontSize: 'var(--text-xs)', fontWeight: 600,
         background: 'transparent', color: danger ? (th.danger || 'var(--danger)') : (th.accent || '#8b7cff'), border: '1px solid ' + (danger ? (th.danger || '#ef4444') + '66' : border) } }, label);
     }
     function confirmPurge(title, run) {
@@ -204,17 +204,17 @@ function __(k, f, v) { return (typeof window !== 'undefined' && window.MaerminI1
     }
     return e('div', { 'data-testid': 'trash-view', style: { background: th.card || th.cardBg, border: '1px solid ' + border, borderRadius: '14px', padding: '1.25rem' } },
       e('div', { style: { display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '1rem', flexWrap: 'wrap', marginBottom: '0.5rem' } },
-        e('h2', { style: { color: text, fontSize: '1.2rem', fontWeight: 800, margin: 0 } }, __('trashTitle', 'Trash')),
+        e('h2', { style: { color: text, fontSize: 'var(--text-title)', fontWeight: 800, margin: 0 } }, __('trashTitle', 'Trash')),
         items.length ? btn(__('trashEmpty', 'Empty trash'), function () { confirmPurge(__('trashEmptyTitle', 'Delete all {n} {n:item|items} forever?', { n: items.length }), purgeAll); }, true) : null),
-      e('p', { style: { color: dim, fontSize: '0.82rem', margin: '0 0 1rem', lineHeight: 1.5 } },
+      e('p', { style: { color: dim, fontSize: 'var(--text-sm)', margin: '0 0 1rem', lineHeight: 1.5 } },
         __('trashIntro', 'Deleted transactions, portfolios, savings plans, accounts, goals, rules and real assets stay here for 30 days. Restore puts them back where they were.')),
       items.length === 0
-        ? e('div', { style: { color: dim, fontSize: '0.85rem', padding: '1.5rem 0', textAlign: 'center' } }, __('trashNone', 'The trash is empty.'))
+        ? e('div', { style: { color: dim, fontSize: 'var(--text-base)', padding: '1.5rem 0', textAlign: 'center' } }, __('trashNone', 'The trash is empty.'))
         : e('ul', { style: { listStyle: 'none', margin: 0, padding: 0 } }, items.map(function (it) {
             return e('li', { key: it.id, 'data-trash-kind': it.kind, style: { display: 'flex', alignItems: 'center', gap: '0.75rem', padding: '0.65rem 0', borderTop: '1px solid ' + border, flexWrap: 'wrap' } },
               e('div', { style: { flex: '1 1 14rem', minWidth: 0 } },
-                e('div', { style: { color: text, fontWeight: 600, fontSize: '0.88rem', overflow: 'hidden', textOverflow: 'ellipsis' } }, it.label || kindLabel(it.kind)),
-                e('div', { style: { color: dim, fontSize: '0.74rem' } },
+                e('div', { style: { color: text, fontWeight: 600, fontSize: 'var(--text-base)', overflow: 'hidden', textOverflow: 'ellipsis' } }, it.label || kindLabel(it.kind)),
+                e('div', { style: { color: dim, fontSize: 'var(--text-xs)' } },
                   kindLabel(it.kind) + ' · ' + __('trashDeletedOn', 'deleted {date}', { date: I ? I.date(it.deletedAt, 'dateTime') : new Date(it.deletedAt).toISOString() }) + ' · ' +
                   __('trashDaysLeft', '{n} {n:day|days} left', { n: daysLeft(it) }))),
               btn(__('trashRestore', 'Restore'), function () {

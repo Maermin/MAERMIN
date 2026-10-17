@@ -25,15 +25,15 @@ function KpiCard({ theme, label, value, sub, color, badge }) {
     style: { background: theme.card, border: `1px solid ${theme.cardBorder}`, borderRadius: '16px', padding: '1.35rem', boxShadow: theme.shadow }
   },
     React.createElement('div', { style: { display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '0.4rem' } },
-      React.createElement('span', { style: { color: theme.textSecondary, fontSize: '0.72rem', fontWeight: '600', textTransform: 'uppercase', letterSpacing: '0.07em' } }, label),
+      React.createElement('span', { style: { color: theme.textSecondary, fontSize: 'var(--text-xs)', fontWeight: '600', textTransform: 'uppercase', letterSpacing: '0.07em' } }, label),
       badge && React.createElement('span', {
-        style: { fontSize: '0.68rem', fontWeight: '700', padding: '0.1rem 0.4rem', borderRadius: '4px',
+        style: { fontSize: 'var(--text-2xs)', fontWeight: '700', padding: '0.1rem 0.4rem', borderRadius: '4px',
           background: badge.pos ? 'color-mix(in srgb, var(--success) 15%, transparent)' : 'color-mix(in srgb, var(--danger) 15%, transparent)',
           color: badge.pos ? theme.success : theme.danger }
       }, badge.text)
     ),
     React.createElement('div', { style: { color: ((window.MaerminUtils && window.MaerminUtils.ink) ? window.MaerminUtils.ink(color) : color) || theme.text, fontSize: '1.6rem', fontWeight: '800', lineHeight: 1, letterSpacing: '-0.02em' } }, value),
-    sub && React.createElement('div', { style: { color: theme.textSecondary, fontSize: '0.78rem', marginTop: '0.25rem' } }, sub)
+    sub && React.createElement('div', { style: { color: theme.textSecondary, fontSize: 'var(--text-xs)', marginTop: '0.25rem' } }, sub)
   );
 }
 
@@ -141,7 +141,7 @@ function NetWorthView({ portfolioStats, portfolio, prices, theme, formatPrice, g
 
   const inp = (field, props = {}) => React.createElement('input', {
     value: form[field], onChange: e => setForm(p => ({ ...p, [field]: e.target.value })),
-    style: { padding: '0.625rem 0.875rem', background: theme.inputBg, border: `1px solid ${theme.inputBorder}`, borderRadius: '8px', color: theme.text, fontSize: '0.875rem', width: '100%', boxSizing: 'border-box' },
+    style: { padding: '0.625rem 0.875rem', background: theme.inputBg, border: `1px solid ${theme.inputBorder}`, borderRadius: '8px', color: theme.text, fontSize: 'var(--text-base)', width: '100%', boxSizing: 'border-box' },
     ...props
   });
 
@@ -151,12 +151,12 @@ function NetWorthView({ portfolioStats, portfolio, prices, theme, formatPrice, g
   return React.createElement('div', { style: { padding: '1.5rem' } },
     React.createElement('div', { style: { display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.5rem', flexWrap: 'wrap', gap: '0.75rem' } },
       React.createElement('div', null,
-        React.createElement('h2', { style: { color: theme.text, fontSize: '1.5rem', fontWeight: '800', letterSpacing: '-0.02em', marginBottom: '0.25rem' } }, __('nwTitle', 'Net Worth')),
-        React.createElement('p', { style: { color: theme.textSecondary, fontSize: '0.875rem' } }, __('nwSubtitle', 'Total wealth including investments, cash accounts, real estate and liabilities'))
+        React.createElement('h2', { style: { color: theme.text, fontSize: 'var(--text-xl)', fontWeight: '800', letterSpacing: '-0.02em', marginBottom: '0.25rem' } }, __('nwTitle', 'Net Worth')),
+        React.createElement('p', { style: { color: theme.textSecondary, fontSize: 'var(--text-base)' } }, __('nwSubtitle', 'Total wealth including investments, cash accounts, real estate and liabilities'))
       ),
       React.createElement('button', {
         onClick: () => setShowAdd(!showAdd),
-        style: { padding: '0.625rem 1.25rem', background: (theme.accentFill || theme.accent), color: '#ffffff', border: 'none', borderRadius: '8px', cursor: 'pointer', fontWeight: '700', fontSize: '0.875rem' }
+        style: { padding: '0.625rem 1.25rem', background: (theme.accentFill || theme.accent), color: '#ffffff', border: 'none', borderRadius: '8px', cursor: 'pointer', fontWeight: '700', fontSize: 'var(--text-base)' }
       }, __('nwAddAccount', '+ Add Account'))
     ),
 
@@ -175,7 +175,7 @@ function NetWorthView({ portfolioStats, portfolio, prices, theme, formatPrice, g
 
     // Visual net worth bar
     netWorth > 0 && React.createElement(Card, { theme, style: { marginBottom: '1.5rem' } },
-      React.createElement('div', { style: { color: theme.text, fontWeight: '700', fontSize: '0.875rem', marginBottom: '0.75rem' } }, __('nwComposition', 'Wealth Composition')),
+      React.createElement('div', { style: { color: theme.text, fontWeight: '700', fontSize: 'var(--text-base)', marginBottom: '0.75rem' } }, __('nwComposition', 'Wealth Composition')),
       React.createElement('div', { style: { height: '20px', borderRadius: '10px', overflow: 'hidden', display: 'flex', background: theme.inputBg } },
         [
           { value: portfolioValue, color: '#8b7cff', label: __('portfolio', 'Portfolio') },
@@ -189,7 +189,7 @@ function NetWorthView({ portfolioStats, portfolio, prices, theme, formatPrice, g
         [{ label: __('portfolio', 'Portfolio'), color: '#8b7cff', value: portfolioValue },
          { label: __('nwCashAssets', 'Cash & Assets'), color: '#22c55e', value: totalAssets },
          { label: __('nwLiabilities', 'Liabilities'), color: '#ef4444', value: -totalLiabilities }].map((s, i) =>
-          React.createElement('div', { key: i, style: { display: 'flex', alignItems: 'center', gap: '0.375rem', fontSize: '0.78rem' } },
+          React.createElement('div', { key: i, style: { display: 'flex', alignItems: 'center', gap: '0.375rem', fontSize: 'var(--text-xs)' } },
             React.createElement('div', { style: { width: 8, height: 8, borderRadius: '50%', background: s.color } }),
             React.createElement('span', { style: { color: theme.textSecondary } }, s.label),
             React.createElement('span', { style: { color: s.value >= 0 ? theme.text : 'var(--danger)', fontWeight: '600' } }, `${formatPrice(Math.abs(s.value))} ${getCurrencySymbol()}`)
@@ -225,47 +225,47 @@ function NetWorthView({ portfolioStats, portfolio, prices, theme, formatPrice, g
       React.createElement('div', { style: { color: theme.text, fontWeight: '700', marginBottom: '1rem' } }, __('nwAddTitle', 'Add Account or Liability')),
       React.createElement('div', { style: { display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(160px, 1fr))', gap: '0.75rem', marginBottom: '0.875rem' } },
         React.createElement('div', null,
-          React.createElement('label', { style: { display: 'block', color: theme.textSecondary, fontSize: '0.72rem', marginBottom: '0.25rem', textTransform: 'uppercase' } }, __('nwName', 'Name')),
+          React.createElement('label', { style: { display: 'block', color: theme.textSecondary, fontSize: 'var(--text-xs)', marginBottom: '0.25rem', textTransform: 'uppercase' } }, __('nwName', 'Name')),
           inp('name', { placeholder: __('nwNamePh', 'e.g. ING Tagesgeld, Mortgage...') })
         ),
         React.createElement('div', null,
-          React.createElement('label', { style: { display: 'block', color: theme.textSecondary, fontSize: '0.72rem', marginBottom: '0.25rem', textTransform: 'uppercase' } }, __('type', 'Type')),
+          React.createElement('label', { style: { display: 'block', color: theme.textSecondary, fontSize: 'var(--text-xs)', marginBottom: '0.25rem', textTransform: 'uppercase' } }, __('type', 'Type')),
           React.createElement('select', { value: form.type, onChange: e => setForm(p => ({ ...p, type: e.target.value })),
-            style: { padding: '0.625rem 0.875rem', background: theme.inputBg, border: `1px solid ${theme.inputBorder}`, borderRadius: '8px', color: theme.text, fontSize: '0.875rem', width: '100%' }
+            style: { padding: '0.625rem 0.875rem', background: theme.inputBg, border: `1px solid ${theme.inputBorder}`, borderRadius: '8px', color: theme.text, fontSize: 'var(--text-base)', width: '100%' }
           }, Object.entries(TYPES).map(([v, t]) => React.createElement('option', { key: v, value: v }, t.label)))
         ),
         React.createElement('div', null,
-          React.createElement('label', { style: { display: 'block', color: theme.textSecondary, fontSize: '0.72rem', marginBottom: '0.25rem', textTransform: 'uppercase' } }, isLiabilityType(form.type) ? __('nwCurrentBalance', 'Current balance ({cur})', { cur: getCurrencySymbol() }) : __('nwValueCur', 'Value ({cur})', { cur: getCurrencySymbol() })),
+          React.createElement('label', { style: { display: 'block', color: theme.textSecondary, fontSize: 'var(--text-xs)', marginBottom: '0.25rem', textTransform: 'uppercase' } }, isLiabilityType(form.type) ? __('nwCurrentBalance', 'Current balance ({cur})', { cur: getCurrencySymbol() }) : __('nwValueCur', 'Value ({cur})', { cur: getCurrencySymbol() })),
           inp('value', { type: 'number', placeholder: isLiabilityType(form.type) ? __('nwOutstandingPh', 'outstanding (optional)') : '10000' })
         )
       ),
 
       // Interest schedule (WI-2) — for cash / checking / time deposits.
       ['cash','checking','time_deposit'].includes(form.type) && React.createElement('div', { style: { marginBottom: '0.875rem', padding: '0.75rem', background: theme.inputBg, borderRadius: '8px' } },
-        React.createElement('div', { style: { color: theme.text, fontSize: '0.82rem', marginBottom: '0.6rem', fontWeight: 600 } }, t.interestSection || 'Interest (optional)'),
+        React.createElement('div', { style: { color: theme.text, fontSize: 'var(--text-sm)', marginBottom: '0.6rem', fontWeight: 600 } }, t.interestSection || 'Interest (optional)'),
         React.createElement('div', { style: { display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(150px, 1fr))', gap: '0.75rem' } },
           React.createElement('div', null,
-            React.createElement('label', { style: { display: 'block', color: theme.textSecondary, fontSize: '0.7rem', marginBottom: '0.25rem', textTransform: 'uppercase' } }, t.interestRate || 'Rate (% p.a.)'),
+            React.createElement('label', { style: { display: 'block', color: theme.textSecondary, fontSize: 'var(--text-2xs)', marginBottom: '0.25rem', textTransform: 'uppercase' } }, t.interestRate || 'Rate (% p.a.)'),
             inp('interestRate', { type: 'number', placeholder: '2.5' })
           ),
           React.createElement('div', null,
-            React.createElement('label', { style: { display: 'block', color: theme.textSecondary, fontSize: '0.7rem', marginBottom: '0.25rem', textTransform: 'uppercase' } }, t.interestCompounding || 'Compounding'),
+            React.createElement('label', { style: { display: 'block', color: theme.textSecondary, fontSize: 'var(--text-2xs)', marginBottom: '0.25rem', textTransform: 'uppercase' } }, t.interestCompounding || 'Compounding'),
             React.createElement('select', { value: form.compounding, onChange: e => setForm(p => ({ ...p, compounding: e.target.value })),
-              style: { padding: '0.625rem 0.875rem', background: theme.inputBg, border: `1px solid ${theme.inputBorder}`, borderRadius: '8px', color: theme.text, fontSize: '0.85rem', width: '100%' }
+              style: { padding: '0.625rem 0.875rem', background: theme.inputBg, border: `1px solid ${theme.inputBorder}`, borderRadius: '8px', color: theme.text, fontSize: 'var(--text-base)', width: '100%' }
             }, [['daily', t.compDaily || 'Daily'], ['monthly', t.compMonthly || 'Monthly'], ['annual', t.compAnnual || 'Annual']].map(([v, l]) => React.createElement('option', { key: v, value: v }, l)))
           ),
           React.createElement('div', null,
-            React.createElement('label', { style: { display: 'block', color: theme.textSecondary, fontSize: '0.7rem', marginBottom: '0.25rem', textTransform: 'uppercase' } }, t.interestStartDate || 'Interest start'),
+            React.createElement('label', { style: { display: 'block', color: theme.textSecondary, fontSize: 'var(--text-2xs)', marginBottom: '0.25rem', textTransform: 'uppercase' } }, t.interestStartDate || 'Interest start'),
             inp('interestStart', { type: 'date' })
           ),
           form.type === 'time_deposit' && React.createElement('div', null,
-            React.createElement('label', { style: { display: 'block', color: theme.textSecondary, fontSize: '0.7rem', marginBottom: '0.25rem', textTransform: 'uppercase' } }, t.interestMaturity || 'Maturity date'),
+            React.createElement('label', { style: { display: 'block', color: theme.textSecondary, fontSize: 'var(--text-2xs)', marginBottom: '0.25rem', textTransform: 'uppercase' } }, t.interestMaturity || 'Maturity date'),
             inp('maturityDate', { type: 'date' })
           ),
           form.type === 'time_deposit' && React.createElement('div', null,
-            React.createElement('label', { style: { display: 'block', color: theme.textSecondary, fontSize: '0.7rem', marginBottom: '0.25rem', textTransform: 'uppercase' } }, t.interestPayout || 'Interest paid'),
+            React.createElement('label', { style: { display: 'block', color: theme.textSecondary, fontSize: 'var(--text-2xs)', marginBottom: '0.25rem', textTransform: 'uppercase' } }, t.interestPayout || 'Interest paid'),
             React.createElement('select', { value: form.interestPayout || 'maturity', onChange: e => setForm(p => ({ ...p, interestPayout: e.target.value })),
-              style: { padding: '0.625rem 0.875rem', background: theme.inputBg, border: `1px solid ${theme.inputBorder}`, borderRadius: '8px', color: theme.text, fontSize: '0.85rem', width: '100%' }
+              style: { padding: '0.625rem 0.875rem', background: theme.inputBg, border: `1px solid ${theme.inputBorder}`, borderRadius: '8px', color: theme.text, fontSize: 'var(--text-base)', width: '100%' }
             }, [['maturity', t.interestPayoutMaturity || 'At maturity'], ['annual', t.interestPayoutAnnual || 'Every year']].map(([v, l]) => React.createElement('option', { key: v, value: v }, l)))
           )
         )
@@ -273,40 +273,40 @@ function NetWorthView({ portfolioStats, portfolio, prices, theme, formatPrice, g
 
       // Recurring liability schedule — only for loan/credit/other_liability types.
       isLiabilityType(form.type) && React.createElement('div', { style: { marginBottom: '0.875rem', padding: '0.75rem', background: theme.inputBg, borderRadius: '8px' } },
-        React.createElement('label', { style: { display: 'flex', alignItems: 'center', gap: '0.5rem', color: theme.text, fontSize: '0.82rem', cursor: 'pointer', marginBottom: form.recurring ? '0.75rem' : 0 } },
+        React.createElement('label', { style: { display: 'flex', alignItems: 'center', gap: '0.5rem', color: theme.text, fontSize: 'var(--text-sm)', cursor: 'pointer', marginBottom: form.recurring ? '0.75rem' : 0 } },
           React.createElement('input', { type: 'checkbox', checked: form.recurring, onChange: e => setForm(p => ({ ...p, recurring: e.target.checked })), style: { accentColor: theme.accent } }),
           React.createElement('span', null, __('nwRecurring', 'Recurring payment (loan / mortgage instalment)'))
         ),
         form.recurring && React.createElement('div', { style: { display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(150px, 1fr))', gap: '0.75rem' } },
           React.createElement('div', null,
-            React.createElement('label', { style: { display: 'block', color: theme.textSecondary, fontSize: '0.7rem', marginBottom: '0.25rem', textTransform: 'uppercase' } }, __('nwPaymentCur', 'Payment ({cur})', { cur: getCurrencySymbol() })),
+            React.createElement('label', { style: { display: 'block', color: theme.textSecondary, fontSize: 'var(--text-2xs)', marginBottom: '0.25rem', textTransform: 'uppercase' } }, __('nwPaymentCur', 'Payment ({cur})', { cur: getCurrencySymbol() })),
             inp('amount', { type: 'number', placeholder: '1200' })
           ),
           React.createElement('div', null,
-            React.createElement('label', { style: { display: 'block', color: theme.textSecondary, fontSize: '0.7rem', marginBottom: '0.25rem', textTransform: 'uppercase' } }, __('nwInterval', 'Interval')),
+            React.createElement('label', { style: { display: 'block', color: theme.textSecondary, fontSize: 'var(--text-2xs)', marginBottom: '0.25rem', textTransform: 'uppercase' } }, __('nwInterval', 'Interval')),
             React.createElement('select', { value: form.interval, onChange: e => setForm(p => ({ ...p, interval: e.target.value })),
-              style: { padding: '0.625rem 0.875rem', background: theme.inputBg, border: `1px solid ${theme.inputBorder}`, borderRadius: '8px', color: theme.text, fontSize: '0.85rem', width: '100%' }
+              style: { padding: '0.625rem 0.875rem', background: theme.inputBg, border: `1px solid ${theme.inputBorder}`, borderRadius: '8px', color: theme.text, fontSize: 'var(--text-base)', width: '100%' }
             }, Object.entries((window.MaerminRecurring && window.MaerminRecurring.INTERVALS) || { monthly: { label: __('freqMonthly', 'Monthly') } }).map(([v]) => React.createElement('option', { key: v, value: v }, window.MaerminI18n.freq(v))))
           ),
           React.createElement('div', null,
-            React.createElement('label', { style: { display: 'block', color: theme.textSecondary, fontSize: '0.7rem', marginBottom: '0.25rem', textTransform: 'uppercase' } }, __('nwStartDate', 'Start date')),
+            React.createElement('label', { style: { display: 'block', color: theme.textSecondary, fontSize: 'var(--text-2xs)', marginBottom: '0.25rem', textTransform: 'uppercase' } }, __('nwStartDate', 'Start date')),
             inp('startDate', { type: 'date' })
           ),
           React.createElement('div', null,
-            React.createElement('label', { style: { display: 'block', color: theme.textSecondary, fontSize: '0.7rem', marginBottom: '0.25rem', textTransform: 'uppercase' } }, __('nwEndDateOpt', 'End date (optional)')),
+            React.createElement('label', { style: { display: 'block', color: theme.textSecondary, fontSize: 'var(--text-2xs)', marginBottom: '0.25rem', textTransform: 'uppercase' } }, __('nwEndDateOpt', 'End date (optional)')),
             inp('endDate', { type: 'date' })
           )
         )
       ),
       React.createElement('div', { style: { display: 'flex', gap: '0.5rem' } },
-        React.createElement('button', { onClick: addAccount, style: { padding: '0.625rem 1.25rem', background: (theme.accentFill || theme.accent), color: '#ffffff', border: 'none', borderRadius: '8px', cursor: 'pointer', fontWeight: '700', fontSize: '0.875rem' } }, __('add', 'Add')),
-        React.createElement('button', { onClick: () => setShowAdd(false), style: { padding: '0.625rem 1.25rem', background: theme.inputBg, color: theme.text, border: 'none', borderRadius: '8px', cursor: 'pointer', fontSize: '0.875rem' } }, __('cancel', 'Cancel'))
+        React.createElement('button', { onClick: addAccount, style: { padding: '0.625rem 1.25rem', background: (theme.accentFill || theme.accent), color: '#ffffff', border: 'none', borderRadius: '8px', cursor: 'pointer', fontWeight: '700', fontSize: 'var(--text-base)' } }, __('add', 'Add')),
+        React.createElement('button', { onClick: () => setShowAdd(false), style: { padding: '0.625rem 1.25rem', background: theme.inputBg, color: theme.text, border: 'none', borderRadius: '8px', cursor: 'pointer', fontSize: 'var(--text-base)' } }, __('cancel', 'Cancel'))
       )
     ),
 
     // Account list
     accounts.length > 0 && React.createElement(Card, { theme },
-      React.createElement('div', { style: { color: theme.text, fontWeight: '700', fontSize: '0.9rem', marginBottom: '0.875rem' } }, __('nwAccountsTitle', 'Accounts & Liabilities')),
+      React.createElement('div', { style: { color: theme.text, fontWeight: '700', fontSize: 'var(--text-base)', marginBottom: '0.875rem' } }, __('nwAccountsTitle', 'Accounts & Liabilities')),
       React.createElement('div', { style: { display: 'flex', flexDirection: 'column', gap: '0.5rem' } },
         accounts.map(acc => {
           const typeInfo = TYPES[acc.type] || TYPES.other_asset;
@@ -315,17 +315,17 @@ function NetWorthView({ portfolioStats, portfolio, prices, theme, formatPrice, g
             style: { display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '0.75rem', background: theme.inputBg, borderRadius: '8px' }
           },
             React.createElement('div', { style: { display: 'flex', alignItems: 'center', gap: '0.625rem' } },
-              React.createElement('span', { style: { color: typeInfo.color, fontSize: '0.9rem' } }, typeInfo.icon),
+              React.createElement('span', { style: { color: typeInfo.color, fontSize: 'var(--text-base)' } }, typeInfo.icon),
               React.createElement('div', null,
-                React.createElement('div', { style: { color: theme.text, fontWeight: '600', fontSize: '0.875rem' } }, acc.name),
-                React.createElement('div', { style: { color: theme.textSecondary, fontSize: '0.72rem' } },
+                React.createElement('div', { style: { color: theme.text, fontWeight: '600', fontSize: 'var(--text-base)' } }, acc.name),
+                React.createElement('div', { style: { color: theme.textSecondary, fontSize: 'var(--text-xs)' } },
                   typeInfo.label
                   + (acc.interestRate > 0 ? `  ·  ${acc.interestRate}% ${t.interestPa || 'p.a.'}` : '')
                   + (acc.maturityDate ? `  ·  ${t.interestMatures || 'matures'} ${acc.maturityDate}` : ''))
               )
             ),
             React.createElement('div', { style: { display: 'flex', alignItems: 'center', gap: '0.75rem' } },
-              React.createElement('span', { style: { color: isLiability ? theme.danger : theme.success, fontWeight: '700', fontSize: '0.9rem' } },
+              React.createElement('span', { style: { color: isLiability ? theme.danger : theme.success, fontWeight: '700', fontSize: 'var(--text-base)' } },
                 `${isLiability ? '-' : '+'}${formatPrice(acc.value)} ${getCurrencySymbol()}`
               ),
               React.createElement('button', { onClick: () => window.MaerminUtils.confirmThen({
@@ -337,7 +337,7 @@ function NetWorthView({ portfolioStats, portfolio, prices, theme, formatPrice, g
                   if (window.MaerminTrash) window.MaerminTrash.trashed('account', acc.name, acc);
                 }),
                 'aria-label': (t.nwRemoveAria || 'Remove account {name}').replace('{name}', acc.name),
-                style: { background: 'none', border: 'none', color: theme.textSecondary, cursor: 'pointer', fontSize: '0.9rem', padding: '0.25rem' }
+                style: { background: 'none', border: 'none', color: theme.textSecondary, cursor: 'pointer', fontSize: 'var(--text-base)', padding: '0.25rem' }
               }, '×')
             )
           );
@@ -410,7 +410,7 @@ function CashflowChart({ transactions, priceHistory, portfolio, prices, theme, f
 
   if (investedSeries.length < 2 && valueSeries.length < 2) {
     return React.createElement(Card, { theme, style: { textAlign: 'center', padding: '3rem', marginBottom: '1.5rem' } },
-      React.createElement('div', { style: { color: theme.textSecondary, fontSize: '0.9rem' } }, __('cfEmpty', 'Add transactions and refresh prices a few times to see your cashflow chart'))
+      React.createElement('div', { style: { color: theme.textSecondary, fontSize: 'var(--text-base)' } }, __('cfEmpty', 'Add transactions and refresh prices a few times to see your cashflow chart'))
     );
   }
 
@@ -450,9 +450,9 @@ function CashflowChart({ transactions, priceHistory, portfolio, prices, theme, f
 
   return React.createElement(Card, { theme, style: { marginBottom: '1.5rem' } },
     React.createElement('div', { style: { display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem', flexWrap: 'wrap', gap: '0.5rem' } },
-      React.createElement('span', { style: { color: theme.text, fontWeight: '700', fontSize: '0.9rem' } }, __('cfTitle', 'Cash Flow — Invested vs. Portfolio Value')),
+      React.createElement('span', { style: { color: theme.text, fontWeight: '700', fontSize: 'var(--text-base)' } }, __('cfTitle', 'Cash Flow — Invested vs. Portfolio Value')),
       React.createElement('span', {
-        style: { fontSize: '0.85rem', fontWeight: '700', padding: '0.25rem 0.75rem', borderRadius: '6px',
+        style: { fontSize: 'var(--text-base)', fontWeight: '700', padding: '0.25rem 0.75rem', borderRadius: '6px',
           background: isUp ? 'color-mix(in srgb, var(--success) 15%, transparent)' : 'color-mix(in srgb, var(--danger) 15%, transparent)',
           color: isUp ? theme.success : theme.danger }
       }, `${isUp ? '+' : ''}${formatPrice(pnl)} (${window.MaerminI18n.pct(pnlPct, 1)})`)
@@ -484,11 +484,11 @@ function CashflowChart({ transactions, priceHistory, portfolio, prices, theme, f
     ),
     // Legend
     React.createElement('div', { style: { display: 'flex', gap: '1.5rem', marginTop: '0.75rem', justifyContent: 'flex-end' } },
-      React.createElement('div', { style: { display: 'flex', alignItems: 'center', gap: '0.375rem', fontSize: '0.75rem', color: theme.textSecondary } },
+      React.createElement('div', { style: { display: 'flex', alignItems: 'center', gap: '0.375rem', fontSize: 'var(--text-xs)', color: theme.textSecondary } },
         React.createElement('div', { style: { width: 20, height: 0, borderTop: '2px dashed ' + theme.textSecondary } }),
         __('cfNetInvestedLegend', 'Net invested: {amount}', { amount: `${formatPrice(lastInv)} ${getCurrencySymbol()}` })
       ),
-      React.createElement('div', { style: { display: 'flex', alignItems: 'center', gap: '0.375rem', fontSize: '0.75rem', color: theme.textSecondary } },
+      React.createElement('div', { style: { display: 'flex', alignItems: 'center', gap: '0.375rem', fontSize: 'var(--text-xs)', color: theme.textSecondary } },
         React.createElement('div', { style: { width: 20, height: 2, background: isUp ? 'var(--success)' : 'var(--danger)' } }),
         __('cfValueLegend', 'Value: {amount}', { amount: `${formatPrice(lastVal)} ${getCurrencySymbol()}` })
       )
@@ -560,8 +560,8 @@ function FeeAnalyzer({ transactions, theme, formatPrice, getCurrencySymbol, exch
   const maxYear = Math.max(...Object.values(stats.byYear).map(y => y.fees), 1);
 
   return React.createElement('div', { style: { padding: '1.5rem' } },
-    React.createElement('h2', { style: { color: theme.text, fontSize: '1.5rem', fontWeight: '800', letterSpacing: '-0.02em', marginBottom: '0.375rem' } }, __('feeTitle', 'Fee Analyzer')),
-    React.createElement('p', { style: { color: theme.textSecondary, fontSize: '0.875rem', marginBottom: '1.5rem' } }, __('feeSubtitle', 'Total cost of investing — transaction fees, exchange fees, and more')),
+    React.createElement('h2', { style: { color: theme.text, fontSize: 'var(--text-xl)', fontWeight: '800', letterSpacing: '-0.02em', marginBottom: '0.375rem' } }, __('feeTitle', 'Fee Analyzer')),
+    React.createElement('p', { style: { color: theme.textSecondary, fontSize: 'var(--text-base)', marginBottom: '1.5rem' } }, __('feeSubtitle', 'Total cost of investing — transaction fees, exchange fees, and more')),
 
     // KPIs
     React.createElement('div', { style: { display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(160px, 1fr))', gap: '1rem', marginBottom: '1.5rem' } },
@@ -579,11 +579,11 @@ function FeeAnalyzer({ transactions, theme, formatPrice, getCurrencySymbol, exch
 
           // By Year
           React.createElement(Card, { theme },
-            React.createElement('div', { style: { color: theme.text, fontWeight: '700', fontSize: '0.875rem', marginBottom: '1rem' } }, __('feeByYear', 'Fees by Year')),
+            React.createElement('div', { style: { color: theme.text, fontWeight: '700', fontSize: 'var(--text-base)', marginBottom: '1rem' } }, __('feeByYear', 'Fees by Year')),
             React.createElement('div', { style: { display: 'flex', flexDirection: 'column', gap: '0.625rem' } },
               Object.entries(stats.byYear).sort((a,b) => b[0].localeCompare(a[0])).map(([year, data]) =>
                 React.createElement('div', { key: year },
-                  React.createElement('div', { style: { display: 'flex', justifyContent: 'space-between', fontSize: '0.82rem', marginBottom: '0.25rem' } },
+                  React.createElement('div', { style: { display: 'flex', justifyContent: 'space-between', fontSize: 'var(--text-sm)', marginBottom: '0.25rem' } },
                     React.createElement('span', { style: { color: theme.text, fontWeight: '600' } }, year),
                     React.createElement('span', { style: { color: 'var(--danger)', fontWeight: '700' } }, `${formatPrice(data.fees)} ${getCurrencySymbol()}`)
                   ),
@@ -597,13 +597,13 @@ function FeeAnalyzer({ transactions, theme, formatPrice, getCurrencySymbol, exch
 
           // By Category
           React.createElement(Card, { theme },
-            React.createElement('div', { style: { color: theme.text, fontWeight: '700', fontSize: '0.875rem', marginBottom: '1rem' } }, __('feeByClass', 'Fees by Asset Class')),
+            React.createElement('div', { style: { color: theme.text, fontWeight: '700', fontSize: 'var(--text-base)', marginBottom: '1rem' } }, __('feeByClass', 'Fees by Asset Class')),
             React.createElement('div', { style: { display: 'flex', flexDirection: 'column', gap: '0.625rem' } },
               Object.entries(stats.byCategory).sort((a,b) => b[1]-a[1]).map(([cat, fees]) => {
                 const pct = stats.totalFees > 0 ? fees / stats.totalFees * 100 : 0;
                 const color = CAT_COLORS[cat] || '#8b7cff';
                 return React.createElement('div', { key: cat },
-                  React.createElement('div', { style: { display: 'flex', justifyContent: 'space-between', fontSize: '0.82rem', marginBottom: '0.25rem' } },
+                  React.createElement('div', { style: { display: 'flex', justifyContent: 'space-between', fontSize: 'var(--text-sm)', marginBottom: '0.25rem' } },
                     React.createElement('span', { style: { color: theme.text, fontWeight: '600' } }, window.MaerminI18n.category(cat)),
                     React.createElement('div', { style: { display: 'flex', gap: '0.5rem' } },
                       React.createElement('span', { style: { color: theme.textSecondary } }, window.MaerminI18n.pct(pct, 1)),
@@ -621,13 +621,13 @@ function FeeAnalyzer({ transactions, theme, formatPrice, getCurrencySymbol, exch
           // Top cost items
           // Full row in any column count ('span 2' forced a second column on phones).
           React.createElement(Card, { theme, style: { gridColumn: '1 / -1' } },
-            React.createElement('div', { style: { color: theme.text, fontWeight: '700', fontSize: '0.875rem', marginBottom: '0.75rem' } }, __('feeMostExpensive', 'Most Expensive Transactions')),
+            React.createElement('div', { style: { color: theme.text, fontWeight: '700', fontSize: 'var(--text-base)', marginBottom: '0.75rem' } }, __('feeMostExpensive', 'Most Expensive Transactions')),
             React.createElement('div', { style: { overflowX: 'auto' } },
-              React.createElement('table', { style: { width: '100%', borderCollapse: 'collapse', fontSize: '0.8rem', minWidth: 420 } },
+              React.createElement('table', { style: { width: '100%', borderCollapse: 'collapse', fontSize: 'var(--text-sm)', minWidth: 420 } },
                 React.createElement('thead', null,
                   React.createElement('tr', null,
                     [__('date', 'Date'), __('symbol', 'Symbol'), __('type', 'Type'), __('feeTradeValue', 'Trade Value'), __('feeFee', 'Fee'), __('feePct', 'Fee %')].map((h, i) =>
-                      React.createElement('th', { key: i, style: { padding: '0.5rem 0.75rem', textAlign: i > 2 ? 'right' : 'left', color: theme.textSecondary, borderBottom: `1px solid ${theme.cardBorder}`, fontWeight: '600', textTransform: 'uppercase', fontSize: '0.65rem', whiteSpace: 'nowrap' } }, h)
+                      React.createElement('th', { key: i, style: { padding: '0.5rem 0.75rem', textAlign: i > 2 ? 'right' : 'left', color: theme.textSecondary, borderBottom: `1px solid ${theme.cardBorder}`, fontWeight: '600', textTransform: 'uppercase', fontSize: 'var(--text-3xs)', whiteSpace: 'nowrap' } }, h)
                     )
                   )
                 ),
@@ -644,7 +644,7 @@ function FeeAnalyzer({ transactions, theme, formatPrice, getCurrencySymbol, exch
                         React.createElement('td', { style: { padding: '0.5rem 0.75rem', color: theme.textSecondary } }, window.MaerminI18n.date(tx.date)),
                         React.createElement('td', { style: { padding: '0.5rem 0.75rem', color: theme.text, fontWeight: '600' } }, tx.symbol),
                         React.createElement('td', { style: { padding: '0.5rem 0.75rem' } },
-                          React.createElement('span', { style: { color: tx.type === 'buy' ? theme.success : tx.type === 'sell' ? theme.danger : window.MaerminUtils.txTypeInfo(tx.type).color, fontWeight: '600', fontSize: '0.72rem' } }, window.MaerminUtils.txTypeInfo(tx.type).label.toUpperCase())
+                          React.createElement('span', { style: { color: tx.type === 'buy' ? theme.success : tx.type === 'sell' ? theme.danger : window.MaerminUtils.txTypeInfo(tx.type).color, fontWeight: '600', fontSize: 'var(--text-xs)' } }, window.MaerminUtils.txTypeInfo(tx.type).label.toUpperCase())
                         ),
                         React.createElement('td', { style: { padding: '0.5rem 0.75rem', textAlign: 'right', color: theme.textSecondary } }, `${formatPrice(trade)} ${getCurrencySymbol()}`),
                         React.createElement('td', { style: { padding: '0.5rem 0.75rem', textAlign: 'right', color: 'var(--danger)', fontWeight: '700' } }, `${formatPrice(fee)} ${getCurrencySymbol()}`),

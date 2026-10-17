@@ -130,10 +130,10 @@ function __(k, f, v) { return (typeof window !== 'undefined' && window.MaerminI1
     var colLabel = function (h) { return h.months === 0 ? __('ccToday', 'Today') : __('ccInMonths', 'In {n} mo.', { n: h.months }); };
 
     return e('div', { 'data-testid': 'crypto-calendar-panel', style: { background: th.card || th.cardBg, border: '1px solid ' + border, borderRadius: '14px', padding: '1.25rem', margin: '1.5rem 0 0' } },
-      e('h3', { style: { color: text, fontSize: '1.05rem', fontWeight: 700, margin: '0 0 0.35rem' } }, __('ccTitle', 'Crypto tax-free calendar')),
-      e('p', { style: { color: dim, fontSize: '0.8rem', margin: '0 0 0.75rem', lineHeight: 1.5 } },
+      e('h3', { style: { color: text, fontSize: 'var(--text-body)', fontWeight: 700, margin: '0 0 0.35rem' } }, __('ccTitle', 'Crypto tax-free calendar')),
+      e('p', { style: { color: dim, fontSize: 'var(--text-sm)', margin: '0 0 0.75rem', lineHeight: 1.5 } },
         __('ccIntro', 'How much of each coin can be sold tax-free (held for more than a year) today and in the coming months. A sale takes the oldest lots first (FIFO), so the tax-free part is also the part that is sold first.')),
-      !res.exemption ? e('div', { 'data-testid': 'cc-off', style: { color: warn, fontSize: '0.82rem', marginBottom: '0.5rem' } },
+      !res.exemption ? e('div', { 'data-testid': 'cc-off', style: { color: warn, fontSize: 'var(--text-sm)', marginBottom: '0.5rem' } },
         __('ccOff', 'The one-year rule for crypto is switched off in your tax settings, so nothing counts as tax-free.')) : null,
       !res.coins.length ? window.MaerminUtils.emptyState({ compact: true, testid: 'cc-empty', text: __('ccEmpty', 'No crypto held.') }) :
       e('div', { style: { overflowX: 'auto' } },
@@ -151,16 +151,16 @@ function __(k, f, v) { return (typeof window !== 'undefined' && window.MaerminI1
                 c.buckets.map(function (b, i) {
                   return e('td', { key: i, 'data-testid': 'cc-' + c.symbol + '-' + b.months, style: Object.assign({}, cell, { color: b.quantity > EPS ? (Math.abs(b.quantity - c.held) < 1e-9 ? good : text) : dim }) },
                     b.quantity > EPS ? qty(b.quantity) : '–',
-                    b.quantity > EPS && b.value != null ? e('div', { style: { color: dim, fontSize: '0.68rem' } }, money(b.value)) : null);
+                    b.quantity > EPS && b.value != null ? e('div', { style: { color: dim, fontSize: 'var(--text-2xs)' } }, money(b.value)) : null);
                 }),
-                e('td', { style: cell }, c.next ? e('div', null, I18N.date(c.next.date), e('div', { style: { color: dim, fontSize: '0.68rem' } }, qty(c.next.quantity))) : '–'));
+                e('td', { style: cell }, c.next ? e('div', null, I18N.date(c.next.date), e('div', { style: { color: dim, fontSize: 'var(--text-2xs)' } }, qty(c.next.quantity))) : '–'));
             }),
             e('tr', { 'data-testid': 'cc-total' },
               e('td', { style: Object.assign({}, cell, { textAlign: 'left', color: dim }) }, __('ccTotal', 'Value tax-free')),
               e('td', { style: cell }),
               res.totals.map(function (t, i) { return e('td', { key: i, style: Object.assign({}, cell, { fontWeight: 700 }) }, money(t.value)); }),
               e('td', { style: cell }))))),
-      e('div', { style: { color: dim, fontSize: '0.7rem', marginTop: '0.6rem', lineHeight: 1.5 } },
+      e('div', { style: { color: dim, fontSize: 'var(--text-2xs)', marginTop: '0.6rem', lineHeight: 1.5 } },
         __('ccNote', 'Values at today\'s price. A coin is tax-free from the day after the anniversary of its purchase. Gains of coins held for one year or less count towards the 1,000 EUR Freigrenze. Not tax advice.')));
   }
 

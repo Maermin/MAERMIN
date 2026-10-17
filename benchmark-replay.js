@@ -197,15 +197,15 @@ function __(k, f, v) { return (typeof window !== 'undefined' && window.MaerminI1
     var chip = function (key, text_, on, onClick, testid) {
       return e('button', { key: key, type: 'button', 'data-testid': testid, 'aria-pressed': on, onClick: onClick,
         style: { padding: '0.3rem 0.7rem', borderRadius: '999px', border: '1px solid ' + (on ? accent : border), background: on ? accent : 'transparent',
-          color: on ? '#fff' : dim, fontSize: '0.75rem', fontWeight: 600, cursor: 'pointer' } }, text_);
+          color: on ? '#fff' : dim, fontSize: 'var(--text-xs)', fontWeight: 600, cursor: 'pointer' } }, text_);
     };
     var tile = function (key, title, value, sub, color) {
       return e('div', { key: key, 'data-testid': 'br-' + key, style: { flex: '1 1 150px', background: inputBg, border: '1px solid ' + border, borderRadius: '10px', padding: '0.7rem 0.9rem' } },
-        e('div', { style: { color: dim, fontSize: '0.68rem', textTransform: 'uppercase', letterSpacing: '0.04em' } }, title),
-        e('div', { style: { color: color || text, fontSize: '1.1rem', fontWeight: 700, marginTop: '0.15rem', fontVariantNumeric: 'tabular-nums' } }, value),
-        sub ? e('div', { style: { color: dim, fontSize: '0.72rem', marginTop: '0.15rem' } }, sub) : null);
+        e('div', { style: { color: dim, fontSize: 'var(--text-2xs)', textTransform: 'uppercase', letterSpacing: '0.04em' } }, title),
+        e('div', { style: { color: color || text, fontSize: 'var(--text-lg)', fontWeight: 700, marginTop: '0.15rem', fontVariantNumeric: 'tabular-nums' } }, value),
+        sub ? e('div', { style: { color: dim, fontSize: 'var(--text-xs)', marginTop: '0.15rem' } }, sub) : null);
     };
-    var noteEl = function (msg, color) { return e('div', { style: { color: color || dim, fontSize: '0.85rem' } }, msg); };
+    var noteEl = function (msg, color) { return e('div', { style: { color: color || dim, fontSize: 'var(--text-base)' } }, msg); };
 
     var body;
     if (!att) body = noteEl(__('vaEmpty', 'Add transactions to see where your profit came from.'));
@@ -218,14 +218,14 @@ function __(k, f, v) { return (typeof window !== 'undefined' && window.MaerminI1
       var lead = res.diff >= 0;
       body = e('div', null,
         verdict ? e('div', { 'data-testid': 'verdict-replay', 'data-level': verdict.level, style: { color: verdict.level === 'good' ? good : verdict.level === 'neutral' ? text : verdict.level === 'warn' ? warn : bad,
-          fontSize: '0.85rem', fontWeight: 600, marginBottom: '0.7rem', lineHeight: 1.45 } }, verdict.text) : null,
+          fontSize: 'var(--text-base)', fontWeight: 600, marginBottom: '0.7rem', lineHeight: 1.45 } }, verdict.text) : null,
         e('div', { style: { display: 'flex', flexWrap: 'wrap', gap: '0.6rem' } },
           tile('own', __('brOwn', 'Your portfolio'), money(res.ownEnd), __('brXirr', '{pct} a year (money-weighted)', { pct: pct(res.ownXirr) })),
           tile('bench', __('brBench', 'Same money in {name}', { name: label }), money(res.benchEnd), __('brXirr', '{pct} a year (money-weighted)', { pct: pct(res.benchXirr) })),
           tile('diff', __('brDiff', 'Difference'), (lead ? '+' : '−') + money(Math.abs(res.diff)), lead ? __('brAhead', 'your portfolio is ahead') : __('brBehind', 'your portfolio is behind'), lead ? good : bad)),
-        res.shortfall > 0.5 ? e('div', { style: { color: dim, fontSize: '0.72rem', marginTop: '0.5rem' } },
+        res.shortfall > 0.5 ? e('div', { style: { color: dim, fontSize: 'var(--text-xs)', marginTop: '0.5rem' } },
           __('brShortfall', 'You took out {amount} more than the index holding was worth at the time; that part is left out.', { amount: money(res.shortfall) })) : null,
-        att.missing && att.missing.length ? e('div', { style: { color: dim, fontSize: '0.72rem', marginTop: '0.4rem' } },
+        att.missing && att.missing.length ? e('div', { style: { color: dim, fontSize: 'var(--text-xs)', marginTop: '0.4rem' } },
           __('vaMissing', 'Not priced, so not measured: {list}.', { list: att.missing.map(function (m) { return m.symbol; }).join(', ') })) : null);
     }
 
@@ -237,16 +237,16 @@ function __(k, f, v) { return (typeof window !== 'undefined' && window.MaerminI1
 
     return e('div', { 'data-testid': 'benchmark-replay', style: { background: card, border: '1px solid ' + border, borderRadius: '14px', padding: '1.25rem', marginTop: '1rem' } },
       e('div', { style: { display: 'flex', flexWrap: 'wrap', alignItems: 'center', justifyContent: 'space-between', gap: '0.6rem', marginBottom: '0.7rem' } },
-        e('h3', { style: { color: text, fontSize: '1rem', fontWeight: 700, margin: 0 } }, __('brTitle', 'Same money in an index'), ' ',
+        e('h3', { style: { color: text, fontSize: 'var(--text-body)', fontWeight: 700, margin: 0 } }, __('brTitle', 'Same money in an index'), ' ',
           symbol && window.MaerminDemoFixtures ? window.MaerminDemoFixtures.badge(React, theme, workerBase) : null),
         e('div', { role: 'group', 'aria-label': __('vaPeriod', 'Period'), style: { display: 'flex', flexWrap: 'wrap', gap: '0.35rem' } }, periodChips)),
       e('div', { style: { display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: '0.35rem', marginBottom: '0.9rem' } },
         e('div', { role: 'group', 'aria-label': __('brChoose', 'Index or fund'), style: { display: 'flex', flexWrap: 'wrap', gap: '0.35rem' } }, benchChips),
-        e('label', { style: { display: 'flex', alignItems: 'center', gap: '0.35rem', color: fund ? dim : text, fontSize: '0.78rem', marginLeft: '0.4rem', opacity: fund ? 0.6 : 1 } },
+        e('label', { style: { display: 'flex', alignItems: 'center', gap: '0.35rem', color: fund ? dim : text, fontSize: 'var(--text-xs)', marginLeft: '0.4rem', opacity: fund ? 0.6 : 1 } },
           e('input', { type: 'checkbox', 'data-testid': 'br-reinvest', checked: fund ? false : reinvest, disabled: !!fund, onChange: function (ev) { setReinvest(!!ev.target.checked); } }),
           __('brReinvest', 'Dividends reinvested'))),
       body,
-      e('div', { style: { color: dim, fontSize: '0.7rem', marginTop: '0.7rem', lineHeight: 1.5 } },
+      e('div', { style: { color: dim, fontSize: 'var(--text-2xs)', marginTop: '0.7rem', lineHeight: 1.5 } },
         fund ? __('brNoteFund', 'Your start value and every euro in and out (as in "Profit by source") bought or sold {name} at that day\'s close. A distributing fund is compared without its payouts.', { name: label })
           : reinvest ? __('brNoteAcc', 'Your start value and every euro in and out (as in "Profit by source") bought or sold the index at that day\'s close. Dividends reinvested: an accumulating fund on the index ({symbol}, after its costs).', { symbol: symbol })
             : __('brNotePrice', 'Your start value and every euro in and out (as in "Profit by source") bought or sold the index at that day\'s close. Price only ({symbol}): the index\'s dividends are left out, which flatters your portfolio.', { symbol: symbol })));
