@@ -85,19 +85,20 @@ function CommandPalette({ isOpen, onClose, onExecute, commands, t }) {
         ref: inputRef,
         type: 'text',
         className: 'command-palette-input',
+        role: 'combobox', 'aria-expanded': true, 'aria-controls': 'mx-palette-list', 'aria-autocomplete': 'list',
+        'aria-label': t.searchCommands || 'Search commands',
+        'aria-activedescendant': filteredCommands[selectedIndex] ? 'mx-pal-' + selectedIndex : undefined,
         placeholder: t.searchCommands || 'Search commands...',
         value: query,
         onChange: (e) => setQuery(e.target.value),
         onKeyDown: handleKeyDown
       }),
-      React.createElement('div', { className: 'command-palette-results' },
+      React.createElement('div', { className: 'command-palette-results', id: 'mx-palette-list', role: 'listbox', 'aria-label': t.searchCommands || 'Search commands' },
         filteredCommands.length === 0
-          ? React.createElement('div', {
-              style: { padding: '1rem 1.5rem', color: 'rgba(255,255,255,0.5)' }
-            }, t.noResults || 'No results')
+          ? React.createElement('div', { className: 'command-palette-empty', role: 'status' }, t.noResults || 'No results')
           : filteredCommands.map((cmd, index) =>
               React.createElement('div', {
-                key: cmd.id,
+                key: cmd.id, id: 'mx-pal-' + index, role: 'option', 'aria-selected': index === selectedIndex,
                 className: `command-result ${index === selectedIndex ? 'selected' : ''}`,
                 onClick: () => {
                   onExecute(cmd.id);
@@ -162,9 +163,10 @@ function ShortcutsModal({ isOpen, onClose, t, theme, commands }) {
       React.createElement('div', { className: 'shortcuts-modal-header' },
         React.createElement('h2', { id: 'dlg-shortcuts' }, t.keyboardShortcuts || 'Keyboard Shortcuts'),
         React.createElement('button', {
-          className: 'shortcuts-modal-close',
+          type: 'button', className: 'shortcuts-modal-close',
+          'aria-label': t.close || 'Close', title: t.close || 'Close',
           onClick: onClose
-        }, 'x')
+        }, React.createElement('span', { 'aria-hidden': 'true' }, '×'))
       ),
       React.createElement('div', { className: 'shortcuts-modal-content' },
         Object.entries(shortcuts).map(([category, items]) =>
@@ -1210,7 +1212,7 @@ function Segmented(props) {
     opts.map((o, i) => h('button', {
       key: String(o.value), type: 'button', role: 'radio', 'aria-checked': i === idx, tabIndex: i === idx ? 0 : -1,
       className: 'ui-seg__opt', disabled: o.disabled || undefined,
-      onClick: () => props.onChange && props.onChange(o.value),
+      onClick: () => props.onChange && props.onChange(o.value), ...tabAttrs(o),
       onKeyDown: (e) => rovingKeys(e, i, opts.length, (n) => props.onChange && props.onChange(opts[n].value))
     }, o.label)));
 }
@@ -1454,7 +1456,24 @@ function Dock(props) {
     }, shellIcon(it.icon, it.add ? 26 : 22), it.add ? null : h('span', { className: 'ui-dock__label' }, it.label))));
 }
 
-Object.assign(Components, { Rail, PageHeader, Dock });
+// SectionSwitch (B-3): the sections inside a view, never a second row of page
+// tabs. A segmented control; on phones a select once there are more than three
+// sections (they wrapped into two or three rows of pills).
+function SectionSwitch(props) {
+  const narrow = useNarrow();
+  const opts = props.options || [];
+  const wrap = (child) => h('div', { className: cx('ui-section-switch', props.className), 'data-testid': props['data-testid'] }, child);
+  if (narrow && opts.length > 3) {
+    return wrap(h(Select, {
+      'aria-label': props.label, value: props.value, fieldClassName: 'ui-section-switch__select',
+      onChange: (e) => props.onChange && props.onChange(e.target.value),
+      options: opts.map((o) => ({ value: o.value, label: o.label }))
+    }));
+  }
+  return wrap(h(Segmented, { label: props.label, value: props.value, onChange: props.onChange, options: opts }));
+}
+
+Object.assign(Components, { Rail, PageHeader, Dock, SectionSwitch });
 
 // Export components
 if (typeof window !== 'undefined') {

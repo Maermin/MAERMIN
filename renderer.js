@@ -2929,22 +2929,21 @@ function InvestmentTracker() {
       input.click();
     };
 
-    // the shared pill row: plain labels (the mixed glyphs ↓ ↑ ◁ ◆ said nothing the label did not)
-    const tabBtn = (id, label) => React.createElement('button', window.MaerminUI.pillProps(section === id, { onClick: () => setSection(id), style: { fontSize: 'var(--text-sm)', minHeight: '32px' } }), label);
-
     return React.createElement('div', { style: { padding: '1.5rem' } },
       React.createElement('h2', { style: { color: theme.text, fontSize: 'var(--text-title-lg)', fontWeight: '800', marginBottom: '0.25rem' } }, t.dataManagement || 'Data Management'),
       React.createElement('p', { style: { color: theme.textSecondary, fontSize: 'var(--text-base)', marginBottom: '1.5rem' } },
         __('dmIntro', 'Export, import, backup your data or use the Broker Import Wizard to import from supported brokers.')
       ),
 
-      // Section tabs
-      React.createElement('div', { className: 'mx-pills', role: 'group', 'aria-label': t.dataManagement || 'Data Management', style: { marginBottom: '1.5rem' } },
-        tabBtn('export', __('dmExportBackup', 'Export & Backup')),
-        tabBtn('import', __('dmManualImport', 'Manual Import')),
-        tabBtn('broker', t.brokerImport || 'Broker Import'),
-        window.MaerminSteamImport && tabBtn('steam', __('stTab', 'Steam inventory'))
-      ),
+      // Sections (R2.2, B-3): a segmented control, a select on phones
+      React.createElement(window.MaerminComponents.SectionSwitch, {
+        label: t.dataManagement || 'Data Management', value: section, onChange: setSection, className: 'ui-section-switch--view', 'data-testid': 'dm-sections',
+        options: [
+          { value: 'export', label: __('dmExportBackup', 'Export & Backup') },
+          { value: 'import', label: __('dmManualImport', 'Manual Import') },
+          { value: 'broker', label: t.brokerImport || 'Broker Import' }
+        ].concat(window.MaerminSteamImport ? [{ value: 'steam', label: __('stTab', 'Steam inventory') }] : [])
+      }),
 
       // Steam inventory import (P2-7): CS2 items as purchases, editable preview.
       section === 'steam' && window.MaerminSteamImport && React.createElement(window.MaerminSteamImport.Panel, {
@@ -3210,22 +3209,12 @@ function InvestmentTracker() {
       { id: 'history', label: __('divTabHistory', 'History') },
     ];
 
-    const tabBtn = (id, label) => React.createElement('button', {
-      'aria-pressed': tab === id, onClick: () => setTab(id),
-      style: {
-        padding: '0.5rem 1.25rem', border: 'none', borderRadius: '8px', cursor: 'pointer',
-        fontSize: 'var(--text-base)', fontWeight: tab === id ? '600' : '400',
-        background: tab === id ? (theme.accentFill || theme.accent) : theme.inputBg,
-        color: tab === id ? '#fff' : theme.text, transition: 'all 0.15s'
-      }
-    }, label);
-
     return React.createElement('div', { style: { display: 'flex', flexDirection: 'column', height: '100%' } },
       // Tab bar + auto-fetch button
       React.createElement('div', {
         style: { display: 'flex', gap: '0.375rem', padding: '1rem 1.5rem', borderBottom: `1px solid ${theme.cardBorder}`, alignItems: 'center', flexWrap: 'wrap' }
       },
-        React.createElement('div', { style: { display: 'flex', gap: '0.375rem', flexWrap: 'wrap' } }, tabs.map(tb => tabBtn(tb.id, tb.label))),
+        React.createElement(window.MaerminComponents.SectionSwitch, { label: t.navDividends || 'Dividends', value: tab, onChange: setTab, 'data-testid': 'div-sections', options: tabs.map(tb => ({ value: tb.id, label: tb.label })) }),
         // P5-2.5: amounts before or after withholding tax (the same choice as Analysis → Returns)
         tab !== 'calendar' && window.MaerminFeatures2 && window.MaerminFeatures2.GrossNetSwitch
           ? React.createElement(window.MaerminFeatures2.GrossNetSwitch, { value: grossNet, onChange: setGrossNet, theme, testid: 'div-gross-net' }) : null,
@@ -3283,16 +3272,6 @@ function InvestmentTracker() {
     const showHarvest = taxJurisdiction !== 'de';
     const tab = (tabState === 'harvest' && !showHarvest) ? 'report' : tabState;
 
-    const tabBtn = (id, label) => React.createElement('button', {
-      'aria-pressed': tab === id, onClick: () => setTab(id),
-      style: {
-        padding: '0.5rem 1.25rem', border: 'none', borderRadius: '8px', cursor: 'pointer',
-        fontSize: 'var(--text-base)', fontWeight: tab === id ? '600' : '400',
-        background: tab === id ? (theme.accentFill || theme.accent) : theme.inputBg,
-        color: tab === id ? '#fff' : theme.text, transition: 'all 0.15s'
-      }
-    }, label);
-
     // Tax-loss harvesting (V7) — reuses MaerminMetrics; portfolio + exchangeRate
     // come from the InvestmentTracker closure.
     const renderHarvest = () => {
@@ -3342,10 +3321,14 @@ function InvestmentTracker() {
       React.createElement('div', {
         style: { display: 'flex', gap: '0.375rem', padding: '1rem 1.5rem', borderBottom: `1px solid ${theme.cardBorder}`, flexWrap: 'wrap' }
       },
-        tabBtn('fifo',   t.taxTabFifo || 'FIFO Cost Basis'),
-        tabBtn('report', t.taxTabReport || 'Tax Report'),
-        tabBtn('realized', t.taxTabRealized || 'Realized vs Unrealized'),
-        showHarvest && tabBtn('harvest', t.taxTabHarvest || 'Tax-loss harvesting')
+        React.createElement(window.MaerminComponents.SectionSwitch, {
+          label: t.navTaxFifo || 'Tax & FIFO', value: tab, onChange: setTab, 'data-testid': 'tax-sections',
+          options: [
+            { value: 'fifo', label: t.taxTabFifo || 'FIFO Cost Basis' },
+            { value: 'report', label: t.taxTabReport || 'Tax Report' },
+            { value: 'realized', label: t.taxTabRealized || 'Realized vs Unrealized' }
+          ].concat(showHarvest ? [{ value: 'harvest', label: t.taxTabHarvest || 'Tax-loss harvesting' }] : [])
+        })
       ),
       window.MaerminTrust && React.createElement(window.MaerminTrust.Disclaimer, { theme, kind: 'tax', style: { margin: '0.75rem 1.5rem 0' } }),
       React.createElement('div', { style: { flex: 1, overflow: 'auto' } },
@@ -4667,17 +4650,6 @@ function InvestmentTracker() {
       { id: 'risk',        label: t.riskLevel || 'Risk' },
     ];
 
-    const tabBtn = (id, label) => React.createElement('button', {
-      key: id,
-      'aria-pressed': analyticsTab === id, onClick: () => setAnalyticsTab(id),
-      style: {
-        padding: '0.5rem 1.1rem', border: 'none', borderRadius: '10px', cursor: 'pointer',
-        fontWeight: analyticsTab === id ? '650' : '450', fontSize: 'var(--text-base)',
-        background: analyticsTab === id ? (currentTheme.accentFill || currentTheme.accent) : currentTheme.inputBg,
-        color: analyticsTab === id ? currentTheme.accentText : currentTheme.textSecondary, transition: 'all 0.15s'
-      }
-    }, label);
-
     const renderContent = () => {
       switch(analyticsTab) {
         case 'correlation': return window.CorrelationMatrixView ?
@@ -4735,7 +4707,7 @@ function InvestmentTracker() {
       // Tab bar at top
       React.createElement('div', {
         style: { display: 'flex', gap: '0.375rem', padding: '1rem 1.5rem', borderBottom: `1px solid ${currentTheme.cardBorder}`, flexWrap: 'wrap' }
-      }, tabs.map(tab => tabBtn(tab.id, tab.label))),
+      }, React.createElement(window.MaerminComponents.SectionSwitch, { label: t.navRiskCorrelation || 'Risk & Correlation', value: analyticsTab, onChange: setAnalyticsTab, 'data-testid': 'risk-sections', options: tabs.map(tab => ({ value: tab.id, label: tab.label })) })),
       // Content
       React.createElement('div', { style: { flex: 1, overflow: 'auto' } }, renderContent())
     );
@@ -6831,17 +6803,12 @@ buy,crypto,bitcoin,0.5,45000,2024-01-15,10`)
     const tabs = Nav.tabsFor(activeView, uiMode);
     const current = Nav.canonical(activeView);
     if (!tabs.length) return null;
-    const chip = (id, label, active, attrs) => React.createElement('button', Object.assign({
-      key: id, type: 'button', className: 'mx-area-chip' + (active ? ' is-active' : ''),
-      'aria-current': active ? 'page' : undefined
-    }, attrs || {}), label);
     return React.createElement('div', { className: 'mx-area-nav' },
-      tabs.length > 0 && React.createElement('nav', { className: 'mx-area-tabs', 'aria-label': t.navAreaTabs || 'Sections' },
-        tabs.map(x => chip(x.id, Nav.label(x, t), x.id === current, {
-          'data-tab': x.id,
-          onClick: () => { if (x.id !== current) setActiveView(x.id); }
-        }))
-      )
+      React.createElement(window.MaerminComponents.Segmented, {
+        className: 'mx-area-tabs', label: t.navAreaTabs || 'Sections', value: current,
+        onChange: (id) => { if (id !== current) setActiveView(id); },
+        options: tabs.map(x => ({ value: x.id, label: Nav.label(x, t), attrs: { 'data-tab': x.id } }))
+      })
     );
   };
 

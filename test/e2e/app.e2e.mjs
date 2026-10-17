@@ -324,7 +324,7 @@ async function isOpen(page, id) {
   if (!(await tab.count())) return (await page.evaluate((v) => window.MaerminNav.areaOf(v), id)) === (await page.evaluate(() => { const a = document.querySelector('nav.ui-rail [aria-current="true"]'); return a && a.dataset.area; }));
   if ((await tab.first().getAttribute('aria-selected')) !== 'true') return false;
   const tabs = page.locator('main .mx-area-tabs [data-tab]');
-  return !(await tabs.count()) || (await page.locator('main .mx-area-tabs [data-tab="' + id + '"][aria-current="page"]').count()) > 0;
+  return !(await tabs.count()) || (await page.locator('main .mx-area-tabs [data-tab="' + id + '"][aria-checked="true"]').count()) > 0;
 }
 // Raw (un-shimmed) localStorage through a same-origin iframe: storage.js
 // patches Storage.prototype in the app window only.
@@ -530,7 +530,7 @@ async function runBuild(browser, label, dir) {
     await openView(page, 'analytics');
     await page.waitForTimeout(400);
     ok('correlation explains missing history instead of "Loading..."', (await page.locator('[data-testid="correlation-empty"]').count()) === 1 && (await page.locator('[data-testid="correlation-loading"]').count()) === 0);
-    await page.getByRole('button', { name: 'Risk Level' }).click();
+    await page.getByRole('radio', { name: 'Risk Level' }).click();
     await page.waitForTimeout(400);
     { const rb = await page.innerText('body'); ok('risk view shows no zero metrics without history', !/Sharpe Ratio/.test(rb) && /observations so far/.test(rb)); }
     await openView(page, 'investment-analysis');
@@ -645,7 +645,7 @@ async function runBuild(browser, label, dir) {
 
     // Tax view: go there, pick the report tab and 2025.
     await openView(page, 'tax');
-    await page.getByRole('button', { name: 'Tax Report', exact: true }).click();
+    await page.getByRole('radio', { name: 'Tax Report', exact: true }).click();
     await page.locator('select', { has: page.locator('option[value="2025"]') }).first().selectOption('2025');
     await page.waitForTimeout(500);
     const body = await page.innerText('body');
@@ -983,7 +983,7 @@ async function runBuild(browser, label, dir) {
       const panel = page.locator('[data-testid="steam-import"]');
       const readPasted = async () => {
         // The Data view remounts after an import and opens on its first tab.
-        if (!(await panel.count())) await page.getByRole('button', { name: /Steam inventory/ }).click();
+        if (!(await panel.count())) await page.getByRole('radio', { name: /Steam inventory/ }).click();
         if (!(await panel.getByRole('textbox', { name: 'Inventory JSON' }).count())) await panel.getByRole('button', { name: 'Paste instead' }).click();
         await panel.getByRole('textbox', { name: 'Inventory JSON' }).fill(inv);
         await panel.getByRole('button', { name: 'Read pasted inventory' }).click();
@@ -1095,7 +1095,7 @@ async function runBuild(browser, label, dir) {
       let us = '', ch = '', unk = '', title = '', err = '';
       try {
         await openView(page, 'tax');
-        await page.getByRole('button', { name: 'Tax Report', exact: true }).click();
+        await page.getByRole('radio', { name: 'Tax Report', exact: true }).click();
         await page.locator('select', { has: page.locator('option[value="2025"]') }).first().selectOption('2025');
         await page.waitForTimeout(500);
         const panel = page.locator('[data-testid="wht-panel"]');
@@ -1121,7 +1121,7 @@ async function runBuild(browser, label, dir) {
       let howto = '', info = '', chips = '', toast = '', err = '', deposit = null, pdfHint = '', tiles = [];
       try {
         await openView(page, 'data');
-        await page.getByRole('button', { name: /Broker Import/ }).click();
+        await page.getByRole('radio', { name: /Broker Import/ }).click();
         tiles = await page.getByRole('button', { name: /^Select broker / }).evaluateAll((els) => els.map((e) => e.getAttribute('aria-label').replace('Select broker ', '')));
         await page.getByRole('button', { name: 'Select broker Portfolio Performance' }).click();
         howto = await page.locator('[data-testid="tracker-howto"]').innerText();
@@ -1304,14 +1304,14 @@ async function runBuild(browser, label, dir) {
       }));
       // P5-2.8: Strategy → Providers & brokers
       await openView(page, 'investment-analysis');
-      await page.getByRole('button', { name: /Providers & brokers/ }).first().click().catch(() => {});
+      await page.getByRole('radio', { name: /Providers & brokers/ }).first().click().catch(() => {});
       await page.locator('[data-testid="allocation-groups"]').waitFor({ timeout: 8000 }).catch(() => {});
       agd = await page.evaluate(() => {
         const rows = (id) => Array.from(document.querySelectorAll('[data-testid="' + id + '"] [data-key]')).map((d) => ({ key: d.getAttribute('data-key'), v: parseFloat(d.getAttribute('data-v')), pct: parseFloat(d.getAttribute('data-pct')) }));
         return { providers: rows('ag-provider-bars'), brokers: rows('ag-broker-bars') };
       });
       // P5-2.10: Strategy → Taxonomies - Kommer template, fill from data, export and import again
-      await page.getByRole('button', { name: /^Taxonomies$/ }).first().click().catch(() => {});
+      await page.getByRole('radio', { name: /^Taxonomies$/ }).first().click().catch(() => {});
       await page.locator('[data-testid="tx-template"]').selectOption('kommer').catch(() => {});
       await page.locator('[data-testid="tx-create"]').click().catch(() => {});
       const fillTxt = await page.locator('[data-testid="tx-fill"]').innerText().catch(() => '');
@@ -1349,7 +1349,7 @@ async function runBuild(browser, label, dir) {
       await openView(page, 'dividends');
       await page.waitForTimeout(800);
       // P5-2.5: Dividends → History (matrix gross / net, growth, backtest) and the forecast months
-      await page.getByRole('button', { name: /^History$/ }).first().click();
+      await page.getByRole('radio', { name: /^History$/ }).first().click();
       await page.locator('[data-testid="div-backtest"] [data-stat="income"]').waitFor({ timeout: 15000 }).catch(() => {});
       const mxRead = () => page.evaluate(() => {
         const t = document.querySelector('[data-testid="div-matrix"]');
@@ -1368,7 +1368,7 @@ async function runBuild(browser, label, dir) {
       await page.locator('[data-testid="bt-years-10"]').click();
       await page.waitForTimeout(400);
       dh.bt10 = await page.locator('[data-testid="div-backtest"] tbody tr').count();
-      await page.getByRole('button', { name: /^Forecast$/ }).first().click();
+      await page.getByRole('radio', { name: /^Forecast$/ }).first().click();
       await page.waitForTimeout(800);
       dh.months = await page.locator('[data-testid="df-months"] button[data-month]').count();
       await page.locator('[data-testid="df-months"] button[data-month="1"]').click();
@@ -1379,7 +1379,7 @@ async function runBuild(browser, label, dir) {
         return { total: v ? parseFloat(v.getAttribute('data-v')) : NaN, items, text: d.innerText.slice(0, 160) };
       });
       await openView(page, 'tax');
-      await page.getByRole('button', { name: /^Tax Report$/ }).first().click();
+      await page.getByRole('radio', { name: /^Tax Report$/ }).first().click();
       await page.waitForTimeout(1200);
       dqText = await page.locator('main').innerText();
       // P5-1.5: the Overview's Returns section
@@ -1553,12 +1553,13 @@ async function runBuild(browser, label, dir) {
       await page.waitForTimeout(1000);
       await openView(page, 'investment-analysis');
       await page.waitForTimeout(800);
-      const bar = 'main div[style*="border-bottom"][style*="flex-wrap"] > button';
-      sections = await page.locator(bar).count();
+      // R2.2 (B-3): on a phone the Strategy sections are one select
+      const sel = page.locator('main [data-testid="iv-sections"] select');
+      const opts = await sel.locator('option').evaluateAll((os) => os.map((o) => [o.value, o.textContent.trim()]));
+      sections = opts.length;
       for (let i = 0; i < sections; i++) {
-        const btn = page.locator(bar).nth(i);
-        const label = (await btn.innerText()).trim();
-        await btn.click();
+        const label = opts[i][1];
+        await sel.selectOption(opts[i][0]);
         await page.waitForTimeout(500);
         const over = await page.evaluate(() => {
           const vw = document.documentElement.clientWidth;
@@ -2045,7 +2046,7 @@ async function runBuild(browser, label, dir) {
       ok('P5-2.5: gross switch on Returns: a note, the choice saved, the same TWR without taxes or fees', g.includes(want) && note === 1 && pref === 'gross', g.replace(/\n/g, ' | ') + ' | note ' + note + ' | ' + pref); }
     // P5-2.5: Dividends → History backtests today's 40 VWCE.DE + 5 AAPL over the Worker's dividends
     { await openView(page, 'dividends');
-      await page.getByRole('button', { name: /^History$/ }).first().click().catch(() => {});
+      await page.getByRole('radio', { name: /^History$/ }).first().click().catch(() => {});
       const Y = new Date().getFullYear() - 1;
       const row = page.locator('[data-testid="div-backtest"] tr[data-y="' + Y + '"]');
       await row.waitFor({ timeout: 15000 }).catch(() => {});
@@ -2094,7 +2095,7 @@ async function runBuild(browser, label, dir) {
       await openView(page, 'returns'); }
     // P5-2.10: a taxonomy in a real vault: both holdings are equity; the assignment is not stored in plain text
     { await openView(page, 'investment-analysis');
-      await page.getByRole('button', { name: /^Taxonomies$/ }).first().click().catch(() => {});
+      await page.getByRole('radio', { name: /^Taxonomies$/ }).first().click().catch(() => {});
       await page.locator('[data-testid="tx-template"]').selectOption('asset-classes').catch(() => {});
       await page.locator('[data-testid="tx-create"]').click().catch(() => {});
       await page.locator('[data-testid="tx-fill"]').click().catch(() => {});
@@ -2122,7 +2123,7 @@ async function runBuild(browser, label, dir) {
     await openView(page, 'analytics');
     await page.waitForTimeout(800);
     ok('correlation matrix is there right away, from daily closes', (await page.locator('[data-testid="correlation-source"][data-source="daily"]').count()) === 1 && (await page.locator('[data-testid="correlation-empty"]').count()) === 0);
-    await page.getByRole('button', { name: 'Risk Level' }).click();
+    await page.getByRole('radio', { name: 'Risk Level' }).click();
     await page.waitForTimeout(800);
     { const rb = await page.innerText('body');
       ok('risk metrics and rolling volatility from daily data', /Sharpe Ratio/.test(rb) && (await page.locator('[data-testid="risk-source"][data-source="daily"]').count()) === 1 && /daily time-weighted returns since/.test(rb), (rb.match(/Rolling volatility[\s\S]{0,200}/) || [''])[0].replace(/\n/g, ' | ')); }
@@ -2181,7 +2182,7 @@ async function runBuild(browser, label, dir) {
       try {
         await unlock(page, base);
         await openView(page, 'data');
-        await page.getByRole('button', { name: /Broker Import/ }).click();
+        await page.getByRole('radio', { name: /Broker Import/ }).click();
         const panel = page.locator('[data-testid="bank-sync"]');
         await panel.waitFor({ timeout: 8000 });
         await page.locator('[data-testid="bs-bank"] option[value="dkb"]').waitFor({ state: 'attached', timeout: 8000 });
@@ -2467,7 +2468,7 @@ async function runBuild(browser, label, dir) {
       let card = null, stored = null, err = '';
       try {
         await openView(page, 'investment-analysis');
-        await page.getByRole('button', { name: /^Goals$/ }).first().click();
+        await page.getByRole('radio', { name: /^Goals$/ }).first().click();
         await page.getByRole('button', { name: '+ Add Goal' }).click();
         await page.locator('[data-testid="goal-name"]').fill('E2E house');
         await page.locator('[data-testid="goal-target"]').fill('500000');
@@ -2735,6 +2736,8 @@ async function runBuild(browser, label, dir) {
         if (await page.locator('nav.ui-dock [aria-current="page"]').count()) bad.push('dock slot says aria-current=page');
         const tabs = await page.locator('header.ui-pagehead [role="tab"]').evaluateAll((els) => els.map((e) => e.dataset.tab));
         if (tabs.join() !== 'grp-returns,grp-health') bad.push('page tabs: ' + tabs.join());
+        // R2.2 (B-3): one row of page tabs; the merged page's own tabs are a segmented control
+        if ((await page.locator('[role="tablist"]').count()) !== 1 || !(await page.locator('main .mx-area-tabs[role="radiogroup"]').count())) bad.push('B-3: tab rows ' + (await page.locator('[role="tablist"]').count()));
         await page.locator('header.ui-pagehead [data-tab="grp-health"]').click();
         await page.waitForTimeout(300);
         if (!(await page.locator('header.ui-pagehead [data-tab="grp-health"][aria-selected="true"]').count())) bad.push('health tab not selected');
@@ -2844,26 +2847,26 @@ async function runBuild(browser, label, dir) {
 
     // H-1 + M-5: Data view keeps its state through an app re-render; one tab selected
     await openView(page, 'data');
-    await page.getByRole('button', { name: /Manual Import/ }).click();
+    await page.getByRole('radio', { name: /Manual Import/ }).click();
     await page.getByRole('textbox', { name: 'Manual Import' }).fill('[{"type":"buy"}]');
     await page.evaluate(() => window.MaerminMarket.set('workerStatus', { ok: false, reachable: false, error: 'network', at: Date.now() }));
     await page.waitForTimeout(400);
     { const kept = await page.getByRole('textbox', { name: 'Manual Import' }).inputValue().catch(() => '');
       ok('Data view: pasted text and tab survive an app re-render', kept === '[{"type":"buy"}]', kept); }
-    { const st = await page.evaluate(() => Array.from(document.querySelectorAll('main button[aria-pressed]')).filter((b) => /Export & Backup|Manual Import|Broker Import|Steam inventory/.test(b.innerText))
-        .map((b) => ({ t: b.innerText.trim(), p: b.getAttribute('aria-pressed'), g: b.classList.contains('mx-primary') })));
-      ok('Data tabs: exactly one pressed, and only it carries the accent styling', st.filter((x) => x.p === 'true').length === 1 && st.every((x) => !x.g || x.p === 'true'), JSON.stringify(st)); }
+    { const st = await page.evaluate(() => Array.from(document.querySelectorAll('main [data-testid="dm-sections"] [role="radio"]'))
+        .map((b) => ({ t: b.innerText.trim(), p: b.getAttribute('aria-checked'), g: b.classList.contains('mx-primary') })));
+      ok('Data sections (R2.2 segmented control): exactly one checked, none carries the old accent styling', st.length >= 3 && st.filter((x) => x.p === 'true').length === 1 && st.every((x) => !x.g), JSON.stringify(st)); }
 
     // M-4: restore from file runs the backup confirmation
     { const chooser = page.waitForEvent('filechooser', { timeout: 5000 }).catch(() => null);
-      await page.getByRole('button', { name: /Export & Backup/ }).click();
+      await page.getByRole('radio', { name: /Export & Backup/ }).click();
       await page.getByRole('button', { name: /Restore from file/ }).click();
       const fc = await chooser;
       ok('Export & Backup offers "Restore from file…" (opens a file picker)', !!fc); }
 
     // H-2: the Basiszins field can be typed and commits on blur
     await openView(page, 'tax');
-    await page.getByRole('button', { name: 'Tax Report', exact: true }).click();
+    await page.getByRole('radio', { name: 'Tax Report', exact: true }).click();
     { const year = new Date().getFullYear();
       const f = page.getByRole('textbox', { name: 'Basiszins ' + year + ' in percent' });
       let saved = null;
@@ -2933,12 +2936,12 @@ async function runBuild(browser, label, dir) {
         if (r.length) low[id] = r.slice(0, 6).concat(r.length > 6 ? ['+' + (r.length - 6)] : []);
       }
       await openView(page, 'data');
-      await page.getByRole('button', { name: /Broker Import/ }).first().click();
+      await page.getByRole('radio', { name: /Broker Import/ }).first().click();
       await page.waitForTimeout(800);
-      tabs = await page.locator('main [role="group"][aria-label="Data Management"] button').evaluateAll((bs) => bs.map((b) => b.innerText.trim() + '=' + b.getAttribute('aria-pressed')));
+      tabs = await page.locator('main [data-testid="dm-sections"] [role="radio"]').evaluateAll((bs) => bs.map((b) => b.innerText.trim() + '=' + b.getAttribute('aria-checked')));
       empties = await page.evaluate(() => ['wallets', 'bank-sync', 'aggregators'].map((id) => { const el = document.querySelector('[data-testid="' + id + '"]'); return id + ':' + (el ? el.className + '/' + el.getAttribute('data-kind') : 'none'); }));
       tiles = await page.evaluate(() => ['Portfolio Performance', 'Parqet', 'Scalable Capital'].map((n) => { const b = document.querySelector('[aria-label="Select broker ' + n + '"] div[aria-hidden="true"]'); return b ? b.innerText + '|' + getComputedStyle(b).backgroundColor : 'none'; }));
-      ok('cleanup 6b: the Data Management section tabs are one pill row, one option pressed', Array.isArray(tabs) && tabs.length >= 3 && tabs.filter((t) => /=true$/.test(t)).length === 1 && tabs.includes('Broker Import=true') && !tabs.some((t) => /[↓↑◁◆]/.test(t)), err || JSON.stringify(tabs));
+      ok('cleanup 6b / R2.2: the Data Management sections are one segmented control, one option checked', Array.isArray(tabs) && tabs.length >= 3 && tabs.filter((t) => /=true$/.test(t)).length === 1 && tabs.includes('Broker Import=true') && !tabs.some((t) => /[↓↑◁◆]/.test(t)), err || JSON.stringify(tabs));
       ok('cleanup U-2: the Worker-gated cards share one empty state (demo)', Array.isArray(empties) && empties.every((x) => /:mx-empty\/demo$/.test(x)), err || JSON.stringify(empties));
       ok('cleanup V-6: brokers without a logo get distinct initial tiles (PP, PA, SC)', Array.isArray(tiles) && tiles.map((t) => t.split('|')[0]).join() === 'PP,PA,SC' && new Set(tiles.map((t) => t.split('|')[1])).size === 3, err || JSON.stringify(tiles));
       // R1.1: the theme objects are var() references to the styles.css tokens;
