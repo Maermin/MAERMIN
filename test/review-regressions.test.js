@@ -64,6 +64,11 @@ const buildDE = (txs, extra) => TR.build(txs, Object.assign({
     return false;
   }).map(d => d.name);
   ok('no hook dependency reads a state variable before its declaration' + (late.length ? ' (' + late.join(', ') + ')' : ''), late.length === 0);
+  // fetchPrices copies the prices before the network wait; a plain set would
+  // drop a quote the symbol loader added meanwhile, so it must merge.
+  const fp = src.slice(src.indexOf('const fetchPrices = async'), src.indexOf('const fetchPricesRef'));
+  ok('fetchPrices merges onto the current prices instead of replacing them',
+    fp.length > 0 && /setPrices\(prev => \(\{ \.\.\.prev, \.\.\.newPrices \}\)\)/.test(fp) && !/setPrices\(newPrices\)/.test(fp));
 
   // ---- B1: Tax view KPIs == export --------------------------------------------
   console.log('tax view vs export (B1):');
