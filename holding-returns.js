@@ -248,7 +248,7 @@
           var on = value === it[0];
           return e('button', { key: it[0], type: 'button', 'data-testid': prefix + it[0], 'aria-pressed': on, onClick: function () { set(it[0]); },
             style: { minHeight: '32px', padding: '0.3rem 0.7rem', border: 'none', borderRadius: '6px', cursor: 'pointer', fontSize: 'var(--text-xs)', fontWeight: on ? 700 : 500,
-              background: on ? (theme.accentFill || theme.accent) : 'transparent', color: on ? '#fff' : dim } }, it[1]);
+              background: on ? (theme.accentFill || theme.accent) : 'transparent', color: on ? 'var(--on-accent)' : dim } }, it[1]);
         }));
     };
     var th = function (label, i, left) {

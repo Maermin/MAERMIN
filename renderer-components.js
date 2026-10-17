@@ -1066,6 +1066,351 @@ function StressTestView({ portfolio, prices, t, theme, currency, formatPrice }) 
   );
 }
 
+// ============================================================================
+// SHARED COMPONENTS (PLAN Phase 6, R1.2 — docs/DESIGN-SYSTEM.md § 4)
+// ----------------------------------------------------------------------------
+// The one set of controls every view composes. Each renders class names from
+// styles.css (.ui-*), never inline styles, so themes stay CSS-only and the CSP
+// (style-src 'self') holds. Every component passes className, data-testid and
+// any other prop through to its root element.
+// ============================================================================
+const h = React.createElement;
+const cx = (...parts) => parts.filter(Boolean).join(' ');
+// Props a component consumes itself are removed before the rest reach the DOM.
+const omit = (props, keys) => { const out = {}; for (const k in props) if (keys.indexOf(k) < 0) out[k] = props[k]; return out; };
+
+// Money tone of a signed figure (§ 5): gain / loss, zero is neutral.
+function toneOf(n) {
+  if (typeof n !== 'number' || !isFinite(n) || Math.abs(n) < 1e-9) return 'neutral';
+  return n > 0 ? 'gain' : 'loss';
+}
+
+function Spinner() { return h('span', { className: 'ui-spinner', 'aria-hidden': 'true' }); }
+
+// Button: primary (one per region), secondary, quiet, danger.
+function Button(props) {
+  const variant = /^(primary|secondary|quiet|danger)$/.test(props.variant) ? props.variant : 'secondary';
+  const size = /^(sm|md|lg)$/.test(props.size) ? props.size : 'md';
+  const busy = !!props.loading;
+  const rest = omit(props, ['variant', 'size', 'icon', 'kbd', 'loading', 'className', 'children', 'type']);
+  return h('button', Object.assign(rest, {
+    type: props.type || 'button',
+    className: cx('ui-btn', 'ui-btn--' + variant, 'ui-btn--' + size, busy && 'is-loading', props.className),
+    'aria-busy': busy ? 'true' : undefined,
+    disabled: props.disabled || busy || undefined
+  }), busy ? h(Spinner) : props.icon || null, props.children != null ? h('span', { className: 'ui-btn__label' }, props.children) : null,
+  props.kbd ? h('kbd', { className: 'ui-kbd' }, props.kbd) : null);
+}
+
+// IconButton: square, label required (aria-label + tooltip). pressed -> a toggle.
+function IconButton(props) {
+  const label = props.label;
+  if (!label && typeof console !== 'undefined') console.error('IconButton needs a label');
+  const size = props.size === 'lg' ? 'lg' : props.size === 'sm' ? 'sm' : 'md';
+  const rest = omit(props, ['label', 'icon', 'pressed', 'size', 'className', 'children', 'type']);
+  return h('button', Object.assign(rest, {
+    type: props.type || 'button',
+    className: cx('ui-icon-btn', 'ui-icon-btn--' + size, props.pressed && 'is-on', props.className),
+    'aria-label': label, title: label,
+    'aria-pressed': props.pressed == null ? undefined : !!props.pressed
+  }), props.icon || props.children);
+}
+
+// Card: title / subtitle / one action link; variants plain (no padding), answer, hero.
+function Card(props) {
+  const variant = /^(plain|answer|hero)$/.test(props.variant) ? props.variant : null;
+  const rest = omit(props, ['title', 'subtitle', 'action', 'variant', 'className', 'children', 'as', 'headingLevel']);
+  const head = (props.title || props.action) ? h('header', { className: 'ui-card__head' },
+    h('div', { className: 'ui-card__titles' },
+      props.title ? h(props.headingLevel || 'h2', { className: 'ui-card__title' }, props.title) : null,
+      props.subtitle ? h('p', { className: 'ui-card__subtitle' }, props.subtitle) : null),
+    props.action ? h('div', { className: 'ui-card__action' }, props.action) : null) : null;
+  return h(props.as || 'section', Object.assign(rest, { className: cx('ui-card', variant && 'ui-card--' + variant, props.className) }),
+    head, h('div', { className: 'ui-card__body' }, props.children));
+}
+
+// Stat / KPI: label, value (tone from the figure or given), sub line, split figures.
+function Stat(props) {
+  const tone = props.tone || (typeof props.signed === 'number' ? toneOf(props.signed) : null);
+  const clickable = typeof props.onClick === 'function';
+  const rest = omit(props, ['label', 'value', 'sub', 'tone', 'signed', 'split', 'className', 'onClick', 'size']);
+  const onKey = clickable ? (e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); props.onClick(e); } } : undefined;
+  return h('div', Object.assign(rest, {
+    className: cx('ui-stat', props.size === 'lg' && 'ui-stat--lg', clickable && 'is-clickable', props.className),
+    role: clickable ? 'link' : undefined, tabIndex: clickable ? 0 : undefined,
+    onClick: props.onClick, onKeyDown: onKey
+  }),
+  h('div', { className: 'ui-stat__label' }, props.label),
+  h('div', { className: cx('ui-stat__value', 'num', tone && 'tone-' + tone) }, props.value),
+  props.sub ? h('div', { className: 'ui-stat__sub' }, props.sub) : null,
+  Array.isArray(props.split) && props.split.length ? h('div', { className: 'ui-stat__split' },
+    props.split.map((s, i) => h('div', { key: i },
+      h('span', null, s.label), h('b', { className: cx('num', s.tone && 'tone-' + s.tone) }, s.value)))) : null);
+}
+
+// Badge: status words (Sample data, Closed, Expected).
+function Badge(props) {
+  const rest = omit(props, ['tone', 'className', 'children']);
+  return h('span', Object.assign(rest, { className: cx('ui-badge', props.tone && 'tone-' + props.tone, props.className) }), props.children);
+}
+
+// Chip: a filter toggle with an optional count.
+function Chip(props) {
+  const rest = omit(props, ['pressed', 'count', 'className', 'children', 'type']);
+  return h('button', Object.assign(rest, { type: 'button', className: cx('ui-chip', props.className), 'aria-pressed': !!props.pressed }),
+    h('span', null, props.children), props.count != null ? h('span', { className: cx('ui-chip__count', 'num') }, props.count) : null);
+}
+
+// ToneChip: a signed figure on its tone, always with ▲ / ▼ (never colour alone).
+function ToneChip(props) {
+  const tone = props.tone || toneOf(props.value);
+  const mark = tone === 'gain' ? '▲' : tone === 'loss' ? '▼' : '';
+  const rest = omit(props, ['value', 'tone', 'text', 'className']);
+  return h('span', Object.assign(rest, { className: cx('ui-tone-chip', 'num', 'tone-' + tone, props.className) }),
+    mark ? h('span', { 'aria-hidden': 'true' }, mark + ' ') : null, props.text != null ? props.text : String(props.value));
+}
+
+// Roving focus for a row of options: arrows, Home, End move and select.
+function rovingKeys(e, index, count, select) {
+  let next = null;
+  if (e.key === 'ArrowRight' || e.key === 'ArrowDown') next = (index + 1) % count;
+  else if (e.key === 'ArrowLeft' || e.key === 'ArrowUp') next = (index - 1 + count) % count;
+  else if (e.key === 'Home') next = 0;
+  else if (e.key === 'End') next = count - 1;
+  if (next === null) return;
+  e.preventDefault();
+  select(next);
+  const row = e.currentTarget.parentElement;
+  const btn = row && row.children[next];
+  if (btn && btn.focus) btn.focus();
+}
+
+// PageTabs: the views of an area (underline). One row only, never nested.
+function PageTabs(props) {
+  const tabs = props.tabs || [];
+  const idx = Math.max(0, tabs.findIndex((t) => t.id === props.value));
+  const rest = omit(props, ['tabs', 'value', 'onChange', 'label', 'className']);
+  return h('div', Object.assign(rest, { role: 'tablist', 'aria-label': props.label, className: cx('ui-tabs', props.className) }),
+    tabs.map((t, i) => h('button', {
+      key: t.id, type: 'button', role: 'tab', id: t.tabId, 'data-tab': t.id,
+      'aria-selected': i === idx, 'aria-controls': t.panelId, tabIndex: i === idx ? 0 : -1,
+      className: 'ui-tab', onClick: () => props.onChange && props.onChange(t.id),
+      onKeyDown: (e) => rovingKeys(e, i, tabs.length, (n) => props.onChange && props.onChange(tabs[n].id))
+    }, t.label)));
+}
+
+// Segmented: one choice among a few (periods, Net / Gross).
+function Segmented(props) {
+  const opts = props.options || [];
+  const idx = Math.max(0, opts.findIndex((o) => o.value === props.value));
+  const rest = omit(props, ['options', 'value', 'onChange', 'label', 'className', 'size']);
+  return h('div', Object.assign(rest, { role: 'radiogroup', 'aria-label': props.label, className: cx('ui-seg', props.size === 'sm' && 'ui-seg--sm', props.className) }),
+    opts.map((o, i) => h('button', {
+      key: String(o.value), type: 'button', role: 'radio', 'aria-checked': i === idx, tabIndex: i === idx ? 0 : -1,
+      className: 'ui-seg__opt', disabled: o.disabled || undefined,
+      onClick: () => props.onChange && props.onChange(o.value),
+      onKeyDown: (e) => rovingKeys(e, i, opts.length, (n) => props.onChange && props.onChange(opts[n].value))
+    }, o.label)));
+}
+
+let fieldSeq = 0;
+function useFieldId(given) {
+  const ref = React.useRef(null);
+  if (!ref.current) ref.current = given || ('ui-field-' + (++fieldSeq));
+  return given || ref.current;
+}
+
+// Field wrapper: a visible label, the control, a hint or an error linked by id.
+function Field(props, control) {
+  const id = props.id;
+  const msgId = (props.error || props.hint) ? id + '-msg' : undefined;
+  return h('div', { className: cx('ui-field', props.error && 'has-error', props.fieldClassName) },
+    props.label ? h('label', { className: 'ui-field__label', htmlFor: id }, props.label) : null,
+    control(msgId),
+    props.error ? h('div', { className: cx('ui-field__msg', 'is-error'), id: msgId, role: 'alert' }, props.error)
+      : props.hint ? h('div', { className: 'ui-field__msg', id: msgId }, props.hint) : null);
+}
+
+function Input(props) {
+  const id = useFieldId(props.id);
+  const rest = omit(props, ['label', 'hint', 'error', 'id', 'className', 'fieldClassName']);
+  return Field(Object.assign({}, props, { id }), (msgId) => h('input', Object.assign({ type: 'text' }, rest, {
+    id, className: cx('ui-input', props.className), 'aria-invalid': props.error ? 'true' : undefined, 'aria-describedby': msgId
+  })));
+}
+
+function Select(props) {
+  const id = useFieldId(props.id);
+  const rest = omit(props, ['label', 'hint', 'error', 'id', 'className', 'fieldClassName', 'options']);
+  return Field(Object.assign({}, props, { id }), (msgId) => h('select', Object.assign({}, rest, {
+    id, className: cx('ui-input', 'ui-select', props.className), 'aria-invalid': props.error ? 'true' : undefined, 'aria-describedby': msgId
+  }), (props.options || []).map((o) => h('option', { key: String(o.value), value: o.value, disabled: o.disabled }, o.label))));
+}
+
+// Mask: an amount in privacy mode. The figure never reaches the DOM while masked.
+function Mask(props) {
+  const rest = omit(props, ['masked', 'className', 'children']);
+  if (!props.masked) return h('span', Object.assign(rest, { className: cx('ui-mask', props.className) }), props.children);
+  return h('span', Object.assign(rest, { className: cx('ui-mask', 'is-masked', props.className), 'aria-label': __('uiHiddenAmount', 'Amount hidden') }), '••••••');
+}
+
+const Components = { toneOf, Button, IconButton, Card, Stat, Badge, Chip, ToneChip, PageTabs, Segmented, Input, Select, Mask, Spinner };
+
+// ---- R1.3: Table, Modal / Sheet, EmptyState, Skeleton, ChartFrame ---------
+
+// true below the phone breakpoint (DESIGN-SYSTEM § 2.4), live on resize.
+function useNarrow(query) {
+  const q = query || '(max-width: 767px)';
+  const get = () => (typeof window !== 'undefined' && window.matchMedia ? window.matchMedia(q).matches : false);
+  const [narrow, setNarrow] = React.useState(get);
+  React.useEffect(() => {
+    if (typeof window === 'undefined' || !window.matchMedia) return undefined;
+    const mq = window.matchMedia(q);
+    const on = () => setNarrow(mq.matches);
+    if (mq.addEventListener) mq.addEventListener('change', on); else if (mq.addListener) mq.addListener(on);
+    on();
+    return () => { if (mq.removeEventListener) mq.removeEventListener('change', on); else if (mq.removeListener) mq.removeListener(on); };
+  }, [q]);
+  return narrow;
+}
+
+// EmptyState: the shared MaerminUI.EmptyState (title, one sentence, one or more next
+// actions; kinds empty / worker / demo / loading). Re-exported so views take every
+// component from one place.
+function EmptyState(props) {
+  const UI = window.MaerminUI;
+  return UI && UI.EmptyState ? h(UI.EmptyState, props) : null;
+}
+
+// Skeleton: placeholder shapes while data loads (shown after 150 ms by CSS).
+function Skeleton(props) {
+  const shape = /^(text|kpi|row|chart|block)$/.test(props.shape) ? props.shape : 'text';
+  const n = Math.max(1, props.lines || 1);
+  return h('div', { className: cx('ui-skel', 'ui-skel--' + shape, props.className), 'aria-hidden': 'true', 'data-testid': props['data-testid'] },
+    Array.from({ length: shape === 'text' || shape === 'row' ? n : 1 }, (_, i) => h('span', { key: i, className: 'ui-skel__bar' })));
+}
+
+// Row overflow menu: one IconButton, a small menu of actions.
+function RowMenu(props) {
+  const [open, setOpen] = React.useState(false);
+  const ref = React.useRef(null);
+  React.useEffect(() => {
+    if (!open) return undefined;
+    const off = (e) => { if (ref.current && !ref.current.contains(e.target)) setOpen(false); };
+    const esc = (e) => { if (e.key === 'Escape') { e.stopPropagation(); setOpen(false); const b = ref.current && ref.current.querySelector('button'); if (b) b.focus(); } };
+    document.addEventListener('mousedown', off);
+    document.addEventListener('keydown', esc, true);
+    return () => { document.removeEventListener('mousedown', off); document.removeEventListener('keydown', esc, true); };
+  }, [open]);
+  const items = props.items || [];
+  return h('div', { className: 'ui-rowmenu', ref },
+    h(IconButton, { size: 'sm', label: props.label || __('uiRowActions', 'Actions'), 'aria-haspopup': 'menu', 'aria-expanded': open, onClick: (e) => { e.stopPropagation(); setOpen(!open); }, icon: h('span', { 'aria-hidden': 'true' }, '⋯') }),
+    open ? h('div', { className: 'ui-rowmenu__list', role: 'menu' },
+      items.map((it, i) => h('button', {
+        key: i, type: 'button', role: 'menuitem', className: cx('ui-rowmenu__item', it.danger && 'is-danger'), autoFocus: i === 0,
+        onClick: (e) => { e.stopPropagation(); setOpen(false); it.onClick && it.onClick(); }
+      }, it.label))) : null);
+}
+
+// Table: one money table for desktop, two-line rows on phones.
+//   columns: [{ key, label, align, priority (1 always, 2 tablet+, 3 desktop), render(row),
+//               sortable, phone: 'title' | 'meta' | 'value' | 'sub' }]
+//   rows: data rows; a row with `__group` is a group header ({ __group: label, __summary: node }).
+function Table(props) {
+  const cols = props.columns || [];
+  const rows = props.rows || [];
+  const narrowAuto = useNarrow();
+  const narrow = props.layout === 'phone' ? true : props.layout === 'table' ? false : narrowAuto;
+  const keyOf = props.rowKey || ((r, i) => r.id != null ? r.id : i);
+  const cell = (c, r) => (c.render ? c.render(r) : r[c.key]);
+  const sel = props.selected;
+  const selectable = !!props.onSelect;
+  if (props.loading && !rows.length) return h('div', { className: 'ui-table-wrap', 'data-testid': props['data-testid'] }, h(Skeleton, { shape: 'row', lines: 5 }));
+  if (!rows.length) return props.empty || null;
+
+  if (narrow) {
+    const pick = (role) => cols.filter((c) => c.phone === role);
+    const title = pick('title'), meta = pick('meta'), value = pick('value'), sub = pick('sub');
+    return h('ul', { className: cx('ui-plist', props.className), 'data-testid': props['data-testid'], 'aria-label': props.caption },
+      rows.map((r, i) => r.__group
+        ? h('li', { key: 'g' + i, className: 'ui-plist__group' }, h('span', null, r.__group), r.__summary ? h('span', { className: 'num' }, r.__summary) : null)
+        : h('li', {
+          key: keyOf(r, i), className: cx('ui-plist__row', props.onRowClick && 'is-clickable', sel && sel.has(keyOf(r, i)) && 'is-selected'),
+          onClick: props.onRowClick ? () => props.onRowClick(r) : undefined,
+          tabIndex: props.onRowClick ? 0 : undefined,
+          onKeyDown: props.onRowClick ? (e) => { if (e.key === 'Enter') props.onRowClick(r); } : undefined
+        },
+        h('div', { className: 'ui-plist__main' },
+          h('div', { className: 'ui-plist__title' }, title.map((c) => h('span', { key: c.key }, cell(c, r)))),
+          meta.length ? h('div', { className: 'ui-plist__meta' }, meta.map((c, k) => h('span', { key: c.key }, k ? ' · ' : '', cell(c, r)))) : null),
+        h('div', { className: cx('ui-plist__side', 'num') },
+          value.map((c) => h('div', { key: c.key, className: 'ui-plist__value' }, cell(c, r))),
+          sub.map((c) => h('div', { key: c.key, className: 'ui-plist__sub' }, cell(c, r)))),
+        props.rowActions ? h(RowMenu, { items: props.rowActions(r) }) : null)));
+  }
+
+  const sort = props.sort || {};
+  const head = h('thead', null, h('tr', null,
+    selectable ? h('th', { className: 'ui-table__check', scope: 'col' }, h('input', { type: 'checkbox', 'aria-label': __('uiSelectAll', 'Select all'),
+      checked: !!(sel && rows.filter((r) => !r.__group).every((r, i) => sel.has(keyOf(r, i)))), onChange: (e) => props.onSelect(e.target.checked ? 'all' : 'none') })) : null,
+    cols.map((c) => {
+      const dir = sort.key === c.key ? sort.dir : null;
+      return h('th', { key: c.key, scope: 'col', className: cx(c.align === 'right' && 'is-right', 'p' + (c.priority || 1)), 'aria-sort': dir ? (dir === 'asc' ? 'ascending' : 'descending') : undefined },
+        c.sortable && props.onSort ? h('button', { type: 'button', className: 'ui-table__sort', onClick: () => props.onSort(c.key, dir === 'asc' ? 'desc' : 'asc') },
+          c.label, h('span', { 'aria-hidden': 'true', className: 'ui-table__sortmark' }, dir === 'asc' ? '▲' : dir === 'desc' ? '▼' : '↕')) : c.label);
+    }),
+    props.rowActions ? h('th', { className: 'ui-table__act', scope: 'col' }, h('span', { className: 'sr-only' }, __('uiRowActions', 'Actions'))) : null));
+  const body = h('tbody', null, rows.map((r, i) => {
+    if (r.__group) {
+      return h('tr', { key: 'g' + i, className: 'ui-table__group' },
+        h('td', { colSpan: cols.length + (selectable ? 1 : 0) + (props.rowActions ? 1 : 0) },
+          h('span', null, r.__group), r.__summary ? h('span', { className: cx('num', 'ui-table__summary') }, r.__summary) : null));
+    }
+    const k = keyOf(r, i);
+    return h('tr', {
+      key: k, className: cx(props.onRowClick && 'is-clickable', sel && sel.has(k) && 'is-selected'),
+      onClick: props.onRowClick ? () => props.onRowClick(r) : undefined
+    },
+    selectable ? h('td', { className: 'ui-table__check' }, h('input', { type: 'checkbox', 'aria-label': __('uiSelectRow', 'Select row'), checked: !!(sel && sel.has(k)), onClick: (e) => e.stopPropagation(), onChange: (e) => props.onSelect(k, e.target.checked) })) : null,
+    cols.map((c) => h('td', { key: c.key, className: cx(c.align === 'right' && 'is-right num', 'p' + (c.priority || 1)) }, cell(c, r))),
+    props.rowActions ? h('td', { className: 'ui-table__act' }, h(RowMenu, { items: props.rowActions(r) })) : null);
+  }));
+  return h('div', { className: cx('ui-table-wrap', props.className), 'data-testid': props['data-testid'] },
+    h('table', { className: 'ui-table' }, props.caption ? h('caption', { className: 'sr-only' }, props.caption) : null, head, body));
+}
+
+// Modal: a dialog on MaerminUI.Overlay (focus trap, Escape, focus back). Phones get a bottom sheet.
+let dlgSeq = 0;
+function Modal(props) {
+  const Overlay = window.MaerminUI && window.MaerminUI.Overlay;
+  const narrow = useNarrow();
+  const idRef = React.useRef('ui-dlg-' + (++dlgSeq));
+  if (!props.open || !Overlay) return null;
+  const sheet = props.sheet !== false && narrow;
+  return h(Overlay, { onClose: props.onClose, dismissable: props.dismissable, className: cx('ui-modal-backdrop', sheet && 'is-sheet') },
+    h('div', { role: 'dialog', 'aria-modal': 'true', 'aria-labelledby': idRef.current, className: cx('ui-modal', sheet && 'ui-modal--sheet', props.size === 'lg' && 'ui-modal--lg', props.className), 'data-testid': props['data-testid'] },
+      sheet ? h('span', { className: 'ui-modal__handle', 'aria-hidden': 'true' }) : null,
+      h('header', { className: 'ui-modal__head' },
+        h('h2', { id: idRef.current, className: 'ui-modal__title' }, props.title),
+        props.onClose ? h(IconButton, { size: 'sm', label: __('uiClose', 'Close'), onClick: props.onClose, icon: h('span', { 'aria-hidden': 'true' }, '×') }) : null),
+      h('div', { className: 'ui-modal__body' }, props.children),
+      props.footer ? h('footer', { className: 'ui-modal__foot' }, props.footer) : null));
+}
+
+// ChartFrame: title, subtitle, the chart, a legend in words, "Show as table", source.
+function ChartFrame(props) {
+  const [asTable, setAsTable] = React.useState(false);
+  const canTable = !!(props.table && props.table.columns && props.table.rows);
+  return h(Card, { title: props.title, subtitle: props.subtitle, className: cx('ui-chart', props.className), 'data-testid': props['data-testid'],
+    action: canTable ? h(Button, { variant: 'quiet', size: 'sm', 'aria-pressed': asTable, onClick: () => setAsTable(!asTable) }, asTable ? __('uiHideTable', 'Show chart') : __('uiShowTable', 'Show as table')) : props.action },
+  asTable ? h(Table, Object.assign({ caption: props.title, layout: 'table' }, props.table)) : h('div', { className: 'ui-chart__plot', role: props.summary ? 'img' : undefined, 'aria-label': props.summary }, props.children),
+  Array.isArray(props.legend) && props.legend.length ? h('ul', { className: 'ui-chart__legend' },
+    props.legend.map((l, i) => h('li', { key: i }, h('span', { className: 'ui-chart__swatch', 'data-series': l.series || i + 1, 'aria-hidden': 'true' }), l.label, l.value != null ? h('b', { className: 'num' }, l.value) : null))) : null,
+  props.source ? h('p', { className: 'ui-chart__source' }, props.source) : null);
+}
+
+Object.assign(Components, { useNarrow, EmptyState, Skeleton, RowMenu, Table, Modal, ChartFrame });
+
 // Export components
 if (typeof window !== 'undefined') {
   window.CommandPalette = CommandPalette;
@@ -1074,6 +1419,8 @@ if (typeof window !== 'undefined') {
   window.CorrelationMatrixView = CorrelationMatrixView;
   window.MonteCarloView = MonteCarloView;
   window.StressTestView = StressTestView;
+  window.MaerminComponents = Components;
 }
+if (typeof module !== 'undefined' && module.exports) module.exports = { Components };
 
 })(); // End IIFE
