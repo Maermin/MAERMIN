@@ -386,7 +386,8 @@ function CorrelationMatrixView({ portfolio, priceHistory, historySource, t, them
               background: i === j ? theme.card : getCorrelationColor(value),
               padding: '0.5rem',
               textAlign: 'center',
-              color: i === j ? theme.textSecondary : '#fff',
+              // black or white, whichever reads on the cell colour (white on amber was 2.15:1)
+              color: i === j ? theme.textSecondary : window.MaerminUtils.onColor(getCorrelationColor(value)),
               fontSize: '0.75rem',
               fontWeight: '500'
             },

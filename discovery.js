@@ -274,7 +274,7 @@ function __(k, f, v) { return (typeof window !== 'undefined' && window.MaerminI1
       body = e('div', { style: { color: dim, fontSize: '0.85rem', padding: '1rem 0' } }, __('dsNeedWorker', 'Add a Worker URL in API Settings to use Discovery. It is read-only and never changes your portfolio.'));
     } else if (unsupported) {
       body = e('div', { style: { color: dim, fontSize: '0.85rem', padding: '1rem 0', lineHeight: 1.6 } },
-        e('div', { style: { color: theme.warning || '#f59e0b', fontWeight: 700, marginBottom: '0.3rem' } }, __('dsUnsupported', "Your Worker doesn't support Discovery yet.")),
+        e('div', { style: { color: theme.warning || 'var(--warning)', fontWeight: 700, marginBottom: '0.3rem' } }, __('dsUnsupported', "Your Worker doesn't support Discovery yet.")),
         __('dsRedeploy1', 'Re-deploy the latest') + ' ', e('code', { style: { color: accent } }, 'cf-worker/worker.js'), ' ' + __('dsRedeploy2', '(it adds the') + ' ', e('code', { style: { color: accent } }, 'action=screener'), ' ' + __('dsRedeploy3', 'endpoint). Everything else keeps working without it.'));
     } else if (loading) {
       body = e('div', { style: { color: dim, fontSize: '0.85rem', padding: '1rem 0' } }, __('loadingEllipsis', 'Loading…'));

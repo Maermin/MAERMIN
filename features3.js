@@ -130,7 +130,7 @@ function CorporateActionsPanel({ category, symbol, theme, t = {}, workerUrl, sin
             React.createElement('span', { style: { color: theme.textSecondary } }, a.date),
             React.createElement('span', { style: { color: theme.text, fontWeight: 600 } }, ratioText(a) + (a.source === 'auto' ? ' · ' + (t.caAuto || 'auto') : '')),
             React.createElement('span', Object.assign({}, clickable(() => removeAction(a)), {
-              style: { color: theme.danger || '#ef4444', cursor: 'pointer', fontSize: '0.78rem', justifySelf: 'end' },
+              style: { color: theme.danger || 'var(--danger)', cursor: 'pointer', fontSize: '0.78rem', justifySelf: 'end' },
               'aria-label': (t.caRemove || 'Remove') + ' ' + a.date
             }), t.caRemove || 'Remove')
           ))
@@ -164,7 +164,7 @@ function CorporateActionsPanel({ category, symbol, theme, t = {}, workerUrl, sin
       React.createElement('input', { 'aria-label': t.caNotePh || 'Note (optional)', placeholder: t.caNotePh || 'Note (optional)', value: form.note, onChange: (e) => setForm({ ...form, note: e.target.value }), style: { ...input, flex: 1 } }),
       React.createElement('button', { onClick: addManual, style: btn(theme.accentFill || theme.accent, '#ffffff') }, t.caAdd || 'Add split')
     ),
-    scan.msg && React.createElement('div', { style: { color: theme.warning || '#f59e0b', fontSize: '0.76rem', marginTop: '0.5rem' } }, scan.msg),
+    scan.msg && React.createElement('div', { style: { color: theme.warning || 'var(--warning)', fontSize: '0.76rem', marginTop: '0.5rem' } }, scan.msg),
     React.createElement('div', { style: { color: theme.textSecondary, fontSize: '0.72rem', marginTop: '0.5rem' } },
       t.caHint || 'Ratio New:Old — e.g. 10:1 forward, 1:10 reverse. Splits apply to lots before the date.')
   );
@@ -264,7 +264,7 @@ function PositionDetailModal({ position, transactions, prices, theme, formatPric
             React.createElement('span', {
               style: { fontSize: '0.65rem', fontWeight: '700', padding: '0.15rem 0.4rem', borderRadius: '4px',
                 background: position.cat === 'crypto' ? 'rgba(245,158,11,0.15)' : position.cat === 'stocks' ? 'rgba(59,130,246,0.15)' : 'rgba(6,182,212,0.15)',
-                color: position.cat === 'crypto' ? '#f59e0b' : position.cat === 'stocks' ? '#3b82f6' : '#06b6d4' }
+                color: position.cat === 'crypto' ? 'var(--warning)' : position.cat === 'stocks' ? 'var(--info)' : '#06b6d4' }
             }, window.MaerminI18n.category(position.cat).toUpperCase()),
             React.createElement('span', { style: { color: theme.textSecondary, fontSize: '0.8rem' } },
               metrics.firstBuyDate ? __('pdSince', 'Since {date}', { date: window.MaerminI18n.date(metrics.firstBuyDate) }) : ''
@@ -485,7 +485,7 @@ function CS2SkinPicker({ workerUrl, theme, onSelect, selectedName }) {
 
     // Error
     error && React.createElement('div', {
-      style: { fontSize: '0.75rem', color: theme.danger || '#ef4444', marginTop: '0.25rem', padding: '0 0.25rem' }
+      style: { fontSize: '0.75rem', color: theme.danger || 'var(--danger)', marginTop: '0.25rem', padding: '0 0.25rem' }
     }, error),
 
     // Results dropdown
@@ -549,7 +549,7 @@ function CS2SkinPicker({ workerUrl, theme, onSelect, selectedName }) {
                 style: { fontSize: '0.65rem', color: theme.textSecondary, background: 'rgba(255,255,255,0.05)', padding: '0.1rem 0.3rem', borderRadius: '3px' }
               }, item.wear),
               item.price && React.createElement('span', {
-                style: { fontSize: '0.75rem', fontWeight: '700', color: '#22c55e' }
+                style: { fontSize: '0.75rem', fontWeight: '700', color: 'var(--success)' }
               }, window.MaerminI18n.money(item.price, 'USD')) // skin prices are USD (Steam Market price list)
             )
           )
@@ -761,7 +761,7 @@ function SymbolPicker({ category, workerUrl, theme, onSelect, selectedSymbol, se
       selected && React.createElement('button', {
         onClick: clear,
         title: __('clearSelection', 'Clear selection'), 'aria-label': __('clearSelection', 'Clear selection'),
-        style: { padding: '0.5rem', background: 'rgba(239,68,68,0.1)', border: '1px solid rgba(239,68,68,0.2)', borderRadius: '6px', color: '#ef4444', cursor: 'pointer', fontSize: '0.875rem', lineHeight: 1 }
+        style: { padding: '0.5rem', background: 'rgba(239,68,68,0.1)', border: '1px solid rgba(239,68,68,0.2)', borderRadius: '6px', color: 'var(--danger)', cursor: 'pointer', fontSize: '0.875rem', lineHeight: 1 }
       }, '×')
     ),
 
@@ -781,7 +781,7 @@ function SymbolPicker({ category, workerUrl, theme, onSelect, selectedSymbol, se
         React.createElement('span', {
           style: {
             fontSize: '0.6rem', fontWeight: '800', position: 'absolute',
-            color: (['#3b82f6','#8b7cff','#06b6d4','#f59e0b','#22c55e','#ef4444'])[((selected.ticker||selected.symbol||'A').charCodeAt(0)) % 6]
+            color: (['var(--info)','#8b7cff','#06b6d4','var(--warning)','var(--success)','var(--danger)'])[((selected.ticker||selected.symbol||'A').charCodeAt(0)) % 6]
           }
         }, (selected.ticker || selected.symbol || '').replace(/\..+$/, '').slice(0, 3)),
         selected.logoUrl && React.createElement('img', {
@@ -801,8 +801,8 @@ function SymbolPicker({ category, workerUrl, theme, onSelect, selectedSymbol, se
         React.createElement('div', {
           style: { display: 'flex', alignItems: 'center', gap: '0.375rem', padding: '0.25rem 0.5rem', background: 'rgba(34,197,94,0.1)', border: '1px solid rgba(34,197,94,0.25)', borderRadius: '5px', width: 'fit-content' }
         },
-          React.createElement('span', { style: { color: '#22c55e', fontSize: '0.7rem' } }, '✓'),
-          React.createElement('span', { style: { color: '#22c55e', fontWeight: '700', fontSize: '0.8rem', fontFamily: 'monospace', letterSpacing: '0.03em' } },
+          React.createElement('span', { style: { color: 'var(--success)', fontSize: '0.7rem' } }, '✓'),
+          React.createElement('span', { style: { color: 'var(--success)', fontWeight: '700', fontSize: '0.8rem', fontFamily: 'monospace', letterSpacing: '0.03em' } },
             isCrypto ? selected.symbol : selected.symbol  // exact YF symbol or CoinGecko ID
           ),
           React.createElement('span', { style: { color: 'rgba(34,197,94,0.6)', fontSize: '0.65rem' } },
@@ -814,7 +814,7 @@ function SymbolPicker({ category, workerUrl, theme, onSelect, selectedSymbol, se
 
     // ── Error ─────────────────────────────────────────────────────────────
     error && React.createElement('div', {
-      style: { fontSize: '0.75rem', color: '#ef4444', marginTop: '0.25rem', padding: '0 0.25rem' }
+      style: { fontSize: '0.75rem', color: 'var(--danger)', marginTop: '0.25rem', padding: '0 0.25rem' }
     }, error),
 
     // ── Results Dropdown ──────────────────────────────────────────────────
@@ -865,7 +865,7 @@ function SymbolPicker({ category, workerUrl, theme, onSelect, selectedSymbol, se
               React.createElement('span', {
                 style: {
                   fontSize: '0.6rem', fontWeight: '800', position: 'absolute',
-                  color: (['#3b82f6','#8b7cff','#06b6d4','#f59e0b','#22c55e','#ef4444'])[((item.ticker||item.symbol||'A').charCodeAt(0)) % 6]
+                  color: (['var(--info)','#8b7cff','#06b6d4','var(--warning)','var(--success)','var(--danger)'])[((item.ticker||item.symbol||'A').charCodeAt(0)) % 6]
                 }
               }, (item.ticker || item.symbol || '').replace(/\..+$/, '').slice(0, 3)),
               // Logo image on top — hidden on error (reveals letter avatar)
@@ -881,7 +881,7 @@ function SymbolPicker({ category, workerUrl, theme, onSelect, selectedSymbol, se
               React.createElement('div', { style: { display: 'flex', alignItems: 'center', gap: '0.375rem', flexWrap: 'wrap' } },
                 React.createElement('span', { style: { color: theme.text, fontWeight: '700', fontSize: '0.875rem' } }, item.ticker || item.symbol),
                 React.createElement('span', {
-                  style: { fontSize: '0.6rem', padding: '0.1rem 0.3rem', borderRadius: '3px', background: `${TYPE_COLOR[item.type] || '#3b82f6'}20`, color: TYPE_COLOR[item.type] || '#3b82f6', fontWeight: '600' }
+                  style: { fontSize: '0.6rem', padding: '0.1rem 0.3rem', borderRadius: '3px', background: `${TYPE_COLOR[item.type] || '#3b82f6'}20`, color: TYPE_COLOR[item.type] || 'var(--info)', fontWeight: '600' }
                 }, typeLabel(item.type)),
                 item.exchange && React.createElement('span', { style: { fontSize: '0.65rem', color: theme.textSecondary } }, item.exchange)
               ),

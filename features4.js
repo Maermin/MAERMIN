@@ -228,7 +228,7 @@ function PortfolioManagerView({ portfolios, activePortfolioId, transactions, pri
                   }).then(yes => { if (yes) removePortfolio(p.id); });
                 },
                 'aria-label': ((t && t.pfDeleteAria) || 'Delete portfolio {name}').replace('{name}', p.name),
-                style: { background: 'none', border: 'none', color: theme.danger || '#ef4444', cursor: 'pointer', fontSize: '0.8rem', padding: '0.25rem', minWidth: '24px', minHeight: '24px' }
+                style: { background: 'none', border: 'none', color: theme.danger || 'var(--danger)', cursor: 'pointer', fontSize: '0.8rem', padding: '0.25rem', minWidth: '24px', minHeight: '24px' }
               }, '×')
             )
           ),
@@ -516,7 +516,7 @@ function SavingsPlanView({ transactions, theme, formatPrice, getCurrencySymbol, 
         )
       ),
       !form.noEnd && form.endDate && form.endDate < form.startDate &&
-        React.createElement('div', { style: { color: '#ef4444', fontSize: '0.78rem', marginBottom: '0.6rem' } }, __('spEndBeforeStart', 'End date must not be before the start date.')),
+        React.createElement('div', { style: { color: 'var(--danger)', fontSize: '0.78rem', marginBottom: '0.6rem' } }, __('spEndBeforeStart', 'End date must not be before the start date.')),
       React.createElement('div', { style: { color: theme.textSecondary, fontSize: '0.74rem', marginBottom: '0.875rem', lineHeight: 1.5 } },
         __('spAutoHint', 'Due executions are booked automatically as real buy transactions when the app opens (marked, deletable). If no price is available for a due date, the execution stays pending instead of guessing a quantity.')),
       React.createElement('div', { style: { display: 'flex', gap: '0.5rem' } },

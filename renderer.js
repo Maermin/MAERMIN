@@ -2981,17 +2981,8 @@ function InvestmentTracker() {
       input.click();
     };
 
-    const tabBtn = (id, label, icon) => React.createElement('button', {
-      onClick: () => setSection(id), 'aria-pressed': section === id,
-      style: {
-        display: 'flex', alignItems: 'center', gap: '0.375rem',
-        padding: '0.5rem 1rem', border: 'none', borderRadius: '8px', cursor: 'pointer',
-        fontSize: '0.875rem', fontWeight: section === id ? '700' : '400',
-        background: section === id ? (theme.accentFill || theme.accent) : theme.inputBg,
-        color: section === id ? '#fff' : theme.text,
-        transition: 'all 0.12s'
-      }
-    }, icon, label);
+    // the shared pill row: plain labels (the mixed glyphs ↓ ↑ ◁ ◆ said nothing the label did not)
+    const tabBtn = (id, label) => React.createElement('button', window.MaerminUI.pillProps(section === id, { onClick: () => setSection(id), style: { fontSize: 'var(--text-sm)', minHeight: '32px' } }), label);
 
     return React.createElement('div', { style: { padding: '1.5rem' } },
       React.createElement('h2', { style: { color: theme.text, fontSize: '1.35rem', fontWeight: '800', marginBottom: '0.25rem' } }, t.dataManagement || 'Data Management'),
@@ -3000,11 +2991,11 @@ function InvestmentTracker() {
       ),
 
       // Section tabs
-      React.createElement('div', { style: { display: 'flex', gap: '0.5rem', marginBottom: '1.5rem', flexWrap: 'wrap' } },
-        tabBtn('export', __('dmExportBackup', 'Export & Backup'), '↓ '),
-        tabBtn('import', __('dmManualImport', 'Manual Import'), '↑ '),
-        tabBtn('broker', t.brokerImport || 'Broker Import', '◁ '),
-        window.MaerminSteamImport && tabBtn('steam', __('stTab', 'Steam inventory'), '◆ ')
+      React.createElement('div', { className: 'mx-pills', role: 'group', 'aria-label': t.dataManagement || 'Data Management', style: { marginBottom: '1.5rem' } },
+        tabBtn('export', __('dmExportBackup', 'Export & Backup')),
+        tabBtn('import', __('dmManualImport', 'Manual Import')),
+        tabBtn('broker', t.brokerImport || 'Broker Import'),
+        window.MaerminSteamImport && tabBtn('steam', __('stTab', 'Steam inventory'))
       ),
 
       // Steam inventory import (P2-7): CS2 items as purchases, editable preview.
@@ -3082,7 +3073,7 @@ function InvestmentTracker() {
       section === 'broker' && (
         window.MaerminFeatures2
           ? React.createElement(window.MaerminFeatures2.BrokerImportWizard, {
-              theme, t, addToast, workerUrl: apiKeys.cs2Worker,
+              theme, t, addToast, workerUrl: apiKeys.cs2Worker, embedded: true,
               existing: transactions, // for duplicate detection in the mapping preview
               onImport: (txs) => {
                 const newTxs = txs.map((tx, i) => ({ id: (Date.now()+i).toString(), ...tx }));
@@ -4033,7 +4024,7 @@ function InvestmentTracker() {
                 React.createElement('span', { style: { color: theme.text, fontWeight: '700' } }, `${formatPrice(coast.coastNumber)} ${sym}`),
                 ` · ${window.MaerminI18n.pct(Math.min(999, coast.coastProgress), 0)}`
               ),
-              React.createElement('div', { style: { marginTop: '0.35rem', color: reached ? (theme.success || '#22c55e') : theme.textSecondary } },
+              React.createElement('div', { style: { marginTop: '0.35rem', color: reached ? (theme.success || 'var(--success)') : theme.textSecondary } },
                 reached
                   ? (t.coastReachedMsg || 'Coast reached — growth alone gets you to FIRE; new contributions are optional.')
                   : (t.coastNotYetMsg || 'Keep contributing — you have not hit your coast number yet.')
@@ -4267,6 +4258,8 @@ function InvestmentTracker() {
         // fixed green read 1.9:1 and the grey 3:1 (Phase 3 contrast pass).
         const green = currentTheme.success, red = currentTheme.danger, gray = currentTheme.textSecondary;
         const glyph = s => (s || '').replace(/[^A-Za-z0-9]/g, '').slice(0, 4).toUpperCase();
+        // Letters on a category tile: the pastel category colours read only on dark (2.2:1 on light)
+        const tileInk = c => currentTheme.mode === 'light' ? currentTheme.text : c;
         const money = v => `${formatPrice(v)} ${getCurrencySymbol()}`;
         const fmtPct = n => window.MaerminI18n.pct(n, 2, true);
         const pxv = p => {
@@ -4331,7 +4324,7 @@ function InvestmentTracker() {
           React.createElement('div', { style: { display: 'flex', flexDirection: 'column', gap: '0.55rem' } },
             performers.length
               ? performers.map(p => React.createElement('div', { key: p.cat + p.sym, style: { display: 'flex', alignItems: 'center', gap: '0.8rem', padding: '0.5rem 0.1rem' } },
-                  React.createElement('div', { style: { width: '34px', height: '34px', borderRadius: '9px', background: `${p.color}22`, color: p.color, display: 'flex', alignItems: 'center', justifyContent: 'center', fontFamily: "'Geist', sans-serif", fontWeight: '700', fontSize: '0.78rem', flexShrink: 0 } }, glyph(p.sym)),
+                  React.createElement('div', { style: { width: '34px', height: '34px', borderRadius: '9px', background: `${p.color}22`, color: tileInk(p.color), display: 'flex', alignItems: 'center', justifyContent: 'center', fontFamily: "'Geist', sans-serif", fontWeight: '700', fontSize: '0.78rem', flexShrink: 0 } }, glyph(p.sym)),
                   React.createElement('div', { style: { flex: 1, minWidth: 0 } },
                     React.createElement('div', { style: { fontSize: '0.84rem', fontWeight: '600', color: currentTheme.text, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' } }, p.name),
                     React.createElement('div', { style: { fontSize: '0.72rem', color: gray, fontFamily: "'Geist Mono', monospace" } }, glyph(p.sym))
@@ -4382,7 +4375,7 @@ function InvestmentTracker() {
                   },
                     React.createElement('td', { style: { padding: '0.85rem 1.5rem' } },
                       React.createElement('div', { style: { display: 'flex', alignItems: 'center', gap: '0.7rem' } },
-                        React.createElement('div', { style: { width: '32px', height: '32px', borderRadius: '9px', background: `${color}22`, color, display: 'flex', alignItems: 'center', justifyContent: 'center', fontFamily: "'Geist', sans-serif", fontWeight: '700', fontSize: '0.78rem', flexShrink: 0 } }, glyph(c.symbol)),
+                        React.createElement('div', { style: { width: '32px', height: '32px', borderRadius: '9px', background: `${color}22`, color: tileInk(color), display: 'flex', alignItems: 'center', justifyContent: 'center', fontFamily: "'Geist', sans-serif", fontWeight: '700', fontSize: '0.78rem', flexShrink: 0 } }, glyph(c.symbol)),
                         React.createElement('div', null,
                           React.createElement('div', { style: { fontSize: '0.85rem', fontWeight: '600', color: currentTheme.text } }, c.symbolName || c.symbol),
                           React.createElement('div', { style: { fontSize: '0.7rem', color: gray } }, __('ovClosedOn', 'sold {date}', { date: window.MaerminI18n.date(c.closed) }))
@@ -4435,7 +4428,7 @@ function InvestmentTracker() {
               },
                 React.createElement('td', { className: 'mx-card-lead', style: { padding: '0.85rem 1.5rem' } },
                   React.createElement('div', { style: { display: 'flex', alignItems: 'center', gap: '0.7rem' } },
-                    React.createElement('div', { style: { width: '32px', height: '32px', borderRadius: '9px', background: `${p.color}22`, color: p.color, display: 'flex', alignItems: 'center', justifyContent: 'center', fontFamily: "'Geist', sans-serif", fontWeight: '700', fontSize: '0.78rem', flexShrink: 0 } }, glyph(p.sym)),
+                    React.createElement('div', { style: { width: '32px', height: '32px', borderRadius: '9px', background: `${p.color}22`, color: tileInk(p.color), display: 'flex', alignItems: 'center', justifyContent: 'center', fontFamily: "'Geist', sans-serif", fontWeight: '700', fontSize: '0.78rem', flexShrink: 0 } }, glyph(p.sym)),
                     React.createElement('div', null,
                       React.createElement('div', { style: { fontSize: '0.85rem', fontWeight: '600', color: currentTheme.text } }, p.name),
                       React.createElement('div', { style: { fontSize: '0.7rem', color: gray, fontFamily: "'Geist Mono', monospace" } }, glyph(p.sym))
@@ -6488,9 +6481,9 @@ buy,crypto,bitcoin,0.5,45000,2024-01-15,10`)
             React.createElement('div', null,
               React.createElement('h3', { style: { color: currentTheme.text, fontSize: '1rem', fontWeight: '700' } }, 'Cloudflare Worker'),
               React.createElement('div', { style: { display: 'flex', gap: '0.375rem', marginTop: '0.25rem', flexWrap: 'wrap' } },
-                React.createElement('span', { style: { fontSize: '0.68rem', padding: '0.15rem 0.4rem', borderRadius: '3px', background: 'rgba(34,197,94,0.12)', color: '#22c55e', fontWeight: '700' } }, __('apiFreeNoKey', 'Free · No API key')),
+                React.createElement('span', { style: { fontSize: '0.68rem', padding: '0.15rem 0.4rem', borderRadius: '3px', background: 'rgba(34,197,94,0.12)', color: 'var(--success)', fontWeight: '700' } }, __('apiFreeNoKey', 'Free · No API key')),
                 React.createElement('span', { style: { fontSize: '0.68rem', padding: '0.15rem 0.4rem', borderRadius: '3px', background: 'rgba(6,182,212,0.12)', color: '#06b6d4', fontWeight: '700' } }, __('apiCs2Prices', 'CS2 Skin Prices')),
-                React.createElement('span', { style: { fontSize: '0.68rem', padding: '0.15rem 0.4rem', borderRadius: '3px', background: 'rgba(59,130,246,0.12)', color: '#3b82f6', fontWeight: '700' } }, __('apiYahooChart', 'Yahoo Finance Chart Data')),
+                React.createElement('span', { style: { fontSize: '0.68rem', padding: '0.15rem 0.4rem', borderRadius: '3px', background: 'rgba(59,130,246,0.12)', color: 'var(--info)', fontWeight: '700' } }, __('apiYahooChart', 'Yahoo Finance Chart Data')),
               )
             ),
             React.createElement('span', {
@@ -6511,7 +6504,7 @@ buy,crypto,bitcoin,0.5,45000,2024-01-15,10`)
               React.createElement('div', null, __('apiOneRequest', '→ One request for all skins'))
             ),
             React.createElement('div', { style: { background: 'rgba(59,130,246,0.06)', border: '1px solid rgba(59,130,246,0.15)', borderRadius: '6px', padding: '0.625rem 0.75rem', fontSize: '0.72rem', color: currentTheme.textSecondary, lineHeight: '1.6' } },
-              React.createElement('div', { style: { color: '#3b82f6', fontWeight: '700', marginBottom: '0.25rem' } }, __('apiHistoryChart', 'Portfolio History Chart')),
+              React.createElement('div', { style: { color: 'var(--info)', fontWeight: '700', marginBottom: '0.25rem' } }, __('apiHistoryChart', 'Portfolio History Chart')),
               React.createElement('div', null, '→ Yahoo Finance'),
               React.createElement('div', null, __('apiExchanges', '→ NYSE, XETRA, London…')),
               React.createElement('div', null, __('apiPeriods', '→ 1H to Max periods'))
@@ -7067,7 +7060,7 @@ buy,crypto,bitcoin,0.5,45000,2024-01-15,10`)
                   return React.createElement('div', { key: a.id, style: { display: 'grid', gridTemplateColumns: '1fr auto auto', gap: '0.4rem', alignItems: 'center', padding: '0.3rem 0', borderBottom: '1px solid ' + currentTheme.cardBorder, fontSize: '0.76rem' } },
                     React.createElement('span', { style: { color: currentTheme.text, fontWeight: 600, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' } }, a.symbol + ' ' + a.num + ':' + a.den),
                     React.createElement('span', { style: { color: currentTheme.textSecondary } }, a.date),
-                    React.createElement('span', Object.assign({}, ((window.MaerminUtils && window.MaerminUtils.clickable) ? window.MaerminUtils.clickable(function () { removeOne(a); }) : { onClick: function () { removeOne(a); } }), { style: { color: currentTheme.danger || '#ef4444', cursor: 'pointer' }, 'aria-label': (t.caRemove || 'Remove') + ' ' + a.symbol }), '×')
+                    React.createElement('span', Object.assign({}, ((window.MaerminUtils && window.MaerminUtils.clickable) ? window.MaerminUtils.clickable(function () { removeOne(a); }) : { onClick: function () { removeOne(a); } }), { style: { color: currentTheme.danger || 'var(--danger)', cursor: 'pointer' }, 'aria-label': (t.caRemove || 'Remove') + ' ' + a.symbol }), '×')
                   );
                 })
               )
@@ -7090,7 +7083,7 @@ buy,crypto,bitcoin,0.5,45000,2024-01-15,10`)
                   return React.createElement('div', { key: ev.id, style: { display: 'grid', gridTemplateColumns: '1fr auto auto', gap: '0.4rem', alignItems: 'center', padding: '0.3rem 0', borderBottom: '1px solid ' + currentTheme.cardBorder, fontSize: '0.76rem' } },
                     React.createElement('span', { style: { color: currentTheme.text, fontWeight: 600, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' } }, CA.describeEvent(ev)),
                     React.createElement('span', { style: { color: currentTheme.textSecondary } }, ev.date),
-                    React.createElement('span', Object.assign({}, ((window.MaerminUtils && window.MaerminUtils.clickable) ? window.MaerminUtils.clickable(function () { removeOne(ev); }) : { onClick: function () { removeOne(ev); } }), { style: { color: currentTheme.danger || '#ef4444', cursor: 'pointer' }, 'aria-label': (t.caRemove || 'Remove') + ' ' + ev.symbol }), '×')
+                    React.createElement('span', Object.assign({}, ((window.MaerminUtils && window.MaerminUtils.clickable) ? window.MaerminUtils.clickable(function () { removeOne(ev); }) : { onClick: function () { removeOne(ev); } }), { style: { color: currentTheme.danger || 'var(--danger)', cursor: 'pointer' }, 'aria-label': (t.caRemove || 'Remove') + ' ' + ev.symbol }), '×')
                   );
                 })
               )

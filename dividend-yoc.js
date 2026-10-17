@@ -141,7 +141,7 @@ function __(k, f, v) { return (typeof window !== 'undefined' && window.MaerminI1
             e('span', { style: { color: text, fontWeight: 600 } }, r.symbol),
             e('span', { style: { color: dim, textAlign: 'right' } }, fmt(r.yoc.costBasisEUR) + ' ' + sym),
             e('span', { style: { color: dim, textAlign: 'right' } }, fmt(r.yoc.annualDividendEUR) + ' ' + sym),
-            e('span', { style: { color: theme.success || '#22c55e', textAlign: 'right', fontWeight: 700 } }, window.MaerminI18n.pct(r.yoc.yocPct, 2)));
+            e('span', { style: { color: theme.success || 'var(--success)', textAlign: 'right', fontWeight: 700 } }, window.MaerminI18n.pct(r.yoc.yocPct, 2)));
         });
 
         return e('div', { style: { background: card, border: '1px solid ' + border, borderRadius: '14px', padding: '1.1rem', margin: '1rem 0' } },
@@ -149,7 +149,7 @@ function __(k, f, v) { return (typeof window !== 'undefined' && window.MaerminI1
           e('div', { style: { color: dim, fontSize: '0.76rem', marginBottom: '0.8rem' } }, t.yocSubtitle || 'Annual dividend over your FIFO cost basis.'),
           header, body);
       } catch (err) {
-        return e('div', { style: { padding: '0.75rem', color: (props.theme && props.theme.danger) || '#ef4444' } }, __('yocError', 'Yield-on-cost error: {msg}', { msg: err && err.message }));
+        return e('div', { style: { padding: '0.75rem', color: (props.theme && props.theme.danger) || 'var(--danger)' } }, __('yocError', 'Yield-on-cost error: {msg}', { msg: err && err.message }));
       }
     };
   }

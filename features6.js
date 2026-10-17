@@ -50,8 +50,8 @@ function isDarkTheme(theme) {
 function chartPalette(theme) {
   const dark = isDarkTheme(theme);
   return {
-    up:        dark ? '#34d399' : '#059669',
-    down:      dark ? '#fb7185' : '#dc2626',
+    up:        dark ? '#34d399' : '#066b45',   // light: >= 4.5:1 on white and on its tint (was 3.77:1)
+    down:      dark ? '#fb7185' : '#b91c1c',
     neutral:   (theme && theme.accent) || '#8b7cff',
     info:      dark ? '#60a5fa' : '#2563eb',
     grid:      dark ? 'rgba(148,163,184,0.12)' : 'rgba(71,85,105,0.14)',

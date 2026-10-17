@@ -230,7 +230,7 @@ function __(k, f, v) { return (typeof window !== 'undefined' && window.MaerminI1
           e('div', { style: { color: dim, fontSize: '0.72rem', marginTop: '1rem', lineHeight: 1.5 } },
             t.catFootnote || 'Rebalancing and the currency breakdown group by the four base classes (crypto, stocks, commodities, skins). Holdings in your own categories count in every total and appear here and in Tags.'));
       } catch (err) {
-        return e('div', { style: { padding: '1.5rem', color: (props.theme && props.theme.danger) || '#ef4444' } }, __('ccError', 'Categories view error: ') + (err && err.message));
+        return e('div', { style: { padding: '1.5rem', color: (props.theme && props.theme.danger) || 'var(--danger)' } }, __('ccError', 'Categories view error: ') + (err && err.message));
       }
     };
   }

@@ -140,7 +140,7 @@ function WatchlistView({ prices, priceHistory, theme, t, addToast }) {
           style: { padding: '3rem', textAlign: 'center', color: theme.textSecondary,
             background: theme.card, borderRadius: '16px', border: `1px solid ${theme.cardBorder}`, boxShadow: theme.shadow }
         },
-          React.createElement('div', { style: { fontSize: '2rem', marginBottom: '0.5rem', opacity: 0.3 } }, '○'),
+          React.createElement('div', { 'aria-hidden': 'true', style: { fontSize: '2rem', marginBottom: '0.5rem', opacity: 0.3 } }, '○'),
           React.createElement('div', null, t.watchlistEmpty || 'Add symbols to track them here')
         )
       : React.createElement('div', {
@@ -187,7 +187,7 @@ function WatchlistView({ prices, priceHistory, theme, t, addToast }) {
                         padding: '0.2rem 0.5rem', borderRadius: '4px', fontSize: '0.7rem', fontWeight: '600',
                         background: item.category === 'crypto' ? 'rgba(245,158,11,0.15)' :
                                     item.category === 'stocks' ? 'rgba(59,130,246,0.15)' : 'rgba(6,182,212,0.15)',
-                        color: item.category === 'crypto' ? '#f59e0b' : item.category === 'stocks' ? '#3b82f6' : '#06b6d4'
+                        color: item.category === 'crypto' ? 'var(--warning)' : item.category === 'stocks' ? 'var(--info)' : '#06b6d4'
                       }
                     }, window.MaerminI18n.category(item.category).toUpperCase())
                   ),
@@ -218,7 +218,7 @@ function WatchlistView({ prices, priceHistory, theme, t, addToast }) {
                       'aria-label': __('wlRemoveAria', 'Remove {sym} from the watchlist', { sym: item.displaySymbol || item.symbol || '' }),
                       style: {
                         background: 'rgba(239,68,68,0.1)', border: '1px solid rgba(239,68,68,0.2)',
-                        color: '#ef4444', borderRadius: '4px', cursor: 'pointer', padding: '0.25rem 0.5rem', fontSize: '0.75rem'
+                        color: 'var(--danger)', borderRadius: '4px', cursor: 'pointer', padding: '0.25rem 0.5rem', fontSize: '0.75rem'
                       }
                     }, '×')
                   )

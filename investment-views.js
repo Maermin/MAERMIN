@@ -97,9 +97,9 @@ function AnalysisCard(props) {
           background: badgeType === 'positive' ? 'rgba(34,197,94,0.2)' : 
                      badgeType === 'negative' ? 'rgba(239,68,68,0.2)' :
                      badgeType === 'warning' ? 'rgba(245,158,11,0.2)' : 'rgba(148,163,184,0.2)',
-          color: badgeType === 'positive' ? '#22c55e' : 
-                badgeType === 'negative' ? '#ef4444' :
-                badgeType === 'warning' ? '#f59e0b' : '#94a3b8'
+          color: badgeType === 'positive' ? 'var(--success)' : 
+                badgeType === 'negative' ? 'var(--danger)' :
+                badgeType === 'warning' ? 'var(--warning)' : 'var(--text-dim)'
         }
       }, badge)
     ),
@@ -130,7 +130,7 @@ function MetricGrid(props) {
         }
       },
         React.createElement('div', {
-          style: { fontSize: '1.5rem', fontWeight: '800', letterSpacing: '-0.02em', color: m.color || T.text }
+          style: { fontSize: '1.5rem', fontWeight: '800', letterSpacing: '-0.02em', color: ((window.MaerminUtils && window.MaerminUtils.ink) ? window.MaerminUtils.ink(m.color) : m.color) || T.text }
         }, m.value),
         React.createElement('div', {
           style: {
@@ -500,7 +500,7 @@ function SectorAllocationView(props) {
         sectorData.sectors[0] && sectorData.sectors[0].weight > 50 && React.createElement('div', {
           style: { marginTop: '1rem', padding: '0.75rem', background: 'rgba(239,68,68,0.1)', borderRadius: '8px' }
         },
-          React.createElement('div', { style: { color: '#ef4444', fontWeight: '600', marginBottom: '0.5rem' } }, __('ivConcWarning', 'Concentration Warning')),
+          React.createElement('div', { style: { color: 'var(--danger)', fontWeight: '600', marginBottom: '0.5rem' } }, __('ivConcWarning', 'Concentration Warning')),
           React.createElement('div', { style: { color: T.textSecondary, fontSize: '0.875rem' } }, 
             __('ivSectorWarn', 'Over {pct} in {name}. Consider diversifying.', { pct: window.MaerminI18n.pct(50, 0), name: window.MaerminI18n.sector(sectorData.sectors[0].name) })
           )
@@ -580,7 +580,7 @@ function CountryAllocationView(props) {
           { label: __('ovTotalValue', 'Total Value'), value: money(data.totalValue) }
         ] }),
         data.rows[0] && data.rows[0].weight > 60 && React.createElement('div', { style: { marginTop: '1rem', padding: '0.75rem', background: 'rgba(239,68,68,0.1)', borderRadius: '8px' } },
-          React.createElement('div', { style: { color: '#ef4444', fontWeight: '600', marginBottom: '0.5rem' } }, __('ivConcWarning', 'Concentration Warning')),
+          React.createElement('div', { style: { color: 'var(--danger)', fontWeight: '600', marginBottom: '0.5rem' } }, __('ivConcWarning', 'Concentration Warning')),
           React.createElement('div', { style: { color: T.textSecondary, fontSize: '0.875rem' } }, __('ivCountryWarn', 'Over {pct} in {name}. Consider geographic diversification.', { pct: window.MaerminI18n.pct(60, 0), name: window.MaerminI18n.country(data.rows[0].name) })))
       )
     ) : React.createElement('div', { style: { color: T.textSecondary, padding: '2rem', textAlign: 'center' } }, __('ivNoCountryData', 'Add positions to analyze country allocation'))
@@ -697,7 +697,7 @@ function CurrencyExposureView(props) {
               style: { display: 'flex', justifyContent: 'space-between', padding: '0.5rem 0', borderBottom: '1px solid ' + T.cardBorder }
             },
               React.createElement('span', { style: { color: T.text } }, currency),
-              React.createElement('span', { style: { color: currency === baseCurrency ? '#22c55e' : '#f59e0b' } }, 
+              React.createElement('span', { style: { color: currency === baseCurrency ? 'var(--success)' : 'var(--warning)' } }, 
                 window.MaerminI18n.pct(exp.weight, 1)
               )
             );
@@ -716,7 +716,7 @@ function CurrencyExposureView(props) {
               s.scenario,
               {
                 value: window.MaerminI18n.pct(s.portfolioImpact, 2, true),
-                style: { color: s.portfolioImpact >= 0 ? '#22c55e' : '#ef4444' }
+                style: { color: s.portfolioImpact >= 0 ? 'var(--success)' : 'var(--danger)' }
               }
             ];
           })
@@ -943,9 +943,9 @@ function GoalPathCard(props) {
         cell(__('glReturnShort', 'Expected return'), window.MaerminI18n.pct(goal.expectedReturn * 100, 1))),
       suggested != null ? React.createElement('div', { 'data-testid': 'goal-risk', style: { marginTop: '0.75rem', padding: '0.6rem 0.75rem', borderRadius: '10px', background: T.inputBg, color: T.textSecondary, fontSize: '0.8rem', lineHeight: 1.5 } },
         __('glRiskLine', 'Glide path for risk: about {s} in shares and other risky assets now, falling towards the date. The linked holdings have {a}.', { s: pct(suggested), a: pct(actual) }),
-        actual != null && actual > suggested + 10 ? React.createElement('span', { style: { color: T.warning || '#f59e0b' } }, ' ' + __('glRiskHigh', 'Consider moving some into bonds or cash as the date comes closer.')) : null) : null,
+        actual != null && actual > suggested + 10 ? React.createElement('span', { style: { color: T.warning || 'var(--warning)' } }, ' ' + __('glRiskHigh', 'Consider moving some into bonds or cash as the date comes closer.')) : null) : null,
       React.createElement('div', { style: { display: 'flex', justifyContent: 'flex-end', marginTop: '0.75rem' } },
-        React.createElement('button', { onClick: props.onDelete, style: { background: 'rgba(239,68,68,0.2)', color: '#ef4444', border: 'none', padding: '0.25rem 0.75rem', borderRadius: '4px', cursor: 'pointer', fontSize: '0.75rem' } }, __('delete', 'Delete')))));
+        React.createElement('button', { onClick: props.onDelete, style: { background: 'rgba(239,68,68,0.2)', color: 'var(--danger)', border: 'none', padding: '0.25rem 0.75rem', borderRadius: '4px', cursor: 'pointer', fontSize: '0.75rem' } }, __('delete', 'Delete')))));
 }
 
 // ============================================================================
@@ -1218,7 +1218,7 @@ function GoalInvestingView(props) {
               var U = (typeof window !== 'undefined') && window.MaerminUtils;
               if (U && U.confirmThen) U.confirmThen({ title: __('glDeleteTitle', 'Delete the goal "{name}"?', { name: goal.name }), confirmLabel: __('delete', 'Delete') }, function() { deleteGoal(goal.id); });
             },
-            style: { background: 'rgba(239,68,68,0.2)', color: '#ef4444', border: 'none', padding: '0.25rem 0.75rem', borderRadius: '4px', cursor: 'pointer', fontSize: '0.75rem' }
+            style: { background: 'rgba(239,68,68,0.2)', color: 'var(--danger)', border: 'none', padding: '0.25rem 0.75rem', borderRadius: '4px', cursor: 'pointer', fontSize: '0.75rem' }
           }, __('delete', 'Delete'))
         )
       );
@@ -1322,6 +1322,7 @@ function InvestmentAnalysisDashboard(props) {
       sections.map(function(s) {
         return React.createElement('button', {
           key: s.id,
+          type: 'button', 'aria-pressed': activeSection === s.id,
           onClick: function() { setActiveSection(s.id); },
           style: tabStyle(s.id)
         }, s.label);

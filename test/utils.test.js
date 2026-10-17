@@ -50,7 +50,10 @@ const Utils = require('../utils.js');
     ok('missing translation falls back to English', T('interest', { buy: 'Kauf' }).label === 'Interest');
     ok('unknown type is shown as written, neutral', T('transfer').label === 'Transfer' && T('transfer').tone === 'neutral');
     ok('empty type renders a dash', T(undefined).label === '—' && T('').tone === 'neutral');
-    ok('every tone carries colours', ['buy', 'sell', 'dividend', 'x'].every((k) => /^#/.test(T(k).color) && /^rgba/.test(T(k).background)));
+    // theme colours, not fixed hex (light-theme AA): a variable and its own tint
+    ok('every tone carries theme colours', ['buy', 'sell', 'dividend', 'x'].every((k) => { const c = T(k).color.match(/^var\((--[a-z-]+)\)$/); return !!c && T(k).background.indexOf('var(' + c[1] + ')') > -1; }));
+    ok('ink: fixed semantic hexes become theme colours, others pass through', Utils.ink('#22C55E') === 'var(--success)' && Utils.ink('#ef4444') === 'var(--danger)' && Utils.ink('#3b82f6') === 'var(--info)' && Utils.ink('#8b7cff') === '#8b7cff' && Utils.ink(undefined) === undefined);
+    ok('buy, sell and dividend read as success, danger and info', T('buy').color === 'var(--success)' && T('sell').color === 'var(--danger)' && T('dividend').color === 'var(--info)');
   }
 
 

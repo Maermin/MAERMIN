@@ -109,7 +109,7 @@ function __(k, f, v) { return (typeof window !== 'undefined' && window.MaerminI1
     else if (err) body = note(React, bad, __('avBenchFailed', 'Could not load benchmark: {msg}', { msg: err }));
     else if (!stats || !stats.available) body = note(React, dim, __('avNotEnoughBench', 'Not enough overlapping history to compute benchmark stats yet.'));
     else body = e('div', null,
-      verdict && e('div', { 'data-testid': 'verdict-benchmark', 'data-level': verdict.level, style: { color: verdict.level === 'good' ? ok : verdict.level === 'neutral' ? text : (verdict.level === 'warn' ? theme.warning || '#f59e0b' : bad), fontSize: '0.85rem', fontWeight: 600, marginBottom: '0.7rem', lineHeight: 1.45 } }, verdict.text),
+      verdict && e('div', { 'data-testid': 'verdict-benchmark', 'data-level': verdict.level, style: { color: verdict.level === 'good' ? ok : verdict.level === 'neutral' ? text : (verdict.level === 'warn' ? theme.warning || 'var(--warning)' : bad), fontSize: '0.85rem', fontWeight: 600, marginBottom: '0.7rem', lineHeight: 1.45 } }, verdict.text),
       e('div', { style: { display: 'flex', flexWrap: 'wrap', gap: '0.6rem' } },
         tile(__('avAlphaAnn', 'Alpha (ann.)'), pct(stats.alpha), stats.alpha >= 0 ? ok : bad),
         tile('Beta', window.MaerminI18n.num(stats.beta, 2), text),
@@ -171,7 +171,7 @@ function __(k, f, v) { return (typeof window !== 'undefined' && window.MaerminI1
           e('div', { style: { flex: 1, minWidth: '240px' } },
             e('div', { style: { color: dim, fontSize: '0.72rem', textTransform: 'uppercase', letterSpacing: '0.04em', marginBottom: '0.3rem' } }, __('avRollRet', '{n}-pt rolling return', { n: win })),
             sparkline(React, rret, curRet >= 0 ? ok : (theme.danger || '#ef4444')),
-            e('div', { style: { color: curRet >= 0 ? ok : (theme.danger || '#ef4444'), fontSize: '1rem', fontWeight: '700', marginTop: '0.3rem' } }, window.MaerminI18n.pct(curRet * 100, 1))
+            e('div', { style: { color: curRet >= 0 ? ok : (theme.danger || 'var(--danger)'), fontSize: '1rem', fontWeight: '700', marginTop: '0.3rem' } }, window.MaerminI18n.pct(curRet * 100, 1))
           )
         ),
         e('div', { 'data-testid': 'rolling-source', style: { color: dim, fontSize: '0.72rem', marginTop: '0.7rem' } }, dated

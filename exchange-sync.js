@@ -620,7 +620,7 @@ function __(k, f, v) { return (typeof window !== 'undefined' && window.MaerminI1
           e('button', { onClick: addConn, style: { marginTop: '0.6rem', padding: '0.5rem 1rem', background: accent, color: '#ffffff', border: 'none', borderRadius: '8px', cursor: 'pointer', fontWeight: 700, fontSize: '0.82rem' } }, t.exAdd || 'Add connection'),
           msg ? e('div', { style: { color: dim, fontSize: '0.76rem', marginTop: '0.5rem' } }, msg) : null);
       } catch (err) {
-        return e('div', { style: { padding: '0.75rem', color: (props.theme && props.theme.danger) || '#ef4444' } }, __('exError', 'Exchange sync error: ') + (err && err.message));
+        return e('div', { style: { padding: '0.75rem', color: (props.theme && props.theme.danger) || 'var(--danger)' } }, __('exError', 'Exchange sync error: ') + (err && err.message));
       }
     };
   }

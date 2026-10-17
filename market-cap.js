@@ -183,7 +183,7 @@ function __(k, f, v) { return (typeof window !== 'undefined' && window.MaerminI1
           e('div', { style: { color: dim, fontSize: '0.76rem', marginBottom: '0.9rem' } }, t.mcSubtitle || 'Equity allocation by market-cap size (EUR-normalised)'),
           agg.total > 0 ? bars : e('div', { style: { color: dim, fontSize: '0.84rem' } }, t.mcEmpty || 'No equity positions to size yet.'));
       } catch (err) {
-        return e('div', { style: { padding: '0.75rem', color: (props.theme && props.theme.danger) || '#ef4444' } }, __('mcError', 'Market cap error: ') + (err && err.message));
+        return e('div', { style: { padding: '0.75rem', color: (props.theme && props.theme.danger) || 'var(--danger)' } }, __('mcError', 'Market cap error: ') + (err && err.message));
       }
     };
   }
