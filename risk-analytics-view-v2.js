@@ -414,7 +414,7 @@ function RiskAnalyticsViewV2(props) {
                 fontSize: '0.75rem',
                 padding: '0.125rem 0.5rem',
                 borderRadius: '4px',
-                background: rec.priority === 'high' ? 'rgba(239,68,68,0.2)' : 'rgba(245,158,11,0.2)',
+                background: rec.priority === 'high' ? 'color-mix(in srgb, var(--danger) 20%, transparent)' : 'color-mix(in srgb, var(--warning) 20%, transparent)',
                 color: rec.priority === 'high' ? theme.danger : theme.warning
               }
             }, rec.priority === 'high' ? (t.highRisk || 'HIGH') : (t.mediumRisk || 'MEDIUM'))

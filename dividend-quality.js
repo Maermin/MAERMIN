@@ -378,7 +378,7 @@ function __(k, f, v) { return (typeof window !== 'undefined' && window.MaerminI1
             },
               e('td', { style: { padding: '0.45rem 0.5rem', color: text, fontSize: '0.8rem', fontWeight: 600 } },
                 p.symbol,
-                q.cutRisk ? e('span', { style: { marginLeft: '0.45rem', fontSize: '0.64rem', padding: '0.08rem 0.4rem', borderRadius: '4px', background: 'rgba(239,68,68,0.16)', color: bad, fontWeight: 700 } }, __('dqlCutRisk', 'CUT RISK')) : null),
+                q.cutRisk ? e('span', { style: { marginLeft: '0.45rem', fontSize: '0.64rem', padding: '0.08rem 0.4rem', borderRadius: '4px', background: 'color-mix(in srgb, var(--danger) 16%, transparent)', color: bad, fontWeight: 700 } }, __('dqlCutRisk', 'CUT RISK')) : null),
               e('td', { style: { padding: '0.45rem 0.5rem', textAlign: 'right', color: text, fontSize: '0.78rem' } }, fmt(p.income) + ' ' + sym),
               e('td', { style: { padding: '0.45rem 0.5rem', textAlign: 'right', color: m.payoutRatio != null && m.payoutRatio > 0.8 ? warn : dim, fontSize: '0.78rem' } }, pctTxt(m.payoutRatio)),
               e('td', { style: { padding: '0.45rem 0.5rem', textAlign: 'right', color: dim, fontSize: '0.78rem' } }, m.streakYears != null ? __('pjYears', '{n}y', { n: m.streakYears }) : '-'),

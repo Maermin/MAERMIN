@@ -324,7 +324,7 @@ function __(k, f, v) { return (typeof window !== 'undefined' && window.MaerminI1
             style: {
               display: 'flex', alignItems: 'center', gap: '0.75rem', padding: '0.75rem 0.9rem',
               borderRadius: '12px', border: '1px solid ' + (res.triggered ? down : border),
-              background: res.triggered ? 'rgba(239,68,68,0.06)' : card, marginBottom: '0.6rem'
+              background: res.triggered ? 'color-mix(in srgb, var(--danger) 6%, transparent)' : card, marginBottom: '0.6rem'
             }
           },
             e('span', { 'aria-hidden': 'true', title: res.triggered ? __('rlTriggered', 'Triggered') : 'OK', style: { color: res.triggered ? down : up, fontWeight: 800, fontSize: '1rem' } }, res.triggered ? '●' : '○'),

@@ -28,11 +28,11 @@ function KpiCard({ theme, label, value, sub, color, badge }) {
       React.createElement('span', { style: { color: theme.textSecondary, fontSize: '0.72rem', fontWeight: '600', textTransform: 'uppercase', letterSpacing: '0.07em' } }, label),
       badge && React.createElement('span', {
         style: { fontSize: '0.68rem', fontWeight: '700', padding: '0.1rem 0.4rem', borderRadius: '4px',
-          background: badge.pos ? 'rgba(34,197,94,0.15)' : 'rgba(239,68,68,0.15)',
+          background: badge.pos ? 'color-mix(in srgb, var(--success) 15%, transparent)' : 'color-mix(in srgb, var(--danger) 15%, transparent)',
           color: badge.pos ? theme.success : theme.danger }
       }, badge.text)
     ),
-    React.createElement('div', { style: { color: color || theme.text, fontSize: '1.6rem', fontWeight: '800', lineHeight: 1, letterSpacing: '-0.02em' } }, value),
+    React.createElement('div', { style: { color: ((window.MaerminUtils && window.MaerminUtils.ink) ? window.MaerminUtils.ink(color) : color) || theme.text, fontSize: '1.6rem', fontWeight: '800', lineHeight: 1, letterSpacing: '-0.02em' } }, value),
     sub && React.createElement('div', { style: { color: theme.textSecondary, fontSize: '0.78rem', marginTop: '0.25rem' } }, sub)
   );
 }
@@ -453,7 +453,7 @@ function CashflowChart({ transactions, priceHistory, portfolio, prices, theme, f
       React.createElement('span', { style: { color: theme.text, fontWeight: '700', fontSize: '0.9rem' } }, __('cfTitle', 'Cash Flow — Invested vs. Portfolio Value')),
       React.createElement('span', {
         style: { fontSize: '0.85rem', fontWeight: '700', padding: '0.25rem 0.75rem', borderRadius: '6px',
-          background: isUp ? 'rgba(34,197,94,0.15)' : 'rgba(239,68,68,0.15)',
+          background: isUp ? 'color-mix(in srgb, var(--success) 15%, transparent)' : 'color-mix(in srgb, var(--danger) 15%, transparent)',
           color: isUp ? theme.success : theme.danger }
       }, `${isUp ? '+' : ''}${formatPrice(pnl)} (${window.MaerminI18n.pct(pnlPct, 1)})`)
     ),
@@ -489,7 +489,7 @@ function CashflowChart({ transactions, priceHistory, portfolio, prices, theme, f
         __('cfNetInvestedLegend', 'Net invested: {amount}', { amount: `${formatPrice(lastInv)} ${getCurrencySymbol()}` })
       ),
       React.createElement('div', { style: { display: 'flex', alignItems: 'center', gap: '0.375rem', fontSize: '0.75rem', color: theme.textSecondary } },
-        React.createElement('div', { style: { width: 20, height: 2, background: isUp ? '#22c55e' : '#ef4444' } }),
+        React.createElement('div', { style: { width: 20, height: 2, background: isUp ? 'var(--success)' : 'var(--danger)' } }),
         __('cfValueLegend', 'Value: {amount}', { amount: `${formatPrice(lastVal)} ${getCurrencySymbol()}` })
       )
     )
@@ -588,7 +588,7 @@ function FeeAnalyzer({ transactions, theme, formatPrice, getCurrencySymbol, exch
                     React.createElement('span', { style: { color: 'var(--danger)', fontWeight: '700' } }, `${formatPrice(data.fees)} ${getCurrencySymbol()}`)
                   ),
                   React.createElement('div', { style: { height: 6, background: theme.inputBg, borderRadius: 3, overflow: 'hidden' } },
-                    React.createElement('div', { style: { height: '100%', width: `${data.fees / maxYear * 100}%`, background: '#ef4444', opacity: 0.7, borderRadius: 3 } })
+                    React.createElement('div', { style: { height: '100%', width: `${data.fees / maxYear * 100}%`, background: 'var(--danger)', opacity: 0.7, borderRadius: 3 } })
                   )
                 )
               )

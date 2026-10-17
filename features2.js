@@ -376,7 +376,7 @@ function ReturnsView({ transactions, portfolio, prices, priceHistory, theme, for
 
     // Explanation
     React.createElement('div', {
-      style: { background: 'rgba(59,130,246,0.06)', border: '1px solid rgba(59,130,246,0.2)', borderRadius: '10px', padding: '1rem', fontSize: '0.8rem', color: theme.textSecondary, lineHeight: '1.7' }
+      style: { background: 'color-mix(in srgb, var(--info) 6%, transparent)', border: '1px solid color-mix(in srgb, var(--info) 20%, transparent)', borderRadius: '10px', padding: '1rem', fontSize: '0.8rem', color: theme.textSecondary, lineHeight: '1.7' }
     },
       React.createElement('strong', { style: { color: theme.text } }, __('retNote', 'Note:') + ' '),
       twrInfo.source === 'daily'
@@ -978,7 +978,7 @@ function BrokerImportWizard({ theme, t, addToast, onImport, existing, workerUrl,
     const rep = (FXH && FXH.currencyReport) ? FXH.currencyReport(txs) : [];
     if (!rep.length) return null;
     const bad = rep.some(r => r.status === 'unknown');
-    return React.createElement('div', { role: 'status', style: { background: bad ? 'rgba(239,68,68,0.06)' : 'rgba(245,158,11,0.08)', border: `1px solid ${bad ? 'rgba(239,68,68,0.3)' : 'rgba(245,158,11,0.3)'}`, borderRadius: '8px', padding: '0.6rem 0.8rem', marginBottom: '0.9rem', fontSize: '0.78rem', color: theme.text, lineHeight: 1.6 } },
+    return React.createElement('div', { role: 'status', style: { background: bad ? 'color-mix(in srgb, var(--danger) 6%, transparent)' : 'color-mix(in srgb, var(--warning) 8%, transparent)', border: `1px solid ${bad ? 'color-mix(in srgb, var(--danger) 30%, transparent)' : 'color-mix(in srgb, var(--warning) 30%, transparent)'}`, borderRadius: '8px', padding: '0.6rem 0.8rem', marginBottom: '0.9rem', fontSize: '0.78rem', color: theme.text, lineHeight: 1.6 } },
       rep.map(r => React.createElement('div', { key: r.currency },
         React.createElement('strong', null, __('biCurRows', '{n} {n:row|rows} in {cur}:', { n: r.count, cur: r.currency }) + ' '),
         r.status === 'unknown'
@@ -1044,7 +1044,7 @@ function BrokerImportWizard({ theme, t, addToast, onImport, existing, workerUrl,
     // ── Step 1: CoinTracking info + file upload ──────────────────────────────
     step === 1 && selectedBroker === 'cointracking' && React.createElement('div', null,
       React.createElement('div', {
-        style: { background: 'rgba(34,197,94,0.06)', border: '1px solid rgba(34,197,94,0.2)', borderRadius: '10px', padding: '1rem', marginBottom: '1rem', fontSize: '0.8rem', color: theme.textSecondary, lineHeight: '1.8' }
+        style: { background: 'color-mix(in srgb, var(--success) 6%, transparent)', border: '1px solid color-mix(in srgb, var(--success) 20%, transparent)', borderRadius: '10px', padding: '1rem', marginBottom: '1rem', fontSize: '0.8rem', color: theme.textSecondary, lineHeight: '1.8' }
       },
         React.createElement('div', { style: { color: theme.text, fontWeight: '700', marginBottom: '0.375rem' } }, __('biCtInstr', 'CoinTracking export instructions:')),
         React.createElement('div', null, '1. ' + __('biCtStep1', 'In CoinTracking:') + ' ', React.createElement('b', { style: { color: theme.text } }, 'Reports → All Transactions')),
@@ -1131,9 +1131,9 @@ function BrokerImportWizard({ theme, t, addToast, onImport, existing, workerUrl,
           // Summary chips: broker + counts.
           React.createElement('div', { style: { display: 'flex', flexWrap: 'wrap', gap: '0.5rem', alignItems: 'center', marginBottom: '0.9rem', fontSize: '0.8rem' } },
             mp.broker && React.createElement('span', { style: { padding: '0.25rem 0.6rem', borderRadius: '20px', background: `${theme.accent}1e`, color: theme.accent, fontWeight: '700' } }, mp.broker.chosen ? __('biColsDetected', '{name} (columns detected)', { name: mp.broker.name }) : __('biDetected', 'Detected: {name}', { name: mp.broker.name })),
-            React.createElement('span', { style: { padding: '0.25rem 0.6rem', borderRadius: '20px', background: 'rgba(34,197,94,0.15)', color: theme.success, fontWeight: '700' } }, __('biValid', '✓ {n} valid', { n: mp.stats.ok })),
-            mp.errors.length > 0 && React.createElement('span', { ...window.MaerminUtils.clickable(() => setShowErrors(v => !v)), 'aria-label': __('biToggleErrors', 'Toggle error details'), style: { padding: '0.25rem 0.6rem', borderRadius: '20px', background: 'rgba(239,68,68,0.15)', color: 'var(--danger)', fontWeight: '700', cursor: 'pointer' } }, `${__('biSkipped', '✗ {n} skipped', { n: mp.errors.length })} ${showErrors ? '▲' : '▼'}`),
-            (mp.stats.duplicates > 0) && React.createElement('span', { style: { padding: '0.25rem 0.6rem', borderRadius: '20px', background: 'rgba(245,158,11,0.15)', color: theme.warning, fontWeight: '700' } }, __('biDuplicates', '! {n} {n:duplicate|duplicates}', { n: mp.stats.duplicates }))
+            React.createElement('span', { style: { padding: '0.25rem 0.6rem', borderRadius: '20px', background: 'color-mix(in srgb, var(--success) 15%, transparent)', color: theme.success, fontWeight: '700' } }, __('biValid', '✓ {n} valid', { n: mp.stats.ok })),
+            mp.errors.length > 0 && React.createElement('span', { ...window.MaerminUtils.clickable(() => setShowErrors(v => !v)), 'aria-label': __('biToggleErrors', 'Toggle error details'), style: { padding: '0.25rem 0.6rem', borderRadius: '20px', background: 'color-mix(in srgb, var(--danger) 15%, transparent)', color: 'var(--danger)', fontWeight: '700', cursor: 'pointer' } }, `${__('biSkipped', '✗ {n} skipped', { n: mp.errors.length })} ${showErrors ? '▲' : '▼'}`),
+            (mp.stats.duplicates > 0) && React.createElement('span', { style: { padding: '0.25rem 0.6rem', borderRadius: '20px', background: 'color-mix(in srgb, var(--warning) 15%, transparent)', color: theme.warning, fontWeight: '700' } }, __('biDuplicates', '! {n} {n:duplicate|duplicates}', { n: mp.stats.duplicates }))
           ),
 
           // Fixed-format files (CoinTracking) are read by their own parser: say
@@ -1213,7 +1213,7 @@ function BrokerImportWizard({ theme, t, addToast, onImport, existing, workerUrl,
                 React.createElement('input', {
                   'aria-label': __('biTickerFor', 'Ticker for {isin}', { isin: x.isin }), placeholder: __('biTickerPh', 'ticker'), value: pick.symbol || '',
                   onChange: e => setIsinTicker(x.isin, e.target.value, ''),
-                  style: { padding: '0.4rem 0.5rem', minHeight: '40px', background: theme.inputBg, border: `1px solid ${pick.symbol ? theme.inputBorder : '#ef4444'}`, borderRadius: '6px', color: theme.text, fontSize: '0.78rem', width: '100%', boxSizing: 'border-box' }
+                  style: { padding: '0.4rem 0.5rem', minHeight: '40px', background: theme.inputBg, border: `1px solid ${pick.symbol ? theme.inputBorder : 'var(--danger)'}`, borderRadius: '6px', color: theme.text, fontSize: '0.78rem', width: '100%', boxSizing: 'border-box' }
                 }),
                 pick.currencyMismatch && React.createElement('span', { style: { gridColumn: '1 / -1', color: 'var(--warning)', fontSize: '0.72rem' } }, __('biCurMismatch', 'No {cur} listing found — {sym} is quoted in another currency. Its price is converted, so P&L will include the exchange-rate move.', { cur: x.currency, sym: pick.symbol }))
               );
@@ -1226,7 +1226,7 @@ function BrokerImportWizard({ theme, t, addToast, onImport, existing, workerUrl,
           currencyNotice(mp.transactions),
 
           // Row-accurate error report.
-          showErrors && mp.errors.length > 0 && React.createElement('div', { style: { background: 'rgba(239,68,68,0.06)', border: '1px solid rgba(239,68,68,0.25)', borderRadius: '8px', padding: '0.6rem 0.8rem', marginBottom: '0.9rem', maxHeight: '160px', overflow: 'auto', fontSize: '0.76rem' } },
+          showErrors && mp.errors.length > 0 && React.createElement('div', { style: { background: 'color-mix(in srgb, var(--danger) 6%, transparent)', border: '1px solid color-mix(in srgb, var(--danger) 25%, transparent)', borderRadius: '8px', padding: '0.6rem 0.8rem', marginBottom: '0.9rem', maxHeight: '160px', overflow: 'auto', fontSize: '0.76rem' } },
             mp.errors.slice(0, 50).map((er, i) => React.createElement('div', { key: i, style: { color: theme.textSecondary, lineHeight: '1.7' } },
               React.createElement('span', { style: { color: 'var(--danger)', fontWeight: '700' } }, __('importRowLabel', 'Row {row}:', { row: er.row }) + ' '), er.reason)),
             mp.errors.length > 50 && React.createElement('div', { style: { color: theme.textSecondary } }, __('andNMore', '… and {n} more', { n: mp.errors.length - 50 }))
@@ -1551,12 +1551,12 @@ function DividendCalendarView({ portfolio, prices, metaVersion, theme, t, addToa
                 title: `${e.symbol}: ${window.MaerminI18n.money(e.amount, e.currency || 'EUR')}${e.notes ? ' · ' + e.notes : ''}${e.derived ? ' · ' + __('dcProjected', 'projected') : ''}`,
                 'aria-label': e.derived ? __('dcProjectedAria', 'Projected dividend {sym} {amount}', { sym: e.symbol, amount: window.MaerminI18n.money(e.amount, e.currency || 'EUR') }) : __('dcDeleteAria', 'Delete dividend {sym} {amount}', { sym: e.symbol, amount: window.MaerminI18n.money(e.amount, e.currency || 'EUR') }),
                 style: {
-                  background: e.past ? 'rgba(148,163,184,0.12)' : (e.derived ? 'rgba(59,130,246,0.14)' : 'rgba(34,197,94,0.15)'),
+                  background: e.past ? 'color-mix(in srgb, var(--text-dim) 12%, transparent)' : (e.derived ? 'color-mix(in srgb, var(--info) 14%, transparent)' : 'color-mix(in srgb, var(--success) 15%, transparent)'),
                   color: e.past ? theme.textSecondary : (e.derived ? theme.accent : theme.success),
                   fontSize: '0.65rem', fontWeight: '600', padding: '0.15rem 0.3rem', borderRadius: '3px', marginBottom: '0.15rem',
                   overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
                   cursor: e.derived ? 'default' : 'pointer',
-                  borderLeft: e.past ? '2px solid rgba(148,163,184,0.5)' : (e.derived ? '2px solid rgba(59,130,246,0.6)' : 'none')
+                  borderLeft: e.past ? '2px solid color-mix(in srgb, var(--text-dim) 50%, transparent)' : (e.derived ? '2px solid color-mix(in srgb, var(--info) 60%, transparent)' : 'none')
                 }
               }, e.derived ? {} : window.MaerminUtils.clickable(() => {
                 // In-app confirmation (the native dialog only if MaerminUI is missing).

@@ -94,9 +94,9 @@ function AnalysisCard(props) {
           borderRadius: '9999px',
           fontSize: '0.75rem',
           fontWeight: '600',
-          background: badgeType === 'positive' ? 'rgba(34,197,94,0.2)' : 
-                     badgeType === 'negative' ? 'rgba(239,68,68,0.2)' :
-                     badgeType === 'warning' ? 'rgba(245,158,11,0.2)' : 'rgba(148,163,184,0.2)',
+          background: badgeType === 'positive' ? 'color-mix(in srgb, var(--success) 20%, transparent)' : 
+                     badgeType === 'negative' ? 'color-mix(in srgb, var(--danger) 20%, transparent)' :
+                     badgeType === 'warning' ? 'color-mix(in srgb, var(--warning) 20%, transparent)' : 'color-mix(in srgb, var(--text-dim) 20%, transparent)',
           color: badgeType === 'positive' ? 'var(--success)' : 
                 badgeType === 'negative' ? 'var(--danger)' :
                 badgeType === 'warning' ? 'var(--warning)' : 'var(--text-dim)'
@@ -495,7 +495,7 @@ function SectorAllocationView(props) {
           ]
         }),
         sectorData.sectors[0] && sectorData.sectors[0].weight > 50 && React.createElement('div', {
-          style: { marginTop: '1rem', padding: '0.75rem', background: 'rgba(239,68,68,0.1)', borderRadius: '8px' }
+          style: { marginTop: '1rem', padding: '0.75rem', background: 'color-mix(in srgb, var(--danger) 10%, transparent)', borderRadius: '8px' }
         },
           React.createElement('div', { style: { color: 'var(--danger)', fontWeight: '600', marginBottom: '0.5rem' } }, __('ivConcWarning', 'Concentration Warning')),
           React.createElement('div', { style: { color: T.textSecondary, fontSize: '0.875rem' } }, 
@@ -576,7 +576,7 @@ function CountryAllocationView(props) {
           { label: __('ivTopWeight', 'Top Weight'), value: window.MaerminI18n.pct(data.rows[0] ? data.rows[0].weight : 0, 1) },
           { label: __('ovTotalValue', 'Total Value'), value: money(data.totalValue) }
         ] }),
-        data.rows[0] && data.rows[0].weight > 60 && React.createElement('div', { style: { marginTop: '1rem', padding: '0.75rem', background: 'rgba(239,68,68,0.1)', borderRadius: '8px' } },
+        data.rows[0] && data.rows[0].weight > 60 && React.createElement('div', { style: { marginTop: '1rem', padding: '0.75rem', background: 'color-mix(in srgb, var(--danger) 10%, transparent)', borderRadius: '8px' } },
           React.createElement('div', { style: { color: 'var(--danger)', fontWeight: '600', marginBottom: '0.5rem' } }, __('ivConcWarning', 'Concentration Warning')),
           React.createElement('div', { style: { color: T.textSecondary, fontSize: '0.875rem' } }, __('ivCountryWarn', 'Over {pct} in {name}. Consider geographic diversification.', { pct: window.MaerminI18n.pct(60, 0), name: window.MaerminI18n.country(data.rows[0].name) })))
       )
@@ -942,7 +942,7 @@ function GoalPathCard(props) {
         __('glRiskLine', 'Glide path for risk: about {s} in shares and other risky assets now, falling towards the date. The linked holdings have {a}.', { s: pct(suggested), a: pct(actual) }),
         actual != null && actual > suggested + 10 ? React.createElement('span', { style: { color: T.warning || 'var(--warning)' } }, ' ' + __('glRiskHigh', 'Consider moving some into bonds or cash as the date comes closer.')) : null) : null,
       React.createElement('div', { style: { display: 'flex', justifyContent: 'flex-end', marginTop: '0.75rem' } },
-        React.createElement('button', { onClick: props.onDelete, style: { background: 'rgba(239,68,68,0.2)', color: 'var(--danger)', border: 'none', padding: '0.25rem 0.75rem', borderRadius: '4px', cursor: 'pointer', fontSize: '0.75rem' } }, __('delete', 'Delete')))));
+        React.createElement('button', { onClick: props.onDelete, style: { background: 'color-mix(in srgb, var(--danger) 20%, transparent)', color: 'var(--danger)', border: 'none', padding: '0.25rem 0.75rem', borderRadius: '4px', cursor: 'pointer', fontSize: '0.75rem' } }, __('delete', 'Delete')))));
 }
 
 // ============================================================================
@@ -1164,7 +1164,7 @@ function GoalInvestingView(props) {
           onClick: addGoal,
           disabled: !newGoal.name || !(newGoal.targetAmount > 0),
           title: !(newGoal.targetAmount > 0) ? __('glEnterTarget', 'Enter a target amount above 0') : undefined,
-          style: { background: '#22c55e', color: '#ffffff', border: 'none', padding: '0.5rem 1rem', borderRadius: '6px', cursor: (!newGoal.name || !(newGoal.targetAmount > 0)) ? 'not-allowed' : 'pointer', opacity: (!newGoal.name || !(newGoal.targetAmount > 0)) ? 0.5 : 1 }
+          style: { background: 'var(--success)', color: '#ffffff', border: 'none', padding: '0.5rem 1rem', borderRadius: '6px', cursor: (!newGoal.name || !(newGoal.targetAmount > 0)) ? 'not-allowed' : 'pointer', opacity: (!newGoal.name || !(newGoal.targetAmount > 0)) ? 0.5 : 1 }
         }, __('glCreate', 'Create Goal'))
       )
     ),
@@ -1215,7 +1215,7 @@ function GoalInvestingView(props) {
               var U = (typeof window !== 'undefined') && window.MaerminUtils;
               if (U && U.confirmThen) U.confirmThen({ title: __('glDeleteTitle', 'Delete the goal "{name}"?', { name: goal.name }), confirmLabel: __('delete', 'Delete') }, function() { deleteGoal(goal.id); });
             },
-            style: { background: 'rgba(239,68,68,0.2)', color: 'var(--danger)', border: 'none', padding: '0.25rem 0.75rem', borderRadius: '4px', cursor: 'pointer', fontSize: '0.75rem' }
+            style: { background: 'color-mix(in srgb, var(--danger) 20%, transparent)', color: 'var(--danger)', border: 'none', padding: '0.25rem 0.75rem', borderRadius: '4px', cursor: 'pointer', fontSize: '0.75rem' }
           }, __('delete', 'Delete'))
         )
       );
