@@ -88,6 +88,9 @@ for (const e of engines) {
   catch (err) { ok('loaded ' + e.replace('../', ''), false, err.message); }
 }
 
+// R3: the views compose the shared components (window.MaerminComponents).
+globalThis.window.MaerminComponents = require('../renderer-components.js').Components;
+
 // ---------------------------------------------------------------------------
 // Tier 1 — every view module loads + exports the documented components.
 // ---------------------------------------------------------------------------

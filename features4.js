@@ -16,16 +16,7 @@ const { useState, useEffect, useMemo, useRef, useCallback } = React;
 // SHARED
 // ─────────────────────────────────────────────────────────────────────────────
 function Card({ theme, children, style = {} }) {
-  return React.createElement('div', {
-    style: {
-      background: theme.card,
-      border: `1px solid ${theme.cardBorder}`,
-      borderRadius: '16px',
-      padding: '1.35rem',
-      boxShadow: theme.shadow,
-      ...style
-    }
-  }, children);
+  return React.createElement('div', { className: ['ui-card', 'ui-card--pad'].join(' '), style }, children);
 }
 
 function StatCell({ label, value, sub, color, theme }) {
@@ -134,54 +125,54 @@ function PortfolioManagerView({ portfolios, activePortfolioId, transactions, pri
   const renderClearing = (p) => {
     const cfg = p.clearing || {};
     const c = clearing && clearing[p.id];
-    const small = { color: theme.textSecondary, fontSize: '0.75rem', lineHeight: 1.5 };
-    const field = { padding: '0.35rem 0.5rem', background: theme.inputBg, border: `1px solid ${theme.inputBorder}`, borderRadius: '6px', color: theme.text, fontSize: '0.8rem' };
-    return React.createElement('div', { 'data-pf-clearing': p.id, style: { marginTop: '0.85rem', paddingTop: '0.75rem', borderTop: `1px solid ${theme.cardBorder}` } },
-      React.createElement('label', { style: { display: 'flex', alignItems: 'center', gap: '0.5rem', color: theme.text, fontSize: 'var(--text-sm)', fontWeight: 600, cursor: 'pointer', minHeight: '24px' } },
-        React.createElement('input', { type: 'checkbox', checked: !!cfg.enabled, 'data-pf-clearing-toggle': p.id, onChange: (e) => setClearing(p.id, { enabled: e.target.checked }), style: { width: '20px', height: '20px', margin: 0, accentColor: theme.accent } }),
+    return React.createElement('div', { 'data-pf-clearing': p.id, className: 'ui-pf-card__section' },
+      React.createElement('label', { className: 'ui-check' },
+        React.createElement('input', { type: 'checkbox', checked: !!cfg.enabled, 'data-pf-clearing-toggle': p.id, onChange: (e) => setClearing(p.id, { enabled: e.target.checked }) }),
         __('pfClearing', 'Clearing account')),
-      cfg.enabled && c && React.createElement('div', { 'data-pf-cash': p.id, style: { color: c.balanceEUR < 0 ? theme.danger : theme.text, fontSize: 'var(--text-body)', fontWeight: 700, margin: '0.4rem 0 0.2rem' } },
+      cfg.enabled && c && React.createElement('div', { 'data-pf-cash': p.id, className: ['ui-pf-card__cash', 'num', c.balanceEUR < 0 ? 'tone-loss' : ''].join(' ').trim() },
         __('pfCashBalance', 'Cash: {amount}', { amount: `${formatPrice(c.balanceEUR)} ${getCurrencySymbol()}` })),
-      cfg.enabled && React.createElement('div', { style: { display: 'flex', gap: '0.5rem', flexWrap: 'wrap', alignItems: 'center', marginTop: '0.4rem' } },
+      cfg.enabled && React.createElement('div', { className: 'ui-pf-card__fields' },
         React.createElement('input', { key: 'ob:' + (cfg.openingBalance || 0), type: 'text', inputMode: 'decimal', 'aria-label': __('pfOpeningBalance', 'Opening balance (EUR)'), placeholder: __('pfOpeningBalance', 'Opening balance (EUR)'),
-          defaultValue: cfg.openingBalance ? window.MaerminI18n.num(cfg.openingBalance, { min: 0, max: 2 }) : '', style: { ...field, width: '9.5rem' },
+          defaultValue: cfg.openingBalance ? window.MaerminI18n.num(cfg.openingBalance, { min: 0, max: 2 }) : '', className: ['ui-input', 'ui-input--sm'].join(' '),
           onBlur: (e) => { const v = window.MaerminUtils.parseDecimal(e.target.value); setClearing(p.id, { openingBalance: isFinite(v) ? v : 0 }); },
           onKeyDown: (e) => { if (e.key === 'Enter') e.target.blur(); } }),
-        React.createElement('input', { type: 'date', 'aria-label': __('pfOpeningDate', 'Date of the opening balance'), value: cfg.openingDate || '', style: field,
+        React.createElement('input', { type: 'date', 'aria-label': __('pfOpeningDate', 'Date of the opening balance'), value: cfg.openingDate || '', className: ['ui-input', 'ui-input--sm'].join(' '),
           onChange: (e) => setClearing(p.id, { openingDate: e.target.value }) })),
-      cfg.enabled && React.createElement('p', { style: { ...small, margin: '0.45rem 0 0' } },
+      cfg.enabled && React.createElement('p', { className: 'ui-pf-card__hint' },
         __('pfClearingHint', 'Book deposits and withdrawals to this portfolio; trades, dividends, fees and taxes move the balance. Returns then count the cash too. If you also keep this cash as an account under Net Worth, remove it there so it is not counted twice.'))
     );
   };
 
   // FINDINGS M-15: the depot switch of a card (§ 20 Abs. 4 S. 7 EStG).
-  const renderDepot = (p) => React.createElement('div', { 'data-pf-depot': p.id, style: { marginTop: '0.6rem' } },
-    React.createElement('label', { style: { display: 'flex', alignItems: 'center', gap: '0.5rem', color: theme.text, fontSize: 'var(--text-sm)', fontWeight: 600, cursor: 'pointer', minHeight: '24px' } },
-      React.createElement('input', { type: 'checkbox', checked: p.separateDepot === true, 'data-pf-depot-toggle': p.id, onChange: (e) => setSeparateDepot(p.id, e.target.checked), style: { width: '20px', height: '20px', margin: 0, accentColor: theme.accent } }),
+  const renderDepot = (p) => React.createElement('div', { 'data-pf-depot': p.id, className: 'ui-pf-card__section' },
+    React.createElement('label', { className: 'ui-check' },
+      React.createElement('input', { type: 'checkbox', checked: p.separateDepot === true, 'data-pf-depot-toggle': p.id, onChange: (e) => setSeparateDepot(p.id, e.target.checked) }),
       __('pfSeparateDepot', 'Separate depot for German tax')),
-    p.separateDepot === true && React.createElement('p', { style: { color: theme.textSecondary, fontSize: 'var(--text-xs)', lineHeight: 1.5, margin: '0.35rem 0 0' } },
+    p.separateDepot === true && React.createElement('p', { className: 'ui-pf-card__hint' },
       __('pfSeparateDepotHint', 'A sale of shares or funds here uses only the lots bought in this portfolio (FIFO per depot). Portfolios without the switch count as one depot. Crypto follows its own setting in the tax settings.')));
 
-  return React.createElement('div', { style: { padding: '1.5rem' } },
-    React.createElement('h2', { style: { color: theme.text, fontSize: 'var(--text-xl)', fontWeight: '800', letterSpacing: '-0.02em', marginBottom: '1.5rem' } }, __('pfManager', 'Portfolio Manager')),
+  // R3.2: portfolio cards on the shared card, buttons and fields. The card's
+  // colour dot and its selected outline are the portfolio's own colour (data).
+  const UIC = window.MaerminComponents;
+  const money = (v) => `${formatPrice(v)} ${getCurrencySymbol()}`;
+  const ALL = window.MaerminMetrics.ALL_PORTFOLIOS;
+  return React.createElement('div', { className: 'ui-view' },
+    React.createElement('p', { className: 'ui-view__lead' }, __('pfLead', 'Each portfolio keeps its own bookings, clearing account and depot setting. Click a card to make it the active one.')),
 
-    // Portfolio Cards
-    React.createElement('div', { style: { display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))', gap: '1rem', marginBottom: '1.5rem' } },
+    // Portfolio cards
+    React.createElement('div', { className: 'ui-pf-grid' },
       // "All portfolios": the read-only combined view (MaerminMetrics.ALL_PORTFOLIOS).
       // Its figures are the sum of the cards below; it holds no transactions.
       portfolioStats.length > 1 && (() => {
-        const ALL = window.MaerminMetrics.ALL_PORTFOLIOS, on = activePortfolioId === ALL;
+        const on = activePortfolioId === ALL;
         const value = portfolioStats.reduce((s, p) => s + (p.value || 0), 0), invested = portfolioStats.reduce((s, p) => s + (p.invested || 0), 0);
-        return React.createElement('div', { key: ALL, 'data-pf-card': ALL,
-          onClick: (e) => { if (e.target.tagName !== 'BUTTON') setActivePortfolioId(ALL); },
-          style: { background: theme.card, border: `2px ${on ? 'solid ' + theme.accent : 'dashed ' + theme.cardBorder}`, borderRadius: '12px', padding: '1.25rem', cursor: 'pointer' } },
-          React.createElement('button', { type: 'button', 'data-pf-switch': ALL, onClick: () => setActivePortfolioId(ALL), 'aria-pressed': on,
-            style: { background: 'none', border: 'none', padding: '0.15rem 0', minHeight: '24px', cursor: 'pointer', color: theme.text, fontWeight: '700', fontSize: 'var(--text-md)' } },
+        return React.createElement('div', { key: ALL, 'data-pf-card': ALL, className: ['ui-card', 'ui-pf-card', 'is-all', on ? 'is-active' : ''].join(' ').trim(),
+          onClick: (e) => { if (e.target.tagName !== 'BUTTON') setActivePortfolioId(ALL); } },
+          React.createElement('button', { type: 'button', 'data-pf-switch': ALL, className: 'ui-pf-card__name', onClick: () => setActivePortfolioId(ALL), 'aria-pressed': on },
             '◈ ' + __('allPortfolios', 'All Portfolios')),
-          React.createElement('div', { style: { color: theme.textSecondary, fontSize: 'var(--text-xs)', margin: '0.35rem 0 0.75rem' } },
-            __('pfAllHint', 'Read-only: all {n} portfolios combined. New bookings go into a portfolio.', { n: portfolioStats.length })),
-          React.createElement('div', { style: { color: theme.text, fontSize: 'var(--text-lg)', fontWeight: '800' } }, formatPrice(value)),
-          React.createElement('div', { style: { color: theme.textSecondary, fontSize: 'var(--text-xs)' } }, `${__('invested', 'Invested')}: ${formatPrice(invested)}`));
+          React.createElement('p', { className: 'ui-pf-card__hint' }, __('pfAllHint', 'Read-only: all {n} portfolios combined. New bookings go into a portfolio.', { n: portfolioStats.length })),
+          React.createElement('div', { className: ['ui-pf-card__value', 'num'].join(' ') }, formatPrice(value)),
+          React.createElement('div', { className: 'ui-pf-card__meta' }, `${__('invested', 'Invested')}: ${formatPrice(invested)}`));
       })(),
       portfolioStats.map(p =>
         // P5-1.2: the card is a plain container (it was a role="button" holding
@@ -191,44 +182,36 @@ function PortfolioManagerView({ portfolios, activePortfolioId, transactions, pri
         React.createElement('div', {
           key: p.id,
           'data-pf-card': p.id,
-          onClick: (e) => { if (!/^(BUTTON|INPUT|SUMMARY|LABEL|SELECT)$/.test(e.target.tagName) && !e.target.closest('[data-pf-clearing]')) setActivePortfolioId(p.id); },
-          style: {
-            background: theme.card, border: `2px solid ${activePortfolioId === p.id ? p.color : theme.cardBorder}`,
-            borderRadius: '12px', padding: '1.25rem', cursor: 'pointer', transition: 'all 0.15s'
-          }
+          className: ['ui-card', 'ui-pf-card', activePortfolioId === p.id ? 'is-active' : ''].join(' ').trim(),
+          style: activePortfolioId === p.id ? { borderColor: p.color } : undefined,
+          onClick: (e) => { if (!/^(BUTTON|INPUT|SUMMARY|LABEL|SELECT)$/.test(e.target.tagName) && !e.target.closest('[data-pf-clearing]')) setActivePortfolioId(p.id); }
         },
-          React.createElement('div', { style: { display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: '0.5rem', marginBottom: '0.75rem' } },
-            React.createElement('div', { style: { display: 'flex', alignItems: 'center', gap: '0.625rem', minWidth: 0 } },
-              React.createElement('div', { style: { width: 12, height: 12, borderRadius: '50%', background: p.color, flexShrink: 0 } }),
-              editId === p.id
-                ? React.createElement('input', {
-                    value: editName, onChange: e => setEditName(e.target.value),
-                    onBlur: () => { renamePortfolio(p.id, editName); setEditId(null); },
-                    onKeyDown: e => e.key === 'Enter' && (renamePortfolio(p.id, editName), setEditId(null)),
-                    autoFocus: true,
-                    'aria-label': (t && t.pfNameLabel) || 'Portfolio name',
-                    style: { background: theme.inputBg, border: `1px solid ${theme.inputBorder}`, borderRadius: '6px', color: theme.text, padding: '0.25rem 0.5rem', fontSize: 'var(--text-base)', fontWeight: '700', width: '140px' },
-                    onClick: e => e.stopPropagation()
-                  })
-                : React.createElement('button', {
-                    type: 'button', 'data-pf-switch': p.id,
-                    onClick: () => setActivePortfolioId(p.id),
-                    'aria-label': __('pfSwitchTo', 'Switch to portfolio {name}', { name: p.name || p.id }),
-                    'aria-pressed': activePortfolioId === p.id,
-                    style: { background: 'none', border: 'none', padding: '0.15rem 0', minHeight: '24px', cursor: 'pointer', textAlign: 'left',
-                      color: theme.text, fontWeight: '700', fontSize: 'var(--text-md)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }
-                  }, p.name)
-            ),
-            React.createElement('div', { style: { display: 'flex', gap: '0.375rem', flexShrink: 0 } },
-              React.createElement('button', {
-                type: 'button',
+          React.createElement('div', { className: 'ui-pf-card__head' },
+            React.createElement('span', { className: 'ui-pf-card__dot', 'aria-hidden': 'true', style: { background: p.color } }),
+            editId === p.id
+              ? React.createElement('input', {
+                  value: editName, onChange: e => setEditName(e.target.value),
+                  onBlur: () => { renamePortfolio(p.id, editName); setEditId(null); },
+                  onKeyDown: e => e.key === 'Enter' && (renamePortfolio(p.id, editName), setEditId(null)),
+                  autoFocus: true,
+                  'aria-label': (t && t.pfNameLabel) || 'Portfolio name',
+                  className: ['ui-input', 'ui-pf-card__rename'].join(' '),
+                  onClick: e => e.stopPropagation()
+                })
+              : React.createElement('button', {
+                  type: 'button', 'data-pf-switch': p.id, className: 'ui-pf-card__name',
+                  onClick: () => setActivePortfolioId(p.id),
+                  'aria-label': __('pfSwitchTo', 'Switch to portfolio {name}', { name: p.name || p.id }),
+                  'aria-pressed': activePortfolioId === p.id
+                }, p.name),
+            React.createElement('span', { className: 'ui-pf-card__tools' },
+              React.createElement(UIC.IconButton, {
+                size: 'sm', icon: React.createElement('span', { 'aria-hidden': 'true' }, '✎'),
                 onClick: e => { e.stopPropagation(); setEditId(p.id); setEditName(p.name); },
-                'aria-label': ((t && t.pfRenameAria) || 'Rename portfolio {name}').replace('{name}', p.name),
-                title: (t && t.pfRename) || 'Rename',
-                style: { background: 'none', border: 'none', color: theme.textSecondary, cursor: 'pointer', fontSize: 'var(--text-sm)', padding: '0.25rem', minWidth: '24px', minHeight: '24px' }
-              }, '✎'),
-              p.id !== 'default' && React.createElement('button', {
-                type: 'button',
+                label: ((t && t.pfRenameAria) || 'Rename portfolio {name}').replace('{name}', p.name)
+              }),
+              p.id !== 'default' && React.createElement(UIC.IconButton, {
+                size: 'sm', className: 'is-danger', icon: React.createElement('span', { 'aria-hidden': 'true' }, '×'),
                 onClick: e => {
                   e.stopPropagation();
                   const tt = t || {};
@@ -243,19 +226,15 @@ function PortfolioManagerView({ portfolios, activePortfolioId, transactions, pri
                     danger: true
                   }).then(yes => { if (yes) removePortfolio(p.id); });
                 },
-                'aria-label': ((t && t.pfDeleteAria) || 'Delete portfolio {name}').replace('{name}', p.name),
-                style: { background: 'none', border: 'none', color: theme.danger || 'var(--danger)', cursor: 'pointer', fontSize: 'var(--text-sm)', padding: '0.25rem', minWidth: '24px', minHeight: '24px' }
-              }, '×')
+                label: ((t && t.pfDeleteAria) || 'Delete portfolio {name}').replace('{name}', p.name)
+              })
             )
           ),
-          React.createElement('div', { style: { color: theme.text, fontSize: 'var(--text-xl)', fontWeight: '800', marginBottom: '0.25rem' } },
-            `${formatPrice(p.value)} ${getCurrencySymbol()}`
-          ),
-          React.createElement('div', { style: { display: 'flex', gap: '1rem', fontSize: 'var(--text-xs)' } },
-            React.createElement('span', { style: { color: p.pnl >= 0 ? theme.success : theme.danger, fontWeight: '600' } },
-              `${p.pnl >= 0 ? '+' : ''}${formatPrice(p.pnl)} (${window.MaerminI18n.pct(p.pnlPct, 1)})`
-            ),
-            React.createElement('span', { style: { color: theme.textSecondary } }, __('pfTxCount', '{n} {n:transaction|transactions}', { n: p.txCount }))
+          React.createElement('div', { className: ['ui-pf-card__value', 'num'].join(' ') }, money(p.value)),
+          React.createElement('div', { className: 'ui-pf-card__meta' },
+            React.createElement('span', { className: 'num ' + (p.pnl > 0 ? 'tone-gain' : p.pnl < 0 ? 'tone-loss' : '') },
+              `${p.pnl > 0 ? '▲ +' : p.pnl < 0 ? '▼ ' : ''}${formatPrice(p.pnl)} (${window.MaerminI18n.pct(p.pnlPct, 1)})`),
+            React.createElement('span', null, __('pfTxCount', '{n} {n:transaction|transactions}', { n: p.txCount }))
           ),
           // P5-1.4: optional clearing account (Verrechnungskonto)
           setClearing && renderClearing(p),
@@ -265,26 +244,25 @@ function PortfolioManagerView({ portfolios, activePortfolioId, transactions, pri
     ),
 
     // Add new portfolio
-    React.createElement(Card, { theme, style: { marginBottom: 0 } },
-      React.createElement('div', { style: { color: theme.text, fontWeight: '700', marginBottom: '0.875rem', fontSize: 'var(--text-base)' } }, __('pfAdd', 'Add Portfolio')),
-      React.createElement('div', { style: { display: 'flex', gap: '0.75rem', flexWrap: 'wrap', alignItems: 'flex-end' } },
+    React.createElement(UIC.Card, { title: __('pfAdd', 'Add Portfolio'), className: 'ui-pf-add' },
+      React.createElement('div', { className: 'ui-pf-add__row' },
         React.createElement('input', {
           value: newName, onChange: e => setNewName(e.target.value),
+          onKeyDown: e => { if (e.key === 'Enter' && newName.trim()) { addPortfolio(newName.trim(), newColor); setNewName(''); } },
           placeholder: __('pfNewPh', 'e.g. Trade Republic, CS2, Savings'), 'aria-label': __('pfNewAria', 'New portfolio name'),
-          style: { flex: 1, minWidth: '180px', padding: '0.625rem 0.875rem', background: theme.inputBg, border: `1px solid ${theme.inputBorder}`, borderRadius: '8px', color: theme.text, fontSize: 'var(--text-base)' }
+          className: ['ui-input', 'ui-pf-add__name'].join(' ')
         }),
-        // Color picker
-        React.createElement('div', { style: { display: 'flex', gap: '0.375rem' } },
+        // Colour picker (the portfolio's own colour - data, not theme)
+        React.createElement('div', { className: 'ui-pf-add__colors', role: 'group', 'aria-label': __('pfColour', 'Colour') },
           COLORS.map((c, i) => React.createElement('button', {
-            key: c, type: 'button', onClick: () => setNewColor(c),
+            key: c, type: 'button', onClick: () => setNewColor(c), className: 'ui-pf-swatch',
             'aria-label': __('pfColorN', 'Colour {n}', { n: i + 1 }), 'aria-pressed': newColor === c,
-            style: { width: 24, height: 24, borderRadius: '50%', background: c, border: newColor === c ? '2px solid white' : '2px solid transparent', cursor: 'pointer', boxShadow: newColor === c ? '0 0 0 2px ' + c : 'none' }
+            style: { background: c }
           }))
         ),
-        React.createElement('button', {
-          onClick: () => { if (newName.trim()) { addPortfolio(newName.trim(), newColor); setNewName(''); } },
-          disabled: !newName.trim(),
-          style: { padding: '0.625rem 1.25rem', background: newName.trim() ? (theme.accentFill || theme.accent) : theme.inputBg, color: newName.trim() ? 'var(--on-accent)' : theme.textSecondary, border: 'none', borderRadius: '8px', cursor: newName.trim() ? 'pointer' : 'not-allowed', fontWeight: '700', fontSize: 'var(--text-base)' }
+        React.createElement(UIC.Button, {
+          variant: 'primary', disabled: !newName.trim(),
+          onClick: () => { if (newName.trim()) { addPortfolio(newName.trim(), newColor); setNewName(''); } }
         }, __('addShort', '+ Add'))
       )
     )
