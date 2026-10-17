@@ -2806,7 +2806,8 @@ async function runBuild(browser, label, dir) {
     for (const id of VIEWS) {
       try { await openView(page, id); } catch (e) { hits.push(id + ': ' + e.message); continue; }
       await page.waitForTimeout(500);
-      const lines = (await page.locator('main').innerText()).split('\n').map((s) => s.trim()).filter((s) => EN.test(s));
+      // file names a broker produces ("Transactions.csv") are not UI words (R3.4: the view opens on Broker import)
+      const lines = (await page.locator('main').innerText()).split('\n').map((s) => s.trim().replace(/\b[\w-]+\.(csv|xlsx?|json|txt|pdf|zip)\b/gi, '')).filter((s) => EN.test(s));
       for (const l of new Set(lines)) hits.push(id + ': ' + l.slice(0, 100));
     }
     await openView(page, 'overview');
