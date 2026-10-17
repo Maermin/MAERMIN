@@ -1172,7 +1172,7 @@ async function runBuild(browser, label, dir) {
     await createVault(page, base);
     await page.evaluate(() => { localStorage.setItem('maermin_demo', '1'); localStorage.setItem('maermin_ui_mode', 'advanced'); localStorage.setItem('maermin_onboarded', '1'); });
     let chart = 0, twr = '', cells = 0, closed = '', stored = 'x', err = '';
-    let returnsText = '', intelText = '', rbEmpty = 0, rbPlan = -1, ovReturns = '';
+    let returnsText = '', intelText = '', rbEmpty = 0, rbPlan = -1, ovReturns = '', ovMain = '';
     let brokerOv = '', rows = 0, before = null, after = null, pills = null;
     // P5-1.8: Worker-only views run on in-page sample data; nothing may reach the network
     const sampleReqs = []; page.on('request', (r) => { if (/maermin\.invalid/.test(r.url())) sampleReqs.push(r.url()); });
@@ -1382,6 +1382,7 @@ async function runBuild(browser, label, dir) {
       await page.locator('[data-testid="ov-returns"]').waitFor({ timeout: 8000 });
       await page.waitForTimeout(1500); // figures count up when they appear
       ovReturns = await page.locator('[data-testid="ov-returns"]').innerText();
+      ovMain = await page.locator('main').innerText();
       // P5-1.7: two portfolios in memory; the broker's clearing account shows its cash
       const keys = ['maermin_portfolios', 'maermin_active_portfolio', 'maermin_fund_types', 'maermin_vap_records', 'transactions'];
       before = await page.evaluate((ks) => ks.map((k) => localStorage.getItem(k)), keys);
@@ -1407,6 +1408,14 @@ async function runBuild(browser, label, dir) {
     ok('P5-1.5: demo Overview shows the Returns section with seven figures', ['XIRR', 'TWR', 'Realized gains', 'Dividends received', 'Taxes', 'Total Fees', 'Net return'].every((w) => new RegExp(w, 'i').test(ovReturns)) && (ovReturns.match(/[+-]?\d[\d,]*\.\d\d/g) || []).length >= 6, err || ovReturns.split('\n').join(' | '));
     ok('F3: the "Total bought" card no longer says deposited', /All purchases, incl\. fees/.test(returnsText) && !/Total deposited/i.test(returnsText), err || returnsText.slice(0, 120));
     ok('P4-9: demo draws the value chart without a Worker', chart > 0, err || String(chart));
+    { // P5-1.5: the demo opens on "All portfolios" - Analysis -> Returns reads the same book as the Overview
+      const pct = (txt, label) => { const m = String(txt).match(new RegExp(label + '[^\\n]*\\n\\s*([+-]?[\\d,]+\\.\\d\\d)%', 'i')); return m ? m[1] : null; };
+      const cv = (returnsText.match(/Current Value\s*\n\s*([\d,]+\.\d\d)/i) || [])[1] || null;
+      const ot = ovMain.match(/Total portfolio value\s*(?:Sample data\s*)?([\d,]+)\s*(\.\d\d)/i);
+      const r = { cv, ovTotal: ot ? ot[1] + ot[2] : null, xirr: [pct(returnsText, 'XIRR'), pct(ovReturns, 'XIRR')], twr: [pct(returnsText, 'TWR'), pct(ovReturns, 'TWR')] };
+      ok('P5-1.5: demo Returns "Current value", XIRR and TWR equal the Overview\'s (all portfolios)',
+        !!cv && cv === r.ovTotal && !!r.xirr[0] && r.xirr[0] === r.xirr[1] && !!r.twr[0] && r.twr[0] === r.twr[1], err || JSON.stringify(r));
+    }
     { const f = fixtures, sum = (k) => f[k] ? f[k].badges + ' ' + f[k].text.slice(0, 120).replace(/\n/g, ' | ') : 'missing';
       ok('P5-1.8: News shows sample headlines, labelled', !!f.news && f.news.badges > 0 && /Sample headline:/.test(f.news.text), err || sum('news'));
       ok('P5-1.8: Discovery lists fictional sample companies, labelled', !!f.discovery && f.discovery.badges > 0 && /\(sample\)/.test(f.discovery.text), err || sum('discovery'));

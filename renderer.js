@@ -282,7 +282,7 @@ function InvestmentTracker() {
   const savedPortfolioHook = window.MaerminFeatures4 ? window.MaerminFeatures4.usePortfolios() : null;
   // P5-1.7: the demo's two portfolios live in memory only - the saved list,
   // the active portfolio and the clearing settings of the user stay untouched.
-  const [demoPortfolioId, setDemoPortfolioId] = useState('default');
+  const [demoPortfolioId, setDemoPortfolioId] = useState(() => window.MaerminMetrics.ALL_PORTFOLIOS);
   const demoPortfolios = useMemo(() => (demoMode && window.MaerminDemo && window.MaerminDemo.getPortfolios) ? window.MaerminDemo.getPortfolios().map((p) => Object.assign({}, p, { name: p.id === 'default' ? __('demoPfMain', 'Main depot') : __('demoPfBroker', 'Savings plan broker') })) : null, [demoMode]);
   const portfolioHook = (demoPortfolios && savedPortfolioHook) ? Object.assign({}, savedPortfolioHook, {
     portfolios: demoPortfolios, activePortfolioId: (demoPortfolioId === window.MaerminMetrics.ALL_PORTFOLIOS || demoPortfolios.some((p) => p.id === demoPortfolioId)) ? demoPortfolioId : 'default',
@@ -799,14 +799,15 @@ function InvestmentTracker() {
   // so every existing call site (incl. the Escape handler + toggles) is unchanged.
   const showTransactionModal = window.MaerminStore.useStore(window.MaerminUI.overlays, s => !!s.transactionModal);
   const setShowTransactionModal = (v) => { const n = typeof v === 'function' ? v(showTransactionModal) : v; n ? window.MaerminUI.openOverlay('transactionModal') : window.MaerminUI.closeOverlay('transactionModal'); };
-  const [overviewMode, setOverviewMode] = useState('all'); // 'all' | activePortfolioId
-  // The Overview opens on "All portfolios" and then follows the active
-  // portfolio wherever it is changed (Portfolios view, transaction jump).
-  const ovFollowRef = useRef(false);
+  // The Overview shows the active portfolio ('all' = "All portfolios"). It is
+  // not a state of its own: a separate one opened on "All portfolios" while
+  // the active portfolio (Analysis -> Returns and every other view) was still
+  // the stored one, so the two showed different books (XIRR, TWR, value).
+  const overviewMode = isAllActive ? 'all' : activePortfolioId;
+  // The app opens on "All portfolios", the Overview's opening view since #194.
   useEffect(() => {
-    if (ovFollowRef.current) setOverviewMode(activePortfolioId);
-    ovFollowRef.current = true;
-  }, [activePortfolioId]);
+    if (!isAllActive && portfolios.length > 1) setActivePortfolioId(window.MaerminMetrics.ALL_PORTFOLIOS);
+  }, []);
   // Which sidebar hub (Analytics / Discover & Tools) is expanded. '' = none.
   const [editingTransactionId, setEditingTransactionId] = useState(null); // null = adding new, id = editing
   const showImportModal = window.MaerminStore.useStore(window.MaerminUI.overlays, s => !!s.importModal);
@@ -4596,7 +4597,7 @@ function InvestmentTracker() {
         // All Portfolios tab
         React.createElement('button', {
           'aria-pressed': overviewMode === 'all',
-          onClick: () => { setOverviewMode('all'); setActivePortfolioId(window.MaerminMetrics.ALL_PORTFOLIOS); },
+          onClick: () => setActivePortfolioId(window.MaerminMetrics.ALL_PORTFOLIOS),
           style: {
             display: 'flex', alignItems: 'center', gap: '0.4rem',
             padding: '0.375rem 0.875rem',
@@ -4617,7 +4618,7 @@ function InvestmentTracker() {
           React.createElement('button', {
             key: p.id,
             'aria-pressed': overviewMode === p.id,
-            onClick: () => { setOverviewMode(p.id); setActivePortfolioId(p.id); },
+            onClick: () => setActivePortfolioId(p.id),
             style: {
               display: 'flex', alignItems: 'center', gap: '0.4rem',
               padding: '0.375rem 0.875rem',
