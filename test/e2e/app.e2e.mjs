@@ -2827,7 +2827,8 @@ async function runBuild(browser, label, dir) {
 
     // M-1: filled primary button reaches 4.5:1 (dark theme)
     { const ratio = await page.evaluate(() => {
-        const b = Array.from(document.querySelectorAll('main button')).find((x) => /^\+\s*Add$/.test(x.innerText.trim()));
+        // R3.1: the one filled Add is the page header's Add Transaction
+        const b = document.querySelector('header.ui-pagehead .ui-btn--primary');
         if (!b) return 0;
         const rgb = (c) => (c.match(/[\d.]+/g) || []).slice(0, 3).map(Number);
         const lum = (a) => { const f = (v) => { v /= 255; return v <= 0.03928 ? v / 12.92 : Math.pow((v + 0.055) / 1.055, 2.4); }; return 0.2126 * f(a[0]) + 0.7152 * f(a[1]) + 0.0722 * f(a[2]); };
@@ -2837,7 +2838,7 @@ async function runBuild(browser, label, dir) {
         const fg = lum(rgb(cs.color));
         return Math.min(...stops.map((s) => { const bg = lum(s); return (Math.max(fg, bg) + 0.05) / (Math.min(fg, bg) + 0.05); }));
       });
-      ok('filled "+ Add" button: text contrast >= 4.5:1 on every stop of its fill', ratio >= 4.5, ratio.toFixed(2)); }
+      ok('filled Add Transaction button: text contrast >= 4.5:1 on every stop of its fill', ratio >= 4.5, ratio.toFixed(2)); }
 
     // M-3: Add transaction has a close button and its save button is in view
     await page.keyboard.press('n');
@@ -2951,8 +2952,9 @@ async function runBuild(browser, label, dir) {
       ok('cleanup V-6: brokers without a logo get distinct initial tiles (PP, PA, SC)', Array.isArray(tiles) && tiles.map((t) => t.split('|')[0]).join() === 'PP,PA,SC' && new Set(tiles.map((t) => t.split('|')[1])).size === 3, err || JSON.stringify(tiles));
       // R1.1: the theme objects are var() references to the styles.css tokens;
       // the light theme's tokens are live, the page background is flat (no
-      // aurora layers) and filled buttons still get the shared primary look.
-      await openView(page, 'overview');
+      // aurora layers) and filled buttons still get the shared primary look
+      // (R3.1: the Overview has no legacy filled buttons left; Transactions has).
+      await openView(page, 'transactions');
       await page.waitForTimeout(800);
       const tok = await page.evaluate(() => {
         const root = document.documentElement, cs = getComputedStyle(root), app = document.querySelector('.mx-app');

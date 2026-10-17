@@ -2273,3 +2273,8 @@ html[data-theme="contrast"] .ui-map__tile { border: 1px solid var(--border-stron
   .ui-ov-tile .ui-stat__value { font-size: var(--type-heading); }
   .ui-ov-positions .ui-card__head { flex-wrap: wrap; }
 }
+
+/* R3.1: the position dialog on the shared Modal; its sections keep their own padding */
+.ui-pos-dialog .ui-modal__body { padding: 0; }
+.ui-pos-dialog__sym { margin-left: var(--space-2); color: var(--text-dim); font-size: var(--type-body); font-weight: 600; }
+.ui-pos-dialog__meta { display: flex; align-items: center; gap: var(--space-2); padding: var(--space-3) var(--space-6); border-bottom: 1px solid var(--border); color: var(--text-dim); font-size: var(--type-caption); }

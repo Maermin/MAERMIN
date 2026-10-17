@@ -1338,13 +1338,10 @@ function Table(props) {
     return h('ul', { className: cx('ui-plist', props.className), 'data-testid': props['data-testid'], 'aria-label': props.caption },
       rows.map((r, i) => r.__group
         ? h('li', { key: 'g' + i, className: 'ui-plist__group' }, h('span', null, r.__group), r.__summary ? h('span', { className: 'num' }, r.__summary) : null)
-        : h('li', {
-          ...(props.rowProps ? props.rowProps(r) : {}),
-          key: keyOf(r, i), className: cx('ui-plist__row', (props.onRowClick || props.rowProps) && 'is-clickable', sel && sel.has(keyOf(r, i)) && 'is-selected'),
-          onClick: props.onRowClick ? () => props.onRowClick(r) : undefined,
-          tabIndex: props.onRowClick ? 0 : undefined,
-          onKeyDown: props.onRowClick ? (e) => { if (e.key === 'Enter') props.onRowClick(r); } : undefined
-        },
+        : h('li', Object.assign({
+          key: keyOf(r, i), className: cx('ui-plist__row', (props.onRowClick || props.rowProps) && 'is-clickable', sel && sel.has(keyOf(r, i)) && 'is-selected')
+        }, props.onRowClick ? { onClick: () => props.onRowClick(r), tabIndex: 0, onKeyDown: (e) => { if (e.key === 'Enter') props.onRowClick(r); } } : null,
+        props.rowProps ? props.rowProps(r) : null),
         h('div', { className: 'ui-plist__main' },
           h('div', { className: 'ui-plist__title' }, title.map((c) => h('span', { key: c.key }, cell(c, r)))),
           meta.length ? h('div', { className: 'ui-plist__meta' }, meta.map((c, k) => h('span', { key: c.key }, k ? ' · ' : '', cell(c, r)))) : null),
@@ -1372,11 +1369,10 @@ function Table(props) {
           h('span', null, r.__group), r.__summary ? h('span', { className: cx('num', 'ui-table__summary') }, r.__summary) : null));
     }
     const k = keyOf(r, i);
-    return h('tr', {
-      ...(props.rowProps ? props.rowProps(r) : {}),
-      key: k, className: cx((props.onRowClick || props.rowProps) && 'is-clickable', sel && sel.has(k) && 'is-selected'),
-      onClick: props.onRowClick ? () => props.onRowClick(r) : undefined
-    },
+    // rowProps last: a row's own handlers (keyboard-clickable rows) win
+    return h('tr', Object.assign({
+      key: k, className: cx((props.onRowClick || props.rowProps) && 'is-clickable', sel && sel.has(k) && 'is-selected')
+    }, props.onRowClick ? { onClick: () => props.onRowClick(r) } : null, props.rowProps ? props.rowProps(r) : null),
     selectable ? h('td', { className: 'ui-table__check' }, h('input', { type: 'checkbox', 'aria-label': __('uiSelectRow', 'Select row'), checked: !!(sel && sel.has(k)), onClick: (e) => e.stopPropagation(), onChange: (e) => props.onSelect(k, e.target.checked) })) : null,
     cols.map((c) => h('td', { key: c.key, className: cx(c.align === 'right' && 'is-right num', 'p' + (c.priority || 1)) }, cell(c, r))),
     props.rowActions ? h('td', { className: 'ui-table__act' }, h(RowMenu, { items: props.rowActions(r) })) : null);
@@ -1390,10 +1386,11 @@ let dlgSeq = 0;
 function Modal(props) {
   const Overlay = window.MaerminUI && window.MaerminUI.Overlay;
   const narrow = useNarrow();
-  const idRef = React.useRef('ui-dlg-' + (++dlgSeq));
+  // titleId: a fixed id for the title (a dialog other code or tests address by it)
+  const idRef = React.useRef(props.titleId || ('ui-dlg-' + (++dlgSeq)));
   if (!props.open || !Overlay) return null;
   const sheet = props.sheet !== false && narrow;
-  return h(Overlay, { onClose: props.onClose, dismissable: props.dismissable, className: cx('ui-modal-backdrop', sheet && 'is-sheet') },
+  return h(Overlay, { onClose: props.onClose, dismissable: props.dismissable, focusField: props.focusField, className: cx('ui-modal-backdrop', sheet && 'is-sheet') },
     h('div', { role: 'dialog', 'aria-modal': 'true', 'aria-labelledby': idRef.current, className: cx('ui-modal', sheet && 'ui-modal--sheet', props.size === 'lg' && 'ui-modal--lg', props.className), 'data-testid': props['data-testid'] },
       sheet ? h('span', { className: 'ui-modal__handle', 'aria-hidden': 'true' }) : null,
       h('header', { className: 'ui-modal__head' },

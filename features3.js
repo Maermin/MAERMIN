@@ -242,47 +242,22 @@ function PositionDetailModal({ position, transactions, prices, theme, formatPric
   const jLabel = { display: 'block', color: theme.textSecondary, fontSize: '0.68rem', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '0.25rem' };
   const jInput = { width: '100%', boxSizing: 'border-box', padding: '0.5rem 0.7rem', background: theme.inputBg, border: `1px solid ${theme.inputBorder || theme.cardBorder}`, borderRadius: '8px', color: theme.text, fontSize: '0.82rem', fontFamily: 'inherit' };
 
-  return React.createElement(window.MaerminUI.Overlay, {
-    onClose,
+  // R3.1: on the shared Modal (a bottom sheet on phones); the title keeps its
+  // id and test hook, Research moves to the footer.
+  const UIC = window.MaerminComponents;
+  return React.createElement(UIC.Modal, {
+    open: true, onClose, titleId: 'dlg-position', className: 'ui-pos-dialog',
     focusField: false, // a detail view: its only field is the note further down
-    style: { position: 'fixed', inset: 0, background: 'rgba(4,6,10,0.62)', backdropFilter: 'blur(8px)', display: 'flex', justifyContent: 'center', alignItems: 'center', zIndex: 9999, padding: '1rem' }
+    title: React.createElement('span', { 'data-testid': 'pos-title' },
+      // cleanup V-5: the name first ("Bitcoin"), the symbol after it, as in the positions table
+      position.name && position.name !== position.sym ? position.name : position.sym,
+      position.name && position.name !== position.sym && React.createElement('span', { className: 'ui-pos-dialog__sym' }, position.sym)),
+    // P5-5.4: the Research page for this symbol
+    footer: onResearch ? React.createElement(UIC.Button, { onClick: onResearch, 'data-testid': 'pd-research' }, __('pdResearch', 'Research')) : null
   },
-    React.createElement('div', {
-      ...window.MaerminUI.dialogProps('dlg-position'),
-      style: { background: theme.modalBg, border: `1px solid ${theme.modalBorder}`, borderRadius: '16px', width: '520px', maxWidth: '100%', maxHeight: '90vh', overflow: 'auto', boxShadow: '0 25px 60px rgba(0,0,0,0.5)' }
-    },
-      // Header
-      React.createElement('div', {
-        style: { padding: '1.25rem 1.5rem', borderBottom: `1px solid ${theme.modalBorder}`, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }
-      },
-        React.createElement('div', null,
-          // cleanup V-5: the name first ("Bitcoin"), the symbol after it, as in the positions table
-          React.createElement('div', { id: 'dlg-position', 'data-testid': 'pos-title', style: { color: theme.text, fontWeight: '800', fontSize: 'var(--text-title)' } },
-            position.name && position.name !== position.sym ? position.name : position.sym,
-            position.name && position.name !== position.sym && React.createElement('span', { style: { color: theme.textSecondary, fontWeight: '600', fontSize: 'var(--text-base)', marginLeft: '0.5rem' } }, position.sym)),
-          React.createElement('div', { style: { display: 'flex', gap: '0.5rem', marginTop: '0.25rem', alignItems: 'center' } },
-            React.createElement('span', {
-              style: { fontSize: 'var(--text-3xs)', fontWeight: '700', padding: '0.15rem 0.4rem', borderRadius: '4px',
-                background: position.cat === 'crypto' ? 'color-mix(in srgb, var(--warning) 15%, transparent)' : position.cat === 'stocks' ? 'color-mix(in srgb, var(--info) 15%, transparent)' : 'rgba(6,182,212,0.15)',
-                color: position.cat === 'crypto' ? 'var(--warning)' : position.cat === 'stocks' ? 'var(--info)' : '#06b6d4' }
-            }, window.MaerminI18n.category(position.cat).toUpperCase()),
-            React.createElement('span', { style: { color: theme.textSecondary, fontSize: 'var(--text-sm)' } },
-              metrics.firstBuyDate ? __('pdSince', 'Since {date}', { date: window.MaerminI18n.date(metrics.firstBuyDate) }) : ''
-            )
-          )
-        ),
-        React.createElement('div', { style: { display: 'flex', gap: '0.4rem' } },
-          // P5-5.4: the Research page for this symbol
-          onResearch && React.createElement('button', {
-            onClick: onResearch, 'data-testid': 'pd-research',
-            style: { background: 'none', border: `1px solid ${theme.cardBorder}`, borderRadius: '8px', color: theme.text, cursor: 'pointer', padding: '0.4rem 0.75rem', fontSize: 'var(--text-sm)', fontWeight: 600 }
-          }, __('pdResearch', 'Research')),
-          React.createElement('button', {
-            onClick: onClose,
-            'aria-label': __('close', 'Close'),
-            style: { background: 'none', border: `1px solid ${theme.cardBorder}`, borderRadius: '8px', color: theme.textSecondary, cursor: 'pointer', padding: '0.4rem 0.75rem', fontSize: 'var(--text-base)' }
-          }, '×'))
-      ),
+      React.createElement('div', { className: 'ui-pos-dialog__meta' },
+        React.createElement(UIC.Badge, null, window.MaerminI18n.category(position.cat)),
+        metrics.firstBuyDate ? React.createElement('span', null, __('pdSince', 'Since {date}', { date: window.MaerminI18n.date(metrics.firstBuyDate) })) : null),
 
       // P4-2: daily price since the first buy, with the average cost for an open position
       window.MaerminPositionChart && React.createElement(window.MaerminPositionChart.View, {
@@ -406,7 +381,6 @@ function PositionDetailModal({ position, transactions, prices, theme, formatPric
       // P5-3.10: symbol / ISIN change, merger, spin-off
       window.MaerminCorporateActions && window.MaerminCorporateActions.EventsPanel &&
         React.createElement(window.MaerminCorporateActions.EventsPanel, { category: position.cat, symbol: position.sym, theme })
-    )
   );
 }
 
