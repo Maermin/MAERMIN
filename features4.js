@@ -167,6 +167,22 @@ function PortfolioManagerView({ portfolios, activePortfolioId, transactions, pri
 
     // Portfolio Cards
     React.createElement('div', { style: { display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))', gap: '1rem', marginBottom: '1.5rem' } },
+      // "All portfolios": the read-only combined view (MaerminMetrics.ALL_PORTFOLIOS).
+      // Its figures are the sum of the cards below; it holds no transactions.
+      portfolioStats.length > 1 && (() => {
+        const ALL = window.MaerminMetrics.ALL_PORTFOLIOS, on = activePortfolioId === ALL;
+        const value = portfolioStats.reduce((s, p) => s + (p.value || 0), 0), invested = portfolioStats.reduce((s, p) => s + (p.invested || 0), 0);
+        return React.createElement('div', { key: ALL, 'data-pf-card': ALL,
+          onClick: (e) => { if (e.target.tagName !== 'BUTTON') setActivePortfolioId(ALL); },
+          style: { background: theme.card, border: `2px ${on ? 'solid ' + theme.accent : 'dashed ' + theme.cardBorder}`, borderRadius: '12px', padding: '1.25rem', cursor: 'pointer' } },
+          React.createElement('button', { type: 'button', 'data-pf-switch': ALL, onClick: () => setActivePortfolioId(ALL), 'aria-pressed': on,
+            style: { background: 'none', border: 'none', padding: '0.15rem 0', minHeight: '24px', cursor: 'pointer', color: theme.text, fontWeight: '700', fontSize: 'var(--text-md)' } },
+            '◈ ' + __('allPortfolios', 'All Portfolios')),
+          React.createElement('div', { style: { color: theme.textSecondary, fontSize: 'var(--text-xs)', margin: '0.35rem 0 0.75rem' } },
+            __('pfAllHint', 'Read-only: all {n} portfolios combined. New bookings go into a portfolio.', { n: portfolioStats.length })),
+          React.createElement('div', { style: { color: theme.text, fontSize: 'var(--text-lg)', fontWeight: '800' } }, formatPrice(value)),
+          React.createElement('div', { style: { color: theme.textSecondary, fontSize: 'var(--text-xs)' } }, `${__('invested', 'Invested')}: ${formatPrice(invested)}`));
+      })(),
       portfolioStats.map(p =>
         // P5-1.2: the card is a plain container (it was a role="button" holding
         // the rename input and the action buttons). The portfolio name is the
