@@ -1066,6 +1066,196 @@ function StressTestView({ portfolio, prices, t, theme, currency, formatPrice }) 
   );
 }
 
+// ============================================================================
+// SHARED COMPONENTS (PLAN Phase 6, R1.2 — docs/DESIGN-SYSTEM.md § 4)
+// ----------------------------------------------------------------------------
+// The one set of controls every view composes. Each renders class names from
+// styles.css (.ui-*), never inline styles, so themes stay CSS-only and the CSP
+// (style-src 'self') holds. Every component passes className, data-testid and
+// any other prop through to its root element.
+// ============================================================================
+const h = React.createElement;
+const cx = (...parts) => parts.filter(Boolean).join(' ');
+// Props a component consumes itself are removed before the rest reach the DOM.
+const omit = (props, keys) => { const out = {}; for (const k in props) if (keys.indexOf(k) < 0) out[k] = props[k]; return out; };
+
+// Money tone of a signed figure (§ 5): gain / loss, zero is neutral.
+function toneOf(n) {
+  if (typeof n !== 'number' || !isFinite(n) || Math.abs(n) < 1e-9) return 'neutral';
+  return n > 0 ? 'gain' : 'loss';
+}
+
+function Spinner() { return h('span', { className: 'ui-spinner', 'aria-hidden': 'true' }); }
+
+// Button: primary (one per region), secondary, quiet, danger.
+function Button(props) {
+  const variant = /^(primary|secondary|quiet|danger)$/.test(props.variant) ? props.variant : 'secondary';
+  const size = /^(sm|md|lg)$/.test(props.size) ? props.size : 'md';
+  const busy = !!props.loading;
+  const rest = omit(props, ['variant', 'size', 'icon', 'kbd', 'loading', 'className', 'children', 'type']);
+  return h('button', Object.assign(rest, {
+    type: props.type || 'button',
+    className: cx('ui-btn', 'ui-btn--' + variant, 'ui-btn--' + size, busy && 'is-loading', props.className),
+    'aria-busy': busy ? 'true' : undefined,
+    disabled: props.disabled || busy || undefined
+  }), busy ? h(Spinner) : props.icon || null, props.children != null ? h('span', { className: 'ui-btn__label' }, props.children) : null,
+  props.kbd ? h('kbd', { className: 'ui-kbd' }, props.kbd) : null);
+}
+
+// IconButton: square, label required (aria-label + tooltip). pressed -> a toggle.
+function IconButton(props) {
+  const label = props.label;
+  if (!label && typeof console !== 'undefined') console.error('IconButton needs a label');
+  const size = props.size === 'lg' ? 'lg' : props.size === 'sm' ? 'sm' : 'md';
+  const rest = omit(props, ['label', 'icon', 'pressed', 'size', 'className', 'children', 'type']);
+  return h('button', Object.assign(rest, {
+    type: props.type || 'button',
+    className: cx('ui-icon-btn', 'ui-icon-btn--' + size, props.pressed && 'is-on', props.className),
+    'aria-label': label, title: label,
+    'aria-pressed': props.pressed == null ? undefined : !!props.pressed
+  }), props.icon || props.children);
+}
+
+// Card: title / subtitle / one action link; variants plain (no padding), answer, hero.
+function Card(props) {
+  const variant = /^(plain|answer|hero)$/.test(props.variant) ? props.variant : null;
+  const rest = omit(props, ['title', 'subtitle', 'action', 'variant', 'className', 'children', 'as', 'headingLevel']);
+  const head = (props.title || props.action) ? h('header', { className: 'ui-card__head' },
+    h('div', { className: 'ui-card__titles' },
+      props.title ? h(props.headingLevel || 'h2', { className: 'ui-card__title' }, props.title) : null,
+      props.subtitle ? h('p', { className: 'ui-card__subtitle' }, props.subtitle) : null),
+    props.action ? h('div', { className: 'ui-card__action' }, props.action) : null) : null;
+  return h(props.as || 'section', Object.assign(rest, { className: cx('ui-card', variant && 'ui-card--' + variant, props.className) }),
+    head, h('div', { className: 'ui-card__body' }, props.children));
+}
+
+// Stat / KPI: label, value (tone from the figure or given), sub line, split figures.
+function Stat(props) {
+  const tone = props.tone || (typeof props.signed === 'number' ? toneOf(props.signed) : null);
+  const clickable = typeof props.onClick === 'function';
+  const rest = omit(props, ['label', 'value', 'sub', 'tone', 'signed', 'split', 'className', 'onClick', 'size']);
+  const onKey = clickable ? (e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); props.onClick(e); } } : undefined;
+  return h('div', Object.assign(rest, {
+    className: cx('ui-stat', props.size === 'lg' && 'ui-stat--lg', clickable && 'is-clickable', props.className),
+    role: clickable ? 'link' : undefined, tabIndex: clickable ? 0 : undefined,
+    onClick: props.onClick, onKeyDown: onKey
+  }),
+  h('div', { className: 'ui-stat__label' }, props.label),
+  h('div', { className: cx('ui-stat__value', 'num', tone && 'tone-' + tone) }, props.value),
+  props.sub ? h('div', { className: 'ui-stat__sub' }, props.sub) : null,
+  Array.isArray(props.split) && props.split.length ? h('div', { className: 'ui-stat__split' },
+    props.split.map((s, i) => h('div', { key: i },
+      h('span', null, s.label), h('b', { className: cx('num', s.tone && 'tone-' + s.tone) }, s.value)))) : null);
+}
+
+// Badge: status words (Sample data, Closed, Expected).
+function Badge(props) {
+  const rest = omit(props, ['tone', 'className', 'children']);
+  return h('span', Object.assign(rest, { className: cx('ui-badge', props.tone && 'tone-' + props.tone, props.className) }), props.children);
+}
+
+// Chip: a filter toggle with an optional count.
+function Chip(props) {
+  const rest = omit(props, ['pressed', 'count', 'className', 'children', 'type']);
+  return h('button', Object.assign(rest, { type: 'button', className: cx('ui-chip', props.className), 'aria-pressed': !!props.pressed }),
+    h('span', null, props.children), props.count != null ? h('span', { className: cx('ui-chip__count', 'num') }, props.count) : null);
+}
+
+// ToneChip: a signed figure on its tone, always with ▲ / ▼ (never colour alone).
+function ToneChip(props) {
+  const tone = props.tone || toneOf(props.value);
+  const mark = tone === 'gain' ? '▲' : tone === 'loss' ? '▼' : '';
+  const rest = omit(props, ['value', 'tone', 'text', 'className']);
+  return h('span', Object.assign(rest, { className: cx('ui-tone-chip', 'num', 'tone-' + tone, props.className) }),
+    mark ? h('span', { 'aria-hidden': 'true' }, mark + ' ') : null, props.text != null ? props.text : String(props.value));
+}
+
+// Roving focus for a row of options: arrows, Home, End move and select.
+function rovingKeys(e, index, count, select) {
+  let next = null;
+  if (e.key === 'ArrowRight' || e.key === 'ArrowDown') next = (index + 1) % count;
+  else if (e.key === 'ArrowLeft' || e.key === 'ArrowUp') next = (index - 1 + count) % count;
+  else if (e.key === 'Home') next = 0;
+  else if (e.key === 'End') next = count - 1;
+  if (next === null) return;
+  e.preventDefault();
+  select(next);
+  const row = e.currentTarget.parentElement;
+  const btn = row && row.children[next];
+  if (btn && btn.focus) btn.focus();
+}
+
+// PageTabs: the views of an area (underline). One row only, never nested.
+function PageTabs(props) {
+  const tabs = props.tabs || [];
+  const idx = Math.max(0, tabs.findIndex((t) => t.id === props.value));
+  const rest = omit(props, ['tabs', 'value', 'onChange', 'label', 'className']);
+  return h('div', Object.assign(rest, { role: 'tablist', 'aria-label': props.label, className: cx('ui-tabs', props.className) }),
+    tabs.map((t, i) => h('button', {
+      key: t.id, type: 'button', role: 'tab', id: t.tabId, 'data-tab': t.id,
+      'aria-selected': i === idx, 'aria-controls': t.panelId, tabIndex: i === idx ? 0 : -1,
+      className: 'ui-tab', onClick: () => props.onChange && props.onChange(t.id),
+      onKeyDown: (e) => rovingKeys(e, i, tabs.length, (n) => props.onChange && props.onChange(tabs[n].id))
+    }, t.label)));
+}
+
+// Segmented: one choice among a few (periods, Net / Gross).
+function Segmented(props) {
+  const opts = props.options || [];
+  const idx = Math.max(0, opts.findIndex((o) => o.value === props.value));
+  const rest = omit(props, ['options', 'value', 'onChange', 'label', 'className', 'size']);
+  return h('div', Object.assign(rest, { role: 'radiogroup', 'aria-label': props.label, className: cx('ui-seg', props.size === 'sm' && 'ui-seg--sm', props.className) }),
+    opts.map((o, i) => h('button', {
+      key: String(o.value), type: 'button', role: 'radio', 'aria-checked': i === idx, tabIndex: i === idx ? 0 : -1,
+      className: 'ui-seg__opt', disabled: o.disabled || undefined,
+      onClick: () => props.onChange && props.onChange(o.value),
+      onKeyDown: (e) => rovingKeys(e, i, opts.length, (n) => props.onChange && props.onChange(opts[n].value))
+    }, o.label)));
+}
+
+let fieldSeq = 0;
+function useFieldId(given) {
+  const ref = React.useRef(null);
+  if (!ref.current) ref.current = given || ('ui-field-' + (++fieldSeq));
+  return given || ref.current;
+}
+
+// Field wrapper: a visible label, the control, a hint or an error linked by id.
+function Field(props, control) {
+  const id = props.id;
+  const msgId = (props.error || props.hint) ? id + '-msg' : undefined;
+  return h('div', { className: cx('ui-field', props.error && 'has-error', props.fieldClassName) },
+    props.label ? h('label', { className: 'ui-field__label', htmlFor: id }, props.label) : null,
+    control(msgId),
+    props.error ? h('div', { className: cx('ui-field__msg', 'is-error'), id: msgId, role: 'alert' }, props.error)
+      : props.hint ? h('div', { className: 'ui-field__msg', id: msgId }, props.hint) : null);
+}
+
+function Input(props) {
+  const id = useFieldId(props.id);
+  const rest = omit(props, ['label', 'hint', 'error', 'id', 'className', 'fieldClassName']);
+  return Field(Object.assign({}, props, { id }), (msgId) => h('input', Object.assign({ type: 'text' }, rest, {
+    id, className: cx('ui-input', props.className), 'aria-invalid': props.error ? 'true' : undefined, 'aria-describedby': msgId
+  })));
+}
+
+function Select(props) {
+  const id = useFieldId(props.id);
+  const rest = omit(props, ['label', 'hint', 'error', 'id', 'className', 'fieldClassName', 'options']);
+  return Field(Object.assign({}, props, { id }), (msgId) => h('select', Object.assign({}, rest, {
+    id, className: cx('ui-input', 'ui-select', props.className), 'aria-invalid': props.error ? 'true' : undefined, 'aria-describedby': msgId
+  }), (props.options || []).map((o) => h('option', { key: String(o.value), value: o.value, disabled: o.disabled }, o.label))));
+}
+
+// Mask: an amount in privacy mode. The figure never reaches the DOM while masked.
+function Mask(props) {
+  const rest = omit(props, ['masked', 'className', 'children']);
+  if (!props.masked) return h('span', Object.assign(rest, { className: cx('ui-mask', props.className) }), props.children);
+  return h('span', Object.assign(rest, { className: cx('ui-mask', 'is-masked', props.className), 'aria-label': __('uiHiddenAmount', 'Amount hidden') }), '••••••');
+}
+
+const Components = { toneOf, Button, IconButton, Card, Stat, Badge, Chip, ToneChip, PageTabs, Segmented, Input, Select, Mask, Spinner };
+
 // Export components
 if (typeof window !== 'undefined') {
   window.CommandPalette = CommandPalette;
@@ -1074,6 +1264,8 @@ if (typeof window !== 'undefined') {
   window.CorrelationMatrixView = CorrelationMatrixView;
   window.MonteCarloView = MonteCarloView;
   window.StressTestView = StressTestView;
+  window.MaerminComponents = Components;
 }
+if (typeof module !== 'undefined' && module.exports) module.exports = { Components };
 
 })(); // End IIFE
