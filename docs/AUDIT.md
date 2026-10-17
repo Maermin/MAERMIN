@@ -767,3 +767,78 @@ PR 2–4). Tests: `test/worker-security.test.js`, `test/security-app.test.js`, `
   terminated after each file. Opened from disk (`file://`) a module worker cannot start, so there pdf.js keeps
   its main-thread mode. A worker that fails to start now ends the import with an error instead of a spinner.
   The tax-report PDF is identical to the one from main apart from the timestamp, producer and file ID.
+
+---
+
+## Run 2026-10-16 — cleanup, quality audit and UI polish (v12.0.0 "Atlas")
+
+From `main` @ `1f03591` (v12.0.0). Report first, then one PR per package on `cleanup/<n>-…` branches; the owner
+merged each one. Screenshots in demo data only; the test Worker was used for live checks and is not named in any
+committed file.
+
+### Gate at the start and the end
+
+| Gate | 2026-10-16 (start) | 2026-10-17 (end, this PR) |
+|---|---|---|
+| `npm run check` | ok, 3748 keys in en and de | ok, 3740 keys (getquin and dead keys out, new labels in) |
+| `npm test` | 205 suites, 0 failures | 210 suites, 0 failures |
+| `npm run build:web` | ok | ok |
+| `CI=1 npm run test:e2e` | not run at the start (it runs before every push); 596 / 0 on PR 1 | 630 / 0 |
+
+### FINDINGS.md (2026-10-05, 36 items)
+
+34 were already fixed and released (P1-1…P1-7, P2-1, PR 5). **M-4** (DCA analyzer) was fixed in #182: it now uses
+calendar months on dated closes, lets you pick the holding, and says when the history is too short. **M-15** was
+decided by the owner as an opt-in per portfolio, default off, and fixed in #183: "Separate depot for German tax" keeps
+that portfolio's shares and funds in their own FIFO queue. FINDINGS.md now lists only what is open (O-1…O-5).
+
+### Findings of this run and where they went
+
+| ID | Sev. | Finding | PR |
+|---|---|---|---|
+| B-1 | High | The "by hand" Worker setup and update pasted only `worker.js`, which imports three sibling files and cannot start alone | #181: committed bundled `cf-worker/worker.single.js`, used by Copy, the docs and the API Settings steps |
+| B-2 | Medium | Discovery and the benchmark selector showed two options as selected (fx.js kept the first option's primary gradient) | #182 |
+| B-3 | Medium | DCA analyzer: first symbol only, 30 indices per "month" (rest of M-4) | #182 |
+| B-4 | Low | Header badge said "v11" in v12 | #182: from `MaerminBackup.VERSION` |
+| B-5 | Low | Value-tick flashes while the app starts | #182 |
+| V-1 | Medium | Light theme below AA: type badges, gain chip, symbol tiles, fee and strategy amounts, tax badges (fixed Tailwind hexes) | #187 |
+| V-2 | Medium | Selected pills white on `#8b7cff` (3.27:1); correlation figures 2.15:1; Risk Level badge 1.77:1 | #186, #187 |
+| V-3 | Low | KPI cards broke the "€" onto its own line | #186 |
+| V-4 | Low | Clipped button labels on phones | checked after #186: none left in 19 views at 390 px and 1366 px |
+| V-5 | Low | Position detail: monthly grid cut without a cue; title only the symbol | #182 |
+| V-6 | Low | Import/Export: mixed tab glyphs, heading repeated inside the card, identical letter tiles | #187 |
+| V-7 | Low | Phone dock: two elements with `aria-current="page"` | #182 |
+| U-1 | Medium | Touch targets: 1,849 of 2,096 phone controls under 44 px | #186: 44 px on `pointer: coarse` |
+| U-2 | Medium | No shared empty / gated state | #187: `MaerminUI.EmptyState` (3 cards; rest is O-4) |
+| U-3 | Low | API Settings Worker label years out of date | #182 |
+| U-4 | Low | Unlabelled inputs in the position detail | #182 |
+| U-5, U-6 | Low | German: no English UI text; two `de` = `en` values are product names | no change needed |
+| D-1…D-4 | Low | Unused CSS, translation keys, exports; the getquin import (fixed removal) | #185, about 67 lines |
+| — | Low | Found while refreshing the README screenshots: the German hero figure split at the thousands dot ("176" large, ".756,66" small) | this PR, with an e2e check |
+
+Security: 4 Low, fixed in #184 (sync config storage, price cache storage, calendar export, privacy docs). The
+details move here once they are released.
+
+### Measurements
+
+| | Before | After |
+|---|---|---|
+| Text below WCAG AA, demo, all 29 views, light theme | 938 | 1 (decorative, `aria-hidden`) |
+| Same, dark theme | 881 | 1 (the same glyph) |
+| Selected option contrast (Discovery, dark) | 3.27:1 | 15.5:1 |
+| Phone Overview controls under 44 px (390 px, touch) | 27 of 64 | 0 of 74 |
+| Overview KPI figures wrapping at 1366 px | 2 | 0 |
+
+### What was added
+
+- Tokens in `styles.css :root` (spacing, type scale, fluid KPI size, control heights, `--info`) and `MaerminUI.tokens`.
+- `MaerminUI.btnProps`, `pillProps`, `EmptyState`; `MaerminUtils.ink()`. Theme-variable tones for `txTypeInfo`.
+- One selected look for every option group (fx.js `.mx-selected` for toggles that still draw the inline accent fill).
+- e2e: a light-theme demo session (AA on the touched views), touch targets on the 390 px session, KPI figures on one
+  line, selected-option contrast, per-depot switch, single-file Worker, the German hero split.
+
+### Kept on purpose
+
+- All features gated behind the Worker or keys (owner, Q4). No stored data key, migration, backup key or Worker route
+  was removed. The one additive field is the optional `separateDepot` on portfolios (#183).
+- The existing radii (10 / 16 / 22 px); `--radius-md` (12 px) was added between them.

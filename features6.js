@@ -685,7 +685,10 @@ function PortfolioHistoryChart({ portfolio, prices, transactions, apiKeys, theme
     // Mockup hero: lead with the big € portfolio value, return as a chip beside it.
     const valNum = (typeof currentValue === 'number') ? currentValue : 0;
     const full   = `${formatPrice(valNum)}`;
-    const dot    = full.lastIndexOf('.');
+    // split at the locale's decimal separator ("176.756,66" in German: the cents
+    // start at the comma, the dot only groups thousands)
+    const decSep = (window.MaerminI18n && window.MaerminI18n.num) ? window.MaerminI18n.num(1.5, 1).replace(/\d/g, '') : '.';
+    const dot    = full.lastIndexOf(decSep || '.');
     const intPart = dot > -1 ? full.slice(0, dot) : full;
     const decPart = dot > -1 ? full.slice(dot) : '';
     return React.createElement('div', { style: { marginTop: '0.15rem' } },
@@ -693,8 +696,8 @@ function PortfolioHistoryChart({ portfolio, prices, transactions, apiKeys, theme
       React.createElement('div', {
         style: { display: 'flex', alignItems: 'baseline', flexWrap: 'wrap', gap: '0.05rem', fontFamily: "'Geist', 'Geist', sans-serif", lineHeight: 1 }
       },
-        React.createElement('span', { style: { fontSize: 'clamp(2rem, 4.2vw, 2.9rem)', fontWeight: '700', letterSpacing: '-0.03em', color: theme.text } }, intPart),
-        decPart && React.createElement('span', { style: { fontSize: 'clamp(1.2rem, 2.6vw, 1.7rem)', fontWeight: '600', letterSpacing: '-0.02em', color: GREY } }, decPart),
+        React.createElement('span', { 'data-testid': 'hero-int', style: { fontSize: 'clamp(2rem, 4.2vw, 2.9rem)', fontWeight: '700', letterSpacing: '-0.03em', color: theme.text } }, intPart),
+        decPart && React.createElement('span', { 'data-testid': 'hero-dec', style: { fontSize: 'clamp(1.2rem, 2.6vw, 1.7rem)', fontWeight: '600', letterSpacing: '-0.02em', color: GREY } }, decPart),
         React.createElement('span', { style: { fontSize: '1.2rem', fontWeight: '600', color: GREY, marginLeft: '0.4rem' } }, getCurrencySymbol())
       ),
       // Return chip + pct + "all time"
