@@ -8,9 +8,9 @@ Phase 6, milestone R1 (PLAN.md). Screenshots are from the public demo (`?demo`, 
 | Package | PR | State |
 |---|---|---|
 | R0 Audit, directions, plan | https://github.com/Maermin/MAERMIN/pull/197 | merged |
-| R1.1 Tokens and token bridge | https://github.com/Maermin/MAERMIN/pull/198 | in review |
-| R1.2 Components A + gallery | https://github.com/Maermin/MAERMIN/pull/199 | in review (stacked on #198) |
-| R1.3 Components B | https://github.com/Maermin/MAERMIN/pull/200 | in review (stacked on #199) |
+| R1.1 Tokens and token bridge | https://github.com/Maermin/MAERMIN/pull/198 | merged |
+| R1.2 Components A + gallery | https://github.com/Maermin/MAERMIN/pull/199 | merged into the R1.1 branch after #198 had landed, so it reaches main with #200 |
+| R1.3 Components B (+ R1.2) | https://github.com/Maermin/MAERMIN/pull/200 | in review, base main |
 | (outside the redesign) Returns "Current value" with All portfolios | https://github.com/Maermin/MAERMIN/pull/196 | merged |
 
 ## What a user sees
@@ -44,8 +44,7 @@ Phase 6, milestone R1 (PLAN.md). Screenshots are from the public demo (`?demo`, 
 
 ## Open issues
 
-- The PRs are stacked (#199 on #198, R1.3 on #199). Merging #198 first and then retargeting the next onto `main`
-  keeps each diff small; I retarget after each merge.
+- #200 targets main and carries R1.2 and R1.3; R2 branches stack on it until it merges.
 - The final mockups in `docs/redesign/final/` use the first light money tones; `docs/DESIGN-SYSTEM.md` is the
   contract and has the slightly darker values R1.1 needed for badges on tints.
 - `MaerminUI.btnProps` / `pillProps` (`.mx-btn`, `.mx-pill`) are not restyled yet; they move with the views (R3/R4).
