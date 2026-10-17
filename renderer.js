@@ -3191,35 +3191,44 @@ function InvestmentTracker() {
       { id: 'history', label: __('divTabHistory', 'History') },
     ];
 
-    return React.createElement('div', { style: { display: 'flex', flexDirection: 'column', height: '100%' } },
-      // Tab bar + auto-fetch button
-      React.createElement('div', {
-        style: { display: 'flex', gap: '0.375rem', padding: '1rem 1.5rem', borderBottom: `1px solid ${theme.cardBorder}`, alignItems: 'center', flexWrap: 'wrap' }
-      },
+    // R3.5: the year as the answer first - expected income for the next 12
+    // months and what arrived this year and last year (same basis as the switch).
+    const UIC = window.MaerminComponents;
+    const M = window.MaerminMetrics, DH = window.MaerminDividendHistory, FXH = window.MaerminFxHistory;
+    const expDiv = M ? M.computeExpectedAnnualDividends(portfolio, prices, { exchangeRate }) : null;
+    const toEURtx = (amt, tx) => (FXH && FXH.txToEUR) ? FXH.txToEUR(amt, tx.currency || 'EUR', tx.date, exchangeRate, fxAt).value
+      : (window.MaerminUtils ? window.MaerminUtils.toEUR(amt, tx.currency || 'EUR', exchangeRate) : amt);
+    const divMx = DH ? DH.matrix(transactions, { toEUR: toEURtx, basis: grossNet }) : null;
+    const yNow = new Date().getFullYear();
+    const divMoney = (v) => `${formatPrice(v)} ${getCurrencySymbol()}`;
+    const basisText = grossNet === 'gross' ? __('divBasisGross', 'before withholding tax') : __('divBasisNet', 'after withholding tax');
+    const divTile = (label, value, sub, tone, testid) => React.createElement(UIC.Card, { variant: 'answer', className: 'ui-ov-tile', 'data-testid': testid },
+      React.createElement(UIC.Stat, { label, value: React.createElement('span', { className: 'mx-kpi-value' }, value), sub, tone }));
+
+    return React.createElement('div', { className: 'ui-view' },
+      React.createElement('div', { className: 'ui-ov-tiles', 'data-testid': 'div-answer' },
+        divTile(__('ovDivExpected12m', 'Expected dividends (12m)'), expDiv && expDiv.available ? divMoney(expDiv.totalAnnual) : '—',
+          expDiv && expDiv.available ? __('perMonthYield', '{amount}/mo · {yield}', { amount: divMoney(expDiv.monthly), yield: window.MaerminI18n.pct(expDiv.yield, 1) }) : (t.kpiDividendsNone || '—'),
+          expDiv && expDiv.available ? 'income' : null, 'div-expected'),
+        divTile(__('divReceivedIn', 'Received in {y}', { y: yNow }), divMx ? divMoney(divMx.totals[yNow] || 0) : '—', basisText, null, 'div-this-year'),
+        divTile(__('divReceivedIn', 'Received in {y}', { y: yNow - 1 }), divMx ? divMoney(divMx.totals[yNow - 1] || 0) : '—', basisText, null, 'div-last-year')
+      ),
+      // Sections, basis and the booking actions
+      React.createElement('div', { className: 'ui-div-tools' },
         React.createElement(window.MaerminComponents.SectionSwitch, { label: t.navDividends || 'Dividends', value: tab, onChange: setTab, 'data-testid': 'div-sections', options: tabs.map(tb => ({ value: tb.id, label: tb.label })) }),
         // P5-2.5: amounts before or after withholding tax (the same choice as Analysis → Returns)
         tab !== 'calendar' && window.MaerminFeatures2 && window.MaerminFeatures2.GrossNetSwitch
           ? React.createElement(window.MaerminFeatures2.GrossNetSwitch, { value: grossNet, onChange: setGrossNet, theme, testid: 'div-gross-net' }) : null,
-        React.createElement('div', { style: { flex: 1 } }),
-        React.createElement('button', {
-          onClick: fetchDividends, disabled: fetching,
-          style: { padding: '0.45rem 1rem', background: fetching ? theme.inputBg : 'color-mix(in srgb, var(--success) 15%, transparent)', border: '1px solid color-mix(in srgb, var(--success) 30%, transparent)', borderRadius: '8px', color: fetching ? theme.textSecondary : theme.success, cursor: fetching ? 'not-allowed' : 'pointer', fontSize: 'var(--text-sm)', fontWeight: '600' }
-        }, fetching ? __('fetching', 'Fetching...') : __('divAutoFetch', '↓ Auto-fetch dividends')),
+        React.createElement('span', { className: 'ui-div-tools__spacer', 'aria-hidden': 'true' }),
+        React.createElement(UIC.Button, { onClick: fetchDividends, disabled: fetching }, fetching ? __('fetching', 'Fetching...') : __('divAutoFetch', '↓ Auto-fetch dividends')),
         // v10.x: book received dividends as transactions (in the payout currency)
-        onBookDividends ? React.createElement('button', {
-          onClick: () => onBookDividends(),
-          title: t.divBookHint || 'Create a transaction for each dividend whose pay date has passed (estimated, in its payout currency)',
-          style: { padding: '0.45rem 1rem', background: theme.inputBg, border: `1px solid ${theme.cardBorder}`, borderRadius: '8px', color: theme.text, cursor: 'pointer', fontSize: 'var(--text-sm)', fontWeight: '600' }
-        }, t.divBookNow || '＋ Book received dividends') : null,
-        toggleDivAutoBook ? React.createElement('label', {
-          title: t.divAutoHint || 'Automatically book each dividend as a transaction (in its payout currency) once its pay date passes',
-          style: { display: 'inline-flex', alignItems: 'center', gap: '0.4rem', fontSize: 'var(--text-xs)', color: theme.textSecondary, cursor: 'pointer', userSelect: 'none' }
-        },
-          React.createElement('input', { type: 'checkbox', checked: !!divAutoBook, onChange: () => toggleDivAutoBook(), style: { width: '24px', height: '24px', margin: 0, accentColor: theme.accent, cursor: 'pointer' } }),
+        onBookDividends ? React.createElement(UIC.Button, { onClick: () => onBookDividends(), title: t.divBookHint || 'Create a transaction for each dividend whose pay date has passed (estimated, in its payout currency)' }, t.divBookNow || '＋ Book received dividends') : null,
+        toggleDivAutoBook ? React.createElement('label', { title: t.divAutoHint || 'Automatically book each dividend as a transaction (in its payout currency) once its pay date passes', className: 'ui-check' },
+          React.createElement('input', { type: 'checkbox', checked: !!divAutoBook, onChange: () => toggleDivAutoBook() }),
           (t.divAutoLabel || 'Auto-book')) : null
       ),
       // Content
-      React.createElement('div', { style: { flex: 1, overflow: 'auto' } },
+      React.createElement('div', { className: 'ui-div-body' },
         tab === 'calendar' && window.MaerminFeatures2 ?
           React.createElement(window.MaerminFeatures2.DividendCalendarView, {
             portfolio, prices, metaVersion, theme, t, addToast, events: divEvents, setEvents: setDivEvents, privacyMode, exchangeRate

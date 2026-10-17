@@ -1386,6 +1386,12 @@ function freqLabel(f) {
 function DividendCalendarView({ portfolio, prices, metaVersion, theme, t, addToast, events: eventsProp, setEvents: setEventsProp, privacyMode, exchangeRate }) {
   // Privacy Mode masks every amount, like the app's formatPrice.
   const amt = (text) => (privacyMode ? '••••••' : text);
+  // R3.5: a holding's name for its symbol (shown next to it in the upcoming list)
+  const nameOf = (sym) => {
+    const up = String(sym || '').toUpperCase();
+    const p = ((portfolio && portfolio.stocks) || []).find((x) => String(x.symbol || '').toUpperCase() === up);
+    return p && p.symbolName && p.symbolName.toUpperCase() !== up ? p.symbolName : '';
+  };
   // Controlled when the parent passes events/setEvents (so auto-fetched payments
   // appear immediately); otherwise self-manage from localStorage (standalone use).
   const controlled = eventsProp != null && typeof setEventsProp === 'function';
@@ -1568,7 +1574,10 @@ function DividendCalendarView({ portfolio, prices, metaVersion, theme, t, addToa
       React.createElement('div', { style: { color: theme.text, fontWeight: '700', fontSize: 'var(--text-base)', marginBottom: '0.5rem' } }, __('dcUpcoming', 'Upcoming dividends')),
       events.filter(e => new Date(e.date) >= today).sort((a,b)=>new Date(a.date)-new Date(b.date)).slice(0,60).map(e =>
         React.createElement('div', { key: e.id, style: { display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '0.625rem 0.75rem', background: theme.card, borderRadius: '6px', marginBottom: '0.375rem', border: `1px solid ${theme.cardBorder}` } },
-          React.createElement('span', { style: { color: theme.text, fontWeight: '600', fontSize: 'var(--text-base)', minWidth: '64px' } }, e.symbol),
+          // R3.5: the holding's name next to its symbol
+          React.createElement('span', { className: 'ui-asset__text', style: { minWidth: '64px', flex: '1 1 40%' } },
+            React.createElement('span', { className: 'ui-asset__name' }, e.symbol),
+            nameOf(e.symbol) ? React.createElement('span', { className: 'ui-asset__sub' }, nameOf(e.symbol)) : null),
           React.createElement('span', { style: { color: theme.textSecondary, fontSize: 'var(--text-base)' } }, window.MaerminI18n.date(e.date)),
           React.createElement('span', { style: { color: e.derived ? theme.accent : theme.success, fontWeight: '700', fontSize: 'var(--text-base)' } }, amt('+' + window.MaerminI18n.money(e.amount, e.currency || 'EUR')))
         )
