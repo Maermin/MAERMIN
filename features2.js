@@ -181,20 +181,9 @@ function ReturnsView({ transactions, portfolio, prices, priceHistory, theme, for
   const hicp = RRm ? RRm.useHicp(workerUrl, geo) : { state: 'none', series: null };
   const R = (typeof window !== 'undefined') ? window.MaerminReturns : null;
   const D = (typeof window !== 'undefined') ? window.MaerminHeatmapDrill : null;
-  // Current EUR value over EVERY class in the book (custom categories too),
-  // using the same price lookup as MaerminMetrics.
-  const currentValue = useMemo(() => {
-    let v = 0;
-    Object.keys(portfolio || {}).forEach(cat => {
-      if (!Array.isArray(portfolio[cat])) return;
-      portfolio[cat].forEach(pos => {
-        const sym = pos.symbol || pos.name || '';
-        const p = prices[sym] || prices[sym.toLowerCase()] || prices[sym.toUpperCase()] || pos.purchasePrice || 0;
-        v += (parseFloat(pos.amount) || 0) * p;
-      });
-    });
-    return v;
-  }, [portfolio, prices]);
+  // Current EUR value over EVERY class in the book (custom categories too):
+  // the Overview's own total (MaerminMetrics.computeStats), so both agree.
+  const currentValue = useMemo(() => window.MaerminMetrics.computeStats(portfolio, prices).totalValue, [portfolio, prices]);
 
   // P5-1.5: XIRR, total return, purchases, proceeds and fees come from the one
   // module the Overview uses too (MaerminReturnFigures), so both always agree.
