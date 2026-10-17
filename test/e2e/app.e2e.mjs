@@ -582,8 +582,10 @@ async function runBuild(browser, label, dir) {
     {
       const hasX2 = () => page.evaluate(() => JSON.parse(localStorage.getItem('transactions') || '[]').some((t) => t.id === 'x2'));
       const delX2 = async () => {
-        await page.locator('button[aria-label^="Delete: "][aria-label*="ETH"]').first().click();
-        await page.locator('tr', { hasText: 'Delete this transaction?' }).getByRole('button', { name: 'Delete', exact: true }).click();
+        // R3.3 (B-5): select the row, then "Move to trash" in the detail panel and confirm
+        await page.locator('main [data-tx-id][aria-label*="ETH"]').first().click();
+        await page.locator('[data-testid="tx-detail"] [data-tx-action="trash"]').click();
+        await page.locator('[aria-labelledby="dlg-confirm"]').getByRole('button', { name: 'Delete', exact: true }).click();
         await page.waitForTimeout(400);
       };
       await delX2();
@@ -1620,8 +1622,9 @@ async function runBuild(browser, label, dir) {
       await book('transfer_out', '250', 'pf_b');
       pair = (await stored()).filter((x) => x.transferId);
       rowText = await page.locator('main tr', { hasText: 'Transfer out' }).first().innerText();
-      await page.locator('button[aria-label^="Delete: Transfer out"]').first().click();
-      await page.locator('tr', { hasText: 'Delete this transaction?' }).getByRole('button', { name: 'Delete', exact: true }).click();
+      await page.locator('main [data-tx-id][aria-label^="Transfer out"]').first().click();
+      await page.locator('[data-testid="tx-detail"] [data-tx-action="trash"]').click();
+      await page.locator('[aria-labelledby="dlg-confirm"]').getByRole('button', { name: 'Delete', exact: true }).click();
       await page.waitForTimeout(400);
       afterDelete = (await stored()).filter((x) => x.transferId).length;
       await page.locator('[data-testid="toast-action"]', { hasText: 'Undo' }).first().click();
@@ -2953,8 +2956,9 @@ async function runBuild(browser, label, dir) {
       // R1.1: the theme objects are var() references to the styles.css tokens;
       // the light theme's tokens are live, the page background is flat (no
       // aurora layers) and filled buttons still get the shared primary look
-      // (R3.1: the Overview has no legacy filled buttons left; Transactions has).
-      await openView(page, 'transactions');
+      // (R3.1 / R3.3: the Overview and Transactions have no legacy filled
+      // buttons left; Savings plans has, until R4.5).
+      await openView(page, 'savings-plans');
       await page.waitForTimeout(800);
       const tok = await page.evaluate(() => {
         const root = document.documentElement, cs = getComputedStyle(root), app = document.querySelector('.mx-app');
