@@ -165,7 +165,7 @@ function GrossNetSwitch({ value, onChange, theme, testid }) {
   const btn = (id, label, title) => React.createElement('button', {
     key: id, type: 'button', 'data-basis': id, 'aria-pressed': v === id, title, onClick: () => onChange && onChange(id),
     style: { minHeight: '32px', padding: '0.3rem 0.75rem', border: 'none', borderRadius: '6px', cursor: 'pointer', fontSize: 'var(--text-xs)', fontWeight: v === id ? 700 : 500,
-      background: v === id ? (theme.accentFill || theme.accent) : 'transparent', color: v === id ? '#fff' : theme.textSecondary }
+      background: v === id ? (theme.accentFill || theme.accent) : 'transparent', color: v === id ? 'var(--on-accent)' : theme.textSecondary }
   }, label);
   return React.createElement('div', { role: 'group', 'data-testid': testid || 'gross-net', 'aria-label': __('gnAria', 'Taxes and fees'),
     style: { display: 'inline-flex', gap: '0.15rem', background: theme.inputBg, borderRadius: '8px', padding: '0.2rem', flexShrink: 0 } },

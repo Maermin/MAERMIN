@@ -287,7 +287,7 @@ function __(k, f, v) { return (typeof window !== 'undefined' && window.MaerminI1
     }
 
     var card = { background: th.card || th.cardBg, border: '1px solid ' + border, borderRadius: '14px', padding: '1rem 1.25rem', marginBottom: '1rem' };
-    var chip = function (active) { return { padding: '0.3rem 0.65rem', borderRadius: '999px', border: '1px solid ' + (active ? accent : border), background: active ? (th.accentFill || accent) : th.inputBg, color: active ? '#fff' : text, cursor: 'pointer', fontSize: '0.74rem', fontWeight: 600 }; };
+    var chip = function (active) { return { padding: '0.3rem 0.65rem', borderRadius: '999px', border: '1px solid ' + (active ? accent : border), background: active ? (th.accentFill || accent) : th.inputBg, color: active ? 'var(--on-accent)' : text, cursor: 'pointer', fontSize: '0.74rem', fontWeight: 600 }; };
     var months = [], byMonth = {};
     list.forEach(function (ev) { var m = ev.date.slice(0, 7); if (!byMonth[m]) { byMonth[m] = []; months.push(m); } byMonth[m].push(ev); });
     var monthName = function (m) { return I && I.date ? I.date(m + '-01', 'monthLong') : m; };

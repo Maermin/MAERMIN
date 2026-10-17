@@ -332,7 +332,7 @@
     var yrBtn = function (n) {
       return e('button', { key: n, type: 'button', 'data-testid': 'bt-years-' + n, 'aria-pressed': years === n, onClick: function () { setYears(n); },
         style: { minHeight: '32px', padding: '0.3rem 0.7rem', border: 'none', borderRadius: '6px', cursor: 'pointer', fontSize: 'var(--text-xs)', fontWeight: years === n ? 700 : 500,
-          background: years === n ? (theme.accentFill || theme.accent) : 'transparent', color: years === n ? '#fff' : dim } }, __('dhYears', '{n} years', { n: n }));
+          background: years === n ? (theme.accentFill || theme.accent) : 'transparent', color: years === n ? 'var(--on-accent)' : dim } }, __('dhYears', '{n} years', { n: n }));
     };
     var DFX = window.MaerminDemoFixtures;
     var btRight = e('div', { style: { display: 'flex', gap: '0.5rem', alignItems: 'center', flexWrap: 'wrap' } }, DFX && DFX.badge ? DFX.badge(React, theme, workerUrl) : null, e('div', { role: 'group', 'aria-label': __('dhBacktestPeriod', 'Backtest period'), style: { display: 'flex', gap: '0.15rem', background: theme.inputBg, borderRadius: '8px', padding: '0.2rem' } }, [5, 10].map(yrBtn)));

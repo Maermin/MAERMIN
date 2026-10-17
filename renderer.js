@@ -3001,7 +3001,7 @@ function InvestmentTracker() {
         React.createElement('div', { style: { display: 'flex', gap: '0.75rem', alignItems: 'center' } },
           React.createElement('button', {
             onClick: handleImport, disabled: importing || !importText.trim(),
-            style: { padding: '0.625rem 1.25rem', background: importing || !importText.trim() ? theme.inputBg : theme.accentFill, color: importing || !importText.trim() ? theme.textSecondary : '#fff', border: 'none', borderRadius: '8px', cursor: importing || !importText.trim() ? 'not-allowed' : 'pointer', fontWeight: '600', fontSize: 'var(--text-base)' }
+            style: { padding: '0.625rem 1.25rem', background: importing || !importText.trim() ? theme.inputBg : theme.accentFill, color: importing || !importText.trim() ? theme.textSecondary : 'var(--on-accent)', border: 'none', borderRadius: '8px', cursor: importing || !importText.trim() ? 'not-allowed' : 'pointer', fontWeight: '600', fontSize: 'var(--text-base)' }
           }, importing ? __('importing', '◎ Importing...') : __('importBtn', '↑ Import')),
           React.createElement('button', {
             type: 'button', onClick: () => pickTextFile('.json,.csv,application/json,text/csv', setImportText),
@@ -6131,7 +6131,7 @@ function InvestmentTracker() {
                 onChange: (e) => { if (e.target.value) setNewTransaction(prev => ({ ...prev, currency: e.target.value })); },
                 style: {
                   flex: 1, padding: '0.5rem', borderRadius: '6px', cursor: 'pointer', fontSize: 'var(--text-base)', fontWeight: '600',
-                  background: other ? (currentTheme.accentFill || currentTheme.accent) : currentTheme.inputBg, color: other ? '#fff' : currentTheme.text,
+                  background: other ? (currentTheme.accentFill || currentTheme.accent) : currentTheme.inputBg, color: other ? 'var(--on-accent)' : currentTheme.text,
                   border: 'none'
                 }
               },

@@ -221,7 +221,7 @@ function __(k, f, v) { return (typeof window !== 'undefined' && window.MaerminI1
 
     var card = { background: th.card || th.cardBg, border: '1px solid ' + border, borderRadius: '14px', padding: '1rem 1.25rem', marginBottom: '1rem' };
     var input = { boxSizing: 'border-box', padding: '0.45rem 0.6rem', background: th.inputBg, border: '1px solid ' + (th.inputBorder || border), borderRadius: '8px', color: text, fontSize: '0.85rem', fontFamily: 'inherit' };
-    var btn = function (active) { return { padding: '0.35rem 0.7rem', borderRadius: '8px', border: '1px solid ' + (active ? (th.accent || '#8b7cff') : border), background: active ? (th.accentFill || th.accent || '#8b7cff') : th.inputBg, color: active ? '#fff' : text, cursor: 'pointer', fontSize: '0.76rem', fontWeight: 600 }; };
+    var btn = function (active) { return { padding: '0.35rem 0.7rem', borderRadius: '8px', border: '1px solid ' + (active ? (th.accent || '#8b7cff') : border), background: active ? (th.accentFill || th.accent || '#8b7cff') : th.inputBg, color: active ? 'var(--on-accent)' : text, cursor: 'pointer', fontSize: '0.76rem', fontWeight: 600 }; };
     var h3 = function (t) { return e('h3', { style: { color: text, fontSize: 'var(--text-body)', fontWeight: 700, margin: '0 0 0.6rem' } }, t); };
     var d = data.state === 'ok' ? data.d : null;
     var cur = d && d.currency ? d.currency : '';
