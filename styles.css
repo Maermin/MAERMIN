@@ -2387,3 +2387,9 @@ html[data-theme="contrast"] .ui-map__tile { border: 1px solid var(--border-stron
 .ui-div-tools { display: flex; gap: var(--space-2); flex-wrap: wrap; align-items: center; }
 .ui-div-tools__spacer { flex: 1; }
 .ui-div-body { display: flex; flex-direction: column; gap: var(--space-5); min-width: 0; }
+
+/* R3.6 Tax & FIFO (Phase 6 B-7): the answer summary above the sections */
+.ui-tax { display: flex; flex-direction: column; gap: var(--space-4); padding-top: var(--space-5); min-width: 0; }
+.ui-tax-summary { display: flex; flex-direction: column; gap: var(--space-3); padding: 0 var(--space-7); }
+.ui-tax__tools { display: flex; gap: var(--space-2); flex-wrap: wrap; align-items: center; padding: 0 var(--space-7) var(--space-3); border-bottom: 1px solid var(--border); }
+@media (max-width: 767px) { .ui-tax-summary, .ui-tax__tools { padding-left: var(--space-4); padding-right: var(--space-4); } }
