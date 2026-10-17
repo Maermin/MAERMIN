@@ -380,7 +380,7 @@
             },
               e('div', { style: { fontSize: '2.2rem', fontWeight: 800, color: col, lineHeight: 1 } }, h.score),
               e('div', { style: { fontSize: 'var(--text-2xs)', color: theme.textSecondary, marginTop: '2px' } }, t.healthOutOf100 || 'out of 100'))),
-          e('div', { style: { marginTop: '0.6rem', display: 'inline-block', padding: '0.2rem 0.9rem', borderRadius: '9999px', background: `${col}22`, color: col, fontWeight: 700, fontSize: 'var(--text-md)' } },
+          e('div', { style: { marginTop: '0.6rem', display: 'inline-block', padding: '0.2rem 0.9rem', borderRadius: '9999px', background: `${window.MaerminTokens.alpha(col, 0x22)}`, color: col, fontWeight: 700, fontSize: 'var(--text-md)' } },
             (t.healthGrade || 'Grade') + ' ' + h.grade)),
         // P5-1.6: the score in one plain sentence (rules in verdicts.js).
         window.MaerminVerdicts && (function () {

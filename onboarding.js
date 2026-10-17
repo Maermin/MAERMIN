@@ -271,7 +271,7 @@ function __(k, f, v) { return (typeof window !== 'undefined' && window.MaerminI1
           h('li', null, __('obPasteTest', 'Paste the URL here and test the connection.'))
         ),
         h('div', { style: { marginBottom: '0.75rem' } },
-          h('a', { href: DEPLOY_URL, target: '_blank', rel: 'noopener noreferrer', 'data-testid': 'deploy-worker', style: { display: 'inline-block', padding: '0.6rem 1.1rem', background: accent, color: '#ffffff', borderRadius: '8px', fontWeight: '700', fontSize: 'var(--text-base)', textDecoration: 'none' } }, __('obDeployBtn', 'Deploy to Cloudflare ↗'))
+          h('a', { href: DEPLOY_URL, target: '_blank', rel: 'noopener noreferrer', 'data-testid': 'deploy-worker', style: { display: 'inline-block', padding: '0.6rem 1.1rem', background: accent, color: 'var(--on-accent)', borderRadius: '8px', fontWeight: '700', fontSize: 'var(--text-base)', textDecoration: 'none' } }, __('obDeployBtn', 'Deploy to Cloudflare ↗'))
         ),
         h('details', { style: { marginBottom: '1rem', color: dim, fontSize: 'var(--text-sm)' } },
           h('summary', { style: { cursor: 'pointer', color: text } }, __('obManual', 'Or set it up by hand (copy and paste)')),

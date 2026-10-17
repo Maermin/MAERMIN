@@ -243,7 +243,7 @@ function __(k, f, v) { return (typeof window !== 'undefined' && window.MaerminI1
           return e('button', { type: 'button', 'data-dash-move': dir, 'data-dash-id': id, disabled: disabled, 'aria-label': label, title: label,
             onClick: function () { moveBy(id, dir); },
             style: { width: '40px', height: '40px', flexShrink: 0, fontSize: 'var(--text-body)', lineHeight: 1, cursor: disabled ? 'default' : 'pointer', borderRadius: '10px',
-              border: '1px solid ' + border, background: 'transparent', color: disabled ? border : text, opacity: disabled ? 0.45 : 1 } }, dir === 'up' ? '↑' : '↓');
+              border: '1px solid ' + border, background: 'transparent', color: disabled ? 'var(--text-faint)' : text, opacity: disabled ? 0.6 : 1 } }, dir === 'up' ? '↑' : '↓');
         }
 
         var rows = order.map(function (id, k) {

@@ -209,6 +209,9 @@ function __(k, f, v) { return (typeof window !== 'undefined' && window.MaerminI1
   }
 
   function onColor(bg) {
+    // A theme colour arrives as var(--…) (R1.1): resolve it for the active theme.
+    const T = typeof window !== 'undefined' && window.MaerminTokens;
+    if (T && T.isVar(bg)) bg = T.resolve(bg);
     const m = String(bg || '').trim().match(/^#([0-9a-f]{3}|[0-9a-f]{6})$/i);
     if (!m) return '#ffffff';
     let h = m[1]; if (h.length === 3) h = h.split('').map((c) => c + c).join('');

@@ -69,6 +69,7 @@ globalThis.window.document = globalThis.document;
 globalThis.window.addEventListener = noop;
 globalThis.window.matchMedia = () => ({ matches: false, addListener: noop, removeListener: noop, addEventListener: noop });
 globalThis.window.navigator = globalThis.navigator || { language: 'en-US', clipboard: { writeText: noop } };
+globalThis.window.MaerminTokens = require('../theme-tokens.js'); // R1.1: colour helpers (alpha / resolve)
 
 // ---------------------------------------------------------------------------
 // Preload the engine globals the components reach for internally (window.*).

@@ -590,7 +590,7 @@ function __(k, f, v) { return (typeof window !== 'undefined' && window.MaerminI1
               e('div', { style: { color: text, fontWeight: 600, fontSize: 'var(--text-base)' } }, c.label),
               e('div', { style: { color: dim, fontSize: 'var(--text-xs)' } }, (API.EXCHANGES[c.exchange] || {}).label + (c.lastSync ? '  ·  ' + (t.exLastSync || 'last sync') + ' ' + c.lastSync : '  ·  ' + (t.exNeverSynced || 'never synced')))),
             e('div', { style: { display: 'flex', gap: '0.4rem' } },
-              e('button', { onClick: function () { syncConn(c); }, disabled: !!busy[c.id], 'aria-busy': busy[c.id] ? 'true' : 'false', style: { background: accent, border: 'none', color: '#ffffff', cursor: busy[c.id] ? 'wait' : 'pointer', opacity: busy[c.id] ? 0.6 : 1, borderRadius: '7px', padding: '0.25rem 0.7rem', fontSize: 'var(--text-xs)', fontWeight: 700 } }, busy[c.id] ? ((t.exSyncing || 'Syncing') + '…') : (t.exSyncNow || 'Sync now')),
+              e('button', { onClick: function () { syncConn(c); }, disabled: !!busy[c.id], 'aria-busy': busy[c.id] ? 'true' : 'false', style: { background: accent, border: 'none', color: 'var(--on-accent)', cursor: busy[c.id] ? 'wait' : 'pointer', opacity: busy[c.id] ? 0.6 : 1, borderRadius: '7px', padding: '0.25rem 0.7rem', fontSize: 'var(--text-xs)', fontWeight: 700 } }, busy[c.id] ? ((t.exSyncing || 'Syncing') + '…') : (t.exSyncNow || 'Sync now')),
               e('button', { onClick: function () {
                 window.MaerminUtils.confirmThen({
                   title: (t.exRemoveTitle || 'Remove the connection "{name}"?').replace('{name}', c.label),
@@ -617,7 +617,7 @@ function __(k, f, v) { return (typeof window !== 'undefined' && window.MaerminI1
             API.needsSecret(form.exchange)
               ? __('exSignedNote', 'The secret stays in this browser: only the key id and a signature go to {host}.', { host: workerHost(props.workerUrl) })
               : __('exRelayedNote', 'This exchange has no separate secret: the API key itself goes to {host} with each request. Use your own Worker and a read-only key.', { host: workerHost(props.workerUrl) })),
-          e('button', { onClick: addConn, style: { marginTop: '0.6rem', padding: '0.5rem 1rem', background: accent, color: '#ffffff', border: 'none', borderRadius: '8px', cursor: 'pointer', fontWeight: 700, fontSize: 'var(--text-sm)' } }, t.exAdd || 'Add connection'),
+          e('button', { onClick: addConn, style: { marginTop: '0.6rem', padding: '0.5rem 1rem', background: accent, color: 'var(--on-accent)', border: 'none', borderRadius: '8px', cursor: 'pointer', fontWeight: 700, fontSize: 'var(--text-sm)' } }, t.exAdd || 'Add connection'),
           msg ? e('div', { style: { color: dim, fontSize: 'var(--text-xs)', marginTop: '0.5rem' } }, msg) : null);
       } catch (err) {
         return e('div', { style: { padding: '0.75rem', color: (props.theme && props.theme.danger) || 'var(--danger)' } }, __('exError', 'Exchange sync error: ') + (err && err.message));

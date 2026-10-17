@@ -246,7 +246,7 @@ function __(k, f, v) { return (typeof window !== 'undefined' && window.MaerminI1
         e('div', null, e('label', { style: label, htmlFor: 'ss-date' }, __('ssDate', 'Sale date')),
           e('input', { id: 'ss-date', 'data-testid': 'ss-date', type: 'date', value: form.date, onChange: set('date'), style: input })),
         e('button', { type: 'button', 'data-testid': 'ss-run', disabled: !h, onClick: run,
-          style: { padding: '0.5rem 0.9rem', borderRadius: '8px', border: 'none', background: th.accentFill || th.accent || '#7c6cff', color: '#ffffff', fontWeight: 700, fontSize: 'var(--text-sm)', cursor: h ? 'pointer' : 'default', opacity: h ? 1 : 0.5 } },
+          style: { padding: '0.5rem 0.9rem', borderRadius: '8px', border: 'none', background: th.accentFill || th.accent || '#7c6cff', color: 'var(--on-accent)', fontWeight: 700, fontSize: 'var(--text-sm)', cursor: h ? 'pointer' : 'default', opacity: h ? 1 : 0.5 } },
           __('ssRun', 'Simulate'))),
       errText ? e('div', { role: 'alert', 'data-testid': 'ss-error', style: { color: warn, fontSize: 'var(--text-sm)', marginTop: '0.6rem' } }, errText) : null,
       res && !res.error ? e('div', { 'data-testid': 'ss-result', style: { marginTop: '0.9rem' } },

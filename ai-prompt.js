@@ -164,7 +164,7 @@ function __(k, f, v) { return (typeof window !== 'undefined' && window.MaerminI1
           onFocus: function (ev) { ev.target.select(); },
           style: { width: '100%', boxSizing: 'border-box', padding: '0.6rem 0.75rem', background: th.inputBg, color: th.text, border: '1px solid ' + (th.inputBorder || border), borderRadius: '8px', fontSize: 'var(--text-sm)', fontFamily: 'ui-monospace, Menlo, monospace', lineHeight: 1.5, resize: 'vertical' } }),
         e('div', { style: { display: 'flex', alignItems: 'center', gap: '0.75rem', flexWrap: 'wrap', marginTop: '0.4rem' } },
-          e('button', { type: 'button', 'data-testid': 'ai-copy', onClick: copy, style: { padding: '0.45rem 0.9rem', fontSize: 'var(--text-sm)', fontWeight: 700, borderRadius: '8px', cursor: 'pointer', minHeight: '32px', background: th.accentFill || th.accent, color: '#ffffff', border: 'none' } }, __('aiCopy', 'Copy text')),
+          e('button', { type: 'button', 'data-testid': 'ai-copy', onClick: copy, style: { padding: '0.45rem 0.9rem', fontSize: 'var(--text-sm)', fontWeight: 700, borderRadius: '8px', cursor: 'pointer', minHeight: '32px', background: th.accentFill || th.accent, color: 'var(--on-accent)', border: 'none' } }, __('aiCopy', 'Copy text')),
           copied ? e('span', { role: 'status', style: { color: dim, fontSize: 'var(--text-sm)' } }, copied) : null)) : null);
   }
 

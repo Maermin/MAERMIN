@@ -391,7 +391,7 @@ function PositionDetailModal({ position, transactions, prices, theme, formatPric
         React.createElement('label', { style: jLabel }, t.journalReviews || 'Reviews'),
         React.createElement('div', { style: { display: 'flex', gap: '0.5rem', marginBottom: '0.5rem' } },
           React.createElement('input', { 'aria-label': t.journalAddReview || 'Add a dated review...', value: reviewDraft, onChange: e => setReviewDraft(e.target.value), onKeyDown: e => { if (e.key === 'Enter') addReview(); }, placeholder: t.journalAddReview || 'Add a dated review...', style: { ...jInput, flex: 1 } }),
-          React.createElement('button', { onClick: addReview, style: { padding: '0.5rem 0.9rem', background: (theme.accentFill || theme.accent), color: '#ffffff', border: 'none', borderRadius: '8px', cursor: 'pointer', fontWeight: 600, fontSize: 'var(--text-sm)' } }, '+')
+          React.createElement('button', { onClick: addReview, style: { padding: '0.5rem 0.9rem', background: (theme.accentFill || theme.accent), color: 'var(--on-accent)', border: 'none', borderRadius: '8px', cursor: 'pointer', fontWeight: 600, fontSize: 'var(--text-sm)' } }, '+')
         ),
         (j.reviews || []).length > 0 && React.createElement('div', { style: { display: 'flex', flexDirection: 'column', gap: '0.4rem' } },
           j.reviews.map((rv, i) => React.createElement('div', { key: i, style: { fontSize: 'var(--text-sm)', borderLeft: `2px solid ${theme.cardBorder}`, paddingLeft: '0.6rem' } },
@@ -524,7 +524,7 @@ function CS2SkinPicker({ workerUrl, theme, onSelect, selectedName }) {
               display: 'flex', flexDirection: 'column', gap: '0.375rem',
               transition: 'background 0.1s'
             },
-            onMouseEnter: e => e.currentTarget.style.background = `${theme.accent}15`,
+            onMouseEnter: e => e.currentTarget.style.background = `${window.MaerminTokens.alpha(theme.accent, 0x15)}`,
             onMouseLeave: e => e.currentTarget.style.background = theme.card
           },
             // Skin image
@@ -772,7 +772,7 @@ function SymbolPicker({ category, workerUrl, theme, onSelect, selectedSymbol, se
 
     // ── Selected Preview ──────────────────────────────────────────────────
     selected && React.createElement('div', {
-      style: { marginTop: '0.5rem', display: 'flex', alignItems: 'center', gap: '0.75rem', padding: '0.75rem 0.875rem', background: `${theme.accent}0d`, border: `1px solid ${theme.accent}33`, borderRadius: '8px' }
+      style: { marginTop: '0.5rem', display: 'flex', alignItems: 'center', gap: '0.75rem', padding: '0.75rem 0.875rem', background: `${window.MaerminTokens.alpha(theme.accent, 0x0d)}`, border: `1px solid ${window.MaerminTokens.alpha(theme.accent, 0x33)}`, borderRadius: '8px' }
     },
       // Logo
       React.createElement('div', {
@@ -794,7 +794,7 @@ function SymbolPicker({ category, workerUrl, theme, onSelect, selectedSymbol, se
         // Name + type badge
         React.createElement('div', { style: { display: 'flex', alignItems: 'center', gap: '0.375rem', flexWrap: 'wrap', marginBottom: '0.25rem' } },
           React.createElement('span', { style: { color: theme.text, fontWeight: '700', fontSize: 'var(--text-base)' } }, selected.name),
-          React.createElement('span', { style: { fontSize: 'var(--text-3xs)', padding: '0.1rem 0.35rem', borderRadius: '3px', background: `${TYPE_COLOR[selected.type] || theme.accent}20`, color: TYPE_COLOR[selected.type] || theme.accent, fontWeight: '700' } }, typeLabel(selected.type)),
+          React.createElement('span', { style: { fontSize: 'var(--text-3xs)', padding: '0.1rem 0.35rem', borderRadius: '3px', background: `${window.MaerminTokens.alpha(TYPE_COLOR[selected.type] || theme.accent, 0x20)}`, color: TYPE_COLOR[selected.type] || theme.accent, fontWeight: '700' } }, typeLabel(selected.type)),
           selected.exchange && React.createElement('span', { style: { fontSize: 'var(--text-3xs)', color: theme.textSecondary } }, selected.exchange)
         ),
         // The exact symbol that will be saved — most important part
@@ -854,7 +854,7 @@ function SymbolPicker({ category, workerUrl, theme, onSelect, selectedSymbol, se
               borderBottom: i < results.length - 1 ? `1px solid ${theme.cardBorder}` : 'none',
               cursor: 'pointer', transition: 'background 0.1s'
             },
-            onMouseEnter: e => e.currentTarget.style.background = `${theme.accent}10`,
+            onMouseEnter: e => e.currentTarget.style.background = `${window.MaerminTokens.alpha(theme.accent, 0x10)}`,
             onMouseLeave: e => e.currentTarget.style.background = 'transparent'
           },
             // Logo — letter avatar always rendered underneath; img shown on top if it loads
@@ -881,7 +881,7 @@ function SymbolPicker({ category, workerUrl, theme, onSelect, selectedSymbol, se
               React.createElement('div', { style: { display: 'flex', alignItems: 'center', gap: '0.375rem', flexWrap: 'wrap' } },
                 React.createElement('span', { style: { color: theme.text, fontWeight: '700', fontSize: 'var(--text-base)' } }, item.ticker || item.symbol),
                 React.createElement('span', {
-                  style: { fontSize: 'var(--text-3xs)', padding: '0.1rem 0.3rem', borderRadius: '3px', background: `${TYPE_COLOR[item.type] || 'var(--info)'}20`, color: TYPE_COLOR[item.type] || 'var(--info)', fontWeight: '600' }
+                  style: { fontSize: 'var(--text-3xs)', padding: '0.1rem 0.3rem', borderRadius: '3px', background: `${window.MaerminTokens.alpha(TYPE_COLOR[item.type] || 'var(--info)', 0x20)}`, color: TYPE_COLOR[item.type] || 'var(--info)', fontWeight: '600' }
                 }, typeLabel(item.type)),
                 item.exchange && React.createElement('span', { style: { fontSize: 'var(--text-3xs)', color: theme.textSecondary } }, item.exchange)
               ),

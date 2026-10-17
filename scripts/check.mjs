@@ -36,3 +36,7 @@ console.log(`✓ ${files.length} JS files pass syntax check`);
 // hardcoded UI text never grows.
 const { run: i18n } = await import('./i18n-check.mjs');
 if (i18n().errors.length) process.exit(1);
+
+// Colour guard (PLAN Phase 6, R1.1): hex / rgb() literals in view files never grow.
+const { run: colours } = await import('./colour-check.mjs');
+if (colours().errors.length) process.exit(1);

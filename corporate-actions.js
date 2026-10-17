@@ -493,7 +493,7 @@ function __(k, f, v) { return (typeof window !== 'undefined' && window.MaerminI1
         ratio && field('den', form.kind === 'spinoff' ? __('ceSpinDen', 'per held shares') : __('ceMergeDen', 'per old shares'), { type: 'text', inputMode: 'decimal' }),
         form.kind === 'merger' && field('cash', __('ceCash', 'Cash per old share (optional)'), { type: 'text', inputMode: 'decimal' }),
         form.kind === 'spinoff' && field('pct', __('ceCostPct', 'Share of the cost, %'), { type: 'text', inputMode: 'decimal' }),
-        e('button', { type: 'button', onClick: add, 'data-testid': 'ce-add', style: { padding: '0.5rem 0.8rem', background: th.accentFill || th.accent || 'var(--info)', color: '#fff', border: 'none', borderRadius: '8px', cursor: 'pointer', fontWeight: 600, fontSize: 'var(--text-sm)' } },
+        e('button', { type: 'button', onClick: add, 'data-testid': 'ce-add', style: { padding: '0.5rem 0.8rem', background: th.accentFill || th.accent || 'var(--info)', color: 'var(--on-accent)', border: 'none', borderRadius: '8px', cursor: 'pointer', fontWeight: 600, fontSize: 'var(--text-sm)' } },
           __('ceAdd', 'Add action'))),
       msg && e('div', { style: { color: th.warning || 'var(--warning)', fontSize: 'var(--text-xs)', marginTop: '0.5rem' } }, msg),
       e('div', { style: { color: dim, fontSize: 'var(--text-xs)', marginTop: '0.5rem', lineHeight: 1.5 } },

@@ -1,13 +1,12 @@
 /* ============================================================================
-   MAERMIN — "Aurora" design system
+   MAERMIN — "Atlas Map" design system (docs/DESIGN-SYSTEM.md)
    ----------------------------------------------------------------------------
-   Deep-ink canvas lit by soft violet/cyan glows, crisp elevated surfaces,
-   Geist typography, one electric-violet accent.
+   Calm, flat surfaces, Geist typography, one violet accent; answer first.
 
-   Per-component colours come from the JS theme tokens (currentTheme.*). This
-   sheet owns the app chrome (shell, palette, toasts, modals, shared classes)
-   and mirrors those tokens as CSS variables. <html> carries data-theme and
-   data-mode (set by renderer.js) so CSS-only chrome follows the active theme.
+   The tokens below are the only source of colour. The JS theme objects in
+   renderer.js are var() references to them, so views and this sheet always
+   agree. <html> carries data-theme and data-mode (set by renderer.js); each
+   theme is one block of overrides.
    ========================================================================== */
 
 /* Geist + Geist Mono, self-hosted (fonts/, OFL 1.1) - no request to Google
@@ -25,99 +24,180 @@
   src: url('fonts/geist-mono-latin-wght-normal.woff2') format('woff2');
   unicode-range: U+0000-00FF,U+0131,U+0152-0153,U+02BB-02BC,U+02C6,U+02DA,U+02DC,U+0304,U+0308,U+0329,U+2000-206F,U+20AC,U+2122,U+2191,U+2193,U+2212,U+2215,U+FEFF,U+FFFD; }
 
+/* ---- Design tokens (docs/DESIGN-SYSTEM.md § 2) ----------------------------
+   The only source of colour, spacing, radius, elevation, motion and layering.
+   JS reads them through the theme objects (var() references, renderer.js) and
+   MaerminTokens (theme-tokens.js); never copy a value into a view.
+   :root = Dark; each html[data-theme] block overrides the colours. */
 :root {
-  --accent: #8b7cff;
-  /* Filled buttons with white text: >= 4.5:1 (WCAG AA). --accent stays the
-     bright tone for text, borders and focus rings on dark surfaces. */
-  --accent-fill: #6352f0;
-  --accent-fill-grad: linear-gradient(135deg, #6f5ff2 0%, #5a48ec 55%, #3f5bd6 100%);
-  --accent-2: #5b8cff;
-  --accent-soft: rgba(139, 124, 255, 0.14);
-  --accent-ring: rgba(139, 124, 255, 0.45);
-  --accent-grad: linear-gradient(135deg, #a597ff 0%, #7c6cff 50%, #5b8cff 100%);
+  /* colour — Dark */
+  --bg: #0c0b12;
+  --surface: #14131c;
+  --surface-2: #1b1a26;
+  --border: #252433;
+  --border-strong: #33314a;
+  --control: #68676f;
+  --text: #f0eff6;
+  --text-dim: #9c9ab0;
+  --text-faint: #838296;
+  --accent: #a497ff;
+  --accent-fill: #5b4ae8;
   --on-accent: #ffffff;
+  --accent-soft: color-mix(in srgb, #a497ff 13%, transparent);
+  --accent-ring: color-mix(in srgb, #a497ff 45%, transparent);
+  --gain: #45d49a;
+  --loss: #ff7b8a;
+  --income: #7cb7ff;
+  --warning: #f2bd5c;
+  --comp-invested: #3b3a58;
+  --comp-gain: color-mix(in srgb, var(--gain) 32%, var(--surface));
+  --comp-cash: color-mix(in srgb, var(--income) 45%, var(--surface));
+  --chart-1: #a497ff; --chart-2: #7cb7ff; --chart-3: #45d49a; --chart-4: #f2bd5c; --chart-5: #ff9fd0; --chart-6: #8fd3e0;
+  --shadow-1: 0 12px 32px -18px rgba(0, 0, 0, 0.8);
+  --shadow-2: 0 24px 56px -20px rgba(0, 0, 0, 0.85);
+  --glass: color-mix(in srgb, var(--bg) 82%, transparent);
+  --hover: color-mix(in srgb, var(--text) 5%, transparent);
 
-  --bg: #07080d;
-  --surface: #0f1018;
-  --surface-2: #171824;
-  --glass: rgba(12, 13, 20, 0.66);
-  --border: rgba(255, 255, 255, 0.07);
-  --border-strong: rgba(255, 255, 255, 0.12);
-  --text: #f1f2f8;
-  --text-dim: #8d91a7;
-  --hover: rgba(255, 255, 255, 0.05);
-
-  --success: #3ddc97;
-  --danger: #ff6b81;
-  --warning: #ffb454;
-  --info: #6ea8ff;            /* income, neutral facts (AA on surfaces and their 12% tint) */
-
-  --radius-sm: 10px;
-  --radius-md: 12px;
-  --radius: 16px;
-  --radius-lg: 22px;
-  /* Spacing, type and control sizes. MaerminUI.tokens mirrors them in px/rem
-     for inline styles (fx.js reads inline lengths, so no var() there). */
-  --space-1: 4px; --space-2: 8px; --space-3: 12px; --space-4: 16px; --space-5: 24px; --space-6: 32px;
-  /* type scale (px at 16 px root): 10 11 12 13 14 15 16 18 20 22 24 32 */
-  --text-3xs: 0.625rem; --text-2xs: 0.6875rem; --text-xs: 0.75rem; --text-sm: 0.8125rem; --text-base: 0.875rem; --text-md: 0.9375rem;
-  --text-body: 1rem; --text-lg: 1.125rem; --text-title: 1.25rem; --text-title-lg: 1.375rem; --text-xl: 1.5rem; --text-2xl: 2rem;
-  --text-kpi: clamp(1.35rem, 0.95rem + 0.85vw, 1.85rem);
-  --control-h: 36px;
-  --control-h-touch: 44px;
-  --ease: cubic-bezier(0.16, 1, 0.3, 1);
-  --font: 'Geist', 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
-  --mono: 'Geist Mono', ui-monospace, 'SF Mono', 'Cascadia Code', Menlo, monospace;
-
-  /* legacy aliases kept for older selectors */
+  /* meaning aliases: money colours (§ 5) and the names older CSS uses */
+  --neutral: var(--text-dim);
+  --focus: var(--accent);
+  --success: var(--gain);
+  --danger: var(--loss);
+  --info: var(--income);
+  --accent-2: var(--income);
+  --accent-grad: var(--accent-fill);
+  --accent-fill-grad: var(--accent-fill);
   --gold: var(--accent);
   --gold-soft: var(--accent-soft);
   --text-muted: var(--text-dim);
 
+  /* space, size, radius */
+  --space-1: 4px; --space-2: 8px; --space-3: 12px; --space-4: 16px; --space-5: 20px; --space-6: 24px; --space-7: 32px; --space-8: 48px;
+  --control-sm: 32px; --control-md: 40px; --control-lg: 44px;
+  --control-h: 36px;
+  --control-h-touch: 44px;
+  --row-dense: 40px; --row: 56px;
+  --radius-xs: 6px; --radius-sm: 8px; --radius-md: 12px; --radius: 12px; --radius-lg: 22px; --radius-pill: 999px;
+  --rail-w: 84px; --content-max: 1400px;
+
+  /* type (px at a 16 px root). The --type-* scale is the redesign's; the
+     --text-* steps stay until the views move onto it (R3/R4). */
+  --type-hero: 3rem; --type-display: 2rem; --type-title: 1.5rem; --type-heading: 1.125rem; --type-body-lg: 0.9375rem; --type-body: 0.8125rem; --type-caption: 0.75rem;
+  --text-3xs: 0.625rem; --text-2xs: 0.6875rem; --text-xs: 0.75rem; --text-sm: 0.8125rem; --text-base: 0.875rem; --text-md: 0.9375rem;
+  --text-body: 1rem; --text-lg: 1.125rem; --text-title: 1.25rem; --text-title-lg: 1.375rem; --text-xl: 1.5rem; --text-2xl: 2rem;
+  --text-kpi: clamp(1.35rem, 0.95rem + 0.85vw, 1.85rem);
+  --font: 'Geist', 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+  --mono: 'Geist Mono', ui-monospace, 'SF Mono', 'Cascadia Code', Menlo, monospace;
+
+  /* motion, layers */
+  --dur-1: 120ms; --dur-2: 200ms; --dur-3: 320ms;
+  --ease: cubic-bezier(0.16, 1, 0.3, 1);
+  --ease-out: cubic-bezier(0.4, 0, 1, 1);
+  --z-sticky: 10; --z-nav: 20; --z-popover: 40; --z-sheet: 50; --z-dialog: 60; --z-toast: 70; --z-palette: 80;
+
   color-scheme: dark;
 }
 
-html[data-mode="light"] {
-  --accent: #5244e0;
-  --accent-fill: #6352f0;
-  --accent-soft: rgba(109, 93, 252, 0.10);
-  --accent-ring: rgba(109, 93, 252, 0.35);
-  --accent-grad: linear-gradient(135deg, #8b7cff 0%, #6d5dfc 50%, #3f6fff 100%);
-  --bg: #f6f7fb;
+html[data-theme="white"], html[data-mode="light"] {
+  --bg: #f5f5f8;
   --surface: #ffffff;
-  --surface-2: #f2f3f9;
-  --glass: rgba(255, 255, 255, 0.72);
-  --border: rgba(17, 19, 40, 0.08);
-  --border-strong: rgba(17, 19, 40, 0.14);
-  --text: #0d0f1c;
-  --text-dim: #5d6278;
-  --hover: rgba(17, 19, 40, 0.045);
-  --success: #066b45;
-  --danger: #c42b33;
-  --warning: #a14a06;
-  --info: #1d5fd1;
+  --surface-2: #f0f0f5;
+  --border: #e6e5ee;
+  --border-strong: #d6d4e2;
+  --control: #8b8a90;
+  --text: #12111c;
+  --text-dim: #5b596e;
+  --text-faint: #6d6b7e;
+  --accent: #4f3fd6;
+  --accent-fill: #5442e0;
+  --on-accent: #ffffff;
+  --accent-soft: #ecebfd;
+  --accent-ring: color-mix(in srgb, #4f3fd6 35%, transparent);
+  --gain: #0a6e44;
+  --loss: #b32538;
+  --income: #1e5bbc;
+  --warning: #865400;
+  --comp-invested: #cfcce4;
+  --comp-gain: color-mix(in srgb, #2fae79 32%, var(--surface));
+  --comp-cash: color-mix(in srgb, #5b95e6 45%, var(--surface));
+  --chart-1: #5442e0; --chart-2: #1e5bbc; --chart-3: #0a6e44; --chart-4: #865400; --chart-5: #b0307a; --chart-6: #11707f;
+  --shadow-1: 0 1px 2px rgba(18, 17, 28, 0.05), 0 10px 28px -18px rgba(18, 17, 28, 0.22);
+  --shadow-2: 0 2px 6px rgba(18, 17, 28, 0.06), 0 24px 56px -24px rgba(18, 17, 28, 0.3);
   color-scheme: light;
 }
+
 html[data-theme="purple"] {
-  --accent: #b26bff; --accent-2: #ec4899; --accent-soft: rgba(178, 107, 255, 0.16);
-  --accent-fill: #9147e6; --accent-fill-grad: linear-gradient(135deg, #9147e6 0%, #8a3ee0 60%, #b0307a 100%);
-  --accent-ring: rgba(178, 107, 255, 0.45);
-  --accent-grad: linear-gradient(135deg, #d59bff 0%, #a855f7 50%, #ec4899 100%);
-  --bg: #0b0716; --surface: #140e24; --surface-2: #1c1530; --glass: rgba(14, 9, 26, 0.66);
-  --text: #f5f0ff; --text-dim: #a597c2;
+  --bg: #100b1b;
+  --surface: #181226;
+  --surface-2: #201831;
+  --border: #2b2240;
+  --border-strong: #3a2e56;
+  --control: #6c6678;
+  --text: #f4efff;
+  --text-dim: #ac9fc8;
+  --text-faint: #8a7fa4;
+  --accent: #c99bff;
+  --accent-fill: #8547e3;
+  --accent-soft: color-mix(in srgb, #c99bff 14%, transparent);
+  --accent-ring: color-mix(in srgb, #c99bff 45%, transparent);
+  --gain: #45d49a;
+  --loss: #ff86a4;
+  --income: #8ec0ff;
+  --warning: #f2bd5c;
+  --comp-invested: #3e3160;
+  --chart-1: #c99bff; --chart-2: #8ec0ff; --chart-3: #45d49a; --chart-4: #f2bd5c; --chart-5: #ff9fd0; --chart-6: #8fd3e0;
 }
+
 html[data-theme="contrast"] {
-  --accent: #4d7cff; --accent-soft: rgba(77, 124, 255, 0.22); --accent-grad: #3563ec;
-  --accent-fill: #3563ec; --accent-fill-grad: #3563ec;
-  --bg: #000; --surface: #0a0a0a; --surface-2: #161616; --glass: rgba(0, 0, 0, 0.92);
-  --border: rgba(255, 255, 255, 0.35); --border-strong: rgba(255, 255, 255, 0.5);
-  --text: #fff; --text-dim: #d6d6d6;
+  --bg: #000000;
+  --surface: #000000;
+  --surface-2: #111111;
+  --border: #9a9a9a;
+  --border-strong: #ffffff;
+  --control: #ffffff;
+  --text: #ffffff;
+  --text-dim: #e8e8e8;
+  --text-faint: #d0d0d0;
+  --accent: #ffe14d;
+  --accent-fill: #ffe14d;
+  --on-accent: #000000;
+  --accent-soft: #262000;
+  --accent-ring: #ffe14d;
+  --gain: #4dff9e;
+  --loss: #ff8f8f;
+  --income: #9fc7ff;
+  --warning: #ffe14d;
+  --focus: #ffe14d;
+  --comp-invested: #555555;
+  --comp-gain: var(--gain);
+  --comp-cash: var(--income);
+  --chart-1: #ffffff; --chart-2: #ffe14d; --chart-3: #4dff9e; --chart-4: #9fc7ff; --chart-5: #ff8fff; --chart-6: #ff8f8f;
+  --shadow-1: none;
+  --shadow-2: 0 0 0 2px #ffffff;
+  --glass: #000000;
 }
+
 html[data-theme="cb"] {
-  --accent: #1f8ad1; --accent-soft: rgba(86, 180, 233, 0.16);
-  --accent-fill: #1b73b0; --accent-fill-grad: linear-gradient(135deg, #1b73b0 0%, #0b5f96 100%);
-  --accent-grad: linear-gradient(135deg, #56B4E9 0%, #0072B2 100%);
-  --success: #56B4E9; --danger: #E69F00; --warning: #F0E442;
+  --bg: #0c0d11;
+  --surface: #14161c;
+  --surface-2: #1b1e26;
+  --border: #252934;
+  --border-strong: #333847;
+  --control: #67696e;
+  --text: #eef0f5;
+  --text-dim: #9ea4b2;
+  --text-faint: #808592;
+  --accent: #56b4e9;
+  --accent-fill: #1b6fa8;
+  --accent-soft: color-mix(in srgb, #56b4e9 14%, transparent);
+  --accent-ring: color-mix(in srgb, #56b4e9 45%, transparent);
+  --gain: #56b4e9;
+  --loss: #e69f00;
+  --income: #ce7daa;
+  --warning: #f0e442;
+  --focus: #f0e442;
+  --comp-invested: #3a3f4f;
+  --chart-1: #56b4e9; --chart-2: #e69f00; --chart-3: #009e73; --chart-4: #f0e442; --chart-5: #ce7daa; --chart-6: #0072b2;
 }
 
 *, *::before, *::after { margin: 0; padding: 0; box-sizing: border-box; }
@@ -1686,3 +1766,17 @@ to{opacity:1;transform:translate(-50%,0)}
 #maermin-auth .auth-strength[data-score="2"], #maermin-auth .auth-strength[data-score="3"] { color: #34d399; }
 #maermin-auth .auth-warn { margin: -0.25rem 0 0.9rem; padding: 0.55rem 0.7rem; border-radius: 10px; font-size: 0.76rem; line-height: 1.45; color: #fde68a; background: rgba(245, 158, 11, 0.10); border: 1px solid rgba(245, 158, 11, 0.35); }
 #maermin-auth .auth-warn[hidden] { display: none; }
+
+/* ---- Atlas Map foundation (R1.1, PLAN B-8) --------------------------------
+   Flat page background: the aurora layers, the grid, the cursor aura, the card
+   spotlight and rim and the primary-button shine are off. Their rules above
+   are removed in R5.4 once no view relies on them. */
+.mx-app::before, .mx-app::after, .mx-aura { display: none !important; }
+.mx-card::before, .mx-card::after { display: none !important; }
+.mx-card.is-hot, .mx-card.is-hot:not(.mx-card-lg) { transform: none !important; }
+.mx-primary { background: var(--accent-fill) !important; color: var(--on-accent) !important; box-shadow: none !important; }
+.mx-primary::after { display: none !important; }
+.mx-primary:hover { box-shadow: none !important; transform: none !important; background: color-mix(in srgb, var(--accent-fill) 88%, var(--text)) !important; }
+.mx-logo { background: var(--accent-fill); box-shadow: none; }
+:focus-visible { outline: 2px solid var(--focus); outline-offset: 2px; box-shadow: none !important; }
+html[data-theme="contrast"] :focus-visible { outline-width: 3px; }

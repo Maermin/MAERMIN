@@ -451,7 +451,7 @@ function __(k, f, v) { return (typeof window !== 'undefined' && window.MaerminI1
             e('button', { type: 'button', disabled: !valid, 'data-testid': 'bond-t-save', onClick: function () {
               commit(setTerms(load(), sym, { name: draft.name, coupon: parseAmount(draft.coupon), frequency: draft.frequency, maturity: draft.maturity, issueDate: draft.issueDate, dayCount: draft.dayCount, currency: draft.currency }));
               setEditing(null);
-            }, style: { padding: '0.5rem 0.9rem', background: valid ? c.accent : c.input, border: 'none', borderRadius: '8px', color: '#fff', cursor: valid ? 'pointer' : 'default', fontWeight: 600, fontSize: 'var(--text-sm)' } },
+            }, style: { padding: '0.5rem 0.9rem', background: valid ? c.accent : c.input, border: 'none', borderRadius: '8px', color: valid ? 'var(--on-accent)' : c.dim, cursor: valid ? 'pointer' : 'default', fontWeight: 600, fontSize: 'var(--text-sm)' } },
               __('save', 'Save'))))));
       }
     });

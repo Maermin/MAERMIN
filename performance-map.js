@@ -22,8 +22,10 @@ function __(k, f, v) { return (typeof window !== 'undefined' && window.MaerminI1
   function clamp(v, lo, hi) { return v < lo ? lo : (v > hi ? hi : v); }
 
   // ---- colour scale ---------------------------------------------------------
+  // Theme colours arrive as var(--…) references (R1.1); resolve them first.
   function hexToRgb(hex) {
-    var h = String(hex || '').replace('#', '');
+    var T = typeof window !== 'undefined' && window.MaerminTokens;
+    var h = String((T ? T.resolve(hex) : hex) || '').replace('#', '');
     if (h.length === 3) h = h[0] + h[0] + h[1] + h[1] + h[2] + h[2];
     var n = parseInt(h, 16);
     if (!isFinite(n)) return { r: 128, g: 128, b: 128 };

@@ -456,7 +456,7 @@ function __(k, f, v) { return (typeof window !== 'undefined' && window.MaerminI1
           e('button', { style: btn, 'aria-label': __('bgPrevMonth', 'Previous month'), onClick: function () { shift(-1); } }, '‹'),
           e('span', { 'data-testid': 'bg-month', style: { color: text, fontWeight: 700, minWidth: '7rem', textAlign: 'center' } }, window.MaerminI18n.date(month + '-01', 'monthLong')),
           e('button', { style: btn, 'aria-label': __('bgNextMonth', 'Next month'), onClick: function () { shift(1); } }, '›'),
-          e('label', { style: Object.assign({}, btn, { background: th.accentFill || th.accent, color: '#fff', border: 'none' }) }, __('bgImportCsv', 'Import bank CSV'),
+          e('label', { style: Object.assign({}, btn, { background: th.accentFill || th.accent, color: 'var(--on-accent)', border: 'none' }) }, __('bgImportCsv', 'Import bank CSV'),
             e('input', { type: 'file', accept: '.csv,text/csv', 'data-testid': 'bg-csv', onChange: onFile, style: { display: 'none' } })))),
       e('p', { style: { color: dim, fontSize: 'var(--text-sm)', margin: '0 0 1rem', lineHeight: 1.5 } },
         __('bgIntro', 'Spending from your bank accounts, separate from your portfolio. Import a CSV export from online banking (Sparkasse, ING, DKB, N26, …) or add the transactions of a bank sync. Everything stays encrypted on this device.')),

@@ -156,7 +156,7 @@ function NetWorthView({ portfolioStats, portfolio, prices, theme, formatPrice, g
       ),
       React.createElement('button', {
         onClick: () => setShowAdd(!showAdd),
-        style: { padding: '0.625rem 1.25rem', background: (theme.accentFill || theme.accent), color: '#ffffff', border: 'none', borderRadius: '8px', cursor: 'pointer', fontWeight: '700', fontSize: 'var(--text-base)' }
+        style: { padding: '0.625rem 1.25rem', background: (theme.accentFill || theme.accent), color: 'var(--on-accent)', border: 'none', borderRadius: '8px', cursor: 'pointer', fontWeight: '700', fontSize: 'var(--text-base)' }
       }, __('nwAddAccount', '+ Add Account'))
     ),
 
@@ -221,7 +221,7 @@ function NetWorthView({ portfolioStats, portfolio, prices, theme, formatPrice, g
     }),
 
     // Add account form
-    showAdd && React.createElement(Card, { theme, style: { marginBottom: '1.5rem', border: `1px solid ${theme.accent}44` } },
+    showAdd && React.createElement(Card, { theme, style: { marginBottom: '1.5rem', border: `1px solid ${window.MaerminTokens.alpha(theme.accent, 0x44)}` } },
       React.createElement('div', { style: { color: theme.text, fontWeight: '700', marginBottom: '1rem' } }, __('nwAddTitle', 'Add Account or Liability')),
       React.createElement('div', { style: { display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(160px, 1fr))', gap: '0.75rem', marginBottom: '0.875rem' } },
         React.createElement('div', null,
@@ -299,7 +299,7 @@ function NetWorthView({ portfolioStats, portfolio, prices, theme, formatPrice, g
         )
       ),
       React.createElement('div', { style: { display: 'flex', gap: '0.5rem' } },
-        React.createElement('button', { onClick: addAccount, style: { padding: '0.625rem 1.25rem', background: (theme.accentFill || theme.accent), color: '#ffffff', border: 'none', borderRadius: '8px', cursor: 'pointer', fontWeight: '700', fontSize: 'var(--text-base)' } }, __('add', 'Add')),
+        React.createElement('button', { onClick: addAccount, style: { padding: '0.625rem 1.25rem', background: (theme.accentFill || theme.accent), color: 'var(--on-accent)', border: 'none', borderRadius: '8px', cursor: 'pointer', fontWeight: '700', fontSize: 'var(--text-base)' } }, __('add', 'Add')),
         React.createElement('button', { onClick: () => setShowAdd(false), style: { padding: '0.625rem 1.25rem', background: theme.inputBg, color: theme.text, border: 'none', borderRadius: '8px', cursor: 'pointer', fontSize: 'var(--text-base)' } }, __('cancel', 'Cancel'))
       )
     ),

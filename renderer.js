@@ -37,7 +37,7 @@ class ViewErrorBoundary extends React.Component {
         React.createElement('div', { style: { color: th.textSecondary || '#8b94a7', fontSize: 'var(--text-base)', marginBottom: '1.25rem' } }, __('errViewBody', 'Your data is safe. Try this view again or switch to another.')),
         React.createElement('div', { style: { color: th.textSecondary || '#8b94a7', fontSize: 'var(--text-xs)', fontFamily: 'ui-monospace,monospace', marginBottom: '1.25rem', wordBreak: 'break-word', opacity: 0.8 } }, String(this.state.error && this.state.error.message || this.state.error)),
         React.createElement('button', { onClick: () => this.setState({ error: null }),
-          style: { padding: '0.5rem 1.1rem', background: (th.accentFill || th.accent) || '#8b7cff', color: '#ffffff', border: 'none', borderRadius: '8px', cursor: 'pointer', fontWeight: 700, fontSize: 'var(--text-base)' } }, __('retry', 'Retry'))
+          style: { padding: '0.5rem 1.1rem', background: (th.accentFill || th.accent) || '#8b7cff', color: 'var(--on-accent)', border: 'none', borderRadius: '8px', cursor: 'pointer', fontWeight: 700, fontSize: 'var(--text-base)' } }, __('retry', 'Retry'))
       )
     );
   }
@@ -45,138 +45,49 @@ class ViewErrorBoundary extends React.Component {
 
 
 // Theme configuration
-// ── Design system: "Aurora" ─────────────────────────────────────────────────
-// Deep ink canvas lit by soft violet/cyan aurora glows, crisp elevated
-// surfaces, Geist typography and a single electric-violet accent. Every
-// component reads `currentTheme.*` as inline styles, so these tokens drive the
-// entire UI. `name` / `mode` are consumed by the shell and styles.css (the
-// root element gets data-theme / data-mode) — all other tokens are unchanged
-// in shape so existing call sites keep working.
-const ACCENT = '#8b7cff';       // electric violet — primary accent on dark
-const ON_ACCENT = '#ffffff';    // text on accent fills
-
+// ── Design system: "Atlas Map" (docs/DESIGN-SYSTEM.md) ──────────────────────
+// The colours live in styles.css as CSS variables, one block per theme
+// (<html data-theme>). These objects are var() references to them, so every
+// inline style that reads `currentTheme.*` follows the active theme and the
+// views and the stylesheet can never drift apart. Code that needs a real
+// colour value (contrast maths, canvas, PDF) calls MaerminTokens.resolve().
+// `name` / `mode` drive the root attributes (data-theme / data-mode).
+const THEME_TOKENS = {
+  background: 'var(--bg)',
+  card: 'var(--surface)',
+  surface: 'var(--surface)',
+  surface2: 'var(--surface-2)',
+  cardBorder: 'var(--border-strong)',
+  border: 'var(--border)',
+  modalBg: 'var(--surface)',
+  modalBorder: 'var(--border-strong)',
+  text: 'var(--text)',
+  textSecondary: 'var(--text-dim)',
+  textFaint: 'var(--text-faint)',
+  inputBg: 'var(--surface-2)',
+  inputBorder: 'var(--control)',
+  accent: 'var(--accent)',
+  accentFill: 'var(--accent-fill)', // filled buttons with --on-accent text (WCAG AA in every theme)
+  accentText: 'var(--on-accent)',
+  accentSoft: 'var(--accent-soft)',
+  accentGradient: 'var(--accent-fill)',
+  glass: 'var(--glass)',
+  shadow: 'var(--shadow-1)',
+  success: 'var(--gain)',
+  danger: 'var(--loss)',
+  warning: 'var(--warning)',
+  info: 'var(--income)',
+  positive: 'var(--gain)',
+  negative: 'var(--loss)',
+  neutral: 'var(--neutral)'
+};
+const themeOf = (name, mode) => Object.assign({ name, mode }, THEME_TOKENS);
 const themes = {
-  dark: {
-    accentFill: '#6352f0', // filled buttons with white text (WCAG AA 4.5:1)
-    name: 'dark', mode: 'dark',
-    background: 'radial-gradient(900px 520px at 12% -8%, rgba(124,92,255,0.20) 0%, transparent 62%), radial-gradient(760px 480px at 92% -6%, rgba(56,189,248,0.10) 0%, transparent 60%), radial-gradient(1200px 800px at 50% 120%, rgba(124,92,255,0.07) 0%, transparent 60%), #07080d',
-    card: '#0f1018',
-    surface2: '#171824',
-    cardBorder: 'rgba(255,255,255,0.07)',
-    modalBg: '#12131d',
-    modalBorder: 'rgba(255,255,255,0.10)',
-    text: '#f1f2f8',
-    textSecondary: '#8d91a7',
-    inputBg: '#0b0c13',
-    inputBorder: 'rgba(255,255,255,0.09)',
-    accent: ACCENT,
-    accentText: ON_ACCENT,
-    accentSoft: 'rgba(139,124,255,0.14)',
-    accentGradient: 'linear-gradient(135deg, #a597ff 0%, #7c6cff 50%, #5b8cff 100%)',
-    glass: 'rgba(12,13,20,0.66)',
-    shadow: '0 1px 0 rgba(255,255,255,0.04) inset, 0 24px 48px -24px rgba(0,0,0,0.7)',
-    success: '#3ddc97',
-    danger: '#ff6b81',
-    warning: '#ffb454'
-  },
-  white: {
-    accentFill: '#6352f0', // filled buttons with white text (WCAG AA 4.5:1)
-    name: 'white', mode: 'light',
-    background: 'radial-gradient(900px 520px at 10% -10%, rgba(124,92,255,0.12) 0%, transparent 60%), radial-gradient(760px 480px at 95% -8%, rgba(56,189,248,0.10) 0%, transparent 60%), #f6f7fb',
-    card: '#ffffff',
-    surface2: '#f2f3f9',
-    cardBorder: 'rgba(17,19,40,0.08)',
-    modalBg: '#ffffff',
-    modalBorder: 'rgba(17,19,40,0.10)',
-    text: '#0d0f1c',
-    textSecondary: '#5d6278',
-    inputBg: '#f3f4f9',
-    inputBorder: 'rgba(17,19,40,0.12)',
-    accent: '#5244e0', // >= 4.5:1 also on its tinted chips
-    accentText: ON_ACCENT,
-    accentSoft: 'rgba(109,93,252,0.10)',
-    accentGradient: 'linear-gradient(135deg, #8b7cff 0%, #6d5dfc 50%, #3f6fff 100%)',
-    glass: 'rgba(255,255,255,0.72)',
-    shadow: '0 1px 2px rgba(17,19,40,0.04), 0 18px 40px -22px rgba(17,19,40,0.18)',
-    // >= 4.5:1 on white and on their own tinted chips (Phase 3 contrast pass)
-    success: '#066b45',
-    danger: '#c42b33',
-    warning: '#a14a06'
-  },
-  // "Nebula" — the purple theme, re-imagined as a deep violet night sky.
-  purple: {
-    accentFill: '#9147e6', // filled buttons with white text (WCAG AA 4.5:1)
-    name: 'purple', mode: 'dark',
-    background: 'radial-gradient(900px 560px at 15% -10%, rgba(168,85,247,0.26) 0%, transparent 62%), radial-gradient(800px 520px at 90% 0%, rgba(236,72,153,0.12) 0%, transparent 60%), #0b0716',
-    card: '#140e24',
-    surface2: '#1c1530',
-    cardBorder: 'rgba(255,255,255,0.08)',
-    modalBg: '#181029',
-    modalBorder: 'rgba(255,255,255,0.12)',
-    text: '#f5f0ff',
-    textSecondary: '#a597c2',
-    inputBg: '#100a1d',
-    inputBorder: 'rgba(255,255,255,0.10)',
-    accent: '#b26bff',
-    accentText: ON_ACCENT,
-    accentSoft: 'rgba(178,107,255,0.16)',
-    accentGradient: 'linear-gradient(135deg, #d59bff 0%, #a855f7 50%, #ec4899 100%)',
-    glass: 'rgba(14,9,26,0.66)',
-    shadow: '0 1px 0 rgba(255,255,255,0.05) inset, 0 24px 48px -24px rgba(0,0,0,0.7)',
-    success: '#3ddc97',
-    danger: '#ff6b81',
-    warning: '#ffb454'
-  },
-  // High-contrast theme (WCAG AAA-leaning): pure-black canvas, white text,
-  // heavy borders. Accent chosen to clear 4.5:1 against both black and white.
-  contrast: {
-    accentFill: '#3563ec', // filled buttons with white text (WCAG AA 4.5:1)
-    name: 'contrast', mode: 'dark',
-    background: '#000000',
-    card: '#0a0a0a',
-    surface2: '#161616',
-    cardBorder: 'rgba(255,255,255,0.35)',
-    modalBg: '#000000',
-    modalBorder: 'rgba(255,255,255,0.5)',
-    text: '#ffffff',
-    textSecondary: '#d6d6d6',
-    inputBg: '#000000',
-    inputBorder: 'rgba(255,255,255,0.5)',
-    accent: '#4d7cff',
-    accentText: ON_ACCENT,
-    accentSoft: 'rgba(77,124,255,0.22)',
-    accentGradient: '#4d7cff',
-    glass: 'rgba(0,0,0,0.9)',
-    shadow: '0 0 0 1px rgba(255,255,255,0.25)',
-    success: '#00e676',
-    danger: '#ff5252',
-    warning: '#ffb300'
-  },
-  // Colour-blind-safe (Okabe–Ito): positive = sky-blue, negative = orange,
-  // never red/green. P&L colours flow from theme.success/danger.
-  cb: {
-    accentFill: '#1b73b0', // filled buttons with white text (WCAG AA 4.5:1)
-    name: 'cb', mode: 'dark',
-    background: 'radial-gradient(900px 520px at 12% -8%, rgba(0,114,178,0.22) 0%, transparent 62%), #07090d',
-    card: '#0f1118',
-    surface2: '#171a24',
-    cardBorder: 'rgba(255,255,255,0.08)',
-    modalBg: '#12141d',
-    modalBorder: 'rgba(255,255,255,0.10)',
-    text: '#f1f2f8',
-    textSecondary: '#9aa1b4',
-    inputBg: '#0b0d13',
-    inputBorder: 'rgba(255,255,255,0.10)',
-    accent: '#1f8ad1',
-    accentText: ON_ACCENT,
-    accentSoft: 'rgba(86,180,233,0.16)',
-    accentGradient: 'linear-gradient(135deg, #56B4E9 0%, #0072B2 100%)',
-    glass: 'rgba(12,13,20,0.66)',
-    shadow: '0 1px 0 rgba(255,255,255,0.04) inset, 0 24px 48px -24px rgba(0,0,0,0.7)',
-    success: '#56B4E9',
-    danger: '#E69F00',
-    warning: '#F0E442'
-  }
+  dark: themeOf('dark', 'dark'),
+  white: themeOf('white', 'light'),
+  purple: themeOf('purple', 'dark'), // "Nebula"
+  contrast: themeOf('contrast', 'dark'), // WCAG AAA-leaning text, 2 px borders
+  cb: themeOf('cb', 'dark') // colour-blind safe (Okabe–Ito): gain blue, loss orange
 };
 
 // ============================================================================
@@ -261,7 +172,7 @@ function PasswordModal({ theme, t, onClose, addToast, restoreFocus }) {
         }, t.cancel || 'Cancel'),
         React.createElement('button', {
           onClick: handleChange, disabled: busy || !curPw || !newPw || !confPw,
-          style:{ flex:1, padding:'0.75rem', background: busy ? theme.inputBg : (theme.accentFill || theme.accent), color:'#fff', border:'none', borderRadius:'8px', cursor: busy ? 'not-allowed' : 'pointer', fontWeight:'600' }
+          style:{ flex:1, padding:'0.75rem', background: busy ? theme.inputBg : (theme.accentFill || theme.accent), color: 'var(--on-accent)', border:'none', borderRadius:'8px', cursor: busy ? 'not-allowed' : 'pointer', fontWeight:'600' }
         }, busy ? '...' : (t.changePassword || 'Change Password'))
       )
     )
@@ -1260,12 +1171,13 @@ function InvestmentTracker() {
 
   // Mirror the active theme onto <html> so CSS-only chrome (palette, toasts,
   // scrollbars, popovers, bottom dock) follows it via CSS variables.
-  useEffect(() => {
+  // Layout effect: set before the first paint, or a light theme would flash dark.
+  React.useLayoutEffect(() => {
     const root = document.documentElement;
     root.setAttribute('data-theme', currentTheme.name || 'dark');
     root.setAttribute('data-mode', currentTheme.mode || 'dark');
     const meta = document.querySelector('meta[name="theme-color"]');
-    if (meta) meta.setAttribute('content', currentTheme.mode === 'light' ? '#f6f7fb' : (currentTheme.name === 'contrast' ? '#000000' : '#07080d'));
+    if (meta) meta.setAttribute('content', window.MaerminTokens.resolve('var(--bg)'));
   }, [currentTheme]);
   
   const formatPrice = useCallback((price) => {
@@ -3050,7 +2962,7 @@ function InvestmentTracker() {
         React.createElement('div', { style: { display: 'flex', gap: '0.75rem', flexWrap: 'wrap' } },
           React.createElement('button', {
             onClick: createBackup,
-            style: { padding: '0.625rem 1.25rem', background: theme.accentFill, color: '#ffffff', border: 'none', borderRadius: '8px', cursor: 'pointer', fontWeight: '600', fontSize: 'var(--text-base)', display: 'flex', alignItems: 'center', gap: '0.5rem' }
+            style: { padding: '0.625rem 1.25rem', background: theme.accentFill, color: 'var(--on-accent)', border: 'none', borderRadius: '8px', cursor: 'pointer', fontWeight: '600', fontSize: 'var(--text-base)', display: 'flex', alignItems: 'center', gap: '0.5rem' }
           }, __('dmJsonBackup', '↓ JSON Backup'),
             React.createElement('span', { style: { fontSize: 'var(--text-xs)', opacity: 0.8, fontWeight: '400' } }, __('dmFullRestore', '— full restore'))
           ),
@@ -3915,7 +3827,7 @@ function InvestmentTracker() {
         transition: 'border-color 0.16s, transform 0.16s, box-shadow 0.16s',
         boxShadow: theme.shadow, minHeight: '96px', justifyContent: 'center'
       },
-      onMouseEnter: opts.onClick ? e => { e.currentTarget.style.borderColor = `${theme.accent}66`; e.currentTarget.style.transform = 'translateY(-2px)'; } : undefined,
+      onMouseEnter: opts.onClick ? e => { e.currentTarget.style.borderColor = `${window.MaerminTokens.alpha(theme.accent, 0x66)}`; e.currentTarget.style.transform = 'translateY(-2px)'; } : undefined,
       onMouseLeave: opts.onClick ? e => { e.currentTarget.style.borderColor = theme.cardBorder; e.currentTarget.style.transform = 'translateY(0)'; } : undefined
     },
       React.createElement('div', { style: { display: 'flex', alignItems: 'center', justifyContent: 'space-between' } },
@@ -4005,7 +3917,7 @@ function InvestmentTracker() {
 
       // Inline FIRE setup — no modal, no new view
       editFire && React.createElement('div', {
-        style: { marginTop: '0.75rem', background: theme.card, border: `1px solid ${theme.accent}44`, borderRadius: '12px', padding: '1rem 1.1rem' }
+        style: { marginTop: '0.75rem', background: theme.card, border: `1px solid ${window.MaerminTokens.alpha(theme.accent, 0x44)}`, borderRadius: '12px', padding: '1rem 1.1rem' }
       },
         React.createElement('div', { style: { color: theme.text, fontWeight: '700', fontSize: 'var(--text-base)', marginBottom: '0.75rem' } }, t.fireSetupTitle || 'FIRE planning'),
         React.createElement('div', { style: { display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(150px, 1fr))', gap: '0.75rem', alignItems: 'end' } },
@@ -4027,7 +3939,7 @@ function InvestmentTracker() {
           ),
           React.createElement('button', {
             onClick: () => { if (M) M.saveFireSettings(fire); setEditFire(false); },
-            style: { padding: '0.55rem 1.1rem', background: (theme.accentFill || theme.accent), color: '#ffffff', border: 'none', borderRadius: '8px', cursor: 'pointer', fontWeight: '700', fontSize: 'var(--text-base)' }
+            style: { padding: '0.55rem 1.1rem', background: (theme.accentFill || theme.accent), color: 'var(--on-accent)', border: 'none', borderRadius: '8px', cursor: 'pointer', fontWeight: '700', fontSize: 'var(--text-base)' }
           }, t.save || 'Save')
         ),
         fireM && fireM.configured && React.createElement('div', { style: { color: theme.textSecondary, fontSize: 'var(--text-xs)', marginTop: '0.75rem' } },
@@ -4123,7 +4035,7 @@ function InvestmentTracker() {
           cursor: onClick ? 'pointer' : 'default',
           transition: 'border-color 0.16s, transform 0.16s'
         },
-        onMouseEnter: onClick ? e => { e.currentTarget.style.borderColor = `${currentTheme.accent}66`; e.currentTarget.style.transform = 'translateY(-2px)'; } : undefined,
+        onMouseEnter: onClick ? e => { e.currentTarget.style.borderColor = `${window.MaerminTokens.alpha(currentTheme.accent, 0x66)}`; e.currentTarget.style.transform = 'translateY(-2px)'; } : undefined,
         onMouseLeave: onClick ? e => { e.currentTarget.style.borderColor = currentTheme.cardBorder; e.currentTarget.style.transform = 'translateY(0)'; } : undefined
       },
         React.createElement('div', { style: { color: currentTheme.textSecondary, fontSize: 'var(--text-xs)', fontWeight: '600', textTransform: 'uppercase', letterSpacing: '0.07em', marginBottom: '0.4rem' } }, label),
@@ -4356,7 +4268,7 @@ function InvestmentTracker() {
           React.createElement('div', { style: { display: 'flex', flexDirection: 'column', gap: '0.55rem' } },
             performers.length
               ? performers.map(p => React.createElement('div', { key: p.cat + p.sym, style: { display: 'flex', alignItems: 'center', gap: '0.8rem', padding: '0.5rem 0.1rem' } },
-                  React.createElement('div', { style: { width: '34px', height: '34px', borderRadius: '9px', background: `${p.color}22`, color: tileInk(p.color), display: 'flex', alignItems: 'center', justifyContent: 'center', fontFamily: "'Geist', sans-serif", fontWeight: '700', fontSize: 'var(--text-xs)', flexShrink: 0 } }, glyph(p.sym)),
+                  React.createElement('div', { style: { width: '34px', height: '34px', borderRadius: '9px', background: `${window.MaerminTokens.alpha(p.color, 0x22)}`, color: tileInk(p.color), display: 'flex', alignItems: 'center', justifyContent: 'center', fontFamily: "'Geist', sans-serif", fontWeight: '700', fontSize: 'var(--text-xs)', flexShrink: 0 } }, glyph(p.sym)),
                   React.createElement('div', { style: { flex: 1, minWidth: 0 } },
                     React.createElement('div', { style: { fontSize: 'var(--text-sm)', fontWeight: '600', color: currentTheme.text, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' } }, p.name),
                     React.createElement('div', { style: { fontSize: 'var(--text-xs)', color: gray, fontFamily: "'Geist Mono', monospace" } }, glyph(p.sym))
@@ -4407,7 +4319,7 @@ function InvestmentTracker() {
                   },
                     React.createElement('td', { style: { padding: '0.85rem 1.5rem' } },
                       React.createElement('div', { style: { display: 'flex', alignItems: 'center', gap: '0.7rem' } },
-                        React.createElement('div', { style: { width: '32px', height: '32px', borderRadius: '9px', background: `${color}22`, color: tileInk(color), display: 'flex', alignItems: 'center', justifyContent: 'center', fontFamily: "'Geist', sans-serif", fontWeight: '700', fontSize: 'var(--text-xs)', flexShrink: 0 } }, glyph(c.symbol)),
+                        React.createElement('div', { style: { width: '32px', height: '32px', borderRadius: '9px', background: `${window.MaerminTokens.alpha(color, 0x22)}`, color: tileInk(color), display: 'flex', alignItems: 'center', justifyContent: 'center', fontFamily: "'Geist', sans-serif", fontWeight: '700', fontSize: 'var(--text-xs)', flexShrink: 0 } }, glyph(c.symbol)),
                         React.createElement('div', null,
                           React.createElement('div', { style: { fontSize: 'var(--text-base)', fontWeight: '600', color: currentTheme.text } }, c.symbolName || c.symbol),
                           React.createElement('div', { style: { fontSize: 'var(--text-2xs)', color: gray } }, __('ovClosedOn', 'sold {date}', { date: window.MaerminI18n.date(c.closed) }))
@@ -4460,7 +4372,7 @@ function InvestmentTracker() {
               },
                 React.createElement('td', { className: 'mx-card-lead', style: { padding: '0.85rem 1.5rem' } },
                   React.createElement('div', { style: { display: 'flex', alignItems: 'center', gap: '0.7rem' } },
-                    React.createElement('div', { style: { width: '32px', height: '32px', borderRadius: '9px', background: `${p.color}22`, color: tileInk(p.color), display: 'flex', alignItems: 'center', justifyContent: 'center', fontFamily: "'Geist', sans-serif", fontWeight: '700', fontSize: 'var(--text-xs)', flexShrink: 0 } }, glyph(p.sym)),
+                    React.createElement('div', { style: { width: '32px', height: '32px', borderRadius: '9px', background: `${window.MaerminTokens.alpha(p.color, 0x22)}`, color: tileInk(p.color), display: 'flex', alignItems: 'center', justifyContent: 'center', fontFamily: "'Geist', sans-serif", fontWeight: '700', fontSize: 'var(--text-xs)', flexShrink: 0 } }, glyph(p.sym)),
                     React.createElement('div', null,
                       React.createElement('div', { style: { fontSize: 'var(--text-base)', fontWeight: '600', color: currentTheme.text } }, p.name),
                       React.createElement('div', { style: { fontSize: 'var(--text-2xs)', color: gray, fontFamily: "'Geist Mono', monospace" } }, glyph(p.sym))
@@ -4530,9 +4442,9 @@ function InvestmentTracker() {
 
       // ── Demo-mode banner ─────────────────────────────────────────────────
       demoMode && React.createElement('div', {
-        style: { display: 'flex', alignItems: 'center', gap: '0.6rem', flexWrap: 'wrap', padding: '0.6rem 0.9rem', marginBottom: '1rem', borderRadius: '10px', background: `${(currentTheme.accentFill || currentTheme.accent)}14`, border: `1px solid ${currentTheme.accent}55`, color: currentTheme.text, fontSize: 'var(--text-sm)' } },
+        style: { display: 'flex', alignItems: 'center', gap: '0.6rem', flexWrap: 'wrap', padding: '0.6rem 0.9rem', marginBottom: '1rem', borderRadius: '10px', background: `${window.MaerminTokens.alpha((currentTheme.accentFill || currentTheme.accent), 0x14)}`, border: `1px solid ${window.MaerminTokens.alpha(currentTheme.accent, 0x55)}`, color: currentTheme.text, fontSize: 'var(--text-sm)' } },
         React.createElement('span', null, __('demoBanner', '★ You are exploring MAERMIN with sample data — your real data is untouched. Changes made in demo mode are not saved.')),
-        React.createElement('button', { onClick: exitDemo, style: { marginLeft: 'auto', minHeight: '40px', padding: '0.45rem 0.9rem', background: (currentTheme.accentFill || currentTheme.accent), color: '#ffffff', border: 'none', borderRadius: '8px', cursor: 'pointer', fontWeight: '700', fontSize: 'var(--text-sm)' } }, __('demoExitUseMine', 'Exit demo & use my data'))
+        React.createElement('button', { onClick: exitDemo, style: { marginLeft: 'auto', minHeight: '40px', padding: '0.45rem 0.9rem', background: (currentTheme.accentFill || currentTheme.accent), color: 'var(--on-accent)', border: 'none', borderRadius: '8px', cursor: 'pointer', fontWeight: '700', fontSize: 'var(--text-sm)' } }, __('demoExitUseMine', 'Exit demo & use my data'))
       ),
 
       // ── Header ──────────────────────────────────────────────────────────
@@ -4560,7 +4472,7 @@ function InvestmentTracker() {
           !demoMode && workerVersion && workerVersion.state === 'outdated' && React.createElement('button', {
             type: 'button', 'data-testid': 'worker-outdated', onClick: () => setShowApiSettings(true),
             title: __('wvOutdatedTitle', 'Your Worker is older than this app expects ({e}). Some features may fail until you update it.', { e: workerVersion.expected }),
-            style: { display: 'flex', alignItems: 'center', gap: '0.4rem', minHeight: '40px', padding: '0.5rem 0.7rem', background: `${currentTheme.warning}14`, border: `1px solid ${currentTheme.warning}55`, borderRadius: '8px', cursor: 'pointer', color: currentTheme.warning, fontSize: 'var(--text-xs)', fontWeight: '600' }
+            style: { display: 'flex', alignItems: 'center', gap: '0.4rem', minHeight: '40px', padding: '0.5rem 0.7rem', background: `${window.MaerminTokens.alpha(currentTheme.warning, 0x14)}`, border: `1px solid ${window.MaerminTokens.alpha(currentTheme.warning, 0x55)}`, borderRadius: '8px', cursor: 'pointer', color: currentTheme.warning, fontSize: 'var(--text-xs)', fontWeight: '600' }
           }, __('wvOutdated', 'Worker outdated → update')),
           // Data-health chip — only appears when something is stale/missing.
           dqHealth && (dqHealth.stale + dqHealth.missing) > 0 && React.createElement('button', {
@@ -4568,7 +4480,7 @@ function InvestmentTracker() {
               dqHealth.stale ? __('dqPricesStale', '{n} {n:price|prices} stale', { n: dqHealth.stale }) : '',
               dqHealth.missing ? __('dqPricesMissing', '{n} {n:price|prices} missing', { n: dqHealth.missing }) : ''
             ].filter(Boolean).join(' · ') + ' — ' + __('dqClickRefresh', 'click to refresh prices'),
-            style: { display: 'flex', alignItems: 'center', gap: '0.4rem', minHeight: '40px', padding: '0.5rem 0.7rem', background: `${currentTheme.warning}14`, border: `1px solid ${currentTheme.warning}55`, borderRadius: '8px', cursor: 'pointer', fontSize: 'var(--text-xs)', color: currentTheme.warning, fontWeight: '600', fontFamily: 'inherit' }
+            style: { display: 'flex', alignItems: 'center', gap: '0.4rem', minHeight: '40px', padding: '0.5rem 0.7rem', background: `${window.MaerminTokens.alpha(currentTheme.warning, 0x14)}`, border: `1px solid ${window.MaerminTokens.alpha(currentTheme.warning, 0x55)}`, borderRadius: '8px', cursor: 'pointer', fontSize: 'var(--text-xs)', color: currentTheme.warning, fontWeight: '600', fontFamily: 'inherit' }
           },
             React.createElement('span', { style: { fontWeight: '800' }, 'aria-hidden': 'true' }, '!'),
             dqHealth.stale ? __('dqStaleChip', '{n} stale', { n: dqHealth.stale + dqHealth.missing }) : __('dqMissingChip', '{n} missing', { n: dqHealth.missing })
@@ -4583,9 +4495,9 @@ function InvestmentTracker() {
           demoMode
             ? React.createElement('button', { onClick: exitDemo, style: { minHeight: '40px', padding: '0.5rem 0.9rem', background: currentTheme.inputBg, color: currentTheme.text, border: `1px solid ${currentTheme.cardBorder}`, borderRadius: '8px', cursor: 'pointer', fontSize: 'var(--text-base)' } }, __('demoExit', 'Exit demo'))
             : transactions.length > 0 ? null : React.createElement('button', { onClick: enterDemo, title: __('demoTryTitle', 'Load sample data to explore the app instantly — no setup'), style: { minHeight: '40px', padding: '0.5rem 0.9rem', background: currentTheme.inputBg, color: currentTheme.text, border: `1px solid ${currentTheme.cardBorder}`, borderRadius: '8px', cursor: 'pointer', fontSize: 'var(--text-base)' } }, __('demoTry', '★ Try demo')),
-          React.createElement('button', { onClick: () => openTransactionModal(), style: { padding: '0.5rem 1rem', background: (currentTheme.accentFill || currentTheme.accent), color: '#ffffff', border: 'none', borderRadius: '8px', cursor: 'pointer', fontWeight: '600', fontSize: 'var(--text-base)' } }, __('addShort', '+ Add')),
+          React.createElement('button', { onClick: () => openTransactionModal(), style: { padding: '0.5rem 1rem', background: (currentTheme.accentFill || currentTheme.accent), color: 'var(--on-accent)', border: 'none', borderRadius: '8px', cursor: 'pointer', fontWeight: '600', fontSize: 'var(--text-base)' } }, __('addShort', '+ Add')),
           React.createElement('button', { onClick: () => setShowImportModal(true), style: { padding: '0.5rem 1rem', background: currentTheme.inputBg, color: currentTheme.text, border: `1px solid ${currentTheme.cardBorder}`, borderRadius: '8px', cursor: 'pointer', fontSize: 'var(--text-base)' } }, __('importBtn', '↑ Import')),
-          React.createElement('button', { onClick: fetchPrices, disabled: loading, style: { padding: '0.5rem 1rem', background: loading ? currentTheme.inputBg : `${currentTheme.accent}18`, color: loading ? currentTheme.textSecondary : currentTheme.accent, border: `1px solid ${currentTheme.accent}33`, borderRadius: '8px', cursor: loading ? 'not-allowed' : 'pointer', fontSize: 'var(--text-base)', fontWeight: '600', display: 'flex', alignItems: 'center', gap: '0.375rem' } }, loading ? __('refreshing', '◎ Refreshing...') : __('refreshPrices', '↻ Refresh prices'))
+          React.createElement('button', { onClick: fetchPrices, disabled: loading, style: { padding: '0.5rem 1rem', background: loading ? currentTheme.inputBg : `${window.MaerminTokens.alpha(currentTheme.accent, 0x18)}`, color: loading ? currentTheme.textSecondary : currentTheme.accent, border: `1px solid ${window.MaerminTokens.alpha(currentTheme.accent, 0x33)}`, borderRadius: '8px', cursor: loading ? 'not-allowed' : 'pointer', fontSize: 'var(--text-base)', fontWeight: '600', display: 'flex', alignItems: 'center', gap: '0.375rem' } }, loading ? __('refreshing', '◎ Refreshing...') : __('refreshPrices', '↻ Refresh prices'))
         )
       ),
 
@@ -4601,7 +4513,7 @@ function InvestmentTracker() {
           style: {
             display: 'flex', alignItems: 'center', gap: '0.4rem',
             padding: '0.375rem 0.875rem',
-            background: overviewMode === 'all' ? `${currentTheme.accent}20` : currentTheme.inputBg,
+            background: overviewMode === 'all' ? `${window.MaerminTokens.alpha(currentTheme.accent, 0x20)}` : currentTheme.inputBg,
             border: `1px solid ${overviewMode === 'all' ? currentTheme.accent : currentTheme.cardBorder}`,
             borderRadius: '8px', cursor: 'pointer', transition: 'all 0.1s',
             fontSize: 'var(--text-sm)', fontWeight: overviewMode === 'all' ? '700' : '400',
@@ -4622,7 +4534,7 @@ function InvestmentTracker() {
             style: {
               display: 'flex', alignItems: 'center', gap: '0.4rem',
               padding: '0.375rem 0.875rem',
-              background: overviewMode === p.id ? `${p.color}18` : currentTheme.inputBg,
+              background: overviewMode === p.id ? `${window.MaerminTokens.alpha(p.color, 0x18)}` : currentTheme.inputBg,
               border: `1px solid ${overviewMode === p.id ? p.color : currentTheme.cardBorder}`,
               borderRadius: '8px', cursor: 'pointer', transition: 'all 0.1s',
               fontSize: 'var(--text-sm)', fontWeight: overviewMode === p.id ? '700' : '400',
@@ -4688,7 +4600,7 @@ function InvestmentTracker() {
           React.createElement('div', { style: { color: currentTheme.text, fontWeight: '600', fontSize: 'var(--text-base)' } }, __('rcNudgeTitle', 'Add a recovery code')),
           React.createElement('div', { style: { color: currentTheme.textSecondary, fontSize: 'var(--text-sm)', marginTop: '0.125rem' } }, __('rcNudgeBody', 'Your vault has no recovery code. Without one, a forgotten password cannot be reset — generate a printable code now.'))
         ),
-        React.createElement('button', { onClick: createRecoveryKit, disabled: recoveryBusy, style: { padding: '0.5rem 1rem', background: (currentTheme.accentFill || currentTheme.accent), color: '#ffffff', border: 'none', borderRadius: '6px', cursor: recoveryBusy ? 'wait' : 'pointer', fontWeight: '700', fontSize: 'var(--text-sm)' } }, recoveryBusy ? __('creating', 'Creating…') : __('rcCreate', 'Create recovery code')),
+        React.createElement('button', { onClick: createRecoveryKit, disabled: recoveryBusy, style: { padding: '0.5rem 1rem', background: (currentTheme.accentFill || currentTheme.accent), color: 'var(--on-accent)', border: 'none', borderRadius: '6px', cursor: recoveryBusy ? 'wait' : 'pointer', fontWeight: '700', fontSize: 'var(--text-sm)' } }, recoveryBusy ? __('creating', 'Creating…') : __('rcCreate', 'Create recovery code')),
         React.createElement('button', { onClick: dismissRecoveryNudge, style: { padding: '0.5rem 0.75rem', background: 'transparent', color: currentTheme.textSecondary, border: `1px solid ${currentTheme.cardBorder}`, borderRadius: '6px', cursor: 'pointer', fontSize: 'var(--text-sm)' } }, __('dismiss', 'Dismiss'))
       ),
 
@@ -4698,7 +4610,7 @@ function InvestmentTracker() {
         React.createElement('h3', { style: { color: currentTheme.text, fontSize: 'var(--text-lg)', fontWeight: '600', marginBottom: '0.5rem' } }, t.welcomeTitle || 'Welcome to MAERMIN'),
         React.createElement('p', { style: { color: currentTheme.textSecondary, fontSize: 'var(--text-base)', marginBottom: '1rem', lineHeight: '1.6' } }, t.welcomeHint || 'Start by adding your first transaction.'),
         React.createElement('div', { style: { display: 'flex', gap: '0.75rem', justifyContent: 'center', flexWrap: 'wrap' } },
-          window.MaerminOnboarding && window.MaerminOnboarding.Wizard && React.createElement('button', { onClick: openOnboarding, style: { padding: '0.625rem 1.25rem', background: (currentTheme.accentFill || currentTheme.accent), color: '#ffffff', border: 'none', borderRadius: '8px', cursor: 'pointer', fontWeight: '700', fontSize: 'var(--text-base)' } }, __('guidedSetup', 'Guided setup')),
+          window.MaerminOnboarding && window.MaerminOnboarding.Wizard && React.createElement('button', { onClick: openOnboarding, style: { padding: '0.625rem 1.25rem', background: (currentTheme.accentFill || currentTheme.accent), color: 'var(--on-accent)', border: 'none', borderRadius: '8px', cursor: 'pointer', fontWeight: '700', fontSize: 'var(--text-base)' } }, __('guidedSetup', 'Guided setup')),
           React.createElement('button', { onClick: () => openTransactionModal(), style: { padding: '0.625rem 1.25rem', background: currentTheme.inputBg, color: currentTheme.text, border: `1px solid ${currentTheme.cardBorder}`, borderRadius: '8px', cursor: 'pointer', fontWeight: '600', fontSize: 'var(--text-base)' } }, '+ ' + (t.addTransaction || 'Add Transaction')),
           React.createElement('button', { onClick: () => setShowImportModal(true), style: { padding: '0.625rem 1.25rem', background: currentTheme.inputBg, color: currentTheme.text, border: `1px solid ${currentTheme.cardBorder}`, borderRadius: '8px', cursor: 'pointer', fontSize: 'var(--text-base)' } }, t.importData || 'Import Data')
         )
@@ -4944,7 +4856,7 @@ function InvestmentTracker() {
             c && React.createElement('span', { style: { display: 'inline-flex', alignItems: 'center', gap: '0.5rem', marginLeft: '0.5rem', flexWrap: 'wrap', verticalAlign: 'middle' } },
               React.createElement('code', { style: { fontSize: 'var(--text-2xs)', color: currentTheme.textSecondary } }, c.code),
               React.createElement('button', { type: 'button', 'data-dq-action': c.action.type, 'aria-label': DC.actionLabel(c.action) || c.code, onClick: () => runDataAction(c.action),
-                style: { padding: '0.2rem 0.6rem', minHeight: '24px', fontSize: 'var(--text-xs)', fontWeight: 600, borderRadius: '6px', cursor: 'pointer', background: 'transparent', color: currentTheme.accent, border: `1px solid ${currentTheme.accent}55` } },
+                style: { padding: '0.2rem 0.6rem', minHeight: '24px', fontSize: 'var(--text-xs)', fontWeight: 600, borderRadius: '6px', cursor: 'pointer', background: 'transparent', color: currentTheme.accent, border: `1px solid ${window.MaerminTokens.alpha(currentTheme.accent, 0x55)}` } },
                 DC.actionLabel(c.action))));
         }),
         ledgerIssues.length > 20 && React.createElement('li', { key: 'more' }, __('andNMore', '… and {n} more', { n: ledgerIssues.length - 20 }))));
@@ -4994,7 +4906,7 @@ function InvestmentTracker() {
     if (!found.length) return null;
     return React.createElement('div', {
       role: 'status', 'data-testid': 'misfiled-skins', 'data-dq-code': DC ? DC.CODES.skinMisfiled : undefined,
-      style: { background: `${currentTheme.warning}14`, border: `1px solid ${currentTheme.warning}55`, borderRadius: '10px', padding: '0.75rem 0.9rem', marginBottom: '1rem', fontSize: 'var(--text-sm)', color: currentTheme.text, display: 'flex', flexWrap: 'wrap', gap: '0.75rem', alignItems: 'center', justifyContent: 'space-between' }
+      style: { background: `${window.MaerminTokens.alpha(currentTheme.warning, 0x14)}`, border: `1px solid ${window.MaerminTokens.alpha(currentTheme.warning, 0x55)}`, borderRadius: '10px', padding: '0.75rem 0.9rem', marginBottom: '1rem', fontSize: 'var(--text-sm)', color: currentTheme.text, display: 'flex', flexWrap: 'wrap', gap: '0.75rem', alignItems: 'center', justifyContent: 'space-between' }
     },
       React.createElement('div', { style: { flex: '1 1 260px', lineHeight: 1.5 } },
         DC && React.createElement('code', { style: { fontSize: 'var(--text-2xs)', color: currentTheme.textSecondary, marginRight: '0.4rem' } }, DC.CODES.skinMisfiled),
@@ -5003,7 +4915,7 @@ function InvestmentTracker() {
           `${found.slice(0, 3).map(f => f.symbol).join(', ')}${found.length > 3 ? ' …' : ''} - ${__('skinMisfiledHint', 'they get no price there. Move them to CS2 Skins to get their skin prices.')}`)),
       React.createElement('button', {
         onClick: () => repairMisfiledSkins(found), disabled: skinRepairBusy,
-        style: { padding: '0.5rem 1rem', minHeight: '40px', background: (currentTheme.accentFill || currentTheme.accent), color: '#fff', border: 'none', borderRadius: '8px', cursor: skinRepairBusy ? 'wait' : 'pointer', fontWeight: '700', fontSize: 'var(--text-sm)' }
+        style: { padding: '0.5rem 1rem', minHeight: '40px', background: (currentTheme.accentFill || currentTheme.accent), color: 'var(--on-accent)', border: 'none', borderRadius: '8px', cursor: skinRepairBusy ? 'wait' : 'pointer', fontWeight: '700', fontSize: 'var(--text-sm)' }
       }, skinRepairBusy ? __('skinLookingUp', 'Looking up market names…') : __('skinMoveBtn', 'Move to CS2 Skins')));
   };
 
@@ -5014,7 +4926,7 @@ function InvestmentTracker() {
     if (!found.length) return null;
     return React.createElement('div', {
       role: 'status', 'data-testid': 'crypto-pairs', 'data-dq-code': DC.CODES.cryptoPair,
-      style: { background: `${currentTheme.warning}14`, border: `1px solid ${currentTheme.warning}55`, borderRadius: '10px', padding: '0.75rem 0.9rem', marginBottom: '1rem', fontSize: 'var(--text-sm)', color: currentTheme.text, display: 'flex', flexWrap: 'wrap', gap: '0.75rem', alignItems: 'center', justifyContent: 'space-between' }
+      style: { background: `${window.MaerminTokens.alpha(currentTheme.warning, 0x14)}`, border: `1px solid ${window.MaerminTokens.alpha(currentTheme.warning, 0x55)}`, borderRadius: '10px', padding: '0.75rem 0.9rem', marginBottom: '1rem', fontSize: 'var(--text-sm)', color: currentTheme.text, display: 'flex', flexWrap: 'wrap', gap: '0.75rem', alignItems: 'center', justifyContent: 'space-between' }
     },
       React.createElement('div', { style: { flex: '1 1 260px', lineHeight: 1.5 } },
         React.createElement('code', { style: { fontSize: 'var(--text-2xs)', color: currentTheme.textSecondary, marginRight: '0.4rem' } }, DC.CODES.cryptoPair),
@@ -5023,7 +4935,7 @@ function InvestmentTracker() {
           `${found.slice(0, 3).map(f => f.symbol).join(', ')}${found.length > 3 ? ' …' : ''} - ${__('dqCryptoPairHint', 'they get no price. Edit each row: the coin as symbol (e.g. BTC) and the quote as currency (USDT/USDC count as USD).')}`)),
       React.createElement('button', {
         onClick: () => setTxSearch(found[0].symbol),
-        style: { padding: '0.5rem 1rem', minHeight: '40px', background: (currentTheme.accentFill || currentTheme.accent), color: '#fff', border: 'none', borderRadius: '8px', cursor: 'pointer', fontWeight: '700', fontSize: 'var(--text-sm)' }
+        style: { padding: '0.5rem 1rem', minHeight: '40px', background: (currentTheme.accentFill || currentTheme.accent), color: 'var(--on-accent)', border: 'none', borderRadius: '8px', cursor: 'pointer', fontWeight: '700', fontSize: 'var(--text-sm)' }
       }, __('dcShowTx', 'Show transactions')));
   };
 
@@ -5211,7 +5123,7 @@ function InvestmentTracker() {
                               padding: '0.3rem 0.6rem',
                               background: currentTheme.accentSoft,
                               color: currentTheme.accent,
-                              border: `1px solid ${currentTheme.accent}40`,
+                              border: `1px solid ${window.MaerminTokens.alpha(currentTheme.accent, 0x40)}`,
                               borderRadius: '7px',
                               cursor: 'pointer',
                               fontSize: 'var(--text-xs)',
@@ -5351,7 +5263,7 @@ function InvestmentTracker() {
           ),
           window.MaerminTaxReport && React.createElement('button', {
             onClick: () => { const r = buildReport(); if (r) window.MaerminTaxReport.exportPDF(r); },
-            style: { padding: '0.5rem 1rem', background: (currentTheme.accentFill || currentTheme.accent), color: '#ffffff', border: 'none', borderRadius: '8px', cursor: 'pointer', fontWeight: 600 }
+            style: { padding: '0.5rem 1rem', background: (currentTheme.accentFill || currentTheme.accent), color: 'var(--on-accent)', border: 'none', borderRadius: '8px', cursor: 'pointer', fontWeight: 600 }
           }, t.exportPdf || 'Export PDF'),
           window.MaerminTaxReport && React.createElement('button', {
             onClick: () => { const r = buildReport(); if (r) window.MaerminTaxReport.exportExcel(r); },
@@ -5644,7 +5556,7 @@ function InvestmentTracker() {
         React.createElement('div', { style: { padding: '0.5rem 0.75rem', overflow: 'auto' } },
           entries.length === 0
             ? React.createElement('div', { style: { color: th.textSecondary, padding: '2rem', textAlign: 'center', fontSize: 'var(--text-base)' } }, t.securityLogEmpty || 'No events recorded yet.')
-            : entries.map((e, i) => React.createElement('div', { key: i, style: { display: 'flex', gap: '0.75rem', padding: '0.5rem 0.5rem', borderBottom: `1px solid ${th.cardBorder}33`, fontSize: 'var(--text-xs)', alignItems: 'baseline' } },
+            : entries.map((e, i) => React.createElement('div', { key: i, style: { display: 'flex', gap: '0.75rem', padding: '0.5rem 0.5rem', borderBottom: `1px solid ${window.MaerminTokens.alpha(th.cardBorder, 0x33)}`, fontSize: 'var(--text-xs)', alignItems: 'baseline' } },
                 React.createElement('span', { style: { color: th.textSecondary, fontFamily: 'ui-monospace,monospace', whiteSpace: 'nowrap', opacity: 0.8 } }, window.MaerminI18n.date(e.t, 'dateTime')),
                 React.createElement('span', { style: { color: levelColor(e.level), fontWeight: 600, whiteSpace: 'nowrap' } }, e.type),
                 React.createElement('span', { style: { color: th.text, flex: 1, wordBreak: 'break-word' } }, e.detail)
@@ -6001,7 +5913,7 @@ function InvestmentTracker() {
                       style: {
                         padding: '0.35rem 0.75rem', border: `1px solid ${newTransaction.symbol === c.sym ? c.color : currentTheme.cardBorder}`,
                         borderRadius: '6px', cursor: 'pointer', fontSize: 'var(--text-xs)', fontWeight: '600',
-                        background: newTransaction.symbol === c.sym ? `${c.color}22` : currentTheme.inputBg,
+                        background: newTransaction.symbol === c.sym ? `${window.MaerminTokens.alpha(c.color, 0x22)}` : currentTheme.inputBg,
                         color: newTransaction.symbol === c.sym ? c.color : currentTheme.textSecondary,
                         display: 'flex', alignItems: 'center', gap: '0.25rem'
                       }
@@ -6731,7 +6643,7 @@ buy,crypto,bitcoin,0.5,45000,2024-01-15,10`)
         React.createElement('label', { style: { display: 'flex', gap: '0.55rem', alignItems: 'flex-start', color: currentTheme.text, fontSize: 'var(--text-sm)', lineHeight: '1.45', marginBottom: '0.9rem', cursor: 'pointer' } },
           React.createElement('input', { type: 'checkbox', checked: recoverySaved, onChange: (e) => setRecoverySaved(e.target.checked), style: { marginTop: '0.2rem', accentColor: currentTheme.accent } }),
           React.createElement('span', null, t.rcSavedCheck || 'I\'ve saved this recovery code somewhere safe and private.')),
-        React.createElement('button', { onClick: () => finishRecoveryKit(true), disabled: !recoverySaved, style: { width: '100%', padding: '0.7rem', background: (currentTheme.accentFill || currentTheme.accent), color: '#ffffff', border: 'none', borderRadius: '8px', cursor: recoverySaved ? 'pointer' : 'not-allowed', opacity: recoverySaved ? 1 : 0.5, fontWeight: '700', fontSize: 'var(--text-base)' } }, t.rcDone || 'Done — I\'ve saved it'),
+        React.createElement('button', { onClick: () => finishRecoveryKit(true), disabled: !recoverySaved, style: { width: '100%', padding: '0.7rem', background: (currentTheme.accentFill || currentTheme.accent), color: 'var(--on-accent)', border: 'none', borderRadius: '8px', cursor: recoverySaved ? 'pointer' : 'not-allowed', opacity: recoverySaved ? 1 : 0.5, fontWeight: '700', fontSize: 'var(--text-base)' } }, t.rcDone || 'Done — I\'ve saved it'),
         React.createElement('button', { onClick: () => finishRecoveryKit(false), style: { width: '100%', marginTop: '0.5rem', padding: '0.55rem', background: 'transparent', color: currentTheme.textSecondary, border: 'none', cursor: 'pointer', fontSize: 'var(--text-sm)' } },
           (window.MaerminAuth && window.MaerminAuth.getStatus && window.MaerminAuth.getStatus().hasRecovery) ? (t.rcKeepOld || 'Cancel — keep my current code') : (t.rcNotNow || 'Not now'))
       )
@@ -6744,9 +6656,9 @@ buy,crypto,bitcoin,0.5,45000,2024-01-15,10`)
     const St = window.MaerminStorage, V = window.MaerminVault;
     if (demoMode || !St || !V || !V.isUnlocked || !V.isUnlocked() || St.isEnabled()) return null;
     const turnOn = () => St.enableAtRest().then(() => { addToast(__('atRestOn', 'Data encrypted at rest ✓'), 'success'); setSecurityRev((r) => r + 1); }, () => addToast(__('atRestFailed', 'Could not enable at-rest encryption'), 'error'));
-    return React.createElement('div', { role: 'status', 'data-testid': 'atrest-off-banner', style: { display: 'flex', alignItems: 'center', gap: '0.75rem', flexWrap: 'wrap', margin: '0.75rem 1.5rem 0', padding: '0.65rem 0.9rem', borderRadius: '10px', border: `1px solid ${currentTheme.warning}66`, background: `${currentTheme.warning}14`, color: currentTheme.text, fontSize: 'var(--text-sm)' } },
+    return React.createElement('div', { role: 'status', 'data-testid': 'atrest-off-banner', style: { display: 'flex', alignItems: 'center', gap: '0.75rem', flexWrap: 'wrap', margin: '0.75rem 1.5rem 0', padding: '0.65rem 0.9rem', borderRadius: '10px', border: `1px solid ${window.MaerminTokens.alpha(currentTheme.warning, 0x66)}`, background: `${window.MaerminTokens.alpha(currentTheme.warning, 0x14)}`, color: currentTheme.text, fontSize: 'var(--text-sm)' } },
       React.createElement('span', { style: { flex: 1, minWidth: '220px' } }, __('atRestOffBanner', 'Your portfolio is stored unencrypted in this browser. Anyone with access to this device or a copy of its profile can read it.')),
-      React.createElement('button', { type: 'button', onClick: turnOn, style: { padding: '0.4rem 0.85rem', borderRadius: '7px', border: 'none', background: currentTheme.accentFill || currentTheme.accent, color: '#ffffff', fontWeight: 700, fontSize: 'var(--text-sm)', cursor: 'pointer' } }, __('secEncryptNow', 'Encrypt now')));
+      React.createElement('button', { type: 'button', onClick: turnOn, style: { padding: '0.4rem 0.85rem', borderRadius: '7px', border: 'none', background: currentTheme.accentFill || currentTheme.accent, color: 'var(--on-accent)', fontWeight: 700, fontSize: 'var(--text-sm)', cursor: 'pointer' } }, __('secEncryptNow', 'Encrypt now')));
   };
 
   // ========== SECURITY & SYNC MODAL ==========

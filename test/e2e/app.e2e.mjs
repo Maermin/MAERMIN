@@ -2929,6 +2929,21 @@ async function runBuild(browser, label, dir) {
       ok('cleanup 6b: the Data Management section tabs are one pill row, one option pressed', Array.isArray(tabs) && tabs.length >= 3 && tabs.filter((t) => /=true$/.test(t)).length === 1 && tabs.includes('Broker Import=true') && !tabs.some((t) => /[↓↑◁◆]/.test(t)), err || JSON.stringify(tabs));
       ok('cleanup U-2: the Worker-gated cards share one empty state (demo)', Array.isArray(empties) && empties.every((x) => /:mx-empty\/demo$/.test(x)), err || JSON.stringify(empties));
       ok('cleanup V-6: brokers without a logo get distinct initial tiles (PP, PA, SC)', Array.isArray(tiles) && tiles.map((t) => t.split('|')[0]).join() === 'PP,PA,SC' && new Set(tiles.map((t) => t.split('|')[1])).size === 3, err || JSON.stringify(tiles));
+      // R1.1: the theme objects are var() references to the styles.css tokens;
+      // the light theme's tokens are live, the page background is flat (no
+      // aurora layers) and filled buttons still get the shared primary look.
+      await openView(page, 'overview');
+      await page.waitForTimeout(800);
+      const tok = await page.evaluate(() => {
+        const root = document.documentElement, cs = getComputedStyle(root), app = document.querySelector('.mx-app');
+        const fill = [...document.querySelectorAll('main button')].filter((b) => /var\(--accent-fill\)/.test(b.getAttribute('style') || ''));
+        return { theme: root.getAttribute('data-theme'), gain: cs.getPropertyValue('--gain').trim(), bg: cs.getPropertyValue('--bg').trim(),
+          meta: (document.querySelector('meta[name="theme-color"]') || {}).content, aurora: app ? getComputedStyle(app, '::after').display : 'none',
+          resolved: window.MaerminTokens.resolve('var(--loss)'), fills: fill.length, tagged: fill.filter((b) => b.classList.contains('mx-primary') || b.classList.contains('mx-selected') || b.hasAttribute('aria-pressed')).length };
+      });
+      ok('R1.1: light-theme tokens are live and resolvable (data-theme, --gain, theme-color, MaerminTokens.resolve)', tok.theme === 'white' && tok.gain === '#0a6e44' && tok.bg === '#f5f5f8' && tok.meta === '#f5f5f8' && tok.resolved === '#b32538', JSON.stringify(tok));
+      ok('R1.1: flat page background (aurora layer off)', tok.aurora === 'none', JSON.stringify(tok));
+      ok('R1.1: accent-filled buttons on var() still get the primary / selected look', tok.fills > 0 && tok.tagged === tok.fills, JSON.stringify(tok));
     } catch (e) { err = e.message.split('\n')[0]; }
     ok('cleanup V-1 / V-2: light-theme text reads at WCAG AA on the views 6b touched', !err && Object.keys(low).length === 0, err || JSON.stringify(low));
     ok('no page errors in the light-theme session', errors.length === 0, errors.join(' | '));

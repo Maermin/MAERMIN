@@ -21,7 +21,9 @@ export const NOT_UI = new Set([
   // PDF file syntax for the AES-256 security handler (P5-4.8); no UI text
   'pdf-aes.js',
   // Web Push message encryption (P5-5.1): protocol labels, no UI text
-  'push-crypto.js'
+  'push-crypto.js',
+  // CSS colour syntax for the design-token bridge (R1.1); no UI text
+  'theme-tokens.js'
 ]);
 // Files whose literals are English fallbacks of keys the guard already checks.
 export const SCAN_SKIP = new Set(['nav-model.js']);
