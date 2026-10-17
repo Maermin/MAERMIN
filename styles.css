@@ -1832,7 +1832,7 @@ html[data-theme="contrast"] .ui-card { border-width: 2px; }
 }
 .ui-chip:not(:disabled):hover { color: var(--text); background: var(--surface-2); }
 .ui-chip[aria-pressed="true"] { background: var(--text); border-color: var(--text); color: var(--bg); }
-.ui-chip__count { font-size: var(--type-caption); opacity: 0.75; }
+.ui-chip__count { font-size: var(--type-caption); font-weight: 500; }
 .ui-tone-chip { display: inline-flex; align-items: center; padding: 2px var(--space-2); border-radius: var(--radius-pill); font-size: var(--type-caption); font-weight: 600; white-space: nowrap; }
 .ui-tone-chip.tone-gain { background: color-mix(in srgb, var(--gain) 13%, transparent); }
 .ui-tone-chip.tone-loss { background: color-mix(in srgb, var(--loss) 13%, transparent); }

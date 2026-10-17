@@ -2956,8 +2956,9 @@ async function runBuild(browser, label, dir) {
       // R1.1: the theme objects are var() references to the styles.css tokens;
       // the light theme's tokens are live, the page background is flat (no
       // aurora layers) and filled buttons still get the shared primary look
-      // (R3.1: the Overview has no legacy filled buttons left; Transactions has).
-      await openView(page, 'transactions');
+      // (R3.1 / R3.3: the Overview and Transactions have no legacy filled
+      // buttons left; Savings plans has, until R4.5).
+      await openView(page, 'savings-plans');
       await page.waitForTimeout(800);
       const tok = await page.evaluate(() => {
         const root = document.documentElement, cs = getComputedStyle(root), app = document.querySelector('.mx-app');
