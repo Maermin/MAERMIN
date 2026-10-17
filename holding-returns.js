@@ -118,11 +118,12 @@
     var by = {}, all = [];
     ((built && built.list) || []).forEach(function (g) {
       if (!g || g.category === 'options') return;
+      var hk = String(g.key).split('|p:')[0]; // a perPortfolio build: one holding, one key
       (g.disposals || []).forEach(function (d) {
-        var k = g.key + '@' + d.disposalDate;
+        var k = hk + '@' + d.disposalDate;
         var t = by[k];
         if (!t) {
-          t = by[k] = { key: g.key, category: g.category, symbol: g.symbol, symbolName: g.symbolName || '', date: d.disposalDate, qty: 0, cost: 0, proceeds: 0, wdays: 0, lots: 0, opened: d.acquisitionDate };
+          t = by[k] = { key: hk, category: g.category, symbol: g.symbol, symbolName: g.symbolName || '', date: d.disposalDate, qty: 0, cost: 0, proceeds: 0, wdays: 0, lots: 0, opened: d.acquisitionDate };
           all.push(t);
         }
         t.qty += d.qty; t.cost += d.costBasis; t.proceeds += d.proceeds; t.wdays += d.qty * d.holdingPeriodDays; t.lots++;

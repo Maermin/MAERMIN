@@ -94,6 +94,14 @@ ok('the tax report\'s pooled FIFO is unchanged (the sale takes A\'s 2020 lot: 94
 const byPf = L.build(allTxs, { exchangeRate: RATE, fxAt, perPortfolio: true });
 ok('ledger perPortfolio: one group per portfolio, each carrying its portfolioId', byPf.list.filter((g) => g.symbol === 'SAP').map((g) => g.portfolioId).sort().join() === 'default,pf_b');
 
+const closedOf = (t) => L.closedPositions(L.build(t, { exchangeRate: RATE, fxAt, perPortfolio: true }));
+ok('closed positions keep the plain holding key (no "|p:"), one row per holding', (() => {
+  const c = closedOf([s({ id: 'c1', type: 'buy', quantity: 2, price: 100, date: '2020-01-02', portfolioId: 'default' }), s({ id: 'c2', type: 'sell', quantity: 2, price: 150, date: '2021-01-02', portfolioId: 'default' }),
+    s({ id: 'c3', type: 'buy', quantity: 1, price: 100, date: '2020-01-02', portfolioId: 'pf_b' }), s({ id: 'c4', type: 'sell', quantity: 1, price: 90, date: '2022-01-02', portfolioId: 'pf_b' })]);
+  return c.length === 1 && c[0].key === 'stocks|SAP' && approx(c[0].gain, 90) && c[0].closed === '2022-01-02';
+})());
+ok('a holding sold out in one portfolio but held in another is not closed', closedOf(allTxs).every((c) => c.symbol !== 'SAP'));
+
 console.log('cash, transfers and net worth:');
 const clr = {};
 ['default', 'pf_b'].forEach((id) => { clr[id] = L.clearingBalance(txs, id, opts); });

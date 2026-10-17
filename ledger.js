@@ -276,7 +276,18 @@
     opts = opts || {};
     var eps = opts.eps > 0 ? opts.eps : 1e-9;
     var out = [];
+    // A perPortfolio build: the groups of one holding count as one position
+    // (closed only when no portfolio holds it any more; key without '|p:').
+    var merged = {}, list = [];
     ((built && built.list) || []).forEach(function (g) {
+      if (!g || g.portfolioId == null) { list.push(g); return; }
+      var k = g.key.split('|p:')[0], m = merged[k];
+      if (!m) { m = merged[k] = Object.assign({}, g, { key: k, disposals: [], openQty: 0, oversold: 0 }); delete m.portfolioId; list.push(m); }
+      m.disposals = m.disposals.concat(g.disposals || []);
+      m.openQty += g.openQty || 0;
+      m.oversold += g.oversold || 0;
+    });
+    list.forEach(function (g) {
       if (!g || g.category === 'options' || g.openQty > eps || !(g.disposals && g.disposals.length)) return;
       var cost = 0, proceeds = 0, qty = 0, opened = '', closed = '';
       g.disposals.forEach(function (d) {
