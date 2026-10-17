@@ -917,7 +917,7 @@ function StressTestView({ portfolio, prices, t, theme, currency, formatPrice }) 
                   borderRadius: '4px',
                   fontSize: '0.75rem',
                   fontWeight: '600',
-                  background: impact < 0 ? 'rgba(239,68,68,0.2)' : 'rgba(34,197,94,0.2)',
+                  background: impact < 0 ? 'color-mix(in srgb, var(--danger) 20%, transparent)' : 'color-mix(in srgb, var(--success) 20%, transparent)',
                   color: impact < 0 ? theme.danger : theme.success
                 }
               }, `${stressAssetLabel(asset)}: ${window.MaerminI18n.pct(impact * 100, 0)}`)

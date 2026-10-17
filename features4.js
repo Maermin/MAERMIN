@@ -33,7 +33,7 @@ function StatCell({ label, value, sub, color, theme }) {
     style: { background: theme.card, border: `1px solid ${theme.cardBorder}`, borderRadius: '14px', padding: '1.1rem 1.25rem', boxShadow: theme.shadow }
   },
     React.createElement('div', { style: { color: theme.textSecondary, fontSize: '0.72rem', fontWeight: '600', textTransform: 'uppercase', letterSpacing: '0.07em', marginBottom: '0.3rem' } }, label),
-    React.createElement('div', { style: { color: color || theme.text, fontSize: '1.5rem', fontWeight: '800', letterSpacing: '-0.02em', lineHeight: 1 } }, value),
+    React.createElement('div', { style: { color: ((window.MaerminUtils && window.MaerminUtils.ink) ? window.MaerminUtils.ink(color) : color) || theme.text, fontSize: '1.5rem', fontWeight: '800', letterSpacing: '-0.02em', lineHeight: 1 } }, value),
     sub && React.createElement('div', { style: { color: theme.textSecondary, fontSize: '0.75rem', marginTop: '0.25rem' } }, sub)
   );
 }
@@ -542,7 +542,7 @@ function SavingsPlanView({ transactions, theme, formatPrice, getCurrencySymbol, 
                     React.createElement('span', {
                       style: {
                         fontSize: '0.66rem', padding: '0.12rem 0.45rem', borderRadius: '4px', fontWeight: '700', textTransform: 'uppercase',
-                        background: plan.status === 'active' ? 'rgba(34,197,94,0.15)' : plan.status === 'completed' ? 'rgba(148,163,184,0.18)' : 'rgba(245,158,11,0.18)',
+                        background: plan.status === 'active' ? 'color-mix(in srgb, var(--success) 15%, transparent)' : plan.status === 'completed' ? 'color-mix(in srgb, var(--text-dim) 18%, transparent)' : 'color-mix(in srgb, var(--warning) 18%, transparent)',
                         color: plan.status === 'active' ? theme.success : plan.status === 'completed' ? theme.textSecondary : theme.warning
                       }
                     }, ({ active: __('spStatusActive', 'active'), completed: __('spStatusCompleted', 'completed'), paused: __('spStatusPaused', 'paused') })[plan.status] || plan.status),
@@ -558,7 +558,7 @@ function SavingsPlanView({ transactions, theme, formatPrice, getCurrencySymbol, 
                   React.createElement('div', {
                     style: {
                       width: 56, height: 56, borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', flexDirection: 'column',
-                      background: `conic-gradient(${plan.adherence >= 80 ? '#22c55e' : plan.adherence >= 50 ? '#f59e0b' : '#ef4444'} ${plan.adherence * 3.6}deg, rgba(255,255,255,0.08) 0deg)`,
+                      background: `conic-gradient(${plan.adherence >= 80 ? 'var(--success)' : plan.adherence >= 50 ? 'var(--warning)' : 'var(--danger)'} ${plan.adherence * 3.6}deg, rgba(255,255,255,0.08) 0deg)`,
                       position: 'relative'
                     }
                   },

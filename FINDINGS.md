@@ -17,7 +17,7 @@ This run found 4 there, all Low, all fixed in #184. SEC-009 stays open by the ow
 | Critical | 0 |
 | High | 0 |
 | Medium | 0 |
-| Low | 2 |
+| Low | 1 |
 
 Severity: **Critical** = wrong money or tax figures in a realistic case, or data loss ·
 **High** = a core feature is broken or misleading · **Medium** = real friction, or wrong
@@ -26,11 +26,6 @@ in an edge case · **Low** = polish.
 ---
 
 ## Low
-
-### O-2 Fixed colours remain outside text colours
-- **Where:** 256 fixed semantic hexes (`#22c55e`, `#ef4444`, `#f59e0b`, `#3b82f6` …) are still in the JS. 129 of them are `theme.x || '#…'` fallbacks; the rest are backgrounds, borders, chart palettes and SVG strokes.
-- **Effect:** none on contrast today. The demo scan over all 29 views finds no text below AA in either theme. But a theme change has to touch these places by hand.
-- **Fix:** move backgrounds and borders to the theme tokens (`color-mix` with `var(--success)` …), the way `txTypeInfo` does since #187.
 
 ### O-3 Type sizes are still inline
 - **Where:** 49 distinct inline font sizes, 1,577 uses. The type tokens (`--text-xs…xl`, `MaerminUI.tokens.text`, #186) are used by the shared components only.

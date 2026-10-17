@@ -286,7 +286,7 @@ function __(k, f, v) { return (typeof window !== 'undefined' && window.MaerminI1
           e('button', {
             disabled: !vap,
             onClick: function () { if (vap) { GT.saveVapRecord(r.symbol, year, vap.vorabpauschale); setSavedTick(savedTick + 1); changed(); } },
-            style: { padding: '0.3rem 0.7rem', borderRadius: '6px', border: 'none', cursor: vap ? 'pointer' : 'default', fontSize: '0.72rem', fontWeight: 700, background: savedAmt != null ? 'rgba(34,197,94,0.15)' : ((theme.accentFill || theme.accent) || '#8b7cff'), color: savedAmt != null ? good : '#ffffff', opacity: vap ? 1 : 0.5 }
+            style: { padding: '0.3rem 0.7rem', borderRadius: '6px', border: 'none', cursor: vap ? 'pointer' : 'default', fontSize: '0.72rem', fontWeight: 700, background: savedAmt != null ? 'color-mix(in srgb, var(--success) 15%, transparent)' : ((theme.accentFill || theme.accent) || '#8b7cff'), color: savedAmt != null ? good : '#ffffff', opacity: vap ? 1 : 0.5 }
           }, savedAmt != null ? __('gtSavedAmt', 'Saved {amount}', { amount: amt(savedAmt) }) : __('save', 'Save'))));
     });
 
@@ -437,7 +437,7 @@ function __(k, f, v) { return (typeof window !== 'undefined' && window.MaerminI1
         control);
     }
     function toggle(on, onClick) {
-      return e('button', { onClick: onClick, style: { padding: '0.3rem 0.8rem', borderRadius: '6px', border: 'none', cursor: 'pointer', fontSize: '0.74rem', fontWeight: 700, background: on ? (theme.success || '#22c55e') : inputBg, color: on ? '#08130a' : dim } }, on ? __('secOn', 'On') : __('dashOff', 'Off'));
+      return e('button', { onClick: onClick, style: { padding: '0.3rem 0.8rem', borderRadius: '6px', border: 'none', cursor: 'pointer', fontSize: '0.74rem', fontWeight: 700, background: on ? (theme.success || 'var(--success)') : inputBg, color: on ? '#08130a' : dim } }, on ? __('secOn', 'On') : __('dashOff', 'Off'));
     }
 
     var TF_TYPES = [['aktienfonds', __('gtEquityFund', 'Equity fund'), 0.30], ['mischfonds', __('gtMixedFund', 'Mixed fund'), 0.15], ['immobilienfonds', __('gtRealEstateFund', 'Real-estate fund'), 0.60], ['auslandsimmobilienfonds', __('gtForeignReFund', 'Foreign RE fund'), 0.80]];

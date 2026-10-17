@@ -263,7 +263,7 @@ function PositionDetailModal({ position, transactions, prices, theme, formatPric
           React.createElement('div', { style: { display: 'flex', gap: '0.5rem', marginTop: '0.25rem', alignItems: 'center' } },
             React.createElement('span', {
               style: { fontSize: '0.65rem', fontWeight: '700', padding: '0.15rem 0.4rem', borderRadius: '4px',
-                background: position.cat === 'crypto' ? 'rgba(245,158,11,0.15)' : position.cat === 'stocks' ? 'rgba(59,130,246,0.15)' : 'rgba(6,182,212,0.15)',
+                background: position.cat === 'crypto' ? 'color-mix(in srgb, var(--warning) 15%, transparent)' : position.cat === 'stocks' ? 'color-mix(in srgb, var(--info) 15%, transparent)' : 'rgba(6,182,212,0.15)',
                 color: position.cat === 'crypto' ? 'var(--warning)' : position.cat === 'stocks' ? 'var(--info)' : '#06b6d4' }
             }, window.MaerminI18n.category(position.cat).toUpperCase()),
             React.createElement('span', { style: { color: theme.textSecondary, fontSize: '0.8rem' } },
@@ -761,7 +761,7 @@ function SymbolPicker({ category, workerUrl, theme, onSelect, selectedSymbol, se
       selected && React.createElement('button', {
         onClick: clear,
         title: __('clearSelection', 'Clear selection'), 'aria-label': __('clearSelection', 'Clear selection'),
-        style: { padding: '0.5rem', background: 'rgba(239,68,68,0.1)', border: '1px solid rgba(239,68,68,0.2)', borderRadius: '6px', color: 'var(--danger)', cursor: 'pointer', fontSize: '0.875rem', lineHeight: 1 }
+        style: { padding: '0.5rem', background: 'color-mix(in srgb, var(--danger) 10%, transparent)', border: '1px solid color-mix(in srgb, var(--danger) 20%, transparent)', borderRadius: '6px', color: 'var(--danger)', cursor: 'pointer', fontSize: '0.875rem', lineHeight: 1 }
       }, '×')
     ),
 
@@ -799,13 +799,13 @@ function SymbolPicker({ category, workerUrl, theme, onSelect, selectedSymbol, se
         ),
         // The exact symbol that will be saved — most important part
         React.createElement('div', {
-          style: { display: 'flex', alignItems: 'center', gap: '0.375rem', padding: '0.25rem 0.5rem', background: 'rgba(34,197,94,0.1)', border: '1px solid rgba(34,197,94,0.25)', borderRadius: '5px', width: 'fit-content' }
+          style: { display: 'flex', alignItems: 'center', gap: '0.375rem', padding: '0.25rem 0.5rem', background: 'color-mix(in srgb, var(--success) 10%, transparent)', border: '1px solid color-mix(in srgb, var(--success) 25%, transparent)', borderRadius: '5px', width: 'fit-content' }
         },
           React.createElement('span', { style: { color: 'var(--success)', fontSize: '0.7rem' } }, '✓'),
           React.createElement('span', { style: { color: 'var(--success)', fontWeight: '700', fontSize: '0.8rem', fontFamily: 'monospace', letterSpacing: '0.03em' } },
             isCrypto ? selected.symbol : selected.symbol  // exact YF symbol or CoinGecko ID
           ),
-          React.createElement('span', { style: { color: 'rgba(34,197,94,0.6)', fontSize: '0.65rem' } },
+          React.createElement('span', { style: { color: 'color-mix(in srgb, var(--success) 60%, transparent)', fontSize: '0.65rem' } },
             isCrypto ? '· ' + __('spkCgId', 'CoinGecko ID') : '· ' + __('spkYfSymbol', 'Yahoo Finance symbol')
           )
         )
@@ -881,7 +881,7 @@ function SymbolPicker({ category, workerUrl, theme, onSelect, selectedSymbol, se
               React.createElement('div', { style: { display: 'flex', alignItems: 'center', gap: '0.375rem', flexWrap: 'wrap' } },
                 React.createElement('span', { style: { color: theme.text, fontWeight: '700', fontSize: '0.875rem' } }, item.ticker || item.symbol),
                 React.createElement('span', {
-                  style: { fontSize: '0.6rem', padding: '0.1rem 0.3rem', borderRadius: '3px', background: `${TYPE_COLOR[item.type] || '#3b82f6'}20`, color: TYPE_COLOR[item.type] || 'var(--info)', fontWeight: '600' }
+                  style: { fontSize: '0.6rem', padding: '0.1rem 0.3rem', borderRadius: '3px', background: `${TYPE_COLOR[item.type] || 'var(--info)'}20`, color: TYPE_COLOR[item.type] || 'var(--info)', fontWeight: '600' }
                 }, typeLabel(item.type)),
                 item.exchange && React.createElement('span', { style: { fontSize: '0.65rem', color: theme.textSecondary } }, item.exchange)
               ),
