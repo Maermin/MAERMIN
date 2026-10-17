@@ -18,6 +18,8 @@ globalThis.localStorage = { _d: {}, getItem(k) { return this._d[k] || null; }, s
 const _log = console.log; console.log = () => {};
 // the shared modules every view can rely on in the app (empty states, tokens)
 require('../utils.js'); require('../store.js'); require('../ui-store.js');
+// R2.2: the section switch is a shared component
+window.MaerminComponents = require('../renderer-components.js').Components;
 require('../investment-views.js');
 console.log = _log;
 const V = window.InvestmentViews;

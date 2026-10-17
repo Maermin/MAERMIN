@@ -1270,22 +1270,6 @@ function InvestmentAnalysisDashboard(props) {
   // P5-2.10: user-defined classification trees (taxonomies.js)
   if (typeof props.renderTaxonomies === 'function') sections.splice(6, 0, { id: 'taxonomies', label: __('ivTabTaxonomies', 'Taxonomies'), desc: __('ivTabTaxonomiesDesc', 'Your own classification trees') });
 
-  var tabStyle = function(id) {
-    var active = activeSection === id;
-    return {
-      padding: '0.5rem 1rem',
-      background: active ? (theme.accentSoft || 'rgba(139,124,255,0.12)') : 'transparent',
-      border: 'none',
-      color: active ? (theme.accent || '#8b7cff') : (theme.textSecondary || 'rgba(255,255,255,0.6)'),
-      cursor: 'pointer',
-      borderRadius: '10px',
-      fontSize: '0.875rem',
-      fontWeight: active ? '650' : '450',
-      transition: 'all 0.15s',
-      whiteSpace: 'nowrap'
-    };
-  };
-  
   var renderSectionRaw = function() {
     switch(activeSection) {
       case 'dca':      return React.createElement(DCAAnalyzerView, { portfolio: portfolio, priceHistory: dcaHistory });
@@ -1312,17 +1296,11 @@ function InvestmentAnalysisDashboard(props) {
 
   
   return React.createElement('div', null,
-    // Tab bar
-    React.createElement('div', { 
-      style: { display: 'flex', gap: '0.25rem', padding: '0 1.5rem 1rem', flexWrap: 'wrap', borderBottom: '1px solid ' + (theme.cardBorder || DEFAULT_THEME.cardBorder), marginBottom: '0' }
-    },
-      sections.map(function(s) {
-        return React.createElement('button', {
-          key: s.id,
-          type: 'button', 'aria-pressed': activeSection === s.id,
-          onClick: function() { setActiveSection(s.id); },
-          style: tabStyle(s.id)
-        }, s.label);
+    // Sections (R2.2, B-3): a segmented control, a select on phones
+    React.createElement('div', { style: { padding: '0 1.5rem 1rem', borderBottom: '1px solid ' + (theme.cardBorder || DEFAULT_THEME.cardBorder) } },
+      React.createElement(window.MaerminComponents.SectionSwitch, {
+        label: __('navStrategy', 'Strategy'), value: activeSection, onChange: setActiveSection, 'data-testid': 'iv-sections',
+        options: sections.map(function(s) { return { value: s.id, label: s.label }; })
       })
     ),
     renderSection()

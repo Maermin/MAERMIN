@@ -2124,3 +2124,51 @@ html[data-theme="contrast"] .ui-modal { border-width: 2px; }
 }
 html[data-theme="contrast"] .ui-dock, html[data-theme="contrast"] .ui-rail { border-width: 2px; }
 html[data-theme="contrast"] .ui-rail__item.is-active, html[data-theme="contrast"] .ui-dock__item.is-active { box-shadow: inset 0 0 0 2px var(--accent); }
+
+/* ============================================================================
+   R2.2 (PLAN Phase 6, B-3): one row of page tabs. The sections inside a view
+   and the tabs of a merged page are segmented controls (a select on phones
+   when there are more than three); the command palette and the shortcuts
+   dialog move onto the tokens.
+   ========================================================================== */
+.ui-section-switch { min-width: 0; max-width: 100%; }
+.ui-section-switch--view { margin-bottom: var(--space-6); }
+.ui-section-switch .ui-seg { max-width: 100%; }
+.ui-section-switch__select { margin: 0; min-width: 0; width: 100%; }
+.ui-section-switch__select .ui-select { width: 100%; max-width: 100%; }
+.mx-area-nav { padding: var(--space-4) var(--space-7) 0; align-items: flex-start; }
+.mx-area-nav .ui-seg { max-width: 100%; }
+
+.command-palette-overlay { background: color-mix(in srgb, var(--bg) 70%, transparent); backdrop-filter: none; -webkit-backdrop-filter: none; }
+html[data-mode="light"] .command-palette-overlay { background: color-mix(in srgb, var(--text) 28%, transparent); }
+.command-palette { background: var(--surface); border-radius: var(--radius-lg); box-shadow: var(--shadow-2); }
+.command-palette::before { display: none; }
+.command-palette-input { height: 56px; padding: 0 var(--space-5); font-size: var(--type-body-lg); }
+.command-palette-input:focus-visible { outline: none; }
+.command-palette:focus-within { box-shadow: var(--shadow-2), 0 0 0 2px var(--focus); }
+.command-palette-empty { padding: var(--space-4) var(--space-5); color: var(--text-dim); font-size: var(--type-body); }
+.command-result { min-height: 44px; border-radius: var(--radius); }
+.command-result:hover { background: var(--surface-2); }
+.command-result.selected { background: var(--accent-soft); box-shadow: none; }
+.command-result-icon { border-radius: var(--radius-sm); color: var(--text-dim); background: var(--surface-2); }
+.command-result.selected .command-result-icon { background: var(--accent-fill); color: var(--on-accent); }
+.command-result-label { font-size: var(--type-body); font-weight: 600; }
+.command-result-description { font-size: var(--type-caption); }
+.command-result-shortcut, .command-palette-footer kbd, .shortcut-keys kbd { background: var(--surface-2); border-color: var(--border-strong); color: var(--text-dim); }
+
+.shortcuts-modal { border-radius: var(--radius-lg); box-shadow: var(--shadow-2); }
+.shortcuts-modal-header h2 { font-size: var(--type-heading); font-weight: 600; margin: 0; }
+.shortcuts-modal-close { width: var(--control-md); height: var(--control-md); padding: 0; display: inline-flex; align-items: center; justify-content: center; border-radius: var(--radius-sm); font-size: 1.4rem; line-height: 1; }
+.shortcuts-modal-close:hover { background: var(--surface-2); }
+.shortcuts-category h3 { color: var(--text-dim); font-size: var(--type-caption); letter-spacing: 0.04em; }
+.shortcut-item { min-height: 36px; border-bottom: 1px solid var(--border); font-size: var(--type-body); }
+
+html[data-theme="contrast"] .command-palette, html[data-theme="contrast"] .shortcuts-modal { border-width: 2px; }
+
+@media (max-width: 767px) {
+  .mx-area-nav { padding: var(--space-3) var(--space-4) 0; }
+  .command-palette-overlay { padding-top: env(safe-area-inset-top); }
+  .command-palette { width: 100%; max-width: 100vw; max-height: 85vh; border-radius: 0 0 var(--radius-lg) var(--radius-lg); }
+  .command-palette-footer { display: none; }
+  .shortcuts-modal-close { width: 44px; height: 44px; }
+}
