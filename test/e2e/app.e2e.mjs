@@ -2950,15 +2950,16 @@ async function runBuild(browser, label, dir) {
     await context.close();
   }
 
-  // R1.2: the hidden component gallery (?demo&gallery) renders every shared
-  // component in all five themes without a page error; page tabs move with
-  // the arrow keys.
+  // R1.2 / R1.3: the hidden component gallery (?demo&gallery) renders every
+  // shared component in all five themes without a page error; page tabs move
+  // with the arrow keys; at 360 px nothing scrolls sideways and the Table
+  // switches to phone rows.
   {
     const context = await browser.newContext({ serviceWorkers: 'block', viewport: { width: 1280, height: 900 } });
     await wire(context, external);
     const page = await context.newPage();
     const errors = watch(page);
-    const res = { themes: [], tabs: null, sections: 0 };
+    const res = { themes: [], tabs: null, narrow: null, sections: 0 };
     let err = '';
     try {
       await page.goto(base + '/index.html?demo&gallery');
@@ -2973,9 +2974,13 @@ async function runBuild(browser, label, dir) {
       await tab.click();
       await page.keyboard.press('ArrowRight');
       res.tabs = await page.evaluate(() => { const a = document.activeElement; return a && a.getAttribute('role') === 'tab' ? a.textContent + '=' + a.getAttribute('aria-selected') : String(a && a.tagName); });
+      await page.setViewportSize({ width: 360, height: 800 });
+      await page.waitForTimeout(400);
+      res.narrow = await page.evaluate(() => ({ scroll: document.documentElement.scrollWidth, phoneRows: document.querySelectorAll('[data-testid="gallery-table"] .ui-plist__row').length, tables: document.querySelectorAll('[data-testid="gallery-table"] table').length }));
     } catch (e) { err = e.message.split('\n')[0]; }
     ok('R1.2: the component gallery renders its sections in all five themes', !err && res.sections >= 7 && res.themes.join() === 'dark:' + res.themes[0].split(':')[1] + ',white:' + res.themes[1].split(':')[1] + ',purple:' + res.themes[2].split(':')[1] + ',contrast:' + res.themes[3].split(':')[1] + ',cb:' + res.themes[4].split(':')[1] && +res.themes[0].split(':')[1] > 5, err || JSON.stringify(res));
     ok('R1.2: page tabs move with the arrow keys (roving focus, selection follows)', res.tabs === 'Portfolios=true', err || JSON.stringify(res));
+    ok('R1.3: at 360 px no sideways scroll, the Table shows phone rows', res.narrow && res.narrow.scroll <= 360 && res.narrow.phoneRows > 0 && res.narrow.tables === 0, err || JSON.stringify(res));
     ok('no page errors in the gallery', errors.length === 0, errors.join(' | '));
     await context.close();
   }

@@ -83,12 +83,68 @@
         cell('plain card', h(C.Card, { variant: 'plain', title: 'Positions', key: 3 }, h('div', { className: 'ui-gallery__plain' }, 'A table goes here, edge to edge.')))
       ])
     ];
+    // R1.3: Table (desktop + phone rows), EmptyState, Skeleton, ChartFrame, Modal
+    var so = React.useState({ key: 'value', dir: 'desc' }), sort = so[0], setSort = so[1];
+    var ss = React.useState(function () { return new Set(); }), selected = ss[0], setSelected = ss[1];
+    var sd = React.useState(false), dlg = sd[0], setDlg = sd[1];
+    var ROWS = [
+      { __group: 'May 2026', __summary: 'net cash +7,631.31 €' },
+      { id: 't1', date: 'May 15', type: 'Dividend', name: 'Microsoft Corp.', sym: 'MSFT', amount: 11.73, cur: '12.75 USD' },
+      { id: 't2', date: 'May 14', type: 'Sale', name: 'NVIDIA Corp.', sym: 'NVDA', amount: 8161.32, cur: '8,871.00 USD' },
+      { id: 't3', date: 'May 14', type: 'Tax', name: 'Abgeltungsteuer + Soli (NVDA)', sym: 'TAX', amount: -1658.14, cur: '' },
+      { __group: 'March 2026', __summary: 'net cash −3,120.00 €' },
+      { id: 't4', date: 'Mar 16', type: 'Buy', name: 'Bitcoin', sym: 'BTC', amount: -3120, cur: '' }
+    ];
+    var money = function (v) { return (v > 0 ? '+' : v < 0 ? '−' : '') + Math.abs(v).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) + ' €'; };
+    var COLS = [
+      { key: 'date', label: 'Date', priority: 1, phone: 'meta' },
+      { key: 'type', label: 'Type', priority: 2, phone: 'meta' },
+      { key: 'name', label: 'Asset', priority: 1, phone: 'title', render: function (r) { return h('span', null, h('b', { className: 'ui-gallery__sym' }, r.sym), ' ', r.name); } },
+      { key: 'cur', label: 'Original', priority: 3, align: 'right', phone: 'sub' },
+      { key: 'value', label: 'Amount', priority: 1, align: 'right', sortable: true, phone: 'value', render: function (r) { return h('span', { className: r.type === 'Dividend' ? 'tone-income' : '' }, h(C.Mask, { masked: masked }, money(r.amount))); } }
+    ];
+    var tableProps = {
+      columns: COLS, rows: ROWS, caption: 'Transactions', sort: sort, onSort: function (k, d) { setSort({ key: k, dir: d }); },
+      selected: selected, onSelect: function (k, on) { var n = new Set(selected); if (k === 'all') ROWS.forEach(function (r) { if (!r.__group) n.add(r.id); }); else if (k === 'none') n.clear(); else if (on) n.add(k); else n.delete(k); setSelected(n); },
+      rowActions: function () { return [{ label: 'Edit' }, { label: 'Duplicate' }, { label: 'Move to trash', danger: true }]; }
+    };
+    sections = sections.concat([
+      section('Table', [
+        h('div', { className: 'ui-gallery__cell ui-gallery__wide', key: 1 }, h('div', { className: 'ui-gallery__label' }, 'desktop (phone rows below 768 px)'),
+          h(C.Card, { variant: 'plain', title: 'Transactions' }, h(C.Table, Object.assign({ 'data-testid': 'gallery-table' }, tableProps)))),
+        h('div', { className: 'ui-gallery__cell', key: 2 }, h('div', { className: 'ui-gallery__label' }, 'phone rows (forced)'),
+          h(C.Card, { variant: 'plain' }, h(C.Table, Object.assign({}, tableProps, { layout: 'phone' })))),
+        h('div', { className: 'ui-gallery__cell', key: 3 }, h('div', { className: 'ui-gallery__label' }, 'loading'), h(C.Card, { variant: 'plain' }, h(C.Table, { columns: COLS, rows: [], loading: true })))
+      ]),
+      section('Empty states', [
+        cell('empty', h(C.EmptyState, { title: 'No transactions yet', text: 'Add your first buy or import a statement.', action: { label: 'Import statement', onClick: function () {} }, key: 1 })),
+        cell('needs Worker', h(C.EmptyState, { kind: 'worker', title: 'Needs your Worker', text: 'News loads through your own Worker.', action: { label: 'Open API Settings', onClick: function () {} }, key: 2 })),
+        cell('loading', h(C.EmptyState, { kind: 'loading', title: 'Loading prices…', key: 3 })),
+        cell('skeleton KPI', h(C.Skeleton, { shape: 'kpi', key: 4 })),
+        cell('skeleton text', h(C.Skeleton, { shape: 'text', lines: 3, key: 5 }))
+      ]),
+      section('Chart frame', [
+        h('div', { className: 'ui-gallery__cell ui-gallery__wide', key: 1 }, h(C.ChartFrame, {
+          title: 'Value, 12 months', subtitle: 'Both portfolios, securities', summary: 'Portfolio value over 12 months, ending at 176,756.66 euros', source: 'Sample data',
+          legend: [{ label: 'Value', value: '176,756.66 €', series: 1 }, { label: 'Money in', value: '98,701.72 €', series: 2 }],
+          table: { columns: [{ key: 'm', label: 'Month' }, { key: 'v', label: 'Value', align: 'right' }], rows: [{ id: 1, m: 'Aug 2026', v: '168,402 €' }, { id: 2, m: 'Sep 2026', v: '171,016 €' }, { id: 3, m: 'Oct 2026', v: '176,757 €' }] }
+        }, h('svg', { viewBox: '0 0 600 160', width: '100%', height: 160, 'aria-hidden': 'true' },
+          h('path', { d: 'M0 130 L60 120 L120 125 L180 100 L240 90 L300 96 L360 70 L420 74 L480 50 L540 56 L600 30', fill: 'none', stroke: 'var(--chart-1)', strokeWidth: 2 }),
+          h('path', { d: 'M0 140 L600 118', fill: 'none', stroke: 'var(--chart-2)', strokeWidth: 2, strokeDasharray: '4 4' }))))
+      ]),
+      section('Modal', [
+        cell('dialog / phone sheet', h(C.Button, { onClick: function () { setDlg(true); }, key: 1 }, 'Open dialog'))
+      ])
+    ]);
+    if (dlg) sections.push(h(C.Modal, { key: 'dlg', open: true, title: 'Add transaction', onClose: function () { setDlg(false); },
+      footer: [h(C.Button, { key: 'c', variant: 'quiet', onClick: function () { setDlg(false); } }, 'Cancel'), h(C.Button, { key: 's', variant: 'primary', onClick: function () { setDlg(false); } }, 'Save')] },
+      h(C.Input, { label: 'Symbol', placeholder: 'e.g. VWCE.DE' })));
     if (window.MaerminGallery.extra) sections = sections.concat(window.MaerminGallery.extra(h, C, { masked: masked, I: I }));
 
     return h('div', { className: 'ui-gallery', 'data-testid': 'component-gallery' },
       h('header', { className: 'ui-gallery__top' },
         h('h1', { className: 'ui-gallery__title' }, 'Component gallery'),
-        h('p', { className: 'ui-gallery__note' }, 'Hidden review page (R1.2). Demo figures only.'),
+        h('p', { className: 'ui-gallery__note' }, 'Hidden review page (R1.2 / R1.3). Demo figures only.'),
         h(C.Segmented, { label: 'Theme', value: themeName, onChange: function (v) { if (props.setTheme) props.setTheme(v); }, options: THEMES.map(function (t) { return { value: t[0], label: t[1] }; }), 'data-testid': 'gallery-theme' })),
       sections);
   }

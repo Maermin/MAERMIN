@@ -1256,6 +1256,161 @@ function Mask(props) {
 
 const Components = { toneOf, Button, IconButton, Card, Stat, Badge, Chip, ToneChip, PageTabs, Segmented, Input, Select, Mask, Spinner };
 
+// ---- R1.3: Table, Modal / Sheet, EmptyState, Skeleton, ChartFrame ---------
+
+// true below the phone breakpoint (DESIGN-SYSTEM § 2.4), live on resize.
+function useNarrow(query) {
+  const q = query || '(max-width: 767px)';
+  const get = () => (typeof window !== 'undefined' && window.matchMedia ? window.matchMedia(q).matches : false);
+  const [narrow, setNarrow] = React.useState(get);
+  React.useEffect(() => {
+    if (typeof window === 'undefined' || !window.matchMedia) return undefined;
+    const mq = window.matchMedia(q);
+    const on = () => setNarrow(mq.matches);
+    if (mq.addEventListener) mq.addEventListener('change', on); else if (mq.addListener) mq.addListener(on);
+    on();
+    return () => { if (mq.removeEventListener) mq.removeEventListener('change', on); else if (mq.removeListener) mq.removeListener(on); };
+  }, [q]);
+  return narrow;
+}
+
+// EmptyState: the shared MaerminUI.EmptyState (title, one sentence, one or more next
+// actions; kinds empty / worker / demo / loading). Re-exported so views take every
+// component from one place.
+function EmptyState(props) {
+  const UI = window.MaerminUI;
+  return UI && UI.EmptyState ? h(UI.EmptyState, props) : null;
+}
+
+// Skeleton: placeholder shapes while data loads (shown after 150 ms by CSS).
+function Skeleton(props) {
+  const shape = /^(text|kpi|row|chart|block)$/.test(props.shape) ? props.shape : 'text';
+  const n = Math.max(1, props.lines || 1);
+  return h('div', { className: cx('ui-skel', 'ui-skel--' + shape, props.className), 'aria-hidden': 'true', 'data-testid': props['data-testid'] },
+    Array.from({ length: shape === 'text' || shape === 'row' ? n : 1 }, (_, i) => h('span', { key: i, className: 'ui-skel__bar' })));
+}
+
+// Row overflow menu: one IconButton, a small menu of actions.
+function RowMenu(props) {
+  const [open, setOpen] = React.useState(false);
+  const ref = React.useRef(null);
+  React.useEffect(() => {
+    if (!open) return undefined;
+    const off = (e) => { if (ref.current && !ref.current.contains(e.target)) setOpen(false); };
+    const esc = (e) => { if (e.key === 'Escape') { e.stopPropagation(); setOpen(false); const b = ref.current && ref.current.querySelector('button'); if (b) b.focus(); } };
+    document.addEventListener('mousedown', off);
+    document.addEventListener('keydown', esc, true);
+    return () => { document.removeEventListener('mousedown', off); document.removeEventListener('keydown', esc, true); };
+  }, [open]);
+  const items = props.items || [];
+  return h('div', { className: 'ui-rowmenu', ref },
+    h(IconButton, { size: 'sm', label: props.label || __('uiRowActions', 'Actions'), 'aria-haspopup': 'menu', 'aria-expanded': open, onClick: (e) => { e.stopPropagation(); setOpen(!open); }, icon: h('span', { 'aria-hidden': 'true' }, '⋯') }),
+    open ? h('div', { className: 'ui-rowmenu__list', role: 'menu' },
+      items.map((it, i) => h('button', {
+        key: i, type: 'button', role: 'menuitem', className: cx('ui-rowmenu__item', it.danger && 'is-danger'), autoFocus: i === 0,
+        onClick: (e) => { e.stopPropagation(); setOpen(false); it.onClick && it.onClick(); }
+      }, it.label))) : null);
+}
+
+// Table: one money table for desktop, two-line rows on phones.
+//   columns: [{ key, label, align, priority (1 always, 2 tablet+, 3 desktop), render(row),
+//               sortable, phone: 'title' | 'meta' | 'value' | 'sub' }]
+//   rows: data rows; a row with `__group` is a group header ({ __group: label, __summary: node }).
+function Table(props) {
+  const cols = props.columns || [];
+  const rows = props.rows || [];
+  const narrowAuto = useNarrow();
+  const narrow = props.layout === 'phone' ? true : props.layout === 'table' ? false : narrowAuto;
+  const keyOf = props.rowKey || ((r, i) => r.id != null ? r.id : i);
+  const cell = (c, r) => (c.render ? c.render(r) : r[c.key]);
+  const sel = props.selected;
+  const selectable = !!props.onSelect;
+  if (props.loading && !rows.length) return h('div', { className: 'ui-table-wrap', 'data-testid': props['data-testid'] }, h(Skeleton, { shape: 'row', lines: 5 }));
+  if (!rows.length) return props.empty || null;
+
+  if (narrow) {
+    const pick = (role) => cols.filter((c) => c.phone === role);
+    const title = pick('title'), meta = pick('meta'), value = pick('value'), sub = pick('sub');
+    return h('ul', { className: cx('ui-plist', props.className), 'data-testid': props['data-testid'], 'aria-label': props.caption },
+      rows.map((r, i) => r.__group
+        ? h('li', { key: 'g' + i, className: 'ui-plist__group' }, h('span', null, r.__group), r.__summary ? h('span', { className: 'num' }, r.__summary) : null)
+        : h('li', {
+          key: keyOf(r, i), className: cx('ui-plist__row', props.onRowClick && 'is-clickable', sel && sel.has(keyOf(r, i)) && 'is-selected'),
+          onClick: props.onRowClick ? () => props.onRowClick(r) : undefined,
+          tabIndex: props.onRowClick ? 0 : undefined,
+          onKeyDown: props.onRowClick ? (e) => { if (e.key === 'Enter') props.onRowClick(r); } : undefined
+        },
+        h('div', { className: 'ui-plist__main' },
+          h('div', { className: 'ui-plist__title' }, title.map((c) => h('span', { key: c.key }, cell(c, r)))),
+          meta.length ? h('div', { className: 'ui-plist__meta' }, meta.map((c, k) => h('span', { key: c.key }, k ? ' · ' : '', cell(c, r)))) : null),
+        h('div', { className: cx('ui-plist__side', 'num') },
+          value.map((c) => h('div', { key: c.key, className: 'ui-plist__value' }, cell(c, r))),
+          sub.map((c) => h('div', { key: c.key, className: 'ui-plist__sub' }, cell(c, r)))),
+        props.rowActions ? h(RowMenu, { items: props.rowActions(r) }) : null)));
+  }
+
+  const sort = props.sort || {};
+  const head = h('thead', null, h('tr', null,
+    selectable ? h('th', { className: 'ui-table__check', scope: 'col' }, h('input', { type: 'checkbox', 'aria-label': __('uiSelectAll', 'Select all'),
+      checked: !!(sel && rows.filter((r) => !r.__group).every((r, i) => sel.has(keyOf(r, i)))), onChange: (e) => props.onSelect(e.target.checked ? 'all' : 'none') })) : null,
+    cols.map((c) => {
+      const dir = sort.key === c.key ? sort.dir : null;
+      return h('th', { key: c.key, scope: 'col', className: cx(c.align === 'right' && 'is-right', 'p' + (c.priority || 1)), 'aria-sort': dir ? (dir === 'asc' ? 'ascending' : 'descending') : undefined },
+        c.sortable && props.onSort ? h('button', { type: 'button', className: 'ui-table__sort', onClick: () => props.onSort(c.key, dir === 'asc' ? 'desc' : 'asc') },
+          c.label, h('span', { 'aria-hidden': 'true', className: 'ui-table__sortmark' }, dir === 'asc' ? '▲' : dir === 'desc' ? '▼' : '↕')) : c.label);
+    }),
+    props.rowActions ? h('th', { className: 'ui-table__act', scope: 'col' }, h('span', { className: 'sr-only' }, __('uiRowActions', 'Actions'))) : null));
+  const body = h('tbody', null, rows.map((r, i) => {
+    if (r.__group) {
+      return h('tr', { key: 'g' + i, className: 'ui-table__group' },
+        h('td', { colSpan: cols.length + (selectable ? 1 : 0) + (props.rowActions ? 1 : 0) },
+          h('span', null, r.__group), r.__summary ? h('span', { className: cx('num', 'ui-table__summary') }, r.__summary) : null));
+    }
+    const k = keyOf(r, i);
+    return h('tr', {
+      key: k, className: cx(props.onRowClick && 'is-clickable', sel && sel.has(k) && 'is-selected'),
+      onClick: props.onRowClick ? () => props.onRowClick(r) : undefined
+    },
+    selectable ? h('td', { className: 'ui-table__check' }, h('input', { type: 'checkbox', 'aria-label': __('uiSelectRow', 'Select row'), checked: !!(sel && sel.has(k)), onClick: (e) => e.stopPropagation(), onChange: (e) => props.onSelect(k, e.target.checked) })) : null,
+    cols.map((c) => h('td', { key: c.key, className: cx(c.align === 'right' && 'is-right num', 'p' + (c.priority || 1)) }, cell(c, r))),
+    props.rowActions ? h('td', { className: 'ui-table__act' }, h(RowMenu, { items: props.rowActions(r) })) : null);
+  }));
+  return h('div', { className: cx('ui-table-wrap', props.className), 'data-testid': props['data-testid'] },
+    h('table', { className: 'ui-table' }, props.caption ? h('caption', { className: 'sr-only' }, props.caption) : null, head, body));
+}
+
+// Modal: a dialog on MaerminUI.Overlay (focus trap, Escape, focus back). Phones get a bottom sheet.
+let dlgSeq = 0;
+function Modal(props) {
+  const Overlay = window.MaerminUI && window.MaerminUI.Overlay;
+  const narrow = useNarrow();
+  const idRef = React.useRef('ui-dlg-' + (++dlgSeq));
+  if (!props.open || !Overlay) return null;
+  const sheet = props.sheet !== false && narrow;
+  return h(Overlay, { onClose: props.onClose, dismissable: props.dismissable, className: cx('ui-modal-backdrop', sheet && 'is-sheet') },
+    h('div', { role: 'dialog', 'aria-modal': 'true', 'aria-labelledby': idRef.current, className: cx('ui-modal', sheet && 'ui-modal--sheet', props.size === 'lg' && 'ui-modal--lg', props.className), 'data-testid': props['data-testid'] },
+      sheet ? h('span', { className: 'ui-modal__handle', 'aria-hidden': 'true' }) : null,
+      h('header', { className: 'ui-modal__head' },
+        h('h2', { id: idRef.current, className: 'ui-modal__title' }, props.title),
+        props.onClose ? h(IconButton, { size: 'sm', label: __('uiClose', 'Close'), onClick: props.onClose, icon: h('span', { 'aria-hidden': 'true' }, '×') }) : null),
+      h('div', { className: 'ui-modal__body' }, props.children),
+      props.footer ? h('footer', { className: 'ui-modal__foot' }, props.footer) : null));
+}
+
+// ChartFrame: title, subtitle, the chart, a legend in words, "Show as table", source.
+function ChartFrame(props) {
+  const [asTable, setAsTable] = React.useState(false);
+  const canTable = !!(props.table && props.table.columns && props.table.rows);
+  return h(Card, { title: props.title, subtitle: props.subtitle, className: cx('ui-chart', props.className), 'data-testid': props['data-testid'],
+    action: canTable ? h(Button, { variant: 'quiet', size: 'sm', 'aria-pressed': asTable, onClick: () => setAsTable(!asTable) }, asTable ? __('uiHideTable', 'Show chart') : __('uiShowTable', 'Show as table')) : props.action },
+  asTable ? h(Table, Object.assign({ caption: props.title, layout: 'table' }, props.table)) : h('div', { className: 'ui-chart__plot', role: props.summary ? 'img' : undefined, 'aria-label': props.summary }, props.children),
+  Array.isArray(props.legend) && props.legend.length ? h('ul', { className: 'ui-chart__legend' },
+    props.legend.map((l, i) => h('li', { key: i }, h('span', { className: 'ui-chart__swatch', 'data-series': l.series || i + 1, 'aria-hidden': 'true' }), l.label, l.value != null ? h('b', { className: 'num' }, l.value) : null))) : null,
+  props.source ? h('p', { className: 'ui-chart__source' }, props.source) : null);
+}
+
+Object.assign(Components, { useNarrow, EmptyState, Skeleton, RowMenu, Table, Modal, ChartFrame });
+
 // Export components
 if (typeof window !== 'undefined') {
   window.CommandPalette = CommandPalette;

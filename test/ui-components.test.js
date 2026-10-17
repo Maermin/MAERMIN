@@ -72,5 +72,34 @@ m = html(h(C.Card, { title: 'Holdings map', subtitle: '31 positions', action: h(
 ok('Card: heading, subtitle, action, body', /<h2 class="ui-card__title">Holdings map<\/h2>/.test(m) && /31 positions/.test(m) && /Allocation/.test(m) && /ui-card__body">body/.test(m));
 ok('no inline styles in R1.2 components', !/style="/.test(html(h('div', null, h(C.Button, null, 'a'), h(C.IconButton, { label: 'b' }), h(C.Stat, { label: 'c', value: '1' }), h(C.Chip, null, 'd'), h(C.PageTabs, { tabs: [{ id: 'x', label: 'x' }] }), h(C.Card, { title: 'e' }, 'f')))));
 
+console.log('R1.3 components:');
+const COLS = [
+  { key: 'name', label: 'Asset', phone: 'title' },
+  { key: 'date', label: 'Date', priority: 2, phone: 'meta' },
+  { key: 'v', label: 'Amount', align: 'right', sortable: true, phone: 'value' }
+];
+const ROWS = [{ __group: 'May 2026', __summary: '+7,631.31 €' }, { id: 'a', name: 'NVIDIA Corp.', date: 'May 14', v: '+8,161.32 €' }, { id: 'b', name: 'Bitcoin', date: 'Mar 16', v: '−3,120.00 €' }];
+m = html(h(C.Table, { columns: COLS, rows: ROWS, layout: 'table', caption: 'Transactions', sort: { key: 'v', dir: 'desc' }, onSort: noop, rowActions: () => [{ label: 'Edit' }] }));
+ok('Table: caption, th scope, aria-sort on the sorted column, sort button', /<caption class="sr-only">Transactions<\/caption>/.test(m) && /scope="col"/.test(m) && /aria-sort="descending"/.test(m) && /ui-table__sort/.test(m), m.slice(0, 400));
+ok('Table: group row spans every column (3 + actions = 4)', /class="ui-table__group"><td colSpan="4">/.test(m), m);
+ok('Table: right-aligned money cells are tabular, priorities become classes', /class="is-right num p1"/.test(m) && /class="p2"/.test(m), m);
+ok('Table: row actions = an overflow menu with an accessible name', /aria-haspopup="menu"/.test(m) && /aria-label="Actions"/.test(m) && /sr-only">Actions/.test(m), m);
+m = html(h(C.Table, { columns: COLS, rows: ROWS, layout: 'phone', caption: 'Transactions' }));
+ok('Table phone layout: a list with group rows, title, meta and value (no <table>)', !/<table/.test(m) && /class="ui-plist"/.test(m) && /ui-plist__group/.test(m) &&
+  /ui-plist__title"><span>NVIDIA Corp\./.test(m) && /ui-plist__meta"><span>May 14/.test(m) && /ui-plist__value">\+8,161\.32/.test(m), m);
+m = html(h(C.Table, { columns: COLS, rows: [], empty: h('p', null, 'Nothing yet') }));
+ok('Table: no rows renders the given empty state', m === '<p>Nothing yet</p>', m);
+m = html(h(C.Table, { columns: COLS, rows: [], loading: true }));
+ok('Table: loading shows skeleton rows (aria-hidden)', /ui-skel ui-skel--row/.test(m) && /aria-hidden="true"/.test(m), m);
+ok('Modal: closed renders nothing', html(h(C.Modal, { open: false, title: 'X' })) === '');
+m = html(h(C.Modal, { open: true, title: 'Add transaction', onClose: noop, footer: h(C.Button, { variant: 'primary' }, 'Save') }, 'body'));
+ok('Modal: dialog, aria-modal, labelled by its title, close button with a name, footer', /role="dialog" aria-modal="true" aria-labelledby="ui-dlg-\d+"/.test(m) &&
+  /<h2 id="ui-dlg-\d+" class="ui-modal__title">Add transaction/.test(m) && /aria-label="Close"/.test(m) && /ui-modal__foot/.test(m), m);
+m = html(h(C.ChartFrame, { title: 'Value, 12 months', summary: 'Value over 12 months', source: 'Sample data', legend: [{ label: 'Value', value: '176,756.66 €' }], table: { columns: [{ key: 'm', label: 'Month' }], rows: [{ id: 1, m: 'Oct' }] } }, h('svg')));
+ok('ChartFrame: title, role=img summary, word legend, "Show as table", source', /Value, 12 months/.test(m) && /role="img" aria-label="Value over 12 months"/.test(m) && /ui-chart__legend/.test(m) && /Show as table/.test(m) && /Sample data/.test(m), m);
+m = html(h(C.EmptyState, { title: 'No transactions yet', text: 'Add one.', kind: 'empty' }));
+ok('EmptyState: the shared MaerminUI.EmptyState look', /class="mx-empty"/.test(m) && /No transactions yet/.test(m), m);
+ok('no inline styles in R1.3 components', !/style="/.test(html(h('div', null, h(C.Table, { columns: COLS, rows: ROWS, layout: 'table' }), h(C.Table, { columns: COLS, rows: ROWS, layout: 'phone' }), h(C.ChartFrame, { title: 't' }, 'x'), h(C.Skeleton, { shape: 'kpi' })))));
+
 console.log('\n' + (failed ? failed + ' failed' : 'all passed'));
 process.exit(failed ? 1 : 0);
