@@ -25,7 +25,10 @@
 //   build(transactions, { exchangeRate, fxAt, applyCorporateActions = true,
 //                         method = 'fifo'|'lifo'|'hifo'|'average',
 //                         perWallet: ['crypto'],     (P5-4.6; defaults: FIFO, pooled)
-//                         depots: [portfolioId] })   (M-15: own FIFO pool per marked depot, not crypto)
+//                         depots: [portfolioId],     (M-15: own FIFO pool per marked depot, not crypto)
+//                         perPortfolio: true })      (lots never move between portfolios: a sale
+//                                                     takes the lots of its own portfolio; each
+//                                                     group carries its `portfolioId`)
 //     → { groups: { key: Group }, list: Group[], issues: Issue[] }
 //   Group = { key, category, symbol, symbolName, symbolLogoUrl,
 //             openLots:  [{ qty, unitCostEUR, date, txId }], oldest first
@@ -205,11 +208,13 @@
       var wallet = perWallet.indexOf(cat) !== -1 ? String(tx.portfolioId || '') : null;
       var pid = String(tx.portfolioId || 'default');
       var depot = (wallet == null && cat !== 'crypto' && depots[pid]) ? pid : null;
-      var k = keyOf(tx) + (wallet != null ? '|w:' + wallet : '') + (depot != null ? '|d:' + depot : '');
+      var own = opts.perPortfolio ? pid : null;
+      var k = keyOf(tx) + (wallet != null ? '|w:' + wallet : '') + (depot != null ? '|d:' + depot : '') + (own != null ? '|p:' + own : '');
       (byKey[k] || (byKey[k] = [])).push(tx);
       var m = meta[k] || (meta[k] = { category: cat, symbol: tx.symbol || tx.name || '', symbolName: '', symbolLogoUrl: '' });
       if (wallet != null) m.wallet = wallet;
       if (depot != null) m.depot = depot;
+      if (own != null) m.portfolioId = own;
       if (!m.symbolName && tx.symbolName) m.symbolName = tx.symbolName;
       if (!m.symbolLogoUrl && tx.symbolLogoUrl) m.symbolLogoUrl = tx.symbolLogoUrl;
     });
@@ -485,7 +490,22 @@
     };
   }
 
+  // The clearing accounts of a view over `portfolioIds` (one portfolio, or all
+  // of them for "All portfolios"). clearings: the ones that exist, for XIRR
+  // (MaerminReturnFigures). merged: the one account the value path (TWR)
+  // uses - only when EVERY portfolio of the view keeps one; otherwise the cash
+  // of some would count and the money behind the others' purchases would not.
+  function viewClearing(clearingByPf, portfolioIds) {
+    var all = clearingByPf || {}, ids = (portfolioIds || []).map(String), clearings = {};
+    ids.forEach(function (id) { if (all[id]) clearings[id] = all[id]; });
+    var n = Object.keys(clearings).length;
+    var merged = (!ids.length || n !== ids.length) ? null
+      : ids.length === 1 ? all[ids[0]] : mergeClearings(ids.map(function (id) { return all[id]; }));
+    return { clearings: n ? clearings : null, merged: merged };
+  }
+
   var api = {
+    viewClearing: viewClearing,
     mergeClearings: mergeClearings,
     clearingBalance: clearingBalance,
     missingDeposits: missingDeposits,

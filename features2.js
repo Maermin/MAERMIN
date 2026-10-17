@@ -173,7 +173,7 @@ function GrossNetSwitch({ value, onChange, theme, testid }) {
     btn('gross', __('gnGross', 'Gross'), __('gnGrossTitle', 'Before taxes and fees')));
 }
 
-function ReturnsView({ transactions, portfolio, prices, priceHistory, theme, formatPrice, getCurrencySymbol, t, fxAt, exchangeRate, valuePath, historyPending, portfolioId, hasWorker, clearing, buildPath, grossNet, setGrossNet, workerUrl, hicpGeo, setHicpGeo }) {
+function ReturnsView({ transactions, portfolio, prices, priceHistory, theme, formatPrice, getCurrencySymbol, t, fxAt, exchangeRate, valuePath, historyPending, portfolioId, hasWorker, clearings, buildPath, grossNet, setGrossNet, workerUrl, hicpGeo, setHicpGeo }) {
   const gross = grossNet === 'gross';
   // P5-2.9: consumer prices (Eurostat HICP through the Worker) for the real figures
   const RRm = window.MaerminRealReturns;
@@ -198,11 +198,12 @@ function ReturnsView({ transactions, portfolio, prices, priceHistory, theme, for
 
   // P5-1.5: XIRR, total return, purchases, proceeds and fees come from the one
   // module the Overview uses too (MaerminReturnFigures), so both always agree.
-  // With a clearing account (P5-1.4) XIRR counts deposits and withdrawals.
+  // With a clearing account (P5-1.4) XIRR counts deposits and withdrawals;
+  // `clearings` = { portfolioId: clearing } of the view (all of them for "All portfolios").
   const figs = useMemo(() => window.MaerminReturnFigures.compute(transactions, {
     securitiesValueEUR: currentValue, exchangeRate, fxAt, today: window.MaerminUtils.todayISO(),
-    clearings: clearing ? { [portfolioId || 'default']: clearing } : null, gross
-  }), [transactions, currentValue, exchangeRate, fxAt, clearing, portfolioId, gross]);
+    clearings: clearings || null, gross
+  }), [transactions, currentValue, exchangeRate, fxAt, clearings, gross]);
   const xirrResult = transactions.length ? figs.xirr : null;
 
   // TWR, best source first:
@@ -329,7 +330,7 @@ function ReturnsView({ transactions, portfolio, prices, priceHistory, theme, for
     // Main KPIs
     React.createElement('div', { style: { display: 'grid', gridTemplateColumns: 'repeat(auto-fit,minmax(180px,1fr))', gap: '1rem', marginBottom: '1.5rem' } },
       React.createElement('div', { 'data-testid': 'xirr-card', 'data-real': real && real.xirr !== null ? real.xirr : '', style: { display: 'contents' } },
-        card(__('retXirr', 'XIRR (annualized)'), xirrResult !== null ? fmtPct(xirrResult) : '—', (clearing ? __('retXirrSubCash', 'Money-weighted p.a., from deposits and withdrawals') : __('retXirrSub', 'Money-weighted return p.a.'))
+        card(__('retXirr', 'XIRR (annualized)'), xirrResult !== null ? fmtPct(xirrResult) : '—', (clearings ? __('retXirrSubCash', 'Money-weighted p.a., from deposits and withdrawals') : __('retXirrSub', 'Money-weighted return p.a.'))
           + (real && real.xirr !== null ? ' · ' + __('rrRealPa', 'real {pct} p.a.', { pct: fmtPct(real.xirr) }) : ''), xirrResult !== null ? color(xirrResult) : theme.textSecondary)),
       React.createElement('div', { 'data-testid': 'twr-card', 'data-source': twrInfo.source, 'data-real': real && real.twr ? real.twr.real : '', style: { display: 'contents' } },
         card('TWR', twrResult !== null ? fmtPct(twrResult) : '—', twrSubCash

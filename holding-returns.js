@@ -223,7 +223,7 @@
     var groups = React.useMemo(function () { return irrBy(txs, { valueOf: valueOf, today: today, toEUR: toEUR, basis: basis, tags: tags }); }, [txs, values, basis, tags, props.exchangeRate, props.fxAt]);
     var tr = React.useMemo(function () {
       var L = W.MaerminLedger;
-      return L ? trades(L.build(txs, { exchangeRate: props.exchangeRate, fxAt: props.fxAt })) : { all: [], best: [], worst: [] };
+      return L ? trades(L.build(txs, { exchangeRate: props.exchangeRate, fxAt: props.fxAt, perPortfolio: true })) : { all: [], best: [], worst: [] };
     }, [txs, props.exchangeRate, props.fxAt]);
     var cf = React.useMemo(function () { return capitalFlow(txs, { toEUR: toEUR, today: today }); }, [txs, props.exchangeRate, props.fxAt]);
 

@@ -285,13 +285,19 @@ function InvestmentTracker() {
   const [demoPortfolioId, setDemoPortfolioId] = useState('default');
   const demoPortfolios = useMemo(() => (demoMode && window.MaerminDemo && window.MaerminDemo.getPortfolios) ? window.MaerminDemo.getPortfolios().map((p) => Object.assign({}, p, { name: p.id === 'default' ? __('demoPfMain', 'Main depot') : __('demoPfBroker', 'Savings plan broker') })) : null, [demoMode]);
   const portfolioHook = (demoPortfolios && savedPortfolioHook) ? Object.assign({}, savedPortfolioHook, {
-    portfolios: demoPortfolios, activePortfolioId: demoPortfolios.some((p) => p.id === demoPortfolioId) ? demoPortfolioId : 'default',
+    portfolios: demoPortfolios, activePortfolioId: (demoPortfolioId === window.MaerminMetrics.ALL_PORTFOLIOS || demoPortfolios.some((p) => p.id === demoPortfolioId)) ? demoPortfolioId : 'default',
     setActivePortfolioId: setDemoPortfolioId, addPortfolio: () => null, removePortfolio: () => {}, restorePortfolio: () => {},
     renamePortfolio: () => {}, setClearing: () => {}, setSeparateDepot: () => {}
   }) : savedPortfolioHook;
   const portfolios       = portfolioHook?.portfolios       || [{ id: 'default', name: 'Main Portfolio', color: '#8b7cff' }];
   const activePortfolioId = portfolioHook?.activePortfolioId || 'default';
   const setActivePortfolioId = portfolioHook?.setActivePortfolioId || (() => {});
+  // "All portfolios" (MaerminMetrics.ALL_PORTFOLIOS) is a read-only view of
+  // every portfolio's live transactions: nothing is ever booked into it. A new
+  // row or an import made while it is selected goes to the main portfolio
+  // (the transaction form lets the user pick another one).
+  const isAllActive = window.MaerminMetrics.isAllPortfolios(activePortfolioId);
+  const writePortfolioId = isAllActive ? ((portfolios.find(p => p.id === 'default') || portfolios[0] || { id: 'default' }).id) : activePortfolioId;
 
   // Transactions - the source of truth for portfolio
   const [transactions, setTransactions] = useState(() => {
@@ -441,9 +447,9 @@ function InvestmentTracker() {
     return list;
   }, [transactions, exchangeRate, fxAt, corpActionsRev, clearingByPf, portfolios]);
 
-  // Transactions filtered to the active portfolio
+  // Transactions of the active portfolio (every portfolio's for "All portfolios")
   const activeTransactions = useMemo(() =>
-    transactions.filter(tx => (tx.portfolioId || 'default') === activePortfolioId),
+    window.MaerminMetrics.portfolioTransactions(transactions, activePortfolioId),
   [transactions, activePortfolioId]);
 
   // Portfolio derived from transactions
@@ -451,11 +457,17 @@ function InvestmentTracker() {
   // shared MaerminMetrics.buildPositions so this never drifts from the all-mode
   // build, the dividend/health calcs or the stats below.
   const portfolio = useMemo(
-    () => window.MaerminMetrics.buildPositions(activeTransactions, { exchangeRate, fxAt }),
+    () => isAllActive ? allPortfoliosPortfolio : window.MaerminMetrics.buildPositions(activeTransactions, { exchangeRate, fxAt }),
     // corpActionsRev: splits are an overlay read by buildPositions, so re-run it
     // when one is added/removed (they are not part of the transactions array).
-    [activeTransactions, exchangeRate, fxAt, corpActionsRev]
+    [isAllActive, allPortfoliosPortfolio, activeTransactions, exchangeRate, fxAt, corpActionsRev]
   );
+
+  // The clearing accounts of the active view: `clearings` for XIRR, `merged`
+  // for the value path (all portfolios combined when "All portfolios" is
+  // active, so a transfer between two of them cancels out).
+  const activeClearing = useMemo(() => window.MaerminLedger.viewClearing(clearingByPf,
+    isAllActive ? portfolios.map(p => p.id) : [activePortfolioId]), [clearingByPf, portfolios, isAllActive, activePortfolioId]);
   
   // UI State
   // Restore the last active view across sessions; renderView's default case
@@ -675,7 +687,7 @@ function InvestmentTracker() {
       const accounts = JSON.parse(localStorage.getItem('maermin_networth_accounts') || '[]');
       if (!Array.isArray(accounts) || !accounts.some(a => IN.isInterestBearing(a))) return;
       const ledger = IN.loadLedger();
-      const out = IN.runCatchUp({ accounts, transactions, ledger, asOf: window.MaerminUtils.todayISO(), portfolioId: activePortfolioId });
+      const out = IN.runCatchUp({ accounts, transactions, ledger, asOf: window.MaerminUtils.todayISO(), portfolioId: writePortfolioId });
       if (out.created.length) {
         localStorage.setItem('maermin_networth_accounts', JSON.stringify(out.accounts));
         IN.saveLedger(out.ledger);
@@ -683,7 +695,7 @@ function InvestmentTracker() {
         addToast(`${out.created.length} ${t.interestBookedToast || 'interest accrual(s) booked'}`, 'success');
       }
     } catch (e) { console.warn('[INTEREST] catch-up failed:', e); }
-  }, [transactions, activePortfolioId, demoMode, startupSynced]);
+  }, [transactions, writePortfolioId, demoMode, startupSynced]);
 
   // P5-3.9: bond coupons and redemptions (bonds.js), booked on their dates
   // for the nominal held; idempotent per (portfolio, bond, date).
@@ -709,12 +721,24 @@ function InvestmentTracker() {
   const [divAutoBook, setDivAutoBook] = useState(() => {
     try { return !!(window.MaerminDividendExecutor && window.MaerminDividendExecutor.isEnabled()); } catch (e) { return false; }
   });
+  // The payouts due, booked into the portfolio that held the shares: under
+  // "All portfolios" one pass per portfolio, never a row in the aggregate.
+  const dividendsDue = (EX, DS) => {
+    const M = window.MaerminMetrics;
+    const ids = isAllActive ? portfolios.map(p => p.id) : [activePortfolioId];
+    let created = [];
+    ids.forEach((id) => {
+      const pf = isAllActive ? M.buildPositions(M.portfolioTransactions(transactions, id), { exchangeRate, fxAt }) : portfolio;
+      const sched = DS.buildPaymentSchedule(pf, { back: 12, months: 0 });
+      created = created.concat(EX.runCatchUp(sched, transactions, id, undefined, EX.loadSkipped ? EX.loadSkipped() : []).created);
+    });
+    return { created };
+  };
   const bookDividends = useCallback((announce) => {
     const EX = window.MaerminDividendExecutor, DS = window.DividendDataService;
     if (!EX || !DS) { if (announce) addToast(__('divEngineMissing', 'Dividend engine not loaded'), 'warning'); return; }
     try {
-      const sched = DS.buildPaymentSchedule(portfolio, { back: 12, months: 0 });
-      const out = EX.runCatchUp(sched, transactions, activePortfolioId, undefined, EX.loadSkipped ? EX.loadSkipped() : []);
+      const out = dividendsDue(EX, DS);
       if (!out.created.length) { if (announce) addToast(t.divNoneToBook || 'No new dividends to book', 'info'); return; }
       const book = () => {
         const ids = new Set(out.created.map(tx => tx.id));
@@ -733,7 +757,7 @@ function InvestmentTracker() {
         confirmLabel: __('divBookConfirm', 'Book')
       }).then((yes) => { if (yes) book(); });
     } catch (e) { console.warn('[DIV] booking failed:', e); }
-  }, [portfolio, transactions, activePortfolioId]);
+  }, [portfolio, transactions, activePortfolioId, portfolios, exchangeRate, fxAt]);
   const toggleDivAutoBook = useCallback(() => {
     setDivAutoBook(prev => {
       const next = !prev;
@@ -746,11 +770,10 @@ function InvestmentTracker() {
     const EX = window.MaerminDividendExecutor, DS = window.DividendDataService;
     if (!EX || !DS) return;
     try {
-      const sched = DS.buildPaymentSchedule(portfolio, { back: 12, months: 0 });
-      const out = EX.runCatchUp(sched, transactions, activePortfolioId, undefined, EX.loadSkipped ? EX.loadSkipped() : []);
+      const out = dividendsDue(EX, DS);
       if (out.created.length) { setTransactions(prev => prev.concat(out.created)); addToast(`${out.created.length} ${t.divAutoBookedToast || 'dividend(s) auto-booked (estimated)'}`, 'success'); }
     } catch (e) { /* best-effort */ }
-  }, [divAutoBook, transactions, portfolio, activePortfolioId, demoMode, startupSynced]);
+  }, [divAutoBook, transactions, portfolio, activePortfolioId, portfolios, exchangeRate, fxAt, demoMode, startupSynced]);
 
   // Forms & Modals
   const [newTransaction, setNewTransaction] = useState({
@@ -777,6 +800,13 @@ function InvestmentTracker() {
   const showTransactionModal = window.MaerminStore.useStore(window.MaerminUI.overlays, s => !!s.transactionModal);
   const setShowTransactionModal = (v) => { const n = typeof v === 'function' ? v(showTransactionModal) : v; n ? window.MaerminUI.openOverlay('transactionModal') : window.MaerminUI.closeOverlay('transactionModal'); };
   const [overviewMode, setOverviewMode] = useState('all'); // 'all' | activePortfolioId
+  // The Overview opens on "All portfolios" and then follows the active
+  // portfolio wherever it is changed (Portfolios view, transaction jump).
+  const ovFollowRef = useRef(false);
+  useEffect(() => {
+    if (ovFollowRef.current) setOverviewMode(activePortfolioId);
+    ovFollowRef.current = true;
+  }, [activePortfolioId]);
   // Which sidebar hub (Analytics / Discover & Tools) is expanded. '' = none.
   const [editingTransactionId, setEditingTransactionId] = useState(null); // null = adding new, id = editing
   const showImportModal = window.MaerminStore.useStore(window.MaerminUI.overlays, s => !!s.importModal);
@@ -1072,14 +1102,13 @@ function InvestmentTracker() {
     return out;
   }, [portfolio, prices, demoMode]);
   // P5-2.1: the active portfolio's clearing account for the attribution card
-  const returnsClearings = useMemo(() => (clearingByPf[activePortfolioId] ? { [activePortfolioId]: clearingByPf[activePortfolioId] } : null),
-    [clearingByPf, activePortfolioId]);
-  const valuePath = useMemo(() => buildValuePath(activeTransactions, clearingByPf[activePortfolioId]),
-    [activeTransactions, closeSeriesEUR, fetchedPrices, exchangeRate, fxAt, corpActionsRev, demoMode, clearingByPf, activePortfolioId]);
+  const returnsClearings = activeClearing.clearings;
+  const valuePath = useMemo(() => buildValuePath(activeTransactions, activeClearing.merged),
+    [activeTransactions, closeSeriesEUR, fetchedPrices, exchangeRate, fxAt, corpActionsRev, demoMode, activeClearing]);
   // P5-2.5: Analysis → Returns follows the gross / net switch; every other
   // view (risk, analytics, Overview) keeps the net path above.
-  const returnsPath = useMemo(() => (grossNet === 'gross' ? buildValuePath(activeTransactions, clearingByPf[activePortfolioId], { gross: true }) : valuePath),
-    [grossNet, valuePath, activeTransactions, closeSeriesEUR, fetchedPrices, exchangeRate, fxAt, corpActionsRev, demoMode, clearingByPf, activePortfolioId]);
+  const returnsPath = useMemo(() => (grossNet === 'gross' ? buildValuePath(activeTransactions, activeClearing.merged, { gross: true }) : valuePath),
+    [grossNet, valuePath, activeTransactions, closeSeriesEUR, fetchedPrices, exchangeRate, fxAt, corpActionsRev, demoMode, activeClearing]);
   // P5-1.8: the demo records no snapshots - period returns read the daily value
   // of all demo portfolios instead (securities only, like the snapshots).
   const demoPeriodSeries = useMemo(() => {
@@ -2434,7 +2463,7 @@ function InvestmentTracker() {
       currency: newTransaction.currency || 'EUR',
       date: newTransaction.date,
       notes: newTransaction.notes || '',
-      portfolioId: newTransaction.targetPortfolioId || activePortfolioId,
+      portfolioId: newTransaction.targetPortfolioId || writePortfolioId,
       counterPortfolioId: newTransaction.counterPortfolioId || ''
     };
     const res = window.MaerminUtils.upsertCash(transactions, form, editingTransactionId);
@@ -2537,7 +2566,7 @@ function InvestmentTracker() {
       date: newTransaction.date,
       notes: newTransaction.notes,
       currency: newTransaction.currency || currency,
-      portfolioId: newTransaction.targetPortfolioId || activePortfolioId,
+      portfolioId: newTransaction.targetPortfolioId || writePortfolioId,
       ...(newTransaction.skinIconUrl ? { skinIconUrl: newTransaction.skinIconUrl } : {}),
       ...(newTransaction.type === 'dividend' ? { withholdingTax: (isNaN(wht) || wht < 0) ? 0 : wht } : {}),
       ...(optionFields || {}),
@@ -2580,7 +2609,7 @@ function InvestmentTracker() {
     const initial = {
       type: 'buy',
       // Start on the category entered last here (it was always Crypto).
-      category: window.MaerminUtils.defaultTxCategory(transactions, activePortfolioId,
+      category: window.MaerminUtils.defaultTxCategory(transactions, writePortfolioId,
         ['crypto', 'stocks', 'skins', 'commodities', 'options', 'bonds'].concat(window.MaerminCategories ? window.MaerminCategories.ids() : [])),
       symbol: '',
       quantity: '',
@@ -2589,7 +2618,7 @@ function InvestmentTracker() {
       fees: '',
       notes: '',
       currency: currency,
-      targetPortfolioId: activePortfolioId,
+      targetPortfolioId: writePortfolioId,
     };
     setNewTransaction(initial);
     txInitialRef.current = initial;
@@ -2610,7 +2639,7 @@ function InvestmentTracker() {
         currency: tx.currency || 'EUR',
         date: tx.date || window.MaerminUtils.todayISO(),
         notes: tx.notes || '',
-        targetPortfolioId: tin ? (tx.counterPortfolioId || activePortfolioId) : (tx.portfolioId || activePortfolioId),
+        targetPortfolioId: tin ? (tx.counterPortfolioId || writePortfolioId) : (tx.portfolioId || writePortfolioId),
         counterPortfolioId: tin ? (tx.portfolioId || '') : (tx.counterPortfolioId || ''),
         symbol: '', quantity: '', price: '', fees: ''
       });
@@ -2630,7 +2659,7 @@ function InvestmentTracker() {
       withholdingTax: tx.withholdingTax != null ? String(tx.withholdingTax) : '',
       notes: tx.notes || '',
       currency: tx.currency || 'EUR',
-      targetPortfolioId: tx.portfolioId || activePortfolioId,
+      targetPortfolioId: tx.portfolioId || writePortfolioId,
       // Option contract fields (only set on category 'options' rows).
       underlying: tx.underlying || '',
       optionType: tx.optionType || 'call',
@@ -2727,7 +2756,7 @@ function InvestmentTracker() {
         }
         const stamp = Date.now();
         // Into the portfolio the user is working in, like "+ Add Transaction".
-        const added = res.transactions.map((tx, idx) => ({ ...tx, id: (stamp + idx).toString(), notes: tx.notes || '', portfolioId: activePortfolioId }));
+        const added = res.transactions.map((tx, idx) => ({ ...tx, id: (stamp + idx).toString(), notes: tx.notes || '', portfolioId: writePortfolioId }));
         setTransactions(prev => [...prev, ...added]);
         const skipped = res.errors.length ? ' - ' + __('importRowsSkipped', '{n} {n:row|rows} skipped ({first})', { n: res.errors.length, first: firstErr }) : '';
         addToast(`${added.length} ${t.transactionsImported || 'transactions imported'}${skipped}`, res.errors.length ? 'warning' : 'success', res.errors.length ? 8000 : undefined);
@@ -2766,7 +2795,7 @@ function InvestmentTracker() {
           date: item.date || window.MaerminUtils.todayISO(),
           notes: item.notes || '',
           currency: item.currency || currency,
-          portfolioId: item.portfolioId || activePortfolioId
+          portfolioId: item.portfolioId || writePortfolioId
         }));
         
         setTransactions(prev => [...prev, ...newTransactions]);
@@ -2956,7 +2985,7 @@ function InvestmentTracker() {
           const res = IM.quickCSV(txt, { currency });
           const firstErr = res.errors[0] ? __('importRowError', 'Row {row}: {reason}', res.errors[0]) : '';
           if (!res.transactions.length) throw new Error((t.noTransactionsFound || 'No transactions found') + (firstErr ? ' - ' + firstErr : ''));
-          imported = res.transactions.map(tx => ({ ...tx, notes: tx.notes || '', portfolioId: activePortfolioId }));
+          imported = res.transactions.map(tx => ({ ...tx, notes: tx.notes || '', portfolioId: writePortfolioId }));
           if (res.errors.length) addToast(__('importRowsSkipped', '{n} {n:row|rows} skipped ({first})', { n: res.errors.length, first: firstErr }), 'warning', 8000);
           (res.warnings || []).slice(0, 2).forEach(w => addToast(w, 'warning', 10000));
         }
@@ -3004,7 +3033,7 @@ function InvestmentTracker() {
       // Steam inventory import (P2-7): CS2 items as purchases, editable preview.
       section === 'steam' && window.MaerminSteamImport && React.createElement(window.MaerminSteamImport.Panel, {
         theme, workerUrl: apiKeys.cs2Worker, transactions, exchangeRate, addToast,
-        portfolioId: activePortfolioId === 'all' ? 'default' : activePortfolioId,
+        portfolioId: writePortfolioId,
         onImport: (txs) => {
           setTransactions(prev => [...prev, ...txs]);
           if (window.MaerminAuditLog) window.MaerminAuditLog.record('data.import', `${txs.length} Steam item transaction(s) imported`);
@@ -3094,7 +3123,7 @@ function InvestmentTracker() {
       // Coinbase/Bitpanda. Keys are encrypted in the vault; sync is manual.
       section === 'broker' && window.MaerminExchangeSync && window.MaerminExchangeSync.Panel &&
         React.createElement(window.MaerminExchangeSync.Panel, {
-          theme, t, workerUrl: apiKeys.cs2Worker, existing: transactions, portfolioId: activePortfolioId,
+          theme, t, workerUrl: apiKeys.cs2Worker, existing: transactions, portfolioId: writePortfolioId,
           onImport: (txs) => {
             setTransactions(prev => window.MaerminExchangeSync.appendNew(prev, txs));
             if (window.MaerminAuditLog) window.MaerminAuditLog.record('data.import', `${txs.length} exchange trade(s) imported`);
@@ -3111,9 +3140,9 @@ function InvestmentTracker() {
       // statements through the user's own Worker; PIN and TAN never stored.
       section === 'broker' && window.MaerminBankSync && window.MaerminBankSync.Panel &&
         React.createElement(window.MaerminBankSync.Panel, {
-          theme, workerUrl: apiKeys.cs2Worker, existing: transactions, portfolioId: activePortfolioId, addToast, formatAmount: (v, cur) => privacyMode ? '••••••' : window.MaerminI18n.num(v, 2, language) + ' ' + cur,
+          theme, workerUrl: apiKeys.cs2Worker, existing: transactions, portfolioId: writePortfolioId, addToast, formatAmount: (v, cur) => privacyMode ? '••••••' : window.MaerminI18n.num(v, 2, language) + ' ' + cur,
           onImport: (rows) => {
-            const withIds = rows.map((r) => ({ ...r, id: window.MaerminUtils.generateId(), portfolioId: activePortfolioId }));
+            const withIds = rows.map((r) => ({ ...r, id: window.MaerminUtils.generateId(), portfolioId: writePortfolioId }));
             setTransactions(prev => window.MaerminExchangeSync ? window.MaerminExchangeSync.appendNew(prev, withIds) : prev.concat(withIds));
             if (window.MaerminAuditLog) window.MaerminAuditLog.record('data.import', `${rows.length} bank booking(s) imported`);
             addToast(__('bsImported', '{n} bank {n:booking|bookings} imported', { n: rows.length }), 'success');
@@ -3124,10 +3153,10 @@ function InvestmentTracker() {
       // and SnapTrade with the user's own keys (vault only), read-only.
       section === 'broker' && window.MaerminAggregators && window.MaerminAggregators.Panel &&
         React.createElement(window.MaerminAggregators.Panel, {
-          theme, workerUrl: apiKeys.cs2Worker, existing: transactions, portfolioId: activePortfolioId, addToast,
+          theme, workerUrl: apiKeys.cs2Worker, existing: transactions, portfolioId: writePortfolioId, addToast,
           formatAmount: (v, cur) => privacyMode ? '••••••' : window.MaerminI18n.num(v, 2, language) + ' ' + cur,
           onImport: (rows) => {
-            const withIds = rows.map((r) => ({ ...r, id: window.MaerminUtils.generateId(), portfolioId: activePortfolioId }));
+            const withIds = rows.map((r) => ({ ...r, id: window.MaerminUtils.generateId(), portfolioId: writePortfolioId }));
             setTransactions(prev => window.MaerminExchangeSync ? window.MaerminExchangeSync.appendNew(prev, withIds) : prev.concat(withIds));
             if (window.MaerminAuditLog) window.MaerminAuditLog.record('data.import', `${rows.length} aggregator row(s) imported`);
             addToast(__('agImported', '{n} {n:row|rows} imported', { n: rows.length }), 'success');
@@ -3581,8 +3610,10 @@ function InvestmentTracker() {
       case 'net-worth':
         return window.MaerminFeatures5 ?
           React.createElement(window.MaerminFeatures5.NetWorthView, {
-            portfolioStats, portfolio, prices, theme: currentTheme, formatPrice, getCurrencySymbol, t, usdToEur: exchangeRate,
-            cashEUR: cashOf(activePortfolioId) || 0
+            // Net worth is everything you own: every portfolio once (never the
+            // active one alone, never "All portfolios" plus its portfolios).
+            portfolioStats: allPortfoliosStats, portfolio: allPortfoliosPortfolio, prices, theme: currentTheme, formatPrice, getCurrencySymbol, t, usdToEur: exchangeRate,
+            cashEUR: cashOf('all') || 0
           }) : renderAnalyticsPlaceholder(t.navNetWorth || 'Net Worth');
 
       case 'cashflow':
@@ -3632,7 +3663,7 @@ function InvestmentTracker() {
         return window.MaerminFeatures4 ?
           React.createElement(window.MaerminFeatures4.SavingsPlanView, {
             transactions: activeTransactions, theme: currentTheme, formatPrice, getCurrencySymbol, t,
-            portfolios, activePortfolioId,
+            portfolios, activePortfolioId: writePortfolioId,
             // Feed the projection (#6): current investment value + forward dividend yield.
             // NB: use the component-scoped portfolioStats (stats is only defined in
             // the overview block, not here — referencing it crashed the page).
@@ -3647,7 +3678,7 @@ function InvestmentTracker() {
           React.createElement(window.MaerminFeatures2.ReturnsView, {
             transactions: activeTransactions, portfolio, prices, priceHistory, fxAt, exchangeRate,
             valuePath: returnsPath, historyPending: closePending, portfolioId: activePortfolioId, hasWorker: (marketWorker || '').trim().length > 5,
-            clearing: clearingByPf[activePortfolioId] || null, buildPath: (txs, clr) => buildValuePath(txs, clr, { gross: grossNet === 'gross' }),
+            clearings: returnsClearings, buildPath: (txs, clr) => buildValuePath(txs, clr, { gross: grossNet === 'gross' }),
             grossNet, setGrossNet,
             workerUrl: viewWorkerUrl, hicpGeo, setHicpGeo, // P5-2.9 real returns
             theme: currentTheme, formatPrice, getCurrencySymbol, t
@@ -4157,16 +4188,13 @@ function InvestmentTracker() {
     // path for the view; it includes cash only when every portfolio in the view
     // keeps a clearing account (P5-1.4).
     const ovFigures = () => memoBy('ovFigures', [overviewTransactions, stats.totalValue, clearingByPf, closeSeriesEUR, fetchedPrices, exchangeRate, fxAt, corpActionsRev, overviewMode, activePortfolioId, valuePath], () => {
-      const RF = window.MaerminReturnFigures, L = window.MaerminLedger;
+      const RF = window.MaerminReturnFigures;
       if (!RF) return null;
-      const ids = isAllMode ? (portfolios || []).map(p => p.id) : [overviewMode];
-      const clearings = {};
-      ids.forEach(id => { if (clearingByPf[id]) clearings[id] = clearingByPf[id]; });
-      const allIn = ids.length > 0 && ids.every(id => clearingByPf[id]);
-      const path = (!isAllMode && overviewMode === activePortfolioId) ? valuePath
-        : buildValuePath(overviewTransactions, allIn && L ? (ids.length === 1 ? clearingByPf[ids[0]] : L.mergeClearings(ids.map(id => clearingByPf[id]))) : null);
+      const vc = overviewMode === activePortfolioId ? activeClearing
+        : window.MaerminLedger.viewClearing(clearingByPf, isAllMode ? (portfolios || []).map(p => p.id) : [overviewMode]);
+      const path = overviewMode === activePortfolioId ? valuePath : buildValuePath(overviewTransactions, vc.merged);
       return RF.compute(overviewTransactions, { securitiesValueEUR: stats.totalValue, exchangeRate, fxAt, today: window.MaerminUtils.todayISO(),
-        valuePath: path, clearings: Object.keys(clearings).length ? clearings : null });
+        valuePath: path, clearings: vc.clearings });
     });
 
     // P4-7: the Overview sections as thunks, rendered in the saved order.
@@ -4347,7 +4375,7 @@ function InvestmentTracker() {
         // as the tax report and the FIFO tab), for the transactions shown here.
         const closedRows = memoBy('ovClosed', [overviewTransactions, exchangeRate, fxAt, corpActionsRev], () => {
           const L = window.MaerminLedger;
-          try { return L && L.closedPositions ? L.closedPositions(L.build(overviewTransactions, { exchangeRate, fxAt })) : []; } catch (e) { return []; }
+          try { return L && L.closedPositions ? L.closedPositions(L.build(overviewTransactions, { exchangeRate, fxAt, perPortfolio: true })) : []; } catch (e) { return []; }
         });
         const showClosed = posTab === 'closed';
         const tabBtn = (id, label) => React.createElement('button', {
@@ -4568,7 +4596,7 @@ function InvestmentTracker() {
         // All Portfolios tab
         React.createElement('button', {
           'aria-pressed': overviewMode === 'all',
-          onClick: () => setOverviewMode('all'),
+          onClick: () => { setOverviewMode('all'); setActivePortfolioId(window.MaerminMetrics.ALL_PORTFOLIOS); },
           style: {
             display: 'flex', alignItems: 'center', gap: '0.4rem',
             padding: '0.375rem 0.875rem',
@@ -5001,7 +5029,7 @@ function InvestmentTracker() {
   const renderTransactionsView = () => {
     // Filter by active portfolio first, then by search
     const filtered = transactions.filter(tx => {
-      const portfolioMatch = (tx.portfolioId || 'default') === activePortfolioId;
+      const portfolioMatch = isAllActive || (tx.portfolioId || 'default') === activePortfolioId;
       if (!portfolioMatch) return false;
       if (!txSearch.trim()) return true;
       const q = txSearch.toLowerCase();
@@ -5011,7 +5039,7 @@ function InvestmentTracker() {
              (tx.notes || '').toLowerCase().includes(q) ||
              (tx.symbolName || '').toLowerCase().includes(q);
     });
-    const totalAll = transactions.filter(tx => (tx.portfolioId || 'default') === activePortfolioId).length;
+    const totalAll = activeTransactions.length;
 
     // Sort
     const sorted = [...filtered].sort((a, b) => {
@@ -5134,7 +5162,10 @@ function InvestmentTracker() {
                       onMouseEnter: e => e.currentTarget.style.background = 'rgba(255,255,255,0.03)',
                       onMouseLeave: e => e.currentTarget.style.background = 'transparent'
                     },
-                      React.createElement('td', { className: 'mx-card-lead', style: { padding: '0.875rem 1rem', color: currentTheme.text, fontSize: 'var(--text-base)' } }, tx.date),
+                      React.createElement('td', { className: 'mx-card-lead', style: { padding: '0.875rem 1rem', color: currentTheme.text, fontSize: 'var(--text-base)' } }, tx.date,
+                        // "All portfolios": every row names the portfolio it is booked in
+                        isAllActive && React.createElement('div', { 'data-testid': 'tx-portfolio-name', style: { color: currentTheme.textSecondary, fontSize: 'var(--text-2xs)', marginTop: '0.15rem' } },
+                          ((portfolios.find(p => p.id === (tx.portfolioId || 'default')) || {}).name) || tx.portfolioId || 'default')),
                       React.createElement('td', { className: 'mx-card-lead', style: { padding: '0.875rem 1rem' } },
                         React.createElement('span', {
                           style: {
@@ -5647,7 +5678,7 @@ function InvestmentTracker() {
     const renderCashFields = () => {
       const UT = window.MaerminUtils;
       const isTr = newTransaction.type === 'transfer_out' || newTransaction.type === 'transfer_in';
-      const here = newTransaction.targetPortfolioId || activePortfolioId;
+      const here = newTransaction.targetPortfolioId || writePortfolioId;
       const others = portfolios.filter(p => p.id !== here);
       const kinds = ['deposit', 'withdrawal', 'transfer_out', 'fee', 'fee_refund', 'tax', 'tax_refund', 'interest_charge'];
       const kindLabel = (k) => k === 'transfer_out' ? __('txTransfer', 'Transfer to another portfolio') : UT.txTypeInfo(k, t).label;
@@ -5696,7 +5727,7 @@ function InvestmentTracker() {
         fees: '',
         notes: '',
         currency: currency,
-        targetPortfolioId: activePortfolioId,
+        targetPortfolioId: writePortfolioId,
       });
     };
     // Escape, a click beside the dialog and Cancel: a changed form asks before
@@ -5758,7 +5789,7 @@ function InvestmentTracker() {
           React.createElement('label', { htmlFor: 'tx-portfolio', style: { display: 'block', color: currentTheme.textSecondary, marginBottom: '0.5rem', fontSize: 'var(--text-base)' } }, t.portfolio || 'Portfolio'),
           React.createElement('select', {
             id: 'tx-portfolio',
-            value: newTransaction.targetPortfolioId || activePortfolioId,
+            value: newTransaction.targetPortfolioId || writePortfolioId,
             onChange: e => setNewTransaction(prev => ({ ...prev, targetPortfolioId: e.target.value })),
             style: {
               width: '100%', padding: '0.625rem 0.875rem',

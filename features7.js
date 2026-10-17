@@ -113,16 +113,17 @@ function RealizedUnrealizedView({ transactions, portfolio, prices, theme, format
   const analysis = useMemo(() => {
     // FIFO per position from the ONE ledger (ledger.js) — identical to the
     // FIFO tab and the tax report (fees, per-date FX, splits).
-    const L = window.MaerminLedger.build(transactions, { exchangeRate: usdToEur, fxAt });
+    // Lots matched per portfolio, then one row per holding (the sum of the
+    // portfolios in "All portfolios"; a single portfolio is unaffected).
+    const L = window.MaerminLedger.build(transactions, { exchangeRate: usdToEur, fxAt, perPortfolio: true });
     const bySymbol = {};
     L.list.forEach(g => {
-      bySymbol[g.key] = {
-        symbol: g.symbol, symbolName: g.symbolName || g.symbol, category: g.category,
-        buyQueue: g.openLots.map(l => ({ qty: l.qty, price: l.unitCostEUR, remaining: l.qty, date: l.date })),
-        realizedPnL: g.realizedGain,
-        realizedCost: g.disposals.reduce((s, d) => s + d.costBasis, 0),
-        sellRevenue: g.proceedsEUR
-      };
+      const k = g.key.split('|p:')[0];
+      const e = bySymbol[k] || (bySymbol[k] = { symbol: g.symbol, symbolName: g.symbolName || g.symbol, category: g.category, buyQueue: [], realizedPnL: 0, realizedCost: 0, sellRevenue: 0 });
+      e.buyQueue.push(...g.openLots.map(l => ({ qty: l.qty, price: l.unitCostEUR, remaining: l.qty, date: l.date })));
+      e.realizedPnL += g.realizedGain;
+      e.realizedCost += g.disposals.reduce((s, d) => s + d.costBasis, 0);
+      e.sellRevenue += g.proceedsEUR;
     });
 
     // Compute unrealized for remaining lots

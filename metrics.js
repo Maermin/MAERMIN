@@ -466,22 +466,34 @@
     // transactions exist (quantity = nominal, price = fraction of nominal).
     if ((transactions || []).some(function (tx) { return tx && tx.category === 'bonds'; }) && !result.bonds) result.bonds = [];
     // Group every transaction by category+symbol, then FIFO-match each group so
-    // the remaining position carries a real lot-based cost basis.
+    // the remaining position carries a real lot-based cost basis. Lots are
+    // matched within each portfolio (a sale in one portfolio never takes a lot
+    // of another) and the open lots are added up into one position, so "All
+    // portfolios" is exactly the sum of the portfolios. A single portfolio is
+    // unaffected. The tax report pools by its own rules (ledger.js, M-15).
     var groups = {};
     (transactions || []).forEach(function (tx) {
       var category = tx.category || 'crypto';
       if (!result[category]) return; // ignore unknown classes
       var key = category + '-' + (tx.symbol || '').toLowerCase();
       if (!groups[key]) {
-        groups[key] = { category: category, symbol: tx.symbol, symbolName: tx.symbolName || '', symbolLogoUrl: tx.symbolLogoUrl || '', txs: [] };
+        groups[key] = { category: category, symbol: tx.symbol, symbolName: tx.symbolName || '', symbolLogoUrl: tx.symbolLogoUrl || '', byPf: {} };
       }
       if (!groups[key].symbolName && tx.symbolName) groups[key].symbolName = tx.symbolName;
       if (!groups[key].symbolLogoUrl && tx.symbolLogoUrl) groups[key].symbolLogoUrl = tx.symbolLogoUrl;
-      groups[key].txs.push(tx);
+      var pid = String(tx.portfolioId || 'default');
+      (groups[key].byPf[pid] || (groups[key].byPf[pid] = [])).push(tx);
     });
     Object.keys(groups).forEach(function (k) {
       var g = groups[k];
-      var open = matchFifoLots(g.txs, rate, fxAt);
+      var open = { amount: 0, totalCostEUR: 0, firstDate: null };
+      Object.keys(g.byPf).forEach(function (pid) {
+        var o = matchFifoLots(g.byPf[pid], rate, fxAt);
+        if (!(o.amount > 0)) return;
+        open.amount += o.amount;
+        open.totalCostEUR += o.totalCostEUR;
+        if (o.firstDate && (!open.firstDate || String(o.firstDate) < String(open.firstDate))) open.firstDate = o.firstDate;
+      });
       if (open.amount > 0.0001) {
         result[g.category].push({
           id: g.category + '-' + g.symbol,
@@ -528,10 +540,23 @@
   // Manager shows the same value / invested / P&L as the Overview filtered to
   // that portfolio (FIFO cost basis, FX at trade date, splits, dividends and
   // interest not treated as disposals). `opts` is passed to buildPositions.
+  // "All portfolios": a virtual portfolio id. It owns no transactions and is
+  // never stored on one - it is every portfolio's live transactions read
+  // together, so it follows each add, edit and delete and cannot drift or be
+  // counted next to its own portfolios.
+  var ALL_PORTFOLIOS = 'all';
+  function isAllPortfolios(id) { return id === ALL_PORTFOLIOS; }
+  // The transactions of portfolio `id` (all of them for ALL_PORTFOLIOS).
+  function portfolioTransactions(transactions, id) {
+    transactions = Array.isArray(transactions) ? transactions : [];
+    if (isAllPortfolios(id)) return transactions;
+    return transactions.filter(function (tx) { return (tx.portfolioId || 'default') === id; });
+  }
+
   function computePortfolioTotals(portfolios, transactions, prices, opts) {
     transactions = Array.isArray(transactions) ? transactions : [];
     return (Array.isArray(portfolios) ? portfolios : []).map(function (p) {
-      var txs = transactions.filter(function (tx) { return (tx.portfolioId || 'default') === p.id; });
+      var txs = portfolioTransactions(transactions, p.id);
       var stats = computeStats(buildPositions(txs, opts || {}), prices);
       return {
         id: p.id, txCount: txs.length,
@@ -548,6 +573,9 @@
     matchFifoLots: matchFifoLots,
     computeStats: computeStats,
     computePortfolioTotals: computePortfolioTotals,
+    ALL_PORTFOLIOS: ALL_PORTFOLIOS,
+    isAllPortfolios: isAllPortfolios,
+    portfolioTransactions: portfolioTransactions,
     LIABILITY_TYPES: LIABILITY_TYPES,
     NETWORTH_ACCOUNTS_KEY: NETWORTH_ACCOUNTS_KEY,
     FIRE_SETTINGS_KEY: FIRE_SETTINGS_KEY,

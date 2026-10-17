@@ -117,7 +117,7 @@
 
     // Realised gains (FIFO; options are valued by the options engine)
     try {
-      out.realized = L.build(txs, { exchangeRate: rate, fxAt: fxAt }).list
+      out.realized = L.build(txs, { exchangeRate: rate, fxAt: fxAt, perPortfolio: true }).list
         .filter(function (g) { return g.category !== 'options'; })
         .reduce(function (s, g) { return s + g.realizedGain; }, 0);
     } catch (e) { out.realized = null; }
