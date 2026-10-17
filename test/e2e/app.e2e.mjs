@@ -2156,6 +2156,10 @@ async function runBuild(browser, label, dir) {
     await openView(page, 'analytics');
     await page.waitForTimeout(800);
     ok('correlation matrix is there right away, from daily closes', (await page.locator('[data-testid="correlation-source"][data-source="daily"]').count()) === 1 && (await page.locator('[data-testid="correlation-empty"]').count()) === 0);
+    // R4.2: the matrix is on a diverging scale (each cell tinted by its figure, the figure printed on it) with a word legend
+    { const corr = await page.evaluate(() => { const cells = [...document.querySelectorAll('.ui-corr td.ui-heat__cell:not(.is-empty)')];
+        return { n: cells.length, tinted: cells.every((c) => /rgb/.test(c.style.background) && c.style.color), legend: ((document.querySelector('[data-testid="correlation-view"] .ui-chart__legend') || {}).innerText || '') }; });
+      ok('R4.2: correlation cells on a diverging scale with a legend in words', corr.n >= 2 && corr.tinted && /move together/.test(corr.legend) && /move apart/.test(corr.legend), JSON.stringify(corr)); }
     await page.getByRole('radio', { name: 'Risk Level' }).click();
     await page.waitForTimeout(800);
     { const rb = await page.innerText('body');

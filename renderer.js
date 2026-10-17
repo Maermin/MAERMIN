@@ -3377,8 +3377,9 @@ function InvestmentTracker() {
       case 'intelligence':
         return window.MaerminIntelligence ?
           React.createElement(React.Fragment, null,
-            window.MaerminTrust && React.createElement(window.MaerminTrust.Disclaimer, { theme: currentTheme, kind: 'invest', style: { margin: '1rem 1.5rem 0' } }),
             React.createElement(window.MaerminIntelligence.View, {
+              // R4.2: the disclaimer sits inside the view frame, under the lead
+              disclaimer: window.MaerminTrust && React.createElement(window.MaerminTrust.Disclaimer, { theme: currentTheme, kind: 'invest' }),
               portfolio, prices, transactions: activeTransactions,
               lookThrough: lookThroughResult, theme: currentTheme, t,
               // P5-2.8: emergency fund (Net Worth accounts, FIRE expenses) and buying power
@@ -3754,7 +3755,7 @@ function InvestmentTracker() {
           // sector/country/currency look-through — folds into Health (no new
           // tab). Gated on the Worker fundholdings route with a static
           // fallback; hands its result up for the advisor below.
-          window.MaerminLookThrough && window.MaerminLookThrough.Panel && React.createElement('div', { style: { padding: '0 1.5rem 0' } },
+          window.MaerminLookThrough && window.MaerminLookThrough.Panel && React.createElement('div', { className: ['ui-view', 'ui-view--cont'].join(' ') },
             React.createElement(window.MaerminLookThrough.Panel, {
               portfolio, prices, workerUrl: marketWorker, mode: 'overview',
               theme: currentTheme, t, formatPrice, getCurrencySymbol,
@@ -3765,8 +3766,8 @@ function InvestmentTracker() {
           // tab. extras feeds pre-computed inputs the advisor cannot gather
           // itself: the look-through result and the risk-monitor evaluation
           // (drawdown/volatility breaches against the user's thresholds).
-          window.MaerminAdvisor && window.MaerminAdvisor.Panel && React.createElement('div', { style: { padding: '1rem 1.5rem 1.5rem' } },
-            window.MaerminTrust && React.createElement(window.MaerminTrust.Disclaimer, { theme: currentTheme, kind: 'invest', style: { marginBottom: '0.75rem' } }),
+          window.MaerminAdvisor && window.MaerminAdvisor.Panel && React.createElement('div', { className: ['ui-view', 'ui-view--cont'].join(' ') },
+            window.MaerminTrust && React.createElement(window.MaerminTrust.Disclaimer, { theme: currentTheme, kind: 'invest' }),
             React.createElement(window.MaerminAdvisor.Panel, {
               portfolio, prices, transactions: activeTransactions, theme: currentTheme, t,
               // Amounts in the findings follow Privacy Mode and the display currency.
@@ -4610,7 +4611,7 @@ function InvestmentTracker() {
             : renderAnalyticsPlaceholder(t.navRiskCorrelation || 'Risk Analysis'),
           // Rolling volatility/return trajectory + Fama-French factor exposure —
           // folds the analytics engine into Risk (no new tab).
-          window.MaerminAnalyticsViews && React.createElement('div', { style: { padding: '0 1.5rem 1.5rem' } },
+          window.MaerminAnalyticsViews && React.createElement('div', { className: ['ui-view', 'ui-view--cont'].join(' ') },
             React.createElement(window.MaerminAnalyticsViews.RollingRiskPanel, { portfolio, priceHistory, valueSeries: dailyAnalytics.index, theme: currentTheme, t }),
             window.MaerminAnalyticsViews.FactorExposurePanel && React.createElement(window.MaerminAnalyticsViews.FactorExposurePanel, { portfolio, priceHistory, valueSeries: dailyAnalytics.index, workerUrl: marketWorker, theme: currentTheme, t }),
             // ETF look-through, risk slice: fund overlap matrix + hidden
@@ -4625,13 +4626,10 @@ function InvestmentTracker() {
       }
     };
 
-    return React.createElement('div', { style: { display: 'flex', flexDirection: 'column', height: '100%' } },
-      // Tab bar at top
-      React.createElement('div', {
-        style: { display: 'flex', gap: '0.375rem', padding: '1rem 1.5rem', borderBottom: `1px solid ${currentTheme.cardBorder}`, flexWrap: 'wrap' }
-      }, React.createElement(window.MaerminComponents.SectionSwitch, { label: t.navRiskCorrelation || 'Risk & Correlation', value: analyticsTab, onChange: setAnalyticsTab, 'data-testid': 'risk-sections', options: tabs.map(tab => ({ value: tab.id, label: tab.label })) })),
-      // Content
-      React.createElement('div', { style: { flex: 1, overflow: 'auto' } }, renderContent())
+    // R4.2: the sections on one bar; each section renders its own view frame
+    return React.createElement('div', { className: 'ui-risk' },
+      React.createElement('div', { className: 'ui-subbar' }, React.createElement(window.MaerminComponents.SectionSwitch, { label: t.navRiskCorrelation || 'Risk & Correlation', value: analyticsTab, onChange: setAnalyticsTab, 'data-testid': 'risk-sections', options: tabs.map(tab => ({ value: tab.id, label: tab.label })) })),
+      renderContent()
     );
   };
 

@@ -577,10 +577,9 @@ function __(k, f, v) { return (typeof window !== 'undefined' && window.MaerminI1
     var e = React.createElement;
     var theme = props.theme || {};
     var t = props.t || ((typeof window !== 'undefined' && window.MaerminI18n) ? window.MaerminI18n.dict() : {});
-    var text = theme.text || '#e6edf3', dim = theme.textSecondary || '#9aa4b2';
-    var accent = theme.accent || '#8b7cff', border = theme.cardBorder || 'rgba(255,255,255,0.1)';
-    var inputBg = theme.inputBg || '#0f172a', card = theme.card || theme.cardBg || '#10151f';
-    var warn = theme.warning || '#f59e0b', bad = theme.danger || theme.negative || '#ef4444';
+    // R4.2: tokens, the shared Card / Button / table look; bars on the chart palette
+    var UIC = window.MaerminComponents;
+    var dim = 'var(--text-dim)';
     var workerBase = String(props.workerUrl || '').trim().replace(/\/+$/, '');
     var fmt = props.formatPrice || function (v) { return Number(v || 0).toFixed(2); };
     var sym = (props.getCurrencySymbol && props.getCurrencySymbol()) || '€';
@@ -628,17 +627,16 @@ function __(k, f, v) { return (typeof window !== 'undefined' && window.MaerminI1
 
     var pct = function (x) { return window.MaerminI18n.pct(x * 100, 1); };
 
-    function bar(label, weight, max, color, key) {
+    function bar(label, weight, max, series, key) {
       var w = max > 0 ? Math.max(2, (weight / max) * 100) : 0;
-      return e('div', { key: key || label, style: { display: 'flex', alignItems: 'center', gap: '0.6rem', marginBottom: '0.35rem' } },
-        e('div', { style: { color: dim, fontSize: 'var(--text-xs)', width: '160px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' } }, label),
-        e('div', { style: { flex: 1, background: inputBg, borderRadius: '5px', height: '10px', overflow: 'hidden' } },
-          e('div', { style: { width: w + '%', height: '100%', background: color || accent, borderRadius: '5px' } })),
-        e('div', { style: { color: text, fontSize: 'var(--text-xs)', fontWeight: 600, width: '52px', textAlign: 'right' } }, pct(weight)));
+      return e('li', { key: key || label, className: 'ui-hbar' },
+        e('span', { className: 'ui-hbar__label', title: label }, label),
+        e('span', { className: 'ui-hbar__track', 'aria-hidden': 'true' }, e('span', { className: 'ui-hbar__fill', 'data-series': series || '1', style: { width: w + '%' } })),
+        e('b', { className: ['ui-hbar__value', 'num'].join(' ') }, pct(weight)));
     }
 
     function sectionTitle(label) {
-      return e('div', { style: { color: dim, fontSize: 'var(--text-xs)', textTransform: 'uppercase', letterSpacing: '0.05em', margin: '1rem 0 0.5rem', fontWeight: 700 } }, label);
+      return e('h4', { className: 'ui-sublabel' }, label);
     }
 
     // ---- P5-2.3: holdings files per fund (import / remove) and CSV export ----
@@ -682,27 +680,26 @@ function __(k, f, v) { return (typeof window !== 'undefined' && window.MaerminI1
       if (!FF || !candidates.length) return null;
       var byRoot = {};
       ((result && result.funds) || []).forEach(function (f) { byRoot[f.symbol] = f; });
-      var btn = { position: 'relative', padding: '0.3rem 0.65rem', borderRadius: '8px', border: '1px solid ' + border, background: 'transparent', color: text, fontSize: '0.74rem', fontWeight: 600, cursor: 'pointer' };
       return e('div', { 'data-testid': 'lt-files' },
         sectionTitle(__('ltFilesTitle', 'Holdings files')),
-        e('div', { style: { color: dim, fontSize: 'var(--text-xs)', lineHeight: 1.5, marginBottom: '0.5rem' } },
+        e('p', { className: ['ui-note', 'ui-lt-hint'].join(' ') },
           __('ltFilesHint', 'For the full look-through, download the holdings file (CSV or Excel) from your fund provider\'s fund page and import it here. The file is read on this device and never sent anywhere.')),
         candidates.map(function (c) {
           var root = normalizeFundSymbol(c.symbol), f = byRoot[root], own = f && f.source === 'file';
           var msg = fileMsg && fileMsg.root === root ? fileMsg : null;
-          return e('div', { key: root, 'data-testid': 'lt-file-' + root, style: { borderTop: '1px solid ' + border, padding: '0.45rem 0' } },
-            e('div', { style: { display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: '0.5rem', justifyContent: 'space-between' } },
-              e('div', { style: { minWidth: 0 } },
-                e('span', { style: { color: text, fontSize: 'var(--text-sm)', fontWeight: 600 } }, root),
-                e('span', { 'data-testid': 'lt-src-' + root, style: { color: own ? (theme.success || 'var(--success)') : dim, fontSize: 'var(--text-xs)', marginLeft: '0.5rem' } }, sourceText(f))),
-              e('div', { style: { display: 'flex', gap: '0.35rem' } },
-                e('label', { style: btn },
+          return e('div', { key: root, 'data-testid': 'lt-file-' + root, className: 'ui-lt-file' },
+            e('div', { className: 'ui-lt-file__row' },
+              e('div', { className: 'ui-lt-file__name' },
+                e('b', null, root),
+                e('span', { 'data-testid': 'lt-src-' + root, className: own ? 'tone-gain' : 'ui-muted' }, (own ? '✓ ' : '') + sourceText(f))),
+              e('div', { className: 'ui-lt-file__actions' },
+                e('label', { className: ['ui-btn', 'ui-btn--secondary', 'ui-btn--sm', 'ui-file-btn'].join(' ') },
                   own ? __('ltFileReplace', 'Replace file') : __('ltFileImport', 'Import holdings file'),
                   e('input', { type: 'file', 'data-testid': 'lt-input-' + root, accept: '.csv,.txt,.xlsx,.xls,.xml', 'aria-label': __('ltFileImportFor', 'Import holdings file for {fund}', { fund: root }),
-                    style: { position: 'absolute', width: '1px', height: '1px', opacity: 0, overflow: 'hidden' },
+                    className: 'sr-only',
                     onChange: function (ev) { var fl = ev.target.files && ev.target.files[0]; ev.target.value = ''; importFile(root, fl); } })),
-                own ? e('button', { type: 'button', style: btn, onClick: function () { removeFile(root); } }, __('ltFileRemove', 'Remove')) : null)),
-            msg ? e('div', { role: 'status', style: { color: msg.bad ? bad : (theme.success || 'var(--success)'), fontSize: 'var(--text-xs)', marginTop: '0.25rem' } }, msg.text) : null);
+                own ? e(UIC.Button, { size: 'sm', variant: 'quiet', onClick: function () { removeFile(root); } }, __('ltFileRemove', 'Remove')) : null)),
+            msg ? e('p', { role: 'status', className: ['ui-note', msg.bad ? 'tone-loss' : 'tone-gain'].join(' ') }, (msg.bad ? '✕ ' : '✓ ') + msg.text) : null);
         }));
     }
 
@@ -710,12 +707,12 @@ function __(k, f, v) { return (typeof window !== 'undefined' && window.MaerminI1
     var fundCount = result ? result.funds.length : 0;
 
     if (!candidates.length) {
-      body = e('div', { style: { color: dim, fontSize: 'var(--text-base)', padding: '0.5rem 0' } },
+      body = e('p', { className: 'ui-muted' },
         __('ltNoFunds', 'No ETF or fund positions detected. Look-through resolves funds into their underlying holdings once you hold one.'));
     } else if (state.loading) {
-      body = e('div', { style: { color: dim, fontSize: 'var(--text-base)', padding: '0.5rem 0' } }, __('ltResolving', 'Resolving fund holdings...'));
+      body = e('p', { className: 'ui-muted' }, __('ltResolving', 'Resolving fund holdings...'));
     } else if (!result || !result.available || !fundCount) {
-      body = e('div', null, e('div', { style: { color: dim, fontSize: 'var(--text-base)', padding: '0.5rem 0' } },
+      body = e('div', null, e('p', { className: 'ui-muted' },
         __('ltNoData', 'No holdings data available for your fund positions yet. Live data needs the latest Worker (action=fundholdings); a built-in snapshot covers the most common index ETFs.')),
         mode !== 'risk' ? filesSection() : null);
     } else {
@@ -725,50 +722,50 @@ function __(k, f, v) { return (typeof window !== 'undefined' && window.MaerminI1
         // Effective exposure (direct + through funds)
         parts.push(sectionTitle(__('ltEffective', 'Effective exposure (direct + through funds)')));
         var top = result.effectiveExposure.slice(0, 10);
-        parts.push(e('div', { style: { overflowX: 'auto' } },
-          e('table', { style: { width: '100%', borderCollapse: 'collapse' } },
+        parts.push(e('div', { className: 'ui-table-wrap' },
+          e('table', { className: ['ui-table', 'ui-table--dense'].join(' ') },
             e('thead', null, e('tr', null,
               [__('ltSecurity', 'Security'), __('ltDirect', 'Direct'), __('ltViaFunds', 'Via funds'), __('ltEffectiveCol', 'Effective'), __('colValue', 'Value')].map(function (h, i) {
-                return e('th', { key: h, style: { textAlign: i === 0 ? 'left' : 'right', padding: '0.4rem 0.5rem', color: dim, fontSize: 'var(--text-2xs)', textTransform: 'uppercase', letterSpacing: '0.04em' } }, h);
+                return e('th', { key: h, scope: 'col', className: i === 0 ? 'is-sticky' : 'is-right' }, h);
               }))),
             e('tbody', null, top.map(function (x) {
-              return e('tr', { key: x.key, style: { borderTop: '1px solid ' + border } },
-                e('td', { style: { padding: '0.45rem 0.5rem', color: text, fontSize: 'var(--text-sm)', fontWeight: 600 } },
+              return e('tr', { key: x.key },
+                e('th', { scope: 'row', className: 'is-sticky' },
                   x.name || x.key,
-                  x.via.length ? e('span', { style: { color: dim, fontWeight: 400, fontSize: 'var(--text-2xs)' } }, '  ' + __('ltVia', 'via {list}', { list: x.via.map(function (v) { return v.fund; }).join(', ') })) : null),
-                e('td', { style: { padding: '0.45rem 0.5rem', textAlign: 'right', color: dim, fontSize: 'var(--text-xs)' } }, x.directWeight > 0 ? pct(x.directWeight) : '-'),
-                e('td', { style: { padding: '0.45rem 0.5rem', textAlign: 'right', color: dim, fontSize: 'var(--text-xs)' } }, x.fundedWeight > 0 ? pct(x.fundedWeight) : '-'),
-                e('td', { style: { padding: '0.45rem 0.5rem', textAlign: 'right', color: text, fontSize: 'var(--text-xs)', fontWeight: 700 } }, pct(x.effectiveWeight)),
-                e('td', { style: { padding: '0.45rem 0.5rem', textAlign: 'right', color: dim, fontSize: 'var(--text-xs)' } }, fmt(x.valueEUR) + ' ' + sym));
+                  x.via.length ? e('span', { className: 'ui-lt-via' }, '  ' + __('ltVia', 'via {list}', { list: x.via.map(function (v) { return v.fund; }).join(', ') })) : null),
+                e('td', null, x.directWeight > 0 ? pct(x.directWeight) : '-'),
+                e('td', null, x.fundedWeight > 0 ? pct(x.fundedWeight) : '-'),
+                e('td', { className: 'is-strong' }, pct(x.effectiveWeight)),
+                e('td', null, fmt(x.valueEUR) + ' ' + sym));
             })))));
 
         // Sector / country / currency look-through
         var maxSector = result.sectorExposure.length ? result.sectorExposure[0].weight : 0;
         parts.push(sectionTitle(__('ltSector', 'Sector look-through')));
-        parts.push(e('div', null, result.sectorExposure.slice(0, 8).map(function (s) { return bar(window.MaerminI18n.sector(s.sector), s.weight, maxSector, accent, 's-' + s.sector); })));
+        parts.push(e('ul', { className: 'ui-hbars' }, result.sectorExposure.slice(0, 8).map(function (s) { return bar(window.MaerminI18n.sector(s.sector), s.weight, maxSector, '1', 's-' + s.sector); })));
 
         var maxCountry = result.countryExposure.length ? result.countryExposure[0].weight : 0;
         parts.push(sectionTitle(__('ltCountry', 'Country look-through')));
-        parts.push(e('div', null, result.countryExposure.slice(0, 8).map(function (c) { return bar(window.MaerminI18n.country(c.country), c.weight, maxCountry, theme.info || '#3b82f6', 'c-' + c.country); })));
+        parts.push(e('ul', { className: 'ui-hbars' }, result.countryExposure.slice(0, 8).map(function (c) { return bar(window.MaerminI18n.country(c.country), c.weight, maxCountry, '2', 'c-' + c.country); })));
 
         var maxCur = result.currencyExposure.length ? result.currencyExposure[0].weight : 0;
         parts.push(sectionTitle(__('ltCurrency', 'Currency look-through (approximate)')));
-        parts.push(e('div', null, result.currencyExposure.slice(0, 6).map(function (c) { return bar(window.MaerminI18n.sector(c.currency), c.weight, maxCur, theme.success || '#22c55e', 'cur-' + c.currency); })));
+        parts.push(e('ul', { className: 'ui-hbars' }, result.currencyExposure.slice(0, 6).map(function (c) { return bar(window.MaerminI18n.sector(c.currency), c.weight, maxCur, '3', 'cur-' + c.currency); })));
       }
 
       if (mode !== 'overview') {
         // Fund overlap
         parts.push(sectionTitle(__('ltOverlap', 'Fund overlap')));
         if (!result.overlapPairs.length) {
-          parts.push(e('div', { style: { color: dim, fontSize: 'var(--text-sm)' } },
+          parts.push(e('p', { className: 'ui-muted' },
             fundCount > 1 ? __('ltNoOverlap', 'No overlap detected between the disclosed holdings of your funds.') : __('ltNeedTwo', 'Overlap needs at least two fund positions.')));
         } else {
           parts.push(e('div', null, result.overlapPairs.slice(0, 6).map(function (p) {
-            return e('div', { key: p.a + '-' + p.b, style: { borderTop: '1px solid ' + border, padding: '0.5rem 0' } },
-              e('div', { style: { display: 'flex', justifyContent: 'space-between', gap: '0.5rem' } },
-                e('span', { style: { color: text, fontSize: 'var(--text-sm)', fontWeight: 600 } }, p.a + ' / ' + p.b),
-                e('span', { style: { color: p.overlap >= 0.25 ? warn : text, fontSize: 'var(--text-sm)', fontWeight: 700 } }, __('ltOverlapPct', '{pct} overlap', { pct: pct(p.overlap) }))),
-              e('div', { style: { color: dim, fontSize: 'var(--text-xs)', marginTop: '0.15rem' } },
+            return e('div', { key: p.a + '-' + p.b, className: 'ui-lt-item' },
+              e('div', { className: 'ui-lt-item__row' },
+                e('b', null, p.a + ' / ' + p.b),
+                e('b', { className: p.overlap >= 0.25 ? 'tone-warning' : '' }, (p.overlap >= 0.25 ? '! ' : '') + __('ltOverlapPct', '{pct} overlap', { pct: pct(p.overlap) }))),
+              e('p', { className: 'ui-note' },
                 __('ltShared', 'Shared: {list}', { list: p.shared.map(function (s) { return s.name || s.key; }).join(', ') })));
           })));
         }
@@ -776,14 +773,14 @@ function __(k, f, v) { return (typeof window !== 'undefined' && window.MaerminI1
         // Hidden concentrations
         parts.push(sectionTitle(__('ltHidden', 'Hidden concentration risks')));
         if (!result.hiddenConcentrations.length) {
-          parts.push(e('div', { style: { color: dim, fontSize: 'var(--text-sm)' } }, __('ltNoHidden', 'No single security exceeds {pct} of the portfolio once fund holdings are counted.', { pct: window.MaerminI18n.pct(5, 0) })));
+          parts.push(e('p', { className: 'ui-muted' }, __('ltNoHidden', 'No single security exceeds {pct} of the portfolio once fund holdings are counted.', { pct: window.MaerminI18n.pct(5, 0) })));
         } else {
           parts.push(e('div', null, result.hiddenConcentrations.slice(0, 6).map(function (h) {
-            return e('div', { key: h.key, style: { borderTop: '1px solid ' + border, padding: '0.5rem 0' } },
-              e('div', { style: { display: 'flex', justifyContent: 'space-between', gap: '0.5rem' } },
-                e('span', { style: { color: text, fontSize: 'var(--text-sm)', fontWeight: 600 } }, h.name || h.key),
-                e('span', { style: { color: h.effectiveWeight >= 0.1 ? bad : warn, fontSize: 'var(--text-sm)', fontWeight: 700 } }, __('ltEffectivePct', '{pct} effective', { pct: pct(h.effectiveWeight) }))),
-              e('div', { style: { color: dim, fontSize: 'var(--text-xs)', marginTop: '0.15rem' } },
+            return e('div', { key: h.key, className: 'ui-lt-item' },
+              e('div', { className: 'ui-lt-item__row' },
+                e('b', null, h.name || h.key),
+                e('b', { className: 'tone-warning' }, '! ' + __('ltEffectivePct', '{pct} effective', { pct: pct(h.effectiveWeight) }))),
+              e('p', { className: 'ui-note' },
                 (h.directWeight > 0 ? __('ltHeldDirectly', '{pct} held directly', { pct: pct(h.directWeight) }) + ', ' : '') + __('ltInside', '{pct} inside {list}', { pct: pct(h.fundedWeight), list: h.funds.join(', ') })));
           })));
         }
@@ -797,24 +794,22 @@ function __(k, f, v) { return (typeof window !== 'undefined' && window.MaerminI1
         ? (result.funds.some(function (f) { return f.source === 'fallback'; }) ? __('ltSrcBoth', 'live Worker data + built-in snapshot') : __('ltSrcWorker', 'live Worker data'))
         : __('ltSrcSnapshot', 'built-in snapshot (approximate)');
       if (result.funds.some(function (f) { return f.source === 'file'; })) sources = allFiles ? __('ltSrcFiles', 'your holdings files') : __('ltSrcFilesPlus', 'your holdings files + {src}', { src: sources });
-      parts.push(e('div', { style: { color: dim, fontSize: 'var(--text-2xs)', marginTop: '0.9rem', lineHeight: 1.5 } },
+      parts.push(e('p', { className: 'ui-note' },
         allFiles ? __('ltFooterFiles', '{n} {n:fund|funds} resolved from your holdings files, {pct} of portfolio value mapped to named holdings. Not investment advice.', { n: fundCount, pct: pct(result.coverage) })
           : __('ltFooter', '{n} {n:fund|funds} resolved, {pct} of portfolio value mapped to disclosed holdings. Source: {src}. Holdings are approximations (top holdings only) and not investment advice.', { n: fundCount, pct: pct(result.coverage), src: sources })));
-      if (mode !== 'risk' && FF) parts.push(e('div', { style: { marginTop: '0.6rem' } },
-        e('button', { type: 'button', 'data-testid': 'lt-export', onClick: exportCsv, style: { padding: '0.35rem 0.75rem', borderRadius: '8px', border: '1px solid ' + border, background: 'transparent', color: text, fontSize: 'var(--text-xs)', fontWeight: 600, cursor: 'pointer' } },
-          __('ltExportCsv', 'Export look-through (CSV)'))));
+      if (mode !== 'risk' && FF) parts.push(e('div', { className: 'ui-actions' },
+        e(UIC.Button, { size: 'sm', 'data-testid': 'lt-export', onClick: exportCsv }, __('ltExportCsv', 'Export look-through (CSV)'))));
 
       if (state.unsupported) {
-        parts.push(e('div', { style: { color: warn, fontSize: 'var(--text-xs)', marginTop: '0.5rem', lineHeight: 1.5 } },
+        parts.push(e('p', { className: ['ui-note', 'tone-warning'].join(' ') },
           __('ltUnsupported', 'Your Worker does not support fund look-through yet. Re-deploy the latest cf-worker/worker.js (it adds the action=fundholdings endpoint) for live holdings; until then a built-in snapshot of common ETFs is used.')));
       }
 
       body = e('div', null, parts);
     }
 
-    return e('div', { style: { background: card, border: '1px solid ' + border, borderRadius: '14px', padding: '1.25rem', marginTop: '1rem' } },
-      e('h3', { style: { color: text, fontSize: 'var(--text-body)', fontWeight: 700, margin: 0 } },
-        mode === 'risk' ? (t.lookThroughRiskTitle || 'Fund overlap & hidden concentration (X-Ray)') : (t.lookThroughTitle || 'ETF look-through (X-Ray)')),
+    return e(UIC.Card, { 'data-testid': 'look-through-' + mode, headingLevel: 'h3',
+      title: mode === 'risk' ? (t.lookThroughRiskTitle || 'Fund overlap & hidden concentration (X-Ray)') : (t.lookThroughTitle || 'ETF look-through (X-Ray)') },
       body
     );
   }

@@ -256,10 +256,8 @@ function __(k, f, v) { return (typeof window !== 'undefined' && window.MaerminI1
     var e = React.createElement;
     var theme = props.theme || {};
     var t = props.t || ((typeof window !== 'undefined' && window.MaerminI18n) ? window.MaerminI18n.dict() : {});
-    var text = theme.text || '#e6edf3', dim = theme.textSecondary || '#9aa4b2';
-    var border = theme.cardBorder || 'rgba(255,255,255,0.1)';
-    var inputBg = theme.inputBg || '#0f172a', card = theme.card || theme.cardBg || '#10151f';
-    var good = theme.success || '#22c55e', warn = theme.warning || '#f59e0b', bad = theme.danger || theme.negative || '#ef4444';
+    // R4.2: the shared Card, table look, inputs and a status badge in words
+    var UIC = window.MaerminComponents;
 
     var sSettings = React.useState(loadSettings);
     var settings = sSettings[0], setSettings = sSettings[1];
@@ -286,21 +284,20 @@ function __(k, f, v) { return (typeof window !== 'undefined' && window.MaerminI1
 
     var rows = FIELDS.map(function (f) {
       var c = result.checks.filter(function (x) { return x.id === f.rule; })[0];
-      var statusColor = !c.available ? dim : (c.breached ? (c.valuePct >= c.thresholdPct * 1.5 ? bad : warn) : good);
-      var statusText = !c.available ? __('dqNoData', 'no data') : (c.breached ? __('rmBreach', 'BREACH') : 'ok');
-      return e('tr', { key: f.rule, style: { borderTop: '1px solid ' + border } },
-        e('td', { style: { padding: '0.45rem 0.5rem', color: text, fontSize: 'var(--text-sm)' } }, c.label,
-          c.detail ? e('span', { style: { color: dim, fontSize: 'var(--text-2xs)' } }, '  ' + c.detail) : null),
-        e('td', { style: { padding: '0.45rem 0.5rem', textAlign: 'right', color: c.available ? text : dim, fontSize: 'var(--text-xs)', fontWeight: 600 } },
-          c.available ? I18N().pct(c.valuePct, 1) : '-'),
-        e('td', { style: { padding: '0.45rem 0.5rem', textAlign: 'right' } },
-          e('input', {
-            type: 'number', min: 1, max: 1000, value: settings[f.key], 'aria-label': __('rmLimitAria', 'Limit for {rule} (%)', { rule: c.label }),
-            onChange: function (ev) { commit(f.key, ev.target.value); },
-            style: { width: '64px', background: inputBg, border: '1px solid ' + border, borderRadius: '6px', padding: '0.25rem 0.4rem', color: text, fontSize: 'var(--text-xs)', textAlign: 'right' }
-          }),
-          e('span', { style: { color: dim, fontSize: 'var(--text-xs)', marginLeft: '0.25rem' } }, '%')),
-        e('td', { style: { padding: '0.45rem 0.5rem', textAlign: 'right', color: statusColor, fontSize: 'var(--text-xs)', fontWeight: 700 } }, statusText));
+      var tone = !c.available ? null : (c.breached ? (c.valuePct >= c.thresholdPct * 1.5 ? 'loss' : 'warning') : 'gain');
+      var statusText = !c.available ? __('dqNoData', 'no data') : (c.breached ? '! ' + __('rmBreach', 'BREACH') : '✓ ' + 'ok');
+      return e('tr', { key: f.rule, 'data-rule': f.rule },
+        e('th', { scope: 'row', className: 'is-sticky' }, c.label,
+          c.detail ? e('span', { className: 'ui-lt-via' }, '  ' + c.detail) : null),
+        e('td', { className: c.available ? 'is-strong' : 'ui-muted' }, c.available ? I18N().pct(c.valuePct, 1) : '-'),
+        e('td', null,
+          e('span', { className: 'ui-unit-input' },
+            e('input', {
+              type: 'number', min: 1, max: 1000, value: settings[f.key], className: ['ui-input', 'ui-input--sm', 'ui-input--num'].join(' '), 'aria-label': __('rmLimitAria', 'Limit for {rule} (%)', { rule: c.label }),
+              onChange: function (ev) { commit(f.key, ev.target.value); }
+            }),
+            e('span', { 'aria-hidden': 'true' }, '%'))),
+        e('td', null, e(UIC.Badge, { tone: tone }, statusText)));
     });
 
     var pwa = (typeof window !== 'undefined') && window.MaerminPWA;
@@ -314,28 +311,25 @@ function __(k, f, v) { return (typeof window !== 'undefined' && window.MaerminI1
       }
     }
 
-    return e('div', { style: { background: card, border: '1px solid ' + border, borderRadius: '14px', padding: '1.25rem', margin: '0 1.5rem 1.5rem' } },
-      e('div', { style: { display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '0.5rem', marginBottom: '0.9rem' } },
-        e('h3', { style: { color: text, fontSize: 'var(--text-body)', fontWeight: 700, margin: 0 } }, t.riskMonitorTitle || 'Risk & drift monitor'),
-        e('div', { style: { display: 'flex', alignItems: 'center', gap: '0.5rem' } },
-          e('span', { style: { color: dim, fontSize: 'var(--text-xs)' } }, __('rmCooldown', 'Cooldown')),
+    return e(UIC.Card, { title: t.riskMonitorTitle || 'Risk & drift monitor', headingLevel: 'h3', 'data-testid': 'risk-monitor', className: 'ui-rm',
+      action: e('div', { className: ['ui-panel-tools', 'ui-panel-tools--flush'].join(' ') },
+        e('label', { className: 'ui-unit-input' },
+          e('span', null, __('rmCooldown', 'Cooldown')),
           e('input', {
-            type: 'number', min: 1, max: 168, value: settings.cooldownHours, 'aria-label': __('rmCooldownAria', 'Cooldown in hours'),
-            onChange: function (ev) { commit('cooldownHours', ev.target.value); },
-            style: { width: '52px', background: inputBg, border: '1px solid ' + border, borderRadius: '6px', padding: '0.25rem 0.4rem', color: text, fontSize: 'var(--text-xs)', textAlign: 'right' }
+            type: 'number', min: 1, max: 168, value: settings.cooldownHours, className: ['ui-input', 'ui-input--sm', 'ui-input--num'].join(' '), 'aria-label': __('rmCooldownAria', 'Cooldown in hours'),
+            onChange: function (ev) { commit('cooldownHours', ev.target.value); }
           }),
-          e('span', { style: { color: dim, fontSize: 'var(--text-xs)' } }, 'h'),
-          e('button', {
-            onClick: toggleNotify,
-            style: { padding: '0.35rem 0.8rem', borderRadius: '8px', border: 'none', cursor: 'pointer', fontSize: 'var(--text-xs)', fontWeight: 700, background: settings.notify ? good : inputBg, color: settings.notify ? '#08130a' : dim }
-          }, settings.notify ? __('rmNotifyOn', 'Notifications on') : __('rmNotifyOff', 'Notifications off')))),
-      e('div', { style: { overflowX: 'auto' } },
-        e('table', { style: { width: '100%', borderCollapse: 'collapse' } },
+          e('span', { 'aria-hidden': 'true' }, 'h')),
+        e('label', { className: 'ui-check' },
+          e('input', { type: 'checkbox', checked: !!settings.notify, onChange: toggleNotify }),
+          settings.notify ? __('rmNotifyOn', 'Notifications on') : __('rmNotifyOff', 'Notifications off'))) },
+      e('div', { className: 'ui-table-wrap' },
+        e('table', { className: ['ui-table', 'ui-table--dense'].join(' ') },
           e('thead', null, e('tr', null, [__('rmRule', 'Rule'), __('rbCurrent', 'Current'), __('rmLimit', 'Limit'), __('secStatus', 'Status')].map(function (h, i) {
-            return e('th', { key: h, style: { textAlign: i === 0 ? 'left' : 'right', padding: '0.4rem 0.5rem', color: dim, fontSize: 'var(--text-2xs)', textTransform: 'uppercase', letterSpacing: '0.04em' } }, h);
+            return e('th', { key: h, scope: 'col', className: i === 0 ? 'is-sticky' : 'is-right' }, h);
           }))),
           e('tbody', null, rows))),
-      e('div', { style: { color: dim, fontSize: 'var(--text-2xs)', marginTop: '0.7rem', lineHeight: 1.5 } },
+      e('p', { className: 'ui-note' },
         __('rmFootnote', 'Structural rules evaluated on every price refresh while the app is open. The look-through rule needs fund data (open Health once to resolve it); drawdown and volatility need a short portfolio price history. Notifications are local on this device.')));
   }
 

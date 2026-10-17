@@ -100,16 +100,13 @@ function RiskAnalyticsViewV2(props) {
     }
   }, [portfolio, priceHistory, portfolioValue, indexSeries, props.portfolioValueEUR]);
   
-  var getRiskColor = function(level) {
-    switch (level) {
-      case 'low': return theme.success || '#22c55e';
-      case 'medium': return theme.warning || '#f59e0b';
-      case 'high': return theme.danger || '#ef4444';
-      case 'very-high': return '#dc2626';
-      default: return theme.textSecondary || '#6b7280';
-    }
-  };
-  
+  // R4.2: tones instead of colours (warning / loss carry their word or sign),
+  // the shared Card, Stat tiles and meters.
+  var UIC = window.MaerminComponents;
+  var I = window.MaerminI18n;
+  var e = React.createElement;
+  var riskTone = function (level) { return level === 'low' ? 'gain' : level === 'medium' ? 'warning' : (level === 'high' || level === 'very-high') ? 'loss' : 'neutral'; };
+
   var getRiskLabel = function(level) {
     var labels = {
       'low': __('rkLow', 'Low'),
@@ -119,7 +116,11 @@ function RiskAnalyticsViewV2(props) {
     };
     return labels[level] || level;
   };
-  
+
+  var meter = function (pct, tone) {
+    return e('span', { className: 'ui-meter', 'aria-hidden': 'true' }, e('span', { className: 'ui-meter__fill', 'data-tone': tone || 'accent', style: { width: Math.max(0, Math.min(100, pct)) + '%' } }));
+  };
+
   // ── Structural risk dimensions (V7) — concentration, rebalancing drift and
   //    currency exposure. These need no price history, so they render even
   //    before volatility/VaR can be measured. All numbers come from the shared
@@ -128,91 +129,70 @@ function RiskAnalyticsViewV2(props) {
   function renderDimensions() {
     var M = (typeof window !== 'undefined') && window.MaerminMetrics;
     if (!M) return null;
-    var e = React.createElement;
     var conc = M.computeConcentration(portfolio, prices);
     var drift = M.computeRebalancingDrift(portfolio, prices);
     var fx = M.computeCurrencyExposure(portfolio, prices, transactions);
 
     var clsLabel = function (c) { var m = { crypto: t.crypto || 'Crypto', stocks: t.stocks || 'Stocks', skins: t.cs2Skins || 'CS2 Items', commodities: t.commodities || 'Commodities' }; return m[c] || c; };
-    var driftColor = function (d) { var a = Math.abs(d); return a < 5 ? (theme.success || '#22c55e') : a < 12 ? (theme.warning || '#f59e0b') : (theme.danger || '#ef4444'); };
-    var box = function (children) { return e('div', { style: { background: theme.card, padding: '1.25rem', borderRadius: '12px', border: '1px solid ' + theme.cardBorder } }, children); };
-    var head = function (label, view) {
-      var clickable = !!(view && setActiveView);
-      return e('div', {
-        onClick: clickable ? function () { setActiveView(view); } : undefined,
-        style: { display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.75rem', cursor: clickable ? 'pointer' : 'default' }
-      },
-        e('span', { style: { color: theme.text, fontWeight: 600, fontSize: 'var(--text-md)' } }, label),
-        clickable ? e('span', { style: { color: theme.textSecondary, fontSize: 'var(--text-sm)' } }, (t.healthOpenView || 'Open') + ' ›') : null);
+    var driftTone = function (d) { var a = Math.abs(d); return a < 5 ? '' : a < 12 ? 'tone-warning' : 'tone-loss'; };
+    var open = function (view) {
+      return view && setActiveView ? e(UIC.Button, { variant: 'quiet', size: 'sm', onClick: function () { setActiveView(view); } }, (t.healthOpenView || 'Open') + ' ›') : null;
     };
-    var noData = e('div', { style: { color: theme.textSecondary, fontSize: 'var(--text-base)' } }, t.noData || 'No data');
+    var noData = e('p', { className: 'ui-muted' }, t.noData || 'No data');
 
-    return e('div', { style: { display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(260px, 1fr))', gap: '1rem', marginBottom: '1.5rem' } },
-      box([
-        head(t.riskConcentration || 'Concentration risk', 'health'),
+    return e('div', { className: 'ui-grid-3', 'data-testid': 'risk-dimensions' },
+      e(UIC.Card, { title: t.riskConcentration || 'Concentration risk', headingLevel: 'h3', action: open('health') },
         conc.available
-          ? e('div', { key: 'c' },
-              e('div', { style: { display: 'flex', alignItems: 'baseline', gap: '0.5rem' } },
-                e('span', { style: { fontSize: '1.6rem', fontWeight: 800, color: conc.maxWeight > 0.3 ? (theme.danger || 'var(--danger)') : theme.text } }, window.MaerminI18n.pct(conc.maxWeight * 100, 0)),
-                e('span', { style: { color: theme.textSecondary, fontSize: 'var(--text-sm)' } }, t.riskLargestPosition || 'largest position')),
-              e('div', { style: { color: theme.textSecondary, fontSize: 'var(--text-sm)', marginTop: '0.35rem' } }, window.MaerminI18n.num(conc.effectiveN || 0, 1) + ' ' + (t.healthEffectivePositions || 'effective positions')))
-          : noData
-      ]),
-      box([
-        head(t.riskDrift || 'Rebalancing drift', 'rebalancing'),
+          ? e(UIC.Stat, { label: t.riskLargestPosition || 'largest position', value: I.pct(conc.maxWeight * 100, 0), tone: conc.maxWeight > 0.3 ? 'warning' : null,
+              sub: I.num(conc.effectiveN || 0, 1) + ' ' + (t.healthEffectivePositions || 'effective positions') })
+          : noData),
+      e(UIC.Card, { title: t.riskDrift || 'Rebalancing drift', headingLevel: 'h3', action: open('rebalancing') },
         drift.available
-          ? e('div', { key: 'd' }, drift.rows.map(function (r) {
-              return e('div', { key: r.cls, style: { display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.4rem', fontSize: 'var(--text-sm)' } },
-                e('span', { style: { color: theme.textSecondary } }, clsLabel(r.cls)),
-                e('span', { style: { color: theme.text } },
-                  window.MaerminI18n.pct(r.currentPct, 0) + ' / ' + window.MaerminI18n.pct(r.targetPct, 0) + ' ',
-                  e('span', { style: { color: driftColor(r.drift), fontWeight: 700 } }, window.MaerminI18n.pct(r.drift, 0, true))));
+          ? e('ul', { className: 'ui-rows' }, drift.rows.map(function (r) {
+              return e('li', { key: r.cls, className: 'ui-rows__row' },
+                e('span', { className: 'ui-muted' }, clsLabel(r.cls)),
+                e('span', { className: 'num' }, I.pct(r.currentPct, 0) + ' / ' + I.pct(r.targetPct, 0) + ' ',
+                  e('b', { className: driftTone(r.drift) }, I.pct(r.drift, 0, true))));
             }))
           : drift.reason === 'no-targets'
-            ? e('div', { style: { color: theme.textSecondary, fontSize: 'var(--text-base)' } }, __('rbNoTargetsShort', 'No targets set'))
-            : noData
-      ]),
-      box([
-        head(t.riskCurrency || 'Currency exposure', null),
+            ? e('p', { className: 'ui-muted' }, __('rbNoTargetsShort', 'No targets set'))
+            : noData),
+      e(UIC.Card, { title: t.riskCurrency || 'Currency exposure', headingLevel: 'h3' },
         fx.available
-          ? e('div', { key: 'f' }, fx.rows.map(function (r) {
-              return e('div', { key: r.currency, style: { marginBottom: '0.5rem' } },
-                e('div', { style: { display: 'flex', justifyContent: 'space-between', fontSize: 'var(--text-sm)', marginBottom: '0.2rem' } },
-                  e('span', { style: { color: theme.text, fontWeight: 600 } }, r.currency),
-                  e('span', { style: { color: theme.textSecondary } }, window.MaerminI18n.pct(r.pct, 0))),
-                e('div', { style: { height: '6px', background: theme.inputBg, borderRadius: '3px', overflow: 'hidden' } },
-                  e('div', { style: { height: '100%', width: r.pct + '%', background: theme.accent, borderRadius: '3px' } })));
+          ? e('ul', { className: 'ui-meters' }, fx.rows.map(function (r) {
+              return e('li', { key: r.currency },
+                e('span', { className: 'ui-meters__label' }, e('b', null, r.currency), e('span', { className: 'num' }, I.pct(r.pct, 0))),
+                meter(r.pct));
             }))
-          : noData
-      ])
+          : noData)
     );
   }
 
-  function riskHeader() {
-    var e = React.createElement;
-    return e('div', { style: { display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '1rem', flexWrap: 'wrap', marginBottom: '1.5rem' } },
-      e('h2', { style: { color: theme.text, fontSize: 'var(--text-xl)', fontWeight: '600', margin: 0 } }, t.riskLevel || 'Risk Analytics'),
-      // Source of the volatility / VaR / drawdown figures below.
-      e('div', { 'data-testid': 'risk-source', 'data-source': indexSeries ? 'index' : (props.historySource || 'refresh'), style: { color: theme.textSecondary, fontSize: 'var(--text-xs)' } },
-        indexSeries
-          ? __('rkBasedIndex', 'Based on the daily value of your portfolio ({n} daily returns)', { n: indexSeries.length - 1 })
-          : props.historySource === 'daily'
-          ? __('rkBasedDaily', 'Based on daily closing prices ({n} daily returns)', { n: typeof riskObservations !== 'undefined' ? riskObservations(priceHistory) : 0 })
-          : __('rkBasedRefresh', 'Based on the prices recorded on your refreshes')));
+  function sourceLine() {
+    // Source of the volatility / VaR / drawdown figures below.
+    return e('p', { className: 'ui-view__lead', 'data-testid': 'risk-source', 'data-source': indexSeries ? 'index' : (props.historySource || 'refresh') },
+      indexSeries
+        ? __('rkBasedIndex', 'Based on the daily value of your portfolio ({n} daily returns)', { n: indexSeries.length - 1 })
+        : props.historySource === 'daily'
+        ? __('rkBasedDaily', 'Based on daily closing prices ({n} daily returns)', { n: typeof riskObservations !== 'undefined' ? riskObservations(priceHistory) : 0 })
+        : __('rkBasedRefresh', 'Based on the prices recorded on your refreshes'));
   }
 
   // P5-1.6: one plain sentence under a key figure (rules in verdicts.js).
   var V = typeof window !== 'undefined' ? window.MaerminVerdicts : null;
   function verdictLine(r, id) {
     if (!r) return null;
-    var c = { good: theme.success, warn: theme.warning, bad: theme.danger }[r.level] || theme.textSecondary;
-    return React.createElement('div', { 'data-testid': 'verdict-' + id, 'data-level': r.level, style: { color: c, fontSize: 'var(--text-xs)', lineHeight: 1.45, marginTop: '0.4rem' } }, r.text);
+    return e('span', { 'data-testid': 'verdict-' + id, 'data-level': r.level, className: ['ui-verdict', 'ui-verdict--sub'].join(' ') }, r.text);
   }
+  var metric = function (label, value, tone, verdict, testid) {
+    return e(UIC.Card, { key: label, variant: 'answer', className: 'ui-ov-tile', 'data-testid': testid },
+      e(UIC.Stat, { label: label, value: value, tone: tone || null, sub: verdict || null }));
+  };
 
   if (!riskMetrics) {
     // No usable price history yet — still show the structural dimensions.
-    return React.createElement('div', { style: { padding: '1.5rem' } },
-      riskHeader(),
+    return e('div', { className: 'ui-view', 'data-testid': 'risk-view' },
+      sourceLine(),
       renderDimensions(),
       window.MaerminUtils.emptyState({ testid: 'risk-need-history', text:
         (t.riskNeedsHistory || 'Refresh prices a few times to unlock volatility, Value-at-Risk and drawdown — these need a short price history.') +
@@ -220,264 +200,44 @@ function RiskAnalyticsViewV2(props) {
     );
   }
 
-  return React.createElement('div', { style: { padding: '1.5rem' } },
-    // Header
-    riskHeader(),
+  var sharpeTone = riskMetrics.sharpeRatio >= 1 ? 'gain' : riskMetrics.sharpeRatio >= 0.5 ? 'warning' : 'loss';
+  return e('div', { className: 'ui-view', 'data-testid': 'risk-view' },
+    sourceLine(),
+
+    // Risk score: the answer
+    e(UIC.Card, { variant: 'hero', 'data-testid': 'risk-score' },
+      e('div', { className: 'ui-split' },
+        e(UIC.Stat, { size: 'lg', label: t.riskLevel || 'Risk Score', value: I.num(riskMetrics.riskScore, 0), tone: riskTone(riskMetrics.riskLevel) }),
+        e(UIC.Badge, { tone: riskTone(riskMetrics.riskLevel) }, getRiskLabel(riskMetrics.riskLevel)))),
 
     // Structural risk dimensions (always shown)
     renderDimensions(),
 
-    // Risk Score Card
-    React.createElement('div', {
-      style: {
-        background: theme.card,
-        padding: '2rem',
-        borderRadius: '12px',
-        border: '1px solid ' + theme.cardBorder,
-        marginBottom: '1.5rem',
-        textAlign: 'center'
-      }
-    },
-      React.createElement('div', {
-        style: { fontSize: '4rem', fontWeight: '700', color: getRiskColor(riskMetrics.riskLevel) }
-      }, window.MaerminI18n.num(riskMetrics.riskScore, 0)),
-      React.createElement('div', {
-        style: { fontSize: 'var(--text-title)', color: theme.textSecondary, marginBottom: '0.5rem' }
-      }, t.riskLevel || 'Risk Score'),
-      React.createElement('div', {
-        style: {
-          display: 'inline-block',
-          padding: '0.25rem 1rem',
-          borderRadius: '2rem',
-          background: getRiskColor(riskMetrics.riskLevel),
-          color: window.MaerminUtils.onColor(getRiskColor(riskMetrics.riskLevel)), // white on the dark theme green was 1.77:1
-          fontWeight: '600'
-        }
-      }, getRiskLabel(riskMetrics.riskLevel))
-    ),
-    
-    // Metrics Grid
-    React.createElement('div', {
-      style: {
-        display: 'grid',
-        gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))',
-        gap: '1rem',
-        marginBottom: '1.5rem'
-      }
-    },
-      // Volatility
-      React.createElement('div', {
-        style: {
-          background: theme.card,
-          padding: '1.25rem',
-          borderRadius: '12px',
-          border: '1px solid ' + theme.cardBorder
-        }
-      },
-        React.createElement('div', { style: { color: theme.textSecondary, fontSize: 'var(--text-base)' } },
-          t.volatility || 'Volatility (Annual)'
-        ),
-        React.createElement('div', { style: { color: theme.text, fontSize: 'var(--text-xl)', fontWeight: '800', letterSpacing: '-0.02em' } },
-          window.MaerminI18n.pct(riskMetrics.volatility, 1)
-        ),
-        V && verdictLine(V.volatility(riskMetrics.volatility), 'volatility')
-      ),
-      
-      // VaR
-      React.createElement('div', {
-        style: {
-          background: theme.card,
-          padding: '1.25rem',
-          borderRadius: '12px',
-          border: '1px solid ' + theme.cardBorder
-        }
-      },
-        React.createElement('div', { style: { color: theme.textSecondary, fontSize: 'var(--text-base)' } },
-          __('rkVar', 'VaR (95%, 1-day)')
-        ),
-        React.createElement('div', { style: { color: theme.danger || 'var(--danger)', fontSize: 'var(--text-xl)', fontWeight: '800', letterSpacing: '-0.02em' } },
-          formatPrice(riskMetrics.var95) + ' ' + currencyLabel
-        )
-      ),
-      
-      // CVaR
-      React.createElement('div', {
-        style: {
-          background: theme.card,
-          padding: '1.25rem',
-          borderRadius: '12px',
-          border: '1px solid ' + theme.cardBorder
-        }
-      },
-        React.createElement('div', { style: { color: theme.textSecondary, fontSize: 'var(--text-base)' } },
-          'CVaR (' + window.MaerminI18n.pct(95, 0) + ')'
-        ),
-        React.createElement('div', { style: { color: theme.danger || 'var(--danger)', fontSize: 'var(--text-xl)', fontWeight: '800', letterSpacing: '-0.02em' } },
-          formatPrice(riskMetrics.cvar95) + ' ' + currencyLabel
-        )
-      ),
-      
-      // Sharpe Ratio
-      React.createElement('div', {
-        style: {
-          background: theme.card,
-          padding: '1.25rem',
-          borderRadius: '12px',
-          border: '1px solid ' + theme.cardBorder
-        }
-      },
-        React.createElement('div', { style: { color: theme.textSecondary, fontSize: 'var(--text-base)' } },
-          __('rkSharpe', 'Sharpe Ratio')
-        ),
-        React.createElement('div', {
-          style: {
-            color: riskMetrics.sharpeRatio >= 1 ? theme.success : 
-                   riskMetrics.sharpeRatio >= 0.5 ? theme.warning : theme.danger,
-            fontSize: 'var(--text-xl)',
-            fontWeight: '700'
-          }
-        }, window.MaerminI18n.num(riskMetrics.sharpeRatio, 2)),
-        V && verdictLine(V.sharpe(riskMetrics.sharpeRatio), 'sharpe')
-      ),
-      
-      // Sortino Ratio
-      React.createElement('div', {
-        style: {
-          background: theme.card,
-          padding: '1.25rem',
-          borderRadius: '12px',
-          border: '1px solid ' + theme.cardBorder
-        }
-      },
-        React.createElement('div', { style: { color: theme.textSecondary, fontSize: 'var(--text-base)' } },
-          __('rkSortino', 'Sortino Ratio')
-        ),
-        React.createElement('div', { style: { color: theme.text, fontSize: 'var(--text-xl)', fontWeight: '800', letterSpacing: '-0.02em' } },
-          isFinite(riskMetrics.sortinoRatio) ? window.MaerminI18n.num(riskMetrics.sortinoRatio, 2) : __('healthNotAvailable', 'n/a')
-        ),
-        V && verdictLine(V.sortino(riskMetrics.sortinoRatio), 'sortino')
-      ),
-      
-      // Max Drawdown
-      React.createElement('div', {
-        style: {
-          background: theme.card,
-          padding: '1.25rem',
-          borderRadius: '12px',
-          border: '1px solid ' + theme.cardBorder
-        }
-      },
-        React.createElement('div', { style: { color: theme.textSecondary, fontSize: 'var(--text-base)' } },
-          __('rkMaxDd', 'Max Drawdown')
-        ),
-        React.createElement('div', { style: { color: theme.danger || 'var(--danger)', fontSize: 'var(--text-xl)', fontWeight: '800', letterSpacing: '-0.02em' } },
-          '-' + window.MaerminI18n.pct(riskMetrics.maxDrawdownPercent, 1)
-        ),
-        V && verdictLine(V.drawdown(riskMetrics.maxDrawdownPercent), 'drawdown')
-      )
-    ),
-    V && React.createElement('div', { 'data-testid': 'verdict-note', style: { color: theme.textSecondary, fontSize: 'var(--text-xs)', margin: '-0.75rem 0 1.5rem' } }, V.disclaimer()),
-    
+    // Metrics
+    e('div', { className: 'ui-ov-tiles', 'data-testid': 'risk-metrics' },
+      metric(t.volatility || 'Volatility (Annual)', I.pct(riskMetrics.volatility, 1), null, V && verdictLine(V.volatility(riskMetrics.volatility), 'volatility')),
+      metric(__('rkVar', 'VaR (95%, 1-day)'), formatPrice(riskMetrics.var95) + ' ' + currencyLabel, null, __('rkVarSub', 'a bad day, 1 in 20')),
+      metric('CVaR (' + I.pct(95, 0) + ')', formatPrice(riskMetrics.cvar95) + ' ' + currencyLabel, null, __('rkCvarSub', 'average of those bad days')),
+      metric(__('rkSharpe', 'Sharpe Ratio'), I.num(riskMetrics.sharpeRatio, 2), sharpeTone, V && verdictLine(V.sharpe(riskMetrics.sharpeRatio), 'sharpe')),
+      metric(__('rkSortino', 'Sortino Ratio'), isFinite(riskMetrics.sortinoRatio) ? I.num(riskMetrics.sortinoRatio, 2) : __('healthNotAvailable', 'n/a'), null, V && verdictLine(V.sortino(riskMetrics.sortinoRatio), 'sortino')),
+      metric(__('rkMaxDd', 'Max Drawdown'), '−' + I.pct(Math.abs(riskMetrics.maxDrawdownPercent), 1), riskMetrics.maxDrawdownPercent ? 'loss' : null, V && verdictLine(V.drawdown(riskMetrics.maxDrawdownPercent), 'drawdown'))),
+    V && e('p', { 'data-testid': 'verdict-note', className: ['ui-note', 'ui-note--flush'].join(' ') }, V.disclaimer()),
+
     // Recommendations
-    recommendations.length > 0 && React.createElement('div', {
-      style: {
-        background: theme.card,
-        padding: '1.5rem',
-        borderRadius: '12px',
-        border: '1px solid ' + theme.cardBorder
-      }
-    },
-      React.createElement('h3', {
-        style: { color: theme.text, marginBottom: '1rem', fontSize: 'var(--text-lg)' }
-      }, t.recommendations || 'Recommendations'),
-      recommendations.map(function(rec, idx) {
-        return React.createElement('div', {
-          key: idx,
-          style: {
-            padding: '1rem',
-            marginBottom: idx < recommendations.length - 1 ? '0.75rem' : 0,
-            background: theme.inputBg,
-            borderRadius: '8px',
-            borderLeft: '4px solid ' + (rec.type === 'warning' ? theme.warning : theme.accent)
-          }
-        },
-          React.createElement('div', {
-            style: {
-              display: 'flex',
-              justifyContent: 'space-between',
-              alignItems: 'center',
-              marginBottom: '0.25rem'
-            }
-          },
-            React.createElement('span', {
-              style: {
-                fontSize: 'var(--text-xs)',
-                padding: '0.125rem 0.5rem',
-                borderRadius: '4px',
-                background: rec.priority === 'high' ? 'color-mix(in srgb, var(--danger) 20%, transparent)' : 'color-mix(in srgb, var(--warning) 20%, transparent)',
-                color: rec.priority === 'high' ? theme.danger : theme.warning
-              }
-            }, rec.priority === 'high' ? (t.highRisk || 'HIGH') : (t.mediumRisk || 'MEDIUM'))
-          ),
-          React.createElement('p', { style: { color: theme.text, margin: 0 } }, rec.message)
-        );
-      })
-    ),
-    
+    recommendations.length > 0 && e(UIC.Card, { title: t.recommendations || 'Recommendations', headingLevel: 'h3', 'data-testid': 'risk-recs' },
+      e('ul', { className: 'ui-findings' }, recommendations.map(function (rec, idx) {
+        return e('li', { key: idx, className: 'ui-finding', 'data-level': rec.priority === 'high' ? 'bad' : 'warn' },
+          e(UIC.Badge, { tone: rec.priority === 'high' ? 'loss' : 'warning' }, rec.priority === 'high' ? (t.highRisk || 'HIGH') : (t.mediumRisk || 'MEDIUM')),
+          e('p', null, rec.message));
+      }))),
+
     // Portfolio Weights
-    Object.keys(riskMetrics.weights || {}).length > 0 && React.createElement('div', {
-      style: {
-        marginTop: '1.5rem',
-        background: theme.card,
-        padding: '1.5rem',
-        borderRadius: '12px',
-        border: '1px solid ' + theme.cardBorder
-      }
-    },
-      React.createElement('h3', {
-        style: { color: theme.text, marginBottom: '1rem', fontSize: 'var(--text-lg)' }
-      }, t.distribution || 'Portfolio Weights'),
-      Object.entries(riskMetrics.weights).sort(function(a, b) {
-        return b[1] - a[1];
-      }).map(function(entry, idx) {
-        var symbol = entry[0];
-        var weight = entry[1];
-        return React.createElement('div', {
-          key: symbol,
-          style: {
-            display: 'flex',
-            alignItems: 'center',
-            marginBottom: '0.75rem'
-          }
-        },
-          React.createElement('span', {
-            style: { width: '80px', color: theme.text, fontWeight: '600' }
-          }, symbol.toUpperCase()),
-          React.createElement('div', {
-            style: {
-              flex: 1,
-              height: '8px',
-              background: theme.inputBg,
-              borderRadius: '4px',
-              overflow: 'hidden',
-              marginRight: '1rem'
-            }
-          },
-            React.createElement('div', {
-              style: {
-                width: (weight * 100) + '%',
-                height: '100%',
-                background: theme.accent,
-                borderRadius: '4px'
-              }
-            })
-          ),
-          React.createElement('span', {
-            style: { width: '50px', textAlign: 'right', color: theme.textSecondary }
-          }, window.MaerminI18n.pct(weight * 100, 1))
-        );
-      })
-    )
+    Object.keys(riskMetrics.weights || {}).length > 0 && e(UIC.Card, { title: t.distribution || 'Portfolio Weights', headingLevel: 'h3', 'data-testid': 'risk-weights' },
+      e('ul', { className: ['ui-meters', 'ui-meters--cols'].join(' ') }, Object.entries(riskMetrics.weights).sort(function (a, b) { return b[1] - a[1]; }).map(function (entry) {
+        return e('li', { key: entry[0] },
+          e('span', { className: 'ui-meters__label' }, e('b', null, entry[0].toUpperCase()), e('span', { className: 'num' }, I.pct(entry[1] * 100, 1))),
+          meter(entry[1] * 100));
+      })))
   );
 }
 

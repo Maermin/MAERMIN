@@ -261,211 +261,68 @@ function CorrelationMatrixView({ portfolio, priceHistory, historySource, t, them
     return () => { cancelled = true; };
   }, [priceHistory]);
 
-  const getCorrelationColor = (value) => {
-    if (value >= 0.7) return '#ef4444';
-    if (value >= 0.3) return '#f59e0b';
-    if (value >= -0.3) return '#6b7280';
-    if (value >= -0.7) return '#3b82f6';
-    return '#22c55e';
-  };
+  // R4.2: a diverging scale on the theme (moves together = loss tone, moves
+  // apart = gain tone, 0 = the surface), the figure in every cell, a legend in
+  // words; the grid scrolls inside its card with the symbol column fixed.
+  const H = window.MaerminReturnsHeatmap, T = window.MaerminTokens;
+  const hexOf = (v, fb) => { const r = T && T.resolve ? T.resolve(v) : v; return /^#[0-9a-f]{3,6}$/i.test(String(r || '').trim()) ? String(r).trim() : fb; };
+  const scale = { up: hexOf('var(--loss)', '#ef4444'), down: hexOf('var(--gain)', '#22c55e'), base: hexOf('var(--surface)', '#10151f') };
+  const cellBg = (v) => (H ? H.cellColor(v, { up: scale.up, down: scale.down, base: scale.base, maxAbs: 1 }) : scale.base);
 
   if (!correlationData) {
     // "Loading..." was shown forever when there was simply nothing to compute.
     // Only say loading while a computation can actually be running.
     const withHistory = Object.values(priceHistory || {}).filter(h => Array.isArray(h) && h.length >= 2).length;
     const computing = withHistory >= 2;
-    return window.MaerminUtils.emptyState({
+    return h('div', { className: 'ui-view' }, window.MaerminUtils.emptyState({
       testid: computing ? 'correlation-loading' : 'correlation-empty', kind: computing ? 'loading' : 'empty',
       text: computing
       ? (t.loading || 'Loading...')
-      : window.MaerminI18n.fill(t.correlationNeedsHistory || 'Not enough price history yet. The correlation matrix needs at least two holdings with two or more recorded prices each ({n} so far). A price point is recorded on every refresh.', { n: withHistory }) });
+      : window.MaerminI18n.fill(t.correlationNeedsHistory || 'Not enough price history yet. The correlation matrix needs at least two holdings with two or more recorded prices each ({n} so far). A price point is recorded on every refresh.', { n: withHistory }) }));
   }
 
   const { matrix, score, extremes } = correlationData;
+  const UIC = Components;
+  const I = window.MaerminI18n;
+  const scoreTone = score.score >= 60 ? 'gain' : score.score >= 40 ? 'warning' : 'loss';
+  const sourceText = historySource === 'daily'
+    ? __('corrDaily', 'Daily closing prices, {n} daily returns up to today', { n: Math.max(0, ((Object.values(priceHistory || {})[0] || []).length - 1)) })
+    : historySource === 'partial'
+      ? __('corrPartial', 'Daily closing prices of the {k} holdings that have them, {n} daily returns up to today', { k: Object.keys(priceHistory || {}).length, n: Math.max(0, ((Object.values(priceHistory || {})[0] || []).length - 1)) })
+      : __('corrRefresh', 'Prices recorded on your refreshes');
+  const pairs = (title, list, testid) => h(UIC.Card, { title, headingLevel: 'h3', 'data-testid': testid },
+    h('ul', { className: 'ui-rows' }, list.slice(0, 5).map((pair, idx) => h('li', { key: idx, className: 'ui-rows__row' },
+      h('span', { className: 'ui-corr__pair' }, `${pair.asset1} / ${pair.asset2}`),
+      h('span', { className: ['ui-corr__chip', 'num'].join(' '), style: { background: cellBg(pair.correlation), color: H ? H.textOn(cellBg(pair.correlation)) : undefined } }, I.num(pair.correlation, 2))))));
 
-  return React.createElement('div', { style: { padding: '1.5rem' } },
-    // Header
-    React.createElement('div', {
-      style: {
-        display: 'flex',
-        justifyContent: 'space-between',
-        alignItems: 'center',
-        marginBottom: '1.5rem'
-      }
-    },
-      React.createElement('div', null,
-        React.createElement('h2', {
-          style: { color: theme.text, fontSize: 'var(--text-xl)', fontWeight: '600' }
-        }, t.correlationMatrix || 'Correlation Matrix'),
-        // Where the numbers come from: daily closes (available from the first
-        // trade) or the points recorded on each manual refresh.
-        React.createElement('div', { 'data-testid': 'correlation-source', 'data-source': historySource || 'refresh', style: { color: theme.textSecondary, fontSize: 'var(--text-xs)', marginTop: '0.25rem' } },
-          historySource === 'daily'
-            ? __('corrDaily', 'Daily closing prices, {n} daily returns up to today', { n: Math.max(0, ((Object.values(priceHistory || {})[0] || []).length - 1)) })
-            : historySource === 'partial'
-              ? __('corrPartial', 'Daily closing prices of the {k} holdings that have them, {n} daily returns up to today', { k: Object.keys(priceHistory || {}).length, n: Math.max(0, ((Object.values(priceHistory || {})[0] || []).length - 1)) })
-              : __('corrRefresh', 'Prices recorded on your refreshes'))),
-      React.createElement('div', {
-        style: {
-          background: theme.card,
-          padding: '0.75rem 1.25rem',
-          borderRadius: '8px',
-          border: `1px solid ${theme.cardBorder}`
-        }
-      },
-        React.createElement('span', { style: { color: theme.textSecondary } },
-          t.diversificationScore || 'Diversification Score'
-        ),
-        React.createElement('span', {
-          style: {
-            marginLeft: '0.5rem',
-            fontWeight: '700',
-            fontSize: 'var(--text-title)',
-            color: score.score >= 60 ? theme.success : score.score >= 40 ? theme.warning : theme.danger
-          }
-        }, `${window.MaerminI18n.num(score.score, 0)}/100`)
-      )
-    ),
-
-    // Matrix Grid
-    React.createElement('div', {
-      style: {
-        display: 'grid',
-        gridTemplateColumns: `80px repeat(${matrix.symbols.length}, 60px)`,
-        gap: '2px',
-        marginBottom: '2rem',
-        background: theme.cardBorder,
-        borderRadius: '8px',
-        overflow: 'hidden',
-        width: 'fit-content'
-      }
-    },
-      // Empty corner
-      React.createElement('div', {
-        style: { background: theme.card, padding: '0.5rem' }
-      }),
-      // Column headers
-      ...matrix.symbols.map(symbol =>
-        React.createElement('div', {
-          key: `col-${symbol}`,
-          style: {
-            background: theme.card,
-            padding: '0.5rem',
-            textAlign: 'center',
-            fontWeight: '600',
-            color: theme.text,
-            fontSize: 'var(--text-xs)'
-          }
-        }, symbol.substring(0, 6))
-      ),
-      // Rows
-      ...matrix.symbols.flatMap((rowSymbol, i) => [
-        // Row header
-        React.createElement('div', {
-          key: `row-${rowSymbol}`,
-          style: {
-            background: theme.card,
-            padding: '0.5rem',
-            fontWeight: '600',
-            color: theme.text,
-            fontSize: 'var(--text-xs)',
-            display: 'flex',
-            alignItems: 'center'
-          }
-        }, rowSymbol.substring(0, 8)),
-        // Cells
-        ...matrix.symbols.map((colSymbol, j) => {
-          const value = matrix.matrix[i][j];
-          return React.createElement('div', {
-            key: `cell-${i}-${j}`,
-            style: {
-              background: i === j ? theme.card : getCorrelationColor(value),
-              padding: '0.5rem',
-              textAlign: 'center',
-              // black or white, whichever reads on the cell colour (white on amber was 2.15:1)
-              color: i === j ? theme.textSecondary : window.MaerminUtils.onColor(getCorrelationColor(value)),
-              fontSize: 'var(--text-xs)',
-              fontWeight: '500'
-            },
-            title: `${rowSymbol} / ${colSymbol}: ${window.MaerminI18n.num(value, 2)}`
-          }, i === j ? '-' : window.MaerminI18n.num(value, 2))
-        })
-      ])
-    ),
-
-    // Extreme pairs
-    React.createElement('div', {
-      style: {
-        display: 'grid',
-        gridTemplateColumns: 'repeat(auto-fit, minmax(300px, 1fr))',
-        gap: '1rem'
-      }
-    },
-      // Most correlated
-      React.createElement('div', {
-        style: {
-          background: theme.card,
-          padding: '1.25rem',
-          borderRadius: '16px',
-          border: `1px solid ${theme.cardBorder}`
-        }
-      },
-        React.createElement('h3', {
-          style: { color: theme.text, marginBottom: '1rem', fontSize: 'var(--text-body)' }
-        }, t.mostCorrelatedPairs || 'Most Correlated'),
-        extremes.mostCorrelated.slice(0, 5).map((pair, idx) =>
-          React.createElement('div', {
-            key: idx,
-            style: {
-              display: 'flex',
-              justifyContent: 'space-between',
-              padding: '0.5rem 0',
-              borderBottom: idx < 4 ? `1px solid ${theme.cardBorder}` : 'none'
-            }
-          },
-            React.createElement('span', { style: { color: theme.textSecondary } },
-              `${pair.asset1} / ${pair.asset2}`
-            ),
-            React.createElement('span', {
-              style: { color: theme.danger, fontWeight: '600' }
-            }, window.MaerminI18n.num(pair.correlation, 2))
-          )
-        )
-      ),
-
-      // Least correlated
-      React.createElement('div', {
-        style: {
-          background: theme.card,
-          padding: '1.25rem',
-          borderRadius: '16px',
-          border: `1px solid ${theme.cardBorder}`
-        }
-      },
-        React.createElement('h3', {
-          style: { color: theme.text, marginBottom: '1rem', fontSize: 'var(--text-body)' }
-        }, t.leastCorrelatedPairs || 'Least Correlated'),
-        extremes.leastCorrelated.slice(0, 5).map((pair, idx) =>
-          React.createElement('div', {
-            key: idx,
-            style: {
-              display: 'flex',
-              justifyContent: 'space-between',
-              padding: '0.5rem 0',
-              borderBottom: idx < 4 ? `1px solid ${theme.cardBorder}` : 'none'
-            }
-          },
-            React.createElement('span', { style: { color: theme.textSecondary } },
-              `${pair.asset1} / ${pair.asset2}`
-            ),
-            React.createElement('span', {
-              style: { color: theme.success, fontWeight: '600' }
-            }, window.MaerminI18n.num(pair.correlation, 2))
-          )
-        )
-      )
-    )
-  );
+  return h('div', { className: 'ui-view', 'data-testid': 'correlation-view' },
+    h('div', { className: 'ui-ov-tiles' },
+      h(UIC.Card, { variant: 'answer', className: 'ui-ov-tile', 'data-testid': 'corr-score' },
+        h(UIC.Stat, { label: t.diversificationScore || 'Diversification Score', value: `${I.num(score.score, 0)}/100`, tone: scoreTone,
+          sub: __('corrScoreSub', 'Higher = your holdings move less together') }))),
+    h(UIC.Card, { title: t.correlationMatrix || 'Correlation Matrix', headingLevel: 'h3', className: 'ui-chart',
+      subtitle: h('span', { 'data-testid': 'correlation-source', 'data-source': historySource || 'refresh' }, sourceText) },
+      h('div', { className: 'ui-heat__scroll', role: 'region', tabIndex: 0, 'aria-label': __('corrScrollAria', 'Correlation matrix, scrolls sideways') },
+        h('table', { className: ['ui-heat', 'ui-corr'].join(' ') },
+          h('thead', null, h('tr', null,
+            h('th', { scope: 'col', className: 'ui-heat__year' }, h('span', { className: 'sr-only' }, __('corrHolding', 'Holding'))),
+            matrix.symbols.map(symbol => h('th', { key: `col-${symbol}`, scope: 'col', title: symbol }, symbol.substring(0, 7))))),
+          h('tbody', null, matrix.symbols.map((rowSymbol, i) => h('tr', { key: `row-${rowSymbol}` },
+            h('th', { scope: 'row', className: 'ui-heat__year', title: rowSymbol }, rowSymbol.substring(0, 9)),
+            matrix.symbols.map((colSymbol, j) => {
+              const value = matrix.matrix[i][j];
+              if (i === j) return h('td', { key: `cell-${i}-${j}`, className: ['ui-heat__cell', 'is-empty'].join(' '), 'aria-label': rowSymbol }, '—');
+              const bg = cellBg(value);
+              return h('td', { key: `cell-${i}-${j}`, className: 'ui-heat__cell', style: { background: bg, color: H ? H.textOn(bg) : undefined, cursor: 'default' },
+                title: `${rowSymbol} / ${colSymbol}: ${I.num(value, 2)}` }, I.num(value, 2));
+            })))))),
+      h('ul', { className: 'ui-chart__legend' },
+        h('li', null, h('span', { className: 'ui-chart__swatch', 'data-series': 'loss', 'aria-hidden': 'true' }), __('corrLegendTogether', 'towards +1: move together')),
+        h('li', null, h('span', { className: 'ui-chart__swatch', 'data-series': 'gain', 'aria-hidden': 'true' }), __('corrLegendApart', 'towards −1: move apart')),
+        h('li', null, __('corrLegendZero', 'pale = little connection')))),
+    h('div', { className: 'ui-grid-2' },
+      pairs(t.mostCorrelatedPairs || 'Most Correlated', extremes.mostCorrelated, 'corr-most'),
+      pairs(t.leastCorrelatedPairs || 'Least Correlated', extremes.leastCorrelated, 'corr-least')));
 }
 
 // ============================================================================
@@ -522,298 +379,59 @@ function MonteCarloView({ portfolio, prices, t, theme, currency, formatPrice }) 
   };
 
   const currencySymbol = currency === 'EUR' ? 'EUR' : 'USD';
+  // R4.2: settings on Field / Input / Select and one primary Button, the
+  // outcomes as answer tiles, the percentiles on Table.
+  const UIC = Components;
+  const I = window.MaerminI18n;
+  const money = (v) => `${formatPrice(v)} ${currencySymbol}`;
+  const tile = (label, value, tone, testid) => h(UIC.Card, { key: label, variant: 'answer', className: 'ui-ov-tile', 'data-testid': testid },
+    h(UIC.Stat, { label, value, tone: tone || null }));
+  const fireTone = (p) => p >= 75 ? 'gain' : p >= 40 ? 'warning' : 'loss';
 
-  return React.createElement('div', { style: { padding: '1.5rem' } },
-    // Header
-    React.createElement('div', {
-      style: { display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '1rem', flexWrap: 'wrap', marginBottom: '1.5rem' }
-    },
-      React.createElement('h2', {
-        style: { color: theme.text, fontSize: 'var(--text-xl)', fontWeight: '600', margin: 0 }
-      }, t.monteCarloSimulation || 'Monte Carlo Simulation')),
-
-    // Configuration
-    React.createElement('div', {
-      style: {
-        display: 'grid',
-        gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))',
-        gap: '1rem',
-        marginBottom: '1.5rem',
-        background: theme.card,
-        padding: '1.25rem',
-        borderRadius: '16px',
-        border: `1px solid ${theme.cardBorder}`
-      }
-    },
-      // Iterations
-      React.createElement('div', null,
-        React.createElement('label', {
-          style: { display: 'block', color: theme.textSecondary, marginBottom: '0.5rem', fontSize: 'var(--text-base)' }
-        }, t.iterations || 'Iterations'),
-        React.createElement('select', {
-          value: config.iterations,
+  return h('div', { className: 'ui-view', 'data-testid': 'montecarlo-view' },
+    h(UIC.Card, { title: t.monteCarloSimulation || 'Monte Carlo Simulation', headingLevel: 'h3' },
+      h('div', { className: 'ui-form-grid' },
+        h(UIC.Select, { label: t.iterations || 'Iterations', value: config.iterations,
           onChange: (e) => setConfig(prev => ({ ...prev, iterations: parseInt(e.target.value) })),
-          style: {
-            width: '100%',
-            padding: '0.75rem',
-            background: theme.inputBg,
-            border: `1px solid ${theme.inputBorder}`,
-            borderRadius: '8px',
-            color: theme.text
-          }
-        },
-          React.createElement('option', { value: 1000 }, '1,000'),
-          React.createElement('option', { value: 5000 }, '5,000'),
-          React.createElement('option', { value: 10000 }, '10,000'),
-          React.createElement('option', { value: 25000 }, '25,000')
-        )
-      ),
+          options: [1000, 5000, 10000, 25000].map(n => ({ value: n, label: I.num(n, 0) })) }),
+        h(UIC.Input, { label: t.projectionYears || 'Projection Years', type: 'number', min: 1, max: 50, value: config.years,
+          onChange: (e) => setConfig(prev => ({ ...prev, years: parseInt(e.target.value) || 10 })) }),
+        h(UIC.Input, { label: t.monthlyContribution || 'Monthly Contribution', type: 'number', min: 0, value: config.monthlyContribution,
+          onChange: (e) => setConfig(prev => ({ ...prev, monthlyContribution: parseFloat(e.target.value) || 0 })) }),
+        h('div', { className: 'ui-form-grid__action' },
+          h(UIC.Button, { variant: 'primary', onClick: runSimulation, loading: isRunning, 'data-testid': 'mc-run' },
+            isRunning ? (t.loading || 'Running...') : (t.runSimulation || 'Run Simulation'))))),
 
-      // Years
-      React.createElement('div', null,
-        React.createElement('label', {
-          style: { display: 'block', color: theme.textSecondary, marginBottom: '0.5rem', fontSize: 'var(--text-base)' }
-        }, t.projectionYears || 'Projection Years'),
-        React.createElement('input', {
-          type: 'number',
-          value: config.years,
-          onChange: (e) => setConfig(prev => ({ ...prev, years: parseInt(e.target.value) || 10 })),
-          min: 1,
-          max: 50,
-          style: {
-            width: '100%',
-            padding: '0.75rem',
-            background: theme.inputBg,
-            border: `1px solid ${theme.inputBorder}`,
-            borderRadius: '8px',
-            color: theme.text
-          }
-        })
-      ),
+    results && h('div', { className: 'ui-ov-tiles', 'data-testid': 'mc-outcomes' },
+      tile(t.portfolioValue || 'Initial Value', money(results.initialValue), null, 'mc-start'),
+      tile(t.medianOutcome || 'Median (50th)', money(results.percentiles[50]), null, 'mc-median'),
+      tile(`${t.bestCase || 'Best Case'} (${__('mcP95', '95th')})`, money(results.percentiles[95]), null, 'mc-best'),
+      tile(`${t.worstCase || 'Worst Case'} (${__('mcP5', '5th')})`, money(results.percentiles[5]), null, 'mc-worst')),
 
-      // Monthly contribution
-      React.createElement('div', null,
-        React.createElement('label', {
-          style: { display: 'block', color: theme.textSecondary, marginBottom: '0.5rem', fontSize: 'var(--text-base)' }
-        }, t.monthlyContribution || 'Monthly Contribution'),
-        React.createElement('input', {
-          type: 'number',
-          value: config.monthlyContribution,
-          onChange: (e) => setConfig(prev => ({ ...prev, monthlyContribution: parseFloat(e.target.value) || 0 })),
-          min: 0,
-          style: {
-            width: '100%',
-            padding: '0.75rem',
-            background: theme.inputBg,
-            border: `1px solid ${theme.inputBorder}`,
-            borderRadius: '8px',
-            color: theme.text
-          }
-        })
-      ),
+    // FIRE probability (V7) — shown when a FIRE number is configured (dashboard tile)
+    results && results.fireTarget && h(UIC.Card, { title: t.fireProbability || 'FIRE probability', headingLevel: 'h3', 'data-testid': 'mc-fire' },
+      h('div', { className: 'ui-split' },
+        h(UIC.Stat, { size: 'lg', label: `${t.kpiFireTarget || 'Target'}: ${money(results.fireTarget.value)}`, value: I.pct(results.fireTarget.probability, 0), tone: fireTone(results.fireTarget.probability),
+          sub: results.fireTarget.reachedYear
+            ? I.fill(t.fireMedianReaches || 'Median path reaches FIRE in year {y}', { y: results.fireTarget.reachedYear })
+            : I.fill(t.fireMedianMisses || 'Median path does not reach FIRE within {n} years', { n: results.years }) }))),
 
-      // Run button
-      React.createElement('div', {
-        style: { display: 'flex', alignItems: 'flex-end' }
-      },
-        React.createElement('button', {
-          onClick: runSimulation,
-          disabled: isRunning,
-          style: {
-            width: '100%',
-            padding: '0.75rem 1.5rem',
-            background: isRunning ? theme.textSecondary : (theme.accentFill || theme.accent),
-            color: '#ffffff',
-            border: 'none',
-            borderRadius: '8px',
-            cursor: isRunning ? 'not-allowed' : 'pointer',
-            fontWeight: '600'
-          }
-        }, isRunning ? (t.loading || 'Running...') : (t.runSimulation || 'Run Simulation'))
-      )
-    ),
+    // FIRE hint when not configured
+    results && !results.fireTarget && h('p', { className: 'ui-callout' }, t.fireConfigureHint || 'Set your annual expenses on the dashboard FIRE tile to see your FIRE probability here.'),
 
-    // Results
-    results && React.createElement('div', null,
-      // Summary stats
-      React.createElement('div', {
-        style: {
-          display: 'grid',
-          gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))',
-          gap: '1rem',
-          marginBottom: '1.5rem'
-        }
-      },
-        // Initial Value
-        React.createElement('div', {
-          style: {
-            background: theme.card,
-            padding: '1.25rem',
-            borderRadius: '16px',
-            border: `1px solid ${theme.cardBorder}`
-          }
-        },
-          React.createElement('div', { style: { color: theme.textSecondary, fontSize: 'var(--text-base)' } },
-            t.portfolioValue || 'Initial Value'
-          ),
-          React.createElement('div', { style: { color: theme.text, fontSize: 'var(--text-xl)', fontWeight: '800', letterSpacing: '-0.02em' } },
-            `${formatPrice(results.initialValue)} ${currencySymbol}`
-          )
-        ),
+    // Goal probabilities
+    results && h(UIC.Card, { title: t.goalProbability || 'Goal Probabilities', headingLevel: 'h3', 'data-testid': 'mc-goals' },
+      h('div', { className: 'ui-tiles' }, results.goalProbabilities.map((goal, idx) =>
+        h(UIC.Stat, { key: idx, className: 'ui-tile', label: goal.label, value: I.pct(goal.probability, 0) })))),
 
-        // Median outcome
-        React.createElement('div', {
-          style: {
-            background: theme.card,
-            padding: '1.25rem',
-            borderRadius: '16px',
-            border: `1px solid ${theme.cardBorder}`
-          }
-        },
-          React.createElement('div', { style: { color: theme.textSecondary, fontSize: 'var(--text-base)' } },
-            t.medianOutcome || 'Median (50th)'
-          ),
-          React.createElement('div', { style: { color: theme.text, fontSize: 'var(--text-xl)', fontWeight: '800', letterSpacing: '-0.02em' } },
-            `${formatPrice(results.percentiles[50])} ${currencySymbol}`
-          )
-        ),
-
-        // Best case
-        React.createElement('div', {
-          style: {
-            background: theme.card,
-            padding: '1.25rem',
-            borderRadius: '16px',
-            border: `1px solid ${theme.cardBorder}`
-          }
-        },
-          React.createElement('div', { style: { color: theme.textSecondary, fontSize: 'var(--text-base)' } },
-            `${t.bestCase || 'Best Case'} (${__('mcP95', '95th')})`
-          ),
-          React.createElement('div', { style: { color: theme.success, fontSize: 'var(--text-xl)', fontWeight: '800', letterSpacing: '-0.02em' } },
-            `${formatPrice(results.percentiles[95])} ${currencySymbol}`
-          )
-        ),
-
-        // Worst case
-        React.createElement('div', {
-          style: {
-            background: theme.card,
-            padding: '1.25rem',
-            borderRadius: '16px',
-            border: `1px solid ${theme.cardBorder}`
-          }
-        },
-          React.createElement('div', { style: { color: theme.textSecondary, fontSize: 'var(--text-base)' } },
-            `${t.worstCase || 'Worst Case'} (${__('mcP5', '5th')})`
-          ),
-          React.createElement('div', { style: { color: theme.danger, fontSize: 'var(--text-xl)', fontWeight: '800', letterSpacing: '-0.02em' } },
-            `${formatPrice(results.percentiles[5])} ${currencySymbol}`
-          )
-        )
-      ),
-
-      // FIRE probability (V7) — shown when a FIRE number is configured (dashboard tile)
-      results.fireTarget && React.createElement('div', {
-        style: { background: theme.card, padding: '1.25rem', borderRadius: '16px', boxShadow: theme.shadow, border: `1px solid ${theme.cardBorder}`, marginBottom: '1.5rem', display: 'flex', alignItems: 'center', gap: '1.5rem', flexWrap: 'wrap' }
-      },
-        React.createElement('div', { style: { display: 'flex', flexDirection: 'column', alignItems: 'center', minWidth: '120px' } },
-          React.createElement('div', { style: { fontSize: '2.5rem', fontWeight: 800, color: results.fireTarget.probability >= 75 ? theme.success : results.fireTarget.probability >= 40 ? theme.warning : theme.danger } },
-            window.MaerminI18n.pct(results.fireTarget.probability, 0)),
-          React.createElement('div', { style: { color: theme.textSecondary, fontSize: 'var(--text-sm)' } }, t.fireProbability || 'FIRE probability')
-        ),
-        React.createElement('div', { style: { flex: 1, minWidth: '200px' } },
-          React.createElement('div', { style: { color: theme.text, fontWeight: 600, marginBottom: '0.25rem' } },
-            `${t.kpiFireTarget || 'Target'}: ${formatPrice(results.fireTarget.value)} ${currencySymbol}`),
-          React.createElement('div', { style: { color: theme.textSecondary, fontSize: 'var(--text-base)' } },
-            results.fireTarget.reachedYear
-              ? window.MaerminI18n.fill(t.fireMedianReaches || 'Median path reaches FIRE in year {y}', { y: results.fireTarget.reachedYear })
-              : window.MaerminI18n.fill(t.fireMedianMisses || 'Median path does not reach FIRE within {n} years', { n: results.years }))
-        )
-      ),
-
-      // FIRE hint when not configured
-      !results.fireTarget && React.createElement('div', {
-        style: { background: theme.inputBg, padding: '0.75rem 1rem', borderRadius: '10px', border: `1px dashed ${theme.cardBorder}`, marginBottom: '1.5rem', color: theme.textSecondary, fontSize: 'var(--text-sm)' }
-      }, t.fireConfigureHint || 'Set your annual expenses on the dashboard FIRE tile to see your FIRE probability here.'),
-
-      // Goal probabilities
-      React.createElement('div', {
-        style: {
-          background: theme.card,
-          padding: '1.25rem',
-          borderRadius: '16px',
-          border: `1px solid ${theme.cardBorder}`,
-          marginBottom: '1.5rem'
-        }
-      },
-        React.createElement('h3', {
-          style: { color: theme.text, marginBottom: '1rem', fontSize: 'var(--text-body)' }
-        }, t.goalProbability || 'Goal Probabilities'),
-        React.createElement('div', {
-          style: { display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(150px, 1fr))', gap: '1rem' }
-        },
-          results.goalProbabilities.map((goal, idx) =>
-            React.createElement('div', {
-              key: idx,
-              style: {
-                textAlign: 'center',
-                padding: '1rem',
-                background: theme.inputBg,
-                borderRadius: '8px'
-              }
-            },
-              React.createElement('div', {
-                style: { fontSize: 'var(--text-2xl)', fontWeight: '700', color: theme.accent }
-              }, window.MaerminI18n.pct(goal.probability, 0)),
-              React.createElement('div', { style: { color: theme.textSecondary, fontSize: 'var(--text-base)' } },
-                goal.label
-              )
-            )
-          )
-        )
-      ),
-
-      // Percentile table
-      React.createElement('div', {
-        style: {
-          background: theme.card,
-          padding: '1.25rem',
-          borderRadius: '16px',
-          border: `1px solid ${theme.cardBorder}`
-        }
-      },
-        React.createElement('h3', {
-          style: { color: theme.text, marginBottom: '1rem', fontSize: 'var(--text-body)' }
-        }, t.probabilityCones || 'Percentile Distribution'),
-        React.createElement('table', {
-          style: { width: '100%', borderCollapse: 'collapse' }
-        },
-          React.createElement('thead', null,
-            React.createElement('tr', null,
-              React.createElement('th', {
-                style: { textAlign: 'left', padding: '0.75rem', color: theme.textSecondary, borderBottom: `1px solid ${theme.cardBorder}` }
-              }, t.percentile || 'Percentile'),
-              React.createElement('th', {
-                style: { textAlign: 'right', padding: '0.75rem', color: theme.textSecondary, borderBottom: `1px solid ${theme.cardBorder}` }
-              }, t.portfolioValue || 'Value')
-            )
-          ),
-          React.createElement('tbody', null,
-            [5, 10, 25, 50, 75, 90, 95].map(p =>
-              React.createElement('tr', { key: p },
-                React.createElement('td', {
-                  style: { padding: '0.75rem', color: theme.text }
-                }, `${p}th`),
-                React.createElement('td', {
-                  style: { padding: '0.75rem', textAlign: 'right', color: theme.text, fontWeight: '500' }
-                }, `${formatPrice(results.percentiles[p])} ${currencySymbol}`)
-              )
-            )
-          )
-        )
-      )
-    )
+    // Percentile table
+    results && h(UIC.Card, { title: t.probabilityCones || 'Percentile Distribution', headingLevel: 'h3', className: 'ui-card--table', 'data-testid': 'mc-percentiles' },
+      h(UIC.Table, { caption: t.probabilityCones || 'Percentile Distribution', rowKey: (r) => r.p,
+        rows: [5, 10, 25, 50, 75, 90, 95].map(p => ({ p, v: results.percentiles[p] })),
+        columns: [
+          { key: 'p', label: t.percentile || 'Percentile', phone: 'title', render: (r) => __('mcPercentileN', 'P{p}', { p: r.p }) },
+          { key: 'v', label: t.portfolioValue || 'Value', align: 'right', phone: 'value', render: (r) => money(r.v) }
+        ] }))
   );
 }
 
@@ -846,225 +464,61 @@ function StressTestView({ portfolio, prices, t, theme, currency, formatPrice }) 
   };
 
   const currencySymbol = currency === 'EUR' ? 'EUR' : 'USD';
+  // R4.2: scenarios as selectable cards (aria-pressed), the result as answer
+  // tiles and Table; every loss carries its minus sign.
+  const UIC = Components;
+  const I = window.MaerminI18n;
+  const money = (v) => `${formatPrice(v)} ${currencySymbol}`;
+  const lossPct = (p) => '−' + I.pct(Math.abs(p), 1);
+  const tile = (label, value, tone, testid) => h(UIC.Stat, { key: label, className: 'ui-tile', label, value, tone: tone || null, 'data-testid': testid });
 
-  return React.createElement('div', { style: { padding: '1.5rem' } },
-    // Header
-    React.createElement('div', {
-      style: {
-        display: 'flex',
-        justifyContent: 'space-between',
-        alignItems: 'center',
-        marginBottom: '1.5rem'
-      }
-    },
-      React.createElement('h2', {
-        style: { color: theme.text, fontSize: 'var(--text-xl)', fontWeight: '600' }
-      }, t.stressTesting || 'Stress Testing'),
-      React.createElement('button', {
-        onClick: runComparison,
-        style: {
-          padding: '0.75rem 1.5rem',
-          background: (theme.accentFill || theme.accent),
-          color: '#ffffff',
-          border: 'none',
-          borderRadius: '8px',
-          cursor: 'pointer',
-          fontWeight: '600'
-        }
-      }, t.all || 'Run All Scenarios')
-    ),
+  return h('div', { className: 'ui-view', 'data-testid': 'stress-view' },
+    h('div', { className: 'ui-view__bar' },
+      h('p', { className: 'ui-view__lead' }, __('stLead', 'How your holdings would fare in a repeat of past crises. Pick a scenario.')),
+      h(UIC.Button, { variant: 'secondary', onClick: runComparison, 'data-testid': 'st-run-all' }, t.all || 'Run All Scenarios')),
 
     // Scenario cards
-    React.createElement('div', {
-      style: {
-        display: 'grid',
-        gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))',
-        gap: '1rem',
-        marginBottom: '2rem'
-      }
-    },
+    h('div', { className: 'ui-st-grid' },
       Object.entries(scenarios).map(([id, scenario]) =>
-        React.createElement('div', {
+        h('div', Object.assign({
           key: id,
-          className: `scenario-card ${selectedScenario === id ? 'selected' : ''}`,
-          ...window.MaerminUtils.clickable(() => runScenario(id)),
+          className: ['ui-st-card', 'scenario-card', selectedScenario === id ? 'selected is-on' : ''].join(' ').trim(),
           'aria-label': __('stRunScenario', 'Run scenario {name}', { name: (scenario && scenario.name) || id }),
-          'aria-pressed': selectedScenario === id,
-          style: {
-            background: selectedScenario === id ? 'rgba(139,124,255,0.1)' : theme.card,
-            padding: '1.25rem',
-            borderRadius: '16px',
-            border: `2px solid ${selectedScenario === id ? theme.accent : theme.cardBorder}`,
-            cursor: 'pointer',
-            transition: 'all 0.2s'
-          }
-        },
-          React.createElement('h3', {
-            style: { color: theme.text, fontSize: 'var(--text-body)', marginBottom: '0.5rem' }
-          }, scenario.name),
-          React.createElement('p', {
-            style: { color: theme.textSecondary, fontSize: 'var(--text-base)', marginBottom: '0.5rem' }
-          }, scenario.description),
-          scenario.note && React.createElement('p', {
-            style: { color: theme.warning, fontSize: 'var(--text-xs)', marginBottom: '0.75rem', fontStyle: 'italic' }
-          }, scenario.note),
-          React.createElement('div', {
-            style: { display: 'flex', gap: '0.5rem', flexWrap: 'wrap' }
-          },
+          'aria-pressed': selectedScenario === id
+        }, window.MaerminUtils.clickable(() => runScenario(id))),
+          h('h3', { className: 'ui-st-card__title' }, scenario.name),
+          h('p', { className: 'ui-st-card__text' }, scenario.description),
+          scenario.note && h('p', { className: 'ui-st-card__note' }, scenario.note),
+          h('div', { className: 'ui-st-card__impacts' },
             Object.entries(scenario.impacts).map(([asset, impact]) =>
-              impact !== 0 && React.createElement('span', {
-                key: asset,
-                style: {
-                  padding: '0.25rem 0.5rem',
-                  borderRadius: '4px',
-                  fontSize: 'var(--text-xs)',
-                  fontWeight: '600',
-                  background: impact < 0 ? 'color-mix(in srgb, var(--danger) 20%, transparent)' : 'color-mix(in srgb, var(--success) 20%, transparent)',
-                  color: impact < 0 ? theme.danger : theme.success
-                }
-              }, `${stressAssetLabel(asset)}: ${window.MaerminI18n.pct(impact * 100, 0)}`)
-            )
-          )
-        )
-      )
-    ),
+              impact !== 0 && h(UIC.ToneChip, { key: asset, value: impact, text: `${stressAssetLabel(asset)}: ${I.pct(impact * 100, 0)}` })))))),
 
     // Results
-    results && React.createElement('div', {
-      style: {
-        background: theme.card,
-        padding: '1.5rem',
-        borderRadius: '16px',
-        border: `1px solid ${theme.cardBorder}`
-      }
-    },
-      React.createElement('h3', {
-        style: { color: theme.text, marginBottom: '1rem', fontSize: 'var(--text-lg)' }
-      }, `${t.scenarioImpact || 'Scenario Impact'}: ${results.scenario}`),
-
-      // Impact summary
-      React.createElement('div', {
-        style: {
-          display: 'grid',
-          gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))',
-          gap: '1rem',
-          marginBottom: '1.5rem'
-        }
-      },
-        React.createElement('div', {
-          style: { padding: '1rem', background: theme.inputBg, borderRadius: '8px' }
-        },
-          React.createElement('div', { style: { color: theme.textSecondary, fontSize: 'var(--text-base)' } },
-            t.portfolioValue || 'Original Value'
-          ),
-          React.createElement('div', { style: { color: theme.text, fontSize: 'var(--text-title)', fontWeight: '700' } },
-            `${formatPrice(results.originalValue)} ${currencySymbol}`
-          )
-        ),
-        React.createElement('div', {
-          style: { padding: '1rem', background: theme.inputBg, borderRadius: '8px' }
-        },
-          React.createElement('div', { style: { color: theme.textSecondary, fontSize: 'var(--text-base)' } },
-            t.portfolioStressed || 'Stressed Value'
-          ),
-          React.createElement('div', { style: { color: theme.danger, fontSize: 'var(--text-title)', fontWeight: '700' } },
-            `${formatPrice(results.stressedValue)} ${currencySymbol}`
-          )
-        ),
-        React.createElement('div', {
-          style: { padding: '1rem', background: theme.inputBg, borderRadius: '8px' }
-        },
-          React.createElement('div', { style: { color: theme.textSecondary, fontSize: 'var(--text-base)' } },
-            t.potentialLoss || 'Potential Loss'
-          ),
-          React.createElement('div', { style: { color: theme.danger, fontSize: 'var(--text-title)', fontWeight: '700' } },
-            `-${formatPrice(results.totalLoss)} ${currencySymbol} (-${window.MaerminI18n.pct(results.lossPercent, 1)})`
-          )
-        ),
-        React.createElement('div', {
-          style: { padding: '1rem', background: theme.inputBg, borderRadius: '8px' }
-        },
-          React.createElement('div', { style: { color: theme.textSecondary, fontSize: 'var(--text-base)' } },
-            t.recoveryTime || 'Recovery Time'
-          ),
-          React.createElement('div', { style: { color: theme.text, fontSize: 'var(--text-title)', fontWeight: '700' } },
-            `${results.recoveryEstimate.months} ${t.months || 'months'}`
-          )
-        )
-      ),
-
-      // Category breakdown
-      React.createElement('h4', {
-        style: { color: theme.text, marginBottom: '0.75rem', fontSize: 'var(--text-body)' }
-      }, t.distribution || 'Category Breakdown'),
-      React.createElement('table', {
-        style: { width: '100%', borderCollapse: 'collapse' }
-      },
-        React.createElement('thead', null,
-          React.createElement('tr', null,
-            React.createElement('th', { style: { textAlign: 'left', padding: '0.75rem', color: theme.textSecondary } }, __('category', 'Category')),
-            React.createElement('th', { style: { textAlign: 'right', padding: '0.75rem', color: theme.textSecondary } }, __('trOriginal', 'Original')),
-            React.createElement('th', { style: { textAlign: 'right', padding: '0.75rem', color: theme.textSecondary } }, __('stStressed', 'Stressed')),
-            React.createElement('th', { style: { textAlign: 'right', padding: '0.75rem', color: theme.textSecondary } }, __('stLoss', 'Loss'))
-          )
-        ),
-        React.createElement('tbody', null,
-          Object.entries(results.categoryBreakdown).map(([category, data]) =>
-            React.createElement('tr', { key: category },
-              React.createElement('td', { style: { padding: '0.75rem', color: theme.text } }, window.MaerminI18n.category(category)),
-              React.createElement('td', { style: { padding: '0.75rem', textAlign: 'right', color: theme.text } },
-                `${formatPrice(data.originalValue)} ${currencySymbol}`
-              ),
-              React.createElement('td', { style: { padding: '0.75rem', textAlign: 'right', color: theme.text } },
-                `${formatPrice(data.stressedValue)} ${currencySymbol}`
-              ),
-              React.createElement('td', { style: { padding: '0.75rem', textAlign: 'right', color: theme.danger } },
-                '-' + window.MaerminI18n.pct(data.lossPercent, 1)
-              )
-            )
-          )
-        )
-      )
-    ),
+    results && h(UIC.Card, { title: `${t.scenarioImpact || 'Scenario Impact'}: ${results.scenario}`, headingLevel: 'h3', 'data-testid': 'st-result' },
+      h('div', { className: 'ui-tiles' },
+        tile(t.portfolioValue || 'Original Value', money(results.originalValue)),
+        tile(t.portfolioStressed || 'Stressed Value', money(results.stressedValue)),
+        tile(t.potentialLoss || 'Potential Loss', `−${money(results.totalLoss)} (${lossPct(results.lossPercent)})`, results.totalLoss > 0 ? 'loss' : null),
+        tile(t.recoveryTime || 'Recovery Time', `${results.recoveryEstimate.months} ${t.months || 'months'}`)),
+      h('h4', { className: 'ui-sublabel' }, t.distribution || 'Category Breakdown'),
+      h(UIC.Table, { caption: t.distribution || 'Category Breakdown', rowKey: (r) => r.category,
+        rows: Object.entries(results.categoryBreakdown).map(([category, data]) => Object.assign({ category }, data)),
+        columns: [
+          { key: 'category', label: __('category', 'Category'), phone: 'title', render: (r) => I.category(r.category) },
+          { key: 'o', label: __('trOriginal', 'Original'), align: 'right', phone: 'meta', render: (r) => money(r.originalValue) },
+          { key: 's', label: __('stStressed', 'Stressed'), align: 'right', phone: 'sub', render: (r) => money(r.stressedValue) },
+          { key: 'l', label: __('stLoss', 'Loss'), align: 'right', phone: 'value', render: (r) => h(UIC.ToneChip, { value: -Math.abs(r.lossPercent), text: lossPct(r.lossPercent) }) }
+        ] })),
 
     // Comparison results
-    comparisonResults && React.createElement('div', {
-      style: {
-        marginTop: '2rem',
-        background: theme.card,
-        padding: '1.5rem',
-        borderRadius: '16px',
-        border: `1px solid ${theme.cardBorder}`
-      }
-    },
-      React.createElement('h3', {
-        style: { color: theme.text, marginBottom: '1rem', fontSize: 'var(--text-lg)' }
-      }, t.historicalScenarios || 'All Scenarios Comparison'),
-      React.createElement('table', {
-        style: { width: '100%', borderCollapse: 'collapse' }
-      },
-        React.createElement('thead', null,
-          React.createElement('tr', null,
-            React.createElement('th', { style: { textAlign: 'left', padding: '0.75rem', color: theme.textSecondary, borderBottom: `1px solid ${theme.cardBorder}` } }, __('stScenario', 'Scenario')),
-            React.createElement('th', { style: { textAlign: 'right', padding: '0.75rem', color: theme.textSecondary, borderBottom: `1px solid ${theme.cardBorder}` } }, __('stLoss', 'Loss')),
-            React.createElement('th', { style: { textAlign: 'right', padding: '0.75rem', color: theme.textSecondary, borderBottom: `1px solid ${theme.cardBorder}` } }, __('stRecovery', 'Recovery'))
-          )
-        ),
-        React.createElement('tbody', null,
-          comparisonResults.scenarios.map((result, idx) =>
-            React.createElement('tr', { key: idx },
-              React.createElement('td', { style: { padding: '0.75rem', color: theme.text } }, result.scenario),
-              React.createElement('td', { style: { padding: '0.75rem', textAlign: 'right', color: theme.danger } },
-                '-' + window.MaerminI18n.pct(result.lossPercent, 1)
-              ),
-              React.createElement('td', { style: { padding: '0.75rem', textAlign: 'right', color: theme.textSecondary } },
-                __('stMonthsShort', '{n} mo', { n: result.recoveryEstimate.months })
-              )
-            )
-          )
-        )
-      )
-    )
+    comparisonResults && h(UIC.Card, { title: t.historicalScenarios || 'All Scenarios Comparison', headingLevel: 'h3', className: 'ui-card--table', 'data-testid': 'st-compare' },
+      h(UIC.Table, { caption: t.historicalScenarios || 'All Scenarios Comparison', rowKey: (r, i) => i,
+        rows: comparisonResults.scenarios,
+        columns: [
+          { key: 'scenario', label: __('stScenario', 'Scenario'), phone: 'title' },
+          { key: 'l', label: __('stLoss', 'Loss'), align: 'right', phone: 'value', render: (r) => h(UIC.ToneChip, { value: -Math.abs(r.lossPercent), text: lossPct(r.lossPercent) }) },
+          { key: 'r', label: __('stRecovery', 'Recovery'), align: 'right', phone: 'meta', render: (r) => __('stMonthsShort', '{n} mo', { n: r.recoveryEstimate.months }) }
+        ] }))
   );
 }
 
