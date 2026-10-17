@@ -306,12 +306,12 @@
     doc.addEventListener('click', function (e) {
       var b = e.target && e.target.closest ? e.target.closest('button') : null;
       if (!b) return;
-      if (b.closest('.mx-bottom-nav') || b.classList.contains('mx-nav')) haptic(6);
+      if (b.closest('.ui-dock,.ui-rail') || b.classList.contains('mx-nav')) haptic(6);
       if (b.classList.contains('mx-primary')) haptic(10);
       if (!on) return;
       glideChips(b);
       if (BUSY_RE.test(b.textContent || '') && b.textContent.length < 40) once(b, 'mx-busy', 1600);
-      if (b.classList.contains('mx-nav') || b.closest('.mx-bottom-nav')) {
+      if (b.classList.contains('mx-nav') || b.closest('.ui-dock,.ui-rail') || b.classList.contains('ui-tab')) {
         // Instant scroll to top on view change so the new view's entrance is seen.
         var se = doc.scrollingElement || doc.documentElement;
         if (se.scrollTop > 200) se.scrollTo({ top: 0, behavior: 'smooth' });

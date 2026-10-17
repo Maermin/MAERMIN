@@ -2032,3 +2032,95 @@ html[data-theme="contrast"] .ui-modal { border-width: 2px; }
 .ui-chart__source { margin: var(--space-2) 0 0; font-size: var(--type-caption); color: var(--text-faint); }
 
 @media (prefers-reduced-motion: reduce) { .ui-skel__bar { animation: none; } }
+
+/* ============================================================================
+   R2.1 app shell (PLAN Phase 6, DESIGN-SYSTEM § 4 "Shell components", § 9)
+   Desktop: rail 84 px · page header (title, scope, actions, page tabs) · main.
+   Phone (< 768 px): the page header is the top bar, a floating dock replaces
+   the rail. The old .mx-header / .maermin-sidebar / .mx-bottom-nav rules stay
+   until R5.4 but nothing renders them any more.
+   ========================================================================== */
+.ui-shell { display: grid; grid-template-columns: 84px minmax(0, 1fr); min-height: 100vh; }
+.ui-shell__main { min-width: 0; display: flex; flex-direction: column; }
+.ui-shell__main > .maermin-main { flex: 1; overflow: visible; }
+
+.ui-rail {
+  position: sticky; top: 0; height: 100vh; z-index: var(--z-nav); display: flex; flex-direction: column; align-items: center;
+  gap: var(--space-1); padding: var(--space-3) 0; border-right: 1px solid var(--border); background: var(--bg);
+  overflow-y: auto; scrollbar-width: none;
+}
+.ui-rail::-webkit-scrollbar { display: none; }
+.ui-rail__brand { display: flex; flex-direction: column; align-items: center; gap: 2px; margin-bottom: var(--space-3); }
+.ui-rail__version { font-size: 10px; color: var(--text-dim); font-weight: 600; letter-spacing: 0.02em; }
+.ui-rail__spacer { flex: 1; min-height: var(--space-4); }
+.ui-rail__item {
+  width: 80px; min-height: 58px; padding: var(--space-1) 0; border: 0; border-radius: var(--radius); background: none;
+  display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 4px;
+  color: var(--text-dim); font: inherit; font-size: 11px; font-weight: 500; line-height: 1.15; text-align: center; cursor: pointer;
+}
+.ui-rail__label { max-width: 100%; letter-spacing: -0.01em; }
+.ui-rail__item:hover { color: var(--text); background: var(--surface-2); }
+.ui-rail__item.is-active { color: var(--text); background: var(--accent-soft); font-weight: 600; }
+.ui-rail__item.is-active svg { color: var(--accent); }
+
+.ui-pagehead {
+  position: sticky; top: 0; z-index: var(--z-sticky); padding: var(--space-4) var(--space-7) 0;
+  background: var(--bg); border-bottom: 1px solid var(--border);
+}
+.ui-pagehead__row { display: flex; align-items: center; gap: var(--space-3); min-height: var(--control-lg); padding-bottom: var(--space-3); }
+.ui-pagehead__brand { display: none; }
+.ui-pagehead__title { margin: 0; min-width: 0; font-size: var(--type-title); font-weight: 600; letter-spacing: -0.015em; line-height: 1.2; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.ui-pagehead__scope .ui-field { margin: 0; }
+.ui-pagehead__scope .ui-select { height: 36px; min-width: 0; max-width: 240px; border-radius: var(--radius-pill); padding-left: var(--space-3); font-size: var(--type-caption); }
+.ui-pagehead__actions { margin-left: auto; display: flex; align-items: center; gap: var(--space-2); position: relative; flex-shrink: 0; }
+.ui-pagehead__tabs { display: flex; align-items: center; gap: var(--space-4); min-width: 0; }
+.ui-pagehead__tabs .ui-tabs { flex: 1; min-width: 0; border-bottom: 0; }
+.ui-pagehead__tabs .mx-mode-hint { flex-direction: row; align-items: center; flex-shrink: 0; margin: 0; padding: 0 0 var(--space-1); border: 0; }
+.ui-pagehead__tabs .mx-mode-hint span { display: none; }
+.ui-pagehead .ui-search { color: var(--text-dim); }
+.ui-settings { position: relative; display: flex; }
+.ui-settings .mx-popover { top: calc(100% + 8px); right: 0; }
+
+.ui-dock { display: none; }
+.ui-more { display: grid; gap: var(--space-2); }
+.ui-more__item {
+  display: flex; align-items: center; gap: var(--space-3); min-height: 52px; padding: 0 var(--space-4); width: 100%;
+  border: 1px solid var(--border); border-radius: var(--radius); background: var(--surface); color: var(--text);
+  font: inherit; font-size: var(--type-body-lg); font-weight: 500; text-align: left; cursor: pointer;
+}
+.ui-more__item:hover { background: var(--surface-2); }
+.ui-more__item.is-active { border-color: var(--accent); background: var(--accent-soft); }
+.ui-more__item svg { color: var(--text-dim); flex-shrink: 0; }
+
+@media (max-width: 767px) {
+  .ui-shell { grid-template-columns: minmax(0, 1fr); }
+  .ui-rail { display: none; }
+  .ui-pagehead { padding: env(safe-area-inset-top) var(--space-4) 0; }
+  .ui-pagehead__row { gap: var(--space-2); min-height: 56px; padding-bottom: 0; }
+  .ui-pagehead__brand { display: flex; flex-shrink: 0; }
+  .ui-pagehead__title { font-size: var(--type-heading); flex: 1; }
+  .ui-pagehead__scope { display: none; }
+  .ui-pagehead__actions { gap: var(--space-1); }
+  .ui-pagehead .ui-search .ui-btn__label, .ui-pagehead .ui-search .ui-kbd, .ui-pagehead .ui-add { display: none; }
+  .ui-pagehead__tabs .ui-tabs { gap: var(--space-5); }
+  .ui-pagehead__tabs .mx-mode-hint { display: none; }
+  .ui-pagehead .mx-popover { position: fixed; top: 64px; left: 12px; right: 12px; width: auto; }
+  .ui-shell__main > .maermin-main { padding-bottom: calc(96px + env(safe-area-inset-bottom)); }
+  .ui-dock {
+    position: fixed; z-index: var(--z-nav); left: 50%; transform: translateX(-50%); bottom: calc(12px + env(safe-area-inset-bottom));
+    width: min(380px, calc(100vw - 24px)); display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); align-items: center;
+    padding: 6px; background: var(--surface); border: 1px solid var(--border-strong); border-radius: var(--radius-lg); box-shadow: var(--shadow-2);
+  }
+  .ui-dock__item {
+    min-height: 52px; min-width: 0; padding: 0 2px; border: 0; border-radius: 16px; background: none;
+    display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 2px;
+    color: var(--text-dim); font: inherit; font-size: 10.5px; font-weight: 500; cursor: pointer;
+  }
+  .ui-dock__label { max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .ui-dock__item.is-active { color: var(--text); background: var(--accent-soft); font-weight: 600; }
+  .ui-dock__item.is-active svg { color: var(--accent); }
+  .ui-dock__add { width: 52px; height: 52px; margin: 0 auto; border-radius: 16px; background: var(--accent-fill); color: var(--on-accent); }
+  .ui-dock__add:hover { background: color-mix(in srgb, var(--accent-fill) 88%, var(--text)); }
+}
+html[data-theme="contrast"] .ui-dock, html[data-theme="contrast"] .ui-rail { border-width: 2px; }
+html[data-theme="contrast"] .ui-rail__item.is-active, html[data-theme="contrast"] .ui-dock__item.is-active { box-shadow: inset 0 0 0 2px var(--accent); }
