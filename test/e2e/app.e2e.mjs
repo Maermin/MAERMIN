@@ -2774,6 +2774,9 @@ async function runBuild(browser, label, dir) {
       // "$→€ 0,900" is the FX rate, not an amount; a tab or line break is a cell edge.
       const enAmounts = body.match(/(?<!→)€ ?\d[\d.,]*|\d[\d,]*\.\d{2}\s€/g) || [];
       ok('German browser: amounts use German separators (1.234,56 €), no en-US amounts', /\d,\d{2}\s€/.test(body) && enAmounts.length === 0, enAmounts.slice(0, 6).join(' | ') || body.slice(0, 300)); }
+    // the hero figure splits at the decimal comma: '176.756' large, ',66' small (it split at the thousands dot)
+    { const hi = await page.locator('main [data-testid="hero-int"]').first().innerText().catch(() => ''), hd = await page.locator('main [data-testid="hero-dec"]').first().innerText().catch(() => '');
+      ok('German browser: the portfolio value splits at the decimal comma', /^\d{1,3}(\.\d{3})*$/.test(hi.trim()) && /^,\d{2}$/.test(hd.trim()), hi + ' | ' + hd); }
     ok('no page errors in the German session', errors.length === 0, errors.join(' | '));
     await context.close();
   }
