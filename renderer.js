@@ -3308,10 +3308,36 @@ function InvestmentTracker() {
       );
     };
 
-    return React.createElement('div', { style: { display: 'flex', flexDirection: 'column', height: '100%' } },
-      React.createElement('div', {
-        style: { display: 'flex', gap: '0.375rem', padding: '1rem 1.5rem', borderBottom: `1px solid ${theme.cardBorder}`, flexWrap: 'wrap' }
-      },
+    // Phase 6 B-7: the answer first - estimated tax for the selected year, the
+    // allowance used and left, the loss pots carried forward, the next deadline.
+    // The same report object as the Report tab (getTaxReport).
+    const UIC = window.MaerminComponents, I = window.MaerminI18n;
+    const tr = (() => { try { return getTaxReport(taxYear); } catch (e) { return null; } })();
+    const k = tr && window.MaerminTaxReport && window.MaerminTaxReport.kpis ? window.MaerminTaxReport.kpis(tr) : null;
+    const g = tr && tr.summary ? tr.summary.germanDetail : null;
+    const taxMoney = (v) => `${formatPrice(v || 0)} ${getCurrencySymbol()}`;
+    const DEADLINE = { de: '-07-31', at: '-06-30', us: '-04-15' };
+    const deadline = DEADLINE[taxJurisdiction] ? (taxYear + 1) + DEADLINE[taxJurisdiction] : null;
+    const tTile = (label, value, sub, tone, testid) => React.createElement(UIC.Card, { variant: 'answer', className: 'ui-ov-tile', 'data-testid': testid },
+      React.createElement(UIC.Stat, { label, value: React.createElement('span', { className: 'mx-kpi-value' }, value), sub, tone }));
+    const summary = React.createElement('section', { className: 'ui-tax-summary', 'data-testid': 'tax-summary', 'aria-label': __('taxSummaryTitle', 'Tax {y} at a glance', { y: taxYear }) },
+      React.createElement('h2', { className: 'ui-ov-block__title' }, __('taxSummaryTitle', 'Tax {y} at a glance', { y: taxYear })),
+      React.createElement('div', { className: 'ui-ov-tiles' },
+        tTile(__('taxSumDue', 'Estimated tax'), k ? taxMoney(k.taxLiability) : '—',
+          taxJurisdiction === 'ch' ? __('taxSumDueCh', 'Cantonal - not estimated here') : __('taxSumDueSub', 'on realised gains and income in {y}', { y: taxYear }), null, 'tax-sum-due'),
+        g && g.sparerpauschbetrag > 0 && tTile(__('taxSumAllowance', 'Allowance used'), taxMoney(g.sparerpauschbetragUsed),
+          __('taxSumAllowanceLeft', '{left} of {total} left', { left: taxMoney(Math.max(0, g.sparerpauschbetrag - (g.sparerpauschbetragUsed || 0))), total: taxMoney(g.sparerpauschbetrag) }), null, 'tax-sum-allowance'),
+        g && g.carryOut && tTile(__('taxSumPots', 'Loss pots carried forward'), taxMoney((g.carryOut.shares || 0) + (g.carryOut.other || 0)),
+          __('taxSumPotsSub', 'Shares {shares} · other {other}', { shares: taxMoney(g.carryOut.shares || 0), other: taxMoney(g.carryOut.other || 0) }), null, 'tax-sum-pots'),
+        !g && k && tTile(__('realizedGains', 'Realized Gains'), taxMoney(k.realizedGains), __('taxSumRealizedSub', 'net, FIFO, {y}', { y: taxYear }), k.realizedGains > 0 ? 'gain' : k.realizedGains < 0 ? 'loss' : null, 'tax-sum-realized'),
+        tTile(__('taxSumDeadline', 'Next deadline'), deadline ? I.date(deadline) : '—',
+          deadline ? __('taxSumDeadlineSub', 'Tax return for {y} (without an adviser)', { y: taxYear }) : __('taxSumDeadlineCh', 'Set by your canton'), null, 'tax-sum-deadline')
+      )
+    );
+
+    return React.createElement('div', { className: 'ui-tax' },
+      summary,
+      React.createElement('div', { className: 'ui-tax__tools' },
         React.createElement(window.MaerminComponents.SectionSwitch, {
           label: t.navTaxFifo || 'Tax & FIFO', value: tab, onChange: setTab, 'data-testid': 'tax-sections',
           options: [
@@ -3321,7 +3347,7 @@ function InvestmentTracker() {
           ].concat(showHarvest ? [{ value: 'harvest', label: t.taxTabHarvest || 'Tax-loss harvesting' }] : [])
         })
       ),
-      window.MaerminTrust && React.createElement(window.MaerminTrust.Disclaimer, { theme, kind: 'tax', style: { margin: '0.75rem 1.5rem 0' } }),
+      window.MaerminTrust && React.createElement(window.MaerminTrust.Disclaimer, { theme, kind: 'tax', style: { margin: '0 1.5rem' } }),
       React.createElement('div', { style: { flex: 1, overflow: 'auto' } },
         tab === 'fifo' && window.MaerminFeatures4 ?
           React.createElement(window.MaerminFeatures4.FIFOView, { transactions, prices, exchangeRate, fxAt, theme, formatPrice, getCurrencySymbol }) : null,
@@ -5030,9 +5056,9 @@ function InvestmentTracker() {
 
   // ========== TAX VIEW ==========
   
-  const renderTaxView = () => {
-    const currentYear = taxYear;
-
+  // R3.6: one memoised tax report per year, read by the Tax summary (B-7) and
+  // the Report tab, so the two can never disagree.
+  const getTaxReport = (currentYear) => {
     // Build the filing-grade report ONCE and derive the on-screen KPIs from it,
     // so the screen and the PDF/Excel export can never disagree (the KPIs used
     // to come from the legacy engine: no FX, crypto taxed like capital income).
@@ -5053,6 +5079,13 @@ function InvestmentTracker() {
     try {
       taxReport = memoBy('taxReport', [transactions, currentYear, taxJurisdiction, exchangeRate, fxAt, taxOwner, portfolio, prices, taxSettingsRev, storeKey, portfolioHook && portfolioHook.portfolios], buildReport);
     } catch (e) { console.warn('[TAX] report build failed:', e); }
+    return taxReport;
+  };
+
+  const renderTaxView = () => {
+    const currentYear = taxYear;
+
+    let taxReport = getTaxReport(currentYear);
     const taxData = (window.MaerminTaxReport && window.MaerminTaxReport.kpis)
       ? window.MaerminTaxReport.kpis(taxReport)
       : { realizedGains: 0, shortTerm: 0, longTerm: 0, taxLiability: 0 };
