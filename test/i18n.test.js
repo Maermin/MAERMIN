@@ -37,7 +37,7 @@ const U = require('../utils.js');
 
   // ---- lookup -------------------------------------------------------------
   I.setLang('de');
-  ok('t: German value', I.t('navAreaTaxes', 'Taxes') === 'Steuern');
+  ok('t: German value', I.t('navAreaTax', 'Tax') === 'Steuern');
   ok('t: unknown key uses the fallback', I.t('noSuchKeyXyz', 'Fallback') === 'Fallback');
   ok('t: slots are filled', I.t('fireMedianReaches', '', { y: 7 }) === 'Der Median-Pfad erreicht FIRE in Jahr 7');
   ok('fill leaves unknown slots', I.fill('{a} {b}', { a: 1 }) === '1 {b}');

@@ -83,8 +83,8 @@ const html = fs.readFileSync(path.join(__dirname, '..', 'index.html'), 'utf8');
 ok('nav-model loads before the renderer', html.indexOf('nav-model.js') > -1 && html.indexOf('nav-model.js') < html.indexOf('renderer.js'));
 
 // --- labels ---
-ok('label uses translation', N.label(N.getArea('taxes'), { navAreaTaxes: 'Steuern' }) === 'Steuern');
-ok('label falls back to English', N.label(N.getArea('taxes'), {}) === 'Taxes');
+ok('label uses translation', N.label(N.getArea('taxes'), { navAreaTax: 'Steuern' }) === 'Steuern');
+ok('label falls back to English', N.label(N.getArea('taxes'), {}) === 'Tax');
 
 console.log('\n' + passed + ' passed, ' + failed + ' failed');
 process.exit(failed ? 1 : 0);

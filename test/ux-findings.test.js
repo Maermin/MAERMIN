@@ -183,7 +183,7 @@ const read = (f) => fs.readFileSync(path.join(__dirname, '..', f), 'utf8');
   // ---- translations -------------------------------------------------------------
   {
     const T = require('../translations-complete.js');
-    const keys = ['remove', 'discard', 'keepEditing', 'rcCopyFailed', 'taxResetTitle', 'exRemoveTitle', 'pfRenameAria', 'navAreaAnalysis', 'uiModeAdvanced'];
+    const keys = ['remove', 'discard', 'keepEditing', 'rcCopyFailed', 'taxResetTitle', 'exRemoveTitle', 'pfRenameAria', 'navAreaInsight', 'uiModeAdvanced'];
     const miss = keys.filter((k) => !T.en[k] || !T.de[k]);
     ok('new strings exist in en and de', miss.length === 0, miss.join(','));
   }

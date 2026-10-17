@@ -1076,6 +1076,9 @@ function InvestmentTracker() {
   const setShowApiSettings = (v) => { const n = typeof v === 'function' ? v(showApiSettings) : v; n ? window.MaerminUI.openOverlay('apiSettings') : window.MaerminUI.closeOverlay('apiSettings'); };
   const showSettings = window.MaerminStore.useStore(window.MaerminUI.overlays, s => !!s.settings);
   const setShowSettings = (v) => { const n = typeof v === 'function' ? v(showSettings) : v; n ? window.MaerminUI.openOverlay('settings') : window.MaerminUI.closeOverlay('settings'); };
+  // R2.1: the phone dock's "More" sheet (Tax, Insight, Settings).
+  const showMoreNav = window.MaerminStore.useStore(window.MaerminUI.overlays, s => !!s.moreNav);
+  const setShowMoreNav = (v) => { v ? window.MaerminUI.openOverlay('moreNav') : window.MaerminUI.closeOverlay('moreNav'); };
 
   // Onboarding wizard + recovery-kit enrollment (existing users)
   const showOnboarding = window.MaerminStore.useStore(window.MaerminUI.overlays, s => !!s.onboarding);
@@ -6820,32 +6823,138 @@ buy,crypto,bitcoin,0.5,45000,2024-01-15,10`)
     addToast(mode === 'simple' ? (t.uiModeSwitchedSimple || 'Simple view: niche tools are hidden') : (t.uiModeSwitchedAdvanced || 'Advanced view: all tools are shown'), 'info');
   };
 
-  // P2-1: the tabs of a merged page (e.g. Returns · Performance · Attribution),
-  // and on phones - where the sidebar is hidden - the views of the open area.
+  // P2-1: the tabs of a merged page (e.g. Returns · Performance · Attribution).
+  // The views of the area are the page tabs in the header (R2.1); R2.2 turns
+  // this second row into a segmented control (B-3).
   const renderAreaNav = () => {
     const Nav = window.MaerminNav;
-    const areaId = Nav.areaOf(activeView) || 'portfolio';
-    const entries = Nav.visibleEntries(areaId, uiMode, activeView);
     const tabs = Nav.tabsFor(activeView, uiMode);
     const current = Nav.canonical(activeView);
-    if (entries.length < 2 && !tabs.length) return null;
+    if (!tabs.length) return null;
     const chip = (id, label, active, attrs) => React.createElement('button', Object.assign({
       key: id, type: 'button', className: 'mx-area-chip' + (active ? ' is-active' : ''),
       'aria-current': active ? 'page' : undefined
     }, attrs || {}), label);
     return React.createElement('div', { className: 'mx-area-nav' },
-      entries.length > 1 && React.createElement('nav', { className: 'mx-area-entries', 'aria-label': Nav.label(Nav.getArea(areaId), t) },
-        entries.map(e => chip(e.id, Nav.label(e, t), Nav.entryActive(e, activeView), {
-          'data-area-entry': e.id,
-          onClick: () => { if (!Nav.entryActive(e, activeView)) setActiveView(Nav.entryTarget(e, uiMode)); }
-        }))
-      ),
       tabs.length > 0 && React.createElement('nav', { className: 'mx-area-tabs', 'aria-label': t.navAreaTabs || 'Sections' },
         tabs.map(x => chip(x.id, Nav.label(x, t), x.id === current, {
           'data-tab': x.id,
           onClick: () => { if (x.id !== current) setActiveView(x.id); }
         }))
       )
+    );
+  };
+
+  // R2.1 (PLAN Phase 6): the shell. Desktop: rail · page header · main. Phone:
+  // the page header is the top bar and a dock replaces the rail (B-2). The
+  // areas and their views come from nav-model.js (B-1 labels); view ids,
+  // aliases, g+key shortcuts and deep links are unchanged.
+  const goArea = (areaId) => {
+    const Nav = window.MaerminNav;
+    if (Nav.areaOf(activeView) !== areaId) setActiveView(Nav.firstView(areaId, uiMode));
+  };
+  const MORE_AREAS = ['taxes', 'analysis', 'settings'];
+
+  const renderRail = () => {
+    const Nav = window.MaerminNav, C = window.MaerminComponents;
+    const current = Nav.areaOf(activeView) || 'portfolio';
+    return React.createElement(C.Rail, {
+      label: __('mainNav', 'Main'), onSelect: goArea,
+      brand: React.createElement(React.Fragment, null,
+        Logo({ size: 34 }),
+        React.createElement('span', { className: 'ui-rail__version', 'data-testid': 'brand-version' }, 'v' + String((window.MaerminBackup && window.MaerminBackup.VERSION) || '').split('.')[0])),
+      items: Nav.AREAS.map((a) => ({ id: a.id, label: Nav.label(a, t), icon: a.icon, active: a.id === current, foot: a.id === 'settings' }))
+    });
+  };
+
+  const renderPageHeader = (popover) => {
+    const Nav = window.MaerminNav, C = window.MaerminComponents;
+    const areaId = Nav.areaOf(activeView) || 'portfolio';
+    const entries = Nav.visibleEntries(areaId, uiMode, activeView);
+    const activeEntry = entries.find((e) => Nav.entryActive(e, activeView));
+    const pageTabs = entries.length > 1 && React.createElement(C.PageTabs, {
+      label: Nav.label(Nav.getArea(areaId), t),
+      value: activeEntry ? activeEntry.id : null,
+      tabs: entries.map((e) => ({
+        id: e.id, label: Nav.label(e, t),
+        attrs: e.tabs ? { 'data-group': e.id, 'data-views': e.tabs.map((x) => x.id).join(' ') } : { 'data-view': e.id }
+      })),
+      onChange: (id) => {
+        const e = entries.find((x) => x.id === id);
+        if (e && !Nav.entryActive(e, activeView)) setActiveView(Nav.entryTarget(e, uiMode));
+      }
+    });
+    const hiddenCount = uiMode === 'simple'
+      ? Nav.AREAS.reduce((n, a) => n + a.entries.reduce((m, e) => m + (e.tabs || [e]).filter(x => x.advanced).length, 0), 0)
+      : 0;
+    const modeHint = uiMode === 'simple' && React.createElement('div', { className: 'mx-mode-hint' },
+      React.createElement('span', null, window.MaerminI18n.fill(t.uiModeHidden || 'Simple view: {n} tools hidden', { n: hiddenCount })),
+      React.createElement('button', { type: 'button', 'data-ui-mode': 'advanced', title: window.MaerminI18n.fill(t.uiModeHidden || 'Simple view: {n} tools hidden', { n: hiddenCount }), onClick: () => switchUiMode('advanced') }, t.uiModeShowAll || 'Show all tools')
+    );
+    const ALL = window.MaerminMetrics.ALL_PORTFOLIOS;
+    const scope = areaId !== 'settings' && portfolios.length > 1 && React.createElement(C.Select, {
+      'aria-label': __('ovShowPortfolio', 'Show portfolio'), 'data-testid': 'scope-select',
+      value: isAllActive ? ALL : activePortfolioId,
+      onChange: (e) => setActivePortfolioId(e.target.value),
+      options: [{ value: ALL, label: __('allPortfolios', 'All Portfolios') }].concat(portfolios.map((p) => ({ value: p.id, label: p.name })))
+    });
+    const hideLabel = privacyMode ? (t.showAmounts || 'Show amounts') : (t.hideAmounts || 'Hide amounts');
+    return React.createElement(C.PageHeader, {
+      title: Nav.viewTitle(activeView, t) || 'MAERMIN',
+      brand: Logo({ size: 30 }),
+      scope,
+      actions: [
+        React.createElement(C.Button, {
+          key: 'search', variant: 'quiet', className: 'ui-search', icon: Icon('search', { size: 16 }), kbd: '⌘K',
+          'aria-label': t.searchCommands || 'Search features & jump to…',
+          onClick: () => window.MaerminUI.openOverlay('commandPalette')
+        }, __('navSearch', 'Search')),
+        React.createElement(C.IconButton, {
+          key: 'privacy', label: hideLabel, pressed: privacyMode, icon: Icon(privacyMode ? 'eye-off' : 'eye', { size: 18 }),
+          onClick: () => setPrivacyMode(p => !p)
+        }),
+        // The account menu: a plain button (Escape focuses it again through
+        // settingsBtnRef) and its popover; a click outside the pair closes it.
+        React.createElement('div', { key: 'settings', className: 'ui-settings', ref: settingsRef },
+          React.createElement('button', {
+            type: 'button', ref: settingsBtnRef,
+            className: 'ui-icon-btn ui-icon-btn--md ui-settings-btn' + (showSettings ? ' is-on' : ''),
+            onClick: () => setShowSettings(!showSettings),
+            title: t.settings || 'Settings', 'aria-label': t.settings || 'Settings',
+            'aria-expanded': showSettings, 'aria-controls': 'mx-settings-panel'
+          }, Icon('settings', { size: 18 })),
+          popover || null),
+        React.createElement(C.Button, {
+          key: 'add', variant: 'primary', className: 'ui-add', icon: Icon('plus', { size: 16 }),
+          onClick: () => openTransactionModal()
+        }, t.addTransaction || 'Add Transaction')
+      ],
+      tabs: (pageTabs || modeHint) ? React.createElement(React.Fragment, null, pageTabs || React.createElement('div', { className: 'ui-tabs' }), modeHint) : null
+    });
+  };
+
+  // B-2: Home · Activity · Add · Income · More; Tax, Insight and Settings sit in "More".
+  const renderDock = () => {
+    const Nav = window.MaerminNav, C = window.MaerminComponents;
+    const current = Nav.areaOf(activeView) || 'portfolio';
+    const area = (id) => { const a = Nav.getArea(id); return { id, label: Nav.label(a, t), icon: a.icon, active: current === id, onClick: () => goArea(id) }; };
+    const items = [
+      area('portfolio'), area('transactions'),
+      { id: 'add', add: true, label: t.addTransaction || 'Add Transaction', icon: 'plus', onClick: () => openTransactionModal() },
+      area('dividends'),
+      { id: 'more', label: __('navMore', 'More'), icon: 'more', active: MORE_AREAS.indexOf(current) > -1, haspopup: 'dialog', expanded: showMoreNav, onClick: () => setShowMoreNav(true) }
+    ];
+    return React.createElement(React.Fragment, null,
+      React.createElement(C.Dock, { label: __('primaryNav', 'Primary'), items }),
+      React.createElement(C.Modal, { open: showMoreNav, title: __('navMore', 'More'), onClose: () => setShowMoreNav(false), 'data-testid': 'more-nav' },
+        React.createElement('div', { className: 'ui-more' },
+          MORE_AREAS.map((id) => {
+            const a = Nav.getArea(id), on = current === id;
+            return React.createElement('button', {
+              key: id, type: 'button', 'data-area': id, className: 'ui-more__item' + (on ? ' is-active' : ''), 'aria-current': on ? 'true' : undefined,
+              onClick: () => { setShowMoreNav(false); goArea(id); }
+            }, Icon(a.icon, { size: 20 }), React.createElement('span', null, Nav.label(a, t)));
+          })))
     );
   };
 
@@ -6885,283 +6994,166 @@ buy,crypto,bitcoin,0.5,45000,2024-01-15,10`)
       href: '#main', className: 'mx-skip-link',
       onClick: (e) => { e.preventDefault(); const m = document.getElementById('main'); if (m) m.focus(); }
     }, t.skipToContent || 'Skip to content'),
-    // Header — frosted glass top bar
-    React.createElement('header', { className: 'mx-header maermin-header' },
-      // Animated hairline under the header (styles.css .mx-hairline): a clipped
-      // strip whose sheen moves by transform, so it runs on the compositor.
-      React.createElement('span', { className: 'mx-hairline', 'aria-hidden': 'true' }),
-      React.createElement('div', { className: 'mx-brand' },
-        Logo({ size: 32 }),
-        React.createElement('h1', { className: 'mx-brand-name' }, 'MAERMIN'),
-        React.createElement('span', { className: 'mx-brand-tag', 'data-testid': 'brand-version' }, 'v' + String((window.MaerminBackup && window.MaerminBackup.VERSION) || '').split('.')[0])
-      ),
-
-      // Command search
-      React.createElement('button', {
-        type: 'button',
-        className: 'mx-search',
-        onClick: () => window.MaerminUI.openOverlay('commandPalette'),
-        'aria-label': t.searchCommands || 'Search features & jump to…'
-      },
-        Icon('search', { size: 16 }),
-        React.createElement('span', null, t.searchCommands || 'Search features & jump to…'),
-        React.createElement('kbd', { className: 'mx-kbd' }, '⌘K')
-      ),
-
-      React.createElement('div', { className: 'mx-actions', ref: settingsRef },
-
-        // Privacy toggle (mask all amounts)
-        React.createElement('button', {
-          type: 'button',
-          className: 'mx-icon-btn' + (privacyMode ? ' is-on' : ''),
-          onClick: () => setPrivacyMode(p => !p),
-          title: (privacyMode ? (t.showAmounts || 'Show amounts') : (t.hideAmounts || 'Hide amounts')) + ' (p)',
-          'aria-label': privacyMode ? (t.showAmounts || 'Show amounts') : (t.hideAmounts || 'Hide amounts'),
-          'aria-pressed': privacyMode
-        }, Icon(privacyMode ? 'eye-off' : 'eye', { size: 18 })),
-
-        // Settings button
-        React.createElement('button', {
-          type: 'button',
-          ref: settingsBtnRef,
-          className: 'mx-icon-btn mx-settings-btn' + (showSettings ? ' is-on' : ''),
-          onClick: () => setShowSettings(!showSettings),
-          title: t.settings || 'Settings',
-          'aria-label': t.settings || 'Settings',
-          'aria-expanded': showSettings,
-          'aria-controls': 'mx-settings-panel'
-        }, Icon('settings', { size: 18 })),
-
-        // Settings popover: a labelled group of ordinary buttons (Tab moves
-        // through them). It used to claim role="menu" without menu items or
-        // arrow-key handling.
-        showSettings && React.createElement('div', { className: 'mx-popover', id: 'mx-settings-panel', role: 'group', 'aria-label': t.settings || 'Settings' },
-          React.createElement('div', { style: { marginBottom: '0.9rem' } },
-            popLabel(t.theme || 'Theme'),
-            React.createElement('div', { className: 'mx-seg' },
-              themeChoices.map(([th, lbl, sw]) => segBtn(th, theme === th, (e) => switchTheme(th, e), [
-                React.createElement('span', { key: 's', className: 'mx-swatch', style: { background: sw } }),
-                React.createElement('span', { key: 'l', style: { fontSize: 'var(--text-3xs)' } }, lbl)
-              ], { title: lbl }))
-            )
-          ),
-          React.createElement('div', { style: { display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.6rem', marginBottom: '0.9rem' } },
-            React.createElement('div', null,
-              popLabel(t.language || 'Language'),
+    // R2.1: rail · page header · main (desktop); top bar · main · dock (phone)
+    React.createElement('div', { className: 'ui-shell' },
+      renderRail(),
+      React.createElement('div', { className: 'ui-shell__main' },
+        renderPageHeader(showSettings && React.createElement('div', { className: 'mx-popover', id: 'mx-settings-panel', role: 'group', 'aria-label': t.settings || 'Settings' },
+            React.createElement('div', { style: { marginBottom: '0.9rem' } },
+              popLabel(t.theme || 'Theme'),
               React.createElement('div', { className: 'mx-seg' },
-                [['en', 'EN'], ['de', 'DE']].map(([lng, lbl]) => segBtn(lng, language === lng, () => setLanguage(lng), lbl, { title: lng === 'en' ? 'English' : 'Deutsch' }))
+                themeChoices.map(([th, lbl, sw]) => segBtn(th, theme === th, (e) => switchTheme(th, e), [
+                  React.createElement('span', { key: 's', className: 'mx-swatch', style: { background: sw } }),
+                  React.createElement('span', { key: 'l', style: { fontSize: 'var(--text-3xs)' } }, lbl)
+                ], { title: lbl }))
               )
             ),
-            React.createElement('div', null,
-              popLabel(t.currency || 'Currency'),
+            React.createElement('div', { style: { display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.6rem', marginBottom: '0.9rem' } },
+              React.createElement('div', null,
+                popLabel(t.language || 'Language'),
+                React.createElement('div', { className: 'mx-seg' },
+                  [['en', 'EN'], ['de', 'DE']].map(([lng, lbl]) => segBtn(lng, language === lng, () => setLanguage(lng), lbl, { title: lng === 'en' ? 'English' : 'Deutsch' }))
+                )
+              ),
+              React.createElement('div', null,
+                popLabel(t.currency || 'Currency'),
+                React.createElement('div', { className: 'mx-seg' },
+                  ['EUR', 'USD'].map(curr => segBtn(curr, currency === curr, () => setCurrency(curr), curr === 'EUR' ? '€ EUR' : '$ USD'))
+                )
+              )
+            ),
+            React.createElement('div', { style: { marginBottom: '0.9rem' } },
+              popLabel(t.uiMode || 'View'),
               React.createElement('div', { className: 'mx-seg' },
-                ['EUR', 'USD'].map(curr => segBtn(curr, currency === curr, () => setCurrency(curr), curr === 'EUR' ? '€ EUR' : '$ USD'))
+                [['simple', t.uiModeSimple || 'Simple'], ['advanced', t.uiModeAdvanced || 'Advanced']].map(([m, lbl]) => segBtn(m, uiMode === m, () => switchUiMode(m), lbl, { 'data-ui-mode': m }))
               )
-            )
-          ),
-          React.createElement('div', { style: { marginBottom: '0.9rem' } },
-            popLabel(t.uiMode || 'View'),
-            React.createElement('div', { className: 'mx-seg' },
-              [['simple', t.uiModeSimple || 'Simple'], ['advanced', t.uiModeAdvanced || 'Advanced']].map(([m, lbl]) => segBtn(m, uiMode === m, () => switchUiMode(m), lbl, { 'data-ui-mode': m }))
-            )
-          ),
-          React.createElement('div', { style: { marginBottom: '0.9rem' } },
-            popLabel(t.privacy || 'Privacy'),
-            React.createElement('button', {
-              type: 'button',
-              className: 'mx-menu-item',
-              onClick: () => setPrivacyMode(p => !p),
-              title: __('shortcutP', 'Shortcut: p'),
-              style: { justifyContent: 'space-between', background: 'var(--hover)', border: '1px solid var(--border)' }
-            },
-              React.createElement('span', { style: { display: 'flex', alignItems: 'center', gap: '0.6rem' } }, Icon(privacyMode ? 'eye-off' : 'eye', { size: 16 }), t.hideAmounts || 'Hide amounts'),
-              React.createElement('span', { style: { width: 34, height: 20, borderRadius: 999, padding: 2, background: privacyMode ? 'var(--accent)' : 'var(--border-strong)', transition: 'background .15s', display: 'flex', justifyContent: privacyMode ? 'flex-end' : 'flex-start' } },
-                React.createElement('span', { style: { width: 16, height: 16, borderRadius: '50%', background: '#fff', boxShadow: '0 1px 3px rgba(0,0,0,.3)' } }))
-            )
-          ),
-          // Motion effects (Aurora FX) — toggling reloads so every surface re-inits.
-          window.MaerminFX && React.createElement('div', { style: { marginBottom: '0.9rem' } },
-            popLabel(__('motion', 'Motion')),
-            React.createElement('button', {
-              type: 'button',
-              className: 'mx-menu-item',
-              onClick: () => window.MaerminFX.setEnabled(!window.MaerminFX.enabled()),
-              style: { justifyContent: 'space-between', background: 'var(--hover)', border: '1px solid var(--border)' }
-            },
-              React.createElement('span', { style: { display: 'flex', alignItems: 'center', gap: '0.6rem' } }, Icon('sparkle', { size: 16 }), __('motionEffects', 'Animations & effects')),
-              React.createElement('span', { style: { width: 34, height: 20, borderRadius: 999, padding: 2, background: window.MaerminFX.enabled() ? 'var(--accent)' : 'var(--border-strong)', display: 'flex', justifyContent: window.MaerminFX.enabled() ? 'flex-end' : 'flex-start' } },
-                React.createElement('span', { style: { width: 16, height: 16, borderRadius: '50%', background: '#fff', boxShadow: '0 1px 3px rgba(0,0,0,.3)' } }))
-            )
-          ),
-          // Corporate actions (stock splits) — global list. Per-symbol add/scan
-          // lives in the position detail modal; this is the cross-holding view.
-          (function () {
-            var CA = window.MaerminCorporateActions;
-            if (!CA) return null;
-            var all = CA.listFor();
-            if (!all.length) return null;
-            var removeOne = function (a) {
-              askConfirm({ title: t.caRemoveConfirm || 'Remove this split?', message: __('caRemoveMsg', '{sym} {ratio} on {date}. It can be re-added or re-scanned.', { sym: a.symbol, ratio: a.num + ':' + a.den, date: window.MaerminI18n.date(a.date) }), confirmLabel: t.caRemove || 'Remove', danger: true })
-                .then(function (yes) { if (!yes) return; CA.remove(a.id); setCorpActionsRev(function (n) { return n + 1; }); });
-            };
-            return React.createElement('div', { key: 'corp-' + corpActionsRev, style: { marginBottom: '1rem' } },
-              React.createElement('label', { style: { color: currentTheme.textSecondary, fontSize: 'var(--text-2xs)', textTransform: 'uppercase', letterSpacing: '0.05em' } }, t.caTitle || 'Corporate actions (splits)'),
-              React.createElement('div', { style: { display: 'flex', flexDirection: 'column', gap: '1px', marginTop: '0.5rem', maxHeight: '140px', overflow: 'auto' } },
-                all.map(function (a) {
-                  return React.createElement('div', { key: a.id, style: { display: 'grid', gridTemplateColumns: '1fr auto auto', gap: '0.4rem', alignItems: 'center', padding: '0.3rem 0', borderBottom: '1px solid ' + currentTheme.cardBorder, fontSize: 'var(--text-xs)' } },
-                    React.createElement('span', { style: { color: currentTheme.text, fontWeight: 600, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' } }, a.symbol + ' ' + a.num + ':' + a.den),
-                    React.createElement('span', { style: { color: currentTheme.textSecondary } }, a.date),
-                    React.createElement('span', Object.assign({}, ((window.MaerminUtils && window.MaerminUtils.clickable) ? window.MaerminUtils.clickable(function () { removeOne(a); }) : { onClick: function () { removeOne(a); } }), { style: { color: currentTheme.danger || 'var(--danger)', cursor: 'pointer' }, 'aria-label': (t.caRemove || 'Remove') + ' ' + a.symbol }), '×')
-                  );
-                })
+            ),
+            React.createElement('div', { style: { marginBottom: '0.9rem' } },
+              popLabel(t.privacy || 'Privacy'),
+              React.createElement('button', {
+                type: 'button',
+                className: 'mx-menu-item',
+                onClick: () => setPrivacyMode(p => !p),
+                title: __('shortcutP', 'Shortcut: p'),
+                style: { justifyContent: 'space-between', background: 'var(--hover)', border: '1px solid var(--border)' }
+              },
+                React.createElement('span', { style: { display: 'flex', alignItems: 'center', gap: '0.6rem' } }, Icon(privacyMode ? 'eye-off' : 'eye', { size: 16 }), t.hideAmounts || 'Hide amounts'),
+                React.createElement('span', { style: { width: 34, height: 20, borderRadius: 999, padding: 2, background: privacyMode ? 'var(--accent)' : 'var(--border-strong)', transition: 'background .15s', display: 'flex', justifyContent: privacyMode ? 'flex-end' : 'flex-start' } },
+                  React.createElement('span', { style: { width: 16, height: 16, borderRadius: '50%', background: '#fff', boxShadow: '0 1px 3px rgba(0,0,0,.3)' } }))
               )
-            );
-          })(),
-          // P5-3.10: symbol / ISIN changes, mergers, spin-offs - global list
-          (function () {
-            var CA = window.MaerminCorporateActions;
-            if (!CA || !CA.eventsFor) return null;
-            var all = CA.eventsFor();
-            if (!all.length) return null;
-            var removeOne = function (ev) {
-              askConfirm({ title: __('ceRemoveTitle', 'Remove this corporate action?'), message: CA.describeEvent(ev), confirmLabel: t.caRemove || 'Remove', danger: true })
-                .then(function (yes) { if (!yes) return; CA.removeEvent(ev.id); setCorpActionsRev(function (n) { return n + 1; }); });
-            };
-            return React.createElement('div', { key: 'ce-' + corpActionsRev, style: { marginBottom: '1rem' } },
-              React.createElement('label', { style: { color: currentTheme.textSecondary, fontSize: 'var(--text-2xs)', textTransform: 'uppercase', letterSpacing: '0.05em' } }, __('ceTitle', 'Other corporate actions')),
-              React.createElement('div', { style: { display: 'flex', flexDirection: 'column', gap: '1px', marginTop: '0.5rem', maxHeight: '140px', overflow: 'auto' } },
-                all.map(function (ev) {
-                  return React.createElement('div', { key: ev.id, style: { display: 'grid', gridTemplateColumns: '1fr auto auto', gap: '0.4rem', alignItems: 'center', padding: '0.3rem 0', borderBottom: '1px solid ' + currentTheme.cardBorder, fontSize: 'var(--text-xs)' } },
-                    React.createElement('span', { style: { color: currentTheme.text, fontWeight: 600, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' } }, CA.describeEvent(ev)),
-                    React.createElement('span', { style: { color: currentTheme.textSecondary } }, ev.date),
-                    React.createElement('span', Object.assign({}, ((window.MaerminUtils && window.MaerminUtils.clickable) ? window.MaerminUtils.clickable(function () { removeOne(ev); }) : { onClick: function () { removeOne(ev); } }), { style: { color: currentTheme.danger || 'var(--danger)', cursor: 'pointer' }, 'aria-label': (t.caRemove || 'Remove') + ' ' + ev.symbol }), '×')
-                  );
-                })
+            ),
+            // Motion effects (Aurora FX) — toggling reloads so every surface re-inits.
+            window.MaerminFX && React.createElement('div', { style: { marginBottom: '0.9rem' } },
+              popLabel(__('motion', 'Motion')),
+              React.createElement('button', {
+                type: 'button',
+                className: 'mx-menu-item',
+                onClick: () => window.MaerminFX.setEnabled(!window.MaerminFX.enabled()),
+                style: { justifyContent: 'space-between', background: 'var(--hover)', border: '1px solid var(--border)' }
+              },
+                React.createElement('span', { style: { display: 'flex', alignItems: 'center', gap: '0.6rem' } }, Icon('sparkle', { size: 16 }), __('motionEffects', 'Animations & effects')),
+                React.createElement('span', { style: { width: 34, height: 20, borderRadius: 999, padding: 2, background: window.MaerminFX.enabled() ? 'var(--accent)' : 'var(--border-strong)', display: 'flex', justifyContent: window.MaerminFX.enabled() ? 'flex-end' : 'flex-start' } },
+                  React.createElement('span', { style: { width: 16, height: 16, borderRadius: '50%', background: '#fff', boxShadow: '0 1px 3px rgba(0,0,0,.3)' } }))
               )
-            );
-          })(),
-          React.createElement('div', { className: 'mx-divider' }),
-          menuItem('key', t.changePassword || 'Change Password', () => { setShowSettings(false); setShowPasswordModal(true); }),
-          menuItem('data', t.apiSettings || 'API Settings', () => { setShowSettings(false); setShowApiSettings(true); }),
-          menuItem('shield', __('securitySync', 'Security & sync'), () => { setShowSettings(false); setShowSecurity(true); }),
-          React.createElement('div', { className: 'mx-divider' }),
-          // Encrypted vault backup — disaster recovery (the vault has no password
-          // recovery, so an offline backup file is the only safety net).
-          menuItem('download', t.backupVault || 'Backup vault (encrypted)', () => {
-              if (!window.MaerminStorage || !window.MaerminStorage.exportEncryptedBackup) { addToast(__('backupUnavailable', 'Backup unavailable'), 'error'); return; }
-              window.MaerminStorage.exportEncryptedBackup().then((backup) => {
-                const blob = new Blob([JSON.stringify(backup)], { type: 'application/json' });
-                const a = document.createElement('a');
-                a.href = URL.createObjectURL(blob);
-                a.download = `maermin-vault-backup-${new Date().toISOString().split('T')[0]}.json`;
-                document.body.appendChild(a); a.click(); a.remove();
-                setTimeout(() => URL.revokeObjectURL(a.href), 1000);
-                if (window.MaerminAuditLog) window.MaerminAuditLog.record('vault.backup.export', 'encrypted vault backup downloaded');
-                addToast(__('backupEncDownloaded', 'Encrypted backup downloaded — keep it safe'), 'success');
-              }).catch((e) => addToast(__('backupFailedMsg', 'Backup failed: {msg}', { msg: (e && e.message) || (t.error || 'Error') }), 'error'));
-            }),
-          // Restore from an encrypted backup file → reload → unlock with password.
-          menuItem('upload', t.restoreVault || 'Restore vault backup', () => {
-              const input = document.createElement('input');
-              input.type = 'file'; input.accept = 'application/json,.json';
-              input.onchange = () => {
-                const file = input.files && input.files[0];
-                if (!file) return;
-                const reader = new FileReader();
-                reader.onload = () => {
-                  let obj; try { obj = JSON.parse(reader.result); } catch { addToast(__('backupInvalidFile', 'Invalid backup file'), 'error'); return; }
-                  askConfirm({ title: __('vaultRestoreTitle', 'Restore this encrypted backup?'), message: __('vaultRestoreMsg', "It replaces the current vault. You will need the backup's password to unlock."), confirmLabel: __('vaultReplace', 'Replace vault'), danger: true }).then((yes) => {
-                    if (!yes) return;
-                    window.MaerminStorage.importEncryptedBackup(obj)
-                      .then(() => { if (window.MaerminAuditLog) window.MaerminAuditLog.record('vault.backup.restore', 'encrypted vault backup restored'); addToast(__('backupRestoredReload', 'Backup restored — reloading…'), 'success'); setTimeout(() => window.location.reload(), 800); })
-                      .catch((e) => addToast(__('restoreFailedMsg', 'Restore failed: {msg}', { msg: (e && e.message) || (t.error || 'Error') }), 'error'));
-                  });
-                };
-                reader.readAsText(file);
+            ),
+            // Corporate actions (stock splits) — global list. Per-symbol add/scan
+            // lives in the position detail modal; this is the cross-holding view.
+            (function () {
+              var CA = window.MaerminCorporateActions;
+              if (!CA) return null;
+              var all = CA.listFor();
+              if (!all.length) return null;
+              var removeOne = function (a) {
+                askConfirm({ title: t.caRemoveConfirm || 'Remove this split?', message: __('caRemoveMsg', '{sym} {ratio} on {date}. It can be re-added or re-scanned.', { sym: a.symbol, ratio: a.num + ':' + a.den, date: window.MaerminI18n.date(a.date) }), confirmLabel: t.caRemove || 'Remove', danger: true })
+                  .then(function (yes) { if (!yes) return; CA.remove(a.id); setCorpActionsRev(function (n) { return n + 1; }); });
               };
-              input.click();
-            }),
-          menuItem('log', t.securityLog || 'Security log', () => { setShowSettings(false); setShowAuditLog(true); }),
-          React.createElement('div', { className: 'mx-divider' }),
-          menuItem('logout', t.logout || 'Logout', () => { if (window.MaerminAuth) window.MaerminAuth.logout(); }, true)
-        ),
-
+              return React.createElement('div', { key: 'corp-' + corpActionsRev, style: { marginBottom: '1rem' } },
+                React.createElement('label', { style: { color: currentTheme.textSecondary, fontSize: 'var(--text-2xs)', textTransform: 'uppercase', letterSpacing: '0.05em' } }, t.caTitle || 'Corporate actions (splits)'),
+                React.createElement('div', { style: { display: 'flex', flexDirection: 'column', gap: '1px', marginTop: '0.5rem', maxHeight: '140px', overflow: 'auto' } },
+                  all.map(function (a) {
+                    return React.createElement('div', { key: a.id, style: { display: 'grid', gridTemplateColumns: '1fr auto auto', gap: '0.4rem', alignItems: 'center', padding: '0.3rem 0', borderBottom: '1px solid ' + currentTheme.cardBorder, fontSize: 'var(--text-xs)' } },
+                      React.createElement('span', { style: { color: currentTheme.text, fontWeight: 600, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' } }, a.symbol + ' ' + a.num + ':' + a.den),
+                      React.createElement('span', { style: { color: currentTheme.textSecondary } }, a.date),
+                      React.createElement('span', Object.assign({}, ((window.MaerminUtils && window.MaerminUtils.clickable) ? window.MaerminUtils.clickable(function () { removeOne(a); }) : { onClick: function () { removeOne(a); } }), { style: { color: currentTheme.danger || 'var(--danger)', cursor: 'pointer' }, 'aria-label': (t.caRemove || 'Remove') + ' ' + a.symbol }), '×')
+                    );
+                  })
+                )
+              );
+            })(),
+            // P5-3.10: symbol / ISIN changes, mergers, spin-offs - global list
+            (function () {
+              var CA = window.MaerminCorporateActions;
+              if (!CA || !CA.eventsFor) return null;
+              var all = CA.eventsFor();
+              if (!all.length) return null;
+              var removeOne = function (ev) {
+                askConfirm({ title: __('ceRemoveTitle', 'Remove this corporate action?'), message: CA.describeEvent(ev), confirmLabel: t.caRemove || 'Remove', danger: true })
+                  .then(function (yes) { if (!yes) return; CA.removeEvent(ev.id); setCorpActionsRev(function (n) { return n + 1; }); });
+              };
+              return React.createElement('div', { key: 'ce-' + corpActionsRev, style: { marginBottom: '1rem' } },
+                React.createElement('label', { style: { color: currentTheme.textSecondary, fontSize: 'var(--text-2xs)', textTransform: 'uppercase', letterSpacing: '0.05em' } }, __('ceTitle', 'Other corporate actions')),
+                React.createElement('div', { style: { display: 'flex', flexDirection: 'column', gap: '1px', marginTop: '0.5rem', maxHeight: '140px', overflow: 'auto' } },
+                  all.map(function (ev) {
+                    return React.createElement('div', { key: ev.id, style: { display: 'grid', gridTemplateColumns: '1fr auto auto', gap: '0.4rem', alignItems: 'center', padding: '0.3rem 0', borderBottom: '1px solid ' + currentTheme.cardBorder, fontSize: 'var(--text-xs)' } },
+                      React.createElement('span', { style: { color: currentTheme.text, fontWeight: 600, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' } }, CA.describeEvent(ev)),
+                      React.createElement('span', { style: { color: currentTheme.textSecondary } }, ev.date),
+                      React.createElement('span', Object.assign({}, ((window.MaerminUtils && window.MaerminUtils.clickable) ? window.MaerminUtils.clickable(function () { removeOne(ev); }) : { onClick: function () { removeOne(ev); } }), { style: { color: currentTheme.danger || 'var(--danger)', cursor: 'pointer' }, 'aria-label': (t.caRemove || 'Remove') + ' ' + ev.symbol }), '×')
+                    );
+                  })
+                )
+              );
+            })(),
+            React.createElement('div', { className: 'mx-divider' }),
+            menuItem('key', t.changePassword || 'Change Password', () => { setShowSettings(false); setShowPasswordModal(true); }),
+            menuItem('data', t.apiSettings || 'API Settings', () => { setShowSettings(false); setShowApiSettings(true); }),
+            menuItem('shield', __('securitySync', 'Security & sync'), () => { setShowSettings(false); setShowSecurity(true); }),
+            React.createElement('div', { className: 'mx-divider' }),
+            // Encrypted vault backup — disaster recovery (the vault has no password
+            // recovery, so an offline backup file is the only safety net).
+            menuItem('download', t.backupVault || 'Backup vault (encrypted)', () => {
+                if (!window.MaerminStorage || !window.MaerminStorage.exportEncryptedBackup) { addToast(__('backupUnavailable', 'Backup unavailable'), 'error'); return; }
+                window.MaerminStorage.exportEncryptedBackup().then((backup) => {
+                  const blob = new Blob([JSON.stringify(backup)], { type: 'application/json' });
+                  const a = document.createElement('a');
+                  a.href = URL.createObjectURL(blob);
+                  a.download = `maermin-vault-backup-${new Date().toISOString().split('T')[0]}.json`;
+                  document.body.appendChild(a); a.click(); a.remove();
+                  setTimeout(() => URL.revokeObjectURL(a.href), 1000);
+                  if (window.MaerminAuditLog) window.MaerminAuditLog.record('vault.backup.export', 'encrypted vault backup downloaded');
+                  addToast(__('backupEncDownloaded', 'Encrypted backup downloaded — keep it safe'), 'success');
+                }).catch((e) => addToast(__('backupFailedMsg', 'Backup failed: {msg}', { msg: (e && e.message) || (t.error || 'Error') }), 'error'));
+              }),
+            // Restore from an encrypted backup file → reload → unlock with password.
+            menuItem('upload', t.restoreVault || 'Restore vault backup', () => {
+                const input = document.createElement('input');
+                input.type = 'file'; input.accept = 'application/json,.json';
+                input.onchange = () => {
+                  const file = input.files && input.files[0];
+                  if (!file) return;
+                  const reader = new FileReader();
+                  reader.onload = () => {
+                    let obj; try { obj = JSON.parse(reader.result); } catch { addToast(__('backupInvalidFile', 'Invalid backup file'), 'error'); return; }
+                    askConfirm({ title: __('vaultRestoreTitle', 'Restore this encrypted backup?'), message: __('vaultRestoreMsg', "It replaces the current vault. You will need the backup's password to unlock."), confirmLabel: __('vaultReplace', 'Replace vault'), danger: true }).then((yes) => {
+                      if (!yes) return;
+                      window.MaerminStorage.importEncryptedBackup(obj)
+                        .then(() => { if (window.MaerminAuditLog) window.MaerminAuditLog.record('vault.backup.restore', 'encrypted vault backup restored'); addToast(__('backupRestoredReload', 'Backup restored — reloading…'), 'success'); setTimeout(() => window.location.reload(), 800); })
+                        .catch((e) => addToast(__('restoreFailedMsg', 'Restore failed: {msg}', { msg: (e && e.message) || (t.error || 'Error') }), 'error'));
+                    });
+                  };
+                  reader.readAsText(file);
+                };
+                input.click();
+              }),
+            menuItem('log', t.securityLog || 'Security log', () => { setShowSettings(false); setShowAuditLog(true); }),
+            React.createElement('div', { className: 'mx-divider' }),
+            menuItem('logout', t.logout || 'Logout', () => { if (window.MaerminAuth) window.MaerminAuth.logout(); }, true)
+          )),
+        React.createElement('main', { className: 'maermin-main', id: 'main', tabIndex: -1 },
+          renderAtRestBanner(), renderAreaNav(), React.createElement(ViewErrorBoundary, { viewKey: activeView, theme: currentTheme }, renderView()))
       )
     ),
+    renderDock(),
 
-    // Main layout
-    React.createElement('div', { className: 'mx-body' },
-      // Sidebar
-      React.createElement('nav', { className: 'maermin-sidebar', 'aria-label': __('mainNav', 'Main') },
-        (() => {
-          // P2-1: six areas from nav-model.js. Grouped views (Returns +
-          // Performance + Attribution, Health + Intelligence + Risk) are one
-          // entry here and tabs on the page (renderAreaTabs).
-          const Nav = window.MaerminNav;
-          const sectionLabel = (text, key) => React.createElement('div', { key: 'sec-' + key, className: 'mx-nav-section' }, text);
-
-          const navButton = (entry) => {
-            const active = Nav.entryActive(entry, activeView);
-            const target = Nav.entryTarget(entry, uiMode);
-            return React.createElement('button', {
-              key: entry.id,
-              type: 'button',
-              className: 'mx-nav' + (active ? ' is-active' : ''),
-              'aria-current': active ? 'page' : undefined,
-              'data-view': entry.tabs ? undefined : entry.id,
-              'data-group': entry.tabs ? entry.id : undefined,
-              'data-views': entry.tabs ? entry.tabs.map(x => x.id).join(' ') : undefined,
-              onClick: () => setActiveView(active && entry.tabs ? Nav.canonical(activeView) : target)
-            },
-              Icon(entry.tabs ? entry.tabs[0].id : entry.id, { size: 17 }),
-              React.createElement('span', { className: 'mx-nav-label' }, Nav.label(entry, t))
-            );
-          };
-
-          const hiddenCount = uiMode === 'simple'
-            ? Nav.AREAS.reduce((n, a) => n + a.entries.reduce((m, e) => m + (e.tabs || [e]).filter(x => x.advanced).length, 0), 0)
-            : 0;
-          const modeHint = uiMode === 'simple' && React.createElement('div', { key: 'mode-hint', className: 'mx-mode-hint' },
-            React.createElement('span', null, window.MaerminI18n.fill(t.uiModeHidden || 'Simple view: {n} tools hidden', { n: hiddenCount })),
-            React.createElement('button', { type: 'button', 'data-ui-mode': 'advanced', onClick: () => switchUiMode('advanced') }, t.uiModeShowAll || 'Show all tools')
-          );
-
-          const quickAccess = React.createElement('div', { key: 'quick-access', className: 'mx-promo' },
-            React.createElement('div', { className: 'mx-promo-title' }, Icon('sparkle', { size: 15 }), __('quickAccess', 'Quick access')),
-            React.createElement('div', { className: 'mx-promo-text' }, __('quickAccessText', 'Jump to any module, holding or action instantly.')),
-            React.createElement('button', { type: 'button', onClick: () => window.MaerminUI.openOverlay('commandPalette') },
-              React.createElement('span', null, __('openPalette', 'Open palette')),
-              React.createElement('kbd', { className: 'mx-kbd' }, '⌘K')
-            )
-          );
-
-          const out = [];
-          Nav.AREAS.forEach((area) => {
-            const entries = Nav.visibleEntries(area.id, uiMode, activeView);
-            if (!entries.length) return;
-            out.push(sectionLabel(Nav.label(area, t), area.id));
-            entries.forEach(e => out.push(navButton(e)));
-          });
-          return [
-            ...out,
-            React.createElement('div', { key: 'spacer', style: { flex: 1, minHeight: '1rem' } }),
-            modeHint,
-            quickAccess
-          ];
-        })()
-      ),
-
-      // Main content
-      React.createElement('main', { className: 'maermin-main', id: 'main', tabIndex: -1 },
-        React.createElement('h1', { className: 'mx-sr-only' }, window.MaerminNav.viewTitle(activeView, t) || 'MAERMIN'),
-        renderAtRestBanner(), renderAreaNav(), React.createElement(ViewErrorBoundary, { viewKey: activeView, theme: currentTheme }, renderView()))
-    ),
-
-    // Mobile Bottom Navigation
-    window.MaerminFeatures2 && React.createElement(window.MaerminFeatures2.MobileBottomNav, {
-      activeView, setActiveView, theme: currentTheme, uiMode, t
-    }),
-    
     // Modals
     renderTransactionModal(),
     renderImportModal(),
