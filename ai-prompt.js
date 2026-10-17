@@ -133,7 +133,7 @@ function __(k, f, v) { return (typeof window !== 'undefined' && window.MaerminI1
       var on = shown === id;
       return e('button', { type: 'button', 'data-ai-level': id, 'aria-pressed': on, onClick: onClick,
         style: { padding: '0.45rem 0.85rem', fontSize: 'var(--text-sm)', fontWeight: 600, borderRadius: '8px', cursor: 'pointer', minHeight: '32px',
-          background: on ? (th.accentFill || th.accent) : 'transparent', color: on ? '#ffffff' : th.text, border: '1px solid ' + (on ? 'transparent' : border) } }, label);
+          background: on ? (th.accentFill || th.accent) : 'transparent', color: on ? 'var(--on-accent)' : th.text, border: '1px solid ' + (on ? 'transparent' : border) } }, label);
     }
     function askFull() {
       window.MaerminUI.confirm({

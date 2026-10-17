@@ -2644,8 +2644,21 @@ async function runBuild(browser, label, dir) {
     await check({ name: 'Add Transaction', focus: 'field', back: addTx, open: () => addTx.click() });
     await wide(() => openView(page, 'overview'));
     await page.waitForTimeout(400);
-    const importBtn = page.getByRole('button', { name: '↑ Import' }).first();
-    await check({ name: 'Import Data', focus: 'field', back: importBtn, open: () => importBtn.click() });
+    // R3.4 (B-6): the Overview's Import leads to Import / Export; the paste
+    // dialog stays on the "i" shortcut (and the palette)
+    const refreshBtn = page.getByRole('button', { name: /Refresh prices/ }).first();
+    await check({ name: 'Import Data', focus: 'field', back: refreshBtn, open: async () => { await refreshBtn.focus(); await page.keyboard.press('i'); } });
+    {
+      let section = '', err = '';
+      try {
+        await page.locator('[data-testid="ov-import"]').click();
+        await page.waitForTimeout(400);
+        section = await page.locator('main [data-testid="dm-sections"] [aria-checked="true"], main [data-testid="dm-sections"] select').first().evaluate((el) => el.tagName === 'SELECT' ? el.value : el.textContent.trim());
+        await wide(() => openView(page, 'overview'));
+        await page.waitForTimeout(400);
+      } catch (e) { err = String(e.message).split('\n')[0]; }
+      ok(tag + 'B-6: the Overview\'s Import opens Import / Export on Broker import', !err && /^(Broker Import|broker)$/.test(section), err || section);
+    }
     const row = page.locator('main [role="button"]', { hasText: 'VWCE' }).first();
     await check({ name: 'VWCE.DE', focus: 'panel', back: row, open: async () => { await row.scrollIntoViewIfNeeded(); await row.click(); } });
     await check({ name: 'API Settings', focus: 'field', back: avatar, open: fromMenu('API Settings') });
@@ -2793,7 +2806,8 @@ async function runBuild(browser, label, dir) {
     for (const id of VIEWS) {
       try { await openView(page, id); } catch (e) { hits.push(id + ': ' + e.message); continue; }
       await page.waitForTimeout(500);
-      const lines = (await page.locator('main').innerText()).split('\n').map((s) => s.trim()).filter((s) => EN.test(s));
+      // file names a broker produces ("Transactions.csv") are not UI words (R3.4: the view opens on Broker import)
+      const lines = (await page.locator('main').innerText()).split('\n').map((s) => s.trim().replace(/\b[\w-]+\.(csv|xlsx?|json|txt|pdf|zip)\b/gi, '')).filter((s) => EN.test(s));
       for (const l of new Set(lines)) hits.push(id + ': ' + l.slice(0, 100));
     }
     await openView(page, 'overview');
