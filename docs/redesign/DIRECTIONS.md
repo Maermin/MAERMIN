@@ -1,6 +1,6 @@
 # Redesign — three design directions (Phase 1)
 
-Pick one, or name the parts to combine ("C's overview with B's transactions table"). Nothing in the app changes
+**Picked: C · Atlas Map** (owner, 2026-10-17). Final screens with AA-checked tokens: [`final/`](final/); the contract: [`../DESIGN-SYSTEM.md`](../DESIGN-SYSTEM.md). The other two directions stay here for reference. Nothing in the app changes
 until the plan PR after the pick is merged.
 
 **How to look at them.** Open [`index.html`](index.html) in a browser (no server needed). Every mockup has a yellow

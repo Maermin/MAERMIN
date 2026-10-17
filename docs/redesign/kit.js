@@ -114,21 +114,22 @@
   function bar() {
     var h = here();
     var di = DIRS.findIndex(function (d) { return d.id === h.dir; });
-    if (di < 0) return;
+    var fin = h.dir === 'final';
+    if (di < 0 && !fin) return;
     var el = document.createElement('div');
     el.className = 'proto-bar';
     el.innerHTML =
       '<span class="proto-tag">PROTOTYPE</span>' +
-      '<button data-a="prev" aria-label="Previous direction">←</button>' +
+      (fin ? '<strong>Final · Atlas Map</strong>' : '<button data-a="prev" aria-label="Previous direction">←</button>' +
       '<strong>' + DIRS[di].name + '</strong>' +
-      '<button data-a="next" aria-label="Next direction">→</button>' +
+      '<button data-a="next" aria-label="Next direction">→</button>') +
       '<select data-a="screen" aria-label="Screen">' + SCREENS.map(function (s) { return '<option value="' + s.id + '"' + (s.id === h.screen ? ' selected' : '') + '>' + s.name + '</option>'; }).join('') + '</select>' +
       '<select data-a="theme" aria-label="Theme">' + THEMES.map(function (t) { return '<option value="' + t + '"' + (t === state.theme ? ' selected' : '') + '>' + THEME_NAMES[t] + '</option>'; }).join('') + '</select>' +
       '<label><input type="checkbox" data-a="mask"' + (state.mask ? ' checked' : '') + '> Hide amounts</label>' +
       '<label><input type="checkbox" data-a="mode"' + (state.mode === 'simple' ? ' checked' : '') + '> Simple</label>' +
       '<a href="../index.html">All</a>';
     document.body.appendChild(el);
-    var step = function (d) { go(DIRS[(di + d + DIRS.length) % DIRS.length].id, h.screen); };
+    var step = function (d) { if (fin) return; go(DIRS[(di + d + DIRS.length) % DIRS.length].id, h.screen); };
     el.addEventListener('click', function (e) {
       var a = e.target.getAttribute('data-a');
       if (a === 'prev') step(-1); else if (a === 'next') step(1);
