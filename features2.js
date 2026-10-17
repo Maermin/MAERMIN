@@ -481,7 +481,7 @@ function RebalancingView({ portfolio, prices, theme, formatPrice, getCurrencySym
   const modeBtn = (id, label) => React.createElement('button', {
     type: 'button', 'aria-pressed': prefs.mode === id, 'data-rb-mode': id, onClick: () => setPrefs({ ...prefs, mode: id }),
     style: { padding: '0.45rem 0.85rem', fontSize: 'var(--text-sm)', fontWeight: 600, borderRadius: '8px', cursor: 'pointer',
-      background: prefs.mode === id ? (theme.accentFill || theme.accent) : 'transparent', color: prefs.mode === id ? '#ffffff' : theme.text,
+      background: prefs.mode === id ? (theme.accentFill || theme.accent) : 'transparent', color: prefs.mode === id ? 'var(--on-accent)' : theme.text,
       border: `1px solid ${prefs.mode === id ? 'transparent' : theme.cardBorder}` }
   }, label);
   const cashflow = prefs.mode === 'cashflow';
@@ -994,8 +994,8 @@ function BrokerImportWizard({ theme, t, addToast, onImport, existing, workerUrl,
         React.createElement('div', { key: i, style: {
           flex: 1, padding: '0.625rem', textAlign: 'center', fontSize: 'var(--text-sm)',
           fontWeight: i === step ? '700' : '400',
-          background: i === step ? (theme.accentFill || theme.accent) : i < step ? 'rgba(139,124,255,0.15)' : theme.card,
-          color: i === step ? '#ffffff' : i < step ? theme.accent : theme.textSecondary,
+          background: i === step ? (theme.accentFill || theme.accent) : i < step ? 'var(--accent-soft)' : theme.card,
+          color: i === step ? 'var(--on-accent)' : i < step ? theme.accent : theme.textSecondary,
           borderRight: i < steps.length-1 ? `1px solid ${theme.cardBorder}` : 'none'
         } }, `${i < step ? '✓ ' : ''}${s}`)
       )
