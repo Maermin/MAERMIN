@@ -424,7 +424,7 @@ function __(k, f, v) { return (typeof window !== 'undefined' && window.MaerminI1
             return e('button', { key: b.key, type: 'button', 'aria-pressed': benchKey === b.key, onClick: function () { setBenchKey(b.key); },
               style: { font: 'inherit', cursor: 'pointer', padding: '0.25rem 0.6rem', borderRadius: '999px', fontSize: '0.74rem', fontWeight: 700, border: '1px solid ' + (benchKey === b.key ? (theme.accent || '#8b7cff') : border), background: benchKey === b.key ? ((theme.accentFill || theme.accent) || '#8b7cff') : 'transparent', color: benchKey === b.key ? (theme.accentText || '#ffffff') : dim } }, b.label);
           })),
-        !workerBase ? e('div', { style: { background: card, border: '1px solid ' + border, borderRadius: '14px', padding: '1rem', color: dim, fontSize: '0.85rem' } }, t.perfBenchNoWorker || 'Add a Worker URL in API Settings to compare against an index.')
+        !workerBase ? window.MaerminUtils.emptyState({ kind: 'worker', text: t.perfBenchNoWorker || 'Add a Worker URL in API Settings to compare against an index.', action: window.MaerminUI && window.MaerminUI.workerAction ? window.MaerminUI.workerAction() : undefined })
           : benchLoading ? e('div', { style: { color: dim, fontSize: '0.85rem' } }, (t.loading || 'Loading') + ' …')
           : benchRows.length ? e('div', { style: { background: card, border: '1px solid ' + border, borderRadius: '14px', overflow: 'hidden' } },
               benchRows.map(function (r, ri) {

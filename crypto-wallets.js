@@ -182,7 +182,7 @@ function __(k, f, v) { return (typeof window !== 'undefined' && window.MaerminI1
     }
 
     if (!props.workerUrl || demo) {
-      return e(window.MaerminUI.EmptyState, { testid: 'wallets', kind: demo ? 'demo' : 'worker', title: __('wlTitle', 'Crypto wallets (read-only)'), text: demo ? __('wlDemo', 'Not available in the demo.') : __('wlNeedWorker', 'Goes through your own Worker: add its URL in API Settings.') });
+      return e(window.MaerminUI.EmptyState, { testid: 'wallets', kind: demo ? 'demo' : 'worker', action: demo ? undefined : window.MaerminUI.workerAction(), title: __('wlTitle', 'Crypto wallets (read-only)'), text: demo ? __('wlDemo', 'Not available in the demo.') : __('wlNeedWorker', 'Goes through your own Worker: add its URL in API Settings.') });
     }
 
     var rows = st.wallets.map(function (w) {

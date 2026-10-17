@@ -293,9 +293,11 @@ function NewsFeedView({ portfolio, transactions, apiKeys, theme, formatPrice }) 
     ),
 
     // No worker warning
-    !hasWorker && React.createElement('div', { style: { background: 'rgba(245,158,11,0.08)', border: '1px solid rgba(245,158,11,0.3)', borderRadius: '10px', padding: '0.875rem 1.25rem', marginBottom: '1.25rem', fontSize: '0.82rem', color: theme.text } },
-      __('newsWorkerHint', 'Add a Cloudflare Worker URL in API Settings to load news. The Worker fetches Yahoo Finance RSS without CORS issues.')
-    ),
+    !hasWorker && window.MaerminUtils.emptyState({
+      kind: 'worker', testid: 'news-need-worker',
+      text: __('newsWorkerHint', 'Add a Cloudflare Worker URL in API Settings to load news. The Worker fetches Yahoo Finance RSS without CORS issues.'),
+      action: window.MaerminUI && window.MaerminUI.workerAction ? window.MaerminUI.workerAction() : undefined
+    }),
 
     // Symbol filter tabs
     heldSymbols.length > 0 && React.createElement('div', { style: { display: 'flex', gap: '0.375rem', marginBottom: '1.25rem', flexWrap: 'wrap' } },
@@ -333,10 +335,7 @@ function NewsFeedView({ portfolio, transactions, apiKeys, theme, formatPrice }) 
             )
           )
         )
-      : !loading && React.createElement('div', { style: { background: theme.card, border: `1px solid ${theme.cardBorder}`, borderRadius: '16px', boxShadow: theme.shadow, padding: '3rem', textAlign: 'center', color: theme.textSecondary } },
-          React.createElement('div', { style: { fontSize: '2rem', marginBottom: '0.5rem', opacity: 0.3 } }, '☰'),
-          React.createElement('div', { 'data-testid': 'news-status' }, newsEmptyText(hasWorker, requests))
-        ),
+      : !loading && window.MaerminUtils.emptyState({ testid: 'news-status', text: newsEmptyText(hasWorker, requests) }),
     news.length > 0 && requests.failed > 0 && React.createElement('div', { style: { marginTop: '0.75rem', color: theme.textSecondary, fontSize: '0.78rem' } },
       newsPartialText(requests))
   );

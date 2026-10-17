@@ -1550,6 +1550,11 @@ button.mx-selected:not(:disabled):hover { filter: none; }
 .mx-empty-title { color: var(--text); font-size: var(--text-md); font-weight: 700; margin-bottom: var(--space-1); }
 .mx-empty-text { color: var(--text-dim); font-size: var(--text-sm); line-height: 1.5; }
 .mx-empty .mx-btn { margin-top: var(--space-3); }
+.mx-empty-actions { display: flex; flex-wrap: wrap; gap: var(--space-2); margin-top: var(--space-3); }
+.mx-empty-actions .mx-btn { margin-top: 0; }
+/* inside a card: no second frame */
+.mx-empty.is-compact { background: transparent; border: 0; padding: var(--space-2) 0; margin-bottom: 0; }
+.mx-empty.is-compact .mx-btn { margin-top: var(--space-2); }
 
 /* KPI figures: one fluid size; the amount and its currency stay on one line. */
 .mx-kpi-value { font-size: var(--text-kpi); font-weight: 800; letter-spacing: -0.025em; line-height: 1.05; white-space: nowrap; font-variant-numeric: tabular-nums; }

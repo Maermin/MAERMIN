@@ -271,7 +271,7 @@ function __(k, f, v) { return (typeof window !== 'undefined' && window.MaerminI1
 
     var body;
     if (!workerBase) {
-      body = e('div', { style: { color: dim, fontSize: '0.85rem', padding: '1rem 0' } }, __('dsNeedWorker', 'Add a Worker URL in API Settings to use Discovery. It is read-only and never changes your portfolio.'));
+      body = window.MaerminUtils.workerNote(__('dsNeedWorker', 'Add a Worker URL in API Settings to use Discovery. It is read-only and never changes your portfolio.'));
     } else if (unsupported) {
       body = e('div', { style: { color: dim, fontSize: '0.85rem', padding: '1rem 0', lineHeight: 1.6 } },
         e('div', { style: { color: theme.warning || 'var(--warning)', fontWeight: 700, marginBottom: '0.3rem' } }, __('dsUnsupported', "Your Worker doesn't support Discovery yet.")),

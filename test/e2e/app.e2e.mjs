@@ -2852,6 +2852,21 @@ async function runBuild(browser, label, dir) {
         saved = await page.evaluate((y) => (JSON.parse(localStorage.getItem('maermin_basiszins_overrides') || '{}'))[y], year);
       } catch (e) { saved = 'ERR ' + e.message.split('\n')[0]; }
       ok('Basiszins: typing "2,5" and leaving the field saves 2.5 %', Math.abs(saved - 0.025) < 1e-9, String(saved)); }
+    // cleanup O-4 / O-5: without a Worker the News view says so in the shared
+    // empty state, and its button opens API Settings
+    { let shared = 0, opened = false, err = '';
+      try {
+        await openView(page, 'news');
+        await page.waitForTimeout(600);
+        shared = await page.locator('main [data-testid="news-need-worker"].mx-empty[data-kind="worker"]').count();
+        await page.locator('main [data-testid="news-need-worker"] button', { hasText: 'Open API Settings' }).click();
+        await page.locator('[aria-labelledby="dlg-api-settings"]').waitFor({ timeout: 5000 });
+        opened = true;
+        await page.keyboard.press('Escape');
+        await page.waitForTimeout(300);
+      } catch (e) { err = e.message.split('\n')[0]; }
+      ok('cleanup O-4: a Worker notice uses the shared empty state', shared === 1, err || String(shared));
+      ok('cleanup O-5: "Open API Settings" in a Worker notice opens API Settings', opened, err); }
     ok('no page errors in the usability session', errors.length === 0, errors.join(' | '));
     await context.close();
   }

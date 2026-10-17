@@ -16,6 +16,8 @@ globalThis.React = React;
 globalThis.window = { React };
 globalThis.localStorage = { _d: {}, getItem(k) { return this._d[k] || null; }, setItem(k, v) { this._d[k] = String(v); }, removeItem(k) { delete this._d[k]; } };
 const _log = console.log; console.log = () => {};
+// the shared modules every view can rely on in the app (empty states, tokens)
+require('../utils.js'); require('../store.js'); require('../ui-store.js');
 require('../investment-views.js');
 console.log = _log;
 const V = window.InvestmentViews;

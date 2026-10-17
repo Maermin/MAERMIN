@@ -13,6 +13,7 @@
 // ============================================================================
 (function () {
   'use strict';
+  function __(k, f, v) { var I = (typeof window !== 'undefined' && window.MaerminI18n) || null; return I && I.t ? I.t(k, f, v) : f; }
 
   var Store = (typeof window !== 'undefined' && window.MaerminStore)
     ? window.MaerminStore
@@ -290,17 +291,34 @@
   }
 
   // One look for "nothing here yet / not available / needs your Worker":
-  // a title, one sentence, and optionally one next action.
+  // a title, one sentence, and optionally one next action. compact: inside a
+  // card (no second frame). kind 'loading' is announced as a status.
   function EmptyState(props) {
     var e = React.createElement;
-    return e('div', { className: 'mx-empty', 'data-testid': props.testid, 'data-kind': props.kind || 'empty', role: props.role },
+    var kind = props.kind || 'empty';
+    return e('div', { className: 'mx-empty' + (props.compact ? ' is-compact' : ''), 'data-testid': props.testid, 'data-kind': kind, role: props.role || (kind === 'loading' ? 'status' : undefined) },
       props.title ? e('div', { className: 'mx-empty-title' }, props.title) : null,
       props.text ? e('div', { className: 'mx-empty-text' }, props.text) : null,
-      props.action ? e('button', btnProps('secondary', { onClick: props.action.onClick }), props.action.label) : null);
+      props.action ? e('button', btnProps('secondary', { onClick: props.action.onClick }), props.action.label) : null,
+      // several next steps: [{ label, onClick, variant, props }] (props: test hooks etc.)
+      props.actions && props.actions.length ? e('div', { className: 'mx-empty-actions' }, props.actions.filter(Boolean).map(function (a, i) {
+        var extra = {}; for (var k in (a.props || {})) if (Object.prototype.hasOwnProperty.call(a.props, k)) extra[k] = a.props[k];
+        extra.key = i; extra.onClick = a.onClick;
+        return e('button', btnProps(a.variant || 'secondary', extra), a.label);
+      })) : null);
+  }
+
+  // Any view can open API Settings: it is an overlay of this store (the
+  // renderer reads it as showApiSettings).
+  function openApiSettings() { openOverlay('apiSettings'); }
+  // The next action of a "needs your Worker" state.
+  function workerAction() {
+    return { label: __('openApiSettings', 'Open API Settings'), onClick: openApiSettings };
   }
 
   var api = {
     tokens: tokens, btnProps: btnProps, pillProps: pillProps, EmptyState: EmptyState,
+    openApiSettings: openApiSettings, workerAction: workerAction,
     toasts: toasts,
     add: add, dismiss: dismiss, clear: clear, items: items,
     reduceAdd: reduceAdd, reduceDismiss: reduceDismiss,

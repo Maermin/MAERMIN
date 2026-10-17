@@ -338,7 +338,7 @@
     var btRight = e('div', { style: { display: 'flex', gap: '0.5rem', alignItems: 'center', flexWrap: 'wrap' } }, DFX && DFX.badge ? DFX.badge(React, theme, workerUrl) : null, e('div', { role: 'group', 'aria-label': __('dhBacktestPeriod', 'Backtest period'), style: { display: 'flex', gap: '0.15rem', background: theme.inputBg, borderRadius: '8px', padding: '0.2rem' } }, [5, 10].map(yrBtn)));
     var btBody;
     if (!holdings.length) btBody = muted(__('dhBtNoHoldings', 'No stock or ETF holdings to test.'));
-    else if (!workerUrl) btBody = muted(__('dhBtNeedWorker', 'The past dividends and prices of your holdings are loaded through your Worker - add its URL in API Settings.'));
+    else if (!workerUrl) btBody = window.MaerminUtils.workerNote(__('dhBtNeedWorker', 'The past dividends and prices of your holdings are loaded through your Worker - add its URL in API Settings.'));
     else if (market.state !== 'ready') btBody = muted(__('dhBtLoading', 'Loading past dividends and prices…'));
     else if (!bt.years.length) btBody = muted(bt.outdated
       ? __('dhBtOutdated', 'Your Worker does not send past dividends yet. Redeploy it with the current version to see the backtest.')

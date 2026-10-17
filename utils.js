@@ -194,6 +194,20 @@ function __(k, f, v) { return (typeof window !== 'undefined' && window.MaerminI1
     return (typeof c === 'string' && INK[c.trim().toLowerCase()]) || c;
   }
 
+  // The shared empty / loading / gated state (MaerminUI.EmptyState) as an
+  // element; a plain div where the UI store is not loaded (Node harnesses).
+  function emptyState(props) {
+    const R = typeof React !== 'undefined' ? React : (typeof window !== 'undefined' && window.React);
+    const UI = typeof window !== 'undefined' && window.MaerminUI;
+    if (UI && UI.EmptyState) return R.createElement(UI.EmptyState, props);
+    return R.createElement('div', { 'data-testid': props.testid, 'data-kind': props.kind || 'empty' }, props.title ? props.title + ' ' : '', props.text);
+  }
+  // "Needs your Worker", inside a card, with a button to API Settings.
+  function workerNote(text, testid) {
+    const UI = typeof window !== 'undefined' && window.MaerminUI;
+    return emptyState({ compact: true, kind: 'worker', testid: testid, text: text, action: UI && UI.workerAction ? UI.workerAction() : undefined });
+  }
+
   function onColor(bg) {
     const m = String(bg || '').trim().match(/^#([0-9a-f]{3}|[0-9a-f]{6})$/i);
     if (!m) return '#ffffff';
@@ -380,6 +394,8 @@ function __(k, f, v) { return (typeof window !== 'undefined' && window.MaerminI1
     confirmThen,
     onColor,
     ink,
+    emptyState,
+    workerNote,
     safeParse,
     parseDecimal,
     todayISO,

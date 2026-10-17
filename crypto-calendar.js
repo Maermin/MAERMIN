@@ -135,7 +135,7 @@ function __(k, f, v) { return (typeof window !== 'undefined' && window.MaerminI1
         __('ccIntro', 'How much of each coin can be sold tax-free (held for more than a year) today and in the coming months. A sale takes the oldest lots first (FIFO), so the tax-free part is also the part that is sold first.')),
       !res.exemption ? e('div', { 'data-testid': 'cc-off', style: { color: warn, fontSize: '0.82rem', marginBottom: '0.5rem' } },
         __('ccOff', 'The one-year rule for crypto is switched off in your tax settings, so nothing counts as tax-free.')) : null,
-      !res.coins.length ? e('div', { 'data-testid': 'cc-empty', style: { color: dim, fontSize: '0.82rem' } }, __('ccEmpty', 'No crypto held.')) :
+      !res.coins.length ? window.MaerminUtils.emptyState({ compact: true, testid: 'cc-empty', text: __('ccEmpty', 'No crypto held.') }) :
       e('div', { style: { overflowX: 'auto' } },
         e('table', { 'data-testid': 'cc-table', style: { width: '100%', borderCollapse: 'collapse' } },
           e('thead', null, e('tr', null,
