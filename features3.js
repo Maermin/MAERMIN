@@ -635,7 +635,7 @@ function SymbolPicker({ category, workerUrl, theme, onSelect, selectedSymbol, se
           // waiting). A direct call was refused while the price refresh had
           // used up CoinGecko's per-minute limit, and the picker went blank.
           // Through the Worker (?action=cg), via the shared queue (the user is waiting).
-          const data = await window.MaerminCoinGecko.get('search', { query: q }, { priority: 'high', timeoutMs: 8000 });
+          const data = await window.MaerminCoinGecko.get('search', { query: q }, { priority: 'high', skipWhileCooling: true, timeoutMs: 8000 });
           const coins = (data.coins || [])
             .filter(c => {
               // Filter out tokenized stocks (xStock, rStock, Ondo) and stablecoins

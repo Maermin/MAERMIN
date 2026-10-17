@@ -60,6 +60,20 @@ const settle = (p) => p.then((v) => ({ v }), (e) => ({ e }));
     const high = await settle(h.gate.getJson('price', { priority: 'high' }));
     ok('the price request (high) is still tried during the pause, without waiting it out', high.v && high.v.ok === 1 && h.time() - t0 < 60000 && h.log.length === 2, { t: h.time() - t0, n: h.log.length });
     ok('... while chart requests keep being skipped', (await settle(h.gate.getJson('chart3'))).e.rateLimited === true && h.log.length === 2);
+    const search = await settle(h.gate.getJson('search', { priority: 'high', skipWhileCooling: true }));
+    ok('a coin search (skipWhileCooling) during the pause is rejected at once, without a request', search.e && search.e.rateLimited && h.log.length === 2, h.log.length);
+    h.advance(65000);
+    const later = await settle(h.gate.getJson('search2', { priority: 'high', skipWhileCooling: true }));
+    ok('... and is sent again once the pause is over', later.v && later.v.ok === 1 && h.log.length === 3);
+  }
+  {
+    // A search queued behind a request that gets refused is dropped, not sent.
+    const h = harness((url, n) => (n === 1 ? json({}, 429) : json({ ok: 1 })));
+    const ps = [settle(h.gate.getJson('price', { priority: 'high' })), settle(h.gate.getJson('search', { priority: 'high', skipWhileCooling: true })),
+      settle(h.gate.getJson('price2', { priority: 'high' }))];
+    const [, s, p2] = await Promise.all(ps);
+    ok('a queued search is dropped when a refusal starts the pause', s.e && s.e.rateLimited && !h.log.some((x) => x.url === 'search'), h.log);
+    ok('... while a queued price request is still sent', p2.v && p2.v.ok === 1);
   }
   {
     // In the browser a 429 without CORS headers arrives as a TypeError.

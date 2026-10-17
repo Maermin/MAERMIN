@@ -594,7 +594,10 @@
   // ---- error state for the UI ---------------------------------------------
   function setLastError(e) {
     var st = loadState();
-    if (e) st.lastError = { message: String((e && e.message) || e || 'error').slice(0, 200), at: Date.now() };
+    if (e) {
+      st.lastError = { message: String((e && e.message) || e || 'error').slice(0, 200), at: Date.now() };
+      if (e.code) st.lastError.code = String(e.code);
+    }
     else if (!st.lastError) return;
     else delete st.lastError;
     saveState(st);
@@ -612,9 +615,16 @@
   // ---- scheduling ----------------------------------------------------------
   // Debounced background sync, e.g. after the user changed data. Errors are
   // recorded by sync() itself (see setLastError), so nothing is lost here.
+  // A Worker without storage answers every sync with 501, and background syncs
+  // run on each data change, so the console filled with 501s. They stay off
+  // until a sync the user starts (Sync now, start-up) gets through again.
+  function storageMissing() {
+    var err = loadState().lastError;
+    return !!(err && err.code === 'no-storage');
+  }
   var _debounced = null;
   function scheduleSync(delayMs) {
-    if (!isConfigured() || !Vault || !Vault.isUnlocked()) return false;
+    if (!isConfigured() || !Vault || !Vault.isUnlocked() || storageMissing()) return false;
     if (_debounced) clearTimeout(_debounced);
     _debounced = setTimeout(function () { _debounced = null; sync().catch(function () {}); }, typeof delayMs === 'number' ? delayMs : 4000);
     return true;
@@ -709,7 +719,7 @@
     window.addEventListener('online', schedule);
     if (typeof document !== 'undefined') {
       document.addEventListener('visibilitychange', function () {
-        if (document.visibilityState === 'hidden' && hasLocalChanges()) {
+        if (document.visibilityState === 'hidden' && hasLocalChanges() && !storageMissing()) {
           if (window.MaerminPWA && window.MaerminPWA.requestBackgroundSync) {
             window.MaerminPWA.requestBackgroundSync('maermin-sync');
           }

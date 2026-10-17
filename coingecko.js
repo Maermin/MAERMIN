@@ -20,7 +20,9 @@
 //   - a refusal (429 or a network/CORS error) starts a COOLDOWN_MS pause:
 //     queued and new 'low' requests are rejected at once (callers fall back to
 //     stored closes / a flat line); 'high' requests are still sent (spaced) -
-//     a failed chart request must not hold back the prices.
+//     a failed chart request must not hold back the prices. The coin search
+//     (skipWhileCooling) is rejected at once too: one call per typed word
+//     only kept the refusal going.
 // Rejections carry { status: 429, rateLimited: true }.
 //
 // Pure scheduling, Node-testable (test/coingecko.test.js) with injectable
@@ -49,7 +51,7 @@
     function coolingDown() { return now() < coolUntil; }
 
     function dropLow() {
-      queue = queue.filter(function (j) { if (j.priority === 'high') return true; j.reject(limited()); return false; });
+      queue = queue.filter(function (j) { if (!j.skip) return true; j.reject(limited()); return false; });
     }
 
     function pump() {
@@ -81,14 +83,16 @@
       })();
     }
 
-    // → Promise<json>. opts: { priority: 'high'|'low' (default low), timeoutMs }
+    // → Promise<json>. opts: { priority: 'high'|'low' (default low), timeoutMs,
+    //   skipWhileCooling: jump the queue like 'high', but give way in a cooldown like 'low' }
     function getJson(url, o) {
       o = o || {};
       var priority = o.priority === 'high' ? 'high' : 'low';
+      var skip = priority === 'low' || !!o.skipWhileCooling;
       if (!fetchFn) return Promise.reject(new Error('no fetch'));
-      if (priority === 'low' && coolingDown()) return Promise.reject(limited());
+      if (skip && coolingDown()) return Promise.reject(limited());
       return new Promise(function (resolve, reject) {
-        var job = { url: url, priority: priority, timeoutMs: o.timeoutMs || 15000, resolve: resolve, reject: reject };
+        var job = { url: url, priority: priority, skip: skip, timeoutMs: o.timeoutMs || 15000, resolve: resolve, reject: reject };
         if (priority === 'high') {
           var i = 0; while (i < queue.length && queue[i].priority === 'high') i++;
           queue.splice(i, 0, job);
