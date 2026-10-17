@@ -5468,7 +5468,7 @@ function InvestmentTracker() {
       // P5-4.4: December plan - sell and buy back to use the rest of the
       // Sparerpauschbetrag, checked through the same report.
       taxJurisdiction === 'de' && window.MaerminHarvest && React.createElement(window.MaerminHarvest.Panel, {
-        theme: currentTheme, transactions, prices, exchangeRate, fxAt, rev: taxSettingsRev,
+        theme: currentTheme, transactions, prices, exchangeRate, fxAt, portfolios, rev: taxSettingsRev,
         formatMoney: (v) => privacyMode ? '••••••' : window.MaerminI18n.money(v, 'EUR')
       }),
       // P5-4.5: per coin what is tax-free today and in 1-12 months.
@@ -5478,7 +5478,7 @@ function InvestmentTracker() {
       }),
       // P5-4.6: cost basis and gains under FIFO, LIFO, HIFO and average cost.
       taxJurisdiction === 'de' && window.MaerminCostMethods && React.createElement(window.MaerminCostMethods.Panel, {
-        theme: currentTheme, transactions, prices, exchangeRate, fxAt, year: currentYear, rev: taxSettingsRev,
+        theme: currentTheme, transactions, prices, exchangeRate, fxAt, year: currentYear, portfolios, rev: taxSettingsRev,
         formatMoney: (v) => privacyMode ? '••••••' : window.MaerminI18n.money(v, 'EUR')
       }),
       // P5-4.2: "if I sell X": lots, gain and the extra tax through the same report.

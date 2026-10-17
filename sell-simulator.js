@@ -50,14 +50,23 @@ function __(k, f, v) { return (typeof window !== 'undefined' && window.MaerminI1
     var R = (typeof window !== 'undefined' && window.MaerminTaxReport) || require('./tax-report-builder.js');
     return !!(R.cryptoPerWallet && R.cryptoPerWallet(Object.assign({ jurisdiction: 'de' }, opts || {})));
   }
-  // Select key of a holding: category|SYMBOL, plus |portfolioId per wallet.
+  // FINDINGS O-1 (M-15): the portfolios marked as a separate depot keep their
+  // own FIFO pool for shares and funds - the ids the German report reads.
+  function depotsOn(opts) {
+    var R = (typeof window !== 'undefined' && window.MaerminTaxReport) || require('./tax-report-builder.js');
+    return R.separateDepots ? R.separateDepots(Object.assign({}, opts || {}, { jurisdiction: 'de' })) : [];
+  }
+  // Select key of a holding: category|SYMBOL, plus |portfolioId per wallet or
+  // separate depot.
   function holdingKey(x) { return x.category + '|' + x.symbol + (x.portfolioId != null ? '|' + x.portfolioId : ''); }
 
   // Open positions (as of asOf, when given): [{ category, symbol, symbolName,
   // quantity, currency, portfolioId? }] - currency of the latest trade, for the
-  // price field. With o.perWallet crypto is listed per portfolio.
+  // price field. With o.perWallet crypto is listed per portfolio; with
+  // o.depots (ids) shares and funds of those portfolios are listed on their own.
   function holdings(transactions, asOf, o) {
     var perWallet = !!(o && o.perWallet);
+    var depots = o && Array.isArray(o.depots) && o.depots.length ? o.depots : undefined;
     var txs = (transactions || []).filter(function (tx) {
       return tx && tx.category !== 'options' && (!asOf || ymd(tx.date) <= asOf);
     });
@@ -66,10 +75,11 @@ function __(k, f, v) { return (typeof window !== 'undefined' && window.MaerminI1
       if (tx.type !== 'buy' && tx.type !== 'sell') return;
       cur[(tx.category || 'crypto') + '|' + String(tx.symbol || tx.name || '').toUpperCase()] = tx.currency || 'EUR';
     });
-    return ledger().build(txs, { exchangeRate: 1, perWallet: perWallet ? ['crypto'] : undefined }).list.filter(function (g) { return g.openQty > 1e-9; }).map(function (g) {
+    return ledger().build(txs, { exchangeRate: 1, perWallet: perWallet ? ['crypto'] : undefined, depots: depots }).list.filter(function (g) { return g.openQty > 1e-9; }).map(function (g) {
       var h = { category: g.category, symbol: String(g.symbol || '').toUpperCase(), symbolName: g.symbolName || '', quantity: g.openQty,
         currency: cur[g.category + '|' + String(g.symbol || '').toUpperCase()] || 'EUR' };
       if (g.wallet != null) h.portfolioId = g.wallet;
+      else if (g.depot != null) h.portfolioId = g.depot;
       return h;
     }).sort(function (a, b) { return a.symbol < b.symbol ? -1 : a.symbol > b.symbol ? 1 : (String(a.portfolioId || '') < String(b.portfolioId || '') ? -1 : 1); });
   }
@@ -95,12 +105,22 @@ function __(k, f, v) { return (typeof window !== 'undefined' && window.MaerminI1
     // earlier trade.
     // Per wallet (crypto, P5-4.6): only the lots of the selling portfolio.
     var wallet = cat === 'crypto' && perWalletOn(opts) ? String(plan.portfolioId || '') : null;
+    // Per depot (shares and funds, M-15): only the lots of the selling
+    // portfolio's depot - its own when it is marked, else the common pool of
+    // every unmarked portfolio (ledger.js: no portfolio counts as 'default').
+    var depots = cat !== 'crypto' ? depotsOn(opts) : [];
+    var pidOf = function (x) { return String(x.portfolioId || 'default'); };
+    var depot = !depots.length ? null : depots.indexOf(pidOf(plan)) !== -1 ? pidOf(plan) : '';
     var mine = txs.filter(function (tx) {
       return tx && (tx.category || 'crypto') === cat && String(tx.symbol || tx.name || '').toUpperCase() === sym && ymd(tx.date) <= date &&
-        (wallet == null || String(tx.portfolioId || '') === wallet);
+        (wallet == null || String(tx.portfolioId || '') === wallet) &&
+        (depot == null || (depot ? pidOf(tx) === depot : depots.indexOf(pidOf(tx)) === -1));
     });
     var simTx = { id: SIM_ID, type: 'sell', category: cat, symbol: sym, quantity: qty, price: price, currency: plan.currency || 'EUR', date: date };
     if (plan.portfolioId != null) simTx.portfolioId = plan.portfolioId;
+    // A common-pool sale must not land in a marked depot in the report: book
+    // it in a portfolio of the pool.
+    if (depot === '' && depots.indexOf(pidOf(simTx)) !== -1 && mine.length) simTx.portfolioId = mine[mine.length - 1].portfolioId;
     var L = ledger();
     var lopts = { exchangeRate: num(opts && opts.exchangeRate) || 1, fxAt: opts && opts.fxAt };
     var g0 = L.build(mine, lopts).list[0];
@@ -163,8 +183,14 @@ function __(k, f, v) { return (typeof window !== 'undefined' && window.MaerminI1
     var today = props.today || new Date().toISOString().slice(0, 10);
     var txs = props.transactions || [];
     var perWallet = perWalletOn({});
-    var list = useMemo(function () { return holdings(txs, today, { perWallet: perWallet }); }, [txs, today, perWallet]);
-    var pfName = function (id) { var p = (props.portfolios || []).filter(function (x) { return x && x.id === id; })[0]; return p ? p.name : (id || '–'); };
+    var depots = depotsOn({ portfolios: props.portfolios });
+    var depotKey = depots.join('\u0001');
+    var list = useMemo(function () { return holdings(txs, today, { perWallet: perWallet, depots: depots }); }, [txs, today, perWallet, depotKey]);
+    var pfName = function (id) { var p = (props.portfolios || []).filter(function (x) { return x && String(x.id) === String(id); })[0]; return p ? p.name : (id || '–'); };
+    // With separate depots a share is listed per pool: its depot, or the rest.
+    var where = function (x) {
+      return x.portfolioId != null ? ' · ' + pfName(x.portfolioId) : depots.length && x.category !== 'crypto' ? ' · ' + __('depotPoolOther', 'other portfolios') : '';
+    };
     var s0 = useState(''); var pick = s0[0], setPick = s0[1];
     var s1 = useState({ quantity: '', price: '', date: today }); var form = s1[0], setForm = s1[1];
     var s2 = useState(null); var res = s2[0], setRes = s2[1];
@@ -186,7 +212,7 @@ function __(k, f, v) { return (typeof window !== 'undefined' && window.MaerminI1
       var r = null;
       try {
         r = simulate(txs, { category: h.category, symbol: h.symbol, quantity: parse(form.quantity), price: parse(form.price), currency: h.currency, date: form.date, portfolioId: h.portfolioId },
-          { baseCurrency: 'EUR', exchangeRate: props.exchangeRate, fxAt: props.fxAt });
+          { baseCurrency: 'EUR', exchangeRate: props.exchangeRate, fxAt: props.fxAt, separateDepots: depots });
       } catch (err) { r = { error: 'noTax' }; }
       setRes(r);
     }
@@ -212,7 +238,7 @@ function __(k, f, v) { return (typeof window !== 'undefined' && window.MaerminI1
         e('div', null, e('label', { style: label, htmlFor: 'ss-holding' }, __('ssHolding', 'Holding')),
           e('select', { id: 'ss-holding', 'data-testid': 'ss-holding', value: pick, onChange: function (ev) { choose(ev.target.value); }, style: input },
             e('option', { value: '' }, __('ssPick', 'Choose…')),
-            list.map(function (x) { return e('option', { key: holdingKey(x), value: holdingKey(x) }, x.symbol + (x.portfolioId != null ? ' · ' + pfName(x.portfolioId) : '') + ' (' + I18N.num(x.quantity, { min: 0, max: 8 }) + ')'); }))),
+            list.map(function (x) { return e('option', { key: holdingKey(x), value: holdingKey(x) }, x.symbol + where(x) + ' (' + I18N.num(x.quantity, { min: 0, max: 8 }) + ')'); }))),
         e('div', null, e('label', { style: label, htmlFor: 'ss-qty' }, __('ssQuantity', 'Quantity')),
           e('input', { id: 'ss-qty', 'data-testid': 'ss-qty', inputMode: 'decimal', value: form.quantity, onChange: set('quantity'), style: input })),
         e('div', null, e('label', { style: label, htmlFor: 'ss-price' }, __('ssPrice', 'Price per unit ({cur})', { cur: h ? h.currency : 'EUR' })),

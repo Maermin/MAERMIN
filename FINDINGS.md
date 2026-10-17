@@ -16,7 +16,7 @@ This run found 4 there, all Low, all fixed in #184. SEC-009 stays open by the ow
 |---|---|
 | Critical | 0 |
 | High | 0 |
-| Medium | 1 |
+| Medium | 0 |
 | Low | 4 |
 
 Severity: **Critical** = wrong money or tax figures in a realistic case, or data loss ·
@@ -24,13 +24,6 @@ Severity: **Critical** = wrong money or tax figures in a realistic case, or data
 in an edge case · **Low** = polish.
 
 ---
-
-## Medium
-
-### O-1 Planning views ignore "separate depot" and still pool shares across portfolios
-- **Where:** `sell-simulator.js`, `harvest-plan.js` and `cost-methods.js`. They use the shared ledger (`ledger.js`) but call it without the `depots` option. The sell simulator and the cost-method comparison already pass the crypto per-wallet setting; the harvest planner passes neither.
-- **Effect:** with a portfolio marked as a separate depot (Portfolios → "Separate depot for German tax", #183), the German tax report sells from that depot's own lots. These planning views still take the oldest lot from any portfolio, so their estimated gain can differ from the report.
-- **Fix:** pass `TaxReport.separateDepots()` into the views' `ledger.build` calls, and add a test with the FINDINGS M-15 example (+900 € pooled, −100 € per depot).
 
 ## Low
 

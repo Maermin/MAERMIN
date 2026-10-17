@@ -43,6 +43,9 @@ function __(k, f, v) { return (typeof window !== 'undefined' && window.MaerminI1
     if (typeof window !== 'undefined' && window.MaerminTaxReport) return window.MaerminTaxReport.build;
     return require('./tax-report-builder.js').build;
   }
+  function report() {
+    return (typeof window !== 'undefined' && window.MaerminTaxReport) || require('./tax-report-builder.js');
+  }
 
   // Price of one unit in EUR: EUR as is, USD with the exchange rate, other
   // currencies through MaerminFxHistory when it is loaded. Null when unknown.
@@ -122,7 +125,16 @@ function __(k, f, v) { return (typeof window !== 'undefined' && window.MaerminI1
     // The Teilfreistellung follows the fund type, read like the report does.
     var fundTypes = opts.fundTypes || (GT.loadFundTypes ? GT.loadFundTypes() : {});
     var skipped = [], cands = [];
-    var groups = ledger().build(txs.filter(function (tx) { return tx.category === 'stocks'; }), { exchangeRate: rate, fxAt: opts.fxAt }).list;
+    // The same FIFO pools as the report: crypto per wallet when the tax
+    // setting says so, and the portfolios marked as a separate depot with
+    // their own lots (FINDINGS M-15 / O-1); the rest is one common pool.
+    var R0 = report();
+    var perWallet = R0.cryptoPerWallet ? R0.cryptoPerWallet(bopts) : false;
+    var depots = R0.separateDepots ? R0.separateDepots(bopts) : [];
+    var pidOf = function (tx) { return String(tx.portfolioId || 'default'); };
+    var stocks = txs.filter(function (tx) { return tx.category === 'stocks'; });
+    var groups = ledger().build(stocks, { exchangeRate: rate, fxAt: opts.fxAt, perWallet: perWallet ? ['crypto'] : undefined,
+      depots: depots.length ? depots : undefined }).list;
     groups.forEach(function (g) {
       if (!(g.openQty > EPS)) return;
       var sym = String(g.symbol || '').toUpperCase();
@@ -132,9 +144,16 @@ function __(k, f, v) { return (typeof window !== 'undefined' && window.MaerminI1
       if (!(priceEUR > 0)) { skipped.push(sym); return; }
       var tf = GT.teilfreistellungRate(fundTypes[sym] || 'none');
       var c = candidate(g, { symbol: sym, name: nameOf[sym] || g.symbolName || sym, currency: curOf[sym] || 'EUR', price: price, priceEUR: priceEUR, tf: tf }, o);
+      // The portfolio the sale is booked in: the depot itself, or one of the
+      // common pool that holds the symbol (so the report sells from the pool).
+      c.depot = g.depot != null ? g.depot : null;
+      c.portfolioId = c.depot;
+      if (c.depot == null && depots.length) {
+        stocks.forEach(function (tx) { if (String(tx.symbol || '').toUpperCase() === sym && depots.indexOf(pidOf(tx)) === -1) c.portfolioId = tx.portfolioId; });
+      }
       if (c.maxTaxable > 0.005) cands.push(c);
     });
-    cands.sort(function (a, b) { return b.maxTaxable - a.maxTaxable || (a.symbol < b.symbol ? -1 : 1); });
+    cands.sort(function (a, b) { return b.maxTaxable - a.maxTaxable || (a.symbol < b.symbol ? -1 : a.symbol > b.symbol ? 1 : String(a.depot || '') < String(b.depot || '') ? -1 : 1); });
     var capacity = cands.reduce(function (s, c) { return s + c.maxTaxable; }, 0);
     if (!cands.length) return Object.assign({ status: 'nothing', allowanceLeft: R }, empty, { skipped: skipped });
 
@@ -151,7 +170,9 @@ function __(k, f, v) { return (typeof window !== 'undefined' && window.MaerminI1
     function evaluate(legs) {
       var sells = legs.map(function (l, i) {
         var feeCur = l.c.fee(l.q) / (String(l.c.currency).toUpperCase() === 'USD' ? rate : 1);
-        return { id: SIM_PREFIX + i + '__', type: 'sell', category: 'stocks', symbol: l.c.symbol, quantity: l.q, price: l.c.price, fees: feeCur, currency: l.c.currency, date: date };
+        var sell = { id: SIM_PREFIX + i + '__', type: 'sell', category: 'stocks', symbol: l.c.symbol, quantity: l.q, price: l.c.price, fees: feeCur, currency: l.c.currency, date: date };
+        if (l.c.portfolioId != null) sell.portfolioId = l.c.portfolioId;
+        return sell;
       });
       var after = build(txs.concat(sells), bopts).summary.germanDetail;
       if (!after) return null;
@@ -189,7 +210,7 @@ function __(k, f, v) { return (typeof window !== 'undefined' && window.MaerminI1
     var unitTax = GT.abgeltungsteuer(1, k1).total;
     var out = best.legs.map(function (l) {
       var w = l.c.walk(l.q);
-      return { symbol: l.c.symbol, name: l.c.name, currency: l.c.currency, quantity: l.q, held: l.c.held, price: l.c.price, priceEUR: l.c.priceEUR,
+      return { symbol: l.c.symbol, name: l.c.name, portfolioId: l.c.portfolioId, depot: l.c.depot, currency: l.c.currency, quantity: l.q, held: l.c.held, price: l.c.price, priceEUR: l.c.priceEUR,
         proceeds: l.q * l.c.priceEUR, gain: w.gain, taxable: w.taxable, tfRate: l.c.tf, fees: 2 * l.c.fee(l.q), lots: w.lots };
     });
     var fees = out.reduce(function (s, l) { return s + l.fees; }, 0);
@@ -199,7 +220,7 @@ function __(k, f, v) { return (typeof window !== 'undefined' && window.MaerminI1
   }
 
   // ---- panel (Tax view, German rules) ----------------------------------------
-  // props: { theme, transactions, prices, exchangeRate, fxAt, formatMoney, today, rev }
+  // props: { theme, transactions, prices, exchangeRate, fxAt, portfolios, formatMoney, today, rev }
   function Panel(props) {
     var React = (typeof window !== 'undefined') ? window.React : null;
     if (!React || !window.MaerminTaxReport) return null;
@@ -213,12 +234,20 @@ function __(k, f, v) { return (typeof window !== 'undefined' && window.MaerminI1
     var s0 = useState('1'); var feeFixed = s0[0], setFeeFixed = s0[1];
     var s1 = useState('0'); var feePct = s1[0], setFeePct = s1[1];
     function parse(v) { var U = window.MaerminUtils; var n = U && U.parseDecimal ? U.parseDecimal(v) : parseFloat(v); return isFinite(n) ? n : 0; }
+    // The depots the German report keeps apart (M-15), so the plan sells the
+    // lots the report will see.
+    var depots = window.MaerminTaxReport.separateDepots ? window.MaerminTaxReport.separateDepots({ jurisdiction: 'de', portfolios: props.portfolios }) : [];
+    var depotKey = depots.join('\u0001');
     var res = useMemo(function () {
       try {
         return plan(props.transactions || [], { date: today, prices: props.prices || {}, fee: { fixed: parse(feeFixed), pct: parse(feePct) / 100 } },
-          { baseCurrency: 'EUR', exchangeRate: props.exchangeRate, fxAt: props.fxAt });
+          { baseCurrency: 'EUR', exchangeRate: props.exchangeRate, fxAt: props.fxAt, separateDepots: depots });
       } catch (err) { return { status: 'noTax', legs: [] }; }
-    }, [props.transactions, props.prices, props.exchangeRate, props.fxAt, props.rev, feeFixed, feePct, today]);
+    }, [props.transactions, props.prices, props.exchangeRate, props.fxAt, props.rev, feeFixed, feePct, today, depotKey]);
+    var pfName = function (id) { var p = (props.portfolios || []).filter(function (x) { return x && String(x.id) === String(id); })[0]; return p ? p.name : id; };
+    // With separate depots a symbol can be planned once per pool.
+    var where = function (l) { return !depots.length ? '' : ' · ' + (l.depot != null ? pfName(l.depot) : __('depotPoolOther', 'other portfolios')); };
+    var legId = function (l) { return l.symbol + (l.depot != null ? '-' + l.depot : ''); };
 
     var input = { width: '100%', boxSizing: 'border-box', padding: '0.45rem 0.6rem', background: th.inputBg, border: '1px solid ' + (th.inputBorder || border), borderRadius: '8px', color: text, fontSize: '0.82rem', fontFamily: 'inherit' };
     var label = { display: 'block', color: dim, fontSize: '0.68rem', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '0.25rem' };
@@ -252,8 +281,8 @@ function __(k, f, v) { return (typeof window !== 'undefined' && window.MaerminI1
               return e('th', { key: i, style: Object.assign({}, head, i === 0 || i === 2 ? { textAlign: 'left' } : null) }, h);
             }))),
             e('tbody', null, res.legs.map(function (l) {
-              return e('tr', { key: l.symbol, 'data-testid': 'hv-leg-' + l.symbol },
-                e('td', { style: Object.assign({}, cell, { textAlign: 'left' }) }, l.symbol),
+              return e('tr', { key: legId(l), 'data-testid': 'hv-leg-' + legId(l) },
+                e('td', { style: Object.assign({}, cell, { textAlign: 'left' }) }, l.symbol + where(l)),
                 e('td', { style: cell }, __('hvQtyOf', '{q} of {held}', { q: qty(l.quantity), held: qty(l.held) })),
                 e('td', { style: Object.assign({}, cell, { textAlign: 'left', whiteSpace: 'normal', color: dim }) }, l.lots.map(function (x) { return qty(x.quantity) + ' × ' + I18N.date(x.acquisitionDate); }).join(', ')),
                 e('td', { style: cell }, money(l.gain)),
