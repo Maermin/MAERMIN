@@ -530,7 +530,7 @@ async function runBuild(browser, label, dir) {
     await openView(page, 'analytics');
     await page.waitForTimeout(400);
     ok('correlation explains missing history instead of "Loading..."', (await page.locator('[data-testid="correlation-empty"]').count()) === 1 && (await page.locator('[data-testid="correlation-loading"]').count()) === 0);
-    await page.getByRole('button', { name: 'Risk Level' }).click();
+    await page.getByRole('radio', { name: 'Risk Level' }).click();
     await page.waitForTimeout(400);
     { const rb = await page.innerText('body'); ok('risk view shows no zero metrics without history', !/Sharpe Ratio/.test(rb) && /observations so far/.test(rb)); }
     await openView(page, 'investment-analysis');
@@ -1304,14 +1304,14 @@ async function runBuild(browser, label, dir) {
       }));
       // P5-2.8: Strategy → Providers & brokers
       await openView(page, 'investment-analysis');
-      await page.getByRole('button', { name: /Providers & brokers/ }).first().click().catch(() => {});
+      await page.getByRole('radio', { name: /Providers & brokers/ }).first().click().catch(() => {});
       await page.locator('[data-testid="allocation-groups"]').waitFor({ timeout: 8000 }).catch(() => {});
       agd = await page.evaluate(() => {
         const rows = (id) => Array.from(document.querySelectorAll('[data-testid="' + id + '"] [data-key]')).map((d) => ({ key: d.getAttribute('data-key'), v: parseFloat(d.getAttribute('data-v')), pct: parseFloat(d.getAttribute('data-pct')) }));
         return { providers: rows('ag-provider-bars'), brokers: rows('ag-broker-bars') };
       });
       // P5-2.10: Strategy → Taxonomies - Kommer template, fill from data, export and import again
-      await page.getByRole('button', { name: /^Taxonomies$/ }).first().click().catch(() => {});
+      await page.getByRole('radio', { name: /^Taxonomies$/ }).first().click().catch(() => {});
       await page.locator('[data-testid="tx-template"]').selectOption('kommer').catch(() => {});
       await page.locator('[data-testid="tx-create"]').click().catch(() => {});
       const fillTxt = await page.locator('[data-testid="tx-fill"]').innerText().catch(() => '');
@@ -1349,7 +1349,7 @@ async function runBuild(browser, label, dir) {
       await openView(page, 'dividends');
       await page.waitForTimeout(800);
       // P5-2.5: Dividends → History (matrix gross / net, growth, backtest) and the forecast months
-      await page.getByRole('button', { name: /^History$/ }).first().click();
+      await page.getByRole('radio', { name: /^History$/ }).first().click();
       await page.locator('[data-testid="div-backtest"] [data-stat="income"]').waitFor({ timeout: 15000 }).catch(() => {});
       const mxRead = () => page.evaluate(() => {
         const t = document.querySelector('[data-testid="div-matrix"]');
@@ -1368,7 +1368,7 @@ async function runBuild(browser, label, dir) {
       await page.locator('[data-testid="bt-years-10"]').click();
       await page.waitForTimeout(400);
       dh.bt10 = await page.locator('[data-testid="div-backtest"] tbody tr').count();
-      await page.getByRole('button', { name: /^Forecast$/ }).first().click();
+      await page.getByRole('radio', { name: /^Forecast$/ }).first().click();
       await page.waitForTimeout(800);
       dh.months = await page.locator('[data-testid="df-months"] button[data-month]').count();
       await page.locator('[data-testid="df-months"] button[data-month="1"]').click();
@@ -1379,7 +1379,7 @@ async function runBuild(browser, label, dir) {
         return { total: v ? parseFloat(v.getAttribute('data-v')) : NaN, items, text: d.innerText.slice(0, 160) };
       });
       await openView(page, 'tax');
-      await page.getByRole('button', { name: /^Tax Report$/ }).first().click();
+      await page.getByRole('radio', { name: /^Tax Report$/ }).first().click();
       await page.waitForTimeout(1200);
       dqText = await page.locator('main').innerText();
       // P5-1.5: the Overview's Returns section
@@ -2046,7 +2046,7 @@ async function runBuild(browser, label, dir) {
       ok('P5-2.5: gross switch on Returns: a note, the choice saved, the same TWR without taxes or fees', g.includes(want) && note === 1 && pref === 'gross', g.replace(/\n/g, ' | ') + ' | note ' + note + ' | ' + pref); }
     // P5-2.5: Dividends → History backtests today's 40 VWCE.DE + 5 AAPL over the Worker's dividends
     { await openView(page, 'dividends');
-      await page.getByRole('button', { name: /^History$/ }).first().click().catch(() => {});
+      await page.getByRole('radio', { name: /^History$/ }).first().click().catch(() => {});
       const Y = new Date().getFullYear() - 1;
       const row = page.locator('[data-testid="div-backtest"] tr[data-y="' + Y + '"]');
       await row.waitFor({ timeout: 15000 }).catch(() => {});
@@ -2095,7 +2095,7 @@ async function runBuild(browser, label, dir) {
       await openView(page, 'returns'); }
     // P5-2.10: a taxonomy in a real vault: both holdings are equity; the assignment is not stored in plain text
     { await openView(page, 'investment-analysis');
-      await page.getByRole('button', { name: /^Taxonomies$/ }).first().click().catch(() => {});
+      await page.getByRole('radio', { name: /^Taxonomies$/ }).first().click().catch(() => {});
       await page.locator('[data-testid="tx-template"]').selectOption('asset-classes').catch(() => {});
       await page.locator('[data-testid="tx-create"]').click().catch(() => {});
       await page.locator('[data-testid="tx-fill"]').click().catch(() => {});
@@ -2123,7 +2123,7 @@ async function runBuild(browser, label, dir) {
     await openView(page, 'analytics');
     await page.waitForTimeout(800);
     ok('correlation matrix is there right away, from daily closes', (await page.locator('[data-testid="correlation-source"][data-source="daily"]').count()) === 1 && (await page.locator('[data-testid="correlation-empty"]').count()) === 0);
-    await page.getByRole('button', { name: 'Risk Level' }).click();
+    await page.getByRole('radio', { name: 'Risk Level' }).click();
     await page.waitForTimeout(800);
     { const rb = await page.innerText('body');
       ok('risk metrics and rolling volatility from daily data', /Sharpe Ratio/.test(rb) && (await page.locator('[data-testid="risk-source"][data-source="daily"]').count()) === 1 && /daily time-weighted returns since/.test(rb), (rb.match(/Rolling volatility[\s\S]{0,200}/) || [''])[0].replace(/\n/g, ' | ')); }
@@ -2468,7 +2468,7 @@ async function runBuild(browser, label, dir) {
       let card = null, stored = null, err = '';
       try {
         await openView(page, 'investment-analysis');
-        await page.getByRole('button', { name: /^Goals$/ }).first().click();
+        await page.getByRole('radio', { name: /^Goals$/ }).first().click();
         await page.getByRole('button', { name: '+ Add Goal' }).click();
         await page.locator('[data-testid="goal-name"]').fill('E2E house');
         await page.locator('[data-testid="goal-target"]').fill('500000');
