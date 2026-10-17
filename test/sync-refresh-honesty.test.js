@@ -38,6 +38,7 @@ function MemTransport() {
       gets++;
       if (mode === 'fail') return Promise.reject(new Error('sync-http-502: worker down'));
       if (mode === 'hang') return new Promise(() => {});
+      if (mode === 'nostorage') return Promise.reject(Object.assign(new Error('Your Worker has no storage, so sync is off.'), { code: 'no-storage' }));
       return Promise.resolve(store ? { rev: store.rev, blob: store.blob } : null);
     },
     put: (account, baseRev, blob) => {
@@ -97,6 +98,20 @@ const txs = () => JSON.parse(localStorage.getItem('transactions') || '[]');
   transport._mode('ok');
   await Sync.sync();
   ok('H-6: the next good sync clears the error', !Sync.getState().lastError && Sync.statusOf(Sync.getState()).state === 'ok');
+
+  // A Worker without storage (501): background syncs stop instead of
+  // repeating the same 501 on every data change.
+  transport._mode('nostorage');
+  await Sync.sync().catch(() => {});
+  ok('no storage: the error keeps its code', Sync.getState().lastError && Sync.getState().lastError.code === 'no-storage');
+  const g1 = transport._gets();
+  ok('no storage: a data change schedules no sync', Sync.scheduleSync(10) === false);
+  await new Promise((res) => setTimeout(res, 60));
+  ok('no storage: ... and no request goes out', transport._gets() === g1);
+  transport._mode('ok');
+  await Sync.sync();
+  ok('no storage: a sync the user starts still runs, and its success re-enables background syncs', !Sync.getState().lastError && Sync.scheduleSync(10) === true);
+  await new Promise((res) => setTimeout(res, 60));
 
   // A Worker that never answers must not hold the app back.
   transport._mode('hang');
