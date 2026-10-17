@@ -74,6 +74,9 @@
 
   // ---- colour ----------------------------------------------------------------
   function hex(c) {
+    // theme colours arrive as var(--…) references (R1.1)
+    var T = typeof window !== 'undefined' && window.MaerminTokens;
+    if (T && T.isVar(c)) c = T.resolve(c);
     var m = String(c || '').trim().match(/^#([0-9a-f]{3}|[0-9a-f]{6})$/i);
     if (!m) return null;
     var h = m[1].length === 3 ? m[1].split('').map(function (x) { return x + x; }).join('') : m[1];

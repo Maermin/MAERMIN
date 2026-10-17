@@ -321,7 +321,7 @@ function __(k, f, v) { return (typeof window !== 'undefined' && window.MaerminI1
               weightTable(__('shAssetClasses', 'Asset classes'), snapshot, accent),
               showRaw ? e('pre', { style: { background: inputBg, border: '1px solid ' + border, borderRadius: '8px', padding: '0.7rem', color: dim, fontSize: 'var(--text-2xs)', overflowX: 'auto', whiteSpace: 'pre-wrap' } }, JSON.stringify(snapshot, null, 2)) : null,
               e('div', { style: { display: 'flex', gap: '0.5rem', alignItems: 'center', flexWrap: 'wrap', marginTop: '0.6rem' } },
-                e('button', { onClick: publish, disabled: state.busy || !workerBase, style: { padding: '0.45rem 1rem', borderRadius: '8px', border: 'none', cursor: workerBase ? 'pointer' : 'default', fontWeight: 700, fontSize: 'var(--text-sm)', background: accent, color: '#ffffff', opacity: (state.busy || !workerBase) ? 0.6 : 1 } }, state.busy ? __('shPublishing', 'Publishing...') : __('shPublish', 'Publish snapshot')),
+                e('button', { onClick: publish, disabled: state.busy || !workerBase, style: { padding: '0.45rem 1rem', borderRadius: '8px', border: 'none', cursor: workerBase ? 'pointer' : 'default', fontWeight: 700, fontSize: 'var(--text-sm)', background: accent, color: 'var(--on-accent)', opacity: (state.busy || !workerBase) ? 0.6 : 1 } }, state.busy ? __('shPublishing', 'Publishing...') : __('shPublish', 'Publish snapshot')),
                 state.link ? e('code', { style: { color: good, fontSize: 'var(--text-xs)', wordBreak: 'break-all' } }, state.link) : null,
                 state.mcp ? e('div', { style: { width: '100%', marginTop: '0.3rem' } },
                   e('span', { style: { color: dim, fontSize: 'var(--text-xs)' } }, __('shMcp', 'MCP (AI read-only): ')),

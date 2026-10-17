@@ -445,7 +445,7 @@ function SavingsPlanView({ transactions, theme, formatPrice, getCurrencySymbol, 
       ),
       React.createElement('button', {
         onClick: openAdd,
-        style: { padding: '0.625rem 1.25rem', background: (theme.accentFill || theme.accent), color: '#ffffff', border: 'none', borderRadius: '8px', cursor: 'pointer', fontWeight: '700', fontSize: 'var(--text-base)' }
+        style: { padding: '0.625rem 1.25rem', background: (theme.accentFill || theme.accent), color: 'var(--on-accent)', border: 'none', borderRadius: '8px', cursor: 'pointer', fontWeight: '700', fontSize: 'var(--text-base)' }
       }, __('spAddPlan', '+ Add Plan'))
     ),
 
@@ -454,7 +454,7 @@ function SavingsPlanView({ transactions, theme, formatPrice, getCurrencySymbol, 
       React.createElement('div', { style: { color: theme.textSecondary, marginBottom: '0.5rem', fontSize: 'var(--text-xl)' } }, '◎'),
       React.createElement('div', { style: { color: theme.text, fontWeight: '600', marginBottom: '0.25rem' } }, __('spEmpty', 'No savings plans yet')),
       React.createElement('div', { style: { color: theme.textSecondary, fontSize: 'var(--text-base)', marginBottom: '1rem' } }, __('spEmptyHint', 'Add a recurring investment plan to track your execution rate')),
-      React.createElement('button', { onClick: openAdd, style: { padding: '0.625rem 1.25rem', background: (theme.accentFill || theme.accent), color: '#ffffff', border: 'none', borderRadius: '8px', cursor: 'pointer', fontWeight: '700', fontSize: 'var(--text-base)' } }, __('spAddPlan', '+ Add Plan'))),
+      React.createElement('button', { onClick: openAdd, style: { padding: '0.625rem 1.25rem', background: (theme.accentFill || theme.accent), color: 'var(--on-accent)', border: 'none', borderRadius: '8px', cursor: 'pointer', fontWeight: '700', fontSize: 'var(--text-base)' } }, __('spAddPlan', '+ Add Plan'))),
 
     // Whole-portfolio projection (#6): composes current value + these savings
     // plans + dividends + recurring liabilities across 3 scenarios.
@@ -536,7 +536,7 @@ function SavingsPlanView({ transactions, theme, formatPrice, getCurrencySymbol, 
       React.createElement('div', { style: { color: theme.textSecondary, fontSize: 'var(--text-xs)', marginBottom: '0.875rem', lineHeight: 1.5 } },
         __('spAutoHint', 'Due executions are booked automatically as real buy transactions when the app opens (marked, deletable). If no price is available for a due date, the execution stays pending instead of guessing a quantity.')),
       React.createElement('div', { style: { display: 'flex', gap: '0.5rem' } },
-        React.createElement('button', { onClick: savePlan, style: { padding: '0.625rem 1.25rem', background: (theme.accentFill || theme.accent), color: '#ffffff', border: 'none', borderRadius: '8px', cursor: 'pointer', fontWeight: '700', fontSize: 'var(--text-base)' } }, editPlan === 'new' ? __('spAddPlanBtn', 'Add Plan') : __('save', 'Save')),
+        React.createElement('button', { onClick: savePlan, style: { padding: '0.625rem 1.25rem', background: (theme.accentFill || theme.accent), color: 'var(--on-accent)', border: 'none', borderRadius: '8px', cursor: 'pointer', fontWeight: '700', fontSize: 'var(--text-base)' } }, editPlan === 'new' ? __('spAddPlanBtn', 'Add Plan') : __('save', 'Save')),
         React.createElement('button', { onClick: requestClose, style: { padding: '0.625rem 1.25rem', background: theme.inputBg, color: theme.text, border: 'none', borderRadius: '8px', cursor: 'pointer', fontSize: 'var(--text-base)' } }, __('cancel', 'Cancel'))
       )
     ),
@@ -552,7 +552,7 @@ function SavingsPlanView({ transactions, theme, formatPrice, getCurrencySymbol, 
                 React.createElement('div', null,
                   React.createElement('div', { style: { display: 'flex', alignItems: 'center', gap: '0.625rem', marginBottom: '0.375rem', flexWrap: 'wrap' } },
                     React.createElement('span', { style: { color: theme.text, fontWeight: '800', fontSize: 'var(--text-lg)' } }, plan.symbol),
-                    React.createElement('span', { style: { fontSize: 'var(--text-2xs)', padding: '0.15rem 0.5rem', background: `${theme.accent}22`, color: theme.accent, borderRadius: '4px', fontWeight: '600' } }, FREQ_LABELS[plan.frequency]),
+                    React.createElement('span', { style: { fontSize: 'var(--text-2xs)', padding: '0.15rem 0.5rem', background: `${window.MaerminTokens.alpha(theme.accent, 0x22)}`, color: theme.accent, borderRadius: '4px', fontWeight: '600' } }, FREQ_LABELS[plan.frequency]),
                     React.createElement('span', { style: { fontSize: 'var(--text-2xs)', color: theme.textSecondary } }, __('spPerExecution', '{amount}/execution', { amount: window.MaerminI18n.money(plan.amount, plan.amountCurrency === 'USD' ? 'USD' : 'EUR', 0) })),
                     // Status: active / completed (end date passed) / paused.
                     React.createElement('span', {
@@ -775,11 +775,11 @@ function DividendForecastView({ transactions, portfolio, prices, metaVersion, th
             key: i, type: 'button', 'data-month': i, 'aria-pressed': on, onClick: () => setSelMonth(on ? null : i),
             'aria-label': __('dfMonthAria', '{month}: {amount}', { month: window.MaerminI18n.date(m.date, { month: 'long', year: 'numeric' }), amount: `${formatPrice(m.amount)} ${getCurrencySymbol()}` }),
             title: `${m.label}: ${formatPrice(m.amount)} ${getCurrencySymbol()}`,
-            style: { flex: '0 0 32px', height: '100%', display: 'flex', flexDirection: 'column', justifyContent: 'flex-end', alignItems: 'center', gap: '0.2rem', padding: 0, border: 'none', background: on ? `${theme.accent}14` : 'transparent', borderRadius: '6px', cursor: 'pointer' }
+            style: { flex: '0 0 32px', height: '100%', display: 'flex', flexDirection: 'column', justifyContent: 'flex-end', alignItems: 'center', gap: '0.2rem', padding: 0, border: 'none', background: on ? `${window.MaerminTokens.alpha(theme.accent, 0x14)}` : 'transparent', borderRadius: '6px', cursor: 'pointer' }
           },
             React.createElement('div', {
               style: {
-                width: '100%', background: on ? theme.accent : `${theme.accent}cc`, borderRadius: '3px 3px 0 0',
+                width: '100%', background: on ? theme.accent : `${window.MaerminTokens.alpha(theme.accent, 0xcc)}`, borderRadius: '3px 3px 0 0',
                 height: `${Math.max(m.amount > 0 ? 8 : 0, Math.round(m.amount / maxMonth * 90))}px`,
                 transition: 'height 0.3s',
                 opacity: m.year === new Date().getFullYear() ? 1 : 0.7
@@ -818,7 +818,7 @@ function DividendForecastView({ transactions, portfolio, prices, metaVersion, th
           React.createElement('div', { key: i, style: { display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '0.5rem 0.75rem', background: theme.inputBg, borderRadius: '8px' } },
             React.createElement('div', null,
               React.createElement('span', { style: { color: theme.text, fontWeight: '700', marginRight: '0.5rem' } }, f.sym),
-              React.createElement('span', { style: { fontSize: 'var(--text-2xs)', color: theme.textSecondary, padding: '0.1rem 0.35rem', background: `${theme.accent}18`, borderRadius: '3px' } }, freqLabel(f.frequency))
+              React.createElement('span', { style: { fontSize: 'var(--text-2xs)', color: theme.textSecondary, padding: '0.1rem 0.35rem', background: `${window.MaerminTokens.alpha(theme.accent, 0x18)}`, borderRadius: '3px' } }, freqLabel(f.frequency))
             ),
             React.createElement('span', { style: { color: theme.success, fontWeight: '700', fontSize: 'var(--text-base)' } }, __('perYear', '{amount}/yr', { amount: `${formatPrice(f.annualRate)} ${getCurrencySymbol()}` }))
           )
@@ -908,7 +908,7 @@ function FIFOView({ transactions, prices, theme, formatPrice, getCurrencySymbol,
               'aria-label': __('fifoToggleLots', 'Toggle lot details for {sym}', { sym: e.symbol || key }),
               'aria-expanded': activeSymbol === key,
               style: { borderBottom: `1px solid ${theme.cardBorder}`, cursor: 'pointer', transition: 'background 0.1s' },
-              onMouseEnter: el => el.currentTarget.style.background = `${theme.accent}08`,
+              onMouseEnter: el => el.currentTarget.style.background = `${window.MaerminTokens.alpha(theme.accent, 0x08)}`,
               onMouseLeave: el => el.currentTarget.style.background = 'transparent'
             },
               React.createElement('td', { style: { padding: '0.75rem 0.875rem', color: theme.text, fontWeight: '700' } }, e.symbol),

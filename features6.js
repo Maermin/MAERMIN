@@ -41,6 +41,8 @@ function colorLuminance(css) {
   return (0.2126 * r + 0.7152 * g + 0.0722 * b) / 255;
 }
 function isDarkTheme(theme) {
+  // The app's themes carry their mode; their colours are var() references (R1.1).
+  if (theme && (theme.mode === 'light' || theme.mode === 'dark')) return theme.mode === 'dark';
   return colorLuminance((theme && (theme.bg || theme.card)) || '#000') < 0.5;
 }
 
@@ -705,7 +707,7 @@ function PortfolioHistoryChart({ portfolio, prices, transactions, apiKeys, theme
         style: { display: 'flex', alignItems: 'center', gap: '0.6rem', flexWrap: 'wrap', marginTop: '0.6rem' }
       },
         React.createElement('span', {
-          style: { display: 'inline-flex', alignItems: 'center', gap: '0.35rem', padding: '0.28rem 0.6rem', borderRadius: '8px', background: `${deltaCol}22`, color: deltaCol, fontWeight: '700', fontSize: 'var(--text-md)' }
+          style: { display: 'inline-flex', alignItems: 'center', gap: '0.35rem', padding: '0.28rem 0.6rem', borderRadius: '8px', background: `${window.MaerminTokens.alpha(deltaCol, 0x22)}`, color: deltaCol, fontWeight: '700', fontSize: 'var(--text-md)' }
         },
           React.createElement('span', { style: { fontSize: 'var(--text-3xs)' } }, up ? '▲' : '▼'),
           `${sign}${formatPrice(Math.abs(eur))} ${getCurrencySymbol()}`

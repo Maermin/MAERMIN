@@ -227,7 +227,7 @@ function __(k, f, v) { return (typeof window !== 'undefined' && window.MaerminI1
     var s3 = useState(''); var pass = s3[0], setPass = s3[1];
     var s4 = useState(''); var problem = s4[0], setProblem = s4[1];
     var chip = function (on) { return { padding: '0.3rem 0.65rem', borderRadius: '999px', border: '1px solid ' + (on ? accent : border), background: on ? (th.accentFill || accent) : th.inputBg, color: on ? '#fff' : text, cursor: 'pointer', fontSize: '0.74rem', fontWeight: 600 }; };
-    var btn = { padding: '0.4rem 0.8rem', borderRadius: '8px', border: '1px solid ' + accent, background: th.accentFill || accent, color: '#fff', cursor: 'pointer', fontSize: '0.78rem', fontWeight: 600 };
+    var btn = { padding: '0.4rem 0.8rem', borderRadius: '8px', border: '1px solid ' + accent, background: th.accentFill || accent, color: 'var(--on-accent)', cursor: 'pointer', fontSize: '0.78rem', fontWeight: 600 };
     var input = { boxSizing: 'border-box', width: '100%', padding: '0.45rem 0.6rem', background: th.inputBg, border: '1px solid ' + (th.inputBorder || border), borderRadius: '8px', color: text, fontSize: '0.8rem', fontFamily: 'inherit', marginBottom: '0.4rem' };
     var note = function (t, color) { return e('p', { style: { color: color || dim, fontSize: 'var(--text-xs)', lineHeight: 1.5, margin: '0.3rem 0 0.5rem' } }, t); };
 

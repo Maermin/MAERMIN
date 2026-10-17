@@ -99,7 +99,7 @@
     return R.createElement('div', {
       className: 'mx-logo',
       style: { width: s + 'px', height: s + 'px', borderRadius: Math.round(s * 0.3) + 'px' }
-    }, R.createElement('svg', { width: Math.round(s * 0.62), height: Math.round(s * 0.62), viewBox: '0 0 24 24', fill: 'none', stroke: '#fff', strokeWidth: 2.4, strokeLinecap: 'round', strokeLinejoin: 'round', 'aria-hidden': 'true' },
+    }, R.createElement('svg', { width: Math.round(s * 0.62), height: Math.round(s * 0.62), viewBox: '0 0 24 24', fill: 'none', stroke: 'var(--on-accent)', strokeWidth: 2.4, strokeLinecap: 'round', strokeLinejoin: 'round', 'aria-hidden': 'true' },
       R.createElement('path', { d: 'M4 19V6l8 8 8-8v13' })));
   }
 

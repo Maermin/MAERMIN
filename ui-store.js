@@ -227,7 +227,7 @@
           e('button', { type: 'button', onClick: function () { answerConfirm(false); },
             style: Object.assign({}, btn, { background: theme.inputBg || '#0f172a', color: theme.text || '#e6edf3', border: '1px solid ' + (theme.cardBorder || 'rgba(255,255,255,0.1)') }) }, s.cancelLabel),
           e('button', { type: 'button', onClick: function () { answerConfirm(true); },
-            style: Object.assign({}, btn, { background: s.danger ? (theme.danger || '#ef4444') : ((theme.accentFill || theme.accent) || '#8b7cff'), color: s.danger ? ((typeof window !== 'undefined' && window.MaerminUtils && window.MaerminUtils.onColor) ? window.MaerminUtils.onColor(theme.danger || '#ef4444') : '#fff') : '#fff', border: 'none' }) }, s.confirmLabel))));
+            style: Object.assign({}, btn, { background: s.danger ? (theme.danger || '#ef4444') : ((theme.accentFill || theme.accent) || '#8b7cff'), color: s.danger ? ((typeof window !== 'undefined' && window.MaerminUtils && window.MaerminUtils.onColor) ? window.MaerminUtils.onColor(theme.danger || '#ef4444') : '#fff') : (theme.accentText || '#fff'), border: 'none' }) }, s.confirmLabel))));
   }
 
   // ---- React component (browser): subscribes to just the toasts slice -------
@@ -262,9 +262,9 @@
   // Mirror of the styles.css :root tokens for inline styles. Literal px/rem,
   // not var(): fx.js measures inline paddings and radii to find cards.
   var tokens = {
-    space: { 1: '4px', 2: '8px', 3: '12px', 4: '16px', 5: '24px', 6: '32px' },
+    space: { 1: '4px', 2: '8px', 3: '12px', 4: '16px', 5: '20px', 6: '24px', 7: '32px', 8: '48px' },
     text: { '3xs': '0.625rem', '2xs': '0.6875rem', xs: '0.75rem', sm: '0.8125rem', base: '0.875rem', md: '0.9375rem', body: '1rem', lg: '1.125rem', title: '1.25rem', titleLg: '1.375rem', xl: '1.5rem', '2xl': '2rem', kpi: 'var(--text-kpi)' },
-    radius: { sm: '10px', md: '12px', lg: '16px', xl: '22px' },
+    radius: { xs: '6px', sm: '8px', md: '12px', lg: '12px', xl: '22px' },
     control: { h: '36px', touch: '44px' }
   };
   function cls(base, extra) { return extra ? base + ' ' + extra : base; }

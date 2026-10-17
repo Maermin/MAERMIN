@@ -254,7 +254,7 @@ function __(k, f, v) { return (typeof window !== 'undefined' && window.MaerminI1
         e('input', { type: 'text', value: initial, onChange: function (ev) { setInitial(ev.target.value); }, title: __('btStartCapital', 'Starting capital'), style: Object.assign({ width: '90px', textAlign: 'right' }, inputStyle) }),
         e('select', { value: bench, onChange: function (ev) { setBench(ev.target.value); }, style: inputStyle },
           presets.map(function (b) { return e('option', { key: b.key, value: b.key }, __('btVs', 'vs {name}', { name: b.label })); })),
-        e('button', { onClick: runBacktest, disabled: busy, style: { padding: '0.4rem 1rem', borderRadius: '8px', border: 'none', cursor: busy ? 'default' : 'pointer', fontWeight: 700, fontSize: 'var(--text-sm)', background: accent, color: '#ffffff', opacity: busy ? 0.6 : 1 } }, busy ? __('btRunning', 'Running...') : __('btRun', 'Run backtest'))),
+        e('button', { onClick: runBacktest, disabled: busy, style: { padding: '0.4rem 1rem', borderRadius: '8px', border: 'none', cursor: busy ? 'default' : 'pointer', fontWeight: 700, fontSize: 'var(--text-sm)', background: accent, color: 'var(--on-accent)', opacity: busy ? 0.6 : 1 } }, busy ? __('btRunning', 'Running...') : __('btRun', 'Run backtest'))),
       out && out.error ? e('div', { style: { color: bad, fontSize: 'var(--text-sm)' } }, out.error) : null,
       out && out.strategy ? e('div', null,
         metricRow(__('btYourAlloc', 'Your allocation') + (out.strategy.rebalances ? ' (' + __('btRebalances', '{n} {n:rebalance|rebalances}', { n: out.strategy.rebalances }) + ')' : ''), out.strategy.metrics, accent, out.strategy.path),

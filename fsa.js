@@ -129,7 +129,7 @@ function __(k, f, v) { return (typeof window !== 'undefined' && window.MaerminI1
       e('h3', { style: { color: text, fontSize: 'var(--text-body)', fontWeight: 700, margin: '0 0 0.35rem' } }, __('fsaTitle', 'Freistellungsaufträge per broker')),
       e('p', { style: { color: dim, fontSize: 'var(--text-sm)', margin: '0 0 0.9rem', lineHeight: 1.5 } },
         __('fsaIntro', 'Split your allowance of {a} across your brokers. Link the portfolios you hold at each broker to see how much of its order this year has used.', { a: money(sum.allowance) })),
-      sum.over && e('div', { role: 'alert', 'data-testid': 'fsa-over', style: { color: warn, background: warn + '14', border: '1px solid ' + warn + '55', borderRadius: '8px', padding: '0.55rem 0.8rem', fontSize: 'var(--text-sm)', marginBottom: '0.8rem' } },
+      sum.over && e('div', { role: 'alert', 'data-testid': 'fsa-over', style: { color: warn, background: window.MaerminTokens.alpha(warn, 0x14), border: '1px solid ' + window.MaerminTokens.alpha(warn, 0x55), borderRadius: '8px', padding: '0.55rem 0.8rem', fontSize: 'var(--text-sm)', marginBottom: '0.8rem' } },
         __('fsaOver', 'Your orders add up to {t}, {x} more than your allowance of {a}. Lower one of them: banks may not exempt more than the allowance in total.', { t: money(sum.total), x: money(sum.excess), a: money(sum.allowance) })),
       sum.rows.length > 0 && e('div', { style: { overflowX: 'auto' } },
         e('table', { style: { width: '100%', borderCollapse: 'collapse', fontSize: 'var(--text-sm)', color: text } },
@@ -176,7 +176,7 @@ function __(k, f, v) { return (typeof window !== 'undefined' && window.MaerminI1
           onChange: function (ev) { setForm(Object.assign({}, form, { amount: ev.target.value })); },
           onKeyDown: function (ev) { if (ev.key === 'Enter') add(); }, style: Object.assign({}, inp, { width: '7rem' }) }),
         e('button', { type: 'button', onClick: add, disabled: !form.name.trim(), style: { padding: '0.45rem 0.9rem', borderRadius: '7px', border: 'none', cursor: 'pointer', fontWeight: 700, fontSize: 'var(--text-sm)',
-          background: (th.accentFill || th.accent) || '#8b7cff', color: '#ffffff', opacity: form.name.trim() ? 1 : 0.5 } }, __('fsaAdd', 'Add broker'))));
+          background: (th.accentFill || th.accent) || '#8b7cff', color: 'var(--on-accent)', opacity: form.name.trim() ? 1 : 0.5 } }, __('fsaAdd', 'Add broker'))));
   }
 
   var api = { KEY: KEY, normalize: normalize, upsert: upsert, remove: remove, summarize: summarize, load: load, save: save, Panel: Panel };

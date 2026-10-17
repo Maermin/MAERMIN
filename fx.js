@@ -65,7 +65,10 @@
     for (var p = el.parentElement; p; p = p.parentElement) if (isCard(p)) return p;
     return null;
   }
+  // Theme fills are var() references since R1.1 (`background: var(--accent-fill)`).
+  var ACC_VAR = /var\(--accent(?:-fill)?\)/;
   function accentFilled(s) {
+    if (ACC_VAR.test(s.backgroundColor || '') || ACC_VAR.test(s.background || '')) return true;
     var bg = parseRGB(s.backgroundColor) || null;
     if (!bg && s.background && s.background.indexOf('gradient') > -1 && ACC) {
       // gradient fills that start with the accent

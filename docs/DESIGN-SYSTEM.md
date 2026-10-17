@@ -34,7 +34,7 @@ Tokens are CSS custom properties on `<html>` in `styles.css`. `<html>` carries `
 
 ### 2.1 Colour
 
-All text pairs below are checked against `--bg`, `--surface` and `--surface-2` (≥ 4.5 : 1, the values in the table are
+Money tones (gain, loss, income, warning) also hold 4.5 : 1 on their own tint (20 % over `--surface`, 15 % over `--surface-2`: badges, tone chips) in every theme. All text pairs below are checked against `--bg`, `--surface` and `--surface-2` (≥ 4.5 : 1, the values in the table are
 the lowest of the three); `--control` is checked for 3 : 1 (WCAG 1.4.11).
 
 | Token | Role | Dark | Light (`white`) | Nebula (`purple`) | High contrast | Colour-blind (`cb`) |
@@ -52,10 +52,10 @@ the lowest of the three); `--control` is checked for 3 : 1 (WCAG 1.4.11).
 | `--accent-fill` | filled buttons, selected pills | `#5b4ae8` | `#5442e0` | `#8547e3` | `#ffe14d` | `#1b6fa8` |
 | `--on-accent` | text on `--accent-fill` | `#ffffff` (5.85) | `#ffffff` (6.50) | `#ffffff` (5.24) | `#000000` (16.1) | `#ffffff` (5.40) |
 | `--accent-soft` | selected row / nav background | accent 13 % | `#ecebfd` | accent 14 % | `#262000` | accent 14 % |
-| `--gain` **new** (alias `--success`) | price/return up | `#45d49a` | `#0b7a4b` | `#45d49a` | `#4dff9e` | `#56b4e9` |
-| `--loss` **new** (alias `--danger`) | price/return down; destructive | `#ff7b8a` | `#c0283c` | `#ff86a4` | `#ff8f8f` | `#e69f00` |
-| `--income` **new** (alias `--info`) | dividends, interest received | `#7cb7ff` | `#1f5fc4` | `#8ec0ff` | `#9fc7ff` | `#cc79a7` |
-| `--warning` | needs attention (not "bad") | `#f2bd5c` | `#8f5900` | `#f2bd5c` | `#ffe14d` | `#f0e442` |
+| `--gain` **new** (alias `--success`) | price/return up | `#45d49a` | `#0a6e44` | `#45d49a` | `#4dff9e` | `#56b4e9` |
+| `--loss` **new** (alias `--danger`) | price/return down; destructive | `#ff7b8a` | `#b32538` | `#ff86a4` | `#ff8f8f` | `#e69f00` |
+| `--income` **new** (alias `--info`) | dividends, interest received | `#7cb7ff` | `#1e5bbc` | `#8ec0ff` | `#9fc7ff` | `#ce7daa` |
+| `--warning` | needs attention (not "bad") | `#f2bd5c` | `#865400` | `#f2bd5c` | `#ffe14d` | `#f0e442` |
 | `--neutral` **new** | zero, costs, fees, taxes | = `--text-dim` | = `--text-dim` | = `--text-dim` | = `--text-dim` | = `--text-dim` |
 | `--comp-invested` **new** | composition: money still invested | `#3b3a58` | `#cfcce4` | `#3e3160` | `#555555` | `#3a3f4f` |
 | `--comp-gain` **new** | composition: unrealised gain | `--gain` 32 % on surface | `#2fae79` 32 % | `--gain` 32 % | `--gain` | `--gain` 32 % |
@@ -67,8 +67,8 @@ Removed with the redesign: the radial "aurora" `background` gradients (the page 
 Legacy aliases (`--gold`, `--text-muted`, `--success`, `--danger`, `--info`) stay until R5 removes their last use.
 
 **Categorical chart palette** (`--chart-1` … `--chart-6`, **new**): series that are not gain/loss (asset classes,
-portfolios, sectors). Dark: `#a497ff #7cb7ff #45d49a #f2bd5c #ff9fd0 #8fd3e0`; Light: `#5442e0 #1f5fc4 #0b7a4b #8f5900
-#b0307a #11707f`; Colour-blind: Okabe–Ito `#56b4e9 #e69f00 #009e73 #f0e442 #cc79a7 #0072b2`; High contrast:
+portfolios, sectors). Dark: `#a497ff #7cb7ff #45d49a #f2bd5c #ff9fd0 #8fd3e0`; Light: `#5442e0 #1e5bbc #0a6e44 #865400
+#b0307a #11707f`; Colour-blind: Okabe–Ito `#56b4e9 #e69f00 #009e73 #f0e442 #ce7daa #0072b2` (pink lightened from `#cc79a7` for contrast); High contrast:
 `#ffffff #ffe14d #4dff9e #9fc7ff #ff8fff #ff8f8f` with a pattern or label on every series. Validated in R1 with the
 `dataviz` skill's palette check (≥ 3 : 1 against the surface, distinguishable for deuteranopia).
 

@@ -188,7 +188,7 @@ function __(k, f, v) { return (typeof window !== 'undefined' && window.MaerminI1
     var toast = props.addToast || function () {};
     function btn(label, onClick, danger) {
       return e('button', { type: 'button', onClick: onClick, disabled: busy, style: { padding: '0.35rem 0.75rem', borderRadius: '7px', cursor: busy ? 'default' : 'pointer', fontSize: 'var(--text-xs)', fontWeight: 600,
-        background: 'transparent', color: danger ? th.danger : th.accent, border: '1px solid ' + (danger ? th.danger + '66' : border) } }, label);
+        background: 'transparent', color: danger ? th.danger : th.accent, border: '1px solid ' + (danger ? window.MaerminTokens.alpha(th.danger, 0x66) : border) } }, label);
     }
     function doDiscard() {
       window.MaerminUtils.confirmThen({ title: __('pmbDiscardTitle', 'Delete the copy from before the update?'), message: __('trashPurgeMsg', 'This cannot be undone.'),

@@ -521,7 +521,7 @@ function __(k, f, v) { return (typeof window !== 'undefined' && window.MaerminI1
                 agg.count + ' ' + (t.raAssets || 'assets') + '  ·  ' + (t.raNet || 'net') + ' ' + fmt(agg.netValue) + ' ' + sym +
                 (agg.annualIncome ? '  ·  ' + (t.raIncomePa || 'income p.a.') + ' ' + fmt(agg.annualIncome) + ' ' + sym : ''))),
             e('button', { onClick: function () { setShowAdd(!showAdd); },
-              style: { padding: '0.45rem 0.9rem', background: accent, color: '#ffffff', border: 'none', borderRadius: '8px', cursor: 'pointer', fontWeight: 700, fontSize: 'var(--text-sm)' } }, t.raAdd || '+ Add Asset')),
+              style: { padding: '0.45rem 0.9rem', background: accent, color: 'var(--on-accent)', border: 'none', borderRadius: '8px', cursor: 'pointer', fontWeight: 700, fontSize: 'var(--text-sm)' } }, t.raAdd || '+ Add Asset')),
 
           showAdd ? e('div', { style: { padding: '0.85rem', background: inputBg, borderRadius: '10px', marginBottom: '0.85rem' } },
             // P5-3.11: start from a template (art, P2P loans, life insurance, vehicles, startups, collectibles)
@@ -560,7 +560,7 @@ function __(k, f, v) { return (typeof window !== 'undefined' && window.MaerminI1
                     liabilityAccounts.map(function (a) { return e('option', { key: a.id, value: a.id }, a.name); }))))),
             tplError ? e('div', { style: { color: (props.theme && props.theme.warning) || 'var(--warning)', fontSize: 'var(--text-xs)', marginTop: '0.5rem' } }, tplError) : null,
             e('div', { style: { display: 'flex', gap: '0.5rem', marginTop: '0.75rem' } },
-              e('button', { onClick: addCurrent, 'data-testid': 'ra-add', style: { padding: '0.5rem 1rem', background: accent, color: '#ffffff', border: 'none', borderRadius: '8px', cursor: 'pointer', fontWeight: 700, fontSize: 'var(--text-sm)' } }, t.raSave || 'Add'),
+              e('button', { onClick: addCurrent, 'data-testid': 'ra-add', style: { padding: '0.5rem 1rem', background: accent, color: 'var(--on-accent)', border: 'none', borderRadius: '8px', cursor: 'pointer', fontWeight: 700, fontSize: 'var(--text-sm)' } }, t.raSave || 'Add'),
               e('button', { onClick: function () { setShowAdd(false); }, style: { padding: '0.5rem 1rem', background: inputBg, color: text, border: '1px solid ' + inputBorder, borderRadius: '8px', cursor: 'pointer', fontSize: 'var(--text-sm)' } }, t.raCancel || 'Cancel'))) : null,
 
           st.assets.length ? e('div', null, rows)

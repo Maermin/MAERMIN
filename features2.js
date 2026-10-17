@@ -500,7 +500,7 @@ function RebalancingView({ portfolio, prices, theme, formatPrice, getCurrencySym
     // This view rebalances by ASSET CLASS. Tag-based target weights live in the Tags view.
     (setActiveView && window.MaerminTags) ? React.createElement('button', {
       onClick: () => setActiveView('tags'),
-      style: { display: 'inline-flex', alignItems: 'center', gap: '0.4rem', marginBottom: '1.25rem', padding: '0.5rem 0.85rem', background: 'transparent', color: theme.accent, border: `1px solid ${theme.accent}55`, borderRadius: '8px', cursor: 'pointer', fontSize: 'var(--text-sm)', fontWeight: '600' }
+      style: { display: 'inline-flex', alignItems: 'center', gap: '0.4rem', marginBottom: '1.25rem', padding: '0.5rem 0.85rem', background: 'transparent', color: theme.accent, border: `1px solid ${window.MaerminTokens.alpha(theme.accent, 0x55)}`, borderRadius: '8px', cursor: 'pointer', fontSize: 'var(--text-sm)', fontWeight: '600' }
     }, '⛯ ', (t.rebalanceByTagHint || 'Rebalance by tag instead → Tags view')) : null,
 
     // No targets yet: nothing to plan until the user sets them.
@@ -627,7 +627,7 @@ function RebalancingView({ portfolio, prices, theme, formatPrice, getCurrencySym
               React.createElement('td', { style: { padding: '1rem', color: theme.text, textAlign: 'right', fontWeight: '600' } }, I.pct(r.targetPct, 0)),
               React.createElement('td', { style: { padding: '1rem', color: theme.text, textAlign: 'right' } }, money(r.targetValue)),
               React.createElement('td', { style: { padding: '1rem', textAlign: 'right' } },
-                React.createElement('span', { style: { padding: '0.25rem 0.75rem', borderRadius: '6px', fontWeight: '700', fontSize: 'var(--text-sm)', whiteSpace: 'nowrap', border: `1px solid ${tone}55`, color: tone } }, actionLabel(r)),
+                React.createElement('span', { style: { padding: '0.25rem 0.75rem', borderRadius: '6px', fontWeight: '700', fontSize: 'var(--text-sm)', whiteSpace: 'nowrap', border: `1px solid ${window.MaerminTokens.alpha(tone, 0x55)}`, color: tone } }, actionLabel(r)),
                 r.blockedSell > 0.005 && r.action !== 'hold' && React.createElement('div', { style: { ...small, marginTop: '0.25rem' } },
                   __('rbBlockedRow', '{amt} not sold (never-sell holdings)', { amt: money(r.blockedSell) })))
             );
@@ -1013,7 +1013,7 @@ function BrokerImportWizard({ theme, t, addToast, onImport, existing, workerUrl,
                 ...window.MaerminUtils.clickable(() => { setBroker(b.id); setStep(1); }),
                 'aria-label': __('biSelectBroker', 'Select broker {name}', { name: b.name || b.id }),
                 style: {
-                  background: selectedBroker === b.id ? `${theme.accent}22` : theme.card,
+                  background: selectedBroker === b.id ? `${window.MaerminTokens.alpha(theme.accent, 0x22)}` : theme.card,
                   border: `1px solid ${selectedBroker === b.id ? theme.accent : theme.cardBorder}`,
                   borderRadius: '10px', padding: '0.875rem', cursor: 'pointer',
                   display: 'flex', alignItems: 'center', gap: '0.75rem', transition: 'all 0.15s'
@@ -1120,7 +1120,7 @@ function BrokerImportWizard({ theme, t, addToast, onImport, existing, workerUrl,
         return React.createElement('div', null,
           // Summary chips: broker + counts.
           React.createElement('div', { style: { display: 'flex', flexWrap: 'wrap', gap: '0.5rem', alignItems: 'center', marginBottom: '0.9rem', fontSize: 'var(--text-sm)' } },
-            mp.broker && React.createElement('span', { style: { padding: '0.25rem 0.6rem', borderRadius: '20px', background: `${theme.accent}1e`, color: theme.accent, fontWeight: '700' } }, mp.broker.chosen ? __('biColsDetected', '{name} (columns detected)', { name: mp.broker.name }) : __('biDetected', 'Detected: {name}', { name: mp.broker.name })),
+            mp.broker && React.createElement('span', { style: { padding: '0.25rem 0.6rem', borderRadius: '20px', background: `${window.MaerminTokens.alpha(theme.accent, 0x1e)}`, color: theme.accent, fontWeight: '700' } }, mp.broker.chosen ? __('biColsDetected', '{name} (columns detected)', { name: mp.broker.name }) : __('biDetected', 'Detected: {name}', { name: mp.broker.name })),
             React.createElement('span', { style: { padding: '0.25rem 0.6rem', borderRadius: '20px', background: 'color-mix(in srgb, var(--success) 15%, transparent)', color: theme.success, fontWeight: '700' } }, __('biValid', '✓ {n} valid', { n: mp.stats.ok })),
             mp.errors.length > 0 && React.createElement('span', { ...window.MaerminUtils.clickable(() => setShowErrors(v => !v)), 'aria-label': __('biToggleErrors', 'Toggle error details'), style: { padding: '0.25rem 0.6rem', borderRadius: '20px', background: 'color-mix(in srgb, var(--danger) 15%, transparent)', color: 'var(--danger)', fontWeight: '700', cursor: 'pointer' } }, `${__('biSkipped', '✗ {n} skipped', { n: mp.errors.length })} ${showErrors ? '▲' : '▼'}`),
             (mp.stats.duplicates > 0) && React.createElement('span', { style: { padding: '0.25rem 0.6rem', borderRadius: '20px', background: 'color-mix(in srgb, var(--warning) 15%, transparent)', color: theme.warning, fontWeight: '700' } }, __('biDuplicates', '! {n} {n:duplicate|duplicates}', { n: mp.stats.duplicates }))
@@ -1173,7 +1173,7 @@ function BrokerImportWizard({ theme, t, addToast, onImport, existing, workerUrl,
                 presets.map(p => React.createElement('option', { key: p.id, value: p.id }, p.name))
               ),
               React.createElement('button', { onClick: saveCurrentPreset,
-                style: { padding: '0.35rem 0.7rem', background: (theme.accentFill || theme.accent), color: '#ffffff', border: 'none', borderRadius: '6px', cursor: 'pointer', fontSize: 'var(--text-xs)', fontWeight: '700' } }, t.presetSave || 'Save preset'),
+                style: { padding: '0.35rem 0.7rem', background: (theme.accentFill || theme.accent), color: 'var(--on-accent)', border: 'none', borderRadius: '6px', cursor: 'pointer', fontSize: 'var(--text-xs)', fontWeight: '700' } }, t.presetSave || 'Save preset'),
               selectedPreset && React.createElement('button', { onClick: deleteSelectedPreset,
                 style: { padding: '0.35rem 0.7rem', background: 'none', color: theme.textSecondary, border: `1px solid ${theme.inputBorder}`, borderRadius: '6px', cursor: 'pointer', fontSize: 'var(--text-xs)' } }, t.presetDelete || 'Delete')
             )
@@ -1349,7 +1349,7 @@ function PositionNotesView({ portfolio, theme, t }) {
                       style: { width: '100%', height: '120px', padding: '0.625rem', background: theme.inputBg, border: `1px solid ${theme.inputBorder}`, borderRadius: '6px', color: theme.text, fontSize: 'var(--text-sm)', resize: 'vertical', marginBottom: '0.5rem', lineHeight: '1.5' }
                     }),
                     React.createElement('div', { style: { display: 'flex', gap: '0.375rem' } },
-                      React.createElement('button', { onClick: save, style: { padding: '0.375rem 0.875rem', background: (theme.accentFill || theme.accent), color: '#ffffff', border: 'none', borderRadius: '6px', cursor: 'pointer', fontSize: 'var(--text-sm)', fontWeight: '600' } }, __('save', 'Save')),
+                      React.createElement('button', { onClick: save, style: { padding: '0.375rem 0.875rem', background: (theme.accentFill || theme.accent), color: 'var(--on-accent)', border: 'none', borderRadius: '6px', cursor: 'pointer', fontSize: 'var(--text-sm)', fontWeight: '600' } }, __('save', 'Save')),
                       React.createElement('button', { onClick: () => { setActive(null); setDraft(''); }, style: { padding: '0.375rem 0.875rem', background: theme.inputBg, color: theme.text, border: `1px solid ${theme.cardBorder}`, borderRadius: '6px', cursor: 'pointer', fontSize: 'var(--text-sm)' } }, __('cancel', 'Cancel'))
                     )
                   )
@@ -1495,7 +1495,7 @@ function DividendCalendarView({ portfolio, prices, metaVersion, theme, t, addToa
         React.createElement('button', { onClick: () => setViewMonth(p => { const d = new Date(p.year, p.month - 1); return { year: d.getFullYear(), month: d.getMonth() }; }), style: { padding: '0.5rem 0.875rem', background: theme.inputBg, border: `1px solid ${theme.cardBorder}`, borderRadius: '6px', color: theme.text, cursor: 'pointer' } }, '←'),
         React.createElement('span', { style: { color: theme.text, fontWeight: '700', minWidth: '100px', textAlign: 'center' } }, `${monthNames[month]} ${year}`),
         React.createElement('button', { onClick: () => setViewMonth(p => { const d = new Date(p.year, p.month + 1); return { year: d.getFullYear(), month: d.getMonth() }; }), style: { padding: '0.5rem 0.875rem', background: theme.inputBg, border: `1px solid ${theme.cardBorder}`, borderRadius: '6px', color: theme.text, cursor: 'pointer' } }, '→'),
-        React.createElement('button', { onClick: () => setShowAdd(p=>!p), style: { padding: '0.5rem 0.875rem', background: (theme.accentFill || theme.accent), color: '#ffffff', border: 'none', borderRadius: '6px', cursor: 'pointer', fontWeight: '600' } }, __('dcAddBtn', '+ Dividend'))
+        React.createElement('button', { onClick: () => setShowAdd(p=>!p), style: { padding: '0.5rem 0.875rem', background: (theme.accentFill || theme.accent), color: 'var(--on-accent)', border: 'none', borderRadius: '6px', cursor: 'pointer', fontWeight: '600' } }, __('dcAddBtn', '+ Dividend'))
       )
     ),
 
@@ -1510,7 +1510,7 @@ function DividendCalendarView({ portfolio, prices, metaVersion, theme, t, addToa
         React.createElement('option', { value: 'USD' }, '$')
       ),
       inp('notes', __('dcNotePh', 'Note (opt.)')),
-      React.createElement('button', { onClick: addEvent, style: { padding: '0.5rem 1rem', background: (theme.accentFill || theme.accent), color: '#ffffff', border: 'none', borderRadius: '6px', cursor: 'pointer', fontWeight: '600', whiteSpace: 'nowrap' } }, __('add', 'Add'))
+      React.createElement('button', { onClick: addEvent, style: { padding: '0.5rem 1rem', background: (theme.accentFill || theme.accent), color: 'var(--on-accent)', border: 'none', borderRadius: '6px', cursor: 'pointer', fontWeight: '600', whiteSpace: 'nowrap' } }, __('add', 'Add'))
     ),
 
     // Calendar grid
