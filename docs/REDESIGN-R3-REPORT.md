@@ -10,9 +10,9 @@ Phase 6, milestone R3 (PLAN.md). Screenshots are from the public demo (`?demo`, 
 | R3.1 Overview (B-4) | https://github.com/Maermin/MAERMIN/pull/206 | merged |
 | R3.2 Portfolios and Net Worth | https://github.com/Maermin/MAERMIN/pull/207 | merged |
 | R3.3 Transactions (B-5) | https://github.com/Maermin/MAERMIN/pull/208 | merged |
-| R3.4 Import / Export (B-6) | https://github.com/Maermin/MAERMIN/pull/209 | in review |
-| R3.5 Dividends | https://github.com/Maermin/MAERMIN/pull/210 | in review (contains #209) |
-| R3.6 Tax & FIFO (B-7) | R36_PR | in review (contains #209, #210) |
+| R3.4 Import / Export (B-6) | https://github.com/Maermin/MAERMIN/pull/209 | merged |
+| R3.5 Dividends | https://github.com/Maermin/MAERMIN/pull/210 | merged |
+| R3.6 Tax & FIFO (B-7) | https://github.com/Maermin/MAERMIN/pull/211 | in review |
 
 Every PR targets `main`. One that builds on an open PR says so, and its diff shrinks once the earlier one merges.
 
