@@ -101,5 +101,21 @@ m = html(h(C.EmptyState, { title: 'No transactions yet', text: 'Add one.', kind:
 ok('EmptyState: the shared MaerminUI.EmptyState look', /class="mx-empty"/.test(m) && /No transactions yet/.test(m), m);
 ok('no inline styles in R1.3 components', !/style="/.test(html(h('div', null, h(C.Table, { columns: COLS, rows: ROWS, layout: 'table' }), h(C.Table, { columns: COLS, rows: ROWS, layout: 'phone' }), h(C.ChartFrame, { title: 't' }, 'x'), h(C.Skeleton, { shape: 'kpi' })))));
 
+console.log('R3.1 components:');
+{
+  const items = [{ key: 'a', value: 50 }, { key: 'b', value: 30 }, { key: 'c', value: 20 }, { key: 'd', value: 0 }, { key: 'e', value: 10 }];
+  const cols = C.mapColumns(items, 2);
+  ok('mapColumns: largest first into the lightest column (a tie goes left); zero values dropped', cols.length === 2 && cols[0].items.map((x) => x.key).join() === 'a,e' && cols[1].items.map((x) => x.key).join() === 'b,c' && cols[0].sum === 60 && cols[1].sum === 50, JSON.stringify(cols));
+  ok('mapColumns: never more columns than items', C.mapColumns([{ key: 'x', value: 1 }], 4).length === 1 && C.mapColumns([], 4).length === 0);
+  ok('mapTint: gain / loss tint by sign, neutral without a figure', /var\(--gain\)/.test(C.mapTint(12)) && /var\(--loss\)/.test(C.mapTint(-3)) && C.mapTint(null) === 'var(--surface-2)');
+  ok('mapTint: stronger with a larger return, capped', parseInt(/(\d+)%/.exec(C.mapTint(5))[1], 10) < parseInt(/(\d+)%/.exec(C.mapTint(500))[1], 10) && /60%/.test(C.mapTint(1e6)));
+  m = html(h(C.HoldingsMap, { label: 'Holdings map', items: [{ key: 's|A', label: 'AAA', title: 'A Corp', value: 10, pct: 5, pctText: '5.0 %' }, { key: 's|B', label: 'BBB', title: 'B Corp', value: 5, pct: -2, pctText: '2.0 %' }] }));
+  ok('HoldingsMap: a named group of buttons, ▲ / ▼ with every tinted figure', /role="group" aria-label="Holdings map"/.test(m) && /▲ 5\.0 %/.test(m) && /▼ 2\.0 %/.test(m) && (m.match(/<button/g) || []).length === 2, m);
+  m = html(h(C.Table, { columns: COLS, rows: ROWS, layout: 'table', rowProps: (r) => ({ role: 'button', tabIndex: 0, 'data-k': r.id }) }));
+  ok('Table: rowProps puts attributes on each data row (not on group rows)', (m.match(/data-k="/g) || []).length === 2 && /role="button"/.test(m) && /class="is-clickable"/.test(m), m);
+  m = html(h(C.Table, { columns: COLS, rows: ROWS, layout: 'phone', rowProps: (r) => ({ 'data-k': r.id }) }));
+  ok('Table phone layout: rowProps too', (m.match(/data-k="/g) || []).length === 2, m);
+}
+
 console.log('\n' + (failed ? failed + ' failed' : 'all passed'));
 process.exit(failed ? 1 : 0);

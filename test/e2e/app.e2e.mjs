@@ -1052,12 +1052,14 @@ async function runBuild(browser, label, dir) {
     }
     // P4-7: reorder the Overview sections - arrow buttons, keyboard on the handle, pointer drag
     {
-      const order = () => page.locator('[data-ov-section]').evaluateAll((els) => els.map((x) => x.getAttribute('data-ov-section')).join(','));
+      // R3.1 (B-4): seven sections; the checks follow the four original ones
+      const FOUR = ['valueChart', 'statCards', 'returnFigures', 'allocation'];
+      const order = () => page.locator('[data-ov-section]').evaluateAll((els, four) => els.map((x) => x.getAttribute('data-ov-section')).filter((id) => four.includes(id)).join(','), FOUR);
       let a = '', b = '', c = '', said = '', focusOk = false, err = '';
       try {
         await openView(page, 'customize');
-        // P5-1.5: four sections (Returns sits third), so three steps to the top
-        for (let i = 0; i < 3; i++) await page.getByRole('button', { name: 'Move Allocation · Top Performers · Positions up' }).click();
+        // B-4: seven sections (Allocation is last), so six steps to the top
+        for (let i = 0; i < 6; i++) await page.getByRole('button', { name: 'Move Allocation · Top Performers · Positions up' }).click();
         await page.waitForTimeout(150); // focus is restored after the re-render
         said = await page.locator('main [role="status"][aria-live="polite"]').last().innerText();
         focusOk = await page.evaluate(() => (document.activeElement && document.activeElement.getAttribute('data-dash-id')) === 'allocation');
@@ -1065,7 +1067,10 @@ async function runBuild(browser, label, dir) {
         a = await order();
         await openView(page, 'customize');
         await page.locator('[data-dash-handle="valueChart"]').focus();
-        await page.keyboard.press('ArrowDown');
+        await page.keyboard.press('ArrowDown'); // past "What it is made of"
+        await page.waitForTimeout(150);
+        await page.locator('[data-dash-handle="valueChart"]').focus();
+        await page.keyboard.press('ArrowDown'); // past the stat cards
         await page.waitForTimeout(200);
         await openView(page, 'overview'); await page.waitForTimeout(400);
         b = await order();
@@ -1082,7 +1087,7 @@ async function runBuild(browser, label, dir) {
         await openView(page, 'customize');
         await page.getByRole('button', { name: 'Reset to default' }).click();
       } catch (e) { err = e.message.split('\n')[0]; }
-      ok('P4-7: "Move up" puts Allocation first on the Overview, focus stays, position announced', a === 'allocation,valueChart,statCards,returnFigures' && focusOk && /position 1 of 4/.test(said), err || a + ' | ' + said + ' | focus ' + focusOk);
+      ok('P4-7: "Move up" puts Allocation first on the Overview, focus stays, position announced', a === 'allocation,valueChart,statCards,returnFigures' && focusOk && /position 1 of 7/.test(said), err || a + ' | ' + said + ' | focus ' + focusOk);
       ok('P4-7: ArrowDown on a drag handle moves that section', b === 'allocation,statCards,valueChart,returnFigures', err || b);
       ok('P4-7: dragging a handle (pointer) moves the section to the top', c === 'statCards,allocation,valueChart,returnFigures', err || c);
     }
@@ -1391,14 +1396,14 @@ async function runBuild(browser, label, dir) {
       // P5-1.7: two portfolios in memory; the broker's clearing account shows its cash
       const keys = ['maermin_portfolios', 'maermin_active_portfolio', 'maermin_fund_types', 'maermin_vap_records', 'transactions'];
       before = await page.evaluate((ks) => ks.map((k) => localStorage.getItem(k)), keys);
-      await page.getByRole('button', { name: 'Savings plan broker' }).first().click();
+      await page.locator('[data-testid="scope-select"]').selectOption({ label: 'Savings plan broker' });
       await page.waitForTimeout(1500);
       brokerOv = await page.locator('main').innerText();
       await openView(page, 'transactions');
       await page.waitForTimeout(800);
       rows = await page.evaluate(() => (window.MaerminDemo ? window.MaerminDemo.getTransactions().length : 0));
       await openView(page, 'overview');
-      await page.getByRole('button', { name: 'All Portfolios' }).first().click();
+      await page.locator('[data-testid="scope-select"]').selectOption({ label: 'All Portfolios' });
       after = await page.evaluate((ks) => ks.map((k) => localStorage.getItem(k)), keys);
       await openView(page, 'intelligence');
       await page.waitForTimeout(800);
@@ -2822,7 +2827,8 @@ async function runBuild(browser, label, dir) {
 
     // M-1: filled primary button reaches 4.5:1 (dark theme)
     { const ratio = await page.evaluate(() => {
-        const b = Array.from(document.querySelectorAll('main button')).find((x) => /^\+\s*Add$/.test(x.innerText.trim()));
+        // R3.1: the one filled Add is the page header's Add Transaction
+        const b = document.querySelector('header.ui-pagehead .ui-btn--primary');
         if (!b) return 0;
         const rgb = (c) => (c.match(/[\d.]+/g) || []).slice(0, 3).map(Number);
         const lum = (a) => { const f = (v) => { v /= 255; return v <= 0.03928 ? v / 12.92 : Math.pow((v + 0.055) / 1.055, 2.4); }; return 0.2126 * f(a[0]) + 0.7152 * f(a[1]) + 0.0722 * f(a[2]); };
@@ -2832,7 +2838,7 @@ async function runBuild(browser, label, dir) {
         const fg = lum(rgb(cs.color));
         return Math.min(...stops.map((s) => { const bg = lum(s); return (Math.max(fg, bg) + 0.05) / (Math.min(fg, bg) + 0.05); }));
       });
-      ok('filled "+ Add" button: text contrast >= 4.5:1 on every stop of its fill', ratio >= 4.5, ratio.toFixed(2)); }
+      ok('filled Add Transaction button: text contrast >= 4.5:1 on every stop of its fill', ratio >= 4.5, ratio.toFixed(2)); }
 
     // M-3: Add transaction has a close button and its save button is in view
     await page.keyboard.press('n');
@@ -2946,8 +2952,9 @@ async function runBuild(browser, label, dir) {
       ok('cleanup V-6: brokers without a logo get distinct initial tiles (PP, PA, SC)', Array.isArray(tiles) && tiles.map((t) => t.split('|')[0]).join() === 'PP,PA,SC' && new Set(tiles.map((t) => t.split('|')[1])).size === 3, err || JSON.stringify(tiles));
       // R1.1: the theme objects are var() references to the styles.css tokens;
       // the light theme's tokens are live, the page background is flat (no
-      // aurora layers) and filled buttons still get the shared primary look.
-      await openView(page, 'overview');
+      // aurora layers) and filled buttons still get the shared primary look
+      // (R3.1: the Overview has no legacy filled buttons left; Transactions has).
+      await openView(page, 'transactions');
       await page.waitForTimeout(800);
       const tok = await page.evaluate(() => {
         const root = document.documentElement, cs = getComputedStyle(root), app = document.querySelector('.mx-app');

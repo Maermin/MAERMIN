@@ -154,7 +154,10 @@ const read = (f) => fs.readFileSync(path.join(__dirname, '..', f), 'utf8');
     const f3 = read('features3.js');
     const unnamed = (src) => (src.match(/React\.createElement\('button', \{[^}]*?\}, '[×✕]'\)/g) || []).filter((b) => !/aria-label/.test(b));
     ok('L-3: watchlist remove is named', /removeItem\(item\.id\),\s*'aria-label'/.test(read('features.js')));
-    ok('L-3: position-detail close buttons are named', (f3.match(/'aria-label': (?:__\('close', )?'Close'/g) || []).length >= 3);
+    // R3.1: the position dialog's own close button now comes from the shared
+    // Modal (named "Close" through uiClose); the other two stay in features3.
+    ok('L-3: position-detail close buttons are named', (f3.match(/'aria-label': (?:__\('close', )?'Close'/g) || []).length >= 2
+      && /UIC\.Modal, \{/.test(f3) && /__\('uiClose', 'Close'\)/.test(read('renderer-components.js')));
     ok('L-3: portfolio rename is named', /pfRenameAria/.test(read('features4.js')));
     ok('L-3: net-worth and real-asset remove are named', /nwRemoveAria/.test(read('features5.js')) && /raRemoveAria/.test(read('real-assets.js')));
     ok('L-3: security log close is named', /setShowAuditLog\(false\), 'aria-label'/.test(read('renderer.js')));

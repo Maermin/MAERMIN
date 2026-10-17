@@ -31,9 +31,13 @@ function __(k, f, v) { return (typeof window !== 'undefined' && window.MaerminI1
   var DEFAULT_WIDGETS = [
     // label() resolves in the current language (P5-1.5: getters, like utils.txTypeInfo)
     { id: 'valueChart', key: 'dashWValueChart', label: function () { return __('dashWValueChart', 'Value History Chart'); } },
+    // Phase 6 B-4: what the total is made of, the next events, the holdings map
+    { id: 'composition', key: 'dashWComposition', label: function () { return __('dashWComposition', 'What it is made of (invested · gain · cash)'); } },
     { id: 'statCards', key: 'dashWStatCards', label: function () { return __('dashWStatCards', 'Stat Cards (Invested · Return · Dividends · Health)'); } },
+    { id: 'nextUp', key: 'dashWNextUp', label: function () { return __('dashWNextUp', 'Next up (the next five events)'); } },
     // P5-1.5: return figures (MaerminReturnFigures), same as Analysis → Returns
     { id: 'returnFigures', key: 'dashWReturnFigures', label: function () { return __('dashWReturnFigures', 'Returns (XIRR · TWR · Realized · Dividends · Taxes · Fees · Net return)'); } },
+    { id: 'holdingsMap', key: 'dashWHoldingsMap', label: function () { return __('dashWHoldingsMap', 'Holdings map'); } },
     { id: 'allocation', key: 'dashWAllocation', label: function () { return __('dashWAllocation', 'Allocation · Top Performers · Positions'); } }
   ];
 
