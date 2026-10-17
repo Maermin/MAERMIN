@@ -355,6 +355,147 @@ Review item ids in brackets (F, D, N, Tier) refer to `docs/COMPETITOR-REVIEW-202
 - **P5-5.8** README, landing text and comparison table updated for Atlas; say plainly that Vorabpauschale, Anlage KAP and Sparerpauschbetrag tools are built in.
 - **P5-5.9** RELEASE.md section v12.0.0 "Atlas", version 12.0.0 in package.json, header badge, service-worker cache name, migration notes, release workflow run by the owner.
 
+## Phase 6 — Redesign "Atlas Map"
+
+**Goal.** A look and user experience a stranger would trust with their wealth data, on par with or better than Parqet,
+Wealthfolio and Sharesight, while every feature, number and stored byte keeps working exactly as today. Visual and UX
+only: engines, storage, migrations, the Worker and the privacy model are out of scope.
+
+**Basis.** The Phase 0 audit [`docs/REDESIGN-AUDIT.md`](docs/REDESIGN-AUDIT.md) (all 32 views, five themes, desktop and
+phone, EN and DE), the three directions in [`docs/redesign/`](docs/redesign/), the owner's pick on 2026-10-17
+(**direction C, "Atlas Map"**), the contract [`docs/DESIGN-SYSTEM.md`](docs/DESIGN-SYSTEM.md) and the reference screens
+[`docs/redesign/final/`](docs/redesign/final/).
+
+**Shape.** Five milestones, one PR per package, branch `redesign/r<milestone>.<n>-<short-name>` from the latest `main`.
+Each package starts with a plan (views and files, components used or added, tokens added, translation keys, screenshots
+of the current state, any behaviour that might change) that the owner approves before code is written; the owner may
+approve several packages of a milestone at once. The agent stops after each milestone with a report (PRs merged,
+before/after screenshots desktop + phone, DE + EN, dark + light, open issues, plan for the next milestone). The owner
+merges this plan PR before R1 starts, and merges every Phase 6 PR (the redesign brief overrides the earlier self-merge
+permission for this phase).
+
+**Rules for every package** (on top of the house rules above):
+- Replace inline styles and hex colours with tokens and shared components in every view the package touches; no new
+  hard-coded colour; `scripts/check.mjs` reports the remaining count (from R1.1) and it only goes down.
+- Every UI string through `__()` with `en` and `de` keys; new copy checked with `design:ux-copy`.
+- No new runtime dependencies; CDN libraries stay pinned with SRI; the CSP in `index.html` stays intact
+  (`style-src 'self'`: components render classes from `styles.css`, never injected `<style>`).
+- No behaviour change (same data, numbers, calculations, storage keys, view ids, `g`+key shortcuts, deep links). A UX
+  improvement that needs one is listed in the package plan and needs the owner's explicit approval.
+- Gate before every push: `npm run check && npm test && npm run build:web && CI=1 npm run test:e2e`; e2e selectors the
+  redesign changes are updated in the same PR, new flows get a scenario.
+- PR body (`supermatt:pr`): before/after screenshots (demo data only) desktop and phone, dark and light; contrast
+  checked in all five themes; focus order; screen-reader labels; privacy mode checked; DE layout checked; rollback note.
+  Run `supermatt:qa` before opening it. Charts: load `dataviz` first.
+
+**Behaviour changes proposed by the design.** Each needs the owner's approval in its package plan; nothing here is
+built before that.
+
+| # | Change | Package | Why |
+|---|---|---|---|
+| B-1 | Area labels: Portfolio → **Home**, Transactions → **Activity**, Dividends → **Income**, Taxes → **Tax**, Analysis → **Insight** (DE: Übersicht, Aktivität, Einkommen, Steuern, Einblick); Settings moves to the foot of the rail / phone "More". View ids, shortcuts and deep links unchanged. | R2.1 | Shorter labels fit the rail and dock in German; areas named after the question. |
+| B-2 | Phone dock: five slots with a central **Add** (Overview, Activity, Add, Income, More); Tax and Insight move under "More". | R2.1 | Adding a transaction is the most common write task; today it needs the Overview header. |
+| B-3 | At most one row of page tabs: inner tab rows (Risk & Correlation's four, Strategy's nine, Import's four, Dividends' three) become a segmented control or a select. | R2.2 | Audit: up to three stacked tab rows on phones. |
+| B-4 | Overview gets **"What it's made of"** (invested + unrealised gain + cash = net worth), **"Next up"** (the event feed's next five items) and the **holdings map**; all three are Customize Overview sections that can be hidden. The hero shows net worth (incl. cash) instead of the securities value; the securities value stays in the composition line. | R3.1 | Answer first; reconciled figures. |
+| B-5 | Transactions on desktop: a **detail panel** beside the list (the record, its FIFO effect for sales, the linked tax booking, Edit / Duplicate / Trash) instead of icon buttons in every row; the list is grouped by month with type filter chips. Phone: the detail opens as a sheet. | R3.3 | Audit: 448 row buttons, no grouping, no type filter. |
+| B-6 | Import / Export opens on **Import** (Broker import) instead of Export & Backup; the Overview's "Import" goes there too. | R3.4 | The common task first. |
+| B-7 | Tax & FIFO opens on an **answer summary** (tax due, allowance used / left, loss pots, next deadline) above the existing tabs. | R3.6 | Audit: opens on a 31-row table of `+0.00 €`. |
+| B-8 | The aurora gradient background and gradient buttons are removed (flat surfaces, flat accent fill). | R1.1 | Calm, data first. |
+
+### Milestone overview
+
+| Milestone | Packages | Theme |
+|---|---|---|
+| R1 Foundation | R1.1 … R1.3 | Tokens, token bridge, component layer, gallery |
+| R2 Shell & navigation | R2.1 … R2.3 | Rail, page header, dock, tabs, palette, onboarding |
+| R3 Core views | R3.1 … R3.6 | The screens most users see |
+| R4 Analysis views | R4.1 … R4.6 | Every remaining view, modal and panel; all charts on the chart rules |
+| R5 Polish & release | R5.1 … R5.4 | Settings, states, motion, accessibility, cleanup, release |
+
+Every one of the 32 views in `nav-model.js` (and the aliased views) is listed under exactly one package below.
+
+### R1 Foundation
+
+| Order | Package | Views | Effort |
+|---|---|---|---|
+| 1 | R1.1 Tokens and token bridge | global look only | M |
+| 2 | R1.2 Components A + gallery | none (gallery `?gallery`) | M |
+| 3 | R1.3 Components B | none (gallery) | M–L |
+
+- **R1.1** All tokens of `DESIGN-SYSTEM.md` § 2 in `styles.css` for the five themes; new `theme-tokens.js`
+  (`window.MaerminTokens`: names, `resolve()`); the five theme objects in `renderer.js` become `var(--…)` references
+  (§ 3); flat background (B-8); `MaerminUtils.onColor` and PDF / share-image colours through `resolve()`;
+  `scripts/check.mjs` reports hex / `rgb()` literals in view files. Visible: palette, background, borders, focus ring.
+- **R1.2** `renderer-components.js` gets Button, IconButton, Card, Stat/KPI, Badge, Chip, ToneChip, Tabs (page tabs and
+  segmented), Input, Select, Mask; `MaerminUI.btnProps` / `pillProps` become thin wrappers. A hidden dev view
+  (`?gallery`, not in `nav-model.js`) shows every component in every state and theme.
+- **R1.3** Table (column priorities, phone two-line rows, group rows, sort, selection), Modal / Sheet (on
+  `MaerminUI.Overlay`), Toast (on the existing container), EmptyState (absorbs `MaerminUI.EmptyState`), Skeleton,
+  ChartFrame (title, word legend, "Show as table"). Added to the gallery.
+
+### R2 Shell & navigation
+
+| Order | Package | Views | Effort |
+|---|---|---|---|
+| 1 | R2.1 App shell | shell of all views; `nav-model.js` areas | L |
+| 2 | R2.2 Page tabs, palette, back | tab strips of all grouped views; command palette; shortcuts dialog | M |
+| 3 | R2.3 First run and modes | lock screen, setup, recovery code, onboarding, demo banner, Simple/Advanced switch | M |
+
+- **R2.1** Rail (desktop), page header (title, portfolio scope, search, privacy, one primary action), phone top bar and
+  dock (B-2), area labels (B-1) in `nav-model.js` with every view id, alias, `g`+key shortcut and deep link unchanged;
+  e2e `openView` helpers follow the new markup.
+- **R2.2** One row of page tabs (B-3), segmented controls for inner tabs, command palette and shortcuts dialog
+  restyled, back behaviour on phones (back arrow inside a detail or sheet).
+- **R2.3** `auth.js` lock and setup screens, recovery-code reveal, `onboarding.js` first-run wizard, demo banner (one
+  "Exit demo" instead of two), Simple/Advanced switch.
+
+### R3 Core views
+
+| Order | Package | Views | Effort |
+|---|---|---|---|
+| 1 | R3.1 Overview | `overview` (+ position detail dialog, `dashboard-layout.js` reorder) | L |
+| 2 | R3.2 Portfolios and Net Worth | `portfolios`, `net-worth` (real assets panel, projection) | M |
+| 3 | R3.3 Transactions | `transactions` (+ add / edit dialog, cash-flow dialog, data check and reconciliation panels) | L |
+| 4 | R3.4 Import / Export | `data` (+ alias `broker-import`: broker wizard, manual import, Steam inventory, backup / restore, bank sync, aggregators, wallets, exchange sync panels) | L |
+| 5 | R3.5 Dividends | `dividends` (calendar, forecast, history, safety, YoC) | M |
+| 6 | R3.6 Tax & FIFO | `tax` (summary B-7, FIFO, tax report, realised vs unrealised; panels: sell simulator, Vorabpauschale, harvest plan, crypto calendar, cost methods, tax certificate, statements, loss carry-forward, withholding, Freistellungsaufträge, Anlage KAP, AT, CH, US) | L |
+
+- **R3.1** Hero + composition, answer tiles, Next up, holdings map (B-4), positions Table with phone rows; Customize
+  Overview keeps working with the new sections; position detail dialog on Modal + ChartFrame.
+- **R3.2** Portfolio cards, clearing-account form, net worth composition, accounts, real assets, projection chart.
+- **R3.3** Month-grouped list, type chips, detail panel / sheet (B-5), add/edit dialog on the new Inputs, data check
+  and reconciliation in the shared Table / EmptyState.
+- **R3.4** Import first (B-6), wizard steps on the new components, every import and sync panel restyled.
+- **R3.5** Year total as the answer, calendar, forecast and history tables with phone rows, names next to symbols.
+- **R3.6** Answer summary, then the tabs and every panel listed above on Card / Table / Input.
+
+### R4 Analysis views
+
+| Order | Package | Views | Effort |
+|---|---|---|---|
+| 1 | R4.1 Returns | `returns`, `performance`, `attribution` (heatmap + drill-down, value attribution, benchmark replay, per-holding returns, real returns, performance map, period cards, FX attribution) | L |
+| 2 | R4.2 Health & risk | `health`, `intelligence`, `analytics` (+ aliases `correlation`, `montecarlo`, `stress`, `risk`; ETF look-through, risk monitor) | L |
+| 3 | R4.3 Research, Strategy, Fees | `research`, `investment-analysis` (DCA, sectors, countries, currencies, size, providers & brokers, taxonomies, liquidity, goals, backtester), `fees` | L |
+| 4 | R4.4 Market views | `discovery`, `news`, `events`, `watchlist` | M |
+| 5 | R4.5 Planning and cash | `rebalancing`, `budget`, `cashflow` (+ investment calendar), `journal`, `savings-plans`, simulators (`simulator-view.js`, projection) | L |
+| 6 | R4.6 Remaining panels and dialogs | corporate actions, bonds, options, real-asset templates, share snapshot view, AI prompt, verdicts, trust / disclaimer blocks | M |
+
+- Every chart moves onto ChartFrame and the chart rules (`DESIGN-SYSTEM.md` § 6): diverging scales for heatmap,
+  correlation and treemap; waterfall for attribution; categorical palette for allocation.
+
+### R5 Polish & release
+
+| Order | Package | Views | Effort |
+|---|---|---|---|
+| 1 | R5.1 Settings | `customize`, `categories`, `tags`, `rules`, `share`, `trash`, `privacy`, account menu, API Settings, Security & sync, Design (theme picker), password and recovery dialogs | M |
+| 2 | R5.2 States and motion | every view: empty / loading / error states, skeletons, motion pass (`prefers-reduced-motion`, `npm run bench:motion` within today's budget) | M |
+| 3 | R5.3 Accessibility and phone pass | all views × five themes: `design:accessibility-review`, NVDA pass, 200 % zoom, 360 px pass, fixes | M |
+| 4 | R5.4 Cleanup and release | remove unused CSS and inline styles (check count 0 in view files), README screenshots and demo, RELEASE.md redesign entry | M |
+
+**Done means:** every view on the design system; no hard-coded colours or ad-hoc inline styles in view code; all five
+themes pass WCAG AA; the gate green on `main`; README screenshots and the demo show the new design; RELEASE.md has a
+redesign entry; the owner has approved R5.
+
 ## Progress
 
 Updated in each package's PR. After a context reset: read this table and `git log`, then continue with the first package that is not merged.
@@ -442,3 +583,33 @@ Gate note: `npm run test:e2e` needs a Chromium. On a machine without the Playwri
 | P5-5.7 Saving goals with glide path | merged | `atlas/p5-5.7-goal-glide-path` | https://github.com/Maermin/MAERMIN/pull/178 | Decided as recommended: the existing goals (Strategy → Goals, `investmentGoals`) grow instead of a second goals feature. `goal-path.js` (`MaerminGoalPath`): a goal can be **linked to a portfolio or a tag** (its money is then the value of those holdings, otherwise the amount typed in); an **expected yearly return** (default 5 %); the **glide path** = start value plus the monthly contribution, compounded monthly, from the start date to the target date; **status** today against the path (ahead / on track / behind at ±5 %, reached, date passed), the monthly amount that reaches the target from here and where the current pace ends; a **risk glide** (suggested share in shares and other risky assets, 90 % → 20 % over the last 5 years) next to the linked holdings' actual share. Card with a path chart. Stored data: new optional fields `link`, `expectedReturn`, `startDate`, `startValue` (and `glide`) on the goal; older goals start on their creation date with their amount, no migration. Not investment advice. |
 | P5-5.8 Positioning and README | merged | `atlas/p5-5.8-positioning` | https://github.com/Maermin/MAERMIN/pull/179 | README tagline and intro say plainly that the German tax tools are built in (Vorabpauschale with forecast, Anlage KAP / KAP-INV, Sparerpauschbetrag with Freistellungsaufträge per broker), plus Austria, Switzerland and the US. A "Since v12 Atlas" paragraph, four v12 screenshots (research, events, budget, goals), MAERMIN's column of the comparison table updated to v12.0 (the other columns keep their dated sources), the catch-all feature row split into Research, Budget, Events and Saving goals rows and new **Tax** and **Sync, reminders and AI** tables. `og:description` and the manifest description match. Text only, no code. |
 | P5-5.9 Release v12.0.0 "Atlas" | merged | `atlas/p5-5.9-release-v12` | https://github.com/Maermin/MAERMIN/pull/180 | Version 12.0.0 in package.json / package-lock, the backup stamp (`backup-engine.js`), the header badge and page title (build.mjs, index.html, og:title), file headers; the offline cache is renamed `maermin-v12` (the first start after the update loads the app once from the network). RELEASE.md section `[v12.0.0] "Atlas"` with highlights, **Upgrading from v11** (no new migration, schema stays v6; v11 backups restore; redeploy the Worker 2026.10.14; push needs the SYNC KV and the cron trigger; `MAERMIN_CONNECT_SRC` for WebDAV on a self-built copy; `maermin-mcp` separately) and the Phase 5 list per milestone. README version history. M5 milestone report `docs/ATLAS-M5-REPORT.md`. The GitHub release is created by the owner with the Release workflow (tag `MAERMIN_v12`, version `v12.0.0`). |
+
+### Phase 6 progress
+
+After a context reset: read this table, `docs/DESIGN-SYSTEM.md` and `git log`, then continue with the first package that is not merged. If a PR is open for it, read its comments first.
+
+| Package | Status | Branch | PR | Notes |
+|---|---|---|---|---|
+| R0 Audit, directions, plan | in review | `redesign/r0-plan` | | Phase 0 audit (`docs/REDESIGN-AUDIT.md`), three directions (`docs/redesign/`), owner picked C "Atlas Map" on 2026-10-17, `docs/DESIGN-SYSTEM.md`, final mockups (`docs/redesign/final/`), this plan. The C palette's tertiary text and control borders were raised to AA in the final tokens. Found on the way, fixed in its own PR outside the redesign: Returns "Current value" with "All portfolios" counted only one portfolio. |
+| R1.1 Tokens and token bridge | planned | | | |
+| R1.2 Components A + gallery | planned | | | |
+| R1.3 Components B | planned | | | |
+| R2.1 App shell | planned | | | |
+| R2.2 Page tabs, palette, back | planned | | | |
+| R2.3 First run and modes | planned | | | |
+| R3.1 Overview | planned | | | |
+| R3.2 Portfolios and Net Worth | planned | | | |
+| R3.3 Transactions | planned | | | |
+| R3.4 Import / Export | planned | | | |
+| R3.5 Dividends | planned | | | |
+| R3.6 Tax & FIFO | planned | | | |
+| R4.1 Returns | planned | | | |
+| R4.2 Health & risk | planned | | | |
+| R4.3 Research, Strategy, Fees | planned | | | |
+| R4.4 Market views | planned | | | |
+| R4.5 Planning and cash | planned | | | |
+| R4.6 Remaining panels and dialogs | planned | | | |
+| R5.1 Settings | planned | | | |
+| R5.2 States and motion | planned | | | |
+| R5.3 Accessibility and phone pass | planned | | | |
+| R5.4 Cleanup and release | planned | | | |
