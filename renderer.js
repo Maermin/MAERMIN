@@ -1105,6 +1105,8 @@ function InvestmentTracker() {
   const [txSearch, setTxSearch] = useState('');
   const [txSortBy, setTxSortBy] = useState('date-desc'); // date-desc, date-asc, amount-desc, symbol
   const [txDeleteConfirm, setTxDeleteConfirm] = useState(null); // txId waiting for confirm
+  const [txType, setTxType] = useState('all'); // R3.3 (B-5): the type chip
+  const [txSelected, setTxSelected] = useState(null); // R3.3 (B-5): the booking in the detail panel
   
   // Tax
   const [taxJurisdiction, setTaxJurisdiction] = useState(() => {
@@ -2591,6 +2593,13 @@ function InvestmentTracker() {
     // clears editingTransactionId, which made edits save as brand-new records.
     // Just reveal the modal; the form + editingTransactionId are already set.
     setShowTransactionModal(true);
+  };
+
+  // R3.3 (B-5): Duplicate - the same booking as a new one, dated today.
+  const duplicateTransaction = (tx) => {
+    editTransaction(tx);
+    setEditingTransactionId(null);
+    setNewTransaction((n) => { const d = Object.assign({}, n, { date: window.MaerminUtils.todayISO() }); txInitialRef.current = d; return d; });
   };
 
   // Delete a transaction: it goes to the trash (P2-4) and the toast offers Undo.
@@ -4856,16 +4865,63 @@ function InvestmentTracker() {
       }
     });
 
-    const inputStyle = {
-      padding: '0.5rem 0.75rem',
-      background: currentTheme.inputBg,
-      border: `1px solid ${currentTheme.inputBorder}`,
-      borderRadius: '8px',
-      color: currentTheme.text,
-      fontSize: '0.875rem'
+    // R3.3 (Phase 6 B-5): type chips, a month-grouped list and one detail
+    // panel (beside the list on wide screens, a sheet / dialog below 1100 px)
+    // instead of edit and delete buttons in every row.
+    const UIC = window.MaerminComponents, I = window.MaerminI18n;
+    const GROUPS = [
+      { id: 'all', label: __('txChipAll', 'All'), test: () => true },
+      { id: 'buy', label: __('txChipBuys', 'Buys'), test: (tx) => tx.type === 'buy' },
+      { id: 'sell', label: __('txChipSales', 'Sales'), test: (tx) => tx.type === 'sell' },
+      { id: 'income', label: __('txChipIncome', 'Income'), test: (tx) => tx.type === 'dividend' || tx.type === 'interest' },
+      { id: 'cash', label: __('txChipCash', 'Cash'), test: (tx) => isCashRow(tx) },
+      { id: 'other', label: __('txChipOther', 'Other'), test: (tx) => !['buy', 'sell', 'dividend', 'interest'].includes(tx.type) && !isCashRow(tx) }
+    ];
+    const counts = {};
+    GROUPS.forEach((g) => { counts[g.id] = filtered.filter(g.test).length; });
+    const group = GROUPS.find((g) => g.id === txType) || GROUPS[0];
+    const shown = sorted.filter(group.test);
+    const byDate = txSortBy === 'date-desc' || txSortBy === 'date-asc';
+    const rows = [];
+    let lastMonth = null;
+    shown.forEach((tx) => {
+      const m = String(tx.date || '').slice(0, 7);
+      if (byDate && m !== lastMonth) {
+        const n = shown.filter((x) => String(x.date || '').slice(0, 7) === m).length;
+        rows.push({ __group: /^\d{4}-\d{2}$/.test(m) ? I.date(m + '-01', 'monthLong') : (m || '—'), __summary: __('txMonthCount', '{n} {n:booking|bookings}', { n }) });
+        lastMonth = m;
+      }
+      rows.push(tx);
+    });
+    const pfName = (tx) => ((portfolios.find(p => p.id === (tx.portfolioId || 'default')) || {}).name) || tx.portfolioId || 'default';
+    const typeBadge = (tx) => {
+      const info = window.MaerminUtils.txTypeInfo(tx.type, t);
+      return React.createElement('span', { className: 'ui-txtype', 'data-tone': info.tone }, info.label);
     };
+    const assetName = (tx) => isCashRow(tx)
+      ? (tx.counterPortfolioId ? (tx.type === 'transfer_out' ? '→ ' : '← ') + portfolioName(tx.counterPortfolioId) : (tx.notes || window.MaerminUtils.txTypeInfo(tx.type, t).label))
+      : (tx.symbolName && tx.symbolName !== tx.symbol ? tx.symbolName : tx.symbol);
+    const totalText = (tx) => privacyMode ? '••••••' : (isCashRow(tx)
+      ? (window.MaerminLedger.CASH_TYPES[tx.type].sign > 0 ? '+' : '−') + I.num(parseFloat(tx.amount) || 0, 2)
+      : I.num(tx.quantity * tx.price, 2)) + ' ' + (tx.currency || 'EUR');
+    const cols = [
+      { key: 'date', label: t.date || 'Date', phone: 'meta', render: (tx) => React.createElement(React.Fragment, null,
+          React.createElement('span', { className: 'num' }, I.date(tx.date)),
+          // "All portfolios": every row names the portfolio it is booked in
+          isAllActive && React.createElement('span', { className: 'ui-cell-note', 'data-testid': 'tx-portfolio-name' }, pfName(tx))) },
+      { key: 'type', label: t.transactionType || 'Type', phone: 'meta', render: typeBadge },
+      { key: 'asset', label: t.symbol || 'Symbol', phone: 'title', render: (tx) => React.createElement('span', { className: 'ui-asset__text' },
+          React.createElement('span', { className: 'ui-asset__name' }, assetName(tx)),
+          React.createElement('span', { className: 'ui-asset__sub' }, isCashRow(tx) ? I.category('cashflow') : [tx.symbolName && tx.symbolName !== tx.symbol ? tx.symbol : null, getCategoryDisplayName(tx.category)].filter(Boolean).join(' · '))) },
+      { key: 'qty', label: t.quantity || 'Qty', align: 'right', priority: 2, render: (tx) => isCashRow(tx) ? '' : I.num(parseFloat(tx.quantity) || 0, 4) },
+      { key: 'price', label: t.price || 'Price', align: 'right', priority: 3, render: (tx) => !isCashRow(tx) && tx.price != null ? (privacyMode ? '••••••' : I.num(tx.price, 2)) : '' },
+      { key: 'total', label: t.total || 'Total', align: 'right', phone: 'value', render: (tx) => React.createElement('span', { className: 'ui-txtotal' }, totalText(tx)) }
+    ];
+    const selectedTx = txSelected ? transactions.find((x) => x.id === txSelected) : null;
+    const wide = typeof window.matchMedia === 'function' ? window.matchMedia('(min-width: 1100px)').matches : true;
+    const rowLabel = (tx) => `${window.MaerminUtils.txTypeInfo(tx.type, t).label} ${tx.symbolName || tx.symbol || (isCashRow(tx) ? assetName(tx) : '')}, ${String(tx.date || '').slice(0, 10)}`;
 
-    return React.createElement('div', { style: { padding: '1.5rem' } },
+    return React.createElement('div', { className: 'ui-view ui-tx' },
       renderMisfiledSkins(),
       renderCryptoPairs(),
       renderLedgerIssues(),
@@ -4873,221 +4929,121 @@ function InvestmentTracker() {
       window.MaerminReconcile && !demoMode && React.createElement(window.MaerminReconcile.Panel, {
         theme: currentTheme, transactions, portfolios, clearingByPf, onOpenImport: () => setActiveView('broker-import')
       }),
-      // Header row
-      React.createElement('div', {
-        style: { display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem', flexWrap: 'wrap', gap: '0.75rem' }
-      },
-        React.createElement('h2', {
-          style: { color: currentTheme.text, fontSize: 'var(--text-xl)', fontWeight: '800', letterSpacing: '-0.02em' }
-        }, `${t.transactions || 'Transactions'} (${filtered.length}${filtered.length !== totalAll ? '/' + totalAll : ''})`),
-        React.createElement('div', { style: { display: 'flex', gap: '0.5rem', flexWrap: 'wrap', alignItems: 'center' } },
-          // Search
+      // Toolbar: count, search, sort; Add Transaction is the page header's action
+      React.createElement('div', { className: 'ui-view__bar' },
+        React.createElement('p', { className: 'ui-view__lead', 'data-testid': 'tx-count' },
+          `${t.transactions || 'Transactions'} (${filtered.length}${filtered.length !== totalAll ? '/' + totalAll : ''})`),
+        React.createElement('div', { className: 'ui-tx__tools' },
           React.createElement('input', {
-            type: 'text',
-            value: txSearch,
-            onChange: e => setTxSearch(e.target.value),
-            placeholder: t.search || 'Search...', 'aria-label': t.search || 'Search...',
-            style: { ...inputStyle, width: '180px' }
+            type: 'search', value: txSearch, onChange: e => setTxSearch(e.target.value),
+            placeholder: t.search || 'Search...', 'aria-label': t.search || 'Search...', className: ['ui-input', 'ui-tx__search'].join(' ')
           }),
-          // Sort
           React.createElement('select', {
-            value: txSortBy, 'aria-label': __('txSortLabel', 'Sort transactions'),
-            onChange: e => setTxSortBy(e.target.value),
-            style: inputStyle
+            value: txSortBy, 'aria-label': __('txSortLabel', 'Sort transactions'), onChange: e => setTxSortBy(e.target.value), className: ['ui-input', 'ui-select'].join(' ')
           },
             React.createElement('option', { value: 'date-desc' }, t.newestFirst || 'Newest first'),
             React.createElement('option', { value: 'date-asc'  }, t.oldestFirst || 'Oldest first'),
             React.createElement('option', { value: 'amount-desc'}, t.largestFirst || 'Largest first'),
             React.createElement('option', { value: 'symbol'    }, t.bySymbol || 'By symbol')
-          ),
-          // Add button
-          React.createElement('button', {
-            onClick: () => openTransactionModal(),
-            style: {
-              padding: '0.5rem 1.25rem',
-              background: (currentTheme.accentFill || currentTheme.accent),
-              color: currentTheme.accentText,
-              border: 'none',
-              borderRadius: '10px',
-              cursor: 'pointer',
-              fontWeight: '700',
-              fontSize: 'var(--text-base)',
-              boxShadow: '0 6px 16px -6px rgba(139,124,255,0.5)'
-            }
-          }, '+ ' + (t.addTransaction || 'Add'))
+          )
         )
       ),
-
-
-      
-      // Table
-      React.createElement('div', {
-        style: {
-          background: currentTheme.card,
-          borderRadius: '16px',
-          border: `1px solid ${currentTheme.cardBorder}`,
-          boxShadow: currentTheme.shadow,
-          overflow: 'auto'
-        }
-      },
-        sorted.length === 0
-          ? React.createElement('div', {
-              style: { padding: '3rem', textAlign: 'center', color: currentTheme.textSecondary }
-            },
-              txSearch ? (t.noResults || 'No results for your search.') : (t.noTransactions || 'No transactions yet.')
-            )
-          : React.createElement('table', { className: 'mx-table-cards', style: { width: '100%', borderCollapse: 'collapse', minWidth: '700px' } },
-              React.createElement('thead', null,
-                React.createElement('tr', null,
-                  ['date','type','symbol','qty','price','cur','total',''].map((h, i) =>
-                    React.createElement('th', {
-                      key: i,
-                      style: {
-                        textAlign: i >= 3 && i <= 6 ? 'right' : i === 7 ? 'center' : 'left',
-                        padding: '0.875rem 1rem',
-                        color: currentTheme.textSecondary,
-                        borderBottom: `1px solid ${currentTheme.cardBorder}`,
-                        fontSize: 'var(--text-sm)',
-                        fontWeight: '600',
-                        textTransform: 'uppercase',
-                        letterSpacing: '0.05em'
-                      }
-                    }, h === 'date' ? (t.date||'Date') : h === 'type' ? (t.transactionType||'Type') :
-                       h === 'symbol' ? (t.symbol||'Symbol') : h === 'qty' ? (t.quantity||'Qty') :
-                       h === 'price' ? (t.price||'Price') : h === 'cur' ? '' : h === 'total' ? (t.total||'Total') : '')
-                  )
-                )
-              ),
-              React.createElement('tbody', null,
-                sorted.map(tx =>
-                  React.createElement(React.Fragment, { key: tx.id },
-                    React.createElement('tr', {
-                      style: { transition: 'background 0.15s' },
-                      onMouseEnter: e => e.currentTarget.style.background = 'rgba(255,255,255,0.03)',
-                      onMouseLeave: e => e.currentTarget.style.background = 'transparent'
-                    },
-                      React.createElement('td', { className: 'mx-card-lead', style: { padding: '0.875rem 1rem', color: currentTheme.text, fontSize: 'var(--text-base)' } }, tx.date,
-                        // "All portfolios": every row names the portfolio it is booked in
-                        isAllActive && React.createElement('div', { 'data-testid': 'tx-portfolio-name', style: { color: currentTheme.textSecondary, fontSize: 'var(--text-2xs)', marginTop: '0.15rem' } },
-                          ((portfolios.find(p => p.id === (tx.portfolioId || 'default')) || {}).name) || tx.portfolioId || 'default')),
-                      React.createElement('td', { className: 'mx-card-lead', style: { padding: '0.875rem 1rem' } },
-                        React.createElement('span', {
-                          style: {
-                            padding: '0.2rem 0.5rem',
-                            borderRadius: '4px',
-                            fontSize: 'var(--text-2xs)',
-                            fontWeight: '700',
-                            textTransform: 'uppercase',
-                            letterSpacing: '0.05em',
-                            background: window.MaerminUtils.txTypeInfo(tx.type, t).background,
-                            color: tx.type === 'buy' ? currentTheme.success : tx.type === 'sell' ? currentTheme.danger : window.MaerminUtils.txTypeInfo(tx.type, t).color
-                          }
-                        }, window.MaerminUtils.txTypeInfo(tx.type, t).label)
-                      ),
-                      // P5-1.3: a cash row names the other portfolio of a transfer (or its note) and shows its signed amount.
-                      React.createElement('td', { className: 'mx-card-lead', style: { padding: '0.875rem 1rem' } },
-                        React.createElement('div', { style: { color: currentTheme.text, fontWeight: '600', fontSize: 'var(--text-base)' } },
-                          isCashRow(tx) ? (tx.counterPortfolioId ? (tx.type === 'transfer_out' ? '→ ' : '← ') + portfolioName(tx.counterPortfolioId) : (tx.notes || '')) : tx.symbol),
-                        React.createElement('div', { style: { color: currentTheme.textSecondary, fontSize: 'var(--text-xs)' } }, isCashRow(tx) ? window.MaerminI18n.category('cashflow') : getCategoryDisplayName(tx.category))
-                      ),
-                      React.createElement('td', { 'data-label': t.quantity || 'Qty', style: { padding: '0.875rem 1rem', color: currentTheme.text, textAlign: 'right', fontSize: 'var(--text-base)' } }, isCashRow(tx) ? '' : window.MaerminI18n.num(tx.quantity, { min: 0, max: 8 })),
-                      React.createElement('td', { 'data-label': t.price || 'Price', style: { padding: '0.875rem 1rem', color: currentTheme.text, textAlign: 'right', fontSize: 'var(--text-base)' } },
-                        !isCashRow(tx) && tx.price != null ? (privacyMode ? '••••••' : window.MaerminI18n.num(tx.price, 2)) : ''
-                      ),
-                      React.createElement('td', { className: 'mx-hide-phone', style: { padding: '0.875rem 0.5rem', color: currentTheme.textSecondary, textAlign: 'center', fontSize: 'var(--text-xs)' } },
-                        tx.currency || 'EUR'
-                      ),
-                      React.createElement('td', { 'data-label': t.total || 'Total', style: { padding: '0.875rem 1rem', color: currentTheme.text, textAlign: 'right', fontWeight: '600', fontSize: 'var(--text-base)' } },
-                        // VIS-003 masked in Privacy Mode; VIS-015 the total names its currency (USD and EUR rows mix)
-                        privacyMode ? '••••••' : (isCashRow(tx)
-                          ? (window.MaerminLedger.CASH_TYPES[tx.type].sign > 0 ? '+' : '−') + window.MaerminI18n.num(parseFloat(tx.amount) || 0, 2)
-                          : window.MaerminI18n.num(tx.quantity * tx.price, 2)) + ' ' + (tx.currency || 'EUR')
-                      ),
-                      React.createElement('td', { className: 'mx-card-actions', style: { padding: '0.5rem 0.75rem', textAlign: 'center' } },
-                        React.createElement('div', { style: { display: 'flex', gap: '0.375rem', justifyContent: 'center' } },
-                          React.createElement('button', {
-                            onClick: () => editTransaction(tx),
-                            title: t.edit || 'Edit',
-                            // Which row: nine identical "Edit" buttons said nothing to a screen reader.
-                            'aria-label': `${t.edit || 'Edit'}: ${window.MaerminUtils.txTypeInfo(tx.type, t).label} ${tx.symbolName || tx.symbol || ''}, ${String(tx.date || '').slice(0, 10)}`,
-                            style: {
-                              padding: '0.3rem 0.6rem',
-                              background: currentTheme.accentSoft,
-                              color: currentTheme.accent,
-                              border: `1px solid ${window.MaerminTokens.alpha(currentTheme.accent, 0x40)}`,
-                              borderRadius: '7px',
-                              cursor: 'pointer',
-                              fontSize: 'var(--text-xs)',
-                              fontWeight: '600'
-                            }
-                          }, '✎'),
-                          React.createElement('button', {
-                            onClick: () => setTxDeleteConfirm(tx.id),
-                            title: t.delete || 'Delete',
-                            'aria-label': `${t.delete || 'Delete'}: ${window.MaerminUtils.txTypeInfo(tx.type, t).label} ${tx.symbolName || tx.symbol || ''}, ${String(tx.date || '').slice(0, 10)}`,
-                            style: {
-                              padding: '0.3rem 0.6rem',
-                              background: 'color-mix(in srgb, var(--danger) 10%, transparent)',
-                              color: currentTheme.danger,
-                              border: `1px solid rgba(239,68,68,0.25)`,
-                              borderRadius: '4px',
-                              cursor: 'pointer',
-                              fontSize: 'var(--text-xs)'
-                            }
-                          }, '×')
-                        )
-                      )
-                    ),
-                    // Inline delete confirmation row
-                    txDeleteConfirm === tx.id && React.createElement('tr', { key: tx.id + '-confirm' },
-                      React.createElement('td', {
-                        colSpan: 8,
-                        style: {
-                          padding: '0.625rem 1rem',
-                          background: 'color-mix(in srgb, var(--danger) 8%, transparent)',
-                          borderTop: `1px solid rgba(239,68,68,0.2)`,
-                          borderBottom: `1px solid rgba(239,68,68,0.2)`
-                        }
-                      },
-                        React.createElement('div', { style: { display: 'flex', alignItems: 'center', gap: '1rem' } },
-                          React.createElement('span', { style: { color: currentTheme.danger, fontSize: 'var(--text-base)', fontWeight: '500' } },
-                            t.confirmDelete || 'Delete this transaction?'
-                          ),
-                          React.createElement('button', {
-                            onClick: () => { deleteTransaction(tx.id); setTxDeleteConfirm(null); },
-                            style: {
-                              padding: '0.3rem 0.875rem',
-                              background: currentTheme.danger,
-                              color: '#fff',
-                              border: 'none',
-                              borderRadius: '4px',
-                              cursor: 'pointer',
-                              fontSize: 'var(--text-sm)',
-                              fontWeight: '600'
-                            }
-                          }, t.delete || 'Delete'),
-                          React.createElement('button', {
-                            onClick: () => setTxDeleteConfirm(null),
-                            style: {
-                              padding: '0.3rem 0.875rem',
-                              background: currentTheme.inputBg,
-                              color: currentTheme.text,
-                              border: `1px solid ${currentTheme.cardBorder}`,
-                              borderRadius: '4px',
-                              cursor: 'pointer',
-                              fontSize: 'var(--text-sm)'
-                            }
-                          }, t.cancel || 'Cancel')
-                        )
-                      )
-                    )
-                  )
-                )
-              )
-            )
-      )
+      // B-5: type filter chips with counts (filters, never tabs)
+      React.createElement('div', { className: 'ui-chips', role: 'group', 'aria-label': __('txChipsLabel', 'Show bookings of type') },
+        GROUPS.filter((g) => g.id === 'all' || counts[g.id] > 0 || txType === g.id).map((g) => React.createElement(UIC.Chip, {
+          key: g.id, pressed: txType === g.id, count: counts[g.id], 'data-tx-chip': g.id, onClick: () => setTxType(g.id)
+        }, g.label))
+      ),
+      React.createElement('div', { className: ['ui-tx__layout', selectedTx && wide ? 'has-detail' : ''].join(' ').trim() },
+        React.createElement(UIC.Card, { variant: 'plain', className: 'ui-tx__list' },
+          React.createElement(UIC.Table, {
+            'data-testid': 'tx-table', caption: t.transactions || 'Transactions', columns: cols, rows,
+            rowKey: (tx) => tx.id,
+            rowProps: (tx) => Object.assign({
+              'data-tx-id': tx.id, 'aria-label': rowLabel(tx)
+            }, txSelected === tx.id ? { 'aria-current': 'true', className: ['is-clickable', 'is-selected'].join(' ') } : null, window.MaerminUtils.clickable(() => setTxSelected(txSelected === tx.id && wide ? null : tx.id))),
+            empty: React.createElement('div', { className: 'ui-pad' },
+              React.createElement(UIC.EmptyState, {
+                title: txSearch || txType !== 'all' ? (t.noResults || 'No results for your search.') : (t.noTransactions || 'No transactions yet.'),
+                text: txSearch || txType !== 'all' ? __('txNoMatchHint', 'Clear the search or choose another type.') : __('txEmptyHint', 'Add your first booking or import a broker export.'),
+                kind: 'empty'
+              }))
+          })
+        ),
+        selectedTx && wide && React.createElement('aside', { className: 'ui-tx__detail', 'aria-label': __('txDetailTitle', 'Booking') }, renderTxDetail(selectedTx, { pfName, typeBadge, assetName, totalText }))
+      ),
+      selectedTx && !wide && React.createElement(UIC.Modal, {
+        open: true, title: assetName(selectedTx) || __('txDetailTitle', 'Booking'), onClose: () => setTxSelected(null), 'data-testid': 'tx-detail-sheet'
+      }, renderTxDetail(selectedTx, { pfName, typeBadge, assetName, totalText, inSheet: true }))
     );
   };
+
+  // R3.3 (B-5): one booking - the record, its FIFO effect for a sale, the
+  // tax bookings of the same day, and Edit / Duplicate / Move to trash.
+  const renderTxDetail = (tx, h) => {
+    const UIC = window.MaerminComponents, I = window.MaerminI18n;
+    const money = (v, cur) => privacyMode ? '••••••' : I.num(v, 2) + ' ' + (cur || 'EUR');
+    const fact = (label, value, extra) => value === '' || value == null ? null : React.createElement('div', Object.assign({ className: 'ui-facts__row' }, extra || {}),
+      React.createElement('dt', null, label), React.createElement('dd', { className: 'num' }, value));
+    const cash = isCashRow(tx);
+    // FIFO effect of a sale: the lots it took (MaerminLedger, same as the tax report)
+    let fifo = null;
+    if (tx.type === 'sell' && window.MaerminLedger) {
+      const built = memoBy('txFifo', [transactions, exchangeRate, fxAt, corpActionsRev], () => {
+        try { return window.MaerminLedger.build(transactions, { exchangeRate, fxAt, perPortfolio: true }); } catch (e) { return null; }
+      });
+      const ds = [];
+      if (built) built.list.forEach((g) => (g.disposals || []).forEach((d) => { if (d.disposalTxId === tx.id) ds.push(d); }));
+      if (ds.length) {
+        fifo = { lots: ds.length, cost: ds.reduce((s, d) => s + d.costBasis, 0), proceeds: ds.reduce((s, d) => s + d.proceeds, 0), gain: ds.reduce((s, d) => s + d.gain, 0),
+          from: ds.map((d) => d.acquisitionDate).sort()[0], longTerm: ds.every((d) => d.longTerm) };
+      }
+    }
+    const sameDayTax = transactions.filter((x) => x.id !== tx.id && (x.type === 'tax' || x.type === 'tax_refund') && String(x.date || '').slice(0, 10) === String(tx.date || '').slice(0, 10) && (x.portfolioId || 'default') === (tx.portfolioId || 'default'));
+    const trash = () => window.MaerminUI.confirm({
+      title: t.confirmDelete || 'Delete this transaction?',
+      message: __('txTrashMsg', 'It goes to the trash for 30 days; Undo brings it back right away.'),
+      confirmLabel: t.delete || 'Delete', cancelLabel: t.cancel || 'Cancel', danger: true
+    }).then((yes) => { if (yes) { deleteTransaction(tx.id); setTxSelected(null); } });
+    return React.createElement('div', { className: ['ui-txd', h.inSheet ? 'is-sheet' : ''].join(' ').trim(), 'data-testid': 'tx-detail' },
+      !h.inSheet && React.createElement('div', { className: 'ui-txd__head' },
+        h.typeBadge(tx),
+        React.createElement('h2', { className: 'ui-txd__title' }, h.assetName(tx)),
+        React.createElement(UIC.IconButton, { size: 'sm', label: __('uiClose', 'Close'), onClick: () => setTxSelected(null), icon: React.createElement('span', { 'aria-hidden': 'true' }, '×') })),
+      h.inSheet && React.createElement('div', { className: 'ui-txd__head' }, h.typeBadge(tx)),
+      React.createElement('div', { className: ['ui-txd__total', 'num'].join(' ') }, h.totalText(tx)),
+      React.createElement('dl', { className: 'ui-facts' },
+        fact(t.date || 'Date', I.date(tx.date)),
+        fact(__('portfolio', 'Portfolio'), h.pfName(tx)),
+        !cash && fact(t.symbol || 'Symbol', tx.symbol),
+        !cash && fact(__('category', 'Category'), getCategoryDisplayName(tx.category)),
+        !cash && fact(t.quantity || 'Qty', I.num(parseFloat(tx.quantity) || 0, 4)),
+        !cash && tx.price != null && fact(t.price || 'Price', money(parseFloat(tx.price) || 0, tx.currency)),
+        parseFloat(tx.fees) > 0 && fact(__('fees', 'Fees'), money(parseFloat(tx.fees), tx.currency)),
+        parseFloat(tx.withholdingTax) > 0 && fact(__('withholdingTax', 'Withholding tax'), money(parseFloat(tx.withholdingTax), tx.currency)),
+        tx.notes && !cash && fact(__('notes', 'Notes'), tx.notes)
+      ),
+      fifo && React.createElement('section', { className: 'ui-txd__block', 'data-testid': 'tx-fifo' },
+        React.createElement('h3', null, __('txFifoTitle', 'FIFO effect of this sale')),
+        React.createElement('dl', { className: 'ui-facts' },
+          fact(__('txFifoLots', 'Lots used'), String(fifo.lots) + (fifo.from ? ' · ' + __('txFifoFrom', 'oldest from {date}', { date: I.date(fifo.from) }) : '')),
+          fact(__('colDisposedCost', 'Cost basis sold'), money(fifo.cost)),
+          fact(__('colProceeds', 'Proceeds'), money(fifo.proceeds)),
+          fact(__('colRealizedPnl', 'Realized P&L'), React.createElement('span', { className: fifo.gain > 0 ? 'tone-gain' : fifo.gain < 0 ? 'tone-loss' : '' }, (fifo.gain > 0 ? '▲ +' : fifo.gain < 0 ? '▼ ' : '') + money(fifo.gain))),
+          fifo.longTerm && fact(__('txFifoHeld', 'Holding period'), __('txFifoLong', 'over one year for every lot'))
+        )),
+      sameDayTax.length > 0 && React.createElement('section', { className: 'ui-txd__block', 'data-testid': 'tx-tax-same-day' },
+        React.createElement('h3', null, __('txSameDayTax', 'Tax bookings on the same day')),
+        React.createElement('ul', { className: 'ui-txd__list' }, sameDayTax.map((x) => React.createElement('li', { key: x.id },
+          React.createElement('button', { type: 'button', className: 'ui-link', onClick: () => setTxSelected(x.id) }, window.MaerminUtils.txTypeInfo(x.type, t).label + (x.notes ? ' · ' + x.notes : '')),
+          React.createElement('span', { className: 'num' }, h.totalText(x)))))),
+      React.createElement('div', { className: 'ui-txd__actions' },
+        React.createElement(UIC.Button, { variant: 'primary', 'data-tx-action': 'edit', onClick: () => editTransaction(tx) }, t.edit || 'Edit'),
+        React.createElement(UIC.Button, { 'data-tx-action': 'duplicate', onClick: () => duplicateTransaction(tx) }, __('txDuplicate', 'Duplicate')),
+        React.createElement(UIC.Button, { variant: 'danger', 'data-tx-action': 'trash', onClick: trash }, __('txTrash', 'Move to trash')))
+    );
+  };
+
 
   // ========== TAX VIEW ==========
   
