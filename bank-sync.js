@@ -265,7 +265,7 @@ function __(k, f, v) { return (typeof window !== 'undefined' && window.MaerminI1
     }
 
     if (!props.workerUrl || demo) {
-      return e(window.MaerminUI.EmptyState, { testid: 'bank-sync', kind: demo ? 'demo' : 'worker', title: __('bsTitle', 'Bank sync (FinTS)'), text: demo ? __('bsDemo', 'Not available in the demo.') : __('bsNeedWorker', 'Goes through your own Worker: add its URL in API Settings.') });
+      return e(window.MaerminUI.EmptyState, { testid: 'bank-sync', kind: demo ? 'demo' : 'worker', action: demo ? undefined : window.MaerminUI.workerAction(), title: __('bsTitle', 'Bank sync (FinTS)'), text: demo ? __('bsDemo', 'Not available in the demo.') : __('bsNeedWorker', 'Goes through your own Worker: add its URL in API Settings.') });
     }
 
     var connRows = st.connections.map(function (c) {

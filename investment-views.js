@@ -353,12 +353,9 @@ function DCAAnalyzerView(props) {
       )
     ),
     
-    !analysis && React.createElement('div', {
-      'data-testid': 'dca-empty',
-      style: { background: T.card, border: '1px solid ' + T.cardBorder, borderRadius: '10px', padding: '1.25rem', color: T.textSecondary, fontSize: '0.875rem', lineHeight: 1.6 }
-    }, shortInfo
+    !analysis && window.MaerminUtils.emptyState({ testid: 'dca-empty', text: shortInfo
       ? __('ivDcaShort', 'Not enough price history for {sym}: 12 purchases ({freq}) span {need} months, its prices cover {have}. Pick a shorter frequency or another holding.', { sym: sym, freq: window.MaerminI18n.freq(frequency), need: shortInfo.need, have: shortInfo.have })
-      : __('ivDcaNoData', 'No price history for a holding yet. Daily prices come through your Worker; without one, a point is recorded on every price refresh.')),
+      : __('ivDcaNoData', 'No price history for a holding yet. Daily prices come through your Worker; without one, a point is recorded on every price refresh.') }),
 
     analysis && React.createElement(AnalysisCard, {
       title: __('ivStratComp', 'Strategy Comparison'),

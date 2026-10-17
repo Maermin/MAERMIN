@@ -214,9 +214,9 @@ function RiskAnalyticsViewV2(props) {
     return React.createElement('div', { style: { padding: '1.5rem' } },
       riskHeader(),
       renderDimensions(),
-      React.createElement('div', { style: { background: theme.card, padding: '1.25rem', borderRadius: '12px', border: '1px solid ' + theme.cardBorder, color: theme.textSecondary, fontSize: '0.875rem' } },
+      window.MaerminUtils.emptyState({ testid: 'risk-need-history', text:
         (t.riskNeedsHistory || 'Refresh prices a few times to unlock volatility, Value-at-Risk and drawdown — these need a short price history.') +
-          (typeof riskObservations !== 'undefined' ? ' ' + __('rkObsSoFar', '({n} of {min} observations so far)', { n: riskObservations(priceHistory), min: MIN_RISK_OBSERVATIONS }) : ''))
+          (typeof riskObservations !== 'undefined' ? ' ' + __('rkObsSoFar', '({n} of {min} observations so far)', { n: riskObservations(priceHistory), min: MIN_RISK_OBSERVATIONS }) : '') })
     );
   }
 

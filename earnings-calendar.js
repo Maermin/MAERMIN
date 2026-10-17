@@ -101,7 +101,7 @@ function __(k, f, v) { return (typeof window !== 'undefined' && window.MaerminI1
     var title = h('div', { style: { fontWeight: 800, color: th.text || '#e9edf4', marginBottom: '0.75rem' } }, __('ecTitle', 'Earnings Calendar'), ' ', window.MaerminDemoFixtures && window.MaerminDemoFixtures.badge(React, th, workerUrl));
 
     if (!workerUrl || workerUrl.length < 5) {
-      return card([title, h('div', { key: 'm', style: { fontSize: '0.8rem', color: th.textSecondary || '#8b94a7' } }, __('ecNeedWorker', 'Add a Worker URL in API Settings to see upcoming earnings dates for your holdings.'))]);
+      return card([title, h('div', { key: 'm' }, window.MaerminUtils.workerNote(__('ecNeedWorker', 'Add a Worker URL in API Settings to see upcoming earnings dates for your holdings.')))]);
     }
     if (state.unsupported) {
       return card([title, h('div', { key: 'm', style: { fontSize: '0.8rem', color: th.textSecondary || '#8b94a7' } }, __('ecUnsupported', 'Your Worker does not support earnings yet. Re-deploy the latest cf-worker/worker.js (action=earnings).'))]);

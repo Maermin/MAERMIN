@@ -286,7 +286,7 @@ function __(k, f, v) { return (typeof window !== 'undefined' && window.MaerminI1
     } else if (!hasUsd) {
       body = e('div', { style: { color: dim, fontSize: '0.85rem' } }, __('fxaAllEur', 'All positions are EUR-denominated - exchange rates contribute nothing to your returns.'));
     } else if (!workerBase) {
-      body = e('div', { style: { color: dim, fontSize: '0.85rem' } }, __('fxaNeedWorker', 'Add a Worker URL in API Settings to load the EUR/USD history for the FX decomposition.'));
+      body = window.MaerminUtils.workerNote(__('fxaNeedWorker', 'Add a Worker URL in API Settings to load the EUR/USD history for the FX decomposition.'));
     } else if (loading) {
       body = e('div', { style: { color: dim, fontSize: '0.85rem' } }, __('fxaLoading', 'Loading EUR/USD history...'));
     } else if (err) {

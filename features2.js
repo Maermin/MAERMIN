@@ -514,21 +514,15 @@ function RebalancingView({ portfolio, prices, theme, formatPrice, getCurrencySym
     }, '⛯ ', (t.rebalanceByTagHint || 'Rebalance by tag instead → Tags view')) : null,
 
     // No targets yet: nothing to plan until the user sets them.
-    noTargets && !editing && React.createElement('div', { 'data-testid': 'rb-no-targets', style: card },
-      React.createElement('div', { style: { color: theme.text, fontWeight: 700, marginBottom: '0.4rem' } }, __('rbNoTargetsTitle', 'No target allocation yet')),
-      React.createElement('p', { style: { ...small, fontSize: '0.85rem', margin: '0 0 1rem', lineHeight: 1.55 } },
-        __('rbNoTargetsText', 'Rebalancing compares your holdings with target weights that you choose. Nothing is suggested until you set them.')),
-      React.createElement('div', { style: { display: 'flex', gap: '0.5rem', flexWrap: 'wrap' } },
-        holdings.length > 0 && React.createElement('button', {
-          type: 'button', 'data-rb-use-current': true, onClick: useCurrent,
-          style: { padding: '0.55rem 1rem', fontSize: '0.85rem', fontWeight: 600, borderRadius: '8px', cursor: 'pointer', border: 'none',
-            background: theme.accentFill || theme.accent, color: '#ffffff' }
-        }, __('rbUseCurrent', 'Use my current allocation')),
-        React.createElement('button', {
-          type: 'button', 'data-rb-set-targets': true, onClick: () => setEditing(true),
-          style: { padding: '0.55rem 1rem', fontSize: '0.85rem', fontWeight: 600, borderRadius: '8px', cursor: 'pointer',
-            background: 'transparent', color: theme.text, border: `1px solid ${theme.cardBorder}` }
-        }, __('rbSetTargets', 'Set targets')))),
+    noTargets && !editing && window.MaerminUtils.emptyState({
+      testid: 'rb-no-targets',
+      title: __('rbNoTargetsTitle', 'No target allocation yet'),
+      text: __('rbNoTargetsText', 'Rebalancing compares your holdings with target weights that you choose. Nothing is suggested until you set them.'),
+      actions: [
+        holdings.length > 0 && { label: __('rbUseCurrent', 'Use my current allocation'), onClick: useCurrent, variant: 'primary', props: { 'data-rb-use-current': true } },
+        { label: __('rbSetTargets', 'Set targets'), onClick: () => setEditing(true), props: { 'data-rb-set-targets': true } }
+      ]
+    }),
 
     // Mode + new money
     !noTargets && React.createElement('div', { style: card },

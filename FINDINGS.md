@@ -17,7 +17,7 @@ This run found 4 there, all Low, all fixed in #184. SEC-009 stays open by the ow
 | Critical | 0 |
 | High | 0 |
 | Medium | 0 |
-| Low | 4 |
+| Low | 2 |
 
 Severity: **Critical** = wrong money or tax figures in a realistic case, or data loss ·
 **High** = a core feature is broken or misleading · **Medium** = real friction, or wrong
@@ -35,11 +35,3 @@ in an edge case · **Low** = polish.
 ### O-3 Type sizes are still inline
 - **Where:** 49 distinct inline font sizes, 1,577 uses. The type tokens (`--text-xs…xl`, `MaerminUI.tokens.text`, #186) are used by the shared components only.
 - **Fix:** move views to the type scale when they are next touched. A view-by-view sweep would be a large diff with visual risk.
-
-### O-4 Only the Worker-gated cards use the shared empty state
-- **Where:** `MaerminUI.EmptyState` (#187) is used by Crypto wallets, Bank sync and Aggregators. Other views (correlation, DCA, risk, news, rebalancing) still word and style their own empty and loading states.
-- **Fix:** switch them one by one and keep their `data-testid`s.
-
-### O-5 "Needs your Worker" has no button to API Settings
-- **Where:** the gated empty states say "add its URL in API Settings" but offer no action. The app's own `open-api-settings` action lives inside the data-quality dispatcher (`renderer.js`) and views cannot reach it.
-- **Fix:** a small event (for example `maermin:open-api-settings`) that the renderer listens to; `EmptyState` already takes an `action`.

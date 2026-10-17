@@ -133,7 +133,7 @@ function __(k, f, v) { return (typeof window !== 'undefined' && window.MaerminI1
         __('cmIntro', 'Realised gain in {y} and the open (unrealised) gain under each method. Together they are the same under every method; the method only moves gain between years. Your tax report uses FIFO.', { y: year }),
         res.perWallet ? ' ' + __('cmWallet', 'Crypto: FIFO per wallet (portfolio), as set in the tax settings.') : '',
         res.depots.length && R && R.depotLabel ? ' ' + R.depotLabel(res.depots, props.portfolios) + '.' : ''),
-      !res.rows.length ? e('div', { 'data-testid': 'cm-empty', style: { color: dim, fontSize: '0.82rem' } }, __('cmEmpty', 'No holdings or sales to compare.')) :
+      !res.rows.length ? window.MaerminUtils.emptyState({ compact: true, testid: 'cm-empty', text: __('cmEmpty', 'No holdings or sales to compare.') }) :
       e('div', { style: { overflowX: 'auto' } },
         e('table', { 'data-testid': 'cm-table', style: { width: '100%', borderCollapse: 'collapse' } },
           e('thead', null, e('tr', null,

@@ -232,7 +232,7 @@ function __(k, f, v) { return (typeof window !== 'undefined' && window.MaerminI1
       e('p', { style: { color: dim, fontSize: '0.8rem', margin: '0 0 0.75rem', lineHeight: 1.5 } },
         __('vfIntro', 'What your funds are expected to trigger for {y}, deemed received on {date}. The bank debits the tax then, so the cash has to be on the clearing account. Basiszins {rate}.',
           { y: fc.year, date: dateText, rate: I18N.pct(fc.basiszins * 100, 2) })),
-      !fc.rows.length ? e('div', { 'data-testid': 'vf-empty', style: { color: dim, fontSize: '0.82rem' } }, __('vfEmpty', 'No funds held at the end of {y}.', { y: fc.year })) :
+      !fc.rows.length ? window.MaerminUtils.emptyState({ compact: true, testid: 'vf-empty', text: __('vfEmpty', 'No funds held at the end of {y}.', { y: fc.year }) }) :
       e('div', null,
         e('div', { style: { overflowX: 'auto' } },
           e('table', { 'data-testid': 'vf-table', style: { width: '100%', borderCollapse: 'collapse' } },
