@@ -2372,3 +2372,18 @@ html[data-theme="contrast"] .ui-map__tile { border: 1px solid var(--border-stron
   .ui-tx__tools { width: 100%; }
   .ui-tx__tools > * { flex: 1 1 140px; }
 }
+
+/* R3.4 Import / Export (Phase 6 B-6) and the first-run card */
+.ui-actions { display: flex; gap: var(--space-2); flex-wrap: wrap; align-items: center; margin-top: var(--space-3); }
+.ui-btn__hint { font-weight: 400; opacity: 0.85; font-size: var(--type-caption); }
+.ui-note { margin: var(--space-3) 0 0; color: var(--text-dim); font-size: var(--type-caption); line-height: 1.5; }
+.ui-textarea { width: 100%; height: auto; min-height: 140px; padding: var(--space-3); font-family: var(--mono, ui-monospace, monospace); font-size: var(--type-caption); resize: vertical; }
+.ui-section-switch--flush { margin: 0; }
+.ui-first-run .ui-card__body { padding: var(--space-6); text-align: center; display: flex; flex-direction: column; align-items: center; gap: var(--space-2); }
+.ui-first-run__title { margin: 0; font-size: var(--type-heading); font-weight: 600; color: var(--text); }
+.ui-first-run .ui-actions { justify-content: center; }
+
+/* R3.5 Dividends: the year as the answer, then sections and actions */
+.ui-div-tools { display: flex; gap: var(--space-2); flex-wrap: wrap; align-items: center; }
+.ui-div-tools__spacer { flex: 1; }
+.ui-div-body { display: flex; flex-direction: column; gap: var(--space-5); min-width: 0; }

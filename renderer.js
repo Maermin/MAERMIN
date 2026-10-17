@@ -2873,7 +2873,8 @@ function InvestmentTracker() {
   const DataManagementView = ({ transactions, setTransactions, createBackup, exportData, theme, t, addToast, formatPrice, initialSection }) => {
     const [importText, setImportText] = React.useState('');
     const [importing, setImporting]   = React.useState(false);
-    const [section, setSection]       = React.useState(initialSection || 'export'); // 'export' | 'import' | 'broker'
+    // Phase 6 B-6: opens on Broker import (the common task first)
+    const [section, setSection]       = React.useState(initialSection || 'broker'); // 'broker' | 'import' | 'export' | 'steam'
     // The view keeps its state now (StableViews): a deep link still switches the tab.
     React.useEffect(() => { if (initialSection) setSection(initialSection); }, [initialSection]);
 
@@ -2938,19 +2939,20 @@ function InvestmentTracker() {
       input.click();
     };
 
-    return React.createElement('div', { style: { padding: '1.5rem' } },
-      React.createElement('h2', { style: { color: theme.text, fontSize: 'var(--text-title-lg)', fontWeight: '800', marginBottom: '0.25rem' } }, t.dataManagement || 'Data Management'),
-      React.createElement('p', { style: { color: theme.textSecondary, fontSize: 'var(--text-base)', marginBottom: '1.5rem' } },
+    // R3.4: the view frame; the title is in the page header
+    const UIC = window.MaerminComponents;
+    return React.createElement('div', { className: 'ui-view' },
+      React.createElement('p', { className: 'ui-view__lead' },
         __('dmIntro', 'Export, import, backup your data or use the Broker Import Wizard to import from supported brokers.')
       ),
 
       // Sections (R2.2, B-3): a segmented control, a select on phones
       React.createElement(window.MaerminComponents.SectionSwitch, {
-        label: t.dataManagement || 'Data Management', value: section, onChange: setSection, className: 'ui-section-switch--view', 'data-testid': 'dm-sections',
+        label: t.dataManagement || 'Data Management', value: section, onChange: setSection, className: 'ui-section-switch--flush', 'data-testid': 'dm-sections',
         options: [
-          { value: 'export', label: __('dmExportBackup', 'Export & Backup') },
+          { value: 'broker', label: t.brokerImport || 'Broker Import' },
           { value: 'import', label: __('dmManualImport', 'Manual Import') },
-          { value: 'broker', label: t.brokerImport || 'Broker Import' }
+          { value: 'export', label: __('dmExportBackup', 'Export & Backup') }
         ].concat(window.MaerminSteamImport ? [{ value: 'steam', label: __('stTab', 'Steam inventory') }] : [])
       }),
 
@@ -2965,63 +2967,34 @@ function InvestmentTracker() {
       }),
 
       // ── Export & Backup ──────────────────────────────────────────────────
-      section === 'export' && React.createElement('div', { style: { background: theme.card, border: `1px solid ${theme.cardBorder}`, borderRadius: '12px', padding: '1.5rem' } },
-        React.createElement('div', { style: { color: theme.text, fontWeight: '700', marginBottom: '0.375rem' } }, __('dmExportBackup', 'Export & Backup')),
-        React.createElement('p', { style: { color: theme.textSecondary, fontSize: 'var(--text-sm)', marginBottom: '1.25rem' } },
-          __('dmTxInDb', '{n} {n:transaction|transactions} in database.', { n: transactions.length })
-        ),
-        React.createElement('div', { style: { display: 'flex', gap: '0.75rem', flexWrap: 'wrap' } },
-          React.createElement('button', {
-            onClick: createBackup,
-            style: { padding: '0.625rem 1.25rem', background: theme.accentFill, color: 'var(--on-accent)', border: 'none', borderRadius: '8px', cursor: 'pointer', fontWeight: '600', fontSize: 'var(--text-base)', display: 'flex', alignItems: 'center', gap: '0.5rem' }
-          }, __('dmJsonBackup', '↓ JSON Backup'),
-            React.createElement('span', { style: { fontSize: 'var(--text-xs)', opacity: 0.8, fontWeight: '400' } }, __('dmFullRestore', '— full restore'))
-          ),
-          React.createElement('button', {
-            onClick: exportData,
-            style: { padding: '0.625rem 1.25rem', background: theme.inputBg, color: theme.text, border: `1px solid ${theme.cardBorder}`, borderRadius: '8px', cursor: 'pointer', fontSize: 'var(--text-base)', display: 'flex', alignItems: 'center', gap: '0.5rem' }
-          }, __('dmExportCsv', '↑ Export CSV'),
-            React.createElement('span', { style: { fontSize: 'var(--text-xs)', color: theme.textSecondary, fontWeight: '400' } }, __('dmSpreadsheet', '— spreadsheet'))
-          ),
+      section === 'export' && React.createElement(UIC.Card, { title: __('dmExportBackup', 'Export & Backup'), subtitle: __('dmTxInDb', '{n} {n:transaction|transactions} in database.', { n: transactions.length }) },
+        React.createElement('div', { className: 'ui-actions' },
+          React.createElement(UIC.Button, { variant: 'primary', onClick: createBackup }, __('dmJsonBackup', '↓ JSON Backup'), ' ', React.createElement('span', { className: 'ui-btn__hint' }, __('dmFullRestore', '— full restore'))),
+          React.createElement(UIC.Button, { onClick: exportData }, __('dmExportCsv', '↑ Export CSV'), ' ', React.createElement('span', { className: 'ui-btn__hint' }, __('dmSpreadsheet', '— spreadsheet'))),
           // Phase 3: restoring used to mean opening the file and pasting it
           // into Manual Import. Same confirm-and-restore path as pasting.
-          React.createElement('button', {
-            type: 'button', 'data-testid': 'restore-from-file', disabled: importing,
-            onClick: () => pickTextFile('.json,application/json', (txt) => handleImport(txt)),
-            style: { padding: '0.625rem 1.25rem', background: theme.inputBg, color: theme.text, border: `1px solid ${theme.cardBorder}`, borderRadius: '8px', cursor: 'pointer', fontSize: 'var(--text-base)' }
-          }, __('dmRestoreFile', '↺ Restore from file…'))
+          React.createElement(UIC.Button, { 'data-testid': 'restore-from-file', disabled: importing,
+            onClick: () => pickTextFile('.json,application/json', (txt) => handleImport(txt)) }, __('dmRestoreFile', '↺ Restore from file…'))
         ),
-        React.createElement('p', { style: { color: theme.textSecondary, fontSize: 'var(--text-xs)', margin: '0.9rem 0 0', lineHeight: 1.5 } },
+        React.createElement('p', { className: 'ui-note' },
           __('dmBackupHint', 'The JSON backup is not encrypted. For an encrypted copy use the account menu → Backup vault (encrypted).'))
       ),
 
       // ── Manual Import ────────────────────────────────────────────────────
-      section === 'import' && React.createElement('div', { style: { background: theme.card, border: `1px solid ${theme.cardBorder}`, borderRadius: '12px', padding: '1.5rem' } },
-        React.createElement('div', { style: { color: theme.text, fontWeight: '700', marginBottom: '0.375rem' } }, __('dmManualImport', 'Manual Import')),
-        React.createElement('p', { style: { color: theme.textSecondary, fontSize: 'var(--text-sm)', marginBottom: '1rem' } },
-          __('dmManualHint', 'Paste a JSON backup or CSV export. A full JSON backup restores all your data and reloads; a CSV/transaction list is added without replacing existing data.')
-        ),
+      section === 'import' && React.createElement(UIC.Card, { title: __('dmManualImport', 'Manual Import'),
+        subtitle: __('dmManualHint', 'Paste a JSON backup or CSV export. A full JSON backup restores all your data and reloads; a CSV/transaction list is added without replacing existing data.') },
         React.createElement('textarea', {
           value: importText,
           onChange: e => setImportText(e.target.value),
           'aria-label': __('dmManualImport', 'Manual Import'),
           placeholder: '[{"type":"buy","category":"crypto","symbol":"bitcoin","quantity":0.5,"price":45000,"date":"2024-01-15"}]',
-          rows: 7,
-          style: { width: '100%', boxSizing: 'border-box', padding: '0.75rem', background: theme.inputBg, border: `1px solid ${theme.inputBorder}`, borderRadius: '8px', color: theme.text, fontSize: 'var(--text-sm)', fontFamily: 'monospace', resize: 'vertical', marginBottom: '0.875rem' }
+          rows: 7, className: ['ui-input', 'ui-textarea'].join(' ')
         }),
-        React.createElement('div', { style: { display: 'flex', gap: '0.75rem', alignItems: 'center' } },
-          React.createElement('button', {
-            onClick: handleImport, disabled: importing || !importText.trim(),
-            style: { padding: '0.625rem 1.25rem', background: importing || !importText.trim() ? theme.inputBg : theme.accentFill, color: importing || !importText.trim() ? theme.textSecondary : 'var(--on-accent)', border: 'none', borderRadius: '8px', cursor: importing || !importText.trim() ? 'not-allowed' : 'pointer', fontWeight: '600', fontSize: 'var(--text-base)' }
-          }, importing ? __('importing', '◎ Importing...') : __('importBtn', '↑ Import')),
-          React.createElement('button', {
-            type: 'button', onClick: () => pickTextFile('.json,.csv,application/json,text/csv', setImportText),
-            style: { padding: '0.625rem 1rem', background: theme.inputBg, color: theme.text, border: `1px solid ${theme.cardBorder}`, borderRadius: '8px', cursor: 'pointer', fontSize: 'var(--text-base)' }
-          }, __('dmChooseFile', 'Choose file…')),
-          importText.trim() && React.createElement('button', {
-            onClick: () => setImportText(''),
-            style: { padding: '0.625rem 1rem', background: 'none', color: theme.textSecondary, border: 'none', cursor: 'pointer', fontSize: 'var(--text-base)' }
-          }, __('clearBtn', '✕ Clear'))
+        React.createElement('div', { className: 'ui-actions' },
+          React.createElement(UIC.Button, { variant: 'primary', onClick: () => handleImport(), disabled: importing || !importText.trim() },
+            importing ? __('importing', '◎ Importing...') : __('importBtn', '↑ Import')),
+          React.createElement(UIC.Button, { onClick: () => pickTextFile('.json,.csv,application/json,text/csv', setImportText) }, __('dmChooseFile', 'Choose file…')),
+          importText.trim() && React.createElement(UIC.Button, { variant: 'quiet', onClick: () => setImportText('') }, __('clearBtn', '✕ Clear'))
         )
       ),
 
@@ -3658,8 +3631,8 @@ function InvestmentTracker() {
         return React.createElement(StableViews.DataManagementView, {
           transactions, setTransactions, createBackup, exportData,
           theme: currentTheme, t, addToast, formatPrice,
-          // Broker-Import nav entry deep-links straight to the wizard tab.
-          initialSection: activeView === 'broker-import' ? 'broker' : 'export'
+          // Phase 6 B-6: both open on the Broker import (the alias kept its deep link)
+          initialSection: 'broker'
         });
 
       case 'privacy':
@@ -4481,7 +4454,8 @@ function InvestmentTracker() {
           }, `$→€ ${window.MaerminI18n.num(fxInfo.rate, 3)}`),
           // Sample data for a first run (hidden once the vault has its own transactions).
           !demoMode && transactions.length === 0 && React.createElement(UIC.Button, { size: 'sm', onClick: enterDemo, title: __('demoTryTitle', 'Load sample data to explore the app instantly — no setup') }, __('demoTry', '★ Try demo')),
-          React.createElement(UIC.Button, { size: 'sm', onClick: () => setShowImportModal(true) }, __('importBtn', '↑ Import')),
+          // Phase 6 B-6: Import leads to Import / Export (Broker import); the paste dialog stays on "i" and the palette
+          React.createElement(UIC.Button, { size: 'sm', 'data-testid': 'ov-import', onClick: () => setActiveView('data') }, __('importBtn', '↑ Import')),
           React.createElement(UIC.Button, { size: 'sm', onClick: fetchPrices, disabled: loading }, loading ? __('refreshing', '◎ Refreshing...') : __('refreshPrices', '↻ Refresh prices')),
           portfolios.length > 1 && React.createElement(UIC.Button, { size: 'sm', variant: 'quiet', onClick: () => setActiveView('portfolios') }, __('managePortfolios', 'Manage portfolios →'))
         )
@@ -4514,15 +4488,15 @@ function InvestmentTracker() {
         React.createElement('button', { onClick: dismissRecoveryNudge, style: { padding: '0.5rem 0.75rem', background: 'transparent', color: currentTheme.textSecondary, border: `1px solid ${currentTheme.cardBorder}`, borderRadius: '6px', cursor: 'pointer', fontSize: 'var(--text-sm)' } }, __('dismiss', 'Dismiss'))
       ),
 
-      // Onboarding
-      stats.totalPositions === 0 && React.createElement('div', { style: { background: 'linear-gradient(135deg,color-mix(in srgb, var(--info) 10%, transparent),rgba(139,124,255,0.1))', border: '1px solid rgba(139,124,255,0.3)', borderRadius: '12px', padding: '2rem', marginBottom: '2rem', textAlign: 'center' } },
-        React.createElement('div', { style: { fontSize: 'var(--text-2xl)', marginBottom: '0.75rem', color: 'rgba(139,124,255,0.5)', fontWeight: '300' } }, '↗'),
-        React.createElement('h3', { style: { color: currentTheme.text, fontSize: 'var(--text-lg)', fontWeight: '600', marginBottom: '0.5rem' } }, t.welcomeTitle || 'Welcome to MAERMIN'),
-        React.createElement('p', { style: { color: currentTheme.textSecondary, fontSize: 'var(--text-base)', marginBottom: '1rem', lineHeight: '1.6' } }, t.welcomeHint || 'Start by adding your first transaction.'),
-        React.createElement('div', { style: { display: 'flex', gap: '0.75rem', justifyContent: 'center', flexWrap: 'wrap' } },
-          window.MaerminOnboarding && window.MaerminOnboarding.Wizard && React.createElement('button', { onClick: openOnboarding, style: { padding: '0.625rem 1.25rem', background: (currentTheme.accentFill || currentTheme.accent), color: 'var(--on-accent)', border: 'none', borderRadius: '8px', cursor: 'pointer', fontWeight: '700', fontSize: 'var(--text-base)' } }, __('guidedSetup', 'Guided setup')),
-          React.createElement('button', { onClick: () => openTransactionModal(), style: { padding: '0.625rem 1.25rem', background: currentTheme.inputBg, color: currentTheme.text, border: `1px solid ${currentTheme.cardBorder}`, borderRadius: '8px', cursor: 'pointer', fontWeight: '600', fontSize: 'var(--text-base)' } }, '+ ' + (t.addTransaction || 'Add Transaction')),
-          React.createElement('button', { onClick: () => setShowImportModal(true), style: { padding: '0.625rem 1.25rem', background: currentTheme.inputBg, color: currentTheme.text, border: `1px solid ${currentTheme.cardBorder}`, borderRadius: '8px', cursor: 'pointer', fontSize: 'var(--text-base)' } }, t.importData || 'Import Data')
+      // First run (R3.4): one card with the three ways in; Import leads to
+      // Import / Export (Phase 6 B-6), the paste dialog stays on "i".
+      stats.totalPositions === 0 && React.createElement(UIC.Card, { className: 'ui-first-run', 'data-testid': 'first-run' },
+        React.createElement('h3', { className: 'ui-first-run__title' }, t.welcomeTitle || 'Welcome to MAERMIN'),
+        React.createElement('p', { className: 'ui-muted' }, t.welcomeHint || 'Start by adding your first transaction.'),
+        React.createElement('div', { className: 'ui-actions' },
+          window.MaerminOnboarding && window.MaerminOnboarding.Wizard && React.createElement(UIC.Button, { variant: 'primary', onClick: openOnboarding }, __('guidedSetup', 'Guided setup')),
+          React.createElement(UIC.Button, { onClick: () => openTransactionModal() }, '+ ' + (t.addTransaction || 'Add Transaction')),
+          React.createElement(UIC.Button, { onClick: () => setActiveView('data') }, t.importData || 'Import Data')
         )
       ),
 
