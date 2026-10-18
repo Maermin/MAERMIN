@@ -226,10 +226,8 @@ function __(k, f, v) { return (typeof window !== 'undefined' && window.MaerminI1
     var e = React.createElement;
     var theme = props.theme || {};
     var t = props.t || ((typeof window !== 'undefined' && window.MaerminI18n) ? window.MaerminI18n.dict() : {});
-    var text = theme.text || '#e6edf3', dim = theme.textSecondary || '#9aa4b2';
-    var border = theme.cardBorder || 'rgba(255,255,255,0.1)';
-    var inputBg = theme.inputBg || '#0f172a', card = theme.card || theme.cardBg || '#10151f';
-    var good = theme.success || '#22c55e', warn = theme.warning || '#f59e0b', bad = theme.danger || theme.negative || '#ef4444';
+    // R4.6: a Card with Stat tiles and the shared Table (phone rows)
+    var UIC = window.MaerminComponents;
     var fmt = props.formatPrice || function (v) { return window.MaerminI18n.num(v, 2); };
     var sym = (props.getCurrencySymbol && props.getCurrencySymbol()) || '€';
     var rate = props.exchangeRate || 0;
@@ -237,47 +235,41 @@ function __(k, f, v) { return (typeof window !== 'undefined' && window.MaerminI1
     var positions = buildOptionPositions(transactions, { exchangeRate: rate });
     var stats = computeStats(positions, props.prices || {}, { exchangeRate: rate });
 
-    var pnlColor = function (v) { return v == null ? dim : (v >= 0 ? good : bad); };
-    var signed = function (v) { return v == null ? '-' : ((v >= 0 ? '+' : '-') + fmt(Math.abs(v)) + ' ' + sym); };
+    var signed = function (v) { return v == null ? '-' : ((v >= 0 ? '+' : '−') + fmt(Math.abs(v)) + ' ' + sym); };
+    var tone = function (v) { return v == null ? null : UIC.toneOf(v); };
 
-    function kpi(label, value, color) {
-      return e('div', { key: label, style: { background: inputBg, border: '1px solid ' + border, borderRadius: '10px', padding: '0.7rem 0.9rem', minWidth: '120px' } },
-        e('div', { style: { color: dim, fontSize: 'var(--text-2xs)', textTransform: 'uppercase', letterSpacing: '0.04em' } }, label),
-        e('div', { style: { color: color || text, fontSize: 'var(--text-lg)', fontWeight: '700', marginTop: '0.15rem' } }, value));
+    function kpi(label, value, tn) {
+      return e(UIC.Stat, { key: label, className: 'ui-tile', label: label, value: value, tone: tn || null });
     }
-
-    var header = [__('opContract', 'Contract'), __('opSide', 'Side'), __('opContracts', 'Contracts'), __('opNetPremium', 'Net premium'), __('opExpiry', 'Expiry'), __('opMoneyness', 'Moneyness'), __('opIntrinsic', 'Intrinsic'), __('opEstPnl', 'Est. P&L')];
-    var bodyRows = stats.rows.map(function (r) {
+    var sideLabel = function (p) { return ({ long: 'Long', short: 'Short', flat: __('opFlat', 'flat') })[p.side] || p.side; };
+    var expiry = function (r) {
       var p = r.position, m = r.metrics;
-      var sideColor = p.side === 'long' ? good : (p.side === 'short' ? warn : dim);
-      var expiryTxt = m.status === 'closed' ? __('opClosed', 'closed')
-        : (m.status === 'expired' ? __('opExpired', 'expired') : (window.MaerminI18n.date(p.expiry) + ' (' + __('retDays', '{n} d', { n: m.daysToExpiry }) + ')'));
-      return e('tr', { key: p.key, style: { borderTop: '1px solid ' + border, opacity: m.status === 'open' ? 1 : 0.65 } },
-        e('td', { style: { padding: '0.45rem 0.5rem', color: text, fontSize: 'var(--text-sm)', fontWeight: 600 } }, p.symbol),
-        e('td', { style: { padding: '0.45rem 0.5rem', color: sideColor, fontSize: 'var(--text-xs)', fontWeight: 700, textTransform: 'uppercase' } }, ({ long: 'Long', short: 'Short', flat: __('opFlat', 'flat') })[p.side] || p.side),
-        e('td', { style: { padding: '0.45rem 0.5rem', textAlign: 'right', color: text, fontSize: 'var(--text-xs)' } }, String(Math.abs(p.netContracts)) + ' × ' + p.contractSize),
-        e('td', { style: { padding: '0.45rem 0.5rem', textAlign: 'right', color: pnlColor(p.netPremiumEUR), fontSize: 'var(--text-xs)' } }, signed(p.netPremiumEUR)),
-        e('td', { style: { padding: '0.45rem 0.5rem', textAlign: 'right', color: m.status === 'open' && m.daysToExpiry <= 30 ? warn : dim, fontSize: 'var(--text-xs)', whiteSpace: 'nowrap' } }, expiryTxt),
-        e('td', { style: { padding: '0.45rem 0.5rem', textAlign: 'right', color: m.moneyness === 'ITM' ? good : dim, fontSize: 'var(--text-xs)' } }, m.moneyness || '-'),
-        e('td', { style: { padding: '0.45rem 0.5rem', textAlign: 'right', color: dim, fontSize: 'var(--text-xs)' } }, m.intrinsicValueEUR != null ? fmt(m.intrinsicValueEUR) + ' ' + sym : '-'),
-        e('td', { style: { padding: '0.45rem 0.5rem', textAlign: 'right', color: pnlColor(m.estPnlEUR), fontSize: 'var(--text-xs)', fontWeight: 700 } }, signed(m.estPnlEUR)));
-    });
+      if (m.status === 'closed') return e(UIC.Badge, null, __('opClosed', 'closed'));
+      if (m.status === 'expired') return e(UIC.Badge, null, __('opExpired', 'expired'));
+      var txt = window.MaerminI18n.date(p.expiry) + ' (' + __('retDays', '{n} d', { n: m.daysToExpiry }) + ')';
+      return m.daysToExpiry <= 30 ? e(UIC.Badge, { tone: 'warning' }, txt) : txt;
+    };
+    var pnl = function (v) { return e('span', { className: v == null ? '' : 'tone-' + UIC.toneOf(v) }, signed(v)); };
+    var columns = [
+      { key: 'contract', label: __('opContract', 'Contract'), phone: 'title', render: function (r) { return e('b', null, r.position.symbol); } },
+      { key: 'side', label: __('opSide', 'Side'), phone: 'meta', render: function (r) { return e(UIC.Badge, null, sideLabel(r.position)); } },
+      { key: 'contracts', label: __('opContracts', 'Contracts'), align: 'right', phone: 'meta', render: function (r) { return String(Math.abs(r.position.netContracts)) + ' × ' + r.position.contractSize; } },
+      { key: 'premium', label: __('opNetPremium', 'Net premium'), align: 'right', priority: 2, render: function (r) { return pnl(r.position.netPremiumEUR); } },
+      { key: 'expiry', label: __('opExpiry', 'Expiry'), align: 'right', phone: 'meta', render: expiry },
+      { key: 'money', label: __('opMoneyness', 'Moneyness'), align: 'right', priority: 2, render: function (r) { return r.metrics.moneyness || '-'; } },
+      { key: 'intrinsic', label: __('opIntrinsic', 'Intrinsic'), align: 'right', priority: 3, render: function (r) { return r.metrics.intrinsicValueEUR != null ? fmt(r.metrics.intrinsicValueEUR) + ' ' + sym : '-'; } },
+      { key: 'pnl', label: __('opEstPnl', 'Est. P&L'), align: 'right', phone: 'value', render: function (r) { return e('b', null, pnl(r.metrics.estPnlEUR)); } }
+    ];
 
-    return e('div', { style: { background: card, border: '1px solid ' + border, borderRadius: '14px', padding: '1.25rem', marginBottom: '1.5rem' } },
-      e('h3', { style: { color: text, fontSize: 'var(--text-body)', fontWeight: 700, margin: '0 0 0.9rem' } }, t.optionsTitle || 'Options'),
-      e('div', { style: { display: 'flex', flexWrap: 'wrap', gap: '0.6rem', marginBottom: '0.9rem' } },
+    return e(UIC.Card, { className: 'ui-options', headingLevel: 'h3', title: t.optionsTitle || 'Options', 'data-testid': 'options-panel' },
+      e('div', { className: 'ui-tiles' },
         kpi(__('retOpenPositions', 'Open positions'), String(stats.openCount) + ' (' + __('opNContracts', '{n} {n:contract|contracts}', { n: stats.openContracts }) + ')'),
-        kpi(__('opNetPremium', 'Net premium'), signed(stats.netPremiumEUR), pnlColor(stats.netPremiumEUR)),
+        kpi(__('opNetPremium', 'Net premium'), signed(stats.netPremiumEUR), tone(stats.netPremiumEUR)),
         kpi(__('opIntrinsicValue', 'Intrinsic value'), fmt(stats.intrinsicValueEUR) + ' ' + sym),
-        kpi(__('opEstPnl', 'Est. P&L'), signed(stats.estPnlEUR), pnlColor(stats.estPnlEUR)),
-        stats.expiringSoon.length ? kpi(__('opExpiring30', 'Expiring in 30d'), String(stats.expiringSoon.length), warn) : null),
-      e('div', { style: { overflowX: 'auto' } },
-        e('table', { style: { width: '100%', borderCollapse: 'collapse' } },
-          e('thead', null, e('tr', null, header.map(function (h, i) {
-            return e('th', { key: h, style: { textAlign: i < 2 ? 'left' : 'right', padding: '0.4rem 0.5rem', color: dim, fontSize: 'var(--text-2xs)', textTransform: 'uppercase', letterSpacing: '0.04em' } }, h);
-          }))),
-          e('tbody', null, bodyRows))),
-      e('div', { style: { color: dim, fontSize: 'var(--text-2xs)', marginTop: '0.7rem', lineHeight: 1.5 } },
+        kpi(__('opEstPnl', 'Est. P&L'), signed(stats.estPnlEUR), tone(stats.estPnlEUR)),
+        stats.expiringSoon.length ? kpi(__('opExpiring30', 'Expiring in 30d'), String(stats.expiringSoon.length), 'warning') : null),
+      e(UIC.Table, { columns: columns, rows: stats.rows, rowKey: function (r) { return r.position.key; }, caption: t.optionsTitle || 'Options' }),
+      e('p', { className: 'ui-note' },
         __('opFootnote', 'Valuation is intrinsic-only (no time value, no Greeks): an estimate from the current underlying price, not a market quote. Options are tracked separately and are not part of the portfolio value or tax figures. Not investment advice.')));
   }
 
