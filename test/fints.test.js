@@ -66,7 +66,7 @@ const { createBank, MT940_PAGES, MT535 } = require('./fints-bank-sim.js');
   ok('depot statement: two positions', depot.positions && depot.positions.length === 2 && depot.positionsDate === '2025-02-03', depot);
   ok('no warnings', res.warnings.length === 0, res.warnings);
   const pinMsgs = bank.state.log.filter((m) => m.indexOf('4711') > -1);
-  ok('every message carries the PIN only in HNSHA', pinMsgs.every((m) => F.unwrap(F.parse(m)).filter((s) => JSON.stringify(s.des).indexOf('4711') > -1).every((s) => s.type === 'HNSHA')));
+  ok('every message carries the PIN only in HNSHA', pinMsgs.every((m) => F.unwrap(F.parse(m)).filter((s) => JSON.stringify(s.des).indexOf('"4711"') > -1) /* the PIN as a whole element; random ids can contain the digits */.every((s) => s.type === 'HNSHA')));
 
   // TAN entered (SMS-TAN, not decoupled)
   const bank2 = createBank({ decoupled: false });

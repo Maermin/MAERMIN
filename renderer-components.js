@@ -660,11 +660,13 @@ function PageTabs(props) {
 // Segmented: one choice among a few (periods, Net / Gross).
 function Segmented(props) {
   const opts = props.options || [];
-  const idx = Math.max(0, opts.findIndex((o) => o.value === props.value));
+  // R4.5: a value outside the options (a custom entry) checks none; the first stays focusable
+  const found = opts.findIndex((o) => o.value === props.value);
+  const idx = found < 0 ? 0 : found;
   const rest = omit(props, ['options', 'value', 'onChange', 'label', 'className', 'size']);
   return h('div', Object.assign(rest, { role: 'radiogroup', 'aria-label': props.label, className: cx('ui-seg', props.size === 'sm' && 'ui-seg--sm', props.className) }),
     opts.map((o, i) => h('button', {
-      key: String(o.value), type: 'button', role: 'radio', 'aria-checked': i === idx, tabIndex: i === idx ? 0 : -1,
+      key: String(o.value), type: 'button', role: 'radio', 'aria-checked': i === found, tabIndex: i === idx ? 0 : -1,
       className: 'ui-seg__opt', disabled: o.disabled || undefined,
       onClick: () => props.onChange && props.onChange(o.value), ...tabAttrs(o),
       onKeyDown: (e) => rovingKeys(e, i, opts.length, (n) => props.onChange && props.onChange(opts[n].value))

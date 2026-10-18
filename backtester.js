@@ -136,10 +136,8 @@ function __(k, f, v) { return (typeof window !== 'undefined' && window.MaerminI1
     var e = React.createElement;
     var theme = props.theme || {};
     var t = props.t || ((typeof window !== 'undefined' && window.MaerminI18n) ? window.MaerminI18n.dict() : {});
-    var text = theme.text || '#e6edf3', dim = theme.textSecondary || '#9aa4b2';
-    var border = theme.cardBorder || 'rgba(255,255,255,0.1)';
-    var inputBg = theme.inputBg || '#0f172a', card = theme.card || theme.cardBg || '#10151f';
-    var accent = theme.accent || '#8b7cff', good = theme.success || '#22c55e', bad = theme.danger || '#ef4444';
+    // R4.5: the shared Card, inputs, buttons; lines on the chart palette
+    var UIC = window.MaerminComponents;
     var workerBase = String(props.workerUrl || '').trim().replace(/\/+$/, '');
     var fmt = props.formatPrice || function (v) { return window.MaerminI18n.num(v, 2); };
     var sym = (props.getCurrencySymbol && props.getCurrencySymbol()) || '€';
@@ -216,51 +214,52 @@ function __(k, f, v) { return (typeof window !== 'undefined' && window.MaerminI1
       var pts = values.map(function (v, i) {
         return ((i / (values.length - 1)) * w).toFixed(1) + ',' + (h - ((v - min) / span) * h).toFixed(1);
       }).join(' ');
-      return e('svg', { viewBox: '0 0 ' + w + ' ' + h, preserveAspectRatio: 'none', style: { width: '100%', height: h + 'px', display: 'block' } },
-        e('polyline', { points: pts, fill: 'none', stroke: color, strokeWidth: '2', strokeLinejoin: 'round', strokeLinecap: 'round' }));
+      return e('svg', { viewBox: '0 0 ' + w + ' ' + h, preserveAspectRatio: 'none', className: 'ui-spark__svg', 'aria-hidden': 'true', style: { height: h + 'px' } },
+        e('polyline', { points: pts, fill: 'none', style: { stroke: color }, strokeWidth: '2', strokeLinejoin: 'round', strokeLinecap: 'round' }));
     }
 
     var pct = function (x) { return x == null ? '-' : window.MaerminI18n.pct(x * 100, 1, true); };
-    function metricRow(label, m, color, path) {
+    function metricRow(label, m, series, path) {
       if (!m) return null;
-      return e('div', { key: label, style: { borderTop: '1px solid ' + border, padding: '0.6rem 0' } },
-        e('div', { style: { display: 'flex', justifyContent: 'space-between', flexWrap: 'wrap', gap: '0.4rem', marginBottom: '0.3rem' } },
-          e('span', { style: { color: color, fontWeight: 700, fontSize: 'var(--text-sm)' } }, label),
-          e('span', { style: { color: text, fontSize: 'var(--text-sm)' } },
-            fmt(m.endValue) + ' ' + sym + '  ', e('span', { style: { color: dim } }, 'CAGR '), e('span', { style: { color: m.cagr >= 0 ? good : bad, fontWeight: 600 } }, pct(m.cagr)),
-            e('span', { style: { color: dim } }, '  ' + __('btMaxDd', 'max DD') + ' '), e('span', { style: { color: bad, fontWeight: 600 } }, '-' + window.MaerminI18n.pct(m.maxDrawdown * 100, 1)),
-            e('span', { style: { color: dim } }, '  ' + __('btVol', 'vol') + ' '), e('span', { style: { color: text, fontWeight: 600 } }, window.MaerminI18n.pct(m.volatility * 100, 1)))),
+      var color = 'var(--chart-' + series + ')';
+      return e('div', { key: label, className: 'ui-bt-row' },
+        e('div', { className: 'ui-bt-row__head' },
+          e('span', { className: 'ui-rb-cat' }, e('span', { className: 'ui-swatch', style: { background: color }, 'aria-hidden': 'true' }), e('b', null, label)),
+          e('span', { className: ['ui-bt-row__figs', 'num'].join(' ') },
+            e('span', null, fmt(m.endValue) + ' ' + sym),
+            e('span', null, 'CAGR ', e('b', { className: 'tone-' + UIC.toneOf(m.cagr) }, pct(m.cagr))),
+            e('span', null, __('btMaxDd', 'max DD') + ' ', e('b', { className: m.maxDrawdown > 0 ? 'tone-loss' : '' }, '−' + window.MaerminI18n.pct(Math.abs(m.maxDrawdown) * 100, 1))),
+            e('span', null, __('btVol', 'vol') + ' ', e('b', null, window.MaerminI18n.pct(m.volatility * 100, 1))))),
         path ? sparkline(path, color) : null);
     }
 
-    var inputStyle = { background: inputBg, border: '1px solid ' + border, borderRadius: '6px', padding: '0.35rem 0.5rem', color: text, fontSize: '0.78rem' };
+    var INPUT = ['ui-input', 'ui-input--sm'].join(' ');
     var presets = (A && A.BENCHMARKS) || [];
 
-    return e('div', { style: { background: card, border: '1px solid ' + border, borderRadius: '14px', padding: '1.25rem', margin: '1rem 1.5rem 1.5rem' } },
-      e('h3', { style: { color: text, fontSize: 'var(--text-body)', fontWeight: 700, margin: '0 0 0.5rem' } }, t.backtesterTitle || 'Allocation backtester (what-if)'),
-      e('div', { style: { color: dim, fontSize: 'var(--text-xs)', marginBottom: '0.8rem' } }, __('btIntro', 'What would this allocation have become over real history? Symbols are Yahoo tickers (URTH, VWCE.DE, ^GSPC, BTC-USD, ...). Weights normalise automatically.')),
+    return e(UIC.Card, { 'data-testid': 'backtester', title: t.backtesterTitle || 'Allocation backtester (what-if)', headingLevel: 'h3', className: 'ui-bt',
+      subtitle: __('btIntro', 'What would this allocation have become over real history? Symbols are Yahoo tickers (URTH, VWCE.DE, ^GSPC, BTC-USD, ...). Weights normalise automatically.') },
       rows.map(function (r, i) {
-        return e('div', { key: i, style: { display: 'flex', gap: '0.4rem', marginBottom: '0.4rem', alignItems: 'center' } },
-          e('input', { type: 'text', value: r.symbol, placeholder: __('symbol', 'Symbol'), onChange: function (ev) { setRow(i, 'symbol', ev.target.value); }, style: Object.assign({ width: '130px' }, inputStyle) }),
-          e('input', { type: 'text', value: r.weight, placeholder: __('btWeightPct', 'Weight %'), onChange: function (ev) { setRow(i, 'weight', ev.target.value); }, style: Object.assign({ width: '80px', textAlign: 'right' }, inputStyle) }),
-          rows.length > 1 ? e('button', { onClick: function () { removeRow(i); }, style: { background: 'none', border: 'none', color: dim, cursor: 'pointer', fontSize: 'var(--text-base)' } }, 'x') : null);
+        return e('div', { key: i, className: 'ui-actions' },
+          e('input', { type: 'text', value: r.symbol, placeholder: __('symbol', 'Symbol'), 'aria-label': __('symbol', 'Symbol') + ' ' + (i + 1), onChange: function (ev) { setRow(i, 'symbol', ev.target.value); }, className: [INPUT, 'ui-bt-sym'].join(' ') }),
+          e('input', { type: 'text', value: r.weight, placeholder: __('btWeightPct', 'Weight %'), 'aria-label': __('btWeightPct', 'Weight %') + ' ' + (i + 1), onChange: function (ev) { setRow(i, 'weight', ev.target.value); }, className: [INPUT, 'ui-input--num'].join(' ') }),
+          rows.length > 1 ? e(UIC.IconButton, { size: 'sm', label: __('btRemoveAsset', 'Remove asset {n}', { n: i + 1 }), onClick: function () { removeRow(i); }, icon: e('span', { 'aria-hidden': 'true' }, '×') }) : null);
       }),
-      e('div', { style: { display: 'flex', gap: '0.5rem', flexWrap: 'wrap', alignItems: 'center', margin: '0.6rem 0 0.9rem' } },
-        e('button', { onClick: addRow, style: { padding: '0.3rem 0.7rem', borderRadius: '6px', border: '1px solid ' + border, background: inputBg, color: dim, cursor: 'pointer', fontSize: 'var(--text-xs)' } }, __('btAddAsset', '+ asset')),
-        e('select', { value: range, onChange: function (ev) { setRange(ev.target.value); }, style: inputStyle },
+      e('div', { className: 'ui-actions' },
+        e(UIC.Button, { size: 'sm', variant: 'quiet', onClick: addRow }, __('btAddAsset', '+ asset')),
+        e('select', { value: range, onChange: function (ev) { setRange(ev.target.value); }, className: [INPUT, 'ui-select'].join(' '), 'aria-label': __('btRange', 'History') },
           ['1y', '2y', '5y', '10y', 'max'].map(function (r2) { return e('option', { key: r2, value: r2 }, r2); })),
-        e('select', { value: rebal, onChange: function (ev) { setRebal(ev.target.value); }, style: inputStyle },
+        e('select', { value: rebal, onChange: function (ev) { setRebal(ev.target.value); }, className: [INPUT, 'ui-select'].join(' '), 'aria-label': __('btRebalance', 'Rebalancing') },
           [['none', __('btNoRebal', 'no rebalancing')], ['monthly', __('btRebalMonthly', 'rebalance monthly')], ['quarterly', __('btRebalQuarterly', 'rebalance quarterly')], ['yearly', __('btRebalYearly', 'rebalance yearly')]].map(function (o) { return e('option', { key: o[0], value: o[0] }, o[1]); })),
-        e('input', { type: 'text', value: initial, onChange: function (ev) { setInitial(ev.target.value); }, title: __('btStartCapital', 'Starting capital'), style: Object.assign({ width: '90px', textAlign: 'right' }, inputStyle) }),
-        e('select', { value: bench, onChange: function (ev) { setBench(ev.target.value); }, style: inputStyle },
+        e('input', { type: 'text', value: initial, onChange: function (ev) { setInitial(ev.target.value); }, title: __('btStartCapital', 'Starting capital'), 'aria-label': __('btStartCapital', 'Starting capital'), className: [INPUT, 'ui-input--num'].join(' ') }),
+        e('select', { value: bench, onChange: function (ev) { setBench(ev.target.value); }, className: [INPUT, 'ui-select'].join(' '), 'aria-label': __('perfBenchmark', 'Benchmark') },
           presets.map(function (b) { return e('option', { key: b.key, value: b.key }, __('btVs', 'vs {name}', { name: b.label })); })),
-        e('button', { onClick: runBacktest, disabled: busy, style: { padding: '0.4rem 1rem', borderRadius: '8px', border: 'none', cursor: busy ? 'default' : 'pointer', fontWeight: 700, fontSize: 'var(--text-sm)', background: accent, color: 'var(--on-accent)', opacity: busy ? 0.6 : 1 } }, busy ? __('btRunning', 'Running...') : __('btRun', 'Run backtest'))),
-      out && out.error ? e('div', { style: { color: bad, fontSize: 'var(--text-sm)' } }, out.error) : null,
+        e(UIC.Button, { variant: 'primary', size: 'sm', onClick: runBacktest, loading: busy }, busy ? __('btRunning', 'Running...') : __('btRun', 'Run backtest'))),
+      out && out.error ? e('p', { className: ['ui-muted', 'is-error'].join(' ') }, out.error) : null,
       out && out.strategy ? e('div', null,
-        metricRow(__('btYourAlloc', 'Your allocation') + (out.strategy.rebalances ? ' (' + __('btRebalances', '{n} {n:rebalance|rebalances}', { n: out.strategy.rebalances }) + ')' : ''), out.strategy.metrics, accent, out.strategy.path),
-        out.benchmark ? metricRow(out.preset.label + ' (' + out.preset.proxy + ')', out.benchmark.metrics, dim, out.benchmark.path) : null,
-        out.actual ? metricRow(__('btActual', 'Your actual portfolio (rescaled)'), out.actual.metrics, good, out.actual.path) : null,
-        e('div', { style: { color: dim, fontSize: 'var(--text-2xs)', marginTop: '0.7rem', lineHeight: 1.5 } },
+        metricRow(__('btYourAlloc', 'Your allocation') + (out.strategy.rebalances ? ' (' + __('btRebalances', '{n} {n:rebalance|rebalances}', { n: out.strategy.rebalances }) + ')' : ''), out.strategy.metrics, 1, out.strategy.path),
+        out.benchmark ? metricRow(out.preset.label + ' (' + out.preset.proxy + ')', out.benchmark.metrics, 3, out.benchmark.path) : null,
+        out.actual ? metricRow(__('btActual', 'Your actual portfolio (rescaled)'), out.actual.metrics, 2, out.actual.path) : null,
+        e('p', { className: 'ui-note' },
           __('btFootnote', 'Backtest over the common history of all symbols ({days} trading days, {years} years), prices as delivered by Yahoo Finance. Past performance is not indicative of future results.', { days: out.strategy.metrics.periods, years: window.MaerminI18n.num(out.strategy.metrics.years, 1) }))) : null);
   }
 

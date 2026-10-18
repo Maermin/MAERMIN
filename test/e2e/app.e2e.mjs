@@ -3000,7 +3000,8 @@ async function runBuild(browser, label, dir) {
       // the light theme's tokens are live, the page background is flat (no
       // aurora layers) and filled buttons still get the shared primary look
       // (R3.1 / R3.3: the Overview and Transactions have no legacy filled
-      // buttons left; Savings plans has, until R4.5).
+      // buttons left; R4.5 moved Savings plans to the shared Button, so none may be left -
+      // any that remain must still be tagged).
       await openView(page, 'savings-plans');
       await page.waitForTimeout(800);
       const tok = await page.evaluate(() => {
@@ -3012,7 +3013,7 @@ async function runBuild(browser, label, dir) {
       });
       ok('R1.1: light-theme tokens are live and resolvable (data-theme, --gain, theme-color, MaerminTokens.resolve)', tok.theme === 'white' && tok.gain === '#0a6e44' && tok.bg === '#f5f5f8' && tok.meta === '#f5f5f8' && tok.resolved === '#b32538', JSON.stringify(tok));
       ok('R1.1: flat page background (aurora layer off)', tok.aurora === 'none', JSON.stringify(tok));
-      ok('R1.1: accent-filled buttons on var() still get the primary / selected look', tok.fills > 0 && tok.tagged === tok.fills, JSON.stringify(tok));
+      ok('R1.1: accent-filled buttons on var() still get the primary / selected look', tok.tagged === tok.fills, JSON.stringify(tok));
     } catch (e) { err = e.message.split('\n')[0]; }
     ok('cleanup V-1 / V-2: light-theme text reads at WCAG AA on the views 6b touched', !err && Object.keys(low).length === 0, err || JSON.stringify(low));
     ok('no page errors in the light-theme session', errors.length === 0, errors.join(' | '));

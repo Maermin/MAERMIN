@@ -447,16 +447,17 @@ function RebalancingView({ portfolio, prices, theme, formatPrice, getCurrencySym
     setTargets(M.targetsFromAllocation(values));
   };
 
-  const catColors = { crypto: '#8b7cff', stocks: '#3b82f6', skins: '#06b6d4', commodities: '#fb7185' };
+  // R4.5: category colours from the chart palette (as on the Overview); text stays the text colour
+  const catColors = { crypto: 'var(--chart-1)', stocks: 'var(--chart-2)', skins: 'var(--chart-3)', commodities: 'var(--chart-4)' };
+  const UIC = window.MaerminComponents;
+  const CARD = ['ui-card', 'ui-card--pad', 'ui-rb-card'].join(' ');
   const catLabels = { crypto: I.category('crypto'), stocks: I.category('stocks'), skins: I.category('skins'), commodities: I.category('commodities') };
-  const card = { background: theme.card, borderRadius: '16px', border: `1px solid ${theme.cardBorder}`, boxShadow: theme.shadow, padding: '1.5rem', marginBottom: '1rem' };
-  const small = { color: theme.textSecondary, fontSize: '0.78rem' };
-  const inputStyle = { width: '4.5rem', padding: '0.35rem 0.5rem', background: theme.inputBg, border: `1px solid ${theme.inputBorder}`, borderRadius: '7px', color: theme.text, fontSize: '0.82rem', textAlign: 'right' };
+  const small = { color: 'var(--text-dim)', fontSize: 'var(--type-caption)' };
 
   // A number field that commits on blur / Enter (typing "2," must not snap back).
   const NumField = ({ value, onCommit, label, suffix, id }) => React.createElement('span', { style: { display: 'inline-flex', alignItems: 'center', gap: '0.3rem' } },
     React.createElement('input', {
-      key: id + ':' + value, id, type: 'text', inputMode: 'decimal', defaultValue: I.num(value, { min: 0, max: 2 }), 'aria-label': label, style: inputStyle,
+      key: id + ':' + value, id, type: 'text', inputMode: 'decimal', defaultValue: I.num(value, { min: 0, max: 2 }), 'aria-label': label, className: ['ui-input', 'ui-input--sm', 'ui-input--num'].join(' '),
       onBlur: (e) => { const v = window.MaerminUtils.parseDecimal(e.target.value); if (isFinite(v) && v >= 0) onCommit(v); else e.target.value = I.num(value, { min: 0, max: 2 }); },
       onKeyDown: (e) => { if (e.key === 'Enter') e.target.blur(); }
     }),
@@ -474,12 +475,7 @@ function RebalancingView({ portfolio, prices, theme, formatPrice, getCurrencySym
     const k = sym.toUpperCase();
     setPrefs({ ...prefs, noSell: noSellSet.has(k) ? prefs.noSell.filter(x => x !== k) : prefs.noSell.concat(k) });
   };
-  const modeBtn = (id, label) => React.createElement('button', {
-    type: 'button', 'aria-pressed': prefs.mode === id, 'data-rb-mode': id, onClick: () => setPrefs({ ...prefs, mode: id }),
-    style: { padding: '0.45rem 0.85rem', fontSize: 'var(--text-sm)', fontWeight: 600, borderRadius: '8px', cursor: 'pointer',
-      background: prefs.mode === id ? (theme.accentFill || theme.accent) : 'transparent', color: prefs.mode === id ? 'var(--on-accent)' : theme.text,
-      border: `1px solid ${prefs.mode === id ? 'transparent' : theme.cardBorder}` }
-  }, label);
+  const modeOpt = (id, label) => ({ value: id, label, attrs: { 'data-rb-mode': id } });
   const cashflow = prefs.mode === 'cashflow';
 
   const actionLabel = (r) => {
@@ -489,15 +485,12 @@ function RebalancingView({ portfolio, prices, theme, formatPrice, getCurrencySym
     return Math.abs(r.driftPp) <= r.bandPp ? __('rbWithinBand', '✓ Within ±{pp} pp', { pp: I.num(r.bandPp, { min: 0, max: 1 }) }) : __('rbBalanced', '✓ Balanced');
   };
 
-  return React.createElement('div', { style: { padding: '1.5rem' } },
-    React.createElement('div', { style: { display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '1rem', flexWrap: 'wrap', marginBottom: '1.5rem' } },
-      React.createElement('h2', { style: { color: theme.text, fontSize: 'var(--text-xl)', fontWeight: '800', letterSpacing: '-0.02em', margin: 0 } }, (t.rebalancing || 'Rebalancing'))),
-
+  return React.createElement('div', { className: 'ui-view', 'data-testid': 'rebalancing-view' },
     // This view rebalances by ASSET CLASS. Tag-based target weights live in the Tags view.
-    (setActiveView && window.MaerminTags) ? React.createElement('button', {
-      onClick: () => setActiveView('tags'),
-      style: { display: 'inline-flex', alignItems: 'center', gap: '0.4rem', marginBottom: '1.25rem', padding: '0.5rem 0.85rem', background: 'transparent', color: theme.accent, border: `1px solid ${window.MaerminTokens.alpha(theme.accent, 0x55)}`, borderRadius: '8px', cursor: 'pointer', fontSize: 'var(--text-sm)', fontWeight: '600' }
-    }, '⛯ ', (t.rebalanceByTagHint || 'Rebalance by tag instead → Tags view')) : null,
+    React.createElement('div', { className: 'ui-view__bar' },
+      React.createElement('p', { className: 'ui-view__lead' }, __('rbLead', 'Compare your asset classes with the weights you choose, and see what to buy or sell to get back.')),
+      (setActiveView && window.MaerminTags) ? React.createElement(UIC.Button, { variant: 'quiet', onClick: () => setActiveView('tags') },
+        '⛯ ', (t.rebalanceByTagHint || 'Rebalance by tag instead → Tags view')) : null),
 
     // No targets yet: nothing to plan until the user sets them.
     noTargets && !editing && window.MaerminUtils.emptyState({
@@ -511,29 +504,27 @@ function RebalancingView({ portfolio, prices, theme, formatPrice, getCurrencySym
     }),
 
     // Mode + new money
-    !noTargets && React.createElement('div', { style: card },
-      React.createElement('div', { role: 'group', 'aria-label': __('rbModeAria', 'How to rebalance'), style: { display: 'flex', gap: '0.5rem', flexWrap: 'wrap', marginBottom: '0.6rem' } },
-        modeBtn('full', __('rbModeFull', 'Buy and sell')), modeBtn('cashflow', __('rbModeCash', 'Invest only (no sales)'))),
-      React.createElement('p', { style: { ...small, margin: '0 0 0.9rem', lineHeight: 1.5 } }, cashflow
+    !noTargets && React.createElement('div', { className: CARD },
+      React.createElement(UIC.Segmented, { label: __('rbModeAria', 'How to rebalance'), value: prefs.mode, onChange: (id) => setPrefs({ ...prefs, mode: id }),
+        options: [modeOpt('full', __('rbModeFull', 'Buy and sell')), modeOpt('cashflow', __('rbModeCash', 'Invest only (no sales)'))] }),
+      React.createElement('p', { className: 'ui-note' }, cashflow
         ? __('rbModeCashHint', 'New money goes to the classes furthest below target, in proportion to the gap. Nothing is sold.')
         : __('rbModeFullHint', 'Classes outside their tolerance band go back to target: sales first, then buys from the sales and any new money.')),
-      React.createElement('label', { htmlFor: 'rb-invest', style: { ...small, display: 'block', marginBottom: '0.375rem' } },
+      React.createElement('label', { htmlFor: 'rb-invest', className: 'ui-field__label' },
         cashflow ? __('rbInvestAmount', 'Amount to invest') : (t.additionalInvestment || 'Additional amount (optional)')),
       React.createElement('input', {
         id: 'rb-invest', type: 'text', inputMode: 'decimal', value: investAmount,
         onChange: e => setInvestAmount(e.target.value),
         placeholder: I.num(0, { min: 2, max: 2 }),
-        style: { width: '200px', padding: '0.5rem 0.75rem', background: theme.inputBg, border: `1px solid ${theme.inputBorder}`, borderRadius: '8px', color: theme.text, fontSize: 'var(--text-base)' }
+        className: ['ui-input', 'ui-rb-invest'].join(' ')
       })
     ),
 
     // Target allocation + tolerance per target
-    (!noTargets || editing) && React.createElement('div', { style: card },
-      React.createElement('div', { style: { display: 'flex', justifyContent: 'space-between', marginBottom: '0.75rem', gap: '0.5rem', flexWrap: 'wrap' } },
-        React.createElement('span', { style: { color: theme.text, fontWeight: '700' } }, t.targetAllocation || 'Target Allocation'),
-        React.createElement('span', {
-          style: { fontSize: 'var(--text-sm)', color: totalTarget === 100 ? theme.success : theme.danger, fontWeight: '600' }
-        }, `${I.pct(totalTarget, 0)} ${totalTarget === 100 ? '✓' : '≠ ' + I.pct(100, 0)}`)
+    (!noTargets || editing) && React.createElement('div', { className: CARD },
+      React.createElement('div', { className: 'ui-rb-head' },
+        React.createElement('h3', { className: 'ui-card__title' }, t.targetAllocation || 'Target Allocation'),
+        React.createElement(UIC.Badge, { tone: totalTarget === 100 ? 'gain' : 'loss' }, `${I.pct(totalTarget, 0)} ${totalTarget === 100 ? '✓' : '≠ ' + I.pct(100, 0)}`)
       ),
       !cashflow && React.createElement('div', { 'data-testid': 'rb-default-band', style: { ...small, display: 'flex', alignItems: 'center', gap: '0.4rem', flexWrap: 'wrap', marginBottom: '1rem', lineHeight: 1.8 } },
         __('rbBandDefault', 'Tolerance for every class:'),
@@ -545,7 +536,7 @@ function RebalancingView({ portfolio, prices, theme, formatPrice, getCurrencySym
         const own = !!prefs.bands[cat];
         return React.createElement('div', { key: cat, style: { marginBottom: '1rem' } },
           React.createElement('div', { style: { display: 'flex', justifyContent: 'space-between', marginBottom: '0.375rem' } },
-            React.createElement('label', { htmlFor: 'rb-t-' + cat, style: { color: catColors[cat], fontWeight: '600', fontSize: 'var(--text-base)' } }, catLabels[cat]),
+            React.createElement('label', { htmlFor: 'rb-t-' + cat, className: 'ui-rb-cat' }, React.createElement('span', { className: 'ui-swatch', style: { background: catColors[cat] }, 'aria-hidden': 'true' }), catLabels[cat]),
             React.createElement('span', { style: { color: theme.text, fontWeight: '700' } }, I.pct(targets[cat] || 0, 0))
           ),
           React.createElement('input', {
@@ -560,46 +551,43 @@ function RebalancingView({ portfolio, prices, theme, formatPrice, getCurrencySym
               NumField({ id: 'rb-rel-' + cat, value: bandOf(cat).rel * 100, label: __('rbBandRelFor', 'Tolerance for {name} as a share of the target, in percent', { name: catLabels[cat] }), suffix: __('rbBandRelSuffix', '% of the target,'), onCommit: (v) => setBand(cat, { rel: Math.min(v, 100) / 100 }) }),
               __('rbBandAtLeast', 'at least'),
               NumField({ id: 'rb-abs-' + cat, value: bandOf(cat).abs, label: __('rbBandAbsFor', 'Minimum tolerance for {name} in percentage points', { name: catLabels[cat] }), suffix: __('rbBandAbsSuffix', 'pp'), onCommit: (v) => setBand(cat, { abs: Math.min(v, 100) }) }),
-              own && React.createElement('button', { type: 'button', onClick: () => resetBand(cat), style: { background: 'transparent', border: `1px solid ${theme.cardBorder}`, color: theme.textSecondary, borderRadius: '7px', padding: '0.2rem 0.55rem', cursor: 'pointer', fontSize: 'var(--text-xs)', minHeight: '24px' } }, __('rbBandUseDefault', 'Use the default'))))
+              own && React.createElement(UIC.Button, { size: 'sm', variant: 'quiet', onClick: () => resetBand(cat) }, __('rbBandUseDefault', 'Use the default'))))
         );
       })
     ),
 
     // Never sell
-    !noTargets && holdings.length > 0 && React.createElement('details', { 'data-testid': 'rb-nosell', style: { ...card, padding: '1rem 1.5rem' } },
-      React.createElement('summary', { style: { cursor: 'pointer', color: theme.text, fontWeight: 700, fontSize: 'var(--text-base)', minHeight: '24px' } },
+    !noTargets && holdings.length > 0 && React.createElement('details', { 'data-testid': 'rb-nosell', className: CARD },
+      React.createElement('summary', { className: 'ui-rb-summary' },
         __('rbNoSellTitle', 'Holdings you never sell ({n})', { n: prefs.noSell.filter(s => holdings.some(h => h.symbol.toUpperCase() === s)).length })),
       React.createElement('p', { style: { ...small, margin: '0.5rem 0 0.75rem', lineHeight: 1.5 } },
         __('rbNoSellHint', 'A class can only be sold down with the holdings that are not marked here. What cannot be sold is shown in the plan.')),
       React.createElement('div', { style: { display: 'flex', flexDirection: 'column', gap: '0.35rem' } },
-        holdings.map(h => React.createElement('label', { key: h.cat + '|' + h.symbol, style: { display: 'flex', alignItems: 'center', gap: '0.6rem', minHeight: '28px', color: theme.text, fontSize: 'var(--text-sm)', cursor: 'pointer' } },
-          React.createElement('input', { type: 'checkbox', checked: noSellSet.has(h.symbol.toUpperCase()), onChange: () => toggleNoSell(h.symbol), 'data-nosell': h.symbol, style: { width: '24px', height: '24px', margin: 0, accentColor: theme.accent } }),
+        holdings.map(h => React.createElement('label', { key: h.cat + '|' + h.symbol, className: 'ui-rb-nosell' },
+          React.createElement('input', { type: 'checkbox', checked: noSellSet.has(h.symbol.toUpperCase()), onChange: () => toggleNoSell(h.symbol), 'data-nosell': h.symbol, className: 'ui-rb-check' }),
           React.createElement('span', { style: { flex: 1, minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis' } }, h.name, React.createElement('span', { style: { ...small, marginLeft: '0.4rem' } }, catLabels[h.cat])),
           React.createElement('span', { style: small }, money(h.value)))))
     ),
 
     // Results table
-    totalValue > 0 && !noTargets && React.createElement('div', {
-      'data-testid': 'rb-plan', style: { background: theme.card, borderRadius: '16px', border: `1px solid ${theme.cardBorder}`, boxShadow: theme.shadow, overflow: 'hidden' }
+    totalValue > 0 && !noTargets && React.createElement('section', {
+      'data-testid': 'rb-plan', className: ['ui-card', 'ui-card--table'].join(' ')
     },
-      React.createElement('div', { style: { padding: '1rem 1.25rem', borderBottom: `1px solid ${theme.cardBorder}` } },
-        React.createElement('span', { style: { color: theme.text, fontWeight: '700', fontSize: 'var(--text-base)' } }, t.rebalancingPlan || 'Rebalancing Plan'),
-        React.createElement('div', { 'data-testid': 'rb-summary', style: { ...small, marginTop: '0.3rem', lineHeight: 1.5 } },
+      React.createElement('div', { className: 'ui-rb-planhead' },
+        React.createElement('h3', { className: 'ui-card__title' }, t.rebalancingPlan || 'Rebalancing Plan'),
+        React.createElement('p', { 'data-testid': 'rb-summary', className: 'ui-note' },
           [(result.summary.toBuy > 0.005 || result.summary.toSell > 0.005) ? __('rbSumBuy', 'Buy {amt}', { amt: money(result.summary.toBuy) }) : __('rbSumNothing', 'Nothing to buy or sell'),
            !cashflow && result.summary.toSell > 0.005 && __('rbSumSell', 'sell {amt}', { amt: money(result.summary.toSell) }),
            result.summary.cashLeft > 0.005 && __('rbSumCashLeft', '{amt} stays uninvested (after these trades every class is within its band)', { amt: money(result.summary.cashLeft) }),
            result.summary.blocked > 0.005 && __('rbSumBlocked', '{amt} cannot be sold (never-sell holdings)', { amt: money(result.summary.blocked) })
           ].filter(Boolean).join(' · '))
       ),
-      React.createElement('div', { role: 'region', tabIndex: 0, 'aria-label': t.rebalancingPlan || 'Rebalancing Plan', style: { overflowX: 'auto' } },
-      React.createElement('table', { style: { width: '100%', borderCollapse: 'collapse' } },
+      React.createElement('div', { role: 'region', tabIndex: 0, 'aria-label': t.rebalancingPlan || 'Rebalancing Plan', className: 'ui-table-wrap' },
+      React.createElement('table', { className: 'ui-table' },
         React.createElement('thead', null,
           React.createElement('tr', null,
             [__('category', 'Category'), __('rbCurrent', 'Current'), __('rbCurrentPct', 'Current %'), __('rbTargetPct', 'Target %'), __('targetValue', 'Target Value'), __('action', 'Action')].map((h, i) =>
-              React.createElement('th', {
-                key: i,
-                style: { padding: '0.75rem 1rem', textAlign: i === 0 ? 'left' : 'right', color: theme.textSecondary, borderBottom: `1px solid ${theme.cardBorder}`, fontSize: 'var(--text-xs)', fontWeight: '600', textTransform: 'uppercase' }
-              }, h)
+              React.createElement('th', { key: i, scope: 'col', className: i === 0 ? undefined : 'is-right' }, h)
             )
           )
         ),
@@ -608,23 +596,21 @@ function RebalancingView({ portfolio, prices, theme, formatPrice, getCurrencySym
             const r = rowOf[cat];
             // Only classes the user holds or has a target for.
             if (!r || (!(r.actualValue > 0.005) && !(r.targetPct > 0))) return null;
-            const tone = r.action === 'buy' ? theme.success : r.action === 'sell' ? theme.danger : (r.blockedSell > 0.005 ? theme.warning : theme.success);
+            const tone = r.action === 'buy' ? 'gain' : r.action === 'sell' ? 'loss' : (r.blockedSell > 0.005 ? 'warning' : 'gain');
             return React.createElement('tr', { key: cat, 'data-rb-row': cat, 'data-action': r.action },
-              React.createElement('td', { style: { padding: '1rem', fontWeight: '700', color: catColors[cat] } }, catLabels[cat]),
-              React.createElement('td', { style: { padding: '1rem', color: theme.text, textAlign: 'right' } }, money(r.actualValue)),
-              React.createElement('td', { style: { padding: '1rem', textAlign: 'right' } },
-                React.createElement('div', { style: { display: 'flex', alignItems: 'center', justifyContent: 'flex-end', gap: '0.5rem' } },
-                  React.createElement('div', { style: { width: 40, height: 4, background: theme.inputBg, borderRadius: 2, overflow: 'hidden' } },
-                    React.createElement('div', { style: { height: '100%', width: `${Math.min(100, r.actualPct)}%`, background: catColors[cat], borderRadius: 2 } })
-                  ),
-                  React.createElement('span', { style: { color: theme.textSecondary, fontSize: 'var(--text-base)', minWidth: '3rem', textAlign: 'right' } }, I.pct(r.actualPct, 1))
-                )
+              React.createElement('td', null, React.createElement('span', { className: 'ui-rb-cat' }, React.createElement('span', { className: 'ui-swatch', style: { background: catColors[cat] }, 'aria-hidden': 'true' }), catLabels[cat])),
+              React.createElement('td', { className: ['is-right', 'num'].join(' ') }, money(r.actualValue)),
+              React.createElement('td', { className: ['is-right', 'num'].join(' ') },
+                React.createElement('span', { className: 'ui-rb-pct' },
+                  React.createElement('span', { className: 'ui-meter', 'aria-hidden': 'true' },
+                    React.createElement('span', { className: 'ui-meter__fill', style: { width: `${Math.min(100, r.actualPct)}%`, background: catColors[cat] } })),
+                  I.pct(r.actualPct, 1))
               ),
-              React.createElement('td', { style: { padding: '1rem', color: theme.text, textAlign: 'right', fontWeight: '600' } }, I.pct(r.targetPct, 0)),
-              React.createElement('td', { style: { padding: '1rem', color: theme.text, textAlign: 'right' } }, money(r.targetValue)),
-              React.createElement('td', { style: { padding: '1rem', textAlign: 'right' } },
-                React.createElement('span', { style: { padding: '0.25rem 0.75rem', borderRadius: '6px', fontWeight: '700', fontSize: 'var(--text-sm)', whiteSpace: 'nowrap', border: `1px solid ${window.MaerminTokens.alpha(tone, 0x55)}`, color: tone } }, actionLabel(r)),
-                r.blockedSell > 0.005 && r.action !== 'hold' && React.createElement('div', { style: { ...small, marginTop: '0.25rem' } },
+              React.createElement('td', { className: ['is-right', 'num', 'is-strong'].join(' ') }, I.pct(r.targetPct, 0)),
+              React.createElement('td', { className: ['is-right', 'num'].join(' ') }, money(r.targetValue)),
+              React.createElement('td', { className: 'is-right' },
+                React.createElement(UIC.Badge, { tone }, actionLabel(r)),
+                r.blockedSell > 0.005 && r.action !== 'hold' && React.createElement('div', { className: 'ui-note' },
                   __('rbBlockedRow', '{amt} not sold (never-sell holdings)', { amt: money(r.blockedSell) })))
             );
           })
@@ -1306,54 +1292,39 @@ function PositionNotesView({ portfolio, theme, t }) {
   };
 
   const noteCount = Object.keys(notes).filter(k => notes[k]?.text).length;
+  // R4.5: the view frame, one card per position on the shared card, the
+  // shared textarea and buttons; a note is a quiet button that opens the editor.
+  const UIC = window.MaerminComponents;
 
-  return React.createElement('div', { style: { padding: '1.5rem' } },
-    React.createElement('h2', { style: { color: theme.text, fontSize: 'var(--text-xl)', fontWeight: '800', letterSpacing: '-0.02em', marginBottom: '0.5rem' } }, (t.tradeJournal || 'Trade Journal')),
-    React.createElement('p', { style: { color: theme.textSecondary, fontSize: 'var(--text-base)', marginBottom: '1.5rem' } }, __('jnNotesCount', '{n} of {total} positions have notes', { n: noteCount, total: allPositions.length })),
+  return React.createElement('div', { className: 'ui-view', 'data-testid': 'journal-view' },
+    React.createElement('p', { className: 'ui-view__lead' }, __('jnNotesCount', '{n} of {total} positions have notes', { n: noteCount, total: allPositions.length })),
 
     allPositions.length === 0
-      ? React.createElement('div', { style: { padding: '3rem', textAlign: 'center', color: theme.textSecondary, background: theme.card, borderRadius: '16px', boxShadow: theme.shadow, border: `1px solid ${theme.cardBorder}` } },
-          __('jnAddFirst', 'Add positions first')
-        )
-      : React.createElement('div', { style: { display: 'grid', gridTemplateColumns: 'repeat(auto-fill,minmax(280px,1fr))', gap: '0.75rem' } },
+      ? React.createElement(UIC.EmptyState, { text: __('jnAddFirst', 'Add positions first') })
+      : React.createElement('div', { className: 'ui-jn-grid' },
           allPositions.map(p => {
             const note = notes[p.key];
             const isActive = active === p.key;
-            return React.createElement('div', {
-              key: p.key,
-              style: {
-                background: theme.card, borderRadius: '16px', boxShadow: theme.shadow,
-                border: `1px solid ${isActive ? theme.accent : note?.text ? 'rgba(139,124,255,0.3)' : theme.cardBorder}`,
-                padding: '1rem', transition: 'all 0.15s'
-              }
-            },
-              React.createElement('div', { style: { display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.625rem' } },
-                React.createElement('div', null,
-                  React.createElement('span', { style: { color: theme.text, fontWeight: '700', fontSize: 'var(--text-base)' } }, p.sym),
-                  React.createElement('span', { style: { color: theme.textSecondary, fontSize: 'var(--text-xs)', marginLeft: '0.5rem' } }, p.cat)
-                ),
-                note?.updatedAt && React.createElement('span', { style: { color: theme.textSecondary, fontSize: 'var(--text-2xs)' } },
-                  window.MaerminI18n.date(note.updatedAt)
-                )
-              ),
+            return React.createElement('section', { key: p.key, 'data-journal': p.key,
+              className: ['ui-card', 'ui-jn-card', isActive ? 'is-editing' : '', note?.text ? 'has-note' : ''].join(' ').trim() },
+              React.createElement('div', { className: 'ui-jn-head' },
+                React.createElement('span', null, React.createElement('b', null, p.sym), ' ', React.createElement('span', { className: 'ui-muted' }, window.MaerminI18n.category(p.cat))),
+                note?.updatedAt && React.createElement('span', { className: 'ui-note' }, window.MaerminI18n.date(note.updatedAt))),
               isActive
-                ? React.createElement('div', null,
+                ? React.createElement('div', { className: 'ui-jn-edit' },
                     React.createElement('textarea', {
-                      value: draft, autoFocus: true,
+                      value: draft, autoFocus: true, className: ['ui-input', 'ui-textarea'].join(' '),
+                      'aria-label': __('jnEditNote', 'Edit note') + ' · ' + p.sym,
                       onChange: e => setDraft(e.target.value),
-                      placeholder: __('jnThesisPh', 'Investment thesis, target price, risks, strategy...'),
-                      style: { width: '100%', height: '120px', padding: '0.625rem', background: theme.inputBg, border: `1px solid ${theme.inputBorder}`, borderRadius: '6px', color: theme.text, fontSize: 'var(--text-sm)', resize: 'vertical', marginBottom: '0.5rem', lineHeight: '1.5' }
+                      placeholder: __('jnThesisPh', 'Investment thesis, target price, risks, strategy...')
                     }),
-                    React.createElement('div', { style: { display: 'flex', gap: '0.375rem' } },
-                      React.createElement('button', { onClick: save, style: { padding: '0.375rem 0.875rem', background: (theme.accentFill || theme.accent), color: 'var(--on-accent)', border: 'none', borderRadius: '6px', cursor: 'pointer', fontSize: 'var(--text-sm)', fontWeight: '600' } }, __('save', 'Save')),
-                      React.createElement('button', { onClick: () => { setActive(null); setDraft(''); }, style: { padding: '0.375rem 0.875rem', background: theme.inputBg, color: theme.text, border: `1px solid ${theme.cardBorder}`, borderRadius: '6px', cursor: 'pointer', fontSize: 'var(--text-sm)' } }, __('cancel', 'Cancel'))
-                    )
-                  )
-                : React.createElement('div', {
-                    ...window.MaerminUtils.clickable(() => { setActive(p.key); setDraft(note?.text || ''); }),
+                    React.createElement('div', { className: 'ui-actions' },
+                      React.createElement(UIC.Button, { variant: 'primary', size: 'sm', onClick: save }, __('save', 'Save')),
+                      React.createElement(UIC.Button, { size: 'sm', onClick: () => { setActive(null); setDraft(''); } }, __('cancel', 'Cancel'))))
+                : React.createElement('div', Object.assign({
                     'aria-label': note?.text ? __('jnEditNote', 'Edit note') : __('jnAddNote', 'Add note'),
-                    style: { cursor: 'pointer', minHeight: '60px', padding: '0.5rem', background: theme.inputBg, borderRadius: '6px', fontSize: 'var(--text-sm)', color: note?.text ? theme.text : theme.textSecondary, lineHeight: '1.5', whiteSpace: 'pre-wrap' }
-                  }, note?.text || __('jnAddNotePh', '+ Add note...'))
+                    className: ['ui-jn-note', note?.text ? '' : 'is-empty'].join(' ').trim()
+                  }, window.MaerminUtils.clickable(() => { setActive(p.key); setDraft(note?.text || ''); })), note?.text || __('jnAddNotePh', '+ Add note...'))
             );
           })
         )

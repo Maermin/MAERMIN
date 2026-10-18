@@ -370,21 +370,22 @@ function __(k, f, v) { return (typeof window !== 'undefined' && window.MaerminI1
     var budgetH = Math.max(sum(hIn), sum(hOut));
     var by = top + (Math.max(colIn, colOut) - budgetH) / 2;
     var name = function (id) { var n = sk.nodes.filter(function (x) { return x.id === id; })[0]; return n ? n.name : id; };
-    var palette = ['#8b7cff', '#22c55e', '#f59e0b', '#3b82f6', '#ef4444', '#14b8a6', '#ec4899', '#a3e635', '#f97316', '#06b6d4', '#eab308', '#6366f1'];
+    // R4.5: the categorical chart palette (DESIGN-SYSTEM § 6)
+    var palette = ['var(--chart-1)', 'var(--chart-2)', 'var(--chart-3)', 'var(--chart-4)', 'var(--chart-5)', 'var(--chart-6)'];
     var col = function (i) { return palette[i % palette.length]; };
     var band = function (x0, y0, h0, x1, y1, h1) {
       var cx = (x0 + x1) / 2;
       return 'M' + x0 + ',' + y0 + ' C' + cx + ',' + y0 + ' ' + cx + ',' + y1 + ' ' + x1 + ',' + y1 + ' L' + x1 + ',' + (y1 + h1) + ' C' + cx + ',' + (y1 + h1) + ' ' + cx + ',' + (y0 + h0) + ' ' + x0 + ',' + (y0 + h0) + ' Z';
     };
-    var parts = [e('rect', { key: 'b', x: bx, y: by, width: bw, height: budgetH, rx: 3, fill: th.accent || '#8b7cff' })];
+    var parts = [e('rect', { key: 'b', x: bx, y: by, width: bw, height: budgetH, rx: 3, style: { fill: 'var(--text-dim)' } })];
     var legend = [];
     // Left: ribbons enter the budget stacked, scaled so they fill its height.
     var y = top + (Math.max(colIn, colOut) - colIn) / 2, bin = by, fin = budgetH / (sum(hIn) || 1);
     ins.forEach(function (l, i) {
       var h = hIn[i], hb = h * fin, c = col(i);
-      parts.push(e('rect', { key: 'in' + i, x: lx, y: y, width: 10, height: h, rx: 2, fill: c }));
-      parts.push(e('path', { key: 'pi' + i, d: band(lx + 10, y, h, bx, bin, hb), fill: c, opacity: 0.32 }));
-      if (!narrow) parts.push(e('text', { key: 'ti' + i, x: lx - 8, y: y + h / 2 + 4, textAnchor: 'end', fontSize: 12, fill: th.text || '#e6edf3' }, name(l.source) + '  ' + money(l.value)));
+      parts.push(e('rect', { key: 'in' + i, x: lx, y: y, width: 10, height: h, rx: 2, style: { fill: c } }));
+      parts.push(e('path', { key: 'pi' + i, d: band(lx + 10, y, h, bx, bin, hb), style: { fill: c }, opacity: 0.32 }));
+      if (!narrow) parts.push(e('text', { key: 'ti' + i, x: lx - 8, y: y + h / 2 + 4, textAnchor: 'end', fontSize: 12, style: { fill: 'var(--text)' } }, name(l.source) + '  ' + money(l.value)));
       legend.push({ c: c, n: name(l.source), v: l.value });
       y += h + GAP; bin += hb;
     });
@@ -392,17 +393,17 @@ function __(k, f, v) { return (typeof window !== 'undefined' && window.MaerminI1
     var bout = by, fout = budgetH / (sum(hOut) || 1);
     outs.forEach(function (l, i) {
       var h = hOut[i], hb = h * fout, c = col(i + ins.length);
-      parts.push(e('rect', { key: 'out' + i, x: rx, y: y, width: 10, height: h, rx: 2, fill: c }));
-      parts.push(e('path', { key: 'po' + i, d: band(bx + bw, bout, hb, rx, y, h), fill: c, opacity: 0.32 }));
-      if (!narrow) parts.push(e('text', { key: 'to' + i, x: rx + 18, y: y + h / 2 + 4, fontSize: 12, fill: th.text || '#e6edf3' }, name(l.target) + '  ' + money(l.value)));
+      parts.push(e('rect', { key: 'out' + i, x: rx, y: y, width: 10, height: h, rx: 2, style: { fill: c } }));
+      parts.push(e('path', { key: 'po' + i, d: band(bx + bw, bout, hb, rx, y, h), style: { fill: c }, opacity: 0.32 }));
+      if (!narrow) parts.push(e('text', { key: 'to' + i, x: rx + 18, y: y + h / 2 + 4, fontSize: 12, style: { fill: 'var(--text)' } }, name(l.target) + '  ' + money(l.value)));
       legend.push({ c: c, n: name(l.target), v: l.value });
       y += h + GAP; bout += hb;
     });
     var svg = e('svg', { key: 'svg', 'data-testid': 'bg-sankey', viewBox: '0 0 ' + W + ' ' + H, role: 'img', 'aria-label': __('bgSankeyLabel', 'Cash flow of the month'), style: { width: '100%', maxWidth: W + 'px', height: 'auto', display: 'block' } }, parts);
     if (!narrow) return svg;
-    return e('div', null, svg, e('div', { style: { display: 'grid', gap: '0.2rem', marginTop: '0.5rem' } }, legend.map(function (x, i) {
-      return e('div', { key: i, style: { display: 'flex', alignItems: 'center', gap: '0.4rem', fontSize: 'var(--text-xs)', color: th.text || '#e6edf3' } },
-        e('span', { style: { width: '10px', height: '10px', borderRadius: '2px', background: x.c, flex: '0 0 auto' } }), e('span', { style: { flex: 1 } }, x.n), e('span', { style: { fontWeight: 700 } }, money(x.v)));
+    return e('div', null, svg, e('ul', { className: 'ui-bg-legend' }, legend.map(function (x, i) {
+      return e('li', { key: i },
+        e('span', { className: 'ui-swatch', style: { background: x.c }, 'aria-hidden': 'true' }), e('span', null, x.n), e('b', { className: 'num' }, money(x.v)));
     })));
   }
 
@@ -412,8 +413,11 @@ function __(k, f, v) { return (typeof window !== 'undefined' && window.MaerminI1
     if (!React) return null;
     var e = React.createElement, useState = React.useState;
     var th = props.theme || {};
-    var text = th.text || '#e6edf3', dim = th.textSecondary || '#9aa4b2', border = th.cardBorder || 'rgba(255,255,255,0.1)';
-    var good = th.success || '#22c55e', warn = th.warning || '#f59e0b', bad = th.danger || '#ef4444';
+    // R4.5: shared classes; money tones come with their sign
+    var UIC = window.MaerminComponents;
+    var CARD = ['ui-card', 'ui-card--pad', 'ui-bg-card'].join(' ');
+    var INPUT = ['ui-input', 'ui-input--sm'].join(' ');
+    var BTN = ['ui-btn', 'ui-btn--secondary', 'ui-btn--sm'].join(' ');
     var toast = props.addToast || function () {};
     var money = function (v) { return props.privacy ? '••••' : window.MaerminI18n.money(v, 'EUR'); };
     var s0 = useState(load); var st = s0[0], setSt = s0[1];
@@ -426,11 +430,9 @@ function __(k, f, v) { return (typeof window !== 'undefined' && window.MaerminI1
     function commit(next) { setSt(save(next)); }
     var m = monthSummary(st, month);
     var rec = recurring(st, {});
-    var card = { background: th.card || th.cardBg, border: '1px solid ' + border, borderRadius: '14px', padding: '1rem 1.25rem', marginBottom: '1rem' };
-    var input = { boxSizing: 'border-box', padding: '0.35rem 0.5rem', background: th.inputBg, border: '1px solid ' + (th.inputBorder || border), borderRadius: '8px', color: text, fontSize: '0.8rem', fontFamily: 'inherit' };
-    var btn = { padding: '0.4rem 0.8rem', borderRadius: '8px', border: '1px solid ' + border, background: th.inputBg, color: text, cursor: 'pointer', fontSize: '0.78rem', fontWeight: 600 };
-    var h3 = function (t) { return e('h3', { style: { color: text, fontSize: 'var(--text-body)', fontWeight: 700, margin: '0 0 0.6rem' } }, t); };
-    var kpi = function (lbl, val, color, tid) { return e('div', { 'data-testid': tid, style: Object.assign({}, card, { marginBottom: 0, flex: '1 1 150px' }) }, e('div', { style: { color: dim, fontSize: 'var(--text-xs)' } }, lbl), e('div', { style: { color: color || text, fontSize: 'var(--text-title)', fontWeight: 800 } }, val)); };
+    var h3 = function (t) { return e('h3', { className: 'ui-card__title' }, t); };
+    var kpi = function (lbl, val, tone, tid) { return e(UIC.Card, { variant: 'answer', className: 'ui-ov-tile', 'data-testid': tid }, e(UIC.Stat, { label: lbl, value: val, tone: tone || null })); };
+    var signed = function (v) { return (v > 0 && !props.privacy ? '+' : '') + money(v); };
     function shift(n) { var d = new Date(Date.UTC(+month.slice(0, 4), +month.slice(5, 7) - 1 + n, 1)); setMonth(d.toISOString().slice(0, 7)); }
     function onFile(ev) {
       var f = ev.target.files && ev.target.files[0];
@@ -449,84 +451,83 @@ function __(k, f, v) { return (typeof window !== 'undefined' && window.MaerminI1
     var cats = st.categories;
     var monthTx = st.txs.filter(function (t) { return t.date.slice(0, 7) === month; });
     var catOptions = function () { return cats.map(function (c) { return e('option', { key: c.id, value: c.id }, catName(c)); }); };
-    return e('div', { 'data-testid': 'budget-view', style: { padding: '1.5rem' } },
-      e('div', { style: { display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '0.5rem', marginBottom: '0.5rem' } },
-        e('h2', { style: { color: text, fontSize: 'var(--text-xl)', fontWeight: 700, margin: 0 } }, __('bgTitle', 'Budget')),
-        e('div', { style: { display: 'flex', gap: '0.5rem', alignItems: 'center', flexWrap: 'wrap' } },
-          e('button', { style: btn, 'aria-label': __('bgPrevMonth', 'Previous month'), onClick: function () { shift(-1); } }, '‹'),
-          e('span', { 'data-testid': 'bg-month', style: { color: text, fontWeight: 700, minWidth: '7rem', textAlign: 'center' } }, window.MaerminI18n.date(month + '-01', 'monthLong')),
-          e('button', { style: btn, 'aria-label': __('bgNextMonth', 'Next month'), onClick: function () { shift(1); } }, '›'),
-          e('label', { style: Object.assign({}, btn, { background: th.accentFill || th.accent, color: 'var(--on-accent)', border: 'none' }) }, __('bgImportCsv', 'Import bank CSV'),
-            e('input', { type: 'file', accept: '.csv,text/csv', 'data-testid': 'bg-csv', onChange: onFile, style: { display: 'none' } })))),
-      e('p', { style: { color: dim, fontSize: 'var(--text-sm)', margin: '0 0 1rem', lineHeight: 1.5 } },
-        __('bgIntro', 'Spending from your bank accounts, separate from your portfolio. Import a CSV export from online banking (Sparkasse, ING, DKB, N26, …) or add the transactions of a bank sync. Everything stays encrypted on this device.')),
-      e('div', { style: { display: 'flex', gap: '0.75rem', flexWrap: 'wrap', marginBottom: '1rem' } },
-        kpi(__('bgIncome', 'Income'), money(m.income), good, 'bg-income'),
-        kpi(__('bgExpenses', 'Expenses'), money(m.expenses), bad, 'bg-expenses'),
-        kpi(__('bgSavings', 'Saved & invested'), money(m.savings), text, 'bg-savings'),
-        kpi(__('bgSavingsRate', 'Savings rate'), m.savingsRate == null ? '–' : window.MaerminI18n.num(m.savingsRate * 100, 1) + ' %', m.savingsRate != null && m.savingsRate < 0 ? bad : good, 'bg-rate')),
-      !st.txs.length ? e('div', { style: Object.assign({}, card, { color: dim, fontSize: '0.85rem' }) }, __('bgEmpty', 'No bookings yet. Import a bank CSV export to start.')) : null,
-      m.count ? e('div', { style: card }, h3(__('bgCashFlow', 'Cash flow')), e(SankeyChart, { data: sankey(m), theme: th, money: money })) : null,
-      m.byCategory.length ? e('div', { style: card }, h3(__('bgByCategory', 'Spending by category')),
+    return e('div', { 'data-testid': 'budget-view', className: 'ui-view' },
+      e('div', { className: 'ui-view__bar' },
+        e('p', { className: 'ui-view__lead' },
+          __('bgIntro', 'Spending from your bank accounts, separate from your portfolio. Import a CSV export from online banking (Sparkasse, ING, DKB, N26, …) or add the transactions of a bank sync. Everything stays encrypted on this device.')),
+        e('div', { className: ['ui-panel-tools', 'ui-panel-tools--flush'].join(' ') },
+          e(UIC.IconButton, { label: __('bgPrevMonth', 'Previous month'), onClick: function () { shift(-1); }, icon: e('span', { 'aria-hidden': 'true' }, '‹') }),
+          e('span', { 'data-testid': 'bg-month', className: 'ui-bg-month' }, window.MaerminI18n.date(month + '-01', 'monthLong')),
+          e(UIC.IconButton, { label: __('bgNextMonth', 'Next month'), onClick: function () { shift(1); }, icon: e('span', { 'aria-hidden': 'true' }, '›') }),
+          e('label', { className: ['ui-btn', 'ui-btn--primary', 'ui-btn--md', 'ui-file-btn'].join(' ') }, __('bgImportCsv', 'Import bank CSV'),
+            e('input', { type: 'file', accept: '.csv,text/csv', 'data-testid': 'bg-csv', onChange: onFile, className: 'sr-only' })))),
+      e('div', { className: 'ui-ov-tiles' },
+        kpi(__('bgIncome', 'Income'), signed(m.income), m.income > 0 ? 'gain' : null, 'bg-income'),
+        kpi(__('bgExpenses', 'Expenses'), (m.expenses > 0 && !props.privacy ? '−' : '') + money(m.expenses), m.expenses > 0 ? 'loss' : null, 'bg-expenses'),
+        kpi(__('bgSavings', 'Saved & invested'), money(m.savings), null, 'bg-savings'),
+        kpi(__('bgSavingsRate', 'Savings rate'), m.savingsRate == null ? '–' : window.MaerminI18n.pct(m.savingsRate * 100, 1, true), m.savingsRate == null ? null : m.savingsRate < 0 ? 'loss' : 'gain', 'bg-rate')),
+      !st.txs.length ? e(UIC.EmptyState, { text: __('bgEmpty', 'No bookings yet. Import a bank CSV export to start.') }) : null,
+      m.count ? e('div', { className: CARD }, h3(__('bgCashFlow', 'Cash flow')), e(SankeyChart, { data: sankey(m), theme: th, money: money })) : null,
+      m.byCategory.length ? e('div', { className: CARD }, h3(__('bgByCategory', 'Spending by category')),
         m.byCategory.map(function (c) {
           var pct = c.budget ? Math.min(100, c.spent / c.budget * 100) : 0;
-          return e('div', { key: c.id, 'data-testid': 'bg-cat-' + c.id, style: { padding: '0.35rem 0', borderTop: '1px solid ' + border } },
-            e('div', { style: { display: 'flex', justifyContent: 'space-between', gap: '0.5rem', alignItems: 'center', fontSize: 'var(--text-sm)', flexWrap: 'wrap' } },
-              e('span', { style: { color: text, fontWeight: 600 } }, c.name),
-              e('span', { style: { display: 'flex', gap: '0.5rem', alignItems: 'center' } },
-                e('span', { style: { color: c.over ? bad : text, fontWeight: 700 } }, money(c.spent) + (c.budget ? ' / ' + money(c.budget) : '')),
+          return e('div', { key: c.id, 'data-testid': 'bg-cat-' + c.id, className: 'ui-bg-row' },
+            e('div', { className: 'ui-bg-row__line' },
+              e('b', null, c.name),
+              e('span', { className: 'ui-bg-row__side' },
+                e('span', { className: ['num', c.over ? 'tone-loss' : ''].join(' ').trim() }, (c.over ? '! ' : '') + money(c.spent) + (c.budget ? ' / ' + money(c.budget) : '')),
                 e('input', { key: 'bud' + c.id + (st.budgets[c.id] || ''), inputMode: 'decimal', placeholder: __('bgBudgetPh', 'Budget'), 'aria-label': __('bgBudgetFor', 'Monthly budget for {c}', { c: c.name }), defaultValue: st.budgets[c.id] || '',
-                  style: Object.assign({}, input, { width: '80px' }), onBlur: function (ev) { commit(setBudget(st, c.id, String(ev.target.value).replace(',', '.'))); } }))),
-            c.budget ? e('div', { style: { height: '6px', borderRadius: '3px', background: th.inputBg || 'rgba(255,255,255,0.08)', marginTop: '0.3rem', overflow: 'hidden' } },
-              e('div', { style: { width: pct + '%', height: '100%', background: c.over ? bad : pct > 85 ? warn : good } })) : null);
+                  className: [INPUT, 'ui-input--num'].join(' '), onBlur: function (ev) { commit(setBudget(st, c.id, String(ev.target.value).replace(',', '.'))); } }))),
+            c.budget ? e('span', { className: 'ui-meter', 'aria-hidden': 'true' },
+              e('span', { className: 'ui-meter__fill', 'data-tone': c.over ? 'loss' : pct > 85 ? 'warning' : 'gain', style: { width: pct + '%' } })) : null);
         })) : null,
-      monthTx.length ? e('div', { style: card }, h3(__('bgBookings', 'Bookings')),
+      monthTx.length ? e('div', { className: CARD }, h3(__('bgBookings', 'Bookings')),
         monthTx.map(function (t) {
           var cid = categoryOf(st, t);
-          return e('div', { key: t.id, 'data-testid': 'bg-tx', style: { borderTop: '1px solid ' + border, padding: '0.35rem 0' } },
-            e('div', { style: { display: 'flex', gap: '0.5rem', alignItems: 'center', flexWrap: 'wrap', fontSize: 'var(--text-sm)' } },
-              e('span', { style: { color: dim, minWidth: '5.5rem' } }, window.MaerminI18n.date(t.date)),
-              e('span', { style: { color: text, flex: '1 1 160px', minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }, title: t.purpose }, t.name ? t.name : t.purpose),
-              e('span', { style: { color: t.amount < 0 ? text : good, fontWeight: 700, minWidth: '6rem', textAlign: 'right' } }, money(t.amount)),
-              t.splits ? e('span', { style: { color: dim, fontSize: 'var(--text-xs)' } }, __('bgSplitN', 'split in {n}', { n: t.splits.length }))
-                : e('select', { value: cid, style: input, 'aria-label': __('bgCategory', 'Category'), onChange: function (ev) { commit(setCategory(st, t.id, ev.target.value)); } }, catOptions()),
-              e('button', { style: btn, onClick: function () { setSplitFor(t.id); setParts(t.splits ? t.splits.map(function (p) { return Object.assign({}, p); }) : [{ category: cid, amount: t.amount }, { category: 'uncategorized', amount: 0 }]); } }, __('bgSplit', 'Split'))),
-            splitFor === t.id ? e('div', { style: { padding: '0.4rem 0 0.2rem 1rem' } },
+          return e('div', { key: t.id, 'data-testid': 'bg-tx', className: 'ui-bg-row' },
+            e('div', { className: 'ui-bg-tx' },
+              e('span', { className: ['ui-muted', 'num'].join(' ') }, window.MaerminI18n.date(t.date)),
+              e('span', { className: 'ui-bg-tx__name', title: t.purpose }, t.name ? t.name : t.purpose),
+              e('b', { className: ['num', 'ui-bg-tx__amt', t.amount > 0 ? 'tone-gain' : ''].join(' ').trim() }, signed(t.amount)),
+              t.splits ? e('span', { className: 'ui-note' }, __('bgSplitN', 'split in {n}', { n: t.splits.length }))
+                : e('select', { value: cid, className: [INPUT, 'ui-select'].join(' '), 'aria-label': __('bgCategory', 'Category'), onChange: function (ev) { commit(setCategory(st, t.id, ev.target.value)); } }, catOptions()),
+              e('button', { className: BTN, onClick: function () { setSplitFor(t.id); setParts(t.splits ? t.splits.map(function (p) { return Object.assign({}, p); }) : [{ category: cid, amount: t.amount }, { category: 'uncategorized', amount: 0 }]); } }, __('bgSplit', 'Split'))),
+            splitFor === t.id ? e('div', { className: 'ui-bg-split' },
               parts.map(function (p, i) {
-                return e('div', { key: i, style: { display: 'flex', gap: '0.4rem', marginBottom: '0.3rem' } },
-                  e('select', { value: p.category, style: input, onChange: function (ev) { var n = parts.slice(); n[i] = Object.assign({}, p, { category: ev.target.value }); setParts(n); } }, catOptions()),
-                  e('input', { value: p.amount, inputMode: 'decimal', style: Object.assign({}, input, { width: '90px' }), onChange: function (ev) { var n = parts.slice(); n[i] = Object.assign({}, p, { amount: String(ev.target.value).replace(',', '.') }); setParts(n); } }));
+                return e('div', { key: i, className: 'ui-actions' },
+                  e('select', { value: p.category, className: [INPUT, 'ui-select'].join(' '), 'aria-label': __('bgCategory', 'Category'), onChange: function (ev) { var n = parts.slice(); n[i] = Object.assign({}, p, { category: ev.target.value }); setParts(n); } }, catOptions()),
+                  e('input', { value: p.amount, inputMode: 'decimal', className: [INPUT, 'ui-input--num'].join(' '), 'aria-label': __('bgSplitAmount', 'Amount'), onChange: function (ev) { var n = parts.slice(); n[i] = Object.assign({}, p, { amount: String(ev.target.value).replace(',', '.') }); setParts(n); } }));
               }),
-              e('div', { style: { display: 'flex', gap: '0.4rem' } },
-                e('button', { style: btn, onClick: function () { setParts(parts.concat([{ category: 'uncategorized', amount: 0 }])); } }, __('bgSplitAdd', 'Add part')),
-                e('button', { style: btn, onClick: function () {
+              e('div', { className: 'ui-actions' },
+                e('button', { className: BTN, onClick: function () { setParts(parts.concat([{ category: 'uncategorized', amount: 0 }])); } }, __('bgSplitAdd', 'Add part')),
+                e('button', { className: BTN, onClick: function () {
                   try { commit(setSplits(st, t.id, parts.filter(function (p) { return Math.abs(num(p.amount)) > 0; }))); setSplitFor(null); }
                   catch (err) { toast(__('bgSplitSum', 'The parts must add up to {v}.', { v: money(t.amount) }), 'error'); }
                 } }, __('bgSplitSave', 'Save split')),
-                t.splits ? e('button', { style: btn, onClick: function () { commit(setSplits(st, t.id, [])); setSplitFor(null); } }, __('bgSplitRemove', 'Remove split')) : null,
-                e('button', { style: btn, onClick: function () { setSplitFor(null); } }, __('bgCancel', 'Cancel')))) : null);
+                t.splits ? e('button', { className: BTN, onClick: function () { commit(setSplits(st, t.id, [])); setSplitFor(null); } }, __('bgSplitRemove', 'Remove split')) : null,
+                e('button', { className: BTN, onClick: function () { setSplitFor(null); } }, __('bgCancel', 'Cancel')))) : null);
         })) : null,
-      rec.length ? e('div', { 'data-testid': 'bg-recurring', style: card }, h3(__('bgRecurring', 'Recurring payments')),
-        e('div', { style: { color: dim, fontSize: 'var(--text-xs)', marginBottom: '0.4rem' } }, __('bgRecurringTotal', 'About {v} a month', { v: money(recurringMonthly(rec)) })),
+      rec.length ? e('div', { 'data-testid': 'bg-recurring', className: CARD }, h3(__('bgRecurring', 'Recurring payments')),
+        e('p', { className: 'ui-note' }, __('bgRecurringTotal', 'About {v} a month', { v: money(recurringMonthly(rec)) })),
         rec.map(function (x) {
-          return e('div', { key: x.key, style: { display: 'flex', justifyContent: 'space-between', gap: '0.5rem', borderTop: '1px solid ' + border, padding: '0.3rem 0', fontSize: 'var(--text-sm)', flexWrap: 'wrap' } },
-            e('span', { style: { color: text } }, x.name),
-            e('span', { style: { color: dim } }, (x.cadence === 'monthly' ? __('bgMonthly', 'monthly') : x.cadence === 'quarterly' ? __('bgQuarterly', 'quarterly') : __('bgYearly', 'yearly')) + ' · ' + money(x.amount) + ' · ' + __('bgNext', 'next {d}', { d: window.MaerminI18n.date(x.next) })));
+          return e('div', { key: x.key, className: ['ui-bg-row', 'ui-bg-row__line'].join(' ') },
+            e('span', null, x.name),
+            e('span', { className: 'ui-muted' }, (x.cadence === 'monthly' ? __('bgMonthly', 'monthly') : x.cadence === 'quarterly' ? __('bgQuarterly', 'quarterly') : __('bgYearly', 'yearly')) + ' · ' + money(x.amount) + ' · ' + __('bgNext', 'next {d}', { d: window.MaerminI18n.date(x.next) })));
         })) : null,
-      e('div', { style: card }, h3(__('bgRules', 'Rules')),
-        e('div', { style: { color: dim, fontSize: 'var(--text-xs)', marginBottom: '0.4rem' } }, __('bgRulesHint', 'A booking whose payee or purpose contains the text gets the category. Your rules come before the built-in ones; a category you pick by hand wins over both.')),
+      e('div', { className: CARD }, h3(__('bgRules', 'Rules')),
+        e('p', { className: 'ui-note' }, __('bgRulesHint', 'A booking whose payee or purpose contains the text gets the category. Your rules come before the built-in ones; a category you pick by hand wins over both.')),
         st.rules.map(function (r) {
-          return e('div', { key: r.id, style: { display: 'flex', justifyContent: 'space-between', gap: '0.5rem', borderTop: '1px solid ' + border, padding: '0.3rem 0', fontSize: 'var(--text-sm)' } },
-            e('span', { style: { color: text } }, '"' + r.contains + '" → ' + catName(catById(st, r.category))),
-            e('button', { style: btn, onClick: function () { commit(removeRule(st, r.id)); } }, __('bgRemove', 'Remove')));
+          return e('div', { key: r.id, className: ['ui-bg-row', 'ui-bg-row__line'].join(' ') },
+            e('span', null, '"' + r.contains + '" → ' + catName(catById(st, r.category))),
+            e('button', { className: BTN, onClick: function () { commit(removeRule(st, r.id)); } }, __('bgRemove', 'Remove')));
         }),
-        e('div', { style: { display: 'flex', gap: '0.4rem', marginTop: '0.5rem', flexWrap: 'wrap' } },
-          e('input', { 'data-testid': 'bg-rule-text', value: newRule.contains, placeholder: __('bgRuleText', 'Text, e.g. Bäckerei'), style: Object.assign({}, input, { flex: '1 1 140px' }), onChange: function (ev) { setNewRule(Object.assign({}, newRule, { contains: ev.target.value })); } }),
-          e('select', { value: newRule.category, style: input, onChange: function (ev) { setNewRule(Object.assign({}, newRule, { category: ev.target.value })); } }, catOptions()),
-          e('button', { style: btn, onClick: function () { if (!newRule.contains.trim()) return; commit(addRule(st, { contains: newRule.contains.trim(), category: newRule.category })); setNewRule({ contains: '', category: newRule.category }); } }, __('bgAddRule', 'Add rule'))),
-        e('div', { style: { display: 'flex', gap: '0.4rem', marginTop: '0.5rem', flexWrap: 'wrap' } },
-          e('input', { value: catName2, placeholder: __('bgNewCategory', 'New category'), style: Object.assign({}, input, { flex: '1 1 140px' }), onChange: function (ev) { setCatName2(ev.target.value); } }),
-          e('button', { style: btn, onClick: function () { if (!catName2.trim()) return; commit(addCategory(st, catName2.trim(), 'expense')); setCatName2(''); } }, __('bgAddCategory', 'Add category')))));
+        e('div', { className: ['ui-actions', 'ui-bg-add'].join(' ') },
+          e('input', { 'data-testid': 'bg-rule-text', value: newRule.contains, placeholder: __('bgRuleText', 'Text, e.g. Bäckerei'), 'aria-label': __('bgRuleText', 'Text, e.g. Bäckerei'), className: INPUT, onChange: function (ev) { setNewRule(Object.assign({}, newRule, { contains: ev.target.value })); } }),
+          e('select', { value: newRule.category, className: [INPUT, 'ui-select'].join(' '), 'aria-label': __('bgCategory', 'Category'), onChange: function (ev) { setNewRule(Object.assign({}, newRule, { category: ev.target.value })); } }, catOptions()),
+          e('button', { className: BTN, onClick: function () { if (!newRule.contains.trim()) return; commit(addRule(st, { contains: newRule.contains.trim(), category: newRule.category })); setNewRule({ contains: '', category: newRule.category }); } }, __('bgAddRule', 'Add rule'))),
+        e('div', { className: ['ui-actions', 'ui-bg-add'].join(' ') },
+          e('input', { value: catName2, placeholder: __('bgNewCategory', 'New category'), 'aria-label': __('bgNewCategory', 'New category'), className: INPUT, onChange: function (ev) { setCatName2(ev.target.value); } }),
+          e('button', { className: BTN, onClick: function () { if (!catName2.trim()) return; commit(addCategory(st, catName2.trim(), 'expense')); setCatName2(''); } }, __('bgAddCategory', 'Add category')))));
   }
 
   // From a bank sync result: add the account's rows to the budget.

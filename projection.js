@@ -150,10 +150,13 @@ function __(k, f, v) { return (typeof window !== 'undefined' && window.MaerminI1
       monthlyExpenses: props.monthlyExpenses || 0
     });
 
+    // R4.5: scenarios on the chart palette (never gain / loss colours), the
+    // shared ChartFrame with a word legend and "Show as table", Segmented horizons.
+    var UIC = window.MaerminComponents;
     var SCN = [
-      { key: 'optimistic', color: '#22c55e', label: __('pjOptimistic', 'Optimistic') },
-      { key: 'realistic', color: theme.accent || '#8b7cff', label: __('pjRealistic', 'Realistic') },
-      { key: 'conservative', color: '#ef4444', label: __('pjConservative', 'Conservative') }
+      { key: 'optimistic', series: '2', color: 'var(--chart-2)', label: __('pjOptimistic', 'Optimistic') },
+      { key: 'realistic', series: '1', color: 'var(--chart-1)', label: __('pjRealistic', 'Realistic') },
+      { key: 'conservative', series: '3', color: 'var(--chart-3)', label: __('pjConservative', 'Conservative') }
     ];
 
     // ---- SVG chart geometry -------------------------------------------------
@@ -179,7 +182,7 @@ function __(k, f, v) { return (typeof window !== 'undefined' && window.MaerminI1
     function pathFor(key) {
       return proj.scenarios[key].points.map(function (p, i) { return (i ? 'L' : 'M') + x(p).toFixed(1) + ' ' + y(p.value).toFixed(1); }).join(' ');
     }
-    // Closed area under the realistic line for a soft gradient fill.
+    // Closed area under the realistic line for a soft fill.
     var realPts = proj.scenarios.realistic.points;
     var areaPath = pathFor('realistic') + ' L' + x(realPts[realPts.length - 1]).toFixed(1) + ' ' + (padT + plotH).toFixed(1) +
       ' L' + x(realPts[0]).toFixed(1) + ' ' + (padT + plotH).toFixed(1) + ' Z';
@@ -193,79 +196,65 @@ function __(k, f, v) { return (typeof window !== 'undefined' && window.MaerminI1
     for (var ti = 0; ti <= TICKS; ti++) yTicks.push(minV + (maxV - minV) * ti / TICKS);
     // X labels: subsample year points so they never overlap on long horizons.
     var xStep = Math.max(1, Math.ceil(pts.length / 6));
-    var axisColor = theme.cardBorder || 'rgba(255,255,255,0.08)';
-    var gridId = 'wealthGrad';
+    var yearLabel = function (yr) { return yr === 0 ? __('pjNow', 'Now') : __('pjYears', '{n}y', { n: window.MaerminI18n.num(Math.round(yr * 10) / 10, { min: 0, max: 1 }) }); };
+    var money = function (v) { return fmt(v) + (sym ? ' ' + sym : ''); };
 
     var horizons = [1, 3, 5, 10];
-    function hzBtn(yr) {
-      return e('button', window.MaerminUI.pillProps(years === yr && !custom, { key: yr, onClick: function () { setYears(yr); setCustom(''); } }), __('pjYears', '{n}y', { n: yr }));
-    }
+    var controls = e('div', { className: 'ui-pj-controls' },
+      e(UIC.Segmented, { label: __('pjHorizon', 'Horizon'), size: 'sm', value: custom ? null : years,
+        onChange: function (yr) { setYears(yr); setCustom(''); },
+        options: horizons.map(function (yr) { return { value: yr, label: __('pjYears', '{n}y', { n: yr }) }; }) }),
+      e('input', { type: 'number', value: custom, placeholder: __('pjYrPh', 'yr'), 'aria-label': __('pjCustomYears', 'Custom number of years'), className: ['ui-input', 'ui-input--sm', 'ui-input--num'].join(' '),
+        onChange: function (ev) { setCustom(ev.target.value); var v = parseFloat(ev.target.value); if (v > 0) setYears(v); } }));
 
-    return e('div', { style: { background: theme.card || '#10151f', border: '1px solid ' + (theme.cardBorder || 'rgba(255,255,255,0.08)'), borderRadius: '14px', padding: '1.25rem', marginBottom: '1.5rem' } },
-      e('div', { style: { display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.75rem', flexWrap: 'wrap', gap: '0.5rem' } },
-        e('div', { style: { color: theme.text || '#e9edf4', fontWeight: 800, fontSize: 'var(--text-body)' } },
-          (props.scopeLabel ? props.scopeLabel + ' — ' : '') + __('pjTitle', 'Wealth Projection')),
-        e('div', { style: { display: 'flex', gap: '0.35rem', alignItems: 'center' } },
-          e('div', { className: 'mx-pills', role: 'group', 'aria-label': __('pjHorizon', 'Horizon') }, horizons.map(hzBtn)),
-          e('input', { type: 'number', value: custom, placeholder: __('pjYrPh', 'yr'), 'aria-label': __('pjCustomYears', 'Custom number of years'), onChange: function (ev) { setCustom(ev.target.value); var v = parseFloat(ev.target.value); if (v > 0) setYears(v); },
-            style: { width: '54px', padding: '0.3rem 0.4rem', borderRadius: '6px', border: '1px solid ' + (theme.cardBorder || '#333'), background: theme.inputBg || '#0f172a', color: theme.text || '#fff', fontSize: 'var(--text-xs)' } })
-        )
-      ),
+    var tableRows = pts.map(function (p, i) {
+      return { id: i, year: p.year, optimistic: proj.scenarios.optimistic.points[i].value, realistic: p.value, conservative: proj.scenarios.conservative.points[i].value };
+    }).filter(function (r, i) { return i % xStep === 0 || i === pts.length - 1; });
+
+    return e(UIC.ChartFrame, {
+      'data-testid': 'projection', className: 'ui-pj',
+      title: (props.scopeLabel ? props.scopeLabel + ' — ' : '') + __('pjTitle', 'Wealth Projection'),
+      action: controls,
+      summary: __('pjAria', 'Projection over {n} years: realistic {v}', { n: maxYear, v: money(realPts[realPts.length - 1].value) }),
+      legend: SCN.map(function (s) { return { series: s.series, label: s.label, value: money(proj.scenarios[s.key].endValue) }; }),
+      table: {
+        rows: tableRows, rowKey: function (r) { return r.id; },
+        columns: [{ key: 'year', label: __('pjYear', 'Year'), render: function (r) { return yearLabel(r.year); } }].concat(SCN.map(function (s) {
+          return { key: s.key, label: s.label, align: 'right', render: function (r) { return money(r[s.key]); } };
+        }))
+      },
+      source: __('pjFootnote', 'Projection over {n}y. Returns are assumptions ({rates} p.a.), not guarantees.', { n: window.MaerminI18n.num(Math.round(years * 10) / 10, { min: 0, max: 1 }), rates: window.MaerminI18n.pct(3, 0) + '/' + window.MaerminI18n.pct(6, 0) + '/' + window.MaerminI18n.pct(9, 0) })
+    },
       // chart
-      e('svg', { role: 'img', 'aria-label': __('pjAria', 'Projection over {n} years: realistic {v}', { n: maxYear, v: fmt(realPts[realPts.length - 1].value) + (sym ? ' ' + sym : '') }), viewBox: '0 0 ' + W + ' ' + H, style: { width: '100%', height: 'auto', display: 'block' } },
-        e('defs', null,
-          e('linearGradient', { id: gridId, x1: '0', y1: '0', x2: '0', y2: '1' },
-            e('stop', { offset: '0%', stopColor: theme.accent || '#8b7cff', stopOpacity: 0.22 }),
-            e('stop', { offset: '100%', stopColor: theme.accent || '#8b7cff', stopOpacity: 0 })
-          )
-        ),
+      e('svg', { viewBox: '0 0 ' + W + ' ' + H, className: 'ui-pj__svg', 'aria-hidden': 'true' },
         // horizontal gridlines + Y value labels
         yTicks.map(function (v, i) {
           var yy = y(v);
           return e('g', { key: 'y' + i },
-            e('line', { x1: padL, y1: yy, x2: W - padR, y2: yy, stroke: axisColor, strokeWidth: 1, opacity: 0.5 }),
-            e('text', { x: padL - 8, y: yy + 3, textAnchor: 'end', fontSize: 10, fill: theme.textSecondary || '#888' }, compact(v))
+            e('line', { x1: padL, y1: yy, x2: W - padR, y2: yy, className: 'ui-pj__grid' }),
+            e('text', { x: padL - 8, y: yy + 3, textAnchor: 'end', fontSize: 10, className: 'ui-pj__axis' }, compact(v))
           );
         }),
         // X year labels
         pts.map(function (p, i) {
           if (i % xStep !== 0 && i !== pts.length - 1) return null;
-          return e('text', { key: 'x' + i, x: x(p), y: H - 10, textAnchor: 'middle', fontSize: 10, fill: theme.textSecondary || '#888' },
-            p.year === 0 ? __('pjNow', 'Now') : __('pjYears', '{n}y', { n: window.MaerminI18n.num(Math.round(p.year * 10) / 10, { min: 0, max: 1 }) }));
+          return e('text', { key: 'x' + i, x: x(p), y: H - 10, textAnchor: 'middle', fontSize: 10, className: 'ui-pj__axis' }, yearLabel(p.year));
         }),
         // soft fill under the realistic curve
-        e('path', { d: areaPath, fill: 'url(#' + gridId + ')', stroke: 'none' }),
+        e('path', { d: areaPath, className: 'ui-pj__area' }),
         // scenario lines
-        SCN.map(function (s) { return e('path', { key: s.key, d: pathFor(s.key), fill: 'none', stroke: s.color, strokeWidth: s.key === 'realistic' ? 2.75 : 1.75, opacity: s.key === 'realistic' ? 1 : 0.75, strokeLinejoin: 'round', strokeLinecap: 'round' }); }),
-        // end-point markers with the final value beside the realistic curve
+        SCN.map(function (s) { return e('path', { key: s.key, d: pathFor(s.key), fill: 'none', style: { stroke: s.color }, strokeWidth: s.key === 'realistic' ? 2.75 : 1.75, opacity: s.key === 'realistic' ? 1 : 0.85, strokeLinejoin: 'round', strokeLinecap: 'round' }); }),
+        // end-point markers
         SCN.map(function (s) {
           var last = proj.scenarios[s.key].points[proj.scenarios[s.key].points.length - 1];
-          return e('circle', { key: 'd' + s.key, cx: x(last), cy: y(last.value), r: s.key === 'realistic' ? 4 : 3, fill: s.color, stroke: theme.card || '#10151f', strokeWidth: 1.5 });
+          return e('circle', { key: 'd' + s.key, cx: x(last), cy: y(last.value), r: s.key === 'realistic' ? 4 : 3, style: { fill: s.color, stroke: 'var(--surface)' }, strokeWidth: 1.5 });
         })
       ),
-      // legend + end values
-      e('div', { style: { display: 'flex', gap: '1rem', flexWrap: 'wrap', marginTop: '0.75rem' } },
-        SCN.map(function (s) {
-          return e('div', { key: s.key, style: { display: 'flex', alignItems: 'center', gap: '0.4rem', fontSize: 'var(--text-sm)' } },
-            e('div', { style: { width: 10, height: 3, background: s.color } }),
-            e('span', { style: { color: theme.textSecondary || '#888' } }, s.label),
-            e('span', { style: { color: theme.text || '#fff', fontWeight: 700 } }, fmt(proj.scenarios[s.key].endValue) + ' ' + sym)
-          );
-        })
-      ),
-      // cashflow breakdown
-      e('div', { style: { display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(130px, 1fr))', gap: '0.5rem', marginTop: '0.9rem', fontSize: 'var(--text-xs)' } },
-        [[__('pjContributions', 'Contributions'), proj.scenarios.realistic.totalContributions, theme.success || '#22c55e'],
-         [__('attrDividends', 'Dividends'), proj.scenarios.realistic.totalDividends, theme.accent || '#8b7cff'],
-         [__('pjDebtService', 'Debt service'), -proj.scenarios.realistic.totalLiabilityPayments, theme.danger || '#ef4444']
-        ].map(function (row, i) {
-          return e('div', { key: i, style: { background: theme.inputBg || 'rgba(255,255,255,0.03)', borderRadius: '8px', padding: '0.5rem 0.7rem' } },
-            e('div', { style: { color: theme.textSecondary || '#888' } }, row[0]),
-            e('div', { style: { color: row[2], fontWeight: 700 } }, fmt(Math.abs(row[1])) + ' ' + sym));
-        })
-      ),
-      e('div', { style: { color: theme.textSecondary || '#888', fontSize: 'var(--text-2xs)', marginTop: '0.6rem' } },
-        __('pjFootnote', 'Projection over {n}y. Returns are assumptions ({rates} p.a.), not guarantees.', { n: window.MaerminI18n.num(Math.round(years * 10) / 10, { min: 0, max: 1 }), rates: window.MaerminI18n.pct(3, 0) + '/' + window.MaerminI18n.pct(6, 0) + '/' + window.MaerminI18n.pct(9, 0) }))
+      // cashflow breakdown (realistic): money in, payouts, debt service (out, with its sign)
+      e('div', { className: 'ui-tiles' },
+        e(UIC.Stat, { className: 'ui-tile', label: __('pjContributions', 'Contributions'), value: money(proj.scenarios.realistic.totalContributions) }),
+        e(UIC.Stat, { className: 'ui-tile', label: __('attrDividends', 'Dividends'), value: money(proj.scenarios.realistic.totalDividends), tone: proj.scenarios.realistic.totalDividends > 0 ? 'income' : null }),
+        e(UIC.Stat, { className: 'ui-tile', label: __('pjDebtService', 'Debt service'), value: (proj.scenarios.realistic.totalLiabilityPayments > 0 ? '−' : '') + money(Math.abs(proj.scenarios.realistic.totalLiabilityPayments)) }))
     );
   }
 

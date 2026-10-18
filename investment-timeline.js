@@ -104,23 +104,21 @@
     var selState = React.useState(null), sel = selState[0], setSel = selState[1];
     if (!cal.years.length) return null;
 
-    var text = theme.text, dim = theme.textSecondary, border = theme.cardBorder || 'rgba(127,127,127,0.2)';
-    var accent = theme.accent || '#7c6cff';
+    // R4.5: Stat tiles, the month grid on the chart palette (stronger = more
+    // bought), the shared Card.
+    var UIC = W.MaerminComponents;
     var money = function (v) { return fmt(v) + ' ' + cur; };
     var ymLabel = function (ym, long) { return I.date(new Date(parseInt(ym.slice(0, 4), 10), parseInt(ym.slice(5, 7), 10) - 1, 1), { month: long ? 'long' : 'short', year: 'numeric' }); };
     var range = function (a, b) { return a === b ? ymLabel(a) : ymLabel(a) + ' – ' + ymLabel(b); };
 
-    var stat = function (key, label, value, sub, color) {
-      return e('div', { key: key, 'data-stat': key, style: { background: theme.inputBg, borderRadius: '10px', padding: '0.65rem 0.8rem', minWidth: 0 } },
-        e('div', { style: { color: dim, fontSize: 'var(--text-2xs)', textTransform: 'uppercase', letterSpacing: '0.04em' } }, label),
-        e('div', { style: { color: color || text, fontWeight: 800, fontSize: 'var(--text-lg)', marginTop: '0.15rem' } }, value),
-        sub && e('div', { style: { color: dim, fontSize: 'var(--text-xs)', marginTop: '0.15rem' } }, sub));
+    var stat = function (key, label, value, sub, tone) {
+      return e(UIC.Stat, { key: key, 'data-stat': key, className: 'ui-tile', label: label, value: value, sub: sub || null, tone: tone || null });
     };
     var months = function (n) { return __('itMonths', '{n} {n:month|months}', { n: n }); };
-    var stats = e('div', { style: { display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(130px, 1fr))', gap: '0.6rem', marginBottom: '1rem' } },
+    var stats = e('div', { className: 'ui-tiles' },
       stat('current', __('itCurrent', 'Current streak'), months(st.current),
         st.current ? range(st.currentFrom, st.currentTo) + (st.open ? ' · ' + __('itOpen', 'this month still open') : '') : __('itNoStreak', 'no buy last month'),
-        st.current ? theme.success : dim),
+        st.current ? 'gain' : null),
       stat('longest', __('itLongest', 'Longest streak'), months(st.longest), st.longest ? range(st.longestFrom, st.longestTo) : ''),
       stat('ratio', __('itBuyMonths', 'Months with a buy'), st.buyMonths + ' / ' + st.totalMonths,
         st.totalMonths ? I.pct(st.buyMonths / st.totalMonths * 100, 0) : ''),
@@ -129,36 +127,33 @@
     var cell = function (c) {
       var on = sel === c.ym;
       var share = cal.max > 0 ? c.buys / cal.max : 0;
-      var bg = !c.inRange ? 'transparent' : c.buys > 0 ? accent : theme.inputBg;
+      var bg = c.buys > 0 ? 'color-mix(in srgb, var(--chart-1) ' + Math.round(25 + 75 * share) + '%, var(--surface))' : undefined;
       var label = c.inRange ? ymLabel(c.ym, true) + ': ' + (c.buys > 0 ? __('itBoughtAria', 'bought {amount}', { amount: money(c.buys) }) : __('itNoBuy', 'no buy')) : '';
-      return e('td', { key: c.ym, style: { padding: '2px' } },
+      return e('td', { key: c.ym },
         c.inRange ? e('button', { type: 'button', 'data-ym': c.ym, 'data-buys': c.buys, 'aria-pressed': on, 'aria-label': label, title: label, onClick: function () { setSel(on ? null : c.ym); },
-          style: { display: 'block', width: '100%', minWidth: '14px', height: '28px', border: on ? '2px solid ' + text : '1px solid ' + border, borderRadius: '6px', cursor: 'pointer', padding: 0,
-            background: bg, opacity: c.buys > 0 ? 0.3 + 0.7 * share : 1 } }) : e('div', { style: { height: '28px' } }));
+          className: ['ui-it__cell', c.buys > 0 ? 'has-buy' : '', on ? 'is-on' : ''].join(' ').trim(), style: bg ? { background: bg } : undefined }) : e('div', { className: 'ui-it__blank' }));
     };
     var monthHead = [];
-    for (var i = 0; i < 12; i++) monthHead.push(e('th', { key: i, scope: 'col', style: { color: dim, fontWeight: 600, fontSize: 'var(--text-2xs)', textAlign: 'center', padding: '0 2px 4px' } }, I.date(new Date(2024, i, 1), { month: 'narrow' })));
-    var grid = e('div', { style: { overflowX: 'auto', maxWidth: '100%' } },
-      e('table', { style: { borderCollapse: 'collapse', width: '100%', tableLayout: 'fixed' } },
-        e('thead', null, e('tr', null, e('th', { scope: 'col', style: { width: '5.2rem', color: dim, fontWeight: 600, fontSize: 'var(--text-3xs)', textAlign: 'left', textTransform: 'uppercase', padding: '0 0 4px' } }, __('itYearTotal', 'Bought')), monthHead)),
+    for (var i = 0; i < 12; i++) monthHead.push(e('th', { key: i, scope: 'col' }, I.date(new Date(2024, i, 1), { month: 'narrow' })));
+    var grid = e('div', { className: 'ui-it__scroll' },
+      e('table', { className: 'ui-it' },
+        e('thead', null, e('tr', null, e('th', { scope: 'col', className: 'ui-it__yearhead' }, __('itYearTotal', 'Bought')), monthHead)),
         e('tbody', null, cal.years.map(function (y) {
           return e('tr', { key: y.y, 'data-y': y.y },
-            e('th', { scope: 'row', 'data-total': y.total, style: { textAlign: 'left', padding: '2px 4px 2px 0', lineHeight: 1.15 } },
-              e('div', { style: { color: text, fontWeight: 700, fontSize: 'var(--text-sm)' } }, String(y.y)),
-              e('div', { style: { color: dim, fontSize: 'var(--text-2xs)', whiteSpace: 'nowrap', fontVariantNumeric: 'tabular-nums' } }, I.num(y.total, 0) + ' ' + cur)),
+            e('th', { scope: 'row', 'data-total': y.total, className: 'ui-it__year' },
+              e('b', null, String(y.y)),
+              e('span', { className: 'num' }, I.num(y.total, 0) + ' ' + cur)),
             y.cells.map(cell));
         }))));
     var selCell = null;
     cal.years.forEach(function (y) { y.cells.forEach(function (c) { if (c.ym === sel) selCell = c; }); });
-    var detail = e('div', { 'data-testid': 'it-detail', style: { color: dim, fontSize: 'var(--text-sm)', marginTop: '0.6rem', minHeight: '1.2rem' } },
-      selCell ? e('span', null, e('strong', { style: { color: text } }, ymLabel(selCell.ym, true) + ': '),
+    var detail = e('p', { 'data-testid': 'it-detail', className: 'ui-note' },
+      selCell ? e('span', null, e('strong', null, ymLabel(selCell.ym, true) + ': '),
         __('itDetail', 'bought {buys}, sold {sells}, net {net}', { buys: money(selCell.buys), sells: money(selCell.sells), net: money(selCell.net) }))
         : __('itHint', 'Select a month for its amounts. Darker = more bought.'));
 
-    return e('section', { 'data-testid': 'invest-timeline', style: { background: theme.card, border: '1px solid ' + border, borderRadius: '14px', padding: '1.1rem', margin: '1rem 0', minWidth: 0 } },
-      e('h3', { style: { color: text, fontWeight: 700, fontSize: 'var(--text-md)', margin: 0 } }, __('itTitle', 'Investment calendar')),
-      e('div', { style: { color: dim, fontSize: 'var(--text-xs)', margin: '0.2rem 0 0.9rem', lineHeight: 1.5 } },
-        __('itSub', 'Money bought per month (incl. fees) and your saving streaks: months in a row with at least one buy, savings-plan runs included.')),
+    return e(UIC.Card, { 'data-testid': 'invest-timeline', title: __('itTitle', 'Investment calendar'), headingLevel: 'h3',
+      subtitle: __('itSub', 'Money bought per month (incl. fees) and your saving streaks: months in a row with at least one buy, savings-plan runs included.') },
       stats, grid, detail);
   }
 })();
