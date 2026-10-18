@@ -226,9 +226,7 @@ function __(k, f, v) { return (typeof window !== 'undefined' && window.MaerminI1
     var React = (typeof window !== 'undefined') ? window.React : null;
     if (!React) return null;
     var e = React.createElement, useState = React.useState;
-    var th = props.theme || {};
-    var text = th.text || '#e6edf3', dim = th.textSecondary || '#9aa4b2', border = th.cardBorder || 'rgba(255,255,255,0.1)';
-    var good = th.success || '#22c55e', warn = th.warning || '#f59e0b';
+    // R5.1: shared rows, switches, buttons and notes; status with a mark
     var s0 = useState(load); var s = s0[0], setS = s0[1];
     var s1 = useState(false); var busy = s1[0], setBusy = s1[1];
     var toast = props.addToast || function () {};
@@ -248,19 +246,19 @@ function __(k, f, v) { return (typeof window !== 'undefined' && window.MaerminI1
     }
     function setOpt(patch) { var n = save(Object.assign({}, load(), patch, { hash: '' })); setS(n); if (n.enabled) run(syncNow(ctx({ force: true }))); }
     var row = function (label, control, tid) {
-      return e('label', { 'data-testid': tid, style: { display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '0.75rem', padding: '0.35rem 0', borderTop: '1px solid ' + border, fontSize: 'var(--text-sm)', color: text, cursor: 'pointer' } },
-        e('span', null, label), control);
+      return e('label', { 'data-testid': tid, className: ['ui-sec-row', 'is-label'].join(' ') },
+        e('span', { className: 'ui-sec-row__label' }, label), control);
     };
     var box = function (checked, onChange, disabled) {
-      return e('input', { type: 'checkbox', checked: checked, disabled: disabled, onChange: function (ev) { onChange(ev.target.checked); }, style: { width: '20px', height: '20px', margin: 0, accentColor: th.accent } });
+      return e('input', { type: 'checkbox', checked: checked, disabled: disabled, onChange: function (ev) { onChange(ev.target.checked); }, className: 'ui-st-check' });
     };
-    var btn = { padding: '0.35rem 0.8rem', borderRadius: '6px', border: '1px solid ' + border, background: th.inputBg, color: text, cursor: 'pointer', fontSize: '0.74rem', fontWeight: 600 };
+    var BTN = ['ui-btn', 'ui-btn--secondary', 'ui-btn--sm'].join(' ');
     var can = supported();
     return e('div', { 'data-testid': 'push-panel' },
-      e('p', { style: { color: dim, fontSize: 'var(--text-xs)', lineHeight: 1.5, margin: '0 0 0.4rem' } },
+      e('p', { className: ['ui-note', 'ui-note--flush'].join(' ') },
         __('wpIntro', 'Reminders for dividend days, the Vorabpauschale, crypto turning tax-free and the IRA deadline, even when MAERMIN is closed. Each message is encrypted on this device before it goes to your Worker, which only stores ciphertext and the send time.')),
-      !props.workerUrl ? e('div', { style: { color: warn, fontSize: 'var(--text-xs)' } }, __('wpNeedWorker', 'Needs your own Worker (API Settings).')) : null,
-      !can ? e('div', { style: { color: warn, fontSize: 'var(--text-xs)' } }, __('wpUnsupported', 'This browser does not support push notifications here (on iPhone: add MAERMIN to the home screen first).')) : null,
+      !props.workerUrl ? e('p', { className: ['ui-note', 'tone-warning'].join(' ') }, '! ' + __('wpNeedWorker', 'Needs your own Worker (API Settings).')) : null,
+      !can ? e('p', { className: ['ui-note', 'tone-warning'].join(' ') }, '! ' + __('wpUnsupported', 'This browser does not support push notifications here (on iPhone: add MAERMIN to the home screen first).')) : null,
       row(__('wpEnable', 'Push notifications on this device'), box(s.enabled, function (on) {
         run(on ? enable(ctx()) : disable(ctx()), on ? __('wpEnabled', 'Push notifications are on.') : __('wpDisabled', 'Push notifications are off on this device.'));
       }, busy || !can || !props.workerUrl), 'push-enable'),
@@ -271,13 +269,13 @@ function __(k, f, v) { return (typeof window !== 'undefined' && window.MaerminI1
         }),
         row(__('wpDetails', 'Show symbols and amounts on the lock screen'), box(s.details, function (on) { setOpt({ details: on }); }, busy), 'push-details'),
         row(__('wpClosedPrices', 'Check price rules while the app is closed'), box(s.closedPrices, function (on) { setOpt({ closedPrices: on }); }, busy), 'push-prices'),
-        e('div', { style: { color: dim, fontSize: 'var(--text-xs)', lineHeight: 1.5, padding: '0.2rem 0 0.4rem' } },
+        e('p', { className: 'ui-note' },
           __('wpClosedPricesHint', 'Off: price rules notify only while MAERMIN is open. On: your Worker checks them every 15 minutes and sees each rule\'s symbol and threshold (never quantities or values). Weight, value and drawdown rules always run in the app.')),
-        e('div', { style: { display: 'flex', gap: '0.5rem', alignItems: 'center', flexWrap: 'wrap' } },
-          e('button', { 'data-testid': 'push-test', style: btn, disabled: busy, onClick: function () { run(sendTest(ctx()), __('wpTestSent', 'Test notification sent.')); } }, __('wpTest', 'Send a test notification')),
-          e('button', { style: btn, disabled: busy, onClick: function () { run(syncNow(ctx({ force: true })), __('wpSynced', 'Reminders updated.')); } }, __('wpResync', 'Update reminders')),
-          e('span', { 'data-testid': 'push-status', style: { color: s.lastError ? warn : good, fontSize: 'var(--text-xs)' } },
-            s.lastError ? errText({ message: s.lastError }) : s.counts ? __('wpCounts', '{n} reminders and {p} price rules scheduled', { n: s.counts.messages || 0, p: s.counts.prices || 0 }) : ''))) : null);
+        e('div', { className: 'ui-actions' },
+          e('button', { 'data-testid': 'push-test', className: BTN, disabled: busy, onClick: function () { run(sendTest(ctx()), __('wpTestSent', 'Test notification sent.')); } }, __('wpTest', 'Send a test notification')),
+          e('button', { className: BTN, disabled: busy, onClick: function () { run(syncNow(ctx({ force: true })), __('wpSynced', 'Reminders updated.')); } }, __('wpResync', 'Update reminders')),
+          e('span', { 'data-testid': 'push-status', className: ['ui-note', 'ui-note--flush', s.lastError ? 'tone-warning' : 'tone-gain'].join(' ') },
+            s.lastError ? '! ' + errText({ message: s.lastError }) : s.counts ? '✓ ' + __('wpCounts', '{n} reminders and {p} price rules scheduled', { n: s.counts.messages || 0, p: s.counts.prices || 0 }) : ''))) : null);
   }
 
   var api = { KEY: KEY, HORIZON_DAYS: HORIZON_DAYS, plan: plan, payload: payload, priceRules: priceRules, normalize: normalize, load: load, save: save,

@@ -163,7 +163,8 @@ const read = (f) => fs.readFileSync(path.join(__dirname, '..', f), 'utf8');
       && /UIC\.Modal, \{/.test(f3) && /__\('uiClose', 'Close'\)/.test(read('renderer-components.js')));
     ok('L-3: portfolio rename is named', /pfRenameAria/.test(read('features4.js')));
     ok('L-3: net-worth and real-asset remove are named', /nwRemoveAria/.test(read('features5.js')) && /raRemoveAria/.test(read('real-assets.js')));
-    ok('L-3: security log close is named', /setShowAuditLog\(false\), 'aria-label'/.test(read('renderer.js')));
+    // R5.1: the close is the shared IconButton, named through its label
+    ok('L-3: security log close is named', /UIC\.IconButton, \{ size: 'sm', label: t\.close \|\| 'Close', onClick: \(\) => setShowAuditLog\(false\)/.test(read('renderer.js')));
     ok('L-3: no single-line icon button without a name in features3', unnamed(f3).length === 0);
   }
 

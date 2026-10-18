@@ -217,19 +217,15 @@ function __(k, f, v) { return (typeof window !== 'undefined' && window.MaerminI1
     var React = W.React;
     if (!React) return null;
     var e = React.createElement, useState = React.useState;
-    var th = props.theme || {};
-    var text = th.text || '#e6edf3', dim = th.textSecondary || '#9aa4b2', border = th.cardBorder || 'rgba(255,255,255,0.1)';
-    var warn = th.warning || '#f59e0b', accent = th.accent || '#8b7cff';
+    // R5.1: shared chips, buttons, fields and notes
     var dav0 = loadDav() || {};
     var s0 = useState(props.workerUrl ? 'worker' : fileSupported() ? 'file' : 'webdav'); var mode = s0[0], setMode = s0[1];
     var s1 = useState(dav0.url || ''); var url = s1[0], setUrl = s1[1];
     var s2 = useState(dav0.username || ''); var user = s2[0], setUser = s2[1];
     var s3 = useState(''); var pass = s3[0], setPass = s3[1];
     var s4 = useState(''); var problem = s4[0], setProblem = s4[1];
-    var chip = function (on) { return { padding: '0.3rem 0.65rem', borderRadius: '999px', border: '1px solid ' + (on ? accent : border), background: on ? (th.accentFill || accent) : th.inputBg, color: on ? 'var(--on-accent)' : text, cursor: 'pointer', fontSize: '0.74rem', fontWeight: 600 }; };
-    var btn = { padding: '0.4rem 0.8rem', borderRadius: '8px', border: '1px solid ' + accent, background: th.accentFill || accent, color: 'var(--on-accent)', cursor: 'pointer', fontSize: '0.78rem', fontWeight: 600 };
-    var input = { boxSizing: 'border-box', width: '100%', padding: '0.45rem 0.6rem', background: th.inputBg, border: '1px solid ' + (th.inputBorder || border), borderRadius: '8px', color: text, fontSize: '0.8rem', fontFamily: 'inherit', marginBottom: '0.4rem' };
-    var note = function (t, color) { return e('p', { style: { color: color || dim, fontSize: 'var(--text-xs)', lineHeight: 1.5, margin: '0.3rem 0 0.5rem' } }, t); };
+    var BTN = ['ui-btn', 'ui-btn--secondary', 'ui-btn--sm'].join(' ');
+    var note = function (t, warn) { return e('p', { className: warn ? ['ui-note', 'tone-warning'].join(' ') : 'ui-note' }, warn ? '! ' + t : t); };
 
     function pickFile(create) {
       setProblem('');
@@ -253,32 +249,32 @@ function __(k, f, v) { return (typeof window !== 'undefined' && window.MaerminI1
       props.onConnect({ provider: 'webdav', endpoint: u, username: user.trim(), password: pass });
     }
 
-    return e('div', { 'data-testid': 'sync-dest', style: { margin: '0.3rem 0 0.2rem' } },
-      e('div', { style: { color: dim, fontSize: 'var(--text-xs)', marginBottom: '0.35rem' } }, __('stWhere', 'Where the encrypted copy goes')),
-      e('div', { style: { display: 'flex', gap: '0.35rem', flexWrap: 'wrap', marginBottom: '0.4rem' } },
-        e('button', { 'data-testid': 'sync-dest-worker', 'aria-pressed': mode === 'worker' ? 'true' : 'false', style: chip(mode === 'worker'), onClick: function () { setMode('worker'); } }, __('stWorker', 'Your Worker')),
-        e('button', { 'data-testid': 'sync-dest-file', 'aria-pressed': mode === 'file' ? 'true' : 'false', style: chip(mode === 'file'), onClick: function () { setMode('file'); } }, __('stFile', 'File (Syncthing, Dropbox, NAS)')),
-        e('button', { 'data-testid': 'sync-dest-webdav', 'aria-pressed': mode === 'webdav' ? 'true' : 'false', style: chip(mode === 'webdav'), onClick: function () { setMode('webdav'); } }, __('stWebDav', 'WebDAV / Nextcloud'))),
+    return e('div', { 'data-testid': 'sync-dest', className: 'ui-sync-dest' },
+      e('p', { className: 'ui-field__label' }, __('stWhere', 'Where the encrypted copy goes')),
+      e('div', { className: 'ui-bi-chips' },
+        e('button', { 'data-testid': 'sync-dest-worker', 'aria-pressed': mode === 'worker' ? 'true' : 'false', className: 'ui-chip', onClick: function () { setMode('worker'); } }, __('stWorker', 'Your Worker')),
+        e('button', { 'data-testid': 'sync-dest-file', 'aria-pressed': mode === 'file' ? 'true' : 'false', className: 'ui-chip', onClick: function () { setMode('file'); } }, __('stFile', 'File (Syncthing, Dropbox, NAS)')),
+        e('button', { 'data-testid': 'sync-dest-webdav', 'aria-pressed': mode === 'webdav' ? 'true' : 'false', className: 'ui-chip', onClick: function () { setMode('webdav'); } }, __('stWebDav', 'WebDAV / Nextcloud'))),
       mode === 'worker' ? e('div', null,
         note(__('stWorkerHint', 'Your own Cloudflare Worker keeps the encrypted copy and checks every write.')),
-        e('button', { 'data-testid': 'sync-enable-worker', style: btn, disabled: !props.workerUrl || props.busy, onClick: function () { props.onConnect({ provider: 'worker', endpoint: props.workerUrl }); } }, __('syncEnable', 'Enable & sync')),
-        !props.workerUrl ? note(__('syncNeedWorkerHint', 'Add a Worker URL in API Settings to enable sync.'), warn) : null) : null,
+        e('button', { 'data-testid': 'sync-enable-worker', className: BTN, disabled: !props.workerUrl || props.busy, onClick: function () { props.onConnect({ provider: 'worker', endpoint: props.workerUrl }); } }, __('syncEnable', 'Enable & sync')),
+        !props.workerUrl ? note(__('syncNeedWorkerHint', 'Add a Worker URL in API Settings to enable sync.'), true) : null) : null,
       mode === 'file' ? e('div', null,
         fileSupported()
           ? e('div', null,
             note(__('stFileHint', 'A file on this computer, e.g. in a folder that Syncthing, Dropbox or a NAS share copies to your other devices. Only ciphertext goes into it. Two devices should not sync at the very same moment: a sync tool may then keep a conflicted copy.')),
-            e('div', { style: { display: 'flex', gap: '0.4rem', flexWrap: 'wrap' } },
-              e('button', { 'data-testid': 'sync-file-new', style: btn, disabled: props.busy, onClick: function () { pickFile(true); } }, __('stFileNew', 'Create sync file…')),
-              e('button', { 'data-testid': 'sync-file-open', style: btn, disabled: props.busy, onClick: function () { pickFile(false); } }, __('stFileOpen', 'Use existing file…'))))
-          : note(__('stFileUnsupported', 'This browser does not let web pages write files (Chrome, Edge and other Chromium browsers do). Use WebDAV instead.'), warn)) : null,
+            e('div', { className: 'ui-actions' },
+              e('button', { 'data-testid': 'sync-file-new', className: BTN, disabled: props.busy, onClick: function () { pickFile(true); } }, __('stFileNew', 'Create sync file…')),
+              e('button', { 'data-testid': 'sync-file-open', className: BTN, disabled: props.busy, onClick: function () { pickFile(false); } }, __('stFileOpen', 'Use existing file…'))))
+          : note(__('stFileUnsupported', 'This browser does not let web pages write files (Chrome, Edge and other Chromium browsers do). Use WebDAV instead.'), true)) : null,
       mode === 'webdav' ? e('div', null,
         note(__('stDavHint', 'A folder on your Nextcloud, ownCloud or NAS. Use an app password, not your main password. The server must allow requests from this site (CORS); Nextcloud needs a CORS app or a proxy rule for that. The site itself may only reach hosts named in its security policy: on your own copy, add the host with MAERMIN_CONNECT_SRC when you build it.')),
-        e('input', { 'data-testid': 'sync-webdav-url', type: 'url', value: url, placeholder: __('stDavUrlPh', 'https://cloud.example.org/remote.php/dav/files/you/MAERMIN'), 'aria-label': __('stDavUrl', 'Folder address (WebDAV)'), style: input, onChange: function (ev) { setUrl(ev.target.value); } }),
-        e('input', { 'data-testid': 'sync-webdav-user', value: user, autoComplete: 'username', placeholder: __('stDavUser', 'User name'), 'aria-label': __('stDavUser', 'User name'), style: input, onChange: function (ev) { setUser(ev.target.value); } }),
-        e('input', { 'data-testid': 'sync-webdav-pass', type: 'password', value: pass, autoComplete: 'new-password', placeholder: __('stDavPass', 'App password'), 'aria-label': __('stDavPass', 'App password'), style: input, onChange: function (ev) { setPass(ev.target.value); }, onKeyDown: function (ev) { if (ev.key === 'Enter') connectDav(); } }),
-        e('button', { 'data-testid': 'sync-webdav-connect', style: btn, disabled: props.busy, onClick: connectDav }, __('stDavConnect', 'Connect & sync')),
+        e('input', { 'data-testid': 'sync-webdav-url', type: 'url', value: url, placeholder: __('stDavUrlPh', 'https://cloud.example.org/remote.php/dav/files/you/MAERMIN'), 'aria-label': __('stDavUrl', 'Folder address (WebDAV)'), className: 'ui-input', onChange: function (ev) { setUrl(ev.target.value); } }),
+        e('input', { 'data-testid': 'sync-webdav-user', value: user, autoComplete: 'username', placeholder: __('stDavUser', 'User name'), 'aria-label': __('stDavUser', 'User name'), className: 'ui-input', onChange: function (ev) { setUser(ev.target.value); } }),
+        e('input', { 'data-testid': 'sync-webdav-pass', type: 'password', value: pass, autoComplete: 'new-password', placeholder: __('stDavPass', 'App password'), 'aria-label': __('stDavPass', 'App password'), className: 'ui-input', onChange: function (ev) { setPass(ev.target.value); }, onKeyDown: function (ev) { if (ev.key === 'Enter') connectDav(); } }),
+        e('button', { 'data-testid': 'sync-webdav-connect', className: BTN, disabled: props.busy, onClick: connectDav }, __('stDavConnect', 'Connect & sync')),
         note(__('stDavStored', 'The login stays on this device, encrypted with your vault. It is not synced and not in backups.'))) : null,
-      problem ? e('div', { role: 'alert', 'data-testid': 'sync-dest-problem', style: { color: th.danger || 'var(--danger)', fontSize: 'var(--text-xs)', marginTop: '0.35rem' } }, problem) : null);
+      problem ? e('p', { role: 'alert', 'data-testid': 'sync-dest-problem', className: ['ui-note', 'tone-loss'].join(' ') }, '! ' + problem) : null);
   }
   // A short name for the destination in the status row.
   function describe(cfg) {
