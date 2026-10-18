@@ -173,8 +173,8 @@ function __(k, f, v) { return (typeof window !== 'undefined' && window.MaerminI1
     if (!React) return null;
     var e = React.createElement, useState = React.useState;
     var theme = props.theme || {};
-    var text = theme.text || '#e9edf4', dim = theme.textSecondary || '#8b94a7', border = theme.cardBorder || 'rgba(255,255,255,0.08)';
-    var inputBg = theme.inputBg || '#0c1018', good = theme.success || '#22c55e', warn = theme.warning || '#f59e0b';
+    // R4.6: a callout with the shared table look; status in words with a mark and its tone
+    var UIC = window.MaerminComponents;
     var s0 = useState(load), links = s0[0], setLinks = s0[1];
     var states = currentStates();
     var src = collect(states);
@@ -184,7 +184,8 @@ function __(k, f, v) { return (typeof window !== 'undefined' && window.MaerminI1
     var depots = depotRows(src.depots, props.transactions);
     var crypto = cryptoRows(states.wallets, props.transactions);
     var money = function (v) { return W.MaerminI18n ? W.MaerminI18n.money(v, 'EUR') : v.toFixed(2) + ' EUR'; };
-    var colour = function (st) { return st === 'match' ? good : st === 'differs' ? warn : dim; };
+    var toneCls = function (st) { return st === 'match' ? 'tone-gain' : st === 'differs' ? 'tone-warning' : 'is-dim'; };
+    var mark = function (st) { return st === 'match' ? '✓ ' : st === 'differs' ? '! ' : ''; };
     var statusText = function (r) {
       if (r.status === 'match') return __('bsMatches', 'matches');
       if (r.status === 'differs') return __('reconDiff', 'differs by {d}', { d: (r.diff > 0 ? '+' : '') + money(r.diff) });
@@ -193,30 +194,31 @@ function __(k, f, v) { return (typeof window !== 'undefined' && window.MaerminI1
       return __('reconUnlinked', 'link a portfolio to compare');
     };
     var setLink = function (key, pf) { var n = normalize(links); if (pf) n.links[key] = pf; else delete n.links[key]; save(n); setLinks(n); };
-    var th = { padding: '0.3rem 0.4rem', textAlign: 'left', color: dim, fontWeight: 600, fontSize: '0.72rem' };
-    var td = { padding: '0.35rem 0.4rem', borderTop: '1px solid ' + border, verticalAlign: 'top' };
-    return e('div', { 'data-testid': 'reconcile', style: { background: inputBg, border: '1px solid ' + border, borderRadius: '10px', padding: '0.7rem 0.9rem', marginBottom: '1rem', fontSize: 'var(--text-sm)', color: text } },
-      e('div', { style: { fontWeight: 700, marginBottom: '0.15rem' } }, __('reconTitle', 'Reconciliation: reported vs MAERMIN')),
-      e('div', { style: { color: dim, fontSize: 'var(--text-xs)', marginBottom: '0.5rem' } }, __('reconSubtitle', 'What your banks, depots and wallets last reported, next to what MAERMIN computes from your transactions. Differences are not fixed automatically: book the missing transactions.')),
-      cash.length ? e('div', { style: { overflowX: 'auto' } }, e('table', { 'data-testid': 'rc-cash', style: { width: '100%', borderCollapse: 'collapse' } },
-        e('thead', null, e('tr', null, e('th', { style: th }, __('reconAccount', 'Account')), e('th', { style: th }, __('reconReported', 'Reported')), e('th', { style: th }, __('reconPortfolio', 'Portfolio')), e('th', { style: th }, __('reconStatus', 'MAERMIN')))),
+    return e('div', { 'data-testid': 'reconcile', className: ['ui-callout', 'ui-rc'].join(' ') },
+      e('strong', null, __('reconTitle', 'Reconciliation: reported vs MAERMIN')),
+      e('p', { className: 'ui-note' }, __('reconSubtitle', 'What your banks, depots and wallets last reported, next to what MAERMIN computes from your transactions. Differences are not fixed automatically: book the missing transactions.')),
+      cash.length ? e('div', { className: 'ui-table-wrap' }, e('table', { 'data-testid': 'rc-cash', className: ['ui-table', 'ui-table--dense', 'ui-table--tall', 'ui-table--left'].join(' ') },
+        e('thead', null, e('tr', null, e('th', { scope: 'col' }, __('reconAccount', 'Account')), e('th', { scope: 'col' }, __('reconReported', 'Reported')), e('th', { scope: 'col' }, __('reconPortfolio', 'Portfolio')), e('th', { scope: 'col' }, __('reconStatus', 'MAERMIN')))),
         e('tbody', null, cash.map(function (r) {
           return e('tr', { key: r.key, 'data-status': r.status },
-            e('td', { style: td }, r.label),
-            e('td', { style: td }, money(r.reported.amount) + (r.reported.currency !== 'EUR' ? ' (' + r.reported.currency + ')' : '') + (r.reported.date ? ' · ' + r.reported.date : '')),
-            e('td', { style: td }, e('select', { 'data-testid': 'rc-link', 'aria-label': __('reconLinkLabel', 'Portfolio for {account}', { account: r.label }), value: r.portfolioId || '', onChange: function (ev) { setLink(r.key, ev.target.value); },
-              style: { background: inputBg, color: text, border: '1px solid ' + border, borderRadius: '6px', padding: '0.2rem 0.3rem', fontSize: 'var(--text-xs)', maxWidth: '12rem' } },
+            e('td', { className: 'is-wrap' }, r.label),
+            e('td', { className: 'num' }, money(r.reported.amount) + (r.reported.currency !== 'EUR' ? ' (' + r.reported.currency + ')' : '') + (r.reported.date ? ' · ' + r.reported.date : '')),
+            e('td', null, e('select', { 'data-testid': 'rc-link', 'aria-label': __('reconLinkLabel', 'Portfolio for {account}', { account: r.label }), value: r.portfolioId || '', onChange: function (ev) { setLink(r.key, ev.target.value); },
+              className: ['ui-input', 'ui-input--sm', 'ui-select', 'ui-rc-link'].join(' ') },
               e('option', { value: '' }, __('reconNone', '—')),
               (props.portfolios || []).map(function (p) { return e('option', { key: p.id, value: p.id }, p.name || p.id); }))),
-            e('td', { style: Object.assign({}, td, { color: colour(r.status) }) }, r.computed != null ? money(r.computed) + ' · ' : '', statusText(r)));
+            e('td', { className: ['is-wrap', toneCls(r.status)].join(' ') }, r.computed != null ? money(r.computed) + ' · ' : '', mark(r.status) + statusText(r)));
         })))) : null,
       depots.map(function (d) {
-        return e('div', { key: d.key, 'data-testid': 'rc-depot', style: { marginTop: '0.45rem', color: colour(d.status) } },
-          __('reconDepotLine', '{source} ({date}): {m} of {n} positions match, {d} differ, {x} not in MAERMIN', { source: d.label, date: d.date || '', m: d.match, n: d.rows.length, d: d.differs, x: d.missing }));
+        return e('p', { key: d.key, 'data-testid': 'rc-depot', className: toneCls(d.status) },
+          mark(d.status) + __('reconDepotLine', '{source} ({date}): {m} of {n} positions match, {d} differ, {x} not in MAERMIN', { source: d.label, date: d.date || '', m: d.match, n: d.rows.length, d: d.differs, x: d.missing }));
       }),
-      crypto.length ? e('div', { 'data-testid': 'rc-crypto', style: { marginTop: '0.45rem', color: colour(crypto.every(function (c) { return c.status === 'match'; }) ? 'match' : 'differs') } },
-        __('reconCryptoLine', 'Crypto wallets: {m} of {n} coins match', { m: crypto.filter(function (c) { return c.status === 'match'; }).length, n: crypto.length })) : null,
-      props.onOpenImport ? e('button', { type: 'button', onClick: props.onOpenImport, style: { marginTop: '0.5rem', padding: '0.25rem 0.7rem', fontSize: 'var(--text-xs)', fontWeight: 600, borderRadius: '6px', cursor: 'pointer', background: 'transparent', color: theme.accent || '#8b7cff', border: '1px solid ' + (theme.accent || '#8b7cff') + '55' } }, __('dcOpenImport', 'Open the import')) : null);
+      crypto.length ? (function () {
+        var st = crypto.every(function (c) { return c.status === 'match'; }) ? 'match' : 'differs';
+        return e('p', { 'data-testid': 'rc-crypto', className: toneCls(st) },
+          mark(st) + __('reconCryptoLine', 'Crypto wallets: {m} of {n} coins match', { m: crypto.filter(function (c) { return c.status === 'match'; }).length, n: crypto.length }));
+      })() : null,
+      props.onOpenImport ? e('div', { className: 'ui-actions' }, e(UIC.Button, { size: 'sm', variant: 'quiet', onClick: props.onOpenImport }, __('dcOpenImport', 'Open the import'))) : null);
   }
   api.Panel = Panel;
 

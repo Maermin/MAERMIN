@@ -1723,6 +1723,9 @@ taSparer: 'Sparerpauschbetrag',
 
     // P2-2 return attribution (attribution.js)
     rtaTitle: 'Return Attribution',
+    biDupCol: 'Duplicate',
+    exExchange: 'Exchange',
+    stIncludeCol: 'Import',
     dcPrevMonth: 'Previous month',
     dcNextMonth: 'Next month',
     dcManual: 'entered by you (select to delete)',
@@ -5628,6 +5631,9 @@ taSparer: 'Sparerpauschbetrag',
 
     // P2-2 return attribution (attribution.js)
     rtaTitle: 'Renditebeitrag',
+    biDupCol: 'Duplikat',
+    exExchange: 'Börse',
+    stIncludeCol: 'Importieren',
     dcPrevMonth: 'Vorheriger Monat',
     dcNextMonth: 'Nächster Monat',
     dcManual: 'von dir erfasst (zum Löschen auswählen)',

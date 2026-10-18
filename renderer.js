@@ -3011,7 +3011,7 @@ function InvestmentTracker() {
                 addToast(__('txImportedN', '{n} {n:transaction|transactions} imported', { n: newTxs.length }), 'success');
               }
             })
-          : React.createElement('div', { style: { background: theme.card, border: `1px solid ${theme.cardBorder}`, borderRadius: '12px', padding: '3rem', textAlign: 'center', color: theme.textSecondary } },
+          : React.createElement('p', { className: ['ui-muted', 'is-error'].join(' ') },
               __('brokerModuleMissing', 'Broker Import module not loaded')
             )
       ),

@@ -538,10 +538,8 @@ function __(k, f, v) { return (typeof window !== 'undefined' && window.MaerminI1
       try {
         var theme = props.theme || {};
         var t = props.t || ((typeof window !== 'undefined' && window.MaerminI18n) ? window.MaerminI18n.dict() : {});
-        var text = theme.text || '#e9edf4', dim = theme.textSecondary || '#8b94a7';
-        var border = theme.cardBorder || 'rgba(255,255,255,0.08)';
-        var card = theme.card || '#10151f', inputBg = theme.inputBg || '#0c1018';
-        var inputBorder = theme.inputBorder || border, accent = theme.accent || '#8b7cff';
+        // R4.6: Card, shared rows, Input / Select with visible labels, shared buttons
+        var UIC = window.MaerminComponents;
 
         var s0 = useState(function () { return API.load(); });
         var st = s0[0], setSt = s0[1];
@@ -585,42 +583,42 @@ function __(k, f, v) { return (typeof window !== 'undefined' && window.MaerminI1
         }
 
         var rows = st.connections.map(function (c) {
-          return e('div', { key: c.id, style: { display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '0.6rem 0.75rem', background: inputBg, borderRadius: '8px', marginBottom: '0.5rem' } },
-            e('div', null,
-              e('div', { style: { color: text, fontWeight: 600, fontSize: 'var(--text-base)' } }, c.label),
-              e('div', { style: { color: dim, fontSize: 'var(--text-xs)' } }, (API.EXCHANGES[c.exchange] || {}).label + (c.lastSync ? '  ·  ' + (t.exLastSync || 'last sync') + ' ' + c.lastSync : '  ·  ' + (t.exNeverSynced || 'never synced')))),
-            e('div', { style: { display: 'flex', gap: '0.4rem' } },
-              e('button', { onClick: function () { syncConn(c); }, disabled: !!busy[c.id], 'aria-busy': busy[c.id] ? 'true' : 'false', style: { background: accent, border: 'none', color: 'var(--on-accent)', cursor: busy[c.id] ? 'wait' : 'pointer', opacity: busy[c.id] ? 0.6 : 1, borderRadius: '7px', padding: '0.25rem 0.7rem', fontSize: 'var(--text-xs)', fontWeight: 700 } }, busy[c.id] ? ((t.exSyncing || 'Syncing') + '…') : (t.exSyncNow || 'Sync now')),
-              e('button', { onClick: function () {
+          return e('li', { key: c.id, className: 'ui-rows__row' },
+            e('div', { className: 'ui-rows__main' },
+              e('b', null, c.label),
+              e('span', null, (API.EXCHANGES[c.exchange] || {}).label + (c.lastSync ? '  ·  ' + (t.exLastSync || 'last sync') + ' ' + c.lastSync : '  ·  ' + (t.exNeverSynced || 'never synced')))),
+            e('div', { className: 'ui-actions' },
+              e(UIC.Button, { size: 'sm', variant: 'primary', onClick: function () { syncConn(c); }, loading: !!busy[c.id] }, busy[c.id] ? ((t.exSyncing || 'Syncing') + '…') : (t.exSyncNow || 'Sync now')),
+              e(UIC.Button, { size: 'sm', variant: 'quiet', onClick: function () {
                 window.MaerminUtils.confirmThen({
                   title: (t.exRemoveTitle || 'Remove the connection "{name}"?').replace('{name}', c.label),
                   message: t.exRemoveMessage || 'Its stored API keys are deleted from this vault. Trades already imported stay.',
                   confirmLabel: t.exRemove || 'Remove', cancelLabel: t.cancel || 'Cancel'
                 }, function () { removeConn(c.id); });
-              }, style: { background: 'none', border: '1px solid ' + inputBorder, color: dim, cursor: 'pointer', borderRadius: '7px', padding: '0.25rem 0.6rem', fontSize: 'var(--text-xs)' } }, t.exRemove || 'Remove')));
+              } }, t.exRemove || 'Remove')));
         });
+        var keyLabel = API.needsSecret(form.exchange) ? (t.exApiKey || 'API key (read-only)') : __('exApiKeyRelayed', 'API key (sent through your Worker)');
 
-        return e('div', { style: { background: card, border: '1px solid ' + border, borderRadius: '14px', padding: '1.1rem', marginBottom: '1.25rem' } },
-          e('div', { style: { color: text, fontWeight: 700, fontSize: 'var(--text-md)', marginBottom: '0.2rem' } }, t.exTitle || 'Exchange sync (read-only)'),
-          e('div', { style: { color: dim, fontSize: 'var(--text-xs)', marginBottom: '0.9rem' } }, t.exSubtitle || 'Import crypto trades read-only. Use read-only API keys. Keys are stored encrypted in your vault; requests go to the exchange through your Worker.'),
-          rows,
-          e('div', { style: { display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(140px,1fr))', gap: '0.5rem', marginTop: '0.6rem' } },
-            e('select', { 'data-testid': 'ex-exchange', value: form.exchange, onChange: function (ev) { setF({ exchange: ev.target.value }); }, style: { padding: '0.5rem', background: inputBg, border: '1px solid ' + inputBorder, borderRadius: '8px', color: text, fontSize: 'var(--text-sm)' } },
-              Object.keys(API.EXCHANGES).map(function (k) { return e('option', { key: k, value: k }, API.EXCHANGES[k].label); })),
-            e('input', { value: form.label, onChange: function (ev) { setF({ label: ev.target.value }); }, placeholder: t.exLabel || 'Label (optional)', style: { padding: '0.5rem', background: inputBg, border: '1px solid ' + inputBorder, borderRadius: '8px', color: text, fontSize: 'var(--text-sm)' } }),
-            e('input', { value: form.apiKey, onChange: function (ev) { setF({ apiKey: ev.target.value }); }, placeholder: API.needsSecret(form.exchange) ? (t.exApiKey || 'API key (read-only)') : __('exApiKeyRelayed', 'API key (sent through your Worker)'), 'aria-label': API.needsSecret(form.exchange) ? (t.exApiKey || 'API key (read-only)') : __('exApiKeyRelayed', 'API key (sent through your Worker)'), style: { padding: '0.5rem', background: inputBg, border: '1px solid ' + inputBorder, borderRadius: '8px', color: text, fontSize: 'var(--text-sm)' } }),
-            API.needsSecret(form.exchange) ? e('input', { value: form.apiSecret, type: 'password', onChange: function (ev) { setF({ apiSecret: ev.target.value }); }, placeholder: t.exApiSecret || 'API secret', 'aria-label': t.exApiSecret || 'API secret', style: { padding: '0.5rem', background: inputBg, border: '1px solid ' + inputBorder, borderRadius: '8px', color: text, fontSize: 'var(--text-sm)' } }) : null,
+        return e(UIC.Card, { className: 'ui-sync', headingLevel: 'h3', 'data-testid': 'exchange-sync', title: t.exTitle || 'Exchange sync (read-only)',
+          subtitle: t.exSubtitle || 'Import crypto trades read-only. Use read-only API keys. Keys are stored encrypted in your vault; requests go to the exchange through your Worker.' },
+          rows.length ? e('ul', { className: 'ui-rows' }, rows) : null,
+          e('div', { className: 'ui-form-grid' },
+            e(UIC.Select, { 'data-testid': 'ex-exchange', label: __('exExchange', 'Exchange'), value: form.exchange, onChange: function (ev) { setF({ exchange: ev.target.value }); },
+              options: Object.keys(API.EXCHANGES).map(function (k) { return { value: k, label: API.EXCHANGES[k].label }; }) }),
+            e(UIC.Input, { label: t.exLabel || 'Label (optional)', placeholder: t.exLabel || 'Label (optional)', value: form.label, onChange: function (ev) { setF({ label: ev.target.value }); } }),
+            e(UIC.Input, { label: keyLabel, placeholder: keyLabel, value: form.apiKey, autoComplete: 'off', onChange: function (ev) { setF({ apiKey: ev.target.value }); } }),
+            API.needsSecret(form.exchange) ? e(UIC.Input, { label: t.exApiSecret || 'API secret', placeholder: t.exApiSecret || 'API secret', value: form.apiSecret, type: 'password', autoComplete: 'off', onChange: function (ev) { setF({ apiSecret: ev.target.value }); } }) : null,
             // P5-3.8: KuCoin and Bitget keys come with a passphrase
-            API.needsPassphrase(form.exchange) ? e('input', { 'data-testid': 'ex-passphrase', value: form.passphrase, type: 'password', autoComplete: 'off', onChange: function (ev) { setF({ passphrase: ev.target.value }); }, placeholder: __('exPassphrase', 'API passphrase'), 'aria-label': __('exPassphrase', 'API passphrase'), style: { padding: '0.5rem', background: inputBg, border: '1px solid ' + inputBorder, borderRadius: '8px', color: text, fontSize: 'var(--text-sm)' } }) : null),
+            API.needsPassphrase(form.exchange) ? e(UIC.Input, { 'data-testid': 'ex-passphrase', label: __('exPassphrase', 'API passphrase'), placeholder: __('exPassphrase', 'API passphrase'), value: form.passphrase, type: 'password', autoComplete: 'off', onChange: function (ev) { setF({ passphrase: ev.target.value }); } }) : null),
           // What leaves the browser, per exchange, and to which Worker.
-          e('div', { 'data-testid': 'ex-credential-note', style: { color: dim, fontSize: 'var(--text-xs)', marginTop: '0.45rem', lineHeight: 1.5 } },
+          e('p', { 'data-testid': 'ex-credential-note', className: 'ui-note' },
             API.needsSecret(form.exchange)
               ? __('exSignedNote', 'The secret stays in this browser: only the key id and a signature go to {host}.', { host: workerHost(props.workerUrl) })
               : __('exRelayedNote', 'This exchange has no separate secret: the API key itself goes to {host} with each request. Use your own Worker and a read-only key.', { host: workerHost(props.workerUrl) })),
-          e('button', { onClick: addConn, style: { marginTop: '0.6rem', padding: '0.5rem 1rem', background: accent, color: 'var(--on-accent)', border: 'none', borderRadius: '8px', cursor: 'pointer', fontWeight: 700, fontSize: 'var(--text-sm)' } }, t.exAdd || 'Add connection'),
-          msg ? e('div', { style: { color: dim, fontSize: 'var(--text-xs)', marginTop: '0.5rem' } }, msg) : null);
+          e('div', { className: 'ui-actions' }, e(UIC.Button, { onClick: addConn }, t.exAdd || 'Add connection')),
+          msg ? e('p', { role: 'status', className: 'ui-note' }, msg) : null);
       } catch (err) {
-        return e('div', { style: { padding: '0.75rem', color: (props.theme && props.theme.danger) || 'var(--danger)' } }, __('exError', 'Exchange sync error: ') + (err && err.message));
+        return e('p', { className: ['ui-muted', 'is-error'].join(' ') }, __('exError', 'Exchange sync error: ') + (err && err.message));
       }
     };
   }

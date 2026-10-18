@@ -300,11 +300,9 @@ function __(k, f, v) { return (typeof window !== 'undefined' && window.MaerminI1
     if (!React) return null;
     var e = React.createElement, useState = React.useState;
     var theme = props.theme || {};
-    var text = theme.text || '#e9edf4', dim = theme.textSecondary || '#8b94a7', border = theme.cardBorder || 'rgba(255,255,255,0.08)';
-    var card = theme.card || '#10151f', inputBg = theme.inputBg || '#0c1018', accent = theme.accent || '#8b7cff';
-    var good = theme.success || '#22c55e', warn = theme.warning || '#f59e0b';
-    var inputStyle = { padding: '0.5rem', background: inputBg, border: '1px solid ' + border, borderRadius: '8px', color: text, fontSize: '0.82rem', minWidth: 0 };
-    var btn = function (primary) { return { padding: '0.45rem 0.9rem', background: primary ? accent : 'none', color: primary ? '#ffffff' : dim, border: primary ? 'none' : '1px solid ' + border, borderRadius: '8px', cursor: 'pointer', fontWeight: 700, fontSize: '0.78rem' }; };
+    // R4.6: Card, provider boxes, shared buttons / inputs and the table look
+    var UIC = window.MaerminComponents;
+    var btn = function (primary) { return ['ui-btn', primary ? 'ui-btn--primary' : 'ui-btn--secondary', 'ui-btn--sm'].join(' '); };
     var s0 = useState(load), st = s0[0], setSt = s0[1];
     var k0 = useState({ gcId: '', gcKey: '', stClient: '', stKey: '' }), keys = k0[0], setKeys = k0[1];
     var b0 = useState(''), busy = b0[0], setBusy = b0[1];
@@ -408,14 +406,14 @@ function __(k, f, v) { return (typeof window !== 'undefined' && window.MaerminI1
       }, failed('snaptrade'));
     }
 
-    var card0 = function (testid, title, body) { return e('div', { 'data-testid': testid, style: { padding: '0.8rem', border: '1px solid ' + border, borderRadius: '10px', marginBottom: '0.7rem' } }, e('div', { style: { color: text, fontWeight: 700, fontSize: 'var(--text-base)', marginBottom: '0.3rem' } }, title), body); };
+    var card0 = function (testid, title, body) { return e('div', { 'data-testid': testid, className: 'ui-taxp__box' }, e('h4', { className: 'ui-dlg-sec__title' }, title), body); };
     var amount = function (b) { return b ? (props.formatAmount ? props.formatAmount(b.amount, b.currency) : b.amount.toFixed(2) + ' ' + b.currency) + (b.date ? ' · ' + b.date : '') : ''; };
     var keyForm = function (provider) {
       var gc = provider === 'gocardless';
-      return e('div', { style: { display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(170px,1fr))', gap: '0.45rem', marginTop: '0.3rem' } },
-        e('input', { 'data-testid': gc ? 'ag-gc-id' : 'ag-st-client', autoComplete: 'off', 'aria-label': gc ? __('agGcId', 'Secret ID') : __('agStClient', 'Client ID'), placeholder: gc ? __('agGcId', 'Secret ID') : __('agStClient', 'Client ID'), value: gc ? keys.gcId : keys.stClient, onChange: function (ev) { setKeys(Object.assign({}, keys, gc ? { gcId: ev.target.value } : { stClient: ev.target.value })); }, style: inputStyle }),
-        e('input', { 'data-testid': gc ? 'ag-gc-key' : 'ag-st-key', type: 'password', autoComplete: 'off', 'aria-label': gc ? __('agGcKey', 'Secret key') : __('agStKey', 'Consumer key'), placeholder: gc ? __('agGcKey', 'Secret key') : __('agStKey', 'Consumer key'), value: gc ? keys.gcKey : keys.stKey, onChange: function (ev) { setKeys(Object.assign({}, keys, gc ? { gcKey: ev.target.value } : { stKey: ev.target.value })); }, style: inputStyle }),
-        e('button', { 'data-testid': gc ? 'ag-gc-save' : 'ag-st-save', style: btn(true), onClick: function () { saveKeys(provider); } }, __('agSaveKeys', 'Save keys')));
+      return e('div', { className: 'ui-ag-keys' },
+        e('input', { 'data-testid': gc ? 'ag-gc-id' : 'ag-st-client', autoComplete: 'off', 'aria-label': gc ? __('agGcId', 'Secret ID') : __('agStClient', 'Client ID'), placeholder: gc ? __('agGcId', 'Secret ID') : __('agStClient', 'Client ID'), value: gc ? keys.gcId : keys.stClient, onChange: function (ev) { setKeys(Object.assign({}, keys, gc ? { gcId: ev.target.value } : { stClient: ev.target.value })); }, className: 'ui-input' }),
+        e('input', { 'data-testid': gc ? 'ag-gc-key' : 'ag-st-key', type: 'password', autoComplete: 'off', 'aria-label': gc ? __('agGcKey', 'Secret key') : __('agStKey', 'Consumer key'), placeholder: gc ? __('agGcKey', 'Secret key') : __('agStKey', 'Consumer key'), value: gc ? keys.gcKey : keys.stKey, onChange: function (ev) { setKeys(Object.assign({}, keys, gc ? { gcKey: ev.target.value } : { stKey: ev.target.value })); }, className: 'ui-input' }),
+        e('button', { 'data-testid': gc ? 'ag-gc-save' : 'ag-st-save', className: btn(true), onClick: function () { saveKeys(provider); } }, __('agSaveKeys', 'Save keys')));
     };
 
     if (!props.workerUrl || demo) {
@@ -425,36 +423,36 @@ function __(k, f, v) { return (typeof window !== 'undefined' && window.MaerminI1
     // GoCardless body
     var gcState = st.gocardless;
     var gcBody = [];
-    gcBody.push(e('div', { key: 'n', style: { color: dim, fontSize: 'var(--text-xs)', lineHeight: 1.5 } }, __('agGcNote', 'Banks across Europe through PSD2, with your own GoCardless Bank Account Data keys (free plan available). The secret key goes through your own Worker to fetch a short-lived token; GoCardless sees your bank data as your data processor.')));
+    gcBody.push(e('div', { key: 'n', className: 'ui-note' }, __('agGcNote', 'Banks across Europe through PSD2, with your own GoCardless Bank Account Data keys (free plan available). The secret key goes through your own Worker to fetch a short-lived token; GoCardless sees your bank data as your data processor.')));
     if (!have.gocardless) gcBody.push(e('div', { key: 'k' }, keyForm('gocardless')));
     else {
-      gcBody.push(e('div', { key: 'a', style: { display: 'flex', gap: '0.4rem', flexWrap: 'wrap', marginTop: '0.45rem' } },
-        e('button', { 'data-testid': 'ag-gc-banks', style: btn(!gcState.requisitionId), disabled: !!busy, onClick: gcLoadBanks }, gcState.requisitionId ? __('agGcOther', 'Link another bank') : __('agGcLink', 'Link a bank')),
-        gcState.requisitionId ? e('button', { 'data-testid': 'ag-gc-sync', style: btn(true), disabled: !!busy, onClick: gcSync }, busy === 'gc' ? __('agBusy', 'Working…') : __('agSync', 'Sync')) : null,
-        e('button', { style: btn(false), onClick: function () { forget('gocardless'); } }, __('agForget', 'Remove'))));
-      if (gcState.institutionName) gcBody.push(e('div', { key: 'i', style: { color: dim, fontSize: 'var(--text-xs)', marginTop: '0.3rem' } }, gcState.institutionName + ' · ' + (gcState.lastSync ? __('agLastSync', 'last sync {date}', { date: gcState.lastSync }) : __('agNotYet', 'waiting for your approval at the bank'))));
+      gcBody.push(e('div', { key: 'a', className: 'ui-actions' },
+        e('button', { 'data-testid': 'ag-gc-banks', className: btn(!gcState.requisitionId), disabled: !!busy, onClick: gcLoadBanks }, gcState.requisitionId ? __('agGcOther', 'Link another bank') : __('agGcLink', 'Link a bank')),
+        gcState.requisitionId ? e('button', { 'data-testid': 'ag-gc-sync', className: btn(true), disabled: !!busy, onClick: gcSync }, busy === 'gc' ? __('agBusy', 'Working…') : __('agSync', 'Sync')) : null,
+        e('button', { className: btn(false), onClick: function () { forget('gocardless'); } }, __('agForget', 'Remove'))));
+      if (gcState.institutionName) gcBody.push(e('div', { key: 'i', className: 'ui-note' }, gcState.institutionName + ' · ' + (gcState.lastSync ? __('agLastSync', 'last sync {date}', { date: gcState.lastSync }) : __('agNotYet', 'waiting for your approval at the bank'))));
       if (insts) {
         var shown = insts.filter(function (i) { return !instQuery || i.name.toLowerCase().indexOf(instQuery.toLowerCase()) > -1; }).slice(0, 12);
-        gcBody.push(e('div', { key: 'l', style: { marginTop: '0.45rem' } },
-          e('input', { 'data-testid': 'ag-gc-search', 'aria-label': __('agGcSearch', 'Search your bank'), placeholder: __('agGcSearch', 'Search your bank'), value: instQuery, onChange: function (ev) { setInstQuery(ev.target.value); }, style: Object.assign({}, inputStyle, { width: '100%', marginBottom: '0.35rem' }) }),
-          shown.map(function (i) { return e('button', { key: i.id, 'data-testid': 'ag-gc-inst', style: Object.assign(btn(false), { display: 'block', width: '100%', textAlign: 'left', marginBottom: '0.25rem' }), onClick: function () { gcConnect(i); } }, i.name); })));
+        gcBody.push(e('div', { key: 'l', className: 'ui-ag-list' },
+          e('input', { 'data-testid': 'ag-gc-search', 'aria-label': __('agGcSearch', 'Search your bank'), placeholder: __('agGcSearch', 'Search your bank'), value: instQuery, onChange: function (ev) { setInstQuery(ev.target.value); }, className: 'ui-input' }),
+          shown.map(function (i) { return e('button', { key: i.id, 'data-testid': 'ag-gc-inst', className: [btn(false), 'ui-ag-inst'].join(' '), onClick: function () { gcConnect(i); } }, i.name); })));
       }
       gcState.accounts.forEach(function (a) {
         var rows = results['gc:' + a.id];
         var book = rows && BS ? BS.toBookings({ iban: a.iban, accountNo: a.id, currency: a.currency }, rows, { source: 'gocardless', portfolioId: props.portfolioId }) : null;
         var fresh = book ? BS.newOnly(book.rows, props.existing) : [];
-        gcBody.push(e('div', { key: a.id, 'data-testid': 'ag-gc-account', style: { padding: '0.5rem 0.65rem', background: inputBg, borderRadius: '8px', marginTop: '0.4rem' } },
-          e('div', { style: { display: 'flex', justifyContent: 'space-between', gap: '0.5rem', flexWrap: 'wrap', color: text, fontSize: 'var(--text-sm)', fontWeight: 600 } },
+        gcBody.push(e('div', { key: a.id, 'data-testid': 'ag-gc-account', className: 'ui-sync-account' },
+          e('div', { className: ['ui-dlg-sec__head', 'ui-ag-acct'].join(' ') },
             e('span', null, (a.name || __('agAccount', 'Account')) + (a.iban ? ' · ' + a.iban : '')), e('span', { 'data-testid': 'ag-gc-balance' }, amount(a.balance))),
-          book ? e('div', { style: { display: 'flex', alignItems: 'center', gap: '0.5rem', flexWrap: 'wrap', marginTop: '0.3rem', color: dim, fontSize: 'var(--text-xs)' } },
-            e('label', { style: { display: 'inline-flex', alignItems: 'center', gap: '0.35rem', cursor: 'pointer' } },
+          book ? e('div', { className: ['ui-actions', 'ui-ag-tools'].join(' ') },
+            e('label', { className: 'ui-check' },
               e('input', { type: 'checkbox', 'data-testid': 'ag-gc-tick', checked: a.importBookings, onChange: function (ev) {
                 var n = normalize(st); n.gocardless.accounts = n.gocardless.accounts.map(function (x) { return x.id === a.id ? Object.assign({}, x, { importBookings: ev.target.checked }) : x; }); mutate(n);
               } }), __('bsImportTick', 'Book this account\'s transactions as cash bookings')),
             e('span', null, __('agNewN', '{n} new {n:booking|bookings}', { n: fresh.length }) + (book.skipped ? ' · ' + __('bsSkippedSec', '{n} securities {n:booking|bookings} left to the depot / PDF import', { n: book.skipped }) : '')),
-            a.importBookings && fresh.length ? e('button', { 'data-testid': 'ag-gc-import', style: btn(true), onClick: function () { if (props.onImport) props.onImport(fresh); } }, __('bsImportN', 'Import {n}', { n: fresh.length })) : null,
+            a.importBookings && fresh.length ? e('button', { 'data-testid': 'ag-gc-import', className: btn(true), onClick: function () { if (props.onImport) props.onImport(fresh); } }, __('bsImportN', 'Import {n}', { n: fresh.length })) : null,
             // P5-5.3: every booking of the account into the Budget
-            typeof window !== 'undefined' && window.MaerminBudget && rows.length ? e('button', { 'data-testid': 'ag-gc-budget', style: btn(false), onClick: function () {
+            typeof window !== 'undefined' && window.MaerminBudget && rows.length ? e('button', { 'data-testid': 'ag-gc-budget', className: btn(false), onClick: function () {
               var n = window.MaerminBudget.addBankRows({ iban: a.iban, accountNo: a.id, currency: a.currency }, rows, 'gocardless');
               if (props.addToast) props.addToast(__('bgAddedFromBank', '{n} bookings added to the Budget', { n: n }), 'success');
             } }, __('bgAddToBudget', 'Add to Budget')) : null) : null));
@@ -464,44 +462,43 @@ function __(k, f, v) { return (typeof window !== 'undefined' && window.MaerminI1
     // SnapTrade body
     var stState = st.snaptrade, stRes = results.st;
     var stBody = [];
-    stBody.push(e('div', { key: 'n', style: { color: dim, fontSize: 'var(--text-xs)', lineHeight: 1.5 } }, __('agStNote', 'Brokers through SnapTrade, with your own SnapTrade keys (read-only connections; free for a few connections). Requests are signed in this browser - the consumer key never leaves it; SnapTrade sees the connected accounts\' data.')));
+    stBody.push(e('div', { key: 'n', className: 'ui-note' }, __('agStNote', 'Brokers through SnapTrade, with your own SnapTrade keys (read-only connections; free for a few connections). Requests are signed in this browser - the consumer key never leaves it; SnapTrade sees the connected accounts\' data.')));
     if (!have.snaptrade) stBody.push(e('div', { key: 'k' }, keyForm('snaptrade')));
     else {
-      stBody.push(e('div', { key: 'a', style: { display: 'flex', gap: '0.4rem', flexWrap: 'wrap', marginTop: '0.45rem' } },
-        e('button', { 'data-testid': 'ag-st-connect', style: btn(!stState.connected), disabled: !!busy, onClick: stConnect }, __('agStConnect', 'Connect broker')),
-        e('button', { 'data-testid': 'ag-st-sync', style: btn(true), disabled: !!busy, onClick: stSync }, busy === 'st' ? __('agBusy', 'Working…') : __('agSync', 'Sync')),
-        e('button', { style: btn(false), onClick: function () { forget('snaptrade'); } }, __('agForget', 'Remove'))));
-      if (stState.lastSync) stBody.push(e('div', { key: 'i', style: { color: dim, fontSize: 'var(--text-xs)', marginTop: '0.3rem' } }, __('agLastSync', 'last sync {date}', { date: stState.lastSync })));
+      stBody.push(e('div', { key: 'a', className: 'ui-actions' },
+        e('button', { 'data-testid': 'ag-st-connect', className: btn(!stState.connected), disabled: !!busy, onClick: stConnect }, __('agStConnect', 'Connect broker')),
+        e('button', { 'data-testid': 'ag-st-sync', className: btn(true), disabled: !!busy, onClick: stSync }, busy === 'st' ? __('agBusy', 'Working…') : __('agSync', 'Sync')),
+        e('button', { className: btn(false), onClick: function () { forget('snaptrade'); } }, __('agForget', 'Remove'))));
+      if (stState.lastSync) stBody.push(e('div', { key: 'i', className: 'ui-note' }, __('agLastSync', 'last sync {date}', { date: stState.lastSync })));
       stState.accounts.forEach(function (a) {
         var live = stRes && stRes.accounts.filter(function (x) { return x.id === a.id; })[0];
         var diff = live ? positionsDiff(live.positions, props.existing) : null;
-        stBody.push(e('div', { key: a.id, 'data-testid': 'ag-st-account', style: { padding: '0.5rem 0.65rem', background: inputBg, borderRadius: '8px', marginTop: '0.4rem' } },
-          e('div', { style: { display: 'flex', justifyContent: 'space-between', gap: '0.5rem', flexWrap: 'wrap', color: text, fontSize: 'var(--text-sm)', fontWeight: 600 } },
+        stBody.push(e('div', { key: a.id, 'data-testid': 'ag-st-account', className: 'ui-sync-account' },
+          e('div', { className: ['ui-dlg-sec__head', 'ui-ag-acct'].join(' ') },
             e('span', null, (a.institution ? a.institution + ' · ' : '') + a.name), e('span', null, amount(a.balance))),
-          diff && diff.length ? e('table', { 'data-testid': 'ag-st-positions', style: { width: '100%', borderCollapse: 'collapse', fontSize: 'var(--text-xs)', color: text, marginTop: '0.3rem' } }, e('tbody', null, diff.map(function (d) {
-            return e('tr', { key: d.symbol, style: { borderTop: '1px solid ' + border } },
-              e('td', { style: { padding: '0.25rem 0.3rem' } }, d.symbol, e('div', { style: { color: dim, fontSize: 'var(--text-2xs)' } }, d.name)),
-              e('td', { style: { padding: '0.25rem 0.3rem', textAlign: 'right' } }, String(d.broker)),
-              e('td', { style: { padding: '0.25rem 0.3rem', textAlign: 'right', color: d.status === 'match' ? good : warn } },
-                d.status === 'missing' ? __('bsNotInMaermin', 'not in MAERMIN') : d.status === 'match' ? __('bsMatches', 'matches') : __('bsDiffers', 'MAERMIN {q} ({d})', { q: d.maermin, d: (d.diff > 0 ? '+' : '') + d.diff })));
+          diff && diff.length ? e('table', { 'data-testid': 'ag-st-positions', className: ['ui-table', 'ui-table--dense', 'ui-table--tall'].join(' ') }, e('tbody', null, diff.map(function (d) {
+            return e('tr', { key: d.symbol },
+              e('th', { scope: 'row', className: 'is-sticky' }, d.symbol, e('span', { className: 'ui-tcell__sub' }, d.name)),
+              e('td', null, String(d.broker)),
+              e('td', { className: d.status === 'match' ? 'tone-gain' : 'tone-warning' },
+                d.status === 'missing' ? '! ' + __('bsNotInMaermin', 'not in MAERMIN') : d.status === 'match' ? '✓ ' + __('bsMatches', 'matches') : '! ' + __('bsDiffers', 'MAERMIN {q} ({d})', { q: d.maermin, d: (d.diff > 0 ? '+' : '') + d.diff })));
           }))) : null));
       });
       if (stRes) {
         var mapped = mapActivities(stRes.activities, { portfolioId: props.portfolioId });
         var fresh = BS ? BS.newOnly(mapped.transactions, props.existing) : mapped.transactions;
         var skippedN = Object.keys(mapped.skipped).reduce(function (s, k) { return s + mapped.skipped[k]; }, 0);
-        stBody.push(e('div', { key: 'x', style: { display: 'flex', alignItems: 'center', gap: '0.5rem', flexWrap: 'wrap', marginTop: '0.45rem', color: dim, fontSize: 'var(--text-xs)' } },
+        stBody.push(e('div', { key: 'x', className: ['ui-actions', 'ui-ag-tools'].join(' ') },
           e('span', { 'data-testid': 'ag-st-activities' }, __('agStActivities', '{n} new {n:activity|activities} (trades, payouts, cash)', { n: fresh.length }) + (skippedN ? ' · ' + __('agStSkipped', '{n} of other kinds not booked ({list})', { n: skippedN, list: Object.keys(mapped.skipped).join(', ') }) : '')),
-          fresh.length ? e('button', { 'data-testid': 'ag-st-import', style: btn(true), onClick: function () { if (props.onImport) props.onImport(fresh); } }, __('bsImportN', 'Import {n}', { n: fresh.length })) : null));
+          fresh.length ? e('button', { 'data-testid': 'ag-st-import', className: btn(true), onClick: function () { if (props.onImport) props.onImport(fresh); } }, __('bsImportN', 'Import {n}', { n: fresh.length })) : null));
       }
     }
 
-    return e('div', { 'data-testid': 'aggregators', style: { background: card, border: '1px solid ' + border, borderRadius: '14px', padding: '1.1rem', marginBottom: '1.25rem' } },
-      e('div', { style: { color: text, fontWeight: 700, fontSize: 'var(--text-md)', marginBottom: '0.2rem' } }, __('agTitle', 'Aggregators with your own API keys')),
-      e('div', { style: { color: dim, fontSize: 'var(--text-xs)', marginBottom: '0.8rem', lineHeight: 1.5 } }, __('agSubtitle', 'For banks and brokers without FinTS. You create the API keys at the provider; they are kept only in your vault (encrypted, never in a backup or sync) and used through your own Worker. Read-only.')),
+    return e(UIC.Card, { 'data-testid': 'aggregators', className: 'ui-sync', headingLevel: 'h3', title: __('agTitle', 'Aggregators with your own API keys') },
+      e('p', { className: 'ui-muted' }, __('agSubtitle', 'For banks and brokers without FinTS. You create the API keys at the provider; they are kept only in your vault (encrypted, never in a backup or sync) and used through your own Worker. Read-only.')),
       card0('ag-gocardless', BRAND_NAMES[0], gcBody),
       card0('ag-snaptrade', BRAND_NAMES[1], stBody),
-      msg ? e('div', { 'data-testid': 'ag-msg', role: 'status', style: { color: dim, fontSize: 'var(--text-xs)', marginTop: '0.3rem' } }, msg) : null);
+      msg ? e('div', { 'data-testid': 'ag-msg', role: 'status', className: 'ui-note' }, msg) : null);
   }
   api.Panel = Panel;
 
