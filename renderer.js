@@ -137,44 +137,34 @@ function PasswordModal({ theme, t, onClose, addToast, restoreFocus }) {
     setBusy(false);
   };
 
+  // R5.1: the shared dialog look and fields (placeholders kept, now also the label)
+  const UIC = window.MaerminComponents;
   const inp = (value, onChange, placeholder, type='password') =>
     React.createElement('input', {
-      type, value, onChange: e => onChange(e.target.value), placeholder,
+      type, value, onChange: e => onChange(e.target.value), placeholder, 'aria-label': placeholder,
       onKeyDown: e => e.key === 'Enter' && handleChange(),
-      style: {
-        width: '100%', padding: '0.75rem', marginBottom: '0.75rem',
-        background: theme.inputBg, border: `1px solid ${theme.inputBorder}`,
-        borderRadius: '8px', color: theme.text, fontSize: 'var(--text-base)'
-      }
+      className: 'ui-input'
     });
 
   return React.createElement(window.MaerminUI.Overlay, {
-    onClose, restoreFocus,
-    style: { position:'fixed',inset:0,background:'rgba(4,6,10,0.62)',display:'flex',justifyContent:'center',alignItems:'center',zIndex:10001,backdropFilter:'blur(8px)' }
+    onClose, restoreFocus, className: 'ui-modal-backdrop'
   },
     React.createElement('div', {
       ...window.MaerminUI.dialogProps('dlg-password'),
-      style: { background: theme.modalBg, border:`1px solid ${theme.modalBorder}`, borderRadius:'16px', padding:'2rem', width:'380px', maxWidth:'90vw', boxShadow:'0 25px 50px -12px rgba(0,0,0,0.5)' }
+      className: ['ui-modal', 'ui-modal--sm'].join(' ')
     },
-      React.createElement('h2', { id: 'dlg-password', style:{ color:theme.text, fontSize:'var(--text-title)', fontWeight:'700', marginBottom:'1.25rem' } },
-        (t.changePassword || 'Change Password')
-      ),
-      inp(curPw,  setCurPw,  t.currentPassword || 'Current Password'),
-      inp(newPw,  setNewPw,  t.newPassword     || 'New Password'),
-      inp(confPw, setConfPw, t.confirmPassword || 'Confirm Password'),
-      React.createElement('label', { style: { display: 'flex', gap: '0.5rem', alignItems: 'flex-start', color: theme.textSecondary, fontSize: 'var(--text-xs)', lineHeight: 1.45, margin: '0 0 0.9rem', cursor: 'pointer' } },
-        React.createElement('input', { type: 'checkbox', checked: rotateToo, onChange: (e) => setRotateToo(e.target.checked), style: { width: 18, height: 18, marginTop: 1, flexShrink: 0, accentColor: theme.accent } }),
-        __('pwRotateToo', 'Also replace the encryption key - do this if the old password may be known. Old backups, the recovery code and the passkey then no longer open new data.')),
-      React.createElement('div', { style:{ display:'flex', gap:'0.75rem', marginTop:'0.25rem' } },
-        React.createElement('button', {
-          onClick: onClose,
-          style:{ flex:1, padding:'0.75rem', background:theme.inputBg, color:theme.text, border:`1px solid ${theme.cardBorder}`, borderRadius:'8px', cursor:'pointer' }
-        }, t.cancel || 'Cancel'),
-        React.createElement('button', {
-          onClick: handleChange, disabled: busy || !curPw || !newPw || !confPw,
-          style:{ flex:1, padding:'0.75rem', background: busy ? theme.inputBg : (theme.accentFill || theme.accent), color: 'var(--on-accent)', border:'none', borderRadius:'8px', cursor: busy ? 'not-allowed' : 'pointer', fontWeight:'600' }
-        }, busy ? '...' : (t.changePassword || 'Change Password'))
-      )
+      React.createElement('header', { className: 'ui-modal__head' },
+        React.createElement('h2', { id: 'dlg-password', className: 'ui-modal__title' }, (t.changePassword || 'Change Password'))),
+      React.createElement('div', { className: ['ui-modal__body', 'ui-pw'].join(' ') },
+        inp(curPw,  setCurPw,  t.currentPassword || 'Current Password'),
+        inp(newPw,  setNewPw,  t.newPassword     || 'New Password'),
+        inp(confPw, setConfPw, t.confirmPassword || 'Confirm Password'),
+        React.createElement('label', { className: 'ui-rc-kit__check' },
+          React.createElement('input', { type: 'checkbox', checked: rotateToo, onChange: (e) => setRotateToo(e.target.checked), className: 'ui-st-check' }),
+          React.createElement('span', null, __('pwRotateToo', 'Also replace the encryption key - do this if the old password may be known. Old backups, the recovery code and the passkey then no longer open new data.')))),
+      React.createElement('footer', { className: 'ui-modal__foot' },
+        React.createElement(UIC.Button, { onClick: onClose }, t.cancel || 'Cancel'),
+        React.createElement(UIC.Button, { variant: 'primary', onClick: handleChange, disabled: !curPw || !newPw || !confPw, loading: busy }, t.changePassword || 'Change Password'))
     )
   );
 }
@@ -5273,40 +5263,36 @@ function InvestmentTracker() {
   // Security log viewer — recent vault/data events + captured errors.
   const renderAuditLogModal = () => {
     if (!showAuditLog) return null;
-    const th = currentTheme;
+    const UIC = window.MaerminComponents;
     const entries = (window.MaerminAuditLog ? window.MaerminAuditLog.getEntries({ limit: 200 }) : []);
-    const levelColor = (lv) => lv === 'error' ? '#ef4444' : lv === 'warn' ? '#f59e0b' : th.textSecondary;
+    // R5.1: the shared dialog look; the level as a badge with its word
+    const levelTone = (lv) => lv === 'error' ? 'loss' : lv === 'warn' ? 'warning' : undefined;
     return React.createElement(window.MaerminUI.Overlay, {
-      onClose: () => setShowAuditLog(false), restoreFocus: focusAccountButton,
-      style: { position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.6)', zIndex: 1000, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '1rem' }
+      onClose: () => setShowAuditLog(false), restoreFocus: focusAccountButton, className: 'ui-modal-backdrop'
     },
       React.createElement('div', {
         ...window.MaerminUI.dialogProps('dlg-audit-log'),
-        style: { background: th.card, border: `1px solid ${th.cardBorder}`, borderRadius: '14px', width: '100%', maxWidth: 640, maxHeight: '80vh', display: 'flex', flexDirection: 'column' }
+        className: ['ui-modal', 'ui-modal--log'].join(' ')
       },
-        React.createElement('div', { style: { display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '1.1rem 1.25rem', borderBottom: `1px solid ${th.cardBorder}` } },
-          React.createElement('div', { id: 'dlg-audit-log', style: { color: th.text, fontWeight: 800, fontSize: 'var(--text-body)' } }, (t.securityLog || 'Security log')),
-          React.createElement('div', { style: { display: 'flex', gap: '0.5rem' } },
-            React.createElement('button', { onClick: () => window.MaerminUtils.confirmThen({
-                title: t.auditClearTitle || 'Clear the security log?',
-                message: t.auditClearMessage || 'All recorded security events on this device are deleted.',
-                confirmLabel: t.clear || 'Clear', cancelLabel: t.cancel || 'Cancel'
-              }, () => { if (window.MaerminAuditLog) { window.MaerminAuditLog.clear(); setShowAuditLog(false); setTimeout(() => setShowAuditLog(true), 0); } }),
-              style: { padding: '0.35rem 0.7rem', background: 'transparent', border: `1px solid ${th.cardBorder}`, borderRadius: '7px', color: th.textSecondary, cursor: 'pointer', fontSize: 'var(--text-xs)' } }, t.clear || 'Clear'),
-            React.createElement('button', { onClick: () => setShowAuditLog(false), 'aria-label': t.close || 'Close',
-              style: { padding: '0.35rem 0.7rem', background: 'transparent', border: `1px solid ${th.cardBorder}`, borderRadius: '7px', color: th.textSecondary, cursor: 'pointer', fontSize: 'var(--text-xs)' } }, '✕')
-          )
+        React.createElement('header', { className: 'ui-modal__head' },
+          React.createElement('h2', { id: 'dlg-audit-log', className: 'ui-modal__title' }, (t.securityLog || 'Security log')),
+          React.createElement(UIC.Button, { size: 'sm', variant: 'quiet', onClick: () => window.MaerminUtils.confirmThen({
+              title: t.auditClearTitle || 'Clear the security log?',
+              message: t.auditClearMessage || 'All recorded security events on this device are deleted.',
+              confirmLabel: t.clear || 'Clear', cancelLabel: t.cancel || 'Cancel'
+            }, () => { if (window.MaerminAuditLog) { window.MaerminAuditLog.clear(); setShowAuditLog(false); setTimeout(() => setShowAuditLog(true), 0); } }) }, t.clear || 'Clear'),
+          React.createElement(UIC.IconButton, { size: 'sm', label: t.close || 'Close', onClick: () => setShowAuditLog(false), icon: React.createElement('span', { 'aria-hidden': 'true' }, '×') })
         ),
-        React.createElement('div', { style: { padding: '0.5rem 0.75rem', overflow: 'auto' } },
+        React.createElement('div', { className: 'ui-modal__body' },
           entries.length === 0
-            ? React.createElement('div', { style: { color: th.textSecondary, padding: '2rem', textAlign: 'center', fontSize: 'var(--text-base)' } }, t.securityLogEmpty || 'No events recorded yet.')
-            : entries.map((e, i) => React.createElement('div', { key: i, style: { display: 'flex', gap: '0.75rem', padding: '0.5rem 0.5rem', borderBottom: `1px solid ${window.MaerminTokens.alpha(th.cardBorder, 0x33)}`, fontSize: 'var(--text-xs)', alignItems: 'baseline' } },
-                React.createElement('span', { style: { color: th.textSecondary, fontFamily: 'ui-monospace,monospace', whiteSpace: 'nowrap', opacity: 0.8 } }, window.MaerminI18n.date(e.t, 'dateTime')),
-                React.createElement('span', { style: { color: levelColor(e.level), fontWeight: 600, whiteSpace: 'nowrap' } }, e.type),
-                React.createElement('span', { style: { color: th.text, flex: 1, wordBreak: 'break-word' } }, e.detail)
-              ))
+            ? React.createElement(UIC.EmptyState, { compact: true, text: t.securityLogEmpty || 'No events recorded yet.' })
+            : React.createElement('ul', { className: 'ui-log' }, entries.map((e, i) => React.createElement('li', { key: i, className: 'ui-log__row' },
+                React.createElement('span', { className: ['ui-log__time', 'num'].join(' ') }, window.MaerminI18n.date(e.t, 'dateTime')),
+                React.createElement(UIC.Badge, { tone: levelTone(e.level) }, (e.level === 'error' || e.level === 'warn' ? '! ' : '') + e.type),
+                React.createElement('span', { className: 'ui-log__detail' }, e.detail)
+              )))
         ),
-        React.createElement('div', { style: { padding: '0.6rem 1.25rem', borderTop: `1px solid ${th.cardBorder}`, color: th.textSecondary, fontSize: 'var(--text-2xs)' } },
+        React.createElement('footer', { className: ['ui-modal__foot', 'ui-log__foot'].join(' ') },
           (t.securityLogNote || 'Stored locally on this device only. Non-sensitive event metadata — no amounts or secrets.'))
       )
     );
@@ -6122,215 +6108,81 @@ buy,crypto,bitcoin,0.5,45000,2024-01-15,10`)
 
   // ========== API SETTINGS MODAL ==========
   
+  // R5.1: the shared dialog look (the Overlay keeps focus in and returns it to the account button)
   const renderApiSettingsModal = () => {
     if (!showApiSettings) return null;
-    
+    const UIC = window.MaerminComponents;
+    const workerSet = (apiKeys.cs2Worker || '').trim().length > 5;
+    const feature = (title, lines) => React.createElement('div', { className: 'ui-api-feat' },
+      React.createElement('b', null, title),
+      lines.map((l, i) => React.createElement('span', { key: i }, l)));
+    const source = (title, badge, text, extra) => React.createElement('section', { className: 'ui-api-src' },
+      React.createElement('div', { className: 'ui-dlg-sec__head' },
+        React.createElement('h3', { className: 'ui-dlg-sec__title' }, title),
+        React.createElement(UIC.Badge, { tone: 'gain' }, badge)),
+      React.createElement('p', { className: 'ui-muted' }, text),
+      extra || null);
     return React.createElement(window.MaerminUI.Overlay, {
-      style: {
-        position: 'fixed',
-        top: 0,
-        left: 0,
-        right: 0,
-        bottom: 0,
-        background: 'rgba(4,6,10,0.62)',
-        display: 'flex',
-        justifyContent: 'center',
-        alignItems: 'center',
-        zIndex: 10000,
-        backdropFilter: 'blur(8px)'
-      },
+      className: 'ui-modal-backdrop',
       onClose: () => setShowApiSettings(false), restoreFocus: focusAccountButton
     },
       React.createElement('div', {
         ...window.MaerminUI.dialogProps('dlg-api-settings'),
-        style: {
-          background: currentTheme.modalBg,
-          border: `1px solid ${currentTheme.modalBorder}`,
-          padding: '2rem',
-          borderRadius: '16px',
-          width: '500px',
-          maxWidth: '90vw',
-          maxHeight: '85vh',
-          overflow: 'auto',
-          boxShadow: '0 32px 70px -20px rgba(0,0,0,0.75)'
-        }
+        className: 'ui-modal'
       },
-        React.createElement('h2', {
-          id: 'dlg-api-settings',
-          style: { color: currentTheme.text, marginBottom: '1.5rem', fontSize: 'var(--text-xl)', fontWeight: '800', letterSpacing: '-0.02em' }
-        }, t.apiSettings || 'API Settings'),
-        
-        React.createElement('p', {
-          style: { color: currentTheme.textSecondary, marginBottom: '1.5rem', fontSize: 'var(--text-base)', lineHeight: '1.5' }
-        }, __('apiIntro', 'Live prices come through your Cloudflare Worker. Exchange rates need no key.')),
+        React.createElement('header', { className: 'ui-modal__head' },
+          React.createElement('h2', { id: 'dlg-api-settings', className: 'ui-modal__title' }, t.apiSettings || 'API Settings')),
+        React.createElement('div', { className: ['ui-modal__body', 'ui-api'].join(' ') },
+          React.createElement('p', { className: 'ui-muted' }, __('apiIntro', 'Live prices come through your Cloudflare Worker. Exchange rates need no key.')),
 
-        // ── Cloudflare Worker (CS2 + Yahoo Finance Historical Data) ─────────
-        React.createElement('div', {
-          style: { background: `linear-gradient(135deg, rgba(139,124,255,0.08), rgba(59,130,246,0.05))`, border: `1px solid rgba(139,124,255,0.25)`, padding: '1.25rem', borderRadius: '10px', marginBottom: '1rem' }
-        },
-          React.createElement('div', { style: { display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.625rem' } },
-            React.createElement('div', null,
-              React.createElement('h3', { style: { color: currentTheme.text, fontSize: 'var(--text-body)', fontWeight: '700' } }, 'Cloudflare Worker'),
-              React.createElement('div', { style: { display: 'flex', gap: '0.375rem', marginTop: '0.25rem', flexWrap: 'wrap' } },
-                React.createElement('span', { style: { fontSize: 'var(--text-2xs)', padding: '0.15rem 0.4rem', borderRadius: '3px', background: 'color-mix(in srgb, var(--success) 12%, transparent)', color: 'var(--success)', fontWeight: '700' } }, __('apiFreeNoKey', 'Free · No API key')),
-                React.createElement('span', { style: { fontSize: 'var(--text-2xs)', padding: '0.15rem 0.4rem', borderRadius: '3px', background: 'rgba(6,182,212,0.12)', color: '#06b6d4', fontWeight: '700' } }, __('apiCs2Prices', 'CS2 Skin Prices')),
-                React.createElement('span', { style: { fontSize: 'var(--text-2xs)', padding: '0.15rem 0.4rem', borderRadius: '3px', background: 'color-mix(in srgb, var(--info) 12%, transparent)', color: 'var(--info)', fontWeight: '700' } }, __('apiYahooChart', 'Yahoo Finance Chart Data')),
-              )
-            ),
-            React.createElement('span', {
-              style: { fontSize: 'var(--text-xs)', padding: '0.25rem 0.5rem', borderRadius: '4px', fontWeight: '600',
-                background: (apiKeys.cs2Worker||'').trim().length > 5 ? 'color-mix(in srgb, var(--success) 18%, transparent)' : 'color-mix(in srgb, var(--warning) 15%, transparent)',
-                color: (apiKeys.cs2Worker||'').trim().length > 5 ? currentTheme.success : currentTheme.warning }
-            }, (apiKeys.cs2Worker||'').trim().length > 5 ? __('apiConfigured', '✓ Configured') : __('apiNotConfigured', 'Not configured'))
-          ),
-          React.createElement('p', { style: { color: currentTheme.textSecondary, fontSize: 'var(--text-sm)', marginBottom: '0.875rem', lineHeight: '1.6' } },
-            __('apiWorkerIntro', 'One Worker URL for all live data: stock, ETF and commodity prices and history (Yahoo Finance), crypto prices (CoinGecko), CS2 skin prices (daily Steam Market list), symbol search, dividends, earnings and news - plus encrypted sync and share links when the Worker has storage. No API key needed.')
-          ),
-          // Three-column feature overview
-          React.createElement('div', { style: { display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '0.5rem', marginBottom: '0.875rem' } },
-            React.createElement('div', { style: { background: 'rgba(6,182,212,0.06)', border: '1px solid rgba(6,182,212,0.15)', borderRadius: '6px', padding: '0.625rem 0.75rem', fontSize: 'var(--text-xs)', color: currentTheme.textSecondary, lineHeight: '1.6' } },
-              React.createElement('div', { style: { color: '#06b6d4', fontWeight: '700', marginBottom: '0.25rem' } }, __('apiCs2Prices', 'CS2 Skin Prices')),
-              React.createElement('div', null, __('apiSteamDaily', '→ Steam Market price list (daily)')),
-              React.createElement('div', null, __('apiSearchImages', '→ Search with images')),
-              React.createElement('div', null, __('apiOneRequest', '→ One request for all skins'))
-            ),
-            React.createElement('div', { style: { background: 'color-mix(in srgb, var(--info) 6%, transparent)', border: '1px solid color-mix(in srgb, var(--info) 15%, transparent)', borderRadius: '6px', padding: '0.625rem 0.75rem', fontSize: 'var(--text-xs)', color: currentTheme.textSecondary, lineHeight: '1.6' } },
-              React.createElement('div', { style: { color: 'var(--info)', fontWeight: '700', marginBottom: '0.25rem' } }, __('apiHistoryChart', 'Portfolio History Chart')),
-              React.createElement('div', null, '→ Yahoo Finance'),
-              React.createElement('div', null, __('apiExchanges', '→ NYSE, XETRA, London…')),
-              React.createElement('div', null, __('apiPeriods', '→ 1H to Max periods'))
-            ),
-            React.createElement('div', { style: { background: 'rgba(139,124,255,0.06)', border: '1px solid rgba(139,124,255,0.15)', borderRadius: '6px', padding: '0.625rem 0.75rem', fontSize: 'var(--text-xs)', color: currentTheme.textSecondary, lineHeight: '1.6' } },
-              React.createElement('div', { style: { color: '#8b7cff', fontWeight: '700', marginBottom: '0.25rem' } }, __('apiCs2History', 'CS2 Price History')),
-              React.createElement('div', null, __('apiAverages', '→ 24 h / 7 / 30 / 90-day averages')),
-              React.createElement('div', null, __('apiPerSkin', '→ Per skin over time')),
-              React.createElement('div', null, __('apiInChart', '→ Shown in portfolio chart'))
-            )
-          ),
-          React.createElement('div', {
-            style: { background: currentTheme.inputBg, borderRadius: '8px', padding: '0.875rem', marginBottom: '0.875rem', fontSize: 'var(--text-xs)', color: currentTheme.textSecondary, lineHeight: '1.8' }
-          },
-            workerVersion && workerVersion.state === 'outdated' && React.createElement('div', { 'data-testid': 'worker-version-note', style: { color: currentTheme.warning, fontWeight: '600', marginBottom: '0.5rem' } },
-              workerVersion.version
-                ? __('wvOutdatedIs', 'Your Worker is version {v}; this app expects {e}. Update it with the steps below.', { v: workerVersion.version, e: workerVersion.expected })
-                : __('wvOutdatedNone', 'Your Worker is older than {e} (it reports no version). Update it with the steps below.', { e: workerVersion.expected })),
-            workerVersion && (workerVersion.state === 'current' || workerVersion.state === 'newer') && React.createElement('div', { style: { color: currentTheme.success, marginBottom: '0.5rem' } },
-              __('wvCurrent', 'Worker version {v} — up to date.', { v: workerVersion.version })),
-            React.createElement('div', { style: { fontWeight: '700', color: currentTheme.text, marginBottom: '0.375rem' } }, __('apiNewWorker', 'No Worker yet?')),
-            React.createElement('div', { style: { marginBottom: '0.625rem' } },
-              window.MaerminOnboarding && React.createElement('a', { href: window.MaerminOnboarding.DEPLOY_URL, target: '_blank', rel: 'noopener noreferrer', style: { color: currentTheme.accent, fontWeight: '600' } }, __('obDeployBtn', 'Deploy to Cloudflare ↗')),
-              ' ' + __('apiDeployHint', '— one click, then paste the Worker URL below.')),
-            React.createElement('div', { style: { fontWeight: '700', color: currentTheme.text, marginBottom: '0.375rem' } }, __('apiUpdateWorker', 'Update existing Worker (~1 min):')),
-            React.createElement('div', null, '1. ', React.createElement('a', { href: 'https://dash.cloudflare.com', target: '_blank', rel: 'noopener noreferrer', style: { color: currentTheme.accent } }, 'dash.cloudflare.com'), ' → ' + __('apiStep1', 'Workers & Pages → your Worker')),
-            React.createElement('div', null, '2. ' + __('apiStep2a', 'Edit code → paste contents of') + ' ', React.createElement('a', { href: (window.MaerminOnboarding && window.MaerminOnboarding.GITHUB_WORKER_URL) || 'https://github.com/Maermin/MAERMIN/blob/main/cf-worker/worker.single.js', target: '_blank', rel: 'noopener noreferrer', 'data-testid': 'api-worker-file', style: { color: currentTheme.accent } }, React.createElement('code', { style: { background: 'rgba(0,0,0,0.2)', padding: '0 4px', borderRadius: '3px' } }, 'cf-worker/worker.single.js')), ' ' + __('apiStep2b', 'from this repository: the whole Worker in one file (worker.js alone needs the files next to it)')),
-            React.createElement('div', null, '3. ' + __('apiStep3', 'Save and Deploy — no secrets needed')),
-            React.createElement('div', null, '4. ' + __('apiStep4', 'Paste the Worker URL below'))
-          ),
-          React.createElement('label', { style: { display: 'block', color: currentTheme.textSecondary, fontSize: 'var(--text-xs)', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '0.375rem' } },
-            __('apiWorkerLabel', 'Worker URL — live prices, symbol search, research, sync, share links and reminders')
-          ),
-          React.createElement('input', {
-            type: 'text',
-            value: apiKeys.cs2Worker || '',
-            onChange: e => setApiKeys(prev => ({ ...prev, cs2Worker: e.target.value })),
-            placeholder: 'https://your-worker-name.your-subdomain.workers.dev',
-            style: { width: '100%', padding: '0.75rem', background: currentTheme.inputBg, border: `1px solid ${currentTheme.inputBorder}`, borderRadius: '6px', color: currentTheme.text, fontSize: 'var(--text-sm)', fontFamily: 'monospace' }
-          }),
-          window.MaerminOnboarding && window.MaerminOnboarding.Wizard && React.createElement('button', {
-            onClick: () => { setShowApiSettings(false); openOnboarding(); },
-            style: { marginTop: '0.625rem', padding: '0.5rem 0.9rem', background: 'transparent', color: currentTheme.accent, border: `1px solid ${currentTheme.accent}`, borderRadius: '6px', cursor: 'pointer', fontWeight: '600', fontSize: 'var(--text-sm)' }
-          }, __('apiGuided', 'Guided setup & connection test'))
-        ),
+          // ── Cloudflare Worker (CS2 + Yahoo Finance Historical Data) ─────────
+          React.createElement('section', { className: ['ui-api-src', 'is-main'].join(' ') },
+            React.createElement('div', { className: 'ui-dlg-sec__head' },
+              React.createElement('div', null,
+                React.createElement('h3', { className: 'ui-dlg-sec__title' }, 'Cloudflare Worker'),
+                React.createElement('div', { className: 'ui-api-badges' },
+                  React.createElement(UIC.Badge, { tone: 'gain' }, __('apiFreeNoKey', 'Free · No API key')),
+                  React.createElement(UIC.Badge, null, __('apiCs2Prices', 'CS2 Skin Prices')),
+                  React.createElement(UIC.Badge, null, __('apiYahooChart', 'Yahoo Finance Chart Data')))),
+              React.createElement(UIC.Badge, { tone: workerSet ? 'gain' : 'warning' }, workerSet ? __('apiConfigured', '✓ Configured') : '! ' + __('apiNotConfigured', 'Not configured'))),
+            React.createElement('p', { className: 'ui-muted' },
+              __('apiWorkerIntro', 'One Worker URL for all live data: stock, ETF and commodity prices and history (Yahoo Finance), crypto prices (CoinGecko), CS2 skin prices (daily Steam Market list), symbol search, dividends, earnings and news - plus encrypted sync and share links when the Worker has storage. No API key needed.')),
+            React.createElement('div', { className: 'ui-api-feats' },
+              feature(__('apiCs2Prices', 'CS2 Skin Prices'), [__('apiSteamDaily', '→ Steam Market price list (daily)'), __('apiSearchImages', '→ Search with images'), __('apiOneRequest', '→ One request for all skins')]),
+              feature(__('apiHistoryChart', 'Portfolio History Chart'), ['→ Yahoo Finance', __('apiExchanges', '→ NYSE, XETRA, London…'), __('apiPeriods', '→ 1H to Max periods')]),
+              feature(__('apiCs2History', 'CS2 Price History'), [__('apiAverages', '→ 24 h / 7 / 30 / 90-day averages'), __('apiPerSkin', '→ Per skin over time'), __('apiInChart', '→ Shown in portfolio chart')])),
+            React.createElement('div', { className: 'ui-api-steps' },
+              workerVersion && workerVersion.state === 'outdated' && React.createElement('p', { 'data-testid': 'worker-version-note', className: ['ui-api-steps__note', 'tone-warning'].join(' ') },
+                '! ' + (workerVersion.version
+                  ? __('wvOutdatedIs', 'Your Worker is version {v}; this app expects {e}. Update it with the steps below.', { v: workerVersion.version, e: workerVersion.expected })
+                  : __('wvOutdatedNone', 'Your Worker is older than {e} (it reports no version). Update it with the steps below.', { e: workerVersion.expected }))),
+              workerVersion && (workerVersion.state === 'current' || workerVersion.state === 'newer') && React.createElement('p', { className: ['ui-api-steps__note', 'tone-gain'].join(' ') },
+                '✓ ' + __('wvCurrent', 'Worker version {v} — up to date.', { v: workerVersion.version })),
+              React.createElement('b', null, __('apiNewWorker', 'No Worker yet?')),
+              React.createElement('p', null,
+                window.MaerminOnboarding && React.createElement('a', { href: window.MaerminOnboarding.DEPLOY_URL, target: '_blank', rel: 'noopener noreferrer', className: 'ui-link' }, __('obDeployBtn', 'Deploy to Cloudflare ↗')),
+                ' ' + __('apiDeployHint', '— one click, then paste the Worker URL below.')),
+              React.createElement('b', null, __('apiUpdateWorker', 'Update existing Worker (~1 min):')),
+              React.createElement('ol', null,
+                React.createElement('li', null, React.createElement('a', { href: 'https://dash.cloudflare.com', target: '_blank', rel: 'noopener noreferrer', className: 'ui-link' }, 'dash.cloudflare.com'), ' → ' + __('apiStep1', 'Workers & Pages → your Worker')),
+                React.createElement('li', null, __('apiStep2a', 'Edit code → paste contents of') + ' ', React.createElement('a', { href: (window.MaerminOnboarding && window.MaerminOnboarding.GITHUB_WORKER_URL) || 'https://github.com/Maermin/MAERMIN/blob/main/cf-worker/worker.single.js', target: '_blank', rel: 'noopener noreferrer', 'data-testid': 'api-worker-file', className: 'ui-link' }, React.createElement('code', null, 'cf-worker/worker.single.js')), ' ' + __('apiStep2b', 'from this repository: the whole Worker in one file (worker.js alone needs the files next to it)')),
+                React.createElement('li', null, __('apiStep3', 'Save and Deploy — no secrets needed')),
+                React.createElement('li', null, __('apiStep4', 'Paste the Worker URL below')))),
+            React.createElement(UIC.Input, {
+              label: __('apiWorkerLabel', 'Worker URL — live prices, symbol search, research, sync, share links and reminders'),
+              value: apiKeys.cs2Worker || '',
+              onChange: e => setApiKeys(prev => ({ ...prev, cs2Worker: e.target.value })),
+              placeholder: 'https://your-worker-name.your-subdomain.workers.dev',
+              spellCheck: false, className: 'ui-api-url'
+            }),
+            window.MaerminOnboarding && window.MaerminOnboarding.Wizard && React.createElement('div', { className: 'ui-actions' },
+              React.createElement(UIC.Button, { onClick: () => { setShowApiSettings(false); openOnboarding(); } }, __('apiGuided', 'Guided setup & connection test')))),
 
-        // CoinGecko Info Section
-        React.createElement('div', {
-          style: {
-            background: currentTheme.inputBg,
-            padding: '1.25rem',
-            borderRadius: '8px',
-            marginBottom: '1.5rem'
-          }
-        },
-          React.createElement('div', {
-            style: { display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.75rem' }
-          },
-            React.createElement('h3', {
-              style: { color: currentTheme.text, fontSize: 'var(--text-body)', fontWeight: '600' }
-            }, 'CoinGecko'),
-            React.createElement('span', {
-              style: { 
-                fontSize: 'var(--text-xs)', 
-                padding: '0.25rem 0.5rem',
-                background: 'color-mix(in srgb, var(--success) 20%, transparent)',
-                color: currentTheme.success,
-                borderRadius: '4px'
-              }
-            }, t.publicApi || 'Public API')
-          ),
-          React.createElement('p', {
-            style: { color: currentTheme.textSecondary, fontSize: 'var(--text-sm)' }
-          }, t.coingeckoInfo || 'Crypto prices come from CoinGecko through your Worker, which caches them. No API key needed; an optional CoinGecko demo key on the Worker (COINGECKO_API_KEY) raises the limit.')
-        ),
-        
-        // Exchange Rate Section
-        React.createElement('div', {
-          style: {
-            background: currentTheme.inputBg,
-            padding: '1.25rem',
-            borderRadius: '8px',
-            marginBottom: '1.5rem'
-          }
-        },
-          React.createElement('div', {
-            style: { display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.75rem' }
-          },
-            React.createElement('h3', {
-              style: { color: currentTheme.text, fontSize: 'var(--text-body)', fontWeight: '600' }
-            }, t.exchangeRate || 'Exchange Rate'),
-            React.createElement('span', {
-              style: { 
-                fontSize: 'var(--text-xs)', 
-                padding: '0.25rem 0.5rem',
-                background: 'color-mix(in srgb, var(--success) 20%, transparent)',
-                color: currentTheme.success,
-                borderRadius: '4px'
-              }
-            }, 'ExchangeRate-API')
-          ),
-          React.createElement('p', {
-            style: { color: currentTheme.textSecondary, fontSize: 'var(--text-sm)', marginBottom: '0.5rem' }
-          }, t.exchangeRateInfo || 'Prices quoted in USD or another currency (US stocks, CS2 skins) are converted to EUR with daily exchange rates.'),
-          React.createElement('div', {
-            style: { 
-              display: 'flex',
-              alignItems: 'center',
-              gap: '0.5rem',
-              padding: '0.75rem',
-              background: currentTheme.background,
-              borderRadius: '6px',
-              marginTop: '0.5rem'
-            }
-          },
-            React.createElement('span', { style: { color: currentTheme.text, fontWeight: '600' } }, '1 USD'),
-            React.createElement('span', { style: { color: currentTheme.textSecondary } }, '='),
-            React.createElement('span', { style: { color: currentTheme.accent, fontWeight: '600' } }, `${window.MaerminI18n.num(exchangeRate, 4)} EUR`)
-          )
-        ),
-        
-        // Close button
-        React.createElement('button', {
-          onClick: () => setShowApiSettings(false),
-          style: {
-            width: '100%',
-            padding: '0.75rem',
-            background: (currentTheme.accentFill || currentTheme.accent),
-            color: '#ffffff',
-            border: 'none',
-            borderRadius: '8px',
-            cursor: 'pointer',
-            fontWeight: '600'
-          }
-        }, t.close || 'Close')
+          source('CoinGecko', t.publicApi || 'Public API', t.coingeckoInfo || 'Crypto prices come from CoinGecko through your Worker, which caches them. No API key needed; an optional CoinGecko demo key on the Worker (COINGECKO_API_KEY) raises the limit.'),
+          source(t.exchangeRate || 'Exchange Rate', 'ExchangeRate-API', t.exchangeRateInfo || 'Prices quoted in USD or another currency (US stocks, CS2 skins) are converted to EUR with daily exchange rates.',
+            React.createElement('p', { className: ['ui-api-rate', 'num'].join(' ') }, '1 USD', ' = ', React.createElement('b', null, `${window.MaerminI18n.num(exchangeRate, 4)} EUR`)))),
+        React.createElement('footer', { className: 'ui-modal__foot' },
+          React.createElement(UIC.Button, { variant: 'primary', onClick: () => setShowApiSettings(false) }, t.close || 'Close'))
       )
     );
   };
@@ -6350,6 +6202,7 @@ buy,crypto,bitcoin,0.5,45000,2024-01-15,10`)
 
   const renderRecoveryKitModal = () => {
     if (!showRecoveryKit) return null;
+    const UIC = window.MaerminComponents;
     const code = recoveryCode;
     const fileText = (window.MaerminAuth && window.MaerminAuth.recoveryFileText) ? window.MaerminAuth.recoveryFileText(code) : code;
     const doDownload = () => {
@@ -6376,20 +6229,24 @@ buy,crypto,bitcoin,0.5,45000,2024-01-15,10`)
         navigator.clipboard.writeText(code).then(() => addToast(t.rcCopied || 'Recovery code copied', 'success'), failed);
       } catch (e) { failed(); }
     };
-    const altBtn = (label, onClick) => React.createElement('button', { onClick, style: { flex: 1, padding: '0.6rem', background: 'transparent', color: currentTheme.text, border: `1px solid ${currentTheme.cardBorder}`, borderRadius: '8px', cursor: 'pointer', fontSize: 'var(--text-sm)' } }, label);
+    const altBtn = (label, onClick) => React.createElement(UIC.Button, { onClick }, label);
     // focusField: false - open on the panel so the code is read first, not the checkbox.
-    return React.createElement(window.MaerminUI.Overlay, { dismissable: false, focusField: false, restoreFocus: focusAccountButton, style: { position: 'fixed', inset: 0, zIndex: 9100, background: 'rgba(3,6,12,0.72)', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '1.5rem' } },
-      React.createElement('div', { ...window.MaerminUI.dialogProps('dlg-recovery'), style: { background: currentTheme.modalBg || currentTheme.cardBg || '#141a25', border: `1px solid ${currentTheme.cardBorder}`, borderRadius: '16px', padding: '1.75rem', width: '100%', maxWidth: '460px', boxShadow: '0 30px 70px -20px rgba(0,0,0,0.7)' } },
-        React.createElement('h3', { id: 'dlg-recovery', style: { color: currentTheme.text, fontSize: 'var(--text-lg)', fontWeight: '700', margin: '0 0 0.5rem' } }, t.rcTitle || 'Your recovery code'),
-        React.createElement('p', { style: { color: currentTheme.textSecondary, fontSize: 'var(--text-base)', lineHeight: '1.55', margin: '0 0 1rem' } }, t.rcIntro || 'Save this now — it can unlock your vault if you forget your password. It is shown once and never stored in readable form. Anyone with it can open your vault.'),
-        React.createElement('div', { style: { fontFamily: 'ui-monospace,Menlo,monospace', fontSize: 'var(--text-body)', letterSpacing: '0.05em', color: currentTheme.accent, background: currentTheme.inputBg, border: `1px solid ${currentTheme.cardBorder}`, borderRadius: '10px', padding: '1rem', textAlign: 'center', wordBreak: 'break-all', userSelect: 'all', marginBottom: '0.9rem' } }, code),
-        React.createElement('div', { style: { display: 'flex', gap: '0.5rem', marginBottom: '1rem' } }, doCopy && altBtn(t.rcCopy || 'Copy', doCopy), altBtn(t.rcDownload || 'Download', doDownload), altBtn(t.rcPrint || 'Print', doPrint)),
-        React.createElement('label', { style: { display: 'flex', gap: '0.55rem', alignItems: 'flex-start', color: currentTheme.text, fontSize: 'var(--text-sm)', lineHeight: '1.45', marginBottom: '0.9rem', cursor: 'pointer' } },
-          React.createElement('input', { type: 'checkbox', checked: recoverySaved, onChange: (e) => setRecoverySaved(e.target.checked), style: { marginTop: '0.2rem', accentColor: currentTheme.accent } }),
-          React.createElement('span', null, t.rcSavedCheck || 'I\'ve saved this recovery code somewhere safe and private.')),
-        React.createElement('button', { onClick: () => finishRecoveryKit(true), disabled: !recoverySaved, style: { width: '100%', padding: '0.7rem', background: (currentTheme.accentFill || currentTheme.accent), color: 'var(--on-accent)', border: 'none', borderRadius: '8px', cursor: recoverySaved ? 'pointer' : 'not-allowed', opacity: recoverySaved ? 1 : 0.5, fontWeight: '700', fontSize: 'var(--text-base)' } }, t.rcDone || 'Done — I\'ve saved it'),
-        React.createElement('button', { onClick: () => finishRecoveryKit(false), style: { width: '100%', marginTop: '0.5rem', padding: '0.55rem', background: 'transparent', color: currentTheme.textSecondary, border: 'none', cursor: 'pointer', fontSize: 'var(--text-sm)' } },
-          (window.MaerminAuth && window.MaerminAuth.getStatus && window.MaerminAuth.getStatus().hasRecovery) ? (t.rcKeepOld || 'Cancel — keep my current code') : (t.rcNotNow || 'Not now'))
+    // R5.1: the shared dialog look; above Security & sync, which opens it
+    return React.createElement(window.MaerminUI.Overlay, { dismissable: false, focusField: false, restoreFocus: focusAccountButton, className: ['ui-modal-backdrop', 'is-top'].join(' ') },
+      React.createElement('div', { ...window.MaerminUI.dialogProps('dlg-recovery'), className: ['ui-modal', 'ui-modal--sm'].join(' ') },
+        React.createElement('header', { className: 'ui-modal__head' },
+          React.createElement('h2', { id: 'dlg-recovery', className: 'ui-modal__title' }, t.rcTitle || 'Your recovery code')),
+        React.createElement('div', { className: ['ui-modal__body', 'ui-rc-kit'].join(' ') },
+          React.createElement('p', { className: 'ui-muted' }, t.rcIntro || 'Save this now — it can unlock your vault if you forget your password. It is shown once and never stored in readable form. Anyone with it can open your vault.'),
+          React.createElement('div', { className: 'ui-rc-kit__code' }, code),
+          React.createElement('div', { className: 'ui-rc-kit__acts' }, doCopy && altBtn(t.rcCopy || 'Copy', doCopy), altBtn(t.rcDownload || 'Download', doDownload), altBtn(t.rcPrint || 'Print', doPrint)),
+          React.createElement('label', { className: 'ui-rc-kit__check' },
+            React.createElement('input', { type: 'checkbox', checked: recoverySaved, onChange: (e) => setRecoverySaved(e.target.checked), className: 'ui-st-check' }),
+            React.createElement('span', null, t.rcSavedCheck || 'I\'ve saved this recovery code somewhere safe and private.'))),
+        React.createElement('footer', { className: ['ui-modal__foot', 'ui-rc-kit__foot'].join(' ') },
+          React.createElement(UIC.Button, { variant: 'quiet', onClick: () => finishRecoveryKit(false) },
+            (window.MaerminAuth && window.MaerminAuth.getStatus && window.MaerminAuth.getStatus().hasRecovery) ? (t.rcKeepOld || 'Cancel — keep my current code') : (t.rcNotNow || 'Not now')),
+          React.createElement(UIC.Button, { variant: 'primary', onClick: () => finishRecoveryKit(true), disabled: !recoverySaved }, t.rcDone || 'Done — I\'ve saved it'))
       )
     );
   };
@@ -6397,17 +6254,20 @@ buy,crypto,bitcoin,0.5,45000,2024-01-15,10`)
   // SEC-006: while encryption at rest is off, every view says so (the setup
   // screen let it be switched off without a lasting warning).
   const renderAtRestBanner = () => {
+    const UIC = window.MaerminComponents;
     const St = window.MaerminStorage, V = window.MaerminVault;
     if (demoMode || !St || !V || !V.isUnlocked || !V.isUnlocked() || St.isEnabled()) return null;
     const turnOn = () => St.enableAtRest().then(() => { addToast(__('atRestOn', 'Data encrypted at rest ✓'), 'success'); setSecurityRev((r) => r + 1); }, () => addToast(__('atRestFailed', 'Could not enable at-rest encryption'), 'error'));
-    return React.createElement('div', { role: 'status', 'data-testid': 'atrest-off-banner', style: { display: 'flex', alignItems: 'center', gap: '0.75rem', flexWrap: 'wrap', margin: '0.75rem 1.5rem 0', padding: '0.65rem 0.9rem', borderRadius: '10px', border: `1px solid ${window.MaerminTokens.alpha(currentTheme.warning, 0x66)}`, background: `${window.MaerminTokens.alpha(currentTheme.warning, 0x14)}`, color: currentTheme.text, fontSize: 'var(--text-sm)' } },
-      React.createElement('span', { style: { flex: 1, minWidth: '220px' } }, __('atRestOffBanner', 'Your portfolio is stored unencrypted in this browser. Anyone with access to this device or a copy of its profile can read it.')),
-      React.createElement('button', { type: 'button', onClick: turnOn, style: { padding: '0.4rem 0.85rem', borderRadius: '7px', border: 'none', background: currentTheme.accentFill || currentTheme.accent, color: 'var(--on-accent)', fontWeight: 700, fontSize: 'var(--text-sm)', cursor: 'pointer' } }, __('secEncryptNow', 'Encrypt now')));
+    // R5.1: a warning callout with the shared button
+    return React.createElement('div', { role: 'status', 'data-testid': 'atrest-off-banner', className: ['ui-callout', 'ui-callout--warn', 'ui-atrest'].join(' ') },
+      React.createElement('span', null, '! ' + __('atRestOffBanner', 'Your portfolio is stored unencrypted in this browser. Anyone with access to this device or a copy of its profile can read it.')),
+      React.createElement(UIC.Button, { size: 'sm', variant: 'primary', onClick: turnOn }, __('secEncryptNow', 'Encrypt now')));
   };
 
   // ========== SECURITY & SYNC MODAL ==========
   const renderSecurityModal = () => {
     if (!showSecurity) return null;
+    const UIC = window.MaerminComponents;
     const A = window.MaerminAuth, S = window.MaerminSync;
     const status = (A && A.getStatus) ? A.getStatus() : {};
     const syncCfg = (S && S.getConfig) ? S.getConfig() : null;
@@ -6424,10 +6284,11 @@ buy,crypto,bitcoin,0.5,45000,2024-01-15,10`)
       if (s < 86400) return __('agoHours', '{n} h ago', { n: Math.floor(s / 3600) });
       return __('agoDays', '{n} d ago', { n: Math.floor(s / 86400) });
     };
-    const badge = (txt, good) => React.createElement('span', { style: { fontSize: 'var(--text-2xs)', padding: '0.15rem 0.5rem', borderRadius: '4px', background: good ? 'color-mix(in srgb, var(--success) 18%, transparent)' : 'rgba(255,255,255,0.06)', color: good ? currentTheme.success : currentTheme.textSecondary, fontWeight: '700' } }, txt);
-    const smallBtn = (label, onClick, disabled) => React.createElement('button', { onClick, disabled, style: { padding: '0.4rem 0.8rem', background: 'transparent', color: currentTheme.accent, border: `1px solid ${currentTheme.accent}`, borderRadius: '6px', cursor: disabled ? 'wait' : 'pointer', fontSize: 'var(--text-xs)', fontWeight: '600', opacity: disabled ? 0.6 : 1 } }, label);
-    const row = (label, control) => React.createElement('div', { style: { display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '1rem', padding: '0.55rem 0', borderBottom: `1px solid ${currentTheme.cardBorder}` } }, React.createElement('span', { style: { color: currentTheme.text, fontSize: 'var(--text-base)' } }, label), control);
-    const sectionTitle = (txt) => React.createElement('div', { style: { color: currentTheme.textSecondary, fontSize: 'var(--text-2xs)', textTransform: 'uppercase', letterSpacing: '0.05em', margin: '1.1rem 0 0.3rem' } }, txt);
+    // R5.1: shared badges, buttons, rows and section titles
+    const badge = (txt, good) => React.createElement(UIC.Badge, { tone: good ? 'gain' : undefined }, good ? '✓ ' + txt : txt);
+    const smallBtn = (label, onClick, disabled) => React.createElement(UIC.Button, { size: 'sm', onClick, disabled }, label);
+    const row = (label, control) => React.createElement('div', { className: 'ui-sec-row' }, React.createElement('span', { className: 'ui-sec-row__label' }, label), control);
+    const sectionTitle = (txt) => React.createElement('h3', { className: 'ui-sublabel' }, txt);
 
     const addPasskey = () => { if (!A || !A.enrollPasskey) return; A.enrollPasskey('MAERMIN').then((res) => { if (res && res.enrolled) { addToast(__('passkeyEnrolled', 'Passkey enrolled ✓'), 'success'); bump(); } else { addToast(__('passkeyNoPrf', 'This authenticator has no PRF support'), 'error'); } }, () => addToast(__('passkeyCancelled', 'Passkey enrollment cancelled'), 'error')); };
     const removePasskey = () => {
@@ -6464,62 +6325,64 @@ buy,crypto,bitcoin,0.5,45000,2024-01-15,10`)
     };
 
     // focusField: false - an overview: open on the panel, not on the market-data switch (P5-3.1)
-    return React.createElement(window.MaerminUI.Overlay, { onClose: () => setShowSecurity(false), focusField: false, restoreFocus: focusAccountButton, style: { position: 'fixed', inset: 0, zIndex: 9050, background: 'rgba(3,6,12,0.72)', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '1.5rem' } },
-      React.createElement('div', { ...window.MaerminUI.dialogProps('dlg-security'), style: { background: currentTheme.modalBg || currentTheme.cardBg || '#141a25', border: `1px solid ${currentTheme.cardBorder}`, borderRadius: '16px', padding: '1.75rem', width: '100%', maxWidth: '500px', maxHeight: '88vh', overflowY: 'auto', boxShadow: '0 30px 70px -20px rgba(0,0,0,0.7)' } },
-        React.createElement('div', { style: { display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.25rem' } },
-          React.createElement('h3', { id: 'dlg-security', style: { color: currentTheme.text, fontSize: 'var(--text-lg)', fontWeight: '700', margin: 0 } }, __('securitySync', 'Security & sync')),
-          React.createElement('button', { onClick: () => setShowSecurity(false), 'aria-label': t.close || 'Close', style: { background: 'none', border: 'none', color: currentTheme.textSecondary, fontSize: 'var(--text-title-lg)', cursor: 'pointer', lineHeight: 1 } }, '×')
-        ),
+    return React.createElement(window.MaerminUI.Overlay, { onClose: () => setShowSecurity(false), focusField: false, restoreFocus: focusAccountButton, className: 'ui-modal-backdrop' },
+      React.createElement('div', { ...window.MaerminUI.dialogProps('dlg-security'), className: 'ui-modal' },
+        React.createElement('header', { className: 'ui-modal__head' },
+          React.createElement('h2', { id: 'dlg-security', className: 'ui-modal__title' }, __('securitySync', 'Security & sync')),
+          React.createElement(UIC.IconButton, { size: 'sm', label: t.close || 'Close', onClick: () => setShowSecurity(false), icon: React.createElement('span', { 'aria-hidden': 'true' }, '×') })),
+        React.createElement('div', { className: ['ui-modal__body', 'ui-sec'].join(' ') },
         sectionTitle(__('secVault', 'Vault')),
         row(__('secAtRest', 'Encryption at rest'), status.encryptedAtRest ? badge(__('secOn', 'On'), true) : smallBtn(__('secEncryptNow', 'Encrypt now'), enableAtRest)),
         row(__('secKdf', 'Key derivation'), badge(status.kdf === 'argon2id' ? 'Argon2id' : 'PBKDF2-600k', true)),
-        row(__('secAutoLock', 'Auto-lock'), React.createElement('div', { style: { display: 'flex', gap: '0.3rem' } }, [1, 5, 15, 30].map((m) => React.createElement('button', { key: m, onClick: () => setLock(m), style: { padding: '0.3rem 0.5rem', background: lockMin === m ? (currentTheme.accentFill || currentTheme.accent) : currentTheme.inputBg, color: lockMin === m ? 'var(--on-accent)' : currentTheme.text, border: 'none', borderRadius: '5px', cursor: 'pointer', fontSize: 'var(--text-xs)', fontWeight: lockMin === m ? '700' : '500' } }, m + 'm')))),
+        row(__('secAutoLock', 'Auto-lock'), React.createElement('div', { className: 'ui-sec-acts' }, [1, 5, 15, 30].map((m) => React.createElement(UIC.Chip, { key: m, pressed: lockMin === m, onClick: () => setLock(m) }, m + 'm')))),
         sectionTitle(__('secAccess', 'Access')),
         row(__('secPasskey', 'Passkey unlock'), status.hasPasskey
-          ? React.createElement('div', { style: { display: 'flex', gap: '0.4rem', alignItems: 'center' } }, badge(__('secEnrolled', 'Enrolled'), true), smallBtn(__('passkeyRemove', 'Remove'), removePasskey))
+          ? React.createElement('div', { className: 'ui-sec-acts' }, badge(__('secEnrolled', 'Enrolled'), true), smallBtn(__('passkeyRemove', 'Remove'), removePasskey))
           : (status.passkeySupported ? smallBtn(__('secAddPasskey', 'Add passkey'), addPasskey) : badge(__('secUnsupported', 'Unsupported'), false))),
-        row(__('secRecovery', 'Recovery code'), status.hasRecovery ? React.createElement('div', { style: { display: 'flex', gap: '0.4rem', alignItems: 'center' } }, badge(__('secActive', 'Active'), true), smallBtn(__('secRotate', 'Rotate'), createRecoveryKit, recoveryBusy)) : smallBtn(recoveryBusy ? __('creating', 'Creating…') : __('create', 'Create'), createRecoveryKit, recoveryBusy)),
+        row(__('secRecovery', 'Recovery code'), status.hasRecovery ? React.createElement('div', { className: 'ui-sec-acts' }, badge(__('secActive', 'Active'), true), smallBtn(__('secRotate', 'Rotate'), createRecoveryKit, recoveryBusy)) : smallBtn(recoveryBusy ? __('creating', 'Creating…') : __('create', 'Create'), createRecoveryKit, recoveryBusy)),
         row(__('secDataKey', 'Encryption key'), smallBtn(__('secReplaceKey', 'Replace'), () => setRotateOpen((o) => !o), rotateBusy)),
-        rotateOpen && React.createElement('div', { 'data-testid': 'rotate-key', style: { padding: '0.6rem 0 0.2rem' } },
-          React.createElement('p', { style: { color: currentTheme.textSecondary, fontSize: 'var(--text-xs)', lineHeight: 1.5, margin: '0 0 0.5rem' } },
+        rotateOpen && React.createElement('div', { 'data-testid': 'rotate-key', className: 'ui-sec-rotate' },
+          React.createElement('p', { className: 'ui-note' },
             __('secReplaceKeyHint', 'Re-encrypts everything under a new key. Use it when an old password, recovery code, passkey or a copy of this vault may be in other hands: none of them opens new data afterwards. The recovery code and passkey are removed (set them up again), and other synced devices need this vault again.')),
-          React.createElement('div', { style: { display: 'flex', gap: '0.5rem' } },
-            React.createElement('input', { type: 'password', value: rotatePw, onChange: (e) => setRotatePw(e.target.value), onKeyDown: (e) => e.key === 'Enter' && rotateKey(), placeholder: t.currentPassword || 'Current Password', 'aria-label': t.currentPassword || 'Current Password', autoComplete: 'current-password', style: { flex: 1, padding: '0.5rem', background: currentTheme.inputBg, border: `1px solid ${currentTheme.inputBorder}`, borderRadius: '6px', color: currentTheme.text, fontSize: 'var(--text-sm)' } }),
+          React.createElement('div', { className: 'ui-ca-add' },
+            React.createElement('input', { type: 'password', value: rotatePw, onChange: (e) => setRotatePw(e.target.value), onKeyDown: (e) => e.key === 'Enter' && rotateKey(), placeholder: t.currentPassword || 'Current Password', 'aria-label': t.currentPassword || 'Current Password', autoComplete: 'current-password', className: 'ui-input' }),
             smallBtn(rotateBusy ? __('working', 'Working…') : __('secReplaceKeyNow', 'Replace key'), rotateKey, rotateBusy || !rotatePw))),
         sectionTitle(__('secCloudSync', 'Cloud sync (zero-knowledge)')),
-        React.createElement('p', { style: { color: currentTheme.textSecondary, fontSize: 'var(--text-xs)', lineHeight: '1.5', margin: '0 0 0.4rem' } }, __('secCloudSyncHint2', 'Your encrypted snapshot syncs through your own Worker, a file or a WebDAV folder. Each of them only ever sees ciphertext; the account id is derived from your vault.')),
+        React.createElement('p', { className: 'ui-note' }, __('secCloudSyncHint2', 'Your encrypted snapshot syncs through your own Worker, a file or a WebDAV folder. Each of them only ever sees ciphertext; the account id is derived from your vault.')),
         // The badge shows a failed last attempt instead of a green "Enabled" (FINDINGS H-6).
         row(__('secStatus', 'Status'), !syncOn ? badge(__('secNotEnabled', 'Not enabled'), false) : (() => {
           const st = (S && S.statusOf) ? S.statusOf(syncState) : { state: syncState && syncState.lastSyncAt ? 'ok' : 'never' };
           if (st.state === 'error') {
-            return React.createElement('span', { role: 'status', title: st.message, style: { fontSize: 'var(--text-2xs)', padding: '0.15rem 0.5rem', borderRadius: '4px', background: 'color-mix(in srgb, var(--danger) 16%, transparent)', color: currentTheme.danger, fontWeight: '700', maxWidth: '16rem', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', display: 'inline-block' } },
-              (t.syncErrorBadge || 'Sync failed {ago}: {error}').replace('{ago}', fmtAgo(st.at)).replace('{error}', st.message));
+            return React.createElement('span', { role: 'status', title: st.message, className: ['ui-badge', 'tone-loss', 'ui-sec-err'].join(' ') },
+              '! ' + (t.syncErrorBadge || 'Sync failed {ago}: {error}').replace('{ago}', fmtAgo(st.at)).replace('{error}', st.message));
           }
           return badge(__('syncEnabledLast', 'Enabled · last {ago}', { ago: fmtAgo(syncState && syncState.lastSyncAt) }), true);
         })()),
         // P5-5.6: the destination - your Worker, a local file or a WebDAV folder
-        syncOn && TRs ? row(__('stDest', 'Destination'), React.createElement('span', { 'data-testid': 'sync-dest-name', style: { color: currentTheme.text, fontSize: 'var(--text-xs)' } }, TRs.describe(syncCfg))) : null,
-        React.createElement('div', { style: { display: 'flex', gap: '0.5rem', marginTop: '0.7rem', flexWrap: 'wrap' } },
+        syncOn && TRs ? row(__('stDest', 'Destination'), React.createElement('span', { 'data-testid': 'sync-dest-name', className: 'ui-sec-dest' }, TRs.describe(syncCfg))) : null,
+        React.createElement('div', { className: 'ui-actions' },
           syncOn ? smallBtn(syncBusy ? __('syncing', 'Syncing…') : __('syncNow', 'Sync now'), runSync, syncBusy) : null,
           syncOn && TRs && syncCfg && syncCfg.provider === 'file' && !(S && S.isConfigured()) ? smallBtn(__('stReconnect', 'Allow file access'), reconnectFile, syncBusy) : null,
           syncOn && TRs ? smallBtn(__('stStop', 'Stop syncing here'), stopSync, syncBusy) : null,
           syncOn || TRs ? null : smallBtn(syncBusy ? '…' : __('syncEnable', 'Enable & sync'), doEnableSync, syncBusy || !workerUrl)
         ),
         !syncOn && TRs ? React.createElement(TRs.Panel, { theme: currentTheme, workerUrl, busy: syncBusy, onConnect: connectSync }) : null,
-        !TRs && !workerUrl && React.createElement('div', { style: { color: currentTheme.warning, fontSize: 'var(--text-xs)', marginTop: '0.4rem' } }, __('syncNeedWorkerHint', 'Add a Worker URL in API Settings to enable sync.')),
+        !TRs && !workerUrl && React.createElement('p', { className: ['ui-note', 'tone-warning'].join(' ') }, '! ' + __('syncNeedWorkerHint', 'Add a Worker URL in API Settings to enable sync.')),
         // P5-3.1: where market data comes from, and the shared price service switch
         sectionTitle(__('secMarketData', 'Market data')),
-        React.createElement('p', { 'data-testid': 'shared-prices-info', style: { color: currentTheme.textSecondary, fontSize: 'var(--text-xs)', lineHeight: '1.5', margin: '0 0 0.4rem' } },
+        React.createElement('p', { 'data-testid': 'shared-prices-info', className: 'ui-note' },
           __('secSharedHint', 'Prices, closes, exchange rates, symbol search and fund data come from your own Worker. Without one, the app can use the MAERMIN price service run by the project owner: it only serves market data, sees the symbols you ask about (never amounts, quantities or your vault), keeps no logs beyond its cache, and is never used for sync, share links or broker connections. Your own Worker always wins.')),
         row(__('secSource', 'Source'), badge(workerUrl ? __('secSourceOwn', 'Your Worker') : usingSharedPrices ? __('secSourceShared', 'MAERMIN price service') : __('secSourceNone', 'None (offline prices)'), !!(workerUrl || usingSharedPrices))),
-        row(__('secSharedSwitch', 'Use the price service without an own Worker'), React.createElement('label', { style: { display: 'inline-flex', alignItems: 'center', gap: '0.4rem', cursor: 'pointer' } },
+        row(__('secSharedSwitch', 'Use the price service without an own Worker'), React.createElement('label', { className: 'ui-sec-switch' },
           React.createElement('input', { type: 'checkbox', 'data-testid': 'shared-prices-toggle', checked: (window.MaerminSharedWorker ? window.MaerminSharedWorker.enabledFrom(sharedPrices) : false),
-            onChange: (e) => setSharedPrices(e.target.checked), style: { width: '22px', height: '22px', margin: 0, accentColor: currentTheme.accent } }))),
-        window.MaerminSharedWorker && !window.MaerminSharedWorker.SHARED_URL && React.createElement('div', { style: { color: currentTheme.textSecondary, fontSize: 'var(--text-xs)', marginTop: '0.3rem' } },
+            'aria-label': __('secSharedSwitch', 'Use the price service without an own Worker'),
+            onChange: (e) => setSharedPrices(e.target.checked), className: 'ui-st-check' }))),
+        window.MaerminSharedWorker && !window.MaerminSharedWorker.SHARED_URL && React.createElement('p', { className: 'ui-note' },
           __('secSharedNotYet', 'The price service is not online yet; until then market data needs your own Worker.')),
         // P5-5.1: web push reminders through the user's own Worker
         window.MaerminPush && sectionTitle(__('secPush', 'Push notifications')),
         window.MaerminPush && React.createElement(window.MaerminPush.Panel, { theme: currentTheme, workerUrl: (apiKeys.cs2Worker || '').trim(), getCtx: pushCtx, addToast })
+        )
       )
     );
   };

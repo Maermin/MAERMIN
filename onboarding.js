@@ -204,12 +204,8 @@ function __(k, f, v) { return (typeof window !== 'undefined' && window.MaerminI1
     var React = (typeof window !== 'undefined') ? window.React : null;
     if (!React) return null;
     var h = React.createElement;
-    var theme = props.theme || {};
     var onClose = props.onClose || function () {};
-    var ok = theme.success || '#22c55e', warn = theme.warning || '#f59e0b', bad = theme.danger || theme.error || '#ef4444';
-    var text = theme.text || '#e6edf3', dim = theme.textSecondary || '#9aa4b2';
-    var accent = theme.accent || '#8b7cff', border = theme.cardBorder || 'rgba(255,255,255,0.1)';
-    var inputBg = theme.inputBg || '#0f172a', cardBg = theme.modalBg || theme.card || theme.cardBg || '#141a25';
+    // R5.1: the shared dialog look, buttons, field and result rows (✓ / ! / ✕ with words)
 
     var sStep = React.useState('intro'); var step = sStep[0], setStep = sStep[1];
     var sUrl = React.useState(props.workerUrl || ''); var url = sUrl[0], setUrl = sUrl[1];
@@ -245,54 +241,51 @@ function __(k, f, v) { return (typeof window !== 'undefined' && window.MaerminI1
     }
 
     function btn(label, onClick, kind, disabled) {
-      var bg = kind === 'primary' ? accent : 'transparent';
-      var col = kind === 'primary' ? '#ffffff' : text;
-      var bd = kind === 'primary' ? 'none' : ('1px solid ' + border);
-      return h('button', { type: 'button', onClick: onClick, disabled: !!disabled, 'aria-busy': disabled ? 'true' : undefined, style: { padding: '0.6rem 1.1rem', background: bg, color: col, opacity: disabled ? 0.6 : 1,
-        border: bd, borderRadius: '8px', cursor: disabled ? 'wait' : 'pointer', fontWeight: kind === 'primary' ? '700' : '500', fontSize: 'var(--text-base)' } }, label);
+      return h('button', { type: 'button', onClick: onClick, disabled: !!disabled, 'aria-busy': disabled ? 'true' : undefined,
+        className: ['ui-btn', 'ui-btn--md', kind === 'primary' ? 'ui-btn--primary' : 'ui-btn--secondary'].join(' ') }, h('span', { className: 'ui-btn__label' }, label));
     }
 
     var body;
     if (step === 'intro') {
-      body = h('div', null,
-        h('p', { style: { color: dim, fontSize: 'var(--text-base)', lineHeight: '1.6', marginBottom: '1.25rem' } },
+      body = h('div', { className: 'ui-ob' },
+        h('p', { className: 'ui-muted' },
           __('obIntro', 'MAERMIN runs in your browser; your data stays on this device unless you turn on sync. A free Cloudflare Worker of your own loads live prices (stocks, ETFs, crypto, CS2). Set it up now, or explore with demo data first.')),
-        h('div', { style: { display: 'grid', gap: '0.75rem' } },
-          choiceCard(h, '◆', __('obSetupWorker', 'Set up the Cloudflare Worker'), __('obSetupWorkerHint', 'Guided — ~2 minutes. Unlocks all live data.'), function () { setStep('deploy'); }, accent, text, dim, border, cardBg, true),
-          choiceCard(h, '◇', __('obDemo', 'Explore Demo mode'), __('obDemoHint', 'Load a realistic example portfolio. Reset anytime.'), function () { if (props.onActivateDemo) props.onActivateDemo(); onClose(); }, accent, text, dim, border, cardBg, false),
-          choiceCard(h, '→', __('obLater', "I'll do this later"), __('obLaterHint', 'Skip for now — add a Worker URL in API Settings anytime.'), onClose, accent, text, dim, border, cardBg, false)
+        h('div', { className: 'ui-ob-choices' },
+          choiceCard(h, '◆', __('obSetupWorker', 'Set up the Cloudflare Worker'), __('obSetupWorkerHint', 'Guided — ~2 minutes. Unlocks all live data.'), function () { setStep('deploy'); }, true),
+          choiceCard(h, '◇', __('obDemo', 'Explore Demo mode'), __('obDemoHint', 'Load a realistic example portfolio. Reset anytime.'), function () { if (props.onActivateDemo) props.onActivateDemo(); onClose(); }, false),
+          choiceCard(h, '→', __('obLater', "I'll do this later"), __('obLaterHint', 'Skip for now — add a Worker URL in API Settings anytime.'), onClose, false)
         )
       );
     } else if (step === 'deploy') {
-      body = h('div', null,
-        h('ol', { style: { color: text, fontSize: 'var(--text-base)', lineHeight: '1.7', paddingLeft: '1.2rem', margin: '0 0 0.75rem' } },
+      body = h('div', { className: 'ui-ob' },
+        h('ol', { className: 'ui-ob-steps' },
           h('li', null, __('obDeployStep1', 'Click "Deploy to Cloudflare", sign in (free account) and confirm. Cloudflare creates the Worker and its storage.')),
           h('li', null, __('obDeployStep2', 'Copy the Worker URL shown at the end (…workers.dev).')),
           h('li', null, __('obPasteTest', 'Paste the URL here and test the connection.'))
         ),
-        h('div', { style: { marginBottom: '0.75rem' } },
-          h('a', { href: DEPLOY_URL, target: '_blank', rel: 'noopener noreferrer', 'data-testid': 'deploy-worker', style: { display: 'inline-block', padding: '0.6rem 1.1rem', background: accent, color: 'var(--on-accent)', borderRadius: '8px', fontWeight: '700', fontSize: 'var(--text-base)', textDecoration: 'none' } }, __('obDeployBtn', 'Deploy to Cloudflare ↗'))
+        h('div', null,
+          h('a', { href: DEPLOY_URL, target: '_blank', rel: 'noopener noreferrer', 'data-testid': 'deploy-worker', className: ['ui-btn', 'ui-btn--primary', 'ui-btn--md', 'ui-ob-link'].join(' ') }, __('obDeployBtn', 'Deploy to Cloudflare ↗'))
         ),
-        h('details', { style: { marginBottom: '1rem', color: dim, fontSize: 'var(--text-sm)' } },
-          h('summary', { style: { cursor: 'pointer', color: text } }, __('obManual', 'Or set it up by hand (copy and paste)')),
-          h('ol', { style: { lineHeight: '1.7', paddingLeft: '1.2rem', margin: '0.5rem 0' } },
-            h('li', null, __('obOpen', 'Open') + ' ', h('a', { href: 'https://dash.cloudflare.com', target: '_blank', rel: 'noopener noreferrer', style: { color: accent } }, 'dash.cloudflare.com'), ' → ' + __('obCreateWorker', 'Workers & Pages → Create Worker.')),
+        h('details', { className: 'ui-sync-details' },
+          h('summary', null, __('obManual', 'Or set it up by hand (copy and paste)')),
+          h('ol', { className: 'ui-ob-steps' },
+            h('li', null, __('obOpen', 'Open') + ' ', h('a', { href: 'https://dash.cloudflare.com', target: '_blank', rel: 'noopener noreferrer', className: 'ui-link' }, 'dash.cloudflare.com'), ' → ' + __('obCreateWorker', 'Workers & Pages → Create Worker.')),
             h('li', null, __('obReplaceWith', 'Replace the default code with') + ' ', h('b', null, 'worker.single.js'), ' ' + __('obCopyBelow', '(copy below).')),
             h('li', null, __('obSaveDeploy', 'Save and Deploy, then copy your Worker URL.'))
           ),
-          h('div', { style: { display: 'flex', gap: '0.5rem' } },
+          h('div', { className: 'ui-actions' },
             btn(copyLbl, copyWorker, 'secondary'),
-            h('a', { href: GITHUB_WORKER_URL, target: '_blank', rel: 'noopener noreferrer', style: { padding: '0.6rem 1.1rem', border: '1px solid ' + border, borderRadius: '8px', color: text, fontSize: 'var(--text-base)', textDecoration: 'none' } }, __('obGithub', 'View on GitHub'))
+            h('a', { href: GITHUB_WORKER_URL, target: '_blank', rel: 'noopener noreferrer', className: ['ui-btn', 'ui-btn--secondary', 'ui-btn--md', 'ui-ob-link'].join(' ') }, __('obGithub', 'View on GitHub'))
           )
         ),
-        h('label', { style: { display: 'block', color: dim, fontSize: 'var(--text-xs)', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '0.4rem' }, htmlFor: 'ob-worker-url' }, __('obWorkerUrl', 'Worker URL')),
-        h('input', { id: 'ob-worker-url', type: 'text', value: url, placeholder: 'https://your-worker.workers.dev',
-          onChange: function (e) { editUrl(e.target.value); }, spellCheck: false,
-          style: { width: '100%', padding: '0.7rem 0.85rem', background: inputBg, border: '1px solid ' + border, borderRadius: '8px', color: text, fontSize: 'var(--text-base)', boxSizing: 'border-box', marginBottom: '0.9rem' } }),
-        results && h('div', { style: { marginBottom: '0.9rem' } }, results.map(function (r) { return resultRow(h, r, ok, warn, bad, text, dim, border); })),
-        h('div', { style: { display: 'flex', gap: '0.6rem', justifyContent: 'space-between', alignItems: 'center' } },
+        h('div', { className: 'ui-field' },
+          h('label', { className: 'ui-field__label', htmlFor: 'ob-worker-url' }, __('obWorkerUrl', 'Worker URL')),
+          h('input', { id: 'ob-worker-url', type: 'text', value: url, placeholder: 'https://your-worker.workers.dev',
+            onChange: function (e) { editUrl(e.target.value); }, spellCheck: false, className: 'ui-input' })),
+        results && h('ul', { className: 'ui-ob-results' }, results.map(function (r) { return resultRow(h, r); })),
+        h('div', { className: 'ui-ob-nav' },
           btn(__('back', '← Back'), function () { setStep('intro'); }, 'secondary'),
-          h('div', { style: { display: 'flex', gap: '0.6rem' } },
+          h('div', { className: 'ui-actions' },
             btn(busy ? __('obTesting', 'Testing…') : __('obTest', 'Test connection'), runTest, 'secondary', busy),
             results && results.every(function (r) { return r.state !== 'fail'; }) ? btn(__('obSaveFinish', 'Save & Finish'), saveAndClose, 'primary') : null
           )
@@ -300,39 +293,35 @@ function __(k, f, v) { return (typeof window !== 'undefined' && window.MaerminI1
       );
     }
 
-    return h(window.MaerminUI.Overlay, { onClose: onClose, style: { position: 'fixed', inset: 0, zIndex: 9000, background: 'rgba(3,6,12,0.72)',
-        display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '1.5rem' } },
-      h('div', { role: 'dialog', 'aria-modal': 'true', 'aria-labelledby': 'dlg-onboarding', style: { background: cardBg, border: '1px solid ' + border, borderRadius: '16px', padding: '1.75rem',
-          width: '100%', maxWidth: '520px', maxHeight: '88vh', overflowY: 'auto', boxShadow: '0 30px 70px -20px rgba(0,0,0,0.7)' } },
-        h('div', { style: { display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem' } },
-          h('h3', { id: 'dlg-onboarding', style: { color: text, fontSize: 'var(--text-lg)', fontWeight: '700', margin: 0 } }, __('obTitle', 'Set up your data sources')),
-          h('button', { onClick: onClose, 'aria-label': __('close', 'Close'), style: { background: 'none', border: 'none', color: dim, fontSize: 'var(--text-title-lg)', cursor: 'pointer', lineHeight: 1 } }, '×')
+    return h(window.MaerminUI.Overlay, { onClose: onClose, className: 'ui-modal-backdrop' },
+      h('div', { role: 'dialog', 'aria-modal': 'true', 'aria-labelledby': 'dlg-onboarding', className: 'ui-modal' },
+        h('header', { className: 'ui-modal__head' },
+          h('h2', { id: 'dlg-onboarding', className: 'ui-modal__title' }, __('obTitle', 'Set up your data sources')),
+          h('button', { type: 'button', onClick: onClose, 'aria-label': __('close', 'Close'), title: __('close', 'Close'), className: ['ui-icon-btn', 'ui-icon-btn--sm'].join(' ') }, h('span', { 'aria-hidden': 'true' }, '×'))
         ),
-        body
+        h('div', { className: 'ui-modal__body' }, body)
       )
     );
   }
 
-  function choiceCard(h, icon, title, sub, onClick, accent, text, dim, border, cardBg, primary) {
-    return h('button', { onClick: onClick, style: { display: 'flex', gap: '0.85rem', alignItems: 'center', textAlign: 'left',
-        width: '100%', padding: '0.9rem 1rem', background: primary ? 'rgba(139,124,255,0.08)' : 'transparent',
-        border: '1px solid ' + (primary ? accent : border), borderRadius: '10px', cursor: 'pointer' } },
-      h('span', { style: { fontSize: 'var(--text-title)' } }, icon),
-      h('span', null,
-        h('span', { style: { display: 'block', color: text, fontWeight: '600', fontSize: 'var(--text-base)' } }, title),
-        h('span', { style: { display: 'block', color: dim, fontSize: 'var(--text-xs)', marginTop: '0.15rem' } }, sub)
+  function choiceCard(h, icon, title, sub, onClick, primary) {
+    return h('button', { type: 'button', onClick: onClick, className: ['ui-ob-choice', primary ? 'is-primary' : ''].join(' ').trim() },
+      h('span', { className: 'ui-ob-choice__icon', 'aria-hidden': 'true' }, icon),
+      h('span', { className: 'ui-ob-choice__text' },
+        h('b', null, title),
+        h('span', null, sub)
       )
     );
   }
 
-  function resultRow(h, r, ok, warn, bad, text, dim, border) {
-    var color = r.state === 'ok' ? ok : (r.state === 'warn' ? warn : bad);
-    var dot = r.state === 'ok' ? '●' : (r.state === 'warn' ? '◐' : '○');
-    return h('div', { key: r.id, style: { display: 'flex', gap: '0.6rem', alignItems: 'flex-start', padding: '0.5rem 0', borderBottom: '1px solid ' + border } },
-      h('span', { style: { color: color, fontSize: 'var(--text-base)', marginTop: '0.1rem' } }, dot),
-      h('div', null,
-        h('div', { style: { color: text, fontSize: 'var(--text-sm)', fontWeight: '600' } }, r.label),
-        h('div', { style: { color: dim, fontSize: 'var(--text-xs)', lineHeight: '1.45' } }, r.message)
+  function resultRow(h, r) {
+    var tone = r.state === 'ok' ? 'tone-gain' : (r.state === 'warn' ? 'tone-warning' : 'tone-loss');
+    var mark = r.state === 'ok' ? '✓' : (r.state === 'warn' ? '!' : '✕');
+    return h('li', { key: r.id, className: 'ui-ob-result' },
+      h('span', { className: ['ui-ob-result__mark', tone].join(' ') }, mark),
+      h('div', { className: 'ui-rows__main' },
+        h('b', null, r.label),
+        h('span', null, r.message)
       )
     );
   }

@@ -208,26 +208,26 @@
   function ConfirmHost(props) {
     var React = (typeof window !== 'undefined') ? window.React : null;
     if (!React || !Store || !confirmState) return null;
-    var theme = (props && props.theme) || {};
     var s = Store.useStore(confirmState, function (x) { return x; });
     if (!s.open) return null;
     var e = React.createElement;
-    var btn = { flex: 1, padding: '0.7rem', borderRadius: '8px', cursor: 'pointer', fontWeight: 600 };
+    // R5.1: the shared dialog look, above any dialog that asks
     return e(Overlay, {
       onClose: function () { answerConfirm(false); },
-      style: { position: 'fixed', inset: 0, background: 'rgba(4,6,10,0.62)', display: 'flex', justifyContent: 'center', alignItems: 'center', zIndex: 10050, backdropFilter: 'blur(8px)' }
+      className: ['ui-modal-backdrop', 'is-confirm'].join(' ')
     },
       e('div', Object.assign({}, dialogProps('dlg-confirm'), {
         'aria-describedby': s.message ? 'dlg-confirm-msg' : undefined,
-        style: { background: theme.modalBg || '#111827', border: '1px solid ' + (theme.modalBorder || 'rgba(255,255,255,0.1)'), borderRadius: '16px', padding: '1.5rem', width: '420px', maxWidth: '90vw', boxShadow: '0 25px 50px -12px rgba(0,0,0,0.5)' }
+        className: ['ui-modal', 'ui-modal--sm'].join(' ')
       }),
-        e('h2', { id: 'dlg-confirm', style: { color: theme.text || '#e6edf3', fontSize: 'var(--text-lg)', fontWeight: 700, margin: '0 0 0.6rem' } }, s.title),
-        s.message ? e('p', { id: 'dlg-confirm-msg', style: { color: theme.textSecondary || '#9aa4b2', fontSize: 'var(--text-base)', lineHeight: 1.5, margin: '0 0 1.1rem', whiteSpace: 'pre-line' } }, s.message) : null,
-        e('div', { style: { display: 'flex', gap: '0.75rem' } },
-          e('button', { type: 'button', onClick: function () { answerConfirm(false); },
-            style: Object.assign({}, btn, { background: theme.inputBg || '#0f172a', color: theme.text || '#e6edf3', border: '1px solid ' + (theme.cardBorder || 'rgba(255,255,255,0.1)') }) }, s.cancelLabel),
-          e('button', { type: 'button', onClick: function () { answerConfirm(true); },
-            style: Object.assign({}, btn, { background: s.danger ? (theme.danger || '#ef4444') : ((theme.accentFill || theme.accent) || '#8b7cff'), color: s.danger ? ((typeof window !== 'undefined' && window.MaerminUtils && window.MaerminUtils.onColor) ? window.MaerminUtils.onColor(theme.danger || '#ef4444') : '#fff') : (theme.accentText || '#fff'), border: 'none' }) }, s.confirmLabel))));
+        e('header', { className: 'ui-modal__head' },
+          e('h2', { id: 'dlg-confirm', className: 'ui-modal__title' }, s.title)),
+        s.message ? e('div', { className: 'ui-modal__body' }, e('p', { id: 'dlg-confirm-msg', className: ['ui-muted', 'ui-confirm__msg'].join(' ') }, s.message)) : null,
+        e('footer', { className: 'ui-modal__foot' },
+          e('button', { type: 'button', onClick: function () { answerConfirm(false); }, className: 'ui-btn ui-btn--secondary ui-btn--md' },
+            e('span', { className: 'ui-btn__label' }, s.cancelLabel)),
+          e('button', { type: 'button', onClick: function () { answerConfirm(true); }, className: 'ui-btn ui-btn--md ' + (s.danger ? 'ui-btn--danger' : 'ui-btn--primary') },
+            e('span', { className: 'ui-btn__label' }, s.confirmLabel)))));
   }
 
   // ---- React component (browser): subscribes to just the toasts slice -------
