@@ -170,10 +170,8 @@ function __(k, f, v) { return (typeof window !== 'undefined' && window.MaerminI1
     var e = React.createElement;
     var theme = props.theme || {};
     var t = props.t || ((typeof window !== 'undefined' && window.MaerminI18n) ? window.MaerminI18n.dict() : {});
-    var text = theme.text || '#e6edf3', dim = theme.textSecondary || '#9aa4b2';
-    var accent = theme.accent || '#8b7cff', border = theme.cardBorder || 'rgba(255,255,255,0.1)';
-    var inputBg = theme.inputBg || '#0f172a', card = theme.card || theme.cardBg || '#10151f';
-    var ok = theme.success || theme.positive || '#22c55e', bad = theme.danger || theme.negative || '#ef4444';
+    // R4.4: the shared Segmented, Input, Table (sortable, phone rows) and tokens
+    var UIC = window.MaerminComponents;
     var workerBase = String(props.workerUrl || '').trim().replace(/\/+$/, '');
     var usdToEur = props.usdToEur || props.exchangeRate || 0.91;
     var fmt = props.formatPrice || function (v) { return Number(v || 0).toFixed(2); };
@@ -244,80 +242,62 @@ function __(k, f, v) { return (typeof window !== 'undefined' && window.MaerminI1
     if (tab !== 'dividends') view = sortRows(view, sort.key, sort.dir);
 
     // ---- presentational bits ----
-    function pill(active, label, onClick, key) {
-      return e('button', { key: key || label, type: 'button', 'aria-pressed': !!active, onClick: onClick, style: { padding: '0.4rem 0.85rem', borderRadius: '8px', border: 'none', cursor: 'pointer', fontSize: 'var(--text-sm)', fontWeight: active ? '700' : '500', background: active ? accent : inputBg, color: active ? '#ffffff' : dim } }, label);
-    }
     function compactMoney(v) {
       if (v == null) return '—';
-      var abs = Math.abs(v);
       return window.MaerminI18n.compact(v) + ' ' + sym;
     }
-    function header(label, key, align) {
-      var active = sort.key === key;
-      var clickable = tab !== 'dividends' && SORT_KEYS.indexOf(key) !== -1;
-      return e('th', {
-        onClick: clickable ? function () { setSort({ key: key, dir: (active && sort.dir === 'desc') ? 'asc' : 'desc' }); } : undefined,
-        style: { textAlign: align || 'right', padding: '0.5rem 0.6rem', color: active ? accent : dim, fontSize: 'var(--text-2xs)', textTransform: 'uppercase', letterSpacing: '0.04em', cursor: clickable ? 'pointer' : 'default', whiteSpace: 'nowrap' }
-      }, label + (active ? (sort.dir === 'desc' ? ' ↓' : ' ↑') : ''));
-    }
+    var seg = function (label, value, onChange, options) {
+      return e(UIC.Segmented, { label: label, value: value, size: 'sm', onChange: onChange, options: options });
+    };
 
     var subControls;
-    if (tab === 'movers') subControls = e('div', { style: { display: 'flex', gap: '0.4rem', flexWrap: 'wrap' } }, MOVERS.map(function (m) { return pill(mover === m.id, discLabel(m.label), function () { setMover(m.id); }, m.id); }));
-    else if (tab === 'screener') subControls = e('div', { style: { display: 'flex', gap: '0.4rem', flexWrap: 'wrap' } }, SCREENS.map(function (s) { return pill(screen === s.id, discLabel(s.label), function () { setScreen(s.id); }, s.id); }));
-    else subControls = e('div', { style: { display: 'flex', gap: '0.5rem', alignItems: 'center', flexWrap: 'wrap' } },
-      e('span', { style: { color: dim, fontSize: 'var(--text-xs)' } }, __('dsMinYield', 'Min yield')),
-      [0, 0.02, 0.03, 0.04].map(function (y) { return pill(minYield === y, window.MaerminI18n.pct(y * 100, 0), function () { setMinYield(y); }, 'y' + y); })
-    );
+    if (tab === 'movers') subControls = seg(__('dsMovers', 'Movers'), mover, setMover, MOVERS.map(function (m) { return { value: m.id, label: discLabel(m.label) }; }));
+    else if (tab === 'screener') subControls = seg(__('dsScreens', 'Screens'), screen, setScreen, SCREENS.map(function (s) { return { value: s.id, label: discLabel(s.label) }; }));
+    else subControls = e('div', { className: ['ui-panel-tools', 'ui-panel-tools--flush'].join(' ') },
+      e('span', { className: 'ui-muted' }, __('dsMinYield', 'Min yield')),
+      seg(__('dsMinYield', 'Min yield'), minYield, setMinYield, [0, 0.02, 0.03, 0.04].map(function (y) { return { value: y, label: window.MaerminI18n.pct(y * 100, 0) }; })));
 
     var body;
     if (!workerBase) {
       body = window.MaerminUtils.workerNote(__('dsNeedWorker', 'Add a Worker URL in API Settings to use Discovery. It is read-only and never changes your portfolio.'));
     } else if (unsupported) {
-      body = e('div', { style: { color: dim, fontSize: 'var(--text-base)', padding: '1rem 0', lineHeight: 1.6 } },
-        e('div', { style: { color: theme.warning || 'var(--warning)', fontWeight: 700, marginBottom: '0.3rem' } }, __('dsUnsupported', "Your Worker doesn't support Discovery yet.")),
-        __('dsRedeploy1', 'Re-deploy the latest') + ' ', e('code', { style: { color: accent } }, 'cf-worker/worker.js'), ' ' + __('dsRedeploy2', '(it adds the') + ' ', e('code', { style: { color: accent } }, 'action=screener'), ' ' + __('dsRedeploy3', 'endpoint). Everything else keeps working without it.'));
+      body = e('div', { className: ['ui-callout', 'ui-callout--warn'].join(' ') },
+        e('strong', { className: 'ui-callout__title' }, '! ' + __('dsUnsupported', "Your Worker doesn't support Discovery yet.")),
+        __('dsRedeploy1', 'Re-deploy the latest') + ' ', e('code', null, 'cf-worker/worker.js'), ' ' + __('dsRedeploy2', '(it adds the') + ' ', e('code', null, 'action=screener'), ' ' + __('dsRedeploy3', 'endpoint). Everything else keeps working without it.'));
     } else if (loading) {
-      body = e('div', { style: { color: dim, fontSize: 'var(--text-base)', padding: '1rem 0' } }, __('loadingEllipsis', 'Loading…'));
+      body = e(UIC.Skeleton, { shape: 'row', lines: 6 });
     } else if (err) {
-      body = e('div', { style: { color: bad, fontSize: 'var(--text-base)', padding: '1rem 0' } }, __('dsLoadFailed', 'Could not load: {msg}', { msg: err }));
+      body = e('p', { className: ['ui-muted', 'is-error'].join(' ') }, __('dsLoadFailed', 'Could not load: {msg}', { msg: err }));
     } else if (!view.length) {
-      body = e('div', { style: { color: dim, fontSize: 'var(--text-base)', padding: '1rem 0' } }, __('dsNoMatch', 'No results match your filters.'));
+      body = e('p', { className: 'ui-muted' }, __('dsNoMatch', 'No results match your filters.'));
     } else {
-      var rowsEl = view.map(function (r) {
-        var chg = r.changePercent;
-        return e('tr', { key: r.symbol, style: { borderTop: '1px solid ' + border } },
-          e('td', { style: { padding: '0.55rem 0.6rem', textAlign: 'left' } },
-            e('div', { style: { color: text, fontWeight: 700, fontSize: 'var(--text-base)' } }, r.symbol),
-            e('div', { title: r.name, style: { color: dim, fontSize: 'var(--text-xs)', maxWidth: '220px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' } }, r.name)),
-          e('td', { style: { padding: '0.55rem 0.6rem', textAlign: 'left' } }, e('span', { style: { fontSize: 'var(--text-2xs)', color: dim, border: '1px solid ' + border, borderRadius: '5px', padding: '0.1rem 0.35rem' } }, r.type)),
-          e('td', { style: { padding: '0.55rem 0.6rem', textAlign: 'right', color: text, fontWeight: 600, fontSize: 'var(--text-sm)' } }, fmt(r.priceEUR != null ? r.priceEUR : r.price) + ' ' + sym),
-          e('td', { style: { padding: '0.55rem 0.6rem', textAlign: 'right', color: chg == null ? dim : (chg >= 0 ? ok : bad), fontWeight: 600, fontSize: 'var(--text-sm)' } }, chg == null ? '—' : window.MaerminI18n.pct(chg, 2, true)),
-          e('td', { style: { padding: '0.55rem 0.6rem', textAlign: 'right', color: dim, fontSize: 'var(--text-sm)' } }, compactMoney(r.marketCapEUR)),
-          e('td', { style: { padding: '0.55rem 0.6rem', textAlign: 'right', color: r.dividendYield ? text : dim, fontSize: 'var(--text-sm)' } }, r.dividendYield != null ? window.MaerminI18n.pct(r.dividendYield * 100, 2) : '—'));
-      });
-      body = e('div', { style: { overflowX: 'auto', marginTop: '0.5rem' } },
-        e('table', { style: { width: '100%', borderCollapse: 'collapse' } },
-          e('thead', null, e('tr', null,
-            header(__('symbol', 'Symbol'), 'symbol', 'left'),
-            e('th', { style: { textAlign: 'left', padding: '0.5rem 0.6rem', color: dim, fontSize: 'var(--text-2xs)', textTransform: 'uppercase', letterSpacing: '0.04em' } }, __('type', 'Type')),
-            header(__('price', 'Price'), 'priceEUR'),
-            header(__('wlChange', 'Change'), 'changePercent'),
-            header(__('dsMktCap', 'Mkt Cap'), 'marketCapEUR'),
-            header(__('dsDivYield', 'Div Yield'), 'dividendYield'))),
-          e('tbody', null, rowsEl)),
-        e('div', { style: { color: dim, fontSize: 'var(--text-xs)', marginTop: '0.6rem', lineHeight: 1.5 } },
+      var sortable = tab !== 'dividends';
+      var col = function (key, label, extra) { return Object.assign({ key: key, label: label, sortable: sortable && SORT_KEYS.indexOf(key) !== -1 }, extra || {}); };
+      body = e('div', null,
+        e(UIC.Table, {
+          caption: t.navDiscovery || 'Discovery', rows: view, rowKey: function (r) { return r.symbol; },
+          sort: sortable ? sort : null, onSort: sortable ? function (key, dir) { setSort({ key: key, dir: dir }); } : null,
+          'data-testid': 'ds-table',
+          columns: [
+            col('symbol', __('symbol', 'Symbol'), { phone: 'title', render: function (r) { return e('span', { className: 'ui-ds-sym' }, e('b', null, r.symbol), e('span', { title: r.name }, r.name)); } }),
+            col('type', __('type', 'Type'), { priority: 2, phone: 'meta', render: function (r) { return e(UIC.Badge, null, r.type); } }),
+            col('priceEUR', __('price', 'Price'), { align: 'right', phone: 'value', render: function (r) { return fmt(r.priceEUR != null ? r.priceEUR : r.price) + ' ' + sym; } }),
+            col('changePercent', __('wlChange', 'Change'), { align: 'right', phone: 'sub', render: function (r) { return r.changePercent == null ? '—' : e(UIC.ToneChip, { value: r.changePercent, text: window.MaerminI18n.pct(r.changePercent, 2, true) }); } }),
+            col('marketCapEUR', __('dsMktCap', 'Mkt Cap'), { align: 'right', priority: 2, render: function (r) { return compactMoney(r.marketCapEUR); } }),
+            col('dividendYield', __('dsDivYield', 'Div Yield'), { align: 'right', priority: 2, phone: 'meta', render: function (r) { return r.dividendYield != null ? window.MaerminI18n.pct(r.dividendYield * 100, 2) : '—'; } })
+          ]
+        }),
+        e('p', { className: 'ui-note' },
           __('dsFooter', '{n} {n:result|results} · prices converted to {sym} at ingestion (1 USD = {rate} EUR) · read-only, sourced live via your Worker. Not investment advice.', { n: view.length, sym: sym, rate: window.MaerminI18n.num(usdToEur, 3) })));
     }
 
-    return e('div', { style: { padding: '1.25rem 1.5rem' } },
-      e('div', { style: { display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '0.6rem', marginBottom: '0.3rem' } },
-        e('h2', { style: { color: text, fontSize: 'var(--text-title-lg)', fontWeight: 800, margin: 0 } }, t.navDiscovery || 'Discovery', ' ', window.MaerminDemoFixtures && window.MaerminDemoFixtures.badge(React, theme, workerBase)),
-        e('input', { type: 'text', value: query, onChange: function (ev) { setQuery(ev.target.value); }, placeholder: __('dsFilterPh', 'Filter symbol / name…'), 'aria-label': __('dsFilterPh', 'Filter symbol / name…'), style: { background: inputBg, border: '1px solid ' + border, borderRadius: '8px', padding: '0.45rem 0.7rem', color: text, fontSize: 'var(--text-sm)', minWidth: '180px' } })),
-      e('div', { style: { color: dim, fontSize: 'var(--text-sm)', marginBottom: '0.9rem' } }, __('dsIntro', 'Read-only screener for ETFs, stocks & crypto. Discover, then add via the usual flow — Discovery never touches your holdings.')),
-      e('div', { style: { display: 'flex', gap: '0.4rem', flexWrap: 'wrap', marginBottom: '0.7rem' } }, TABS.map(function (x) { return pill(tab === x.id, x.label, function () { setTab(x.id); }, x.id); })),
-      e('div', { style: { background: card, border: '1px solid ' + border, borderRadius: '14px', padding: '1rem 1.1rem' } },
-        e('div', { style: { marginBottom: '0.5rem' } }, subControls),
-        body)
+    return e('div', { className: 'ui-view', 'data-testid': 'discovery-view' },
+      e('div', { className: 'ui-view__bar' },
+        e('p', { className: 'ui-view__lead' }, __('dsIntro', 'Read-only screener for ETFs, stocks & crypto. Discover, then add via the usual flow — Discovery never touches your holdings.'), ' ',
+          window.MaerminDemoFixtures && window.MaerminDemoFixtures.badge(React, theme, workerBase)),
+        e('input', { type: 'search', value: query, onChange: function (ev) { setQuery(ev.target.value); }, placeholder: __('dsFilterPh', 'Filter symbol / name…'), 'aria-label': __('dsFilterPh', 'Filter symbol / name…'), className: ['ui-input', 'ui-ds-filter'].join(' ') })),
+      e(UIC.Segmented, { label: t.navDiscovery || 'Discovery', value: tab, onChange: setTab, options: TABS.map(function (x) { return { value: x.id, label: x.label }; }) }),
+      e(UIC.Card, { 'data-testid': 'ds-card', action: subControls, title: (TABS.filter(function (x) { return x.id === tab; })[0] || TABS[0]).label, headingLevel: 'h3' }, body)
     );
   }
 

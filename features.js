@@ -23,13 +23,14 @@ function Sparkline({ values, width = 80, height = 32, color }) {
     return `${x},${y}`;
   }).join(' ');
   const isUp = values[values.length - 1] >= values[0];
-  const lineColor = color || (isUp ? '#22c55e' : '#ef4444');
+  // R4.4: theme tokens (set as style so var() resolves inside the SVG)
+  const lineColor = color || (isUp ? 'var(--gain)' : 'var(--loss)');
 
-  return React.createElement('svg', { width, height, style: { overflow: 'visible' } },
+  return React.createElement('svg', { width, height, style: { overflow: 'visible' }, 'aria-hidden': 'true' },
     React.createElement('polyline', {
       points: pts,
       fill: 'none',
-      stroke: lineColor,
+      style: { stroke: lineColor },
       strokeWidth: 1.5,
       strokeLinecap: 'round',
       strokeLinejoin: 'round'
@@ -37,7 +38,7 @@ function Sparkline({ values, width = 80, height = 32, color }) {
     // Fill area
     React.createElement('polyline', {
       points: `0,${height} ${pts} ${width},${height}`,
-      fill: lineColor,
+      style: { fill: lineColor },
       opacity: 0.12
     })
   );
@@ -80,153 +81,80 @@ function WatchlistView({ prices, priceHistory, theme, t, addToast }) {
 
   const removeItem = (id) => setItems(prev => prev.filter(i => i.id !== id));
 
-  const inputStyle = {
-    padding: '0.5rem 0.75rem',
-    background: theme.inputBg,
-    border: `1px solid ${theme.inputBorder}`,
-    borderRadius: '8px',
-    color: theme.text,
-    fontSize: '0.875rem'
-  };
+  // R4.4: the add row on the shared inputs and Button, the list on the shared
+  // Table (phone rows, one named remove button per row), every change with its sign.
+  const UIC = window.MaerminComponents;
+  const rows = items.map(item => {
+    const price = prices[item.symbol] || prices[item.displaySymbol] || 0;
+    const history = (priceHistory[item.symbol] || priceHistory[item.displaySymbol] || []).slice(-20);
+    const sparkVals = history.map(h => h.price);
+    const prevPrice = sparkVals.length > 1 ? sparkVals[sparkVals.length - 2] : price;
+    const changePct = prevPrice > 0 ? ((price - prevPrice) / prevPrice) * 100 : 0;
+    const atTarget = !!(item.targetPrice && price >= item.targetPrice);
+    // v10.x: signed distance from current price to the target (+ = upside left).
+    const distPct = (item.targetPrice && price > 0) ? ((item.targetPrice - price) / price) * 100 : null;
+    return { item, id: item.id, price, sparkVals, changePct, atTarget, distPct };
+  });
 
-  return React.createElement('div', { style: { padding: '1.5rem' } },
-    React.createElement('h2', { style: { color: theme.text, fontSize: 'var(--text-xl)', fontWeight: '800', letterSpacing: '-0.02em', marginBottom: '1.25rem' } },
-      (t.watchlist || 'Watchlist')
-    ),
-
+  return React.createElement('div', { className: 'ui-view', 'data-testid': 'watchlist-view' },
     // Add row
-    React.createElement('div', {
-      style: { display: 'flex', gap: '0.5rem', marginBottom: '1.5rem', flexWrap: 'wrap' }
-    },
-      React.createElement('input', {
-        type: 'text', value: newSymbol,
-        onChange: e => setNewSymbol(e.target.value),
-        onKeyDown: e => e.key === 'Enter' && addItem(),
-        placeholder: __('wlSymbolPh', 'bitcoin, AAPL, AK-47 | Redline...'), 'aria-label': __('symbol', 'Symbol'),
-        style: { ...inputStyle, flex: '1', minWidth: '160px' }
-      }),
-      React.createElement('select', {
-        value: newCat, onChange: e => setNewCat(e.target.value), style: inputStyle, 'aria-label': __('category', 'Category')
-      },
-        React.createElement('option', { value: 'crypto' }, __('crypto', 'Crypto')),
-        React.createElement('option', { value: 'stocks' }, __('stocks', 'Stocks')),
-        React.createElement('option', { value: 'skins'  }, 'CS2')
-      ),
-      React.createElement('input', {
-        type: 'number', value: newTarget,
-        onChange: e => setNewTarget(e.target.value),
-        placeholder: __('wlTargetPh', 'Target price (opt.)'), 'aria-label': __('wlTargetPh', 'Target price (opt.)'),
-        style: { ...inputStyle, width: '150px' }
-      }),
-      React.createElement('input', {
-        type: 'text', value: newNote,
-        onChange: e => setNewNote(e.target.value),
-        onKeyDown: e => e.key === 'Enter' && addItem(),
-        placeholder: t.watchlistNote || 'Note / thesis (opt.)', 'aria-label': t.watchlistNote || 'Note / thesis (opt.)',
-        style: { ...inputStyle, width: '200px' }
-      }),
-      React.createElement('button', {
-        onClick: addItem,
-        style: {
-          padding: '0.5rem 1.25rem', background: (theme.accentFill || theme.accent), color: 'var(--on-accent)',
-          border: 'none', borderRadius: '8px', cursor: 'pointer', fontWeight: '600'
-        }
-      }, __('addShort', '+ Add'))
+    React.createElement(UIC.Card, { title: __('wlAddTitle', 'Watch a symbol'), headingLevel: 'h3' },
+      React.createElement('div', { className: 'ui-wl-add' },
+        React.createElement('input', {
+          type: 'text', value: newSymbol, className: ['ui-input', 'ui-wl-add__sym'].join(' '),
+          onChange: e => setNewSymbol(e.target.value),
+          onKeyDown: e => e.key === 'Enter' && addItem(),
+          placeholder: __('wlSymbolPh', 'bitcoin, AAPL, AK-47 | Redline...'), 'aria-label': __('symbol', 'Symbol')
+        }),
+        React.createElement('select', {
+          value: newCat, onChange: e => setNewCat(e.target.value), className: ['ui-input', 'ui-select'].join(' '), 'aria-label': __('category', 'Category')
+        },
+          React.createElement('option', { value: 'crypto' }, __('crypto', 'Crypto')),
+          React.createElement('option', { value: 'stocks' }, __('stocks', 'Stocks')),
+          React.createElement('option', { value: 'skins'  }, 'CS2')
+        ),
+        React.createElement('input', {
+          type: 'number', value: newTarget, className: 'ui-input',
+          onChange: e => setNewTarget(e.target.value),
+          placeholder: __('wlTargetPh', 'Target price (opt.)'), 'aria-label': __('wlTargetPh', 'Target price (opt.)')
+        }),
+        React.createElement('input', {
+          type: 'text', value: newNote, className: 'ui-input',
+          onChange: e => setNewNote(e.target.value),
+          onKeyDown: e => e.key === 'Enter' && addItem(),
+          placeholder: t.watchlistNote || 'Note / thesis (opt.)', 'aria-label': t.watchlistNote || 'Note / thesis (opt.)'
+        }),
+        React.createElement(UIC.Button, { variant: 'primary', onClick: addItem }, __('addShort', '+ Add'))
+      )
     ),
 
     // List
     items.length === 0
-      ? React.createElement('div', {
-          style: { padding: '3rem', textAlign: 'center', color: theme.textSecondary,
-            background: theme.card, borderRadius: '16px', border: `1px solid ${theme.cardBorder}`, boxShadow: theme.shadow }
-        },
-          React.createElement('div', { 'aria-hidden': 'true', style: { fontSize: 'var(--text-2xl)', marginBottom: '0.5rem', opacity: 0.3 } }, '○'),
-          React.createElement('div', null, t.watchlistEmpty || 'Add symbols to track them here')
-        )
-      : React.createElement('div', {
-          style: { background: theme.card, borderRadius: '16px', border: `1px solid ${theme.cardBorder}`, boxShadow: theme.shadow, overflow: 'auto' }
-        },
-          React.createElement('table', { style: { width: '100%', borderCollapse: 'collapse', minWidth: '500px' } },
-            React.createElement('thead', null,
-              React.createElement('tr', null,
-                [__('symbol', 'Symbol'),__('category', 'Category'),__('price', 'Price'),__('wlChange', 'Change'),__('wlTarget', 'Target'),__('wlSpark', 'Spark'),''].map((h,i) =>
-                  React.createElement('th', {
-                    key: i,
-                    style: {
-                      padding: '0.75rem 1rem', textAlign: i >= 2 && i <= 5 ? 'right' : i === 6 ? 'center' : 'left',
-                      color: theme.textSecondary, borderBottom: `1px solid ${theme.cardBorder}`,
-                      fontSize: 'var(--text-xs)', fontWeight: '600', textTransform: 'uppercase', letterSpacing: '0.05em'
-                    }
-                  }, h)
-                )
-              )
-            ),
-            React.createElement('tbody', null,
-              items.map(item => {
-                const price = prices[item.symbol] || prices[item.displaySymbol] || 0;
-                const history = (priceHistory[item.symbol] || priceHistory[item.displaySymbol] || []).slice(-20);
-                const sparkVals = history.map(h => h.price);
-                const prevPrice = sparkVals.length > 1 ? sparkVals[sparkVals.length - 2] : price;
-                const changePct = prevPrice > 0 ? ((price - prevPrice) / prevPrice) * 100 : 0;
-                const atTarget = item.targetPrice && price >= item.targetPrice;
-                // v10.x: signed distance from current price to the target (+ = upside left).
-                const distPct = (item.targetPrice && price > 0) ? ((item.targetPrice - price) / price) * 100 : null;
-
-                return React.createElement('tr', {
-                  key: item.id,
-                  style: { background: atTarget ? 'color-mix(in srgb, var(--success) 5%, transparent)' : 'transparent' }
-                },
-                  React.createElement('td', { style: { padding: '0.875rem 1rem' } },
-                    React.createElement('div', { style: { fontWeight: '700', color: theme.text, fontSize: 'var(--text-base)' } }, item.displaySymbol),
-                    atTarget && React.createElement('div', { style: { color: theme.success, fontSize: 'var(--text-2xs)', fontWeight: '600' } }, __('wlTargetReached', '◎ Target reached!')),
-                    item.note && React.createElement('div', { style: { color: theme.textSecondary, fontSize: 'var(--text-xs)', marginTop: '0.15rem', maxWidth: '220px', whiteSpace: 'normal', lineHeight: 1.35 } }, item.note)
-                  ),
-                  React.createElement('td', { style: { padding: '0.875rem 1rem' } },
-                    React.createElement('span', {
-                      style: {
-                        padding: '0.2rem 0.5rem', borderRadius: '4px', fontSize: 'var(--text-2xs)', fontWeight: '600',
-                        background: item.category === 'crypto' ? 'color-mix(in srgb, var(--warning) 15%, transparent)' :
-                                    item.category === 'stocks' ? 'color-mix(in srgb, var(--info) 15%, transparent)' : 'rgba(6,182,212,0.15)',
-                        color: item.category === 'crypto' ? 'var(--warning)' : item.category === 'stocks' ? 'var(--info)' : '#06b6d4'
-                      }
-                    }, window.MaerminI18n.category(item.category).toUpperCase())
-                  ),
-                  React.createElement('td', { style: { padding: '0.875rem 1rem', textAlign: 'right', color: theme.text, fontWeight: '600' } },
-                    price > 0 ? window.MaerminI18n.num(price, 2) : '—'
-                  ),
-                  React.createElement('td', { style: { padding: '0.875rem 1rem', textAlign: 'right' } },
-                    price > 0
-                      ? React.createElement('span', {
-                          style: { color: changePct >= 0 ? theme.success : theme.danger, fontWeight: '600', fontSize: 'var(--text-base)' }
-                        }, window.MaerminI18n.pct(changePct, 2, true))
-                      : React.createElement('span', { style: { color: theme.textSecondary } }, '—')
-                  ),
-                  React.createElement('td', { style: { padding: '0.875rem 1rem', textAlign: 'right', color: theme.textSecondary, fontSize: 'var(--text-base)' } },
-                    item.targetPrice ? window.MaerminI18n.num(item.targetPrice, 2) : '—',
-                    (distPct !== null && !atTarget) && React.createElement('div', {
-                      style: { color: theme.textSecondary, fontSize: 'var(--text-2xs)', marginTop: '0.1rem', opacity: 0.85 }
-                    }, `${window.MaerminI18n.pct(distPct, 1, true)} ${distPct >= 0 ? (t.watchlistToGo || 'to go') : (t.watchlistAbove || 'above')}`)
-                  ),
-                  React.createElement('td', { style: { padding: '0.875rem 1rem', textAlign: 'right' } },
-                    sparkVals.length > 1
-                      ? React.createElement(Sparkline, { values: sparkVals, width: 72, height: 28 })
-                      : React.createElement('span', { style: { color: theme.textSecondary, fontSize: 'var(--text-xs)' } }, __('noData', 'No data'))
-                  ),
-                  React.createElement('td', { style: { padding: '0.5rem', textAlign: 'center' } },
-                    React.createElement('button', {
-                      onClick: () => removeItem(item.id),
-                      'aria-label': __('wlRemoveAria', 'Remove {sym} from the watchlist', { sym: item.displaySymbol || item.symbol || '' }),
-                      style: {
-                        background: 'color-mix(in srgb, var(--danger) 10%, transparent)', border: '1px solid color-mix(in srgb, var(--danger) 20%, transparent)',
-                        color: 'var(--danger)', borderRadius: '4px', cursor: 'pointer', padding: '0.25rem 0.5rem', fontSize: 'var(--text-xs)'
-                      }
-                    }, '×')
-                  )
-                );
-              })
-            )
-          )
-        )
+      ? React.createElement(UIC.EmptyState, { title: t.watchlist || 'Watchlist', text: t.watchlistEmpty || 'Add symbols to track them here' })
+      : React.createElement(UIC.Card, { className: 'ui-card--table', 'data-testid': 'watchlist-table' },
+          React.createElement(UIC.Table, {
+            caption: t.watchlist || 'Watchlist', rows, rowKey: (r) => r.id,
+            rowProps: (r) => (r.atTarget ? { 'data-target': 'reached' } : null),
+            columns: [
+              { key: 'sym', label: __('symbol', 'Symbol'), phone: 'title', render: (r) => React.createElement('span', { className: 'ui-wl-sym' },
+                React.createElement('b', null, r.item.displaySymbol),
+                r.atTarget ? React.createElement('span', { className: 'tone-gain' }, __('wlTargetReached', '◎ Target reached!')) : null,
+                r.item.note ? React.createElement('span', { className: 'ui-wl-note' }, r.item.note) : null) },
+              { key: 'cat', label: __('category', 'Category'), priority: 2, phone: 'meta', render: (r) => React.createElement(UIC.Badge, null, window.MaerminI18n.category(r.item.category)) },
+              { key: 'price', label: __('price', 'Price'), align: 'right', phone: 'value', render: (r) => r.price > 0 ? window.MaerminI18n.num(r.price, 2) : '—' },
+              { key: 'chg', label: __('wlChange', 'Change'), align: 'right', phone: 'sub', render: (r) => r.price > 0 ? React.createElement(UIC.ToneChip, { value: r.changePct, text: window.MaerminI18n.pct(r.changePct, 2, true) }) : '—' },
+              { key: 'target', label: __('wlTarget', 'Target'), align: 'right', priority: 2, render: (r) => React.createElement('span', { className: 'ui-wl-target' },
+                r.item.targetPrice ? window.MaerminI18n.num(r.item.targetPrice, 2) : '—',
+                (r.distPct !== null && !r.atTarget) ? React.createElement('span', null, `${window.MaerminI18n.pct(r.distPct, 1, true)} ${r.distPct >= 0 ? (t.watchlistToGo || 'to go') : (t.watchlistAbove || 'above')}`) : null) },
+              { key: 'spark', label: __('wlSpark', 'Spark'), align: 'right', priority: 3, render: (r) => r.sparkVals.length > 1
+                ? React.createElement(Sparkline, { values: r.sparkVals, width: 72, height: 28 })
+                : React.createElement('span', { className: 'ui-muted' }, __('noData', 'No data')) },
+              { key: 'rm', label: React.createElement('span', { className: 'sr-only' }, __('wlRemove', 'Remove')), align: 'right', phone: 'sub', render: (r) => React.createElement(UIC.IconButton, {
+                size: 'sm', className: 'ui-wl-remove', onClick: () => removeItem(r.id),
+                label: __('wlRemoveAria', 'Remove {sym} from the watchlist', { sym: r.item.displaySymbol || r.item.symbol || '' }),
+                icon: React.createElement('span', { 'aria-hidden': 'true' }, '×') }) }
+            ]
+          }))
   );
 }
 

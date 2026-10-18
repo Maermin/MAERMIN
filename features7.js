@@ -284,17 +284,13 @@ function NewsFeedView({ portfolio, transactions, apiKeys, theme, formatPrice }) 
   const workerBase = (apiKeys?.cs2Worker || '').trim();
   const hasWorker = workerBase.length > 5;
 
-  return React.createElement('div', { style: { padding: '1.5rem' } },
-    // Header
-    React.createElement('div', { style: { display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '1.25rem', flexWrap: 'wrap', gap: '0.75rem' } },
-      React.createElement('div', null,
-        React.createElement('h2', { style: { color: theme.text, fontSize: 'var(--text-title-lg)', fontWeight: '800', marginBottom: '0.125rem' } }, __('newsTitle', 'News Feed'), ' ', window.MaerminDemoFixtures && window.MaerminDemoFixtures.badge(React, theme, workerBase)),
-        React.createElement('p', { style: { color: theme.textSecondary, fontSize: 'var(--text-sm)' } }, __('newsSubtitle', 'Latest news for your held positions'))
-      ),
-      React.createElement('button', { onClick: fetchNews, disabled: loading || !hasWorker, title: hasWorker ? undefined : __('newsNeedWorker', 'Add a Worker URL in API Settings to load news.'), style: { padding: '0.5rem 1rem', background: (loading || !hasWorker) ? theme.inputBg : `${window.MaerminTokens.alpha(theme.accent, 0x18)}`, color: (loading || !hasWorker) ? theme.textSecondary : theme.accent, border: `1px solid ${window.MaerminTokens.alpha(theme.accent, 0x33)}`, borderRadius: '8px', cursor: (loading || !hasWorker) ? 'not-allowed' : 'pointer', fontSize: 'var(--text-sm)', fontWeight: '600' } },
-        loading ? __('loadingDots', '◎ Loading...') : __('refreshBtn', '↻ Refresh')
-      )
-    ),
+  // R4.4: the view frame, symbol Chips, one Card with the headlines as rows.
+  const UIC = window.MaerminComponents;
+  return React.createElement('div', { className: 'ui-view', 'data-testid': 'news-view' },
+    React.createElement('div', { className: 'ui-view__bar' },
+      React.createElement('p', { className: 'ui-view__lead' }, __('newsSubtitle', 'Latest news for your held positions'), ' ', window.MaerminDemoFixtures && window.MaerminDemoFixtures.badge(React, theme, workerBase)),
+      React.createElement(UIC.Button, { onClick: fetchNews, disabled: !hasWorker, loading, title: hasWorker ? undefined : __('newsNeedWorker', 'Add a Worker URL in API Settings to load news.') },
+        loading ? __('loadingDots', '◎ Loading...') : __('refreshBtn', '↻ Refresh'))),
 
     // No worker warning
     !hasWorker && window.MaerminUtils.emptyState({
@@ -303,45 +299,24 @@ function NewsFeedView({ portfolio, transactions, apiKeys, theme, formatPrice }) 
       action: window.MaerminUI && window.MaerminUI.workerAction ? window.MaerminUI.workerAction() : undefined
     }),
 
-    // Symbol filter tabs
-    heldSymbols.length > 0 && React.createElement('div', { style: { display: 'flex', gap: '0.375rem', marginBottom: '1.25rem', flexWrap: 'wrap' } },
+    // Symbol filter
+    heldSymbols.length > 0 && React.createElement('div', { className: 'ui-chips', role: 'group', 'aria-label': __('newsFilterAria', 'Show news for') },
       [{ sym: 'all', name: __('all', 'All') }, ...heldSymbols].map(({ sym, name }) =>
-        React.createElement('button', {
-          key: sym, type: 'button', 'aria-pressed': filter === sym,
-          onClick: () => setFilter(sym),
-          style: {
-            padding: '0.3rem 0.75rem', border: 'none', borderRadius: '6px', cursor: 'pointer',
-            fontSize: 'var(--text-xs)', fontWeight: filter === sym ? '700' : '400',
-            background: filter === sym ? (theme.accentFill || theme.accent) : theme.inputBg,
-            color: filter === sym ? '#fff' : theme.textSecondary
-          }
-        }, name)
-      )
-    ),
+        React.createElement(UIC.Chip, { key: sym, pressed: filter === sym, onClick: () => setFilter(sym) }, name))),
 
     // News items
     filtered.length > 0
-      ? React.createElement('div', { style: { display: 'flex', flexDirection: 'column', gap: '0.75rem' } },
-          filtered.map((item, i) =>
-            React.createElement('a', {
-              key: i, href: item.link, target: '_blank', rel: 'noopener noreferrer',
-              style: { textDecoration: 'none', display: 'block', background: theme.card, border: `1px solid ${theme.cardBorder}`, borderRadius: '10px', padding: '1rem 1.25rem', transition: 'border-color 0.15s', cursor: 'pointer' },
-              onMouseEnter: e => e.currentTarget.style.borderColor = theme.accent,
-              onMouseLeave: e => e.currentTarget.style.borderColor = theme.cardBorder
-            },
-              React.createElement('div', { style: { display: 'flex', alignItems: 'center', gap: '0.5rem', marginBottom: '0.375rem' } },
-                React.createElement('span', { style: { fontSize: 'var(--text-3xs)', padding: '0.1rem 0.35rem', background: `${window.MaerminTokens.alpha(theme.accent, 0x18)}`, color: theme.accent, borderRadius: '3px', fontWeight: '700' } }, item.sym),
-                React.createElement('span', { style: { color: theme.textSecondary, fontSize: 'var(--text-xs)' } },
-                  item.pubDate instanceof Date && !isNaN(item.pubDate) ? window.MaerminI18n.date(item.pubDate, 'medium') : ''
-                )
-              ),
-              React.createElement('div', { style: { color: theme.text, fontWeight: '600', fontSize: 'var(--text-base)', lineHeight: 1.4 } }, item.title)
-            )
-          )
-        )
+      ? React.createElement(UIC.Card, { className: 'ui-card--table', 'data-testid': 'news-list' },
+          React.createElement('ul', { className: 'ui-news' },
+            filtered.map((item, i) =>
+              React.createElement('li', { key: i },
+                React.createElement('a', { href: item.link, target: '_blank', rel: 'noopener noreferrer', className: 'ui-news__item' },
+                  React.createElement('span', { className: 'ui-news__meta' },
+                    React.createElement(UIC.Badge, null, item.sym),
+                    item.pubDate instanceof Date && !isNaN(item.pubDate) ? React.createElement('span', null, window.MaerminI18n.date(item.pubDate, 'medium')) : null),
+                  React.createElement('span', { className: 'ui-news__title' }, item.title))))))
       : !loading && window.MaerminUtils.emptyState({ testid: 'news-status', text: newsEmptyText(hasWorker, requests) }),
-    news.length > 0 && requests.failed > 0 && React.createElement('div', { style: { marginTop: '0.75rem', color: theme.textSecondary, fontSize: 'var(--text-xs)' } },
-      newsPartialText(requests))
+    news.length > 0 && requests.failed > 0 && React.createElement('p', { className: 'ui-note' }, newsPartialText(requests))
   );
 }
 

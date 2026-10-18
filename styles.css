@@ -2673,3 +2673,47 @@ html[data-theme="contrast"] .ui-map__tile { border: 1px solid var(--border-stron
 .ui-rs-range__mark { position: absolute; top: -4px; width: 10px; height: 14px; border-radius: 3px; background: var(--chart-1); }
 @media (max-width: 767px) { .ui-rs-pick, .ui-rs-pick__input { width: 100%; } .ui-rs-pick__input { flex: 1; } }
 .ui-ca-table { margin-top: var(--space-4); }
+
+/* ============================================================================
+   R4.4 Market views (PLAN Phase 6): Discovery, News, Events, Watchlist.
+   ========================================================================== */
+.ui-ds-filter { width: 220px; max-width: 100%; }
+.ui-ds-sym, .ui-wl-sym { display: flex; flex-direction: column; min-width: 0; }
+.ui-ds-sym b, .ui-wl-sym b { color: var(--text); font-weight: 600; }
+.ui-ds-sym span { color: var(--text-dim); font-size: var(--type-caption); max-width: 260px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.ui-wl-sym .tone-gain { font-size: var(--type-caption); font-weight: 600; }
+.ui-wl-note { color: var(--text-dim); font-size: var(--type-caption); white-space: normal; max-width: 260px; line-height: 1.35; }
+.ui-wl-target { display: inline-flex; flex-direction: column; align-items: flex-end; }
+.ui-wl-target span { color: var(--text-dim); font-size: var(--type-caption); }
+.ui-table tr[data-target] td, .ui-plist__row[data-target] { background: color-mix(in srgb, var(--gain) 6%, var(--surface)); }
+.ui-wl-add { display: grid; grid-template-columns: minmax(160px, 2fr) minmax(110px, auto) minmax(130px, 1fr) minmax(150px, 1.5fr) auto; gap: var(--space-2); align-items: center; }
+.ui-wl-add .ui-input { width: 100%; }
+
+/* news: one card, headlines as rows */
+.ui-news { list-style: none; margin: 0; padding: 0; }
+.ui-news li + li { border-top: 1px solid var(--border); }
+.ui-news__item { display: flex; flex-direction: column; gap: var(--space-1); padding: var(--space-3) var(--space-5); text-decoration: none; color: inherit; }
+.ui-news__item:hover { background: var(--hover); }
+.ui-news__item:hover .ui-news__title { text-decoration: underline; text-underline-offset: 3px; }
+.ui-news__item:focus-visible { outline: 2px solid var(--accent); outline-offset: -2px; }
+.ui-news__meta { display: flex; gap: var(--space-2); align-items: center; color: var(--text-dim); font-size: var(--type-caption); }
+.ui-news__title { color: var(--text); font-weight: 600; font-size: var(--type-body); line-height: 1.4; }
+
+/* events: grouped by month in one card */
+.ui-evf { list-style: none; margin: 0; padding: 0; }
+.ui-evf__month { display: flex; justify-content: space-between; align-items: center; gap: var(--space-3); padding: var(--space-2) var(--space-5); background: var(--surface-2); color: var(--text-dim); font-size: var(--type-caption); }
+.ui-evf__month h3 { margin: 0; color: var(--text); font-size: var(--type-body); font-weight: 600; }
+.ui-evf__row { display: grid; grid-template-columns: minmax(6.5rem, auto) 1fr; gap: var(--space-4); padding: var(--space-3) var(--space-5); border-top: 1px solid var(--border); }
+.ui-evf__month + .ui-evf__row { border-top: 0; }
+.ui-evf__date { color: var(--text-dim); font-size: var(--type-body); }
+.ui-evf__main { display: flex; flex-direction: column; min-width: 0; }
+.ui-evf__main b { color: var(--text); font-weight: 600; font-size: var(--type-body); display: inline-flex; gap: var(--space-2); align-items: center; flex-wrap: wrap; }
+.ui-evf__main > span { color: var(--text-dim); font-size: var(--type-caption); }
+
+@media (max-width: 767px) {
+  .ui-wl-add { grid-template-columns: 1fr 1fr; }
+  .ui-wl-add__sym { grid-column: 1 / -1; }
+  .ui-news__item, .ui-evf__month, .ui-evf__row { padding-left: var(--space-4); padding-right: var(--space-4); }
+  .ui-evf__row { grid-template-columns: 1fr; gap: 2px; }
+  .ui-ds-filter { width: 100%; }
+}

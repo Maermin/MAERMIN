@@ -155,7 +155,8 @@ const read = (f) => fs.readFileSync(path.join(__dirname, '..', f), 'utf8');
   {
     const f3 = read('features3.js');
     const unnamed = (src) => (src.match(/React\.createElement\('button', \{[^}]*?\}, '[×✕]'\)/g) || []).filter((b) => !/aria-label/.test(b));
-    ok('L-3: watchlist remove is named', /removeItem\(item\.id\),\s*'aria-label'/.test(read('features.js')));
+    // R4.4: the remove is the shared IconButton, named through its label
+    ok('L-3: watchlist remove is named', /onClick: \(\) => removeItem\(r\.id\),\s*label: __\('wlRemoveAria'/.test(read('features.js')));
     // R3.1: the position dialog's own close button now comes from the shared
     // Modal (named "Close" through uiClose); the other two stay in features3.
     ok('L-3: position-detail close buttons are named', (f3.match(/'aria-label': (?:__\('close', )?'Close'/g) || []).length >= 2
