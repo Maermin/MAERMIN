@@ -118,41 +118,39 @@ function __(k, f, v) { return (typeof window !== 'undefined' && window.MaerminI1
       } catch (err) { return null; }
     }, [props.transactions, props.prices, props.exchangeRate, props.fxAt, props.rev, year, depotKey]);
     if (!res) return null;
-    var cell = { padding: '0.35rem 0.5rem', borderTop: '1px solid ' + border, fontSize: '0.78rem', color: text, textAlign: 'right', whiteSpace: 'nowrap', verticalAlign: 'top' };
-    var head = { padding: '0.3rem 0.5rem', color: dim, fontSize: '0.64rem', textTransform: 'uppercase', letterSpacing: '0.04em', textAlign: 'right', whiteSpace: 'nowrap', verticalAlign: 'bottom' };
-    var signed = function (v) { return v == null ? '–' : money(v); };
-    var col = function (v) { return v == null ? dim : v > 0.005 ? good : v < -0.005 ? bad : text; };
+    // R4.6: Card and the shared table look; a realised gain carries its sign with its tone
+    var UIC = window.MaerminComponents;
+    var signed = function (v) { return v == null ? '–' : (v > 0.005 ? '+' : '') + money(v); };
+    var toneCls = function (v) { return v == null ? 'is-dim' : v > 0.005 ? 'tone-gain' : v < -0.005 ? 'tone-loss' : ''; };
     function pair(b, tid) {
-      return e('td', { 'data-testid': tid, style: cell },
-        e('div', { style: { color: col(b.realized), fontWeight: 700 } }, signed(b.realized)),
-        e('div', { style: { color: dim, fontSize: 'var(--text-2xs)' } }, __('cmUnrealShort', 'open {v}', { v: signed(b.unrealized) })));
+      return e('td', { 'data-testid': tid },
+        e('b', { className: toneCls(b.realized) }, signed(b.realized)),
+        e('span', { className: 'ui-tcell__sub' }, __('cmUnrealShort', 'open {v}', { v: b.unrealized == null ? '–' : money(b.unrealized) })));
     }
-    return e('div', { 'data-testid': 'cost-methods-panel', style: { background: th.card || th.cardBg, border: '1px solid ' + border, borderRadius: '14px', padding: '1.25rem', margin: '1.5rem 0 0' } },
-      e('h3', { style: { color: text, fontSize: 'var(--text-body)', fontWeight: 700, margin: '0 0 0.35rem' } }, __('cmTitle', 'Cost-basis methods')),
-      e('p', { style: { color: dim, fontSize: 'var(--text-sm)', margin: '0 0 0.75rem', lineHeight: 1.5 } },
-        __('cmIntro', 'Realised gain in {y} and the open (unrealised) gain under each method. Together they are the same under every method; the method only moves gain between years. Your tax report uses FIFO.', { y: year }),
-        res.perWallet ? ' ' + __('cmWallet', 'Crypto: FIFO per wallet (portfolio), as set in the tax settings.') : '',
-        res.depots.length && R && R.depotLabel ? ' ' + R.depotLabel(res.depots, props.portfolios) + '.' : ''),
+    return e(UIC.Card, { 'data-testid': 'cost-methods-panel', className: 'ui-taxp', headingLevel: 'h3', title: __('cmTitle', 'Cost-basis methods'),
+      subtitle: __('cmIntro', 'Realised gain in {y} and the open (unrealised) gain under each method. Together they are the same under every method; the method only moves gain between years. Your tax report uses FIFO.', { y: year })
+        + (res.perWallet ? ' ' + __('cmWallet', 'Crypto: FIFO per wallet (portfolio), as set in the tax settings.') : '')
+        + (res.depots.length && R && R.depotLabel ? ' ' + R.depotLabel(res.depots, props.portfolios) + '.' : '') },
       !res.rows.length ? window.MaerminUtils.emptyState({ compact: true, testid: 'cm-empty', text: __('cmEmpty', 'No holdings or sales to compare.') }) :
-      e('div', { style: { overflowX: 'auto' } },
-        e('table', { 'data-testid': 'cm-table', style: { width: '100%', borderCollapse: 'collapse' } },
+      e('div', { className: 'ui-table-wrap' },
+        e('table', { 'data-testid': 'cm-table', className: ['ui-table', 'ui-table--dense', 'ui-table--tall'].join(' ') },
           e('thead', null, e('tr', null,
-            e('th', { style: Object.assign({}, head, { textAlign: 'left' }) }, __('cmHolding', 'Holding')),
+            e('th', { scope: 'col', className: 'is-sticky' }, __('cmHolding', 'Holding')),
             res.methods.map(function (m) {
-              return e('th', { key: m, style: Object.assign({}, head, m === res.legal ? { color: accent } : null) }, methodName(m),
-                m === res.legal ? e('div', { 'data-testid': 'cm-legal', style: { fontSize: 'var(--text-3xs)', textTransform: 'none', letterSpacing: 0 } }, __('cmUsed', 'used in your tax report')) : null);
+              return e('th', { key: m, scope: 'col', className: ['is-right', m === res.legal ? 'is-current' : ''].join(' ').trim() }, methodName(m),
+                m === res.legal ? e('span', { 'data-testid': 'cm-legal', className: 'ui-tcell__sub' }, __('cmUsed', 'used in your tax report')) : null);
             }))),
           e('tbody', null,
             res.rows.map(function (r) {
               return e('tr', { key: r.category + '|' + r.symbol, 'data-testid': 'cm-row-' + r.symbol },
-                e('td', { style: Object.assign({}, cell, { textAlign: 'left', fontWeight: 700 }) }, r.symbol,
-                  e('div', { style: { color: dim, fontSize: 'var(--text-2xs)', fontWeight: 400 } }, __('cmCost', 'cost {v}', { v: money(r.byMethod.fifo.openCost) }))),
+                e('th', { scope: 'row', className: 'is-sticky' }, r.symbol,
+                  e('span', { className: 'ui-tcell__sub' }, __('cmCost', 'cost {v}', { v: money(r.byMethod.fifo.openCost) }))),
                 res.methods.map(function (m) { return pair(r.byMethod[m], 'cm-' + r.symbol + '-' + m); }));
             }),
-            e('tr', { 'data-testid': 'cm-total' },
-              e('td', { style: Object.assign({}, cell, { textAlign: 'left', color: dim }) }, __('cmTotal', 'Total')),
+            e('tr', { 'data-testid': 'cm-total', className: 'ui-dh-total' },
+              e('th', { scope: 'row', className: 'is-sticky' }, __('cmTotal', 'Total')),
               res.methods.map(function (m) { return pair(res.totals[m], 'cm-total-' + m); }))))),
-      e('div', { style: { color: dim, fontSize: 'var(--text-2xs)', marginTop: '0.6rem', lineHeight: 1.5 } },
+      e('p', { className: 'ui-note' },
         __('cmNote', 'Bold: realised in {y}; below: open gain at today\'s price. The tax report uses FIFO. For crypto the BMF (6.3.2025) also accepts the average method for the value, and the FG Nürnberg (22.1.2025) allowed LIFO in one case; ask your tax adviser before using another method. Not tax advice.', { y: year })));
   }
 

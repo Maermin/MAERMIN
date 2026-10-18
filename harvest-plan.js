@@ -249,56 +249,50 @@ function __(k, f, v) { return (typeof window !== 'undefined' && window.MaerminI1
     var where = function (l) { return !depots.length ? '' : ' · ' + (l.depot != null ? pfName(l.depot) : __('depotPoolOther', 'other portfolios')); };
     var legId = function (l) { return l.symbol + (l.depot != null ? '-' + l.depot : ''); };
 
-    var input = { width: '100%', boxSizing: 'border-box', padding: '0.45rem 0.6rem', background: th.inputBg, border: '1px solid ' + (th.inputBorder || border), borderRadius: '8px', color: text, fontSize: '0.82rem', fontFamily: 'inherit' };
-    var label = { display: 'block', color: dim, fontSize: '0.68rem', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '0.25rem' };
-    var cell = { padding: '0.35rem 0.5rem', borderTop: '1px solid ' + border, fontSize: '0.78rem', color: text, textAlign: 'right', whiteSpace: 'nowrap' };
-    var head = { padding: '0.3rem 0.5rem', color: dim, fontSize: '0.64rem', textTransform: 'uppercase', letterSpacing: '0.04em', textAlign: 'right', whiteSpace: 'nowrap' };
-    function line(lbl, val, tid, color) {
-      return e('div', { 'data-testid': tid, style: { display: 'flex', justifyContent: 'space-between', gap: '0.75rem', padding: '0.3rem 0', borderTop: '1px solid ' + border, fontSize: 'var(--text-sm)' } },
-        e('span', { style: { color: dim } }, lbl), e('span', { style: { color: color || text, fontWeight: 700 } }, val));
+    // R4.6: Card, shared Input fields, the shared table look, totals on shared rows
+    var UIC = window.MaerminComponents;
+    function line(lbl, val, tid, tone) {
+      return e('li', { key: tid, 'data-testid': tid, className: 'ui-rows__row' },
+        e('span', { className: 'ui-muted' }, lbl), e('b', { className: ['num', tone ? 'tone-' + tone : ''].join(' ').trim() }, val));
     }
     var qty = function (v) { return I18N.num(v, { min: 0, max: 8 }); };
     var msg = res.status === 'none' ? __('hvNone', 'Your Sparerpauschbetrag for this year is already used: nothing to harvest.')
       : res.status === 'nothing' ? __('hvNothing', 'No share or fund lot is at a gain at today\'s prices (the oldest lots are sold first).')
       : res.status === 'noTax' ? __('hvNoTax', 'The tax computation is not available.') : '';
 
-    return e('div', { 'data-testid': 'harvest-panel', style: { background: th.card || th.cardBg, border: '1px solid ' + border, borderRadius: '14px', padding: '1.25rem', margin: '1.5rem 0 0' } },
-      e('h3', { style: { color: text, fontSize: 'var(--text-body)', fontWeight: 700, margin: '0 0 0.35rem' } }, __('hvTitle', 'December plan: use the Sparerpauschbetrag')),
-      e('p', { style: { color: dim, fontSize: 'var(--text-sm)', margin: '0 0 0.75rem', lineHeight: 1.5 } },
-        __('hvIntro', 'Sell these lots and buy them back the same day: the gain stays within this year\'s allowance and the buy-back raises your cost basis, so the same gain is not taxed later. Checked through the tax report (FIFO, Teilfreistellung, loss pots, carry-forward). Nothing is booked.')),
-      e('div', { style: { display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(150px, 1fr))', gap: '0.6rem', maxWidth: '420px' } },
-        e('div', null, e('label', { style: label, htmlFor: 'hv-fee' }, __('hvFeeFixed', 'Fee per order (EUR)')),
-          e('input', { id: 'hv-fee', 'data-testid': 'hv-fee', inputMode: 'decimal', value: feeFixed, onChange: function (ev) { setFeeFixed(ev.target.value); }, style: input })),
-        e('div', null, e('label', { style: label, htmlFor: 'hv-fee-pct' }, __('hvFeePct', 'Fee per order (%)')),
-          e('input', { id: 'hv-fee-pct', 'data-testid': 'hv-fee-pct', inputMode: 'decimal', value: feePct, onChange: function (ev) { setFeePct(ev.target.value); }, style: input }))),
-      e('div', { style: { marginTop: '0.75rem' } },
+    return e(UIC.Card, { 'data-testid': 'harvest-panel', className: 'ui-taxp', headingLevel: 'h3', title: __('hvTitle', 'December plan: use the Sparerpauschbetrag'),
+      subtitle: __('hvIntro', 'Sell these lots and buy them back the same day: the gain stays within this year\'s allowance and the buy-back raises your cost basis, so the same gain is not taxed later. Checked through the tax report (FIFO, Teilfreistellung, loss pots, carry-forward). Nothing is booked.') },
+      e('div', { className: ['ui-form-grid', 'ui-taxp__form'].join(' ') },
+        e(UIC.Input, { id: 'hv-fee', 'data-testid': 'hv-fee', inputMode: 'decimal', label: __('hvFeeFixed', 'Fee per order (EUR)'), value: feeFixed, onChange: function (ev) { setFeeFixed(ev.target.value); } }),
+        e(UIC.Input, { id: 'hv-fee-pct', 'data-testid': 'hv-fee-pct', inputMode: 'decimal', label: __('hvFeePct', 'Fee per order (%)'), value: feePct, onChange: function (ev) { setFeePct(ev.target.value); } })),
+      e('ul', { className: 'ui-rows' },
         line(__('hvLeft', 'Sparerpauschbetrag left this year'), money(res.allowanceLeft || 0), 'hv-left')),
-      msg ? e('div', { 'data-testid': 'hv-msg', style: { color: dim, fontSize: 'var(--text-sm)', marginTop: '0.5rem' } }, msg) :
-      e('div', { 'data-testid': 'hv-result' },
-        e('div', { style: { overflowX: 'auto', marginTop: '0.5rem' } },
-          e('table', { style: { width: '100%', borderCollapse: 'collapse' } },
+      msg ? e('p', { 'data-testid': 'hv-msg', className: 'ui-muted' }, msg) :
+      e('div', { 'data-testid': 'hv-result', className: 'ui-taxp__body' },
+        e('div', { className: 'ui-table-wrap' },
+          e('table', { className: ['ui-table', 'ui-table--dense', 'ui-table--tall'].join(' ') },
             e('thead', null, e('tr', null, [__('hvHolding', 'Holding'), __('hvSellBuy', 'Sell and buy back'), __('hvLots', 'Lots (bought)'), __('hvGain', 'Gain'), __('hvTaxable', 'Taxable'), __('hvFees', 'Fees')].map(function (h, i) {
-              return e('th', { key: i, style: Object.assign({}, head, i === 0 || i === 2 ? { textAlign: 'left' } : null) }, h);
+              return e('th', { key: i, scope: 'col', className: i === 0 ? 'is-sticky' : i === 2 ? 'is-left' : 'is-right' }, h);
             }))),
             e('tbody', null, res.legs.map(function (l) {
               return e('tr', { key: legId(l), 'data-testid': 'hv-leg-' + legId(l) },
-                e('td', { style: Object.assign({}, cell, { textAlign: 'left' }) }, l.symbol + where(l)),
-                e('td', { style: cell }, __('hvQtyOf', '{q} of {held}', { q: qty(l.quantity), held: qty(l.held) })),
-                e('td', { style: Object.assign({}, cell, { textAlign: 'left', whiteSpace: 'normal', color: dim }) }, l.lots.map(function (x) { return qty(x.quantity) + ' × ' + I18N.date(x.acquisitionDate); }).join(', ')),
-                e('td', { style: cell }, money(l.gain)),
-                e('td', { style: cell }, money(l.taxable)),
-                e('td', { style: cell }, money(l.fees)));
+                e('th', { scope: 'row', className: 'is-sticky' }, l.symbol + where(l)),
+                e('td', null, __('hvQtyOf', '{q} of {held}', { q: qty(l.quantity), held: qty(l.held) })),
+                e('td', { className: ['is-left', 'is-dim', 'is-wrap'].join(' ') }, l.lots.map(function (x) { return qty(x.quantity) + ' × ' + I18N.date(x.acquisitionDate); }).join(', ')),
+                e('td', null, money(l.gain)),
+                e('td', null, money(l.taxable)),
+                e('td', null, money(l.fees)));
             })))),
-        e('div', { style: { marginTop: '0.6rem' } },
+        e('ul', { className: 'ui-rows' },
           line(__('hvUsed', 'Sparerpauschbetrag used by the plan'), money(res.allowanceUsed), 'hv-used'),
           res.carryUsed && (res.carryUsed.shares + res.carryUsed.other) > 0.005 ? line(__('hvCarry', 'Loss carry-forward used'), money(res.carryUsed.shares + res.carryUsed.other), 'hv-carry') : null,
           line(__('hvExtraTax', 'Extra tax this year'), money(Math.max(0, res.taxDelta)), 'hv-tax'),
           line(__('hvFeesTotal', 'Fees (sell and buy back)'), money(res.fees), 'hv-fees'),
           line(__('hvSaved', 'Later tax avoided'), money(res.taxSaved), 'hv-saved'),
-          line(__('hvNet', 'Net benefit'), money(res.netBenefit), 'hv-net', res.netBenefit >= 0 ? good : warn)),
-        res.feesExceed ? e('div', { 'data-testid': 'hv-fees-exceed', style: { color: warn, fontSize: 'var(--text-sm)', marginTop: '0.5rem' } }, __('hvFeesExceed', 'The fees are higher than the tax it avoids: not worth it.')) : null),
-      res.skipped && res.skipped.length ? e('div', { style: { color: dim, fontSize: 'var(--text-xs)', marginTop: '0.5rem' } }, __('hvSkipped', 'Without a current price: {list}', { list: res.skipped.join(', ') })) : null,
-      e('div', { style: { color: dim, fontSize: 'var(--text-2xs)', marginTop: '0.6rem', lineHeight: 1.5 } },
+          line(__('hvNet', 'Net benefit'), money(res.netBenefit), 'hv-net', res.netBenefit < 0 ? 'loss' : null)),
+        res.feesExceed ? e('p', { 'data-testid': 'hv-fees-exceed', className: ['ui-callout', 'ui-callout--warn'].join(' ') }, __('hvFeesExceed', 'The fees are higher than the tax it avoids: not worth it.')) : null),
+      res.skipped && res.skipped.length ? e('p', { className: 'ui-note' }, __('hvSkipped', 'Without a current price: {list}', { list: res.skipped.join(', ') })) : null,
+      e('p', { className: 'ui-note' },
         __('hvNote', 'Estimate at today\'s prices; prices move until the order is filled, so leave a little room. Shares and funds only; crypto falls under the private-sale rules. Not tax advice.')));
   }
 

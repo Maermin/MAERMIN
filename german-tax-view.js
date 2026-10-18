@@ -153,10 +153,9 @@ function __(k, f, v) { return (typeof window !== 'undefined' && window.MaerminI1
     var e = React.createElement;
     var theme = props.theme || {};
     var t = props.t || ((typeof window !== 'undefined' && window.MaerminI18n) ? window.MaerminI18n.dict() : {});
-    var text = theme.text || '#e6edf3', dim = theme.textSecondary || '#9aa4b2';
-    var border = theme.cardBorder || 'rgba(255,255,255,0.1)';
-    var inputBg = theme.inputBg || '#0f172a', card = theme.card || theme.cardBg || '#10151f';
-    var good = theme.success || '#22c55e', warn = theme.warning || '#f59e0b', bad = theme.danger || '#ef4444';
+    // R4.6: Card, the shared table look with small inputs, shared Select / Button, the computation on shared rows
+    var UIC = window.MaerminComponents;
+    var INPUT = ['ui-input', 'ui-input--sm'].join(' ');
     var I18N = window.MaerminI18n;
     var fmt = props.formatPrice || function (v) { return I18N.num(v, 2); };
     var sym = (props.getCurrencySymbol && props.getCurrencySymbol()) || '€';
@@ -220,8 +219,6 @@ function __(k, f, v) { return (typeof window !== 'undefined' && window.MaerminI1
       commoditySeen[s] = true;
       commodityRows.push({ symbol: s, name: p.name || s });
     });
-    var inputStyle = { width: '110px', background: inputBg, border: '1px solid ' + border, borderRadius: '6px', padding: '0.3rem 0.45rem', color: text, fontSize: '0.76rem', textAlign: 'right' };
-
     function edited(symbol, field, fallback) {
       var ed = edits[symbol] || {};
       if (ed[field] != null && ed[field] !== '') {
@@ -253,23 +250,23 @@ function __(k, f, v) { return (typeof window !== 'undefined' && window.MaerminI1
 
       function inputCell(field, value, placeholder) {
         var ed = (edits[r.symbol] || {})[field];
-        return e('td', { style: { padding: '0.4rem 0.45rem', textAlign: 'right' } },
+        return e('td', null,
           e('input', {
             type: 'text', value: ed != null ? ed : (value != null ? String(Math.round(value * 100) / 100) : ''),
-            placeholder: placeholder || 'n/a',
+            placeholder: placeholder || 'n/a', 'aria-label': r.symbol + ' · ' + ({ valueStart: __('gtValueJan1', 'Value Jan 1'), valueEnd: __('gtValueDec31', 'Value Dec 31'), distributions: __('gtDistributions', 'Distributions') })[field],
             onChange: function (ev) { setEdit(r.symbol, field, ev.target.value); },
-            style: inputStyle
+            className: [INPUT, 'ui-gt-num'].join(' ')
           }));
       }
 
-      return e('tr', { key: r.symbol, style: { borderTop: '1px solid ' + border } },
-        e('td', { style: { padding: '0.4rem 0.45rem', color: text, fontSize: 'var(--text-sm)', fontWeight: 600 } }, r.symbol,
-          e('div', { style: { color: dim, fontWeight: 400, fontSize: 'var(--text-2xs)' } }, pre.shares > 0 ? __('gtShares', '{n} shares', { n: I18N.num(pre.shares, { min: 0, max: 6 }) }) : '')),
-        e('td', { style: { padding: '0.4rem 0.45rem' } },
+      return e('tr', { key: r.symbol },
+        e('th', { scope: 'row', className: 'is-sticky' }, r.symbol,
+          pre.shares > 0 ? e('span', { className: 'ui-tcell__sub' }, __('gtShares', '{n} shares', { n: I18N.num(pre.shares, { min: 0, max: 6 }) })) : null),
+        e('td', { className: 'is-left' },
           e('select', {
-            value: type,
+            value: type, 'aria-label': __('gtTypeTf', 'Type (Teilfreistellung)') + ' ' + r.symbol,
             onChange: function (ev) { setFundTypes(GT.saveFundType(r.symbol, ev.target.value)); changed(); },
-            style: { background: inputBg, border: '1px solid ' + border, borderRadius: '6px', padding: '0.3rem 0.4rem', color: text, fontSize: 'var(--text-xs)' }
+            className: [INPUT, 'ui-select'].join(' ')
           },
             e('option', { value: 'none' }, __('gtNotFund', 'Not a fund / other') + ' (' + I18N.pct(0, 0) + ')'),
             e('option', { value: 'aktienfonds' }, __('gtEquityFund', 'Equity fund') + ' (' + I18N.pct(30, 0) + ')'),
@@ -279,15 +276,14 @@ function __(k, f, v) { return (typeof window !== 'undefined' && window.MaerminI1
         inputCell('valueStart', valueStart),
         inputCell('valueEnd', valueEnd),
         inputCell('distributions', distributions, '0'),
-        e('td', { style: { padding: '0.4rem 0.45rem', textAlign: 'right', color: dim, fontSize: 'var(--text-xs)' } }, (pre.monthsFactor * 12).toFixed(0) + '/12'),
-        e('td', { style: { padding: '0.4rem 0.45rem', textAlign: 'right', color: vap ? text : dim, fontSize: 'var(--text-xs)', fontWeight: 700 } }, vap ? amt(vap.vorabpauschale) : '-'),
-        e('td', { style: { padding: '0.4rem 0.45rem', textAlign: 'right', color: taxable != null ? text : dim, fontSize: 'var(--text-xs)' } }, taxable != null ? amt(taxable) : '-'),
-        e('td', { style: { padding: '0.4rem 0.45rem', textAlign: 'right' } },
-          e('button', {
-            disabled: !vap,
-            onClick: function () { if (vap) { GT.saveVapRecord(r.symbol, year, vap.vorabpauschale); setSavedTick(savedTick + 1); changed(); } },
-            style: { padding: '0.3rem 0.7rem', borderRadius: '6px', border: 'none', cursor: vap ? 'pointer' : 'default', fontSize: 'var(--text-xs)', fontWeight: 700, background: savedAmt != null ? 'color-mix(in srgb, var(--success) 15%, transparent)' : ((theme.accentFill || theme.accent) || '#8b7cff'), color: savedAmt != null ? good : '#ffffff', opacity: vap ? 1 : 0.5 }
-          }, savedAmt != null ? __('gtSavedAmt', 'Saved {amount}', { amount: amt(savedAmt) }) : __('save', 'Save'))));
+        e('td', { className: 'is-dim' }, (pre.monthsFactor * 12).toFixed(0) + '/12'),
+        e('td', { className: vap ? 'is-strong' : 'is-dim' }, vap ? amt(vap.vorabpauschale) : '-'),
+        e('td', { className: taxable != null ? '' : 'is-dim' }, taxable != null ? amt(taxable) : '-'),
+        e('td', null,
+          savedAmt != null
+            ? e(UIC.Button, { size: 'sm', variant: 'quiet', disabled: !vap, onClick: function () { if (vap) { GT.saveVapRecord(r.symbol, year, vap.vorabpauschale); setSavedTick(savedTick + 1); changed(); } } },
+                '✓ ' + __('gtSavedAmt', 'Saved {amount}', { amount: amt(savedAmt) }))
+            : e(UIC.Button, { size: 'sm', disabled: !vap, onClick: function () { if (vap) { GT.saveVapRecord(r.symbol, year, vap.vorabpauschale); setSavedTick(savedTick + 1); changed(); } } }, __('save', 'Save'))));
     });
 
     // Integrated German summary from the one report pipeline.
@@ -303,18 +299,16 @@ function __(k, f, v) { return (typeof window !== 'undefined' && window.MaerminI1
       }
     } catch (err) { detail = null; }
 
-    function line(label, value, color) {
-      return e('div', { key: label, style: { display: 'flex', justifyContent: 'space-between', padding: '0.25rem 0', fontSize: 'var(--text-sm)' } },
-        e('span', { style: { color: dim } }, label),
-        e('span', { style: { color: color || text, fontWeight: 600 } }, value));
+    function line(label, value, tone) {
+      return e('li', { key: label, className: 'ui-rows__row' },
+        e('span', { className: 'ui-muted' }, label),
+        e('b', { className: ['num', tone ? 'tone-' + tone : ''].join(' ').trim() }, value));
     }
 
-    return e('div', { style: { background: card, border: '1px solid ' + border, borderRadius: '14px', padding: '1.25rem', marginTop: '1.25rem' } },
-      e('div', { style: { display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '0.6rem', marginBottom: '0.9rem' } },
-        e('h3', { style: { color: text, fontSize: 'var(--text-body)', fontWeight: 700, margin: 0 } },
-          (t.germanFundTaxTitle || 'German fund taxation') + ' ' + year),
-        e('div', { style: { display: 'flex', alignItems: 'center', gap: '0.6rem', flexWrap: 'wrap' } },
-          e('span', { style: { color: dim, fontSize: 'var(--text-xs)' } }, __('gtBasiszins', 'Basiszins {y}', { y: year })),
+    return e(UIC.Card, { className: 'ui-gt', headingLevel: 'h3', title: (t.germanFundTaxTitle || 'German fund taxation') + ' ' + year,
+      subtitle: __('gtWorksheet', 'Worksheet for value year {y}. The Vorabpauschale is deemed received on the first working day of {next} (sec. 18 (3) InvStG), so a saved amount counts in the {next} tax computation.', { y: year, next: year + 1 }),
+      action: e('div', { className: 'ui-gt-params' },
+        e('label', { className: 'ui-gt-param' }, e('span', null, __('gtBasiszins', 'Basiszins {y}', { y: year })),
           // Committed on blur / Enter: re-formatting on every keystroke made the
           // field impossible to edit ("3," parsed as nothing and reset it).
           e('input', {
@@ -327,74 +321,74 @@ function __(k, f, v) { return (typeof window !== 'undefined' && window.MaerminI1
               setOverrides(GT.saveBasiszinsOverride(year, isFinite(pct) ? pct / 100 : null)); changed();
             },
             onKeyDown: function (ev) { if (ev.key === 'Enter') ev.target.blur(); },
-            style: { width: '70px', background: inputBg, border: '1px solid ' + border, borderRadius: '6px', padding: '0.3rem 0.45rem', color: text, fontSize: 'var(--text-xs)', textAlign: 'right' }
-          }),
-          e('span', { style: { color: dim, fontSize: 'var(--text-xs)' } }, '%  ' + __('gtChurchTax', 'Church tax')),
+            className: [INPUT, 'ui-input--num'].join(' ')
+          }), e('span', null, '%')),
+        e('label', { className: 'ui-gt-param' }, e('span', null, __('gtChurchTax', 'Church tax')),
           e('select', {
             'aria-label': __('gtChurchTax', 'Church tax'),
             value: String(kist),
             onChange: function (ev) { setKist(GT.saveKirchensteuerRate(parseFloat(ev.target.value))); changed(); },
-            style: { background: inputBg, border: '1px solid ' + border, borderRadius: '6px', padding: '0.3rem 0.4rem', color: text, fontSize: 'var(--text-xs)' }
+            className: [INPUT, 'ui-select'].join(' ')
           },
             e('option', { value: '0' }, __('gtNone', 'none')),
             e('option', { value: '0.08' }, I18N.pct(8, 0)),
-            e('option', { value: '0.09' }, I18N.pct(9, 0))))),
+            e('option', { value: '0.09' }, I18N.pct(9, 0))))) },
 
-      e('div', { style: { color: dim, fontSize: 'var(--text-xs)', margin: '0 0 0.5rem', lineHeight: 1.5 } },
-        __('gtWorksheet', 'Worksheet for value year {y}. The Vorabpauschale is deemed received on the first working day of {next} (sec. 18 (3) InvStG), so a saved amount counts in the {next} tax computation.', { y: year, next: year + 1 })),
-      (suggestions.length && !sugHidden) ? e('div', { 'data-testid': 'fund-type-suggestion', role: 'status', style: { display: 'flex', alignItems: 'center', gap: '0.75rem', flexWrap: 'wrap', background: inputBg, border: '1px solid ' + border, borderRadius: '10px', padding: '0.65rem 0.85rem', margin: '0 0 0.75rem', fontSize: 'var(--text-sm)', color: text } },
-        e('span', { style: { flex: 1, minWidth: '220px', lineHeight: 1.5 } },
+      (suggestions.length && !sugHidden) ? e('div', { 'data-testid': 'fund-type-suggestion', role: 'status', className: ['ui-callout', 'ui-dq-fix'].join(' ') },
+        e('span', { className: 'ui-dq-fix__text' },
           __('gtFundSuggest', '{list}: no fund type set, so no Teilfreistellung is applied. {n:It is a known equity fund|They are known equity funds} (Aktienfonds, 30 %).', { list: suggestions.map(function (s) { return s.symbol; }).join(', '), n: suggestions.length })),
-        e('button', { type: 'button', onClick: applySuggestions, style: { padding: '0.35rem 0.8rem', borderRadius: '7px', border: 'none', background: (theme.accentFill || theme.accent || '#7c6cff'), color: 'var(--on-accent)', fontWeight: 700, fontSize: 'var(--text-xs)', cursor: 'pointer' } }, __('gtFundSuggestApply', 'Set as equity fund')),
-        e('button', { type: 'button', onClick: function () { setSugHidden(true); }, style: { padding: '0.35rem 0.8rem', borderRadius: '7px', border: '1px solid ' + border, background: 'transparent', color: dim, fontSize: 'var(--text-xs)', cursor: 'pointer' } }, __('gtFundSuggestHide', 'Not now'))) : null,
+        e('div', { className: 'ui-actions' },
+          e(UIC.Button, { size: 'sm', variant: 'primary', onClick: applySuggestions }, __('gtFundSuggestApply', 'Set as equity fund')),
+          e(UIC.Button, { size: 'sm', variant: 'quiet', onClick: function () { setSugHidden(true); } }, __('gtFundSuggestHide', 'Not now')))) : null,
       rows.length
-        ? e('div', { style: { overflowX: 'auto' } },
-            e('table', { style: { width: '100%', borderCollapse: 'collapse' } },
+        ? e('div', { className: 'ui-table-wrap' },
+            e('table', { className: ['ui-table', 'ui-table--dense', 'ui-table--tall'].join(' ') },
               e('thead', null, e('tr', null,
                 [__('gtFund', 'Fund'), __('gtTypeTf', 'Type (Teilfreistellung)'), __('gtValueJan1', 'Value Jan 1'), __('gtValueDec31', 'Value Dec 31'), __('gtDistributions', 'Distributions'), __('gtMonths', 'Months'), 'Vorabpauschale', __('gtTaxableAfterTf', 'Taxable after TF'), ''].map(function (h, i) {
-                  return e('th', { key: h || 'x', style: { textAlign: i < 2 ? 'left' : 'right', padding: '0.4rem 0.45rem', color: dim, fontSize: 'var(--text-2xs)', textTransform: 'uppercase', letterSpacing: '0.04em' } }, h);
+                  return e('th', { key: h || 'x', scope: 'col', className: i === 0 ? 'is-sticky' : i === 1 ? 'is-left' : 'is-right' }, h || e('span', { className: 'sr-only' }, __('save', 'Save')));
                 }))),
               e('tbody', null, tableRows)))
-        : e('div', { style: { color: dim, fontSize: 'var(--text-sm)', padding: '0.4rem 0' } },
+        : e('p', { className: 'ui-muted' },
             __('gtNoFunds', 'No fund positions detected. Classify a position by adding it to your portfolio; ETFs and funds are picked up automatically.')),
 
-      e('div', { style: { color: dim, fontSize: 'var(--text-2xs)', marginTop: '0.6rem', lineHeight: 1.5 } },
+      e('p', { className: 'ui-note' },
         __('gtPrefillHint', 'Values prefill from your local price history at the year boundaries (shares held at year end x per-share price) and are editable. Save a Vorabpauschale so a later sale credits it against the gain.')),
 
-      (commodityRows.length && TSm && TSm.saveTaxClass) ? e('div', { style: { marginTop: '1rem' } },
-        e('div', { style: { color: dim, fontSize: 'var(--text-xs)', textTransform: 'uppercase', letterSpacing: '0.05em', fontWeight: 700, marginBottom: '0.3rem' } }, __('gtCommodities', 'Commodities: tax treatment')),
-        commodityRows.map(function (r) {
+      (commodityRows.length && TSm && TSm.saveTaxClass) ? e('div', null,
+        e('h4', { className: 'ui-sublabel' }, __('gtCommodities', 'Commodities: tax treatment')),
+        e('ul', { className: 'ui-rows' }, commodityRows.map(function (r) {
           var cls = (TSm.taxClassOf && TSm.taxClassOf(classOverrides, r.symbol)) || 'private';
-          return e('div', { key: r.symbol, style: { display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '0.6rem', padding: '0.3rem 0', borderTop: '1px solid ' + border } },
-            e('span', { style: { color: text, fontSize: 'var(--text-sm)', fontWeight: 600 } }, r.symbol),
+          return e('li', { key: r.symbol, className: 'ui-rows__row' },
+            e('b', null, r.symbol),
             e('select', {
               value: cls,
               'aria-label': __('gtTaxTreatmentOf', 'Tax treatment of {sym}', { sym: r.symbol }),
               onChange: function (ev) { TSm.saveTaxClass(r.symbol, ev.target.value === 'capital' ? 'capital' : null); setClassTick(function (n) { return n + 1; }); changed(); },
-              style: { background: inputBg, border: '1px solid ' + border, borderRadius: '6px', padding: '0.3rem 0.4rem', color: text, fontSize: 'var(--text-xs)' }
+              className: [INPUT, 'ui-select', 'ui-gt-class'].join(' ')
             },
               e('option', { value: 'private' }, __('gtPhysical', 'Physical - private sale (sec. 23, tax-free after 1 year)')),
               e('option', { value: 'capital' }, __('gtSecurity', 'Security, e.g. ETC/ETF - capital income (sec. 20)'))));
-        })) : null,
+        }))) : null,
 
-      detail && e('div', { style: { marginTop: '1rem', borderTop: '1px solid ' + border, paddingTop: '0.8rem' } },
-        e('div', { style: { color: dim, fontSize: 'var(--text-xs)', textTransform: 'uppercase', letterSpacing: '0.05em', fontWeight: 700, marginBottom: '0.4rem' } }, __('gtComputation', 'Computation (statutory order)')),
-        line(__('gtGainsAfterTf', 'Taxable gains after Teilfreistellung'), amt(detail.gainsTaxable)),
-        line(__('gtLossesAfterTf', 'Deductible losses after Teilfreistellung'), amt(detail.lossesTaxable), detail.lossesTaxable < 0 ? bad : text),
-        detail.shareLossCarried > 0 ? line(__('gtShareLossCarried', 'Share losses not offset (only against share gains)'), amt(detail.shareLossCarried), dim) : null,
-        line(__('gtFundDistributions', 'Taxable fund distributions'), amt(detail.dividendsTaxable)),
-        detail.carryUsed && (detail.carryUsed.shares + detail.carryUsed.other) > 0 ? line(__('gtCarryUsed', 'Loss carry-forward used'), '-' + amt(detail.carryUsed.shares + detail.carryUsed.other), good) : null,
-        line(__('gtVapLine', 'Vorabpauschale {prev} (taxed in {y})', { prev: year - 1, y: year }), amt(detail.vorabpauschaleTaxable)),
-        detail.vapCreditTotal > 0 ? line(__('gtCreditedVap', 'Credited prior Vorabpauschalen'), '-' + amt(detail.vapCreditTotal), good) : null,
-        line(__('gtTfExempt', 'Teilfreistellung exempt'), amt(detail.teilfreistellungExempt), good),
-        line(__('gtSpbUsed', 'Sparerpauschbetrag used'), amt(detail.sparerpauschbetragUsed), good),
-        line(__('gtTaxableIncome', 'Taxable capital income'), amt(detail.taxableIncome)),
-        line(__('gtAbgSoli', 'Abgeltungsteuer + Soli') + (detail.kirchensteuer > 0 ? ' + ' + __('gtKirchensteuer', 'Kirchensteuer') : ''), amt(detail.abgeltungsteuer + detail.soli + detail.kirchensteuer), warn),
-        detail.crypto && detail.crypto.method ? line(__('gtCryptoMethod', 'Crypto cost basis'), detail.crypto.method === 'fifo-wallet' ? __('gtFifoWallet', 'FIFO per wallet') : __('gtFifoPooled', 'FIFO across all wallets')) : null,
-        detail.crypto && detail.crypto.netShortTermGains !== 0 ? line(__('gtPrivateSales', 'Private sales (sec. 23) net short-term (Freigrenze {limit})', { limit: amt(detail.crypto.freigrenze) }), amt(detail.crypto.netShortTermGains) + ' → ' + __('gtTax', 'tax') + ' ' + amt(detail.crypto.estimatedTax)) : null,
-        line(__('gtTotalTax', 'Total estimated tax {y}', { y: year }), amt(detail.totalTax), warn)),
+      detail && e('div', { className: 'ui-gt-detail' },
+        e('h4', { className: 'ui-sublabel' }, __('gtComputation', 'Computation (statutory order)')),
+        e('ul', { className: 'ui-rows' },
+          line(__('gtGainsAfterTf', 'Taxable gains after Teilfreistellung'), amt(detail.gainsTaxable)),
+          line(__('gtLossesAfterTf', 'Deductible losses after Teilfreistellung'), amt(detail.lossesTaxable), detail.lossesTaxable < 0 ? 'loss' : null),
+          detail.shareLossCarried > 0 ? line(__('gtShareLossCarried', 'Share losses not offset (only against share gains)'), amt(detail.shareLossCarried)) : null,
+          line(__('gtFundDistributions', 'Taxable fund distributions'), amt(detail.dividendsTaxable)),
+          detail.carryUsed && (detail.carryUsed.shares + detail.carryUsed.other) > 0 ? line(__('gtCarryUsed', 'Loss carry-forward used'), '−' + amt(detail.carryUsed.shares + detail.carryUsed.other), 'gain') : null,
+          line(__('gtVapLine', 'Vorabpauschale {prev} (taxed in {y})', { prev: year - 1, y: year }), amt(detail.vorabpauschaleTaxable)),
+          detail.vapCreditTotal > 0 ? line(__('gtCreditedVap', 'Credited prior Vorabpauschalen'), '−' + amt(detail.vapCreditTotal), 'gain') : null,
+          line(__('gtTfExempt', 'Teilfreistellung exempt'), amt(detail.teilfreistellungExempt)),
+          line(__('gtSpbUsed', 'Sparerpauschbetrag used'), amt(detail.sparerpauschbetragUsed)),
+          line(__('gtTaxableIncome', 'Taxable capital income'), amt(detail.taxableIncome)),
+          line(__('gtAbgSoli', 'Abgeltungsteuer + Soli') + (detail.kirchensteuer > 0 ? ' + ' + __('gtKirchensteuer', 'Kirchensteuer') : ''), amt(detail.abgeltungsteuer + detail.soli + detail.kirchensteuer), 'warning'),
+          detail.crypto && detail.crypto.method ? line(__('gtCryptoMethod', 'Crypto cost basis'), detail.crypto.method === 'fifo-wallet' ? __('gtFifoWallet', 'FIFO per wallet') : __('gtFifoPooled', 'FIFO across all wallets')) : null,
+          detail.crypto && detail.crypto.netShortTermGains !== 0 ? line(__('gtPrivateSales', 'Private sales (sec. 23) net short-term (Freigrenze {limit})', { limit: amt(detail.crypto.freigrenze) }), amt(detail.crypto.netShortTermGains) + ' → ' + __('gtTax', 'tax') + ' ' + amt(detail.crypto.estimatedTax)) : null,
+          line(__('gtTotalTax', 'Total estimated tax {y}', { y: year }), amt(detail.totalTax), 'warning'))),
 
-      e('div', { style: { color: dim, fontSize: 'var(--text-2xs)', marginTop: '0.8rem', lineHeight: 1.5 } },
+      e('p', { className: 'ui-note' },
         __('gtDisclaimer', 'Helper computation under InvStG/EStG rules with simplified loss netting; private sales (crypto, skins, physical commodities) use a flat-rate estimate. All inputs stay on this device (encrypted at rest). Not tax advice - verify with your tax advisor.')));
   }
 
@@ -409,16 +403,14 @@ function __(k, f, v) { return (typeof window !== 'undefined' && window.MaerminI1
     var e = React.createElement;
     var theme = props.theme || {};
     var t = props.t || ((typeof window !== 'undefined' && window.MaerminI18n) ? window.MaerminI18n.dict() : {});
-    var text = theme.text || '#e6edf3', dim = theme.textSecondary || '#9aa4b2';
-    var border = theme.cardBorder || 'rgba(255,255,255,0.1)';
-    var inputBg = theme.inputBg || '#0f172a', card = theme.card || theme.cardBg || '#10151f';
-    var accent = theme.accent || '#8b7cff';
+    // R4.6: Card with an Edit / Hide action, shared rows, small inputs and On / Off chips
+    var UIC = window.MaerminComponents;
+    var INPUT = ['ui-input', 'ui-input--sm'].join(' ');
 
     var sS = React.useState(TS.load); var s = sS[0], setS = sS[1];
     var sOpen = React.useState(false); var open = sOpen[0], setOpen = sOpen[1];
     function update(patch) { setS(TS.save(patch)); if (props.onChange) props.onChange(); }
 
-    var inputStyle = { background: inputBg, border: '1px solid ' + border, borderRadius: '6px', padding: '0.3rem 0.45rem', color: text, fontSize: '0.78rem', width: '90px', textAlign: 'right' };
     // A number field that commits on blur / Enter. A controlled field reset to
     // its default the moment it was cleared, so a new value could not be typed.
     // An empty field commits null (the caller's default).
@@ -427,58 +419,54 @@ function __(k, f, v) { return (typeof window !== 'undefined' && window.MaerminI1
         defaultValue: window.MaerminI18n.num(value, dec),
         onBlur: function (ev) { var raw = String(ev.target.value).trim(); var v = raw === '' ? NaN : window.MaerminUtils.parseDecimal(raw); commit(isFinite(v) ? v : null); },
         onKeyDown: function (ev) { if (ev.key === 'Enter') ev.target.blur(); },
-        style: inputStyle });
+        className: [INPUT, 'ui-gt-num'].join(' ') });
     }
     function row(label, control, hint) {
-      return e('div', { style: { display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '0.8rem', padding: '0.4rem 0', borderTop: '1px solid ' + border } },
-        e('div', null,
-          e('div', { style: { color: text, fontSize: 'var(--text-sm)' } }, label),
-          hint ? e('div', { style: { color: dim, fontSize: 'var(--text-2xs)' } }, hint) : null),
+      return e('li', { key: label, className: 'ui-rows__row' },
+        e('div', { className: 'ui-rows__main' }, e('b', null, label), hint ? e('span', null, hint) : null),
         control);
     }
+    function withUnit(control, unit) { return e('span', { className: 'ui-gt-unit' }, control, e('span', null, unit)); }
     function toggle(on, onClick) {
-      return e('button', { onClick: onClick, style: { padding: '0.3rem 0.8rem', borderRadius: '6px', border: 'none', cursor: 'pointer', fontSize: 'var(--text-xs)', fontWeight: 700, background: on ? (theme.success || 'var(--success)') : inputBg, color: on ? '#08130a' : dim } }, on ? __('secOn', 'On') : __('dashOff', 'Off'));
+      return e(UIC.Chip, { pressed: !!on, onClick: onClick }, on ? __('secOn', 'On') : __('dashOff', 'Off'));
     }
 
     var TF_TYPES = [['aktienfonds', __('gtEquityFund', 'Equity fund'), 0.30], ['mischfonds', __('gtMixedFund', 'Mixed fund'), 0.15], ['immobilienfonds', __('gtRealEstateFund', 'Real-estate fund'), 0.60], ['auslandsimmobilienfonds', __('gtForeignReFund', 'Foreign RE fund'), 0.80]];
 
-    return e('div', { style: { background: card, border: '1px solid ' + border, borderRadius: '14px', padding: '1.1rem 1.25rem', marginTop: '1.25rem' } },
+    return e(UIC.Card, { className: 'ui-gt-settings', headingLevel: 'h3', title: t.taxSettingsTitle || 'Tax settings (overrides)',
       // Re-read on open: the church tax can also change in the fund-tax panel.
-      e('div', { style: { display: 'flex', justifyContent: 'space-between', alignItems: 'center', cursor: 'pointer' }, onClick: function () { if (!open) setS(TS.load()); setOpen(!open); } },
-        e('h3', { style: { color: text, fontSize: 'var(--text-body)', fontWeight: 700, margin: 0 } }, t.taxSettingsTitle || 'Tax settings (overrides)'),
-        e('span', { style: { color: accent, fontSize: 'var(--text-sm)' } }, open ? __('hide', 'Hide') : __('edit', 'Edit'))),
-      open ? e('div', { style: { marginTop: '0.6rem' } },
-        row(__('gtAbgRate', 'Abgeltungsteuer rate'), e('div', null,
-          numInput('abg', s.abgeltungRate * 100, { min: 0, max: 2 }, __('gtAbgRate', 'Abgeltungsteuer rate'), function (v) { update({ abgeltungRate: v != null ? v / 100 : 0.25 }); }),
-          e('span', { style: { color: dim, fontSize: 'var(--text-xs)', marginLeft: '0.25rem' } }, '%')), __('gtDefaultPct', 'Default {pct}', { pct: window.MaerminI18n.pct(25, 0) })),
-        row('Solidaritätszuschlag', toggle(s.soli, function () { update({ soli: !s.soli }); }), __('gtSoliHint', '{pct} of the tax', { pct: window.MaerminI18n.pct(5.5, 1) })),
-        row('Kirchensteuer', e('select', { value: String(s.kirchensteuer), onChange: function (ev) { update({ kirchensteuer: parseFloat(ev.target.value) }); }, style: { background: inputBg, border: '1px solid ' + border, borderRadius: '6px', padding: '0.3rem 0.4rem', color: text, fontSize: 'var(--text-xs)' } },
-          e('option', { value: '0' }, __('none', 'None')), e('option', { value: '0.08' }, window.MaerminI18n.pct(8, 0)), e('option', { value: '0.09' }, window.MaerminI18n.pct(9, 0)))),
-        row('Freistellungsauftrag', e('div', null,
-          numInput('fsa', s.freistellungsauftrag, 0, 'Freistellungsauftrag', function (v) { update({ freistellungsauftrag: v != null ? v : 1000 }); }),
-          e('span', { style: { color: dim, fontSize: 'var(--text-xs)', marginLeft: '0.25rem' } }, 'EUR')), __('gtSpbHint', 'Sparerpauschbetrag, default 1000')),
-        row(__('gtCryptoExempt', 'Crypto 1-year exemption'), toggle(s.cryptoExemption, function () { update({ cryptoExemption: !s.cryptoExemption }); }), __('gtCryptoExemptHint', 'Private-sale rule (sec. 23 EStG)')),
-        // P5-4.6: the BMF's wallet-based FIFO for crypto; a portfolio is a wallet.
-        row(__('gtCryptoWallet', 'Crypto FIFO per wallet'), e('span', { 'data-testid': 'gt-crypto-wallet' }, toggle(!!s.cryptoPerWallet, function () { update({ cryptoPerWallet: !s.cryptoPerWallet }); })), __('gtCryptoWalletHint', 'BMF 6.3.2025: FIFO within each wallet; each portfolio counts as one wallet. Off: FIFO across all portfolios')),
-        e('div', { style: { color: dim, fontSize: 'var(--text-xs)', textTransform: 'uppercase', letterSpacing: '0.05em', fontWeight: 700, margin: '0.8rem 0 0.3rem' } }, __('gtTfOverrides', 'Teilfreistellung overrides')),
-        TF_TYPES.map(function (tf) {
+      action: e(UIC.Button, { size: 'sm', variant: 'quiet', 'aria-expanded': open, onClick: function () { if (!open) setS(TS.load()); setOpen(!open); } }, open ? __('hide', 'Hide') : __('edit', 'Edit')) },
+      open ? e('div', { className: 'ui-gt-settings__body' },
+        e('ul', { className: 'ui-rows' },
+          row(__('gtAbgRate', 'Abgeltungsteuer rate'), withUnit(
+            numInput('abg', s.abgeltungRate * 100, { min: 0, max: 2 }, __('gtAbgRate', 'Abgeltungsteuer rate'), function (v) { update({ abgeltungRate: v != null ? v / 100 : 0.25 }); }), '%'), __('gtDefaultPct', 'Default {pct}', { pct: window.MaerminI18n.pct(25, 0) })),
+          row('Solidaritätszuschlag', toggle(s.soli, function () { update({ soli: !s.soli }); }), __('gtSoliHint', '{pct} of the tax', { pct: window.MaerminI18n.pct(5.5, 1) })),
+          row('Kirchensteuer', e('select', { value: String(s.kirchensteuer), 'aria-label': 'Kirchensteuer', onChange: function (ev) { update({ kirchensteuer: parseFloat(ev.target.value) }); }, className: [INPUT, 'ui-select'].join(' ') },
+            e('option', { value: '0' }, __('none', 'None')), e('option', { value: '0.08' }, window.MaerminI18n.pct(8, 0)), e('option', { value: '0.09' }, window.MaerminI18n.pct(9, 0)))),
+          row('Freistellungsauftrag', withUnit(
+            numInput('fsa', s.freistellungsauftrag, 0, 'Freistellungsauftrag', function (v) { update({ freistellungsauftrag: v != null ? v : 1000 }); }), 'EUR'), __('gtSpbHint', 'Sparerpauschbetrag, default 1000')),
+          row(__('gtCryptoExempt', 'Crypto 1-year exemption'), toggle(s.cryptoExemption, function () { update({ cryptoExemption: !s.cryptoExemption }); }), __('gtCryptoExemptHint', 'Private-sale rule (sec. 23 EStG)')),
+          // P5-4.6: the BMF's wallet-based FIFO for crypto; a portfolio is a wallet.
+          row(__('gtCryptoWallet', 'Crypto FIFO per wallet'), e('span', { 'data-testid': 'gt-crypto-wallet' }, toggle(!!s.cryptoPerWallet, function () { update({ cryptoPerWallet: !s.cryptoPerWallet }); })), __('gtCryptoWalletHint', 'BMF 6.3.2025: FIFO within each wallet; each portfolio counts as one wallet. Off: FIFO across all portfolios'))),
+        e('h4', { className: 'ui-sublabel' }, __('gtTfOverrides', 'Teilfreistellung overrides')),
+        e('ul', { className: 'ui-rows' }, TF_TYPES.map(function (tf) {
           var ovVal = (s.teilfreistellung && s.teilfreistellung[tf[0]] != null) ? s.teilfreistellung[tf[0]] : tf[2];
-          return row(tf[1], e('div', null,
+          return row(tf[1], withUnit(
             numInput('tf-' + tf[0], ovVal * 100, 0, tf[1], function (v) {
               var map = Object.assign({}, s.teilfreistellung);
               if (v != null && Math.abs(v / 100 - tf[2]) > 1e-9) map[tf[0]] = v / 100; else delete map[tf[0]];
               update({ teilfreistellung: map });
-            }),
-            e('span', { style: { color: dim, fontSize: 'var(--text-xs)', marginLeft: '0.25rem' } }, '%')), __('gtDefaultPct', 'Default {pct}', { pct: window.MaerminI18n.pct(tf[2] * 100, 0) }));
-        }),
-        e('button', { onClick: function () {
-          window.MaerminUtils.confirmThen({
-            title: t.taxResetTitle || 'Reset the tax settings to the defaults?',
-            message: t.taxResetMessage || 'Your rates, church tax and Teilfreistellung overrides are replaced by the defaults.',
-            confirmLabel: t.taxReset || 'Reset', cancelLabel: t.cancel || 'Cancel'
-          }, function () { setS(TS.reset()); if (props.onChange) props.onChange(); });
-        }, style: { marginTop: '0.7rem', padding: '0.35rem 0.8rem', borderRadius: '6px', border: '1px solid ' + border, background: inputBg, color: dim, cursor: 'pointer', fontSize: 'var(--text-xs)' } }, __('gtResetDefaults', 'Reset to defaults')),
-        e('div', { style: { color: dim, fontSize: 'var(--text-2xs)', marginTop: '0.6rem', lineHeight: 1.5 } }, __('gtOverridesNote', 'Overrides are stored on this device and feed the tax computation and the PDF/Excel export. Defaults apply where unset. Not tax advice.'))
+            }), '%'), __('gtDefaultPct', 'Default {pct}', { pct: window.MaerminI18n.pct(tf[2] * 100, 0) }));
+        })),
+        e('div', { className: 'ui-actions' },
+          e(UIC.Button, { size: 'sm', onClick: function () {
+            window.MaerminUtils.confirmThen({
+              title: t.taxResetTitle || 'Reset the tax settings to the defaults?',
+              message: t.taxResetMessage || 'Your rates, church tax and Teilfreistellung overrides are replaced by the defaults.',
+              confirmLabel: t.taxReset || 'Reset', cancelLabel: t.cancel || 'Cancel'
+            }, function () { setS(TS.reset()); if (props.onChange) props.onChange(); });
+          } }, __('gtResetDefaults', 'Reset to defaults'))),
+        e('p', { className: 'ui-note' }, __('gtOverridesNote', 'Overrides are stored on this device and feed the tax computation and the PDF/Excel export. Defaults apply where unset. Not tax advice.'))
       ) : null);
   }
 

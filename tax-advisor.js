@@ -342,10 +342,10 @@ function __(k, f, v) { return (typeof window !== 'undefined' && window.MaerminI1
       try {
         var theme = props.theme || {};
         var t = props.t || ((typeof window !== 'undefined' && window.MaerminI18n) ? window.MaerminI18n.dict() : {});
-        var text = theme.text || '#e9edf4', dim = theme.textSecondary || '#8b94a7';
-        var border = theme.cardBorder || 'rgba(255,255,255,0.08)';
-        var card = theme.card || '#10151f';
-        var COLORS = { critical: theme.danger || '#ef4444', important: theme.warning || '#f59e0b', optimization: theme.success || '#22c55e' };
+        // R4.6: Card, Stat tiles and the shared findings list (mark + priority in words)
+        var UIC = window.MaerminComponents;
+        var SEVERITY = { critical: 'critical', important: 'warning', optimization: 'opportunity' };
+        var MARK = { critical: '!', important: '▲', optimization: '↗' };
         var LABELS = { critical: t.taPriCritical || 'Critical', important: t.taPriImportant || 'Important', optimization: t.taPriOptimize || 'Optimization' };
 
         var input = API.gather({
@@ -360,34 +360,26 @@ function __(k, f, v) { return (typeof window !== 'undefined' && window.MaerminI1
         var res = API.analyze(input);
         var s = res.summary;
 
-        function chip(p) {
-          return e('span', { style: { display: 'inline-block', padding: '0.1rem 0.5rem', borderRadius: '999px', fontSize: 'var(--text-2xs)', fontWeight: 800, color: '#0b0e14', background: COLORS[p] } }, LABELS[p]);
-        }
         var cards = res.findings.map(function (f) {
-          return e('div', { key: f.id, style: { border: '1px solid ' + border, borderLeft: '3px solid ' + COLORS[f.priority], borderRadius: '10px', background: card, padding: '0.8rem 0.9rem', marginBottom: '0.6rem' } },
-            e('div', { style: { display: 'flex', alignItems: 'center', gap: '0.5rem', marginBottom: '0.3rem' } }, chip(f.priority),
-              e('span', { style: { color: text, fontWeight: 700, fontSize: 'var(--text-base)' } }, f.title)),
-            e('div', { style: { color: dim, fontSize: 'var(--text-sm)', lineHeight: 1.45, marginBottom: '0.35rem' } }, f.detail),
-            e('div', { style: { color: text, fontSize: 'var(--text-sm)', lineHeight: 1.45 } }, '→ ' + f.recommendation));
+          return e('li', { key: f.id, className: 'ui-finding', 'data-severity': SEVERITY[f.priority] || 'info' },
+            e('span', { className: 'ui-finding__mark', 'aria-hidden': 'true' }, MARK[f.priority] || '•'),
+            e('div', { className: 'ui-finding__body' },
+              e('div', { className: 'ui-finding__kicker' }, e('b', null, LABELS[f.priority])),
+              e('b', { className: 'ui-finding__title' }, f.title),
+              e('p', null, f.detail),
+              e('p', { className: 'ui-finding__action' }, '→ ' + f.recommendation)));
         });
 
-        return e('div', { style: { background: card, border: '1px solid ' + border, borderRadius: '14px', padding: '1.1rem', marginBottom: '1.5rem' } },
-          e('div', { style: { color: text, fontWeight: 800, fontSize: 'var(--text-body)', marginBottom: '0.2rem' } }, t.taTitle || 'Tax Advisor'),
-          e('div', { style: { color: dim, fontSize: 'var(--text-xs)', marginBottom: '0.9rem' } },
-            (t.taSubtitle || 'Forward-looking tax findings from your lots — an estimate, not tax advice.')),
-          e('div', { style: { display: 'flex', gap: '0.6rem', flexWrap: 'wrap', marginBottom: '0.9rem' } },
-            e('div', { style: { flex: '1 1 180px', background: theme.inputBg || '#0c1018', borderRadius: '10px', padding: '0.7rem' } },
-              e('div', { style: { color: dim, fontSize: 'var(--text-xs)' } }, __('taFgLabel', 'Crypto Freigrenze ({limit})', { limit: LIM(s.cryptoFreigrenze.limit) })),
-              e('div', { style: { color: s.cryptoFreigrenze.exceeded ? COLORS.critical : text, fontWeight: 800, fontSize: 'var(--text-body)' } }, __('taAmountLeft', '{x} left', { x: EUR(s.cryptoFreigrenze.remaining) }))),
-            e('div', { style: { flex: '1 1 180px', background: theme.inputBg || '#0c1018', borderRadius: '10px', padding: '0.7rem' } },
-              e('div', { style: { color: dim, fontSize: 'var(--text-xs)' } }, t.taSparer || 'Sparerpauschbetrag'),
-              e('div', { style: { color: text, fontWeight: 800, fontSize: 'var(--text-body)' } }, __('taOfLeft', '{x} of {limit} left', { x: EUR(s.sparerpauschbetrag.remaining), limit: LIM(s.sparerpauschbetrag.limit) }))),
-            e('div', { style: { flex: '1 1 180px', background: theme.inputBg || '#0c1018', borderRadius: '10px', padding: '0.7rem' } },
-              e('div', { style: { color: dim, fontSize: 'var(--text-xs)' } }, t.taCryptoLots || 'Crypto lots near tax-free'),
-              e('div', { style: { color: text, fontWeight: 800, fontSize: 'var(--text-body)' } }, s.cryptoLotsNearFree + ' / ' + s.cryptoLotsTracked))),
-          cards.length ? cards : e('div', { style: { color: dim, fontSize: 'var(--text-sm)' } }, t.taNone || 'No tax actions flagged right now.'));
+        return e(UIC.Card, { className: 'ui-ta', headingLevel: 'h3', title: t.taTitle || 'Tax Advisor', 'data-testid': 'tax-advisor',
+          subtitle: (t.taSubtitle || 'Forward-looking tax findings from your lots — an estimate, not tax advice.') },
+          e('div', { className: 'ui-tiles' },
+            e(UIC.Stat, { className: 'ui-tile', label: __('taFgLabel', 'Crypto Freigrenze ({limit})', { limit: LIM(s.cryptoFreigrenze.limit) }),
+              value: __('taAmountLeft', '{x} left', { x: EUR(s.cryptoFreigrenze.remaining) }), tone: s.cryptoFreigrenze.exceeded ? 'loss' : null }),
+            e(UIC.Stat, { className: 'ui-tile', label: t.taSparer || 'Sparerpauschbetrag', value: __('taOfLeft', '{x} of {limit} left', { x: EUR(s.sparerpauschbetrag.remaining), limit: LIM(s.sparerpauschbetrag.limit) }) }),
+            e(UIC.Stat, { className: 'ui-tile', label: t.taCryptoLots || 'Crypto lots near tax-free', value: s.cryptoLotsNearFree + ' / ' + s.cryptoLotsTracked })),
+          cards.length ? e('ul', { className: 'ui-findings' }, cards) : e('p', { className: 'ui-muted' }, t.taNone || 'No tax actions flagged right now.'));
       } catch (err) {
-        return e('div', { style: { padding: '0.75rem', color: (props.theme && props.theme.danger) || 'var(--danger)' } }, __('taError', 'Tax advisor error: {msg}', { msg: err && err.message }));
+        return e('p', { className: ['ui-muted', 'is-error'].join(' ') }, __('taError', 'Tax advisor error: {msg}', { msg: err && err.message }));
       } finally { MASKED = false; }
     };
   }

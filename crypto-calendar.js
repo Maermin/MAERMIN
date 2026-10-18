@@ -108,8 +108,8 @@ function __(k, f, v) { return (typeof window !== 'undefined' && window.MaerminI1
     if (!React) return null;
     var e = React.createElement, useMemo = React.useMemo;
     var th = props.theme || {};
-    var text = th.text || '#e6edf3', dim = th.textSecondary || '#9aa4b2', border = th.cardBorder || 'rgba(255,255,255,0.1)';
-    var good = th.success || '#22c55e', warn = th.warning || '#f59e0b';
+    // R4.6: Card and the shared table look (cells keep their test hooks)
+    var UIC = window.MaerminComponents;
     var money = props.formatMoney || function (v) { return window.MaerminI18n.money(v, 'EUR'); };
     var I18N = window.MaerminI18n;
     var today = props.today || new Date().toISOString().slice(0, 10);
@@ -125,42 +125,40 @@ function __(k, f, v) { return (typeof window !== 'undefined' && window.MaerminI1
     if (!res) return null;
 
     var qty = function (v) { return I18N.num(v, { min: 0, max: 8 }); };
-    var cell = { padding: '0.35rem 0.5rem', borderTop: '1px solid ' + border, fontSize: '0.78rem', color: text, textAlign: 'right', whiteSpace: 'nowrap', verticalAlign: 'top' };
-    var head = { padding: '0.3rem 0.5rem', color: dim, fontSize: '0.64rem', textTransform: 'uppercase', letterSpacing: '0.04em', textAlign: 'right', whiteSpace: 'nowrap' };
     var colLabel = function (h) { return h.months === 0 ? __('ccToday', 'Today') : __('ccInMonths', 'In {n} mo.', { n: h.months }); };
+    var sub = function (txt) { return e('span', { className: 'ui-tcell__sub' }, txt); };
 
-    return e('div', { 'data-testid': 'crypto-calendar-panel', style: { background: th.card || th.cardBg, border: '1px solid ' + border, borderRadius: '14px', padding: '1.25rem', margin: '1.5rem 0 0' } },
-      e('h3', { style: { color: text, fontSize: 'var(--text-body)', fontWeight: 700, margin: '0 0 0.35rem' } }, __('ccTitle', 'Crypto tax-free calendar')),
-      e('p', { style: { color: dim, fontSize: 'var(--text-sm)', margin: '0 0 0.75rem', lineHeight: 1.5 } },
-        __('ccIntro', 'How much of each coin can be sold tax-free (held for more than a year) today and in the coming months. A sale takes the oldest lots first (FIFO), so the tax-free part is also the part that is sold first.')),
-      !res.exemption ? e('div', { 'data-testid': 'cc-off', style: { color: warn, fontSize: 'var(--text-sm)', marginBottom: '0.5rem' } },
+    return e(UIC.Card, { 'data-testid': 'crypto-calendar-panel', className: 'ui-cc', headingLevel: 'h3', title: __('ccTitle', 'Crypto tax-free calendar'),
+      subtitle: __('ccIntro', 'How much of each coin can be sold tax-free (held for more than a year) today and in the coming months. A sale takes the oldest lots first (FIFO), so the tax-free part is also the part that is sold first.') },
+      !res.exemption ? e('p', { 'data-testid': 'cc-off', className: ['ui-callout', 'ui-callout--warn'].join(' ') },
         __('ccOff', 'The one-year rule for crypto is switched off in your tax settings, so nothing counts as tax-free.')) : null,
       !res.coins.length ? window.MaerminUtils.emptyState({ compact: true, testid: 'cc-empty', text: __('ccEmpty', 'No crypto held.') }) :
-      e('div', { style: { overflowX: 'auto' } },
-        e('table', { 'data-testid': 'cc-table', style: { width: '100%', borderCollapse: 'collapse' } },
+      e('div', { className: 'ui-table-wrap' },
+        e('table', { 'data-testid': 'cc-table', className: ['ui-table', 'ui-table--dense', 'ui-table--tall'].join(' ') },
           e('thead', null, e('tr', null,
-            e('th', { style: Object.assign({}, head, { textAlign: 'left' }) }, __('ccCoin', 'Coin')),
-            e('th', { style: head }, __('ccHeld', 'Held')),
-            res.horizons.map(function (h) { return e('th', { key: h.months, style: head, title: I18N.date(h.date) }, colLabel(h)); }),
-            e('th', { style: head }, __('ccNext', 'Next')))),
+            e('th', { scope: 'col', className: 'is-sticky' }, __('ccCoin', 'Coin')),
+            e('th', { scope: 'col', className: 'is-right' }, __('ccHeld', 'Held')),
+            res.horizons.map(function (h) { return e('th', { key: h.months, scope: 'col', className: 'is-right', title: I18N.date(h.date) }, colLabel(h)); }),
+            e('th', { scope: 'col', className: 'is-right' }, __('ccNext', 'Next')))),
           e('tbody', null,
             res.coins.map(function (c) {
               return e('tr', { key: c.symbol, 'data-testid': 'cc-row-' + c.symbol },
-                e('td', { style: Object.assign({}, cell, { textAlign: 'left', fontWeight: 700 }) }, c.symbol),
-                e('td', { style: cell }, qty(c.held)),
+                e('th', { scope: 'row', className: 'is-sticky' }, c.symbol),
+                e('td', null, qty(c.held)),
                 c.buckets.map(function (b, i) {
-                  return e('td', { key: i, 'data-testid': 'cc-' + c.symbol + '-' + b.months, style: Object.assign({}, cell, { color: b.quantity > EPS ? (Math.abs(b.quantity - c.held) < 1e-9 ? good : text) : dim }) },
+                  var all = b.quantity > EPS && Math.abs(b.quantity - c.held) < 1e-9;
+                  return e('td', { key: i, 'data-testid': 'cc-' + c.symbol + '-' + b.months, className: b.quantity > EPS ? (all ? 'tone-gain' : '') : 'is-dim' },
                     b.quantity > EPS ? qty(b.quantity) : '–',
-                    b.quantity > EPS && b.value != null ? e('div', { style: { color: dim, fontSize: 'var(--text-2xs)' } }, money(b.value)) : null);
+                    b.quantity > EPS && b.value != null ? sub(money(b.value)) : null);
                 }),
-                e('td', { style: cell }, c.next ? e('div', null, I18N.date(c.next.date), e('div', { style: { color: dim, fontSize: 'var(--text-2xs)' } }, qty(c.next.quantity))) : '–'));
+                e('td', null, c.next ? e('div', null, I18N.date(c.next.date), sub(qty(c.next.quantity))) : '–'));
             }),
-            e('tr', { 'data-testid': 'cc-total' },
-              e('td', { style: Object.assign({}, cell, { textAlign: 'left', color: dim }) }, __('ccTotal', 'Value tax-free')),
-              e('td', { style: cell }),
-              res.totals.map(function (t, i) { return e('td', { key: i, style: Object.assign({}, cell, { fontWeight: 700 }) }, money(t.value)); }),
-              e('td', { style: cell }))))),
-      e('div', { style: { color: dim, fontSize: 'var(--text-2xs)', marginTop: '0.6rem', lineHeight: 1.5 } },
+            e('tr', { 'data-testid': 'cc-total', className: 'ui-dh-total' },
+              e('th', { scope: 'row', className: 'is-sticky' }, __('ccTotal', 'Value tax-free')),
+              e('td', null),
+              res.totals.map(function (t, i) { return e('td', { key: i, className: 'is-strong' }, money(t.value)); }),
+              e('td', null))))),
+      e('p', { className: 'ui-note' },
         __('ccNote', 'Values at today\'s price. A coin is tax-free from the day after the anniversary of its purchase. Gains of coins held for one year or less count towards the 1,000 EUR Freigrenze. Not tax advice.')));
   }
 

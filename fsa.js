@@ -112,7 +112,9 @@ function __(k, f, v) { return (typeof window !== 'undefined' && window.MaerminI1
     }, [txs, props.year, props.exchangeRate, props.fxAt]);
 
     var sum = summarize(st, props.allowance, incomeByKey);
-    var inp = { padding: '0.45rem 0.6rem', background: inputBg, border: '1px solid ' + border, borderRadius: '7px', color: text, fontSize: '0.82rem' };
+    // R4.6: Card, the shared table look, small inputs, checkboxes and shared buttons
+    var UIC = window.MaerminComponents;
+    var INPUT = ['ui-input', 'ui-input--sm'].join(' ');
 
     function add() {
       var name = form.name.trim(), amount = window.MaerminUtils ? window.MaerminUtils.parseDecimal(form.amount) : num(form.amount);
@@ -125,58 +127,53 @@ function __(k, f, v) { return (typeof window !== 'undefined' && window.MaerminI1
       mutate(upsert(st, Object.assign({}, b, { portfolioIds: ids })));
     }
 
-    return e('div', { 'data-testid': 'fsa-panel', style: { background: th.card || th.cardBg, border: '1px solid ' + border, borderRadius: '14px', padding: '1.25rem', margin: '1.5rem 0 0' } },
-      e('h3', { style: { color: text, fontSize: 'var(--text-body)', fontWeight: 700, margin: '0 0 0.35rem' } }, __('fsaTitle', 'Freistellungsaufträge per broker')),
-      e('p', { style: { color: dim, fontSize: 'var(--text-sm)', margin: '0 0 0.9rem', lineHeight: 1.5 } },
-        __('fsaIntro', 'Split your allowance of {a} across your brokers. Link the portfolios you hold at each broker to see how much of its order this year has used.', { a: money(sum.allowance) })),
-      sum.over && e('div', { role: 'alert', 'data-testid': 'fsa-over', style: { color: warn, background: window.MaerminTokens.alpha(warn, 0x14), border: '1px solid ' + window.MaerminTokens.alpha(warn, 0x55), borderRadius: '8px', padding: '0.55rem 0.8rem', fontSize: 'var(--text-sm)', marginBottom: '0.8rem' } },
+    return e(UIC.Card, { 'data-testid': 'fsa-panel', className: 'ui-taxp', headingLevel: 'h3', title: __('fsaTitle', 'Freistellungsaufträge per broker'),
+      subtitle: __('fsaIntro', 'Split your allowance of {a} across your brokers. Link the portfolios you hold at each broker to see how much of its order this year has used.', { a: money(sum.allowance) }) },
+      sum.over && e('p', { role: 'alert', 'data-testid': 'fsa-over', className: ['ui-callout', 'ui-callout--warn'].join(' ') },
         __('fsaOver', 'Your orders add up to {t}, {x} more than your allowance of {a}. Lower one of them: banks may not exempt more than the allowance in total.', { t: money(sum.total), x: money(sum.excess), a: money(sum.allowance) })),
-      sum.rows.length > 0 && e('div', { style: { overflowX: 'auto' } },
-        e('table', { style: { width: '100%', borderCollapse: 'collapse', fontSize: 'var(--text-sm)', color: text } },
-          e('thead', null, e('tr', { style: { color: dim, textAlign: 'left' } },
+      sum.rows.length > 0 && e('div', { className: 'ui-table-wrap' },
+        e('table', { className: ['ui-table', 'ui-table--dense', 'ui-table--tall'].join(' ') },
+          e('thead', null, e('tr', null,
             [__('fsaBroker', 'Broker'), __('fsaOrder', 'Order'), __('fsaIncome', 'Capital income {y}', { y: props.year }), __('fsaUsed', 'Used'), __('fsaLeft', 'Left'), ''].map(function (h, i) {
-              return e('th', { key: i, style: { padding: '0.4rem 0.5rem', fontWeight: 600, borderBottom: '1px solid ' + border, textAlign: i > 0 && i < 5 ? 'right' : 'left' } }, h);
+              return e('th', { key: i, scope: 'col', className: i === 0 ? 'is-sticky' : 'is-right' }, h || e('span', { className: 'sr-only' }, __('remove', 'Remove')));
             }))),
           e('tbody', null, sum.rows.map(function (r) {
             var b = st.brokers.filter(function (x) { return x.id === r.id; })[0];
-            var cell = function (v, color) { return e('td', { style: { padding: '0.45rem 0.5rem', textAlign: 'right', color: color || text, whiteSpace: 'nowrap' } }, v); };
             return e(React.Fragment, { key: r.id },
-              e('tr', { 'data-fsa-broker': r.name },
-                e('td', { style: { padding: '0.45rem 0.5rem', fontWeight: 600 } }, r.name),
-                e('td', { style: { padding: '0.3rem 0.5rem', textAlign: 'right' } },
+              e('tr', { 'data-fsa-broker': r.name, className: 'ui-fsa-row' },
+                e('th', { scope: 'row', className: 'is-sticky' }, r.name),
+                e('td', null,
                   e('input', { type: 'text', inputMode: 'decimal', defaultValue: window.MaerminI18n.num(r.amount, 2), 'aria-label': __('fsaOrderAria', 'Order at {name}', { name: r.name }),
                     onBlur: function (ev) { var v = window.MaerminUtils.parseDecimal(ev.target.value); if (v >= 0) mutate(upsert(st, Object.assign({}, b, { amount: v }))); },
-                    style: Object.assign({}, inp, { width: '7rem', textAlign: 'right' }) })),
-                cell(r.income == null ? '—' : money(r.income)),
-                cell(r.used == null ? '—' : money(r.used)),
-                cell(r.headroom == null ? '—' : money(r.headroom), r.headroom == null ? dim : (r.headroom > 0 ? ok : warn)),
-                e('td', { style: { padding: '0.45rem 0.5rem', textAlign: 'right' } },
-                  e('button', { type: 'button', 'aria-label': __('fsaRemoveAria', 'Remove {name}', { name: r.name }),
-                    onClick: function () { window.MaerminUtils.confirmThen({ title: __('fsaRemoveTitle', 'Remove the order at "{name}"?', { name: r.name }), confirmLabel: __('remove', 'Remove'), cancelLabel: __('cancel', 'Cancel') }, function () { mutate(remove(st, r.id)); }); },
-                    style: { background: 'none', border: 'none', color: dim, cursor: 'pointer', fontSize: 'var(--text-base)' } }, '×'))),
-              e('tr', null, e('td', { colSpan: 6, style: { padding: '0 0.5rem 0.6rem', borderBottom: '1px solid ' + border, color: dim, fontSize: 'var(--text-xs)' } },
-                __('fsaPortfolios', 'Portfolios at this broker:') + ' ',
+                    className: [INPUT, 'ui-gt-num'].join(' ') })),
+                e('td', { className: r.income == null ? 'is-dim' : '' }, r.income == null ? '—' : money(r.income)),
+                e('td', { className: r.used == null ? 'is-dim' : '' }, r.used == null ? '—' : money(r.used)),
+                e('td', { className: r.headroom == null ? 'is-dim' : (r.headroom > 0 ? '' : 'tone-warning') }, r.headroom == null ? '—' : money(r.headroom)),
+                e('td', null,
+                  e(UIC.IconButton, { size: 'sm', label: __('fsaRemoveAria', 'Remove {name}', { name: r.name }), icon: e('span', { 'aria-hidden': 'true' }, '×'),
+                    onClick: function () { window.MaerminUtils.confirmThen({ title: __('fsaRemoveTitle', 'Remove the order at "{name}"?', { name: r.name }), confirmLabel: __('remove', 'Remove'), cancelLabel: __('cancel', 'Cancel') }, function () { mutate(remove(st, r.id)); }); } }))),
+              e('tr', { className: 'ui-fsa-pf' }, e('td', { colSpan: 6 },
+                e('span', null, __('fsaPortfolios', 'Portfolios at this broker:')),
                 portfolios.map(function (p) {
                   var on = b.portfolioIds.indexOf(String(p.id)) > -1;
-                  return e('label', { key: p.id, style: { marginRight: '0.75rem', whiteSpace: 'nowrap', cursor: 'pointer' } },
-                    e('input', { type: 'checkbox', checked: on, onChange: function () { togglePf(b, String(p.id)); }, style: { marginRight: '0.25rem' } }), p.name);
+                  return e('label', { key: p.id, className: 'ui-check' },
+                    e('input', { type: 'checkbox', checked: on, onChange: function () { togglePf(b, String(p.id)); } }), p.name);
                 }),
-                r.taxedAtBroker > 0 ? e('div', { style: { color: warn, marginTop: '0.2rem' } },
-                  __('fsaTaxedAtBroker', '{x} of the income is above the order, so the broker withholds tax on it. Unassigned allowance can still be claimed in the tax return.', { x: money(r.taxedAtBroker) })) : null)));
+                r.taxedAtBroker > 0 ? e('p', { className: 'tone-warning' },
+                  '! ' + __('fsaTaxedAtBroker', '{x} of the income is above the order, so the broker withholds tax on it. Unassigned allowance can still be claimed in the tax return.', { x: money(r.taxedAtBroker) })) : null)));
           })),
-          e('tfoot', null, e('tr', { style: { color: dim } },
-            e('td', { style: { padding: '0.45rem 0.5rem' } }, __('fsaTotal', 'Total')),
-            e('td', { style: { padding: '0.45rem 0.5rem', textAlign: 'right', color: sum.over ? warn : text, fontWeight: 700 } }, money(sum.total)),
-            e('td', { colSpan: 4, style: { padding: '0.45rem 0.5rem', textAlign: 'right' } },
+          e('tfoot', null, e('tr', { className: 'ui-dh-total' },
+            e('th', { scope: 'row', className: 'is-sticky' }, __('fsaTotal', 'Total')),
+            e('td', { className: ['is-strong', sum.over ? 'tone-warning' : ''].join(' ').trim() }, money(sum.total)),
+            e('td', { colSpan: 4, className: 'is-dim' },
               sum.over ? '' : __('fsaUnassigned', 'Not assigned: {x}', { x: money(sum.unassigned) })))))),
-      e('div', { style: { display: 'flex', gap: '0.5rem', flexWrap: 'wrap', marginTop: '0.9rem', alignItems: 'center' } },
+      e('div', { className: 'ui-ca-add' },
         e('input', { type: 'text', value: form.name, placeholder: __('fsaNamePh', 'Broker, e.g. Trade Republic'), 'aria-label': __('fsaBroker', 'Broker'),
-          onChange: function (ev) { setForm(Object.assign({}, form, { name: ev.target.value })); }, style: Object.assign({}, inp, { flex: '1 1 12rem' }) }),
+          onChange: function (ev) { setForm(Object.assign({}, form, { name: ev.target.value })); }, className: 'ui-input' }),
         e('input', { type: 'text', inputMode: 'decimal', value: form.amount, placeholder: '1000', 'aria-label': __('fsaOrder', 'Order'),
           onChange: function (ev) { setForm(Object.assign({}, form, { amount: ev.target.value })); },
-          onKeyDown: function (ev) { if (ev.key === 'Enter') add(); }, style: Object.assign({}, inp, { width: '7rem' }) }),
-        e('button', { type: 'button', onClick: add, disabled: !form.name.trim(), style: { padding: '0.45rem 0.9rem', borderRadius: '7px', border: 'none', cursor: 'pointer', fontWeight: 700, fontSize: 'var(--text-sm)',
-          background: (th.accentFill || th.accent) || '#8b7cff', color: 'var(--on-accent)', opacity: form.name.trim() ? 1 : 0.5 } }, __('fsaAdd', 'Add broker'))));
+          onKeyDown: function (ev) { if (ev.key === 'Enter') add(); }, className: ['ui-input', 'ui-fsa-amount'].join(' ') }),
+        e(UIC.Button, { variant: 'primary', onClick: add, disabled: !form.name.trim() }, __('fsaAdd', 'Add broker'))));
   }
 
   var api = { KEY: KEY, normalize: normalize, upsert: upsert, remove: remove, summarize: summarize, load: load, save: save, Panel: Panel };

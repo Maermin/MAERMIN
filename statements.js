@@ -390,68 +390,57 @@ function __(k, f, v) { return (typeof window !== 'undefined' && window.MaerminI1
         setMsg(pw ? __('stmDoneProtected', 'Downloaded, protected with AES-256.') : __('stmDone', 'Downloaded.'));
       }, fail);
     }
-    var input = { width: '100%', boxSizing: 'border-box', padding: '0.4rem 0.55rem', background: th.inputBg, border: '1px solid ' + (th.inputBorder || border), borderRadius: '8px', color: text, fontSize: '0.8rem', fontFamily: 'inherit' };
-    var label = { display: 'block', color: dim, fontSize: '0.68rem', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '0.25rem' };
-    var btn = { padding: '0.45rem 0.9rem', borderRadius: '8px', border: '1px solid ' + border, background: th.inputBg, color: text, cursor: 'pointer', fontSize: '0.78rem', fontWeight: 600 };
-    var section = { borderTop: '1px solid ' + border, paddingTop: '0.75rem', marginTop: '0.75rem' };
-    var h4 = { color: text, fontSize: '0.88rem', fontWeight: 700, margin: '0 0 0.4rem' };
-    var grid = { display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(170px, 1fr))', gap: '0.6rem', alignItems: 'end' };
+    // R4.6: Card, sections, shared Input / Select / Button, a checkbox row
+    var UIC = window.MaerminComponents;
     var datev = datevRows(txs, Object.assign({ year: year, accounts: accounts }, base));
     var ACC_LABELS = { bank: __('stmAccBank', 'Bank / clearing account'), securities: __('stmAccSecurities', 'Securities'), crypto: __('stmAccCrypto', 'Crypto'),
       dividends: __('stmAccDividends', 'Dividend income'), interest: __('stmAccInterest', 'Interest income'), fees: __('stmAccFees', 'Fees and charges'),
       taxes: __('stmAccTaxes', 'Taxes'), transfer: __('stmAccTransfer', 'Deposits / withdrawals (transit)') };
 
-    return e('div', { 'data-testid': 'statements-panel', style: { background: th.card || th.cardBg, border: '1px solid ' + border, borderRadius: '14px', padding: '1.25rem', margin: '1.5rem 0 0' } },
-      e('h3', { style: { color: text, fontSize: 'var(--text-body)', fontWeight: 700, margin: '0 0 0.35rem' } }, __('stmPanelTitle', 'Statements and exports')),
-      e('p', { style: { color: dim, fontSize: 'var(--text-sm)', margin: 0, lineHeight: 1.5 } }, __('stmPanelIntro', 'Documents for a bank, an accountant or an auditor, made on this device from your records.')),
+    return e(UIC.Card, { 'data-testid': 'statements-panel', className: 'ui-taxp', headingLevel: 'h3', title: __('stmPanelTitle', 'Statements and exports'),
+      subtitle: __('stmPanelIntro', 'Documents for a bank, an accountant or an auditor, made on this device from your records.') },
 
-      e('div', { style: section },
-        e('h4', { style: h4 }, __('stmTitle', 'Statement of assets')),
-        e('div', { style: grid },
-          e('div', null, e('label', { style: label, htmlFor: 'st-asof' }, __('stmAsOfLabel', 'As of')),
-            e('input', { id: 'st-asof', 'data-testid': 'st-asof', type: 'date', value: asOf, max: today, style: input, onChange: function (ev) { setAsOf(ev.target.value || today); } })),
-          e('div', null, e('label', { style: label, htmlFor: 'st-pw' }, __('stmPassword', 'Password (optional)')),
-            e('input', { id: 'st-pw', 'data-testid': 'st-pw', type: 'password', autoComplete: 'new-password', value: pw, style: input, onChange: function (ev) { setPw(ev.target.value); } })),
-          e('div', null, e('label', { style: label, htmlFor: 'st-pw2' }, __('stmPassword2', 'Repeat the password')),
-            e('input', { id: 'st-pw2', 'data-testid': 'st-pw2', type: 'password', autoComplete: 'new-password', value: pw2, style: Object.assign({}, input, pwBad ? { borderColor: warn } : null), onChange: function (ev) { setPw2(ev.target.value); } }))),
-        e('label', { style: { display: 'flex', gap: '0.4rem', alignItems: 'center', color: text, fontSize: 'var(--text-sm)', marginTop: '0.5rem' } },
+      e('div', { className: 'ui-taxp__sec' },
+        e('h4', { className: 'ui-dlg-sec__title' }, __('stmTitle', 'Statement of assets')),
+        e('div', { className: 'ui-form-grid' },
+          e(UIC.Input, { id: 'st-asof', 'data-testid': 'st-asof', type: 'date', label: __('stmAsOfLabel', 'As of'), value: asOf, max: today, onChange: function (ev) { setAsOf(ev.target.value || today); } }),
+          e(UIC.Input, { id: 'st-pw', 'data-testid': 'st-pw', type: 'password', autoComplete: 'new-password', label: __('stmPassword', 'Password (optional)'), value: pw, onChange: function (ev) { setPw(ev.target.value); } }),
+          e(UIC.Input, { id: 'st-pw2', 'data-testid': 'st-pw2', type: 'password', autoComplete: 'new-password', label: __('stmPassword2', 'Repeat the password'), value: pw2,
+            error: pwBad ? __('stmPwMismatch', 'The passwords differ.') : null, onChange: function (ev) { setPw2(ev.target.value); } })),
+        e('label', { className: 'ui-check' },
           e('input', { type: 'checkbox', 'data-testid': 'st-rf', checked: withRf, onChange: function () { setWithRf(!withRf); } }), __('stmWithRf', 'Add the cost roll-forward for {y}', { y: year })),
-        e('div', { style: { display: 'flex', gap: '0.5rem', flexWrap: 'wrap', marginTop: '0.6rem' } },
-          e('button', { 'data-testid': 'st-pdf', style: Object.assign({}, btn, { borderColor: good }), disabled: !!pwBad, onClick: onStatement }, __('stmDownloadPdf', 'Download PDF')),
-          e('button', { 'data-testid': 'st-rf-csv', style: btn, onClick: function () { downloadText(rollForwardCSV(rollForward(txs, Object.assign({ year: year }, base))), 'maermin-roll-forward-' + year + '.csv'); } }, __('stmRfCsv', 'Roll-forward {y} (CSV)', { y: year }))),
-        e('div', { style: { color: dim, fontSize: 'var(--text-xs)', marginTop: '0.4rem', lineHeight: 1.5 } },
-          pwBad ? __('stmPwMismatch', 'The passwords differ.') : __('stmPwNote', 'With a password the PDF is encrypted with AES-256 and opens only with it. Keep the password: it cannot be recovered.'))),
+        e('div', { className: 'ui-actions' },
+          e(UIC.Button, { variant: 'primary', 'data-testid': 'st-pdf', disabled: !!pwBad, onClick: onStatement }, __('stmDownloadPdf', 'Download PDF')),
+          e(UIC.Button, { 'data-testid': 'st-rf-csv', onClick: function () { downloadText(rollForwardCSV(rollForward(txs, Object.assign({ year: year }, base))), 'maermin-roll-forward-' + year + '.csv'); } }, __('stmRfCsv', 'Roll-forward {y} (CSV)', { y: year }))),
+        pwBad ? null : e('p', { className: 'ui-note' }, __('stmPwNote', 'With a password the PDF is encrypted with AES-256 and opens only with it. Keep the password: it cannot be recovered.'))),
 
-      e('div', { style: section },
-        e('h4', { style: h4 }, __('stmDatevTitle', 'DATEV-style bookings {y}', { y: year })),
-        e('div', { style: { display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(150px, 1fr))', gap: '0.5rem' } },
+      e('div', { className: 'ui-taxp__sec' },
+        e('h4', { className: 'ui-dlg-sec__title' }, __('stmDatevTitle', 'DATEV-style bookings {y}', { y: year })),
+        e('div', { className: 'ui-form-grid' },
           ACCOUNT_KEYS.map(function (k) {
-            return e('div', { key: k }, e('label', { style: Object.assign({}, label, { textTransform: 'none', letterSpacing: 0 }), htmlFor: 'st-acc-' + k }, ACC_LABELS[k]),
-              e('input', { id: 'st-acc-' + k, 'data-testid': 'st-acc-' + k, inputMode: 'numeric', value: accounts[k] || '', style: input,
-                onChange: function (ev) { var n = Object.assign({}, accounts); n[k] = ev.target.value; setAccounts(saveAccounts(n)); } }));
+            return e(UIC.Input, { key: k, id: 'st-acc-' + k, 'data-testid': 'st-acc-' + k, inputMode: 'numeric', label: ACC_LABELS[k], value: accounts[k] || '',
+              onChange: function (ev) { var n = Object.assign({}, accounts); n[k] = ev.target.value; setAccounts(saveAccounts(n)); } });
           })),
-        e('div', { style: { display: 'flex', gap: '0.5rem', alignItems: 'center', flexWrap: 'wrap', marginTop: '0.6rem' } },
-          e('button', { 'data-testid': 'st-datev', style: btn, disabled: !datev.length, onClick: function () { downloadText(datevCSV(datev), 'maermin-datev-' + year + '.csv'); } },
-            __('stmDatevCsv', 'Download {n} bookings (CSV)', { n: datev.length })),
-          datev.missingAccounts.length ? e('span', { 'data-testid': 'st-datev-missing', style: { color: warn, fontSize: 'var(--text-xs)' } },
-            __('stmDatevMissing', 'Accounts not set: {list}. Ask your accountant which accounts of your chart (e.g. SKR03 or SKR04) to use.', { list: datev.missingAccounts.map(function (k) { return ACC_LABELS[k]; }).join(', ') })) : null),
-        e('div', { style: { color: dim, fontSize: 'var(--text-xs)', marginTop: '0.4rem', lineHeight: 1.5 } },
+        e('div', { className: 'ui-actions' },
+          e(UIC.Button, { 'data-testid': 'st-datev', disabled: !datev.length, onClick: function () { downloadText(datevCSV(datev), 'maermin-datev-' + year + '.csv'); } },
+            __('stmDatevCsv', 'Download {n} bookings (CSV)', { n: datev.length }))),
+        datev.missingAccounts.length ? e('p', { 'data-testid': 'st-datev-missing', className: ['ui-callout', 'ui-callout--warn'].join(' ') },
+          __('stmDatevMissing', 'Accounts not set: {list}. Ask your accountant which accounts of your chart (e.g. SKR03 or SKR04) to use.', { list: datev.missingAccounts.map(function (k) { return ACC_LABELS[k]; }).join(', ') })) : null,
+        e('p', { className: 'ui-note' },
           __('stmDatevNote', 'One booking per cash movement in the column order of the DATEV Buchungsstapel (amount, debit/credit, currency, account, contra account, date DDMM, document, text). A sale is booked at its proceeds; split the gain in your bookkeeping if needed.'))),
 
-      e('div', { style: section },
-        e('h4', { style: h4 }, __('stmSofTitle', 'Source of funds')),
-        !sales.length ? e('div', { style: { color: dim, fontSize: 'var(--text-sm)' } }, __('stmSofNone', 'No crypto sales recorded.')) :
+      e('div', { className: 'ui-taxp__sec' },
+        e('h4', { className: 'ui-dlg-sec__title' }, __('stmSofTitle', 'Source of funds')),
+        !sales.length ? e('p', { className: 'ui-muted' }, __('stmSofNone', 'No crypto sales recorded.')) :
         e('div', null,
-          e('div', { style: grid },
-            e('div', null, e('label', { style: label, htmlFor: 'st-sale' }, __('stmSofPick', 'Crypto sale')),
-              e('select', { id: 'st-sale', 'data-testid': 'st-sale', value: saleId, style: input, onChange: function (ev) { setSaleId(ev.target.value); } },
-                e('option', { value: '' }, __('ssPick', 'Choose…')),
-                sales.map(function (s) { return e('option', { key: s.txId, value: String(s.txId) }, s.date + ' · ' + I.num(s.quantity, { min: 0, max: 8 }) + ' ' + s.symbol); })))),
-          trace ? e('div', { 'data-testid': 'st-sof', style: { marginTop: '0.6rem', fontSize: 'var(--text-sm)', color: text, lineHeight: 1.6, whiteSpace: 'pre-wrap', fontFamily: 'inherit' } }, sourceOfFundsLines(trace).join('\n')) : null,
-          trace ? e('button', { 'data-testid': 'st-sof-pdf', style: Object.assign({}, btn, { marginTop: '0.5rem' }), disabled: !!pwBad,
+          e('div', { className: 'ui-form-grid' },
+            e(UIC.Select, { id: 'st-sale', 'data-testid': 'st-sale', label: __('stmSofPick', 'Crypto sale'), value: saleId, onChange: function (ev) { setSaleId(ev.target.value); },
+              options: [{ value: '', label: __('ssPick', 'Choose…') }].concat(sales.map(function (s) { return { value: String(s.txId), label: s.date + ' · ' + I.num(s.quantity, { min: 0, max: 8 }) + ' ' + s.symbol }; })) })),
+          trace ? e('div', { 'data-testid': 'st-sof', className: 'ui-stm-sof' }, sourceOfFundsLines(trace).join('\n')) : null,
+          trace ? e('div', { className: 'ui-actions' }, e(UIC.Button, { 'data-testid': 'st-sof-pdf', disabled: !!pwBad,
             onClick: function () { setMsg(__('stmWorking', 'Creating the PDF…')); sourceOfFundsPdf(trace, { password: pw || null }).then(function () { setMsg(pw ? __('stmDoneProtected', 'Downloaded, protected with AES-256.') : __('stmDone', 'Downloaded.')); }, fail); } },
-            __('stmSofPdf', 'Download as PDF (uses the password above, if set)')) : null)),
-      msg ? e('div', { 'data-testid': 'st-msg', role: 'status', style: { color: dim, fontSize: 'var(--text-xs)', marginTop: '0.6rem' } }, msg) : null);
+            __('stmSofPdf', 'Download as PDF (uses the password above, if set)'))) : null)),
+      msg ? e('p', { 'data-testid': 'st-msg', role: 'status', className: 'ui-note' }, msg) : null);
   }
 
   var api = { ACCOUNT_KEYS: ACCOUNT_KEYS, ACCOUNTS_KEY: ACCOUNTS_KEY, assetStatement: assetStatement, rollForward: rollForward, rollForwardCSV: rollForwardCSV,

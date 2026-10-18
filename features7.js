@@ -152,58 +152,29 @@ function RealizedUnrealizedView({ transactions, portfolio, prices, theme, format
     return { results: results.sort((a, b) => b.totalPnL - a.totalPnL), totalRealized, totalUnrealized };
   }, [transactions, prices, usdToEur, fxAt]);
 
-  const statCard = (label, value, sub, color) =>
-    React.createElement('div', { style: { background: theme.card, border: `1px solid ${theme.cardBorder}`, borderRadius: '16px', boxShadow: theme.shadow, padding: '1.25rem' } },
-      React.createElement('div', { style: { color: theme.textSecondary, fontSize: 'var(--text-2xs)', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: '0.375rem' } }, label),
-      React.createElement('div', { style: { color: color || theme.text, fontSize: '1.6rem', fontWeight: '800', letterSpacing: '-0.02em', lineHeight: 1 } }, value),
-      sub && React.createElement('div', { style: { color: theme.textSecondary, fontSize: 'var(--text-xs)', marginTop: '0.375rem' } }, sub)
-    );
-
+  // R4.6: the view layout, answer tiles and the shared Table (phone rows); every P&L with its sign
+  const UIC = window.MaerminComponents;
+  const h = React.createElement;
   const { results, totalRealized, totalUnrealized } = analysis;
+  const signed = (v) => `${v >= 0 ? '+' : ''}${formatPrice(v)}`;
+  const pnl = (v, show) => show ? h('span', { className: 'tone-' + UIC.toneOf(v) }, signed(v)) : h('span', { className: 'is-dim' }, '—');
+  const tile = (label, value, sub) => h(UIC.Card, { variant: 'answer', className: 'ui-ov-tile' },
+    h(UIC.Stat, { label, value: `${signed(value)} ${getCurrencySymbol()}`, sub, tone: UIC.toneOf(value) }));
 
-  return React.createElement('div', { style: { padding: '1.5rem' } },
-    React.createElement('h2', { style: { color: theme.text, fontSize: 'var(--text-title-lg)', fontWeight: '800', marginBottom: '0.25rem' } }, __('ruTitle', 'Realized & Unrealized P&L')),
-    React.createElement('p', { style: { color: theme.textSecondary, fontSize: 'var(--text-sm)', marginBottom: '1.5rem' } },
-      __('ruSubtitle', 'FIFO-based breakdown of locked-in gains/losses vs open positions')),
-
-    React.createElement('div', { style: { display: 'grid', gridTemplateColumns: 'repeat(auto-fit,minmax(180px,1fr))', gap: '1rem', marginBottom: '1.5rem' } },
-      statCard(__('fifoRealizedPnl', 'Realized P&L'), `${totalRealized >= 0 ? '+' : ''}${formatPrice(totalRealized)} ${getCurrencySymbol()}`, __('ruFromClosed', 'From closed/partial positions'), totalRealized >= 0 ? Green : Red),
-      statCard(__('pdUnrealized', 'Unrealized P&L'), `${totalUnrealized >= 0 ? '+' : ''}${formatPrice(totalUnrealized)} ${getCurrencySymbol()}`, __('ruOpenAtCurrent', 'Open positions at current prices'), totalUnrealized >= 0 ? Green : Red),
-      statCard(__('ruTotalPnl', 'Total P&L'), `${(totalRealized+totalUnrealized) >= 0 ? '+' : ''}${formatPrice(totalRealized+totalUnrealized)} ${getCurrencySymbol()}`, __('ruCombined', 'Combined realized + unrealized'), (totalRealized+totalUnrealized) >= 0 ? Green : Red)
-    ),
-
-    // Table
-    React.createElement('div', { style: { background: theme.card, border: `1px solid ${theme.cardBorder}`, borderRadius: '16px', boxShadow: theme.shadow, overflow: 'auto' } },
-      React.createElement('table', { style: { width: '100%', borderCollapse: 'collapse', fontSize: 'var(--text-sm)' } },
-        React.createElement('thead', null,
-          React.createElement('tr', { style: { borderBottom: `1px solid ${theme.cardBorder}` } },
-            [__('position', 'Position'), __('fifoRealizedPnl', 'Realized P&L'), __('pdUnrealized', 'Unrealized P&L'), __('ruTotalPnl', 'Total P&L')].map((h, hi) =>
-              React.createElement('th', { key: h, style: { padding: '0.75rem 1rem', textAlign: hi === 0 ? 'left' : 'right', color: theme.textSecondary, fontWeight: '600', fontSize: 'var(--text-2xs)', textTransform: 'uppercase', letterSpacing: '0.05em' } }, h)
-            )
-          )
-        ),
-        React.createElement('tbody', null,
-          results.map((e, i) =>
-            React.createElement('tr', { key: e.sym, style: { borderBottom: i < results.length-1 ? `1px solid ${theme.cardBorder}` : 'none' } },
-              React.createElement('td', { style: { padding: '0.75rem 1rem' } },
-                React.createElement('div', { style: { fontWeight: '600', color: theme.text } }, e.name),
-                React.createElement('div', { style: { fontSize: 'var(--text-2xs)', color: theme.textSecondary } }, e.category)
-              ),
-              React.createElement('td', { style: { padding: '0.75rem 1rem', textAlign: 'right', color: e.realizedPnL >= 0 ? Green : Red, fontWeight: '600' } },
-                e.hasSells ? `${e.realizedPnL >= 0 ? '+' : ''}${formatPrice(e.realizedPnL)}` : React.createElement('span', { style: { color: theme.textSecondary } }, '—')
-              ),
-              React.createElement('td', { style: { padding: '0.75rem 1rem', textAlign: 'right', color: e.unrealizedPnL >= 0 ? Green : Red, fontWeight: '600' } },
-                e.remainingQty > 0.0001 ? `${e.unrealizedPnL >= 0 ? '+' : ''}${formatPrice(e.unrealizedPnL)}` : React.createElement('span', { style: { color: theme.textSecondary } }, '—')
-              ),
-              React.createElement('td', { style: { padding: '0.75rem 1rem', textAlign: 'right', color: e.totalPnL >= 0 ? Green : Red, fontWeight: '700' } },
-                `${e.totalPnL >= 0 ? '+' : ''}${formatPrice(e.totalPnL)}`
-              )
-            )
-          )
-        )
-      )
-    )
-  );
+  return h('div', { className: ['ui-view', 'ui-view--cont', 'ui-ru'].join(' ') },
+    h('p', { className: 'ui-view__lead' }, __('ruSubtitle', 'FIFO-based breakdown of locked-in gains/losses vs open positions')),
+    h('div', { className: 'ui-ov-tiles' },
+      tile(__('fifoRealizedPnl', 'Realized P&L'), totalRealized, __('ruFromClosed', 'From closed/partial positions')),
+      tile(__('pdUnrealized', 'Unrealized P&L'), totalUnrealized, __('ruOpenAtCurrent', 'Open positions at current prices')),
+      tile(__('ruTotalPnl', 'Total P&L'), totalRealized + totalUnrealized, __('ruCombined', 'Combined realized + unrealized'))),
+    h(UIC.Card, { variant: 'plain', headingLevel: 'h3', title: __('ruTitle', 'Realized & Unrealized P&L') },
+      h(UIC.Table, { rows: results, rowKey: (e) => e.sym, caption: __('ruTitle', 'Realized & Unrealized P&L'), columns: [
+        { key: 'pos', label: __('position', 'Position'), phone: 'title', render: (e) => h('span', { className: 'ui-asset__text' },
+          h('span', { className: 'ui-asset__name' }, e.name), h('span', { className: 'ui-asset__sub' }, window.MaerminI18n.category(e.category))) },
+        { key: 'real', label: __('fifoRealizedPnl', 'Realized P&L'), align: 'right', phone: 'meta', render: (e) => pnl(e.realizedPnL, e.hasSells) },
+        { key: 'unreal', label: __('pdUnrealized', 'Unrealized P&L'), align: 'right', phone: 'meta', render: (e) => pnl(e.unrealizedPnL, e.remainingQty > 0.0001) },
+        { key: 'total', label: __('ruTotalPnl', 'Total P&L'), align: 'right', phone: 'value', render: (e) => h('b', null, pnl(e.totalPnL, true)) }
+      ] })));
 }
 
 // ─────────────────────────────────────────────────────────────────────────────

@@ -217,69 +217,59 @@ function __(k, f, v) { return (typeof window !== 'undefined' && window.MaerminI1
       setRes(r);
     }
     var set = function (k) { return function (ev) { var o = Object.assign({}, form); o[k] = ev.target.value; setForm(o); setRes(null); }; };
-    var input = { width: '100%', boxSizing: 'border-box', padding: '0.45rem 0.6rem', background: th.inputBg, border: '1px solid ' + (th.inputBorder || border), borderRadius: '8px', color: text, fontSize: '0.82rem', fontFamily: 'inherit' };
-    var label = { display: 'block', color: dim, fontSize: '0.68rem', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '0.25rem' };
-    var cell = { padding: '0.35rem 0.5rem', borderTop: '1px solid ' + border, fontSize: '0.78rem', color: text, textAlign: 'right' };
-    var head = { padding: '0.3rem 0.5rem', color: dim, fontSize: '0.64rem', textTransform: 'uppercase', letterSpacing: '0.04em', textAlign: 'right' };
-    function line(lbl, val, color, tid) {
-      return e('div', { 'data-testid': tid, style: { display: 'flex', justifyContent: 'space-between', gap: '0.75rem', padding: '0.3rem 0', borderTop: '1px solid ' + border, fontSize: 'var(--text-sm)' } },
-        e('span', { style: { color: dim } }, lbl), e('span', { style: { color: color || text, fontWeight: 700 } }, val));
+    // R4.6: Card, shared Select / Input / Button, the shared table look, totals on shared rows
+    var UIC = window.MaerminComponents;
+    function line(lbl, val, tone, tid) {
+      return e('li', { key: tid, 'data-testid': tid, className: 'ui-rows__row' },
+        e('span', { className: 'ui-muted' }, lbl), e('b', { className: ['num', tone ? 'tone-' + tone : ''].join(' ').trim() }, val));
     }
     var errText = res && res.error ? (res.error === 'oversold' ? __('ssOversold', 'You hold only {q}.', { q: I18N.num(res.held, { min: 0, max: 8 }) })
       : res.error === 'notHeld' ? __('ssNotHeld', 'Nothing of this holding is open on that date.')
       : res.error === 'noTax' ? __('ssNoTax', 'The tax computation is not available.')
       : __('ssInvalid', 'Enter a quantity above 0, a price and a date.')) : '';
 
-    return e('div', { 'data-testid': 'sell-sim-panel', style: { background: th.card || th.cardBg, border: '1px solid ' + border, borderRadius: '14px', padding: '1.25rem', margin: '1.5rem 0 0' } },
-      e('h3', { style: { color: text, fontSize: 'var(--text-body)', fontWeight: 700, margin: '0 0 0.35rem' } }, __('ssTitle', 'Sell simulator')),
-      e('p', { style: { color: dim, fontSize: 'var(--text-sm)', margin: '0 0 0.75rem', lineHeight: 1.5 } },
-        __('ssIntro', 'What a sale would do to this year\'s tax: the lots it uses (FIFO), the gain and the extra tax, with Teilfreistellung, loss pots, the Freigrenze and the Sparerpauschbetrag as in the tax report. Nothing is booked.')),
-      e('div', { style: { display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(150px, 1fr))', gap: '0.6rem', alignItems: 'end' } },
-        e('div', null, e('label', { style: label, htmlFor: 'ss-holding' }, __('ssHolding', 'Holding')),
-          e('select', { id: 'ss-holding', 'data-testid': 'ss-holding', value: pick, onChange: function (ev) { choose(ev.target.value); }, style: input },
-            e('option', { value: '' }, __('ssPick', 'Choose…')),
-            list.map(function (x) { return e('option', { key: holdingKey(x), value: holdingKey(x) }, x.symbol + where(x) + ' (' + I18N.num(x.quantity, { min: 0, max: 8 }) + ')'); }))),
-        e('div', null, e('label', { style: label, htmlFor: 'ss-qty' }, __('ssQuantity', 'Quantity')),
-          e('input', { id: 'ss-qty', 'data-testid': 'ss-qty', inputMode: 'decimal', value: form.quantity, onChange: set('quantity'), style: input })),
-        e('div', null, e('label', { style: label, htmlFor: 'ss-price' }, __('ssPrice', 'Price per unit ({cur})', { cur: h ? h.currency : 'EUR' })),
-          e('input', { id: 'ss-price', 'data-testid': 'ss-price', inputMode: 'decimal', value: form.price, onChange: set('price'), style: input })),
-        e('div', null, e('label', { style: label, htmlFor: 'ss-date' }, __('ssDate', 'Sale date')),
-          e('input', { id: 'ss-date', 'data-testid': 'ss-date', type: 'date', value: form.date, onChange: set('date'), style: input })),
-        e('button', { type: 'button', 'data-testid': 'ss-run', disabled: !h, onClick: run,
-          style: { padding: '0.5rem 0.9rem', borderRadius: '8px', border: 'none', background: th.accentFill || th.accent || '#7c6cff', color: 'var(--on-accent)', fontWeight: 700, fontSize: 'var(--text-sm)', cursor: h ? 'pointer' : 'default', opacity: h ? 1 : 0.5 } },
-          __('ssRun', 'Simulate'))),
-      errText ? e('div', { role: 'alert', 'data-testid': 'ss-error', style: { color: warn, fontSize: 'var(--text-sm)', marginTop: '0.6rem' } }, errText) : null,
-      res && !res.error ? e('div', { 'data-testid': 'ss-result', style: { marginTop: '0.9rem' } },
-        e('div', { style: { overflowX: 'auto' } },
-          e('table', { style: { width: '100%', borderCollapse: 'collapse' } },
+    return e(UIC.Card, { 'data-testid': 'sell-sim-panel', className: 'ui-taxp', headingLevel: 'h3', title: __('ssTitle', 'Sell simulator'),
+      subtitle: __('ssIntro', 'What a sale would do to this year\'s tax: the lots it uses (FIFO), the gain and the extra tax, with Teilfreistellung, loss pots, the Freigrenze and the Sparerpauschbetrag as in the tax report. Nothing is booked.') },
+      e('div', { className: 'ui-form-grid' },
+        e(UIC.Select, { id: 'ss-holding', 'data-testid': 'ss-holding', label: __('ssHolding', 'Holding'), value: pick, onChange: function (ev) { choose(ev.target.value); },
+          options: [{ value: '', label: __('ssPick', 'Choose…') }].concat(list.map(function (x) { return { value: holdingKey(x), label: x.symbol + where(x) + ' (' + I18N.num(x.quantity, { min: 0, max: 8 }) + ')' }; })) }),
+        e(UIC.Input, { id: 'ss-qty', 'data-testid': 'ss-qty', inputMode: 'decimal', label: __('ssQuantity', 'Quantity'), value: form.quantity, onChange: set('quantity') }),
+        e(UIC.Input, { id: 'ss-price', 'data-testid': 'ss-price', inputMode: 'decimal', label: __('ssPrice', 'Price per unit ({cur})', { cur: h ? h.currency : 'EUR' }), value: form.price, onChange: set('price') }),
+        e(UIC.Input, { id: 'ss-date', 'data-testid': 'ss-date', type: 'date', label: __('ssDate', 'Sale date'), value: form.date, onChange: set('date') }),
+        e('div', { className: 'ui-form-grid__action' },
+          e(UIC.Button, { variant: 'primary', 'data-testid': 'ss-run', disabled: !h, onClick: run }, __('ssRun', 'Simulate')))),
+      errText ? e('p', { role: 'alert', 'data-testid': 'ss-error', className: ['ui-muted', 'is-error'].join(' ') }, errText) : null,
+      res && !res.error ? e('div', { 'data-testid': 'ss-result', className: 'ui-taxp__body' },
+        e('div', { className: 'ui-table-wrap' },
+          e('table', { className: ['ui-table', 'ui-table--dense'].join(' ') },
             e('thead', null, e('tr', null,
-              e('th', { style: Object.assign({}, head, { textAlign: 'left' }) }, __('ssBought', 'Bought')),
-              e('th', { style: head }, __('ssQuantity', 'Quantity')),
-              e('th', { style: head }, __('ssCost', 'Cost')),
-              e('th', { style: head }, __('ssProceeds', 'Proceeds')),
-              e('th', { style: head }, __('ssGain', 'Gain')),
-              res.kind === 'private' ? e('th', { style: head }, __('ssTaxFreeFrom', 'Tax-free from')) : null)),
+              e('th', { scope: 'col', className: 'is-sticky' }, __('ssBought', 'Bought')),
+              e('th', { scope: 'col', className: 'is-right' }, __('ssQuantity', 'Quantity')),
+              e('th', { scope: 'col', className: 'is-right' }, __('ssCost', 'Cost')),
+              e('th', { scope: 'col', className: 'is-right' }, __('ssProceeds', 'Proceeds')),
+              e('th', { scope: 'col', className: 'is-right' }, __('ssGain', 'Gain')),
+              res.kind === 'private' ? e('th', { scope: 'col', className: 'is-right' }, __('ssTaxFreeFrom', 'Tax-free from')) : null)),
             e('tbody', null, res.lots.map(function (l, i) {
               return e('tr', { key: i },
-                e('td', { style: Object.assign({}, cell, { textAlign: 'left' }) }, I18N.date(l.acquisitionDate)),
-                e('td', { style: cell }, I18N.num(l.quantity, { min: 0, max: 8 })),
-                e('td', { style: cell }, money(l.costBasis)),
-                e('td', { style: cell }, money(l.proceeds)),
-                e('td', { style: cell }, money(l.gain)),
-                res.kind === 'private' ? e('td', { style: Object.assign({}, cell, { color: l.taxFree ? good : text }) }, l.taxFree ? __('ssFreeNow', 'tax-free now') : I18N.date(l.taxFreeOn)) : null);
+                e('th', { scope: 'row', className: 'is-sticky' }, I18N.date(l.acquisitionDate)),
+                e('td', null, I18N.num(l.quantity, { min: 0, max: 8 })),
+                e('td', null, money(l.costBasis)),
+                e('td', null, money(l.proceeds)),
+                e('td', null, money(l.gain)),
+                res.kind === 'private' ? e('td', { className: l.taxFree ? 'tone-gain' : '' }, l.taxFree ? '✓ ' + __('ssFreeNow', 'tax-free now') : I18N.date(l.taxFreeOn)) : null);
             })))),
-        e('div', { style: { marginTop: '0.6rem' } },
+        e('ul', { className: 'ui-rows' },
           line(__('ssTotalGain', 'Gain'), money(res.gain), null, 'ss-gain'),
-          line(res.kind === 'private' ? __('ssFreePrivate', 'Tax-free (held over one year)') : __('ssFreeTf', 'Tax-free (Teilfreistellung)'), money(res.taxFree), good, 'ss-free'),
+          line(res.kind === 'private' ? __('ssFreePrivate', 'Tax-free (held over one year)') : __('ssFreeTf', 'Tax-free (Teilfreistellung)'), money(res.taxFree), null, 'ss-free'),
           line(__('ssTaxable', 'Taxable part'), money(res.taxable), null, 'ss-taxable'),
           res.kind === 'capital' ? line(__('ssAllowance', 'Sparerpauschbetrag used ({left} left before)', { left: money(res.allowanceLeftBefore) }), money(res.allowanceUsed), null, 'ss-allowance') : null,
-          (res.carryUsed.shares + res.carryUsed.other + res.carryUsed.private) > 0.005 ? line(__('ssCarry', 'Loss carry-forward used'), money(res.carryUsed.shares + res.carryUsed.other + res.carryUsed.private), good, 'ss-carry') : null,
-          line(__('ssTaxDelta', 'Extra tax this year'), money(res.taxDelta), res.taxDelta > 0.005 ? warn : good, 'ss-tax')),
-        res.kind === 'private' && res.freigrenze.crosses ? e('div', { role: 'note', 'data-testid': 'ss-freigrenze', style: { color: warn, fontSize: 'var(--text-xs)', marginTop: '0.5rem', lineHeight: 1.5 } },
+          (res.carryUsed.shares + res.carryUsed.other + res.carryUsed.private) > 0.005 ? line(__('ssCarry', 'Loss carry-forward used'), money(res.carryUsed.shares + res.carryUsed.other + res.carryUsed.private), null, 'ss-carry') : null,
+          line(__('ssTaxDelta', 'Extra tax this year'), money(res.taxDelta), res.taxDelta > 0.005 ? 'warning' : null, 'ss-tax')),
+        res.kind === 'private' && res.freigrenze.crosses ? e('p', { role: 'note', 'data-testid': 'ss-freigrenze', className: ['ui-callout', 'ui-callout--warn'].join(' ') },
           __('ssCrosses', 'This sale lifts this year\'s private-sale gains to {after}, at or above the {limit} Freigrenze: then all of them are taxable, not just this sale.', { after: money(res.freigrenze.after), limit: money(res.freigrenze.limit) })) : null,
-        res.kind === 'private' && res.bestDate ? e('div', { 'data-testid': 'ss-best', style: { color: text, fontSize: 'var(--text-sm)', marginTop: '0.5rem' } },
+        res.kind === 'private' && res.bestDate ? e('p', { 'data-testid': 'ss-best', className: 'ui-muted' },
           __('ssBestDate', 'Sold on or after {date}, this whole sale would be tax-free (all its lots held over one year).', { date: I18N.date(res.bestDate) })) : null,
-        e('div', { style: { color: dim, fontSize: 'var(--text-2xs)', marginTop: '0.6rem', lineHeight: 1.5 } },
+        e('p', { className: 'ui-note' },
           __('ssNote', 'Estimate for the year of the sale date; private sales at the flat-rate estimate. Not tax advice.'))) : null);
   }
 

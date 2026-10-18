@@ -131,9 +131,8 @@ function __(k, f, v) { return (typeof window !== 'undefined' && window.MaerminI1
     var data = byCountry(props.dividends || []);
     var I = window.MaerminI18n;
     var money = props.formatMoney || function (v) { return I.money(v, 'EUR'); };
-    var dim = th.textSecondary, border = th.cardBorder;
-    var cell = { padding: '0.55rem 0.75rem', textAlign: 'right', fontSize: '0.82rem', color: th.text, whiteSpace: 'nowrap', borderTop: '1px solid ' + border };
-    var head = { padding: '0.5rem 0.75rem', textAlign: 'right', fontSize: '0.7rem', fontWeight: 600, color: dim, textTransform: 'uppercase', letterSpacing: '0.04em' };
+    // R4.6: Card and the shared table look
+    var UIC = window.MaerminComponents;
     function label(r) {
       if (r.code === 'unknown') return __('whtUnknown', 'Country unknown');
       var name = null;
@@ -154,39 +153,37 @@ function __(k, f, v) { return (typeof window !== 'undefined' && window.MaerminI1
       if (r.missing) out.push(__('whtMissing', '{n} {n:payout|payouts} without recorded withholding', { n: r.missing }));
       return out.join(' · ');
     }
-    return e('div', { 'data-testid': 'wht-panel', style: { background: th.card, border: '1px solid ' + border, borderRadius: '14px', padding: '1.25rem', marginTop: '1.5rem' } },
-      e('h3', { style: { color: th.text, fontSize: 'var(--text-body)', fontWeight: 700, margin: '0 0 0.35rem' } }, __('whtTitle', 'Foreign withholding tax by country {y} (estimate)', { y: props.year })),
-      e('p', { style: { color: dim, fontSize: 'var(--text-sm)', margin: '0 0 0.75rem', lineHeight: 1.55 } },
-        __('whtIntro', 'Creditable = at most 15 % of each gross payout (§ 32d (5) EStG); the tax calculation then limits the credit to the German tax on your dividends. The excess can only be reclaimed from the source country. Rates come from secondary summaries of the BZSt table (as of 1 January 2026), compiled on {date} and not checked against the original - check them before you file.', { date: I.date(SOURCE_DATE) })),
+    return e(UIC.Card, { 'data-testid': 'wht-panel', className: 'ui-taxp', headingLevel: 'h3', title: __('whtTitle', 'Foreign withholding tax by country {y} (estimate)', { y: props.year }),
+      subtitle: __('whtIntro', 'Creditable = at most 15 % of each gross payout (§ 32d (5) EStG); the tax calculation then limits the credit to the German tax on your dividends. The excess can only be reclaimed from the source country. Rates come from secondary summaries of the BZSt table (as of 1 January 2026), compiled on {date} and not checked against the original - check them before you file.', { date: I.date(SOURCE_DATE) }) },
       !data.rows.length
-        ? e('div', { style: { color: dim, fontSize: 'var(--text-base)', padding: '0.5rem 0' } }, __('whtNone', 'No foreign dividends in this year.'))
-        : e('div', { role: 'region', tabIndex: 0, 'aria-label': __('whtTitleShort', 'Foreign withholding tax by country'), style: { overflowX: 'auto' } },
-            e('table', { style: { width: '100%', borderCollapse: 'collapse', fontVariantNumeric: 'tabular-nums' } },
+        ? e('p', { className: 'ui-muted' }, __('whtNone', 'No foreign dividends in this year.'))
+        : e('div', { role: 'region', tabIndex: 0, 'aria-label': __('whtTitleShort', 'Foreign withholding tax by country'), className: 'ui-table-wrap' },
+            e('table', { className: ['ui-table', 'ui-table--dense', 'ui-table--tall'].join(' ') },
               e('thead', null, e('tr', null,
-                e('th', { scope: 'col', style: Object.assign({}, head, { textAlign: 'left' }) }, __('whtCountry', 'Country')),
-                e('th', { scope: 'col', style: head }, __('whtGross', 'Gross dividends')),
-                e('th', { scope: 'col', style: head }, __('whtWithheld', 'Withheld')),
-                e('th', { scope: 'col', style: head }, __('whtCreditable', 'Creditable')),
-                e('th', { scope: 'col', style: head }, __('whtExcess', 'Reclaim abroad')))),
+                e('th', { scope: 'col', className: 'is-sticky' }, __('whtCountry', 'Country')),
+                e('th', { scope: 'col', className: 'is-right' }, __('whtGross', 'Gross dividends')),
+                e('th', { scope: 'col', className: 'is-right' }, __('whtWithheld', 'Withheld')),
+                e('th', { scope: 'col', className: 'is-right' }, __('whtCreditable', 'Creditable')),
+                e('th', { scope: 'col', className: 'is-right' }, __('whtExcess', 'Reclaim abroad')))),
               e('tbody', null,
                 data.rows.map(function (r) {
                   return e('tr', { key: r.code, 'data-wht-country': r.code },
-                    e('th', { scope: 'row', style: Object.assign({}, cell, { textAlign: 'left', fontWeight: 600, whiteSpace: 'normal', minWidth: '11rem' }) }, label(r),
-                      e('div', { style: { color: dim, fontSize: 'var(--text-xs)', fontWeight: 400, marginTop: '0.15rem' } }, note(r))),
-                    e('td', { style: cell }, money(r.gross)),
-                    e('td', { style: cell }, money(r.withheld)),
-                    e('td', { style: cell }, money(r.creditable)),
-                    e('td', { style: Object.assign({}, cell, { color: r.excess > 0 ? th.warning : th.text }) }, money(r.excess)));
+                    e('th', { scope: 'row', className: ['is-sticky', 'is-wrap', 'ui-wht-country'].join(' ') }, label(r),
+                      e('span', { className: 'ui-tcell__sub' }, note(r))),
+                    e('td', null, money(r.gross)),
+                    e('td', null, money(r.withheld)),
+                    e('td', null, money(r.creditable)),
+                    e('td', { className: r.excess > 0 ? 'tone-warning' : '' }, money(r.excess)));
                 }),
-                e('tr', { 'data-wht-country': 'total' },
-                  e('th', { scope: 'row', style: Object.assign({}, cell, { textAlign: 'left', fontWeight: 700 }) }, __('whtTotal', 'Total')),
-                  e('td', { style: Object.assign({}, cell, { fontWeight: 700 }) }, money(data.total.gross)),
-                  e('td', { style: Object.assign({}, cell, { fontWeight: 700 }) }, money(data.total.withheld)),
-                  e('td', { style: Object.assign({}, cell, { fontWeight: 700 }) }, money(data.total.creditable)),
-                  e('td', { style: Object.assign({}, cell, { fontWeight: 700 }) }, money(data.total.excess)))))),
-      data.domestic.count ? e('p', { style: { color: dim, fontSize: 'var(--text-xs)', margin: '0.6rem 0 0' } },
+                e('tr', { 'data-wht-country': 'total', className: 'ui-dh-total' },
+                  e('th', { scope: 'row', className: 'is-sticky' }, __('whtTotal', 'Total')),
+                  e('td', { className: 'is-strong' }, money(data.total.gross)),
+                  e('td', { className: 'is-strong' }, money(data.total.withheld)),
+                  e('td', { className: 'is-strong' }, money(data.total.creditable)),
+                  e('td', { className: 'is-strong' }, money(data.total.excess)))))),
+      data.domestic.count ? e('p', { className: 'ui-note' },
         __('whtDomestic', '{n} {n:payout|payouts} from German companies ({amt}) are not listed: their tax is German Kapitalertragsteuer, not foreign tax.', { n: data.domestic.count, amt: money(data.domestic.gross) })) : null,
-      e('p', { style: { color: dim, fontSize: 'var(--text-xs)', margin: '0.6rem 0 0' } },
+      e('p', { className: 'ui-note' },
         __('whtHowTo', 'Withholding is entered per dividend in the transaction dialog ("Withholding tax"). Dividends booked automatically for US shares assume 15 %.')));
   }
 
