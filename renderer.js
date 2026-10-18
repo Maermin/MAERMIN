@@ -3536,8 +3536,8 @@ function InvestmentTracker() {
 
       case 'cashflow':
         return window.MaerminFeatures5 ?
-          React.createElement('div', { style: { padding: '1.5rem' } },
-            React.createElement('h2', { style: { color: currentTheme.text, fontSize: 'var(--text-xl)', fontWeight: '800', letterSpacing: '-0.02em', marginBottom: '1.5rem' } }, t.navCashflow || 'Cash Flow'),
+          // R4.5: the view frame; the page header has the title
+          React.createElement('div', { className: 'ui-view', 'data-testid': 'cashflow-view' },
             React.createElement(window.MaerminFeatures5.CashflowChart, {
               transactions: activeTransactions, priceHistory, portfolio, prices,
               theme: currentTheme, formatPrice, getCurrencySymbol, valuePath, exchangeRate, fxAt

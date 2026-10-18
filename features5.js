@@ -434,50 +434,55 @@ function CashflowChart({ transactions, priceHistory, portfolio, prices, theme, f
 
   // x-axis labels: first, mid, last
   const xIdxs = [0, Math.floor(chartData.length / 2), chartData.length - 1];
+  // R4.5: the shared ChartFrame (a word legend, "Show as table"); the value on
+  // the chart palette, the gap between the lines tinted by the signed result.
+  const UIC = window.MaerminComponents;
+  const I = window.MaerminI18n;
+  const money = (v) => `${formatPrice(v)} ${getCurrencySymbol()}`;
+  const step = Math.max(1, Math.ceil(chartData.length / 12));
+  const tableRows = chartData.filter((d, i) => i % step === 0 || i === chartData.length - 1);
 
-  return React.createElement(Card, { theme, style: { marginBottom: '1.5rem' } },
-    React.createElement('div', { style: { display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem', flexWrap: 'wrap', gap: '0.5rem' } },
-      React.createElement('span', { style: { color: theme.text, fontWeight: '700', fontSize: 'var(--text-base)' } }, __('cfTitle', 'Cash Flow — Invested vs. Portfolio Value')),
-      React.createElement('span', {
-        style: { fontSize: 'var(--text-base)', fontWeight: '700', padding: '0.25rem 0.75rem', borderRadius: '6px',
-          background: isUp ? 'color-mix(in srgb, var(--success) 15%, transparent)' : 'color-mix(in srgb, var(--danger) 15%, transparent)',
-          color: isUp ? theme.success : theme.danger }
-      }, `${isUp ? '+' : ''}${formatPrice(pnl)} (${window.MaerminI18n.pct(pnlPct, 1)})`)
-    ),
-    React.createElement('svg', { role: 'img', 'aria-label': __('cfAria', 'Invested and portfolio value over time: {inv} invested, value {val}', { inv: `${formatPrice(lastInv)} ${getCurrencySymbol()}`, val: `${formatPrice(lastVal)} ${getCurrencySymbol()}` }), viewBox: `0 0 ${W} ${H}`, width: '100%', style: { overflow: 'visible' } },
+  return React.createElement(UIC.ChartFrame, {
+    'data-testid': 'cashflow-chart', className: 'ui-cf',
+    title: __('cfTitle', 'Cash Flow — Invested vs. Portfolio Value'),
+    action: React.createElement(UIC.ToneChip, { value: pnl, text: `${isUp ? '+' : '−'}${formatPrice(Math.abs(pnl))} (${I.pct(pnlPct, 1, true)})` }),
+    summary: __('cfAria', 'Invested and portfolio value over time: {inv} invested, value {val}', { inv: money(lastInv), val: money(lastVal) }),
+    legend: [
+      { series: 'dim', label: __('cfNetInvestedLegend', 'Net invested: {amount}', { amount: money(lastInv) }) },
+      { series: '1', label: __('cfValueLegend', 'Value: {amount}', { amount: money(lastVal) }) }
+    ],
+    table: {
+      rows: tableRows, rowKey: (r) => r.date,
+      columns: [
+        { key: 'date', label: __('date', 'Date'), render: (r) => I.date(r.date) },
+        { key: 'invested', label: __('cfNetInvested', 'Net invested'), align: 'right', render: (r) => money(r.invested) },
+        { key: 'value', label: __('cfValue', 'Value'), align: 'right', render: (r) => money(r.value) }
+      ]
+    }
+  },
+    React.createElement('svg', { viewBox: `0 0 ${W} ${H}`, className: 'ui-cf__svg', 'aria-hidden': 'true' },
       // Grid
       [minV, (minV + maxV) / 2, maxV].map((v, i) =>
         React.createElement(React.Fragment, { key: i },
-          React.createElement('line', { x1: PAD.l, y1: toY(v), x2: W - PAD.r, y2: toY(v), stroke: theme.cardBorder, strokeDasharray: '4,4', strokeWidth: 1 }),
-          React.createElement('text', { x: PAD.l - 6, y: toY(v) + 4, textAnchor: 'end', fill: theme.textSecondary, fontSize: 10 }, formatPrice(v))
+          React.createElement('line', { x1: PAD.l, y1: toY(v), x2: W - PAD.r, y2: toY(v), className: 'ui-pj__grid', strokeDasharray: '4,4' }),
+          React.createElement('text', { x: PAD.l - 6, y: toY(v) + 4, textAnchor: 'end', className: 'ui-pj__axis', fontSize: 10 }, formatPrice(v))
         )
       ),
       // Area between lines (P&L fill)
       React.createElement('polygon', {
         points: `${chartData.map((d,i) => `${toX(i)},${toY(d.invested)}`).join(' ')} ${chartData.map((d,i) => `${toX(chartData.length-1-i)},${toY(chartData[chartData.length-1-i].value)}`).join(' ')}`,
-        fill: isUp ? 'rgba(34,197,94,0.08)' : 'rgba(239,68,68,0.08)'
+        className: ['ui-cf__gap', isUp ? 'is-gain' : 'is-loss'].join(' ')
       }),
       // Invested line (dashed)
-      React.createElement('polyline', { points: invPts, fill: 'none', stroke: theme.textSecondary, strokeWidth: 1.5, strokeDasharray: '5,3' }),
+      React.createElement('polyline', { points: invPts, fill: 'none', className: 'ui-cf__invested', strokeWidth: 1.5, strokeDasharray: '5,3' }),
       // Value line
-      React.createElement('polyline', { points: valPts, fill: 'none', stroke: isUp ? '#22c55e' : '#ef4444', strokeWidth: 2, strokeLinejoin: 'round' }),
+      React.createElement('polyline', { points: valPts, fill: 'none', className: 'ui-cf__value', strokeWidth: 2, strokeLinejoin: 'round' }),
       // X axis labels
       xIdxs.map(i =>
-        // VIS-020: the last label ends at the edge instead of being cut; VIS-021: theme colours
-        React.createElement('text', { key: i, x: toX(i), y: H - 4, textAnchor: i === chartData.length - 1 ? 'end' : 'middle', fill: theme.textSecondary, fontSize: 10 },
-          chartData[i].date
+        // VIS-020: the last label ends at the edge instead of being cut
+        React.createElement('text', { key: i, x: toX(i), y: H - 4, textAnchor: i === chartData.length - 1 ? 'end' : i === 0 ? 'start' : 'middle', className: 'ui-pj__axis', fontSize: 10 },
+          I.date(chartData[i].date)
         )
-      )
-    ),
-    // Legend
-    React.createElement('div', { style: { display: 'flex', gap: '1.5rem', marginTop: '0.75rem', justifyContent: 'flex-end' } },
-      React.createElement('div', { style: { display: 'flex', alignItems: 'center', gap: '0.375rem', fontSize: 'var(--text-xs)', color: theme.textSecondary } },
-        React.createElement('div', { style: { width: 20, height: 0, borderTop: '2px dashed ' + theme.textSecondary } }),
-        __('cfNetInvestedLegend', 'Net invested: {amount}', { amount: `${formatPrice(lastInv)} ${getCurrencySymbol()}` })
-      ),
-      React.createElement('div', { style: { display: 'flex', alignItems: 'center', gap: '0.375rem', fontSize: 'var(--text-xs)', color: theme.textSecondary } },
-        React.createElement('div', { style: { width: 20, height: 2, background: isUp ? 'var(--success)' : 'var(--danger)' } }),
-        __('cfValueLegend', 'Value: {amount}', { amount: `${formatPrice(lastVal)} ${getCurrencySymbol()}` })
       )
     )
   );

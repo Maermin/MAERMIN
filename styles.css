@@ -2717,3 +2717,112 @@ html[data-theme="contrast"] .ui-map__tile { border: 1px solid var(--border-stron
   .ui-evf__row { grid-template-columns: 1fr; gap: 2px; }
   .ui-ds-filter { width: 100%; }
 }
+
+/* ============================================================================
+   R4.5 Planning and cash (PLAN Phase 6): Rebalancing, Budget, Cash flow,
+   Journal, Savings plans, the projection, the simulator and the backtester.
+   ========================================================================== */
+.ui-chart__swatch[data-series="dim"] { background: var(--text-dim); }
+.ui-rb-card, .ui-bg-card { display: flex; flex-direction: column; gap: var(--space-3); }
+.ui-rb-head, .ui-rb-planhead { display: flex; justify-content: space-between; align-items: center; gap: var(--space-3); flex-wrap: wrap; }
+.ui-rb-planhead { padding: var(--space-4) var(--space-5) var(--space-3); flex-direction: column; align-items: flex-start; }
+.ui-rb-planhead .ui-note { margin: 0; }
+.ui-rb-cat { display: inline-flex; align-items: center; gap: var(--space-2); color: var(--text); font-weight: 600; }
+.ui-rb-pct { display: inline-flex; align-items: center; gap: var(--space-2); }
+.ui-rb-pct .ui-meter { width: 48px; }
+.ui-rb-invest { width: 200px; max-width: 100%; }
+.ui-rb-summary { cursor: pointer; color: var(--text); font-weight: 600; min-height: 24px; }
+.ui-rb-nosell { display: flex; align-items: center; gap: var(--space-3); min-height: 32px; color: var(--text); font-size: var(--type-body); cursor: pointer; }
+.ui-rb-nosell > span:nth-child(2) { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; }
+.ui-rb-check { width: 20px; height: 20px; margin: 0; accent-color: var(--accent-fill); }
+
+/* journal */
+.ui-jn-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(min(100%, 280px), 1fr)); gap: var(--space-3); }
+.ui-jn-card { padding: var(--space-4); display: flex; flex-direction: column; gap: var(--space-2); }
+.ui-jn-card.has-note { border-color: color-mix(in srgb, var(--accent) 35%, var(--border-strong)); }
+.ui-jn-card.is-editing { border-color: var(--accent); box-shadow: inset 0 0 0 1px var(--accent); }
+.ui-jn-head { display: flex; justify-content: space-between; align-items: baseline; gap: var(--space-2); }
+.ui-jn-head b { color: var(--text); }
+.ui-jn-head .ui-note { margin: 0; }
+.ui-jn-note { min-height: 60px; padding: var(--space-2) var(--space-3); border-radius: var(--radius-sm); background: var(--surface-2); color: var(--text); font-size: var(--type-body); line-height: 1.5; white-space: pre-wrap; cursor: pointer; }
+.ui-jn-note.is-empty { color: var(--text-dim); }
+.ui-jn-note:hover { background: var(--hover); }
+.ui-jn-note:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+.ui-jn-edit .ui-textarea { min-height: 120px; }
+
+/* savings plans */
+.ui-sp-list { display: flex; flex-direction: column; gap: var(--space-4); }
+.ui-sp-card .ui-card__body { display: flex; flex-direction: column; gap: var(--space-4); }
+.ui-sp-head { display: flex; justify-content: space-between; align-items: flex-start; gap: var(--space-4); flex-wrap: wrap; }
+.ui-sp-title { min-width: 0; flex: 1 1 260px; }
+.ui-sp-title .ui-note { margin-top: var(--space-1); }
+.ui-sp-name { display: flex; align-items: center; gap: var(--space-2); flex-wrap: wrap; }
+.ui-sp-name b { color: var(--text); font-size: var(--type-heading); }
+.ui-sp-actions { justify-content: flex-end; margin: 0; }
+.ui-sp-amount { display: flex; gap: var(--space-2); }
+.ui-sp-amount .ui-input:first-child { flex: 1; min-width: 0; }
+.ui-sp-amount .ui-select { width: auto; }
+.ui-ring--sm { width: 60px; height: 60px; flex-shrink: 0; }
+.ui-ring--sm .ui-ring__inner { width: 48px; height: 48px; }
+.ui-ring--sm .ui-ring__inner b { font-size: var(--type-body); }
+.ui-ring--sm .ui-ring__inner span { font-size: 10px; margin-top: 0; }
+
+/* projection, cash flow */
+.ui-pj-controls { display: inline-flex; gap: var(--space-2); align-items: center; }
+.ui-pj__svg, .ui-cf__svg { width: 100%; height: auto; display: block; overflow: visible; }
+.ui-pj__grid { stroke: var(--border); stroke-width: 1; }
+.ui-pj__axis { fill: var(--text-dim); }
+.ui-pj__area { fill: color-mix(in srgb, var(--chart-1) 12%, transparent); stroke: none; }
+.ui-pj .ui-tiles { margin-top: var(--space-4); }
+.ui-cf__invested { stroke: var(--text-dim); }
+.ui-cf__value { stroke: var(--chart-1); }
+.ui-cf__gap.is-gain { fill: color-mix(in srgb, var(--gain) 10%, transparent); }
+.ui-cf__gap.is-loss { fill: color-mix(in srgb, var(--loss) 10%, transparent); }
+
+/* investment calendar */
+.ui-it__scroll { overflow-x: auto; max-width: 100%; margin-top: var(--space-4); }
+.ui-it { border-collapse: separate; border-spacing: 3px; width: 100%; table-layout: fixed; }
+.ui-it th { color: var(--text-dim); font-weight: 600; font-size: var(--type-caption); text-align: center; padding: 0 2px 2px; }
+.ui-it .ui-it__yearhead { width: 5.4rem; text-align: left; text-transform: uppercase; font-size: 11px; }
+.ui-it__year { text-align: left !important; line-height: 1.15; }
+.ui-it__year b { display: block; color: var(--text); font-size: var(--type-body); }
+.ui-it__year span { color: var(--text-dim); font-size: 11px; white-space: nowrap; }
+.ui-it__cell { display: block; width: 100%; min-width: 14px; height: 28px; padding: 0; border: 1px solid var(--border); border-radius: 6px; background: var(--surface-2); cursor: pointer; }
+.ui-it__cell.has-buy { border-color: transparent; }
+.ui-it__cell.is-on { box-shadow: inset 0 0 0 2px var(--text); }
+.ui-it__cell:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
+.ui-it__blank { height: 28px; }
+
+/* budget */
+.ui-bg-month { min-width: 8rem; text-align: center; color: var(--text); font-weight: 600; }
+.ui-bg-row { border-top: 1px solid var(--border); padding: var(--space-2) 0; }
+.ui-bg-row__line { display: flex; justify-content: space-between; gap: var(--space-2); align-items: center; flex-wrap: wrap; font-size: var(--type-body); }
+.ui-bg-row__side { display: inline-flex; gap: var(--space-2); align-items: center; }
+.ui-bg-row .ui-meter { margin-top: var(--space-1); }
+.ui-bg-tx { display: flex; gap: var(--space-2); align-items: center; flex-wrap: wrap; font-size: var(--type-body); }
+.ui-bg-tx__name { flex: 1 1 160px; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--text); }
+.ui-bg-tx__amt { min-width: 6rem; text-align: right; color: var(--text); }
+.ui-bg-tx .ui-select { width: auto; }
+.ui-bg-split { padding: var(--space-2) 0 0 var(--space-4); }
+.ui-bg-add .ui-input { flex: 1 1 160px; width: auto; }
+.ui-bg-add .ui-select { flex: 0 0 auto; width: auto; }
+.ui-bg-legend { list-style: none; margin: var(--space-2) 0 0; padding: 0; display: grid; gap: var(--space-1); }
+.ui-bg-legend li { display: flex; align-items: center; gap: var(--space-2); font-size: var(--type-caption); color: var(--text); }
+.ui-bg-legend li span:nth-child(2) { flex: 1; }
+
+/* simulator, backtester */
+.ui-sim .ui-tiles { margin-top: var(--space-4); }
+.ui-bt-sym { width: 140px; }
+.ui-bt-row { border-top: 1px solid var(--border); padding: var(--space-3) 0; display: flex; flex-direction: column; gap: var(--space-2); }
+.ui-bt-row__head { display: flex; justify-content: space-between; gap: var(--space-2); flex-wrap: wrap; font-size: var(--type-body); }
+.ui-bt-row__figs { display: inline-flex; gap: var(--space-3); flex-wrap: wrap; color: var(--text-dim); }
+.ui-bt-row__figs b { color: var(--text); }
+.ui-bt-row__figs b.tone-gain { color: var(--gain); }
+.ui-bt-row__figs b.tone-loss { color: var(--loss); }
+.ui-risk > .ui-view + .ui-sim, .ui-risk > .ui-view ~ .ui-card { margin: 0 var(--space-7) var(--space-5); }
+
+@media (max-width: 767px) {
+  .ui-rb-pct .ui-meter { display: none; }
+  .ui-risk > .ui-view ~ .ui-card { margin: 0 var(--space-4) var(--space-4); }
+  .ui-pj-controls { flex-wrap: wrap; }
+}

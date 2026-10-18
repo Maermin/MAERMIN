@@ -67,9 +67,8 @@ function __(k, f, v) { return (typeof window !== 'undefined' && window.MaerminI1
     var theme = props.theme || {};
     var fmt = props.formatPrice || function (n) { return window.MaerminI18n.num(Math.round(n), 0); };
     var sym = (props.getCurrencySymbol && props.getCurrencySymbol()) || '';
-    var text = theme.text || '#e6edf3', dim = theme.textSecondary || '#9aa4b2';
-    var accent = theme.accent || '#8b7cff', border = theme.cardBorder || 'rgba(255,255,255,0.1)';
-    var inputBg = theme.inputBg || '#0f172a', ok = theme.success || '#22c55e', bad = theme.danger || '#ef4444';
+    // R4.5: the shared Card, Segmented, Field inputs and Stat tiles
+    var UIC = window.MaerminComponents;
 
     var sMode = React.useState('future'); var mode = sMode[0], setMode = sMode[1];
     var sIn = React.useState(function () { return defaults(props.startValue); });
@@ -88,53 +87,43 @@ function __(k, f, v) { return (typeof window !== 'undefined' && window.MaerminI1
       setInputs(function (prev) { var n = Object.assign({}, prev); n[key] = isNaN(num) ? 0 : num; return n; });
     }
     function field(key, label, suffix) {
-      return h('div', { key: key, style: { display: 'flex', flexDirection: 'column', gap: '0.25rem' } },
-        h('label', { style: { color: dim, fontSize: 'var(--text-2xs)', textTransform: 'uppercase', letterSpacing: '0.04em' } }, label + (suffix ? ' (' + suffix + ')' : '')),
-        h('input', { type: 'number', value: inputs[key], onChange: function (e) { setField(key, e.target.value); },
-          style: { padding: '0.5rem 0.6rem', background: inputBg, border: '1px solid ' + border, borderRadius: '8px', color: text, fontSize: 'var(--text-base)', width: '100%', boxSizing: 'border-box' } })
-      );
+      return h(UIC.Input, { key: key, type: 'number', label: label + (suffix ? ' (' + suffix + ')' : ''), value: inputs[key], onChange: function (e) { setField(key, e.target.value); } });
     }
-    function stat(label, value, color) {
-      return h('div', { style: { background: inputBg, border: '1px solid ' + border, borderRadius: '10px', padding: '0.8rem 1rem' } },
-        h('div', { style: { color: dim, fontSize: 'var(--text-xs)', textTransform: 'uppercase', letterSpacing: '0.04em' } }, label),
-        h('div', { style: { color: color || text, fontSize: 'var(--text-body)', fontWeight: '700', marginTop: '0.2rem' } }, value)
-      );
+    function stat(label, value, tone) {
+      return h(UIC.Stat, { key: label, className: 'ui-tile', label: label, value: value, tone: tone || null });
     }
 
     function results() {
-      if (!window.MaerminAnalytics) return h('div', { style: { color: dim, fontSize: 'var(--text-base)' } }, __('simEngineMissing', 'Analytics engine unavailable.'));
+      if (!window.MaerminAnalytics) return h('p', { className: 'ui-muted' }, __('simEngineMissing', 'Analytics engine unavailable.'));
       if (!res) return null;
       var cards = [];
       if (mode === 'future') {
-        cards = [stat(__('simProjected', 'Projected value'), money(res.projected), accent), stat(__('simTotalContrib', 'Total contributions'), money(res.contributions)), stat(__('simGrowth', 'Investment growth'), money(res.growth), ok)];
+        cards = [stat(__('simProjected', 'Projected value'), money(res.projected)), stat(__('simTotalContrib', 'Total contributions'), money(res.contributions)),
+          stat(__('simGrowth', 'Investment growth'), (res.growth > 0 ? '+' : res.growth < 0 ? '−' : '') + money(Math.abs(res.growth)), UIC.toneOf(res.growth))];
       } else if (mode === 'fire') {
-        if (!res.configured) return h('div', { style: { color: dim, fontSize: 'var(--text-base)' } }, __('simNeedExpenses', 'Enter your annual expenses to compute your FIRE number.'));
+        if (!res.configured) return h('p', { className: 'ui-muted' }, __('simNeedExpenses', 'Enter your annual expenses to compute your FIRE number.'));
         cards = [
-          stat(__('simFireNumber', 'FIRE number'), money(res.fireNumber), accent),
-          stat(__('simProgress', 'Progress'), window.MaerminI18n.pct(res.currentProgress || 0, 1), res.currentProgress >= 100 ? ok : text),
-          stat(__('simYearsToFire', 'Years to FIRE'), res.yearsToFire == null ? '100+' : res.yearsToFire, res.reached ? ok : text),
+          stat(__('simFireNumber', 'FIRE number'), money(res.fireNumber)),
+          stat(__('simProgress', 'Progress'), window.MaerminI18n.pct(res.currentProgress || 0, 1), res.currentProgress >= 100 ? 'gain' : null),
+          stat(__('simYearsToFire', 'Years to FIRE'), res.yearsToFire == null ? '100+' : String(res.yearsToFire), res.reached ? 'gain' : null),
           stat(__('simProjectedAtFire', 'Projected at FIRE'), money(res.projectedValueAtFire))
         ];
       } else if (mode === 'withdraw') {
         cards = [
-          stat(__('simOutcome', 'Outcome'), res.survives ? __('simSurvives', 'Survives the horizon') : __('simDepletes', 'Depletes'), res.survives ? ok : bad),
-          stat(__('simDepletesYear', 'Depletes in year'), res.depletedYear == null ? '—' : __('dcYear', 'Year {y}', { y: res.depletedYear }), res.depletedYear == null ? ok : bad),
-          stat(__('simEndingBalance', 'Ending balance'), money(res.endingBalance), res.endingBalance > 0 ? ok : bad)
+          stat(__('simOutcome', 'Outcome'), res.survives ? '✓ ' + __('simSurvives', 'Survives the horizon') : '✗ ' + __('simDepletes', 'Depletes'), res.survives ? 'gain' : 'loss'),
+          stat(__('simDepletesYear', 'Depletes in year'), res.depletedYear == null ? '—' : __('dcYear', 'Year {y}', { y: res.depletedYear }), res.depletedYear == null ? null : 'loss'),
+          stat(__('simEndingBalance', 'Ending balance'), money(res.endingBalance), res.endingBalance > 0 ? null : 'loss')
         ];
       }
-      return h('div', { style: { display: 'grid', gridTemplateColumns: 'repeat(auto-fit,minmax(150px,1fr))', gap: '0.6rem', marginTop: '1rem' } }, cards);
+      return h('div', { className: 'ui-tiles' }, cards);
     }
 
-    return h('div', { style: { background: theme.card || theme.cardBg || 'transparent', border: '1px solid ' + border, borderRadius: '14px', padding: '1.25rem', margin: '1rem 1.5rem' } },
-      h('div', { style: { display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '0.5rem', marginBottom: '0.9rem' } },
-        h('h3', { style: { color: text, fontSize: 'var(--text-body)', fontWeight: '700', margin: 0 } }, __('simTitle', 'Planning simulator')),
-        h('div', { style: { display: 'flex', gap: '0.3rem', flexWrap: 'wrap' } }, MODES.map(function (m) {
-          return h('button', { key: m.id, onClick: function () { setMode(m.id); }, style: { padding: '0.35rem 0.75rem', borderRadius: '8px', border: 'none', cursor: 'pointer', fontSize: 'var(--text-xs)', fontWeight: mode === m.id ? '700' : '500', background: mode === m.id ? accent : inputBg, color: mode === m.id ? '#ffffff' : dim } }, ({ future: __('simFuture', 'Future Value'), fire: 'FIRE', withdraw: __('simWithdraw', 'Withdrawal') })[m.id] || m.label);
-        }))
-      ),
-      h('div', { style: { display: 'grid', gridTemplateColumns: 'repeat(auto-fit,minmax(150px,1fr))', gap: '0.6rem' } }, (FIELDS[mode] || []).map(function (f) { return field(f[0], f[1], f[2]); })),
+    return h(UIC.Card, { 'data-testid': 'simulator', title: __('simTitle', 'Planning simulator'), headingLevel: 'h3', className: 'ui-sim',
+      action: h(UIC.Segmented, { label: __('simTitle', 'Planning simulator'), size: 'sm', value: mode, onChange: setMode,
+        options: MODES.map(function (m) { return { value: m.id, label: ({ future: __('simFuture', 'Future Value'), fire: 'FIRE', withdraw: __('simWithdraw', 'Withdrawal') })[m.id] || m.label }; }) }) },
+      h('div', { className: 'ui-form-grid' }, (FIELDS[mode] || []).map(function (f) { return field(f[0], f[1], f[2]); })),
       results(),
-      h('div', { style: { color: dim, fontSize: 'var(--text-xs)', marginTop: '0.8rem', lineHeight: '1.5' } }, __('simFootnote', 'Projections are assumption-based estimates, not guarantees.'))
+      h('p', { className: 'ui-note' }, __('simFootnote', 'Projections are assumption-based estimates, not guarantees.'))
     );
   }
 
