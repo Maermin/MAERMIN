@@ -24,7 +24,7 @@ let s = WL.applySnapshot(r.state, w1.id, { native: { symbol: 'BTC', amount: 1 },
 s = WL.applySnapshot(s, w2.id, { native: { symbol: 'ETH', amount: 1.5 }, tokens: [{ symbol: 'usdc', name: 'USD Coin', amount: 2500, contract: '0xa0' }, { symbol: 'X', amount: 0 }], txs: [] }, '2025-03-01');
 s = WL.applySnapshot(s, w3.id, { native: { symbol: 'ETH', amount: 0.25 }, tokens: [{ symbol: 'USDC', amount: 100 }] }, '2025-03-01');
 const stored = JSON.stringify(s);
-ok('balances stored, transactions not', s.wallets[0].native.amount === 1 && s.wallets[0].lastSync === '2025-03-01' && stored.indexOf('"txs"') < 0 && stored.indexOf('b1') < 0);
+ok('balances stored, transactions not', s.wallets[0].native.amount === 1 && s.wallets[0].lastSync === '2025-03-01' && stored.indexOf('"txs"') < 0 && stored.indexOf('"b1"') < 0); // the hash as a JSON value (random wallet ids may contain b1)
 ok('token symbols upper-case, zero balances dropped', s.wallets[1].tokens.length === 1 && s.wallets[1].tokens[0].symbol === 'USDC');
 ok('a stored wallet with a broken address is dropped on load', WL.normalize({ wallets: [{ chain: 'btc', address: 'nope' }] }).wallets.length === 0);
 ok('remove', WL.removeWallet(s, w1.id).wallets.length === 2);
