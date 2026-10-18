@@ -184,12 +184,7 @@ function __(k, f, v) { return (typeof window !== 'undefined' && window.MaerminI1
       var e = React.createElement;
       var useState = React.useState;
       try {
-        var theme = props.theme || {};
         var t = props.t || ((typeof window !== 'undefined' && window.MaerminI18n) ? window.MaerminI18n.dict() : {});
-        var text = theme.text || '#e9edf4', dim = theme.textSecondary || '#8b94a7';
-        var border = theme.cardBorder || 'rgba(255,255,255,0.08)';
-        var card = theme.card || '#10151f';
-        var accent = theme.accent || '#8b7cff', accentText = theme.accentText || '#ffffff', accentFill = theme.accentFill || accent;
 
         var s0 = useState(function () { return API.load(); });
         var st = s0[0], setSt = s0[1];
@@ -243,48 +238,44 @@ function __(k, f, v) { return (typeof window !== 'undefined' && window.MaerminI1
           commit(API.reorder(st, ord));
           announce(id, ord);
         }
+        // R5.1: shared buttons and chips; the rows on the shared surface
+        var UIC = window.MaerminComponents;
         function iconBtn(label, dir, id, disabled) {
-          return e('button', { type: 'button', 'data-dash-move': dir, 'data-dash-id': id, disabled: disabled, 'aria-label': label, title: label,
-            onClick: function () { moveBy(id, dir); },
-            style: { width: '40px', height: '40px', flexShrink: 0, fontSize: 'var(--text-body)', lineHeight: 1, cursor: disabled ? 'default' : 'pointer', borderRadius: '10px',
-              border: '1px solid ' + border, background: 'transparent', color: disabled ? 'var(--text-faint)' : text, opacity: disabled ? 0.6 : 1 } }, dir === 'up' ? '↑' : '↓');
+          return e(UIC.IconButton, { 'data-dash-move': dir, 'data-dash-id': id, disabled: disabled, label: label,
+            onClick: function () { moveBy(id, dir); } }, dir === 'up' ? '↑' : '↓');
         }
 
         var rows = order.map(function (id, k) {
           var visible = visOf[id] !== false, name = byId[id] || id, dragging = drag && drag.id === id;
-          return e('div', { key: id, 'data-dash-row': id, style: { display: 'flex', alignItems: 'center', gap: '0.6rem', padding: '0.6rem 0.75rem', background: card, border: '1px solid ' + (dragging ? accent : border), borderRadius: '12px', marginBottom: '0.6rem', boxShadow: dragging ? '0 6px 18px rgba(0,0,0,0.25)' : 'none' } },
+          return e('div', { key: id, 'data-dash-row': id, className: ['ui-dash-row', dragging ? 'is-dragging' : '', visible ? '' : 'is-off'].join(' ').trim() },
             e('button', { type: 'button', 'data-dash-handle': id, 'aria-label': __('dashDragAria', 'Drag {name} to a new place (or use the arrow buttons)', { name: name }),
               onPointerDown: function (ev) { onPointerDown(ev, id); }, onPointerMove: onPointerMove, onPointerUp: onPointerUp, onPointerCancel: onPointerUp,
               onKeyDown: function (ev) { if (ev.key === 'ArrowUp' && k > 0) { ev.preventDefault(); moveBy(id, 'up'); } else if (ev.key === 'ArrowDown' && k < order.length - 1) { ev.preventDefault(); moveBy(id, 'down'); } },
-              style: { width: '40px', height: '40px', flexShrink: 0, cursor: dragging ? 'grabbing' : 'grab', touchAction: 'none', borderRadius: '10px', border: '1px solid ' + border, background: 'transparent', color: dim, fontSize: 'var(--text-lg)' } }, '⠿'),
-            e('button', {
-              type: 'button',
+              className: ['ui-icon-btn', 'ui-icon-btn--md', 'ui-dash-handle'].join(' ') }, '⠿'),
+            e(UIC.Chip, {
               onClick: function () { commit(API.toggle(st, id)); },
               title: visible ? (t.dashHide || 'Hide') : (t.dashShow || 'Show'),
-              'aria-pressed': visible, 'aria-label': __('dashShowAria', 'Show {name}', { name: name }),
-              style: { width: '44px', minHeight: '32px', flexShrink: 0, padding: '0.3rem 0', fontSize: 'var(--text-xs)', fontWeight: 800, cursor: 'pointer', borderRadius: '999px', border: '1px solid ' + (visible ? accent : border), background: visible ? accentFill : 'transparent', color: visible ? accentText : dim } },
+              pressed: visible, 'aria-label': __('dashShowAria', 'Show {name}', { name: name }), className: 'ui-dash-toggle' },
               visible ? __('secOn', 'On') : __('dashOff', 'Off')),
-            e('div', { style: { flex: 1, minWidth: 0, color: visible ? text : dim, fontSize: 'var(--text-base)', fontWeight: 600 } }, name),
+            e('div', { className: 'ui-dash-name' }, name),
             iconBtn(__('dashUpAria', 'Move {name} up', { name: name }), 'up', id, k === 0 || !!drag),
             iconBtn(__('dashDownAria', 'Move {name} down', { name: name }), 'down', id, k === order.length - 1 || !!drag));
         });
 
-        return e('div', { style: { padding: '1.5rem', position: 'relative' } },
-          e('h2', { style: { color: text, fontSize: 'var(--text-xl)', fontWeight: 800, letterSpacing: '-0.02em', margin: '0 0 0.35rem' } }, t.navCustomize || 'Customize Overview'),
-          e('p', { style: { color: dim, fontSize: 'var(--text-base)', margin: '0 0 1.25rem', lineHeight: 1.5, maxWidth: '60ch' } },
+        return e('div', { className: 'ui-view' },
+          e('p', { className: 'ui-view__lead' },
             __('dashSubtitleOrder', 'Show, hide and reorder the main Overview sections: drag a row by its handle, or use the arrow buttons. Changes are saved instantly and carried in your backup.')),
-          e('div', { ref: listRef, 'data-testid': 'dash-order' }, rows),
-          e('div', { role: 'status', 'aria-live': 'polite', style: { position: 'absolute', width: '1px', height: '1px', overflow: 'hidden', clipPath: 'inset(50%)', whiteSpace: 'nowrap' } }, said),
+          e('div', { ref: listRef, 'data-testid': 'dash-order', className: 'ui-dash-list' }, rows),
+          e('div', { role: 'status', 'aria-live': 'polite', className: 'sr-only' }, said),
           // UX-020: the reset says what it did and offers Undo (the previous layout)
-          e('button', { onClick: function () {
+          e('div', { className: 'ui-actions' }, e(UIC.Button, { onClick: function () {
             var before = st;
             commit(API.reset());
             var UI = (typeof window !== 'undefined') && window.MaerminUI;
             if (UI && UI.add) UI.add(__('dashResetDone', 'Overview layout reset to default'), 'success', 8000, { label: __('undo', 'Undo'), run: function () { commit(before); } });
-          }, style: { marginTop: '0.5rem', padding: '0.45rem 0.9rem', fontSize: 'var(--text-sm)', fontWeight: 700, cursor: 'pointer', borderRadius: '8px', border: '1px solid ' + border, background: 'transparent', color: text } },
-            t.dashReset || 'Reset to default'));
+          } }, t.dashReset || 'Reset to default')));
       } catch (err) {
-        return e('div', { style: { padding: '1.5rem', color: (props.theme && props.theme.danger) || 'var(--danger)' } }, __('dashError', 'Customize view error: {msg}', { msg: err && err.message }));
+        return e('div', { className: 'ui-view' }, e('p', { role: 'alert', className: ['ui-muted', 'is-error'].join(' ') }, __('dashError', 'Customize view error: {msg}', { msg: err && err.message })));
       }
     };
   }

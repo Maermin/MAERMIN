@@ -172,8 +172,8 @@ function __(k, f, v) { return (typeof window !== 'undefined' && window.MaerminI1
     var React = (typeof window !== 'undefined') ? window.React : null;
     if (!React) return null;
     var e = React.createElement;
-    var th = props.theme || {};
-    var text = th.text, dim = th.textSecondary, border = th.cardBorder;
+    // R5.1: Card, shared buttons, a warning callout when the copy could not be made
+    var UIC = window.MaerminComponents;
     var st = React.useState(undefined), copy = st[0], setCopy = st[1];
     var bs = React.useState(false), busy = bs[0], setBusy = bs[1];
     React.useEffect(function () {
@@ -187,8 +187,7 @@ function __(k, f, v) { return (typeof window !== 'undefined' && window.MaerminI1
     var I = window.MaerminI18n;
     var toast = props.addToast || function () {};
     function btn(label, onClick, danger) {
-      return e('button', { type: 'button', onClick: onClick, disabled: busy, style: { padding: '0.35rem 0.75rem', borderRadius: '7px', cursor: busy ? 'default' : 'pointer', fontSize: 'var(--text-xs)', fontWeight: 600,
-        background: 'transparent', color: danger ? th.danger : th.accent, border: '1px solid ' + (danger ? window.MaerminTokens.alpha(th.danger, 0x66) : border) } }, label);
+      return e(UIC.Button, { size: 'sm', variant: danger ? 'danger' : 'secondary', onClick: onClick, disabled: busy }, label);
     }
     function doDiscard() {
       window.MaerminUtils.confirmThen({ title: __('pmbDiscardTitle', 'Delete the copy from before the update?'), message: __('trashPurgeMsg', 'This cannot be undone.'),
@@ -219,19 +218,18 @@ function __(k, f, v) { return (typeof window !== 'undefined' && window.MaerminI1
     }
     var body;
     if (copy && copy.unreadable) {
-      body = [e('p', { key: 'p', style: { color: dim, fontSize: 'var(--text-sm)', margin: '0 0 0.75rem', lineHeight: 1.5 } },
+      body = [e('p', { key: 'p', className: 'ui-muted' },
         __('pmbUnreadable', 'There is a copy from before an update, but it cannot be read with this vault (for example after an encrypted backup from another vault was restored).')),
-        e('div', { key: 'b', style: { display: 'flex', gap: '0.5rem', flexWrap: 'wrap' } }, btn(__('pmbDiscard', 'Delete copy'), doDiscard, true))];
+        e('div', { key: 'b', className: 'ui-actions' }, btn(__('pmbDiscard', 'Delete copy'), doDiscard, true))];
     } else if (copy) {
-      body = [e('p', { key: 'p', style: { color: dim, fontSize: 'var(--text-sm)', margin: '0 0 0.75rem', lineHeight: 1.5 } },
+      body = [e('p', { key: 'p', className: 'ui-muted' },
         __('pmbSub', 'Saved on {date}, before your data was updated to a new format: {count} transactions. It stays on this device, encrypted, and is not synced or part of a backup. The next update replaces it.',
           { date: I.date(copy.createdAt, 'dateTime'), count: copy.transactionCount == null ? '?' : copy.transactionCount })),
-        e('div', { key: 'b', style: { display: 'flex', gap: '0.5rem', flexWrap: 'wrap' } },
+        e('div', { key: 'b', className: 'ui-actions' },
           btn(__('pmbRestore', 'Restore copy'), doRestore, false), btn(__('pmbDiscard', 'Delete copy'), doDiscard, true))];
     } else body = [];
-    return e('div', { 'data-testid': 'premigration-card', style: { background: th.card, border: '1px solid ' + border, borderRadius: '14px', padding: '1.25rem', marginBottom: '1rem' } },
-      e('h3', { style: { color: text, fontSize: 'var(--text-body)', fontWeight: 700, margin: '0 0 0.4rem' } }, __('pmbTitle', 'Copy from before the last update')),
-      s.state === 'blocked' ? e('p', { role: 'status', style: { color: th.warning, fontSize: 'var(--text-sm)', margin: '0 0 0.75rem', lineHeight: 1.5 } }, blockedText(s)) : null,
+    return e(UIC.Card, { 'data-testid': 'premigration-card', headingLevel: 'h3', title: __('pmbTitle', 'Copy from before the last update') },
+      s.state === 'blocked' ? e('p', { role: 'status', className: ['ui-callout', 'ui-callout--warn'].join(' ') }, '! ' + blockedText(s)) : null,
       body);
   }
 

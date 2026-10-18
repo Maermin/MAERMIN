@@ -264,14 +264,9 @@ function __(k, f, v) { return (typeof window !== 'undefined' && window.MaerminI1
       var e = React.createElement;
       var useState = React.useState;
       try {
-        var theme = props.theme || {};
         var t = props.t || ((typeof window !== 'undefined' && window.MaerminI18n) ? window.MaerminI18n.dict() : {});
-        var text = theme.text || '#e9edf4', dim = theme.textSecondary || '#8b94a7';
-        var border = theme.cardBorder || 'rgba(255,255,255,0.08)';
-        var card = theme.card || '#10151f';
-        var inputBg = theme.inputBg || '#0c1018', inputBorder = theme.inputBorder || border;
-        var accent = theme.accent || '#8b7cff', accentText = theme.accentText || '#ffffff', accentFill = theme.accentFill || accent;
-        var up = theme.success || '#22c55e', down = theme.danger || '#ef4444';
+        // R5.1: the rule form on shared fields, rules as rows with a mark and words, shared buttons
+        var UIC = window.MaerminComponents;
         var fmt = props.formatPrice || function (n) { return window.MaerminI18n.num(n, 2); };
 
         var s0 = useState(function () { return API.load(); });
@@ -307,11 +302,11 @@ function __(k, f, v) { return (typeof window !== 'undefined' && window.MaerminI1
           }
         }
 
-        function field(child) { return e('div', { style: { display: 'flex', flexDirection: 'column', gap: '0.2rem' } }, child); }
-        function sel(value, onChange, opts, placeholder, label) {
+        function field(label, child) { return e('label', { className: 'ui-rl-field' }, e('span', { className: 'ui-field__label' }, label), child); }
+        function sel(value, onChange, opts, placeholder) {
           return e('select', {
-            value: value, onChange: function (ev) { onChange(ev.target.value); }, 'aria-label': label,
-            style: { padding: '0.4rem 0.5rem', borderRadius: '8px', border: '1px solid ' + inputBorder, background: inputBg, color: text, fontSize: 'var(--text-sm)' }
+            value: value, onChange: function (ev) { onChange(ev.target.value); },
+            className: ['ui-input', 'ui-select'].join(' ')
           }, (placeholder != null ? [e('option', { key: '_', value: '' }, placeholder)] : []).concat(
             opts.map(function (o) { return e('option', { key: o[0] != null ? o[0] : o, value: o[0] != null ? o[0] : o }, o[1] != null ? o[1] : o); })));
         }
@@ -319,24 +314,17 @@ function __(k, f, v) { return (typeof window !== 'undefined' && window.MaerminI1
         var ruleRows = results.map(function (res) {
           var r = res.rule;
           var actStr = res.actual == null ? '—' : ((r.metric === 'total_value' || r.metric === 'symbol_price') ? fmt(res.actual) : (API.METRICS[r.metric].unit === '%' ? window.MaerminI18n.pct(res.actual, 1) : window.MaerminI18n.num(res.actual, 1)));
-          return e('div', {
-            key: r.id,
-            style: {
-              display: 'flex', alignItems: 'center', gap: '0.75rem', padding: '0.75rem 0.9rem',
-              borderRadius: '12px', border: '1px solid ' + (res.triggered ? down : border),
-              background: res.triggered ? 'color-mix(in srgb, var(--danger) 6%, transparent)' : card, marginBottom: '0.6rem'
-            }
-          },
-            e('span', { 'aria-hidden': 'true', title: res.triggered ? __('rlTriggered', 'Triggered') : 'OK', style: { color: res.triggered ? down : up, fontWeight: 800, fontSize: 'var(--text-body)' } }, res.triggered ? '●' : '○'),
-            e('div', { style: { flex: 1, minWidth: 0 } },
-              e('div', { style: { color: text, fontWeight: 700, fontSize: 'var(--text-base)' } }, r.name || API.describe(r)),
-              e('div', { style: { color: dim, fontSize: 'var(--text-xs)', marginTop: '0.1rem' } },
-                API.describe(r) + '  ·  ' + (t.rulesNow || 'now') + ' ' + actStr)),
-            e('button', {
-              onClick: function () { mutate(API.toggleRule(st, r.id)); },
-              style: { padding: '0.3rem 0.6rem', fontSize: 'var(--text-xs)', fontWeight: 700, cursor: 'pointer', borderRadius: '8px', border: '1px solid ' + inputBorder, background: 'transparent', color: r.enabled ? text : dim }
+          return e('li', { key: r.id, className: ['ui-rl-row', res.triggered ? 'is-hit' : '', r.enabled ? '' : 'is-off'].join(' ').trim() },
+            e(UIC.Badge, { tone: res.triggered ? 'loss' : 'gain' }, res.triggered ? '! ' + __('rlTriggered', 'Triggered') : '✓ ' + __('rlOk', 'OK')),
+            e('div', { className: 'ui-rows__main' },
+              e('b', null, r.name || API.describe(r)),
+              e('span', null, API.describe(r) + '  ·  ' + (t.rulesNow || 'now') + ' ' + actStr)),
+            e(UIC.Chip, {
+              pressed: !!r.enabled, 'aria-label': __('rlEnabledAria', 'Rule {name} on', { name: r.name || API.describe(r) }),
+              onClick: function () { mutate(API.toggleRule(st, r.id)); }
             }, r.enabled ? (t.rulesOn || 'On') : (t.rulesOff || 'Off')),
-            e('button', {
+            e(UIC.Button, {
+              size: 'sm', variant: 'quiet',
               onClick: function () {
                 window.MaerminUtils.confirmThen({
                   title: (t.rulesDeleteTitle || 'Delete the rule "{name}"?').replace('{name}', r.name || API.describe(r)),
@@ -345,50 +333,43 @@ function __(k, f, v) { return (typeof window !== 'undefined' && window.MaerminI1
                   mutate(API.removeRule(st, r.id));
                   if (window.MaerminTrash) window.MaerminTrash.trashed('rule', r.name || API.describe(r), r);
                 });
-              },
-              style: { padding: '0.3rem 0.6rem', fontSize: 'var(--text-xs)', fontWeight: 700, cursor: 'pointer', borderRadius: '8px', border: '1px solid ' + inputBorder, background: 'transparent', color: text }
+              }
             }, t.rulesDelete || 'Delete'));
         });
 
-        return e('div', { style: { padding: '1.5rem' } },
-          e('h2', { style: { color: text, fontSize: 'var(--text-xl)', fontWeight: 800, letterSpacing: '-0.02em', margin: '0 0 0.35rem' } }, t.navRules || 'Alerts & Rules'),
-          e('p', { style: { color: dim, fontSize: 'var(--text-base)', margin: '0 0 1.25rem', lineHeight: 1.5, maxWidth: '62ch' } },
+        return e('div', { className: 'ui-rl' },
+          e('p', { className: 'ui-view__lead' },
             t.rulesSubtitle || 'Local "warn me when…" rules on prices, concentration, allocation and drawdown — evaluated on every price refresh against your live portfolio. Rules carry into your backup.'),
 
-          e('div', { style: { display: 'flex', alignItems: 'flex-end', gap: '0.6rem', flexWrap: 'wrap', background: card, border: '1px solid ' + border, borderRadius: '14px', padding: '1rem', marginBottom: '1.25rem' } },
-            field(sel(form.metric, function (v) { setF({ metric: v, target: '' }); },
-              Object.keys(API.METRICS).map(function (k) { return [k, API.metricLabel(k)]; }), null, __('rlMetricLabel', 'Metric'))),
-            spec.needsTarget ? field(
-              priceTarget
-                ? e(React.Fragment, null,
-                    e('input', { value: form.target, list: 'maermin-rule-price-symbols', onChange: function (ev) { setF({ target: ev.target.value }); }, placeholder: t.rulesSymbol || 'symbol', 'aria-label': t.rulesSymbol || 'symbol', style: { width: '120px', padding: '0.4rem 0.5rem', borderRadius: '8px', border: '1px solid ' + inputBorder, background: inputBg, color: text, fontSize: 'var(--text-sm)' } }),
-                    e('datalist', { id: 'maermin-rule-price-symbols' }, (props.symbols || []).map(function (sy) { return e('option', { key: sy, value: sy }); })))
-              : targetOptions.length
-                ? sel(form.target, function (v) { setF({ target: v }); }, targetOptions, t.rulesPickTarget || 'target…', __('rlTargetLabel', 'Target'))
-                : e('input', { value: form.target, onChange: function (ev) { setF({ target: ev.target.value }); }, placeholder: t.rulesTarget || 'target', 'aria-label': __('rlTargetLabel', 'Target'), style: { padding: '0.4rem 0.5rem', borderRadius: '8px', border: '1px solid ' + inputBorder, background: inputBg, color: text, fontSize: 'var(--text-sm)', width: '120px' } })
-            ) : null,
-            field(sel(form.op, function (v) { setF({ op: v }); }, Object.keys(API.OPS).map(function (k) { return [k, API.OPS[k]]; }), null, __('rlConditionLabel', 'Condition'))),
-            field(e('input', {
-              type: 'number', value: form.threshold, onChange: function (ev) { setF({ threshold: ev.target.value }); },
-              placeholder: API.METRICS[form.metric].unit === '%' ? '%' : '0', 'aria-label': __('rlThresholdLabel', 'Threshold'),
-              style: { width: '90px', padding: '0.4rem 0.5rem', borderRadius: '8px', border: '1px solid ' + inputBorder, background: inputBg, color: text, fontSize: 'var(--text-sm)' }
-            })),
-            e('button', {
-              onClick: addCurrent,
-              style: { padding: '0.45rem 0.9rem', fontSize: 'var(--text-sm)', fontWeight: 800, cursor: 'pointer', borderRadius: '8px', border: 'none', background: accentFill, color: accentText }
-            }, t.rulesAdd || 'Add rule')),
+          e(UIC.Card, { headingLevel: 'h3', title: __('rlNewTitle', 'New rule') },
+            e('div', { className: 'ui-rl-form' },
+              field(__('rlMetricLabel', 'Metric'), sel(form.metric, function (v) { setF({ metric: v, target: '' }); },
+                Object.keys(API.METRICS).map(function (k) { return [k, API.metricLabel(k)]; }), null)),
+              spec.needsTarget ? (
+                priceTarget
+                  ? field(t.rulesSymbol || 'symbol', e(React.Fragment, null,
+                      e('input', { value: form.target, list: 'maermin-rule-price-symbols', onChange: function (ev) { setF({ target: ev.target.value }); }, placeholder: t.rulesSymbol || 'symbol', className: 'ui-input' }),
+                      e('datalist', { id: 'maermin-rule-price-symbols' }, (props.symbols || []).map(function (sy) { return e('option', { key: sy, value: sy }); }))))
+                : targetOptions.length
+                  ? field(__('rlTargetLabel', 'Target'), sel(form.target, function (v) { setF({ target: v }); }, targetOptions, t.rulesPickTarget || 'target…'))
+                  : field(__('rlTargetLabel', 'Target'), e('input', { value: form.target, onChange: function (ev) { setF({ target: ev.target.value }); }, placeholder: t.rulesTarget || 'target', className: 'ui-input' }))
+              ) : null,
+              field(__('rlConditionLabel', 'Condition'), sel(form.op, function (v) { setF({ op: v }); }, Object.keys(API.OPS).map(function (k) { return [k, API.OPS[k]]; }), null)),
+              field(__('rlThresholdLabel', 'Threshold'), e('input', {
+                type: 'number', value: form.threshold, onChange: function (ev) { setF({ threshold: ev.target.value }); },
+                placeholder: API.METRICS[form.metric].unit === '%' ? '%' : '0', className: ['ui-input', 'ui-rl-num'].join(' ')
+              })),
+              e(UIC.Button, { variant: 'primary', onClick: addCurrent }, t.rulesAdd || 'Add rule'))),
 
           results.length
-            ? e('div', null,
-                e('div', { style: { color: dim, fontSize: 'var(--text-xs)', marginBottom: '0.6rem' } },
-                  triggered
-                    ? (triggered + ' ' + (t.rulesTriggered || 'rule(s) currently triggered'))
-                    : (t.rulesAllClear || 'All rules within limits')),
-                ruleRows)
-            : e('div', { style: { background: card, border: '1px solid ' + border, borderRadius: '14px', padding: '2rem', textAlign: 'center', color: dim, fontSize: 'var(--text-base)' } },
-                t.rulesEmpty || 'No rules yet. Add one above — e.g. a symbol weight above 30% to catch concentration.'));
+            ? e(UIC.Card, { headingLevel: 'h3', title: t.navRules || 'Alerts & Rules',
+                subtitle: triggered
+                  ? ('! ' + triggered + ' ' + (t.rulesTriggered || 'rule(s) currently triggered'))
+                  : ('✓ ' + (t.rulesAllClear || 'All rules within limits')) },
+                e('ul', { className: 'ui-rows' }, ruleRows))
+            : e(UIC.EmptyState, { text: t.rulesEmpty || 'No rules yet. Add one above — e.g. a symbol weight above 30% to catch concentration.' }));
       } catch (err) {
-        return e('div', { style: { padding: '1.5rem', color: (props.theme && props.theme.danger) || 'var(--danger)' } }, __('rlViewError', 'Rules view error: ') + (err && err.message));
+        return e('div', { className: 'ui-view' }, e('p', { role: 'alert', className: ['ui-muted', 'is-error'].join(' ') }, __('rlViewError', 'Rules view error: ') + (err && err.message)));
       }
     };
   }
