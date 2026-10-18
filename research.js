@@ -134,12 +134,13 @@ function __(k, f, v) { return (typeof window !== 'undefined' && window.MaerminI1
   function Chart(props) {
     var React = W.React, e = React.createElement;
     var th = props.theme || {}, pts = props.points || [], on = props.on || {};
-    if (pts.length < 2) return e('div', { style: { color: th.textSecondary, fontSize: 'var(--text-sm)', padding: '1rem 0' } }, __('rsNoChart', 'No price history for this range.'));
+    if (pts.length < 2) return e('p', { className: 'ui-muted' }, __('rsNoChart', 'No price history for this range.'));
     var closes = pts.map(function (p) { return p.price; });
-    var lines = [{ id: 'close', v: closes, c: th.accent || '#8b7cff', w: 1.6 }];
-    if (on.sma50) lines.push({ id: 'sma50', v: sma(closes, 50), c: '#f59e0b', w: 1.2 });
-    if (on.sma200) lines.push({ id: 'sma200', v: sma(closes, 200), c: '#ef4444', w: 1.2 });
-    if (on.ema20) lines.push({ id: 'ema20', v: ema(closes, 20), c: '#22c55e', w: 1.2 });
+    // R4.3: the chart palette (price = series 1, then the indicators); never gain / loss colours
+    var lines = [{ id: 'close', v: closes, c: 'var(--chart-1)', w: 1.6 }];
+    if (on.sma50) lines.push({ id: 'sma50', v: sma(closes, 50), c: 'var(--chart-3)', w: 1.2 });
+    if (on.sma200) lines.push({ id: 'sma200', v: sma(closes, 200), c: 'var(--chart-4)', w: 1.2 });
+    if (on.ema20) lines.push({ id: 'ema20', v: ema(closes, 20), c: 'var(--chart-2)', w: 1.2 });
     var bb = on.bb ? bollinger(closes, 20, 2) : null;
     var narrow = W.matchMedia && W.matchMedia('(max-width: 640px)').matches;
     var Wd = narrow ? 420 : 760, H = narrow ? 240 : 260, padL = 8, padR = 52, padT = 8, padB = 18;
@@ -159,15 +160,15 @@ function __(k, f, v) { return (typeof window !== 'undefined' && window.MaerminI1
     if (bb) {
       var up = [], dn = [];
       bb.upper.forEach(function (v, i) { if (isNum(v)) { up.push(X(i).toFixed(1) + ',' + Y(v).toFixed(1)); dn.unshift(X(i).toFixed(1) + ',' + Y(bb.lower[i]).toFixed(1)); } });
-      if (up.length) parts.push(e('polygon', { key: 'bb', points: up.concat(dn).join(' '), fill: th.accent || '#8b7cff', opacity: 0.1 }));
-      parts.push(e('path', { key: 'bbm', d: path(bb.mid), stroke: '#94a3b8', strokeWidth: 1, strokeDasharray: '4 3', fill: 'none' }));
+      if (up.length) parts.push(e('polygon', { key: 'bb', points: up.concat(dn).join(' '), style: { fill: 'var(--chart-1)' }, opacity: 0.1 }));
+      parts.push(e('path', { key: 'bbm', d: path(bb.mid), style: { stroke: 'var(--text-faint)' }, strokeWidth: 1, strokeDasharray: '4 3', fill: 'none' }));
     }
-    lines.forEach(function (l) { parts.push(e('path', { key: l.id, d: path(l.v), stroke: l.c, strokeWidth: l.w, fill: 'none' })); });
+    lines.forEach(function (l) { parts.push(e('path', { key: l.id, d: path(l.v), style: { stroke: l.c }, strokeWidth: l.w, fill: 'none' })); });
     [hi, (hi + lo) / 2, lo].forEach(function (v, i) {
-      parts.push(e('text', { key: 'y' + i, x: Wd - padR + 6, y: Y(v) + 4, fontSize: 10, fill: th.textSecondary || '#9aa4b2' }, (W.MaerminI18n ? W.MaerminI18n.num(v, v < 10 ? 2 : 0) : v.toFixed(2))));
+      parts.push(e('text', { key: 'y' + i, x: Wd - padR + 6, y: Y(v) + 4, fontSize: 10, style: { fill: 'var(--text-dim)' } }, (W.MaerminI18n ? W.MaerminI18n.num(v, v < 10 ? 2 : 0) : v.toFixed(2))));
     });
-    parts.push(e('text', { key: 'x0', x: padL, y: H - 4, fontSize: 10, fill: th.textSecondary || '#9aa4b2' }, W.MaerminI18n ? W.MaerminI18n.date(pts[0].date) : pts[0].date));
-    parts.push(e('text', { key: 'x1', x: Wd - padR, y: H - 4, fontSize: 10, textAnchor: 'end', fill: th.textSecondary || '#9aa4b2' }, W.MaerminI18n ? W.MaerminI18n.date(pts[pts.length - 1].date) : pts[pts.length - 1].date));
+    parts.push(e('text', { key: 'x0', x: padL, y: H - 4, fontSize: 10, style: { fill: 'var(--text-dim)' } }, W.MaerminI18n ? W.MaerminI18n.date(pts[0].date) : pts[0].date));
+    parts.push(e('text', { key: 'x1', x: Wd - padR, y: H - 4, fontSize: 10, textAnchor: 'end', style: { fill: 'var(--text-dim)' } }, W.MaerminI18n ? W.MaerminI18n.date(pts[pts.length - 1].date) : pts[pts.length - 1].date));
     var main = e('svg', { key: 'main', 'data-testid': 'rs-chart', viewBox: '0 0 ' + Wd + ' ' + H, role: 'img', 'aria-label': __('rsChartLabel', 'Price chart'), style: { width: '100%', height: 'auto', display: 'block' } }, parts);
     if (!on.macd) return main;
     var m = macd(closes), mh = 90, vals = [];
@@ -175,10 +176,10 @@ function __(k, f, v) { return (typeof window !== 'undefined' && window.MaerminI1
     var mx = Math.max.apply(null, vals.concat([1e-9]));
     var MY = function (v) { return mh / 2 - v * (mh / 2 - 6) / mx; };
     var mp = function (arr) { var d = '', pen = false; arr.forEach(function (v, i) { if (!isNum(v)) { pen = false; return; } d += (pen ? 'L' : 'M') + X(i).toFixed(1) + ',' + MY(v).toFixed(1); pen = true; }); return d; };
-    var bars = m.hist.map(function (v, i) { return isNum(v) ? e('rect', { key: 'h' + i, x: X(i) - 0.8, y: Math.min(MY(v), mh / 2), width: 1.6, height: Math.abs(MY(v) - mh / 2), fill: v >= 0 ? '#22c55e' : '#ef4444', opacity: 0.6 }) : null; });
+    var bars = m.hist.map(function (v, i) { return isNum(v) ? e('rect', { key: 'h' + i, x: X(i) - 0.8, y: Math.min(MY(v), mh / 2), width: 1.6, height: Math.abs(MY(v) - mh / 2), style: { fill: v >= 0 ? 'var(--gain)' : 'var(--loss)' }, opacity: 0.6 }) : null; });
     var sub = e('svg', { key: 'macd', 'data-testid': 'rs-macd', viewBox: '0 0 ' + Wd + ' ' + mh, role: 'img', 'aria-label': 'MACD', style: { width: '100%', height: 'auto', display: 'block', marginTop: '0.3rem' } },
-      bars, e('path', { d: mp(m.macd), stroke: th.accent || '#8b7cff', strokeWidth: 1.2, fill: 'none' }), e('path', { d: mp(m.signal), stroke: '#f59e0b', strokeWidth: 1.2, fill: 'none' }),
-      e('text', { x: padL, y: 12, fontSize: 10, fill: th.textSecondary || '#9aa4b2' }, __('rsMacdLabel', 'MACD (12, 26, 9)')));
+      bars, e('path', { d: mp(m.macd), style: { stroke: 'var(--chart-1)' }, strokeWidth: 1.2, fill: 'none' }), e('path', { d: mp(m.signal), style: { stroke: 'var(--chart-3)' }, strokeWidth: 1.2, fill: 'none' }),
+      e('text', { x: padL, y: 12, fontSize: 10, style: { fill: 'var(--text-dim)' } }, __('rsMacdLabel', 'MACD (12, 26, 9)')));
     return e('div', null, main, sub);
   }
 
@@ -189,8 +190,7 @@ function __(k, f, v) { return (typeof window !== 'undefined' && window.MaerminI1
     if (!React) return null;
     var e = React.createElement, useState = React.useState, useEffect = React.useEffect;
     var th = props.theme || {};
-    var text = th.text || '#e6edf3', dim = th.textSecondary || '#9aa4b2', border = th.cardBorder || 'rgba(255,255,255,0.1)';
-    var good = th.success || '#22c55e', bad = th.danger || '#ef4444', warn = th.warning || '#f59e0b';
+    var UIC = W.MaerminComponents;
     var I = W.MaerminI18n;
     var sym = String(props.symbol || '').toUpperCase();
     var s0 = useState(sym); var draft = s0[0], setDraft = s0[1];
@@ -219,17 +219,17 @@ function __(k, f, v) { return (typeof window !== 'undefined' && window.MaerminI1
       return function () { dead = true; };
     }, [sym, base, range]);
 
-    var card = { background: th.card || th.cardBg, border: '1px solid ' + border, borderRadius: '14px', padding: '1rem 1.25rem', marginBottom: '1rem' };
-    var input = { boxSizing: 'border-box', padding: '0.45rem 0.6rem', background: th.inputBg, border: '1px solid ' + (th.inputBorder || border), borderRadius: '8px', color: text, fontSize: '0.85rem', fontFamily: 'inherit' };
-    var btn = function (active) { return { padding: '0.35rem 0.7rem', borderRadius: '8px', border: '1px solid ' + (active ? (th.accent || '#8b7cff') : border), background: active ? (th.accentFill || th.accent || '#8b7cff') : th.inputBg, color: active ? 'var(--on-accent)' : text, cursor: 'pointer', fontSize: '0.76rem', fontWeight: 600 }; };
-    var h3 = function (t) { return e('h3', { style: { color: text, fontSize: 'var(--text-body)', fontWeight: 700, margin: '0 0 0.6rem' } }, t); };
+    // R4.3: cards, notes and figures on the shared classes
+    var CARD = ['ui-card', 'ui-card--pad', 'ui-rs-card'].join(' ');
+    var h3 = function (t) { return e('h3', { className: 'ui-card__title' }, t); };
+    var note = function (msg, warnTone) { return e('p', { className: warnTone ? ['ui-callout', 'ui-callout--warn'].join(' ') : 'ui-muted' }, msg); };
     var d = data.state === 'ok' ? data.d : null;
     var cur = d && d.currency ? d.currency : '';
     var priceTxt = function (v) { return v == null ? '–' : I.num(v, 2) + (cur ? ' ' + cur : ''); };
     var pct = function (v, sign) { return v == null ? '–' : (sign && v > 0 ? '+' : '') + I.num(v * 100, 1) + ' %'; };
     var big = function (v) { if (v == null) return '–'; var a = Math.abs(v); return a >= 1e12 ? I.num(v / 1e12, 2) + ' T' : a >= 1e9 ? I.num(v / 1e9, 2) + ' B' : a >= 1e6 ? I.num(v / 1e6, 1) + ' M' : I.num(v, 0); };
-    var cell = function (lbl, val, tid) { return e('div', { key: lbl, 'data-testid': tid, style: { padding: '0.45rem 0', borderTop: '1px solid ' + border } }, e('div', { style: { color: dim, fontSize: 'var(--text-xs)' } }, lbl), e('div', { style: { color: text, fontWeight: 700, fontSize: 'var(--text-base)' } }, val)); };
-    var grid = { display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(150px, 1fr))', columnGap: '1rem' };
+    var cell = function (lbl, val, tid) { return e('div', { key: lbl, 'data-testid': tid, className: 'ui-kv' }, e('span', null, lbl), e('b', { className: 'num' }, val)); };
+    var GRID = 'ui-kv-grid';
 
     // own data
     var held = (props.positions || []).filter(function (p) { return String(p.symbol || '').toUpperCase() === sym; })[0];
@@ -242,51 +242,52 @@ function __(k, f, v) { return (typeof window !== 'undefined' && window.MaerminI1
     var lastClose = series.points.length ? series.points[series.points.length - 1].price : null;
 
     var go = function () { var s = draft.trim().toUpperCase(); if (s && props.onSymbol) props.onSymbol(s); };
-    return e('div', { 'data-testid': 'research-view', style: { padding: '1.5rem' } },
-      e('div', { style: { display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '0.75rem', flexWrap: 'wrap', marginBottom: '0.75rem' } },
-        e('h2', { style: { color: text, fontSize: 'var(--text-xl)', fontWeight: 700, margin: 0 } }, d ? d.name + ' · ' + sym : (sym || __('rsTitle', 'Research'))),
-        e('div', { style: { display: 'flex', gap: '0.4rem' } },
-          e('input', { 'data-testid': 'rs-symbol', list: 'rs-symbols', value: draft, placeholder: __('rsSymbolPh', 'Symbol, e.g. AAPL or SAP.DE'), 'aria-label': __('rsSymbol', 'Symbol'), style: Object.assign({}, input, { width: '220px' }),
+    var legend = [{ series: '1', label: __('rsLegendPrice', 'Price') }]
+      .concat(on.sma50 ? [{ series: '3', label: __('rsSma50', 'SMA 50') }] : [], on.sma200 ? [{ series: '4', label: __('rsSma200', 'SMA 200') }] : [], on.ema20 ? [{ series: '2', label: __('rsEma20', 'EMA 20') }] : []);
+    return e('div', { 'data-testid': 'research-view', className: 'ui-view' },
+      e('div', { className: 'ui-view__bar' },
+        e('h2', { className: 'ui-section-title' }, d ? d.name + ' · ' + sym : (sym || __('rsTitle', 'Research'))),
+        e('div', { className: 'ui-rs-pick' },
+          e('input', { 'data-testid': 'rs-symbol', list: 'rs-symbols', value: draft, placeholder: __('rsSymbolPh', 'Symbol, e.g. AAPL or SAP.DE'), 'aria-label': __('rsSymbol', 'Symbol'), className: ['ui-input', 'ui-rs-pick__input'].join(' '),
             onChange: function (ev) { setDraft(ev.target.value); }, onKeyDown: function (ev) { if (ev.key === 'Enter') go(); } }),
           e('datalist', { id: 'rs-symbols' }, (props.symbols || []).map(function (s) { return e('option', { key: s, value: s }); })),
-          e('button', { 'data-testid': 'rs-go', style: btn(true), onClick: go }, __('rsOpen', 'Open')))),
-      !base ? e('div', { style: Object.assign({}, card, { color: warn, fontSize: '0.82rem' }) }, __('rsNeedWorker', 'The research page loads market data through your own Worker (API Settings) or the shared price service.')) : null,
-      !sym ? e('div', { style: Object.assign({}, card, { color: dim, fontSize: '0.85rem' }) }, __('rsPick', 'Pick a symbol: one you hold, one on your watchlist, or any other.')) : null,
-      sym && base ? e('div', { style: card },
-        e('div', { style: { display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', flexWrap: 'wrap', gap: '0.5rem', marginBottom: '0.5rem' } },
-          e('div', { 'data-testid': 'rs-price', style: { color: text, fontSize: 'var(--text-title-lg)', fontWeight: 800 } }, priceTxt(d && d.price != null ? d.price : lastClose)),
-          e('div', { style: { display: 'flex', gap: '0.3rem', flexWrap: 'wrap' } },
-            ['6mo', '1y', '5y'].map(function (r) { return e('button', { key: r, style: btn(range === r), onClick: function () { setRange(r); } }, r === '6mo' ? __('rs6m', '6 M') : r === '1y' ? __('rs1y', '1 Y') : __('rs5y', '5 Y')); }))),
-        series.state === 'loading' ? e('div', { style: { color: dim, fontSize: 'var(--text-sm)' } }, __('rsLoading', 'Loading…')) : e(Chart, { points: series.points, theme: th, on: on }),
-        e('div', { style: { display: 'flex', gap: '0.3rem', flexWrap: 'wrap', marginTop: '0.5rem' } },
+          e(UIC.Button, { variant: 'primary', 'data-testid': 'rs-go', onClick: go }, __('rsOpen', 'Open')))),
+      !base ? note(__('rsNeedWorker', 'The research page loads market data through your own Worker (API Settings) or the shared price service.'), true) : null,
+      !sym ? e(UIC.EmptyState, { title: __('rsTitle', 'Research'), text: __('rsPick', 'Pick a symbol: one you hold, one on your watchlist, or any other.') }) : null,
+      sym && base ? e(UIC.ChartFrame, { 'data-testid': 'rs-chart-card', legend: legend,
+          title: e('span', { 'data-testid': 'rs-price', className: ['ui-rs-price', 'num'].join(' ') }, priceTxt(d && d.price != null ? d.price : lastClose)),
+          action: e(UIC.Segmented, { label: __('rsRange', 'Range'), value: range, size: 'sm', onChange: setRange,
+            options: [['6mo', __('rs6m', '6 M')], ['1y', __('rs1y', '1 Y')], ['5y', __('rs5y', '5 Y')]].map(function (r) { return { value: r[0], label: r[1] }; }) }) },
+        series.state === 'loading' ? e(UIC.Skeleton, { shape: 'chart' }) : e(Chart, { points: series.points, theme: th, on: on }),
+        e('div', { className: ['ui-chips', 'ui-rs-ind'].join(' '), role: 'group', 'aria-label': __('rsIndicators', 'Indicators') },
           [['sma50', __('rsSma50', 'SMA 50')], ['sma200', __('rsSma200', 'SMA 200')], ['ema20', __('rsEma20', 'EMA 20')], ['bb', __('rsBollinger', 'Bollinger (20, 2)')], ['macd', 'MACD']].map(function (x) {
-            return e('button', { key: x[0], 'data-testid': 'rs-ind-' + x[0], 'aria-pressed': on[x[0]] ? 'true' : 'false', style: btn(!!on[x[0]]), onClick: function () { var n = Object.assign({}, on); n[x[0]] = !n[x[0]]; setOn(n); } }, x[1]);
+            return e(UIC.Chip, { key: x[0], 'data-testid': 'rs-ind-' + x[0], pressed: !!on[x[0]], onClick: function () { var n = Object.assign({}, on); n[x[0]] = !n[x[0]]; setOn(n); } }, x[1]);
           }))) : null,
-      data.state === 'loading' ? e('div', { style: { color: dim, fontSize: 'var(--text-sm)', marginBottom: '1rem' } }, __('rsLoading', 'Loading…')) : null,
-      data.state === 'old' ? e('div', { style: Object.assign({}, card, { color: warn, fontSize: '0.8rem' }) }, __('rsOldWorker', 'Your Worker is older than 2026.10.12: redeploy it for key figures and analyst data. The chart works already.')) : null,
-      data.state === 'none' ? e('div', { style: Object.assign({}, card, { color: dim, fontSize: '0.8rem' }) }, __('rsNoData', 'No key figures for this symbol (funds, crypto and some exchanges have none).')) : null,
-      pos ? e('div', { 'data-testid': 'rs-position', style: card }, h3(__('rsYourPosition', 'Your position')),
-        e('div', { style: grid },
+      data.state === 'loading' ? e(UIC.Skeleton, { shape: 'block' }) : null,
+      data.state === 'old' ? note(__('rsOldWorker', 'Your Worker is older than 2026.10.12: redeploy it for key figures and analyst data. The chart works already.'), true) : null,
+      data.state === 'none' ? note(__('rsNoData', 'No key figures for this symbol (funds, crypto and some exchanges have none).')) : null,
+      pos ? e('div', { 'data-testid': 'rs-position', className: CARD }, h3(__('rsYourPosition', 'Your position')),
+        e('div', { className: GRID },
           cell(__('rsQty', 'Quantity'), props.privacy ? '••••' : I.num(pos.quantity, 4)),
           cell(__('rsAvgCost', 'Average cost'), money(pos.avgCostEUR)),
           cell(__('rsValue', 'Value'), money(pos.valueEUR)),
-          cell(__('rsGain', 'Unrealised'), e('span', { style: { color: pos.gainEUR == null ? text : pos.gainEUR >= 0 ? good : bad } }, money(pos.gainEUR) + (pos.gainPct != null ? ' (' + pct(pos.gainPct, true) + ')' : ''))),
+          cell(__('rsGain', 'Unrealised'), e('span', { className: pos.gainEUR == null ? '' : 'tone-' + UIC.toneOf(pos.gainEUR) }, (pos.gainEUR > 0 && !props.privacy ? '+' : '') + money(pos.gainEUR) + (pos.gainPct != null ? ' (' + pct(pos.gainPct, true) + ')' : ''))),
           cell(__('rsRealized', 'Realised'), money(pos.realizedEUR)),
           cell(__('rsDividends', 'Dividends received'), money(pos.dividendsEUR)),
           cell(__('rsSince', 'First buy'), pos.since ? I.date(pos.since) : '–')),
-        pos.trades.length ? e('div', { style: { marginTop: '0.5rem', fontSize: 'var(--text-xs)', color: dim } }, pos.trades.slice(0, 5).map(function (t, i) {
+        pos.trades.length ? e('div', { className: 'ui-note' }, pos.trades.slice(0, 5).map(function (t, i) {
           return e('div', { key: i }, I.date(t.date) + ' · ' + (t.type === 'buy' ? __('rsBuy', 'Buy') : __('rsSell', 'Sell')) + ' ' + (props.privacy ? '••' : I.num(t.quantity, 4) + ' × ' + I.num(t.price, 2) + ' ' + t.currency));
         })) : null) : null,
-      journal.length ? e('div', { 'data-testid': 'rs-journal', style: card }, h3(__('rsJournal', 'Your journal')),
+      journal.length ? e('div', { 'data-testid': 'rs-journal', className: CARD }, h3(__('rsJournal', 'Your journal')),
         journal.map(function (j) {
-          return e('div', { key: j.key, style: { fontSize: 'var(--text-sm)', color: text, lineHeight: 1.5 } },
+          return e('div', { key: j.key, className: 'ui-rs-journal' },
             j.thesis ? e('div', null, e('b', null, __('rsThesis', 'Thesis') + ': '), j.thesis) : null,
             j.target ? e('div', null, e('b', null, __('rsTarget', 'Target') + ': '), j.target) : null,
             j.notes ? e('div', null, j.notes) : null,
-            j.reviews.slice(0, 3).map(function (r, i) { return e('div', { key: i, style: { color: dim } }, I.date(r.date) + ' · ' + r.text); }));
+            j.reviews.slice(0, 3).map(function (r, i) { return e('div', { key: i, className: 'ui-muted' }, I.date(r.date) + ' · ' + r.text); }));
         })) : null,
-      d ? e('div', { 'data-testid': 'rs-figures', style: card }, h3(__('rsKeyFigures', 'Key figures')),
-        e('div', { style: grid },
+      d ? e('div', { 'data-testid': 'rs-figures', className: CARD }, h3(__('rsKeyFigures', 'Key figures')),
+        e('div', { className: GRID },
           cell(__('rsMarketCap', 'Market cap'), big(d.valuation.marketCap) + (cur ? ' ' + cur : '')),
           cell(__('rsPe', 'P/E (trailing)'), d.valuation.trailingPE == null ? '–' : I.num(d.valuation.trailingPE, 1)),
           cell(__('rsFwdPe', 'P/E (forward)'), d.valuation.forwardPE == null ? '–' : I.num(d.valuation.forwardPE, 1)),
@@ -305,28 +306,28 @@ function __(k, f, v) { return (typeof window !== 'undefined' && window.MaerminI1
           cell('ROE', pct(d.financials.returnOnEquity)),
           cell(__('rsDebtEquity', 'Debt / equity'), d.financials.debtToEquity == null ? '–' : I.num(d.financials.debtToEquity / 100, 2)),
           cell(__('rsFcf', 'Free cash flow'), big(d.financials.freeCashflow)))) : null,
-      av ? e('div', { 'data-testid': 'rs-analysts', style: card }, h3(__('rsAnalysts', 'Analysts')),
-        e('div', { style: { color: dim, fontSize: 'var(--text-sm)', marginBottom: '0.5rem' } }, __('rsAnalystsLine', '{n} analysts · mean target {t} · {u} from today\'s price', { n: av.count, t: priceTxt(av.targetMean), u: pct(av.upside, true) })),
-        av.shares ? e('div', { style: { display: 'flex', height: '14px', borderRadius: '7px', overflow: 'hidden', marginBottom: '0.3rem' } },
-          [['strongBuy', '#16a34a'], ['buy', '#22c55e'], ['hold', '#f59e0b'], ['sell', '#f97316'], ['strongSell', '#ef4444']].map(function (x) { return e('div', { key: x[0], title: x[0], style: { width: (av.shares[x[0]] * 100) + '%', background: x[1] } }); })) : null,
-        av.shares ? e('div', { style: { display: 'flex', justifyContent: 'space-between', color: dim, fontSize: 'var(--text-xs)', flexWrap: 'wrap', gap: '0.4rem' } },
+      av ? e('div', { 'data-testid': 'rs-analysts', className: CARD }, h3(__('rsAnalysts', 'Analysts')),
+        e('p', { className: 'ui-muted' }, __('rsAnalystsLine', '{n} analysts · mean target {t} · {u} from today\'s price', { n: av.count, t: priceTxt(av.targetMean), u: pct(av.upside, true) })),
+        av.shares ? e('div', { className: 'ui-rs-split', 'aria-hidden': 'true' },
+          ['strongBuy', 'buy', 'hold', 'sell', 'strongSell'].map(function (k) { return e('span', { key: k, title: k, 'data-k': k, style: { width: (av.shares[k] * 100) + '%' } }); })) : null,
+        av.shares ? e('div', { className: 'ui-rs-split__legend' },
           e('span', null, __('rsBuyShare', 'Buy {p}', { p: pct(av.shares.strongBuy + av.shares.buy) })), e('span', null, __('rsHoldShare', 'Hold {p}', { p: pct(av.shares.hold) })), e('span', null, __('rsSellShare', 'Sell {p}', { p: pct(av.shares.sell + av.shares.strongSell) }))) : null,
-        av.pricePos != null ? e('div', { style: { marginTop: '0.7rem' } },
-          e('div', { style: { position: 'relative', height: '6px', background: th.inputBg || 'rgba(255,255,255,0.08)', borderRadius: '3px' } },
-            e('div', { title: __('rsToday', 'Today'), style: { position: 'absolute', left: 'calc(' + (av.pricePos * 100) + '% - 5px)', top: '-4px', width: '10px', height: '14px', borderRadius: '3px', background: th.accent || '#8b7cff' } })),
-          e('div', { style: { display: 'flex', justifyContent: 'space-between', color: dim, fontSize: 'var(--text-xs)', marginTop: '0.3rem' } },
+        av.pricePos != null ? e('div', { className: 'ui-rs-range' },
+          e('div', { className: 'ui-rs-range__track' },
+            e('span', { title: __('rsToday', 'Today'), className: 'ui-rs-range__mark', style: { left: 'calc(' + (av.pricePos * 100) + '% - 5px)' } })),
+          e('div', { className: 'ui-rs-split__legend' },
             e('span', null, __('rsLow', 'Low {v}', { v: priceTxt(av.targetLow) })), e('span', null, __('rsHigh', 'High {v}', { v: priceTxt(av.targetHigh) })))) : null) : null,
-      eps.length ? e('div', { 'data-testid': 'rs-eps', style: card }, h3(__('rsEps', 'Earnings per share: actual vs estimate')),
-        eps.map(function (q) {
-          return e('div', { key: q.quarter, style: { display: 'flex', justifyContent: 'space-between', gap: '0.5rem', borderTop: '1px solid ' + border, padding: '0.3rem 0', fontSize: 'var(--text-sm)' } },
-            e('span', { style: { color: dim, minWidth: '4.5rem' } }, q.quarter),
-            e('span', { style: { color: text } }, I.num(q.actual, 2) + ' / ' + I.num(q.estimate, 2)),
-            e('span', { style: { color: q.beat ? good : bad, fontWeight: 700 } }, (q.beat ? __('rsBeat', 'beat') : __('rsMiss', 'miss')) + ' ' + pct(q.surprise, true)));
-        })) : null,
-      d && (d.profile.summary || d.profile.sector) ? e('div', { 'data-testid': 'rs-profile', style: card }, h3(__('rsProfile', 'Company')),
-        e('div', { style: { color: dim, fontSize: 'var(--text-xs)', marginBottom: '0.4rem' } }, [d.profile.sector, d.profile.industry, d.profile.country].filter(Boolean).join(' · ')),
-        d.profile.summary ? e('p', { style: { color: text, fontSize: 'var(--text-sm)', lineHeight: 1.55, margin: 0 } }, d.profile.summary) : null) : null,
-      d ? e('div', { style: { color: dim, fontSize: 'var(--text-2xs)', lineHeight: 1.5 } },
+      eps.length ? e('div', { 'data-testid': 'rs-eps', className: CARD }, h3(__('rsEps', 'Earnings per share: actual vs estimate')),
+        e('ul', { className: 'ui-rows' }, eps.map(function (q) {
+          return e('li', { key: q.quarter, className: 'ui-rows__row' },
+            e('span', { className: 'ui-muted' }, q.quarter),
+            e('span', { className: 'num' }, I.num(q.actual, 2) + ' / ' + I.num(q.estimate, 2)),
+            e('b', { className: ['num', q.beat ? 'tone-gain' : 'tone-loss'].join(' ') }, (q.beat ? '▲ ' + __('rsBeat', 'beat') : '▼ ' + __('rsMiss', 'miss')) + ' ' + pct(q.surprise, true)));
+        }))) : null,
+      d && (d.profile.summary || d.profile.sector) ? e('div', { 'data-testid': 'rs-profile', className: CARD }, h3(__('rsProfile', 'Company')),
+        e('p', { className: 'ui-note' }, [d.profile.sector, d.profile.industry, d.profile.country].filter(Boolean).join(' · ')),
+        d.profile.summary ? e('p', { className: 'ui-rs-summary' }, d.profile.summary) : null) : null,
+      d ? e('p', { className: 'ui-note' },
         __('rsSource', 'Market data: {src} through your Worker, cached up to 6 hours, for personal use. Your position and journal are computed on this device. Not investment advice.', { src: d.source || 'Yahoo Finance' })) : null);
   }
 

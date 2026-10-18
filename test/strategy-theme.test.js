@@ -78,8 +78,9 @@ function render(el) { return renderToStaticMarkup(el); }
   localStorage.setItem('investmentGoals', JSON.stringify([{ id: 'g', name: 'Haus', type: 'house', targetAmount: 50000, currentAmount: 10000, targetDate: '2030-01-01', monthlyContribution: 500 }]));
   const goals = render(React.createElement(V.ThemeContext.Provider, { value: light }, React.createElement(V.GoalInvestingView, { portfolioValue: 10000 })));
   ok('H-8: goal cards (target date, monthly, remaining) are readable', lightOnDark(goals).length === 0 && /Haus/.test(goals));
-  // Without a provider the views keep their former dark look.
-  ok('views rendered on their own keep the dark defaults', /color:#ffffff/.test(render(React.createElement(V.AnalysisCard, { title: 'X' }))));
+  // R4.3: on their own the primitives render the shared card (themed by CSS), no hard-coded colour.
+  { const card = render(React.createElement(V.AnalysisCard, { title: 'X' }));
+    ok('R4.3: AnalysisCard renders the shared card, with no hard-coded colour', /class="ui-card"/.test(card) && !/#[0-9a-f]{3,6}|rgba?\(/i.test(card), card.slice(0, 200)); }
 
   console.log('\n' + passed + ' passed, ' + failed + ' failed');
   process.exit(failed ? 1 : 0);

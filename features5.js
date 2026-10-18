@@ -487,7 +487,7 @@ function CashflowChart({ transactions, priceHistory, portfolio, prices, theme, f
 // 4. FEE ANALYZER
 // Total fees, fee rate, by year, by category, by exchange/broker
 // ─────────────────────────────────────────────────────────────────────────────
-function FeeAnalyzer({ transactions, theme, formatPrice, getCurrencySymbol, exchangeRate, fxAt }) {
+function FeeAnalyzer({ transactions, theme, formatPrice, getCurrencySymbol, exchangeRate, fxAt, extra }) {
   // Fees and trade values in EUR at the rate of the trade date: a USD trade
   // was summed and shown as if its amounts were EUR (AUDIT BUG-033).
   const eurOf = useMemo(() => {
@@ -542,64 +542,55 @@ function FeeAnalyzer({ transactions, theme, formatPrice, getCurrencySymbol, exch
     return { totalFees, totalInvested, feeRate, byYear, byCategory, byBroker, avgFee, txCount: feeTxs.length };
   }, [transactions, eurOf]);
 
-  const CAT_COLORS = { crypto: '#f59e0b', stocks: '#3b82f6', skins: '#06b6d4', commodities: '#d97706' };
+  // R4.3: the categorical chart palette; fees are costs, so no gain / loss colour without a sign
+  const CAT_COLORS = { crypto: 'var(--chart-3)', stocks: 'var(--chart-1)', skins: 'var(--chart-2)', commodities: 'var(--chart-4)' };
+  const UIC = window.MaerminComponents;
+  const money = (v) => `${formatPrice(v)} ${getCurrencySymbol()}`;
 
   const maxYear = Math.max(...Object.values(stats.byYear).map(y => y.fees), 1);
 
-  return React.createElement('div', { style: { padding: '1.5rem' } },
-    React.createElement('h2', { style: { color: theme.text, fontSize: 'var(--text-xl)', fontWeight: '800', letterSpacing: '-0.02em', marginBottom: '0.375rem' } }, __('feeTitle', 'Fee Analyzer')),
-    React.createElement('p', { style: { color: theme.textSecondary, fontSize: 'var(--text-base)', marginBottom: '1.5rem' } }, __('feeSubtitle', 'Total cost of investing — transaction fees, exchange fees, and more')),
+  return React.createElement('div', { className: 'ui-view', 'data-testid': 'fees-view' },
+    React.createElement('p', { className: 'ui-view__lead' }, __('feeSubtitle', 'Total cost of investing — transaction fees, exchange fees, and more')),
 
     // KPIs
-    React.createElement('div', { style: { display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(160px, 1fr))', gap: '1rem', marginBottom: '1.5rem' } },
-      React.createElement(KpiCard, { theme, label: __('feeTotalPaid', 'Total Fees Paid'), value: `${formatPrice(stats.totalFees)} ${getCurrencySymbol()}`, color: '#ef4444' }),
+    React.createElement('div', { className: 'ui-ov-tiles' },
+      React.createElement(KpiCard, { theme, label: __('feeTotalPaid', 'Total Fees Paid'), value: money(stats.totalFees) }),
       React.createElement(KpiCard, { theme, label: __('feeRate', 'Fee Rate'), value: window.MaerminI18n.pct(stats.feeRate, 3), sub: __('feeRateSub', '% of total invested') }),
       React.createElement(KpiCard, { theme, label: __('feeAvgPerTrade', 'Avg Fee / Trade'), value: `${formatPrice(stats.avgFee)} ${getCurrencySymbol()}` }),
       React.createElement(KpiCard, { theme, label: __('feeTxWithFees', 'Transactions with Fees'), value: stats.txCount }),
     ),
 
     stats.totalFees === 0
-      ? React.createElement(Card, { theme, style: { textAlign: 'center', padding: '2rem' } },
-          React.createElement('div', { style: { color: theme.textSecondary } }, __('feeEmpty', 'No fees recorded in your transactions yet. Add fees when entering transactions.'))
+      ? React.createElement(Card, { theme },
+          React.createElement('p', { className: 'ui-muted' }, __('feeEmpty', 'No fees recorded in your transactions yet. Add fees when entering transactions.'))
         )
-      : React.createElement('div', { style: { display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: '1rem' } },
+      : React.createElement('div', { className: 'ui-grid-2' },
 
           // By Year
-          React.createElement(Card, { theme },
-            React.createElement('div', { style: { color: theme.text, fontWeight: '700', fontSize: 'var(--text-base)', marginBottom: '1rem' } }, __('feeByYear', 'Fees by Year')),
-            React.createElement('div', { style: { display: 'flex', flexDirection: 'column', gap: '0.625rem' } },
+          React.createElement(UIC.Card, { title: __('feeByYear', 'Fees by Year'), headingLevel: 'h3', 'data-testid': 'fee-by-year' },
+            React.createElement('ul', { className: 'ui-meters' },
               Object.entries(stats.byYear).sort((a,b) => b[0].localeCompare(a[0])).map(([year, data]) =>
-                React.createElement('div', { key: year },
-                  React.createElement('div', { style: { display: 'flex', justifyContent: 'space-between', fontSize: 'var(--text-sm)', marginBottom: '0.25rem' } },
-                    React.createElement('span', { style: { color: theme.text, fontWeight: '600' } }, year),
-                    React.createElement('span', { style: { color: 'var(--danger)', fontWeight: '700' } }, `${formatPrice(data.fees)} ${getCurrencySymbol()}`)
-                  ),
-                  React.createElement('div', { style: { height: 6, background: theme.inputBg, borderRadius: 3, overflow: 'hidden' } },
-                    React.createElement('div', { style: { height: '100%', width: `${data.fees / maxYear * 100}%`, background: 'var(--danger)', opacity: 0.7, borderRadius: 3 } })
-                  )
+                React.createElement('li', { key: year },
+                  React.createElement('span', { className: 'ui-meters__label' }, React.createElement('b', null, year), React.createElement('b', { className: 'num' }, money(data.fees))),
+                  React.createElement('span', { className: 'ui-meter', 'aria-hidden': 'true' },
+                    React.createElement('span', { className: 'ui-meter__fill', style: { width: `${data.fees / maxYear * 100}%` } }))
                 )
               )
             )
           ),
 
           // By Category
-          React.createElement(Card, { theme },
-            React.createElement('div', { style: { color: theme.text, fontWeight: '700', fontSize: 'var(--text-base)', marginBottom: '1rem' } }, __('feeByClass', 'Fees by Asset Class')),
-            React.createElement('div', { style: { display: 'flex', flexDirection: 'column', gap: '0.625rem' } },
+          React.createElement(UIC.Card, { title: __('feeByClass', 'Fees by Asset Class'), headingLevel: 'h3', 'data-testid': 'fee-by-class' },
+            React.createElement('ul', { className: 'ui-meters' },
               Object.entries(stats.byCategory).sort((a,b) => b[1]-a[1]).map(([cat, fees]) => {
                 const pct = stats.totalFees > 0 ? fees / stats.totalFees * 100 : 0;
-                const color = CAT_COLORS[cat] || '#8b7cff';
-                return React.createElement('div', { key: cat },
-                  React.createElement('div', { style: { display: 'flex', justifyContent: 'space-between', fontSize: 'var(--text-sm)', marginBottom: '0.25rem' } },
-                    React.createElement('span', { style: { color: theme.text, fontWeight: '600' } }, window.MaerminI18n.category(cat)),
-                    React.createElement('div', { style: { display: 'flex', gap: '0.5rem' } },
-                      React.createElement('span', { style: { color: theme.textSecondary } }, window.MaerminI18n.pct(pct, 1)),
-                      React.createElement('span', { style: { color: theme.text, fontWeight: '700' } }, `${formatPrice(fees)} ${getCurrencySymbol()}`)
-                    )
-                  ),
-                  React.createElement('div', { style: { height: 6, background: theme.inputBg, borderRadius: 3, overflow: 'hidden' } },
-                    React.createElement('div', { style: { height: '100%', width: `${pct}%`, background: color, opacity: 0.7, borderRadius: 3 } })
-                  )
+                const color = CAT_COLORS[cat] || 'var(--chart-5)';
+                return React.createElement('li', { key: cat },
+                  React.createElement('span', { className: 'ui-meters__label' },
+                    React.createElement('b', null, window.MaerminI18n.category(cat)),
+                    React.createElement('span', { className: 'num' }, window.MaerminI18n.pct(pct, 1) + ' · ', React.createElement('b', null, money(fees)))),
+                  React.createElement('span', { className: 'ui-meter', 'aria-hidden': 'true' },
+                    React.createElement('span', { className: 'ui-meter__fill', style: { width: `${pct}%`, background: color } }))
                 );
               })
             )
@@ -607,14 +598,13 @@ function FeeAnalyzer({ transactions, theme, formatPrice, getCurrencySymbol, exch
 
           // Top cost items
           // Full row in any column count ('span 2' forced a second column on phones).
-          React.createElement(Card, { theme, style: { gridColumn: '1 / -1' } },
-            React.createElement('div', { style: { color: theme.text, fontWeight: '700', fontSize: 'var(--text-base)', marginBottom: '0.75rem' } }, __('feeMostExpensive', 'Most Expensive Transactions')),
-            React.createElement('div', { style: { overflowX: 'auto' } },
-              React.createElement('table', { style: { width: '100%', borderCollapse: 'collapse', fontSize: 'var(--text-sm)', minWidth: 420 } },
+          React.createElement(UIC.Card, { title: __('feeMostExpensive', 'Most Expensive Transactions'), headingLevel: 'h3', className: ['ui-card--table', 'ui-span-all'].join(' '), 'data-testid': 'fee-top' },
+            React.createElement('div', { className: 'ui-table-wrap' },
+              React.createElement('table', { className: ['ui-table', 'ui-table--dense'].join(' ') },
                 React.createElement('thead', null,
                   React.createElement('tr', null,
                     [__('date', 'Date'), __('symbol', 'Symbol'), __('type', 'Type'), __('feeTradeValue', 'Trade Value'), __('feeFee', 'Fee'), __('feePct', 'Fee %')].map((h, i) =>
-                      React.createElement('th', { key: i, style: { padding: '0.5rem 0.75rem', textAlign: i > 2 ? 'right' : 'left', color: theme.textSecondary, borderBottom: `1px solid ${theme.cardBorder}`, fontWeight: '600', textTransform: 'uppercase', fontSize: 'var(--text-3xs)', whiteSpace: 'nowrap' } }, h)
+                      React.createElement('th', { key: i, scope: 'col', className: i > 2 ? 'is-right' : 'is-left' }, h)
                     )
                   )
                 ),
@@ -627,22 +617,24 @@ function FeeAnalyzer({ transactions, theme, formatPrice, getCurrencySymbol, exch
                       const fee      = feeOf(tx);
                       const trade    = tradeOf(tx);
                       const feeRate  = trade > 0 ? window.MaerminI18n.pct(fee / trade * 100, 3) : '—';
-                      return React.createElement('tr', { key: i, style: { borderBottom: `1px solid ${theme.cardBorder}` } },
-                        React.createElement('td', { style: { padding: '0.5rem 0.75rem', color: theme.textSecondary } }, window.MaerminI18n.date(tx.date)),
-                        React.createElement('td', { style: { padding: '0.5rem 0.75rem', color: theme.text, fontWeight: '600' } }, tx.symbol),
-                        React.createElement('td', { style: { padding: '0.5rem 0.75rem' } },
-                          React.createElement('span', { style: { color: tx.type === 'buy' ? theme.success : tx.type === 'sell' ? theme.danger : window.MaerminUtils.txTypeInfo(tx.type).color, fontWeight: '600', fontSize: 'var(--text-xs)' } }, window.MaerminUtils.txTypeInfo(tx.type).label.toUpperCase())
+                      // the type as the Transactions list shows it (badge in words)
+                      return React.createElement('tr', { key: i },
+                        React.createElement('td', { className: 'is-left' }, window.MaerminI18n.date(tx.date)),
+                        React.createElement('td', { className: ['is-left', 'is-strong'].join(' ') }, tx.symbol),
+                        React.createElement('td', { className: 'is-left' },
+                          React.createElement('span', { className: 'ui-txtype', 'data-tone': tx.type === 'buy' ? 'in' : tx.type === 'sell' ? 'out' : undefined }, window.MaerminUtils.txTypeInfo(tx.type).label)
                         ),
-                        React.createElement('td', { style: { padding: '0.5rem 0.75rem', textAlign: 'right', color: theme.textSecondary } }, `${formatPrice(trade)} ${getCurrencySymbol()}`),
-                        React.createElement('td', { style: { padding: '0.5rem 0.75rem', textAlign: 'right', color: 'var(--danger)', fontWeight: '700' } }, `${formatPrice(fee)} ${getCurrencySymbol()}`),
-                        React.createElement('td', { style: { padding: '0.5rem 0.75rem', textAlign: 'right', color: theme.textSecondary } }, feeRate)
+                        React.createElement('td', null, money(trade)),
+                        React.createElement('td', { className: 'is-strong' }, money(fee)),
+                        React.createElement('td', null, feeRate)
                       );
                     })
                 )
               )
             )
           )
-        )
+        ),
+    extra || null
   );
 }
 

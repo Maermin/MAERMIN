@@ -111,28 +111,25 @@
     var money = function (v) { return fmt(v) + ' ' + cur; };
     var prov = React.useMemo(function () { return byProvider(props.positions); }, [props.positions]);
     var pfs = React.useMemo(function () { return byPortfolio(props.portfolios); }, [props.portfolios]);
-    var text = theme.text, dim = theme.textSecondary, border = theme.cardBorder || 'rgba(127,127,127,0.2)';
-    var COLORS = ['#8b7cff', '#3b82f6', '#22c55e', '#f59e0b', '#06b6d4', '#ec4899', '#f97316', '#14b8a6'];
+    // R4.3: the shared Card and meters; bars on the categorical chart palette
+    var UIC = W.MaerminComponents;
+    var COLORS = ['var(--chart-1)', 'var(--chart-2)', 'var(--chart-3)', 'var(--chart-4)', 'var(--chart-5)', 'var(--chart-6)'];
 
     var bars = function (testid, rows) {
-      return e('div', { 'data-testid': testid },
+      return e('ul', { 'data-testid': testid, className: 'ui-meters' },
         rows.map(function (r, i) {
-          return e('div', { key: r.key, 'data-key': r.key, 'data-v': r.value, 'data-pct': r.pct, style: { padding: '0.5rem 0', borderTop: i ? '1px solid ' + border : 'none' } },
-            e('div', { style: { display: 'flex', justifyContent: 'space-between', gap: '0.75rem', fontSize: 'var(--text-base)', marginBottom: '0.3rem' } },
-              e('span', { style: { color: text, fontWeight: 600, minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis' } }, r.label,
-                r.sub ? e('span', { style: { color: dim, fontWeight: 400, fontSize: 'var(--text-xs)', marginLeft: '0.4rem' } }, r.sub) : null),
-              e('span', { style: { color: text, whiteSpace: 'nowrap', fontVariantNumeric: 'tabular-nums' } }, I.pct(r.pct, 1),
-                e('span', { style: { color: dim, marginLeft: '0.5rem', fontSize: 'var(--text-xs)' } }, money(r.value)))),
-            e('div', { 'aria-hidden': true, style: { height: '6px', background: theme.inputBg, borderRadius: '3px', overflow: 'hidden' } },
-              e('div', { style: { width: Math.max(0, Math.min(100, r.pct)) + '%', height: '100%', background: COLORS[i % COLORS.length], borderRadius: '3px' } })));
+          return e('li', { key: r.key, 'data-key': r.key, 'data-v': r.value, 'data-pct': r.pct },
+            e('span', { className: 'ui-meters__label' },
+              e('span', null, e('b', null, r.label), r.sub ? e('span', { className: 'ui-lt-via' }, '  ' + r.sub) : null),
+              e('span', { className: 'num' }, e('b', null, I.pct(r.pct, 1)), '  ' + money(r.value))),
+            e('span', { className: 'ui-meter', 'aria-hidden': 'true' },
+              e('span', { className: 'ui-meter__fill', style: { width: Math.max(0, Math.min(100, r.pct)) + '%', background: COLORS[i % COLORS.length] } })));
         }));
     };
     var card = function (testid, title, sub, body) {
-      return e('section', { 'data-testid': testid, style: { background: theme.card, border: '1px solid ' + border, borderRadius: '14px', padding: '1.1rem', marginBottom: '1rem', minWidth: 0 } },
-        e('h3', { style: { color: text, fontWeight: 700, fontSize: 'var(--text-md)', margin: 0 } }, title),
-        e('div', { style: { color: dim, fontSize: 'var(--text-xs)', margin: '0.2rem 0 0.75rem', lineHeight: 1.5 } }, sub), body);
+      return e(UIC.Card, { 'data-testid': testid, title: title, subtitle: sub, headingLevel: 'h3' }, body);
     };
-    var muted = function (msg) { return e('div', { style: { color: dim, fontSize: 'var(--text-base)' } }, msg); };
+    var muted = function (msg) { return e('p', { className: 'ui-muted' }, msg); };
 
     var provRows = prov.providers.map(function (p) {
       return { key: p.name || 'other', label: p.name || __('agOtherProviders', 'Other providers'), sub: __('agFunds', '{n} {n:fund|funds}', { n: p.holdings.length }), value: p.value, pct: p.pctFunds };
@@ -140,7 +137,7 @@
     var pfRows = pfs.rows.map(function (r) {
       return { key: r.id, label: r.name, sub: r.cash ? __('agInclCash', 'incl. {amount} cash', { amount: money(r.cash) }) : '', value: r.total, pct: r.pct };
     });
-    return e('div', { 'data-testid': 'allocation-groups', style: { padding: '1.5rem' } },
+    return e('div', { 'data-testid': 'allocation-groups', className: 'ui-grid-2' },
       card('ag-providers', __('agProvidersTitle', 'Funds by provider'),
         prov.fundsValue > 0
           ? __('agProvidersSub', 'Share of your funds ({funds}, {pct} of the portfolio). A provider is read from the fund\'s name.', { funds: money(prov.fundsValue), pct: I.pct(prov.total > 0 ? prov.fundsValue / prov.total * 100 : 0, 1) })
