@@ -138,11 +138,8 @@ function __(k, f, v) { return (typeof window !== 'undefined' && window.MaerminI1
     if (!React) return null;
     var e = React.createElement, useState = React.useState;
     var theme = props.theme || {};
-    var text = theme.text || '#e9edf4', dim = theme.textSecondary || '#8b94a7', border = theme.cardBorder || 'rgba(255,255,255,0.08)';
-    var card = theme.card || '#10151f', inputBg = theme.inputBg || '#0c1018', accent = theme.accent || '#8b7cff';
-    var good = theme.success || '#22c55e', warn = theme.warning || '#f59e0b';
-    var inputStyle = { padding: '0.5rem', background: inputBg, border: '1px solid ' + border, borderRadius: '8px', color: text, fontSize: '0.82rem', minWidth: 0 };
-    var btn = function (primary) { return { padding: '0.45rem 0.9rem', background: primary ? accent : 'none', color: primary ? '#ffffff' : dim, border: primary ? 'none' : '1px solid ' + border, borderRadius: '8px', cursor: 'pointer', fontWeight: 700, fontSize: '0.78rem' }; };
+    // R4.6: Card, wallet boxes, the shared table look, Input / Select with labels, shared buttons
+    var UIC = window.MaerminComponents;
     var s0 = useState(load), st = s0[0], setSt = s0[1];
     var f0 = useState({ chain: 'btc', address: '', label: '' }), form = f0[0], setForm = f0[1];
     var m0 = useState(''), msg = m0[0], setMsg = m0[1];
@@ -187,54 +184,51 @@ function __(k, f, v) { return (typeof window !== 'undefined' && window.MaerminI1
 
     var rows = st.wallets.map(function (w) {
       var recent = txs[w.id];
-      return e('div', { key: w.id, 'data-testid': 'wl-wallet', style: { padding: '0.6rem 0.75rem', background: inputBg, borderRadius: '8px', marginBottom: '0.45rem' } },
-        e('div', { style: { display: 'flex', justifyContent: 'space-between', gap: '0.5rem', flexWrap: 'wrap', alignItems: 'center' } },
-          e('div', { style: { minWidth: 0 } },
-            e('div', { style: { color: text, fontWeight: 600, fontSize: 'var(--text-sm)' } }, (w.label ? w.label + ' · ' : '') + chainName(w.chain)),
-            e('div', { style: { color: dim, fontSize: 'var(--text-2xs)', wordBreak: 'break-all' } }, w.address)),
-          e('div', { style: { display: 'flex', gap: '0.4rem', alignItems: 'center' } },
-            w.native ? e('span', { 'data-testid': 'wl-native', style: { color: text, fontWeight: 700, fontSize: 'var(--text-sm)' } }, fmt(w.native.amount) + ' ' + w.native.symbol) : null,
-            e('button', { style: btn(false), onClick: function () {
+      return e('div', { key: w.id, 'data-testid': 'wl-wallet', className: 'ui-taxp__box' },
+        e('div', { className: 'ui-dlg-sec__head' },
+          e('div', { className: 'ui-rows__main' },
+            e('b', null, (w.label ? w.label + ' · ' : '') + chainName(w.chain)),
+            e('span', { className: 'ui-sync-addr' }, w.address)),
+          e('div', { className: 'ui-actions' },
+            w.native ? e('b', { 'data-testid': 'wl-native', className: 'num' }, fmt(w.native.amount) + ' ' + w.native.symbol) : null,
+            e(UIC.Button, { size: 'sm', variant: 'quiet', onClick: function () {
               W.MaerminUtils.confirmThen({ title: __('wlRemoveTitle', 'Stop watching this address?'), message: __('wlRemoveMsg', 'Only the entry here is removed; nothing in your portfolio changes.'), confirmLabel: __('wlRemove', 'Remove'), cancelLabel: __('cancel', 'Cancel') },
                 function () { mutate(removeWallet(st, w.id)); });
             } }, __('wlRemove', 'Remove')))),
-        w.tokens.length ? e('div', { 'data-testid': 'wl-tokens', style: { color: dim, fontSize: 'var(--text-xs)', marginTop: '0.3rem' } }, w.tokens.map(function (k) { return fmt(k.amount) + ' ' + k.symbol; }).join(' · ')) : null,
-        e('div', { style: { color: dim, fontSize: 'var(--text-2xs)', marginTop: '0.25rem' } }, w.lastSync ? __('wlAsOf', 'as of {date}', { date: w.lastSync }) : __('wlNotYet', 'not read yet')),
-        recent && recent.length ? e('details', { style: { marginTop: '0.3rem' } },
-          e('summary', { style: { color: dim, fontSize: 'var(--text-xs)', cursor: 'pointer' } }, __('wlRecent', 'Recent movements ({n})', { n: recent.length })),
-          e('table', { 'data-testid': 'wl-txs', style: { width: '100%', borderCollapse: 'collapse', fontSize: 'var(--text-xs)', color: text, marginTop: '0.25rem' } }, e('tbody', null, recent.slice(0, 15).map(function (t) {
-            return e('tr', { key: t.hash, style: { borderTop: '1px solid ' + border } },
-              e('td', { style: { padding: '0.2rem 0.3rem' } }, t.date || '…'),
-              e('td', { style: { padding: '0.2rem 0.3rem', color: t.direction === 'in' ? good : t.direction === 'out' ? warn : dim } }, t.direction === 'in' ? __('wlIn', 'in') : t.direction === 'out' ? __('wlOut', 'out') : __('wlSelf', 'to itself')),
-              e('td', { style: { padding: '0.2rem 0.3rem', textAlign: 'right' } }, fmt(t.amount) + ' ' + t.symbol + (t.fee ? ' (' + __('wlFee', 'fee {f}', { f: fmt(t.fee) }) + ')' : '')));
-          })))) : null);
+        w.tokens.length ? e('p', { 'data-testid': 'wl-tokens', className: 'ui-muted' }, w.tokens.map(function (k) { return fmt(k.amount) + ' ' + k.symbol; }).join(' · ')) : null,
+        e('p', { className: 'ui-note' }, w.lastSync ? __('wlAsOf', 'as of {date}', { date: w.lastSync }) : __('wlNotYet', 'not read yet')),
+        recent && recent.length ? e('details', { className: 'ui-sync-details' },
+          e('summary', null, __('wlRecent', 'Recent movements ({n})', { n: recent.length })),
+          e('div', { className: 'ui-table-wrap' }, e('table', { 'data-testid': 'wl-txs', className: ['ui-table', 'ui-table--dense'].join(' ') }, e('tbody', null, recent.slice(0, 15).map(function (t) {
+            return e('tr', { key: t.hash },
+              e('td', { className: 'is-left' }, t.date || '…'),
+              e('td', { className: 'is-left' }, t.direction === 'in' ? '↓ ' + __('wlIn', 'in') : t.direction === 'out' ? '↑ ' + __('wlOut', 'out') : __('wlSelf', 'to itself')),
+              e('td', null, fmt(t.amount) + ' ' + t.symbol + (t.fee ? ' (' + __('wlFee', 'fee {f}', { f: fmt(t.fee) }) + ')' : '')));
+          }))))) : null);
     });
 
     var cmp = compare(st, props.existing);
-    return e('div', { 'data-testid': 'wallets', style: { background: card, border: '1px solid ' + border, borderRadius: '14px', padding: '1.1rem', marginBottom: '1.25rem' } },
-      e('div', { style: { display: 'flex', justifyContent: 'space-between', gap: '0.5rem', flexWrap: 'wrap', alignItems: 'center', marginBottom: '0.2rem' } },
-        e('div', { style: { color: text, fontWeight: 700, fontSize: 'var(--text-md)' } }, __('wlTitle', 'Crypto wallets (read-only)')),
-        st.wallets.length ? e('button', { 'data-testid': 'wl-refresh', style: btn(true), disabled: busy, onClick: function () { refresh(null); } }, busy ? __('wlBusy', 'Reading…') : __('wlRefresh', 'Update balances')) : null),
-      e('div', { style: { color: dim, fontSize: 'var(--text-xs)', marginBottom: '0.8rem', lineHeight: 1.5 } },
-        __('wlSubtitle', 'Watch public addresses on Bitcoin, Ethereum, Arbitrum, Optimism, Base, Polygon and Solana. No keys: an address can only be read. The block explorers see the address and your Worker, not you. Balances are compared with MAERMIN; nothing is booked automatically - a transfer is not a trade.')),
+    return e(UIC.Card, { 'data-testid': 'wallets', className: 'ui-sync', headingLevel: 'h3', title: __('wlTitle', 'Crypto wallets (read-only)'),
+      subtitle: __('wlSubtitle', 'Watch public addresses on Bitcoin, Ethereum, Arbitrum, Optimism, Base, Polygon and Solana. No keys: an address can only be read. The block explorers see the address and your Worker, not you. Balances are compared with MAERMIN; nothing is booked automatically - a transfer is not a trade.'),
+      action: st.wallets.length ? e(UIC.Button, { size: 'sm', 'data-testid': 'wl-refresh', loading: busy, onClick: function () { refresh(null); } }, busy ? __('wlBusy', 'Reading…') : __('wlRefresh', 'Update balances')) : null },
       rows,
-      cmp.length ? e('div', { 'data-testid': 'wl-compare', style: { marginTop: '0.4rem', overflowX: 'auto' } },
-        e('div', { style: { color: dim, fontSize: 'var(--text-xs)', marginBottom: '0.25rem' } }, __('wlCompare', 'All wallets together vs MAERMIN')),
-        e('table', { style: { width: '100%', borderCollapse: 'collapse', fontSize: 'var(--text-xs)', color: text } }, e('tbody', null, cmp.map(function (c) {
-          return e('tr', { key: c.symbol, style: { borderTop: '1px solid ' + border } },
-            e('td', { style: { padding: '0.25rem 0.3rem', fontWeight: 600 } }, c.symbol),
-            e('td', { style: { padding: '0.25rem 0.3rem', textAlign: 'right' } }, fmt(c.wallets)),
-            e('td', { style: { padding: '0.25rem 0.3rem', textAlign: 'right', color: c.status === 'match' ? good : warn } },
-              c.status === 'missing' ? __('bsNotInMaermin', 'not in MAERMIN') : c.status === 'match' ? __('bsMatches', 'matches') : __('bsDiffers', 'MAERMIN {q} ({d})', { q: fmt(c.maermin), d: (c.diff > 0 ? '+' : '') + fmt(c.diff) })));
-        })))) : null,
-      e('div', { style: { display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(150px,1fr))', gap: '0.5rem', marginTop: '0.7rem' } },
-        e('select', { 'data-testid': 'wl-chain', 'aria-label': __('wlChain', 'Network'), value: form.chain, onChange: function (ev) { setForm(Object.assign({}, form, { chain: ev.target.value })); }, style: inputStyle },
-          CHAIN_IDS.map(function (c) { return e('option', { key: c, value: c }, chainName(c)); })),
-        e('input', { 'data-testid': 'wl-address', 'aria-label': __('wlAddress', 'Public address'), placeholder: __('wlAddress', 'Public address'), autoComplete: 'off', spellCheck: false, value: form.address, onChange: function (ev) { setForm(Object.assign({}, form, { address: ev.target.value.trim() })); }, style: Object.assign({}, inputStyle, { gridColumn: '1 / -1' }) }),
-        e('input', { 'aria-label': __('wlLabel', 'Name (optional)'), placeholder: __('wlLabel', 'Name (optional)'), value: form.label, onChange: function (ev) { setForm(Object.assign({}, form, { label: ev.target.value })); }, style: inputStyle })),
-      e('div', { style: { color: dim, fontSize: 'var(--text-2xs)', marginTop: '0.3rem' } }, __('wlNoKeys', 'Only ever a public address - never a seed phrase or private key.')),
-      e('div', null, e('button', { 'data-testid': 'wl-add', style: Object.assign(btn(true), { marginTop: '0.55rem' }), disabled: busy, onClick: add }, __('wlAdd', 'Watch address'))),
-      msg ? e('div', { 'data-testid': 'wl-msg', role: 'status', style: { color: dim, fontSize: 'var(--text-xs)', marginTop: '0.5rem' } }, msg) : null);
+      cmp.length ? e('div', { 'data-testid': 'wl-compare' },
+        e('h4', { className: 'ui-sublabel' }, __('wlCompare', 'All wallets together vs MAERMIN')),
+        e('div', { className: 'ui-table-wrap' }, e('table', { className: ['ui-table', 'ui-table--dense'].join(' ') }, e('tbody', null, cmp.map(function (c) {
+          return e('tr', { key: c.symbol },
+            e('th', { scope: 'row', className: 'is-sticky' }, c.symbol),
+            e('td', null, fmt(c.wallets)),
+            e('td', { className: c.status === 'match' ? 'tone-gain' : 'tone-warning' },
+              c.status === 'missing' ? '! ' + __('bsNotInMaermin', 'not in MAERMIN') : c.status === 'match' ? '✓ ' + __('bsMatches', 'matches') : '! ' + __('bsDiffers', 'MAERMIN {q} ({d})', { q: fmt(c.maermin), d: (c.diff > 0 ? '+' : '') + fmt(c.diff) })));
+        }))))) : null,
+      e('div', { className: 'ui-form-grid' },
+        e(UIC.Select, { 'data-testid': 'wl-chain', label: __('wlChain', 'Network'), value: form.chain, onChange: function (ev) { setForm(Object.assign({}, form, { chain: ev.target.value })); },
+          options: CHAIN_IDS.map(function (c) { return { value: c, label: chainName(c) }; }) }),
+        e(UIC.Input, { 'data-testid': 'wl-address', label: __('wlAddress', 'Public address'), placeholder: __('wlAddress', 'Public address'), autoComplete: 'off', spellCheck: false, fieldClassName: 'ui-sync-wide', value: form.address, onChange: function (ev) { setForm(Object.assign({}, form, { address: ev.target.value.trim() })); } }),
+        e(UIC.Input, { label: __('wlLabel', 'Name (optional)'), placeholder: __('wlLabel', 'Name (optional)'), value: form.label, onChange: function (ev) { setForm(Object.assign({}, form, { label: ev.target.value })); } })),
+      e('p', { className: 'ui-note' }, __('wlNoKeys', 'Only ever a public address - never a seed phrase or private key.')),
+      e('div', { className: 'ui-actions' }, e(UIC.Button, { 'data-testid': 'wl-add', disabled: busy, onClick: add }, __('wlAdd', 'Watch address'))),
+      msg ? e('p', { 'data-testid': 'wl-msg', role: 'status', className: 'ui-note' }, msg) : null);
   }
   api.Panel = Panel;
 

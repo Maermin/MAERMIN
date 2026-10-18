@@ -96,8 +96,8 @@ function __(k, f, v) { return (typeof window !== 'undefined' && window.MaerminI1
     if (!React) return null;
     var e = React.createElement, useState = React.useState;
     var th = props.theme || {};
-    var text = th.text || '#e6edf3', dim = th.textSecondary || '#9aa4b2', border = th.cardBorder || 'rgba(255,255,255,0.1)';
-    var inputBg = th.inputBg || '#0f172a', accent = th.accent || '#8b7cff', warn = th.warning || '#f59e0b';
+    // R4.6: Card, shared inputs and buttons, the shared table look
+    var UIC = window.MaerminComponents;
     var I = window.MaerminI18n;
     var toast = props.addToast || function () {};
     var p0 = useState(''); var profile = p0[0], setProfile = p0[1];
@@ -106,9 +106,7 @@ function __(k, f, v) { return (typeof window !== 'undefined' && window.MaerminI1
     var m0 = useState(''); var msg = m0[0], setMsg = m0[1];
     var x0 = useState(false); var showPaste = x0[0], setShowPaste = x0[1];
     var t0 = useState(''); var pasted = t0[0], setPasted = t0[1];
-    var inp = { padding: '0.5rem 0.65rem', background: inputBg, border: '1px solid ' + border, borderRadius: '7px', color: text, fontSize: '0.85rem' };
-    var btn = function (primary, disabled) { return { padding: '0.5rem 1rem', borderRadius: '8px', cursor: disabled ? 'default' : 'pointer', fontWeight: 700, fontSize: '0.82rem', opacity: disabled ? 0.55 : 1,
-      background: primary ? accent : 'transparent', color: primary ? '#ffffff' : text, border: primary ? 'none' : '1px solid ' + border }; };
+    var INPUT = ['ui-input', 'ui-input--sm'].join(' ');
 
     function preview(items) {
       if (!items) { setMsg(__('stBadJson', 'That is not a Steam inventory (JSON with "assets" and "descriptions").')); return; }
@@ -157,47 +155,43 @@ function __(k, f, v) { return (typeof window !== 'undefined' && window.MaerminI1
     var id64 = steamId64(profile);
     var chosen = rows ? rows.filter(function (r) { return r.include; }) : [];
 
-    return e('div', { 'data-testid': 'steam-import', style: { background: th.card || th.cardBg, border: '1px solid ' + border, borderRadius: '12px', padding: '1.5rem' } },
-      e('h3', { style: { color: text, fontSize: 'var(--text-body)', fontWeight: 700, margin: '0 0 0.35rem' } }, __('stTitle', 'Steam inventory (CS2)')),
-      e('p', { style: { color: dim, fontSize: 'var(--text-sm)', margin: '0 0 1rem', lineHeight: 1.55 } },
-        __('stIntro', 'Imports the CS2 items of a public Steam inventory as purchases. You check every row before anything is booked; a later import only offers items not imported before, and nothing is ever sold.')),
-      e('div', { style: { display: 'flex', gap: '0.5rem', flexWrap: 'wrap' } },
+    return e(UIC.Card, { 'data-testid': 'steam-import', className: 'ui-sync', headingLevel: 'h3', title: __('stTitle', 'Steam inventory (CS2)'),
+      subtitle: __('stIntro', 'Imports the CS2 items of a public Steam inventory as purchases. You check every row before anything is booked; a later import only offers items not imported before, and nothing is ever sold.') },
+      e('div', { className: 'ui-ca-add' },
         e('input', { type: 'text', value: profile, spellCheck: false, 'aria-label': __('stProfile', 'Steam profile'),
           placeholder: __('stProfilePh', 'SteamID64, profile URL or custom URL name'),
-          onChange: function (ev) { setProfile(ev.target.value); }, onKeyDown: function (ev) { if (ev.key === 'Enter') load(); },
-          style: Object.assign({}, inp, { flex: '1 1 18rem' }) }),
-        e('button', { type: 'button', onClick: load, disabled: busy || !profile.trim(), 'aria-busy': busy ? 'true' : undefined, style: btn(true, busy || !profile.trim()) },
-          busy ? __('stLoading', 'Loading…') : __('stLoad', 'Load inventory')),
-        e('button', { type: 'button', onClick: function () { setShowPaste(!showPaste); }, 'aria-expanded': showPaste ? 'true' : 'false', style: btn(false, false) }, __('stPasteToggle', 'Paste instead'))),
-      msg && e('div', { role: 'status', 'data-testid': 'steam-msg', style: { color: rows && rows.length ? text : warn, fontSize: 'var(--text-sm)', marginTop: '0.75rem' } }, msg),
-      showPaste && e('div', { style: { marginTop: '0.9rem', color: dim, fontSize: 'var(--text-sm)', lineHeight: 1.6 } },
-        e('div', null, id64
-          ? [__('stPasteOpen', 'Open'), ' ', e('a', { key: 'a', href: inventoryUrl(id64), target: '_blank', rel: 'noopener noreferrer', style: { color: accent } }, __('stPasteLink', 'your inventory as JSON')), ' ', __('stPasteCopy', 'while signed in to Steam, select everything, copy it and paste it here.')]
+          onChange: function (ev) { setProfile(ev.target.value); }, onKeyDown: function (ev) { if (ev.key === 'Enter') load(); }, className: 'ui-input' }),
+        e(UIC.Button, { variant: 'primary', onClick: load, disabled: !profile.trim(), loading: busy }, busy ? __('stLoading', 'Loading…') : __('stLoad', 'Load inventory')),
+        e(UIC.Button, { variant: 'quiet', onClick: function () { setShowPaste(!showPaste); }, 'aria-expanded': showPaste ? 'true' : 'false' }, __('stPasteToggle', 'Paste instead'))),
+      msg && e('p', { role: 'status', 'data-testid': 'steam-msg', className: rows && rows.length ? 'ui-muted' : 'tone-warning' }, msg),
+      showPaste && e('div', { className: 'ui-taxp__box' },
+        e('p', { className: 'ui-muted' }, id64
+          ? [__('stPasteOpen', 'Open'), ' ', e('a', { key: 'a', href: inventoryUrl(id64), target: '_blank', rel: 'noopener noreferrer', className: 'ui-link' }, __('stPasteLink', 'your inventory as JSON')), ' ', __('stPasteCopy', 'while signed in to Steam, select everything, copy it and paste it here.')]
           : __('stPasteNeedId', 'Enter your SteamID64 (17 digits, in your profile URL) above to get the link to your inventory JSON.')),
         e('textarea', { value: pasted, onChange: function (ev) { setPasted(ev.target.value); }, rows: 4, 'aria-label': __('stPasteAria', 'Inventory JSON'), spellCheck: false,
-          placeholder: '{"assets":[…],"descriptions":[…]}', style: Object.assign({}, inp, { width: '100%', boxSizing: 'border-box', marginTop: '0.5rem', fontFamily: 'monospace', fontSize: '0.75rem' }) }),
-        e('button', { type: 'button', onClick: function () { preview(itemsFrom(pasted)); }, disabled: !pasted.trim(), style: Object.assign(btn(true, !pasted.trim()), { marginTop: '0.5rem' }) }, __('stReadPasted', 'Read pasted inventory'))),
-      rows && rows.length > 0 && e('div', { style: { marginTop: '1rem', overflowX: 'auto' } },
-        e('table', { style: { width: '100%', borderCollapse: 'collapse', fontSize: 'var(--text-sm)', color: text } },
-          e('thead', null, e('tr', { style: { color: dim, textAlign: 'left' } },
+          placeholder: '{"assets":[…],"descriptions":[…]}', className: ['ui-input', 'ui-textarea'].join(' ') }),
+        e('div', { className: 'ui-actions' }, e(UIC.Button, { onClick: function () { preview(itemsFrom(pasted)); }, disabled: !pasted.trim() }, __('stReadPasted', 'Read pasted inventory')))),
+      rows && rows.length > 0 && e('div', { className: 'ui-taxp__body' },
+        e('div', { className: 'ui-table-wrap' }, e('table', { className: ['ui-table', 'ui-table--dense', 'ui-table--left'].join(' ') },
+          e('thead', null, e('tr', null,
             ['', __('stItem', 'Item'), __('stQty', 'Qty'), __('stPrice', 'Price per item (EUR)'), __('stDate', 'Purchase date')].map(function (h, i) {
-              return e('th', { key: i, style: { padding: '0.4rem 0.5rem', fontWeight: 600, borderBottom: '1px solid ' + border } }, h);
+              return e('th', { key: i, scope: 'col', className: i === 2 ? 'is-right' : 'is-left' }, h || e('span', { className: 'sr-only' }, __('stIncludeCol', 'Import')));
             }))),
           e('tbody', null, rows.map(function (r, i) {
-            return e('tr', { key: r.name, 'data-steam-item': r.name, style: { borderBottom: '1px solid ' + border, opacity: r.include ? 1 : 0.6 } },
-              e('td', { style: { padding: '0.35rem 0.5rem' } }, e('input', { type: 'checkbox', checked: !!r.include, 'aria-label': __('stInclude', 'Import {name}', { name: r.name }), onChange: function () { edit(i, { include: !r.include }); } })),
-              e('td', { style: { padding: '0.35rem 0.5rem' } }, r.name, r.marketable ? null : e('span', { style: { color: dim, fontSize: 'var(--text-xs)' } }, ' · ' + __('stNotMarketable', 'not marketable'))),
-              e('td', { style: { padding: '0.35rem 0.5rem', textAlign: 'right' } }, I ? I.num(r.qty, 0) : r.qty),
-              e('td', { style: { padding: '0.35rem 0.5rem' } }, e('input', { type: 'text', inputMode: 'decimal', defaultValue: r.price ? (I ? I.num(r.price, 2) : r.price) : '', placeholder: '0',
+            return e('tr', { key: r.name, 'data-steam-item': r.name, className: r.include ? undefined : 'is-off' },
+              e('td', null, e('input', { type: 'checkbox', checked: !!r.include, className: 'ui-st-check', 'aria-label': __('stInclude', 'Import {name}', { name: r.name }), onChange: function () { edit(i, { include: !r.include }); } })),
+              e('td', { className: 'is-wrap' }, r.name, r.marketable ? null : e('span', { className: 'ui-tcell__sub' }, __('stNotMarketable', 'not marketable'))),
+              e('td', { className: ['is-right', 'num'].join(' ') }, I ? I.num(r.qty, 0) : r.qty),
+              e('td', null, e('input', { type: 'text', inputMode: 'decimal', defaultValue: r.price ? (I ? I.num(r.price, 2) : r.price) : '', placeholder: '0',
                 'aria-label': __('stPriceAria', 'Price per item for {name}', { name: r.name }),
                 onBlur: function (ev) { var v = window.MaerminUtils.parseDecimal(ev.target.value); edit(i, { price: v >= 0 ? v : 0, include: v > 0 ? true : r.include }); },
-                style: Object.assign({}, inp, { width: '7rem', textAlign: 'right', padding: '0.3rem 0.5rem' }) })),
-              e('td', { style: { padding: '0.35rem 0.5rem' } }, e('input', { type: 'date', value: r.date, 'aria-label': __('stDateAria', 'Purchase date for {name}', { name: r.name }),
-                onChange: function (ev) { edit(i, { date: ev.target.value }); }, style: Object.assign({}, inp, { padding: '0.3rem 0.5rem' }) })));
-          }))),
-        e('div', { style: { display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '1rem', flexWrap: 'wrap', marginTop: '0.9rem' } },
-          e('span', { style: { color: dim, fontSize: 'var(--text-sm)' } }, __('stPriceHint', 'Prices are today\'s Steam Market prices; change them to what you paid.')),
-          e('button', { type: 'button', 'data-testid': 'steam-do-import', onClick: doImport, disabled: !chosen.length, style: btn(true, !chosen.length) },
+                className: [INPUT, 'ui-gt-num'].join(' ') })),
+              e('td', null, e('input', { type: 'date', value: r.date, 'aria-label': __('stDateAria', 'Purchase date for {name}', { name: r.name }),
+                onChange: function (ev) { edit(i, { date: ev.target.value }); }, className: INPUT })));
+          })))),
+        e('div', { className: 'ui-dlg-sec__head' },
+          e('span', { className: 'ui-note' }, __('stPriceHint', 'Prices are today\'s Steam Market prices; change them to what you paid.')),
+          e(UIC.Button, { variant: 'primary', 'data-testid': 'steam-do-import', onClick: doImport, disabled: !chosen.length },
             __('stImportBtn', 'Import {n} {n:row|rows}', { n: chosen.length })))));
   }
 

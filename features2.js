@@ -927,17 +927,11 @@ function BrokerImportWizard({ theme, t, addToast, onImport, existing, workerUrl,
 
   const reset = () => { setStep(0); setBroker(null); setRawData(''); setParsed([]); setFileName(''); };
 
-  const btn = (label, onClick, primary=false, disabled=false) =>
-    React.createElement('button', {
-      onClick, disabled,
-      style: {
-        padding: '0.625rem 1.25rem', border: 'none', borderRadius: '8px',
-        cursor: disabled ? 'not-allowed' : 'pointer',
-        fontWeight: '600', fontSize: 'var(--text-base)', opacity: disabled ? 0.5 : 1,
-        background: primary ? (theme.accentFill || theme.accent) : theme.inputBg,
-        color: primary ? '#fff' : theme.text
-      }
-    }, label);
+  // R4.6: the shared Button, Card-like boxes, Badges, fields and the table look
+  const UIC = window.MaerminComponents;
+  const h = React.createElement;
+  const btn = (label, onClick, primary = false, disabled = false) =>
+    h(UIC.Button, { variant: primary ? 'primary' : 'secondary', onClick, disabled }, label);
 
   const steps = [__('biStepSource', 'Select source'), __('biStepLoad', 'Load file'), __('biStepPreview', 'Preview'), __('biStepDone', 'Done')];
 
@@ -950,7 +944,7 @@ function BrokerImportWizard({ theme, t, addToast, onImport, existing, workerUrl,
     const rep = (FXH && FXH.currencyReport) ? FXH.currencyReport(txs) : [];
     if (!rep.length) return null;
     const bad = rep.some(r => r.status === 'unknown');
-    return React.createElement('div', { role: 'status', style: { background: bad ? 'color-mix(in srgb, var(--danger) 6%, transparent)' : 'color-mix(in srgb, var(--warning) 8%, transparent)', border: `1px solid ${bad ? 'color-mix(in srgb, var(--danger) 30%, transparent)' : 'color-mix(in srgb, var(--warning) 30%, transparent)'}`, borderRadius: '8px', padding: '0.6rem 0.8rem', marginBottom: '0.9rem', fontSize: 'var(--text-xs)', color: theme.text, lineHeight: 1.6 } },
+    return h('div', { role: 'status', className: ['ui-callout', bad ? 'ui-callout--error' : 'ui-callout--warn', 'ui-bi-cur'].join(' ') },
       rep.map(r => React.createElement('div', { key: r.currency },
         React.createElement('strong', null, __('biCurRows', '{n} {n:row|rows} in {cur}:', { n: r.count, cur: r.currency }) + ' '),
         r.status === 'unknown'
@@ -965,302 +959,222 @@ function BrokerImportWizard({ theme, t, addToast, onImport, existing, workerUrl,
 
   // embedded: inside Data Management, which names the section already (no
   // second heading, no second padding)
-  return React.createElement('div', { style: { padding: embedded ? 0 : '1.5rem' } },
-    !embedded && React.createElement('h2', { style: { color: theme.text, fontSize: 'var(--text-xl)', fontWeight: '800', letterSpacing: '-0.02em', marginBottom: '1.25rem' } },
-      (t.brokerImport || 'Import')
-    ),
+  const drop = (title, sub, extra, input) => h('div', Object.assign({
+    onDrop: handleDrop, onDragOver: e => e.preventDefault(),
+    'aria-label': __('biChooseCsv', 'Choose CSV file to import'), className: 'ui-bi-drop'
+  }, window.MaerminUtils.clickable(() => fileRef.current?.click())),
+    h('span', { className: 'ui-bi-drop__icon', 'aria-hidden': 'true' }, '↑'),
+    h('b', null, title),
+    h('span', null, sub),
+    extra ? h('span', { className: 'ui-note' }, extra) : null,
+    input);
+
+  return h('div', { className: ['ui-bi', embedded ? '' : 'ui-view'].join(' ').trim() },
+    !embedded && h('h2', { className: 'ui-section-title' }, (t.brokerImport || 'Import')),
 
     // Step indicator
-    React.createElement('div', { style: { display: 'flex', gap: '0', marginBottom: '2rem', borderRadius: '10px', overflow: 'hidden', border: `1px solid ${theme.cardBorder}` } },
-      steps.map((s, i) =>
-        React.createElement('div', { key: i, style: {
-          flex: 1, padding: '0.625rem', textAlign: 'center', fontSize: 'var(--text-sm)',
-          fontWeight: i === step ? '700' : '400',
-          background: i === step ? (theme.accentFill || theme.accent) : i < step ? 'var(--accent-soft)' : theme.card,
-          color: i === step ? 'var(--on-accent)' : i < step ? theme.accent : theme.textSecondary,
-          borderRight: i < steps.length-1 ? `1px solid ${theme.cardBorder}` : 'none'
-        } }, `${i < step ? '✓ ' : ''}${s}`)
-      )
-    ),
+    h('ol', { className: 'ui-bi-steps', 'aria-label': t.brokerImport || 'Import' },
+      steps.map((s, i) => h('li', { key: i, 'data-state': i === step ? 'current' : i < step ? 'done' : 'todo', 'aria-current': i === step ? 'step' : undefined },
+        `${i < step ? '✓ ' : ''}${s}`))),
 
     // ── Step 0: Source select ────────────────────────────────────────────────
-    step === 0 && React.createElement('div', null,
+    step === 0 && h('div', { className: 'ui-bi-sources' },
       categories.map(cat =>
-        React.createElement('div', { key: cat, style: { marginBottom: '1.25rem' } },
-          React.createElement('div', { style: { color: theme.textSecondary, fontSize: 'var(--text-2xs)', fontWeight: '700', letterSpacing: '0.1em', textTransform: 'uppercase', marginBottom: '0.5rem', paddingLeft: '0.25rem' } }, ({ 'Portfolio Tracker': __('biCatTracker', 'Portfolio Tracker'), Broker: __('biCatBroker', 'Broker'), Crypto: __('crypto', 'Crypto'), Other: __('biCatOther', 'Other') })[cat] || cat),
-          React.createElement('div', { style: { display: 'grid', gridTemplateColumns: 'repeat(auto-fill,minmax(200px,1fr))', gap: '0.625rem' } },
+        h('div', { key: cat },
+          h('h4', { className: 'ui-sublabel' }, ({ 'Portfolio Tracker': __('biCatTracker', 'Portfolio Tracker'), Broker: __('biCatBroker', 'Broker'), Crypto: __('crypto', 'Crypto'), Other: __('biCatOther', 'Other') })[cat] || cat),
+          h('div', { className: 'ui-bi-tiles' },
             BROKERS.filter(b => b.category === cat).map(b =>
-              React.createElement('div', {
-                key: b.id,
-                ...window.MaerminUtils.clickable(() => { setBroker(b.id); setStep(1); }),
-                'aria-label': __('biSelectBroker', 'Select broker {name}', { name: b.name || b.id }),
-                style: {
-                  background: selectedBroker === b.id ? `${window.MaerminTokens.alpha(theme.accent, 0x22)}` : theme.card,
-                  border: `1px solid ${selectedBroker === b.id ? theme.accent : theme.cardBorder}`,
-                  borderRadius: '10px', padding: '0.875rem', cursor: 'pointer',
-                  display: 'flex', alignItems: 'center', gap: '0.75rem', transition: 'all 0.15s'
-                }
-              },
-                React.createElement(BrokerLogo, { brokerId: b.id, name: b.name, size: 36 }),
-                React.createElement('div', null,
-                  React.createElement('div', { style: { color: theme.text, fontWeight: '600', fontSize: 'var(--text-base)' } }, b.name),
-                  React.createElement('div', { style: { color: theme.textSecondary, fontSize: 'var(--text-2xs)', marginTop: '0.125rem' } }, b.hintKey ? __(b.hintKey, b.hint) : b.hint)
-                )
-              )
-            )
-          )
-        )
-      )
-    ),
+              h('div', Object.assign({
+                key: b.id, className: ['ui-bi-tile', selectedBroker === b.id ? 'is-on' : ''].join(' ').trim(),
+                'aria-label': __('biSelectBroker', 'Select broker {name}', { name: b.name || b.id })
+              }, window.MaerminUtils.clickable(() => { setBroker(b.id); setStep(1); })),
+                h(BrokerLogo, { brokerId: b.id, name: b.name, size: 36 }),
+                h('span', { className: 'ui-bi-tile__text' },
+                  h('b', null, b.name),
+                  h('span', null, b.hintKey ? __(b.hintKey, b.hint) : b.hint)))))))),
 
     // ── Step 1: CoinTracking info + file upload ──────────────────────────────
-    step === 1 && selectedBroker === 'cointracking' && React.createElement('div', null,
-      React.createElement('div', {
-        style: { background: 'color-mix(in srgb, var(--success) 6%, transparent)', border: '1px solid color-mix(in srgb, var(--success) 20%, transparent)', borderRadius: '10px', padding: '1rem', marginBottom: '1rem', fontSize: 'var(--text-sm)', color: theme.textSecondary, lineHeight: '1.8' }
-      },
-        React.createElement('div', { style: { color: theme.text, fontWeight: '700', marginBottom: '0.375rem' } }, __('biCtInstr', 'CoinTracking export instructions:')),
-        React.createElement('div', null, '1. ' + __('biCtStep1', 'In CoinTracking:') + ' ', React.createElement('b', { style: { color: theme.text } }, 'Reports → All Transactions')),
-        React.createElement('div', null, '2. ' + __('biCtStep2', 'Top right:') + ' ', React.createElement('b', { style: { color: theme.text } }, '"Export" → "CSV (Full Export)"')),
-        React.createElement('div', null, __('biCtStep3', '3. Upload the downloaded file here')),
-        React.createElement('div', { style: { marginTop: '0.5rem', color: theme.accent, fontSize: 'var(--text-xs)' } }, __('biCtBooked', '✓ Booked: Trade, Income, Staking, Mining, Airdrop, Gift/Tip, Interest, Spend · English and German exports')),
-        React.createElement('div', { style: { color: theme.textSecondary, fontSize: 'var(--text-xs)' } }, __('biCtFull', 'Use the full export: its "value in EUR" columns price coin-to-coin trades and rewards. Deposits and withdrawals are transfers and are not booked.'))
-      ),
-      React.createElement('div', {
-        onDrop: handleDrop, onDragOver: e => e.preventDefault(),
-        ...window.MaerminUtils.clickable(() => fileRef.current?.click()),
-        'aria-label': __('biChooseCsv', 'Choose CSV file to import'),
-        style: { border: `2px dashed ${theme.cardBorder}`, borderRadius: '16px', padding: '2.5rem', textAlign: 'center', cursor: 'pointer', marginBottom: '1rem' }
-      },
-        React.createElement('div', { style: { fontSize: 'var(--text-2xl)', marginBottom: '0.5rem', opacity: 0.4 } }, '↑'),
-        React.createElement('div', { style: { color: theme.text, fontWeight: '600', marginBottom: '0.25rem' } }, __('biDropCt', 'Drop CoinTracking CSV here')),
-        React.createElement('div', { style: { color: theme.textSecondary, fontSize: 'var(--text-sm)' } }, __('biOrClickSelect', 'or click to select')),
-        React.createElement('input', { type: 'file', accept: '.csv,.txt', ref: fileRef, style: { display: 'none' }, onChange: e => handleFile(e.target.files[0]) })
-      ),
-      React.createElement('div', { style: { display: 'flex', gap: '0.5rem' } },
-        btn(__('back', '← Back'), () => setStep(0))
-      )
-    ),
+    step === 1 && selectedBroker === 'cointracking' && h('div', { className: 'ui-bi-step' },
+      h('div', { className: 'ui-callout' },
+        h('strong', null, __('biCtInstr', 'CoinTracking export instructions:')),
+        h('div', null, '1. ' + __('biCtStep1', 'In CoinTracking:') + ' ', h('b', null, 'Reports → All Transactions')),
+        h('div', null, '2. ' + __('biCtStep2', 'Top right:') + ' ', h('b', null, '"Export" → "CSV (Full Export)"')),
+        h('div', null, __('biCtStep3', '3. Upload the downloaded file here')),
+        h('div', { className: 'ui-bi-ok' }, __('biCtBooked', '✓ Booked: Trade, Income, Staking, Mining, Airdrop, Gift/Tip, Interest, Spend · English and German exports')),
+        h('div', { className: 'ui-note' }, __('biCtFull', 'Use the full export: its "value in EUR" columns price coin-to-coin trades and rewards. Deposits and withdrawals are transfers and are not booked.'))),
+      drop(__('biDropCt', 'Drop CoinTracking CSV here'), __('biOrClickSelect', 'or click to select'), null,
+        h('input', { type: 'file', accept: '.csv,.txt', ref: fileRef, hidden: true, onChange: e => handleFile(e.target.files[0]) })),
+      h('div', { className: 'ui-actions' }, btn(__('back', '← Back'), () => setStep(0)))),
 
     // ── Step 1: Generic file upload ──────────────────────────────────────────
-    step === 1 && selectedBroker !== 'cointracking' && React.createElement('div', null,
-      (selectedBroker === 'portfolioPerformance' || selectedBroker === 'parqet') && React.createElement('div', { 'data-testid': 'tracker-howto', style: { background: theme.card, border: `1px solid ${theme.cardBorder}`, borderRadius: '10px', padding: '1rem', marginBottom: '1rem', fontSize: 'var(--text-sm)', color: theme.textSecondary, lineHeight: '1.8' } },
-        React.createElement('div', { style: { color: theme.text, fontWeight: '700', marginBottom: '0.375rem' } }, __('biTrackerInstr', 'How to export:')),
+    step === 1 && selectedBroker !== 'cointracking' && h('div', { className: 'ui-bi-step' },
+      (selectedBroker === 'portfolioPerformance' || selectedBroker === 'parqet') && h('div', { 'data-testid': 'tracker-howto', className: 'ui-callout' },
+        h('strong', null, __('biTrackerInstr', 'How to export:')),
         selectedBroker === 'portfolioPerformance'
-          ? React.createElement('div', null,
-              React.createElement('div', null, __('biPpStep1', '1. In Portfolio Performance open the CSV export (window "Export CSV", German "CSV exportieren").')),
-              React.createElement('div', null, __('biPpStep2', '2. Choose "Securities Account Transactions" (Depotumsätze) for purchases and sales, and "Account Transactions" (Kontoumsätze) for dividends, deposits, withdrawals, fees and taxes.')),
-              React.createElement('div', null, __('biPpStep3', '3. Upload each file here. The program language must be English or German. A purchase in both files is recognised as a duplicate.')))
-          : React.createElement('div', null,
-              React.createElement('div', null, __('biPqStep1', '1. In Parqet open Activities and choose Export (CSV).')),
-              React.createElement('div', null, __('biPqStep2', '2. Upload the file here. Securities, crypto, deposits, withdrawals, fees and taxes are imported; other cash bookings are listed, not booked.')))
-      ),
-      exchangeSyncSupported && React.createElement('p', { style: { color: theme.textSecondary, fontSize: 'var(--text-xs)', lineHeight: '1.6', marginBottom: '1rem' } },
+          ? h('div', null,
+              h('div', null, __('biPpStep1', '1. In Portfolio Performance open the CSV export (window "Export CSV", German "CSV exportieren").')),
+              h('div', null, __('biPpStep2', '2. Choose "Securities Account Transactions" (Depotumsätze) for purchases and sales, and "Account Transactions" (Kontoumsätze) for dividends, deposits, withdrawals, fees and taxes.')),
+              h('div', null, __('biPpStep3', '3. Upload each file here. The program language must be English or German. A purchase in both files is recognised as a duplicate.')))
+          : h('div', null,
+              h('div', null, __('biPqStep1', '1. In Parqet open Activities and choose Export (CSV).')),
+              h('div', null, __('biPqStep2', '2. Upload the file here. Securities, crypto, deposits, withdrawals, fees and taxes are imported; other cash bookings are listed, not booked.')))),
+      exchangeSyncSupported && h('p', { className: 'ui-note' },
         __('biPreferLive', 'Prefer a live import? Use Exchange sync below with a read-only API key (stored encrypted in your vault).')),
-      React.createElement('div', {
-        onDrop: handleDrop, onDragOver: e => e.preventDefault(),
-        ...window.MaerminUtils.clickable(() => fileRef.current?.click()),
-        'aria-label': __('biChooseCsv', 'Choose CSV file to import'),
-        style: { border: `2px dashed ${theme.cardBorder}`, borderRadius: '16px', padding: '3rem', textAlign: 'center', cursor: 'pointer', marginBottom: '1rem' }
-      },
-        React.createElement('div', { style: { fontSize: 'var(--text-2xl)', marginBottom: '0.5rem', opacity: 0.4 } }, '↑'),
-        React.createElement('div', { style: { color: theme.text, fontWeight: '600', marginBottom: '0.25rem' } }, pdfBusy ? __('biReadingPdf', 'Reading PDF statement(s)...') : __('biDragHere', 'Drag CSV or PDF statement(s) here')),
-        React.createElement('div', { style: { color: theme.textSecondary, fontSize: 'var(--text-base)' } }, `${__('biOrClick', 'Or click')} · ${selectedBrokerObj?.name || ''} · ${selectedBrokerObj ? (selectedBrokerObj.hintKey ? __(selectedBrokerObj.hintKey, selectedBrokerObj.hint) : selectedBrokerObj.hint) : ''}`),
-        React.createElement('div', { style: { color: theme.textSecondary, fontSize: 'var(--text-xs)', marginTop: '0.3rem' } }, __('biPdfSupported', 'PDF statements: Trade Republic, Scalable, ING, DKB, Comdirect, flatex, Consorsbank, DEGIRO, onvista bank, Baader Bank, Smartbroker+, Sparkasse / Deka, Postbank - trades, dividends, tax and fee documents; parsed on this device, the file never leaves it.')),
-        React.createElement('input', { type: 'file', accept: '.csv,.txt,.json,.pdf', multiple: true, ref: fileRef, style: { display: 'none' }, onChange: e => handleFiles(e.target.files) })
-      ),
-      React.createElement('p', { style: { color: theme.textSecondary, fontSize: 'var(--text-sm)', lineHeight: '1.6' } }, __('biLocalOnly', 'All data stays local. Nothing is uploaded.')),
-      React.createElement('div', { style: { display: 'flex', gap: '0.5rem', marginTop: '1rem' } },
+      drop(pdfBusy ? __('biReadingPdf', 'Reading PDF statement(s)...') : __('biDragHere', 'Drag CSV or PDF statement(s) here'),
+        `${__('biOrClick', 'Or click')} · ${selectedBrokerObj?.name || ''} · ${selectedBrokerObj ? (selectedBrokerObj.hintKey ? __(selectedBrokerObj.hintKey, selectedBrokerObj.hint) : selectedBrokerObj.hint) : ''}`,
+        __('biPdfSupported', 'PDF statements: Trade Republic, Scalable, ING, DKB, Comdirect, flatex, Consorsbank, DEGIRO, onvista bank, Baader Bank, Smartbroker+, Sparkasse / Deka, Postbank - trades, dividends, tax and fee documents; parsed on this device, the file never leaves it.'),
+        h('input', { type: 'file', accept: '.csv,.txt,.json,.pdf', multiple: true, ref: fileRef, hidden: true, onChange: e => handleFiles(e.target.files) })),
+      h('p', { className: 'ui-muted' }, __('biLocalOnly', 'All data stays local. Nothing is uploaded.')),
+      h('div', { className: 'ui-actions' },
         btn(__('back', '← Back'), () => setStep(0)),
-        btn(__('biPasteText', 'Paste text'), () => { setRawData(' '); setStep(2); })
-      )
-    ),
+        btn(__('biPasteText', 'Paste text'), () => { setRawData(' '); setStep(2); }))),
 
     // ── Step 2: Preview & mapping ────────────────────────────────────────────
-    step === 2 && React.createElement('div', null,
+    step === 2 && h('div', { className: 'ui-bi-step' },
       (!mp && parsed.length > 0) && currencyNotice(parsed),
-      fileName && React.createElement('div', { style: { marginBottom: '1rem', color: theme.textSecondary, fontSize: 'var(--text-base)' } }, `${fileName}`),
+      fileName && h('p', { className: 'ui-muted' }, `${fileName}`),
 
       // Paste fallback when there is no data yet (or the mapping module is absent).
-      (!mp && parsed.length === 0) && React.createElement('div', null,
-        React.createElement('p', { style: { color: theme.warning, marginBottom: '1rem' } }, __('biNoneDetected', 'No transactions detected. Paste CSV content manually:')),
-        React.createElement('textarea', {
+      (!mp && parsed.length === 0) && h('div', { className: 'ui-bi-step' },
+        h('p', { className: 'tone-warning' }, '! ' + __('biNoneDetected', 'No transactions detected. Paste CSV content manually:')),
+        h('textarea', {
           value: rawData === ' ' ? '' : rawData,
           onChange: e => setRawData(e.target.value),
-          placeholder: __('biPasteCsvPh', 'Paste CSV content...'),
-          style: { width: '100%', height: '150px', padding: '0.75rem', background: theme.inputBg, border: `1px solid ${theme.inputBorder}`, borderRadius: '8px', color: theme.text, fontFamily: 'monospace', fontSize: 'var(--text-sm)', resize: 'vertical', marginBottom: '0.75rem' }
-        })
-      ),
+          placeholder: __('biPasteCsvPh', 'Paste CSV content...'), 'aria-label': __('biPasteCsvPh', 'Paste CSV content...'),
+          className: ['ui-input', 'ui-textarea'].join(' ')
+        })),
 
-      // NEW smart mapping preview (window.MaerminImportMapping).
+      // Smart mapping preview (window.MaerminImportMapping).
       mp && (function () {
         const reqMissing = (window.MaerminImportMapping.REQUIRED || []).filter(f => !mapping || !mapping[f]);
-        const selStyle = (field) => ({
-          padding: '0.4rem 0.5rem', minHeight: '40px', background: theme.inputBg,
-          border: `1px solid ${(window.MaerminImportMapping.REQUIRED.indexOf(field) !== -1 && (!mapping || !mapping[field])) ? '#ef4444' : theme.inputBorder}`,
-          borderRadius: '6px', color: theme.text, fontSize: '0.78rem', width: '100%'
-        });
-        return React.createElement('div', null,
+        const missing = (field) => window.MaerminImportMapping.REQUIRED.indexOf(field) !== -1 && (!mapping || !mapping[field]);
+        return h('div', { className: 'ui-bi-step' },
           // Summary chips: broker + counts.
-          React.createElement('div', { style: { display: 'flex', flexWrap: 'wrap', gap: '0.5rem', alignItems: 'center', marginBottom: '0.9rem', fontSize: 'var(--text-sm)' } },
-            mp.broker && React.createElement('span', { style: { padding: '0.25rem 0.6rem', borderRadius: '20px', background: `${window.MaerminTokens.alpha(theme.accent, 0x1e)}`, color: theme.accent, fontWeight: '700' } }, mp.broker.chosen ? __('biColsDetected', '{name} (columns detected)', { name: mp.broker.name }) : __('biDetected', 'Detected: {name}', { name: mp.broker.name })),
-            React.createElement('span', { style: { padding: '0.25rem 0.6rem', borderRadius: '20px', background: 'color-mix(in srgb, var(--success) 15%, transparent)', color: theme.success, fontWeight: '700' } }, __('biValid', '✓ {n} valid', { n: mp.stats.ok })),
-            mp.errors.length > 0 && React.createElement('span', { ...window.MaerminUtils.clickable(() => setShowErrors(v => !v)), 'aria-label': __('biToggleErrors', 'Toggle error details'), style: { padding: '0.25rem 0.6rem', borderRadius: '20px', background: 'color-mix(in srgb, var(--danger) 15%, transparent)', color: 'var(--danger)', fontWeight: '700', cursor: 'pointer' } }, `${__('biSkipped', '✗ {n} skipped', { n: mp.errors.length })} ${showErrors ? '▲' : '▼'}`),
-            (mp.stats.duplicates > 0) && React.createElement('span', { style: { padding: '0.25rem 0.6rem', borderRadius: '20px', background: 'color-mix(in srgb, var(--warning) 15%, transparent)', color: theme.warning, fontWeight: '700' } }, __('biDuplicates', '! {n} {n:duplicate|duplicates}', { n: mp.stats.duplicates }))
-          ),
+          h('div', { className: 'ui-bi-chips' },
+            mp.broker && h(UIC.Badge, null, mp.broker.chosen ? __('biColsDetected', '{name} (columns detected)', { name: mp.broker.name }) : __('biDetected', 'Detected: {name}', { name: mp.broker.name })),
+            h(UIC.Badge, { tone: 'gain' }, __('biValid', '✓ {n} valid', { n: mp.stats.ok })),
+            mp.errors.length > 0 && h('button', { type: 'button', className: ['ui-badge', 'tone-loss', 'ui-bi-chipbtn'].join(' '), 'aria-expanded': showErrors, 'aria-label': __('biToggleErrors', 'Toggle error details'), onClick: () => setShowErrors(v => !v) },
+              `${__('biSkipped', '✗ {n} skipped', { n: mp.errors.length })} ${showErrors ? '▲' : '▼'}`),
+            (mp.stats.duplicates > 0) && h(UIC.Badge, { tone: 'warning' }, __('biDuplicates', '! {n} {n:duplicate|duplicates}', { n: mp.stats.duplicates }))),
 
-          // Fixed-format files (CoinTracking) are read by their own parser: say
-          // how rows are booked and list what needs a look instead of a mapping.
-          mp.fixedFormat && React.createElement('div', { 'data-testid': mp.format ? 'tracker-info' : 'ct-info', style: { background: theme.card, border: `1px solid ${theme.cardBorder}`, borderRadius: '10px', padding: '0.9rem', marginBottom: '0.9rem', fontSize: 'var(--text-xs)', color: theme.textSecondary, lineHeight: 1.6 } },
+          // Fixed-format files (CoinTracking, trackers) are read by their own parser.
+          mp.fixedFormat && h('div', { 'data-testid': mp.format ? 'tracker-info' : 'ct-info', className: 'ui-callout' },
+            h('strong', null, mp.format ? __('biTrackerHow', 'How {name} rows are booked', { name: mp.broker ? mp.broker.name : '' }) : __('biCtHow', 'How CoinTracking rows are booked')),
             mp.format
-              ? React.createElement('div', { style: { color: theme.text, fontWeight: '700', marginBottom: '0.3rem' } }, __('biTrackerHow', 'How {name} rows are booked', { name: mp.broker ? mp.broker.name : '' }))
-              : React.createElement('div', { style: { color: theme.text, fontWeight: '700', marginBottom: '0.3rem' } }, __('biCtHow', 'How CoinTracking rows are booked')),
-            mp.format
-              ? React.createElement('div', null, __('biTrackerRules', 'Purchases and inbound deliveries become buys at their price before fees (taxes on a purchase count as costs). Sales become sells; tax withheld on a sale goes to the note, not into the cost basis. Dividends are booked gross with the foreign tax as withholding tax. Deposits, withdrawals, fees, taxes, refunds and interest charges become cash bookings. Interest on cash, transfers between your own accounts and outbound deliveries are not booked; the skipped list says why.'))
-              : React.createElement('div', null, __('biCtRules', 'Trades become buys and sells (a coin-to-coin trade is a sale plus a purchase at the recorded value). Income, staking, mining and airdrops are buys at their market value. Deposits and withdrawals between your own wallets are not booked') + (mp.stats.transfers ? ' ' + __('biInThisFile', '({n} in this file)', { n: mp.stats.transfers }) : '') + __('biCtRulesEnd', '; the skipped list says why each row was left out.')),
-            (mp.warnings || []).length > 0 && React.createElement('ul', { role: 'status', style: { margin: '0.5rem 0 0', paddingLeft: '1.1rem', color: theme.warning } },
-              mp.warnings.slice(0, 8).map((w, i) => React.createElement('li', { key: i }, w)),
-              mp.warnings.length > 8 && React.createElement('li', { key: 'more' }, __('andNMore', '… and {n} more', { n: mp.warnings.length - 8 })))
-          ),
+              ? h('div', null, __('biTrackerRules', 'Purchases and inbound deliveries become buys at their price before fees (taxes on a purchase count as costs). Sales become sells; tax withheld on a sale goes to the note, not into the cost basis. Dividends are booked gross with the foreign tax as withholding tax. Deposits, withdrawals, fees, taxes, refunds and interest charges become cash bookings. Interest on cash, transfers between your own accounts and outbound deliveries are not booked; the skipped list says why.'))
+              : h('div', null, __('biCtRules', 'Trades become buys and sells (a coin-to-coin trade is a sale plus a purchase at the recorded value). Income, staking, mining and airdrops are buys at their market value. Deposits and withdrawals between your own wallets are not booked') + (mp.stats.transfers ? ' ' + __('biInThisFile', '({n} in this file)', { n: mp.stats.transfers }) : '') + __('biCtRulesEnd', '; the skipped list says why each row was left out.')),
+            (mp.warnings || []).length > 0 && h('ul', { role: 'status', className: 'ui-bi-warnings' },
+              mp.warnings.slice(0, 8).map((w, i) => h('li', { key: i }, w)),
+              mp.warnings.length > 8 && h('li', { key: 'more' }, __('andNMore', '… and {n} more', { n: mp.warnings.length - 8 })))),
 
           // Editable column → field mapping.
-          !mp.fixedFormat && React.createElement('div', { style: { background: theme.card, border: `1px solid ${theme.cardBorder}`, borderRadius: '10px', padding: '0.9rem', marginBottom: '0.9rem' } },
-            React.createElement('div', { style: { color: theme.textSecondary, fontSize: 'var(--text-xs)', fontWeight: '700', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: '0.6rem' } }, __('biColMapping', 'Column mapping (edit if a column is wrong)')),
-            React.createElement('div', { style: { display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(150px, 1fr))', gap: '0.6rem' } },
+          !mp.fixedFormat && h('div', { className: 'ui-taxp__box' },
+            h('h4', { className: 'ui-sublabel' }, __('biColMapping', 'Column mapping (edit if a column is wrong)')),
+            h('div', { className: ['ui-form-grid', 'ui-bi-map'].join(' ') },
               (window.MaerminImportMapping.FIELDS).map(field =>
-                React.createElement('label', { key: field, style: { display: 'block' } },
-                  React.createElement('span', { style: { display: 'block', color: theme.textSecondary, fontSize: 'var(--text-2xs)', marginBottom: '0.2rem' } },
-                    fieldLabel(field) + (window.MaerminImportMapping.REQUIRED.indexOf(field) !== -1 ? ' *' : '')),
-                  React.createElement('select', {
-                    value: (mapping && mapping[field]) || '',
+                h('label', { key: field, className: ['ui-field', missing(field) ? 'has-error' : ''].join(' ').trim() },
+                  h('span', { className: 'ui-field__label' }, fieldLabel(field) + (window.MaerminImportMapping.REQUIRED.indexOf(field) !== -1 ? ' *' : '')),
+                  h('select', {
+                    value: (mapping && mapping[field]) || '', 'aria-invalid': missing(field) ? 'true' : undefined,
                     onChange: e => updateMapping(field, e.target.value || null),
-                    style: selStyle(field)
+                    className: ['ui-input', 'ui-select'].join(' ')
                   },
-                    React.createElement('option', { value: '' }, __('biNone', '— none —')),
-                    mp.headers.map((h, i) => React.createElement('option', { key: i, value: h }, h))
-                  )
-                )
-              )
-            ),
-            reqMissing.length > 0 && React.createElement('div', { style: { color: 'var(--danger)', fontSize: 'var(--text-xs)', marginTop: '0.5rem' } }, __('biMapRequired', 'Map the required field(s): {list}', { list: reqMissing.map(fieldLabel).join(', ') })),
+                    h('option', { value: '' }, __('biNone', '— none —')),
+                    mp.headers.map((hd, i) => h('option', { key: i, value: hd }, hd)))))),
+            reqMissing.length > 0 && h('p', { className: ['ui-muted', 'is-error'].join(' ') }, __('biMapRequired', 'Map the required field(s): {list}', { list: reqMissing.map(fieldLabel).join(', ') })),
 
-            // Reusable mapping presets (WI-8): load a saved mapping for this
-            // broker, save the current one, or delete a preset.
-            React.createElement('div', { style: { display: 'flex', flexWrap: 'wrap', gap: '0.5rem', alignItems: 'center', marginTop: '0.7rem', paddingTop: '0.7rem', borderTop: `1px solid ${theme.cardBorder}` } },
-              React.createElement('span', { style: { color: theme.textSecondary, fontSize: 'var(--text-xs)', fontWeight: '700' } }, t.presetLabel || 'Mapping preset'),
-              React.createElement('select', {
-                value: selectedPreset, onChange: e => applyPresetById(e.target.value),
-                style: { padding: '0.35rem 0.5rem', background: theme.inputBg, border: `1px solid ${theme.inputBorder}`, borderRadius: '6px', color: theme.text, fontSize: 'var(--text-xs)' }
+            // Reusable mapping presets (WI-8).
+            h('div', { className: ['ui-actions', 'ui-bi-presets'].join(' ') },
+              h('span', { className: 'ui-field__label' }, t.presetLabel || 'Mapping preset'),
+              h('select', {
+                value: selectedPreset, onChange: e => applyPresetById(e.target.value), 'aria-label': t.presetLabel || 'Mapping preset',
+                className: ['ui-input', 'ui-input--sm', 'ui-select'].join(' ')
               },
-                React.createElement('option', { value: '' }, t.presetLoad || 'Load preset…'),
-                presets.map(p => React.createElement('option', { key: p.id, value: p.id }, p.name))
-              ),
-              React.createElement('button', { onClick: saveCurrentPreset,
-                style: { padding: '0.35rem 0.7rem', background: (theme.accentFill || theme.accent), color: 'var(--on-accent)', border: 'none', borderRadius: '6px', cursor: 'pointer', fontSize: 'var(--text-xs)', fontWeight: '700' } }, t.presetSave || 'Save preset'),
-              selectedPreset && React.createElement('button', { onClick: deleteSelectedPreset,
-                style: { padding: '0.35rem 0.7rem', background: 'none', color: theme.textSecondary, border: `1px solid ${theme.inputBorder}`, borderRadius: '6px', cursor: 'pointer', fontSize: 'var(--text-xs)' } }, t.presetDelete || 'Delete')
-            )
-          ),
+                h('option', { value: '' }, t.presetLoad || 'Load preset…'),
+                presets.map(p => h('option', { key: p.id, value: p.id }, p.name))),
+              h(UIC.Button, { size: 'sm', onClick: saveCurrentPreset }, t.presetSave || 'Save preset'),
+              selectedPreset && h(UIC.Button, { size: 'sm', variant: 'quiet', onClick: deleteSelectedPreset }, t.presetDelete || 'Delete'))),
 
           // ISIN → ticker: one row per ISIN with the proposed listing, editable.
-          isinList.length > 0 && React.createElement('div', { 'data-testid': 'isin-map', style: { background: theme.card, border: `1px solid ${theme.cardBorder}`, borderRadius: '10px', padding: '0.9rem', marginBottom: '0.9rem' } },
-            React.createElement('div', { style: { color: theme.textSecondary, fontSize: 'var(--text-xs)', fontWeight: '700', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: '0.3rem' } }, __('biIsinTicker', 'ISIN → ticker')),
-            React.createElement('div', { style: { color: theme.textSecondary, fontSize: 'var(--text-xs)', lineHeight: 1.5, marginBottom: '0.6rem' } },
+          isinList.length > 0 && h('div', { 'data-testid': 'isin-map', className: 'ui-taxp__box' },
+            h('h4', { className: 'ui-sublabel' }, __('biIsinTicker', 'ISIN → ticker')),
+            h('p', { className: 'ui-note' },
               isinBusy ? __('biLookingUp', 'Looking up listings…')
                 : __('biIsinHint', 'Prices are fetched per listing, so each ISIN needs a ticker. Proposed: the listing in the trade currency. Change it if it is not the one you hold.')),
             isinList.map(x => {
               const pick = isinPicks[x.isin] || {};
               const cands = isinCands[x.isin] || [];
               const inCands = cands.some(c => String(c.symbol).toUpperCase() === pick.symbol);
-              return React.createElement('div', { key: x.isin, style: { display: 'grid', gridTemplateColumns: 'minmax(120px, 150px) minmax(140px, 1fr) minmax(110px, 140px)', gap: '0.5rem', alignItems: 'center', marginBottom: '0.4rem', fontSize: 'var(--text-xs)' } },
-                React.createElement('span', { style: { color: theme.text, fontFamily: 'monospace' } }, x.isin, React.createElement('span', { style: { color: theme.textSecondary } }, ' · ' + x.currency)),
-                React.createElement('select', {
+              return h('div', { key: x.isin, className: 'ui-bi-isin' },
+                h('span', { className: 'ui-bi-isin__id' }, x.isin, h('span', null, ' · ' + x.currency)),
+                h('select', {
                   'aria-label': __('biListingFor', 'Listing for {isin}', { isin: x.isin }), value: inCands ? pick.symbol : '',
                   onChange: e => { const c = cands.find(k => String(k.symbol).toUpperCase() === e.target.value); if (c) setIsinTicker(x.isin, c.symbol, c.name); },
-                  disabled: !cands.length,
-                  style: { padding: '0.4rem 0.5rem', minHeight: '40px', background: theme.inputBg, border: `1px solid ${theme.inputBorder}`, borderRadius: '6px', color: theme.text, fontSize: 'var(--text-xs)', width: '100%' }
+                  disabled: !cands.length, className: ['ui-input', 'ui-select'].join(' ')
                 },
-                  React.createElement('option', { value: '' }, cands.length ? ((pick.symbol && !inCands) ? __('biOther', 'other: {sym}', { sym: pick.symbol }) : __('biChooseListing', '— choose a listing —')) : (isinBusy ? __('biSearching', 'searching…') : (workerUrl ? __('biNoListing', 'no listing found') : __('biNeedsWorker', 'needs a Worker URL')))),
-                  cands.map(c => React.createElement('option', { key: c.symbol, value: String(c.symbol).toUpperCase() }, `${c.symbol} — ${c.name || ''}${c.exchange ? ' (' + c.exchange + ')' : ''}`))
-                ),
-                React.createElement('input', {
+                  h('option', { value: '' }, cands.length ? ((pick.symbol && !inCands) ? __('biOther', 'other: {sym}', { sym: pick.symbol }) : __('biChooseListing', '— choose a listing —')) : (isinBusy ? __('biSearching', 'searching…') : (workerUrl ? __('biNoListing', 'no listing found') : __('biNeedsWorker', 'needs a Worker URL')))),
+                  cands.map(c => h('option', { key: c.symbol, value: String(c.symbol).toUpperCase() }, `${c.symbol} — ${c.name || ''}${c.exchange ? ' (' + c.exchange + ')' : ''}`))),
+                h('input', {
                   'aria-label': __('biTickerFor', 'Ticker for {isin}', { isin: x.isin }), placeholder: __('biTickerPh', 'ticker'), value: pick.symbol || '',
-                  onChange: e => setIsinTicker(x.isin, e.target.value, ''),
-                  style: { padding: '0.4rem 0.5rem', minHeight: '40px', background: theme.inputBg, border: `1px solid ${pick.symbol ? theme.inputBorder : 'var(--danger)'}`, borderRadius: '6px', color: theme.text, fontSize: 'var(--text-xs)', width: '100%', boxSizing: 'border-box' }
+                  'aria-invalid': pick.symbol ? undefined : 'true',
+                  onChange: e => setIsinTicker(x.isin, e.target.value, ''), className: 'ui-input'
                 }),
-                pick.currencyMismatch && React.createElement('span', { style: { gridColumn: '1 / -1', color: 'var(--warning)', fontSize: 'var(--text-xs)' } }, __('biCurMismatch', 'No {cur} listing found — {sym} is quoted in another currency. Its price is converted, so P&L will include the exchange-rate move.', { cur: x.currency, sym: pick.symbol }))
-              );
+                pick.currencyMismatch && h('span', { className: ['ui-bi-isin__note', 'tone-warning'].join(' ') }, '! ' + __('biCurMismatch', 'No {cur} listing found — {sym} is quoted in another currency. Its price is converted, so P&L will include the exchange-rate move.', { cur: x.currency, sym: pick.symbol })));
             }),
-            (!isinBusy && mp.stats.isinUnresolved > 0) && React.createElement('div', { role: 'status', 'data-testid': 'isin-unresolved', style: { color: 'var(--danger)', fontSize: 'var(--text-xs)', marginTop: '0.4rem' } },
-              __('biIsinUnresolved', '{n} {n:row has|rows have} no ticker yet. They would be imported under their ISIN and stay without a price — enter a ticker above.', { n: mp.stats.isinUnresolved }))
-          ),
+            (!isinBusy && mp.stats.isinUnresolved > 0) && h('p', { role: 'status', 'data-testid': 'isin-unresolved', className: ['ui-muted', 'is-error'].join(' ') },
+              __('biIsinUnresolved', '{n} {n:row has|rows have} no ticker yet. They would be imported under their ISIN and stay without a price — enter a ticker above.', { n: mp.stats.isinUnresolved }))),
 
           // Currencies that can't be converted exactly (see MaerminFxHistory.txToEUR).
           currencyNotice(mp.transactions),
 
           // Row-accurate error report.
-          showErrors && mp.errors.length > 0 && React.createElement('div', { style: { background: 'color-mix(in srgb, var(--danger) 6%, transparent)', border: '1px solid color-mix(in srgb, var(--danger) 25%, transparent)', borderRadius: '8px', padding: '0.6rem 0.8rem', marginBottom: '0.9rem', maxHeight: '160px', overflow: 'auto', fontSize: 'var(--text-xs)' } },
-            mp.errors.slice(0, 50).map((er, i) => React.createElement('div', { key: i, style: { color: theme.textSecondary, lineHeight: '1.7' } },
-              React.createElement('span', { style: { color: 'var(--danger)', fontWeight: '700' } }, __('importRowLabel', 'Row {row}:', { row: er.row }) + ' '), er.reason)),
-            mp.errors.length > 50 && React.createElement('div', { style: { color: theme.textSecondary } }, __('andNMore', '… and {n} more', { n: mp.errors.length - 50 }))
-          ),
+          showErrors && mp.errors.length > 0 && h('div', { className: ['ui-callout', 'ui-callout--error', 'ui-bi-errors'].join(' ') },
+            mp.errors.slice(0, 50).map((er, i) => h('div', { key: i },
+              h('b', { className: 'tone-loss' }, __('importRowLabel', 'Row {row}:', { row: er.row }) + ' '), er.reason)),
+            mp.errors.length > 50 && h('div', null, __('andNMore', '… and {n} more', { n: mp.errors.length - 50 }))),
 
           // Duplicate handling toggle.
-          (mp.stats.duplicates > 0) && React.createElement('label', { style: { display: 'flex', alignItems: 'center', gap: '0.5rem', marginBottom: '0.9rem', fontSize: 'var(--text-sm)', color: theme.text, cursor: 'pointer' } },
-            React.createElement('input', { type: 'checkbox', checked: includeDupes, onChange: e => setIncludeDupes(e.target.checked) }),
-            __('biImportDupes', 'Import the {n} {n:duplicate|duplicates} too (already in your portfolio)', { n: mp.stats.duplicates })
-          ),
+          (mp.stats.duplicates > 0) && h('label', { className: 'ui-check' },
+            h('input', { type: 'checkbox', checked: includeDupes, onChange: e => setIncludeDupes(e.target.checked) }),
+            __('biImportDupes', 'Import the {n} {n:duplicate|duplicates} too (already in your portfolio)', { n: mp.stats.duplicates })),
 
           // Preview table — duplicates greyed + flagged.
-          React.createElement('div', { style: { background: theme.card, borderRadius: '10px', border: `1px solid ${theme.cardBorder}`, overflow: 'auto', maxHeight: '300px' } },
-            React.createElement('table', { style: { width: '100%', borderCollapse: 'collapse', minWidth: '560px', fontSize: 'var(--text-sm)' } },
-              React.createElement('thead', null,
-                React.createElement('tr', null,
-                  [__('date', 'Date'), __('type', 'Type'), __('symbol', 'Symbol'), __('quantity', 'Quantity'), __('price', 'Price'), __('fees', 'Fees'), ''].map((h, i) =>
-                    React.createElement('th', { key: i, style: { padding: '0.6rem 0.875rem', textAlign: (i > 2 && i < 6) ? 'right' : 'left', color: theme.textSecondary, borderBottom: `1px solid ${theme.cardBorder}`, fontWeight: '600' } }, h)
-                  )
-                )
-              ),
-              React.createElement('tbody', null,
-                mp.transactions.slice(0, 20).map((tx, i) =>
-                  React.createElement('tr', { key: i, style: { opacity: tx.duplicate ? 0.45 : 1 } },
-                    React.createElement('td', { style: { padding: '0.5rem 0.875rem', color: theme.text } }, tx.date ? window.MaerminI18n.date(tx.date) : '—'),
-                    React.createElement('td', { style: { padding: '0.5rem 0.875rem' } },
-                      React.createElement('span', { style: { padding: '0.125rem 0.375rem', borderRadius: '3px', fontSize: 'var(--text-2xs)', fontWeight: '700', background: window.MaerminUtils.txTypeInfo(tx.type).background, color: window.MaerminUtils.txTypeInfo(tx.type).color } }, window.MaerminUtils.txTypeInfo(tx.type, t).label.toUpperCase())
-                    ),
-                    React.createElement('td', { style: { padding: '0.5rem 0.875rem', color: tx.unresolvedIsin ? theme.danger : theme.text, fontWeight: '600' } },
+          h('div', { className: ['ui-table-wrap', 'ui-bi-preview'].join(' ') },
+            h('table', { className: ['ui-table', 'ui-table--dense', 'ui-table--tall'].join(' ') },
+              h('thead', null, h('tr', null,
+                [__('date', 'Date'), __('type', 'Type'), __('symbol', 'Symbol'), __('quantity', 'Quantity'), __('price', 'Price'), __('fees', 'Fees'), ''].map((label, i) =>
+                  h('th', { key: i, scope: 'col', className: (i > 2 && i < 6) || i === 6 ? 'is-right' : 'is-left' }, label || h('span', { className: 'sr-only' }, __('biDupCol', 'Duplicate')))))),
+              h('tbody', null,
+                mp.transactions.slice(0, 20).map((tx, i) => {
+                  const info = window.MaerminUtils.txTypeInfo(tx.type, t);
+                  return h('tr', { key: i, className: tx.duplicate ? 'is-dup' : undefined },
+                    h('td', { className: 'is-left' }, tx.date ? window.MaerminI18n.date(tx.date) : '—'),
+                    h('td', { className: 'is-left' }, h('span', { className: 'ui-txtype', 'data-tone': info.tone }, info.label)),
+                    h('td', { className: ['is-left', 'is-strong', tx.unresolvedIsin ? 'tone-loss' : ''].join(' ').trim() },
                       tx.symbol || '—',
-                      (tx.isin && !tx.unresolvedIsin) && React.createElement('div', { style: { color: theme.textSecondary, fontWeight: '400', fontSize: 'var(--text-2xs)', fontFamily: 'monospace' } }, tx.isin),
-                      tx.unresolvedIsin && React.createElement('div', { style: { fontWeight: '400', fontSize: 'var(--text-2xs)' } }, __('biNoTicker', 'no ticker'))),
-                    React.createElement('td', { style: { padding: '0.5rem 0.875rem', color: theme.text, textAlign: 'right' } }, (typeof tx.quantity === 'number' ? window.MaerminI18n.num(tx.quantity, 4) : '—')),
+                      (tx.isin && !tx.unresolvedIsin) && h('span', { className: ['ui-tcell__sub', 'ui-bi-mono'].join(' ') }, tx.isin),
+                      tx.unresolvedIsin && h('span', { className: 'ui-tcell__sub' }, '! ' + __('biNoTicker', 'no ticker'))),
+                    h('td', null, (typeof tx.quantity === 'number' ? window.MaerminI18n.num(tx.quantity, 4) : '—')),
                     // P5-1.3: a cash row shows its amount in the price column
-                    React.createElement('td', { style: { padding: '0.5rem 0.875rem', color: theme.text, textAlign: 'right' } }, (typeof tx.price === 'number' ? window.MaerminI18n.num(tx.price, 2) : typeof tx.amount === 'number' ? window.MaerminI18n.num(tx.amount, 2) + ' ' + (tx.currency || 'EUR') : '—')),
-                    React.createElement('td', { style: { padding: '0.5rem 0.875rem', color: theme.textSecondary, textAlign: 'right' } }, window.MaerminI18n.num(typeof tx.fees === 'number' ? tx.fees : 0, 2)),
-                    React.createElement('td', { style: { padding: '0.5rem 0.875rem', textAlign: 'right' } }, tx.duplicate ? React.createElement('span', { style: { color: 'var(--warning)', fontSize: 'var(--text-2xs)', fontWeight: '700' } }, 'DUP') : '')
-                  )
-                )
-              )
-            )
-          ),
-          mp.transactions.length > 20 && React.createElement('div', { style: { color: theme.textSecondary, fontSize: 'var(--text-sm)', marginTop: '0.5rem' } }, __('andNMore', '… and {n} more', { n: mp.transactions.length - 20 }))
-        );
+                    h('td', null, (typeof tx.price === 'number' ? window.MaerminI18n.num(tx.price, 2) : typeof tx.amount === 'number' ? window.MaerminI18n.num(tx.amount, 2) + ' ' + (tx.currency || 'EUR') : '—')),
+                    h('td', { className: 'is-dim' }, window.MaerminI18n.num(typeof tx.fees === 'number' ? tx.fees : 0, 2)),
+                    h('td', null, tx.duplicate ? h(UIC.Badge, { tone: 'warning' }, 'DUP') : ''));
+                })))),
+          mp.transactions.length > 20 && h('p', { className: 'ui-note' }, __('andNMore', '… and {n} more', { n: mp.transactions.length - 20 })));
       })(),
 
-      React.createElement('div', { style: { display: 'flex', gap: '0.5rem', marginTop: '1rem' } },
+      h('div', { className: 'ui-actions' },
         btn(__('back', '← Back'), () => setStep(1)),
         mp
           ? btn(__('biImportN', '✓ Import {n}', { n: Math.max(0, mp.stats.ok - (includeDupes ? 0 : (mp.stats.duplicates || 0))) }), doImportMapped, true, (mp.stats.ok - (includeDupes ? 0 : (mp.stats.duplicates || 0))) <= 0)
-          : btn(__('biImportN', '✓ Import {n}', { n: parsed.length }), doImport, true, parsed.length === 0)
-      )
-    ),
+          : btn(__('biImportN', '✓ Import {n}', { n: parsed.length }), doImport, true, parsed.length === 0))),
 
     // ── Step 3: Done ─────────────────────────────────────────────────────────
-    step === 3 && React.createElement('div', { style: { textAlign: 'center', padding: '3rem' } },
-      React.createElement('div', { style: { fontSize: 'var(--text-2xl)', marginBottom: '1rem', color: 'var(--success)' } }, '✓'),
-      React.createElement('h3', { style: { color: theme.text, fontSize: 'var(--text-title)', fontWeight: '700', marginBottom: '0.5rem' } }, __('biSuccess', 'Import successful!')),
-      React.createElement('p', { style: { color: theme.textSecondary, marginBottom: '1.5rem' } }, __('biAddedN', '{n} {n:transaction was|transactions were} added.', { n: importedCount })),
-      btn(__('biStartNew', 'Start a new import'), reset, true)
-    )
-  );
+    step === 3 && h('div', { className: 'ui-bi-done' },
+      h('span', { className: 'ui-bi-done__mark', 'aria-hidden': 'true' }, '✓'),
+      h('h3', { className: 'ui-dlg-sec__title' }, __('biSuccess', 'Import successful!')),
+      h('p', { className: 'ui-muted' }, __('biAddedN', '{n} {n:transaction was|transactions were} added.', { n: importedCount })),
+      btn(__('biStartNew', 'Start a new import'), reset, true)));
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
