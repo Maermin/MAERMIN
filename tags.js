@@ -220,14 +220,9 @@ function __(k, f, v) { return (typeof window !== 'undefined' && window.MaerminI1
     if (!React) return null;
     var e = React.createElement;
     var useState = React.useState;
-    var theme = props.theme || {};
     var t = props.t || ((typeof window !== 'undefined' && window.MaerminI18n) ? window.MaerminI18n.dict() : {});
-    var text = theme.text || '#e9edf4', dim = theme.textSecondary || '#8b94a7';
-    var border = theme.cardBorder || 'rgba(255,255,255,0.08)';
-    var card = theme.card || '#10151f';
-    var inputBg = theme.inputBg || '#0c1018', inputBorder = theme.inputBorder || border;
-    var accent = theme.accent || '#8b7cff', accentText = theme.accentText || '#ffffff', accentFill = theme.accentFill || accent;
-    var up = theme.success || '#22c55e', down = theme.danger || '#ef4444';
+    // R5.1: one Card per tag, shared fields, chips and buttons; tag colours are stored data
+    var UIC = window.MaerminComponents;
     var fmt = props.formatPrice || function (n) { return window.MaerminI18n.num(n, 2); };
     var sym = props.getCurrencySymbol ? props.getCurrencySymbol() : '€';
 
@@ -266,18 +261,7 @@ function __(k, f, v) { return (typeof window !== 'undefined' && window.MaerminI1
       } catch (e) { return null; }
     }
 
-    function dot(color) { return e('span', { 'aria-hidden': 'true', style: { display: 'inline-block', width: '0.7rem', height: '0.7rem', borderRadius: '50%', background: color, flexShrink: 0 } }); }
-    function btn(label, onClick, kind) {
-      var solid = kind === 'solid';
-      return e('button', {
-        onClick: onClick,
-        style: {
-          padding: '0.35rem 0.7rem', fontSize: 'var(--text-xs)', fontWeight: 700, cursor: 'pointer',
-          borderRadius: '8px', border: '1px solid ' + (solid ? accent : inputBorder),
-          background: solid ? accentFill : 'transparent', color: solid ? accentText : text
-        }
-      }, label);
-    }
+    function dot(color) { return e('span', { 'aria-hidden': 'true', className: ['ui-cat-dot', 'is-round'].join(' '), style: { background: color } }); }
 
     var tagCards = listTags(st).map(function (tag) {
       var row = aggByName[tag.name] || { value: 0, weightPct: 0, matched: 0 };
@@ -293,77 +277,72 @@ function __(k, f, v) { return (typeof window !== 'undefined' && window.MaerminI1
           title: t.tagsUnassign || 'Click to remove',
           'aria-label': (t.tagsRemoveSymbol || 'Remove') + ' ' + s,
           onClick: function () { mutate(unassign(st, tag.name, s)); },
-          style: { font: 'inherit', cursor: 'pointer', display: 'inline-flex', alignItems: 'center', gap: '0.3rem', padding: '0.2rem 0.55rem', borderRadius: '999px', border: '1px solid ' + border, background: 'rgba(255,255,255,0.03)', color: text, fontSize: 'var(--text-xs)' }
-        }, s, e('span', { 'aria-hidden': 'true', style: { color: dim } }, '×'));
+          className: 'ui-tag-sym'
+        }, s, e('span', { 'aria-hidden': 'true' }, '×'));
       });
 
       var addSelect = untagged.length ? e('select', {
-        value: '',
+        value: '', 'aria-label': __('tagsAddSymbolAria', 'Add a symbol to {name}', { name: tag.name }),
         onChange: function (ev) { if (ev.target.value) mutate(assign(st, tag.name, ev.target.value)); },
-        style: { padding: '0.2rem 0.4rem', borderRadius: '8px', border: '1px solid ' + inputBorder, background: inputBg, color: text, fontSize: 'var(--text-xs)' }
+        className: ['ui-input', 'ui-input--sm', 'ui-select', 'ui-tag-add'].join(' ')
       },
         [e('option', { key: '_', value: '' }, t.tagsAddSymbol || '+ symbol')].concat(
           untagged.map(function (s) { return e('option', { key: s, value: s }, s); }))) : null;
 
-      return e('div', {
-        key: tag.name,
-        style: { background: card, border: '1px solid ' + border, borderRadius: '14px', padding: '1rem', marginBottom: '0.75rem' }
-      },
-        e('div', { style: { display: 'flex', alignItems: 'center', gap: '0.6rem', marginBottom: '0.6rem', flexWrap: 'wrap' } },
+      var perf = tagPerf(tag.name);
+      var onTarget = Math.abs(driftPp) < 0.05;
+      return e(UIC.Card, { key: tag.name, className: 'ui-tag-card' },
+        e('div', { className: 'ui-tag-head' },
           dot(tag.color),
-          e('span', { style: { color: text, fontWeight: 800, fontSize: 'var(--text-md)' } }, tag.name),
-          e('span', { style: { color: dim, fontSize: 'var(--text-xs)' } }, fmt(row.value) + ' ' + sym + ' · ' + window.MaerminI18n.pct(row.weightPct, 1)),
-          (function () {
-            var perf = tagPerf(tag.name);
-            return (perf && perf.pct != null)
-              ? e('span', { title: (perf.partial ? (t.tagsSinceStart || 'since first record') : __('tg30d', '30d')), style: { color: perf.pct >= 0 ? up : down, fontSize: 'var(--text-xs)', fontWeight: 700 } },
-                  window.MaerminI18n.pct(perf.pct, 1, true) + ' · ' + (perf.partial ? '∗' : __('tg30d', '30d')))
-              : null;
-          })(),
-          e('span', { style: { flex: 1 } }),
-          Reb ? e('label', { style: { color: dim, fontSize: 'var(--text-xs)', display: 'inline-flex', alignItems: 'center', gap: '0.3rem' } },
+          e('h3', { className: 'ui-tag-name' }, tag.name),
+          e('span', { className: ['ui-tag-meta', 'num'].join(' ') }, fmt(row.value) + ' ' + sym + ' · ' + window.MaerminI18n.pct(row.weightPct, 1)),
+          (perf && perf.pct != null)
+            ? e(UIC.ToneChip, { value: perf.pct, title: (perf.partial ? (t.tagsSinceStart || 'since first record') : __('tg30d', '30d')),
+                text: window.MaerminI18n.pct(perf.pct, 1, true) + ' · ' + (perf.partial ? '∗' : __('tg30d', '30d')) })
+            : null,
+          e('span', { className: 'ui-tag-spacer' }),
+          Reb ? e('label', { className: 'ui-tag-target' },
             (t.tagsTarget || 'Target'),
             e('input', {
               type: 'number', min: 0, max: 100, value: targetPct || '',
               onChange: function (ev) { setTarget(tag.name, ev.target.value); },
-              placeholder: '0', style: { width: '56px', padding: '0.2rem 0.35rem', borderRadius: '6px', border: '1px solid ' + inputBorder, background: inputBg, color: text, fontSize: 'var(--text-xs)' }
+              placeholder: '0', className: ['ui-input', 'ui-input--sm', 'ui-tag-pct'].join(' ')
             }), '%') : null,
-          btn(t.tagsDelete || 'Delete', function () {
+          e(UIC.Button, { size: 'sm', variant: 'quiet', onClick: function () {
             window.MaerminUtils.confirmThen({
               title: (t.tagsDeleteTitle || 'Delete the tag "{name}"?').replace('{name}', tag.name),
               message: t.tagsDeleteMessage || 'The tag is removed from all its symbols. The holdings stay.',
               confirmLabel: t.tagsDelete || 'Delete', cancelLabel: t.cancel || 'Cancel'
             }, function () { mutate(removeTag(st, tag.name)); });
-          })),
-        e('div', { style: { display: 'flex', alignItems: 'center', gap: '0.4rem', flexWrap: 'wrap' } },
-          chips.length ? chips : e('span', { style: { color: dim, fontSize: 'var(--text-xs)' } }, t.tagsNoSymbols || 'No symbols yet'),
+          } }, t.tagsDelete || 'Delete')),
+        e('div', { className: 'ui-tag-syms' },
+          chips.length ? chips : e('span', { className: 'ui-muted' }, t.tagsNoSymbols || 'No symbols yet'),
           addSelect),
-        (Reb && targetPct > 0) ? e('div', { style: { marginTop: '0.6rem', fontSize: 'var(--text-xs)', color: Math.abs(driftPp) < 0.05 ? dim : (driftPp > 0 ? down : up) } },
-          (Math.abs(driftPp) < 0.05
-            ? (t.tagsOnTarget || 'On target')
+        (Reb && targetPct > 0) ? e('p', { className: ['ui-tag-drift', onTarget ? 'is-dim' : (driftPp > 0 ? 'tone-loss' : 'tone-gain')].join(' ') },
+          (onTarget
+            ? '✓ ' + (t.tagsOnTarget || 'On target')
             : (driftPp > 0
-              ? (t.tagsOverweight || 'Overweight') + ' ' + __('ppValue', '{v} pp', { v: window.MaerminI18n.num(driftPp, 1) }) + ' → ' + (t.tagsSell || 'sell') + ' ' + fmt(Math.abs(deltaVal)) + ' ' + sym
-              : (t.tagsUnderweight || 'Underweight') + ' ' + __('ppValue', '{v} pp', { v: window.MaerminI18n.num(Math.abs(driftPp), 1) }) + ' → ' + (t.tagsBuy || 'buy') + ' ' + fmt(Math.abs(deltaVal)) + ' ' + sym))) : null);
+              ? '▲ ' + (t.tagsOverweight || 'Overweight') + ' ' + __('ppValue', '{v} pp', { v: window.MaerminI18n.num(driftPp, 1) }) + ' → ' + (t.tagsSell || 'sell') + ' ' + fmt(Math.abs(deltaVal)) + ' ' + sym
+              : '▼ ' + (t.tagsUnderweight || 'Underweight') + ' ' + __('ppValue', '{v} pp', { v: window.MaerminI18n.num(Math.abs(driftPp), 1) }) + ' → ' + (t.tagsBuy || 'buy') + ' ' + fmt(Math.abs(deltaVal)) + ' ' + sym))) : null);
     });
 
-    return e('div', { style: { padding: '1.5rem' } },
-      e('h2', { style: { color: text, fontSize: 'var(--text-xl)', fontWeight: 800, letterSpacing: '-0.02em', margin: '0 0 0.35rem' } }, t.navTags || 'Tags'),
-      e('p', { style: { color: dim, fontSize: 'var(--text-base)', margin: '0 0 1.25rem', lineHeight: 1.5, maxWidth: '60ch' } },
+    function addCurrent() { if (newName.trim()) { mutate(addTag(st, newName)); setNewName(''); } }
+    return e('div', { className: 'ui-view' },
+      e('p', { className: 'ui-view__lead' },
         t.tagsSubtitle || 'Cross-cutting labels on your holdings — group by your own thesis (high-conviction, income, speculative…), see value & weight per tag, and optionally set target weights.'),
 
-      e('div', { style: { display: 'flex', gap: '0.5rem', marginBottom: '1.25rem', flexWrap: 'wrap' } },
+      e('div', { className: 'ui-ca-add' },
         e('input', {
           value: newName, onChange: function (ev) { setNewName(ev.target.value); },
-          onKeyDown: function (ev) { if (ev.key === 'Enter' && newName.trim()) { mutate(addTag(st, newName)); setNewName(''); } },
+          onKeyDown: function (ev) { if (ev.key === 'Enter') addCurrent(); },
           placeholder: t.tagsNewPlaceholder || 'New tag name…', 'aria-label': t.tagsNewPlaceholder || 'New tag name…',
-          style: { flex: 1, minWidth: '180px', maxWidth: '320px', padding: '0.5rem 0.75rem', borderRadius: '8px', border: '1px solid ' + inputBorder, background: inputBg, color: text, fontSize: 'var(--text-base)' }
+          className: ['ui-input', 'ui-cat-new'].join(' ')
         }),
-        btn(t.tagsAdd || 'Add tag', function () { if (newName.trim()) { mutate(addTag(st, newName)); setNewName(''); } }, 'solid')),
+        e(UIC.Button, { variant: 'primary', onClick: addCurrent }, t.tagsAdd || 'Add tag')),
 
-      tagCards.length ? tagCards : e('div', { style: { background: card, border: '1px solid ' + border, borderRadius: '14px', padding: '2rem', textAlign: 'center', color: dim, fontSize: 'var(--text-base)' } },
-        t.tagsEmpty || 'No tags yet. Create one above, then assign holdings to it.'),
+      tagCards.length ? e('div', { className: 'ui-tag-list' }, tagCards) : e(UIC.EmptyState, { text: t.tagsEmpty || 'No tags yet. Create one above, then assign holdings to it.' }),
 
-      agg.total > 0 ? e('div', { style: { color: dim, fontSize: 'var(--text-xs)', marginTop: '1rem', lineHeight: 1.5 } },
+      agg.total > 0 ? e('p', { className: 'ui-note' },
         (t.tagsFootnote || 'Weights are share of total holdings value (untagged value is included in the base). Tags carry into your backup.')) : null);
   }
 

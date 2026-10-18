@@ -190,40 +190,40 @@ function __(k, f, v) { return (typeof window !== 'undefined' && window.MaerminI1
     var React = (typeof window !== 'undefined') ? window.React : null;
     if (!React || !Store || !store) return null;
     var e = React.createElement;
-    var th = props.theme || {};
-    var text = th.text || '#e6edf3', dim = th.textSecondary || '#9aa4b2', border = th.cardBorder || 'rgba(255,255,255,0.1)';
+    // R5.1: rows on the shared look, shared buttons; the intro as the view lead
+    var UIC = window.MaerminComponents;
     Store.useStore(store, function (s) { return s.rev; });
     var items = list();
     var I = window.MaerminI18n;
     function btn(label, onClick, danger, aria) {
-      return e('button', { type: 'button', onClick: onClick, 'aria-label': aria, style: { padding: '0.35rem 0.75rem', borderRadius: '7px', cursor: 'pointer', fontSize: 'var(--text-xs)', fontWeight: 600,
-        background: 'transparent', color: danger ? (th.danger || 'var(--danger)') : (th.accent || '#8b7cff'), border: '1px solid ' + (danger ? (th.danger || '#ef4444') + '66' : border) } }, label);
+      return e(UIC.Button, { size: 'sm', variant: danger ? 'danger' : 'secondary', onClick: onClick, 'aria-label': aria }, label);
     }
     function confirmPurge(title, run) {
       window.MaerminUtils.confirmThen({ title: title, message: __('trashPurgeMsg', 'This cannot be undone.'), confirmLabel: __('trashPurge', 'Delete forever'), cancelLabel: __('cancel', 'Cancel') }, run);
     }
-    return e('div', { 'data-testid': 'trash-view', style: { background: th.card || th.cardBg, border: '1px solid ' + border, borderRadius: '14px', padding: '1.25rem' } },
-      e('div', { style: { display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '1rem', flexWrap: 'wrap', marginBottom: '0.5rem' } },
-        e('h2', { style: { color: text, fontSize: 'var(--text-title)', fontWeight: 800, margin: 0 } }, __('trashTitle', 'Trash')),
+    return e('div', { 'data-testid': 'trash-view', className: 'ui-trash' },
+      e('div', { className: 'ui-view__bar' },
+        e('p', { className: 'ui-view__lead' },
+          __('trashIntro', 'Deleted transactions, portfolios, savings plans, accounts, goals, rules and real assets stay here for 30 days. Restore puts them back where they were.')),
         items.length ? btn(__('trashEmpty', 'Empty trash'), function () { confirmPurge(__('trashEmptyTitle', 'Delete all {n} {n:item|items} forever?', { n: items.length }), purgeAll); }, true) : null),
-      e('p', { style: { color: dim, fontSize: 'var(--text-sm)', margin: '0 0 1rem', lineHeight: 1.5 } },
-        __('trashIntro', 'Deleted transactions, portfolios, savings plans, accounts, goals, rules and real assets stay here for 30 days. Restore puts them back where they were.')),
       items.length === 0
-        ? e('div', { style: { color: dim, fontSize: 'var(--text-base)', padding: '1.5rem 0', textAlign: 'center' } }, __('trashNone', 'The trash is empty.'))
-        : e('ul', { style: { listStyle: 'none', margin: 0, padding: 0 } }, items.map(function (it) {
-            return e('li', { key: it.id, 'data-trash-kind': it.kind, style: { display: 'flex', alignItems: 'center', gap: '0.75rem', padding: '0.65rem 0', borderTop: '1px solid ' + border, flexWrap: 'wrap' } },
-              e('div', { style: { flex: '1 1 14rem', minWidth: 0 } },
-                e('div', { style: { color: text, fontWeight: 600, fontSize: 'var(--text-base)', overflow: 'hidden', textOverflow: 'ellipsis' } }, it.label || kindLabel(it.kind)),
-                e('div', { style: { color: dim, fontSize: 'var(--text-xs)' } },
+        ? e(UIC.EmptyState, { text: __('trashNone', 'The trash is empty.') })
+        : e(UIC.Card, { headingLevel: 'h3', title: __('trashTitle', 'Trash') },
+          e('ul', { className: 'ui-rows' }, items.map(function (it) {
+            return e('li', { key: it.id, 'data-trash-kind': it.kind, className: ['ui-rows__row', 'ui-trash__row'].join(' ') },
+              e('div', { className: 'ui-rows__main' },
+                e('b', null, it.label || kindLabel(it.kind)),
+                e('span', null,
                   kindLabel(it.kind) + ' · ' + __('trashDeletedOn', 'deleted {date}', { date: I ? I.date(it.deletedAt, 'dateTime') : new Date(it.deletedAt).toISOString() }) + ' · ' +
                   __('trashDaysLeft', '{n} {n:day|days} left', { n: daysLeft(it) }))),
-              btn(__('trashRestore', 'Restore'), function () {
-                if (restore(it.id)) { if (props.addToast) props.addToast(__('trashRestored', 'Restored'), 'success'); }
-                else if (props.addToast) props.addToast(__('trashRestoreFailed', 'Could not restore this item.'), 'error');
-              }, false, __('trashRestoreAria', 'Restore {name}', { name: it.label || kindLabel(it.kind) })),
-              btn(__('trashPurge', 'Delete forever'), function () { confirmPurge(__('trashPurgeTitle', 'Delete "{name}" forever?', { name: it.label || kindLabel(it.kind) }), function () { purge(it.id); }); }, true,
-                __('trashPurgeAria', 'Delete {name} forever', { name: it.label || kindLabel(it.kind) })));
-          })));
+              e('div', { className: 'ui-trash__acts' },
+                btn(__('trashRestore', 'Restore'), function () {
+                  if (restore(it.id)) { if (props.addToast) props.addToast(__('trashRestored', 'Restored'), 'success'); }
+                  else if (props.addToast) props.addToast(__('trashRestoreFailed', 'Could not restore this item.'), 'error');
+                }, false, __('trashRestoreAria', 'Restore {name}', { name: it.label || kindLabel(it.kind) })),
+                btn(__('trashPurge', 'Delete forever'), function () { confirmPurge(__('trashPurgeTitle', 'Delete "{name}" forever?', { name: it.label || kindLabel(it.kind) }), function () { purge(it.id); }); }, true,
+                  __('trashPurgeAria', 'Delete {name} forever', { name: it.label || kindLabel(it.kind) }))));
+          }))));
   }
 
   var api = {

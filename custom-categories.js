@@ -162,13 +162,9 @@ function __(k, f, v) { return (typeof window !== 'undefined' && window.MaerminI1
       var e = React.createElement;
       var useState = React.useState;
       try {
-        var theme = props.theme || {};
         var t = props.t || ((typeof window !== 'undefined' && window.MaerminI18n) ? window.MaerminI18n.dict() : {});
-        var text = theme.text || '#e9edf4', dim = theme.textSecondary || '#8b94a7';
-        var border = theme.cardBorder || 'rgba(255,255,255,0.08)';
-        var card = theme.card || '#10151f';
-        var inputBg = theme.inputBg || '#0c1018', inputBorder = theme.inputBorder || border;
-        var accent = theme.accent || '#8b7cff', accentText = theme.accentText || '#ffffff', accentFill = theme.accentFill || accent;
+        // R5.1: Card rows, shared fields and buttons; the colour dot is the stored category colour
+        var UIC = window.MaerminComponents;
 
         var s0 = useState(function () { return API.load(); });
         var st = s0[0], setSt = s0[1];
@@ -177,60 +173,56 @@ function __(k, f, v) { return (typeof window !== 'undefined' && window.MaerminI1
         function mutate(next) { API.save(next); setSt(API.normalize(next)); }
         function addCurrent() { if (name.trim()) { mutate(API.add(st, name)); setName(''); } }
 
-        function dot(c) { return e('span', { 'aria-hidden': 'true', style: { display: 'inline-block', width: '0.75rem', height: '0.75rem', borderRadius: '4px', background: c, flexShrink: 0 } }); }
+        function dot(c) { return e('span', { 'aria-hidden': 'true', className: 'ui-cat-dot', style: { background: c } }); }
 
         var builtinRow = API.BUILTINS.map(function (b) {
-          return e('span', { key: b.id, style: { display: 'inline-flex', alignItems: 'center', gap: '0.4rem', padding: '0.3rem 0.6rem', borderRadius: '999px', border: '1px solid ' + border, color: dim, fontSize: 'var(--text-xs)' } },
-            dot(b.color), b.label);
+          return e('span', { key: b.id, className: 'ui-cat-builtin' }, dot(b.color), b.label);
         });
 
         var customRows = API.customList(st).map(function (c) {
-          return e('div', { key: c.id, style: { display: 'flex', alignItems: 'center', gap: '0.6rem', padding: '0.7rem 0.9rem', background: card, border: '1px solid ' + border, borderRadius: '12px', marginBottom: '0.55rem' } },
+          return e('li', { key: c.id, className: 'ui-cat-row' },
             e('input', {
-              type: 'color', value: c.color, title: t.catColor || 'Colour',
+              type: 'color', value: c.color, title: t.catColor || 'Colour', 'aria-label': (t.catColor || 'Colour') + ': ' + c.label,
               onChange: function (ev) { mutate(API.setColor(st, c.id, ev.target.value)); },
-              style: { width: '28px', height: '28px', border: 'none', background: 'transparent', cursor: 'pointer', padding: 0 }
+              className: 'ui-cat-color'
             }),
             e('input', {
-              value: c.label,
+              value: c.label, 'aria-label': __('catNameAria', 'Name of {id}', { id: c.id }),
               onChange: function (ev) { mutate(API.rename(st, c.id, ev.target.value)); },
-              style: { flex: 1, minWidth: 0, padding: '0.35rem 0.5rem', borderRadius: '8px', border: '1px solid ' + inputBorder, background: inputBg, color: text, fontSize: 'var(--text-base)', fontWeight: 700 }
+              className: ['ui-input', 'ui-input--sm', 'ui-cat-name'].join(' ')
             }),
-            e('code', { style: { color: dim, fontSize: 'var(--text-xs)' } }, c.id),
-            e('button', {
+            e('code', { className: 'ui-cat-id' }, c.id),
+            e(UIC.Button, {
+              size: 'sm', variant: 'quiet',
               onClick: function () {
                 window.MaerminUtils.confirmThen({
                   title: (t.catDeleteTitle || 'Delete the category "{name}"?').replace('{name}', c.label),
                   confirmLabel: t.catDelete || 'Delete', cancelLabel: t.cancel || 'Cancel'
                 }, function () { mutate(API.remove(st, c.id)); });
-              },
-              style: { padding: '0.3rem 0.6rem', fontSize: 'var(--text-xs)', fontWeight: 700, cursor: 'pointer', borderRadius: '8px', border: '1px solid ' + inputBorder, background: 'transparent', color: text }
+              }
             }, t.catDelete || 'Delete'));
         });
 
-        return e('div', { style: { padding: '1.5rem' } },
-          e('h2', { style: { color: text, fontSize: 'var(--text-xl)', fontWeight: 800, letterSpacing: '-0.02em', margin: '0 0 0.35rem' } }, t.navCategories || 'Categories'),
-          e('p', { style: { color: dim, fontSize: 'var(--text-base)', margin: '0 0 1.25rem', lineHeight: 1.5, maxWidth: '62ch' } },
+        return e('div', { className: 'ui-view' },
+          e('p', { className: 'ui-view__lead' },
             t.catSubtitle || 'Define your own asset categories beyond the four built-ins. Custom categories are priced and counted in your totals; they appear when adding a transaction. Carried in your backup.'),
-
-          e('div', { style: { display: 'flex', gap: '0.4rem', flexWrap: 'wrap', marginBottom: '1.25rem' } }, builtinRow),
-
-          e('div', { style: { display: 'flex', gap: '0.5rem', marginBottom: '1.25rem', flexWrap: 'wrap' } },
-            e('input', {
-              value: name, onChange: function (ev) { setName(ev.target.value); },
-              onKeyDown: function (ev) { if (ev.key === 'Enter') addCurrent(); },
-              placeholder: t.catNewPlaceholder || 'New category, e.g. Real Estate…', 'aria-label': t.catNewPlaceholder || 'New category, e.g. Real Estate…',
-              style: { flex: 1, minWidth: '200px', maxWidth: '340px', padding: '0.5rem 0.75rem', borderRadius: '8px', border: '1px solid ' + inputBorder, background: inputBg, color: text, fontSize: 'var(--text-base)' }
-            }),
-            e('button', { onClick: addCurrent, style: { padding: '0.5rem 1rem', fontSize: 'var(--text-base)', fontWeight: 800, cursor: 'pointer', borderRadius: '8px', border: 'none', background: accentFill, color: accentText } }, t.catAdd || 'Add category')),
-
-          customRows.length ? customRows : e('div', { style: { background: card, border: '1px solid ' + border, borderRadius: '14px', padding: '2rem', textAlign: 'center', color: dim, fontSize: 'var(--text-base)' } },
-            t.catEmpty || 'No custom categories yet. Add one above — it will appear in the Add-Transaction category picker.'),
-
-          e('div', { style: { color: dim, fontSize: 'var(--text-xs)', marginTop: '1rem', lineHeight: 1.5 } },
-            t.catFootnote || 'Rebalancing and the currency breakdown group by the four base classes (crypto, stocks, commodities, skins). Holdings in your own categories count in every total and appear here and in Tags.'));
+          e(UIC.Card, { headingLevel: 'h3', title: __('catBuiltinTitle', 'Built-in categories') },
+            e('div', { className: 'ui-cat-builtins' }, builtinRow)),
+          e(UIC.Card, { headingLevel: 'h3', title: __('catOwnTitle', 'Your categories'), className: 'ui-tag-card' },
+            e('div', { className: 'ui-ca-add' },
+              e('input', {
+                value: name, onChange: function (ev) { setName(ev.target.value); },
+                onKeyDown: function (ev) { if (ev.key === 'Enter') addCurrent(); },
+                placeholder: t.catNewPlaceholder || 'New category, e.g. Real Estate…', 'aria-label': t.catNewPlaceholder || 'New category, e.g. Real Estate…',
+                className: ['ui-input', 'ui-cat-new'].join(' ')
+              }),
+              e(UIC.Button, { variant: 'primary', onClick: addCurrent }, t.catAdd || 'Add category')),
+            customRows.length ? e('ul', { className: 'ui-cat-list' }, customRows)
+              : e(UIC.EmptyState, { compact: true, text: t.catEmpty || 'No custom categories yet. Add one above — it will appear in the Add-Transaction category picker.' }),
+            e('p', { className: 'ui-note' },
+              t.catFootnote || 'Rebalancing and the currency breakdown group by the four base classes (crypto, stocks, commodities, skins). Holdings in your own categories count in every total and appear here and in Tags.')));
       } catch (err) {
-        return e('div', { style: { padding: '1.5rem', color: (props.theme && props.theme.danger) || 'var(--danger)' } }, __('ccError', 'Categories view error: ') + (err && err.message));
+        return e('div', { className: 'ui-view' }, e('p', { role: 'alert', className: ['ui-muted', 'is-error'].join(' ') }, __('ccError', 'Categories view error: ') + (err && err.message)));
       }
     };
   }

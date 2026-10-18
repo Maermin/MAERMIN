@@ -3450,7 +3450,8 @@ function InvestmentTracker() {
         }
         const rSymbols = rPositions.map(p => p.symbol).sort();
         const rCategories = Array.from(new Set(rPositions.map(p => p.category))).sort();
-        return React.createElement(React.Fragment, null,
+        // R5.1: rules and the risk monitor share one view layout
+        return React.createElement('div', { className: 'ui-view' },
           React.createElement(window.MaerminRules.View, {
             positions: rPositions, byTag: rByTag, dropFromPeakPct: rDrop,
             symbols: rSymbols, categories: rCategories, tags: rTagNames,
@@ -3663,8 +3664,8 @@ function InvestmentTracker() {
 
       case 'trash':
         return window.MaerminTrash
-          // VIS-011: the standard view padding
-          ? React.createElement('div', { style: { padding: '1.5rem' } },
+          // R5.1: the shared view layout
+          ? React.createElement('div', { className: 'ui-view' },
               window.MaerminPreMigration && React.createElement(window.MaerminPreMigration.PreMigrationCard, { theme: currentTheme, addToast }),
               React.createElement(window.MaerminTrash.TrashView, { theme: currentTheme, addToast }))
           : renderAnalyticsPlaceholder(t.navTrash || 'Trash');
