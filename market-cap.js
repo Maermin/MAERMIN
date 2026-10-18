@@ -138,12 +138,11 @@ function __(k, f, v) { return (typeof window !== 'undefined' && window.MaerminI1
       try {
         var theme = props.theme || {};
         var t = props.t || ((typeof window !== 'undefined' && window.MaerminI18n) ? window.MaerminI18n.dict() : {});
-        var text = theme.text || '#e9edf4', dim = theme.textSecondary || '#8b94a7';
-        var border = theme.cardBorder || 'rgba(255,255,255,0.08)';
-        var card = theme.card || '#10151f';
+        // R4.3: the shared Card and meters on the chart palette
+        var UIC = window.MaerminComponents;
         var rate = props.exchangeRate || props.usdToEur || 1;
         var fmt = props.formatPrice || function (n) { return window.MaerminI18n.num(n, 2); };
-        var COLORS = { large: theme.accent || '#8b7cff', mid: '#3b82f6', small: '#14b8a6', unknown: theme.textSecondary || '#6b7280' };
+        var COLORS = { large: 'var(--chart-1)', mid: 'var(--chart-2)', small: 'var(--chart-3)', unknown: 'var(--text-faint)' };
 
         var groups = props.portfolio || {};
         var prices = props.prices || {};
@@ -170,18 +169,16 @@ function __(k, f, v) { return (typeof window !== 'undefined' && window.MaerminI1
         var agg = API.aggregate(rows, {});
 
         var bars = agg.buckets.map(function (b) {
-          return e('div', { key: b.key, style: { marginBottom: '0.6rem' } },
-            e('div', { style: { display: 'flex', justifyContent: 'space-between', fontSize: 'var(--text-sm)', marginBottom: '0.25rem' } },
-              e('span', { style: { color: text, fontWeight: 600 } }, API.LABELS[b.key] === 'Large cap' ? (t.mcLarge || 'Large cap') : API.LABELS[b.key] === 'Mid cap' ? (t.mcMid || 'Mid cap') : API.LABELS[b.key] === 'Small cap' ? (t.mcSmall || 'Small cap') : (t.mcUnknown || 'Unknown')),
-              e('span', { style: { color: dim } }, window.MaerminI18n.pct(b.weight, 1) + '  ·  ' + fmt(b.value))),
-            e('div', { style: { height: 8, borderRadius: 6, background: theme.inputBg || '#0c1018', overflow: 'hidden' } },
-              e('div', { style: { width: Math.max(0, Math.min(100, b.weight)) + '%', height: '100%', background: COLORS[b.key], transition: 'width 0.3s' } })));
+          return e('li', { key: b.key },
+            e('span', { className: 'ui-meters__label' },
+              e('b', null, API.LABELS[b.key] === 'Large cap' ? (t.mcLarge || 'Large cap') : API.LABELS[b.key] === 'Mid cap' ? (t.mcMid || 'Mid cap') : API.LABELS[b.key] === 'Small cap' ? (t.mcSmall || 'Small cap') : (t.mcUnknown || 'Unknown')),
+              e('span', { className: 'num' }, window.MaerminI18n.pct(b.weight, 1) + '  ·  ' + fmt(b.value))),
+            e('span', { className: 'ui-meter', 'aria-hidden': 'true' },
+              e('span', { className: 'ui-meter__fill', style: { width: Math.max(0, Math.min(100, b.weight)) + '%', background: COLORS[b.key] } })));
         });
 
-        return e('div', { style: { background: card, border: '1px solid ' + border, borderRadius: '14px', padding: '1.1rem', margin: '1rem 1.5rem' } },
-          e('div', { style: { color: text, fontWeight: 700, fontSize: 'var(--text-md)', marginBottom: '0.2rem' } }, t.mcTitle || 'Company size'),
-          e('div', { style: { color: dim, fontSize: 'var(--text-xs)', marginBottom: '0.9rem' } }, t.mcSubtitle || 'Equity allocation by market-cap size (EUR-normalised)'),
-          agg.total > 0 ? bars : e('div', { style: { color: dim, fontSize: 'var(--text-sm)' } }, t.mcEmpty || 'No equity positions to size yet.'));
+        return e(UIC.Card, { title: t.mcTitle || 'Company size', subtitle: t.mcSubtitle || 'Equity allocation by market-cap size (EUR-normalised)', headingLevel: 'h3', 'data-testid': 'market-cap' },
+          agg.total > 0 ? e('ul', { className: 'ui-meters' }, bars) : e('p', { className: 'ui-muted' }, t.mcEmpty || 'No equity positions to size yet.'));
       } catch (err) {
         return e('div', { style: { padding: '0.75rem', color: (props.theme && props.theme.danger) || 'var(--danger)' } }, __('mcError', 'Market cap error: ') + (err && err.message));
       }

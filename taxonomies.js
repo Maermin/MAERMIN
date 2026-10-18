@@ -345,7 +345,7 @@
     };
     var selectStyle = { padding: '0.4rem 0.55rem', background: theme.inputBg, border: '1px solid ' + (theme.inputBorder || border), borderRadius: '8px', color: text, fontSize: '0.8rem', maxWidth: '100%' };
     var card = function (testid, title, sub, body, right) {
-      return e('section', { 'data-testid': testid, style: { background: theme.card, border: '1px solid ' + border, borderRadius: '14px', padding: '1.1rem', marginBottom: '1rem', minWidth: 0 } },
+      return e('section', { 'data-testid': testid, className: ['ui-card', 'ui-card--pad'].join(' ') },
         e('div', { style: { display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: '0.75rem', flexWrap: 'wrap', marginBottom: '0.75rem' } },
           e('div', { style: { minWidth: 0, flex: '1 1 240px' } },
             e('h3', { style: { color: text, fontWeight: 700, fontSize: 'var(--text-md)', margin: 0 } }, title),
@@ -403,7 +403,7 @@
       tax && btn(__('txDelete', 'Delete'), function () { ask(__('txDeleteTitle', 'Delete the taxonomy "{name}"?', { name: tax.name }), function () { var next = remove(state, tax.id); setState(next); setSelId(next.list[0] ? next.list[0].id : null); }); }, { 'data-testid': 'tx-delete' }));
 
     if (!tax) {
-      return e('div', { 'data-testid': 'taxonomies', style: { padding: '1.5rem' } },
+      return e('div', { 'data-testid': 'taxonomies', className: 'ui-stack' },
         card('tx-intro', __('txTitle', 'Taxonomies'), __('txIntro', 'Your own classification trees on top of asset classes, categories and tags - for example asset classes, GICS sectors, MSCI regions or the Kommer world portfolio. Start from a template or import a JSON file.'), e('div', null, toolbar, msg && e('div', { style: { color: dim, fontSize: 'var(--text-sm)', marginTop: '0.5rem' } }, msg))));
     }
 
@@ -480,7 +480,7 @@
         var nt = tax; Object.keys(sugg).forEach(function (k) { nt = assign(nt, k, sugg[k]); }); update(nt);
       }, { 'data-testid': 'tx-fill', disabled: !nSugg }) : null);
 
-    return e('div', { 'data-testid': 'taxonomies', style: { padding: '1.5rem' } },
+    return e('div', { 'data-testid': 'taxonomies', className: 'ui-stack' },
       card('tx-tree', tax.name, (tax.template ? __('txFromTemplate', 'From the template "{name}".', { name: templateName(tax.template) }) + ' ' : '')
         + __('txTreeSub', 'Values at today\'s prices; a node adds up everything below it. Targets on the top level feed the rebalancing plan (tolerance ±5 percentage points).'),
         e('div', null, e('div', { style: { marginBottom: '0.8rem' } }, toolbar), msg && e('div', { style: { color: dim, fontSize: 'var(--text-sm)', marginBottom: '0.5rem' } }, msg), tree)),

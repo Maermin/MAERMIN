@@ -145,10 +145,8 @@ function __(k, f, v) { return (typeof window !== 'undefined' && window.MaerminI1
     var e = React.createElement;
     var theme = props.theme || {};
     var t = props.t || ((typeof window !== 'undefined' && window.MaerminI18n) ? window.MaerminI18n.dict() : {});
-    var text = theme.text || '#e6edf3', dim = theme.textSecondary || '#9aa4b2';
-    var accent = theme.accent || '#8b7cff', border = theme.cardBorder || 'rgba(255,255,255,0.1)';
-    var inputBg = theme.inputBg || '#0f172a', card = theme.card || theme.cardBg || '#10151f';
-    var warn = theme.warning || '#f59e0b', bad = theme.danger || theme.negative || '#ef4444';
+    // R4.3: costs read as amounts (no loss colour without a sign); a missing TER is a warning in words
+    var UIC = window.MaerminComponents;
     var workerBase = String(props.workerUrl || '').trim().replace(/\/+$/, '');
     var fmt = props.formatPrice || function (v) { return window.MaerminI18n.num(v, 2); };
     var sym = (props.getCurrencySymbol && props.getCurrencySymbol()) || '€';
@@ -197,55 +195,54 @@ function __(k, f, v) { return (typeof window !== 'undefined' && window.MaerminI1
     var sourceLabel = { worker: __('caSrcLive', 'live'), fallback: __('caSrcSnapshot', 'snapshot'), override: __('caSrcManual', 'manual') };
     var amt = function (v) { return fmt(v) + ' ' + sym; };
 
-    function kpi(label, value, color) {
-      return e('div', { key: label, style: { background: inputBg, border: '1px solid ' + border, borderRadius: '10px', padding: '0.7rem 0.9rem', minWidth: '130px' } },
-        e('div', { style: { color: dim, fontSize: 'var(--text-2xs)', textTransform: 'uppercase', letterSpacing: '0.04em' } }, label),
-        e('div', { style: { color: color || text, fontSize: 'var(--text-lg)', fontWeight: '700', marginTop: '0.15rem' } }, value));
+    function kpi(label, value, tone) {
+      return e(UIC.Stat, { key: label, className: 'ui-tile', label: label, value: value, tone: tone || null });
     }
+    var muted = function (msg) { return e('p', { className: 'ui-muted' }, msg); };
 
     var body;
     if (!candidates.length) {
-      body = e('div', { style: { color: dim, fontSize: 'var(--text-base)', padding: '0.5rem 0' } },
+      body = muted(
         __('caNoFunds', 'No ETF or fund positions detected. Ongoing costs (TER) apply to funds; transaction fees above cover everything else.'));
     } else if (state.loading) {
-      body = e('div', { style: { color: dim, fontSize: 'var(--text-base)', padding: '0.5rem 0' } }, __('caLoading', 'Loading expense ratios...'));
+      body = muted(__('caLoading', 'Loading expense ratios...'));
     } else if (!costs || !costs.available) {
-      body = e('div', { style: { color: dim, fontSize: 'var(--text-base)', padding: '0.5rem 0' } },
+      body = muted(
         __('caNoData', 'No expense-ratio data for your fund positions yet. Set a TER manually below once the table appears, or re-deploy the latest Worker for live data.'));
     } else {
       var parts = [];
 
-      parts.push(e('div', { style: { display: 'flex', flexWrap: 'wrap', gap: '0.6rem', marginBottom: '0.9rem' } },
-        kpi(__('caOngoingPa', 'Ongoing costs p.a.'), amt(costs.totalAnnualCostEUR), bad),
+      parts.push(e('div', { className: 'ui-tiles' },
+        kpi(__('caOngoingPa', 'Ongoing costs p.a.'), amt(costs.totalAnnualCostEUR)),
         kpi(__('caWeightedTer', 'Weighted avg TER'), costs.weightedTer != null ? pctOf(costs.weightedTer) : '-'),
         kpi(__('caFundCovered', 'Fund value covered'), amt(costs.knownValue)),
-        costs.unknownCount > 0 ? kpi(__('caNoTer', 'Funds without TER'), String(costs.unknownCount), warn) : null));
+        costs.unknownCount > 0 ? kpi(__('caNoTer', 'Funds without TER'), '! ' + String(costs.unknownCount), 'warning') : null));
 
       // Per-fund table with the manual override input.
-      parts.push(e('div', { style: { overflowX: 'auto' } },
-        e('table', { style: { width: '100%', borderCollapse: 'collapse' } },
+      parts.push(e('div', { className: ['ui-table-wrap', 'ui-ca-table'].join(' ') },
+        e('table', { className: ['ui-table', 'ui-table--dense'].join(' ') },
           e('thead', null, e('tr', null,
             [__('gtFund', 'Fund'), __('colValue', 'Value'), 'TER', __('trSource', 'Source'), __('caCostPa', 'Cost p.a.'), __('caOverridePct', 'Override %')].map(function (h, i) {
-              return e('th', { key: h, style: { textAlign: i === 0 ? 'left' : 'right', padding: '0.4rem 0.5rem', color: dim, fontSize: 'var(--text-2xs)', textTransform: 'uppercase', letterSpacing: '0.04em' } }, h);
+              return e('th', { key: h, scope: 'col', className: i === 0 ? 'is-sticky' : 'is-right' }, h);
             }))),
           e('tbody', null, costs.rows.map(function (r) {
             var editing = Object.prototype.hasOwnProperty.call(edit, r.symbol);
             var inputVal = editing ? edit[r.symbol]
               : (overrides[r.symbol] != null ? (overrides[r.symbol] * 100).toFixed(2) : '');
-            return e('tr', { key: r.symbol, style: { borderTop: '1px solid ' + border } },
-              e('td', { style: { padding: '0.45rem 0.5rem', color: text, fontSize: 'var(--text-sm)', fontWeight: 600 } }, r.symbol,
-                e('span', { style: { color: dim, fontWeight: 400, fontSize: 'var(--text-2xs)' } }, '  ' + (r.name || ''))),
-              e('td', { style: { padding: '0.45rem 0.5rem', textAlign: 'right', color: dim, fontSize: 'var(--text-xs)' } }, amt(r.valueEUR)),
-              e('td', { style: { padding: '0.45rem 0.5rem', textAlign: 'right', color: r.ter != null ? text : warn, fontSize: 'var(--text-xs)', fontWeight: 600 } }, r.ter != null ? pctOf(r.ter) : __('dqUnknownLower', 'unknown')),
-              e('td', { style: { padding: '0.45rem 0.5rem', textAlign: 'right', color: dim, fontSize: 'var(--text-xs)' } }, r.terSource ? (sourceLabel[r.terSource] || r.terSource) : '-'),
-              e('td', { style: { padding: '0.45rem 0.5rem', textAlign: 'right', color: r.annualCostEUR != null ? bad : dim, fontSize: 'var(--text-xs)', fontWeight: 700 } }, r.annualCostEUR != null ? amt(r.annualCostEUR) : '-'),
-              e('td', { style: { padding: '0.45rem 0.5rem', textAlign: 'right' } },
+            return e('tr', { key: r.symbol },
+              e('th', { scope: 'row', className: 'is-sticky' }, r.symbol,
+                e('span', { className: 'ui-lt-via' }, '  ' + (r.name || ''))),
+              e('td', null, amt(r.valueEUR)),
+              e('td', { className: r.ter != null ? 'is-strong' : 'tone-warning' }, r.ter != null ? pctOf(r.ter) : '! ' + __('dqUnknownLower', 'unknown')),
+              e('td', null, r.terSource ? (sourceLabel[r.terSource] || r.terSource) : '-'),
+              e('td', { className: 'is-strong' }, r.annualCostEUR != null ? amt(r.annualCostEUR) : '-'),
+              e('td', null,
                 e('input', {
                   type: 'text', value: inputVal, placeholder: __('caOverridePh', 'e.g. {v}', { v: window.MaerminI18n.num(0.22, 2) }), 'aria-label': __('caOverridePct', 'Override %') + ' ' + r.symbol,
                   onChange: function (ev) { var v = ev.target.value; setEdit(function (m) { var c = {}; for (var k in m) c[k] = m[k]; c[r.symbol] = v; return c; }); },
                   onBlur: function (ev) { commitOverride(r.symbol, ev.target.value); },
                   onKeyDown: function (ev) { if (ev.key === 'Enter') commitOverride(r.symbol, ev.target.value); },
-                  style: { width: '70px', background: inputBg, border: '1px solid ' + border, borderRadius: '6px', padding: '0.25rem 0.4rem', color: text, fontSize: 'var(--text-xs)', textAlign: 'right' }
+                  className: ['ui-input', 'ui-input--sm', 'ui-input--num'].join(' ')
                 })));
           })))));
 
@@ -254,28 +251,25 @@ function __(k, f, v) { return (typeof window !== 'undefined' && window.MaerminI1
         var growth = 0.05;
         var proj = projectCostDrag(costs.knownValue, costs.weightedTer, { years: 20, growthRate: growth });
         var marks = [5, 10, 20].map(function (y) { return proj[y - 1]; });
-        parts.push(e('div', { style: { color: dim, fontSize: 'var(--text-xs)', textTransform: 'uppercase', letterSpacing: '0.05em', margin: '1rem 0 0.5rem', fontWeight: 700 } }, __('caDrag', 'Cumulative cost drag (projection)')));
-        parts.push(e('div', { style: { display: 'flex', flexWrap: 'wrap', gap: '0.6rem' } },
-          marks.map(function (m) { return kpi(__('caAfterYears', 'After {n} years', { n: m.year }), amt(m.cumulativeCost), bad); })));
-        parts.push(e('div', { style: { color: dim, fontSize: 'var(--text-2xs)', marginTop: '0.5rem', lineHeight: 1.5 } },
+        parts.push(e('h4', { className: 'ui-sublabel' }, __('caDrag', 'Cumulative cost drag (projection)')));
+        parts.push(e('div', { className: 'ui-tiles' },
+          marks.map(function (m) { return kpi(__('caAfterYears', 'After {n} years', { n: m.year }), amt(m.cumulativeCost)); })));
+        parts.push(e('p', { className: 'ui-note' },
           __('caAssumes', 'Assumes {g} p.a. growth on your current fund value of {value} at the weighted TER of {ter} — the gap between compounding with and without ongoing fees. An illustration, not a forecast.', { g: window.MaerminI18n.pct(growth * 100, 0), value: amt(costs.knownValue), ter: pctOf(costs.weightedTer) })));
       }
 
       if (state.unsupported) {
-        parts.push(e('div', { style: { color: warn, fontSize: 'var(--text-xs)', marginTop: '0.6rem', lineHeight: 1.5 } },
+        parts.push(e('p', { className: ['ui-note', 'tone-warning'].join(' ') },
           __('caUnsupported', 'Your Worker does not support fund data yet. Re-deploy the latest cf-worker/worker.js (action=fundholdings) for live expense ratios; until then a built-in snapshot of common ETFs and your manual overrides are used.')));
       }
 
-      parts.push(e('div', { style: { color: dim, fontSize: 'var(--text-2xs)', marginTop: '0.6rem', lineHeight: 1.5 } },
+      parts.push(e('p', { className: 'ui-note' },
         __('caFootnote', 'Expense ratios are approximations from fund profiles; the manual override (in percent, e.g. {v}) takes precedence and is stored only on this device.', { v: window.MaerminI18n.num(0.22, 2) })));
 
       body = e('div', null, parts);
     }
 
-    return e('div', { style: { background: card, border: '1px solid ' + border, borderRadius: '14px', padding: '1.25rem', margin: '0 1.5rem 1.5rem' } },
-      e('h3', { style: { color: text, fontSize: 'var(--text-body)', fontWeight: 700, margin: '0 0 0.9rem' } }, t.ongoingCostsTitle || 'Ongoing costs (TER)'),
-      body
-    );
+    return e(UIC.Card, { title: t.ongoingCostsTitle || 'Ongoing costs (TER)', headingLevel: 'h3', 'data-testid': 'ongoing-costs' }, body);
   }
 
   var api = {

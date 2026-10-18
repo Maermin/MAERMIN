@@ -2630,3 +2630,46 @@ html[data-theme="contrast"] .ui-map__tile { border: 1px solid var(--border-stron
   .ui-health { gap: var(--space-5); justify-content: center; }
 }
 .ui-meters--cols { grid-template-columns: repeat(auto-fill, minmax(min(100%, 260px), 1fr)); column-gap: var(--space-6); }
+
+/* ============================================================================
+   R4.3 Research, Strategy, Fees (PLAN Phase 6): key-figure grids, the
+   analyst split, callouts, left-aligned data tables.
+   ========================================================================== */
+.ui-table--left td, .ui-table--left th { text-align: left; }
+.ui-table th.is-left, .ui-table td.is-left { text-align: left; }
+.ui-meter__fill[data-tone="info"] { background: var(--chart-2); }
+.ui-meter__fill[data-tone="accent"] { background: var(--chart-1); }
+.ui-callout--warn { background: color-mix(in srgb, var(--warning) 8%, var(--surface)); border-color: color-mix(in srgb, var(--warning) 30%, transparent); }
+.ui-callout__title { display: block; color: var(--warning); margin-bottom: var(--space-1); }
+.ui-callout { margin: 0; }
+.ui-span-all { grid-column: 1 / -1; }
+.ui-iv .ui-view { padding-top: var(--space-5); }
+
+/* key figures: label over value, in a responsive grid */
+.ui-kv-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(min(100%, 160px), 1fr)); column-gap: var(--space-5); }
+.ui-kv { display: flex; flex-direction: column; gap: 2px; padding: var(--space-2) 0; border-top: 1px solid var(--border); min-width: 0; }
+.ui-kv span { color: var(--text-dim); font-size: var(--type-caption); }
+.ui-kv b { color: var(--text); font-size: var(--type-body); font-weight: 600; overflow-wrap: anywhere; }
+
+/* research */
+.ui-rs-card { display: flex; flex-direction: column; gap: var(--space-3); }
+.ui-rs-card .ui-card__title { margin: 0; }
+.ui-rs-pick { display: flex; gap: var(--space-2); flex-wrap: wrap; }
+.ui-rs-pick__input { width: 240px; max-width: 100%; }
+.ui-rs-price { font-size: var(--type-title); font-weight: 700; letter-spacing: -0.01em; }
+.ui-rs-ind { margin-top: var(--space-3); }
+.ui-rs-journal { font-size: var(--type-body); color: var(--text); line-height: 1.5; }
+.ui-rs-summary { margin: 0; color: var(--text); font-size: var(--type-body); line-height: 1.55; }
+.ui-rs-split { display: flex; height: 14px; border-radius: var(--radius-pill); overflow: hidden; background: var(--surface-2); }
+.ui-rs-split span { display: block; height: 100%; }
+.ui-rs-split [data-k="strongBuy"] { background: var(--gain); }
+.ui-rs-split [data-k="buy"] { background: color-mix(in srgb, var(--gain) 55%, var(--surface)); }
+.ui-rs-split [data-k="hold"] { background: var(--warning); }
+.ui-rs-split [data-k="sell"] { background: color-mix(in srgb, var(--loss) 55%, var(--surface)); }
+.ui-rs-split [data-k="strongSell"] { background: var(--loss); }
+.ui-rs-split__legend { display: flex; justify-content: space-between; flex-wrap: wrap; gap: var(--space-2); color: var(--text-dim); font-size: var(--type-caption); }
+.ui-rs-range { display: flex; flex-direction: column; gap: var(--space-1); }
+.ui-rs-range__track { position: relative; height: 6px; border-radius: 3px; background: var(--surface-2); margin-top: var(--space-2); }
+.ui-rs-range__mark { position: absolute; top: -4px; width: 10px; height: 14px; border-radius: 3px; background: var(--chart-1); }
+@media (max-width: 767px) { .ui-rs-pick, .ui-rs-pick__input { width: 100%; } .ui-rs-pick__input { flex: 1; } }
+.ui-ca-table { margin-top: var(--space-4); }

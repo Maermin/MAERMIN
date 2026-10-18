@@ -19,6 +19,8 @@ globalThis.localStorage = { _d: {}, getItem(k) { return Object.prototype.hasOwnP
 const _log = console.log; console.log = () => {};
 const U = require('../utils.js');
 window.MaerminUtils = U;
+// R4.3: the Strategy primitives render the shared components
+window.MaerminComponents = require('../renderer-components.js').Components;
 require('../investment-views.js');
 console.log = _log;
 const Market = require('../market-store.js');
