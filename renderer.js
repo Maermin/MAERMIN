@@ -5315,8 +5315,12 @@ function InvestmentTracker() {
     // interest charge) replace the trade fields with type, amount, currency,
     // date, note and - for a transfer - the other portfolio.
     const isCashTx = !!(window.MaerminLedger && window.MaerminLedger.isCash(newTransaction));
-    const fieldStyle = { width: '100%', padding: '0.75rem', background: currentTheme.inputBg, border: `1px solid ${currentTheme.inputBorder}`, borderRadius: '8px', color: currentTheme.text };
-    const fieldLabel = (id, text) => React.createElement('label', { htmlFor: id, style: { display: 'block', color: currentTheme.textSecondary, marginBottom: '0.5rem', fontSize: 'var(--text-base)' } }, text);
+    // R5.1: the shared dialog look, fields, chips and buttons (ids and test hooks unchanged)
+    const UIC = window.MaerminComponents;
+    const INPUT = 'ui-input', SELECT = ['ui-input', 'ui-select'].join(' ');
+    const fieldLabel = (id, text) => React.createElement('label', { htmlFor: id, className: 'ui-field__label' }, text);
+    const field = (id, text, control, extra) => React.createElement('div', Object.assign({ className: 'ui-field' }, extra || {}), fieldLabel(id, text), control);
+    const groupLabel = (id, text) => React.createElement('span', { id, className: 'ui-field__label' }, text);
     const setTx = (patch) => setNewTransaction(prev => ({ ...prev, ...patch }));
     const renderCashFields = () => {
       const UT = window.MaerminUtils;
@@ -5325,35 +5329,29 @@ function InvestmentTracker() {
       const others = portfolios.filter(p => p.id !== here);
       const kinds = ['deposit', 'withdrawal', 'transfer_out', 'fee', 'fee_refund', 'tax', 'tax_refund', 'interest_charge'];
       const kindLabel = (k) => k === 'transfer_out' ? __('txTransfer', 'Transfer to another portfolio') : UT.txTypeInfo(k, t).label;
-      return React.createElement('div', { 'data-testid': 'tx-cash' },
-        React.createElement('div', { style: { marginBottom: '1rem' } },
-          fieldLabel('tx-cash-type', __('txCashType', 'Booking')),
+      return React.createElement('div', { 'data-testid': 'tx-cash', className: 'ui-tx-fields' },
+        field('tx-cash-type', __('txCashType', 'Booking'),
           React.createElement('select', { id: 'tx-cash-type', value: newTransaction.type === 'transfer_in' ? 'transfer_out' : newTransaction.type,
             onChange: (e) => setTx({ type: e.target.value, counterPortfolioId: e.target.value === 'transfer_out' ? (newTransaction.counterPortfolioId || (others[0] || {}).id || '') : newTransaction.counterPortfolioId }),
-            style: { ...fieldStyle, cursor: 'pointer' } },
+            className: SELECT },
             kinds.map(k => React.createElement('option', { key: k, value: k }, kindLabel(k))))),
-        isTr && React.createElement('div', { style: { marginBottom: '1rem' } },
-          fieldLabel('tx-cash-counter', __('txTransferTo', 'To portfolio')),
+        isTr && field('tx-cash-counter', __('txTransferTo', 'To portfolio'),
           others.length
-            ? React.createElement('select', { id: 'tx-cash-counter', value: newTransaction.counterPortfolioId || '', onChange: (e) => setTx({ counterPortfolioId: e.target.value }), style: { ...fieldStyle, cursor: 'pointer' } },
+            ? React.createElement('select', { id: 'tx-cash-counter', value: newTransaction.counterPortfolioId || '', onChange: (e) => setTx({ counterPortfolioId: e.target.value }), className: SELECT },
                 React.createElement('option', { value: '' }, '—'),
                 others.map(p => React.createElement('option', { key: p.id, value: p.id }, p.name)))
-            : React.createElement('div', { role: 'note', style: { color: currentTheme.textSecondary, fontSize: 'var(--text-base)' } }, __('txTransferNeedsTwo', 'Create a second portfolio first (Portfolio → Portfolios).'))),
-        React.createElement('div', { style: { display: 'flex', gap: '0.75rem', marginBottom: '1rem' } },
-          React.createElement('div', { style: { flex: 2 } },
-            fieldLabel('tx-amount', __('txAmount', 'Amount')),
+            : React.createElement('p', { role: 'note', className: 'ui-muted' }, __('txTransferNeedsTwo', 'Create a second portfolio first (Portfolio → Portfolios).'))),
+        React.createElement('div', { className: 'ui-tx-pair' },
+          field('tx-amount', __('txAmount', 'Amount'),
             React.createElement('input', { id: 'tx-amount', type: 'text', inputMode: 'decimal', value: newTransaction.amount == null ? '' : newTransaction.amount,
-              onChange: (e) => setTx({ amount: e.target.value }), placeholder: window.MaerminI18n.num(0, { min: 2, max: 2 }), style: fieldStyle })),
-          React.createElement('div', { style: { flex: 1 } },
-            fieldLabel('tx-cash-currency', t.currency || 'Currency'),
-            React.createElement('select', { id: 'tx-cash-currency', value: newTransaction.currency || 'EUR', onChange: (e) => setTx({ currency: e.target.value }), style: { ...fieldStyle, cursor: 'pointer' } },
+              onChange: (e) => setTx({ amount: e.target.value }), placeholder: window.MaerminI18n.num(0, { min: 2, max: 2 }), className: INPUT })),
+          field('tx-cash-currency', t.currency || 'Currency',
+            React.createElement('select', { id: 'tx-cash-currency', value: newTransaction.currency || 'EUR', onChange: (e) => setTx({ currency: e.target.value }), className: SELECT },
               ['EUR', 'USD'].map(c => React.createElement('option', { key: c, value: c }, c))))),
-        React.createElement('div', { style: { marginBottom: '1rem' } },
-          fieldLabel('tx-date', t.date || 'Date'),
-          React.createElement('input', { id: 'tx-date', type: 'date', value: newTransaction.date, onChange: (e) => setTx({ date: e.target.value }), style: fieldStyle })),
-        React.createElement('div', { style: { marginBottom: '1.5rem' } },
-          fieldLabel('tx-notes', t.notesOptional || 'Notes (optional)'),
-          React.createElement('input', { id: 'tx-notes', type: 'text', value: newTransaction.notes || '', onChange: (e) => setTx({ notes: e.target.value }), placeholder: t.notesPlaceholder || 'Optional notes...', style: fieldStyle }))
+        field('tx-date', t.date || 'Date',
+          React.createElement('input', { id: 'tx-date', type: 'date', value: newTransaction.date, onChange: (e) => setTx({ date: e.target.value }), className: INPUT })),
+        field('tx-notes', t.notesOptional || 'Notes (optional)',
+          React.createElement('input', { id: 'tx-notes', type: 'text', value: newTransaction.notes || '', onChange: (e) => setTx({ notes: e.target.value }), placeholder: t.notesPlaceholder || 'Optional notes...', className: INPUT }))
       );
     };
 
@@ -5387,60 +5385,162 @@ function InvestmentTracker() {
       }).then(yes => { if (yes) closeModal(); });
     };
 
+    const qtyLabel = newTransaction.category === 'bonds' && newTransaction.type !== 'dividend' && newTransaction.type !== 'interest' ? __('bondNominal', 'Nominal value') : (t.quantity || 'Quantity');
+    const priceLabel = newTransaction.category === 'bonds' && newTransaction.type !== 'dividend' && newTransaction.type !== 'interest' ? __('bondPricePct', 'Price in % of nominal') : (t.pricePerUnit || 'Price per Unit');
+    const COMMODITIES = [
+      { sym: 'GOLD',    label: __('cmdGold', 'Gold'),         unit: __('unitTroyOz', 'troy oz') },
+      { sym: 'SILVER',  label: __('cmdSilver', 'Silver'),       unit: __('unitTroyOz', 'troy oz') },
+      { sym: 'PLATINUM',label: __('cmdPlatinum', 'Platinum'),     unit: __('unitTroyOz', 'troy oz') },
+      { sym: 'PALLADIUM',label: __('cmdPalladium', 'Palladium'),    unit: __('unitTroyOz', 'troy oz') },
+      { sym: 'OIL',     label: __('cmdOilWti', 'Oil (WTI)'),    unit: __('unitBarrel', 'barrel') },
+      { sym: 'BRENT',   label: __('cmdOilBrent', 'Oil (Brent)'),  unit: __('unitBarrel', 'barrel') },
+      { sym: 'GAS',     label: __('cmdNatGas', 'Natural Gas'),  unit: 'MMBtu' },
+      { sym: 'COPPER',  label: __('cmdCopper', 'Copper'),       unit: 'lb' },
+      { sym: 'WHEAT',   label: __('cmdWheat', 'Wheat'),        unit: __('unitBushel', 'bushel') },
+      { sym: 'CORN',    label: __('cmdCorn', 'Corn'),         unit: __('unitBushel', 'bushel') },
+    ];
+
+    const symbolControl = () =>
+      // CS2 Skin Picker
+      newTransaction.category === 'skins' && window.MaerminFeatures3?.CS2SkinPicker
+        ? React.createElement('div', { className: 'ui-tx-picked-wrap' },
+            React.createElement(window.MaerminFeatures3.CS2SkinPicker, {
+              workerUrl: marketWorker, theme: currentTheme,
+              selectedName: newTransaction.symbol,
+              onSelect: ({ name, price, image }) => {
+                // Skin search prices are USD: store full precision (no
+                // premature rounding) and mark the tx currency USD so the
+                // cost basis converts to EUR exactly like fetched prices.
+                setNewTransaction(prev => ({ ...prev, symbol: name,
+                  price: (price != null && price !== '') ? String(price) : prev.price,
+                  currency: 'USD',
+                  skinIconUrl: image || prev.skinIconUrl }));
+              }
+            }),
+            newTransaction.symbol && React.createElement('div', { className: 'ui-picked' },
+              newTransaction.skinIconUrl
+                ? React.createElement('img', { src: newTransaction.skinIconUrl, alt: newTransaction.symbol, className: 'ui-picked__skin' })
+                : React.createElement('div', { className: ['ui-picked__skin', 'is-empty'].join(' ') }, 'CS2'),
+              React.createElement('div', { className: 'ui-rows__main' },
+                React.createElement('b', null, newTransaction.symbol),
+                newTransaction.price && React.createElement('span', { className: 'num' }, window.MaerminI18n.money(parseFloat(newTransaction.price), 'USD', 2))
+              )
+            )
+          )
+
+      // Stock Symbol Picker
+      : (newTransaction.category === 'stocks' || newTransaction.category === 'crypto') && window.MaerminFeatures3?.SymbolPicker
+        ? React.createElement(window.MaerminFeatures3.SymbolPicker, {
+            category: newTransaction.category,
+            workerUrl: marketWorker,
+            theme: currentTheme,
+            selectedSymbol: newTransaction.symbol,
+            selectedName: newTransaction.symbolName || '',
+            onSelect: ({ symbol, ticker, name, logoUrl, exchange, manual }) => {
+              if (!symbol) {
+                setNewTransaction(prev => ({ ...prev, symbol: '', symbolName: '', symbolLogoUrl: '', symbolTyped: false }));
+                return;
+              }
+              setNewTransaction(prev => ({
+                ...prev,
+                symbol,           // exact API symbol (CoinGecko ID or YF ticker)
+                symbolName: name, // human-readable name stored for display
+                symbolLogoUrl: logoUrl || '',
+                symbolTyped: !!manual, // typed, no suggestion picked (UX-022)
+              }));
+            }
+          })
+      // Option contract fields: underlying + call/put + strike + expiry +
+      // contract size. The contract symbol (tx.symbol) is derived on save
+      // via MaerminOptions.contractSymbol, so no symbol picker is needed.
+      : newTransaction.category === 'options'
+        ? React.createElement('div', { className: 'ui-tx-fields' },
+            React.createElement('input', {
+              type: 'text', value: newTransaction.underlying || '',
+              onChange: e => setNewTransaction(prev => ({ ...prev, underlying: e.target.value.toUpperCase() })),
+              placeholder: __('underlyingPh', 'Underlying symbol: AAPL, SAP.DE...'), 'aria-label': __('underlyingAria', 'Underlying symbol'),
+              className: INPUT
+            }),
+            React.createElement('div', { className: 'ui-tx-seg' },
+              ['call', 'put'].map(ot => React.createElement(UIC.Chip, {
+                key: ot,
+                pressed: (newTransaction.optionType || 'call') === ot,
+                onClick: () => setNewTransaction(prev => ({ ...prev, optionType: ot })),
+                className: 'ui-tx-chip'
+              }, ot === 'call' ? __('optCall', 'Call') : __('optPut', 'Put')))),
+            React.createElement('div', { className: 'ui-tx-opt' },
+              React.createElement('input', {
+                type: 'number', value: newTransaction.strike || '', min: 0, step: 'any',
+                onChange: e => setNewTransaction(prev => ({ ...prev, strike: e.target.value })),
+                placeholder: __('strikePh', 'Strike'), 'aria-label': __('strikeAria', 'Strike price'),
+                className: INPUT
+              }),
+              React.createElement('input', {
+                type: 'date', value: newTransaction.expiry || '',
+                onChange: e => setNewTransaction(prev => ({ ...prev, expiry: e.target.value })),
+                title: __('expiryDate', 'Expiry date'), 'aria-label': __('expiryDate', 'Expiry date'),
+                className: INPUT
+              }),
+              React.createElement('input', {
+                type: 'number', value: newTransaction.contractSize || '', min: 1,
+                onChange: e => setNewTransaction(prev => ({ ...prev, contractSize: e.target.value })),
+                placeholder: __('sizePh', 'Size (100)'), 'aria-label': __('contractSize', 'Contract size'), title: __('contractSizeTitle', 'Contract size (shares per contract, default 100)'),
+                className: [INPUT, 'ui-tx-size'].join(' ')
+              })),
+            React.createElement('p', { className: 'ui-note' },
+              __('optHint', 'Quantity = number of contracts, price = premium per share. Buy = long / close a short, sell = write (short) / close a long.'))
+          )
+      : newTransaction.category === 'commodities'
+        ? React.createElement('div', { className: 'ui-tx-fields' },
+            // Preset buttons
+            React.createElement('div', { className: 'ui-bi-chips' },
+              COMMODITIES.map(c => React.createElement(UIC.Chip, {
+                key: c.sym,
+                pressed: newTransaction.symbol === c.sym,
+                onClick: () => setNewTransaction(prev => ({ ...prev, symbol: c.sym, notes: prev.notes || `${c.label} (${c.unit})` })),
+                className: 'ui-tx-preset'
+              }, c.label))
+            ),
+            // Also allow free-text for ETFs like GLD, SLV
+            React.createElement('input', {
+              type: 'text', value: newTransaction.symbol,
+              onChange: e => setNewTransaction(prev => ({ ...prev, symbol: e.target.value.toUpperCase() })),
+              placeholder: __('cmdEtfPh', 'or enter ETF symbol: GLD, SLV, IAU...'), 'aria-label': t.symbol || 'Symbol',
+              className: INPUT
+            })
+          )
+
+      // Default fallback: plain text (for categories without picker)
+      : React.createElement('input', {
+          type: 'text', value: newTransaction.symbol,
+          onChange: e => setNewTransaction(prev => ({ ...prev, symbol: e.target.value.toUpperCase() })),
+          placeholder: __('symbolPh', 'Symbol...'), 'aria-label': t.symbol || 'Symbol',
+          className: INPUT
+        });
+
     return React.createElement(window.MaerminUI.Overlay, {
-      style: {
-        position: 'fixed',
-        top: 0,
-        left: 0,
-        right: 0,
-        bottom: 0,
-        background: 'rgba(4,6,10,0.62)',
-        display: 'flex',
-        justifyContent: 'center',
-        alignItems: 'center',
-        zIndex: 10000,
-        backdropFilter: 'blur(8px)'
-      },
+      className: 'ui-modal-backdrop',
       onClose: requestClose
     },
       React.createElement('div', {
         ...window.MaerminUI.dialogProps('dlg-transaction'),
-        style: {
-          background: currentTheme.modalBg,
-          border: `1px solid ${currentTheme.modalBorder}`,
-          padding: '2rem',
-          borderRadius: '16px',
-          width: '480px',
-          maxWidth: '90vw',
-          maxHeight: '85vh',
-          overflow: 'auto',
-          boxShadow: '0 32px 70px -20px rgba(0,0,0,0.75)'
-        }
+        className: ['ui-modal', 'ui-modal--tx'].join(' ')
       },
         // Header with a close button (Phase 3: the dialog had none; Escape and
         // the backdrop were the only ways out on touch).
-        React.createElement('div', { style: { display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: '1rem', marginBottom: '1.5rem' } },
-          React.createElement('h2', {
-            id: 'dlg-transaction',
-            style: { color: currentTheme.text, margin: 0, fontSize: 'var(--text-xl)', fontWeight: '800', letterSpacing: '-0.02em' }
-          }, isEditing ? (t.editTransaction || 'Edit Transaction') : (t.addTransaction || 'Add Transaction')),
-          React.createElement('button', { type: 'button', onClick: requestClose, 'aria-label': t.close || 'Close',
-            style: { width: 36, height: 36, flexShrink: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'transparent', border: `1px solid ${currentTheme.cardBorder}`, borderRadius: '8px', color: currentTheme.textSecondary, cursor: 'pointer', fontSize: 'var(--text-title)', lineHeight: 1 } }, '×')),
-        
+        React.createElement('header', { className: 'ui-modal__head' },
+          React.createElement('h2', { id: 'dlg-transaction', className: 'ui-modal__title' },
+            isEditing ? (t.editTransaction || 'Edit Transaction') : (t.addTransaction || 'Add Transaction')),
+          React.createElement(UIC.IconButton, { size: 'sm', label: t.close || 'Close', onClick: requestClose, icon: React.createElement('span', { 'aria-hidden': 'true' }, '×') })),
+
+        React.createElement('div', { className: ['ui-modal__body', 'ui-tx'].join(' ') },
         // Portfolio selector — always shown as a select dropdown
-        React.createElement('div', { style: { marginBottom: '1rem' } },
-          React.createElement('label', { htmlFor: 'tx-portfolio', style: { display: 'block', color: currentTheme.textSecondary, marginBottom: '0.5rem', fontSize: 'var(--text-base)' } }, t.portfolio || 'Portfolio'),
+        field('tx-portfolio', t.portfolio || 'Portfolio',
           React.createElement('select', {
             id: 'tx-portfolio',
             value: newTransaction.targetPortfolioId || writePortfolioId,
             onChange: e => setNewTransaction(prev => ({ ...prev, targetPortfolioId: e.target.value })),
-            style: {
-              width: '100%', padding: '0.625rem 0.875rem',
-              background: currentTheme.inputBg,
-              border: `1px solid ${currentTheme.inputBorder}`,
-              borderRadius: '8px', color: currentTheme.text,
-              fontSize: 'var(--text-base)', cursor: 'pointer'
-            }
+            className: SELECT
           },
             portfolios.map(p =>
               React.createElement('option', { key: p.id, value: p.id }, p.name)
@@ -5448,320 +5548,93 @@ function InvestmentTracker() {
           )
         ),
 
-        // Type selector
-        React.createElement('div', { style: { marginBottom: '1rem' } },
-          React.createElement('label', {
-            id: 'tx-type-label',
-            style: { display: 'block', color: currentTheme.textSecondary, marginBottom: '0.5rem', fontSize: 'var(--text-base)' }
-          }, t.type || 'Type'),
-          React.createElement('div', { role: 'group', 'aria-labelledby': 'tx-type-label', style: { display: 'flex', gap: '0.5rem' } },
+        // Type selector: Buy / Sell / Cash
+        React.createElement('div', { className: 'ui-field' },
+          groupLabel('tx-type-label', t.type || 'Type'),
+          React.createElement('div', { role: 'group', 'aria-labelledby': 'tx-type-label', className: 'ui-tx-seg' },
             ['buy', 'sell'].map(type =>
-              React.createElement('button', {
+              React.createElement(UIC.Chip, {
                 key: type,
-                'aria-pressed': newTransaction.type === type,
+                pressed: newTransaction.type === type,
                 onClick: () => setNewTransaction(prev => ({ ...prev, type })),
-                style: {
-                  flex: 1,
-                  padding: '0.5rem',
-                  background: newTransaction.type === type ? 
-                    (type === 'buy' ? currentTheme.success : currentTheme.danger) : 
-                    currentTheme.inputBg,
-                  color: newTransaction.type === type ? window.MaerminUtils.onColor(type === 'buy' ? currentTheme.success : currentTheme.danger) : currentTheme.text,
-                  border: 'none',
-                  borderRadius: '6px',
-                  cursor: 'pointer',
-                  fontSize: 'var(--text-base)',
-                  fontWeight: '600'
-                }
+                className: ['ui-tx-chip', type === 'buy' ? 'is-buy' : 'is-sell'].join(' ')
               }, type === 'buy' ? (t.buy || 'Buy') : (t.sell || 'Sell'))
             ),
             // P5-1.3: a cash booking instead of a trade
-            React.createElement('button', {
-              key: 'cash', type: 'button', 'data-tx-mode': 'cash',
-              'aria-pressed': isCashTx,
+            React.createElement(UIC.Chip, {
+              key: 'cash', 'data-tx-mode': 'cash',
+              pressed: isCashTx,
               onClick: () => setNewTransaction(prev => window.MaerminLedger.isCash(prev) ? prev : ({ ...prev, type: 'deposit', amount: prev.amount || '' })),
-              style: { flex: 1, padding: '0.5rem', background: isCashTx ? (currentTheme.accentFill || currentTheme.accent) : currentTheme.inputBg,
-                color: isCashTx ? '#ffffff' : currentTheme.text, border: 'none', borderRadius: '6px', cursor: 'pointer', fontSize: 'var(--text-base)', fontWeight: '600' }
+              className: 'ui-tx-chip'
             }, __('txCash', 'Cash'))
           )
         ),
 
         isCashTx ? renderCashFields() : React.createElement(React.Fragment, null,
-        // Category selector
-        React.createElement('div', { style: { marginBottom: '1rem' } },
-          React.createElement('label', {
-            id: 'tx-category-label',
-            style: { display: 'block', color: currentTheme.textSecondary, marginBottom: '0.5rem', fontSize: 'var(--text-base)' }
-          }, t.category || 'Category'),
-          // Equal columns that wrap to a new row instead of squeezing the labels.
-          React.createElement('div', { role: 'group', 'aria-labelledby': 'tx-category-label', style: { display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(110px, 1fr))', gap: '0.5rem' } },
+        // Category selector: equal columns that wrap instead of squeezing the labels
+        React.createElement('div', { className: 'ui-field' },
+          groupLabel('tx-category-label', t.category || 'Category'),
+          React.createElement('div', { role: 'group', 'aria-labelledby': 'tx-category-label', className: 'ui-tx-cats' },
             ['crypto', 'stocks', 'skins', 'commodities', 'options', 'bonds']
               .concat(window.MaerminCategories ? window.MaerminCategories.ids() : []).map(cat =>
-              React.createElement('button', {
+              React.createElement(UIC.Chip, {
                 key: cat,
-                'aria-pressed': newTransaction.category === cat,
+                pressed: newTransaction.category === cat,
                 onClick: () => setNewTransaction(prev => ({ ...prev, category: cat })),
-                style: {
-                  padding: '0.6rem 0.5rem',
-                  background: newTransaction.category === cat ? (currentTheme.accentFill || currentTheme.accent) : currentTheme.inputBg,
-                  color: newTransaction.category === cat ? '#fff' : currentTheme.text,
-                  border: 'none',
-                  borderRadius: '6px',
-                  cursor: 'pointer',
-                  fontSize: 'var(--text-base)',
-                  fontWeight: newTransaction.category === cat ? '600' : '400',
-                  whiteSpace: 'nowrap',
-                  overflow: 'hidden',
-                  textOverflow: 'ellipsis'
-                }
+                className: 'ui-tx-chip'
               }, getCategoryDisplayName(cat))
             )
           )
         ),
-        
-          // Symbol / Skin / Commodity Picker
-          React.createElement('div', { style: { marginBottom: '1rem' } },
-            React.createElement('label', {
-              style: { display: 'block', color: currentTheme.textSecondary, marginBottom: '0.5rem', fontSize: 'var(--text-base)' }
-            }, t.symbol || 'Symbol'),
 
-            // CS2 Skin Picker
-            newTransaction.category === 'skins' && window.MaerminFeatures3?.CS2SkinPicker
-              ? React.createElement('div', null,
-                  React.createElement(window.MaerminFeatures3.CS2SkinPicker, {
-                    workerUrl: marketWorker, theme: currentTheme,
-                    selectedName: newTransaction.symbol,
-                    onSelect: ({ name, price, image }) => {
-                      // Skin search prices are USD: store full precision (no
-                      // premature rounding) and mark the tx currency USD so the
-                      // cost basis converts to EUR exactly like fetched prices.
-                      setNewTransaction(prev => ({ ...prev, symbol: name,
-                        price: (price != null && price !== '') ? String(price) : prev.price,
-                        currency: 'USD',
-                        skinIconUrl: image || prev.skinIconUrl }));
-                    }
-                  }),
-                  newTransaction.symbol && React.createElement('div', {
-                    style: { marginTop: '0.5rem', display: 'flex', alignItems: 'center', gap: '0.75rem', padding: '0.5rem', background: 'rgba(6,182,212,0.06)', borderRadius: '8px', border: '1px solid rgba(6,182,212,0.15)' }
-                  },
-                    newTransaction.skinIconUrl
-                      ? React.createElement('img', { src: newTransaction.skinIconUrl, alt: newTransaction.symbol, style: { width: 80, height: 47, objectFit: 'contain', borderRadius: '6px', background: 'rgba(0,0,0,0.2)' } })
-                      : React.createElement('div', { style: { width: 80, height: 47, background: 'rgba(6,182,212,0.1)', borderRadius: '6px', display: 'flex', alignItems: 'center', justifyContent: 'center' } },
-                          React.createElement('span', { style: { color: 'rgba(6,182,212,0.5)', fontSize: 'var(--text-2xs)' } }, 'CS2')),
-                    React.createElement('div', null,
-                      React.createElement('div', { style: { color: currentTheme.text, fontWeight: '600', fontSize: 'var(--text-sm)' } }, newTransaction.symbol),
-                      newTransaction.price && React.createElement('div', { style: { color: currentTheme.success, fontSize: 'var(--text-xs)', marginTop: '0.125rem' } }, window.MaerminI18n.money(parseFloat(newTransaction.price), 'USD', 2))
-                    )
-                  )
-                )
+        // Symbol / Skin / Commodity Picker
+        React.createElement('div', { className: 'ui-field' },
+          React.createElement('span', { className: 'ui-field__label' }, t.symbol || 'Symbol'),
+          symbolControl()),
 
-            // Stock Symbol Picker
-            : (newTransaction.category === 'stocks' || newTransaction.category === 'crypto') && window.MaerminFeatures3?.SymbolPicker
-              ? React.createElement(window.MaerminFeatures3.SymbolPicker, {
-                  category: newTransaction.category,
-                  workerUrl: marketWorker,
-                  theme: currentTheme,
-                  selectedSymbol: newTransaction.symbol,
-                  selectedName: newTransaction.symbolName || '',
-                  onSelect: ({ symbol, ticker, name, logoUrl, exchange, manual }) => {
-                    if (!symbol) {
-                      setNewTransaction(prev => ({ ...prev, symbol: '', symbolName: '', symbolLogoUrl: '', symbolTyped: false }));
-                      return;
-                    }
-                    setNewTransaction(prev => ({
-                      ...prev,
-                      symbol,           // exact API symbol (CoinGecko ID or YF ticker)
-                      symbolName: name, // human-readable name stored for display
-                      symbolLogoUrl: logoUrl || '',
-                      symbolTyped: !!manual, // typed, no suggestion picked (UX-022)
-                    }));
-                  }
-                })
-            // Option contract fields: underlying + call/put + strike + expiry +
-            // contract size. The contract symbol (tx.symbol) is derived on save
-            // via MaerminOptions.contractSymbol, so no symbol picker is needed.
-            : newTransaction.category === 'options'
-              ? React.createElement('div', null,
-                  React.createElement('input', {
-                    type: 'text', value: newTransaction.underlying || '',
-                    onChange: e => setNewTransaction(prev => ({ ...prev, underlying: e.target.value.toUpperCase() })),
-                    placeholder: __('underlyingPh', 'Underlying symbol: AAPL, SAP.DE...'), 'aria-label': __('underlyingAria', 'Underlying symbol'),
-                    style: { width: '100%', padding: '0.625rem 0.875rem', background: currentTheme.inputBg, border: `1px solid ${currentTheme.inputBorder}`, borderRadius: '8px', color: currentTheme.text, fontSize: 'var(--text-base)', boxSizing: 'border-box', marginBottom: '0.625rem' }
-                  }),
-                  React.createElement('div', { style: { display: 'flex', gap: '0.5rem', marginBottom: '0.625rem' } },
-                    ['call', 'put'].map(ot => React.createElement('button', {
-                      key: ot,
-                      'aria-pressed': (newTransaction.optionType || 'call') === ot,
-                      onClick: () => setNewTransaction(prev => ({ ...prev, optionType: ot })),
-                      style: {
-                        flex: 1, padding: '0.5rem', border: 'none', borderRadius: '6px', cursor: 'pointer', fontSize: 'var(--text-base)', fontWeight: '600',
-                        background: (newTransaction.optionType || 'call') === ot ? (ot === 'call' ? 'var(--success)' : 'var(--danger)') : currentTheme.inputBg,
-                        color: (newTransaction.optionType || 'call') === ot ? '#fff' : currentTheme.text
-                      }
-                    }, ot === 'call' ? __('optCall', 'Call') : __('optPut', 'Put')))),
-                  React.createElement('div', { style: { display: 'flex', gap: '0.5rem' } },
-                    React.createElement('input', {
-                      type: 'number', value: newTransaction.strike || '', min: 0, step: 'any',
-                      onChange: e => setNewTransaction(prev => ({ ...prev, strike: e.target.value })),
-                      placeholder: __('strikePh', 'Strike'), 'aria-label': __('strikeAria', 'Strike price'),
-                      style: { flex: 1, padding: '0.625rem 0.875rem', background: currentTheme.inputBg, border: `1px solid ${currentTheme.inputBorder}`, borderRadius: '8px', color: currentTheme.text, fontSize: 'var(--text-base)', minWidth: 0 }
-                    }),
-                    React.createElement('input', {
-                      type: 'date', value: newTransaction.expiry || '',
-                      onChange: e => setNewTransaction(prev => ({ ...prev, expiry: e.target.value })),
-                      title: __('expiryDate', 'Expiry date'), 'aria-label': __('expiryDate', 'Expiry date'),
-                      style: { flex: 1, padding: '0.625rem 0.875rem', background: currentTheme.inputBg, border: `1px solid ${currentTheme.inputBorder}`, borderRadius: '8px', color: currentTheme.text, fontSize: 'var(--text-base)', minWidth: 0 }
-                    }),
-                    React.createElement('input', {
-                      type: 'number', value: newTransaction.contractSize || '', min: 1,
-                      onChange: e => setNewTransaction(prev => ({ ...prev, contractSize: e.target.value })),
-                      placeholder: __('sizePh', 'Size (100)'), 'aria-label': __('contractSize', 'Contract size'), title: __('contractSizeTitle', 'Contract size (shares per contract, default 100)'),
-                      style: { width: '90px', padding: '0.625rem 0.875rem', background: currentTheme.inputBg, border: `1px solid ${currentTheme.inputBorder}`, borderRadius: '8px', color: currentTheme.text, fontSize: 'var(--text-base)' }
-                    })),
-                  React.createElement('div', { style: { color: currentTheme.textSecondary, fontSize: 'var(--text-xs)', marginTop: '0.5rem', lineHeight: 1.5 } },
-                    __('optHint', 'Quantity = number of contracts, price = premium per share. Buy = long / close a short, sell = write (short) / close a long.'))
-                )
-            : newTransaction.category === 'commodities'
-              ? React.createElement('div', null,
-                  // Preset buttons
-                  React.createElement('div', { style: { display: 'flex', flexWrap: 'wrap', gap: '0.375rem', marginBottom: '0.625rem' } },
-                    [
-                      { sym: 'GOLD',    label: __('cmdGold', 'Gold'),         icon: '◈', color: '#f59e0b', unit: __('unitTroyOz', 'troy oz') },
-                      { sym: 'SILVER',  label: __('cmdSilver', 'Silver'),       icon: '◈', color: '#94a3b8', unit: __('unitTroyOz', 'troy oz') },
-                      { sym: 'PLATINUM',label: __('cmdPlatinum', 'Platinum'),     icon: '◈', color: '#60a5fa', unit: __('unitTroyOz', 'troy oz') },
-                      { sym: 'PALLADIUM',label: __('cmdPalladium', 'Palladium'),    icon: '◈', color: '#a78bfa', unit: __('unitTroyOz', 'troy oz') },
-                      { sym: 'OIL',     label: __('cmdOilWti', 'Oil (WTI)'),    icon: '◉', color: '#78716c', unit: __('unitBarrel', 'barrel') },
-                      { sym: 'BRENT',   label: __('cmdOilBrent', 'Oil (Brent)'),  icon: '◉', color: '#57534e', unit: __('unitBarrel', 'barrel') },
-                      { sym: 'GAS',     label: __('cmdNatGas', 'Natural Gas'),  icon: '◎', color: '#4ade80', unit: 'MMBtu' },
-                      { sym: 'COPPER',  label: __('cmdCopper', 'Copper'),       icon: '◆', color: '#fb923c', unit: 'lb' },
-                      { sym: 'WHEAT',   label: __('cmdWheat', 'Wheat'),        icon: '◇', color: '#fcd34d', unit: __('unitBushel', 'bushel') },
-                      { sym: 'CORN',    label: __('cmdCorn', 'Corn'),         icon: '◇', color: '#fde68a', unit: __('unitBushel', 'bushel') },
-                    ].map(c => React.createElement('button', {
-                      key: c.sym,
-                      'aria-pressed': newTransaction.symbol === c.sym,
-                      onClick: () => setNewTransaction(prev => ({ ...prev, symbol: c.sym, notes: prev.notes || `${c.label} (${c.unit})` })),
-                      style: {
-                        padding: '0.35rem 0.75rem', border: `1px solid ${newTransaction.symbol === c.sym ? c.color : currentTheme.cardBorder}`,
-                        borderRadius: '6px', cursor: 'pointer', fontSize: 'var(--text-xs)', fontWeight: '600',
-                        background: newTransaction.symbol === c.sym ? `${window.MaerminTokens.alpha(c.color, 0x22)}` : currentTheme.inputBg,
-                        color: newTransaction.symbol === c.sym ? c.color : currentTheme.textSecondary,
-                        display: 'flex', alignItems: 'center', gap: '0.25rem'
-                      }
-                    }, c.label))
-                  ),
-                  // Also allow free-text for ETFs like GLD, SLV
-                  React.createElement('input', {
-                    type: 'text', value: newTransaction.symbol,
-                    onChange: e => setNewTransaction(prev => ({ ...prev, symbol: e.target.value.toUpperCase() })),
-                    placeholder: __('cmdEtfPh', 'or enter ETF symbol: GLD, SLV, IAU...'), 'aria-label': t.symbol || 'Symbol',
-                    style: { width: '100%', padding: '0.625rem 0.875rem', background: currentTheme.inputBg, border: `1px solid ${currentTheme.inputBorder}`, borderRadius: '8px', color: currentTheme.text, fontSize: 'var(--text-base)', boxSizing: 'border-box' }
-                  })
-                )
+        React.createElement('div', { className: 'ui-tx-pair' },
+          field('tx-quantity', qtyLabel,
+            React.createElement('input', {
+              id: 'tx-quantity',
+              ...invalidProps('quantity'),
+              type: 'number',
+              value: newTransaction.quantity,
+              onChange: (e) => setNewTransaction(prev => ({ ...prev, quantity: e.target.value })),
+              step: '0.0001',
+              placeholder: '0.00',
+              className: INPUT
+            })),
+          field('tx-price', priceLabel,
+            React.createElement('input', {
+              id: 'tx-price',
+              ...invalidProps('price'),
+              type: 'number',
+              value: newTransaction.price,
+              onChange: (e) => setNewTransaction(prev => ({ ...prev, price: e.target.value })),
+              step: '0.01',
+              placeholder: '0.00',
+              className: INPUT
+            }))),
 
-            // Default fallback: plain text (for categories without picker)
-            : React.createElement('input', {
-                type: 'text', value: newTransaction.symbol,
-                onChange: e => setNewTransaction(prev => ({ ...prev, symbol: e.target.value.toUpperCase() })),
-                placeholder: __('symbolPh', 'Symbol...'), 'aria-label': t.symbol || 'Symbol',
-                style: { width: '100%', padding: '0.75rem', background: currentTheme.inputBg, border: `1px solid ${currentTheme.inputBorder}`, borderRadius: '8px', color: currentTheme.text }
-              })
-          ),
-        
-        // Quantity
-        React.createElement('div', { style: { marginBottom: '1rem' } },
-          React.createElement('label', {
-            htmlFor: 'tx-quantity',
-            style: { display: 'block', color: currentTheme.textSecondary, marginBottom: '0.5rem', fontSize: 'var(--text-base)' }
-          }, newTransaction.category === 'bonds' && newTransaction.type !== 'dividend' && newTransaction.type !== 'interest' ? __('bondNominal', 'Nominal value') : (t.quantity || 'Quantity')),
-          React.createElement('input', {
-            id: 'tx-quantity',
-            ...invalidProps('quantity'),
-            type: 'number',
-            value: newTransaction.quantity,
-            onChange: (e) => setNewTransaction(prev => ({ ...prev, quantity: e.target.value })),
-            step: '0.0001',
-            placeholder: '0.00',
-            style: {
-              width: '100%',
-              padding: '0.75rem',
-              background: currentTheme.inputBg,
-              border: `1px solid ${currentTheme.inputBorder}`,
-              borderRadius: '8px',
-              color: currentTheme.text
-            }
-          })
-        ),
-        
-        // Price per unit
-        React.createElement('div', { style: { marginBottom: '1rem' } },
-          React.createElement('label', {
-            htmlFor: 'tx-price',
-            style: { display: 'block', color: currentTheme.textSecondary, marginBottom: '0.5rem', fontSize: 'var(--text-base)' }
-          }, newTransaction.category === 'bonds' && newTransaction.type !== 'dividend' && newTransaction.type !== 'interest' ? __('bondPricePct', 'Price in % of nominal') : (t.pricePerUnit || 'Price per Unit')),
-          React.createElement('input', {
-            id: 'tx-price',
-            ...invalidProps('price'),
-            type: 'number',
-            value: newTransaction.price,
-            onChange: (e) => setNewTransaction(prev => ({ ...prev, price: e.target.value })),
-            step: '0.01',
-            placeholder: '0.00',
-            style: {
-              width: '100%',
-              padding: '0.75rem',
-              background: currentTheme.inputBg,
-              border: `1px solid ${currentTheme.inputBorder}`,
-              borderRadius: '8px',
-              color: currentTheme.text
-            }
-          })
-        ),
-        
-        // Date
-        React.createElement('div', { style: { marginBottom: '1rem' } },
-          React.createElement('label', {
-            htmlFor: 'tx-date',
-            style: { display: 'block', color: currentTheme.textSecondary, marginBottom: '0.5rem', fontSize: 'var(--text-base)' }
-          }, t.date || 'Date'),
-          React.createElement('input', {
-            id: 'tx-date',
-            type: 'date',
-            value: newTransaction.date,
-            onChange: (e) => setNewTransaction(prev => ({ ...prev, date: e.target.value })),
-            style: {
-              width: '100%',
-              padding: '0.75rem',
-              background: currentTheme.inputBg,
-              border: `1px solid ${currentTheme.inputBorder}`,
-              borderRadius: '8px',
-              color: currentTheme.text
-            }
-          })
-        ),
-        
-        // Fees
-        React.createElement('div', { style: { marginBottom: '1rem' } },
-          React.createElement('label', {
-            htmlFor: 'tx-fees',
-            style: { display: 'block', color: currentTheme.textSecondary, marginBottom: '0.5rem', fontSize: 'var(--text-base)' }
-          }, t.feesOptional || 'Fees (optional)'),
-          React.createElement('input', {
-            id: 'tx-fees',
-            type: 'number',
-            value: newTransaction.fees,
-            onChange: (e) => setNewTransaction(prev => ({ ...prev, fees: e.target.value })),
-            step: '0.01',
-            placeholder: '0.00',
-            style: {
-              width: '100%',
-              padding: '0.75rem',
-              background: currentTheme.inputBg,
-              border: `1px solid ${currentTheme.inputBorder}`,
-              borderRadius: '8px',
-              color: currentTheme.text
-            }
-          })
-        ),
+        React.createElement('div', { className: 'ui-tx-pair' },
+          field('tx-date', t.date || 'Date',
+            React.createElement('input', {
+              id: 'tx-date',
+              type: 'date',
+              value: newTransaction.date,
+              onChange: (e) => setNewTransaction(prev => ({ ...prev, date: e.target.value })),
+              className: INPUT
+            })),
+          field('tx-fees', t.feesOptional || 'Fees (optional)',
+            React.createElement('input', {
+              id: 'tx-fees',
+              type: 'number',
+              value: newTransaction.fees,
+              onChange: (e) => setNewTransaction(prev => ({ ...prev, fees: e.target.value })),
+              step: '0.01',
+              placeholder: '0.00',
+              className: INPUT
+            }))),
 
         // P5-3.9: bond terms (when unknown) and accrued interest
         newTransaction.category === 'bonds' && (newTransaction.type === 'buy' || newTransaction.type === 'sell') && window.MaerminBonds && React.createElement(window.MaerminBonds.FormFields, {
@@ -5770,77 +5643,43 @@ function InvestmentTracker() {
         }),
 
         // P4-3: foreign withholding tax on a dividend
-        newTransaction.type === 'dividend' && React.createElement('div', { style: { marginBottom: '1rem' } },
-          React.createElement('label', {
-            htmlFor: 'tx-wht',
-            style: { display: 'block', color: currentTheme.textSecondary, marginBottom: '0.5rem', fontSize: 'var(--text-base)' }
-          }, __('txWhtLabel', 'Withholding tax (optional, in {cur})', { cur: newTransaction.currency || currency })),
-          React.createElement('input', {
-            id: 'tx-wht',
-            type: 'text', inputMode: 'decimal',
-            value: newTransaction.withholdingTax || '',
-            onChange: (e) => setNewTransaction(prev => ({ ...prev, withholdingTax: e.target.value })),
-            placeholder: window.MaerminI18n.num(0, { min: 2, max: 2 }),
-            'aria-describedby': 'tx-wht-hint',
-            style: {
-              width: '100%',
-              padding: '0.75rem',
-              background: currentTheme.inputBg,
-              border: `1px solid ${currentTheme.inputBorder}`,
-              borderRadius: '8px',
-              color: currentTheme.text
-            }
-          }),
-          React.createElement('div', { id: 'tx-wht-hint', style: { color: currentTheme.textSecondary, fontSize: 'var(--text-xs)', marginTop: '0.3rem' } },
-            __('txWhtHint', 'Tax the source country kept before paying out. The German tax view credits up to 15 % of the gross dividend.'))
+        newTransaction.type === 'dividend' && field('tx-wht', __('txWhtLabel', 'Withholding tax (optional, in {cur})', { cur: newTransaction.currency || currency }),
+          React.createElement(React.Fragment, null,
+            React.createElement('input', {
+              id: 'tx-wht',
+              type: 'text', inputMode: 'decimal',
+              value: newTransaction.withholdingTax || '',
+              onChange: (e) => setNewTransaction(prev => ({ ...prev, withholdingTax: e.target.value })),
+              placeholder: window.MaerminI18n.num(0, { min: 2, max: 2 }),
+              'aria-describedby': 'tx-wht-hint',
+              className: INPUT
+            }),
+            React.createElement('p', { id: 'tx-wht-hint', className: 'ui-note' },
+              __('txWhtHint', 'Tax the source country kept before paying out. The German tax view credits up to 15 % of the gross dividend.')))
         ),
-        
+
         // Notes
-        React.createElement('div', { style: { marginBottom: '1.5rem' } },
-          React.createElement('label', {
-            htmlFor: 'tx-notes',
-            style: { display: 'block', color: currentTheme.textSecondary, marginBottom: '0.5rem', fontSize: 'var(--text-base)' }
-          }, t.notesOptional || 'Notes (optional)'),
+        field('tx-notes', t.notesOptional || 'Notes (optional)',
           React.createElement('input', {
             id: 'tx-notes',
             type: 'text',
             value: newTransaction.notes,
             onChange: (e) => setNewTransaction(prev => ({ ...prev, notes: e.target.value })),
             placeholder: t.notesPlaceholder || 'Optional notes...',
-            style: {
-              width: '100%',
-              padding: '0.75rem',
-              background: currentTheme.inputBg,
-              border: `1px solid ${currentTheme.inputBorder}`,
-              borderRadius: '8px',
-              color: currentTheme.text
-            }
+            className: INPUT
           })
         ),
-        
+
         // Currency selector
-        React.createElement('div', { style: { marginBottom: '1rem' } },
-          React.createElement('label', {
-            id: 'tx-currency-label',
-            style: { display: 'block', color: currentTheme.textSecondary, marginBottom: '0.5rem', fontSize: 'var(--text-base)' }
-          }, t.currency || 'Currency'),
-          React.createElement('div', { role: 'group', 'aria-labelledby': 'tx-currency-label', style: { display: 'flex', gap: '0.5rem' } },
+        React.createElement('div', { className: 'ui-field' },
+          groupLabel('tx-currency-label', t.currency || 'Currency'),
+          React.createElement('div', { role: 'group', 'aria-labelledby': 'tx-currency-label', className: 'ui-tx-seg' },
             ['EUR', 'USD'].map(cur =>
-              React.createElement('button', {
+              React.createElement(UIC.Chip, {
                 key: cur,
-                'aria-pressed': newTransaction.currency === cur,
+                pressed: newTransaction.currency === cur,
                 onClick: () => setNewTransaction(prev => ({ ...prev, currency: cur })),
-                style: {
-                  flex: 1,
-                  padding: '0.5rem',
-                  background: newTransaction.currency === cur ? (currentTheme.accentFill || currentTheme.accent) : currentTheme.inputBg,
-                  color: newTransaction.currency === cur ? '#fff' : currentTheme.text,
-                  border: 'none',
-                  borderRadius: '6px',
-                  cursor: 'pointer',
-                  fontSize: 'var(--text-base)',
-                  fontWeight: '600'
-                }
+                className: 'ui-tx-chip'
               }, cur)
             ),
             // Any other trade currency (CHF, GBP, ...): converted to EUR at the
@@ -5855,15 +5694,11 @@ function InvestmentTracker() {
                 'data-testid': 'tx-currency-other',
                 value: other ? cur : '',
                 onChange: (e) => { if (e.target.value) setNewTransaction(prev => ({ ...prev, currency: e.target.value })); },
-                style: {
-                  flex: 1, padding: '0.5rem', borderRadius: '6px', cursor: 'pointer', fontSize: 'var(--text-base)', fontWeight: '600',
-                  background: other ? (currentTheme.accentFill || currentTheme.accent) : currentTheme.inputBg, color: other ? 'var(--on-accent)' : currentTheme.text,
-                  border: 'none'
-                }
+                className: [SELECT, 'ui-tx-other', other ? 'is-on' : ''].join(' ').trim()
               },
-                React.createElement('option', { value: '', style: { background: currentTheme.inputBg, color: currentTheme.text } }, t.otherCurrency || 'Other…'),
+                React.createElement('option', { value: '' }, t.otherCurrency || 'Other…'),
                 // keep a stored currency selectable even if it is not in the list (e.g. an imported one)
-                (other && list.indexOf(cur) === -1 ? [cur] : []).concat(list).map(c => React.createElement('option', { key: c, value: c, style: { background: currentTheme.inputBg, color: currentTheme.text } }, c))
+                (other && list.indexOf(cur) === -1 ? [cur] : []).concat(list).map(c => React.createElement('option', { key: c, value: c }, c))
               );
             })()
           ),
@@ -5875,7 +5710,7 @@ function InvestmentTracker() {
             const res = FXH.txToEUR(1, cur, d, exchangeRate, fxAt);
             const show = (v) => (v >= 0.1 ? window.MaerminI18n.num(v, 4) : window.MaerminI18n.num(Number(v.toPrecision(4)), { min: 0, max: 10 }));
             const hasW = (marketWorker || '').trim().length > 5;
-            return React.createElement('div', { 'data-testid': 'tx-currency-hint', style: { color: currentTheme.textSecondary, fontSize: 'var(--text-xs)', marginTop: '0.4rem', lineHeight: 1.5 } },
+            return React.createElement('p', { 'data-testid': 'tx-currency-hint', className: 'ui-note' },
               res.status === 'exact' ? __('fxHintExact', '1 {cur} = {rate} EUR on {date} (rate of the trade date).', { cur, rate: show(res.value), date: window.MaerminI18n.date(d) })
                 : res.status === 'approx' ? (FXH.hasHistory(cur)
                     ? (hasW ? __('fxHintLater', "The {cur} rate of the trade date is loaded after saving. Today's rate until then: 1 {cur} ≈ {rate} EUR.", { cur, rate: show(res.value) })
@@ -5884,64 +5719,29 @@ function InvestmentTracker() {
                 : __('fxHintNone', 'No exchange rate for {cur} - the amount would be counted as EUR.', { cur }));
           })()
         ),
-        
+
         // Total display
-        newTransaction.quantity && newTransaction.price && React.createElement('div', {
-          style: {
-            padding: '1rem',
-            background: currentTheme.inputBg,
-            borderRadius: '8px',
-            marginBottom: '1.5rem',
-            textAlign: 'center'
-          }
-        },
-          React.createElement('div', { style: { color: currentTheme.textSecondary, fontSize: 'var(--text-base)' } },
-            t.total || 'Total'
-          ),
-          React.createElement('div', { style: { color: currentTheme.text, fontSize: 'var(--text-xl)', fontWeight: '800', letterSpacing: '-0.02em' } },
+        newTransaction.quantity && newTransaction.price && React.createElement('div', { className: 'ui-tx-total' },
+          React.createElement('span', null, t.total || 'Total'),
+          React.createElement('b', { className: 'num' },
             `${window.MaerminI18n.num((window.MaerminUtils.parseDecimal(newTransaction.quantity) || 0) * (window.MaerminUtils.parseDecimal(newTransaction.price) || 0), 2)} ${newTransaction.currency || 'EUR'}`
           )
         ),
-        
-        // Which required fields are still empty after a save attempt.
-        shownMissing.length ? React.createElement('div', {
-          id: 'tx-missing', role: 'alert',
-          style: { color: currentTheme.danger, fontSize: 'var(--text-base)', fontWeight: 600, marginBottom: '0.75rem' }
-        }, `${t.fillInFields || 'Please fill in'}: ${shownMissing.map(f => fieldNames[f]).join(', ')}`) : null
-        ),
 
-        // Buttons: stay in view while the form scrolls (the save button was
-        // below the fold on a 900 px tall window).
-        React.createElement('div', { style: { display: 'flex', gap: '1rem', position: 'sticky', bottom: '-2rem', margin: '0 -2rem -2rem', padding: '1rem 2rem 2rem', background: currentTheme.modalBg, borderTop: `1px solid ${currentTheme.modalBorder}` } },
-          React.createElement('button', {
-            onClick: requestClose,
-            style: {
-              flex: 1,
-              padding: '0.75rem',
-              background: currentTheme.inputBg,
-              color: currentTheme.text,
-              border: `1px solid ${currentTheme.cardBorder}`,
-              borderRadius: '8px',
-              cursor: 'pointer'
-            }
-          }, t.cancel || 'Cancel'),
-          React.createElement('button', {
-            onClick: () => saveTransaction(),
-            'data-tx-save': true,
-            style: {
-              flex: 1,
-              padding: '0.75rem',
-              background: isCashTx ? (currentTheme.accentFill || currentTheme.accent) : newTransaction.type === 'buy' ? currentTheme.success : currentTheme.danger,
-              color: isCashTx ? '#ffffff' : window.MaerminUtils.onColor(newTransaction.type === 'buy' ? currentTheme.success : currentTheme.danger),
-              border: 'none',
-              borderRadius: '8px',
-              cursor: 'pointer',
-              fontWeight: '600'
-            }
-          }, isEditing
-            ? (t.saveChanges || 'Save Changes')
-            : isCashTx ? __('txAddBooking', 'Add booking')
-            : (newTransaction.type === 'buy' ? (t.addBuy || 'Add Buy') : (t.addSell || 'Add Sell')))
+        // Which required fields are still empty after a save attempt.
+        shownMissing.length ? React.createElement('p', {
+          id: 'tx-missing', role: 'alert', className: ['ui-callout', 'ui-callout--error', 'ui-tx-missing'].join(' ')
+        }, `! ${t.fillInFields || 'Please fill in'}: ${shownMissing.map(f => fieldNames[f]).join(', ')}`) : null
+        )),
+
+        // Buttons: always in view in the dialog foot while the body scrolls
+        React.createElement('footer', { className: 'ui-modal__foot' },
+          React.createElement(UIC.Button, { onClick: requestClose }, t.cancel || 'Cancel'),
+          React.createElement(UIC.Button, { variant: 'primary', onClick: () => saveTransaction(), 'data-tx-save': true },
+            isEditing
+              ? (t.saveChanges || 'Save Changes')
+              : isCashTx ? __('txAddBooking', 'Add booking')
+              : (newTransaction.type === 'buy' ? (t.addBuy || 'Add Buy') : (t.addSell || 'Add Sell')))
         )
       )
     );
