@@ -384,95 +384,56 @@ function CS2SkinPicker({ workerUrl, theme, onSelect, selectedName }) {
     onSelect({ name: item.name, price: item.price, image: item.image });
   };
 
-  return React.createElement('div', { style: { position: 'relative' } },
+  // R5.1: the shared field, a popover list on tokens; prices with their currency
+  return React.createElement('div', { className: 'ui-picker' },
     // Search input
-    React.createElement('div', { style: { position: 'relative' } },
+    React.createElement('div', { className: 'ui-picker__field' },
       React.createElement('input', {
         type: 'text',
         value: query,
         onChange: e => { setQuery(e.target.value); if (!e.target.value) { setResults([]); setOpen(false); } },
         onFocus: () => results.length > 0 && setOpen(true),
         placeholder: __('ssSearchPh', 'Search CS2 skins — e.g. AK-47 Redline...'), 'aria-label': __('ssSkin', 'Skin'),
-        style: {
-          width: '100%', padding: '0.75rem 2.5rem 0.75rem 0.75rem',
-          background: theme.inputBg, border: `1px solid ${theme.inputBorder}`,
-          borderRadius: '8px', color: theme.text, fontSize: 'var(--text-base)',
-          boxSizing: 'border-box'
-        }
+        className: 'ui-input'
       }),
-      loading && React.createElement('div', {
-        style: { position: 'absolute', right: '0.75rem', top: '50%', transform: 'translateY(-50%)', color: theme.textSecondary, fontSize: 'var(--text-xs)' }
-      }, '...')
+      loading && React.createElement('span', { className: 'ui-picker__busy', role: 'status', 'aria-label': __('loading', 'Loading...') }, '…')
     ),
 
     // Error
-    error && React.createElement('div', {
-      style: { fontSize: 'var(--text-xs)', color: theme.danger || 'var(--danger)', marginTop: '0.25rem', padding: '0 0.25rem' }
-    }, error),
+    error && React.createElement('p', { className: ['ui-note', 'tone-loss'].join(' ') }, '! ' + error),
 
     // Results dropdown
-    open && results.length > 0 && React.createElement('div', {
-      style: {
-        position: 'absolute', top: 'calc(100% + 4px)', left: 0, right: 0, zIndex: 9999,
-        background: theme.modalBg || theme.card,
-        border: `1px solid ${theme.modalBorder || theme.cardBorder}`,
-        borderRadius: '10px', overflow: 'hidden',
-        boxShadow: '0 20px 40px rgba(0,0,0,0.5)',
-        maxHeight: '420px', overflowY: 'auto'
-      }
-    },
+    open && results.length > 0 && React.createElement('div', { className: ['ui-picker__pop', 'is-wide'].join(' ') },
       // Header
-      React.createElement('div', {
-        style: { padding: '0.625rem 0.875rem', borderBottom: `1px solid ${theme.cardBorder}`, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }
-      },
-        React.createElement('span', { style: { color: theme.textSecondary, fontSize: 'var(--text-xs)' } }, __('ssResults', '{n} {n:result|results} — click to select', { n: results.length })),
-        React.createElement('button', {
-          onClick: () => setOpen(false),
-          'aria-label': __('close', 'Close'),
-          style: { background: 'none', border: 'none', color: theme.textSecondary, cursor: 'pointer', fontSize: 'var(--text-body)', lineHeight: 1, padding: '0 0.25rem' }
-        }, '×')
+      React.createElement('div', { className: 'ui-picker__head' },
+        React.createElement('span', null, __('ssResults', '{n} {n:result|results} — click to select', { n: results.length })),
+        React.createElement('button', { type: 'button', onClick: () => setOpen(false), 'aria-label': __('close', 'Close'), className: ['ui-icon-btn', 'ui-icon-btn--sm'].join(' ') },
+          React.createElement('span', { 'aria-hidden': 'true' }, '×'))
       ),
 
       // Grid of skins
-      React.createElement('div', {
-        style: { display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(160px, 1fr))', gap: '1px', background: theme.cardBorder }
-      },
+      React.createElement('div', { className: 'ui-picker__grid' },
         results.map((item, i) =>
           React.createElement('div', {
             key: i,
             ...window.MaerminUtils.clickable(() => select(item)),
-            style: {
-              background: theme.card, cursor: 'pointer', padding: '0.75rem',
-              display: 'flex', flexDirection: 'column', gap: '0.375rem',
-              transition: 'background 0.1s'
-            },
-            onMouseEnter: e => e.currentTarget.style.background = `${window.MaerminTokens.alpha(theme.accent, 0x15)}`,
-            onMouseLeave: e => e.currentTarget.style.background = theme.card
+            className: 'ui-picker__skin'
           },
             // Skin image
             item.image
               ? React.createElement('img', {
-                  src: item.image, alt: item.name,
-                  style: { width: '100%', aspectRatio: '330/192', objectFit: 'contain', borderRadius: '6px', background: 'rgba(0,0,0,0.3)' },
-                  onError: e => { e.target.style.display = 'none'; }
+                  src: item.image, alt: item.name, className: 'ui-picker__img',
+                  onError: e => { e.target.hidden = true; }
                 })
-              : React.createElement('div', {
-                  style: { width: '100%', aspectRatio: '330/192', background: 'rgba(6,182,212,0.08)', borderRadius: '6px', display: 'flex', alignItems: 'center', justifyContent: 'center' }
-                }, React.createElement('span', { style: { color: 'rgba(6,182,212,0.4)', fontSize: 'var(--text-2xs)' } }, __('ssNoImage', 'No image'))),
+              : React.createElement('div', { className: ['ui-picker__img', 'is-empty'].join(' ') }, __('ssNoImage', 'No image')),
 
             // Name
-            React.createElement('div', {
-              style: { color: theme.text, fontSize: 'var(--text-xs)', fontWeight: '600', lineHeight: '1.3', wordBreak: 'break-word' }
-            }, item.name),
+            React.createElement('b', null, item.name),
 
             // Wear + Price row
-            React.createElement('div', { style: { display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '0.25rem' } },
-              item.wear && React.createElement('span', {
-                style: { fontSize: 'var(--text-3xs)', color: theme.textSecondary, background: 'rgba(255,255,255,0.05)', padding: '0.1rem 0.3rem', borderRadius: '3px' }
-              }, item.wear),
-              item.price && React.createElement('span', {
-                style: { fontSize: 'var(--text-xs)', fontWeight: '700', color: 'var(--success)' }
-              }, window.MaerminI18n.money(item.price, 'USD')) // skin prices are USD (Steam Market price list)
+            React.createElement('div', { className: 'ui-picker__meta' },
+              item.wear && React.createElement('span', { className: 'ui-badge' }, item.wear),
+              item.price && React.createElement('span', { className: 'num' }, window.MaerminI18n.money(item.price, 'USD')) // skin prices are USD (Steam Market price list)
             )
           )
         )
@@ -494,11 +455,6 @@ const EXCHANGE_SHORT = {
   'CPH': 'Copenhagen', 'MIL': 'Milan', 'MCE': 'Madrid',
   'TOR': 'Toronto', 'ASX': 'ASX', 'HKG': 'Hong Kong',
   'TYO': 'Tokyo',
-};
-
-const TYPE_COLOR = {
-  EQUITY: '#3b82f6', ETF: '#06b6d4', MUTUALFUND: '#8b7cff',
-  CRYPTOCURRENCY: '#f59e0b', COMMODITY: '#d97706',
 };
 
 const typeLabel = (type) => ({
@@ -649,11 +605,17 @@ function SymbolPicker({ category, workerUrl, theme, onSelect, selectedSymbol, se
     setTimeout(() => inputRef.current?.focus(), 50);
   };
 
-  return React.createElement('div', { style: { position: 'relative' } },
+  // R5.1: the shared field, a popover list on tokens, the picked listing with ✓ and its exact symbol
+  const avatar = (it, cls) => React.createElement('div', { className: ['ui-picker__logo', cls || ''].join(' ').trim(), 'aria-hidden': 'true' },
+    // Letter avatar (always there as base layer); the logo on top, hidden on error
+    React.createElement('span', null, (it.ticker || it.symbol || '').replace(/\..+$/, '').slice(0, 3)),
+    it.logoUrl && React.createElement('img', { src: it.logoUrl, alt: '', onError: e => { if (e.target) e.target.hidden = true; } }));
+
+  return React.createElement('div', { className: 'ui-picker' },
 
     // ── Search Input ──────────────────────────────────────────────────────
-    React.createElement('div', { style: { position: 'relative', display: 'flex', gap: '0.5rem', alignItems: 'center' } },
-      React.createElement('div', { style: { flex: 1, position: 'relative' } },
+    React.createElement('div', { className: 'ui-picker__row' },
+      React.createElement('div', { className: 'ui-picker__field' },
         React.createElement('input', {
           ref: inputRef,
           type: 'text',
@@ -669,151 +631,71 @@ function SymbolPicker({ category, workerUrl, theme, onSelect, selectedSymbol, se
           },
           onFocus: () => results.length > 0 && setOpen(true),
           placeholder: isCrypto ? __('spkCryptoPh', 'Search: Bitcoin, Ethereum, Solana...') : __('spkStockPh', 'Search: Apple, ASML, Novo Nordisk...'), 'aria-label': __('symbol', 'Symbol'),
-          style: {
-            width: '100%', padding: '0.75rem 2.5rem 0.75rem 0.875rem',
-            background: theme.inputBg, border: `1px solid ${selected ? theme.accent : theme.inputBorder}`,
-            borderRadius: '8px', color: theme.text, fontSize: 'var(--text-base)', boxSizing: 'border-box',
-            transition: 'border-color 0.15s'
-          }
+          className: ['ui-input', selected ? 'is-picked' : ''].join(' ').trim()
         }),
-        loading && React.createElement('div', {
-          style: { position: 'absolute', right: '0.75rem', top: '50%', transform: 'translateY(-50%)', color: theme.textSecondary, fontSize: 'var(--text-sm)' }
-        }, '◎')
+        loading && React.createElement('span', { className: 'ui-picker__busy', role: 'status', 'aria-label': __('loading', 'Loading...') }, '…')
       ),
       selected && React.createElement('button', {
-        onClick: clear,
+        type: 'button', onClick: clear,
         title: __('clearSelection', 'Clear selection'), 'aria-label': __('clearSelection', 'Clear selection'),
-        style: { padding: '0.5rem', background: 'color-mix(in srgb, var(--danger) 10%, transparent)', border: '1px solid color-mix(in srgb, var(--danger) 20%, transparent)', borderRadius: '6px', color: 'var(--danger)', cursor: 'pointer', fontSize: 'var(--text-base)', lineHeight: 1 }
-      }, '×')
+        className: ['ui-icon-btn', 'ui-icon-btn--md'].join(' ')
+      }, React.createElement('span', { 'aria-hidden': 'true' }, '×'))
     ),
 
     // ── Typed, not picked: say what will be saved ─────────────────────────
-    !selected && query.trim() && React.createElement('div', {
-      style: { marginTop: '0.4rem', fontSize: 'var(--text-xs)', color: theme.textSecondary }
-    }, isCrypto ? __('spkTypedCoin', 'Saved as typed: {sym} — pick a suggestion for the exact coin.', { sym: typedSymbol(query) }) : __('spkTypedListing', 'Saved as typed: {sym} — pick a suggestion for the exact listing.', { sym: typedSymbol(query) })),
+    !selected && query.trim() && React.createElement('p', { className: 'ui-note' },
+      isCrypto ? __('spkTypedCoin', 'Saved as typed: {sym} — pick a suggestion for the exact coin.', { sym: typedSymbol(query) }) : __('spkTypedListing', 'Saved as typed: {sym} — pick a suggestion for the exact listing.', { sym: typedSymbol(query) })),
 
     // ── Selected Preview ──────────────────────────────────────────────────
-    selected && React.createElement('div', {
-      style: { marginTop: '0.5rem', display: 'flex', alignItems: 'center', gap: '0.75rem', padding: '0.75rem 0.875rem', background: `${window.MaerminTokens.alpha(theme.accent, 0x0d)}`, border: `1px solid ${window.MaerminTokens.alpha(theme.accent, 0x33)}`, borderRadius: '8px' }
-    },
-      // Logo
-      React.createElement('div', {
-        style: { width: 40, height: 40, borderRadius: '8px', flexShrink: 0, background: 'rgba(255,255,255,0.06)', display: 'flex', alignItems: 'center', justifyContent: 'center', position: 'relative', overflow: 'hidden' }
-      },
-        React.createElement('span', {
-          style: {
-            fontSize: 'var(--text-3xs)', fontWeight: '800', position: 'absolute',
-            color: (['var(--info)','#8b7cff','#06b6d4','var(--warning)','var(--success)','var(--danger)'])[((selected.ticker||selected.symbol||'A').charCodeAt(0)) % 6]
-          }
-        }, (selected.ticker || selected.symbol || '').replace(/\..+$/, '').slice(0, 3)),
-        selected.logoUrl && React.createElement('img', {
-          src: selected.logoUrl, alt: '',
-          style: { width: 40, height: 40, objectFit: 'contain', position: 'absolute', background: 'rgba(15,15,25,0.9)', borderRadius: '8px' },
-          onError: e => { if (e.target) e.target.style.display = 'none'; }
-        })
-      ),
-      React.createElement('div', { style: { flex: 1, minWidth: 0 } },
+    selected && React.createElement('div', { className: 'ui-picked' },
+      avatar(selected, 'is-lg'),
+      React.createElement('div', { className: 'ui-rows__main' },
         // Name + type badge
-        React.createElement('div', { style: { display: 'flex', alignItems: 'center', gap: '0.375rem', flexWrap: 'wrap', marginBottom: '0.25rem' } },
-          React.createElement('span', { style: { color: theme.text, fontWeight: '700', fontSize: 'var(--text-base)' } }, selected.name),
-          React.createElement('span', { style: { fontSize: 'var(--text-3xs)', padding: '0.1rem 0.35rem', borderRadius: '3px', background: `${window.MaerminTokens.alpha(TYPE_COLOR[selected.type] || theme.accent, 0x20)}`, color: TYPE_COLOR[selected.type] || theme.accent, fontWeight: '700' } }, typeLabel(selected.type)),
-          selected.exchange && React.createElement('span', { style: { fontSize: 'var(--text-3xs)', color: theme.textSecondary } }, selected.exchange)
+        React.createElement('div', { className: 'ui-picker__name' },
+          React.createElement('b', null, selected.name),
+          React.createElement('span', { className: 'ui-badge' }, typeLabel(selected.type)),
+          selected.exchange && React.createElement('span', null, selected.exchange)
         ),
         // The exact symbol that will be saved — most important part
-        React.createElement('div', {
-          style: { display: 'flex', alignItems: 'center', gap: '0.375rem', padding: '0.25rem 0.5rem', background: 'color-mix(in srgb, var(--success) 10%, transparent)', border: '1px solid color-mix(in srgb, var(--success) 25%, transparent)', borderRadius: '5px', width: 'fit-content' }
-        },
-          React.createElement('span', { style: { color: 'var(--success)', fontSize: 'var(--text-2xs)' } }, '✓'),
-          React.createElement('span', { style: { color: 'var(--success)', fontWeight: '700', fontSize: 'var(--text-sm)', fontFamily: 'monospace', letterSpacing: '0.03em' } },
-            isCrypto ? selected.symbol : selected.symbol  // exact YF symbol or CoinGecko ID
-          ),
-          React.createElement('span', { style: { color: 'color-mix(in srgb, var(--success) 60%, transparent)', fontSize: 'var(--text-3xs)' } },
-            isCrypto ? '· ' + __('spkCgId', 'CoinGecko ID') : '· ' + __('spkYfSymbol', 'Yahoo Finance symbol')
-          )
-        )
+        React.createElement('span', { className: ['ui-badge', 'tone-gain', 'ui-picked__sym'].join(' ') },
+          '✓ ', React.createElement('code', null, selected.symbol), // exact YF symbol or CoinGecko ID
+          ' · ' + (isCrypto ? __('spkCgId', 'CoinGecko ID') : __('spkYfSymbol', 'Yahoo Finance symbol')))
       )
     ),
 
     // ── Error ─────────────────────────────────────────────────────────────
-    error && React.createElement('div', {
-      style: { fontSize: 'var(--text-xs)', color: 'var(--danger)', marginTop: '0.25rem', padding: '0 0.25rem' }
-    }, error),
+    error && React.createElement('p', { className: ['ui-note', 'tone-loss'].join(' ') }, '! ' + error),
 
     // ── Results Dropdown ──────────────────────────────────────────────────
-    open && results.length > 0 && React.createElement('div', {
-      style: {
-        position: 'absolute', top: 'calc(100% + 4px)', left: 0, right: 0, zIndex: 9999,
-        background: theme.modalBg || theme.card,
-        border: `1px solid ${theme.modalBorder || theme.cardBorder}`,
-        borderRadius: '10px', overflow: 'hidden',
-        boxShadow: '0 20px 60px rgba(0,0,0,0.6)',
-        maxHeight: '360px', overflowY: 'auto'
-      }
-    },
+    open && results.length > 0 && React.createElement('div', { className: 'ui-picker__pop' },
       // Header
-      React.createElement('div', {
-        style: { padding: '0.5rem 0.875rem', borderBottom: `1px solid ${theme.cardBorder}`, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }
-      },
-        React.createElement('span', { style: { color: theme.textSecondary, fontSize: 'var(--text-2xs)' } },
-          __('spkResults', '{n} {n:result|results} · click to select', { n: results.length })
-        ),
-        React.createElement('button', {
-          onClick: () => setOpen(false),
-          'aria-label': __('close', 'Close'),
-          style: { background: 'none', border: 'none', color: theme.textSecondary, cursor: 'pointer', fontSize: 'var(--text-body)', padding: '0 0.25rem', lineHeight: 1 }
-        }, '×')
+      React.createElement('div', { className: 'ui-picker__head' },
+        React.createElement('span', null, __('spkResults', '{n} {n:result|results} · click to select', { n: results.length })),
+        React.createElement('button', { type: 'button', onClick: () => setOpen(false), 'aria-label': __('close', 'Close'), className: ['ui-icon-btn', 'ui-icon-btn--sm'].join(' ') },
+          React.createElement('span', { 'aria-hidden': 'true' }, '×'))
       ),
 
       // Results list
-      React.createElement('div', { style: { display: 'flex', flexDirection: 'column' } },
+      React.createElement('div', { className: 'ui-picker__list' },
         results.map((item, i) =>
           React.createElement('div', {
             key: i,
             ...window.MaerminUtils.clickable(() => pick(item)),
-            style: {
-              display: 'flex', alignItems: 'center', gap: '0.75rem',
-              padding: '0.625rem 0.875rem',
-              borderBottom: i < results.length - 1 ? `1px solid ${theme.cardBorder}` : 'none',
-              cursor: 'pointer', transition: 'background 0.1s'
-            },
-            onMouseEnter: e => e.currentTarget.style.background = `${window.MaerminTokens.alpha(theme.accent, 0x10)}`,
-            onMouseLeave: e => e.currentTarget.style.background = 'transparent'
+            className: 'ui-picker__item'
           },
-            // Logo — letter avatar always rendered underneath; img shown on top if it loads
-            React.createElement('div', {
-              style: { width: 36, height: 36, borderRadius: '8px', flexShrink: 0, background: 'rgba(255,255,255,0.06)', display: 'flex', alignItems: 'center', justifyContent: 'center', position: 'relative', overflow: 'hidden' }
-            },
-              // Letter avatar (always there as base layer)
-              React.createElement('span', {
-                style: {
-                  fontSize: 'var(--text-3xs)', fontWeight: '800', position: 'absolute',
-                  color: (['var(--info)','#8b7cff','#06b6d4','var(--warning)','var(--success)','var(--danger)'])[((item.ticker||item.symbol||'A').charCodeAt(0)) % 6]
-                }
-              }, (item.ticker || item.symbol || '').replace(/\..+$/, '').slice(0, 3)),
-              // Logo image on top — hidden on error (reveals letter avatar)
-              item.logoUrl && React.createElement('img', {
-                src: item.logoUrl, alt: '',
-                style: { width: 36, height: 36, objectFit: 'contain', position: 'absolute', background: 'rgba(15,15,25,0.85)', borderRadius: '8px' },
-                onError: e => { if (e.target) e.target.style.display = 'none'; }
-              })
-            ),
-
+            avatar(item),
             // Info
-            React.createElement('div', { style: { flex: 1, minWidth: 0 } },
-              React.createElement('div', { style: { display: 'flex', alignItems: 'center', gap: '0.375rem', flexWrap: 'wrap' } },
-                React.createElement('span', { style: { color: theme.text, fontWeight: '700', fontSize: 'var(--text-base)' } }, item.ticker || item.symbol),
-                React.createElement('span', {
-                  style: { fontSize: 'var(--text-3xs)', padding: '0.1rem 0.3rem', borderRadius: '3px', background: `${window.MaerminTokens.alpha(TYPE_COLOR[item.type] || 'var(--info)', 0x20)}`, color: TYPE_COLOR[item.type] || 'var(--info)', fontWeight: '600' }
-                }, typeLabel(item.type)),
-                item.exchange && React.createElement('span', { style: { fontSize: 'var(--text-3xs)', color: theme.textSecondary } }, item.exchange)
+            React.createElement('div', { className: 'ui-rows__main' },
+              React.createElement('div', { className: 'ui-picker__name' },
+                React.createElement('b', null, item.ticker || item.symbol),
+                React.createElement('span', { className: 'ui-badge' }, typeLabel(item.type)),
+                item.exchange && React.createElement('span', null, item.exchange)
               ),
-              React.createElement('div', {
-                style: { color: theme.textSecondary, fontSize: 'var(--text-xs)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', marginTop: '0.1rem' }
-              }, item.name)
+              React.createElement('span', { className: 'ui-picker__sub' }, item.name)
             ),
 
             // Arrow
-            React.createElement('span', { style: { color: theme.textSecondary, fontSize: 'var(--text-sm)', opacity: 0.5 } }, '→')
+            React.createElement('span', { className: 'ui-picker__go', 'aria-hidden': 'true' }, '→')
           )
         )
       )

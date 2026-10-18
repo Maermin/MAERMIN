@@ -3273,3 +3273,66 @@ html[data-theme="contrast"] .ui-map__tile { border: 1px solid var(--border-stron
   .ui-log__detail { grid-column: 1 / -1; }
   .ui-sec-row { flex-wrap: wrap; }
 }
+
+/* ============================================================================
+   R5.1 part 3 (PLAN Phase 6): the transaction dialog and the symbol / skin pickers.
+   ========================================================================== */
+.ui-modal--tx { width: 520px; }
+.ui-tx { gap: var(--space-4); }
+.ui-tx-fields { display: flex; flex-direction: column; gap: var(--space-3); }
+.ui-tx-pair { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: var(--space-3); }
+.ui-tx-seg { display: grid; grid-auto-flow: column; grid-auto-columns: minmax(0, 1fr); gap: var(--space-2); }
+.ui-tx-cats { display: grid; grid-template-columns: repeat(auto-fit, minmax(110px, 1fr)); gap: var(--space-2); }
+.ui-tx-chip { justify-content: center; min-width: 0; height: 44px; border-radius: var(--radius-sm); }
+.ui-tx-chip > span { overflow: hidden; text-overflow: ellipsis; }
+.ui-tx-chip.is-buy[aria-pressed="true"] { background: color-mix(in srgb, var(--gain) 14%, var(--surface)); border-color: var(--gain); color: var(--gain); }
+.ui-tx-chip.is-sell[aria-pressed="true"] { background: color-mix(in srgb, var(--loss) 14%, var(--surface)); border-color: var(--loss); color: var(--loss); }
+.ui-tx-other { height: 44px; min-width: 0; }
+.ui-tx-other.is-on { border-color: var(--text); background: var(--text); color: var(--bg); }
+.ui-tx-opt { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) 96px; gap: var(--space-2); }
+.ui-tx-total { display: flex; justify-content: space-between; align-items: baseline; gap: var(--space-3); padding: var(--space-3) var(--space-4); border-radius: var(--radius-sm); background: var(--surface-2); color: var(--text-dim); font-size: var(--type-body); }
+.ui-tx-total b { color: var(--text); font-size: var(--type-heading); font-weight: 700; }
+.ui-tx-missing { font-weight: 600; color: var(--text); }
+.ui-tx-picked-wrap { display: flex; flex-direction: column; gap: var(--space-2); }
+
+/* pickers */
+.ui-picker { position: relative; display: flex; flex-direction: column; gap: var(--space-2); }
+.ui-picker__row { display: flex; gap: var(--space-2); align-items: center; }
+.ui-picker__field { position: relative; flex: 1; min-width: 0; }
+.ui-picker__field .ui-input { width: 100%; padding-right: var(--space-7); }
+.ui-picker__field .ui-input.is-picked { border-color: var(--accent); }
+.ui-picker__busy { position: absolute; right: var(--space-3); top: 50%; transform: translateY(-50%); color: var(--text-dim); }
+.ui-picker__pop { position: absolute; top: calc(100% + 4px); left: 0; right: 0; z-index: var(--z-popover); max-height: 360px; overflow-y: auto; background: var(--surface); border: 1px solid var(--border-strong); border-radius: var(--radius-sm); box-shadow: var(--shadow-2); }
+.ui-picker__pop.is-wide { max-height: 420px; }
+.ui-picker__head { position: sticky; top: 0; display: flex; justify-content: space-between; align-items: center; gap: var(--space-2); padding: var(--space-1) var(--space-2) var(--space-1) var(--space-3); border-bottom: 1px solid var(--border); background: var(--surface); color: var(--text-dim); font-size: var(--type-caption); }
+.ui-picker__list { display: flex; flex-direction: column; }
+.ui-picker__item { display: flex; align-items: center; gap: var(--space-3); min-height: 52px; padding: var(--space-2) var(--space-3); border-top: 1px solid var(--border); cursor: pointer; }
+.ui-picker__item:first-child { border-top: 0; }
+.ui-picker__item:hover, .ui-picker__item:focus-visible, .ui-picker__skin:hover, .ui-picker__skin:focus-visible { background: var(--accent-soft); outline: none; }
+.ui-picker__item .ui-rows__main { flex: 1; }
+.ui-picker__name { display: flex; align-items: center; gap: var(--space-2); flex-wrap: wrap; }
+.ui-picker__name b { color: var(--text); font-weight: 700; }
+.ui-picker__name > span:not(.ui-badge) { color: var(--text-dim); font-size: var(--type-caption); }
+.ui-picker__sub { color: var(--text-dim); font-size: var(--type-caption); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.ui-picker__go { color: var(--text-dim); }
+.ui-picker__logo { position: relative; width: 36px; height: 36px; flex-shrink: 0; display: grid; place-items: center; overflow: hidden; border-radius: var(--radius-sm); background: var(--surface-2); color: var(--text-dim); font-size: var(--type-caption); font-weight: 700; }
+.ui-picker__logo.is-lg { width: 40px; height: 40px; }
+.ui-picker__logo img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: contain; background: var(--surface-2); }
+.ui-picker__grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(160px, 1fr)); }
+.ui-picker__skin { display: flex; flex-direction: column; gap: var(--space-1); padding: var(--space-3); border-top: 1px solid var(--border); border-right: 1px solid var(--border); cursor: pointer; }
+.ui-picker__skin b { color: var(--text); font-size: var(--type-caption); font-weight: 600; line-height: 1.3; overflow-wrap: anywhere; }
+.ui-picker__img { width: 100%; aspect-ratio: 330 / 192; object-fit: contain; border-radius: var(--radius-xs); background: var(--surface-2); }
+.ui-picker__img.is-empty { display: grid; place-items: center; color: var(--text-dim); font-size: var(--type-caption); }
+.ui-picker__meta { display: flex; justify-content: space-between; align-items: center; gap: var(--space-1); flex-wrap: wrap; font-size: var(--type-caption); color: var(--text); }
+.ui-picked { display: flex; align-items: center; gap: var(--space-3); padding: var(--space-3); border: 1px solid var(--border-strong); border-radius: var(--radius-sm); background: var(--surface-2); }
+.ui-picked .ui-rows__main { gap: var(--space-1); }
+.ui-picked__sym { width: fit-content; }
+.ui-picked__sym code { font-family: var(--mono, ui-monospace, monospace); font-weight: 700; }
+.ui-picked__skin { width: 80px; height: 47px; flex-shrink: 0; object-fit: contain; border-radius: var(--radius-xs); background: var(--surface); }
+.ui-picked__skin.is-empty { display: grid; place-items: center; color: var(--text-dim); font-size: var(--type-caption); }
+
+@media (max-width: 767px) {
+  .ui-tx-pair { grid-template-columns: minmax(0, 1fr); }
+  .ui-tx-opt { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); }
+  .ui-tx-opt .ui-tx-size { grid-column: 1 / -1; }
+}
